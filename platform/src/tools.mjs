@@ -1,0 +1,543 @@
+import { tally, bank, gst, gstin, deadlines, filing, audit } from './sprint-load.mjs';
+const ingestTally = tally.ingest;
+const ingestBank = bank.ingest;
+const { reconcile } = gst;
+const { validateGstin } = gstin;
+const { complianceRun } = deadlines;
+const { filingPrep } = filing;
+const { auditRun } = audit;
+import { listAccounts, journal, trialBalance, verifyChain, createTransfers, paise } from './ledger.mjs';
+import { createInvoice, recordReceipt, invoicesToSalesCsv, createPurchase, purchasesToInwardCsv, printInvoice } from './invoice.mjs';
+import { postTallyRows, postBankRows, purchaseRegisterCsv } from './post-import.mjs';
+import { parseZohoBooksCsv } from './import-zoho.mjs';
+import { invoicesToGstr1Json } from './gstr1-json.mjs';
+import { tallyXmlToDayBookCsv } from './tally-xml.mjs';
+import { probeGovt, saveGovtConfig, publicGovtConfig, nicAuthenticate, nicGenerateIrn } from './govt.mjs';
+import { clearIntegrationConnection, integrationReadiness, setIntegrationConnection } from './integration-contract.mjs';
+import { providerCatalog, providerRequirementMap } from './provider-catalog.mjs';
+import { sandboxAdapterPlan } from './sandbox-adapter-contract.mjs';
+import { getSandboxClient } from './sandbox-client.mjs';
+import { getNimClient } from './nim-client.mjs';
+import { seedDemo } from './store.mjs';
+
+function ok(data) {
+  return { ok: true, data };
+}
+function fail(error, extra = {}) {
+  return { ok: false, error, ...extra };
+}
+
+export const TOOLS = [
+  {
+    name: 'company_profile',
+    title: 'Company profile',
+    description: 'Show the active business GSTIN, FY and books status.',
+    run: (state) => ok({
+      company: state.company,
+      invoices: (state.invoices || []).length,
+      purchases: (state.purchases || []).length,
+      parties: (state.parties || []).length,
+      chain: verifyChain(state.ledger),
+    }),
+  },
+  {
+    name: 'trial_balance',
+    title: 'Trial balance',
+    description: 'TigerBeetle-style posted debit/credit trial balance. Must always balance.',
+    run: (state) => ok(trialBalance(state.ledger)),
+  },
+  {
+    name: 'chart_of_accounts',
+    title: 'Chart of accounts',
+    description: 'List ledger accounts with posted and pending balances.',
+    run: (state) => ok(listAccounts(state.ledger)),
+  },
+  {
+    name: 'journal',
+    title: 'Journal',
+    description: 'Append-only transfer journal with checksum chain.',
+    run: (state, args = {}) => {
+      const rows = journal(state.ledger);
+      const limit = Number(args.limit || 50);
+      return ok({ count: rows.length, rows: rows.slice(-limit) });
+    },
+  },
+  {
+    name: 'list_invoices',
+    title: 'Invoices',
+    description: 'List tax invoices that are the source of truth for books and GST.',
+    run: (state) => ok(state.invoices || []),
+  },
+  {
+    name: 'create_invoice',
+    title: 'Create invoice',
+    description: 'Create a GST invoice and post double-entry transfers (AR, sales, GST output). Data entry starts here.',
+    args: ['partyName', 'partyGstin', 'lines', 'date'],
+    run: (state, args) => createInvoice(state, args),
+  },
+  {
+    name: 'create_purchase',
+    title: 'Record purchase bill',
+    description: 'Book a supplier invoice: purchases + GST input + AP. Feeds GSTR-3B ITC.',
+    args: ['partyName', 'partyGstin', 'lines', 'date'],
+    run: (state, args) => createPurchase(state, args),
+  },
+  {
+    name: 'print_invoice',
+    title: 'Print tax invoice',
+    description: 'Render a printable tax invoice / purchase bill from posted books.',
+    args: ['id'],
+    run: (state, args) => printInvoice(state, args.id),
+  },
+  {
+    name: 'record_receipt',
+    title: 'Record receipt',
+    description: 'Receive payment against an invoice (bank or cash) and post the AR settlement.',
+    args: ['invoiceId', 'amount', 'mode', 'date'],
+    run: (state, args) => recordReceipt(state, args),
+  },
+  {
+    name: 'gst_payable',
+    title: 'GST payable',
+    description: 'Net GST liability from the books (output − input).',
+    run: (state) => {
+      const acc = Object.fromEntries(listAccounts(state.ledger).map((a) => [a.code, a]));
+      const output = (acc['2100']?.creditsPosted || 0) + (acc['2101']?.creditsPosted || 0) + (acc['2102']?.creditsPosted || 0);
+      const input = (acc['1200']?.debitsPosted || 0) + (acc['1201']?.debitsPosted || 0) + (acc['1202']?.debitsPosted || 0);
+      return ok({ output, input, payable: Math.round((output - input) * 100) / 100 });
+    },
+  },
+  {
+    name: 'prepare_gstr1',
+    title: 'Prepare GSTR-1',
+    description: 'Build GSTR-1 tables and e-invoice checks from invoices already in the books.',
+    run: (state) => {
+      const salesText = invoicesToSalesCsv(state.invoices || []);
+      const result = filingPrep({ salesText, supplierState: state.company.state, fy: state.company.fy });
+      return ok({ salesText, gstr1: result.gstr1, eInvoice: result.summary });
+    },
+  },
+  {
+    name: 'export_gstr1_json',
+    title: 'Export GSTR-1 JSON',
+    description: 'GSTN offline-utility JSON from posted invoices (does not upload).',
+    run: (state, args = {}) => ok(invoicesToGstr1Json(state.company, state.invoices || [], args.fp)),
+  },
+  {
+    name: 'prepare_gstr3b',
+    title: 'Prepare GSTR-3B',
+    description: 'Draft GSTR-3B outward and ITC from invoices plus optional inward CSV.',
+    run: (state, args = {}) => {
+      const salesText = invoicesToSalesCsv(state.invoices || []);
+      const inwardText = args.inwardText || state.files.inward || purchasesToInwardCsv(state.purchases || []);
+      const result = filingPrep({ salesText, inwardText, supplierState: state.company.state, fy: state.company.fy });
+      return ok(result.gstr3b);
+    },
+  },
+  {
+    name: 'filing_pack',
+    title: 'GSTN filing pack',
+    description: 'Assemble GSTR-1 + 3B + payable + TB for a CA to file. Does not upload to GSTN.',
+    run: (state) => {
+      const salesText = invoicesToSalesCsv(state.invoices || []);
+      const inwardText = purchasesToInwardCsv(state.purchases || []);
+      const filed = filingPrep({ salesText, inwardText, supplierState: state.company.state, fy: state.company.fy });
+      const acc = Object.fromEntries(listAccounts(state.ledger).map((a) => [a.code, a]));
+      const output = (acc['2100']?.creditsPosted || 0) + (acc['2101']?.creditsPosted || 0) + (acc['2102']?.creditsPosted || 0);
+      const input = (acc['1200']?.debitsPosted || 0) + (acc['1201']?.debitsPosted || 0) + (acc['1202']?.debitsPosted || 0);
+      return ok({
+        gstin: state.company.gstin,
+        period: filed.gstr1.period,
+        gstr1: filed.gstr1,
+        gstr3b: filed.gstr3b,
+        payable: Math.round((output - input) * 100) / 100,
+        trialBalance: trialBalance(state.ledger),
+        caveat: 'Prepared locally. A practising CA must review and file on GSTN. MyCA does not hold DSC; live GSTR APIs need a GSP.',
+      });
+    },
+  },
+  {
+    name: 'govt_probe',
+    title: 'Probe GSTN / NIC / MCA',
+    description: 'HTTP to official government hosts from this PC. Confirms the machine can reach GST, e-invoice, MCA, IT portals.',
+    run: async () => ok(await probeGovt()),
+  },
+  {
+    name: 'govt_save_credentials',
+    title: 'Save NIC e-invoice credentials',
+    description: 'Store sandbox/production client-id, secret, API user, password, GSTIN locally in %APPDATA%\\MyCA\\govt.json.',
+    run: (_state, args = {}) => ok(saveGovtConfig(args)),
+  },
+  {
+    name: 'govt_nic_auth',
+    title: 'NIC e-invoice authenticate',
+    description: 'POST /eivital/v1.04/auth on NIC sandbox or production. Supports mock option.',
+    args: ['mock'],
+    run: async (_state, args = {}) => ok(await nicAuthenticate(undefined, undefined, args)),
+  },
+  {
+    name: 'govt_nic_mock',
+    title: 'NIC Sandbox Mock Auth & IRN',
+    description: 'High-fidelity simulation of NIC authentication and IRN generation for sandbox testing.',
+    args: ['invoiceId'],
+    run: async (state, args = {}) => {
+      const invId = args.invoiceId || (state.invoices?.[0]?.id);
+      if (!invId) return fail('Pass an invoiceId, or create an invoice first to generate a mock IRN.');
+      return ok(await nicGenerateIrn(state, invId, undefined, { mock: true }));
+    },
+  },
+  {
+    name: 'govt_generate_irn',
+    title: 'Generate e-invoice IRN',
+    description: 'Build NIC Invoice JSON from a posted tax invoice and POST to eicore Invoice API or Sandbox Mock.',
+    args: ['invoiceId', 'mock'],
+    run: async (state, args = {}) => {
+      if (!args.invoiceId) return fail('invoiceId required, e.g. INV-0001');
+      return ok(await nicGenerateIrn(state, args.invoiceId, undefined, args));
+    },
+  },
+  {
+    name: 'integration_readiness',
+    title: 'CA API readiness',
+    description: 'Show which external CA-firm APIs MyCA needs and what is still missing.',
+    args: ['available'],
+    run: (state, args = {}) => {
+      const source = (args.available || []).length ? args.available : state.integrationConnections || {};
+      return ok(integrationReadiness(source));
+    },
+  },
+  {
+    name: 'integration_connect',
+    title: 'Connect requirement API',
+    description: 'Mark a PRD requirement API as connected with provider metadata. Does not store secrets.',
+    args: ['requirementId', 'provider', 'baseUrl', 'notes'],
+    run: (state, args = {}) => {
+      const out = setIntegrationConnection(state, args);
+      return out.ok ? ok(out) : fail(out.error);
+    },
+  },
+  {
+    name: 'integration_disconnect',
+    title: 'Disconnect requirement API',
+    description: 'Mark a PRD requirement API as missing again.',
+    args: ['requirementId'],
+    run: (state, args = {}) => {
+      const out = clearIntegrationConnection(state, args);
+      return out.ok ? ok(out) : fail(out.error);
+    },
+  },
+  {
+    name: 'provider_catalog',
+    title: 'Provider catalog',
+    description: 'Show provider coverage for requirement IDs without creating a live connector.',
+    args: ['providerId'],
+    run: (_state, args = {}) => {
+      const providerId = args.providerId || 'sandbox';
+      const provider = providerCatalog(providerId);
+      if (!provider) return fail('UNKNOWN_PROVIDER');
+      return ok({
+        providerId: provider.providerId,
+        name: provider.name,
+        docsUrl: provider.docsUrl,
+        posture: provider.posture,
+        notes: provider.notes,
+        requirements: providerRequirementMap(provider.providerId),
+      });
+    },
+  },
+  {
+    name: 'sandbox_adapter_plan',
+    title: 'Sandbox adapter plan',
+    description: 'Show Sandbox operation-level adapter rules, owner modules, and CA approval gates. Does not call Sandbox.',
+    args: ['requirementId', 'operationId'],
+    run: (_state, args = {}) => {
+      const out = sandboxAdapterPlan({
+        requirementId: args.requirementId,
+        operationId: args.operationId,
+      });
+      if (!out.operations.length) return fail('SANDBOX_OPERATION_NOT_FOUND');
+      return ok(out);
+    },
+  },
+  {
+    name: 'sandbox_status',
+    title: 'Sandbox by Quicko status',
+    description: 'Ping and verify connection to Quicko Sandbox GSP API using configured credentials.',
+    run: async () => {
+      const client = getSandboxClient();
+      return ok(await client.ping());
+    },
+  },
+  {
+    name: 'sandbox_connect',
+    title: 'Connect Sandbox by Quicko',
+    description: 'Register Sandbox for REQ-CA-006 (GSP), REQ-CA-007 (E-Invoice), REQ-CA-008 (GSTIN), REQ-CA-009 (Income Tax), and REQ-CA-010 (TDS).',
+    run: (state) => {
+      const sandbox = getSandboxClient();
+      if (!sandbox.isConfigured()) {
+        return fail('MISSING_SANDBOX_CREDENTIALS', { hint: 'Configure MYCA_GSP_API_KEY and MYCA_GSP_API_SECRET in platform/.env' });
+      }
+      const connections = [
+        { requirementId: 'REQ-CA-006', notes: 'GSP return filing and ledger reconciliation' },
+        { requirementId: 'REQ-CA-007', notes: 'NIC e-invoice generation and cancel via Sandbox' },
+        { requirementId: 'REQ-CA-008', notes: 'Live taxpayer GSTIN validation and status check' },
+        { requirementId: 'REQ-CA-009', notes: 'Income-tax calculator and AIS/26AS reconciliation inputs' },
+        { requirementId: 'REQ-CA-010', notes: 'TDS analytics, reports, and FVU package generation' },
+      ];
+      for (const conn of connections) {
+        setIntegrationConnection(state, {
+          requirementId: conn.requirementId,
+          provider: 'Sandbox by Quicko',
+          baseUrl: sandbox.baseUrl,
+          notes: conn.notes,
+        });
+      }
+      return ok({
+        connected: connections.map((c) => c.requirementId),
+        readiness: integrationReadiness(state.integrationConnections),
+      });
+    },
+  },
+  {
+    name: 'nim_status',
+    title: 'NVIDIA NIM status',
+    description: 'Check NVIDIA NIM AI model connection and configuration (free meta/llama-3.3-70b-instruct).',
+    run: async () => {
+      const client = getNimClient();
+      return ok(await client.ping());
+    },
+  },
+  {
+    name: 'nim_ask',
+    title: 'Ask NVIDIA NIM',
+    description: 'Query NVIDIA NIM free LLM for statutory tax analysis, client emails, or notice review.',
+    args: ['prompt', 'model'],
+    run: async (_state, args = {}) => {
+      const client = getNimClient();
+      const prompt = args.prompt || '';
+      if (!prompt) return fail('prompt required');
+      const res = await client.complete({ prompt, model: args.model });
+      return res.ok ? ok(res) : fail(res.error, { hint: res.hint });
+    },
+  },
+  {
+    name: 'prepare_itr',
+    title: 'ITR regime compare',
+    description: 'AIS/26AS + income → old vs new regime, TDS credit, payable.',
+    run: (state, args = {}) => {
+      const result = filingPrep({
+        aisText: args.aisText || state.files.ais || '',
+        tds26Text: args.tds26Text || state.files.form26as || '',
+        incomeText: args.incomeText || state.files.income || '',
+        fy: state.company.fy,
+      });
+      return ok(result.itr);
+    },
+  },
+  {
+    name: 'monitor_tds',
+    title: 'TDS threshold monitor',
+    description: 'Flag vendor payments that crossed 194A/C/I/J thresholds.',
+    run: (state, args = {}) => {
+      const result = filingPrep({ paymentsText: args.paymentsText || state.files.payments || '', fy: state.company.fy });
+      return ok(result.tds);
+    },
+  },
+  {
+    name: 'import_tally',
+    title: 'Import Tally Day Book',
+    description: 'Ingest a Tally / TallyPrime Day Book CSV with alias mapping and row isolation.',
+    args: ['csv'],
+    run: (state, args) => {
+      if (!args.csv) return fail('csv required');
+      const result = ingestTally({ type: 'csv', content: args.csv }, { asOfDate: args.asOfDate, fileLabel: args.fileName || 'tally.csv' });
+      const good = (result.rows || []).filter((r) => !r._blocking);
+      const ledger = postTallyRows(state, good);
+      state.imports.push({ source: 'tally', at: new Date().toISOString(), ok: result.ok, rows: result.rows.length, posted: ledger.posted });
+      return ok({ ...result, ledger });
+    },
+  },
+  {
+    name: 'import_tally_xml',
+    title: 'Import Tally XML',
+    description: 'Parse a TallyPrime XML envelope into Day Book rows, then post like CSV import.',
+    args: ['xml'],
+    run: (state, args) => {
+      const xml = args.xml || state.files.tallyXml || state.pendingFile?.content;
+      if (!xml) return fail('xml required — attach a Tally XML export');
+      const converted = tallyXmlToDayBookCsv(xml);
+      if (!converted.ok) return fail(converted.error);
+      if (!converted.count) return fail('No VOUCHER nodes found');
+      const result = ingestTally({ type: 'csv', content: converted.csv }, { asOfDate: args.asOfDate, fileLabel: args.fileName || 'tally.xml' });
+      const good = (result.rows || []).filter((r) => !r._blocking);
+      const ledger = postTallyRows(state, good);
+      state.imports.push({ source: 'tally-xml', at: new Date().toISOString(), ok: result.ok, rows: result.rows.length, posted: ledger.posted });
+      return ok({ ...result, converted, ledger });
+    },
+  },
+  {
+    name: 'import_zoho',
+    title: 'Import Zoho Books invoices',
+    description: 'Parse a Zoho Books invoice export and post each invoice into the ledger.',
+    args: ['csv'],
+    run: (state, args) => {
+      if (!args.csv) return fail('csv required');
+      const parsed = parseZohoBooksCsv(args.csv);
+      const created = [];
+      for (const inv of parsed.invoices) {
+        created.push(createInvoice(state, inv));
+      }
+      state.imports.push({ source: 'zoho', at: new Date().toISOString(), count: created.length });
+      return ok({ parsed: parsed.meta, created });
+    },
+  },
+  {
+    name: 'import_bank',
+    title: 'Import bank statement',
+    description: 'Ingest HDFC-style CSV, fixed-width TXT, or matrix bank statement with running-balance tie-out.',
+    args: ['content', 'type'],
+    run: (state, args) => {
+      const type = args.type || 'csv';
+      const result = ingestBank({ type, content: args.content }, { asOfDate: args.asOfDate, fileLabel: args.fileName || 'bank' });
+      const good = (result.rows || []).filter((r) => !r._blocking);
+      const ledger = postBankRows(state, good);
+      state.imports.push({ source: 'bank', at: new Date().toISOString(), ok: result.ok, rows: result.rows?.length || 0, posted: ledger.posted });
+      return ok({ ...result, ledger });
+    },
+  },
+  {
+    name: 'gst_reconcile',
+    title: 'GST reconciliation',
+    description: 'Match GSTR-2B vs purchase register, GSTR-1 vs 3B, Rule 37A and IMS.',
+    run: (state, args = {}) => {
+      const files = { ...state.files, ...args };
+      const purchaseRegister = files.purchaseRegister || purchaseRegisterCsv(state.purchases || []);
+      const gstr1 = files.gstr1 || invoicesToSalesCsv(state.invoices || []);
+      if (!files.gstr2b) return fail('Attach a GSTR-2B CSV (dropdown can be unused; attach as gstr2b).');
+      if (!files.gstr3b) return fail('Attach GSTR-3B CSV, or ask to prepare GSTR-3B first and export.');
+      return ok(reconcile(
+        {
+          purchaseRegisterText: purchaseRegister,
+          gstr2bText: files.gstr2b,
+          gstr1Text: gstr1,
+          gstr3bText: files.gstr3b,
+        },
+        { clientGstin: state.company.gstin, asOfDate: args.asOfDate || '2026-09-07' },
+      ));
+    },
+  },
+  {
+    name: 'validate_gstin',
+    title: 'Validate GSTIN',
+    description: 'Mod-36 check digit, state code, PAN structure, and live Quicko Sandbox taxpayer lookup.',
+    args: ['gstin'],
+    run: async (_state, args) => {
+      const raw = String(args?.gstin || '').trim().toUpperCase();
+      const local = validateGstin(raw);
+      if (!local.ok) return ok(local);
+      const sandbox = getSandboxClient();
+      if (!sandbox.isConfigured()) {
+        return ok({
+          ...local,
+          liveVerified: false,
+          liveReason: 'Sandbox credentials not configured in .env',
+        });
+      }
+      try {
+        const live = await sandbox.searchGstin(raw);
+        if (live.ok) {
+          return ok({
+            ...local,
+            liveVerified: true,
+            legalName: live.legalName,
+            tradeName: live.tradeName,
+            status: live.status,
+            taxpayerType: live.taxpayerType,
+            registrationDate: live.registrationDate,
+            eInvoiceStatus: live.eInvoiceStatus,
+            natureOfBusiness: live.natureOfBusiness,
+            address: live.raw?.pradr?.addr || null,
+          });
+        }
+        return ok({
+          ...local,
+          liveVerified: false,
+          liveError: live.error || 'Live search returned error',
+        });
+      } catch (err) {
+        return ok({
+          ...local,
+          liveVerified: false,
+          liveError: String(err.message || err),
+        });
+      }
+    },
+  },
+  {
+    name: 'deadlines',
+    title: 'Compliance deadlines',
+    description: 'Statutory due dates for this business (GSTR-1/3B, TDS, ITR) with holiday-aware working days.',
+    run: (state, args = {}) => {
+      const c = state.company;
+      const clientsText = [
+        'clientId,name,entityType,gstin,state,turnover,gstFrequency,tdsDeductor,pfApplicable,auditRequired,transferPricing',
+        `SELF,${c.name},llp,${c.gstin},${c.state},25000000,monthly,Y,N,Y,N`,
+      ].join('\n');
+      const docsText = 'clientId,returnType,period,docType,receivedOn\n';
+      const holidaysText = args.holidaysText || 'date,name\n2026-10-02,Gandhi Jayanti\n';
+      return ok(complianceRun(
+        { clientsText, docsText, holidaysText },
+        { months: args.months || ['2026-08', '2026-09', '2026-10'], asOfDate: args.asOfDate || '2026-09-07' },
+      ));
+    },
+  },
+  {
+    name: 'audit_books',
+    title: 'Defensible audit',
+    description: 'Full-population ledger scrutiny, SA 230 working papers, Schedule III / CARO / 3CD, engagement risk.',
+    run: (state, args = {}) => {
+      const text = args.ledgerText || state.files.auditLedger;
+      if (!text) return fail('Pass ledgerText (clientId,date,narration,debit,credit,party,category,tdsSection).');
+      return ok(auditRun({ ledgerText: text, asOfDate: args.asOfDate || '2026-09-15' }));
+    },
+  },
+  {
+    name: 'post_expense',
+    title: 'Post expense',
+    description: 'Pay a vendor from bank and book expense (optional GST input).',
+    args: ['narration', 'amount', 'gstRate'],
+    run: (state, args) => {
+      const amount = Number(args.amount);
+      const gstRate = Number(args.gstRate || 0);
+      const taxable = gstRate ? Math.round((amount / (1 + gstRate / 100)) * 100) / 100 : amount;
+      const tax = Math.round((amount - taxable) * 100) / 100;
+      const half = Math.round(tax * 50) / 100;
+      const transfers = [
+        { id: ++state.transferSeq, debitAccountId: 5100, creditAccountId: 1002, amount: paise(taxable), code: 'EXPENSE' },
+      ];
+      if (tax > 0) {
+        transfers.push({ id: ++state.transferSeq, debitAccountId: 1200, creditAccountId: 1002, amount: paise(half), code: 'ITC-CGST' });
+        transfers.push({ id: ++state.transferSeq, debitAccountId: 1201, creditAccountId: 1002, amount: paise(tax - half), code: 'ITC-SGST' });
+      }
+      return ok(createTransfers(state.ledger, transfers));
+    },
+  },
+  {
+    name: 'seed_demo',
+    title: 'Load demo books',
+    description: 'Post two sample invoices for Nalanda Textiles so the five CA reviewers can click through a live set of books.',
+    run: (state) => ok({ invoices: seedDemo(state).invoices.length }),
+  },
+];
+
+export const TOOL_MAP = Object.fromEntries(TOOLS.map((t) => [t.name, t]));
+
+export async function runTool(state, name, args = {}) {
+  const tool = TOOL_MAP[name];
+  if (!tool) return fail(`Unknown tool ${name}`);
+  try {
+    return await tool.run(state, args);
+  } catch (err) {
+    return fail(String(err.message || err));
+  }
+}

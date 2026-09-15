@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' http://127.0.0.1:* http://localhost:*; frame-src 'self' about:;" />
+  <title>MyCA</title>
+  <link rel="icon" href="data:," />
+  <link rel="stylesheet" href="fonts.css" />
+  <link rel="stylesheet" href="styles.css?v=13" />
+</head>
+<body>
+  <div class="app">
+    <header class="chrome">
+      <div class="mark">
+        <span class="mark-word">MyCA</span>
+        <span class="mark-sub">Local books · GST ready</span>
+      </div>
+      <div class="firmblock">
+        <div class="firm" id="firmName">Opening books…</div>
+        <div class="gstin" id="firmGstin">—</div>
+      </div>
+      <div class="tb" title="Trial balance">
+        <div class="tb-meta">
+          <span id="folioMeta">FY —</span>
+          <span id="tbLabel">Dr · Cr</span>
+        </div>
+        <div class="tb-track" aria-hidden="true">
+          <i id="tbDr"></i>
+          <i id="tbCr"></i>
+        </div>
+      </div>
+      <div class="pills">
+        <div class="pill"><em id="statInv">0</em> invoices</div>
+        <div class="pill"><em id="statBill">0</em> bills</div>
+        <div class="pill tie-pill" id="chain">checksum…</div>
+      </div>
+    </header>
+
+    <div class="shell">
+      <section class="workspace">
+        <nav class="tabs" role="tablist">
+          <button type="button" data-tab="invoices" class="on" role="tab">Vouchers</button>
+          <button type="button" data-tab="books" role="tab">Books</button>
+          <button type="button" data-tab="gst" role="tab">GST</button>
+          <button type="button" data-tab="govt" role="tab">Govt</button>
+          <button type="button" data-tab="apis" role="tab">APIs</button>
+          <button type="button" data-tab="print" role="tab">Print</button>
+          <button type="button" data-tab="oss" role="tab">OSS</button>
+          <button type="button" data-tab="tools" role="tab">Tools</button>
+        </nav>
+
+        <section id="panel-invoices" class="panel on" role="tabpanel">
+          <div class="sheet">
+          <table class="grid">
+            <thead>
+              <tr>
+                <th>Voucher</th>
+                <th>Party</th>
+                <th>Date</th>
+                <th class="num">Amount</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="invoiceRows"></tbody>
+          </table>
+          </div>
+        </section>
+
+        <section id="panel-books" class="panel" hidden role="tabpanel">
+          <div class="sheet">
+          <table class="grid">
+            <thead>
+              <tr>
+                <th>Code</th>
+                <th>Account</th>
+                <th class="num">Debit</th>
+                <th class="num">Credit</th>
+              </tr>
+            </thead>
+            <tbody id="booksRows"></tbody>
+          </table>
+          <p class="books-tie" id="booksTie"></p>
+          </div>
+        </section>
+
+        <section id="panel-gst" class="panel" hidden role="tabpanel">
+          <div class="metrics" id="gstMetrics"></div>
+          <div class="panel-actions">
+            <button type="button" id="dlGstr1" class="btn ghost">Download GSTR-1 JSON</button>
+          </div>
+          <h2 class="h-quiet">Purchase bills · ITC</h2>
+          <div class="sheet" style="min-height:0">
+          <table class="grid">
+            <thead>
+              <tr><th>Bill</th><th>Supplier</th><th class="num">ITC</th></tr>
+            </thead>
+            <tbody id="gstBills"></tbody>
+          </table>
+          </div>
+        </section>
+
+        <section id="panel-govt" class="panel" hidden role="tabpanel">
+          <p class="lede" id="govtStatus">Not probed yet. Ping from this PC — MyCA is not a GSP.</p>
+          <div class="panel-actions">
+            <button type="button" id="govtProbe" class="btn">Ping GST / NIC / MCA / IT</button>
+          </div>
+          <ol id="govtGuide" class="govt-guide"></ol>
+          <form id="govtCreds" class="govt-form">
+            <label>Environment
+              <select id="gEnv">
+                <option value="sandbox">NIC sandbox</option>
+                <option value="production">Production IRP</option>
+              </select>
+            </label>
+            <label>Client id
+              <input id="gClient" autocomplete="off" />
+            </label>
+            <label>Client secret
+              <input id="gSecret" type="password" autocomplete="off" />
+            </label>
+            <label>API user
+              <input id="gUser" autocomplete="off" />
+            </label>
+            <label>API password
+              <input id="gPass" type="password" autocomplete="off" />
+            </label>
+            <label>GSTIN
+              <input id="gGstin" maxlength="15" />
+            </label>
+            <div class="form-row">
+              <button type="submit" class="btn">Save on this PC</button>
+              <button type="button" id="gAuth" class="btn ghost">NIC auth</button>
+            </div>
+          </form>
+        </section>
+
+        <section id="panel-apis" class="panel" hidden role="tabpanel">
+          <div class="metrics readiness-metrics" id="apiMetrics"></div>
+          <p class="lede" id="apiProviderSummary">Provider catalog loading…</p>
+          <div class="sheet">
+          <table class="grid api-grid">
+            <thead>
+              <tr>
+                <th>Req</th>
+                <th>API</th>
+                <th>Priority</th>
+                <th>Direction</th>
+                <th>Status</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="apiRows"></tbody>
+          </table>
+          </div>
+        </section>
+
+        <section id="panel-print" class="panel" hidden role="tabpanel">
+          <iframe id="printFrame" title="Invoice print"></iframe>
+        </section>
+
+        <section id="panel-oss" class="panel" hidden role="tabpanel">
+          <table class="grid" id="ossTable">
+            <thead>
+              <tr><th>Project</th><th>License</th><th>In MyCA</th></tr>
+            </thead>
+            <tbody id="ossRows"></tbody>
+          </table>
+          <p class="lede">Full ERPs are not embedded. GPL, AGPL and O'Saasy code is not copied into the ledger runtime.</p>
+        </section>
+
+        <section id="panel-tools" class="panel" hidden role="tabpanel">
+          <ul id="toolList" class="tool-list"></ul>
+        </section>
+
+        <form id="voucher" class="voucher">
+          <label>Type
+            <select id="vKind">
+              <option value="purchase">Purchase bill</option>
+              <option value="sale">Tax invoice</option>
+            </select>
+          </label>
+          <label>Party
+            <input id="vParty" placeholder="Fabrics Co" required />
+          </label>
+          <label>GSTIN
+            <input id="vGstin" placeholder="27…" maxlength="15" />
+          </label>
+          <label>Item
+            <input id="vDesc" placeholder="Grey cloth" value="Supply" />
+          </label>
+          <label>Qty
+            <input id="vQty" type="number" min="0" step="0.01" value="2" />
+          </label>
+          <label>Rate
+            <input id="vRate" type="number" min="0" step="0.01" value="10000" />
+          </label>
+          <label>GST
+            <select id="vGst">
+              <option value="0">0%</option>
+              <option value="5" selected>5%</option>
+              <option value="12">12%</option>
+              <option value="18">18%</option>
+              <option value="28">28%</option>
+            </select>
+          </label>
+          <button type="submit" class="btn book">Book</button>
+        </form>
+      </section>
+
+      <aside class="chat">
+        <header class="chat-head">
+          <h1>Ask the books</h1>
+          <p>Same local server as this folio. Type a voucher, or use the strip below the table.</p>
+        </header>
+        <div id="log" class="log"></div>
+        <form id="composer">
+          <div class="composer-meta">
+            <label class="filechip">
+              Attach
+              <input id="file" type="file" accept=".csv,.txt,.xlsx,.xml" hidden />
+            </label>
+            <select id="kind">
+              <option value="tally">Tally Day Book</option>
+              <option value="tallyXml">Tally XML</option>
+              <option value="zoho">Zoho Books</option>
+              <option value="bank">Bank statement</option>
+              <option value="gstr2b">GSTR-2B</option>
+              <option value="gstr3b">GSTR-3B</option>
+              <option value="auditLedger">Audit ledger</option>
+            </select>
+          </div>
+          <div class="composer-row">
+            <textarea id="q" rows="2" placeholder="Purchase from Fabrics Co GSTIN 27AABCT1332L1ZM, 2 rolls at 10000, GST 5%"></textarea>
+            <button type="submit" class="btn">Post</button>
+          </div>
+        </form>
+      </aside>
+    </div>
+  </div>
+  <script src="app.js?v=10"></script>
+</body>
+</html>

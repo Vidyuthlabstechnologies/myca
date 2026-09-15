@@ -1,0 +1,51 @@
+{
+  "name": "myca",
+  "version": "0.1.0",
+  "private": true,
+  "description": "MyCA — Windows books + GST + CA workbench. Invoice is the source of truth; NIC/GSTN APIs when you have credentials.",
+  "type": "module",
+  "main": "desktop/main.cjs",
+  "scripts": {
+    "test": "node --test \"test/*.test.mjs\"",
+    "start": "electron .",
+    "dev": "node src/server.mjs",
+    "stress": "node scripts/stress.mjs",
+    "setup:env": "node scripts/setup-env.mjs",
+    "check:env": "node scripts/setup-env.mjs --check",
+    "pack": "electron-builder --win nsis portable"
+  },
+  "build": {
+    "appId": "in.myca.app",
+    "productName": "MyCA",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "desktop/**",
+      "src/**"
+    ],
+    "extraResources": [
+      {
+        "from": "../sprints",
+        "to": "sprints",
+        "filter": ["**/*.mjs", "**/*.csv", "**/*.json"]
+      }
+    ],
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ],
+      "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true
+    }
+  },
+  "devDependencies": {
+    "electron": "^44.2.0",
+    "electron-builder": "^26.15.3"
+  }
+}

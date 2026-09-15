@@ -1,0 +1,10 @@
+{
+  "name": "sprint-6-defensible-audit",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Sprint 6 - defensible audit: full-population ledger scrutiny, explainable rule-cited flags, SA 230 working papers, sampling, Schedule III/CARO/3CD checks, engagement risk scoring",
+  "scripts": {
+    "test": "node --test \"test/*.test.mjs\""
+  }
+}

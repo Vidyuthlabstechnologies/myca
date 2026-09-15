@@ -1,0 +1,11 @@
+{
+  "name": "sprint-1-tally-ingestion",
+  "version": "0.1.0",
+  "description": "Sprint 1: Tally Day Book ingestion with schema validation. Benchmark target: FireAI 10-step pipeline parity.",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "test": "node --test \"test/*.test.mjs\"",
+    "ingest": "node src/cli.mjs"
+  }
+}

@@ -1,0 +1,5 @@
+assessmentYear,informationType,sectionDescription,incomeType,transactingEntity,amount,tds,periodStart,periodEnd
+2027-28,SFT,Interest income on deposits,interest,Axis Bank,120000,0,2026-10-01,2027-03-31
+2027-28,PAF,Dividend income,dividend,HDFC Securities,50000,12500,2026-10-01,2027-03-31
+2027-28,SFT,Rent received in cash,rent,Tenant A,240000,0,2026-10-01,2027-03-31
+2027-28,SFT,Mutual fund gains (STCG),capital,HDFC AMC,30000,0,2026-10-01,2027-03-31

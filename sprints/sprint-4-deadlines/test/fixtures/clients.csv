@@ -1,0 +1,5 @@
+clientId,name,tier,entity,turnover,gst,qrmp,tdsDeductor,pf,advanceTax,tp
+CL-001,Sunrise Industries,PREMIUM,proprietor,9500000,TRUE,FALSE,TRUE,FALSE,FALSE,FALSE
+CL-002,Dr. Sharma Clinic,STANDARD,individual,4000000,FALSE,FALSE,FALSE,FALSE,FALSE,FALSE
+CL-003,Greenfields Pvt Ltd,BUSINESS,company,280000000,TRUE,FALSE,TRUE,TRUE,TRUE,TRUE
+CL-004,Quick Mart Traders,STANDARD,proprietor,40000000,TRUE,TRUE,FALSE,FALSE,FALSE,FALSE

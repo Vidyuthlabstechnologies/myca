@@ -1,0 +1,472 @@
+import { normalizeChat, parseDocument, isPurchaseIntent, isSaleIntent, ROUTES } from './intent.mjs';
+
+const noArgs = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {},
+};
+
+const lineSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['description', 'qty', 'rate', 'gstRate'],
+  properties: {
+    description: { type: 'string', minLength: 1 },
+    hsn: { type: 'string' },
+    qty: { type: 'number', exclusiveMinimum: 0 },
+    rate: { type: 'number', minimum: 0 },
+    gstRate: { type: 'number', minimum: 0, maximum: 28 },
+  },
+};
+
+const documentSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['partyName', 'lines'],
+  properties: {
+    partyName: { type: 'string', minLength: 1 },
+    partyGstin: { type: 'string' },
+    partyState: { type: 'string' },
+    date: { type: 'string' },
+    lines: {
+      type: 'array',
+      minItems: 1,
+      items: lineSchema,
+    },
+  },
+};
+
+export const TOOL_ARG_SCHEMAS = {
+  company_profile: noArgs,
+  trial_balance: noArgs,
+  chart_of_accounts: noArgs,
+  journal: {
+    type: 'object',
+    additionalProperties: false,
+    properties: { limit: { type: 'number', minimum: 1, maximum: 500 } },
+  },
+  list_invoices: noArgs,
+  create_invoice: documentSchema,
+  create_purchase: documentSchema,
+  print_invoice: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['id'],
+    properties: { id: { type: 'string', pattern: '^(INV|BILL)-[0-9]{4,}$' } },
+  },
+  record_receipt: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['invoiceId'],
+    properties: {
+      invoiceId: { type: 'string', pattern: '^INV-[0-9]{4,}$' },
+      amount: { type: 'number', exclusiveMinimum: 0 },
+      mode: { type: 'string', enum: ['bank', 'cash'] },
+      date: { type: 'string' },
+    },
+  },
+  gst_payable: noArgs,
+  prepare_gstr1: noArgs,
+  export_gstr1_json: {
+    type: 'object',
+    additionalProperties: false,
+    properties: { fp: { type: 'string', pattern: '^[0-9]{6}$' } },
+  },
+  prepare_gstr3b: {
+    type: 'object',
+    additionalProperties: false,
+    properties: { inwardText: { type: 'string' } },
+  },
+  filing_pack: noArgs,
+  govt_probe: noArgs,
+  govt_nic_auth: {
+    type: 'object',
+    additionalProperties: false,
+    properties: { mock: { type: 'boolean' } },
+  },
+  govt_nic_mock: {
+    type: 'object',
+    additionalProperties: false,
+    properties: { invoiceId: { type: 'string', pattern: '^INV-[0-9]{4,}$' } },
+  },
+  govt_generate_irn: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['invoiceId'],
+    properties: {
+      invoiceId: { type: 'string', pattern: '^INV-[0-9]{4,}$' },
+      mock: { type: 'boolean' },
+    },
+  },
+  integration_readiness: {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      available: {
+        type: 'array',
+        items: { type: 'string' },
+      },
+    },
+  },
+  integration_connect: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['requirementId', 'provider'],
+    properties: {
+      requirementId: { type: 'string' },
+      provider: { type: 'string', minLength: 1 },
+      baseUrl: { type: 'string' },
+      notes: { type: 'string' },
+    },
+  },
+  integration_disconnect: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['requirementId'],
+    properties: {
+      requirementId: { type: 'string' },
+    },
+  },
+  provider_catalog: {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      providerId: { type: 'string', enum: ['sandbox'] },
+    },
+  },
+  sandbox_adapter_plan: {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      requirementId: { type: 'string', pattern: '^REQ-CA-0(06|07|08|09|10)$' },
+      operationId: { type: 'string' },
+    },
+  },
+  sandbox_status: noArgs,
+  sandbox_connect: noArgs,
+  nim_status: noArgs,
+  nim_ask: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['prompt'],
+    properties: {
+      prompt: { type: 'string', minLength: 1 },
+      model: { type: 'string' },
+    },
+  },
+  prepare_itr: {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      aisText: { type: 'string' },
+      tds26Text: { type: 'string' },
+      incomeText: { type: 'string' },
+    },
+  },
+  monitor_tds: {
+    type: 'object',
+    additionalProperties: false,
+    properties: { paymentsText: { type: 'string' } },
+  },
+  import_tally: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['csv'],
+    properties: {
+      csv: { type: 'string', minLength: 1 },
+      fileName: { type: 'string' },
+      asOfDate: { type: 'string' },
+    },
+  },
+  import_tally_xml: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['xml'],
+    properties: {
+      xml: { type: 'string', minLength: 1 },
+      fileName: { type: 'string' },
+      asOfDate: { type: 'string' },
+    },
+  },
+  import_zoho: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['csv'],
+    properties: { csv: { type: 'string', minLength: 1 } },
+  },
+  import_bank: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['content'],
+    properties: {
+      content: { type: 'string', minLength: 1 },
+      type: { type: 'string', enum: ['csv', 'text'] },
+      fileName: { type: 'string' },
+      asOfDate: { type: 'string' },
+    },
+  },
+  gst_reconcile: {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      purchaseRegister: { type: 'string' },
+      gstr2b: { type: 'string' },
+      gstr3b: { type: 'string' },
+      gstr1: { type: 'string' },
+      asOfDate: { type: 'string' },
+    },
+  },
+  validate_gstin: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['gstin'],
+    properties: { gstin: { type: 'string', minLength: 1, maxLength: 20 } },
+  },
+  deadlines: {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      holidaysText: { type: 'string' },
+      months: { type: 'array', items: { type: 'string' } },
+      asOfDate: { type: 'string' },
+    },
+  },
+  audit_books: {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      ledgerText: { type: 'string' },
+      asOfDate: { type: 'string' },
+    },
+  },
+  post_expense: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['amount'],
+    properties: {
+      narration: { type: 'string' },
+      amount: { type: 'number', exclusiveMinimum: 0 },
+      gstRate: { type: 'number', minimum: 0, maximum: 28 },
+    },
+  },
+};
+
+const ASSISTANT_BLOCKED_TOOLS = new Set(['govt_save_credentials', 'seed_demo']);
+
+const TOOL_RISK = {
+  create_invoice: 'writes_books',
+  create_purchase: 'writes_books',
+  record_receipt: 'writes_books',
+  import_tally: 'writes_books',
+  import_tally_xml: 'writes_books',
+  import_zoho: 'writes_books',
+  import_bank: 'writes_books',
+  post_expense: 'writes_books',
+  govt_nic_auth: 'external_auth_probe',
+  govt_generate_irn: 'external_government_api',
+};
+
+export function assistantTools(tools) {
+  return tools
+    .filter((tool) => !ASSISTANT_BLOCKED_TOOLS.has(tool.name))
+    .map((tool) => ({
+      type: 'function',
+      name: tool.name,
+      description: `${tool.title}: ${tool.description}`,
+      parameters: TOOL_ARG_SCHEMAS[tool.name] || noArgs,
+      strict: true,
+      risk: TOOL_RISK[tool.name] || 'read_or_prepare',
+    }));
+}
+
+function valueType(value) {
+  if (Array.isArray(value)) return 'array';
+  return typeof value;
+}
+
+function checkScalar(schema, value, path) {
+  if (!schema) return null;
+  if (schema.type && valueType(value) !== schema.type) return `${path} must be ${schema.type}`;
+  if (schema.enum && !schema.enum.includes(value)) return `${path} must be one of ${schema.enum.join(', ')}`;
+  if (schema.type === 'string') {
+    if (schema.minLength != null && value.length < schema.minLength) return `${path} is too short`;
+    if (schema.maxLength != null && value.length > schema.maxLength) return `${path} is too long`;
+    if (schema.pattern && !(new RegExp(schema.pattern).test(value))) return `${path} does not match ${schema.pattern}`;
+  }
+  if (schema.type === 'number') {
+    if (!Number.isFinite(value)) return `${path} must be finite`;
+    if (schema.minimum != null && value < schema.minimum) return `${path} must be >= ${schema.minimum}`;
+    if (schema.maximum != null && value > schema.maximum) return `${path} must be <= ${schema.maximum}`;
+    if (schema.exclusiveMinimum != null && value <= schema.exclusiveMinimum) return `${path} must be > ${schema.exclusiveMinimum}`;
+  }
+  return null;
+}
+
+function validateObject(schema, value, path = 'args') {
+  if (schema.type !== 'object') return checkScalar(schema, value, path);
+  if (!value || valueType(value) !== 'object') return `${path} must be object`;
+  const required = schema.required || [];
+  for (const key of required) {
+    if (value[key] == null || value[key] === '') return `${path}.${key} is required`;
+  }
+  if (schema.additionalProperties === false) {
+    for (const key of Object.keys(value)) {
+      if (!schema.properties?.[key]) return `${path}.${key} is not allowed`;
+    }
+  }
+  for (const [key, childSchema] of Object.entries(schema.properties || {})) {
+    if (value[key] == null || value[key] === '') continue;
+    if (childSchema.type === 'array') {
+      if (!Array.isArray(value[key])) return `${path}.${key} must be array`;
+      if (childSchema.minItems != null && value[key].length < childSchema.minItems) return `${path}.${key} needs at least ${childSchema.minItems} item(s)`;
+      for (let i = 0; i < value[key].length; i++) {
+        const err = validateObject(childSchema.items, value[key][i], `${path}.${key}[${i}]`);
+        if (err) return err;
+      }
+      continue;
+    }
+    const err = childSchema.type === 'object'
+      ? validateObject(childSchema, value[key], `${path}.${key}`)
+      : checkScalar(childSchema, value[key], `${path}.${key}`);
+    if (err) return err;
+  }
+  return null;
+}
+
+export function validateAssistantToolCall(name, args = {}) {
+  if (ASSISTANT_BLOCKED_TOOLS.has(name)) return { ok: false, error: `assistant cannot call ${name}` };
+  const schema = TOOL_ARG_SCHEMAS[name];
+  if (!schema) return { ok: false, error: `unknown assistant tool ${name}` };
+  const error = validateObject(schema, args || {});
+  return error ? { ok: false, error } : { ok: true, name, args: args || {} };
+}
+
+export function planLocalToolCall(state, message) {
+  const text = normalizeChat(message);
+  if (!text) return { kind: 'reply', reply: 'Tell me what to post, import, or file.', tools: [] };
+
+  if (/^(help|\?)$/i.test(text) || /^what can you do$/i.test(text)) {
+    return {
+      kind: 'reply',
+      reply: `MyCA posts invoices and purchase bills into an append-only ledger, then GST/Tally/bank/audit tools read those books.\n\nExamples:\n· Purchase from Fabrics Co GSTIN 27AABCT1332L1ZM, 2 rolls at 10000, GST 5%\n· Invoice Retail Mart GSTIN 27AAACH7409R1Z3, 10 rolls at 50000, GST 5%\n· trial balance\n· export gstr1 json\n· probe govt\n· nic auth`,
+      tools: [],
+    };
+  }
+
+  if (/\b(upload|submit|sign|file)\b.*\b(gstn|return|gstr|dsc|otp)\b/i.test(text)) {
+    return {
+      kind: 'reply',
+      reply: 'I can prepare the GST filing pack and export GSTR data, but I cannot upload, submit, sign, or file on GSTN. A practising CA must review and complete filing on the portal.',
+      tools: [],
+      blocked: true,
+    };
+  }
+
+  const doc = parseDocument(text);
+  if (doc && isPurchaseIntent(text)) return { kind: 'tool', name: 'create_purchase', args: doc };
+  if (doc && isSaleIntent(text)) return { kind: 'tool', name: 'create_invoice', args: doc };
+
+  const connectReq = text.match(/\bconnect\s+(REQ-CA-\d{3}|[a-z_]+)\b(?:.*?\bprovider\s+([A-Za-z0-9 .&_-]{2,60}))?/i);
+  if (connectReq && /\b(api|integration|connector|requirement|provider)\b/i.test(text)) {
+    return {
+      kind: 'tool',
+      name: 'integration_connect',
+      args: {
+        requirementId: connectReq[1],
+        provider: (connectReq[2] || 'Manual connector').trim(),
+      },
+    };
+  }
+
+  const disconnectReq = text.match(/\b(disconnect|remove)\s+(REQ-CA-\d{3}|[a-z_]+)\b/i);
+  if (disconnectReq && /\b(api|integration|connector|requirement)\b/i.test(text)) {
+    return {
+      kind: 'tool',
+      name: 'integration_disconnect',
+      args: { requirementId: disconnectReq[2] },
+    };
+  }
+
+  if (/\b(sandbox\s*(status|ping|health|test|check)|ping\s*sandbox)\b/i.test(text)) {
+    return { kind: 'tool', name: 'sandbox_status', args: {} };
+  }
+
+  if (/\bconnect\s+(sandbox|quicko)\b/i.test(text)) {
+    return { kind: 'tool', name: 'sandbox_connect', args: {} };
+  }
+
+  if (/\b(nim\s*(status|ping|health|check)|nvidia\s*nim)\b/i.test(text)) {
+    return { kind: 'tool', name: 'nim_status', args: {} };
+  }
+
+  const nimAskMatch = text.match(/^(?:ask\s+nim|nim|ask\s+nvidia)\s+(.+)$/i);
+  if (nimAskMatch) {
+    return { kind: 'tool', name: 'nim_ask', args: { prompt: nimAskMatch[1].trim() } };
+  }
+
+  if (/\b(nic\s*mock\s*auth|mock\s*nic\s*auth|mock\s*auth)\b/i.test(text)) {
+    return { kind: 'tool', name: 'govt_nic_auth', args: { mock: true } };
+  }
+
+  const gstinQuery = text.match(/\b(?:validate|verify|check|search|lookup)\s*gstin\s+([0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][0-9A-Z]Z[0-9A-Z])\b/i);
+  if (gstinQuery) {
+    return { kind: 'tool', name: 'validate_gstin', args: { gstin: gstinQuery[1].toUpperCase() } };
+  }
+
+  const standaloneGstin = text.match(/^gstin\s+([0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][0-9A-Z]Z[0-9A-Z])$/i)
+    || text.match(/^([0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][0-9A-Z]Z[0-9A-Z])$/i);
+  if (standaloneGstin && !doc) {
+    return { kind: 'tool', name: 'validate_gstin', args: { gstin: standaloneGstin[1].toUpperCase() } };
+  }
+
+  const printId = text.match(/\b(INV-\d+|BILL-\d+)\b/i);
+  if (printId && /print|show/i.test(text) && !/irn|einvoice|e-invoice/i.test(text)) {
+    return { kind: 'tool', name: 'print_invoice', args: { id: printId[1].toUpperCase() } };
+  }
+
+  const mockIrnId = text.match(/\b(INV-\d+)\b/i);
+  if (mockIrnId && /\bmock\s*(irn|einvoice|e-invoice)\b/i.test(text)) {
+    return { kind: 'tool', name: 'govt_nic_mock', args: { invoiceId: mockIrnId[1].toUpperCase() } };
+  }
+
+  const irnId = text.match(/\b(INV-\d+)\b/i);
+  if (irnId && /\birn\b|e-?invoice|generate irn/i.test(text)) {
+    return { kind: 'tool', name: 'govt_generate_irn', args: { invoiceId: irnId[1].toUpperCase() } };
+  }
+
+  const paidId = text.match(/\b(INV-\d+)\b/i);
+  if (paidId && /\b(paid|receipt|received)\b/i.test(text)) {
+    return { kind: 'tool', name: 'record_receipt', args: { invoiceId: paidId[1].toUpperCase(), mode: /cash/i.test(text) ? 'cash' : 'bank' } };
+  }
+
+  if (/\bimport tally xml\b|\btally xml\b/i.test(text)) {
+    const xml = state.pendingFile?.content || state.files.tallyXml;
+    if (!xml) return { kind: 'reply', reply: 'Attach a Tally XML file first (dropdown: Tally XML).', tools: [] };
+    return { kind: 'tool', name: 'import_tally_xml', args: { xml, fileName: state.pendingFile?.name || 'tally.xml' }, clearsPendingFile: true };
+  }
+  if (/\bimport tally\b|\btally day/i.test(text)) {
+    const csv = state.pendingFile?.content || state.files.tally;
+    if (!csv) return { kind: 'reply', reply: 'Attach a Tally Day Book CSV first (dropdown: Tally Day Book).', tools: [] };
+    return { kind: 'tool', name: 'import_tally', args: { csv, fileName: state.pendingFile?.name || 'tally.csv' }, clearsPendingFile: true };
+  }
+  if (/\bimport zoho\b|\bzoho books\b/i.test(text)) {
+    const csv = state.pendingFile?.content || state.files.zoho;
+    if (!csv) return { kind: 'reply', reply: 'Attach a Zoho Books invoice CSV first.', tools: [] };
+    return { kind: 'tool', name: 'import_zoho', args: { csv }, clearsPendingFile: true };
+  }
+  if (/\bimport bank\b|\bbank statement\b/i.test(text)) {
+    const content = state.pendingFile?.content || state.files.bank;
+    if (!content) return { kind: 'reply', reply: 'Attach a bank CSV or TXT first.', tools: [] };
+    return { kind: 'tool', name: 'import_bank', args: { content, type: /\.txt$/i.test(state.pendingFile?.name || '') ? 'text' : 'csv' }, clearsPendingFile: true };
+  }
+
+  for (const route of ROUTES) {
+    if (route.re.test(text)) return { kind: 'tool', name: route.tool, args: {} };
+  }
+
+  if (doc) {
+    return { kind: 'reply', reply: 'Say “invoice …” to sell or “purchase from …” to book a supplier bill, with a rate and GST %.', tools: [] };
+  }
+
+  return { kind: 'tool', name: 'company_profile', args: {}, fallback: true };
+}

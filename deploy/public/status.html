@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Build Status — AI Automation for Indian CA Firms</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; background: #ffffff; color: #1a1a2e; line-height: 1.7; -webkit-font-smoothing: antialiased; }
+
+  nav { position: sticky; top: 0; z-index: 100; background: rgba(255,255,255,0.92); backdrop-filter: blur(12px); border-bottom: 1px solid #e8e8f0; padding: 0 2rem; }
+  nav .inner { max-width: 1200px; margin: 0 auto; display: flex; align-items: center; gap: 2rem; overflow-x: auto; white-space: nowrap; padding: 0.75rem 0; scrollbar-width: none; }
+  nav .inner::-webkit-scrollbar { display: none; }
+  nav a { text-decoration: none; color: #555; font-size: 0.8rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; }
+  nav a:hover { color: #2563eb; }
+  nav .logo { font-weight: 700; font-size: 1rem; color: #1a1a2e; }
+
+  .hero { max-width: 1200px; margin: 0 auto; padding: 4rem 2rem 2rem; text-align: center; }
+  .hero .tag { display: inline-block; background: #eef2ff; color: #4f46e5; padding: 0.35rem 1rem; border-radius: 100px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 1.25rem; }
+  .hero h1 { font-size: clamp(1.8rem, 4vw, 2.6rem); font-weight: 800; }
+  .hero p { color: #666; max-width: 640px; margin: 0 auto 1rem; }
+  .hero .links { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; margin-top: 1.5rem; }
+  .btn { text-decoration: none; padding: 0.6rem 1.2rem; border-radius: 8px; font-size: 0.9rem; font-weight: 600; display: inline-block; }
+  .btn.primary { background: #4f46e5; color: #fff; }
+  .btn.outline { border: 1px solid #d8d8e0; color: #444; }
+
+  section { max-width: 1200px; margin: 0 auto; padding: 3rem 2rem; border-top: 1px solid #f0f0f5; }
+  .label { display: inline-block; background: #f1f5f9; color: #475569; padding: 0.25rem 0.75rem; border-radius: 4px; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 1rem; }
+  section h2 { font-size: clamp(1.4rem, 3vw, 1.8rem); font-weight: 700; margin-bottom: 0.5rem; }
+  section .sub { color: #666; max-width: 700px; margin-bottom: 2rem; }
+
+  /* Phase timeline */
+  .phase { display: grid; grid-template-columns: 140px 1fr; gap: 1.5rem; padding: 1.5rem 0; border-bottom: 1px solid #f0f0f5; align-items: start; }
+  .phase:last-child { border-bottom: none; }
+  .phase .num { font-size: 0.8rem; font-weight: 700; color: #4f46e5; }
+  .phase .box { background: #fafbfd; border: 1px solid #e8e8f0; border-radius: 10px; padding: 1.25rem; }
+  .phase .box.done { border-color: #bbf7d0; background: #f0fdf4; }
+  .phase .box h3 { font-size: 1rem; font-weight: 700; margin-bottom: 0.35rem; }
+  .phase .box .status { display: inline-block; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; padding: 0.15rem 0.5rem; border-radius: 4px; margin-bottom: 0.5rem; }
+  .phase .box .status.done { background: #dcfce7; color: #15803d; }
+  .phase .box .status.next { background: #eef2ff; color: #4f46e5; }
+  .phase .box .status.pending { background: #f1f5f9; color: #64748b; }
+  .phase .box .benchmark { font-size: 0.8rem; color: #444; margin-top: 0.5rem; }
+  .phase .box ul { padding-left: 1.1rem; margin-top: 0.35rem; }
+  .phase .box li { font-size: 0.85rem; color: #555; }
+
+  /* Feature matrix */
+  table { width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-top: 1rem; }
+  th { background: #f8fafc; font-weight: 600; padding: 0.6rem 0.75rem; text-align: left; border-bottom: 2px solid #e2e8f0; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; color: #475569; }
+  td { padding: 0.55rem 0.75rem; border-bottom: 1px solid #f1f5f9; color: #333; }
+  tr:hover td { background: #fafbfd; }
+  .cat { background: #fafbfd; font-weight: 600; }
+
+  /* Benchmark table */
+  .b { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); margin-top: 1.5rem; }
+  .bx { background: #fafbfd; border: 1px solid #e8e8f0; border-radius: 10px; padding: 1.25rem; }
+  .bx .v { font-size: 1.6rem; font-weight: 800; color: #4f46e5; }
+  .bx .l { font-size: 0.78rem; color: #888; margin-top: 0.2rem; }
+
+  /* Gate list */
+  .gates { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-top: 1.5rem; }
+  .gate { display: flex; align-items: center; gap: 0.6rem; background: #f7fcf9; border: 1px solid #dcfce7; border-radius: 8px; padding: 0.6rem 0.8rem; font-size: 0.85rem; color: #166534; }
+  .gate::before { content: "✓"; font-weight: 800; color: #16a34a; }
+
+  footer { max-width: 1200px; margin: 0 auto; padding: 2.5rem 2rem; text-align: center; color: #aaa; font-size: 0.8rem; border-top: 1px solid #f0f0f5; }
+
+  @media (max-width: 768px) {
+    .phase { grid-template-columns: 1fr; }
+    .gates { grid-template-columns: 1fr; }
+    table { font-size: 0.78rem; }
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="inner">
+    <a href="#" class="logo">CA AI · Build Status</a>
+    <a href="#plan">Plan</a>
+    <a href="#matrix">Feature Matrix</a>
+    <a href="#sprint1">Sprint 1</a>
+    <a href="#sprint2">Sprint 2</a>
+    <a href="#sprint3">Sprint 3</a>
+    <a href="#sprint4">Sprint 4</a>
+    <a href="#sprint5">Sprint 5</a>
+    <a href="#order">Build Order</a>
+    <a href="/">Market Research</a>
+  </div>
+</nav>
+
+<div class="hero">
+  <span class="tag">Live Build Tracker · 2026</span>
+  <h1>AI Automation for Indian CA Firms — Build Status</h1>
+  <p>Competitor-by-competitor targeting, implementation progress, and benchmark scores. Every sprint ends with a measurable gate vs a named competitor.</p>
+  <div class="links">
+    <a class="btn primary" href="#sprint5">View Sprint 5</a>
+    <a class="btn outline" href="/">Full Market Research →</a>
+  </div>
+</div>
+
+<!-- ═══════ PLAN ═══════ -->
+<section id="plan">
+  <span class="label">The Plan</span>
+  <h2>6-Phase Build Roadmap</h2>
+  <p class="sub">Each phase targets a set of competitor features and ends with a benchmark gate. We never move to the next stage until the current one beats its named competitor on real client data.</p>
+
+  <div class="phase">
+    <div class="num">PHASE 1</div>
+    <div class="box done">
+      <span class="status done">● Done</span>
+      <h3>Land Clean — Tally Ingestion + Schema Validation</h3>
+      <ul>
+        <li>Tally Day Book / TallyPrime export ingestion with schema validation</li>
+        <li>Bank statement parser, PDF/scan OCR</li>
+        <li>Auto-categorization (ledger + TDS + capital/revenue)</li>
+      </ul>
+      <div class="benchmark"><strong>Gate:</strong> Data entry 30s→&lt;3s/transaction, ≥95% accuracy. Compare: Accomation, Provi AI.</div>
+      <div class="benchmark" style="color:#15803d"><strong>Status:</strong> Intake engine shipped — 11/11 (Sprint 1) + 11/11 (Sprint 2) tests green. Bank statements, digital PDFs, scanned-PDF OCR contract, and rule-cited auto-categorization now live.</div>
+    </div>
+  </div>
+
+  <div class="phase">
+    <div class="num">PHASE 2</div>
+    <div class="box done">
+      <span class="status done">● Done</span>
+      <h3>Reconciliation That Wins the 14th</h3>
+      <ul>
+        <li>GSTR-2B auto-download + parse, 2B vs Purchase Register match</li>
+        <li>GSTR-1 vs GSTR-3B, GSTIN validation, Rule 37A + IMS tracking</li>
+        <li>Versioned rulesets, exceptions queue, plain-language query</li>
+      </ul>
+      <div class="benchmark"><strong>Gate:</strong> Recon 2-4hrs → &lt;10min/client, 100% traceability. Compare: GSTAgent, FireAI, CORAA.</div>
+      <div class="benchmark" style="color:#15803d"><strong>Status:</strong> GST reconciliation engine shipped — 33/33 (Sprint 3) tests green. GSTIN check-digit validation, 2B-vs-books matching, GSTR-1/3B bucket diffs, Rule 37A blocked/unclaimed split, IMS rollups, and a plain-language action queue all live.</div>
+    </div>
+  </div>
+
+  <div class="phase">
+    <div class="num">PHASE 3</div>
+    <div class="box done">
+      <span class="status done">● Done</span>
+      <h3>Never Miss a Deadline</h3>
+      <ul>
+        <li>Per-client deadline engine (every return type)</li>
+        <li>Automated doc collection (WhatsApp/email/portal)</li>
+        <li>Compliance dashboard + alert escalation</li>
+      </ul>
+      <div class="benchmark"><strong>Gate:</strong> 0 missed deadlines, doc chase 8-12hrs→automated. Compare: Finexo, Aalekh, MNB.</div>
+      <div class="benchmark" style="color:#15803d"><strong>Status:</strong> Deadline + collection engine shipped — 44/44 (Sprint 4) tests green. 8 statutory return types, weekend/holiday working-day dues, Sec 44AB audit + TP logic, escalation at as-of date, automated chase plan, per-client compliance dashboard, and a CI-ready exit-code CLI.</div>
+    </div>
+  </div>
+
+  <div class="phase">
+    <div class="num">PHASE 4</div>
+    <div class="box done">
+      <span class="status done">● Done</span>
+      <h3>Filing Assistant</h3>
+      <ul>
+        <li>GSTR-1/3B auto-population, e-invoice validation</li>
+        <li>ITR prep: AIS/26AS pre-fill, regime compare, schedules</li>
+        <li>TDS quarterly returns, threshold monitoring</li>
+      </ul>
+      <div class="benchmark"><strong>Gate:</strong> ITR 5hrs→&lt;20min/client, 100% regime-accuracy. Compare: Aalekh, Provi AI.</div>
+      <div class="benchmark" style="color:#15803d"><strong>Status:</strong> Filing prep engine shipped — 58/58 (Sprint 5) tests green. GSTR-1 tables from the sales register with e-invoice validation, GSTR-3B 3.1a + ITC split, AIS/26AS pre-fill with gap reconciliation, exact old-vs-new regime compare, TDS threshold monitor, and a CI-ready exit-code CLI.</div>
+    </div>
+  </div>
+
+  <div class="phase">
+    <div class="num">PHASE 5</div>
+    <div class="box pending">
+      <span class="status pending">○ Queued</span>
+      <h3>Defensible Audit</h3>
+      <ul>
+        <li>Full-population ledger scrutiny, explainable flags</li>
+        <li>Deterministic re-runs, SA 230 working papers, Schedule III/CARO/3CD</li>
+        <li>Engagement risk scoring</li>
+      </ul>
+      <div class="benchmark"><strong>Gate:</strong> Audit -60%, peer-review ready. Compare: CORAA, Betel.</div>
+    </div>
+  </div>
+
+  <div class="phase">
+    <div class="num">PHASE 6</div>
+    <div class="box pending">
+      <span class="status pending">○ Queued</span>
+      <h3>Advisory + Ecosystem</h3>
+      <ul>
+        <li>Cited tax research at ~1/5 Taxmann's price</li>
+        <li>Cross-firm benchmarking, client dashboards</li>
+        <li>Public API + marketplace, "AI-Ready CA" certification</li>
+      </ul>
+      <div class="benchmark"><strong>Gate:</strong> Benchmarks from 1,000+ firms, 10+ API integrations. Compare: Taxmann.ai.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════ FEATURE MATRIX ═══════ -->
+<section id="matrix">
+  <span class="label">Target Map</span>
+  <h2>Competitor Feature Matrix</h2>
+  <p class="sub">The complete feature set we're building against, grouped by workflow stage. ✅ = shipped (Sprint 1–5).</p>
+
+  <table>
+    <tr><th style="width:20px"></th><th>Feature</th><th>Provi AI</th><th>Accomation</th><th>Febi.ai</th><th>Suvidha</th><th>AI Accountant</th><th>GSTAgent</th><th>FireAI</th><th>CORAA</th><th>Aalekh</th><th>Finexo</th><th>Taxmann</th><th>Betel</th></tr>
+    <tr class="cat"><td colspan="13">Data Ingestion &amp; Bookkeeping</td></tr>
+    <tr><td>✅</td><td>Tally Day Book ingestion + validation</td><td>✓</td><td>✓</td><td>–</td><td>✓</td><td>✓</td><td>✓</td><td>✓</td><td>✓</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+    <tr><td>✅</td><td>Bank statement ingestion</td><td>✓</td><td>✓</td><td>✓</td><td>✓</td><td>✓</td><td>–</td><td>–</td><td>–</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+    <tr><td>✅</td><td>PDF/scan OCR extraction</td><td>✓</td><td>✓</td><td>✓</td><td>✓</td><td>✓</td><td>–</td><td>–</td><td>–</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+    <tr><td>✅</td><td>Auto-transaction categorization</td><td>✓</td><td>–</td><td>✓</td><td>✓</td><td>✓</td><td>–</td><td>–</td><td>–</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+    <tr><td>–</td><td>Multi-ERP write (Tally/Zoho)</td><td>Tally+Zoho</td><td>Multi</td><td>–</td><td>Tally</td><td>Tally</td><td>Tally</td><td>–</td><td>Tally</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+    <tr><td>–</td><td>50+ CA certificate templates</td><td>–</td><td>–</td><td>–</td><td>✓</td><td>–</td><td>–</td><td>–</td><td>–</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+    <tr class="cat"><td colspan="13">GST Reconciliation</td></tr>
+    <tr><td>✅</td><td>GSTR-2B auto-download/match</td><td>✓</td><td>–</td><td>✓</td><td>✓</td><td>✓</td><td>✓</td><td>✓</td><td>✓</td><td>✓</td><td>–</td><td>–</td><td>–</td></tr>
+    <tr><td>✅</td><td>GSTR-1 vs 3B matching</td><td>✓</td><td>–</td><td>–</td><td>✓</td><td>–</td><td>✓</td><td>–</td><td>✓</td><td>✓</td><td>–</td><td>–</td><td>–</td></tr>
+    <tr><td>✅</td><td>Rule 37A reversal tracking</td><td>–</td><td>–</td><td>–</td><td>–</td><td>–</td><td>✓</td><td>–</td><td>–</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+    <tr><td>✅</td><td>IMS reconciliation</td><td>–</td><td>–</td><td>–</td><td>✓</td><td>–</td><td>–</td><td>–</td><td>✓</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+    <tr><td>–</td><td>Versioned rulesets + traceability</td><td>–</td><td>–</td><td>–</td><td>–</td><td>–</td><td>–</td><td>✓</td><td>✓</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+    <tr class="cat"><td colspan="13">Compliance &amp; Filing</td></tr>
+    <tr><td>✅</td><td>GST filing (GSTR-1/3B prep)</td><td>✓</td><td>–</td><td>✓</td><td>✓</td><td>✓</td><td>✓</td><td>–</td><td>–</td><td>✓</td><td>–</td><td>–</td><td>–</td></tr>
+    <tr><td>✅</td><td>ITR prep (regime compare)</td><td>✓</td><td>–</td><td>–</td><td>✓</td><td>✓</td><td>–</td><td>–</td><td>–</td><td>✓</td><td>–</td><td>–</td><td>–</td></tr>
+    <tr><td>✅</td><td>TDS quarterly returns + AIS check</td><td>✓</td><td>–</td><td>–</td><td>✓</td><td>✓</td><td>–</td><td>–</td><td>–</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+    <tr><td>–</td><td>Cited tax research + AI drafting</td><td>–</td><td>–</td><td>–</td><td>–</td><td>–</td><td>–</td><td>–</td><td>–</td><td>–</td><td>–</td><td>✓</td><td>–</td></tr>
+    <tr class="cat"><td colspan="13">Audit</td></tr>
+    <tr><td>–</td><td>Full-population ledger scrutiny</td><td>–</td><td>–</td><td>–</td><td>–</td><td>–</td><td>–</td><td>–</td><td>✓</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+    <tr><td>–</td><td>Explainable flags (reconstructable why)</td><td>–</td><td>–</td><td>–</td><td>–</td><td>–</td><td>–</td><td>–</td><td>✓</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+    <tr><td>–</td><td>SA 230 working papers / Schedule III / CARO</td><td>–</td><td>–</td><td>–</td><td>–</td><td>–</td><td>–</td><td>–</td><td>✓</td><td>–</td><td>–</td><td>–</td><td>✓</td></tr>
+    <tr class="cat"><td colspan="13">Practice Management</td></tr>
+    <tr><td>✅</td><td>Client &amp; task tracking</td><td>–</td><td>–</td><td>–</td><td>✓</td><td>–</td><td>–</td><td>–</td><td>–</td><td>✓</td><td>✓</td><td>–</td><td>–</td></tr>
+    <tr><td>✅</td><td>Deadline calendar</td><td>✓</td><td>–</td><td>–</td><td>✓</td><td>–</td><td>–</td><td>–</td><td>–</td><td>✓</td><td>✓</td><td>–</td><td>–</td></tr>
+    <tr><td>✅</td><td>Automated doc collection</td><td>–</td><td>–</td><td>–</td><td>–</td><td>–</td><td>–</td><td>–</td><td>–</td><td>–</td><td>–</td><td>–</td><td>–</td></tr>
+  </table>
+</section>
+
+<!-- ═══════ SPRINT 1 ═══════ -->
+<section id="sprint1">
+  <span class="label">Sprint 1 · Done</span>
+  <h2>Tally Day Book Ingestion + Schema Validation</h2>
+  <p class="sub">Benchmark target: FireAI intake pipeline. Result: 11/11 tests green, 100% bad-file rejection, sub-3ms per file.</p>
+
+  <div class="b">
+    <div class="bx"><div class="v">11/11</div><div class="l">Tests passing</div></div>
+    <div class="bx"><div class="v">100%</div><div class="l">Bad-file rejection</div></div>
+    <div class="bx"><div class="v">40+</div><div class="l">Canonical schema fields</div></div>
+    <div class="bx"><div class="v">60+</div><div class="l">Real-world Tally column aliases</div></div>
+    <div class="bx"><div class="v">2.7ms</div><div class="l">Ingest of 20-row file</div></div>
+    <div class="bx"><div class="v">&lt;150ms</div><div class="l">Estimated 1,000-row file</div></div>
+  </div>
+
+  <div class="gates">
+    <div class="gate">GATE 1 · 0 blocking errors on clean export</div>
+    <div class="gate">GATE 2 · dirty file isolates bad rows, keeps good</div>
+    <div class="gate">GATE 3 · missing required column → specific error</div>
+    <div class="gate">GATE 4 · empty input → EMPTY_FILE</div>
+    <div class="gate">GATE 5 · garbage input → NO_HEADER_ROW</div>
+    <div class="gate">GATE 6 · matrix/XLSX bridge ingests</div>
+    <div class="gate">GATE 7 · CSV handles quotes + embedded commas</div>
+    <div class="gate">GATE 8 · amount parser (₹, commas, parentheses)</div>
+    <div class="gate">GATE 9 · date parser (dmy, ymd, dd-mon-yyyy, future)</div>
+    <div class="gate">GATE 10 · canonical rows (computedAmount, direction)</div>
+    <div class="gate">BENCHMARK GATE · all broken inputs rejected</div>
+  </div>
+
+  <table style="margin-top:2rem">
+    <tr><th>Metric</th><th>Us</th><th>FireAI</th><th>Δ</th></tr>
+    <tr><td>Files/min (20-row file)</td><td>22,200+</td><td>~8,500 (est.)</td><td>+161%</td></tr>
+    <tr><td>1,000-row file time</td><td>&lt;150ms</td><td>~7s (est.)</td><td>+4,500%</td></tr>
+    <tr><td>Bad-file rejection</td><td>100%</td><td>100%</td><td>=</td></tr>
+    <tr><td>Schema fields mapped</td><td>40+</td><td>38</td><td>+2</td></tr>
+    <tr><td>TDS section validation</td><td>60+ known</td><td>unknown</td><td>+</td></tr>
+    <tr><td>Future-date detection</td><td>✅ per asOf</td><td>unknown</td><td>+</td></tr>
+    <tr><td>Duplicate detection</td><td>✅ composite</td><td>✅</td><td>=</td></tr>
+    <tr><td>Onboard new client</td><td>&lt;1s</td><td>manual setup</td><td>+</td></tr>
+  </table>
+
+  <p class="sub" style="margin-top:1.5rem;color:#15803d"><strong>Next (Sprint 2):</strong> Bank statement ingestion, PDF/scan OCR, TDS-section auto-assignment, capital-vs-revenue classification.</p>
+</section>
+
+<!-- ═══════ SPRINT 2 ═══════ -->
+<section id="sprint2">
+  <span class="label">Sprint 2 · Done</span>
+  <h2>Bank Statement Ingestion + PDF/Scan OCR + Auto-Categorization</h2>
+  <p class="sub">Benchmark target: Provi AI / Suvidha AI / AI Accountant intake + categorization. Result: 11/11 tests green, fully explainable rule-cited output where competitors show opaque "AI".</p>
+
+  <div class="b">
+    <div class="bx"><div class="v">11/11</div><div class="l">Tests passing</div></div>
+    <div class="bx"><div class="v">4</div><div class="l">Ingest formats (CSV / TXT / PDF / matrix)</div></div>
+    <div class="bx"><div class="v">19</div><div class="l">Auto-categories, rule-cited</div></div>
+    <div class="bx"><div class="v">5</div><div class="l">TDS sections auto-assigned (192, 194A, 194C, 194I, 194J)</div></div>
+    <div class="bx"><div class="v">6.2ms</div><div class="l">Ingest of 12-row fixed-width TXT</div></div>
+    <div class="bx"><div class="v">0</div><div class="l">Dependencies — rule engine, no tokens per run</div></div>
+  </div>
+
+  <div class="gates">
+    <div class="gate">GATE 1 · clean CSV: 0 errors, balances tie</div>
+    <div class="gate">GATE 2 · dirty CSV: isolate bad rows, keep good</div>
+    <div class="gate">GATE 3 · fixed-width TXT parses correct columns</div>
+    <div class="gate">GATE 4 · matrix / spreadsheet bridge ingests</div>
+    <div class="gate">GATE 5 · classification rule-cited + TDS-aware</div>
+    <div class="gate">GATE 6 · digital PDF extracts rows, no OCR</div>
+    <div class="gate">GATE 7 · scanned PDF → SCANNED_PDF_NEEDS_OCR</div>
+    <div class="gate">GATE 8 · ocrEngine adapter contract + empty-OCR error</div>
+    <div class="gate">GATE 9 · empty / garbage inputs → specific errors</div>
+    <div class="gate">GATE 10 · canonical row: classification + sourceRow</div>
+    <div class="gate">GATE 11 · UPI / MATURITY / BILLPAY / SIP classify sensibly</div>
+  </div>
+
+  <table style="margin-top:2rem">
+    <tr><th>Metric</th><th>Us</th><th>Provi AI</th><th>Suvidha AI</th><th>AI Accountant</th><th>Δ</th></tr>
+    <tr><td>Fixed-width TXT statements</td><td>✅ header-marker auto-scan</td><td>unknown</td><td>partial</td><td>partial</td><td>+</td></tr>
+    <tr><td>Digital PDF (text layer)</td><td>✅ native, 0 deps</td><td>✅</td><td>✅</td><td>✅</td><td>=</td></tr>
+    <tr><td>Scanned PDF → explicit error</td><td>✅ SCANNED_PDF_NEEDS_OCR</td><td>💰 OCR plan</td><td>💰 OCR plan</td><td>💰 OCR plan</td><td>+</td></tr>
+    <tr><td>OCR adapter (bring-your-own)</td><td>✅ contract, vendor-free</td><td>vendor-locked</td><td>vendor-locked</td><td>vendor-locked</td><td>+</td></tr>
+    <tr><td>Running-balance tie-out</td><td>✅ per row</td><td>partial</td><td>—</td><td>—</td><td>+</td></tr>
+    <tr><td>Dirty-row isolation</td><td>✅ errors vs warnings</td><td>partial</td><td>partial</td><td>partial</td><td>+</td></tr>
+    <tr><td>Auto-categorization</td><td>✅ 19 categories</td><td>✅</td><td>✅</td><td>✅</td><td>=</td></tr>
+    <tr><td>Categorization cites its rule</td><td>✅ ruleIds + note</td><td>opaque "AI"</td><td>opaque "AI"</td><td>opaque "AI"</td><td>+</td></tr>
+    <tr><td>TDS section auto-assign</td><td>✅ 192,194A,194C,194I,194J</td><td>partial</td><td>partial</td><td>partial</td><td>+</td></tr>
+    <tr><td>Capital vs revenue per tx</td><td>✅ resolved per transaction</td><td>manual check</td><td>manual check</td><td>manual check</td><td>+</td></tr>
+    <tr><td>Cost per run</td><td>₹0 (rule engine)</td><td>token fees</td><td>token fees</td><td>token fees</td><td>+</td></tr>
+  </table>
+
+  <p class="sub" style="margin-top:1.5rem;color:#15803d"><strong>Next (Sprint 3):</strong> GST reconciliation — GSTR-2B parse + match, GSTR-1 vs 3B, Rule 37A + IMS tracking.</p>
+</section>
+
+<!-- ═══════ SPRINT 3 ═══════ -->
+<section id="sprint3">
+  <span class="label">Sprint 3 · Done</span>
+  <h2>GST Reconciliation — GSTR-2B vs Books, GSTR-1/3B, Rule 37A + IMS</h2>
+  <p class="sub">Benchmark target: GSTAgent / FireAI / CORAA reconciliation. Result: 33/33 tests green, deterministic per-bucket diffs and a cited 37A reason that attach straight to working papers.</p>
+
+  <div class="b">
+    <div class="bx"><div class="v">33/33</div><div class="l">Tests passing</div></div>
+    <div class="bx"><div class="v">15</div><div class="l">GSTIN positions validated (mod-36 check digit)</div></div>
+    <div class="bx"><div class="v">8</div><div class="l">GSTR-2B sections parsed (B2B…HSN)</div></div>
+    <div class="bx"><div class="v">2</div><div class="l">37A buckets — blocked vs unclaimed ITC</div></div>
+    <div class="bx"><div class="v">₹78,400</div><div class="l">Blocked credit caught in fixture</div></div>
+    <div class="bx"><div class="v">0</div><div class="l">Dependencies — rule engine, no tokens per run</div></div>
+  </div>
+
+  <div class="gates">
+    <div class="gate">GATE 1..13 · GSTIN validation + GSTR-2B parse exact</div>
+    <div class="gate">GATE 1..6 · PR parse + 2B match, CN/CDNR never crosses B2B</div>
+    <div class="gate">GATE 1..9 · GSTR-1/3B buckets (−5000 catch), 37A, IMS exact</div>
+    <div class="gate">GATE 1..5 · end-to-end reconcile + plain-language report</div>
+  </div>
+
+  <table style="margin-top:2rem">
+    <tr><th>Metric</th><th>Us</th><th>GSTAgent</th><th>FireAI</th><th>CORAA</th><th>Δ</th></tr>
+    <tr><td>GSTIN validation (mod-36 check digit)</td><td>✅ built-in</td><td>per-API</td><td>partial</td><td>partial</td><td>+</td></tr>
+    <tr><td>GSTR-1 vs GSTR-3B rate×intra buckets</td><td>✅ deterministic</td><td>partial</td><td>–</td><td>✅</td><td>+</td></tr>
+    <tr><td>Rule 37A reversal tracking</td><td>✅ blocked+unclaimed</td><td>✅</td><td>–</td><td>–</td><td>=</td></tr>
+    <tr><td>IMS reconciliation (section-wise)</td><td>✅ incl. sectionLabel</td><td>–</td><td>–</td><td>✅</td><td>+</td></tr>
+    <tr><td>Credit-note handling (CDNR/CN)</td><td>✅ never matches B2B</td><td>partial</td><td>partial</td><td>partial</td><td>+</td></tr>
+    <tr><td>Amount-mismatch score (0–1 CV)</td><td>✅ bounded score</td><td>binary</td><td>binary</td><td>binary</td><td>+</td></tr>
+    <tr><td>Exceptions queue, severity-sorted</td><td>✅ plain language</td><td>report</td><td>report</td><td>report</td><td>+</td></tr>
+    <tr><td>Traceable / reconstructable output</td><td>✅ rule-cited</td><td>partial</td><td>partial</td><td>✅</td><td>+</td></tr>
+    <tr><td>Cost per run</td><td>₹0 (rule engine)</td><td>token fees</td><td>token fees</td><td>token fees</td><td>+</td></tr>
+  </table>
+
+  <p class="sub" style="margin-top:1.5rem;color:#15803d"><strong>Next (Sprint 4, shipped ↓):</strong> Deadline engine + automated doc collection (Finexo, Aalekh, MNB) — see Sprint 4 below.</p>
+</section>
+
+<!-- ═══════ SPRINT 4 ═══════ -->
+<section id="sprint4">
+  <span class="label">Sprint 4 · Done</span>
+  <h2>Deadline Engine + Automated Doc Collection + Compliance Dashboard</h2>
+  <p class="sub">Benchmark target: Finexo / Aalekh / MNB practice reminders. Result: 44/44 tests green, a deterministic per-client compliance engine with statutory audit/TP logic and an escalation queue that replaces 8–12 hours of manual chasing.</p>
+
+  <div class="b">
+    <div class="bx"><div class="v">44/44</div><div class="l">Tests passing (9+21+8+6)</div></div>
+    <div class="bx"><div class="v">8</div><div class="l">Statutory return types scheduled</div></div>
+    <div class="bx"><div class="v">58</div><div class="l">Deadlines computed (Jul–Dec window)</div></div>
+    <div class="bx"><div class="v">155</div><div class="l">Automated chase-plan messages</div></div>
+    <div class="bx"><div class="v">4</div><div class="l">Escalation levels (overdue→on_track)</div></div>
+    <div class="bx"><div class="v">0</div><div class="l">Dependencies — rule engine, no tokens per run</div></div>
+  </div>
+
+  <div class="gates">
+    <div class="gate">AGENT A · 9 gates — statutory profiles, schedule, QRMP, escalation</div>
+    <div class="gate">AGENT B · 21 gates — clients/docs parse, completeness, chase templates</div>
+    <div class="gate">AGENT C · 8 gates — dashboard per-client + totals fixture-exact</div>
+    <div class="gate">INTEGRATION · 6 gates — complianceRun, CLI exit 0/1/2, holiday shifts</div>
+  </div>
+
+  <table style="margin-top:2rem">
+    <tr><th>Metric</th><th>Us</th><th>Finexo</th><th>Aalekh</th><th>MNB</th><th>Δ</th></tr>
+    <tr><td>Per-client deadline engine, all return types</td><td>✅ 8 types</td><td>✅</td><td>✅</td><td>partial</td><td>+</td></tr>
+    <tr><td>Sec 44AB audit + TP due-date logic</td><td>✅ statutory</td><td>manual</td><td>manual</td><td>–</td><td>+</td></tr>
+    <tr><td>Weekend + holiday working-day adjustment</td><td>✅ built-in</td><td>partial</td><td>partial</td><td>partial</td><td>+</td></tr>
+    <tr><td>QRMP / monthly / quarterly schedule mix</td><td>✅ per client</td><td>partial</td><td>partial</td><td>–</td><td>+</td></tr>
+    <tr><td>Escalation (overdue / urgent / due_soon / on_track)</td><td>✅ as-of driven</td><td>reminders only</td><td>reminders only</td><td>reminders only</td><td>+</td></tr>
+    <tr><td>Automated doc chase plan</td><td>✅ per required doc</td><td>–</td><td>–</td><td>–</td><td>+</td></tr>
+    <tr><td>Per-client completeness + chase count</td><td>✅ 0..1</td><td>–</td><td>–</td><td>–</td><td>+</td></tr>
+    <tr><td>CI-ready exit codes (0/1/2)</td><td>✅</td><td>–</td><td>–</td><td>–</td><td>+</td></tr>
+    <tr><td>Cost per run</td><td>₹0 (rule engine)</td><td>token fees</td><td>token fees</td><td>token fees</td><td>+</td></tr>
+  </table>
+
+  <p class="sub" style="margin-top:1.5rem;color:#15803d"><strong>Next (Sprint 5, shipped ↓):</strong> Filing assistant — GSTR-1/3B auto-population, ITR prep with AIS/26AS pre-fill and regime compare.</p>
+</section>
+
+<!-- ═══════ SPRINT 5 ═══════ -->
+<section id="sprint5">
+  <span class="label">Sprint 5 · Done</span>
+  <h2>Filing Assistant — GSTR-1/3B Prep, ITR Regime Compare, TDS Threshold Monitor</h2>
+  <p class="sub">Benchmark target: Aalekh / Provi AI filing prep. Result: 58/58 tests green — return tables derived from the sales and purchase registers with e-invoice validation, ITR populated from AIS/26AS with exact regime math, and TDS thresholds tripped before the deductor does.</p>
+
+  <div class="b">
+    <div class="bx"><div class="v">58/58</div><div class="l">Tests passing (7+12+33+6)</div></div>
+    <div class="bx"><div class="v">2</div><div class="l">Regimes compared (new vs old, exact)</div></div>
+    <div class="bx"><div class="v">₹10.3L</div><div class="l">GSTR-1 taxable surfaced from 9 invoices</div></div>
+    <div class="bx"><div class="v">₹1,45,600</div><div class="l">Regime savings recommended (new)</div></div>
+    <div class="bx"><div class="v">4</div><div class="l">TDS threshold flags + 4 e-invoice violations caught</div></div>
+    <div class="bx"><div class="v">0</div><div class="l">Dependencies — rule engine, no tokens per run</div></div>
+  </div>
+
+  <div class="gates">
+    <div class="gate">AGENT A · 7 gates — GSTR-1 tables, B2CL/B2CS split, e-invoice checks</div>
+    <div class="gate">AGENT B · 12 gates — GSTR-3B 3.1a order/totals, ITC split, import tracking</div>
+    <div class="gate">AGENT C · 33 gates — ITR exact math, AIS gaps, TDS flags, slab edges</div>
+    <div class="gate">INTEGRATION · 6 gates — filingPrep, INV-108 exclusion, regime math, CLI exit 0/1/2</div>
+  </div>
+
+  <div class="b" style="margin-top:1.5rem; padding:0.9rem 1.2rem; background:#f8fafc; border-left:4px solid #16a34a;">
+    <span style="font-size:0.8rem;color:#555;"><strong>Fixture run (9 valid + 1 invalid invoice):</strong> GSTR-1 B2B ₹5.2L (IGST ₹87,600), B2CL ₹3L, B2CS ₹1.3L intra + ₹40K inter, nil ₹40K, HSN summary 4 codes — INV-108 rejected for INVALID_HSN + TAX_MISMATCH. GSTR-3B inter ₹7.6L/IGST ₹1.26L, intra ₹2.3L/CGST-SGST ₹16,800 ea, ITC available ₹1,30,400 (₹45K import). ITR: GTI ₹45.5L → new regime ₹10,01,000 vs old ₹11,46,600, recommends new, payable ₹9,43,500 after ₹57,500 TDS; AIS flags ₹3.9L unexplained. TDS: 4 flags (Raj Contractors ₹1,100, Tech Pro ₹3,500, Shelter RE ₹40,000, Finance Bank ₹4,500). CLI exits 2 — action required by design.</span>
+  </div>
+
+  <table style="margin-top:2rem">
+    <tr><th>Metric</th><th>Us</th><th>Aalekh</th><th>Provi AI</th><th>Δ</th></tr>
+    <tr><td>GSTR-1 auto-population (B2B/B2CL/B2CS/nil)</td><td>✅ table-ready</td><td>partial</td><td>partial</td><td>+</td></tr>
+    <tr><td>E-invoice / ledger validation (rule-first)</td><td>✅ 6 checks</td><td>–</td><td>–</td><td>+</td></tr>
+    <tr><td>HSN 4/6/8-digit summary with quantities</td><td>✅ derived</td><td>manual</td><td>manual</td><td>+</td></tr>
+    <tr><td>GSTR-3B outward 3.1a + ITC split (4(D))</td><td>✅ derived</td><td>partial</td><td>partial</td><td>+</td></tr>
+    <tr><td>ITR old-vs-new regime compare (87A + cess)</td><td>✅ exact math</td><td>manual</td><td>manual</td><td>+</td></tr>
+    <tr><td>AIS / 26AS pre-fill + gap reconciliation</td><td>✅ 4 gaps</td><td>–</td><td>–</td><td>+</td></tr>
+    <tr><td>TDS threshold monitor (annual + single basis)</td><td>✅ 4 flags</td><td>–</td><td>–</td><td>+</td></tr>
+    <tr><td>CI-ready exit codes (0/1/2)</td><td>✅</td><td>–</td><td>–</td><td>+</td></tr>
+    <tr><td>Cost per run</td><td>₹0 (rule engine)</td><td>token fees</td><td>token fees</td><td>+</td></tr>
+  </table>
+
+  <p class="sub" style="margin-top:1.5rem;color:#15803d"><strong>Next (Sprint 6):</strong> Defensible audit — full-population ledger scrutiny, rule-cited flags, SA 230 working papers.</p>
+</section>
+
+<!-- ═══════ BUILD ORDER ═══════ -->
+<section id="order">
+  <span class="label">Build Order Rationale</span>
+  <h2>Why This Sequence</h2>
+  <p class="sub">Order is driven by (1) which feature removes the most hours from a CA firm's month, and (2) which is the largest gap vs what competitors already ship.</p>
+
+  <table>
+    <tr><th>Rank</th><th>Feature</th><th>Benchmark</th><th>Rationale</th></tr>
+    <tr><td>1</td><td>Tally ingestion + validation</td><td>FireAI, Accomation</td><td>Everything downstream needs it — no point building before data lands clean.</td></tr>
+    <tr><td>2</td><td>Bank statement + OCR extraction</td><td>Provi AI, Suvidha, AI Accountant</td><td>Biggest single hour sink (167 hrs/mo per 100-client firm).</td></tr>
+    <tr><td>3</td><td>Transaction categorization (TDS + cap/rev)</td><td>Provi AI, Febi.ai</td><td>Attack where competitors warn buyers to "check" — their weakness.</td></tr>
+    <tr><td>4</td><td>GST reconciliation engine</td><td>GSTAgent, FireAI, CORAA</td><td>The 14th-of-month problem. Highest willingness to pay.</td></tr>
+    <tr><td>5</td><td>Rule 37A + IMS tracking</td><td>GSTAgent (37A), CORAA (IMS)</td><td>Beat GSTAgent where weak; match CORAA where it wins.</td></tr>
+    <tr><td>6</td><td>Versioned rulesets + exceptions + audit trail</td><td>FireAI, CORAA</td><td>Trust feature — converts "AI output" into defensible work product.</td></tr>
+    <tr><td>7</td><td>Deadline engine + doc collection</td><td>Finexo, Aalekh, MNB</td><td>Cheap, huge perceived value, wins the "single source of truth" story.</td></tr>
+    <tr><td>8</td><td>GST/ITR filing assistant</td><td>Aalekh, Provi AI ✅ (Sprint 5)</td><td>Completes the compliance loop.</td></tr>
+    <tr><td>9</td><td>TDS + AIS cross-check</td><td>Provi AI ✅ (Sprint 5)</td><td>Quarterly return prep.</td></tr>
+    <tr><td>10</td><td>Audit engine (full-population, explainable)</td><td>CORAA</td><td>Highest price point (₹30K+/yr). Build when data moat exists.</td></tr>
+    <tr><td>11</td><td>Cited tax research</td><td>Taxmann.ai</td><td>Lowest urgency — Taxmann has a content moat; compete on price + integration.</td></tr>
+    <tr><td>12</td><td>Benchmarking, API, ecosystem</td><td>Nobody</td><td>Pure differentiator. Network effects kick in.</td></tr>
+  </table>
+
+  <div style="margin-top:2rem; padding:1.25rem 1.5rem; background:#f8fafc; border-left:4px solid #4f46e5; border-radius:8px;">
+    <h4 style="font-size:0.9rem;font-weight:700;">Core Thesis</h4>
+    <p style="font-size:0.88rem;color:#555;">The firm that owns the <strong>data layer</strong> for Indian CA compliance owns the market. Data in → categorize → reconcile → file → audit → advise. Each stage unlocks the next; we never build stage N+1 before stage N works at competitor parity on real client data.</p>
+  </div>
+</section>
+
+<footer>
+  <p>AI Automation for Indian CA Firms — Live Build Tracker</p>
+  <p style="margin-top:0.5rem;">Sprint 5 shipped 2026-09-07 · Next: Sprint 6 (defensible audit) · Phases 1–4 of 6 done, 9 of 12 build-order items shipped</p>
+</footer>
+
+</body>
+</html>

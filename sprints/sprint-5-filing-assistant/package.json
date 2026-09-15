@@ -1,0 +1,10 @@
+{
+  "name": "sprint-5-filing-assistant",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Sprint 5 - filing assistant: GSTR-1/3B auto-population, e-invoice validation, ITR prep (AIS/26AS + regime compare), TDS threshold monitoring",
+  "scripts": {
+    "test": "node --test \"test/*.test.mjs\""
+  }
+}

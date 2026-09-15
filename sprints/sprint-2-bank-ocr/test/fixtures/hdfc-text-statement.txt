@@ -1,0 +1,22 @@
+
+ACCOUNT HOLDER        : DINESH & CO
+ACCOUNT NUMBER        : 50100234567890
+IFSC CODE             : HDFC0000123
+ACCOUNT CLOSED        : No
+
+                                   STATEMENT OF A/C : 50100234567890 PERIOD 01/04/2025 TO 30/04/2025
+                                   ----------------------------------------------------------------------------------------------------
+
+DATE       NARRATION                        WITHDRAWAL AMT.    DEPOSIT AMT.    BALANCE
+01/04/2025 OPENING BALANCE                  0.00               250000.00       250000.00
+02/04/2025 NEFT CR - ZOMATO - SALE          0.00               118000.00       368000.00
+03/04/2025 IMPS DR - RENT                   45000.00           0.00            323000.00
+04/04/2025 SALARY JAN                       80000.00           0.00            243000.00
+05/04/2025 CR - INTEREST RECEIVED           0.00               2345.00         245345.00
+06/04/2025 TDS DEPOSIT 194J                 15000.00           0.00            230345.00
+07/04/2025 UTILITY ELECTRICITY              5800.00            0.00            224545.00
+08/04/2025 DR - MACHINERY PURCHASE          150000.00          0.00            74545.00
+09/04/2025 NEFT CR - CAPITAL INTRO          0.00               200000.00       274545.00
+10/04/2025 FREIGHT COURIER                  4500.00            0.00            270045.00
+11/04/2025 DR - LOAN REPAYMENT              50000.00           0.00            220045.00
+12/04/2025 DR - DRAWINGS                    25000.00           0.00            195045.00

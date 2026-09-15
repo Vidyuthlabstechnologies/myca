@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>MyCA Engineering Blueprint — Live Integrations & Architecture</title>
+<style>
+  @page {
+    size: A4 portrait;
+    margin: 14mm 15mm 14mm 15mm;
+    @top-left {
+      content: "MyCA Integration Architecture";
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 7.5pt;
+      color: #64748b;
+    }
+    @top-right {
+      content: "Engineering Specification \2022  September 2026";
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 7.5pt;
+      color: #64748b;
+    }
+    @bottom-left {
+      content: "TigerBeetle Invariants \2022  Invoice Source of Truth \2022  DPDPA 2023";
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 7.5pt;
+      color: #94a3b8;
+    }
+    @bottom-right {
+      content: "Page " counter(page) " of " counter(pages);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 7.5pt;
+      font-weight: 600;
+      color: #475569;
+    }
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    color: #1e293b;
+    background: #ffffff;
+    font-size: 8.8pt;
+    line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Document Header */
+  .doc-header {
+    border-bottom: 1.5px solid #0f172a;
+    padding-bottom: 12px;
+    margin-bottom: 14px;
+  }
+  .doc-label {
+    font-size: 7.5pt;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #b45309;
+    margin-bottom: 4px;
+  }
+  h1 {
+    font-size: 19pt;
+    font-weight: 800;
+    color: #0f172a;
+    line-height: 1.15;
+    letter-spacing: -0.5px;
+    margin-bottom: 6px;
+  }
+  .doc-summary {
+    font-size: 9.2pt;
+    color: #475569;
+    line-height: 1.45;
+  }
+
+  .meta-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 8px 12px;
+    margin-top: 12px;
+  }
+  .meta-item .label {
+    font-size: 6.8pt;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: #64748b;
+  }
+  .meta-item .value {
+    font-size: 8.2pt;
+    font-weight: 600;
+    color: #0f172a;
+    margin-top: 1px;
+  }
+
+  /* Architectural Principle Banner */
+  .principle-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-left: 3px solid #0f172a;
+    border-radius: 4px;
+    padding: 8px 12px;
+    margin: 12px 0 14px 0;
+  }
+  .principle-title {
+    font-size: 8.2pt;
+    font-weight: 700;
+    color: #0f172a;
+    margin-bottom: 2px;
+  }
+  .principle-desc {
+    font-size: 7.8pt;
+    color: #475569;
+    line-height: 1.4;
+  }
+
+  /* Section Styles */
+  .section {
+    margin-top: 14px;
+  }
+  h2 {
+    font-size: 11.5pt;
+    font-weight: 700;
+    color: #0f172a;
+    letter-spacing: -0.2px;
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    page-break-after: avoid;
+  }
+  .sec-index {
+    font-size: 8.5pt;
+    font-weight: 700;
+    color: #b45309;
+    font-family: Consolas, monospace;
+  }
+  .section-lead {
+    font-size: 8pt;
+    color: #64748b;
+    margin-bottom: 8px;
+    page-break-after: avoid;
+  }
+
+  /* Tables */
+  table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    border: 1px solid #e2e8f0;
+    border-radius: 5px;
+    overflow: hidden;
+    margin-bottom: 12px;
+    font-size: 8pt;
+  }
+  th {
+    background: #f8fafc;
+    color: #475569;
+    font-weight: 600;
+    font-size: 7pt;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    text-align: left;
+    padding: 6px 8px;
+    border-bottom: 1px solid #cbd5e1;
+  }
+  td {
+    padding: 6px 8px;
+    border-bottom: 1px solid #f1f5f9;
+    vertical-align: top;
+    color: #334155;
+    line-height: 1.35;
+  }
+  tr:last-child td {
+    border-bottom: none;
+  }
+  tr:nth-child(even) td {
+    background: #fafafa;
+  }
+
+  /* Typography within Tables */
+  .cell-title {
+    font-weight: 600;
+    color: #0f172a;
+    font-size: 8.5pt;
+  }
+  .cell-sub {
+    color: #64748b;
+    font-size: 7.5pt;
+    margin-top: 1px;
+    line-height: 1.35;
+  }
+  .code {
+    font-family: Consolas, 'SF Mono', monospace;
+    font-size: 7pt;
+    background: #f1f5f9;
+    color: #0369a1;
+    padding: 1px 4px;
+    border-radius: 3px;
+    display: inline-block;
+    margin-top: 2px;
+  }
+  .req-badge {
+    font-family: Consolas, monospace;
+    font-size: 7.8pt;
+    font-weight: 700;
+    color: #0f172a;
+    background: #f1f5f9;
+    padding: 1px 5px;
+    border-radius: 3px;
+    border: 1px solid #e2e8f0;
+    display: inline-block;
+  }
+
+  a {
+    color: #1d4ed8;
+    text-decoration: none;
+    font-weight: 600;
+  }
+  a:hover {
+    text-decoration: underline;
+  }
+
+  .pill {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 10px;
+    font-size: 6.8pt;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+  }
+  .pill-strict {
+    background: #fef2f2;
+    color: #b91c1c;
+    border: 1px solid #fecaca;
+  }
+  .pill-auto {
+    background: #f0fdf4;
+    color: #15803d;
+    border: 1px solid #bbf7d0;
+  }
+  .pill-review {
+    background: #fffbeb;
+    color: #b45309;
+    border: 1px solid #fef3c7;
+  }
+
+  .page-break {
+    page-break-before: always;
+  }
+</style>
+</head>
+<body>
+
+<!-- PAGE 1: Header + Principle + Section 1 -->
+<div class="doc-header">
+  <div class="doc-label">Engineering Specification &bull; System Integrations</div>
+  <h1>MyCA: Production Integration Blueprint</h1>
+  <div class="doc-summary">
+    Architectural blueprint for connecting MyCA’s deterministic books, GST reconciliation, and defensible audit engines to live statutory portals, licensed GSPs, banking networks, and firm infrastructure.
+  </div>
+
+  <div class="meta-grid">
+    <div class="meta-item">
+      <div class="label">System Core</div>
+      <div class="value">TigerBeetle Invariants</div>
+    </div>
+    <div class="meta-item">
+      <div class="label">Source of Truth</div>
+      <div class="value">Tax Invoice Entry</div>
+    </div>
+    <div class="meta-item">
+      <div class="label">Data Protection</div>
+      <div class="value">DPDPA 2023 India Only</div>
+    </div>
+    <div class="meta-item">
+      <div class="label">Autonomous Limit</div>
+      <div class="value">Zero Live Portal Filing</div>
+    </div>
+  </div>
+</div>
+
+<div class="principle-card">
+  <div class="principle-title">The Adapter Invariant</div>
+  <div class="principle-desc">
+    External connectors are strict protocol translators. Remote payloads (from Quicko, GSTN, Tally, or Banks) are ingested and converted into existing MyCA schemas. Under no circumstances does an external API connector replace or duplicate internal accounting or reconciliation logic. All statutory uploads, OTPs, and signatures require authenticated CA approvals.
+  </div>
+</div>
+
+<div class="section">
+  <h2><span class="sec-index">01.</span> Statutory Tax &amp; Government Portals</h2>
+  <div class="section-lead">Direct and GSP-mediated interfaces for GSTN, NIC e-Invoice, Income Tax e-Filing, and NSDL/TRACES.</div>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 14%;">Requirement</th>
+        <th style="width: 26%;">System &amp; Scope</th>
+        <th style="width: 32%;">Target Provider &amp; Docs</th>
+        <th style="width: 12%;">Direction</th>
+        <th style="width: 16%;">Approval Gate</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><span class="req-badge">REQ-CA-006</span></td>
+        <td>
+          <div class="cell-title">GSTN via Licensed GSP</div>
+          <div class="cell-sub">Auth, return upload (1/3B), ledger balance, IMS, GSTR-2B job polling.</div>
+          <div class="code">POST /gst/auth &bull; POST /gst/gstr1</div>
+        </td>
+        <td>
+          <a href="https://developer.sandbox.co.in/api-reference/gst/overview" target="_blank">Quicko Sandbox GST API ↗</a><br>
+          <a href="https://services.gst.gov.in/services/login" target="_blank">Official GSTN Portal ↗</a>
+        </td>
+        <td>Bi-directional</td>
+        <td><span class="pill pill-strict">CA OTP Required</span></td>
+      </tr>
+      <tr>
+        <td><span class="req-badge">REQ-CA-007</span></td>
+        <td>
+          <div class="cell-title">NIC E-Invoice &amp; E-Way Bill</div>
+          <div class="cell-sub">Official v1.04 auth with RSA PKCS#1 v1.5 public key encryption; IRN generation.</div>
+          <div class="code">POST /eivital/v1.04/auth &bull; POST /Invoice</div>
+        </td>
+        <td>
+          <a href="https://einv-apisandbox.nic.in/" target="_blank">NIC Developer Sandbox ↗</a><br>
+          <a href="https://developer.sandbox.co.in/api-reference/gst/compliance/guides/e-invoice/overview" target="_blank">Sandbox E-Invoice Guide ↗</a>
+        </td>
+        <td>Bi-directional</td>
+        <td><span class="pill pill-strict">CA Authorized</span></td>
+      </tr>
+      <tr>
+        <td><span class="req-badge">REQ-CA-008</span></td>
+        <td>
+          <div class="cell-title">GSTIN Status &amp; Return Tracking</div>
+          <div class="cell-sub">Legal name verification, state registration, composition check, return history.</div>
+          <div class="code">GET /gstin/{gstin}</div>
+        </td>
+        <td>
+          <a href="https://developer.sandbox.co.in/api-reference/gst/compliance/endpoints/taxpayer/common/track_returns" target="_blank">Sandbox Return Tracking API ↗</a>
+        </td>
+        <td>Read-Only</td>
+        <td><span class="pill pill-auto">Autonomous</span></td>
+      </tr>
+      <tr>
+        <td><span class="req-badge">REQ-CA-009</span></td>
+        <td>
+          <div class="cell-title">AIS &amp; Form 26AS Import</div>
+          <div class="cell-sub">Annual Information Statement financial transactions, high-value purchases, TDS credits.</div>
+          <div class="code">POST /income-tax/ais/import</div>
+        </td>
+        <td>
+          <a href="https://eportal.incometax.gov.in/" target="_blank">ITD e-Filing Portal ↗</a><br>
+          <a href="https://developer.sandbox.co.in/" target="_blank">Quicko Tax Analytics ↗</a>
+        </td>
+        <td>Read-Only</td>
+        <td><span class="pill pill-auto">Autonomous</span></td>
+      </tr>
+      <tr>
+        <td><span class="req-badge">REQ-CA-010</span></td>
+        <td>
+          <div class="cell-title">TDS Returns &amp; TRACES</div>
+          <div class="cell-sub">Deductee payments, Section 194A/C/I/J thresholds, challan mapping, FVU generation.</div>
+          <div class="code">GET /tds/payments &bull; POST /fvu</div>
+        </td>
+        <td>
+          <a href="https://contents.tdscpc.gov.in/" target="_blank">TRACES CPC Portal ↗</a><br>
+          <a href="https://www.protean-tinpan.com/" target="_blank">Protean TIN NSDL ↗</a>
+        </td>
+        <td>Bi-directional</td>
+        <td><span class="pill pill-strict">CA Review Gate</span></td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- PAGE 2: Section 2 (Accounting/Banks) + Section 3 (Practice Automation) -->
+<div class="page-break"></div>
+
+<div class="section">
+  <h2><span class="sec-index">02.</span> Accounting Software &amp; Financial Feeds</h2>
+  <div class="section-lead">Bi-directional synchronization with client books and automated daily bank statement streaming.</div>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 22%;">Platform</th>
+        <th style="width: 28%;">Protocol &amp; Local Interface</th>
+        <th style="width: 32%;">Official Documentation</th>
+        <th style="width: 18%;">Capabilities</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>
+          <div class="cell-title">TallyPrime Live Sync</div>
+          <div class="cell-sub">Direct local desktop sync.</div>
+        </td>
+        <td>
+          <div class="cell-sub">XML over HTTP Request Envelope<br>ODBC Port 9000</div>
+          <div class="code">http://127.0.0.1:9000</div>
+        </td>
+        <td>
+          <a href="https://help.tallysolutions.com/tally-prime/integration-tally-prime/tally-xml-data-interchange/" target="_blank">Tally XML Data Interchange ↗</a>
+        </td>
+        <td>
+          <div class="cell-sub">Real-time Day Book sync preserving cost centres and voucher types.</div>
+        </td>
+      </tr>
+      <tr>
+        <td>
+          <div class="cell-title">Zoho Books Connector</div>
+          <div class="cell-sub">Cloud accounting integration.</div>
+        </td>
+        <td>
+          <div class="cell-sub">REST API v3 (OAuth 2.0)<br>JSON Payloads</div>
+          <div class="code">api.zoho.com/books/v3</div>
+        </td>
+        <td>
+          <a href="https://www.zoho.com/books/api/v3/" target="_blank">Zoho Books API Reference ↗</a>
+        </td>
+        <td>
+          <div class="cell-sub">Auto-streams sales invoices, bills, and payment settlements.</div>
+        </td>
+      </tr>
+      <tr>
+        <td>
+          <div class="cell-title">Account Aggregator (AA)</div>
+          <div class="cell-sub">RBI-regulated bank feeds.</div>
+        </td>
+        <td>
+          <div class="cell-sub">Financial Information User (FIU)<br>Consent Artifact Validation</div>
+          <div class="code">Encrypted FI Data Blocks</div>
+        </td>
+        <td>
+          <a href="https://sahamati.org.in/" target="_blank">Sahamati AA Architecture ↗</a><br>
+          <a href="https://setu.co/data/account-aggregator" target="_blank">Setu Account Aggregator ↗</a>
+        </td>
+        <td>
+          <div class="cell-sub">Daily bank statement feeds with automated running-balance tie-out.</div>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="section">
+  <h2><span class="sec-index">03.</span> Practice Automation &amp; Client Communication</h2>
+  <div class="section-lead">Automated document collection and multi-channel compliance reminder dispatch.</div>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 14%;">Requirement</th>
+        <th style="width: 26%;">Workflow</th>
+        <th style="width: 32%;">Provider &amp; Transport</th>
+        <th style="width: 12%;">Flow</th>
+        <th style="width: 16%;">Control Policy</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><span class="req-badge">REQ-CA-011</span></td>
+        <td>
+          <div class="cell-title">Tasks &amp; Statutory Deadlines</div>
+          <div class="cell-sub">Dynamic calendar accounting for gazetted holidays and weekend rollovers.</div>
+        </td>
+        <td>
+          <div class="cell-sub">Practice Management Database<br>(Finexo / Karbon / Custom)</div>
+          <div class="code">GET /tasks &bull; POST /tasks</div>
+        </td>
+        <td>Read / Write</td>
+        <td><span class="pill pill-auto">Automated</span></td>
+      </tr>
+      <tr>
+        <td><span class="req-badge">REQ-CA-012</span></td>
+        <td>
+          <div class="cell-title">Client Document Chasing</div>
+          <div class="cell-sub">Tracking missing bank statements, bills, and GST certificates.</div>
+        </td>
+        <td>
+          <div class="cell-sub">Secure Client Upload Portal<br>Webhook Status Tracking</div>
+          <div class="code">POST /document-requests</div>
+        </td>
+        <td>Bi-directional</td>
+        <td><span class="pill pill-auto">Automated</span></td>
+      </tr>
+      <tr>
+        <td><span class="req-badge">REQ-CA-013</span></td>
+        <td>
+          <div class="cell-title">Client Notifications</div>
+          <div class="cell-sub">Filing alerts and document collection reminders via WhatsApp/Email.</div>
+        </td>
+        <td>
+          <a href="https://developers.facebook.com/docs/whatsapp/cloud-api" target="_blank">Meta WhatsApp Cloud API ↗</a><br>
+          <a href="https://aws.amazon.com/ses/" target="_blank">AWS SES Transactional Email ↗</a>
+        </td>
+        <td>Outbound</td>
+        <td><span class="pill pill-review">Template Approval</span></td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- PAGE 3: Section 4 (Firm Infra) + Section 5 (Security) + Roadmaps -->
+<div class="page-break"></div>
+
+<div class="section">
+  <h2><span class="sec-index">04.</span> Firm Master Data &amp; Core Infrastructure</h2>
+  <div class="section-lead">Practice-wide client master, multi-tenant ledger storage, and immutable audit logs.</div>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 14%;">Requirement</th>
+        <th style="width: 26%;">Component</th>
+        <th style="width: 32%;">Production Storage Architecture</th>
+        <th style="width: 28%;">Integrity &amp; Compliance</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><span class="req-badge">REQ-CA-001</span></td>
+        <td>
+          <div class="cell-title">Client Master Registry</div>
+          <div class="cell-sub">Entity type, PAN, GSTINs, turnover, GST filing frequency, audit mandate.</div>
+        </td>
+        <td>
+          <div class="cell-sub">PostgreSQL / Firm CRM<br>REST Endpoint: <span class="code">GET /clients</span></div>
+        </td>
+        <td>
+          <div class="cell-sub">Single truth source across all firm compliance engagements.</div>
+        </td>
+      </tr>
+      <tr>
+        <td><span class="req-badge">REQ-CA-002</span></td>
+        <td>
+          <div class="cell-title">Multi-Client Ledger Database</div>
+          <div class="cell-sub">Distributed storage replacing single local state.json.</div>
+        </td>
+        <td>
+          <a href="https://tigerbeetle.com/" target="_blank">TigerBeetle Financial Database ↗</a><br>
+          <div class="cell-sub">Distributed state machine / PostgreSQL fallback</div>
+        </td>
+        <td>
+          <div class="cell-sub">Integer paise BigInt, balanced transfers, CRC-32 chain. Tested at 5,700 tx / 72ms.</div>
+        </td>
+      </tr>
+      <tr>
+        <td><span class="req-badge">REQ-CA-003</span></td>
+        <td>
+          <div class="cell-title">Encrypted Document Archive</div>
+          <div class="cell-sub">Tally XMLs, bank PDFs, GST JSONs, working papers.</div>
+        </td>
+        <td>
+          <div class="cell-sub">AWS S3 / Azure Blob (India Region)<br>Server-Side AES-256 Encryption</div>
+        </td>
+        <td>
+          <div class="cell-sub">DPDPA 2023 compliance with strict India data residency guarantees.</div>
+        </td>
+      </tr>
+      <tr>
+        <td><span class="req-badge">REQ-CA-004</span></td>
+        <td>
+          <div class="cell-title">Firm Users &amp; RBAC</div>
+          <div class="cell-sub">Maker-checker approval hierarchies.</div>
+        </td>
+        <td>
+          <a href="https://learn.microsoft.com/en-us/entra/identity/" target="_blank">Microsoft Entra ID (Azure AD) ↗</a><br>
+          <div class="cell-sub">OAuth 2.0 / SAML 2.0 SSO</div>
+        </td>
+        <td>
+          <div class="cell-sub">Separation of duties: Article Clerk &bull; Reviewer &bull; Partner Sign-off.</div>
+        </td>
+      </tr>
+      <tr>
+        <td><span class="req-badge">REQ-CA-005</span></td>
+        <td>
+          <div class="cell-title">Tamper-Evident Audit Log</div>
+          <div class="cell-sub">Chronological ledger of tool runs and state transitions.</div>
+        </td>
+        <td>
+          <div class="cell-sub">WORM Storage / Append-Only Ingestion<br>SHA-256 Digest Chains</div>
+        </td>
+        <td>
+          <div class="cell-sub">Defensible audit papers satisfying ICAI Standard on Auditing (SA) 230.</div>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="section">
+  <h2><span class="sec-index">05.</span> Hardware Security, Cryptography &amp; AI Telemetry</h2>
+  <div class="section-lead">Hardware-bound digital signatures, OS credential vaulting, and AI grounding pipelines.</div>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 22%;">Subsystem</th>
+        <th style="width: 28%;">Technology &amp; Standards</th>
+        <th style="width: 32%;">Official Reference</th>
+        <th style="width: 18%;">Security Model</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>
+          <div class="cell-title">Digital Signature (DSC)</div>
+          <div class="cell-sub">Cryptographic return signing.</div>
+        </td>
+        <td>
+          <div class="cell-sub">PKCS#11 Native USB Token Driver<br>ePass2003 / Watchdata / ProxKey</div>
+        </td>
+        <td>
+          <a href="https://cca.gov.in/" target="_blank">Controller of Certifying Authorities ↗</a>
+        </td>
+        <td>
+          <span class="pill pill-strict">Physical Token + PIN</span><br>
+          <span class="cell-sub">Zero autonomous signing</span>
+        </td>
+      </tr>
+      <tr>
+        <td>
+          <div class="cell-title">OS Credential Vault</div>
+          <div class="cell-sub">Securing local API secrets.</div>
+        </td>
+        <td>
+          <div class="cell-sub">Windows DPAPI (<span class="code">CryptProtectData</span>)<br>Hardware TPM-backed entropy</div>
+        </td>
+        <td>
+          <a href="https://learn.microsoft.com/en-us/windows/win32/devnotes/dpapi-architecture" target="_blank">Microsoft DPAPI Architecture ↗</a>
+        </td>
+        <td>
+          <span class="pill pill-auto">OS-Level Encrypted</span><br>
+          <span class="cell-sub">Replaces plaintext govt.json</span>
+        </td>
+      </tr>
+      <tr>
+        <td>
+          <div class="cell-title">REQ-CA-014: Knowledge Base</div>
+          <div class="cell-sub">AI statutory grounding.</div>
+        </td>
+        <td>
+          <div class="cell-sub">Vector Database RAG Pipeline<br>Qdrant / pgvector Indexed Laws</div>
+        </td>
+        <td>
+          <a href="https://qdrant.tech/" target="_blank">Qdrant Vector Database ↗</a>
+        </td>
+        <td>
+          <div class="cell-sub">Grounds queries in verified circulars, IT Act, and firm SOPs.</div>
+        </td>
+      </tr>
+      <tr>
+        <td>
+          <div class="cell-title">REQ-CA-015: Quality Evals</div>
+          <div class="cell-sub">LLM correction logging.</div>
+        </td>
+        <td>
+          <div class="cell-sub">Telemetry &amp; Correction Tracking<br>Langfuse / Dedicated Eval Store</div>
+        </td>
+        <td>
+          <a href="https://langfuse.com/" target="_blank">Langfuse Engineering Platform ↗</a>
+        </td>
+        <td>
+          <div class="cell-sub">Tracks reviewer corrections to continuously fine-tune prompt routing.</div>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="section">
+  <h2><span class="sec-index">06.</span> Recommended Implementation Sequencing</h2>
+  <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 6px;">
+    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 5px; padding: 8px 10px;">
+      <div style="font-weight: 700; color: #0f172a; font-size: 8pt; margin-bottom: 2px;">Milestone 1: Practice Data Layer</div>
+      <div style="font-size: 7.5pt; color: #64748b; line-height: 1.35;">
+        &bull; Central PostgreSQL / TigerBeetle database (REQ-CA-001 &amp; 002)<br>
+        &bull; Encrypted S3 Document Vault (REQ-CA-003)<br>
+        &bull; Windows DPAPI credential migration
+      </div>
+    </div>
+    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 5px; padding: 8px 10px;">
+      <div style="font-weight: 700; color: #0f172a; font-size: 8pt; margin-bottom: 2px;">Milestone 2: Statutory Connectors</div>
+      <div style="font-size: 7.5pt; color: #64748b; line-height: 1.35;">
+        &bull; Quicko Sandbox GSP ASP onboarding (REQ-CA-006)<br>
+        &bull; Live GSTR-2B ingestion and IRN e-invoicing (REQ-CA-007)<br>
+        &bull; GSTIN live validation API (REQ-CA-008)
+      </div>
+    </div>
+    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 5px; padding: 8px 10px;">
+      <div style="font-weight: 700; color: #0f172a; font-size: 8pt; margin-bottom: 2px;">Milestone 3: Client Automation</div>
+      <div style="font-size: 7.5pt; color: #64748b; line-height: 1.35;">
+        &bull; Meta WhatsApp Business Cloud API integration (REQ-CA-013)<br>
+        &bull; Automated monthly document chase portal (REQ-CA-012)<br>
+        &bull; Holiday-aware deadline dispatcher (REQ-CA-011)
+      </div>
+    </div>
+    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 5px; padding: 8px 10px;">
+      <div style="font-weight: 700; color: #0f172a; font-size: 8pt; margin-bottom: 2px;">Milestone 4: Direct Accounting Sync</div>
+      <div style="font-size: 7.5pt; color: #64748b; line-height: 1.35;">
+        &bull; TallyPrime Port 9000 live XML sync<br>
+        &bull; Zoho Books OAuth 2.0 bi-directional adapter<br>
+        &bull; Account Aggregator automated daily bank statements
+      </div>
+    </div>
+  </div>
+</div>
+
+<div style="margin-top: 14px; padding-top: 6px; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; font-size: 7pt; color: #94a3b8;">
+  <div>MyCA &bull; Proprietary Technical Specification &bull; Designed for Indian CA Practices</div>
+  <div>Built with Integer Paise &bull; Checksummed Transfer Chains &bull; DPDPA 2023 Compliant</div>
+</div>
+
+</body>
+</html>

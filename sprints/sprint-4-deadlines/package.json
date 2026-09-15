@@ -1,0 +1,10 @@
+{
+  "name": "sprint-4-deadlines",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Sprint 4 — per-client deadline engine + automated doc collection + compliance dashboard",
+  "scripts": {
+    "test": "node --test \"test/*.test.mjs\""
+  }
+}

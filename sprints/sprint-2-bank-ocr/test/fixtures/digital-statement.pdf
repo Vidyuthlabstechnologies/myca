@@ -1,0 +1,33 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>
+endobj
+4 0 obj
+<< /Length 435 >>
+stream
+BT
+/F1 10 Tf
+60 750 Td
+0 -18 Td
+(DATE       NARRATION                        WITHDRAWAL AMT.    DEPOSIT AMT.    BALANCE) Tj
+0 -14 Td
+(01/04/2025 OPENING BALANCE                  0.00               250000.00       250000.00) Tj
+0 -14 Td
+(02/04/2025 NEFT CR - ZOMATO - SALE          0.00               118000.00       368000.00) Tj
+0 -14 Td
+(03/04/2025 IMPS DR - RENT                   45000.00           0.00            323000.00) Tj
+ET
+endstream
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+trailer
+<< /Root 1 0 R >>
+%%EOF

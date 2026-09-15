@@ -1,0 +1,10 @@
+clientId,period,returnType,docType,status,receivedDate,source
+CL-003,2026-08,GSTR-3B,gstr2b,received,2026-09-03,portal
+CL-003,2026-08,GSTR-3B,purchase_register,received,2026-09-05,whatsapp
+CL-003,2026-08,GSTR-3B,sales_register,pending,,
+CL-001,2026-08,GSTR-3B,gstr2b,received,2026-09-04,email
+CL-001,2026-08,GSTR-3B,purchase_register,pending,,
+CL-001,2026-08,GSTR-3B,sales_register,pending,,
+CL-004,Q2 2026-27,GSTR-3B,gstr2b,received,2026-09-05,portal
+CL-004,Q2 2026-27,GSTR-3B,purchase_register,received,2026-09-02,email
+CL-004,Q2 2026-27,GSTR-3B,sales_register,received,2026-09-06,whatsapp

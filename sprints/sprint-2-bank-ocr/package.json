@@ -1,0 +1,13 @@
+{
+  "name": "sprint-2-bank-ocr",
+  "version": "0.1.0",
+  "description": "Sprint 2: bank statement ingestion + PDF/OCR extraction + auto-classification for Indian CA firms",
+  "type": "module",
+  "scripts": {
+    "test": "node --test \"test/*.test.mjs\"",
+    "ingest": "node src/cli.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
