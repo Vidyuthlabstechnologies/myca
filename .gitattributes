@@ -1,0 +1,25 @@
+# Normalize text to LF in the repository; check out natively.
+* text=auto
+
+# Binary assets must never be line-ending normalized (byte-exact fixtures).
+*.pdf   binary
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.ico   binary
+*.woff  binary
+*.woff2 binary
+*.ttf   binary
+*.otf   binary
+*.zip   binary
+*.xlsx  binary
+*.xls   binary
+*.docx  binary
+*.exe   binary
+*.cer   binary
+*.p12   binary
+*.pfx   binary
+
+# Keep lockfiles and generated SQL diffs reviewable.
+package-lock.json -diff
