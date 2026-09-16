@@ -25,6 +25,7 @@ export function stateDigest(state) {
     ledgerChecksum: state.ledger?.lastChecksum || 0,
     imports: state.imports || [],
     documents: state.documents || [],
+    approvals: (state.approvals || []).map((a) => ({ approvalId: a.approvalId, operationId: a.operationId, status: a.status, usedAt: a.usedAt || '' })),
     clients: state.clients || [],
     extraBooks: Object.fromEntries(
       Object.entries(state.extraBooks || {}).map(([id, book]) => [id, {
@@ -41,6 +42,8 @@ export function ensureCaApiState(state) {
   state.clients = Array.isArray(state.clients) ? state.clients : [];
   state.extraBooks = state.extraBooks && typeof state.extraBooks === 'object' ? state.extraBooks : {};
   state.attachments = state.attachments && typeof state.attachments === 'object' ? state.attachments : {};
+  state.approvals = Array.isArray(state.approvals) ? state.approvals : [];
+  state.approvalSeq = Number(state.approvalSeq || state.approvals.length || 0);
   state.firmUsers = Array.isArray(state.firmUsers) && state.firmUsers.length ? state.firmUsers : [DEFAULT_USER];
   state.auditEvents = Array.isArray(state.auditEvents) ? state.auditEvents : [];
   state.auditSeq = Number(state.auditSeq || state.auditEvents.length || 0);

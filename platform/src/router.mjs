@@ -94,6 +94,20 @@ function fmtToolResult(name, result) {
     }).join('\n');
     return `Sandbox adapter plan: ${d.operations.length} operation(s). No external API call was made.\n${rows}`;
   }
+  if (name === 'sandbox_operation') {
+    if (!d.ok) return `Sandbox ${d.operationId || 'operation'} not run: ${d.error}${d.hint ? ` ${d.hint}` : ''}`;
+    return `Sandbox ${d.operationId} (${d.requirementId}) completed.\n${JSON.stringify(d.data).slice(0, 500)}`;
+  }
+  if (name === 'approval_request') {
+    return `Approval ${d.approval.approvalId} opened for ${d.approval.operationId} (pending). A reviewer must approve it before it can authorise a live operation.`;
+  }
+  if (name === 'approval_decide') {
+    return `Approval ${d.approval.approvalId} ${d.approval.status} by ${d.approval.decidedBy}.`;
+  }
+  if (name === 'approval_list') {
+    const rows = (d.approvals || []).map((a) => `${a.approvalId}  ${a.operationId}  ${a.status}`).join('\n');
+    return rows || 'No approval requests.';
+  }
   if (name === 'sandbox_status') {
     if (!d.configured) {
       return `Quicko Sandbox is NOT configured. Configure MYCA_GSP_API_KEY and MYCA_GSP_API_SECRET in platform/.env.`;
@@ -165,7 +179,8 @@ export async function chat(state, message) {
   const valid = validateAssistantToolCall(plan.name, plan.args);
   if (!valid.ok) return { reply: `Tool ${plan.name} blocked: ${valid.error}`, tools: [], blocked: true };
 
-  const result = await runTool(state, plan.name, plan.args);
+  const runArgs = plan.name === 'sandbox_operation' ? { ...plan.args, actorId: 'assistant' } : plan.args;
+  const result = await runTool(state, plan.name, runArgs);
   if (plan.clearsPendingFile) state.pendingFile = null;
   if (plan.name === 'print_invoice') {
     return {

@@ -18,6 +18,8 @@ import { providerCatalog, providerRequirementMap } from './provider-catalog.mjs'
 import { sandboxAdapterPlan } from './sandbox-adapter-contract.mjs';
 import { getSandboxClient } from './sandbox-client.mjs';
 import { getNimClient } from './nim-client.mjs';
+import { runSandboxOperation } from './sandbox-adapter.mjs';
+import { requestApproval, decideApproval, approvalStatus } from './approvals.mjs';
 import { liveCallsEnabled } from './runtime-config.mjs';
 import { seedDemo } from './store.mjs';
 
@@ -309,6 +311,63 @@ export const TOOLS = [
         readiness: integrationReadiness(state.integrationConnections),
       });
     },
+  },
+  {
+    name: 'sandbox_operation',
+    title: 'Run Sandbox provider operation',
+    description: 'Execute a catalogued Quicko Sandbox operation through the adapter contract. Read/prepare ops run directly; auth/write/file ops need an approved CA approval id.',
+    args: ['operationId', 'params', 'caApprovalId', 'actorId'],
+    run: async (state, args = {}) => {
+      const out = await runSandboxOperation({
+        operationId: args.operationId,
+        actorId: args.actorId || 'ca',
+        caApprovalId: args.caApprovalId || '',
+        params: args.params || {},
+        payloadSummary: args.payloadSummary || {},
+        clientId: args.clientId || 'SELF',
+      }, { state });
+      return out.ok ? ok(out) : fail(out.error, out);
+    },
+  },
+  {
+    name: 'approval_request',
+    title: 'Request CA approval',
+    description: 'Open a CA approval request for a gated provider operation (e.g. e-invoice generate, GST filing). Maker-checker enforced.',
+    args: ['operationId', 'requirementId', 'requestedBy', 'note'],
+    run: (state, args = {}) => {
+      const out = requestApproval(state, {
+        operationId: args.operationId,
+        requirementId: args.requirementId || '',
+        requestedBy: args.requestedBy || 'ca',
+        payloadSummary: args.payloadSummary || {},
+        note: args.note || '',
+      });
+      return out.ok ? ok(out) : fail(out.error);
+    },
+  },
+  {
+    name: 'approval_decide',
+    title: 'Approve or reject request',
+    description: 'Record a CA decision on an approval request. Requires a reviewer role and a decider other than the requester.',
+    args: ['approvalId', 'decision', 'decidedBy', 'role', 'reason'],
+    run: (state, args = {}) => {
+      const out = decideApproval(state, {
+        approvalId: args.approvalId,
+        decision: args.decision,
+        decidedBy: args.decidedBy,
+        role: args.role,
+        reason: args.reason || '',
+      });
+      return out.ok ? ok(out) : fail(out.error);
+    },
+  },
+  {
+    name: 'approval_list',
+    title: 'List approval requests',
+    description: 'Show approval requests and their live status (pending, approved, rejected, used, expired).',
+    run: (state) => ok({
+      approvals: (state.approvals || []).map((a) => ({ ...a, status: approvalStatus(a) })),
+    }),
   },
   {
     name: 'nim_status',

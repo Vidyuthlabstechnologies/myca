@@ -75,5 +75,6 @@ export const ROUTES = [
   { re: /\bdeadline|\bdue date\b/i, tool: 'deadlines' },
   { re: /\breconcil|\bgstr-?2b\b|\brule 37/i, tool: 'gst_reconcile' },
   { re: /\baudit\b|\bworking paper\b|\bcaro\b|\b3cd\b/i, tool: 'audit_books' },
+  { re: /\bapprovals?\b|\bpending approvals?\b/i, tool: 'approval_list' },
   { re: /\bcompany\b|\bour gstin\b/i, tool: 'company_profile' },
 ];

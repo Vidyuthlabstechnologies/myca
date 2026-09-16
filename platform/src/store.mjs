@@ -38,6 +38,8 @@ export function createState() {
     documentSeq: 0,
     clients: [],
     extraBooks: {},
+    approvals: [],
+    approvalSeq: 0,
   };
   return ensureCaApiState(state);
 }
@@ -65,6 +67,8 @@ export function serialize(state) {
     extraBooks: Object.fromEntries(
       Object.entries(state.extraBooks || {}).map(([id, book]) => [id, serializeBook(book)]),
     ),
+    approvals: state.approvals || [],
+    approvalSeq: state.approvalSeq || 0,
   };
 }
 
@@ -95,6 +99,8 @@ export function deserialize(raw) {
   state.extraBooks = Object.fromEntries(
     Object.entries(raw.extraBooks || {}).map(([id, book]) => [id, deserializeBook(book)]),
   );
+  state.approvals = raw.approvals || [];
+  state.approvalSeq = raw.approvalSeq || 0;
   return ensureCaApiState(state);
 }
 

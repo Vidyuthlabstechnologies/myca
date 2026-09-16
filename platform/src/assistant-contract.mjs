@@ -144,6 +144,42 @@ export const TOOL_ARG_SCHEMAS = {
   },
   sandbox_status: noArgs,
   sandbox_connect: noArgs,
+  sandbox_operation: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['operationId'],
+    properties: {
+      operationId: { type: 'string', minLength: 1 },
+      params: { type: 'object' },
+      caApprovalId: { type: 'string' },
+      actorId: { type: 'string' },
+      clientId: { type: 'string' },
+    },
+  },
+  approval_request: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['operationId', 'requestedBy'],
+    properties: {
+      operationId: { type: 'string', minLength: 1 },
+      requirementId: { type: 'string' },
+      requestedBy: { type: 'string', minLength: 1 },
+      note: { type: 'string' },
+    },
+  },
+  approval_decide: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['approvalId', 'decision', 'decidedBy', 'role'],
+    properties: {
+      approvalId: { type: 'string', minLength: 1 },
+      decision: { type: 'string', enum: ['approve', 'reject'] },
+      decidedBy: { type: 'string', minLength: 1 },
+      role: { type: 'string', enum: ['partner', 'reviewer', 'admin'] },
+      reason: { type: 'string' },
+    },
+  },
+  approval_list: noArgs,
   nim_status: noArgs,
   nim_ask: {
     type: 'object',
@@ -251,7 +287,7 @@ export const TOOL_ARG_SCHEMAS = {
   },
 };
 
-const ASSISTANT_BLOCKED_TOOLS = new Set(['govt_save_credentials', 'seed_demo']);
+const ASSISTANT_BLOCKED_TOOLS = new Set(['govt_save_credentials', 'seed_demo', 'approval_decide']);
 
 const TOOL_RISK = {
   create_invoice: 'writes_books',
@@ -264,6 +300,8 @@ const TOOL_RISK = {
   post_expense: 'writes_books',
   govt_nic_auth: 'external_auth_probe',
   govt_generate_irn: 'external_government_api',
+  sandbox_operation: 'external_government_api',
+  approval_request: 'internal_workflow',
 };
 
 export function assistantTools(tools) {
