@@ -8,6 +8,16 @@ output "artifacts_bucket" {
   value       = google_storage_bucket.artifacts.name
 }
 
+output "downloads_bucket" {
+  description = "Public downloads bucket (GitHub variable GCP_DOWNLOADS_BUCKET)."
+  value       = google_storage_bucket.downloads.name
+}
+
+output "download_url" {
+  description = "Stable URL of the latest Windows installer."
+  value       = local.use_domain ? "https://${local.domain}/downloads/myca-setup.exe" : "http://${google_compute_global_address.site.address}/downloads/myca-setup.exe"
+}
+
 output "url_map_name" {
   description = "URL map name for CDN cache invalidation (GitHub variable GCP_URL_MAP)."
   value       = google_compute_url_map.site.name

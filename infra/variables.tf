@@ -21,6 +21,12 @@ variable "artifacts_bucket_name" {
   default     = ""
 }
 
+variable "downloads_bucket_name" {
+  description = "Public bucket served at /downloads/*. Defaults to <project_id>-myca-downloads."
+  type        = string
+  default     = ""
+}
+
 variable "domain_name" {
   description = "Custom domain (apex) for the site, e.g. myca.in. Leave empty to serve over the LB IP only (HTTP)."
   type        = string

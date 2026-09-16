@@ -6,6 +6,7 @@ provider "google" {
 locals {
   site_bucket      = var.site_bucket_name != "" ? var.site_bucket_name : "${var.project_id}-myca-site"
   artifacts_bucket = var.artifacts_bucket_name != "" ? var.artifacts_bucket_name : "${var.project_id}-myca-artifacts"
+  downloads_bucket = var.downloads_bucket_name != "" ? var.downloads_bucket_name : "${var.project_id}-myca-downloads"
   domain           = trimspace(var.domain_name)
   use_domain       = local.domain != ""
   domains          = local.use_domain ? [local.domain, "www.${local.domain}"] : []
@@ -80,6 +81,42 @@ resource "google_artifact_registry_repository" "docker" {
 }
 
 # ---------------------------------------------------------------------------
+# Public download mirror for Windows installers (served at /downloads/*)
+# Kept separate from the site bucket so site syncs never delete installers.
+# ---------------------------------------------------------------------------
+resource "google_storage_bucket" "downloads" {
+  project                     = var.project_id
+  name                        = local.downloads_bucket
+  location                    = "ASIA"
+  storage_class               = "STANDARD"
+  uniform_bucket_level_access = true
+  force_destroy               = false
+  labels                      = var.labels
+
+  cors {
+    origin          = ["*"]
+    method          = ["GET", "HEAD"]
+    response_header = ["Content-Type", "Content-Disposition"]
+    max_age_seconds = 3600
+  }
+
+  lifecycle_rule {
+    condition {
+      num_newer_versions = 5
+    }
+    action {
+      type = "Delete"
+    }
+  }
+}
+
+resource "google_storage_bucket_iam_member" "downloads_public" {
+  bucket = google_storage_bucket.downloads.name
+  role   = "roles/storage.objectViewer"
+  member = "allUsers"
+}
+
+# ---------------------------------------------------------------------------
 # Global external HTTPS load balancer + Cloud CDN
 # ---------------------------------------------------------------------------
 resource "google_compute_global_address" "site" {
@@ -112,10 +149,47 @@ resource "google_compute_backend_bucket" "site" {
   depends_on = [google_storage_bucket_iam_member.site_public]
 }
 
+resource "google_compute_backend_bucket" "downloads" {
+  project          = var.project_id
+  name             = "myca-downloads-backend"
+  bucket_name      = google_storage_bucket.downloads.name
+  enable_cdn       = true
+  compression_mode = "AUTOMATIC"
+
+  cdn_policy {
+    # Installers are effectively immutable; cache them hard at the edge.
+    cache_mode        = "CACHE_ALL_STATIC"
+    default_ttl       = 86400
+    client_ttl        = 86400
+    max_ttl           = 604800
+    negative_caching  = true
+    serve_while_stale = 86400
+  }
+
+  depends_on = [google_storage_bucket_iam_member.downloads_public]
+}
+
 resource "google_compute_url_map" "site" {
-  project         = var.project_id
-  name            = "${local.lb_name}-urlmap"
+  project = var.project_id
+  name    = "${local.lb_name}-urlmap"
+
+  # Everything not matched below is the static site.
   default_service = google_compute_backend_bucket.site.id
+
+  host_rule {
+    hosts        = ["*"]
+    path_matcher = "site"
+  }
+
+  path_matcher {
+    name            = "site"
+    default_service = google_compute_backend_bucket.site.id
+
+    path_rule {
+      paths   = ["/downloads", "/downloads/*"]
+      service = google_compute_backend_bucket.downloads.id
+    }
+  }
 }
 
 # HTTP -> HTTPS redirect (only meaningful once a domain + cert exist).

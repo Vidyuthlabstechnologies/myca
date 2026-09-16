@@ -29,7 +29,12 @@ jobs:
       - name: Build NSIS + portable installers
         working-directory: platform
         env:
-          CSC_IDENTITY_AUTO_DISCOVERY: "false" # no code-signing cert configured
+          # Unsigned by default. When a code-signing certificate is added as the
+          # repo secret CSC_LINK (base64 .pfx) + CSC_KEY_PASSWORD, electron-builder
+          # signs automatically — nothing else to change.
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
         run: npm run pack
 
       - name: List build output
@@ -63,9 +68,26 @@ jobs:
       - uses: google-github-actions/setup-gcloud@v2
         if: startsWith(github.ref, 'refs/tags/v') && vars.GCP_WIF_PROVIDER != ''
 
-      - name: Archive installers to GCS
+      - name: Archive versioned installers
         if: startsWith(github.ref, 'refs/tags/v') && vars.GCP_WIF_PROVIDER != ''
         shell: bash
         run: |
           gcloud storage cp platform/dist/*.exe \
             "gs://${{ vars.GCP_ARTIFACTS_BUCKET }}/releases/${{ github.ref_name }}/"
+
+      - name: Publish stable download aliases
+        if: startsWith(github.ref, 'refs/tags/v') && vars.GCP_WIF_PROVIDER != ''
+        working-directory: platform
+        shell: bash
+        run: |
+          set -euo pipefail
+          setup=$(ls dist/"MyCA Setup "*.exe | head -n1)
+          portable=$(ls dist/"MyCA "[0-9]*.exe | head -n1)
+          echo "setup=$setup"
+          echo "portable=$portable"
+          gcloud storage cp "$setup" \
+            "gs://${{ vars.GCP_DOWNLOADS_BUCKET }}/myca-setup.exe" \
+            --cache-control="public, max-age=86400"
+          gcloud storage cp "$portable" \
+            "gs://${{ vars.GCP_DOWNLOADS_BUCKET }}/myca-portable.exe" \
+            --cache-control="public, max-age=86400"
