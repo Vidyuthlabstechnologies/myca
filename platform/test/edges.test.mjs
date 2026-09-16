@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, mkdtempSync, rmSync, readFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, rmSync, readFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
@@ -19,7 +19,7 @@ import { parseZohoBooksCsv } from '../src/import-zoho.mjs';
 import { tallyXmlToDayBookCsv } from '../src/tally-xml.mjs';
 import { invoicesToGstr1Json } from '../src/gstr1-json.mjs';
 import { TOOLS, runTool } from '../src/tools.mjs';
-import { invoiceToNicPayload, nicGenerateIrn, probeGovt, nicAuthenticate, mycaDir } from '../src/govt.mjs';
+import { invoiceToNicPayload, nicGenerateIrn, probeGovt, nicAuthenticate, mycaDir, saveGovtConfig, loadGovtConfig, publicGovtConfig, migrateGovtVault, govtConfigPath } from '../src/govt.mjs';
 import { csvRows } from '../src/text-safe.mjs';
 import { liveCallsEnabled } from '../src/runtime-config.mjs';
 import { openSession } from '../src/session.mjs';
@@ -927,4 +927,99 @@ test('intent: party name is captured after invoice/purchase without a prepositio
   assert.equal(parseDocument('Invoice Retail Mart GSTIN 27AAACH7409R1Z3, 10 rolls at 50000, GST 5%').partyName, 'Retail Mart');
   assert.equal(parseDocument('purchase Fabric Co 20 rolls at 2000 GST 5%').partyName, 'Fabric Co');
   assert.equal(parseDocument('invoice at 1000 GST 18%').partyName, 'Walk-in');
+});
+
+test('vault: govt credentials are encrypted at rest and round-trip', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'myca-vault-'));
+  const prev = process.env.APPDATA;
+  process.env.APPDATA = dir;
+  try {
+    saveGovtConfig({ env: 'sandbox', clientId: 'cid', clientSecret: 'super-secret', username: 'u', password: 'p@ss', gstin: '27AABCU9603R1ZP' });
+    const raw = readFileSync(govtConfigPath(), 'utf8');
+    assert.doesNotMatch(raw, /super-secret/);
+    assert.doesNotMatch(raw, /p@ss/);
+    const cfg = loadGovtConfig();
+    assert.equal(cfg.clientSecret, 'super-secret');
+    assert.equal(cfg.password, 'p@ss');
+    assert.equal(publicGovtConfig().passwordSet, true);
+    assert.equal(publicGovtConfig().vault, 'aes-256-gcm-local');
+  } finally {
+    process.env.APPDATA = prev;
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('vault: legacy plaintext govt.json is migrated to encrypted on demand', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'myca-vault-legacy-'));
+  const prev = process.env.APPDATA;
+  process.env.APPDATA = dir;
+  try {
+    mkdirSync(join(dir, 'MyCA'), { recursive: true });
+    writeFileSync(govtConfigPath(), JSON.stringify({ env: 'sandbox', clientId: 'c', clientSecret: 'legacy-secret', username: 'u', password: 'legacy-pass', gstin: '27AABCU9603R1ZP' }));
+    assert.equal(migrateGovtVault(), true);
+    const raw = readFileSync(govtConfigPath(), 'utf8');
+    assert.doesNotMatch(raw, /legacy-secret/);
+    assert.match(raw, /secrets/);
+    assert.equal(loadGovtConfig().password, 'legacy-pass');
+  } finally {
+    process.env.APPDATA = prev;
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('ca-api: clients get isolated ledgers', () => {
+  const state = createState();
+  const selfBefore = state.invoices.length;
+  const created = handleCaApi(state, 'POST', '/api/ca/clients', { clientId: 'CL-100', name: 'Beta Traders', gstin: '29AAACF7856R1Z0', state: '29', entityType: 'proprietor' });
+  assert.equal(created.ok, true);
+  assert.equal(handleCaApi(state, 'POST', '/api/ca/clients', { clientId: 'CL-100' }).error, 'CLIENT_EXISTS');
+  const posted = handleCaApi(state, 'POST', '/api/ca/clients/CL-100/vouchers', {
+    type: 'invoice', partyName: 'Retail Mart', partyGstin: '', partyState: '29',
+    lines: [{ description: 'Cloth', qty: 1, rate: 1000, gstRate: 5 }],
+  });
+  assert.equal(posted.ok, true);
+  const betaTb = handleCaApi(state, 'GET', '/api/ca/clients/CL-100/trial-balance');
+  assert.equal(betaTb.data.balanced, true);
+  assert.equal(state.extraBooks['CL-100'].invoices.length, 1);
+  assert.equal(state.invoices.length, selfBefore);
+  assert.equal(handleCaApi(state, 'GET', '/api/ca/clients').data.clients.some((c) => c.clientId === 'CL-100'), true);
+  assert.throws(() => handleCaApi(state, 'GET', '/api/ca/clients/NOPE/ledger'), /CLIENT_NOT_FOUND/);
+});
+
+test('documents: attachment bytes live on disk, not in serialized state', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'myca-docs-'));
+  const sess = openSession(join(dir, 'MyCA', 'state.json'));
+  const res = await sess.attachFile('tally', 'daybook.csv', 'Date,Voucher Type\n2026-08-01,Sales');
+  assert.equal(res.ok, true);
+  assert.equal(existsSync(join(dir, 'MyCA', 'documents', `${res.sha256}.txt`)), true);
+  const persisted = serialize(sess.state);
+  assert.equal(persisted.files, undefined);
+  assert.equal(persisted.attachments.tally.sha256, res.sha256);
+  const reloaded = openSession(join(dir, 'MyCA', 'state.json'));
+  assert.match(reloaded.state.files.tally, /daybook|Sales/);
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('documents: legacy inline files migrate to the disk store on open', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'myca-docs-legacy-'));
+  const path = join(dir, 'MyCA', 'state.json');
+  const legacy = createState();
+  legacy.files = { tally: 'Date,Voucher Type\n2026-08-01,Sales' };
+  saveState(path, { ...legacy });
+  writeFileSync(path, JSON.stringify({ ...serialize(legacy), files: legacy.files }));
+  const sess = openSession(path);
+  const stored = sess.state.attachments.tally;
+  assert.ok(stored && stored.sha256);
+  assert.equal(existsSync(join(dir, 'MyCA', 'documents', `${stored.sha256}.txt`)), true);
+  assert.equal(serialize(sess.state).files, undefined);
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('gstr1 json: real hash and gross turnover', () => {
+  const state = createState();
+  intra(state);
+  const json = invoicesToGstr1Json(state.company, state.invoices);
+  assert.match(json.hash, /^[0-9a-f]{64}$/);
+  assert.equal(json.gt, 1000);
+  assert.equal(json.cur_gt, 1000);
 });

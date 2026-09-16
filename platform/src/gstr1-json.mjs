@@ -2,6 +2,8 @@
  * GSTN offline-tool GSTR-1 JSON (public schema).
  * Built from posted invoices — same source as GSTR-1 tables. Not uploaded to GSTN.
  */
+import { createHash } from 'node:crypto';
+
 function fpFromDate(iso) {
   const [y, m] = String(iso || '').split('-');
   return y && m ? `${m}${y}` : '';
@@ -78,15 +80,13 @@ export function invoicesToGstr1Json(company, invoices = [], periodFp) {
 
   const b2b = [...b2bMap.entries()].map(([ctin, inv]) => ({ ctin, inv }));
   const b2cs = [...b2csMap.values()];
+  // Gross turnover = aggregate value of supplies in this period (excl. tax).
+  const gt = round2(dated.reduce((sum, inv) => sum + round2(inv.taxable), 0));
+  const body = { gstin, fp, gt, cur_gt: gt, version: 'GST3.1.6', b2b, b2cs };
+  const hash = createHash('sha256').update(JSON.stringify(body)).digest('hex');
   return {
-    gstin,
-    fp,
-    gt: 0,
-    cur_gt: 0,
-    version: 'GST3.1.6',
-    hash: 'hash',
-    b2b,
-    b2cs,
+    ...body,
+    hash,
     caveat: 'JSON for GSTN offline utility / CA review. MyCA does not upload this file.',
   };
 }

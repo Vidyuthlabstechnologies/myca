@@ -1,6 +1,8 @@
 import { createHash } from 'node:crypto';
 import { journal, trialBalance } from './ledger.mjs';
 import { createInvoice, createPurchase } from './invoice.mjs';
+import { getBook } from './books.mjs';
+import { putDocument } from './document-store.mjs';
 
 const DEFAULT_USER = {
   userId: 'USR-ADMIN',
@@ -23,11 +25,22 @@ export function stateDigest(state) {
     ledgerChecksum: state.ledger?.lastChecksum || 0,
     imports: state.imports || [],
     documents: state.documents || [],
+    clients: state.clients || [],
+    extraBooks: Object.fromEntries(
+      Object.entries(state.extraBooks || {}).map(([id, book]) => [id, {
+        invoices: book.invoices || [],
+        purchases: book.purchases || [],
+        ledgerChecksum: book.ledger?.lastChecksum || 0,
+      }]),
+    ),
   });
 }
 
 export function ensureCaApiState(state) {
   state.documents = Array.isArray(state.documents) ? state.documents : [];
+  state.clients = Array.isArray(state.clients) ? state.clients : [];
+  state.extraBooks = state.extraBooks && typeof state.extraBooks === 'object' ? state.extraBooks : {};
+  state.attachments = state.attachments && typeof state.attachments === 'object' ? state.attachments : {};
   state.firmUsers = Array.isArray(state.firmUsers) && state.firmUsers.length ? state.firmUsers : [DEFAULT_USER];
   state.auditEvents = Array.isArray(state.auditEvents) ? state.auditEvents : [];
   state.auditSeq = Number(state.auditSeq || state.auditEvents.length || 0);
@@ -100,12 +113,12 @@ function documentPayload(state, clientId, input = {}) {
 }
 
 function postVoucher(state, clientId, body = {}) {
-  requireClient(state, clientId);
+  const book = getBook(state, clientId);
   const beforeHash = stateDigest(state);
   const kind = String(body.type || body.kind || '').toLowerCase();
   const result = kind === 'purchase'
-    ? createPurchase(state, body)
-    : createInvoice(state, body);
+    ? createPurchase(book, body)
+    : createInvoice(book, body);
   if (!result.ok) return result;
   const afterHash = stateDigest(state);
   appendAuditEvent(state, {
@@ -128,18 +141,49 @@ export function handleCaApi(state, method, pathname, body = {}) {
     return { ok: true, data: { clients: clients(state) } };
   }
 
+  if (method === 'POST' && path === '/clients') {
+    const beforeHash = stateDigest(state);
+    const id = String(body.clientId || body.id || '').trim();
+    if (!id) return { ok: false, error: 'CLIENT_ID_REQUIRED' };
+    if (id === 'SELF' || state.clients.some((c) => c.clientId === id)) {
+      return { ok: false, error: 'CLIENT_EXISTS' };
+    }
+    const gstin = String(body.gstin || '').trim().toUpperCase();
+    const client = {
+      clientId: id,
+      name: String(body.name || id),
+      pan: String(body.pan || (gstin.length >= 12 ? gstin.slice(2, 12) : '')),
+      gstin,
+      entityType: String(body.entityType || 'proprietor'),
+      state: String(body.state || gstin.slice(0, 2) || ''),
+      turnover: Number(body.turnover || 0),
+      gstFrequency: String(body.gstFrequency || 'monthly'),
+      auditRequired: body.auditRequired !== false,
+    };
+    state.clients.push(client);
+    appendAuditEvent(state, {
+      actorId: body.actorId || 'api',
+      clientId: id,
+      action: 'client.create',
+      beforeHash,
+      afterHash: stateDigest(state),
+      metadata: { clientId: id },
+    });
+    return { ok: true, data: client };
+  }
+
   if (method === 'GET' && segments[0] === 'clients' && segments.length === 2) {
     return { ok: true, data: requireClient(state, segments[1]) };
   }
 
   if (method === 'GET' && segments[0] === 'clients' && segments[2] === 'ledger') {
-    requireClient(state, segments[1]);
-    return { ok: true, data: { clientId: segments[1], rows: journal(state.ledger) } };
+    const book = getBook(state, segments[1]);
+    return { ok: true, data: { clientId: segments[1], rows: journal(book.ledger) } };
   }
 
   if (method === 'GET' && segments[0] === 'clients' && segments[2] === 'trial-balance') {
-    requireClient(state, segments[1]);
-    return { ok: true, data: { clientId: segments[1], ...trialBalance(state.ledger) } };
+    const book = getBook(state, segments[1]);
+    return { ok: true, data: { clientId: segments[1], ...trialBalance(book.ledger) } };
   }
 
   if (method === 'POST' && segments[0] === 'clients' && segments[2] === 'vouchers') {
@@ -155,6 +199,9 @@ export function handleCaApi(state, method, pathname, body = {}) {
     requireClient(state, segments[1]);
     const beforeHash = stateDigest(state);
     const { doc, content } = documentPayload(state, segments[1], body);
+    const stored = putDocument(state._dataDir, content);
+    doc.sha256 = stored.sha256;
+    doc.bytes = stored.bytes;
     state.documents.push(doc);
     state.files[doc.documentId] = content;
     const afterHash = stateDigest(state);

@@ -3,6 +3,7 @@ import { readFileSync, existsSync } from 'node:fs';
 import { extname, join, dirname, resolve, relative, isAbsolute } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { openSession } from './session.mjs';
+import { migrateGovtVault } from './govt.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const types = {
@@ -146,6 +147,7 @@ export function startServer(port = Number(process.env.PORT || 4780)) {
       } else reject(err);
     });
     httpServer.listen(port, '127.0.0.1', () => {
+      migrateGovtVault();
       session = openSession();
       console.log(`MyCA http://127.0.0.1:${port}`);
       resolveListen({ port, reused: false });

@@ -97,10 +97,13 @@ Implemented now:
   - Handoffs reject plaintext secret/OTP/token fields; live adapters must use volatile provider session references instead.
 - Append-only audit events for chat runs, tool runs, file attachments, document uploads, and local CA API voucher writes.
 - Tests for requirement IDs, readiness behavior, registry persistence, must-have local CA API behavior, and provider mappings.
+- Live provider calls are gated behind `MYCA_ENABLE_LIVE_CALLS` (default off); the assistant and tools never reach an external provider autonomously.
+- NIC credentials are encrypted at rest via an OS-backed vault (Electron `safeStorage`/DPAPI) with an AES-256-GCM fallback for plain-Node dev; no plaintext secrets are written.
+- Per-client books: the firm's own books are the root ledger and every registered client gets an isolated ledger via `platform/src/books.mjs` (`POST /api/ca/clients`).
+- Attachment bytes are stored content-addressed on disk (`document-store.mjs`), not inside `state.json`.
 
 Not implemented yet:
 
-- Live external connectors.
-- Credential vaulting for production integrations.
+- Live external connectors (provider adapters are catalogued and gated, not wired).
 - CA approval workflow for live statutory filing.
 - `REQ-CA-006` onward as production-grade external integrations.

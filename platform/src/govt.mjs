@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync, copyFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { randomBytes, publicEncrypt, constants, createHash } from 'node:crypto';
+import { encryptSecret, decryptSecret, vaultBackend } from './credential-vault.mjs';
 
 export const GOVT_SITES = {
   gstHome: 'https://www.gst.gov.in/',
@@ -76,14 +77,48 @@ export function loadGovtConfig() {
       publicKeyPem: '',
     };
   }
-  return { env: 'sandbox', ...JSON.parse(readFileSync(p, 'utf8')) };
+  const raw = JSON.parse(readFileSync(p, 'utf8'));
+  const secrets = raw.secrets || {};
+  return {
+    env: raw.env || 'sandbox',
+    clientId: raw.clientId || '',
+    // Decrypt from the vault; fall back to legacy plaintext fields for migration.
+    clientSecret: secrets.clientSecret ? decryptSecret(secrets.clientSecret) : (raw.clientSecret || ''),
+    username: raw.username || '',
+    password: secrets.password ? decryptSecret(secrets.password) : (raw.password || ''),
+    gstin: raw.gstin || '',
+    publicKeyPem: raw.publicKeyPem || '',
+  };
 }
 
 export function saveGovtConfig(patch) {
-  const next = { ...loadGovtConfig(), ...patch };
+  const cfg = { ...loadGovtConfig(), ...patch };
+  const secrets = {};
+  const clientSecret = encryptSecret(cfg.clientSecret);
+  const password = encryptSecret(cfg.password);
+  if (clientSecret) secrets.clientSecret = clientSecret;
+  if (password) secrets.password = password;
+  const file = {
+    env: cfg.env || 'sandbox',
+    clientId: String(cfg.clientId || ''),
+    username: String(cfg.username || ''),
+    gstin: String(cfg.gstin || ''),
+    publicKeyPem: String(cfg.publicKeyPem || ''),
+    vault: vaultBackend(),
+    secrets,
+  };
   mkdirSync(mycaDir(), { recursive: true });
-  writeFileSync(govtConfigPath(), JSON.stringify(next, null, 2));
-  return publicGovtConfig(next);
+  writeFileSync(govtConfigPath(), JSON.stringify(file, null, 2), { mode: 0o600 });
+  return publicGovtConfig(cfg);
+}
+
+export function migrateGovtVault() {
+  const p = govtConfigPath();
+  if (!existsSync(p)) return false;
+  const raw = JSON.parse(readFileSync(p, 'utf8'));
+  if (!raw.clientSecret && !raw.password) return false;
+  saveGovtConfig({});
+  return true;
 }
 
 export function publicGovtConfig(cfg = loadGovtConfig()) {
@@ -94,6 +129,7 @@ export function publicGovtConfig(cfg = loadGovtConfig()) {
     clientIdSet: Boolean(cfg.clientId),
     passwordSet: Boolean(cfg.password),
     publicKeySet: Boolean(cfg.publicKeyPem) || existsSync(join(mycaDir(), 'einv-public.pem')),
+    vault: vaultBackend(),
     guide: GOVT_GUIDE,
     sites: GOVT_SITES,
   };

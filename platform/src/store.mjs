@@ -6,6 +6,7 @@ import { DEFAULT_COMPANY, installChart } from './chart.mjs';
 import { createInvoice, recordReceipt, createPurchase } from './invoice.mjs';
 import { normalizeIntegrationConnections } from './integration-contract.mjs';
 import { ensureCaApiState } from './ca-api.mjs';
+import { serializeBook, deserializeBook } from './books.mjs';
 
 import { migrateLegacyBooks } from './govt.mjs';
 
@@ -28,12 +29,15 @@ export function createState() {
     transferSeq: 100000,
     imports: [],
     files: {},
+    attachments: {},
     integrationConnections: {},
     documents: [],
     firmUsers: [],
     auditEvents: [],
     auditSeq: 0,
     documentSeq: 0,
+    clients: [],
+    extraBooks: {},
   };
   return ensureCaApiState(state);
 }
@@ -50,13 +54,17 @@ export function serialize(state) {
     billSeq: state.billSeq || 0,
     transferSeq: state.transferSeq,
     imports: state.imports,
-    files: state.files,
+    attachments: state.attachments || {},
     integrationConnections: normalizeIntegrationConnections(state.integrationConnections),
     documents: state.documents || [],
     firmUsers: state.firmUsers || [],
     auditEvents: state.auditEvents || [],
     auditSeq: state.auditSeq || 0,
     documentSeq: state.documentSeq || 0,
+    clients: state.clients || [],
+    extraBooks: Object.fromEntries(
+      Object.entries(state.extraBooks || {}).map(([id, book]) => [id, serializeBook(book)]),
+    ),
   };
 }
 
@@ -73,13 +81,20 @@ export function deserialize(raw) {
   state.billSeq = raw.billSeq || 0;
   state.transferSeq = raw.transferSeq || 100000;
   state.imports = raw.imports || [];
-  state.files = raw.files || {};
+  state.files = {};
+  state.attachments = raw.attachments && typeof raw.attachments === 'object' ? raw.attachments : {};
+  // Legacy states embedded raw content in `files`; carry it to a one-shot migration.
+  state._legacyFiles = raw.files && typeof raw.files === 'object' ? raw.files : null;
   state.integrationConnections = normalizeIntegrationConnections(raw.integrationConnections);
   state.documents = raw.documents || [];
   state.firmUsers = raw.firmUsers || [];
   state.auditEvents = raw.auditEvents || [];
   state.auditSeq = raw.auditSeq || 0;
   state.documentSeq = raw.documentSeq || 0;
+  state.clients = raw.clients || [];
+  state.extraBooks = Object.fromEntries(
+    Object.entries(raw.extraBooks || {}).map(([id, book]) => [id, deserializeBook(book)]),
+  );
   return ensureCaApiState(state);
 }
 
@@ -88,7 +103,9 @@ export function loadState(path) {
   if (!existsSync(safePath)) return createState();
   const fd = openSync(safePath, 'r');
   try {
-    return deserialize(JSON.parse(readFileSync(fd, 'utf8')));
+    const state = deserialize(JSON.parse(readFileSync(fd, 'utf8')));
+    state._dataDir = dirname(safePath);
+    return state;
   } finally {
     closeSync(fd);
   }

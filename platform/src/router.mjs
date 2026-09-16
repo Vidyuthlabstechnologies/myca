@@ -149,7 +149,7 @@ function fmtToolResult(name, result) {
     return lines.join('\n');
   }
   if (name === 'govt_save_credentials') {
-    return `Saved NIC credentials for ${d.gstin || '(no GSTIN)'} (${d.env}). Password stored only on this PC.`;
+    return `Saved NIC credentials for ${d.gstin || '(no GSTIN)'} (${d.env}). Secrets are stored encrypted in the ${d.vault || 'local'} vault on this PC.`;
   }
   if (name === 'company_profile') {
     return `${d.company.name}  GSTIN ${d.company.gstin}  FY ${d.company.fy}\nInvoices ${d.invoices} · purchases ${d.purchases ?? 0} · checksum ${d.chain.ok ? 'intact' : 'BROKEN'}.`;
