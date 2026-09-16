@@ -95,6 +95,7 @@ Root-module outputs become GitHub variables for the deploy workflow:
 |---|---|
 | `GCP_SITE_BUCKET` | `YOUR_PROJECT_ID-myca-site` |
 | `GCP_ARTIFACTS_BUCKET` | `YOUR_PROJECT_ID-myca-artifacts` |
+| `GCP_DOWNLOADS_BUCKET` | `YOUR_PROJECT_ID-myca-downloads` |
 | `GCP_URL_MAP` | `myca-site-lb-urlmap` |
 | `GCP_DOMAIN` | `myca.in` (or empty) |
 
@@ -105,13 +106,67 @@ Root-module outputs become GitHub variables for the deploy workflow:
 | I want to… | Do this |
 |---|---|
 | Update the marketing site | Edit `deploy/public/**`, commit, push to `main` → auto-deploys + CDN purge |
-| Ship a Windows build | `git tag v0.2.0 && git push origin v0.2.0` → installer attached to a Release |
+| Ship a Windows build | `git tag v0.2.0 && git push origin v0.2.0` → installer attached to a Release **and** published to `/downloads/myca-setup.exe` |
 | Test a Windows build (no release) | Actions → **Build Windows installer** → *Run workflow* → download the artifact |
 | Change cloud infra | Edit `infra/**`, open a PR (plan shown), merge to `main` (applied) |
 | Verify code | Every push runs **CI** (platform 76 + sprint suites) |
 
-Windows installers are unsigned today; users will see a SmartScreen prompt. When you have an
-EV/OV code-signing cert, add it as a repo secret and wire it into `build-windows.yml`.
+### Download links (stable)
+
+The site's **Download for Windows** button points at these CDN-backed paths, which always
+serve the newest tagged build:
+
+- `https://<domain>/downloads/myca-setup.exe` — NSIS installer
+- `https://<domain>/downloads/myca-portable.exe` — portable executable
+
+---
+
+## Hardening
+
+### 1. Custom domain + managed TLS (activate)
+
+1. Akhil (or the domain owner) points the domain's NS records at the `dns_nameservers`
+   output, **or** sets an `A` record to the `load_balancer_ip` output and `manage_dns = false`.
+2. Set repo variable `GCP_DOMAIN`, then push a trivial change under `infra/` (or run
+   `terraform apply` locally). The managed cert is created automatically.
+3. Wait for the certificate to become `ACTIVE` (up to ~30 min), then confirm:
+
+   ```bash
+   gcloud compute ssl-certificates describe myca-site-lb-cert --global \
+     --format="get(managed.status)"
+   ```
+
+   Requests to port 80 are 301-redirected to HTTPS; HTTP/3 is enabled.
+
+### 2. Code signing the installer (optional)
+
+Today the `.exe` is unsigned → users see a SmartScreen prompt. To sign, add two repo
+**secrets** (Settings → Secrets and variables → Actions → Secrets) — no workflow change needed:
+
+| Secret | Value |
+|---|---|
+| `CSC_LINK` | base64 of your `.pfx` (or a `data:` URL / file URL) |
+| `CSC_KEY_PASSWORD` | the `.pfx` password |
+
+`electron-builder` picks these up automatically on the next tagged build.
+
+### 3. Protect `main` (requires GitHub Pro on a private repo)
+
+Branch protection is **not available for private repos on the free plan** (the API returns
+HTTP 403: *"Upgrade to GitHub Pro or make this repository public"*). Two options:
+
+- **Recommended:** upgrade the org/account to **GitHub Pro** (~$4/user/month), then run one command:
+
+  ```bash
+  gh api --method PUT repos/varshinicb1/myca/branches/main/protection \
+    --input .github/branch-protection.json -H "Accept: application/vnd.github+json"
+  ```
+
+- Or make the repo public (only if you intend to open-source it).
+
+The config in `.github/branch-protection.json` requires PRs, the two CI checks
+(`Platform tests`, `Sprint engine tests`), linear history, and blocks force-pushes/deletions.
+It deliberately keeps `enforce_admins: false` so the owner has an emergency bypass.
 
 ---
 
