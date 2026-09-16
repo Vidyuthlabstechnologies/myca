@@ -101,9 +101,11 @@ Implemented now:
 - NIC credentials are encrypted at rest via an OS-backed vault (Electron `safeStorage`/DPAPI) with an AES-256-GCM fallback for plain-Node dev; no plaintext secrets are written.
 - Per-client books: the firm's own books are the root ledger and every registered client gets an isolated ledger via `platform/src/books.mjs` (`POST /api/ca/clients`).
 - Attachment bytes are stored content-addressed on disk (`document-store.mjs`), not inside `state.json`.
+- Sandbox provider adapters (`platform/src/sandbox-adapter.mjs`) translate provider responses into existing engines behind four enforced gates: secret redaction, the live switch, assistant blocking, and CA approval. Implemented operations: GSTIN verify, return status, income-tax calculate, TDS analytics, GSTR-2B reconciliation job, e-invoice authenticate/generate/cancel, and taxpayer OTP generate/verify.
+- CA approval workflow (`platform/src/approvals.mjs`): request/decide/consume with maker-checker separation, reviewer roles, 24-hour expiry, and single use. Gated operations consume an approved, unexpired, operation-matching approval.
+- Tools: `sandbox_operation`, `approval_request`, `approval_decide` (assistant-blocked), `approval_list`.
 
 Not implemented yet:
 
-- Live external connectors (provider adapters are catalogued and gated, not wired).
-- CA approval workflow for live statutory filing.
-- `REQ-CA-006` onward as production-grade external integrations.
+- Live external connectors for operations without a verified provider endpoint (`gst_save_gstr1`, `gst_file_gstr1_evc` are contract-declared but fail closed as `NOT_IMPLEMENTED`).
+- `REQ-CA-006` onward as production-grade external integrations (ASP onboarding, real GSP credentials, end-to-end filing).
