@@ -772,7 +772,8 @@ test('store: state paths are constrained before file reads', () => {
   assert.equal(safeStatePath(safe), safe);
   assert.throws(() => safeStatePath('state.json'), /absolute/);
   assert.throws(() => safeStatePath(join(dir, 'state.txt')), /\.json/);
-  assert.throws(() => safeStatePath('C:\\Windows\\win.ini'), /\.json|outside allowed/);
+  assert.throws(() => safeStatePath('C:\\Windows\\win.ini'), /\.json|outside allowed|absolute/);
+  assert.throws(() => safeStatePath(join(tmpdir(), '..', 'myca-evil', 'state.json')), /outside allowed/);
   rmSync(dir, { recursive: true, force: true });
 });
 
