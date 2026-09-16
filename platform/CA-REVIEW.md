@@ -16,7 +16,11 @@ This is not a GSTN live-filing bot and not a substitute for a practising CA’s 
 | Sprint 6 Defensible audit | fixture gates added | Parser, 8 rules, SA 230 papers, clause checks, risk — complete enough to review |
 | Market site `deploy/` | static | Research + status page only; **not** the product |
 
-Honest gap vs the status HTML: sprints 1–5 are **libraries + CLIs**, not a product. No Zoho adapter, no invoice origin, no Windows shell, no chat, no ledger of record existed until `platform/`.
+Honest gap vs the status HTML: sprints 1–6 are **libraries + CLIs**. They were not a
+product until `platform/` wrapped them. As of the current build, `platform/` **does**
+provide the Windows shell, the chat, the ledger of record, invoice origin, and Zoho/Tally
+imports — but it remains a **local single-user workbench**, not a hosted service: no
+multi-tenant auth, no live GSTN filing, no write-back to Tally/Zoho.
 
 ## TigerBeetle — what we copied, what we did not
 
@@ -43,25 +47,36 @@ The production ledger of record for a later scale-out **should** be TigerBeetle 
 
 ## Tool catalogue the chat is allowed to call
 
-| Tool | CA question it answers |
-|---|---|
-| `create_purchase` | Supplier bill → purchases + GST input + AP? |
-| `print_invoice` | Can I print INV-0001 from posted books? |
-| `filing_pack` | GSTR-1 + 3B + payable assembled, **not** uploaded to GSTN |
-| `record_receipt` | Did bank/cash clear AR for that invoice? |
-| `trial_balance` | Do the books tie? |
-| `journal` | Can I reconstruct every posting and its checksum predecessor? |
-| `prepare_gstr1` / `prepare_gstr3b` | Do return tables match the invoice register? |
-| `gst_payable` | Output − input from the same ledger |
-| `import_tally` | Can we land a Tally Day Book without silent column mapping? |
-| `import_zoho` | Can a Zoho Books invoice export become posted invoices? |
-| `import_bank` | Bank CSV/TXT with running-balance tie-out |
-| `gst_reconcile` | 2B vs books, 1 vs 3B, Rule 37A, IMS |
-| `validate_gstin` | Check digit and state |
-| `deadlines` | Next working-day dues |
-| `prepare_itr` / `monitor_tds` | Regime compare; 194A/C/I/J thresholds |
-| `audit_books` | Full-population flags + SA 230 papers + 3CD/CARO/Sch III |
-| `post_expense` | Bank payment with optional ITC split |
+44 named tools. The assistant may pick any of them; it may not compute a number itself.
+Tools that write books, save credentials, seed data, or decide an approval are blocked
+from the assistant (`seed_demo`, `govt_save_credentials`, `approval_decide`).
+
+| Group | Tools | CA question it answers |
+|---|---|---|
+| Books | `trial_balance`, `chart_of_accounts`, `journal`, `list_invoices`, `company_profile` | Do the books tie, and can I reconstruct every posting? |
+| Vouchers | `create_invoice`, `create_purchase`, `record_receipt`, `print_invoice`, `post_expense` | Supplier bill → AP + ITC? Receipt clears AR? Print INV-0001? |
+| GST prep | `prepare_gstr1`, `export_gstr1_json`, `prepare_gstr3b`, `filing_pack`, `gst_payable` | Do return tables match the invoice register? GST payable from the same ledger? |
+| GST recon | `gst_reconcile`, `validate_gstin` | 2B vs books, 1 vs 3B, Rule 37A, IMS; check digit and state |
+| Imports | `import_tally`, `import_tally_xml`, `import_zoho`, `import_bank` | Land Tally/Zoho/bank data without silent column mapping |
+| Deadlines | `deadlines` | Next working-day dues, holiday-aware |
+| Income tax / TDS | `prepare_itr`, `monitor_tds` | Regime compare (AIS/26AS); 194A/C/I/J thresholds |
+| Audit | `audit_books` | Full-population flags + SA 230 papers + Schedule III/CARO/3CD |
+| Government | `govt_probe`, `govt_nic_auth`, `govt_nic_mock`, `govt_generate_irn`, `govt_save_credentials`* | Can this PC reach/authenticate to NIC, and build an IRN? |
+| Integrations | `integration_readiness`, `integration_connect`, `integration_disconnect`, `provider_catalog`, `sandbox_adapter_plan`, `sandbox_status`, `sandbox_connect`, `sandbox_operation` | Which firm APIs are needed/connected, and what does the provider cover? |
+| Approvals | `approval_request`, `approval_decide`*, `approval_list` | Who authorised a live operation, and is it still valid? |
+| AI | `nim_status`, `nim_ask` | Ask a model for drafting/analysis (never for a figure) |
+| Demo | `seed_demo`* | Load sample books |
+
+\* blocked from the assistant (operator-only).
+
+## What the architecture guarantees
+
+- **Live provider calls are off** unless `MYCA_ENABLE_LIVE_CALLS=1`, and gated
+  operations additionally require a CA-approved, unexpired, single-use approval.
+- **Secrets are encrypted at rest** (Electron `safeStorage`/DPAPI, AES-256-GCM fallback).
+- **Each client's books are isolated**; the firm's own books are the root ledger.
+- **Attachments are content-addressed on disk**; `state.json` holds metadata only.
+
 
 ## Review script (60 minutes)
 
