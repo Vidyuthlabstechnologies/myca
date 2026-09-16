@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  platform:
+    name: Platform tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Run platform test suite
+        working-directory: platform
+        run: npm test
+
+  sprints:
+    name: Sprint engine tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Run each sprint suite
+        shell: bash
+        run: |
+          set -euo pipefail
+          for dir in sprints/*/; do
+            if [ -f "$dir/package.json" ]; then
+              echo "::group::$dir"
+              (cd "$dir" && npm test)
+              echo "::endgroup::"
+            fi
+          done

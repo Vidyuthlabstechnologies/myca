@@ -26,6 +26,19 @@ debug.log
 vendor/*
 !vendor/README.md
 
+# Terraform
+.terraform/
+.terraform.lock.hcl
+*.tfstate
+*.tfstate.*
+crash.log
+*.tfvars
+!*.tfvars.example
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
 # OS / editor junk
 .DS_Store
 Thumbs.db

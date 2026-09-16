@@ -1,0 +1,59 @@
+name: Deploy site (GCP)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "deploy/public/**"
+      - ".github/workflows/deploy-site.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write # required for Workload Identity Federation
+
+concurrency:
+  group: deploy-site
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Sync to GCS + purge CDN
+    # Skips cleanly until Akhil's bootstrap + GitHub variables are in place.
+    if: ${{ vars.GCP_WIF_PROVIDER != '' }}
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SA }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Upload site
+        run: |
+          gcloud storage rsync deploy/public "gs://${{ vars.GCP_SITE_BUCKET }}" \
+            --recursive \
+            --delete-unmatched-destination-objects
+
+      - name: Set HTML cache headers
+        run: |
+          gcloud storage objects update "gs://${{ vars.GCP_SITE_BUCKET }}/**" \
+            --cache-control="public, max-age=300, must-revalidate"
+
+      - name: Purge Cloud CDN cache
+        run: |
+          gcloud compute url-maps invalidate-cdn-cache "${{ vars.GCP_URL_MAP }}" \
+            --path "/*" --async
+
+      - name: Summary
+        run: |
+          {
+            echo "### Site deployed"
+            echo "- Bucket: \`${{ vars.GCP_SITE_BUCKET }}\`"
+            echo "- CDN invalidated: \`${{ vars.GCP_URL_MAP }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"

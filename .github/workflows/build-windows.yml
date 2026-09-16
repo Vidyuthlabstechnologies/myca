@@ -1,0 +1,71 @@
+name: Build Windows installer
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write # create GitHub Releases
+  id-token: write # Workload Identity Federation
+
+jobs:
+  build:
+    name: Package MyCA for Windows
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: platform/package-lock.json
+
+      - name: Install dependencies
+        working-directory: platform
+        run: npm ci
+
+      - name: Build NSIS + portable installers
+        working-directory: platform
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false" # no code-signing cert configured
+        run: npm run pack
+
+      - name: List build output
+        working-directory: platform
+        shell: bash
+        run: ls -lh dist/
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: myca-windows
+          path: platform/dist/*.exe
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publish GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: platform/dist/*.exe
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+
+      - name: Authenticate to Google Cloud
+        if: startsWith(github.ref, 'refs/tags/v') && vars.GCP_WIF_PROVIDER != ''
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SA }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+        if: startsWith(github.ref, 'refs/tags/v') && vars.GCP_WIF_PROVIDER != ''
+
+      - name: Archive installers to GCS
+        if: startsWith(github.ref, 'refs/tags/v') && vars.GCP_WIF_PROVIDER != ''
+        shell: bash
+        run: |
+          gcloud storage cp platform/dist/*.exe \
+            "gs://${{ vars.GCP_ARTIFACTS_BUCKET }}/releases/${{ github.ref_name }}/"

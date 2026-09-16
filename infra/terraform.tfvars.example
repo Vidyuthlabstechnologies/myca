@@ -1,0 +1,10 @@
+# Copy to terraform.tfvars (git-ignored) and fill in.
+project_id = "myca-prod-XXXXXX"
+region     = "asia-south1"
+
+# Custom domain (leave empty to start on the load balancer IP over HTTP).
+domain_name = "myca.in"
+manage_dns  = true
+
+# Optional uptime alerting.
+alert_email = ""
