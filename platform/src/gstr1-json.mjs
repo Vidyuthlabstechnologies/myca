@@ -21,7 +21,7 @@ export function invoicesToGstr1Json(company, invoices = [], periodFp) {
   const dated = (invoices || []).filter((i) => i.date);
   const fp = periodFp || fpFromDate(dated.map((i) => i.date).sort().slice(-1)[0] || '');
   const b2bMap = new Map();
-  const b2cs = [];
+  const b2csMap = new Map();
 
   for (const inv of dated) {
     const pos = String(inv.partyState || inv.placeOfSupply || gstin.slice(0, 2) || '27').padStart(2, '0');
@@ -50,22 +50,34 @@ export function invoicesToGstr1Json(company, invoices = [], periodFp) {
         itms: items,
       });
     } else {
-      const first = inv.lines?.[0] || {};
-      b2cs.push({
-        sply_ty: pos === gstin.slice(0, 2) ? 'INTRA' : 'INTER',
-        rt: Number(first.gstRate || 0),
-        typ: 'OE',
-        pos,
-        txval: round2(inv.taxable),
-        camt: round2(inv.cgst),
-        samt: round2(inv.sgst),
-        iamt: round2(inv.igst),
-        csamt: 0,
-      });
+      // B2CS is consolidated by place of supply and rate, per the GSTN schema.
+      for (const l of inv.lines || []) {
+        const rate = Number(l.gstRate || 0);
+        const key = `${pos}|${rate}`;
+        if (!b2csMap.has(key)) {
+          b2csMap.set(key, {
+            sply_ty: pos === gstin.slice(0, 2) ? 'INTRA' : 'INTER',
+            rt: rate,
+            typ: 'OE',
+            pos,
+            txval: 0,
+            camt: 0,
+            samt: 0,
+            iamt: 0,
+            csamt: 0,
+          });
+        }
+        const row = b2csMap.get(key);
+        row.txval = round2(row.txval + round2(l.taxable));
+        row.camt = round2(row.camt + round2(l.cgst));
+        row.samt = round2(row.samt + round2(l.sgst));
+        row.iamt = round2(row.iamt + round2(l.igst));
+      }
     }
   }
 
   const b2b = [...b2bMap.entries()].map(([ctin, inv]) => ({ ctin, inv }));
+  const b2cs = [...b2csMap.values()];
   return {
     gstin,
     fp,

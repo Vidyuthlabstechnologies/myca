@@ -7,21 +7,30 @@ export function normalizeChat(text) {
     .trim();
 }
 
+const PARTY_KEYWORDS = /^(at|rate|for|from|to|gstin|gst|invoice|purchase|bill|sale|sales)$/i;
+
+function cleanPartyName(candidate) {
+  if (!candidate) return '';
+  const name = String(candidate).trim().replace(/[.,]$/, '');
+  if (!name || PARTY_KEYWORDS.test(name)) return '';
+  return name;
+}
+
 export function parseDocument(text) {
   const raw = normalizeChat(text);
   const gstinMatch = raw.match(GSTIN_RE);
   const gstin = gstinMatch ? gstinMatch[1].toUpperCase() : '';
   const rest = gstin ? raw.replace(gstinMatch[0], ' ') : raw;
-  const qtyMatch = rest.match(/(\d+(?:\.\d+)?)\s*(?:rolls?|pcs|pieces|units|qty|kg|mtrs?|meters?)?/i);
   const at = rest.match(/(?:at|@|rate)\s*₹?\s*([\d,]+(?:\.\d+)?)/i) || rest.match(/₹\s*([\d,]+(?:\.\d+)?)/);
   const gstMatch = rest.match(/gst\s*(\d{1,2})\s*%/i);
   const partyMatch = rest.match(
     /(?:purchase|invoice|bill)\s+(?:from|for|to)\s+([A-Za-z][A-Za-z0-9 .&'-]{1,50}?)(?=\s+(?:gstin|,|\d)|$)/i,
-  ) || rest.match(/from\s+([A-Za-z][A-Za-z0-9 .&'-]{1,50}?)(?=\s+(?:gstin|,|\d)|$)/i);
+  ) || rest.match(/from\s+([A-Za-z][A-Za-z0-9 .&'-]{1,50}?)(?=\s+(?:gstin|,|\d)|$)/i)
+    || rest.match(/(?:purchase|invoice|bill)\s+([A-Za-z][A-Za-z0-9 .&'-]{1,50}?)(?=,|\s+(?:gstin|at|@|rate|gst|\d)|$)/i);
   if (!at) return null;
   const qtyWord = rest.match(/(\d+(?:\.\d+)?)\s*(?:rolls?|pcs|pieces|units|qty|kg)/i);
   return {
-    partyName: (partyMatch ? partyMatch[1] : 'Walk-in').trim().replace(/[.,]$/, ''),
+    partyName: cleanPartyName(partyMatch ? partyMatch[1] : '') || 'Walk-in',
     partyGstin: gstin,
     partyState: gstin.slice(0, 2),
     lines: [{

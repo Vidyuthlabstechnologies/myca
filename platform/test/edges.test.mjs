@@ -19,7 +19,9 @@ import { parseZohoBooksCsv } from '../src/import-zoho.mjs';
 import { tallyXmlToDayBookCsv } from '../src/tally-xml.mjs';
 import { invoicesToGstr1Json } from '../src/gstr1-json.mjs';
 import { TOOLS, runTool } from '../src/tools.mjs';
-import { invoiceToNicPayload, nicGenerateIrn, probeGovt, nicAuthenticate } from '../src/govt.mjs';
+import { invoiceToNicPayload, nicGenerateIrn, probeGovt, nicAuthenticate, mycaDir } from '../src/govt.mjs';
+import { csvRows } from '../src/text-safe.mjs';
+import { liveCallsEnabled } from '../src/runtime-config.mjs';
 import { openSession } from '../src/session.mjs';
 import { purchaseRegisterCsv, postTallyRows } from '../src/post-import.mjs';
 import { isAllowedOrigin } from '../src/server.mjs';
@@ -329,8 +331,10 @@ test('gstr1: B2B groups by GSTIN; B2C and short GSTIN go to b2cs; undated skippe
   assert.equal(json.b2b.length, 1);
   assert.equal(json.b2b[0].inv.length, 2);
   assert.equal(json.fp, '082026');
-  assert.ok(json.b2cs.length >= 2);
-  assert.equal(json.b2cs.some((r) => r.sply_ty === 'INTRA'), true);
+  assert.equal(json.b2cs.length, 1);
+  assert.equal(json.b2cs[0].sply_ty, 'INTRA');
+  assert.equal(json.b2cs[0].rt, 5);
+  assert.equal(json.b2cs[0].txval, 700);
   const interC = invoicesToGstr1Json(state.company, [{
     id: 'B2C-GJ', date: '2026-09-01', partyGstin: '', partyState: '24', taxable: 100, cgst: 0, sgst: 0, igst: 18, total: 118,
     lines: [{ gstRate: 18, taxable: 100, cgst: 0, sgst: 0, igst: 18 }],
@@ -713,7 +717,8 @@ test('tally xml: not envelope, CDATA, skip voucher without date', () => {
   const converted = tallyXmlToDayBookCsv(xml);
   assert.equal(converted.ok, true);
   assert.equal(converted.count, 1);
-  assert.match(converted.csv, /Retail Mart/);
+  assert.match(converted.csv, /"Retail, Mart"/);
+  assert.match(converted.csv, /"Cloth, fine"/);
 });
 
 test('tally post: duplicate voucher skipped; unknown type skipped; zero skipped', () => {
@@ -852,3 +857,74 @@ test('security: index.html has strict CSP and no external font CDNs', () => {
   assert.equal(existsSync(join(fontsDir, 'ibm-plex-mono-500.woff2')), true);
 });
 
+
+test('security: live provider calls are opt-in and never fire in tests', async () => {
+  assert.equal(liveCallsEnabled(), false);
+  const state = createState();
+  const nimAsk = await runTool(state, 'nim_ask', { prompt: 'summarise 194C' });
+  assert.equal(nimAsk.ok, false);
+  assert.equal(nimAsk.error, 'LIVE_CALLS_DISABLED');
+  const good = await runTool(state, 'validate_gstin', { gstin: '27AABCU9603R1ZP' });
+  assert.equal(good.data.liveVerified, false);
+});
+
+test('security: NIC auth refuses to send credentials without the RSA public key', async () => {
+  if (existsSync(join(mycaDir(), 'einv-public.pem'))) return;
+  const out = await nicAuthenticate(
+    { env: 'sandbox', clientId: 'cid', clientSecret: 'sec', username: 'u', password: 'p', gstin: '27AABCU9603R1ZP' },
+    async () => { throw new Error('network must not be reached'); },
+  );
+  assert.equal(out.error, 'MISSING_NIC_PUBLIC_KEY');
+});
+
+test('invoice: invalid or zero lines do not leave an orphan party', () => {
+  const state = createState();
+  assert.equal(createInvoice(state, { partyName: 'Ghost', lines: [line({ qty: 0 })] }).error, 'BAD_LINE');
+  assert.equal(createInvoice(state, { partyName: 'Ghost', lines: [line({ rate: 0 })] }).error, 'ZERO_AMOUNT');
+  assert.equal(state.parties.length, 0);
+  assert.equal(state.ledger.accounts.has(90001n), false);
+});
+
+test('invoice: missing party name defaults to Walk-in', () => {
+  const state = createState();
+  const r = createInvoice(state, { partyGstin: '', partyState: '27', lines: [line()] });
+  assert.equal(r.ok, true);
+  assert.equal(r.invoice.partyName, 'Walk-in');
+});
+
+test('receipt: rejects overpayment, non-positive amounts, and missing party', () => {
+  const state = createState();
+  const inv = intra(state, { lines: [line({ rate: 1000 })] });
+  assert.equal(recordReceipt(state, { invoiceId: inv.invoice.id, amount: 0 }).error, 'BAD_AMOUNT');
+  const over = recordReceipt(state, { invoiceId: inv.invoice.id, amount: 2000 });
+  assert.equal(over.error, 'OVERPAYMENT');
+  assert.equal(over.due, 1050);
+  assert.equal(trialBalance(state.ledger).balanced, true);
+  state.parties = [];
+  assert.equal(recordReceipt(state, { invoiceId: inv.invoice.id, amount: 10 }).error, 'PARTY_NOT_FOUND');
+});
+
+test('csv: numeric cells (including negatives) are not formula-escaped', () => {
+  assert.equal(csvRows([[-100, '=X', '+Y', '@z', 0]]), "-100,'=X,'+Y,'@z,0");
+});
+
+test('tally post: duplicate purchase skipped and zero receipt skipped', () => {
+  const state = createState();
+  const rows = [
+    { voucherType: 'Purchase', voucherNo: 'P1', date: '2026-08-01', ledger: 'V', gstin: '27AABCT1332L1ZM', computedAmount: 1000, gstRate: 18 },
+    { voucherType: 'Purchase', voucherNo: 'P1', date: '2026-08-01', ledger: 'V', gstin: '27AABCT1332L1ZM', computedAmount: 1000, gstRate: 18 },
+    { voucherType: 'Receipt', voucherNo: 'R0', date: '2026-08-01', ledger: 'C', computedAmount: 0 },
+  ];
+  const out = postTallyRows(state, rows);
+  assert.equal(out.posted, 1);
+  assert.equal(out.skipped.some((s) => s.reason === 'exists'), true);
+  assert.equal(out.skipped.some((s) => s.reason === 'zero'), true);
+  assert.equal(state.purchases.length, 1);
+  assert.equal(trialBalance(state.ledger).balanced, true);
+});
+
+test('intent: party name is captured after invoice/purchase without a preposition', () => {
+  assert.equal(parseDocument('Invoice Retail Mart GSTIN 27AAACH7409R1Z3, 10 rolls at 50000, GST 5%').partyName, 'Retail Mart');
+  assert.equal(parseDocument('purchase Fabric Co 20 rolls at 2000 GST 5%').partyName, 'Fabric Co');
+  assert.equal(parseDocument('invoice at 1000 GST 18%').partyName, 'Walk-in');
+});

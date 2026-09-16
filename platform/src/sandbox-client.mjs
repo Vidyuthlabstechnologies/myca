@@ -1,34 +1,4 @@
-import { readFileSync, existsSync } from 'node:fs';
-import { resolve, join, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
-
-const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-
-function loadEnvFile() {
-  const paths = [
-    join(root, '.env'),
-    join(root, '.env.production'),
-    join(root, '.env.local'),
-  ];
-  const env = {};
-  for (const p of paths) {
-    if (!existsSync(p)) continue;
-    try {
-      const lines = readFileSync(p, 'utf8').split('\n');
-      for (const line of lines) {
-        const trimmed = line.trim();
-        if (!trimmed || trimmed.startsWith('#')) continue;
-        const idx = trimmed.indexOf('=');
-        if (idx > 0) {
-          const k = trimmed.slice(0, idx).trim();
-          const v = trimmed.slice(idx + 1).trim();
-          if (!env[k] && v) env[k] = v;
-        }
-      }
-    } catch { /* ignore parse error */ }
-  }
-  return env;
-}
+import { loadEnvFile } from './runtime-config.mjs';
 
 export class SandboxClient {
   constructor(options = {}) {

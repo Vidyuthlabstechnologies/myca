@@ -98,6 +98,9 @@ function fmtToolResult(name, result) {
     if (!d.configured) {
       return `Quicko Sandbox is NOT configured. Configure MYCA_GSP_API_KEY and MYCA_GSP_API_SECRET in platform/.env.`;
     }
+    if (d.error === 'LIVE_CALLS_DISABLED') {
+      return `Quicko Sandbox is configured (${d.baseUrl}) but live outbound calls are disabled. ${d.hint}`;
+    }
     if (d.ok) {
       return `Quicko Sandbox API (${d.baseUrl}) connected successfully in ${d.ms}ms. Authentication active.`;
     }
@@ -109,6 +112,9 @@ function fmtToolResult(name, result) {
   if (name === 'nim_status') {
     if (!d.configured) {
       return `NVIDIA NIM: Not configured. Model target is ${d.model}. ${d.hint}`;
+    }
+    if (d.error === 'LIVE_CALLS_DISABLED') {
+      return `NVIDIA NIM is configured (${d.model}) but live outbound calls are disabled. ${d.hint}`;
     }
     if (d.ok) {
       return `NVIDIA NIM connected (${d.model}) in ${d.ms}ms. Ready for free inference.`;

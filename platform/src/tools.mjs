@@ -18,6 +18,7 @@ import { providerCatalog, providerRequirementMap } from './provider-catalog.mjs'
 import { sandboxAdapterPlan } from './sandbox-adapter-contract.mjs';
 import { getSandboxClient } from './sandbox-client.mjs';
 import { getNimClient } from './nim-client.mjs';
+import { liveCallsEnabled } from './runtime-config.mjs';
 import { seedDemo } from './store.mjs';
 
 function ok(data) {
@@ -265,6 +266,17 @@ export const TOOLS = [
     description: 'Ping and verify connection to Quicko Sandbox GSP API using configured credentials.',
     run: async () => {
       const client = getSandboxClient();
+      if (client.isConfigured() && !liveCallsEnabled()) {
+        return ok({
+          ok: false,
+          configured: true,
+          live: false,
+          provider: 'sandbox',
+          baseUrl: client.baseUrl,
+          error: 'LIVE_CALLS_DISABLED',
+          hint: 'Credential-led outbound calls are disabled by default. Set MYCA_ENABLE_LIVE_CALLS=1 in platform/.env to allow calls to Quicko Sandbox.',
+        });
+      }
       return ok(await client.ping());
     },
   },
@@ -304,6 +316,17 @@ export const TOOLS = [
     description: 'Check NVIDIA NIM AI model connection and configuration (free meta/llama-3.3-70b-instruct).',
     run: async () => {
       const client = getNimClient();
+      if (client.isConfigured() && !liveCallsEnabled()) {
+        return ok({
+          ok: false,
+          configured: true,
+          live: false,
+          provider: 'nvidia_nim',
+          model: client.defaultModel,
+          error: 'LIVE_CALLS_DISABLED',
+          hint: 'Credential-led outbound calls are disabled by default. Set MYCA_ENABLE_LIVE_CALLS=1 in platform/.env to allow calls to NVIDIA NIM.',
+        });
+      }
       return ok(await client.ping());
     },
   },
@@ -313,9 +336,12 @@ export const TOOLS = [
     description: 'Query NVIDIA NIM free LLM for statutory tax analysis, client emails, or notice review.',
     args: ['prompt', 'model'],
     run: async (_state, args = {}) => {
-      const client = getNimClient();
       const prompt = args.prompt || '';
       if (!prompt) return fail('prompt required');
+      if (!liveCallsEnabled()) {
+        return fail('LIVE_CALLS_DISABLED', { hint: 'Set MYCA_ENABLE_LIVE_CALLS=1 in platform/.env to allow outbound model calls.' });
+      }
+      const client = getNimClient();
       const res = await client.complete({ prompt, model: args.model });
       return res.ok ? ok(res) : fail(res.error, { hint: res.hint });
     },
@@ -436,11 +462,13 @@ export const TOOLS = [
       const local = validateGstin(raw);
       if (!local.ok) return ok(local);
       const sandbox = getSandboxClient();
-      if (!sandbox.isConfigured()) {
+      if (!sandbox.isConfigured() || !liveCallsEnabled()) {
         return ok({
           ...local,
           liveVerified: false,
-          liveReason: 'Sandbox credentials not configured in .env',
+          liveReason: !sandbox.isConfigured()
+            ? 'Sandbox credentials not configured in .env'
+            : 'Live provider calls are disabled (set MYCA_ENABLE_LIVE_CALLS=1 to enable).',
         });
       }
       try {

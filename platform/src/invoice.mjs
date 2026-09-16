@@ -25,13 +25,24 @@ export function ensureParty(state, { name, gstin, stateCode }) {
 export function createInvoice(state, input) {
   const company = state.company;
   const date = input.date || new Date().toISOString().slice(0, 10);
-  if (!(input.lines || []).length) return { ok: false, error: 'NO_LINES' };
-  const party = ensureParty(state, { name: input.partyName, gstin: input.partyGstin, stateCode: input.partyState });
-  const lines = (input.lines || []).map((l) => {
-    const qty = Number(l.qty == null || l.qty === '' ? 1 : l.qty);
-    const rateAmt = Number(l.rate);
+  const rawLines = input.lines || [];
+  if (!rawLines.length) return { ok: false, error: 'NO_LINES' };
+  const specs = rawLines.map((l) => ({
+    qty: Number(l.qty == null || l.qty === '' ? 1 : l.qty),
+    rate: Number(l.rate),
+    gstRate: Number(l.gstRate == null || l.gstRate === '' ? 18 : l.gstRate),
+  }));
+  if (specs.some((s) => !Number.isFinite(s.qty) || s.qty <= 0 || !Number.isFinite(s.rate) || s.rate < 0 || !Number.isFinite(s.gstRate))) {
+    return { ok: false, error: 'BAD_LINE' };
+  }
+  const grossTaxable = specs.reduce((sum, s) => sum + Math.round(s.qty * s.rate * 100) / 100, 0);
+  if (grossTaxable <= 0) return { ok: false, error: 'ZERO_AMOUNT' };
+
+  const partyName = String(input.partyName ?? '').trim() || 'Walk-in';
+  const party = ensureParty(state, { name: partyName, gstin: input.partyGstin, stateCode: input.partyState });
+  const lines = rawLines.map((l, i) => {
+    const { qty, rate: rateAmt, gstRate } = specs[i];
     const taxable = Math.round(qty * rateAmt * 100) / 100;
-    const gstRate = Number(l.gstRate == null || l.gstRate === '' ? 18 : l.gstRate);
     const split = gstSplit({
       taxable,
       rate: gstRate,
@@ -49,11 +60,7 @@ export function createInvoice(state, input) {
       amount: Math.round((taxable + split.tax) * 100) / 100,
     };
   });
-  if (lines.some((l) => !Number.isFinite(l.qty) || l.qty <= 0 || !Number.isFinite(l.rate) || l.rate < 0 || !Number.isFinite(l.gstRate))) {
-    return { ok: false, error: 'BAD_LINE' };
-  }
   const taxable = lines.reduce((s, l) => s + l.taxable, 0);
-  if (taxable <= 0) return { ok: false, error: 'ZERO_AMOUNT' };
   const cgst = lines.reduce((s, l) => s + l.cgst, 0);
   const sgst = lines.reduce((s, l) => s + l.sgst, 0);
   const igst = lines.reduce((s, l) => s + l.igst, 0);
@@ -131,12 +138,23 @@ export function createInvoice(state, input) {
   return { ok: true, invoice, posted };
 }
 
-export function recordReceipt(state, { invoiceId, amount, date, mode }) {
+export function recordReceipt(state, { invoiceId, amount, date, mode } = {}) {
   const inv = (state.invoices || []).find((i) => i.id === invoiceId);
   if (!inv) return { ok: false, error: 'INVOICE_NOT_FOUND' };
-  const party = state.parties.find((p) => p.name === inv.partyName);
-  const bankOrCash = mode === 'cash' ? 1001 : 1002;
+  const party = (state.parties || []).find((p) => p.name === inv.partyName);
+  if (!party) return { ok: false, error: 'PARTY_NOT_FOUND' };
   const amt = amount == null ? inv.total : Number(amount);
+  if (!Number.isFinite(amt) || amt <= 0) return { ok: false, error: 'BAD_AMOUNT' };
+  const already = (inv.receipts || []).reduce((s, r) => s + Number(r.amount || 0), 0);
+  if (already + amt > inv.total + 0.01) {
+    return {
+      ok: false,
+      error: 'OVERPAYMENT',
+      invoiceId,
+      due: Math.round((inv.total - already) * 100) / 100,
+    };
+  }
+  const bankOrCash = mode === 'cash' ? 1001 : 1002;
   const posted = createTransfers(state.ledger, [{
     id: nextTransferId(state),
     debitAccountId: bankOrCash,
@@ -170,13 +188,24 @@ export function ensureVendor(state, { name, gstin, stateCode }) {
 export function createPurchase(state, input) {
   const company = state.company;
   const date = input.date || new Date().toISOString().slice(0, 10);
-  if (!(input.lines || []).length) return { ok: false, error: 'NO_LINES' };
-  const vendor = ensureVendor(state, { name: input.partyName, gstin: input.partyGstin, stateCode: input.partyState });
-  const lines = (input.lines || []).map((l) => {
-    const qty = Number(l.qty == null || l.qty === '' ? 1 : l.qty);
-    const rateAmt = Number(l.rate);
+  const rawLines = input.lines || [];
+  if (!rawLines.length) return { ok: false, error: 'NO_LINES' };
+  const specs = rawLines.map((l) => ({
+    qty: Number(l.qty == null || l.qty === '' ? 1 : l.qty),
+    rate: Number(l.rate),
+    gstRate: Number(l.gstRate == null || l.gstRate === '' ? 18 : l.gstRate),
+  }));
+  if (specs.some((s) => !Number.isFinite(s.qty) || s.qty <= 0 || !Number.isFinite(s.rate) || s.rate < 0 || !Number.isFinite(s.gstRate))) {
+    return { ok: false, error: 'BAD_LINE' };
+  }
+  const grossTaxable = specs.reduce((sum, s) => sum + Math.round(s.qty * s.rate * 100) / 100, 0);
+  if (grossTaxable <= 0) return { ok: false, error: 'ZERO_AMOUNT' };
+
+  const vendorName = String(input.partyName ?? '').trim() || 'Supplier';
+  const vendor = ensureVendor(state, { name: vendorName, gstin: input.partyGstin, stateCode: input.partyState });
+  const lines = rawLines.map((l, i) => {
+    const { qty, rate: rateAmt, gstRate } = specs[i];
     const taxable = Math.round(qty * rateAmt * 100) / 100;
-    const gstRate = Number(l.gstRate == null || l.gstRate === '' ? 18 : l.gstRate);
     const split = gstSplit({
       taxable,
       rate: gstRate,
@@ -194,11 +223,7 @@ export function createPurchase(state, input) {
       amount: Math.round((taxable + split.tax) * 100) / 100,
     };
   });
-  if (lines.some((l) => !Number.isFinite(l.qty) || l.qty <= 0 || !Number.isFinite(l.rate) || l.rate < 0 || !Number.isFinite(l.gstRate))) {
-    return { ok: false, error: 'BAD_LINE' };
-  }
   const taxable = lines.reduce((s, l) => s + l.taxable, 0);
-  if (taxable <= 0) return { ok: false, error: 'ZERO_AMOUNT' };
   const cgst = lines.reduce((s, l) => s + l.cgst, 0);
   const sgst = lines.reduce((s, l) => s + l.sgst, 0);
   const igst = lines.reduce((s, l) => s + l.igst, 0);

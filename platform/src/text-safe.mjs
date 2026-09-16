@@ -10,7 +10,8 @@ export function htmlEscape(value) {
 
 export function csvCell(value) {
   let text = String(value ?? '');
-  if (/^[=+\-@]/.test(text)) text = `'${text}`;
+  const numeric = /^-?\d+(?:\.\d+)?$/.test(text);
+  if (!numeric && /^[=+\-@]/.test(text)) text = `'${text}`;
   if (/[",\r\n]/.test(text)) return `"${text.replace(/"/g, '""')}"`;
   return text;
 }

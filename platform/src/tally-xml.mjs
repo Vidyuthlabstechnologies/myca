@@ -2,6 +2,7 @@
  * TallyPrime XML export (ENVELOPE / TALLYMESSAGE / VOUCHER).
  * Protocol is Tally's published XML interface; this parser is original to Bahikhata.
  */
+import { csvRows } from './text-safe.mjs';
 
 function tag(block, name) {
   const m = block.match(new RegExp(`<${name}[^>]*>([\\s\\S]*?)</${name}>`, 'i'));
@@ -35,8 +36,8 @@ export function tallyXmlToDayBookCsv(xml) {
     return { ok: false, error: 'Not a Tally XML envelope (expected <ENVELOPE> or <VOUCHER>).', csv: '', count: 0 };
   }
   const blocks = [...text.matchAll(/<VOUCHER\b[\s\S]*?<\/VOUCHER>/gi)].map((m) => m[0]);
-  const header = 'Date,Voucher Type,Voucher No,Particulars,Amount,GSTIN,Narration';
-  const rows = [];
+  const header = ['Date', 'Voucher Type', 'Voucher No', 'Particulars', 'Amount', 'GSTIN', 'Narration'];
+  const rows = [header];
   for (const b of blocks) {
     const type = tag(b, 'VOUCHERTYPENAME') || attr(b, 'VCHTYPE') || 'Journal';
     const date = tallyDate(tag(b, 'DATE'));
@@ -46,7 +47,8 @@ export function tallyXmlToDayBookCsv(xml) {
     const narr = tag(b, 'NARRATION');
     const amount = voucherAmount(b);
     if (!date) continue;
-    rows.push([date, type, no, party.replace(/,/g, ' ').replace(/\s+/g, ' '), amount || '', gstin, narr.replace(/,/g, ' ').replace(/\s+/g, ' ')].join(','));
+    const amountCell = Number.isFinite(amount) ? amount : '';
+    rows.push([date, type, no, party.replace(/\s+/g, ' ').trim(), amountCell, gstin, narr.replace(/\s+/g, ' ').trim()]);
   }
-  return { ok: true, csv: [header, ...rows].join('\n'), count: rows.length };
+  return { ok: true, csv: csvRows(rows), count: rows.length - 1 };
 }

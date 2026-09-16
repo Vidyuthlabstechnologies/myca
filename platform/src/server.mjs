@@ -15,7 +15,7 @@ const types = {
   '.woff': 'font/woff',
   '.ttf': 'font/ttf',
 };
-const MAX_BODY_BYTES = 2 * 1024 * 1024;
+const MAX_BODY_BYTES = 25 * 1024 * 1024;
 const API_CLIENT_HEADER = 'renderer';
 
 let session;

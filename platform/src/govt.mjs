@@ -273,9 +273,15 @@ export async function nicAuthenticate(cfg = loadGovtConfig(), fetchFn = fetch, o
     ForceRefreshAccessToken: false,
   });
   const pem = pemFromDisk();
-  const body = pem
-    ? { Data: rsaEncryptBase64(inner, pem) }
-    : { Data: Buffer.from(inner, 'utf8').toString('base64'), UnencryptedProbe: true };
+  if (!pem) {
+    return {
+      ok: false,
+      error: 'MISSING_NIC_PUBLIC_KEY',
+      guide: GOVT_GUIDE,
+      hint: 'NIC requires the RSA public key to encrypt credentials. Download the sandbox .cer from einv-apisandbox.nic.in and save it as %APPDATA%\\MyCA\\einv-public.pem, then retry. MyCA will never transmit credentials unencrypted.',
+    };
+  }
+  const body = { Data: rsaEncryptBase64(inner, pem) };
   const res = await fetchFn(url, {
     method: 'POST',
     headers: {
@@ -295,11 +301,9 @@ export async function nicAuthenticate(cfg = loadGovtConfig(), fetchFn = fetch, o
     status: res.status,
     url,
     env,
-    encrypted: Boolean(pem),
+    encrypted: true,
     nic: parsed,
-    hint: pem
-      ? 'If Status is 0, check username/password/GSTIN on the e-invoice portal.'
-      : 'NIC rejected or ignored the payload because the RSA public key is missing. Download the sandbox .cer from einv-apisandbox.nic.in (developer portal) and save as %APPDATA%\\MyCA\\einv-public.pem, then retry.',
+    hint: 'If Status is 0, check username/password/GSTIN on the e-invoice portal.',
   };
 }
 

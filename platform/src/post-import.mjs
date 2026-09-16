@@ -32,12 +32,13 @@ export function postTallyRows(state, rows) {
       continue;
     }
     if (type === 'sales') {
-      if ((state.invoices || []).some((i) => i.id === `TALLY-${row.voucherNo}`)) {
+      const vid = `TALLY-${row.voucherNo || row.sourceRow}`;
+      if ((state.invoices || []).some((i) => i.id === vid)) {
         skipped.push({ voucherNo: row.voucherNo, reason: 'exists' });
         continue;
       }
       const r = createInvoice(state, {
-        id: `TALLY-${row.voucherNo || row.sourceRow}`,
+        id: vid,
         date: row.date,
         partyName: row.ledger || 'Customer',
         partyGstin: row.gstin || '',
@@ -47,8 +48,13 @@ export function postTallyRows(state, rows) {
       continue;
     }
     if (type === 'purchase') {
+      const vid = `TALLY-${row.voucherNo || row.sourceRow}`;
+      if ((state.purchases || []).some((p) => p.id === vid)) {
+        skipped.push({ voucherNo: row.voucherNo, reason: 'exists' });
+        continue;
+      }
       const r = createPurchase(state, {
-        id: `TALLY-${row.voucherNo || row.sourceRow}`,
+        id: vid,
         date: row.date,
         partyName: row.ledger || 'Supplier',
         partyGstin: row.gstin || '',
@@ -58,34 +64,38 @@ export function postTallyRows(state, rows) {
       continue;
     }
     if (type === 'receipt') {
-      const party = ensureParty(state, { name: row.ledger || 'Customer', gstin: row.gstin || '' });
       const amt = Math.abs(row.credit || row.computedAmount || 0);
-      posted.push({
-        ok: true,
-        posted: createTransfers(state.ledger, [{
-          id: tid(state),
-          debitAccountId: 1002,
-          creditAccountId: party.accountId,
-          amount: paise(amt),
-          code: 'TALLY-RECEIPT',
-          invoiceId: row.voucherNo,
-        }]),
-      });
+      if (!amt) {
+        skipped.push({ voucherNo: row.voucherNo, reason: 'zero' });
+        continue;
+      }
+      const party = ensureParty(state, { name: row.ledger || 'Customer', gstin: row.gstin || '' });
+      const t = createTransfers(state.ledger, [{
+        id: tid(state),
+        debitAccountId: 1002,
+        creditAccountId: party.accountId,
+        amount: paise(amt),
+        code: 'TALLY-RECEIPT',
+        invoiceId: row.voucherNo,
+      }]);
+      posted.push({ ok: t[0].ok, posted: t });
       continue;
     }
     if (type === 'payment') {
       const amt = Math.abs(row.debit || row.computedAmount || 0);
-      posted.push({
-        ok: true,
-        posted: createTransfers(state.ledger, [{
-          id: tid(state),
-          debitAccountId: 5100,
-          creditAccountId: 1002,
-          amount: paise(amt),
-          code: 'TALLY-PAYMENT',
-          invoiceId: row.voucherNo,
-        }]),
-      });
+      if (!amt) {
+        skipped.push({ voucherNo: row.voucherNo, reason: 'zero' });
+        continue;
+      }
+      const t = createTransfers(state.ledger, [{
+        id: tid(state),
+        debitAccountId: 5100,
+        creditAccountId: 1002,
+        amount: paise(amt),
+        code: 'TALLY-PAYMENT',
+        invoiceId: row.voucherNo,
+      }]);
+      posted.push({ ok: t[0].ok, posted: t });
       continue;
     }
     skipped.push({ voucherNo: row.voucherNo, reason: `unposted:${type || row.direction}` });
@@ -108,27 +118,35 @@ export function postBankRows(state, rows) {
     if (row.type === 'credit' || (row.credit && row.credit > 0)) {
       const creditId = BANK_CREDIT[cat] || 1100;
       const amt = Math.abs(row.credit || row.amount || 0);
-      if (!amt) continue;
-      createTransfers(state.ledger, [{
+      if (!amt) {
+        skipped.push({ sourceRow: row.sourceRow, reason: 'zero' });
+        continue;
+      }
+      const t = createTransfers(state.ledger, [{
         id: tid(state),
         debitAccountId: 1002,
         creditAccountId: creditId,
         amount: paise(amt),
         code: `BANK-${cat || 'in'}`,
       }]);
-      posted += 1;
+      if (t[0]?.ok) posted += 1;
+      else skipped.push({ sourceRow: row.sourceRow, reason: t[0]?.error || 'ledger_reject' });
     } else if (row.type === 'debit' || (row.debit && row.debit > 0)) {
       const debitId = BANK_DEBIT[cat] || 5100;
       const amt = Math.abs(row.debit || row.amount || 0);
-      if (!amt) continue;
-      createTransfers(state.ledger, [{
+      if (!amt) {
+        skipped.push({ sourceRow: row.sourceRow, reason: 'zero' });
+        continue;
+      }
+      const t = createTransfers(state.ledger, [{
         id: tid(state),
         debitAccountId: debitId,
         creditAccountId: 1002,
         amount: paise(amt),
         code: `BANK-${cat || 'out'}`,
       }]);
-      posted += 1;
+      if (t[0]?.ok) posted += 1;
+      else skipped.push({ sourceRow: row.sourceRow, reason: t[0]?.error || 'ledger_reject' });
     } else {
       skipped.push({ sourceRow: row.sourceRow, reason: 'no-side' });
     }
