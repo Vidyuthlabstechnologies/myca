@@ -43,6 +43,7 @@
           <button type="button" data-tab="invoices" class="on" role="tab">Vouchers</button>
           <button type="button" data-tab="books" role="tab">Books</button>
           <button type="button" data-tab="gst" role="tab">GST</button>
+          <button type="button" data-tab="documents" role="tab">Documents</button>
           <button type="button" data-tab="clients" role="tab">Clients</button>
           <button type="button" data-tab="approvals" role="tab">Approvals</button>
           <button type="button" data-tab="firm" role="tab">Firm</button>
@@ -99,6 +100,38 @@
               <tr><th>Bill</th><th>Supplier</th><th class="num">ITC</th></tr>
             </thead>
             <tbody id="gstBills"></tbody>
+          </table>
+          </div>
+        </section>
+
+        <section id="panel-documents" class="panel" hidden role="tabpanel">
+          <p class="lede" id="docsActive">Documents for —</p>
+          <form id="docForm" class="govt-form">
+            <label>Kind
+              <select id="dKind">
+                <option value="gstr2b">GSTR-2B</option>
+                <option value="gstr3b">GSTR-3B</option>
+                <option value="sales_register">Sales register</option>
+                <option value="purchase_register">Purchase register</option>
+                <option value="tally_export">Tally export</option>
+                <option value="bank_statement">Bank statement</option>
+                <option value="26as">Form 26AS</option>
+                <option value="ais">AIS</option>
+                <option value="e_invoice_json">E-invoice JSON</option>
+                <option value="other">Other</option>
+              </select>
+            </label>
+            <label>File
+              <input id="dFile" type="file" accept=".csv,.txt,.json,.xml,.html" />
+            </label>
+            <div class="form-row"><button type="submit" class="btn">File document</button></div>
+          </form>
+          <div class="sheet" style="min-height:0">
+          <table class="grid">
+            <thead>
+              <tr><th>ID</th><th>Kind</th><th>File</th><th class="num">Bytes</th><th>Uploaded</th><th></th></tr>
+            </thead>
+            <tbody id="docRows"></tbody>
           </table>
           </div>
         </section>
@@ -325,6 +358,7 @@
       </aside>
     </div>
   </div>
-  <script src="app.js?v=11"></script>
+  <script src="app.js?v=12"></script>
 </body>
 </html>
+

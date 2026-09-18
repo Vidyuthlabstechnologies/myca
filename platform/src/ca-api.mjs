@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { journal, trialBalance } from './ledger.mjs';
 import { createInvoice, createPurchase } from './invoice.mjs';
 import { getBook } from './books.mjs';
-import { putDocument } from './document-store.mjs';
+import { putDocument, readDocument } from './document-store.mjs';
 
 const DEFAULT_USER = {
   userId: 'USR-ADMIN',
@@ -134,6 +134,43 @@ export function appendAuditEvent(state, event) {
   return record;
 }
 
+export function listDocuments(state, clientId) {
+  ensureCaApiState(state);
+  requireClient(state, clientId);
+  return { ok: true, data: { clientId, documents: state.documents.filter((doc) => doc.clientId === clientId) } };
+}
+
+export function uploadDocument(state, clientId, input = {}) {
+  ensureCaApiState(state);
+  requireClient(state, clientId);
+  const beforeHash = stateDigest(state);
+  const { doc, content } = documentPayload(state, clientId, input);
+  const stored = putDocument(state._dataDir, content);
+  doc.sha256 = stored.sha256;
+  doc.bytes = stored.bytes;
+  state.documents.push(doc);
+  state.files[doc.documentId] = content;
+  appendAuditEvent(state, {
+    actorId: input.actorId || 'api',
+    clientId,
+    action: 'documents.upload',
+    beforeHash,
+    afterHash: stateDigest(state),
+    metadata: { documentId: doc.documentId, kind: doc.kind, sha256: doc.sha256, bytes: doc.bytes },
+  });
+  return { ok: true, data: doc };
+}
+
+export function getDocumentContent(state, clientId, documentId) {
+  ensureCaApiState(state);
+  requireClient(state, clientId);
+  const doc = state.documents.find((d) => d.documentId === documentId && d.clientId === clientId);
+  if (!doc) return { ok: false, error: 'DOCUMENT_NOT_FOUND' };
+  const content = state.files[documentId] != null ? state.files[documentId] : readDocument(state._dataDir, doc.sha256);
+  if (content == null) return { ok: false, error: 'DOCUMENT_BYTES_MISSING' };
+  return { ok: true, data: { ...doc, content } };
+}
+
 function documentPayload(state, clientId, input = {}) {
   ensureCaApiState(state);
   const content = String(input.content || '');
@@ -212,30 +249,16 @@ export function handleCaApi(state, method, pathname, body = {}) {
     return postVoucher(state, segments[1], body);
   }
 
-  if (method === 'GET' && segments[0] === 'clients' && segments[2] === 'documents') {
-    requireClient(state, segments[1]);
-    return { ok: true, data: { documents: state.documents.filter((doc) => doc.clientId === segments[1]) } };
+  if (method === 'GET' && segments[0] === 'clients' && segments[2] === 'documents' && segments.length === 4) {
+    return getDocumentContent(state, segments[1], segments[3]);
+  }
+
+  if (method === 'GET' && segments[0] === 'clients' && segments[2] === 'documents' && segments.length === 3) {
+    return listDocuments(state, segments[1]);
   }
 
   if (method === 'POST' && segments[0] === 'clients' && segments[2] === 'documents') {
-    requireClient(state, segments[1]);
-    const beforeHash = stateDigest(state);
-    const { doc, content } = documentPayload(state, segments[1], body);
-    const stored = putDocument(state._dataDir, content);
-    doc.sha256 = stored.sha256;
-    doc.bytes = stored.bytes;
-    state.documents.push(doc);
-    state.files[doc.documentId] = content;
-    const afterHash = stateDigest(state);
-    appendAuditEvent(state, {
-      actorId: body.actorId || 'api',
-      clientId: segments[1],
-      action: 'documents.upload',
-      beforeHash,
-      afterHash,
-      metadata: { documentId: doc.documentId, kind: doc.kind },
-    });
-    return { ok: true, data: doc };
+    return uploadDocument(state, segments[1], body);
   }
 
   if (method === 'GET' && path === '/users') {

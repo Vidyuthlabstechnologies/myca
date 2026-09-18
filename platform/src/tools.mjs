@@ -14,7 +14,7 @@ import { invoicesToGstr1Json } from './gstr1-json.mjs';
 import { tallyXmlToDayBookCsv } from './tally-xml.mjs';
 import { probeGovt, saveGovtConfig, publicGovtConfig, nicAuthenticate, nicGenerateIrn } from './govt.mjs';
 import { clearIntegrationConnection, integrationReadiness, setIntegrationConnection } from './integration-contract.mjs';
-import { listClients, registerClient, setActiveClient } from './ca-api.mjs';
+import { listClients, registerClient, setActiveClient, listDocuments, uploadDocument, getDocumentContent } from './ca-api.mjs';
 import { providerCatalog, providerRequirementMap } from './provider-catalog.mjs';
 import { sandboxAdapterPlan } from './sandbox-adapter-contract.mjs';
 import { getSandboxClient } from './sandbox-client.mjs';
@@ -120,6 +120,37 @@ export const TOOLS = [
     run: (state, args = {}) => {
       const out = setActiveClient(state, args.clientId);
       return out.ok ? ok(out) : fail(out.error);
+    },
+  },
+  {
+    name: 'list_documents',
+    title: 'List documents',
+    description: 'List documents filed against the active client.',
+    run: (state) => {
+      const out = listDocuments(state, state.activeClientId || 'SELF');
+      return out.ok ? ok(out.data) : fail(out.error);
+    },
+  },
+  {
+    name: 'save_document',
+    title: 'File a document',
+    description: 'File a text document against the active client (metadata in state, bytes content-addressed on disk).',
+    args: ['kind', 'fileName', 'contentType', 'content'],
+    run: (state, args = {}) => {
+      if (args.content == null) return fail('content required');
+      const out = uploadDocument(state, state.activeClientId || 'SELF', { ...args, actorId: 'renderer' });
+      return out.ok ? ok(out.data) : fail(out.error);
+    },
+  },
+  {
+    name: 'get_document',
+    title: 'Read a document',
+    description: 'Return the stored content of a document for the active client.',
+    args: ['documentId'],
+    run: (state, args = {}) => {
+      if (!args.documentId) return fail('documentId required');
+      const out = getDocumentContent(state, state.activeClientId || 'SELF', args.documentId);
+      return out.ok ? ok(out.data) : fail(out.error);
     },
   },
   {

@@ -76,6 +76,24 @@ export const TOOL_ARG_SCHEMAS = {
     required: ['clientId'],
     properties: { clientId: { type: 'string', minLength: 1 } },
   },
+  list_documents: noArgs,
+  save_document: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['content'],
+    properties: {
+      kind: { type: 'string' },
+      fileName: { type: 'string' },
+      contentType: { type: 'string' },
+      content: { type: 'string', minLength: 1 },
+    },
+  },
+  get_document: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['documentId'],
+    properties: { documentId: { type: 'string', minLength: 1 } },
+  },
   trial_balance: noArgs,
   chart_of_accounts: noArgs,
   journal: {
@@ -325,7 +343,7 @@ export const TOOL_ARG_SCHEMAS = {
   },
 };
 
-const ASSISTANT_BLOCKED_TOOLS = new Set(['govt_save_credentials', 'seed_demo', 'approval_decide', 'set_company', 'add_client', 'set_active_client']);
+const ASSISTANT_BLOCKED_TOOLS = new Set(['govt_save_credentials', 'seed_demo', 'approval_decide', 'set_company', 'add_client', 'set_active_client', 'save_document', 'get_document']);
 
 const TOOL_RISK = {
   create_invoice: 'writes_books',

@@ -1,6 +1,6 @@
 # MyCA — Status
 
-As of the latest commit on `main`. Verification: platform **95/95**, sprint engines
+As of the latest commit on `main`. Verification: platform **97/97**, sprint engines
 **159/159** (`11 / 11 / 33 / 44 / 58 / 2`), CI green, end-to-end smoke runs on
 Windows. "Verified" means covered by tests or an actual run — not merely written.
 
@@ -35,7 +35,7 @@ Windows. "Verified" means covered by tests or an actual run — not merely writt
 - Duplicate protection on import; zero-amount rows dropped
 
 ### Assistant, tools, and contracts
-- 48 named tools; strict JSON-schema validation; keyword router
+- 51 named tools; strict JSON-schema validation; keyword router
 - Unsafe tools blocked from the assistant (`govt_save_credentials`, `seed_demo`,
   `approval_decide`)
 - Local CA API contract harness: REQ-CA-001…015 readiness, clients, ledger,
@@ -65,13 +65,15 @@ Windows. "Verified" means covered by tests or an actual run — not merely writt
 - Per-client isolated ledgers; attachment bytes content-addressed on disk
 
 ### Desktop app
-- Electron shell + offline renderer tabs: Vouchers, Books, GST, Clients, Approvals,
-  Firm, Govt, APIs, Print, OSS, Tools
+- Electron shell + offline renderer tabs: Vouchers, Books, GST, Documents, Clients,
+  Approvals, Firm, Govt, APIs, Print, OSS, Tools
 - **Firm profile editor** (`set_company`): set business name/GSTIN/PAN/state/FY/address,
   validated (GSTIN checksum, PAN, PIN, FY) with history untouched
 - **Client registry + active-book switcher** (`add_client`, `list_clients`,
   `set_active_client`): register clients and switch the whole app between isolated books
 - **Approvals screen**: request, review, approve/reject gated provider operations
+- **Documents screen**: file a document against the active client, list what is on file,
+  and download it back (bytes content-addressed on disk, metadata in state)
 - Bundled fonts; no external network calls at runtime
 
 ### Deployment & release
@@ -99,7 +101,7 @@ Windows. "Verified" means covered by tests or an actual run — not merely writt
 | Live filing | ASP/GSP onboarding, production credentials, column-exact GSTR-1 save/file, ITR, MCA21, DSC signing |
 | Integrations | Account Aggregator bank feed, Tally/Zoho write-back, real OCR provider |
 | Firm backend | Cloud Run + Cloud SQL + GCS document vault; multi-tenant auth/SSO/RBAC |
-| UI | Document upload/download screen, invoice PDF export |
+| UI | Invoice PDF export, backup/restore of books |
 | Ops | Custom domain + TLS active, GitHub Pro branch protection, code-signing certificate, app auto-update |
 
 ## Known limitations (stated honestly, not hidden)

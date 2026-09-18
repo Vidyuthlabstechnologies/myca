@@ -1131,3 +1131,31 @@ test('clients: register, switch active, and isolate books inside the app', async
   assert.equal(sess.snapshot().invoices.length, 0);
   rmSync(dir, { recursive: true, force: true });
 });
+
+test('ca-api: document content can be read back through the content route', () => {
+  const state = createState();
+  const up = handleCaApi(state, 'POST', '/api/ca/clients/SELF/documents', { kind: 'gstr2b', fileName: 'g.csv', content: 'a,b\n1,2' });
+  assert.equal(up.ok, true);
+  const id = up.data.documentId;
+  assert.equal(handleCaApi(state, 'GET', '/api/ca/clients/SELF/documents').data.documents.length, 1);
+  const content = handleCaApi(state, 'GET', `/api/ca/clients/SELF/documents/${id}`);
+  assert.equal(content.ok, true);
+  assert.equal(content.data.content, 'a,b\n1,2');
+  assert.equal(content.data.fileName, 'g.csv');
+  assert.equal(handleCaApi(state, 'GET', '/api/ca/clients/SELF/documents/DOC-999999').error, 'DOCUMENT_NOT_FOUND');
+});
+
+test('tools: file, list and read documents for the active client', async () => {
+  const state = createState();
+  assert.equal(validateAssistantToolCall('save_document', { content: 'x' }).ok, false);
+  assert.equal(validateAssistantToolCall('get_document', { documentId: 'DOC-000001' }).ok, false);
+  const saved = await runTool(state, 'save_document', { kind: 'bank_statement', fileName: 'hdfc.csv', content: 'Date,Amount\n2026-08-01,100' });
+  assert.equal(saved.ok, true);
+  const list = await runTool(state, 'list_documents', {});
+  assert.equal(list.data.documents.length, 1);
+  assert.equal(list.data.documents[0].kind, 'bank_statement');
+  const read = await runTool(state, 'get_document', { documentId: saved.data.documentId });
+  assert.equal(read.data.content, 'Date,Amount\n2026-08-01,100');
+  assert.equal((await runTool(state, 'get_document', {})).ok, false);
+  assert.equal(assistantTools(TOOLS).map((t) => t.name).includes('list_documents'), true);
+});

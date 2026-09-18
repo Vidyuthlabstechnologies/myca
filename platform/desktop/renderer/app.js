@@ -248,6 +248,53 @@ async function decideApproval(approvalId, decision) {
   await refresh();
 }
 
+function renderDocuments(snap) {
+  document.getElementById('docsActive').textContent = `Documents for ${snap.activeClientId || 'SELF'}`;
+  const body = document.getElementById('docRows');
+  body.replaceChildren();
+  const docs = snap.documents || [];
+  if (!docs.length) {
+    const tr = document.createElement('tr');
+    const empty = td('empty', 'No documents filed for this client yet.');
+    empty.colSpan = 6;
+    tr.append(empty);
+    body.append(tr);
+    return;
+  }
+  for (const doc of docs) {
+    const action = document.createElement('td');
+    const btn = el('button', 'btn ghost', 'Download');
+    btn.type = 'button';
+    btn.addEventListener('click', () => downloadDocument(doc));
+    action.append(btn);
+    const tr = document.createElement('tr');
+    tr.append(
+      td('kind', doc.documentId),
+      td('', doc.kind),
+      td('', doc.fileName),
+      td('num', String(doc.bytes)),
+      td('', (doc.uploadedAt || '').slice(0, 10)),
+      action,
+    );
+    body.append(tr);
+  }
+}
+
+async function downloadDocument(doc) {
+  const out = await api.tool('get_document', { documentId: doc.documentId });
+  if (!out.ok) {
+    addBubble('bot', `Could not read ${doc.documentId}: ${out.error}`, 'error');
+    return;
+  }
+  const blob = new Blob([out.data.content], { type: out.data.contentType || 'text/plain' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = out.data.fileName || `${doc.documentId}.txt`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+  addBubble('bot', `Downloaded ${a.download}.`, 'get_document');
+}
+
 async function refresh() {
   const snap = await api.snapshot();
   if (snap.error) throw new Error(snap.error);
@@ -374,6 +421,7 @@ async function refresh() {
   renderFirm(snap);
   renderClients(snap);
   renderApprovals(snap);
+  renderDocuments(snap);
 }
 
 document.querySelectorAll('.tabs button').forEach((btn) => {
@@ -457,6 +505,27 @@ document.getElementById('approvalForm').addEventListener('submit', async (e) => 
     note: document.getElementById('aNote').value.trim(),
   });
   addBubble('bot', resultLine('approval_request', out), 'approval_request');
+  await refresh();
+});
+
+document.getElementById('docForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const file = document.getElementById('dFile').files[0];
+  if (!file) {
+    addBubble('bot', 'Choose a file to file as a document.', 'error');
+    return;
+  }
+  const content = await file.text();
+  const out = await api.tool('save_document', {
+    kind: document.getElementById('dKind').value,
+    fileName: file.name,
+    contentType: file.type || 'text/plain',
+    content,
+  });
+  addBubble('bot', out.ok
+    ? `Filed ${out.data.documentId} · ${out.data.fileName} (${out.data.bytes} bytes).`
+    : `Could not file document: ${out.error}`, 'save_document');
+  if (out.ok) document.getElementById('dFile').value = '';
   await refresh();
 });
 

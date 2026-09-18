@@ -5,7 +5,7 @@ import { runTool, TOOLS } from './tools.mjs';
 import { OSS_CATALOG } from './oss-catalog.mjs';
 import { publicGovtConfig } from './govt.mjs';
 import { integrationReadiness } from './integration-contract.mjs';
-import { appendAuditEvent, handleCaApi, stateDigest, listClients } from './ca-api.mjs';
+import { appendAuditEvent, handleCaApi, stateDigest, listClients, listDocuments } from './ca-api.mjs';
 import { providerCatalog, providerRequirementMap } from './provider-catalog.mjs';
 import { putDocument, readDocument } from './document-store.mjs';
 import { getBook } from './books.mjs';
@@ -138,6 +138,7 @@ export function openSession(path = defaultDataPath()) {
         purchases: view.purchases || [],
         activeClientId: active.activeClientId,
         clients: active.clients,
+        documents: listDocuments(state, active.activeClientId).data?.documents || [],
         approvals: (state.approvals || []).map((a) => ({ ...a, status: approvalStatus(a) })),
         dataPath: path,
         liveCallsEnabled: liveCallsEnabled(),
