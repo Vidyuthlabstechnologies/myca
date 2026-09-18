@@ -1269,3 +1269,34 @@ test('notifications: transports deliver with an injected fetch', async () => {
   assert.equal(failed.error, 'EMAIL_NOT_CONFIGURED');
   assert.equal(unconfigured.message.status, 'failed');
 });
+
+test('sandbox client: environment detection and scoped key selection', () => {
+  const testClient = new SandboxClient({ baseUrl: 'https://test-api.sandbox.co.in', apiKey: 'k', apiSecret: 's', fetchFn: async () => ({}) });
+  assert.equal(testClient.environment, 'test');
+  const liveClient = new SandboxClient({ baseUrl: 'https://api.sandbox.co.in', apiKey: 'k', apiSecret: 's', fetchFn: async () => ({}) });
+  assert.equal(liveClient.environment, 'live');
+
+  const saved = {};
+  for (const key of ['MYCA_GSP_TEST_API_KEY', 'MYCA_GSP_TEST_API_SECRET', 'MYCA_GSP_LIVE_API_KEY', 'MYCA_GSP_LIVE_API_SECRET', 'MYCA_GSP_ENV']) {
+    saved[key] = process.env[key];
+  }
+  process.env.MYCA_GSP_TEST_API_KEY = 'test-key';
+  process.env.MYCA_GSP_TEST_API_SECRET = 'test-secret';
+  process.env.MYCA_GSP_LIVE_API_KEY = 'live-key';
+  process.env.MYCA_GSP_LIVE_API_SECRET = 'live-secret';
+  try {
+    const t = new SandboxClient({ baseUrl: 'https://test-api.sandbox.co.in', fetchFn: async () => ({}) });
+    assert.equal(t.apiKey, 'test-key');
+    assert.equal(t.keySource, 'MYCA_GSP_TEST_API_KEY');
+    const l = new SandboxClient({ baseUrl: 'https://api.sandbox.co.in', fetchFn: async () => ({}) });
+    assert.equal(l.environment, 'live');
+    assert.equal(l.apiKey, 'live-key');
+    const forced = new SandboxClient({ baseUrl: 'https://test-api.sandbox.co.in', environment: 'live', fetchFn: async () => ({}) });
+    assert.equal(forced.apiKey, 'live-key');
+  } finally {
+    for (const [key, value] of Object.entries(saved)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
+});

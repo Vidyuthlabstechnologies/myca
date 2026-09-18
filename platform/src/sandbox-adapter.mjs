@@ -14,8 +14,37 @@ function fromClient(res, data) {
 const ADAPTERS = {
   gstin_verify: async ({ client, params }) => {
     const gstin = String(params.gstin || '').trim().toUpperCase();
-    const res = await client.verifyGstin(gstin);
-    return fromClient(res, { gstin, verification: res.data || null });
+    const res = await client.searchGstin(gstin);
+    if (res.ok === false) return { ok: false, error: res.error || `HTTP_${res.status}` };
+    if (res.legalName || res.tradeName) {
+      return {
+        ok: true,
+        data: {
+          gstin: res.gstin || gstin,
+          providerGstin: res.raw?.gstin || '',
+          legalName: res.legalName || '',
+          tradeName: res.tradeName || '',
+          status: res.status || '',
+          taxpayerType: res.taxpayerType || '',
+          stateCode: res.stateCode || '',
+          registrationDate: res.registrationDate || '',
+          eInvoiceStatus: res.eInvoiceStatus || '',
+          valid: true,
+        },
+      };
+    }
+    const inner = res.data?.data?.data || res.data?.data || {};
+    return {
+      ok: true,
+      data: {
+        gstin: inner.gstin || gstin,
+        legalName: inner.legalName || inner.lgnm || '',
+        status: inner.status || '',
+        stateName: inner.stateName || '',
+        pan: inner.pan || '',
+        valid: inner.validGstin !== false,
+      },
+    };
   },
   gst_return_status: async ({ client, params }) => {
     const res = await client.trackReturns(params.gstin, params.fy);

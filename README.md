@@ -13,7 +13,7 @@ the law requires a professional.
 
 | | |
 |---|---|
-| Tests | **264 passing** — platform 102, sprint engines 11/11/33/44/58/2 |
+| Tests | **265 passing** — platform 103, sprint engines 11/11/33/44/58/2 |
 | Tools | **57** named, schema-validated tools |
 | CI | Green on `main` (GitHub Actions) |
 | Installer | Windows NSIS + portable `.exe` built and verified in CI |
@@ -57,7 +57,7 @@ desktop/ (Electron) ── http://127.0.0.1:4780 ──► src/server.mjs
 
 ```bash
 cd platform
-npm test                 # 102 platform tests
+npm test                 # 103 platform tests
 npm run dev              # http://127.0.0.1:4780 (plain node)
 npm start                # Electron window (after: npm i)
 npm run pack             # NSIS + portable installer (after: npm i -D electron electron-builder)

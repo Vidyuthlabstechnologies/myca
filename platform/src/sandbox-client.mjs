@@ -1,11 +1,25 @@
 import { loadEnvFile } from './runtime-config.mjs';
 
+function detectEnvironment(baseUrl) {
+  return /test/i.test(String(baseUrl)) ? 'test' : 'live';
+}
+
 export class SandboxClient {
   constructor(options = {}) {
-    const env = loadEnvFile();
-    this.baseUrl = options.baseUrl ?? process.env.MYCA_GSP_BASE_URL ?? env.MYCA_GSP_BASE_URL ?? 'https://api.sandbox.co.in';
-    this.apiKey = options.apiKey ?? process.env.MYCA_GSP_API_KEY ?? env.MYCA_GSP_API_KEY ?? '';
-    this.apiSecret = options.apiSecret ?? process.env.MYCA_GSP_API_SECRET ?? env.MYCA_GSP_API_SECRET ?? '';
+    const fileEnv = loadEnvFile();
+    const read = (name) => process.env[name] ?? fileEnv[name] ?? '';
+    this.baseUrl = String(options.baseUrl ?? read('MYCA_GSP_BASE_URL') ?? '').replace(/\/+$/, '') || 'https://api.sandbox.co.in';
+    const declared = String(read('MYCA_GSP_ENV')).toLowerCase();
+    this.environment = options.environment
+      ?? (declared === 'live' || declared === 'test' ? declared : detectEnvironment(this.baseUrl));
+    const scoped = this.environment === 'live'
+      ? { key: 'MYCA_GSP_LIVE_API_KEY', secret: 'MYCA_GSP_LIVE_API_SECRET' }
+      : { key: 'MYCA_GSP_TEST_API_KEY', secret: 'MYCA_GSP_TEST_API_SECRET' };
+    const scopedKey = read(scoped.key);
+    const scopedSecret = read(scoped.secret);
+    this.apiKey = options.apiKey ?? (scopedKey || read('MYCA_GSP_API_KEY'));
+    this.apiSecret = options.apiSecret ?? (scopedSecret || read('MYCA_GSP_API_SECRET'));
+    this.keySource = options.apiKey != null ? 'explicit' : (scopedKey ? scoped.key : 'MYCA_GSP_API_KEY');
     this.apiVersion = options.apiVersion ?? '1.0';
     this.fetchFn = options.fetchFn || fetch;
     this.token = null;
@@ -14,6 +28,10 @@ export class SandboxClient {
 
   isConfigured() {
     return Boolean(this.apiKey && this.apiSecret);
+  }
+
+  environmentLabel() {
+    return `${this.environment === 'live' ? 'LIVE' : 'TEST'} (${this.baseUrl})`;
   }
 
   async authenticate(force = false) {
@@ -107,6 +125,8 @@ export class SandboxClient {
       ok: auth.ok,
       configured: true,
       provider: 'sandbox',
+      environment: this.environment,
+      keySource: this.keySource,
       baseUrl: this.baseUrl,
       ms,
       error: auth.error,

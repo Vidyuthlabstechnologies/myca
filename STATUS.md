@@ -1,6 +1,6 @@
 # MyCA — Status
 
-As of the latest commit on `main`. Verification: platform **102/102**, sprint engines
+As of the latest commit on `main`. Verification: platform **103/103**, sprint engines
 **159/159** (`11 / 11 / 33 / 44 / 58 / 2`), CI green, end-to-end smoke runs on
 Windows. "Verified" means covered by tests or an actual run — not merely written.
 
@@ -95,7 +95,10 @@ Windows. "Verified" means covered by tests or an actual run — not merely writt
 
 ## ⚠️ Built, but not yet verified against live external systems
 
-- Sandbox adapters run only with injected mocks in tests; never against a real provider
+- Sandbox adapters: the **auth + public GSTIN lookup were verified against the real
+  Quicko Sandbox TEST environment** (HTTP 200, provider fixture records). The client now
+  reports its environment and key source and warns when responses are TEST fixtures.
+  Other operations and the LIVE environment remain unverified.
 - NIC e-invoice: mock auth verified; live auth needs a registered API user and the sandbox `.cer`
 - `gst_save_gstr1` and `gst_file_gstr1_evc`: declared in the contract, fail closed as
   `NOT_IMPLEMENTED` (no verified endpoint wired)

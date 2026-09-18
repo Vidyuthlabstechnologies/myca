@@ -116,7 +116,11 @@ function fmtToolResult(name, result) {
       return `Quicko Sandbox is configured (${d.baseUrl}) but live outbound calls are disabled. ${d.hint}`;
     }
     if (d.ok) {
-      return `Quicko Sandbox API (${d.baseUrl}) connected successfully in ${d.ms}ms. Authentication active.`;
+      const env = d.environment === 'live' ? 'LIVE' : 'TEST';
+      const warn = d.environment === 'live'
+        ? ''
+        : '\nNote: Sandbox TEST environment — responses are provider fixtures, not real taxpayer data.';
+      return `Quicko Sandbox API connected — ${env} (${d.baseUrl}) in ${d.ms}ms via ${d.keySource}.${warn}`;
     }
     return `Quicko Sandbox connection failed: ${d.error || 'Unknown error'} (${d.ms}ms).`;
   }
