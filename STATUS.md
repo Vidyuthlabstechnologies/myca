@@ -1,6 +1,6 @@
 # MyCA — Status
 
-As of the latest commit on `main`. Verification: platform **97/97**, sprint engines
+As of the latest commit on `main`. Verification: platform **98/98**, sprint engines
 **159/159** (`11 / 11 / 33 / 44 / 58 / 2`), CI green, end-to-end smoke runs on
 Windows. "Verified" means covered by tests or an actual run — not merely written.
 
@@ -74,6 +74,10 @@ Windows. "Verified" means covered by tests or an actual run — not merely writt
 - **Approvals screen**: request, review, approve/reject gated provider operations
 - **Documents screen**: file a document against the active client, list what is on file,
   and download it back (bytes content-addressed on disk, metadata in state)
+- **Invoice print + Save as PDF** (Print tab): real PDF via Electron `printToPDF` through
+  a narrow preload bridge; falls back to the system print dialog outside Electron
+- **Backup / restore books** (Firm tab): one self-contained JSON with every book, client,
+  document and the audit trail; restore validates and replaces the open books
 - Bundled fonts; no external network calls at runtime
 
 ### Deployment & release
@@ -101,7 +105,7 @@ Windows. "Verified" means covered by tests or an actual run — not merely writt
 | Live filing | ASP/GSP onboarding, production credentials, column-exact GSTR-1 save/file, ITR, MCA21, DSC signing |
 | Integrations | Account Aggregator bank feed, Tally/Zoho write-back, real OCR provider |
 | Firm backend | Cloud Run + Cloud SQL + GCS document vault; multi-tenant auth/SSO/RBAC |
-| UI | Invoice PDF export, backup/restore of books |
+| UI | Invoice sharing (email/WhatsApp), period lock/close |
 | Ops | Custom domain + TLS active, GitHub Pro branch protection, code-signing certificate, app auto-update |
 
 ## Known limitations (stated honestly, not hidden)

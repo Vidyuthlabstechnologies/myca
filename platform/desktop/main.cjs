@@ -1,11 +1,14 @@
-const { app, BrowserWindow } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
 const { pathToFileURL } = require('url');
+const { writeFileSync, unlinkSync } = require('fs');
 
 const PORT = Number(process.env.PORT || 4780);
+const MAX_HTML_BYTES = 5 * 1024 * 1024;
+let mainWindow = null;
 
 function createWindow() {
-  const win = new BrowserWindow({
+  mainWindow = new BrowserWindow({
     width: 1480,
     height: 940,
     minWidth: 1100,
@@ -16,10 +19,42 @@ function createWindow() {
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
+      preload: path.join(__dirname, 'preload.cjs'),
     },
   });
-  win.loadURL(`http://127.0.0.1:${PORT}/?v=9`);
+  mainWindow.loadURL(`http://127.0.0.1:${PORT}/?v=14`);
 }
+
+ipcMain.handle('myca:save-pdf', async (_event, payload = {}) => {
+  const html = String(payload.html || '');
+  if (!html) return { ok: false, error: 'NO_CONTENT' };
+  if (html.length > MAX_HTML_BYTES) return { ok: false, error: 'CONTENT_TOO_LARGE' };
+  const suggested = String(payload.suggestedName || 'MyCA-document.pdf').replace(/[\\/:*?"<>|]/g, '-');
+  const tmpHtml = path.join(app.getPath('temp'), `myca-print-${Date.now()}.html`);
+  let win;
+  try {
+    writeFileSync(tmpHtml, html, 'utf8');
+    win = new BrowserWindow({
+      show: false,
+      webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true },
+    });
+    await win.loadFile(tmpHtml);
+    const pdf = await win.webContents.printToPDF({ printBackground: true, pageSize: 'A4' });
+    const { canceled, filePath } = await dialog.showSaveDialog(mainWindow, {
+      title: 'Save PDF',
+      defaultPath: suggested.endsWith('.pdf') ? suggested : `${suggested}.pdf`,
+      filters: [{ name: 'PDF', extensions: ['pdf'] }],
+    });
+    if (canceled || !filePath) return { ok: false, canceled: true };
+    writeFileSync(filePath, pdf);
+    return { ok: true, filePath };
+  } catch (err) {
+    return { ok: false, error: String(err.message || err) };
+  } finally {
+    if (win && !win.isDestroyed()) win.destroy();
+    try { unlinkSync(tmpHtml); } catch { /* ignore */ }
+  }
+});
 
 app.whenReady().then(async () => {
   const { startServer } = await import(pathToFileURL(path.join(__dirname, '../src/server.mjs')).href);

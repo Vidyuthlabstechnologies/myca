@@ -34,7 +34,7 @@ local-only is a deliberate privacy/data-residency posture.
 | Path | Notes |
 |---|---|
 | `platform/src/` | All runtime modules. This is where product changes go. |
-| `platform/desktop/` | Electron `main.cjs` + offline renderer (`index.html`, `app.js`, `styles.css`). |
+| `platform/desktop/` | Electron `main.cjs` + offline renderer (`index.html`, `app.js`, `styles.css`). `preload.cjs` exposes only `window.myca.saveInvoicePdf` — keep that bridge narrow. |
 | `platform/test/` | `node:test` suite. Add regression tests here. |
 | `sprints/sprint-1..6/` | **Frozen engines.** Treat as read-only unless a task explicitly targets them. |
 | `infra/` | Terraform (GCP site + release pipeline). `infra/bootstrap` is the one-time owner step. |

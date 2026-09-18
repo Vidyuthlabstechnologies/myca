@@ -1,4 +1,4 @@
-import { createState, loadState, saveState, seedDemo, defaultDataPath } from './store.mjs';
+import { createState, loadState, saveState, seedDemo, defaultDataPath, serialize, deserialize } from './store.mjs';
 import { dirname } from 'node:path';
 import { chat } from './router.mjs';
 import { runTool, TOOLS } from './tools.mjs';
@@ -127,6 +127,56 @@ export function openSession(path = defaultDataPath()) {
         const out = handleCaApi(state, method, pathname, body);
         saveState(path, state);
         return out;
+      });
+    },
+    backup() {
+      const documents = {};
+      const hashes = new Set();
+      for (const doc of state.documents || []) if (doc.sha256) hashes.add(doc.sha256);
+      for (const att of Object.values(state.attachments || {})) if (att?.sha256) hashes.add(att.sha256);
+      for (const sha of hashes) {
+        const content = readDocument(state._dataDir, sha);
+        if (content != null) documents[sha] = content;
+      }
+      return {
+        version: 1,
+        app: 'MyCA',
+        exportedAt: new Date().toISOString(),
+        // Deep clone: serialize() hands back live array references, so without this
+        // the "snapshot" would keep mutating alongside the open books.
+        state: JSON.parse(JSON.stringify(serialize(state))),
+        documents,
+      };
+    },
+    restore(payload) {
+      return exclusive(async () => {
+        if (!payload || payload.version !== 1 || !payload.state || typeof payload.state !== 'object') {
+          return { ok: false, error: 'INVALID_BACKUP' };
+        }
+        if (payload.confirm !== true) return { ok: false, error: 'CONFIRMATION_REQUIRED' };
+        let next;
+        try {
+          next = deserialize(payload.state);
+        } catch {
+          return { ok: false, error: 'INVALID_BACKUP' };
+        }
+        if (!next.ledger || !Array.isArray(next.invoices)) return { ok: false, error: 'INVALID_BACKUP' };
+        for (const content of Object.values(payload.documents || {})) {
+          if (typeof content === 'string') putDocument(state._dataDir, content);
+        }
+        next._dataDir = state._dataDir;
+        for (const key of Object.keys(state)) delete state[key];
+        Object.assign(state, next);
+        hydrateDocuments(state);
+        saveState(path, state);
+        return {
+          ok: true,
+          restored: {
+            invoices: state.invoices.length,
+            clients: (state.clients || []).length,
+            documents: (state.documents || []).length,
+          },
+        };
       });
     },
     snapshot() {

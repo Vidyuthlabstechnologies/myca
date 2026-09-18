@@ -218,6 +218,15 @@
             </div>
           </form>
           <p class="lede" id="firmMeta"></p>
+          <h2 class="h-quiet">Books data</h2>
+          <p class="lede">Backup writes every book, document and the audit trail into one file. Restore replaces what is currently open.</p>
+          <div class="panel-actions">
+            <button type="button" id="backupBtn" class="btn ghost">Backup books</button>
+            <label class="filechip">
+              Restore…
+              <input id="restoreFile" type="file" accept=".json" hidden />
+            </label>
+          </div>
         </section>
 
         <section id="panel-govt" class="panel" hidden role="tabpanel">
@@ -276,6 +285,10 @@
         </section>
 
         <section id="panel-print" class="panel" hidden role="tabpanel">
+          <div class="panel-actions">
+            <button type="button" id="printBtn" class="btn ghost">Print</button>
+            <button type="button" id="pdfBtn" class="btn">Save as PDF</button>
+          </div>
           <iframe id="printFrame" title="Invoice print"></iframe>
         </section>
 
@@ -358,7 +371,7 @@
       </aside>
     </div>
   </div>
-  <script src="app.js?v=12"></script>
+  <script src="app.js?v=13"></script>
 </body>
 </html>
 

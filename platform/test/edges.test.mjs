@@ -1159,3 +1159,30 @@ test('tools: file, list and read documents for the active client', async () => {
   assert.equal((await runTool(state, 'get_document', {})).ok, false);
   assert.equal(assistantTools(TOOLS).map((t) => t.name).includes('list_documents'), true);
 });
+
+test('backup/restore: round-trips books, clients and documents', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'myca-backup-'));
+  const path = join(dir, 'MyCA', 'state.json');
+  const sess = openSession(path);
+  sess.state.invoices = [];
+  sess.state.invoiceSeq = 0;
+  sess.state.parties = [];
+  await sess.tool('create_invoice', { partyName: 'A', partyGstin: '', partyState: '27', lines: [{ description: 'x', qty: 1, rate: 100, gstRate: 5 }] });
+  await sess.tool('save_document', { kind: 'bank_statement', fileName: 'b.csv', content: 'a,b\n1,2' });
+  const backup = sess.backup();
+  assert.equal(backup.version, 1);
+  assert.equal(backup.state.invoices.length, 1);
+  assert.equal(Object.keys(backup.documents).length, 1);
+
+  await sess.tool('create_invoice', { partyName: 'B', partyGstin: '', partyState: '27', lines: [{ description: 'y', qty: 1, rate: 200, gstRate: 5 }] });
+  assert.equal(sess.state.invoices.length, 2);
+
+  assert.equal((await sess.restore({ ...backup })).error, 'CONFIRMATION_REQUIRED');
+  assert.equal((await sess.restore({ version: 2, state: {}, confirm: true })).error, 'INVALID_BACKUP');
+  const restored = await sess.restore({ ...backup, confirm: true });
+  assert.equal(restored.ok, true);
+  assert.equal(sess.state.invoices.length, 1);
+  assert.equal(restored.restored.documents, 1);
+  assert.equal((await sess.tool('get_document', { documentId: 'DOC-000001' })).data.content, 'a,b\n1,2');
+  rmSync(dir, { recursive: true, force: true });
+});

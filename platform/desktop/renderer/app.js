@@ -17,6 +17,14 @@ const api = {
     const r = await fetch('/api/attach', { method: 'POST', headers: apiHeaders, body: JSON.stringify({ kind, name, content }) });
     return r.json();
   },
+  async backup() {
+    const r = await fetch('/api/backup', { method: 'POST', headers: apiHeaders });
+    return r.json();
+  },
+  async restore(payload) {
+    const r = await fetch('/api/restore', { method: 'POST', headers: apiHeaders, body: JSON.stringify(payload) });
+    return r.json();
+  },
 };
 
 const inr = (n) => new Intl.NumberFormat('en-IN', { maximumFractionDigits: 2 }).format(Number(n) || 0);
@@ -93,8 +101,11 @@ function statusClass(inv) {
   return 'status posted';
 }
 
-function openPrint(html) {
+let currentPrint = null;
+
+function openPrint(html, name) {
   if (!html) return;
+  currentPrint = { html, name: String(name || 'MyCA-document') };
   document.getElementById('printFrame').srcdoc = html;
   document.querySelectorAll('.tabs button').forEach((b) => b.classList.toggle('on', b.dataset.tab === 'print'));
   document.querySelectorAll('.panel').forEach((p) => {
@@ -335,7 +346,7 @@ async function refresh() {
     tr.dataset.id = inv.id;
     tr.addEventListener('click', async () => {
       const printed = await api.tool('print_invoice', { id: inv.id });
-      openPrint(printed.html || printed.data?.html);
+      openPrint(printed.html || printed.data?.html, printed.invoice?.id || inv.id);
     });
     body.append(tr);
   }
@@ -529,6 +540,66 @@ document.getElementById('docForm').addEventListener('submit', async (e) => {
   await refresh();
 });
 
+document.getElementById('backupBtn').addEventListener('click', async () => {
+  const data = await api.backup();
+  if (!data || !data.state) {
+    addBubble('bot', 'Backup failed.', 'error');
+    return;
+  }
+  const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `myca-backup-${new Date().toISOString().slice(0, 10)}.json`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+  addBubble('bot', `Backed up ${(data.state.invoices || []).length} invoices and ${Object.keys(data.documents || {}).length} document(s) to ${a.download}.`, 'backup');
+});
+
+document.getElementById('restoreFile').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  let payload;
+  try {
+    payload = JSON.parse(await file.text());
+  } catch {
+    addBubble('bot', 'That file is not valid JSON.', 'error');
+    e.target.value = '';
+    return;
+  }
+  if (!window.confirm('Replace the currently open books with this backup? This cannot be undone.')) {
+    e.target.value = '';
+    return;
+  }
+  const out = await api.restore({ ...payload, confirm: true });
+  addBubble('bot', out.ok
+    ? `Restored ${out.restored.invoices} invoices, ${out.restored.clients} client(s), ${out.restored.documents} document(s).`
+    : `Restore failed: ${out.error}`, 'restore');
+  e.target.value = '';
+  await refresh();
+});
+
+document.getElementById('printBtn').addEventListener('click', () => {
+  const frame = document.getElementById('printFrame');
+  if (frame && frame.contentWindow) frame.contentWindow.print();
+});
+
+document.getElementById('pdfBtn').addEventListener('click', async () => {
+  if (!currentPrint) {
+    addBubble('bot', 'Open a voucher first — click a row in Vouchers.', 'error');
+    return;
+  }
+  const bridge = window.myca;
+  if (!bridge || typeof bridge.saveInvoicePdf !== 'function') {
+    const frame = document.getElementById('printFrame');
+    if (frame && frame.contentWindow) frame.contentWindow.print();
+    return;
+  }
+  const res = await bridge.saveInvoicePdf({ html: currentPrint.html, suggestedName: `${currentPrint.name}.pdf` });
+  addBubble('bot', res && res.ok
+    ? `Saved PDF to ${res.filePath}`
+    : (res && res.canceled ? 'PDF save cancelled.' : `PDF export failed: ${res && res.error}`), 'pdf');
+});
+
 document.getElementById('apiRows').addEventListener('click', async (e) => {
   const connect = e.target.closest('.api-connect');
   const remove = e.target.closest('.api-remove');
@@ -618,7 +689,7 @@ document.getElementById('composer').addEventListener('submit', async (e) => {
       const tag = (out.tools && out.tools[0] && out.tools[0].name) || 'books';
       addBubble('bot', out.reply, tag);
       const printed = out.tools && out.tools[0] && out.tools[0].result;
-      if (tag === 'print_invoice' && printed && printed.html) openPrint(printed.html);
+      if (tag === 'print_invoice' && printed && printed.html) openPrint(printed.html, printed.invoice?.id);
     }
   } catch (err) {
     addBubble('bot', `Chat failed: ${err.message || err}`, 'error');

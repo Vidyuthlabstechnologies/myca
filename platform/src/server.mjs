@@ -122,6 +122,13 @@ function handler(req, res) {
       const { kind, name, content } = JSON.parse(await readBody(req) || '{}');
       return send(req, res, 200, await session.attachFile(kind, name, content));
     }
+    if (req.method === 'POST' && url.pathname === '/api/backup') {
+      return send(req, res, 200, session.backup());
+    }
+    if (req.method === 'POST' && url.pathname === '/api/restore') {
+      const payload = JSON.parse(await readBody(req) || '{}');
+      return send(req, res, 200, await session.restore(payload));
+    }
     if (url.pathname.startsWith('/api/ca/')) {
       const body = req.method === 'POST' ? JSON.parse(await readBody(req) || '{}') : {};
       return send(req, res, 200, await session.caApi(req.method, url.pathname, body));
