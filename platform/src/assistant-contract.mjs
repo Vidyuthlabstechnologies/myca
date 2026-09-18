@@ -94,6 +94,38 @@ export const TOOL_ARG_SCHEMAS = {
     required: ['documentId'],
     properties: { documentId: { type: 'string', minLength: 1 } },
   },
+  lock_period: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['through'],
+    properties: {
+      through: { type: 'string', minLength: 10, maxLength: 10 },
+      reason: { type: 'string' },
+    },
+  },
+  unlock_period: {
+    type: 'object',
+    additionalProperties: false,
+    properties: { reason: { type: 'string' } },
+  },
+  period_status: noArgs,
+  share_invoice: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['invoiceId', 'channel'],
+    properties: {
+      invoiceId: { type: 'string', minLength: 1 },
+      channel: { type: 'string', enum: ['email', 'whatsapp'] },
+      to: { type: 'string' },
+    },
+  },
+  list_outbox: noArgs,
+  send_notification: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['messageId'],
+    properties: { messageId: { type: 'string', minLength: 1 } },
+  },
   trial_balance: noArgs,
   chart_of_accounts: noArgs,
   journal: {
@@ -343,7 +375,7 @@ export const TOOL_ARG_SCHEMAS = {
   },
 };
 
-const ASSISTANT_BLOCKED_TOOLS = new Set(['govt_save_credentials', 'seed_demo', 'approval_decide', 'set_company', 'add_client', 'set_active_client', 'save_document', 'get_document']);
+const ASSISTANT_BLOCKED_TOOLS = new Set(['govt_save_credentials', 'seed_demo', 'approval_decide', 'set_company', 'add_client', 'set_active_client', 'save_document', 'get_document', 'lock_period', 'unlock_period', 'send_notification']);
 
 const TOOL_RISK = {
   create_invoice: 'writes_books',

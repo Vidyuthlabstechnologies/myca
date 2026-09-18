@@ -227,6 +227,15 @@
               <input id="restoreFile" type="file" accept=".json" hidden />
             </label>
           </div>
+          <h2 class="h-quiet">Outbox</h2>
+          <div class="sheet" style="min-height:0">
+          <table class="grid">
+            <thead>
+              <tr><th>ID</th><th>Channel</th><th>To</th><th>Invoice</th><th>Status</th><th></th></tr>
+            </thead>
+            <tbody id="outboxRows"></tbody>
+          </table>
+          </div>
         </section>
 
         <section id="panel-govt" class="panel" hidden role="tabpanel">
@@ -288,6 +297,8 @@
           <div class="panel-actions">
             <button type="button" id="printBtn" class="btn ghost">Print</button>
             <button type="button" id="pdfBtn" class="btn">Save as PDF</button>
+            <button type="button" id="shareWhatsApp" class="btn ghost">Share on WhatsApp</button>
+            <button type="button" id="shareEmail" class="btn ghost">Share by email</button>
           </div>
           <iframe id="printFrame" title="Invoice print"></iframe>
         </section>
@@ -371,7 +382,7 @@
       </aside>
     </div>
   </div>
-  <script src="app.js?v=13"></script>
+  <script src="app.js?v=14"></script>
 </body>
 </html>
 

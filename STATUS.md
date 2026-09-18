@@ -1,6 +1,6 @@
 # MyCA — Status
 
-As of the latest commit on `main`. Verification: platform **98/98**, sprint engines
+As of the latest commit on `main`. Verification: platform **102/102**, sprint engines
 **159/159** (`11 / 11 / 33 / 44 / 58 / 2`), CI green, end-to-end smoke runs on
 Windows. "Verified" means covered by tests or an actual run — not merely written.
 
@@ -35,7 +35,7 @@ Windows. "Verified" means covered by tests or an actual run — not merely writt
 - Duplicate protection on import; zero-amount rows dropped
 
 ### Assistant, tools, and contracts
-- 51 named tools; strict JSON-schema validation; keyword router
+- 57 named tools; strict JSON-schema validation; keyword router
 - Unsafe tools blocked from the assistant (`govt_save_credentials`, `seed_demo`,
   `approval_decide`)
 - Local CA API contract harness: REQ-CA-001…015 readiness, clients, ledger,
@@ -78,6 +78,11 @@ Windows. "Verified" means covered by tests or an actual run — not merely writt
   a narrow preload bridge; falls back to the system print dialog outside Electron
 - **Backup / restore books** (Firm tab): one self-contained JSON with every book, client,
   document and the audit trail; restore validates and replaces the open books
+- **Period lock** (`lock_period`, `unlock_period`, `period_status`): lock a client's book
+  through a date; postings, receipts, expenses and imports on or before it are refused
+- **Client sharing + outbox** (`share_invoice`, `list_outbox`, `send_notification`):
+  queue an invoice message and open WhatsApp/email from this PC; API delivery (Meta
+  Cloud API / email relay) is live-gated and reports exactly what is unconfigured
 - Bundled fonts; no external network calls at runtime
 
 ### Deployment & release
@@ -105,7 +110,7 @@ Windows. "Verified" means covered by tests or an actual run — not merely writt
 | Live filing | ASP/GSP onboarding, production credentials, column-exact GSTR-1 save/file, ITR, MCA21, DSC signing |
 | Integrations | Account Aggregator bank feed, Tally/Zoho write-back, real OCR provider |
 | Firm backend | Cloud Run + Cloud SQL + GCS document vault; multi-tenant auth/SSO/RBAC |
-| UI | Invoice sharing (email/WhatsApp), period lock/close |
+| UI polish | Invoice template designer, multi-currency, keyboard shortcuts |
 | Ops | Custom domain + TLS active, GitHub Pro branch protection, code-signing certificate, app auto-update |
 
 ## Known limitations (stated honestly, not hidden)

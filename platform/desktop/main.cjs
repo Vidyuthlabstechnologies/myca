@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const path = require('path');
 const { pathToFileURL } = require('url');
 const { writeFileSync, unlinkSync } = require('fs');
@@ -22,7 +22,7 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.cjs'),
     },
   });
-  mainWindow.loadURL(`http://127.0.0.1:${PORT}/?v=14`);
+  mainWindow.loadURL(`http://127.0.0.1:${PORT}/?v=15`);
 }
 
 ipcMain.handle('myca:save-pdf', async (_event, payload = {}) => {
@@ -54,6 +54,15 @@ ipcMain.handle('myca:save-pdf', async (_event, payload = {}) => {
     if (win && !win.isDestroyed()) win.destroy();
     try { unlinkSync(tmpHtml); } catch { /* ignore */ }
   }
+});
+
+ipcMain.handle('myca:open-external', async (_event, url) => {
+  const target = String(url || '');
+  const allowed = /^mailto:[^<>\s]+$/i.test(target)
+    || /^https:\/\/(wa\.me|api\.whatsapp\.com|web\.whatsapp\.com)\//i.test(target);
+  if (!allowed) return { ok: false, error: 'URL_NOT_ALLOWED' };
+  await shell.openExternal(target);
+  return { ok: true };
 });
 
 app.whenReady().then(async () => {

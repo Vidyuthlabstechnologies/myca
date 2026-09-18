@@ -91,6 +91,12 @@ function resultLine(name, result) {
     const a = (result.data || {}).approval || {};
     return `Approval ${a.approvalId} opened for ${a.operationId}.`;
   }
+  if (name === 'share_invoice') {
+    return `Queued ${(result.data || {}).message?.id || 'message'} for ${(result.data || {}).message?.channel || 'delivery'}.`;
+  }
+  if (name === 'send_notification') {
+    return `Notification ${(result.data || {}).message?.id || ''} ${(result.data || {}).message?.status || 'processed'}.`;
+  }
   return JSON.stringify(result.data || result).slice(0, 800);
 }
 
@@ -306,6 +312,65 @@ async function downloadDocument(doc) {
   addBubble('bot', `Downloaded ${a.download}.`, 'get_document');
 }
 
+function renderOutbox(snap) {
+  const body = document.getElementById('outboxRows');
+  body.replaceChildren();
+  const messages = snap.outbox || [];
+  if (!messages.length) {
+    const tr = document.createElement('tr');
+    const empty = td('empty', 'Nothing queued. Open a voucher and use Share.');
+    empty.colSpan = 6;
+    tr.append(empty);
+    body.append(tr);
+    return;
+  }
+  for (const message of messages) {
+    const action = document.createElement('td');
+    if (message.status !== 'sent') {
+      const send = el('button', 'btn ghost', 'Send');
+      send.type = 'button';
+      send.addEventListener('click', async () => {
+        const out = await api.tool('send_notification', { messageId: message.id });
+        addBubble('bot', out.ok ? `Sent ${message.id}.` : `Send failed: ${out.error}${out.hint ? ` ${out.hint}` : ''}`, 'send_notification');
+        await refresh();
+      });
+      action.append(send);
+    }
+    const tr = document.createElement('tr');
+    tr.append(
+      td('kind', message.id),
+      td('', message.channel),
+      td('', message.to || '—'),
+      td('', message.invoiceId || '—'),
+      td('', message.status),
+      action,
+    );
+    body.append(tr);
+  }
+}
+
+async function shareCurrent(channel) {
+  if (!currentPrint) {
+    addBubble('bot', 'Open a voucher first — click a row in Vouchers.', 'error');
+    return;
+  }
+  const to = window.prompt(channel === 'email' ? 'Email address' : 'WhatsApp number (country code, digits only)', '');
+  if (to == null) return;
+  const out = await api.tool('share_invoice', { invoiceId: currentPrint.name, channel, to });
+  if (!out.ok) {
+    addBubble('bot', `Share failed: ${out.error}`, 'error');
+    return;
+  }
+  addBubble('bot', `Queued ${out.data.message.id}. Opening your ${channel === 'email' ? 'mail app' : 'WhatsApp'}…`, 'share_invoice');
+  const link = out.data.link;
+  if (window.myca && typeof window.myca.openExternal === 'function' && link) {
+    await window.myca.openExternal(link);
+  } else if (link) {
+    window.location.href = link;
+  }
+  await refresh();
+}
+
 async function refresh() {
   const snap = await api.snapshot();
   if (snap.error) throw new Error(snap.error);
@@ -433,6 +498,7 @@ async function refresh() {
   renderClients(snap);
   renderApprovals(snap);
   renderDocuments(snap);
+  renderOutbox(snap);
 }
 
 document.querySelectorAll('.tabs button').forEach((btn) => {
@@ -582,6 +648,9 @@ document.getElementById('printBtn').addEventListener('click', () => {
   const frame = document.getElementById('printFrame');
   if (frame && frame.contentWindow) frame.contentWindow.print();
 });
+
+document.getElementById('shareWhatsApp').addEventListener('click', () => shareCurrent('whatsapp'));
+document.getElementById('shareEmail').addEventListener('click', () => shareCurrent('email'));
 
 document.getElementById('pdfBtn').addEventListener('click', async () => {
   if (!currentPrint) {

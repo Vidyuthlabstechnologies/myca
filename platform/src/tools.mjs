@@ -15,6 +15,8 @@ import { tallyXmlToDayBookCsv } from './tally-xml.mjs';
 import { probeGovt, saveGovtConfig, publicGovtConfig, nicAuthenticate, nicGenerateIrn } from './govt.mjs';
 import { clearIntegrationConnection, integrationReadiness, setIntegrationConnection } from './integration-contract.mjs';
 import { listClients, registerClient, setActiveClient, listDocuments, uploadDocument, getDocumentContent } from './ca-api.mjs';
+import { lockPeriod, unlockPeriod, isPeriodLocked, lockThrough } from './period-lock.mjs';
+import { buildInvoiceShare, shareLink, queueNotification, listOutbox, sendNotification } from './notifications.mjs';
 import { providerCatalog, providerRequirementMap } from './provider-catalog.mjs';
 import { sandboxAdapterPlan } from './sandbox-adapter-contract.mjs';
 import { getSandboxClient } from './sandbox-client.mjs';
@@ -151,6 +153,71 @@ export const TOOLS = [
       if (!args.documentId) return fail('documentId required');
       const out = getDocumentContent(state, state.activeClientId || 'SELF', args.documentId);
       return out.ok ? ok(out.data) : fail(out.error);
+    },
+  },
+  {
+    name: 'lock_period',
+    title: 'Lock period',
+    description: 'Lock the active book through a date so no new posting can be dated on or before it.',
+    args: ['through', 'reason'],
+    run: (state, args = {}) => {
+      const out = lockPeriod(state, args.through, args.reason);
+      return out.ok ? ok(out) : fail(out.error);
+    },
+  },
+  {
+    name: 'unlock_period',
+    title: 'Unlock period',
+    description: 'Remove the period lock on the active book (record the reason).',
+    args: ['reason'],
+    run: (state, args = {}) => {
+      const before = lockThrough(state);
+      const out = unlockPeriod(state);
+      return ok({ ...out, was: before, reason: String(args.reason || '') });
+    },
+  },
+  {
+    name: 'period_status',
+    title: 'Period lock status',
+    description: 'Show the period lock on the active book and on every registered client.',
+    run: (state) => {
+      const root = state.__root || state;
+      const rows = [{ clientId: 'SELF', lockThrough: root.lockThrough || '' }];
+      for (const client of root.clients || []) {
+        rows.push({ clientId: client.clientId, lockThrough: root.extraBooks?.[client.clientId]?.lockThrough || '' });
+      }
+      return ok({ activeClientId: String(root.activeClientId || 'SELF'), lockThrough: lockThrough(state), rows });
+    },
+  },
+  {
+    name: 'share_invoice',
+    title: 'Share invoice',
+    description: 'Build an invoice message, queue it in the outbox, and return an email/WhatsApp link to send it from this PC.',
+    args: ['invoiceId', 'channel', 'to'],
+    run: (state, args = {}) => {
+      const root = state.__root || state;
+      const built = buildInvoiceShare(state, args.invoiceId, { channel: args.channel, to: args.to });
+      if (!built.ok) return fail(built.error);
+      const queued = queueNotification(root, built.draft, { createdBy: args.createdBy || 'ca' });
+      if (!queued.ok) return fail(queued.error);
+      return ok({ message: queued.message, link: shareLink(built.draft), draft: built.draft });
+    },
+  },
+  {
+    name: 'list_outbox',
+    title: 'List outbox',
+    description: 'Show queued and sent client notifications.',
+    run: (state) => ok(listOutbox(state.__root || state)),
+  },
+  {
+    name: 'send_notification',
+    title: 'Send queued notification',
+    description: 'Deliver a queued notification through the configured provider. Requires the live switch.',
+    args: ['messageId'],
+    run: async (state, args = {}) => {
+      if (!args.messageId) return fail('messageId required');
+      const out = await sendNotification(state.__root || state, args.messageId);
+      return out.ok ? ok(out) : fail(out.error, out);
     },
   },
   {
@@ -704,6 +771,8 @@ export const TOOLS = [
     description: 'Pay a vendor from bank and book expense (optional GST input).',
     args: ['narration', 'amount', 'gstRate'],
     run: (state, args) => {
+      const date = args.date || new Date().toISOString().slice(0, 10);
+      if (isPeriodLocked(state, date)) return fail('PERIOD_LOCKED', { date, lockThrough: state.lockThrough });
       const amount = Number(args.amount);
       const gstRate = Number(args.gstRate || 0);
       const taxable = gstRate ? Math.round((amount / (1 + gstRate / 100)) * 100) / 100 : amount;

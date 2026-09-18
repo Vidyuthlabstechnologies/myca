@@ -50,7 +50,7 @@ function toolState(state) {
   const id = String(state.activeClientId || 'SELF');
   if (id === 'SELF') return state;
   const book = getBook(state, id);
-  return { ...state, ...book, __book: book };
+  return { ...state, ...book, __book: book, __root: state };
 }
 
 function syncView(view, state) {
@@ -59,6 +59,7 @@ function syncView(view, state) {
     view.__book.invoiceSeq = view.invoiceSeq;
     view.__book.billSeq = view.billSeq;
     view.__book.transferSeq = view.transferSeq;
+    view.__book.lockThrough = view.lockThrough;
   }
   state.activeClientId = view.activeClientId;
   state.pendingFile = view.pendingFile;
@@ -189,6 +190,7 @@ export function openSession(path = defaultDataPath()) {
         activeClientId: active.activeClientId,
         clients: active.clients,
         documents: listDocuments(state, active.activeClientId).data?.documents || [],
+        outbox: state.outbox || [],
         approvals: (state.approvals || []).map((a) => ({ ...a, status: approvalStatus(a) })),
         dataPath: path,
         liveCallsEnabled: liveCallsEnabled(),

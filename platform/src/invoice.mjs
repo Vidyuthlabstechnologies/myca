@@ -1,6 +1,7 @@
 import { createAccounts, createTransfers, paise, TRANSFER_FLAGS } from './ledger.mjs';
 import { gstSplit, nextPartyId, partyStateOf } from './chart.mjs';
 import { csvRows, htmlEscape } from './text-safe.mjs';
+import { isPeriodLocked } from './period-lock.mjs';
 
 function padInv(n) {
   return `INV-${String(n).padStart(4, '0')}`;
@@ -25,6 +26,7 @@ export function ensureParty(state, { name, gstin, stateCode }) {
 export function createInvoice(state, input) {
   const company = state.company;
   const date = input.date || new Date().toISOString().slice(0, 10);
+  if (isPeriodLocked(state, date)) return { ok: false, error: 'PERIOD_LOCKED', date, lockThrough: state.lockThrough };
   const rawLines = input.lines || [];
   if (!rawLines.length) return { ok: false, error: 'NO_LINES' };
   const specs = rawLines.map((l) => ({
@@ -141,6 +143,8 @@ export function createInvoice(state, input) {
 export function recordReceipt(state, { invoiceId, amount, date, mode } = {}) {
   const inv = (state.invoices || []).find((i) => i.id === invoiceId);
   if (!inv) return { ok: false, error: 'INVOICE_NOT_FOUND' };
+  const receiptDate = date || inv.date;
+  if (isPeriodLocked(state, receiptDate)) return { ok: false, error: 'PERIOD_LOCKED', date: receiptDate, lockThrough: state.lockThrough };
   const party = (state.parties || []).find((p) => p.name === inv.partyName);
   if (!party) return { ok: false, error: 'PARTY_NOT_FOUND' };
   const amt = amount == null ? inv.total : Number(amount);
@@ -188,6 +192,7 @@ export function ensureVendor(state, { name, gstin, stateCode }) {
 export function createPurchase(state, input) {
   const company = state.company;
   const date = input.date || new Date().toISOString().slice(0, 10);
+  if (isPeriodLocked(state, date)) return { ok: false, error: 'PERIOD_LOCKED', date, lockThrough: state.lockThrough };
   const rawLines = input.lines || [];
   if (!rawLines.length) return { ok: false, error: 'NO_LINES' };
   const specs = rawLines.map((l) => ({

@@ -32,6 +32,7 @@ import { providerCatalog, providerRequirementIds, providerRequirementMap } from 
 import { runSandboxOperation } from '../src/sandbox-adapter.mjs';
 import { requestApproval, decideApproval, consumeApproval, approvalStatus, findApproval } from '../src/approvals.mjs';
 import { SandboxClient } from '../src/sandbox-client.mjs';
+import { queueNotification, sendNotification } from '../src/notifications.mjs';
 import {
   SANDBOX_OPERATIONS,
   createSandboxHandoff,
@@ -1185,4 +1186,86 @@ test('backup/restore: round-trips books, clients and documents', async () => {
   assert.equal(restored.restored.documents, 1);
   assert.equal((await sess.tool('get_document', { documentId: 'DOC-000001' })).data.content, 'a,b\n1,2');
   rmSync(dir, { recursive: true, force: true });
+});
+
+test('period lock: rejects postings on or before the locked date, allows after', async () => {
+  const state = createState();
+  assert.equal((await runTool(state, 'lock_period', { through: 'nope' })).error, 'INVALID_DATE');
+  assert.equal((await runTool(state, 'lock_period', { through: '2026-08-31' })).ok, true);
+  assert.equal(state.lockThrough, '2026-08-31');
+  const locked = await runTool(state, 'create_invoice', { date: '2026-08-15', partyName: 'A', partyGstin: '', partyState: '27', lines: [{ description: 'x', qty: 1, rate: 100, gstRate: 5 }] });
+  assert.equal(locked.ok, false);
+  assert.equal(locked.error, 'PERIOD_LOCKED');
+  assert.equal((await runTool(state, 'post_expense', { amount: 100, date: '2026-07-01' })).error, 'PERIOD_LOCKED');
+  const allowed = await runTool(state, 'create_invoice', { date: '2026-09-01', partyName: 'A', partyGstin: '', partyState: '27', lines: [{ description: 'x', qty: 1, rate: 100, gstRate: 5 }] });
+  assert.equal(allowed.ok, true);
+  assert.equal((await runTool(state, 'unlock_period', { reason: 'correction' })).ok, true);
+  assert.equal(state.lockThrough, '');
+  assert.equal((await runTool(state, 'create_invoice', { date: '2026-08-15', partyName: 'B', partyGstin: '', partyState: '27', lines: [{ description: 'x', qty: 1, rate: 100, gstRate: 5 }] })).ok, true);
+  assert.equal(validateAssistantToolCall('lock_period', { through: '2026-08-31' }).ok, false);
+  assert.equal((await runTool(state, 'period_status', {})).data.rows[0].clientId, 'SELF');
+});
+
+test('period lock: applies per client book, not to SELF', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'myca-lock-'));
+  const sess = openSession(join(dir, 'MyCA', 'state.json'));
+  await sess.tool('add_client', { clientId: 'CL-1', name: 'Beta', state: '29' });
+  await sess.tool('set_active_client', { clientId: 'CL-1' });
+  assert.equal((await sess.tool('lock_period', { through: '2026-08-31' })).ok, true);
+  assert.equal(sess.state.extraBooks['CL-1'].lockThrough, '2026-08-31');
+  assert.equal(sess.state.lockThrough, '');
+  const locked = await sess.tool('create_invoice', { date: '2026-08-10', partyName: 'X', partyGstin: '', partyState: '29', lines: [{ description: 'x', qty: 1, rate: 100, gstRate: 5 }] });
+  assert.equal(locked.error, 'PERIOD_LOCKED');
+  await sess.tool('set_active_client', { clientId: 'SELF' });
+  assert.equal((await sess.tool('create_invoice', { date: '2026-08-10', partyName: 'Y', partyGstin: '', partyState: '27', lines: [{ description: 'x', qty: 1, rate: 100, gstRate: 5 }] })).ok, true);
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('notifications: share builds a deep link, queues, and only sends when live', async () => {
+  const state = createState();
+  const inv = createInvoice(state, { partyName: 'Retail', partyGstin: '', partyState: '27', lines: [line({ rate: 1000 })] });
+  const share = await runTool(state, 'share_invoice', { invoiceId: inv.invoice.id, channel: 'whatsapp', to: '91 98765 43210' });
+  assert.equal(share.ok, true);
+  assert.match(share.data.link, /^https:\/\/wa\.me\/919876543210\?text=/);
+  assert.equal(share.data.message.status, 'queued');
+  assert.equal((await runTool(state, 'list_outbox', {})).data.messages.length, 1);
+  assert.equal((await runTool(state, 'send_notification', { messageId: share.data.message.id })).error, 'LIVE_CALLS_DISABLED');
+  const mail = await runTool(state, 'share_invoice', { invoiceId: inv.invoice.id, channel: 'email', to: 'a@b.in' });
+  assert.match(mail.data.link, /^mailto:a%40b\.in\?subject=/);
+  assert.equal((await runTool(state, 'share_invoice', { invoiceId: 'INV-9999', channel: 'email' })).error, 'INVOICE_NOT_FOUND');
+  assert.equal((await runTool(state, 'share_invoice', { invoiceId: inv.invoice.id, channel: 'sms' })).error, 'UNKNOWN_CHANNEL');
+  assert.equal(validateAssistantToolCall('send_notification', { messageId: 'MSG-000001' }).ok, false);
+});
+
+test('notifications: transports deliver with an injected fetch', async () => {
+  const state = createState();
+  const wa = queueNotification(state, { channel: 'whatsapp', to: '919876543210', subject: 's', body: 'b' });
+  let seen = null;
+  const waFetch = async (url, opts) => {
+    seen = { url, opts };
+    return { ok: true, status: 200, json: async () => ({ messages: [{ id: 'wamid.TEST' }] }) };
+  };
+  const sent = await sendNotification(state, wa.message.id, {
+    allowLive: true,
+    env: { MYCA_WHATSAPP_PHONE_NUMBER_ID: '123', MYCA_WHATSAPP_ACCESS_TOKEN: 'tok' },
+    fetchFn: waFetch,
+  });
+  assert.equal(sent.ok, true);
+  assert.equal(wa.message.status, 'sent');
+  assert.equal(wa.message.providerId, 'wamid.TEST');
+  assert.match(seen.url, /graph\.facebook\.com\/v20\.0\/123\/messages/);
+  assert.equal(JSON.parse(seen.opts.body).to, '919876543210');
+
+  const emailFetch = async () => ({ ok: true, status: 200, json: async () => ({ id: 'relay-1' }) });
+  const mail = queueNotification(state, { channel: 'email', to: 'a@b.in', subject: 's', body: 'b' });
+  const mailSent = await sendNotification(state, mail.message.id, {
+    allowLive: true,
+    env: { MYCA_EMAIL_RELAY_URL: 'https://relay.test/send', MYCA_EMAIL_FROM: 'me@myca.in' },
+    fetchFn: emailFetch,
+  });
+  assert.equal(mailSent.ok, true);
+  const unconfigured = queueNotification(state, { channel: 'email', to: 'a@b.in', subject: 's', body: 'b' });
+  const failed = await sendNotification(state, unconfigured.message.id, { allowLive: true, env: {}, fetchFn: emailFetch });
+  assert.equal(failed.error, 'EMAIL_NOT_CONFIGURED');
+  assert.equal(unconfigured.message.status, 'failed');
 });

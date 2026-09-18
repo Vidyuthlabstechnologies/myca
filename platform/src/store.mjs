@@ -30,6 +30,7 @@ export function createState() {
     imports: [],
     files: {},
     attachments: {},
+    lockThrough: '',
     integrationConnections: {},
     documents: [],
     firmUsers: [],
@@ -41,6 +42,8 @@ export function createState() {
     approvals: [],
     approvalSeq: 0,
     activeClientId: 'SELF',
+    outbox: [],
+    outboxSeq: 0,
   };
   return ensureCaApiState(state);
 }
@@ -58,6 +61,7 @@ export function serialize(state) {
     transferSeq: state.transferSeq,
     imports: state.imports,
     attachments: state.attachments || {},
+    lockThrough: state.lockThrough || '',
     integrationConnections: normalizeIntegrationConnections(state.integrationConnections),
     documents: state.documents || [],
     firmUsers: state.firmUsers || [],
@@ -71,6 +75,8 @@ export function serialize(state) {
     approvals: state.approvals || [],
     approvalSeq: state.approvalSeq || 0,
     activeClientId: state.activeClientId || 'SELF',
+    outbox: state.outbox || [],
+    outboxSeq: state.outboxSeq || 0,
   };
 }
 
@@ -89,6 +95,7 @@ export function deserialize(raw) {
   state.imports = raw.imports || [];
   state.files = {};
   state.attachments = raw.attachments && typeof raw.attachments === 'object' ? raw.attachments : {};
+  state.lockThrough = raw.lockThrough || '';
   // Legacy states embedded raw content in `files`; carry it to a one-shot migration.
   state._legacyFiles = raw.files && typeof raw.files === 'object' ? raw.files : null;
   state.integrationConnections = normalizeIntegrationConnections(raw.integrationConnections);
@@ -104,6 +111,8 @@ export function deserialize(raw) {
   state.approvals = raw.approvals || [];
   state.approvalSeq = raw.approvalSeq || 0;
   state.activeClientId = raw.activeClientId || 'SELF';
+  state.outbox = raw.outbox || [];
+  state.outboxSeq = raw.outboxSeq || 0;
   return ensureCaApiState(state);
 }
 

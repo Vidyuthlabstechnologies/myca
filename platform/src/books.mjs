@@ -15,6 +15,7 @@ export function newBook(company = {}) {
     billSeq: 0,
     transferSeq: 100000,
     imports: [],
+    lockThrough: '',
   };
 }
 
@@ -30,6 +31,7 @@ export function serializeBook(book) {
     billSeq: book.billSeq || 0,
     transferSeq: book.transferSeq || 100000,
     imports: book.imports || [],
+    lockThrough: book.lockThrough || '',
   };
 }
 
@@ -45,6 +47,7 @@ export function deserializeBook(raw) {
   book.billSeq = raw.billSeq || 0;
   book.transferSeq = raw.transferSeq || 100000;
   book.imports = raw.imports || [];
+  book.lockThrough = raw.lockThrough || '';
   return book;
 }
 

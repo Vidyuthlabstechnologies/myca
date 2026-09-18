@@ -1,6 +1,7 @@
 import { createTransfers, paise } from './ledger.mjs';
 import { createInvoice, createPurchase, ensureParty } from './invoice.mjs';
 import { csvRows } from './text-safe.mjs';
+import { isPeriodLocked } from './period-lock.mjs';
 
 function tid(state) {
   return BigInt(state.transferSeq = (state.transferSeq || 100000) + 1);
@@ -22,6 +23,10 @@ export function postTallyRows(state, rows) {
   for (const row of rows) {
     if (row._blocking) {
       skipped.push({ voucherNo: row.voucherNo, reason: 'blocking' });
+      continue;
+    }
+    if (isPeriodLocked(state, row.date)) {
+      skipped.push({ voucherNo: row.voucherNo, reason: 'period_locked' });
       continue;
     }
     const type = String(row.voucherType || '').toLowerCase();
@@ -112,6 +117,10 @@ export function postBankRows(state, rows) {
   for (const row of rows) {
     if (row._blocking || row.type === 'balance-only') {
       skipped.push({ sourceRow: row.sourceRow, reason: row.type || 'blocking' });
+      continue;
+    }
+    if (isPeriodLocked(state, row.date)) {
+      skipped.push({ sourceRow: row.sourceRow, reason: 'period_locked' });
       continue;
     }
     const cat = row.classification?.category;
