@@ -40,6 +40,7 @@ export function createState() {
     extraBooks: {},
     approvals: [],
     approvalSeq: 0,
+    activeClientId: 'SELF',
   };
   return ensureCaApiState(state);
 }
@@ -69,6 +70,7 @@ export function serialize(state) {
     ),
     approvals: state.approvals || [],
     approvalSeq: state.approvalSeq || 0,
+    activeClientId: state.activeClientId || 'SELF',
   };
 }
 
@@ -101,6 +103,7 @@ export function deserialize(raw) {
   );
   state.approvals = raw.approvals || [];
   state.approvalSeq = raw.approvalSeq || 0;
+  state.activeClientId = raw.activeClientId || 'SELF';
   return ensureCaApiState(state);
 }
 

@@ -44,6 +44,7 @@ export function ensureCaApiState(state) {
   state.attachments = state.attachments && typeof state.attachments === 'object' ? state.attachments : {};
   state.approvals = Array.isArray(state.approvals) ? state.approvals : [];
   state.approvalSeq = Number(state.approvalSeq || state.approvals.length || 0);
+  state.activeClientId = String(state.activeClientId || 'SELF');
   state.firmUsers = Array.isArray(state.firmUsers) && state.firmUsers.length ? state.firmUsers : [DEFAULT_USER];
   state.auditEvents = Array.isArray(state.auditEvents) ? state.auditEvents : [];
   state.auditSeq = Number(state.auditSeq || state.auditEvents.length || 0);
@@ -80,6 +81,40 @@ function requireClient(state, clientId) {
     throw err;
   }
   return client;
+}
+
+export function listClients(state) {
+  ensureCaApiState(state);
+  return { activeClientId: String(state.activeClientId || 'SELF'), clients: clients(state) };
+}
+
+export function registerClient(state, body = {}) {
+  ensureCaApiState(state);
+  const id = String(body.clientId || body.id || '').trim();
+  if (!id) return { ok: false, error: 'CLIENT_ID_REQUIRED' };
+  if (id === 'SELF' || state.clients.some((c) => c.clientId === id)) return { ok: false, error: 'CLIENT_EXISTS' };
+  const gstin = String(body.gstin || '').trim().toUpperCase();
+  const client = {
+    clientId: id,
+    name: String(body.name || id),
+    pan: String(body.pan || (gstin.length >= 12 ? gstin.slice(2, 12) : '')),
+    gstin,
+    entityType: String(body.entityType || 'proprietor'),
+    state: String(body.state || gstin.slice(0, 2) || ''),
+    turnover: Number(body.turnover || 0),
+    gstFrequency: String(body.gstFrequency || 'monthly'),
+    auditRequired: body.auditRequired !== false,
+  };
+  state.clients.push(client);
+  return { ok: true, client };
+}
+
+export function setActiveClient(state, clientId) {
+  ensureCaApiState(state);
+  const id = String(clientId || 'SELF').trim() || 'SELF';
+  if (id !== 'SELF' && !state.clients.some((c) => c.clientId === id)) return { ok: false, error: 'CLIENT_NOT_FOUND' };
+  state.activeClientId = id;
+  return { ok: true, activeClientId: id };
 }
 
 export function appendAuditEvent(state, event) {
@@ -146,33 +181,17 @@ export function handleCaApi(state, method, pathname, body = {}) {
 
   if (method === 'POST' && path === '/clients') {
     const beforeHash = stateDigest(state);
-    const id = String(body.clientId || body.id || '').trim();
-    if (!id) return { ok: false, error: 'CLIENT_ID_REQUIRED' };
-    if (id === 'SELF' || state.clients.some((c) => c.clientId === id)) {
-      return { ok: false, error: 'CLIENT_EXISTS' };
-    }
-    const gstin = String(body.gstin || '').trim().toUpperCase();
-    const client = {
-      clientId: id,
-      name: String(body.name || id),
-      pan: String(body.pan || (gstin.length >= 12 ? gstin.slice(2, 12) : '')),
-      gstin,
-      entityType: String(body.entityType || 'proprietor'),
-      state: String(body.state || gstin.slice(0, 2) || ''),
-      turnover: Number(body.turnover || 0),
-      gstFrequency: String(body.gstFrequency || 'monthly'),
-      auditRequired: body.auditRequired !== false,
-    };
-    state.clients.push(client);
+    const out = registerClient(state, body);
+    if (!out.ok) return out;
     appendAuditEvent(state, {
       actorId: body.actorId || 'api',
-      clientId: id,
+      clientId: out.client.clientId,
       action: 'client.create',
       beforeHash,
       afterHash: stateDigest(state),
-      metadata: { clientId: id },
+      metadata: { clientId: out.client.clientId },
     });
-    return { ok: true, data: client };
+    return { ok: true, data: out.client };
   }
 
   if (method === 'GET' && segments[0] === 'clients' && segments.length === 2) {

@@ -14,6 +14,7 @@ import { invoicesToGstr1Json } from './gstr1-json.mjs';
 import { tallyXmlToDayBookCsv } from './tally-xml.mjs';
 import { probeGovt, saveGovtConfig, publicGovtConfig, nicAuthenticate, nicGenerateIrn } from './govt.mjs';
 import { clearIntegrationConnection, integrationReadiness, setIntegrationConnection } from './integration-contract.mjs';
+import { listClients, registerClient, setActiveClient } from './ca-api.mjs';
 import { providerCatalog, providerRequirementMap } from './provider-catalog.mjs';
 import { sandboxAdapterPlan } from './sandbox-adapter-contract.mjs';
 import { getSandboxClient } from './sandbox-client.mjs';
@@ -42,6 +43,84 @@ export const TOOLS = [
       parties: (state.parties || []).length,
       chain: verifyChain(state.ledger),
     }),
+  },
+  {
+    name: 'set_company',
+    title: 'Set business profile',
+    description: 'Set this book\'s own business identity (name, GSTIN, PAN, state, FY, address). Affects future postings only; history is untouched.',
+    args: ['name', 'gstin', 'pan', 'state', 'fy', 'address', 'city', 'pin', 'entityType'],
+    run: (state, args = {}) => {
+      const company = state.company;
+      const patch = {};
+      if (args.name != null) {
+        const name = String(args.name).trim();
+        if (!name) return fail('COMPANY_NAME_REQUIRED');
+        patch.name = name;
+      }
+      if (args.gstin != null) {
+        const gstinIn = String(args.gstin).trim().toUpperCase();
+        if (gstinIn) {
+          const v = validateGstin(gstinIn);
+          if (!v.ok) return fail('INVALID_GSTIN', { errors: v.errors });
+          patch.gstin = gstinIn;
+          if (args.state == null) patch.state = gstinIn.slice(0, 2);
+          if (args.pan == null && !company.pan) patch.pan = gstinIn.slice(2, 12);
+        } else {
+          patch.gstin = '';
+        }
+      }
+      if (args.state != null) {
+        const st = String(args.state).trim();
+        if (st && !/^\d{2}$/.test(st)) return fail('INVALID_STATE_CODE');
+        patch.state = st;
+      }
+      if (args.pan != null) {
+        const pan = String(args.pan).trim().toUpperCase();
+        if (pan && !/^[A-Z]{5}\d{4}[A-Z]$/.test(pan)) return fail('INVALID_PAN');
+        patch.pan = pan;
+      }
+      if (args.fy != null) {
+        const fy = String(args.fy).trim();
+        if (fy && !/^\d{4}-\d{2}$/.test(fy)) return fail('INVALID_FY');
+        patch.fy = fy;
+      }
+      for (const key of ['address', 'city', 'entityType']) {
+        if (args[key] != null) patch[key] = String(args[key]).trim();
+      }
+      if (args.pin != null) {
+        const pin = String(args.pin).trim();
+        if (pin && !/^\d{6}$/.test(pin)) return fail('INVALID_PIN');
+        patch.pin = pin ? Number(pin) : '';
+      }
+      Object.assign(company, patch);
+      return ok({ company });
+    },
+  },
+  {
+    name: 'list_clients',
+    title: 'List clients',
+    description: 'List registered clients and the currently active book.',
+    run: (state) => ok(listClients(state)),
+  },
+  {
+    name: 'add_client',
+    title: 'Add client',
+    description: 'Register a client with its own isolated book (own ledger, invoices, sequences).',
+    args: ['clientId', 'name', 'gstin', 'pan', 'state', 'entityType', 'turnover', 'gstFrequency', 'auditRequired'],
+    run: (state, args = {}) => {
+      const out = registerClient(state, args);
+      return out.ok ? ok(out) : fail(out.error);
+    },
+  },
+  {
+    name: 'set_active_client',
+    title: 'Switch active client',
+    description: 'Switch the app to another client\'s books. Use SELF for the firm\'s own books.',
+    args: ['clientId'],
+    run: (state, args = {}) => {
+      const out = setActiveClient(state, args.clientId);
+      return out.ok ? ok(out) : fail(out.error);
+    },
   },
   {
     name: 'trial_balance',

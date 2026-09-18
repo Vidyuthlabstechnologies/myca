@@ -38,6 +38,44 @@ const documentSchema = {
 
 export const TOOL_ARG_SCHEMAS = {
   company_profile: noArgs,
+  set_company: {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      name: { type: 'string' },
+      gstin: { type: 'string', maxLength: 15 },
+      pan: { type: 'string', maxLength: 10 },
+      state: { type: 'string', maxLength: 2 },
+      fy: { type: 'string', maxLength: 7 },
+      address: { type: 'string' },
+      city: { type: 'string' },
+      pin: { type: 'string' },
+      entityType: { type: 'string' },
+    },
+  },
+  list_clients: noArgs,
+  add_client: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['clientId', 'name'],
+    properties: {
+      clientId: { type: 'string', minLength: 1 },
+      name: { type: 'string', minLength: 1 },
+      gstin: { type: 'string', maxLength: 15 },
+      pan: { type: 'string', maxLength: 10 },
+      state: { type: 'string', maxLength: 2 },
+      entityType: { type: 'string' },
+      turnover: { type: 'number', minimum: 0 },
+      gstFrequency: { type: 'string' },
+      auditRequired: { type: 'boolean' },
+    },
+  },
+  set_active_client: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['clientId'],
+    properties: { clientId: { type: 'string', minLength: 1 } },
+  },
   trial_balance: noArgs,
   chart_of_accounts: noArgs,
   journal: {
@@ -287,7 +325,7 @@ export const TOOL_ARG_SCHEMAS = {
   },
 };
 
-const ASSISTANT_BLOCKED_TOOLS = new Set(['govt_save_credentials', 'seed_demo', 'approval_decide']);
+const ASSISTANT_BLOCKED_TOOLS = new Set(['govt_save_credentials', 'seed_demo', 'approval_decide', 'set_company', 'add_client', 'set_active_client']);
 
 const TOOL_RISK = {
   create_invoice: 'writes_books',

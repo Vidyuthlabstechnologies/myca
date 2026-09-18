@@ -68,6 +68,21 @@ function resultLine(name, result) {
     const d = result.data || result;
     return `${d.requirementId || 'Requirement'} removed · ${d.readiness?.available || 0}/${d.readiness?.total || 0}`;
   }
+  if (name === 'set_company') {
+    const c = (result.data || {}).company || {};
+    return `Business profile updated: ${c.name} · ${c.gstin || 'no GSTIN'} · FY ${c.fy || '—'}`;
+  }
+  if (name === 'add_client') {
+    const c = (result.data || {}).client || {};
+    return `Client ${c.clientId} added${c.gstin ? ` · ${c.gstin}` : ''}.`;
+  }
+  if (name === 'set_active_client') {
+    return `Active book is now ${(result.data || {}).activeClientId}.`;
+  }
+  if (name === 'approval_request') {
+    const a = (result.data || {}).approval || {};
+    return `Approval ${a.approvalId} opened for ${a.operationId}.`;
+  }
   return JSON.stringify(result.data || result).slice(0, 800);
 }
 
@@ -160,6 +175,77 @@ function renderApiReadiness(readiness, providerCatalog) {
     );
     rows.append(tr);
   }
+}
+
+function renderFirm(snap) {
+  const firm = snap.company || {};
+  document.getElementById('fName').value = firm.name || '';
+  document.getElementById('fGstin').value = firm.gstin || '';
+  document.getElementById('fPan').value = firm.pan || '';
+  document.getElementById('fState').value = firm.state || '';
+  document.getElementById('fFy').value = firm.fy || '';
+  document.getElementById('fAddress').value = firm.address || '';
+  document.getElementById('fCity').value = firm.city || '';
+  document.getElementById('fPin').value = firm.pin || '';
+  document.getElementById('fEntity').value = firm.entityType || 'proprietor';
+  document.getElementById('firmMeta').textContent = snap.dataPath
+    ? `Data: ${snap.dataPath} · live provider calls ${snap.liveCallsEnabled ? 'ON' : 'off'}`
+    : '';
+}
+
+function renderClients(snap) {
+  document.getElementById('clientsActive').textContent = `Active book: ${snap.activeClientId || 'SELF'}`;
+  document.getElementById('clientMetrics').replaceChildren(
+    metric('Registered', (snap.clients || []).length),
+    metric('Active', snap.activeClientId || 'SELF'),
+  );
+  const body = document.getElementById('clientRows');
+  body.replaceChildren();
+  for (const client of snap.clients || []) {
+    const active = client.clientId === snap.activeClientId;
+    const tr = document.createElement('tr');
+    const action = document.createElement('td');
+    const btn = el('button', 'btn ghost', active ? 'Active' : 'Switch');
+    btn.type = 'button';
+    btn.disabled = active;
+    btn.addEventListener('click', async () => {
+      await api.tool('set_active_client', { clientId: client.clientId });
+      await refresh();
+    });
+    action.append(btn);
+    tr.append(td('kind', client.clientId), td('', client.name), td('', client.gstin || '—'), td('', client.state || '—'), action);
+    body.append(tr);
+  }
+}
+
+function renderApprovals(snap) {
+  const body = document.getElementById('approvalRows');
+  body.replaceChildren();
+  for (const approval of snap.approvals || []) {
+    const tr = document.createElement('tr');
+    const action = document.createElement('td');
+    if (approval.status === 'pending') {
+      const approve = el('button', 'btn ghost', 'Approve');
+      const reject = el('button', 'btn ghost', 'Reject');
+      approve.type = 'button';
+      reject.type = 'button';
+      approve.addEventListener('click', () => decideApproval(approval.approvalId, 'approve'));
+      reject.addEventListener('click', () => decideApproval(approval.approvalId, 'reject'));
+      action.append(approve, reject);
+    }
+    tr.append(td('kind', approval.approvalId), td('', approval.operationId), td('', approval.requestedBy || '—'), td('', approval.status), action);
+    body.append(tr);
+  }
+}
+
+async function decideApproval(approvalId, decision) {
+  const decidedBy = window.prompt('Reviewer name', 'partner1');
+  if (!decidedBy) return;
+  const role = window.prompt('Reviewer role (partner / reviewer / admin)', 'partner');
+  if (!role) return;
+  const out = await api.tool('approval_decide', { approvalId, decision, decidedBy, role });
+  addBubble('bot', resultLine('approval_decide', out), 'approval_decide');
+  await refresh();
 }
 
 async function refresh() {
@@ -285,6 +371,9 @@ async function refresh() {
   if (gcfg.env) document.getElementById('gEnv').value = gcfg.env;
   if (gcfg.username) document.getElementById('gUser').value = gcfg.username;
   renderApiReadiness(snap.integrationReadiness, snap.providerCatalog);
+  renderFirm(snap);
+  renderClients(snap);
+  renderApprovals(snap);
 }
 
 document.querySelectorAll('.tabs button').forEach((btn) => {
@@ -325,6 +414,50 @@ document.getElementById('gAuth').addEventListener('click', async () => {
   addBubble('user', 'nic auth');
   const result = await api.tool('govt_nic_auth', {});
   addBubble('bot', resultLine('govt_nic_auth', result) + '\n' + JSON.stringify((result.data || result), null, 2).slice(0, 1200), 'govt_nic_auth');
+});
+
+document.getElementById('firmForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const out = await api.tool('set_company', {
+    name: document.getElementById('fName').value.trim(),
+    gstin: document.getElementById('fGstin').value.trim().toUpperCase(),
+    pan: document.getElementById('fPan').value.trim().toUpperCase(),
+    state: document.getElementById('fState').value.trim(),
+    fy: document.getElementById('fFy').value.trim(),
+    address: document.getElementById('fAddress').value.trim(),
+    city: document.getElementById('fCity').value.trim(),
+    pin: document.getElementById('fPin').value.trim(),
+    entityType: document.getElementById('fEntity').value,
+  });
+  addBubble('bot', resultLine('set_company', out), 'set_company');
+  await refresh();
+});
+
+document.getElementById('clientForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const out = await api.tool('add_client', {
+    clientId: document.getElementById('cId').value.trim(),
+    name: document.getElementById('cName').value.trim(),
+    gstin: document.getElementById('cGstin').value.trim().toUpperCase(),
+    state: document.getElementById('cState').value.trim(),
+    entityType: document.getElementById('cEntity').value,
+  });
+  addBubble('bot', resultLine('add_client', out), 'add_client');
+  if (out.ok) {
+    for (const id of ['cId', 'cName', 'cGstin', 'cState']) document.getElementById(id).value = '';
+  }
+  await refresh();
+});
+
+document.getElementById('approvalForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const out = await api.tool('approval_request', {
+    operationId: document.getElementById('aOp').value,
+    requestedBy: document.getElementById('aBy').value.trim() || 'maker',
+    note: document.getElementById('aNote').value.trim(),
+  });
+  addBubble('bot', resultLine('approval_request', out), 'approval_request');
+  await refresh();
 });
 
 document.getElementById('apiRows').addEventListener('click', async (e) => {

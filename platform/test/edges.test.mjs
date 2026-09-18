@@ -1095,3 +1095,39 @@ test('tools: approval workflow is exposed and gated ops stay non-autonomous', as
   assert.equal(names.includes('approval_decide'), false);
   assert.equal(names.includes('sandbox_operation'), true);
 });
+
+test('company: set_company validates and updates the profile', async () => {
+  const state = createState();
+  assert.equal((await runTool(state, 'set_company', { gstin: '27ABC' })).error, 'INVALID_GSTIN');
+  assert.equal((await runTool(state, 'set_company', { fy: '26-27' })).error, 'INVALID_FY');
+  assert.equal((await runTool(state, 'set_company', { pin: '123' })).error, 'INVALID_PIN');
+  const out = await runTool(state, 'set_company', { name: 'Acme Traders', gstin: '27AABCU9603R1ZP', city: 'Pune', pin: '411001' });
+  assert.equal(out.ok, true);
+  assert.equal(state.company.name, 'Acme Traders');
+  assert.equal(state.company.state, '27');
+  assert.equal(state.company.pin, 411001);
+  assert.equal((await runTool(state, 'set_company', { name: '' })).error, 'COMPANY_NAME_REQUIRED');
+});
+
+test('clients: register, switch active, and isolate books inside the app', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'myca-clients-'));
+  const sess = openSession(join(dir, 'MyCA', 'state.json'));
+  sess.state.invoices = [];
+  sess.state.invoiceSeq = 0;
+  sess.state.parties = [];
+  assert.equal((await sess.tool('add_client', { clientId: 'CL-7', name: 'Beta', gstin: '29AAACF7856R1Z0', state: '29' })).ok, true);
+  assert.equal((await sess.tool('add_client', { clientId: 'CL-7', name: 'Beta' })).error, 'CLIENT_EXISTS');
+  assert.equal((await sess.tool('set_active_client', { clientId: 'NOPE' })).error, 'CLIENT_NOT_FOUND');
+  assert.equal((await sess.tool('set_active_client', { clientId: 'CL-7' })).ok, true);
+  const inv = await sess.tool('create_invoice', { partyName: 'X', partyGstin: '', partyState: '29', lines: [{ description: 's', qty: 1, rate: 100, gstRate: 5 }] });
+  assert.equal(inv.ok, true);
+  assert.equal(sess.state.extraBooks['CL-7'].invoices.length, 1);
+  assert.equal(sess.state.invoices.length, 0);
+  const snap = sess.snapshot();
+  assert.equal(snap.activeClientId, 'CL-7');
+  assert.equal(snap.invoices.length, 1);
+  assert.equal(snap.clients.some((c) => c.clientId === 'CL-7'), true);
+  assert.equal((await sess.tool('set_active_client', { clientId: 'SELF' })).ok, true);
+  assert.equal(sess.snapshot().invoices.length, 0);
+  rmSync(dir, { recursive: true, force: true });
+});

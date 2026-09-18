@@ -68,6 +68,10 @@ Test script note: suites use `node --test "test/*.test.mjs"` (quoted glob). This
 - **Transfers are append-only.** Never mutate a posted transfer; add a resolving entry.
 - **`books.mjs`**: `SELF` maps to the root state object; other clients get isolated books.
   Any new per-client concern must go through `getBook`.
+- **Active-client view**: `session.mjs` runs tools/chat against `toolState(state)` — the
+  active client's book layered over the root infra state — then `syncView` copies the
+  book's sequence counters and `activeClientId` back. Add any new root-level field a tool
+  may mutate to `syncView`, or the write will be lost on the view copy.
 - **`state.files` is an in-memory cache**, never persisted. Attachment bytes live on disk
   via `document-store.mjs`; `state.json` holds metadata (`sha256`, `bytes`) only.
 - **`text-safe.mjs`** is the only place CSV/HTML escaping should live (`csvCell`, `csvRows`,

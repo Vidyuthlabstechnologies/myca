@@ -5,9 +5,12 @@ import { runTool, TOOLS } from './tools.mjs';
 import { OSS_CATALOG } from './oss-catalog.mjs';
 import { publicGovtConfig } from './govt.mjs';
 import { integrationReadiness } from './integration-contract.mjs';
-import { appendAuditEvent, handleCaApi, stateDigest } from './ca-api.mjs';
+import { appendAuditEvent, handleCaApi, stateDigest, listClients } from './ca-api.mjs';
 import { providerCatalog, providerRequirementMap } from './provider-catalog.mjs';
 import { putDocument, readDocument } from './document-store.mjs';
+import { getBook } from './books.mjs';
+import { approvalStatus } from './approvals.mjs';
+import { liveCallsEnabled } from './runtime-config.mjs';
 
 function hydrateDocuments(state) {
   state.attachments = state.attachments && typeof state.attachments === 'object' ? state.attachments : {};
@@ -41,6 +44,26 @@ function hydrateDocuments(state) {
   delete state._legacyFiles;
 }
 
+// Tools receive a book-shaped view: the active client's ledger and invoices sit on top
+// of the root infra state (audit, attachments, integration registry, approvals).
+function toolState(state) {
+  const id = String(state.activeClientId || 'SELF');
+  if (id === 'SELF') return state;
+  const book = getBook(state, id);
+  return { ...state, ...book, __book: book };
+}
+
+function syncView(view, state) {
+  if (!view || view === state) return;
+  if (view.__book) {
+    view.__book.invoiceSeq = view.invoiceSeq;
+    view.__book.billSeq = view.billSeq;
+    view.__book.transferSeq = view.transferSeq;
+  }
+  state.activeClientId = view.activeClientId;
+  state.pendingFile = view.pendingFile;
+}
+
 export function openSession(path = defaultDataPath()) {
   const state = seedDemo(loadState(path));
   state._dataDir = dirname(path);
@@ -59,10 +82,12 @@ export function openSession(path = defaultDataPath()) {
     chat(message) {
       return exclusive(async () => {
         const beforeHash = stateDigest(state);
-        const out = await chat(state, message);
+        const view = toolState(state);
+        const out = await chat(view, message);
+        syncView(view, state);
         appendAuditEvent(state, {
           actorId: 'renderer',
-          clientId: 'SELF',
+          clientId: String(state.activeClientId || 'SELF'),
           action: 'chat.run',
           beforeHash,
           afterHash: stateDigest(state),
@@ -79,10 +104,12 @@ export function openSession(path = defaultDataPath()) {
     tool(name, args) {
       return exclusive(async () => {
         const beforeHash = stateDigest(state);
-        const out = await runTool(state, name, args);
+        const view = toolState(state);
+        const out = await runTool(view, name, args);
+        syncView(view, state);
         appendAuditEvent(state, {
           actorId: 'renderer',
-          clientId: 'SELF',
+          clientId: String(state.activeClientId || 'SELF'),
           action: `tool.${name}`,
           beforeHash,
           afterHash: stateDigest(state),
@@ -103,10 +130,17 @@ export function openSession(path = defaultDataPath()) {
       });
     },
     snapshot() {
+      const view = toolState(state);
+      const active = listClients(state);
       return {
-        company: state.company,
-        invoices: state.invoices,
-        purchases: state.purchases || [],
+        company: view.company,
+        invoices: view.invoices || [],
+        purchases: view.purchases || [],
+        activeClientId: active.activeClientId,
+        clients: active.clients,
+        approvals: (state.approvals || []).map((a) => ({ ...a, status: approvalStatus(a) })),
+        dataPath: path,
+        liveCallsEnabled: liveCallsEnabled(),
         tools: TOOLS.map(({ name, title, description }) => ({ name, title, description })),
         oss: OSS_CATALOG,
         govt: publicGovtConfig(),
@@ -118,7 +152,7 @@ export function openSession(path = defaultDataPath()) {
           },
         },
         caApi: {
-          clients: 1,
+          clients: active.clients.length,
           documents: state.documents?.length || 0,
           auditEvents: state.auditEvents?.length || 0,
         },

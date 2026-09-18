@@ -43,6 +43,9 @@
           <button type="button" data-tab="invoices" class="on" role="tab">Vouchers</button>
           <button type="button" data-tab="books" role="tab">Books</button>
           <button type="button" data-tab="gst" role="tab">GST</button>
+          <button type="button" data-tab="clients" role="tab">Clients</button>
+          <button type="button" data-tab="approvals" role="tab">Approvals</button>
+          <button type="button" data-tab="firm" role="tab">Firm</button>
           <button type="button" data-tab="govt" role="tab">Govt</button>
           <button type="button" data-tab="apis" role="tab">APIs</button>
           <button type="button" data-tab="print" role="tab">Print</button>
@@ -98,6 +101,90 @@
             <tbody id="gstBills"></tbody>
           </table>
           </div>
+        </section>
+
+        <section id="panel-clients" class="panel" hidden role="tabpanel">
+          <div class="metrics" id="clientMetrics"></div>
+          <p class="lede" id="clientsActive">Active book: —</p>
+          <form id="clientForm" class="govt-form">
+            <label>Client id <input id="cId" placeholder="CL-001" required /></label>
+            <label>Name <input id="cName" placeholder="Beta Traders" required /></label>
+            <label>GSTIN <input id="cGstin" maxlength="15" placeholder="29…" /></label>
+            <label>State <input id="cState" maxlength="2" placeholder="29" /></label>
+            <label>Entity
+              <select id="cEntity">
+                <option value="proprietor">Proprietor</option>
+                <option value="partnership">Partnership</option>
+                <option value="llp">LLP</option>
+                <option value="company">Company</option>
+                <option value="individual">Individual</option>
+              </select>
+            </label>
+            <div class="form-row"><button type="submit" class="btn">Add client</button></div>
+          </form>
+          <div class="sheet" style="min-height:0">
+          <table class="grid">
+            <thead>
+              <tr><th>ID</th><th>Name</th><th>GSTIN</th><th>State</th><th></th></tr>
+            </thead>
+            <tbody id="clientRows"></tbody>
+          </table>
+          </div>
+        </section>
+
+        <section id="panel-approvals" class="panel" hidden role="tabpanel">
+          <p class="lede">Gated provider operations need a CA approval before they can run. Maker-checker applies: the approver must differ from the requester.</p>
+          <form id="approvalForm" class="govt-form">
+            <label>Operation
+              <select id="aOp">
+                <option value="einvoice_generate">einvoice_generate</option>
+                <option value="einvoice_cancel">einvoice_cancel</option>
+                <option value="einvoice_authenticate">einvoice_authenticate</option>
+                <option value="gst_save_gstr1">gst_save_gstr1</option>
+                <option value="gst_file_gstr1_evc">gst_file_gstr1_evc</option>
+                <option value="gst_taxpayer_generate_otp">gst_taxpayer_generate_otp</option>
+                <option value="gst_taxpayer_verify_otp">gst_taxpayer_verify_otp</option>
+              </select>
+            </label>
+            <label>Requested by <input id="aBy" value="maker" /></label>
+            <label>Note <input id="aNote" placeholder="INV-0001 to IRP" /></label>
+            <div class="form-row"><button type="submit" class="btn">Request approval</button></div>
+          </form>
+          <div class="sheet" style="min-height:0">
+          <table class="grid">
+            <thead>
+              <tr><th>ID</th><th>Operation</th><th>Requested by</th><th>Status</th><th></th></tr>
+            </thead>
+            <tbody id="approvalRows"></tbody>
+          </table>
+          </div>
+        </section>
+
+        <section id="panel-firm" class="panel" hidden role="tabpanel">
+          <p class="lede">This is the business the active book belongs to. Changing it affects future postings only — history is untouched.</p>
+          <form id="firmForm" class="govt-form">
+            <label>Business name <input id="fName" required /></label>
+            <label>GSTIN <input id="fGstin" maxlength="15" /></label>
+            <label>PAN <input id="fPan" maxlength="10" /></label>
+            <label>State code <input id="fState" maxlength="2" /></label>
+            <label>Financial year <input id="fFy" maxlength="7" placeholder="2026-27" /></label>
+            <label>Entity
+              <select id="fEntity">
+                <option value="proprietor">Proprietor</option>
+                <option value="partnership">Partnership</option>
+                <option value="llp">LLP</option>
+                <option value="company">Company</option>
+                <option value="individual">Individual</option>
+              </select>
+            </label>
+            <label>Address <input id="fAddress" /></label>
+            <label>City <input id="fCity" /></label>
+            <label>PIN <input id="fPin" maxlength="6" /></label>
+            <div class="form-row">
+              <button type="submit" class="btn">Save profile</button>
+            </div>
+          </form>
+          <p class="lede" id="firmMeta"></p>
         </section>
 
         <section id="panel-govt" class="panel" hidden role="tabpanel">
@@ -238,6 +325,6 @@
       </aside>
     </div>
   </div>
-  <script src="app.js?v=10"></script>
+  <script src="app.js?v=11"></script>
 </body>
 </html>
