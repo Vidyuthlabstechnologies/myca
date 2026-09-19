@@ -25,7 +25,7 @@ import { getSandboxClient } from './sandbox-client.mjs';
 import { getNimClient } from './nim-client.mjs';
 import { runSandboxOperation } from './sandbox-adapter.mjs';
 import { requestApproval, decideApproval, approvalStatus } from './approvals.mjs';
-import { liveCallsEnabled } from './runtime-config.mjs';
+import { liveCallsEnabled, mockModeEnabled } from './runtime-config.mjs';
 import { seedDemo } from './store.mjs';
 
 function ok(data) {
@@ -570,6 +570,19 @@ export const TOOLS = [
     description: 'Ping and verify connection to Quicko Sandbox GSP API using configured credentials.',
     run: async () => {
       const client = getSandboxClient();
+      if (mockModeEnabled()) {
+        return ok({
+          ok: true,
+          configured: client.isConfigured(),
+          live: false,
+          mock: true,
+          provider: 'sandbox',
+          baseUrl: client.baseUrl,
+          ms: 0,
+          environment: 'mock',
+          hint: 'Mock mode active (MYCA_MOCK_MODE=1) — simulated connection, no credentials needed.',
+        });
+      }
       if (client.isConfigured() && !liveCallsEnabled()) {
         return ok({
           ok: false,
@@ -677,6 +690,17 @@ export const TOOLS = [
     description: 'Check NVIDIA NIM AI model connection and configuration (free meta/llama-3.3-70b-instruct).',
     run: async () => {
       const client = getNimClient();
+      if (mockModeEnabled()) {
+        return ok({
+          ok: true,
+          configured: client.isConfigured(),
+          live: false,
+          mock: true,
+          provider: 'nvidia_nim',
+          model: client.defaultModel,
+          hint: 'Mock mode active (MYCA_MOCK_MODE=1) — simulated AI connection.',
+        });
+      }
       if (client.isConfigured() && !liveCallsEnabled()) {
         return ok({
           ok: false,
@@ -699,6 +723,15 @@ export const TOOLS = [
     run: async (_state, args = {}) => {
       const prompt = args.prompt || '';
       if (!prompt) return fail('prompt required');
+      if (mockModeEnabled()) {
+        return ok({
+          ok: true,
+          mock: true,
+          model: args.model || 'mock',
+          reply: 'Simulated assistant reply (MYCA_MOCK_MODE=1):\n\n1. The GSTR-1 summary exports to the GSTN offline utility JSON via export_gstr1_json.\n2. Reconciliation flags unmatched credit notes under Rule 37A.\n3. E-invoice generation is available in mock mode and tags results mock:true.',
+          hint: 'No model was contacted. Enable MYCA_ENABLE_LIVE_CALLS=1 with NVIDIA_NIM_API_KEY for a real answer.',
+        });
+      }
       if (!liveCallsEnabled()) {
         return fail('LIVE_CALLS_DISABLED', { hint: 'Set MYCA_ENABLE_LIVE_CALLS=1 in platform/.env to allow outbound model calls.' });
       }
@@ -823,6 +856,21 @@ export const TOOLS = [
       const local = validateGstin(raw);
       if (!local.ok) return ok(local);
       const sandbox = getSandboxClient();
+      if (mockModeEnabled()) {
+        return ok({
+          ...local,
+          liveVerified: true,
+          mock: true,
+          legalName: 'Nalanda Textiles Private Limited',
+          tradeName: 'Nalanda Textiles',
+          status: 'Active',
+          taxpayerType: 'Regular',
+          registrationDate: '01/04/2019',
+          eInvoiceStatus: 'Y',
+          natureOfBusiness: ['Textiles'],
+          hint: 'Simulated lookup (MYCA_MOCK_MODE=1) — no credentials contacted.',
+        });
+      }
       if (!sandbox.isConfigured() || !liveCallsEnabled()) {
         return ok({
           ...local,

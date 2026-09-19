@@ -1,5 +1,6 @@
 import { getSandboxClient } from './sandbox-client.mjs';
-import { liveCallsEnabled } from './runtime-config.mjs';
+import { createHash } from 'node:crypto';
+import { liveCallsEnabled, mockModeEnabled } from './runtime-config.mjs';
 import { sandboxOperationById, createSandboxHandoff } from './sandbox-adapter-contract.mjs';
 import { approvalStatus, findApproval, consumeApproval } from './approvals.mjs';
 import { appendAuditEvent, stateDigest } from './ca-api.mjs';
@@ -174,13 +175,233 @@ export function adapterSupports(operationId) {
   return Boolean(ADAPTERS[operationId]);
 }
 
-export async function runSandboxOperation({ operationId, actorId = 'ca', caApprovalId = '', params = {}, payloadSummary = {}, clientId = 'SELF', allowLive = null } = {}, deps = {}) {
+const MOCK_TAG = { mock: true, simulated: true };
+
+// MYCA_MOCK_MODE=1 fixtures. Deterministic from the parameters; no network, no
+// credentials, no approvals. Each result is tagged mock:true so it can never be
+// mistaken for a real filing.
+const MOCK_ADAPTERS = {
+  gstin_verify: async ({ params }) => {
+    const gstin = String(params.gstin || '').trim().toUpperCase();
+    if (gstin.length !== 15) return { ok: false, error: 'INVALID_GSTIN_FORMAT' };
+    return {
+      ok: true,
+      ...MOCK_TAG,
+      data: {
+        gstin,
+        providerGstin: gstin,
+        legalName: 'Nalanda Textiles Private Limited',
+        tradeName: 'Nalanda Textiles',
+        status: 'Active',
+        taxpayerType: 'Regular',
+        stateCode: gstin.slice(0, 2),
+        registrationDate: '01/04/2019',
+        eInvoiceStatus: 'Y',
+        valid: true,
+      },
+    };
+  },
+
+  gst_return_status: async ({ params }) => {
+    const gstin = String(params.gstin || '').trim().toUpperCase();
+    return {
+      ok: true,
+      ...MOCK_TAG,
+      data: {
+        gstin,
+        returns: [
+          { ret_prd: '092026', rtntype: params.gstr || 'GSTR1', filing_flg: 'Y', file_dt: '20/09/2026', arn: `MOCK-ARN-${gstin}-092026` },
+        ],
+      },
+    };
+  },
+
+  gst_taxpayer_generate_otp: async () => ({
+    ok: true,
+    ...MOCK_TAG,
+    data: { requested: true, provider: { result: 'OTP sent to the registered mobile (simulated)' } },
+  }),
+
+  gst_taxpayer_verify_otp: async () => ({
+    ok: true,
+    ...MOCK_TAG,
+    data: { sessionEstablished: true, tokenExpiry: 'mock-taxpayer-session-6h' },
+  }),
+
+  gst_gstr2b_recon_submit: async ({ params }) => {
+    const { year, month } = periodParts(params);
+    const gstin = String(params.gstin || '').toUpperCase();
+    return {
+      ok: true,
+      ...MOCK_TAG,
+      data: {
+        job: {
+          job_id: `MOCK-2B-${gstin}-${year}-${String(month).padStart(2, '0')}`,
+          status: 'completed',
+          match_rate: 94,
+          docs: [
+            { purpose: 'GSTR-2B', url: 'https://example.in/mock/gstr2b.pdf' },
+            { purpose: 'Purchase ledger', url: 'https://example.in/mock/purchase-ledger.csv' },
+          ],
+        },
+        note: 'Mock GSTR-2B reconciliation job. The sprint-3 engine remains the source of truth.',
+      },
+    };
+  },
+
+  gst_save_gstr1: async ({ params }) => {
+    const { year, month } = periodParts(params);
+    if (!params.payload) return { ok: false, error: 'PAYLOAD_REQUIRED', hint: 'Pass the GSTN GSTR-1 JSON as params.payload (see export_gstr1_json).' };
+    return {
+      ok: true,
+      ...MOCK_TAG,
+      data: { saved: true, referenceId: `MOCK-GSTR1-${year}-${String(month).padStart(2, '0')}` },
+    };
+  },
+
+  gst_file_gstr1_evc: async ({ params }) => {
+    const { year, month } = periodParts(params);
+    if (!params.pan || !params.otp) return { ok: false, error: 'PAN_AND_EVC_OTP_REQUIRED', hint: 'Generate an EVC OTP (gst_taxpayer_generate_otp flow) and pass pan + otp.' };
+    if (!params.summary) return { ok: false, error: 'SUMMARY_REQUIRED', hint: 'Pass the summary returned by new-proceed (newSumFlag, sec_sum, chksum).' };
+    return {
+      ok: true,
+      ...MOCK_TAG,
+      data: { filed: true, ackNum: `MOCK-ACK-${year}-${String(month).padStart(2, '0')}` },
+    };
+  },
+
+  einvoice_authenticate: async () => ({
+    ok: true,
+    ...MOCK_TAG,
+    data: { authenticated: true, expiry: 'mock-einvoice-session-6h' },
+  }),
+
+  einvoice_generate: async ({ params, state }) => {
+    let payload = params.payload;
+    if (!payload && params.invoiceId) {
+      const invoice = [...(state?.invoices || []), ...(state?.purchases || [])].find((i) => i.id === params.invoiceId);
+      if (!invoice) return { ok: false, error: 'INVOICE_NOT_FOUND', invoiceId: params.invoiceId };
+      payload = invoiceToNicPayload(state.company, invoice);
+    }
+    if (!payload) return { ok: false, error: 'PAYLOAD_REQUIRED', hint: 'Pass params.invoiceId or a NIC JSON params.payload.' };
+    const hashed = createHash('sha256').update(`${payload?.TranDtls?.SupplyType || 'B2B'}:${payload?.CustDtls?.LglNm || 'MOCK'}:${params.invoiceId || 'INV-0001'}`).digest('hex').toUpperCase();
+    const irn = hashed.slice(0, 64);
+    if (params.invoiceId) {
+      const invoice = [...(state?.invoices || []), ...(state?.purchases || [])].find((i) => i.id === params.invoiceId);
+      if (invoice) {
+        invoice.irn = irn;
+        invoice.ackNo = `MOCK-ACK-${params.invoiceId}`;
+        invoice.ackDate = '2026-09-20 12:00:00';
+        invoice.signedQrCode = `mock_qr_${irn.slice(0, 16)}`;
+      }
+    }
+    return {
+      ok: true,
+      ...MOCK_TAG,
+      data: { irn, ackNo: `MOCK-ACK-${params.invoiceId || 'INV'}`, ackDate: '2026-09-20 12:00:00', signedQrCode: `mock_qr_${irn.slice(0, 16)}`, status: 'ACT' },
+    };
+  },
+
+  einvoice_cancel: async ({ params }) => {
+    if (!params.irn) return { ok: false, error: 'IRN_REQUIRED' };
+    return {
+      ok: true,
+      ...MOCK_TAG,
+      data: { cancelled: true, irn: params.irn, cancelDate: '2026-09-20 13:00:00' },
+    };
+  },
+
+  tds_analytics_job: async ({ params }) => ({
+    ok: true,
+    ...MOCK_TAG,
+    data: {
+      job: {
+        job_id: `MOCK-TDS-${params.tan || 'TAN00000'}-${params.quarter || 'Q3'}`,
+        status: 'completed',
+        potential_notices: 2,
+        url: 'https://example.in/mock/tds-possible-notices.pdf',
+      },
+      note: 'Mock TDS analytics job. The sprint-5 TDS monitor remains the source of truth.',
+    },
+  }),
+
+  tds_fvu_generate: async ({ params }) => ({
+    ok: true,
+    ...MOCK_TAG,
+    data: {
+      job: {
+        job_id: `MOCK-FVU-${params.tan || 'TAN00000'}-${params.quarter || 'Q3'}`,
+        status: 'completed',
+        fvu: 'https://example.in/mock/2643FVU.html',
+        url: 'https://example.in/mock/fvu-upload-url',
+      },
+      note: 'Mock FVU package. Upload the TXT/CSI files to the signed URLs, then poll the job.',
+    },
+  }),
+
+  income_tax_calculate: async () => ({
+    ok: true,
+    ...MOCK_TAG,
+    data: {
+      regime: 'new',
+      totalIncome: 1200000,
+      taxPayable: 28400,
+      note: 'Simulated calculator output. Use prepare_itr (sprint-5 engine) for exact ITR maths; mock figures must never be filed.',
+    },
+  }),
+};
+
+export function mockAdapterSupports(operationId) {
+  return Boolean(MOCK_ADAPTERS[operationId]);
+}
+
+export async function runSandboxOperation({ operationId, actorId = 'ca', caApprovalId = '', params = {}, payloadSummary = {}, clientId = 'SELF', allowLive = null, mock = null } = {}, deps = {}) {
   const operation = sandboxOperationById(operationId);
   if (!operation) return { ok: false, error: 'UNKNOWN_SANDBOX_OPERATION' };
 
   const state = deps.state;
   const client = deps.client || getSandboxClient();
   const live = allowLive == null ? liveCallsEnabled() : Boolean(allowLive);
+  const useMock = mock == null ? mockModeEnabled() : Boolean(mock);
+
+  if (useMock) {
+    const adapter = MOCK_ADAPTERS[operationId];
+    if (!adapter) return { ok: false, error: 'NOT_IMPLEMENTED', operationId, hint: 'Operation has no mock fixture yet.' };
+    const beforeHash = state ? stateDigest(state) : null;
+    let result;
+    try {
+      result = await adapter({ client, params, state });
+    } catch (err) {
+      result = { ok: false, error: String(err.message || err) };
+    }
+    if (state) {
+      appendAuditEvent(state, {
+        actorId,
+        clientId,
+        action: `sandbox.${operationId}`,
+        beforeHash,
+        afterHash: stateDigest(state),
+        metadata: {
+          operationId,
+          requirementId: operation.requirementId,
+          caApprovalRequired: false,
+          caApprovalId: caApprovalId || '',
+          mapsToTools: operation.mapsToTools,
+          ok: result.ok !== false,
+          mock: true,
+        },
+      });
+    }
+    return {
+      ...result,
+      mock: true,
+      operationId,
+      requirementId: operation.requirementId,
+      mapsToTools: operation.mapsToTools,
+      ownerModules: operation.ownerModules,
+      hint: 'Mock mode active (MYCA_MOCK_MODE=1). Simulated response — nothing was sent to the provider.',
+    };
+  }
 
   const handoff = createSandboxHandoff({ operationId, actorId, caApprovalId, payloadSummary });
   if (!handoff.ok) return handoff;

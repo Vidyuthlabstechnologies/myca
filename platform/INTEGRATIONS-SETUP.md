@@ -8,6 +8,11 @@ code changes: every step is a credential or a config line. Run
 
 - **Outbound calls are off by default.** Nothing reaches a provider until
   `MYCA_ENABLE_LIVE_CALLS=1` is set in `platform/.env`.
+- **Mock everything with one flag.** `MYCA_MOCK_MODE=1` (already set in the shipped
+  `.env`) makes every provider front door — Sandbox by Quicko, NIC e-invoice,
+  notifications, NVIDIA NIM — return deterministic simulated fixtures tagged
+  `mock:true`. No keys, no live switch, no CA approvals, no network. Demos, walkthroughs
+  and workflow testing just work. Set it back to `0` the moment you go live.
 - **Secrets never go in `state.json`.** Provider/NIC credentials are encrypted at rest
   by the credential vault (Electron `safeStorage`/DPAPI; AES-256-GCM under plain Node).
 - **Filing/signing/OTP/DSC stay CA-controlled.** Gated operations need an approved,

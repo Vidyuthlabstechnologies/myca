@@ -6,7 +6,7 @@
   "type": "module",
   "main": "desktop/main.cjs",
   "scripts": {
-    "test": "node --test \"test/*.test.mjs\"",
+    "test": "node --env-file=.env.test --test \"test/*.test.mjs\"",
     "start": "electron .",
     "dev": "node src/server.mjs",
     "stress": "node scripts/stress.mjs",

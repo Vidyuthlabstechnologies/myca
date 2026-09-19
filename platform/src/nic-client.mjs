@@ -1,6 +1,6 @@
 import { createCipheriv, createDecipheriv, randomBytes, createHash } from 'node:crypto';
 import { loadGovtConfig, pemFromDisk, rsaEncryptBase64, GOVT_GUIDE, invoiceToNicPayload } from './nic-config.mjs';
-import { liveCallsEnabled } from './runtime-config.mjs';
+import { liveCallsEnabled, mockModeEnabled } from './runtime-config.mjs';
 
 export { rsaEncryptBase64 };
 
@@ -80,7 +80,7 @@ async function readJson(res) {
 }
 
 export async function nicAuthenticate(cfg = loadGovtConfig(), fetchFn = fetch, options = {}) {
-  const useMock = Boolean(options.mock || cfg.env === 'mock' || cfg.useMock);
+  const useMock = options.mock === false ? false : Boolean(options.mock || cfg.env === 'mock' || cfg.useMock || mockModeEnabled());
   if (useMock) {
     const token = 'mock_nic_jwt_' + randomBytes(16).toString('hex');
     const sek = randomBytes(32).toString('base64');
@@ -152,6 +152,21 @@ export async function nicAuthenticate(cfg = loadGovtConfig(), fetchFn = fetch, o
 }
 
 async function call(cfg, fetchFn, options, { method = 'POST', path, body, needsAuth = true, timeout = 20000 }) {
+  const mock = options.mock === false ? false : Boolean(options.mock || cfg.env === 'mock' || cfg.useMock || mockModeEnabled());
+  if (mock) {
+    const data = mockCallData(method, path, body);
+    const irn = extractIrn(path, body);
+    return {
+      ok: true,
+      status: 200,
+      url: `${hostFor(cfg, options)}${path}`,
+      data,
+      irn,
+      mock: true,
+      nic: { Status: 1, Data: data },
+      hint: 'NIC sandbox mock active. Simulated response — nothing reached the IRP.',
+    };
+  }
   if (!liveCallsEnabled() && !options.allowLive) {
     return { ok: false, error: 'LIVE_CALLS_DISABLED', hint: 'Set MYCA_ENABLE_LIVE_CALLS=1 to call the NIC IRP.' };
   }
@@ -200,8 +215,9 @@ export async function nicGenerateIrn(state, invoiceId, fetchFn = fetch, options 
   const inv = (state.invoices || []).find((i) => i.id === invoiceId);
   if (!inv) return { ok: false, error: 'INVOICE_NOT_FOUND', invoiceId };
   const cfg = loadGovtConfig();
+  const useMock = options.mock === false ? false : Boolean(options.mock || cfg.env === 'mock' || cfg.useMock || mockModeEnabled());
 
-  if (options.mock || cfg.env === 'mock' || cfg.useMock) {
+  if (useMock) {
     const mockData = generateMockIrnPayload(state.company, inv);
     inv.irn = mockData.irn;
     inv.ackNo = mockData.ackNo;
@@ -248,7 +264,7 @@ export async function nicCancelIrn(state, { invoiceId, irn, reason = '1', remark
     inv.irnStatus = 'CNL';
     inv.cancelledAt = (res.data || {}).CancelDate || new Date().toISOString();
   }
-  return { ok: res.ok, status: res.status, irn: targetIrn, cancelDate: res.data?.CancelDate || null, data: res.data, nic: res.nic, error: res.error };
+  return { ok: res.ok, status: res.status, irn: targetIrn, cancelDate: res.data?.CancelDate || null, data: res.data, nic: res.nic, error: res.error, mock: res.mock === true ? true : undefined };
 }
 
 export async function nicGetIrn(irn, cfgOrFetch = loadGovtConfig(), fetchFn = fetch, options = {}) {
@@ -289,6 +305,36 @@ export async function nicGetEwayBill(irn, cfgOrFetch = loadGovtConfig(), fetchFn
 export async function nicCancelEwayBill({ ewbNo, reason = '1', remark = '' } = {}, fetchFn = fetch, options = {}) {
   if (!ewbNo) return { ok: false, error: 'EWB_NO_REQUIRED', hint: 'Cancelling an e-Way Bill uses the separate e-Way Bill System (api.ewaybillgst.gov.in), not the IRP. Wire it once EWB credentials exist.' };
   return { ok: false, error: 'EWB_CANCEL_VIA_EWB_SYSTEM', ewbNo, reason, remark };
+}
+
+function extractIrn(path, body) {
+  if (body?.Irn) return body.Irn;
+  const m = String(path || '').match(/\/irn\/([^/?]+)/);
+  return m ? decodeURIComponent(m[1]) : '';
+}
+
+// Deterministic canned IRP responses for mock mode.
+function mockCallData(method, path, body) {
+  if (path === IRP_PATHS.generateEwb) {
+    return { Irn: body?.Irn || 'MOCKIRN', EwbNo: '271020000012345', EwbDt: '20/09/2026', Validity: '24/09/2026' };
+  }
+  if (path === IRP_PATHS.cancelIrn) {
+    return { Irn: body?.Irn || '', CancelDate: '20/09/2026 13:00:00', Status: 'CNL' };
+  }
+  if (path.includes('/irnbyirn') || /\/(Invoice|ewaybill)\/irn\//.test(path)) {
+    const irn = extractIrn(path, body);
+    return { Irn: irn, AckNo: `MOCK-ACK-${irn.slice(-6)}`, AckDt: '20/09/2026 12:00:00', SignedInvoice: `mock_jwt_${irn}.sig`, Status: 'ACT' };
+  }
+  if (path.includes('irnbydocdetails')) {
+    return { Irn: 'MOCKIRNDOC123456789X', AckNo: 'MOCK-ACK-DOC', AckDt: '20/09/2026 12:00:00', Status: 'ACT' };
+  }
+  if (path.includes('rejectedirns')) {
+    return { Irn: [], Irns: [] };
+  }
+  if (path.includes('/Master/gstin/')) {
+    return { LglNm: 'Nalanda Textiles Private Limited', StjCd: '27', Stj: 'Maharashtra', Ctu: 'IN', CtuNm: 'India' };
+  }
+  return { Irn: 'MOCKIRN000000000000X', AckNo: 'MOCK-ACK-000001', AckDt: '20/09/2026 12:00:00', Status: 'ACT' };
 }
 
 function generateMockIrnPayload(company, inv) {

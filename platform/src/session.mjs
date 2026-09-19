@@ -10,7 +10,7 @@ import { providerCatalog, providerRequirementMap } from './provider-catalog.mjs'
 import { putDocument, readDocument } from './document-store.mjs';
 import { getBook } from './books.mjs';
 import { approvalStatus } from './approvals.mjs';
-import { liveCallsEnabled } from './runtime-config.mjs';
+import { liveCallsEnabled, mockModeEnabled } from './runtime-config.mjs';
 
 function hydrateDocuments(state) {
   state.attachments = state.attachments && typeof state.attachments === 'object' ? state.attachments : {};
@@ -194,6 +194,7 @@ export function openSession(path = defaultDataPath()) {
         approvals: (state.approvals || []).map((a) => ({ ...a, status: approvalStatus(a) })),
         dataPath: path,
         liveCallsEnabled: liveCallsEnabled(),
+        mockMode: mockModeEnabled(),
         tools: TOOLS.map(({ name, title, description }) => ({ name, title, description })),
         oss: OSS_CATALOG,
         govt: publicGovtConfig(),

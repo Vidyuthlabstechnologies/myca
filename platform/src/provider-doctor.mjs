@@ -1,4 +1,4 @@
-import { loadEnvFile, liveCallsEnabled } from './runtime-config.mjs';
+import { loadEnvFile, liveCallsEnabled, mockModeEnabled } from './runtime-config.mjs';
 import { getSandboxClient } from './sandbox-client.mjs';
 import { loadGovtConfig } from './govt.mjs';
 
@@ -28,6 +28,7 @@ async function probeTcp(host, port, timeoutMs = 1500) {
 export async function providerDoctor(deps = {}) {
   const env = deps.env || loadEnvFile();
   const live = deps.allowNetwork == null ? liveCallsEnabled() : Boolean(deps.allowNetwork);
+  const mock = deps.mock == null ? mockModeEnabled() : Boolean(deps.mock);
   const providers = [];
 
   const baseUrl = String(env.MYCA_GSP_BASE_URL || 'https://api.sandbox.co.in');
@@ -41,7 +42,9 @@ export async function providerDoctor(deps = {}) {
     ...(sandboxSecret ? [] : [`${secretName} or MYCA_GSP_API_SECRET`]),
   ];
   let sandboxReach = { status: 'skipped', reason: 'live calls disabled — set MYCA_ENABLE_LIVE_CALLS=1 to ping' };
-  if (sandboxKey && sandboxSecret && live) {
+  if (mock) {
+    sandboxReach = { status: 'ok', ms: 0, environment: 'mock', mock: true, reason: 'simulated — MYCA_MOCK_MODE=1, no network used' };
+  } else if (sandboxKey && sandboxSecret && live) {
     try {
       const client = deps.sandboxClient || getSandboxClient();
       const ping = await client.ping();
@@ -86,11 +89,11 @@ export async function providerDoctor(deps = {}) {
     id: 'nic_einvoice',
     name: 'NIC e-invoice (direct)',
     requirements: ['REQ-CA-007'],
-    configured: nicMissing.length === 0,
+    configured: mock || nicMissing.length === 0,
     environment: govt.env || 'sandbox',
-    missing: nicMissing,
-    reachability: { status: 'not-tested', reason: 'run govt_probe to reach NIC; auth needs the RSA public key' },
-    note: 'Credentials are encrypted at rest in the vault. A GSTIN notified for e-invoicing is required.',
+    missing: mock ? [] : nicMissing,
+    reachability: mock ? { status: 'ok', mock: true, reason: 'simulated — MYCA_MOCK_MODE=1' } : { status: 'not-tested', reason: 'run govt_probe to reach NIC; auth needs the RSA public key' },
+    note: mock ? 'Mock mode active — IRN flows return simulated fixtures tagged mock:true.' : 'Credentials are encrypted at rest in the vault. A GSTIN notified for e-invoicing is required.',
   });
 
   const emailMissing = missing(env, ['MYCA_EMAIL_FROM', 'MYCA_EMAIL_RELAY_URL']);
@@ -98,9 +101,9 @@ export async function providerDoctor(deps = {}) {
     id: 'email',
     name: 'Email relay',
     requirements: ['REQ-CA-013'],
-    configured: emailMissing.length === 0,
-    missing: emailMissing,
-    reachability: { status: 'not-tested' },
+    configured: mock || emailMissing.length === 0,
+    missing: mock ? [] : emailMissing,
+    reachability: mock ? { status: 'ok', mock: true, reason: 'simulated — MYCA_MOCK_MODE=1' } : { status: 'not-tested' },
     note: 'Any JSON relay (SES, Postmark, your own function). Without it the app still opens mailto: links.',
   });
 
@@ -109,9 +112,9 @@ export async function providerDoctor(deps = {}) {
     id: 'whatsapp',
     name: 'WhatsApp Cloud API',
     requirements: ['REQ-CA-013'],
-    configured: waMissing.length === 0,
-    missing: waMissing,
-    reachability: { status: 'not-tested' },
+    configured: mock || waMissing.length === 0,
+    missing: mock ? [] : waMissing,
+    reachability: mock ? { status: 'ok', mock: true, reason: 'simulated — MYCA_MOCK_MODE=1' } : { status: 'not-tested' },
     note: 'Needs a Meta Business account and an approved message template. Without it the app still opens wa.me links.',
   });
 
@@ -135,7 +138,9 @@ export async function providerDoctor(deps = {}) {
 
   const nimMissing = missing(env, ['NVIDIA_NIM_API_KEY']);
   let nimReach = { status: 'skipped', reason: 'live calls disabled' };
-  if (!nimMissing.length && live) {
+  if (mock) {
+    nimReach = { status: 'ok', ms: 0, mock: true, reason: 'simulated — MYCA_MOCK_MODE=1' };
+  } else if (!nimMissing.length && live) {
     try {
       const nim = deps.nimClient || (await import('./nim-client.mjs')).getNimClient();
       const ping = await nim.ping();
@@ -171,6 +176,7 @@ export async function providerDoctor(deps = {}) {
   return {
     ok: true,
     liveCallsEnabled: live,
+    mockModeEnabled: mock,
     generatedAt: new Date().toISOString(),
     summary: {
       providers: providers.length,
@@ -178,7 +184,8 @@ export async function providerDoctor(deps = {}) {
       notConfigured: providers.length - configured,
       reachable,
       warnings: warningCount,
-      needsCredentials: providers.filter((p) => !p.configured).map((p) => p.id),
+      mockMode: mock,
+      needsCredentials: mock ? [] : providers.filter((p) => !p.configured).map((p) => p.id),
     },
     providers,
   };

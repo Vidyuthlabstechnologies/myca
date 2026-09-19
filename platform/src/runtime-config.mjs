@@ -39,3 +39,14 @@ export function liveCallsEnabled() {
   const raw = process.env.MYCA_ENABLE_LIVE_CALLS ?? env.MYCA_ENABLE_LIVE_CALLS ?? '';
   return TRUTHY.has(String(raw).trim().toLowerCase());
 }
+
+// MYCA_MOCK_MODE=1 makes every provider front door (Sandbox by Quicko, NIC e-invoice,
+// notifications, NVIDIA NIM) return realistic simulated responses without credentials,
+// the live switch, or CA approvals. No bytes ever leave the machine in mock mode.
+// Deterministic outputs; every result is tagged mock:true so it is never mistaken for
+// a real filing. Default OFF: real operations stay fail-closed until deliberately enabled.
+export function mockModeEnabled() {
+  const env = loadEnvFile();
+  const raw = process.env.MYCA_MOCK_MODE ?? env.MYCA_MOCK_MODE ?? '';
+  return TRUTHY.has(String(raw).trim().toLowerCase());
+}

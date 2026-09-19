@@ -136,6 +136,30 @@ Windows. "Verified" means covered by tests or an actual run — not merely writt
 - GCP site/infra: `terraform fmt` + `validate` pass; never applied to a real project
   (awaits the one-time owner bootstrap)
 
+## 🧪 Mock mode (`MYCA_MOCK_MODE=1`)
+
+A single global switch makes every provider front door work offline with deterministic,
+explicitly-tagged simulated fixtures — demo the whole workflow end-to-end with no keys,
+no live switch, no CA approvals, and no bytes leaving the PC.
+
+- **Sandbox by Quicko**: GSTIN verify, return status, taxpayer OTP/session, GSTR-2B
+  recon, GSTR-1 save/file (payload, pan+OTP and summary validated), e-invoice
+  authenticate/generate/cancel, TDS jobs, income-tax calculation — all 13 operations
+  return fixtures via `runSandboxOperation(...,{mock:true})`; audit events are tagged
+  `mock:true`.
+- **NIC e-Invoice**: auth, IRN generate (stamps the invoice with a sha256-derived IRN +
+  signed QR), get/cancel/denied, GSTIN master, E-Way Bill — canned per-path responses;
+  `mock:false` still forces the real gate.
+- **Notifications**: `sendNotification` marks the message `sent` with `providerId:'mock'`.
+- **NIM**: `nim_status` / `nim_ask` return a simulated assistant reply.
+- **Tools + doctor**: `validate_gstin`, `sandbox_status`, `provider_doctor` report
+  `environment:'mock'` / `mock:true` and skip pings.
+- `.env` ships with `MYCA_MOCK_MODE=1`; `.env.example` documents it (default `0`). The
+  test suite is hermetic: `npm test` runs with `--env-file=.env.test` which pins both
+  `MYCA_MOCK_MODE=0` and `MYCA_ENABLE_LIVE_CALLS=0`, so flakes in `.env` never break CI.
+- Mock fixtures are deterministic (sha256-derived IRNs, fixed legal names) and every
+  result carries `mock:true` so a simulated response can never be mistaken for a real filing.
+
 ## 🔜 To be built
 
 | Area | Missing |

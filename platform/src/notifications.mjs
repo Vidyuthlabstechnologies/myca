@@ -1,4 +1,4 @@
-import { loadEnvFile, liveCallsEnabled } from './runtime-config.mjs';
+import { loadEnvFile, liveCallsEnabled, mockModeEnabled } from './runtime-config.mjs';
 
 export const CHANNELS = ['email', 'whatsapp'];
 
@@ -105,6 +105,13 @@ export async function sendNotification(state, messageId, deps = {}) {
   const message = state.outbox.find((m) => m.id === messageId);
   if (!message) return { ok: false, error: 'MESSAGE_NOT_FOUND' };
   if (message.status === 'sent') return { ok: false, error: 'ALREADY_SENT' };
+  const mock = deps.mock == null ? mockModeEnabled() : Boolean(deps.mock);
+  if (mock) {
+    message.status = 'sent';
+    message.sentAt = new Date().toISOString();
+    message.providerId = 'mock';
+    return { ok: true, mock: true, message, hint: 'Mock mode active (MYCA_MOCK_MODE=1) — no message was actually sent.' };
+  }
   const live = deps.allowLive == null ? liveCallsEnabled() : Boolean(deps.allowLive);
   if (!live) {
     return { ok: false, error: 'LIVE_CALLS_DISABLED', hint: 'Set MYCA_ENABLE_LIVE_CALLS=1 to send notifications.' };
