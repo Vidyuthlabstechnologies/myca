@@ -65,18 +65,30 @@ Verify: `provider_doctor` → `nic_einvoice` shows `configured` (all six pieces 
 
 ## 3. Email notifications (REQ-CA-013)
 
-Any provider works — MyCA posts JSON to a relay you control (AWS SES, Postmark, a
-Cloudflare Worker, an Azure Function…):
+MyCA posts JSON `{ from, to, subject, text }` to a relay **you** control, so any provider
+works behind one small function. **A ready-made relay ships in this repo** at
+[`email-relay/`](../email-relay/README.md) — a Cloudflare Worker that uses Cloudflare's
+native Email Service (`send_email` binding), so there is **no third-party API key**:
+
+```bash
+cd email-relay
+npx wrangler email sending enable yourfirm.in    # onboard the sending domain (SPF/DKIM)
+npx wrangler secret put RELAY_TOKEN              # long random shared secret
+# set vars.ALLOWED_FROM_DOMAIN in wrangler.jsonc, then:
+npm install && npm run deploy
+```
+
+Then in `platform/.env`:
 
 ```
-MYCA_EMAIL_FROM=you@yourfirm.in
-MYCA_EMAIL_RELAY_URL=https://your-relay.example/send
-MYCA_EMAIL_RELAY_TOKEN=<optional bearer token>
+MYCA_EMAIL_FROM=compliance@yourfirm.in
+MYCA_EMAIL_RELAY_URL=https://myca-email-relay.<subdomain>.workers.dev
+MYCA_EMAIL_RELAY_TOKEN=<the RELAY_TOKEN>
 ```
 
-Relay contract: `POST` JSON `{ from, to, subject, text }`; any 2xx means sent.
-
-Without a relay, **Share** still opens a `mailto:` link in the CA's own mail client.
+Prefer another provider (SES, Postmark, Resend)? Keep the same contract and point
+`MYCA_EMAIL_RELAY_URL` at your own function. Without a relay, **Share** still opens a
+`mailto:` link in the CA's own mail client.
 
 ## 4. WhatsApp (REQ-CA-013)
 

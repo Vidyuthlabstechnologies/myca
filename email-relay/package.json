@@ -1,0 +1,15 @@
+{
+  "name": "myca-email-relay",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "MyCA email relay — translates MyCA's {from,to,subject,text} JSON into Cloudflare Email Service sends.",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "tail": "wrangler tail"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  }
+}

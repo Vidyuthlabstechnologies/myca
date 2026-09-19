@@ -93,6 +93,7 @@ portal.
 | `platform/test/` | Platform test suite (node:test) |
 | `sprints/` | Frozen, zero-dependency engines (1 tally, 2 bank/OCR, 3 GST recon, 4 deadlines, 5 filing, 6 audit) |
 | `deploy/` | Marketing/research static site (not the product) |
+| `email-relay/` | Optional Cloudflare Worker that sends MyCA notifications via Cloudflare Email Service |
 | `infra/` | Terraform for the GCP site + release pipeline |
 | `.github/workflows/` | CI, site deploy, Windows build, Terraform plan/apply |
 | `vendor/` | Unused reference clones — never imported at runtime |

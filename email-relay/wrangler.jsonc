@@ -1,0 +1,16 @@
+{
+  "name": "myca-email-relay",
+  "main": "src/index.js",
+  "compatibility_date": "2026-08-15",
+  "observability": {
+    "enabled": true
+  },
+  "send_email": [
+    {
+      "name": "EMAIL"
+    }
+  ],
+  "vars": {
+    "ALLOWED_FROM_DOMAIN": ""
+  }
+}

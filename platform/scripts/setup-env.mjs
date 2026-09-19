@@ -24,13 +24,25 @@ const exampleFile = join(root, '.env.example');
 
 const SECTIONS = [
   {
+    title: '0. Runtime safety switch',
+    docs: 'platform/INTEGRATIONS-SETUP.md',
+    keys: [
+      { name: 'MYCA_ENABLE_LIVE_CALLS', desc: 'Allow outbound provider calls (1 = on, 0 = off)', default: '0', secret: false },
+    ],
+  },
+  {
     title: '1. Licensed GSP & GSTN Portal (REQ-CA-006, REQ-CA-008)',
     docs: 'https://developer.sandbox.co.in / https://services.gst.gov.in',
     keys: [
       { name: 'MYCA_GSP_PROVIDER', desc: 'GSP Provider (sandbox / quicko / cleartax)', default: 'sandbox', secret: false },
+      { name: 'MYCA_GSP_ENV', desc: 'Sandbox environment (test / live). Blank = inferred from the base URL', default: '', secret: false },
       { name: 'MYCA_GSP_BASE_URL', desc: 'GSP Base API URL', default: 'https://api.sandbox.co.in', secret: false },
-      { name: 'MYCA_GSP_API_KEY', desc: 'GSP / Quicko Developer API Key', secret: true },
-      { name: 'MYCA_GSP_API_SECRET', desc: 'GSP / Quicko API Secret', secret: true },
+      { name: 'MYCA_GSP_API_KEY', desc: 'GSP / Quicko API Key (generic fallback)', secret: true },
+      { name: 'MYCA_GSP_API_SECRET', desc: 'GSP / Quicko API Secret (generic fallback)', secret: true },
+      { name: 'MYCA_GSP_TEST_API_KEY', desc: 'Sandbox TEST API key (test-api.sandbox.co.in)', secret: true },
+      { name: 'MYCA_GSP_TEST_API_SECRET', desc: 'Sandbox TEST API secret', secret: true },
+      { name: 'MYCA_GSP_LIVE_API_KEY', desc: 'Sandbox LIVE API key (api.sandbox.co.in)', secret: true },
+      { name: 'MYCA_GSP_LIVE_API_SECRET', desc: 'Sandbox LIVE API secret', secret: true },
       { name: 'MYCA_GSP_ASP_ID', desc: 'Application Service Provider (ASP) Client ID', secret: false },
     ],
   },
@@ -93,10 +105,12 @@ const SECTIONS = [
       { name: 'MYCA_WHATSAPP_PHONE_NUMBER_ID', desc: 'Meta WhatsApp Business Phone Number ID', secret: false },
       { name: 'MYCA_WHATSAPP_ACCESS_TOKEN', desc: 'Meta Permanent System User Access Token', secret: true },
       { name: 'MYCA_WHATSAPP_BUSINESS_ACCOUNT_ID', desc: 'Meta WABA Account ID', secret: false },
+      { name: 'MYCA_EMAIL_FROM', desc: 'Verified Sender Email Address', default: 'compliance@myca.firm', secret: false },
+      { name: 'MYCA_EMAIL_RELAY_URL', desc: 'Email relay URL (see email-relay/)', secret: false },
+      { name: 'MYCA_EMAIL_RELAY_TOKEN', desc: 'Bearer token shared with the email relay', secret: true },
       { name: 'MYCA_AWS_SES_REGION', desc: 'AWS Region for SES (Email)', default: 'ap-south-1', secret: false },
       { name: 'MYCA_AWS_ACCESS_KEY_ID', desc: 'AWS Access Key ID for SES', secret: false },
       { name: 'MYCA_AWS_SECRET_ACCESS_KEY', desc: 'AWS Secret Access Key for SES', secret: true },
-      { name: 'MYCA_EMAIL_FROM', desc: 'Verified Sender Email Address', default: 'compliance@myca.firm', secret: false },
     ],
   },
   {
@@ -126,6 +140,15 @@ const SECTIONS = [
       { name: 'MYCA_LANGFUSE_PUBLIC_KEY', desc: 'Langfuse Public Key', secret: false },
       { name: 'MYCA_LANGFUSE_SECRET_KEY', desc: 'Langfuse Secret Key', secret: true },
       { name: 'MYCA_LANGFUSE_HOST', desc: 'Langfuse Host', default: 'https://cloud.langfuse.com', secret: false },
+    ],
+  },
+  {
+    title: '11. NVIDIA NIM Free AI Model API',
+    docs: 'https://build.nvidia.com',
+    keys: [
+      { name: 'NVIDIA_NIM_API_KEY', desc: 'NVIDIA NIM API key (free tier)', secret: true },
+      { name: 'NVIDIA_NIM_MODEL', desc: 'Model id', default: 'meta/llama-3.3-70b-instruct', secret: false },
+      { name: 'NVIDIA_NIM_BASE_URL', desc: 'NIM base URL', default: 'https://integrate.api.nvidia.com/v1', secret: false },
     ],
   },
 ];
@@ -158,22 +181,39 @@ if (isCheckOnly) {
   const env = loadEnvFile(targetEnvFile);
   let totalKeys = 0;
   let configuredKeys = 0;
+  const blank = [];
+  const rows = [];
   for (const section of SECTIONS) {
+    let sectionTotal = 0;
+    let sectionSet = 0;
     console.log(`\x1b[1m${section.title}\x1b[0m`);
     for (const k of section.keys) {
       totalKeys += 1;
+      sectionTotal += 1;
       const val = env.get(k.name);
       if (val) {
         configuredKeys += 1;
-        const display = k.secret ? mask(val) : val;
-        console.log(`  \x1b[32m[✓]\x1b[0m ${k.name} = ${display}`);
+        sectionSet += 1;
+        console.log(`  \x1b[32m[✓]\x1b[0m ${k.name} = ${k.secret ? mask(val) : val}`);
       } else {
-        console.log(`  \x1b[33m[ ]\x1b[0m ${k.name} (not set)`);
+        blank.push(k.name);
+        console.log(`  \x1b[33m[ ]\x1b[0m ${k.name} (still blank)`);
       }
     }
-    console.log('');
+    const status = sectionSet === sectionTotal
+      ? '\x1b[32mREADY\x1b[0m'
+      : (sectionSet > 0 ? `\x1b[33mPARTIAL ${sectionSet}/${sectionTotal}\x1b[0m` : '\x1b[31mNOT SET\x1b[0m');
+    rows.push({ title: section.title, status });
+    console.log(`  \u2192 ${status}\n`);
   }
-  console.log(`Summary: ${configuredKeys}/${totalKeys} keys configured.`);
+  console.log('\x1b[1mStatus by area\x1b[0m');
+  for (const r of rows) console.log(`  ${r.status}  ${r.title}`);
+  console.log(`\nSummary: ${configuredKeys}/${totalKeys} keys configured.`);
+  if (blank.length) {
+    console.log(`\nStill blank (${blank.length}): ${blank.join(', ')}`);
+  }
+  console.log('\nNext: npm run setup:env   # interactive wizard writes values to .env');
+  console.log('Then: provider_doctor     # confirms reachability per provider\n');
   process.exit(0);
 }
 
