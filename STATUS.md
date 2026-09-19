@@ -1,6 +1,6 @@
 # MyCA — Status
 
-As of the latest commit on `main`. Verification: platform **105/105**, sprint engines
+As of the latest commit on `main`. Verification: platform **109/109**, sprint engines
 **159/159** (`11 / 11 / 33 / 44 / 58 / 2`), CI green, end-to-end smoke runs on
 Windows. "Verified" means covered by tests or an actual run — not merely written.
 
@@ -35,7 +35,7 @@ Windows. "Verified" means covered by tests or an actual run — not merely writt
 - Duplicate protection on import; zero-amount rows dropped
 
 ### Assistant, tools, and contracts
-- 58 named tools; strict JSON-schema validation; keyword router
+- 60 named tools; strict JSON-schema validation; keyword router
 - Unsafe tools blocked from the assistant (`govt_save_credentials`, `seed_demo`,
   `approval_decide`)
 - Local CA API contract harness: REQ-CA-001…015 readiness, clients, ledger,
@@ -57,6 +57,10 @@ Windows. "Verified" means covered by tests or an actual run — not merely writt
   reachable and the exact list of missing pieces, pinging only when live calls are on
 - **Sandbox environment awareness**: the client detects TEST vs LIVE, prefers scoped keys
   (`MYCA_GSP_TEST_*` / `MYCA_GSP_LIVE_*`), and warns when responses are TEST fixtures
+- **NIC public-key loader** (`govt_set_public_key`): validates a `.cer`/PEM/base64 key and
+  stores it encrypted; NIC auth refuses to send credentials without it
+- **`test_notification`**: one-shot delivery test for the configured email/WhatsApp channel
+- **`platform/INTEGRATIONS-SETUP.md`**: operator runbook to go live with each integration
 
 ### Security & integrity
 - Live provider calls opt-in (`MYCA_ENABLE_LIVE_CALLS`, default off); assistant cannot

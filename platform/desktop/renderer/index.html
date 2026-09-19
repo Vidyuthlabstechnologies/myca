@@ -266,9 +266,13 @@
             <label>GSTIN
               <input id="gGstin" maxlength="15" />
             </label>
+            <label>Public key (.cer / .pem path, or PEM text)
+              <input id="gPub" autocomplete="off" placeholder="C:\path\to\einv-public.pem" />
+            </label>
             <div class="form-row">
               <button type="submit" class="btn">Save on this PC</button>
               <button type="button" id="gAuth" class="btn ghost">NIC auth</button>
+              <button type="button" id="gKey" class="btn ghost">Load public key</button>
             </div>
           </form>
         </section>
@@ -394,7 +398,7 @@
       </aside>
     </div>
   </div>
-  <script src="app.js?v=15"></script>
+  <script src="app.js?v=16"></script>
 </body>
 </html>
 

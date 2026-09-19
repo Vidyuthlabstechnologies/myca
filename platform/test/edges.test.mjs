@@ -1347,3 +1347,78 @@ test('provider doctor: pings sandbox when live and configured', async () => {
   assert.equal(sandbox.reachability.ms, 42);
   assert.equal(report.summary.reachable, 1);
 });
+
+test('nic: public key normalises from PEM, base64 DER and a file path', async () => {
+  const { generateKeyPairSync } = await import('node:crypto');
+  const { normalizeNicPublicKey } = await import('../src/govt.mjs');
+  const pair = generateKeyPairSync('rsa', {
+    modulusLength: 2048,
+    publicKeyEncoding: { type: 'spki', format: 'pem' },
+    privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
+  });
+  const fromPem = normalizeNicPublicKey(pair.publicKey);
+  assert.equal(fromPem.ok, true);
+  assert.equal(fromPem.bits, 2048);
+  assert.match(fromPem.pem, /BEGIN PUBLIC KEY/);
+
+  const der = generateKeyPairSync('rsa', {
+    modulusLength: 2048,
+    publicKeyEncoding: { type: 'spki', format: 'der' },
+    privateKeyEncoding: { type: 'pkcs8', format: 'der' },
+  });
+  assert.equal(normalizeNicPublicKey(der.publicKey.toString('base64')).ok, true);
+  const dir = mkdtempSync(join(tmpdir(), 'myca-nic-'));
+  const cerPath = join(dir, 'einv.cer');
+  writeFileSync(cerPath, der.publicKey);
+  assert.equal(normalizeNicPublicKey(cerPath).ok, true);
+  rmSync(dir, { recursive: true, force: true });
+  assert.equal(normalizeNicPublicKey('not a key').error, 'INVALID_PUBLIC_KEY');
+  assert.equal(normalizeNicPublicKey('').error, 'PUBLIC_KEY_REQUIRED');
+});
+
+test('nic: govt_set_public_key validates, stores and is assistant-blocked', async () => {
+  const { generateKeyPairSync } = await import('node:crypto');
+  const dir = mkdtempSync(join(tmpdir(), 'myca-nicstore-'));
+  const prev = process.env.APPDATA;
+  process.env.APPDATA = dir;
+  try {
+    assert.equal((await runTool(createState(), 'govt_set_public_key', { key: 'nope' })).ok, false);
+    const pair = generateKeyPairSync('rsa', {
+      modulusLength: 2048,
+      publicKeyEncoding: { type: 'spki', format: 'pem' },
+      privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
+    });
+    const good = await runTool(createState(), 'govt_set_public_key', { key: pair.publicKey });
+    assert.equal(good.ok, true);
+    assert.equal(good.data.bits, 2048);
+    assert.match(loadGovtConfig().publicKeyPem, /BEGIN PUBLIC KEY/);
+    assert.equal(validateAssistantToolCall('govt_set_public_key', { key: 'x' }).ok, false);
+  } finally {
+    process.env.APPDATA = prev;
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('notifications: test_notification is gated and rejects unknown channels', async () => {
+  const state = createState();
+  assert.equal((await runTool(state, 'test_notification', { channel: 'sms', to: 'x' })).error, 'UNKNOWN_CHANNEL');
+  assert.equal((await runTool(state, 'test_notification', { channel: 'email', to: 'a@b.in' })).error, 'LIVE_CALLS_DISABLED');
+  assert.equal((await runTool(state, 'list_outbox', {})).data.messages.length, 1);
+  assert.equal(validateAssistantToolCall('test_notification', { channel: 'email', to: 'a@b.in' }).ok, false);
+});
+
+test('provider doctor: warns on a live URL with only a generic key', async () => {
+  const { providerDoctor } = await import('../src/provider-doctor.mjs');
+  const report = await providerDoctor({
+    env: { MYCA_GSP_BASE_URL: 'https://api.sandbox.co.in', MYCA_GSP_API_KEY: 'k', MYCA_GSP_API_SECRET: 's' },
+    allowNetwork: false,
+    govt: {},
+    hasPublicKey: false,
+    probeTally: async () => ({ status: 'skipped' }),
+  });
+  const sandbox = report.providers.find((p) => p.id === 'sandbox');
+  assert.equal(sandbox.environment, 'live');
+  assert.equal(sandbox.warnings.length, 1);
+  assert.match(sandbox.warnings[0], /LIVE base URL/);
+  assert.equal(report.summary.warnings >= 1, true);
+});

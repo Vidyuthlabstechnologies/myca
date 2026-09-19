@@ -573,6 +573,17 @@ document.getElementById('gAuth').addEventListener('click', async () => {
   addBubble('bot', resultLine('govt_nic_auth', result) + '\n' + JSON.stringify((result.data || result), null, 2).slice(0, 1200), 'govt_nic_auth');
 });
 
+document.getElementById('gKey').addEventListener('click', async () => {
+  const key = document.getElementById('gPub').value.trim();
+  if (!key) {
+    addBubble('bot', 'Paste a .cer/.pem path or PEM text first.', 'error');
+    return;
+  }
+  const out = await api.tool('govt_set_public_key', { key });
+  addBubble('bot', out.ok ? `NIC public key loaded (${out.data.bits || '?'}-bit RSA).` : `Public key rejected: ${out.error}`, 'govt_set_public_key');
+  await refresh();
+});
+
 document.getElementById('firmForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const out = await api.tool('set_company', {

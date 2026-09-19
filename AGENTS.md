@@ -120,5 +120,6 @@ Test script note: suites use `node --test "test/*.test.mjs"` (quoted glob). This
 | What API surfaces must exist? | `platform/PRD.md` (REQ-CA-001…015) |
 | How should provider adapters behave? | `platform/INTEGRATION-RECONCILIATION.md` |
 | How do I demo/review the product? | `platform/CA-REVIEW.md` |
+| How do I make an integration live? | `platform/INTEGRATIONS-SETUP.md` |
 | How is it deployed/released? | `DEPLOYMENT.md` |
 | Engine fixtures and expected numbers | `sprints/*/BENCHMARK.md` |

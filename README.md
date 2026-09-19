@@ -13,8 +13,8 @@ the law requires a professional.
 
 | | |
 |---|---|
-| Tests | **267 passing** — platform 105, sprint engines 11/11/33/44/58/2 |
-| Tools | **58** named, schema-validated tools |
+| Tests | **268 passing** — platform 109, sprint engines 11/11/33/44/58/2 |
+| Tools | **60** named, schema-validated tools |
 | CI | Green on `main` (GitHub Actions) |
 | Installer | Windows NSIS + portable `.exe` built and verified in CI |
 | Live calls | **Off by default** (`MYCA_ENABLE_LIVE_CALLS=0`) |
@@ -33,7 +33,7 @@ desktop/ (Electron) ── http://127.0.0.1:4780 ──► src/server.mjs
                                         src/router.mjs + assistant-contract.mjs
                                                    │  strict schemas, named tools only
                                                    ▼
-                                             src/tools.mjs          (58 tools)
+                                             src/tools.mjs          (60 tools)
              ┌─────────────────────────────────────┼─────────────────────────────────────┐
              ▼                                     ▼                                     ▼
      src/ledger.mjs / invoice.mjs        sprints/ (frozen engines)        sandbox-adapter.mjs
@@ -57,7 +57,7 @@ desktop/ (Electron) ── http://127.0.0.1:4780 ──► src/server.mjs
 
 ```bash
 cd platform
-npm test                 # 105 platform tests
+npm test                 # 109 platform tests
 npm run dev              # http://127.0.0.1:4780 (plain node)
 npm start                # Electron window (after: npm i)
 npm run pack             # NSIS + portable installer (after: npm i -D electron electron-builder)
@@ -128,5 +128,6 @@ portal.
 | `platform/PRD.md` | CA-firm API requirements (REQ-CA-001…015) and current status |
 | `platform/CA-REVIEW.md` | Reviewer pack: what to click through, and the limits to state honestly |
 | `platform/INTEGRATION-RECONCILIATION.md` | Provider-adapter policy and ownership |
+| `platform/INTEGRATIONS-SETUP.md` | Step-by-step to go live with each integration (credentials, verification, gotchas) |
 | `sprints/*/BENCHMARK.md` | Per-engine fixtures and acceptance numbers |
 | `sprints/*/AGENTS.md` | Frozen original build specs for each engine |

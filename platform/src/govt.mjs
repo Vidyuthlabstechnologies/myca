@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync, copyFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { randomBytes, publicEncrypt, constants, createHash } from 'node:crypto';
+import { randomBytes, publicEncrypt, constants, createHash, createPublicKey } from 'node:crypto';
 import { encryptSecret, decryptSecret, vaultBackend } from './credential-vault.mjs';
 
 export const GOVT_SITES = {
@@ -139,6 +139,47 @@ function pemFromDisk() {
   const p = join(mycaDir(), 'einv-public.pem');
   if (existsSync(p)) return readFileSync(p, 'utf8');
   return loadGovtConfig().publicKeyPem || '';
+}
+
+// Accepts a PEM string, a base64 DER string, or a path to a .cer/.pem file and
+// returns a canonical SPKI PEM. Never trusts the input's shape.
+export function normalizeNicPublicKey(input) {
+  const raw = String(input == null ? '' : input).trim();
+  if (!raw) return { ok: false, error: 'PUBLIC_KEY_REQUIRED' };
+  const candidates = [];
+  if (existsSync(raw)) {
+    const buf = readFileSync(raw);
+    const text = buf.toString('utf8');
+    if (/-----BEGIN/.test(text)) candidates.push(text);
+    else {
+      candidates.push({ key: buf, format: 'der', type: 'spki' });
+      candidates.push({ key: buf, format: 'der', type: 'pkcs1' });
+    }
+  } else if (/-----BEGIN/.test(raw)) {
+    candidates.push(raw);
+  } else if (/^[A-Za-z0-9+/=\s]{40,}$/.test(raw)) {
+    const buf = Buffer.from(raw.replace(/\s+/g, ''), 'base64');
+    candidates.push({ key: buf, format: 'der', type: 'spki' });
+    candidates.push({ key: buf, format: 'der', type: 'pkcs1' });
+  }
+  for (const candidate of candidates) {
+    try {
+      const key = createPublicKey(candidate);
+      return {
+        ok: true,
+        pem: key.export({ type: 'spki', format: 'pem' }),
+        bits: key.asymmetricKeyDetails?.modulusLength || null,
+      };
+    } catch { /* try the next shape */ }
+  }
+  return { ok: false, error: 'INVALID_PUBLIC_KEY' };
+}
+
+export function saveNicPublicKey(input) {
+  const normalized = normalizeNicPublicKey(input);
+  if (!normalized.ok) return normalized;
+  saveGovtConfig({ publicKeyPem: normalized.pem });
+  return { ok: true, bits: normalized.bits };
 }
 
 export async function probeGovt(fetchFn = fetch) {

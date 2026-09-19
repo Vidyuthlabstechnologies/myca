@@ -22,7 +22,7 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.cjs'),
     },
   });
-  mainWindow.loadURL(`http://127.0.0.1:${PORT}/?v=16`);
+  mainWindow.loadURL(`http://127.0.0.1:${PORT}/?v=17`);
 }
 
 ipcMain.handle('myca:save-pdf', async (_event, payload = {}) => {

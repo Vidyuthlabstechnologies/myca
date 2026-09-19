@@ -12,7 +12,7 @@ import { postTallyRows, postBankRows, purchaseRegisterCsv } from './post-import.
 import { parseZohoBooksCsv } from './import-zoho.mjs';
 import { invoicesToGstr1Json } from './gstr1-json.mjs';
 import { tallyXmlToDayBookCsv } from './tally-xml.mjs';
-import { probeGovt, saveGovtConfig, publicGovtConfig, nicAuthenticate, nicGenerateIrn } from './govt.mjs';
+import { probeGovt, saveGovtConfig, publicGovtConfig, nicAuthenticate, nicGenerateIrn, saveNicPublicKey } from './govt.mjs';
 import { clearIntegrationConnection, integrationReadiness, setIntegrationConnection } from './integration-contract.mjs';
 import { listClients, registerClient, setActiveClient, listDocuments, uploadDocument, getDocumentContent } from './ca-api.mjs';
 import { lockPeriod, unlockPeriod, isPeriodLocked, lockThrough } from './period-lock.mjs';
@@ -218,6 +218,36 @@ export const TOOLS = [
     run: async (state, args = {}) => {
       if (!args.messageId) return fail('messageId required');
       const out = await sendNotification(state.__root || state, args.messageId);
+      return out.ok ? ok(out) : fail(out.error, out);
+    },
+  },
+  {
+    name: 'govt_set_public_key',
+    title: 'Load NIC public key',
+    description: 'Load the NIC/IRP RSA public key used to encrypt e-invoice credentials: give a .cer/.pem file path, a PEM string, or base64 DER.',
+    args: ['key'],
+    run: (_state, args = {}) => {
+      const out = saveNicPublicKey(args.key || args.path || args.pem);
+      return out.ok ? ok(out) : fail(out.error);
+    },
+  },
+  {
+    name: 'test_notification',
+    title: 'Send test notification',
+    description: 'Queue and attempt delivery of a test message through the configured email or WhatsApp channel. Requires the live switch.',
+    args: ['channel', 'to'],
+    run: async (state, args = {}) => {
+      const root = state.__root || state;
+      const channel = String(args.channel || '').toLowerCase();
+      if (!['email', 'whatsapp'].includes(channel)) return fail('UNKNOWN_CHANNEL');
+      const queued = queueNotification(root, {
+        channel,
+        to: String(args.to || ''),
+        subject: 'MyCA test notification',
+        body: 'This is a test message from MyCA.',
+      }, { createdBy: 'ca' });
+      if (!queued.ok) return fail(queued.error);
+      const out = await sendNotification(root, queued.message.id);
       return out.ok ? ok(out) : fail(out.error, out);
     },
   },

@@ -117,6 +117,12 @@ function fmtToolResult(name, result) {
     }).join('\n');
     return `Integration doctor — ${d.summary.configured}/${d.summary.providers} configured, ${d.summary.reachable} reachable. Live calls ${d.liveCallsEnabled ? 'ON' : 'off'}.\n${rows}`;
   }
+  if (name === 'govt_set_public_key') {
+    return d.ok ? `NIC public key loaded (${d.bits || '?'}-bit RSA).` : `Public key rejected: ${d.error}`;
+  }
+  if (name === 'test_notification') {
+    return `Test ${d.message?.channel || 'notification'} → ${d.message?.status || 'queued'}${d.error ? ` (${d.error})` : ''}.`;
+  }
   if (name === 'sandbox_status') {
     if (!d.configured) {
       return `Quicko Sandbox is NOT configured. Configure MYCA_GSP_API_KEY and MYCA_GSP_API_SECRET in platform/.env.`;

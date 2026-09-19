@@ -47,7 +47,7 @@ The production ledger of record for a later scale-out **should** be TigerBeetle 
 
 ## Tool catalogue the chat is allowed to call
 
-58 named tools. The assistant may pick any of them; it may not compute a number itself.
+60 named tools. The assistant may pick any of them; it may not compute a number itself.
 Tools that write books, master data, documents, controls, credentials, seed data, or
 decide an approval are blocked from the assistant (`seed_demo`, `govt_save_credentials`,
 `approval_decide`, `set_company`, `add_client`, `set_active_client`, `save_document`,
@@ -58,7 +58,7 @@ decide an approval are blocked from the assistant (`seed_demo`, `govt_save_crede
 | Master data | `company_profile`, `set_company`, `list_clients`, `add_client`, `set_active_client` | Whose books are these, and how do I switch between clients? |
 | Documents | `list_documents`, `save_document`*, `get_document`* | Which client documents are on file, and can I get them back? |
 | Controls | `lock_period`*, `unlock_period`*, `period_status` | Is this period closed to further postings? |
-| Sharing | `share_invoice`, `list_outbox`, `send_notification`* | Can I send this invoice to the client, and did it go? |
+| Sharing | `share_invoice`, `list_outbox`, `test_notification`*, `send_notification`* | Can I send this invoice to the client, and did it go? |
 | Books | `trial_balance`, `chart_of_accounts`, `journal`, `list_invoices`, `company_profile` | Do the books tie, and can I reconstruct every posting? |
 | Vouchers | `create_invoice`, `create_purchase`, `record_receipt`, `print_invoice`, `post_expense` | Supplier bill → AP + ITC? Receipt clears AR? Print INV-0001? |
 | GST prep | `prepare_gstr1`, `export_gstr1_json`, `prepare_gstr3b`, `filing_pack`, `gst_payable` | Do return tables match the invoice register? GST payable from the same ledger? |
@@ -67,7 +67,7 @@ decide an approval are blocked from the assistant (`seed_demo`, `govt_save_crede
 | Deadlines | `deadlines` | Next working-day dues, holiday-aware |
 | Income tax / TDS | `prepare_itr`, `monitor_tds` | Regime compare (AIS/26AS); 194A/C/I/J thresholds |
 | Audit | `audit_books` | Full-population flags + SA 230 papers + Schedule III/CARO/3CD |
-| Government | `govt_probe`, `govt_nic_auth`, `govt_nic_mock`, `govt_generate_irn`, `govt_save_credentials`* | Can this PC reach/authenticate to NIC, and build an IRN? |
+| Government | `govt_probe`, `govt_nic_auth`, `govt_nic_mock`, `govt_generate_irn`, `govt_save_credentials`*, `govt_set_public_key`* | Can this PC reach/authenticate to NIC, and build an IRN? |
 | Integrations | `integration_readiness`, `provider_doctor`, `integration_connect`, `integration_disconnect`, `provider_catalog`, `sandbox_adapter_plan`, `sandbox_status`, `sandbox_connect`, `sandbox_operation` | Which firm APIs are needed/connected, and what does the provider cover? |
 | Approvals | `approval_request`, `approval_decide`*, `approval_list` | Who authorised a live operation, and is it still valid? |
 | AI | `nim_status`, `nim_ask` | Ask a model for drafting/analysis (never for a figure) |

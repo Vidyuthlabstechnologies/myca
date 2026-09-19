@@ -52,6 +52,11 @@ export async function providerDoctor(deps = {}) {
       sandboxReach = { status: 'error', error: String(err.message || err) };
     }
   }
+  const sandboxWarnings = [];
+  if (environment === 'test') sandboxWarnings.push('TEST environment returns provider fixtures, not real taxpayer data.');
+  if (environment === 'live' && !env.MYCA_GSP_LIVE_API_KEY && env.MYCA_GSP_API_KEY) {
+    sandboxWarnings.push('LIVE base URL but only the generic MYCA_GSP_API_KEY is set — if that is a test key, live calls will fail. Set MYCA_GSP_LIVE_API_KEY/SECRET.');
+  }
   providers.push({
     id: 'sandbox',
     name: 'Sandbox by Quicko',
@@ -60,9 +65,10 @@ export async function providerDoctor(deps = {}) {
     environment,
     baseUrl,
     missing: sandboxMissing,
+    warnings: sandboxWarnings,
     reachability: sandboxReach,
     note: environment === 'test'
-      ? 'TEST environment returns provider fixtures, not real taxpayer data. Switch base URL to https://api.sandbox.co.in and set MYCA_GSP_ENV=live for real data.'
+      ? 'Switch base URL to https://api.sandbox.co.in and set MYCA_GSP_ENV=live for real data.'
       : 'LIVE environment. GST taxpayer flows still require GSP/ASP onboarding.',
   });
 
@@ -160,6 +166,8 @@ export async function providerDoctor(deps = {}) {
 
   const configured = providers.filter((p) => p.configured).length;
   const reachable = providers.filter((p) => p.reachability?.status === 'ok').length;
+  for (const provider of providers) if (!provider.warnings) provider.warnings = [];
+  const warningCount = providers.reduce((sum, p) => sum + p.warnings.length, 0);
   return {
     ok: true,
     liveCallsEnabled: live,
@@ -169,6 +177,7 @@ export async function providerDoctor(deps = {}) {
       configured,
       notConfigured: providers.length - configured,
       reachable,
+      warnings: warningCount,
       needsCredentials: providers.filter((p) => !p.configured).map((p) => p.id),
     },
     providers,

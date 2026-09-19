@@ -110,6 +110,21 @@ export const TOOL_ARG_SCHEMAS = {
   },
   period_status: noArgs,
   provider_doctor: noArgs,
+  govt_set_public_key: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['key'],
+    properties: { key: { type: 'string', minLength: 1 } },
+  },
+  test_notification: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['channel', 'to'],
+    properties: {
+      channel: { type: 'string', enum: ['email', 'whatsapp'] },
+      to: { type: 'string', minLength: 1 },
+    },
+  },
   share_invoice: {
     type: 'object',
     additionalProperties: false,
@@ -376,7 +391,7 @@ export const TOOL_ARG_SCHEMAS = {
   },
 };
 
-const ASSISTANT_BLOCKED_TOOLS = new Set(['govt_save_credentials', 'seed_demo', 'approval_decide', 'set_company', 'add_client', 'set_active_client', 'save_document', 'get_document', 'lock_period', 'unlock_period', 'send_notification']);
+const ASSISTANT_BLOCKED_TOOLS = new Set(['govt_save_credentials', 'govt_set_public_key', 'seed_demo', 'approval_decide', 'set_company', 'add_client', 'set_active_client', 'save_document', 'get_document', 'lock_period', 'unlock_period', 'send_notification', 'test_notification']);
 
 const TOOL_RISK = {
   create_invoice: 'writes_books',
