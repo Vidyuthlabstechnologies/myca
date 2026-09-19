@@ -47,7 +47,7 @@ The production ledger of record for a later scale-out **should** be TigerBeetle 
 
 ## Tool catalogue the chat is allowed to call
 
-57 named tools. The assistant may pick any of them; it may not compute a number itself.
+58 named tools. The assistant may pick any of them; it may not compute a number itself.
 Tools that write books, master data, documents, controls, credentials, seed data, or
 decide an approval are blocked from the assistant (`seed_demo`, `govt_save_credentials`,
 `approval_decide`, `set_company`, `add_client`, `set_active_client`, `save_document`,
@@ -68,7 +68,7 @@ decide an approval are blocked from the assistant (`seed_demo`, `govt_save_crede
 | Income tax / TDS | `prepare_itr`, `monitor_tds` | Regime compare (AIS/26AS); 194A/C/I/J thresholds |
 | Audit | `audit_books` | Full-population flags + SA 230 papers + Schedule III/CARO/3CD |
 | Government | `govt_probe`, `govt_nic_auth`, `govt_nic_mock`, `govt_generate_irn`, `govt_save_credentials`* | Can this PC reach/authenticate to NIC, and build an IRN? |
-| Integrations | `integration_readiness`, `integration_connect`, `integration_disconnect`, `provider_catalog`, `sandbox_adapter_plan`, `sandbox_status`, `sandbox_connect`, `sandbox_operation` | Which firm APIs are needed/connected, and what does the provider cover? |
+| Integrations | `integration_readiness`, `provider_doctor`, `integration_connect`, `integration_disconnect`, `provider_catalog`, `sandbox_adapter_plan`, `sandbox_status`, `sandbox_connect`, `sandbox_operation` | Which firm APIs are needed/connected, and what does the provider cover? |
 | Approvals | `approval_request`, `approval_decide`*, `approval_list` | Who authorised a live operation, and is it still valid? |
 | AI | `nim_status`, `nim_ask` | Ask a model for drafting/analysis (never for a figure) |
 | Demo | `seed_demo`* | Load sample books |

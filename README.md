@@ -13,8 +13,8 @@ the law requires a professional.
 
 | | |
 |---|---|
-| Tests | **265 passing** — platform 103, sprint engines 11/11/33/44/58/2 |
-| Tools | **57** named, schema-validated tools |
+| Tests | **267 passing** — platform 105, sprint engines 11/11/33/44/58/2 |
+| Tools | **58** named, schema-validated tools |
 | CI | Green on `main` (GitHub Actions) |
 | Installer | Windows NSIS + portable `.exe` built and verified in CI |
 | Live calls | **Off by default** (`MYCA_ENABLE_LIVE_CALLS=0`) |
@@ -33,7 +33,7 @@ desktop/ (Electron) ── http://127.0.0.1:4780 ──► src/server.mjs
                                         src/router.mjs + assistant-contract.mjs
                                                    │  strict schemas, named tools only
                                                    ▼
-                                             src/tools.mjs          (57 tools)
+                                             src/tools.mjs          (58 tools)
              ┌─────────────────────────────────────┼─────────────────────────────────────┐
              ▼                                     ▼                                     ▼
      src/ledger.mjs / invoice.mjs        sprints/ (frozen engines)        sandbox-adapter.mjs
@@ -57,7 +57,7 @@ desktop/ (Electron) ── http://127.0.0.1:4780 ──► src/server.mjs
 
 ```bash
 cd platform
-npm test                 # 103 platform tests
+npm test                 # 105 platform tests
 npm run dev              # http://127.0.0.1:4780 (plain node)
 npm start                # Electron window (after: npm i)
 npm run pack             # NSIS + portable installer (after: npm i -D electron electron-builder)

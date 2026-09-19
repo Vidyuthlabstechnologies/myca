@@ -108,6 +108,15 @@ function fmtToolResult(name, result) {
     const rows = (d.approvals || []).map((a) => `${a.approvalId}  ${a.operationId}  ${a.status}`).join('\n');
     return rows || 'No approval requests.';
   }
+  if (name === 'provider_doctor') {
+    const rows = (d.providers || []).map((p) => {
+      const state = p.configured ? 'configured' : 'missing';
+      const reach = p.reachability?.status === 'ok' ? `reachable ${p.reachability.ms}ms` : (p.reachability?.status || '');
+      const miss = p.missing?.length ? ` · missing: ${p.missing.join(', ')}` : '';
+      return `${p.id} (${(p.requirements || []).join('/')}): ${state}${p.environment ? ` [${p.environment}]` : ''} ${reach}${miss}`;
+    }).join('\n');
+    return `Integration doctor — ${d.summary.configured}/${d.summary.providers} configured, ${d.summary.reachable} reachable. Live calls ${d.liveCallsEnabled ? 'ON' : 'off'}.\n${rows}`;
+  }
   if (name === 'sandbox_status') {
     if (!d.configured) {
       return `Quicko Sandbox is NOT configured. Configure MYCA_GSP_API_KEY and MYCA_GSP_API_SECRET in platform/.env.`;

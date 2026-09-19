@@ -274,6 +274,9 @@
         </section>
 
         <section id="panel-apis" class="panel" hidden role="tabpanel">
+          <div class="panel-actions">
+            <button type="button" id="doctorBtn" class="btn">Run integration doctor</button>
+          </div>
           <div class="metrics readiness-metrics" id="apiMetrics"></div>
           <p class="lede" id="apiProviderSummary">Provider catalog loading…</p>
           <div class="sheet">
@@ -289,6 +292,15 @@
               </tr>
             </thead>
             <tbody id="apiRows"></tbody>
+          </table>
+          </div>
+          <h2 class="h-quiet">Integration doctor</h2>
+          <div class="sheet" style="min-height:0">
+          <table class="grid">
+            <thead>
+              <tr><th>Provider</th><th>Reqs</th><th>Configured</th><th>Env</th><th>Reachable</th><th>Missing</th></tr>
+            </thead>
+            <tbody id="doctorRows"></tbody>
           </table>
           </div>
         </section>
@@ -382,7 +394,7 @@
       </aside>
     </div>
   </div>
-  <script src="app.js?v=14"></script>
+  <script src="app.js?v=15"></script>
 </body>
 </html>
 

@@ -1300,3 +1300,50 @@ test('sandbox client: environment detection and scoped key selection', () => {
     }
   }
 });
+
+test('provider doctor: reports configuration, environment and missing pieces', async () => {
+  const { providerDoctor } = await import('../src/provider-doctor.mjs');
+  const report = await providerDoctor({
+    env: {
+      MYCA_GSP_BASE_URL: 'https://test-api.sandbox.co.in',
+      MYCA_GSP_TEST_API_KEY: 'k',
+      MYCA_GSP_TEST_API_SECRET: 's',
+      MYCA_EMAIL_FROM: 'me@myca.in',
+      MYCA_TALLY_HOST: '127.0.0.1',
+      MYCA_TALLY_PORT: '9000',
+    },
+    allowNetwork: false,
+    govt: { env: 'sandbox', clientId: 'c', clientSecret: 's', username: 'u', password: 'p', gstin: '27AABCU9603R1ZP' },
+    hasPublicKey: false,
+    probeTally: async () => ({ status: 'error', error: 'ECONNREFUSED' }),
+  });
+  const sandbox = report.providers.find((p) => p.id === 'sandbox');
+  assert.equal(sandbox.configured, true);
+  assert.equal(sandbox.environment, 'test');
+  assert.equal(sandbox.reachability.status, 'skipped');
+  const nic = report.providers.find((p) => p.id === 'nic_einvoice');
+  assert.equal(nic.configured, false);
+  assert.equal(nic.missing.includes('einv-public.pem (RSA public key)'), true);
+  const email = report.providers.find((p) => p.id === 'email');
+  assert.equal(email.missing.includes('MYCA_EMAIL_RELAY_URL'), true);
+  assert.equal(report.providers.find((p) => p.id === 'whatsapp').configured, false);
+  assert.equal(report.providers.find((p) => p.id === 'tally').reachability.status, 'error');
+  assert.equal(report.summary.providers, 7);
+  assert.equal(report.liveCallsEnabled, false);
+});
+
+test('provider doctor: pings sandbox when live and configured', async () => {
+  const { providerDoctor } = await import('../src/provider-doctor.mjs');
+  const report = await providerDoctor({
+    env: { MYCA_GSP_BASE_URL: 'https://test-api.sandbox.co.in', MYCA_GSP_API_KEY: 'k', MYCA_GSP_API_SECRET: 's' },
+    allowNetwork: true,
+    sandboxClient: { ping: async () => ({ ok: true, ms: 42, environment: 'test' }) },
+    govt: {},
+    hasPublicKey: false,
+    probeTally: async () => ({ status: 'skipped' }),
+  });
+  const sandbox = report.providers.find((p) => p.id === 'sandbox');
+  assert.equal(sandbox.reachability.status, 'ok');
+  assert.equal(sandbox.reachability.ms, 42);
+  assert.equal(report.summary.reachable, 1);
+});

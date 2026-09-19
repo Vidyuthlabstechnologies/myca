@@ -17,6 +17,7 @@ import { clearIntegrationConnection, integrationReadiness, setIntegrationConnect
 import { listClients, registerClient, setActiveClient, listDocuments, uploadDocument, getDocumentContent } from './ca-api.mjs';
 import { lockPeriod, unlockPeriod, isPeriodLocked, lockThrough } from './period-lock.mjs';
 import { buildInvoiceShare, shareLink, queueNotification, listOutbox, sendNotification } from './notifications.mjs';
+import { providerDoctor } from './provider-doctor.mjs';
 import { providerCatalog, providerRequirementMap } from './provider-catalog.mjs';
 import { sandboxAdapterPlan } from './sandbox-adapter-contract.mjs';
 import { getSandboxClient } from './sandbox-client.mjs';
@@ -219,6 +220,12 @@ export const TOOLS = [
       const out = await sendNotification(state.__root || state, args.messageId);
       return out.ok ? ok(out) : fail(out.error, out);
     },
+  },
+  {
+    name: 'provider_doctor',
+    title: 'Integration doctor',
+    description: 'Check every external integration: what is configured, which environment, whether it is reachable, and exactly what is missing.',
+    run: async () => ok(await providerDoctor()),
   },
   {
     name: 'trial_balance',

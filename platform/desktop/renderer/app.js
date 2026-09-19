@@ -371,6 +371,38 @@ async function shareCurrent(channel) {
   await refresh();
 }
 
+function renderDoctor(report) {
+  const body = document.getElementById('doctorRows');
+  if (!report) return;
+  body.replaceChildren();
+  for (const provider of report.providers || []) {
+    const reach = provider.reachability?.status === 'ok'
+      ? `ok ${provider.reachability.ms || ''}`.trim()
+      : (provider.reachability?.status || '—');
+    const tr = document.createElement('tr');
+    tr.append(
+      td('kind', provider.name),
+      td('', (provider.requirements || []).join(', ')),
+      td('', provider.configured ? 'yes' : 'no'),
+      td('', provider.environment || '—'),
+      td('', reach),
+      td('', (provider.missing || []).join(', ') || '—'),
+    );
+    body.append(tr);
+  }
+}
+
+document.getElementById('doctorBtn').addEventListener('click', async () => {
+  addBubble('user', 'run integration doctor');
+  const out = await api.tool('provider_doctor', {});
+  if (!out.ok) {
+    addBubble('bot', `Doctor failed: ${out.error}`, 'error');
+    return;
+  }
+  renderDoctor(out.data);
+  addBubble('bot', resultLine('provider_doctor', out), 'provider_doctor');
+});
+
 async function refresh() {
   const snap = await api.snapshot();
   if (snap.error) throw new Error(snap.error);

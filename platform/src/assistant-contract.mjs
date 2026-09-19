@@ -109,6 +109,7 @@ export const TOOL_ARG_SCHEMAS = {
     properties: { reason: { type: 'string' } },
   },
   period_status: noArgs,
+  provider_doctor: noArgs,
   share_invoice: {
     type: 'object',
     additionalProperties: false,
