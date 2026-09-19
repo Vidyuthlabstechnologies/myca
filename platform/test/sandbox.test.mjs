@@ -139,28 +139,80 @@ test('sandbox client: searchGstin parses legalName, tradeName, status, and natur
   assert.deepEqual(out.natureOfBusiness, ['Manufacturer', 'Wholesale Business']);
 });
 
-test('sandbox client: extended endpoints (IT calculator, TDS jobs, OTP, e-invoice)', async () => {
+test('sandbox client: real endpoint paths and payloads', async () => {
   const calls = [];
   const mockFetch = async (url, opts) => {
     if (url.endsWith('/authenticate')) {
       return { ok: true, status: 200, json: async () => ({ access_token: 'tok' }) };
     }
-    calls.push({ url, body: opts.body ? JSON.parse(opts.body) : null });
-    return { ok: true, status: 200, json: async () => ({ ok: true, data: { status: 'submitted' } }) };
+    calls.push({ url, method: opts.method, body: opts.body ? JSON.parse(opts.body) : null });
+    return { ok: true, status: 200, json: async () => ({ data: { status_cd: '1', data: { ok: true }, access_token: 'session_tok', Status: 1 } }) };
   };
-
   const client = new SandboxClient({ apiKey: 'k', apiSecret: 's', fetchFn: mockFetch });
 
-  await client.generateTaxpayerOtp('27AAACH7409R1Z3', 'test_user');
-  assert.equal(calls[0].url.includes('/taxpayer/otp/generate'), true);
+  await client.generateTaxpayerOtp('test_user', '27AAACH7409R1Z3');
+  assert.equal(calls[0].url.includes('/gst/compliance/tax-payer/otp'), true);
+  assert.equal(calls[0].url.includes('/otp/verify'), false);
+  assert.equal(calls[0].body.username, 'test_user');
   assert.equal(calls[0].body.gstin, '27AAACH7409R1Z3');
 
-  await client.calculateIncomeTax({ fy: '2026-27', income: 1500000 });
-  assert.equal(calls[1].url.includes('/it/calculator/calculate'), true);
+  await client.verifyTaxpayerOtp('test_user', '27AAACH7409R1Z3', '123456');
+  assert.match(calls[1].url, /\/gst\/compliance\/tax-payer\/otp\/verify\?otp=123456/);
+  assert.equal(calls[1].body.otp, undefined);
 
-  await client.submitTdsAnalyticsJob({ tan: 'MUMB12345A', fy: '2026-27' });
-  assert.equal(calls[2].url.includes('/tds/analytics/jobs'), true);
-  assert.equal(calls[2].body.tan, 'MUMB12345A');
+  await client.trackGstrs('27AAACH7409R1Z3', '2026-27');
+  assert.match(calls[2].url, /\/gst\/compliance\/public\/gstrs\/track\?financial_year=2026-27/);
+
+  await client.submitGstr2bReconJob({ gstin: '27AAACH7409R1Z3', year: 2026, month: 8 });
+  assert.equal(calls[3].url.endsWith('/gst/analytics/gstr-2b-reconciliation'), true);
+  assert.equal(calls[3].body['@entity'], 'in.co.sandbox.gst.analytics.gstr-2b_reconciliation.request');
+  assert.equal(calls[3].body.year, 2026);
+  assert.equal(calls[3].body.month, 8);
+
+  await client.saveGstr1({ year: 2026, month: 8, payload: { fp: '082026' } });
+  assert.match(calls[4].url, /\/gst\/compliance\/tax-payer\/gstrs\/gstr-1\/2026\/8$/);
+  assert.equal(calls[4].body.fp, '082026');
+
+  await client.submitTdsFvuJob({ taxYear: 'TY 2026-27', quarter: 'Q1', form: '26Q', tan: 'MUMB12345A' });
+  assert.equal(calls[5].url.endsWith('/tds/compliance/fvu/generate'), true);
+  assert.equal(calls[5].body['@entity'], 'in.co.sandbox.tds.compliance.fvu.generate.request');
+
+  await client.submitTdsAnalyticsJob({ quarter: 'Q1', tan: 'MUMB12345A', form: '26Q', financialYear: 'FY 2026-27' });
+  assert.equal(calls[6].url.endsWith('/tds/analytics/potential-notices'), true);
+  assert.equal(calls[6].body.financial_year, 'FY 2026-27');
+});
+
+test('sandbox client: e-invoice auth stores token, generate and cancel use it', async () => {
+  const calls = [];
+  const mockFetch = async (url, opts) => {
+    if (url.endsWith('/authenticate')) {
+      return { ok: true, status: 200, json: async () => ({ access_token: 'platform_tok' }) };
+    }
+    calls.push({ url, auth: opts.headers.authorization, body: opts.body ? JSON.parse(opts.body) : null });
+    if (url.includes('/e-invoice/tax-payer/authenticate')) {
+      return { ok: true, status: 200, json: async () => ({ data: { Status: 1, access_token: 'einv_tok', expiry: Date.now() + 3600000 } }) };
+    }
+    if (url.includes('/invoice/') && url.endsWith('/cancel')) {
+      return { ok: true, status: 200, json: async () => ({ data: { Status: 1, Data: { Irn: 'abc', CancelDate: '2026-09-19' } } }) };
+    }
+    return { ok: true, status: 200, json: async () => ({ data: { Status: 1, Data: { Irn: 'irn123', AckNo: '1', AckDt: '2026-09-19', SignedQRCode: 'qr' } } }) };
+  };
+  const client = new SandboxClient({ apiKey: 'k', apiSecret: 's', fetchFn: mockFetch });
+
+  const auth = await client.einvoiceAuthenticate({ username: 'u', password: 'p', gstin: '27AABCU9603R1ZP' });
+  assert.equal(auth.ok, true);
+  assert.equal(client.einvoiceToken, 'einv_tok');
+  assert.match(calls[0].url, /\/gst\/compliance\/e-invoice\/tax-payer\/authenticate\?force=false/);
+
+  const gen = await client.generateEinvoice({ Version: '1.1' });
+  assert.equal(gen.ok, true);
+  assert.equal(calls[1].url.endsWith('/gst/compliance/e-invoice/tax-payer/invoice'), true);
+  assert.equal(calls[1].auth, 'einv_tok');
+
+  await client.cancelEinvoice({ irn: 'irn123', reason: '1', remark: 'duplicate' });
+  assert.equal(calls[2].url.endsWith('/gst/compliance/e-invoice/tax-payer/invoice/irn123/cancel'), true);
+  assert.equal(calls[2].body.Irn, 'irn123');
+  assert.equal(calls[2].body.CnlRsn, '1');
 });
 
 test('tools: sandbox_status and sandbox_connect operate across 5 requirements', async () => {

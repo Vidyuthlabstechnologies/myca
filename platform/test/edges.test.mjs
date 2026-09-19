@@ -1052,7 +1052,7 @@ test('sandbox adapter: live gate, assistant block, approvals, secret redaction, 
     status: 200,
     json: async () => (String(url).includes('/authenticate')
       ? { access_token: 'tok', expires_in: 3600 }
-      : { data: { ok: true } }),
+      : { data: { Status: 1, Data: { Irn: 'irn_test', AckNo: '1126', AckDt: '2026-09-19', SignedQRCode: 'qr' } } }),
   });
   const client = new SandboxClient({ apiKey: 'k', apiSecret: 's', fetchFn: mockFetch });
 
@@ -1076,7 +1076,7 @@ test('sandbox adapter: live gate, assistant block, approvals, secret redaction, 
 
   const request = requestApproval(state, { operationId: 'einvoice_generate', requestedBy: 'maker' });
   decideApproval(state, { approvalId: request.approval.approvalId, decision: 'approve', decidedBy: 'partner1', role: 'partner' });
-  const gated = await runSandboxOperation({ operationId: 'einvoice_generate', caApprovalId: request.approval.approvalId, allowLive: true }, { state, client });
+  const gated = await runSandboxOperation({ operationId: 'einvoice_generate', caApprovalId: request.approval.approvalId, params: { payload: { Version: '1.1' } }, allowLive: true }, { state, client });
   assert.equal(gated.ok, true);
   assert.equal(approvalStatus(findApproval(state, request.approval.approvalId)), 'used');
   assert.equal(state.auditEvents.some((e) => e.action === 'sandbox.einvoice_generate'), true);

@@ -4,6 +4,13 @@ function detectEnvironment(baseUrl) {
   return /test/i.test(String(baseUrl)) ? 'test' : 'live';
 }
 
+function qs(params = {}) {
+  const parts = Object.entries(params)
+    .filter(([, v]) => v !== undefined && v !== null && v !== '')
+    .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`);
+  return parts.length ? `?${parts.join('&')}` : '';
+}
+
 export class SandboxClient {
   constructor(options = {}) {
     const fileEnv = loadEnvFile();
@@ -20,10 +27,14 @@ export class SandboxClient {
     this.apiKey = options.apiKey ?? (scopedKey || read('MYCA_GSP_API_KEY'));
     this.apiSecret = options.apiSecret ?? (scopedSecret || read('MYCA_GSP_API_SECRET'));
     this.keySource = options.apiKey != null ? 'explicit' : (scopedKey ? scoped.key : 'MYCA_GSP_API_KEY');
-    this.apiVersion = options.apiVersion ?? '1.0';
+    this.apiVersion = options.apiVersion ?? '1.0.0';
     this.fetchFn = options.fetchFn || fetch;
     this.token = null;
     this.tokenExpiresAt = 0;
+    this.taxpayerToken = null;
+    this.taxpayerExpiresAt = 0;
+    this.einvoiceToken = null;
+    this.einvoiceExpiresAt = 0;
   }
 
   isConfigured() {
@@ -32,6 +43,16 @@ export class SandboxClient {
 
   environmentLabel() {
     return `${this.environment === 'live' ? 'LIVE' : 'TEST'} (${this.baseUrl})`;
+  }
+
+  headers(token) {
+    return {
+      'x-api-key': this.apiKey,
+      'x-api-version': this.apiVersion,
+      'content-type': 'application/json',
+      accept: 'application/json',
+      ...(token ? { authorization: token } : {}),
+    };
   }
 
   async authenticate(force = false) {
@@ -50,63 +71,43 @@ export class SandboxClient {
           'x-api-secret': this.apiSecret,
           'x-api-version': this.apiVersion,
           'content-type': 'application/json',
-          'accept': 'application/json',
+          accept: 'application/json',
         },
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.access_token) {
-        return {
-          ok: false,
-          status: res.status,
-          error: data.message || data.error || `HTTP ${res.status}`,
-        };
+        return { ok: false, status: res.status, error: data.message || data.error || `HTTP ${res.status}` };
       }
       this.token = data.access_token;
-      // Tokens are typically valid for 24h (86400s), default to 23h validity
-      const ttlSec = Number(data.expires_in || 82800);
-      this.tokenExpiresAt = now + (ttlSec * 1000);
-      return {
-        ok: true,
-        expiresIn: ttlSec,
-        message: 'Sandbox authentication successful',
-      };
+      this.tokenExpiresAt = now + (Number(data.expires_in || 82800) * 1000);
+      return { ok: true, expiresIn: Number(data.expires_in || 82800), message: 'Sandbox authentication successful' };
     } catch (err) {
       return { ok: false, error: String(err.message || err) };
     }
   }
 
   async request(endpoint, options = {}) {
-    const auth = await this.authenticate();
-    if (!auth.ok) return auth;
+    let token = options.token || null;
+    if (!token) {
+      const auth = await this.authenticate();
+      if (!auth.ok) return auth;
+      token = this.token;
+    }
     const url = endpoint.startsWith('http') ? endpoint : `${this.baseUrl}${endpoint.startsWith('/') ? '' : '/'}${endpoint}`;
-    const headers = {
-      'Authorization': this.token,
-      'x-api-key': this.apiKey,
-      'x-api-version': this.apiVersion,
-      'content-type': 'application/json',
-      'accept': 'application/json',
-      ...(options.headers || {}),
-    };
+    const send = async (authToken) => this.fetchFn(url, {
+      method: options.method || 'POST',
+      headers: { ...this.headers(authToken), ...(options.headers || {}) },
+      body: options.body === undefined ? undefined : JSON.stringify(options.body),
+    });
     try {
-      const res = await this.fetchFn(url, {
-        method: options.method || 'GET',
-        headers,
-        body: options.body ? JSON.stringify(options.body) : undefined,
-      });
-      const data = await res.json().catch(() => ({}));
-      if (res.status === 401) {
-        // Token expired, retry once
+      let res = await send(token);
+      let data = await res.json().catch(() => ({}));
+      if (res.status === 401 && !options.token) {
         this.token = null;
         const retryAuth = await this.authenticate(true);
         if (!retryAuth.ok) return retryAuth;
-        headers['Authorization'] = this.token;
-        const retryRes = await this.fetchFn(url, {
-          method: options.method || 'GET',
-          headers,
-          body: options.body ? JSON.stringify(options.body) : undefined,
-        });
-        const retryData = await retryRes.json().catch(() => ({}));
-        return { ok: retryRes.ok, status: retryRes.status, data: retryData };
+        res = await send(this.token);
+        data = await res.json().catch(() => ({}));
       }
       return { ok: res.ok, status: res.status, data };
     } catch (err) {
@@ -134,15 +135,11 @@ export class SandboxClient {
     };
   }
 
+  // ---- GST compliance: public (platform token) ----
   async searchGstin(gstin) {
     const cleanGstin = String(gstin || '').trim().toUpperCase();
-    if (cleanGstin.length !== 15) {
-      return { ok: false, error: 'INVALID_GSTIN_FORMAT' };
-    }
-    const res = await this.request('/gst/compliance/public/gstin/search', {
-      method: 'POST',
-      body: { gstin: cleanGstin },
-    });
+    if (cleanGstin.length !== 15) return { ok: false, error: 'INVALID_GSTIN_FORMAT' };
+    const res = await this.request('/gst/compliance/public/gstin/search', { body: { gstin: cleanGstin } });
     if (res.ok && res.data?.data) {
       const d = res.data.data.data || res.data.data;
       return {
@@ -150,8 +147,8 @@ export class SandboxClient {
         gstin: cleanGstin,
         legalName: d.lgnm || d.tradeNam || '',
         tradeName: d.tradeNam || d.lgnm || '',
-        status: d.sts || d.status || 'Active',
-        taxpayerType: d.dty || 'Regular',
+        status: d.sts || d.status || '',
+        taxpayerType: d.dty || '',
         stateCode: d.stjCd || cleanGstin.slice(0, 2),
         registrationDate: d.rgdt || '',
         eInvoiceStatus: d.einvoiceStatus || '',
@@ -165,81 +162,141 @@ export class SandboxClient {
   async verifyGstin(gstin) {
     const cleanGstin = String(gstin || '').trim().toUpperCase();
     if (cleanGstin.length !== 15) return { ok: false, error: 'INVALID_GSTIN_FORMAT' };
-    return this.request('/gst/compliance/public/gstin/verify', {
-      method: 'POST',
-      body: { gstin: cleanGstin },
-    });
+    return this.request('/gst/compliance/public/gstin/verify', { body: { gstin: cleanGstin } });
   }
 
-  async trackReturns(gstin, fy = '') {
+  async trackGstrs(gstin, financialYear, gstr) {
     const cleanGstin = String(gstin || '').trim().toUpperCase();
-    return this.request('/gst/compliance/taxpayer/common/track_returns', {
-      method: 'POST',
-      body: { gstin: cleanGstin, fy: fy || undefined },
+    const query = qs({ financial_year: financialYear || undefined, gstr: gstr || undefined });
+    return this.request(`/gst/compliance/public/gstrs/track${query}`, { body: { gstin: cleanGstin } });
+  }
+
+  // ---- GST compliance: taxpayer session ----
+  async generateTaxpayerOtp(username, gstin) {
+    return this.request('/gst/compliance/tax-payer/otp', {
+      body: { username: String(username || '').trim(), gstin: String(gstin || '').trim().toUpperCase() },
     });
   }
 
-  async generateTaxpayerOtp(gstin, username) {
-    const cleanGstin = String(gstin || '').trim().toUpperCase();
-    return this.request('/gst/compliance/taxpayer/otp/generate', {
-      method: 'POST',
-      body: { gstin: cleanGstin, username: String(username || '').trim() },
+  async verifyTaxpayerOtp(username, gstin, otp) {
+    const res = await this.request(`/gst/compliance/tax-payer/otp/verify${qs({ otp })}`, {
+      body: { username: String(username || '').trim(), gstin: String(gstin || '').trim().toUpperCase() },
+    });
+    const token = res.data?.data?.access_token || res.data?.access_token;
+    if (res.ok && token) {
+      this.taxpayerToken = token;
+      const expires = Number(res.data?.data?.token_expiry || res.data?.data?.session_expiry || 0);
+      this.taxpayerExpiresAt = expires > 0 ? expires : Date.now() + 6 * 3600 * 1000;
+    }
+    return res;
+  }
+
+  async generateEvcOtp(pan, gstr) {
+    const token = this.taxpayerToken || this.token;
+    return this.request(`/gst/compliance/tax-payer/evc/otp${qs({ gstr: gstr || 'gstr-1' })}`, {
+      token,
+      body: { pan: String(pan || '').trim().toUpperCase() },
     });
   }
 
-  async verifyTaxpayerOtp(gstin, username, otp) {
-    const cleanGstin = String(gstin || '').trim().toUpperCase();
-    return this.request('/gst/compliance/taxpayer/otp/verify', {
-      method: 'POST',
-      body: { gstin: cleanGstin, username: String(username || '').trim(), otp: String(otp || '').trim() },
-    });
+  async trackTaxpayerReturns(year, month, returnType) {
+    const token = this.taxpayerToken || this.token;
+    const query = qs({ return_type: returnType || undefined });
+    return this.request(`/gst/compliance/tax-payer/gstrs/${encodeURIComponent(year)}/${encodeURIComponent(month)}/track${query}`, { method: 'GET', token });
   }
 
-  async calculateIncomeTax(payload = {}) {
-    return this.request('/it/calculator/calculate', {
-      method: 'POST',
-      body: {
-        financial_year: payload.fy || payload.financial_year || '2026-27',
-        regime: payload.regime || 'new',
-        income_details: payload.income_details || { gross_salary: Number(payload.grossSalary || payload.income || 0) },
-        deductions: payload.deductions || {},
-      },
-    });
-  }
-
-  async submitTdsAnalyticsJob(payload = {}) {
-    return this.request('/tds/analytics/jobs', {
-      method: 'POST',
-      body: {
-        tan: String(payload.tan || '').trim().toUpperCase(),
-        financial_year: payload.fy || payload.financial_year || '2026-27',
-        quarter: payload.quarter || 'Q1',
-        form_type: payload.formType || '26Q',
-      },
-    });
-  }
-
-  async submitGstr2bReconJob(payload = {}) {
-    return this.request('/gst/analytics/gstr-2b-reconciliation/jobs', {
-      method: 'POST',
-      body: {
-        gstin: String(payload.gstin || '').trim().toUpperCase(),
-        return_period: String(payload.period || payload.return_period || '').trim(),
-      },
-    });
-  }
-
-  async generateEInvoice(payload = {}) {
-    return this.request('/gst/compliance/einvoice/generate', {
-      method: 'POST',
+  // ---- GSTR-1 filing (taxpayer token) ----
+  async saveGstr1({ year, month, payload } = {}) {
+    const token = this.taxpayerToken || this.token;
+    return this.request(`/gst/compliance/tax-payer/gstrs/gstr-1/${encodeURIComponent(year)}/${encodeURIComponent(month)}`, {
+      token,
       body: payload,
     });
   }
 
-  async cancelEInvoice(payload = {}) {
-    return this.request('/gst/compliance/einvoice/cancel', {
-      method: 'POST',
-      body: payload,
+  async newProceedGstr1({ year, month, gstr = 'gstr-1', isNil } = {}) {
+    const token = this.taxpayerToken || this.token;
+    const query = qs({ is_nil: isNil || undefined });
+    return this.request(`/gst/compliance/tax-payer/gstrs/${encodeURIComponent(gstr)}/${encodeURIComponent(year)}/${encodeURIComponent(month)}/new-proceed${query}`, { token });
+  }
+
+  async fileGstr1({ year, month, pan, otp, summary } = {}) {
+    const token = this.taxpayerToken || this.token;
+    const query = qs({ pan: String(pan || '').toUpperCase(), otp });
+    return this.request(`/gst/compliance/tax-payer/gstrs/gstr-1/${encodeURIComponent(year)}/${encodeURIComponent(month)}/file${query}`, {
+      token,
+      body: summary,
+    });
+  }
+
+  // ---- GST analytics: GSTR-2B reconciliation (platform token) ----
+  async submitGstr2bReconJob({ gstin, year, month, reconciliationCriteria = 'moderate', filingPreference = 'monthly' } = {}) {
+    return this.request('/gst/analytics/gstr-2b-reconciliation', {
+      body: {
+        '@entity': 'in.co.sandbox.gst.analytics.gstr-2b_reconciliation.request',
+        gstin: String(gstin || '').trim().toUpperCase(),
+        year: Number(year),
+        month: Number(month),
+        reconciliation_criteria: reconciliationCriteria,
+        filing_preference: filingPreference,
+      },
+    });
+  }
+
+  // ---- E-invoice (E-invoice access token) ----
+  async einvoiceAuthenticate({ username, password, gstin, force = false } = {}) {
+    const res = await this.request(`/gst/compliance/e-invoice/tax-payer/authenticate${qs({ force: force ? 'true' : 'false' })}`, {
+      body: {
+        username: String(username || '').trim(),
+        password: String(password || ''),
+        gstin: String(gstin || '').trim().toUpperCase(),
+      },
+    });
+    const data = res.data?.data || {};
+    if (res.ok && Number(data.Status) === 1 && data.access_token) {
+      this.einvoiceToken = data.access_token;
+      const expires = Number(data.expiry || 0);
+      this.einvoiceExpiresAt = expires > 0 ? expires : Date.now() + 6 * 3600 * 1000;
+    }
+    return res;
+  }
+
+  async generateEinvoice(payload) {
+    const token = this.einvoiceToken || this.token;
+    return this.request('/gst/compliance/e-invoice/tax-payer/invoice', { token, body: payload });
+  }
+
+  async cancelEinvoice({ irn, reason = '1', remark = '' } = {}) {
+    const token = this.einvoiceToken || this.token;
+    return this.request(`/gst/compliance/e-invoice/tax-payer/invoice/${encodeURIComponent(irn)}/cancel`, {
+      token,
+      body: { Irn: String(irn || ''), CnlRsn: String(reason), CnlRem: String(remark || '') },
+    });
+  }
+
+  // ---- TDS (platform token) ----
+  async submitTdsAnalyticsJob({ quarter, tan, form, financialYear } = {}) {
+    return this.request('/tds/analytics/potential-notices', {
+      body: {
+        '@entity': 'in.co.sandbox.tds.analytics.potential_notice.request',
+        quarter: String(quarter || ''),
+        tan: String(tan || '').trim().toUpperCase(),
+        form: String(form || '26Q'),
+        financial_year: String(financialYear || ''),
+      },
+    });
+  }
+
+  async submitTdsFvuJob({ taxYear, quarter, form, tan, filingType = 'regular' } = {}) {
+    return this.request('/tds/compliance/fvu/generate', {
+      body: {
+        '@entity': 'in.co.sandbox.tds.compliance.fvu.generate.request',
+        tax_year: String(taxYear || ''),
+        quarter: String(quarter || ''),
+        form: String(form || '26Q'),
+        tan: String(tan || '').trim().toUpperCase(),
+        filing_type: String(filingType || 'regular'),
+      },
     });
   }
 }

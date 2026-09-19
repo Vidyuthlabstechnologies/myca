@@ -32,6 +32,16 @@ Sandbox is the provider API MyCA already speaks.
 3. Verify: `provider_doctor` should show `sandbox [live] reachable`. `sandbox_status`
    prints the environment and key source.
 
+**Endpoint status (verified live against TEST):** auth, GSTIN search/verify, and the
+GSTR-2B reconciliation job (returns a real `job_id` + signed upload URLs) all work.
+Taxpayer OTP, e-invoice auth, and TDS FVU/analytics accept the request with the correct
+route and payload. The public return-tracking route works, though the TEST fixture
+rejects every financial-year value tried.
+
+**Not wired:** the income-tax calculator. Sandbox publishes no stable path for it (the
+reference page is an empty stub), so MyCA refuses to guess and `income_tax_calculate`
+returns `PROVIDER_ENDPOINT_UNDOCUMENTED` — use `prepare_itr` (sprint-5 engine).
+
 **Gotcha:** the TEST host (`test-api.sandbox.co.in`) returns the *same fixture record for
 every GSTIN*. If every lookup returns the same taxpayer, you are on TEST. MyCA warns
 about this.

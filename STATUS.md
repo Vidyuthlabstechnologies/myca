@@ -44,11 +44,16 @@ Windows. "Verified" means covered by tests or an actual run — not merely writt
   Sandbox adapter plan
 
 ### Integrations
-- Sandbox by Quicko provider client (GST, e-invoice, OTP, income tax, TDS)
+- Sandbox by Quicko provider client — **real endpoint paths** for GST public lookups,
+  taxpayer OTP/session, GSTR-1 save/proceed/file, GSTR-2B reconciliation jobs, e-invoice
+  auth/generate/cancel, and TDS analytics/FVU jobs
 - **Adapter registry** translating provider responses into MyCA engines, behind four
   gates: secret redaction → live switch → assistant block → CA approval.
-  Wired: GSTIN verify, return status, income-tax calculate, TDS analytics,
-  GSTR-2B recon job, e-invoice authenticate/generate/cancel, taxpayer OTP generate/verify
+  Wired: GSTIN verify, return status, GSTR-2B recon job, GSTR-1 save + file (EVC),
+  e-invoice authenticate/generate/cancel, taxpayer OTP generate/verify, TDS analytics,
+  TDS FVU generate
+- `income_tax_calculate` stays fail-closed (`PROVIDER_ENDPOINT_UNDOCUMENTED`): Sandbox
+  publishes no stable income-tax calculator path, so `prepare_itr` remains the source of truth
 - **CA approval workflow**: request / decide / consume, maker-checker separation,
   reviewer roles (partner/reviewer/admin), 24-hour expiry, single use
 - NIC e-invoice: RSA v1.04 auth, IRN payload build, mock IRN, government host probe
@@ -103,10 +108,12 @@ Windows. "Verified" means covered by tests or an actual run — not merely writt
 
 ## ⚠️ Built, but not yet verified against live external systems
 
-- Sandbox adapters: the **auth + public GSTIN lookup were verified against the real
-  Quicko Sandbox TEST environment** (HTTP 200, provider fixture records). The client now
-  reports its environment and key source and warns when responses are TEST fixtures.
-  Other operations and the LIVE environment remain unverified.
+- Sandbox adapter endpoints were **verified live against the Quicko Sandbox TEST
+  environment**: auth, GSTIN verify, and the GSTR-2B reconciliation job (returns a real
+  `job_id` + signed upload URLs). Taxpayer OTP, e-invoice auth and TDS FVU accept the
+  request (route + payload correct) and return provider business responses. The public
+  return-tracking route works but the TEST fixture rejects every FY value tried.
+  Only the client (not the provider) is covered by unit tests + these live probes.
 - NIC e-invoice: mock auth verified; live auth needs a registered API user and the sandbox `.cer`
 - `gst_save_gstr1` and `gst_file_gstr1_evc`: declared in the contract, fail closed as
   `NOT_IMPLEMENTED` (no verified endpoint wired)
