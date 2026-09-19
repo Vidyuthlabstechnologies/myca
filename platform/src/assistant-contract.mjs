@@ -116,6 +116,61 @@ export const TOOL_ARG_SCHEMAS = {
     required: ['key'],
     properties: { key: { type: 'string', minLength: 1 } },
   },
+  govt_nic_health: noArgs,
+  govt_nic_session: noArgs,
+  govt_nic_gstin: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['gstin'],
+    properties: { gstin: { type: 'string', minLength: 15, maxLength: 15 } },
+  },
+  govt_nic_cancel_irn: {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      invoiceId: { type: 'string' },
+      irn: { type: 'string' },
+      reason: { type: 'string', enum: ['1', '2', '3', '4'] },
+      remark: { type: 'string' },
+    },
+  },
+  govt_nic_get_irn: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['irn'],
+    properties: { irn: { type: 'string', minLength: 1 } },
+  },
+  govt_nic_get_irn_by_doc: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['docNo', 'docDate'],
+    properties: {
+      docType: { type: 'string' },
+      docNo: { type: 'string', minLength: 1 },
+      docDate: { type: 'string', minLength: 8 },
+    },
+  },
+  govt_nic_rejected_irns: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['date'],
+    properties: { date: { type: 'string', minLength: 8 } },
+  },
+  govt_nic_generate_ewb: {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      irn: { type: 'string' },
+      payload: { type: 'object' },
+      transport: { type: 'object' },
+    },
+  },
+  govt_nic_get_ewb: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['irn'],
+    properties: { irn: { type: 'string', minLength: 1 } },
+  },
   test_notification: {
     type: 'object',
     additionalProperties: false,
@@ -391,7 +446,7 @@ export const TOOL_ARG_SCHEMAS = {
   },
 };
 
-const ASSISTANT_BLOCKED_TOOLS = new Set(['govt_save_credentials', 'govt_set_public_key', 'seed_demo', 'approval_decide', 'set_company', 'add_client', 'set_active_client', 'save_document', 'get_document', 'lock_period', 'unlock_period', 'send_notification', 'test_notification']);
+const ASSISTANT_BLOCKED_TOOLS = new Set(['govt_save_credentials', 'govt_set_public_key', 'govt_nic_cancel_irn', 'govt_nic_generate_ewb', 'seed_demo', 'approval_decide', 'set_company', 'add_client', 'set_active_client', 'save_document', 'get_document', 'lock_period', 'unlock_period', 'send_notification', 'test_notification']);
 
 const TOOL_RISK = {
   create_invoice: 'writes_books',

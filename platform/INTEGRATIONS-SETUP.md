@@ -51,17 +51,45 @@ onboarding** with Quicko or another GSP. MyCA is not a GSP and will not pretend 
 
 ## 2. NIC e-invoice (direct IRP path)
 
-1. On `einvoice1.gst.gov.in` register an **API user** for the GSTIN (only GSTINs notified
-   for e-invoicing can authenticate). Note the client-id / client-secret.
-2. Download the IRP/sandbox **public key (.cer)**.
+**Hosts (hard-coded, no changes needed):** sandbox = `https://einv1api.gstsandbox.nic.in`
+(and `einv2api` as a second gateway), production = `https://einvoice1.gst.gov.in`.
+The old `api.einvoice.gst.gov.in` address is not used.
+
+**What MyCA sends:** auth payload is RSA-encrypted with the loaded `.cer` public key;
+every IRN/e-Way Bill payload is wrapped as `{ Data: <AES-256-ECB(PKCS7)> }` with the
+session `Sek` returned by auth. Responses are AES-decrypted with the same `Sek`.
+Nothing is sent in clear. All IRP calls are gated by the live switch
+(`MYCA_ENABLE_LIVE_CALLS`) and a CA approval.
+
+1. Register an **API user** for the GSTIN on the portal:
+   - Sandbox: `https://einv-apisandbox.nic.in` → **User Type = Tax Payer**, GSTIN,
+     Trade Name exactly as on the GST certificate, GST-registered mobile + email (OTP
+     goes to that mobile). You receive the **client-id / client-secret**.
+   - Production: register on `einvoice1.gst.gov.in` after completing the NIC production
+     on-boarding (static source IPs + test report).
+2. Download the IRP/sandbox **public key (.cer)** for the portal environment.
 3. In MyCA → **Govt** tab: fill environment, client-id, client-secret, API user, API
    password, GSTIN → **Save on this PC**.
 4. Paste the `.cer` path (or PEM text) into **Public key** → **Load public key**.
    MyCA validates it is a real RSA key and stores it; it **refuses to send credentials
    unencrypted**.
-5. Chat: `nic auth`, then `generate irn INV-0001`.
+5. Chat:
+   - `nic health` → pings the heartbeat endpoint (no credentials needed).
+   - `nic auth` → auth + session `Sek`, `nic session` shows token expiry.
+   - `generate irn INV-0001` → mock-first (`mock: true`), re-run with the live switch on
+     to hit the IRP.
+   - `govt_nic_cancel_irn`, `govt_nic_get_irn`, `govt_nic_get_irn_by_doc`,
+     `govt_nic_rejected_irns`, `govt_nic_gstin`, `govt_nic_generate_ewb`,
+     `govt_nic_get_ewb` → remaining IRP operations (all live-gated).
 
 Verify: `provider_doctor` → `nic_einvoice` shows `configured` (all six pieces present).
+
+**Caveats:**
+- E-Way Bill **cancel** is not offered by the IRP; MyCA returns
+  `EWB_CANCEL_VIA_EWB_SYSTEM` and points you to the e-Way Bill system
+  (`api.ewaybillgst.gov.in`).
+- Sandbox vanity GSTINs for tests: `33GSPTN1882G1Z3`, `27GSPMH1881G1ZH`,
+  `27GSPMH1882G1ZG`, `33GSPTN3381G1Z5`, `33GSPTN3382G1Z4`, `27GSPMH3381G1ZI`.
 
 ## 3. Email notifications (REQ-CA-013)
 
@@ -126,7 +154,8 @@ Reports, per provider: configured? which environment? reachable? and the **exact
 pieces**. Then:
 
 - **Test a notification:** `test_notification` (channel + recipient) — gated by the live switch.
-- **Test e-invoice:** `govt_nic_auth` then `govt_nic_mock` before touching production.
+- **Test e-invoice:** `nic auth` then `nic session` before touching live IRN calls; IRN
+  calls are mock-first by default. `nic health` needs no credentials at all.
 
 ## 8. Go-live checklist
 

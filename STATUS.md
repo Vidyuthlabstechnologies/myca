@@ -57,6 +57,17 @@ Windows. "Verified" means covered by tests or an actual run — not merely writt
 - **CA approval workflow**: request / decide / consume, maker-checker separation,
   reviewer roles (partner/reviewer/admin), 24-hour expiry, single use
 - NIC e-invoice: RSA v1.04 auth, IRN payload build, mock IRN, government host probe
+- **NIC e-invoice full IRP surface**: split into `nic-config.mjs` (config, CIPHER vault,
+  public-key loader, invoice→IRP payload) and `nic-client.mjs` (hosts, AES-256-ECB
+  payload encrypt/decrypt with the session `Sek`, v1.04 auth, IRN generate/cancel/
+  get/get-by-doc, rejected-IRN list, GSTIN master, e-Way Bill generate/get, heartbeat
+  health, mock mode). Correct hosts: sandbox `einv*.gstsandbox.nic.in`, production
+  `einvoice1.gst.gov.in` (NOT `api.einvoice.gst.gov.in`). E-Way Bill cancel stays
+  honest: the IRP has no cancel endpoint, so it points at the e-Way Bill system.
+  Tools added: `govt_nic_health`, `govt_nic_session`, `govt_nic_gstin`,
+  `govt_nic_cancel_irn`, `govt_nic_get_irn`, `govt_nic_get_irn_by_doc`,
+  `govt_nic_rejected_irns`, `govt_nic_generate_ewb`, `govt_nic_get_ewb`; cancel +
+  EWB are assistant-blocked. Live sandbox heartbeat verified end-to-end.
 - NVIDIA NIM client (gated)
 - **Integration doctor** (`provider_doctor`): per provider, reports configured/environment/
   reachable and the exact list of missing pieces, pinging only when live calls are on
@@ -114,7 +125,12 @@ Windows. "Verified" means covered by tests or an actual run — not merely writt
   request (route + payload correct) and return provider business responses. The public
   return-tracking route works but the TEST fixture rejects every FY value tried.
   Only the client (not the provider) is covered by unit tests + these live probes.
-- NIC e-invoice: mock auth verified; live auth needs a registered API user and the sandbox `.cer`
+- NIC e-invoice: sandbox heartbeat/health endpoint verified live end-to-end; mock auth
+  and IRN verified by unit tests; live auth + IRN still need a registered API user
+  (portal sign-up, User Type = Tax Payer) and the sandbox `.cer` loaded via
+  `govt_set_public_key`
+- NIC production: 404 from our network without the production on-boarding (static IPs +
+  test report) — infra prereq, not a config issue
 - `gst_save_gstr1` and `gst_file_gstr1_evc`: declared in the contract, fail closed as
   `NOT_IMPLEMENTED` (no verified endpoint wired)
 - GCP site/infra: `terraform fmt` + `validate` pass; never applied to a real project

@@ -40,7 +40,8 @@ test('govt probe talks through fetch to official URLs', async () => {
   assert.equal(r.live, 6);
   assert.ok(seen.some((s) => s.url.includes('gst.gov.in')));
   assert.ok(seen.some((s) => s.url.includes('einv-apisandbox.nic.in')));
-  assert.ok(seen.some((s) => s.method === 'POST'));
+  assert.ok(seen.some((s) => s.url.includes('/heartbeat/ping')));
+  assert.ok(seen.every((s) => s.method === 'GET'));
 });
 
 test('nic auth without credentials tells the user how to register', async () => {
