@@ -82,3 +82,16 @@ test('H14: a client attachment stays on that client, survives reload, and never 
   assert.equal(reopened.state.extraBooks['CL-2'].files.inward, INWARD);
   assert.equal(reopened.state.attachments.inward, undefined);
 });
+
+test('H14: a client attachment is carried by backup and restored onto that client', async () => {
+  const { sess } = freshSession();
+  await activateClient(sess, 'CL-2');
+  const attached = await sess.attachFile('inward', 'inward.csv', INWARD);
+  const backup = sess.backup();
+  assert.equal(backup.documents[attached.sha256], INWARD);
+  const target = freshSession().sess;
+  assert.equal((await target.restore({ ...backup, confirm: true })).ok, true);
+  assert.equal(target.state.extraBooks['CL-2'].files.inward, INWARD);
+  assert.equal(target.state.activeClientId, 'CL-2');
+  assert.equal((await target.tool('prepare_gstr3b', {})).data.itc.netItc, 130400);
+});
