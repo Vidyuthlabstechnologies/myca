@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { RULES as GST_RULES } from '../src/rules/gst.mjs';
-import { rule, validateRules } from '../src/index.mjs';
+import { fyEnd, fyStart, rule, validateRules } from '../src/index.mjs';
 
 globalThis.fetch = () => {
   throw new Error('network is not allowed in statutory-rules');
@@ -135,4 +135,35 @@ test('state codes are sorted, unique two-digit strings and are not claimed befor
   const ranges = GST_RULES.filter((entry) => entry.id === STATE_CODES).map((record) => [record.effectiveFrom, record.effectiveTo]);
   assert.deepEqual(ranges, [['2017-07-01', '2019-12-31'], ['2020-01-01', null]]);
   assert.deepEqual(rule(STATE_CODES, '2017-06-30'), { ok: false, error: 'RULE_NOT_IN_FORCE', id: STATE_CODES, onDate: '2017-06-30' });
+});
+
+const GSTR9 = 'gst.gstr9.exemption-threshold';
+
+const GSTR9_NOTIFICATIONS = [
+  ['2017-18', /47\/2019-Central Tax/],
+  ['2018-19', /47\/2019-Central Tax/],
+  ['2019-20', /77\/2020-Central Tax/],
+  ['2020-21', /31\/2021-Central Tax/],
+  ['2021-22', /10\/2022-Central Tax/],
+  ['2022-23', /32\/2023-Central Tax/],
+  ['2023-24', /14\/2024-Central Tax/],
+  ['2024-25', /15\/2025-Central Tax/],
+  ['2025-26', /15\/2025-Central Tax/],
+  ['2026-27', /15\/2025-Central Tax/]
+];
+
+test('the GSTR-9 exemption covers aggregate turnover up to Rs 2 crore in every financial year from 2017-18, looked up by FY start', () => {
+  for (const [fy, notification] of GSTR9_NOTIFICATIONS) {
+    const result = rule(GSTR9, fyStart(fy));
+    assert.equal(result.ok, true, fy);
+    assert.equal(result.value, 2 * CRORE, fy);
+    assert.equal(result.record.basis, 'aggregate_turnover_paise_up_to', fy);
+    assert.match(result.record.source, notification, fy);
+    assert.equal(rule(GSTR9, fyEnd(fy)).record.effectiveFrom, result.record.effectiveFrom, fy);
+  }
+});
+
+test('the GSTR-9 exemption is open-ended from FY 2024-25 and not claimed before FY 2017-18', () => {
+  assert.equal(rule(GSTR9, '2024-04-01').record.effectiveTo, null);
+  assert.deepEqual(rule(GSTR9, '2017-03-31'), { ok: false, error: 'RULE_NOT_IN_FORCE', id: GSTR9, onDate: '2017-03-31' });
 });

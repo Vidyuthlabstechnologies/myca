@@ -1,7 +1,8 @@
 const RUPEE = 100;
 const LAKH = 100000 * RUPEE;
+const CRORE = 100 * LAKH;
 
-const RATE_SET_BEFORE_22_SEP_2025 =[0, 0.1, 0.25, 1.5, 3, 5, 7.5, 12, 18, 28];
+const RATE_SET_BEFORE_22_SEP_2025 = [0, 0.1, 0.25, 1.5, 3, 5, 7.5, 12, 18, 28];
 const RATE_SET_22_SEP_2025_TO_31_JAN_2026 = [0, 0.1, 0.25, 1.5, 3, 5, 7.5, 12, 18, 28, 40];
 const RATE_SET_FROM_1_FEB_2026 = [0, 0.1, 0.25, 1.5, 3, 5, 7.5, 12, 18, 40];
 
@@ -13,10 +14,24 @@ const STATE_CODES_BEFORE_LADAKH = [...twoDigitCodes(1, 27), ...twoDigitCodes(29,
 const STATE_CODES_WITH_LADAKH = [...twoDigitCodes(1, 27), ...twoDigitCodes(29, 38), '97', '99'];
 const STATE_CODE_LISTS = 'State code masters of the e-invoice portal (einvoice1.gst.gov.in Master Codes: 01-27, 29-38, 96, 97, 99) and the e-way bill API (docs.ewaybillgst.gov.in state codes: 01-24, 26, 27, 29-38, 97, 99); neither lists 28; 96 is a place-of-supply code for foreign recipients, not a GSTIN prefix';
 
-const MERCHANT_EXPORTER ='40/2017-Central Tax (Rate) dated 23.10.2017 (0.05 per cent central tax, 0.1 per cent combined, supplies to merchant exporters)';
+const MERCHANT_EXPORTER = '40/2017-Central Tax (Rate) dated 23.10.2017 (0.05 per cent central tax, 0.1 per cent combined, supplies to merchant exporters)';
 const SERVICES_BEFORE = '11/2017-Central Tax (Rate) as amended up to 16.01.2025 (central tax 0.75, 2.5, 3.75, 6, 9, 14; 0.75 and 3.75 for residential construction inserted by 3/2019-Central Tax (Rate) w.e.f. 01.04.2019)';
 const SERVICES_AFTER = '11/2017-Central Tax (Rate) as amended by 15/2025-Central Tax (Rate) w.e.f. 22.09.2025 (central tax 0.75, 2.5, 3.75, 6, 9, 20; 6 kept for item (ie) ongoing housing projects)';
 const GOODS_AFTER = '9/2025-Central Tax (Rate) dated 17.09.2025 w.e.f. 22.09.2025 superseding 1/2017-Central Tax (Rate) (central tax 2.5, 9, 20, 1.5, 0.125, 0.75 and 14 in Schedule VII for pan masala and tobacco); 14/2025-Central Tax (Rate) w.e.f. 22.09.2025 (central tax 6 for bricks and roofing tiles)';
+
+function gstr9Exemption(effectiveFrom, effectiveTo, section, source) {
+  return {
+    id: 'gst.gstr9.exemption-threshold',
+    value: 2 * CRORE,
+    basis: 'aggregate_turnover_paise_up_to',
+    effectiveFrom,
+    effectiveTo,
+    act: 'CGST',
+    section,
+    source,
+    attestations: []
+  };
+}
 
 export const RULES = [
   {
@@ -106,5 +121,12 @@ export const RULES = [
     section: '',
     source: `${STATE_CODE_LISTS}; GSTN user guide (tutorial.gst.gov.in, First-time login): new GSTINs with UT code 38 for Ladakh apply to periods from 1 January 2020`,
     attestations: []
-  }
+  },
+  gstr9Exemption('2017-04-01', '2019-03-31', 'Section 148 special procedure for the annual return under section 44(1) and rule 80(1)', 'Notification 47/2019-Central Tax dated 09.10.2019: for FY 2017-18 and 2018-19, registered persons whose aggregate turnover does not exceed two crore rupees may choose to furnish the annual return; if not furnished it is deemed furnished on the due date'),
+  gstr9Exemption('2019-04-01', '2020-03-31', 'Section 148 special procedure for the annual return under section 44(1) and rule 80(1)', 'Notification 47/2019-Central Tax as amended by Notification 77/2020-Central Tax dated 15.10.2020 extending the optional annual return to FY 2019-20 (aggregate turnover not exceeding two crore rupees)'),
+  gstr9Exemption('2020-04-01', '2021-03-31', 'Section 44, first proviso', 'Notification 31/2021-Central Tax dated 30.07.2021 w.e.f. 01.08.2021: exempts registered persons whose aggregate turnover in FY 2020-21 is up to two crore rupees from filing the annual return for that year'),
+  gstr9Exemption('2021-04-01', '2022-03-31', 'Section 44, first proviso', 'Notification 10/2022-Central Tax dated 05.07.2022: exempts registered persons whose aggregate turnover in FY 2021-22 is up to two crore rupees from filing the annual return for that year'),
+  gstr9Exemption('2022-04-01', '2023-03-31', 'Section 44, first proviso', 'Notification 32/2023-Central Tax dated 31.07.2023: exempts registered persons whose aggregate turnover in FY 2022-23 is up to two crore rupees from filing the annual return for that year'),
+  gstr9Exemption('2023-04-01', '2024-03-31', 'Section 44, first proviso', 'Notification 14/2024-Central Tax dated 10.07.2024: exempts registered persons whose aggregate turnover in FY 2023-24 is up to two crore rupees from filing the annual return for that year'),
+  gstr9Exemption('2024-04-01', null, 'Section 44(1), first proviso', 'Notification 15/2025-Central Tax dated 17.09.2025: for FY 2024-25 onwards, exempts registered persons whose aggregate turnover in any financial year is up to two crore rupees from filing the annual return for that year')
 ];
