@@ -36,7 +36,7 @@ contributors (push code, open PRs). Nobody needs GCP console access afterwards.
 | Identity | Used by | Can |
 |---|---|---|
 | `gh-deployer` | `terraform` apply, `deploy-site`, `build-windows` publish | Manage compute/LB, DNS, monitoring and Artifact Registry; create buckets; administer only the site, artifacts and downloads buckets (IAM conditions per bucket name); read and write only the `root/` prefix of the state bucket. It holds no `iam.serviceAccountUser`, `run.admin`, `secretmanager.admin` or project-wide `storage.admin`. |
-| `gh-planner` | `terraform` plan on pull requests | `roles/viewer` and `roles/iam.securityReviewer` (read only), and read the `root/` prefix of the state bucket. It cannot take the state lock, so PR plans run with `-lock=false` and never block an apply. |
+| `gh-planner` | `terraform` plan on pull requests | Read-only roles (`browser`, `compute.viewer`, `dns.reader`, `monitoring.viewer`, `artifactregistry.reader`, `storage.bucketViewer`, `iam.securityReviewer`) and read the `root/` prefix of the state bucket. It gets no basic `roles/viewer`, which would also let it read every object in every bucket. It cannot take the state lock, so PR plans run with `-lock=false` and never block an apply. |
 
 Tokens are accepted only from the repository with the configured numeric ID. The deploy pool
 also requires `refs/heads/main` or a `refs/tags/v*` ref; the plan pool requires a

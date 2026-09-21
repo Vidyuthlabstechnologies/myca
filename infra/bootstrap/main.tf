@@ -47,7 +47,12 @@ locals {
   ]
 
   planner_roles = [
-    "roles/viewer",
+    "roles/browser",
+    "roles/compute.viewer",
+    "roles/dns.reader",
+    "roles/monitoring.viewer",
+    "roles/artifactregistry.reader",
+    "roles/storage.bucketViewer",
     "roles/iam.securityReviewer",
   ]
 }

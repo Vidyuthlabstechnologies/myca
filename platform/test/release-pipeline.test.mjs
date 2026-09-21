@@ -308,7 +308,7 @@ test('infra: PR plans use their own pool and a read-only service account', () =>
   const binding = resource(boot, 'google_service_account_iam_member', 'planner_wif');
   assert.match(binding, /google_service_account\.planner\.name/);
   assert.match(binding, /\$\{google_iam_workload_identity_pool\.github_plan\.name\}\/attribute\.repository_id\//);
-  assert.deepEqual(hclList(boot, 'planner_roles').sort(), ['roles/iam.securityReviewer', 'roles/viewer']);
+  assert.deepEqual(hclList(boot, 'planner_roles').sort(), ['roles/artifactregistry.reader', 'roles/browser', 'roles/compute.viewer', 'roles/dns.reader', 'roles/iam.securityReviewer', 'roles/monitoring.viewer', 'roles/storage.bucketViewer'], 'read-only roles only; not basic roles/viewer, whose projectViewer convenience grant reads every bucket');
   const state = resource(boot, 'google_storage_bucket_iam_member', 'planner_state');
   assert.match(state, /role\s*=\s*"roles\/storage\.objectViewer"/);
   assert.match(state, /objects\/root\//);
