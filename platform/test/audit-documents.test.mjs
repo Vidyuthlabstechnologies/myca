@@ -190,3 +190,56 @@ test('documents: legacy bytes are relinked only to the record whose hash they ma
   assert.equal(await contentOf(sess, 'SELF', 'DOC-000001'), 'DOCUMENT_BYTES_MISSING');
   assert.equal(await contentOf(sess, 'SELF', renumbered), 'NEW');
 });
+
+test('documents: a legacy id near MAX_SAFE_INTEGER never makes two uploads share an id', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'myca-doc-maxid-'));
+  const self = putDocument(dir, 'SELF-1');
+  const big = putDocument(dir, 'ACME-BIG');
+  const { path } = writeStateFile(dir, {
+    documents: [
+      docRecord('DOC-000001', 'SELF', 's1.txt', 'SELF-1', self.sha256),
+      docRecord('DOC-9007199254740991', 'ACME', 'big.txt', 'ACME-BIG', big.sha256),
+    ],
+    documentSeq: 1,
+  });
+  const sess = openSession(path);
+  const first = await sess.caApi('POST', '/api/ca/clients/ACME/documents', { fileName: 'a1.txt', content: 'ACME-FIRST' });
+  const second = await sess.caApi('POST', '/api/ca/clients/ACME/documents', { fileName: 'a2.txt', content: 'ACME-SECOND' });
+  const ids = sess.state.documents.map((doc) => doc.documentId);
+  assert.equal(new Set(ids).size, 4);
+  assert.notEqual(first.data.documentId, second.data.documentId);
+  assert.equal(await contentOf(sess, 'ACME', first.data.documentId), 'ACME-FIRST');
+  assert.equal(await contentOf(sess, 'ACME', second.data.documentId), 'ACME-SECOND');
+  assert.equal(await contentOf(sess, 'ACME', 'DOC-9007199254740991'), 'ACME-BIG');
+  openSession(path);
+  openSession(path);
+  assert.equal(preMigrationCopies(dir).length, 0);
+});
+
+test('documents: duplicates left at the unsafe id wall are renumbered once and stay fixed', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'myca-doc-wall-'));
+  const big = putDocument(dir, 'ACME-BIG');
+  const x = putDocument(dir, 'ACME-X');
+  const y = putDocument(dir, 'ACME-Y');
+  const { path } = writeStateFile(dir, {
+    documents: [
+      docRecord('DOC-9007199254740991', 'ACME', 'big.txt', 'ACME-BIG', big.sha256),
+      docRecord('DOC-9007199254740992', 'ACME', 'x.txt', 'ACME-X', x.sha256),
+      docRecord('DOC-9007199254740992', 'ACME', 'y.txt', 'ACME-Y', y.sha256),
+    ],
+    documentSeq: 9007199254740992,
+  });
+  const sess = openSession(path);
+  const ids = sess.state.documents.map((doc) => doc.documentId);
+  assert.equal(new Set(ids).size, 3);
+  assert.equal(await contentOf(sess, 'ACME', 'DOC-9007199254740992'), 'ACME-X');
+  assert.equal(await contentOf(sess, 'ACME', ids[2]), 'ACME-Y');
+  const posted = await sess.caApi('POST', '/api/ca/clients/ACME/documents', { fileName: 'z.txt', content: 'ACME-Z' });
+  assert.equal(ids.includes(posted.data.documentId), false);
+  assert.equal(await contentOf(sess, 'ACME', posted.data.documentId), 'ACME-Z');
+  assert.equal(preMigrationCopies(dir).length, 1);
+  const reopened = openSession(path);
+  openSession(path);
+  assert.deepEqual(reopened.state.documents.slice(0, 3).map((doc) => doc.documentId), ids);
+  assert.equal(preMigrationCopies(dir).length, 1);
+});

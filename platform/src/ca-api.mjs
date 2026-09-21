@@ -51,35 +51,47 @@ export function ensureCaApiState(state) {
   state.firmUsers = Array.isArray(state.firmUsers) && state.firmUsers.length ? state.firmUsers : [DEFAULT_USER];
   state.auditEvents = Array.isArray(state.auditEvents) ? state.auditEvents : [];
   state.auditSeq = Number(state.auditSeq || state.auditEvents.length || 0);
-  const seq = Number(state.documentSeq || state.documents.length || 0);
-  state.documentSeq = Math.max(Number.isSafeInteger(seq) ? seq : 0, highestDocumentNumber(state.documents));
+  state.documentSeq = Math.max(documentNumber(state.documentSeq || state.documents.length), highestDocumentNumber(state.documents));
   return state;
+}
+
+const DOCUMENT_NUMBER_CAP = 1e12;
+
+function documentNumber(value) {
+  const n = Number(value);
+  return Number.isSafeInteger(n) && n > 0 && n <= DOCUMENT_NUMBER_CAP ? n : 0;
 }
 
 function highestDocumentNumber(documents) {
   let highest = 0;
   for (const doc of documents) {
     const match = /^DOC-(\d+)$/.exec(String(doc?.documentId ?? ''));
-    const n = match ? Number(match[1]) : 0;
-    if (Number.isSafeInteger(n) && n > highest) highest = n;
+    highest = Math.max(highest, match ? documentNumber(match[1]) : 0);
   }
   return highest;
 }
 
-function nextDocumentId(state) {
-  return `DOC-${String(++state.documentSeq).padStart(6, '0')}`;
+function documentIds(state) {
+  return new Set(state.documents.map((doc) => doc?.documentId));
+}
+
+function nextDocumentId(state, taken = documentIds(state)) {
+  let id;
+  do id = `DOC-${String(++state.documentSeq).padStart(6, '0')}`; while (taken.has(id));
+  return id;
 }
 
 export function renumberDuplicateDocuments(state) {
   ensureCaApiState(state);
   const seen = new Set();
+  const taken = documentIds(state);
   state.documents = state.documents.map((doc) => {
     if (!doc || typeof doc !== 'object' || Array.isArray(doc)) return doc;
     if (!seen.has(doc.documentId)) {
       seen.add(doc.documentId);
       return doc;
     }
-    return { ...doc, documentId: nextDocumentId(state), legacyDocumentId: doc.documentId };
+    return { ...doc, documentId: nextDocumentId(state, taken), legacyDocumentId: doc.documentId };
   });
   return state;
 }
