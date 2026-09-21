@@ -1,8 +1,9 @@
 import { isIsoDate } from './dates.mjs';
 import { isRuleId, validateRules } from './validate.mjs';
+import { isVerifiedFor } from './attest.mjs';
 
 function deepFreeze(value) {
-  if (value !== null && typeof value === 'object' && !Object.isFrozen(value)) {
+  if (value !== null && typeof value === 'object') {
     for (const key of Object.keys(value)) deepFreeze(value[key]);
     Object.freeze(value);
   }
@@ -36,8 +37,25 @@ export function createRuleBook(records) {
     return { ok: true, value: record.value, record };
   }
 
+  function createRuleContext() {
+    const used = new Map();
+    function contextRule(id, onDate) {
+      const result = rule(id, onDate);
+      if (result.ok) used.set(`${result.record.id}@${result.record.effectiveFrom}`, result.record);
+      return result;
+    }
+    function rulesUsed() {
+      return [...used.keys()].sort();
+    }
+    function unverifiedRules(firmId) {
+      return [...used.entries()].filter(([, record]) => !isVerifiedFor(record, firmId)).map(([key]) => key).sort();
+    }
+    return Object.freeze({ rule: contextRule, rulesUsed, unverifiedRules });
+  }
+
   return Object.freeze({
     rule,
+    createRuleContext,
     records: Object.freeze(cleanRecords),
     integrity: deepFreeze(integrity)
   });

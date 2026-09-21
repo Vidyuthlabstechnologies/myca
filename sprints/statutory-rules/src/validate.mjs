@@ -36,7 +36,7 @@ export function isPlainData(value, ancestors = new Set()) {
   return valid;
 }
 
-function isValidAttestation(attestation) {
+export function isValidAttestation(attestation) {
   if (!isPlainObject(attestation)) return false;
   if (Object.keys(attestation).some((key) => !ATTESTATION_FIELDS.has(key))) return false;
   if (!isNonEmptyText(attestation.by) || !isIsoDate(attestation.on)) return false;
