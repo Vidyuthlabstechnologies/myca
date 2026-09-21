@@ -51,7 +51,36 @@ export function ensureCaApiState(state) {
   state.firmUsers = Array.isArray(state.firmUsers) && state.firmUsers.length ? state.firmUsers : [DEFAULT_USER];
   state.auditEvents = Array.isArray(state.auditEvents) ? state.auditEvents : [];
   state.auditSeq = Number(state.auditSeq || state.auditEvents.length || 0);
-  state.documentSeq = Number(state.documentSeq || state.documents.length || 0);
+  const seq = Number(state.documentSeq || state.documents.length || 0);
+  state.documentSeq = Math.max(Number.isSafeInteger(seq) ? seq : 0, highestDocumentNumber(state.documents));
+  return state;
+}
+
+function highestDocumentNumber(documents) {
+  let highest = 0;
+  for (const doc of documents) {
+    const match = /^DOC-(\d+)$/.exec(String(doc?.documentId ?? ''));
+    const n = match ? Number(match[1]) : 0;
+    if (Number.isSafeInteger(n) && n > highest) highest = n;
+  }
+  return highest;
+}
+
+function nextDocumentId(state) {
+  return `DOC-${String(++state.documentSeq).padStart(6, '0')}`;
+}
+
+export function renumberDuplicateDocuments(state) {
+  ensureCaApiState(state);
+  const seen = new Set();
+  state.documents = state.documents.map((doc) => {
+    if (!doc || typeof doc !== 'object' || Array.isArray(doc)) return doc;
+    if (!seen.has(doc.documentId)) {
+      seen.add(doc.documentId);
+      return doc;
+    }
+    return { ...doc, documentId: nextDocumentId(state), legacyDocumentId: doc.documentId };
+  });
   return state;
 }
 
@@ -180,7 +209,7 @@ function documentPayload(state, clientId, input = {}) {
   ensureCaApiState(state);
   const content = String(input.content || '');
   const doc = {
-    documentId: `DOC-${String(++state.documentSeq).padStart(6, '0')}`,
+    documentId: nextDocumentId(state),
     clientId,
     kind: String(input.kind || 'general'),
     fileName: String(input.fileName || input.name || 'document.txt'),

@@ -1,5 +1,6 @@
 import { createState, loadState, saveState, seedDemo, defaultDataPath, serialize, deserialize } from './store.mjs';
 import { dirname } from 'node:path';
+import { createHash } from 'node:crypto';
 import { chat } from './router.mjs';
 import { runTool, TOOLS } from './tools.mjs';
 import { OSS_CATALOG } from './oss-catalog.mjs';
@@ -7,7 +8,7 @@ import { publicGovtConfig } from './govt.mjs';
 import { integrationReadiness } from './integration-contract.mjs';
 import { appendAuditEvent, handleCaApi, stateDigest, listClients, listDocuments } from './ca-api.mjs';
 import { providerCatalog, providerRequirementMap } from './provider-catalog.mjs';
-import { putDocument, readDocument } from './document-store.mjs';
+import { putDocument, readDocument, documentExists } from './document-store.mjs';
 import { getBook } from './books.mjs';
 import { approvalStatus } from './approvals.mjs';
 import { bookView } from './book-view.mjs';
@@ -45,14 +46,25 @@ function hydrateDocuments(state) {
   }
   for (const book of allBooks(state)) hydrateAttachments(book, state._dataDir);
   for (const doc of state.documents || []) {
-    if (doc.sha256) continue;
-    const content = legacy[doc.documentId];
-    if (typeof content !== 'string') continue;
+    if (!doc || typeof doc !== 'object' || documentExists(state._dataDir, doc.sha256)) continue;
+    const content = recoveredDocumentContent(state, legacy, doc);
+    if (content == null) continue;
     const stored = putDocument(state._dataDir, content);
     doc.sha256 = stored.sha256;
     doc.bytes = stored.bytes;
   }
   delete state._legacyFiles;
+}
+
+function legacyDocumentHash(content) {
+  return createHash('sha256').update(JSON.stringify(content)).digest('hex');
+}
+
+function recoveredDocumentContent(state, legacy, doc) {
+  const key = String(doc.legacyDocumentId ?? doc.documentId ?? '');
+  const attached = Object.hasOwn(state.attachments, key) ? state.attachments[key]?.sha256 : null;
+  const candidates = [Object.hasOwn(legacy, key) ? legacy[key] : null, attached ? readDocument(state._dataDir, attached) : null];
+  return candidates.find((content) => typeof content === 'string' && (!doc.sha256 || doc.sha256 === legacyDocumentHash(content)));
 }
 
 function toolState(state) {

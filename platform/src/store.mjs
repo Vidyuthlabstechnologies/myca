@@ -5,7 +5,7 @@ import { emptyLedger, freeze, hydrate } from './ledger.mjs';
 import { DEFAULT_COMPANY, installChart } from './chart.mjs';
 import { createInvoice, recordReceipt, createPurchase } from './invoice.mjs';
 import { normalizeIntegrationConnections } from './integration-contract.mjs';
-import { ensureCaApiState } from './ca-api.mjs';
+import { ensureCaApiState, renumberDuplicateDocuments } from './ca-api.mjs';
 import { serializeBook, deserializeBook, emptyBooks, normalizeClientId, isValidClientId } from './books.mjs';
 
 import { migrateLegacyBooks } from './govt.mjs';
@@ -131,6 +131,11 @@ function loadedActiveClientId(raw, remap, loadedClients) {
   return loadedClients.some((client) => client.clientId === id) ? id : 'SELF';
 }
 
+function rewritesDocuments(raw) {
+  const ids = (isRecord(raw) && Array.isArray(raw.documents) ? raw.documents : []).filter(isRecord).map((doc) => doc.documentId);
+  return new Set(ids).size !== ids.length;
+}
+
 function rewritesClients(raw) {
   if (!isRecord(raw)) return false;
   if (raw.clients != null && (!Array.isArray(raw.clients) || raw.clients.some((client) => !isRecord(client)))) return true;
@@ -191,11 +196,11 @@ export function deserialize(raw) {
   state.activeClientId = loadedActiveClientId(raw, remap, state.clients);
   state.outbox = raw.outbox || [];
   state.outboxSeq = raw.outboxSeq || 0;
-  return ensureCaApiState(state);
+  return renumberDuplicateDocuments(state);
 }
 
-function keepPreMigrationCopy(safePath, text) {
-  const name = `${basename(safePath, extname(safePath))}.before-client-id-migration-${Date.now()}.json`;
+function keepPreMigrationCopy(safePath, text, reason) {
+  const name = `${basename(safePath, extname(safePath))}.before-${reason}-migration-${Date.now()}.json`;
   writeFileSync(join(dirname(safePath), name), text);
 }
 
@@ -207,7 +212,8 @@ export function loadState(path) {
     const text = readFileSync(fd, 'utf8');
     const raw = JSON.parse(text);
     const state = deserialize(raw);
-    if (rewritesClients(raw)) keepPreMigrationCopy(safePath, text);
+    if (rewritesClients(raw)) keepPreMigrationCopy(safePath, text, 'client-id');
+    else if (rewritesDocuments(raw)) keepPreMigrationCopy(safePath, text, 'document-id');
     state._dataDir = dirname(safePath);
     return state;
   } finally {
