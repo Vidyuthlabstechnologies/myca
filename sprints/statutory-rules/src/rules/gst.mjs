@@ -15,7 +15,7 @@ const STATE_CODES_WITH_LADAKH = [...twoDigitCodes(1, 27), ...twoDigitCodes(29, 3
 const STATE_CODE_LISTS = 'State code masters of the e-invoice portal (einvoice1.gst.gov.in Master Codes: 01-27, 29-38, 96, 97, 99) and the e-way bill API (docs.ewaybillgst.gov.in state codes: 01-24, 26, 27, 29-38, 97, 99); neither lists 28; 96 is a place-of-supply code for foreign recipients, not a GSTIN prefix';
 
 const MERCHANT_EXPORTER = '40/2017-Central Tax (Rate) dated 23.10.2017 (0.05 per cent central tax, 0.1 per cent combined, supplies to merchant exporters)';
-const SERVICES_BEFORE = '11/2017-Central Tax (Rate) as amended up to 16.01.2025 (central tax 0.75, 2.5, 3.75, 6, 9, 14; 0.75 and 3.75 for residential construction inserted by 3/2019-Central Tax (Rate) w.e.f. 01.04.2019)';
+const SERVICES_BEFORE = '11/2017-Central Tax (Rate) as amended before 15/2025-Central Tax (Rate) (central tax 0.75, 2.5, 3.75, 6, 9, 14 in the ICAI consolidated text of August 2024; 0.75 and 3.75 for residential construction inserted by 3/2019-Central Tax (Rate) w.e.f. 01.04.2019)';
 const SERVICES_AFTER = '11/2017-Central Tax (Rate) as amended by 15/2025-Central Tax (Rate) w.e.f. 22.09.2025 (central tax 0.75, 2.5, 3.75, 6, 9, 20; 6 kept for item (ie) ongoing housing projects)';
 const GOODS_AFTER = '9/2025-Central Tax (Rate) dated 17.09.2025 w.e.f. 22.09.2025 superseding 1/2017-Central Tax (Rate) (central tax 2.5, 9, 20, 1.5, 0.125, 0.75 and 14 in Schedule VII for pan masala and tobacco); 14/2025-Central Tax (Rate) w.e.f. 22.09.2025 (central tax 6 for bricks and roofing tiles)';
 
