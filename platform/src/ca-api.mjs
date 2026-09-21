@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { journal, trialBalance } from './ledger.mjs';
 import { createInvoice, createPurchase } from './invoice.mjs';
 import { getBook, canonicalClientId, normalizeClientId, isValidClientId, ensureBooks } from './books.mjs';
-import { putDocument, readDocument } from './document-store.mjs';
+import { putDocument, readVerifiedDocument } from './document-store.mjs';
 
 const DEFAULT_USER = {
   userId: 'USR-ADMIN',
@@ -155,7 +155,6 @@ export function uploadDocument(state, clientId, input = {}) {
   doc.sha256 = stored.sha256;
   doc.bytes = stored.bytes;
   state.documents.push(doc);
-  state.files[doc.documentId] = content;
   appendAuditEvent(state, {
     actorId: input.actorId || 'api',
     clientId: id,
@@ -172,21 +171,21 @@ export function getDocumentContent(state, clientId, documentId) {
   const { clientId: id } = requireClient(state, clientId);
   const doc = state.documents.find((d) => d.documentId === documentId && d.clientId === id);
   if (!doc) return { ok: false, error: 'DOCUMENT_NOT_FOUND' };
-  const content = state.files[documentId] != null ? state.files[documentId] : readDocument(state._dataDir, doc.sha256);
-  if (content == null) return { ok: false, error: 'DOCUMENT_BYTES_MISSING' };
-  return { ok: true, data: { ...doc, content } };
+  const read = readVerifiedDocument(state._dataDir, doc.sha256);
+  if (!read.ok) return { ok: false, error: read.error };
+  return { ok: true, data: { ...doc, content: read.content } };
 }
 
 function documentPayload(state, clientId, input = {}) {
   ensureCaApiState(state);
   const content = String(input.content || '');
   const doc = {
-    documentId: input.documentId || `DOC-${String(++state.documentSeq).padStart(6, '0')}`,
+    documentId: `DOC-${String(++state.documentSeq).padStart(6, '0')}`,
     clientId,
     kind: String(input.kind || 'general'),
     fileName: String(input.fileName || input.name || 'document.txt'),
     contentType: String(input.contentType || 'text/plain'),
-    uploadedAt: input.uploadedAt || new Date().toISOString(),
+    uploadedAt: new Date().toISOString(),
     bytes: Buffer.byteLength(content, 'utf8'),
     sha256: jsonHash(content),
   };

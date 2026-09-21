@@ -10,6 +10,7 @@ import { newBook, serializeBook, isValidClientId, getBook } from '../src/books.m
 import { createInvoice } from '../src/invoice.mjs';
 import { handleCaApi, setActiveClient } from '../src/ca-api.mjs';
 import { journal } from '../src/ledger.mjs';
+import { putDocument } from '../src/document-store.mjs';
 
 const LINE = { description: 's', qty: 1, rate: 100, gstRate: 5 };
 
@@ -193,7 +194,8 @@ test('C4: legacy lower-case client ids are normalised on load into a null-protot
   assert.equal(Object.getPrototypeOf(state.extraBooks), null);
   assert.equal(Object.hasOwn(state.extraBooks, 'CL-3'), true);
   assert.equal(state.activeClientId, 'CL-3');
-  state.files['DOC-000001'] = 'filed';
+  state._dataDir = mkdtempSync(join(tmpdir(), 'myca-client-ids-docs-'));
+  state.documents.find((doc) => doc.documentId === 'DOC-000001').sha256 = putDocument(state._dataDir, 'filed').sha256;
   assert.deepEqual(handleCaApi(state, 'GET', '/api/ca/clients/CL-3/documents').data.documents.map((doc) => doc.documentId), ['DOC-000001']);
   assert.equal(handleCaApi(state, 'GET', '/api/ca/clients/CL-3/documents/DOC-000001').data.content, 'filed');
   assert.deepEqual(handleCaApi(state, 'GET', '/api/ca/clients/CL-3/audit-events').data.auditEvents.map((event) => event.eventId), ['AUD-000001']);
