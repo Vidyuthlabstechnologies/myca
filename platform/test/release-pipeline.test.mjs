@@ -153,3 +153,18 @@ test('CI: the build job holds no write token; only publish holds contents and id
   assert.match(publish.if, /github\.event_name == 'push' && startsWith\(github\.ref, 'refs\/tags\/v'\)/);
   assert.ok(!publish.steps.some((s) => /\bnpm\b|\bnpx\b|electron-builder/.test(s.run || '')), 'publish runs no package scripts');
 });
+
+test('CI: the release publishes SHA256SUMS, generated at build and verified before publishing', () => {
+  const wf = workflow('build-windows.yml');
+  const build = wf.jobs.build;
+  assert.ok(build.steps.some((s) => s['working-directory'] === 'platform' && /^node scripts\/sha256sums\.mjs dist\s*$/m.test(s.run || '')), 'build writes dist/SHA256SUMS');
+  const upload = build.steps.find((s) => String(s.uses || '').startsWith('actions/upload-artifact@'));
+  assert.match(upload.with.path, /platform\/dist\/SHA256SUMS/);
+  const publish = wf.jobs.publish;
+  const verifyAt = publish.steps.findIndex((s) => /sha256sum -c SHA256SUMS/.test(s.run || ''));
+  const releaseAt = publish.steps.findIndex((s) => String(s.uses || '').startsWith('softprops/action-gh-release@'));
+  assert.ok(verifyAt >= 0 && verifyAt < releaseAt, 'checksums are verified before the release is created');
+  assert.match(publish.steps[releaseAt].with.files, /dist\/SHA256SUMS/);
+  const archive = publish.steps.find((s) => /releases\/\$\{RELEASE_TAG\}\//.test(s.run || ''));
+  assert.match(archive.run, /dist\/SHA256SUMS/);
+});
