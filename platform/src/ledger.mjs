@@ -1,6 +1,7 @@
 const LEDGER_ID = 1n;
 const CHAIN_VERSION = 2;
-const LEGACY_BRIDGE_BUDGET = 200000;
+const LEGACY_GAP_BUDGET = 200000;
+const LEGACY_TOTAL_BUDGET = 5000000;
 
 export const ACCOUNT_FLAGS = {
   LINKED_EVENT: 0,
@@ -522,17 +523,32 @@ function legacyCandidates(rows, position) {
   return { candidates };
 }
 
+function byResolveId(a, b) {
+  if (a.key === b.key) return a.index - b.index;
+  if (a.key === null) return 1;
+  if (b.key === null) return -1;
+  return a.key < b.key ? -1 : 1;
+}
+
 function legacyBridge(candidates) {
+  const ordered = candidates.map((c) => ({ ...c, key: toBigInt(c.row.resolvedBy) })).sort(byResolveId);
   const consumed = new Set();
-  let budget = LEGACY_BRIDGE_BUDGET;
+  let head = 0;
+  let gapBudget = 0;
+  let totalBudget = LEGACY_TOTAL_BUDGET;
   const search = (from, to, limit, depth) => {
-    if (from === to) return true;
-    if (depth === 0 || budget <= 0) return false;
-    for (const candidate of candidates) {
+    if (depth === 0) return from === to;
+    for (let i = head; i < ordered.length; i++) {
+      const candidate = ordered[i];
       if (candidate.index >= limit || consumed.has(candidate)) continue;
       consumed.add(candidate);
       for (const flags of candidate.row.posted ? LEGACY_POST_FLAGS : LEGACY_VOID_FLAGS) {
-        budget -= 1;
+        gapBudget -= 1;
+        totalBudget -= 1;
+        if (gapBudget < 0 || totalBudget < 0) {
+          consumed.delete(candidate);
+          return false;
+        }
         if (search(crc32(`${candidate.row.id}:${flags}:${from}`), to, limit, depth - 1)) return true;
       }
       consumed.delete(candidate);
@@ -540,8 +556,16 @@ function legacyBridge(candidates) {
     return false;
   };
   return {
-    bridge: (from, to, limit) => search(from, to, limit, candidates.length),
-    unconsumed: () => candidates.find((c) => !consumed.has(c))?.row.id.toString() ?? null,
+    bridge(from, to, limit) {
+      if (from === to) return true;
+      while (head < ordered.length && consumed.has(ordered[head])) head += 1;
+      gapBudget = LEGACY_GAP_BUDGET;
+      for (let depth = 1; depth <= ordered.length - head && gapBudget > 0 && totalBudget > 0; depth += 1) {
+        if (search(from, to, limit, depth)) return true;
+      }
+      return false;
+    },
+    unconsumed: () => ordered.find((c) => !consumed.has(c))?.row.id.toString() ?? null,
   };
 }
 

@@ -397,3 +397,98 @@ test('ledger input: unusable ids and fractional amounts are rejected, not thrown
   assert.equal(l.transfers.length, 1);
   assert.equal(verifyChain(l).ok, true);
 });
+
+function legacyCrc(str) {
+  let c = 0xffffffff;
+  for (let i = 0; i < str.length; i++) {
+    c ^= str.charCodeAt(i);
+    for (let k = 0; k < 8; k++) c = (c >>> 1) ^ (0xedb88320 & -(c & 1));
+  }
+  return (c ^ 0xffffffff) >>> 0;
+}
+
+function legacySnapshot(accounts, ops) {
+  let clock = 0n;
+  let last = 0;
+  const books = accounts.map((a) => ({
+    id: String(a.id), ledger: 1, code: String(a.id), name: a.name, type: a.type, gstin: '', flags: a.flags, userData: 0,
+    timestamp: String(++clock), debitsPending: 0n, creditsPending: 0n, debitsPosted: 0n, creditsPosted: 0n,
+  }));
+  const book = (id) => books.find((a) => a.id === String(id));
+  const transfers = [];
+  for (const op of ops) {
+    if (op.pendingId) {
+      const target = transfers.find((t) => t.id === String(op.pendingId));
+      const post = Boolean(op.flags & F.POST_PENDING);
+      book(target.debitAccountId).debitsPending -= BigInt(target.amount);
+      book(target.creditAccountId).creditsPending -= BigInt(target.amount);
+      if (post) {
+        book(target.debitAccountId).debitsPosted += BigInt(target.amount);
+        book(target.creditAccountId).creditsPosted += BigInt(target.amount);
+      }
+      Object.assign(target, { pending: false, posted: post, voided: !post, resolvedBy: String(op.id) });
+      last = legacyCrc(`${op.pendingId}:${op.flags}:${last}`);
+      continue;
+    }
+    const pending = Boolean(op.flags & F.PENDING);
+    const bucket = pending ? 'Pending' : 'Posted';
+    book(op.debit)[`debits${bucket}`] += BigInt(op.amount);
+    book(op.credit)[`credits${bucket}`] += BigInt(op.amount);
+    const checksum = legacyCrc(JSON.stringify({ id: String(op.id), debit: String(op.debit), credit: String(op.credit), amount: String(op.amount), prev: last }));
+    transfers.push({
+      id: String(op.id), debitAccountId: String(op.debit), creditAccountId: String(op.credit), amount: String(op.amount), flags: op.flags || 0,
+      pending, posted: !pending, voided: false, userData: op.userData || 0, invoiceId: op.invoiceId || null, code: op.code || '',
+      timestamp: String(++clock), checksum, prevChecksum: last, resolvedBy: null,
+    });
+    last = checksum;
+  }
+  const text = (a) => Object.fromEntries(Object.entries(a).map(([k, v]) => [k, typeof v === 'bigint' ? v.toString() : v]));
+  return { clock: clock.toString(), lastChecksum: last, accounts: books.map(text), transfers };
+}
+
+const LEGACY_ACCOUNTS = [
+  { id: 1001, name: 'Cash', type: 'asset', flags: 2 },
+  { id: 1002, name: 'Bank', type: 'asset', flags: 0 },
+  { id: 1100, name: 'Trade receivables', type: 'asset', flags: 0 },
+  { id: 4000, name: 'Sales', type: 'income', flags: 1 },
+];
+
+test('legacy emulator reproduces the ebfc5ef fixture byte for byte', () => {
+  const snap = legacySnapshot(LEGACY_ACCOUNTS, [
+    { id: 101, debit: 1100, credit: 4000, amount: 100000, code: 'SALES', invoiceId: 'INV-001' },
+    { id: 102, debit: 1100, credit: 4000, amount: 50000, flags: F.PENDING, code: 'HOLD' },
+    { id: 103, debit: 1002, credit: 1100, amount: 20000, flags: F.PENDING, code: 'HOLD-RCPT' },
+    { id: 104, pendingId: 102, flags: F.POST_PENDING },
+    { id: 105, debit: 1002, credit: 1100, amount: 30000, code: 'RECEIPT', invoiceId: 'INV-001', userData: '2026-08-01' },
+    { id: 106, pendingId: 103, flags: F.VOID_PENDING },
+  ]);
+  snap.accounts.forEach((a, i) => { a.name = LEGACY_EBFC5EF.accounts[i].name; });
+  assert.deepEqual(snap, LEGACY_EBFC5EF);
+});
+
+test('legacy ledger with thousands of post/void gaps verifies quickly and still catches tampering', () => {
+  const ops = [];
+  const open = [];
+  let id = 1;
+  for (let i = 0; i < 3000; i++) {
+    const pid = id++;
+    ops.push({ id: pid, debit: 1100, credit: 4000, amount: 100 + i, flags: F.PENDING });
+    open.push(pid);
+    if (i % 3 === 2) {
+      const target = open.splice(Math.floor(open.length / 2), 1)[0];
+      ops.push({ id: id++, pendingId: target, flags: i % 2 ? F.POST_PENDING : F.VOID_PENDING | F.LINKED });
+    }
+    if (i % 7 === 0) ops.push({ id: id++, debit: 1002, credit: 1100, amount: 5 });
+  }
+  const snap = legacySnapshot(LEGACY_ACCOUNTS, ops);
+  const started = process.hrtime.bigint();
+  const verdict = verifyChain(hydrate(JSON.parse(JSON.stringify(snap))));
+  const elapsedMs = Number(process.hrtime.bigint() - started) / 1e6;
+  assert.equal(verdict.ok, true);
+  assert.ok(elapsedMs < 5000, `legacy verify took ${elapsedMs} ms`);
+  const tampered = JSON.parse(JSON.stringify(snap));
+  const resolved = tampered.transfers.find((t) => t.posted && t.flags === F.PENDING);
+  resolved.posted = false;
+  resolved.voided = true;
+  assert.equal(verifyChain(hydrate(tampered)).ok, false);
+});
