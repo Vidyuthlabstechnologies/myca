@@ -1,0 +1,4 @@
+[
+  { "name": "two amounts", "input": { "aPaise": 100, "bPaise": 200 }, "expected": { "totalPaise": 300 }, "citation": "Test fixture, not law" },
+  { "name": "deliberately wrong expectation", "input": { "aPaise": 100, "bPaise": 200 }, "expected": { "totalPaise": 1 }, "citation": "Test fixture, not law" }
+]

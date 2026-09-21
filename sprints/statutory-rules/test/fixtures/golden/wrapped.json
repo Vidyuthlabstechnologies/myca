@@ -1,0 +1,5 @@
+{
+  "cases": [
+    { "input": { "aPaise": 5, "bPaise": 7 }, "expected": { "totalPaise": 12 }, "citation": "Test fixture, not law" }
+  ]
+}

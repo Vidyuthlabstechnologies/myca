@@ -5,6 +5,7 @@ export { isIsoDate, fyOf, fyStart, fyEnd } from './dates.mjs';
 export { validateRules } from './validate.mjs';
 export { isVerifiedFor } from './attest.mjs';
 export { createRuleBook } from './book.mjs';
+export { runGolden } from './golden.mjs';
 
 const REGISTRY = createRuleBook(registeredRecords());
 
