@@ -448,3 +448,14 @@ test('docs: DEPLOYMENT.md names every repo variable and secret the workflows rea
   assert.match(doc, /SHA256SUMS/);
   assert.match(doc, /prefix/);
 });
+
+test('CI: no workflow grants write at the top level; jobs holding id-token run no package scripts', () => {
+  for (const file of workflowFiles()) {
+    const wf = workflow(file);
+    assert.ok(!Object.values(wf.permissions || {}).includes('write'), `${file} grants no write at the workflow level`);
+    for (const [name, job] of Object.entries(wf.jobs)) {
+      if ((job.permissions || {})['id-token'] !== 'write') continue;
+      assert.ok(!job.steps.some((s) => /\bnpm\b|\bnpx\b|electron-builder/.test(s.run || '')), `${file}:${name} holds id-token and runs no package scripts`);
+    }
+  }
+});
