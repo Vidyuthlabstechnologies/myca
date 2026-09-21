@@ -57,7 +57,7 @@ test('every Sandbox adapter calls only the transport functions its action declar
         caApprovalId = req.approval.approvalId;
       }
       const before = urls.length;
-      const out = await runSandboxOperation({ operationId, caApprovalId, params: opParams }, { state });
+      const out = await runSandboxOperation({ actorId: 'ca', operationId, caApprovalId, params: opParams }, { state });
       assert.doesNotMatch(String(out.error || ''), /is not a function|UNKNOWN_TRANSPORT/, operationId);
       if (ACTION_CLASSES[operationId].uses.length) assert.ok(urls.length > before, `${operationId} made no request: ${out.error}`);
     }

@@ -357,7 +357,7 @@ export function mockAdapterSupports(operationId) {
   return Boolean(MOCK_ADAPTERS[operationId]);
 }
 
-export async function runSandboxOperation({ operationId, actorId = 'ca', actor = null, caApprovalId = '', params = {}, payloadSummary = {}, clientId = 'SELF' } = {}, deps = {}) {
+export async function runSandboxOperation({ operationId, actorId = '', actor = null, caApprovalId = '', params = {}, payloadSummary = {}, clientId = 'SELF' } = {}, deps = {}) {
   const operation = sandboxOperationById(operationId);
   if (!operation) return { ok: false, error: 'UNKNOWN_SANDBOX_OPERATION' };
 
