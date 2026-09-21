@@ -17,7 +17,27 @@ function periodParts(params = {}) {
   return { year: params.year, month: params.month };
 }
 
-// Each adapter is a strict translator into MyCA shapes. No statutory logic lives here.
+function einvoicePayload(params, state) {
+  const invoiceId = params.invoiceId ? String(params.invoiceId) : '';
+  if (invoiceId && params.payload) {
+    return { ok: false, error: 'PAYLOAD_CONFLICTS_WITH_INVOICE', hint: 'Pass either params.invoiceId (the payload is built from the books) or a NIC JSON params.payload, not both.' };
+  }
+  if (invoiceId) {
+    const invoice = [...(state?.invoices || []), ...(state?.purchases || [])].find((i) => i.id === invoiceId);
+    if (!invoice) return { ok: false, error: 'INVOICE_NOT_FOUND', invoiceId };
+    return { ok: true, invoice, payload: invoiceToNicPayload(state.company, invoice) };
+  }
+  if (params.payload) return { ok: true, invoice: null, payload: params.payload };
+  return { ok: false, error: 'PAYLOAD_REQUIRED', hint: 'Pass params.invoiceId or a NIC JSON params.payload.' };
+}
+
+const REQUEST_BUILDERS = {
+  einvoice_generate: ({ params, state }) => einvoicePayload(params, state),
+  gst_save_gstr1: ({ params }) => (params.payload
+    ? { ok: true, payload: { ...periodParts(params), payload: params.payload } }
+    : { ok: false, error: 'PAYLOAD_REQUIRED', hint: 'Pass the GSTN GSTR-1 JSON as params.payload (see export_gstr1_json).' }),
+};
+
 const ADAPTERS = {
   gstin_verify: async ({ client, params }) => {
     const gstin = String(params.gstin || '').trim().toUpperCase();
@@ -113,14 +133,9 @@ const ADAPTERS = {
   },
 
   einvoice_generate: async ({ client, params, state }) => {
-    let payload = params.payload;
-    if (!payload && params.invoiceId) {
-      const invoice = [...(state?.invoices || []), ...(state?.purchases || [])].find((i) => i.id === params.invoiceId);
-      if (!invoice) return { ok: false, error: 'INVOICE_NOT_FOUND', invoiceId: params.invoiceId };
-      payload = invoiceToNicPayload(state.company, invoice);
-    }
-    if (!payload) return { ok: false, error: 'PAYLOAD_REQUIRED', hint: 'Pass params.invoiceId or a NIC JSON params.payload.' };
-    const res = await client.generateEinvoice(payload);
+    const built = einvoicePayload(params, state);
+    if (!built.ok) return built;
+    const res = await client.generateEinvoice(built.payload);
     const data = res.data?.data || {};
     if (res.ok && Number(data.Status) === 1) {
       return { ok: true, data: { irn: data.Data?.Irn || null, ackNo: data.Data?.AckNo || null, ackDate: data.Data?.AckDt || null, signedQrCode: data.Data?.SignedQRCode || null, status: data.Data?.Status || 'ACT' } };
@@ -174,9 +189,6 @@ export function adapterSupports(operationId) {
 
 const MOCK_TAG = { mock: true, simulated: true };
 
-// MYCA_MOCK_MODE=1 fixtures. Deterministic from the parameters; no network, no
-// credentials, no approvals. Each result is tagged mock:true so it can never be
-// mistaken for a real filing.
 const MOCK_ADAPTERS = {
   gstin_verify: async ({ params }) => {
     const gstin = String(params.gstin || '').trim().toUpperCase();
@@ -274,23 +286,16 @@ const MOCK_ADAPTERS = {
   }),
 
   einvoice_generate: async ({ params, state }) => {
-    let payload = params.payload;
-    if (!payload && params.invoiceId) {
-      const invoice = [...(state?.invoices || []), ...(state?.purchases || [])].find((i) => i.id === params.invoiceId);
-      if (!invoice) return { ok: false, error: 'INVOICE_NOT_FOUND', invoiceId: params.invoiceId };
-      payload = invoiceToNicPayload(state.company, invoice);
-    }
-    if (!payload) return { ok: false, error: 'PAYLOAD_REQUIRED', hint: 'Pass params.invoiceId or a NIC JSON params.payload.' };
+    const built = einvoicePayload(params, state);
+    if (!built.ok) return built;
+    const payload = built.payload;
     const hashed = createHash('sha256').update(`${payload?.TranDtls?.SupplyType || 'B2B'}:${payload?.CustDtls?.LglNm || 'MOCK'}:${params.invoiceId || 'INV-0001'}`).digest('hex').toUpperCase();
     const irn = hashed.slice(0, 64);
-    if (params.invoiceId) {
-      const invoice = [...(state?.invoices || []), ...(state?.purchases || [])].find((i) => i.id === params.invoiceId);
-      if (invoice) {
-        invoice.mockIrn = irn;
-        invoice.mockAckNo = `MOCK-ACK-${params.invoiceId}`;
-        invoice.mockAckDate = '2026-09-20 12:00:00';
-        invoice.mockSignedQrCode = `mock_qr_${irn.slice(0, 16)}`;
-      }
+    if (built.invoice) {
+      built.invoice.mockIrn = irn;
+      built.invoice.mockAckNo = `MOCK-ACK-${params.invoiceId}`;
+      built.invoice.mockAckDate = '2026-09-20 12:00:00';
+      built.invoice.mockSignedQrCode = `mock_qr_${irn.slice(0, 16)}`;
     }
     return {
       ok: true,
@@ -360,6 +365,7 @@ export async function runSandboxOperation({ operationId, actorId = 'ca', actor =
   const adapter = ADAPTERS[operation.operationId];
   const mockAdapter = MOCK_ADAPTERS[operation.operationId];
   const requester = actor || { userId: actorId };
+  const request = REQUEST_BUILDERS[operation.operationId]?.({ params, state }) || { ok: true, payload: params };
   const described = {
     operationId: operation.operationId,
     requirementId: operation.requirementId,
@@ -379,12 +385,13 @@ export async function runSandboxOperation({ operationId, actorId = 'ca', actor =
       caApprovalId: caApprovalId || '',
       mapsToTools: operation.mapsToTools,
     },
-    fixture: mockAdapter ? () => mockAdapter({ params, state }) : null,
+    payload: request.payload,
+    fixture: mockAdapter ? (copy) => mockAdapter({ params, state: copy }) : null,
     preflight: () => {
       const handoff = createSandboxHandoff({ operationId: operation.operationId, actorId: requester.userId, caApprovalId, payloadSummary });
       if (!handoff.ok && handoff.error !== 'CA_APPROVAL_REQUIRED') return handoff;
       if (!adapter) return { ok: false, error: 'NOT_IMPLEMENTED', hint: 'Operation is declared in the adapter contract but has no verified provider endpoint wired yet.' };
-      return null;
+      return request.ok ? null : request;
     },
   }, (transports) => adapter({ client: deps.client || transports.sandbox, params, state }));
 

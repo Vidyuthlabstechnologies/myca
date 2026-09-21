@@ -157,8 +157,8 @@ test('gate read: executes once with the transports and audits hashes without sec
   assert.equal(out.ok, true);
   assert.equal(out.legalName, 'X');
   assert.equal(calls.length, 1);
-  assert.equal(typeof calls[0].nic.generateIrn, 'function');
-  assert.equal(typeof calls[0].notifications.send, 'function');
+  assert.deepEqual(Object.keys(calls[0]), ['sandbox']);
+  assert.deepEqual(Object.keys(calls[0].sandbox), ['searchGstin']);
   const audit = state.auditEvents.at(-1);
   assert.equal(audit.action, 'external.validate_gstin_lookup');
   assert.equal(audit.actorId, 'ca');

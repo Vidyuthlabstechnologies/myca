@@ -1,7 +1,14 @@
 import { connect } from 'node:net';
 import { GOVT_SITES, publicGovtConfig } from './nic-config.mjs';
 
-export async function probeGovt(fetchFn = fetch) {
+const PROBE_TIMEOUT_MS = 10000;
+
+function probeSignal(signal) {
+  const timeout = AbortSignal.timeout(PROBE_TIMEOUT_MS);
+  return signal ? AbortSignal.any([timeout, signal]) : timeout;
+}
+
+export async function probeGovt(fetchFn = fetch, { signal } = {}) {
   const targets = [
     { id: 'gst.gov.in', url: GOVT_SITES.gstHome },
     { id: 'einvoice1.gst.gov.in', url: GOVT_SITES.einvoicePortal },
@@ -12,14 +19,16 @@ export async function probeGovt(fetchFn = fetch) {
   ];
   const hits = [];
   for (const t of targets) {
+    if (signal?.aborted) break;
     const started = Date.now();
     try {
       const res = await fetchFn(t.url, {
         method: 'GET',
         headers: { accept: 'application/json, text/plain, text/html, */*', 'user-agent': 'MyCA/0.1 (local books; GSTN/NIC client)' },
-        signal: AbortSignal.timeout(10000),
+        signal: probeSignal(signal),
         redirect: 'follow',
       });
+      await res.body?.cancel().catch(() => {});
       hits.push({ id: t.id, url: t.url, ok: res.status > 0, status: res.status, ms: Date.now() - started });
     } catch (err) {
       hits.push({ id: t.id, url: t.url, ok: false, status: 0, error: String(err.message || err), ms: Date.now() - started });
@@ -35,13 +44,17 @@ export async function probeGovt(fetchFn = fetch) {
   };
 }
 
-export async function probeTcp(host, port, timeoutMs = 1500) {
+export async function probeTcp(host, port, timeoutMs = 1500, { signal } = {}) {
+  if (signal?.aborted) return { status: 'error', error: 'ABORTED', host, port };
   return new Promise((resolve) => {
     const socket = connect({ host, port });
+    const onAbort = () => done({ status: 'error', error: 'ABORTED', host, port });
     const done = (result) => {
+      signal?.removeEventListener('abort', onAbort);
       socket.destroy();
       resolve(result);
     };
+    signal?.addEventListener('abort', onAbort, { once: true });
     socket.setTimeout(timeoutMs);
     socket.once('connect', () => done({ status: 'ok', host, port }));
     socket.once('timeout', () => done({ status: 'error', error: 'timeout', host, port }));

@@ -1067,7 +1067,7 @@ test('sandbox adapter: live gate, assistant block, approvals, secret redaction, 
   const liveBefore = process.env.MYCA_ENABLE_LIVE_CALLS;
   process.env.MYCA_ENABLE_LIVE_CALLS = '1';
   try {
-    const noApproval = await runSandboxOperation({ operationId: 'einvoice_generate', caApprovalId: '' }, { state, client });
+    const noApproval = await runSandboxOperation({ operationId: 'einvoice_generate', caApprovalId: '', params: { payload: { Version: '1.1' } } }, { state, client });
     assert.equal(noApproval.error, 'CA_APPROVAL_REQUIRED');
 
     const secret = await runSandboxOperation({ operationId: 'gstin_verify', payloadSummary: { apiKey: 'x' } }, { state, client });

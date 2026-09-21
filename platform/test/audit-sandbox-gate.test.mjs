@@ -136,3 +136,34 @@ test('mock mode: a Sandbox e-invoice fixture never touches the real IRN fields',
   assert.equal(stored.mockIrn, out.data.irn);
   assert.ok(stored.mockSignedQrCode);
 });
+
+test('live switch off: the e-invoice dry run is the NIC payload built from the books', async () => {
+  const state = createState();
+  const inv = createInvoice(state, { date: '2026-09-05', partyName: 'Retail', partyGstin: '27AAACH7409R1Z3', partyState: '27', lines: [{ description: 'x', hsn: '5208', qty: 1, rate: 100, gstRate: 5 }] });
+  const out = await runSandboxOperation({ operationId: 'einvoice_generate', caApprovalId: 'APR-000001', params: { invoiceId: inv.invoice.id } }, { state });
+  assert.equal(out.error, 'LIVE_CALLS_DISABLED');
+  const record = state.dryRuns.at(-1);
+  assert.equal(record.actionId, 'einvoice_generate');
+  assert.equal(record.payload.DocDtls.No, inv.invoice.id);
+  assert.equal(record.payload.Version, '1.1');
+  assert.equal(record.paramsHash, paramsHash({ invoiceId: inv.invoice.id }));
+});
+
+test('live switch off: the GSTR-1 save dry run is the exact request body', async () => {
+  const state = createState();
+  const gstr1 = { gstin: '27AABCU9603R1ZP', fp: '082026', b2b: [] };
+  await runSandboxOperation({ operationId: 'gst_save_gstr1', caApprovalId: 'APR-000001', params: { period: '2026-08', payload: gstr1 } }, { state });
+  assert.deepEqual(state.dryRuns.at(-1).payload, { year: 2026, month: 8, payload: gstr1 });
+});
+
+test('C3: an e-invoice cannot carry both an invoice id and a caller-built payload', async () => {
+  const state = createState();
+  const inv = createInvoice(state, { partyName: 'Retail', partyGstin: '', partyState: '27', lines: [{ description: 'x', qty: 1, rate: 100, gstRate: 5 }] });
+  const params = { invoiceId: inv.invoice.id, payload: { DocDtls: { No: 'FORGED-99' } } };
+  const off = await runSandboxOperation({ operationId: 'einvoice_generate', caApprovalId: 'APR-000001', params }, { state });
+  assert.equal(off.error, 'PAYLOAD_CONFLICTS_WITH_INVOICE');
+  const mock = await withEnv({ MYCA_MOCK_MODE: '1' }, () => runSandboxOperation({ operationId: 'einvoice_generate', params }, { state }));
+  assert.equal(mock.error, 'PAYLOAD_CONFLICTS_WITH_INVOICE');
+  assert.equal(state.invoices[0].mockIrn, undefined);
+  assert.equal((state.dryRuns || []).length, 0);
+});

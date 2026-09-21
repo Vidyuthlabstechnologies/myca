@@ -42,11 +42,11 @@ test('mock mode flag honors process.env.MYCA_MOCK_MODE', () => {
 
 test('runSandboxOperation mock: gstin_verify validates format then returns fixture', async () => {
   await inMockMode(async () => {
-    const bad = await runSandboxOperation({ operationId: 'gstin_verify', params: { gstin: '27' } });
+    const bad = await runSandboxOperation({ operationId: 'gstin_verify', params: { gstin: '27' } }, { state: createState() });
     assert.equal(bad.ok, false);
     assert.equal(bad.error, 'INVALID_GSTIN_FORMAT');
 
-    const res = await runSandboxOperation({ operationId: 'gstin_verify', params: { gstin: '27GSPMH1881G1ZH' } });
+    const res = await runSandboxOperation({ operationId: 'gstin_verify', params: { gstin: '27GSPMH1881G1ZH' } }, { state: createState() });
     assert.equal(res.ok, true);
     assert.equal(res.mock, true);
     assert.equal(res.data.valid, true);
@@ -56,11 +56,11 @@ test('runSandboxOperation mock: gstin_verify validates format then returns fixtu
 
 test('runSandboxOperation mock: gst_save_gstr1 demands the GSTN payload', async () => {
   await inMockMode(async () => {
-    const missing = await runSandboxOperation({ operationId: 'gst_save_gstr1', params: { period: '092026' } });
+    const missing = await runSandboxOperation({ operationId: 'gst_save_gstr1', params: { period: '092026' } }, { state: createState() });
     assert.equal(missing.ok, false);
     assert.equal(missing.error, 'PAYLOAD_REQUIRED');
 
-    const ok = await runSandboxOperation({ operationId: 'gst_save_gstr1', params: { period: '092026', payload: { gstin: '27GSPMH1881G1ZH' } } });
+    const ok = await runSandboxOperation({ operationId: 'gst_save_gstr1', params: { period: '092026', payload: { gstin: '27GSPMH1881G1ZH' } } }, { state: createState() });
     assert.equal(ok.ok, true);
     assert.equal(ok.mock, true);
     assert.equal(ok.data.saved, true);
@@ -69,15 +69,15 @@ test('runSandboxOperation mock: gst_save_gstr1 demands the GSTN payload', async 
 
 test('runSandboxOperation mock: gst_file_gstr1_evc needs pan + otp + summary', async () => {
   await inMockMode(async () => {
-    const without = await runSandboxOperation({ operationId: 'gst_file_gstr1_evc', params: { period: '092026' } });
+    const without = await runSandboxOperation({ operationId: 'gst_file_gstr1_evc', params: { period: '092026' } }, { state: createState() });
     assert.equal(without.ok, false);
     assert.equal(without.error, 'PAN_AND_EVC_OTP_REQUIRED');
 
-    const noSummary = await runSandboxOperation({ operationId: 'gst_file_gstr1_evc', params: { period: '092026', pan: 'AADHI1234X', otp: '123456' } });
+    const noSummary = await runSandboxOperation({ operationId: 'gst_file_gstr1_evc', params: { period: '092026', pan: 'AADHI1234X', otp: '123456' } }, { state: createState() });
     assert.equal(noSummary.ok, false);
     assert.equal(noSummary.error, 'SUMMARY_REQUIRED');
 
-    const ok = await runSandboxOperation({ operationId: 'gst_file_gstr1_evc', params: { period: '092026', pan: 'AADHI1234X', otp: '123456', summary: { newSumFlag: 'T', sec_sum: 'S', chksum: 'C' } } });
+    const ok = await runSandboxOperation({ operationId: 'gst_file_gstr1_evc', params: { period: '092026', pan: 'AADHI1234X', otp: '123456', summary: { newSumFlag: 'T', sec_sum: 'S', chksum: 'C' } } }, { state: createState() });
     assert.equal(ok.ok, true);
     assert.equal(ok.mock, true);
     assert.equal(ok.data.filed, true);
@@ -103,18 +103,18 @@ test('runSandboxOperation mock: einvoice_generate stamps only mock fields and ne
 
 test('runSandboxOperation mock: income_tax_calculate and tds jobs return fixtures', async () => {
   await inMockMode(async () => {
-    const tax = await runSandboxOperation({ operationId: 'income_tax_calculate', params: { ay: '2026-27' } });
+    const tax = await runSandboxOperation({ operationId: 'income_tax_calculate', params: { ay: '2026-27' } }, { state: createState() });
     assert.equal(tax.ok, true);
     assert.equal(tax.mock, true);
 
-    const tds = await runSandboxOperation({ operationId: 'tds_fvu_generate', params: { fvuKey: 'Q1-PAN' } });
+    const tds = await runSandboxOperation({ operationId: 'tds_fvu_generate', params: { fvuKey: 'Q1-PAN' } }, { state: createState() });
     assert.equal(tds.ok, true);
     assert.equal(tds.mock, true);
   });
 });
 
 test('runSandboxOperation real path still fail-closed when mock is off and live is off', async () => {
-  const res = await runSandboxOperation({ operationId: 'gstin_verify', params: { gstin: '27GSPMH1881G1ZH' } });
+  const res = await runSandboxOperation({ operationId: 'gstin_verify', params: { gstin: '27GSPMH1881G1ZH' } }, { state: createState() });
   assert.equal(res.ok, false);
   assert.equal(res.error, 'LIVE_CALLS_DISABLED');
 });
