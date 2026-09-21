@@ -10,6 +10,7 @@ import { providerCatalog, providerRequirementMap } from './provider-catalog.mjs'
 import { putDocument, readDocument } from './document-store.mjs';
 import { getBook } from './books.mjs';
 import { approvalStatus } from './approvals.mjs';
+import { bookView } from './book-view.mjs';
 import { liveCallsEnabled, mockModeEnabled } from './runtime-config.mjs';
 
 function hydrateDocuments(state) {
@@ -44,25 +45,9 @@ function hydrateDocuments(state) {
   delete state._legacyFiles;
 }
 
-// Tools receive a book-shaped view: the active client's ledger and invoices sit on top
-// of the root infra state (audit, attachments, integration registry, approvals).
 function toolState(state) {
   const id = String(state.activeClientId || 'SELF');
-  if (id === 'SELF') return state;
-  const book = getBook(state, id);
-  return { ...state, ...book, __book: book, __root: state };
-}
-
-function syncView(view, state) {
-  if (!view || view === state) return;
-  if (view.__book) {
-    view.__book.invoiceSeq = view.invoiceSeq;
-    view.__book.billSeq = view.billSeq;
-    view.__book.transferSeq = view.transferSeq;
-    view.__book.lockThrough = view.lockThrough;
-  }
-  state.activeClientId = view.activeClientId;
-  state.pendingFile = view.pendingFile;
+  return bookView(state, id === 'SELF' ? state : getBook(state, id));
 }
 
 export function openSession(path = defaultDataPath()) {
@@ -85,7 +70,6 @@ export function openSession(path = defaultDataPath()) {
         const beforeHash = stateDigest(state);
         const view = toolState(state);
         const out = await chat(view, message);
-        syncView(view, state);
         appendAuditEvent(state, {
           actorId: 'renderer',
           clientId: String(state.activeClientId || 'SELF'),
@@ -107,7 +91,6 @@ export function openSession(path = defaultDataPath()) {
         const beforeHash = stateDigest(state);
         const view = toolState(state);
         const out = await runTool(view, name, args);
-        syncView(view, state);
         appendAuditEvent(state, {
           actorId: 'renderer',
           clientId: String(state.activeClientId || 'SELF'),
