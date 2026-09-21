@@ -24,6 +24,18 @@ const LEGACY_EBFC5EF = {
   ],
 };
 
+const LEGACY_EBFC5EF_OPEN_PENDING = {
+  clock: '3',
+  lastChecksum: 1331123196,
+  accounts: [
+    { id: '1100', ledger: 1, code: '1100', name: 'Trade receivables', type: 'asset', gstin: '', flags: 0, userData: 0, timestamp: '1', debitsPending: '7000', creditsPending: '0', debitsPosted: '0', creditsPosted: '0' },
+    { id: '4000', ledger: 1, code: '4000', name: 'Sales', type: 'income', gstin: '', flags: 1, userData: 0, timestamp: '2', debitsPending: '0', creditsPending: '7000', debitsPosted: '0', creditsPosted: '0' },
+  ],
+  transfers: [
+    { id: '301', debitAccountId: '1100', creditAccountId: '4000', amount: '7000', flags: 1, pending: true, posted: false, voided: false, userData: 0, invoiceId: null, code: 'HOLD', timestamp: '3', checksum: 1331123196, prevChecksum: 0, resolvedBy: null },
+  ],
+};
+
 const legacy = () => hydrate(JSON.parse(JSON.stringify(LEGACY_EBFC5EF)));
 
 function book() {
@@ -356,4 +368,32 @@ test('legacy ledger from ebfc5ef: new postings append cleanly and resolve replay
   assert.equal(createTransfers(again, [{ id: 104, pendingId: 102, flags: F.POST_PENDING }])[0].exists, true);
   assert.equal(verifyChain(tamper(again, (s) => { s.transfers[0].amount = '1'; })).ok, false);
   assert.equal(verifyChain(tamper(again, (s) => { s.transfers[4].amount = '1'; })).ok, false);
+});
+
+test('legacy ledger from ebfc5ef: an open legacy pending can be posted by the new chain', () => {
+  const l = hydrate(JSON.parse(JSON.stringify(LEGACY_EBFC5EF_OPEN_PENDING)));
+  assert.equal(verifyChain(l).ok, true);
+  const posted = createTransfers(l, [{ id: 302, pendingId: 301, flags: F.POST_PENDING }]);
+  assert.equal(posted[0].ok, true);
+  assert.equal(l.transfers[1].prevChecksum, 1331123196);
+  assert.equal(verifyChain(l).ok, true);
+  const again = roundTrip(l);
+  assert.equal(verifyChain(again).ok, true);
+  assert.equal(createTransfers(again, [{ id: 302, pendingId: 301, flags: F.POST_PENDING }])[0].exists, true);
+  assert.equal(createTransfers(again, [{ id: 303, pendingId: 301, flags: F.VOID_PENDING }])[0].error, 'pending_already_posted');
+  assert.deepEqual(balances(again, 1100), { debitsPosted: '7000', creditsPosted: '0', debitsPending: '0', creditsPending: '0' });
+  assert.equal(verifyChain(tamper(again, (s) => { s.transfers[0].posted = false; s.transfers[0].voided = true; })).ok, false);
+});
+
+test('ledger input: unusable ids and fractional amounts are rejected, not thrown', () => {
+  const l = book();
+  const r = createTransfers(l, [
+    { id: undefined, debitAccountId: 1100, creditAccountId: 4000, amount: 1n },
+    { id: 'abc', debitAccountId: 1100, creditAccountId: 4000, amount: 1n },
+    { id: 400, debitAccountId: 1100, creditAccountId: 4000, amount: 1.5 },
+    { id: 401, debitAccountId: 1100, creditAccountId: 4000, amount: 150 },
+  ]);
+  assert.deepEqual(r.map((x) => x.error ?? 'ok'), ['id_invalid', 'id_invalid', 'amount_invalid', 'ok']);
+  assert.equal(l.transfers.length, 1);
+  assert.equal(verifyChain(l).ok, true);
 });
