@@ -16,6 +16,9 @@ export function newBook(company = {}) {
     transferSeq: 100000,
     imports: [],
     lockThrough: '',
+    files: {},
+    attachments: {},
+    pendingFile: null,
   };
 }
 
@@ -32,6 +35,7 @@ export function serializeBook(book) {
     transferSeq: book.transferSeq || 100000,
     imports: book.imports || [],
     lockThrough: book.lockThrough || '',
+    attachments: book.attachments || {},
   };
 }
 
@@ -48,6 +52,7 @@ export function deserializeBook(raw) {
   book.transferSeq = raw.transferSeq || 100000;
   book.imports = raw.imports || [];
   book.lockThrough = raw.lockThrough || '';
+  book.attachments = raw.attachments && typeof raw.attachments === 'object' ? raw.attachments : {};
   return book;
 }
 

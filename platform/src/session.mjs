@@ -13,6 +13,20 @@ import { approvalStatus } from './approvals.mjs';
 import { bookView } from './book-view.mjs';
 import { liveCallsEnabled, mockModeEnabled } from './runtime-config.mjs';
 
+function hydrateAttachments(book, dataDir) {
+  book.attachments = book.attachments && typeof book.attachments === 'object' ? book.attachments : {};
+  book.files = book.files && typeof book.files === 'object' ? book.files : {};
+  for (const [key, attachment] of Object.entries(book.attachments)) {
+    if (book.files[key] != null || !attachment?.sha256) continue;
+    const content = readDocument(dataDir, attachment.sha256);
+    if (content != null) book.files[key] = content;
+  }
+}
+
+function allBooks(state) {
+  return [state, ...Object.values(state.extraBooks || {})];
+}
+
 function hydrateDocuments(state) {
   state.attachments = state.attachments && typeof state.attachments === 'object' ? state.attachments : {};
   state.files = state.files && typeof state.files === 'object' ? state.files : {};
@@ -29,11 +43,7 @@ function hydrateDocuments(state) {
       at: state.attachments[key]?.at || new Date().toISOString(),
     };
   }
-  for (const [key, attachment] of Object.entries(state.attachments)) {
-    if (state.files[key] != null || !attachment?.sha256) continue;
-    const content = readDocument(state._dataDir, attachment.sha256);
-    if (content != null) state.files[key] = content;
-  }
+  for (const book of allBooks(state)) hydrateAttachments(book, state._dataDir);
   for (const doc of state.documents || []) {
     if (doc.sha256) continue;
     const content = legacy[doc.documentId];
@@ -117,7 +127,9 @@ export function openSession(path = defaultDataPath()) {
       const documents = {};
       const hashes = new Set();
       for (const doc of state.documents || []) if (doc.sha256) hashes.add(doc.sha256);
-      for (const att of Object.values(state.attachments || {})) if (att?.sha256) hashes.add(att.sha256);
+      for (const book of allBooks(state)) {
+        for (const att of Object.values(book.attachments || {})) if (att?.sha256) hashes.add(att.sha256);
+      }
       for (const sha of hashes) {
         const content = readDocument(state._dataDir, sha);
         if (content != null) documents[sha] = content;
@@ -198,19 +210,21 @@ export function openSession(path = defaultDataPath()) {
     attachFile(kind, name, content) {
       return exclusive(async () => {
         const beforeHash = stateDigest(state);
+        const clientId = String(state.activeClientId || 'SELF');
+        const book = getBook(state, clientId);
         const stored = putDocument(state._dataDir, content);
-        state.attachments[kind] = {
+        book.attachments[kind] = {
           kind,
           name: String(name || kind),
           sha256: stored.sha256,
           bytes: stored.bytes,
           at: new Date().toISOString(),
         };
-        state.files[kind] = String(content ?? '');
-        state.pendingFile = { kind, name, sha256: stored.sha256 };
+        book.files[kind] = String(content ?? '');
+        book.pendingFile = { kind, name, sha256: stored.sha256 };
         appendAuditEvent(state, {
           actorId: 'renderer',
-          clientId: 'SELF',
+          clientId,
           action: 'file.attach',
           beforeHash,
           afterHash: stateDigest(state),

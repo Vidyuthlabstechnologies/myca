@@ -1,6 +1,6 @@
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { openSession } from '../src/session.mjs';
@@ -57,4 +57,28 @@ test('H7: integration_connect persists while a client book is active', async () 
   assert.equal((await sess.tool('integration_connect', { requirementId: 'REQ-CA-006', provider: 'sandbox' })).ok, true);
   assert.equal(sess.state.integrationConnections['REQ-CA-006']?.status, 'connected');
   assert.equal(openSession(path).state.integrationConnections['REQ-CA-006']?.status, 'connected');
+});
+
+const INWARD = readFileSync(new URL('../../sprints/sprint-5-filing-assistant/test/fixtures/inward.csv', import.meta.url), 'utf8');
+
+test('H14: a firm attachment never feeds a client\'s return', async () => {
+  const { sess } = freshSession();
+  await sess.attachFile('inward', 'inward.csv', INWARD);
+  await activateClient(sess, 'CL-3');
+  const gstr3b = await sess.tool('prepare_gstr3b', {});
+  assert.equal(gstr3b.data.itc.netItc, 0);
+});
+
+test('H14: a client attachment stays on that client, survives reload, and never reaches SELF', async () => {
+  const { sess, path } = freshSession();
+  const selfBefore = (await sess.tool('prepare_gstr3b', {})).data.itc.netItc;
+  await activateClient(sess, 'CL-2');
+  await sess.attachFile('inward', 'inward.csv', INWARD);
+  assert.equal((await sess.tool('prepare_gstr3b', {})).data.itc.netItc, 130400);
+  await sess.tool('set_active_client', { clientId: 'SELF' });
+  assert.equal((await sess.tool('prepare_gstr3b', {})).data.itc.netItc, selfBefore);
+  const reopened = openSession(path);
+  assert.match(reopened.state.extraBooks['CL-2'].attachments.inward.sha256, /^[a-f0-9]{64}$/);
+  assert.equal(reopened.state.extraBooks['CL-2'].files.inward, INWARD);
+  assert.equal(reopened.state.attachments.inward, undefined);
 });
