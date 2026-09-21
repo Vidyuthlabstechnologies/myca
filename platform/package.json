@@ -35,8 +35,7 @@
       "target": [
         "nsis",
         "portable"
-      ],
-      "signExecutable": false
+      ]
     },
     "nsis": {
       "oneClick": false,

@@ -168,3 +168,20 @@ test('CI: the release publishes SHA256SUMS, generated at build and verified befo
   const archive = publish.steps.find((s) => /releases\/\$\{RELEASE_TAG\}\//.test(s.run || ''));
   assert.match(archive.run, /dist\/SHA256SUMS/);
 });
+
+test('release: Windows signing follows CSC_LINK instead of being switched off in package.json', () => {
+  const win = JSON.parse(read('platform/package.json')).build.win;
+  assert.equal(Object.hasOwn(win, 'signExecutable'), false, 'electron-builder 26 signs by default when CSC_LINK is set');
+  assert.notEqual(win.sign, false);
+  assert.notEqual(win.signAndEditExecutable, false);
+  const wf = workflow('build-windows.yml');
+  const build = wf.jobs.build;
+  const pack = build.steps.find((s) => /npm run pack/.test(s.run || ''));
+  assert.equal(pack.env.CSC_LINK, '${{ secrets.CSC_LINK }}');
+  assert.equal(jobEnv(wf, build).HAS_SIGNING_CERT, "${{ secrets.CSC_LINK != '' }}");
+  const verify = build.steps.find((s) => /Get-AuthenticodeSignature/.test(s.run || ''));
+  assert.ok(verify, 'a signed build is checked for a valid Authenticode signature');
+  assert.equal(verify.if, "env.HAS_SIGNING_CERT == 'true'");
+  assert.match(verify.run, /-ne 'Valid'/);
+  assert.match(verify.run, /exit 1/);
+});

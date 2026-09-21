@@ -14,6 +14,8 @@ jobs:
     runs-on: windows-latest
     permissions:
       contents: read
+    env:
+      HAS_SIGNING_CERT: ${{ secrets.CSC_LINK != '' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -32,6 +34,17 @@ jobs:
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
         run: npm run pack
+
+      - name: Verify Authenticode signatures
+        if: env.HAS_SIGNING_CERT == 'true'
+        working-directory: platform
+        shell: pwsh
+        run: |
+          $unsigned = Get-ChildItem dist -Filter *.exe | Where-Object { (Get-AuthenticodeSignature $_.FullName).Status -ne 'Valid' }
+          if ($unsigned) {
+            $unsigned | ForEach-Object { Write-Output "::error::installer is not validly signed: $($_.Name)" }
+            exit 1
+          }
 
       - name: Write SHA256SUMS
         working-directory: platform
