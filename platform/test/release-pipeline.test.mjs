@@ -222,3 +222,229 @@ test('CI: every action is pinned to a full commit SHA with its release noted bes
   assert.deepEqual(offenders, []);
   assert.ok(pinned >= 8, 'every workflow step that uses an action was checked');
 });
+
+function hclBody(text, header) {
+  const at = text.search(header);
+  if (at < 0) return null;
+  const open = text.indexOf('{', at);
+  let depth = 0;
+  for (let i = open; i < text.length; i += 1) {
+    if (text[i] === '{') depth += 1;
+    if (text[i] === '}') {
+      depth -= 1;
+      if (depth === 0) return text.slice(open + 1, i);
+    }
+  }
+  throw new Error(`hcl: unbalanced block ${header}`);
+}
+
+function resource(text, type, name) {
+  const body = hclBody(text, new RegExp(String.raw`^(resource|data) "${type}" "${name}" \{`, 'm'));
+  assert.ok(body !== null, `${type}.${name} is declared`);
+  return body;
+}
+
+function nested(body, name) {
+  return hclBody(body, new RegExp(String.raw`^\s*${name} \{`, 'm'));
+}
+
+function nestedAll(body, name) {
+  const out = [];
+  let rest = body;
+  for (;;) {
+    const at = rest.search(new RegExp(String.raw`^\s*${name} \{`, 'm'));
+    if (at < 0) return out;
+    const inner = hclBody(rest.slice(at), new RegExp(String.raw`${name} \{`));
+    out.push(inner);
+    rest = rest.slice(at + rest.slice(at).indexOf(inner) + inner.length);
+  }
+}
+
+function hclList(body, name) {
+  const m = body.match(new RegExp(String.raw`${name}\s*=\s*\[([^\]]*)\]`));
+  assert.ok(m, `${name} list is declared`);
+  return [...m[1].matchAll(/"([^"]+)"/g)].map((x) => x[1]);
+}
+
+function variableNames(text) {
+  return [...text.matchAll(/^variable "([^"]+)"/gm)].map((m) => m[1]).sort();
+}
+
+const BOOT = () => read('infra/bootstrap/main.tf');
+const ROOT = () => read('infra/main.tf');
+
+test('hcl helper: finds resources and nested blocks', () => {
+  const tf = 'resource "a" "b" {\n  x = "${var.y}"\n  inner {\n    k = 1\n  }\n  inner {\n    k = 2\n  }\n}\nresource "a" "c" {\n  z = ["p", "q"]\n}\n';
+  assert.match(resource(tf, 'a', 'b'), /x = "\$\{var\.y\}"/);
+  assert.deepEqual(nestedAll(resource(tf, 'a', 'b'), 'inner').map((s) => s.trim()), ['k = 1', 'k = 2']);
+  assert.deepEqual(hclList(resource(tf, 'a', 'c'), 'z'), ['p', 'q']);
+});
+
+test('infra: the deploy WIF provider trusts only this repository id on main or a v* tag', () => {
+  const boot = BOOT();
+  const provider = resource(boot, 'google_iam_workload_identity_pool_provider', 'github');
+  const condition = provider.match(/attribute_condition\s*=\s*(.+)/)[1];
+  assert.match(condition, /assertion\.repository_id == \\"\$\{var\.github_repository_id\}\\"/);
+  assert.match(condition, /assertion\.ref == \\"refs\/heads\/main\\" \|\| assertion\.ref\.startsWith\(\\"refs\/tags\/v\\"\)/);
+  assert.doesNotMatch(condition, /assertion\.repository ==/, 'the repository name can be re-registered; the id cannot');
+  assert.match(provider, /"attribute\.repository_id"\s*=\s*"assertion\.repository_id"/);
+  const binding = resource(boot, 'google_service_account_iam_member', 'deployer_wif');
+  assert.match(binding, /google_service_account\.deployer\.name/);
+  assert.match(binding, /principalSet:\/\/iam\.googleapis\.com\/\$\{google_iam_workload_identity_pool\.github\.name\}\/attribute\.repository_id\/\$\{var\.github_repository_id\}/);
+  const vars = read('infra/bootstrap/variables.tf');
+  assert.ok(variableNames(vars).includes('github_repository_id'));
+  assert.ok(!variableNames(vars).includes('github_branch_restriction'), 'the any-branch escape hatch is gone');
+  assert.match(hclBody(vars, /^variable "github_repository_id" \{/m), /validation \{[\s\S]*can\(regex\("\^\[0-9\]\+\$"/);
+});
+
+test('infra: PR plans use their own pool and a read-only service account', () => {
+  const boot = BOOT();
+  const provider = resource(boot, 'google_iam_workload_identity_pool_provider', 'github_plan');
+  assert.match(provider, /google_iam_workload_identity_pool\.github_plan\.workload_identity_pool_id/);
+  const condition = provider.match(/attribute_condition\s*=\s*(.+)/)[1];
+  assert.match(condition, /assertion\.repository_id == \\"\$\{var\.github_repository_id\}\\"/);
+  assert.match(condition, /assertion\.event_name == \\"pull_request\\"/);
+  resource(boot, 'google_service_account', 'planner');
+  const binding = resource(boot, 'google_service_account_iam_member', 'planner_wif');
+  assert.match(binding, /google_service_account\.planner\.name/);
+  assert.match(binding, /\$\{google_iam_workload_identity_pool\.github_plan\.name\}\/attribute\.repository_id\//);
+  assert.deepEqual(hclList(boot, 'planner_roles').sort(), ['roles/iam.securityReviewer', 'roles/viewer']);
+  const state = resource(boot, 'google_storage_bucket_iam_member', 'planner_state');
+  assert.match(state, /role\s*=\s*"roles\/storage\.objectViewer"/);
+  assert.match(state, /objects\/root\//);
+  const deployBinding = resource(boot, 'google_service_account_iam_member', 'deployer_wif');
+  assert.doesNotMatch(deployBinding, /github_plan/);
+  const outputs = read('infra/bootstrap/outputs.tf');
+  assert.match(outputs, /output "plan_workload_identity_provider"/);
+  assert.match(outputs, /output "plan_service_account"/);
+});
+
+test('infra: the deployer holds no escalation roles and gets storage per bucket', () => {
+  const boot = BOOT();
+  const roles = hclList(boot, 'deployer_roles');
+  for (const banned of ['roles/iam.serviceAccountUser', 'roles/run.admin', 'roles/secretmanager.admin', 'roles/storage.admin', 'roles/owner', 'roles/editor']) {
+    assert.ok(!roles.includes(banned), `deployer_roles excludes ${banned}`);
+  }
+  assert.ok(!roles.some((r) => r.startsWith('roles/storage.')), 'no project-wide storage role');
+  const creator = resource(boot, 'google_project_iam_custom_role', 'bucket_creator');
+  assert.deepEqual(hclList(creator, 'permissions'), ['storage.buckets.create']);
+  const perBucket = resource(boot, 'google_project_iam_member', 'deployer_bucket_admin');
+  assert.match(perBucket, /for_each\s*=\s*local\.app_buckets/);
+  assert.match(perBucket, /role\s*=\s*"roles\/storage\.admin"/);
+  assert.match(nested(perBucket, 'condition'), /resource\.name == \\"projects\/_\/buckets\/\$\{each\.value\}\\" \|\| resource\.name\.startsWith\(\\"projects\/_\/buckets\/\$\{each\.value\}\/\\"\)/);
+  const apps = hclBody(boot, /app_buckets\s*=\s*\{/);
+  for (const key of ['site', 'artifacts', 'downloads']) assert.match(apps, new RegExp(String.raw`${key}\s*=`));
+  assert.doesNotMatch(apps, /tfstate/);
+  const state = resource(boot, 'google_storage_bucket_iam_member', 'deployer_state');
+  assert.match(state, /role\s*=\s*"roles\/storage\.objectAdmin"/);
+  assert.match(nested(state, 'condition'), /resource\.name == \\"projects\/_\/buckets\/\$\{google_storage_bucket\.tf_state\.name\}\\" \|\| resource\.name\.startsWith\(\\"projects\/_\/buckets\/\$\{google_storage_bucket\.tf_state\.name\}\/objects\/root\/\\"\)/, 'CI can reach only the root/ state prefix');
+});
+
+test('infra: bootstrap and root keep their state under separate prefixes', () => {
+  assert.match(read('infra/versions.tf'), /backend "gcs" \{\s*prefix\s*=\s*"root"\s*\}/);
+  const boot = read('infra/bootstrap/versions.tf');
+  assert.match(boot, /backend "local" \{\}/);
+  assert.match(boot, /prefix\s*=\s*"bootstrap"/, 'the migration note names the bootstrap prefix');
+  assert.doesNotMatch(boot, /-migrate-state -backend-config="bucket=[^"]*"\s*$/m, 'no note migrates bootstrap state into the root default.tfstate');
+});
+
+
+test('infra: the uptime check speaks TLS and validates the certificate', () => {
+  const check = nested(resource(ROOT(), 'google_monitoring_uptime_check_config', 'site'), 'http_check');
+  assert.match(check, /port\s*=\s*443/);
+  assert.match(check, /use_ssl\s*=\s*true/);
+  assert.match(check, /validate_ssl\s*=\s*true/);
+});
+
+test('infra: public buckets grant get only; noncurrent versions expire; downloads carries no no-op rule', () => {
+  const root = ROOT();
+  for (const name of ['site_public', 'downloads_public']) {
+    const b = resource(root, 'google_storage_bucket_iam_member', name);
+    assert.match(b, /role\s*=\s*"roles\/storage\.legacyObjectReader"/, `${name} is get-only`);
+    assert.match(b, /member\s*=\s*"allUsers"/);
+  }
+  assert.doesNotMatch(root, /roles\/storage\.objectViewer/);
+  for (const name of ['site', 'artifacts']) {
+    const bucket = resource(root, 'google_storage_bucket', name);
+    assert.match(nested(bucket, 'versioning'), /enabled\s*=\s*true/);
+    assert.ok(nestedAll(bucket, 'lifecycle_rule').some((r) => /days_since_noncurrent_time\s*=\s*\d+/.test(r) && /type\s*=\s*"Delete"/.test(r)), `${name} deletes noncurrent versions after a set number of days`);
+  }
+  const downloads = resource(root, 'google_storage_bucket', 'downloads');
+  const versioned = /versioning \{\s*enabled\s*=\s*true/.test(downloads);
+  assert.ok(versioned || !/num_newer_versions|days_since_noncurrent_time/.test(downloads), 'no version rule on an unversioned bucket');
+  const cdn = nested(resource(root, 'google_compute_backend_bucket', 'downloads'), 'cdn_policy');
+  for (const key of ['default_ttl', 'client_ttl']) assert.ok(Number(cdn.match(new RegExp(String.raw`${key}\s*=\s*(\d+)`))[1]) <= 300, `${key} is at most 300s`);
+});
+
+test('infra: the managed certificate has a content-derived name and is replaced before it is destroyed', () => {
+  const cert = resource(ROOT(), 'google_compute_managed_ssl_certificate', 'site');
+  assert.match(cert, /name\s*=\s*"\$\{local\.lb_name\}-cert-\$\{substr\(sha256\(join\(",", local\.domains\)\), 0, 8\)\}"/);
+  assert.match(nested(cert, 'lifecycle'), /create_before_destroy\s*=\s*true/);
+  assert.match(read('infra/outputs.tf'), /output "ssl_certificate_name"/);
+});
+
+test('infra: provider lock files are committed', () => {
+  const ignore = read('.gitignore').split('\n').map((l) => l.trim());
+  assert.ok(!ignore.includes('.terraform.lock.hcl'), '.gitignore does not hide the lock file');
+  for (const dir of ['infra', 'infra/bootstrap']) {
+    const lock = read(`${dir}/.terraform.lock.hcl`);
+    assert.match(lock, /provider "registry\.terraform\.io\/hashicorp\/google" \{/);
+    assert.match(lock, /constraints = "~> 6\.0"/);
+    assert.match(lock, /"zh:[0-9a-f]{64}"/);
+  }
+});
+
+test('CI: Terraform plans PRs read-only and applies main with every input as TF_VAR_*', () => {
+  const wf = workflow('terraform.yml');
+  assert.ok(!Object.values(wf.permissions || {}).includes('write'), 'no workflow-level write permission');
+  const { plan, apply } = wf.jobs;
+  assert.ok(plan && apply, 'separate plan and apply jobs');
+  assert.equal(plan.if, "github.event_name == 'pull_request' && vars.GCP_WIF_PLAN_PROVIDER != ''");
+  assert.equal(plan.environment, undefined, 'the PR plan job has no environment');
+  assert.equal(plan.permissions['id-token'], 'write');
+  assert.equal(plan.permissions.contents, 'read');
+  const planAuth = plan.steps.find((s) => String(s.uses || '').startsWith('google-github-actions/auth@'));
+  assert.equal(planAuth.with.workload_identity_provider, '${{ vars.GCP_WIF_PLAN_PROVIDER }}');
+  assert.equal(planAuth.with.service_account, '${{ vars.GCP_PLAN_SA }}');
+  assert.match(apply.if, /github\.ref == 'refs\/heads\/main'/);
+  assert.match(apply.if, /github\.event_name != 'pull_request'/);
+  assert.equal(apply.environment, 'production');
+  const applyAuth = apply.steps.find((s) => String(s.uses || '').startsWith('google-github-actions/auth@'));
+  assert.equal(applyAuth.with.workload_identity_provider, '${{ vars.GCP_WIF_PROVIDER }}');
+  assert.equal(applyAuth.with.service_account, '${{ vars.GCP_DEPLOY_SA }}');
+  const expected = variableNames(read('infra/variables.tf'));
+  for (const [name, job] of [['plan', plan], ['apply', apply]]) {
+    const env = jobEnv(wf, job);
+    const missing = expected.filter((v) => !(`TF_VAR_${v}` in env));
+    assert.deepEqual(missing, [], `${name} passes every root variable as TF_VAR_*`);
+    for (const v of expected) assert.match(env[`TF_VAR_${v}`], /^\$\{\{ vars\.GCP_[A-Z_]+ \}\}$/, `TF_VAR_${v} comes from a repo variable`);
+    const init = job.steps.find((s) => /terraform init/.test(s.run || ''));
+    assert.match(init.run, /-lockfile=readonly/);
+  }
+  const planRun = plan.steps.find((s) => /terraform plan/.test(s.run || '')).run;
+  assert.match(planRun, /-lock=false/, 'a read-only identity cannot take the state lock, so a PR plan never holds it');
+  const applyRun = apply.steps.find((s) => /terraform apply/.test(s.run || '')).run;
+  assert.match(applyRun, /-lock-timeout=\d+m/);
+});
+
+test('infra: root variables that cannot be empty say so', () => {
+  const vars = read('infra/variables.tf');
+  for (const name of ['project_id', 'region']) {
+    assert.match(hclBody(vars, new RegExp(String.raw`^variable "${name}" \{`, 'm')), /validation \{/, `${name} is validated`);
+  }
+  assert.ok(!variableNames(vars).includes('labels'), 'labels are fixed in code, not a CI input');
+});
+
+test('docs: DEPLOYMENT.md names every repo variable and secret the workflows read', () => {
+  const doc = read('DEPLOYMENT.md');
+  const names = new Set();
+  for (const file of workflowFiles()) {
+    for (const m of read(`.github/workflows/${file}`).matchAll(/\b(vars|secrets)\.([A-Z][A-Z0-9_]*)/g)) names.add(m[2]);
+  }
+  const missing = [...names].filter((n) => !doc.includes(`\`${n}\``)).sort();
+  assert.deepEqual(missing, []);
+  assert.doesNotMatch(doc, /platform 76/);
+  assert.match(doc, /github_repository_id/);
+  assert.match(doc, /SHA256SUMS/);
+  assert.match(doc, /prefix/);
+});

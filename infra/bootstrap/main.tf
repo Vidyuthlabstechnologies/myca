@@ -1,18 +1,21 @@
 # MyCA — one-time GCP bootstrap (run by the GCP account owner)
 #
-# Creates: required APIs, Terraform state bucket, GitHub Workload Identity
-# Federation (keyless), and the CI deploy service account + its roles.
-# Nothing secret is stored: GitHub authenticates with short-lived OIDC tokens.
+# Creates: required APIs, the Terraform state bucket, two GitHub Workload
+# Identity Federation pools (deploy and PR plan), the CI deployer and planner
+# service accounts, and their roles. Nothing secret is stored: GitHub
+# authenticates with short-lived OIDC tokens.
 
 locals {
-  state_bucket = var.state_bucket_name != "" ? var.state_bucket_name : "${var.project_id}-myca-tfstate"
-  deploy_sa    = "${var.deploy_service_account_id}@${var.project_id}.iam.gserviceaccount.com"
+  state_bucket     = var.state_bucket_name != "" ? var.state_bucket_name : "${var.project_id}-myca-tfstate"
+  site_bucket      = var.site_bucket_name != "" ? var.site_bucket_name : "${var.project_id}-myca-site"
+  artifacts_bucket = var.artifacts_bucket_name != "" ? var.artifacts_bucket_name : "${var.project_id}-myca-artifacts"
+  downloads_bucket = var.downloads_bucket_name != "" ? var.downloads_bucket_name : "${var.project_id}-myca-downloads"
 
-  # GitHub's OIDC subject constraints. Restrict to the repo (and optionally a ref).
-  wif_condition = var.github_branch_restriction != "" ? join(" && ", [
-    "assertion.repository == \"${var.github_repository}\"",
-    "assertion.ref == \"${var.github_branch_restriction}\"",
-  ]) : "assertion.repository == \"${var.github_repository}\""
+  app_buckets = {
+    site      = local.site_bucket
+    artifacts = local.artifacts_bucket
+    downloads = local.downloads_bucket
+  }
 
   required_apis = [
     "cloudresourcemanager.googleapis.com",
@@ -33,19 +36,19 @@ locals {
     "sqladmin.googleapis.com",
   ]
 
-  # Project roles the CI deployer needs to manage the app infra (root module).
   deployer_roles = [
     "roles/browser",
-    "roles/storage.admin",
     "roles/compute.networkAdmin",
     "roles/compute.loadBalancerAdmin",
     "roles/artifactregistry.admin",
     "roles/monitoring.admin",
     "roles/dns.admin",
-    "roles/secretmanager.admin",
-    "roles/run.admin",
-    "roles/iam.serviceAccountUser",
     "roles/serviceusage.serviceUsageViewer",
+  ]
+
+  planner_roles = [
+    "roles/viewer",
+    "roles/iam.securityReviewer",
   ]
 }
 
@@ -87,8 +90,8 @@ resource "google_storage_bucket" "tf_state" {
 resource "google_iam_workload_identity_pool" "github" {
   project                   = var.project_id
   workload_identity_pool_id = "github"
-  display_name              = "GitHub Actions"
-  description               = "OIDC pool for GitHub Actions deploys."
+  display_name              = "GitHub Actions deploy"
+  description               = "OIDC pool for GitHub Actions runs on main and v* tags."
 
   depends_on = [google_project_service.apis]
 }
@@ -97,24 +100,55 @@ resource "google_iam_workload_identity_pool_provider" "github" {
   project                            = var.project_id
   workload_identity_pool_id          = google_iam_workload_identity_pool.github.workload_identity_pool_id
   workload_identity_pool_provider_id = "github"
-  display_name                       = "GitHub OIDC"
+  display_name                       = "GitHub OIDC (deploy)"
 
   attribute_mapping = {
-    "google.subject"       = "assertion.sub"
-    "attribute.actor"      = "assertion.actor"
-    "attribute.repository" = "assertion.repository"
-    "attribute.ref"        = "assertion.ref"
+    "google.subject"          = "assertion.sub"
+    "attribute.actor"         = "assertion.actor"
+    "attribute.repository"    = "assertion.repository"
+    "attribute.repository_id" = "assertion.repository_id"
+    "attribute.ref"           = "assertion.ref"
   }
 
-  attribute_condition = local.wif_condition
+  attribute_condition = "assertion.repository_id == \"${var.github_repository_id}\" && (assertion.ref == \"refs/heads/main\" || assertion.ref.startsWith(\"refs/tags/v\"))"
 
   oidc {
     issuer_uri = "https://token.actions.githubusercontent.com"
   }
-
-  depends_on = [google_iam_workload_identity_pool.github]
 }
 
+resource "google_iam_workload_identity_pool" "github_plan" {
+  project                   = var.project_id
+  workload_identity_pool_id = "github-plan"
+  display_name              = "GitHub Actions PR plan"
+  description               = "OIDC pool for read-only Terraform plans on pull requests."
+
+  depends_on = [google_project_service.apis]
+}
+
+resource "google_iam_workload_identity_pool_provider" "github_plan" {
+  project                            = var.project_id
+  workload_identity_pool_id          = google_iam_workload_identity_pool.github_plan.workload_identity_pool_id
+  workload_identity_pool_provider_id = "github-plan"
+  display_name                       = "GitHub OIDC (PR plan)"
+
+  attribute_mapping = {
+    "google.subject"          = "assertion.sub"
+    "attribute.actor"         = "assertion.actor"
+    "attribute.repository_id" = "assertion.repository_id"
+    "attribute.ref"           = "assertion.ref"
+  }
+
+  attribute_condition = "assertion.repository_id == \"${var.github_repository_id}\" && assertion.event_name == \"pull_request\""
+
+  oidc {
+    issuer_uri = "https://token.actions.githubusercontent.com"
+  }
+}
+
+# ---------------------------------------------------------------------------
+# CI deployer: main-branch and v* tag runs (Terraform apply, site deploy, releases)
+# ---------------------------------------------------------------------------
 resource "google_service_account" "deployer" {
   project      = var.project_id
   account_id   = var.deploy_service_account_id
@@ -123,11 +157,10 @@ resource "google_service_account" "deployer" {
   depends_on = [google_project_service.apis]
 }
 
-# Allow the repo's Actions runs to impersonate the deployer SA.
-resource "google_service_account_iam_member" "wif" {
+resource "google_service_account_iam_member" "deployer_wif" {
   service_account_id = google_service_account.deployer.name
   role               = "roles/iam.workloadIdentityUser"
-  member             = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.github.name}/attribute.repository/${var.github_repository}"
+  member             = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.github.name}/attribute.repository_id/${var.github_repository_id}"
 }
 
 resource "google_project_iam_member" "deployer" {
@@ -136,4 +169,78 @@ resource "google_project_iam_member" "deployer" {
   project = var.project_id
   role    = each.value
   member  = "serviceAccount:${google_service_account.deployer.email}"
+}
+
+resource "google_project_iam_custom_role" "bucket_creator" {
+  project     = var.project_id
+  role_id     = "mycaBucketCreator"
+  title       = "MyCA bucket creator"
+  description = "Create buckets only; access to each MyCA bucket is granted separately."
+  permissions = ["storage.buckets.create"]
+}
+
+resource "google_project_iam_member" "deployer_bucket_creator" {
+  project = var.project_id
+  role    = google_project_iam_custom_role.bucket_creator.id
+  member  = "serviceAccount:${google_service_account.deployer.email}"
+}
+
+resource "google_project_iam_member" "deployer_bucket_admin" {
+  for_each = local.app_buckets
+
+  project = var.project_id
+  role    = "roles/storage.admin"
+  member  = "serviceAccount:${google_service_account.deployer.email}"
+
+  condition {
+    title      = "myca-${each.key}-bucket-only"
+    expression = "resource.name == \"projects/_/buckets/${each.value}\" || resource.name.startsWith(\"projects/_/buckets/${each.value}/\")"
+  }
+}
+
+resource "google_storage_bucket_iam_member" "deployer_state" {
+  bucket = google_storage_bucket.tf_state.name
+  role   = "roles/storage.objectAdmin"
+  member = "serviceAccount:${google_service_account.deployer.email}"
+
+  condition {
+    title      = "root-state-only"
+    expression = "resource.name == \"projects/_/buckets/${google_storage_bucket.tf_state.name}\" || resource.name.startsWith(\"projects/_/buckets/${google_storage_bucket.tf_state.name}/objects/root/\")"
+  }
+}
+
+# ---------------------------------------------------------------------------
+# CI planner: pull-request runs (read-only Terraform plan, no environment)
+# ---------------------------------------------------------------------------
+resource "google_service_account" "planner" {
+  project      = var.project_id
+  account_id   = var.plan_service_account_id
+  display_name = "MyCA GitHub Actions PR planner (read-only)"
+
+  depends_on = [google_project_service.apis]
+}
+
+resource "google_service_account_iam_member" "planner_wif" {
+  service_account_id = google_service_account.planner.name
+  role               = "roles/iam.workloadIdentityUser"
+  member             = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.github_plan.name}/attribute.repository_id/${var.github_repository_id}"
+}
+
+resource "google_project_iam_member" "planner" {
+  for_each = toset(local.planner_roles)
+
+  project = var.project_id
+  role    = each.value
+  member  = "serviceAccount:${google_service_account.planner.email}"
+}
+
+resource "google_storage_bucket_iam_member" "planner_state" {
+  bucket = google_storage_bucket.tf_state.name
+  role   = "roles/storage.objectViewer"
+  member = "serviceAccount:${google_service_account.planner.email}"
+
+  condition {
+    title      = "root-state-read-only"
+    expression = "resource.name == \"projects/_/buckets/${google_storage_bucket.tf_state.name}\" || resource.name.startsWith(\"projects/_/buckets/${google_storage_bucket.tf_state.name}/objects/root/\")"
+  }
 }
