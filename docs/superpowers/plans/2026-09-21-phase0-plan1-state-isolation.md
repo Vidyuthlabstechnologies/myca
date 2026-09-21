@@ -1099,9 +1099,12 @@ with:
   (`book-view.mjs`), a Proxy that routes `BOOK_KEYS` to the active client's book and
   `FIRM_KEYS` to the root. Writing any other top-level key throws
   `VIEW_WRITE_UNKNOWN_KEY`. Add a new top-level field to exactly one of the two sets;
-  `test/book-view.test.mjs` fails on any unclassified `state.x =` write. Never spread,
-  `Object.keys` or `JSON.stringify` a view: those see the root, not the routed fields.
-  Read fields by name.
+  `test/book-view.test.mjs` fails on any unclassified write or on a key that
+  `newBook()`/`createState()` carries without classifying it. Never enumerate, inspect or
+  clone a view (spread, `Object.keys`, `JSON.stringify`, `util.inspect`, `structuredClone`):
+  its key list comes from the root, so book-only fields go missing and inspected values are
+  the root's. Read fields by name. The throw is a developer tripwire, not a transaction:
+  writes made before it are kept.
 - **Client ids** match `^[A-Z0-9][A-Z0-9_-]{1,31}$` and are upper-cased on entry
   (`normalizeClientId`); `SELF` is reserved. `extraBooks` is a null-prototype map; look
   books up with `Object.hasOwn`, never by truthiness or `in`.
