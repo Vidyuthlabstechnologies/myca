@@ -6,7 +6,7 @@ import { DEFAULT_COMPANY, installChart } from './chart.mjs';
 import { createInvoice, recordReceipt, createPurchase } from './invoice.mjs';
 import { normalizeIntegrationConnections } from './integration-contract.mjs';
 import { ensureCaApiState } from './ca-api.mjs';
-import { serializeBook, deserializeBook } from './books.mjs';
+import { serializeBook, deserializeBook, emptyBooks, normalizeClientId, isValidClientId } from './books.mjs';
 
 import { migrateLegacyBooks } from './govt.mjs';
 
@@ -38,7 +38,7 @@ export function createState() {
     auditSeq: 0,
     documentSeq: 0,
     clients: [],
-    extraBooks: {},
+    extraBooks: emptyBooks(),
     approvals: [],
     approvalSeq: 0,
     activeClientId: 'SELF',
@@ -80,6 +80,12 @@ export function serialize(state) {
   };
 }
 
+function canonicalClientId(value) {
+  const id = normalizeClientId(value);
+  if (!isValidClientId(id)) throw new Error('INVALID_CLIENT_ID');
+  return id;
+}
+
 export function deserialize(raw) {
   const state = createState();
   if (!raw) return state;
@@ -104,13 +110,13 @@ export function deserialize(raw) {
   state.auditEvents = raw.auditEvents || [];
   state.auditSeq = raw.auditSeq || 0;
   state.documentSeq = raw.documentSeq || 0;
-  state.clients = raw.clients || [];
-  state.extraBooks = Object.fromEntries(
-    Object.entries(raw.extraBooks || {}).map(([id, book]) => [id, deserializeBook(book)]),
-  );
+  state.clients = (raw.clients || []).map((client) => ({ ...client, clientId: canonicalClientId(client?.clientId) }));
+  state.extraBooks = Object.assign(emptyBooks(), Object.fromEntries(
+    Object.entries(raw.extraBooks || {}).map(([id, book]) => [canonicalClientId(id), deserializeBook(book)]),
+  ));
   state.approvals = raw.approvals || [];
   state.approvalSeq = raw.approvalSeq || 0;
-  state.activeClientId = raw.activeClientId || 'SELF';
+  state.activeClientId = normalizeClientId(raw.activeClientId);
   state.outbox = raw.outbox || [];
   state.outboxSeq = raw.outboxSeq || 0;
   return ensureCaApiState(state);

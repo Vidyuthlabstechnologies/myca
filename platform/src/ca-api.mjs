@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { journal, trialBalance } from './ledger.mjs';
 import { createInvoice, createPurchase } from './invoice.mjs';
-import { getBook } from './books.mjs';
+import { getBook, normalizeClientId, isValidClientId, ensureBooks } from './books.mjs';
 import { putDocument, readDocument } from './document-store.mjs';
 
 const DEFAULT_USER = {
@@ -41,7 +41,7 @@ export function stateDigest(state) {
 export function ensureCaApiState(state) {
   state.documents = Array.isArray(state.documents) ? state.documents : [];
   state.clients = Array.isArray(state.clients) ? state.clients : [];
-  state.extraBooks = state.extraBooks && typeof state.extraBooks === 'object' ? state.extraBooks : {};
+  ensureBooks(state);
   state.attachments = state.attachments && typeof state.attachments === 'object' ? state.attachments : {};
   state.approvals = Array.isArray(state.approvals) ? state.approvals : [];
   state.approvalSeq = Number(state.approvalSeq || state.approvals.length || 0);
@@ -77,7 +77,8 @@ function clients(state) {
 }
 
 function requireClient(state, clientId) {
-  const client = clients(state).find((row) => row.clientId === clientId);
+  const id = normalizeClientId(clientId);
+  const client = clients(state).find((row) => row.clientId === id);
   if (!client) {
     const err = new Error('CLIENT_NOT_FOUND');
     err.statusCode = 404;
@@ -93,9 +94,11 @@ export function listClients(state) {
 
 export function registerClient(state, body = {}) {
   ensureCaApiState(state);
-  const id = String(body.clientId || body.id || '').trim();
-  if (!id) return { ok: false, error: 'CLIENT_ID_REQUIRED' };
+  const raw = String(body.clientId || body.id || '').trim();
+  if (!raw) return { ok: false, error: 'CLIENT_ID_REQUIRED' };
+  const id = normalizeClientId(raw);
   if (id === 'SELF' || state.clients.some((c) => c.clientId === id)) return { ok: false, error: 'CLIENT_EXISTS' };
+  if (!isValidClientId(id)) return { ok: false, error: 'INVALID_CLIENT_ID' };
   const gstin = String(body.gstin || '').trim().toUpperCase();
   const client = {
     clientId: id,
@@ -114,7 +117,7 @@ export function registerClient(state, body = {}) {
 
 export function setActiveClient(state, clientId) {
   ensureCaApiState(state);
-  const id = String(clientId || 'SELF').trim() || 'SELF';
+  const id = normalizeClientId(clientId);
   if (id !== 'SELF' && !state.clients.some((c) => c.clientId === id)) return { ok: false, error: 'CLIENT_NOT_FOUND' };
   state.activeClientId = id;
   return { ok: true, activeClientId: id };
@@ -139,15 +142,15 @@ export function appendAuditEvent(state, event) {
 
 export function listDocuments(state, clientId) {
   ensureCaApiState(state);
-  requireClient(state, clientId);
-  return { ok: true, data: { clientId, documents: state.documents.filter((doc) => doc.clientId === clientId) } };
+  const { clientId: id } = requireClient(state, clientId);
+  return { ok: true, data: { clientId: id, documents: state.documents.filter((doc) => doc.clientId === id) } };
 }
 
 export function uploadDocument(state, clientId, input = {}) {
   ensureCaApiState(state);
-  requireClient(state, clientId);
+  const { clientId: id } = requireClient(state, clientId);
   const beforeHash = stateDigest(state);
-  const { doc, content } = documentPayload(state, clientId, input);
+  const { doc, content } = documentPayload(state, id, input);
   const stored = putDocument(state._dataDir, content);
   doc.sha256 = stored.sha256;
   doc.bytes = stored.bytes;
@@ -155,7 +158,7 @@ export function uploadDocument(state, clientId, input = {}) {
   state.files[doc.documentId] = content;
   appendAuditEvent(state, {
     actorId: input.actorId || 'api',
-    clientId,
+    clientId: id,
     action: 'documents.upload',
     beforeHash,
     afterHash: stateDigest(state),
@@ -166,8 +169,8 @@ export function uploadDocument(state, clientId, input = {}) {
 
 export function getDocumentContent(state, clientId, documentId) {
   ensureCaApiState(state);
-  requireClient(state, clientId);
-  const doc = state.documents.find((d) => d.documentId === documentId && d.clientId === clientId);
+  const { clientId: id } = requireClient(state, clientId);
+  const doc = state.documents.find((d) => d.documentId === documentId && d.clientId === id);
   if (!doc) return { ok: false, error: 'DOCUMENT_NOT_FOUND' };
   const content = state.files[documentId] != null ? state.files[documentId] : readDocument(state._dataDir, doc.sha256);
   if (content == null) return { ok: false, error: 'DOCUMENT_BYTES_MISSING' };
