@@ -26,7 +26,7 @@ export const DRY_RUN_LIMIT = 200;
 const MINUTE_MS = 60000;
 const ASSISTANT = 'assistant';
 const MOCK_FIELD = /^(mock|simulated)/;
-const FIXTURE_SKIP = new Set(['files', 'pendingFile', 'auditEvents', 'auditSeq', 'dryRuns', 'dryRunSeq', '_legacyFiles', 'ledger', 'extraBooks']);
+const FIXTURE_SKIP = new Set(['files', 'pendingFile', 'auditEvents', 'auditSeq', 'dryRuns', 'dryRunSeq', '_legacyFiles', 'ledger', 'extraBooks', 'firmUsers']);
 
 function entry(actionClass, family, uses, { irreversible = false, timeoutMs = MINUTE_MS } = {}) {
   return Object.freeze({ actionClass, family, irreversible, uses: Object.freeze([...uses]), timeoutMs });
@@ -114,22 +114,28 @@ const REACHABILITY_TRANSPORT = Object.freeze({
   },
 });
 
-function clientMethod(Client, getClient, name) {
-  if (typeof Client.prototype[name] !== 'function') return null;
-  return () => (...args) => getClient()[name](...args);
-}
+const TRANSPORT_TABLES = Object.freeze({
+  nic: NIC_TRANSPORT,
+  notifications: NOTIFICATION_TRANSPORT,
+  reachability: REACHABILITY_TRANSPORT,
+});
+
+const TRANSPORT_CLIENTS = Object.freeze({
+  sandbox: { Client: SandboxClient, current: getSandboxClient },
+  nim: { Client: NimClient, current: getNimClient },
+});
 
 function resolveTransport(use) {
   const [group, name] = String(use).split('.');
-  const bound = {
-    sandbox: () => clientMethod(SandboxClient, getSandboxClient, name),
-    nim: () => clientMethod(NimClient, getNimClient, name),
-    nic: () => (Object.hasOwn(NIC_TRANSPORT, name) ? NIC_TRANSPORT[name] : null),
-    notifications: () => (Object.hasOwn(NOTIFICATION_TRANSPORT, name) ? NOTIFICATION_TRANSPORT[name] : null),
-    reachability: () => (Object.hasOwn(REACHABILITY_TRANSPORT, name) ? REACHABILITY_TRANSPORT[name] : null),
-  }[group]?.();
-  if (!bound) throw new Error(`UNKNOWN_TRANSPORT:${use}`);
-  return { group, name, bind: bound };
+  let bind = null;
+  if (Object.hasOwn(TRANSPORT_CLIENTS, group)) {
+    const { Client, current } = TRANSPORT_CLIENTS[group];
+    if (typeof Client.prototype[name] === 'function') bind = () => (...args) => current()[name](...args);
+  } else if (Object.hasOwn(TRANSPORT_TABLES, group) && Object.hasOwn(TRANSPORT_TABLES[group], name)) {
+    bind = TRANSPORT_TABLES[group][name];
+  }
+  if (!bind) throw new Error(`UNKNOWN_TRANSPORT:${use}`);
+  return { group, name, bind };
 }
 
 const TRANSPORT_BY_USE = new Map(Object.values(ACTION_CLASSES).flatMap((item) => item.uses).map((use) => [use, resolveTransport(use)]));
