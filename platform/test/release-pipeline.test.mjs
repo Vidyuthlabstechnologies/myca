@@ -207,3 +207,18 @@ test('release: download aliases track the highest archived version under /downlo
   assert.ok(purgeAt > aliasAt, 'the CDN is purged after the aliases change');
   assert.match(read('infra/main.tf'), /paths\s*=\s*\["\/downloads", "\/downloads\/\*"\]/);
 });
+
+test('CI: every action is pinned to a full commit SHA with its release noted beside it', () => {
+  const offenders = [];
+  let pinned = 0;
+  for (const file of workflowFiles()) {
+    for (const line of read(`.github/workflows/${file}`).split('\n')) {
+      const m = line.match(/^\s*(?:-\s+)?uses:\s*(\S+)(.*)$/);
+      if (!m || m[1].startsWith('./')) continue;
+      if (/^[\w.-]+\/[\w.-]+(?:\/[\w./-]+)?@[0-9a-f]{40}$/.test(m[1]) && /^\s+#\s+v\d+\.\d+\.\d+\s*$/.test(m[2])) pinned += 1;
+      else offenders.push(`${file}: ${line.trim()}`);
+    }
+  }
+  assert.deepEqual(offenders, []);
+  assert.ok(pinned >= 8, 'every workflow step that uses an action was checked');
+});
