@@ -1,7 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { RULES as GST_RULES } from '../src/rules/gst.mjs';
-import { fyEnd, fyStart, rule, validateRules } from '../src/index.mjs';
+import { fyEnd, fyStart, rule, runGolden, validateRules } from '../src/index.mjs';
 
 globalThis.fetch = () => {
   throw new Error('network is not allowed in statutory-rules');
@@ -190,4 +191,49 @@ test('Rule 37A: supplier GSTR-3B by 30 September and recipient reversal by 30 No
   assert.match(result.record.source, /26\/2022-Central Tax/);
   assert.equal(rule(RULE_37A, fyEnd('2022-23')).ok, true);
   assert.deepEqual(rule(RULE_37A, '2022-12-25'), { ok: false, error: 'RULE_NOT_IN_FORCE', id: RULE_37A, onDate: '2022-12-25' });
+});
+
+const GOLDEN = new URL('../golden/gst.json', import.meta.url);
+
+function b2cTable({ invoiceDate, interState, invoiceValuePaise }) {
+  const threshold = rule(B2CL, invoiceDate);
+  if (!threshold.ok) return { error: threshold.error };
+  const table = interState === true && invoiceValuePaise > threshold.value ? 'B2CL' : 'B2CS';
+  return { table, ruleUsed: `${threshold.record.id}@${threshold.record.effectiveFrom}` };
+}
+
+function rateValidity({ invoiceDate, ratePercent }) {
+  const rates = rule(RATES, invoiceDate);
+  if (!rates.ok) return { error: rates.error };
+  return { valid: rates.value.includes(ratePercent), ruleUsed: `${rates.record.id}@${rates.record.effectiveFrom}` };
+}
+
+function computeGstCase(input) {
+  if (input.check === 'b2c-table') return b2cTable(input);
+  if (input.check === 'rate-valid') return rateValidity(input);
+  throw new Error(`unknown golden check ${input.check}`);
+}
+
+test('golden GST cases pass: B2CL/B2CS split and rate validity', async () => {
+  const result = await runGolden(GOLDEN, computeGstCase);
+  assert.deepEqual(result.failures, [], JSON.stringify(result, null, 2));
+  assert.equal(result.ok, true);
+  assert.ok(result.total >= 20);
+});
+
+test('golden cases straddle 1-Aug-2024 for B2CL and 22-Sep-2025 and 1-Feb-2026 for rates, on both sides of each threshold', () => {
+  const cases = JSON.parse(readFileSync(GOLDEN, 'utf8'));
+  const b2c = cases.filter((entry) => entry.input.check === 'b2c-table');
+  const rates = cases.filter((entry) => entry.input.check === 'rate-valid');
+  for (const [side, keep] of [['before', (date) => date < '2024-08-01'], ['after', (date) => date >= '2024-08-01']]) {
+    const sideCases = b2c.filter((entry) => keep(entry.input.invoiceDate) && entry.input.interState === true);
+    const threshold = side === 'before' ? 250000 * RUPEE : LAKH;
+    assert.ok(sideCases.some((entry) => entry.input.invoiceValuePaise === threshold && entry.expected.table === 'B2CS'), side);
+    assert.ok(sideCases.some((entry) => entry.input.invoiceValuePaise === threshold + 1 && entry.expected.table === 'B2CL'), side);
+  }
+  assert.ok(b2c.some((entry) => entry.input.interState === false && entry.expected.table === 'B2CS'));
+  for (const [date, rate, valid] of [['2025-09-21', 40, false], ['2025-09-22', 40, true], ['2026-01-31', 28, true], ['2026-02-01', 28, false]]) {
+    assert.ok(rates.some((entry) => entry.input.invoiceDate === date && entry.input.ratePercent === rate && entry.expected.valid === valid), `${date} ${rate}`);
+  }
+  for (const entry of cases) assert.ok(typeof entry.citation === 'string' && entry.citation.trim() !== '', entry.name);
 });
