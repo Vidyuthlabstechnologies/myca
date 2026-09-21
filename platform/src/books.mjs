@@ -3,8 +3,12 @@ import { installChart } from './chart.mjs';
 
 export const CLIENT_ID_PATTERN = /^[A-Z0-9][A-Z0-9_-]{1,31}$/;
 
+export function canonicalClientId(value) {
+  return String(value ?? '').trim().toUpperCase();
+}
+
 export function normalizeClientId(value) {
-  return String(value ?? '').trim().toUpperCase() || 'SELF';
+  return canonicalClientId(value) || 'SELF';
 }
 
 export function isValidClientId(id) {
@@ -90,10 +94,10 @@ export function companyFromClient(client = {}) {
 }
 
 export function getBook(state, clientId) {
-  const id = normalizeClientId(clientId);
+  const id = canonicalClientId(clientId);
   if (id === 'SELF') return state;
-  const client = (state.clients || []).find((c) => c.clientId === id);
-  if (!client || !isValidClientId(id)) {
+  const client = isValidClientId(id) ? (state.clients || []).find((c) => c.clientId === id) : undefined;
+  if (!client) {
     const err = new Error('CLIENT_NOT_FOUND');
     err.statusCode = 404;
     throw err;

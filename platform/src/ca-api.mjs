@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { journal, trialBalance } from './ledger.mjs';
 import { createInvoice, createPurchase } from './invoice.mjs';
-import { getBook, normalizeClientId, isValidClientId, ensureBooks } from './books.mjs';
+import { getBook, canonicalClientId, normalizeClientId, isValidClientId, ensureBooks } from './books.mjs';
 import { putDocument, readDocument } from './document-store.mjs';
 
 const DEFAULT_USER = {
@@ -77,8 +77,8 @@ function clients(state) {
 }
 
 function requireClient(state, clientId) {
-  const id = normalizeClientId(clientId);
-  const client = clients(state).find((row) => row.clientId === id);
+  const id = canonicalClientId(clientId);
+  const client = id ? clients(state).find((row) => row.clientId === id) : undefined;
   if (!client) {
     const err = new Error('CLIENT_NOT_FOUND');
     err.statusCode = 404;
@@ -213,6 +213,28 @@ function postVoucher(state, clientId, body = {}) {
   return result;
 }
 
+function handleClientRoute(state, method, client, rest, body) {
+  const id = client.clientId;
+  if (method === 'GET' && rest.length === 0) return { ok: true, data: client };
+  if (method === 'GET' && rest[0] === 'ledger') {
+    return { ok: true, data: { clientId: id, rows: journal(getBook(state, id).ledger) } };
+  }
+  if (method === 'GET' && rest[0] === 'trial-balance') {
+    return { ok: true, data: { clientId: id, ...trialBalance(getBook(state, id).ledger) } };
+  }
+  if (method === 'POST' && rest[0] === 'vouchers') return postVoucher(state, id, body);
+  if (method === 'GET' && rest[0] === 'documents' && rest.length === 2) return getDocumentContent(state, id, rest[1]);
+  if (method === 'GET' && rest[0] === 'documents' && rest.length === 1) return listDocuments(state, id);
+  if (method === 'POST' && rest[0] === 'documents') return uploadDocument(state, id, body);
+  if (method === 'GET' && rest[0] === 'access') {
+    return { ok: true, data: { clientId: id, users: state.firmUsers.filter((user) => (user.clientIds || []).includes(id)) } };
+  }
+  if (method === 'GET' && rest[0] === 'audit-events') {
+    return { ok: true, data: { auditEvents: state.auditEvents.filter((event) => event.clientId === id) } };
+  }
+  return null;
+}
+
 export function handleCaApi(state, method, pathname, body = {}) {
   ensureCaApiState(state);
   const path = String(pathname || '').replace(/^\/api\/ca/, '') || '/';
@@ -237,49 +259,13 @@ export function handleCaApi(state, method, pathname, body = {}) {
     return { ok: true, data: out.client };
   }
 
-  if (method === 'GET' && segments[0] === 'clients' && segments.length === 2) {
-    return { ok: true, data: requireClient(state, segments[1]) };
-  }
-
-  if (method === 'GET' && segments[0] === 'clients' && segments[2] === 'ledger') {
-    const book = getBook(state, segments[1]);
-    return { ok: true, data: { clientId: segments[1], rows: journal(book.ledger) } };
-  }
-
-  if (method === 'GET' && segments[0] === 'clients' && segments[2] === 'trial-balance') {
-    const book = getBook(state, segments[1]);
-    return { ok: true, data: { clientId: segments[1], ...trialBalance(book.ledger) } };
-  }
-
-  if (method === 'POST' && segments[0] === 'clients' && segments[2] === 'vouchers') {
-    return postVoucher(state, segments[1], body);
-  }
-
-  if (method === 'GET' && segments[0] === 'clients' && segments[2] === 'documents' && segments.length === 4) {
-    return getDocumentContent(state, segments[1], segments[3]);
-  }
-
-  if (method === 'GET' && segments[0] === 'clients' && segments[2] === 'documents' && segments.length === 3) {
-    return listDocuments(state, segments[1]);
-  }
-
-  if (method === 'POST' && segments[0] === 'clients' && segments[2] === 'documents') {
-    return uploadDocument(state, segments[1], body);
+  if (segments[0] === 'clients' && segments.length >= 2) {
+    const out = handleClientRoute(state, method, requireClient(state, segments[1]), segments.slice(2), body);
+    if (out) return out;
   }
 
   if (method === 'GET' && path === '/users') {
     return { ok: true, data: { users: state.firmUsers } };
-  }
-
-  if (method === 'GET' && segments[0] === 'clients' && segments[2] === 'access') {
-    requireClient(state, segments[1]);
-    return {
-      ok: true,
-      data: {
-        clientId: segments[1],
-        users: state.firmUsers.filter((user) => (user.clientIds || []).includes(segments[1])),
-      },
-    };
   }
 
   if (method === 'GET' && path === '/audit-events') {
@@ -288,11 +274,6 @@ export function handleCaApi(state, method, pathname, body = {}) {
 
   if (method === 'POST' && path === '/audit-events') {
     return { ok: true, data: appendAuditEvent(state, body) };
-  }
-
-  if (method === 'GET' && segments[0] === 'clients' && segments[2] === 'audit-events') {
-    requireClient(state, segments[1]);
-    return { ok: true, data: { auditEvents: state.auditEvents.filter((event) => event.clientId === segments[1]) } };
   }
 
   const err = new Error('CA_API_ROUTE_NOT_FOUND');

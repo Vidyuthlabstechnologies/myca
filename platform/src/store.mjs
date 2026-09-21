@@ -1,5 +1,5 @@
 import { closeSync, mkdirSync, openSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
-import { dirname, extname, isAbsolute, join, normalize, relative } from 'node:path';
+import { basename, dirname, extname, isAbsolute, join, normalize, relative } from 'node:path';
 import { tmpdir } from 'node:os';
 import { emptyLedger, freeze, hydrate } from './ledger.mjs';
 import { DEFAULT_COMPANY, installChart } from './chart.mjs';
@@ -80,10 +80,77 @@ export function serialize(state) {
   };
 }
 
-function canonicalClientId(value) {
-  const id = normalizeClientId(value);
-  if (!isValidClientId(id)) throw new Error('INVALID_CLIENT_ID');
+function isRecord(value) {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function rawClients(raw) {
+  return (Array.isArray(raw.clients) ? raw.clients : []).filter(isRecord);
+}
+
+function rawBooks(raw) {
+  return isRecord(raw.extraBooks) ? raw.extraBooks : {};
+}
+
+function legacyClientId(client) {
+  return String(client.clientId ?? '');
+}
+
+function freeClientId(value, taken) {
+  const base = String(value ?? '').trim().toUpperCase()
+    .replace(/[^A-Z0-9_-]+/g, '-')
+    .replace(/^[-_]+|[-_]+$/g, '')
+    .slice(0, 32)
+    .replace(/[-_]+$/, '') || 'CLIENT';
+  let id = base;
+  for (let n = 2; !isValidClientId(id) || taken.has(id); n += 1) {
+    const suffix = `-${n}`;
+    id = `${base.slice(0, 32 - suffix.length).replace(/[-_]+$/, '')}${suffix}`;
+  }
   return id;
+}
+
+function clientIdRemap(raw) {
+  const ids = [...new Set([...rawClients(raw).map(legacyClientId), ...Object.keys(rawBooks(raw))])];
+  if (ids.some((id) => normalizeClientId(id) === '__PROTO__')) throw new Error('INVALID_CLIENT_ID');
+  const kept = ids.filter((id) => id === 'SELF' || isValidClientId(id));
+  const remap = new Map(kept.map((id) => [id, id]));
+  const taken = new Set(['SELF', ...kept]);
+  for (const id of ids) {
+    if (remap.has(id)) continue;
+    const next = freeClientId(id, taken);
+    remap.set(id, next);
+    taken.add(next);
+  }
+  return remap;
+}
+
+function loadedActiveClientId(raw, remap, loadedClients) {
+  const legacy = raw.activeClientId;
+  const id = typeof legacy === 'string' && remap.has(legacy) ? remap.get(legacy) : normalizeClientId(legacy);
+  return loadedClients.some((client) => client.clientId === id) ? id : 'SELF';
+}
+
+function rewritesClients(raw) {
+  if (!isRecord(raw)) return false;
+  if (raw.clients != null && (!Array.isArray(raw.clients) || raw.clients.some((client) => !isRecord(client)))) return true;
+  if (raw.extraBooks != null && !isRecord(raw.extraBooks)) return true;
+  return [...clientIdRemap(raw)].some(([from, to]) => from !== to);
+}
+
+function renameClient(remap, id) {
+  return typeof id === 'string' && remap.has(id) ? remap.get(id) : id;
+}
+
+function withRenamedClient(remap, row) {
+  if (!isRecord(row)) return row;
+  const clientId = renameClient(remap, row.clientId);
+  return clientId === row.clientId ? row : { ...row, clientId };
+}
+
+function withRenamedAccess(remap, user) {
+  if (!isRecord(user) || !Array.isArray(user.clientIds)) return user;
+  return { ...user, clientIds: user.clientIds.map((id) => renameClient(remap, id)) };
 }
 
 export function deserialize(raw) {
@@ -105,21 +172,31 @@ export function deserialize(raw) {
   // Legacy states embedded raw content in `files`; carry it to a one-shot migration.
   state._legacyFiles = raw.files && typeof raw.files === 'object' ? raw.files : null;
   state.integrationConnections = normalizeIntegrationConnections(raw.integrationConnections);
-  state.documents = raw.documents || [];
-  state.firmUsers = raw.firmUsers || [];
-  state.auditEvents = raw.auditEvents || [];
+  const remap = clientIdRemap(raw);
+  state.documents = Array.isArray(raw.documents) ? raw.documents.map((doc) => withRenamedClient(remap, doc)) : [];
+  state.firmUsers = Array.isArray(raw.firmUsers) ? raw.firmUsers.map((user) => withRenamedAccess(remap, user)) : [];
+  state.auditEvents = Array.isArray(raw.auditEvents) ? raw.auditEvents.map((event) => withRenamedClient(remap, event)) : [];
   state.auditSeq = raw.auditSeq || 0;
   state.documentSeq = raw.documentSeq || 0;
-  state.clients = (raw.clients || []).map((client) => ({ ...client, clientId: canonicalClientId(client?.clientId) }));
-  state.extraBooks = Object.assign(emptyBooks(), Object.fromEntries(
-    Object.entries(raw.extraBooks || {}).map(([id, book]) => [canonicalClientId(id), deserializeBook(book)]),
-  ));
+  state.clients = rawClients(raw).map((client) => {
+    const legacy = legacyClientId(client);
+    const clientId = remap.get(legacy);
+    return clientId === client.clientId ? { ...client } : { ...client, clientId, legacyClientId: legacy };
+  });
+  const books = emptyBooks();
+  for (const [id, book] of Object.entries(rawBooks(raw))) books[remap.get(id)] = deserializeBook(book);
+  state.extraBooks = books;
   state.approvals = raw.approvals || [];
   state.approvalSeq = raw.approvalSeq || 0;
-  state.activeClientId = normalizeClientId(raw.activeClientId);
+  state.activeClientId = loadedActiveClientId(raw, remap, state.clients);
   state.outbox = raw.outbox || [];
   state.outboxSeq = raw.outboxSeq || 0;
   return ensureCaApiState(state);
+}
+
+function keepPreMigrationCopy(safePath, text) {
+  const name = `${basename(safePath, extname(safePath))}.before-client-id-migration-${Date.now()}.json`;
+  writeFileSync(join(dirname(safePath), name), text);
 }
 
 export function loadState(path) {
@@ -127,7 +204,10 @@ export function loadState(path) {
   if (!existsSync(safePath)) return createState();
   const fd = openSync(safePath, 'r');
   try {
-    const state = deserialize(JSON.parse(readFileSync(fd, 'utf8')));
+    const text = readFileSync(fd, 'utf8');
+    const raw = JSON.parse(text);
+    const state = deserialize(raw);
+    if (rewritesClients(raw)) keepPreMigrationCopy(safePath, text);
     state._dataDir = dirname(safePath);
     return state;
   } finally {

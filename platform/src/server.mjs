@@ -21,6 +21,7 @@ const API_CLIENT_HEADER = 'renderer';
 
 let session;
 let httpServer;
+let openError = '';
 
 export function isAllowedOrigin(origin, host) {
   if (!origin) return true;
@@ -108,7 +109,7 @@ function handler(req, res) {
     }
     if (url.pathname.startsWith('/api/')) assertApiRequest(req);
     if (!session && url.pathname.startsWith('/api/')) {
-      return send(req, res, 503, { error: 'books not open yet' });
+      return send(req, res, 503, { error: openError || 'books not open yet' });
     }
     if (req.method === 'POST' && url.pathname === '/api/chat') {
       const { message } = JSON.parse(await readBody(req) || '{}');
@@ -144,7 +145,7 @@ function handler(req, res) {
 }
 
 export function startServer(port = Number(process.env.PORT || 4780)) {
-  if (httpServer) return Promise.resolve({ port, reused: true });
+  if (httpServer) return Promise.resolve(openError ? { port, reused: true, error: openError } : { port, reused: true });
   httpServer = createServer(handler);
   return new Promise((resolveListen, reject) => {
     httpServer.once('error', (err) => {
@@ -154,10 +155,18 @@ export function startServer(port = Number(process.env.PORT || 4780)) {
       } else reject(err);
     });
     httpServer.listen(port, '127.0.0.1', () => {
-      migrateGovtVault();
-      session = openSession();
-      console.log(`MyCA http://127.0.0.1:${port}`);
-      resolveListen({ port, reused: false });
+      const bound = httpServer.address().port;
+      try {
+        migrateGovtVault();
+        session = openSession();
+      } catch (err) {
+        openError = `books could not be opened: ${String(err?.message || err)}`;
+        console.error(`MyCA ${openError}`);
+        resolveListen({ port: bound, reused: false, error: openError });
+        return;
+      }
+      console.log(`MyCA http://127.0.0.1:${bound}`);
+      resolveListen({ port: bound, reused: false });
     });
   });
 }
