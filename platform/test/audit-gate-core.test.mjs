@@ -284,3 +284,36 @@ test('reachability: the gate signal stops the government probe and the TCP probe
   assert.equal(tcp.status, 'error');
   assert.equal(tcp.error, 'ABORTED');
 });
+
+test('H9: with the live switch off no action in the table executes, and each leaves a dry run', async () => {
+  const state = createState();
+  const calls = [];
+  await withEnv(OFF, async () => {
+    for (const actionId of Object.keys(ACTION_CLASSES)) {
+      const out = await performExternalAction(state, { actionId, params: { probe: actionId }, actor: maker }, async () => {
+        calls.push(actionId);
+        return { ok: true };
+      });
+      assert.equal(out.error, 'LIVE_CALLS_DISABLED', actionId);
+      assert.equal(state.dryRuns.at(-1).actionId, actionId);
+    }
+  });
+  assert.deepEqual(calls, []);
+});
+
+test('C2: with the live switch on no write in the table executes without a matching approval', async () => {
+  const state = createState();
+  const calls = [];
+  const writes = Object.entries(ACTION_CLASSES).filter(([, entry]) => entry.actionClass === 'write').map(([id]) => id);
+  assert.ok(writes.length >= 10);
+  await withEnv(LIVE, async () => {
+    for (const actionId of writes) {
+      const out = await performExternalAction(state, { actionId, params: { probe: actionId }, actor: maker }, async () => {
+        calls.push(actionId);
+        return { ok: true };
+      });
+      assert.equal(out.error, 'APPROVAL_REQUIRED', actionId);
+    }
+  });
+  assert.deepEqual(calls, []);
+});
