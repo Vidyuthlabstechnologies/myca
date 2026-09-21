@@ -167,3 +167,27 @@ test('the GSTR-9 exemption is open-ended from FY 2024-25 and not claimed before 
   assert.equal(rule(GSTR9, '2024-04-01').record.effectiveTo, null);
   assert.deepEqual(rule(GSTR9, '2017-03-31'), { ok: false, error: 'RULE_NOT_IN_FORCE', id: GSTR9, onDate: '2017-03-31' });
 });
+
+const RULE_37 = 'gst.rule37.payment-days';
+const RULE_37A = 'gst.rule37a.deadlines';
+
+test('Rule 37 gives 180 days from the invoice date to pay the supplier, before and after the 1-Oct-2022 substitution', () => {
+  for (const onDate of ['2017-07-01', '2022-09-30', '2022-10-01', '2026-09-21']) {
+    const result = rule(RULE_37, onDate);
+    assert.equal(result.value, 180, onDate);
+    assert.equal(result.record.basis, 'days_from_invoice_date', onDate);
+  }
+  assert.match(rule(RULE_37, '2022-10-01').record.source, /19\/2022-Central Tax/);
+  assert.equal(rule(RULE_37, '2022-09-30').record.effectiveTo, '2022-09-30');
+  assert.deepEqual(rule(RULE_37, '2017-06-30'), { ok: false, error: 'RULE_NOT_IN_FORCE', id: RULE_37, onDate: '2017-06-30' });
+});
+
+test('Rule 37A: supplier GSTR-3B by 30 September and recipient reversal by 30 November after the FY end, from 26-Dec-2022', () => {
+  const result = rule(RULE_37A, '2022-12-26');
+  assert.deepEqual(result.value, { supplierGstr3bBy: { month: 9, day: 30 }, reverseBy: { month: 11, day: 30 } });
+  assert.equal(result.record.basis, 'month_day_following_end_of_financial_year_itc_availed');
+  assert.equal(result.record.effectiveTo, null);
+  assert.match(result.record.source, /26\/2022-Central Tax/);
+  assert.equal(rule(RULE_37A, fyEnd('2022-23')).ok, true);
+  assert.deepEqual(rule(RULE_37A, '2022-12-25'), { ok: false, error: 'RULE_NOT_IN_FORCE', id: RULE_37A, onDate: '2022-12-25' });
+});

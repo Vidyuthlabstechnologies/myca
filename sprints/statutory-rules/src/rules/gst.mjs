@@ -128,5 +128,38 @@ export const RULES = [
   gstr9Exemption('2021-04-01', '2022-03-31', 'Section 44, first proviso', 'Notification 10/2022-Central Tax dated 05.07.2022: exempts registered persons whose aggregate turnover in FY 2021-22 is up to two crore rupees from filing the annual return for that year'),
   gstr9Exemption('2022-04-01', '2023-03-31', 'Section 44, first proviso', 'Notification 32/2023-Central Tax dated 31.07.2023: exempts registered persons whose aggregate turnover in FY 2022-23 is up to two crore rupees from filing the annual return for that year'),
   gstr9Exemption('2023-04-01', '2024-03-31', 'Section 44, first proviso', 'Notification 14/2024-Central Tax dated 10.07.2024: exempts registered persons whose aggregate turnover in FY 2023-24 is up to two crore rupees from filing the annual return for that year'),
-  gstr9Exemption('2024-04-01', null, 'Section 44(1), first proviso', 'Notification 15/2025-Central Tax dated 17.09.2025: for FY 2024-25 onwards, exempts registered persons whose aggregate turnover in any financial year is up to two crore rupees from filing the annual return for that year')
+  gstr9Exemption('2024-04-01', null, 'Section 44(1), first proviso', 'Notification 15/2025-Central Tax dated 17.09.2025: for FY 2024-25 onwards, exempts registered persons whose aggregate turnover in any financial year is up to two crore rupees from filing the annual return for that year'),
+  {
+    id: 'gst.rule37.payment-days',
+    value: 180,
+    basis: 'days_from_invoice_date',
+    effectiveFrom: '2017-07-01',
+    effectiveTo: '2022-09-30',
+    act: 'CGST',
+    section: 'Section 16(2), second proviso; Rule 37(1), CGST Rules 2017',
+    source: 'CGST Rules 2017, rule 37(1) and (2) as they read before substitution by Notification 19/2022-Central Tax: value and tax not paid to the supplier within one hundred and eighty days from the date of the invoice reported in FORM GSTR-2 for the following month and the credit added to output tax liability',
+    attestations: []
+  },
+  {
+    id: 'gst.rule37.payment-days',
+    value: 180,
+    basis: 'days_from_invoice_date',
+    effectiveFrom: '2022-10-01',
+    effectiveTo: null,
+    act: 'CGST',
+    section: 'Section 16(2), second proviso; Rule 37(1), CGST Rules 2017',
+    source: 'Notification 19/2022-Central Tax dated 28.09.2022 substituting rule 37(1) and (2) w.e.f. 01.10.2022, as amended by Notification 26/2022-Central Tax dated 26.12.2022 w.e.f. 01.10.2022: credit proportionate to the unpaid value and tax is paid or reversed with interest in FORM GSTR-3B for the tax period immediately following one hundred and eighty days from the date of the invoice',
+    attestations: []
+  },
+  {
+    id: 'gst.rule37a.deadlines',
+    value: { supplierGstr3bBy: { month: 9, day: 30 }, reverseBy: { month: 11, day: 30 } },
+    basis: 'month_day_following_end_of_financial_year_itc_availed',
+    effectiveFrom: '2022-12-26',
+    effectiveTo: null,
+    act: 'CGST',
+    section: 'Rule 37A, CGST Rules 2017',
+    source: 'Notification 26/2022-Central Tax dated 26.12.2022 inserting rule 37A: where the supplier has not furnished FORM GSTR-3B for the period by the 30th day of September following the end of the financial year in which the credit was availed, the recipient reverses it in FORM GSTR-3B on or before the 30th day of November following the end of that financial year',
+    attestations: []
+  }
 ];
