@@ -9,6 +9,7 @@ export const FIRM_KEYS = new Set([
   'auditEvents', 'auditSeq', 'clients', 'extraBooks',
   'approvals', 'approvalSeq', 'activeClientId',
   'outbox', 'outboxSeq', '_dataDir', '_legacyFiles',
+  'dryRuns', 'dryRunSeq',
 ]);
 
 function ownerOf(root, book, key) {

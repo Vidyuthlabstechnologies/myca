@@ -6,7 +6,7 @@ export class NimClient {
     this.apiKey = options.apiKey ?? process.env.NVIDIA_NIM_API_KEY ?? process.env.NIM_API_KEY ?? env.NVIDIA_NIM_API_KEY ?? '';
     this.baseUrl = options.baseUrl ?? process.env.NVIDIA_NIM_BASE_URL ?? env.NVIDIA_NIM_BASE_URL ?? 'https://integrate.api.nvidia.com/v1';
     this.defaultModel = options.model ?? process.env.NVIDIA_NIM_MODEL ?? env.NVIDIA_NIM_MODEL ?? 'meta/llama-3.3-70b-instruct';
-    this.fetchFn = options.fetchFn || fetch;
+    this.fetchFn = options.fetchFn || ((...args) => globalThis.fetch(...args));
   }
 
   isConfigured() {
