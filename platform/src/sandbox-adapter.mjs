@@ -1,10 +1,7 @@
-import { getSandboxClient } from './sandbox-client.mjs';
 import { createHash } from 'node:crypto';
-import { liveCallsEnabled, mockModeEnabled } from './runtime-config.mjs';
 import { sandboxOperationById, createSandboxHandoff } from './sandbox-adapter-contract.mjs';
-import { approvalStatus, findApproval, reserveApproval, settleApproval } from './approvals.mjs';
-import { appendAuditEvent, stateDigest } from './ca-api.mjs';
-import { invoiceToNicPayload } from './govt.mjs';
+import { invoiceToNicPayload } from './nic-config.mjs';
+import { performExternalAction } from './action-gate.mjs';
 
 function fromClient(res, data) {
   if (res && res.ok === false && res.error) return { ok: false, error: res.error };
@@ -289,10 +286,10 @@ const MOCK_ADAPTERS = {
     if (params.invoiceId) {
       const invoice = [...(state?.invoices || []), ...(state?.purchases || [])].find((i) => i.id === params.invoiceId);
       if (invoice) {
-        invoice.irn = irn;
-        invoice.ackNo = `MOCK-ACK-${params.invoiceId}`;
-        invoice.ackDate = '2026-09-20 12:00:00';
-        invoice.signedQrCode = `mock_qr_${irn.slice(0, 16)}`;
+        invoice.mockIrn = irn;
+        invoice.mockAckNo = `MOCK-ACK-${params.invoiceId}`;
+        invoice.mockAckDate = '2026-09-20 12:00:00';
+        invoice.mockSignedQrCode = `mock_qr_${irn.slice(0, 16)}`;
       }
     }
     return {
@@ -355,115 +352,45 @@ export function mockAdapterSupports(operationId) {
   return Boolean(MOCK_ADAPTERS[operationId]);
 }
 
-export async function runSandboxOperation({ operationId, actorId = 'ca', caApprovalId = '', params = {}, payloadSummary = {}, clientId = 'SELF', allowLive = null, mock = null } = {}, deps = {}) {
+export async function runSandboxOperation({ operationId, actorId = 'ca', actor = null, caApprovalId = '', params = {}, payloadSummary = {}, clientId = 'SELF' } = {}, deps = {}) {
   const operation = sandboxOperationById(operationId);
   if (!operation) return { ok: false, error: 'UNKNOWN_SANDBOX_OPERATION' };
 
   const state = deps.state;
-  const client = deps.client || getSandboxClient();
-  const live = allowLive == null ? liveCallsEnabled() : Boolean(allowLive);
-  const useMock = mock == null ? mockModeEnabled() : Boolean(mock);
-
-  if (useMock) {
-    const adapter = MOCK_ADAPTERS[operationId];
-    if (!adapter) return { ok: false, error: 'NOT_IMPLEMENTED', operationId, hint: 'Operation has no mock fixture yet.' };
-    const beforeHash = state ? stateDigest(state) : null;
-    let result;
-    try {
-      result = await adapter({ client, params, state });
-    } catch (err) {
-      result = { ok: false, error: String(err.message || err) };
-    }
-    if (state) {
-      appendAuditEvent(state, {
-        actorId,
-        clientId,
-        action: `sandbox.${operationId}`,
-        beforeHash,
-        afterHash: stateDigest(state),
-        metadata: {
-          operationId,
-          requirementId: operation.requirementId,
-          caApprovalRequired: false,
-          caApprovalId: caApprovalId || '',
-          mapsToTools: operation.mapsToTools,
-          ok: result.ok !== false,
-          mock: true,
-        },
-      });
-    }
-    return {
-      ...result,
-      mock: true,
-      operationId,
-      requirementId: operation.requirementId,
-      mapsToTools: operation.mapsToTools,
-      ownerModules: operation.ownerModules,
-      hint: 'Mock mode active (MYCA_MOCK_MODE=1). Simulated response — nothing was sent to the provider.',
-    };
-  }
-
-  const handoff = createSandboxHandoff({ operationId, actorId, caApprovalId, payloadSummary });
-  if (!handoff.ok) return handoff;
-
-  if (!live) {
-    return {
-      ok: false,
-      error: 'LIVE_CALLS_DISABLED',
-      operationId,
-      requirementId: operation.requirementId,
-      hint: 'Set MYCA_ENABLE_LIVE_CALLS=1 in platform/.env to allow outbound provider calls.',
-    };
-  }
-
-  let approval = null;
-  if (operation.caApprovalRequired) {
-    approval = findApproval(state, caApprovalId);
-    if (!approval) return { ok: false, error: 'APPROVAL_NOT_FOUND', operationId };
-    if (approval.operationId !== operationId) return { ok: false, error: 'APPROVAL_OPERATION_MISMATCH', operationId };
-    const status = approvalStatus(approval);
-    if (status !== 'approved') return { ok: false, error: 'APPROVAL_NOT_ACTIVE', status, operationId };
-  }
-
-  const adapter = ADAPTERS[operationId];
-  if (!adapter) {
-    return { ok: false, error: 'NOT_IMPLEMENTED', operationId, hint: 'Operation is declared in the adapter contract but has no verified provider endpoint wired yet.' };
-  }
-
-  const beforeHash = state ? stateDigest(state) : null;
-  if (approval) reserveApproval(approval, { userId: actorId });
-  let result;
-  try {
-    result = await adapter({ client, params, state });
-  } catch (err) {
-    result = { ok: false, error: String(err.message || err) };
-  }
-
-  if (approval) settleApproval(approval, { ok: result.ok === true, error: result.error, actor: { userId: actorId } });
-
-  if (state) {
-    appendAuditEvent(state, {
-      actorId,
-      clientId,
-      action: `sandbox.${operationId}`,
-      beforeHash,
-      afterHash: stateDigest(state),
-      metadata: {
-        operationId,
-        requirementId: operation.requirementId,
-        caApprovalRequired: operation.caApprovalRequired,
-        caApprovalId: caApprovalId || '',
-        mapsToTools: operation.mapsToTools,
-        ok: result.ok !== false,
-      },
-    });
-  }
-
-  return {
-    ...result,
-    operationId,
+  const adapter = ADAPTERS[operation.operationId];
+  const mockAdapter = MOCK_ADAPTERS[operation.operationId];
+  const requester = actor || { userId: actorId };
+  const described = {
+    operationId: operation.operationId,
     requirementId: operation.requirementId,
     mapsToTools: operation.mapsToTools,
     ownerModules: operation.ownerModules,
   };
+
+  const result = await performExternalAction(state, {
+    actionId: operation.operationId,
+    clientId,
+    params,
+    actor: requester,
+    approvalId: caApprovalId,
+    metadata: {
+      operationId: operation.operationId,
+      requirementId: operation.requirementId,
+      caApprovalId: caApprovalId || '',
+      mapsToTools: operation.mapsToTools,
+    },
+    fixture: mockAdapter ? () => mockAdapter({ params, state }) : null,
+    preflight: () => {
+      const handoff = createSandboxHandoff({ operationId: operation.operationId, actorId: requester.userId, caApprovalId, payloadSummary });
+      if (!handoff.ok && handoff.error !== 'CA_APPROVAL_REQUIRED') return handoff;
+      if (!adapter) return { ok: false, error: 'NOT_IMPLEMENTED', hint: 'Operation is declared in the adapter contract but has no verified provider endpoint wired yet.' };
+      return null;
+    },
+  }, (transports) => adapter({ client: deps.client || transports.sandbox, params, state }));
+
+  if (result.error === 'APPROVAL_REQUIRED' && !caApprovalId) return { ...result, error: 'CA_APPROVAL_REQUIRED', ...described };
+  if (result.mock) {
+    return { ...result, ...described, hint: 'Mock mode active (MYCA_MOCK_MODE=1). Simulated response — nothing was sent to the provider.' };
+  }
+  return { ...result, ...described };
 }

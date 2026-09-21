@@ -642,13 +642,17 @@ export const TOOLS = [
     description: 'Execute a catalogued Quicko Sandbox operation through the adapter contract. Read/prepare ops run directly; auth/write/file ops need an approved CA approval id.',
     args: ['operationId', 'params', 'caApprovalId', 'actorId'],
     run: async (state, args = {}) => {
+      const clientId = activeClientId(state);
+      if (args.clientId && normalizeClientId(args.clientId) !== clientId) return fail('CLIENT_NOT_ACTIVE', { clientId, requested: normalizeClientId(args.clientId) });
+      const actor = resolveToolActor(args, 'actorId');
       const out = await runSandboxOperation({
         operationId: args.operationId,
-        actorId: args.actorId || 'ca',
+        actorId: actor.userId,
+        actor,
         caApprovalId: args.caApprovalId || '',
         params: args.params || {},
         payloadSummary: args.payloadSummary || {},
-        clientId: args.clientId || 'SELF',
+        clientId,
       }, { state });
       return out.ok ? ok(out) : fail(out.error, out);
     },

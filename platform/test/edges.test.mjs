@@ -1064,23 +1064,30 @@ test('sandbox adapter: live gate, assistant block, approvals, secret redaction, 
   const assist = await runSandboxOperation({ operationId: 'einvoice_generate', actorId: 'assistant', caApprovalId: 'APR-000001' }, { state, client });
   assert.equal(assist.error, 'ASSISTANT_BLOCKED_FOR_OPERATION');
 
-  const noApproval = await runSandboxOperation({ operationId: 'einvoice_generate', caApprovalId: '', allowLive: true }, { state, client });
-  assert.equal(noApproval.error, 'CA_APPROVAL_REQUIRED');
+  const liveBefore = process.env.MYCA_ENABLE_LIVE_CALLS;
+  process.env.MYCA_ENABLE_LIVE_CALLS = '1';
+  try {
+    const noApproval = await runSandboxOperation({ operationId: 'einvoice_generate', caApprovalId: '' }, { state, client });
+    assert.equal(noApproval.error, 'CA_APPROVAL_REQUIRED');
 
-  const secret = await runSandboxOperation({ operationId: 'gstin_verify', payloadSummary: { apiKey: 'x' }, allowLive: true }, { state, client });
-  assert.equal(secret.error, 'SECRET_FIELDS_NOT_ALLOWED_IN_HANDOFF');
+    const secret = await runSandboxOperation({ operationId: 'gstin_verify', payloadSummary: { apiKey: 'x' } }, { state, client });
+    assert.equal(secret.error, 'SECRET_FIELDS_NOT_ALLOWED_IN_HANDOFF');
 
-  const ran = await runSandboxOperation({ operationId: 'gstin_verify', params: { gstin: '27aabcu9603r1zp' }, allowLive: true }, { state, client });
-  assert.equal(ran.ok, true);
-  assert.equal(ran.requirementId, 'REQ-CA-008');
-  assert.equal(ran.data.gstin, '27AABCU9603R1ZP');
+    const ran = await runSandboxOperation({ operationId: 'gstin_verify', params: { gstin: '27aabcu9603r1zp' } }, { state, client });
+    assert.equal(ran.ok, true);
+    assert.equal(ran.requirementId, 'REQ-CA-008');
+    assert.equal(ran.data.gstin, '27AABCU9603R1ZP');
 
-  const request = requestApproval(state, { operationId: 'einvoice_generate', actor: { userId: 'maker' } });
-  decideApproval(state, { approvalId: request.approval.approvalId, decision: 'approve', actor: { userId: 'partner1', role: 'partner' } });
-  const gated = await runSandboxOperation({ operationId: 'einvoice_generate', caApprovalId: request.approval.approvalId, params: { payload: { Version: '1.1' } }, allowLive: true }, { state, client });
-  assert.equal(gated.ok, true);
-  assert.equal(approvalStatus(findApproval(state, request.approval.approvalId)), 'used');
-  assert.equal(state.auditEvents.some((e) => e.action === 'sandbox.einvoice_generate'), true);
+    const params = { payload: { Version: '1.1' } };
+    const request = requestApproval(state, { operationId: 'einvoice_generate', params, actor: { userId: 'maker' } });
+    decideApproval(state, { approvalId: request.approval.approvalId, decision: 'approve', actor: { userId: 'partner1', role: 'partner' } });
+    const gated = await runSandboxOperation({ operationId: 'einvoice_generate', caApprovalId: request.approval.approvalId, params }, { state, client });
+    assert.equal(gated.ok, true);
+    assert.equal(approvalStatus(findApproval(state, request.approval.approvalId)), 'used');
+    assert.equal(state.auditEvents.some((e) => e.action === 'sandbox.einvoice_generate'), true);
+  } finally {
+    process.env.MYCA_ENABLE_LIVE_CALLS = liveBefore;
+  }
 });
 
 test('tools: approval workflow is exposed and gated ops stay non-autonomous', async () => {

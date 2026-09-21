@@ -1,4 +1,5 @@
 import { providerCatalog, providerRequirementMap } from './provider-catalog.mjs';
+import { hasSecretKey } from './secret-keys.mjs';
 
 export const SANDBOX_OPERATIONS = [
   {
@@ -152,8 +153,6 @@ export const SANDBOX_OPERATIONS = [
   },
 ];
 
-const SECRET_KEY_RE = /(secret|password|otp|token|apikey|api_key|clientsecret|auth)/i;
-
 function docsFor(requirement, docsTitle) {
   return (requirement?.sandboxDocs || []).find((doc) => doc.title === docsTitle) || requirement?.sandboxDocs?.[0] || null;
 }
@@ -190,21 +189,15 @@ export function sandboxAdapterPlan({ requirementId, operationId } = {}) {
   };
 }
 
-function hasSecretKey(value) {
-  if (!value || typeof value !== 'object') return false;
-  if (Array.isArray(value)) return value.some(hasSecretKey);
-  return Object.entries(value).some(([key, child]) => SECRET_KEY_RE.test(key) || hasSecretKey(child));
-}
-
 export function createSandboxHandoff({ operationId, actorId = 'system', caApprovalId = '', payloadRef = '', payloadSummary = {} } = {}) {
   const operation = sandboxOperationById(operationId);
   if (!operation) return { ok: false, error: 'UNKNOWN_SANDBOX_OPERATION' };
   if (hasSecretKey(payloadSummary)) return { ok: false, error: 'SECRET_FIELDS_NOT_ALLOWED_IN_HANDOFF' };
+  if (operation.assistantBlocked && String(actorId || '').trim().toLowerCase() === 'assistant') {
+    return { ok: false, error: 'ASSISTANT_BLOCKED_FOR_OPERATION', operation };
+  }
   if (operation.caApprovalRequired && !String(caApprovalId || '').trim()) {
     return { ok: false, error: 'CA_APPROVAL_REQUIRED', operation };
-  }
-  if (operation.assistantBlocked && String(actorId || '').toLowerCase() === 'assistant') {
-    return { ok: false, error: 'ASSISTANT_BLOCKED_FOR_OPERATION', operation };
   }
   return {
     ok: true,
