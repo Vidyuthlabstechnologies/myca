@@ -136,3 +136,20 @@ test('CI: the release tag reaches scripts only through env and is validated agai
     assert.match(first.run, /exit 1/);
   }
 });
+
+test('CI: the build job holds no write token; only publish holds contents and id-token write', () => {
+  const wf = workflow('build-windows.yml');
+  assert.ok(!Object.values(wf.permissions || {}).includes('write'), 'workflow-level permissions grant no write');
+  const build = wf.jobs.build;
+  assert.equal(typeof build.permissions, 'object', 'build declares its own permissions');
+  assert.ok(!Object.values(build.permissions).includes('write'), 'build holds no write permission');
+  assert.ok(build.steps.some((s) => /\bnpm ci\b/.test(s.run || '')), 'build installs dependencies');
+  const writers = Object.entries(wf.jobs).filter(([, job]) => Object.values(job.permissions || {}).includes('write')).map(([name]) => name);
+  assert.deepEqual(writers, ['publish']);
+  const publish = wf.jobs.publish;
+  assert.equal(publish.permissions.contents, 'write');
+  assert.equal(publish.permissions['id-token'], 'write');
+  assert.deepEqual([].concat(publish.needs), ['build']);
+  assert.match(publish.if, /github\.event_name == 'push' && startsWith\(github\.ref, 'refs\/tags\/v'\)/);
+  assert.ok(!publish.steps.some((s) => /\bnpm\b|\bnpx\b|electron-builder/.test(s.run || '')), 'publish runs no package scripts');
+});

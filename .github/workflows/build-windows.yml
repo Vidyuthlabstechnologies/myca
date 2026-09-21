@@ -6,25 +6,20 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write # create GitHub Releases
-  id-token: write # Workload Identity Federation
+  contents: read
 
 jobs:
   build:
     name: Package MyCA for Windows
     runs-on: windows-latest
-    env:
-      RELEASE_TAG: ${{ github.ref_name }}
-      ARTIFACTS_BUCKET: ${{ vars.GCP_ARTIFACTS_BUCKET }}
-      DOWNLOADS_BUCKET: ${{ vars.GCP_DOWNLOADS_BUCKET }}
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-          cache: npm
-          cache-dependency-path: platform/package-lock.json
 
       - name: Install dependencies
         working-directory: platform
@@ -33,9 +28,6 @@ jobs:
       - name: Build NSIS + portable installers
         working-directory: platform
         env:
-          # Unsigned by default. When a code-signing certificate is added as the
-          # repo secret CSC_LINK (base64 .pfx) + CSC_KEY_PASSWORD, electron-builder
-          # signs automatically — nothing else to change.
           CSC_LINK: ${{ secrets.CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
@@ -54,36 +46,57 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+  publish:
+    name: Publish release
+    needs: build
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+    env:
+      RELEASE_TAG: ${{ github.ref_name }}
+      ARTIFACTS_BUCKET: ${{ vars.GCP_ARTIFACTS_BUCKET }}
+      DOWNLOADS_BUCKET: ${{ vars.GCP_DOWNLOADS_BUCKET }}
+    steps:
+      - name: Validate release tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_TAG" =~ ^v[0-9.]+$ ]] || { echo "::error::release tag must match ^v[0-9.]+\$"; exit 1; }
+
+      - name: Download installers
+        uses: actions/download-artifact@v4
+        with:
+          name: myca-windows
+          path: dist
+
       - name: Publish GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: platform/dist/*.exe
+          files: dist/*.exe
           generate_release_notes: true
           fail_on_unmatched_files: true
 
       - name: Authenticate to Google Cloud
-        if: startsWith(github.ref, 'refs/tags/v') && vars.GCP_WIF_PROVIDER != ''
+        if: vars.GCP_WIF_PROVIDER != ''
         uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
           service_account: ${{ vars.GCP_DEPLOY_SA }}
 
       - uses: google-github-actions/setup-gcloud@v2
-        if: startsWith(github.ref, 'refs/tags/v') && vars.GCP_WIF_PROVIDER != ''
+        if: vars.GCP_WIF_PROVIDER != ''
 
       - name: Archive versioned installers
-        if: startsWith(github.ref, 'refs/tags/v') && vars.GCP_WIF_PROVIDER != ''
+        if: vars.GCP_WIF_PROVIDER != ''
         shell: bash
         run: |
           set -euo pipefail
-          [[ "$RELEASE_TAG" =~ ^v[0-9.]+$ ]] || { echo "::error::release tag must match ^v[0-9.]+\$"; exit 1; }
-          gcloud storage cp platform/dist/*.exe \
-            "gs://${ARTIFACTS_BUCKET}/releases/${RELEASE_TAG}/"
+          gcloud storage cp dist/*.exe "gs://${ARTIFACTS_BUCKET}/releases/${RELEASE_TAG}/"
 
       - name: Publish stable download aliases
-        if: startsWith(github.ref, 'refs/tags/v') && vars.GCP_WIF_PROVIDER != ''
-        working-directory: platform
+        if: vars.GCP_WIF_PROVIDER != ''
         shell: bash
         run: |
           set -euo pipefail
