@@ -68,12 +68,25 @@ Test script note: suites use `node --test "test/*.test.mjs"` (quoted glob). This
 - **Transfers are append-only.** Never mutate a posted transfer; add a resolving entry.
 - **`books.mjs`**: `SELF` maps to the root state object; other clients get isolated books.
   Any new per-client concern must go through `getBook`.
-- **Active-client view**: `session.mjs` runs tools/chat against `toolState(state)` — the
-  active client's book layered over the root infra state — then `syncView` copies the
-  book's sequence counters and `activeClientId` back. Add any new root-level field a tool
-  may mutate to `syncView`, or the write will be lost on the view copy.
-- **`state.files` is an in-memory cache**, never persisted. Attachment bytes live on disk
-  via `document-store.mjs`; `state.json` holds metadata (`sha256`, `bytes`) only.
+- **Active-client view**: `session.mjs` runs tools/chat against `bookView(root, book)`
+  (`book-view.mjs`), a Proxy that routes `BOOK_KEYS` to the active client's book and
+  `FIRM_KEYS` to the root. Writing any other top-level key throws
+  `VIEW_WRITE_UNKNOWN_KEY`. Add a new top-level field to exactly one of the two sets;
+  `test/book-view.test.mjs` fails on any unclassified write or on a key that
+  `newBook()`/`createState()` carries without classifying it. Never enumerate, inspect or
+  clone a view (spread, `Object.keys`, `JSON.stringify`, `util.inspect`, `structuredClone`):
+  its key list comes from the root, so book-only fields go missing and inspected values are
+  the root's. Read fields by name. The throw is a developer tripwire, not a transaction:
+  writes made before it are kept.
+- **Client ids** match `^[A-Z0-9][A-Z0-9_-]{1,31}$` and are upper-cased on entry
+  (`normalizeClientId`); `SELF` is reserved. `extraBooks` is a null-prototype map; look
+  books up with `Object.hasOwn`, never by truthiness or `in`. Legacy ids that do not fit
+  the pattern are migrated on load to a free canonical id (the original kept as
+  `legacyClientId`, every reference rewritten, and a copy of the pre-migration
+  `state.json` written next to it); only prototype keys such as `__proto__` are refused.
+- **Attachments are per book.** `book.attachments` (persisted metadata) and `book.files`
+  (in-memory cache, never persisted) live on each client's book. Document bytes are
+  content-addressed on disk, and every read re-verifies the sha256 (`readVerifiedDocument`).
 - **`text-safe.mjs`** is the only place CSV/HTML escaping should live (`csvCell`, `csvRows`,
   `htmlEscape`). Do not hand-roll `join(',')` or string-built HTML.
 - **`runtime-config.mjs`** owns `loadEnvFile()` and `liveCallsEnabled()`. Do not
