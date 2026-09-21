@@ -38,6 +38,11 @@ export function bookView(root, book) {
       delete owner[key];
       return true;
     },
+    defineProperty(target, key, descriptor) {
+      const owner = ownerOf(target, book, key);
+      if (!owner) throw new Error(`VIEW_WRITE_UNKNOWN_KEY:${String(key)}`);
+      return Reflect.defineProperty(owner, key, descriptor);
+    },
     has(target, key) {
       const owner = ownerOf(target, book, key);
       return owner ? key in owner : key in target;

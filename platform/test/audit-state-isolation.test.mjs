@@ -1,12 +1,16 @@
-import { test } from 'node:test';
+import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { openSession } from '../src/session.mjs';
 
+const dirs = [];
+after(() => { for (const dir of dirs) rmSync(dir, { recursive: true, force: true }); });
+
 function freshSession() {
   const dir = mkdtempSync(join(tmpdir(), 'myca-isolation-'));
+  dirs.push(dir);
   const path = join(dir, 'MyCA', 'state.json');
   return { sess: openSession(path), path };
 }
@@ -35,6 +39,7 @@ test('H7: document ids stay unique and each reads back its own content under a c
   const two = await sess.tool('save_document', { kind: 'k', fileName: 'two.txt', content: 'SECOND' });
   assert.notEqual(one.data.documentId, two.data.documentId);
   assert.equal((await sess.tool('get_document', { documentId: one.data.documentId })).data.content, 'FIRST');
+  assert.equal((await sess.tool('get_document', { documentId: two.data.documentId })).data.content, 'SECOND');
 });
 
 test('H7: audit event ids stay unique across client switches', async () => {
