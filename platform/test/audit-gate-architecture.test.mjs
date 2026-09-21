@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
-import { dirname, join, relative, resolve } from 'node:path';
+import { dirname, join, posix, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -15,6 +15,7 @@ const PENDING_LATER_SLICES = new Set([
   'provider-doctor.mjs -> nim-client.mjs',
   'provider-doctor.mjs -> reachability.mjs',
   'provider-doctor.mjs -> sandbox-client.mjs',
+  'tools.mjs -> govt.mjs',
   'tools.mjs -> nic-client.mjs',
   'tools.mjs -> nim-client.mjs',
   'tools.mjs -> notifications.mjs',
@@ -25,6 +26,11 @@ const FETCH_REFERENCE = /(?<![\w$])fetch(?![\w$])/;
 const BUILTIN_IMPORT = /\bimport\s+([\w$*{}\s,]+?)\s+from\s+['"](?:node:)?(net|tls|dgram|http|https|http2|undici)['"]|\bimport\(\s*['"](?:node:)?(net|tls|dgram|http|https|http2|undici)['"]\s*\)/g;
 const STATIC_IMPORT = /(?:^|[\s;])(?:import|export)\s+(?:[\w$*{}\s,]+?\s+from\s+)?['"]([^'"]+)['"]/g;
 const DYNAMIC_IMPORT = /\bimport\(\s*['"]([^'"]+)['"]\s*\)/g;
+const IMPORT_FROM = /(?:^|[\s;])import\s+([\w$*{}\s,]+?)\s+from\s+['"]([^'"]+)['"]/g;
+const SIDE_EFFECT_IMPORT = /(?:^|[\s;])import\s+['"]([^'"]+)['"]/g;
+const EXPORT_FROM = /(?:^|[\s;])export\s+(\*(?:\s+as\s+[\w$]+)?|\{[^}]*\})\s+from\s+['"]([^'"]+)['"]/g;
+const EXPORT_LIST = /(?:^|[\s;])export\s+\{([^}]*)\}(?!\s*from\b)/g;
+const LOCAL_EXPORT = /(?:^|[\s;])export\s+(?:default\s+)?(?:async\s+)?(?:function\s*\*?|class|const|let|var)\s*([\w$]+)/g;
 
 function usesNetwork(text) {
   if (FETCH_REFERENCE.test(text)) return true;
@@ -54,18 +60,88 @@ function listModules(dir) {
 function moduleGraph() {
   const files = listModules(SRC);
   const name = (full) => relative(SRC, full).split('\\').join('/');
-  const text = new Map(files.map((full) => [name(full), readFileSync(full, 'utf8')]));
-  const imports = new Map();
-  for (const full of files) {
-    const targets = new Set();
-    for (const spec of importSpecifiers(text.get(name(full)))) {
-      if (!spec.startsWith('.')) continue;
-      const target = resolve(dirname(full), spec);
-      if (target.startsWith(SRC)) targets.add(name(target));
-    }
-    imports.set(name(full), targets);
+  return graphFromSources(new Map(files.map((full) => [name(full), readFileSync(full, 'utf8')])));
+}
+
+function resolveSpecifier(from, spec) {
+  if (!spec.startsWith('.')) return null;
+  return posix.normalize(posix.join(posix.dirname(from), spec));
+}
+
+function parseNameList(list) {
+  return list.split(',').map((part) => part.trim()).filter(Boolean).map((part) => {
+    const [name, alias = name] = part.split(/\s+as\s+/);
+    return { name, alias };
+  });
+}
+
+function parseImportClause(clause) {
+  const braces = clause.match(/\{([^}]*)\}/);
+  const bindings = braces ? parseNameList(braces[1]).map(({ name, alias }) => ({ imported: name, local: alias })) : [];
+  const namespace = clause.match(/\*\s+as\s+([\w$]+)/);
+  if (namespace) bindings.push({ imported: '*', local: namespace[1] });
+  const rest = clause.replace(/\{[^}]*\}/, '').replace(/\*\s+as\s+[\w$]+/, '');
+  for (const name of rest.split(',').map((part) => part.trim()).filter(Boolean)) bindings.push({ imported: 'default', local: name });
+  return bindings;
+}
+
+function moduleInfo(mod, source, exists) {
+  const resolveTarget = (spec) => {
+    const target = resolveSpecifier(mod, spec);
+    return target && exists(target) ? target : null;
+  };
+  const uses = [];
+  const imported = new Map();
+  const reexports = new Map();
+  const stars = [];
+  const locals = new Set([...source.matchAll(LOCAL_EXPORT)].map((match) => match[1]));
+  for (const [, clause, spec] of source.matchAll(IMPORT_FROM)) {
+    const target = resolveTarget(spec);
+    if (!target) continue;
+    const bindings = parseImportClause(clause);
+    uses.push({ target, names: bindings.map((binding) => binding.imported) });
+    for (const binding of bindings) imported.set(binding.local, { target, name: binding.imported });
   }
-  return { text, imports };
+  for (const [, spec] of [...source.matchAll(SIDE_EFFECT_IMPORT), ...source.matchAll(DYNAMIC_IMPORT)]) {
+    const target = resolveTarget(spec);
+    if (target) uses.push({ target, names: ['*'] });
+  }
+  for (const [, clause, spec] of source.matchAll(EXPORT_FROM)) {
+    const target = resolveTarget(spec);
+    if (!target) continue;
+    if (clause.startsWith('*')) {
+      const namespace = clause.match(/as\s+([\w$]+)/);
+      if (namespace) reexports.set(namespace[1], { target, name: '*' });
+      else stars.push(target);
+      uses.push({ target, names: ['*'] });
+      continue;
+    }
+    const names = parseNameList(clause.slice(1, -1));
+    for (const { name, alias } of names) reexports.set(alias, { target, name });
+    uses.push({ target, names: names.map(({ name }) => name) });
+  }
+  for (const [, list] of source.matchAll(EXPORT_LIST)) {
+    for (const { name, alias } of parseNameList(list)) {
+      if (imported.has(name)) reexports.set(alias, imported.get(name));
+      else locals.add(alias);
+    }
+  }
+  return { uses, reexports, stars, locals };
+}
+
+function graphFromSources(text) {
+  const imports = new Map();
+  const infos = new Map();
+  for (const [mod, source] of text) {
+    const targets = new Set();
+    for (const spec of importSpecifiers(source)) {
+      const target = resolveSpecifier(mod, spec);
+      if (target && text.has(target)) targets.add(target);
+    }
+    imports.set(mod, targets);
+    infos.set(mod, moduleInfo(mod, source, (target) => text.has(target)));
+  }
+  return { text, imports, infos };
 }
 
 function importersOf(graph, target) {
@@ -108,11 +184,37 @@ function networkModules(graph) {
   return [...graph.text].filter(([, source]) => usesNetwork(source)).map(([mod]) => mod).sort();
 }
 
+function transportBindings(graph) {
+  const network = new Set(networkModules(graph));
+  const isTransport = (mod, name, seen = new Set()) => {
+    if (network.has(mod)) return true;
+    const key = `${mod}#${name}`;
+    const info = graph.infos.get(mod);
+    if (!info || seen.has(key)) return false;
+    seen.add(key);
+    if (name === '*') {
+      return [...info.reexports.values()].some((origin) => isTransport(origin.target, origin.name, seen))
+        || info.stars.some((target) => isTransport(target, '*', seen));
+    }
+    const origin = info.reexports.get(name);
+    if (origin) return isTransport(origin.target, origin.name, seen);
+    if (info.locals.has(name)) return false;
+    return info.stars.some((target) => isTransport(target, name, seen));
+  };
+  return isTransport;
+}
+
 function transportImportViolations(graph) {
   const allowed = new Set([GATE, ...gatePrivateModules(graph)]);
-  return networkModules(graph)
-    .flatMap((transport) => importersOf(graph, transport).filter((from) => !allowed.has(from)).map((from) => `${from} -> ${transport}`))
-    .sort();
+  const isTransport = transportBindings(graph);
+  const edges = new Set();
+  for (const [from, info] of graph.infos) {
+    if (allowed.has(from)) continue;
+    for (const use of info.uses) {
+      if (use.names.some((name) => isTransport(use.target, name))) edges.add(`${from} -> ${use.target}`);
+    }
+  }
+  return [...edges].sort();
 }
 
 test('architecture detector: finds fetch, sockets and imports, and ignores look-alikes', () => {
@@ -138,6 +240,34 @@ test('architecture detector: finds fetch, sockets and imports, and ignores look-
   ].join('\n')).sort(), ['./a.mjs', './b.mjs', './c.mjs', './d.mjs', './e.mjs', './f.mjs']);
 });
 
+test('architecture detector: a transport re-exported through another module is still a transport', () => {
+  const graph = graphFromSources(new Map([
+    ['nic.mjs', "export const HOSTS = {};\nexport async function gen(url) { return fetch(url); }"],
+    ['hub.mjs', "export { gen, HOSTS as hosts } from './nic.mjs';\nexport function local() {}"],
+    ['relay.mjs', "import { gen } from './nic.mjs';\nimport { local } from './hub.mjs';\nexport { gen as send, local };"],
+    ['star.mjs', "export * from './relay.mjs';\nexport const own = 1;"],
+    ['action-gate.mjs', "import { gen } from './nic.mjs';\nexport { gen as rawGen };\nexport function performExternalAction() {}"],
+    ['user.mjs', "import { gen } from './hub.mjs';"],
+    ['alias.mjs', "import { send as s } from './relay.mjs';"],
+    ['viaStar.mjs', "import { send } from './star.mjs';"],
+    ['ns.mjs', "import * as hub from './hub.mjs';"],
+    ['dyn.mjs', "const hub = await import('./hub.mjs');"],
+    ['viaGate.mjs', "import { rawGen } from './action-gate.mjs';"],
+    ['safe.mjs', "import { local } from './hub.mjs';\nimport { own } from './star.mjs';\nimport { performExternalAction } from './action-gate.mjs';"],
+  ]));
+  assert.deepEqual(transportImportViolations(graph), [
+    'alias.mjs -> relay.mjs',
+    'dyn.mjs -> hub.mjs',
+    'hub.mjs -> nic.mjs',
+    'ns.mjs -> hub.mjs',
+    'relay.mjs -> nic.mjs',
+    'star.mjs -> relay.mjs',
+    'user.mjs -> hub.mjs',
+    'viaGate.mjs -> action-gate.mjs',
+    'viaStar.mjs -> star.mjs',
+  ]);
+});
+
 test('architecture: fetch and sockets appear only in the named transport modules', () => {
   const graph = moduleGraph();
   assert.ok(graph.text.has(GATE));
@@ -154,13 +284,6 @@ test('architecture: sprint engines make no network calls', () => {
   assert.deepEqual(offenders, []);
 });
 
-test('architecture: no module outside the gate gains a new direct import of a transport', () => {
-  const fresh = transportImportViolations(moduleGraph()).filter((pair) => !PENDING_LATER_SLICES.has(pair));
-  assert.deepEqual(fresh, []);
-});
-
-test('architecture: only the action gate, or a module only it imports, imports a transport', {
-  todo: 'tools.mjs, provider-doctor.mjs and govt.mjs still import transports directly; later Plan 2a slices route them through performExternalAction and then remove this todo and PENDING_LATER_SLICES',
-}, () => {
-  assert.deepEqual(transportImportViolations(moduleGraph()), []);
+test('architecture: only the action gate imports a transport, apart from the listed edges that later Plan 2a slices remove', () => {
+  assert.deepEqual(transportImportViolations(moduleGraph()), [...PENDING_LATER_SLICES].sort());
 });
