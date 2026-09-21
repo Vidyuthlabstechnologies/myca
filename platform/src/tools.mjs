@@ -24,7 +24,8 @@ import { sandboxAdapterPlan } from './sandbox-adapter-contract.mjs';
 import { getSandboxClient } from './sandbox-client.mjs';
 import { getNimClient } from './nim-client.mjs';
 import { runSandboxOperation } from './sandbox-adapter.mjs';
-import { requestApproval, decideApproval, approvalStatus } from './approvals.mjs';
+import { requestApproval, decideApproval, approvalStatus, normalizeActor } from './approvals.mjs';
+import { normalizeClientId } from './books.mjs';
 import { liveCallsEnabled, mockModeEnabled } from './runtime-config.mjs';
 import { seedDemo } from './store.mjs';
 
@@ -33,6 +34,14 @@ function ok(data) {
 }
 function fail(error, extra = {}) {
   return { ok: false, error, ...extra };
+}
+
+function resolveToolActor(args = {}, idKey = 'actorId', fallbackUserId = 'ca') {
+  return normalizeActor({ userId: args[idKey] || fallbackUserId, role: args.role || '' });
+}
+
+function activeClientId(state) {
+  return normalizeClientId(state.activeClientId);
 }
 
 export const TOOLS = [
@@ -647,13 +656,15 @@ export const TOOLS = [
   {
     name: 'approval_request',
     title: 'Request CA approval',
-    description: 'Open a CA approval request for a gated provider operation (e.g. e-invoice generate, GST filing). Maker-checker enforced.',
-    args: ['operationId', 'requirementId', 'requestedBy', 'note'],
+    description: 'Open a CA approval request for a gated external action (e.g. e-invoice generate, GST filing). The approval is bound to the client and to the exact action parameters passed as params. Maker-checker enforced.',
+    args: ['operationId', 'requirementId', 'requestedBy', 'note', 'clientId', 'params'],
     run: (state, args = {}) => {
       const out = requestApproval(state, {
         operationId: args.operationId,
         requirementId: args.requirementId || '',
-        requestedBy: args.requestedBy || 'ca',
+        clientId: args.clientId || activeClientId(state),
+        params: args.params || {},
+        actor: resolveToolActor(args, 'requestedBy'),
         payloadSummary: args.payloadSummary || {},
         note: args.note || '',
       });
@@ -669,8 +680,7 @@ export const TOOLS = [
       const out = decideApproval(state, {
         approvalId: args.approvalId,
         decision: args.decision,
-        decidedBy: args.decidedBy,
-        role: args.role,
+        actor: resolveToolActor(args, 'decidedBy', ''),
         reason: args.reason || '',
       });
       return out.ok ? ok(out) : fail(out.error);

@@ -324,6 +324,8 @@ export const TOOL_ARG_SCHEMAS = {
       requirementId: { type: 'string' },
       requestedBy: { type: 'string', minLength: 1 },
       note: { type: 'string' },
+      clientId: { type: 'string' },
+      params: { type: 'object' },
     },
   },
   approval_decide: {

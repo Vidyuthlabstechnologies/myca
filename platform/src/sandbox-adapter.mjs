@@ -2,7 +2,7 @@ import { getSandboxClient } from './sandbox-client.mjs';
 import { createHash } from 'node:crypto';
 import { liveCallsEnabled, mockModeEnabled } from './runtime-config.mjs';
 import { sandboxOperationById, createSandboxHandoff } from './sandbox-adapter-contract.mjs';
-import { approvalStatus, findApproval, consumeApproval } from './approvals.mjs';
+import { approvalStatus, findApproval, reserveApproval, settleApproval } from './approvals.mjs';
 import { appendAuditEvent, stateDigest } from './ca-api.mjs';
 import { invoiceToNicPayload } from './govt.mjs';
 
@@ -431,6 +431,7 @@ export async function runSandboxOperation({ operationId, actorId = 'ca', caAppro
   }
 
   const beforeHash = state ? stateDigest(state) : null;
+  if (approval) reserveApproval(approval, { userId: actorId });
   let result;
   try {
     result = await adapter({ client, params, state });
@@ -438,7 +439,7 @@ export async function runSandboxOperation({ operationId, actorId = 'ca', caAppro
     result = { ok: false, error: String(err.message || err) };
   }
 
-  if (result.ok && approval) consumeApproval(state, caApprovalId, { consumedBy: actorId });
+  if (approval) settleApproval(approval, { ok: result.ok === true, error: result.error, actor: { userId: actorId } });
 
   if (state) {
     appendAuditEvent(state, {

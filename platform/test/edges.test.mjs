@@ -30,7 +30,7 @@ import { CA_API_REQUIREMENTS, integrationReadiness } from '../src/integration-co
 import { handleCaApi, stateDigest } from '../src/ca-api.mjs';
 import { providerCatalog, providerRequirementIds, providerRequirementMap } from '../src/provider-catalog.mjs';
 import { runSandboxOperation } from '../src/sandbox-adapter.mjs';
-import { requestApproval, decideApproval, consumeApproval, approvalStatus, findApproval } from '../src/approvals.mjs';
+import { requestApproval, decideApproval, reserveApproval, settleApproval, approvalStatus, findApproval } from '../src/approvals.mjs';
 import { SandboxClient } from '../src/sandbox-client.mjs';
 import { queueNotification, sendNotification } from '../src/notifications.mjs';
 import {
@@ -1030,18 +1030,19 @@ test('gstr1 json: real hash and gross turnover', () => {
 
 test('approvals: maker-checker, approver role, single use, expiry', () => {
   const state = createState();
-  const req = requestApproval(state, { operationId: 'einvoice_generate', requestedBy: 'maker' });
+  const req = requestApproval(state, { operationId: 'einvoice_generate', actor: { userId: 'maker' } });
   assert.equal(req.ok, true);
   assert.equal(approvalStatus(req.approval), 'pending');
-  assert.equal(decideApproval(state, { approvalId: req.approval.approvalId, decision: 'approve', decidedBy: 'maker', role: 'partner' }).error, 'MAKER_CHECKER_VIOLATION');
-  assert.equal(decideApproval(state, { approvalId: req.approval.approvalId, decision: 'approve', decidedBy: 'reviewer', role: 'clerk' }).error, 'APPROVER_ROLE_REQUIRED');
-  const decided = decideApproval(state, { approvalId: req.approval.approvalId, decision: 'approve', decidedBy: 'partner1', role: 'partner' });
+  assert.equal(decideApproval(state, { approvalId: req.approval.approvalId, decision: 'approve', actor: { userId: 'maker', role: 'partner' } }).error, 'MAKER_CHECKER_VIOLATION');
+  assert.equal(decideApproval(state, { approvalId: req.approval.approvalId, decision: 'approve', actor: { userId: 'reviewer', role: 'clerk' } }).error, 'APPROVER_ROLE_REQUIRED');
+  const decided = decideApproval(state, { approvalId: req.approval.approvalId, decision: 'approve', actor: { userId: 'partner1', role: 'partner' } });
   assert.equal(decided.approval.status, 'approved');
-  assert.equal(consumeApproval(state, req.approval.approvalId, { consumedBy: 'ca' }).ok, true);
+  assert.equal(reserveApproval(findApproval(state, req.approval.approvalId), { userId: 'ca' }).ok, true);
+  settleApproval(findApproval(state, req.approval.approvalId), { ok: true, actor: { userId: 'ca' } });
   assert.equal(approvalStatus(findApproval(state, req.approval.approvalId)), 'used');
-  assert.equal(consumeApproval(state, req.approval.approvalId).error, 'APPROVAL_NOT_ACTIVE');
-  const expired = requestApproval(state, { operationId: 'einvoice_cancel', requestedBy: 'maker' });
-  decideApproval(state, { approvalId: expired.approval.approvalId, decision: 'approve', decidedBy: 'partner1', role: 'partner', ttlMs: -1000 });
+  assert.equal(reserveApproval(findApproval(state, req.approval.approvalId), { userId: 'ca' }).error, 'APPROVAL_NOT_ACTIVE');
+  const expired = requestApproval(state, { operationId: 'einvoice_cancel', actor: { userId: 'maker' } });
+  decideApproval(state, { approvalId: expired.approval.approvalId, decision: 'approve', actor: { userId: 'partner1', role: 'partner' }, ttlMs: -1000 });
   assert.equal(approvalStatus(findApproval(state, expired.approval.approvalId)), 'expired');
 });
 
@@ -1074,8 +1075,8 @@ test('sandbox adapter: live gate, assistant block, approvals, secret redaction, 
   assert.equal(ran.requirementId, 'REQ-CA-008');
   assert.equal(ran.data.gstin, '27AABCU9603R1ZP');
 
-  const request = requestApproval(state, { operationId: 'einvoice_generate', requestedBy: 'maker' });
-  decideApproval(state, { approvalId: request.approval.approvalId, decision: 'approve', decidedBy: 'partner1', role: 'partner' });
+  const request = requestApproval(state, { operationId: 'einvoice_generate', actor: { userId: 'maker' } });
+  decideApproval(state, { approvalId: request.approval.approvalId, decision: 'approve', actor: { userId: 'partner1', role: 'partner' } });
   const gated = await runSandboxOperation({ operationId: 'einvoice_generate', caApprovalId: request.approval.approvalId, params: { payload: { Version: '1.1' } }, allowLive: true }, { state, client });
   assert.equal(gated.ok, true);
   assert.equal(approvalStatus(findApproval(state, request.approval.approvalId)), 'used');
