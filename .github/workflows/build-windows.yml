@@ -73,10 +73,14 @@ jobs:
     permissions:
       contents: write
       id-token: write
+    concurrency:
+      group: release-publish
+      cancel-in-progress: false
     env:
       RELEASE_TAG: ${{ github.ref_name }}
       ARTIFACTS_BUCKET: ${{ vars.GCP_ARTIFACTS_BUCKET }}
       DOWNLOADS_BUCKET: ${{ vars.GCP_DOWNLOADS_BUCKET }}
+      URL_MAP: ${{ vars.GCP_URL_MAP }}
     steps:
       - name: Validate release tag
         shell: bash
@@ -124,18 +128,29 @@ jobs:
           set -euo pipefail
           gcloud storage cp dist/*.exe dist/SHA256SUMS "gs://${ARTIFACTS_BUCKET}/releases/${RELEASE_TAG}/"
 
-      - name: Publish stable download aliases
+      - name: Point download aliases at the highest archived release
         if: vars.GCP_WIF_PROVIDER != ''
         shell: bash
         run: |
           set -euo pipefail
-          setup=$(ls dist/"MyCA Setup "*.exe | head -n1)
-          portable=$(ls dist/"MyCA "[0-9]*.exe | head -n1)
-          echo "setup=$setup"
-          echo "portable=$portable"
-          gcloud storage cp "$setup" \
-            "gs://${DOWNLOADS_BUCKET}/myca-setup.exe" \
-            --cache-control="public, max-age=86400"
-          gcloud storage cp "$portable" \
-            "gs://${DOWNLOADS_BUCKET}/myca-portable.exe" \
-            --cache-control="public, max-age=86400"
+          highest=$(gcloud storage ls "gs://${ARTIFACTS_BUCKET}/releases/" \
+            | sed -nE 's#^gs://[^/]+/releases/(v[0-9.]+)/$#\1#p' | sort -V | tail -n1)
+          [[ "$highest" =~ ^v[0-9.]+$ ]] || { echo "::error::no archived release found"; exit 1; }
+          echo "highest archived release: ${highest} (this run: ${RELEASE_TAG})"
+          rm -rf alias && mkdir alias
+          gcloud storage cp "gs://${ARTIFACTS_BUCKET}/releases/${highest}/*" alias/
+          cd alias
+          sha256sum -c SHA256SUMS
+          setup=$(ls "MyCA Setup "*.exe | head -n1)
+          portable=$(ls "MyCA "[0-9]*.exe | head -n1)
+          cp -- "$setup" myca-setup.exe
+          cp -- "$portable" myca-portable.exe
+          sha256sum myca-setup.exe myca-portable.exe > downloads-SHA256SUMS
+          for f in myca-setup.exe myca-portable.exe; do
+            gcloud storage cp "$f" "gs://${DOWNLOADS_BUCKET}/downloads/$f" --cache-control="public, max-age=300"
+          done
+          gcloud storage cp downloads-SHA256SUMS "gs://${DOWNLOADS_BUCKET}/downloads/SHA256SUMS" --cache-control="public, max-age=300"
+
+      - name: Purge download aliases from Cloud CDN
+        if: vars.GCP_WIF_PROVIDER != ''
+        run: gcloud compute url-maps invalidate-cdn-cache "${URL_MAP}" --path "/downloads/*"

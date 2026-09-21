@@ -185,3 +185,25 @@ test('release: Windows signing follows CSC_LINK instead of being switched off in
   assert.match(verify.run, /-ne 'Valid'/);
   assert.match(verify.run, /exit 1/);
 });
+
+test('release: download aliases track the highest archived version under /downloads/, then the CDN is purged, one publish at a time', () => {
+  const wf = workflow('build-windows.yml');
+  const publish = wf.jobs.publish;
+  assert.equal(typeof publish.concurrency, 'object', 'publish declares a concurrency group');
+  assert.ok(publish.concurrency.group);
+  assert.equal(publish.concurrency['cancel-in-progress'], 'false');
+  assert.equal(jobEnv(wf, publish).URL_MAP, '${{ vars.GCP_URL_MAP }}');
+  const aliasAt = publish.steps.findIndex((s) => /myca-setup\.exe/.test(s.run || ''));
+  const alias = publish.steps[aliasAt].run;
+  assert.match(alias, /gcloud storage ls "gs:\/\/\$\{ARTIFACTS_BUCKET\}\/releases\/"/, 'the version is chosen from every archived release');
+  assert.match(alias, /\| sort -V \| tail -n1/);
+  assert.match(alias, /gcloud storage cp "gs:\/\/\$\{ARTIFACTS_BUCKET\}\/releases\/\$\{highest\}\/\*"/, 'aliases are copied from the highest archive, not from this run');
+  assert.match(alias, /sha256sum -c SHA256SUMS/);
+  assert.match(alias, /gs:\/\/\$\{DOWNLOADS_BUCKET\}\/downloads\/\$f/, 'objects live under downloads/ because the /downloads/* path rule keeps the prefix');
+  assert.match(alias, /gs:\/\/\$\{DOWNLOADS_BUCKET\}\/downloads\/SHA256SUMS/);
+  assert.match(alias, /--cache-control="public, max-age=300"/);
+  assert.doesNotMatch(alias, /max-age=86400/);
+  const purgeAt = publish.steps.findIndex((s) => /invalidate-cdn-cache "\$\{URL_MAP\}" --path "\/downloads\/\*"/.test(s.run || ''));
+  assert.ok(purgeAt > aliasAt, 'the CDN is purged after the aliases change');
+  assert.match(read('infra/main.tf'), /paths\s*=\s*\["\/downloads", "\/downloads\/\*"\]/);
+});
