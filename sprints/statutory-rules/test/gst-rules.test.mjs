@@ -70,3 +70,31 @@ test('rate set versions and sources follow the notifications that changed the se
   assert.match(rule(RATES, '2025-09-22').record.source, /14\/2025-Central Tax \(Rate\)/);
   assert.match(rule(RATES, '2026-02-01').record.source, /19\/2025-Central Tax \(Rate\)/);
 });
+
+const B2CL = 'gst.b2cl.threshold';
+const RUPEE = 100;
+const LAKH = 100000 * RUPEE;
+const CRORE = 100 * LAKH;
+
+test('the B2CL invoice-value threshold is Rs 2,50,000 up to 31-Jul-2024 and Rs 1,00,000 from 1-Aug-2024, in paise', () => {
+  assert.equal(rule(B2CL, '2017-07-01').value, 250000 * RUPEE);
+  assert.equal(rule(B2CL, '2020-12-31').value, 250000 * RUPEE);
+  assert.equal(rule(B2CL, '2021-01-01').value, 250000 * RUPEE);
+  assert.equal(rule(B2CL, '2024-07-31').value, 250000 * RUPEE);
+  assert.equal(rule(B2CL, '2024-08-01').value, 100000 * RUPEE);
+  assert.equal(rule(B2CL, '2026-09-21').value, LAKH);
+  assert.equal(rule(B2CL, '2024-08-01').record.basis, 'invoice_value_paise_more_than');
+});
+
+test('the B2CL threshold is not claimed before GST began on 1-Jul-2017', () => {
+  assert.deepEqual(rule(B2CL, '2017-06-30'), { ok: false, error: 'RULE_NOT_IN_FORCE', id: B2CL, onDate: '2017-06-30' });
+});
+
+test('B2CL versions cite rule 59 and Notification 12/2024-Central Tax', () => {
+  const ranges = GST_RULES.filter((entry) => entry.id === B2CL).map((record) => [record.effectiveFrom, record.effectiveTo]);
+  assert.deepEqual(ranges, [['2017-07-01', '2020-12-31'], ['2021-01-01', '2024-07-31'], ['2024-08-01', null]]);
+  assert.match(rule(B2CL, '2024-08-01').record.source, /12\/2024-Central Tax/);
+  assert.match(rule(B2CL, '2024-08-01').record.section, /Rule 59\(4\)/);
+  assert.match(rule(B2CL, '2021-01-01').record.source, /82\/2020-Central Tax/);
+  assert.match(rule(B2CL, '2020-12-31').record.section, /Rule 59\(2\)/);
+});
