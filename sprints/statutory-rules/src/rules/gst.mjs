@@ -5,7 +5,15 @@ const RATE_SET_BEFORE_22_SEP_2025 =[0, 0.1, 0.25, 1.5, 3, 5, 7.5, 12, 18, 28];
 const RATE_SET_22_SEP_2025_TO_31_JAN_2026 = [0, 0.1, 0.25, 1.5, 3, 5, 7.5, 12, 18, 28, 40];
 const RATE_SET_FROM_1_FEB_2026 = [0, 0.1, 0.25, 1.5, 3, 5, 7.5, 12, 18, 40];
 
-const MERCHANT_EXPORTER = '40/2017-Central Tax (Rate) dated 23.10.2017 (0.05 per cent central tax, 0.1 per cent combined, supplies to merchant exporters)';
+function twoDigitCodes(from, to) {
+  return Array.from({ length: to - from + 1 }, (_, offset) => String(from + offset).padStart(2, '0'));
+}
+
+const STATE_CODES_BEFORE_LADAKH = [...twoDigitCodes(1, 27), ...twoDigitCodes(29, 37), '97', '99'];
+const STATE_CODES_WITH_LADAKH = [...twoDigitCodes(1, 27), ...twoDigitCodes(29, 38), '97', '99'];
+const STATE_CODE_LISTS = 'State code masters of the e-invoice portal (einvoice1.gst.gov.in Master Codes: 01-27, 29-38, 96, 97, 99) and the e-way bill API (docs.ewaybillgst.gov.in state codes: 01-24, 26, 27, 29-38, 97, 99); neither lists 28; 96 is a place-of-supply code for foreign recipients, not a GSTIN prefix';
+
+const MERCHANT_EXPORTER ='40/2017-Central Tax (Rate) dated 23.10.2017 (0.05 per cent central tax, 0.1 per cent combined, supplies to merchant exporters)';
 const SERVICES_BEFORE = '11/2017-Central Tax (Rate) as amended up to 16.01.2025 (central tax 0.75, 2.5, 3.75, 6, 9, 14; 0.75 and 3.75 for residential construction inserted by 3/2019-Central Tax (Rate) w.e.f. 01.04.2019)';
 const SERVICES_AFTER = '11/2017-Central Tax (Rate) as amended by 15/2025-Central Tax (Rate) w.e.f. 22.09.2025 (central tax 0.75, 2.5, 3.75, 6, 9, 20; 6 kept for item (ie) ongoing housing projects)';
 const GOODS_AFTER = '9/2025-Central Tax (Rate) dated 17.09.2025 w.e.f. 22.09.2025 superseding 1/2017-Central Tax (Rate) (central tax 2.5, 9, 20, 1.5, 0.125, 0.75 and 14 in Schedule VII for pan masala and tobacco); 14/2025-Central Tax (Rate) w.e.f. 22.09.2025 (central tax 6 for bricks and roofing tiles)';
@@ -75,6 +83,28 @@ export const RULES = [
     act: 'CGST',
     section: 'Rule 59(4)(a)(ii) and (b)(ii), CGST Rules 2017; FORM GSTR-1 Table 5',
     source: 'Notification 12/2024-Central Tax dated 10.07.2024, rule 11(ii) and rule 28: in rule 59(4) and FORM GSTR-1 Table 5, two and a half lakh rupees replaced by one lakh rupees w.e.f. 01.08.2024',
+    attestations: []
+  },
+  {
+    id: 'gst.gstin.state-codes',
+    value: STATE_CODES_BEFORE_LADAKH,
+    basis: 'gstin_first_two_characters',
+    effectiveFrom: '2017-07-01',
+    effectiveTo: '2019-12-31',
+    act: 'CGST',
+    section: '',
+    source: `${STATE_CODE_LISTS}; Ladakh GSTINs used 01 until 31.12.2019`,
+    attestations: []
+  },
+  {
+    id: 'gst.gstin.state-codes',
+    value: STATE_CODES_WITH_LADAKH,
+    basis: 'gstin_first_two_characters',
+    effectiveFrom: '2020-01-01',
+    effectiveTo: null,
+    act: 'CGST',
+    section: '',
+    source: `${STATE_CODE_LISTS}; GSTN user guide (tutorial.gst.gov.in, First-time login): new GSTINs with UT code 38 for Ladakh apply to periods from 1 January 2020`,
     attestations: []
   }
 ];

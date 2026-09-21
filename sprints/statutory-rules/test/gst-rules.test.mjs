@@ -98,3 +98,41 @@ test('B2CL versions cite rule 59 and Notification 12/2024-Central Tax', () => {
   assert.match(rule(B2CL, '2021-01-01').record.source, /82\/2020-Central Tax/);
   assert.match(rule(B2CL, '2020-12-31').record.section, /Rule 59\(2\)/);
 });
+
+const STATE_CODES = 'gst.gstin.state-codes';
+
+function twoDigits(from, to) {
+  return Array.from({ length: to - from + 1 }, (_, offset) => String(from + offset).padStart(2, '0'));
+}
+
+test('GSTIN state codes gain 38 Ladakh from 1-Jan-2020', () => {
+  const before = rule(STATE_CODES, '2019-12-31').value;
+  const after = rule(STATE_CODES, '2020-01-01').value;
+  assert.equal(before.includes('38'), false);
+  assert.equal(after.includes('38'), true);
+  assert.deepEqual(after, [...twoDigits(1, 27), ...twoDigits(29, 38), '97', '99']);
+  assert.deepEqual(before, [...twoDigits(1, 27), ...twoDigits(29, 37), '97', '99']);
+  assert.deepEqual(rule(STATE_CODES, '2026-09-21').value, after);
+});
+
+test('GSTIN state codes include 97 Other Territory and 99 but not 28 or the place-of-supply-only 96', () => {
+  for (const onDate of ['2017-07-01', '2026-09-21']) {
+    const codes = rule(STATE_CODES, onDate).value;
+    assert.ok(codes.includes('97') && codes.includes('99'), onDate);
+    assert.equal(codes.includes('28'), false, onDate);
+    assert.equal(codes.includes('96'), false, onDate);
+    assert.ok(codes.includes('25') && codes.includes('26'), onDate);
+  }
+});
+
+test('state codes are sorted, unique two-digit strings and are not claimed before 1-Jul-2017', () => {
+  for (const record of GST_RULES.filter((entry) => entry.id === STATE_CODES)) {
+    assert.equal(record.basis, 'gstin_first_two_characters');
+    assert.ok(record.value.every((code) => /^\d{2}$/.test(code)), record.effectiveFrom);
+    assert.deepEqual([...record.value].sort(), record.value, record.effectiveFrom);
+    assert.equal(new Set(record.value).size, record.value.length, record.effectiveFrom);
+  }
+  const ranges = GST_RULES.filter((entry) => entry.id === STATE_CODES).map((record) => [record.effectiveFrom, record.effectiveTo]);
+  assert.deepEqual(ranges, [['2017-07-01', '2019-12-31'], ['2020-01-01', null]]);
+  assert.deepEqual(rule(STATE_CODES, '2017-06-30'), { ok: false, error: 'RULE_NOT_IN_FORCE', id: STATE_CODES, onDate: '2017-06-30' });
+});
