@@ -1,6 +1,4 @@
-function splitCsvLine(line) {
-  return line.split(',').map(v => v.trim());
-}
+import { splitCsvLine } from './csv.mjs';
 
 export function parseClients(text) {
   if (typeof text !== 'string') return { rows: [], errors: [{ code: 'NO_HEADER_ROW', row: 0, field: null, message: 'No header row found' }] };

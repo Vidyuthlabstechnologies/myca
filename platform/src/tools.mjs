@@ -27,6 +27,7 @@ import { getNimClient } from './nim-client.mjs';
 import { runSandboxOperation } from './sandbox-adapter.mjs';
 import { requestApproval, decideApproval, approvalStatus, normalizeActor } from './approvals.mjs';
 import { normalizeClientId } from './books.mjs';
+import { csvRows } from './text-safe.mjs';
 import { liveCallsEnabled, mockModeEnabled } from './runtime-config.mjs';
 import { seedDemo } from './store.mjs';
 
@@ -39,6 +40,50 @@ function fail(error, extra = {}) {
 
 function resolveToolActor(args = {}, idKey = 'actorId', fallbackUserId = 'ca') {
   return normalizeActor({ userId: args[idKey] || fallbackUserId, role: args.role || '' });
+}
+
+const DEADLINE_COLUMNS = ['clientId', 'name', 'entity', 'turnover', 'gst', 'qrmp', 'tdsDeductor', 'pf', 'advanceTax', 'tp', 'state', 'profession', 'gstTds', 'presumptive'];
+
+function localToday() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+}
+
+function yes(value) {
+  return value === true || /^(y|yes|true|1)$/i.test(String(value ?? '').trim());
+}
+
+function deadlineProfile(clientId, company, extra, salesInvoices) {
+  const gstin = String(company.gstin || '');
+  const turnover = Number.isFinite(Number(extra.turnover)) && Number(extra.turnover) > 0
+    ? Number(extra.turnover)
+    : salesInvoices.reduce((sum, inv) => sum + (Number(inv.total) || 0), 0);
+  return {
+    clientId,
+    name: company.name || clientId,
+    entity: String(extra.entityType || company.entityType || 'proprietor').toLowerCase(),
+    turnover: Math.round(turnover),
+    gst: gstin ? 'TRUE' : 'FALSE',
+    qrmp: String(extra.gstFrequency || company.gstFrequency || 'monthly').toLowerCase() === 'quarterly' ? 'TRUE' : 'FALSE',
+    tdsDeductor: yes(extra.tdsDeductor ?? company.tdsDeductor) ? 'TRUE' : 'FALSE',
+    pf: yes(extra.pf ?? company.pf) ? 'TRUE' : 'FALSE',
+    advanceTax: yes(extra.advanceTax ?? company.advanceTax) ? 'TRUE' : 'FALSE',
+    tp: yes(extra.transferPricing ?? company.transferPricing) ? 'TRUE' : 'FALSE',
+    state: String(extra.state || company.state || gstin.slice(0, 2) || ''),
+    profession: yes(extra.profession ?? company.profession) ? 'TRUE' : 'FALSE',
+    gstTds: yes(extra.gstTds ?? company.gstTds) ? 'TRUE' : 'FALSE',
+    presumptive: yes(extra.presumptive ?? company.presumptive) ? 'TRUE' : 'FALSE',
+  };
+}
+
+function deadlineProfiles(state) {
+  const root = state.__root || state;
+  const profiles = [deadlineProfile('SELF', root.company || {}, {}, root.invoices || [])];
+  for (const client of root.clients || []) {
+    const book = root.extraBooks?.[client.clientId];
+    profiles.push(deadlineProfile(client.clientId, { ...client, ...(book?.company || {}) }, client, book?.invoices || []));
+  }
+  return profiles;
 }
 
 function activeClientId(state) {
@@ -926,19 +971,13 @@ export const TOOLS = [
   {
     name: 'deadlines',
     title: 'Compliance deadlines',
-    description: 'Statutory due dates for this business (GSTR-1/3B, TDS, ITR) with holiday-aware working days.',
+    description: 'Statutory due dates for the firm and every registered client (GSTR-1/3B, PMT-06, TDS, PF, advance tax, ITR, GSTR-9) from the dated rules, as of today. Due dates never roll over weekends or holidays.',
     run: (state, args = {}) => {
-      const c = state.company;
-      const clientsText = [
-        'clientId,name,entityType,gstin,state,turnover,gstFrequency,tdsDeductor,pfApplicable,auditRequired,transferPricing',
-        `SELF,${c.name},llp,${c.gstin},${c.state},25000000,monthly,Y,N,Y,N`,
-      ].join('\n');
-      const docsText = 'clientId,returnType,period,docType,receivedOn\n';
-      const holidaysText = args.holidaysText || 'date,name\n2026-10-02,Gandhi Jayanti\n';
-      return ok(complianceRun(
-        { clientsText, docsText, holidaysText },
-        { months: args.months || ['2026-08', '2026-09', '2026-10'], asOfDate: args.asOfDate || '2026-09-07' },
-      ));
+      const asOfDate = /^\d{4}-\d{2}-\d{2}$/.test(String(args.asOfDate || '')) ? args.asOfDate : localToday();
+      const clientsText = csvRows([DEADLINE_COLUMNS, ...deadlineProfiles(state).map((p) => DEADLINE_COLUMNS.map((key) => p[key]))]);
+      const docsText = 'clientId,period,returnType,docType,status,receivedDate,source\n';
+      const run = complianceRun({ clientsText, docsText, holidaysText: args.holidaysText || '' }, { months: args.months, asOfDate });
+      return ok({ asOfDate, ...run });
     },
   },
   {

@@ -196,3 +196,14 @@ test('GATE 21: chasePlan uses fallback date when no dueInfo', () => {
   assert.ok(plan.every(e => e.message.includes('2026-09-07')));
   assert.ok(plan.every(e => e.level === 'due_soon'));
 });
+
+test('clients: quoted cells keep commas and a neutralised formula prefix is undone', async () => {
+  const { parseClients } = await import('../src/clients.mjs');
+  const text = 'clientId,name,entity,turnover\nCL-1,"Sharma, Rao & Co",firm,1000\nCL-2,"\'=Plus ""Quoted"" Ltd",company,5\n';
+  const { rows, errors } = parseClients(text);
+  assert.equal(errors.length, 0);
+  assert.equal(rows[0].name, 'Sharma, Rao & Co');
+  assert.equal(rows[0].entity, 'firm');
+  assert.equal(rows[0].turnover, 1000);
+  assert.equal(rows[1].name, '=Plus "Quoted" Ltd');
+});

@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
-import { complianceRun, ALL_MONTHS } from './index.mjs';
+import { complianceRun } from './index.mjs';
+import { monthsAround } from './deadlines.mjs';
 
 function usage() {
   console.log('Usage: node src/cli.mjs --clients <csv> --docs <csv> [--holidays <csv>] [--months 2026-09,2026-10] [--as-of 2026-09-07]');
@@ -39,7 +40,7 @@ if (!args['--clients'] || !args['--docs']) {
   if (clientsText === null || docsText === null || (args['--holidays'] && holidaysText === null)) {
     process.exitCode = 1;
   } else {
-    const months = args['--months'] ? args['--months'].split(',').map((m) => m.trim()) : ALL_MONTHS;
+    const months = args['--months'] ? args['--months'].split(',').map((m) => m.trim()) : monthsAround(asOfDate);
     const asOfDate = args['--as-of'] || new Date().toISOString().slice(0, 10);
     const run = complianceRun({ clientsText, docsText, holidaysText }, { months, asOfDate });
     const t = run.board.totals;
