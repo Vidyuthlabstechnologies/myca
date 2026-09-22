@@ -1,12 +1,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createState } from '../src/store.mjs';
+import { createHash } from 'node:crypto';
+import { createState, serialize, deserialize } from '../src/store.mjs';
 import { createInvoice } from '../src/invoice.mjs';
 import { newBook } from '../src/books.mjs';
 import { bookView } from '../src/book-view.mjs';
 import { SandboxClient } from '../src/sandbox-client.mjs';
 import { NimClient } from '../src/nim-client.mjs';
-import { requestApproval, decideApproval, findApproval, approvalStatus } from '../src/approvals.mjs';
+import { requestApproval, decideApproval, findApproval, approvalStatus, canonicalJson } from '../src/approvals.mjs';
 import { ACTION_CLASSES, DRY_RUN_LIMIT, performExternalAction, providerInfo } from '../src/action-gate.mjs';
 
 globalThis.fetch = async (url) => {
@@ -316,4 +317,115 @@ test('C2: with the live switch on no write in the table executes without a match
     }
   });
   assert.deepEqual(calls, []);
+});
+
+test('params: only plain JSON reaches the gate, so two different requests never share a params hash', async () => {
+  const state = createState();
+  const calls = [];
+  const execute = async () => {
+    calls.push(1);
+    return { ok: true };
+  };
+  const cyclic = { period: '2026-08' };
+  cyclic.self = cyclic;
+  const refused = [
+    { date: new Date('2026-08-01') },
+    { period: new Map([['month', 8]]) },
+    { invoiceIds: new Set(['INV-0001']) },
+    { nested: { when: new Date('2026-11-01') } },
+    { amount: Number.NaN },
+    { amount: Infinity },
+    { amount: 10n },
+    { lines: [1, undefined] },
+    { build: () => 1 },
+    { [Symbol('key')]: 1 },
+    Object.assign(Object.create({ inherited: 1 }), { own: 1 }),
+    cyclic,
+  ];
+  for (const env of [LIVE, OFF, MOCK]) {
+    for (const params of refused) {
+      const out = await withEnv(env, () => performExternalAction(state, { actionId: 'nim_status', params, actor: maker, fixture: () => ({ ok: true }) }, execute));
+      assert.equal(out.error, 'PARAMS_NOT_PLAIN_JSON');
+    }
+  }
+  assert.equal((state.dryRuns || []).length, 0);
+  const good = await withEnv(LIVE, () => performExternalAction(state, {
+    actionId: 'nim_status',
+    params: { period: '2026-08', count: 1, nested: [{ a: null, b: true }], dropped: undefined },
+    actor: maker,
+  }, execute));
+  assert.equal(good.ok, true);
+  assert.equal(calls.length, 1);
+});
+
+test('gate write: the assistant is refused in every mode, before any validation, fixture or dry run', async () => {
+  const state = booksWithInvoice();
+  const ran = [];
+  const request = {
+    actionId: 'nic_irn_generate',
+    params: { invoiceId: 'INV-0001' },
+    actor: { userId: 'Assistant' },
+    preflight: () => {
+      ran.push('preflight');
+      return null;
+    },
+    fixture: (copy) => {
+      ran.push('fixture');
+      copy.invoices[0].mockIrn = 'ASSISTANT-MOCK';
+      return { ok: true };
+    },
+  };
+  for (const env of [MOCK, OFF, LIVE]) {
+    const out = await withEnv(env, () => performExternalAction(state, request, async () => {
+      ran.push('execute');
+      return { ok: true };
+    }));
+    assert.equal(out.error, 'ASSISTANT_BLOCKED_FOR_OPERATION');
+  }
+  assert.deepEqual(ran, []);
+  assert.equal(state.invoices[0].mockIrn, undefined);
+  assert.equal((state.dryRuns || []).length, 0);
+  const read = await withEnv(MOCK, () => performExternalAction(state, { actionId: 'nim_status', params: {}, actor: { userId: 'assistant' }, fixture: () => ({ ok: true }) }, async () => ({ ok: true })));
+  assert.equal(read.ok, true);
+});
+
+test('gate: request validation runs before the mode checks, so mock mode refuses what live mode refuses', async () => {
+  const state = createState();
+  for (const env of [MOCK, OFF, LIVE]) {
+    const out = await withEnv(env, () => performExternalAction(state, {
+      actionId: 'gst_save_gstr1',
+      params: { period: '2026-08' },
+      actor: maker,
+      fixture: () => ({ ok: true }),
+      preflight: () => ({ ok: false, error: 'PAYLOAD_REQUIRED' }),
+    }, async () => ({ ok: true })));
+    assert.equal(out.ok, false);
+    assert.equal(out.error, 'PAYLOAD_REQUIRED');
+  }
+  assert.equal((state.dryRuns || []).length, 0);
+});
+
+test('dry run: each one leaves an audit event that survives save and reload, with no secret values', async () => {
+  const state = createState();
+  const params = { period: '2026-08', pan: 'AABCU9603R', otp: '987654', summary: { chksum: 'AUG' } };
+  const out = await withEnv(OFF, () => performExternalAction(state, { actionId: 'gst_file_gstr1_evc', params, actor: maker }, async () => ({ ok: true })));
+  assert.equal(out.error, 'LIVE_CALLS_DISABLED');
+  const dry = state.dryRuns.at(-1);
+  const event = state.auditEvents.at(-1);
+  assert.equal(event.action, 'sandbox.gst_file_gstr1_evc');
+  assert.equal(event.actorId, 'ca');
+  assert.equal(event.metadata.dryRunId, dry.dryRunId);
+  assert.equal(event.metadata.error, 'LIVE_CALLS_DISABLED');
+  assert.equal(event.metadata.ok, false);
+  assert.equal(event.metadata.paramsHash, out.paramsHash);
+  assert.equal(event.metadata.payloadHash, createHash('sha256').update(canonicalJson(dry.payload)).digest('hex'));
+  assert.equal(JSON.stringify(state.auditEvents).includes('987654'), false);
+  const reloaded = deserialize(JSON.parse(JSON.stringify(serialize(state))));
+  assert.ok(reloaded.auditEvents.some((e) => e.metadata.dryRunId === dry.dryRunId && e.metadata.payloadHash === event.metadata.payloadHash));
+});
+
+test('action classes: credential and OTP actions are writes whichever provider carries them', () => {
+  for (const actionId of ['nic_auth', 'einvoice_authenticate', 'gst_taxpayer_generate_otp', 'gst_taxpayer_verify_otp']) {
+    assert.equal(ACTION_CLASSES[actionId].actionClass, 'write', actionId);
+  }
 });

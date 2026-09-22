@@ -94,14 +94,15 @@ test('nic: auth requires the RSA public key and never sends credentials without 
   assert.equal(out.error, 'MISSING_NIC_PUBLIC_KEY');
 });
 
-test('nic: mock auth + IRN still works and stamps the invoice', async () => {
+test('nic: mock auth + IRN still works and stamps only the mock fields of the invoice', async () => {
   clearNicSession();
   const state = createState();
   const inv = createInvoice(state, { partyName: 'Retail', partyGstin: '', partyState: '27', lines: [{ description: 'x', qty: 1, rate: 100, gstRate: 5 }] });
   const out = await nicGenerateIrn(state, inv.invoice.id, undefined, { mock: true });
   assert.equal(out.ok, true);
   assert.equal(out.mock, true);
-  assert.equal(state.invoices[0].irn, out.irn);
+  assert.equal(state.invoices[0].mockIrn, out.irn);
+  assert.equal(state.invoices[0].irn, undefined);
   const session = nicSession();
   assert.equal(typeof session.active, 'boolean');
 });

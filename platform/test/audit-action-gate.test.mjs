@@ -56,10 +56,10 @@ test('action table: one class per external action, and Sandbox classes agree wit
   for (const op of SANDBOX_OPERATIONS) {
     assert.equal(ACTION_CLASSES[op.operationId]?.actionClass, op.caApprovalRequired ? 'write' : 'read', op.operationId);
   }
-  for (const id of ['nic_irn_generate', 'nic_irn_cancel', 'nic_ewb_generate', 'notification_send', 'gst_file_gstr1_evc']) {
+  for (const id of ['nic_auth', 'nic_irn_generate', 'nic_irn_cancel', 'nic_ewb_generate', 'notification_send', 'gst_file_gstr1_evc']) {
     assert.equal(ACTION_CLASSES[id].actionClass, 'write', id);
   }
-  for (const id of ['nic_auth', 'nic_health', 'govt_probe', 'nim_ask', 'validate_gstin_lookup']) {
+  for (const id of ['nic_health', 'govt_probe', 'nim_ask', 'validate_gstin_lookup']) {
     assert.equal(ACTION_CLASSES[id].actionClass, 'read', id);
   }
 });

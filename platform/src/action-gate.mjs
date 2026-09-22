@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { liveCallsEnabled, loadEnvFile, mockModeEnabled } from './runtime-config.mjs';
 import { appendAuditEvent, stateDigest } from './ca-api.mjs';
 import { normalizeClientId } from './books.mjs';
@@ -60,7 +61,7 @@ export const ACTION_CLASSES = Object.freeze(Object.assign(Object.create(null), {
   tds_fvu_generate: write('sandbox_operation', ['sandbox.submitTdsFvuJob']),
   sandbox_status: read('sandbox', ['sandbox.ping']),
   validate_gstin_lookup: read('sandbox', ['sandbox.searchGstin']),
-  nic_auth: read('nic', ['nic.authenticate']),
+  nic_auth: write('nic', ['nic.authenticate']),
   nic_health: read('nic', ['nic.health']),
   nic_gstin_master: read('nic', ['nic.gstinMaster']),
   nic_irn_generate: write('nic', ['nic.generateIrn'], IRREVERSIBLE),
@@ -125,12 +126,20 @@ const TRANSPORT_CLIENTS = Object.freeze({
   nim: { Client: NimClient, current: getNimClient },
 });
 
+function signalled(client, signal) {
+  const fetchFn = (url, init = {}) => client.fetchFn(url, { ...init, signal: init.signal ? AbortSignal.any([init.signal, signal]) : signal });
+  return new Proxy(client, {
+    get: (target, key) => (key === 'fetchFn' ? fetchFn : Reflect.get(target, key)),
+    set: (target, key, value) => Reflect.set(target, key, value),
+  });
+}
+
 function resolveTransport(use) {
   const [group, name] = String(use).split('.');
   let bind = null;
   if (Object.hasOwn(TRANSPORT_CLIENTS, group)) {
     const { Client, current } = TRANSPORT_CLIENTS[group];
-    if (typeof Client.prototype[name] === 'function') bind = () => (...args) => current()[name](...args);
+    if (typeof Client.prototype[name] === 'function') bind = (ctx) => (...args) => signalled(current(), ctx.signal)[name](...args);
   } else if (Object.hasOwn(TRANSPORT_TABLES, group) && Object.hasOwn(TRANSPORT_TABLES[group], name)) {
     bind = TRANSPORT_TABLES[group][name];
   }
@@ -160,6 +169,10 @@ function publicUrl(value) {
   } catch {
     return '';
   }
+}
+
+export function nicSessionStatus() {
+  return nicClient.nicSession();
 }
 
 export function providerInfo() {
@@ -192,7 +205,28 @@ function auditName(actionId, item) {
   return `${item.family === 'sandbox_operation' ? 'sandbox' : 'external'}.${actionId}`;
 }
 
-function recordAudit(action, { beforeHash, result, approvalId = '', mock = false }) {
+function isPlainJson(value, seen = new Set()) {
+  if (value === null || typeof value === 'string' || typeof value === 'boolean') return true;
+  if (typeof value === 'number') return Number.isFinite(value);
+  if (typeof value !== 'object') return false;
+  if (seen.has(value)) return false;
+  seen.add(value);
+  try {
+    if (Array.isArray(value)) return value.every((item) => item !== undefined && isPlainJson(item, seen));
+    const proto = Object.getPrototypeOf(value);
+    if (proto !== Object.prototype && proto !== null) return false;
+    if (Object.getOwnPropertySymbols(value).length) return false;
+    return Object.keys(value).every((key) => value[key] === undefined || isPlainJson(value[key], seen));
+  } finally {
+    seen.delete(value);
+  }
+}
+
+function payloadHash(payload) {
+  return createHash('sha256').update(canonicalJson(payload)).digest('hex');
+}
+
+function recordAudit(action, { beforeHash, result, approvalId = '', mock = false, extra = {} }) {
   appendAuditEvent(action.state, {
     actorId: action.actor.userId || 'system',
     clientId: action.clientId,
@@ -211,6 +245,7 @@ function recordAudit(action, { beforeHash, result, approvalId = '', mock = false
       error: result.ok === true ? '' : errorText(result.error),
       outcomeUnknown: result.outcomeUnknown === true,
       mock,
+      ...extra,
     },
   });
 }
@@ -228,6 +263,7 @@ function appendDryRun(state, record) {
 }
 
 function recordDryRun(action, payload) {
+  const beforeHash = stateDigest(action.state);
   const stored = appendDryRun(action.state, {
     actionId: action.actionId,
     actionClass: action.entry.actionClass,
@@ -237,10 +273,12 @@ function recordDryRun(action, payload) {
     actorId: action.actor.userId,
     at: new Date().toISOString(),
   });
-  return refusal(action, 'LIVE_CALLS_DISABLED', {
+  const result = refusal(action, 'LIVE_CALLS_DISABLED', {
     dryRunId: stored.dryRunId,
     hint: 'Set MYCA_ENABLE_LIVE_CALLS=1 in platform/.env to allow outbound calls. Nothing was sent; the payload was kept as a dry run.',
   });
+  recordAudit(action, { beforeHash, result, extra: { dryRunId: stored.dryRunId, payloadHash: payloadHash(stored.payload) } });
+  return result;
 }
 
 function withoutMockFields(value) {
@@ -389,18 +427,21 @@ export async function performExternalAction(state, request = {}, execute) {
   if (!item) return { ok: false, error: 'UNKNOWN_EXTERNAL_ACTION', actionId };
   if (typeof execute !== 'function') return { ok: false, error: 'EXECUTOR_REQUIRED', actionId };
   if (!isRecord(state)) return { ok: false, error: 'STATE_REQUIRED', actionId };
+  const actor = normalizeActor(request.actor);
+  if (item.actionClass === 'write' && actor.userId === ASSISTANT) {
+    return { ok: false, error: 'ASSISTANT_BLOCKED_FOR_OPERATION', actionId };
+  }
   const params = request.params ?? {};
+  if (!isPlainJson(params)) return { ok: false, error: 'PARAMS_NOT_PLAIN_JSON', actionId };
   const action = {
     state,
     actionId,
     entry: item,
     clientId: normalizeClientId(request.clientId),
-    actor: normalizeActor(request.actor),
+    actor,
     paramsHash: paramsHash(params),
     metadata: redactSecrets(request.metadata || {}),
   };
-
-  if (mockModeEnabled()) return runFixture(action, request.fixture);
 
   if (typeof request.preflight === 'function') {
     let rejected;
@@ -411,6 +452,8 @@ export async function performExternalAction(state, request = {}, execute) {
     }
     if (rejected) return rejected;
   }
+
+  if (mockModeEnabled()) return runFixture(action, request.fixture);
 
   if (!liveCallsEnabled()) return recordDryRun(action, request.payload ?? params);
 

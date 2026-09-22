@@ -15,8 +15,6 @@ const PENDING_LATER_SLICES = new Set([
   'provider-doctor.mjs -> nim-client.mjs',
   'provider-doctor.mjs -> reachability.mjs',
   'provider-doctor.mjs -> sandbox-client.mjs',
-  'tools.mjs -> govt.mjs',
-  'tools.mjs -> nic-client.mjs',
   'tools.mjs -> nim-client.mjs',
   'tools.mjs -> notifications.mjs',
   'tools.mjs -> sandbox-client.mjs',

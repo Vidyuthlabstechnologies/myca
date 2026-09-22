@@ -1,5 +1,5 @@
 import { createCipheriv, createDecipheriv, randomBytes, createHash } from 'node:crypto';
-import { loadGovtConfig, pemFromDisk, rsaEncryptBase64, GOVT_GUIDE, invoiceToNicPayload } from './nic-config.mjs';
+import { loadGovtConfig, pemFromDisk, rsaEncryptBase64, GOVT_GUIDE, invoiceToNicPayload, generateMockIrnPayload } from './nic-config.mjs';
 import { liveCallsEnabled, mockModeEnabled } from './runtime-config.mjs';
 
 export { rsaEncryptBase64 };
@@ -27,7 +27,23 @@ export const IRP_PATHS = {
 function hostFor(cfg, options = {}) {
   const env = cfg.env === 'production' ? 'production' : 'sandbox';
   if (options.irp === 'NIC2') return IRP_HOSTS.sandbox2;
-  return env === 'production' ? IRP_HOSTS.production : (options.host || IRP_HOSTS.sandbox);
+  return env === 'production' ? IRP_HOSTS.production : IRP_HOSTS.sandbox;
+}
+
+function deadline(options, ms) {
+  const timeout = AbortSignal.timeout(ms);
+  return options?.signal ? AbortSignal.any([options.signal, timeout]) : timeout;
+}
+
+export function sessionKey(sek, appKey) {
+  const raw = Buffer.from(String(sek || ''), 'base64');
+  if (raw.length === 32) return raw.toString('base64');
+  const key = Buffer.from(String(appKey || ''), 'base64');
+  if (key.length !== 32 || raw.length === 0 || raw.length % 16 !== 0) throw new Error('INVALID_SEK');
+  const decipher = createDecipheriv('aes-256-ecb', key, null);
+  const plain = Buffer.concat([decipher.update(raw), decipher.final()]);
+  if (plain.length !== 32) throw new Error('INVALID_SEK');
+  return plain.toString('base64');
 }
 
 function rsaEncrypt(plainUtf8, pem) {
@@ -125,16 +141,22 @@ export async function nicAuthenticate(cfg = loadGovtConfig(), fetchFn = fetch, o
     method: 'POST',
     headers: headers(cfg),
     body: JSON.stringify({ Data: rsaEncryptBase64(inner, pem) }),
-    signal: AbortSignal.timeout(15000),
+    signal: deadline(options, 15000),
   });
   const parsed = await readJson(res);
   const data = parsed?.Data || {};
+  let sek = '';
   const ok = res.ok && Number(parsed?.Status) === 1 && Boolean(data.AuthToken);
   if (ok) {
+    try {
+      sek = sessionKey(data.Sek, appKey);
+    } catch {
+      return { ok: false, error: 'INVALID_SEK', status: res.status, url, env };
+    }
     session = {
       env,
       token: data.AuthToken,
-      sek: data.Sek,
+      sek,
       expiresAt: data.TokenExpiry ? Date.parse(data.TokenExpiry) || (Date.now() + 60 * 60 * 1000) : Date.now() + 60 * 60 * 1000,
     };
   }
@@ -145,7 +167,7 @@ export async function nicAuthenticate(cfg = loadGovtConfig(), fetchFn = fetch, o
     env,
     encrypted: true,
     token: data.AuthToken || '',
-    sek: data.Sek || '',
+    sek,
     nic: parsed,
     hint: ok ? 'Authenticated.' : 'If Status is 0, check the API user/password, GSTIN and client credentials.',
   };
@@ -183,13 +205,17 @@ async function call(cfg, fetchFn, options, { method = 'POST', path, body, needsA
     method,
     headers: headers(cfg, needsAuth ? token : ''),
     body: body === undefined ? undefined : JSON.stringify({ Data: encryptPayload(body, sek) }),
-    signal: AbortSignal.timeout(timeout),
+    signal: deadline(options, timeout),
   });
   const parsed = await readJson(res);
   const ok = res.ok && Number(parsed?.Status) === 1;
   let data = null;
   if (ok && parsed.Data) {
-    try { data = decryptPayload(parsed.Data, sek); } catch { data = parsed.Data; }
+    try {
+      data = decryptPayload(parsed.Data, sek);
+    } catch {
+      return { ok: false, error: 'DECRYPT_FAILED', status: res.status, url, errorDetails: null };
+    }
   }
   return { ok, status: res.status, url, data, errorDetails: parsed?.ErrorDetails || null, nic: parsed };
 }
@@ -197,7 +223,7 @@ async function call(cfg, fetchFn, options, { method = 'POST', path, body, needsA
 export async function nicHealth(cfg = loadGovtConfig(), fetchFn = fetch, options = {}) {
   const url = `${hostFor(cfg, options)}${IRP_PATHS.health}`;
   try {
-    const res = await fetchFn(url, { method: 'GET', headers: { accept: 'text/plain, application/json' }, signal: AbortSignal.timeout(10000) });
+    const res = await fetchFn(url, { method: 'GET', headers: { accept: 'text/plain, application/json' }, signal: deadline(options, 10000) });
     const text = await res.text();
     return { ok: res.ok, status: res.status, url, heartbeat: text.slice(0, 200) };
   } catch (err) {
@@ -219,10 +245,10 @@ export async function nicGenerateIrn(state, invoiceId, fetchFn = fetch, options 
 
   if (useMock) {
     const mockData = generateMockIrnPayload(state.company, inv);
-    inv.irn = mockData.irn;
-    inv.ackNo = mockData.ackNo;
-    inv.ackDate = mockData.ackDate;
-    inv.signedQrCode = mockData.signedQrCode;
+    inv.mockIrn = mockData.irn;
+    inv.mockAckNo = mockData.ackNo;
+    inv.mockAckDate = mockData.ackDate;
+    inv.mockSignedQrCode = mockData.signedQrCode;
     return {
       ok: true,
       status: 200,
@@ -238,10 +264,9 @@ export async function nicGenerateIrn(state, invoiceId, fetchFn = fetch, options 
     };
   }
 
-  const payload = options.payload || invoiceToNicPayload(state.company, inv);
+  const payload = invoiceToNicPayload(state.company, inv);
   const res = await call(cfg, fetchFn, options, { path: IRP_PATHS.generateIrn, body: payload });
   if (!res.ok) {
-    if (options.allowFallback) return nicGenerateIrn(state, invoiceId, fetchFn, { ...options, mock: true });
     return { ok: false, error: res.error || 'IRN_FAILED', status: res.status, payload, nic: res.nic, authOk: true };
   }
   const d = res.data || {};
@@ -335,31 +360,6 @@ function mockCallData(method, path, body) {
     return { LglNm: 'Nalanda Textiles Private Limited', StjCd: '27', Stj: 'Maharashtra', Ctu: 'IN', CtuNm: 'India' };
   }
   return { Irn: 'MOCKIRN000000000000X', AckNo: 'MOCK-ACK-000001', AckDt: '20/09/2026 12:00:00', Status: 'ACT' };
-}
-
-function generateMockIrnPayload(company, inv) {
-  const hashInput = `${company?.gstin || '27AABCN1234F1Z5'}${inv?.id || 'INV-0001'}${inv?.date || '2026-08-05'}${company?.fy || '2026-27'}`;
-  const irn = createHash('sha256').update(hashInput).digest('hex');
-  const ackNo = '1126' + String(Math.floor(10000000000 + Math.random() * 89999999999));
-  const ackDate = new Date().toISOString().replace('T', ' ').slice(0, 19);
-  const qrData = {
-    SellerGstin: company?.gstin || '27AABCN1234F1Z5',
-    BuyerGstin: inv?.partyGstin || 'URP',
-    DocNo: inv?.id || 'INV-0001',
-    DocTyp: 'INV',
-    DocDt: inv?.date || '2026-08-05',
-    TotInvVal: inv?.total || 0,
-    ItemCnt: (inv?.lines || []).length || 1,
-    MainHsnCode: inv?.lines?.[0]?.hsn || '5208',
-    Irn: irn,
-  };
-  return {
-    irn,
-    ackNo,
-    ackDate,
-    signedQrCode: Buffer.from(JSON.stringify(qrData)).toString('base64url'),
-    signedInvoice: `mock_jwt_${Buffer.from(JSON.stringify(inv || {})).toString('base64url').slice(0, 40)}.sig`,
-  };
 }
 
 export { generateMockIrnPayload };

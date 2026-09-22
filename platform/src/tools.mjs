@@ -12,8 +12,9 @@ import { postTallyRows, postBankRows, purchaseRegisterCsv } from './post-import.
 import { parseZohoBooksCsv } from './import-zoho.mjs';
 import { invoicesToGstr1Json } from './gstr1-json.mjs';
 import { tallyXmlToDayBookCsv } from './tally-xml.mjs';
-import { probeGovt, saveGovtConfig, publicGovtConfig, saveNicPublicKey, nicHealth, nicGstinMaster, nicCancelIrn, nicGetIrn, nicGetIrnByDoc, nicGetRejectedIrns, nicGenerateEwayBill, nicGetEwayBill, nicSession } from './govt.mjs';
-import { nicAuthenticate, nicGenerateIrn } from './nic-client.mjs';
+import { saveGovtConfig, publicGovtConfig, saveNicPublicKey } from './nic-config.mjs';
+import * as nicActions from './nic-actions.mjs';
+import { nicSessionStatus } from './action-gate.mjs';
 import { clearIntegrationConnection, integrationReadiness, setIntegrationConnection } from './integration-contract.mjs';
 import { listClients, registerClient, setActiveClient, listDocuments, uploadDocument, getDocumentContent } from './ca-api.mjs';
 import { lockPeriod, unlockPeriod, isPeriodLocked, lockThrough } from './period-lock.mjs';
@@ -245,22 +246,22 @@ export const TOOLS = [
     name: 'govt_nic_health',
     title: 'NIC IRP health',
     description: 'Ping the e-invoice IRP heartbeat endpoint (no credentials needed).',
-    run: async (_state, args = {}) => ok(await nicHealth(undefined, undefined, args)),
+    run: async (state, args = {}) => ok(await nicActions.health(state, resolveToolActor(args))),
   },
   {
     name: 'govt_nic_session',
     title: 'NIC session status',
     description: 'Show whether an e-invoice auth token is currently held and when it expires.',
-    run: () => ok(nicSession()),
+    run: () => ok(nicSessionStatus()),
   },
   {
     name: 'govt_nic_gstin',
     title: 'NIC GSTIN master',
     description: 'Fetch a GSTIN\'s registered details from the IRP master (requires auth).',
     args: ['gstin'],
-    run: async (_state, args = {}) => {
+    run: async (state, args = {}) => {
       if (!args.gstin) return fail('gstin required');
-      const out = await nicGstinMaster(String(args.gstin).toUpperCase());
+      const out = await nicActions.gstinMaster(state, String(args.gstin).toUpperCase(), resolveToolActor(args));
       return out.ok ? ok(out) : fail(out.error || 'GSTIN_LOOKUP_FAILED', out);
     },
   },
@@ -270,7 +271,7 @@ export const TOOLS = [
     description: 'Cancel a generated IRN with reason code 1-4 and an optional remark.',
     args: ['invoiceId', 'irn', 'reason', 'remark'],
     run: async (state, args = {}) => {
-      const out = await nicCancelIrn(state, args);
+      const out = await nicActions.cancelIrn(state, args, resolveToolActor(args));
       return out.ok ? ok(out) : fail(out.error || 'CANCEL_FAILED', out);
     },
   },
@@ -279,9 +280,9 @@ export const TOOLS = [
     title: 'Get e-invoice by IRN',
     description: 'Fetch a previously generated e-invoice by its IRN.',
     args: ['irn'],
-    run: async (_state, args = {}) => {
+    run: async (state, args = {}) => {
       if (!args.irn) return fail('irn required');
-      const out = await nicGetIrn(args.irn);
+      const out = await nicActions.getIrn(state, String(args.irn), resolveToolActor(args));
       return out.ok ? ok(out) : fail(out.error || 'LOOKUP_FAILED', out);
     },
   },
@@ -290,8 +291,8 @@ export const TOOLS = [
     title: 'Get e-invoice by document',
     description: 'Fetch an e-invoice by document type, number and date (dd/mm/yyyy).',
     args: ['docType', 'docNo', 'docDate'],
-    run: async (_state, args = {}) => {
-      const out = await nicGetIrnByDoc(args);
+    run: async (state, args = {}) => {
+      const out = await nicActions.getIrnByDoc(state, args, resolveToolActor(args));
       return out.ok ? ok(out) : fail(out.error || 'LOOKUP_FAILED', out);
     },
   },
@@ -300,8 +301,8 @@ export const TOOLS = [
     title: 'List rejected IRNs',
     description: 'List IRNs rejected by the IRP for a date (dd/mm/yyyy).',
     args: ['date'],
-    run: async (_state, args = {}) => {
-      const out = await nicGetRejectedIrns(args.date);
+    run: async (state, args = {}) => {
+      const out = await nicActions.rejectedIrns(state, String(args.date || ''), resolveToolActor(args));
       return out.ok ? ok(out) : fail(out.error || 'LOOKUP_FAILED', out);
     },
   },
@@ -309,11 +310,10 @@ export const TOOLS = [
     name: 'govt_nic_generate_ewb',
     title: 'Generate e-Way Bill',
     description: 'Generate an e-Way Bill against an existing IRN with transport details.',
-    args: ['irn', 'payload'],
-    run: async (_state, args = {}) => {
-      const payload = args.payload || (args.irn ? { Irn: args.irn, ...(args.transport || {}) } : null);
-      if (!payload) return fail('irn or payload required');
-      const out = await nicGenerateEwayBill(payload);
+    args: ['irn', 'transport'],
+    run: async (state, args = {}) => {
+      if (!args.irn) return fail('irn required');
+      const out = await nicActions.generateEwayBill(state, { irn: String(args.irn), transport: args.transport }, resolveToolActor(args));
       return out.ok ? ok(out) : fail(out.error || 'EWB_FAILED', out);
     },
   },
@@ -322,9 +322,9 @@ export const TOOLS = [
     title: 'Get e-Way Bill by IRN',
     description: 'Fetch the e-Way Bill generated against an IRN.',
     args: ['irn'],
-    run: async (_state, args = {}) => {
+    run: async (state, args = {}) => {
       if (!args.irn) return fail('irn required');
-      const out = await nicGetEwayBill(args.irn);
+      const out = await nicActions.getEwayBill(state, String(args.irn), resolveToolActor(args));
       return out.ok ? ok(out) : fail(out.error || 'LOOKUP_FAILED', out);
     },
   },
@@ -474,7 +474,7 @@ export const TOOLS = [
     name: 'govt_probe',
     title: 'Probe GSTN / NIC / MCA',
     description: 'HTTP to official government hosts from this PC. Confirms the machine can reach GST, e-invoice, MCA, IT portals.',
-    run: async () => ok(await probeGovt()),
+    run: async (state, args = {}) => ok(await nicActions.probe(state, resolveToolActor(args))),
   },
   {
     name: 'govt_save_credentials',
@@ -485,9 +485,8 @@ export const TOOLS = [
   {
     name: 'govt_nic_auth',
     title: 'NIC e-invoice authenticate',
-    description: 'POST /eivital/v1.04/auth on NIC sandbox or production. Supports mock option.',
-    args: ['mock'],
-    run: async (_state, args = {}) => ok(await nicAuthenticate(undefined, undefined, args)),
+    description: 'Authenticate with the NIC IRP through the action gate (live switch and CA approval). The token and session key never leave the NIC client.',
+    run: async (state, args = {}) => ok(await nicActions.authenticate(state, resolveToolActor(args))),
   },
   {
     name: 'govt_nic_mock',
@@ -497,17 +496,17 @@ export const TOOLS = [
     run: async (state, args = {}) => {
       const invId = args.invoiceId || (state.invoices?.[0]?.id);
       if (!invId) return fail('Pass an invoiceId, or create an invoice first to generate a mock IRN.');
-      return ok(await nicGenerateIrn(state, invId, undefined, { mock: true }));
+      return ok(await nicActions.simulateIrn(state, invId, resolveToolActor(args)));
     },
   },
   {
     name: 'govt_generate_irn',
     title: 'Generate e-invoice IRN',
-    description: 'Build NIC Invoice JSON from a posted tax invoice and POST to eicore Invoice API or Sandbox Mock.',
-    args: ['invoiceId', 'mock'],
+    description: 'Build NIC Invoice JSON from a posted tax invoice and generate its IRN through the action gate (live switch and a matching CA approval).',
+    args: ['invoiceId'],
     run: async (state, args = {}) => {
       if (!args.invoiceId) return fail('invoiceId required, e.g. INV-0001');
-      return ok(await nicGenerateIrn(state, args.invoiceId, undefined, args));
+      return ok(await nicActions.generateIrn(state, String(args.invoiceId), resolveToolActor(args)));
     },
   },
   {

@@ -342,14 +342,10 @@ const MOCK_ADAPTERS = {
   }),
 
   income_tax_calculate: async () => ({
-    ok: true,
+    ok: false,
     ...MOCK_TAG,
-    data: {
-      regime: 'new',
-      totalIncome: 1200000,
-      taxPayable: 28400,
-      note: 'Simulated calculator output. Use prepare_itr (sprint-5 engine) for exact ITR maths; mock figures must never be filed.',
-    },
+    error: 'PROVIDER_ENDPOINT_UNDOCUMENTED',
+    hint: 'Sandbox publishes no stable income-tax calculator path, so mock mode invents no figure either. Use prepare_itr (sprint-5 engine) for ITR maths.',
   }),
 };
 
@@ -393,7 +389,7 @@ export async function runSandboxOperation({ operationId, actorId = '', actor = n
       if (!adapter) return { ok: false, error: 'NOT_IMPLEMENTED', hint: 'Operation is declared in the adapter contract but has no verified provider endpoint wired yet.' };
       return request.ok ? null : request;
     },
-  }, (transports) => adapter({ client: deps.client || transports.sandbox, params, state }));
+  }, (transports) => adapter({ client: transports.sandbox, params, state }));
 
   if (result.error === 'APPROVAL_REQUIRED' && !caApprovalId) return { ...result, error: 'CA_APPROVAL_REQUIRED', ...described };
   if (result.mock) {

@@ -1046,16 +1046,9 @@ test('approvals: maker-checker, approver role, single use, expiry', () => {
   assert.equal(approvalStatus(findApproval(state, expired.approval.approvalId)), 'expired');
 });
 
-test('sandbox adapter: live gate, assistant block, approvals, secret redaction, mapping', async () => {
+test('sandbox adapter: live gate, assistant block, approvals and secret redaction refuse before any provider call', async () => {
   const state = createState();
-  const mockFetch = async (url) => ({
-    ok: true,
-    status: 200,
-    json: async () => (String(url).includes('/authenticate')
-      ? { access_token: 'tok', expires_in: 3600 }
-      : { data: { Status: 1, Data: { Irn: 'irn_test', AckNo: '1126', AckDt: '2026-09-19', SignedQRCode: 'qr' } } }),
-  });
-  const client = new SandboxClient({ apiKey: 'k', apiSecret: 's', fetchFn: mockFetch });
+  const client = { searchGstin: async () => { throw new Error('an injected client must never be called'); } };
 
   const off = await runSandboxOperation({ actorId: 'ca', operationId: 'gstin_verify', params: { gstin: '27AABCU9603R1ZP' } }, { state, client });
   assert.equal(off.error, 'LIVE_CALLS_DISABLED');
@@ -1073,18 +1066,6 @@ test('sandbox adapter: live gate, assistant block, approvals, secret redaction, 
     const secret = await runSandboxOperation({ actorId: 'ca', operationId: 'gstin_verify', payloadSummary: { apiKey: 'x' } }, { state, client });
     assert.equal(secret.error, 'SECRET_FIELDS_NOT_ALLOWED_IN_HANDOFF');
 
-    const ran = await runSandboxOperation({ actorId: 'ca', operationId: 'gstin_verify', params: { gstin: '27aabcu9603r1zp' } }, { state, client });
-    assert.equal(ran.ok, true);
-    assert.equal(ran.requirementId, 'REQ-CA-008');
-    assert.equal(ran.data.gstin, '27AABCU9603R1ZP');
-
-    const params = { payload: { Version: '1.1' } };
-    const request = requestApproval(state, { operationId: 'einvoice_generate', params, actor: { userId: 'maker' } });
-    decideApproval(state, { approvalId: request.approval.approvalId, decision: 'approve', actor: { userId: 'partner1', role: 'partner' } });
-    const gated = await runSandboxOperation({ actorId: 'ca', operationId: 'einvoice_generate', caApprovalId: request.approval.approvalId, params }, { state, client });
-    assert.equal(gated.ok, true);
-    assert.equal(approvalStatus(findApproval(state, request.approval.approvalId)), 'used');
-    assert.equal(state.auditEvents.some((e) => e.action === 'sandbox.einvoice_generate'), true);
   } finally {
     process.env.MYCA_ENABLE_LIVE_CALLS = liveBefore;
   }

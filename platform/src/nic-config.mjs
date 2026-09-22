@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { publicEncrypt, constants, createPublicKey } from 'node:crypto';
+import { publicEncrypt, constants, createPublicKey, createHash } from 'node:crypto';
 import { encryptSecret, decryptSecret, vaultBackend } from './credential-vault.mjs';
 
 export const GOVT_SITES = {
@@ -223,5 +223,30 @@ export function invoiceToNicPayload(company, inv) {
       IgstVal: Number(inv.igst || 0),
       TotInvVal: Number(inv.total || 0),
     },
+  };
+}
+
+export function generateMockIrnPayload(company, inv) {
+  const hashInput = `${company?.gstin || '27AABCN1234F1Z5'}${inv?.id || 'INV-0001'}${inv?.date || '2026-08-05'}${company?.fy || '2026-27'}`;
+  const irn = createHash('sha256').update(hashInput).digest('hex');
+  const ackNo = `1126${(BigInt(`0x${irn.slice(0, 15)}`) % 100000000000n).toString().padStart(11, '0')}`;
+  const ackDate = `${inv?.date || '2026-08-05'} 00:00:00`;
+  const qrData = {
+    SellerGstin: company?.gstin || '27AABCN1234F1Z5',
+    BuyerGstin: inv?.partyGstin || 'URP',
+    DocNo: inv?.id || 'INV-0001',
+    DocTyp: 'INV',
+    DocDt: inv?.date || '2026-08-05',
+    TotInvVal: inv?.total || 0,
+    ItemCnt: (inv?.lines || []).length || 1,
+    MainHsnCode: inv?.lines?.[0]?.hsn || '5208',
+    Irn: irn,
+  };
+  return {
+    irn,
+    ackNo,
+    ackDate,
+    signedQrCode: Buffer.from(JSON.stringify(qrData)).toString('base64url'),
+    signedInvoice: `mock_jwt_${Buffer.from(JSON.stringify({ id: inv?.id, total: inv?.total })).toString('base64url')}.sig`,
   };
 }

@@ -53,6 +53,8 @@ function fmtToolResult(name, result) {
     return `${name}: ${d.rows?.length ?? 0} parsed, ${d.ledger?.posted ?? 0} posted to the ledger.`;
   }
   if (name === 'govt_probe') {
+    if (d.ok === false) return `Govt probe not run: ${d.error}${d.hint ? `
+${d.hint}` : ''}`;
     return `Reached ${d.live}/${d.total} government hosts.\n${(d.hits || []).map((h) => `${h.id}  HTTP ${h.status || h.error}  ${h.ms}ms`).join('\n')}\n\n${d.note}`;
   }
   if (name === 'govt_nic_auth') {

@@ -264,8 +264,9 @@ test('nic mock: high-fidelity simulation produces valid IRN, AckNo and QR Code',
 
   // 3. Check that state invoice was updated
   const storedInv = state.invoices.find((i) => i.id === 'INV-0001');
-  assert.equal(storedInv.irn, irnResult.irn);
-  assert.equal(storedInv.ackNo, irnResult.ackNo);
+  assert.equal(storedInv.mockIrn, irnResult.irn);
+  assert.equal(storedInv.mockAckNo, irnResult.ackNo);
+  assert.equal(storedInv.irn, undefined);
 
   // 4. govt_nic_mock tool
   const toolMock = await runTool(state, 'govt_nic_mock', { invoiceId: 'INV-0001' });

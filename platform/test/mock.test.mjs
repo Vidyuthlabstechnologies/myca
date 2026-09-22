@@ -101,11 +101,12 @@ test('runSandboxOperation mock: einvoice_generate stamps only mock fields and ne
   assert.equal(audit.metadata.caApprovalRequired, false);
 });
 
-test('runSandboxOperation mock: income_tax_calculate and tds jobs return fixtures', async () => {
+test('runSandboxOperation mock: income_tax_calculate refuses honestly and tds jobs return fixtures', async () => {
   await inMockMode(async () => {
     const tax = await runSandboxOperation({ operationId: 'income_tax_calculate', params: { ay: '2026-27' } }, { state: createState() });
-    assert.equal(tax.ok, true);
+    assert.equal(tax.ok, false);
     assert.equal(tax.mock, true);
+    assert.equal(tax.error, 'PROVIDER_ENDPOINT_UNDOCUMENTED');
 
     const tds = await runSandboxOperation({ operationId: 'tds_fvu_generate', params: { fvuKey: 'Q1-PAN' } }, { state: createState() });
     assert.equal(tds.ok, true);
