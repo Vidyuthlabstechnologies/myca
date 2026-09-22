@@ -480,7 +480,13 @@ export const TOOLS = [
     name: 'export_gstr1_json',
     title: 'Export GSTR-1 JSON',
     description: 'GSTN offline-utility JSON from posted invoices (does not upload).',
-    run: (state, args = {}) => ok(invoicesToGstr1Json(state.company, state.invoices || [], args.fp)),
+    run: (state, args = {}) => {
+      const json = invoicesToGstr1Json(state.company, state.invoices || [], args.fp, {
+        grossTurnover: args.grossTurnover,
+        currentGrossTurnover: args.currentGrossTurnover,
+      });
+      return json.error ? fail(json.error, { hint: json.hint }) : ok(json);
+    },
   },
   {
     name: 'prepare_gstr3b',

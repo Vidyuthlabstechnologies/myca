@@ -1,8 +1,22 @@
 import { parseAmount, r2, prevMonth } from './core.mjs';
+import { rule } from '../../statutory-rules/src/index.mjs';
 
-const GSTIN_RE = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][0-9A-Z]Z[0-9A-Z]$/;
+const GSTIN_RE = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][0-9A-Z]{3}$/;
 const HSN_RE = /^[0-9]{4,8}$/;
-const RATES = new Set([0, 5, 12, 18, 28]);
+
+export function validGstRate(rate, onDate) {
+  const found = rule('gst.rates.valid', onDate);
+  return found.ok && found.value.includes(Number(rate));
+}
+
+export function isB2cl(row, supplierState) {
+  if (row.partyGstin) return false;
+  if (String(row.partyState).padStart(2, '0') === String(supplierState).padStart(2, '0')) return false;
+  const found = rule('gst.b2cl.threshold', row.date);
+  if (!found.ok) return false;
+  const invoiceValuePaise = Math.round((row.taxableValue + row.cgst + row.sgst + row.igst + (row.cess || 0)) * 100);
+  return invoiceValuePaise > found.value;
+}
 
 function splitCSV(text) {
   return String(text).split(/\r?\n/).filter((line) => line.trim() !== '').map((line) => line.split(','));
@@ -82,7 +96,7 @@ export function eInvoiceErrors(rows, supplierState = '27') {
       if (!HSN_RE.test(r.hsn)) {
         errors.push({ invoiceNo: r.invoiceNo, code: 'INVALID_HSN', message: 'Invalid HSN code' });
       }
-      if (!RATES.has(r.rate)) {
+      if (!validGstRate(r.rate, r.date)) {
         errors.push({ invoiceNo: r.invoiceNo, code: 'RATE_UNKNOWN', message: 'Unknown rate' });
       }
       const tax = Math.round(r.taxableValue * r.rate / 100);
@@ -145,7 +159,7 @@ export function buildGstr1({ sales, supplierState = '27' }) {
       });
     } else {
       const key = r.partyState + '|' + r.rate;
-      const target = r.taxableValue > 250000 ? b2clAgg : b2csAgg;
+      const target = isB2cl(r, supplierState) ? b2clAgg : b2csAgg;
       if (!target[key]) {
         target[key] = { state: r.partyState, rate: r.rate, taxable: 0, cgst: 0, sgst: 0, igst: 0 };
       }

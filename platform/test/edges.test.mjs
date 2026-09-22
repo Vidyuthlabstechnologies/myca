@@ -322,7 +322,7 @@ test('csv exports: quote commas and neutralize formulas', () => {
   assert.match(purchaseRegisterCsv(state.purchases), /"'@Supplier, Inc"/);
 });
 
-test('gstr1: B2B groups by GSTIN; B2C and short GSTIN go to b2cs; undated skipped', () => {
+test('gstr1: B2B groups by GSTIN; B2C goes to b2cs; a malformed GSTIN is held back; undated skipped', () => {
   const state = createState();
   intra(state, { partyName: 'A' });
   intra(state, { partyName: 'A2' });
@@ -338,7 +338,8 @@ test('gstr1: B2B groups by GSTIN; B2C and short GSTIN go to b2cs; undated skippe
   assert.equal(json.b2cs.length, 1);
   assert.equal(json.b2cs[0].sply_ty, 'INTRA');
   assert.equal(json.b2cs[0].rt, 5);
-  assert.equal(json.b2cs[0].txval, 700);
+  assert.equal(json.b2cs[0].txval, 500);
+  assert.deepEqual(json.held.map((h) => [h.code, h.gstin]), [['INVALID_GSTIN', '27SHORT']]);
   const interC = invoicesToGstr1Json(state.company, [{
     id: 'B2C-GJ', date: '2026-09-01', partyGstin: '', partyState: '24', taxable: 100, cgst: 0, sgst: 0, igst: 18, total: 118,
     lines: [{ gstRate: 18, taxable: 100, cgst: 0, sgst: 0, igst: 18 }],
@@ -1019,13 +1020,17 @@ test('documents: legacy inline files migrate to the disk store on open', async (
   rmSync(dir, { recursive: true, force: true });
 });
 
-test('gstr1 json: real hash and gross turnover', () => {
+test('gstr1 json: real hash; gross turnover only when given, never summed from one month', () => {
   const state = createState();
   intra(state);
   const json = invoicesToGstr1Json(state.company, state.invoices);
   assert.match(json.hash, /^[0-9a-f]{64}$/);
-  assert.equal(json.gt, 1000);
-  assert.equal(json.cur_gt, 1000);
+  assert.equal('gt' in json, false);
+  assert.equal('cur_gt' in json, false);
+  assert.ok(json.warnings.some((w) => w.startsWith('GT_NOT_PROVIDED')));
+  const given = invoicesToGstr1Json(state.company, state.invoices, undefined, { grossTurnover: 45000000, currentGrossTurnover: 12000000 });
+  assert.equal(given.gt, 45000000);
+  assert.equal(given.cur_gt, 12000000);
 });
 
 test('approvals: maker-checker, approver role, single use, expiry', () => {

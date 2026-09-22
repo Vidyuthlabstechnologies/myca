@@ -229,7 +229,11 @@ export const TOOL_ARG_SCHEMAS = {
   export_gstr1_json: {
     type: 'object',
     additionalProperties: false,
-    properties: { fp: { type: 'string', pattern: '^[0-9]{6}$' } },
+    properties: {
+      fp: { type: 'string', pattern: '^(0[1-9]|1[0-2])[0-9]{4}$' },
+      grossTurnover: { type: 'number', minimum: 0 },
+      currentGrossTurnover: { type: 'number', minimum: 0 },
+    },
   },
   prepare_gstr3b: {
     type: 'object',

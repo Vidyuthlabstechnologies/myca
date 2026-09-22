@@ -53,8 +53,8 @@ test('GATE 1: end-to-end fixture filingPrep wires all modules with exact values'
     paymentsText: read('payments.csv'),
   });
   assert.equal(r.gstr1.period, '2026-08');
-  assert.equal(r.gstr1.tables.b2b.length, 4);
-  assert.equal(r.gstr1.totalTaxable, 1030000);
+  assert.equal(r.gstr1.tables.b2b.length, 3, 'INV-107 at 28% after 31-Jan-2026 is held back');
+  assert.equal(r.gstr1.totalTaxable, 910000);
   assert.equal(r.gstr3b.outward.totals.interTaxable, 760000);
   assert.equal(r.gstr3b.outward.totals.interIgst, 125600);
   assert.equal(r.gstr3b.itc.netItc, 130400);
@@ -64,8 +64,8 @@ test('GATE 1: end-to-end fixture filingPrep wires all modules with exact values'
   assert.equal(r.errors.length, 0);
   assert.equal(r.ok, false);
   assert.equal(r.summary.period, '2026-08');
-  assert.equal(r.summary.totalTaxable, 1030000);
-  assert.equal(r.summary.eInvoiceViolations, 2);
+  assert.equal(r.summary.totalTaxable, 910000);
+  assert.equal(r.summary.eInvoiceViolations, 3);
   assert.equal(r.summary.tdsFlags, 3);
 });
 

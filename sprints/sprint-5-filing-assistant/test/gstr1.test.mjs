@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
-import { parseSales, eInvoiceErrors, buildGstr1 } from '../src/gstr1.mjs';
+import { parseSales, eInvoiceErrors, buildGstr1, validGstRate } from '../src/gstr1.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const fixture = (f) => readFileSync(resolve(__dirname, 'fixtures', f), 'utf8');
@@ -51,16 +51,23 @@ test('GATE 1: parseSales parses clean sales.csv with zero errors and exact row s
   assert.equal(res.rows[9].invoiceNo, 'INV-110');
 });
 
-// ── GATE 2: e-invoice errors exactly on INV-108 ──────────────────────────────
-test('GATE 2: eInvoiceErrors flags exactly INV-108 with TAX_MISMATCH and INVALID_HSN', () => {
+// ── GATE 2: e-invoice errors on INV-107 (28% after 31-Jan-2026) and INV-108 ──
+test('GATE 2: eInvoiceErrors flags INV-107 at 28% (omitted from 1-Feb-2026) and INV-108 with TAX_MISMATCH and INVALID_HSN', () => {
   const { rows } = parseSales(fixture('sales.csv'));
   const errors = eInvoiceErrors(rows, '27');
-  assert.equal(errors.length, 2);
-  for (const e of errors) {
-    assert.equal(e.invoiceNo, 'INV-108');
-  }
-  const codes = errors.map((e) => e.code).sort();
-  assert.deepEqual(codes, ['INVALID_HSN', 'TAX_MISMATCH']);
+  assert.deepEqual(errors.map((e) => [e.invoiceNo, e.code]).sort(), [
+    ['INV-107', 'RATE_UNKNOWN'],
+    ['INV-108', 'INVALID_HSN'],
+    ['INV-108', 'TAX_MISMATCH'],
+  ]);
+});
+
+test('H6: the valid GST rate set is taken on the invoice date', () => {
+  assert.equal(validGstRate(28, '2026-01-31'), true);
+  assert.equal(validGstRate(28, '2026-02-01'), false);
+  assert.equal(validGstRate(40, '2025-09-21'), false);
+  assert.equal(validGstRate(40, '2025-09-22'), true);
+  assert.equal(validGstRate(12, '2026-08-20'), true);
 });
 
 // ── GATE 3: buildGstr1 produces exact fixture tables for period 2026-08 ─────
@@ -70,13 +77,13 @@ test('GATE 3: buildGstr1 period 2026-08 with exact b2b/b2cl/b2cs/nil/hsn/total v
 
   assert.equal(out.period, '2026-08');
 
-  assert.equal(out.tables.b2b.length, 4);
-  assert.deepEqual(out.tables.b2b.map((r) => r.invoiceNo), ['INV-101', 'INV-102', 'INV-106', 'INV-107']);
-  assert.equal(out.tables.b2b.reduce((s, r) => s + r.taxable, 0), 520000);
+  assert.deepEqual(out.tables.b2b.map((r) => r.invoiceNo), ['INV-101', 'INV-102', 'INV-106']);
+  assert.equal(out.tables.b2b.reduce((s, r) => s + r.taxable, 0), 400000);
   assert.equal(out.tables.b2b.reduce((s, r) => s + r.cgst, 0), 9000);
   assert.equal(out.tables.b2b.reduce((s, r) => s + r.sgst, 0), 9000);
-  assert.equal(out.tables.b2b.reduce((s, r) => s + r.igst, 0), 87600);
+  assert.equal(out.tables.b2b.reduce((s, r) => s + r.igst, 0), 54000);
 
+  // INV-103: inter-state to Karnataka, unregistered, invoice value Rs 3,36,000 > Rs 1,00,000 (from 1-Aug-2024)
   assert.deepEqual(out.tables.b2cl, [{ state: '29', rate: 12, taxable: 300000, cgst: 0, sgst: 0, igst: 36000 }]);
 
   assert.deepEqual(out.tables.b2cs, [
@@ -87,14 +94,14 @@ test('GATE 3: buildGstr1 period 2026-08 with exact b2b/b2cl/b2cs/nil/hsn/total v
   assert.deepEqual(out.tables.nilExempt, [{ rate: 0, taxable: 40000 }]);
 
   assert.deepEqual(out.tables.hsn, [
-    { hsn: '2710', uqc: 'NOS', qty: 1, taxable: 120000, igst: 33600, cgst: 0, sgst: 0 },
     { hsn: '6204', uqc: 'NOS', qty: 6, taxable: 620000, igst: 47000, cgst: 16800, sgst: 16800 },
     { hsn: '7204', uqc: 'NOS', qty: 1, taxable: 250000, igst: 45000, cgst: 0, sgst: 0 },
     { hsn: '8415', uqc: 'NOS', qty: 1, taxable: 40000, igst: 0, cgst: 0, sgst: 0 },
   ]);
 
-  assert.equal(out.totalTaxable, 1030000);
-  assert.equal(out.errors.length, 2);
+  assert.equal(out.totalTaxable, 910000);
+  assert.equal(out.errors.length, 3);
+  assert.ok(!out.tables.b2b.some((r) => r.invoiceNo === 'INV-107'), 'an invalid-rate invoice is held back for review');
 
   const allHsn = new Set();
   for (const h of out.tables.hsn) {
@@ -111,17 +118,31 @@ test('GATE 4: buildGstr1 returns false for empty sales', () => {
   assert.equal(buildGstr1({ sales: null }), false);
 });
 
-// ── GATE 5: B2CL vs B2CS threshold boundary (250000 vs 250001) ──────────────
-test('GATE 5: value 250000 goes to B2CS while 250001 goes to B2CL', () => {
+// ── GATE 5: B2CL is inter-state B2C with invoice value above the dated threshold ──
+test('GATE 5: inter-state B2C invoice value Rs 1,00,000 goes to B2CS, Rs 1,00,001 goes to B2CL (from 1-Aug-2024)', () => {
   const csv =
     HEADER +
-    'B1,2026-08-01,,Cust,27,6204,12,250000,0,0,30000,0,N\n' +
-    'B2,2026-08-02,,Cust,27,6204,12,250001,0,0,30000,0,N\n';
+    'B1,2026-08-01,,Cust,29,6204,5,95238,0,0,4762,0,N\n' +
+    'B2,2026-08-02,,Cust,29,6204,5,95239,0,0,4762,0,N\n';
   const { rows, errors } = parseSales(csv);
   assert.equal(errors.length, 0);
   const out = buildGstr1({ sales: rows, supplierState: '27' });
-  assert.deepEqual(out.tables.b2cs, [{ state: '27', rate: 12, taxable: 250000, cgst: 0, sgst: 0, igst: 30000 }]);
-  assert.deepEqual(out.tables.b2cl, [{ state: '27', rate: 12, taxable: 250001, cgst: 0, sgst: 0, igst: 30000 }]);
+  assert.deepEqual(out.tables.b2cs, [{ state: '29', rate: 5, taxable: 95238, cgst: 0, sgst: 0, igst: 4762 }]);
+  assert.deepEqual(out.tables.b2cl, [{ state: '29', rate: 5, taxable: 95239, cgst: 0, sgst: 0, igst: 4762 }]);
+});
+
+test('H6: before 1-Aug-2024 the B2CL threshold was Rs 2,50,000', () => {
+  const csv = HEADER + 'B3,2024-07-10,,Cust,29,6204,12,200000,0,0,24000,0,N\n';
+  const out = buildGstr1({ sales: parseSales(csv).rows, supplierState: '27' });
+  assert.equal(out.tables.b2cl.length, 0);
+  assert.equal(out.tables.b2cs.length, 1);
+});
+
+test('H6: an intra-state B2C sale is never B2CL, whatever its value', () => {
+  const csv = HEADER + 'B4,2026-08-03,,Cust,27,6204,12,900000,54000,54000,0,0,N\n';
+  const out = buildGstr1({ sales: parseSales(csv).rows, supplierState: '27' });
+  assert.equal(out.tables.b2cl.length, 0);
+  assert.deepEqual(out.tables.b2cs, [{ state: '27', rate: 12, taxable: 900000, cgst: 54000, sgst: 54000, igst: 0 }]);
 });
 
 // ── GATE 6: invalid GSTIN format is rejected ─────────────────────────────────
