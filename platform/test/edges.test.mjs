@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
   emptyLedger, createTransfers, paise, trialBalance, verifyChain,
-  freeze, hydrate, ACCOUNT_FLAGS, TRANSFER_FLAGS, journal,
+  freeze, hydrate, ACCOUNT_FLAGS, TRANSFER_FLAGS, journal, listAccounts,
 } from '../src/ledger.mjs';
 import { installChart, gstSplit } from '../src/chart.mjs';
 import {
@@ -160,10 +160,15 @@ test('ledger: tampered prevChecksum fails verifyChain', () => {
   assert.equal(verifyChain(state.ledger).ok, false);
 });
 
-test('gstSplit: intra halves, inter is IGST, odd paise still sum to tax', () => {
+test('gstSplit: CGST equals SGST, each at half the rate in paise; inter is IGST', () => {
   const intraSplit = gstSplit({ taxable: 1, rate: 5, supplierState: '27', partyState: '27' });
   assert.equal(intraSplit.igst, 0);
-  assert.equal(intraSplit.cgst + intraSplit.sgst, intraSplit.tax);
+  assert.equal(intraSplit.cgst, 0.03, '2.5% of Rs 1 is 2.5 paise, rounded to 3');
+  assert.equal(intraSplit.sgst, intraSplit.cgst);
+  assert.equal(intraSplit.tax, 0.06);
+  const odd = gstSplit({ taxable: 1234.57, rate: 18, supplierState: '27', partyState: '27' });
+  assert.equal(odd.cgst, 111.11);
+  assert.equal(odd.sgst, 111.11);
   const inter = gstSplit({ taxable: 100, rate: 18, supplierState: '27', partyState: '24' });
   assert.equal(inter.igst, 18);
   assert.equal(inter.cgst, 0);
@@ -286,7 +291,7 @@ test('purchase: interstate vendor books IGST ITC', () => {
   assert.equal(trialBalance(state.ledger).balanced, true);
 });
 
-test('purchase: itcEligible false still posts ITC accounts today but flags the bill', () => {
+test('purchase: itcEligible false (s.17(5)) posts the GST to cost, not to ITC, and flags the bill', () => {
   const state = createState();
   const bill = createPurchase(state, {
     partyName: 'Fabrics Co',
@@ -296,6 +301,8 @@ test('purchase: itcEligible false still posts ITC accounts today but flags the b
     lines: [line()],
   });
   assert.equal(bill.invoice.itcEligible, false);
+  const acc = Object.fromEntries(listAccounts(state.ledger).map((x) => [x.code, x]));
+  assert.equal((acc['1200']?.debitsPosted || 0) + (acc['1201']?.debitsPosted || 0) + (acc['1202']?.debitsPosted || 0), 0);
   const csv = purchasesToInwardCsv(state.purchases);
   assert.match(csv, /N,Y/);
 });

@@ -18,6 +18,7 @@ import { nicSessionStatus } from './action-gate.mjs';
 import { clearIntegrationConnection, integrationReadiness, setIntegrationConnection } from './integration-contract.mjs';
 import { listClients, registerClient, setActiveClient, listDocuments, uploadDocument, getDocumentContent } from './ca-api.mjs';
 import { lockPeriod, unlockPeriod, isPeriodLocked, lockThrough } from './period-lock.mjs';
+import { localToday, postingDate } from './dates.mjs';
 import { buildInvoiceShare, shareLink, queueNotification, listOutbox, sendNotification } from './notifications.mjs';
 import { providerDoctor } from './provider-doctor.mjs';
 import { providerCatalog, providerRequirementMap } from './provider-catalog.mjs';
@@ -44,10 +45,6 @@ function resolveToolActor(args = {}, idKey = 'actorId', fallbackUserId = 'ca') {
 
 const DEADLINE_COLUMNS = ['clientId', 'name', 'entity', 'turnover', 'gst', 'qrmp', 'tdsDeductor', 'pf', 'advanceTax', 'tp', 'state', 'profession', 'gstTds', 'presumptive'];
 
-function localToday() {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-}
 
 function yes(value) {
   return value === true || /^(y|yes|true|1)$/i.test(String(value ?? '').trim());
@@ -993,7 +990,7 @@ export const TOOLS = [
     run: (state, args = {}) => {
       const text = args.ledgerText || state.files.auditLedger;
       if (!text) return fail('Pass ledgerText (clientId,date,narration,debit,credit,party,category,tdsSection).');
-      return ok(auditRun({ ledgerText: text, asOfDate: args.asOfDate || '2026-09-15' }));
+      return ok(auditRun({ ledgerText: text, asOfDate: args.asOfDate || localToday() }));
     },
   },
   {
@@ -1002,19 +999,23 @@ export const TOOLS = [
     description: 'Pay a vendor from bank and book expense (optional GST input).',
     args: ['narration', 'amount', 'gstRate'],
     run: (state, args) => {
-      const date = args.date || new Date().toISOString().slice(0, 10);
+      const date = postingDate(args.date);
+      if (!date) return fail('INVALID_DATE', { date: args.date });
       if (isPeriodLocked(state, date)) return fail('PERIOD_LOCKED', { date, lockThrough: state.lockThrough });
-      const amount = Number(args.amount);
+      const amountPaise = Math.round(Number(args.amount) * 100);
       const gstRate = Number(args.gstRate || 0);
-      const taxable = gstRate ? Math.round((amount / (1 + gstRate / 100)) * 100) / 100 : amount;
-      const tax = Math.round((amount - taxable) * 100) / 100;
-      const half = Math.round(tax * 50) / 100;
+      if (!Number.isFinite(amountPaise) || amountPaise <= 0) return fail('BAD_AMOUNT');
+      if (!Number.isFinite(gstRate) || gstRate < 0) return fail('BAD_RATE');
+      // The amount includes GST. CGST and SGST are equal halves, each in paise,
+      // and the expense takes the remainder so the three add back to the amount.
+      const halfPaise = gstRate ? Math.round((amountPaise * gstRate) / (100 + gstRate) / 2) : 0;
+      const taxablePaise = amountPaise - 2 * halfPaise;
       const transfers = [
-        { id: ++state.transferSeq, debitAccountId: 5100, creditAccountId: 1002, amount: paise(taxable), code: 'EXPENSE' },
+        { id: ++state.transferSeq, debitAccountId: 5100, creditAccountId: 1002, amount: BigInt(taxablePaise), code: 'EXPENSE', userData: date },
       ];
-      if (tax > 0) {
-        transfers.push({ id: ++state.transferSeq, debitAccountId: 1200, creditAccountId: 1002, amount: paise(half), code: 'ITC-CGST' });
-        transfers.push({ id: ++state.transferSeq, debitAccountId: 1201, creditAccountId: 1002, amount: paise(tax - half), code: 'ITC-SGST' });
+      if (halfPaise > 0) {
+        transfers.push({ id: ++state.transferSeq, debitAccountId: 1200, creditAccountId: 1002, amount: BigInt(halfPaise), code: 'ITC-CGST', userData: date });
+        transfers.push({ id: ++state.transferSeq, debitAccountId: 1201, creditAccountId: 1002, amount: BigInt(halfPaise), code: 'ITC-SGST', userData: date });
       }
       return ok(createTransfers(state.ledger, transfers));
     },
