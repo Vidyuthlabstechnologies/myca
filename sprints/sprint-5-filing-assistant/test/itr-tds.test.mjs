@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { r2, taxOn, NEW_REGIME_2026_27, OLD_REGIME_2026_27 } from '../src/core.mjs';
+import { r2 } from '../src/core.mjs';
+import { computeIncomeTax } from '../src/income-tax.mjs';
 import { parseAis, parseForm26as, parseIncome, buildItr } from '../src/itr.mjs';
 import { parsePayments, monitorTds } from '../src/tdsmonitor.mjs';
 
@@ -19,18 +20,19 @@ describe('GATE 1: ITR fixture-exact numbers', () => {
 
   it('gti', () => { assert.equal(result.gti, 4550000); });
   it('taxable newRegime', () => { assert.equal(result.taxable.newRegime, 4475000); });
-  it('taxable oldRegime', () => { assert.equal(result.taxable.oldRegime, 4300000); });
-  it('tax newTotal', () => { assert.equal(result.tax.newTotal, 1001000); });
-  it('tax oldTotal', () => { assert.equal(result.tax.oldTotal, 1146600); });
+  it('taxable oldRegime (80D claim 50,000 capped at 25,000)', () => { assert.equal(result.taxable.oldRegime, 4325000); });
+  it('tax newTotal: 20,000 + 40,000 + 60,000 + 80,000 + 1,00,000 + 30% of 20,75,000 = 9,22,500 plus 4% cess', () => { assert.equal(result.tax.newTotal, 959400); });
+  it('tax oldTotal: 12,500 + 1,00,000 + 30% of 33,25,000 = 11,10,000 plus 4% cess', () => { assert.equal(result.tax.oldTotal, 1154400); });
   it('recommended', () => { assert.equal(result.recommended, 'new'); });
-  it('savings', () => { assert.equal(result.savings, 145600); });
+  it('savings', () => { assert.equal(result.savings, 195000); });
   it('tdsCredit', () => {
     assert.equal(result.tdsCredit.salary, 45000);
     assert.equal(result.tdsCredit.other, 12500);
     assert.equal(result.tdsCredit.total, 57500);
   });
   it('advanceTax', () => { assert.equal(result.advanceTax, 0); });
-  it('payable', () => { assert.equal(result.payable, 943500); });
+  it('payable', () => { assert.equal(result.payable, 901900); });
+  it('refund', () => { assert.equal(result.refund, 0); });
 });
 
 describe('GATE 2: AIS reconciliation', () => {
@@ -84,20 +86,29 @@ describe('GATE 3: TDS monitor fixture-exact flags', () => {
   });
 });
 
-describe('GATE 4: New regime rebate at 12L taxable', () => {
-  it('rebate capped at 60000 at 1200000', () => {
-    const result = taxOn(1200000, NEW_REGIME_2026_27);
-    assert.equal(result.rebateApplied, 60000);
-    assert.equal(result.base, 20000);
-    assert.equal(result.total, 20800);
+describe('GATE 4: New regime at Rs 12 lakh total income pays nothing in FY 2025-26', () => {
+  it('slab tax 60,000 is fully rebated', () => {
+    const result = computeIncomeTax({ fy: '2025-26', regime: 'new', residentIndividual: true, salaryPaise: 0, otherIncomePaise: 120000000, claims: {} });
+    assert.equal(result.slabTaxPaise, 6000000);
+    assert.equal(result.rebatePaise, 6000000);
+    assert.equal(result.taxPayablePaise, 0);
   });
 });
 
 describe('GATE 5: Old regime no rebate above 5L', () => {
-  it('no rebate at 5000000', () => {
-    const result = taxOn(5000000, OLD_REGIME_2026_27);
-    assert.equal(result.rebateApplied, 0);
-    assert.ok(result.total > 0);
+  it('no rebate at Rs 50 lakh', () => {
+    const result = computeIncomeTax({ fy: '2025-26', regime: 'old', residentIndividual: true, salaryPaise: 0, otherIncomePaise: 500000000, claims: {} });
+    assert.equal(result.rebatePaise, 0);
+    assert.ok(result.taxPayablePaise > 0);
+  });
+});
+
+describe('GATE 5b: TDS above the liability becomes a refund', () => {
+  it('refund equals TDS less tax', () => {
+    const result = buildItr({ income: [{ nature: 'salary', value: 1000000, note: '' }], tds26: [{ section: '192', tds: 40000 }], fy: '2025-26' });
+    assert.equal(result.tax.newTotal, 0);
+    assert.equal(result.payable, 0);
+    assert.equal(result.refund, 40000);
   });
 });
 

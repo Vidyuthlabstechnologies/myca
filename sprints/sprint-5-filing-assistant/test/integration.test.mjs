@@ -59,7 +59,7 @@ test('GATE 1: end-to-end fixture filingPrep wires all modules with exact values'
   assert.equal(r.gstr3b.outward.totals.interIgst, 125600);
   assert.equal(r.gstr3b.itc.netItc, 130400);
   assert.equal(r.itr.recommended, 'new');
-  assert.equal(r.itr.payable, 943500);
+  assert.equal(r.itr.payable, 901900);
   assert.equal(r.tds.length, 4);
   assert.equal(r.errors.length, 0);
   assert.equal(r.ok, false);
@@ -115,10 +115,10 @@ test('GATE 4: regime compare math is exact', () => {
   });
   assert.equal(r.itr.gti, 4550000);
   assert.equal(r.itr.taxable.newRegime, 4475000);
-  assert.equal(r.itr.taxable.oldRegime, 4300000);
-  assert.equal(r.itr.tax.newTotal, 1001000);
-  assert.equal(r.itr.tax.oldTotal, 1146600);
-  assert.equal(r.itr.savings, 145600);
+  assert.equal(r.itr.taxable.oldRegime, 4325000);
+  assert.equal(r.itr.tax.newTotal, 959400);
+  assert.equal(r.itr.tax.oldTotal, 1154400);
+  assert.equal(r.itr.savings, 195000);
   assert.equal(r.itr.tdsCredit.total, 57500);
 });
 
