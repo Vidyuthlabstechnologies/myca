@@ -16,13 +16,13 @@ const gig = () =>
       gstr1Text: fixture('gstr1.csv'),
       gstr3bText: fixture('gstr3b.csv'),
     },
-    { clientGstin: '27AAACH7409R1Z3', asOfDate: '2025-04-30' }
+    { clientGstin: '27AAACH7409R1Z1', asOfDate: '2025-04-30' }
   );
 
 test('GATE 1: end-to-end reconcile surfaces every exception in the action queue', () => {
   const res = gig();
   assert.equal(res.ok, false, 'fixture set has known gaps + a GSTR-1/3B mismatch');
-  assert.equal(res.client.gstin, '27AAACH7409R1Z3');
+  assert.equal(res.client.gstin, '27AAACH7409R1Z1');
   assert.equal(res.client.stateName, 'Maharashtra');
   assert.equal(res.client.valid, true);
 
@@ -69,7 +69,7 @@ test('GATE 4: unresolved supplier GSTIN or parser errors fail the reconcile', ()
       gstr1Text: fixture('gstr1.csv'),
       gstr3bText: fixture('gstr3b.csv'),
     },
-    { clientGstin: '27AABCU9603R1ZA', asOfDate: '2025-04-30' }
+    { clientGstin: '27AABCU9603R1ZP', asOfDate: '2025-04-30' }
   );
   assert.equal(res.ok, false);
   assert.equal(res.client.valid, false);

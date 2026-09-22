@@ -96,14 +96,14 @@ test('H8: an approval requested for one client cannot run for another', async ()
 
 test('sandbox_operation tool refuses a clientId other than the active client', async () => {
   const state = createState();
-  const out = await runTool(state, 'sandbox_operation', { operationId: 'gstin_verify', clientId: 'C2', params: { gstin: '27AABCU9603R1ZP' } });
+  const out = await runTool(state, 'sandbox_operation', { operationId: 'gstin_verify', clientId: 'C2', params: { gstin: '27AABCU9603R1ZN' } });
   assert.equal(out.ok, false);
   assert.equal(out.error, 'CLIENT_NOT_ACTIVE');
 });
 
 test('a failed Sandbox write consumes its approval and is not retried', async () => {
   const state = createState();
-  const params = { period: '2026-08', payload: { gstin: '27AABCU9603R1ZP' } };
+  const params = { period: '2026-08', payload: { gstin: '27AABCU9603R1ZN' } };
   const approvalId = await approveViaTools(state, { operationId: 'gst_save_gstr1', params });
   await withEnv(LIVE, async () => {
     const first = await runSandboxOperation({ actorId: 'ca', operationId: 'gst_save_gstr1', caApprovalId: approvalId, params }, { state });
@@ -152,7 +152,7 @@ test('mock mode: the assistant block and the handoff checks apply exactly as the
     assert.equal(filing.mock, undefined);
     const irn = await runSandboxOperation({ operationId: 'einvoice_generate', actorId: 'assistant', params: { invoiceId: inv.invoice.id } }, { state });
     assert.equal(irn.error, 'ASSISTANT_BLOCKED_FOR_OPERATION');
-    const secret = await runSandboxOperation({ operationId: 'gstin_verify', actorId: 'ca', params: { gstin: '27AABCU9603R1ZP' }, payloadSummary: { apiKey: 'x' } }, { state });
+    const secret = await runSandboxOperation({ operationId: 'gstin_verify', actorId: 'ca', params: { gstin: '27AABCU9603R1ZN' }, payloadSummary: { apiKey: 'x' } }, { state });
     assert.equal(secret.error, 'SECRET_FIELDS_NOT_ALLOWED_IN_HANDOFF');
   });
   assert.equal(state.invoices[0].mockIrn, undefined);
@@ -171,7 +171,7 @@ test('mock mode: the income-tax fixture invents no tax figure and matches the li
 
 test('live switch off: the e-invoice dry run is the NIC payload built from the books', async () => {
   const state = createState();
-  const inv = createInvoice(state, { date: '2026-09-05', partyName: 'Retail', partyGstin: '27AAACH7409R1Z3', partyState: '27', lines: [{ description: 'x', hsn: '5208', qty: 1, rate: 100, gstRate: 5 }] });
+  const inv = createInvoice(state, { date: '2026-09-05', partyName: 'Retail', partyGstin: '27AAACH7409R1Z1', partyState: '27', lines: [{ description: 'x', hsn: '5208', qty: 1, rate: 100, gstRate: 5 }] });
   const out = await runSandboxOperation({ actorId: 'ca', operationId: 'einvoice_generate', caApprovalId: 'APR-000001', params: { invoiceId: inv.invoice.id } }, { state });
   assert.equal(out.error, 'LIVE_CALLS_DISABLED');
   const record = state.dryRuns.at(-1);
@@ -183,7 +183,7 @@ test('live switch off: the e-invoice dry run is the NIC payload built from the b
 
 test('live switch off: the GSTR-1 save dry run is the exact request body', async () => {
   const state = createState();
-  const gstr1 = { gstin: '27AABCU9603R1ZP', fp: '082026', b2b: [] };
+  const gstr1 = { gstin: '27AABCU9603R1ZN', fp: '082026', b2b: [] };
   await runSandboxOperation({ actorId: 'ca', operationId: 'gst_save_gstr1', caApprovalId: 'APR-000001', params: { period: '2026-08', payload: gstr1 } }, { state });
   assert.deepEqual(state.dryRuns.at(-1).payload, { year: 2026, month: 8, payload: gstr1 });
 });
@@ -218,7 +218,7 @@ test('an injected client never replaces the gate-scoped transport', async () => 
       return { ok: true, legalName: 'INJECTED' };
     },
   };
-  const out = await withEnv(LIVE, () => runSandboxOperation({ actorId: 'ca', operationId: 'gstin_verify', params: { gstin: '27AABCU9603R1ZP' } }, { state, client }));
+  const out = await withEnv(LIVE, () => runSandboxOperation({ actorId: 'ca', operationId: 'gstin_verify', params: { gstin: '27AABCU9603R1ZN' } }, { state, client }));
   assert.deepEqual(injected, []);
   assert.equal(out.ok, true);
   assert.equal(out.data.legalName, 'Nalanda Textiles');
@@ -228,10 +228,10 @@ test('an injected client never replaces the gate-scoped transport', async () => 
 test('live Sandbox reads map the provider response, and an approved e-invoice write consumes its approval', async () => {
   const state = createState();
   await withEnv(LIVE, async () => {
-    const ran = await runSandboxOperation({ actorId: 'ca', operationId: 'gstin_verify', params: { gstin: '27aabcu9603r1zp' } }, { state });
+    const ran = await runSandboxOperation({ actorId: 'ca', operationId: 'gstin_verify', params: { gstin: '27aabcu9603r1zn' } }, { state });
     assert.equal(ran.ok, true);
     assert.equal(ran.requirementId, 'REQ-CA-008');
-    assert.equal(ran.data.gstin, '27AABCU9603R1ZP');
+    assert.equal(ran.data.gstin, '27AABCU9603R1ZN');
 
     const params = { payload: { Version: '1.1' } };
     const request = requestApproval(state, { operationId: 'einvoice_generate', params, actor: { userId: 'maker' } });

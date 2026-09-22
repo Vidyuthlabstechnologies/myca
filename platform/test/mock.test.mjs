@@ -198,7 +198,7 @@ test('validate_gstin tool returns a simulated lookup under MYCA_MOCK_MODE=1', as
   process.env.MYCA_MOCK_MODE = '1';
   try {
     const state = freshState();
-    const res = await runTool(state, 'validate_gstin', { gstin: '27AABCU9603R1ZP' });
+    const res = await runTool(state, 'validate_gstin', { gstin: '27AABCU9603R1ZN' });
     assert.equal(res.ok, true);
     assert.equal(res.data.mock, true);
     assert.equal(res.data.liveVerified, true);

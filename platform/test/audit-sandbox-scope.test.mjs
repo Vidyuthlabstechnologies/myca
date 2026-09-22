@@ -29,22 +29,22 @@ async function withEnv(vars, fn) {
 }
 
 const PARAMS = {
-  gst_taxpayer_generate_otp: { username: 'tp', gstin: '27AABCU9603R1ZP' },
-  gst_taxpayer_verify_otp: { username: 'tp', gstin: '27AABCU9603R1ZP', otp: '123456' },
-  gst_gstr2b_recon_submit: { gstin: '27AABCU9603R1ZP', period: '2026-08' },
-  gst_return_status: { gstin: '27AABCU9603R1ZP', fy: '2026-27', gstr: 'GSTR1' },
-  gst_save_gstr1: { period: '2026-08', payload: { gstin: '27AABCU9603R1ZP' } },
+  gst_taxpayer_generate_otp: { username: 'tp', gstin: '27AABCU9603R1ZN' },
+  gst_taxpayer_verify_otp: { username: 'tp', gstin: '27AABCU9603R1ZN', otp: '123456' },
+  gst_gstr2b_recon_submit: { gstin: '27AABCU9603R1ZN', period: '2026-08' },
+  gst_return_status: { gstin: '27AABCU9603R1ZN', fy: '2026-27', gstr: 'GSTR1' },
+  gst_save_gstr1: { period: '2026-08', payload: { gstin: '27AABCU9603R1ZN' } },
   gst_file_gstr1_evc: { period: '2026-08', pan: 'AABCU9603R', otp: '123456', summary: { chksum: 'X' } },
-  einvoice_authenticate: { username: 'api', password: 'pw', gstin: '27AABCU9603R1ZP' },
+  einvoice_authenticate: { username: 'api', password: 'pw', gstin: '27AABCU9603R1ZN' },
   einvoice_cancel: { irn: 'IRN-1', reason: '1' },
-  gstin_verify: { gstin: '27AABCU9603R1ZP' },
+  gstin_verify: { gstin: '27AABCU9603R1ZN' },
   tds_analytics_job: { quarter: 'Q1', tan: 'PNEA12345B', form: '26Q', fy: 'FY 2026-27' },
   tds_fvu_generate: { taxYear: '2026-27', quarter: 'Q1', form: '26Q', tan: 'PNEA12345B' },
 };
 
 test('every Sandbox adapter calls only the transport functions its action declares, on the configured host', async () => {
   const state = createState();
-  const inv = createInvoice(state, { partyName: 'Retail', partyGstin: '27AAACH7409R1Z3', partyState: '27', lines: [{ description: 'x', hsn: '5208', qty: 1, rate: 100, gstRate: 5 }] });
+  const inv = createInvoice(state, { partyName: 'Retail', partyGstin: '27AAACH7409R1Z1', partyState: '27', lines: [{ description: 'x', hsn: '5208', qty: 1, rate: 100, gstRate: 5 }] });
   const params = { ...PARAMS, einvoice_generate: { invoiceId: inv.invoice.id } };
   await withEnv({ MYCA_ENABLE_LIVE_CALLS: '1', MYCA_MOCK_MODE: '0', MYCA_GSP_API_KEY: 'k', MYCA_GSP_API_SECRET: 's', MYCA_GSP_BASE_URL: BASE_URL }, async () => {
     for (const operation of SANDBOX_OPERATIONS.filter((op) => adapterSupports(op.operationId))) {

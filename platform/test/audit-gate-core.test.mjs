@@ -41,7 +41,7 @@ function approve(state, { operationId, clientId = 'SELF', params = {}, requester
 
 function booksWithInvoice() {
   const state = createState();
-  createInvoice(state, { date: '2026-09-05', partyName: 'Retail Mart', partyGstin: '27AAACH7409R1Z3', partyState: '27', lines: [{ description: 'Fabric', hsn: '5208', qty: 1, rate: 1000, gstRate: 5 }] });
+  createInvoice(state, { date: '2026-09-05', partyName: 'Retail Mart', partyGstin: '27AAACH7409R1Z1', partyState: '27', lines: [{ description: 'Fabric', hsn: '5208', qty: 1, rate: 1000, gstRate: 5 }] });
   return state;
 }
 

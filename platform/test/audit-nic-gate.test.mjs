@@ -37,7 +37,7 @@ globalThis.fetch = async (url, init = {}) => {
   return new Response('pong', { status: 200 });
 };
 
-saveGovtConfig({ env: 'sandbox', clientId: 'CID', clientSecret: 'CLIENT-SECRET-XYZ', username: 'apiuser', password: 'P@ss', gstin: '27AABCU9603R1ZP' });
+saveGovtConfig({ env: 'sandbox', clientId: 'CID', clientSecret: 'CLIENT-SECRET-XYZ', username: 'apiuser', password: 'P@ss', gstin: '27AABCU9603R1ZN' });
 saveNicPublicKey(generateKeyPairSync('rsa', { modulusLength: 2048, publicKeyEncoding: { type: 'spki', format: 'pem' }, privateKeyEncoding: { type: 'pkcs8', format: 'pem' } }).publicKey);
 
 async function withEnv(vars, fn) {
@@ -59,7 +59,7 @@ const OFF = { MYCA_ENABLE_LIVE_CALLS: '0', MYCA_MOCK_MODE: '0' };
 function books() {
   const state = createState();
   for (const rate of [1000, 2000]) {
-    createInvoice(state, { date: '2026-09-05', partyName: 'Retail Mart', partyGstin: '27AAACH7409R1Z3', partyState: '27', lines: [{ description: 'Fabric', hsn: '5208', qty: 1, rate, gstRate: 5 }] });
+    createInvoice(state, { date: '2026-09-05', partyName: 'Retail Mart', partyGstin: '27AAACH7409R1Z1', partyState: '27', lines: [{ description: 'Fabric', hsn: '5208', qty: 1, rate, gstRate: 5 }] });
   }
   return state;
 }
@@ -168,7 +168,7 @@ test('H9: with the live switch off, NIC auth, NIC health and the govt probe send
     assert.match(auth.reply, /LIVE_CALLS_DISABLED/);
     assert.equal((await runTool(state, 'govt_nic_auth', {})).data.error, 'LIVE_CALLS_DISABLED');
     assert.equal((await runTool(state, 'govt_nic_health', {})).data.error, 'LIVE_CALLS_DISABLED');
-    assert.equal((await runTool(state, 'govt_nic_gstin', { gstin: '27AAACH7409R1Z3' })).error, 'LIVE_CALLS_DISABLED');
+    assert.equal((await runTool(state, 'govt_nic_gstin', { gstin: '27AAACH7409R1Z1' })).error, 'LIVE_CALLS_DISABLED');
     const probe = await chat(state, 'probe govt');
     assert.match(probe.reply, /LIVE_CALLS_DISABLED/);
   });

@@ -96,7 +96,7 @@ test('gate mock: returns the tagged fixture, never executes, and needs no approv
 test('gate live switch off: LIVE_CALLS_DISABLED plus a redacted dry-run record, and no execute', async () => {
   const state = createState();
   const { calls, execute } = counter();
-  const params = { gstin: '27AABCU9603R1ZP', username: 'api', password: 'Pa55word!' };
+  const params = { gstin: '27AABCU9603R1ZN', username: 'api', password: 'Pa55word!' };
   const out = await withEnv({ MYCA_ENABLE_LIVE_CALLS: '0', MYCA_MOCK_MODE: '0' }, () => performExternalAction(state, {
     actionId: 'einvoice_authenticate',
     clientId: 'self',
@@ -111,7 +111,7 @@ test('gate live switch off: LIVE_CALLS_DISABLED plus a redacted dry-run record, 
   assert.equal(record.clientId, 'SELF');
   assert.equal(record.paramsHash, paramsHash(params));
   assert.equal(record.payload.password, '[REDACTED]');
-  assert.equal(record.payload.gstin, '27AABCU9603R1ZP');
+  assert.equal(record.payload.gstin, '27AABCU9603R1ZN');
   assert.equal(out.dryRunId, record.dryRunId);
   assert.equal(JSON.stringify({ dryRuns: state.dryRuns, auditEvents: state.auditEvents || [] }).includes('Pa55word!'), false);
 });
@@ -152,7 +152,7 @@ test('gate preflight rejects before any dry-run is written', async () => {
 test('gate read: executes once with the transports and audits hashes without secret values', async () => {
   const state = createState();
   const { calls, execute } = counter({ ok: true, legalName: 'X' });
-  const params = { gstin: '27AABCU9603R1ZP', token: 'TOKEN-SECRET-1' };
+  const params = { gstin: '27AABCU9603R1ZN', token: 'TOKEN-SECRET-1' };
   const out = await withEnv(LIVE, () => performExternalAction(state, { actionId: 'validate_gstin_lookup', params, actor: maker }, execute));
   assert.equal(out.ok, true);
   assert.equal(out.legalName, 'X');

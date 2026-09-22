@@ -78,7 +78,7 @@ portal.
 ### Try it in 60 seconds
 
 1. `cd platform && npm run dev`
-2. In the chat strip: `Invoice Retail Mart GSTIN 27AAACH7409R1Z3, 10 rolls at 50000, GST 5%`
+2. In the chat strip: `Invoice Retail Mart GSTIN 27AAACH7409R1Z1, 10 rolls at 50000, GST 5%`
 3. `trial balance` — Dr must equal Cr
 4. `prepare GSTR-1` — B2B vs B2CS split follows GSTIN presence
 5. `export gstr1 json` — downloads GSTN offline-utility JSON (not uploaded)

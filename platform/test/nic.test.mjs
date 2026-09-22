@@ -73,7 +73,7 @@ test('nic calls: gated by the live switch, then auth + AES request shape', async
     const gated = await nicGetIrn('IRN-X', { env: 'sandbox' }, fetchFn, {});
     assert.equal(gated.error, 'LIVE_CALLS_DISABLED');
 
-    const lookup = await nicGetIrn('IRN-X', { env: 'sandbox', clientId: 'c', clientSecret: 's', username: 'u', password: 'p', gstin: '27AABCU9603R1ZP' }, fetchFn, { allowLive: true });
+    const lookup = await nicGetIrn('IRN-X', { env: 'sandbox', clientId: 'c', clientSecret: 's', username: 'u', password: 'p', gstin: '27AABCU9603R1ZN' }, fetchFn, { allowLive: true });
     assert.equal(lookup.ok, true);
     assert.equal(calls[0].url, 'https://einv1api.gstsandbox.nic.in/eivital/v1.04/auth');
     assert.equal(calls[1].url, 'https://einv1api.gstsandbox.nic.in/eicore/v1.03/Invoice/irn/IRN-X');
@@ -88,7 +88,7 @@ test('nic calls: gated by the live switch, then auth + AES request shape', async
 
 test('nic: auth requires the RSA public key and never sends credentials without it', async () => {
   const out = await nicAuthenticate(
-    { env: 'sandbox', clientId: 'c', clientSecret: 's', username: 'u', password: 'p', gstin: '27AABCU9603R1ZP' },
+    { env: 'sandbox', clientId: 'c', clientSecret: 's', username: 'u', password: 'p', gstin: '27AABCU9603R1ZN' },
     async () => { throw new Error('network must not be reached'); },
   );
   assert.equal(out.error, 'MISSING_NIC_PUBLIC_KEY');
@@ -144,13 +144,13 @@ test('nic gstin master: builds the v1.04 master path', async () => {
   const seen = [];
   const sek = randomBytes(32).toString('base64');
   try {
-    await nicGstinMaster('27AABCU9603R1ZP', { env: 'production', clientId: 'c', clientSecret: 's', username: 'u', password: 'p', gstin: '27AABCU9603R1ZP' }, async (url) => {
+    await nicGstinMaster('27AABCU9603R1ZN', { env: 'production', clientId: 'c', clientSecret: 's', username: 'u', password: 'p', gstin: '27AABCU9603R1ZN' }, async (url) => {
       seen.push(url);
       if (url.endsWith('/auth')) return { ok: true, status: 200, text: async () => JSON.stringify({ Status: 1, Data: { AuthToken: 't', Sek: sek } }) };
       return { ok: true, status: 200, text: async () => JSON.stringify({ Status: 1, Data: encryptPayload({ LglNm: 'X' }, sek) }) };
     }, { allowLive: true });
     assert.equal(seen[0], 'https://einvoice1.gst.gov.in/eivital/v1.04/auth');
-    assert.equal(seen[1], 'https://einvoice1.gst.gov.in/eivital/v1.04/Master/gstin/27AABCU9603R1ZP');
+    assert.equal(seen[1], 'https://einvoice1.gst.gov.in/eivital/v1.04/Master/gstin/27AABCU9603R1ZN');
   } finally {
     process.env.APPDATA = prev;
     clearNicSession();

@@ -35,7 +35,7 @@ test('GATE 1: parseSales parses clean sales.csv with zero errors and exact row s
     {
       invoiceNo: 'INV-101',
       date: '2026-08-03',
-      partyGstin: '27AABCT1332L1ZM',
+      partyGstin: '27AABCT1332L1ZE',
       partyName: 'Apna Retail',
       partyState: '27',
       hsn: '6204',
@@ -136,9 +136,9 @@ test('GATE 6: malformed GSTIN yields INVALID_GSTIN', () => {
 
 // ── GATE 7: STATE_MISMATCH skips further tax checks ─────────────────────────
 test('GATE 7: STATE_MISMATCH is flagged and tax checks are skipped', () => {
-  const csv = HEADER + 'S1,2026-08-01,29AABCT1332L1ZM,BadCo,27,6204,18,1000,0,0,500,0,N\n';
+  const csv = HEADER + 'S1,2026-08-01,29AABCT1332L1ZA,BadCo,27,6204,18,1000,0,0,500,0,N\n';
   const { rows } = parseSales(csv);
-  assert.equal(rows[0].partyGstin, '29AABCT1332L1ZM');
+  assert.equal(rows[0].partyGstin, '29AABCT1332L1ZA');
   const errors = eInvoiceErrors(rows, '27');
   assert.equal(errors.length, 1);
   assert.equal(errors[0].invoiceNo, 'S1');

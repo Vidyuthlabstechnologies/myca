@@ -250,14 +250,14 @@ export function seedDemo(state) {
   createInvoice(state, {
     date: '2026-08-05',
     partyName: 'Retail Mart',
-    partyGstin: '27AAACH7409R1Z3',
+    partyGstin: '27AAACH7409R1Z1',
     partyState: '27',
     lines: [{ description: 'Cotton fabric rolls', hsn: '5208', qty: 10, rate: 50000, gstRate: 5 }],
   });
   createInvoice(state, {
     date: '2026-08-18',
     partyName: 'Gujarat Weaves',
-    partyGstin: '24AAACF7856R1Z0',
+    partyGstin: '24AAACF7856R1ZY',
     partyState: '24',
     lines: [{ description: 'Processed yarn', hsn: '5402', qty: 4, rate: 80000, gstRate: 18 }],
   });
@@ -265,7 +265,7 @@ export function seedDemo(state) {
   createPurchase(state, {
     date: '2026-08-06',
     partyName: 'Fabric Co',
-    partyGstin: '27AABCT1332L1ZM',
+    partyGstin: '27AABCT1332L1ZE',
     partyState: '27',
     lines: [{ description: 'Grey cloth', hsn: '5208', qty: 20, rate: 2000, gstRate: 5 }],
   });

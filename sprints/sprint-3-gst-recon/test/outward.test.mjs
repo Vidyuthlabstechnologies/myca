@@ -19,7 +19,7 @@ test('GATE 1: parseGSTR1 parses shared fixture into 3 rows, 0 errors', () => {
   assert.equal(errors.length, 0);
 
   const s501 = rows.find((row) => row.invoiceNo === 'S-501');
-  assert.equal(s501.buyerGstin, '29AABCL1234J1ZN');
+  assert.equal(s501.buyerGstin, '29AABCL1234J1ZL');
   assert.equal(s501.invoiceDate, '2025-04-02');
   assert.equal(s501.taxableValue, 50000);
   assert.equal(s501.igst, 9000);
@@ -84,20 +84,20 @@ test('GATE 3: matchGSTR13 finds the 18% intra mismatch', () => {
 
 test('GATE 4: flagRule37A flags INV-1002 and INV-1003, leaves CN-0405 alone', () => {
   const purchaseRegister = [
-    { gstin: '27AABCU9603R1ZP', supplierName: 'ABC TEXTILES PVT LTD', invoiceNo: 'INV-1001', invoiceDate: '2025-04-03', taxableValue: 100000, cgst: 6000, sgst: 6000, igst: 0, totalValue: 112000, sourceRow: 2, isCreditNote: false },
-    { gstin: '27AABCU9603R1ZP', supplierName: 'ABC TEXTILES PVT LTD', invoiceNo: 'INV-1002', invoiceDate: '2025-04-10', taxableValue: 50000, cgst: 3000, sgst: 3000, igst: 0, totalValue: 56000, sourceRow: 3, isCreditNote: false },
-    { gstin: '24AAACF7856R1Z0', supplierName: 'DEF ELECTRICALS', invoiceNo: 'E-221', invoiceDate: '2025-04-06', taxableValue: 30000, cgst: 0, sgst: 0, igst: 5400, totalValue: 35400, sourceRow: 4, isCreditNote: false },
-    { gstin: '29AABCL1234J1ZN', supplierName: 'GHI PACKAGING', invoiceNo: 'PKG-87', invoiceDate: '2025-04-14', taxableValue: 25000, cgst: 1500, sgst: 1500, igst: 0, totalValue: 28000, sourceRow: 5, isCreditNote: false },
-    { gstin: '27AABCU9603R1ZP', supplierName: 'ABC TEXTILES PVT LTD', invoiceNo: 'INV-1003', invoiceDate: '2025-04-18', taxableValue: 20000, cgst: 1200, sgst: 1200, igst: 0, totalValue: 22400, sourceRow: 6, isCreditNote: false },
-    { gstin: '27AABCU9603R1ZP', supplierName: 'ABC TEXTILES PVT LTD', invoiceNo: 'CN-0405', invoiceDate: '2025-04-28', taxableValue: -5000, cgst: -300, sgst: -300, igst: 0, totalValue: -5600, sourceRow: 7, isCreditNote: true },
+    { gstin: '27AABCU9603R1ZN', supplierName: 'ABC TEXTILES PVT LTD', invoiceNo: 'INV-1001', invoiceDate: '2025-04-03', taxableValue: 100000, cgst: 6000, sgst: 6000, igst: 0, totalValue: 112000, sourceRow: 2, isCreditNote: false },
+    { gstin: '27AABCU9603R1ZN', supplierName: 'ABC TEXTILES PVT LTD', invoiceNo: 'INV-1002', invoiceDate: '2025-04-10', taxableValue: 50000, cgst: 3000, sgst: 3000, igst: 0, totalValue: 56000, sourceRow: 3, isCreditNote: false },
+    { gstin: '24AAACF7856R1ZY', supplierName: 'DEF ELECTRICALS', invoiceNo: 'E-221', invoiceDate: '2025-04-06', taxableValue: 30000, cgst: 0, sgst: 0, igst: 5400, totalValue: 35400, sourceRow: 4, isCreditNote: false },
+    { gstin: '29AABCL1234J1ZL', supplierName: 'GHI PACKAGING', invoiceNo: 'PKG-87', invoiceDate: '2025-04-14', taxableValue: 25000, cgst: 1500, sgst: 1500, igst: 0, totalValue: 28000, sourceRow: 5, isCreditNote: false },
+    { gstin: '27AABCU9603R1ZN', supplierName: 'ABC TEXTILES PVT LTD', invoiceNo: 'INV-1003', invoiceDate: '2025-04-18', taxableValue: 20000, cgst: 1200, sgst: 1200, igst: 0, totalValue: 22400, sourceRow: 6, isCreditNote: false },
+    { gstin: '27AABCU9603R1ZN', supplierName: 'ABC TEXTILES PVT LTD', invoiceNo: 'CN-0405', invoiceDate: '2025-04-28', taxableValue: -5000, cgst: -300, sgst: -300, igst: 0, totalValue: -5600, sourceRow: 7, isCreditNote: true },
   ];
   const gstr2b = [
-    { section: 'B2B', supplierGstin: '27AABCU9603R1ZP', supplierName: 'ABC TEXTILES PVT LTD', invoiceNo: 'INV-1001', invoiceDate: '2025-04-03', taxableValue: 100000, cgst: 6000, sgst: 6000, igst: 0, cess: 0, totalValue: 112000, itcAvailability: 'Y' },
-    { section: 'B2B', supplierGstin: '27AABCU9603R1ZP', supplierName: 'ABC TEXTILES PVT LTD', invoiceNo: 'INV-1002', invoiceDate: '2025-04-10', taxableValue: 50000, cgst: 3000, sgst: 3000, igst: 0, cess: 0, totalValue: 56000, itcAvailability: 'N' },
-    { section: 'B2B', supplierGstin: '24AAACF7856R1Z0', supplierName: 'DEF ELECTRICALS', invoiceNo: 'E-221', invoiceDate: '2025-04-06', taxableValue: 30000, cgst: 0, sgst: 0, igst: 5400, cess: 0, totalValue: 35400, itcAvailability: 'Y' },
-    { section: 'B2B', supplierGstin: '29AABCL1234J1ZN', supplierName: 'GHI PACKAGING', invoiceNo: 'PKG-87', invoiceDate: '2025-04-14', taxableValue: 25000, cgst: 1500, sgst: 1500, igst: 0, cess: 0, totalValue: 28000, itcAvailability: 'Y' },
-    { section: 'B2B', supplierGstin: '07AACCP9876L1ZO', supplierName: 'JKL FREIGHT', invoiceNo: 'FR-201', invoiceDate: '2025-04-20', taxableValue: 12000, cgst: 0, sgst: 0, igst: 2160, cess: 0, totalValue: 14160, itcAvailability: 'Y' },
-    { section: 'CDNR', supplierGstin: '27AABCU9603R1ZP', supplierName: 'ABC TEXTILES PVT LTD', invoiceNo: 'CN-0405', invoiceDate: '2025-04-28', taxableValue: 5000, cgst: 300, sgst: 300, igst: 0, cess: 0, totalValue: 5600, itcAvailability: 'Y' },
+    { section: 'B2B', supplierGstin: '27AABCU9603R1ZN', supplierName: 'ABC TEXTILES PVT LTD', invoiceNo: 'INV-1001', invoiceDate: '2025-04-03', taxableValue: 100000, cgst: 6000, sgst: 6000, igst: 0, cess: 0, totalValue: 112000, itcAvailability: 'Y' },
+    { section: 'B2B', supplierGstin: '27AABCU9603R1ZN', supplierName: 'ABC TEXTILES PVT LTD', invoiceNo: 'INV-1002', invoiceDate: '2025-04-10', taxableValue: 50000, cgst: 3000, sgst: 3000, igst: 0, cess: 0, totalValue: 56000, itcAvailability: 'N' },
+    { section: 'B2B', supplierGstin: '24AAACF7856R1ZY', supplierName: 'DEF ELECTRICALS', invoiceNo: 'E-221', invoiceDate: '2025-04-06', taxableValue: 30000, cgst: 0, sgst: 0, igst: 5400, cess: 0, totalValue: 35400, itcAvailability: 'Y' },
+    { section: 'B2B', supplierGstin: '29AABCL1234J1ZL', supplierName: 'GHI PACKAGING', invoiceNo: 'PKG-87', invoiceDate: '2025-04-14', taxableValue: 25000, cgst: 1500, sgst: 1500, igst: 0, cess: 0, totalValue: 28000, itcAvailability: 'Y' },
+    { section: 'B2B', supplierGstin: '07AACCP9876L1ZM', supplierName: 'JKL FREIGHT', invoiceNo: 'FR-201', invoiceDate: '2025-04-20', taxableValue: 12000, cgst: 0, sgst: 0, igst: 2160, cess: 0, totalValue: 14160, itcAvailability: 'Y' },
+    { section: 'CDNR', supplierGstin: '27AABCU9603R1ZN', supplierName: 'ABC TEXTILES PVT LTD', invoiceNo: 'CN-0405', invoiceDate: '2025-04-28', taxableValue: 5000, cgst: 300, sgst: 300, igst: 0, cess: 0, totalValue: 5600, itcAvailability: 'Y' },
   ];
 
   const { blocked, unclaimed, summary } = flagRule37A({ purchaseRegister, gstr2b });
@@ -123,12 +123,12 @@ test('GATE 4: flagRule37A flags INV-1002 and INV-1003, leaves CN-0405 alone', ()
 
 test('GATE 5: flatten rule37A honours itcAvailability Y and blocks A', () => {
   const purchaseRegister = [
-    { gstin: '27AABCU9603R1ZP', supplierName: 'ABC', invoiceNo: 'INV-Y1', invoiceDate: '2025-04-03', taxableValue: 1000, cgst: 60, sgst: 60, igst: 0, totalValue: 1120, sourceRow: 1, isCreditNote: false },
-    { gstin: '27AABCU9603R1ZP', supplierName: 'ABC', invoiceNo: 'INV-A1', invoiceDate: '2025-04-04', taxableValue: 2000, cgst: 120, sgst: 120, igst: 0, totalValue: 2240, sourceRow: 2, isCreditNote: false },
+    { gstin: '27AABCU9603R1ZN', supplierName: 'ABC', invoiceNo: 'INV-Y1', invoiceDate: '2025-04-03', taxableValue: 1000, cgst: 60, sgst: 60, igst: 0, totalValue: 1120, sourceRow: 1, isCreditNote: false },
+    { gstin: '27AABCU9603R1ZN', supplierName: 'ABC', invoiceNo: 'INV-A1', invoiceDate: '2025-04-04', taxableValue: 2000, cgst: 120, sgst: 120, igst: 0, totalValue: 2240, sourceRow: 2, isCreditNote: false },
   ];
   const gstr2b = [
-    { section: 'B2B', supplierGstin: '27AABCU9603R1ZP', supplierName: 'ABC', invoiceNo: 'INV-Y1', invoiceDate: '2025-04-03', taxableValue: 1000, cgst: 60, sgst: 60, igst: 0, cess: 0, totalValue: 1120, itcAvailability: 'Y' },
-    { section: 'B2B', supplierGstin: '27AABCU9603R1ZP', supplierName: 'ABC', invoiceNo: 'INV-A1', invoiceDate: '2025-04-04', taxableValue: 2000, cgst: 120, sgst: 120, igst: 0, cess: 0, totalValue: 2240, itcAvailability: 'A' },
+    { section: 'B2B', supplierGstin: '27AABCU9603R1ZN', supplierName: 'ABC', invoiceNo: 'INV-Y1', invoiceDate: '2025-04-03', taxableValue: 1000, cgst: 60, sgst: 60, igst: 0, cess: 0, totalValue: 1120, itcAvailability: 'Y' },
+    { section: 'B2B', supplierGstin: '27AABCU9603R1ZN', supplierName: 'ABC', invoiceNo: 'INV-A1', invoiceDate: '2025-04-04', taxableValue: 2000, cgst: 120, sgst: 120, igst: 0, cess: 0, totalValue: 2240, itcAvailability: 'A' },
   ];
 
   const { blocked } = flagRule37A({ purchaseRegister, gstr2b });
@@ -140,12 +140,12 @@ test('GATE 5: flatten rule37A honours itcAvailability Y and blocks A', () => {
 
 test('GATE 6: imsSnapshot aggregates section-wise input credit', () => {
   const gstr2b = [
-    { section: 'B2B', supplierGstin: '27AABCU9603R1ZP', supplierName: 'ABC TEXTILES PVT LTD', invoiceNo: 'INV-1001', invoiceDate: '2025-04-03', taxableValue: 100000, cgst: 6000, sgst: 6000, igst: 0, cess: 0, totalValue: 112000, itcAvailability: 'Y' },
-    { section: 'B2B', supplierGstin: '27AABCU9603R1ZP', supplierName: 'ABC TEXTILES PVT LTD', invoiceNo: 'INV-1002', invoiceDate: '2025-04-10', taxableValue: 50000, cgst: 3000, sgst: 3000, igst: 0, cess: 0, totalValue: 56000, itcAvailability: 'N' },
-    { section: 'B2B', supplierGstin: '24AAACF7856R1Z0', supplierName: 'DEF ELECTRICALS', invoiceNo: 'E-221', invoiceDate: '2025-04-06', taxableValue: 30000, cgst: 0, sgst: 0, igst: 5400, cess: 0, totalValue: 35400, itcAvailability: 'Y' },
-    { section: 'B2B', supplierGstin: '29AABCL1234J1ZN', supplierName: 'GHI PACKAGING', invoiceNo: 'PKG-87', invoiceDate: '2025-04-14', taxableValue: 25000, cgst: 1500, sgst: 1500, igst: 0, cess: 0, totalValue: 28000, itcAvailability: 'Y' },
-    { section: 'B2B', supplierGstin: '07AACCP9876L1ZO', supplierName: 'JKL FREIGHT', invoiceNo: 'FR-201', invoiceDate: '2025-04-20', taxableValue: 12000, cgst: 0, sgst: 0, igst: 2160, cess: 0, totalValue: 14160, itcAvailability: 'Y' },
-    { section: 'CDNR', supplierGstin: '27AABCU9603R1ZP', supplierName: 'ABC TEXTILES PVT LTD', invoiceNo: 'CN-0405', invoiceDate: '2025-04-28', taxableValue: 5000, cgst: 300, sgst: 300, igst: 0, cess: 0, totalValue: 5600, itcAvailability: 'Y' },
+    { section: 'B2B', supplierGstin: '27AABCU9603R1ZN', supplierName: 'ABC TEXTILES PVT LTD', invoiceNo: 'INV-1001', invoiceDate: '2025-04-03', taxableValue: 100000, cgst: 6000, sgst: 6000, igst: 0, cess: 0, totalValue: 112000, itcAvailability: 'Y' },
+    { section: 'B2B', supplierGstin: '27AABCU9603R1ZN', supplierName: 'ABC TEXTILES PVT LTD', invoiceNo: 'INV-1002', invoiceDate: '2025-04-10', taxableValue: 50000, cgst: 3000, sgst: 3000, igst: 0, cess: 0, totalValue: 56000, itcAvailability: 'N' },
+    { section: 'B2B', supplierGstin: '24AAACF7856R1ZY', supplierName: 'DEF ELECTRICALS', invoiceNo: 'E-221', invoiceDate: '2025-04-06', taxableValue: 30000, cgst: 0, sgst: 0, igst: 5400, cess: 0, totalValue: 35400, itcAvailability: 'Y' },
+    { section: 'B2B', supplierGstin: '29AABCL1234J1ZL', supplierName: 'GHI PACKAGING', invoiceNo: 'PKG-87', invoiceDate: '2025-04-14', taxableValue: 25000, cgst: 1500, sgst: 1500, igst: 0, cess: 0, totalValue: 28000, itcAvailability: 'Y' },
+    { section: 'B2B', supplierGstin: '07AACCP9876L1ZM', supplierName: 'JKL FREIGHT', invoiceNo: 'FR-201', invoiceDate: '2025-04-20', taxableValue: 12000, cgst: 0, sgst: 0, igst: 2160, cess: 0, totalValue: 14160, itcAvailability: 'Y' },
+    { section: 'CDNR', supplierGstin: '27AABCU9603R1ZN', supplierName: 'ABC TEXTILES PVT LTD', invoiceNo: 'CN-0405', invoiceDate: '2025-04-28', taxableValue: 5000, cgst: 300, sgst: 300, igst: 0, cess: 0, totalValue: 5600, itcAvailability: 'Y' },
   ];
 
   const { sections, total } = imsSnapshot(gstr2b);
@@ -169,7 +169,7 @@ test('GATE 7: sectionLabel maps known sections and passes through unknown', () =
 test('GATE 8: parseGSTR1 copes with BOM, CRLF, rupee amounts and DD-MM-YYYY dates', () => {
   const text =
     '\uFEFFBUYER GSTIN,INVOICE NO,INVOICE DATE,TAXABLE VALUE,CGST,SGST,IGST,TOTAL VALUE\r\n' +
-    '29AABCL1234J1ZN,H-1,02-04-2025,₹1,00,000,0,0,18000,118000\r\n';
+    '29AABCL1234J1ZL,H-1,02-04-2025,₹1,00,000,0,0,18000,118000\r\n';
   const { rows, errors } = parseGSTR1(text);
   assert.equal(rows.length, 1);
   assert.equal(errors.length, 0);

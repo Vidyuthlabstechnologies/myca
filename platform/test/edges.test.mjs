@@ -46,7 +46,7 @@ function intra(state, extra = {}) {
   return createInvoice(state, {
     date: '2026-08-01',
     partyName: extra.partyName || 'Retail Mart',
-    partyGstin: extra.partyGstin ?? '27AAACH7409R1Z3',
+    partyGstin: extra.partyGstin ?? '27AAACH7409R1Z1',
     partyState: extra.partyState || '27',
     lines: extra.lines || [line()],
     ...extra,
@@ -224,13 +224,13 @@ test('invoice: mixed GST rates and fractional qty still tie', () => {
 test('invoice: same GSTIN reuses party even if name differs', () => {
   const state = createState();
   intra(state, { partyName: 'Retail Mart' });
-  intra(state, { partyName: 'Retail Mart Pvt', partyGstin: '27AAACH7409R1Z3' });
+  intra(state, { partyName: 'Retail Mart Pvt', partyGstin: '27AAACH7409R1Z1' });
   assert.equal(state.parties.length, 1);
 });
 
 test('invoice: custom id does not consume INV sequence', () => {
   const state = createState();
-  createInvoice(state, { id: 'TALLY-88', partyName: 'A', partyGstin: '27AAACH7409R1Z3', partyState: '27', lines: [line()] });
+  createInvoice(state, { id: 'TALLY-88', partyName: 'A', partyGstin: '27AAACH7409R1Z1', partyState: '27', lines: [line()] });
   const second = intra(state);
   assert.equal(state.invoiceSeq, 1);
   assert.equal(second.invoice.id, 'INV-0001');
@@ -253,7 +253,7 @@ test('print: not found; sales vs purchase heading', () => {
   const inv = intra(state);
   const html = printInvoice(state, inv.invoice.id);
   assert.match(html.html, /Bill to/);
-  const bill = createPurchase(state, { partyName: 'Fabrics Co', partyGstin: '27AABCT1332L1ZM', partyState: '27', lines: [line()] });
+  const bill = createPurchase(state, { partyName: 'Fabrics Co', partyGstin: '27AABCT1332L1ZE', partyState: '27', lines: [line()] });
   const billHtml = printInvoice(state, bill.invoice.id);
   assert.match(billHtml.html, /Supplier/);
 });
@@ -277,7 +277,7 @@ test('purchase: interstate vendor books IGST ITC', () => {
   const bill = createPurchase(state, {
     date: '2026-08-04',
     partyName: 'Gujarat Yarn',
-    partyGstin: '24AAACF7856R1Z0',
+    partyGstin: '24AAACF7856R1ZY',
     partyState: '24',
     lines: [line({ rate: 100000, gstRate: 18 })],
   });
@@ -290,7 +290,7 @@ test('purchase: itcEligible false still posts ITC accounts today but flags the b
   const state = createState();
   const bill = createPurchase(state, {
     partyName: 'Fabrics Co',
-    partyGstin: '27AABCT1332L1ZM',
+    partyGstin: '27AABCT1332L1ZE',
     partyState: '27',
     itcEligible: false,
     lines: [line()],
@@ -330,7 +330,7 @@ test('gstr1: B2B groups by GSTIN; B2C and short GSTIN go to b2cs; undated skippe
   intra(state, { partyName: 'Odd', partyGstin: '27SHORT', partyState: '27', lines: [line({ rate: 200 })] });
   const json = invoicesToGstr1Json(state.company, [
     ...state.invoices,
-    { id: 'NODATE', partyGstin: '27AAACH7409R1Z3', lines: [], total: 1 },
+    { id: 'NODATE', partyGstin: '27AAACH7409R1Z1', lines: [], total: 1 },
   ]);
   assert.equal(json.b2b.length, 1);
   assert.equal(json.b2b[0].inv.length, 2);
@@ -358,8 +358,8 @@ test('nic payload: B2B vs B2C supply type and date format', () => {
 
 test('intent: em-dash strip, comma rates, purchase vs sale, help and empty', () => {
   assert.equal(normalizeChat('x — books ITC').toLowerCase().includes('itc'), false);
-  const doc = parseDocument('Invoice Retail Mart GSTIN 27aaach7409r1z3, 10 rolls at 50,000, GST 5%');
-  assert.equal(doc.partyGstin, '27AAACH7409R1Z3');
+  const doc = parseDocument('Invoice Retail Mart GSTIN 27aaach7409r1z1, 10 rolls at 50,000, GST 5%');
+  assert.equal(doc.partyGstin, '27AAACH7409R1Z1');
   assert.equal(doc.lines[0].qty, 10);
   assert.equal(doc.lines[0].rate, 50000);
   assert.equal(isPurchaseIntent('Purchase from Fabrics'), true);
@@ -391,7 +391,7 @@ test('chat: empty, help, unknown, gstn does not file, import without attach', as
 
 test('chat: GSTR-1 JSON vs GSTR-1 tables; print and pay; IRN missing invoice', async () => {
   const state = createState();
-  const sale = await chat(state, 'Invoice Retail Mart GSTIN 27AAACH7409R1Z3, 1 rolls at 1000, GST 5%');
+  const sale = await chat(state, 'Invoice Retail Mart GSTIN 27AAACH7409R1Z1, 1 rolls at 1000, GST 5%');
   assert.match(sale.reply, /Posted INV-0001/);
   const json = await chat(state, 'export gstr1 json');
   assert.equal(json.tools[0].name, 'export_gstr1_json');
@@ -412,7 +412,7 @@ test('chat: GSTR-1 JSON vs GSTR-1 tables; print and pay; IRN missing invoice', a
 
 test('chat: doc without invoice/purchase verb asks for intent', async () => {
   const state = createState();
-  const out = await chat(state, 'from Fabrics Co GSTIN 27AABCT1332L1ZM at 10000 GST 5%');
+  const out = await chat(state, 'from Fabrics Co GSTIN 27AABCT1332L1ZE at 10000 GST 5%');
   assert.match(out.reply, /invoice|purchase/i);
   assert.equal(state.invoices.length, 0);
   assert.equal(state.purchases.length, 0);
@@ -430,7 +430,7 @@ test('assistant contract: exposes strict schemas and blocks unsafe tools', () =>
   assert.equal(validateAssistantToolCall('govt_save_credentials', {}).ok, false);
   assert.equal(validateAssistantToolCall('create_invoice', {
     partyName: 'Retail Mart',
-    partyGstin: '27AAACH7409R1Z3',
+    partyGstin: '27AAACH7409R1Z1',
     partyState: '27',
     lines: [line()],
   }).ok, true);
@@ -568,7 +568,7 @@ test('requirements: Sandbox handoff contract blocks unsafe autonomous operations
   const readOnly = createSandboxHandoff({
     operationId: 'gstin_verify',
     actorId: 'assistant',
-    payloadSummary: { gstin: '27AABCU9603R1ZP' },
+    payloadSummary: { gstin: '27AABCU9603R1ZN' },
   });
   assert.equal(readOnly.ok, true);
   assert.equal(readOnly.handoff.requirementId, 'REQ-CA-008');
@@ -611,7 +611,7 @@ test('requirements: local CA API covers must-have read/write surfaces', () => {
   const voucher = handleCaApi(state, 'POST', '/api/ca/clients/SELF/vouchers', {
     type: 'sale',
     partyName: 'API Retail',
-    partyGstin: '27AAACH7409R1Z3',
+    partyGstin: '27AAACH7409R1Z1',
     partyState: '27',
     lines: [line({ rate: 1500 })],
   });
@@ -686,7 +686,7 @@ test('requirements: CA API audit and document state persists', async () => {
     content: 'working paper',
   });
   assert.equal(uploaded.ok, true);
-  await sess.tool('validate_gstin', { gstin: '27AABCU9603R1ZP' });
+  await sess.tool('validate_gstin', { gstin: '27AABCU9603R1ZN' });
 
   const loaded = loadState(path);
   assert.equal(loaded.documents.length, 1);
@@ -698,9 +698,9 @@ test('zoho csv: empty, bad header, BOM, quotes, blank invoice numbers', () => {
   assert.equal(parseZohoBooksCsv('').meta.error, 'EMPTY');
   assert.equal(parseZohoBooksCsv('foo,bar\n1,2').meta.error, 'NO_HEADER');
   const csv = `\uFEFFInvoice Number,Invoice Date,Customer Name,GST Identification Number (GSTIN),Item Name,HSN/SAC,Quantity,Item Price,Tax Percentage
-,"05-08-2026",SkipMe,27AAACH7409R1Z3,X,5208,1,10,5
-INV-Z-1,05-08-2026,"Retail, Mart",27AAACH7409R1Z3,"Fabric, dyed",5208,2,"10,000",5
-INV-Z-1,2026-08-05,Retail Mart,27AAACH7409R1Z3,Thread,5204,1,500,5`;
+,"05-08-2026",SkipMe,27AAACH7409R1Z1,X,5208,1,10,5
+INV-Z-1,05-08-2026,"Retail, Mart",27AAACH7409R1Z1,"Fabric, dyed",5208,2,"10,000",5
+INV-Z-1,2026-08-05,Retail Mart,27AAACH7409R1Z1,Thread,5204,1,500,5`;
   const p = parseZohoBooksCsv(csv);
   assert.equal(p.invoices.length, 1);
   assert.equal(p.invoices[0].partyName, 'Retail, Mart');
@@ -713,7 +713,7 @@ test('tally xml: not envelope, CDATA, skip voucher without date', () => {
   const xml = `<?xml version="1.0"?><ENVELOPE><BODY><DATA><TALLYMESSAGE>
 <VOUCHER VCHTYPE="Sales"><DATE><![CDATA[20260805]]></DATE><VOUCHERTYPENAME>Sales</VOUCHERTYPENAME>
 <VOUCHERNUMBER>1</VOUCHERNUMBER><PARTYLEDGERNAME>Retail, Mart</PARTYLEDGERNAME>
-<PARTYGSTIN>27AAACH7409R1Z3</PARTYGSTIN><NARRATION>Cloth, fine</NARRATION>
+<PARTYGSTIN>27AAACH7409R1Z1</PARTYGSTIN><NARRATION>Cloth, fine</NARRATION>
 <ALLLEDGERENTRIES.LIST><LEDGERNAME>Sales</LEDGERNAME><AMOUNT>-100</AMOUNT></ALLLEDGERENTRIES.LIST>
 </VOUCHER>
 <VOUCHER VCHTYPE="Sales"><VOUCHERNUMBER>2</VOUCHERNUMBER><PARTYLEDGERNAME>NoDate</PARTYLEDGERNAME></VOUCHER>
@@ -728,8 +728,8 @@ test('tally xml: not envelope, CDATA, skip voucher without date', () => {
 test('tally post: duplicate voucher skipped; unknown type skipped; zero skipped', () => {
   const state = createState();
   const rows = [
-    { voucherType: 'Sales', voucherNo: '1', date: '2026-08-01', ledger: 'A', gstin: '27AAACH7409R1Z3', computedAmount: 1000, gstRate: 5, narration: 'x' },
-    { voucherType: 'Sales', voucherNo: '1', date: '2026-08-01', ledger: 'A', gstin: '27AAACH7409R1Z3', computedAmount: 1000, gstRate: 5 },
+    { voucherType: 'Sales', voucherNo: '1', date: '2026-08-01', ledger: 'A', gstin: '27AAACH7409R1Z1', computedAmount: 1000, gstRate: 5, narration: 'x' },
+    { voucherType: 'Sales', voucherNo: '1', date: '2026-08-01', ledger: 'A', gstin: '27AAACH7409R1Z1', computedAmount: 1000, gstRate: 5 },
     { voucherType: 'Journal', voucherNo: 'j', date: '2026-08-01', computedAmount: 0 },
     { voucherType: 'Contra', voucherNo: 'c', date: '2026-08-01', debit: 0 },
     { voucherType: 'Mystery', voucherNo: 'm', date: '2026-08-01', computedAmount: 10 },
@@ -749,10 +749,10 @@ test('tools: unknown, missing args, gstin check, gst payable net, seed is idempo
   assert.equal((await runTool(state, 'audit_books', {})).ok, false);
   const badGstin = await runTool(state, 'validate_gstin', { gstin: '27' });
   assert.equal(badGstin.data.ok, false);
-  const good = await runTool(state, 'validate_gstin', { gstin: '27AABCU9603R1ZP' });
+  const good = await runTool(state, 'validate_gstin', { gstin: '27AABCU9603R1ZN' });
   assert.equal(good.data.ok, true);
   intra(state, { lines: [line({ rate: 10000 })] });
-  createPurchase(state, { partyName: 'V', partyGstin: '27AABCT1332L1ZM', partyState: '27', lines: [line({ rate: 2000 })] });
+  createPurchase(state, { partyName: 'V', partyGstin: '27AABCT1332L1ZE', partyState: '27', lines: [line({ rate: 2000 })] });
   const pay = await runTool(state, 'gst_payable', {});
   assert.ok(pay.data.output > pay.data.input);
   const a = seedDemo(createState());
@@ -767,7 +767,7 @@ test('tools: unknown, missing args, gstin check, gst payable net, seed is idempo
 test('store: serialize round-trip after mixed books', () => {
   const state = createState();
   intra(state);
-  createPurchase(state, { partyName: 'V', partyGstin: '27AABCT1332L1ZM', partyState: '27', lines: [line()] });
+  createPurchase(state, { partyName: 'V', partyGstin: '27AABCT1332L1ZE', partyState: '27', lines: [line()] });
   const copy = deserialize(serialize(state));
   assert.equal(copy.invoices.length, 1);
   assert.equal(copy.purchases.length, 1);
@@ -795,7 +795,7 @@ test('session: overlapping tools get unique invoice numbers', async () => {
   sess.state.parties = [];
   const results = await Promise.all(Array.from({ length: 20 }, (_, i) => sess.tool('create_invoice', {
     partyName: `P${i}`,
-    partyGstin: '27AAACH7409R1Z3',
+    partyGstin: '27AAACH7409R1Z1',
     partyState: '27',
     lines: [line({ rate: 100 + i })],
   })));
@@ -868,14 +868,14 @@ test('security: live provider calls are opt-in and never fire in tests', async (
   const nimAsk = await runTool(state, 'nim_ask', { prompt: 'summarise 194C' });
   assert.equal(nimAsk.ok, false);
   assert.equal(nimAsk.error, 'LIVE_CALLS_DISABLED');
-  const good = await runTool(state, 'validate_gstin', { gstin: '27AABCU9603R1ZP' });
+  const good = await runTool(state, 'validate_gstin', { gstin: '27AABCU9603R1ZN' });
   assert.equal(good.data.liveVerified, false);
 });
 
 test('security: NIC auth refuses to send credentials without the RSA public key', async () => {
   if (existsSync(join(mycaDir(), 'einv-public.pem'))) return;
   const out = await nicAuthenticate(
-    { env: 'sandbox', clientId: 'cid', clientSecret: 'sec', username: 'u', password: 'p', gstin: '27AABCU9603R1ZP' },
+    { env: 'sandbox', clientId: 'cid', clientSecret: 'sec', username: 'u', password: 'p', gstin: '27AABCU9603R1ZN' },
     async () => { throw new Error('network must not be reached'); },
   );
   assert.equal(out.error, 'MISSING_NIC_PUBLIC_KEY');
@@ -915,8 +915,8 @@ test('csv: numeric cells (including negatives) are not formula-escaped', () => {
 test('tally post: duplicate purchase skipped and zero receipt skipped', () => {
   const state = createState();
   const rows = [
-    { voucherType: 'Purchase', voucherNo: 'P1', date: '2026-08-01', ledger: 'V', gstin: '27AABCT1332L1ZM', computedAmount: 1000, gstRate: 18 },
-    { voucherType: 'Purchase', voucherNo: 'P1', date: '2026-08-01', ledger: 'V', gstin: '27AABCT1332L1ZM', computedAmount: 1000, gstRate: 18 },
+    { voucherType: 'Purchase', voucherNo: 'P1', date: '2026-08-01', ledger: 'V', gstin: '27AABCT1332L1ZE', computedAmount: 1000, gstRate: 18 },
+    { voucherType: 'Purchase', voucherNo: 'P1', date: '2026-08-01', ledger: 'V', gstin: '27AABCT1332L1ZE', computedAmount: 1000, gstRate: 18 },
     { voucherType: 'Receipt', voucherNo: 'R0', date: '2026-08-01', ledger: 'C', computedAmount: 0 },
   ];
   const out = postTallyRows(state, rows);
@@ -928,7 +928,7 @@ test('tally post: duplicate purchase skipped and zero receipt skipped', () => {
 });
 
 test('intent: party name is captured after invoice/purchase without a preposition', () => {
-  assert.equal(parseDocument('Invoice Retail Mart GSTIN 27AAACH7409R1Z3, 10 rolls at 50000, GST 5%').partyName, 'Retail Mart');
+  assert.equal(parseDocument('Invoice Retail Mart GSTIN 27AAACH7409R1Z1, 10 rolls at 50000, GST 5%').partyName, 'Retail Mart');
   assert.equal(parseDocument('purchase Fabric Co 20 rolls at 2000 GST 5%').partyName, 'Fabric Co');
   assert.equal(parseDocument('invoice at 1000 GST 18%').partyName, 'Walk-in');
 });
@@ -938,7 +938,7 @@ test('vault: govt credentials are encrypted at rest and round-trip', () => {
   const prev = process.env.APPDATA;
   process.env.APPDATA = dir;
   try {
-    saveGovtConfig({ env: 'sandbox', clientId: 'cid', clientSecret: 'super-secret', username: 'u', password: 'p@ss', gstin: '27AABCU9603R1ZP' });
+    saveGovtConfig({ env: 'sandbox', clientId: 'cid', clientSecret: 'super-secret', username: 'u', password: 'p@ss', gstin: '27AABCU9603R1ZN' });
     const raw = readFileSync(govtConfigPath(), 'utf8');
     assert.doesNotMatch(raw, /super-secret/);
     assert.doesNotMatch(raw, /p@ss/);
@@ -959,7 +959,7 @@ test('vault: legacy plaintext govt.json is migrated to encrypted on demand', () 
   process.env.APPDATA = dir;
   try {
     mkdirSync(join(dir, 'MyCA'), { recursive: true });
-    writeFileSync(govtConfigPath(), JSON.stringify({ env: 'sandbox', clientId: 'c', clientSecret: 'legacy-secret', username: 'u', password: 'legacy-pass', gstin: '27AABCU9603R1ZP' }));
+    writeFileSync(govtConfigPath(), JSON.stringify({ env: 'sandbox', clientId: 'c', clientSecret: 'legacy-secret', username: 'u', password: 'legacy-pass', gstin: '27AABCU9603R1ZN' }));
     assert.equal(migrateGovtVault(), true);
     const raw = readFileSync(govtConfigPath(), 'utf8');
     assert.doesNotMatch(raw, /legacy-secret/);
@@ -974,7 +974,7 @@ test('vault: legacy plaintext govt.json is migrated to encrypted on demand', () 
 test('ca-api: clients get isolated ledgers', () => {
   const state = createState();
   const selfBefore = state.invoices.length;
-  const created = handleCaApi(state, 'POST', '/api/ca/clients', { clientId: 'CL-100', name: 'Beta Traders', gstin: '29AAACF7856R1Z0', state: '29', entityType: 'proprietor' });
+  const created = handleCaApi(state, 'POST', '/api/ca/clients', { clientId: 'CL-100', name: 'Beta Traders', gstin: '29AAACF7856R1ZO', state: '29', entityType: 'proprietor' });
   assert.equal(created.ok, true);
   assert.equal(handleCaApi(state, 'POST', '/api/ca/clients', { clientId: 'CL-100' }).error, 'CLIENT_EXISTS');
   const posted = handleCaApi(state, 'POST', '/api/ca/clients/CL-100/vouchers', {
@@ -1050,7 +1050,7 @@ test('sandbox adapter: live gate, assistant block, approvals and secret redactio
   const state = createState();
   const client = { searchGstin: async () => { throw new Error('an injected client must never be called'); } };
 
-  const off = await runSandboxOperation({ actorId: 'ca', operationId: 'gstin_verify', params: { gstin: '27AABCU9603R1ZP' } }, { state, client });
+  const off = await runSandboxOperation({ actorId: 'ca', operationId: 'gstin_verify', params: { gstin: '27AABCU9603R1ZN' } }, { state, client });
   assert.equal(off.error, 'LIVE_CALLS_DISABLED');
   assert.equal((await runSandboxOperation({ actorId: 'ca', operationId: 'nope' }, { state, client })).error, 'UNKNOWN_SANDBOX_OPERATION');
 
@@ -1091,7 +1091,7 @@ test('company: set_company validates and updates the profile', async () => {
   assert.equal((await runTool(state, 'set_company', { gstin: '27ABC' })).error, 'INVALID_GSTIN');
   assert.equal((await runTool(state, 'set_company', { fy: '26-27' })).error, 'INVALID_FY');
   assert.equal((await runTool(state, 'set_company', { pin: '123' })).error, 'INVALID_PIN');
-  const out = await runTool(state, 'set_company', { name: 'Acme Traders', gstin: '27AABCU9603R1ZP', city: 'Pune', pin: '411001' });
+  const out = await runTool(state, 'set_company', { name: 'Acme Traders', gstin: '27AABCU9603R1ZN', city: 'Pune', pin: '411001' });
   assert.equal(out.ok, true);
   assert.equal(state.company.name, 'Acme Traders');
   assert.equal(state.company.state, '27');
@@ -1105,7 +1105,7 @@ test('clients: register, switch active, and isolate books inside the app', async
   sess.state.invoices = [];
   sess.state.invoiceSeq = 0;
   sess.state.parties = [];
-  assert.equal((await sess.tool('add_client', { clientId: 'CL-7', name: 'Beta', gstin: '29AAACF7856R1Z0', state: '29' })).ok, true);
+  assert.equal((await sess.tool('add_client', { clientId: 'CL-7', name: 'Beta', gstin: '29AAACF7856R1ZO', state: '29' })).ok, true);
   assert.equal((await sess.tool('add_client', { clientId: 'CL-7', name: 'Beta' })).error, 'CLIENT_EXISTS');
   assert.equal((await sess.tool('set_active_client', { clientId: 'NOPE' })).error, 'CLIENT_NOT_FOUND');
   assert.equal((await sess.tool('set_active_client', { clientId: 'CL-7' })).ok, true);
@@ -1302,7 +1302,7 @@ test('provider doctor: reports configuration, environment and missing pieces', a
       MYCA_TALLY_PORT: '9000',
     },
     allowNetwork: false,
-    govt: { env: 'sandbox', clientId: 'c', clientSecret: 's', username: 'u', password: 'p', gstin: '27AABCU9603R1ZP' },
+    govt: { env: 'sandbox', clientId: 'c', clientSecret: 's', username: 'u', password: 'p', gstin: '27AABCU9603R1ZN' },
     hasPublicKey: false,
     probeTally: async () => ({ status: 'error', error: 'ECONNREFUSED' }),
   });

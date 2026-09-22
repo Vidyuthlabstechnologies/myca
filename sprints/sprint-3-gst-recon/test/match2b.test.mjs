@@ -14,12 +14,12 @@ function readFixture(name) {
 
 function fixtureGstr2bRows() {
   return [
-    { section: 'B2B', supplierGstin: '27AABCU9603R1ZP', supplierName: 'ABC TEXTILES PVT LTD', invoiceNo: 'INV-1001', invoiceDate: '2025-04-03', taxableValue: 100000, cgst: 6000, sgst: 6000, igst: 0, cess: 0, totalValue: 112000, itcAvailability: 'Y' },
-    { section: 'B2B', supplierGstin: '27AABCU9603R1ZP', supplierName: 'ABC TEXTILES PVT LTD', invoiceNo: 'INV-1002', invoiceDate: '2025-04-10', taxableValue: 50000, cgst: 3000, sgst: 3000, igst: 0, cess: 0, totalValue: 56000, itcAvailability: 'N' },
-    { section: 'B2B', supplierGstin: '24AAACF7856R1Z0', supplierName: 'DEF ELECTRICALS', invoiceNo: 'E-221', invoiceDate: '2025-04-06', taxableValue: 30000, cgst: 0, sgst: 0, igst: 5400, cess: 0, totalValue: 35400, itcAvailability: 'Y' },
-    { section: 'B2B', supplierGstin: '29AABCL1234J1ZN', supplierName: 'GHI PACKAGING', invoiceNo: 'PKG-87', invoiceDate: '2025-04-14', taxableValue: 25000, cgst: 1500, sgst: 1500, igst: 0, cess: 0, totalValue: 28000, itcAvailability: 'Y' },
-    { section: 'B2B', supplierGstin: '07AACCP9876L1ZO', supplierName: 'JKL FREIGHT', invoiceNo: 'FR-201', invoiceDate: '2025-04-20', taxableValue: 12000, cgst: 0, sgst: 0, igst: 2160, cess: 0, totalValue: 14160, itcAvailability: 'Y' },
-    { section: 'CDNR', supplierGstin: '27AABCU9603R1ZP', supplierName: 'ABC TEXTILES PVT LTD', invoiceNo: 'CN-0405', invoiceDate: '2025-04-28', taxableValue: 5000, cgst: 300, sgst: 300, igst: 0, cess: 0, totalValue: 5600, itcAvailability: 'Y' }
+    { section: 'B2B', supplierGstin: '27AABCU9603R1ZN', supplierName: 'ABC TEXTILES PVT LTD', invoiceNo: 'INV-1001', invoiceDate: '2025-04-03', taxableValue: 100000, cgst: 6000, sgst: 6000, igst: 0, cess: 0, totalValue: 112000, itcAvailability: 'Y' },
+    { section: 'B2B', supplierGstin: '27AABCU9603R1ZN', supplierName: 'ABC TEXTILES PVT LTD', invoiceNo: 'INV-1002', invoiceDate: '2025-04-10', taxableValue: 50000, cgst: 3000, sgst: 3000, igst: 0, cess: 0, totalValue: 56000, itcAvailability: 'N' },
+    { section: 'B2B', supplierGstin: '24AAACF7856R1ZY', supplierName: 'DEF ELECTRICALS', invoiceNo: 'E-221', invoiceDate: '2025-04-06', taxableValue: 30000, cgst: 0, sgst: 0, igst: 5400, cess: 0, totalValue: 35400, itcAvailability: 'Y' },
+    { section: 'B2B', supplierGstin: '29AABCL1234J1ZL', supplierName: 'GHI PACKAGING', invoiceNo: 'PKG-87', invoiceDate: '2025-04-14', taxableValue: 25000, cgst: 1500, sgst: 1500, igst: 0, cess: 0, totalValue: 28000, itcAvailability: 'Y' },
+    { section: 'B2B', supplierGstin: '07AACCP9876L1ZM', supplierName: 'JKL FREIGHT', invoiceNo: 'FR-201', invoiceDate: '2025-04-20', taxableValue: 12000, cgst: 0, sgst: 0, igst: 2160, cess: 0, totalValue: 14160, itcAvailability: 'Y' },
+    { section: 'CDNR', supplierGstin: '27AABCU9603R1ZN', supplierName: 'ABC TEXTILES PVT LTD', invoiceNo: 'CN-0405', invoiceDate: '2025-04-28', taxableValue: 5000, cgst: 300, sgst: 300, igst: 0, cess: 0, totalValue: 5600, itcAvailability: 'Y' }
   ];
 }
 
@@ -27,7 +27,7 @@ test('GATE 1: parsePurchaseRegister parses the shared fixture', () => {
   const { rows, errors } = parsePurchaseRegister(readFixture('purchaseregister.csv'));
   assert.equal(rows.length, 6);
   assert.deepEqual(errors, []);
-  assert.equal(rows[0].gstin, '27AABCU9603R1ZP');
+  assert.equal(rows[0].gstin, '27AABCU9603R1ZN');
   assert.equal(rows[0].invoiceNo, 'INV-1001');
   assert.equal(rows[0].invoiceDate, '2025-04-03');
   assert.equal(rows[0].taxableValue, 100000);
@@ -81,10 +81,10 @@ test('GATE 2: match2B reconciles parsed purchases against the 2B fixture', () =>
 
 test('GATE 3: exact match normalizes GSTIN case and invoice-number case/spaces', () => {
   const gstr2b = [
-    { section: 'B2B', supplierGstin: '27AABCU9603R1ZP', supplierName: 'ABC TEXTILES PVT LTD', invoiceNo: 'INV-1001', invoiceDate: '2025-04-03', taxableValue: 100000, totalValue: 112000 }
+    { section: 'B2B', supplierGstin: '27AABCU9603R1ZN', supplierName: 'ABC TEXTILES PVT LTD', invoiceNo: 'INV-1001', invoiceDate: '2025-04-03', taxableValue: 100000, totalValue: 112000 }
   ];
   const purchaseRegister = [
-    { gstin: '27aabcU9603r1zp ', supplierName: 'ABC TEXTILES PVT LTD', invoiceNo: 'inv-1001 ', invoiceDate: '2025-04-03', taxableValue: 100000, cgst: 6000, sgst: 6000, igst: 0, totalValue: 112000, sourceRow: 1, isCreditNote: false }
+    { gstin: '27aabcU9603r1zn ', supplierName: 'ABC TEXTILES PVT LTD', invoiceNo: 'inv-1001 ', invoiceDate: '2025-04-03', taxableValue: 100000, cgst: 6000, sgst: 6000, igst: 0, totalValue: 112000, sourceRow: 1, isCreditNote: false }
   ];
   const result = match2B({ purchaseRegister, gstr2b });
   assert.equal(result.matched.length, 1);
@@ -97,9 +97,9 @@ test('GATE 3: exact match normalizes GSTIN case and invoice-number case/spaces',
 
 test('GATE 4: amount mismatch is flagged as not exact with a lower score', () => {
   const gstr2b = [
-    { section: 'B2B', supplierGstin: '27AABCU9603R1ZP', supplierName: 'ABC TEXTILES PVT LTD', invoiceNo: 'INV-1001', invoiceDate: '2025-04-03', taxableValue: 100000, totalValue: 112000 }
+    { section: 'B2B', supplierGstin: '27AABCU9603R1ZN', supplierName: 'ABC TEXTILES PVT LTD', invoiceNo: 'INV-1001', invoiceDate: '2025-04-03', taxableValue: 100000, totalValue: 112000 }
   ];
-  const base = { gstin: '27AABCU9603R1ZP', supplierName: 'ABC TEXTILES PVT LTD', invoiceNo: 'INV-1001', invoiceDate: '2025-04-03', totalValue: 112000, sourceRow: 1, isCreditNote: false };
+  const base = { gstin: '27AABCU9603R1ZN', supplierName: 'ABC TEXTILES PVT LTD', invoiceNo: 'INV-1001', invoiceDate: '2025-04-03', totalValue: 112000, sourceRow: 1, isCreditNote: false };
   const exact = match2B({
     purchaseRegister: [{ ...base, taxableValue: 100000 }],
     gstr2b
@@ -117,10 +117,10 @@ test('GATE 4: amount mismatch is flagged as not exact with a lower score', () =>
 
 test('GATE 5: invoice-number normalization matches INV-1001 vs INV 1001 and rejects INV-1002', () => {
   const gstr2b = [
-    { section: 'B2B', supplierGstin: '27AABCU9603R1ZP', supplierName: 'ABC TEXTILES PVT LTD', invoiceNo: 'INV-1001', invoiceDate: '2025-04-03', taxableValue: 100000, totalValue: 112000 }
+    { section: 'B2B', supplierGstin: '27AABCU9603R1ZN', supplierName: 'ABC TEXTILES PVT LTD', invoiceNo: 'INV-1001', invoiceDate: '2025-04-03', taxableValue: 100000, totalValue: 112000 }
   ];
   const makePr = (invoiceNo) => [
-    { gstin: '27AABCU9603R1ZP', supplierName: 'ABC TEXTILES PVT LTD', invoiceNo, invoiceDate: '2025-04-03', taxableValue: 100000, totalValue: 112000, sourceRow: 1, isCreditNote: false }
+    { gstin: '27AABCU9603R1ZN', supplierName: 'ABC TEXTILES PVT LTD', invoiceNo, invoiceDate: '2025-04-03', taxableValue: 100000, totalValue: 112000, sourceRow: 1, isCreditNote: false }
   ];
   const spaced = match2B({ purchaseRegister: makePr('INV 1001'), gstr2b });
   assert.equal(spaced.matched.length, 1);
@@ -133,9 +133,9 @@ test('GATE 5: invoice-number normalization matches INV-1001 vs INV 1001 and reje
 
 test('GATE 6: CN purchase rows match CDNR rows and never positive B2B rows', () => {
   const cnPr = [
-    { gstin: '27AABCU9603R1ZP', supplierName: 'ABC TEXTILES PVT LTD', invoiceNo: 'CN-99', invoiceDate: '2025-05-10', taxableValue: -5000, cgst: -300, sgst: -300, igst: 0, totalValue: -5600, sourceRow: 1, isCreditNote: true }
+    { gstin: '27AABCU9603R1ZN', supplierName: 'ABC TEXTILES PVT LTD', invoiceNo: 'CN-99', invoiceDate: '2025-05-10', taxableValue: -5000, cgst: -300, sgst: -300, igst: 0, totalValue: -5600, sourceRow: 1, isCreditNote: true }
   ];
-  const cdnrRow = { section: 'CDNR', supplierGstin: '27AABCU9603R1ZP', supplierName: 'ABC TEXTILES PVT LTD', invoiceNo: 'CN-99', invoiceDate: '2025-05-10', taxableValue: -5000, totalValue: -5600 };
+  const cdnrRow = { section: 'CDNR', supplierGstin: '27AABCU9603R1ZN', supplierName: 'ABC TEXTILES PVT LTD', invoiceNo: 'CN-99', invoiceDate: '2025-05-10', taxableValue: -5000, totalValue: -5600 };
   const cdnrResult = match2B({ purchaseRegister: cnPr, gstr2b: [cdnrRow] });
   assert.equal(cdnrResult.creditNotes.length, 1);
   assert.equal(cdnrResult.creditNotes[0].purchase.invoiceNo, 'CN-99');
@@ -143,7 +143,7 @@ test('GATE 6: CN purchase rows match CDNR rows and never positive B2B rows', () 
   assert.equal(cdnrResult.matched.length, 0);
   assert.equal(cdnrResult.stats.cnCount, 1);
 
-  const b2bRow = { section: 'B2B', supplierGstin: '27AABCU9603R1ZP', supplierName: 'ABC TEXTILES PVT LTD', invoiceNo: 'CN-99', invoiceDate: '2025-05-10', taxableValue: 5000, totalValue: 5600 };
+  const b2bRow = { section: 'B2B', supplierGstin: '27AABCU9603R1ZN', supplierName: 'ABC TEXTILES PVT LTD', invoiceNo: 'CN-99', invoiceDate: '2025-05-10', taxableValue: 5000, totalValue: 5600 };
   const b2bResult = match2B({ purchaseRegister: cnPr, gstr2b: [b2bRow] });
   assert.equal(b2bResult.matched.length, 0);
   assert.equal(b2bResult.matched.filter((m) => m.invoice.section === 'B2B' && m.purchase.invoiceNo === 'CN-99').length, 0);

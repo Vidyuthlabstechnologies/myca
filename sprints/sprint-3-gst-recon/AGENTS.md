@@ -54,7 +54,7 @@ export function parseGstr2B(text) // -> { rows, errors }
 // GSTR2B row: { section, supplierGstin, supplierName, invoiceNo, invoiceDate, taxableValue, cgst, sgst, igst, cess, totalValue, itcAvailability, sourceRow }
 // section from first column (SECTION). itcAvailability normalized to 'Y' | 'N' | 'A'.
 // Canonical fixture expectations: first fixture row ->
-//   { section:'B2B', supplierGstin:'27AABCU9603R1ZP', supplierName:'ABC TEXTILES PVT LTD',
+//   { section:'B2B', supplierGstin:'27AABCU9603R1ZN', supplierName:'ABC TEXTILES PVT LTD',
 //     invoiceNo:'INV-1001', invoiceDate:'2025-04-03', taxableValue:100000, cgst:6000, sgst:6000,
 //     igst:0, cess:0, totalValue:112000, itcAvailability:'Y' }
 ```

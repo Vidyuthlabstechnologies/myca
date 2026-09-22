@@ -33,11 +33,11 @@ test('H8: an approval records the client and a hash of the exact parameters', ()
   const req = requestApproval(state, {
     operationId: 'einvoice_authenticate',
     clientId: 'c2',
-    params: { gstin: '27AABCU9603R1ZP', username: 'api', password: 'Secret#1' },
+    params: { gstin: '27AABCU9603R1ZN', username: 'api', password: 'Secret#1' },
     actor: maker,
   });
   assert.equal(req.approval.clientId, 'C2');
-  assert.equal(req.approval.paramsHash, paramsHash({ username: 'api', gstin: '27AABCU9603R1ZP' }));
+  assert.equal(req.approval.paramsHash, paramsHash({ username: 'api', gstin: '27AABCU9603R1ZN' }));
   assert.equal(req.approval.requestedBy, 'ca');
   assert.equal(JSON.stringify(req.approval).includes('Secret#1'), false);
   assert.equal(req.approval.paramsPreview.password, '[REDACTED]');

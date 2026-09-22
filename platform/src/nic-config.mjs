@@ -227,12 +227,12 @@ export function invoiceToNicPayload(company, inv) {
 }
 
 export function generateMockIrnPayload(company, inv) {
-  const hashInput = `${company?.gstin || '27AABCN1234F1Z5'}${inv?.id || 'INV-0001'}${inv?.date || '2026-08-05'}${company?.fy || '2026-27'}`;
+  const hashInput = `${company?.gstin || '27AABCN1234F1ZW'}${inv?.id || 'INV-0001'}${inv?.date || '2026-08-05'}${company?.fy || '2026-27'}`;
   const irn = createHash('sha256').update(hashInput).digest('hex');
   const ackNo = `1126${(BigInt(`0x${irn.slice(0, 15)}`) % 100000000000n).toString().padStart(11, '0')}`;
   const ackDate = `${inv?.date || '2026-08-05'} 00:00:00`;
   const qrData = {
-    SellerGstin: company?.gstin || '27AABCN1234F1Z5',
+    SellerGstin: company?.gstin || '27AABCN1234F1ZW',
     BuyerGstin: inv?.partyGstin || 'URP',
     DocNo: inv?.id || 'INV-0001',
     DocTyp: 'INV',

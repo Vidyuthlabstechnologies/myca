@@ -12,14 +12,14 @@ test('MVP: invoice posts, TB ties, GSTR-1 JSON and NIC payload exist', async () 
   const inv = createInvoice(state, {
     date: '2026-08-05',
     partyName: 'Retail Mart',
-    partyGstin: '27AAACH7409R1Z3',
+    partyGstin: '27AAACH7409R1Z1',
     partyState: '27',
     lines: [{ description: 'Fabric', hsn: '5208', qty: 2, rate: 10000, gstRate: 5 }],
   });
   assert.equal(inv.ok, true);
   assert.equal(trialBalance(state.ledger).balanced, true);
   const g1 = invoicesToGstr1Json(state.company, state.invoices);
-  assert.equal(g1.b2b[0].ctin, '27AAACH7409R1Z3');
+  assert.equal(g1.b2b[0].ctin, '27AAACH7409R1Z1');
   assert.equal(g1.b2b[0].inv[0].val, 21000);
   const nic = invoiceToNicPayload(state.company, inv.invoice);
   assert.equal(nic.Version, '1.1');

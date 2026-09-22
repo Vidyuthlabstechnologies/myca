@@ -14,12 +14,12 @@ const read = (f) => readFileSync(FIX(f), 'utf8');
 
 const cleanSalesCsv = [
   'invoiceNo,date,partyGstin,partyName,partyState,hsn,rate,taxableValue,cgst,sgst,igst,cess,isEcommerce',
-  'INV-901,2026-08-02,27AAACC1234A1Z5,Good Co,27,6204,18,10000,900,900,0,0,N',
+  'INV-901,2026-08-02,27AAACC1234A1ZI,Good Co,27,6204,18,10000,900,900,0,0,N',
 ].join('\n');
 
 const cleanInwardCsv = [
   'invoiceNo,date,supplierGstin,supplierName,hsn,rate,taxableValue,cgst,sgst,igst,isInputService,itcEligible,itcAvailability',
-  'INV-902,2026-08-06,27AAACC1234A1Z5,Safe Co,6204,18,5000,450,450,0,N,Y,Y',
+  'INV-902,2026-08-06,27AAACC1234A1ZI,Safe Co,6204,18,5000,450,450,0,N,Y,Y',
 ].join('\n');
 
 const cleanAisCsv = [

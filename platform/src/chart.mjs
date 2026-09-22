@@ -20,7 +20,7 @@ export const COA = [
 
 export const DEFAULT_COMPANY = {
   name: 'Nalanda Textiles LLP',
-  gstin: '27AABCU9603R1ZP',
+  gstin: '27AABCU9603R1ZN',
   state: '27',
   pan: 'AABCU9603R',
   fy: '2026-27',

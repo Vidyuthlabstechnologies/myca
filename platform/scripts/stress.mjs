@@ -34,7 +34,7 @@ async function engineVolume() {
     const r = createInvoice(state, {
       date: '2026-08-05',
       partyName: `Buyer ${i % 80}`,
-      partyGstin: i % 3 === 0 ? '27AAACH7409R1Z3' : '',
+      partyGstin: i % 3 === 0 ? '27AAACH7409R1Z1' : '',
       partyState: '27',
       lines: [{ description: 'Roll', hsn: '5208', qty: 1, rate: 1000 + (i % 50), gstRate: 5 }],
     });
@@ -48,7 +48,7 @@ async function engineVolume() {
     const r = createPurchase(state, {
       date: '2026-08-06',
       partyName: `Vendor ${i % 40}`,
-      partyGstin: '27AABCT1332L1ZM',
+      partyGstin: '27AABCT1332L1ZE',
       partyState: '27',
       lines: [{ description: 'Grey', hsn: '5208', qty: 2, rate: 500, gstRate: 5 }],
     });
@@ -97,7 +97,7 @@ async function httpBurst(base, label) {
   const t0 = performance.now();
   const jobs = Array.from({ length: HTTP_N }, (_, i) => post('create_invoice', {
     partyName: `Burst ${i}`,
-    partyGstin: i % 2 ? '27AAACH7409R1Z3' : '24AAACF7856R1Z0',
+    partyGstin: i % 2 ? '27AAACH7409R1Z1' : '24AAACF7856R1ZY',
     partyState: i % 2 ? '27' : '24',
     lines: [{ description: 'Load', qty: 1, rate: 10000, gstRate: 18 }],
   }));

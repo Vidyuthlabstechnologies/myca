@@ -1,21 +1,21 @@
 "Date","Voucher Type","Voucher No","Particulars","Debit","Credit","Narration","GSTIN of Recipient","HSN/SAC","GST Rate %","TDS Section"
 01-04-2025,Receipt,2001,Bhagwat Traders,,250000.00,Advance from customer,,
-01-04-2025,Sales,2002,Sharma Electronics,118000.00,,Sale of goods,27AABCS1432B1Z5,8517,18,
-02-04-2025,Purchase,2003,Vijay Steel Pvt Ltd,59000.00,,Purchase of raw material,27AAECV1234F1Z3,7208,18,
+01-04-2025,Sales,2002,Sharma Electronics,118000.00,,Sale of goods,27AABCS1432B1ZZ,8517,18,
+02-04-2025,Purchase,2003,Vijay Steel Pvt Ltd,59000.00,,Purchase of raw material,27AAECV1234F1ZL,7208,18,
 02-04-2025,Payment,2004,HDFC Bank,-45000.00,,Negative electricity refund,,
-02-04-2025,Sales,2005,Gupta & Sons,36050.00,,Sale of LED bulbs,27AABFG7894H1Z8,8539,18,
-03-04-2025,Purchase,2006,RK Hardware,23600.00,,Hardware purchase,27AADRK5678K1Z2,8302,18,
+02-04-2025,Sales,2005,Gupta & Sons,36050.00,,Sale of LED bulbs,27AABFG7894H1ZZ,8539,18,
+03-04-2025,Purchase,2006,RK Hardware,23600.00,,Hardware purchase,27AADRK5678K1Z3,8302,18,
 03-04-2025,Journal,2007,,NOT_A_NUMBER,,Depreciation provision with bad amount,,
 03-04-2025,Receipt,2008,Gupta & Sons,,36050.00,Receipt from customer,,
-10-05-2025,Purchase,2009,Professional Services Co,17700.00,,Future-dated consulting bill,27AAEPR2345L1Z4,9983,18,194J
+10-05-2025,Purchase,2009,Professional Services Co,17700.00,,Future-dated consulting bill,27AAEPR2345L1ZF,9983,18,194J
 04-04-2025,Payment,2010,SBI Bank,123000.00,,TDS deposit,,
-04-04-2025,Sales,2011,Mehta Agencies,94400.00,,Sale of parts,27AABMH4567M1Z6,8421,18,
-04-04-2025,Sales,2011,Mehta Agencies,94400.00,,Duplicate entry of same voucher,27AABMH4567M1Z6,8421,18,
-05-04-2025,Purchase,2013,ABC Textiles,29500.00,,Fabric purchase,27AABCT7890N1Z7,520,18,
+04-04-2025,Sales,2011,Mehta Agencies,94400.00,,Sale of parts,27AABMH4567M1ZK,8421,18,
+04-04-2025,Sales,2011,Mehta Agencies,94400.00,,Duplicate entry of same voucher,27AABMH4567M1ZK,8421,18,
+05-04-2025,Purchase,2013,ABC Textiles,29500.00,,Fabric purchase,27AABCT7890N1ZJ,520,18,
 05-04-2025,Sales,2014,Ram Traders,200600.00,,Sale of garments,BADGSTIN123,6208,18,
 06-04-2025,Payment,2015,Vijay Steel Pvt Ltd,,59000.00,Payment of supplier,,
-06-04-2025,Purchase,2017,Logistics Movers,21240.00,,Transport services,27AABLM5678Q1Z1,9965,18,999
+06-04-2025,Purchase,2017,Logistics Movers,21240.00,,Transport services,27AABLM5678Q1Z3,9965,18,999
 07-04-2025,Payment,2019,Office Rent,80000.00,,Rent payment,,,,194-P
 07-04-2025,Receipt,2020,Bhagwat Traders,,250000.00,Balance receipt,,
-07-04-2025,,2021,,94400.00,,No voucher type entered,27AABST9012R1Z3,9403,18,
+07-04-2025,,2021,,94400.00,,No voucher type entered,27AABST9012R1ZW,9403,18,
 07-04-2025,Receipt,2022,Ram Traders,,,Receipt with no amount,,

@@ -211,7 +211,7 @@ export async function chat(state, message) {
   }
   if (plan.fallback) {
     return {
-      reply: `I did not match that. ${fmtToolResult('company_profile', result)}\n\nTry “probe govt” or “purchase from Fabrics Co GSTIN 27AABCT1332L1ZM, 2 rolls at 10000, GST 5%”.`,
+      reply: `I did not match that. ${fmtToolResult('company_profile', result)}\n\nTry “probe govt” or “purchase from Fabrics Co GSTIN 27AABCT1332L1ZE, 2 rolls at 10000, GST 5%”.`,
       tools: [{ name: plan.name, result }],
     };
   }
