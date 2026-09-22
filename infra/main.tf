@@ -12,6 +12,11 @@ locals {
   domains          = local.use_domain ? [local.domain, "www.${local.domain}"] : []
   use_dns          = local.use_domain && var.manage_dns
   lb_name          = "myca-site-lb"
+
+  labels = {
+    app        = "myca"
+    managed_by = "terraform"
+  }
 }
 
 # ---------------------------------------------------------------------------
@@ -25,7 +30,7 @@ resource "google_storage_bucket" "site" {
   storage_class               = "STANDARD"
   uniform_bucket_level_access = true
   force_destroy               = false
-  labels                      = var.labels
+  labels                      = local.labels
 
   website {
     main_page_suffix = "index.html"
@@ -43,12 +48,22 @@ resource "google_storage_bucket" "site" {
       type = "Delete"
     }
   }
+
+  lifecycle_rule {
+    condition {
+      days_since_noncurrent_time = 7
+    }
+    action {
+      type = "Delete"
+    }
+  }
 }
 
 # The site is public by design; the CDN/LB reads it as an anonymous client.
+# Get only: anonymous callers cannot list objects or their older versions.
 resource "google_storage_bucket_iam_member" "site_public" {
   bucket = google_storage_bucket.site.name
-  role   = "roles/storage.objectViewer"
+  role   = "roles/storage.legacyObjectReader"
   member = "allUsers"
 }
 
@@ -62,10 +77,19 @@ resource "google_storage_bucket" "artifacts" {
   storage_class               = "STANDARD"
   uniform_bucket_level_access = true
   public_access_prevention    = "enforced"
-  labels                      = var.labels
+  labels                      = local.labels
 
   versioning {
     enabled = true
+  }
+
+  lifecycle_rule {
+    condition {
+      days_since_noncurrent_time = 30
+    }
+    action {
+      type = "Delete"
+    }
   }
 }
 
@@ -77,7 +101,7 @@ resource "google_artifact_registry_repository" "docker" {
   repository_id = "myca"
   description   = "MyCA container images (future backend services)"
   format        = "DOCKER"
-  labels        = var.labels
+  labels        = local.labels
 }
 
 # ---------------------------------------------------------------------------
@@ -91,7 +115,7 @@ resource "google_storage_bucket" "downloads" {
   storage_class               = "STANDARD"
   uniform_bucket_level_access = true
   force_destroy               = false
-  labels                      = var.labels
+  labels                      = local.labels
 
   cors {
     origin          = ["*"]
@@ -99,20 +123,11 @@ resource "google_storage_bucket" "downloads" {
     response_header = ["Content-Type", "Content-Disposition"]
     max_age_seconds = 3600
   }
-
-  lifecycle_rule {
-    condition {
-      num_newer_versions = 5
-    }
-    action {
-      type = "Delete"
-    }
-  }
 }
 
 resource "google_storage_bucket_iam_member" "downloads_public" {
   bucket = google_storage_bucket.downloads.name
-  role   = "roles/storage.objectViewer"
+  role   = "roles/storage.legacyObjectReader"
   member = "allUsers"
 }
 
@@ -157,11 +172,11 @@ resource "google_compute_backend_bucket" "downloads" {
   compression_mode = "AUTOMATIC"
 
   cdn_policy {
-    # Installers are effectively immutable; cache them hard at the edge.
+    # The aliases change on every release; the publish job also purges /downloads/*.
     cache_mode        = "CACHE_ALL_STATIC"
-    default_ttl       = 86400
-    client_ttl        = 86400
-    max_ttl           = 604800
+    default_ttl       = 300
+    client_ttl        = 300
+    max_ttl           = 3600
     negative_caching  = true
     serve_while_stale = 86400
   }
@@ -210,10 +225,14 @@ resource "google_compute_managed_ssl_certificate" "site" {
   count = local.use_domain ? 1 : 0
 
   project = var.project_id
-  name    = "${local.lb_name}-cert"
+  name    = "${local.lb_name}-cert-${substr(sha256(join(",", local.domains)), 0, 8)}"
 
   managed {
     domains = local.domains
+  }
+
+  lifecycle {
+    create_before_destroy = true
   }
 }
 
@@ -261,7 +280,7 @@ resource "google_dns_managed_zone" "site" {
   name        = replace(local.domain, ".", "-")
   dns_name    = "${local.domain}."
   description = "MyCA site zone"
-  labels      = var.labels
+  labels      = local.labels
 }
 
 resource "google_dns_record_set" "apex" {
@@ -298,8 +317,10 @@ resource "google_monitoring_uptime_check_config" "site" {
   period       = "60s"
 
   http_check {
-    path = "/"
-    port = 443
+    path         = "/"
+    port         = 443
+    use_ssl      = true
+    validate_ssl = true
   }
 
   monitored_resource {

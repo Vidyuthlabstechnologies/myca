@@ -18,6 +18,11 @@ output "download_url" {
   value       = local.use_domain ? "https://${local.domain}/downloads/myca-setup.exe" : "http://${google_compute_global_address.site.address}/downloads/myca-setup.exe"
 }
 
+output "ssl_certificate_name" {
+  description = "Managed certificate name; its suffix changes when the domain list changes."
+  value       = local.use_domain ? google_compute_managed_ssl_certificate.site[0].name : ""
+}
+
 output "url_map_name" {
   description = "URL map name for CDN cache invalidation (GitHub variable GCP_URL_MAP)."
   value       = google_compute_url_map.site.name

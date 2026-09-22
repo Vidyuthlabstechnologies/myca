@@ -1,12 +1,22 @@
 variable "project_id" {
   description = "GCP project ID that owns the MyCA infrastructure."
   type        = string
+
+  validation {
+    condition     = length(trimspace(var.project_id)) > 0
+    error_message = "project_id is required (GitHub variable GCP_PROJECT_ID)."
+  }
 }
 
 variable "region" {
   description = "Default region for regional resources."
   type        = string
   default     = "asia-south1"
+
+  validation {
+    condition     = length(trimspace(var.region)) > 0
+    error_message = "region must not be empty (GitHub variable GCP_REGION)."
+  }
 }
 
 variable "site_bucket_name" {
@@ -49,13 +59,4 @@ variable "alert_email" {
   description = "Email for uptime alerts. Empty disables alerting (uptime check still runs)."
   type        = string
   default     = ""
-}
-
-variable "labels" {
-  description = "Labels applied to resources."
-  type        = map(string)
-  default = {
-    app        = "myca"
-    managed_by = "terraform"
-  }
 }

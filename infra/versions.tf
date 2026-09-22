@@ -3,7 +3,10 @@ terraform {
 
   # Partial backend: bucket supplied at init time, e.g.
   #   terraform init -backend-config="bucket=<project-id>-myca-tfstate"
-  backend "gcs" {}
+  # State lives under root/; the bootstrap module never shares this prefix.
+  backend "gcs" {
+    prefix = "root"
+  }
 
   required_providers {
     google = {

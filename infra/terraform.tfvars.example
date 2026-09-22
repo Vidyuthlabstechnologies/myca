@@ -1,10 +1,18 @@
-# Copy to terraform.tfvars (git-ignored) and fill in.
+# Copy to terraform.tfvars (git-ignored) and fill in. CI applies with the
+# GCP_* GitHub variables instead, so keep these values identical to them or
+# the next CI apply reverts your local change (see DEPLOYMENT.md).
 project_id = "myca-prod-XXXXXX"
 region     = "asia-south1"
+
+site_bucket_name      = ""
+artifacts_bucket_name = ""
+downloads_bucket_name = ""
 
 # Custom domain (leave empty to start on the load balancer IP over HTTP).
 domain_name = "myca.in"
 manage_dns  = true
+
+create_artifact_registry = true
 
 # Optional uptime alerting.
 alert_email = ""

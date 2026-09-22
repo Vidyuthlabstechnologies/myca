@@ -14,54 +14,109 @@ on:
 
 permissions:
   contents: read
-  id-token: write # Workload Identity Federation
 
 concurrency:
   group: terraform-${{ github.ref }}
   cancel-in-progress: false
 
+env:
+  TF_STATE_BUCKET: ${{ vars.GCP_TF_STATE_BUCKET }}
+  TF_VAR_project_id: ${{ vars.GCP_PROJECT_ID }}
+  TF_VAR_region: ${{ vars.GCP_REGION }}
+  TF_VAR_site_bucket_name: ${{ vars.GCP_SITE_BUCKET }}
+  TF_VAR_artifacts_bucket_name: ${{ vars.GCP_ARTIFACTS_BUCKET }}
+  TF_VAR_downloads_bucket_name: ${{ vars.GCP_DOWNLOADS_BUCKET }}
+  TF_VAR_domain_name: ${{ vars.GCP_DOMAIN }}
+  TF_VAR_manage_dns: ${{ vars.GCP_MANAGE_DNS }}
+  TF_VAR_create_artifact_registry: ${{ vars.GCP_CREATE_ARTIFACT_REGISTRY }}
+  TF_VAR_alert_email: ${{ vars.GCP_ALERT_EMAIL }}
+
 jobs:
-  terraform:
-    name: Plan / Apply
-    # Skips cleanly until Akhil's bootstrap + GitHub variables are in place.
-    if: ${{ vars.GCP_WIF_PROVIDER != '' }}
+  check:
+    name: Format and validate (no cloud access)
     runs-on: ubuntu-latest
-    environment: production
-    defaults:
-      run:
-        working-directory: infra
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v2
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
-          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
-          service_account: ${{ vars.GCP_DEPLOY_SA }}
+          persist-credentials: false
 
-      - uses: hashicorp/setup-terraform@v3
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
         with:
           terraform_version: 1.9.8
 
       - name: Terraform fmt
-        run: terraform fmt -check -recursive
+        run: terraform fmt -check -recursive infra
+
+      - name: Terraform validate (root and bootstrap)
+        shell: bash
+        run: |
+          set -euo pipefail
+          for dir in infra infra/bootstrap; do
+            terraform -chdir="$dir" init -backend=false -input=false -lockfile=readonly
+            terraform -chdir="$dir" validate -no-color
+          done
+
+  plan:
+    name: Plan (pull request, read-only)
+    needs: check
+    if: github.event_name == 'pull_request' && vars.GCP_WIF_PLAN_PROVIDER != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    defaults:
+      run:
+        working-directory: infra
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - name: Authenticate to Google Cloud (read-only planner)
+        uses: google-github-actions/auth@c200f3691d83b41bf9bbd8638997a462592937ed # v2.1.13
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PLAN_PROVIDER }}
+          service_account: ${{ vars.GCP_PLAN_SA }}
+
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
+        with:
+          terraform_version: 1.9.8
 
       - name: Terraform init
-        run: terraform init -input=false -backend-config="bucket=${{ vars.GCP_TF_STATE_BUCKET }}"
-
-      - name: Terraform validate
-        run: terraform validate -no-color
+        run: terraform init -input=false -lockfile=readonly -backend-config="bucket=${TF_STATE_BUCKET}"
 
       - name: Terraform plan
-        if: github.event_name == 'pull_request'
-        run: |
-          terraform plan -no-color -input=false \
-            -var="project_id=${{ vars.GCP_PROJECT_ID }}" \
-            -var="domain_name=${{ vars.GCP_DOMAIN }}"
+        run: terraform plan -no-color -input=false -lock=false
+
+  apply:
+    name: Apply (main)
+    needs: check
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && vars.GCP_WIF_PROVIDER != ''
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: read
+      id-token: write
+    defaults:
+      run:
+        working-directory: infra
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - name: Authenticate to Google Cloud (deployer)
+        uses: google-github-actions/auth@c200f3691d83b41bf9bbd8638997a462592937ed # v2.1.13
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SA }}
+
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
+        with:
+          terraform_version: 1.9.8
+
+      - name: Terraform init
+        run: terraform init -input=false -lockfile=readonly -backend-config="bucket=${TF_STATE_BUCKET}"
 
       - name: Terraform apply
-        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
-        run: |
-          terraform apply -auto-approve -no-color -input=false \
-            -var="project_id=${{ vars.GCP_PROJECT_ID }}" \
-            -var="domain_name=${{ vars.GCP_DOMAIN }}"
+        run: terraform apply -auto-approve -no-color -input=false -lock-timeout=10m

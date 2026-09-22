@@ -8,20 +8,39 @@ Everything after the one-time bootstrap is triggered by `git push`.
 ```
 GitHub (varshinicb1/myca)
   │
-  ├─ push to deploy/public/** ──► Actions: deploy-site ──► GCS bucket ──► Cloud CDN
-  │                                                                      └─► Global HTTPS LB ──► myca.in (+ www)
-  ├─ tag vX.Y.Z ───────────────► Actions: build-windows ──► NSIS/portable .exe
-  │                                                          ├─► GitHub Release (download)
-  │                                                          └─► GCS artifacts bucket
-  ├─ push to infra/** ─────────► Actions: terraform plan/apply ──► GCP infra
-  └─ every push/PR ────────────► Actions: CI (platform + sprint tests)
+  ├─ push to main, deploy/public/** ──► deploy-site ──► GCS site bucket ──► Cloud CDN
+  │                                                                       └─► Global HTTPS LB ──► myca.in (+ www)
+  ├─ tag vX.Y.Z ──► build-windows
+  │                   ├─ build   (windows, contents: read, no cloud identity)
+  │                   │    npm ci + electron-builder ──► NSIS + portable .exe + SHA256SUMS (workflow artifact)
+  │                   └─ publish (ubuntu, the only job with contents: write + id-token: write)
+  │                        verify SHA256SUMS ──► GitHub Release (.exe + SHA256SUMS)
+  │                        ──► gs://<artifacts>/releases/vX.Y.Z/
+  │                        ──► gs://<downloads>/downloads/{myca-setup.exe, myca-portable.exe, SHA256SUMS}
+  │                            (always the highest archived version) ──► CDN purge of /downloads/*
+  ├─ PR touching infra/** ─────────► terraform: check (fmt + validate) + read-only plan
+  ├─ push to main, infra/** ───────► terraform: check + apply
+  └─ every push/PR ────────────────► CI (platform suite + every sprint suite)
 
-Auth: no service-account keys. GitHub OIDC ──► Workload Identity Federation ──► gh-deployer SA
+Auth: no service-account keys. GitHub OIDC ──► Workload Identity Federation:
+  pool "github"      (repository_id + refs/heads/main or refs/tags/v*) ──► gh-deployer SA
+  pool "github-plan" (repository_id + pull_request events)             ──► gh-planner SA (read-only)
 Region: asia-south1 (Mumbai). Static origin bucket: ASIA multi-region.
 ```
 
 **Roles:** Akhil = GCP owner (runs the bootstrap once). Everyone else = normal GitHub
 contributors (push code, open PRs). Nobody needs GCP console access afterwards.
+
+### What each CI identity can do
+
+| Identity | Used by | Can |
+|---|---|---|
+| `gh-deployer` | `terraform` apply, `deploy-site`, `build-windows` publish | Manage compute/LB, DNS, monitoring and Artifact Registry; create buckets; administer only the site, artifacts and downloads buckets (IAM conditions per bucket name); read and write only the `root/` prefix of the state bucket. It holds no `iam.serviceAccountUser`, `run.admin`, `secretmanager.admin` or project-wide `storage.admin`. |
+| `gh-planner` | `terraform` plan on pull requests | Read-only roles (`browser`, `compute.viewer`, `dns.reader`, `monitoring.viewer`, `artifactregistry.reader`, `storage.bucketViewer`, `iam.securityReviewer`) and read the `root/` prefix of the state bucket. It gets no basic `roles/viewer`, which would also let it read every object in every bucket. It cannot take the state lock, so PR plans run with `-lock=false` and never block an apply. |
+
+Tokens are accepted only from the repository with the configured numeric ID. The deploy pool
+also requires `refs/heads/main` or a `refs/tags/v*` ref; the plan pool requires a
+`pull_request` event. Pull requests from forks get no OIDC token at all.
 
 ---
 
@@ -40,23 +59,34 @@ gcloud config set project YOUR_PROJECT_ID
 git clone https://github.com/varshinicb1/myca.git
 cd myca/infra/bootstrap
 
-# 3. one-time apply: enables APIs, state bucket, GitHub OIDC, deployer SA
+# 3. the repository's numeric ID (survives renames; a deleted repo's name cannot hijack it)
+gh api repos/varshinicb1/myca --jq .id     # or ask the repo owner for it
+
+# 4. one-time apply: APIs, state bucket, both WIF pools, deployer + planner SAs
 terraform init
 terraform apply \
   -var="project_id=YOUR_PROJECT_ID" \
-  -var="github_repository=varshinicb1/myca"
+  -var="github_repository_id=REPO_NUMERIC_ID"
 ```
+
+If you will override any bucket name in the root module (`site_bucket_name`,
+`artifacts_bucket_name`, `downloads_bucket_name`), pass the same names to the bootstrap:
+the deployer's storage access is granted per bucket name.
 
 Terraform prints the values you need next:
 
 ```
-tf_state_bucket             = "YOUR_PROJECT_ID-myca-tfstate"
-workload_identity_provider  = "projects/123456789/locations/global/workloadIdentityPools/github/providers/github"
-deploy_service_account      = "gh-deployer@YOUR_PROJECT_ID.iam.gserviceaccount.com"
+tf_state_bucket                  = "YOUR_PROJECT_ID-myca-tfstate"
+workload_identity_provider       = "projects/123456789/locations/global/workloadIdentityPools/github/providers/github"
+deploy_service_account           = "gh-deployer@YOUR_PROJECT_ID.iam.gserviceaccount.com"
+plan_workload_identity_provider  = "projects/123456789/locations/global/workloadIdentityPools/github-plan/providers/github-plan"
+plan_service_account             = "gh-planner@YOUR_PROJECT_ID.iam.gserviceaccount.com"
 ```
 
-> If you want to restrict deploys to `main` only, add
-> `-var="github_branch_restriction=refs/heads/main"`.
+**Bootstrap state** stays in `infra/bootstrap/terraform.tfstate` on the machine that ran it.
+Keep it (Cloud Shell's home directory persists). To move it into the state bucket, follow
+the note in `infra/bootstrap/versions.tf`: it uses the `bootstrap` prefix, separate from the
+root module's `root` prefix, so CI can never read, overwrite or destroy it.
 
 That's Akhil's entire involvement. Nothing else in the GCP console is required.
 
@@ -64,40 +94,52 @@ That's Akhil's entire involvement. Nothing else in the GCP console is required.
 
 ## Phase 1 — one-time GitHub setup (repo owner)
 
-**Repo → Settings → Secrets and variables → Actions → Variables** (not Secrets — no keys):
+**Repo → Settings → Secrets and variables → Actions → Variables** (not Secrets — no keys).
+Every Terraform input comes from these variables (as `TF_VAR_*`), so CI is the single
+source of truth: a value set only on someone's laptop is reverted by the next CI apply.
 
-| Variable | Value |
-|---|---|
-| `GCP_PROJECT_ID` | `YOUR_PROJECT_ID` |
-| `GCP_WIF_PROVIDER` | the `workload_identity_provider` output |
-| `GCP_DEPLOY_SA` | the `deploy_service_account` output |
-| `GCP_TF_STATE_BUCKET` | the `tf_state_bucket` output |
+| Variable | Value | Used as |
+|---|---|---|
+| `GCP_PROJECT_ID` | `YOUR_PROJECT_ID` | `project_id` (required) |
+| `GCP_REGION` | `asia-south1` | `region` (required) |
+| `GCP_WIF_PROVIDER` | the `workload_identity_provider` output | deploy auth |
+| `GCP_DEPLOY_SA` | the `deploy_service_account` output | deploy auth |
+| `GCP_WIF_PLAN_PROVIDER` | the `plan_workload_identity_provider` output | PR plan auth |
+| `GCP_PLAN_SA` | the `plan_service_account` output | PR plan auth |
+| `GCP_TF_STATE_BUCKET` | the `tf_state_bucket` output | state backend |
+| `GCP_SITE_BUCKET` | `YOUR_PROJECT_ID-myca-site` | `site_bucket_name`, site deploys |
+| `GCP_ARTIFACTS_BUCKET` | `YOUR_PROJECT_ID-myca-artifacts` | `artifacts_bucket_name`, release archive |
+| `GCP_DOWNLOADS_BUCKET` | `YOUR_PROJECT_ID-myca-downloads` | `downloads_bucket_name`, download aliases |
+| `GCP_URL_MAP` | `myca-site-lb-urlmap` | CDN purges |
+| `GCP_DOMAIN` | `myca.in` (or empty to serve on the LB IP) | `domain_name` |
+| `GCP_MANAGE_DNS` | `true` or `false` | `manage_dns` (required) |
+| `GCP_CREATE_ARTIFACT_REGISTRY` | `true` or `false` | `create_artifact_registry` (required) |
+| `GCP_ALERT_EMAIL` | an address, or empty to skip alerting | `alert_email` |
 
-The `deploy-site` and `terraform` jobs use the **`production`** GitHub Environment. Create it
-under Settings → Environments (optionally add required reviewers to gate infra changes).
+`GCP_MANAGE_DNS` and `GCP_CREATE_ARTIFACT_REGISTRY` must be `true` or `false`: an empty
+value fails the plan instead of silently falling back to a default. `GCP_PROJECT_ID` and
+`GCP_REGION` are validated as non-empty for the same reason.
 
-Then create the infrastructure (first run of the root module) — either locally:
+The `deploy-site` workflow and the Terraform **apply** job use the **`production`** GitHub
+Environment. Create it under Settings → Environments. The PR **plan** job deliberately has
+no environment. Required reviewers on an environment are not available for private repos on
+the free plan (see Hardening §3).
+
+Then create the infrastructure (first run of the root module) — either push a change under
+`infra/` to `main` and let the **Terraform** workflow apply it, or run it locally with the
+same values as the GitHub variables:
 
 ```bash
 cd infra
-terraform init -backend-config="bucket=YOUR_PROJECT_ID-myca-tfstate"
-terraform apply -var="project_id=YOUR_PROJECT_ID" -var="domain_name=myca.in"
+terraform init -backend-config="bucket=YOUR_PROJECT_ID-myca-tfstate"   # state goes under root/
+terraform apply -lock-timeout=10m \
+  -var="project_id=YOUR_PROJECT_ID" -var="region=asia-south1" \
+  -var="domain_name=myca.in" -var="manage_dns=true" \
+  -var="create_artifact_registry=true" -var="alert_email="
 ```
-
-…or just push a change under `infra/` and let the **Terraform** workflow apply it.
 
 If you used a domain, copy the `dns_nameservers` output to your registrar's NS records, then
 wait for the managed certificate to go `ACTIVE` (up to ~30 min).
-
-Root-module outputs become GitHub variables for the deploy workflow:
-
-| Variable | Value |
-|---|---|
-| `GCP_SITE_BUCKET` | `YOUR_PROJECT_ID-myca-site` |
-| `GCP_ARTIFACTS_BUCKET` | `YOUR_PROJECT_ID-myca-artifacts` |
-| `GCP_DOWNLOADS_BUCKET` | `YOUR_PROJECT_ID-myca-downloads` |
-| `GCP_URL_MAP` | `myca-site-lb-urlmap` |
-| `GCP_DOMAIN` | `myca.in` (or empty) |
 
 ---
 
@@ -105,19 +147,49 @@ Root-module outputs become GitHub variables for the deploy workflow:
 
 | I want to… | Do this |
 |---|---|
-| Update the marketing site | Edit `deploy/public/**`, commit, push to `main` → auto-deploys + CDN purge |
-| Ship a Windows build | `git tag v0.2.0 && git push origin v0.2.0` → installer attached to a Release **and** published to `/downloads/myca-setup.exe` |
-| Test a Windows build (no release) | Actions → **Build Windows installer** → *Run workflow* → download the artifact |
-| Change cloud infra | Edit `infra/**`, open a PR (plan shown), merge to `main` (applied) |
-| Verify code | Every push runs **CI** (platform 76 + sprint suites) |
+| Update the marketing site | Edit `deploy/public/**`, commit, push to `main` → syncs the bucket + purges the CDN |
+| Ship a Windows build | `git tag v0.2.0 && git push origin v0.2.0` → GitHub Release with the installers and `SHA256SUMS`, archived to the artifacts bucket, and `/downloads/*` updated |
+| Test a Windows build (no release) | Actions → **Build Windows installer** → *Run workflow* → download the `myca-windows` artifact (the publish job does not run) |
+| Change cloud infra | Edit `infra/**`, open a PR (fmt/validate + read-only plan shown), merge to `main` (applied) |
+| Verify code | Every push and PR runs **CI**: the platform suite and every sprint suite |
+
+### How a release is published
+
+1. **build** (Windows, `contents: read`, no cloud identity) runs `npm ci` and
+   `electron-builder`, checks Authenticode signatures when signing is configured, writes
+   `SHA256SUMS` (`platform/scripts/sha256sums.mjs`) and uploads everything as a workflow artifact.
+2. **publish** (Ubuntu, tag pushes only) is the only job holding `contents: write` and
+   `id-token: write`, and it runs no package scripts. It:
+   - rejects a tag that does not match `^v[0-9.]+$` (the tag reaches scripts only through `env`);
+   - checks `sha256sum -c SHA256SUMS` and that the file covers every installer;
+   - creates the GitHub Release with the installers and `SHA256SUMS`;
+   - archives them to `gs://<artifacts>/releases/vX.Y.Z/`;
+   - finds the **highest** archived version (`sort -V`), verifies its `SHA256SUMS`, and copies
+     it to `gs://<downloads>/downloads/myca-setup.exe`, `myca-portable.exe` and `SHA256SUMS`
+     (`Cache-Control: max-age=300`), so re-running an old tag never rolls the download back;
+   - purges `/downloads/*` from Cloud CDN.
+
+Publishes share the `release-publish` concurrency group and run one at a time. GitHub keeps
+only the newest *pending* run in a group: if you push several tags within a minute or two,
+re-run any publish that shows as cancelled. The download aliases still end at the highest
+version.
 
 ### Download links (stable)
 
 The site's **Download for Windows** button points at these CDN-backed paths, which always
-serve the newest tagged build:
+serve the highest released version:
 
 - `https://<domain>/downloads/myca-setup.exe` — NSIS installer
 - `https://<domain>/downloads/myca-portable.exe` — portable executable
+- `https://<domain>/downloads/SHA256SUMS` — checksums of the two files above
+
+Check a download with `sha256sum -c SHA256SUMS --ignore-missing` (Linux/macOS) or compare
+`Get-FileHash .\myca-setup.exe` (PowerShell) with the matching line. The GitHub Release carries
+a `SHA256SUMS` for the versioned file names.
+
+The buckets grant anonymous users `roles/storage.legacyObjectReader` (read an object by name,
+no listing). Overwritten or deleted site files are kept as noncurrent versions for 7 days
+(rollback window) and release archives for 30 days, then deleted.
 
 ---
 
@@ -126,17 +198,23 @@ serve the newest tagged build:
 ### 1. Custom domain + managed TLS (activate)
 
 1. Akhil (or the domain owner) points the domain's NS records at the `dns_nameservers`
-   output, **or** sets an `A` record to the `load_balancer_ip` output and `manage_dns = false`.
+   output, **or** sets an `A` record to the `load_balancer_ip` output and `GCP_MANAGE_DNS=false`.
 2. Set repo variable `GCP_DOMAIN`, then push a trivial change under `infra/` (or run
-   `terraform apply` locally). The managed cert is created automatically.
+   `terraform apply` locally with the same values). The managed cert is created automatically.
 3. Wait for the certificate to become `ACTIVE` (up to ~30 min), then confirm:
 
    ```bash
-   gcloud compute ssl-certificates describe myca-site-lb-cert --global \
-     --format="get(managed.status)"
+   cd infra
+   gcloud compute ssl-certificates describe "$(terraform output -raw ssl_certificate_name)" \
+     --global --format="get(managed.status)"
    ```
 
    Requests to port 80 are 301-redirected to HTTPS; HTTP/3 is enabled.
+
+The certificate name ends in a hash of its domain list. Changing the domains creates the new
+certificate before the old one is destroyed, and HTTPS serves the new one once it is `ACTIVE`.
+The uptime check probes port 443 with TLS and certificate validation, so it (and the alert, if
+`GCP_ALERT_EMAIL` is set) reports failures until the certificate is `ACTIVE`.
 
 ### 2. Code signing the installer (optional)
 
@@ -148,25 +226,51 @@ Today the `.exe` is unsigned → users see a SmartScreen prompt. To sign, add tw
 | `CSC_LINK` | base64 of your `.pfx` (or a `data:` URL / file URL) |
 | `CSC_KEY_PASSWORD` | the `.pfx` password |
 
-`electron-builder` picks these up automatically on the next tagged build.
+`electron-builder` signs whenever `CSC_LINK` is set (there is no `signExecutable` switch in
+`platform/package.json`). When the secret is present the build job also checks every `.exe`
+with `Get-AuthenticodeSignature` and fails unless the status is `Valid`.
 
-### 3. Protect `main` (requires GitHub Pro on a private repo)
+### 3. Protect `main` and release tags (requires GitHub Pro on a private repo)
 
-Branch protection is **not available for private repos on the free plan** (the API returns
-HTTP 403: *"Upgrade to GitHub Pro or make this repository public"*). Two options:
+Branch protection, tag rulesets and required reviewers on environments are **not available
+for private repos on the free plan** (the API returns HTTP 403: *"Upgrade to GitHub Pro or
+make this repository public"*). Until then, anyone with write access can push to `main` or
+push a `v*` tag, and either one obtains a `gh-deployer` token. Two options:
 
-- **Recommended:** upgrade the org/account to **GitHub Pro** (~$4/user/month), then run one command:
+- **Recommended:** upgrade the org/account to **GitHub Pro** (~$4/user/month), then:
 
   ```bash
   gh api --method PUT repos/varshinicb1/myca/branches/main/protection \
     --input .github/branch-protection.json -H "Accept: application/vnd.github+json"
   ```
 
+  and add a tag ruleset limiting who can create `v*` tags, plus required reviewers on the
+  `production` environment.
+
 - Or make the repo public (only if you intend to open-source it).
 
 The config in `.github/branch-protection.json` requires PRs, the two CI checks
 (`Platform tests`, `Sprint engine tests`), linear history, and blocks force-pushes/deletions.
 It deliberately keeps `enforce_admins: false` so the owner has an emergency bypass.
+
+### 4. Supply chain
+
+- Every action in `.github/workflows/` is pinned to a full commit SHA with its release
+  noted beside it; `.github/dependabot.yml` proposes updates weekly.
+- `infra/.terraform.lock.hcl` and `infra/bootstrap/.terraform.lock.hcl` pin the Google
+  provider version and checksums; CI runs `terraform init -lockfile=readonly`. After changing
+  a provider version, refresh them with
+  `terraform providers lock -platform=linux_amd64 -platform=windows_amd64 -platform=darwin_arm64`
+  in each module and commit the result.
+- `platform/test/release-pipeline.test.mjs` checks these invariants (tag handling, job
+  permissions, SHA pins, checksums, signing, aliases, WIF and IAM scope, state prefixes,
+  Terraform inputs, and this document's variable list) on every CI run.
+
+### 5. Email relay (Cloudflare Worker)
+
+`email-relay/` is deployed separately with Wrangler (see `email-relay/README.md`). It refuses
+every send until `ALLOWED_FROM_DOMAIN` is set in `email-relay/wrangler.jsonc`, accepts at most
+10 recipients per request, and returns `{ ok, id, messageId }`.
 
 ---
 
@@ -188,8 +292,9 @@ To cut the LB cost while traffic is low, you can serve the site from **Cloud Run
 ## Teardown
 
 ```bash
-cd infra && terraform destroy -var="project_id=YOUR_PROJECT_ID" -var="domain_name=myca.in"
-cd bootstrap && terraform destroy -var="project_id=YOUR_PROJECT_ID" -var="github_repository=varshinicb1/myca"
+cd infra && terraform destroy -var="project_id=YOUR_PROJECT_ID" -var="region=asia-south1" \
+  -var="domain_name=myca.in" -var="manage_dns=true" -var="create_artifact_registry=true" -var="alert_email="
+cd bootstrap && terraform destroy -var="project_id=YOUR_PROJECT_ID" -var="github_repository_id=REPO_NUMERIC_ID"
 ```
 
 (The state bucket has `force_destroy = false`; delete it manually if you truly want it gone.)
@@ -199,6 +304,8 @@ cd bootstrap && terraform destroy -var="project_id=YOUR_PROJECT_ID" -var="github
 ## Out of scope (next milestones)
 
 - **Firm backend** (PRD REQ-CA-001…015): Cloud Run + Cloud SQL + GCS document vault. The
-  Artifact Registry repo (`myca`) is already provisioned for its images.
+  Artifact Registry repo (`myca`) is already provisioned for its images. The deployer no
+  longer holds `run.admin`, `secretmanager.admin` or `iam.serviceAccountUser`; grant narrowly
+  scoped roles when that work starts.
 - **Local-first secrets vault** (Windows DPAPI) for GSP/NIC credentials.
 - The Cloudflare config in `deploy/wrangler.jsonc` is retained but unused; GCS + CDN replaces it.
