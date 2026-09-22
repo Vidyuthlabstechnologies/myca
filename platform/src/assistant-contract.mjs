@@ -629,8 +629,15 @@ export function planLocalToolCall(state, message) {
   }
 
   const irnId = text.match(/\b(INV-\d+)\b/i);
-  if (irnId && /\birn\b|e-?invoice|generate irn/i.test(text)) {
-    return { kind: 'tool', name: 'govt_generate_irn', args: { invoiceId: irnId[1].toUpperCase() } };
+  if (irnId && /\birn\b|e-?invoice/i.test(text)) {
+    const invoiceId = irnId[1].toUpperCase();
+    if (/\bcancel/i.test(text)) return { kind: 'tool', name: 'govt_nic_cancel_irn', args: { invoiceId } };
+    const negated = /\b(do\s*not|don'?t|never|stop|avoid)\b/i.test(text);
+    const question = /\?\s*$/.test(text) || /^\s*(what|which|when|where|why|how|is|are|has|have|does|did|do|can|show|status)\b/i.test(text);
+    if (negated || question) {
+      return { kind: 'reply', reply: `Nothing was generated. To issue an IRN for ${invoiceId}, say "generate irn ${invoiceId}"; it still needs a CA approval before anything reaches the IRP.` };
+    }
+    return { kind: 'tool', name: 'govt_generate_irn', args: { invoiceId } };
   }
 
   const paidId = text.match(/\b(INV-\d+)\b/i);
