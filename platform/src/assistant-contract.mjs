@@ -159,9 +159,9 @@ export const TOOL_ARG_SCHEMAS = {
   govt_nic_generate_ewb: {
     type: 'object',
     additionalProperties: false,
+    required: ['irn'],
     properties: {
-      irn: { type: 'string' },
-      payload: { type: 'object' },
+      irn: { type: 'string', minLength: 1 },
       transport: { type: 'object' },
     },
   },
@@ -238,11 +238,7 @@ export const TOOL_ARG_SCHEMAS = {
   },
   filing_pack: noArgs,
   govt_probe: noArgs,
-  govt_nic_auth: {
-    type: 'object',
-    additionalProperties: false,
-    properties: { mock: { type: 'boolean' } },
-  },
+  govt_nic_auth: noArgs,
   govt_nic_mock: {
     type: 'object',
     additionalProperties: false,
@@ -254,7 +250,6 @@ export const TOOL_ARG_SCHEMAS = {
     required: ['invoiceId'],
     properties: {
       invoiceId: { type: 'string', pattern: '^INV-[0-9]{4,}$' },
-      mock: { type: 'boolean' },
     },
   },
   integration_readiness: {
@@ -547,7 +542,7 @@ export function planLocalToolCall(state, message) {
   if (/^(help|\?)$/i.test(text) || /^what can you do$/i.test(text)) {
     return {
       kind: 'reply',
-      reply: `MyCA posts invoices and purchase bills into an append-only ledger, then GST/Tally/bank/audit tools read those books.\n\nExamples:\n· Purchase from Fabrics Co GSTIN 27AABCT1332L1ZM, 2 rolls at 10000, GST 5%\n· Invoice Retail Mart GSTIN 27AAACH7409R1Z3, 10 rolls at 50000, GST 5%\n· trial balance\n· export gstr1 json\n· probe govt\n· nic auth`,
+      reply: `MyCA posts invoices and purchase bills into an append-only ledger, then GST/Tally/bank/audit tools read those books.\n\nExamples:\n· Purchase from Fabrics Co GSTIN 27AABCT1332L1ZE, 2 rolls at 10000, GST 5%\n· Invoice Retail Mart GSTIN 27AAACH7409R1Z1, 10 rolls at 50000, GST 5%\n· trial balance\n· export gstr1 json\n· probe govt\n· nic auth`,
       tools: [],
     };
   }
@@ -604,7 +599,7 @@ export function planLocalToolCall(state, message) {
   }
 
   if (/\b(nic\s*mock\s*auth|mock\s*nic\s*auth|mock\s*auth)\b/i.test(text)) {
-    return { kind: 'tool', name: 'govt_nic_auth', args: { mock: true } };
+    return { kind: 'tool', name: 'govt_nic_auth', args: {} };
   }
 
   const gstinQuery = text.match(/\b(?:validate|verify|check|search|lookup)\s*gstin\s+([0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][0-9A-Z]Z[0-9A-Z])\b/i);
