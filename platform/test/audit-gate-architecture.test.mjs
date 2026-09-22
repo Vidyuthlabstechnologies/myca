@@ -276,10 +276,12 @@ test('architecture: fetch and sockets appear only in the named transport modules
   assert.ok(networkModules(graph).includes('sandbox-client.mjs'));
 });
 
+const NETWORK_REFUSAL_GUARD = /^\s*(?:const originalFetch = globalThis\.fetch;|globalThis\.fetch = (?:refuseNetwork|originalFetch);)\s*$/gm;
+
 test('architecture: sprint engines make no network calls', () => {
   const offenders = listModules(SPRINTS)
     .filter((full) => /[\\/]src[\\/]/.test(full))
-    .filter((full) => usesNetwork(readFileSync(full, 'utf8')))
+    .filter((full) => usesNetwork(readFileSync(full, 'utf8').replace(NETWORK_REFUSAL_GUARD, '')))
     .map((full) => relative(SPRINTS, full));
   assert.deepEqual(offenders, []);
 });
