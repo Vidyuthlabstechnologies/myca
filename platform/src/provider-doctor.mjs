@@ -1,6 +1,7 @@
 import { loadEnvFile, liveCallsEnabled, mockModeEnabled } from './runtime-config.mjs';
 import { getSandboxClient } from './sandbox-client.mjs';
 import { loadGovtConfig } from './govt.mjs';
+import { probeTcp } from './reachability.mjs';
 
 function missing(env, keys) {
   return keys.filter((k) => !String(env[k] || '').trim());
@@ -8,21 +9,6 @@ function missing(env, keys) {
 
 function detectEnvironment(baseUrl) {
   return /test/i.test(String(baseUrl || '')) ? 'test' : 'live';
-}
-
-async function probeTcp(host, port, timeoutMs = 1500) {
-  const net = await import('node:net');
-  return new Promise((resolve) => {
-    const socket = net.connect({ host, port });
-    const done = (result) => {
-      socket.destroy();
-      resolve(result);
-    };
-    socket.setTimeout(timeoutMs);
-    socket.once('connect', () => done({ status: 'ok', host, port }));
-    socket.once('timeout', () => done({ status: 'error', error: 'timeout', host, port }));
-    socket.once('error', (err) => done({ status: 'error', error: String(err.code || err.message || err), host, port }));
-  });
 }
 
 export async function providerDoctor(deps = {}) {

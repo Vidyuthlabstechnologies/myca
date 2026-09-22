@@ -1,12 +1,13 @@
 import { providerCatalog, providerRequirementMap } from './provider-catalog.mjs';
+import { hasSecretKey } from './secret-keys.mjs';
+import { ACTION_CLASSES } from './action-gate.mjs';
 
-export const SANDBOX_OPERATIONS = [
+const OPERATIONS = [
   {
     operationId: 'gst_taxpayer_generate_otp',
     requirementId: 'REQ-CA-006',
     title: 'Generate GST taxpayer OTP',
     mode: 'auth',
-    caApprovalRequired: true,
     assistantBlocked: true,
     mapsToTools: [],
     ownerModules: ['provider_session_vault', 'platform/src/ca-api.mjs'],
@@ -17,7 +18,6 @@ export const SANDBOX_OPERATIONS = [
     requirementId: 'REQ-CA-006',
     title: 'Verify GST taxpayer OTP',
     mode: 'auth',
-    caApprovalRequired: true,
     assistantBlocked: true,
     mapsToTools: [],
     ownerModules: ['provider_session_vault', 'platform/src/ca-api.mjs'],
@@ -28,7 +28,6 @@ export const SANDBOX_OPERATIONS = [
     requirementId: 'REQ-CA-006',
     title: 'Submit GSTR-2B reconciliation job',
     mode: 'read_prepare',
-    caApprovalRequired: false,
     assistantBlocked: false,
     mapsToTools: ['gst_reconcile'],
     ownerModules: [
@@ -42,7 +41,6 @@ export const SANDBOX_OPERATIONS = [
     requirementId: 'REQ-CA-006',
     title: 'Track GST return status',
     mode: 'read',
-    caApprovalRequired: false,
     assistantBlocked: false,
     mapsToTools: ['integration_readiness'],
     ownerModules: ['platform/src/integration-contract.mjs'],
@@ -53,7 +51,6 @@ export const SANDBOX_OPERATIONS = [
     requirementId: 'REQ-CA-006',
     title: 'Save GSTR-1 draft',
     mode: 'write_prepare',
-    caApprovalRequired: true,
     assistantBlocked: true,
     mapsToTools: ['prepare_gstr1', 'export_gstr1_json'],
     ownerModules: [
@@ -67,7 +64,6 @@ export const SANDBOX_OPERATIONS = [
     requirementId: 'REQ-CA-006',
     title: 'File GSTR-1 with EVC',
     mode: 'file',
-    caApprovalRequired: true,
     assistantBlocked: true,
     mapsToTools: ['filing_pack'],
     ownerModules: ['platform/src/tools.mjs'],
@@ -78,7 +74,6 @@ export const SANDBOX_OPERATIONS = [
     requirementId: 'REQ-CA-007',
     title: 'Authenticate e-invoice session',
     mode: 'auth',
-    caApprovalRequired: true,
     assistantBlocked: true,
     mapsToTools: ['govt_nic_auth'],
     ownerModules: ['platform/src/govt.mjs'],
@@ -89,7 +84,6 @@ export const SANDBOX_OPERATIONS = [
     requirementId: 'REQ-CA-007',
     title: 'Generate e-invoice IRN',
     mode: 'write_government',
-    caApprovalRequired: true,
     assistantBlocked: true,
     mapsToTools: ['govt_generate_irn'],
     ownerModules: ['platform/src/govt.mjs', 'platform/src/invoice.mjs'],
@@ -100,7 +94,6 @@ export const SANDBOX_OPERATIONS = [
     requirementId: 'REQ-CA-007',
     title: 'Cancel e-invoice',
     mode: 'write_government',
-    caApprovalRequired: true,
     assistantBlocked: true,
     mapsToTools: [],
     ownerModules: ['platform/src/govt.mjs'],
@@ -111,7 +104,6 @@ export const SANDBOX_OPERATIONS = [
     requirementId: 'REQ-CA-008',
     title: 'Verify GSTIN with public API',
     mode: 'read',
-    caApprovalRequired: false,
     assistantBlocked: false,
     mapsToTools: ['validate_gstin'],
     ownerModules: ['sprints/sprint-3-gst-recon/src/gstin.mjs', 'platform/src/tools.mjs'],
@@ -122,7 +114,6 @@ export const SANDBOX_OPERATIONS = [
     requirementId: 'REQ-CA-009',
     title: 'Map income-tax calculator output',
     mode: 'read_prepare',
-    caApprovalRequired: false,
     assistantBlocked: false,
     mapsToTools: ['prepare_itr'],
     ownerModules: ['sprints/sprint-5-filing-assistant/src/itr.mjs'],
@@ -133,7 +124,6 @@ export const SANDBOX_OPERATIONS = [
     requirementId: 'REQ-CA-010',
     title: 'Map TDS analytics job',
     mode: 'read_prepare',
-    caApprovalRequired: false,
     assistantBlocked: false,
     mapsToTools: ['monitor_tds'],
     ownerModules: ['sprints/sprint-5-filing-assistant/src/tdsmonitor.mjs'],
@@ -144,7 +134,6 @@ export const SANDBOX_OPERATIONS = [
     requirementId: 'REQ-CA-010',
     title: 'Generate TDS FVU package',
     mode: 'write_prepare',
-    caApprovalRequired: true,
     assistantBlocked: true,
     mapsToTools: ['monitor_tds'],
     ownerModules: ['sprints/sprint-5-filing-assistant/src/tdsmonitor.mjs'],
@@ -152,7 +141,10 @@ export const SANDBOX_OPERATIONS = [
   },
 ];
 
-const SECRET_KEY_RE = /(secret|password|otp|token|apikey|api_key|clientsecret|auth)/i;
+export const SANDBOX_OPERATIONS = OPERATIONS.map((operation) => ({
+  ...operation,
+  caApprovalRequired: ACTION_CLASSES[operation.operationId].actionClass === 'write',
+}));
 
 function docsFor(requirement, docsTitle) {
   return (requirement?.sandboxDocs || []).find((doc) => doc.title === docsTitle) || requirement?.sandboxDocs?.[0] || null;
@@ -190,21 +182,15 @@ export function sandboxAdapterPlan({ requirementId, operationId } = {}) {
   };
 }
 
-function hasSecretKey(value) {
-  if (!value || typeof value !== 'object') return false;
-  if (Array.isArray(value)) return value.some(hasSecretKey);
-  return Object.entries(value).some(([key, child]) => SECRET_KEY_RE.test(key) || hasSecretKey(child));
-}
-
 export function createSandboxHandoff({ operationId, actorId = 'system', caApprovalId = '', payloadRef = '', payloadSummary = {} } = {}) {
   const operation = sandboxOperationById(operationId);
   if (!operation) return { ok: false, error: 'UNKNOWN_SANDBOX_OPERATION' };
   if (hasSecretKey(payloadSummary)) return { ok: false, error: 'SECRET_FIELDS_NOT_ALLOWED_IN_HANDOFF' };
+  if (operation.assistantBlocked && String(actorId || '').trim().toLowerCase() === 'assistant') {
+    return { ok: false, error: 'ASSISTANT_BLOCKED_FOR_OPERATION', operation };
+  }
   if (operation.caApprovalRequired && !String(caApprovalId || '').trim()) {
     return { ok: false, error: 'CA_APPROVAL_REQUIRED', operation };
-  }
-  if (operation.assistantBlocked && String(actorId || '').toLowerCase() === 'assistant') {
-    return { ok: false, error: 'ASSISTANT_BLOCKED_FOR_OPERATION', operation };
   }
   return {
     ok: true,

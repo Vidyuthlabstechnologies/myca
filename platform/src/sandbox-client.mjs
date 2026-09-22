@@ -28,7 +28,7 @@ export class SandboxClient {
     this.apiSecret = options.apiSecret ?? (scopedSecret || read('MYCA_GSP_API_SECRET'));
     this.keySource = options.apiKey != null ? 'explicit' : (scopedKey ? scoped.key : 'MYCA_GSP_API_KEY');
     this.apiVersion = options.apiVersion ?? '1.0.0';
-    this.fetchFn = options.fetchFn || fetch;
+    this.fetchFn = options.fetchFn || ((...args) => globalThis.fetch(...args));
     this.token = null;
     this.tokenExpiresAt = 0;
     this.taxpayerToken = null;
