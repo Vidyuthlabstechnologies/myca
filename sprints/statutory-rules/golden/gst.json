@@ -1,0 +1,176 @@
+[
+  {
+    "name": "B2C inter-State on 31-Jul-2024 at exactly Rs 2,50,000 stays in B2CS",
+    "input": { "check": "b2c-table", "invoiceDate": "2024-07-31", "interState": true, "invoiceValuePaise": 25000000 },
+    "expected": { "table": "B2CS", "ruleUsed": "gst.b2cl.threshold@2021-01-01" },
+    "citation": "CGST Rules 2017 rule 59(4)(a)(ii) and (b)(ii): invoice-wise only above two and a half lakh rupees, before Notification 12/2024-Central Tax took effect on 01.08.2024"
+  },
+  {
+    "name": "B2C inter-State on 31-Jul-2024 one paisa above Rs 2,50,000 is B2CL",
+    "input": { "check": "b2c-table", "invoiceDate": "2024-07-31", "interState": true, "invoiceValuePaise": 25000001 },
+    "expected": { "table": "B2CL", "ruleUsed": "gst.b2cl.threshold@2021-01-01" },
+    "citation": "CGST Rules 2017 rule 59(4)(a)(ii): inter-State supplies to unregistered persons with invoice value more than two and a half lakh rupees, before 01.08.2024"
+  },
+  {
+    "name": "B2C inter-State on 31-Jul-2024 at Rs 1,50,000 stays in B2CS under the old threshold",
+    "input": { "check": "b2c-table", "invoiceDate": "2024-07-31", "interState": true, "invoiceValuePaise": 15000000 },
+    "expected": { "table": "B2CS", "ruleUsed": "gst.b2cl.threshold@2021-01-01" },
+    "citation": "CGST Rules 2017 rule 59(4)(b)(ii): State-wise consolidated details for inter-State supplies up to two and a half lakh rupees, before 01.08.2024"
+  },
+  {
+    "name": "B2C intra-State on 31-Jul-2024 at Rs 3,00,000 is B2CS whatever the value",
+    "input": { "check": "b2c-table", "invoiceDate": "2024-07-31", "interState": false, "invoiceValuePaise": 30000000 },
+    "expected": { "table": "B2CS", "ruleUsed": "gst.b2cl.threshold@2021-01-01" },
+    "citation": "CGST Rules 2017 rule 59(4)(b)(i): intra-State supplies to unregistered persons are reported consolidated for each rate of tax"
+  },
+  {
+    "name": "B2C inter-State on 1-Aug-2024 at exactly Rs 1,00,000 stays in B2CS",
+    "input": { "check": "b2c-table", "invoiceDate": "2024-08-01", "interState": true, "invoiceValuePaise": 10000000 },
+    "expected": { "table": "B2CS", "ruleUsed": "gst.b2cl.threshold@2024-08-01" },
+    "citation": "CGST Rules 2017 rule 59(4)(b)(ii) as amended by Notification 12/2024-Central Tax w.e.f. 01.08.2024: consolidated for inter-State invoice value up to one lakh rupees"
+  },
+  {
+    "name": "B2C inter-State on 1-Aug-2024 one paisa above Rs 1,00,000 is B2CL",
+    "input": { "check": "b2c-table", "invoiceDate": "2024-08-01", "interState": true, "invoiceValuePaise": 10000001 },
+    "expected": { "table": "B2CL", "ruleUsed": "gst.b2cl.threshold@2024-08-01" },
+    "citation": "CGST Rules 2017 rule 59(4)(a)(ii) as amended by Notification 12/2024-Central Tax w.e.f. 01.08.2024: invoice value more than one lakh rupees"
+  },
+  {
+    "name": "B2C inter-State on 1-Aug-2024 at Rs 1,50,000 is now B2CL",
+    "input": { "check": "b2c-table", "invoiceDate": "2024-08-01", "interState": true, "invoiceValuePaise": 15000000 },
+    "expected": { "table": "B2CL", "ruleUsed": "gst.b2cl.threshold@2024-08-01" },
+    "citation": "Notification 12/2024-Central Tax w.e.f. 01.08.2024 replaced two and a half lakh rupees with one lakh rupees in rule 59(4) and FORM GSTR-1 Table 5"
+  },
+  {
+    "name": "B2C intra-State on 1-Aug-2024 at Rs 3,00,000 is B2CS whatever the value",
+    "input": { "check": "b2c-table", "invoiceDate": "2024-08-01", "interState": false, "invoiceValuePaise": 30000000 },
+    "expected": { "table": "B2CS", "ruleUsed": "gst.b2cl.threshold@2024-08-01" },
+    "citation": "CGST Rules 2017 rule 59(4)(b)(i): intra-State supplies to unregistered persons are reported consolidated for each rate of tax"
+  },
+  {
+    "name": "B2C inter-State on 21-Sep-2026 at exactly Rs 1,00,000 stays in B2CS",
+    "input": { "check": "b2c-table", "invoiceDate": "2026-09-21", "interState": true, "invoiceValuePaise": 10000000 },
+    "expected": { "table": "B2CS", "ruleUsed": "gst.b2cl.threshold@2024-08-01" },
+    "citation": "CGST Rules 2017 rule 59(4)(b)(ii) as amended by Notification 12/2024-Central Tax, still in force"
+  },
+  {
+    "name": "B2C inter-State on 21-Sep-2026 one paisa above Rs 1,00,000 is B2CL",
+    "input": { "check": "b2c-table", "invoiceDate": "2026-09-21", "interState": true, "invoiceValuePaise": 10000001 },
+    "expected": { "table": "B2CL", "ruleUsed": "gst.b2cl.threshold@2024-08-01" },
+    "citation": "CGST Rules 2017 rule 59(4)(a)(ii) as amended by Notification 12/2024-Central Tax, still in force"
+  },
+  {
+    "name": "B2C inter-State on 31-Dec-2020 one paisa above Rs 2,50,000 is B2CL under the pre-2021 rule 59",
+    "input": { "check": "b2c-table", "invoiceDate": "2020-12-31", "interState": true, "invoiceValuePaise": 25000001 },
+    "expected": { "table": "B2CL", "ruleUsed": "gst.b2cl.threshold@2017-07-01" },
+    "citation": "CGST Rules 2017 rule 59(2)(a)(ii) as it read before substitution by Notification 82/2020-Central Tax w.e.f. 01.01.2021"
+  },
+  {
+    "name": "A pre-GST invoice date has no B2CL threshold",
+    "input": { "check": "b2c-table", "invoiceDate": "2017-06-30", "interState": true, "invoiceValuePaise": 30000000 },
+    "expected": { "error": "RULE_NOT_IN_FORCE" },
+    "citation": "GST took effect on 01.07.2017; rule(id, onDate) never falls back to a later version"
+  },
+  {
+    "name": "40 per cent is not a valid rate on 21-Sep-2025",
+    "input": { "check": "rate-valid", "invoiceDate": "2025-09-21", "ratePercent": 40 },
+    "expected": { "valid": false, "ruleUsed": "gst.rates.valid@2019-04-01" },
+    "citation": "Before 22.09.2025 the highest rate under 1/2017-Central Tax (Rate) and 11/2017-Central Tax (Rate) was 14 per cent central tax (28 combined)"
+  },
+  {
+    "name": "28 per cent is valid on 21-Sep-2025",
+    "input": { "check": "rate-valid", "invoiceDate": "2025-09-21", "ratePercent": 28 },
+    "expected": { "valid": true, "ruleUsed": "gst.rates.valid@2019-04-01" },
+    "citation": "1/2017-Central Tax (Rate) Schedule IV, 14 per cent central tax"
+  },
+  {
+    "name": "12 per cent is valid on 21-Sep-2025",
+    "input": { "check": "rate-valid", "invoiceDate": "2025-09-21", "ratePercent": 12 },
+    "expected": { "valid": true, "ruleUsed": "gst.rates.valid@2019-04-01" },
+    "citation": "1/2017-Central Tax (Rate) Schedule II, 6 per cent central tax"
+  },
+  {
+    "name": "40 per cent is valid from 22-Sep-2025",
+    "input": { "check": "rate-valid", "invoiceDate": "2025-09-22", "ratePercent": 40 },
+    "expected": { "valid": true, "ruleUsed": "gst.rates.valid@2025-09-22" },
+    "citation": "9/2025-Central Tax (Rate) Schedule III, 20 per cent central tax, w.e.f. 22.09.2025"
+  },
+  {
+    "name": "28 per cent stays valid on 22-Sep-2025 for Schedule VII pan masala and tobacco",
+    "input": { "check": "rate-valid", "invoiceDate": "2025-09-22", "ratePercent": 28 },
+    "expected": { "valid": true, "ruleUsed": "gst.rates.valid@2025-09-22" },
+    "citation": "9/2025-Central Tax (Rate) Schedule VII, 14 per cent central tax, w.e.f. 22.09.2025"
+  },
+  {
+    "name": "12 per cent stays valid on 22-Sep-2025 for bricks",
+    "input": { "check": "rate-valid", "invoiceDate": "2025-09-22", "ratePercent": 12 },
+    "expected": { "valid": true, "ruleUsed": "gst.rates.valid@2025-09-22" },
+    "citation": "14/2025-Central Tax (Rate), 6 per cent central tax on bricks and roofing tiles, w.e.f. 22.09.2025"
+  },
+  {
+    "name": "0.1 per cent merchant-exporter rate is valid on 22-Sep-2025",
+    "input": { "check": "rate-valid", "invoiceDate": "2025-09-22", "ratePercent": 0.1 },
+    "expected": { "valid": true, "ruleUsed": "gst.rates.valid@2025-09-22" },
+    "citation": "40/2017-Central Tax (Rate), 0.05 per cent central tax on supplies to merchant exporters"
+  },
+  {
+    "name": "0.25 per cent is valid on 22-Sep-2025",
+    "input": { "check": "rate-valid", "invoiceDate": "2025-09-22", "ratePercent": 0.25 },
+    "expected": { "valid": true, "ruleUsed": "gst.rates.valid@2025-09-22" },
+    "citation": "9/2025-Central Tax (Rate) Schedule V, 0.125 per cent central tax (rough diamonds, precious and semi-precious stones)"
+  },
+  {
+    "name": "1.5 per cent is valid on 22-Sep-2025",
+    "input": { "check": "rate-valid", "invoiceDate": "2025-09-22", "ratePercent": 1.5 },
+    "expected": { "valid": true, "ruleUsed": "gst.rates.valid@2025-09-22" },
+    "citation": "9/2025-Central Tax (Rate) Schedule VI, 0.75 per cent central tax"
+  },
+  {
+    "name": "3 per cent is valid on 22-Sep-2025",
+    "input": { "check": "rate-valid", "invoiceDate": "2025-09-22", "ratePercent": 3 },
+    "expected": { "valid": true, "ruleUsed": "gst.rates.valid@2025-09-22" },
+    "citation": "9/2025-Central Tax (Rate) Schedule IV, 1.5 per cent central tax (gold, silver, jewellery)"
+  },
+  {
+    "name": "7.5 per cent is valid on 22-Sep-2025",
+    "input": { "check": "rate-valid", "invoiceDate": "2025-09-22", "ratePercent": 7.5 },
+    "expected": { "valid": true, "ruleUsed": "gst.rates.valid@2025-09-22" },
+    "citation": "11/2017-Central Tax (Rate) as amended, 3.75 per cent central tax on construction of residential apartments other than affordable"
+  },
+  {
+    "name": "28 per cent is still valid on 31-Jan-2026",
+    "input": { "check": "rate-valid", "invoiceDate": "2026-01-31", "ratePercent": 28 },
+    "expected": { "valid": true, "ruleUsed": "gst.rates.valid@2025-09-22" },
+    "citation": "9/2025-Central Tax (Rate) Schedule VII in force until its omission by 19/2025-Central Tax (Rate) w.e.f. 01.02.2026"
+  },
+  {
+    "name": "28 per cent is not valid from 1-Feb-2026",
+    "input": { "check": "rate-valid", "invoiceDate": "2026-02-01", "ratePercent": 28 },
+    "expected": { "valid": false, "ruleUsed": "gst.rates.valid@2026-02-01" },
+    "citation": "19/2025-Central Tax (Rate) dated 31.12.2025 omits Schedule VII w.e.f. 01.02.2026; pan masala and tobacco move to 40, biris to 18"
+  },
+  {
+    "name": "40 per cent is valid on 1-Feb-2026",
+    "input": { "check": "rate-valid", "invoiceDate": "2026-02-01", "ratePercent": 40 },
+    "expected": { "valid": true, "ruleUsed": "gst.rates.valid@2026-02-01" },
+    "citation": "9/2025-Central Tax (Rate) Schedule III as amended by 19/2025-Central Tax (Rate)"
+  },
+  {
+    "name": "17 per cent is never a valid rate",
+    "input": { "check": "rate-valid", "invoiceDate": "2026-02-01", "ratePercent": 17 },
+    "expected": { "valid": false, "ruleUsed": "gst.rates.valid@2026-02-01" },
+    "citation": "No Central Tax (Rate) notification in force on 01.02.2026 prescribes 8.5 per cent central tax"
+  },
+  {
+    "name": "6 per cent is the central half of 12, not a combined rate",
+    "input": { "check": "rate-valid", "invoiceDate": "2026-02-01", "ratePercent": 6 },
+    "expected": { "valid": false, "ruleUsed": "gst.rates.valid@2026-02-01" },
+    "citation": "14/2025-Central Tax (Rate): 6 per cent central tax plus 6 per cent State tax is 12 combined; the rate set holds combined (IGST-equivalent) rates"
+  },
+  {
+    "name": "No rate set is claimed before 1-Apr-2019",
+    "input": { "check": "rate-valid", "invoiceDate": "2019-03-31", "ratePercent": 18 },
+    "expected": { "error": "RULE_NOT_IN_FORCE" },
+    "citation": "The first recorded set starts with the 1.5 and 7.5 construction rates of 3/2019-Central Tax (Rate) w.e.f. 01.04.2019"
+  }
+]

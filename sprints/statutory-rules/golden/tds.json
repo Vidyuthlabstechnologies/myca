@@ -1,0 +1,776 @@
+[
+  {
+    "name": "section 194A rate in force, FY 2024-25 (2025-03-31)",
+    "input": {
+      "id": "tds.194A.rate",
+      "onDate": "2025-03-31"
+    },
+    "expected": {
+      "value": {
+        "basisPoints": 1000
+      },
+      "basis": null,
+      "act": "IT-1961",
+      "section": "194A(1)"
+    },
+    "citation": "Finance (No. 2) Act, 2024 (15 of 2024) First Schedule Part II items 1(a)(i) and 2(a)(i): 10 per cent"
+  },
+  {
+    "name": "section 194A rate in force, FY 2025-26 (2025-04-01)",
+    "input": {
+      "id": "tds.194A.rate",
+      "onDate": "2025-04-01"
+    },
+    "expected": {
+      "value": {
+        "basisPoints": 1000
+      },
+      "basis": null,
+      "act": "IT-1961",
+      "section": "194A(1)"
+    },
+    "citation": "Finance Act, 2025 (7 of 2025) First Schedule Part II items 1(a)(i) and 2(a)(i): 10 per cent"
+  },
+  {
+    "name": "section 194A rate in force, FY 2026-27 (2026-04-01)",
+    "input": {
+      "id": "tds.194A.rate",
+      "onDate": "2026-04-01"
+    },
+    "expected": {
+      "value": {
+        "basisPoints": 1000
+      },
+      "basis": null,
+      "act": "IT-2025",
+      "section": "393(1) Table Sl. No. 5(ii) and 5(iii)"
+    },
+    "citation": "Finance Act, 2026 (4 of 2026) First Schedule Part II items 1(a)(i) and 2(a)(i): 10%"
+  },
+  {
+    "name": "section 194A bank, co-operative bank or post office, senior citizen payee, FY 2024-25 (2025-03-31)",
+    "input": {
+      "id": "tds.194A.threshold.bank-coop-post-office.senior-citizen",
+      "onDate": "2025-03-31"
+    },
+    "expected": {
+      "value": {
+        "amountPaise": 5000000
+      },
+      "basis": "aggregate_per_payee_per_financial_year",
+      "act": "IT-1961",
+      "section": "194A(3)(i) third proviso"
+    },
+    "citation": "Income-tax Act, 1961 s.194A(3)(i) third proviso before Finance Act, 2025 (7 of 2025) s.58: fifty thousand rupees"
+  },
+  {
+    "name": "section 194A bank, co-operative bank or post office, senior citizen payee, FY 2025-26 (2025-04-01)",
+    "input": {
+      "id": "tds.194A.threshold.bank-coop-post-office.senior-citizen",
+      "onDate": "2025-04-01"
+    },
+    "expected": {
+      "value": {
+        "amountPaise": 10000000
+      },
+      "basis": "aggregate_per_payee_per_financial_year",
+      "act": "IT-1961",
+      "section": "194A(3)(i) third proviso"
+    },
+    "citation": "Finance Act, 2025 (7 of 2025) s.58(a)(iii): one lakh rupees, w.e.f. 1-4-2025"
+  },
+  {
+    "name": "section 194A bank, co-operative bank or post office, senior citizen payee, FY 2026-27 (2026-04-01)",
+    "input": {
+      "id": "tds.194A.threshold.bank-coop-post-office.senior-citizen",
+      "onDate": "2026-04-01"
+    },
+    "expected": {
+      "value": {
+        "amountPaise": 10000000
+      },
+      "basis": "aggregate_per_payee_per_financial_year",
+      "act": "IT-2025",
+      "section": "393(1) Table Sl. No. 5(ii)"
+    },
+    "citation": "Income-tax Act, 2025 (30 of 2025) s.393(1) Table Sl. No. 5(ii) col. D(a): 1,00,000 for a senior citizen"
+  },
+  {
+    "name": "section 194A bank, co-operative bank or post office, other payee, FY 2024-25 (2025-03-31)",
+    "input": {
+      "id": "tds.194A.threshold.bank-coop-post-office.other-payee",
+      "onDate": "2025-03-31"
+    },
+    "expected": {
+      "value": {
+        "amountPaise": 4000000
+      },
+      "basis": "aggregate_per_payee_per_financial_year",
+      "act": "IT-1961",
+      "section": "194A(3)(i)(a)-(c)"
+    },
+    "citation": "Income-tax Act, 1961 s.194A(3)(i)(a)-(c) before Finance Act, 2025 (7 of 2025) s.58: forty thousand rupees"
+  },
+  {
+    "name": "section 194A bank, co-operative bank or post office, other payee, FY 2025-26 (2025-04-01)",
+    "input": {
+      "id": "tds.194A.threshold.bank-coop-post-office.other-payee",
+      "onDate": "2025-04-01"
+    },
+    "expected": {
+      "value": {
+        "amountPaise": 5000000
+      },
+      "basis": "aggregate_per_payee_per_financial_year",
+      "act": "IT-1961",
+      "section": "194A(3)(i)(a)-(c)"
+    },
+    "citation": "Finance Act, 2025 (7 of 2025) s.58(a)(i): fifty thousand rupees, w.e.f. 1-4-2025"
+  },
+  {
+    "name": "section 194A bank, co-operative bank or post office, other payee, FY 2026-27 (2026-04-01)",
+    "input": {
+      "id": "tds.194A.threshold.bank-coop-post-office.other-payee",
+      "onDate": "2026-04-01"
+    },
+    "expected": {
+      "value": {
+        "amountPaise": 5000000
+      },
+      "basis": "aggregate_per_payee_per_financial_year",
+      "act": "IT-2025",
+      "section": "393(1) Table Sl. No. 5(ii)"
+    },
+    "citation": "Income-tax Act, 2025 (30 of 2025) s.393(1) Table Sl. No. 5(ii) col. D(b): 50,000 for a person other than a senior citizen"
+  },
+  {
+    "name": "section 194A any other payer, FY 2024-25 (2025-03-31)",
+    "input": {
+      "id": "tds.194A.threshold.other-payer",
+      "onDate": "2025-03-31"
+    },
+    "expected": {
+      "value": {
+        "amountPaise": 500000
+      },
+      "basis": "aggregate_per_payee_per_financial_year",
+      "act": "IT-1961",
+      "section": "194A(3)(i)(d)"
+    },
+    "citation": "Income-tax Act, 1961 s.194A(3)(i)(d) before Finance Act, 2025 (7 of 2025) s.58: five thousand rupees"
+  },
+  {
+    "name": "section 194A any other payer, FY 2025-26 (2025-04-01)",
+    "input": {
+      "id": "tds.194A.threshold.other-payer",
+      "onDate": "2025-04-01"
+    },
+    "expected": {
+      "value": {
+        "amountPaise": 1000000
+      },
+      "basis": "aggregate_per_payee_per_financial_year",
+      "act": "IT-1961",
+      "section": "194A(3)(i)(d)"
+    },
+    "citation": "Finance Act, 2025 (7 of 2025) s.58(a)(ii): ten thousand rupees, w.e.f. 1-4-2025"
+  },
+  {
+    "name": "section 194A any other payer, FY 2026-27 (2026-04-01)",
+    "input": {
+      "id": "tds.194A.threshold.other-payer",
+      "onDate": "2026-04-01"
+    },
+    "expected": {
+      "value": {
+        "amountPaise": 1000000
+      },
+      "basis": "aggregate_per_payee_per_financial_year",
+      "act": "IT-2025",
+      "section": "393(1) Table Sl. No. 5(iii)"
+    },
+    "citation": "Income-tax Act, 2025 (30 of 2025) s.393(1) Table Sl. No. 5(iii) col. D: 10,000"
+  },
+  {
+    "name": "section 194C single sum, FY 2024-25 (2025-03-31)",
+    "input": {
+      "id": "tds.194C.threshold.single-sum",
+      "onDate": "2025-03-31"
+    },
+    "expected": {
+      "value": {
+        "amountPaise": 3000000
+      },
+      "basis": "single_sum_credited_or_paid",
+      "act": "IT-1961",
+      "section": "194C(5)"
+    },
+    "citation": "Income-tax Act, 1961 s.194C(5): sum not exceeding thirty thousand rupees"
+  },
+  {
+    "name": "section 194C single sum, FY 2025-26 (2025-04-01)",
+    "input": {
+      "id": "tds.194C.threshold.single-sum",
+      "onDate": "2025-04-01"
+    },
+    "expected": {
+      "value": {
+        "amountPaise": 3000000
+      },
+      "basis": "single_sum_credited_or_paid",
+      "act": "IT-1961",
+      "section": "194C(5)"
+    },
+    "citation": "Income-tax Act, 1961 s.194C(5), not amended by Finance Act, 2025: thirty thousand rupees"
+  },
+  {
+    "name": "section 194C single sum, FY 2026-27 (2026-04-01)",
+    "input": {
+      "id": "tds.194C.threshold.single-sum",
+      "onDate": "2026-04-01"
+    },
+    "expected": {
+      "value": {
+        "amountPaise": 3000000
+      },
+      "basis": "single_sum_credited_or_paid",
+      "act": "IT-2025",
+      "section": "393(1) Table Sl. No. 6(i)"
+    },
+    "citation": "Income-tax Act, 2025 (30 of 2025) s.393(1) Table Sl. No. 6(i) col. D(a): 30000 for any such sum"
+  },
+  {
+    "name": "section 194C financial-year aggregate, FY 2024-25 (2025-03-31)",
+    "input": {
+      "id": "tds.194C.threshold.aggregate",
+      "onDate": "2025-03-31"
+    },
+    "expected": {
+      "value": {
+        "amountPaise": 10000000
+      },
+      "basis": "aggregate_per_payee_per_financial_year",
+      "act": "IT-1961",
+      "section": "194C(5) proviso"
+    },
+    "citation": "Income-tax Act, 1961 s.194C(5) proviso: aggregate during the financial year exceeding one lakh rupees"
+  },
+  {
+    "name": "section 194C financial-year aggregate, FY 2025-26 (2025-04-01)",
+    "input": {
+      "id": "tds.194C.threshold.aggregate",
+      "onDate": "2025-04-01"
+    },
+    "expected": {
+      "value": {
+        "amountPaise": 10000000
+      },
+      "basis": "aggregate_per_payee_per_financial_year",
+      "act": "IT-1961",
+      "section": "194C(5) proviso"
+    },
+    "citation": "Income-tax Act, 1961 s.194C(5) proviso, not amended by Finance Act, 2025: one lakh rupees"
+  },
+  {
+    "name": "section 194C financial-year aggregate, FY 2026-27 (2026-04-01)",
+    "input": {
+      "id": "tds.194C.threshold.aggregate",
+      "onDate": "2026-04-01"
+    },
+    "expected": {
+      "value": {
+        "amountPaise": 10000000
+      },
+      "basis": "aggregate_per_payee_per_financial_year",
+      "act": "IT-2025",
+      "section": "393(1) Table Sl. No. 6(i)"
+    },
+    "citation": "Income-tax Act, 2025 (30 of 2025) s.393(1) Table Sl. No. 6(i) col. D(b): 100000 in case of aggregate of such sums"
+  },
+  {
+    "name": "section 194C individual or HUF contractor, FY 2024-25 (2025-03-31)",
+    "input": {
+      "id": "tds.194C.rate.individual-huf",
+      "onDate": "2025-03-31"
+    },
+    "expected": {
+      "value": {
+        "basisPoints": 100
+      },
+      "basis": null,
+      "act": "IT-1961",
+      "section": "194C(1)(i)"
+    },
+    "citation": "Income-tax Act, 1961 s.194C(1)(i): one per cent for an individual or Hindu undivided family"
+  },
+  {
+    "name": "section 194C individual or HUF contractor, FY 2025-26 (2025-04-01)",
+    "input": {
+      "id": "tds.194C.rate.individual-huf",
+      "onDate": "2025-04-01"
+    },
+    "expected": {
+      "value": {
+        "basisPoints": 100
+      },
+      "basis": null,
+      "act": "IT-1961",
+      "section": "194C(1)(i)"
+    },
+    "citation": "Income-tax Act, 1961 s.194C(1)(i): one per cent for an individual or Hindu undivided family"
+  },
+  {
+    "name": "section 194C individual or HUF contractor, FY 2026-27 (2026-04-01)",
+    "input": {
+      "id": "tds.194C.rate.individual-huf",
+      "onDate": "2026-04-01"
+    },
+    "expected": {
+      "value": {
+        "basisPoints": 100
+      },
+      "basis": null,
+      "act": "IT-2025",
+      "section": "393(1) Table Sl. No. 6(i)"
+    },
+    "citation": "Income-tax Act, 2025 (30 of 2025) s.393(1) Table Sl. No. 6(i) col. D rate (a): 1%"
+  },
+  {
+    "name": "section 194C other contractor, FY 2024-25 (2025-03-31)",
+    "input": {
+      "id": "tds.194C.rate.other-payee",
+      "onDate": "2025-03-31"
+    },
+    "expected": {
+      "value": {
+        "basisPoints": 200
+      },
+      "basis": null,
+      "act": "IT-1961",
+      "section": "194C(1)(ii)"
+    },
+    "citation": "Income-tax Act, 1961 s.194C(1)(ii): two per cent for a person other than an individual or HUF"
+  },
+  {
+    "name": "section 194C other contractor, FY 2025-26 (2025-04-01)",
+    "input": {
+      "id": "tds.194C.rate.other-payee",
+      "onDate": "2025-04-01"
+    },
+    "expected": {
+      "value": {
+        "basisPoints": 200
+      },
+      "basis": null,
+      "act": "IT-1961",
+      "section": "194C(1)(ii)"
+    },
+    "citation": "Income-tax Act, 1961 s.194C(1)(ii): two per cent for a person other than an individual or HUF"
+  },
+  {
+    "name": "section 194C other contractor, FY 2026-27 (2026-04-01)",
+    "input": {
+      "id": "tds.194C.rate.other-payee",
+      "onDate": "2026-04-01"
+    },
+    "expected": {
+      "value": {
+        "basisPoints": 200
+      },
+      "basis": null,
+      "act": "IT-2025",
+      "section": "393(1) Table Sl. No. 6(i)"
+    },
+    "citation": "Income-tax Act, 2025 (30 of 2025) s.393(1) Table Sl. No. 6(i) col. D rate (b): 2%"
+  },
+  {
+    "name": "section 194-I rent threshold, FY 2024-25 (2025-03-31)",
+    "input": {
+      "id": "tds.194I.threshold",
+      "onDate": "2025-03-31"
+    },
+    "expected": {
+      "value": {
+        "amountPaise": 24000000
+      },
+      "basis": "aggregate_per_payee_per_financial_year",
+      "act": "IT-1961",
+      "section": "194-I first proviso"
+    },
+    "citation": "Income-tax Act, 1961 s.194-I first proviso before Finance Act, 2025 (7 of 2025) s.64: aggregate during the financial year not exceeding two hundred and forty thousand rupees"
+  },
+  {
+    "name": "section 194-I rent threshold, FY 2025-26 (2025-04-01)",
+    "input": {
+      "id": "tds.194I.threshold",
+      "onDate": "2025-04-01"
+    },
+    "expected": {
+      "value": {
+        "amountPaise": 5000000
+      },
+      "basis": "per_payee_per_month_or_part_of_month",
+      "act": "IT-1961",
+      "section": "194-I first proviso"
+    },
+    "citation": "Finance Act, 2025 (7 of 2025) s.64: rent for a month or part of a month not exceeding fifty thousand rupees, w.e.f. 1-4-2025"
+  },
+  {
+    "name": "section 194-I rent threshold, FY 2026-27 (2026-04-01)",
+    "input": {
+      "id": "tds.194I.threshold",
+      "onDate": "2026-04-01"
+    },
+    "expected": {
+      "value": {
+        "amountPaise": 5000000
+      },
+      "basis": "per_payee_per_month_or_part_of_month",
+      "act": "IT-2025",
+      "section": "393(1) Table Sl. No. 2(ii)"
+    },
+    "citation": "Income-tax Act, 2025 (30 of 2025) s.393(1) Table Sl. No. 2(ii) col. D: 50,000 for a month or part of a month"
+  },
+  {
+    "name": "section 194-I plant, machinery or equipment, FY 2024-25 (2025-03-31)",
+    "input": {
+      "id": "tds.194I.rate.plant-machinery-equipment",
+      "onDate": "2025-03-31"
+    },
+    "expected": {
+      "value": {
+        "basisPoints": 200
+      },
+      "basis": null,
+      "act": "IT-1961",
+      "section": "194-I(a)"
+    },
+    "citation": "Income-tax Act, 1961 s.194-I(a): two per cent for the use of any machinery or plant or equipment"
+  },
+  {
+    "name": "section 194-I plant, machinery or equipment, FY 2025-26 (2025-04-01)",
+    "input": {
+      "id": "tds.194I.rate.plant-machinery-equipment",
+      "onDate": "2025-04-01"
+    },
+    "expected": {
+      "value": {
+        "basisPoints": 200
+      },
+      "basis": null,
+      "act": "IT-1961",
+      "section": "194-I(a)"
+    },
+    "citation": "Income-tax Act, 1961 s.194-I(a): two per cent for the use of any machinery or plant or equipment"
+  },
+  {
+    "name": "section 194-I plant, machinery or equipment, FY 2026-27 (2026-04-01)",
+    "input": {
+      "id": "tds.194I.rate.plant-machinery-equipment",
+      "onDate": "2026-04-01"
+    },
+    "expected": {
+      "value": {
+        "basisPoints": 200
+      },
+      "basis": null,
+      "act": "IT-2025",
+      "section": "393(1) Table Sl. No. 2(ii)"
+    },
+    "citation": "Income-tax Act, 2025 (30 of 2025) s.393(1) Table Sl. No. 2(ii) col. D rate (a): 2%"
+  },
+  {
+    "name": "section 194-I land, building, furniture or fittings, FY 2024-25 (2025-03-31)",
+    "input": {
+      "id": "tds.194I.rate.land-building-furniture-fittings",
+      "onDate": "2025-03-31"
+    },
+    "expected": {
+      "value": {
+        "basisPoints": 1000
+      },
+      "basis": null,
+      "act": "IT-1961",
+      "section": "194-I(b)"
+    },
+    "citation": "Income-tax Act, 1961 s.194-I(b): ten per cent for the use of land, building, furniture or fittings"
+  },
+  {
+    "name": "section 194-I land, building, furniture or fittings, FY 2025-26 (2025-04-01)",
+    "input": {
+      "id": "tds.194I.rate.land-building-furniture-fittings",
+      "onDate": "2025-04-01"
+    },
+    "expected": {
+      "value": {
+        "basisPoints": 1000
+      },
+      "basis": null,
+      "act": "IT-1961",
+      "section": "194-I(b)"
+    },
+    "citation": "Income-tax Act, 1961 s.194-I(b): ten per cent for the use of land, building, furniture or fittings"
+  },
+  {
+    "name": "section 194-I land, building, furniture or fittings, FY 2026-27 (2026-04-01)",
+    "input": {
+      "id": "tds.194I.rate.land-building-furniture-fittings",
+      "onDate": "2026-04-01"
+    },
+    "expected": {
+      "value": {
+        "basisPoints": 1000
+      },
+      "basis": null,
+      "act": "IT-2025",
+      "section": "393(1) Table Sl. No. 2(ii)"
+    },
+    "citation": "Income-tax Act, 2025 (30 of 2025) s.393(1) Table Sl. No. 2(ii) col. D rate (b): 10%"
+  },
+  {
+    "name": "section 194J threshold per category, FY 2024-25 (2025-03-31)",
+    "input": {
+      "id": "tds.194J.threshold.per-category",
+      "onDate": "2025-03-31"
+    },
+    "expected": {
+      "value": {
+        "amountPaise": 3000000
+      },
+      "basis": "aggregate_per_payee_per_category_per_financial_year",
+      "act": "IT-1961",
+      "section": "194J(1) first proviso cl. (B)"
+    },
+    "citation": "Income-tax Act, 1961 s.194J(1) first proviso cl. (B) before Finance Act, 2025 (7 of 2025) s.65: thirty thousand rupees for each of clauses (a), (b), (c), (d)"
+  },
+  {
+    "name": "section 194J threshold per category, FY 2025-26 (2025-04-01)",
+    "input": {
+      "id": "tds.194J.threshold.per-category",
+      "onDate": "2025-04-01"
+    },
+    "expected": {
+      "value": {
+        "amountPaise": 5000000
+      },
+      "basis": "aggregate_per_payee_per_category_per_financial_year",
+      "act": "IT-1961",
+      "section": "194J(1) first proviso cl. (B)"
+    },
+    "citation": "Finance Act, 2025 (7 of 2025) s.65: fifty thousand rupees for each category, w.e.f. 1-4-2025"
+  },
+  {
+    "name": "section 194J threshold per category, FY 2026-27 (2026-04-01)",
+    "input": {
+      "id": "tds.194J.threshold.per-category",
+      "onDate": "2026-04-01"
+    },
+    "expected": {
+      "value": {
+        "amountPaise": 5000000
+      },
+      "basis": "aggregate_per_payee_per_category_per_financial_year",
+      "act": "IT-2025",
+      "section": "393(1) Table Sl. No. 6(iii)"
+    },
+    "citation": "Income-tax Act, 2025 (30 of 2025) s.393(1) Table Sl. No. 6(iii) col. D threshold (i): 50,000 for (a), (b), (d) and (e) of col. B"
+  },
+  {
+    "name": "section 194J director remuneration, FY 2024-25 (2025-03-31)",
+    "input": {
+      "id": "tds.194J.threshold.director-remuneration",
+      "onDate": "2025-03-31"
+    },
+    "expected": {
+      "value": {
+        "amountPaise": 0
+      },
+      "basis": "no_threshold",
+      "act": "IT-1961",
+      "section": "194J(1)(ba)"
+    },
+    "citation": "Income-tax Act, 1961 s.194J(1)(ba): first proviso cl. (B) sets no threshold for director remuneration"
+  },
+  {
+    "name": "section 194J director remuneration, FY 2025-26 (2025-04-01)",
+    "input": {
+      "id": "tds.194J.threshold.director-remuneration",
+      "onDate": "2025-04-01"
+    },
+    "expected": {
+      "value": {
+        "amountPaise": 0
+      },
+      "basis": "no_threshold",
+      "act": "IT-1961",
+      "section": "194J(1)(ba)"
+    },
+    "citation": "Income-tax Act, 1961 s.194J(1)(ba) as amended by Finance Act, 2025 (7 of 2025) s.65: still no threshold for clause (ba)"
+  },
+  {
+    "name": "section 194J director remuneration, FY 2026-27 (2026-04-01)",
+    "input": {
+      "id": "tds.194J.threshold.director-remuneration",
+      "onDate": "2026-04-01"
+    },
+    "expected": {
+      "value": {
+        "amountPaise": 0
+      },
+      "basis": "no_threshold",
+      "act": "IT-2025",
+      "section": "393(1) Table Sl. No. 6(iii)"
+    },
+    "citation": "Income-tax Act, 2025 (30 of 2025) s.393(1) Table Sl. No. 6(iii) col. D threshold (ii): Nil for (c) of col. B"
+  },
+  {
+    "name": "section 194J technical services, film royalty, call centre, FY 2024-25 (2025-03-31)",
+    "input": {
+      "id": "tds.194J.rate.technical-film-royalty-call-centre",
+      "onDate": "2025-03-31"
+    },
+    "expected": {
+      "value": {
+        "basisPoints": 200
+      },
+      "basis": null,
+      "act": "IT-1961",
+      "section": "194J(1)"
+    },
+    "citation": "Income-tax Act, 1961 s.194J(1) and its fourth proviso: two per cent for fees for technical services, film royalty and a call-centre payee"
+  },
+  {
+    "name": "section 194J technical services, film royalty, call centre, FY 2025-26 (2025-04-01)",
+    "input": {
+      "id": "tds.194J.rate.technical-film-royalty-call-centre",
+      "onDate": "2025-04-01"
+    },
+    "expected": {
+      "value": {
+        "basisPoints": 200
+      },
+      "basis": null,
+      "act": "IT-1961",
+      "section": "194J(1)"
+    },
+    "citation": "Income-tax Act, 1961 s.194J(1) and its fourth proviso: two per cent for fees for technical services, film royalty and a call-centre payee"
+  },
+  {
+    "name": "section 194J technical services, film royalty, call centre, FY 2026-27 (2026-04-01)",
+    "input": {
+      "id": "tds.194J.rate.technical-film-royalty-call-centre",
+      "onDate": "2026-04-01"
+    },
+    "expected": {
+      "value": {
+        "basisPoints": 200
+      },
+      "basis": null,
+      "act": "IT-2025",
+      "section": "393(1) Table Sl. No. 6(iii)"
+    },
+    "citation": "Income-tax Act, 2025 (30 of 2025) s.393(1) Table Sl. No. 6(iii) col. D rate (a): 2%"
+  },
+  {
+    "name": "section 194J professional services and other sums, FY 2024-25 (2025-03-31)",
+    "input": {
+      "id": "tds.194J.rate.other",
+      "onDate": "2025-03-31"
+    },
+    "expected": {
+      "value": {
+        "basisPoints": 1000
+      },
+      "basis": null,
+      "act": "IT-1961",
+      "section": "194J(1)"
+    },
+    "citation": "Income-tax Act, 1961 s.194J(1): ten per cent of such sum in other cases"
+  },
+  {
+    "name": "section 194J professional services and other sums, FY 2025-26 (2025-04-01)",
+    "input": {
+      "id": "tds.194J.rate.other",
+      "onDate": "2025-04-01"
+    },
+    "expected": {
+      "value": {
+        "basisPoints": 1000
+      },
+      "basis": null,
+      "act": "IT-1961",
+      "section": "194J(1)"
+    },
+    "citation": "Income-tax Act, 1961 s.194J(1): ten per cent of such sum in other cases"
+  },
+  {
+    "name": "section 194J professional services and other sums, FY 2026-27 (2026-04-01)",
+    "input": {
+      "id": "tds.194J.rate.other",
+      "onDate": "2026-04-01"
+    },
+    "expected": {
+      "value": {
+        "basisPoints": 1000
+      },
+      "basis": null,
+      "act": "IT-2025",
+      "section": "393(1) Table Sl. No. 6(iii)"
+    },
+    "citation": "Income-tax Act, 2025 (30 of 2025) s.393(1) Table Sl. No. 6(iii) col. D rate (b): 10%"
+  },
+  {
+    "name": "section 194-I threshold on the first day of FY 2024-25 is the financial-year aggregate",
+    "input": {
+      "id": "tds.194I.threshold",
+      "onDate": "2024-04-01"
+    },
+    "expected": {
+      "value": {
+        "amountPaise": 24000000
+      },
+      "basis": "aggregate_per_payee_per_financial_year",
+      "act": "IT-1961",
+      "section": "194-I first proviso"
+    },
+    "citation": "Income-tax Act, 1961 s.194-I first proviso as amended by Act 7 of 2019 w.e.f. 1-4-2019: two hundred and forty thousand rupees during the financial year"
+  },
+  {
+    "name": "section 194J threshold on the last day of FY 2025-26 is still the Income-tax Act 1961 figure",
+    "input": {
+      "id": "tds.194J.threshold.per-category",
+      "onDate": "2026-03-31"
+    },
+    "expected": {
+      "value": {
+        "amountPaise": 5000000
+      },
+      "basis": "aggregate_per_payee_per_category_per_financial_year",
+      "act": "IT-1961",
+      "section": "194J(1) first proviso cl. (B)"
+    },
+    "citation": "Finance Act, 2025 (7 of 2025) s.65; Income-tax Act, 2025 s.1(3) brings the new Act into force on 1-4-2026"
+  },
+  {
+    "name": "section 194A thresholds are not recorded before FY 2024-25",
+    "input": {
+      "id": "tds.194A.threshold.other-payer",
+      "onDate": "2024-03-31"
+    },
+    "expected": {
+      "error": "RULE_NOT_IN_FORCE"
+    },
+    "citation": "Registry coverage for TDS rules starts on 1-4-2024 (FY 2024-25); earlier years fail closed"
+  },
+  {
+    "name": "section 194A rates in force are not known beyond FY 2026-27",
+    "input": {
+      "id": "tds.194A.rate",
+      "onDate": "2027-04-01"
+    },
+    "expected": {
+      "error": "RULE_NOT_IN_FORCE"
+    },
+    "citation": "Finance Act, 2026 (4 of 2026) First Schedule Part II fixes the rates in force for deductions during FY 2026-27 only"
+  }
+]
