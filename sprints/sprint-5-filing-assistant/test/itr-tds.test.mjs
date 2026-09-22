@@ -71,18 +71,20 @@ describe('GATE 3: TDS monitor fixture-exact flags', () => {
   const { rows: payments } = parsePayments(load('payments.csv'));
   const flags = monitorTds({ payments, fy: '2026-27' });
 
-  it('4 flags', () => { assert.equal(flags.length, 4); });
-  it('Finance Bank 194A single', () => {
-    assert.deepEqual(flags[0], { payee: 'Finance Bank', section: '194A', kind: 'single', basis: 45000, rate: 0.10, assumedTds: 4500 });
+  const core = (f) => ({ payee: f.payee, section: f.section, kind: f.kind, basis: f.basis, rate: f.rate, assumedTds: f.assumedTds });
+  it('3 flags (Tech Pro 194J Rs 35,000 is under the Rs 50,000 FY aggregate from 1-Apr-2025)', () => { assert.equal(flags.length, 3); });
+  it('Finance Bank 194A: non-bank payer threshold Rs 10,000 aggregate, 10%', () => {
+    assert.deepEqual(core(flags[0]), { payee: 'Finance Bank', section: '194A', kind: 'aggregate', basis: 45000, rate: 0.10, assumedTds: 4500 });
   });
-  it('Raj Contractors 194C annual', () => {
-    assert.deepEqual(flags[1], { payee: 'Raj Contractors', section: '194C', kind: 'annual', basis: 110000, rate: 0.01, assumedTds: 1100 });
+  it('Raj Contractors 194C: aggregate over Rs 1 lakh, unknown payee type taxed at 2%', () => {
+    assert.deepEqual(core(flags[1]), { payee: 'Raj Contractors', section: '194C', kind: 'aggregate', basis: 110000, rate: 0.02, assumedTds: 2200 });
+    assert.ok(flags[1].assumptions.length > 0);
   });
-  it('Shelter RE 194I annual', () => {
-    assert.deepEqual(flags[2], { payee: 'Shelter RE', section: '194I', kind: 'annual', basis: 400000, rate: 0.10, assumedTds: 40000 });
+  it('Shelter RE 194I: Rs 4 lakh in one month exceeds Rs 50,000 per month, 10%', () => {
+    assert.deepEqual(core(flags[2]), { payee: 'Shelter RE', section: '194I', kind: 'monthly', basis: 400000, rate: 0.10, assumedTds: 40000 });
   });
-  it('Tech Pro 194J single', () => {
-    assert.deepEqual(flags[3], { payee: 'Tech Pro', section: '194J', kind: 'single', basis: 35000, rate: 0.10, assumedTds: 3500 });
+  it('every flag names the dated rules it used', () => {
+    for (const f of flags) assert.ok(f.rulesUsed.every((id) => /@\d{4}-\d{2}-\d{2}$/.test(id)));
   });
 });
 
@@ -113,12 +115,23 @@ describe('GATE 5b: TDS above the liability becomes a refund', () => {
 });
 
 describe('GATE 6: Below-threshold TDS payee yields no flag', () => {
-  it('no flag for small single payment under 194A threshold', () => {
+  it('no flag for 194A interest of Rs 9,000 (under Rs 10,000)', () => {
     const payments = [
-      { fy: '2026-27', payee: 'Small Vendor', section: '194A', date: '2026-07-01', amount: 30000 },
+      { fy: '2026-27', payee: 'Small Vendor', section: '194A', date: '2026-07-01', amount: 9000 },
     ];
     const flags = monitorTds({ payments, fy: '2026-27' });
     assert.equal(flags.length, 0);
+  });
+  it('194A interest of Rs 30,000 is flagged in FY 2026-27 (threshold Rs 10,000 since 1-Apr-2025)', () => {
+    const flags = monitorTds({ payments: [{ fy: '2026-27', payee: 'Small Vendor', section: '194A', date: '2026-07-01', amount: 30000 }], fy: '2026-27' });
+    assert.equal(flags.length, 1);
+  });
+  it('194J and 194I use the FY 2024-25 thresholds for FY 2024-25 payments', () => {
+    const flags = monitorTds({ fy: '2024-25', payments: [
+      { fy: '2024-25', payee: 'Tech', section: '194J', date: '2024-09-01', amount: 35000 },
+      { fy: '2024-25', payee: 'Shelter', section: '194I', date: '2024-08-10', amount: 45000 },
+    ] });
+    assert.deepEqual(flags.map((f) => [f.payee, f.threshold]), [['Tech', 30000]]);
   });
 });
 

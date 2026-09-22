@@ -60,13 +60,13 @@ test('GATE 1: end-to-end fixture filingPrep wires all modules with exact values'
   assert.equal(r.gstr3b.itc.netItc, 130400);
   assert.equal(r.itr.recommended, 'new');
   assert.equal(r.itr.payable, 901900);
-  assert.equal(r.tds.length, 4);
+  assert.equal(r.tds.length, 3);
   assert.equal(r.errors.length, 0);
   assert.equal(r.ok, false);
   assert.equal(r.summary.period, '2026-08');
   assert.equal(r.summary.totalTaxable, 1030000);
   assert.equal(r.summary.eInvoiceViolations, 2);
-  assert.equal(r.summary.tdsFlags, 4);
+  assert.equal(r.summary.tdsFlags, 3);
 });
 
 test('GATE 2: e-invoice validation flags INV-108 with exactly two errors and excludes it', () => {
@@ -122,7 +122,7 @@ test('GATE 4: regime compare math is exact', () => {
   assert.equal(r.itr.tdsCredit.total, 57500);
 });
 
-test('GATE 5: TDS monitor produces exact four flags from payment ledger', () => {
+test('GATE 5: TDS monitor produces the three flags due under the law in force', () => {
   const r = filingPrep({
     salesText: read('sales.csv'),
     inwardText: read('inward.csv'),
@@ -133,10 +133,9 @@ test('GATE 5: TDS monitor produces exact four flags from payment ledger', () => 
   });
   const flags = r.tds.map((f) => `${f.payee} ${f.section} ${f.kind} ${f.basis} @${f.rate} = ${f.assumedTds}`);
   assert.deepEqual(flags, [
-    'Finance Bank 194A single 45000 @0.1 = 4500',
-    'Raj Contractors 194C annual 110000 @0.01 = 1100',
-    'Shelter RE 194I annual 400000 @0.1 = 40000',
-    'Tech Pro 194J single 35000 @0.1 = 3500',
+    'Finance Bank 194A aggregate 45000 @0.1 = 4500',
+    'Raj Contractors 194C aggregate 110000 @0.02 = 2200',
+    'Shelter RE 194I monthly 400000 @0.1 = 40000',
   ]);
 });
 
