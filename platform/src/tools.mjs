@@ -906,7 +906,7 @@ export const TOOLS = [
           gstr1Text: gstr1,
           gstr3bText: files.gstr3b,
         },
-        { clientGstin: state.company.gstin, asOfDate: args.asOfDate || '2026-09-07' },
+        { clientGstin: state.company.gstin, asOfDate: args.asOfDate || localToday(), supplierFilings: args.supplierFilings },
       ));
     },
   },

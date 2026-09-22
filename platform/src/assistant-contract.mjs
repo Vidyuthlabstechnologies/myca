@@ -409,7 +409,21 @@ export const TOOL_ARG_SCHEMAS = {
       gstr2b: { type: 'string' },
       gstr3b: { type: 'string' },
       gstr1: { type: 'string' },
-      asOfDate: { type: 'string' },
+      asOfDate: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' },
+      supplierFilings: {
+        type: 'array',
+        maxItems: 5000,
+        items: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['gstin', 'period'],
+          properties: {
+            gstin: { type: 'string', maxLength: 15 },
+            period: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}$' },
+            filedOn: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' },
+          },
+        },
+      },
     },
   },
   validate_gstin: {
@@ -517,6 +531,7 @@ function validateObject(schema, value, path = 'args') {
     if (childSchema.type === 'array') {
       if (!Array.isArray(value[key])) return `${path}.${key} must be array`;
       if (childSchema.minItems != null && value[key].length < childSchema.minItems) return `${path}.${key} needs at least ${childSchema.minItems} item(s)`;
+      if (childSchema.maxItems != null && value[key].length > childSchema.maxItems) return `${path}.${key} allows at most ${childSchema.maxItems} item(s)`;
       for (let i = 0; i < value[key].length; i++) {
         const err = validateObject(childSchema.items, value[key][i], `${path}.${key}[${i}]`);
         if (err) return err;

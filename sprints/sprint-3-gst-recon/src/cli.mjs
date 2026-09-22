@@ -27,7 +27,7 @@ const input = {};
 for (const [flag, key] of Object.entries(required)) input[key] = readFileSync(resolve(args[flag]), 'utf8');
 for (const [flag, key] of Object.entries(optional)) if (args[flag]) input[key] = readFileSync(resolve(args[flag]), 'utf8');
 
-const result = reconcile(input, { clientGstin: args['--client'] || null, asOfDate: args['--as-of'] || '2025-04-30' });
+const result = reconcile(input, { clientGstin: args['--client'] || null, asOfDate: args['--as-of'] || undefined });
 
 for (const line of toHumanText(result)) console.log(line);
 

@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { parseGSTR1 } from '../src/gstr1.mjs';
 import { parseGSTR3B } from '../src/gstr3b.mjs';
 import { matchGSTR13 } from '../src/matchgstr13.mjs';
-import { flagRule37A } from '../src/rule37a.mjs';
+import { checkItcAvailability } from '../src/itc-checks.mjs';
 import { imsSnapshot, sectionLabel } from '../src/ims.mjs';
 
 const fixture = (name) =>
@@ -82,7 +82,7 @@ test('GATE 3: matchGSTR13 finds the 18% intra mismatch', () => {
   assert.equal(result.stats.mismatchCount, 1);
 });
 
-test('GATE 4: flagRule37A flags INV-1002 and INV-1003, leaves CN-0405 alone', () => {
+test('GATE 4: s.16(2)(aa) blocks the ITC (not the invoice value) of INV-1002 and INV-1003, and the credit note reduces eligible credit', () => {
   const purchaseRegister = [
     { gstin: '27AABCU9603R1ZN', supplierName: 'ABC TEXTILES PVT LTD', invoiceNo: 'INV-1001', invoiceDate: '2025-04-03', taxableValue: 100000, cgst: 6000, sgst: 6000, igst: 0, totalValue: 112000, sourceRow: 2, isCreditNote: false },
     { gstin: '27AABCU9603R1ZN', supplierName: 'ABC TEXTILES PVT LTD', invoiceNo: 'INV-1002', invoiceDate: '2025-04-10', taxableValue: 50000, cgst: 3000, sgst: 3000, igst: 0, totalValue: 56000, sourceRow: 3, isCreditNote: false },
@@ -100,28 +100,21 @@ test('GATE 4: flagRule37A flags INV-1002 and INV-1003, leaves CN-0405 alone', ()
     { section: 'CDNR', supplierGstin: '27AABCU9603R1ZN', supplierName: 'ABC TEXTILES PVT LTD', invoiceNo: 'CN-0405', invoiceDate: '2025-04-28', taxableValue: 5000, cgst: 300, sgst: 300, igst: 0, cess: 0, totalValue: 5600, itcAvailability: 'Y' },
   ];
 
-  const { blocked, unclaimed, summary } = flagRule37A({ purchaseRegister, gstr2b });
+  const { blocked, unclaimed, creditNotesNotBooked, summary } = checkItcAvailability({ purchaseRegister, gstr2b });
 
-  assert.equal(blocked.length, 2);
-  const inv1002 = blocked.find((entry) => entry.purchase.invoiceNo === 'INV-1002');
-  assert.match(inv1002.reason, /supplier default/);
-  assert.equal(inv1002.blockedCredit, 56000);
-  const inv1003 = blocked.find((entry) => entry.purchase.invoiceNo === 'INV-1003');
-  assert.match(inv1003.reason, /absent from GSTR-2B/);
-  assert.equal(inv1003.blockedCredit, 22400);
-
-  assert.equal(unclaimed.length, 1);
-  assert.equal(unclaimed[0].invoiceNo, 'FR-201');
-  assert.equal(unclaimed[0].totalValue, 14160);
-
-  assert.equal(summary.totalBlockedCredit, 78400);
-  assert.equal(summary.totalUnclaimedCredit, 14160);
-
-  assert.ok(!blocked.some((entry) => entry.purchase.invoiceNo === 'CN-0405'));
-  assert.ok(!unclaimed.some((entry) => entry.invoiceNo === 'CN-0405'));
+  assert.deepEqual(blocked.map((b) => [b.purchase.invoiceNo, b.code, b.blockedCredit]), [
+    ['INV-1002', 'ITC_NOT_AVAILABLE_IN_2B', 6000],
+    ['INV-1003', 'NOT_IN_2B', 2400],
+  ]);
+  assert.ok(blocked.every((b) => b.section === 'Section 16(2)(aa)'));
+  assert.deepEqual(unclaimed.map((u) => [u.invoice.invoiceNo, u.unclaimedCredit]), [['FR-201', 2160]]);
+  assert.equal(creditNotesNotBooked.length, 0);
+  assert.equal(summary.totalBlockedCredit, 8400);
+  assert.equal(summary.totalUnclaimedCredit, 2160);
+  assert.equal(summary.eligibleItc, 19800, '12,000 + 5,400 + 3,000 less the 600 credit note');
 });
 
-test('GATE 5: flatten rule37A honours itcAvailability Y and blocks A', () => {
+test('GATE 5: anything other than Y in the 2B availability column blocks the credit', () => {
   const purchaseRegister = [
     { gstin: '27AABCU9603R1ZN', supplierName: 'ABC', invoiceNo: 'INV-Y1', invoiceDate: '2025-04-03', taxableValue: 1000, cgst: 60, sgst: 60, igst: 0, totalValue: 1120, sourceRow: 1, isCreditNote: false },
     { gstin: '27AABCU9603R1ZN', supplierName: 'ABC', invoiceNo: 'INV-A1', invoiceDate: '2025-04-04', taxableValue: 2000, cgst: 120, sgst: 120, igst: 0, totalValue: 2240, sourceRow: 2, isCreditNote: false },
@@ -131,14 +124,14 @@ test('GATE 5: flatten rule37A honours itcAvailability Y and blocks A', () => {
     { section: 'B2B', supplierGstin: '27AABCU9603R1ZN', supplierName: 'ABC', invoiceNo: 'INV-A1', invoiceDate: '2025-04-04', taxableValue: 2000, cgst: 120, sgst: 120, igst: 0, cess: 0, totalValue: 2240, itcAvailability: 'A' },
   ];
 
-  const { blocked } = flagRule37A({ purchaseRegister, gstr2b });
+  const { blocked } = checkItcAvailability({ purchaseRegister, gstr2b });
   assert.equal(blocked.length, 1);
   assert.equal(blocked[0].purchase.invoiceNo, 'INV-A1');
-  assert.match(blocked[0].reason, /supplier default/);
-  assert.equal(blocked[0].blockedCredit, 2240);
+  assert.equal(blocked[0].code, 'ITC_NOT_AVAILABLE_IN_2B');
+  assert.equal(blocked[0].blockedCredit, 240);
 });
 
-test('GATE 6: imsSnapshot aggregates section-wise input credit', () => {
+test('GATE 6: imsSnapshot aggregates section-wise input credit, with credit notes negative', () => {
   const gstr2b = [
     { section: 'B2B', supplierGstin: '27AABCU9603R1ZN', supplierName: 'ABC TEXTILES PVT LTD', invoiceNo: 'INV-1001', invoiceDate: '2025-04-03', taxableValue: 100000, cgst: 6000, sgst: 6000, igst: 0, cess: 0, totalValue: 112000, itcAvailability: 'Y' },
     { section: 'B2B', supplierGstin: '27AABCU9603R1ZN', supplierName: 'ABC TEXTILES PVT LTD', invoiceNo: 'INV-1002', invoiceDate: '2025-04-10', taxableValue: 50000, cgst: 3000, sgst: 3000, igst: 0, cess: 0, totalValue: 56000, itcAvailability: 'N' },
@@ -150,8 +143,8 @@ test('GATE 6: imsSnapshot aggregates section-wise input credit', () => {
 
   const { sections, total } = imsSnapshot(gstr2b);
   assert.deepEqual(sections.B2B, { count: 5, taxable: 217000, inputCredit: 28560 });
-  assert.deepEqual(sections.CDNR, { count: 1, taxable: 5000, inputCredit: 600 });
-  assert.deepEqual(total, { count: 6, taxable: 222000, inputCredit: 29160 });
+  assert.deepEqual(sections.CDNR, { count: 1, taxable: -5000, inputCredit: -600 }, 'a credit note reduces credit');
+  assert.deepEqual(total, { count: 6, taxable: 212000, inputCredit: 27960 });
 });
 
 test('GATE 7: sectionLabel maps known sections and passes through unknown', () => {
