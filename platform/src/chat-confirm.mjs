@@ -18,6 +18,7 @@ export const CONFIRM_TOOLS = new Set([
   'create_invoice', 'create_purchase', 'record_receipt', 'post_expense',
   'import_tally', 'import_tally_xml', 'import_zoho', 'import_bank',
   'govt_generate_irn', 'govt_nic_cancel_irn',
+  'exception_decide',
 ]);
 
 const PENDING_TTL_MS = 10 * 60 * 1000;
@@ -173,6 +174,27 @@ function irnPreview(state, args, cancel) {
   };
 }
 
+const DECISION_WORD = { waive: 'Waive', resolve: 'Resolve', assign: 'Assign', reopen: 'Reopen' };
+
+function exceptionPreview(state, args) {
+  const entry = (state.exceptions || []).find((e) => e.id === args.id);
+  if (!entry) return { blockers: [`${args.id} is not in the queue.`], summary: '', effects: [], figures: {} };
+  const reason = String(args.note || '').trim();
+  const blockers = [];
+  if ((args.decision === 'waive' || args.decision === 'resolve') && !reason) {
+    blockers.push('Say why, in a note; the reason is part of the audit trail.');
+  }
+  if (args.decision === 'assign' && !String(args.owner || '').trim()) blockers.push('Name the person it is assigned to.');
+  return {
+    blockers,
+    summary: `${DECISION_WORD[args.decision] || args.decision} ${entry.id}: ${entry.title} (${entry.severity}, ${money(entry.moneyAtRisk)} at risk).`,
+    effects: args.decision === 'waive'
+      ? ['The exception stays in the books as waived, with your reason and your name against it.', 'It will not come back to the open queue while it is still detected.']
+      : ['The queue is updated and the decision is written to the audit trail.'],
+    figures: { severity: entry.severity, moneyAtRisk: entry.moneyAtRisk },
+  };
+}
+
 const PREVIEWERS = {
   create_invoice: (state, args) => documentPreview(state, args, 'sale'),
   create_purchase: (state, args) => documentPreview(state, args, 'purchase'),
@@ -184,6 +206,7 @@ const PREVIEWERS = {
   import_bank: bankPreview,
   govt_generate_irn: (state, args) => irnPreview(state, args, false),
   govt_nic_cancel_irn: (state, args) => irnPreview(state, args, true),
+  exception_decide: exceptionPreview,
 };
 
 export function needsConfirmation(name) {

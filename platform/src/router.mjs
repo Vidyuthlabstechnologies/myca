@@ -187,6 +187,21 @@ ${d.hint}` : ''}`;
   if (name === 'govt_save_credentials') {
     return `Saved NIC credentials for ${d.gstin || '(no GSTIN)'} (${d.env}). Secrets are stored encrypted in the ${d.vault || 'local'} vault on this PC.`;
   }
+  if (name === 'exceptions') {
+    const s = d.summary || { count: 0, bySeverity: {}, moneyAtRisk: 0 };
+    if (!s.count) return `Nothing needs attention in ${d.scope === 'firm' ? 'the firm' : d.clientId || 'these books'} as of ${d.asOfDate}.`;
+    const counts = ['critical', 'high', 'medium', 'low'].filter((k) => s.bySeverity[k]).map((k) => `${s.bySeverity[k]} ${k}`).join(', ');
+    const rows = (d.exceptions || []).slice(0, 12).map((e) => {
+      const worth = e.moneyAtRisk ? `  ${money(e.moneyAtRisk)}` : '';
+      return `${e.id}  ${String(e.severity).padEnd(8)}${e.clientId === 'SELF' ? '' : `${e.clientId}  `}${e.title}${worth}\n    ${e.why}`;
+    }).join('\n');
+    const more = (d.exceptions || []).length > 12 ? `\n… and ${d.exceptions.length - 12} more.` : '';
+    return `${s.count} open (${counts}), ${money(s.moneyAtRisk)} at risk as of ${d.asOfDate}${d.reconciled ? ', including GSTR-2B findings' : ''}.\n\n${rows}${more}`;
+  }
+  if (name === 'exception_decide') {
+    const e = d.exception;
+    return `${e.id} is now ${e.status}${e.owner ? ` with ${e.owner}` : ''}. ${e.note || ''}`.trim();
+  }
   if (name === 'company_profile') {
     return `${d.company.name}  GSTIN ${d.company.gstin}  FY ${d.company.fy}\nInvoices ${d.invoices} · purchases ${d.purchases ?? 0} · checksum ${d.chain.ok ? 'intact' : 'BROKEN'}.`;
   }

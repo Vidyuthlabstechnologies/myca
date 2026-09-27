@@ -27,7 +27,9 @@ import { getSandboxClient } from './sandbox-client.mjs';
 import { getNimClient } from './nim-client.mjs';
 import { runSandboxOperation } from './sandbox-adapter.mjs';
 import { requestApproval, decideApproval, approvalStatus, normalizeActor } from './approvals.mjs';
-import { normalizeClientId } from './books.mjs';
+import { normalizeClientId, getBook } from './books.mjs';
+import { refreshExceptions, listExceptions, summarise, decideException } from './exceptions.mjs';
+import { appendAuditEvent } from './ca-api.mjs';
 import { csvRows } from './text-safe.mjs';
 import { liveCallsEnabled, mockModeEnabled } from './runtime-config.mjs';
 import { seedDemo } from './store.mjs';
@@ -71,6 +73,28 @@ function deadlineProfile(clientId, company, extra, salesInvoices) {
     gstTds: yes(extra.gstTds ?? company.gstTds) ? 'TRUE' : 'FALSE',
     presumptive: yes(extra.presumptive ?? company.presumptive) ? 'TRUE' : 'FALSE',
   };
+}
+
+const HELD_BACK_REASONS = new Set([
+  'gst_rate_unknown', 'gst_rate_unreadable', 'gst_rates_unknown_on_date', 'gst_rate_missing',
+  'tax_does_not_match_rate', 'tax_exceeds_amount', 'period_locked', 'blocking', 'INVALID_DATE', 'DUPLICATE_ID',
+]);
+
+function heldBackFrom(skipped = []) {
+  return skipped
+    .filter((s) => HELD_BACK_REASONS.has(String(s.reason)) || String(s.reason).startsWith('rate_not_in_force'))
+    .slice(0, 100)
+    .map((s) => ({ ref: String(s.voucherNo ?? s.sourceRow ?? s.id ?? '?'), reason: String(s.reason) }));
+}
+
+function reconcileFor(state, asOfDate) {
+  const purchaseRegister = state.files.purchaseRegister || purchaseRegisterCsv(state.purchases || []);
+  const gstr1 = state.files.gstr1 || invoicesToSalesCsv(state.invoices || []);
+  if (!state.files.gstr2b || !state.files.gstr3b) return null;
+  return reconcile(
+    { purchaseRegisterText: purchaseRegister, gstr2bText: state.files.gstr2b, gstr1Text: gstr1, gstr3bText: state.files.gstr3b },
+    { clientGstin: state.company.gstin, asOfDate, supplierFilings: undefined },
+  );
 }
 
 function deadlineProfiles(state) {
@@ -834,7 +858,7 @@ export const TOOLS = [
       const result = ingestTally({ type: 'csv', content: args.csv }, { asOfDate: args.asOfDate, fileLabel: args.fileName || 'tally.csv' });
       const good = (result.rows || []).filter((r) => !r._blocking);
       const ledger = postTallyRows(state, good);
-      state.imports.push({ source: 'tally', at: new Date().toISOString(), ok: result.ok, rows: result.rows.length, posted: ledger.posted });
+      state.imports.push({ source: 'tally', at: new Date().toISOString(), ok: result.ok, rows: result.rows.length, posted: ledger.posted, heldBack: heldBackFrom(ledger.skipped) });
       return ok({ ...result, ledger });
     },
   },
@@ -852,7 +876,7 @@ export const TOOLS = [
       const result = ingestTally({ type: 'csv', content: converted.csv }, { asOfDate: args.asOfDate, fileLabel: args.fileName || 'tally.xml' });
       const good = (result.rows || []).filter((r) => !r._blocking);
       const ledger = postTallyRows(state, good);
-      state.imports.push({ source: 'tally-xml', at: new Date().toISOString(), ok: result.ok, rows: result.rows.length, posted: ledger.posted });
+      state.imports.push({ source: 'tally-xml', at: new Date().toISOString(), ok: result.ok, rows: result.rows.length, posted: ledger.posted, heldBack: heldBackFrom(ledger.skipped) });
       return ok({ ...result, converted, ledger });
     },
   },
@@ -880,7 +904,7 @@ export const TOOLS = [
         if (result.ok) created.push(result);
         else skipped.push({ id: inv.id, reason: result.error });
       }
-      state.imports.push({ source: 'zoho', at: new Date().toISOString(), count: created.length, skipped: skipped.length });
+      state.imports.push({ source: 'zoho', at: new Date().toISOString(), count: created.length, skipped: skipped.length, heldBack: heldBackFrom(skipped.map((s) => ({ voucherNo: s.id, reason: s.reason }))) });
       return ok({ parsed: parsed.meta, created, skipped });
     },
   },
@@ -894,7 +918,7 @@ export const TOOLS = [
       const result = ingestBank({ type, content: args.content }, { asOfDate: args.asOfDate, fileLabel: args.fileName || 'bank' });
       const good = (result.rows || []).filter((r) => !r._blocking);
       const ledger = postBankRows(state, good);
-      state.imports.push({ source: 'bank', at: new Date().toISOString(), ok: result.ok, rows: result.rows?.length || 0, posted: ledger.posted });
+      state.imports.push({ source: 'bank', at: new Date().toISOString(), ok: result.ok, rows: result.rows?.length || 0, posted: ledger.posted, heldBack: heldBackFrom(ledger.skipped) });
       return ok({ ...result, ledger });
     },
   },
@@ -993,6 +1017,51 @@ export const TOOLS = [
       const docsText = 'clientId,period,returnType,docType,status,receivedDate,source\n';
       const run = complianceRun({ clientsText, docsText, holidaysText: args.holidaysText || '' }, { months: args.months, asOfDate });
       return ok({ asOfDate, ...run });
+    },
+  },
+  {
+    name: 'exceptions',
+    title: 'Exception queue',
+    description: 'Everything that needs a person: what it is, why, what it is worth, and whether it is still open. Refreshes from the engines on every run.',
+    args: ['scope', 'status', 'severity', 'source', 'asOfDate'],
+    run: (state, args = {}) => {
+      const asOfDate = /^\d{4}-\d{2}-\d{2}$/.test(String(args.asOfDate || '')) ? args.asOfDate : localToday();
+      const clientsText = csvRows([DEADLINE_COLUMNS, ...deadlineProfiles(state).map((p) => DEADLINE_COLUMNS.map((key) => p[key]))]);
+      const run = complianceRun({ clientsText, docsText: 'clientId,period,returnType,docType,status,receivedDate,source\n', holidaysText: '' }, { asOfDate });
+      const byClient = new Map();
+      for (const row of run.deadlines || []) {
+        if (!byClient.has(row.clientId)) byClient.set(row.clientId, []);
+        byClient.get(row.clientId).push(row);
+      }
+      const filter = { status: args.status || 'open', severity: args.severity, source: args.source };
+      const root = state.__root || state;
+      if (args.scope === 'firm') {
+        const books = [['SELF', root], ...(root.clients || []).map((c) => [c.clientId, getBook(root, c.clientId)])].filter(([, book]) => book);
+        const rows = [];
+        for (const [clientId, book] of books) {
+          refreshExceptions(book, { deadlines: byClient.get(clientId) || [] }, { asOfDate, clientId });
+          rows.push(...listExceptions(book, filter));
+        }
+        return ok({ asOfDate, scope: 'firm', summary: summarise(rows), exceptions: rows });
+      }
+      const clientId = String(state.activeClientId || 'SELF');
+      const reconcile = state.files.gstr2b
+        ? reconcileFor(state, asOfDate)
+        : null;
+      const refreshed = refreshExceptions(state, { deadlines: byClient.get(clientId) || [], reconcile }, { asOfDate, clientId });
+      const rows = listExceptions(state, filter);
+      return ok({ asOfDate, scope: 'client', clientId, refreshed, reconciled: Boolean(reconcile), summary: summarise(rows), exceptions: rows });
+    },
+  },
+  {
+    name: 'exception_decide',
+    title: 'Decide an exception',
+    description: 'Assign, resolve, waive or reopen one exception. Resolving or waiving needs a reason, and every decision is audited.',
+    args: ['id', 'decision', 'note', 'owner'],
+    run: (state, args = {}) => {
+      const root = state.__root || state;
+      const out = decideException(root, state, { ...args, clientId: String(state.activeClientId || 'SELF'), actorId: args.actorId || 'ca' });
+      return out.ok ? ok(out) : fail(out.error);
     },
   },
   {

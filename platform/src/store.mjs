@@ -31,6 +31,8 @@ export function createState() {
     files: {},
     attachments: {},
     pendingChatAction: null,
+    exceptions: [],
+    exceptionSeq: 0,
     lockThrough: '',
     integrationConnections: {},
     documents: [],

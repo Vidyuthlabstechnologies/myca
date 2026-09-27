@@ -1,6 +1,6 @@
 # MyCA — Status
 
-As of the latest commit on the Phase 0 branch. Verification: platform **350/350**,
+As of the latest commit on the Phase 0 branch. Verification: platform **362/362**,
 engines **329/329** (`11 / 11 / 49 / 51 / 68 / 2` plus **137** statutory-rule tests),
 CI green, end-to-end smoke runs on Windows. "Verified" means covered by tests or an
 actual run — not merely written.
@@ -46,7 +46,7 @@ and [`README.md`](README.md) for what is left and how it is being done.
 - Duplicate protection on import; zero-amount rows dropped
 
 ### Assistant, tools, and contracts
-- 69 named tools; strict JSON-schema validation; keyword router
+- 71 named tools; strict JSON-schema validation; keyword router
 - Unsafe tools blocked from the assistant (`govt_save_credentials`, `seed_demo`,
   `approval_decide`)
 - Local CA API contract harness: REQ-CA-001…015 readiness, clients, ledger,

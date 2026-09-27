@@ -225,6 +225,28 @@ export const TOOL_ARG_SCHEMAS = {
       date: { type: 'string' },
     },
   },
+  exceptions: {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      scope: { type: 'string', enum: ['client', 'firm'] },
+      status: { type: 'string', enum: ['open', 'all', 'resolved', 'waived', 'in_review'] },
+      severity: { type: 'string', enum: ['critical', 'high', 'medium', 'low'] },
+      source: { type: 'string', maxLength: 32 },
+      asOfDate: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' },
+    },
+  },
+  exception_decide: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['id', 'decision'],
+    properties: {
+      id: { type: 'string', pattern: '^EXC-[0-9]{6}$' },
+      decision: { type: 'string', enum: ['assign', 'resolve', 'waive', 'reopen'] },
+      note: { type: 'string', maxLength: 500 },
+      owner: { type: 'string', maxLength: 64 },
+    },
+  },
   gst_payable: noArgs,
   prepare_gstr1: noArgs,
   export_gstr1_json: {
@@ -477,6 +499,7 @@ const TOOL_RISK = {
   govt_generate_irn: 'external_government_api',
   sandbox_operation: 'external_government_api',
   approval_request: 'internal_workflow',
+  exception_decide: 'internal_workflow',
 };
 
 export function assistantTools(tools) {
@@ -647,6 +670,23 @@ export function planLocalToolCall(state, message) {
     || text.match(/^([0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][0-9A-Z]Z[0-9A-Z])$/i);
   if (standaloneGstin && !doc) {
     return { kind: 'tool', name: 'validate_gstin', args: { gstin: standaloneGstin[1].toUpperCase() } };
+  }
+
+  const decisionMatch = text.match(/\b(waive|resolve|reopen|assign)\s+(EXC-\d{6})\b(.*)$/i);
+  if (decisionMatch) {
+    const [, verb, id, tail] = decisionMatch;
+    const note = (tail.match(/(?:because|reason|:|-)\s*(.+)$/i) || [])[1] || '';
+    const owner = (tail.match(/\bto\s+([A-Za-z][A-Za-z0-9 .'-]{1,40})/i) || [])[1] || '';
+    return {
+      kind: 'tool',
+      name: 'exception_decide',
+      args: {
+        id: id.toUpperCase(),
+        decision: verb.toLowerCase(),
+        ...(note.trim() ? { note: note.trim().slice(0, 500) } : {}),
+        ...(owner.trim() ? { owner: owner.trim() } : {}),
+      },
+    };
   }
 
   const printId = text.match(/\b(INV-\d+|BILL-\d+)\b/i);

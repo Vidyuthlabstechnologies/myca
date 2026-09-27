@@ -18,8 +18,8 @@ professional.
 | | |
 |---|---|
 | Phase | **Phase 0, pilot readiness — 58% complete** ([tracker](docs/superpowers/PROGRESS.md)) |
-| Tests | **679 passing** — platform 350; engines 11 / 11 / 49 / 51 / 68 / 2; statutory rules 137 |
-| Tools | **69** named, schema-validated tools |
+| Tests | **691 passing** — platform 362; engines 11 / 11 / 49 / 51 / 68 / 2; statutory rules 137 |
+| Tools | **71** named, schema-validated tools |
 | Audit findings | Critical 4/4 closed · **High 18/18 closed** ([audit](docs/audit/2026-09-21-codebase-audit.md)) |
 | Live portal calls | **Off by default** (`MYCA_ENABLE_LIVE_CALLS=0`) |
 | Installer | Windows NSIS + portable `.exe`, built and verified in CI |
@@ -76,7 +76,7 @@ desktop/ (Electron) ── http://127.0.0.1:4780 ──► src/server.mjs
                                         src/router.mjs + assistant-contract.mjs
                                                    │  strict schemas, named tools only
                                                    ▼
-                                             src/tools.mjs          (69 tools)
+                                             src/tools.mjs          (71 tools)
              ┌─────────────────────────────────────┼─────────────────────────────────────┐
              ▼                                     ▼                                     ▼
      src/ledger.mjs / invoice.mjs        sprints/ (engines + rules)        src/action-gate.mjs
@@ -105,7 +105,7 @@ desktop/ (Electron) ── http://127.0.0.1:4780 ──► src/server.mjs
 
 ```bash
 cd platform
-npm test                 # 350 platform tests
+npm test                 # 362 platform tests
 npm run dev              # http://127.0.0.1:4780 (plain node)
 npm start                # Electron window (after: npm i)
 npm run pack             # NSIS + portable installer (after: npm i -D electron electron-builder)
@@ -162,6 +162,16 @@ Configuration is optional for local books. For provider/NIC integrations copy
   rate is never assumed: it comes from the row or its tax columns and must be in force,
   and re-importing a file posts nothing while a genuine repeat row still posts.
 
+**Exception queue**
+
+- Everything the engines flag — an invoice GSTR-1 cannot report, blocked or reversible input
+  credit, a 2B mismatch, an overdue return, a row an import held back, books that do not
+  tie — becomes one queued item with its severity, the money at risk, the rule that produced
+  it and the evidence to open.
+- A refresh raises what is new, keeps what is still true, and closes what is fixed. A CA can
+  assign, resolve or waive with a reason; every decision is audited, and a waiver is not
+  undone by the next refresh.
+- Per client, or across the whole firm in one list.
 **Safety**
 
 - Chat never posts on its own: a message that would change the books or reach a

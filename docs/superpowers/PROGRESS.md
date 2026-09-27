@@ -2,7 +2,7 @@
 
 **Phase 0 (pilot readiness) engineering: 58% complete**
 
-Last updated 2026-09-27 (after H10 — every Critical and High finding closed). Work now happens directly on the main branch (`claude/codebase-audit-review-9cf396`) with no background workflows. The release, statutory-rules, gate and ledger-integrity lanes are merged in. Suite: platform 350/350, every sprint and rules suite green, `npm run stress` passing.
+Last updated 2026-09-27 (after H10 — every Critical and High finding closed). Work now happens directly on the main branch (`claude/codebase-audit-review-9cf396`) with no background workflows. The release, statutory-rules, gate and ledger-integrity lanes are merged in. Suite: platform 362/362, every sprint and rules suite green, `npm run stress` passing.
 
 ## How the percentage is computed
 
