@@ -17,10 +17,10 @@ professional.
 
 | | |
 |---|---|
-| Phase | **Phase 0, pilot readiness — 50% complete** ([tracker](docs/superpowers/PROGRESS.md)) |
-| Tests | **665 passing** — platform 336; engines 11 / 11 / 49 / 51 / 68 / 2; statutory rules 137 |
+| Phase | **Phase 0, pilot readiness — 53% complete** ([tracker](docs/superpowers/PROGRESS.md)) |
+| Tests | **668 passing** — platform 339; engines 11 / 11 / 49 / 51 / 68 / 2; statutory rules 137 |
 | Tools | **69** named, schema-validated tools |
-| Audit findings | Critical 4/4 closed · High 16/18 closed ([audit](docs/audit/2026-09-21-codebase-audit.md)) |
+| Audit findings | Critical 4/4 closed · High 17/18 closed ([audit](docs/audit/2026-09-21-codebase-audit.md)) |
 | Live portal calls | **Off by default** (`MYCA_ENABLE_LIVE_CALLS=0`) |
 | Installer | Windows NSIS + portable `.exe`, built and verified in CI |
 
@@ -105,7 +105,7 @@ desktop/ (Electron) ── http://127.0.0.1:4780 ──► src/server.mjs
 
 ```bash
 cd platform
-npm test                 # 336 platform tests
+npm test                 # 339 platform tests
 npm run dev              # http://127.0.0.1:4780 (plain node)
 npm start                # Electron window (after: npm i)
 npm run pack             # NSIS + portable installer (after: npm i -D electron electron-builder)
@@ -177,7 +177,6 @@ Configuration is optional for local books. For provider/NIC integrations copy
 | Item | Finding | What it means |
 |---|---|---|
 | Chat safety | H10 | An ordinary question can post entries; chat needs the preview-and-confirm card and a risk class per tool. |
-| Desktop hardening | H16 | `Host` is not validated and the renderer token is a constant, so a website could read local data by DNS rebinding. |
 | Remaining client hardening | — | Timeouts and body caps on every client, provider-doctor and notification honesty. |
 | Firm-user PIN identity | — | Who did what, before any cloud work. |
 | Parsing and audit engine | — | Remaining medium findings in the parsers and the defensible-audit engine. |

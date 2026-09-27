@@ -271,9 +271,9 @@ test('C4: a state the server cannot open is reported instead of crashing startup
   const original = writeLegacyState(path, { clients: [{ clientId: '__proto__', name: 'Evil' }] });
   const server = new URL('../src/server.mjs', import.meta.url).href;
   const script = [
-    `const { startServer } = await import(${JSON.stringify(server)});`,
+    `const { startServer, apiClientToken } = await import(${JSON.stringify(server)});`,
     'const started = await startServer(0);',
-    "const res = await fetch(`http://127.0.0.1:${started.port}/api/snapshot`, { headers: { 'x-myca-client': 'renderer' } });",
+    "const res = await fetch(`http://127.0.0.1:${started.port}/api/snapshot`, { headers: { 'x-myca-client': apiClientToken() } });",
     'console.log(JSON.stringify({ started, status: res.status, body: await res.json() }));',
     'process.exit(0);',
   ].join('\n');

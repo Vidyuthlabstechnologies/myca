@@ -30,8 +30,10 @@ const EXPORT_FROM = /(?:^|[\s;])export\s+(\*(?:\s+as\s+[\w$]+)?|\{[^}]*\})\s+fro
 const EXPORT_LIST = /(?:^|[\s;])export\s+\{([^}]*)\}(?!\s*from\b)/g;
 const LOCAL_EXPORT = /(?:^|[\s;])export\s+(?:default\s+)?(?:async\s+)?(?:function\s*\*?|class|const|let|var)\s*([\w$]+)/g;
 
+const REQUEST_HEADER_NAME = /sec-fetch-[a-z-]+/gi;
+
 function usesNetwork(text) {
-  if (FETCH_REFERENCE.test(text)) return true;
+  if (FETCH_REFERENCE.test(text.replace(REQUEST_HEADER_NAME, 'sec-header'))) return true;
   for (const match of text.matchAll(BUILTIN_IMPORT)) {
     const [, bindings = '', staticModule, dynamicModule] = match;
     const moduleName = staticModule || dynamicModule;
@@ -225,6 +227,8 @@ test('architecture detector: finds fetch, sockets and imports, and ignores look-
   assert.equal(usesNetwork("import http from 'node:http';"), true);
   assert.equal(usesNetwork("const tls = await import('node:tls');"), true);
   assert.equal(usesNetwork("import { createServer } from 'node:http';"), false);
+  assert.equal(usesNetwork("const site = req.headers['sec-fetch-site'];"), false, 'a request header name is not a fetch call');
+  assert.equal(usesNetwork("import fetch from 'node-fetch';"), true, 'a fetch polyfill is still network');
   assert.deepEqual(importSpecifiers([
     "import { a } from './a.mjs';",
     'export {',

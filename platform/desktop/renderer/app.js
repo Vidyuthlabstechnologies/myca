@@ -1,4 +1,5 @@
-const apiHeaders = { 'content-type': 'application/json', 'x-myca-client': 'renderer' };
+const apiToken = document.querySelector('meta[name="myca-api-token"]')?.content || '';
+const apiHeaders = { 'content-type': 'application/json', 'x-myca-client': apiToken };
 
 const api = {
   async chat(message) {
@@ -10,7 +11,7 @@ const api = {
     return r.json();
   },
   async snapshot() {
-    const r = await fetch('/api/snapshot', { headers: { 'x-myca-client': 'renderer' } });
+    const r = await fetch('/api/snapshot', { headers: { 'x-myca-client': apiToken } });
     return r.json();
   },
   async attach(kind, name, content) {

@@ -2,6 +2,7 @@
  * MyCA stress: ledger volume, concurrent HTTP writes, live read burst.
  * Isolated writes use a temp APPDATA so %APPDATA%\MyCA books are not flooded.
  */
+import { randomBytes } from 'node:crypto';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -13,6 +14,7 @@ import { invoicesToGstr1Json } from '../src/gstr1-json.mjs';
 import { chat } from '../src/router.mjs';
 
 const LIVE = process.env.STRESS_LIVE_URL || 'http://127.0.0.1:4780';
+const API_TOKEN = process.env.MYCA_API_TOKEN || randomBytes(32).toString('hex');
 const HTTP_N = Number(process.env.STRESS_HTTP || 300);
 const ENGINE_N = Number(process.env.STRESS_ENGINE || 1500);
 const BILLS = Number(process.env.STRESS_BILLS || 400);
@@ -78,7 +80,7 @@ function waitFor(url, timeoutMs = 20000) {
   const t0 = Date.now();
   return (async function loop() {
     try {
-      const r = await fetch(url, { headers: { 'x-myca-client': 'renderer' } });
+      const r = await fetch(url, { headers: { 'x-myca-client': API_TOKEN } });
       if (r.ok || r.status === 400) return;
     } catch { /* retry */ }
     if (Date.now() - t0 > timeoutMs) throw new Error(`timeout waiting ${url}`);
@@ -90,7 +92,7 @@ function waitFor(url, timeoutMs = 20000) {
 async function httpBurst(base, label) {
   const post = (name, args) => fetch(`${base}/api/tool`, {
     method: 'POST',
-    headers: { 'content-type': 'application/json', 'x-myca-client': 'renderer' },
+    headers: { 'content-type': 'application/json', 'x-myca-client': API_TOKEN },
     body: JSON.stringify({ name, args }),
   }).then((r) => r.json());
 
@@ -105,8 +107,8 @@ async function httpBurst(base, label) {
   const ok = results.filter((r) => r.ok).length;
   const tb = await post('trial_balance', {});
   const d = tb.data || tb;
-  const snap = await fetch(`${base}/api/snapshot`, { headers: { 'x-myca-client': 'renderer' } }).then((r) => r.json());
-  const reads = await Promise.all(Array.from({ length: 200 }, () => fetch(`${base}/api/snapshot`, { headers: { 'x-myca-client': 'renderer' } }).then((r) => r.status)));
+  const snap = await fetch(`${base}/api/snapshot`, { headers: { 'x-myca-client': API_TOKEN } }).then((r) => r.json());
+  const reads = await Promise.all(Array.from({ length: 200 }, () => fetch(`${base}/api/snapshot`, { headers: { 'x-myca-client': API_TOKEN } }).then((r) => r.status)));
   report(`http_${label}`, {
     ms: +(performance.now() - t0).toFixed(1),
     posts: HTTP_N,
@@ -122,7 +124,7 @@ async function httpBurst(base, label) {
 async function liveReads() {
   const t0 = performance.now();
   try {
-    const ping = await fetch(`${LIVE}/api/snapshot`, { headers: { 'x-myca-client': 'renderer' } });
+    const ping = await fetch(`${LIVE}/api/snapshot`, { headers: { 'x-myca-client': API_TOKEN } });
     if (!ping.ok) {
       report('live_reads', { skipped: true, reason: `HTTP ${ping.status}` });
       return;
@@ -134,10 +136,10 @@ async function liveReads() {
   const n = 250;
   const codes = await Promise.all(Array.from({ length: n }, async (_, i) => {
     const path = i % 3 === 0 ? '/api/snapshot' : '/api/tool';
-    if (path === '/api/snapshot') return (await fetch(`${LIVE}${path}`, { headers: { 'x-myca-client': 'renderer' } })).status;
+    if (path === '/api/snapshot') return (await fetch(`${LIVE}${path}`, { headers: { 'x-myca-client': API_TOKEN } })).status;
     const r = await fetch(`${LIVE}/api/tool`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json', 'x-myca-client': 'renderer' },
+      headers: { 'content-type': 'application/json', 'x-myca-client': API_TOKEN },
       body: JSON.stringify({ name: 'trial_balance', args: {} }),
     });
     return r.status;
@@ -155,7 +157,7 @@ async function isolatedHttp() {
   const root = mkdtempSync(join(tmpdir(), 'myca-stress-'));
   const child = spawn(process.execPath, ['src/server.mjs'], {
     cwd: join(import.meta.dirname, '..'),
-    env: { ...process.env, APPDATA: root, PORT: '4799' },
+    env: { ...process.env, APPDATA: root, PORT: '4799', MYCA_API_TOKEN: API_TOKEN },
     stdio: 'pipe',
   });
   let err = '';

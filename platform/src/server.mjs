@@ -1,4 +1,5 @@
 import { createServer } from 'node:http';
+import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { readFileSync, existsSync } from 'node:fs';
 import { extname, join, dirname, resolve, relative, isAbsolute } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -17,11 +18,54 @@ const types = {
   '.ttf': 'font/ttf',
 };
 const MAX_BODY_BYTES = 25 * 1024 * 1024;
-const API_CLIENT_HEADER = 'renderer';
+const LOCAL_HOSTS = new Set(['127.0.0.1', 'localhost', '[::1]', '::1']);
+const TOKEN_HEADER = 'x-myca-client';
+const TOKEN_MARKER = '__MYCA_API_TOKEN__';
 
 let session;
 let httpServer;
 let openError = '';
+let apiToken = '';
+let boundPort = 0;
+
+export function apiClientToken() {
+  return apiToken;
+}
+
+// The token is minted per launch, so another local process cannot reach the API
+// with a constant header, and it never leaves this machine.
+// A launcher (the Electron shell, or a test harness that spawns the server) may
+// supply the token so it can call the API; anything shorter than 32 characters is
+// ignored and a random one is used instead.
+function mintToken() {
+  const supplied = String(process.env.MYCA_API_TOKEN || '').trim();
+  apiToken = supplied.length >= 32 ? supplied : randomBytes(32).toString('hex');
+  return apiToken;
+}
+
+function tokenMatches(value) {
+  const given = Buffer.from(String(value == null ? '' : value));
+  const expected = Buffer.from(apiToken);
+  return given.length === expected.length && timingSafeEqual(given, expected);
+}
+
+// Without this check a page on any domain that resolves to 127.0.0.1 (DNS
+// rebinding) becomes same-origin with the books and can read them.
+export function isAllowedHost(host, port = boundPort) {
+  const raw = String(host == null ? '' : host).trim();
+  if (!raw) return false;
+  const match = /^(\[[^\]]+\]|[^:]+)(?::(\d{1,5}))?$/.exec(raw);
+  if (!match) return false;
+  const [, hostname, hostPort] = match;
+  if (!LOCAL_HOSTS.has(hostname.toLowerCase())) return false;
+  if (!port) return true;
+  return hostPort == null ? false : Number(hostPort) === Number(port);
+}
+
+function isCrossSite(req) {
+  const site = String(req.headers['sec-fetch-site'] || '').toLowerCase();
+  return site !== '' && site !== 'same-origin' && site !== 'none';
+}
 
 export function isAllowedOrigin(origin, host) {
   if (!origin) return true;
@@ -78,22 +122,27 @@ function readBody(req) {
   });
 }
 
+function refuse(message) {
+  const err = new Error(message);
+  err.statusCode = 403;
+  return err;
+}
+
+function assertLocalRequest(req) {
+  if (!isAllowedHost(req.headers.host)) throw refuse('host not allowed');
+  if (isCrossSite(req)) throw refuse('cross-site request not allowed');
+}
+
 function assertApiRequest(req) {
-  if (!isAllowedOrigin(req.headers.origin, req.headers.host)) {
-    const err = new Error('origin not allowed');
-    err.statusCode = 403;
-    throw err;
-  }
-  if (req.headers['x-myca-client'] !== API_CLIENT_HEADER) {
-    const err = new Error('missing MyCA client header');
-    err.statusCode = 403;
-    throw err;
-  }
+  assertLocalRequest(req);
+  if (!isAllowedOrigin(req.headers.origin, req.headers.host)) throw refuse('origin not allowed');
+  if (!tokenMatches(req.headers[TOKEN_HEADER])) throw refuse('missing or stale MyCA client token');
 }
 
 function handler(req, res) {
   return (async () => {
     const url = new URL(req.url, 'http://127.0.0.1');
+    assertLocalRequest(req);
     if (req.method === 'OPTIONS') {
       if (!isAllowedOrigin(req.headers.origin, req.headers.host)) {
         res.writeHead(403, { 'content-type': 'application/json', 'cache-control': 'no-store' });
@@ -140,12 +189,19 @@ function handler(req, res) {
     const abs = resolve(ui, rel);
     const escaped = isAbsolute(relative(ui, abs)) || relative(ui, abs).startsWith('..');
     if (escaped || !existsSync(abs)) return send(req, res, 404, { error: 'not found' });
+    // The page is served this launch's token; nothing else can read it, because a
+    // request from any other host or site was refused above.
+    if (extname(abs) === '.html') {
+      const html = readFileSync(abs, 'utf8').split(TOKEN_MARKER).join(apiToken);
+      return send(req, res, 200, html, types['.html']);
+    }
     send(req, res, 200, readFileSync(abs), types[extname(abs)] || 'application/octet-stream');
   })().catch((err) => send(req, res, err.statusCode || 400, { error: String(err.message || err) }));
 }
 
 export function startServer(port = Number(process.env.PORT || 4780)) {
   if (httpServer) return Promise.resolve(openError ? { port, reused: true, error: openError } : { port, reused: true });
+  mintToken();
   httpServer = createServer(handler);
   return new Promise((resolveListen, reject) => {
     httpServer.once('error', (err) => {
@@ -156,6 +212,7 @@ export function startServer(port = Number(process.env.PORT || 4780)) {
     });
     httpServer.listen(port, '127.0.0.1', () => {
       const bound = httpServer.address().port;
+      boundPort = bound;
       try {
         migrateGovtVault();
         session = openSession();

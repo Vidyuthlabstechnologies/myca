@@ -1,11 +1,11 @@
 # MyCA — Status
 
-As of the latest commit on the Phase 0 branch. Verification: platform **336/336**,
+As of the latest commit on the Phase 0 branch. Verification: platform **339/339**,
 engines **329/329** (`11 / 11 / 49 / 51 / 68 / 2` plus **137** statutory-rule tests),
 CI green, end-to-end smoke runs on Windows. "Verified" means covered by tests or an
 actual run — not merely written.
 
-Phase 0 (pilot readiness) is **50% complete**: Critical findings 4/4 closed, High 16/18.
+Phase 0 (pilot readiness) is **53% complete**: Critical findings 4/4 closed, High 17/18.
 See [`docs/superpowers/PROGRESS.md`](docs/superpowers/PROGRESS.md) for the live tracker
 and [`README.md`](README.md) for what is left and how it is being done.
 
