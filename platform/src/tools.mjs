@@ -865,11 +865,23 @@ export const TOOLS = [
       if (!args.csv) return fail('csv required');
       const parsed = parseZohoBooksCsv(args.csv);
       const created = [];
+      const skipped = [];
       for (const inv of parsed.invoices) {
-        created.push(createInvoice(state, inv));
+        if ((state.invoices || []).some((i) => i.id === inv.id)) {
+          skipped.push({ id: inv.id, reason: 'exists' });
+          continue;
+        }
+        const missingRate = inv.lines.some((l) => l.gstRate == null);
+        if (missingRate) {
+          skipped.push({ id: inv.id, reason: 'gst_rate_missing' });
+          continue;
+        }
+        const result = createInvoice(state, inv);
+        if (result.ok) created.push(result);
+        else skipped.push({ id: inv.id, reason: result.error });
       }
-      state.imports.push({ source: 'zoho', at: new Date().toISOString(), count: created.length });
-      return ok({ parsed: parsed.meta, created });
+      state.imports.push({ source: 'zoho', at: new Date().toISOString(), count: created.length, skipped: skipped.length });
+      return ok({ parsed: parsed.meta, created, skipped });
     },
   },
   {

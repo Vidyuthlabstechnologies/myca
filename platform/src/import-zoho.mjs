@@ -1,3 +1,5 @@
+import { isoDate } from './dates.mjs';
+
 function cellMap(header) {
   const aliases = {
     invoiceNo: ['invoice number', 'invoice no', 'invoice#', 'inv no'],
@@ -13,6 +15,7 @@ function cellMap(header) {
     sgst: ['sgst'],
     igst: ['igst'],
     taxable: ['taxable amount', 'subtotal', 'item total'],
+    placeOfSupply: ['place of supply', 'place of supply code', 'destination of supply'],
   };
   const idx = {};
   const lower = header.map((h) => h.trim().toLowerCase());
@@ -45,12 +48,17 @@ function split(text) {
   });
 }
 
-function isoDate(v) {
-  const s = String(v).trim();
-  const m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
-  if (m) return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
-  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
-  return s;
+// Keep an unreadable date as written so the posting step refuses it by name
+// instead of silently booking the invoice on today's date.
+function invoiceDate(v) {
+  return isoDate(v) || String(v == null ? '' : v).trim();
+}
+
+function taxRate(cell) {
+  const raw = String(cell == null ? '' : cell).replace('%', '').trim();
+  if (raw === '') return null;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : null;
 }
 
 export function parseZohoBooksCsv(text) {
@@ -67,9 +75,10 @@ export function parseZohoBooksCsv(text) {
     if (!grouped.has(id)) {
       grouped.set(id, {
         id,
-        date: isoDate(cells[idx.date] || ''),
+        date: invoiceDate(cells[idx.date] || ''),
         partyName: cells[idx.partyName] || '',
         partyGstin: (cells[idx.partyGstin] || '').trim(),
+        partyState: /^\d{1,2}$/.test(String(cells[idx.placeOfSupply] || '').trim()) ? String(cells[idx.placeOfSupply]).trim().padStart(2, '0') : '',
         lines: [],
       });
     }
@@ -78,8 +87,9 @@ export function parseZohoBooksCsv(text) {
       hsn: cells[idx.hsn] || '0000',
       qty: Number(cells[idx.qty] || 1),
       rate: Number(String(cells[idx.rate] || '0').replace(/[,₹]/g, '')),
-      gstRate: Number(cells[idx.gstRate] || 18),
+      gstRate: taxRate(cells[idx.gstRate]),
     });
   }
-  return { invoices: [...grouped.values()], meta: { count: grouped.size } };
+  const invoices = [...grouped.values()];
+  return { invoices, meta: { count: invoices.length } };
 }

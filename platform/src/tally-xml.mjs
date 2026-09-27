@@ -4,14 +4,27 @@
  */
 import { csvRows } from './text-safe.mjs';
 
+const ENTITIES = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'" };
+
+function decodeEntities(text) {
+  return String(text).replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (whole, body) => {
+    const key = body.toLowerCase();
+    if (key.startsWith('#x')) return String.fromCodePoint(parseInt(body.slice(2), 16));
+    if (key.startsWith('#')) return String.fromCodePoint(Number(body.slice(1)));
+    return Object.hasOwn(ENTITIES, key) ? ENTITIES[key] : whole;
+  });
+}
+
 function tag(block, name) {
   const m = block.match(new RegExp(`<${name}[^>]*>([\\s\\S]*?)</${name}>`, 'i'));
-  return m ? m[1].replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1').trim() : '';
+  if (!m) return '';
+  const cdata = m[1].match(/^\s*<!\[CDATA\[([\s\S]*?)\]\]>\s*$/);
+  return cdata ? cdata[1].trim() : decodeEntities(m[1].replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1')).trim();
 }
 
 function attr(block, name) {
   const m = block.match(new RegExp(`\\b${name}\\s*=\\s*"([^"]*)"`, 'i'));
-  return m ? m[1] : '';
+  return m ? decodeEntities(m[1]) : '';
 }
 
 function tallyDate(raw) {
