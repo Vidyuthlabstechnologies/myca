@@ -43,6 +43,7 @@ export function newBook(company = {}) {
     files: {},
     attachments: {},
     pendingFile: null,
+    pendingChatAction: null,
   };
 }
 

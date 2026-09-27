@@ -1,5 +1,6 @@
 import { TOOLS, runTool } from './tools.mjs';
 import { planLocalToolCall, validateAssistantToolCall } from './assistant-contract.mjs';
+import { needsConfirmation, previewOf, openPending, takePending, clearPending, previewReply, blockedReply } from './chat-confirm.mjs';
 
 function money(n) {
   return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 }).format(Number(n) || 0);
@@ -193,9 +194,57 @@ ${d.hint}` : ''}`;
   return text.length > 4000 ? `${text.slice(0, 4000)}\n…truncated` : text;
 }
 
+async function runPlanned(state, name, args, clearsPendingFile) {
+  const runArgs = name === 'sandbox_operation' ? { ...args, actorId: 'assistant' } : args;
+  const result = await runTool(state, name, runArgs);
+  if (clearsPendingFile) state.pendingFile = null;
+  return result;
+}
+
 export async function chat(state, message) {
   const plan = planLocalToolCall(state, message);
   if (plan.kind === 'reply') return { reply: plan.reply, tools: plan.tools || [], blocked: plan.blocked || false };
+
+  if (plan.kind === 'cancel') {
+    const pending = state.pendingChatAction;
+    clearPending(state);
+    return { reply: `Discarded: ${pending?.summary || 'nothing was posted'}`, tools: [], posted: false };
+  }
+
+  if (plan.kind === 'confirm') {
+    const taken = takePending(state, plan.decision);
+    if (!taken.ok) {
+      const why = taken.error === 'EXPIRED'
+        ? 'That preview is more than ten minutes old, so I discarded it. Say it again if you still want it.'
+        : taken.error === 'TOKEN_MISMATCH'
+          ? 'That confirmation code does not match the preview I am holding, so I discarded it.'
+          : 'There is nothing waiting to be posted.';
+      return { reply: why, tools: [], posted: false };
+    }
+    const { pending } = taken;
+    const recheck = validateAssistantToolCall(pending.name, pending.args);
+    if (!recheck.ok) return { reply: `Tool ${pending.name} blocked: ${recheck.error}`, tools: [], blocked: true };
+    const result = await runPlanned(state, pending.name, pending.args, pending.clearsPendingFile);
+    return { reply: fmtToolResult(pending.name, result), tools: [{ name: pending.name, result }], posted: result.ok !== false, confirmed: true };
+  }
+
+  if (needsConfirmation(plan.name)) {
+    const schemaCheck = validateAssistantToolCall(plan.name, plan.args);
+    if (!schemaCheck.ok) return { reply: `Tool ${plan.name} blocked: ${schemaCheck.error}`, tools: [], blocked: true };
+    const preview = previewOf(state, plan.name, plan.args);
+    if (preview.blockers.length) {
+      clearPending(state);
+      return { reply: blockedReply(preview), tools: [], posted: false, blocked: true, preview };
+    }
+    const pending = openPending(state, plan, preview);
+    return {
+      reply: previewReply(preview, pending),
+      tools: [],
+      posted: false,
+      awaitingConfirmation: true,
+      preview: { token: pending.token, tool: pending.name, summary: preview.summary, effects: preview.effects, figures: preview.figures },
+    };
+  }
 
   const valid = validateAssistantToolCall(plan.name, plan.args);
   if (!valid.ok) return { reply: `Tool ${plan.name} blocked: ${valid.error}`, tools: [], blocked: true };

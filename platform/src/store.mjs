@@ -30,6 +30,7 @@ export function createState() {
     imports: [],
     files: {},
     attachments: {},
+    pendingChatAction: null,
     lockThrough: '',
     integrationConnections: {},
     documents: [],

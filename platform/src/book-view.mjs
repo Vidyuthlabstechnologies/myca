@@ -1,7 +1,7 @@
 export const BOOK_KEYS = new Set([
   'company', 'ledger', 'parties', 'vendors', 'invoices', 'purchases',
   'invoiceSeq', 'billSeq', 'transferSeq', 'imports', 'lockThrough',
-  'files', 'attachments', 'pendingFile',
+  'files', 'attachments', 'pendingFile', 'pendingChatAction',
 ]);
 
 export const FIRM_KEYS = new Set([

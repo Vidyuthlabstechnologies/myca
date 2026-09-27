@@ -1,8 +1,8 @@
 # MyCA: progress tracker
 
-**Phase 0 (pilot readiness) engineering: 53% complete**
+**Phase 0 (pilot readiness) engineering: 58% complete**
 
-Last updated 2026-09-27 (after H16). Work now happens directly on the main branch (`claude/codebase-audit-review-9cf396`) with no background workflows. The release, statutory-rules, gate and ledger-integrity lanes are merged in. Suite: platform 339/339, every sprint and rules suite green, `npm run stress` passing.
+Last updated 2026-09-27 (after H10 — every Critical and High finding closed). Work now happens directly on the main branch (`claude/codebase-audit-review-9cf396`) with no background workflows. The release, statutory-rules, gate and ledger-integrity lanes are merged in. Suite: platform 350/350, every sprint and rules suite green, `npm run stress` passing.
 
 ## How the percentage is computed
 
@@ -26,19 +26,19 @@ Weights were rebalanced when you asked for stress testing, to fit the stress cam
 | 3b | Income tax, TDS, deadlines (H1–H3, H18) | 12 | 5 / 6 | 10.0 | 🔨 Deadlines (H2, H18), income tax on 65 golden cases (H1) and TDS monitor (H3) rebuilt on the rules; left: final review |
 | 3c | Parsing and audit engine (mediums) | 7 | 0 / 3 | 0 | ⏳ Starts after the rule areas |
 | 4a | Ledger chain, invoice/tax correctness, dates, idempotent imports (H11–H13, H15) | 9 | 3 / 4 | 6.75 | 🔨 Ledger slice merged; invoice/tax slice done (H13 strict dates and lock, H15 GSTIN parties and per-invoice place of supply, CGST=SGST in paise, blocked ITC to cost, DUPLICATE_ID); import slice done (H11 rate never assumed, H12 dedup across Tally, bank and Zoho, Tally XML entities); left: final review |
-| 4b | Chat preview/confirm, atomic saves, audit hygiene, TOOL_RISK classes (H10) | 5 | 0 / – | 0 | ⏳ After Plans 1, 2a and 4a merge |
+| 4b | Chat preview/confirm, atomic saves, audit hygiene, TOOL_RISK classes (H10) | 5 | 2 / 4 | 2.5 | 🔨 H10 closed: questions never post, every chat write previews and needs one tap, input capped; left: atomic saves and audit hygiene |
 | 5 | Desktop hardening and shadow harness (H16) | 10 | 1 / 4 | 2.5 | 🔨 H16 closed: Host validated, per-launch API token, cross-site refused; left: remaining desktop hardening and the shadow harness |
 | 6 | Release pipeline (H17, CI) | 5 | 1 / 2 | 2.5 | 🔨 12 commits; build slice approved; final review in flight |
 | 7 | Docs sync | 3 | 0 / – | 0 | ⏳ Last |
 | S | Stress testing: recon, then permanent harness and fixes (Plan 8) | 8 | 0 / 2 | 0 | 🔄 Recon: scale, engines-at-scale, HTTP-concurrency and ledger-property findings skeptic-confirmed; crash-consistency and fuzz verification in flight |
-| | **Total** | **100** | | **52.55** | |
+| | **Total** | **100** | | **57.55** | |
 
 ## Audit findings closed
 
 | Severity | Total | Closed | Open |
 |---|---|---|---|
 | Critical | 4 | 4 (C1, C2, C3, C4) | 0 |
-| High | 18 | 17 (H1–H9, H11–H18) + chat IRN routing | 1 (H10 chat posting entries) |
+| High | 18 | **18 of 18** (H1–H18) + chat IRN routing | 0 |
 
 ## Owner actions (not counted: need you)
 

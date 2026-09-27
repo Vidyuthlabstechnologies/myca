@@ -16,12 +16,27 @@ function cleanPartyName(candidate) {
   return name;
 }
 
+const QUESTION_OPENERS = /^\s*(?:what|which|when|where|why|who|whose|whom|how|is|are|was|were|am|has|have|had|does|did|do|can|could|should|would|will|may|might|shall|show|list|tell|explain|status|any|anything)\b/i;
+const NEGATIONS = /\b(?:do\s*not|don'?t|never|stop|avoid|cancel|without|no\s+need)\b/i;
+
+// A question about the books must never change the books.
+export function isQuestion(text) {
+  const raw = String(text == null ? '' : text).trim();
+  if (!raw) return false;
+  if (/\?\s*$/.test(raw)) return true;
+  return QUESTION_OPENERS.test(raw);
+}
+
+export function isNegated(text) {
+  return NEGATIONS.test(String(text == null ? '' : text));
+}
+
 export function parseDocument(text) {
   const raw = normalizeChat(text);
   const gstinMatch = raw.match(GSTIN_RE);
   const gstin = gstinMatch ? gstinMatch[1].toUpperCase() : '';
   const rest = gstin ? raw.replace(gstinMatch[0], ' ') : raw;
-  const at = rest.match(/(?:at|@|rate)\s*₹?\s*([\d,]+(?:\.\d+)?)/i) || rest.match(/₹\s*([\d,]+(?:\.\d+)?)/);
+  const at = rest.match(/(?:\bat\b|@|\brate\b)\s*₹?\s*([\d,]+(?:\.\d+)?)/i) || rest.match(/₹\s*([\d,]+(?:\.\d+)?)/);
   const gstMatch = rest.match(/gst\s*(\d{1,2})\s*%/i);
   const partyMatch = rest.match(
     /(?:purchase|invoice|bill)\s+(?:from|for|to)\s+([A-Za-z][A-Za-z0-9 .&'-]{1,50}?)(?=\s+(?:gstin|,|\d)|$)/i,

@@ -102,6 +102,9 @@ export function openSession(path = defaultDataPath()) {
             messageLength: String(message || '').length,
             tools: (out.tools || []).map((tool) => tool.name),
             blocked: Boolean(out.blocked),
+            awaitingConfirmation: Boolean(out.awaitingConfirmation),
+            confirmed: Boolean(out.confirmed),
+            posted: out.posted === true,
           },
         });
         saveState(path, state);

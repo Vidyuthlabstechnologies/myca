@@ -119,9 +119,12 @@ test('C2: cancelling an IRN and generating an e-Way Bill need approval too', asy
   });
 });
 
-test('C2: chat "generate irn" with the live switch on still stops at the approval', async () => {
+test('C2: chat "generate irn" previews first, and with the live switch on still stops at the approval', async () => {
   const state = books();
-  const out = await withEnv(LIVE, () => chat(state, 'generate irn INV-0002'));
+  const preview = await withEnv(LIVE, () => chat(state, 'generate irn INV-0002'));
+  assert.equal(preview.awaitingConfirmation, true);
+  assert.equal(calls.length, 0, 'nothing is sent while a preview waits');
+  const out = await withEnv(LIVE, () => chat(state, 'yes'));
   assert.match(out.reply, /IRN not issued: APPROVAL_REQUIRED/);
   assert.equal(calls.length, 0);
   assert.equal(state.invoices[1].irn, undefined);

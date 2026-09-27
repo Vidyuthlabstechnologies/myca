@@ -399,7 +399,8 @@ test('chat: empty, help, unknown, gstn does not file, import without attach', as
 
 test('chat: GSTR-1 JSON vs GSTR-1 tables; print and pay; IRN missing invoice', async () => {
   const state = createState();
-  const sale = await chat(state, 'Invoice Retail Mart GSTIN 27AAACH7409R1Z1, 1 rolls at 1000, GST 5%');
+  await chat(state, 'Invoice Retail Mart GSTIN 27AAACH7409R1Z1, 1 rolls at 1000, GST 5%');
+  const sale = await chat(state, 'yes');
   assert.match(sale.reply, /Posted INV-0001/);
   const json = await chat(state, 'export gstr1 json');
   assert.equal(json.tools[0].name, 'export_gstr1_json');
@@ -409,12 +410,16 @@ test('chat: GSTR-1 JSON vs GSTR-1 tables; print and pay; IRN missing invoice', a
   assert.match(printed.reply, /Printable INV-0001/);
   const missingPrint = await chat(state, 'print INV-0099');
   assert.match(missingPrint.reply, /failed|NOT_FOUND/i);
-  const paid = await chat(state, 'INV-0001 paid by bank');
+  const receiptPreview = await chat(state, 'INV-0001 paid by bank');
+  assert.equal(receiptPreview.awaitingConfirmation, true);
+  assert.equal(state.invoices[0].status, 'posted', 'the receipt waits for confirmation');
+  const paid = await chat(state, 'yes');
   assert.equal(state.invoices[0].status, 'paid');
-  const irn = await chat(state, 'generate irn INV-0001');
+  await chat(state, 'generate irn INV-0001');
+  const irn = await chat(state, 'yes');
   assert.match(irn.reply, /IRN not issued/);
   const irnMissing = await chat(state, 'generate irn INV-7777');
-  assert.match(irnMissing.reply, /IRN not issued|INVOICE_NOT_FOUND/i);
+  assert.match(irnMissing.reply, /not in these books|IRN not issued|INVOICE_NOT_FOUND/i);
   void paid;
 });
 

@@ -1,4 +1,5 @@
-import { normalizeChat, parseDocument, isPurchaseIntent, isSaleIntent, ROUTES } from './intent.mjs';
+import { normalizeChat, parseDocument, isPurchaseIntent, isSaleIntent, isQuestion, isNegated, ROUTES } from './intent.mjs';
+import { confirmationIntent } from './chat-confirm.mjs';
 
 const noArgs = {
   type: 'object',
@@ -554,9 +555,21 @@ export function validateAssistantToolCall(name, args = {}) {
   return error ? { ok: false, error } : { ok: true, name, args: args || {} };
 }
 
+const MAX_CHAT_CHARS = 2000;
+
 export function planLocalToolCall(state, message) {
+  const raw = String(message == null ? '' : message);
+  if (raw.length > MAX_CHAT_CHARS) {
+    return { kind: 'reply', reply: `That message is ${raw.length} characters; I read up to ${MAX_CHAT_CHARS}. Send the instruction on its own, and attach long data as a file.`, tools: [] };
+  }
   const text = normalizeChat(message);
   if (!text) return { kind: 'reply', reply: 'Tell me what to post, import, or file.', tools: [] };
+
+  const decision = confirmationIntent(text);
+  if (decision) {
+    if (!state.pendingChatAction) return { kind: 'reply', reply: 'There is nothing waiting to be posted.', tools: [] };
+    return decision === 'cancel' ? { kind: 'cancel' } : { kind: 'confirm', decision };
+  }
 
   if (/^(help|\?)$/i.test(text) || /^what can you do$/i.test(text)) {
     return {
@@ -576,8 +589,12 @@ export function planLocalToolCall(state, message) {
   }
 
   const doc = parseDocument(text);
-  if (doc && isPurchaseIntent(text)) return { kind: 'tool', name: 'create_purchase', args: doc };
-  if (doc && isSaleIntent(text)) return { kind: 'tool', name: 'create_invoice', args: doc };
+  const asking = isQuestion(text) || isNegated(text);
+  if (doc && !asking && isPurchaseIntent(text)) return { kind: 'tool', name: 'create_purchase', args: doc };
+  if (doc && !asking && isSaleIntent(text)) return { kind: 'tool', name: 'create_invoice', args: doc };
+  if (doc && asking && (isPurchaseIntent(text) || isSaleIntent(text))) {
+    return { kind: 'reply', reply: 'That reads like a question, so I have not posted anything. To post it, say it as an instruction, for example "invoice Retail Mart GSTIN 27AAACH7409R1Z1, 10 rolls at 50000, GST 5%".', tools: [] };
+  }
 
   const connectReq = text.match(/\bconnect\s+(REQ-CA-\d{3}|[a-z_]+)\b(?:.*?\bprovider\s+([A-Za-z0-9 .&_-]{2,60}))?/i);
   if (connectReq && /\b(api|integration|connector|requirement|provider)\b/i.test(text)) {
@@ -656,9 +673,22 @@ export function planLocalToolCall(state, message) {
 
   const paidId = text.match(/\b(INV-\d+)\b/i);
   if (paidId && /\b(paid|receipt|received)\b/i.test(text)) {
-    return { kind: 'tool', name: 'record_receipt', args: { invoiceId: paidId[1].toUpperCase(), mode: /cash/i.test(text) ? 'cash' : 'bank' } };
+    const invoiceId = paidId[1].toUpperCase();
+    if (isQuestion(text) || isNegated(text)) {
+      const inv = (state.invoices || []).find((i) => i.id === invoiceId);
+      const status = inv ? `${invoiceId} is marked ${inv.status}.` : `${invoiceId} is not in these books.`;
+      return { kind: 'reply', reply: `${status} I have recorded nothing. To record money received, say "record receipt ${invoiceId}" and confirm the preview.`, tools: [] };
+    }
+    return { kind: 'tool', name: 'record_receipt', args: { invoiceId, mode: /cash/i.test(text) ? 'cash' : 'bank' } };
   }
 
+  if ((isQuestion(text) || isNegated(text)) && /\b(import|attach|upload|reconcile)\b/i.test(text) && /\b(tally|zoho|bank|statement|xml|csv)\b/i.test(text)) {
+    return {
+      kind: 'reply',
+      reply: 'Nothing was imported. Attach the file with the dropdown, then say "import tally", "import zoho", "import bank" or "import tally xml"; I will show you what it would post before anything lands in the books.',
+      tools: [],
+    };
+  }
   if (/\bimport tally xml\b|\btally xml\b/i.test(text)) {
     const xml = state.pendingFile?.content || state.files.tallyXml;
     if (!xml) return { kind: 'reply', reply: 'Attach a Tally XML file first (dropdown: Tally XML).', tools: [] };

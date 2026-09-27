@@ -63,9 +63,13 @@ test('inter-state invoice books IGST not CGST/SGST', () => {
   assert.equal(inv.invoice.cgst, 0);
 });
 
-test('chat creates an invoice via the tool runtime', async () => {
+test('chat previews an invoice, then creates it on confirmation', async () => {
   const state = createState();
-  const out = await chat(state, 'Invoice Retail Mart GSTIN 27AAACH7409R1Z1, 10 rolls at 50000, GST 5%');
+  const preview = await chat(state, 'Invoice Retail Mart GSTIN 27AAACH7409R1Z1, 10 rolls at 50000, GST 5%');
+  assert.equal(preview.awaitingConfirmation, true);
+  assert.match(preview.reply, /total ₹5,25,000/);
+  assert.equal(state.invoices.length, 0, 'the preview posts nothing');
+  const out = await chat(state, 'yes');
   assert.match(out.reply, /Posted INV-/);
   assert.equal(state.invoices.length, 1);
   assert.equal(state.invoices[0].total, 525000);
@@ -85,9 +89,12 @@ test('purchase bill posts ITC and AP and still ties', () => {
   assert.equal(trialBalance(state.ledger).balanced, true);
 });
 
-test('chat books a purchase even with trailing ITC commentary', async () => {
+test('chat books a purchase even with trailing ITC commentary, once confirmed', async () => {
   const state = createState();
-  const out = await chat(state, 'Purchase from Fabrics Co GSTIN 27AABCT1332L1ZE, 2 rolls at 10000, GST 5% — books ITC + AP');
+  const preview = await chat(state, 'Purchase from Fabrics Co GSTIN 27AABCT1332L1ZE, 2 rolls at 10000, GST 5% — books ITC + AP');
+  assert.equal(preview.awaitingConfirmation, true);
+  assert.equal(state.purchases.length, 0);
+  const out = await chat(state, 'yes');
   assert.match(out.reply, /BILL-/);
   assert.equal(state.purchases.length, 1);
   assert.equal(state.purchases[0].partyName, 'Fabrics Co');
