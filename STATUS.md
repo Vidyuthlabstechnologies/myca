@@ -1,8 +1,13 @@
 # MyCA — Status
 
-As of the latest commit on `main`. Verification: platform **109/109**, sprint engines
-**159/159** (`11 / 11 / 33 / 44 / 58 / 2`), CI green, end-to-end smoke runs on
-Windows. "Verified" means covered by tests or an actual run — not merely written.
+As of the latest commit on the Phase 0 branch. Verification: platform **326/326**,
+engines **329/329** (`11 / 11 / 49 / 51 / 68 / 2` plus **137** statutory-rule tests),
+CI green, end-to-end smoke runs on Windows. "Verified" means covered by tests or an
+actual run — not merely written.
+
+Phase 0 (pilot readiness) is **48% complete**: Critical findings 4/4 closed, High 14/18.
+See [`docs/superpowers/PROGRESS.md`](docs/superpowers/PROGRESS.md) for the live tracker
+and [`README.md`](README.md) for what is left and how it is being done.
 
 ## ✅ Built and verified
 
@@ -18,10 +23,16 @@ Windows. "Verified" means covered by tests or an actual run — not merely writt
 
 ### GST & compliance engines
 - Intra/inter GST split, odd-paise safe; GST payable (output − input)
-- GSTR-1 tables + GSTN **offline-utility JSON** (real sha256 `hash`, `gt`/`cur_gt`,
-  B2B invoice-wise, B2CS consolidated by place-of-supply × rate)
+- Dated statutory rules (rates, thresholds, due dates, slabs) with act, section, source
+  and golden cases; a rule asked for outside its window fails closed
+- GSTR-1 tables + GSTN **offline-utility JSON** for one return period (real sha256
+  `hash`, B2B invoice-wise with items grouped by rate, B2CL invoice-wise above the dated
+  threshold, B2CS consolidated by place-of-supply × rate, bad-rate and bad-GSTIN
+  invoices held back, `gt`/`cur_gt` only when supplied)
 - GSTR-3B draft; combined filing pack
-- GSTR-2B vs purchase register matching, GSTR-1 vs 3B matching, Rule 37A, IMS snapshot
+- GSTR-2B vs purchase register matched per tax head (tax-type swaps flagged), credit
+  notes both ways, s.16(2)(aa) availability, Rule 37 (180 days) and Rule 37A (supplier
+  GSTR-3B) as separate checks, GSTR-1 vs 3B matching, IMS snapshot
 - Deadline engine (GSTR-1/3B/7/9, TDS quarterly, PF, advance tax, ITR) with
   weekend/gazetted-holiday rollover and escalation levels
 - ITR regime comparison (AIS/26AS, old vs new); TDS 194A/C/I/J threshold monitor
@@ -35,7 +46,7 @@ Windows. "Verified" means covered by tests or an actual run — not merely writt
 - Duplicate protection on import; zero-amount rows dropped
 
 ### Assistant, tools, and contracts
-- 60 named tools; strict JSON-schema validation; keyword router
+- 69 named tools; strict JSON-schema validation; keyword router
 - Unsafe tools blocked from the assistant (`govt_save_credentials`, `seed_demo`,
   `approval_decide`)
 - Local CA API contract harness: REQ-CA-001…015 readiness, clients, ledger,
