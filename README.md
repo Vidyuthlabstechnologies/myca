@@ -275,6 +275,7 @@ or every difference is explained; and CI is green.
 | [`docs/audit/2026-09-21-codebase-audit.md`](docs/audit/2026-09-21-codebase-audit.md) | Findings C1–C4 and H1–H18 with reproductions |
 | [`docs/superpowers/specs/2026-09-21-phase0-pilot-readiness-design.md`](docs/superpowers/specs/2026-09-21-phase0-pilot-readiness-design.md) | Phase 0 design: goal, non-goals, exit criteria, pilot mode |
 | [`docs/superpowers/PROGRESS.md`](docs/superpowers/PROGRESS.md) | Live percentage, workstream weights and what is left |
+| [`docs/research/`](docs/research/) | Competitor and market teardowns with integration plans |
 | [`AGENTS.md`](AGENTS.md) | Conventions and workflow for AI coding agents |
 | [`DEPLOYMENT.md`](DEPLOYMENT.md) | GCP deployment, releases, domain/TLS, signing, branch protection |
 | `platform/PRD.md` | CA-firm API requirements (REQ-CA-001…015) and current status |
