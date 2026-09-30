@@ -1,0 +1,7 @@
+[
+  { "input": { "aPaise": 1, "bPaise": 2 }, "expected": { "totalPaise": 3 }, "citation": "Test fixture, not law" },
+  { "expected": { "totalPaise": 3 }, "citation": "Test fixture, not law" },
+  { "input": { "aPaise": 1, "bPaise": 2 }, "citation": "Test fixture, not law" },
+  { "input": { "aPaise": 1, "bPaise": 2 }, "expected": { "totalPaise": 3 }, "citation": "  " },
+  [1, 2, 3]
+]

@@ -115,7 +115,7 @@ test('GATE 9: isValidDate handles multiple formats and future dates', () => {
 test('GATE 10: canonical output exposes computedAmount, direction, sourceRow', () => {
   const csv = fixture('clean-daybook.csv');
   const res = ingest({ type: 'csv', content: csv }, { asOfDate: AS_OF });
-  const sales4567 = res.rows.find((r) => r.gstin === '27AABMH4567M1Z6');
+  const sales4567 = res.rows.find((r) => r.gstin === '27AABMH4567M1ZK');
   assert.deepEqual(sales4567, {
     ...sales4567,
     amount: null,

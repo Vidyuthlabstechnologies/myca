@@ -16,32 +16,34 @@ const gig = () =>
       gstr1Text: fixture('gstr1.csv'),
       gstr3bText: fixture('gstr3b.csv'),
     },
-    { clientGstin: '27AAACH7409R1Z3', asOfDate: '2025-04-30' }
+    { clientGstin: '27AAACH7409R1Z1', asOfDate: '2025-04-30' }
   );
 
 test('GATE 1: end-to-end reconcile surfaces every exception in the action queue', () => {
   const res = gig();
   assert.equal(res.ok, false, 'fixture set has known gaps + a GSTR-1/3B mismatch');
-  assert.equal(res.client.gstin, '27AAACH7409R1Z3');
+  assert.equal(res.client.gstin, '27AAACH7409R1Z1');
   assert.equal(res.client.stateName, 'Maharashtra');
   assert.equal(res.client.valid, true);
 
   const codes = res.issues.map((i) => i.code);
   assert.ok(codes.includes('INVOICE_NOT_IN_2B'), 'INV-1003 booked but missing from 2B');
   assert.ok(codes.includes('IN_2B_NOT_BOOKED'), 'FR-201 in 2B but not booked');
-  assert.ok(codes.includes('RULE_37A_BLOCKED'), '37A blocking surfaced');
+  assert.ok(codes.includes('ITC_NOT_AVAILABLE'), 's.16(2)(aa) blocking surfaced');
+  assert.ok(!codes.some((c) => c.startsWith('RULE_37A')), 'Rule 37A needs supplier filing status, which this fixture does not give');
   assert.ok(codes.includes('GSTR1_3B_MISMATCH'), 'outward mismatch surfaced');
 
-  const blocked = res.issues.filter((i) => i.code === 'RULE_37A_BLOCKED');
-  assert.equal(blocked.length, 2);
-  assert.ok(blocked.some((i) => i.ref === 'INV-1003'));
+  const blocked = res.issues.filter((i) => i.code === 'ITC_NOT_AVAILABLE' || i.code === 'ITC_NOT_IN_2B');
+  assert.deepEqual(blocked.map((i) => i.ref).sort(), ['INV-1002', 'INV-1003']);
 });
 
-test('GATE 2: summary arithmetic ties out (available - blocked = eligible)', () => {
+test('GATE 2: summary arithmetic ties out in tax, not invoice value', () => {
   const res = gig();
-  assert.equal(res.summary.itcAvailable, 29160);
-  assert.equal(res.summary.itcBlocked, 78400);
-  assert.ok(res.summary.itcEligible < res.summary.itcAvailable, 'blocked credit reduces eligibility');
+  assert.equal(res.summary.itcAvailable, 27960, '2B credit net of the 600 credit note');
+  assert.equal(res.summary.itcBlocked, 8400, 'ITC of INV-1002 (6,000) and INV-1003 (2,400)');
+  assert.equal(res.summary.itcUnclaimed, 2160);
+  assert.equal(res.summary.itcEligible, 19800);
+  assert.equal(res.summary.rule37AChecked, false);
   assert.equal(res.summary.matchedInvoices, 4);
   assert.equal(res.summary.invoicesInBooksNotIn2B, 1);
   assert.equal(res.summary.invoicesIn2BNotInBooks, 1);
@@ -69,7 +71,7 @@ test('GATE 4: unresolved supplier GSTIN or parser errors fail the reconcile', ()
       gstr1Text: fixture('gstr1.csv'),
       gstr3bText: fixture('gstr3b.csv'),
     },
-    { clientGstin: '27AABCU9603R1ZA', asOfDate: '2025-04-30' }
+    { clientGstin: '27AABCU9603R1ZP', asOfDate: '2025-04-30' }
   );
   assert.equal(res.ok, false);
   assert.equal(res.client.valid, false);

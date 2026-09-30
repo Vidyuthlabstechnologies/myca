@@ -1,8 +1,15 @@
 /**
  * GSTN offline-tool GSTR-1 JSON (public schema).
  * Built from posted invoices — same source as GSTR-1 tables. Not uploaded to GSTN.
+ *
+ * Rate validity and the B2CL threshold are read from the dated statutory rules on
+ * each invoice's date. Invoices that cannot be reported as they stand are held
+ * back with a reason instead of being guessed into a table.
  */
 import { createHash } from 'node:crypto';
+import { rules, gstin as gstinLib } from './sprint-load.mjs';
+
+const FP_RE = /^(0[1-9]|1[0-2])\d{4}$/;
 
 function fpFromDate(iso) {
   const [y, m] = String(iso || '').split('-');
@@ -18,75 +25,110 @@ function round2(n) {
   return Math.round((Number(n) || 0) * 100) / 100;
 }
 
-export function invoicesToGstr1Json(company, invoices = [], periodFp) {
+function rateInForce(rate, onDate) {
+  const found = rules.rule('gst.rates.valid', onDate);
+  return found.ok && found.value.includes(Number(rate));
+}
+
+// GSTN wants one item per rate on an invoice, not one per line.
+function itemsByRate(lines) {
+  const byRate = new Map();
+  for (const l of lines || []) {
+    const rt = Number(l.gstRate || 0);
+    if (!byRate.has(rt)) byRate.set(rt, { rt, txval: 0, camt: 0, samt: 0, iamt: 0, csamt: 0 });
+    const row = byRate.get(rt);
+    row.txval = round2(row.txval + round2(l.taxable));
+    row.camt = round2(row.camt + round2(l.cgst));
+    row.samt = round2(row.samt + round2(l.sgst));
+    row.iamt = round2(row.iamt + round2(l.igst));
+  }
+  return [...byRate.values()].sort((a, b) => a.rt - b.rt).map((itm_det, idx) => ({ num: idx + 1, itm_det }));
+}
+
+function holdReason(inv) {
+  const bad = (inv.lines || []).find((l) => !rateInForce(l.gstRate || 0, inv.date));
+  if (bad) return { code: 'RATE_NOT_IN_FORCE', rate: Number(bad.gstRate || 0) };
+  if (inv.partyGstin) {
+    const check = gstinLib.validateGstin(inv.partyGstin, { onDate: inv.date });
+    if (!check.ok) return { code: 'INVALID_GSTIN', gstin: String(inv.partyGstin), errors: check.errors.map((e) => e.code) };
+  }
+  return null;
+}
+
+function isB2cl(inv, pos, supplierState) {
+  if (pos === supplierState) return false;
+  const found = rules.rule('gst.b2cl.threshold', inv.date);
+  return found.ok && Math.round((Number(inv.total) || 0) * 100) > found.value;
+}
+
+function turnover(value) {
+  return value == null || value === '' || !Number.isFinite(Number(value)) ? null : round2(value);
+}
+
+export function invoicesToGstr1Json(company, invoices = [], periodFp, opts = {}) {
   const gstin = company.gstin || '';
+  const supplierState = String(company.state || gstin.slice(0, 2) || '').padStart(2, '0');
+  if (periodFp != null && periodFp !== '' && !FP_RE.test(String(periodFp))) {
+    return { error: 'FP_INVALID', hint: 'Return period must be MMYYYY, for example 082026.' };
+  }
   const dated = (invoices || []).filter((i) => i.date);
   const fp = periodFp || fpFromDate(dated.map((i) => i.date).sort().slice(-1)[0] || '');
+  const inPeriod = dated.filter((i) => fpFromDate(i.date) === fp);
   const b2bMap = new Map();
+  const b2clMap = new Map();
   const b2csMap = new Map();
+  const held = [];
 
-  for (const inv of dated) {
-    const pos = String(inv.partyState || inv.placeOfSupply || gstin.slice(0, 2) || '27').padStart(2, '0');
-    const items = (inv.lines || []).map((l, idx) => ({
-      num: idx + 1,
-      itm_det: {
-        rt: Number(l.gstRate || 0),
-        txval: round2(l.taxable),
-        camt: round2(l.cgst),
-        samt: round2(l.sgst),
-        iamt: round2(l.igst),
-        csamt: 0,
-      },
-    }));
+  for (const inv of inPeriod) {
+    const reason = holdReason(inv);
+    if (reason) {
+      held.push({ inum: inv.id, idt: ddmmyyyy(inv.date), ...reason });
+      continue;
+    }
+    const pos = String(inv.partyState || inv.placeOfSupply || supplierState).padStart(2, '0');
     const val = round2(inv.total);
-    if (inv.partyGstin && String(inv.partyGstin).length === 15) {
+    if (inv.partyGstin) {
       const ctin = String(inv.partyGstin).toUpperCase();
       if (!b2bMap.has(ctin)) b2bMap.set(ctin, []);
-      b2bMap.get(ctin).push({
-        inum: inv.id,
-        idt: ddmmyyyy(inv.date),
-        val,
-        pos,
-        rchrg: 'N',
-        inv_typ: 'R',
-        itms: items,
-      });
+      b2bMap.get(ctin).push({ inum: inv.id, idt: ddmmyyyy(inv.date), val, pos, rchrg: 'N', inv_typ: 'R', itms: itemsByRate(inv.lines) });
+    } else if (isB2cl(inv, pos, supplierState)) {
+      if (!b2clMap.has(pos)) b2clMap.set(pos, []);
+      b2clMap.get(pos).push({ inum: inv.id, idt: ddmmyyyy(inv.date), val, itms: itemsByRate(inv.lines) });
     } else {
       // B2CS is consolidated by place of supply and rate, per the GSTN schema.
-      for (const l of inv.lines || []) {
-        const rate = Number(l.gstRate || 0);
-        const key = `${pos}|${rate}`;
+      for (const { itm_det } of itemsByRate(inv.lines)) {
+        const key = `${pos}|${itm_det.rt}`;
         if (!b2csMap.has(key)) {
-          b2csMap.set(key, {
-            sply_ty: pos === gstin.slice(0, 2) ? 'INTRA' : 'INTER',
-            rt: rate,
-            typ: 'OE',
-            pos,
-            txval: 0,
-            camt: 0,
-            samt: 0,
-            iamt: 0,
-            csamt: 0,
-          });
+          b2csMap.set(key, { sply_ty: pos === supplierState ? 'INTRA' : 'INTER', rt: itm_det.rt, typ: 'OE', pos, txval: 0, camt: 0, samt: 0, iamt: 0, csamt: 0 });
         }
         const row = b2csMap.get(key);
-        row.txval = round2(row.txval + round2(l.taxable));
-        row.camt = round2(row.camt + round2(l.cgst));
-        row.samt = round2(row.samt + round2(l.sgst));
-        row.iamt = round2(row.iamt + round2(l.igst));
+        row.txval = round2(row.txval + itm_det.txval);
+        row.camt = round2(row.camt + itm_det.camt);
+        row.samt = round2(row.samt + itm_det.samt);
+        row.iamt = round2(row.iamt + itm_det.iamt);
       }
     }
   }
 
-  const b2b = [...b2bMap.entries()].map(([ctin, inv]) => ({ ctin, inv }));
-  const b2cs = [...b2csMap.values()];
-  // Gross turnover = aggregate value of supplies in this period (excl. tax).
-  const gt = round2(dated.reduce((sum, inv) => sum + round2(inv.taxable), 0));
-  const body = { gstin, fp, gt, cur_gt: gt, version: 'GST3.1.6', b2b, b2cs };
+  const body = { gstin, fp, version: 'GST3.1.6' };
+  // gt is the preceding FY's aggregate turnover and cur_gt the current FY's to date.
+  // Neither can be derived from one month of invoices, so they are only taken as given.
+  const gt = turnover(opts.grossTurnover ?? company.grossTurnoverPrevFy);
+  const curGt = turnover(opts.currentGrossTurnover ?? company.grossTurnoverCurrentFy);
+  if (gt != null) body.gt = gt;
+  if (curGt != null) body.cur_gt = curGt;
+  body.b2b = [...b2bMap.entries()].map(([ctin, inv]) => ({ ctin, inv }));
+  body.b2cl = [...b2clMap.entries()].map(([pos, inv]) => ({ pos, inv }));
+  body.b2cs = [...b2csMap.values()];
   const hash = createHash('sha256').update(JSON.stringify(body)).digest('hex');
+  const warnings = [];
+  if (gt == null || curGt == null) warnings.push('GT_NOT_PROVIDED: enter last FY and current FY aggregate turnover before upload if the offline tool asks for them.');
+  if (held.length) warnings.push(`${held.length} invoice(s) held back for review; see held.`);
   return {
     ...body,
     hash,
+    held,
+    warnings,
     caveat: 'JSON for GSTN offline utility / CA review. MyCA does not upload this file.',
   };
 }

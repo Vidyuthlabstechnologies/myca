@@ -459,6 +459,11 @@ body {
   flex-direction: column;
   gap: 10px;
 }
+.preview-card { border-left: 3px solid #f0b429; }
+.preview-effect { font-size: 12px; opacity: 0.8; margin-top: 4px; }
+.preview-actions { display: flex; gap: 8px; margin-top: 10px; }
+.preview-actions button { padding: 6px 14px; border-radius: 6px; cursor: pointer; }
+
 .bubble { max-width: 36ch; }
 .bubble.user {
   align-self: flex-end;

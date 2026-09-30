@@ -10,7 +10,6 @@ on:
 
 permissions:
   contents: read
-  id-token: write # required for Workload Identity Federation
 
 concurrency:
   group: deploy-site
@@ -20,40 +19,48 @@ jobs:
   deploy:
     name: Sync to GCS + purge CDN
     # Skips cleanly until Akhil's bootstrap + GitHub variables are in place.
-    if: ${{ vars.GCP_WIF_PROVIDER != '' }}
+    if: ${{ vars.GCP_WIF_PROVIDER != '' && github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
     environment: production
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      SITE_BUCKET: ${{ vars.GCP_SITE_BUCKET }}
+      URL_MAP: ${{ vars.GCP_URL_MAP }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
 
       - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v2
+        uses: google-github-actions/auth@c200f3691d83b41bf9bbd8638997a462592937ed # v2.1.13
         with:
           workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
           service_account: ${{ vars.GCP_DEPLOY_SA }}
 
-      - uses: google-github-actions/setup-gcloud@v2
+      - uses: google-github-actions/setup-gcloud@e427ad8a34f8676edf47cf7d7925499adf3eb74f # v2.2.1
 
       - name: Upload site
         run: |
-          gcloud storage rsync deploy/public "gs://${{ vars.GCP_SITE_BUCKET }}" \
+          gcloud storage rsync deploy/public "gs://${SITE_BUCKET}" \
             --recursive \
             --delete-unmatched-destination-objects
 
       - name: Set HTML cache headers
         run: |
-          gcloud storage objects update "gs://${{ vars.GCP_SITE_BUCKET }}/**" \
+          gcloud storage objects update "gs://${SITE_BUCKET}/**" \
             --cache-control="public, max-age=300, must-revalidate"
 
       - name: Purge Cloud CDN cache
         run: |
-          gcloud compute url-maps invalidate-cdn-cache "${{ vars.GCP_URL_MAP }}" \
+          gcloud compute url-maps invalidate-cdn-cache "${URL_MAP}" \
             --path "/*" --async
 
       - name: Summary
         run: |
           {
             echo "### Site deployed"
-            echo "- Bucket: \`${{ vars.GCP_SITE_BUCKET }}\`"
-            echo "- CDN invalidated: \`${{ vars.GCP_URL_MAP }}\`"
+            echo "- Bucket: \`${SITE_BUCKET}\`"
+            echo "- CDN invalidated: \`${URL_MAP}\`"
           } >> "$GITHUB_STEP_SUMMARY"

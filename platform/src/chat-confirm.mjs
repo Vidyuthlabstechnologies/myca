@@ -1,0 +1,273 @@
+/**
+ * Nothing a chat message says reaches the books until the user confirms it.
+ *
+ * A planned tool that writes books, or talks to a government API, is turned into
+ * a preview: the figures the engines computed, the accounts that will move, and
+ * anything that would stop the posting. The preview is held against a one-use
+ * token until the next message confirms or discards it.
+ */
+import { randomBytes } from 'node:crypto';
+import { gstSplit, partyStateOf } from './chart.mjs';
+import { postingDate } from './dates.mjs';
+import { isPeriodLocked } from './period-lock.mjs';
+import { tally, bank } from './sprint-load.mjs';
+import { parseZohoBooksCsv } from './import-zoho.mjs';
+import { tallyXmlToDayBookCsv } from './tally-xml.mjs';
+
+export const CONFIRM_TOOLS = new Set([
+  'create_invoice', 'create_purchase', 'record_receipt', 'post_expense',
+  'import_tally', 'import_tally_xml', 'import_zoho', 'import_bank',
+  'govt_generate_irn', 'govt_nic_cancel_irn',
+  'exception_decide',
+]);
+
+const PENDING_TTL_MS = 10 * 60 * 1000;
+const CONFIRM_RE = /^\s*(y|yes|yeah|yep|ok|okay|confirm|confirmed|post it|post|go ahead|do it|proceed|haan|ha|sahi)\b[\s!.]*$/i;
+const CANCEL_RE = /^\s*(n|no|nope|cancel|discard|stop|don'?t|do not|abort|nahi|nahin)\b[\s!.]*$/i;
+
+function money(n) {
+  return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 }).format(Number(n) || 0);
+}
+
+function stateCodeOf(value) {
+  const s = String(value == null ? '' : value).trim();
+  return /^\d{1,2}$/.test(s) ? s.padStart(2, '0') : '';
+}
+
+function documentPreview(state, args, kind) {
+  const company = state.company || {};
+  const date = postingDate(args.date);
+  const blockers = [];
+  if (!date) blockers.push(`${args.date} is not a date I can read.`);
+  else if (isPeriodLocked(state, date)) blockers.push(`${date} is inside the locked period (through ${state.lockThrough}).`);
+  const sale = kind === 'sale';
+  const list = sale ? state.invoices : state.purchases;
+  if (args.id && (list || []).some((d) => d.id === args.id)) blockers.push(`${args.id} already exists in these books.`);
+
+  const pos = sale
+    ? (stateCodeOf(args.partyState) || partyStateOf(args.partyGstin) || company.state)
+    : company.state;
+  const supplier = sale ? company.state : (partyStateOf(args.partyGstin) || stateCodeOf(args.partyState) || company.state);
+  const lines = (args.lines || []).map((l) => {
+    const qty = Number(l.qty == null || l.qty === '' ? 1 : l.qty);
+    const rate = Number(l.rate);
+    const gstRate = Number(l.gstRate == null || l.gstRate === '' ? 18 : l.gstRate);
+    const taxable = Math.round(qty * rate * 100) / 100;
+    return { ...gstSplit({ taxable, rate: gstRate, supplierState: supplier, partyState: pos }), taxable, gstRate, qty, rate };
+  });
+  const sum = (key) => Math.round(lines.reduce((s, l) => s + (l[key] || 0), 0) * 100) / 100;
+  const taxable = sum('taxable');
+  const tax = Math.round((sum('cgst') + sum('sgst') + sum('igst')) * 100) / 100;
+  const party = args.partyName || (sale ? 'Walk-in' : 'Supplier');
+  const heads = sum('igst') > 0 ? `IGST ${money(sum('igst'))}` : `CGST ${money(sum('cgst'))} + SGST ${money(sum('sgst'))}`;
+  return {
+    blockers,
+    summary: sale
+      ? `Invoice to ${party}${args.partyGstin ? ` (${args.partyGstin})` : ''} dated ${date || '?'}: taxable ${money(taxable)}, ${heads}, total ${money(taxable + tax)}. Place of supply ${pos || '?'}.`
+      : `Purchase bill from ${party}${args.partyGstin ? ` (${args.partyGstin})` : ''} dated ${date || '?'}: taxable ${money(taxable)}, ${heads}, total ${money(taxable + tax)}. Input credit ${args.itcEligible === false ? 'blocked (s.17(5)) and added to cost' : money(tax)}.`,
+    effects: sale
+      ? ['Debit the customer account, credit sales and the GST output accounts.', 'The invoice becomes a row in GSTR-1 for its period.']
+      : ['Debit purchases and the GST input accounts, credit the supplier account.', 'The bill joins the purchase register for 2B matching.'],
+    figures: { date, taxable, tax, total: Math.round((taxable + tax) * 100) / 100, placeOfSupply: pos },
+  };
+}
+
+function receiptPreview(state, args) {
+  const inv = (state.invoices || []).find((i) => i.id === args.invoiceId);
+  if (!inv) return { blockers: [`${args.invoiceId} is not in these books.`], summary: `No invoice ${args.invoiceId}.`, effects: [], figures: {} };
+  const received = (inv.receipts || []).reduce((s, r) => s + Number(r.amount || 0), 0);
+  const due = Math.round((inv.total - received) * 100) / 100;
+  const amount = args.amount == null || args.amount === '' ? due : Number(args.amount);
+  const date = args.date == null || args.date === '' ? inv.date : postingDate(args.date);
+  const blockers = [];
+  if (!date) blockers.push(`${args.date} is not a date I can read.`);
+  else if (isPeriodLocked(state, date)) blockers.push(`${date} is inside the locked period (through ${state.lockThrough}).`);
+  if (due <= 0.01) blockers.push(`${inv.id} is already fully received (${money(inv.total)}).`);
+  else if (amount > due + 0.01) blockers.push(`${money(amount)} is more than the ${money(due)} outstanding on ${inv.id}.`);
+  else if (!(amount > 0)) blockers.push('A receipt has to be a positive amount.');
+  return {
+    blockers,
+    summary: `Receipt of ${money(amount)} against ${inv.id} (${inv.partyName}) by ${args.mode === 'cash' ? 'cash' : 'bank'} on ${date || '?'}. Outstanding is ${money(due)} of ${money(inv.total)}.`,
+    effects: [`Debit ${args.mode === 'cash' ? 'cash' : 'bank'}, credit ${inv.partyName}.`, `${inv.id} becomes ${amount >= due - 0.01 ? 'paid' : 'partly paid'}.`],
+    figures: { amount, due, date },
+  };
+}
+
+function expensePreview(state, args) {
+  const date = postingDate(args.date);
+  const amountPaise = Math.round(Number(args.amount) * 100);
+  const gstRate = Number(args.gstRate || 0);
+  const blockers = [];
+  if (!date) blockers.push(`${args.date} is not a date I can read.`);
+  else if (isPeriodLocked(state, date)) blockers.push(`${date} is inside the locked period (through ${state.lockThrough}).`);
+  if (!Number.isFinite(amountPaise) || amountPaise <= 0) blockers.push('The amount must be a positive number.');
+  const halfPaise = gstRate && amountPaise > 0 ? Math.round((amountPaise * gstRate) / (100 + gstRate) / 2) : 0;
+  const taxable = (amountPaise - 2 * halfPaise) / 100;
+  return {
+    blockers,
+    summary: `Expense ${money(args.amount)} paid from bank on ${date || '?'}${gstRate ? `, of which GST at ${gstRate}% is CGST ${money(halfPaise / 100)} + SGST ${money(halfPaise / 100)}` : ' with no GST'}. Expense ${money(taxable)}.`,
+    effects: ['Debit expenses (and the GST input accounts when a rate is given), credit bank.'],
+    figures: { date, taxable, gstRate },
+  };
+}
+
+function countSkips(skipped = []) {
+  const counts = {};
+  for (const s of skipped) counts[s.reason] = (counts[s.reason] || 0) + 1;
+  return Object.entries(counts).map(([reason, n]) => `${n} ${reason}`).join(', ');
+}
+
+function tallyPreview(state, args, csv, label) {
+  const parsed = tally.ingest({ type: 'csv', content: csv }, { fileLabel: label });
+  const rows = (parsed.rows || []).filter((r) => !r._blocking);
+  const already = new Set([...(state.invoices || []), ...(state.purchases || [])].map((d) => d.id));
+  const seen = rows.filter((r) => already.has(`TALLY-${r.voucherNo}`) || [...already].some((id) => id.endsWith(`-${r.voucherNo}`))).length;
+  return {
+    blockers: [],
+    summary: `${label}: ${(parsed.rows || []).length} rows parsed, ${rows.length} postable${seen ? `, about ${seen} already in these books and will be skipped` : ''}. Vouchers with no readable GST rate are held back rather than taxed at a guess.`,
+    effects: ['Sales and purchase vouchers post as invoices and bills; receipts and payments post to the ledger.', 'Rows already imported are skipped, so importing the same file twice changes nothing.'],
+    figures: { rows: (parsed.rows || []).length, postable: rows.length },
+  };
+}
+
+function bankPreview(state, args) {
+  const parsed = bank.ingest({ type: args.type || 'csv', content: args.content }, { fileLabel: args.fileName || 'bank' });
+  const rows = (parsed.rows || []).filter((r) => !r._blocking && r.type !== 'balance-only');
+  return {
+    blockers: [],
+    summary: `Bank statement: ${(parsed.rows || []).length} rows parsed, ${rows.length} postable${parsed.ok === false ? ' (the running balance does not tie — check the statement)' : ''}.`,
+    effects: ['Each row posts against bank with the classified account.', 'Rows already imported are recognised and skipped.'],
+    figures: { rows: (parsed.rows || []).length, postable: rows.length, tied: parsed.ok !== false },
+  };
+}
+
+function zohoPreview(state, args) {
+  const parsed = parseZohoBooksCsv(args.csv);
+  const existing = new Set((state.invoices || []).map((i) => i.id));
+  const dup = parsed.invoices.filter((i) => existing.has(i.id)).length;
+  const noRate = parsed.invoices.filter((i) => i.lines.some((l) => l.gstRate == null)).length;
+  return {
+    blockers: parsed.meta?.error ? [`The file could not be read: ${parsed.meta.error}.`] : [],
+    summary: `Zoho Books: ${parsed.invoices.length} invoices parsed${dup ? `, ${dup} already booked` : ''}${noRate ? `, ${noRate} with no tax rate and so held back` : ''}.`,
+    effects: ['Each new invoice posts to the ledger and GSTR-1.'],
+    figures: { invoices: parsed.invoices.length, duplicates: dup, missingRate: noRate },
+  };
+}
+
+function xmlPreview(state, args) {
+  const converted = tallyXmlToDayBookCsv(args.xml);
+  if (!converted.ok) return { blockers: [converted.error], summary: 'The XML could not be read.', effects: [], figures: {} };
+  return tallyPreview(state, args, converted.csv, `Tally XML (${converted.count} vouchers)`);
+}
+
+function irnPreview(state, args, cancel) {
+  const inv = (state.invoices || []).find((i) => i.id === args.invoiceId);
+  const what = cancel ? 'Cancel the IRN for' : 'Send';
+  return {
+    blockers: inv ? [] : [`${args.invoiceId} is not in these books.`],
+    summary: `${what} ${args.invoiceId}${inv ? ` (${inv.partyName}, ${money(inv.total)})` : ''} to the e-invoice portal.`,
+    effects: [
+      'Nothing leaves this machine unless live calls are switched on.',
+      'A live call still needs a CA approval bound to this exact payload, made by someone other than the requester.',
+    ],
+    figures: { invoiceId: args.invoiceId },
+  };
+}
+
+const DECISION_WORD = { waive: 'Waive', resolve: 'Resolve', assign: 'Assign', reopen: 'Reopen' };
+
+function exceptionPreview(state, args) {
+  const entry = (state.exceptions || []).find((e) => e.id === args.id);
+  if (!entry) return { blockers: [`${args.id} is not in the queue.`], summary: '', effects: [], figures: {} };
+  const reason = String(args.note || '').trim();
+  const blockers = [];
+  if ((args.decision === 'waive' || args.decision === 'resolve') && !reason) {
+    blockers.push('Say why, in a note; the reason is part of the audit trail.');
+  }
+  if (args.decision === 'assign' && !String(args.owner || '').trim()) blockers.push('Name the person it is assigned to.');
+  return {
+    blockers,
+    summary: `${DECISION_WORD[args.decision] || args.decision} ${entry.id}: ${entry.title} (${entry.severity}, ${money(entry.moneyAtRisk)} at risk).`,
+    effects: args.decision === 'waive'
+      ? ['The exception stays in the books as waived, with your reason and your name against it.', 'It will not come back to the open queue while it is still detected.']
+      : ['The queue is updated and the decision is written to the audit trail.'],
+    figures: { severity: entry.severity, moneyAtRisk: entry.moneyAtRisk },
+  };
+}
+
+const PREVIEWERS = {
+  create_invoice: (state, args) => documentPreview(state, args, 'sale'),
+  create_purchase: (state, args) => documentPreview(state, args, 'purchase'),
+  record_receipt: receiptPreview,
+  post_expense: expensePreview,
+  import_tally: (state, args) => tallyPreview(state, args, args.csv, args.fileName || 'Tally Day Book'),
+  import_tally_xml: xmlPreview,
+  import_zoho: zohoPreview,
+  import_bank: bankPreview,
+  govt_generate_irn: (state, args) => irnPreview(state, args, false),
+  govt_nic_cancel_irn: (state, args) => irnPreview(state, args, true),
+  exception_decide: exceptionPreview,
+};
+
+export function needsConfirmation(name) {
+  return CONFIRM_TOOLS.has(name);
+}
+
+export function previewOf(state, name, args = {}) {
+  const build = PREVIEWERS[name];
+  if (!build) return { blockers: [], summary: `Run ${name}.`, effects: [], figures: {} };
+  try {
+    return build(state, args);
+  } catch (err) {
+    return { blockers: [`I could not work out what this would do: ${String(err.message || err)}`], summary: `Run ${name}.`, effects: [], figures: {} };
+  }
+}
+
+export function openPending(state, plan, preview, now = Date.now()) {
+  const pending = {
+    token: randomBytes(6).toString('hex'),
+    name: plan.name,
+    args: plan.args,
+    clearsPendingFile: Boolean(plan.clearsPendingFile),
+    summary: preview.summary,
+    createdAt: new Date(now).toISOString(),
+    expiresAt: new Date(now + PENDING_TTL_MS).toISOString(),
+  };
+  state.pendingChatAction = pending;
+  return pending;
+}
+
+export function clearPending(state) {
+  state.pendingChatAction = null;
+}
+
+export function confirmationIntent(text) {
+  const raw = String(text == null ? '' : text).trim();
+  if (CONFIRM_RE.test(raw)) return 'confirm';
+  if (CANCEL_RE.test(raw)) return 'cancel';
+  const token = raw.match(/^\s*(?:confirm|post)\s+([0-9a-f]{12})\s*$/i);
+  if (token) return { token: token[1].toLowerCase() };
+  return null;
+}
+
+// A pending action is single use and expires, so a stray "yes" much later posts nothing.
+export function takePending(state, intent, now = Date.now()) {
+  const pending = state.pendingChatAction;
+  if (!pending) return { ok: false, error: 'NOTHING_PENDING' };
+  clearPending(state);
+  if (Date.parse(pending.expiresAt) <= now) return { ok: false, error: 'EXPIRED', pending };
+  if (typeof intent === 'object' && intent.token && intent.token !== pending.token) return { ok: false, error: 'TOKEN_MISMATCH', pending };
+  return { ok: true, pending };
+}
+
+export function previewReply(preview, pending) {
+  const lines = [preview.summary];
+  for (const effect of preview.effects || []) lines.push(`· ${effect}`);
+  lines.push('');
+  lines.push(`Nothing is posted yet. Reply "yes" to post it, "no" to discard, or "confirm ${pending.token}".`);
+  return lines.join('\n');
+}
+
+export function blockedReply(preview) {
+  return [`I did not post anything, because:`, ...preview.blockers.map((b) => `· ${b}`)].join('\n');
+}

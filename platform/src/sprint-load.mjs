@@ -24,3 +24,4 @@ export const gstin = await load('sprint-3-gst-recon/src/gstin.mjs');
 export const deadlines = await load('sprint-4-deadlines/src/index.mjs');
 export const filing = await load('sprint-5-filing-assistant/src/index.mjs');
 export const audit = await load('sprint-6-defensible-audit/src/index.mjs');
+export const rules = await load('statutory-rules/src/index.mjs');

@@ -12,11 +12,13 @@ import { postTallyRows, postBankRows, purchaseRegisterCsv } from './post-import.
 import { parseZohoBooksCsv } from './import-zoho.mjs';
 import { invoicesToGstr1Json } from './gstr1-json.mjs';
 import { tallyXmlToDayBookCsv } from './tally-xml.mjs';
-import { probeGovt, saveGovtConfig, publicGovtConfig, saveNicPublicKey, nicHealth, nicGstinMaster, nicCancelIrn, nicGetIrn, nicGetIrnByDoc, nicGetRejectedIrns, nicGenerateEwayBill, nicGetEwayBill, nicSession } from './govt.mjs';
-import { nicAuthenticate, nicGenerateIrn } from './nic-client.mjs';
+import { saveGovtConfig, publicGovtConfig, saveNicPublicKey } from './nic-config.mjs';
+import * as nicActions from './nic-actions.mjs';
+import { nicSessionStatus } from './action-gate.mjs';
 import { clearIntegrationConnection, integrationReadiness, setIntegrationConnection } from './integration-contract.mjs';
 import { listClients, registerClient, setActiveClient, listDocuments, uploadDocument, getDocumentContent } from './ca-api.mjs';
 import { lockPeriod, unlockPeriod, isPeriodLocked, lockThrough } from './period-lock.mjs';
+import { localToday, postingDate } from './dates.mjs';
 import { buildInvoiceShare, shareLink, queueNotification, listOutbox, sendNotification } from './notifications.mjs';
 import { providerDoctor } from './provider-doctor.mjs';
 import { providerCatalog, providerRequirementMap } from './provider-catalog.mjs';
@@ -24,7 +26,11 @@ import { sandboxAdapterPlan } from './sandbox-adapter-contract.mjs';
 import { getSandboxClient } from './sandbox-client.mjs';
 import { getNimClient } from './nim-client.mjs';
 import { runSandboxOperation } from './sandbox-adapter.mjs';
-import { requestApproval, decideApproval, approvalStatus } from './approvals.mjs';
+import { requestApproval, decideApproval, approvalStatus, normalizeActor } from './approvals.mjs';
+import { normalizeClientId, getBook } from './books.mjs';
+import { refreshExceptions, listExceptions, summarise, decideException } from './exceptions.mjs';
+import { appendAuditEvent } from './ca-api.mjs';
+import { csvRows } from './text-safe.mjs';
 import { liveCallsEnabled, mockModeEnabled } from './runtime-config.mjs';
 import { seedDemo } from './store.mjs';
 
@@ -33,6 +39,76 @@ function ok(data) {
 }
 function fail(error, extra = {}) {
   return { ok: false, error, ...extra };
+}
+
+function resolveToolActor(args = {}, idKey = 'actorId', fallbackUserId = 'ca') {
+  return normalizeActor({ userId: args[idKey] || fallbackUserId, role: args.role || '' });
+}
+
+const DEADLINE_COLUMNS = ['clientId', 'name', 'entity', 'turnover', 'gst', 'qrmp', 'tdsDeductor', 'pf', 'advanceTax', 'tp', 'state', 'profession', 'gstTds', 'presumptive'];
+
+
+function yes(value) {
+  return value === true || /^(y|yes|true|1)$/i.test(String(value ?? '').trim());
+}
+
+function deadlineProfile(clientId, company, extra, salesInvoices) {
+  const gstin = String(company.gstin || '');
+  const turnover = Number.isFinite(Number(extra.turnover)) && Number(extra.turnover) > 0
+    ? Number(extra.turnover)
+    : salesInvoices.reduce((sum, inv) => sum + (Number(inv.total) || 0), 0);
+  return {
+    clientId,
+    name: company.name || clientId,
+    entity: String(extra.entityType || company.entityType || 'proprietor').toLowerCase(),
+    turnover: Math.round(turnover),
+    gst: gstin ? 'TRUE' : 'FALSE',
+    qrmp: String(extra.gstFrequency || company.gstFrequency || 'monthly').toLowerCase() === 'quarterly' ? 'TRUE' : 'FALSE',
+    tdsDeductor: yes(extra.tdsDeductor ?? company.tdsDeductor) ? 'TRUE' : 'FALSE',
+    pf: yes(extra.pf ?? company.pf) ? 'TRUE' : 'FALSE',
+    advanceTax: yes(extra.advanceTax ?? company.advanceTax) ? 'TRUE' : 'FALSE',
+    tp: yes(extra.transferPricing ?? company.transferPricing) ? 'TRUE' : 'FALSE',
+    state: String(extra.state || company.state || gstin.slice(0, 2) || ''),
+    profession: yes(extra.profession ?? company.profession) ? 'TRUE' : 'FALSE',
+    gstTds: yes(extra.gstTds ?? company.gstTds) ? 'TRUE' : 'FALSE',
+    presumptive: yes(extra.presumptive ?? company.presumptive) ? 'TRUE' : 'FALSE',
+  };
+}
+
+const HELD_BACK_REASONS = new Set([
+  'gst_rate_unknown', 'gst_rate_unreadable', 'gst_rates_unknown_on_date', 'gst_rate_missing',
+  'tax_does_not_match_rate', 'tax_exceeds_amount', 'period_locked', 'blocking', 'INVALID_DATE', 'DUPLICATE_ID',
+]);
+
+function heldBackFrom(skipped = []) {
+  return skipped
+    .filter((s) => HELD_BACK_REASONS.has(String(s.reason)) || String(s.reason).startsWith('rate_not_in_force'))
+    .slice(0, 100)
+    .map((s) => ({ ref: String(s.voucherNo ?? s.sourceRow ?? s.id ?? '?'), reason: String(s.reason) }));
+}
+
+function reconcileFor(state, asOfDate) {
+  const purchaseRegister = state.files.purchaseRegister || purchaseRegisterCsv(state.purchases || []);
+  const gstr1 = state.files.gstr1 || invoicesToSalesCsv(state.invoices || []);
+  if (!state.files.gstr2b || !state.files.gstr3b) return null;
+  return reconcile(
+    { purchaseRegisterText: purchaseRegister, gstr2bText: state.files.gstr2b, gstr1Text: gstr1, gstr3bText: state.files.gstr3b },
+    { clientGstin: state.company.gstin, asOfDate, supplierFilings: undefined },
+  );
+}
+
+function deadlineProfiles(state) {
+  const root = state.__root || state;
+  const profiles = [deadlineProfile('SELF', root.company || {}, {}, root.invoices || [])];
+  for (const client of root.clients || []) {
+    const book = root.extraBooks?.[client.clientId];
+    profiles.push(deadlineProfile(client.clientId, { ...client, ...(book?.company || {}) }, client, book?.invoices || []));
+  }
+  return profiles;
+}
+
+function activeClientId(state) {
+  return normalizeClientId(state.activeClientId);
 }
 
 export const TOOLS = [
@@ -236,22 +312,22 @@ export const TOOLS = [
     name: 'govt_nic_health',
     title: 'NIC IRP health',
     description: 'Ping the e-invoice IRP heartbeat endpoint (no credentials needed).',
-    run: async (_state, args = {}) => ok(await nicHealth(undefined, undefined, args)),
+    run: async (state, args = {}) => ok(await nicActions.health(state, resolveToolActor(args))),
   },
   {
     name: 'govt_nic_session',
     title: 'NIC session status',
     description: 'Show whether an e-invoice auth token is currently held and when it expires.',
-    run: () => ok(nicSession()),
+    run: () => ok(nicSessionStatus()),
   },
   {
     name: 'govt_nic_gstin',
     title: 'NIC GSTIN master',
     description: 'Fetch a GSTIN\'s registered details from the IRP master (requires auth).',
     args: ['gstin'],
-    run: async (_state, args = {}) => {
+    run: async (state, args = {}) => {
       if (!args.gstin) return fail('gstin required');
-      const out = await nicGstinMaster(String(args.gstin).toUpperCase());
+      const out = await nicActions.gstinMaster(state, String(args.gstin).toUpperCase(), resolveToolActor(args));
       return out.ok ? ok(out) : fail(out.error || 'GSTIN_LOOKUP_FAILED', out);
     },
   },
@@ -261,7 +337,7 @@ export const TOOLS = [
     description: 'Cancel a generated IRN with reason code 1-4 and an optional remark.',
     args: ['invoiceId', 'irn', 'reason', 'remark'],
     run: async (state, args = {}) => {
-      const out = await nicCancelIrn(state, args);
+      const out = await nicActions.cancelIrn(state, args, resolveToolActor(args));
       return out.ok ? ok(out) : fail(out.error || 'CANCEL_FAILED', out);
     },
   },
@@ -270,9 +346,9 @@ export const TOOLS = [
     title: 'Get e-invoice by IRN',
     description: 'Fetch a previously generated e-invoice by its IRN.',
     args: ['irn'],
-    run: async (_state, args = {}) => {
+    run: async (state, args = {}) => {
       if (!args.irn) return fail('irn required');
-      const out = await nicGetIrn(args.irn);
+      const out = await nicActions.getIrn(state, String(args.irn), resolveToolActor(args));
       return out.ok ? ok(out) : fail(out.error || 'LOOKUP_FAILED', out);
     },
   },
@@ -281,8 +357,8 @@ export const TOOLS = [
     title: 'Get e-invoice by document',
     description: 'Fetch an e-invoice by document type, number and date (dd/mm/yyyy).',
     args: ['docType', 'docNo', 'docDate'],
-    run: async (_state, args = {}) => {
-      const out = await nicGetIrnByDoc(args);
+    run: async (state, args = {}) => {
+      const out = await nicActions.getIrnByDoc(state, args, resolveToolActor(args));
       return out.ok ? ok(out) : fail(out.error || 'LOOKUP_FAILED', out);
     },
   },
@@ -291,8 +367,8 @@ export const TOOLS = [
     title: 'List rejected IRNs',
     description: 'List IRNs rejected by the IRP for a date (dd/mm/yyyy).',
     args: ['date'],
-    run: async (_state, args = {}) => {
-      const out = await nicGetRejectedIrns(args.date);
+    run: async (state, args = {}) => {
+      const out = await nicActions.rejectedIrns(state, String(args.date || ''), resolveToolActor(args));
       return out.ok ? ok(out) : fail(out.error || 'LOOKUP_FAILED', out);
     },
   },
@@ -300,11 +376,10 @@ export const TOOLS = [
     name: 'govt_nic_generate_ewb',
     title: 'Generate e-Way Bill',
     description: 'Generate an e-Way Bill against an existing IRN with transport details.',
-    args: ['irn', 'payload'],
-    run: async (_state, args = {}) => {
-      const payload = args.payload || (args.irn ? { Irn: args.irn, ...(args.transport || {}) } : null);
-      if (!payload) return fail('irn or payload required');
-      const out = await nicGenerateEwayBill(payload);
+    args: ['irn', 'transport'],
+    run: async (state, args = {}) => {
+      if (!args.irn) return fail('irn required');
+      const out = await nicActions.generateEwayBill(state, { irn: String(args.irn), transport: args.transport }, resolveToolActor(args));
       return out.ok ? ok(out) : fail(out.error || 'EWB_FAILED', out);
     },
   },
@@ -313,9 +388,9 @@ export const TOOLS = [
     title: 'Get e-Way Bill by IRN',
     description: 'Fetch the e-Way Bill generated against an IRN.',
     args: ['irn'],
-    run: async (_state, args = {}) => {
+    run: async (state, args = {}) => {
       if (!args.irn) return fail('irn required');
-      const out = await nicGetEwayBill(args.irn);
+      const out = await nicActions.getEwayBill(state, String(args.irn), resolveToolActor(args));
       return out.ok ? ok(out) : fail(out.error || 'LOOKUP_FAILED', out);
     },
   },
@@ -426,7 +501,13 @@ export const TOOLS = [
     name: 'export_gstr1_json',
     title: 'Export GSTR-1 JSON',
     description: 'GSTN offline-utility JSON from posted invoices (does not upload).',
-    run: (state, args = {}) => ok(invoicesToGstr1Json(state.company, state.invoices || [], args.fp)),
+    run: (state, args = {}) => {
+      const json = invoicesToGstr1Json(state.company, state.invoices || [], args.fp, {
+        grossTurnover: args.grossTurnover,
+        currentGrossTurnover: args.currentGrossTurnover,
+      });
+      return json.error ? fail(json.error, { hint: json.hint }) : ok(json);
+    },
   },
   {
     name: 'prepare_gstr3b',
@@ -465,7 +546,7 @@ export const TOOLS = [
     name: 'govt_probe',
     title: 'Probe GSTN / NIC / MCA',
     description: 'HTTP to official government hosts from this PC. Confirms the machine can reach GST, e-invoice, MCA, IT portals.',
-    run: async () => ok(await probeGovt()),
+    run: async (state, args = {}) => ok(await nicActions.probe(state, resolveToolActor(args))),
   },
   {
     name: 'govt_save_credentials',
@@ -476,9 +557,8 @@ export const TOOLS = [
   {
     name: 'govt_nic_auth',
     title: 'NIC e-invoice authenticate',
-    description: 'POST /eivital/v1.04/auth on NIC sandbox or production. Supports mock option.',
-    args: ['mock'],
-    run: async (_state, args = {}) => ok(await nicAuthenticate(undefined, undefined, args)),
+    description: 'Authenticate with the NIC IRP through the action gate (live switch and CA approval). The token and session key never leave the NIC client.',
+    run: async (state, args = {}) => ok(await nicActions.authenticate(state, resolveToolActor(args))),
   },
   {
     name: 'govt_nic_mock',
@@ -488,17 +568,17 @@ export const TOOLS = [
     run: async (state, args = {}) => {
       const invId = args.invoiceId || (state.invoices?.[0]?.id);
       if (!invId) return fail('Pass an invoiceId, or create an invoice first to generate a mock IRN.');
-      return ok(await nicGenerateIrn(state, invId, undefined, { mock: true }));
+      return ok(await nicActions.simulateIrn(state, invId, resolveToolActor(args)));
     },
   },
   {
     name: 'govt_generate_irn',
     title: 'Generate e-invoice IRN',
-    description: 'Build NIC Invoice JSON from a posted tax invoice and POST to eicore Invoice API or Sandbox Mock.',
-    args: ['invoiceId', 'mock'],
+    description: 'Build NIC Invoice JSON from a posted tax invoice and generate its IRN through the action gate (live switch and a matching CA approval).',
+    args: ['invoiceId'],
     run: async (state, args = {}) => {
       if (!args.invoiceId) return fail('invoiceId required, e.g. INV-0001');
-      return ok(await nicGenerateIrn(state, args.invoiceId, undefined, args));
+      return ok(await nicActions.generateIrn(state, String(args.invoiceId), resolveToolActor(args)));
     },
   },
   {
@@ -633,13 +713,17 @@ export const TOOLS = [
     description: 'Execute a catalogued Quicko Sandbox operation through the adapter contract. Read/prepare ops run directly; auth/write/file ops need an approved CA approval id.',
     args: ['operationId', 'params', 'caApprovalId', 'actorId'],
     run: async (state, args = {}) => {
+      const clientId = activeClientId(state);
+      if (args.clientId && normalizeClientId(args.clientId) !== clientId) return fail('CLIENT_NOT_ACTIVE', { clientId, requested: normalizeClientId(args.clientId) });
+      const actor = resolveToolActor(args, 'actorId');
       const out = await runSandboxOperation({
         operationId: args.operationId,
-        actorId: args.actorId || 'ca',
+        actorId: actor.userId,
+        actor,
         caApprovalId: args.caApprovalId || '',
         params: args.params || {},
         payloadSummary: args.payloadSummary || {},
-        clientId: args.clientId || 'SELF',
+        clientId,
       }, { state });
       return out.ok ? ok(out) : fail(out.error, out);
     },
@@ -647,13 +731,15 @@ export const TOOLS = [
   {
     name: 'approval_request',
     title: 'Request CA approval',
-    description: 'Open a CA approval request for a gated provider operation (e.g. e-invoice generate, GST filing). Maker-checker enforced.',
-    args: ['operationId', 'requirementId', 'requestedBy', 'note'],
+    description: 'Open a CA approval request for a gated external action (e.g. e-invoice generate, GST filing). The approval is bound to the client and to the exact action parameters passed as params. Maker-checker enforced.',
+    args: ['operationId', 'requirementId', 'requestedBy', 'note', 'clientId', 'params'],
     run: (state, args = {}) => {
       const out = requestApproval(state, {
         operationId: args.operationId,
         requirementId: args.requirementId || '',
-        requestedBy: args.requestedBy || 'ca',
+        clientId: args.clientId || activeClientId(state),
+        params: args.params || {},
+        actor: resolveToolActor(args, 'requestedBy'),
         payloadSummary: args.payloadSummary || {},
         note: args.note || '',
       });
@@ -669,8 +755,7 @@ export const TOOLS = [
       const out = decideApproval(state, {
         approvalId: args.approvalId,
         decision: args.decision,
-        decidedBy: args.decidedBy,
-        role: args.role,
+        actor: resolveToolActor(args, 'decidedBy', ''),
         reason: args.reason || '',
       });
       return out.ok ? ok(out) : fail(out.error);
@@ -773,7 +858,7 @@ export const TOOLS = [
       const result = ingestTally({ type: 'csv', content: args.csv }, { asOfDate: args.asOfDate, fileLabel: args.fileName || 'tally.csv' });
       const good = (result.rows || []).filter((r) => !r._blocking);
       const ledger = postTallyRows(state, good);
-      state.imports.push({ source: 'tally', at: new Date().toISOString(), ok: result.ok, rows: result.rows.length, posted: ledger.posted });
+      state.imports.push({ source: 'tally', at: new Date().toISOString(), ok: result.ok, rows: result.rows.length, posted: ledger.posted, heldBack: heldBackFrom(ledger.skipped) });
       return ok({ ...result, ledger });
     },
   },
@@ -791,7 +876,7 @@ export const TOOLS = [
       const result = ingestTally({ type: 'csv', content: converted.csv }, { asOfDate: args.asOfDate, fileLabel: args.fileName || 'tally.xml' });
       const good = (result.rows || []).filter((r) => !r._blocking);
       const ledger = postTallyRows(state, good);
-      state.imports.push({ source: 'tally-xml', at: new Date().toISOString(), ok: result.ok, rows: result.rows.length, posted: ledger.posted });
+      state.imports.push({ source: 'tally-xml', at: new Date().toISOString(), ok: result.ok, rows: result.rows.length, posted: ledger.posted, heldBack: heldBackFrom(ledger.skipped) });
       return ok({ ...result, converted, ledger });
     },
   },
@@ -803,12 +888,25 @@ export const TOOLS = [
     run: (state, args) => {
       if (!args.csv) return fail('csv required');
       const parsed = parseZohoBooksCsv(args.csv);
+      if (parsed.meta?.error) return fail(parsed.meta.error, { parsed: parsed.meta });
       const created = [];
+      const skipped = [];
       for (const inv of parsed.invoices) {
-        created.push(createInvoice(state, inv));
+        if ((state.invoices || []).some((i) => i.id === inv.id)) {
+          skipped.push({ id: inv.id, reason: 'exists' });
+          continue;
+        }
+        const missingRate = inv.lines.some((l) => l.gstRate == null);
+        if (missingRate) {
+          skipped.push({ id: inv.id, reason: 'gst_rate_missing' });
+          continue;
+        }
+        const result = createInvoice(state, inv);
+        if (result.ok) created.push(result);
+        else skipped.push({ id: inv.id, reason: result.error });
       }
-      state.imports.push({ source: 'zoho', at: new Date().toISOString(), count: created.length });
-      return ok({ parsed: parsed.meta, created });
+      state.imports.push({ source: 'zoho', at: new Date().toISOString(), count: created.length, skipped: skipped.length, heldBack: heldBackFrom(skipped.map((s) => ({ voucherNo: s.id, reason: s.reason }))) });
+      return ok({ parsed: parsed.meta, created, skipped });
     },
   },
   {
@@ -821,7 +919,7 @@ export const TOOLS = [
       const result = ingestBank({ type, content: args.content }, { asOfDate: args.asOfDate, fileLabel: args.fileName || 'bank' });
       const good = (result.rows || []).filter((r) => !r._blocking);
       const ledger = postBankRows(state, good);
-      state.imports.push({ source: 'bank', at: new Date().toISOString(), ok: result.ok, rows: result.rows?.length || 0, posted: ledger.posted });
+      state.imports.push({ source: 'bank', at: new Date().toISOString(), ok: result.ok, rows: result.rows?.length || 0, posted: ledger.posted, heldBack: heldBackFrom(ledger.skipped) });
       return ok({ ...result, ledger });
     },
   },
@@ -842,7 +940,7 @@ export const TOOLS = [
           gstr1Text: gstr1,
           gstr3bText: files.gstr3b,
         },
-        { clientGstin: state.company.gstin, asOfDate: args.asOfDate || '2026-09-07' },
+        { clientGstin: state.company.gstin, asOfDate: args.asOfDate || localToday(), supplierFilings: args.supplierFilings },
       ));
     },
   },
@@ -913,19 +1011,58 @@ export const TOOLS = [
   {
     name: 'deadlines',
     title: 'Compliance deadlines',
-    description: 'Statutory due dates for this business (GSTR-1/3B, TDS, ITR) with holiday-aware working days.',
+    description: 'Statutory due dates for the firm and every registered client (GSTR-1/3B, PMT-06, TDS, PF, advance tax, ITR, GSTR-9) from the dated rules, as of today. Due dates never roll over weekends or holidays.',
     run: (state, args = {}) => {
-      const c = state.company;
-      const clientsText = [
-        'clientId,name,entityType,gstin,state,turnover,gstFrequency,tdsDeductor,pfApplicable,auditRequired,transferPricing',
-        `SELF,${c.name},llp,${c.gstin},${c.state},25000000,monthly,Y,N,Y,N`,
-      ].join('\n');
-      const docsText = 'clientId,returnType,period,docType,receivedOn\n';
-      const holidaysText = args.holidaysText || 'date,name\n2026-10-02,Gandhi Jayanti\n';
-      return ok(complianceRun(
-        { clientsText, docsText, holidaysText },
-        { months: args.months || ['2026-08', '2026-09', '2026-10'], asOfDate: args.asOfDate || '2026-09-07' },
-      ));
+      const asOfDate = /^\d{4}-\d{2}-\d{2}$/.test(String(args.asOfDate || '')) ? args.asOfDate : localToday();
+      const clientsText = csvRows([DEADLINE_COLUMNS, ...deadlineProfiles(state).map((p) => DEADLINE_COLUMNS.map((key) => p[key]))]);
+      const docsText = 'clientId,period,returnType,docType,status,receivedDate,source\n';
+      const run = complianceRun({ clientsText, docsText, holidaysText: args.holidaysText || '' }, { months: args.months, asOfDate });
+      return ok({ asOfDate, ...run });
+    },
+  },
+  {
+    name: 'exceptions',
+    title: 'Exception queue',
+    description: 'Everything that needs a person: what it is, why, what it is worth, and whether it is still open. Refreshes from the engines on every run.',
+    args: ['scope', 'status', 'severity', 'source', 'asOfDate'],
+    run: (state, args = {}) => {
+      const asOfDate = /^\d{4}-\d{2}-\d{2}$/.test(String(args.asOfDate || '')) ? args.asOfDate : localToday();
+      const clientsText = csvRows([DEADLINE_COLUMNS, ...deadlineProfiles(state).map((p) => DEADLINE_COLUMNS.map((key) => p[key]))]);
+      const run = complianceRun({ clientsText, docsText: 'clientId,period,returnType,docType,status,receivedDate,source\n', holidaysText: '' }, { asOfDate });
+      const byClient = new Map();
+      for (const row of run.deadlines || []) {
+        if (!byClient.has(row.clientId)) byClient.set(row.clientId, []);
+        byClient.get(row.clientId).push(row);
+      }
+      const filter = { status: args.status || 'open', severity: args.severity, source: args.source };
+      const root = state.__root || state;
+      if (args.scope === 'firm') {
+        const books = [['SELF', root], ...(root.clients || []).map((c) => [c.clientId, getBook(root, c.clientId)])].filter(([, book]) => book);
+        const rows = [];
+        for (const [clientId, book] of books) {
+          refreshExceptions(book, { deadlines: byClient.get(clientId) || [] }, { asOfDate, clientId });
+          rows.push(...listExceptions(book, filter));
+        }
+        return ok({ asOfDate, scope: 'firm', summary: summarise(rows), exceptions: rows });
+      }
+      const clientId = String(state.activeClientId || 'SELF');
+      const reconcile = state.files.gstr2b
+        ? reconcileFor(state, asOfDate)
+        : null;
+      const refreshed = refreshExceptions(state, { deadlines: byClient.get(clientId) || [], reconcile }, { asOfDate, clientId });
+      const rows = listExceptions(state, filter);
+      return ok({ asOfDate, scope: 'client', clientId, refreshed, reconciled: Boolean(reconcile), summary: summarise(rows), exceptions: rows });
+    },
+  },
+  {
+    name: 'exception_decide',
+    title: 'Decide an exception',
+    description: 'Assign, resolve, waive or reopen one exception. Resolving or waiving needs a reason, and every decision is audited.',
+    args: ['id', 'decision', 'note', 'owner'],
+    run: (state, args = {}) => {
+      const root = state.__root || state;
+      const out = decideException(root, state, { ...args, clientId: String(state.activeClientId || 'SELF'), actorId: args.actorId || 'ca' });
+      return out.ok ? ok(out) : fail(out.error);
     },
   },
   {
@@ -935,7 +1072,7 @@ export const TOOLS = [
     run: (state, args = {}) => {
       const text = args.ledgerText || state.files.auditLedger;
       if (!text) return fail('Pass ledgerText (clientId,date,narration,debit,credit,party,category,tdsSection).');
-      return ok(auditRun({ ledgerText: text, asOfDate: args.asOfDate || '2026-09-15' }));
+      return ok(auditRun({ ledgerText: text, asOfDate: args.asOfDate || localToday() }));
     },
   },
   {
@@ -944,19 +1081,23 @@ export const TOOLS = [
     description: 'Pay a vendor from bank and book expense (optional GST input).',
     args: ['narration', 'amount', 'gstRate'],
     run: (state, args) => {
-      const date = args.date || new Date().toISOString().slice(0, 10);
+      const date = postingDate(args.date);
+      if (!date) return fail('INVALID_DATE', { date: args.date });
       if (isPeriodLocked(state, date)) return fail('PERIOD_LOCKED', { date, lockThrough: state.lockThrough });
-      const amount = Number(args.amount);
+      const amountPaise = Math.round(Number(args.amount) * 100);
       const gstRate = Number(args.gstRate || 0);
-      const taxable = gstRate ? Math.round((amount / (1 + gstRate / 100)) * 100) / 100 : amount;
-      const tax = Math.round((amount - taxable) * 100) / 100;
-      const half = Math.round(tax * 50) / 100;
+      if (!Number.isFinite(amountPaise) || amountPaise <= 0) return fail('BAD_AMOUNT');
+      if (!Number.isFinite(gstRate) || gstRate < 0) return fail('BAD_RATE');
+      // The amount includes GST. CGST and SGST are equal halves, each in paise,
+      // and the expense takes the remainder so the three add back to the amount.
+      const halfPaise = gstRate ? Math.round((amountPaise * gstRate) / (100 + gstRate) / 2) : 0;
+      const taxablePaise = amountPaise - 2 * halfPaise;
       const transfers = [
-        { id: ++state.transferSeq, debitAccountId: 5100, creditAccountId: 1002, amount: paise(taxable), code: 'EXPENSE' },
+        { id: ++state.transferSeq, debitAccountId: 5100, creditAccountId: 1002, amount: BigInt(taxablePaise), code: 'EXPENSE', userData: date },
       ];
-      if (tax > 0) {
-        transfers.push({ id: ++state.transferSeq, debitAccountId: 1200, creditAccountId: 1002, amount: paise(half), code: 'ITC-CGST' });
-        transfers.push({ id: ++state.transferSeq, debitAccountId: 1201, creditAccountId: 1002, amount: paise(tax - half), code: 'ITC-SGST' });
+      if (halfPaise > 0) {
+        transfers.push({ id: ++state.transferSeq, debitAccountId: 1200, creditAccountId: 1002, amount: BigInt(halfPaise), code: 'ITC-CGST', userData: date });
+        transfers.push({ id: ++state.transferSeq, debitAccountId: 1201, creditAccountId: 1002, amount: BigInt(halfPaise), code: 'ITC-SGST', userData: date });
       }
       return ok(createTransfers(state.ledger, transfers));
     },

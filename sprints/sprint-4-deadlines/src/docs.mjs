@@ -1,3 +1,4 @@
+import { splitCsvLine } from './csv.mjs';
 import { escalationLevel } from './calendar.mjs';
 
 const REQUIRED_DOCS_MAP = {
@@ -11,9 +12,6 @@ const REQUIRED_DOCS_MAP = {
   'ADVANCE_TAX': ['advance_tax_challan'],
 };
 
-function splitCsvLine(line) {
-  return line.split(',').map(v => v.trim());
-}
 
 export function parseDocs(text) {
   if (typeof text !== 'string') return { rows: [], errors: [{ code: 'NO_HEADER_ROW', row: 0, field: null, message: 'No header row found' }] };

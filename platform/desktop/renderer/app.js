@@ -1,4 +1,5 @@
-const apiHeaders = { 'content-type': 'application/json', 'x-myca-client': 'renderer' };
+const apiToken = document.querySelector('meta[name="myca-api-token"]')?.content || '';
+const apiHeaders = { 'content-type': 'application/json', 'x-myca-client': apiToken };
 
 const api = {
   async chat(message) {
@@ -10,7 +11,7 @@ const api = {
     return r.json();
   },
   async snapshot() {
-    const r = await fetch('/api/snapshot', { headers: { 'x-myca-client': 'renderer' } });
+    const r = await fetch('/api/snapshot', { headers: { 'x-myca-client': apiToken } });
     return r.json();
   },
   async attach(kind, name, content) {
@@ -61,6 +62,49 @@ function addBubble(role, text, tag) {
   el.append(document.createTextNode(text));
   document.getElementById('log').append(el);
   el.scrollIntoView({ block: 'end' });
+}
+
+function sendChat(message) {
+  const q = document.getElementById('q');
+  q.value = message;
+  document.getElementById('composer').requestSubmit();
+}
+
+function addPreviewCard(preview) {
+  const card = document.createElement('div');
+  card.className = 'bubble bot preview-card';
+  const tag = document.createElement('div');
+  tag.className = 'tag';
+  tag.textContent = `preview · ${preview.tool}`;
+  card.append(tag);
+  card.append(document.createTextNode(preview.summary || ''));
+  for (const effect of preview.effects || []) {
+    const line = document.createElement('div');
+    line.className = 'preview-effect';
+    line.textContent = `· ${effect}`;
+    card.append(line);
+  }
+  const actions = document.createElement('div');
+  actions.className = 'preview-actions';
+  const post = document.createElement('button');
+  post.type = 'button';
+  post.className = 'primary';
+  post.textContent = 'Post it';
+  post.addEventListener('click', () => {
+    actions.remove();
+    sendChat(`confirm ${preview.token}`);
+  });
+  const drop = document.createElement('button');
+  drop.type = 'button';
+  drop.textContent = 'Discard';
+  drop.addEventListener('click', () => {
+    actions.remove();
+    sendChat('no');
+  });
+  actions.append(post, drop);
+  card.append(actions);
+  document.getElementById('log').append(card);
+  card.scrollIntoView({ block: 'end' });
 }
 
 function resultLine(name, result) {
@@ -797,6 +841,8 @@ document.getElementById('composer').addEventListener('submit', async (e) => {
     const out = await api.chat(message);
     if (out.error && !out.reply) {
       addBubble('bot', out.error, 'error');
+    } else if (out.awaitingConfirmation && out.preview) {
+      addPreviewCard(out.preview);
     } else {
       const tag = (out.tools && out.tools[0] && out.tools[0].name) || 'books';
       addBubble('bot', out.reply, tag);

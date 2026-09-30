@@ -1,0 +1,2150 @@
+{
+  "about": "Income-tax golden cases for resident individuals. Amounts are integer paise. Expected values are statements of law drafted from the Income-tax Acts and official rate tables and await advisor CA sign-off; arithmetic shows the working in rupees.",
+  "cases": [
+    {
+      "name": "FY 2024-25 new regime salary 7,75,000 (total income 7,00,000: full rebate)",
+      "input": {
+        "fy": "2024-25",
+        "regime": "new",
+        "ageBand": "below-60",
+        "residentIndividual": true,
+        "salaryPaise": 77500000,
+        "otherIncomePaise": 0,
+        "claims": {
+          "section80CPaise": 0,
+          "healthInsuranceSelfAndFamilyPaise": 0,
+          "healthInsuranceParentsPaise": 0,
+          "selfAndFamilyIncludesSenior": false,
+          "parentsIncludeSenior": false
+        }
+      },
+      "expected": {
+        "grossTotalIncomePaise": 70000000,
+        "standardDeductionPaise": 7500000,
+        "section80CPaise": 0,
+        "section80DPaise": 0,
+        "totalIncomePaise": 70000000,
+        "slabTaxPaise": 2000000,
+        "rebatePaise": 2000000,
+        "surchargePaise": 0,
+        "surchargeMarginalReliefPaise": 0,
+        "cessPaise": 0,
+        "taxPayablePaise": 0
+      },
+      "arithmetic": "Salary 7,75,000 less standard deduction 75,000; gross total income 7,00,000; total income 7,00,000; slab tax 0 + 5% of 4,00,000 above 3,00,000 = 20,000; total income does not exceed 7,00,000, rebate 20,000 (lower of tax and 25,000); tax after rebate 0; cess 4% of 0 = 0; tax payable 0.",
+      "citation": "Income-tax Act, 1961 s.16(ia) (Rs 75,000), s.115BAC(1A) slabs, s.87A rebate Rs 25,000 to Rs 7,00,000 with marginal relief, ss.288A/288B rounding; surcharge 10/15/25% (new regime capped at 25%) with marginal relief and 4% cess per the Finance Act rates for AY 2025-26 (incometax.gov.in AY 2025-26 rate tables)"
+    },
+    {
+      "name": "FY 2024-25 new regime salary 7,85,000 (total income 7,10,000: rebate marginal relief)",
+      "input": {
+        "fy": "2024-25",
+        "regime": "new",
+        "ageBand": "below-60",
+        "residentIndividual": true,
+        "salaryPaise": 78500000,
+        "otherIncomePaise": 0,
+        "claims": {
+          "section80CPaise": 0,
+          "healthInsuranceSelfAndFamilyPaise": 0,
+          "healthInsuranceParentsPaise": 0,
+          "selfAndFamilyIncludesSenior": false,
+          "parentsIncludeSenior": false
+        }
+      },
+      "expected": {
+        "grossTotalIncomePaise": 71000000,
+        "standardDeductionPaise": 7500000,
+        "section80CPaise": 0,
+        "section80DPaise": 0,
+        "totalIncomePaise": 71000000,
+        "slabTaxPaise": 2100000,
+        "rebatePaise": 1100000,
+        "surchargePaise": 0,
+        "surchargeMarginalReliefPaise": 0,
+        "cessPaise": 40000,
+        "taxPayablePaise": 1040000
+      },
+      "arithmetic": "Salary 7,85,000 less standard deduction 75,000; gross total income 7,10,000; total income 7,10,000; slab tax 20,000 + 10% of 10,000 above 7,00,000 = 21,000; total income exceeds 7,00,000 by 10,000, less than the tax, so marginal-relief rebate 21,000 - 10,000 = 11,000; tax after rebate 10,000; cess 4% of 10,000 = 400; tax payable 10,400.",
+      "citation": "Income-tax Act, 1961 s.16(ia) (Rs 75,000), s.115BAC(1A) slabs, s.87A rebate Rs 25,000 to Rs 7,00,000 with marginal relief, ss.288A/288B rounding; surcharge 10/15/25% (new regime capped at 25%) with marginal relief and 4% cess per the Finance Act rates for AY 2025-26 (incometax.gov.in AY 2025-26 rate tables)"
+    },
+    {
+      "name": "FY 2024-25 new regime salary 8,00,000 (total income 7,25,000: past marginal relief)",
+      "input": {
+        "fy": "2024-25",
+        "regime": "new",
+        "ageBand": "below-60",
+        "residentIndividual": true,
+        "salaryPaise": 80000000,
+        "otherIncomePaise": 0,
+        "claims": {
+          "section80CPaise": 0,
+          "healthInsuranceSelfAndFamilyPaise": 0,
+          "healthInsuranceParentsPaise": 0,
+          "selfAndFamilyIncludesSenior": false,
+          "parentsIncludeSenior": false
+        }
+      },
+      "expected": {
+        "grossTotalIncomePaise": 72500000,
+        "standardDeductionPaise": 7500000,
+        "section80CPaise": 0,
+        "section80DPaise": 0,
+        "totalIncomePaise": 72500000,
+        "slabTaxPaise": 2250000,
+        "rebatePaise": 0,
+        "surchargePaise": 0,
+        "surchargeMarginalReliefPaise": 0,
+        "cessPaise": 90000,
+        "taxPayablePaise": 2340000
+      },
+      "arithmetic": "Salary 8,00,000 less standard deduction 75,000; gross total income 7,25,000; total income 7,25,000; slab tax 20,000 + 10% of 25,000 above 7,00,000 = 22,500; total income exceeds 7,00,000 by 25,000, not less than the tax 22,500, so no rebate; cess 4% of 22,500 = 900; tax payable 23,400.",
+      "citation": "Income-tax Act, 1961 s.16(ia) (Rs 75,000), s.115BAC(1A) slabs, s.87A rebate Rs 25,000 to Rs 7,00,000 with marginal relief, ss.288A/288B rounding; surcharge 10/15/25% (new regime capped at 25%) with marginal relief and 4% cess per the Finance Act rates for AY 2025-26 (incometax.gov.in AY 2025-26 rate tables)"
+    },
+    {
+      "name": "FY 2024-25 new regime salary 12,00,000",
+      "input": {
+        "fy": "2024-25",
+        "regime": "new",
+        "ageBand": "below-60",
+        "residentIndividual": true,
+        "salaryPaise": 120000000,
+        "otherIncomePaise": 0,
+        "claims": {
+          "section80CPaise": 0,
+          "healthInsuranceSelfAndFamilyPaise": 0,
+          "healthInsuranceParentsPaise": 0,
+          "selfAndFamilyIncludesSenior": false,
+          "parentsIncludeSenior": false
+        }
+      },
+      "expected": {
+        "grossTotalIncomePaise": 112500000,
+        "standardDeductionPaise": 7500000,
+        "section80CPaise": 0,
+        "section80DPaise": 0,
+        "totalIncomePaise": 112500000,
+        "slabTaxPaise": 6875000,
+        "rebatePaise": 0,
+        "surchargePaise": 0,
+        "surchargeMarginalReliefPaise": 0,
+        "cessPaise": 275000,
+        "taxPayablePaise": 7150000
+      },
+      "arithmetic": "Salary 12,00,000 less standard deduction 75,000; gross total income 11,25,000; total income 11,25,000; slab tax 50,000 + 15% of 1,25,000 above 10,00,000 = 68,750; cess 4% of 68,750 = 2,750; tax payable 71,500.",
+      "citation": "Income-tax Act, 1961 s.16(ia) (Rs 75,000), s.115BAC(1A) slabs, s.87A rebate Rs 25,000 to Rs 7,00,000 with marginal relief, ss.288A/288B rounding; surcharge 10/15/25% (new regime capped at 25%) with marginal relief and 4% cess per the Finance Act rates for AY 2025-26 (incometax.gov.in AY 2025-26 rate tables)"
+    },
+    {
+      "name": "FY 2024-25 new regime salary 13,00,000",
+      "input": {
+        "fy": "2024-25",
+        "regime": "new",
+        "ageBand": "below-60",
+        "residentIndividual": true,
+        "salaryPaise": 130000000,
+        "otherIncomePaise": 0,
+        "claims": {
+          "section80CPaise": 0,
+          "healthInsuranceSelfAndFamilyPaise": 0,
+          "healthInsuranceParentsPaise": 0,
+          "selfAndFamilyIncludesSenior": false,
+          "parentsIncludeSenior": false
+        }
+      },
+      "expected": {
+        "grossTotalIncomePaise": 122500000,
+        "standardDeductionPaise": 7500000,
+        "section80CPaise": 0,
+        "section80DPaise": 0,
+        "totalIncomePaise": 122500000,
+        "slabTaxPaise": 8500000,
+        "rebatePaise": 0,
+        "surchargePaise": 0,
+        "surchargeMarginalReliefPaise": 0,
+        "cessPaise": 340000,
+        "taxPayablePaise": 8840000
+      },
+      "arithmetic": "Salary 13,00,000 less standard deduction 75,000; gross total income 12,25,000; total income 12,25,000; slab tax 80,000 + 20% of 25,000 above 12,00,000 = 85,000; cess 4% of 85,000 = 3,400; tax payable 88,400.",
+      "citation": "Income-tax Act, 1961 s.16(ia) (Rs 75,000), s.115BAC(1A) slabs, s.87A rebate Rs 25,000 to Rs 7,00,000 with marginal relief, ss.288A/288B rounding; surcharge 10/15/25% (new regime capped at 25%) with marginal relief and 4% cess per the Finance Act rates for AY 2025-26 (incometax.gov.in AY 2025-26 rate tables)"
+    },
+    {
+      "name": "FY 2024-25 new regime salary 60,00,000",
+      "input": {
+        "fy": "2024-25",
+        "regime": "new",
+        "ageBand": "below-60",
+        "residentIndividual": true,
+        "salaryPaise": 600000000,
+        "otherIncomePaise": 0,
+        "claims": {
+          "section80CPaise": 0,
+          "healthInsuranceSelfAndFamilyPaise": 0,
+          "healthInsuranceParentsPaise": 0,
+          "selfAndFamilyIncludesSenior": false,
+          "parentsIncludeSenior": false
+        }
+      },
+      "expected": {
+        "grossTotalIncomePaise": 592500000,
+        "standardDeductionPaise": 7500000,
+        "section80CPaise": 0,
+        "section80DPaise": 0,
+        "totalIncomePaise": 592500000,
+        "slabTaxPaise": 146750000,
+        "rebatePaise": 0,
+        "surchargePaise": 14675000,
+        "surchargeMarginalReliefPaise": 0,
+        "cessPaise": 6457000,
+        "taxPayablePaise": 167882000
+      },
+      "arithmetic": "Salary 60,00,000 less standard deduction 75,000; gross total income 59,25,000; total income 59,25,000; slab tax 1,40,000 + 30% of 44,25,000 above 15,00,000 = 14,67,500; surcharge 10% of 14,67,500 = 1,46,750; marginal relief check: tax 11,90,000 plus 0% surcharge at 50,00,000 plus the 9,25,000 above it = 21,15,000; tax plus surcharge 16,14,250 is within it, no relief; cess 4% of 16,14,250 = 64,570; tax payable 16,78,820.",
+      "citation": "Income-tax Act, 1961 s.16(ia) (Rs 75,000), s.115BAC(1A) slabs, s.87A rebate Rs 25,000 to Rs 7,00,000 with marginal relief, ss.288A/288B rounding; surcharge 10/15/25% (new regime capped at 25%) with marginal relief and 4% cess per the Finance Act rates for AY 2025-26 (incometax.gov.in AY 2025-26 rate tables)"
+    },
+    {
+      "name": "FY 2024-25 old regime salary 12,00,000 with 80C 2,00,000 and 80D claims",
+      "input": {
+        "fy": "2024-25",
+        "regime": "old",
+        "ageBand": "below-60",
+        "residentIndividual": true,
+        "salaryPaise": 120000000,
+        "otherIncomePaise": 0,
+        "claims": {
+          "section80CPaise": 20000000,
+          "healthInsuranceSelfAndFamilyPaise": 3000000,
+          "healthInsuranceParentsPaise": 6000000,
+          "selfAndFamilyIncludesSenior": false,
+          "parentsIncludeSenior": true
+        }
+      },
+      "expected": {
+        "grossTotalIncomePaise": 115000000,
+        "standardDeductionPaise": 5000000,
+        "section80CPaise": 15000000,
+        "section80DPaise": 7500000,
+        "totalIncomePaise": 92500000,
+        "slabTaxPaise": 9750000,
+        "rebatePaise": 0,
+        "surchargePaise": 0,
+        "surchargeMarginalReliefPaise": 0,
+        "cessPaise": 390000,
+        "taxPayablePaise": 10140000
+      },
+      "arithmetic": "Salary 12,00,000 less standard deduction 50,000; gross total income 11,50,000; 80C claim 2,00,000 capped at 1,50,000 gives 1,50,000; 80D self and family 30,000 capped at 25,000 plus parents 60,000 capped at 50,000 gives 75,000; total income 9,25,000; slab tax 12,500 + 20% of 4,25,000 above 5,00,000 = 97,500; cess 4% of 97,500 = 3,900; tax payable 1,01,400.",
+      "citation": "Income-tax Act, 1961 s.16(ia) (Rs 50,000), ss.80C/80D caps, s.87A rebate Rs 12,500 to Rs 5,00,000 without marginal relief, ss.288A/288B rounding; old-regime slabs, surcharge 10/15/25/37% with marginal relief and 4% cess per the Finance Act rates for AY 2025-26 (incometax.gov.in AY 2025-26 rate tables)"
+    },
+    {
+      "name": "FY 2025-26 new regime salary 7,00,000",
+      "input": {
+        "fy": "2025-26",
+        "regime": "new",
+        "ageBand": "below-60",
+        "residentIndividual": true,
+        "salaryPaise": 70000000,
+        "otherIncomePaise": 0,
+        "claims": {
+          "section80CPaise": 0,
+          "healthInsuranceSelfAndFamilyPaise": 0,
+          "healthInsuranceParentsPaise": 0,
+          "selfAndFamilyIncludesSenior": false,
+          "parentsIncludeSenior": false
+        }
+      },
+      "expected": {
+        "grossTotalIncomePaise": 62500000,
+        "standardDeductionPaise": 7500000,
+        "section80CPaise": 0,
+        "section80DPaise": 0,
+        "totalIncomePaise": 62500000,
+        "slabTaxPaise": 1125000,
+        "rebatePaise": 1125000,
+        "surchargePaise": 0,
+        "surchargeMarginalReliefPaise": 0,
+        "cessPaise": 0,
+        "taxPayablePaise": 0
+      },
+      "arithmetic": "Salary 7,00,000 less standard deduction 75,000; gross total income 6,25,000; total income 6,25,000; slab tax 0 + 5% of 2,25,000 above 4,00,000 = 11,250; total income does not exceed 12,00,000, rebate 11,250 (lower of tax and 60,000); tax after rebate 0; cess 4% of 0 = 0; tax payable 0.",
+      "citation": "Income-tax Act, 1961 s.16(ia) (Rs 75,000), s.115BAC(1A) slabs as amended by the Finance Act, 2025, s.87A rebate Rs 60,000 to Rs 12,00,000 with marginal relief, ss.288A/288B rounding; surcharge 10/15/25% (new regime capped at 25%) with marginal relief and 4% cess per the Finance Act rates for AY 2026-27 (incometax.gov.in AY 2026-27 rate tables)"
+    },
+    {
+      "name": "FY 2025-26 new regime salary 12,00,000",
+      "input": {
+        "fy": "2025-26",
+        "regime": "new",
+        "ageBand": "below-60",
+        "residentIndividual": true,
+        "salaryPaise": 120000000,
+        "otherIncomePaise": 0,
+        "claims": {
+          "section80CPaise": 0,
+          "healthInsuranceSelfAndFamilyPaise": 0,
+          "healthInsuranceParentsPaise": 0,
+          "selfAndFamilyIncludesSenior": false,
+          "parentsIncludeSenior": false
+        }
+      },
+      "expected": {
+        "grossTotalIncomePaise": 112500000,
+        "standardDeductionPaise": 7500000,
+        "section80CPaise": 0,
+        "section80DPaise": 0,
+        "totalIncomePaise": 112500000,
+        "slabTaxPaise": 5250000,
+        "rebatePaise": 5250000,
+        "surchargePaise": 0,
+        "surchargeMarginalReliefPaise": 0,
+        "cessPaise": 0,
+        "taxPayablePaise": 0
+      },
+      "arithmetic": "Salary 12,00,000 less standard deduction 75,000; gross total income 11,25,000; total income 11,25,000; slab tax 20,000 + 10% of 3,25,000 above 8,00,000 = 52,500; total income does not exceed 12,00,000, rebate 52,500 (lower of tax and 60,000); tax after rebate 0; cess 4% of 0 = 0; tax payable 0.",
+      "citation": "Income-tax Act, 1961 s.16(ia) (Rs 75,000), s.115BAC(1A) slabs as amended by the Finance Act, 2025, s.87A rebate Rs 60,000 to Rs 12,00,000 with marginal relief, ss.288A/288B rounding; surcharge 10/15/25% (new regime capped at 25%) with marginal relief and 4% cess per the Finance Act rates for AY 2026-27 (incometax.gov.in AY 2026-27 rate tables)"
+    },
+    {
+      "name": "FY 2025-26 new regime salary 12,10,000",
+      "input": {
+        "fy": "2025-26",
+        "regime": "new",
+        "ageBand": "below-60",
+        "residentIndividual": true,
+        "salaryPaise": 121000000,
+        "otherIncomePaise": 0,
+        "claims": {
+          "section80CPaise": 0,
+          "healthInsuranceSelfAndFamilyPaise": 0,
+          "healthInsuranceParentsPaise": 0,
+          "selfAndFamilyIncludesSenior": false,
+          "parentsIncludeSenior": false
+        }
+      },
+      "expected": {
+        "grossTotalIncomePaise": 113500000,
+        "standardDeductionPaise": 7500000,
+        "section80CPaise": 0,
+        "section80DPaise": 0,
+        "totalIncomePaise": 113500000,
+        "slabTaxPaise": 5350000,
+        "rebatePaise": 5350000,
+        "surchargePaise": 0,
+        "surchargeMarginalReliefPaise": 0,
+        "cessPaise": 0,
+        "taxPayablePaise": 0
+      },
+      "arithmetic": "Salary 12,10,000 less standard deduction 75,000; gross total income 11,35,000; total income 11,35,000; slab tax 20,000 + 10% of 3,35,000 above 8,00,000 = 53,500; total income does not exceed 12,00,000, rebate 53,500 (lower of tax and 60,000); tax after rebate 0; cess 4% of 0 = 0; tax payable 0.",
+      "citation": "Income-tax Act, 1961 s.16(ia) (Rs 75,000), s.115BAC(1A) slabs as amended by the Finance Act, 2025, s.87A rebate Rs 60,000 to Rs 12,00,000 with marginal relief, ss.288A/288B rounding; surcharge 10/15/25% (new regime capped at 25%) with marginal relief and 4% cess per the Finance Act rates for AY 2026-27 (incometax.gov.in AY 2026-27 rate tables)"
+    },
+    {
+      "name": "FY 2025-26 new regime salary 12,75,000",
+      "input": {
+        "fy": "2025-26",
+        "regime": "new",
+        "ageBand": "below-60",
+        "residentIndividual": true,
+        "salaryPaise": 127500000,
+        "otherIncomePaise": 0,
+        "claims": {
+          "section80CPaise": 0,
+          "healthInsuranceSelfAndFamilyPaise": 0,
+          "healthInsuranceParentsPaise": 0,
+          "selfAndFamilyIncludesSenior": false,
+          "parentsIncludeSenior": false
+        }
+      },
+      "expected": {
+        "grossTotalIncomePaise": 120000000,
+        "standardDeductionPaise": 7500000,
+        "section80CPaise": 0,
+        "section80DPaise": 0,
+        "totalIncomePaise": 120000000,
+        "slabTaxPaise": 6000000,
+        "rebatePaise": 6000000,
+        "surchargePaise": 0,
+        "surchargeMarginalReliefPaise": 0,
+        "cessPaise": 0,
+        "taxPayablePaise": 0
+      },
+      "arithmetic": "Salary 12,75,000 less standard deduction 75,000; gross total income 12,00,000; total income 12,00,000; slab tax 20,000 + 10% of 4,00,000 above 8,00,000 = 60,000; total income does not exceed 12,00,000, rebate 60,000 (lower of tax and 60,000); tax after rebate 0; cess 4% of 0 = 0; tax payable 0.",
+      "citation": "Income-tax Act, 1961 s.16(ia) (Rs 75,000), s.115BAC(1A) slabs as amended by the Finance Act, 2025, s.87A rebate Rs 60,000 to Rs 12,00,000 with marginal relief, ss.288A/288B rounding; surcharge 10/15/25% (new regime capped at 25%) with marginal relief and 4% cess per the Finance Act rates for AY 2026-27 (incometax.gov.in AY 2026-27 rate tables)"
+    },
+    {
+      "name": "FY 2025-26 new regime salary 12,85,000 (total income 12,10,000: rebate marginal relief)",
+      "input": {
+        "fy": "2025-26",
+        "regime": "new",
+        "ageBand": "below-60",
+        "residentIndividual": true,
+        "salaryPaise": 128500000,
+        "otherIncomePaise": 0,
+        "claims": {
+          "section80CPaise": 0,
+          "healthInsuranceSelfAndFamilyPaise": 0,
+          "healthInsuranceParentsPaise": 0,
+          "selfAndFamilyIncludesSenior": false,
+          "parentsIncludeSenior": false
+        }
+      },
+      "expected": {
+        "grossTotalIncomePaise": 121000000,
+        "standardDeductionPaise": 7500000,
+        "section80CPaise": 0,
+        "section80DPaise": 0,
+        "totalIncomePaise": 121000000,
+        "slabTaxPaise": 6150000,
+        "rebatePaise": 5150000,
+        "surchargePaise": 0,
+        "surchargeMarginalReliefPaise": 0,
+        "cessPaise": 40000,
+        "taxPayablePaise": 1040000
+      },
+      "arithmetic": "Salary 12,85,000 less standard deduction 75,000; gross total income 12,10,000; total income 12,10,000; slab tax 60,000 + 15% of 10,000 above 12,00,000 = 61,500; total income exceeds 12,00,000 by 10,000, less than the tax, so marginal-relief rebate 61,500 - 10,000 = 51,500; tax after rebate 10,000; cess 4% of 10,000 = 400; tax payable 10,400.",
+      "citation": "Income-tax Act, 1961 s.16(ia) (Rs 75,000), s.115BAC(1A) slabs as amended by the Finance Act, 2025, s.87A rebate Rs 60,000 to Rs 12,00,000 with marginal relief, ss.288A/288B rounding; surcharge 10/15/25% (new regime capped at 25%) with marginal relief and 4% cess per the Finance Act rates for AY 2026-27 (incometax.gov.in AY 2026-27 rate tables)"
+    },
+    {
+      "name": "FY 2025-26 new regime salary 13,00,000",
+      "input": {
+        "fy": "2025-26",
+        "regime": "new",
+        "ageBand": "below-60",
+        "residentIndividual": true,
+        "salaryPaise": 130000000,
+        "otherIncomePaise": 0,
+        "claims": {
+          "section80CPaise": 0,
+          "healthInsuranceSelfAndFamilyPaise": 0,
+          "healthInsuranceParentsPaise": 0,
+          "selfAndFamilyIncludesSenior": false,
+          "parentsIncludeSenior": false
+        }
+      },
+      "expected": {
+        "grossTotalIncomePaise": 122500000,
+        "standardDeductionPaise": 7500000,
+        "section80CPaise": 0,
+        "section80DPaise": 0,
+        "totalIncomePaise": 122500000,
+        "slabTaxPaise": 6375000,
+        "rebatePaise": 3875000,
+        "surchargePaise": 0,
+        "surchargeMarginalReliefPaise": 0,
+        "cessPaise": 100000,
+        "taxPayablePaise": 2600000
+      },
+      "arithmetic": "Salary 13,00,000 less standard deduction 75,000; gross total income 12,25,000; total income 12,25,000; slab tax 60,000 + 15% of 25,000 above 12,00,000 = 63,750; total income exceeds 12,00,000 by 25,000, less than the tax, so marginal-relief rebate 63,750 - 25,000 = 38,750; tax after rebate 25,000; cess 4% of 25,000 = 1,000; tax payable 26,000.",
+      "citation": "Income-tax Act, 1961 s.16(ia) (Rs 75,000), s.115BAC(1A) slabs as amended by the Finance Act, 2025, s.87A rebate Rs 60,000 to Rs 12,00,000 with marginal relief, ss.288A/288B rounding; surcharge 10/15/25% (new regime capped at 25%) with marginal relief and 4% cess per the Finance Act rates for AY 2026-27 (incometax.gov.in AY 2026-27 rate tables)"
+    },
+    {
+      "name": "FY 2025-26 new regime salary 13,45,580 (total income 12,70,580: last marginal relief)",
+      "input": {
+        "fy": "2025-26",
+        "regime": "new",
+        "ageBand": "below-60",
+        "residentIndividual": true,
+        "salaryPaise": 134558000,
+        "otherIncomePaise": 0,
+        "claims": {
+          "section80CPaise": 0,
+          "healthInsuranceSelfAndFamilyPaise": 0,
+          "healthInsuranceParentsPaise": 0,
+          "selfAndFamilyIncludesSenior": false,
+          "parentsIncludeSenior": false
+        }
+      },
+      "expected": {
+        "grossTotalIncomePaise": 127058000,
+        "standardDeductionPaise": 7500000,
+        "section80CPaise": 0,
+        "section80DPaise": 0,
+        "totalIncomePaise": 127058000,
+        "slabTaxPaise": 7058700,
+        "rebatePaise": 700,
+        "surchargePaise": 0,
+        "surchargeMarginalReliefPaise": 0,
+        "cessPaise": 282320,
+        "taxPayablePaise": 7340000
+      },
+      "arithmetic": "Salary 13,45,580 less standard deduction 75,000; gross total income 12,70,580; total income 12,70,580; slab tax 60,000 + 15% of 70,580 above 12,00,000 = 70,587; total income exceeds 12,00,000 by 70,580, less than the tax, so marginal-relief rebate 70,587 - 70,580 = 7; tax after rebate 70,580; cess 4% of 70,580 = 2,823.20; total 73,403.20 rounded to the nearest ten rupees (paise ignored) gives tax payable 73,400.",
+      "citation": "Income-tax Act, 1961 s.16(ia) (Rs 75,000), s.115BAC(1A) slabs as amended by the Finance Act, 2025, s.87A rebate Rs 60,000 to Rs 12,00,000 with marginal relief, ss.288A/288B rounding; surcharge 10/15/25% (new regime capped at 25%) with marginal relief and 4% cess per the Finance Act rates for AY 2026-27 (incometax.gov.in AY 2026-27 rate tables)"
+    },
+    {
+      "name": "FY 2025-26 new regime salary 13,45,590 (total income 12,70,590: marginal relief ends)",
+      "input": {
+        "fy": "2025-26",
+        "regime": "new",
+        "ageBand": "below-60",
+        "residentIndividual": true,
+        "salaryPaise": 134559000,
+        "otherIncomePaise": 0,
+        "claims": {
+          "section80CPaise": 0,
+          "healthInsuranceSelfAndFamilyPaise": 0,
+          "healthInsuranceParentsPaise": 0,
+          "selfAndFamilyIncludesSenior": false,
+          "parentsIncludeSenior": false
+        }
+      },
+      "expected": {
+        "grossTotalIncomePaise": 127059000,
+        "standardDeductionPaise": 7500000,
+        "section80CPaise": 0,
+        "section80DPaise": 0,
+        "totalIncomePaise": 127059000,
+        "slabTaxPaise": 7058850,
+        "rebatePaise": 0,
+        "surchargePaise": 0,
+        "surchargeMarginalReliefPaise": 0,
+        "cessPaise": 282354,
+        "taxPayablePaise": 7341000
+      },
+      "arithmetic": "Salary 13,45,590 less standard deduction 75,000; gross total income 12,70,590; total income 12,70,590; slab tax 60,000 + 15% of 70,590 above 12,00,000 = 70,588.50; total income exceeds 12,00,000 by 70,590, not less than the tax 70,588.50, so no rebate; cess 4% of 70,588.50 = 2,823.54; total 73,412.04 rounded to the nearest ten rupees (paise ignored) gives tax payable 73,410.",
+      "citation": "Income-tax Act, 1961 s.16(ia) (Rs 75,000), s.115BAC(1A) slabs as amended by the Finance Act, 2025, s.87A rebate Rs 60,000 to Rs 12,00,000 with marginal relief, ss.288A/288B rounding; surcharge 10/15/25% (new regime capped at 25%) with marginal relief and 4% cess per the Finance Act rates for AY 2026-27 (incometax.gov.in AY 2026-27 rate tables)"
+    },
+    {
+      "name": "FY 2025-26 new regime salary 25,00,000",
+      "input": {
+        "fy": "2025-26",
+        "regime": "new",
+        "ageBand": "below-60",
+        "residentIndividual": true,
+        "salaryPaise": 250000000,
+        "otherIncomePaise": 0,
+        "claims": {
+          "section80CPaise": 0,
+          "healthInsuranceSelfAndFamilyPaise": 0,
+          "healthInsuranceParentsPaise": 0,
+          "selfAndFamilyIncludesSenior": false,
+          "parentsIncludeSenior": false
+        }
+      },
+      "expected": {
+        "grossTotalIncomePaise": 242500000,
+        "standardDeductionPaise": 7500000,
+        "section80CPaise": 0,
+        "section80DPaise": 0,
+        "totalIncomePaise": 242500000,
+        "slabTaxPaise": 30750000,
+        "rebatePaise": 0,
+        "surchargePaise": 0,
+        "surchargeMarginalReliefPaise": 0,
+        "cessPaise": 1230000,
+        "taxPayablePaise": 31980000
+      },
+      "arithmetic": "Salary 25,00,000 less standard deduction 75,000; gross total income 24,25,000; total income 24,25,000; slab tax 3,00,000 + 30% of 25,000 above 24,00,000 = 3,07,500; cess 4% of 3,07,500 = 12,300; tax payable 3,19,800.",
+      "citation": "Income-tax Act, 1961 s.16(ia) (Rs 75,000), s.115BAC(1A) slabs as amended by the Finance Act, 2025, s.87A rebate Rs 60,000 to Rs 12,00,000 with marginal relief, ss.288A/288B rounding; surcharge 10/15/25% (new regime capped at 25%) with marginal relief and 4% cess per the Finance Act rates for AY 2026-27 (incometax.gov.in AY 2026-27 rate tables)"
+    },
+    {
+      "name": "FY 2025-26 new regime salary 50,00,001",
+      "input": {
+        "fy": "2025-26",
+        "regime": "new",
+        "ageBand": "below-60",
+        "residentIndividual": true,
+        "salaryPaise": 500000100,
+        "otherIncomePaise": 0,
+        "claims": {
+          "section80CPaise": 0,
+          "healthInsuranceSelfAndFamilyPaise": 0,
+          "healthInsuranceParentsPaise": 0,
+          "selfAndFamilyIncludesSenior": false,
+          "parentsIncludeSenior": false
+        }
+      },
+      "expected": {
+        "grossTotalIncomePaise": 492500100,
+        "standardDeductionPaise": 7500000,
+        "section80CPaise": 0,
+        "section80DPaise": 0,
+        "totalIncomePaise": 492500000,
+        "slabTaxPaise": 105750000,
+        "rebatePaise": 0,
+        "surchargePaise": 0,
+        "surchargeMarginalReliefPaise": 0,
+        "cessPaise": 4230000,
+        "taxPayablePaise": 109980000
+      },
+      "arithmetic": "Salary 50,00,001 less standard deduction 75,000; gross total income 49,25,001; total income 49,25,001 rounded to the nearest ten rupees gives 49,25,000; slab tax 3,00,000 + 30% of 25,25,000 above 24,00,000 = 10,57,500; cess 4% of 10,57,500 = 42,300; tax payable 10,99,800.",
+      "citation": "Income-tax Act, 1961 s.16(ia) (Rs 75,000), s.115BAC(1A) slabs as amended by the Finance Act, 2025, s.87A rebate Rs 60,000 to Rs 12,00,000 with marginal relief, ss.288A/288B rounding; surcharge 10/15/25% (new regime capped at 25%) with marginal relief and 4% cess per the Finance Act rates for AY 2026-27 (incometax.gov.in AY 2026-27 rate tables)"
+    },
+    {
+      "name": "FY 2025-26 new regime salary 50,75,001 (total income 50,00,001 rounds to 50,00,000: no surcharge)",
+      "input": {
+        "fy": "2025-26",
+        "regime": "new",
+        "ageBand": "below-60",
+        "residentIndividual": true,
+        "salaryPaise": 507500100,
+        "otherIncomePaise": 0,
+        "claims": {
+          "section80CPaise": 0,
+          "healthInsuranceSelfAndFamilyPaise": 0,
+          "healthInsuranceParentsPaise": 0,
+          "selfAndFamilyIncludesSenior": false,
+          "parentsIncludeSenior": false
+        }
+      },
+      "expected": {
+        "grossTotalIncomePaise": 500000100,
+        "standardDeductionPaise": 7500000,
+        "section80CPaise": 0,
+        "section80DPaise": 0,
+        "totalIncomePaise": 500000000,
+        "slabTaxPaise": 108000000,
+        "rebatePaise": 0,
+        "surchargePaise": 0,
+        "surchargeMarginalReliefPaise": 0,
+        "cessPaise": 4320000,
+        "taxPayablePaise": 112320000
+      },
+      "arithmetic": "Salary 50,75,001 less standard deduction 75,000; gross total income 50,00,001; total income 50,00,001 rounded to the nearest ten rupees gives 50,00,000; slab tax 3,00,000 + 30% of 26,00,000 above 24,00,000 = 10,80,000; cess 4% of 10,80,000 = 43,200; tax payable 11,23,200.",
+      "citation": "Income-tax Act, 1961 s.16(ia) (Rs 75,000), s.115BAC(1A) slabs as amended by the Finance Act, 2025, s.87A rebate Rs 60,000 to Rs 12,00,000 with marginal relief, ss.288A/288B rounding; surcharge 10/15/25% (new regime capped at 25%) with marginal relief and 4% cess per the Finance Act rates for AY 2026-27 (incometax.gov.in AY 2026-27 rate tables)"
+    },
+    {
+      "name": "FY 2025-26 new regime salary 50,75,010 (total income 50,00,010: surcharge marginal relief)",
+      "input": {
+        "fy": "2025-26",
+        "regime": "new",
+        "ageBand": "below-60",
+        "residentIndividual": true,
+        "salaryPaise": 507501000,
+        "otherIncomePaise": 0,
+        "claims": {
+          "section80CPaise": 0,
+          "healthInsuranceSelfAndFamilyPaise": 0,
+          "healthInsuranceParentsPaise": 0,
+          "selfAndFamilyIncludesSenior": false,
+          "parentsIncludeSenior": false
+        }
+      },
+      "expected": {
+        "grossTotalIncomePaise": 500001000,
+        "standardDeductionPaise": 7500000,
+        "section80CPaise": 0,
+        "section80DPaise": 0,
+        "totalIncomePaise": 500001000,
+        "slabTaxPaise": 108000300,
+        "rebatePaise": 0,
+        "surchargePaise": 700,
+        "surchargeMarginalReliefPaise": 10799330,
+        "cessPaise": 4320040,
+        "taxPayablePaise": 112321000
+      },
+      "arithmetic": "Salary 50,75,010 less standard deduction 75,000; gross total income 50,00,010; total income 50,00,010; slab tax 3,00,000 + 30% of 26,00,010 above 24,00,000 = 10,80,003; surcharge 10% of 10,80,003 = 1,08,000.30; marginal relief check: tax 10,80,000 plus 0% surcharge at 50,00,000 plus the 10 above it = 10,80,010; tax plus surcharge 11,88,003.30 exceeds it, so surcharge is limited to 7 (relief 1,07,993.30); cess 4% of 10,80,010 = 43,200.40; total 11,23,210.40 rounded to the nearest ten rupees (paise ignored) gives tax payable 11,23,210.",
+      "citation": "Income-tax Act, 1961 s.16(ia) (Rs 75,000), s.115BAC(1A) slabs as amended by the Finance Act, 2025, s.87A rebate Rs 60,000 to Rs 12,00,000 with marginal relief, ss.288A/288B rounding; surcharge 10/15/25% (new regime capped at 25%) with marginal relief and 4% cess per the Finance Act rates for AY 2026-27 (incometax.gov.in AY 2026-27 rate tables)"
+    },
+    {
+      "name": "FY 2025-26 new regime salary 60,00,000",
+      "input": {
+        "fy": "2025-26",
+        "regime": "new",
+        "ageBand": "below-60",
+        "residentIndividual": true,
+        "salaryPaise": 600000000,
+        "otherIncomePaise": 0,
+        "claims": {
+          "section80CPaise": 0,
+          "healthInsuranceSelfAndFamilyPaise": 0,
+          "healthInsuranceParentsPaise": 0,
+          "selfAndFamilyIncludesSenior": false,
+          "parentsIncludeSenior": false
+        }
+      },
+      "expected": {
+        "grossTotalIncomePaise": 592500000,
+        "standardDeductionPaise": 7500000,
+        "section80CPaise": 0,
+        "section80DPaise": 0,
+        "totalIncomePaise": 592500000,
+        "slabTaxPaise": 135750000,
+        "rebatePaise": 0,
+        "surchargePaise": 13575000,
+        "surchargeMarginalReliefPaise": 0,
+        "cessPaise": 5973000,
+        "taxPayablePaise": 155298000
+      },
+      "arithmetic": "Salary 60,00,000 less standard deduction 75,000; gross total income 59,25,000; total income 59,25,000; slab tax 3,00,000 + 30% of 35,25,000 above 24,00,000 = 13,57,500; surcharge 10% of 13,57,500 = 1,35,750; marginal relief check: tax 10,80,000 plus 0% surcharge at 50,00,000 plus the 9,25,000 above it = 20,05,000; tax plus surcharge 14,93,250 is within it, no relief; cess 4% of 14,93,250 = 59,730; tax payable 15,52,980.",
+      "citation": "Income-tax Act, 1961 s.16(ia) (Rs 75,000), s.115BAC(1A) slabs as amended by the Finance Act, 2025, s.87A rebate Rs 60,000 to Rs 12,00,000 with marginal relief, ss.288A/288B rounding; surcharge 10/15/25% (new regime capped at 25%) with marginal relief and 4% cess per the Finance Act rates for AY 2026-27 (incometax.gov.in AY 2026-27 rate tables)"
+    },
+    {
+      "name": "FY 2025-26 new regime salary 1,00,85,000 (total income 1,00,10,000: surcharge marginal relief at 1 crore)",
+      "input": {
+        "fy": "2025-26",
+        "regime": "new",
+        "ageBand": "below-60",
+        "residentIndividual": true,
+        "salaryPaise": 1008500000,
+        "otherIncomePaise": 0,
+        "claims": {
+          "section80CPaise": 0,
+          "healthInsuranceSelfAndFamilyPaise": 0,
+          "healthInsuranceParentsPaise": 0,
+          "selfAndFamilyIncludesSenior": false,
+          "parentsIncludeSenior": false
+        }
+      },
+      "expected": {
+        "grossTotalIncomePaise": 1001000000,
+        "standardDeductionPaise": 7500000,
+        "section80CPaise": 0,
+        "section80DPaise": 0,
+        "totalIncomePaise": 1001000000,
+        "slabTaxPaise": 258300000,
+        "rebatePaise": 0,
+        "surchargePaise": 26500000,
+        "surchargeMarginalReliefPaise": 12245000,
+        "cessPaise": 11392000,
+        "taxPayablePaise": 296192000
+      },
+      "arithmetic": "Salary 1,00,85,000 less standard deduction 75,000; gross total income 1,00,10,000; total income 1,00,10,000; slab tax 3,00,000 + 30% of 76,10,000 above 24,00,000 = 25,83,000; surcharge 15% of 25,83,000 = 3,87,450; marginal relief check: tax 25,80,000 plus 10% surcharge at 1,00,00,000 plus the 10,000 above it = 28,48,000; tax plus surcharge 29,70,450 exceeds it, so surcharge is limited to 2,65,000 (relief 1,22,450); cess 4% of 28,48,000 = 1,13,920; tax payable 29,61,920.",
+      "citation": "Income-tax Act, 1961 s.16(ia) (Rs 75,000), s.115BAC(1A) slabs as amended by the Finance Act, 2025, s.87A rebate Rs 60,000 to Rs 12,00,000 with marginal relief, ss.288A/288B rounding; surcharge 10/15/25% (new regime capped at 25%) with marginal relief and 4% cess per the Finance Act rates for AY 2026-27 (incometax.gov.in AY 2026-27 rate tables)"
+    },
+    {
+      "name": "FY 2025-26 new regime salary 1,20,00,000",
+      "input": {
+        "fy": "2025-26",
+        "regime": "new",
+        "ageBand": "below-60",
+        "residentIndividual": true,
+        "salaryPaise": 1200000000,
+        "otherIncomePaise": 0,
+        "claims": {
+          "section80CPaise": 0,
+          "healthInsuranceSelfAndFamilyPaise": 0,
+          "healthInsuranceParentsPaise": 0,
+          "selfAndFamilyIncludesSenior": false,
+          "parentsIncludeSenior": false
+        }
+      },
+      "expected": {
+        "grossTotalIncomePaise": 1192500000,
+        "standardDeductionPaise": 7500000,
+        "section80CPaise": 0,
+        "section80DPaise": 0,
+        "totalIncomePaise": 1192500000,
+        "slabTaxPaise": 315750000,
+        "rebatePaise": 0,
+        "surchargePaise": 47362500,
+        "surchargeMarginalReliefPaise": 0,
+        "cessPaise": 14524500,
+        "taxPayablePaise": 377637000
+      },
+      "arithmetic": "Salary 1,20,00,000 less standard deduction 75,000; gross total income 1,19,25,000; total income 1,19,25,000; slab tax 3,00,000 + 30% of 95,25,000 above 24,00,000 = 31,57,500; surcharge 15% of 31,57,500 = 4,73,625; marginal relief check: tax 25,80,000 plus 10% surcharge at 1,00,00,000 plus the 19,25,000 above it = 47,63,000; tax plus surcharge 36,31,125 is within it, no relief; cess 4% of 36,31,125 = 1,45,245; tax payable 37,76,370.",
+      "citation": "Income-tax Act, 1961 s.16(ia) (Rs 75,000), s.115BAC(1A) slabs as amended by the Finance Act, 2025, s.87A rebate Rs 60,000 to Rs 12,00,000 with marginal relief, ss.288A/288B rounding; surcharge 10/15/25% (new regime capped at 25%) with marginal relief and 4% cess per the Finance Act rates for AY 2026-27 (incometax.gov.in AY 2026-27 rate tables)"
+    },
+    {
+      "name": "FY 2025-26 new regime salary 6,00,75,000 (total income 6 crore: surcharge capped at 25%)",
+      "input": {
+        "fy": "2025-26",
+        "regime": "new",
+        "ageBand": "below-60",
+        "residentIndividual": true,
+        "salaryPaise": 6007500000,
+        "otherIncomePaise": 0,
+        "claims": {
+          "section80CPaise": 0,
+          "healthInsuranceSelfAndFamilyPaise": 0,
+          "healthInsuranceParentsPaise": 0,
+          "selfAndFamilyIncludesSenior": false,
+          "parentsIncludeSenior": false
+        }
+      },
+      "expected": {
+        "grossTotalIncomePaise": 6000000000,
+        "standardDeductionPaise": 7500000,
+        "section80CPaise": 0,
+        "section80DPaise": 0,
+        "totalIncomePaise": 6000000000,
+        "slabTaxPaise": 1758000000,
+        "rebatePaise": 0,
+        "surchargePaise": 439500000,
+        "surchargeMarginalReliefPaise": 0,
+        "cessPaise": 87900000,
+        "taxPayablePaise": 2285400000
+      },
+      "arithmetic": "Salary 6,00,75,000 less standard deduction 75,000; gross total income 6,00,00,000; total income 6,00,00,000; slab tax 3,00,000 + 30% of 5,76,00,000 above 24,00,000 = 1,75,80,000; surcharge 25% (37% capped at 25% in the new regime) of 1,75,80,000 = 43,95,000; marginal relief check: tax 1,45,80,000 plus 25% surcharge at 5,00,00,000 plus the 1,00,00,000 above it = 2,82,25,000; tax plus surcharge 2,19,75,000 is within it, no relief; cess 4% of 2,19,75,000 = 8,79,000; tax payable 2,28,54,000.",
+      "citation": "Income-tax Act, 1961 s.16(ia) (Rs 75,000), s.115BAC(1A) slabs as amended by the Finance Act, 2025, s.87A rebate Rs 60,000 to Rs 12,00,000 with marginal relief, ss.288A/288B rounding; surcharge 10/15/25% (new regime capped at 25%) with marginal relief and 4% cess per the Finance Act rates for AY 2026-27 (incometax.gov.in AY 2026-27 rate tables)"
+    },
+    {
+      "name": "FY 2025-26 new regime no salary, other income 12,75,000 (no standard deduction without salary)",
+      "input": {
+        "fy": "2025-26",
+        "regime": "new",
+        "ageBand": "below-60",
+        "residentIndividual": true,
+        "salaryPaise": 0,
+        "otherIncomePaise": 127500000,
+        "claims": {
+          "section80CPaise": 0,
+          "healthInsuranceSelfAndFamilyPaise": 0,
+          "healthInsuranceParentsPaise": 0,
+          "selfAndFamilyIncludesSenior": false,
+          "parentsIncludeSenior": false
+        }
+      },
+      "expected": {
+        "grossTotalIncomePaise": 127500000,
+        "standardDeductionPaise": 0,
+        "section80CPaise": 0,
+        "section80DPaise": 0,
+        "totalIncomePaise": 127500000,
+        "slabTaxPaise": 7125000,
+        "rebatePaise": 0,
+        "surchargePaise": 0,
+        "surchargeMarginalReliefPaise": 0,
+        "cessPaise": 285000,
+        "taxPayablePaise": 7410000
+      },
+      "arithmetic": "No salary, so no standard deduction; other income 12,75,000; gross total income 12,75,000; total income 12,75,000; slab tax 60,000 + 15% of 75,000 above 12,00,000 = 71,250; total income exceeds 12,00,000 by 75,000, not less than the tax 71,250, so no rebate; cess 4% of 71,250 = 2,850; tax payable 74,100.",
+      "citation": "Income-tax Act, 1961 s.16(ia) (Rs 75,000), s.115BAC(1A) slabs as amended by the Finance Act, 2025, s.87A rebate Rs 60,000 to Rs 12,00,000 with marginal relief, ss.288A/288B rounding; surcharge 10/15/25% (new regime capped at 25%) with marginal relief and 4% cess per the Finance Act rates for AY 2026-27 (incometax.gov.in AY 2026-27 rate tables)"
+    },
+    {
+      "name": "FY 2025-26 new regime salary 13,00,000 with 80C and 80D claims (not allowed)",
+      "input": {
+        "fy": "2025-26",
+        "regime": "new",
+        "ageBand": "below-60",
+        "residentIndividual": true,
+        "salaryPaise": 130000000,
+        "otherIncomePaise": 0,
+        "claims": {
+          "section80CPaise": 20000000,
+          "healthInsuranceSelfAndFamilyPaise": 3000000,
+          "healthInsuranceParentsPaise": 6000000,
+          "selfAndFamilyIncludesSenior": false,
+          "parentsIncludeSenior": true
+        }
+      },
+      "expected": {
+        "grossTotalIncomePaise": 122500000,
+        "standardDeductionPaise": 7500000,
+        "section80CPaise": 0,
+        "section80DPaise": 0,
+        "totalIncomePaise": 122500000,
+        "slabTaxPaise": 6375000,
+        "rebatePaise": 3875000,
+        "surchargePaise": 0,
+        "surchargeMarginalReliefPaise": 0,
+        "cessPaise": 100000,
+        "taxPayablePaise": 2600000
+      },
+      "arithmetic": "Salary 13,00,000 less standard deduction 75,000; gross total income 12,25,000; 80C and 80D claims are not allowed in the new regime; total income 12,25,000; slab tax 60,000 + 15% of 25,000 above 12,00,000 = 63,750; total income exceeds 12,00,000 by 25,000, less than the tax, so marginal-relief rebate 63,750 - 25,000 = 38,750; tax after rebate 25,000; cess 4% of 25,000 = 1,000; tax payable 26,000.",
+      "citation": "Income-tax Act, 1961 s.16(ia) (Rs 75,000), s.115BAC(1A) slabs as amended by the Finance Act, 2025, s.87A rebate Rs 60,000 to Rs 12,00,000 with marginal relief, ss.288A/288B rounding; surcharge 10/15/25% (new regime capped at 25%) with marginal relief and 4% cess per the Finance Act rates for AY 2026-27 (incometax.gov.in AY 2026-27 rate tables)"
+    },
+    {
+      "name": "FY 2025-26 old regime salary 5,50,000 (total income 5,00,000: full rebate)",
+      "input": {
+        "fy": "2025-26",
+        "regime": "old",
+        "ageBand": "below-60",
+        "residentIndividual": true,
+        "salaryPaise": 55000000,
+        "otherIncomePaise": 0,
+        "claims": {
+          "section80CPaise": 0,
+          "healthInsuranceSelfAndFamilyPaise": 0,
+          "healthInsuranceParentsPaise": 0,
+          "selfAndFamilyIncludesSenior": false,
+          "parentsIncludeSenior": false
+        }
+      },
+      "expected": {
+        "grossTotalIncomePaise": 50000000,
+        "standardDeductionPaise": 5000000,
+        "section80CPaise": 0,
+        "section80DPaise": 0,
+        "totalIncomePaise": 50000000,
+        "slabTaxPaise": 1250000,
+        "rebatePaise": 1250000,
+        "surchargePaise": 0,
+        "surchargeMarginalReliefPaise": 0,
+        "cessPaise": 0,
+        "taxPayablePaise": 0
+      },
+      "arithmetic": "Salary 5,50,000 less standard deduction 50,000; gross total income 5,00,000; total income 5,00,000; slab tax 0 + 5% of 2,50,000 above 2,50,000 = 12,500; total income does not exceed 5,00,000, rebate 12,500 (lower of tax and 12,500); tax after rebate 0; cess 4% of 0 = 0; tax payable 0.",
+      "citation": "Income-tax Act, 1961 s.16(ia) (Rs 50,000), ss.80C/80D caps, s.87A rebate Rs 12,500 to Rs 5,00,000 without marginal relief, ss.288A/288B rounding; old-regime slabs, surcharge 10/15/25/37% with marginal relief and 4% cess per the Finance Act rates for AY 2026-27 (incometax.gov.in AY 2026-27 rate tables)"
+    },
+    {
+      "name": "FY 2025-26 old regime salary 5,50,010 (total income 5,00,010: no marginal relief)",
+      "input": {
+        "fy": "2025-26",
+        "regime": "old",
+        "ageBand": "below-60",
+        "residentIndividual": true,
+        "salaryPaise": 55001000,
+        "otherIncomePaise": 0,
+        "claims": {
+          "section80CPaise": 0,
+          "healthInsuranceSelfAndFamilyPaise": 0,
+          "healthInsuranceParentsPaise": 0,
+          "selfAndFamilyIncludesSenior": false,
+          "parentsIncludeSenior": false
+        }
+      },
+      "expected": {
+        "grossTotalIncomePaise": 50001000,
+        "standardDeductionPaise": 5000000,
+        "section80CPaise": 0,
+        "section80DPaise": 0,
+        "totalIncomePaise": 50001000,
+        "slabTaxPaise": 1250200,
+        "rebatePaise": 0,
+        "surchargePaise": 0,
+        "surchargeMarginalReliefPaise": 0,
+        "cessPaise": 50008,
+        "taxPayablePaise": 1300000
+      },
+      "arithmetic": "Salary 5,50,010 less standard deduction 50,000; gross total income 5,00,010; total income 5,00,010; slab tax 12,500 + 20% of 10 above 5,00,000 = 12,502; total income exceeds 5,00,000, no rebate and no marginal relief in the old regime; cess 4% of 12,502 = 500.08; total 13,002.08 rounded to the nearest ten rupees (paise ignored) gives tax payable 13,000.",
+      "citation": "Income-tax Act, 1961 s.16(ia) (Rs 50,000), ss.80C/80D caps, s.87A rebate Rs 12,500 to Rs 5,00,000 without marginal relief, ss.288A/288B rounding; old-regime slabs, surcharge 10/15/25/37% with marginal relief and 4% cess per the Finance Act rates for AY 2026-27 (incometax.gov.in AY 2026-27 rate tables)"
+    },
+    {
+      "name": "FY 2025-26 old regime salary 7,00,000 with 80C 2,00,000 and 80D claims",
+      "input": {
+        "fy": "2025-26",
+        "regime": "old",
+        "ageBand": "below-60",
+        "residentIndividual": true,
+        "salaryPaise": 70000000,
+        "otherIncomePaise": 0,
+        "claims": {
+          "section80CPaise": 20000000,
+          "healthInsuranceSelfAndFamilyPaise": 3000000,
+          "healthInsuranceParentsPaise": 6000000,
+          "selfAndFamilyIncludesSenior": false,
+          "parentsIncludeSenior": true
+        }
+      },
+      "expected": {
+        "grossTotalIncomePaise": 65000000,
+        "standardDeductionPaise": 5000000,
+        "section80CPaise": 15000000,
+        "section80DPaise": 7500000,
+        "totalIncomePaise": 42500000,
+        "slabTaxPaise": 875000,
+        "rebatePaise": 875000,
+        "surchargePaise": 0,
+        "surchargeMarginalReliefPaise": 0,
+        "cessPaise": 0,
+        "taxPayablePaise": 0
+      },
+      "arithmetic": "Salary 7,00,000 less standard deduction 50,000; gross total income 6,50,000; 80C claim 2,00,000 capped at 1,50,000 gives 1,50,000; 80D self and family 30,000 capped at 25,000 plus parents 60,000 capped at 50,000 gives 75,000; total income 4,25,000; slab tax 0 + 5% of 1,75,000 above 2,50,000 = 8,750; total income does not exceed 5,00,000, rebate 8,750 (lower of tax and 12,500); tax after rebate 0; cess 4% of 0 = 0; tax payable 0.",
+      "citation": "Income-tax Act, 1961 s.16(ia) (Rs 50,000), ss.80C/80D caps, s.87A rebate Rs 12,500 to Rs 5,00,000 without marginal relief, ss.288A/288B rounding; old-regime slabs, surcharge 10/15/25/37% with marginal relief and 4% cess per the Finance Act rates for AY 2026-27 (incometax.gov.in AY 2026-27 rate tables)"
+    },
+    {
+      "name": "FY 2025-26 old regime salary 12,00,000 with 80C 2,00,000 and 80D claims",
+      "input": {
+        "fy": "2025-26",
+        "regime": "old",
+        "ageBand": "below-60",
+        "residentIndividual": true,
+        "salaryPaise": 120000000,
+        "otherIncomePaise": 0,
+        "claims": {
+          "section80CPaise": 20000000,
+          "healthInsuranceSelfAndFamilyPaise": 3000000,
+          "healthInsuranceParentsPaise": 6000000,
+          "selfAndFamilyIncludesSenior": false,
+          "parentsIncludeSenior": true
+        }
+      },
+      "expected": {
+        "grossTotalIncomePaise": 115000000,
+        "standardDeductionPaise": 5000000,
+        "section80CPaise": 15000000,
+        "section80DPaise": 7500000,
+        "totalIncomePaise": 92500000,
+        "slabTaxPaise": 9750000,
+        "rebatePaise": 0,
+        "surchargePaise": 0,
+        "surchargeMarginalReliefPaise": 0,
+        "cessPaise": 390000,
+        "taxPayablePaise": 10140000
+      },
+      "arithmetic": "Salary 12,00,000 less standard deduction 50,000; gross total income 11,50,000; 80C claim 2,00,000 capped at 1,50,000 gives 1,50,000; 80D self and family 30,000 capped at 25,000 plus parents 60,000 capped at 50,000 gives 75,000; total income 9,25,000; slab tax 12,500 + 20% of 4,25,000 above 5,00,000 = 97,500; cess 4% of 97,500 = 3,900; tax payable 1,01,400.",
+      "citation": "Income-tax Act, 1961 s.16(ia) (Rs 50,000), ss.80C/80D caps, s.87A rebate Rs 12,500 to Rs 5,00,000 without marginal relief, ss.288A/288B rounding; old-regime slabs, surcharge 10/15/25/37% with marginal relief and 4% cess per the Finance Act rates for AY 2026-27 (incometax.gov.in AY 2026-27 rate tables)"
+    },
+    {
+      "name": "FY 2025-26 old regime salary 13,00,000 with 80C 2,00,000 and 80D claims",
+      "input": {
+        "fy": "2025-26",
+        "regime": "old",
+        "ageBand": "below-60",
+        "residentIndividual": true,
+        "salaryPaise": 130000000,
+        "otherIncomePaise": 0,
+        "claims": {
+          "section80CPaise": 20000000,
+          "healthInsuranceSelfAndFamilyPaise": 3000000,
+          "healthInsuranceParentsPaise": 6000000,
+          "selfAndFamilyIncludesSenior": false,
+          "parentsIncludeSenior": true
+        }
+      },
+      "expected": {
+        "grossTotalIncomePaise": 125000000,
+        "standardDeductionPaise": 5000000,
+        "section80CPaise": 15000000,
+        "section80DPaise": 7500000,
+        "totalIncomePaise": 102500000,
+        "slabTaxPaise": 12000000,
+        "rebatePaise": 0,
+        "surchargePaise": 0,
+        "surchargeMarginalReliefPaise": 0,
+        "cessPaise": 480000,
+        "taxPayablePaise": 12480000
+      },
+      "arithmetic": "Salary 13,00,000 less standard deduction 50,000; gross total income 12,50,000; 80C claim 2,00,000 capped at 1,50,000 gives 1,50,000; 80D self and family 30,000 capped at 25,000 plus parents 60,000 capped at 50,000 gives 75,000; total income 10,25,000; slab tax 1,12,500 + 30% of 25,000 above 10,00,000 = 1,20,000; cess 4% of 1,20,000 = 4,800; tax payable 1,24,800.",
+      "citation": "Income-tax Act, 1961 s.16(ia) (Rs 50,000), ss.80C/80D caps, s.87A rebate Rs 12,500 to Rs 5,00,000 without marginal relief, ss.288A/288B rounding; old-regime slabs, surcharge 10/15/25/37% with marginal relief and 4% cess per the Finance Act rates for AY 2026-27 (incometax.gov.in AY 2026-27 rate tables)"
+    },
+    {
+      "name": "FY 2025-26 old regime salary 25,00,000 with 80C 2,00,000 and 80D claims",
+      "input": {
+        "fy": "2025-26",
+        "regime": "old",
+        "ageBand": "below-60",
+        "residentIndividual": true,
+        "salaryPaise": 250000000,
+        "otherIncomePaise": 0,
+        "claims": {
+          "section80CPaise": 20000000,
+          "healthInsuranceSelfAndFamilyPaise": 3000000,
+          "healthInsuranceParentsPaise": 6000000,
+          "selfAndFamilyIncludesSenior": false,
+          "parentsIncludeSenior": true
+        }
+      },
+      "expected": {
+        "grossTotalIncomePaise": 245000000,
+        "standardDeductionPaise": 5000000,
+        "section80CPaise": 15000000,
+        "section80DPaise": 7500000,
+        "totalIncomePaise": 222500000,
+        "slabTaxPaise": 48000000,
+        "rebatePaise": 0,
+        "surchargePaise": 0,
+        "surchargeMarginalReliefPaise": 0,
+        "cessPaise": 1920000,
+        "taxPayablePaise": 49920000
+      },
+      "arithmetic": "Salary 25,00,000 less standard deduction 50,000; gross total income 24,50,000; 80C claim 2,00,000 capped at 1,50,000 gives 1,50,000; 80D self and family 30,000 capped at 25,000 plus parents 60,000 capped at 50,000 gives 75,000; total income 22,25,000; slab tax 1,12,500 + 30% of 12,25,000 above 10,00,000 = 4,80,000; cess 4% of 4,80,000 = 19,200; tax payable 4,99,200.",
+      "citation": "Income-tax Act, 1961 s.16(ia) (Rs 50,000), ss.80C/80D caps, s.87A rebate Rs 12,500 to Rs 5,00,000 without marginal relief, ss.288A/288B rounding; old-regime slabs, surcharge 10/15/25/37% with marginal relief and 4% cess per the Finance Act rates for AY 2026-27 (incometax.gov.in AY 2026-27 rate tables)"
+    },
+    {
+      "name": "FY 2025-26 old regime salary 60,00,000 with 80C 2,00,000 and 80D claims",
+      "input": {
+        "fy": "2025-26",
+        "regime": "old",
+        "ageBand": "below-60",
+        "residentIndividual": true,
+        "salaryPaise": 600000000,
+        "otherIncomePaise": 0,
+        "claims": {
+          "section80CPaise": 20000000,
+          "healthInsuranceSelfAndFamilyPaise": 3000000,
+          "healthInsuranceParentsPaise": 6000000,
+          "selfAndFamilyIncludesSenior": false,
+          "parentsIncludeSenior": true
+        }
+      },
+      "expected": {
+        "grossTotalIncomePaise": 595000000,
+        "standardDeductionPaise": 5000000,
+        "section80CPaise": 15000000,
+        "section80DPaise": 7500000,
+        "totalIncomePaise": 572500000,
+        "slabTaxPaise": 153000000,
+        "rebatePaise": 0,
+        "surchargePaise": 15300000,
+        "surchargeMarginalReliefPaise": 0,
+        "cessPaise": 6732000,
+        "taxPayablePaise": 175032000
+      },
+      "arithmetic": "Salary 60,00,000 less standard deduction 50,000; gross total income 59,50,000; 80C claim 2,00,000 capped at 1,50,000 gives 1,50,000; 80D self and family 30,000 capped at 25,000 plus parents 60,000 capped at 50,000 gives 75,000; total income 57,25,000; slab tax 1,12,500 + 30% of 47,25,000 above 10,00,000 = 15,30,000; surcharge 10% of 15,30,000 = 1,53,000; marginal relief check: tax 13,12,500 plus 0% surcharge at 50,00,000 plus the 7,25,000 above it = 20,37,500; tax plus surcharge 16,83,000 is within it, no relief; cess 4% of 16,83,000 = 67,320; tax payable 17,50,320.",
+      "citation": "Income-tax Act, 1961 s.16(ia) (Rs 50,000), ss.80C/80D caps, s.87A rebate Rs 12,500 to Rs 5,00,000 without marginal relief, ss.288A/288B rounding; old-regime slabs, surcharge 10/15/25/37% with marginal relief and 4% cess per the Finance Act rates for AY 2026-27 (incometax.gov.in AY 2026-27 rate tables)"
+    },
+    {
+      "name": "FY 2025-26 old regime salary 13,00,000 without deductions",
+      "input": {
+        "fy": "2025-26",
+        "regime": "old",
+        "ageBand": "below-60",
+        "residentIndividual": true,
+        "salaryPaise": 130000000,
+        "otherIncomePaise": 0,
+        "claims": {
+          "section80CPaise": 0,
+          "healthInsuranceSelfAndFamilyPaise": 0,
+          "healthInsuranceParentsPaise": 0,
+          "selfAndFamilyIncludesSenior": false,
+          "parentsIncludeSenior": false
+        }
+      },
+      "expected": {
+        "grossTotalIncomePaise": 125000000,
+        "standardDeductionPaise": 5000000,
+        "section80CPaise": 0,
+        "section80DPaise": 0,
+        "totalIncomePaise": 125000000,
+        "slabTaxPaise": 18750000,
+        "rebatePaise": 0,
+        "surchargePaise": 0,
+        "surchargeMarginalReliefPaise": 0,
+        "cessPaise": 750000,
+        "taxPayablePaise": 19500000
+      },
+      "arithmetic": "Salary 13,00,000 less standard deduction 50,000; gross total income 12,50,000; total income 12,50,000; slab tax 1,12,500 + 30% of 2,50,000 above 10,00,000 = 1,87,500; cess 4% of 1,87,500 = 7,500; tax payable 1,95,000.",
+      "citation": "Income-tax Act, 1961 s.16(ia) (Rs 50,000), ss.80C/80D caps, s.87A rebate Rs 12,500 to Rs 5,00,000 without marginal relief, ss.288A/288B rounding; old-regime slabs, surcharge 10/15/25/37% with marginal relief and 4% cess per the Finance Act rates for AY 2026-27 (incometax.gov.in AY 2026-27 rate tables)"
+    },
+    {
+      "name": "FY 2025-26 old regime salary 6,00,50,000 (total income 6 crore: surcharge 37%)",
+      "input": {
+        "fy": "2025-26",
+        "regime": "old",
+        "ageBand": "below-60",
+        "residentIndividual": true,
+        "salaryPaise": 6005000000,
+        "otherIncomePaise": 0,
+        "claims": {
+          "section80CPaise": 0,
+          "healthInsuranceSelfAndFamilyPaise": 0,
+          "healthInsuranceParentsPaise": 0,
+          "selfAndFamilyIncludesSenior": false,
+          "parentsIncludeSenior": false
+        }
+      },
+      "expected": {
+        "grossTotalIncomePaise": 6000000000,
+        "standardDeductionPaise": 5000000,
+        "section80CPaise": 0,
+        "section80DPaise": 0,
+        "totalIncomePaise": 6000000000,
+        "slabTaxPaise": 1781250000,
+        "rebatePaise": 0,
+        "surchargePaise": 659062500,
+        "surchargeMarginalReliefPaise": 0,
+        "cessPaise": 97612500,
+        "taxPayablePaise": 2537925000
+      },
+      "arithmetic": "Salary 6,00,50,000 less standard deduction 50,000; gross total income 6,00,00,000; total income 6,00,00,000; slab tax 1,12,500 + 30% of 5,90,00,000 above 10,00,000 = 1,78,12,500; surcharge 37% of 1,78,12,500 = 65,90,625; marginal relief check: tax 1,48,12,500 plus 25% surcharge at 5,00,00,000 plus the 1,00,00,000 above it = 2,85,15,625; tax plus surcharge 2,44,03,125 is within it, no relief; cess 4% of 2,44,03,125 = 9,76,125; tax payable 2,53,79,250.",
+      "citation": "Income-tax Act, 1961 s.16(ia) (Rs 50,000), ss.80C/80D caps, s.87A rebate Rs 12,500 to Rs 5,00,000 without marginal relief, ss.288A/288B rounding; old-regime slabs, surcharge 10/15/25/37% with marginal relief and 4% cess per the Finance Act rates for AY 2026-27 (incometax.gov.in AY 2026-27 rate tables)"
+    },
+    {
+      "name": "FY 2025-26 old regime age 60-to-79 salary 10,50,000 with senior 80D claim 60,000",
+      "input": {
+        "fy": "2025-26",
+        "regime": "old",
+        "ageBand": "60-to-79",
+        "residentIndividual": true,
+        "salaryPaise": 105000000,
+        "otherIncomePaise": 0,
+        "claims": {
+          "section80CPaise": 0,
+          "healthInsuranceSelfAndFamilyPaise": 6000000,
+          "healthInsuranceParentsPaise": 0,
+          "selfAndFamilyIncludesSenior": true,
+          "parentsIncludeSenior": false
+        }
+      },
+      "expected": {
+        "grossTotalIncomePaise": 100000000,
+        "standardDeductionPaise": 5000000,
+        "section80CPaise": 0,
+        "section80DPaise": 5000000,
+        "totalIncomePaise": 95000000,
+        "slabTaxPaise": 10000000,
+        "rebatePaise": 0,
+        "surchargePaise": 0,
+        "surchargeMarginalReliefPaise": 0,
+        "cessPaise": 400000,
+        "taxPayablePaise": 10400000
+      },
+      "arithmetic": "Salary 10,50,000 less standard deduction 50,000; gross total income 10,00,000; 80C claim 0 capped at 1,50,000 gives 0; 80D self and family 60,000 capped at 50,000 plus parents 0 capped at 25,000 gives 50,000; total income 9,50,000; slab tax 10,000 + 20% of 4,50,000 above 5,00,000 = 1,00,000; cess 4% of 1,00,000 = 4,000; tax payable 1,04,000.",
+      "citation": "Income-tax Act, 1961 s.16(ia) (Rs 50,000), ss.80C/80D caps, s.87A rebate Rs 12,500 to Rs 5,00,000 without marginal relief, ss.288A/288B rounding; old-regime slabs, surcharge 10/15/25/37% with marginal relief and 4% cess per the Finance Act rates for AY 2026-27 (incometax.gov.in AY 2026-27 rate tables)"
+    },
+    {
+      "name": "FY 2025-26 old regime age 80-plus salary 10,50,000",
+      "input": {
+        "fy": "2025-26",
+        "regime": "old",
+        "ageBand": "80-plus",
+        "residentIndividual": true,
+        "salaryPaise": 105000000,
+        "otherIncomePaise": 0,
+        "claims": {
+          "section80CPaise": 0,
+          "healthInsuranceSelfAndFamilyPaise": 0,
+          "healthInsuranceParentsPaise": 0,
+          "selfAndFamilyIncludesSenior": false,
+          "parentsIncludeSenior": false
+        }
+      },
+      "expected": {
+        "grossTotalIncomePaise": 100000000,
+        "standardDeductionPaise": 5000000,
+        "section80CPaise": 0,
+        "section80DPaise": 0,
+        "totalIncomePaise": 100000000,
+        "slabTaxPaise": 10000000,
+        "rebatePaise": 0,
+        "surchargePaise": 0,
+        "surchargeMarginalReliefPaise": 0,
+        "cessPaise": 400000,
+        "taxPayablePaise": 10400000
+      },
+      "arithmetic": "Salary 10,50,000 less standard deduction 50,000; gross total income 10,00,000; total income 10,00,000; slab tax 0 + 20% of 5,00,000 above 5,00,000 = 1,00,000; cess 4% of 1,00,000 = 4,000; tax payable 1,04,000.",
+      "citation": "Income-tax Act, 1961 s.16(ia) (Rs 50,000), ss.80C/80D caps, s.87A rebate Rs 12,500 to Rs 5,00,000 without marginal relief, ss.288A/288B rounding; old-regime slabs, surcharge 10/15/25/37% with marginal relief and 4% cess per the Finance Act rates for AY 2026-27 (incometax.gov.in AY 2026-27 rate tables)"
+    },
+    {
+      "name": "FY 2026-27 new regime salary 7,00,000",
+      "input": {
+        "fy": "2026-27",
+        "regime": "new",
+        "ageBand": "below-60",
+        "residentIndividual": true,
+        "salaryPaise": 70000000,
+        "otherIncomePaise": 0,
+        "claims": {
+          "section80CPaise": 0,
+          "healthInsuranceSelfAndFamilyPaise": 0,
+          "healthInsuranceParentsPaise": 0,
+          "selfAndFamilyIncludesSenior": false,
+          "parentsIncludeSenior": false
+        }
+      },
+      "expected": {
+        "grossTotalIncomePaise": 62500000,
+        "standardDeductionPaise": 7500000,
+        "section80CPaise": 0,
+        "section80DPaise": 0,
+        "totalIncomePaise": 62500000,
+        "slabTaxPaise": 1125000,
+        "rebatePaise": 1125000,
+        "surchargePaise": 0,
+        "surchargeMarginalReliefPaise": 0,
+        "cessPaise": 0,
+        "taxPayablePaise": 0
+      },
+      "arithmetic": "Salary 7,00,000 less standard deduction 75,000; gross total income 6,25,000; total income 6,25,000; slab tax 0 + 5% of 2,25,000 above 4,00,000 = 11,250; total income does not exceed 12,00,000, rebate 11,250 (lower of tax and 60,000); tax after rebate 0; cess 4% of 0 = 0; tax payable 0.",
+      "citation": "Income-tax Act, 2025 s.19(1) Table Sl. No. 2(a) (Rs 75,000), s.202(1) slabs, s.156(2) rebate Rs 60,000 to Rs 12,00,000 with marginal relief, s.516 rounding; surcharge 10/15/25% (new regime capped at 25%) with marginal relief and 4% cess per the Finance Act, 2026 (reported unchanged; First Schedule not read directly)"
+    },
+    {
+      "name": "FY 2026-27 new regime salary 12,00,000",
+      "input": {
+        "fy": "2026-27",
+        "regime": "new",
+        "ageBand": "below-60",
+        "residentIndividual": true,
+        "salaryPaise": 120000000,
+        "otherIncomePaise": 0,
+        "claims": {
+          "section80CPaise": 0,
+          "healthInsuranceSelfAndFamilyPaise": 0,
+          "healthInsuranceParentsPaise": 0,
+          "selfAndFamilyIncludesSenior": false,
+          "parentsIncludeSenior": false
+        }
+      },
+      "expected": {
+        "grossTotalIncomePaise": 112500000,
+        "standardDeductionPaise": 7500000,
+        "section80CPaise": 0,
+        "section80DPaise": 0,
+        "totalIncomePaise": 112500000,
+        "slabTaxPaise": 5250000,
+        "rebatePaise": 5250000,
+        "surchargePaise": 0,
+        "surchargeMarginalReliefPaise": 0,
+        "cessPaise": 0,
+        "taxPayablePaise": 0
+      },
+      "arithmetic": "Salary 12,00,000 less standard deduction 75,000; gross total income 11,25,000; total income 11,25,000; slab tax 20,000 + 10% of 3,25,000 above 8,00,000 = 52,500; total income does not exceed 12,00,000, rebate 52,500 (lower of tax and 60,000); tax after rebate 0; cess 4% of 0 = 0; tax payable 0.",
+      "citation": "Income-tax Act, 2025 s.19(1) Table Sl. No. 2(a) (Rs 75,000), s.202(1) slabs, s.156(2) rebate Rs 60,000 to Rs 12,00,000 with marginal relief, s.516 rounding; surcharge 10/15/25% (new regime capped at 25%) with marginal relief and 4% cess per the Finance Act, 2026 (reported unchanged; First Schedule not read directly)"
+    },
+    {
+      "name": "FY 2026-27 new regime salary 12,10,000",
+      "input": {
+        "fy": "2026-27",
+        "regime": "new",
+        "ageBand": "below-60",
+        "residentIndividual": true,
+        "salaryPaise": 121000000,
+        "otherIncomePaise": 0,
+        "claims": {
+          "section80CPaise": 0,
+          "healthInsuranceSelfAndFamilyPaise": 0,
+          "healthInsuranceParentsPaise": 0,
+          "selfAndFamilyIncludesSenior": false,
+          "parentsIncludeSenior": false
+        }
+      },
+      "expected": {
+        "grossTotalIncomePaise": 113500000,
+        "standardDeductionPaise": 7500000,
+        "section80CPaise": 0,
+        "section80DPaise": 0,
+        "totalIncomePaise": 113500000,
+        "slabTaxPaise": 5350000,
+        "rebatePaise": 5350000,
+        "surchargePaise": 0,
+        "surchargeMarginalReliefPaise": 0,
+        "cessPaise": 0,
+        "taxPayablePaise": 0
+      },
+      "arithmetic": "Salary 12,10,000 less standard deduction 75,000; gross total income 11,35,000; total income 11,35,000; slab tax 20,000 + 10% of 3,35,000 above 8,00,000 = 53,500; total income does not exceed 12,00,000, rebate 53,500 (lower of tax and 60,000); tax after rebate 0; cess 4% of 0 = 0; tax payable 0.",
+      "citation": "Income-tax Act, 2025 s.19(1) Table Sl. No. 2(a) (Rs 75,000), s.202(1) slabs, s.156(2) rebate Rs 60,000 to Rs 12,00,000 with marginal relief, s.516 rounding; surcharge 10/15/25% (new regime capped at 25%) with marginal relief and 4% cess per the Finance Act, 2026 (reported unchanged; First Schedule not read directly)"
+    },
+    {
+      "name": "FY 2026-27 new regime salary 12,75,000",
+      "input": {
+        "fy": "2026-27",
+        "regime": "new",
+        "ageBand": "below-60",
+        "residentIndividual": true,
+        "salaryPaise": 127500000,
+        "otherIncomePaise": 0,
+        "claims": {
+          "section80CPaise": 0,
+          "healthInsuranceSelfAndFamilyPaise": 0,
+          "healthInsuranceParentsPaise": 0,
+          "selfAndFamilyIncludesSenior": false,
+          "parentsIncludeSenior": false
+        }
+      },
+      "expected": {
+        "grossTotalIncomePaise": 120000000,
+        "standardDeductionPaise": 7500000,
+        "section80CPaise": 0,
+        "section80DPaise": 0,
+        "totalIncomePaise": 120000000,
+        "slabTaxPaise": 6000000,
+        "rebatePaise": 6000000,
+        "surchargePaise": 0,
+        "surchargeMarginalReliefPaise": 0,
+        "cessPaise": 0,
+        "taxPayablePaise": 0
+      },
+      "arithmetic": "Salary 12,75,000 less standard deduction 75,000; gross total income 12,00,000; total income 12,00,000; slab tax 20,000 + 10% of 4,00,000 above 8,00,000 = 60,000; total income does not exceed 12,00,000, rebate 60,000 (lower of tax and 60,000); tax after rebate 0; cess 4% of 0 = 0; tax payable 0.",
+      "citation": "Income-tax Act, 2025 s.19(1) Table Sl. No. 2(a) (Rs 75,000), s.202(1) slabs, s.156(2) rebate Rs 60,000 to Rs 12,00,000 with marginal relief, s.516 rounding; surcharge 10/15/25% (new regime capped at 25%) with marginal relief and 4% cess per the Finance Act, 2026 (reported unchanged; First Schedule not read directly)"
+    },
+    {
+      "name": "FY 2026-27 new regime salary 12,85,000 (total income 12,10,000: rebate marginal relief)",
+      "input": {
+        "fy": "2026-27",
+        "regime": "new",
+        "ageBand": "below-60",
+        "residentIndividual": true,
+        "salaryPaise": 128500000,
+        "otherIncomePaise": 0,
+        "claims": {
+          "section80CPaise": 0,
+          "healthInsuranceSelfAndFamilyPaise": 0,
+          "healthInsuranceParentsPaise": 0,
+          "selfAndFamilyIncludesSenior": false,
+          "parentsIncludeSenior": false
+        }
+      },
+      "expected": {
+        "grossTotalIncomePaise": 121000000,
+        "standardDeductionPaise": 7500000,
+        "section80CPaise": 0,
+        "section80DPaise": 0,
+        "totalIncomePaise": 121000000,
+        "slabTaxPaise": 6150000,
+        "rebatePaise": 5150000,
+        "surchargePaise": 0,
+        "surchargeMarginalReliefPaise": 0,
+        "cessPaise": 40000,
+        "taxPayablePaise": 1040000
+      },
+      "arithmetic": "Salary 12,85,000 less standard deduction 75,000; gross total income 12,10,000; total income 12,10,000; slab tax 60,000 + 15% of 10,000 above 12,00,000 = 61,500; total income exceeds 12,00,000 by 10,000, less than the tax, so marginal-relief rebate 61,500 - 10,000 = 51,500; tax after rebate 10,000; cess 4% of 10,000 = 400; tax payable 10,400.",
+      "citation": "Income-tax Act, 2025 s.19(1) Table Sl. No. 2(a) (Rs 75,000), s.202(1) slabs, s.156(2) rebate Rs 60,000 to Rs 12,00,000 with marginal relief, s.516 rounding; surcharge 10/15/25% (new regime capped at 25%) with marginal relief and 4% cess per the Finance Act, 2026 (reported unchanged; First Schedule not read directly)"
+    },
+    {
+      "name": "FY 2026-27 new regime salary 13,00,000",
+      "input": {
+        "fy": "2026-27",
+        "regime": "new",
+        "ageBand": "below-60",
+        "residentIndividual": true,
+        "salaryPaise": 130000000,
+        "otherIncomePaise": 0,
+        "claims": {
+          "section80CPaise": 0,
+          "healthInsuranceSelfAndFamilyPaise": 0,
+          "healthInsuranceParentsPaise": 0,
+          "selfAndFamilyIncludesSenior": false,
+          "parentsIncludeSenior": false
+        }
+      },
+      "expected": {
+        "grossTotalIncomePaise": 122500000,
+        "standardDeductionPaise": 7500000,
+        "section80CPaise": 0,
+        "section80DPaise": 0,
+        "totalIncomePaise": 122500000,
+        "slabTaxPaise": 6375000,
+        "rebatePaise": 3875000,
+        "surchargePaise": 0,
+        "surchargeMarginalReliefPaise": 0,
+        "cessPaise": 100000,
+        "taxPayablePaise": 2600000
+      },
+      "arithmetic": "Salary 13,00,000 less standard deduction 75,000; gross total income 12,25,000; total income 12,25,000; slab tax 60,000 + 15% of 25,000 above 12,00,000 = 63,750; total income exceeds 12,00,000 by 25,000, less than the tax, so marginal-relief rebate 63,750 - 25,000 = 38,750; tax after rebate 25,000; cess 4% of 25,000 = 1,000; tax payable 26,000.",
+      "citation": "Income-tax Act, 2025 s.19(1) Table Sl. No. 2(a) (Rs 75,000), s.202(1) slabs, s.156(2) rebate Rs 60,000 to Rs 12,00,000 with marginal relief, s.516 rounding; surcharge 10/15/25% (new regime capped at 25%) with marginal relief and 4% cess per the Finance Act, 2026 (reported unchanged; First Schedule not read directly)"
+    },
+    {
+      "name": "FY 2026-27 new regime salary 13,45,580 (total income 12,70,580: last marginal relief)",
+      "input": {
+        "fy": "2026-27",
+        "regime": "new",
+        "ageBand": "below-60",
+        "residentIndividual": true,
+        "salaryPaise": 134558000,
+        "otherIncomePaise": 0,
+        "claims": {
+          "section80CPaise": 0,
+          "healthInsuranceSelfAndFamilyPaise": 0,
+          "healthInsuranceParentsPaise": 0,
+          "selfAndFamilyIncludesSenior": false,
+          "parentsIncludeSenior": false
+        }
+      },
+      "expected": {
+        "grossTotalIncomePaise": 127058000,
+        "standardDeductionPaise": 7500000,
+        "section80CPaise": 0,
+        "section80DPaise": 0,
+        "totalIncomePaise": 127058000,
+        "slabTaxPaise": 7058700,
+        "rebatePaise": 700,
+        "surchargePaise": 0,
+        "surchargeMarginalReliefPaise": 0,
+        "cessPaise": 282320,
+        "taxPayablePaise": 7340000
+      },
+      "arithmetic": "Salary 13,45,580 less standard deduction 75,000; gross total income 12,70,580; total income 12,70,580; slab tax 60,000 + 15% of 70,580 above 12,00,000 = 70,587; total income exceeds 12,00,000 by 70,580, less than the tax, so marginal-relief rebate 70,587 - 70,580 = 7; tax after rebate 70,580; cess 4% of 70,580 = 2,823.20; total 73,403.20 rounded to the nearest ten rupees (paise ignored) gives tax payable 73,400.",
+      "citation": "Income-tax Act, 2025 s.19(1) Table Sl. No. 2(a) (Rs 75,000), s.202(1) slabs, s.156(2) rebate Rs 60,000 to Rs 12,00,000 with marginal relief, s.516 rounding; surcharge 10/15/25% (new regime capped at 25%) with marginal relief and 4% cess per the Finance Act, 2026 (reported unchanged; First Schedule not read directly)"
+    },
+    {
+      "name": "FY 2026-27 new regime salary 13,45,590 (total income 12,70,590: marginal relief ends)",
+      "input": {
+        "fy": "2026-27",
+        "regime": "new",
+        "ageBand": "below-60",
+        "residentIndividual": true,
+        "salaryPaise": 134559000,
+        "otherIncomePaise": 0,
+        "claims": {
+          "section80CPaise": 0,
+          "healthInsuranceSelfAndFamilyPaise": 0,
+          "healthInsuranceParentsPaise": 0,
+          "selfAndFamilyIncludesSenior": false,
+          "parentsIncludeSenior": false
+        }
+      },
+      "expected": {
+        "grossTotalIncomePaise": 127059000,
+        "standardDeductionPaise": 7500000,
+        "section80CPaise": 0,
+        "section80DPaise": 0,
+        "totalIncomePaise": 127059000,
+        "slabTaxPaise": 7058850,
+        "rebatePaise": 0,
+        "surchargePaise": 0,
+        "surchargeMarginalReliefPaise": 0,
+        "cessPaise": 282354,
+        "taxPayablePaise": 7341000
+      },
+      "arithmetic": "Salary 13,45,590 less standard deduction 75,000; gross total income 12,70,590; total income 12,70,590; slab tax 60,000 + 15% of 70,590 above 12,00,000 = 70,588.50; total income exceeds 12,00,000 by 70,590, not less than the tax 70,588.50, so no rebate; cess 4% of 70,588.50 = 2,823.54; total 73,412.04 rounded to the nearest ten rupees (paise ignored) gives tax payable 73,410.",
+      "citation": "Income-tax Act, 2025 s.19(1) Table Sl. No. 2(a) (Rs 75,000), s.202(1) slabs, s.156(2) rebate Rs 60,000 to Rs 12,00,000 with marginal relief, s.516 rounding; surcharge 10/15/25% (new regime capped at 25%) with marginal relief and 4% cess per the Finance Act, 2026 (reported unchanged; First Schedule not read directly)"
+    },
+    {
+      "name": "FY 2026-27 new regime salary 25,00,000",
+      "input": {
+        "fy": "2026-27",
+        "regime": "new",
+        "ageBand": "below-60",
+        "residentIndividual": true,
+        "salaryPaise": 250000000,
+        "otherIncomePaise": 0,
+        "claims": {
+          "section80CPaise": 0,
+          "healthInsuranceSelfAndFamilyPaise": 0,
+          "healthInsuranceParentsPaise": 0,
+          "selfAndFamilyIncludesSenior": false,
+          "parentsIncludeSenior": false
+        }
+      },
+      "expected": {
+        "grossTotalIncomePaise": 242500000,
+        "standardDeductionPaise": 7500000,
+        "section80CPaise": 0,
+        "section80DPaise": 0,
+        "totalIncomePaise": 242500000,
+        "slabTaxPaise": 30750000,
+        "rebatePaise": 0,
+        "surchargePaise": 0,
+        "surchargeMarginalReliefPaise": 0,
+        "cessPaise": 1230000,
+        "taxPayablePaise": 31980000
+      },
+      "arithmetic": "Salary 25,00,000 less standard deduction 75,000; gross total income 24,25,000; total income 24,25,000; slab tax 3,00,000 + 30% of 25,000 above 24,00,000 = 3,07,500; cess 4% of 3,07,500 = 12,300; tax payable 3,19,800.",
+      "citation": "Income-tax Act, 2025 s.19(1) Table Sl. No. 2(a) (Rs 75,000), s.202(1) slabs, s.156(2) rebate Rs 60,000 to Rs 12,00,000 with marginal relief, s.516 rounding; surcharge 10/15/25% (new regime capped at 25%) with marginal relief and 4% cess per the Finance Act, 2026 (reported unchanged; First Schedule not read directly)"
+    },
+    {
+      "name": "FY 2026-27 new regime salary 50,00,001",
+      "input": {
+        "fy": "2026-27",
+        "regime": "new",
+        "ageBand": "below-60",
+        "residentIndividual": true,
+        "salaryPaise": 500000100,
+        "otherIncomePaise": 0,
+        "claims": {
+          "section80CPaise": 0,
+          "healthInsuranceSelfAndFamilyPaise": 0,
+          "healthInsuranceParentsPaise": 0,
+          "selfAndFamilyIncludesSenior": false,
+          "parentsIncludeSenior": false
+        }
+      },
+      "expected": {
+        "grossTotalIncomePaise": 492500100,
+        "standardDeductionPaise": 7500000,
+        "section80CPaise": 0,
+        "section80DPaise": 0,
+        "totalIncomePaise": 492500000,
+        "slabTaxPaise": 105750000,
+        "rebatePaise": 0,
+        "surchargePaise": 0,
+        "surchargeMarginalReliefPaise": 0,
+        "cessPaise": 4230000,
+        "taxPayablePaise": 109980000
+      },
+      "arithmetic": "Salary 50,00,001 less standard deduction 75,000; gross total income 49,25,001; total income 49,25,001 rounded to the nearest ten rupees gives 49,25,000; slab tax 3,00,000 + 30% of 25,25,000 above 24,00,000 = 10,57,500; cess 4% of 10,57,500 = 42,300; tax payable 10,99,800.",
+      "citation": "Income-tax Act, 2025 s.19(1) Table Sl. No. 2(a) (Rs 75,000), s.202(1) slabs, s.156(2) rebate Rs 60,000 to Rs 12,00,000 with marginal relief, s.516 rounding; surcharge 10/15/25% (new regime capped at 25%) with marginal relief and 4% cess per the Finance Act, 2026 (reported unchanged; First Schedule not read directly)"
+    },
+    {
+      "name": "FY 2026-27 new regime salary 50,75,001 (total income 50,00,001 rounds to 50,00,000: no surcharge)",
+      "input": {
+        "fy": "2026-27",
+        "regime": "new",
+        "ageBand": "below-60",
+        "residentIndividual": true,
+        "salaryPaise": 507500100,
+        "otherIncomePaise": 0,
+        "claims": {
+          "section80CPaise": 0,
+          "healthInsuranceSelfAndFamilyPaise": 0,
+          "healthInsuranceParentsPaise": 0,
+          "selfAndFamilyIncludesSenior": false,
+          "parentsIncludeSenior": false
+        }
+      },
+      "expected": {
+        "grossTotalIncomePaise": 500000100,
+        "standardDeductionPaise": 7500000,
+        "section80CPaise": 0,
+        "section80DPaise": 0,
+        "totalIncomePaise": 500000000,
+        "slabTaxPaise": 108000000,
+        "rebatePaise": 0,
+        "surchargePaise": 0,
+        "surchargeMarginalReliefPaise": 0,
+        "cessPaise": 4320000,
+        "taxPayablePaise": 112320000
+      },
+      "arithmetic": "Salary 50,75,001 less standard deduction 75,000; gross total income 50,00,001; total income 50,00,001 rounded to the nearest ten rupees gives 50,00,000; slab tax 3,00,000 + 30% of 26,00,000 above 24,00,000 = 10,80,000; cess 4% of 10,80,000 = 43,200; tax payable 11,23,200.",
+      "citation": "Income-tax Act, 2025 s.19(1) Table Sl. No. 2(a) (Rs 75,000), s.202(1) slabs, s.156(2) rebate Rs 60,000 to Rs 12,00,000 with marginal relief, s.516 rounding; surcharge 10/15/25% (new regime capped at 25%) with marginal relief and 4% cess per the Finance Act, 2026 (reported unchanged; First Schedule not read directly)"
+    },
+    {
+      "name": "FY 2026-27 new regime salary 50,75,010 (total income 50,00,010: surcharge marginal relief)",
+      "input": {
+        "fy": "2026-27",
+        "regime": "new",
+        "ageBand": "below-60",
+        "residentIndividual": true,
+        "salaryPaise": 507501000,
+        "otherIncomePaise": 0,
+        "claims": {
+          "section80CPaise": 0,
+          "healthInsuranceSelfAndFamilyPaise": 0,
+          "healthInsuranceParentsPaise": 0,
+          "selfAndFamilyIncludesSenior": false,
+          "parentsIncludeSenior": false
+        }
+      },
+      "expected": {
+        "grossTotalIncomePaise": 500001000,
+        "standardDeductionPaise": 7500000,
+        "section80CPaise": 0,
+        "section80DPaise": 0,
+        "totalIncomePaise": 500001000,
+        "slabTaxPaise": 108000300,
+        "rebatePaise": 0,
+        "surchargePaise": 700,
+        "surchargeMarginalReliefPaise": 10799330,
+        "cessPaise": 4320040,
+        "taxPayablePaise": 112321000
+      },
+      "arithmetic": "Salary 50,75,010 less standard deduction 75,000; gross total income 50,00,010; total income 50,00,010; slab tax 3,00,000 + 30% of 26,00,010 above 24,00,000 = 10,80,003; surcharge 10% of 10,80,003 = 1,08,000.30; marginal relief check: tax 10,80,000 plus 0% surcharge at 50,00,000 plus the 10 above it = 10,80,010; tax plus surcharge 11,88,003.30 exceeds it, so surcharge is limited to 7 (relief 1,07,993.30); cess 4% of 10,80,010 = 43,200.40; total 11,23,210.40 rounded to the nearest ten rupees (paise ignored) gives tax payable 11,23,210.",
+      "citation": "Income-tax Act, 2025 s.19(1) Table Sl. No. 2(a) (Rs 75,000), s.202(1) slabs, s.156(2) rebate Rs 60,000 to Rs 12,00,000 with marginal relief, s.516 rounding; surcharge 10/15/25% (new regime capped at 25%) with marginal relief and 4% cess per the Finance Act, 2026 (reported unchanged; First Schedule not read directly)"
+    },
+    {
+      "name": "FY 2026-27 new regime salary 60,00,000",
+      "input": {
+        "fy": "2026-27",
+        "regime": "new",
+        "ageBand": "below-60",
+        "residentIndividual": true,
+        "salaryPaise": 600000000,
+        "otherIncomePaise": 0,
+        "claims": {
+          "section80CPaise": 0,
+          "healthInsuranceSelfAndFamilyPaise": 0,
+          "healthInsuranceParentsPaise": 0,
+          "selfAndFamilyIncludesSenior": false,
+          "parentsIncludeSenior": false
+        }
+      },
+      "expected": {
+        "grossTotalIncomePaise": 592500000,
+        "standardDeductionPaise": 7500000,
+        "section80CPaise": 0,
+        "section80DPaise": 0,
+        "totalIncomePaise": 592500000,
+        "slabTaxPaise": 135750000,
+        "rebatePaise": 0,
+        "surchargePaise": 13575000,
+        "surchargeMarginalReliefPaise": 0,
+        "cessPaise": 5973000,
+        "taxPayablePaise": 155298000
+      },
+      "arithmetic": "Salary 60,00,000 less standard deduction 75,000; gross total income 59,25,000; total income 59,25,000; slab tax 3,00,000 + 30% of 35,25,000 above 24,00,000 = 13,57,500; surcharge 10% of 13,57,500 = 1,35,750; marginal relief check: tax 10,80,000 plus 0% surcharge at 50,00,000 plus the 9,25,000 above it = 20,05,000; tax plus surcharge 14,93,250 is within it, no relief; cess 4% of 14,93,250 = 59,730; tax payable 15,52,980.",
+      "citation": "Income-tax Act, 2025 s.19(1) Table Sl. No. 2(a) (Rs 75,000), s.202(1) slabs, s.156(2) rebate Rs 60,000 to Rs 12,00,000 with marginal relief, s.516 rounding; surcharge 10/15/25% (new regime capped at 25%) with marginal relief and 4% cess per the Finance Act, 2026 (reported unchanged; First Schedule not read directly)"
+    },
+    {
+      "name": "FY 2026-27 new regime salary 1,00,85,000 (total income 1,00,10,000: surcharge marginal relief at 1 crore)",
+      "input": {
+        "fy": "2026-27",
+        "regime": "new",
+        "ageBand": "below-60",
+        "residentIndividual": true,
+        "salaryPaise": 1008500000,
+        "otherIncomePaise": 0,
+        "claims": {
+          "section80CPaise": 0,
+          "healthInsuranceSelfAndFamilyPaise": 0,
+          "healthInsuranceParentsPaise": 0,
+          "selfAndFamilyIncludesSenior": false,
+          "parentsIncludeSenior": false
+        }
+      },
+      "expected": {
+        "grossTotalIncomePaise": 1001000000,
+        "standardDeductionPaise": 7500000,
+        "section80CPaise": 0,
+        "section80DPaise": 0,
+        "totalIncomePaise": 1001000000,
+        "slabTaxPaise": 258300000,
+        "rebatePaise": 0,
+        "surchargePaise": 26500000,
+        "surchargeMarginalReliefPaise": 12245000,
+        "cessPaise": 11392000,
+        "taxPayablePaise": 296192000
+      },
+      "arithmetic": "Salary 1,00,85,000 less standard deduction 75,000; gross total income 1,00,10,000; total income 1,00,10,000; slab tax 3,00,000 + 30% of 76,10,000 above 24,00,000 = 25,83,000; surcharge 15% of 25,83,000 = 3,87,450; marginal relief check: tax 25,80,000 plus 10% surcharge at 1,00,00,000 plus the 10,000 above it = 28,48,000; tax plus surcharge 29,70,450 exceeds it, so surcharge is limited to 2,65,000 (relief 1,22,450); cess 4% of 28,48,000 = 1,13,920; tax payable 29,61,920.",
+      "citation": "Income-tax Act, 2025 s.19(1) Table Sl. No. 2(a) (Rs 75,000), s.202(1) slabs, s.156(2) rebate Rs 60,000 to Rs 12,00,000 with marginal relief, s.516 rounding; surcharge 10/15/25% (new regime capped at 25%) with marginal relief and 4% cess per the Finance Act, 2026 (reported unchanged; First Schedule not read directly)"
+    },
+    {
+      "name": "FY 2026-27 new regime salary 1,20,00,000",
+      "input": {
+        "fy": "2026-27",
+        "regime": "new",
+        "ageBand": "below-60",
+        "residentIndividual": true,
+        "salaryPaise": 1200000000,
+        "otherIncomePaise": 0,
+        "claims": {
+          "section80CPaise": 0,
+          "healthInsuranceSelfAndFamilyPaise": 0,
+          "healthInsuranceParentsPaise": 0,
+          "selfAndFamilyIncludesSenior": false,
+          "parentsIncludeSenior": false
+        }
+      },
+      "expected": {
+        "grossTotalIncomePaise": 1192500000,
+        "standardDeductionPaise": 7500000,
+        "section80CPaise": 0,
+        "section80DPaise": 0,
+        "totalIncomePaise": 1192500000,
+        "slabTaxPaise": 315750000,
+        "rebatePaise": 0,
+        "surchargePaise": 47362500,
+        "surchargeMarginalReliefPaise": 0,
+        "cessPaise": 14524500,
+        "taxPayablePaise": 377637000
+      },
+      "arithmetic": "Salary 1,20,00,000 less standard deduction 75,000; gross total income 1,19,25,000; total income 1,19,25,000; slab tax 3,00,000 + 30% of 95,25,000 above 24,00,000 = 31,57,500; surcharge 15% of 31,57,500 = 4,73,625; marginal relief check: tax 25,80,000 plus 10% surcharge at 1,00,00,000 plus the 19,25,000 above it = 47,63,000; tax plus surcharge 36,31,125 is within it, no relief; cess 4% of 36,31,125 = 1,45,245; tax payable 37,76,370.",
+      "citation": "Income-tax Act, 2025 s.19(1) Table Sl. No. 2(a) (Rs 75,000), s.202(1) slabs, s.156(2) rebate Rs 60,000 to Rs 12,00,000 with marginal relief, s.516 rounding; surcharge 10/15/25% (new regime capped at 25%) with marginal relief and 4% cess per the Finance Act, 2026 (reported unchanged; First Schedule not read directly)"
+    },
+    {
+      "name": "FY 2026-27 new regime salary 6,00,75,000 (total income 6 crore: surcharge capped at 25%)",
+      "input": {
+        "fy": "2026-27",
+        "regime": "new",
+        "ageBand": "below-60",
+        "residentIndividual": true,
+        "salaryPaise": 6007500000,
+        "otherIncomePaise": 0,
+        "claims": {
+          "section80CPaise": 0,
+          "healthInsuranceSelfAndFamilyPaise": 0,
+          "healthInsuranceParentsPaise": 0,
+          "selfAndFamilyIncludesSenior": false,
+          "parentsIncludeSenior": false
+        }
+      },
+      "expected": {
+        "grossTotalIncomePaise": 6000000000,
+        "standardDeductionPaise": 7500000,
+        "section80CPaise": 0,
+        "section80DPaise": 0,
+        "totalIncomePaise": 6000000000,
+        "slabTaxPaise": 1758000000,
+        "rebatePaise": 0,
+        "surchargePaise": 439500000,
+        "surchargeMarginalReliefPaise": 0,
+        "cessPaise": 87900000,
+        "taxPayablePaise": 2285400000
+      },
+      "arithmetic": "Salary 6,00,75,000 less standard deduction 75,000; gross total income 6,00,00,000; total income 6,00,00,000; slab tax 3,00,000 + 30% of 5,76,00,000 above 24,00,000 = 1,75,80,000; surcharge 25% (37% capped at 25% in the new regime) of 1,75,80,000 = 43,95,000; marginal relief check: tax 1,45,80,000 plus 25% surcharge at 5,00,00,000 plus the 1,00,00,000 above it = 2,82,25,000; tax plus surcharge 2,19,75,000 is within it, no relief; cess 4% of 2,19,75,000 = 8,79,000; tax payable 2,28,54,000.",
+      "citation": "Income-tax Act, 2025 s.19(1) Table Sl. No. 2(a) (Rs 75,000), s.202(1) slabs, s.156(2) rebate Rs 60,000 to Rs 12,00,000 with marginal relief, s.516 rounding; surcharge 10/15/25% (new regime capped at 25%) with marginal relief and 4% cess per the Finance Act, 2026 (reported unchanged; First Schedule not read directly)"
+    },
+    {
+      "name": "FY 2026-27 new regime no salary, other income 12,75,000 (no standard deduction without salary)",
+      "input": {
+        "fy": "2026-27",
+        "regime": "new",
+        "ageBand": "below-60",
+        "residentIndividual": true,
+        "salaryPaise": 0,
+        "otherIncomePaise": 127500000,
+        "claims": {
+          "section80CPaise": 0,
+          "healthInsuranceSelfAndFamilyPaise": 0,
+          "healthInsuranceParentsPaise": 0,
+          "selfAndFamilyIncludesSenior": false,
+          "parentsIncludeSenior": false
+        }
+      },
+      "expected": {
+        "grossTotalIncomePaise": 127500000,
+        "standardDeductionPaise": 0,
+        "section80CPaise": 0,
+        "section80DPaise": 0,
+        "totalIncomePaise": 127500000,
+        "slabTaxPaise": 7125000,
+        "rebatePaise": 0,
+        "surchargePaise": 0,
+        "surchargeMarginalReliefPaise": 0,
+        "cessPaise": 285000,
+        "taxPayablePaise": 7410000
+      },
+      "arithmetic": "No salary, so no standard deduction; other income 12,75,000; gross total income 12,75,000; total income 12,75,000; slab tax 60,000 + 15% of 75,000 above 12,00,000 = 71,250; total income exceeds 12,00,000 by 75,000, not less than the tax 71,250, so no rebate; cess 4% of 71,250 = 2,850; tax payable 74,100.",
+      "citation": "Income-tax Act, 2025 s.19(1) Table Sl. No. 2(a) (Rs 75,000), s.202(1) slabs, s.156(2) rebate Rs 60,000 to Rs 12,00,000 with marginal relief, s.516 rounding; surcharge 10/15/25% (new regime capped at 25%) with marginal relief and 4% cess per the Finance Act, 2026 (reported unchanged; First Schedule not read directly)"
+    },
+    {
+      "name": "FY 2026-27 new regime salary 13,00,000 with 80C and 80D claims (not allowed)",
+      "input": {
+        "fy": "2026-27",
+        "regime": "new",
+        "ageBand": "below-60",
+        "residentIndividual": true,
+        "salaryPaise": 130000000,
+        "otherIncomePaise": 0,
+        "claims": {
+          "section80CPaise": 20000000,
+          "healthInsuranceSelfAndFamilyPaise": 3000000,
+          "healthInsuranceParentsPaise": 6000000,
+          "selfAndFamilyIncludesSenior": false,
+          "parentsIncludeSenior": true
+        }
+      },
+      "expected": {
+        "grossTotalIncomePaise": 122500000,
+        "standardDeductionPaise": 7500000,
+        "section80CPaise": 0,
+        "section80DPaise": 0,
+        "totalIncomePaise": 122500000,
+        "slabTaxPaise": 6375000,
+        "rebatePaise": 3875000,
+        "surchargePaise": 0,
+        "surchargeMarginalReliefPaise": 0,
+        "cessPaise": 100000,
+        "taxPayablePaise": 2600000
+      },
+      "arithmetic": "Salary 13,00,000 less standard deduction 75,000; gross total income 12,25,000; 80C and 80D claims are not allowed in the new regime; total income 12,25,000; slab tax 60,000 + 15% of 25,000 above 12,00,000 = 63,750; total income exceeds 12,00,000 by 25,000, less than the tax, so marginal-relief rebate 63,750 - 25,000 = 38,750; tax after rebate 25,000; cess 4% of 25,000 = 1,000; tax payable 26,000.",
+      "citation": "Income-tax Act, 2025 s.19(1) Table Sl. No. 2(a) (Rs 75,000), s.202(1) slabs, s.156(2) rebate Rs 60,000 to Rs 12,00,000 with marginal relief, s.516 rounding; surcharge 10/15/25% (new regime capped at 25%) with marginal relief and 4% cess per the Finance Act, 2026 (reported unchanged; First Schedule not read directly)"
+    },
+    {
+      "name": "FY 2026-27 old regime salary 5,50,000 (total income 5,00,000: full rebate)",
+      "input": {
+        "fy": "2026-27",
+        "regime": "old",
+        "ageBand": "below-60",
+        "residentIndividual": true,
+        "salaryPaise": 55000000,
+        "otherIncomePaise": 0,
+        "claims": {
+          "section80CPaise": 0,
+          "healthInsuranceSelfAndFamilyPaise": 0,
+          "healthInsuranceParentsPaise": 0,
+          "selfAndFamilyIncludesSenior": false,
+          "parentsIncludeSenior": false
+        }
+      },
+      "expected": {
+        "grossTotalIncomePaise": 50000000,
+        "standardDeductionPaise": 5000000,
+        "section80CPaise": 0,
+        "section80DPaise": 0,
+        "totalIncomePaise": 50000000,
+        "slabTaxPaise": 1250000,
+        "rebatePaise": 1250000,
+        "surchargePaise": 0,
+        "surchargeMarginalReliefPaise": 0,
+        "cessPaise": 0,
+        "taxPayablePaise": 0
+      },
+      "arithmetic": "Salary 5,50,000 less standard deduction 50,000; gross total income 5,00,000; total income 5,00,000; slab tax 0 + 5% of 2,50,000 above 2,50,000 = 12,500; total income does not exceed 5,00,000, rebate 12,500 (lower of tax and 12,500); tax after rebate 0; cess 4% of 0 = 0; tax payable 0.",
+      "citation": "Income-tax Act, 2025 s.19(1) Table Sl. No. 2(b) (Rs 50,000), s.123 and s.126 caps, s.156(1) rebate Rs 12,500 to Rs 5,00,000 without marginal relief, s.516 rounding; old-regime slabs, surcharge 10/15/25/37% with marginal relief and 4% cess per the Finance Act, 2026 (reported unchanged; First Schedule not read directly)"
+    },
+    {
+      "name": "FY 2026-27 old regime salary 5,50,010 (total income 5,00,010: no marginal relief)",
+      "input": {
+        "fy": "2026-27",
+        "regime": "old",
+        "ageBand": "below-60",
+        "residentIndividual": true,
+        "salaryPaise": 55001000,
+        "otherIncomePaise": 0,
+        "claims": {
+          "section80CPaise": 0,
+          "healthInsuranceSelfAndFamilyPaise": 0,
+          "healthInsuranceParentsPaise": 0,
+          "selfAndFamilyIncludesSenior": false,
+          "parentsIncludeSenior": false
+        }
+      },
+      "expected": {
+        "grossTotalIncomePaise": 50001000,
+        "standardDeductionPaise": 5000000,
+        "section80CPaise": 0,
+        "section80DPaise": 0,
+        "totalIncomePaise": 50001000,
+        "slabTaxPaise": 1250200,
+        "rebatePaise": 0,
+        "surchargePaise": 0,
+        "surchargeMarginalReliefPaise": 0,
+        "cessPaise": 50008,
+        "taxPayablePaise": 1300000
+      },
+      "arithmetic": "Salary 5,50,010 less standard deduction 50,000; gross total income 5,00,010; total income 5,00,010; slab tax 12,500 + 20% of 10 above 5,00,000 = 12,502; total income exceeds 5,00,000, no rebate and no marginal relief in the old regime; cess 4% of 12,502 = 500.08; total 13,002.08 rounded to the nearest ten rupees (paise ignored) gives tax payable 13,000.",
+      "citation": "Income-tax Act, 2025 s.19(1) Table Sl. No. 2(b) (Rs 50,000), s.123 and s.126 caps, s.156(1) rebate Rs 12,500 to Rs 5,00,000 without marginal relief, s.516 rounding; old-regime slabs, surcharge 10/15/25/37% with marginal relief and 4% cess per the Finance Act, 2026 (reported unchanged; First Schedule not read directly)"
+    },
+    {
+      "name": "FY 2026-27 old regime salary 7,00,000 with 80C 2,00,000 and 80D claims",
+      "input": {
+        "fy": "2026-27",
+        "regime": "old",
+        "ageBand": "below-60",
+        "residentIndividual": true,
+        "salaryPaise": 70000000,
+        "otherIncomePaise": 0,
+        "claims": {
+          "section80CPaise": 20000000,
+          "healthInsuranceSelfAndFamilyPaise": 3000000,
+          "healthInsuranceParentsPaise": 6000000,
+          "selfAndFamilyIncludesSenior": false,
+          "parentsIncludeSenior": true
+        }
+      },
+      "expected": {
+        "grossTotalIncomePaise": 65000000,
+        "standardDeductionPaise": 5000000,
+        "section80CPaise": 15000000,
+        "section80DPaise": 7500000,
+        "totalIncomePaise": 42500000,
+        "slabTaxPaise": 875000,
+        "rebatePaise": 875000,
+        "surchargePaise": 0,
+        "surchargeMarginalReliefPaise": 0,
+        "cessPaise": 0,
+        "taxPayablePaise": 0
+      },
+      "arithmetic": "Salary 7,00,000 less standard deduction 50,000; gross total income 6,50,000; 80C claim 2,00,000 capped at 1,50,000 gives 1,50,000; 80D self and family 30,000 capped at 25,000 plus parents 60,000 capped at 50,000 gives 75,000; total income 4,25,000; slab tax 0 + 5% of 1,75,000 above 2,50,000 = 8,750; total income does not exceed 5,00,000, rebate 8,750 (lower of tax and 12,500); tax after rebate 0; cess 4% of 0 = 0; tax payable 0.",
+      "citation": "Income-tax Act, 2025 s.19(1) Table Sl. No. 2(b) (Rs 50,000), s.123 and s.126 caps, s.156(1) rebate Rs 12,500 to Rs 5,00,000 without marginal relief, s.516 rounding; old-regime slabs, surcharge 10/15/25/37% with marginal relief and 4% cess per the Finance Act, 2026 (reported unchanged; First Schedule not read directly)"
+    },
+    {
+      "name": "FY 2026-27 old regime salary 12,00,000 with 80C 2,00,000 and 80D claims",
+      "input": {
+        "fy": "2026-27",
+        "regime": "old",
+        "ageBand": "below-60",
+        "residentIndividual": true,
+        "salaryPaise": 120000000,
+        "otherIncomePaise": 0,
+        "claims": {
+          "section80CPaise": 20000000,
+          "healthInsuranceSelfAndFamilyPaise": 3000000,
+          "healthInsuranceParentsPaise": 6000000,
+          "selfAndFamilyIncludesSenior": false,
+          "parentsIncludeSenior": true
+        }
+      },
+      "expected": {
+        "grossTotalIncomePaise": 115000000,
+        "standardDeductionPaise": 5000000,
+        "section80CPaise": 15000000,
+        "section80DPaise": 7500000,
+        "totalIncomePaise": 92500000,
+        "slabTaxPaise": 9750000,
+        "rebatePaise": 0,
+        "surchargePaise": 0,
+        "surchargeMarginalReliefPaise": 0,
+        "cessPaise": 390000,
+        "taxPayablePaise": 10140000
+      },
+      "arithmetic": "Salary 12,00,000 less standard deduction 50,000; gross total income 11,50,000; 80C claim 2,00,000 capped at 1,50,000 gives 1,50,000; 80D self and family 30,000 capped at 25,000 plus parents 60,000 capped at 50,000 gives 75,000; total income 9,25,000; slab tax 12,500 + 20% of 4,25,000 above 5,00,000 = 97,500; cess 4% of 97,500 = 3,900; tax payable 1,01,400.",
+      "citation": "Income-tax Act, 2025 s.19(1) Table Sl. No. 2(b) (Rs 50,000), s.123 and s.126 caps, s.156(1) rebate Rs 12,500 to Rs 5,00,000 without marginal relief, s.516 rounding; old-regime slabs, surcharge 10/15/25/37% with marginal relief and 4% cess per the Finance Act, 2026 (reported unchanged; First Schedule not read directly)"
+    },
+    {
+      "name": "FY 2026-27 old regime salary 13,00,000 with 80C 2,00,000 and 80D claims",
+      "input": {
+        "fy": "2026-27",
+        "regime": "old",
+        "ageBand": "below-60",
+        "residentIndividual": true,
+        "salaryPaise": 130000000,
+        "otherIncomePaise": 0,
+        "claims": {
+          "section80CPaise": 20000000,
+          "healthInsuranceSelfAndFamilyPaise": 3000000,
+          "healthInsuranceParentsPaise": 6000000,
+          "selfAndFamilyIncludesSenior": false,
+          "parentsIncludeSenior": true
+        }
+      },
+      "expected": {
+        "grossTotalIncomePaise": 125000000,
+        "standardDeductionPaise": 5000000,
+        "section80CPaise": 15000000,
+        "section80DPaise": 7500000,
+        "totalIncomePaise": 102500000,
+        "slabTaxPaise": 12000000,
+        "rebatePaise": 0,
+        "surchargePaise": 0,
+        "surchargeMarginalReliefPaise": 0,
+        "cessPaise": 480000,
+        "taxPayablePaise": 12480000
+      },
+      "arithmetic": "Salary 13,00,000 less standard deduction 50,000; gross total income 12,50,000; 80C claim 2,00,000 capped at 1,50,000 gives 1,50,000; 80D self and family 30,000 capped at 25,000 plus parents 60,000 capped at 50,000 gives 75,000; total income 10,25,000; slab tax 1,12,500 + 30% of 25,000 above 10,00,000 = 1,20,000; cess 4% of 1,20,000 = 4,800; tax payable 1,24,800.",
+      "citation": "Income-tax Act, 2025 s.19(1) Table Sl. No. 2(b) (Rs 50,000), s.123 and s.126 caps, s.156(1) rebate Rs 12,500 to Rs 5,00,000 without marginal relief, s.516 rounding; old-regime slabs, surcharge 10/15/25/37% with marginal relief and 4% cess per the Finance Act, 2026 (reported unchanged; First Schedule not read directly)"
+    },
+    {
+      "name": "FY 2026-27 old regime salary 25,00,000 with 80C 2,00,000 and 80D claims",
+      "input": {
+        "fy": "2026-27",
+        "regime": "old",
+        "ageBand": "below-60",
+        "residentIndividual": true,
+        "salaryPaise": 250000000,
+        "otherIncomePaise": 0,
+        "claims": {
+          "section80CPaise": 20000000,
+          "healthInsuranceSelfAndFamilyPaise": 3000000,
+          "healthInsuranceParentsPaise": 6000000,
+          "selfAndFamilyIncludesSenior": false,
+          "parentsIncludeSenior": true
+        }
+      },
+      "expected": {
+        "grossTotalIncomePaise": 245000000,
+        "standardDeductionPaise": 5000000,
+        "section80CPaise": 15000000,
+        "section80DPaise": 7500000,
+        "totalIncomePaise": 222500000,
+        "slabTaxPaise": 48000000,
+        "rebatePaise": 0,
+        "surchargePaise": 0,
+        "surchargeMarginalReliefPaise": 0,
+        "cessPaise": 1920000,
+        "taxPayablePaise": 49920000
+      },
+      "arithmetic": "Salary 25,00,000 less standard deduction 50,000; gross total income 24,50,000; 80C claim 2,00,000 capped at 1,50,000 gives 1,50,000; 80D self and family 30,000 capped at 25,000 plus parents 60,000 capped at 50,000 gives 75,000; total income 22,25,000; slab tax 1,12,500 + 30% of 12,25,000 above 10,00,000 = 4,80,000; cess 4% of 4,80,000 = 19,200; tax payable 4,99,200.",
+      "citation": "Income-tax Act, 2025 s.19(1) Table Sl. No. 2(b) (Rs 50,000), s.123 and s.126 caps, s.156(1) rebate Rs 12,500 to Rs 5,00,000 without marginal relief, s.516 rounding; old-regime slabs, surcharge 10/15/25/37% with marginal relief and 4% cess per the Finance Act, 2026 (reported unchanged; First Schedule not read directly)"
+    },
+    {
+      "name": "FY 2026-27 old regime salary 60,00,000 with 80C 2,00,000 and 80D claims",
+      "input": {
+        "fy": "2026-27",
+        "regime": "old",
+        "ageBand": "below-60",
+        "residentIndividual": true,
+        "salaryPaise": 600000000,
+        "otherIncomePaise": 0,
+        "claims": {
+          "section80CPaise": 20000000,
+          "healthInsuranceSelfAndFamilyPaise": 3000000,
+          "healthInsuranceParentsPaise": 6000000,
+          "selfAndFamilyIncludesSenior": false,
+          "parentsIncludeSenior": true
+        }
+      },
+      "expected": {
+        "grossTotalIncomePaise": 595000000,
+        "standardDeductionPaise": 5000000,
+        "section80CPaise": 15000000,
+        "section80DPaise": 7500000,
+        "totalIncomePaise": 572500000,
+        "slabTaxPaise": 153000000,
+        "rebatePaise": 0,
+        "surchargePaise": 15300000,
+        "surchargeMarginalReliefPaise": 0,
+        "cessPaise": 6732000,
+        "taxPayablePaise": 175032000
+      },
+      "arithmetic": "Salary 60,00,000 less standard deduction 50,000; gross total income 59,50,000; 80C claim 2,00,000 capped at 1,50,000 gives 1,50,000; 80D self and family 30,000 capped at 25,000 plus parents 60,000 capped at 50,000 gives 75,000; total income 57,25,000; slab tax 1,12,500 + 30% of 47,25,000 above 10,00,000 = 15,30,000; surcharge 10% of 15,30,000 = 1,53,000; marginal relief check: tax 13,12,500 plus 0% surcharge at 50,00,000 plus the 7,25,000 above it = 20,37,500; tax plus surcharge 16,83,000 is within it, no relief; cess 4% of 16,83,000 = 67,320; tax payable 17,50,320.",
+      "citation": "Income-tax Act, 2025 s.19(1) Table Sl. No. 2(b) (Rs 50,000), s.123 and s.126 caps, s.156(1) rebate Rs 12,500 to Rs 5,00,000 without marginal relief, s.516 rounding; old-regime slabs, surcharge 10/15/25/37% with marginal relief and 4% cess per the Finance Act, 2026 (reported unchanged; First Schedule not read directly)"
+    },
+    {
+      "name": "FY 2026-27 old regime salary 13,00,000 without deductions",
+      "input": {
+        "fy": "2026-27",
+        "regime": "old",
+        "ageBand": "below-60",
+        "residentIndividual": true,
+        "salaryPaise": 130000000,
+        "otherIncomePaise": 0,
+        "claims": {
+          "section80CPaise": 0,
+          "healthInsuranceSelfAndFamilyPaise": 0,
+          "healthInsuranceParentsPaise": 0,
+          "selfAndFamilyIncludesSenior": false,
+          "parentsIncludeSenior": false
+        }
+      },
+      "expected": {
+        "grossTotalIncomePaise": 125000000,
+        "standardDeductionPaise": 5000000,
+        "section80CPaise": 0,
+        "section80DPaise": 0,
+        "totalIncomePaise": 125000000,
+        "slabTaxPaise": 18750000,
+        "rebatePaise": 0,
+        "surchargePaise": 0,
+        "surchargeMarginalReliefPaise": 0,
+        "cessPaise": 750000,
+        "taxPayablePaise": 19500000
+      },
+      "arithmetic": "Salary 13,00,000 less standard deduction 50,000; gross total income 12,50,000; total income 12,50,000; slab tax 1,12,500 + 30% of 2,50,000 above 10,00,000 = 1,87,500; cess 4% of 1,87,500 = 7,500; tax payable 1,95,000.",
+      "citation": "Income-tax Act, 2025 s.19(1) Table Sl. No. 2(b) (Rs 50,000), s.123 and s.126 caps, s.156(1) rebate Rs 12,500 to Rs 5,00,000 without marginal relief, s.516 rounding; old-regime slabs, surcharge 10/15/25/37% with marginal relief and 4% cess per the Finance Act, 2026 (reported unchanged; First Schedule not read directly)"
+    },
+    {
+      "name": "FY 2026-27 old regime salary 6,00,50,000 (total income 6 crore: surcharge 37%)",
+      "input": {
+        "fy": "2026-27",
+        "regime": "old",
+        "ageBand": "below-60",
+        "residentIndividual": true,
+        "salaryPaise": 6005000000,
+        "otherIncomePaise": 0,
+        "claims": {
+          "section80CPaise": 0,
+          "healthInsuranceSelfAndFamilyPaise": 0,
+          "healthInsuranceParentsPaise": 0,
+          "selfAndFamilyIncludesSenior": false,
+          "parentsIncludeSenior": false
+        }
+      },
+      "expected": {
+        "grossTotalIncomePaise": 6000000000,
+        "standardDeductionPaise": 5000000,
+        "section80CPaise": 0,
+        "section80DPaise": 0,
+        "totalIncomePaise": 6000000000,
+        "slabTaxPaise": 1781250000,
+        "rebatePaise": 0,
+        "surchargePaise": 659062500,
+        "surchargeMarginalReliefPaise": 0,
+        "cessPaise": 97612500,
+        "taxPayablePaise": 2537925000
+      },
+      "arithmetic": "Salary 6,00,50,000 less standard deduction 50,000; gross total income 6,00,00,000; total income 6,00,00,000; slab tax 1,12,500 + 30% of 5,90,00,000 above 10,00,000 = 1,78,12,500; surcharge 37% of 1,78,12,500 = 65,90,625; marginal relief check: tax 1,48,12,500 plus 25% surcharge at 5,00,00,000 plus the 1,00,00,000 above it = 2,85,15,625; tax plus surcharge 2,44,03,125 is within it, no relief; cess 4% of 2,44,03,125 = 9,76,125; tax payable 2,53,79,250.",
+      "citation": "Income-tax Act, 2025 s.19(1) Table Sl. No. 2(b) (Rs 50,000), s.123 and s.126 caps, s.156(1) rebate Rs 12,500 to Rs 5,00,000 without marginal relief, s.516 rounding; old-regime slabs, surcharge 10/15/25/37% with marginal relief and 4% cess per the Finance Act, 2026 (reported unchanged; First Schedule not read directly)"
+    },
+    {
+      "name": "FY 2026-27 old regime age 60-to-79 salary 10,50,000 with senior 80D claim 60,000",
+      "input": {
+        "fy": "2026-27",
+        "regime": "old",
+        "ageBand": "60-to-79",
+        "residentIndividual": true,
+        "salaryPaise": 105000000,
+        "otherIncomePaise": 0,
+        "claims": {
+          "section80CPaise": 0,
+          "healthInsuranceSelfAndFamilyPaise": 6000000,
+          "healthInsuranceParentsPaise": 0,
+          "selfAndFamilyIncludesSenior": true,
+          "parentsIncludeSenior": false
+        }
+      },
+      "expected": {
+        "grossTotalIncomePaise": 100000000,
+        "standardDeductionPaise": 5000000,
+        "section80CPaise": 0,
+        "section80DPaise": 5000000,
+        "totalIncomePaise": 95000000,
+        "slabTaxPaise": 10000000,
+        "rebatePaise": 0,
+        "surchargePaise": 0,
+        "surchargeMarginalReliefPaise": 0,
+        "cessPaise": 400000,
+        "taxPayablePaise": 10400000
+      },
+      "arithmetic": "Salary 10,50,000 less standard deduction 50,000; gross total income 10,00,000; 80C claim 0 capped at 1,50,000 gives 0; 80D self and family 60,000 capped at 50,000 plus parents 0 capped at 25,000 gives 50,000; total income 9,50,000; slab tax 10,000 + 20% of 4,50,000 above 5,00,000 = 1,00,000; cess 4% of 1,00,000 = 4,000; tax payable 1,04,000.",
+      "citation": "Income-tax Act, 2025 s.19(1) Table Sl. No. 2(b) (Rs 50,000), s.123 and s.126 caps, s.156(1) rebate Rs 12,500 to Rs 5,00,000 without marginal relief, s.516 rounding; old-regime slabs, surcharge 10/15/25/37% with marginal relief and 4% cess per the Finance Act, 2026 (reported unchanged; First Schedule not read directly)"
+    },
+    {
+      "name": "FY 2026-27 old regime age 80-plus salary 10,50,000",
+      "input": {
+        "fy": "2026-27",
+        "regime": "old",
+        "ageBand": "80-plus",
+        "residentIndividual": true,
+        "salaryPaise": 105000000,
+        "otherIncomePaise": 0,
+        "claims": {
+          "section80CPaise": 0,
+          "healthInsuranceSelfAndFamilyPaise": 0,
+          "healthInsuranceParentsPaise": 0,
+          "selfAndFamilyIncludesSenior": false,
+          "parentsIncludeSenior": false
+        }
+      },
+      "expected": {
+        "grossTotalIncomePaise": 100000000,
+        "standardDeductionPaise": 5000000,
+        "section80CPaise": 0,
+        "section80DPaise": 0,
+        "totalIncomePaise": 100000000,
+        "slabTaxPaise": 10000000,
+        "rebatePaise": 0,
+        "surchargePaise": 0,
+        "surchargeMarginalReliefPaise": 0,
+        "cessPaise": 400000,
+        "taxPayablePaise": 10400000
+      },
+      "arithmetic": "Salary 10,50,000 less standard deduction 50,000; gross total income 10,00,000; total income 10,00,000; slab tax 0 + 20% of 5,00,000 above 5,00,000 = 1,00,000; cess 4% of 1,00,000 = 4,000; tax payable 1,04,000.",
+      "citation": "Income-tax Act, 2025 s.19(1) Table Sl. No. 2(b) (Rs 50,000), s.123 and s.126 caps, s.156(1) rebate Rs 12,500 to Rs 5,00,000 without marginal relief, s.516 rounding; old-regime slabs, surcharge 10/15/25/37% with marginal relief and 4% cess per the Finance Act, 2026 (reported unchanged; First Schedule not read directly)"
+    }
+  ]
+}

@@ -20,7 +20,7 @@ export const COA = [
 
 export const DEFAULT_COMPANY = {
   name: 'Nalanda Textiles LLP',
-  gstin: '27AABCU9603R1ZP',
+  gstin: '27AABCU9603R1ZN',
   state: '27',
   pan: 'AABCU9603R',
   fy: '2026-27',
@@ -38,14 +38,17 @@ export function nextPartyId(state) {
   return n;
 }
 
+// CGST and SGST are each levied at half the rate, so each is computed on its own
+// in paise and they are always equal; IGST is levied at the full rate.
 export function gstSplit({ taxable, rate, supplierState, partyState }) {
-  const tax = Math.round(taxable * rate) / 100;
+  const taxablePaise = Math.round(Number(taxable) * 100);
   const intra = supplierState === partyState;
   if (intra) {
-    const half = Math.round(tax * 50) / 100;
-    return { intra: true, cgst: half, sgst: tax - half, igst: 0, tax };
+    const half = Math.round((taxablePaise * rate) / 200) / 100;
+    return { intra: true, cgst: half, sgst: half, igst: 0, tax: Math.round(half * 200) / 100 };
   }
-  return { intra: false, cgst: 0, sgst: 0, igst: tax, tax };
+  const igst = Math.round((taxablePaise * rate) / 100) / 100;
+  return { intra: false, cgst: 0, sgst: 0, igst, tax: igst };
 }
 
 export function partyStateOf(gstin) {

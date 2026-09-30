@@ -1,0 +1,1319 @@
+{
+  "about": "Due-date golden cases for FY 2026-27 plus the FY 2025-26 returns still open in 2026. Input names a due-date rule, the last day of the return period and, where the law needs it, the GSTIN state code or the advance-tax instalment. Expected dates are statements of law typed from the cited provisions, never computed, and await advisor CA sign-off. No due date moves for a weekend or holiday; only a notified extension moves one.",
+  "cases": [
+    {
+      "name": "GSTR-1 (monthly) for April 2026 is due 2026-05-11",
+      "input": {
+        "rule": "due-date.gst.gstr-1.monthly",
+        "periodEnd": "2026-04-30"
+      },
+      "expected": {
+        "dueDate": "2026-05-11"
+      },
+      "citation": "Notification No. 83/2020-Central Tax (s.37(1) proviso): 11th of the following month; no weekend or holiday rollover"
+    },
+    {
+      "name": "GSTR-1 (monthly) for May 2026 is due 2026-06-11",
+      "input": {
+        "rule": "due-date.gst.gstr-1.monthly",
+        "periodEnd": "2026-05-31"
+      },
+      "expected": {
+        "dueDate": "2026-06-11"
+      },
+      "citation": "Notification No. 83/2020-Central Tax (s.37(1) proviso): 11th of the following month; no weekend or holiday rollover"
+    },
+    {
+      "name": "GSTR-1 (monthly) for June 2026 is due 2026-07-11",
+      "input": {
+        "rule": "due-date.gst.gstr-1.monthly",
+        "periodEnd": "2026-06-30"
+      },
+      "expected": {
+        "dueDate": "2026-07-11"
+      },
+      "citation": "Notification No. 83/2020-Central Tax (s.37(1) proviso): 11th of the following month; no weekend or holiday rollover"
+    },
+    {
+      "name": "GSTR-1 (monthly) for July 2026 is due 2026-08-11",
+      "input": {
+        "rule": "due-date.gst.gstr-1.monthly",
+        "periodEnd": "2026-07-31"
+      },
+      "expected": {
+        "dueDate": "2026-08-11"
+      },
+      "citation": "Notification No. 83/2020-Central Tax (s.37(1) proviso): 11th of the following month; no weekend or holiday rollover"
+    },
+    {
+      "name": "GSTR-1 (monthly) for August 2026 is due 2026-09-11",
+      "input": {
+        "rule": "due-date.gst.gstr-1.monthly",
+        "periodEnd": "2026-08-31"
+      },
+      "expected": {
+        "dueDate": "2026-09-11"
+      },
+      "citation": "Notification No. 83/2020-Central Tax (s.37(1) proviso): 11th of the following month; no weekend or holiday rollover"
+    },
+    {
+      "name": "GSTR-1 (monthly) for September 2026 is due 2026-10-11",
+      "input": {
+        "rule": "due-date.gst.gstr-1.monthly",
+        "periodEnd": "2026-09-30"
+      },
+      "expected": {
+        "dueDate": "2026-10-11"
+      },
+      "citation": "Notification No. 83/2020-Central Tax (s.37(1) proviso): 11th of the following month; no weekend or holiday rollover"
+    },
+    {
+      "name": "GSTR-1 (monthly) for October 2026 is due 2026-11-11",
+      "input": {
+        "rule": "due-date.gst.gstr-1.monthly",
+        "periodEnd": "2026-10-31"
+      },
+      "expected": {
+        "dueDate": "2026-11-11"
+      },
+      "citation": "Notification No. 83/2020-Central Tax (s.37(1) proviso): 11th of the following month; no weekend or holiday rollover"
+    },
+    {
+      "name": "GSTR-1 (monthly) for November 2026 is due 2026-12-11",
+      "input": {
+        "rule": "due-date.gst.gstr-1.monthly",
+        "periodEnd": "2026-11-30"
+      },
+      "expected": {
+        "dueDate": "2026-12-11"
+      },
+      "citation": "Notification No. 83/2020-Central Tax (s.37(1) proviso): 11th of the following month; no weekend or holiday rollover"
+    },
+    {
+      "name": "GSTR-1 (monthly) for December 2026 is due 2027-01-11",
+      "input": {
+        "rule": "due-date.gst.gstr-1.monthly",
+        "periodEnd": "2026-12-31"
+      },
+      "expected": {
+        "dueDate": "2027-01-11"
+      },
+      "citation": "Notification No. 83/2020-Central Tax (s.37(1) proviso): 11th of the following month; no weekend or holiday rollover"
+    },
+    {
+      "name": "GSTR-1 (monthly) for January 2027 is due 2027-02-11",
+      "input": {
+        "rule": "due-date.gst.gstr-1.monthly",
+        "periodEnd": "2027-01-31"
+      },
+      "expected": {
+        "dueDate": "2027-02-11"
+      },
+      "citation": "Notification No. 83/2020-Central Tax (s.37(1) proviso): 11th of the following month; no weekend or holiday rollover"
+    },
+    {
+      "name": "GSTR-1 (monthly) for February 2027 is due 2027-03-11",
+      "input": {
+        "rule": "due-date.gst.gstr-1.monthly",
+        "periodEnd": "2027-02-28"
+      },
+      "expected": {
+        "dueDate": "2027-03-11"
+      },
+      "citation": "Notification No. 83/2020-Central Tax (s.37(1) proviso): 11th of the following month; no weekend or holiday rollover"
+    },
+    {
+      "name": "GSTR-1 (monthly) for March 2027 is due 2027-04-11",
+      "input": {
+        "rule": "due-date.gst.gstr-1.monthly",
+        "periodEnd": "2027-03-31"
+      },
+      "expected": {
+        "dueDate": "2027-04-11"
+      },
+      "citation": "Notification No. 83/2020-Central Tax (s.37(1) proviso): 11th of the following month; no weekend or holiday rollover"
+    },
+    {
+      "name": "GSTR-3B (monthly) for April 2026 is due 2026-05-20",
+      "input": {
+        "rule": "due-date.gst.gstr-3b.monthly",
+        "periodEnd": "2026-04-30"
+      },
+      "expected": {
+        "dueDate": "2026-05-20"
+      },
+      "citation": "CGST Rules rule 61 as substituted by Notification No. 82/2020-Central Tax, sub-rule (1)(i): 20th of the following month; no weekend or holiday rollover"
+    },
+    {
+      "name": "GSTR-3B (monthly) for May 2026 is due 2026-06-20",
+      "input": {
+        "rule": "due-date.gst.gstr-3b.monthly",
+        "periodEnd": "2026-05-31"
+      },
+      "expected": {
+        "dueDate": "2026-06-20"
+      },
+      "citation": "CGST Rules rule 61 as substituted by Notification No. 82/2020-Central Tax, sub-rule (1)(i): 20th of the following month; no weekend or holiday rollover"
+    },
+    {
+      "name": "GSTR-3B (monthly) for June 2026 is due 2026-07-20",
+      "input": {
+        "rule": "due-date.gst.gstr-3b.monthly",
+        "periodEnd": "2026-06-30"
+      },
+      "expected": {
+        "dueDate": "2026-07-20"
+      },
+      "citation": "CGST Rules rule 61 as substituted by Notification No. 82/2020-Central Tax, sub-rule (1)(i): 20th of the following month; no weekend or holiday rollover"
+    },
+    {
+      "name": "GSTR-3B (monthly) for July 2026 is due 2026-08-20",
+      "input": {
+        "rule": "due-date.gst.gstr-3b.monthly",
+        "periodEnd": "2026-07-31"
+      },
+      "expected": {
+        "dueDate": "2026-08-20"
+      },
+      "citation": "CGST Rules rule 61 as substituted by Notification No. 82/2020-Central Tax, sub-rule (1)(i): 20th of the following month; no weekend or holiday rollover"
+    },
+    {
+      "name": "GSTR-3B (monthly) for August 2026 is due 2026-09-20",
+      "input": {
+        "rule": "due-date.gst.gstr-3b.monthly",
+        "periodEnd": "2026-08-31"
+      },
+      "expected": {
+        "dueDate": "2026-09-20"
+      },
+      "citation": "CGST Rules rule 61 as substituted by Notification No. 82/2020-Central Tax, sub-rule (1)(i): 20th of the following month; no weekend or holiday rollover"
+    },
+    {
+      "name": "GSTR-3B (monthly) for September 2026 is due 2026-10-20",
+      "input": {
+        "rule": "due-date.gst.gstr-3b.monthly",
+        "periodEnd": "2026-09-30"
+      },
+      "expected": {
+        "dueDate": "2026-10-20"
+      },
+      "citation": "CGST Rules rule 61 as substituted by Notification No. 82/2020-Central Tax, sub-rule (1)(i): 20th of the following month; no weekend or holiday rollover"
+    },
+    {
+      "name": "GSTR-3B (monthly) for October 2026 is due 2026-11-20",
+      "input": {
+        "rule": "due-date.gst.gstr-3b.monthly",
+        "periodEnd": "2026-10-31"
+      },
+      "expected": {
+        "dueDate": "2026-11-20"
+      },
+      "citation": "CGST Rules rule 61 as substituted by Notification No. 82/2020-Central Tax, sub-rule (1)(i): 20th of the following month; no weekend or holiday rollover"
+    },
+    {
+      "name": "GSTR-3B (monthly) for November 2026 is due 2026-12-20",
+      "input": {
+        "rule": "due-date.gst.gstr-3b.monthly",
+        "periodEnd": "2026-11-30"
+      },
+      "expected": {
+        "dueDate": "2026-12-20"
+      },
+      "citation": "CGST Rules rule 61 as substituted by Notification No. 82/2020-Central Tax, sub-rule (1)(i): 20th of the following month; no weekend or holiday rollover"
+    },
+    {
+      "name": "GSTR-3B (monthly) for December 2026 is due 2027-01-20",
+      "input": {
+        "rule": "due-date.gst.gstr-3b.monthly",
+        "periodEnd": "2026-12-31"
+      },
+      "expected": {
+        "dueDate": "2027-01-20"
+      },
+      "citation": "CGST Rules rule 61 as substituted by Notification No. 82/2020-Central Tax, sub-rule (1)(i): 20th of the following month; no weekend or holiday rollover"
+    },
+    {
+      "name": "GSTR-3B (monthly) for January 2027 is due 2027-02-20",
+      "input": {
+        "rule": "due-date.gst.gstr-3b.monthly",
+        "periodEnd": "2027-01-31"
+      },
+      "expected": {
+        "dueDate": "2027-02-20"
+      },
+      "citation": "CGST Rules rule 61 as substituted by Notification No. 82/2020-Central Tax, sub-rule (1)(i): 20th of the following month; no weekend or holiday rollover"
+    },
+    {
+      "name": "GSTR-3B (monthly) for February 2027 is due 2027-03-20",
+      "input": {
+        "rule": "due-date.gst.gstr-3b.monthly",
+        "periodEnd": "2027-02-28"
+      },
+      "expected": {
+        "dueDate": "2027-03-20"
+      },
+      "citation": "CGST Rules rule 61 as substituted by Notification No. 82/2020-Central Tax, sub-rule (1)(i): 20th of the following month; no weekend or holiday rollover"
+    },
+    {
+      "name": "GSTR-3B (monthly) for March 2027 is due 2027-04-20",
+      "input": {
+        "rule": "due-date.gst.gstr-3b.monthly",
+        "periodEnd": "2027-03-31"
+      },
+      "expected": {
+        "dueDate": "2027-04-20"
+      },
+      "citation": "CGST Rules rule 61 as substituted by Notification No. 82/2020-Central Tax, sub-rule (1)(i): 20th of the following month; no weekend or holiday rollover"
+    },
+    {
+      "name": "GSTR-3B (monthly) for February 2026 is due 2026-03-20",
+      "input": {
+        "rule": "due-date.gst.gstr-3b.monthly",
+        "periodEnd": "2026-02-28"
+      },
+      "expected": {
+        "dueDate": "2026-03-20"
+      },
+      "citation": "CGST Rules rule 61 as substituted by Notification No. 82/2020-Central Tax, sub-rule (1)(i)"
+    },
+    {
+      "name": "GSTR-3B (monthly) for March 2026 was extended to 2026-04-21",
+      "input": {
+        "rule": "due-date.gst.gstr-3b.monthly",
+        "periodEnd": "2026-03-31"
+      },
+      "expected": {
+        "dueDate": "2026-04-21"
+      },
+      "citation": "Notification No. 01/2026-Central Tax dated 21.04.2026"
+    },
+    {
+      "name": "GSTR-1 (QRMP) for Q1 (Apr-Jun 2026) is due 2026-07-13",
+      "input": {
+        "rule": "due-date.gst.gstr-1.quarterly",
+        "periodEnd": "2026-06-30"
+      },
+      "expected": {
+        "dueDate": "2026-07-13"
+      },
+      "citation": "Notification No. 83/2020-Central Tax (s.37(1) proviso), proviso: 13th of the month after the quarter"
+    },
+    {
+      "name": "GSTR-1 (QRMP) for Q2 (Jul-Sep 2026) is due 2026-10-13",
+      "input": {
+        "rule": "due-date.gst.gstr-1.quarterly",
+        "periodEnd": "2026-09-30"
+      },
+      "expected": {
+        "dueDate": "2026-10-13"
+      },
+      "citation": "Notification No. 83/2020-Central Tax (s.37(1) proviso), proviso: 13th of the month after the quarter"
+    },
+    {
+      "name": "GSTR-1 (QRMP) for Q3 (Oct-Dec 2026) is due 2027-01-13",
+      "input": {
+        "rule": "due-date.gst.gstr-1.quarterly",
+        "periodEnd": "2026-12-31"
+      },
+      "expected": {
+        "dueDate": "2027-01-13"
+      },
+      "citation": "Notification No. 83/2020-Central Tax (s.37(1) proviso), proviso: 13th of the month after the quarter"
+    },
+    {
+      "name": "GSTR-1 (QRMP) for Q4 (Jan-Mar 2027) is due 2027-04-13",
+      "input": {
+        "rule": "due-date.gst.gstr-1.quarterly",
+        "periodEnd": "2027-03-31"
+      },
+      "expected": {
+        "dueDate": "2027-04-13"
+      },
+      "citation": "Notification No. 83/2020-Central Tax (s.37(1) proviso), proviso: 13th of the month after the quarter"
+    },
+    {
+      "name": "IFF for April 2026 closes 2026-05-13",
+      "input": {
+        "rule": "due-date.gst.iff",
+        "periodEnd": "2026-04-30"
+      },
+      "expected": {
+        "dueDate": "2026-05-13"
+      },
+      "citation": "CGST Rules rule 59(2): 1st to 13th of the following month, first two months of a quarter"
+    },
+    {
+      "name": "IFF for May 2026 closes 2026-06-13",
+      "input": {
+        "rule": "due-date.gst.iff",
+        "periodEnd": "2026-05-31"
+      },
+      "expected": {
+        "dueDate": "2026-06-13"
+      },
+      "citation": "CGST Rules rule 59(2): 1st to 13th of the following month, first two months of a quarter"
+    },
+    {
+      "name": "IFF for July 2026 closes 2026-08-13",
+      "input": {
+        "rule": "due-date.gst.iff",
+        "periodEnd": "2026-07-31"
+      },
+      "expected": {
+        "dueDate": "2026-08-13"
+      },
+      "citation": "CGST Rules rule 59(2): 1st to 13th of the following month, first two months of a quarter"
+    },
+    {
+      "name": "IFF for August 2026 closes 2026-09-13",
+      "input": {
+        "rule": "due-date.gst.iff",
+        "periodEnd": "2026-08-31"
+      },
+      "expected": {
+        "dueDate": "2026-09-13"
+      },
+      "citation": "CGST Rules rule 59(2): 1st to 13th of the following month, first two months of a quarter"
+    },
+    {
+      "name": "IFF for October 2026 closes 2026-11-13",
+      "input": {
+        "rule": "due-date.gst.iff",
+        "periodEnd": "2026-10-31"
+      },
+      "expected": {
+        "dueDate": "2026-11-13"
+      },
+      "citation": "CGST Rules rule 59(2): 1st to 13th of the following month, first two months of a quarter"
+    },
+    {
+      "name": "IFF for November 2026 closes 2026-12-13",
+      "input": {
+        "rule": "due-date.gst.iff",
+        "periodEnd": "2026-11-30"
+      },
+      "expected": {
+        "dueDate": "2026-12-13"
+      },
+      "citation": "CGST Rules rule 59(2): 1st to 13th of the following month, first two months of a quarter"
+    },
+    {
+      "name": "IFF for January 2027 closes 2027-02-13",
+      "input": {
+        "rule": "due-date.gst.iff",
+        "periodEnd": "2027-01-31"
+      },
+      "expected": {
+        "dueDate": "2027-02-13"
+      },
+      "citation": "CGST Rules rule 59(2): 1st to 13th of the following month, first two months of a quarter"
+    },
+    {
+      "name": "IFF for February 2027 closes 2027-03-13",
+      "input": {
+        "rule": "due-date.gst.iff",
+        "periodEnd": "2027-02-28"
+      },
+      "expected": {
+        "dueDate": "2027-03-13"
+      },
+      "citation": "CGST Rules rule 59(2): 1st to 13th of the following month, first two months of a quarter"
+    },
+    {
+      "name": "IFF is not available for June 2026, the last month of a quarter",
+      "input": {
+        "rule": "due-date.gst.iff",
+        "periodEnd": "2026-06-30"
+      },
+      "expected": {
+        "error": "NOT_DUE_FOR_PERIOD"
+      },
+      "citation": "CGST Rules rule 59(2): first and second months of a quarter only"
+    },
+    {
+      "name": "GSTR-3B (QRMP) for Q1 (Apr-Jun 2026) in Karnataka (29) is due 2026-07-22",
+      "input": {
+        "rule": "due-date.gst.gstr-3b.quarterly",
+        "periodEnd": "2026-06-30",
+        "stateCode": "29"
+      },
+      "expected": {
+        "dueDate": "2026-07-22"
+      },
+      "citation": "CGST Rules rule 61 as substituted by Notification No. 82/2020-Central Tax, sub-rule (1)(ii) Table; the March 2026 monthly extension does not reach quarterly filers"
+    },
+    {
+      "name": "GSTR-3B (QRMP) for Q1 (Apr-Jun 2026) in Delhi (07) is due 2026-07-24",
+      "input": {
+        "rule": "due-date.gst.gstr-3b.quarterly",
+        "periodEnd": "2026-06-30",
+        "stateCode": "07"
+      },
+      "expected": {
+        "dueDate": "2026-07-24"
+      },
+      "citation": "CGST Rules rule 61 as substituted by Notification No. 82/2020-Central Tax, sub-rule (1)(ii) Table; the March 2026 monthly extension does not reach quarterly filers"
+    },
+    {
+      "name": "GSTR-3B (QRMP) for Q2 (Jul-Sep 2026) in Maharashtra (27) is due 2026-10-22",
+      "input": {
+        "rule": "due-date.gst.gstr-3b.quarterly",
+        "periodEnd": "2026-09-30",
+        "stateCode": "27"
+      },
+      "expected": {
+        "dueDate": "2026-10-22"
+      },
+      "citation": "CGST Rules rule 61 as substituted by Notification No. 82/2020-Central Tax, sub-rule (1)(ii) Table; the March 2026 monthly extension does not reach quarterly filers"
+    },
+    {
+      "name": "GSTR-3B (QRMP) for Q2 (Jul-Sep 2026) in Uttar Pradesh (09) is due 2026-10-24",
+      "input": {
+        "rule": "due-date.gst.gstr-3b.quarterly",
+        "periodEnd": "2026-09-30",
+        "stateCode": "09"
+      },
+      "expected": {
+        "dueDate": "2026-10-24"
+      },
+      "citation": "CGST Rules rule 61 as substituted by Notification No. 82/2020-Central Tax, sub-rule (1)(ii) Table; the March 2026 monthly extension does not reach quarterly filers"
+    },
+    {
+      "name": "GSTR-3B (QRMP) for Q3 (Oct-Dec 2026) in Tamil Nadu (33) is due 2027-01-22",
+      "input": {
+        "rule": "due-date.gst.gstr-3b.quarterly",
+        "periodEnd": "2026-12-31",
+        "stateCode": "33"
+      },
+      "expected": {
+        "dueDate": "2027-01-22"
+      },
+      "citation": "CGST Rules rule 61 as substituted by Notification No. 82/2020-Central Tax, sub-rule (1)(ii) Table; the March 2026 monthly extension does not reach quarterly filers"
+    },
+    {
+      "name": "GSTR-3B (QRMP) for Q3 (Oct-Dec 2026) in West Bengal (19) is due 2027-01-24",
+      "input": {
+        "rule": "due-date.gst.gstr-3b.quarterly",
+        "periodEnd": "2026-12-31",
+        "stateCode": "19"
+      },
+      "expected": {
+        "dueDate": "2027-01-24"
+      },
+      "citation": "CGST Rules rule 61 as substituted by Notification No. 82/2020-Central Tax, sub-rule (1)(ii) Table; the March 2026 monthly extension does not reach quarterly filers"
+    },
+    {
+      "name": "GSTR-3B (QRMP) for Q4 (Jan-Mar 2027) in Telangana (36) is due 2027-04-22",
+      "input": {
+        "rule": "due-date.gst.gstr-3b.quarterly",
+        "periodEnd": "2027-03-31",
+        "stateCode": "36"
+      },
+      "expected": {
+        "dueDate": "2027-04-22"
+      },
+      "citation": "CGST Rules rule 61 as substituted by Notification No. 82/2020-Central Tax, sub-rule (1)(ii) Table; the March 2026 monthly extension does not reach quarterly filers"
+    },
+    {
+      "name": "GSTR-3B (QRMP) for Q4 (Jan-Mar 2027) in Ladakh (38) is due 2027-04-24",
+      "input": {
+        "rule": "due-date.gst.gstr-3b.quarterly",
+        "periodEnd": "2027-03-31",
+        "stateCode": "38"
+      },
+      "expected": {
+        "dueDate": "2027-04-24"
+      },
+      "citation": "CGST Rules rule 61 as substituted by Notification No. 82/2020-Central Tax, sub-rule (1)(ii) Table; the March 2026 monthly extension does not reach quarterly filers"
+    },
+    {
+      "name": "GSTR-3B (QRMP) for Q4 (Jan-Mar 2026) in Karnataka (29) is due 2026-04-22",
+      "input": {
+        "rule": "due-date.gst.gstr-3b.quarterly",
+        "periodEnd": "2026-03-31",
+        "stateCode": "29"
+      },
+      "expected": {
+        "dueDate": "2026-04-22"
+      },
+      "citation": "CGST Rules rule 61 as substituted by Notification No. 82/2020-Central Tax, sub-rule (1)(ii) Table; the March 2026 monthly extension does not reach quarterly filers"
+    },
+    {
+      "name": "GSTR-3B (QRMP) for a state code rule 61 does not name (97, Other Territory) has no recorded day",
+      "input": {
+        "rule": "due-date.gst.gstr-3b.quarterly",
+        "periodEnd": "2026-06-30",
+        "stateCode": "97"
+      },
+      "expected": {
+        "error": "STATE_NOT_LISTED"
+      },
+      "citation": "CGST Rules rule 61 as substituted by Notification No. 82/2020-Central Tax, sub-rule (1)(ii) Table names two State lists only"
+    },
+    {
+      "name": "GSTR-3B (QRMP) needs the principal place of business state",
+      "input": {
+        "rule": "due-date.gst.gstr-3b.quarterly",
+        "periodEnd": "2026-06-30"
+      },
+      "expected": {
+        "error": "STATE_CODE_REQUIRED"
+      },
+      "citation": "CGST Rules rule 61 as substituted by Notification No. 82/2020-Central Tax, sub-rule (1)(ii) Table"
+    },
+    {
+      "name": "PMT-06 for April 2026 is due 2026-05-25",
+      "input": {
+        "rule": "due-date.gst.pmt-06",
+        "periodEnd": "2026-04-30"
+      },
+      "expected": {
+        "dueDate": "2026-05-25"
+      },
+      "citation": "CGST Rules rule 61 as substituted by Notification No. 82/2020-Central Tax, sub-rule (3): 25th of the following month; no weekend or holiday rollover"
+    },
+    {
+      "name": "PMT-06 for May 2026 is due 2026-06-25",
+      "input": {
+        "rule": "due-date.gst.pmt-06",
+        "periodEnd": "2026-05-31"
+      },
+      "expected": {
+        "dueDate": "2026-06-25"
+      },
+      "citation": "CGST Rules rule 61 as substituted by Notification No. 82/2020-Central Tax, sub-rule (3): 25th of the following month; no weekend or holiday rollover"
+    },
+    {
+      "name": "PMT-06 for July 2026 is due 2026-08-25",
+      "input": {
+        "rule": "due-date.gst.pmt-06",
+        "periodEnd": "2026-07-31"
+      },
+      "expected": {
+        "dueDate": "2026-08-25"
+      },
+      "citation": "CGST Rules rule 61 as substituted by Notification No. 82/2020-Central Tax, sub-rule (3): 25th of the following month; no weekend or holiday rollover"
+    },
+    {
+      "name": "PMT-06 for August 2026 is due 2026-09-25",
+      "input": {
+        "rule": "due-date.gst.pmt-06",
+        "periodEnd": "2026-08-31"
+      },
+      "expected": {
+        "dueDate": "2026-09-25"
+      },
+      "citation": "CGST Rules rule 61 as substituted by Notification No. 82/2020-Central Tax, sub-rule (3): 25th of the following month; no weekend or holiday rollover"
+    },
+    {
+      "name": "PMT-06 for October 2026 is due 2026-11-25",
+      "input": {
+        "rule": "due-date.gst.pmt-06",
+        "periodEnd": "2026-10-31"
+      },
+      "expected": {
+        "dueDate": "2026-11-25"
+      },
+      "citation": "CGST Rules rule 61 as substituted by Notification No. 82/2020-Central Tax, sub-rule (3): 25th of the following month; no weekend or holiday rollover"
+    },
+    {
+      "name": "PMT-06 for November 2026 is due 2026-12-25",
+      "input": {
+        "rule": "due-date.gst.pmt-06",
+        "periodEnd": "2026-11-30"
+      },
+      "expected": {
+        "dueDate": "2026-12-25"
+      },
+      "citation": "CGST Rules rule 61 as substituted by Notification No. 82/2020-Central Tax, sub-rule (3): 25th of the following month; no weekend or holiday rollover"
+    },
+    {
+      "name": "PMT-06 for January 2027 is due 2027-02-25",
+      "input": {
+        "rule": "due-date.gst.pmt-06",
+        "periodEnd": "2027-01-31"
+      },
+      "expected": {
+        "dueDate": "2027-02-25"
+      },
+      "citation": "CGST Rules rule 61 as substituted by Notification No. 82/2020-Central Tax, sub-rule (3): 25th of the following month; no weekend or holiday rollover"
+    },
+    {
+      "name": "PMT-06 for February 2027 is due 2027-03-25",
+      "input": {
+        "rule": "due-date.gst.pmt-06",
+        "periodEnd": "2027-02-28"
+      },
+      "expected": {
+        "dueDate": "2027-03-25"
+      },
+      "citation": "CGST Rules rule 61 as substituted by Notification No. 82/2020-Central Tax, sub-rule (3): 25th of the following month; no weekend or holiday rollover"
+    },
+    {
+      "name": "PMT-06 is not due for September 2026, the last month of a quarter",
+      "input": {
+        "rule": "due-date.gst.pmt-06",
+        "periodEnd": "2026-09-30"
+      },
+      "expected": {
+        "error": "NOT_DUE_FOR_PERIOD"
+      },
+      "citation": "CGST Rules rule 61 as substituted by Notification No. 82/2020-Central Tax, sub-rule (3): first two months of the quarter only"
+    },
+    {
+      "name": "GSTR-7 for April 2026 is due 2026-05-10",
+      "input": {
+        "rule": "due-date.gst.gstr-7",
+        "periodEnd": "2026-04-30"
+      },
+      "expected": {
+        "dueDate": "2026-05-10"
+      },
+      "citation": "CGST Rules rule 66(1) as amended by Notification No. 20/2024-Central Tax: 10th of the following month"
+    },
+    {
+      "name": "GSTR-7 for May 2026 is due 2026-06-10",
+      "input": {
+        "rule": "due-date.gst.gstr-7",
+        "periodEnd": "2026-05-31"
+      },
+      "expected": {
+        "dueDate": "2026-06-10"
+      },
+      "citation": "CGST Rules rule 66(1) as amended by Notification No. 20/2024-Central Tax: 10th of the following month"
+    },
+    {
+      "name": "GSTR-7 for June 2026 is due 2026-07-10",
+      "input": {
+        "rule": "due-date.gst.gstr-7",
+        "periodEnd": "2026-06-30"
+      },
+      "expected": {
+        "dueDate": "2026-07-10"
+      },
+      "citation": "CGST Rules rule 66(1) as amended by Notification No. 20/2024-Central Tax: 10th of the following month"
+    },
+    {
+      "name": "GSTR-7 for July 2026 is due 2026-08-10",
+      "input": {
+        "rule": "due-date.gst.gstr-7",
+        "periodEnd": "2026-07-31"
+      },
+      "expected": {
+        "dueDate": "2026-08-10"
+      },
+      "citation": "CGST Rules rule 66(1) as amended by Notification No. 20/2024-Central Tax: 10th of the following month"
+    },
+    {
+      "name": "GSTR-7 for August 2026 is due 2026-09-10",
+      "input": {
+        "rule": "due-date.gst.gstr-7",
+        "periodEnd": "2026-08-31"
+      },
+      "expected": {
+        "dueDate": "2026-09-10"
+      },
+      "citation": "CGST Rules rule 66(1) as amended by Notification No. 20/2024-Central Tax: 10th of the following month"
+    },
+    {
+      "name": "GSTR-7 for September 2026 is due 2026-10-10",
+      "input": {
+        "rule": "due-date.gst.gstr-7",
+        "periodEnd": "2026-09-30"
+      },
+      "expected": {
+        "dueDate": "2026-10-10"
+      },
+      "citation": "CGST Rules rule 66(1) as amended by Notification No. 20/2024-Central Tax: 10th of the following month"
+    },
+    {
+      "name": "GSTR-7 for October 2026 is due 2026-11-10",
+      "input": {
+        "rule": "due-date.gst.gstr-7",
+        "periodEnd": "2026-10-31"
+      },
+      "expected": {
+        "dueDate": "2026-11-10"
+      },
+      "citation": "CGST Rules rule 66(1) as amended by Notification No. 20/2024-Central Tax: 10th of the following month"
+    },
+    {
+      "name": "GSTR-7 for November 2026 is due 2026-12-10",
+      "input": {
+        "rule": "due-date.gst.gstr-7",
+        "periodEnd": "2026-11-30"
+      },
+      "expected": {
+        "dueDate": "2026-12-10"
+      },
+      "citation": "CGST Rules rule 66(1) as amended by Notification No. 20/2024-Central Tax: 10th of the following month"
+    },
+    {
+      "name": "GSTR-7 for December 2026 is due 2027-01-10",
+      "input": {
+        "rule": "due-date.gst.gstr-7",
+        "periodEnd": "2026-12-31"
+      },
+      "expected": {
+        "dueDate": "2027-01-10"
+      },
+      "citation": "CGST Rules rule 66(1) as amended by Notification No. 20/2024-Central Tax: 10th of the following month"
+    },
+    {
+      "name": "GSTR-7 for January 2027 is due 2027-02-10",
+      "input": {
+        "rule": "due-date.gst.gstr-7",
+        "periodEnd": "2027-01-31"
+      },
+      "expected": {
+        "dueDate": "2027-02-10"
+      },
+      "citation": "CGST Rules rule 66(1) as amended by Notification No. 20/2024-Central Tax: 10th of the following month"
+    },
+    {
+      "name": "GSTR-7 for February 2027 is due 2027-03-10",
+      "input": {
+        "rule": "due-date.gst.gstr-7",
+        "periodEnd": "2027-02-28"
+      },
+      "expected": {
+        "dueDate": "2027-03-10"
+      },
+      "citation": "CGST Rules rule 66(1) as amended by Notification No. 20/2024-Central Tax: 10th of the following month"
+    },
+    {
+      "name": "GSTR-7 for March 2027 is due 2027-04-10",
+      "input": {
+        "rule": "due-date.gst.gstr-7",
+        "periodEnd": "2027-03-31"
+      },
+      "expected": {
+        "dueDate": "2027-04-10"
+      },
+      "citation": "CGST Rules rule 66(1) as amended by Notification No. 20/2024-Central Tax: 10th of the following month"
+    },
+    {
+      "name": "GSTR-9 for FY 2025-26 is due 2026-12-31",
+      "input": {
+        "rule": "due-date.gst.gstr-9",
+        "periodEnd": "2026-03-31"
+      },
+      "expected": {
+        "dueDate": "2026-12-31"
+      },
+      "citation": "CGST Act s.44; CGST Rules rule 80(1): 31 December after the financial year"
+    },
+    {
+      "name": "GSTR-9 for FY 2026-27 is due 2027-12-31",
+      "input": {
+        "rule": "due-date.gst.gstr-9",
+        "periodEnd": "2027-03-31"
+      },
+      "expected": {
+        "dueDate": "2027-12-31"
+      },
+      "citation": "CGST Act s.44; CGST Rules rule 80(1): 31 December after the financial year"
+    },
+    {
+      "name": "TDS deposit for April 2026 is due 2026-05-07",
+      "input": {
+        "rule": "due-date.tds.deposit",
+        "periodEnd": "2026-04-30"
+      },
+      "expected": {
+        "dueDate": "2026-05-07"
+      },
+      "citation": "Income-tax Act 2025 s.397(3)(a); Income-tax Rules 2026 rule 218: 7th of the following month, 30 April for March"
+    },
+    {
+      "name": "TDS deposit for May 2026 is due 2026-06-07",
+      "input": {
+        "rule": "due-date.tds.deposit",
+        "periodEnd": "2026-05-31"
+      },
+      "expected": {
+        "dueDate": "2026-06-07"
+      },
+      "citation": "Income-tax Act 2025 s.397(3)(a); Income-tax Rules 2026 rule 218: 7th of the following month, 30 April for March"
+    },
+    {
+      "name": "TDS deposit for June 2026 is due 2026-07-07",
+      "input": {
+        "rule": "due-date.tds.deposit",
+        "periodEnd": "2026-06-30"
+      },
+      "expected": {
+        "dueDate": "2026-07-07"
+      },
+      "citation": "Income-tax Act 2025 s.397(3)(a); Income-tax Rules 2026 rule 218: 7th of the following month, 30 April for March"
+    },
+    {
+      "name": "TDS deposit for July 2026 is due 2026-08-07",
+      "input": {
+        "rule": "due-date.tds.deposit",
+        "periodEnd": "2026-07-31"
+      },
+      "expected": {
+        "dueDate": "2026-08-07"
+      },
+      "citation": "Income-tax Act 2025 s.397(3)(a); Income-tax Rules 2026 rule 218: 7th of the following month, 30 April for March"
+    },
+    {
+      "name": "TDS deposit for August 2026 is due 2026-09-07",
+      "input": {
+        "rule": "due-date.tds.deposit",
+        "periodEnd": "2026-08-31"
+      },
+      "expected": {
+        "dueDate": "2026-09-07"
+      },
+      "citation": "Income-tax Act 2025 s.397(3)(a); Income-tax Rules 2026 rule 218: 7th of the following month, 30 April for March"
+    },
+    {
+      "name": "TDS deposit for September 2026 is due 2026-10-07",
+      "input": {
+        "rule": "due-date.tds.deposit",
+        "periodEnd": "2026-09-30"
+      },
+      "expected": {
+        "dueDate": "2026-10-07"
+      },
+      "citation": "Income-tax Act 2025 s.397(3)(a); Income-tax Rules 2026 rule 218: 7th of the following month, 30 April for March"
+    },
+    {
+      "name": "TDS deposit for October 2026 is due 2026-11-07",
+      "input": {
+        "rule": "due-date.tds.deposit",
+        "periodEnd": "2026-10-31"
+      },
+      "expected": {
+        "dueDate": "2026-11-07"
+      },
+      "citation": "Income-tax Act 2025 s.397(3)(a); Income-tax Rules 2026 rule 218: 7th of the following month, 30 April for March"
+    },
+    {
+      "name": "TDS deposit for November 2026 is due 2026-12-07",
+      "input": {
+        "rule": "due-date.tds.deposit",
+        "periodEnd": "2026-11-30"
+      },
+      "expected": {
+        "dueDate": "2026-12-07"
+      },
+      "citation": "Income-tax Act 2025 s.397(3)(a); Income-tax Rules 2026 rule 218: 7th of the following month, 30 April for March"
+    },
+    {
+      "name": "TDS deposit for December 2026 is due 2027-01-07",
+      "input": {
+        "rule": "due-date.tds.deposit",
+        "periodEnd": "2026-12-31"
+      },
+      "expected": {
+        "dueDate": "2027-01-07"
+      },
+      "citation": "Income-tax Act 2025 s.397(3)(a); Income-tax Rules 2026 rule 218: 7th of the following month, 30 April for March"
+    },
+    {
+      "name": "TDS deposit for January 2027 is due 2027-02-07",
+      "input": {
+        "rule": "due-date.tds.deposit",
+        "periodEnd": "2027-01-31"
+      },
+      "expected": {
+        "dueDate": "2027-02-07"
+      },
+      "citation": "Income-tax Act 2025 s.397(3)(a); Income-tax Rules 2026 rule 218: 7th of the following month, 30 April for March"
+    },
+    {
+      "name": "TDS deposit for February 2027 is due 2027-03-07",
+      "input": {
+        "rule": "due-date.tds.deposit",
+        "periodEnd": "2027-02-28"
+      },
+      "expected": {
+        "dueDate": "2027-03-07"
+      },
+      "citation": "Income-tax Act 2025 s.397(3)(a); Income-tax Rules 2026 rule 218: 7th of the following month, 30 April for March"
+    },
+    {
+      "name": "TDS deposit for March 2027 is due 2027-04-30",
+      "input": {
+        "rule": "due-date.tds.deposit",
+        "periodEnd": "2027-03-31"
+      },
+      "expected": {
+        "dueDate": "2027-04-30"
+      },
+      "citation": "Income-tax Act 2025 s.397(3)(a); Income-tax Rules 2026 rule 218: 7th of the following month, 30 April for March"
+    },
+    {
+      "name": "TDS deposit for February 2026 is due 2026-03-07",
+      "input": {
+        "rule": "due-date.tds.deposit",
+        "periodEnd": "2026-02-28"
+      },
+      "expected": {
+        "dueDate": "2026-03-07"
+      },
+      "citation": "Income-tax Rules 1962 rule 30(2)"
+    },
+    {
+      "name": "TDS deposit for March 2026 is due 2026-04-30",
+      "input": {
+        "rule": "due-date.tds.deposit",
+        "periodEnd": "2026-03-31"
+      },
+      "expected": {
+        "dueDate": "2026-04-30"
+      },
+      "citation": "Income-tax Rules 1962 rule 30(2); e-filing portal Tax Payments FAQ"
+    },
+    {
+      "name": "TDS statement (Form 138/140) for Q1 (Apr-Jun 2026) is due 2026-07-31",
+      "input": {
+        "rule": "due-date.tds.statement",
+        "periodEnd": "2026-06-30"
+      },
+      "expected": {
+        "dueDate": "2026-07-31"
+      },
+      "citation": "Income-tax Act 2025 s.397(3)(b); e-filing portal Form 138 and Form 140 user manuals; no weekend or holiday rollover"
+    },
+    {
+      "name": "TDS statement (Form 138/140) for Q2 (Jul-Sep 2026), a Saturday is due 2026-10-31",
+      "input": {
+        "rule": "due-date.tds.statement",
+        "periodEnd": "2026-09-30"
+      },
+      "expected": {
+        "dueDate": "2026-10-31"
+      },
+      "citation": "Income-tax Act 2025 s.397(3)(b); e-filing portal Form 138 and Form 140 user manuals; no weekend or holiday rollover"
+    },
+    {
+      "name": "TDS statement (Form 138/140) for Q3 (Oct-Dec 2026), a Sunday is due 2027-01-31",
+      "input": {
+        "rule": "due-date.tds.statement",
+        "periodEnd": "2026-12-31"
+      },
+      "expected": {
+        "dueDate": "2027-01-31"
+      },
+      "citation": "Income-tax Act 2025 s.397(3)(b); e-filing portal Form 138 and Form 140 user manuals; no weekend or holiday rollover"
+    },
+    {
+      "name": "TDS statement (Form 138/140) for Q4 (Jan-Mar 2027) is due 2027-05-31",
+      "input": {
+        "rule": "due-date.tds.statement",
+        "periodEnd": "2027-03-31"
+      },
+      "expected": {
+        "dueDate": "2027-05-31"
+      },
+      "citation": "Income-tax Act 2025 s.397(3)(b); e-filing portal Form 138 and Form 140 user manuals; no weekend or holiday rollover"
+    },
+    {
+      "name": "Advance tax instalment 1 (15%) for tax year 2026-27 is due 2026-06-15",
+      "input": {
+        "rule": "due-date.income-tax.advance-tax",
+        "periodEnd": "2027-03-31",
+        "instalment": 1
+      },
+      "expected": {
+        "dueDate": "2026-06-15"
+      },
+      "citation": "Income-tax Act 2025 s.408(1) Table"
+    },
+    {
+      "name": "Advance tax instalment 2 (45%) for tax year 2026-27 is due 2026-09-15",
+      "input": {
+        "rule": "due-date.income-tax.advance-tax",
+        "periodEnd": "2027-03-31",
+        "instalment": 2
+      },
+      "expected": {
+        "dueDate": "2026-09-15"
+      },
+      "citation": "Income-tax Act 2025 s.408(1) Table"
+    },
+    {
+      "name": "Advance tax instalment 3 (75%) for tax year 2026-27 is due 2026-12-15",
+      "input": {
+        "rule": "due-date.income-tax.advance-tax",
+        "periodEnd": "2027-03-31",
+        "instalment": 3
+      },
+      "expected": {
+        "dueDate": "2026-12-15"
+      },
+      "citation": "Income-tax Act 2025 s.408(1) Table"
+    },
+    {
+      "name": "Advance tax instalment 4 (100%) for tax year 2026-27 is due 2027-03-15",
+      "input": {
+        "rule": "due-date.income-tax.advance-tax",
+        "periodEnd": "2027-03-31",
+        "instalment": 4
+      },
+      "expected": {
+        "dueDate": "2027-03-15"
+      },
+      "citation": "Income-tax Act 2025 s.408(1) Table"
+    },
+    {
+      "name": "Advance tax for a presumptive-scheme assessee for tax year 2026-27 is due 2027-03-15",
+      "input": {
+        "rule": "due-date.income-tax.advance-tax.presumptive",
+        "periodEnd": "2027-03-31",
+        "instalment": 1
+      },
+      "expected": {
+        "dueDate": "2027-03-15"
+      },
+      "citation": "Income-tax Act 2025 s.408(2)"
+    },
+    {
+      "name": "Advance tax has no fifth instalment",
+      "input": {
+        "rule": "due-date.income-tax.advance-tax",
+        "periodEnd": "2027-03-31",
+        "instalment": 5
+      },
+      "expected": {
+        "error": "INSTALMENT_INVALID"
+      },
+      "citation": "Income-tax Act 2025 s.408(1) Table has four instalments"
+    },
+    {
+      "name": "Return of income for FY 2025-26, transfer-pricing case, is due 2026-11-30",
+      "input": {
+        "rule": "due-date.income-tax.return.transfer-pricing",
+        "periodEnd": "2026-03-31"
+      },
+      "expected": {
+        "dueDate": "2026-11-30"
+      },
+      "citation": "Income-tax Act 1961 s.139(1) Explanation 2 as substituted by the Finance Act, 2026 s.5 (w.e.f. 01.03.2026); no weekend or holiday rollover"
+    },
+    {
+      "name": "Return of income for tax year 2026-27, transfer-pricing case, is due 2027-11-30",
+      "input": {
+        "rule": "due-date.income-tax.return.transfer-pricing",
+        "periodEnd": "2027-03-31"
+      },
+      "expected": {
+        "dueDate": "2027-11-30"
+      },
+      "citation": "Income-tax Act 2025 s.263(1)(c) Table as substituted by the Finance Act, 2026 s.66; no weekend or holiday rollover"
+    },
+    {
+      "name": "Return of income for FY 2025-26, audit case (a Saturday in 2026, a Sunday in 2027), is due 2026-10-31",
+      "input": {
+        "rule": "due-date.income-tax.return.audit",
+        "periodEnd": "2026-03-31"
+      },
+      "expected": {
+        "dueDate": "2026-10-31"
+      },
+      "citation": "Income-tax Act 1961 s.139(1) Explanation 2 as substituted by the Finance Act, 2026 s.5 (w.e.f. 01.03.2026); no weekend or holiday rollover"
+    },
+    {
+      "name": "Return of income for tax year 2026-27, audit case (a Saturday in 2026, a Sunday in 2027), is due 2027-10-31",
+      "input": {
+        "rule": "due-date.income-tax.return.audit",
+        "periodEnd": "2027-03-31"
+      },
+      "expected": {
+        "dueDate": "2027-10-31"
+      },
+      "citation": "Income-tax Act 2025 s.263(1)(c) Table as substituted by the Finance Act, 2026 s.66; no weekend or holiday rollover"
+    },
+    {
+      "name": "Return of income for FY 2025-26, non-audit business or profession, is due 2026-08-31",
+      "input": {
+        "rule": "due-date.income-tax.return.non-audit-business",
+        "periodEnd": "2026-03-31"
+      },
+      "expected": {
+        "dueDate": "2026-08-31"
+      },
+      "citation": "Income-tax Act 1961 s.139(1) Explanation 2 as substituted by the Finance Act, 2026 s.5 (w.e.f. 01.03.2026); no weekend or holiday rollover"
+    },
+    {
+      "name": "Return of income for tax year 2026-27, non-audit business or profession, is due 2027-08-31",
+      "input": {
+        "rule": "due-date.income-tax.return.non-audit-business",
+        "periodEnd": "2027-03-31"
+      },
+      "expected": {
+        "dueDate": "2027-08-31"
+      },
+      "citation": "Income-tax Act 2025 s.263(1)(c) Table as substituted by the Finance Act, 2026 s.66; no weekend or holiday rollover"
+    },
+    {
+      "name": "Return of income for FY 2025-26, any other assessee, is due 2026-07-31",
+      "input": {
+        "rule": "due-date.income-tax.return.other",
+        "periodEnd": "2026-03-31"
+      },
+      "expected": {
+        "dueDate": "2026-07-31"
+      },
+      "citation": "Income-tax Act 1961 s.139(1) Explanation 2 as substituted by the Finance Act, 2026 s.5 (w.e.f. 01.03.2026); no weekend or holiday rollover"
+    },
+    {
+      "name": "Return of income for tax year 2026-27, any other assessee, is due 2027-07-31",
+      "input": {
+        "rule": "due-date.income-tax.return.other",
+        "periodEnd": "2027-03-31"
+      },
+      "expected": {
+        "dueDate": "2027-07-31"
+      },
+      "citation": "Income-tax Act 2025 s.263(1)(c) Table as substituted by the Finance Act, 2026 s.66; no weekend or holiday rollover"
+    },
+    {
+      "name": "Return of income for FY 2024-25 is outside the recorded rules and fails closed",
+      "input": {
+        "rule": "due-date.income-tax.return.audit",
+        "periodEnd": "2025-03-31"
+      },
+      "expected": {
+        "error": "RULE_NOT_IN_FORCE"
+      },
+      "citation": "No FY 2024-25 return due-date record: the lookup must not fall back to a later version"
+    },
+    {
+      "name": "PF contribution for April 2026 is due 2026-05-15",
+      "input": {
+        "rule": "due-date.pf.contribution",
+        "periodEnd": "2026-04-30"
+      },
+      "expected": {
+        "dueDate": "2026-05-15"
+      },
+      "citation": "EPF Scheme 1952 para 38(1): within fifteen days of the close of the month"
+    },
+    {
+      "name": "PF contribution for May 2026 is due 2026-06-15",
+      "input": {
+        "rule": "due-date.pf.contribution",
+        "periodEnd": "2026-05-31"
+      },
+      "expected": {
+        "dueDate": "2026-06-15"
+      },
+      "citation": "EPF Scheme 1952 para 38(1): within fifteen days of the close of the month"
+    },
+    {
+      "name": "PF contribution for June 2026 is due 2026-07-15",
+      "input": {
+        "rule": "due-date.pf.contribution",
+        "periodEnd": "2026-06-30"
+      },
+      "expected": {
+        "dueDate": "2026-07-15"
+      },
+      "citation": "EPF Scheme 1952 para 38(1): within fifteen days of the close of the month"
+    },
+    {
+      "name": "PF contribution for July 2026 is due 2026-08-15",
+      "input": {
+        "rule": "due-date.pf.contribution",
+        "periodEnd": "2026-07-31"
+      },
+      "expected": {
+        "dueDate": "2026-08-15"
+      },
+      "citation": "EPF Scheme 1952 para 38(1): within fifteen days of the close of the month"
+    },
+    {
+      "name": "PF contribution for August 2026 is due 2026-09-15",
+      "input": {
+        "rule": "due-date.pf.contribution",
+        "periodEnd": "2026-08-31"
+      },
+      "expected": {
+        "dueDate": "2026-09-15"
+      },
+      "citation": "EPF Scheme 1952 para 38(1): within fifteen days of the close of the month"
+    },
+    {
+      "name": "PF contribution for September 2026 is due 2026-10-15",
+      "input": {
+        "rule": "due-date.pf.contribution",
+        "periodEnd": "2026-09-30"
+      },
+      "expected": {
+        "dueDate": "2026-10-15"
+      },
+      "citation": "EPF Scheme 1952 para 38(1): within fifteen days of the close of the month"
+    },
+    {
+      "name": "PF contribution for October 2026 is due 2026-11-15",
+      "input": {
+        "rule": "due-date.pf.contribution",
+        "periodEnd": "2026-10-31"
+      },
+      "expected": {
+        "dueDate": "2026-11-15"
+      },
+      "citation": "EPF Scheme 1952 para 38(1): within fifteen days of the close of the month"
+    },
+    {
+      "name": "PF contribution for November 2026 is due 2026-12-15",
+      "input": {
+        "rule": "due-date.pf.contribution",
+        "periodEnd": "2026-11-30"
+      },
+      "expected": {
+        "dueDate": "2026-12-15"
+      },
+      "citation": "EPF Scheme 1952 para 38(1): within fifteen days of the close of the month"
+    },
+    {
+      "name": "PF contribution for December 2026 is due 2027-01-15",
+      "input": {
+        "rule": "due-date.pf.contribution",
+        "periodEnd": "2026-12-31"
+      },
+      "expected": {
+        "dueDate": "2027-01-15"
+      },
+      "citation": "EPF Scheme 1952 para 38(1): within fifteen days of the close of the month"
+    },
+    {
+      "name": "PF contribution for January 2027 is due 2027-02-15",
+      "input": {
+        "rule": "due-date.pf.contribution",
+        "periodEnd": "2027-01-31"
+      },
+      "expected": {
+        "dueDate": "2027-02-15"
+      },
+      "citation": "EPF Scheme 1952 para 38(1): within fifteen days of the close of the month"
+    },
+    {
+      "name": "PF contribution for February 2027 is due 2027-03-15",
+      "input": {
+        "rule": "due-date.pf.contribution",
+        "periodEnd": "2027-02-28"
+      },
+      "expected": {
+        "dueDate": "2027-03-15"
+      },
+      "citation": "EPF Scheme 1952 para 38(1): within fifteen days of the close of the month"
+    },
+    {
+      "name": "PF contribution for March 2027 is due 2027-04-15",
+      "input": {
+        "rule": "due-date.pf.contribution",
+        "periodEnd": "2027-03-31"
+      },
+      "expected": {
+        "dueDate": "2027-04-15"
+      },
+      "citation": "EPF Scheme 1952 para 38(1): within fifteen days of the close of the month"
+    }
+  ]
+}

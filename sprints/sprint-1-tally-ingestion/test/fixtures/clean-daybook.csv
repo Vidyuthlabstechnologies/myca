@@ -1,21 +1,21 @@
 "Date","Voucher Type","Voucher No","Particulars","Debit","Credit","Narration","GSTIN of Recipient","HSN/SAC","GST Rate %","CGST","SGST","IGST","TDS Section","TDS Rate %"
 01-04-2025,Receipt,1001,Bhagwat Traders,,250000.00,Advance from customer,,
-01-04-2025,Sales,1002,Sharma Electronics,118000.00,,Sale of consumer goods,27AABCS1432B1Z5,8517,18,9000,9000,0,
-02-04-2025,Purchase,1003,Vijay Steel Pvt Ltd,59000.00,,Purchase of raw material,27AAECV1234F1Z3,7208,18,4500,4500,0,
+01-04-2025,Sales,1002,Sharma Electronics,118000.00,,Sale of consumer goods,27AABCS1432B1ZZ,8517,18,9000,9000,0,
+02-04-2025,Purchase,1003,Vijay Steel Pvt Ltd,59000.00,,Purchase of raw material,27AAECV1234F1ZL,7208,18,4500,4500,0,
 02-04-2025,Payment,1004,HDFC Bank,45000.00,,Electricity payment,,
-02-04-2025,Sales,1005,Gupta & Sons,36050.00,,Sale of LED bulbs,27AABFG7894H1Z8,8539,18,2750,2750,0,
-03-04-2025,Purchase,1006,RK Hardware,23600.00,,Hardware purchase,27AADRK5678K1Z2,8302,18,1800,1800,0,
+02-04-2025,Sales,1005,Gupta & Sons,36050.00,,Sale of LED bulbs,27AABFG7894H1ZZ,8539,18,2750,2750,0,
+03-04-2025,Purchase,1006,RK Hardware,23600.00,,Hardware purchase,27AADRK5678K1Z3,8302,18,1800,1800,0,
 03-04-2025,Journal,1007,,5000.00,,Depreciation provision,,
 03-04-2025,Receipt,1008,Gupta & Sons,,36050.00,Receipt from customer,,
-04-04-2025,Purchase,1009,Professional Services Co,17700.00,,Consulting services,27AAEPR2345L1Z4,9983,18,1350,1350,0,194J,10
+04-04-2025,Purchase,1009,Professional Services Co,17700.00,,Consulting services,27AAEPR2345L1ZF,9983,18,1350,1350,0,194J,10
 04-04-2025,Payment,1010,SBI Bank,123000.00,,TDS deposit,,
-04-04-2025,Sales,1011,Mehta Agencies,94400.00,,Sale of machinery spare parts,27AABMH4567M1Z6,8421,18,7200,7200,0,
+04-04-2025,Sales,1011,Mehta Agencies,94400.00,,Sale of machinery spare parts,27AABMH4567M1ZK,8421,18,7200,7200,0,
 05-04-2025,Contra,1012,,,50000.00,Transfer to HDFC,,
-05-04-2025,Purchase,1013,ABC Textiles,29500.00,,Fabric purchase,27AABCT7890N1Z7,5208,18,2250,2250,0,
-05-04-2025,Sales,1014,Ram Traders,200600.00,,Sale of garments,27AABRT1234P1Z9,6208,18,15300,15300,0,
+05-04-2025,Purchase,1013,ABC Textiles,29500.00,,Fabric purchase,27AABCT7890N1ZJ,5208,18,2250,2250,0,
+05-04-2025,Sales,1014,Ram Traders,200600.00,,Sale of garments,27AABRT1234P1ZA,6208,18,15300,15300,0,
 06-04-2025,Payment,1015,Vijay Steel Pvt Ltd,,59000.00,Payment of supplier,,
 06-04-2025,Receipt,1016,Mehta Agencies,,94400.00,Receipt from customer,,
-06-04-2025,Purchase,1017,Logistics Movers,21240.00,,Transport services,27AABLM5678Q1Z1,9965,18,1620,1620,0,194C,1
-07-04-2025,Sales,1018,Singh Traders,118000.00,,Sale of furniture,27AABST9012R1Z3,9403,18,9000,9000,0,
+06-04-2025,Purchase,1017,Logistics Movers,21240.00,,Transport services,27AABLM5678Q1Z3,9965,18,1620,1620,0,194C,1
+07-04-2025,Sales,1018,Singh Traders,118000.00,,Sale of furniture,27AABST9012R1ZW,9403,18,9000,9000,0,
 07-04-2025,Payment,1019,Office Rent,80000.00,,Rent payment,,,,,-100,194I,10
 07-04-2025,Receipt,1020,Bhagwat Traders,,250000.00,Balance receipt,,

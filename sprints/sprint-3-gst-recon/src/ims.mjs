@@ -24,12 +24,15 @@ export function imsSnapshot(gstr2bRows) {
   for (const row of gstr2bRows) {
     const section = row.section;
     if (!sections[section]) sections[section] = { count: 0, taxable: 0, inputCredit: 0 };
-    const inputCredit = round2((row.cgst || 0) + (row.sgst || 0) + (row.igst || 0));
+    // A credit note reduces credit, whatever sign the 2B download gives it.
+    const magnitude = Math.abs(round2((row.cgst || 0) + (row.sgst || 0) + (row.igst || 0) + (row.cess || 0)));
+    const inputCredit = String(section).toUpperCase() === 'CDNR' ? -magnitude : magnitude;
+    const taxable = String(section).toUpperCase() === 'CDNR' ? -Math.abs(row.taxableValue || 0) : Math.abs(row.taxableValue || 0);
     sections[section].count += 1;
-    sections[section].taxable = round2(sections[section].taxable + (row.taxableValue || 0));
+    sections[section].taxable = round2(sections[section].taxable + taxable);
     sections[section].inputCredit = round2(sections[section].inputCredit + inputCredit);
     total.count += 1;
-    total.taxable = round2(total.taxable + (row.taxableValue || 0));
+    total.taxable = round2(total.taxable + taxable);
     total.inputCredit = round2(total.inputCredit + inputCredit);
   }
 

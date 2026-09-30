@@ -1,6 +1,30 @@
 import { emptyLedger, freeze, hydrate } from './ledger.mjs';
 import { installChart } from './chart.mjs';
 
+export const CLIENT_ID_PATTERN = /^[A-Z0-9][A-Z0-9_-]{1,31}$/;
+
+export function canonicalClientId(value) {
+  return String(value ?? '').trim().toUpperCase();
+}
+
+export function normalizeClientId(value) {
+  return canonicalClientId(value) || 'SELF';
+}
+
+export function isValidClientId(id) {
+  return id !== 'SELF' && CLIENT_ID_PATTERN.test(id);
+}
+
+export function emptyBooks() {
+  return Object.create(null);
+}
+
+export function ensureBooks(state) {
+  if (!state.extraBooks || typeof state.extraBooks !== 'object') state.extraBooks = emptyBooks();
+  else if (Object.getPrototypeOf(state.extraBooks) !== null) state.extraBooks = Object.assign(emptyBooks(), state.extraBooks);
+  return state.extraBooks;
+}
+
 export function newBook(company = {}) {
   const ledger = emptyLedger();
   installChart(ledger);
@@ -16,6 +40,12 @@ export function newBook(company = {}) {
     transferSeq: 100000,
     imports: [],
     lockThrough: '',
+    files: {},
+    attachments: {},
+    pendingFile: null,
+    pendingChatAction: null,
+    exceptions: [],
+    exceptionSeq: 0,
   };
 }
 
@@ -32,6 +62,7 @@ export function serializeBook(book) {
     transferSeq: book.transferSeq || 100000,
     imports: book.imports || [],
     lockThrough: book.lockThrough || '',
+    attachments: book.attachments || {},
   };
 }
 
@@ -48,6 +79,7 @@ export function deserializeBook(raw) {
   book.transferSeq = raw.transferSeq || 100000;
   book.imports = raw.imports || [];
   book.lockThrough = raw.lockThrough || '';
+  book.attachments = raw.attachments && typeof raw.attachments === 'object' ? raw.attachments : {};
   return book;
 }
 
@@ -64,17 +96,16 @@ export function companyFromClient(client = {}) {
   };
 }
 
-// The app's own books are the root state; every other client gets an isolated book.
 export function getBook(state, clientId) {
-  const id = String(clientId || 'SELF');
+  const id = canonicalClientId(clientId);
   if (id === 'SELF') return state;
-  const client = (state.clients || []).find((c) => c.clientId === id);
+  const client = isValidClientId(id) ? (state.clients || []).find((c) => c.clientId === id) : undefined;
   if (!client) {
     const err = new Error('CLIENT_NOT_FOUND');
     err.statusCode = 404;
     throw err;
   }
-  state.extraBooks = state.extraBooks || {};
-  if (!state.extraBooks[id]) state.extraBooks[id] = newBook(companyFromClient(client));
-  return state.extraBooks[id];
+  const books = ensureBooks(state);
+  if (!Object.hasOwn(books, id)) books[id] = newBook(companyFromClient(client));
+  return books[id];
 }

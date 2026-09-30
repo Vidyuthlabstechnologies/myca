@@ -2,6 +2,7 @@ import { createAccounts, createTransfers, paise, TRANSFER_FLAGS } from './ledger
 import { gstSplit, nextPartyId, partyStateOf } from './chart.mjs';
 import { csvRows, htmlEscape } from './text-safe.mjs';
 import { isPeriodLocked } from './period-lock.mjs';
+import { postingDate } from './dates.mjs';
 
 function padInv(n) {
   return `INV-${String(n).padStart(4, '0')}`;
@@ -11,22 +12,57 @@ function nextTransferId(state) {
   return BigInt(state.transferSeq = (state.transferSeq || 100000) + 1);
 }
 
+function normGstin(gstin) {
+  return String(gstin || '').trim().toUpperCase();
+}
+
+function stateCodeOf(value) {
+  const s = String(value == null ? '' : value).trim();
+  return /^\d{1,2}$/.test(s) ? s.padStart(2, '0') : '';
+}
+
+// A registered party is its GSTIN: the same name with a new GSTIN is a new party.
+// An unregistered party is matched by name among unregistered parties only.
+function findParty(list, name, gstin) {
+  const g = normGstin(gstin);
+  const lower = String(name).toLowerCase();
+  return (list || []).find((p) => (g ? normGstin(p.gstin) === g : !p.gstin && p.name.toLowerCase() === lower));
+}
+
+function accountName(prefix, list, name, gstin) {
+  const clash = (list || []).some((p) => p.name.toLowerCase() === String(name).toLowerCase());
+  return clash && gstin ? `${prefix} · ${name} (${gstin})` : `${prefix} · ${name}`;
+}
+
 export function ensureParty(state, { name, gstin, stateCode }) {
-  const key = (gstin || name || '').toLowerCase();
-  let party = (state.parties || []).find((p) => (p.gstin && p.gstin === gstin) || p.name.toLowerCase() === String(name).toLowerCase());
+  let party = findParty(state.parties, name, gstin);
   if (party) return party;
+  const g = normGstin(gstin);
   const accountId = nextPartyId(state);
-  createAccounts(state.ledger, [{ id: accountId, code: String(accountId), name: `AR · ${name}`, type: 'asset', gstin }]);
-  party = { name, gstin: gstin || '', state: stateCode || partyStateOf(gstin), accountId: String(accountId) };
+  createAccounts(state.ledger, [{ id: accountId, code: String(accountId), name: accountName('AR', state.parties, name, g), type: 'asset', gstin: g }]);
+  party = { name, gstin: g, state: partyStateOf(g) || stateCodeOf(stateCode), accountId: String(accountId) };
   state.parties = state.parties || [];
   state.parties.push(party);
   return party;
 }
 
+function idTaken(list, id) {
+  return (list || []).some((d) => d.id === id);
+}
+
+// Place of supply is decided per invoice: the state given on it, else the
+// recipient's GSTIN state, else the supplier's own state. It is never carried
+// over from an earlier sale to a same-named party.
+function placeOfSupply(input, party, company) {
+  return stateCodeOf(input.partyState) || partyStateOf(party.gstin) || company.state;
+}
+
 export function createInvoice(state, input) {
   const company = state.company;
-  const date = input.date || new Date().toISOString().slice(0, 10);
+  const date = postingDate(input.date);
+  if (!date) return { ok: false, error: 'INVALID_DATE', date: input.date };
   if (isPeriodLocked(state, date)) return { ok: false, error: 'PERIOD_LOCKED', date, lockThrough: state.lockThrough };
+  if (input.id && idTaken(state.invoices, input.id)) return { ok: false, error: 'DUPLICATE_ID', id: input.id };
   const rawLines = input.lines || [];
   if (!rawLines.length) return { ok: false, error: 'NO_LINES' };
   const specs = rawLines.map((l) => ({
@@ -42,6 +78,7 @@ export function createInvoice(state, input) {
 
   const partyName = String(input.partyName ?? '').trim() || 'Walk-in';
   const party = ensureParty(state, { name: partyName, gstin: input.partyGstin, stateCode: input.partyState });
+  const pos = placeOfSupply(input, party, company);
   const lines = rawLines.map((l, i) => {
     const { qty, rate: rateAmt, gstRate } = specs[i];
     const taxable = Math.round(qty * rateAmt * 100) / 100;
@@ -49,7 +86,7 @@ export function createInvoice(state, input) {
       taxable,
       rate: gstRate,
       supplierState: company.state,
-      partyState: party.state || partyStateOf(party.gstin) || company.state,
+      partyState: pos,
     });
     return {
       description: l.description,
@@ -68,7 +105,11 @@ export function createInvoice(state, input) {
   const igst = lines.reduce((s, l) => s + l.igst, 0);
   const total = Math.round((taxable + cgst + sgst + igst) * 100) / 100;
   const assignedSeq = !input.id;
-  if (assignedSeq) state.invoiceSeq = (state.invoiceSeq || 0) + 1;
+  const seqBefore = state.invoiceSeq || 0;
+  if (assignedSeq) {
+    do state.invoiceSeq = (state.invoiceSeq || 0) + 1;
+    while (idTaken(state.invoices, padInv(state.invoiceSeq)));
+  }
   const id = input.id || padInv(state.invoiceSeq);
   const linked = TRANSFER_FLAGS.LINKED;
   const bundle = [];
@@ -116,7 +157,7 @@ export function createInvoice(state, input) {
   }
   const posted = createTransfers(state.ledger, bundle);
   if (posted.some((p) => !p.ok)) {
-    if (assignedSeq) state.invoiceSeq -= 1;
+    if (assignedSeq) state.invoiceSeq = seqBefore;
     return { ok: false, error: 'LEDGER_REJECT', posted };
   }
   const invoice = {
@@ -124,8 +165,9 @@ export function createInvoice(state, input) {
     date,
     partyName: party.name,
     partyGstin: party.gstin,
-    partyState: party.state,
-    placeOfSupply: party.state || company.state,
+    partyState: pos,
+    placeOfSupply: pos,
+    partyAccountId: party.accountId,
     lines,
     taxable,
     cgst,
@@ -143,9 +185,10 @@ export function createInvoice(state, input) {
 export function recordReceipt(state, { invoiceId, amount, date, mode } = {}) {
   const inv = (state.invoices || []).find((i) => i.id === invoiceId);
   if (!inv) return { ok: false, error: 'INVOICE_NOT_FOUND' };
-  const receiptDate = date || inv.date;
+  const receiptDate = date == null || date === '' ? inv.date : postingDate(date);
+  if (!receiptDate) return { ok: false, error: 'INVALID_DATE', date };
   if (isPeriodLocked(state, receiptDate)) return { ok: false, error: 'PERIOD_LOCKED', date: receiptDate, lockThrough: state.lockThrough };
-  const party = (state.parties || []).find((p) => p.name === inv.partyName);
+  const party = (state.parties || []).find((p) => (inv.partyAccountId ? p.accountId === inv.partyAccountId : p.name === inv.partyName && normGstin(p.gstin) === normGstin(inv.partyGstin)));
   if (!party) return { ok: false, error: 'PARTY_NOT_FOUND' };
   const amt = amount == null ? inv.total : Number(amount);
   if (!Number.isFinite(amt) || amt <= 0) return { ok: false, error: 'BAD_AMOUNT' };
@@ -166,24 +209,25 @@ export function recordReceipt(state, { invoiceId, amount, date, mode } = {}) {
     amount: paise(amt),
     invoiceId,
     code: 'RECEIPT',
-    userData: date || inv.date,
+    userData: receiptDate,
   }]);
   if (!posted[0].ok) return { ok: false, error: posted[0].error };
   inv.receipts = inv.receipts || [];
-  inv.receipts.push({ amount: amt, date: date || inv.date, mode: mode || 'bank' });
+  inv.receipts.push({ amount: amt, date: receiptDate, mode: mode || 'bank' });
   const received = inv.receipts.reduce((s, r) => s + r.amount, 0);
   inv.status = received >= inv.total - 0.01 ? 'paid' : 'partial';
   return { ok: true, invoice: inv, posted };
 }
 
 export function ensureVendor(state, { name, gstin, stateCode }) {
-  let party = (state.vendors || []).find((p) => (p.gstin && gstin && p.gstin === gstin) || p.name.toLowerCase() === String(name).toLowerCase());
+  let party = findParty(state.vendors, name, gstin);
   if (party) return party;
+  const g = normGstin(gstin);
   const used = (state.vendors || []).map((p) => Number(p.accountId));
   let n = 80001;
   while (used.includes(n)) n += 1;
-  createAccounts(state.ledger, [{ id: n, code: String(n), name: `AP · ${name}`, type: 'liability', gstin }]);
-  party = { name, gstin: gstin || '', state: stateCode || partyStateOf(gstin), accountId: String(n) };
+  createAccounts(state.ledger, [{ id: n, code: String(n), name: accountName('AP', state.vendors, name, g), type: 'liability', gstin: g }]);
+  party = { name, gstin: g, state: partyStateOf(g) || stateCodeOf(stateCode), accountId: String(n) };
   state.vendors = state.vendors || [];
   state.vendors.push(party);
   return party;
@@ -191,8 +235,10 @@ export function ensureVendor(state, { name, gstin, stateCode }) {
 
 export function createPurchase(state, input) {
   const company = state.company;
-  const date = input.date || new Date().toISOString().slice(0, 10);
+  const date = postingDate(input.date);
+  if (!date) return { ok: false, error: 'INVALID_DATE', date: input.date };
   if (isPeriodLocked(state, date)) return { ok: false, error: 'PERIOD_LOCKED', date, lockThrough: state.lockThrough };
+  if (input.id && idTaken(state.purchases, input.id)) return { ok: false, error: 'DUPLICATE_ID', id: input.id };
   const rawLines = input.lines || [];
   if (!rawLines.length) return { ok: false, error: 'NO_LINES' };
   const specs = rawLines.map((l) => ({
@@ -214,7 +260,7 @@ export function createPurchase(state, input) {
     const split = gstSplit({
       taxable,
       rate: gstRate,
-      supplierState: vendor.state || partyStateOf(vendor.gstin) || company.state,
+      supplierState: partyStateOf(vendor.gstin) || stateCodeOf(input.partyState) || company.state,
       partyState: company.state,
     });
     return {
@@ -234,24 +280,36 @@ export function createPurchase(state, input) {
   const igst = lines.reduce((s, l) => s + l.igst, 0);
   const total = Math.round((taxable + cgst + sgst + igst) * 100) / 100;
   const assignedSeq = !input.id;
-  if (assignedSeq) state.billSeq = (state.billSeq || 0) + 1;
-  const id = input.id || `BILL-${String(state.billSeq).padStart(4, '0')}`;
+  const billName = (n) => `BILL-${String(n).padStart(4, '0')}`;
+  const seqBefore = state.billSeq || 0;
+  if (assignedSeq) {
+    do state.billSeq = (state.billSeq || 0) + 1;
+    while (idTaken(state.purchases, billName(state.billSeq)));
+  }
+  const id = input.id || billName(state.billSeq);
   const linked = TRANSFER_FLAGS.LINKED;
+  const itcEligible = input.itcEligible !== false;
   const bundle = [
     { id: nextTransferId(state), debitAccountId: 5000, creditAccountId: vendor.accountId, amount: paise(taxable), flags: linked, invoiceId: id, code: 'PURCHASE' },
   ];
-  if (cgst > 0) bundle.push({ id: nextTransferId(state), debitAccountId: 1200, creditAccountId: vendor.accountId, amount: paise(cgst), flags: linked, invoiceId: id, code: 'ITC-CGST' });
-  if (sgst > 0) bundle.push({ id: nextTransferId(state), debitAccountId: 1201, creditAccountId: vendor.accountId, amount: paise(sgst), flags: linked, invoiceId: id, code: 'ITC-SGST' });
-  if (igst > 0) bundle.push({ id: nextTransferId(state), debitAccountId: 1202, creditAccountId: vendor.accountId, amount: paise(igst), flags: linked, invoiceId: id, code: 'ITC-IGST' });
+  if (itcEligible) {
+    if (cgst > 0) bundle.push({ id: nextTransferId(state), debitAccountId: 1200, creditAccountId: vendor.accountId, amount: paise(cgst), flags: linked, invoiceId: id, code: 'ITC-CGST' });
+    if (sgst > 0) bundle.push({ id: nextTransferId(state), debitAccountId: 1201, creditAccountId: vendor.accountId, amount: paise(sgst), flags: linked, invoiceId: id, code: 'ITC-SGST' });
+    if (igst > 0) bundle.push({ id: nextTransferId(state), debitAccountId: 1202, creditAccountId: vendor.accountId, amount: paise(igst), flags: linked, invoiceId: id, code: 'ITC-IGST' });
+  } else if (cgst + sgst + igst > 0) {
+    // Blocked credit (section 17(5)) is part of the cost, not an input tax asset.
+    bundle.push({ id: nextTransferId(state), debitAccountId: 5000, creditAccountId: vendor.accountId, amount: paise(cgst + sgst + igst), flags: linked, invoiceId: id, code: 'GST-BLOCKED' });
+  }
   const posted = createTransfers(state.ledger, bundle);
   if (posted.some((p) => !p.ok)) {
-    if (assignedSeq) state.billSeq -= 1;
+    if (assignedSeq) state.billSeq = seqBefore;
     return { ok: false, error: 'LEDGER_REJECT', posted };
   }
   const bill = {
     id, date, partyName: vendor.name, partyGstin: vendor.gstin, partyState: vendor.state,
+    partyAccountId: vendor.accountId,
     lines, taxable, cgst, sgst, igst, total, status: 'posted', kind: 'purchase',
-    itcEligible: input.itcEligible !== false,
+    itcEligible,
     transferIds: posted.map((p) => p.id),
   };
   state.purchases = state.purchases || [];

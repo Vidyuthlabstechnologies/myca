@@ -116,7 +116,7 @@ test('GATE 8: parseInward returns correct row keys and types', () => {
   assert.equal(typeof r0.taxableValue, 'number');
   assert.equal(r0.itcEligible, 'Y');
   assert.equal(r0.itcAvailability, 'Y');
-  assert.equal(r0.supplierGstin, '27AABCT1332L1ZM');
+  assert.equal(r0.supplierGstin, '27AABCT1332L1ZE');
   const r4 = rows[4];
   assert.equal(r4.supplierGstin, '');
   assert.equal(r4.itcEligible, 'Y');
@@ -126,8 +126,8 @@ test('GATE 8: parseInward returns correct row keys and types', () => {
 test('GATE 9: boundary - ineligible rows go to 4(D)', () => {
   const csv = [
     'invoiceNo,date,supplierGstin,supplierName,hsn,rate,taxableValue,cgst,sgst,igst,isInputService,itcEligible,itcAvailability',
-    'B-001,2026-08-01,27AABCT1332L1ZM,Test,6204,18,100000,9000,9000,0,N,Y,N',
-    'B-002,2026-08-02,29AABCT1332L1ZN,Test2,7204,18,50000,0,0,9000,N,N,Y',
+    'B-001,2026-08-01,27AABCT1332L1ZE,Test,6204,18,100000,9000,9000,0,N,Y,N',
+    'B-002,2026-08-02,29AABCT1332L1ZA,Test2,7204,18,50000,0,0,9000,N,N,Y',
   ].join('\n');
   const { rows } = parseInward(csv);
   const r = buildGstr3b({ sales: [], inward: rows, supplierState: '27' });
@@ -143,7 +143,7 @@ test('GATE 10: boundary - import of services tracks importServicesIgst', () => {
   const csv = [
     'invoiceNo,date,supplierGstin,supplierName,hsn,rate,taxableValue,cgst,sgst,igst,isInputService,itcEligible,itcAvailability',
     'B-010,2026-08-01,,Import Co,9985,18,100000,0,0,18000,Y,Y,Y',
-    'B-011,2026-08-02,27AABCT1332L1ZM,Domestic,6204,18,80000,7200,7200,0,N,Y,Y',
+    'B-011,2026-08-02,27AABCT1332L1ZE,Domestic,6204,18,80000,7200,7200,0,N,Y,Y',
   ].join('\n');
   const { rows } = parseInward(csv);
   const r = buildGstr3b({ sales: [], inward: rows, supplierState: '27' });
@@ -156,7 +156,7 @@ test('GATE 10: boundary - import of services tracks importServicesIgst', () => {
 test('GATE 11: boundary - 0-taxable inward row is ineligible', () => {
   const csv = [
     'invoiceNo,date,supplierGstin,supplierName,hsn,rate,taxableValue,cgst,sgst,igst,isInputService,itcEligible,itcAvailability',
-    'B-020,2026-08-01,27AABCT1332L1ZM,Zero,6204,18,0,0,0,0,N,Y,Y',
+    'B-020,2026-08-01,27AABCT1332L1ZE,Zero,6204,18,0,0,0,0,N,Y,Y',
   ].join('\n');
   const { rows } = parseInward(csv);
   const r = buildGstr3b({ sales: [], inward: rows, supplierState: '27' });

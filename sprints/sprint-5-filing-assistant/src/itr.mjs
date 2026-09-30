@@ -1,4 +1,8 @@
-import { parseAmount, r2, taxOn, NEW_REGIME_2026_27, OLD_REGIME_2026_27 } from './core.mjs';
+import { parseAmount, r2 } from './core.mjs';
+import { computeIncomeTax } from './income-tax.mjs';
+
+const toPaise = (rupees) => Math.round((Number(rupees) || 0) * 100);
+const toRupees = (paise) => r2(paise / 100);
 
 function splitCsvLine(line) {
   const parts = [];
@@ -127,7 +131,7 @@ export function parseIncome(text) {
   return { rows, errors };
 }
 
-export function buildItr({ ais = [], tds26 = [], income = [], fy = '2026-27' } = {}) {
+export function buildItr({ ais = [], tds26 = [], income = [], fy = '2025-26', ageBand = 'below-60' } = {}) {
   const iv = {};
   income.forEach(r => { iv[r.nature] = r.value; });
 
@@ -138,12 +142,29 @@ export function buildItr({ ais = [], tds26 = [], income = [], fy = '2026-27' } =
   const deduction80d = iv.deduction_80d || 0;
 
   const gti = salary + businessProfit + otherInterest;
-
-  const newRegimeTaxable = salary > 0 ? Math.max(gti - NEW_REGIME_2026_27.standardDeduction, 0) : gti;
-  const oldRegimeTaxable = Math.max(gti - OLD_REGIME_2026_27.standardDeduction - deduction80c - deduction80d, 0);
-
-  const newTax = taxOn(newRegimeTaxable, NEW_REGIME_2026_27);
-  const oldTax = taxOn(oldRegimeTaxable, OLD_REGIME_2026_27);
+  const common = {
+    fy,
+    ageBand,
+    residentIndividual: iv.non_resident ? false : true,
+    salaryPaise: toPaise(salary),
+    otherIncomePaise: toPaise(businessProfit + otherInterest),
+    claims: {
+      section80CPaise: toPaise(deduction80c),
+      healthInsuranceSelfAndFamilyPaise: toPaise(deduction80d),
+      healthInsuranceParentsPaise: toPaise(iv.deduction_80d_parents || 0),
+      selfAndFamilyIncludesSenior: Boolean(iv.senior_self),
+      parentsIncludeSenior: Boolean(iv.senior_parents),
+    },
+  };
+  const newCalc = computeIncomeTax({ ...common, regime: 'new' });
+  const oldCalc = computeIncomeTax({ ...common, regime: 'old' });
+  if (newCalc.error || oldCalc.error) {
+    return { ok: false, error: newCalc.error || oldCalc.error, fy, hint: 'No income-tax rules are recorded for this financial year; nothing was computed.' };
+  }
+  const newTax = { total: toRupees(newCalc.taxPayablePaise) };
+  const oldTax = { total: toRupees(oldCalc.taxPayablePaise) };
+  const newRegimeTaxable = toRupees(newCalc.totalIncomePaise);
+  const oldRegimeTaxable = toRupees(oldCalc.totalIncomePaise);
 
   const recommended = newTax.total <= oldTax.total ? 'new' : 'old';
   const recommendedTotal = recommended === 'new' ? newTax.total : oldTax.total;
@@ -163,6 +184,7 @@ export function buildItr({ ais = [], tds26 = [], income = [], fy = '2026-27' } =
 
   const tdsCredit = { salary: tdsSalary, other: tdsOther, total: tds26Total };
   const payable = r2(Math.max(recommendedTotal - tdsCredit.total, 0));
+  const refund = r2(Math.max(tdsCredit.total - recommendedTotal, 0));
 
   const salaryDeclared = iv.salary || 0;
   const interestDeclared = iv.other_interest || 0;
@@ -194,9 +216,11 @@ export function buildItr({ ais = [], tds26 = [], income = [], fy = '2026-27' } =
   }
 
   return {
+    fy,
     gti,
-    deduction80c,
-    deduction80d,
+    deduction80c: toRupees(oldCalc.section80CPaise),
+    deduction80d: toRupees(oldCalc.section80DPaise),
+    claimed: { deduction80c, deduction80d },
     taxable: { newRegime: newRegimeTaxable, oldRegime: oldRegimeTaxable },
     tax: { newTotal: newTax.total, oldTotal: oldTax.total },
     recommended,
@@ -204,6 +228,8 @@ export function buildItr({ ais = [], tds26 = [], income = [], fy = '2026-27' } =
     tdsCredit,
     advanceTax: 0,
     payable,
+    refund,
+    breakdown: { newRegime: newCalc, oldRegime: oldCalc },
     reconciliations: { aisVsReturn, unexplainedAis: r2(unexplainedAis), tds26Total },
     ok: unexplainedAis === 0,
   };

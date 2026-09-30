@@ -76,6 +76,8 @@ function parseDate(s) {
   return `${year}-${mm}-${dd}`;
 }
 
+const CREDIT_NOTE_TYPES = new Set(['CN', 'C', 'CREDIT NOTE', 'CREDIT-NOTE']);
+
 function round2(v) {
   return Math.round(v * 100) / 100;
 }
@@ -136,7 +138,18 @@ export function parsePurchaseRegister(text) {
         });
       }
     }
-    const isCreditNote = /^CN/i.test(invoiceNo) || taxableValue < 0;
+    // A credit note is known from a negative value or the document type column,
+    // never from an invoice number that happens to start with "CN".
+    const docType = field('DOCUMENT TYPE').toUpperCase();
+    const totalValue = resolve(parsedMoney[4]);
+    const isCreditNote = CREDIT_NOTE_TYPES.has(docType) || taxableValue < 0 || totalValue < 0;
+    const paidCell = field('AMOUNT PAID');
+    const paidParsed = parseMoney(paidCell);
+    const paymentCell = field('PAYMENT DATE');
+    const paymentDate = paymentCell === '' ? null : parseDate(paymentCell);
+    if (paymentCell !== '' && paymentDate === null) {
+      errors.push({ code: 'INVALID_DATE', row: dataRowNumber, field: 'PAYMENT DATE', message: `Invalid date: ${paymentCell}` });
+    }
     rows.push({
       gstin: field('GSTIN'),
       supplierName: field('SUPPLIER NAME'),
@@ -146,7 +159,10 @@ export function parsePurchaseRegister(text) {
       cgst: resolve(parsedMoney[1]),
       sgst: resolve(parsedMoney[2]),
       igst: resolve(parsedMoney[3]),
-      totalValue: resolve(parsedMoney[4]),
+      totalValue,
+      // null means the register has no payment data, which Rule 37 reports as unknown.
+      paidValue: 'AMOUNT PAID' in colMap && paidParsed !== null && Number.isFinite(paidParsed) ? round2(paidParsed) : null,
+      paymentDate,
       sourceRow: dataRowNumber,
       isCreditNote
     });

@@ -1,9 +1,7 @@
 import { parseClients, validateClients } from './clients.mjs';
 import { parseDocs, collectionStatus, chasePlan } from './docs.mjs';
-import { listDeadlines, deadlineStatus } from './deadlines.mjs';
+import { listDeadlines, deadlineStatus, monthsAround } from './deadlines.mjs';
 import { dashboard } from './dashboard.mjs';
-
-export const ALL_MONTHS = ['2026-07', '2026-08', '2026-09', '2026-10', '2026-11', '2026-12'];
 
 export function parseHolidays(text) {
   if (typeof text !== 'string') return [];
@@ -21,7 +19,7 @@ export function complianceRun({ clientsText, docsText, holidaysText = '' }, { mo
   const errors = [...clientRes.errors, ...docRes.errors, ...validateClients(clientRes.rows).errors];
 
   const deadlines = deadlineStatus({
-    deadlines: listDeadlines({ clients: clientRes.rows, months: months || ALL_MONTHS, holidays }),
+    deadlines: listDeadlines({ clients: clientRes.rows, months: months || monthsAround(asOfDate) }),
     asOfDate,
   });
 

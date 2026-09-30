@@ -1,5 +1,6 @@
 import { TOOLS, runTool } from './tools.mjs';
 import { planLocalToolCall, validateAssistantToolCall } from './assistant-contract.mjs';
+import { needsConfirmation, previewOf, openPending, takePending, clearPending, previewReply, blockedReply } from './chat-confirm.mjs';
 
 function money(n) {
   return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 }).format(Number(n) || 0);
@@ -53,6 +54,8 @@ function fmtToolResult(name, result) {
     return `${name}: ${d.rows?.length ?? 0} parsed, ${d.ledger?.posted ?? 0} posted to the ledger.`;
   }
   if (name === 'govt_probe') {
+    if (d.ok === false) return `Govt probe not run: ${d.error}${d.hint ? `
+${d.hint}` : ''}`;
     return `Reached ${d.live}/${d.total} government hosts.\n${(d.hits || []).map((h) => `${h.id}  HTTP ${h.status || h.error}  ${h.ms}ms`).join('\n')}\n\n${d.note}`;
   }
   if (name === 'govt_nic_auth') {
@@ -184,6 +187,21 @@ function fmtToolResult(name, result) {
   if (name === 'govt_save_credentials') {
     return `Saved NIC credentials for ${d.gstin || '(no GSTIN)'} (${d.env}). Secrets are stored encrypted in the ${d.vault || 'local'} vault on this PC.`;
   }
+  if (name === 'exceptions') {
+    const s = d.summary || { count: 0, bySeverity: {}, moneyAtRisk: 0 };
+    if (!s.count) return `Nothing needs attention in ${d.scope === 'firm' ? 'the firm' : d.clientId || 'these books'} as of ${d.asOfDate}.`;
+    const counts = ['critical', 'high', 'medium', 'low'].filter((k) => s.bySeverity[k]).map((k) => `${s.bySeverity[k]} ${k}`).join(', ');
+    const rows = (d.exceptions || []).slice(0, 12).map((e) => {
+      const worth = e.moneyAtRisk ? `  ${money(e.moneyAtRisk)}` : '';
+      return `${e.id}  ${String(e.severity).padEnd(8)}${e.clientId === 'SELF' ? '' : `${e.clientId}  `}${e.title}${worth}\n    ${e.why}`;
+    }).join('\n');
+    const more = (d.exceptions || []).length > 12 ? `\n… and ${d.exceptions.length - 12} more.` : '';
+    return `${s.count} open (${counts}), ${money(s.moneyAtRisk)} at risk as of ${d.asOfDate}${d.reconciled ? ', including GSTR-2B findings' : ''}.\n\n${rows}${more}`;
+  }
+  if (name === 'exception_decide') {
+    const e = d.exception;
+    return `${e.id} is now ${e.status}${e.owner ? ` with ${e.owner}` : ''}. ${e.note || ''}`.trim();
+  }
   if (name === 'company_profile') {
     return `${d.company.name}  GSTIN ${d.company.gstin}  FY ${d.company.fy}\nInvoices ${d.invoices} · purchases ${d.purchases ?? 0} · checksum ${d.chain.ok ? 'intact' : 'BROKEN'}.`;
   }
@@ -191,9 +209,57 @@ function fmtToolResult(name, result) {
   return text.length > 4000 ? `${text.slice(0, 4000)}\n…truncated` : text;
 }
 
+async function runPlanned(state, name, args, clearsPendingFile) {
+  const runArgs = name === 'sandbox_operation' ? { ...args, actorId: 'assistant' } : args;
+  const result = await runTool(state, name, runArgs);
+  if (clearsPendingFile) state.pendingFile = null;
+  return result;
+}
+
 export async function chat(state, message) {
   const plan = planLocalToolCall(state, message);
   if (plan.kind === 'reply') return { reply: plan.reply, tools: plan.tools || [], blocked: plan.blocked || false };
+
+  if (plan.kind === 'cancel') {
+    const pending = state.pendingChatAction;
+    clearPending(state);
+    return { reply: `Discarded: ${pending?.summary || 'nothing was posted'}`, tools: [], posted: false };
+  }
+
+  if (plan.kind === 'confirm') {
+    const taken = takePending(state, plan.decision);
+    if (!taken.ok) {
+      const why = taken.error === 'EXPIRED'
+        ? 'That preview is more than ten minutes old, so I discarded it. Say it again if you still want it.'
+        : taken.error === 'TOKEN_MISMATCH'
+          ? 'That confirmation code does not match the preview I am holding, so I discarded it.'
+          : 'There is nothing waiting to be posted.';
+      return { reply: why, tools: [], posted: false };
+    }
+    const { pending } = taken;
+    const recheck = validateAssistantToolCall(pending.name, pending.args);
+    if (!recheck.ok) return { reply: `Tool ${pending.name} blocked: ${recheck.error}`, tools: [], blocked: true };
+    const result = await runPlanned(state, pending.name, pending.args, pending.clearsPendingFile);
+    return { reply: fmtToolResult(pending.name, result), tools: [{ name: pending.name, result }], posted: result.ok !== false, confirmed: true };
+  }
+
+  if (needsConfirmation(plan.name)) {
+    const schemaCheck = validateAssistantToolCall(plan.name, plan.args);
+    if (!schemaCheck.ok) return { reply: `Tool ${plan.name} blocked: ${schemaCheck.error}`, tools: [], blocked: true };
+    const preview = previewOf(state, plan.name, plan.args);
+    if (preview.blockers.length) {
+      clearPending(state);
+      return { reply: blockedReply(preview), tools: [], posted: false, blocked: true, preview };
+    }
+    const pending = openPending(state, plan, preview);
+    return {
+      reply: previewReply(preview, pending),
+      tools: [],
+      posted: false,
+      awaitingConfirmation: true,
+      preview: { token: pending.token, tool: pending.name, summary: preview.summary, effects: preview.effects, figures: preview.figures },
+    };
+  }
 
   const valid = validateAssistantToolCall(plan.name, plan.args);
   if (!valid.ok) return { reply: `Tool ${plan.name} blocked: ${valid.error}`, tools: [], blocked: true };
@@ -209,7 +275,7 @@ export async function chat(state, message) {
   }
   if (plan.fallback) {
     return {
-      reply: `I did not match that. ${fmtToolResult('company_profile', result)}\n\nTry “probe govt” or “purchase from Fabrics Co GSTIN 27AABCT1332L1ZM, 2 rolls at 10000, GST 5%”.`,
+      reply: `I did not match that. ${fmtToolResult('company_profile', result)}\n\nTry “probe govt” or “purchase from Fabrics Co GSTIN 27AABCT1332L1ZE, 2 rolls at 10000, GST 5%”.`,
       tools: [{ name: plan.name, result }],
     };
   }

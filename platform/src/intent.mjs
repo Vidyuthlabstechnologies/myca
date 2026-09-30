@@ -1,10 +1,11 @@
 const GSTIN_RE = /\b(\d{2}[A-Z]{5}\d{4}[A-Z][0-9A-Z]Z[0-9A-Z])\b/i;
 
 export function normalizeChat(text) {
-  return String(text || '')
-    .replace(/[\u2013\u2014]/g, '-')
-    .replace(/\s+-\s+(books|itc|ap|gst input|follow).*$/i, '')
-    .trim();
+  const capped = String(text || '').slice(0, 4096).replace(/[\u2013\u2014]/g, '-');
+  return (capped.includes(' - ')
+    ? capped.replace(/\s+-\s+(books|itc|ap|gst input|follow).*$/i, '')
+    : capped
+  ).trim();
 }
 
 const PARTY_KEYWORDS = /^(at|rate|for|from|to|gstin|gst|invoice|purchase|bill|sale|sales)$/i;
@@ -16,12 +17,27 @@ function cleanPartyName(candidate) {
   return name;
 }
 
+const QUESTION_OPENERS = /^\s*(?:what|which|when|where|why|who|whose|whom|how|is|are|was|were|am|has|have|had|does|did|do|can|could|should|would|will|may|might|shall|show|list|tell|explain|status|any|anything)\b/i;
+const NEGATIONS = /\b(?:do\s*not|don'?t|never|stop|avoid|cancel|without|no\s+need)\b/i;
+
+// A question about the books must never change the books.
+export function isQuestion(text) {
+  const raw = String(text == null ? '' : text).trim();
+  if (!raw) return false;
+  if (/\?\s*$/.test(raw)) return true;
+  return QUESTION_OPENERS.test(raw);
+}
+
+export function isNegated(text) {
+  return NEGATIONS.test(String(text == null ? '' : text));
+}
+
 export function parseDocument(text) {
   const raw = normalizeChat(text);
   const gstinMatch = raw.match(GSTIN_RE);
   const gstin = gstinMatch ? gstinMatch[1].toUpperCase() : '';
   const rest = gstin ? raw.replace(gstinMatch[0], ' ') : raw;
-  const at = rest.match(/(?:at|@|rate)\s*₹?\s*([\d,]+(?:\.\d+)?)/i) || rest.match(/₹\s*([\d,]+(?:\.\d+)?)/);
+  const at = rest.match(/(?:\bat\b|@|\brate\b)\s*₹?\s*([\d,]+(?:\.\d+)?)/i) || rest.match(/₹\s*([\d,]+(?:\.\d+)?)/);
   const gstMatch = rest.match(/gst\s*(\d{1,2})\s*%/i);
   const partyMatch = rest.match(
     /(?:purchase|invoice|bill)\s+(?:from|for|to)\s+([A-Za-z][A-Za-z0-9 .&'-]{1,50}?)(?=\s+(?:gstin|,|\d)|$)/i,
@@ -75,6 +91,7 @@ export const ROUTES = [
   { re: /\bdeadline|\bdue date\b/i, tool: 'deadlines' },
   { re: /\breconcil|\bgstr-?2b\b|\brule 37/i, tool: 'gst_reconcile' },
   { re: /\baudit\b|\bworking paper\b|\bcaro\b|\b3cd\b/i, tool: 'audit_books' },
+  { re: /\bexceptions?\b|\bneeds? (my )?attention\b|\bwork ?queue\b|\bwhat needs (doing|fixing|attention)\b/i, tool: 'exceptions' },
   { re: /\bapprovals?\b|\bpending approvals?\b/i, tool: 'approval_list' },
   { re: /\bcompany\b|\bour gstin\b/i, tool: 'company_profile' },
 ];

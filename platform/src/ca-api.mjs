@@ -1,8 +1,8 @@
 import { createHash } from 'node:crypto';
 import { journal, trialBalance } from './ledger.mjs';
 import { createInvoice, createPurchase } from './invoice.mjs';
-import { getBook } from './books.mjs';
-import { putDocument, readDocument } from './document-store.mjs';
+import { getBook, canonicalClientId, normalizeClientId, isValidClientId, ensureBooks } from './books.mjs';
+import { putDocument, readVerifiedDocument } from './document-store.mjs';
 
 const DEFAULT_USER = {
   userId: 'USR-ADMIN',
@@ -16,24 +16,29 @@ function jsonHash(value) {
   return createHash('sha256').update(json).digest('hex');
 }
 
+function digestBook(b) {
+  if (!b) return {};
+  return {
+    company: b.company,
+    lockThrough: b.lockThrough || '',
+    invoices: b.invoices || [],
+    purchases: b.purchases || [],
+    imports: b.imports || [],
+    ledgerClock: b.ledger?.clock?.toString?.() || '0',
+    ledgerChecksum: b.ledger?.lastChecksum || 0,
+  };
+}
+
 export function stateDigest(state) {
   return jsonHash({
-    company: state.company,
-    invoices: state.invoices || [],
-    purchases: state.purchases || [],
-    ledgerClock: state.ledger?.clock?.toString?.() || '0',
-    ledgerChecksum: state.ledger?.lastChecksum || 0,
-    imports: state.imports || [],
+    ...digestBook(state),
+    integrationConnections: state.integrationConnections || {},
     documents: state.documents || [],
     outbox: (state.outbox || []).map((m) => ({ id: m.id, status: m.status, channel: m.channel })),
     approvals: (state.approvals || []).map((a) => ({ approvalId: a.approvalId, operationId: a.operationId, status: a.status, usedAt: a.usedAt || '' })),
     clients: state.clients || [],
     extraBooks: Object.fromEntries(
-      Object.entries(state.extraBooks || {}).map(([id, book]) => [id, {
-        invoices: book.invoices || [],
-        purchases: book.purchases || [],
-        ledgerChecksum: book.ledger?.lastChecksum || 0,
-      }]),
+      Object.entries(state.extraBooks || {}).map(([id, book]) => [id, digestBook(book)]),
     ),
   });
 }
@@ -41,7 +46,7 @@ export function stateDigest(state) {
 export function ensureCaApiState(state) {
   state.documents = Array.isArray(state.documents) ? state.documents : [];
   state.clients = Array.isArray(state.clients) ? state.clients : [];
-  state.extraBooks = state.extraBooks && typeof state.extraBooks === 'object' ? state.extraBooks : {};
+  ensureBooks(state);
   state.attachments = state.attachments && typeof state.attachments === 'object' ? state.attachments : {};
   state.approvals = Array.isArray(state.approvals) ? state.approvals : [];
   state.approvalSeq = Number(state.approvalSeq || state.approvals.length || 0);
@@ -51,7 +56,48 @@ export function ensureCaApiState(state) {
   state.firmUsers = Array.isArray(state.firmUsers) && state.firmUsers.length ? state.firmUsers : [DEFAULT_USER];
   state.auditEvents = Array.isArray(state.auditEvents) ? state.auditEvents : [];
   state.auditSeq = Number(state.auditSeq || state.auditEvents.length || 0);
-  state.documentSeq = Number(state.documentSeq || state.documents.length || 0);
+  state.documentSeq = Math.max(documentNumber(state.documentSeq || state.documents.length), highestDocumentNumber(state.documents));
+  return state;
+}
+
+const DOCUMENT_NUMBER_CAP = 1e12;
+
+function documentNumber(value) {
+  const n = Number(value);
+  return Number.isSafeInteger(n) && n > 0 && n <= DOCUMENT_NUMBER_CAP ? n : 0;
+}
+
+function highestDocumentNumber(documents) {
+  let highest = 0;
+  for (const doc of documents) {
+    const match = /^DOC-(\d+)$/.exec(String(doc?.documentId ?? ''));
+    highest = Math.max(highest, match ? documentNumber(match[1]) : 0);
+  }
+  return highest;
+}
+
+function documentIds(state) {
+  return new Set(state.documents.map((doc) => doc?.documentId));
+}
+
+function nextDocumentId(state, taken = documentIds(state)) {
+  let id;
+  do id = `DOC-${String(++state.documentSeq).padStart(6, '0')}`; while (taken.has(id));
+  return id;
+}
+
+export function renumberDuplicateDocuments(state) {
+  ensureCaApiState(state);
+  const seen = new Set();
+  const taken = documentIds(state);
+  state.documents = state.documents.map((doc) => {
+    if (!doc || typeof doc !== 'object' || Array.isArray(doc)) return doc;
+    if (!seen.has(doc.documentId)) {
+      seen.add(doc.documentId);
+      return doc;
+    }
+    return { ...doc, documentId: nextDocumentId(state, taken), legacyDocumentId: doc.documentId };
+  });
   return state;
 }
 
@@ -77,7 +123,8 @@ function clients(state) {
 }
 
 function requireClient(state, clientId) {
-  const client = clients(state).find((row) => row.clientId === clientId);
+  const id = canonicalClientId(clientId);
+  const client = id ? clients(state).find((row) => row.clientId === id) : undefined;
   if (!client) {
     const err = new Error('CLIENT_NOT_FOUND');
     err.statusCode = 404;
@@ -93,9 +140,11 @@ export function listClients(state) {
 
 export function registerClient(state, body = {}) {
   ensureCaApiState(state);
-  const id = String(body.clientId || body.id || '').trim();
-  if (!id) return { ok: false, error: 'CLIENT_ID_REQUIRED' };
+  const raw = String(body.clientId || body.id || '').trim();
+  if (!raw) return { ok: false, error: 'CLIENT_ID_REQUIRED' };
+  const id = normalizeClientId(raw);
   if (id === 'SELF' || state.clients.some((c) => c.clientId === id)) return { ok: false, error: 'CLIENT_EXISTS' };
+  if (!isValidClientId(id)) return { ok: false, error: 'INVALID_CLIENT_ID' };
   const gstin = String(body.gstin || '').trim().toUpperCase();
   const client = {
     clientId: id,
@@ -114,7 +163,7 @@ export function registerClient(state, body = {}) {
 
 export function setActiveClient(state, clientId) {
   ensureCaApiState(state);
-  const id = String(clientId || 'SELF').trim() || 'SELF';
+  const id = normalizeClientId(clientId);
   if (id !== 'SELF' && !state.clients.some((c) => c.clientId === id)) return { ok: false, error: 'CLIENT_NOT_FOUND' };
   state.activeClientId = id;
   return { ok: true, activeClientId: id };
@@ -139,23 +188,22 @@ export function appendAuditEvent(state, event) {
 
 export function listDocuments(state, clientId) {
   ensureCaApiState(state);
-  requireClient(state, clientId);
-  return { ok: true, data: { clientId, documents: state.documents.filter((doc) => doc.clientId === clientId) } };
+  const { clientId: id } = requireClient(state, clientId);
+  return { ok: true, data: { clientId: id, documents: state.documents.filter((doc) => doc.clientId === id) } };
 }
 
 export function uploadDocument(state, clientId, input = {}) {
   ensureCaApiState(state);
-  requireClient(state, clientId);
+  const { clientId: id } = requireClient(state, clientId);
   const beforeHash = stateDigest(state);
-  const { doc, content } = documentPayload(state, clientId, input);
+  const { doc, content } = documentPayload(state, id, input);
   const stored = putDocument(state._dataDir, content);
   doc.sha256 = stored.sha256;
   doc.bytes = stored.bytes;
   state.documents.push(doc);
-  state.files[doc.documentId] = content;
   appendAuditEvent(state, {
     actorId: input.actorId || 'api',
-    clientId,
+    clientId: id,
     action: 'documents.upload',
     beforeHash,
     afterHash: stateDigest(state),
@@ -166,24 +214,24 @@ export function uploadDocument(state, clientId, input = {}) {
 
 export function getDocumentContent(state, clientId, documentId) {
   ensureCaApiState(state);
-  requireClient(state, clientId);
-  const doc = state.documents.find((d) => d.documentId === documentId && d.clientId === clientId);
+  const { clientId: id } = requireClient(state, clientId);
+  const doc = state.documents.find((d) => d.documentId === documentId && d.clientId === id);
   if (!doc) return { ok: false, error: 'DOCUMENT_NOT_FOUND' };
-  const content = state.files[documentId] != null ? state.files[documentId] : readDocument(state._dataDir, doc.sha256);
-  if (content == null) return { ok: false, error: 'DOCUMENT_BYTES_MISSING' };
-  return { ok: true, data: { ...doc, content } };
+  const read = readVerifiedDocument(state._dataDir, doc.sha256);
+  if (!read.ok) return { ok: false, error: read.error };
+  return { ok: true, data: { ...doc, content: read.content } };
 }
 
 function documentPayload(state, clientId, input = {}) {
   ensureCaApiState(state);
   const content = String(input.content || '');
   const doc = {
-    documentId: input.documentId || `DOC-${String(++state.documentSeq).padStart(6, '0')}`,
+    documentId: nextDocumentId(state),
     clientId,
     kind: String(input.kind || 'general'),
     fileName: String(input.fileName || input.name || 'document.txt'),
     contentType: String(input.contentType || 'text/plain'),
-    uploadedAt: input.uploadedAt || new Date().toISOString(),
+    uploadedAt: new Date().toISOString(),
     bytes: Buffer.byteLength(content, 'utf8'),
     sha256: jsonHash(content),
   };
@@ -210,6 +258,28 @@ function postVoucher(state, clientId, body = {}) {
   return result;
 }
 
+function handleClientRoute(state, method, client, rest, body) {
+  const id = client.clientId;
+  if (method === 'GET' && rest.length === 0) return { ok: true, data: client };
+  if (method === 'GET' && rest[0] === 'ledger') {
+    return { ok: true, data: { clientId: id, rows: journal(getBook(state, id).ledger) } };
+  }
+  if (method === 'GET' && rest[0] === 'trial-balance') {
+    return { ok: true, data: { clientId: id, ...trialBalance(getBook(state, id).ledger) } };
+  }
+  if (method === 'POST' && rest[0] === 'vouchers') return postVoucher(state, id, body);
+  if (method === 'GET' && rest[0] === 'documents' && rest.length === 2) return getDocumentContent(state, id, rest[1]);
+  if (method === 'GET' && rest[0] === 'documents' && rest.length === 1) return listDocuments(state, id);
+  if (method === 'POST' && rest[0] === 'documents') return uploadDocument(state, id, body);
+  if (method === 'GET' && rest[0] === 'access') {
+    return { ok: true, data: { clientId: id, users: state.firmUsers.filter((user) => (user.clientIds || []).includes(id)) } };
+  }
+  if (method === 'GET' && rest[0] === 'audit-events') {
+    return { ok: true, data: { auditEvents: state.auditEvents.filter((event) => event.clientId === id) } };
+  }
+  return null;
+}
+
 export function handleCaApi(state, method, pathname, body = {}) {
   ensureCaApiState(state);
   const path = String(pathname || '').replace(/^\/api\/ca/, '') || '/';
@@ -234,49 +304,13 @@ export function handleCaApi(state, method, pathname, body = {}) {
     return { ok: true, data: out.client };
   }
 
-  if (method === 'GET' && segments[0] === 'clients' && segments.length === 2) {
-    return { ok: true, data: requireClient(state, segments[1]) };
-  }
-
-  if (method === 'GET' && segments[0] === 'clients' && segments[2] === 'ledger') {
-    const book = getBook(state, segments[1]);
-    return { ok: true, data: { clientId: segments[1], rows: journal(book.ledger) } };
-  }
-
-  if (method === 'GET' && segments[0] === 'clients' && segments[2] === 'trial-balance') {
-    const book = getBook(state, segments[1]);
-    return { ok: true, data: { clientId: segments[1], ...trialBalance(book.ledger) } };
-  }
-
-  if (method === 'POST' && segments[0] === 'clients' && segments[2] === 'vouchers') {
-    return postVoucher(state, segments[1], body);
-  }
-
-  if (method === 'GET' && segments[0] === 'clients' && segments[2] === 'documents' && segments.length === 4) {
-    return getDocumentContent(state, segments[1], segments[3]);
-  }
-
-  if (method === 'GET' && segments[0] === 'clients' && segments[2] === 'documents' && segments.length === 3) {
-    return listDocuments(state, segments[1]);
-  }
-
-  if (method === 'POST' && segments[0] === 'clients' && segments[2] === 'documents') {
-    return uploadDocument(state, segments[1], body);
+  if (segments[0] === 'clients' && segments.length >= 2) {
+    const out = handleClientRoute(state, method, requireClient(state, segments[1]), segments.slice(2), body);
+    if (out) return out;
   }
 
   if (method === 'GET' && path === '/users') {
     return { ok: true, data: { users: state.firmUsers } };
-  }
-
-  if (method === 'GET' && segments[0] === 'clients' && segments[2] === 'access') {
-    requireClient(state, segments[1]);
-    return {
-      ok: true,
-      data: {
-        clientId: segments[1],
-        users: state.firmUsers.filter((user) => (user.clientIds || []).includes(segments[1])),
-      },
-    };
   }
 
   if (method === 'GET' && path === '/audit-events') {
@@ -285,11 +319,6 @@ export function handleCaApi(state, method, pathname, body = {}) {
 
   if (method === 'POST' && path === '/audit-events') {
     return { ok: true, data: appendAuditEvent(state, body) };
-  }
-
-  if (method === 'GET' && segments[0] === 'clients' && segments[2] === 'audit-events') {
-    requireClient(state, segments[1]);
-    return { ok: true, data: { auditEvents: state.auditEvents.filter((event) => event.clientId === segments[1]) } };
   }
 
   const err = new Error('CA_API_ROUTE_NOT_FOUND');

@@ -4,13 +4,23 @@ output "tf_state_bucket" {
 }
 
 output "workload_identity_provider" {
-  description = "Full WIF provider name (paste into GitHub variable GCP_WIF_PROVIDER)."
+  description = "Deploy WIF provider, main and v* tags only (paste into GitHub variable GCP_WIF_PROVIDER)."
   value       = google_iam_workload_identity_pool_provider.github.name
 }
 
 output "deploy_service_account" {
   description = "Deployer SA email (paste into GitHub variable GCP_DEPLOY_SA)."
   value       = google_service_account.deployer.email
+}
+
+output "plan_workload_identity_provider" {
+  description = "PR plan WIF provider, pull_request events only (paste into GitHub variable GCP_WIF_PLAN_PROVIDER)."
+  value       = google_iam_workload_identity_pool_provider.github_plan.name
+}
+
+output "plan_service_account" {
+  description = "Read-only planner SA email (paste into GitHub variable GCP_PLAN_SA)."
+  value       = google_service_account.planner.email
 }
 
 output "project_id" {

@@ -86,7 +86,7 @@ decide an approval are blocked from the assistant (`seed_demo`, `govt_save_crede
 
 ## Review script (60 minutes)
 
-1. Open MyCA. Confirm demo invoices for **Nalanda Textiles LLP** (GSTIN `27AABCU9603R1ZP`).
+1. Open MyCA. Confirm demo invoices for **Nalanda Textiles LLP** (GSTIN `27AABCU9603R1ZN`).
 2. Chat: `trial balance` — Dr must equal Cr.
 3. Chat: `Invoice Walk-in, 1 unit at 10000, GST 18%` — unregistered intra-state; CGST+SGST; invoice appears in the folio.
 4. Chat: `prepare GSTR-1` — B2B vs B2CS split must match GSTIN presence.

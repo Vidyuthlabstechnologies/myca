@@ -1,4 +1,5 @@
-import { normalizeChat, parseDocument, isPurchaseIntent, isSaleIntent, ROUTES } from './intent.mjs';
+import { normalizeChat, parseDocument, isPurchaseIntent, isSaleIntent, isQuestion, isNegated, ROUTES } from './intent.mjs';
+import { confirmationIntent } from './chat-confirm.mjs';
 
 const noArgs = {
   type: 'object',
@@ -159,9 +160,9 @@ export const TOOL_ARG_SCHEMAS = {
   govt_nic_generate_ewb: {
     type: 'object',
     additionalProperties: false,
+    required: ['irn'],
     properties: {
-      irn: { type: 'string' },
-      payload: { type: 'object' },
+      irn: { type: 'string', minLength: 1 },
       transport: { type: 'object' },
     },
   },
@@ -224,12 +225,38 @@ export const TOOL_ARG_SCHEMAS = {
       date: { type: 'string' },
     },
   },
+  exceptions: {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      scope: { type: 'string', enum: ['client', 'firm'] },
+      status: { type: 'string', enum: ['open', 'all', 'resolved', 'waived', 'in_review'] },
+      severity: { type: 'string', enum: ['critical', 'high', 'medium', 'low'] },
+      source: { type: 'string', maxLength: 32 },
+      asOfDate: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' },
+    },
+  },
+  exception_decide: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['id', 'decision'],
+    properties: {
+      id: { type: 'string', pattern: '^EXC-[0-9]{6}$' },
+      decision: { type: 'string', enum: ['assign', 'resolve', 'waive', 'reopen'] },
+      note: { type: 'string', maxLength: 500 },
+      owner: { type: 'string', maxLength: 64 },
+    },
+  },
   gst_payable: noArgs,
   prepare_gstr1: noArgs,
   export_gstr1_json: {
     type: 'object',
     additionalProperties: false,
-    properties: { fp: { type: 'string', pattern: '^[0-9]{6}$' } },
+    properties: {
+      fp: { type: 'string', pattern: '^(0[1-9]|1[0-2])[0-9]{4}$' },
+      grossTurnover: { type: 'number', minimum: 0 },
+      currentGrossTurnover: { type: 'number', minimum: 0 },
+    },
   },
   prepare_gstr3b: {
     type: 'object',
@@ -238,11 +265,7 @@ export const TOOL_ARG_SCHEMAS = {
   },
   filing_pack: noArgs,
   govt_probe: noArgs,
-  govt_nic_auth: {
-    type: 'object',
-    additionalProperties: false,
-    properties: { mock: { type: 'boolean' } },
-  },
+  govt_nic_auth: noArgs,
   govt_nic_mock: {
     type: 'object',
     additionalProperties: false,
@@ -254,7 +277,6 @@ export const TOOL_ARG_SCHEMAS = {
     required: ['invoiceId'],
     properties: {
       invoiceId: { type: 'string', pattern: '^INV-[0-9]{4,}$' },
-      mock: { type: 'boolean' },
     },
   },
   integration_readiness: {
@@ -324,6 +346,8 @@ export const TOOL_ARG_SCHEMAS = {
       requirementId: { type: 'string' },
       requestedBy: { type: 'string', minLength: 1 },
       note: { type: 'string' },
+      clientId: { type: 'string' },
+      params: { type: 'object' },
     },
   },
   approval_decide: {
@@ -408,7 +432,21 @@ export const TOOL_ARG_SCHEMAS = {
       gstr2b: { type: 'string' },
       gstr3b: { type: 'string' },
       gstr1: { type: 'string' },
-      asOfDate: { type: 'string' },
+      asOfDate: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' },
+      supplierFilings: {
+        type: 'array',
+        maxItems: 5000,
+        items: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['gstin', 'period'],
+          properties: {
+            gstin: { type: 'string', maxLength: 15 },
+            period: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}$' },
+            filedOn: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' },
+          },
+        },
+      },
     },
   },
   validate_gstin: {
@@ -461,6 +499,7 @@ const TOOL_RISK = {
   govt_generate_irn: 'external_government_api',
   sandbox_operation: 'external_government_api',
   approval_request: 'internal_workflow',
+  exception_decide: 'internal_workflow',
 };
 
 export function assistantTools(tools) {
@@ -516,6 +555,7 @@ function validateObject(schema, value, path = 'args') {
     if (childSchema.type === 'array') {
       if (!Array.isArray(value[key])) return `${path}.${key} must be array`;
       if (childSchema.minItems != null && value[key].length < childSchema.minItems) return `${path}.${key} needs at least ${childSchema.minItems} item(s)`;
+      if (childSchema.maxItems != null && value[key].length > childSchema.maxItems) return `${path}.${key} allows at most ${childSchema.maxItems} item(s)`;
       for (let i = 0; i < value[key].length; i++) {
         const err = validateObject(childSchema.items, value[key][i], `${path}.${key}[${i}]`);
         if (err) return err;
@@ -538,14 +578,26 @@ export function validateAssistantToolCall(name, args = {}) {
   return error ? { ok: false, error } : { ok: true, name, args: args || {} };
 }
 
+const MAX_CHAT_CHARS = 2000;
+
 export function planLocalToolCall(state, message) {
+  const raw = String(message == null ? '' : message);
+  if (raw.length > MAX_CHAT_CHARS) {
+    return { kind: 'reply', reply: `That message is ${raw.length} characters; I read up to ${MAX_CHAT_CHARS}. Send the instruction on its own, and attach long data as a file.`, tools: [] };
+  }
   const text = normalizeChat(message);
   if (!text) return { kind: 'reply', reply: 'Tell me what to post, import, or file.', tools: [] };
+
+  const decision = confirmationIntent(text);
+  if (decision) {
+    if (!state.pendingChatAction) return { kind: 'reply', reply: 'There is nothing waiting to be posted.', tools: [] };
+    return decision === 'cancel' ? { kind: 'cancel' } : { kind: 'confirm', decision };
+  }
 
   if (/^(help|\?)$/i.test(text) || /^what can you do$/i.test(text)) {
     return {
       kind: 'reply',
-      reply: `MyCA posts invoices and purchase bills into an append-only ledger, then GST/Tally/bank/audit tools read those books.\n\nExamples:\n· Purchase from Fabrics Co GSTIN 27AABCT1332L1ZM, 2 rolls at 10000, GST 5%\n· Invoice Retail Mart GSTIN 27AAACH7409R1Z3, 10 rolls at 50000, GST 5%\n· trial balance\n· export gstr1 json\n· probe govt\n· nic auth`,
+      reply: `MyCA posts invoices and purchase bills into an append-only ledger, then GST/Tally/bank/audit tools read those books.\n\nExamples:\n· Purchase from Fabrics Co GSTIN 27AABCT1332L1ZE, 2 rolls at 10000, GST 5%\n· Invoice Retail Mart GSTIN 27AAACH7409R1Z1, 10 rolls at 50000, GST 5%\n· trial balance\n· export gstr1 json\n· probe govt\n· nic auth`,
       tools: [],
     };
   }
@@ -560,8 +612,12 @@ export function planLocalToolCall(state, message) {
   }
 
   const doc = parseDocument(text);
-  if (doc && isPurchaseIntent(text)) return { kind: 'tool', name: 'create_purchase', args: doc };
-  if (doc && isSaleIntent(text)) return { kind: 'tool', name: 'create_invoice', args: doc };
+  const asking = isQuestion(text) || isNegated(text);
+  if (doc && !asking && isPurchaseIntent(text)) return { kind: 'tool', name: 'create_purchase', args: doc };
+  if (doc && !asking && isSaleIntent(text)) return { kind: 'tool', name: 'create_invoice', args: doc };
+  if (doc && asking && (isPurchaseIntent(text) || isSaleIntent(text))) {
+    return { kind: 'reply', reply: 'That reads like a question, so I have not posted anything. To post it, say it as an instruction, for example "invoice Retail Mart GSTIN 27AAACH7409R1Z1, 10 rolls at 50000, GST 5%".', tools: [] };
+  }
 
   const connectReq = text.match(/\bconnect\s+(REQ-CA-\d{3}|[a-z_]+)\b(?:.*?\bprovider\s+([A-Za-z0-9 .&_-]{2,60}))?/i);
   if (connectReq && /\b(api|integration|connector|requirement|provider)\b/i.test(text)) {
@@ -602,7 +658,7 @@ export function planLocalToolCall(state, message) {
   }
 
   if (/\b(nic\s*mock\s*auth|mock\s*nic\s*auth|mock\s*auth)\b/i.test(text)) {
-    return { kind: 'tool', name: 'govt_nic_auth', args: { mock: true } };
+    return { kind: 'tool', name: 'govt_nic_auth', args: {} };
   }
 
   const gstinQuery = text.match(/\b(?:validate|verify|check|search|lookup)\s*gstin\s+([0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][0-9A-Z]Z[0-9A-Z])\b/i);
@@ -616,6 +672,23 @@ export function planLocalToolCall(state, message) {
     return { kind: 'tool', name: 'validate_gstin', args: { gstin: standaloneGstin[1].toUpperCase() } };
   }
 
+  const decisionMatch = text.match(/\b(waive|resolve|reopen|assign)\s+(EXC-\d{6})\b(.*)$/i);
+  if (decisionMatch) {
+    const [, verb, id, tail] = decisionMatch;
+    const note = (tail.match(/(?:because|reason|:|-)\s*(.+)$/i) || [])[1] || '';
+    const owner = (tail.match(/\bto\s+([A-Za-z][A-Za-z0-9 .'-]{1,40})/i) || [])[1] || '';
+    return {
+      kind: 'tool',
+      name: 'exception_decide',
+      args: {
+        id: id.toUpperCase(),
+        decision: verb.toLowerCase(),
+        ...(note.trim() ? { note: note.trim().slice(0, 500) } : {}),
+        ...(owner.trim() ? { owner: owner.trim() } : {}),
+      },
+    };
+  }
+
   const printId = text.match(/\b(INV-\d+|BILL-\d+)\b/i);
   if (printId && /print|show/i.test(text) && !/irn|einvoice|e-invoice/i.test(text)) {
     return { kind: 'tool', name: 'print_invoice', args: { id: printId[1].toUpperCase() } };
@@ -627,15 +700,35 @@ export function planLocalToolCall(state, message) {
   }
 
   const irnId = text.match(/\b(INV-\d+)\b/i);
-  if (irnId && /\birn\b|e-?invoice|generate irn/i.test(text)) {
-    return { kind: 'tool', name: 'govt_generate_irn', args: { invoiceId: irnId[1].toUpperCase() } };
+  if (irnId && /\birn\b|e-?invoice/i.test(text)) {
+    const invoiceId = irnId[1].toUpperCase();
+    if (/\bcancel/i.test(text)) return { kind: 'tool', name: 'govt_nic_cancel_irn', args: { invoiceId } };
+    const negated = /\b(do\s*not|don'?t|never|stop|avoid)\b/i.test(text);
+    const question = /\?\s*$/.test(text) || /^\s*(what|which|when|where|why|how|is|are|has|have|does|did|do|can|show|status)\b/i.test(text);
+    if (negated || question) {
+      return { kind: 'reply', reply: `Nothing was generated. To issue an IRN for ${invoiceId}, say "generate irn ${invoiceId}"; it still needs a CA approval before anything reaches the IRP.` };
+    }
+    return { kind: 'tool', name: 'govt_generate_irn', args: { invoiceId } };
   }
 
   const paidId = text.match(/\b(INV-\d+)\b/i);
   if (paidId && /\b(paid|receipt|received)\b/i.test(text)) {
-    return { kind: 'tool', name: 'record_receipt', args: { invoiceId: paidId[1].toUpperCase(), mode: /cash/i.test(text) ? 'cash' : 'bank' } };
+    const invoiceId = paidId[1].toUpperCase();
+    if (isQuestion(text) || isNegated(text)) {
+      const inv = (state.invoices || []).find((i) => i.id === invoiceId);
+      const status = inv ? `${invoiceId} is marked ${inv.status}.` : `${invoiceId} is not in these books.`;
+      return { kind: 'reply', reply: `${status} I have recorded nothing. To record money received, say "record receipt ${invoiceId}" and confirm the preview.`, tools: [] };
+    }
+    return { kind: 'tool', name: 'record_receipt', args: { invoiceId, mode: /cash/i.test(text) ? 'cash' : 'bank' } };
   }
 
+  if ((isQuestion(text) || isNegated(text)) && /\b(import|attach|upload|reconcile)\b/i.test(text) && /\b(tally|zoho|bank|statement|xml|csv)\b/i.test(text)) {
+    return {
+      kind: 'reply',
+      reply: 'Nothing was imported. Attach the file with the dropdown, then say "import tally", "import zoho", "import bank" or "import tally xml"; I will show you what it would post before anything lands in the books.',
+      tools: [],
+    };
+  }
   if (/\bimport tally xml\b|\btally xml\b/i.test(text)) {
     const xml = state.pendingFile?.content || state.files.tallyXml;
     if (!xml) return { kind: 'reply', reply: 'Attach a Tally XML file first (dropdown: Tally XML).', tools: [] };

@@ -44,26 +44,26 @@ Supplier state code (the firm) = **27 (Maharashtra)** everywhere. Return period 
 in INR.
 
 ### sales.csv — outward invoices `invoiceNo,date,partyGstin,partyName,partyState,hsn,rate,taxableValue,cgst,sgst,igst,cess,isEcommerce`
-- INV-101 | 27AABCT1332L1ZM | state 27 | hsn 6204 | 18% | 100000 | cgst 9000 sgst 9000   (intra B2B)
-- INV-102 | 29AABCT1332L1ZN | state 29 | hsn 7204 | 18% | 250000 | igst 45000            (inter B2B)
+- INV-101 | 27AABCT1332L1ZE | state 27 | hsn 6204 | 18% | 100000 | cgst 9000 sgst 9000   (intra B2B)
+- INV-102 | 29AABCT1332L1ZA | state 29 | hsn 7204 | 18% | 250000 | igst 45000            (inter B2B)
 - INV-103 | (blank)         | state 29 | hsn 6204 | 12% | 300000 | igst 36000            (B2CL — unregistered, >250000)
 - INV-104 | (blank)         | state 27 | hsn 6204 | 12% | 80000  | cgst 4800 sgst 4800  (B2CS intra)
-- INV-105 | 07AAPCR2333B1ZW | state 07 | hsn 8415 | 0%  | 40000  | tax 0                (nil rated, 6A)
-- INV-106 | 29AAACA1888E1ZS | state 29 | hsn 6204 | 18% | 50000  | igst 9000            (inter B2B)
-- INV-107 | 12ABCPM1634M1ZR | state 12 | hsn 2710 | 28% | 120000 | igst 33600           (inter B2B)
-- INV-108 | 27AABCT1332L1ZM | state 27 | hsn `ABC`| 18% | 8000   | cgst 1000 sgst 1000  (E-INVOICE VIOLATIONS — see below)
+- INV-105 | 07AAPCR2333B1ZM | state 07 | hsn 8415 | 0%  | 40000  | tax 0                (nil rated, 6A)
+- INV-106 | 29AAACA1888E1ZO | state 29 | hsn 6204 | 18% | 50000  | igst 9000            (inter B2B)
+- INV-107 | 12ABCPM1634M1ZV | state 12 | hsn 2710 | 28% | 120000 | igst 33600           (inter B2B)
+- INV-108 | 27AABCT1332L1ZE | state 27 | hsn `ABC`| 18% | 8000   | cgst 1000 sgst 1000  (E-INVOICE VIOLATIONS — see below)
 - INV-109 | (blank)         | state 33 | hsn 6204 | 5%  | 40000  | igst 2000            (B2CS inter)
 - INV-110 | (blank)         | state 27 | hsn 6204 | 12% | 50000  | cgst 3000 sgst 3000  (B2CS intra)
 B2C split rule: partyGstin blank → B2C. Value > 250000 → B2CL (invoice-wise, state×rate rows);
 ≤ 250000 → B2CS (state×rate consolidated rows within the period). Blank gstin + rate 0 → nil (6A).
 
 ### inward.csv — purchase register `invoiceNo,date,supplierGstin,supplierName,hsn,rate,taxableValue,cgst,sgst,igst,isInputService,itcEligible,itcAvailability`
-- INV-201 | 27AABCT1332L1ZM | 18% | 200000 | cgst 18000 sgst 18000 | input svc N | eligible Y | avail Y
-- INV-202 | 29AABCT1332L1ZN | 18% | 150000 | igst 27000 | N | Y | Y
-- INV-203 | 12ABCPM1634M1ZR | 28% | 80000  | igst 22400 | input svc Y | Y | Y
-- INV-204 | 33AAACA1888E1ZS | 12% | 60000  | cgst 3600 sgst 3600 | N | Y | **avail N** (blocked — ITC ineligible)
+- INV-201 | 27AABCT1332L1ZE | 18% | 200000 | cgst 18000 sgst 18000 | input svc N | eligible Y | avail Y
+- INV-202 | 29AABCT1332L1ZA | 18% | 150000 | igst 27000 | N | Y | Y
+- INV-203 | 12ABCPM1634M1ZV | 28% | 80000  | igst 22400 | input svc Y | Y | Y
+- INV-204 | 33AAACA1888E1ZZ | 12% | 60000  | cgst 3600 sgst 3600 | N | Y | **avail N** (blocked — ITC ineligible)
 - INV-205 | (blank — import of services) | 18% | 250000 | igst 45000 | input svc Y | Y | Y
-- INV-206 | 19AAACS3559D1ZQ | 18% | 30000  | cgst 2700 sgst 2700 | N | **eligible N** (personal use) | Y
+- INV-206 | 19AAACS3559D1ZD | 18% | 30000  | cgst 2700 sgst 2700 | N | **eligible N** (personal use) | Y
 ITC eligibility: row lands in "ITC available" ONLY when itcEligible Y AND itcAvailability Y AND
 taxable > 0. Otherwise it goes to 4(D) ineligible. Import of services (blank gstin) is tracked
 separately in `importServicesIgst` but still counts in the IGST available total.

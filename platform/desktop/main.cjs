@@ -67,7 +67,8 @@ ipcMain.handle('myca:open-external', async (_event, url) => {
 
 app.whenReady().then(async () => {
   const { startServer } = await import(pathToFileURL(path.join(__dirname, '../src/server.mjs')).href);
-  await startServer(PORT);
+  const started = await startServer(PORT);
+  if (started.error) dialog.showErrorBox('MyCA could not open your books', started.error);
   createWindow();
 });
 

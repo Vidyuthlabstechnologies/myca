@@ -105,7 +105,7 @@ test('sandbox client: searchGstin parses legalName, tradeName, status, and natur
     }
     if (url.includes('/gstin/search')) {
       const body = JSON.parse(opts.body);
-      assert.equal(body.gstin, '27AAACH7409R1Z3');
+      assert.equal(body.gstin, '27AAACH7409R1Z1');
       return {
         ok: true,
         status: 200,
@@ -129,9 +129,9 @@ test('sandbox client: searchGstin parses legalName, tradeName, status, and natur
   };
 
   const client = new SandboxClient({ apiKey: 'k', apiSecret: 's', fetchFn: mockFetch });
-  const out = await client.searchGstin('27AAACH7409R1Z3');
+  const out = await client.searchGstin('27AAACH7409R1Z1');
   assert.equal(out.ok, true);
-  assert.equal(out.gstin, '27AAACH7409R1Z3');
+  assert.equal(out.gstin, '27AAACH7409R1Z1');
   assert.equal(out.legalName, 'ABC TEXTILES PRIVATE LIMITED');
   assert.equal(out.tradeName, 'ABC TEXTILES');
   assert.equal(out.status, 'Active');
@@ -150,20 +150,20 @@ test('sandbox client: real endpoint paths and payloads', async () => {
   };
   const client = new SandboxClient({ apiKey: 'k', apiSecret: 's', fetchFn: mockFetch });
 
-  await client.generateTaxpayerOtp('test_user', '27AAACH7409R1Z3');
+  await client.generateTaxpayerOtp('test_user', '27AAACH7409R1Z1');
   assert.equal(calls[0].url.includes('/gst/compliance/tax-payer/otp'), true);
   assert.equal(calls[0].url.includes('/otp/verify'), false);
   assert.equal(calls[0].body.username, 'test_user');
-  assert.equal(calls[0].body.gstin, '27AAACH7409R1Z3');
+  assert.equal(calls[0].body.gstin, '27AAACH7409R1Z1');
 
-  await client.verifyTaxpayerOtp('test_user', '27AAACH7409R1Z3', '123456');
+  await client.verifyTaxpayerOtp('test_user', '27AAACH7409R1Z1', '123456');
   assert.match(calls[1].url, /\/gst\/compliance\/tax-payer\/otp\/verify\?otp=123456/);
   assert.equal(calls[1].body.otp, undefined);
 
-  await client.trackGstrs('27AAACH7409R1Z3', '2026-27');
+  await client.trackGstrs('27AAACH7409R1Z1', '2026-27');
   assert.match(calls[2].url, /\/gst\/compliance\/public\/gstrs\/track\?financial_year=2026-27/);
 
-  await client.submitGstr2bReconJob({ gstin: '27AAACH7409R1Z3', year: 2026, month: 8 });
+  await client.submitGstr2bReconJob({ gstin: '27AAACH7409R1Z1', year: 2026, month: 8 });
   assert.equal(calls[3].url.endsWith('/gst/analytics/gstr-2b-reconciliation'), true);
   assert.equal(calls[3].body['@entity'], 'in.co.sandbox.gst.analytics.gstr-2b_reconciliation.request');
   assert.equal(calls[3].body.year, 2026);
@@ -199,7 +199,7 @@ test('sandbox client: e-invoice auth stores token, generate and cancel use it', 
   };
   const client = new SandboxClient({ apiKey: 'k', apiSecret: 's', fetchFn: mockFetch });
 
-  const auth = await client.einvoiceAuthenticate({ username: 'u', password: 'p', gstin: '27AABCU9603R1ZP' });
+  const auth = await client.einvoiceAuthenticate({ username: 'u', password: 'p', gstin: '27AABCU9603R1ZN' });
   assert.equal(auth.ok, true);
   assert.equal(client.einvoiceToken, 'einv_tok');
   assert.match(calls[0].url, /\/gst\/compliance\/e-invoice\/tax-payer\/authenticate\?force=false/);
@@ -242,7 +242,7 @@ test('nic mock: high-fidelity simulation produces valid IRN, AckNo and QR Code',
   const inv = createInvoice(state, {
     date: '2026-08-05',
     partyName: 'Retail Mart',
-    partyGstin: '27AAACH7409R1Z3',
+    partyGstin: '27AAACH7409R1Z1',
     partyState: '27',
     lines: [{ description: 'Fabric', hsn: '5208', qty: 2, rate: 10000, gstRate: 5 }],
   });
@@ -264,8 +264,9 @@ test('nic mock: high-fidelity simulation produces valid IRN, AckNo and QR Code',
 
   // 3. Check that state invoice was updated
   const storedInv = state.invoices.find((i) => i.id === 'INV-0001');
-  assert.equal(storedInv.irn, irnResult.irn);
-  assert.equal(storedInv.ackNo, irnResult.ackNo);
+  assert.equal(storedInv.mockIrn, irnResult.irn);
+  assert.equal(storedInv.mockAckNo, irnResult.ackNo);
+  assert.equal(storedInv.irn, undefined);
 
   // 4. govt_nic_mock tool
   const toolMock = await runTool(state, 'govt_nic_mock', { invoiceId: 'INV-0001' });
@@ -318,7 +319,7 @@ test('chat router: routes sandbox status, connect sandbox, nim status, and mock 
   createInvoice(state, {
     date: '2026-08-05',
     partyName: 'Retail Mart',
-    partyGstin: '27AAACH7409R1Z3',
+    partyGstin: '27AAACH7409R1Z1',
     partyState: '27',
     lines: [{ description: 'Fabric', hsn: '5208', qty: 2, rate: 10000, gstRate: 5 }],
   });
@@ -356,6 +357,6 @@ test('chat router: routes sandbox status, connect sandbox, nim status, and mock 
   assert.match(chatMockIrn.reply, /NIC Sandbox Mock/);
 
   // Route: standalone GSTIN
-  const planStandalone = planLocalToolCall(state, 'gstin 27AAACH7409R1Z3');
+  const planStandalone = planLocalToolCall(state, 'gstin 27AAACH7409R1Z1');
   assert.equal(planStandalone.name, 'validate_gstin');
 });

@@ -3,9 +3,14 @@
 MyCA sends notifications by POSTing JSON to a relay you control:
 
 ```
-POST {from, to, subject, text, html?}
+POST {from, fromName?, to, subject, text, html?}
 Authorization: Bearer <MYCA_EMAIL_RELAY_TOKEN>
+
+200 {"ok": true, "id": "<message id>", "messageId": "<message id>"}
+4xx/5xx {"ok": false, "error": "<CODE>"}
 ```
+
+MyCA stores `id` as the outbox message's `providerId`; `messageId` carries the same value for older callers.
 
 This Worker turns that into a real email using **Cloudflare Email Service**
 (`send_email` binding) — no third-party API key, no SMTP.
@@ -20,7 +25,9 @@ This Worker turns that into a real email using **Cloudflare Email Service**
 
    This adds the DKIM/SPF records so mail is deliverable.
 
-2. Set the allowed sender domain and a shared secret:
+2. Set the allowed sender domain and a shared secret. The relay refuses every send
+   (`503 FROM_DOMAIN_NOT_CONFIGURED`) until `ALLOWED_FROM_DOMAIN` is set, so a fresh
+   deploy cannot send as any domain on your account:
 
    ```bash
    # edit wrangler.jsonc -> vars.ALLOWED_FROM_DOMAIN = "yourfirm.in"
@@ -64,8 +71,18 @@ curl -X POST http://127.0.0.1:8787 \
 ## Notes
 
 - **Transactional only.** This is for invoice/reminder mail to clients, not bulk marketing.
-- The Worker rejects any `from` outside `ALLOWED_FROM_DOMAIN`, caps the payload at 1 MB,
-  and requires the bearer token — it is not an open relay.
+- It is not an open relay:
+  - The bearer token is required. Both sides are hashed with SHA-256 and compared in
+    constant time.
+  - `from` must be exactly `@ALLOWED_FROM_DOMAIN` (case-insensitive; subdomains are refused).
+    An empty `ALLOWED_FROM_DOMAIN` refuses every send.
+  - At most 10 recipients per request (`400 TOO_MANY_RECIPIENTS`); Cloudflare's own limit is 50.
+  - The payload is capped at 1 MB.
+  - CR and LF in `fromName` and `subject` are replaced with spaces.
+- There is no rate limit in the Worker. If the token leaks, rotate it with
+  `wrangler secret put RELAY_TOKEN` and update `MYCA_EMAIL_RELAY_TOKEN`.
 - Errors from Cloudflare (`E_SENDER_NOT_VERIFIED`, `E_RECIPIENT_SUPPRESSED`, …) are passed
   back as `error` so the MyCA outbox shows why a send failed.
 - To restrict senders further, add `allowed_sender_addresses` to the `send_email` binding.
+- `platform/test/email-relay.test.mjs` runs this handler with a stub `EMAIL` binding as part
+  of `npm test` in `platform/`.
