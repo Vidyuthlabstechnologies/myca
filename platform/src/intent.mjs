@@ -1,10 +1,11 @@
 const GSTIN_RE = /\b(\d{2}[A-Z]{5}\d{4}[A-Z][0-9A-Z]Z[0-9A-Z])\b/i;
 
 export function normalizeChat(text) {
-  return String(text || '')
-    .replace(/[\u2013\u2014]/g, '-')
-    .replace(/\s+-\s+(books|itc|ap|gst input|follow).*$/i, '')
-    .trim();
+  const capped = String(text || '').slice(0, 4096).replace(/[\u2013\u2014]/g, '-');
+  return (capped.includes(' - ')
+    ? capped.replace(/\s+-\s+(books|itc|ap|gst input|follow).*$/i, '')
+    : capped
+  ).trim();
 }
 
 const PARTY_KEYWORDS = /^(at|rate|for|from|to|gstin|gst|invoice|purchase|bill|sale|sales)$/i;

@@ -888,6 +888,7 @@ export const TOOLS = [
     run: (state, args) => {
       if (!args.csv) return fail('csv required');
       const parsed = parseZohoBooksCsv(args.csv);
+      if (parsed.meta?.error) return fail(parsed.meta.error, { parsed: parsed.meta });
       const created = [];
       const skipped = [];
       for (const inv of parsed.invoices) {

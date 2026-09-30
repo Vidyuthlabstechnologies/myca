@@ -1,24 +1,25 @@
 # MyCA
 
-**Replace the repetitive work of a chartered accountant for Indian small and mid-size
-businesses — invoicing to accounting to tax filing — behind one chat interface.**
+**A headless tax and accounting assistant for Indian business owners. No accounting
+software to learn — the owner simply talks to it. It does the books in the background
+and files GST and TDS returns once the owner approves.**
 
-MyCA is built for CA firms first: a Windows app the firm runs, with a mobile companion
-for its clients. Every number comes from a deterministic engine reading dated statutory
-rules; the assistant may choose a tool but never invents a figure. **The tax invoice is
-the source of truth** — the trial balance and GSTR-1/3B are projections of posted
-invoices, not a second typing pass.
+MyCA is built for the owner of a retail, B2B, or service business who wants to spend as
+little time on compliance as possible. Every number comes from a deterministic engine
+reading dated statutory rules; the assistant may choose a tool but never invents a
+figure. **The tax invoice is the source of truth** — the trial balance and GSTR-1/3B are
+projections of posted invoices, not a second typing pass.
 
-MyCA **prepares, reconciles, flags, and documents**. It does not auto-file, auto-sign, or
-hold a DSC. A practising CA reviews, attests, and files where the law requires a
-professional.
+MyCA **automates, reconciles, flags, and files after approval**. Manual accounting entry
+should be rare. Filing and sending reminders always need the owner's confirmation — the
+owner stays in control of every action that leaves the product.
 
 ## Status at a glance
 
 | | |
 |---|---|
 | Phase | **Phase 0, pilot readiness — 58% complete** ([tracker](docs/superpowers/PROGRESS.md)) |
-| Tests | **691 passing** — platform 362; engines 11 / 11 / 49 / 51 / 68 / 2; statutory rules 137 |
+| Tests | **695 passing** — platform 366; engines 11 / 11 / 49 / 51 / 68 / 2; statutory rules 137 |
 | Tools | **71** named, schema-validated tools |
 | Audit findings | Critical 4/4 closed · **High 18/18 closed** ([audit](docs/audit/2026-09-21-codebase-audit.md)) |
 | Live portal calls | **Off by default** (`MYCA_ENABLE_LIVE_CALLS=0`) |
@@ -31,39 +32,69 @@ Phases 1–3 below, deliberately after the pilot.
 
 | | |
 |---|---|
-| **Who it is for** | CA firms first; the mobile app launches as the firm's client companion. Direct-to-SMB for non-audit businesses comes later. |
-| **What it does** | GST cycle, books, TDS and ITR as job types on one pipeline, built in filing-calendar order (GST → books → TDS → ITR). |
-| **How a client uses it** | Chat and a phone camera. Send a bill, ask a question, approve with one tap. |
-| **How a CA uses it** | Exceptions only. A clean return goes straight to client approval; the CA sees the exceptions and a batch sign-off. |
-| **Where data lives** | Cloud master copy (India region, each firm isolated) with an offline desktop cache, after the pilot. Today: local only. |
-| **What stays human** | Tax and statutory audit sign-off, DSC/EVC, and every live portal action. |
+| **Who it is for** | Business owners running retail, B2B, or service businesses. They are not accountants and want to spend as little time on compliance as possible. |
+| **What it does** | Automatic accounting, GST and TDS returns, invoices, e-way bills, payroll, and GSTR-2B matching — all in one product. |
+| **How an owner uses it** | One chat. Type a sale, forward a supplier bill, ask a question, approve a return. No accounting jargon. |
+| **How a CA uses it** | CA collaboration via export or real-time sync. Exceptions only — clean returns go straight to owner approval; the CA sees flagged items and a batch sign-off. |
+| **Where data lives** | Cloud master copy (India region, per-business isolation) with a local cache. Today: local-only Windows app during pilot. |
+| **What stays human** | GST and TDS return filing, OTP/EVC/DSC, and sending supplier reminders — all need the owner's explicit approval before anything leaves the product. |
+
+## Core features
+
+| Feature | What it does |
+|---|---|
+| **Automatic accounting** | Creates double-entry accounting entries in the background; no manual entry needed. |
+| **Smart tagging** | Every entry is placed under the correct account head automatically. |
+| **Invoice and quote creation** | Create a tax invoice or quote by typing a message; it is sent by email or WhatsApp after the owner checks it. |
+| **E-way bill** | Generated alongside the invoice when goods are dispatched. |
+| **POS integration** | Every POS sale automatically creates an entry in the Sales Register. |
+| **One-click GST filing** | Prepares GSTR-1 and GSTR-3B and files them through the API after the owner approves. |
+| **TDS filing** | Files TDS returns using the same review-and-approve steps as GST. |
+| **GSTR-2B matching** | Matches purchase entries with GSTR-2B; flags suppliers who filed late or have a mismatch; sends reminders only after the owner approves. |
+| **Payroll** | Runs payroll, computes TDS 192 / PF / ESI, and pays salaries from the same platform. |
+| **CA collaboration** | Owner exports entries or adds the CA directly; CA can sync in real time or at set intervals. |
+| **Dashboard and chat** | Chat for daily work and questions; dashboard for the overall picture of sales, purchases, taxes, and payroll. |
+
+## Key principles
+
+| Principle | Meaning |
+|---|---|
+| **Automation first** | Manual entry should be rare. |
+| **Simple language** | No accounting jargon. Owners can ask doubts in plain words. |
+| **Owner stays in control** | Filing returns and sending reminders always need the owner's approval. |
+| **One place for everything** | Accounting, tax, invoices, and payroll are all in one product. |
+| **Deterministic engines** | The assistant may choose tools; it never invents a financial or statutory figure. |
+| **Everything is traceable** | Every GST row traces to an invoice id; every flag carries a `why` and a `source`. |
+
 
 ## Requirements
 
 **Statutory and legal**
 
-- A tax audit and a statutory audit must be signed by a practising CA.
 - Every filing needs the taxpayer's OTP/EVC or DSC (companies and LLPs need a DSC).
 - Filing for a client needs a GSP/ASP (GST) and ERI registration (income tax).
-- Cloud-held client financial data brings DPDP Act 2023 duties.
+- A tax audit or statutory audit sign-off must come from a practising CA.
+- Cloud-held financial data brings DPDP Act 2023 duties.
 - Every rule carries its citation, its dates in force, and an advisor CA's sign-off.
 
 **Product**
 
 - One chat interface; any change to the books shows a preview card and posts only on
-  one tap to confirm.
-- A firm user signs in with a PIN; every action records who did it.
+  one tap to confirm. Questions and negations post nothing.
+- An owner signs in with a PIN; every action records who did it.
 - Every GST table row traces to an invoice id; every flag carries a `why` and a `source`.
-- Nothing reaches a government portal without the live switch **and** a maker-checker
-  approval bound to the exact payload.
+- Nothing reaches a government portal without the live switch **and** an owner approval
+  bound to the exact payload.
+- Supplier reminders are drafted but never sent without the owner's confirmation.
 
 **Engineering** (enforced by tests, see [`AGENTS.md`](AGENTS.md))
 
 - Deterministic engines own every number; money is integer paise; the ledger is
   append-only with a checksum chain.
-- Each client's books are isolated; nothing is shared across clients.
+- Each business's books are isolated; nothing is shared across accounts.
 - Zero runtime dependencies. ESM only, Node 22.
 - No plaintext secrets anywhere, including logs and state.
+
 
 ## Architecture
 
@@ -185,15 +216,15 @@ Configuration is optional for local books. For provider/NIC integrations copy
 
 ## What has to be done
 
-**Phase 0 — pilot readiness (current, 48%)**
+**Phase 0 — pilot readiness (current, 58%)**
 
-| Item | Finding | What it means |
-|---|---|---|
-| Remaining client hardening | — | Timeouts and body caps on every client, provider-doctor and notification honesty. |
-| Firm-user PIN identity | — | Who did what, before any cloud work. |
-| Parsing and audit engine | — | Remaining medium findings in the parsers and the defensible-audit engine. |
-| Shadow harness | — | Recompute the last three filed months per pilot client and diff against the filed return. |
-| Docs and stress | — | Keep README/STATUS counts honest; make the stress campaign a permanent harness. |
+| Item | What it means |
+|---|---|
+| Remaining client hardening | Fetch timeouts and body caps on every outbound client; provider-doctor and notification honesty. |
+| Owner PIN identity | Who did what, tracked before any cloud work. |
+| Parsing and audit engine | Remaining medium findings in the parsers and the defensible-audit engine. |
+| Shadow harness | Recompute the last three filed months per pilot client and diff against the filed return. |
+| Docs and stress | Keep README/STATUS counts honest; make the stress campaign a permanent harness. |
 
 Phase 0 ends when: every Critical and High finding has a regression test that fails on
 the pre-fix commit; every rule is signed off by the advisor CA with all golden cases
@@ -202,21 +233,30 @@ or every difference is explained; and CI is green.
 
 **Phases after the pilot** (each needs its own spec before code)
 
-1. **Cloud compliance core** — India-region backend, per-firm isolation, device sync,
-   DPDP duties, audit trail continuity.
-2. **Pipeline and exception queue** — jobs run themselves; the CA sees only exceptions
-   and a batch sign-off.
-3. **Mobile client companion** — capture a bill, ask a question, one-tap approval.
-4. **LLM chat agent** — natural language over the same named tools, never over the maths.
-5. **Filing connections** — GSP/ASP, ERI, Account Aggregator and NIC, each switched on as
-   its onboarding completes.
+1. **Cloud backend** — India-region server, per-business data isolation, device sync,
+   DPDP Act duties, audit trail continuity.
+2. **LLM chat agent** — natural-language understanding over the same 71 named tools.
+   The owner types "sold 10 boxes to Rajesh at ₹500 each" and the engine books it.
+   The assistant chooses tools; it never invents a figure.
+3. **Mobile app** — React Native shell for the owner. Capture a supplier bill with the
+   phone camera, ask a question, approve a return with one tap.
+4. **POS integration** — webhook or SDK adapter for common Indian POS systems; every
+   sale auto-creates an entry in the Sales Register.
+5. **Payroll** — salary computation, PT / PF / ESI / TDS 192, payslips, salary payments.
+6. **Supplier reminder flow** — GSTR-2B mismatch → draft WhatsApp / email to supplier
+   → owner approves → send. Never sent autonomously.
+7. **Filing connections** — GSP/ASP (GST), ERI (income tax), Account Aggregator (bank
+   feed), NIC (e-invoice/e-way bill), each switched on as its onboarding completes.
+8. **CA real-time sync** — owner invites CA; CA sees the books in real time or at set
+   intervals without needing a separate export step.
 
 **Owner actions** (not engineering; they gate the exit criteria)
 
 - Name the advisor CA and agree the rule sign-off process.
-- Recruit 2–3 pilot firms and collect three months of filed GSTR-1/3B JSON.
-- Start GSP/ASP, ERI, Account Aggregator (FIU) and NIC onboarding.
+- Recruit 2–3 pilot businesses and collect three months of filed GSTR-1/3B JSON.
+- Start GSP/ASP, ERI, Account Aggregator (FIU) and NIC production onboarding.
 - Commission the DPDP Act assessment before Phase 1.
+
 
 ## How it has to be done
 
@@ -272,11 +312,15 @@ or every difference is explained; and CI is green.
    invents a financial or statutory figure.
 2. **Everything is traceable.** Every GST table row traces to an invoice id; every flag
    carries a `why` + `source`; every tool run is audited with before/after state hashes.
-3. **Live portal actions are CA-controlled.** Filing, signing, OTP and DSC stay outside
-   autonomous control, behind the live switch and the approval workflow.
-4. **No plaintext secrets.** Provider/NIC credentials are encrypted at rest
+3. **The owner approves before anything leaves.** Filing, OTP/EVC/DSC, supplier
+   reminders, and every live portal action are behind the live switch and an approval
+   bound to the exact payload. Autonomous action stops at the door.
+4. **Automation first, jargon never.** Manual accounting entry should be rare. The
+   product speaks plain language; the owner does not need to know what a debit is.
+5. **No plaintext secrets.** Provider/NIC credentials are encrypted at rest
    (`credential-vault.mjs`: Electron `safeStorage`/DPAPI, AES-256-GCM fallback).
-5. **Zero runtime dependencies.** ESM only, Node 22. `node:crypto` is fine.
+6. **Zero runtime dependencies.** ESM only, Node 22. `node:crypto` is fine.
+
 
 ## Documentation
 

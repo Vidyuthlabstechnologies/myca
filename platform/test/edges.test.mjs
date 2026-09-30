@@ -1428,3 +1428,47 @@ test('provider doctor: warns on a live URL with only a generic key', async () =>
   assert.match(sandbox.warnings[0], /LIVE base URL/);
   assert.equal(report.summary.warnings >= 1, true);
 });
+
+test('intent: normalizeChat does not hang on 160k spaces', () => {
+  const text = 'a' + ' '.repeat(160000) + 'b';
+  const started = Date.now();
+  const normalized = normalizeChat(text);
+  assert.equal(Date.now() - started < 500, true);
+  assert.equal(normalized.length <= 4096, true);
+});
+
+test('audit digest: stateDigest tracks lockThrough and book changes', () => {
+  const state = createState();
+  const before = stateDigest(state);
+  state.lockThrough = '2026-06-30';
+  assert.notEqual(stateDigest(state), before);
+
+  const locked = stateDigest(state);
+  state.lockThrough = '';
+  assert.equal(stateDigest(state), before);
+
+  state.integrationConnections = { 'REQ-CA-001': 'conn-1' };
+  assert.notEqual(stateDigest(state), before);
+});
+
+test('import_zoho: fails honestly on NO_HEADER or empty CSV', async () => {
+  const state = createState();
+  const empty = await runTool(state, 'import_zoho', { csv: '   ' });
+  assert.equal(empty.ok, false);
+  assert.equal(empty.error, 'EMPTY');
+
+  const noHeader = await runTool(state, 'import_zoho', { csv: 'col1,col2\nval1,val2' });
+  assert.equal(noHeader.ok, false);
+  assert.equal(noHeader.error, 'NO_HEADER');
+});
+
+test('notifications: mock delivery stamps mock flag on message', async () => {
+  const state = createState();
+  const queued = queueNotification(state, { channel: 'email', to: 'a@b.in', subject: 's', body: 'b' });
+  assert.equal(queued.ok, true);
+  const sent = await sendNotification(state, queued.message.id, { mock: true });
+  assert.equal(sent.ok, true);
+  assert.equal(sent.message.status, 'sent');
+  assert.equal(sent.message.mock, true);
+  assert.equal(sent.message.providerId, 'mock');
+});

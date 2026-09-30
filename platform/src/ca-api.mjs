@@ -16,24 +16,29 @@ function jsonHash(value) {
   return createHash('sha256').update(json).digest('hex');
 }
 
+function digestBook(b) {
+  if (!b) return {};
+  return {
+    company: b.company,
+    lockThrough: b.lockThrough || '',
+    invoices: b.invoices || [],
+    purchases: b.purchases || [],
+    imports: b.imports || [],
+    ledgerClock: b.ledger?.clock?.toString?.() || '0',
+    ledgerChecksum: b.ledger?.lastChecksum || 0,
+  };
+}
+
 export function stateDigest(state) {
   return jsonHash({
-    company: state.company,
-    invoices: state.invoices || [],
-    purchases: state.purchases || [],
-    ledgerClock: state.ledger?.clock?.toString?.() || '0',
-    ledgerChecksum: state.ledger?.lastChecksum || 0,
-    imports: state.imports || [],
+    ...digestBook(state),
+    integrationConnections: state.integrationConnections || {},
     documents: state.documents || [],
     outbox: (state.outbox || []).map((m) => ({ id: m.id, status: m.status, channel: m.channel })),
     approvals: (state.approvals || []).map((a) => ({ approvalId: a.approvalId, operationId: a.operationId, status: a.status, usedAt: a.usedAt || '' })),
     clients: state.clients || [],
     extraBooks: Object.fromEntries(
-      Object.entries(state.extraBooks || {}).map(([id, book]) => [id, {
-        invoices: book.invoices || [],
-        purchases: book.purchases || [],
-        ledgerChecksum: book.ledger?.lastChecksum || 0,
-      }]),
+      Object.entries(state.extraBooks || {}).map(([id, book]) => [id, digestBook(book)]),
     ),
   });
 }

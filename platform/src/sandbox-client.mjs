@@ -11,6 +11,14 @@ function qs(params = {}) {
   return parts.length ? `?${parts.join('&')}` : '';
 }
 
+const DEFAULT_TIMEOUT_MS = 30000;
+
+function deadline(options, ms = DEFAULT_TIMEOUT_MS) {
+  const timeoutMs = Number(options?.timeoutMs || options?.timeout || ms);
+  const timeout = AbortSignal.timeout(timeoutMs);
+  return options?.signal ? AbortSignal.any([options.signal, timeout]) : timeout;
+}
+
 export class SandboxClient {
   constructor(options = {}) {
     const fileEnv = loadEnvFile();
@@ -55,7 +63,7 @@ export class SandboxClient {
     };
   }
 
-  async authenticate(force = false) {
+  async authenticate(force = false, options = {}) {
     if (!this.isConfigured()) {
       return { ok: false, error: 'MISSING_SANDBOX_CREDENTIALS', hint: 'Configure MYCA_GSP_API_KEY and MYCA_GSP_API_SECRET in .env' };
     }
@@ -73,6 +81,7 @@ export class SandboxClient {
           'content-type': 'application/json',
           accept: 'application/json',
         },
+        signal: deadline(options, 15000),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.access_token) {
@@ -89,7 +98,7 @@ export class SandboxClient {
   async request(endpoint, options = {}) {
     let token = options.token || null;
     if (!token) {
-      const auth = await this.authenticate();
+      const auth = await this.authenticate(false, options);
       if (!auth.ok) return auth;
       token = this.token;
     }
@@ -98,13 +107,14 @@ export class SandboxClient {
       method: options.method || 'POST',
       headers: { ...this.headers(authToken), ...(options.headers || {}) },
       body: options.body === undefined ? undefined : JSON.stringify(options.body),
+      signal: deadline(options, 30000),
     });
     try {
       let res = await send(token);
       let data = await res.json().catch(() => ({}));
       if (res.status === 401 && !options.token) {
         this.token = null;
-        const retryAuth = await this.authenticate(true);
+        const retryAuth = await this.authenticate(true, options);
         if (!retryAuth.ok) return retryAuth;
         res = await send(this.token);
         data = await res.json().catch(() => ({}));
@@ -115,12 +125,12 @@ export class SandboxClient {
     }
   }
 
-  async ping() {
+  async ping(options = {}) {
     if (!this.isConfigured()) {
       return { ok: false, configured: false, error: 'CREDENTIALS_NOT_CONFIGURED' };
     }
     const started = Date.now();
-    const auth = await this.authenticate(true);
+    const auth = await this.authenticate(true, options);
     const ms = Date.now() - started;
     return {
       ok: auth.ok,

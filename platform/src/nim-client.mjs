@@ -13,7 +13,7 @@ export class NimClient {
     return Boolean(this.apiKey && this.apiKey.trim().length > 0);
   }
 
-  async ping() {
+  async ping(options = {}) {
     if (!this.isConfigured()) {
       return {
         ok: false,
@@ -26,6 +26,8 @@ export class NimClient {
     }
     const started = Date.now();
     try {
+      const timeout = AbortSignal.timeout(Number(options?.timeoutMs || options?.timeout || 15000));
+      const signal = options?.signal ? AbortSignal.any([options.signal, timeout]) : timeout;
       const res = await this.fetchFn(`${this.baseUrl}/chat/completions`, {
         method: 'POST',
         headers: {
@@ -38,6 +40,7 @@ export class NimClient {
           messages: [{ role: 'user', content: 'Ping' }],
           max_tokens: 2,
         }),
+        signal,
       });
       const ms = Date.now() - started;
       const data = await res.json().catch(() => ({}));
@@ -72,7 +75,7 @@ export class NimClient {
     }
   }
 
-  async complete({ prompt, messages, systemPrompt, model, temperature = 0.2, maxTokens = 1024 } = {}) {
+  async complete({ prompt, messages, systemPrompt, model, temperature = 0.2, maxTokens = 1024, signal, timeoutMs } = {}) {
     if (!this.isConfigured()) {
       return {
         ok: false,
@@ -96,6 +99,8 @@ export class NimClient {
 
     const targetModel = model || this.defaultModel;
     try {
+      const timeout = AbortSignal.timeout(Number(timeoutMs || 60000));
+      const sig = signal ? AbortSignal.any([signal, timeout]) : timeout;
       const res = await this.fetchFn(`${this.baseUrl}/chat/completions`, {
         method: 'POST',
         headers: {
@@ -109,6 +114,7 @@ export class NimClient {
           temperature,
           max_tokens: maxTokens,
         }),
+        signal: sig,
       });
 
       const data = await res.json().catch(() => ({}));
