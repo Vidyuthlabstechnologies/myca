@@ -1,4 +1,4 @@
-import { closeSync, mkdirSync, openSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { closeSync, mkdirSync, openSync, readFileSync, writeFileSync, renameSync, unlinkSync, existsSync } from 'node:fs';
 import { basename, dirname, extname, isAbsolute, join, normalize, relative } from 'node:path';
 import { tmpdir } from 'node:os';
 import { emptyLedger, freeze, hydrate } from './ledger.mjs';
@@ -226,8 +226,17 @@ export function loadState(path) {
 
 export function saveState(path, state) {
   const safePath = safeStatePath(path);
-  mkdirSync(dirname(safePath), { recursive: true });
-  writeFileSync(safePath, JSON.stringify(serialize(state), null, 2));
+  const dir = dirname(safePath);
+  mkdirSync(dir, { recursive: true });
+  const tempPath = join(dir, `.${basename(safePath)}.${process.pid}.${Date.now()}.${Math.random().toString(36).slice(2)}.tmp`);
+  const text = JSON.stringify(serialize(state), null, 2);
+  try {
+    writeFileSync(tempPath, text, 'utf8');
+    renameSync(tempPath, safePath);
+  } catch (err) {
+    try { unlinkSync(tempPath); } catch {}
+    throw err;
+  }
 }
 
 export function safeStatePath(path) {

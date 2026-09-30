@@ -13,6 +13,7 @@ import { getBook } from './books.mjs';
 import { approvalStatus } from './approvals.mjs';
 import { bookView } from './book-view.mjs';
 import { liveCallsEnabled, mockModeEnabled } from './runtime-config.mjs';
+import { findUser, verifyUserPin, listUsers } from './identity.mjs';
 
 function hydrateAttachments(book, dataDir) {
   book.attachments = book.attachments && typeof book.attachments === 'object' ? book.attachments : {};
@@ -77,6 +78,16 @@ export function openSession(path = defaultDataPath()) {
   state._dataDir = dirname(path);
   hydrateDocuments(state);
   saveState(path, state);
+  let activeUser = null;
+  let sessionExpiresAt = 0;
+  const currentActor = () => {
+    if (activeUser && sessionExpiresAt > Date.now()) {
+      sessionExpiresAt = Date.now() + 30 * 60 * 1000;
+      return activeUser;
+    }
+    activeUser = null;
+    return null;
+  };
   let gate = Promise.resolve();
   const exclusive = (fn) => {
     const run = gate.then(fn, fn);
@@ -87,13 +98,52 @@ export function openSession(path = defaultDataPath()) {
     path,
     state,
     persist() { saveState(path, state); },
+    signIn(userId, pin) {
+      return exclusive(async () => {
+        const user = findUser(state, userId);
+        const verified = verifyUserPin(user, pin);
+        if (!verified.ok) return verified;
+        activeUser = verified.user;
+        sessionExpiresAt = Date.now() + 30 * 60 * 1000;
+        appendAuditEvent(state, {
+          actorId: activeUser.userId,
+          clientId: String(state.activeClientId || 'SELF'),
+          action: 'session.login',
+          beforeHash: stateDigest(state),
+          afterHash: stateDigest(state),
+          metadata: { userId: activeUser.userId, role: activeUser.role },
+        });
+        saveState(path, state);
+        return { ok: true, user: activeUser };
+      });
+    },
+    signOut() {
+      return exclusive(async () => {
+        const prev = activeUser?.userId || 'none';
+        activeUser = null;
+        sessionExpiresAt = 0;
+        appendAuditEvent(state, {
+          actorId: prev,
+          clientId: String(state.activeClientId || 'SELF'),
+          action: 'session.logout',
+          beforeHash: stateDigest(state),
+          afterHash: stateDigest(state),
+          metadata: { prevUser: prev },
+        });
+        saveState(path, state);
+        return { ok: true };
+      });
+    },
+    activeUser() {
+      return currentActor();
+    },
     chat(message) {
       return exclusive(async () => {
         const beforeHash = stateDigest(state);
         const view = toolState(state);
         const out = await chat(view, message);
         appendAuditEvent(state, {
-          actorId: 'renderer',
+          actorId: currentActor()?.userId || 'renderer',
           clientId: String(state.activeClientId || 'SELF'),
           action: 'chat.run',
           beforeHash,
@@ -117,7 +167,7 @@ export function openSession(path = defaultDataPath()) {
         const view = toolState(state);
         const out = await runTool(view, name, args);
         appendAuditEvent(state, {
-          actorId: 'renderer',
+          actorId: currentActor()?.userId || 'renderer',
           clientId: String(state.activeClientId || 'SELF'),
           action: `tool.${name}`,
           beforeHash,
@@ -220,6 +270,8 @@ export function openSession(path = defaultDataPath()) {
           documents: state.documents?.length || 0,
           auditEvents: state.auditEvents?.length || 0,
         },
+        activeUser: currentActor(),
+        users: listUsers(state),
       };
     },
     attachFile(kind, name, content) {
@@ -238,7 +290,7 @@ export function openSession(path = defaultDataPath()) {
         book.files[kind] = String(content ?? '');
         book.pendingFile = { kind, name, sha256: stored.sha256 };
         appendAuditEvent(state, {
-          actorId: 'renderer',
+          actorId: currentActor()?.userId || 'renderer',
           clientId,
           action: 'file.attach',
           beforeHash,

@@ -160,6 +160,16 @@ function handler(req, res) {
     if (!session && url.pathname.startsWith('/api/')) {
       return send(req, res, 503, { error: openError || 'books not open yet' });
     }
+    if (req.method === 'POST' && url.pathname === '/api/session/login') {
+      const { userId, pin } = JSON.parse(await readBody(req) || '{}');
+      return send(req, res, 200, await session.signIn(userId, pin));
+    }
+    if (req.method === 'POST' && url.pathname === '/api/session/logout') {
+      return send(req, res, 200, await session.signOut());
+    }
+    if (req.method === 'GET' && url.pathname === '/api/session/user') {
+      return send(req, res, 200, { ok: true, user: session.activeUser() });
+    }
     if (req.method === 'POST' && url.pathname === '/api/chat') {
       const { message } = JSON.parse(await readBody(req) || '{}');
       return send(req, res, 200, await session.chat(message));

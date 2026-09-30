@@ -18,8 +18,8 @@ owner stays in control of every action that leaves the product.
 
 | | |
 |---|---|
-| Phase | **Phase 0, pilot readiness — 58% complete** ([tracker](docs/superpowers/PROGRESS.md)) |
-| Tests | **695 passing** — platform 366; engines 11 / 11 / 49 / 51 / 68 / 2; statutory rules 137 |
+| Phase | **Phase 0, pilot readiness — 67% complete** ([tracker](docs/superpowers/PROGRESS.md)) |
+| Tests | **704 passing** — platform 375; engines 11 / 11 / 49 / 51 / 68 / 2; statutory rules 137 |
 | Tools | **71** named, schema-validated tools |
 | Audit findings | Critical 4/4 closed · **High 18/18 closed** ([audit](docs/audit/2026-09-21-codebase-audit.md)) |
 | Live portal calls | **Off by default** (`MYCA_ENABLE_LIVE_CALLS=0`) |

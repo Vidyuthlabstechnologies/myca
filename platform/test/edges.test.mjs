@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, mkdtempSync, rmSync, readFileSync, mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, rmSync, readFileSync, mkdirSync, writeFileSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
@@ -1471,4 +1471,50 @@ test('notifications: mock delivery stamps mock flag on message', async () => {
   assert.equal(sent.message.status, 'sent');
   assert.equal(sent.message.mock, true);
   assert.equal(sent.message.providerId, 'mock');
+});
+
+test('store: saveState writes atomically via rename without leaving temp files', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'myca-save-'));
+  const filePath = join(dir, 'state.json');
+  try {
+    const state = createState();
+    saveState(filePath, state);
+    const loaded = loadState(filePath);
+    assert.equal(loaded.company.name, state.company.name);
+    const files = readdirSync(dir);
+    assert.deepEqual(files, ['state.json']);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('shadow harness: diffs computed GSTR-1/3B against filed returns and classifies gaps', async () => {
+  const { runShadowHarness, diffGstr1, diffGstr3b } = await import('../scripts/shadow.mjs');
+  const dir = mkdtempSync(join(tmpdir(), 'myca-shadow-'));
+  const dataPath = join(dir, 'state.json');
+  try {
+    const state = createState();
+    seedDemo(state);
+    saveState(dataPath, state);
+
+    const summary = await runShadowHarness({ dataPath, client: 'SELF' });
+    assert.equal(summary.clientId, 'SELF');
+    assert.equal(summary.gstr1.b2bCount >= 1, true);
+
+    const emptyDiff = diffGstr1(summary.gstr1, null);
+    assert.equal(emptyDiff.match, true);
+
+    const gapDiff = diffGstr1({ b2b: [{ ctin: '27AAACH7409R1Z1', inv: [{ inum: 'INV-1', val: 1000 }] }] }, { b2b: [] });
+    assert.equal(gapDiff.match, false);
+    assert.equal(gapDiff.differences[0].type, 'data_gap');
+
+    const bugDiff = diffGstr1(
+      { b2b: [{ ctin: '27AAACH7409R1Z1', inv: [{ inum: 'INV-1', val: 1000 }] }] },
+      { b2b: [{ ctin: '27AAACH7409R1Z1', inv: [{ inum: 'INV-1', val: 2000 }] }] },
+    );
+    assert.equal(bugDiff.match, false);
+    assert.equal(bugDiff.differences[0].type, 'engine_bug');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
