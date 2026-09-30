@@ -277,6 +277,8 @@ export const TOOL_ARG_SCHEMAS = {
     required: ['invoiceId'],
     properties: {
       invoiceId: { type: 'string', pattern: '^INV-[0-9]{4,}$' },
+      provider: { type: 'string', enum: ['nic', 'sandbox'] },
+      caApprovalId: { type: 'string' },
     },
   },
   integration_readiness: {
@@ -482,6 +484,22 @@ export const TOOL_ARG_SCHEMAS = {
       gstRate: { type: 'number', minimum: 0, maximum: 28 },
     },
   },
+  track_gst_returns: {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      gstin: { type: 'string', maxLength: 15 },
+      financialYear: { type: 'string' },
+      gstr: { type: 'string', maxLength: 10 },
+    },
+  },
+  search_gstin: {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      gstin: { type: 'string', maxLength: 15 },
+    },
+  },
 };
 
 const ASSISTANT_BLOCKED_TOOLS = new Set(['govt_save_credentials', 'govt_set_public_key', 'govt_nic_cancel_irn', 'govt_nic_generate_ewb', 'seed_demo', 'approval_decide', 'set_company', 'add_client', 'set_active_client', 'save_document', 'get_document', 'lock_period', 'unlock_period', 'send_notification', 'test_notification']);
@@ -500,6 +518,8 @@ const TOOL_RISK = {
   sandbox_operation: 'external_government_api',
   approval_request: 'internal_workflow',
   exception_decide: 'internal_workflow',
+  track_gst_returns: 'read_or_prepare',
+  search_gstin: 'read_or_prepare',
 };
 
 export function assistantTools(tools) {
@@ -670,6 +690,12 @@ export function planLocalToolCall(state, message) {
     || text.match(/^([0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][0-9A-Z]Z[0-9A-Z])$/i);
   if (standaloneGstin && !doc) {
     return { kind: 'tool', name: 'validate_gstin', args: { gstin: standaloneGstin[1].toUpperCase() } };
+  }
+
+  const trackQuery = text.match(/\b(?:track\s+returns?|return\s+status|filing\s+status)\b(?:\s+(?:for\s+)?([0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][0-9A-Z]Z[0-9A-Z]))?/i);
+  if (trackQuery) {
+    const gstin = trackQuery[1] ? trackQuery[1].toUpperCase() : undefined;
+    return { kind: 'tool', name: 'track_gst_returns', args: gstin ? { gstin } : {} };
   }
 
   const decisionMatch = text.match(/\b(waive|resolve|reopen|assign)\s+(EXC-\d{6})\b(.*)$/i);

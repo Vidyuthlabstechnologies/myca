@@ -1,6 +1,7 @@
 import { TOOLS, runTool } from './tools.mjs';
 import { planLocalToolCall, validateAssistantToolCall } from './assistant-contract.mjs';
 import { needsConfirmation, previewOf, openPending, takePending, clearPending, previewReply, blockedReply } from './chat-confirm.mjs';
+import { liveCallsEnabled, mockModeEnabled } from './runtime-config.mjs';
 
 function money(n) {
   return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 }).format(Number(n) || 0);
@@ -163,7 +164,7 @@ ${d.hint}` : ''}`;
     }
     return `[NVIDIA NIM · ${d.model}]\n${d.reply}`;
   }
-  if (name === 'validate_gstin') {
+  if (name === 'validate_gstin' || name === 'search_gstin') {
     if (!d.ok) {
       const errList = (d.errors || []).map((e) => (typeof e === 'object' ? (e.message || e.code || JSON.stringify(e)) : String(e))).join(', ');
       return `GSTIN ${d.gstin || ''} is INVALID: ${errList || 'checksum or format invalid'}.`;
@@ -183,6 +184,11 @@ ${d.hint}` : ''}`;
       lines.push(`[Offline check passed; ${d.liveReason}]`);
     }
     return lines.join('\n');
+  }
+  if (name === 'track_gst_returns') {
+    if (!d.ok) return `Track GST returns failed: ${d.error || 'Unknown error'}${d.hint ? ` (${d.hint})` : ''}`;
+    const rows = (d.returns || []).map((r) => `${String(r.rtntype || '').padEnd(8)} ${String(r.ret_prd || '').padEnd(8)} ${String(r.dof || '').padEnd(12)} ${String(r.arn || '').padEnd(18)} ${r.status || 'Filed'}`).join('\n');
+    return `GST return track for ${d.gstin} (${d.financialYear || ''}) — ${d.count} filed return(s):\n${rows || 'No filed returns found.'}${d.mock ? '\n[Mock Data — Simulated Portal Session]' : ''}`;
   }
   if (name === 'govt_save_credentials') {
     return `Saved NIC credentials for ${d.gstin || '(no GSTIN)'} (${d.env}). Secrets are stored encrypted in the ${d.vault || 'local'} vault on this PC.`;
@@ -274,6 +280,15 @@ export async function chat(state, message) {
     };
   }
   if (plan.fallback) {
+    if (liveCallsEnabled() || mockModeEnabled()) {
+      const ask = await runTool(state, 'nim_ask', { prompt: message });
+      if (ask.ok && ask.data?.reply) {
+        return {
+          reply: ask.data.reply,
+          tools: [{ name: 'nim_ask', result: ask }],
+        };
+      }
+    }
     return {
       reply: `I did not match that. ${fmtToolResult('company_profile', result)}\n\nTry “probe govt” or “purchase from Fabrics Co GSTIN 27AABCT1332L1ZE, 2 rolls at 10000, GST 5%”.`,
       tools: [{ name: plan.name, result }],

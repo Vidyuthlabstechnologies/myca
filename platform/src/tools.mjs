@@ -575,9 +575,21 @@ export const TOOLS = [
     name: 'govt_generate_irn',
     title: 'Generate e-invoice IRN',
     description: 'Build NIC Invoice JSON from a posted tax invoice and generate its IRN through the action gate (live switch and a matching CA approval).',
-    args: ['invoiceId'],
+    args: ['invoiceId', 'provider', 'caApprovalId'],
     run: async (state, args = {}) => {
       if (!args.invoiceId) return fail('invoiceId required, e.g. INV-0001');
+      if (args.provider === 'sandbox') {
+        const actor = resolveToolActor(args);
+        const out = await runSandboxOperation({
+          operationId: 'einvoice_generate',
+          actorId: actor.userId,
+          actor,
+          caApprovalId: args.caApprovalId || '',
+          params: { invoiceId: String(args.invoiceId) },
+          clientId: activeClientId(state),
+        }, { state });
+        return out.ok ? ok(out) : fail(out.error, out);
+      }
       return ok(await nicActions.generateIrn(state, String(args.invoiceId), resolveToolActor(args)));
     },
   },
@@ -830,10 +842,40 @@ export const TOOLS = [
     title: 'ITR regime compare',
     description: 'AIS/26AS + income → old vs new regime, TDS credit, payable.',
     run: (state, args = {}) => {
+      let ais = args.aisText || state.files.ais || '';
+      let tds26 = args.tds26Text || state.files.form26as || '';
+      let income = args.incomeText || state.files.income || '';
+      if (!ais || !tds26 || !income) {
+        const docs = listDocuments(state, state.activeClientId || 'SELF');
+        if (docs.ok) {
+          const list = docs.data?.documents || [];
+          if (!ais) {
+            const d = list.find((x) => x.kind === 'ais');
+            if (d) {
+              const res = getDocumentContent(state, state.activeClientId || 'SELF', d.id);
+              if (res.ok) ais = res.data.content;
+            }
+          }
+          if (!tds26) {
+            const d = list.find((x) => x.kind === 'form26as' || x.kind === '26as');
+            if (d) {
+              const res = getDocumentContent(state, state.activeClientId || 'SELF', d.id);
+              if (res.ok) tds26 = res.data.content;
+            }
+          }
+          if (!income) {
+            const d = list.find((x) => x.kind === 'income');
+            if (d) {
+              const res = getDocumentContent(state, state.activeClientId || 'SELF', d.id);
+              if (res.ok) income = res.data.content;
+            }
+          }
+        }
+      }
       const result = filingPrep({
-        aisText: args.aisText || state.files.ais || '',
-        tds26Text: args.tds26Text || state.files.form26as || '',
-        incomeText: args.incomeText || state.files.income || '',
+        aisText: ais,
+        tds26Text: tds26,
+        incomeText: income,
         fy: state.company.fy,
       });
       return ok(result.itr);
@@ -844,7 +886,18 @@ export const TOOLS = [
     title: 'TDS threshold monitor',
     description: 'Flag vendor payments that crossed 194A/C/I/J thresholds.',
     run: (state, args = {}) => {
-      const result = filingPrep({ paymentsText: args.paymentsText || state.files.payments || '', fy: state.company.fy });
+      let payments = args.paymentsText || state.files.payments || '';
+      if (!payments) {
+        const docs = listDocuments(state, state.activeClientId || 'SELF');
+        if (docs.ok) {
+          const d = (docs.data?.documents || []).find((x) => x.kind === 'payments' || x.kind === 'tds');
+          if (d) {
+            const res = getDocumentContent(state, state.activeClientId || 'SELF', d.id);
+            if (res.ok) payments = res.data.content;
+          }
+        }
+      }
+      const result = filingPrep({ paymentsText: payments, fy: state.company.fy });
       return ok(result.tds);
     },
   },
@@ -931,6 +984,26 @@ export const TOOLS = [
       const files = { ...state.files, ...args };
       const purchaseRegister = files.purchaseRegister || purchaseRegisterCsv(state.purchases || []);
       const gstr1 = files.gstr1 || invoicesToSalesCsv(state.invoices || []);
+      if (!files.gstr2b) {
+        const docs = listDocuments(state, state.activeClientId || 'SELF');
+        if (docs.ok) {
+          const doc = (docs.data?.documents || []).find((d) => d.kind === 'gstr2b' || d.kind === 'gstr_2b');
+          if (doc) {
+            const content = getDocumentContent(state, state.activeClientId || 'SELF', doc.id);
+            if (content.ok) files.gstr2b = content.data.content;
+          }
+        }
+      }
+      if (!files.gstr3b) {
+        const docs = listDocuments(state, state.activeClientId || 'SELF');
+        if (docs.ok) {
+          const doc = (docs.data?.documents || []).find((d) => d.kind === 'gstr3b' || d.kind === 'gstr_3b');
+          if (doc) {
+            const content = getDocumentContent(state, state.activeClientId || 'SELF', doc.id);
+            if (content.ok) files.gstr3b = content.data.content;
+          }
+        }
+      }
       if (!files.gstr2b) return fail('Attach a GSTR-2B CSV (dropdown can be unused; attach as gstr2b).');
       if (!files.gstr3b) return fail('Attach GSTR-3B CSV, or ask to prepare GSTR-3B first and export.');
       return ok(reconcile(
@@ -1006,6 +1079,64 @@ export const TOOLS = [
           liveError: String(err.message || err),
         });
       }
+    },
+  },
+  {
+    name: 'search_gstin',
+    title: 'Search GSTIN details',
+    description: 'Look up taxpayer legal name, trade name, active status, taxpayer type, and address via Quicko Sandbox or NIC.',
+    args: ['gstin'],
+    run: async (state, args = {}) => {
+      const gstinVal = args.gstin || state.company?.gstin;
+      if (!gstinVal) return fail('gstin required');
+      const target = TOOLS.find((t) => t.name === 'validate_gstin');
+      return target.run(state, { gstin: gstinVal });
+    },
+  },
+  {
+    name: 'track_gst_returns',
+    title: 'Track GST return filings',
+    description: 'Check official GST return filing status, dates, and ARNs for any GSTIN from the portal.',
+    args: ['gstin', 'financialYear', 'gstr'],
+    run: async (state, args = {}) => {
+      const gstin = String(args.gstin || state.company?.gstin || '').trim().toUpperCase();
+      if (!gstin) return fail('gstin required');
+      const fy = String(args.financialYear || state.company?.fy || '2025-2026').trim();
+      const gstr = args.gstr ? String(args.gstr).trim().toLowerCase() : undefined;
+      if (mockModeEnabled()) {
+        const mockReturns = [
+          { valid: 'Y', mof: 'ONLINE', dof: '10/08/2026', ret_prd: '072026', rtntype: 'GSTR1', arn: 'AA2707260012345', status: 'Filed' },
+          { valid: 'Y', mof: 'ONLINE', dof: '20/08/2026', ret_prd: '072026', rtntype: 'GSTR3B', arn: 'AA2707260054321', status: 'Filed' },
+          { valid: 'Y', mof: 'ONLINE', dof: '11/09/2026', ret_prd: '082026', rtntype: 'GSTR1', arn: 'AA2708260098765', status: 'Filed' },
+          { valid: 'Y', mof: 'ONLINE', dof: '20/09/2026', ret_prd: '082026', rtntype: 'GSTR3B', arn: 'AA2708260043210', status: 'Filed' },
+        ].filter((r) => !gstr || r.rtntype.toLowerCase() === gstr);
+        return ok({
+          ok: true,
+          mock: true,
+          gstin,
+          financialYear: fy,
+          count: mockReturns.length,
+          returns: mockReturns,
+          hint: 'Simulated return track (MYCA_MOCK_MODE=1) — no live GST portal call made.',
+        });
+      }
+      if (!liveCallsEnabled()) {
+        return fail('LIVE_CALLS_DISABLED', { hint: 'Set MYCA_ENABLE_LIVE_CALLS=1 in platform/.env to query live return filing status.' });
+      }
+      const client = getSandboxClient();
+      if (!client.isConfigured()) {
+        return fail('MISSING_SANDBOX_CREDENTIALS', { hint: 'Configure MYCA_GSP_API_KEY and MYCA_GSP_API_SECRET in platform/.env' });
+      }
+      const res = await client.trackGstrs(gstin, fy, gstr);
+      if (!res.ok) return fail(res.error || 'TRACK_RETURNS_FAILED', { status: res.status, provider: res.data });
+      const list = res.data?.data?.EFiledlist || res.data?.EFiledlist || [];
+      return ok({
+        ok: true,
+        gstin,
+        financialYear: fy,
+        count: list.length,
+        returns: list,
+      });
     },
   },
   {

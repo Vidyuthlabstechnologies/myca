@@ -1518,3 +1518,71 @@ test('shadow harness: diffs computed GSTR-1/3B against filed returns and classif
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test('track_gst_returns: tool and chat track filing status', async () => {
+  const state = createState();
+  assert.equal((await runTool(state, 'track_gst_returns', {})).ok, false);
+
+  state.company.gstin = '27AABCU9603R1ZN';
+  const disabled = await runTool(state, 'track_gst_returns', {});
+  assert.equal(disabled.ok, false);
+  assert.equal(disabled.error, 'LIVE_CALLS_DISABLED');
+
+  const originalMock = process.env.MYCA_MOCK_MODE;
+  process.env.MYCA_MOCK_MODE = '1';
+  try {
+    const tracked = await runTool(state, 'track_gst_returns', {});
+    assert.equal(tracked.ok, true);
+    assert.equal(tracked.data.count, 4);
+    assert.equal(tracked.data.returns[0].rtntype, 'GSTR1');
+
+    const gstr3bOnly = await runTool(state, 'track_gst_returns', { gstr: 'gstr3b' });
+    assert.equal(gstr3bOnly.ok, true);
+    assert.equal(gstr3bOnly.data.count, 2);
+
+    const chatTrack = await chat(state, 'track returns');
+    assert.match(chatTrack.reply, /GST return track for 27AABCU9603R1ZN/);
+    assert.match(chatTrack.reply, /GSTR1/);
+  } finally {
+    process.env.MYCA_MOCK_MODE = originalMock;
+  }
+});
+
+test('search_gstin and redundant e-invoice and document auto-discovery', async () => {
+  const state = createState();
+  state.company.gstin = '';
+  assert.equal((await runTool(state, 'search_gstin', {})).ok, false);
+
+  const res = await runTool(state, 'search_gstin', { gstin: '27AABCU9603R1ZN' });
+  assert.equal(res.ok, true);
+  assert.equal(res.data.pan, 'AABCU9603R');
+
+  await runTool(state, 'save_document', {
+    kind: 'payments',
+    fileName: 'tds.csv',
+    content: 'Date,Vendor,PAN,Section,GrossAmount,TDSAmount\n2026-06-01,Acme,ABCDE1234F,194C,500000,10000',
+  });
+  const tdsRes = await runTool(state, 'monitor_tds', {});
+  assert.equal(tdsRes.ok, true);
+  assert.equal(Array.isArray(tdsRes.data), true);
+
+  const originalMock = process.env.MYCA_MOCK_MODE;
+  process.env.MYCA_MOCK_MODE = '1';
+  try {
+    createInvoice(state, {
+      id: 'INV-0001',
+      date: '2026-08-01',
+      partyName: 'Buyer',
+      partyGstin: '27AAACH7409R1Z1',
+      lines: [{ description: 'Item', qty: 1, rate: 1000, gstRate: 18 }],
+    });
+    const sandboxIrn = await runTool(state, 'govt_generate_irn', { invoiceId: 'INV-0001', provider: 'sandbox' });
+    assert.equal(sandboxIrn.ok, true);
+    assert.equal(sandboxIrn.data.mock, true);
+  } finally {
+    process.env.MYCA_MOCK_MODE = originalMock;
+  }
+});
+
+
+
