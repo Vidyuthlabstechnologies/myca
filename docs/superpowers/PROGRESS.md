@@ -1,6 +1,8 @@
 # MyCA: progress tracker
 
-**Phase 0 (pilot readiness) engineering: 58% complete**
+**Phase 0 (pilot readiness) engineering: 67% complete**
+
+**Whole product to a Play Store launch: about 44% complete** (estimate, see the last section)
 
 Last updated 2026-09-27 (after H10 — every Critical and High finding closed). Work now happens directly on the main branch (`claude/codebase-audit-review-9cf396`) with no background workflows. The release, statutory-rules, gate and ledger-integrity lanes are merged in. Suite: platform 362/362, every sprint and rules suite green, `npm run stress` passing.
 
@@ -70,3 +72,18 @@ Finished agents return cached results, and the lane prompts pick up any commits 
 | Gate 2a | `claude/phase0-gate` / `phase0-gate` | `wf_10329df7-c75` | lane script (pass args) |
 | Release 6 | `claude/phase0-release` / `phase0-release` | `wf_905e8fff-1ca` | lane script (pass args) |
 | Integrity 4a | `claude/phase0-integrity` / `phase0-integrity` | `wf_bf61cd90-538` | lane script (pass args) |
+
+## Whole product to a Play Store launch (estimate, added 2026-10-05)
+
+The goal is now an owner-first Android app on the Play Store. The weights below are an engineering estimate, not an approved plan; each phase still needs its own spec.
+
+| Area | Weight | Done | Contribution | Basis |
+|---|---|---|---|---|
+| Hardened core: ledger, engines, gate (Phase 0) | 25 | 67% | 16.8 | Table above |
+| Cloud core: accounts, sync, hosted API, DPDP | 20 | 55% | 11.0 | C0 done. C1 built and tested on local Postgres: phone sign-in, sessions, businesses and roles, the `/v1` API, the engine running per request (37 tests), and the app's hosted mode. File uploads work, so Tally, Zoho and bank imports run when hosted (43 tests). Not deployed; no SMS sender; privacy assessment not started |
+| Pipeline and exception queue | 10 | 30% | 3.0 | Exception queue built; no job pipeline |
+| Android app | 25 | 30% | 7.5 | `mobile/` (Flutter): welcome, brand, sign-in, migration onboarding and later re-import (Tally, Zoho, bank statement), home summary, customer picker, threads with preview and confirm, expenses, taxes, Ask; 18 tests, debug APK builds, checked against the live server. Not yet run on a device; no bill capture, filing pack, notifications or release build |
+| LLM chat agent | 8 | 35% | 2.8 | Tool contracts, keyword router, preview/confirm; no model in the loop |
+| Live filing connections | 7 | 40% | 2.8 | Adapters wired against sandbox; onboarding not started |
+| Play release work: listing, declarations, policy, testing | 5 | 0% | 0 | Not started |
+| **Total** | **100** | | **43.9** | |
