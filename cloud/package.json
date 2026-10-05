@@ -1,0 +1,16 @@
+{
+  "name": "myca-cloud",
+  "version": "0.1.0",
+  "private": true,
+  "description": "MyCA hosted API for the Android app. Runs the platform engines per request against Postgres.",
+  "type": "module",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "test": "node --test \"test/*.test.mjs\"",
+    "migrate": "node src/migrate.mjs",
+    "dev": "node src/server.mjs"
+  },
+  "dependencies": {
+    "pg": "^8.13.0"
+  }
+}
