@@ -1,11 +1,11 @@
 # MyCA — Status
 
-As of the latest commit on the Phase 0 branch. Verification: platform **366/366**,
+As of the working tree on 2026-10-06 (uncommitted). Verification: platform **440/440**,
 engines **329/329** (`11 / 11 / 49 / 51 / 68 / 2` plus **137** statutory-rule tests),
 CI green, end-to-end smoke runs on Windows. "Verified" means covered by tests or an
 actual run — not merely written.
 
-Phase 0 (pilot readiness) is **58% complete**: every Critical (4/4) and High (18/18) audit finding is closed.
+Phase 0 (pilot readiness) is **67% complete**: every Critical (4/4) and High (18/18) audit finding is closed.
 See [`docs/superpowers/PROGRESS.md`](docs/superpowers/PROGRESS.md) for the live tracker
 and [`README.md`](README.md) for what is left and how it is being done.
 
@@ -63,6 +63,11 @@ and [`README.md`](README.md) for what is left and how it is being done.
   Wired: GSTIN verify, return status, GSTR-2B recon job, GSTR-1 save + file (EVC),
   e-invoice authenticate/generate/cancel, taxpayer OTP generate/verify, TDS analytics,
   TDS FVU generate
+- **Ready API Tools**:
+  - `track_gst_returns`: Track filed returns (GSTR-1, GSTR-3B) with dates and ARNs via Sandbox / mock
+  - `search_gstin`: Look up official taxpayer legal name, trade name, active status, type, and address
+  - **Document Store Auto-Discovery**: `gst_reconcile`, `prepare_itr`, and `monitor_tds` discover uploaded client documents automatically when inputs are not passed in command arguments
+  - **Redundant E-Invoicing**: Dual-path e-invoicing supporting direct NIC IRP and Quicko Sandbox GSP with fallback/provider selection
 - `income_tax_calculate` stays fail-closed (`PROVIDER_ENDPOINT_UNDOCUMENTED`): Sandbox
   publishes no stable income-tax calculator path, so `prepare_itr` remains the source of truth
 - **CA approval workflow**: request / decide / consume, maker-checker separation,

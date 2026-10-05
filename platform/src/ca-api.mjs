@@ -2,14 +2,8 @@ import { createHash } from 'node:crypto';
 import { journal, trialBalance } from './ledger.mjs';
 import { createInvoice, createPurchase } from './invoice.mjs';
 import { getBook, canonicalClientId, normalizeClientId, isValidClientId, ensureBooks } from './books.mjs';
-import { putDocument, readVerifiedDocument } from './document-store.mjs';
-
-const DEFAULT_USER = {
-  userId: 'USR-ADMIN',
-  name: 'Firm Admin',
-  role: 'admin',
-  clientIds: ['SELF'],
-};
+import { documentsOf } from './document-store.mjs';
+import { ensureDefaultAdmin, listUsers, addUser, findUser, verifyUserPin } from './identity.mjs';
 
 function jsonHash(value) {
   const json = JSON.stringify(value, (_key, item) => (typeof item === 'bigint' ? item.toString() : item));
@@ -53,7 +47,7 @@ export function ensureCaApiState(state) {
   state.activeClientId = String(state.activeClientId || 'SELF');
   state.outbox = Array.isArray(state.outbox) ? state.outbox : [];
   state.outboxSeq = Number(state.outboxSeq || state.outbox.length || 0);
-  state.firmUsers = Array.isArray(state.firmUsers) && state.firmUsers.length ? state.firmUsers : [DEFAULT_USER];
+  ensureDefaultAdmin(state);
   state.auditEvents = Array.isArray(state.auditEvents) ? state.auditEvents : [];
   state.auditSeq = Number(state.auditSeq || state.auditEvents.length || 0);
   state.documentSeq = Math.max(documentNumber(state.documentSeq || state.documents.length), highestDocumentNumber(state.documents));
@@ -197,7 +191,7 @@ export function uploadDocument(state, clientId, input = {}) {
   const { clientId: id } = requireClient(state, clientId);
   const beforeHash = stateDigest(state);
   const { doc, content } = documentPayload(state, id, input);
-  const stored = putDocument(state._dataDir, content);
+  const stored = documentsOf(state).put(content);
   doc.sha256 = stored.sha256;
   doc.bytes = stored.bytes;
   state.documents.push(doc);
@@ -217,7 +211,7 @@ export function getDocumentContent(state, clientId, documentId) {
   const { clientId: id } = requireClient(state, clientId);
   const doc = state.documents.find((d) => d.documentId === documentId && d.clientId === id);
   if (!doc) return { ok: false, error: 'DOCUMENT_NOT_FOUND' };
-  const read = readVerifiedDocument(state._dataDir, doc.sha256);
+  const read = documentsOf(state).readVerified(doc.sha256);
   if (!read.ok) return { ok: false, error: read.error };
   return { ok: true, data: { ...doc, content: read.content } };
 }
@@ -272,7 +266,7 @@ function handleClientRoute(state, method, client, rest, body) {
   if (method === 'GET' && rest[0] === 'documents' && rest.length === 1) return listDocuments(state, id);
   if (method === 'POST' && rest[0] === 'documents') return uploadDocument(state, id, body);
   if (method === 'GET' && rest[0] === 'access') {
-    return { ok: true, data: { clientId: id, users: state.firmUsers.filter((user) => (user.clientIds || []).includes(id)) } };
+    return { ok: true, data: { clientId: id, users: listUsers(state).filter((user) => (user.clientIds || []).includes(id)) } };
   }
   if (method === 'GET' && rest[0] === 'audit-events') {
     return { ok: true, data: { auditEvents: state.auditEvents.filter((event) => event.clientId === id) } };
@@ -310,7 +304,29 @@ export function handleCaApi(state, method, pathname, body = {}) {
   }
 
   if (method === 'GET' && path === '/users') {
-    return { ok: true, data: { users: state.firmUsers } };
+    return { ok: true, data: { users: listUsers(state) } };
+  }
+
+  if (method === 'POST' && path === '/users') {
+    const beforeHash = stateDigest(state);
+    const out = addUser(state, body, body.pin || '1234');
+    if (!out.ok) return out;
+    appendAuditEvent(state, {
+      actorId: body.actorId || 'api',
+      clientId: 'SELF',
+      action: 'user.create',
+      beforeHash,
+      afterHash: stateDigest(state),
+      metadata: { userId: out.user.userId, role: out.user.role },
+    });
+    return { ok: true, data: out.user };
+  }
+
+  if (method === 'POST' && path === '/users/verify-pin') {
+    const user = findUser(state, body.userId);
+    const verified = verifyUserPin(user, body.pin);
+    if (!verified.ok) return verified;
+    return { ok: true, data: verified.user };
   }
 
   if (method === 'GET' && path === '/audit-events') {

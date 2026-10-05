@@ -18,8 +18,8 @@ owner stays in control of every action that leaves the product.
 
 | | |
 |---|---|
-| Phase | **Phase 0, pilot readiness — 58% complete** ([tracker](docs/superpowers/PROGRESS.md)) |
-| Tests | **695 passing** — platform 366; engines 11 / 11 / 49 / 51 / 68 / 2; statutory rules 137 |
+| Phase | **Phase 0, pilot readiness — 67% complete** ([tracker](docs/superpowers/PROGRESS.md)) |
+| Tests | **704 passing** — platform 375; engines 11 / 11 / 49 / 51 / 68 / 2; statutory rules 137 |
 | Tools | **71** named, schema-validated tools |
 | Audit findings | Critical 4/4 closed · **High 18/18 closed** ([audit](docs/audit/2026-09-21-codebase-audit.md)) |
 | Live portal calls | **Off by default** (`MYCA_ENABLE_LIVE_CALLS=0`) |
@@ -136,7 +136,7 @@ desktop/ (Electron) ── http://127.0.0.1:4780 ──► src/server.mjs
 
 ```bash
 cd platform
-npm test                 # 362 platform tests
+npm test                 # 377 platform tests (706 total with sprint + statutory suites)
 npm run dev              # http://127.0.0.1:4780 (plain node)
 npm start                # Electron window (after: npm i)
 npm run pack             # NSIS + portable installer (after: npm i -D electron electron-builder)

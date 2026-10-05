@@ -1,4 +1,6 @@
-import { normalizeChat, parseDocument, isPurchaseIntent, isSaleIntent, isQuestion, isNegated, ROUTES } from './intent.mjs';
+import { planReceiptWithoutInvoice } from './receipt-intent.mjs';
+import { localToday } from './dates.mjs';
+import { normalizeChat, parseDocument, receiptAmount, receiptDate, isPurchaseIntent, isSaleIntent, isQuestion, isNegated, ROUTES } from './intent.mjs';
 import { confirmationIntent } from './chat-confirm.mjs';
 
 const noArgs = {
@@ -277,6 +279,8 @@ export const TOOL_ARG_SCHEMAS = {
     required: ['invoiceId'],
     properties: {
       invoiceId: { type: 'string', pattern: '^INV-[0-9]{4,}$' },
+      provider: { type: 'string', enum: ['nic', 'sandbox'] },
+      caApprovalId: { type: 'string' },
     },
   },
   integration_readiness: {
@@ -482,6 +486,22 @@ export const TOOL_ARG_SCHEMAS = {
       gstRate: { type: 'number', minimum: 0, maximum: 28 },
     },
   },
+  track_gst_returns: {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      gstin: { type: 'string', maxLength: 15 },
+      financialYear: { type: 'string' },
+      gstr: { type: 'string', maxLength: 10 },
+    },
+  },
+  search_gstin: {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      gstin: { type: 'string', maxLength: 15 },
+    },
+  },
 };
 
 const ASSISTANT_BLOCKED_TOOLS = new Set(['govt_save_credentials', 'govt_set_public_key', 'govt_nic_cancel_irn', 'govt_nic_generate_ewb', 'seed_demo', 'approval_decide', 'set_company', 'add_client', 'set_active_client', 'save_document', 'get_document', 'lock_period', 'unlock_period', 'send_notification', 'test_notification']);
@@ -500,6 +520,8 @@ const TOOL_RISK = {
   sandbox_operation: 'external_government_api',
   approval_request: 'internal_workflow',
   exception_decide: 'internal_workflow',
+  track_gst_returns: 'read_or_prepare',
+  search_gstin: 'read_or_prepare',
 };
 
 export function assistantTools(tools) {
@@ -613,6 +635,13 @@ export function planLocalToolCall(state, message) {
 
   const doc = parseDocument(text);
   const asking = isQuestion(text) || isNegated(text);
+  if (doc && !asking && doc.lines[0].gstRate == null && (isPurchaseIntent(text) || isSaleIntent(text))) {
+    return {
+      kind: 'reply',
+      reply: 'I have not posted anything, because I will not guess the GST rate. Say it again with the rate, for example "invoice Retail Mart 8000 GST 18%". Use GST 0% if none applies.',
+      tools: [],
+    };
+  }
   if (doc && !asking && isPurchaseIntent(text)) return { kind: 'tool', name: 'create_purchase', args: doc };
   if (doc && !asking && isSaleIntent(text)) return { kind: 'tool', name: 'create_invoice', args: doc };
   if (doc && asking && (isPurchaseIntent(text) || isSaleIntent(text))) {
@@ -672,6 +701,12 @@ export function planLocalToolCall(state, message) {
     return { kind: 'tool', name: 'validate_gstin', args: { gstin: standaloneGstin[1].toUpperCase() } };
   }
 
+  const trackQuery = text.match(/\b(?:track\s+returns?|return\s+status|filing\s+status)\b(?:\s+(?:for\s+)?([0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][0-9A-Z]Z[0-9A-Z]))?/i);
+  if (trackQuery) {
+    const gstin = trackQuery[1] ? trackQuery[1].toUpperCase() : undefined;
+    return { kind: 'tool', name: 'track_gst_returns', args: gstin ? { gstin } : {} };
+  }
+
   const decisionMatch = text.match(/\b(waive|resolve|reopen|assign)\s+(EXC-\d{6})\b(.*)$/i);
   if (decisionMatch) {
     const [, verb, id, tail] = decisionMatch;
@@ -719,8 +754,16 @@ export function planLocalToolCall(state, message) {
       const status = inv ? `${invoiceId} is marked ${inv.status}.` : `${invoiceId} is not in these books.`;
       return { kind: 'reply', reply: `${status} I have recorded nothing. To record money received, say "record receipt ${invoiceId}" and confirm the preview.`, tools: [] };
     }
-    return { kind: 'tool', name: 'record_receipt', args: { invoiceId, mode: /cash/i.test(text) ? 'cash' : 'bank' } };
+    const amount = receiptAmount(text);
+    return {
+      kind: 'tool',
+      name: 'record_receipt',
+      args: { invoiceId, mode: /cash/i.test(text) ? 'cash' : 'bank', date: receiptDate(text, localToday()), ...(amount == null ? {} : { amount }) },
+    };
   }
+
+  const receipt = planReceiptWithoutInvoice(state, text);
+  if (receipt) return receipt;
 
   if ((isQuestion(text) || isNegated(text)) && /\b(import|attach|upload|reconcile)\b/i.test(text) && /\b(tally|zoho|bank|statement|xml|csv)\b/i.test(text)) {
     return {

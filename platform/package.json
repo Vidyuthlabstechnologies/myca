@@ -10,6 +10,7 @@
     "start": "electron .",
     "dev": "node src/server.mjs",
     "stress": "node scripts/stress.mjs",
+    "shadow": "node scripts/shadow.mjs",
     "setup:env": "node scripts/setup-env.mjs",
     "check:env": "node scripts/setup-env.mjs --check",
     "pack": "electron-builder --win nsis portable"

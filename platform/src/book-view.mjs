@@ -1,7 +1,7 @@
 export const BOOK_KEYS = new Set([
   'company', 'ledger', 'parties', 'vendors', 'invoices', 'purchases',
   'invoiceSeq', 'billSeq', 'transferSeq', 'imports', 'lockThrough',
-  'files', 'attachments', 'pendingFile', 'pendingChatAction',
+  'files', 'attachments', 'pendingFile', 'pendingChatAction', 'lastConfirmation',
   'exceptions', 'exceptionSeq',
 ]);
 
@@ -9,7 +9,7 @@ export const FIRM_KEYS = new Set([
   'integrationConnections', 'documents', 'documentSeq', 'firmUsers',
   'auditEvents', 'auditSeq', 'clients', 'extraBooks',
   'approvals', 'approvalSeq', 'activeClientId',
-  'outbox', 'outboxSeq', '_dataDir', '_legacyFiles',
+  'outbox', 'outboxSeq', '_dataDir', '_documents', '_legacyFiles',
   'dryRuns', 'dryRunSeq',
 ]);
 
@@ -20,11 +20,13 @@ function ownerOf(root, book, key) {
   return null;
 }
 
-export function bookView(root, book) {
+export function bookView(root, book, context = {}) {
+  const actor = context && context.actor ? Object.freeze({ ...context.actor }) : null;
   return new Proxy(root, {
     get(target, key) {
       if (key === '__root') return target;
       if (key === '__book') return book;
+      if (key === '__actor') return actor;
       const owner = ownerOf(target, book, key);
       return owner ? owner[key] : Reflect.get(target, key);
     },

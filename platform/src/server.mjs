@@ -160,13 +160,45 @@ function handler(req, res) {
     if (!session && url.pathname.startsWith('/api/')) {
       return send(req, res, 503, { error: openError || 'books not open yet' });
     }
+    if (req.method === 'POST' && url.pathname === '/api/session/login') {
+      const { userId, pin } = JSON.parse(await readBody(req) || '{}');
+      return send(req, res, 200, await session.signIn(userId, pin));
+    }
+    if (req.method === 'POST' && url.pathname === '/api/session/logout') {
+      return send(req, res, 200, await session.signOut());
+    }
+    if (req.method === 'GET' && url.pathname === '/api/session/user') {
+      return send(req, res, 200, { ok: true, user: session.activeUser() });
+    }
     if (req.method === 'POST' && url.pathname === '/api/chat') {
       const { message } = JSON.parse(await readBody(req) || '{}');
       return send(req, res, 200, await session.chat(message));
     }
+    if (req.method === 'POST' && url.pathname === '/api/propose') {
+      const { name, args } = JSON.parse(await readBody(req) || '{}');
+      return send(req, res, 200, await session.propose(name, args || {}));
+    }
+    if (req.method === 'POST' && url.pathname === '/api/confirm') {
+      const { token } = JSON.parse(await readBody(req) || '{}');
+      return send(req, res, 200, await session.confirm(token));
+    }
+    if (req.method === 'POST' && url.pathname === '/api/discard') {
+      return send(req, res, 200, await session.discard());
+    }
+    if (req.method === 'POST' && url.pathname === '/api/query') {
+      const { name, args } = JSON.parse(await readBody(req) || '{}');
+      return send(req, res, 200, await session.query(name, args || {}));
+    }
+    if (req.method === 'POST' && url.pathname === '/api/company') {
+      return send(req, res, 200, await session.updateCompany(JSON.parse(await readBody(req) || '{}')));
+    }
     if (req.method === 'POST' && url.pathname === '/api/tool') {
       const { name, args } = JSON.parse(await readBody(req) || '{}');
       return send(req, res, 200, await session.tool(name, args || {}));
+    }
+    if (req.method === 'POST' && url.pathname === '/api/upload') {
+      const { name, content } = JSON.parse(await readBody(req) || '{}');
+      return send(req, res, 200, await session.uploadDocument(name, content));
     }
     if (req.method === 'POST' && url.pathname === '/api/attach') {
       const { kind, name, content } = JSON.parse(await readBody(req) || '{}');

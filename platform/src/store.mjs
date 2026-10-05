@@ -1,4 +1,4 @@
-import { closeSync, mkdirSync, openSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { closeSync, mkdirSync, openSync, readFileSync, writeFileSync, renameSync, unlinkSync, existsSync } from 'node:fs';
 import { basename, dirname, extname, isAbsolute, join, normalize, relative } from 'node:path';
 import { tmpdir } from 'node:os';
 import { emptyLedger, freeze, hydrate } from './ledger.mjs';
@@ -9,6 +9,9 @@ import { ensureCaApiState, renumberDuplicateDocuments } from './ca-api.mjs';
 import { serializeBook, deserializeBook, emptyBooks, normalizeClientId, isValidClientId } from './books.mjs';
 
 import { migrateLegacyBooks } from './govt.mjs';
+import { withoutPin, pinRecords, applyPinRecords } from './identity.mjs';
+import { persistablePending, restoredPending, restoredConfirmation } from './chat-confirm.mjs';
+import { encryptSecret, decryptSecret } from './credential-vault.mjs';
 
 export function defaultDataPath() {
   return migrateLegacyBooks();
@@ -31,6 +34,7 @@ export function createState() {
     files: {},
     attachments: {},
     pendingChatAction: null,
+    lastConfirmation: null,
     exceptions: [],
     exceptionSeq: 0,
     lockThrough: '',
@@ -65,9 +69,11 @@ export function serialize(state) {
     imports: state.imports,
     attachments: state.attachments || {},
     lockThrough: state.lockThrough || '',
+    pendingChatAction: persistablePending(state.pendingChatAction),
+    lastConfirmation: state.lastConfirmation || null,
     integrationConnections: normalizeIntegrationConnections(state.integrationConnections),
     documents: state.documents || [],
-    firmUsers: state.firmUsers || [],
+    firmUsers: (state.firmUsers || []).map(withoutPin),
     auditEvents: state.auditEvents || [],
     auditSeq: state.auditSeq || 0,
     documentSeq: state.documentSeq || 0,
@@ -177,6 +183,8 @@ export function deserialize(raw) {
   state.files = {};
   state.attachments = raw.attachments && typeof raw.attachments === 'object' ? raw.attachments : {};
   state.lockThrough = raw.lockThrough || '';
+  state.pendingChatAction = restoredPending(raw.pendingChatAction);
+  state.lastConfirmation = restoredConfirmation(raw.lastConfirmation);
   // Legacy states embedded raw content in `files`; carry it to a one-shot migration.
   state._legacyFiles = raw.files && typeof raw.files === 'object' ? raw.files : null;
   state.integrationConnections = normalizeIntegrationConnections(raw.integrationConnections);
@@ -207,6 +215,54 @@ function keepPreMigrationCopy(safePath, text, reason) {
   writeFileSync(join(dirname(safePath), name), text);
 }
 
+// PINs are credentials, not books: they live beside the books file, encrypted, so a
+// copy of state.json or a backup never carries them.
+export function pinVaultPath(statePath) {
+  const safePath = safeStatePath(statePath);
+  return join(dirname(safePath), `${basename(safePath, extname(safePath))}.pins`);
+}
+
+function writeAtomically(target, text) {
+  const tempPath = join(dirname(target), `.${basename(target)}.${process.pid}.${Date.now()}.${Math.random().toString(36).slice(2)}.tmp`);
+  try {
+    writeFileSync(tempPath, text, 'utf8');
+    renameSync(tempPath, target);
+  } catch (err) {
+    try { unlinkSync(tempPath); } catch {}
+    throw err;
+  }
+}
+
+const writtenPins = new Map();
+
+// Encrypting costs a key derivation, so the vault is rewritten only when a PIN or a
+// lockout counter actually changed, not on every save of the books.
+function savePinVault(statePath, state) {
+  const records = pinRecords(state);
+  if (Object.keys(records).length === 0) return;
+  const vaultPath = pinVaultPath(statePath);
+  const text = JSON.stringify(records);
+  if (!writtenPins.has(vaultPath)) {
+    const onDisk = loadPinVault(statePath);
+    if (onDisk) writtenPins.set(vaultPath, JSON.stringify(onDisk));
+  }
+  if (writtenPins.get(vaultPath) === text && existsSync(vaultPath)) return;
+  writeAtomically(vaultPath, JSON.stringify({ version: 1, pins: encryptSecret(text) }));
+  writtenPins.set(vaultPath, text);
+}
+
+function loadPinVault(statePath) {
+  const vaultPath = pinVaultPath(statePath);
+  if (!existsSync(vaultPath)) return null;
+  try {
+    const stored = JSON.parse(readFileSync(vaultPath, 'utf8'));
+    const records = JSON.parse(decryptSecret(stored.pins));
+    return records && typeof records === 'object' ? records : null;
+  } catch {
+    return null;
+  }
+}
+
 export function loadState(path) {
   const safePath = safeStatePath(path);
   if (!existsSync(safePath)) return createState();
@@ -218,6 +274,7 @@ export function loadState(path) {
     if (rewritesClients(raw)) keepPreMigrationCopy(safePath, text, 'client-id');
     else if (rewritesDocuments(raw)) keepPreMigrationCopy(safePath, text, 'document-id');
     state._dataDir = dirname(safePath);
+    applyPinRecords(state, loadPinVault(safePath));
     return state;
   } finally {
     closeSync(fd);
@@ -226,8 +283,18 @@ export function loadState(path) {
 
 export function saveState(path, state) {
   const safePath = safeStatePath(path);
-  mkdirSync(dirname(safePath), { recursive: true });
-  writeFileSync(safePath, JSON.stringify(serialize(state), null, 2));
+  const dir = dirname(safePath);
+  mkdirSync(dir, { recursive: true });
+  const tempPath = join(dir, `.${basename(safePath)}.${process.pid}.${Date.now()}.${Math.random().toString(36).slice(2)}.tmp`);
+  const text = JSON.stringify(serialize(state), null, 2);
+  savePinVault(safePath, state);
+  try {
+    writeFileSync(tempPath, text, 'utf8');
+    renameSync(tempPath, safePath);
+  } catch (err) {
+    try { unlinkSync(tempPath); } catch {}
+    throw err;
+  }
 }
 
 export function safeStatePath(path) {

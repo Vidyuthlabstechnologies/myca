@@ -80,13 +80,39 @@ function headers(cfg, authToken, extra = {}) {
   };
 }
 
-let session = { env: '', token: '', sek: '', expiresAt: 0 };
+const NO_SESSION = Object.freeze({ env: '', token: '', sek: '', expiresAt: 0 });
+const MAX_SESSIONS = 256;
+const sessions = new Map();
 
-export function clearNicSession() {
-  session = { env: '', token: '', sek: '', expiresAt: 0 };
+function envOf(cfg) {
+  return cfg?.env === 'production' ? 'production' : 'sandbox';
 }
 
-export function nicSession() {
+// An IRP session belongs to the taxpayer whose credentials opened it. Holding one
+// per set of credentials means no other GSTIN can ever be sent under it.
+export function nicSessionKey(cfg = {}) {
+  return createHash('sha256')
+    .update([envOf(cfg), cfg.clientId, cfg.username, cfg.gstin].map((part) => String(part ?? '').trim()).join('\n'))
+    .digest('hex');
+}
+
+function sessionFor(cfg) {
+  return sessions.get(nicSessionKey(cfg)) || NO_SESSION;
+}
+
+function rememberSession(cfg, session) {
+  const key = nicSessionKey(cfg);
+  sessions.delete(key);
+  sessions.set(key, session);
+  while (sessions.size > MAX_SESSIONS) sessions.delete(sessions.keys().next().value);
+}
+
+export function clearNicSession() {
+  sessions.clear();
+}
+
+export function nicSession(cfg = loadGovtConfig()) {
+  const session = sessionFor(cfg);
   return { active: Boolean(session.token) && session.expiresAt > Date.now(), env: session.env, expiresAt: session.expiresAt };
 }
 
@@ -153,12 +179,12 @@ export async function nicAuthenticate(cfg = loadGovtConfig(), fetchFn = fetch, o
     } catch {
       return { ok: false, error: 'INVALID_SEK', status: res.status, url, env };
     }
-    session = {
+    rememberSession(cfg, {
       env,
       token: data.AuthToken,
       sek,
       expiresAt: data.TokenExpiry ? Date.parse(data.TokenExpiry) || (Date.now() + 60 * 60 * 1000) : Date.now() + 60 * 60 * 1000,
-    };
+    });
   }
   return {
     ok,
@@ -192,9 +218,10 @@ async function call(cfg, fetchFn, options, { method = 'POST', path, body, needsA
   if (!liveCallsEnabled() && !options.allowLive) {
     return { ok: false, error: 'LIVE_CALLS_DISABLED', hint: 'Set MYCA_ENABLE_LIVE_CALLS=1 to call the NIC IRP.' };
   }
+  const session = sessionFor(cfg);
   let token = session.token;
   let sek = session.sek;
-  if (needsAuth && (!token || session.expiresAt <= Date.now() || session.env !== (cfg.env === 'production' ? 'production' : 'sandbox'))) {
+  if (needsAuth && (!token || session.expiresAt <= Date.now() || session.env !== envOf(cfg))) {
     const auth = await nicAuthenticate(cfg, fetchFn, options);
     if (!auth.ok) return { ok: false, error: 'AUTH_FAILED', auth };
     token = auth.token;
