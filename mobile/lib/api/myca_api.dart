@@ -34,14 +34,14 @@ void checkUploadSize(String content) {
   if (content.length > maxUploadBytes) throw const MycaApiException('That file is larger than 8 MB. Export a shorter period and try again.');
 }
 
-Future<Today> loadToday(MycaApi api) async {
+Future<Today> loadToday(MycaApi api, {String? period}) async {
   final results = await Future.wait([
-    api.query('gst_payable'),
+    api.query('gst_period_summary', {'period': ?period}),
     api.query('deadlines'),
     api.query('exceptions'),
   ]);
   return Today(
-    gst: gstFrom(results[0]),
+    gst: periodGstFrom(results[0]),
     deadlines: deadlinesFrom(results[1]),
     exceptions: exceptionsFrom(results[2]),
   );

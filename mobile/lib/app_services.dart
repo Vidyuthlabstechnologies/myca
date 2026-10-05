@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -48,6 +49,17 @@ class PickedText {
 }
 
 typedef PickTextFile = Future<PickedText?> Function(List<String> extensions);
+
+typedef SaveTextFile = Future<bool> Function(String name, String content);
+
+Future<bool> saveTextFileOnDevice(String name, String content) async {
+  final saved = await FilePicker.saveFile(
+    fileName: name,
+    bytes: Uint8List.fromList(utf8.encode(content)),
+    mimeType: 'application/json',
+  );
+  return saved != null;
+}
 
 Future<PickedText?> pickTextFileFromDevice(List<String> extensions) async {
   final files = await FilePicker.pickFiles(

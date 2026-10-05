@@ -56,7 +56,7 @@ Future<void> main() async {
   check('new books are empty and named', opening.company.name == 'Live Check Traders' && opening.invoices.isEmpty);
 
   final today = await loadToday(api);
-  check('taxes load', today.gst != null, today.gst == null ? '' : rupees(today.gst!.payable));
+  check('taxes load', today.gst != null, today.gst == null ? '' : '${monthLabel(today.gst!.period)}: ${rupees(today.gst!.outputTax.total)}');
   stdout.writeln('needs you: ${needsYou(today).length}, coming up: ${comingUp(today).length}');
 
   final sale = documentArgs(partyName: 'Kiran Stores', partyGstin: '', description: '', amount: 8000, gstRate: 18);
@@ -67,8 +67,8 @@ Future<void> main() async {
   check('confirmed sale posts once', posted.posted && replay.posted && replay.reply == posted.reply, posted.reply);
   final after = await api.snapshot();
   check('sale is in the books', after.invoices.length == 1 && after.invoices.single.total == 9440, lastEntryLine(after.invoices.single, RegisterKind.sales));
-  final payable = (await loadToday(api)).gst;
-  check('GST payable moved by the tax on the sale', payable != null && payable.payable - today.gst!.payable == 1440);
+  final afterSale = (await loadToday(api)).gst;
+  check('tax on sales for the period moved by the tax on the sale', afterSale != null && afterSale.outputTax.total - today.gst!.outputTax.total == 1440 && afterSale.salesCount == 1);
 
   check('an import with inline content is refused', await refused(() => api.propose('import_bank', {'content': 'x', 'type': 'csv'})));
   final statement = await api.upload('bank.csv', 'Date,Narration,Withdrawal,Deposit,Balance\n01-08-2026,UPI rent,100,,900\n02-08-2026,NEFT sale,,500,1400\n');

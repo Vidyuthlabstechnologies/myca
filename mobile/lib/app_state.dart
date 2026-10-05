@@ -6,12 +6,15 @@ import 'app_services.dart';
 import 'cloud/cloud_session.dart';
 import 'lock/app_lock.dart';
 
+Future<bool> _cannotSave(String name, String content) async => false;
+
 class AppState extends ChangeNotifier {
   AppState({
     MycaApi? api,
     this.cloud,
     required this.store,
     required this.pickTextFile,
+    this.saveTextFile = _cannotSave,
     this.lock = const NoAppLock(),
     this.now = DateTime.now,
   }) : api = api ?? cloud!.api;
@@ -20,6 +23,7 @@ class AppState extends ChangeNotifier {
   final CloudSession? cloud;
   final OnboardingStore store;
   final PickTextFile pickTextFile;
+  final SaveTextFile saveTextFile;
   final AppLock lock;
   final DateTime Function() now;
 
