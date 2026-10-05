@@ -5,7 +5,9 @@ import '../app_state.dart';
 import '../marks.dart';
 import '../theme.dart';
 import '../widgets.dart';
+import 'businesses_screen.dart';
 import 'migration_flow.dart';
+import 'people_screen.dart';
 
 Future<void> showBusinessSheet(BuildContext context, Snapshot snapshot) {
   final navigator = Navigator.of(context);
@@ -35,6 +37,33 @@ Future<void> showBusinessSheet(BuildContext context, Snapshot snapshot) {
               if (user != null)
                 Text('Signed in as ${user.name}', style: text.bodyMedium),
               const SizedBox(height: 18),
+              if (state.cloud != null) ...[
+                Panel(
+                  children: [
+                    RowCard(
+                      leading: const TintTile(tint: Tint.ask, mark: Mark.people),
+                      title: 'People',
+                      subtitle: 'Who can work in these books',
+                      trailing: const Chevron(),
+                      onTap: () {
+                        navigator.pop();
+                        navigator.push(MaterialPageRoute<void>(builder: (_) => const PeopleScreen()));
+                      },
+                    ),
+                    RowCard(
+                      leading: const TintTile(tint: Tint.ask, mark: Mark.switchBooks),
+                      title: 'Your businesses',
+                      subtitle: 'Switch business or answer an invitation',
+                      trailing: const Chevron(),
+                      onTap: () {
+                        navigator.pop();
+                        navigator.push(MaterialPageRoute<void>(builder: (_) => const BusinessesScreen()));
+                      },
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+              ],
                 Material(
                   color: Palette.surface,
                   shape: RoundedRectangleBorder(

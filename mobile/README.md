@@ -22,7 +22,8 @@ one-use token; nothing posts until that token is confirmed.
 | `lib/migration.dart` | Where-are-your-books paths and the imports each one offers |
 | `lib/attention.dart` | Ordering of "Needs you" and "Coming up" |
 | `lib/proposal_flow.dart` | Shared preview, post and discard behaviour |
-| `lib/screens/` | Welcome, sign-in, migration, home, business menu, customer picker, register, party thread, expense, taxes, Ask |
+| `lib/screens/` | Welcome, sign-in, migration, home, business menu, customer picker, register, party thread, expense, taxes, Ask; in hosted mode also phone sign-in, name, business setup, people and invitations, switching business |
+| `lib/cloud/` | Hosted session: tokens, refresh, businesses, people |
 | `test/` | Unit and widget tests against a fake API |
 | `tool/live_check.dart` | Contract check against a running MyCA server |
 | `tool/screenshots_test.dart` | Renders every screen to `tool/screens/*.png` |

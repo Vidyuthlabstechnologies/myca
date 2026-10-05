@@ -21,6 +21,8 @@ enum Mark {
   urgent,
   dueSoon,
   comingUp,
+  people,
+  switchBooks,
 }
 
 class MarkIcon extends StatelessWidget {
@@ -226,6 +228,16 @@ class _MarkPainter extends CustomPainter {
         _seg(canvas, 3.75, 10, 20.25, 10);
         _seg(canvas, 8, 3.2, 8, 7);
         _seg(canvas, 16, 3.2, 16, 7);
+      case Mark.people:
+        canvas.drawCircle(const Offset(9, 8.2), 3.2, _line);
+        canvas.drawArc(const Rect.fromLTRB(3, 13.5, 15, 25.5), math.pi, math.pi, false, _line);
+        canvas.drawArc(const Rect.fromLTRB(13.2, 5.2, 19.2, 11.2), -math.pi / 2, math.pi, false, _line);
+        canvas.drawArc(const Rect.fromLTRB(12.5, 13.5, 21, 25.5), -math.pi / 2, math.pi / 2, false, _line);
+      case Mark.switchBooks:
+        _path(canvas, [4, 8.5, 20, 8.5]);
+        _path(canvas, [16.2, 4.7, 20, 8.5, 16.2, 12.3]);
+        _path(canvas, [20, 15.5, 4, 15.5]);
+        _path(canvas, [7.8, 11.7, 4, 15.5, 7.8, 19.3]);
     }
   }
 

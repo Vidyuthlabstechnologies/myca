@@ -4,6 +4,7 @@ import '../api/myca_api.dart';
 import '../app_state.dart';
 import '../cloud/cloud_session.dart';
 import '../migration.dart';
+import 'invitation_cards.dart';
 import '../theme.dart';
 
 class BusinessSetupScreen extends StatefulWidget {
@@ -17,6 +18,7 @@ class _BusinessSetupScreenState extends State<BusinessSetupScreen> {
   final _name = TextEditingController();
   final _gstin = TextEditingController();
   Future<List<StateRef>>? _states;
+  Future<Me>? _me;
   String? _state;
   String _error = '';
   bool _busy = false;
@@ -25,6 +27,7 @@ class _BusinessSetupScreenState extends State<BusinessSetupScreen> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     _states ??= AppScope.of(context).cloud!.states();
+    _me ??= AppScope.of(context).cloud!.me();
   }
 
   @override
@@ -32,6 +35,14 @@ class _BusinessSetupScreenState extends State<BusinessSetupScreen> {
     _name.dispose();
     _gstin.dispose();
     super.dispose();
+  }
+
+  Future<void> _answered({required bool joined}) async {
+    final state = AppScope.of(context);
+    if (joined) return state.refresh();
+    setState(() {
+      _me = state.cloud!.me();
+    });
   }
 
   bool get _registered => _gstin.text.trim().isNotEmpty;
@@ -84,6 +95,24 @@ class _BusinessSetupScreenState extends State<BusinessSetupScreen> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
           children: [
+            FutureBuilder<Me>(
+              future: _me,
+              builder: (context, loaded) {
+                final invitations = loaded.data?.invitations ?? const <InvitationRef>[];
+                if (invitations.isEmpty) return const SizedBox.shrink();
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text('You have been invited', style: text.headlineMedium),
+                    const SizedBox(height: 14),
+                    InvitationCards(invitations: invitations, onChanged: _answered),
+                    const SizedBox(height: 10),
+                    const Divider(),
+                    const SizedBox(height: 18),
+                  ],
+                );
+              },
+            ),
             Text('Tell us about the business', style: text.headlineMedium),
             const SizedBox(height: 6),
             Text(

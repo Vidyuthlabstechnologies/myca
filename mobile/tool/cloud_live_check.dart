@@ -88,6 +88,25 @@ Future<void> main() async {
   final theirs = await bala.api.snapshot();
   check('their books are separate', theirs.invoices.isEmpty && theirs.company.name == 'Other Stores');
 
+  await asha.setName('Asha');
+  await asha.invite('985$suffix', 'accountant');
+  final pendingForOwner = await asha.people();
+  check('the owner sees the open invitation', pendingForOwner.invites.length == 1 && pendingForOwner.invites.single.role == 'accountant');
+  check('an invalid number cannot be invited', await refused(() => asha.invite('12345', 'staff')));
+
+  final ravi = await signIn('985$suffix', MemoryTokenStore());
+  final raviMe = await ravi.me();
+  check('the invited person sees it after signing in', raviMe.invitations.length == 1 && raviMe.invitations.single.invitedBy == 'Asha' && !ravi.ready);
+  check('the uninvited owner sees no invitation', (await bala.me()).invitations.isEmpty);
+  await ravi.respondToInvitation(raviMe.invitations.single.id, accept: true);
+  final shared = await ravi.api.snapshot();
+  check('after joining they open the same books', ravi.ready && shared.company.name == 'Live Check Traders' && shared.activeUser?.role == 'accountant');
+  check('an accountant cannot invite', await refused(() => ravi.invite('984$suffix', 'staff')));
+
+  final joined = (await asha.people()).members.firstWhere((m) => m.role == 'accountant');
+  await asha.removeMember(joined.id);
+  check('removal ends access at once', await refused(() => ravi.api.snapshot()));
+
   await asha.signOut();
   check('signing out ends the session on the server', await refused(() => restarted.api.snapshot()));
   exit(_failures == 0 ? 0 : 1);

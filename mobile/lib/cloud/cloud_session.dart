@@ -19,6 +19,14 @@ const _messages = {
   'STATE_REQUIRED': 'Choose the state your business is in.',
   'INVALID_STATE_CODE': 'Choose the state your business is in.',
   'OWNER_ONLY': 'Only the owner can change this.',
+  'INVALID_ROLE': 'Choose staff or accountant.',
+  'ALREADY_A_MEMBER': 'That person is already in this business.',
+  'TOO_MANY_INVITATIONS': 'There are too many open invitations. Cancel one first.',
+  'INVITATION_NOT_FOUND': 'That invitation is no longer open.',
+  'INVITATION_EXPIRED': 'That invitation has expired. Ask to be invited again.',
+  'MEMBER_NOT_FOUND': 'That person is no longer in this business.',
+  'LAST_OWNER': 'A business must keep at least one owner.',
+  'NAME_REQUIRED': 'Enter your name.',
   'BUSINESS_NOT_FOUND': 'This business is no longer available to you.',
   'IMPORT_NEEDS_UPLOAD': 'That file has to be uploaded before it can be imported.',
   'BODY_TOO_LARGE': 'That file is larger than 8 MB. Export a shorter period and try again.',
@@ -35,6 +43,53 @@ class BusinessRef {
   final String name;
   final String role;
 }
+
+class InvitationRef {
+  const InvitationRef({required this.id, required this.businessName, required this.role, required this.invitedBy});
+
+  final String id;
+  final String businessName;
+  final String role;
+  final String invitedBy;
+}
+
+class MemberRef {
+  const MemberRef({required this.id, required this.name, required this.role});
+
+  final String id;
+  final String name;
+  final String role;
+}
+
+class OpenInvite {
+  const OpenInvite({required this.id, required this.phoneHint, required this.role});
+
+  final String id;
+  final String phoneHint;
+  final String role;
+}
+
+class People {
+  const People({required this.members, required this.invites});
+
+  final List<MemberRef> members;
+  final List<OpenInvite> invites;
+}
+
+class Me {
+  const Me({required this.id, required this.name, required this.businesses, required this.invitations});
+
+  final String id;
+  final String name;
+  final List<BusinessRef> businesses;
+  final List<InvitationRef> invitations;
+}
+
+List<Map<String, dynamic>> _rows(Object? value) => [
+      if (value is List)
+        for (final row in value)
+          if (row is Map) row.cast<String, dynamic>(),
+    ];
 
 class StateRef {
   const StateRef({required this.code, required this.name});
@@ -73,6 +128,8 @@ class CloudSession {
   bool get signedIn => _refresh != null;
   bool get ready => signedIn && _businessId != null;
   bool get awaitingCode => _challengeId != null;
+  bool needsName = false;
+  String? get businessId => _businessId;
   late final MycaApi api = _CloudBooksApi(this);
 
   Future<void> restore() async {
@@ -200,6 +257,8 @@ class CloudSession {
     }
     await _keep(body);
     _challengeId = null;
+    final user = body['user'];
+    needsName = user is Map && '${user['name'] ?? ''}'.trim().isEmpty;
     final mine = await businesses();
     if (mine.isNotEmpty) await _choose(mine.first.id);
   }
@@ -259,6 +318,67 @@ class CloudSession {
       // Signing out must always work on the phone, even with no connection.
     }
     await _forget();
+  }
+
+  Future<Me> me() async {
+    final body = await call('GET', '/v1/me');
+    final user = body['user'];
+    return Me(
+      id: user is Map ? '${user['id']}' : '',
+      name: user is Map ? '${user['name'] ?? ''}' : '',
+      businesses: [
+        for (final row in _rows(body['businesses'])) BusinessRef(id: '${row['id']}', name: '${row['name']}', role: '${row['role']}'),
+      ],
+      invitations: [
+        for (final row in _rows(body['invitations']))
+          InvitationRef(
+            id: '${row['id']}',
+            businessName: '${row['businessName']}',
+            role: '${row['role']}',
+            invitedBy: '${row['invitedBy'] ?? ''}',
+          ),
+      ],
+    );
+  }
+
+  Future<void> setName(String name) async {
+    final body = await call('PATCH', '/v1/me', {'name': name});
+    if (body['ok'] == false) throw MycaApiException(cloudMessage('${body['error']}'));
+    needsName = false;
+  }
+
+  Future<void> switchBusiness(String id) => _choose(id);
+
+  Future<void> respondToInvitation(String id, {required bool accept}) async {
+    final body = await call('POST', '/v1/invitations/$id/${accept ? 'accept' : 'decline'}');
+    final business = body['business'];
+    if (accept && business is Map) await _choose('${business['id']}');
+  }
+
+  Future<People> people() async {
+    final body = await call('GET', '$_books/members');
+    return People(
+      members: [
+        for (final row in _rows(body['members'])) MemberRef(id: '${row['id']}', name: '${row['name'] ?? ''}', role: '${row['role']}'),
+      ],
+      invites: [
+        for (final row in _rows(body['invitations'])) OpenInvite(id: '${row['id']}', phoneHint: '${row['phoneHint']}', role: '${row['role']}'),
+      ],
+    );
+  }
+
+  Future<void> invite(String phone, String role) => call('POST', '$_books/invitations', {'phone': phone, 'role': role});
+
+  Future<void> revokeInvitation(String id) => call('DELETE', '$_books/invitations/$id');
+
+  Future<void> removeMember(String userId) => call('DELETE', '$_books/members/$userId');
+
+  Future<void> leaveBusiness(String userId) async {
+    await removeMember(userId);
+    _businessId = null;
+    await tokens.delete(_businessKey);
+    final mine = await businesses();
+    if (mine.isNotEmpty) await _choose(mine.first.id);
   }
 
   String get _books {

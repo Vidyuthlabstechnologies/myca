@@ -138,6 +138,12 @@ void main() {
     await tester.tap(find.text('Sign in'));
     await tester.pumpAndSettle();
 
+    expect(find.text('What should we call you?'), findsOneWidget);
+    await tester.enterText(find.byType(TextField), 'Asha');
+    await tester.tap(find.text('Continue'));
+    await tester.pumpAndSettle();
+    expect(cloud.userName, 'Asha');
+
     expect(find.text('Tell us about the business'), findsOneWidget);
     await tester.enterText(find.widgetWithText(TextField, 'Business name'), 'Asha Traders');
     await tester.tap(find.text('Continue'));
@@ -193,6 +199,90 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Your mobile number'), findsOneWidget);
     expect(tokens.values, isEmpty);
+  });
+
+  testWidgets('hosted: an owner invites an accountant, sees it pending, and cancels it', (tester) async {
+    final cloud = FakeCloud()..userName = 'Asha';
+    final tokens = MemoryTokenStore();
+    final first = await signedIn(cloud, tokens);
+    await first.createBusiness(name: 'Asha Traders', state: '29');
+    cloud.members.add({'id': 'u2', 'name': 'Ravi', 'role': 'staff'});
+    final state = AppState(
+      cloud: sessionOn(cloud, tokens),
+      store: MemoryOnboardingStore(isWelcomed: true, isMigrated: true),
+      pickTextFile: (_) async => null,
+    );
+    await tester.pumpWidget(MycaApp(state: state));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Your business'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('People'));
+    await tester.pumpAndSettle();
+    expect(find.text('Asha (you)'), findsOneWidget);
+    expect(find.text('Ravi'), findsOneWidget);
+
+    await tester.tap(find.text('Invite someone'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), '12345');
+    await tester.tap(find.text('Invite'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('10-digit'), findsOneWidget);
+    await tester.enterText(find.byType(TextField), '98765 43210');
+    await tester.tap(find.widgetWithText(ChoiceChip, 'Accountant'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Invite'));
+    await tester.pumpAndSettle();
+    expect(cloud.invited, ['9876543210:accountant']);
+    await tester.pumpAndSettle();
+    expect(find.text('Number ending 210'), findsOneWidget);
+    expect(find.text('Number ending 210'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(TextButton, 'Cancel'));
+    await tester.pumpAndSettle();
+    expect(find.text('Number ending 210'), findsNothing);
+
+    await tester.tap(find.widgetWithText(TextButton, 'Remove'));
+    await tester.pumpAndSettle();
+    expect(cloud.removed, isEmpty, reason: 'nothing is removed before confirming');
+    await tester.tap(find.widgetWithText(TextButton, 'Remove').last);
+    await tester.pumpAndSettle();
+    expect(cloud.removed, ['u2']);
+    expect(find.text('Ravi'), findsNothing);
+  });
+
+  testWidgets('hosted: an invited person signs in, joins, and lands in that business', (tester) async {
+    final cloud = FakeCloud()
+      ..userName = 'Ravi'
+      ..myInvitations.add({'id': 'inv-9', 'businessName': 'Asha Traders', 'role': 'accountant', 'invitedBy': 'Asha'});
+    final state = AppState(
+      cloud: sessionOn(cloud),
+      store: MemoryOnboardingStore(isWelcomed: true, isMigrated: true),
+      pickTextFile: (_) async => null,
+    );
+    await tester.pumpWidget(MycaApp(state: state));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), '9876543210');
+    await tester.tap(find.text('Send code'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), FakeCloud.code);
+    await tester.tap(find.text('Sign in'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('What should we call you?'), findsNothing, reason: 'a named user is not asked again');
+    expect(find.text('You have been invited'), findsOneWidget);
+    expect(find.text('Asha invited you as accountant.'), findsOneWidget);
+    expect(find.text('Tell us about the business'), findsOneWidget, reason: 'they can still set up their own');
+    await tester.tap(find.text('Join'));
+    await tester.pumpAndSettle();
+    expect(find.text('Asha Traders'), findsOneWidget);
+    expect(find.text('YOUR BOOKS'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Your business'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('People'));
+    await tester.pumpAndSettle();
+    expect(find.text('Invite someone'), findsNothing, reason: 'only owners invite');
+    expect(find.widgetWithText(TextButton, 'Leave'), findsOneWidget);
   });
 
   testWidgets('hosted: when the session dies mid-use the app returns to sign-in', (tester) async {

@@ -27,7 +27,9 @@ class _TaxesScreenState extends State<TaxesScreen> {
 
   Future<void> _reload() async {
     final next = loadToday(AppScope.of(context).api);
-    setState(() => _today = next);
+    setState(() {
+      _today = next;
+    });
     try {
       await next;
     } on MycaApiException {

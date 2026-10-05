@@ -13,6 +13,13 @@ class FakeCloud {
   final invoices = <Map<String, Object?>>[];
   final uploads = <String, String>{};
   final imports = <String>[];
+  final myInvitations = <Map<String, Object?>>[];
+  final members = <Map<String, Object?>>[];
+  final openInvites = <Map<String, Object?>>[];
+  final invited = <String>[];
+  final removed = <String>[];
+  String userName = '';
+  String role = 'owner';
   Map<String, Object?> company = const {};
   int tokenSerial = 0;
   String access = '';
@@ -46,7 +53,7 @@ class FakeCloud {
     }
     if (path == '/v1/auth/verify') {
       if (body['code'] != code) return _json(400, {'ok': false, 'error': 'INVALID_CODE', 'attemptsRemaining': 4});
-      return _json(200, {..._issue(), 'user': {'id': 'u1', 'name': '', 'isNew': businesses.isEmpty}});
+      return _json(200, {..._issue(), 'user': {'id': 'u1', 'name': userName, 'isNew': businesses.isEmpty}});
     }
     if (path == '/v1/auth/refresh') {
       refreshes += 1;
@@ -65,6 +72,30 @@ class FakeCloud {
     if (path == '/v1/auth/logout') {
       logouts += 1;
       return _json(200, {'ok': true});
+    }
+    if (path == '/v1/me' && request.method == 'GET') {
+      return _json(200, {
+        'ok': true,
+        'user': {'id': 'u1', 'name': userName},
+        'businesses': businesses,
+        'invitations': myInvitations,
+      });
+    }
+    if (path == '/v1/me' && request.method == 'PATCH') {
+      userName = '${body['name']}'.trim();
+      return _json(200, {'ok': true, 'name': userName});
+    }
+    final answer = RegExp(r'^/v1/invitations/([^/]+)/(accept|decline)$').firstMatch(path);
+    if (answer != null) {
+      final found = myInvitations.where((i) => i['id'] == answer.group(1)).toList();
+      if (found.isEmpty) return _json(404, {'ok': false, 'error': 'INVITATION_NOT_FOUND'});
+      myInvitations.remove(found.single);
+      if (answer.group(2) == 'decline') return _json(200, {'ok': true, 'declined': true});
+      role = '${found.single['role']}';
+      company = {'name': found.single['businessName'], 'gstin': '', 'state': '29'};
+      final joined = {'id': businessId, 'name': found.single['businessName'], 'gstin': '', 'role': role};
+      businesses.add(joined);
+      return _json(200, {'ok': true, 'business': joined});
     }
     if (path == '/v1/businesses' && request.method == 'GET') return _json(200, {'ok': true, 'businesses': businesses});
     if (path == '/v1/businesses' && request.method == 'POST') {
@@ -86,14 +117,42 @@ class FakeCloud {
       });
     }
     final books = '/v1/businesses/$businessId';
+    if (path == '$books/members' && request.method == 'GET') {
+      return _json(200, {
+        'ok': true,
+        'members': [
+          {'id': 'u1', 'name': userName, 'role': role},
+          ...members,
+        ],
+        'invitations': role == 'owner' ? openInvites : const <Object?>[],
+      });
+    }
+    if (path == '$books/invitations' && request.method == 'POST') {
+      final phone = '${body['phone']}'.replaceAll(' ', '');
+      if (!RegExp(r'^(\+91)?[6-9]\d{9}$').hasMatch(phone)) return _json(400, {'ok': false, 'error': 'INVALID_PHONE'});
+      invited.add('$phone:${body['role']}');
+      final open = {'id': 'inv-${invited.length}', 'phoneHint': 'xxxxxxx${phone.substring(phone.length - 3)}', 'role': body['role']};
+      openInvites.add(open);
+      return _json(200, {'ok': true, 'invitation': open});
+    }
+    if (path.startsWith('$books/invitations/') && request.method == 'DELETE') {
+      openInvites.removeWhere((i) => path.endsWith('/${i['id']}'));
+      return _json(200, {'ok': true});
+    }
+    if (path.startsWith('$books/members/') && request.method == 'DELETE') {
+      final id = path.split('/').last;
+      removed.add(id);
+      members.removeWhere((m) => m['id'] == id);
+      return _json(200, {'ok': true});
+    }
     if (path == '$books/snapshot') {
       return _json(200, {
         'ok': true,
         'company': company,
         'invoices': invoices,
         'purchases': const <Object?>[],
-        'role': 'owner',
-        'user': {'id': 'u1', 'name': 'Asha'},
+        'role': role,
+        'user': {'id': 'u1', 'name': userName.isEmpty ? 'Asha' : userName},
       });
     }
     if (path == '$books/query') {
