@@ -71,6 +71,12 @@ flutter run --dart-define=MYCA_CLOUD_URL=http://127.0.0.1:8080
 dart run -DMYCA_CLOUD_URL=http://127.0.0.1:8080 -DMYCA_DEV_OTP_LOG=<server log file> tool/cloud_live_check.dart
 ```
 
+In hosted mode the app locks itself: on opening, and after two minutes away, it asks
+for the phone's fingerprint, face or screen lock before showing or fetching anything.
+It can be turned off from the business menu, which itself needs the lock. The lock is a
+gate in the app; the stored session is protected by the Android Keystore, not bound to
+the fingerprint.
+
 In both modes a picked file is uploaded first and the import refers to it by hash, so
 file contents never sit in a waiting preview.
 
@@ -91,7 +97,6 @@ built; the server has no parser for them.
 ## Not built yet
 
 - A deployed backend. The hosted API in `cloud/` works locally but is not deployed.
-- The on-phone app lock (PIN or fingerprint) over the stored session.
 - Release signing, app icon, Play listing, Data safety and Financial features forms.
 - Bill capture by camera, payroll, GST filing pack, notifications.
 

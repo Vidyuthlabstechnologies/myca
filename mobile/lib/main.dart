@@ -9,7 +9,10 @@ import 'app_state.dart';
 import 'brand.dart';
 import 'cloud/cloud_session.dart';
 import 'cloud/keystore_token_store.dart';
+import 'lock/app_lock.dart';
+import 'lock/device_app_lock.dart';
 import 'screens/business_setup_screen.dart';
+import 'screens/lock_screen.dart';
 import 'screens/name_screen.dart';
 import 'screens/phone_sign_in_screen.dart';
 import 'screens/home_screen.dart';
@@ -36,6 +39,7 @@ void main() {
               )
             : null,
         store: DeviceOnboardingStore(),
+        lock: config.hosted ? DeviceAppLock() : const NoAppLock(),
         pickTextFile: pickTextFileFromDevice,
       ),
     ),
@@ -51,11 +55,24 @@ class MycaApp extends StatefulWidget {
   State<MycaApp> createState() => _MycaAppState();
 }
 
-class _MycaAppState extends State<MycaApp> {
+class _MycaAppState extends State<MycaApp> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     widget.state.start();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState lifecycle) {
+    if (lifecycle == AppLifecycleState.paused || lifecycle == AppLifecycleState.hidden) widget.state.leftApp();
+    if (lifecycle == AppLifecycleState.resumed) widget.state.returnedToApp();
   }
 
   @override
@@ -66,6 +83,15 @@ class _MycaAppState extends State<MycaApp> {
         title: 'MyCA',
         debugShowCheckedModeBanner: false,
         theme: mycaTheme(),
+        builder: (context, child) => ListenableBuilder(
+          listenable: widget.state,
+          builder: (context, _) => Stack(
+            children: [
+              ?child,
+              if (widget.state.locked) const LockScreen(),
+            ],
+          ),
+        ),
         home: const AppGate(),
       ),
     );

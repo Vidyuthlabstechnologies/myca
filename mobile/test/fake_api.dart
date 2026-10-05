@@ -4,10 +4,17 @@ import 'package:myca/app_services.dart';
 import 'package:myca/app_state.dart';
 
 class MemoryOnboardingStore implements OnboardingStore {
-  MemoryOnboardingStore({this.isWelcomed = false, this.isMigrated = false});
+  MemoryOnboardingStore({this.isWelcomed = false, this.isMigrated = false, this.isLockEnabled = true});
 
   bool isWelcomed;
   bool isMigrated;
+  bool isLockEnabled;
+
+  @override
+  Future<bool> lockEnabled() async => isLockEnabled;
+
+  @override
+  Future<void> setLockEnabled(bool enabled) async => isLockEnabled = enabled;
 
   @override
   Future<bool> welcomed() async => isWelcomed;

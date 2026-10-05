@@ -8,11 +8,14 @@ abstract class OnboardingStore {
   Future<void> markWelcomed();
   Future<bool> migrated();
   Future<void> markMigrated();
+  Future<bool> lockEnabled();
+  Future<void> setLockEnabled(bool enabled);
 }
 
 class DeviceOnboardingStore implements OnboardingStore {
   static const _welcomed = 'onboarding.welcomed';
   static const _migrated = 'onboarding.migrated';
+  static const _lock = 'lock.enabled';
 
   @override
   Future<bool> welcomed() async =>
@@ -29,6 +32,12 @@ class DeviceOnboardingStore implements OnboardingStore {
   @override
   Future<void> markMigrated() async =>
       (await SharedPreferences.getInstance()).setBool(_migrated, true);
+
+  @override
+  Future<bool> lockEnabled() async => (await SharedPreferences.getInstance()).getBool(_lock) ?? true;
+
+  @override
+  Future<void> setLockEnabled(bool enabled) async => (await SharedPreferences.getInstance()).setBool(_lock, enabled);
 }
 
 class PickedText {

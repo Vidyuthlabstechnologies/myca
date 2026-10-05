@@ -265,5 +265,10 @@ Member invitations were added the same day: an owner invites a phone number as s
 accountant; the invitation table holds a keyed hash and the last three digits, never the
 number; the person joins only by accepting after signing in with that number.
 
+The on-phone lock was added next: the app asks for the device fingerprint, face or
+screen lock on opening and after two minutes away. It uses the device credential rather
+than a separate MyCA PIN, so there is no second secret to store or forget. It gates the
+app; it does not cryptographically bind the stored tokens to the fingerprint.
+
 Still to do in C1: deployment (Terraform, Cloud Run, Cloud SQL, HTTPS), an SMS sender,
-Google Sign-In for closed testing, and the on-phone app lock.
+and Google Sign-In for closed testing.
