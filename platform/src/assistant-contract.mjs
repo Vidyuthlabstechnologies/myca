@@ -249,6 +249,11 @@ export const TOOL_ARG_SCHEMAS = {
     additionalProperties: false,
     properties: { period: { type: 'string', pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' } },
   },
+  business_summary: {
+    type: 'object',
+    additionalProperties: false,
+    properties: { period: { type: 'string', pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' } },
+  },
   record_receipt: {
     type: 'object',
     additionalProperties: false,

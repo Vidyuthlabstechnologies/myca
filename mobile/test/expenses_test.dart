@@ -9,8 +9,7 @@ import 'fake_api.dart';
 Future<void> openExpenses(WidgetTester tester, FakeMycaApi api) async {
   await tester.pumpWidget(MycaApp(state: testState(api)));
   await tester.pumpAndSettle();
-  await tester.tap(find.text('Expenses'));
-  await tester.pumpAndSettle();
+  await tapRow(tester, 'Expenses');
 }
 
 void main() {
@@ -71,8 +70,7 @@ void main() {
       await tester.pumpWidget(MycaApp(state: testState(api)));
       await tester.pumpAndSettle();
       expect(find.text('2 heads · Other expenses: ₹5,000.00'), findsOneWidget);
-      await tester.tap(find.text('Expenses'));
-      await tester.pumpAndSettle();
+      await tapRow(tester, 'Expenses');
       expect(find.text('Other expenses'), findsOneWidget);
       expect(find.text('Rent'), findsOneWidget);
       expect(

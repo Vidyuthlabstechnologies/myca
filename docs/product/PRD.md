@@ -144,7 +144,7 @@ Percentages are engineering estimates and are tracked in
 | FR-UI-1 | Chat is the main screen. | Built |
 | FR-UI-2 | Chats are grouped by transaction type, one chat per customer or supplier. | Built: sales and purchases by party, expenses by head |
 | FR-UI-3 | A single "one-chat" entry point that takes any message. | Built, rule-based |
-| FR-UI-4 | A dashboard showing sales, purchases, taxes and payroll at a glance. | Partly: taxes only |
+| FR-UI-4 | A dashboard showing sales, purchases, taxes and payroll at a glance. | Partly: taxes, and this month against last month for sales (net of credit notes), purchases and expenses, plus what customers owe. Payroll waits for payroll; what is owed to suppliers is not tracked |
 | FR-UI-5 | The owner can ask a doubt in plain words and get a plain answer. | Partly: fixed questions only |
 
 ### 5.10 Reading documents ([feature spec](features/09-document-capture-and-pos.md))

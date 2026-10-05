@@ -20,7 +20,20 @@ String rupees(num amount) {
 String isoDate(DateTime date) =>
     '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
 
-const _months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const _months = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+];
 
 String monthLabel(String period) {
   final parts = period.split('-');
@@ -37,11 +50,29 @@ String longDate(String iso) {
   return '$day ${_months[month - 1]} ${parts[0]}';
 }
 
-String plainNumber(num value) => value == value.roundToDouble() ? value.round().toString() : value.toString();
+String plainNumber(num value) => value == value.roundToDouble()
+    ? value.round().toString()
+    : value.toString();
 
 String dueLabel(int daysUntil) {
   if (daysUntil < 0) return '${-daysUntil} days overdue';
   if (daysUntil == 0) return 'Due today';
   if (daysUntil == 1) return 'Due tomorrow';
   return 'Due in $daysUntil days';
+}
+
+String _scaled(double value) =>
+    value.toStringAsFixed(2).replaceFirst(RegExp(r'\.?0+$'), '');
+
+String compactRupees(num amount) {
+  final abs = amount.abs().toDouble();
+  final sign = amount < 0 ? '-' : '';
+  if (abs == 0) return '₹0';
+  if (abs >= 1e7) return '$sign₹${_scaled(abs / 1e7)} cr';
+  if (abs >= 1e5) return '$sign₹${_scaled(abs / 1e5)} L';
+  if (abs >= 1000) {
+    final whole = rupees(abs.round());
+    return '$sign${whole.substring(0, whole.length - 3)}';
+  }
+  return rupees(amount);
 }

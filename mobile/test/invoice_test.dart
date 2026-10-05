@@ -45,8 +45,7 @@ AppState stateWith(FakeMycaApi api, Sent sent) => AppState(
 Future<void> openInvoice(WidgetTester tester, FakeMycaApi api, Sent sent) async {
   await tester.pumpWidget(MycaApp(state: stateWith(api, sent)));
   await tester.pumpAndSettle();
-  await tester.tap(find.text('Sales'));
-  await tester.pumpAndSettle();
+  await tapRow(tester, 'Sales');
   await tester.tap(find.text('Gujarat Weaves'));
   await tester.pumpAndSettle();
   await tester.tap(find.text('Invoice INV-0002'));

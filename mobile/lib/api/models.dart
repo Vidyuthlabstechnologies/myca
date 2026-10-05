@@ -482,16 +482,105 @@ class ExceptionItem {
   bool get open => status == 'open';
 }
 
+class MonthFigures {
+  const MonthFigures({
+    required this.sales,
+    required this.salesNet,
+    required this.purchases,
+    required this.expenses,
+  });
+
+  factory MonthFigures.fromJson(Object? json) {
+    final map = _map(json);
+    return MonthFigures(
+      sales: _num(_map(map['sales'])['total']),
+      salesNet: _num(_map(map['sales'])['net']),
+      purchases: _num(_map(map['purchases'])['total']),
+      expenses: _num(_map(map['expenses'])['total']),
+    );
+  }
+
+  final num sales;
+  final num salesNet;
+  final num purchases;
+  final num expenses;
+}
+
+class OwedCustomer {
+  const OwedCustomer({
+    required this.name,
+    required this.due,
+    required this.invoices,
+  });
+
+  factory OwedCustomer.fromJson(Object? json) {
+    final map = _map(json);
+    return OwedCustomer(
+      name: _text(map['name']),
+      due: _num(map['due']),
+      invoices: _num(map['invoices']).toInt(),
+    );
+  }
+
+  final String name;
+  final num due;
+  final int invoices;
+}
+
+class BusinessSummary {
+  const BusinessSummary({
+    required this.period,
+    required this.previousPeriod,
+    required this.current,
+    required this.previous,
+    required this.owedToYou,
+    required this.openInvoices,
+    required this.customers,
+    required this.caveat,
+  });
+
+  factory BusinessSummary.fromJson(Object? json) {
+    final map = _map(json);
+    final owed = _map(map['owedToYou']);
+    return BusinessSummary(
+      period: _text(map['period']),
+      previousPeriod: _text(map['previousPeriod']),
+      current: MonthFigures.fromJson(map['current']),
+      previous: MonthFigures.fromJson(map['previous']),
+      owedToYou: _num(owed['total']),
+      openInvoices: _num(owed['invoices']).toInt(),
+      customers: _maps(owed['customers']).map(OwedCustomer.fromJson).toList(),
+      caveat: _text(map['caveat']),
+    );
+  }
+
+  final String period;
+  final String previousPeriod;
+  final MonthFigures current;
+  final MonthFigures previous;
+  final num owedToYou;
+  final int openInvoices;
+  final List<OwedCustomer> customers;
+  final String caveat;
+}
+
+BusinessSummary? businessSummaryFrom(Object? json) {
+  final data = toolData(json);
+  return data.isEmpty ? null : BusinessSummary.fromJson(data);
+}
+
 class Today {
   const Today({
     required this.gst,
     required this.deadlines,
     required this.exceptions,
+    this.summary,
   });
 
   final PeriodGst? gst;
   final List<Deadline> deadlines;
   final List<ExceptionItem> exceptions;
+  final BusinessSummary? summary;
 }
 
 class ToolOutcome {
