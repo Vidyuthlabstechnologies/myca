@@ -9,8 +9,7 @@ import 'fake_api.dart';
 Future<void> openInvoice(WidgetTester tester, FakeMycaApi api) async {
   await tester.pumpWidget(MycaApp(state: testState(api)));
   await tester.pumpAndSettle();
-  await tester.tap(find.text('Sales'));
-  await tester.pumpAndSettle();
+  await tapRow(tester, 'Sales');
   await tester.tap(find.text('Gujarat Weaves'));
   await tester.pumpAndSettle();
   await tester.tap(find.text('Invoice INV-0002'));

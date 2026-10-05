@@ -1,3 +1,4 @@
+import 'package:flutter_test/flutter_test.dart';
 import 'package:myca/api/models.dart';
 import 'package:myca/api/myca_api.dart';
 import 'package:myca/app_services.dart';
@@ -498,6 +499,34 @@ class FakeMycaApi implements MycaApi {
             'missing': ['HSN'],
           },
         };
+      case 'business_summary':
+        return {
+          'ok': true,
+          'data': {
+            'period': '2026-10',
+            'previousPeriod': '2026-09',
+            'current': {
+              'sales': {'count': 1, 'total': 20000, 'net': 20000},
+              'creditNotes': {'count': 0, 'total': 0},
+              'purchases': {'count': 1, 'total': 42000},
+              'expenses': {'count': 1, 'total': 5000},
+            },
+            'previous': {
+              'sales': {'count': 2, 'total': 902600, 'net': 902600},
+              'creditNotes': {'count': 0, 'total': 0},
+              'purchases': {'count': 0, 'total': 0},
+              'expenses': {'count': 1, 'total': 12000},
+            },
+            'owedToYou': {
+              'total': 377600,
+              'invoices': 1,
+              'customers': [
+                {'name': 'Gujarat Weaves', 'due': 377600, 'invoices': 1},
+              ],
+            },
+            'caveat': 'Purchases are bill totals; what you still owe suppliers is not tracked yet.',
+          },
+        };
       case 'expense_heads':
         return {
           'ok': true,
@@ -590,4 +619,12 @@ class FakeMycaApi implements MycaApi {
     }
     return {'ok': false, 'error': 'UNKNOWN_TOOL'};
   }
+}
+
+Future<void> tapRow(WidgetTester tester, String title) async {
+  final row = find.text(title);
+  await tester.ensureVisible(row);
+  await tester.pumpAndSettle();
+  await tester.tap(row);
+  await tester.pumpAndSettle();
 }

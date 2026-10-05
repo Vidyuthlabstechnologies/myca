@@ -80,7 +80,7 @@ void main() {
     await shot(tester, '11_posted');
     await tester.pageBack();
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Sales'));
+    await tapRow(tester, 'Sales');
     await shot(tester, '08_sales');
   });
 
@@ -102,7 +102,7 @@ void main() {
     await phone(tester);
     await tester.pumpWidget(MycaApp(state: testState(FakeMycaApi(signedIn: true))));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Expenses'));
+    await tapRow(tester, 'Expenses');
     await shot(tester, '15_expenses');
     await tester.tap(find.text('Other expenses'));
     await shot(tester, '16_expense_head');
@@ -118,8 +118,7 @@ void main() {
     await phone(tester);
     await tester.pumpWidget(MycaApp(state: testState(FakeMycaApi(signedIn: true))));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Sales'));
-    await tester.pumpAndSettle();
+    await tapRow(tester, 'Sales');
     await tester.tap(find.text('Gujarat Weaves'));
     await shot(tester, '13_customer_chat');
     await tester.tap(find.text('Invoice INV-0002'));

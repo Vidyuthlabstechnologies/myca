@@ -233,8 +233,7 @@ void main() {
   testWidgets('payment received proposes a receipt dated today against the unpaid invoice', (tester) async {
     final api = FakeMycaApi(signedIn: true);
     await openHome(tester, api);
-    await tester.tap(find.text('Sales'));
-    await tester.pumpAndSettle();
+    await tapRow(tester, 'Sales');
     await tester.tap(find.text('Gujarat Weaves'));
     await tester.pumpAndSettle();
     expect(find.text('Unpaid'), findsOneWidget);
@@ -258,8 +257,7 @@ void main() {
   testWidgets('a paid-up customer is not offered Payment received, and a blocked sale says why', (tester) async {
     final api = FakeMycaApi(signedIn: true);
     await openHome(tester, api);
-    await tester.tap(find.text('Sales'));
-    await tester.pumpAndSettle();
+    await tapRow(tester, 'Sales');
     await tester.tap(find.text('Retail Mart'));
     await tester.pumpAndSettle();
     expect(find.widgetWithText(ActionChip, 'Payment received'), findsNothing);
@@ -323,8 +321,7 @@ void main() {
     await openHome(tester, api);
     await tester.ensureVisible(find.text('Ask MyCA'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Ask MyCA'));
-    await tester.pumpAndSettle();
+    await tapRow(tester, 'Ask MyCA');
     await tester.tap(find.text('What is my GST payable?'));
     await tester.pumpAndSettle();
     expect(api.sent.single, 'What is my GST payable?');

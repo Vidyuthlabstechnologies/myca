@@ -158,6 +158,7 @@ class FakeCloud {
     if (path == '$books/query') {
       return _json(200, switch (body['name']) {
         'expense_heads' => {'ok': true, 'data': const <Object?>[]},
+        'business_summary' => {'ok': false, 'error': 'X'},
         'gst_period_summary' => {
             'ok': true,
             'data': {

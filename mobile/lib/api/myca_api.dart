@@ -25,13 +25,25 @@ abstract class MycaApi {
 const maxUploadBytes = 8 * 1024 * 1024;
 
 String uploadedHash(Object? body) {
-  if (body is Map && body['ok'] != false && body['sha256'] is String) return body['sha256'] as String;
-  final code = body is Map ? '${body['error'] ?? 'UPLOAD_FAILED'}' : 'UPLOAD_FAILED';
-  throw MycaApiException(code == 'EMPTY_FILE' ? 'That file is empty.' : 'The file could not be uploaded ($code).');
+  if (body is Map && body['ok'] != false && body['sha256'] is String) {
+    return body['sha256'] as String;
+  }
+  final code = body is Map
+      ? '${body['error'] ?? 'UPLOAD_FAILED'}'
+      : 'UPLOAD_FAILED';
+  throw MycaApiException(
+    code == 'EMPTY_FILE'
+        ? 'That file is empty.'
+        : 'The file could not be uploaded ($code).',
+  );
 }
 
 void checkUploadSize(String content) {
-  if (content.length > maxUploadBytes) throw const MycaApiException('That file is larger than 8 MB. Export a shorter period and try again.');
+  if (content.length > maxUploadBytes) {
+    throw const MycaApiException(
+      'That file is larger than 8 MB. Export a shorter period and try again.',
+    );
+  }
 }
 
 Future<Today> loadToday(MycaApi api, {String? period}) async {
@@ -39,10 +51,12 @@ Future<Today> loadToday(MycaApi api, {String? period}) async {
     api.query('gst_period_summary', {'period': ?period}),
     api.query('deadlines'),
     api.query('exceptions'),
+    api.query('business_summary', {'period': ?period}),
   ]);
   return Today(
     gst: periodGstFrom(results[0]),
     deadlines: deadlinesFrom(results[1]),
     exceptions: exceptionsFrom(results[2]),
+    summary: businessSummaryFrom(results[3]),
   );
 }

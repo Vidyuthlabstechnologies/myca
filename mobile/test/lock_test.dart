@@ -76,8 +76,7 @@ void main() {
     final state = hosted(cloud, tokens, lock, clock: clock);
     await tester.pumpWidget(MycaApp(state: state));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Sales'));
-    await tester.pumpAndSettle();
+    await tapRow(tester, 'Sales');
     expect(find.text('New customer'), findsOneWidget);
 
     state.leftApp();

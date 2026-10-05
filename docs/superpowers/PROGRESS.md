@@ -92,7 +92,7 @@ The goal is now an owner-first Android app on the Play Store. The weights below 
 
 The owner's PRD is "Taxmeow (working title), Product Requirements Document, v0.1, 28 September 2026". This is the yardstick for the product; the launch table above measures plumbing the PRD does not mention. Weights are an engineering estimate. Nothing below is deployed, and "files through the API" also depends on provider onboarding.
 
-**About 43% of the PRD is built.**
+**About 44% of the PRD is built.**
 
 | PRD item | Weight | Done | Points | What exists | What is missing |
 |---|---|---|---|---|---|
@@ -104,6 +104,6 @@ The owner's PRD is "Taxmeow (working title), Product Requirements Document, v0.1
 | Payroll | 12 | 0% | 0 | Nothing | All of it |
 | GSTR-2B matching and supplier reminders | 8 | 45% | 3.6 | Matching engine with late-filer and mismatch flags | Fetching 2B, showing matches in the app, reminders with permission |
 | CA access | 6 | 55% | 3.3 | Invite a CA as a member; GSTR-1 file export | Export of accounting entries; the sync setting |
-| Chat and dashboard | 12 | 65% | 7.8 | Chats by type and by party, expense chats by head, one entry sheet, taxes at a glance | Rule-based chat only; no sales, purchases or payroll figures at a glance |
+| Chat and dashboard | 12 | 75% | 9.0 | Chats by type and by party, expense chats by head, one entry sheet; Home shows taxes, this month against last for sales, purchases and expenses, and who owes | Rule-based chat only; payroll and money owed to suppliers not on the dashboard |
 | Reading documents automatically | 12 | 5% | 0.6 | Bank statement, Tally and Zoho file imports | POS sales, and reading a forwarded supplier invoice |
-| **Total** | **100** | | **43.1** | | |
+| **Total** | **100** | | **44.3** | | |

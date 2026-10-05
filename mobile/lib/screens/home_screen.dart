@@ -113,6 +113,25 @@ class _HomeScreenState extends State<HomeScreen> {
                 onTap: () => _open(const TaxesScreen()),
               ),
             ),
+            FutureBuilder<Today>(
+              future: _today,
+              builder: (context, today) {
+                final summary = today.data?.summary;
+                if (summary == null) return const SizedBox.shrink();
+                return Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: _SummaryPanel(
+                    summary: summary,
+                    onSales: () =>
+                        _open(const RegisterScreen(kind: RegisterKind.sales)),
+                    onPurchases: () => _open(
+                      const RegisterScreen(kind: RegisterKind.purchases),
+                    ),
+                    onExpenses: () => _open(const ExpensesScreen()),
+                  ),
+                );
+              },
+            ),
             const SizedBox(height: 26),
             if (empty) ...[
               _FirstSaleCard(
@@ -349,6 +368,129 @@ class _FirstSaleCard extends StatelessWidget {
                 ),
               ),
               const Icon(Icons.arrow_forward, color: Palette.accent, size: 20),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SummaryPanel extends StatelessWidget {
+  const _SummaryPanel({
+    required this.summary,
+    required this.onSales,
+    required this.onPurchases,
+    required this.onExpenses,
+  });
+
+  final BusinessSummary summary;
+  final VoidCallback onSales;
+  final VoidCallback onPurchases;
+  final VoidCallback onExpenses;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    final owed = summary.customers;
+    return Container(
+      decoration: BoxDecoration(
+        color: Palette.surface,
+        borderRadius: BorderRadius.circular(radiusCard),
+        border: Border.all(color: Palette.line),
+      ),
+      padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            monthLabel(summary.period).toUpperCase(),
+            style: text.labelSmall,
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              _Figure(
+                label: 'Sold',
+                amount: summary.current.salesNet,
+                before: summary.previous.salesNet,
+                onTap: onSales,
+              ),
+              _Figure(
+                label: 'Bought',
+                amount: summary.current.purchases,
+                before: summary.previous.purchases,
+                onTap: onPurchases,
+              ),
+              _Figure(
+                label: 'Spent',
+                amount: summary.current.expenses,
+                before: summary.previous.expenses,
+                onTap: onExpenses,
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          const Divider(),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(child: Text('Owed to you', style: text.titleMedium)),
+              Text(
+                rupees(summary.owedToYou),
+                style: text.titleMedium?.copyWith(fontFeatures: moneyFigures),
+              ),
+            ],
+          ),
+          Text(
+            summary.openInvoices == 0
+                ? 'No invoice is waiting for payment.'
+                : owed.map((c) => '${c.name} ${rupees(c.due)}').join(' · '),
+            style: text.bodySmall?.copyWith(fontFeatures: moneyFigures),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Figure extends StatelessWidget {
+  const _Figure({
+    required this.label,
+    required this.amount,
+    required this.before,
+    required this.onTap,
+  });
+
+  final String label;
+  final num amount;
+  final num before;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    return Expanded(
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(radiusControl),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label, style: text.bodySmall),
+              const SizedBox(height: 2),
+              Text(
+                compactRupees(amount),
+                style: text.titleLarge?.copyWith(fontFeatures: moneyFigures),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              Text(
+                'last ${compactRupees(before)}',
+                style: text.bodySmall?.copyWith(fontFeatures: moneyFigures),
+              ),
             ],
           ),
         ),

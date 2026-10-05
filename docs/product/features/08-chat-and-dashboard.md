@@ -55,11 +55,14 @@ the hosted API (`propose`, `confirm`, `discard`).
 - The model sees only what the task needs. Which model, and where it runs, is PRD
   question Q3.
 
-### Dashboard (to build)
+### Dashboard (built 2026-10-06, except payroll and money owed to suppliers)
 
-- This month and last month for sales, purchases and expenses, each a figure from a
-  named query tool.
-- Money owed to the owner and by the owner.
+- Home shows this month against last month for sales (net of credit notes), purchases
+  and expenses, from the read-only tool `business_summary`; each figure opens its
+  register. Below it, what customers owe in total and the largest five by name.
+- Amounts read the Indian way: ₹42,000, ₹3.78 L, ₹1.23 cr.
+- Not yet: what the owner owes suppliers, because payments to suppliers are not
+  recorded against bills.
 - Taxes: as on the Taxes screen. No "amount to pay" until set-off exists
   ([spec 03](03-gst-returns.md)).
 - Payroll: after [spec 05](05-payroll.md).
