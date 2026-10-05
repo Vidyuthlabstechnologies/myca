@@ -1,4 +1,4 @@
-import { normalizeChat, parseDocument, isPurchaseIntent, isSaleIntent, isQuestion, isNegated, ROUTES } from './intent.mjs';
+import { normalizeChat, parseDocument, receiptAmount, isPurchaseIntent, isSaleIntent, isQuestion, isNegated, ROUTES } from './intent.mjs';
 import { confirmationIntent } from './chat-confirm.mjs';
 
 const noArgs = {
@@ -633,6 +633,13 @@ export function planLocalToolCall(state, message) {
 
   const doc = parseDocument(text);
   const asking = isQuestion(text) || isNegated(text);
+  if (doc && !asking && doc.lines[0].gstRate == null && (isPurchaseIntent(text) || isSaleIntent(text))) {
+    return {
+      kind: 'reply',
+      reply: 'I have not posted anything, because I will not guess the GST rate. Say it again with the rate, for example "invoice Retail Mart 8000 GST 18%". Use GST 0% if none applies.',
+      tools: [],
+    };
+  }
   if (doc && !asking && isPurchaseIntent(text)) return { kind: 'tool', name: 'create_purchase', args: doc };
   if (doc && !asking && isSaleIntent(text)) return { kind: 'tool', name: 'create_invoice', args: doc };
   if (doc && asking && (isPurchaseIntent(text) || isSaleIntent(text))) {
@@ -745,7 +752,8 @@ export function planLocalToolCall(state, message) {
       const status = inv ? `${invoiceId} is marked ${inv.status}.` : `${invoiceId} is not in these books.`;
       return { kind: 'reply', reply: `${status} I have recorded nothing. To record money received, say "record receipt ${invoiceId}" and confirm the preview.`, tools: [] };
     }
-    return { kind: 'tool', name: 'record_receipt', args: { invoiceId, mode: /cash/i.test(text) ? 'cash' : 'bank' } };
+    const amount = receiptAmount(text);
+    return { kind: 'tool', name: 'record_receipt', args: { invoiceId, mode: /cash/i.test(text) ? 'cash' : 'bank', ...(amount == null ? {} : { amount }) } };
   }
 
   if ((isQuestion(text) || isNegated(text)) && /\b(import|attach|upload|reconcile)\b/i.test(text) && /\b(tally|zoho|bank|statement|xml|csv)\b/i.test(text)) {

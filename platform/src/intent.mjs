@@ -32,43 +32,113 @@ export function isNegated(text) {
   return NEGATIONS.test(String(text == null ? '' : text));
 }
 
+const NUM = '(\\d[\\d,]*(?:\\.\\d+)?)';
+const MULTIPLIER = '(k|lakhs?|lacs?|cr|crores?)';
+const CURRENCY = '(?:₹|rs\\.?|inr)';
+const UNIT_WORDS = 'rolls?|pcs|pieces|units?|kgs?|nos?|boxes|bags|items?|bundles?|metres?|meters?|litres?|liters?|dozens?';
+
+const GST_RATE_PATTERNS = [
+  /\bgst\s*(?:@|at|of|rate|is)?\s*(\d{1,2}(?:\.\d+)?)(?![\d,])\s*(?:%|percent|pct)?/i,
+  /(?<![\d,.])(\d{1,2}(?:\.\d+)?)\s*(?:%|percent|pct)\s*(?:gst|tax)?/i,
+];
+const PER_UNIT = new RegExp(`(?:${NUM}\\s*([a-z]{1,15})?\\s+)?(?:\\bat\\b|@|\\brate\\b|\\beach\\s+at\\b|\\beach\\b)\\s*${CURRENCY}?\\s*${NUM}\\s*${MULTIPLIER}?(?![\\d%])`, 'i');
+const QTY_WITH_UNIT = new RegExp(`${NUM}\\s*(${UNIT_WORDS})\\b`, 'i');
+const QTY_LABEL = new RegExp(`\\b(?:qty|quantity)\\s*:?\\s*${NUM}`, 'i');
+const AMOUNT = new RegExp(`${CURRENCY}?\\s*(?<![\\w.,-])${NUM}\\s*${MULTIPLIER}?(?![\\w%])`, 'gi');
+const NOT_AMOUNTS = /\b[a-z]{2,6}-\d+\b|\b\d{1,4}[-/]\d{1,2}[-/]\d{1,4}\b/gi;
+const DOCUMENT_VERBS = 'purchase|purchased|invoice|bill|sale|sales|sold|sell|bought';
+
+function amountValue(digits, multiplier = '') {
+  const base = Number(String(digits).replace(/,/g, ''));
+  const unit = String(multiplier || '').toLowerCase();
+  if (unit === 'k') return base * 1e3;
+  if (/^(lakh|lakhs|lac|lacs)$/.test(unit)) return base * 1e5;
+  if (/^(cr|crore|crores)$/.test(unit)) return base * 1e7;
+  return base;
+}
+
+// The rate is taken out of the sentence before anything else is read, so "8000 at 18%"
+// can never be read as a price of 18.
+function takeGstRate(text) {
+  for (const pattern of GST_RATE_PATTERNS) {
+    const found = text.match(pattern);
+    if (found) return { gstRate: Number(found[1]), rest: text.replace(found[0], ' ') };
+  }
+  return { gstRate: null, rest: text };
+}
+
+function takeQuantity(text) {
+  const found = text.match(QTY_WITH_UNIT) || text.match(QTY_LABEL);
+  if (!found) return { qty: null, unit: '', rest: text };
+  return { qty: amountValue(found[1]), unit: String(found[2] || 'units').toLowerCase(), rest: text.replace(found[0], ' ') };
+}
+
+function loneAmount(text) {
+  const amounts = [...text.replace(NOT_AMOUNTS, ' ').matchAll(AMOUNT)].map((m) => amountValue(m[1], m[2])).filter((n) => n > 0);
+  return amounts.length === 1 ? amounts[0] : null;
+}
+
+function partyOf(text) {
+  const stop = `(?=\\s*,|\\s+(?:gstin|at|@|rate|gst|qty|each|for|${CURRENCY}|\\d)|\\s*$)`;
+  const name = "([A-Za-z][A-Za-z0-9 .&'-]{1,50}?)";
+  const found = text.match(new RegExp(`\\b(?:${DOCUMENT_VERBS})\\s+(?:from|for|to)\\s+${name}${stop}`, 'i'))
+    || text.match(new RegExp(`\\bfrom\\s+${name}${stop}`, 'i'))
+    || text.match(new RegExp(`\\b(?:${DOCUMENT_VERBS})\\s+${name}${stop}`, 'i'));
+  return cleanPartyName(found ? found[1] : '') || 'Walk-in';
+}
+
+// Returns the document a sentence describes, or null. The GST rate is null when the
+// sentence does not state one: a rate is never assumed.
+//   "10 rolls at 500"  -> ten at 500 each
+//   "2 units 8000"     -> one line of 8000, the quantity kept in the description
 export function parseDocument(text) {
   const raw = normalizeChat(text);
   const gstinMatch = raw.match(GSTIN_RE);
   const gstin = gstinMatch ? gstinMatch[1].toUpperCase() : '';
-  const rest = gstin ? raw.replace(gstinMatch[0], ' ') : raw;
-  const at = rest.match(/(?:\bat\b|@|\brate\b)\s*₹?\s*([\d,]+(?:\.\d+)?)/i) || rest.match(/₹\s*([\d,]+(?:\.\d+)?)/);
-  const gstMatch = rest.match(/gst\s*(\d{1,2})\s*%/i);
-  const partyMatch = rest.match(
-    /(?:purchase|invoice|bill)\s+(?:from|for|to)\s+([A-Za-z][A-Za-z0-9 .&'-]{1,50}?)(?=\s+(?:gstin|,|\d)|$)/i,
-  ) || rest.match(/from\s+([A-Za-z][A-Za-z0-9 .&'-]{1,50}?)(?=\s+(?:gstin|,|\d)|$)/i)
-    || rest.match(/(?:purchase|invoice|bill)\s+([A-Za-z][A-Za-z0-9 .&'-]{1,50}?)(?=,|\s+(?:gstin|at|@|rate|gst|\d)|$)/i);
-  if (!at) return null;
-  const qtyWord = rest.match(/(\d+(?:\.\d+)?)\s*(?:rolls?|pcs|pieces|units|qty|kg)/i);
+  const withoutGstin = gstin ? raw.replace(gstinMatch[0], ' ') : raw;
+  const { gstRate, rest } = takeGstRate(withoutGstin);
+
+  let line = null;
+  const perUnit = rest.match(PER_UNIT);
+  if (perUnit) {
+    const labelled = perUnit[1] ? null : takeQuantity(rest.replace(perUnit[0], ' '));
+    line = {
+      description: 'Supply',
+      qty: perUnit[1] ? amountValue(perUnit[1]) : (labelled && labelled.qty) || 1,
+      rate: amountValue(perUnit[3], perUnit[4]),
+    };
+  } else if (isPurchaseIntent(raw) || isSaleIntent(raw)) {
+    const quantity = takeQuantity(rest);
+    const total = loneAmount(quantity.rest);
+    if (total != null) {
+      line = { description: quantity.qty ? `Supply (${quantity.qty} ${quantity.unit})` : 'Supply', qty: 1, rate: total };
+    }
+  }
+  if (!line || !(line.rate > 0) || !(line.qty > 0)) return null;
+  if (gstRate != null) line.gstRate = gstRate;
   return {
-    partyName: cleanPartyName(partyMatch ? partyMatch[1] : '') || 'Walk-in',
+    partyName: partyOf(withoutGstin),
     partyGstin: gstin,
     partyState: gstin.slice(0, 2),
-    lines: [{
-      description: 'Supply',
-      qty: qtyWord ? Number(qtyWord[1]) : 1,
-      rate: Number(String(at[1]).replace(/,/g, '')),
-      gstRate: gstMatch ? Number(gstMatch[1]) : 18,
-    }],
+    lines: [line],
   };
+}
+
+export function receiptAmount(text) {
+  return loneAmount(normalizeChat(text));
 }
 
 export function isPurchaseIntent(text) {
   const t = normalizeChat(text).toLowerCase();
   if (/\b(purchase|purchases|vendor|supplier|itc)\b/.test(t)) return true;
-  if (/\bbill from\b|\bbuy from\b/.test(t)) return true;
+  if (/\bbill from\b|\bbuy from\b|\bbought\b/.test(t)) return true;
   return false;
 }
 
 export function isSaleIntent(text) {
   const t = normalizeChat(text).toLowerCase();
   if (isPurchaseIntent(t)) return false;
-  return /\b(invoice|raise bill|create bill|tax invoice|sell|sales? to)\b/.test(t);
+  return /\b(invoice|raise bill|create bill|tax invoice|sell|sold|sales? to)\b/.test(t);
 }
 
 export const ROUTES = [

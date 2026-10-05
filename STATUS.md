@@ -1,6 +1,6 @@
 # MyCA — Status
 
-As of the working tree on 2026-10-06 (uncommitted). Verification: platform **423/423**,
+As of the working tree on 2026-10-06 (uncommitted). Verification: platform **431/431**,
 engines **329/329** (`11 / 11 / 49 / 51 / 68 / 2` plus **137** statutory-rule tests),
 CI green, end-to-end smoke runs on Windows. "Verified" means covered by tests or an
 actual run — not merely written.
