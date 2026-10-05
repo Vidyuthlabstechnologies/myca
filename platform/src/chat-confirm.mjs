@@ -209,6 +209,26 @@ const PREVIEWERS = {
   exception_decide: exceptionPreview,
 };
 
+const PERSISTED_PENDING_LIMIT = 64 * 1024;
+
+// A preview has to outlive the request that made it, so it is saved with the books.
+// One that carries a whole file is too big to keep there and stays in memory only.
+export function persistablePending(pending) {
+  if (!pending || typeof pending !== 'object') return null;
+  return JSON.stringify(pending).length > PERSISTED_PENDING_LIMIT ? null : pending;
+}
+
+export function restoredPending(raw) {
+  if (!raw || typeof raw !== 'object' || typeof raw.token !== 'string' || typeof raw.name !== 'string') return null;
+  if (!CONFIRM_TOOLS.has(raw.name)) return null;
+  return raw;
+}
+
+export function restoredConfirmation(raw) {
+  if (!raw || typeof raw !== 'object' || typeof raw.token !== 'string') return null;
+  return { token: raw.token, tool: String(raw.tool || ''), reply: String(raw.reply || ''), posted: raw.posted === true };
+}
+
 export function needsConfirmation(name) {
   return CONFIRM_TOOLS.has(name);
 }

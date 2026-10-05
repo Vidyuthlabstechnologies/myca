@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { journal, trialBalance } from './ledger.mjs';
 import { createInvoice, createPurchase } from './invoice.mjs';
 import { getBook, canonicalClientId, normalizeClientId, isValidClientId, ensureBooks } from './books.mjs';
-import { putDocument, readVerifiedDocument } from './document-store.mjs';
+import { documentsOf } from './document-store.mjs';
 import { ensureDefaultAdmin, listUsers, addUser, findUser, verifyUserPin } from './identity.mjs';
 
 function jsonHash(value) {
@@ -191,7 +191,7 @@ export function uploadDocument(state, clientId, input = {}) {
   const { clientId: id } = requireClient(state, clientId);
   const beforeHash = stateDigest(state);
   const { doc, content } = documentPayload(state, id, input);
-  const stored = putDocument(state._dataDir, content);
+  const stored = documentsOf(state).put(content);
   doc.sha256 = stored.sha256;
   doc.bytes = stored.bytes;
   state.documents.push(doc);
@@ -211,7 +211,7 @@ export function getDocumentContent(state, clientId, documentId) {
   const { clientId: id } = requireClient(state, clientId);
   const doc = state.documents.find((d) => d.documentId === documentId && d.clientId === id);
   if (!doc) return { ok: false, error: 'DOCUMENT_NOT_FOUND' };
-  const read = readVerifiedDocument(state._dataDir, doc.sha256);
+  const read = documentsOf(state).readVerified(doc.sha256);
   if (!read.ok) return { ok: false, error: read.error };
   return { ok: true, data: { ...doc, content: read.content } };
 }

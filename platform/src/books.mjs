@@ -1,4 +1,5 @@
 import { emptyLedger, freeze, hydrate } from './ledger.mjs';
+import { persistablePending, restoredPending, restoredConfirmation } from './chat-confirm.mjs';
 import { installChart } from './chart.mjs';
 
 export const CLIENT_ID_PATTERN = /^[A-Z0-9][A-Z0-9_-]{1,31}$/;
@@ -44,6 +45,7 @@ export function newBook(company = {}) {
     attachments: {},
     pendingFile: null,
     pendingChatAction: null,
+    lastConfirmation: null,
     exceptions: [],
     exceptionSeq: 0,
   };
@@ -63,6 +65,8 @@ export function serializeBook(book) {
     imports: book.imports || [],
     lockThrough: book.lockThrough || '',
     attachments: book.attachments || {},
+    pendingChatAction: persistablePending(book.pendingChatAction),
+    lastConfirmation: book.lastConfirmation || null,
   };
 }
 
@@ -80,6 +84,8 @@ export function deserializeBook(raw) {
   book.imports = raw.imports || [];
   book.lockThrough = raw.lockThrough || '';
   book.attachments = raw.attachments && typeof raw.attachments === 'object' ? raw.attachments : {};
+  book.pendingChatAction = restoredPending(raw.pendingChatAction);
+  book.lastConfirmation = restoredConfirmation(raw.lastConfirmation);
   return book;
 }
 

@@ -5,6 +5,44 @@ export const USER_ROLES = new Set(['partner', 'reviewer', 'admin', 'staff']);
 const LOCKOUT_THRESHOLD = 5;
 const LOCKOUT_DURATION_MS = 5 * 60 * 1000;
 
+export const PIN_FIELDS = Object.freeze(['pinHash', 'pinSalt', 'failedAttempts', 'lockedUntil']);
+
+export function withoutPin(user) {
+  if (!user || typeof user !== 'object') return user;
+  const copy = { ...user };
+  for (const field of PIN_FIELDS) delete copy[field];
+  return copy;
+}
+
+export function pinRecords(state) {
+  const records = {};
+  for (const user of state?.firmUsers || []) {
+    if (!user?.userId || !user.pinHash || !user.pinSalt) continue;
+    records[normalizeUserId(user.userId)] = {
+      pinHash: user.pinHash,
+      pinSalt: user.pinSalt,
+      failedAttempts: Number(user.failedAttempts) || 0,
+      lockedUntil: Number(user.lockedUntil) || 0,
+    };
+  }
+  return records;
+}
+
+export function applyPinRecords(state, records) {
+  if (!records || typeof records !== 'object') return state;
+  for (const user of state?.firmUsers || []) {
+    const key = normalizeUserId(user?.userId);
+    if (!Object.hasOwn(records, key)) continue;
+    const record = records[key];
+    if (typeof record?.pinHash !== 'string' || typeof record?.pinSalt !== 'string') continue;
+    user.pinHash = record.pinHash;
+    user.pinSalt = record.pinSalt;
+    user.failedAttempts = Number(record.failedAttempts) || 0;
+    user.lockedUntil = Number(record.lockedUntil) || 0;
+  }
+  return state;
+}
+
 export function hashPin(pin, salt) {
   const cleanPin = String(pin ?? '');
   const cleanSalt = String(salt ?? '');
@@ -17,18 +55,30 @@ export function createPinRecord(pin) {
   return { pinHash: hash, pinSalt: salt, failedAttempts: 0, lockedUntil: 0 };
 }
 
-export function createUser(spec = {}, pin = '1234') {
+const defaultPinRecords = new Map();
+
+// The default PIN is public knowledge, so deriving it afresh for every user and every
+// load adds a key derivation to each request and no secrecy. One record per process.
+function defaultPinRecord(pin) {
+  const key = String(pin ?? '');
+  if (!defaultPinRecords.has(key)) defaultPinRecords.set(key, Object.freeze(createPinRecord(key)));
+  return { ...defaultPinRecords.get(key) };
+}
+
+function createUserProfile(spec = {}) {
   const userId = String(spec.userId || spec.id || '').trim().toUpperCase() || 'USR-ADMIN';
   const role = String(spec.role || 'staff').toLowerCase();
   const validRole = USER_ROLES.has(role) ? role : 'staff';
-  const creds = createPinRecord(pin);
   return {
     userId,
     name: String(spec.name || userId),
     role: validRole,
     clientIds: Array.isArray(spec.clientIds) ? [...spec.clientIds] : ['SELF'],
-    ...creds,
   };
+}
+
+export function createUser(spec = {}, pin = '1234') {
+  return { ...createUserProfile(spec), ...createPinRecord(pin) };
 }
 
 export function isUserLocked(user, now = Date.now()) {
@@ -76,11 +126,14 @@ export function sanitizeUser(user) {
 export function ensureDefaultAdmin(state, defaultPin = '1234') {
   state.firmUsers = Array.isArray(state.firmUsers) ? state.firmUsers : [];
   if (state.firmUsers.length === 0) {
-    state.firmUsers.push(createUser({ userId: 'USR-ADMIN', name: 'Firm Admin', role: 'admin', clientIds: ['SELF'] }, defaultPin));
+    state.firmUsers.push({
+      ...createUserProfile({ userId: 'USR-ADMIN', name: 'Firm Admin', role: 'admin', clientIds: ['SELF'] }),
+      ...defaultPinRecord(defaultPin),
+    });
   } else {
     for (const u of state.firmUsers) {
       if (!u.pinHash || !u.pinSalt) {
-        Object.assign(u, createPinRecord(defaultPin));
+        Object.assign(u, defaultPinRecord(defaultPin));
       }
     }
   }

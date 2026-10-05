@@ -1482,7 +1482,7 @@ test('store: saveState writes atomically via rename without leaving temp files',
     const loaded = loadState(filePath);
     assert.equal(loaded.company.name, state.company.name);
     const files = readdirSync(dir);
-    assert.deepEqual(files, ['state.json']);
+    assert.deepEqual(files.filter((name) => name !== 'state.pins'), ['state.json']);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

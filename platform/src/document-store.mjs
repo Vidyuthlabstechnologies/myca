@@ -49,3 +49,21 @@ export function readDocument(baseDir, sha256) {
 export function documentExists(baseDir, sha256) {
   return isSha256(sha256) && existsSync(documentPath(baseDir, sha256));
 }
+
+export function createFileDocumentStore(baseDir) {
+  return {
+    kind: 'file',
+    put(content) {
+      const { sha256, bytes } = putDocument(baseDir, content);
+      return { sha256, bytes };
+    },
+    read: (sha256) => readDocument(baseDir, sha256),
+    readVerified: (sha256) => readVerifiedDocument(baseDir, sha256),
+    exists: (sha256) => documentExists(baseDir, sha256),
+  };
+}
+
+export function documentsOf(state) {
+  const root = state && state.__root ? state.__root : state;
+  return (root && root._documents) || createFileDocumentStore(root && root._dataDir);
+}

@@ -1243,11 +1243,25 @@ export const TOOLS = [
 
 export const TOOL_MAP = Object.fromEntries(TOOLS.map((t) => [t.name, t]));
 
+const ACTOR_ID_ARGS = ['actorId', 'requestedBy', 'decidedBy'];
+
+// When the caller is signed in, who they are comes from the session, never from the
+// arguments they sent. 'assistant' is left alone: it only ever lowers what is allowed.
+function withTrustedActor(state, tool, args) {
+  const actor = state && state.__actor;
+  if (!actor || !actor.userId || args.actorId === 'assistant') return args;
+  const trusted = { ...args, actorId: actor.userId, role: actor.role || '' };
+  for (const key of ACTOR_ID_ARGS) {
+    if (key !== 'actorId' && (tool.args || []).includes(key)) trusted[key] = actor.userId;
+  }
+  return trusted;
+}
+
 export async function runTool(state, name, args = {}) {
   const tool = TOOL_MAP[name];
   if (!tool) return fail(`Unknown tool ${name}`);
   try {
-    return await tool.run(state, args);
+    return await tool.run(state, withTrustedActor(state, tool, args || {}));
   } catch (err) {
     return fail(String(err.message || err));
   }

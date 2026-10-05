@@ -2,6 +2,7 @@ import { TOOLS, runTool } from './tools.mjs';
 import { planLocalToolCall, validateAssistantToolCall } from './assistant-contract.mjs';
 import { needsConfirmation, previewOf, openPending, takePending, clearPending, previewReply, blockedReply } from './chat-confirm.mjs';
 import { liveCallsEnabled, mockModeEnabled } from './runtime-config.mjs';
+import { referenceImportContent, resolveImportContent } from './import-documents.mjs';
 
 function money(n) {
   return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 }).format(Number(n) || 0);
@@ -222,50 +223,93 @@ async function runPlanned(state, name, args, clearsPendingFile) {
   return result;
 }
 
+function unreadableFile(error) {
+  return { reply: `I could not read that file (${error}), so nothing was posted.`, tools: [], posted: false, blocked: true, error };
+}
+
+function holdForConfirmation(state, plan) {
+  const resolved = resolveImportContent(state, plan.name, plan.args);
+  if (!resolved.ok) return unreadableFile(resolved.error);
+  const schemaCheck = validateAssistantToolCall(plan.name, resolved.args);
+  if (!schemaCheck.ok) return { reply: `Tool ${plan.name} blocked: ${schemaCheck.error}`, tools: [], blocked: true };
+  const preview = previewOf(state, plan.name, resolved.args);
+  if (preview.blockers.length) {
+    clearPending(state);
+    return { reply: blockedReply(preview), tools: [], posted: false, blocked: true, preview };
+  }
+  const pending = openPending(state, { ...plan, args: referenceImportContent(state, plan.name, plan.args) }, preview);
+  return {
+    reply: previewReply(preview, pending),
+    tools: [],
+    posted: false,
+    awaitingConfirmation: true,
+    preview: { token: pending.token, tool: pending.name, summary: preview.summary, effects: preview.effects, figures: preview.figures },
+  };
+}
+
+// A form on the phone already knows the tool and its arguments, so it skips the
+// text parser but not the preview: the same token must come back before anything posts.
+export function propose(state, name, args = {}) {
+  if (!needsConfirmation(name)) {
+    return { reply: `${String(name)} is not an action that is previewed.`, tools: [], posted: false, blocked: true, error: 'NOT_PROPOSABLE' };
+  }
+  return holdForConfirmation(state, { name, args: args && typeof args === 'object' ? args : {} });
+}
+
+const NOTHING_PENDING = 'There is nothing waiting to be posted.';
+const CONFIRM_TOKEN = /^[0-9a-f]{12}$/;
+
+async function runConfirmation(state, decision) {
+  const taken = takePending(state, decision);
+  if (!taken.ok) {
+    const why = taken.error === 'EXPIRED'
+      ? 'That preview is more than ten minutes old, so I discarded it. Say it again if you still want it.'
+      : taken.error === 'TOKEN_MISMATCH'
+        ? 'That confirmation code does not match the preview I am holding, so I discarded it.'
+        : NOTHING_PENDING;
+    return { reply: why, tools: [], posted: false, error: taken.error };
+  }
+  const { pending } = taken;
+  const resolved = resolveImportContent(state, pending.name, pending.args);
+  if (!resolved.ok) return unreadableFile(resolved.error);
+  const recheck = validateAssistantToolCall(pending.name, resolved.args);
+  if (!recheck.ok) return { reply: `Tool ${pending.name} blocked: ${recheck.error}`, tools: [], blocked: true };
+  const result = await runPlanned(state, pending.name, resolved.args, pending.clearsPendingFile);
+  const out = { reply: fmtToolResult(pending.name, result), tools: [{ name: pending.name, result }], posted: result.ok !== false, confirmed: true };
+  state.lastConfirmation = { token: pending.token, tool: pending.name, reply: out.reply, posted: out.posted };
+  return out;
+}
+
+// A phone on a poor connection will send the same confirmation twice. The second
+// one must report what the first one did, not post again and not look like a failure.
+export async function confirmPending(state, token) {
+  const code = String(token == null ? '' : token).trim().toLowerCase();
+  if (!CONFIRM_TOKEN.test(code)) {
+    return { reply: 'A confirmation needs the code from its preview.', tools: [], posted: false, error: 'TOKEN_REQUIRED' };
+  }
+  const last = state.lastConfirmation;
+  if (last && last.token === code && state.pendingChatAction?.token !== code) {
+    return { reply: last.reply, tools: [], posted: last.posted, confirmed: true, replayed: true };
+  }
+  return runConfirmation(state, { token: code });
+}
+
+export function discardPending(state) {
+  const pending = state.pendingChatAction;
+  if (!pending) return { reply: NOTHING_PENDING, tools: [], posted: false };
+  clearPending(state);
+  return { reply: `Discarded: ${pending.summary || 'nothing was posted'}`, tools: [], posted: false };
+}
+
 export async function chat(state, message) {
   const plan = planLocalToolCall(state, message);
   if (plan.kind === 'reply') return { reply: plan.reply, tools: plan.tools || [], blocked: plan.blocked || false };
 
-  if (plan.kind === 'cancel') {
-    const pending = state.pendingChatAction;
-    clearPending(state);
-    return { reply: `Discarded: ${pending?.summary || 'nothing was posted'}`, tools: [], posted: false };
-  }
+  if (plan.kind === 'cancel') return discardPending(state);
 
-  if (plan.kind === 'confirm') {
-    const taken = takePending(state, plan.decision);
-    if (!taken.ok) {
-      const why = taken.error === 'EXPIRED'
-        ? 'That preview is more than ten minutes old, so I discarded it. Say it again if you still want it.'
-        : taken.error === 'TOKEN_MISMATCH'
-          ? 'That confirmation code does not match the preview I am holding, so I discarded it.'
-          : 'There is nothing waiting to be posted.';
-      return { reply: why, tools: [], posted: false };
-    }
-    const { pending } = taken;
-    const recheck = validateAssistantToolCall(pending.name, pending.args);
-    if (!recheck.ok) return { reply: `Tool ${pending.name} blocked: ${recheck.error}`, tools: [], blocked: true };
-    const result = await runPlanned(state, pending.name, pending.args, pending.clearsPendingFile);
-    return { reply: fmtToolResult(pending.name, result), tools: [{ name: pending.name, result }], posted: result.ok !== false, confirmed: true };
-  }
+  if (plan.kind === 'confirm') return runConfirmation(state, plan.decision);
 
-  if (needsConfirmation(plan.name)) {
-    const schemaCheck = validateAssistantToolCall(plan.name, plan.args);
-    if (!schemaCheck.ok) return { reply: `Tool ${plan.name} blocked: ${schemaCheck.error}`, tools: [], blocked: true };
-    const preview = previewOf(state, plan.name, plan.args);
-    if (preview.blockers.length) {
-      clearPending(state);
-      return { reply: blockedReply(preview), tools: [], posted: false, blocked: true, preview };
-    }
-    const pending = openPending(state, plan, preview);
-    return {
-      reply: previewReply(preview, pending),
-      tools: [],
-      posted: false,
-      awaitingConfirmation: true,
-      preview: { token: pending.token, tool: pending.name, summary: preview.summary, effects: preview.effects, figures: preview.figures },
-    };
-  }
+  if (needsConfirmation(plan.name)) return holdForConfirmation(state, plan);
 
   const valid = validateAssistantToolCall(plan.name, plan.args);
   if (!valid.ok) return { reply: `Tool ${plan.name} blocked: ${valid.error}`, tools: [], blocked: true };
