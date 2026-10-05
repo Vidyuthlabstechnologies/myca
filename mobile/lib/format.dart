@@ -29,6 +29,16 @@ String monthLabel(String period) {
   return '${_months[month - 1]} ${parts[0]}';
 }
 
+String longDate(String iso) {
+  final parts = iso.split('-');
+  final month = parts.length == 3 ? int.tryParse(parts[1]) : null;
+  final day = parts.length == 3 ? int.tryParse(parts[2]) : null;
+  if (month == null || day == null || month < 1 || month > 12) return iso;
+  return '$day ${_months[month - 1]} ${parts[0]}';
+}
+
+String plainNumber(num value) => value == value.roundToDouble() ? value.round().toString() : value.toString();
+
 String dueLabel(int daysUntil) {
   if (daysUntil < 0) return '${-daysUntil} days overdue';
   if (daysUntil == 0) return 'Due today';

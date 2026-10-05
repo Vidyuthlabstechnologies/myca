@@ -9,6 +9,7 @@ import '../proposal_flow.dart';
 import '../registers.dart';
 import '../theme.dart';
 import '../widgets.dart';
+import 'invoice_screen.dart';
 
 enum _Composer { none, document, payment }
 
@@ -142,6 +143,12 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
           tone: BubbleTone.plain,
           label: doc.date,
           stamp: _sales ? (doc.paid ? 'Paid' : 'Unpaid') : null,
+          footnotes: _sales ? const ['Tap to view or send'] : const [],
+          onTap: _sales
+              ? () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(builder: (_) => InvoiceScreen(invoiceId: doc.id)),
+                )
+              : null,
         ),
         for (final receipt in doc.receipts)
           Bubble(

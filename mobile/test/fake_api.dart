@@ -233,6 +233,40 @@ class FakeMycaApi implements MycaApi {
                   },
           },
         };
+      case 'invoice_document':
+        if (args['id'] != 'INV-0002') return {'ok': false, 'error': 'INVOICE_NOT_FOUND'};
+        return {
+          'ok': true,
+          'data': {
+            'id': 'INV-0002',
+            'date': '2026-08-12',
+            'seller': {
+              'name': 'Nalanda Textiles LLP',
+              'gstin': '27AAACN1234F1Z5',
+              'address': '12 Market Road',
+              'city': 'Pune',
+              'pin': '411001',
+              'state': {'code': '27', 'name': 'Maharashtra'},
+            },
+            'buyer': {'name': 'Gujarat Weaves', 'gstin': '24AAACG1234F1Z5'},
+            'placeOfSupply': {'code': '24', 'name': 'Gujarat'},
+            'lines': [
+              {'description': 'Silk rolls', 'hsn': '5007', 'qty': 3, 'rate': 100000, 'gstRate': 18, 'taxable': 300000, 'cgst': 0, 'sgst': 0, 'igst': 54000, 'amount': 354000},
+              {'description': 'Design work', 'hsn': '', 'qty': 1, 'rate': 22476.19, 'gstRate': 5, 'taxable': 22476.19, 'cgst': 0, 'sgst': 0, 'igst': 1123.81, 'amount': 23600},
+            ],
+            'taxable': 322476.19,
+            'cgst': 0,
+            'sgst': 0,
+            'igst': 55123.81,
+            'total': 377600,
+            'receipts': [
+              {'amount': 100000, 'date': '2026-08-20', 'mode': 'bank'},
+            ],
+            'received': 100000,
+            'balance': 277600,
+            'missing': ['HSN'],
+          },
+        };
       case 'export_gstr1_json':
         return {
           'ok': true,

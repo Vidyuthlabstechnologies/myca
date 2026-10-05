@@ -19,13 +19,13 @@ icons and typography, and an iOS version is likely later.
   computes a tax or a total.
 - Design tokens, the icon set and the logo mark are code. Inter is bundled.
 - Package use is kept small: HTTP, file picker, preferences, secure storage, local
-  authentication.
+  authentication, and PDF creation and printing.
 - An earlier plan named React Native; this record supersedes it.
 
 ## Consequences
 
 - One codebase can later produce an iOS app.
-- Widget tests render every screen without a device (40 tests), and a tool renders
+- Widget tests render every screen without a device, and a tool renders
   screenshots for review.
 - The app has not yet run on hardware. The file picker, the save dialog and the
   fingerprint prompt are the unverified parts.

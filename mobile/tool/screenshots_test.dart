@@ -97,4 +97,16 @@ void main() {
     await tester.tap(find.text('3 things need you'));
     await shot(tester, '12_taxes');
   });
+
+  testWidgets('invoice screen', (tester) async {
+    await phone(tester);
+    await tester.pumpWidget(MycaApp(state: testState(FakeMycaApi(signedIn: true))));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Sales'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Gujarat Weaves'));
+    await shot(tester, '13_customer_chat');
+    await tester.tap(find.text('Invoice INV-0002'));
+    await shot(tester, '14_invoice');
+  });
 }

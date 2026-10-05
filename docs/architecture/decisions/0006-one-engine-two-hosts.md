@@ -24,7 +24,7 @@ tax logic.
 
 ## Consequences
 
-- A fix to tax logic lands in both products at once, and the 447 platform tests cover
+- A fix to tax logic lands in both products at once, and the platform tests cover
   the hosted behaviour too.
 - The hosted service reads and writes a business's whole state per request. Acceptable
   for small businesses; splitting the state into tables is planned (cloud phase C2).
