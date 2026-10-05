@@ -223,6 +223,32 @@ export const TOOL_ARG_SCHEMAS = {
     required: ['id'],
     properties: { id: { type: 'string', pattern: '^INV-[0-9]{4,}$' } },
   },
+  create_credit_note: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['invoiceId', 'reason'],
+    properties: {
+      invoiceId: { type: 'string', pattern: '^INV-[0-9]{4,}$' },
+      amount: { type: 'number', exclusiveMinimum: 0 },
+      date: { type: 'string' },
+      reason: { type: 'string', minLength: 1, maxLength: 200 },
+    },
+  },
+  cancel_invoice: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['invoiceId'],
+    properties: {
+      invoiceId: { type: 'string', pattern: '^INV-[0-9]{4,}$' },
+      date: { type: 'string' },
+      reason: { type: 'string', maxLength: 200 },
+    },
+  },
+  list_credit_notes: {
+    type: 'object',
+    additionalProperties: false,
+    properties: { period: { type: 'string', pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' } },
+  },
   record_receipt: {
     type: 'object',
     additionalProperties: false,
@@ -556,6 +582,8 @@ const TOOL_RISK = {
   import_bank: 'writes_books',
   post_expense: 'writes_books',
   set_expense_head: 'writes_books',
+  create_credit_note: 'writes_books',
+  cancel_invoice: 'writes_books',
   govt_nic_auth: 'external_auth_probe',
   govt_generate_irn: 'external_government_api',
   sandbox_operation: 'external_government_api',
@@ -746,6 +774,21 @@ export function planLocalToolCall(state, message) {
   if (trackQuery) {
     const gstin = trackQuery[1] ? trackQuery[1].toUpperCase() : undefined;
     return { kind: 'tool', name: 'track_gst_returns', args: gstin ? { gstin } : {} };
+  }
+
+  const cancelMatch = text.match(/\bcancel\s+(?:invoice\s+)?(INV-\d{4,})\b(?:\s*(?:because|reason|:|-)?\s*(.+))?$/i);
+  if (cancelMatch && !isQuestion(text) && !/(?:do\s*not|don'?t|never)/i.test(text) && !/(?:irn|e-?invoice)/i.test(text)) {
+    const reason = String(cancelMatch[2] || '').trim();
+    return { kind: 'tool', name: 'cancel_invoice', args: { invoiceId: cancelMatch[1].toUpperCase(), date: receiptDate(text, localToday()), ...(reason ? { reason: reason.slice(0, 200) } : {}) } };
+  }
+  const creditMatch = text.match(/\bcredit\s+note\b.*?\b(INV-\d{4,})\b/i);
+  if (creditMatch && !isQuestion(text) && !isNegated(text)) {
+    const amount = receiptAmount(text);
+    const reason = (text.match(/(?:because|reason|:|-)\s*([^0-9₹][^,]*?)\s*$/i) || [])[1] || '';
+    if (!reason.trim()) {
+      return { kind: 'reply', reply: `Say why, for example "credit note for ${creditMatch[1].toUpperCase()} 2000 - goods returned". I have recorded nothing.`, tools: [] };
+    }
+    return { kind: 'tool', name: 'create_credit_note', args: { invoiceId: creditMatch[1].toUpperCase(), date: receiptDate(text, localToday()), reason: reason.trim().slice(0, 200), ...(amount == null ? {} : { amount }) } };
   }
 
   const decisionMatch = text.match(/\b(waive|resolve|reopen|assign)\s+(EXC-\d{6})\b(.*)$/i);

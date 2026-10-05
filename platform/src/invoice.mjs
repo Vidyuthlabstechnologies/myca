@@ -192,13 +192,15 @@ export function recordReceipt(state, { invoiceId, amount, date, mode } = {}) {
   if (!party) return { ok: false, error: 'PARTY_NOT_FOUND' };
   const amt = amount == null ? inv.total : Number(amount);
   if (!Number.isFinite(amt) || amt <= 0) return { ok: false, error: 'BAD_AMOUNT' };
+  if (inv.status === 'cancelled') return { ok: false, error: 'INVOICE_CANCELLED', invoiceId };
   const already = (inv.receipts || []).reduce((s, r) => s + Number(r.amount || 0), 0);
-  if (already + amt > inv.total + 0.01) {
+  const credited = (state.creditNotes || []).filter((note) => note.invoiceId === invoiceId).reduce((s, note) => s + Number(note.total || 0), 0);
+  if (already + credited + amt > inv.total + 0.01) {
     return {
       ok: false,
       error: 'OVERPAYMENT',
       invoiceId,
-      due: Math.round((inv.total - already) * 100) / 100,
+      due: Math.round((inv.total - already - credited) * 100) / 100,
     };
   }
   const bankOrCash = mode === 'cash' ? 1001 : 1002;
@@ -215,7 +217,7 @@ export function recordReceipt(state, { invoiceId, amount, date, mode } = {}) {
   inv.receipts = inv.receipts || [];
   inv.receipts.push({ amount: amt, date: receiptDate, mode: mode || 'bank' });
   const received = inv.receipts.reduce((s, r) => s + r.amount, 0);
-  inv.status = received >= inv.total - 0.01 ? 'paid' : 'partial';
+  inv.status = received + credited >= inv.total - 0.01 ? 'paid' : 'partial';
   return { ok: true, invoice: inv, posted };
 }
 

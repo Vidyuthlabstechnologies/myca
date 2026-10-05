@@ -10,6 +10,7 @@ import { listAccounts, journal, trialBalance, verifyChain, createTransfers, pais
 import { createInvoice, recordReceipt, invoicesToSalesCsv, createPurchase, purchasesToInwardCsv, printInvoice } from './invoice.mjs';
 import { invoiceDocument } from './invoice-document.mjs';
 import { postExpense, retagExpense, listExpenses, expenseHeads } from './expenses.mjs';
+import { createCreditNote, cancelInvoice, creditNotesForPeriod, creditNoteTotals } from './credit-notes.mjs';
 import { postTallyRows, postBankRows, purchaseRegisterCsv } from './post-import.mjs';
 import { parseZohoBooksCsv } from './import-zoho.mjs';
 import { invoicesToGstr1Json } from './gstr1-json.mjs';
@@ -48,11 +49,30 @@ function resolveToolActor(args = {}, idKey = 'actorId', fallbackUserId = 'ca') {
   return normalizeActor({ userId: args[idKey] || fallbackUserId, role: args.role || '' });
 }
 
+function lessCreditNotes(outward, notes) {
+  const totals = outward?.totals || {};
+  const credit = creditNoteTotals(notes);
+  const r2 = (v) => Math.round(Number(v || 0) * 100) / 100;
+  return {
+    ...outward,
+    grossTotals: totals,
+    totals: {
+      interTaxable: r2(totals.interTaxable - credit.igstTaxable),
+      interIgst: r2(totals.interIgst - credit.igst),
+      intraTaxable: r2(totals.intraTaxable - credit.intraTaxable),
+      intraCgst: r2(totals.intraCgst - credit.cgst),
+      intraSgst: r2(totals.intraSgst - credit.sgst),
+    },
+    creditNotes: credit,
+  };
+}
+
 function gstr3bFor(state, docs, inwardOverride) {
   const salesText = invoicesToSalesCsv(docs.invoices);
   const inwardText = inwardOverride || purchasesToInwardCsv(docs.purchases);
   const result = filingPrep({ salesText, inwardText, supplierState: state.company.state, fy: state.company.fy });
-  return { ...result.gstr3b, period: docs.period };
+  const draft = result.gstr3b || {};
+  return { ...draft, outward: lessCreditNotes(draft.outward, docs.creditNotes || []), period: docs.period };
 }
 
 const DEADLINE_COLUMNS = ['clientId', 'name', 'entity', 'turnover', 'gst', 'qrmp', 'tdsDeductor', 'pf', 'advanceTax', 'tp', 'state', 'profession', 'gstTds', 'presumptive'];
@@ -487,6 +507,27 @@ export const TOOLS = [
     run: (state, args = {}) => invoiceDocument(state, args.id),
   },
   {
+    name: 'create_credit_note',
+    title: 'Credit note',
+    description: 'Reduce a posted sales invoice by a credit note (goods returned, price reduced, or the whole invoice) with reversing entries. Never edits the invoice.',
+    args: ['invoiceId', 'amount', 'date', 'reason'],
+    run: (state, args) => createCreditNote(state, args),
+  },
+  {
+    name: 'cancel_invoice',
+    title: 'Cancel invoice',
+    description: 'Cancel a posted sales invoice by a credit note for its full value; the invoice stays in the journal and the return of its period.',
+    args: ['invoiceId', 'date', 'reason'],
+    run: (state, args) => cancelInvoice(state, args),
+  },
+  {
+    name: 'list_credit_notes',
+    title: 'Credit notes',
+    description: 'Credit notes against sales invoices, optionally for one month (YYYY-MM). Read-only.',
+    args: ['period'],
+    run: (state, args = {}) => ok(args.period ? creditNotesForPeriod(state, String(args.period)) : state.creditNotes || []),
+  },
+  {
     name: 'record_receipt',
     title: 'Record receipt',
     description: 'Receive payment against an invoice (bank or cash) and post the AR settlement.',
@@ -523,6 +564,7 @@ export const TOOLS = [
     description: 'GSTN offline-utility JSON from posted invoices (does not upload).',
     run: (state, args = {}) => {
       const json = invoicesToGstr1Json(state.company, state.invoices || [], args.fp, {
+        creditNotes: state.creditNotes || [],
         grossTurnover: args.grossTurnover,
         currentGrossTurnover: args.currentGrossTurnover,
       });
@@ -551,18 +593,20 @@ export const TOOLS = [
       const gstr3b = gstr3bFor(state, docs);
       const outward = gstr3b.outward?.totals || {};
       const credit = gstr3b.itc?.available || {};
-      const file = docs.invoices.length ? invoicesToGstr1Json(state.company, docs.invoices, fpOf(docs.period)) : null;
+      const file = docs.invoices.length || docs.creditNotes.length ? invoicesToGstr1Json(state.company, docs.invoices, fpOf(docs.period), { creditNotes: docs.creditNotes }) : null;
       return ok({
         period: docs.period,
         periods: docs.periods,
         salesCount: docs.invoices.length,
+        creditNoteCount: docs.creditNotes.length,
+        creditNotes: creditNoteTotals(docs.creditNotes),
         purchaseCount: docs.purchases.length,
         taxableSales: (Math.round(Number(outward.interTaxable || 0) * 100) + Math.round(Number(outward.intraTaxable || 0) * 100)) / 100,
         outputTax: taxByHead(outward.interIgst, outward.intraCgst, outward.intraSgst),
         inputCredit: taxByHead(credit.igst, credit.cgst, credit.sgst),
         gstr1: file && !file.error
-          ? { fp: file.fp, b2b: file.b2b.length, b2cl: file.b2cl.length, b2cs: file.b2cs.length, held: file.held || [], warnings: file.warnings || [], hash: file.hash, caveat: file.caveat }
-          : { fp: fpOf(docs.period), b2b: 0, b2cl: 0, b2cs: 0, held: [], warnings: [], hash: '', caveat: '', error: file ? file.error : '' },
+          ? { fp: file.fp, b2b: file.b2b.length, b2cl: file.b2cl.length, b2cs: file.b2cs.length, cdnr: (file.cdnr || []).length, cdnur: (file.cdnur || []).length, held: file.held || [], warnings: file.warnings || [], hash: file.hash, caveat: file.caveat }
+          : { fp: fpOf(docs.period), b2b: 0, b2cl: 0, b2cs: 0, cdnr: 0, cdnur: 0, held: [], warnings: [], hash: '', caveat: '', error: file ? file.error : '' },
       });
     },
   },

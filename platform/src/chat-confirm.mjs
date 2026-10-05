@@ -8,6 +8,7 @@
  */
 import { randomBytes } from 'node:crypto';
 import { planExpense } from './expenses.mjs';
+import { planCreditNote, creditedAgainst } from './credit-notes.mjs';
 import { gstSplit, partyStateOf } from './chart.mjs';
 import { postingDate } from './dates.mjs';
 import { isPeriodLocked } from './period-lock.mjs';
@@ -16,7 +17,7 @@ import { parseZohoBooksCsv } from './import-zoho.mjs';
 import { tallyXmlToDayBookCsv } from './tally-xml.mjs';
 
 export const CONFIRM_TOOLS = new Set([
-  'create_invoice', 'create_purchase', 'record_receipt', 'post_expense', 'set_expense_head',
+  'create_invoice', 'create_purchase', 'record_receipt', 'post_expense', 'set_expense_head', 'create_credit_note', 'cancel_invoice',
   'import_tally', 'import_tally_xml', 'import_zoho', 'import_bank',
   'govt_generate_irn', 'govt_nic_cancel_irn',
   'exception_decide',
@@ -119,6 +120,41 @@ function expensePreview(state, args) {
   };
 }
 
+const CREDIT_NOTE_REASONS = {
+  INVOICE_NOT_FOUND: (p, args) => `${args.invoiceId} is not an invoice in these books.`,
+  INVOICE_CANCELLED: (p, args) => `${args.invoiceId} is already cancelled.`,
+  INVALID_DATE: (p, args) => `${args.date} is not a date I can read.`,
+  BEFORE_INVOICE: (p) => `A credit note cannot be dated before the invoice (${p.invoiceDate}).`,
+  PERIOD_LOCKED: (p, args, state) => `${p.date} is inside the locked period (through ${state.lockThrough}).`,
+  REASON_REQUIRED: () => 'Say why: goods returned, price reduced, or cancelled.',
+  FULLY_CREDITED: (p) => `${p.invoiceId} is already credited in full.`,
+  BAD_AMOUNT: () => 'The amount must be a positive number.',
+  EXCEEDS_INVOICE: (p) => `Only ${money(p.room)} of ${p.invoiceId} is left to credit.`,
+  PARTLY_CREDITED: (p) => `${p.invoiceId} already has a credit note; issue one for the rest instead of cancelling.`,
+};
+
+function creditNotePreview(state, args, cancel = false) {
+  const invoiceId = String(args.invoiceId || '').trim().toUpperCase();
+  if (cancel && creditedAgainst(state, invoiceId) > 0) {
+    return { blockers: [CREDIT_NOTE_REASONS.PARTLY_CREDITED({ invoiceId })], summary: '', effects: [], figures: {} };
+  }
+  const planned = planCreditNote(state, cancel ? { invoiceId, date: args.date, reason: args.reason || 'Invoice cancelled' } : args);
+  if (!planned.ok) {
+    const explain = CREDIT_NOTE_REASONS[planned.error];
+    return { blockers: [explain ? explain(planned, args, state) : planned.error], summary: '', effects: [], figures: {} };
+  }
+  const { plan } = planned;
+  const heads = [plan.cgst > 0 ? `CGST ${money(plan.cgst)}` : '', plan.sgst > 0 ? `SGST ${money(plan.sgst)}` : '', plan.igst > 0 ? `IGST ${money(plan.igst)}` : ''].filter(Boolean).join(' + ');
+  const what = cancel ? `Cancel ${plan.invoice.id} (${plan.invoice.partyName}) by a credit note for its full ${money(plan.total)}` : `Credit note of ${money(plan.total)} against ${plan.invoice.id} (${plan.invoice.partyName})${plan.full ? ', the whole invoice' : ''}`;
+  const refund = plan.refundDue > 0 ? ` ${plan.invoice.partyName} has paid ${money(plan.received)}, so ${money(plan.refundDue)} becomes due back to them.` : '';
+  return {
+    blockers: [],
+    summary: `${what} dated ${plan.date}: taxable ${money(plan.taxable)}${heads ? `, ${heads}` : ''}. Reason: ${plan.reason}.${refund}`,
+    effects: ['Debit sales and the GST output accounts, credit the customer. The invoice stays in the journal; the note is reported in the GSTR-1 of its own month.'],
+    figures: { invoiceId: plan.invoice.id, date: plan.date, taxable: plan.taxable, cgst: plan.cgst, sgst: plan.sgst, igst: plan.igst, total: plan.total, refundDue: plan.refundDue, cancels: cancel },
+  };
+}
+
 function countSkips(skipped = []) {
   const counts = {};
   for (const s of skipped) counts[s.reason] = (counts[s.reason] || 0) + 1;
@@ -208,6 +244,8 @@ const PREVIEWERS = {
   create_purchase: (state, args) => documentPreview(state, args, 'purchase'),
   record_receipt: receiptPreview,
   post_expense: expensePreview,
+  create_credit_note: creditNotePreview,
+  cancel_invoice: (state, args) => creditNotePreview(state, args, true),
   import_tally: (state, args) => tallyPreview(state, args, args.csv, args.fileName || 'Tally Day Book'),
   import_tally_xml: xmlPreview,
   import_zoho: zohoPreview,

@@ -51,6 +51,8 @@ export function newBook(company = {}) {
     expenses: [],
     expenseSeq: 0,
     expenseTags: {},
+    creditNotes: [],
+    creditNoteSeq: 0,
   };
 }
 
@@ -75,6 +77,8 @@ export function serializeBook(book) {
     expenses: book.expenses || [],
     expenseSeq: book.expenseSeq || 0,
     expenseTags: book.expenseTags || {},
+    creditNotes: book.creditNotes || [],
+    creditNoteSeq: book.creditNoteSeq || 0,
   };
 }
 
@@ -99,6 +103,8 @@ export function deserializeBook(raw) {
   book.expenses = Array.isArray(raw.expenses) ? raw.expenses : [];
   book.expenseSeq = raw.expenseSeq || 0;
   book.expenseTags = raw.expenseTags && typeof raw.expenseTags === 'object' ? raw.expenseTags : {};
+  book.creditNotes = Array.isArray(raw.creditNotes) ? raw.creditNotes : [];
+  book.creditNoteSeq = raw.creditNoteSeq || 0;
   return book;
 }
 

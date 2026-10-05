@@ -14,8 +14,12 @@ export function fpOf(period) {
 }
 
 export function periodsWithDocuments(state) {
+  return periodsOf([...(state.invoices || []), ...(state.purchases || []), ...(state.creditNotes || [])]);
+}
+
+function periodsOf(documents) {
   const seen = new Set();
-  for (const doc of [...(state.invoices || []), ...(state.purchases || [])]) {
+  for (const doc of documents) {
     const period = periodOf(doc?.date);
     if (period) seen.add(period);
   }
@@ -38,6 +42,7 @@ export function documentsForPeriod(state, requested, fallback = '') {
     periods,
     invoices: (state.invoices || []).filter(inPeriod),
     purchases: (state.purchases || []).filter(inPeriod),
+    creditNotes: (state.creditNotes || []).filter(inPeriod),
   };
 }
 

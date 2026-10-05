@@ -110,6 +110,41 @@ export function invoicesToGstr1Json(company, invoices = [], periodFp, opts = {})
     }
   }
 
+  const cdnrMap = new Map();
+  const cdnur = [];
+  const allInvoices = new Map((invoices || []).map((inv) => [inv.id, inv]));
+  const notesInPeriod = (opts.creditNotes || []).filter((note) => note.date && fpFromDate(note.date) === fp);
+  for (const note of notesInPeriod) {
+    const reason = holdReason(note);
+    if (reason) {
+      held.push({ inum: note.id, idt: ddmmyyyy(note.date), ...reason, creditNote: true });
+      continue;
+    }
+    const pos = String(note.partyState || note.placeOfSupply || supplierState).padStart(2, '0');
+    const val = round2(note.total);
+    const original = allInvoices.get(note.invoiceId) || note;
+    if (note.partyGstin) {
+      const ctin = String(note.partyGstin).toUpperCase();
+      if (!cdnrMap.has(ctin)) cdnrMap.set(ctin, []);
+      cdnrMap.get(ctin).push({ ntty: 'C', nt_num: note.id, nt_dt: ddmmyyyy(note.date), pos, rchrg: 'N', inv_typ: 'R', val, itms: itemsByRate(note.lines) });
+    } else if (isB2cl(original, pos, supplierState)) {
+      cdnur.push({ ntty: 'C', nt_num: note.id, nt_dt: ddmmyyyy(note.date), typ: 'B2CL', pos, val, itms: itemsByRate(note.lines) });
+    } else {
+      // Credit notes against small unregistered sales are netted in B2CS (table 7).
+      for (const { itm_det } of itemsByRate(note.lines)) {
+        const key = `${pos}|${itm_det.rt}`;
+        if (!b2csMap.has(key)) {
+          b2csMap.set(key, { sply_ty: pos === supplierState ? 'INTRA' : 'INTER', rt: itm_det.rt, typ: 'OE', pos, txval: 0, camt: 0, samt: 0, iamt: 0, csamt: 0 });
+        }
+        const row = b2csMap.get(key);
+        row.txval = round2(row.txval - itm_det.txval);
+        row.camt = round2(row.camt - itm_det.camt);
+        row.samt = round2(row.samt - itm_det.samt);
+        row.iamt = round2(row.iamt - itm_det.iamt);
+      }
+    }
+  }
+
   const body = { gstin, fp, version: 'GST3.1.6' };
   // gt is the preceding FY's aggregate turnover and cur_gt the current FY's to date.
   // Neither can be derived from one month of invoices, so they are only taken as given.
@@ -120,10 +155,13 @@ export function invoicesToGstr1Json(company, invoices = [], periodFp, opts = {})
   body.b2b = [...b2bMap.entries()].map(([ctin, inv]) => ({ ctin, inv }));
   body.b2cl = [...b2clMap.entries()].map(([pos, inv]) => ({ pos, inv }));
   body.b2cs = [...b2csMap.values()];
+  if (cdnrMap.size) body.cdnr = [...cdnrMap.entries()].map(([ctin, nt]) => ({ ctin, nt }));
+  if (cdnur.length) body.cdnur = cdnur;
   const hash = createHash('sha256').update(JSON.stringify(body)).digest('hex');
   const warnings = [];
   if (gt == null || curGt == null) warnings.push('GT_NOT_PROVIDED: enter last FY and current FY aggregate turnover before upload if the offline tool asks for them.');
   if (held.length) warnings.push(`${held.length} invoice(s) held back for review; see held.`);
+  if (body.b2cs.some((row) => row.txval < 0)) warnings.push('B2CS_NEGATIVE: credit notes against small unregistered sales exceed those sales in this month; the net row is negative.');
   return {
     ...body,
     hash,
