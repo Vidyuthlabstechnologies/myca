@@ -22,6 +22,13 @@ void main() {
     expect(rupees(-1500), '-₹1,500.00');
   });
 
+  test('monthLabel names the return period', () {
+    expect(monthLabel('2026-08'), 'August 2026');
+    expect(monthLabel('2026-12'), 'December 2026');
+    expect(monthLabel('2026-13'), '2026-13');
+    expect(monthLabel('soon'), 'soon');
+  });
+
   test('dueLabel words overdue, today and future', () {
     expect(dueLabel(-24), '24 days overdue');
     expect(dueLabel(0), 'Due today');
@@ -43,7 +50,7 @@ void main() {
   });
 
   test('a failed tool yields no figure instead of zeros', () {
-    expect(gstFrom({'ok': false, 'error': 'X'}), isNull);
+    expect(periodGstFrom({'ok': false, 'error': 'X'}), isNull);
     expect(deadlinesFrom({'ok': false}), isEmpty);
   });
 
@@ -68,10 +75,10 @@ void main() {
         seen = request;
         return http.Response(jsonEncode({'ok': true, 'data': {}}), 200);
       }));
-      await api.query('gst_payable');
+      await api.query('gst_period_summary', {'period': '2026-08'});
       expect(seen.url.toString(), 'http://127.0.0.1:4780/api/query');
       expect(seen.headers['x-myca-client'], 'token-for-tests');
-      expect(jsonDecode(seen.body), {'name': 'gst_payable', 'args': {}});
+      expect(jsonDecode(seen.body), {'name': 'gst_period_summary', 'args': {'period': '2026-08'}});
     });
 
     test('turns a refusal into the server error message', () async {

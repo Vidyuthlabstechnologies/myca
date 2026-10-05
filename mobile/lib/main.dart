@@ -41,6 +41,7 @@ void main() {
         store: DeviceOnboardingStore(),
         lock: config.hosted ? DeviceAppLock() : const NoAppLock(),
         pickTextFile: pickTextFileFromDevice,
+        saveTextFile: saveTextFileOnDevice,
       ),
     ),
   );

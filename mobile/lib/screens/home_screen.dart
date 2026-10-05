@@ -257,10 +257,13 @@ class _TodayPanel extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('GST PAYABLE', style: text.labelSmall),
+                          Text(
+                            'TAX ON SALES, ${monthLabel(gst.period).toUpperCase()}',
+                            style: text.labelSmall,
+                          ),
                           const SizedBox(height: 4),
                           Text(
-                            rupees(gst.payable),
+                            rupees(gst.outputTax.total),
                             style: text.headlineMedium?.copyWith(
                               fontFeatures: moneyFigures,
                               fontWeight: FontWeight.w400,
@@ -273,14 +276,14 @@ class _TodayPanel extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         Text(
-                          'Collected ${rupees(gst.output)}',
+                          gst.salesCount == 1 ? '1 sale' : '${gst.salesCount} sales',
                           style: text.bodySmall?.copyWith(
                             fontFeatures: moneyFigures,
                           ),
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          'Paid ${rupees(gst.input)}',
+                          'Credit on purchases ${rupees(gst.inputCredit.total)}',
                           style: text.bodySmall?.copyWith(
                             fontFeatures: moneyFigures,
                           ),

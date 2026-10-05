@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:myca/app_services.dart';
+import 'package:myca/app_state.dart';
 import 'package:myca/main.dart';
 
 import 'fake_api.dart';
@@ -104,7 +105,9 @@ void main() {
     expect(find.text('Good evening'), findsOneWidget);
     expect(find.text('3 things need you'), findsOneWidget);
     expect(find.text('Overdue'), findsOneWidget);
-    expect(find.text('₹80,690.00'), findsOneWidget);
+    expect(find.text('TAX ON SALES, OCTOBER 2026'), findsOneWidget);
+    expect(find.text('₹3,600.00'), findsOneWidget);
+    expect(find.text('Credit on purchases ₹0.00'), findsOneWidget);
     expect(find.text('2 customers · Gujarat Weaves: ₹3,77,600.00'), findsOneWidget);
 
     await tester.tap(find.text('3 things need you'));
@@ -118,6 +121,51 @@ void main() {
     await tester.tap(find.text('Got it'));
     await tester.pumpAndSettle();
     expect(find.text('AT RISK'), findsNothing);
+  });
+
+  testWidgets('taxes show one month at a time, and the GSTR-1 file for that month can be saved', (tester) async {
+    final api = FakeMycaApi(signedIn: true);
+    final saved = <String, String>{};
+    final state = AppState(
+      api: api,
+      store: MemoryOnboardingStore(isWelcomed: true, isMigrated: true),
+      pickTextFile: (_) async => null,
+      saveTextFile: (name, content) async {
+        saved[name] = content;
+        return true;
+      },
+      now: () => DateTime(2026, 10, 5, 22, 30),
+    );
+    await tester.pumpWidget(MycaApp(state: state));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('3 things need you'));
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(find.text('GST FOR OCTOBER 2026'), 200);
+    expect(find.text('Tax on 1 sale of ₹20,000.00'), findsOneWidget);
+    await tester.scrollUntilVisible(find.textContaining('is left out'), 200);
+    expect(find.text('IGST ₹0.00 · CGST ₹1,800.00 · SGST ₹1,800.00'), findsOneWidget);
+    expect(find.text('INV-0009 is left out: the buyer GSTIN is not valid.'), findsOneWidget);
+    expect(find.textContaining('worked out in the return'), findsOneWidget);
+
+    await tester.drag(find.byType(ListView), const Offset(0, 260));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(ChoiceChip, 'August 2026'));
+    await tester.pumpAndSettle();
+    expect(api.periodsAsked.last, '2026-08');
+    await tester.scrollUntilVisible(find.text('GST FOR AUGUST 2026'), 200);
+    expect(find.text('₹14,000.00'), findsWidgets);
+    expect(find.text('IGST ₹0.00 · CGST ₹1,000.00 · SGST ₹1,000.00'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('2 to registered buyers · 0 large to unregistered · 0 summary rows'), 200);
+    expect(find.textContaining('is left out'), findsNothing);
+
+    await tester.ensureVisible(find.text('Save file for the GST portal'));
+    await tester.tap(find.text('Save file for the GST portal'));
+    await tester.pumpAndSettle();
+    expect(saved.keys.single, 'GSTR1_27AABCU9603R1ZN_082026.json');
+    expect(saved.values.single, contains('"fp": "082026"'));
+    expect(find.textContaining('Saved GSTR1_27AABCU9603R1ZN_082026.json'), findsOneWidget);
+    expect(find.textContaining('does not upload or file'), findsOneWidget);
   });
 
   testWidgets('a sale to a new customer: pick, enter, preview, then Post it', (tester) async {

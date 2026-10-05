@@ -250,7 +250,16 @@ export const TOOL_ARG_SCHEMAS = {
     },
   },
   gst_payable: noArgs,
-  prepare_gstr1: noArgs,
+  prepare_gstr1: {
+    type: 'object',
+    additionalProperties: false,
+    properties: { period: { type: 'string', pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' } },
+  },
+  gst_period_summary: {
+    type: 'object',
+    additionalProperties: false,
+    properties: { period: { type: 'string', pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' } },
+  },
   export_gstr1_json: {
     type: 'object',
     additionalProperties: false,
@@ -263,9 +272,13 @@ export const TOOL_ARG_SCHEMAS = {
   prepare_gstr3b: {
     type: 'object',
     additionalProperties: false,
-    properties: { inwardText: { type: 'string' } },
+    properties: { inwardText: { type: 'string' }, period: { type: 'string', pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' } },
   },
-  filing_pack: noArgs,
+  filing_pack: {
+    type: 'object',
+    additionalProperties: false,
+    properties: { period: { type: 'string', pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' } },
+  },
   govt_probe: noArgs,
   govt_nic_auth: noArgs,
   govt_nic_mock: {

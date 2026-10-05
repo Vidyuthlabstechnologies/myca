@@ -29,7 +29,9 @@ Future<void> main() async {
   stdout.writeln('purchases: ${registerSubtitle(before.purchases, RegisterKind.purchases)}');
 
   final today = await loadToday(api);
-  check('gst payable loads', today.gst != null, today.gst == null ? '' : rupees(today.gst!.payable));
+  check('GST for the period loads', today.gst != null, today.gst == null ? '' : '${monthLabel(today.gst!.period)}: tax on sales ${rupees(today.gst!.outputTax.total)}');
+  final file = toolData(await api.query('export_gstr1_json', {'fp': today.gst!.gstr1.fp}));
+  check('the GSTR-1 file for that period can be fetched', file['fp'] == today.gst!.gstr1.fp && file['hash'] is String);
   check('deadlines load', today.deadlines.isNotEmpty, '${today.deadlines.length}');
   stdout.writeln('needs you: ${needsYou(today).map((e) => e.title).join(' / ')}');
 

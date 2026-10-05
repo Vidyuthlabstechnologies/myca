@@ -19,6 +19,7 @@ import { clearIntegrationConnection, integrationReadiness, setIntegrationConnect
 import { listClients, registerClient, setActiveClient, listDocuments, uploadDocument, getDocumentContent } from './ca-api.mjs';
 import { lockPeriod, unlockPeriod, isPeriodLocked, lockThrough } from './period-lock.mjs';
 import { localToday, postingDate } from './dates.mjs';
+import { documentsForPeriod, fpOf, taxByHead } from './return-period.mjs';
 import { buildInvoiceShare, shareLink, queueNotification, listOutbox, sendNotification } from './notifications.mjs';
 import { providerDoctor } from './provider-doctor.mjs';
 import { providerCatalog, providerRequirementMap } from './provider-catalog.mjs';
@@ -43,6 +44,13 @@ function fail(error, extra = {}) {
 
 function resolveToolActor(args = {}, idKey = 'actorId', fallbackUserId = 'ca') {
   return normalizeActor({ userId: args[idKey] || fallbackUserId, role: args.role || '' });
+}
+
+function gstr3bFor(state, docs, inwardOverride) {
+  const salesText = invoicesToSalesCsv(docs.invoices);
+  const inwardText = inwardOverride || purchasesToInwardCsv(docs.purchases);
+  const result = filingPrep({ salesText, inwardText, supplierState: state.company.state, fy: state.company.fy });
+  return { ...result.gstr3b, period: docs.period };
 }
 
 const DEADLINE_COLUMNS = ['clientId', 'name', 'entity', 'turnover', 'gst', 'qrmp', 'tdsDeductor', 'pf', 'advanceTax', 'tp', 'state', 'profession', 'gstTds', 'presumptive'];
@@ -490,11 +498,14 @@ export const TOOLS = [
   {
     name: 'prepare_gstr1',
     title: 'Prepare GSTR-1',
-    description: 'Build GSTR-1 tables and e-invoice checks from invoices already in the books.',
-    run: (state) => {
-      const salesText = invoicesToSalesCsv(state.invoices || []);
+    description: 'Build GSTR-1 tables and e-invoice checks from the invoices of one tax period (the latest with documents unless a period is given).',
+    args: ['period'],
+    run: (state, args = {}) => {
+      const docs = documentsForPeriod(state, args.period);
+      if (!docs.ok) return fail(docs.error, { hint: docs.hint, periods: docs.periods });
+      const salesText = invoicesToSalesCsv(docs.invoices);
       const result = filingPrep({ salesText, supplierState: state.company.state, fy: state.company.fy });
-      return ok({ salesText, gstr1: result.gstr1, eInvoice: result.summary });
+      return ok({ period: docs.period, periods: docs.periods, salesText, gstr1: result.gstr1, eInvoice: result.summary });
     },
   },
   {
@@ -512,31 +523,62 @@ export const TOOLS = [
   {
     name: 'prepare_gstr3b',
     title: 'Prepare GSTR-3B',
-    description: 'Draft GSTR-3B outward and ITC from invoices plus optional inward CSV.',
+    description: 'Draft GSTR-3B outward and ITC from the invoices and bills of one tax period (the latest with documents unless a period is given), plus an optional inward CSV.',
+    args: ['period', 'inwardText'],
     run: (state, args = {}) => {
-      const salesText = invoicesToSalesCsv(state.invoices || []);
-      const inwardText = args.inwardText || state.files.inward || purchasesToInwardCsv(state.purchases || []);
-      const result = filingPrep({ salesText, inwardText, supplierState: state.company.state, fy: state.company.fy });
-      return ok(result.gstr3b);
+      const docs = documentsForPeriod(state, args.period);
+      if (!docs.ok) return fail(docs.error, { hint: docs.hint, periods: docs.periods });
+      return ok({ ...gstr3bFor(state, docs, args.inwardText || state.files.inward), periods: docs.periods });
+    },
+  },
+  {
+    name: 'gst_period_summary',
+    title: 'GST for one period',
+    description: 'For one tax period: tax on sales and input credit by head from the GSTR-3B draft, and what the GSTR-1 file for that period holds. Lists the periods that have documents.',
+    args: ['period'],
+    run: (state, args = {}) => {
+      const docs = documentsForPeriod(state, args.period, localToday().slice(0, 7));
+      if (!docs.ok) return fail(docs.error, { hint: docs.hint, periods: docs.periods });
+      const gstr3b = gstr3bFor(state, docs);
+      const outward = gstr3b.outward?.totals || {};
+      const credit = gstr3b.itc?.available || {};
+      const file = docs.invoices.length ? invoicesToGstr1Json(state.company, docs.invoices, fpOf(docs.period)) : null;
+      return ok({
+        period: docs.period,
+        periods: docs.periods,
+        salesCount: docs.invoices.length,
+        purchaseCount: docs.purchases.length,
+        taxableSales: (Math.round(Number(outward.interTaxable || 0) * 100) + Math.round(Number(outward.intraTaxable || 0) * 100)) / 100,
+        outputTax: taxByHead(outward.interIgst, outward.intraCgst, outward.intraSgst),
+        inputCredit: taxByHead(credit.igst, credit.cgst, credit.sgst),
+        gstr1: file && !file.error
+          ? { fp: file.fp, b2b: file.b2b.length, b2cl: file.b2cl.length, b2cs: file.b2cs.length, held: file.held || [], warnings: file.warnings || [], hash: file.hash, caveat: file.caveat }
+          : { fp: fpOf(docs.period), b2b: 0, b2cl: 0, b2cs: 0, held: [], warnings: [], hash: '', caveat: '', error: file ? file.error : '' },
+      });
     },
   },
   {
     name: 'filing_pack',
     title: 'GSTN filing pack',
     description: 'Assemble GSTR-1 + 3B + payable + TB for a CA to file. Does not upload to GSTN.',
-    run: (state) => {
-      const salesText = invoicesToSalesCsv(state.invoices || []);
-      const inwardText = purchasesToInwardCsv(state.purchases || []);
+    args: ['period'],
+    run: (state, args = {}) => {
+      const docs = documentsForPeriod(state, args.period);
+      if (!docs.ok) return fail(docs.error, { hint: docs.hint, periods: docs.periods });
+      const salesText = invoicesToSalesCsv(docs.invoices);
+      const inwardText = purchasesToInwardCsv(docs.purchases);
       const filed = filingPrep({ salesText, inwardText, supplierState: state.company.state, fy: state.company.fy });
       const acc = Object.fromEntries(listAccounts(state.ledger).map((a) => [a.code, a]));
       const output = (acc['2100']?.creditsPosted || 0) + (acc['2101']?.creditsPosted || 0) + (acc['2102']?.creditsPosted || 0);
       const input = (acc['1200']?.debitsPosted || 0) + (acc['1201']?.debitsPosted || 0) + (acc['1202']?.debitsPosted || 0);
       return ok({
         gstin: state.company.gstin,
-        period: filed.gstr1.period,
+        period: docs.period,
+        periods: docs.periods,
         gstr1: filed.gstr1,
         gstr3b: filed.gstr3b,
         payable: Math.round((output - input) * 100) / 100,
+        payableBasis: 'all periods in the ledger, not this return period',
         trialBalance: trialBalance(state.ledger),
         caveat: 'Prepared locally. A practising CA must review and file on GSTN. MyCA does not hold DSC; live GSTR APIs need a GSP.',
       });

@@ -20,6 +20,15 @@ String rupees(num amount) {
 String isoDate(DateTime date) =>
     '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
 
+const _months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+String monthLabel(String period) {
+  final parts = period.split('-');
+  final month = parts.length == 2 ? int.tryParse(parts[1]) : null;
+  if (month == null || month < 1 || month > 12) return period;
+  return '${_months[month - 1]} ${parts[0]}';
+}
+
 String dueLabel(int daysUntil) {
   if (daysUntil < 0) return '${-daysUntil} days overdue';
   if (daysUntil == 0) return 'Due today';

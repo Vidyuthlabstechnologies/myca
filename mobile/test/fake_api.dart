@@ -133,6 +133,7 @@ class FakeMycaApi implements MycaApi {
       });
 
   final uploads = <String, String>{};
+  final periodsAsked = <String?>[];
 
   @override
   Future<String> upload(String name, String content) async {
@@ -204,10 +205,38 @@ class FakeMycaApi implements MycaApi {
   Future<Object?> query(String name, [Map<String, Object?> args = const {}]) async {
     queries.add(name);
     switch (name) {
-      case 'gst_payable':
+      case 'gst_period_summary':
+        periodsAsked.add(args['period'] as String?);
+        final august = args['period'] == '2026-08';
         return {
           'ok': true,
-          'data': {'output': 82690, 'input': 2000, 'payable': 80690},
+          'data': {
+            'period': august ? '2026-08' : '2026-10',
+            'periods': ['2026-08', '2026-10'],
+            'salesCount': august ? 2 : 1,
+            'purchaseCount': august ? 1 : 0,
+            'taxableSales': august ? 150000 : 20000,
+            'outputTax': august ? {'igst': 9000, 'cgst': 2500, 'sgst': 2500, 'total': 14000} : {'igst': 0, 'cgst': 1800, 'sgst': 1800, 'total': 3600},
+            'inputCredit': august ? {'igst': 0, 'cgst': 1000, 'sgst': 1000, 'total': 2000} : {'igst': 0, 'cgst': 0, 'sgst': 0, 'total': 0},
+            'gstr1': august
+                ? {'fp': '082026', 'b2b': 2, 'b2cl': 0, 'b2cs': 0, 'held': const <Object?>[], 'warnings': const <Object?>[], 'caveat': 'x'}
+                : {
+                    'fp': '102026',
+                    'b2b': 0,
+                    'b2cl': 0,
+                    'b2cs': 1,
+                    'held': [
+                      {'inum': 'INV-0009', 'code': 'INVALID_GSTIN'},
+                    ],
+                    'warnings': const <Object?>[],
+                    'caveat': 'x',
+                  },
+          },
+        };
+      case 'export_gstr1_json':
+        return {
+          'ok': true,
+          'data': {'gstin': '27AABCU9603R1ZN', 'fp': args['fp'], 'version': 'GST3.1.6', 'b2b': const <Object?>[]},
         };
       case 'deadlines':
         return {

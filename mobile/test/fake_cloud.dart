@@ -157,7 +157,19 @@ class FakeCloud {
     }
     if (path == '$books/query') {
       return _json(200, switch (body['name']) {
-        'gst_payable' => {'ok': true, 'data': {'output': 0, 'input': 0, 'payable': 0}},
+        'gst_period_summary' => {
+            'ok': true,
+            'data': {
+              'period': '2026-10',
+              'periods': const <Object?>[],
+              'salesCount': 0,
+              'purchaseCount': 0,
+              'taxableSales': 0,
+              'outputTax': {'igst': 0, 'cgst': 0, 'sgst': 0, 'total': 0},
+              'inputCredit': {'igst': 0, 'cgst': 0, 'sgst': 0, 'total': 0},
+              'gstr1': {'fp': '102026', 'b2b': 0, 'b2cl': 0, 'b2cs': 0, 'held': const <Object?>[], 'warnings': const <Object?>[], 'caveat': ''},
+            },
+          },
         'deadlines' => {'ok': true, 'data': {'deadlines': const <Object?>[]}},
         _ => {'ok': true, 'data': {'exceptions': const <Object?>[]}},
       });

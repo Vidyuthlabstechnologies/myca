@@ -190,25 +190,103 @@ class ChatReply {
   final bool blocked;
 }
 
-class GstPayable {
-  const GstPayable({
-    required this.output,
-    required this.input,
-    required this.payable,
+class TaxHeads {
+  const TaxHeads({required this.igst, required this.cgst, required this.sgst, required this.total});
+
+  factory TaxHeads.fromJson(Object? json) {
+    final map = _map(json);
+    return TaxHeads(igst: _num(map['igst']), cgst: _num(map['cgst']), sgst: _num(map['sgst']), total: _num(map['total']));
+  }
+
+  final num igst;
+  final num cgst;
+  final num sgst;
+  final num total;
+}
+
+class HeldInvoice {
+  const HeldInvoice({required this.number, required this.code});
+
+  factory HeldInvoice.fromJson(Object? json) {
+    final map = _map(json);
+    return HeldInvoice(number: _text(map['inum']), code: _text(map['code']));
+  }
+
+  final String number;
+  final String code;
+}
+
+class Gstr1File {
+  const Gstr1File({
+    required this.fp,
+    required this.b2b,
+    required this.b2cl,
+    required this.b2cs,
+    required this.held,
+    required this.warnings,
+    required this.caveat,
   });
 
-  factory GstPayable.fromJson(Object? json) {
+  factory Gstr1File.fromJson(Object? json) {
     final map = _map(json);
-    return GstPayable(
-      output: _num(map['output']),
-      input: _num(map['input']),
-      payable: _num(map['payable']),
+    final warnings = map['warnings'];
+    return Gstr1File(
+      fp: _text(map['fp']),
+      b2b: _num(map['b2b']).toInt(),
+      b2cl: _num(map['b2cl']).toInt(),
+      b2cs: _num(map['b2cs']).toInt(),
+      held: _maps(map['held']).map(HeldInvoice.fromJson).toList(),
+      warnings: warnings is List ? warnings.map(_text).toList() : const <String>[],
+      caveat: _text(map['caveat']),
     );
   }
 
-  final num output;
-  final num input;
-  final num payable;
+  final String fp;
+  final int b2b;
+  final int b2cl;
+  final int b2cs;
+  final List<HeldInvoice> held;
+  final List<String> warnings;
+  final String caveat;
+
+  bool get empty => b2b + b2cl + b2cs == 0;
+}
+
+class PeriodGst {
+  const PeriodGst({
+    required this.period,
+    required this.periods,
+    required this.salesCount,
+    required this.purchaseCount,
+    required this.taxableSales,
+    required this.outputTax,
+    required this.inputCredit,
+    required this.gstr1,
+  });
+
+  factory PeriodGst.fromJson(Object? json) {
+    final map = _map(json);
+    final periods = map['periods'];
+    return PeriodGst(
+      period: _text(map['period']),
+      periods: periods is List ? periods.map(_text).toList() : const <String>[],
+      salesCount: _num(map['salesCount']).toInt(),
+      purchaseCount: _num(map['purchaseCount']).toInt(),
+      taxableSales: _num(map['taxableSales']),
+      outputTax: TaxHeads.fromJson(map['outputTax']),
+      inputCredit: TaxHeads.fromJson(map['inputCredit']),
+      gstr1: Gstr1File.fromJson(map['gstr1']),
+    );
+  }
+
+  final String period;
+  final List<String> periods;
+  final int salesCount;
+  final int purchaseCount;
+  final num taxableSales;
+  final TaxHeads outputTax;
+  final TaxHeads inputCredit;
+  final Gstr1File gstr1;
 }
 
 class Deadline {
@@ -280,7 +358,7 @@ class Today {
     required this.exceptions,
   });
 
-  final GstPayable? gst;
+  final PeriodGst? gst;
   final List<Deadline> deadlines;
   final List<ExceptionItem> exceptions;
 }
@@ -309,7 +387,7 @@ List<Deadline> deadlinesFrom(Object? json) =>
 List<ExceptionItem> exceptionsFrom(Object? json) =>
     _maps(toolData(json)['exceptions']).map(ExceptionItem.fromJson).toList();
 
-GstPayable? gstFrom(Object? json) {
+PeriodGst? periodGstFrom(Object? json) {
   final data = toolData(json);
-  return data.isEmpty ? null : GstPayable.fromJson(data);
+  return data.isEmpty ? null : PeriodGst.fromJson(data);
 }

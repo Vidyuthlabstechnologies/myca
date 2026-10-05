@@ -63,7 +63,7 @@ void main() {
     final session = await signedIn(cloud);
     await session.createBusiness(name: 'Asha Traders', state: '29');
     cloud.access = 'expired';
-    await Future.wait([session.api.snapshot(), session.api.query('gst_payable'), session.api.query('deadlines')]);
+    await Future.wait([session.api.snapshot(), session.api.query('gst_period_summary'), session.api.query('deadlines')]);
     expect(cloud.refreshes, 1);
   });
 
