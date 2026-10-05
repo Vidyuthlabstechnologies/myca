@@ -128,6 +128,15 @@ export function receiptAmount(text) {
   return loneAmount(normalizeChat(text));
 }
 
+const SAID_DATE = /\b(\d{4}-\d{2}-\d{2}|\d{1,2}[-/]\d{1,2}[-/]\d{4})\b/;
+
+// Money received is dated the day it is recorded unless the sentence gives a date.
+// Without this a receipt would silently take the date of the invoice it settles.
+export function receiptDate(text, today) {
+  const said = normalizeChat(text).match(SAID_DATE);
+  return said ? said[1] : today;
+}
+
 export function isPurchaseIntent(text) {
   const t = normalizeChat(text).toLowerCase();
   if (/\b(purchase|purchases|vendor|supplier|itc)\b/.test(t)) return true;

@@ -1,4 +1,6 @@
-import { normalizeChat, parseDocument, receiptAmount, isPurchaseIntent, isSaleIntent, isQuestion, isNegated, ROUTES } from './intent.mjs';
+import { planReceiptWithoutInvoice } from './receipt-intent.mjs';
+import { localToday } from './dates.mjs';
+import { normalizeChat, parseDocument, receiptAmount, receiptDate, isPurchaseIntent, isSaleIntent, isQuestion, isNegated, ROUTES } from './intent.mjs';
 import { confirmationIntent } from './chat-confirm.mjs';
 
 const noArgs = {
@@ -753,8 +755,15 @@ export function planLocalToolCall(state, message) {
       return { kind: 'reply', reply: `${status} I have recorded nothing. To record money received, say "record receipt ${invoiceId}" and confirm the preview.`, tools: [] };
     }
     const amount = receiptAmount(text);
-    return { kind: 'tool', name: 'record_receipt', args: { invoiceId, mode: /cash/i.test(text) ? 'cash' : 'bank', ...(amount == null ? {} : { amount }) } };
+    return {
+      kind: 'tool',
+      name: 'record_receipt',
+      args: { invoiceId, mode: /cash/i.test(text) ? 'cash' : 'bank', date: receiptDate(text, localToday()), ...(amount == null ? {} : { amount }) },
+    };
   }
+
+  const receipt = planReceiptWithoutInvoice(state, text);
+  if (receipt) return receipt;
 
   if ((isQuestion(text) || isNegated(text)) && /\b(import|attach|upload|reconcile)\b/i.test(text) && /\b(tally|zoho|bank|statement|xml|csv)\b/i.test(text)) {
     return {
