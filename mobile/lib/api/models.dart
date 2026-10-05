@@ -61,6 +61,39 @@ class Receipt {
   final String mode;
 }
 
+class CreditNote {
+  const CreditNote({
+    required this.id,
+    required this.date,
+    required this.invoiceId,
+    required this.partyName,
+    required this.reason,
+    required this.total,
+    required this.cancels,
+  });
+
+  factory CreditNote.fromJson(Object? json) {
+    final map = _map(json);
+    return CreditNote(
+      id: _text(map['id']),
+      date: _text(map['date']),
+      invoiceId: _text(map['invoiceId']),
+      partyName: _text(map['partyName']),
+      reason: _text(map['reason']),
+      total: _num(map['total']),
+      cancels: map['cancels'] == true,
+    );
+  }
+
+  final String id;
+  final String date;
+  final String invoiceId;
+  final String partyName;
+  final String reason;
+  final num total;
+  final bool cancels;
+}
+
 class Invoice {
   const Invoice({
     required this.id,
@@ -100,6 +133,10 @@ class Invoice {
   final List<num> gstRates;
 
   bool get paid => status == 'paid';
+
+  bool get cancelled => status == 'cancelled';
+
+  bool get open => !paid && !cancelled && status != 'settled';
 }
 
 class Expense {
@@ -178,6 +215,7 @@ class Snapshot {
     required this.invoices,
     required this.purchases,
     required this.expenses,
+    required this.creditNotes,
     required this.users,
     required this.activeUser,
   });
@@ -190,6 +228,7 @@ class Snapshot {
       invoices: _maps(map['invoices']).map(Invoice.fromJson).toList(),
       purchases: _maps(map['purchases']).map(Invoice.fromJson).toList(),
       expenses: _maps(map['expenses']).map(Expense.fromJson).toList(),
+      creditNotes: _maps(map['creditNotes']).map(CreditNote.fromJson).toList(),
       users: _maps(map['users']).map(FirmUser.fromJson).toList(),
       activeUser: active is Map ? FirmUser.fromJson(active) : null,
     );
@@ -199,6 +238,7 @@ class Snapshot {
   final List<Invoice> invoices;
   final List<Invoice> purchases;
   final List<Expense> expenses;
+  final List<CreditNote> creditNotes;
   final List<FirmUser> users;
   final FirmUser? activeUser;
 }
@@ -533,6 +573,9 @@ class InvoiceDocument {
     required this.total,
     required this.receipts,
     required this.received,
+    required this.credited,
+    required this.creditNotes,
+    required this.status,
     required this.balance,
     required this.missing,
   });
@@ -565,6 +608,9 @@ class InvoiceDocument {
       total: _num(map['total']),
       receipts: _maps(map['receipts']).map(Receipt.fromJson).toList(),
       received: _num(map['received']),
+      credited: _num(map['credited']),
+      creditNotes: _maps(map['creditNotes']).map(CreditNote.fromJson).toList(),
+      status: _text(map['status']),
       balance: _num(map['balance']),
       missing: [
         for (final code in (map['missing'] as List? ?? const [])) _text(code),
@@ -589,8 +635,13 @@ class InvoiceDocument {
   final num total;
   final List<Receipt> receipts;
   final num received;
+  final num credited;
+  final List<CreditNote> creditNotes;
+  final String status;
   final num balance;
   final List<String> missing;
+
+  bool get cancelled => status == 'cancelled';
 
   String get title => sellerGstin.isEmpty ? 'Invoice' : 'Tax invoice';
 

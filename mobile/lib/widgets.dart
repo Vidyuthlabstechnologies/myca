@@ -234,91 +234,93 @@ class Bubble extends StatelessWidget {
       _ => Palette.muted,
     };
     final foreground = mine ? Colors.white : Palette.ink;
-    final stampColor = stamp == 'Unpaid' ? Palette.warn : Palette.accent;
+    final stampColor = stamp == 'Unpaid'
+        ? Palette.warn
+        : (stamp == 'Cancelled' ? Palette.danger : Palette.accent);
     final body = Align(
       alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
       child: GestureDetector(
         onTap: onTap,
         child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 4),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-        constraints: BoxConstraints(
-          maxWidth: MediaQuery.sizeOf(context).width * 0.8,
-        ),
-        decoration: BoxDecoration(
-          color: mine ? Palette.ink : Palette.surface,
-          borderRadius: BorderRadius.circular(radiusCard),
-          border: mine
-              ? null
-              : Border.all(
-                  color: tone == BubbleTone.pending
-                      ? Palette.warn.withValues(alpha: 0.45)
-                      : Palette.line,
-                ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (label != null || stamp != null)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 5),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (label != null)
-                      Text(
-                        label!.toUpperCase(),
-                        style: TextStyle(
-                          color: status,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 0.8,
+          margin: const EdgeInsets.symmetric(vertical: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+          constraints: BoxConstraints(
+            maxWidth: MediaQuery.sizeOf(context).width * 0.8,
+          ),
+          decoration: BoxDecoration(
+            color: mine ? Palette.ink : Palette.surface,
+            borderRadius: BorderRadius.circular(radiusCard),
+            border: mine
+                ? null
+                : Border.all(
+                    color: tone == BubbleTone.pending
+                        ? Palette.warn.withValues(alpha: 0.45)
+                        : Palette.line,
+                  ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (label != null || stamp != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 5),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (label != null)
+                        Text(
+                          label!.toUpperCase(),
+                          style: TextStyle(
+                            color: status,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 0.8,
+                          ),
                         ),
-                      ),
-                    if (label != null && stamp != null)
-                      const SizedBox(width: 12),
-                    if (stamp != null)
-                      StatusTag(text: stamp!, color: stampColor),
-                  ],
-                ),
-              ),
-            Text(
-              text,
-              style: TextStyle(
-                color: foreground,
-                fontSize: 15,
-                height: 1.4,
-                fontFeatures: moneyFigures,
-              ),
-            ),
-            if (amount != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 2),
-                child: Text(
-                  amount!,
-                  style: TextStyle(
-                    color: foreground,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w500,
-                    letterSpacing: -0.3,
-                    fontFeatures: moneyFigures,
+                      if (label != null && stamp != null)
+                        const SizedBox(width: 12),
+                      if (stamp != null)
+                        StatusTag(text: stamp!, color: stampColor),
+                    ],
                   ),
                 ),
-              ),
-            for (final note in footnotes)
-              Padding(
-                padding: const EdgeInsets.only(top: 6),
-                child: Text(
-                  note,
-                  style: const TextStyle(
-                    color: Palette.muted,
-                    fontSize: 13,
-                    height: 1.35,
-                  ),
+              Text(
+                text,
+                style: TextStyle(
+                  color: foreground,
+                  fontSize: 15,
+                  height: 1.4,
+                  fontFeatures: moneyFigures,
                 ),
               ),
-          ],
-        ),
+              if (amount != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Text(
+                    amount!,
+                    style: TextStyle(
+                      color: foreground,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w500,
+                      letterSpacing: -0.3,
+                      fontFeatures: moneyFigures,
+                    ),
+                  ),
+                ),
+              for (final note in footnotes)
+                Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Text(
+                    note,
+                    style: const TextStyle(
+                      color: Palette.muted,
+                      fontSize: 13,
+                      height: 1.35,
+                    ),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );

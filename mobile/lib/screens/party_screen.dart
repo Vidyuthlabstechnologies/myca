@@ -135,6 +135,10 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
 
   List<Widget> _history(Party party) {
     final what = _sales ? 'Invoice' : 'Bill';
+    final notes =
+        AppScope.of(context).snapshot?.creditNotes ?? const <CreditNote>[];
+    List<CreditNote> notesFor(String id) =>
+        notes.where((note) => note.invoiceId == id).toList();
     return [
       for (final doc in party.documents) ...[
         Bubble(
@@ -142,14 +146,27 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
           amount: rupees(doc.total),
           tone: BubbleTone.plain,
           label: doc.date,
-          stamp: _sales ? (doc.paid ? 'Paid' : 'Unpaid') : null,
+          stamp: _sales
+              ? (doc.cancelled ? 'Cancelled' : (doc.paid ? 'Paid' : 'Unpaid'))
+              : null,
           footnotes: _sales ? const ['Tap to view or send'] : const [],
           onTap: _sales
               ? () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(builder: (_) => InvoiceScreen(invoiceId: doc.id)),
+                  MaterialPageRoute<void>(
+                    builder: (_) => InvoiceScreen(invoiceId: doc.id),
+                  ),
                 )
               : null,
         ),
+        for (final note in notesFor(doc.id))
+          Bubble(
+            text: note.cancels
+                ? 'Cancelled ${doc.id}: ${note.reason}'
+                : 'Credit note ${note.id} against ${doc.id}: ${note.reason}',
+            amount: '−${rupees(note.total)}',
+            tone: BubbleTone.plain,
+            label: note.date,
+          ),
         for (final receipt in doc.receipts)
           Bubble(
             text: 'Received by ${receipt.mode} against ${doc.id}',

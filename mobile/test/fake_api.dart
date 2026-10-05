@@ -139,6 +139,8 @@ class FakeMycaApi implements MycaApi {
     },
   ];
 
+  final creditNotes = <Map<String, Object?>>[];
+
   final purchases = <Map<String, Object?>>[
     {
       'id': 'BILL-0001',
@@ -163,6 +165,7 @@ class FakeMycaApi implements MycaApi {
     'invoices': invoices,
     'purchases': purchases,
     'expenses': expenses,
+    'creditNotes': creditNotes,
     'users': [_user],
     'activeUser': signedIn ? _user : null,
   });
@@ -233,6 +236,19 @@ class FakeMycaApi implements MycaApi {
         },
       );
     }
+    if (name == 'create_credit_note') {
+      final amount = args['amount'];
+      return _preview(
+        'Credit note of ₹${amount ?? '3,77,600.00'} against ${args['invoiceId']} (Gujarat Weaves) dated ${args['date']}. Reason: ${args['reason']}.',
+        {'invoiceId': args['invoiceId'], 'total': amount ?? 377600},
+      );
+    }
+    if (name == 'cancel_invoice') {
+      return _preview(
+        'Cancel ${args['invoiceId']} (Gujarat Weaves) by a credit note for its full ₹3,77,600.00 dated ${args['date']}.',
+        {'invoiceId': args['invoiceId'], 'cancels': true},
+      );
+    }
     if (name == 'set_expense_head') {
       return _preview(
         'Move ${args['id']} to ${args['head'] == '5200' ? 'Advertising and marketing' : args['head']}.',
@@ -274,6 +290,30 @@ class FakeMycaApi implements MycaApi {
         });
         return ChatReply.fromJson({
           'reply': 'Posted EXP-0003.',
+          'posted': true,
+          'confirmed': true,
+        });
+      }
+      if (held.tool == 'create_credit_note' || held.tool == 'cancel_invoice') {
+        final cancels = held.tool == 'cancel_invoice';
+        creditNotes.add({
+          'id': 'CN-0001',
+          'date': held.args['date'],
+          'invoiceId': held.args['invoiceId'],
+          'partyName': 'Gujarat Weaves',
+          'reason': held.args['reason'] ?? 'Invoice cancelled',
+          'total': cancels ? 377600 : held.args['amount'],
+          'cancels': cancels,
+        });
+        if (cancels) {
+          invoices.firstWhere(
+            (i) => i['id'] == held.args['invoiceId'],
+          )['status'] = 'cancelled';
+        }
+        return ChatReply.fromJson({
+          'reply': cancels
+              ? 'Cancelled ${held.args['invoiceId']}.'
+              : 'Posted CN-0001.',
           'posted': true,
           'confirmed': true,
         });
@@ -446,7 +486,15 @@ class FakeMycaApi implements MycaApi {
               {'amount': 100000, 'date': '2026-08-20', 'mode': 'bank'},
             ],
             'received': 100000,
-            'balance': 277600,
+            'credited': creditNotes.fold<num>(
+              0,
+              (sum, n) => sum + (n['total'] as num),
+            ),
+            'creditNotes': creditNotes,
+            'status': invoices[1]['status'],
+            'balance':
+                277600 -
+                creditNotes.fold<num>(0, (sum, n) => sum + (n['total'] as num)),
             'missing': ['HSN'],
           },
         };
