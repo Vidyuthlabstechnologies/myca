@@ -15,6 +15,13 @@ function fmtToolResult(name, result) {
     const i = result.invoice;
     return `Posted ${i.id} to ${i.partyName} on ${i.date} for ${money(i.total)} (taxable ${money(i.taxable)}, GST ${money(i.cgst + i.sgst + i.igst)}). Books updated from the invoice.`;
   }
+  if (name === 'gst_review_answer' && result.review) {
+    const review = result.review;
+    if (result.approved) return `Approved the ${review.month} figures. Nothing has been filed. Save the GSTR-1 file from Taxes, or send it to your CA.`;
+    if (result.answer === 'wrong') return `Noted that it is not right. Fix the entries; the review starts again from that step when the figures change.`;
+    const next = review.steps.find((step) => step.id === review.next);
+    return next ? `Confirmed. Next: ${next.title}. Say "review GST" to see it.` : 'Confirmed.';
+  }
   if (name === 'create_purchase' && result.invoice) {
     const i = result.invoice;
     return `Booked ${i.id} from ${i.partyName} for ${money(i.total)}. ITC ${money(i.cgst + i.sgst + i.igst)} posted to GST input. It will appear in the folio as a bill.`;

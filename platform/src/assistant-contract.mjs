@@ -1,5 +1,6 @@
 import { planReceiptWithoutInvoice } from './receipt-intent.mjs';
 import { planExpenseFromChat } from './expense-intent.mjs';
+import { reviewOf } from './gst-review.mjs';
 import { localToday } from './dates.mjs';
 import { normalizeChat, parseDocument, receiptAmount, receiptDate, isPurchaseIntent, isSaleIntent, isQuestion, isNegated, ROUTES } from './intent.mjs';
 import { confirmationIntent } from './chat-confirm.mjs';
@@ -253,6 +254,23 @@ export const TOOL_ARG_SCHEMAS = {
     type: 'object',
     additionalProperties: false,
     properties: { period: { type: 'string', pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' } },
+  },
+  gst_review: {
+    type: 'object',
+    additionalProperties: false,
+    properties: { period: { type: 'string', pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' } },
+  },
+  gst_review_answer: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['period', 'step', 'answer', 'draftHash'],
+    properties: {
+      period: { type: 'string', pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' },
+      step: { type: 'string', enum: ['held', 'sales', 'credit', 'approve'] },
+      answer: { type: 'string', enum: ['correct', 'wrong', 'approve'] },
+      note: { type: 'string', maxLength: 500 },
+      draftHash: { type: 'string', pattern: '^[0-9a-f]{64}$' },
+    },
   },
   record_receipt: {
     type: 'object',
@@ -589,6 +607,7 @@ const TOOL_RISK = {
   set_expense_head: 'writes_books',
   create_credit_note: 'writes_books',
   cancel_invoice: 'writes_books',
+  gst_review_answer: 'writes_books',
   govt_nic_auth: 'external_auth_probe',
   govt_generate_irn: 'external_government_api',
   sandbox_operation: 'external_government_api',
@@ -781,6 +800,10 @@ export function planLocalToolCall(state, message) {
     return { kind: 'tool', name: 'track_gst_returns', args: gstin ? { gstin } : {} };
   }
 
+  if (/\breview\b.*\b(?:gst|gstr|return)\b|\b(?:gst|gstr-?[13]b?|return)\b.*\breview\b/i.test(text) && !isNegated(text)) {
+    return planReview(state, text);
+  }
+
   const cancelMatch = text.match(/\bcancel\s+(?:invoice\s+)?(INV-\d{4,})\b(?:\s*(?:because|reason|:|-)?\s*(.+))?$/i);
   if (cancelMatch && !isQuestion(text) && !/(?:do\s*not|don'?t|never)/i.test(text) && !/(?:irn|e-?invoice)/i.test(text)) {
     const reason = String(cancelMatch[2] || '').trim();
@@ -893,4 +916,31 @@ export function planLocalToolCall(state, message) {
   }
 
   return { kind: 'tool', name: 'company_profile', args: {}, fallback: true };
+}
+
+const MONTH_NAMES = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'];
+
+function reviewPeriodSaid(state, text) {
+  const iso = text.match(/\b(\d{4}-(?:0[1-9]|1[0-2]))\b/);
+  if (iso) return iso[1];
+  const lower = text.toLowerCase();
+  const index = MONTH_NAMES.findIndex((name) => new RegExp(`\\b${name.slice(0, 3)}(?:${name.slice(3)})?\\b`).test(lower));
+  if (index < 0) return undefined;
+  const wanted = String(index + 1).padStart(2, '0');
+  const known = (reviewOf(state).data?.periods || []).filter((period) => period.endsWith(`-${wanted}`));
+  return known.at(-1) || `${localToday().slice(0, 4)}-${wanted}`;
+}
+
+function planReview(state, text) {
+  const review = reviewOf(state, reviewPeriodSaid(state, text));
+  if (!review.ok) return { kind: 'reply', reply: 'I could not read the month. Say it like "review GST for September" or "review GST 2026-09".', tools: [] };
+  const data = review.data;
+  if (data.empty) return { kind: 'reply', reply: `There are no sales, purchases or credit notes dated in ${data.month}, so there is nothing to review.`, tools: [] };
+  if (data.approved) return { kind: 'reply', reply: `You approved the ${data.month} figures on ${data.approval.on}. Nothing has changed since. Save the GSTR-1 file from Taxes, or send it to your CA.`, tools: [] };
+  const step = data.steps.find((item) => item.id === data.next);
+  return {
+    kind: 'tool',
+    name: 'gst_review_answer',
+    args: { period: data.period, step: step.id, answer: step.id === 'approve' ? 'approve' : 'correct', draftHash: data.draftHash },
+  };
 }

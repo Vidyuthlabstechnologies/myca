@@ -5,6 +5,7 @@ export const REMOTE_QUERY_TOOLS = new Set([
   'list_expenses',
   'list_credit_notes',
   'business_summary',
+  'gst_review',
   'expense_heads',
   'gst_payable',
   'gst_period_summary',
