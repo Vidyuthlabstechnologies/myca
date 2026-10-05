@@ -4,7 +4,11 @@ import 'package:myca/app_services.dart';
 import 'package:myca/app_state.dart';
 
 class MemoryOnboardingStore implements OnboardingStore {
-  MemoryOnboardingStore({this.isWelcomed = false, this.isMigrated = false, this.isLockEnabled = true});
+  MemoryOnboardingStore({
+    this.isWelcomed = false,
+    this.isMigrated = false,
+    this.isLockEnabled = true,
+  });
 
   bool isWelcomed;
   bool isMigrated;
@@ -29,12 +33,16 @@ class MemoryOnboardingStore implements OnboardingStore {
   Future<void> markMigrated() async => isMigrated = true;
 }
 
-AppState testState(FakeMycaApi api, {bool onboarded = true, PickTextFile? pick}) => AppState(
-      api: api,
-      store: MemoryOnboardingStore(isWelcomed: onboarded, isMigrated: onboarded),
-      pickTextFile: pick ?? (_) async => null,
-      now: () => DateTime(2026, 10, 5, 22, 30),
-    );
+AppState testState(
+  FakeMycaApi api, {
+  bool onboarded = true,
+  PickTextFile? pick,
+}) => AppState(
+  api: api,
+  store: MemoryOnboardingStore(isWelcomed: onboarded, isMigrated: onboarded),
+  pickTextFile: pick ?? (_) async => null,
+  now: () => DateTime(2026, 10, 5, 22, 30),
+);
 
 class Proposal {
   const Proposal(this.tool, this.args);
@@ -44,7 +52,11 @@ class Proposal {
 }
 
 class FakeMycaApi implements MycaApi {
-  FakeMycaApi({this.signedIn = false, this.pin = '4321', bool emptyBooks = false}) {
+  FakeMycaApi({
+    this.signedIn = false,
+    this.pin = '4321',
+    bool emptyBooks = false,
+  }) {
     if (emptyBooks) {
       invoices.clear();
       purchases.clear();
@@ -94,24 +106,72 @@ class FakeMycaApi implements MycaApi {
     },
   ];
 
-  final purchases = <Map<String, Object?>>[
-    {'id': 'BILL-0001', 'date': '2026-08-06', 'partyName': 'Fabric Co', 'partyGstin': '27AABCT1332L1ZE', 'total': 42000, 'status': 'posted'},
+  final expenses = <Map<String, Object?>>[
+    {
+      'id': 'EXP-0001',
+      'date': '2026-09-01',
+      'head': '5110',
+      'headName': 'Rent',
+      'description': 'Shop rent',
+      'payee': '',
+      'amount': 12000,
+      'gstRate': 0,
+      'inputCredit': false,
+      'mode': 'bank',
+      'tag': {'source': 'keyword', 'why': '"Shop rent" reads as Rent.'},
+    },
+    {
+      'id': 'EXP-0002',
+      'date': '2026-10-02',
+      'head': '5100',
+      'headName': 'Other expenses',
+      'description': 'Diwali gifts',
+      'payee': 'Gift Gallery',
+      'amount': 5000,
+      'gstRate': 0,
+      'inputCredit': false,
+      'mode': 'cash',
+      'tag': {
+        'source': 'default',
+        'why':
+            'Nothing in "Diwali gifts" told me the head, so it is under Other expenses. Tap to change it.',
+      },
+    },
   ];
 
-  static const _user = {'userId': 'USR-ADMIN', 'name': 'Firm Admin', 'role': 'admin', 'locked': false};
+  final purchases = <Map<String, Object?>>[
+    {
+      'id': 'BILL-0001',
+      'date': '2026-08-06',
+      'partyName': 'Fabric Co',
+      'partyGstin': '27AABCT1332L1ZE',
+      'total': 42000,
+      'status': 'posted',
+    },
+  ];
+
+  static const _user = {
+    'userId': 'USR-ADMIN',
+    'name': 'Firm Admin',
+    'role': 'admin',
+    'locked': false,
+  };
 
   @override
   Future<Snapshot> snapshot() async => Snapshot.fromJson({
-        'company': {'name': companyName, 'gstin': '27AABCU9603R1ZN'},
-        'invoices': invoices,
-        'purchases': purchases,
-        'users': [_user],
-        'activeUser': signedIn ? _user : null,
-      });
+    'company': {'name': companyName, 'gstin': '27AABCU9603R1ZN'},
+    'invoices': invoices,
+    'purchases': purchases,
+    'expenses': expenses,
+    'users': [_user],
+    'activeUser': signedIn ? _user : null,
+  });
 
   @override
   Future<SignInResult> signIn(String userId, String pin) async {
-    if (pin != this.pin) return const SignInResult(ok: false, error: 'INVALID_PIN');
+    if (pin != this.pin) {
+      return const SignInResult(ok: false, error: 'INVALID_PIN');
+    }
     signedIn = true;
     return const SignInResult(ok: true, error: '');
   }
@@ -121,16 +181,20 @@ class FakeMycaApi implements MycaApi {
     signedIn = false;
   }
 
-  ChatReply _preview(String summary) => ChatReply.fromJson({
-        'reply': summary,
-        'posted': false,
-        'awaitingConfirmation': true,
-        'preview': {
-          'token': token,
-          'summary': summary,
-          'effects': ['The books change only after you confirm.'],
-        },
-      });
+  ChatReply _preview(
+    String summary, [
+    Map<String, Object?> figures = const {},
+  ]) => ChatReply.fromJson({
+    'reply': summary,
+    'posted': false,
+    'awaitingConfirmation': true,
+    'preview': {
+      'token': token,
+      'summary': summary,
+      'effects': ['The books change only after you confirm.'],
+      'figures': figures,
+    },
+  });
 
   final uploads = <String, String>{};
   final periodsAsked = <String?>[];
@@ -147,9 +211,34 @@ class FakeMycaApi implements MycaApi {
     final proposal = Proposal(name, args);
     proposals.add(proposal);
     if (name == 'create_invoice' && args['partyName'] == 'Blocked Party') {
-      return ChatReply.fromJson({'reply': 'I did not post anything, because:\n· GST rate is not valid.', 'posted': false, 'blocked': true});
+      return ChatReply.fromJson({
+        'reply': 'I did not post anything, because:\n· GST rate is not valid.',
+        'posted': false,
+        'blocked': true,
+      });
     }
     _held = proposal;
+    if (name == 'post_expense') {
+      final chosen = args['head'] as String?;
+      final headName = chosen == '5200'
+          ? 'Advertising and marketing'
+          : (chosen == '5110' ? 'Rent' : 'Other expenses');
+      final head = chosen ?? '5100';
+      return _preview(
+        '$headName: ${args['narration']} ₹${args['amount']} paid from ${args['mode'] ?? 'bank'}.',
+        {
+          'head': head,
+          'headName': headName,
+          'tagSource': chosen == null ? 'default' : 'chosen',
+        },
+      );
+    }
+    if (name == 'set_expense_head') {
+      return _preview(
+        'Move ${args['id']} to ${args['head'] == '5200' ? 'Advertising and marketing' : args['head']}.',
+        {'head': args['head'], 'headName': 'Advertising and marketing'},
+      );
+    }
     return _preview(switch (name) {
       'create_invoice' => 'Invoice to ${args['partyName']}: total ₹9,440.00.',
       'record_receipt' => 'Receipt of ₹1,000.00 against ${args['invoiceId']}.',
@@ -164,6 +253,41 @@ class FakeMycaApi implements MycaApi {
     final held = _held;
     if (token == FakeMycaApi.token && held != null) {
       _held = null;
+      if (held.tool == 'post_expense') {
+        expenses.add({
+          'id': 'EXP-0003',
+          'date': '2026-10-05',
+          'head': held.args['head'] ?? '5100',
+          'headName': held.args['head'] == '5200'
+              ? 'Advertising and marketing'
+              : 'Other expenses',
+          'description': held.args['narration'],
+          'payee': held.args['payee'] ?? '',
+          'amount': held.args['amount'],
+          'gstRate': held.args['gstRate'] ?? 0,
+          'inputCredit': false,
+          'mode': held.args['mode'] ?? 'bank',
+          'tag': {
+            'source': held.args['head'] == null ? 'default' : 'chosen',
+            'why': 'x',
+          },
+        });
+        return ChatReply.fromJson({
+          'reply': 'Posted EXP-0003.',
+          'posted': true,
+          'confirmed': true,
+        });
+      }
+      if (held.tool == 'set_expense_head') {
+        final moved = expenses.firstWhere((e) => e['id'] == held.args['id']);
+        moved['head'] = held.args['head'];
+        moved['headName'] = 'Advertising and marketing';
+        return ChatReply.fromJson({
+          'reply': 'Moved ${held.args['id']}.',
+          'posted': true,
+          'confirmed': true,
+        });
+      }
       if (held.tool == 'create_invoice') {
         invoices.add({
           'id': 'INV-0003',
@@ -174,35 +298,58 @@ class FakeMycaApi implements MycaApi {
           'status': 'posted',
           'receipts': <Object?>[],
         });
-        return ChatReply.fromJson({'reply': 'Posted INV-0003 to ${held.args['partyName']} for ₹9,440.00.', 'posted': true, 'confirmed': true});
+        return ChatReply.fromJson({
+          'reply':
+              'Posted INV-0003 to ${held.args['partyName']} for ₹9,440.00.',
+          'posted': true,
+          'confirmed': true,
+        });
       }
-      return ChatReply.fromJson({'reply': 'Done: ${held.tool}.', 'posted': true, 'confirmed': true});
+      return ChatReply.fromJson({
+        'reply': 'Done: ${held.tool}.',
+        'posted': true,
+        'confirmed': true,
+      });
     }
-    return ChatReply.fromJson({'reply': 'There is nothing waiting to be posted.', 'posted': false});
+    return ChatReply.fromJson({
+      'reply': 'There is nothing waiting to be posted.',
+      'posted': false,
+    });
   }
 
   @override
   Future<ChatReply> discard() async {
     discards += 1;
     _held = null;
-    return ChatReply.fromJson({'reply': 'Discarded. Nothing was posted.', 'posted': false});
+    return ChatReply.fromJson({
+      'reply': 'Discarded. Nothing was posted.',
+      'posted': false,
+    });
   }
 
   @override
   Future<ChatReply> chat(String message) async {
     sent.add(message);
-    return ChatReply.fromJson({'reply': 'GST output ₹82,690.00 − input ₹2,000.00 = payable ₹80,690.00.'});
+    return ChatReply.fromJson({
+      'reply': 'GST output ₹82,690.00 − input ₹2,000.00 = payable ₹80,690.00.',
+    });
   }
 
   @override
-  Future<ToolOutcome> updateCompany({required String name, String gstin = ''}) async {
+  Future<ToolOutcome> updateCompany({
+    required String name,
+    String gstin = '',
+  }) async {
     companyUpdates.add({'name': name, 'gstin': gstin});
     companyName = name;
     return const ToolOutcome(ok: true, error: '');
   }
 
   @override
-  Future<Object?> query(String name, [Map<String, Object?> args = const {}]) async {
+  Future<Object?> query(
+    String name, [
+    Map<String, Object?> args = const {},
+  ]) async {
     queries.add(name);
     switch (name) {
       case 'gst_period_summary':
@@ -216,10 +363,22 @@ class FakeMycaApi implements MycaApi {
             'salesCount': august ? 2 : 1,
             'purchaseCount': august ? 1 : 0,
             'taxableSales': august ? 150000 : 20000,
-            'outputTax': august ? {'igst': 9000, 'cgst': 2500, 'sgst': 2500, 'total': 14000} : {'igst': 0, 'cgst': 1800, 'sgst': 1800, 'total': 3600},
-            'inputCredit': august ? {'igst': 0, 'cgst': 1000, 'sgst': 1000, 'total': 2000} : {'igst': 0, 'cgst': 0, 'sgst': 0, 'total': 0},
+            'outputTax': august
+                ? {'igst': 9000, 'cgst': 2500, 'sgst': 2500, 'total': 14000}
+                : {'igst': 0, 'cgst': 1800, 'sgst': 1800, 'total': 3600},
+            'inputCredit': august
+                ? {'igst': 0, 'cgst': 1000, 'sgst': 1000, 'total': 2000}
+                : {'igst': 0, 'cgst': 0, 'sgst': 0, 'total': 0},
             'gstr1': august
-                ? {'fp': '082026', 'b2b': 2, 'b2cl': 0, 'b2cs': 0, 'held': const <Object?>[], 'warnings': const <Object?>[], 'caveat': 'x'}
+                ? {
+                    'fp': '082026',
+                    'b2b': 2,
+                    'b2cl': 0,
+                    'b2cs': 0,
+                    'held': const <Object?>[],
+                    'warnings': const <Object?>[],
+                    'caveat': 'x',
+                  }
                 : {
                     'fp': '102026',
                     'b2b': 0,
@@ -234,7 +393,9 @@ class FakeMycaApi implements MycaApi {
           },
         };
       case 'invoice_document':
-        if (args['id'] != 'INV-0002') return {'ok': false, 'error': 'INVOICE_NOT_FOUND'};
+        if (args['id'] != 'INV-0002') {
+          return {'ok': false, 'error': 'INVOICE_NOT_FOUND'};
+        }
         return {
           'ok': true,
           'data': {
@@ -251,8 +412,30 @@ class FakeMycaApi implements MycaApi {
             'buyer': {'name': 'Gujarat Weaves', 'gstin': '24AAACG1234F1Z5'},
             'placeOfSupply': {'code': '24', 'name': 'Gujarat'},
             'lines': [
-              {'description': 'Silk rolls', 'hsn': '5007', 'qty': 3, 'rate': 100000, 'gstRate': 18, 'taxable': 300000, 'cgst': 0, 'sgst': 0, 'igst': 54000, 'amount': 354000},
-              {'description': 'Design work', 'hsn': '', 'qty': 1, 'rate': 22476.19, 'gstRate': 5, 'taxable': 22476.19, 'cgst': 0, 'sgst': 0, 'igst': 1123.81, 'amount': 23600},
+              {
+                'description': 'Silk rolls',
+                'hsn': '5007',
+                'qty': 3,
+                'rate': 100000,
+                'gstRate': 18,
+                'taxable': 300000,
+                'cgst': 0,
+                'sgst': 0,
+                'igst': 54000,
+                'amount': 354000,
+              },
+              {
+                'description': 'Design work',
+                'hsn': '',
+                'qty': 1,
+                'rate': 22476.19,
+                'gstRate': 5,
+                'taxable': 22476.19,
+                'cgst': 0,
+                'sgst': 0,
+                'igst': 1123.81,
+                'amount': 23600,
+              },
             ],
             'taxable': 322476.19,
             'cgst': 0,
@@ -267,19 +450,52 @@ class FakeMycaApi implements MycaApi {
             'missing': ['HSN'],
           },
         };
+      case 'expense_heads':
+        return {
+          'ok': true,
+          'data': [
+            {'code': '5100', 'name': 'Other expenses'},
+            {'code': '5110', 'name': 'Rent'},
+            {'code': '5190', 'name': 'Office and stationery'},
+            {'code': '5200', 'name': 'Advertising and marketing'},
+          ],
+        };
       case 'export_gstr1_json':
         return {
           'ok': true,
-          'data': {'gstin': '27AABCU9603R1ZN', 'fp': args['fp'], 'version': 'GST3.1.6', 'b2b': const <Object?>[]},
+          'data': {
+            'gstin': '27AABCU9603R1ZN',
+            'fp': args['fp'],
+            'version': 'GST3.1.6',
+            'b2b': const <Object?>[],
+          },
         };
       case 'deadlines':
         return {
           'ok': true,
           'data': {
             'deadlines': [
-              {'returnLabel': 'GSTR-1 (monthly)', 'period': '2026-08', 'dueDate': '2026-09-11', 'daysUntil': -24, 'level': 'overdue'},
-              {'returnLabel': 'GSTR-1 (monthly)', 'period': '2026-09', 'dueDate': '2026-10-11', 'daysUntil': 6, 'level': 'due_soon'},
-              {'returnLabel': 'GSTR-3B (monthly)', 'period': '2026-09', 'dueDate': '2026-10-20', 'daysUntil': 15, 'level': 'on_track'},
+              {
+                'returnLabel': 'GSTR-1 (monthly)',
+                'period': '2026-08',
+                'dueDate': '2026-09-11',
+                'daysUntil': -24,
+                'level': 'overdue',
+              },
+              {
+                'returnLabel': 'GSTR-1 (monthly)',
+                'period': '2026-09',
+                'dueDate': '2026-10-11',
+                'daysUntil': 6,
+                'level': 'due_soon',
+              },
+              {
+                'returnLabel': 'GSTR-3B (monthly)',
+                'period': '2026-09',
+                'dueDate': '2026-10-20',
+                'daysUntil': 15,
+                'level': 'on_track',
+              },
             ],
           },
         };

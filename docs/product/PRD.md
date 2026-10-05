@@ -76,9 +76,9 @@ Percentages are engineering estimates and are tracked in
 | ID | Requirement | Status |
 |---|---|---|
 | FR-TAG-1 | Sales, purchases and each GST head are placed under the right account automatically. | Built |
-| FR-TAG-2 | An expense is placed under the right expense head (rent, salary, travel, and so on) from its description or its supplier. | Not built: every expense goes to one account |
-| FR-TAG-3 | The product remembers how a supplier or an item was tagged and reuses it. | Not built |
-| FR-TAG-4 | The owner can correct a tag in plain words, and the correction is remembered. | Not built |
+| FR-TAG-2 | An expense is placed under the right expense head (rent, salary, travel, and so on) from its description or its supplier. | Built: fifteen heads, a word-based tagger that says why; unknown wording goes to Other expenses with a nudge |
+| FR-TAG-3 | The product remembers how a supplier or an item was tagged and reuses it. | Built, per payee and per wording |
+| FR-TAG-4 | The owner can correct a tag in plain words, and the correction is remembered. | Built by tapping (a head picker before or after posting); not yet by typing |
 
 ### 5.3 Invoices, quotes and e-way bills ([feature spec](features/02-invoices-quotes-eway-bills.md))
 
@@ -142,7 +142,7 @@ Percentages are engineering estimates and are tracked in
 | ID | Requirement | Status |
 |---|---|---|
 | FR-UI-1 | Chat is the main screen. | Built |
-| FR-UI-2 | Chats are grouped by transaction type, one chat per customer or supplier. | Built for sales and purchases; expenses are one list |
+| FR-UI-2 | Chats are grouped by transaction type, one chat per customer or supplier. | Built: sales and purchases by party, expenses by head |
 | FR-UI-3 | A single "one-chat" entry point that takes any message. | Built, rule-based |
 | FR-UI-4 | A dashboard showing sales, purchases, taxes and payroll at a glance. | Partly: taxes only |
 | FR-UI-5 | The owner can ask a doubt in plain words and get a plain answer. | Partly: fixed questions only |

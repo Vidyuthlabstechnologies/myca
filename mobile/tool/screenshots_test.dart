@@ -98,6 +98,22 @@ void main() {
     await shot(tester, '12_taxes');
   });
 
+  testWidgets('expense screens', (tester) async {
+    await phone(tester);
+    await tester.pumpWidget(MycaApp(state: testState(FakeMycaApi(signedIn: true))));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Expenses'));
+    await shot(tester, '15_expenses');
+    await tester.tap(find.text('Other expenses'));
+    await shot(tester, '16_expense_head');
+    await tester.tap(find.widgetWithText(ActionChip, 'Expense'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextField, 'What was it for'), 'Diwali gifts');
+    await tester.enterText(find.widgetWithText(TextField, 'Amount paid, with GST'), '2500');
+    await tester.tap(find.text('Preview'));
+    await shot(tester, '17_expense_preview');
+  });
+
   testWidgets('invoice screen', (tester) async {
     await phone(tester);
     await tester.pumpWidget(MycaApp(state: testState(FakeMycaApi(signedIn: true))));
