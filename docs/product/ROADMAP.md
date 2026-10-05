@@ -6,7 +6,7 @@
 | Basis | The [product PRD](PRD.md); progress in [`../superpowers/PROGRESS.md`](../superpowers/PROGRESS.md) |
 | Status | Engineering's proposed order. No dates: the pace depends on owner actions listed at the end. |
 
-About 46% of the PRD is built. The order below is chosen so that each milestone gives a
+About 47% of the PRD is built. The order below is chosen so that each milestone gives a
 pilot owner something usable, and so that work blocked on outside parties is not on the
 critical path of work that is not.
 
@@ -34,7 +34,7 @@ The owner can take a month's GST from draft to a file ready for the portal, in c
 | Set-off rules and the amount to pay | FR-GST-3 | Advisor CA verification |
 | GSTR-2B upload, credit at risk in the app | FR-2B-1, FR-2B-2 | Nothing |
 | Supplier reminder drafts sent from the owner's own apps | FR-2B-3, FR-2B-4 | PRD Q6 |
-| Entries export for a CA | FR-CA-2 | Nothing |
+| Entries export for a CA (**done** 2026-10-06, spreadsheet; Tally format to come) | FR-CA-2 | Nothing |
 
 ### M3. Hosted pilot
 

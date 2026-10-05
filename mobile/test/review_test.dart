@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:myca/api/models.dart';
+import 'package:myca/app_state.dart';
 import 'package:myca/main.dart';
 
 import 'fake_api.dart';
@@ -168,4 +169,35 @@ void main() {
       expect(api.confirmed, isNotEmpty);
     },
   );
+
+  testWidgets('the month entries are saved as a CSV for the CA', (
+    tester,
+  ) async {
+    final api = FakeMycaApi(signedIn: true);
+    final saved = <String, String>{};
+    final state = AppState(
+      api: api,
+      store: MemoryOnboardingStore(isWelcomed: true, isMigrated: true),
+      pickTextFile: (_) async => null,
+      saveTextFile: (name, content) async {
+        saved[name] = content;
+        return true;
+      },
+      now: () => DateTime(2026, 10, 5, 22, 30),
+    );
+    await tester.pumpWidget(MycaApp(state: state));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('3 things need you'));
+    await tester.pumpAndSettle();
+    await tapVisible(tester, find.text('Save entries for your CA'));
+    expect(api.queries, contains('export_entries'));
+    expect(saved.keys.single, 'entries_27AABCU9603R1ZN_2026-10.csv');
+    expect(saved.values.single, startsWith('date,type,number'));
+    expect(
+      find.text(
+        'Saved entries_27AABCU9603R1ZN_2026-10.csv with 3 entries. Send it to your CA.',
+      ),
+      findsOneWidget,
+    );
+  });
 }

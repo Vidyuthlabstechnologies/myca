@@ -36,10 +36,12 @@ class DeviceOnboardingStore implements OnboardingStore {
       (await SharedPreferences.getInstance()).setBool(_migrated, true);
 
   @override
-  Future<bool> lockEnabled() async => (await SharedPreferences.getInstance()).getBool(_lock) ?? true;
+  Future<bool> lockEnabled() async =>
+      (await SharedPreferences.getInstance()).getBool(_lock) ?? true;
 
   @override
-  Future<void> setLockEnabled(bool enabled) async => (await SharedPreferences.getInstance()).setBool(_lock, enabled);
+  Future<void> setLockEnabled(bool enabled) async =>
+      (await SharedPreferences.getInstance()).setBool(_lock, enabled);
 }
 
 class PickedText {
@@ -57,7 +59,7 @@ Future<bool> saveTextFileOnDevice(String name, String content) async {
   final saved = await FilePicker.saveFile(
     fileName: name,
     bytes: Uint8List.fromList(utf8.encode(content)),
-    mimeType: 'application/json',
+    mimeType: name.endsWith('.csv') ? 'text/csv' : 'application/json',
   );
   return saved != null;
 }
@@ -82,7 +84,11 @@ typedef LoadAsset = Future<ByteData> Function(String key);
 Future<bool> _noPdf(String name, Uint8List bytes) async => false;
 
 class PdfActions {
-  const PdfActions({this.share = _noPdf, this.print = _noPdf, this.loadAsset = _loadBundled});
+  const PdfActions({
+    this.share = _noPdf,
+    this.print = _noPdf,
+    this.loadAsset = _loadBundled,
+  });
 
   final SendPdf share;
   final SendPdf print;
@@ -91,6 +97,8 @@ class PdfActions {
 
 Future<ByteData> _loadBundled(String key) => rootBundle.load(key);
 
-Future<bool> sharePdfFromDevice(String name, Uint8List bytes) => Printing.sharePdf(bytes: bytes, filename: name);
+Future<bool> sharePdfFromDevice(String name, Uint8List bytes) =>
+    Printing.sharePdf(bytes: bytes, filename: name);
 
-Future<bool> printPdfFromDevice(String name, Uint8List bytes) => Printing.layoutPdf(name: name, onLayout: (_) async => bytes);
+Future<bool> printPdfFromDevice(String name, Uint8List bytes) =>
+    Printing.layoutPdf(name: name, onLayout: (_) async => bytes);
