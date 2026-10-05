@@ -261,5 +261,9 @@ Differences from the design above, and why:
 - The books are written on every request, including reads, because each call appends an
   audit event. Measured locally at about 7 ms a request with 30 invoices.
 
+Member invitations were added the same day: an owner invites a phone number as staff or
+accountant; the invitation table holds a keyed hash and the last three digits, never the
+number; the person joins only by accepting after signing in with that number.
+
 Still to do in C1: deployment (Terraform, Cloud Run, Cloud SQL, HTTPS), an SMS sender,
-Google Sign-In for closed testing, member invitations, and the on-phone app lock.
+Google Sign-In for closed testing, and the on-phone app lock.

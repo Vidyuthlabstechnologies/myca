@@ -80,7 +80,7 @@ The goal is now an owner-first Android app on the Play Store. The weights below 
 | Area | Weight | Done | Contribution | Basis |
 |---|---|---|---|---|
 | Hardened core: ledger, engines, gate (Phase 0) | 25 | 67% | 16.8 | Table above |
-| Cloud core: accounts, sync, hosted API, DPDP | 20 | 55% | 11.0 | C0 done. C1 built and tested on local Postgres: phone sign-in, sessions, businesses and roles, the `/v1` API, the engine running per request (37 tests), and the app's hosted mode. File uploads work, so Tally, Zoho and bank imports run when hosted (43 tests). Not deployed; no SMS sender; privacy assessment not started |
+| Cloud core: accounts, sync, hosted API, DPDP | 20 | 55% | 11.0 | C0 done. C1 built and tested on local Postgres: phone sign-in, sessions, businesses and roles, the `/v1` API, the engine running per request (37 tests), and the app's hosted mode. File uploads work, so Tally, Zoho and bank imports run when hosted. Owners can invite staff and accountants (53 tests). Not deployed; no SMS sender; privacy assessment not started |
 | Pipeline and exception queue | 10 | 30% | 3.0 | Exception queue built; no job pipeline |
 | Android app | 25 | 30% | 7.5 | `mobile/` (Flutter): welcome, brand, sign-in, migration onboarding and later re-import (Tally, Zoho, bank statement), home summary, customer picker, threads with preview and confirm, expenses, taxes, Ask; 18 tests, debug APK builds, checked against the live server. Not yet run on a device; no bill capture, filing pack, notifications or release build |
 | LLM chat agent | 8 | 35% | 2.8 | Tool contracts, keyword router, preview/confirm; no model in the loop |
