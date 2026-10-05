@@ -90,7 +90,7 @@ export function createInvoice(state, input) {
     });
     return {
       description: l.description,
-      hsn: l.hsn || '5407',
+      hsn: String(l.hsn ?? '').trim(),
       qty,
       rate: rateAmt,
       gstRate,
@@ -265,7 +265,7 @@ export function createPurchase(state, input) {
     });
     return {
       description: l.description,
-      hsn: l.hsn || '5208',
+      hsn: String(l.hsn ?? '').trim(),
       qty,
       rate: rateAmt,
       gstRate,

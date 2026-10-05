@@ -216,6 +216,12 @@ export const TOOL_ARG_SCHEMAS = {
     required: ['id'],
     properties: { id: { type: 'string', pattern: '^(INV|BILL)-[0-9]{4,}$' } },
   },
+  invoice_document: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['id'],
+    properties: { id: { type: 'string', pattern: '^INV-[0-9]{4,}$' } },
+  },
   record_receipt: {
     type: 'object',
     additionalProperties: false,
