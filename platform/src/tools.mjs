@@ -10,6 +10,7 @@ import { listAccounts, journal, trialBalance, verifyChain, createTransfers, pais
 import { createInvoice, recordReceipt, invoicesToSalesCsv, createPurchase, purchasesToInwardCsv, printInvoice } from './invoice.mjs';
 import { invoiceDocument } from './invoice-document.mjs';
 import { postExpense, retagExpense, listExpenses, expenseHeads } from './expenses.mjs';
+import { businessSummary } from './business-summary.mjs';
 import { createCreditNote, cancelInvoice, creditNotesForPeriod, creditNoteTotals } from './credit-notes.mjs';
 import { postTallyRows, postBankRows, purchaseRegisterCsv } from './post-import.mjs';
 import { parseZohoBooksCsv } from './import-zoho.mjs';
@@ -526,6 +527,13 @@ export const TOOLS = [
     description: 'Credit notes against sales invoices, optionally for one month (YYYY-MM). Read-only.',
     args: ['period'],
     run: (state, args = {}) => ok(args.period ? creditNotesForPeriod(state, String(args.period)) : state.creditNotes || []),
+  },
+  {
+    name: 'business_summary',
+    title: 'Business at a glance',
+    description: 'This month and last month: sales (gross and net of credit notes), purchases, expenses, and what customers still owe. Read-only; computed from posted documents.',
+    args: ['period'],
+    run: (state, args = {}) => businessSummary(state, args),
   },
   {
     name: 'record_receipt',

@@ -1,0 +1,59 @@
+import { localToday } from './dates.mjs';
+import { isReturnPeriod, periodOf } from './return-period.mjs';
+import { outstandingOf } from './credit-notes.mjs';
+
+const round2 = (value) => Math.round(Number(value || 0) * 100) / 100;
+
+function previousPeriod(period) {
+  const [year, month] = period.split('-').map(Number);
+  const date = new Date(Date.UTC(year, month - 2, 1));
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`;
+}
+
+function sumOf(documents, key) {
+  return { count: documents.length, total: round2(documents.reduce((sum, doc) => sum + Number(doc[key] || 0), 0)) };
+}
+
+function monthFigures(state, period) {
+  const inPeriod = (doc) => periodOf(doc?.date) === period;
+  const sales = sumOf((state.invoices || []).filter(inPeriod), 'total');
+  const creditNotes = sumOf((state.creditNotes || []).filter(inPeriod), 'total');
+  return {
+    sales: { ...sales, net: round2(sales.total - creditNotes.total) },
+    creditNotes,
+    purchases: sumOf((state.purchases || []).filter(inPeriod), 'total'),
+    expenses: sumOf((state.expenses || []).filter(inPeriod), 'amount'),
+  };
+}
+
+export function businessSummary(state, { period } = {}) {
+  const requested = String(period || '').trim();
+  if (requested && !isReturnPeriod(requested)) return { ok: false, error: 'INVALID_PERIOD', hint: 'Use YYYY-MM, for example 2026-10.' };
+  const current = requested || localToday().slice(0, 7);
+  const previous = previousPeriod(current);
+  const open = (state.invoices || []).filter((invoice) => invoice.status !== 'cancelled').map((invoice) => ({ invoice, due: outstandingOf(state, invoice) })).filter((item) => item.due > 0.005);
+  const byCustomer = new Map();
+  for (const { invoice, due } of open) {
+    const key = String(invoice.partyName || '').trim().toLowerCase();
+    const row = byCustomer.get(key) || { name: invoice.partyName, due: 0, invoices: 0 };
+    row.due = round2(row.due + due);
+    row.invoices += 1;
+    byCustomer.set(key, row);
+  }
+  const customers = [...byCustomer.values()].sort((a, b) => b.due - a.due);
+  return {
+    ok: true,
+    data: {
+      period: current,
+      previousPeriod: previous,
+      current: monthFigures(state, current),
+      previous: monthFigures(state, previous),
+      owedToYou: {
+        total: round2(open.reduce((sum, item) => sum + item.due, 0)),
+        invoices: open.length,
+        customers: customers.slice(0, 5),
+      },
+      caveat: 'Purchases are bill totals; what you still owe suppliers is not tracked yet.',
+    },
+  };
+}
