@@ -10,6 +10,7 @@ import '../format.dart';
 import '../marks.dart';
 import '../theme.dart';
 import '../widgets.dart';
+import 'review_screen.dart';
 
 const _heldReasons = {
   'INVALID_GSTIN': 'the buyer GSTIN is not valid',
@@ -17,7 +18,8 @@ const _heldReasons = {
   'MISSING_PLACE_OF_SUPPLY': 'the place of supply is missing',
 };
 
-String heldReason(String code) => _heldReasons[code] ?? code.toLowerCase().replaceAll('_', ' ');
+String heldReason(String code) =>
+    _heldReasons[code] ?? code.toLowerCase().replaceAll('_', ' ');
 
 class TaxesScreen extends StatefulWidget {
   const TaxesScreen({super.key});
@@ -60,14 +62,21 @@ class _TaxesScreenState extends State<TaxesScreen> {
     });
     var note = '';
     try {
-      final body = await state.api.query('export_gstr1_json', {'fp': gst.gstr1.fp});
+      final body = await state.api.query('export_gstr1_json', {
+        'fp': gst.gstr1.fp,
+      });
       final data = toolData(body);
       if (data.isEmpty) {
         note = 'The file could not be prepared.';
       } else {
         final name = 'GSTR1_${data['gstin'] ?? ''}_${gst.gstr1.fp}.json';
-        final saved = await state.saveTextFile(name, const JsonEncoder.withIndent('  ').convert(data));
-        note = saved ? 'Saved $name. Upload it in the GST offline tool or send it to your CA.' : 'Not saved.';
+        final saved = await state.saveTextFile(
+          name,
+          const JsonEncoder.withIndent('  ').convert(data),
+        );
+        note = saved
+            ? 'Saved $name. Upload it in the GST offline tool or send it to your CA.'
+            : 'Not saved.';
       }
     } on MycaApiException catch (err) {
       note = err.message;
@@ -105,12 +114,20 @@ class _TaxesScreenState extends State<TaxesScreen> {
                 if (item.moneyAtRisk > 0) ...[
                   const SizedBox(height: 16),
                   Text('AT RISK', style: text.labelSmall),
-                  Text(rupees(item.moneyAtRisk), style: text.headlineMedium?.copyWith(fontFeatures: moneyFigures)),
+                  Text(
+                    rupees(item.moneyAtRisk),
+                    style: text.headlineMedium?.copyWith(
+                      fontFeatures: moneyFigures,
+                    ),
+                  ),
                 ],
                 const SizedBox(height: 20),
                 SizedBox(
                   width: double.infinity,
-                  child: FilledButton(onPressed: () => Navigator.of(sheet).pop(), child: const Text('Got it')),
+                  child: FilledButton(
+                    onPressed: () => Navigator.of(sheet).pop(),
+                    child: const Text('Got it'),
+                  ),
                 ),
               ],
             ),
@@ -136,9 +153,15 @@ class _TaxesScreenState extends State<TaxesScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text('${state.error ?? 'Could not load.'}', textAlign: TextAlign.center),
+                  Text(
+                    '${state.error ?? 'Could not load.'}',
+                    textAlign: TextAlign.center,
+                  ),
                   const SizedBox(height: 16),
-                  FilledButton(onPressed: _reload, child: const Text('Try again')),
+                  FilledButton(
+                    onPressed: _reload,
+                    child: const Text('Try again'),
+                  ),
                 ],
               ),
             );
@@ -151,7 +174,11 @@ class _TaxesScreenState extends State<TaxesScreen> {
             child: ListView(
               padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
               children: [
-                SectionLabel(open.isEmpty ? 'Nothing needs you right now' : 'Needs you (${open.length})'),
+                SectionLabel(
+                  open.isEmpty
+                      ? 'Nothing needs you right now'
+                      : 'Needs you (${open.length})',
+                ),
                 if (open.isNotEmpty)
                   Panel(
                     children: [
@@ -162,7 +189,9 @@ class _TaxesScreenState extends State<TaxesScreen> {
                             mark: isUrgent(item) ? Mark.urgent : Mark.dueSoon,
                           ),
                           title: item.title,
-                          subtitle: item.moneyAtRisk > 0 ? 'At risk: ${rupees(item.moneyAtRisk)}' : item.why,
+                          subtitle: item.moneyAtRisk > 0
+                              ? 'At risk: ${rupees(item.moneyAtRisk)}'
+                              : item.why,
                           trailing: const Chevron(),
                           onTap: () => _explain(item),
                         ),
@@ -190,7 +219,29 @@ class _TaxesScreenState extends State<TaxesScreen> {
                     ),
                   _PeriodCard(gst: gst),
                   const SizedBox(height: 12),
-                  _Gstr1Card(gst: gst, saving: _saving, note: _fileNote, onSave: () => _saveFile(gst)),
+                  _Gstr1Card(
+                    gst: gst,
+                    saving: _saving,
+                    note: _fileNote,
+                    onSave: () => _saveFile(gst),
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      onPressed: gst.salesCount == 0 && gst.gstr1.empty
+                          ? null
+                          : () => Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (_) =>
+                                    ReviewScreen(period: gst.period),
+                              ),
+                            ),
+                      child: Text(
+                        'Review the ${monthLabel(gst.period)} return',
+                      ),
+                    ),
+                  ),
                 ],
                 if (upcoming.isNotEmpty) ...[
                   const SizedBox(height: 26),
@@ -199,9 +250,13 @@ class _TaxesScreenState extends State<TaxesScreen> {
                     children: [
                       for (final deadline in upcoming)
                         RowCard(
-                          leading: const TintTile(tint: Tint.ask, mark: Mark.comingUp),
+                          leading: const TintTile(
+                            tint: Tint.ask,
+                            mark: Mark.comingUp,
+                          ),
                           title: '${deadline.label} for ${deadline.period}',
-                          subtitle: '${dueLabel(deadline.daysUntil)} (${deadline.dueDate})',
+                          subtitle:
+                              '${dueLabel(deadline.daysUntil)} (${deadline.dueDate})',
                         ),
                     ],
                   ),
@@ -229,7 +284,10 @@ class _Card extends StatelessWidget {
         borderRadius: BorderRadius.circular(radiusCard),
         border: Border.all(color: Palette.line),
       ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: children),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: children,
+      ),
     );
   }
 }
@@ -244,11 +302,17 @@ class _PeriodCard extends StatelessWidget {
     final text = Theme.of(context).textTheme;
     return _Card(
       children: [
-        Text('GST FOR ${monthLabel(gst.period).toUpperCase()}', style: text.labelSmall),
+        Text(
+          'GST FOR ${monthLabel(gst.period).toUpperCase()}',
+          style: text.labelSmall,
+        ),
         const SizedBox(height: 6),
         Text(
           rupees(gst.outputTax.total),
-          style: text.displaySmall?.copyWith(fontWeight: FontWeight.w400, fontFeatures: moneyFigures),
+          style: text.displaySmall?.copyWith(
+            fontWeight: FontWeight.w400,
+            fontFeatures: moneyFigures,
+          ),
         ),
         Text(
           'Tax on ${gst.salesCount == 1 ? '1 sale' : '${gst.salesCount} sales'} of ${rupees(gst.taxableSales)}',
@@ -285,7 +349,10 @@ class _HeadsRow extends StatelessWidget {
         Row(
           children: [
             Expanded(child: Text(label, style: text.titleMedium)),
-            Text(rupees(heads.total), style: text.titleMedium?.copyWith(fontFeatures: moneyFigures)),
+            Text(
+              rupees(heads.total),
+              style: text.titleMedium?.copyWith(fontFeatures: moneyFigures),
+            ),
           ],
         ),
         const SizedBox(height: 2),
@@ -299,7 +366,12 @@ class _HeadsRow extends StatelessWidget {
 }
 
 class _Gstr1Card extends StatelessWidget {
-  const _Gstr1Card({required this.gst, required this.saving, required this.note, required this.onSave});
+  const _Gstr1Card({
+    required this.gst,
+    required this.saving,
+    required this.note,
+    required this.onSave,
+  });
 
   final PeriodGst gst;
   final bool saving;
@@ -312,7 +384,10 @@ class _Gstr1Card extends StatelessWidget {
     final file = gst.gstr1;
     return _Card(
       children: [
-        Text('GSTR-1 FILE FOR ${monthLabel(gst.period).toUpperCase()}', style: text.labelSmall),
+        Text(
+          'GSTR-1 FILE FOR ${monthLabel(gst.period).toUpperCase()}',
+          style: text.labelSmall,
+        ),
         const SizedBox(height: 8),
         if (file.empty && file.held.isEmpty)
           Text('No sales to report for this month.', style: text.bodyLarge)
@@ -326,7 +401,10 @@ class _Gstr1Card extends StatelessWidget {
               padding: const EdgeInsets.only(top: 8),
               child: Text(
                 '${held.number} is left out: ${heldReason(held.code)}.',
-                style: const TextStyle(color: Palette.danger, fontWeight: FontWeight.w500),
+                style: const TextStyle(
+                  color: Palette.danger,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
             ),
           const SizedBox(height: 14),
@@ -334,11 +412,16 @@ class _Gstr1Card extends StatelessWidget {
             width: double.infinity,
             child: OutlinedButton(
               onPressed: saving || file.empty ? null : onSave,
-              child: Text(saving ? 'Preparing…' : 'Save file for the GST portal'),
+              child: Text(
+                saving ? 'Preparing…' : 'Save file for the GST portal',
+              ),
             ),
           ),
           const SizedBox(height: 8),
-          Text('MyCA does not upload or file this. You or your CA do that on the GST portal.', style: text.bodySmall),
+          Text(
+            'MyCA does not upload or file this. You or your CA do that on the GST portal.',
+            style: text.bodySmall,
+          ),
         ],
         if (note.isNotEmpty) ...[
           const SizedBox(height: 8),

@@ -96,6 +96,21 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('3 things need you'));
     await shot(tester, '12_taxes');
+    final review = find.text('Review the October 2026 return');
+    await tester.scrollUntilVisible(review, 200, scrollable: find.byType(Scrollable).last);
+    await tester.ensureVisible(review);
+    await tester.pumpAndSettle();
+    await tester.tap(review);
+    await shot(tester, '20_review_sales');
+    for (var step = 0; step < 2; step++) {
+      await tester.scrollUntilVisible(find.text('Yes, correct'), 200, scrollable: find.byType(Scrollable).last);
+      await tester.ensureVisible(find.text('Yes, correct'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Yes, correct'));
+      await tester.pumpAndSettle();
+    }
+    await tester.scrollUntilVisible(find.text('Approve'), 200, scrollable: find.byType(Scrollable).last);
+    await shot(tester, '21_review_approve');
   });
 
   testWidgets('expense screens', (tester) async {

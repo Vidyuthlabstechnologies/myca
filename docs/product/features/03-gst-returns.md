@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Requirements | FR-GST-1 to 6 in the [product PRD](../PRD.md) |
-| Status | Drafts and GSTR-1 file built; review in chat, set-off and live filing not built |
+| Status | Drafts, GSTR-1 file and the review built (2026-10-06); set-off and live filing not built |
 | Code | `platform/src/return-period.mjs`, `gstr1-json.mjs`, `tools.mjs` (`prepare_gstr1`, `prepare_gstr3b`, `gst_period_summary`, `filing_pack`), `action-gate.mjs`, `sprints/sprint-3-gst-recon`, `sprints/sprint-5-filing-assistant` |
 
 ## What the owner experiences
@@ -43,14 +43,26 @@ flowchart TD
   of supply) is held back with its reason and shown to the owner.
 - The GSTR-1 file for the GST offline tool can be saved from the app.
 
-### Review (to build)
+### Review (built)
 
-- The review is a sequence of confirmation cards in the Taxes chat. Each card shows a
-  few figures in plain words and offers "Yes, correct" and "Something is wrong".
-- "Something is wrong" opens the entries behind the figure; a fix reposts and restarts
-  the review from that step.
-- The review state is stored per period with a hash of the draft. If the books change
-  after a step was confirmed, the confirmation is void and the owner is told why.
+- `gst-review.mjs` builds the steps from the same period summary as the Taxes screen:
+  invoices held out of the return (only when there are any), sales, purchases and input
+  credit, then approval. Each step lists its figures and asks "Is this information
+  correct?".
+- Each answer carries a hash of the draft the owner saw (`draftHash`). If any document
+  of that month changes afterwards, earlier answers stop counting, the screen says the
+  books changed, and an answer sent against the old figures is refused. Another
+  month's entries do not disturb the review.
+- Steps go in order. "Something is wrong" records a note and keeps the step open; the
+  owner fixes the entry in its chat and the step opens again with the new figures.
+- Approval records who approved which draft and when. It files nothing and creates no
+  portal approval; that is the action gate's job when live filing exists. When the
+  member's role is known, only the owner (engine role `admin`) approves; staff and
+  accountants can answer the other steps. This is provisional until PRD Q2 is decided.
+- In the app the card is the preview: tapping an answer proposes it and confirms it at
+  once, bound to the draft hash on screen. In chat, "review GST for September" shows the
+  next step as a preview and "yes" confirms it; "no" records nothing.
+- The input credit step says plainly that it has not been checked against GSTR-2B.
 
 ### Amount to pay (to build)
 

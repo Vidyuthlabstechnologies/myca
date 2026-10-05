@@ -96,7 +96,7 @@ Percentages are engineering estimates and are tracked in
 | ID | Requirement | Status |
 |---|---|---|
 | FR-GST-1 | Prepare GSTR-1 and GSTR-3B drafts for one tax period from the posted entries. | Built |
-| FR-GST-2 | Walk the owner through the draft in chat: "Is this information correct?", answered by typing or tapping. | Not built |
+| FR-GST-2 | Walk the owner through the draft in chat: "Is this information correct?", answered by typing or tapping. | Built: held invoices, sales, purchases and credit, then approval; by tapping in the app or typing "review GST" and "yes" in chat. A change to the month voids earlier answers |
 | FR-GST-3 | Show the amount to pay after input credit is set off. | Not built: set-off is not implemented, so the app shows tax and credit separately |
 | FR-GST-4 | File through the API only after the owner approves. | Partly: provider adapters behind the action gate, sandbox only |
 | FR-GST-5 | Save the acknowledgement in the chat. | Not built |

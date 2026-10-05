@@ -31,6 +31,10 @@ inconvenience.
 - Today there is one pending proposal per business, so two members previewing at the
   same moment replace each other's preview. Nothing wrong is posted. Keying proposals
   by member is planned.
+- A GST review step in the app is its own preview: the card shows the figures and
+  tapping an answer proposes and confirms it in one go. The answer carries the hash of
+  the draft on screen, so it can only confirm what was shown. Review answers never
+  touch the ledger.
 - POS sales are the one planned exception: the owner approves the connection and a
   daily total, not each sale (feature spec 09).
 

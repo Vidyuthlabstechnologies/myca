@@ -148,7 +148,7 @@ void main() {
     expect(find.text('INV-0009 is left out: the buyer GSTIN is not valid.'), findsOneWidget);
     expect(find.textContaining('worked out in the return'), findsOneWidget);
 
-    await tester.drag(find.byType(ListView), const Offset(0, 260));
+    await tester.scrollUntilVisible(find.widgetWithText(ChoiceChip, 'August 2026'), -200);
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(ChoiceChip, 'August 2026'));
     await tester.pumpAndSettle();
