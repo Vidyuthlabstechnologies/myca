@@ -14,6 +14,7 @@ import { businessSummary } from './business-summary.mjs';
 import { gstr3bFor, periodSummary } from './period-summary.mjs';
 import { createCreditNote, cancelInvoice, creditNotesForPeriod } from './credit-notes.mjs';
 import { reviewOf, answerReview } from './gst-review.mjs';
+import { exportEntries } from './entries-export.mjs';
 import { postTallyRows, postBankRows, purchaseRegisterCsv } from './post-import.mjs';
 import { parseZohoBooksCsv } from './import-zoho.mjs';
 import { invoicesToGstr1Json } from './gstr1-json.mjs';
@@ -573,6 +574,13 @@ export const TOOLS = [
     description: 'For one tax period: tax on sales and input credit by head from the GSTR-3B draft, and what the GSTR-1 file for that period holds. Lists the periods that have documents.',
     args: ['period'],
     run: (state, args = {}) => periodSummary(state, args.period),
+  },
+  {
+    name: 'export_entries',
+    title: 'Entries for your CA',
+    description: 'One CSV of the month: sales, receipts, credit notes, purchases and expenses with heads and tax by head, for a CA or another accounting package. Read-only.',
+    args: ['period'],
+    run: (state, args = {}) => exportEntries(state, args),
   },
   {
     name: 'gst_review',

@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Requirements | FR-CA-1 to 4 in the [product PRD](../PRD.md) |
-| Status | Invite and remove built; entries export and the sync setting not built |
+| Status | Invite, remove and the monthly entries export built; Tally-format export and the sync setting not built |
 | Code | `cloud/src/members.mjs`, `cloud/src/businesses.mjs`; app: `mobile/lib/screens/people_screen.dart`, `invitation_cards.dart` |
 
 ## What the owner experiences
@@ -33,10 +33,13 @@ sees changes as they happen or at set intervals.
   next request.
 - A person who belongs to several businesses switches between them in the app.
 
-### Export (to build)
+### Export (spreadsheet built; Tally format to build)
 
-- An export of the period's entries as a Tally-importable file and as a spreadsheet:
-  day book, sales and purchase registers, trial balance.
+- Built: `export_entries` gives one CSV for a month with every sale, receipt, credit
+  note, purchase and expense in date order: number, party and GSTIN, head, taxable value,
+  each tax head, total, how it was paid, and the invoice a receipt or note refers to.
+  Taxes has "Save entries for your CA".
+- To build: a Tally-importable file, and the trial balance in the same export.
 - All CSV output goes through `text-safe.mjs`.
 - An export is audited: who exported what period and when.
 

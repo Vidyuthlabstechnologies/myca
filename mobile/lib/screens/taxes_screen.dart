@@ -33,6 +33,7 @@ class _TaxesScreenState extends State<TaxesScreen> {
   String? _period;
   String _fileNote = '';
   bool _saving = false;
+  String _entriesNote = '';
 
   @override
   void didChangeDependencies() {
@@ -86,6 +87,31 @@ class _TaxesScreenState extends State<TaxesScreen> {
       _saving = false;
       _fileNote = note;
     });
+  }
+
+  Future<void> _saveEntries(String period) async {
+    final state = AppScope.of(context);
+    setState(() => _entriesNote = '');
+    var note = '';
+    try {
+      final data = toolData(
+        await state.api.query('export_entries', {'period': period}),
+      );
+      if (data.isEmpty) {
+        note = 'The entries could not be prepared.';
+      } else {
+        final name = data['fileName'] as String;
+        final count = data['count'] as num;
+        final saved = await state.saveTextFile(name, data['csv'] as String);
+        note = saved
+            ? 'Saved $name with ${count == 1 ? '1 entry' : '$count entries'}. Send it to your CA.'
+            : 'Not saved.';
+      }
+    } on MycaApiException catch (err) {
+      note = err.message;
+    }
+    if (!mounted) return;
+    setState(() => _entriesNote = note);
   }
 
   void _explain(ExceptionItem item) {
@@ -242,6 +268,22 @@ class _TaxesScreenState extends State<TaxesScreen> {
                       ),
                     ),
                   ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton(
+                      onPressed: () => _saveEntries(gst.period),
+                      child: const Text('Save entries for your CA'),
+                    ),
+                  ),
+                  if (_entriesNote.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Text(
+                        _entriesNote,
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                    ),
                 ],
                 if (upcoming.isNotEmpty) ...[
                   const SizedBox(height: 26),

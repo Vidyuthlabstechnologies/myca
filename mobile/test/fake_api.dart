@@ -597,6 +597,16 @@ class FakeMycaApi implements MycaApi {
             'missing': ['HSN'],
           },
         };
+      case 'export_entries':
+        return {
+          'ok': true,
+          'data': {
+            'period': args['period'],
+            'count': 3,
+            'fileName': 'entries_27AABCU9603R1ZN_${args['period']}.csv',
+            'csv': 'date,type,number\n2026-10-02,Sale,INV-0003',
+          },
+        };
       case 'gst_review':
         return {'ok': true, 'data': reviewData()};
       case 'business_summary':
