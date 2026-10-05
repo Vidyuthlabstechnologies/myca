@@ -102,11 +102,82 @@ class Invoice {
   bool get paid => status == 'paid';
 }
 
+class Expense {
+  const Expense({
+    required this.id,
+    required this.date,
+    required this.head,
+    required this.headName,
+    required this.description,
+    required this.payee,
+    required this.amount,
+    required this.gstRate,
+    required this.inputCredit,
+    required this.mode,
+    required this.tagSource,
+    required this.tagWhy,
+  });
+
+  factory Expense.fromJson(Object? json) {
+    final map = _map(json);
+    final tag = _map(map['tag']);
+    return Expense(
+      id: _text(map['id']),
+      date: _text(map['date']),
+      head: _text(map['head']),
+      headName: _text(map['headName']),
+      description: _text(map['description']),
+      payee: _text(map['payee']),
+      amount: _num(map['amount']),
+      gstRate: _num(map['gstRate']),
+      inputCredit: map['inputCredit'] == true,
+      mode: _text(map['mode']),
+      tagSource: _text(tag['source']),
+      tagWhy: _text(tag['why']),
+    );
+  }
+
+  final String id;
+  final String date;
+  final String head;
+  final String headName;
+  final String description;
+  final String payee;
+  final num amount;
+  final num gstRate;
+  final bool inputCredit;
+  final String mode;
+  final String tagSource;
+  final String tagWhy;
+
+  String get title => description.isNotEmpty
+      ? description
+      : (payee.isNotEmpty ? payee : headName);
+}
+
+class ExpenseHead {
+  const ExpenseHead({required this.code, required this.name});
+
+  factory ExpenseHead.fromJson(Object? json) {
+    final map = _map(json);
+    return ExpenseHead(code: _text(map['code']), name: _text(map['name']));
+  }
+
+  final String code;
+  final String name;
+}
+
+List<ExpenseHead> expenseHeadsFrom(Object? json) {
+  final data = _map(json)['data'];
+  return data is List ? data.map(ExpenseHead.fromJson).toList() : const [];
+}
+
 class Snapshot {
   const Snapshot({
     required this.company,
     required this.invoices,
     required this.purchases,
+    required this.expenses,
     required this.users,
     required this.activeUser,
   });
@@ -118,6 +189,7 @@ class Snapshot {
       company: Company.fromJson(map['company']),
       invoices: _maps(map['invoices']).map(Invoice.fromJson).toList(),
       purchases: _maps(map['purchases']).map(Invoice.fromJson).toList(),
+      expenses: _maps(map['expenses']).map(Expense.fromJson).toList(),
       users: _maps(map['users']).map(FirmUser.fromJson).toList(),
       activeUser: active is Map ? FirmUser.fromJson(active) : null,
     );
@@ -126,6 +198,7 @@ class Snapshot {
   final Company company;
   final List<Invoice> invoices;
   final List<Invoice> purchases;
+  final List<Expense> expenses;
   final List<FirmUser> users;
   final FirmUser? activeUser;
 }
@@ -147,6 +220,7 @@ class ChatPreview {
     required this.token,
     required this.summary,
     required this.effects,
+    this.figures = const <String, dynamic>{},
   });
 
   factory ChatPreview.fromJson(Object? json) {
@@ -156,12 +230,17 @@ class ChatPreview {
       token: _text(map['token']),
       summary: _text(map['summary']),
       effects: effects is List ? effects.map(_text).toList() : const <String>[],
+      figures: _map(map['figures']),
     );
   }
 
   final String token;
   final String summary;
   final List<String> effects;
+  final Map<String, dynamic> figures;
+
+  String get headName => _text(figures['headName']);
+  String get head => _text(figures['head']);
 }
 
 class ChatReply {
@@ -191,11 +270,21 @@ class ChatReply {
 }
 
 class TaxHeads {
-  const TaxHeads({required this.igst, required this.cgst, required this.sgst, required this.total});
+  const TaxHeads({
+    required this.igst,
+    required this.cgst,
+    required this.sgst,
+    required this.total,
+  });
 
   factory TaxHeads.fromJson(Object? json) {
     final map = _map(json);
-    return TaxHeads(igst: _num(map['igst']), cgst: _num(map['cgst']), sgst: _num(map['sgst']), total: _num(map['total']));
+    return TaxHeads(
+      igst: _num(map['igst']),
+      cgst: _num(map['cgst']),
+      sgst: _num(map['sgst']),
+      total: _num(map['total']),
+    );
   }
 
   final num igst;
@@ -236,7 +325,9 @@ class Gstr1File {
       b2cl: _num(map['b2cl']).toInt(),
       b2cs: _num(map['b2cs']).toInt(),
       held: _maps(map['held']).map(HeldInvoice.fromJson).toList(),
-      warnings: warnings is List ? warnings.map(_text).toList() : const <String>[],
+      warnings: warnings is List
+          ? warnings.map(_text).toList()
+          : const <String>[],
       caveat: _text(map['caveat']),
     );
   }
@@ -386,7 +477,8 @@ class Place {
   final String code;
   final String name;
 
-  String get label => name.isEmpty ? code : (code.isEmpty ? name : '$name ($code)');
+  String get label =>
+      name.isEmpty ? code : (code.isEmpty ? name : '$name ($code)');
 }
 
 class InvoiceLine {
@@ -474,7 +566,9 @@ class InvoiceDocument {
       receipts: _maps(map['receipts']).map(Receipt.fromJson).toList(),
       received: _num(map['received']),
       balance: _num(map['balance']),
-      missing: [for (final code in (map['missing'] as List? ?? const [])) _text(code)],
+      missing: [
+        for (final code in (map['missing'] as List? ?? const [])) _text(code),
+      ],
     );
   }
 

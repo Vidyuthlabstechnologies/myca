@@ -11,6 +11,7 @@ import '../registers.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import 'ask_screen.dart';
+import 'expenses_screen.dart';
 import 'business_sheet.dart';
 import 'new_entry_sheet.dart';
 import 'party_picker.dart';
@@ -148,6 +149,16 @@ class _HomeScreenState extends State<HomeScreen> {
                       _open(const RegisterScreen(kind: RegisterKind.purchases)),
                 ),
                 RowCard(
+                  leading: const TintTile(
+                    tint: Tint.expense,
+                    mark: Mark.expense,
+                  ),
+                  title: 'Expenses',
+                  subtitle: expensesSubtitle(snapshot.expenses),
+                  trailing: const Chevron(),
+                  onTap: () => _open(const ExpensesScreen()),
+                ),
+                RowCard(
                   leading: const TintTile(tint: Tint.ask, mark: Mark.ask),
                   title: 'Ask MyCA',
                   subtitle: 'Type anything about your books',
@@ -276,7 +287,9 @@ class _TodayPanel extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         Text(
-                          gst.salesCount == 1 ? '1 sale' : '${gst.salesCount} sales',
+                          gst.salesCount == 1
+                              ? '1 sale'
+                              : '${gst.salesCount} sales',
                           style: text.bodySmall?.copyWith(
                             fontFeatures: moneyFigures,
                           ),

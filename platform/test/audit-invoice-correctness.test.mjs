@@ -98,14 +98,14 @@ test('CGST equals SGST on every intra-state line, even at odd paise', () => {
   assert.equal(trialBalance(state.ledger).balanced, true);
 });
 
-test('post_expense: GST-inclusive amount splits into equal CGST and SGST that add back exactly', async () => {
+test('post_expense: with the supplier GSTIN, the GST inside the amount splits into CGST and SGST that add back exactly', async () => {
   const { runTool } = await import('../src/tools.mjs');
   const state = createState();
-  assert.equal((await runTool(state, 'post_expense', { narration: 'Rent', amount: 1180.01, gstRate: 18, date: '2026/08/05' })).ok, true);
+  assert.equal((await runTool(state, 'post_expense', { narration: 'Rent', amount: 1180.01, gstRate: 18, date: '2026/08/05', supplierGstin: '27AABCT1332L1ZE' })).ok, true);
   const acc = Object.fromEntries(listAccounts(state.ledger).map((x) => [x.code, x]));
   assert.equal(acc['1200'].debitsPosted, 90);
   assert.equal(acc['1201'].debitsPosted, 90);
-  assert.equal(acc['5100'].debitsPosted, 1000.01);
+  assert.equal(acc['5110'].debitsPosted, 1000.01);
   assert.equal(trialBalance(state.ledger).balanced, true);
   assert.equal((await runTool(state, 'post_expense', { amount: -5 })).error, 'BAD_AMOUNT');
   assert.equal((await runTool(state, 'post_expense', { amount: 10, date: '2026-02-30' })).error, 'INVALID_DATE');

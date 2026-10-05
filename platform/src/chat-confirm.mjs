@@ -7,6 +7,7 @@
  * token until the next message confirms or discards it.
  */
 import { randomBytes } from 'node:crypto';
+import { planExpense } from './expenses.mjs';
 import { gstSplit, partyStateOf } from './chart.mjs';
 import { postingDate } from './dates.mjs';
 import { isPeriodLocked } from './period-lock.mjs';
@@ -15,7 +16,7 @@ import { parseZohoBooksCsv } from './import-zoho.mjs';
 import { tallyXmlToDayBookCsv } from './tally-xml.mjs';
 
 export const CONFIRM_TOOLS = new Set([
-  'create_invoice', 'create_purchase', 'record_receipt', 'post_expense',
+  'create_invoice', 'create_purchase', 'record_receipt', 'post_expense', 'set_expense_head',
   'import_tally', 'import_tally_xml', 'import_zoho', 'import_bank',
   'govt_generate_irn', 'govt_nic_cancel_irn',
   'exception_decide',
@@ -94,20 +95,27 @@ function receiptPreview(state, args) {
 }
 
 function expensePreview(state, args) {
-  const date = postingDate(args.date);
-  const amountPaise = Math.round(Number(args.amount) * 100);
-  const gstRate = Number(args.gstRate || 0);
-  const blockers = [];
-  if (!date) blockers.push(`${args.date} is not a date I can read.`);
-  else if (isPeriodLocked(state, date)) blockers.push(`${date} is inside the locked period (through ${state.lockThrough}).`);
-  if (!Number.isFinite(amountPaise) || amountPaise <= 0) blockers.push('The amount must be a positive number.');
-  const halfPaise = gstRate && amountPaise > 0 ? Math.round((amountPaise * gstRate) / (100 + gstRate) / 2) : 0;
-  const taxable = (amountPaise - 2 * halfPaise) / 100;
+  const planned = planExpense(state, args);
+  if (!planned.ok) {
+    const reason = {
+      INVALID_DATE: `${args.date} is not a date I can read.`,
+      PERIOD_LOCKED: `${planned.date} is inside the locked period (through ${state.lockThrough}).`,
+      BAD_AMOUNT: 'The amount must be a positive number.',
+      BAD_RATE: 'The GST rate must be between 0 and 28.',
+      BAD_MODE: 'Paid from must be bank or cash.',
+      INSUFFICIENT_CASH: `Cash in hand is ${money(planned.inHand)} and this is ${money(planned.amount)}. Record where the cash came from first, or pay it from bank.`,
+      BAD_GSTIN: 'That supplier GSTIN is not 15 characters.',
+      UNKNOWN_HEAD: `${args.head} is not an expense head.`,
+    }[planned.error] || planned.error;
+    return { blockers: [reason], summary: '', effects: [], figures: {} };
+  }
+  const { plan } = planned;
+  const what = plan.description || plan.payee || 'Expense';
   return {
-    blockers,
-    summary: `Expense ${money(args.amount)} paid from bank on ${date || '?'}${gstRate ? `, of which GST at ${gstRate}% is CGST ${money(halfPaise / 100)} + SGST ${money(halfPaise / 100)}` : ' with no GST'}. Expense ${money(taxable)}.`,
-    effects: ['Debit expenses (and the GST input accounts when a rate is given), credit bank.'],
-    figures: { date, taxable, gstRate },
+    blockers: [],
+    summary: `${plan.tag.headName}: ${what} ${money(plan.amount)} paid from ${plan.mode} on ${plan.date}. ${plan.creditNote}`,
+    effects: [plan.tag.why, `Debit ${plan.tag.headName} ${money(plan.taxable)}${plan.inputCredit ? ' and GST input' : ''}, credit ${plan.mode}.`],
+    figures: { date: plan.date, head: plan.tag.head, headName: plan.tag.headName, tagSource: plan.tag.source, taxable: plan.taxable, gstRate: plan.gstRate, inputCredit: plan.inputCredit, amount: plan.amount, mode: plan.mode },
   };
 }
 

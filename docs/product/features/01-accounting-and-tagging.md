@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Requirements | FR-ACC-1 to 5, FR-TAG-1 to 4 in the [product PRD](../PRD.md) |
-| Status | Accounting built; tagging of expenses not built |
+| Status | Accounting and expense tagging built (2026-10-06); credit notes not built |
 | Code | `platform/src/ledger.mjs`, `invoice.mjs`, `chart.mjs`, `tools.mjs`, `intent.mjs` |
 
 ## What the owner experiences
@@ -38,18 +38,28 @@ or a credit unless they ask.
 - A GST rate is never assumed. If the message or the imported row does not give one
   that is in force on the document date, the entry is held and the owner is asked.
 
-### Tagging (to build)
+### Tagging (built)
 
-- Add expense heads to the chart of accounts: rent, salaries, electricity, travel,
-  repairs, professional fees, bank charges, and a general head.
-- A deterministic tagger chooses the head in this order: what the owner said for this
-  supplier before, then keywords in the description, then the general head with a
-  question to the owner.
-- The tag is shown on the preview in plain words ("Rent") and can be changed there.
-- A correction is stored per supplier and per keyword in the business's books and is
-  audited like any other change.
-- A language model may propose a head for an unknown description. It is a proposal on
-  the preview; it is never posted without the owner's confirmation.
+- Fifteen expense heads in the chart of accounts (`expenses.mjs`): rent, salaries,
+  electricity, telephone, travel, repairs, professional fees, bank charges, office and
+  stationery, advertising, freight, insurance, software, packing, and Other expenses.
+- A deterministic tagger chooses the head in this order: what the owner chose for this
+  payee before, then for this wording, then keywords in the words, then Other expenses
+  with a nudge to change it. Two heads matching equally also fall to Other expenses.
+  Every tag carries its `source` and a plain `why`.
+- The preview names the head ("Rent: Shop rent ₹11,800.00 paid from bank…") and the
+  app offers "Under Rent · change" before posting. A posted expense can be moved from
+  its head chat; the move is a new ledger entry, never an edit.
+- A choice is remembered per payee and per wording in the business's books.
+- Input credit on an expense is taken only when the supplier's GSTIN is given; without
+  it the GST is part of the cost and the preview says so. A cash expense larger than
+  cash in hand is refused with the balance shown.
+- In chat: "paid 12000 rent", "spent 450 on petrol by cash", "paid 2000 to Mahesh
+  Transport for freight". A sentence naming a customer, a question, a negation or more
+  than one amount records nothing.
+- Still to do: correcting a tag by typing; a language model proposing a head for
+  unknown wording (as a proposal only, never posted without confirmation); blocked
+  credit heads under s.17(5) such as food and personal use.
 
 ### Corrections (to build)
 

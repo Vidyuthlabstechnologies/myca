@@ -91,6 +91,7 @@ key cannot be written through a view.
 | `attachments` | Metadata for attached documents; bytes are in the document store |
 | `pendingChatAction`, `lastConfirmation` | The one held proposal and the last confirmed one, so a confirm can be replayed safely |
 | `exceptions`, `exceptionSeq` | The exception queue |
+| `expenses`, `expenseSeq`, `expenseTags` | Posted expenses with their heads, and the owner's remembered head choices per payee and wording |
 
 ### Per installation ("firm keys", desktop only in practice)
 

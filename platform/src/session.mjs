@@ -342,6 +342,7 @@ export function openSession(target = defaultDataPath(), { seed = true } = {}) {
         company: view.company,
         invoices: view.invoices || [],
         purchases: view.purchases || [],
+        expenses: view.expenses || [],
         activeClientId: active.activeClientId,
         clients: active.clients,
         documents: listDocuments(state, active.activeClientId).data?.documents || [],

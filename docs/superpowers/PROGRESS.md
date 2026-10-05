@@ -92,18 +92,18 @@ The goal is now an owner-first Android app on the Play Store. The weights below 
 
 The owner's PRD is "Taxmeow (working title), Product Requirements Document, v0.1, 28 September 2026". This is the yardstick for the product; the launch table above measures plumbing the PRD does not mention. Weights are an engineering estimate. Nothing below is deployed, and "files through the API" also depends on provider onboarding.
 
-**About 39% of the PRD is built.**
+**About 42% of the PRD is built.**
 
 | PRD item | Weight | Done | Points | What exists | What is missing |
 |---|---|---|---|---|---|
 | Automatic accounting | 12 | 85% | 10.2 | Double-entry postings for sales, bills, receipts, expenses and imports, with a checksummed journal | Credit notes and cancelling a posted invoice |
-| Smart tagging | 6 | 35% | 2.1 | Sales, purchases and GST heads are automatic | Every expense goes to one account; no category or item memory |
+| Smart tagging | 6 | 80% | 4.8 | Sales, purchases and GST heads automatic; expenses tagged to fifteen heads with memory per payee and wording, changeable before or after posting | Correction by typing; blocked-credit heads |
 | GST returns: prepare, review, file | 14 | 35% | 4.9 | GSTR-1 and GSTR-3B drafts per period, GSTR-1 JSON, provider adapters behind the action gate | The "is this correct?" review in chat, set-off and amount payable, and live filing |
 | TDS filing | 8 | 15% | 1.2 | Threshold monitor; FVU generation wired to the provider | TDS on entries, a return draft, review and filing |
 | Invoices, quotes, e-way bills, sending | 10 | 55% | 5.5 | Invoices by form or message; invoice screen, PDF and share sheet in the app; e-way bill client | Quotes, e-way bill in the flow, buyer address on the invoice, audit of a share |
 | Payroll | 12 | 0% | 0 | Nothing | All of it |
 | GSTR-2B matching and supplier reminders | 8 | 45% | 3.6 | Matching engine with late-filer and mismatch flags | Fetching 2B, showing matches in the app, reminders with permission |
 | CA access | 6 | 55% | 3.3 | Invite a CA as a member; GSTR-1 file export | Export of accounting entries; the sync setting |
-| Chat and dashboard | 12 | 60% | 7.2 | Chats by type and by party, one entry sheet, taxes at a glance | Rule-based chat only; no sales, purchases or payroll figures at a glance; no expense chats |
+| Chat and dashboard | 12 | 65% | 7.8 | Chats by type and by party, expense chats by head, one entry sheet, taxes at a glance | Rule-based chat only; no sales, purchases or payroll figures at a glance |
 | Reading documents automatically | 12 | 5% | 0.6 | Bank statement, Tally and Zoho file imports | POS sales, and reading a forwarded supplier invoice |
-| **Total** | **100** | | **38.6** | | |
+| **Total** | **100** | | **41.9** | | |

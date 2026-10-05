@@ -127,3 +127,57 @@ num? parseRate(String text) {
   final value = num.tryParse(text.replaceAll('%', '').trim());
   return value == null || value < 0 ? null : value;
 }
+
+class HeadThread {
+  const HeadThread({
+    required this.code,
+    required this.name,
+    required this.expenses,
+  });
+
+  final String code;
+  final String name;
+  final List<Expense> expenses;
+
+  Expense get latest => expenses.last;
+
+  num get total =>
+      expenses.fold<num>(0, (sum, expense) => sum + expense.amount);
+}
+
+List<HeadThread> headThreadsOf(List<Expense> expenses) {
+  final grouped = <String, List<Expense>>{};
+  for (final expense in expenses) {
+    grouped.putIfAbsent(expense.head, () => []).add(expense);
+  }
+  final threads = [
+    for (final group in grouped.values)
+      HeadThread(
+        code: group.last.head,
+        name: group.last.headName,
+        expenses: group,
+      ),
+  ];
+  threads.sort((a, b) => b.latest.date.compareTo(a.latest.date));
+  return threads;
+}
+
+HeadThread headThread(List<Expense> expenses, String code, String name) {
+  final own = expenses.where((expense) => expense.head == code).toList();
+  return HeadThread(code: code, name: name, expenses: own);
+}
+
+String expensesSubtitle(List<Expense> expenses) {
+  if (expenses.isEmpty) return 'No expenses yet';
+  final threads = headThreadsOf(expenses);
+  final latest = threads.first;
+  final heads = threads.length == 1 ? '1 head' : '${threads.length} heads';
+  return '$heads · ${latest.name}: ${rupees(latest.latest.amount)}';
+}
+
+String headSubtitle(HeadThread thread) {
+  final count = thread.expenses.length == 1
+      ? '1 entry'
+      : '${thread.expenses.length} entries';
+  return '$count · ${rupees(thread.total)} · last ${longDate(thread.latest.date)}';
+}

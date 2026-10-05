@@ -9,6 +9,7 @@ const { auditRun } = audit;
 import { listAccounts, journal, trialBalance, verifyChain, createTransfers, paise } from './ledger.mjs';
 import { createInvoice, recordReceipt, invoicesToSalesCsv, createPurchase, purchasesToInwardCsv, printInvoice } from './invoice.mjs';
 import { invoiceDocument } from './invoice-document.mjs';
+import { postExpense, retagExpense, listExpenses, expenseHeads } from './expenses.mjs';
 import { postTallyRows, postBankRows, purchaseRegisterCsv } from './post-import.mjs';
 import { parseZohoBooksCsv } from './import-zoho.mjs';
 import { invoicesToGstr1Json } from './gstr1-json.mjs';
@@ -1259,29 +1260,29 @@ export const TOOLS = [
   {
     name: 'post_expense',
     title: 'Post expense',
-    description: 'Pay a vendor from bank and book expense (optional GST input).',
-    args: ['narration', 'amount', 'gstRate'],
-    run: (state, args) => {
-      const date = postingDate(args.date);
-      if (!date) return fail('INVALID_DATE', { date: args.date });
-      if (isPeriodLocked(state, date)) return fail('PERIOD_LOCKED', { date, lockThrough: state.lockThrough });
-      const amountPaise = Math.round(Number(args.amount) * 100);
-      const gstRate = Number(args.gstRate || 0);
-      if (!Number.isFinite(amountPaise) || amountPaise <= 0) return fail('BAD_AMOUNT');
-      if (!Number.isFinite(gstRate) || gstRate < 0) return fail('BAD_RATE');
-      // The amount includes GST. CGST and SGST are equal halves, each in paise,
-      // and the expense takes the remainder so the three add back to the amount.
-      const halfPaise = gstRate ? Math.round((amountPaise * gstRate) / (100 + gstRate) / 2) : 0;
-      const taxablePaise = amountPaise - 2 * halfPaise;
-      const transfers = [
-        { id: ++state.transferSeq, debitAccountId: 5100, creditAccountId: 1002, amount: BigInt(taxablePaise), code: 'EXPENSE', userData: date },
-      ];
-      if (halfPaise > 0) {
-        transfers.push({ id: ++state.transferSeq, debitAccountId: 1200, creditAccountId: 1002, amount: BigInt(halfPaise), code: 'ITC-CGST', userData: date });
-        transfers.push({ id: ++state.transferSeq, debitAccountId: 1201, creditAccountId: 1002, amount: BigInt(halfPaise), code: 'ITC-SGST', userData: date });
-      }
-      return ok(createTransfers(state.ledger, transfers));
-    },
+    description: 'Record an expense paid from bank or cash under the right head. The head is chosen from what you tagged before, then from the words, else Other expenses. Input credit only with the supplier GSTIN.',
+    args: ['narration', 'amount', 'gstRate', 'date', 'mode', 'payee', 'supplierGstin', 'head'],
+    run: (state, args) => postExpense(state, args),
+  },
+  {
+    name: 'set_expense_head',
+    title: 'Change expense head',
+    description: 'Move a posted expense to another head with a new entry, and remember the choice for that payee and description.',
+    args: ['id', 'head'],
+    run: (state, args) => retagExpense(state, args),
+  },
+  {
+    name: 'list_expenses',
+    title: 'Expenses',
+    description: 'Posted expenses with their heads, optionally for one month (YYYY-MM). Read-only.',
+    args: ['period'],
+    run: (state, args = {}) => ok(listExpenses(state, args)),
+  },
+  {
+    name: 'expense_heads',
+    title: 'Expense heads',
+    description: 'The heads an expense can be tagged under. Read-only.',
+    run: () => ok(expenseHeads()),
   },
   {
     name: 'seed_demo',
