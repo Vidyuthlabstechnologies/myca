@@ -1,4 +1,5 @@
 import { planReceiptWithoutInvoice } from './receipt-intent.mjs';
+import { planExpenseFromChat } from './expense-intent.mjs';
 import { localToday } from './dates.mjs';
 import { normalizeChat, parseDocument, receiptAmount, receiptDate, isPurchaseIntent, isSaleIntent, isQuestion, isNegated, ROUTES } from './intent.mjs';
 import { confirmationIntent } from './chat-confirm.mjs';
@@ -500,11 +501,31 @@ export const TOOL_ARG_SCHEMAS = {
     additionalProperties: false,
     required: ['amount'],
     properties: {
-      narration: { type: 'string' },
+      narration: { type: 'string', maxLength: 200 },
       amount: { type: 'number', exclusiveMinimum: 0 },
       gstRate: { type: 'number', minimum: 0, maximum: 28 },
+      date: { type: 'string' },
+      mode: { type: 'string', enum: ['bank', 'cash'] },
+      payee: { type: 'string', maxLength: 80 },
+      supplierGstin: { type: 'string', pattern: '^([0-9]{2}[A-Z0-9]{13})?$' },
+      head: { type: 'string', pattern: '^5[0-9]{3}$' },
     },
   },
+  set_expense_head: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['id', 'head'],
+    properties: {
+      id: { type: 'string', pattern: '^EXP-[0-9]{4,}$' },
+      head: { type: 'string', pattern: '^5[0-9]{3}$' },
+    },
+  },
+  list_expenses: {
+    type: 'object',
+    additionalProperties: false,
+    properties: { period: { type: 'string', pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' } },
+  },
+  expense_heads: noArgs,
   track_gst_returns: {
     type: 'object',
     additionalProperties: false,
@@ -534,6 +555,7 @@ const TOOL_RISK = {
   import_zoho: 'writes_books',
   import_bank: 'writes_books',
   post_expense: 'writes_books',
+  set_expense_head: 'writes_books',
   govt_nic_auth: 'external_auth_probe',
   govt_generate_irn: 'external_government_api',
   sandbox_operation: 'external_government_api',
@@ -781,6 +803,8 @@ export function planLocalToolCall(state, message) {
     };
   }
 
+  const expense = planExpenseFromChat(state, text);
+  if (expense) return expense;
   const receipt = planReceiptWithoutInvoice(state, text);
   if (receipt) return receipt;
 

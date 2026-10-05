@@ -37,6 +37,9 @@ export function createState() {
     lastConfirmation: null,
     exceptions: [],
     exceptionSeq: 0,
+    expenses: [],
+    expenseSeq: 0,
+    expenseTags: {},
     lockThrough: '',
     integrationConnections: {},
     documents: [],
@@ -71,6 +74,9 @@ export function serialize(state) {
     lockThrough: state.lockThrough || '',
     pendingChatAction: persistablePending(state.pendingChatAction),
     lastConfirmation: state.lastConfirmation || null,
+    expenses: state.expenses || [],
+    expenseSeq: state.expenseSeq || 0,
+    expenseTags: state.expenseTags || {},
     integrationConnections: normalizeIntegrationConnections(state.integrationConnections),
     documents: state.documents || [],
     firmUsers: (state.firmUsers || []).map(withoutPin),
@@ -185,6 +191,9 @@ export function deserialize(raw) {
   state.lockThrough = raw.lockThrough || '';
   state.pendingChatAction = restoredPending(raw.pendingChatAction);
   state.lastConfirmation = restoredConfirmation(raw.lastConfirmation);
+  state.expenses = Array.isArray(raw.expenses) ? raw.expenses : [];
+  state.expenseSeq = raw.expenseSeq || 0;
+  state.expenseTags = raw.expenseTags && typeof raw.expenseTags === 'object' ? raw.expenseTags : {};
   // Legacy states embedded raw content in `files`; carry it to a one-shot migration.
   state._legacyFiles = raw.files && typeof raw.files === 'object' ? raw.files : null;
   state.integrationConnections = normalizeIntegrationConnections(raw.integrationConnections);

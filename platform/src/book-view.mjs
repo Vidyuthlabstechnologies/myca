@@ -3,6 +3,7 @@ export const BOOK_KEYS = new Set([
   'invoiceSeq', 'billSeq', 'transferSeq', 'imports', 'lockThrough',
   'files', 'attachments', 'pendingFile', 'pendingChatAction', 'lastConfirmation',
   'exceptions', 'exceptionSeq',
+  'expenses', 'expenseSeq', 'expenseTags',
 ]);
 
 export const FIRM_KEYS = new Set([
