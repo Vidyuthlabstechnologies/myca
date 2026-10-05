@@ -27,6 +27,7 @@ dependency-free. Nothing here is deployed yet; it has only run against a local P
 | `src/tokens.mjs` | Access tokens (HMAC, 15 minutes) and refresh token hashing |
 | `src/auth.mjs` | Phone codes, sessions, refresh rotation with reuse detection, account deletion |
 | `src/businesses.mjs` | Creating a business with empty books; memberships and roles |
+| `src/members.mjs` | Invitations by phone number, joining, leaving and removing members |
 | `src/books-runner.mjs` | The per-request transaction around the engine |
 | `src/api.mjs` | Routes under `/v1` |
 | `src/server.mjs` | Entry point |
@@ -65,7 +66,9 @@ flutter run --dart-define=MYCA_CLOUD_URL=http://127.0.0.1:8080
 
 - Deployment: Terraform, Cloud Run, Cloud SQL, HTTPS. Needs a Google Cloud project.
 - An SMS sender, and Google Sign-In for closed testing.
-- Inviting members. Memberships exist; there is no endpoint to add one.
+- Telling an invited person. An invitation is only visible to them after they sign in
+  with that number; no SMS is sent because there is no sender yet.
+- Changing a member's role, or adding a second owner.
 - Per-business provider credentials, so e-invoice and filing actions cannot be proposed.
 - Each business holds one pending preview. Two members previewing at once replace each
   other's preview; nothing wrong is posted, but one of them has to start again.

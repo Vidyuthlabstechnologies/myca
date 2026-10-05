@@ -5,6 +5,7 @@ import { rule } from '../../sprints/statutory-rules/src/index.mjs';
 import { createAuth, isUuid } from './auth.mjs';
 import { createBusinesses, engineRole } from './businesses.mjs';
 import { createBooksRunner } from './books-runner.mjs';
+import { createMembers } from './members.mjs';
 import { IMPORT_CONTENT_ARG, isImport } from '../../platform/src/import-documents.mjs';
 import { assertSecret } from './tokens.mjs';
 
@@ -65,6 +66,8 @@ function bearer(req) {
 function statusOf(result) {
   if (!result || result.ok !== false) return 200;
   if (result.error === 'TOO_MANY_REQUESTS' || result.error === 'TOO_MANY_ATTEMPTS') return 429;
+  if (result.error === 'OWNER_ONLY') return 403;
+  if (result.error === 'INVITATION_NOT_FOUND' || result.error === 'MEMBER_NOT_FOUND') return 404;
   return 400;
 }
 
@@ -85,6 +88,7 @@ export function createApi({ db, secret, otpSender, now = () => Date.now(), log =
   const auth = createAuth({ db, secret, otpSender, now });
   const businesses = createBusinesses({ db, now });
   const withBooks = createBooksRunner({ db });
+  const members = createMembers({ db, secret, now });
 
   async function signedIn(req) {
     const who = await auth.authenticate(bearer(req));
@@ -123,10 +127,33 @@ export function createApi({ db, secret, otpSender, now = () => Date.now(), log =
 
     if (parts[1] === 'me' && parts.length === 2) {
       if (method === 'GET') {
-        return { ok: true, user: { id: user.userId, name: user.name }, businesses: await businesses.listFor(user.userId) };
+        return {
+          ok: true,
+          user: { id: user.userId, name: user.name },
+          businesses: await businesses.listFor(user.userId),
+          invitations: await members.pendingFor(user.phone),
+        };
       }
       if (method === 'PATCH') return auth.setName(user.userId, (await readJson(req)).name);
       if (method === 'DELETE') return auth.deleteAccount(user.userId);
+    }
+
+    if (parts[1] === 'invitations' && parts.length === 4 && method === 'POST' && (parts[3] === 'accept' || parts[3] === 'decline')) {
+      const context = { userId: user.userId, deviceId: user.deviceId, requestId };
+      return members.respond(user, context, parts[2], parts[3] === 'accept');
+    }
+
+    if (parts[1] === 'businesses' && parts.length === 5 && method === 'DELETE') {
+      const businessId = parts[2];
+      if (!isUuid(businessId)) throw httpError(404, 'BUSINESS_NOT_FOUND');
+      const role = await member(user, businessId);
+      const context = { userId: user.userId, deviceId: user.deviceId, requestId };
+      if (parts[3] === 'members') return members.remove(businessId, context, role, parts[4]);
+      if (parts[3] === 'invitations') {
+        if (role !== 'owner') throw httpError(403, 'OWNER_ONLY');
+        return members.revoke(businessId, context, parts[4]);
+      }
+      throw httpError(404, 'NOT_FOUND');
     }
 
     if (parts[1] === 'businesses' && parts.length === 2) {
@@ -145,10 +172,20 @@ export function createApi({ db, secret, otpSender, now = () => Date.now(), log =
       if (method === 'GET' && action === 'snapshot') {
         return withBooks(businessId, context, async (session) => appSnapshot(session.snapshot(), user, role));
       }
-      if (method === 'GET' && action === 'members') return { ok: true, members: await businesses.members(businessId) };
+      if (method === 'GET' && action === 'members') {
+        return {
+          ok: true,
+          members: await businesses.members(businessId),
+          invitations: role === 'owner' ? await members.openFor(businessId) : [],
+        };
+      }
       if (method !== 'POST') throw httpError(404, 'NOT_FOUND');
 
       const body = await readJson(req, action === 'uploads' ? MAX_UPLOAD_BYTES : MAX_BODY_BYTES);
+      if (action === 'invitations') {
+        if (role !== 'owner') throw httpError(403, 'OWNER_ONLY');
+        return members.invite(businessId, context, body);
+      }
       if (action === 'uploads') {
         return withBooks(businessId, context, (session) => session.uploadDocument(body.name, body.content, actor));
       }
