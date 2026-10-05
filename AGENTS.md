@@ -60,6 +60,19 @@ npm run pack             # Windows installer (requires electron-builder)
 cd sprints/sprint-3-gst-recon && npm test
 ```
 
+One command runs every suite in the repository (platform, each sprint, the hosted API
+and the Android app) and prints a pass/fail table:
+
+```bash
+node scripts/check-all.mjs            # everything
+node scripts/check-all.mjs platform   # or any of: platform sprints cloud mobile
+```
+
+GitHub Actions is not running jobs for this repository at the moment (account billing),
+so this command is the gate: run it before every push and say in the commit what it
+reported. The hosted API suite is skipped, and reported as skipped, when no Postgres is
+reachable.
+
 There is **no linter or typechecker**. The `npm test` suites are the gate. Run the
 platform suite plus any sprint suite you touched before committing.
 
