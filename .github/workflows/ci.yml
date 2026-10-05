@@ -49,3 +49,56 @@ jobs:
               echo "::endgroup::"
             fi
           done
+
+  cloud:
+    name: Hosted API tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: myca
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: "--health-cmd \"pg_isready -U myca\" --health-interval 5s --health-timeout 5s --health-retries 12"
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22"
+      - name: Install the one dependency
+        working-directory: cloud
+        run: npm ci --ignore-scripts
+      - name: Run hosted API test suite
+        working-directory: cloud
+        env:
+          MYCA_TEST_DATABASE_URL: postgres://myca@127.0.0.1:5432/postgres
+        run: npm test
+
+  mobile:
+    name: Android app analysis and tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - name: Install Flutter at the pinned version
+        shell: bash
+        env:
+          FLUTTER_VERSION: "3.44.9"
+        run: |
+          set -euo pipefail
+          git clone --depth 1 --branch "$FLUTTER_VERSION" https://github.com/flutter/flutter.git "$RUNNER_TEMP/flutter"
+          echo "$RUNNER_TEMP/flutter/bin" >> "$GITHUB_PATH"
+      - name: Fetch packages
+        working-directory: mobile
+        run: flutter pub get --enforce-lockfile
+      - name: Analyze
+        working-directory: mobile
+        run: flutter analyze
+      - name: Run app test suite
+        working-directory: mobile
+        run: flutter test
