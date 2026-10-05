@@ -1,4 +1,5 @@
 import { gstin } from './sprint-load.mjs';
+import { creditedAgainst } from './credit-notes.mjs';
 
 const round2 = (value) => Math.round(Number(value || 0) * 100) / 100;
 const text = (value) => String(value ?? '').trim();
@@ -18,6 +19,8 @@ export function invoiceDocument(state, id) {
     amount: round2(receipt.amount),
   }));
   const received = round2(receipts.reduce((sum, receipt) => sum + receipt.amount, 0));
+  const credited = creditedAgainst(state, invoice.id);
+  const creditNotes = (state.creditNotes || []).filter((note) => note.invoiceId === invoice.id).map((note) => ({ id: note.id, date: note.date, reason: note.reason, total: note.total, cancels: Boolean(note.cancels) }));
   const missing = [];
   if (!text(company.gstin)) missing.push('SELLER_GSTIN');
   if (!text(company.address)) missing.push('SELLER_ADDRESS');
@@ -56,7 +59,10 @@ export function invoiceDocument(state, id) {
       total: round2(invoice.total),
       receipts,
       received,
-      balance: round2(invoice.total - received),
+      credited,
+      creditNotes,
+      status: invoice.status,
+      balance: round2(invoice.total - received - credited),
       missing,
     },
   };

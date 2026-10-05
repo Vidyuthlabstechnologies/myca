@@ -124,5 +124,16 @@ void main() {
     await shot(tester, '13_customer_chat');
     await tester.tap(find.text('Invoice INV-0002'));
     await shot(tester, '14_invoice');
+    final list = find.byType(Scrollable).last;
+    await tester.scrollUntilVisible(find.text('Print or save as PDF'), 200, scrollable: list);
+    await tester.drag(list, const Offset(0, -900));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Credit note'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextField, 'Amount, with GST (optional)'), '23600');
+    await tester.enterText(find.widgetWithText(TextField, 'Reason'), 'Design work not done');
+    await shot(tester, '18_credit_note_sheet');
+    await tester.tap(find.text('Preview'));
+    await shot(tester, '19_credit_note_preview');
   });
 }

@@ -14,11 +14,11 @@ Taxmeow or MyCA is an open decision.
 
 | | |
 |---|---|
-| Against the product PRD | **About 42% built** ([requirement by requirement](docs/product/PRD.md), [how it is computed](docs/superpowers/PROGRESS.md)) |
+| Against the product PRD | **About 43% built** ([requirement by requirement](docs/product/PRD.md), [how it is computed](docs/superpowers/PROGRESS.md)) |
 | To a Play Store launch | About 44% (estimate) |
 | Engine hardening (Phase 0) | 67%; every Critical and High audit finding closed ([audit](docs/audit/2026-09-21-codebase-audit.md)) |
-| Tests | **901**: platform 466, engines and statutory rules 329, hosted API 53, Android app 53 |
-| Tools | 78 named, schema-validated tools |
+| Tests | **914**: platform 476, engines and statutory rules 329, hosted API 53, Android app 56 |
+| Tools | 81 named, schema-validated tools |
 | Deployed | **Nothing.** The hosted API has run only against a local Postgres; the app has not run on a phone |
 | Live portal calls | Off by default (`MYCA_ENABLE_LIVE_CALLS=0`); no return has been filed through the product |
 | Automated checks | `node scripts/check-all.mjs`. CI is defined but GitHub Actions is not running on the account |
@@ -47,7 +47,7 @@ Taxmeow or MyCA is an open decision.
 
 | Feature | What the PRD asks for | Built | Specification |
 |---|---|---|---|
-| Automatic accounting | Double-entry books in the background, no manual entry | 85% | [01](docs/product/features/01-accounting-and-tagging.md) |
+| Automatic accounting | Double-entry books in the background, no manual entry | 95% | [01](docs/product/features/01-accounting-and-tagging.md) |
 | Smart tagging | Every entry under the right head | 80% | [01](docs/product/features/01-accounting-and-tagging.md) |
 | Invoices, quotes, e-way bills | Created by message, sent by email or WhatsApp | 55% | [02](docs/product/features/02-invoices-quotes-eway-bills.md) |
 | GST returns | Prepared, reviewed in chat, filed after approval | 35% | [03](docs/product/features/03-gst-returns.md) |
@@ -126,7 +126,7 @@ safe.
                          platform/src/session.mjs      one serialized gate per books
                          router.mjs                    propose → confirm, query
                          assistant-contract.mjs        strict schemas, risk classes
-                         tools.mjs                     78 named tools
+                         tools.mjs                     81 named tools
              ┌───────────────────┼─────────────────────┐
              ▼                   ▼                     ▼
       ledger / invoice     sprints/ engines      action-gate.mjs
@@ -165,7 +165,7 @@ The engine and the desktop server:
 
 ```bash
 cd platform
-npm test                 # 466 tests
+npm test                 # 476 tests
 npm run dev              # http://127.0.0.1:4780 (plain node)
 npm start                # Electron window (after: npm i)
 ```
@@ -182,7 +182,7 @@ The Android app (see [`mobile/README.md`](mobile/README.md)):
 
 ```bash
 cd mobile
-flutter test             # 53 tests
+flutter test             # 56 tests
 flutter run --dart-define=MYCA_CLOUD_URL=http://127.0.0.1:8080
 ```
 
@@ -202,7 +202,8 @@ Configuration is optional for local books. **Outbound calls are opt-in**; set
 **Books and ledger**
 
 - Append-only double-entry ledger in paise with a verified checksum chain; invoices,
-  bills, receipts, expenses and a trial balance that ties.
+  bills, receipts, expenses, credit notes and a trial balance that ties. A wrong
+  invoice is cancelled or reduced by a credit note, never edited.
 - Per-client isolated books, canonical client ids, legacy-id migration, per-book
   attachments with content-addressed, hash-verified documents.
 - Dates: one strict reader for every posting and lock, so `2026-6-1` or `2026/06/01`

@@ -91,6 +91,7 @@ key cannot be written through a view.
 | `attachments` | Metadata for attached documents; bytes are in the document store |
 | `pendingChatAction`, `lastConfirmation` | The one held proposal and the last confirmed one, so a confirm can be replayed safely |
 | `exceptions`, `exceptionSeq` | The exception queue |
+| `creditNotes`, `creditNoteSeq` | Credit notes against sales invoices, each linked to its invoice |
 | `expenses`, `expenseSeq`, `expenseTags` | Posted expenses with their heads, and the owner's remembered head choices per payee and wording |
 
 ### Per installation ("firm keys", desktop only in practice)
@@ -110,7 +111,7 @@ as truth.
 
 ### Documents and returns
 
-Invoices and purchases are stored; returns are not. GSTR-1, GSTR-3B, the trial balance
+Invoices, purchases and credit notes are stored; returns are not. GSTR-1, GSTR-3B, the trial balance
 and the period summary are computed from the stored documents each time they are asked
 for, for one tax period chosen by document date.
 

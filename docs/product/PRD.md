@@ -68,7 +68,7 @@ Percentages are engineering estimates and are tracked in
 | FR-ACC-1 | Every sale, purchase, receipt, payment and expense creates balanced double-entry postings without the owner seeing them. | Built |
 | FR-ACC-2 | The books always tie: total debits equal total credits, verifiable at any time. | Built |
 | FR-ACC-3 | A posted entry is never edited; a correction is a new entry that refers to the old one. | Built |
-| FR-ACC-4 | Credit notes, debit notes and cancelling a posted invoice. | Not built |
+| FR-ACC-4 | Credit notes, debit notes and cancelling a posted invoice. | Built for sales: credit notes (partial or full) and cancellation by a full credit note, reported in GSTR-1 (CDNR, CDNUR, or netted in B2CS) and GSTR-3B. Debit notes and purchase-side notes not built |
 | FR-ACC-5 | Existing books can be brought in from Tally, Zoho Books or a bank statement. | Built |
 
 ### 5.2 Smart tagging

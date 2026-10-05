@@ -4,6 +4,7 @@ export const BOOK_KEYS = new Set([
   'files', 'attachments', 'pendingFile', 'pendingChatAction', 'lastConfirmation',
   'exceptions', 'exceptionSeq',
   'expenses', 'expenseSeq', 'expenseTags',
+  'creditNotes', 'creditNoteSeq',
 ]);
 
 export const FIRM_KEYS = new Set([

@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Requirements | FR-ACC-1 to 5, FR-TAG-1 to 4 in the [product PRD](../PRD.md) |
-| Status | Accounting and expense tagging built (2026-10-06); credit notes not built |
+| Status | Accounting, expense tagging and sales credit notes built (2026-10-06); debit notes not built |
 | Code | `platform/src/ledger.mjs`, `invoice.mjs`, `chart.mjs`, `tools.mjs`, `intent.mjs` |
 
 ## What the owner experiences
@@ -61,11 +61,25 @@ or a credit unless they ask.
   unknown wording (as a proposal only, never posted without confirmation); blocked
   credit heads under s.17(5) such as food and personal use.
 
-### Corrections (to build)
+### Corrections (credit notes built; debit notes to build)
 
-- Credit note and debit note as documents linked to the original invoice, reported in
-  the correct GSTR-1 table for the period of the note.
-- Cancelling a posted invoice posts a reversing entry; the original stays in the journal.
+- A credit note (`credit-notes.mjs`) is a document linked to the invoice, for part of
+  it or all of it, dated on or after the invoice and never in a locked month. It posts
+  reversing entries (debit sales and the output tax heads, credit the customer) pro
+  rata by the invoice's lines; the invoice is never edited. Notes against one invoice
+  cannot exceed its value. If the customer has already paid, the preview says how much
+  becomes due back to them.
+- Cancelling an invoice is a credit note for its full value; the invoice is marked
+  cancelled, takes no further receipts, and stays in the journal and in the return of
+  its own month.
+- GSTR-1 reports a note in the month of the note: CDNR for a registered buyer, CDNUR for
+  a large inter-state unregistered sale, and netted into the B2CS row otherwise (a
+  negative net row is warned about). GSTR-3B outward totals are shown gross, less the
+  month's notes, and net.
+- In chat: "cancel INV-0002", "credit note for INV-0001 2100 - goods returned". The
+  app offers both from the invoice screen; the customer chat shows each note.
+- To build: debit notes; credit and debit notes on purchases; the e-invoice (IRN) for a
+  credit note where the business is in the e-invoicing bracket.
 
 ## Acceptance criteria
 

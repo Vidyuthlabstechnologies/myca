@@ -3,6 +3,7 @@ export const REMOTE_QUERY_TOOLS = new Set([
   'list_invoices',
   'invoice_document',
   'list_expenses',
+  'list_credit_notes',
   'expense_heads',
   'gst_payable',
   'gst_period_summary',

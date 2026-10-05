@@ -92,11 +92,11 @@ The goal is now an owner-first Android app on the Play Store. The weights below 
 
 The owner's PRD is "Taxmeow (working title), Product Requirements Document, v0.1, 28 September 2026". This is the yardstick for the product; the launch table above measures plumbing the PRD does not mention. Weights are an engineering estimate. Nothing below is deployed, and "files through the API" also depends on provider onboarding.
 
-**About 42% of the PRD is built.**
+**About 43% of the PRD is built.**
 
 | PRD item | Weight | Done | Points | What exists | What is missing |
 |---|---|---|---|---|---|
-| Automatic accounting | 12 | 85% | 10.2 | Double-entry postings for sales, bills, receipts, expenses and imports, with a checksummed journal | Credit notes and cancelling a posted invoice |
+| Automatic accounting | 12 | 95% | 11.4 | Double-entry postings for sales, bills, receipts, expenses and imports, with a checksummed journal; credit notes and cancellation for sales | Debit notes; notes on purchases |
 | Smart tagging | 6 | 80% | 4.8 | Sales, purchases and GST heads automatic; expenses tagged to fifteen heads with memory per payee and wording, changeable before or after posting | Correction by typing; blocked-credit heads |
 | GST returns: prepare, review, file | 14 | 35% | 4.9 | GSTR-1 and GSTR-3B drafts per period, GSTR-1 JSON, provider adapters behind the action gate | The "is this correct?" review in chat, set-off and amount payable, and live filing |
 | TDS filing | 8 | 15% | 1.2 | Threshold monitor; FVU generation wired to the provider | TDS on entries, a return draft, review and filing |
@@ -106,4 +106,4 @@ The owner's PRD is "Taxmeow (working title), Product Requirements Document, v0.1
 | CA access | 6 | 55% | 3.3 | Invite a CA as a member; GSTR-1 file export | Export of accounting entries; the sync setting |
 | Chat and dashboard | 12 | 65% | 7.8 | Chats by type and by party, expense chats by head, one entry sheet, taxes at a glance | Rule-based chat only; no sales, purchases or payroll figures at a glance |
 | Reading documents automatically | 12 | 5% | 0.6 | Bank statement, Tally and Zoho file imports | POS sales, and reading a forwarded supplier invoice |
-| **Total** | **100** | | **41.9** | | |
+| **Total** | **100** | | **43.1** | | |

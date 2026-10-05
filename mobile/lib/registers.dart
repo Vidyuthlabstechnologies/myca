@@ -16,7 +16,7 @@ class Party {
 
   Invoice? get latest => documents.isEmpty ? null : documents.last;
 
-  List<Invoice> get unpaid => documents.where((doc) => !doc.paid).toList();
+  List<Invoice> get unpaid => documents.where((doc) => doc.open).toList();
 
   String get initial =>
       name.trim().isEmpty ? '?' : name.trim()[0].toUpperCase();
@@ -56,7 +56,7 @@ Party partyNamed(List<Invoice> documents, String name, String fallbackGstin) {
 
 String lastEntryLine(Invoice doc, RegisterKind kind) {
   final what = kind == RegisterKind.sales ? 'Invoice' : 'Bill';
-  final state = doc.paid ? 'paid' : 'unpaid';
+  final state = doc.cancelled ? 'cancelled' : (doc.paid ? 'paid' : 'unpaid');
   return '$what ${doc.id}, ${rupees(doc.total)}, $state';
 }
 
