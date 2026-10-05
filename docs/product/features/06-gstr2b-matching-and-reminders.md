@@ -1,0 +1,73 @@
+# Feature spec 06: GSTR-2B matching and supplier reminders
+
+| | |
+|---|---|
+| Requirements | FR-2B-1 to 4 in the [product PRD](../PRD.md) |
+| Status | Matching engine built; fetching 2B, showing matches in the app and reminders not built |
+| Code | `sprints/sprint-3-gst-recon`, exception queue in `platform/src`, `notifications.mjs` |
+
+## What the owner experiences
+
+Each month the product compares the owner's purchase entries with what suppliers have
+reported to the government. If a supplier has not filed, or reported a different
+amount, the owner sees it with the credit at risk in rupees and a drafted reminder. The
+reminder goes only when the owner says so.
+
+## User stories
+
+1. As an owner, I see which suppliers are costing me credit this month and how much.
+2. As an owner, I send a polite reminder to a supplier in two taps.
+3. As an owner, I am never embarrassed by a message I did not approve.
+4. As an owner, I see the credit become available once the supplier files.
+
+## Behaviour
+
+### Match (built)
+
+- Purchases are matched to GSTR-2B on each tax head separately, so a CGST and SGST
+  entry reported as IGST is flagged, not netted off.
+- Credit notes are reconciled in both directions.
+- Three conditions are checked separately and each says so when it lacks data: whether
+  the credit appears in 2B (s.16(2)(aa)), whether the supplier has been paid within 180
+  days (Rule 37), and whether the supplier has filed GSTR-3B (Rule 37A).
+- Every mismatch becomes an item in the exception queue with severity, money at risk,
+  the rule that raised it and the evidence.
+
+### Get the 2B (to build)
+
+- First: the owner or CA uploads the 2B file downloaded from the portal. The importer
+  exists on the desktop; the app needs the upload entry.
+- Later: fetch through the GSP once onboarding is complete, behind the action gate.
+
+### Show (to build)
+
+- A "Credit at risk" section in the app's Taxes screen, grouped by supplier.
+- Inside each supplier's chat, the mismatched bills are marked with the reason in plain
+  words: "Mahesh has not reported this bill yet".
+
+### Remind (to build)
+
+- The product drafts the message: which bills, which month, what is needed. The owner
+  can edit it.
+- Sending uses the share sheet from the owner's own WhatsApp or email in the first
+  version (PRD Q6). Each send is audited.
+- No reminder is ever scheduled or sent automatically. A repeat reminder is offered,
+  not sent.
+- Reminders contain only what the supplier already knows: their own bill numbers,
+  dates and amounts.
+
+## Acceptance criteria
+
+- For the engine's fixtures, each mismatch class is raised once with the right reason.
+- An item closes by itself when a later 2B shows the bill.
+- No code path sends a reminder without a confirmation event from a member.
+- The money at risk shown equals the tax on the unmatched bills.
+
+## Out of scope
+
+The Invoice Management System accept and reject actions on the portal, vendor scoring,
+holding back supplier payments.
+
+## Open questions
+
+- Does the owner want a monthly summary of supplier behaviour, or only the exceptions?

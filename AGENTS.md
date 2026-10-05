@@ -173,8 +173,11 @@ Test script note: suites use `node --test "test/*.test.mjs"` (quoted glob). This
 
 | Question | Doc |
 |---|---|
+| What must the product do? | `docs/product/PRD.md` (the owner's PRD as numbered requirements) and `docs/product/features/` |
+| How does the system fit together, and why? | `docs/architecture/ARCHITECTURE.md`, `DATA-MODEL.md`, `SECURITY-AND-PRIVACY.md`, `decisions/` |
+| What comes next? | `docs/product/ROADMAP.md` |
 | What is built / missing? | `STATUS.md` |
-| What API surfaces must exist? | `platform/PRD.md` (REQ-CA-001…015) |
+| What API surfaces must the desktop product have? | `platform/PRD.md` (REQ-CA-001…015) |
 | How should provider adapters behave? | `platform/INTEGRATION-RECONCILIATION.md` |
 | How do I demo/review the product? | `platform/CA-REVIEW.md` |
 | How do I make an integration live? | `platform/INTEGRATIONS-SETUP.md` |
