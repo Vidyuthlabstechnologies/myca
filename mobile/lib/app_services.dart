@@ -1,7 +1,8 @@
 import 'dart:convert';
-import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/services.dart';
+import 'package:printing/printing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 abstract class OnboardingStore {
@@ -73,3 +74,23 @@ Future<PickedText?> pickTextFileFromDevice(List<String> extensions) async {
     content: utf8.decode(bytes, allowMalformed: true),
   );
 }
+
+typedef SendPdf = Future<bool> Function(String name, Uint8List bytes);
+
+typedef LoadAsset = Future<ByteData> Function(String key);
+
+Future<bool> _noPdf(String name, Uint8List bytes) async => false;
+
+class PdfActions {
+  const PdfActions({this.share = _noPdf, this.print = _noPdf, this.loadAsset = _loadBundled});
+
+  final SendPdf share;
+  final SendPdf print;
+  final LoadAsset loadAsset;
+}
+
+Future<ByteData> _loadBundled(String key) => rootBundle.load(key);
+
+Future<bool> sharePdfFromDevice(String name, Uint8List bytes) => Printing.sharePdf(bytes: bytes, filename: name);
+
+Future<bool> printPdfFromDevice(String name, Uint8List bytes) => Printing.layoutPdf(name: name, onLayout: (_) async => bytes);

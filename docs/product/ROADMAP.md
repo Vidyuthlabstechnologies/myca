@@ -6,7 +6,7 @@
 | Basis | The [product PRD](PRD.md); progress in [`../superpowers/PROGRESS.md`](../superpowers/PROGRESS.md) |
 | Status | Engineering's proposed order. No dates: the pace depends on owner actions listed at the end. |
 
-About 37% of the PRD is built. The order below is chosen so that each milestone gives a
+About 39% of the PRD is built. The order below is chosen so that each milestone gives a
 pilot owner something usable, and so that work blocked on outside parties is not on the
 critical path of work that is not.
 
@@ -18,7 +18,7 @@ The owner can do a normal day's work in the app.
 
 | Item | Requirement | Depends on |
 |---|---|---|
-| Invoice screen, save as PDF, share by WhatsApp or email | FR-INV-3, FR-INV-6 | Nothing |
+| Invoice screen, save as PDF, share by WhatsApp or email (**done** 2026-10-06; audit of a share still to do) | FR-INV-3, FR-INV-6 | Nothing |
 | Expense heads and the tagger, expense chats | FR-TAG-2 to 4, FR-UI-2 | Nothing |
 | Credit notes and cancelling an invoice | FR-ACC-4 | Nothing |
 | Dashboard: sales, purchases, expenses, owed and owing | FR-UI-4 | Nothing |

@@ -42,6 +42,7 @@ void main() {
         lock: config.hosted ? DeviceAppLock() : const NoAppLock(),
         pickTextFile: pickTextFileFromDevice,
         saveTextFile: saveTextFileOnDevice,
+        pdf: const PdfActions(share: sharePdfFromDevice, print: printPdfFromDevice),
       ),
     ),
   );

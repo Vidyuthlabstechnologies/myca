@@ -8,6 +8,7 @@ const { filingPrep } = filing;
 const { auditRun } = audit;
 import { listAccounts, journal, trialBalance, verifyChain, createTransfers, paise } from './ledger.mjs';
 import { createInvoice, recordReceipt, invoicesToSalesCsv, createPurchase, purchasesToInwardCsv, printInvoice } from './invoice.mjs';
+import { invoiceDocument } from './invoice-document.mjs';
 import { postTallyRows, postBankRows, purchaseRegisterCsv } from './post-import.mjs';
 import { parseZohoBooksCsv } from './import-zoho.mjs';
 import { invoicesToGstr1Json } from './gstr1-json.mjs';
@@ -476,6 +477,13 @@ export const TOOLS = [
     description: 'Render a printable tax invoice / purchase bill from posted books.',
     args: ['id'],
     run: (state, args) => printInvoice(state, args.id),
+  },
+  {
+    name: 'invoice_document',
+    title: 'Invoice to show or send',
+    description: 'One posted sales invoice with seller, buyer, place of supply, lines, tax by head, receipts and balance, for display or a PDF. Read-only.',
+    args: ['id'],
+    run: (state, args = {}) => invoiceDocument(state, args.id),
   },
   {
     name: 'record_receipt',

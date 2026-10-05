@@ -212,6 +212,7 @@ class Bubble extends StatelessWidget {
     this.stamp,
     this.footnotes = const [],
     this.animate = false,
+    this.onTap,
   });
 
   final String text;
@@ -221,6 +222,7 @@ class Bubble extends StatelessWidget {
   final String? stamp;
   final List<String> footnotes;
   final bool animate;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -235,7 +237,9 @@ class Bubble extends StatelessWidget {
     final stampColor = stamp == 'Unpaid' ? Palette.warn : Palette.accent;
     final body = Align(
       alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
         margin: const EdgeInsets.symmetric(vertical: 4),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
         constraints: BoxConstraints(
@@ -314,6 +318,7 @@ class Bubble extends StatelessWidget {
                 ),
               ),
           ],
+        ),
         ),
       ),
     );

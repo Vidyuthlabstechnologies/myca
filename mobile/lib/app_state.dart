@@ -15,6 +15,7 @@ class AppState extends ChangeNotifier {
     required this.store,
     required this.pickTextFile,
     this.saveTextFile = _cannotSave,
+    this.pdf = const PdfActions(),
     this.lock = const NoAppLock(),
     this.now = DateTime.now,
   }) : api = api ?? cloud!.api;
@@ -24,6 +25,7 @@ class AppState extends ChangeNotifier {
   final OnboardingStore store;
   final PickTextFile pickTextFile;
   final SaveTextFile saveTextFile;
+  final PdfActions pdf;
   final AppLock lock;
   final DateTime Function() now;
 

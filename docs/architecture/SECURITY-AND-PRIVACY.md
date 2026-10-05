@@ -85,7 +85,7 @@
 ### Supply chain
 
 - The engine has no runtime dependencies. The hosted API has one (`pg`). The app has
-  five packages. `vendor/` is never imported.
+  seven packages. `vendor/` is never imported.
 
 ## 4. Gaps, stated plainly
 

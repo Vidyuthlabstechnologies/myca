@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Requirements | FR-INV-1 to 6 in the [product PRD](../PRD.md) |
-| Status | Invoice creation built; quotes, sending from the app and e-way bill in the flow not built |
+| Status | Invoice creation, the invoice screen, PDF and sharing built; quotes and e-way bill in the flow not built |
 | Code | `platform/src/invoice.mjs`, `intent.mjs`, `nic-client.mjs`, `nic-actions.mjs`; app: `mobile/lib/screens/party_screen.dart` |
 
 ## What the owner experiences
@@ -31,13 +31,21 @@ WhatsApp or email. For goods on the move, the e-way bill is offered on the same 
 - Invoice numbers are one sequence per business (INV-0001 onwards). A series per
   financial year or per branch is not built.
 
-### View and send (to build)
+### View and send (built 2026-10-06, except the audit event)
 
-- An invoice screen in the app renders the same invoice the engine produced
-  (`print_invoice` already returns self-contained HTML with no scripts or remote links).
+- Tapping an invoice in a customer's chat opens it. The screen and the PDF are laid out
+  from the read-only tool `invoice_document`, which returns the posted figures, both
+  parties, the place of supply by name, receipts and the balance. The app computes
+  nothing.
+- The tool also reports what the invoice lacks (the seller's GSTIN or address, an HSN
+  or SAC code on a line) and the screen says so before the owner sends it. The engine
+  used to fill in a textile HSN code when none was given; it now leaves it blank.
+- Still missing from the invoice itself: the buyer's address, a unit of measure, and a
+  reverse-charge statement. What a tax invoice must carry is set by the CGST Rules
+  (Rule 46) and needs the advisor CA's check before owners rely on this PDF.
 - Save as PDF and Share use the phone's share sheet, so the message goes from the
   owner's own WhatsApp or email. Nothing is sent by the product on its own.
-- Sending records an audit event: who shared which invoice and when. The product cannot
+- To build: sending records an audit event, who shared which invoice and when. The product cannot
   know whether the customer received it and must not claim so.
 - A sender in the product's own name (WhatsApp Business API, transactional email) is a
   later option and needs open question Q6 answered.

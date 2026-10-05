@@ -375,6 +375,138 @@ class ToolOutcome {
   final String error;
 }
 
+class Place {
+  const Place({required this.code, required this.name});
+
+  factory Place.fromJson(Object? json) {
+    final map = _map(json);
+    return Place(code: _text(map['code']), name: _text(map['name']));
+  }
+
+  final String code;
+  final String name;
+
+  String get label => name.isEmpty ? code : (code.isEmpty ? name : '$name ($code)');
+}
+
+class InvoiceLine {
+  const InvoiceLine({
+    required this.description,
+    required this.hsn,
+    required this.qty,
+    required this.rate,
+    required this.gstRate,
+    required this.taxable,
+    required this.amount,
+  });
+
+  factory InvoiceLine.fromJson(Object? json) {
+    final map = _map(json);
+    return InvoiceLine(
+      description: _text(map['description']),
+      hsn: _text(map['hsn']),
+      qty: _num(map['qty']),
+      rate: _num(map['rate']),
+      gstRate: _num(map['gstRate']),
+      taxable: _num(map['taxable']),
+      amount: _num(map['amount']),
+    );
+  }
+
+  final String description;
+  final String hsn;
+  final num qty;
+  final num rate;
+  final num gstRate;
+  final num taxable;
+  final num amount;
+}
+
+class InvoiceDocument {
+  const InvoiceDocument({
+    required this.id,
+    required this.date,
+    required this.sellerName,
+    required this.sellerGstin,
+    required this.sellerAddress,
+    required this.sellerState,
+    required this.buyerName,
+    required this.buyerGstin,
+    required this.placeOfSupply,
+    required this.lines,
+    required this.taxable,
+    required this.cgst,
+    required this.sgst,
+    required this.igst,
+    required this.total,
+    required this.receipts,
+    required this.received,
+    required this.balance,
+    required this.missing,
+  });
+
+  static InvoiceDocument? fromTool(Object? json) {
+    final map = toolData(json);
+    if (_text(map['id']).isEmpty) return null;
+    final seller = _map(map['seller']);
+    final buyer = _map(map['buyer']);
+    final address = [
+      _text(seller['address']),
+      _text(seller['city']),
+      _text(seller['pin']),
+    ].where((part) => part.isNotEmpty).join(', ');
+    return InvoiceDocument(
+      id: _text(map['id']),
+      date: _text(map['date']),
+      sellerName: _text(seller['name']),
+      sellerGstin: _text(seller['gstin']),
+      sellerAddress: address,
+      sellerState: Place.fromJson(seller['state']),
+      buyerName: _text(buyer['name']),
+      buyerGstin: _text(buyer['gstin']),
+      placeOfSupply: Place.fromJson(map['placeOfSupply']),
+      lines: _maps(map['lines']).map(InvoiceLine.fromJson).toList(),
+      taxable: _num(map['taxable']),
+      cgst: _num(map['cgst']),
+      sgst: _num(map['sgst']),
+      igst: _num(map['igst']),
+      total: _num(map['total']),
+      receipts: _maps(map['receipts']).map(Receipt.fromJson).toList(),
+      received: _num(map['received']),
+      balance: _num(map['balance']),
+      missing: [for (final code in (map['missing'] as List? ?? const [])) _text(code)],
+    );
+  }
+
+  final String id;
+  final String date;
+  final String sellerName;
+  final String sellerGstin;
+  final String sellerAddress;
+  final Place sellerState;
+  final String buyerName;
+  final String buyerGstin;
+  final Place placeOfSupply;
+  final List<InvoiceLine> lines;
+  final num taxable;
+  final num cgst;
+  final num sgst;
+  final num igst;
+  final num total;
+  final List<Receipt> receipts;
+  final num received;
+  final num balance;
+  final List<String> missing;
+
+  String get title => sellerGstin.isEmpty ? 'Invoice' : 'Tax invoice';
+
+  List<(String, num)> get taxHeads => [
+    if (cgst > 0) ('CGST', cgst),
+    if (sgst > 0) ('SGST', sgst),
+    if (igst > 0) ('IGST', igst),
+  ];
+}
+
 Map<String, dynamic> toolData(Object? json) {
   final map = _map(json);
   if (map['ok'] == false) return const <String, dynamic>{};

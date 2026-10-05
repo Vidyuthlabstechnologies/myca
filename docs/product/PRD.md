@@ -86,10 +86,10 @@ Percentages are engineering estimates and are tracked in
 |---|---|---|
 | FR-INV-1 | Create a tax invoice from one message, for example "Create an invoice for ABC Ltd for Rs. 50,000 for consulting services." | Built, rule-based |
 | FR-INV-2 | The owner sees the invoice before it is posted and confirms it. | Built |
-| FR-INV-3 | Send the invoice by email or WhatsApp after the owner checks it. | Partly: links in the desktop app only |
+| FR-INV-3 | Send the invoice by email or WhatsApp after the owner checks it. | Built in the app through the phone's share sheet; not yet tried on a phone, and a share is not yet audited |
 | FR-INV-4 | Create and send a quote, and turn an accepted quote into an invoice. | Not built |
 | FR-INV-5 | Generate an e-way bill with the invoice when goods move. | Partly: provider client exists, not in the flow |
-| FR-INV-6 | An invoice the owner can save or print as a PDF. | Partly: HTML print in the desktop app |
+| FR-INV-6 | An invoice the owner can save or print as a PDF. | Built in the app; the invoice has no buyer address, and HSN codes are blank unless entered |
 
 ### 5.4 GST returns ([feature spec](features/03-gst-returns.md))
 

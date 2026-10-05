@@ -1,6 +1,7 @@
 export const REMOTE_QUERY_TOOLS = new Set([
   'company_profile',
   'list_invoices',
+  'invoice_document',
   'gst_payable',
   'gst_period_summary',
   'export_gstr1_json',
