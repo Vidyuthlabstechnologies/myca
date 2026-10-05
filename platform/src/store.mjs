@@ -74,6 +74,8 @@ export function serialize(state) {
     lockThrough: state.lockThrough || '',
     pendingChatAction: persistablePending(state.pendingChatAction),
     lastConfirmation: state.lastConfirmation || null,
+    exceptions: state.exceptions || [],
+    exceptionSeq: state.exceptionSeq || 0,
     expenses: state.expenses || [],
     expenseSeq: state.expenseSeq || 0,
     expenseTags: state.expenseTags || {},
@@ -191,6 +193,8 @@ export function deserialize(raw) {
   state.lockThrough = raw.lockThrough || '';
   state.pendingChatAction = restoredPending(raw.pendingChatAction);
   state.lastConfirmation = restoredConfirmation(raw.lastConfirmation);
+  state.exceptions = Array.isArray(raw.exceptions) ? raw.exceptions : [];
+  state.exceptionSeq = raw.exceptionSeq || 0;
   state.expenses = Array.isArray(raw.expenses) ? raw.expenses : [];
   state.expenseSeq = raw.expenseSeq || 0;
   state.expenseTags = raw.expenseTags && typeof raw.expenseTags === 'object' ? raw.expenseTags : {};

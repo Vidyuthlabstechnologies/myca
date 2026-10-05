@@ -70,6 +70,8 @@ export function serializeBook(book) {
     attachments: book.attachments || {},
     pendingChatAction: persistablePending(book.pendingChatAction),
     lastConfirmation: book.lastConfirmation || null,
+    exceptions: book.exceptions || [],
+    exceptionSeq: book.exceptionSeq || 0,
     expenses: book.expenses || [],
     expenseSeq: book.expenseSeq || 0,
     expenseTags: book.expenseTags || {},
@@ -92,6 +94,8 @@ export function deserializeBook(raw) {
   book.attachments = raw.attachments && typeof raw.attachments === 'object' ? raw.attachments : {};
   book.pendingChatAction = restoredPending(raw.pendingChatAction);
   book.lastConfirmation = restoredConfirmation(raw.lastConfirmation);
+  book.exceptions = Array.isArray(raw.exceptions) ? raw.exceptions : [];
+  book.exceptionSeq = raw.exceptionSeq || 0;
   book.expenses = Array.isArray(raw.expenses) ? raw.expenses : [];
   book.expenseSeq = raw.expenseSeq || 0;
   book.expenseTags = raw.expenseTags && typeof raw.expenseTags === 'object' ? raw.expenseTags : {};
