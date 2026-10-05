@@ -1,71 +1,88 @@
 # MyCA
 
-**A headless tax and accounting assistant for Indian business owners. No accounting
-software to learn — the owner simply talks to it. It does the books in the background
-and files GST and TDS returns once the owner approves.**
+**Product working title: Taxmeow.** A headless tax and accounting assistant for Indian
+business owners. There is no accounting software to learn: the owner talks to it. It
+keeps the books in the background and files GST and TDS returns once the owner
+approves.
 
-MyCA is built for the owner of a retail, B2B, or service business who wants to spend as
-little time on compliance as possible. Every number comes from a deterministic engine
-reading dated statutory rules; the assistant may choose a tool but never invents a
-figure. **The tax invoice is the source of truth** — the trial balance and GSTR-1/3B are
-projections of posted invoices, not a second typing pass.
-
-MyCA **automates, reconciles, flags, and files after approval**. Manual accounting entry
-should be rare. Filing and sending reminders always need the owner's confirmation — the
-owner stays in control of every action that leaves the product.
+The repository, packages and app are named MyCA. The product is defined by the owner's
+PRD ("Taxmeow (working title)", v0.1, 28 September 2026), restated as numbered
+requirements in [`docs/product/PRD.md`](docs/product/PRD.md). Whether it launches as
+Taxmeow or MyCA is an open decision.
 
 ## Status at a glance
 
 | | |
 |---|---|
-| Phase | **Phase 0, pilot readiness — 67% complete** ([tracker](docs/superpowers/PROGRESS.md)) |
-| Tests | **704 passing** — platform 375; engines 11 / 11 / 49 / 51 / 68 / 2; statutory rules 137 |
-| Tools | **71** named, schema-validated tools |
-| Audit findings | Critical 4/4 closed · **High 18/18 closed** ([audit](docs/audit/2026-09-21-codebase-audit.md)) |
-| Live portal calls | **Off by default** (`MYCA_ENABLE_LIVE_CALLS=0`) |
-| Installer | Windows NSIS + portable `.exe`, built and verified in CI |
+| Against the product PRD | **About 37% built** ([requirement by requirement](docs/product/PRD.md), [how it is computed](docs/superpowers/PROGRESS.md)) |
+| To a Play Store launch | About 44% (estimate) |
+| Engine hardening (Phase 0) | 67%; every Critical and High audit finding closed ([audit](docs/audit/2026-09-21-codebase-audit.md)) |
+| Tests | **869**: platform 447, engines and statutory rules 329, hosted API 53, Android app 40 |
+| Tools | 74 named, schema-validated tools |
+| Deployed | **Nothing.** The hosted API has run only against a local Postgres; the app has not run on a phone |
+| Live portal calls | Off by default (`MYCA_ENABLE_LIVE_CALLS=0`); no return has been filed through the product |
+| Automated checks | `node scripts/check-all.mjs`. CI is defined but GitHub Actions is not running on the account |
 
-Runs today as a local-only Windows app. The cloud master copy and the mobile app are
-Phases 1–3 below, deliberately after the pilot.
-
-## Vision
+## The product in the owner's words
 
 | | |
 |---|---|
-| **Who it is for** | Business owners running retail, B2B, or service businesses. They are not accountants and want to spend as little time on compliance as possible. |
-| **What it does** | Automatic accounting, GST and TDS returns, invoices, e-way bills, payroll, and GSTR-2B matching — all in one product. |
-| **How an owner uses it** | One chat. Type a sale, forward a supplier bill, ask a question, approve a return. No accounting jargon. |
-| **How a CA uses it** | CA collaboration via export or real-time sync. Exceptions only — clean returns go straight to owner approval; the CA sees flagged items and a batch sign-off. |
-| **Where data lives** | Cloud master copy (India region, per-business isolation) with a local cache. Today: local-only Windows app during pilot. |
-| **What stays human** | GST and TDS return filing, OTP/EVC/DSC, and sending supplier reminders — all need the owner's explicit approval before anything leaves the product. |
+| **Who it is for** | Owners of retail, B2B and service businesses. They are not accountants and want to spend as little time on compliance as possible. |
+| **How they use it** | One chat. Type a sale, forward a supplier bill, ask a doubt, approve a return. Chats are grouped by kind, one per customer or supplier, with a dashboard for the overall picture. |
+| **How a CA fits in** | The owner exports the entries or invites the CA, and chooses whether the CA sees changes in real time or at intervals. |
+| **What stays with the owner** | Filing a return and sending a reminder always need the owner's approval. |
 
-## Core features
+### How it works
 
-| Feature | What it does |
-|---|---|
-| **Automatic accounting** | Creates double-entry accounting entries in the background; no manual entry needed. |
-| **Smart tagging** | Every entry is placed under the correct account head automatically. |
-| **Invoice and quote creation** | Create a tax invoice or quote by typing a message; it is sent by email or WhatsApp after the owner checks it. |
-| **E-way bill** | Generated alongside the invoice when goods are dispatched. |
-| **POS integration** | Every POS sale automatically creates an entry in the Sales Register. |
-| **One-click GST filing** | Prepares GSTR-1 and GSTR-3B and files them through the API after the owner approves. |
-| **TDS filing** | Files TDS returns using the same review-and-approve steps as GST. |
-| **GSTR-2B matching** | Matches purchase entries with GSTR-2B; flags suppliers who filed late or have a mismatch; sends reminders only after the owner approves. |
-| **Payroll** | Runs payroll, computes TDS 192 / PF / ESI, and pays salaries from the same platform. |
-| **CA collaboration** | Owner exports entries or adds the CA directly; CA can sync in real time or at set intervals. |
-| **Dashboard and chat** | Chat for daily work and questions; dashboard for the overall picture of sales, purchases, taxes, and payroll. |
+1. A sale arrives from the POS, a supplier invoice is forwarded, or the owner types a
+   message.
+2. The details are read automatically and the entry is tagged to the right head.
+3. The owner sees what will be recorded and confirms.
+4. The chats and the dashboard update.
+5. Return drafts are prepared from the entries.
+6. The owner reviews the draft step by step: "Is this information correct?"
+7. The return is filed only after approval, and the acknowledgement is saved in chat.
 
-## Key principles
+### Core features and where each stands
+
+| Feature | What the PRD asks for | Built | Specification |
+|---|---|---|---|
+| Automatic accounting | Double-entry books in the background, no manual entry | 85% | [01](docs/product/features/01-accounting-and-tagging.md) |
+| Smart tagging | Every entry under the right head | 35% | [01](docs/product/features/01-accounting-and-tagging.md) |
+| Invoices, quotes, e-way bills | Created by message, sent by email or WhatsApp | 35% | [02](docs/product/features/02-invoices-quotes-eway-bills.md) |
+| GST returns | Prepared, reviewed in chat, filed after approval | 35% | [03](docs/product/features/03-gst-returns.md) |
+| TDS | Same review and approval as GST | 15% | [04](docs/product/features/04-tds.md) |
+| Payroll | Run payroll and pay salaries from the same product | 0% | [05](docs/product/features/05-payroll.md) |
+| GSTR-2B matching | Flag late or mismatched suppliers; remind only with permission | 45% | [06](docs/product/features/06-gstr2b-matching-and-reminders.md) |
+| CA collaboration | Export or invite, with a sync setting | 55% | [07](docs/product/features/07-ca-collaboration.md) |
+| Chat and dashboard | Chat for daily work, dashboard for the picture | 60% | [08](docs/product/features/08-chat-and-dashboard.md) |
+| Reading documents | POS sales and forwarded invoices read automatically | 5% | [09](docs/product/features/09-document-capture-and-pos.md) |
+
+Percentages are engineering estimates. "Built" means implemented and covered by tests,
+not deployed and not verified against a live portal.
+
+### Principles
 
 | Principle | Meaning |
 |---|---|
 | **Automation first** | Manual entry should be rare. |
 | **Simple language** | No accounting jargon. Owners can ask doubts in plain words. |
 | **Owner stays in control** | Filing returns and sending reminders always need the owner's approval. |
-| **One place for everything** | Accounting, tax, invoices, and payroll are all in one product. |
-| **Deterministic engines** | The assistant may choose tools; it never invents a financial or statutory figure. |
-| **Everything is traceable** | Every GST row traces to an invoice id; every flag carries a `why` and a `source`. |
+| **One place for everything** | Accounting, tax, invoices and payroll in one product. |
+| **Numbers come from engines** | The assistant may choose a tool; it never invents a financial or statutory figure. |
+| **Everything is traceable** | Every GST row traces to an invoice; every flag carries a `why` and a `source`. |
 
+The first four are the owner's. The last two are how engineering makes the third one
+safe.
+
+## What is in this repository
+
+| Product | Path | For | State |
+|---|---|---|---|
+| Engine | `platform/src/`, `sprints/` | Everything below | Built and hardened |
+| Android app | `mobile/` | Owners, staff and invited CAs | Built against the hosted API; not released |
+| Hosted API | `cloud/` | The Android app | Built on local Postgres; not deployed |
+| Windows desktop app | `platform/desktop/` | CA firms who keep client data on their own machine | Built; local-only by design |
 
 ## Requirements
 
@@ -79,12 +96,11 @@ Phases 1–3 below, deliberately after the pilot.
 
 **Product**
 
-- One chat interface; any change to the books shows a preview card and posts only on
-  one tap to confirm. Questions and negations post nothing.
-- An owner signs in with a PIN; every action records who did it.
-- Every GST table row traces to an invoice id; every flag carries a `why` and a `source`.
-- Nothing reaches a government portal without the live switch **and** an owner approval
-  bound to the exact payload.
+- One chat interface; any change to the books shows a preview and posts only on one tap
+  to confirm. Questions and negations post nothing.
+- Every action records who did it.
+- Nothing reaches a government portal without the live switch **and** an approval bound
+  to the exact payload.
 - Supplier reminders are drafted but never sent without the owner's confirmation.
 
 **Engineering** (enforced by tests, see [`AGENTS.md`](AGENTS.md))
@@ -92,64 +108,85 @@ Phases 1–3 below, deliberately after the pilot.
 - Deterministic engines own every number; money is integer paise; the ledger is
   append-only with a checksum chain.
 - Each business's books are isolated; nothing is shared across accounts.
-- Zero runtime dependencies. ESM only, Node 22.
+- The engine has zero runtime dependencies; the hosted API has one (`pg`). ESM only,
+  Node 22.
 - No plaintext secrets anywhere, including logs and state.
-
 
 ## Architecture
 
 ```
-desktop/ (Electron) ── http://127.0.0.1:4780 ──► src/server.mjs
-                                                   │  local-only, origin-checked
-                                                   ▼
-                                             src/session.mjs        (serialized state gate)
-                                                   │
-                                        src/router.mjs + assistant-contract.mjs
-                                                   │  strict schemas, named tools only
-                                                   ▼
-                                             src/tools.mjs          (71 tools)
-             ┌─────────────────────────────────────┼─────────────────────────────────────┐
-             ▼                                     ▼                                     ▼
-     src/ledger.mjs / invoice.mjs        sprints/ (engines + rules)        src/action-gate.mjs
-     src/books.mjs / store.mjs           loaded via sprint-load.mjs        approvals · NIC · providers
-             │                                     │                                     │
-             └──────────────► append-only journal + audit events ◄─────────────────────────┘
+ Android app (mobile/)                         Windows desktop app (platform/desktop/)
+        │  HTTPS /v1, phone sign-in                    │  http://127.0.0.1:4780, PIN sign-in
+        ▼                                              ▼
+ Hosted API (cloud/)                            Local server (platform/src/server.mjs)
+   one transaction per request,                   state.json + documents on disk
+   one locked books row per business
+        │                                              │
+        └──────────────► the same engine ◄─────────────┘
+                         platform/src/session.mjs      one serialized gate per books
+                         router.mjs                    propose → confirm, query
+                         assistant-contract.mjs        strict schemas, risk classes
+                         tools.mjs                     74 named tools
+             ┌───────────────────┼─────────────────────┐
+             ▼                   ▼                     ▼
+      ledger / invoice     sprints/ engines      action-gate.mjs
+      integer paise        dated statutory       the only way out:
+      append-only          rules, fail closed    live switch + approval
+             └────────► append-only journal + audit events ◄────────┘
 ```
+
+The full description, with request flow, data model, security and the decisions behind
+it, is in [`docs/architecture/`](docs/architecture/ARCHITECTURE.md).
 
 - **Ledger** (`ledger.mjs`): integer paise, debit = credit, idempotent transfer ids,
   append-only, pending/post/void, CRC-32 checksum chain, linked (atomic) bundles.
-  TigerBeetle *invariants*, not the TigerBeetle database.
-- **Books** (`books.mjs`, `book-view.mjs`): the firm's own books are the root ledger;
-  each client gets an isolated one. Tools run against a Proxy that routes book keys to
-  the active client and firm keys to the root.
 - **Statutory rules** (`sprints/statutory-rules`): every rate, threshold, due date and
-  slab as a dated record with act, section, source and attestations. Asking for a rule on
-  a date outside its window fails closed (`RULE_NOT_IN_FORCE`) instead of guessing, and
-  golden case files pin the arithmetic.
-- **Action gate** (`action-gate.mjs`): the only path to an external call. Unknown action,
-  assistant-blocked write, non-JSON params, preflight, mock fixture, live switch,
-  approval bound to operation + client + payload hash, maker ≠ checker, deadline, audit.
-- **State** (`store.mjs`): JSON at `%APPDATA%\MyCA\state.json`; attachment bytes are
-  content-addressed under `%APPDATA%\MyCA\documents\` and re-verified on every read.
+  slab as a dated record with act, section, source and attestations. Asking for a rule
+  on a date outside its window fails closed (`RULE_NOT_IN_FORCE`) instead of guessing.
+- **Preview then confirm** (`router.mjs`): a message that would change the books is
+  held as a proposal; only a separate confirm applies it.
+- **Action gate** (`action-gate.mjs`): the only path to an external call. Known action,
+  preflight, mock fixture, live switch, approval bound to operation, business and
+  payload hash, maker ≠ checker, deadline, audit.
+- **Hosted tenancy** (`cloud/src/books-runner.mjs`): the business comes from the URL,
+  membership is checked on every request, and one request touches one business's row.
+- **Desktop state** (`store.mjs`): JSON at `%APPDATA%\MyCA\state.json`; document bytes
+  are content-addressed and re-verified on every read.
 
 ## Quickstart
 
+Everything at once (the gate before any commit):
+
+```bash
+node scripts/check-all.mjs
+```
+
+The engine and the desktop server:
+
 ```bash
 cd platform
-npm test                 # 377 platform tests (706 total with sprint + statutory suites)
+npm test                 # 447 tests
 npm run dev              # http://127.0.0.1:4780 (plain node)
 npm start                # Electron window (after: npm i)
-npm run pack             # NSIS + portable installer (after: npm i -D electron electron-builder)
 ```
 
-Engines and rules:
+The hosted API, against a local Postgres (see [`cloud/README.md`](cloud/README.md)):
 
 ```bash
-cd sprints/sprint-3-gst-recon && npm test
+cd cloud
+npm install
+npm test                 # 53 tests; needs MYCA_TEST_DATABASE_URL
 ```
 
-Configuration is optional for local books. For provider/NIC integrations copy
-`.env.example` to `.env` — see `platform/PRD.md`. **Outbound calls are opt-in**; set
+The Android app (see [`mobile/README.md`](mobile/README.md)):
+
+```bash
+cd mobile
+flutter test             # 40 tests
+flutter run --dart-define=MYCA_CLOUD_URL=http://127.0.0.1:8080
+```
+
+Configuration is optional for local books. **Outbound calls are opt-in**; set
 `MYCA_ENABLE_LIVE_CALLS=1` only when you intend to reach a real portal.
 
 ### Try it in 60 seconds
@@ -203,6 +240,22 @@ Configuration is optional for local books. For provider/NIC integrations copy
   assign, resolve or waive with a reason; every decision is audited, and a waiver is not
   undone by the next refresh.
 - Per client, or across the whole firm in one list.
+**Hosted API** (`cloud/`, local Postgres only)
+
+- Phone sign-in with one-time codes, device sessions, refresh rotation with reuse
+  detection, account deletion.
+- Businesses with owner, staff and accountant roles; invitations by phone number.
+- The engine run once per request inside a transaction that locks one business's books;
+  an append-only audit table; file uploads by hash so imports work when hosted.
+
+**Android app** (`mobile/`, not yet run on a phone)
+
+- Onboarding that brings books from Tally, Zoho Books or a bank statement.
+- Chats by kind and by customer or supplier; every entry previewed and confirmed.
+- GST for one month at a time, the GSTR-1 file saved for the portal, deadlines and
+  what needs the owner.
+- Members and invitations, switching business, and a fingerprint or screen lock.
+
 **Safety**
 
 - Chat never posts on its own: a message that would change the books or reach a
@@ -216,46 +269,31 @@ Configuration is optional for local books. For provider/NIC integrations copy
 
 ## What has to be done
 
-**Phase 0 — pilot readiness (current, 58%)**
+The order of work, and what each milestone waits on, is in the
+[roadmap](docs/product/ROADMAP.md). In short:
 
-| Item | What it means |
-|---|---|
-| Remaining client hardening | Fetch timeouts and body caps on every outbound client; provider-doctor and notification honesty. |
-| Owner PIN identity | Who did what, tracked before any cloud work. |
-| Parsing and audit engine | Remaining medium findings in the parsers and the defensible-audit engine. |
-| Shadow harness | Recompute the last three filed months per pilot client and diff against the filed return. |
-| Docs and stress | Keep README/STATUS counts honest; make the stress campaign a permanent harness. |
+| Milestone | Delivers | Waits on |
+|---|---|---|
+| M1 Daily use on a phone | Invoice view and sharing, expense tagging, credit notes, dashboard | Nothing; a phone for device testing |
+| M2 The return, reviewed | Review in chat, amount to pay, GSTR-2B in the app, reminders, entries export | Advisor CA for set-off |
+| M3 Hosted pilot | Deployment, real sign-in, privacy work, Play closed testing | Google Cloud project, SMS or Google Sign-In, DPDP assessment |
+| M4 Reading documents | Supplier invoices by photo or forward; free-text chat | Choice of language model |
+| M5 Filing for real | Live GST filing, e-way bill, TDS return, CA sync setting | GSP/ASP and NIC onboarding |
+| M6 Payroll and POS | Payroll, POS sales, quotes | Advisor CA; payout and POS partners |
 
-Phase 0 ends when: every Critical and High finding has a regression test that fails on
-the pre-fix commit; every rule is signed off by the advisor CA with all golden cases
-passing for FY 2025-26 and FY 2026-27; each pilot client's last three filed months match
-or every difference is explained; and CI is green.
+Engine hardening (Phase 0) continues alongside: timeouts and body caps on every
+outbound client, the remaining parser findings, desktop hardening and the final reviews
+([tracker](docs/superpowers/PROGRESS.md)).
 
-**Phases after the pilot** (each needs its own spec before code)
+**Owner actions** (not engineering; they gate the milestones)
 
-1. **Cloud backend** — India-region server, per-business data isolation, device sync,
-   DPDP Act duties, audit trail continuity.
-2. **LLM chat agent** — natural-language understanding over the same 71 named tools.
-   The owner types "sold 10 boxes to Rajesh at ₹500 each" and the engine books it.
-   The assistant chooses tools; it never invents a figure.
-3. **Mobile app** — React Native shell for the owner. Capture a supplier bill with the
-   phone camera, ask a question, approve a return with one tap.
-4. **POS integration** — webhook or SDK adapter for common Indian POS systems; every
-   sale auto-creates an entry in the Sales Register.
-5. **Payroll** — salary computation, PT / PF / ESI / TDS 192, payslips, salary payments.
-6. **Supplier reminder flow** — GSTR-2B mismatch → draft WhatsApp / email to supplier
-   → owner approves → send. Never sent autonomously.
-7. **Filing connections** — GSP/ASP (GST), ERI (income tax), Account Aggregator (bank
-   feed), NIC (e-invoice/e-way bill), each switched on as its onboarding completes.
-8. **CA real-time sync** — owner invites CA; CA sees the books in real time or at set
-   intervals without needing a separate export step.
-
-**Owner actions** (not engineering; they gate the exit criteria)
-
+- Decide the launch name: Taxmeow or MyCA.
+- Create a Google Cloud project with billing; start SMS sender registration.
 - Name the advisor CA and agree the rule sign-off process.
-- Recruit 2–3 pilot businesses and collect three months of filed GSTR-1/3B JSON.
-- Start GSP/ASP, ERI, Account Aggregator (FIU) and NIC production onboarding.
-- Commission the DPDP Act assessment before Phase 1.
+- Recruit 2-3 pilot businesses and collect three months of filed GSTR-1/3B JSON.
+- Start GSP/ASP, ERI and NIC production onboarding.
+- Commission the DPDP Act assessment.
+- Decide who may approve a live filing, and which language model may read documents.
 
 
 ## How it has to be done
@@ -275,7 +313,7 @@ or every difference is explained; and CI is green.
 5. **New external actions go through the gate.** Declare the action class, add the mock
    fixture and preflight, and let approvals bind to the payload hash.
 6. **Ship in vertical slices.** One audit finding or one rule area per commit, with the
-   platform suite, every touched sprint suite and the stress run green before committing.
+   `node scripts/check-all.mjs` and the stress run green before committing.
 7. **Keep the picture honest.** Update [`STATUS.md`](STATUS.md), this README and the
    [progress tracker](docs/superpowers/PROGRESS.md) whenever the built/not-built picture
    moves.
@@ -284,14 +322,19 @@ or every difference is explained; and CI is green.
 
 | Path | Purpose |
 |---|---|
-| `platform/` | The product: local server, Electron shell, ledger, tools, contracts |
+| `platform/` | The engine, the local server and the Windows desktop shell |
+| `cloud/` | Hosted API: accounts, sign-in, tenancy, the engine per request on Postgres |
+| `mobile/` | Android app (Flutter) |
+| `scripts/check-all.mjs` | Runs every suite and prints one table |
 | `platform/src/` | All runtime modules (see the module map below) |
 | `platform/desktop/` | Electron `main.cjs` + offline renderer (CSP-locked, no CDNs) |
 | `platform/test/` | Platform test suite (node:test) |
 | `sprints/statutory-rules/` | Dated rule records, golden cases and the rule API |
 | `sprints/` | Engines: 1 Tally, 2 bank/OCR, 3 GST recon, 4 deadlines, 5 filing, 6 audit |
 | `docs/audit/` | The codebase audit that drives Phase 0 (C1–C4, H1–H18) |
-| `docs/superpowers/` | Phase 0 design spec, plans and the progress tracker |
+| `docs/product/` | Product PRD, feature specifications and the roadmap |
+| `docs/architecture/` | System architecture, data model, security, decision records |
+| `docs/superpowers/` | Design specs, plans and the progress tracker |
 | `deploy/` | Marketing/research static site (not the product) |
 | `email-relay/` | Optional Cloudflare Worker for MyCA notification email |
 | `infra/` | Terraform for the GCP site + release pipeline |
@@ -319,22 +362,27 @@ or every difference is explained; and CI is green.
    product speaks plain language; the owner does not need to know what a debit is.
 5. **No plaintext secrets.** Provider/NIC credentials are encrypted at rest
    (`credential-vault.mjs`: Electron `safeStorage`/DPAPI, AES-256-GCM fallback).
-6. **Zero runtime dependencies.** ESM only, Node 22. `node:crypto` is fine.
+6. **Zero runtime dependencies in the engine.** ESM only, Node 22. `node:crypto` is
+   fine. The hosted API may use `pg` and nothing else.
 
 
 ## Documentation
 
+The full index is [`docs/README.md`](docs/README.md).
+
 | Doc | What it covers |
 |---|---|
-| [`STATUS.md`](STATUS.md) | Built & verified vs. to-be-built inventory |
-| [`docs/audit/2026-09-21-codebase-audit.md`](docs/audit/2026-09-21-codebase-audit.md) | Findings C1–C4 and H1–H18 with reproductions |
-| [`docs/superpowers/specs/2026-09-21-phase0-pilot-readiness-design.md`](docs/superpowers/specs/2026-09-21-phase0-pilot-readiness-design.md) | Phase 0 design: goal, non-goals, exit criteria, pilot mode |
-| [`docs/superpowers/PROGRESS.md`](docs/superpowers/PROGRESS.md) | Live percentage, workstream weights and what is left |
-| [`docs/research/`](docs/research/) | Competitor and market teardowns with integration plans |
-| [`AGENTS.md`](AGENTS.md) | Conventions and workflow for AI coding agents |
-| [`DEPLOYMENT.md`](DEPLOYMENT.md) | GCP deployment, releases, domain/TLS, signing, branch protection |
-| `platform/PRD.md` | CA-firm API requirements (REQ-CA-001…015) and current status |
-| `platform/CA-REVIEW.md` | Reviewer pack: what to click through, and the limits to state honestly |
-| `platform/INTEGRATION-RECONCILIATION.md` | Provider-adapter policy and ownership |
-| `platform/INTEGRATIONS-SETUP.md` | Step-by-step to go live with each integration |
+| [`docs/product/PRD.md`](docs/product/PRD.md) | The product as numbered requirements, with status, acceptance and open questions |
+| [`docs/product/features/`](docs/product/features/) | One specification per feature area (nine) |
+| [`docs/product/ROADMAP.md`](docs/product/ROADMAP.md) | Milestones and what each waits on |
+| [`docs/architecture/ARCHITECTURE.md`](docs/architecture/ARCHITECTURE.md) | Components, request flow, the action gate, known limits |
+| [`docs/architecture/DATA-MODEL.md`](docs/architecture/DATA-MODEL.md) | Database tables and the books state |
+| [`docs/architecture/SECURITY-AND-PRIVACY.md`](docs/architecture/SECURITY-AND-PRIVACY.md) | Controls that exist and gaps that remain |
+| [`docs/architecture/decisions/`](docs/architecture/decisions/) | Ten decision records |
+| [`docs/superpowers/PROGRESS.md`](docs/superpowers/PROGRESS.md) | Live percentages and how they are computed |
+| [`STATUS.md`](STATUS.md) | Built and verified vs. to-be-built inventory |
+| [`AGENTS.md`](AGENTS.md) | Conventions and workflow for a change |
+| [`DEPLOYMENT.md`](DEPLOYMENT.md) | Site and Windows release pipeline |
+| [`docs/audit/2026-09-21-codebase-audit.md`](docs/audit/2026-09-21-codebase-audit.md) | Findings C1-C4 and H1-H18 with reproductions |
+| `platform/PRD.md` | Desktop product: CA-firm API requirements (REQ-CA-001...015) |
 | `sprints/*/BENCHMARK.md` | Per-engine fixtures and acceptance numbers |

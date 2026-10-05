@@ -1,0 +1,102 @@
+# Roadmap
+
+| | |
+|---|---|
+| Version | 1.0, 6 October 2026 |
+| Basis | The [product PRD](PRD.md); progress in [`../superpowers/PROGRESS.md`](../superpowers/PROGRESS.md) |
+| Status | Engineering's proposed order. No dates: the pace depends on owner actions listed at the end. |
+
+About 37% of the PRD is built. The order below is chosen so that each milestone gives a
+pilot owner something usable, and so that work blocked on outside parties is not on the
+critical path of work that is not.
+
+## Milestones
+
+### M1. Daily use on a phone
+
+The owner can do a normal day's work in the app.
+
+| Item | Requirement | Depends on |
+|---|---|---|
+| Invoice screen, save as PDF, share by WhatsApp or email | FR-INV-3, FR-INV-6 | Nothing |
+| Expense heads and the tagger, expense chats | FR-TAG-2 to 4, FR-UI-2 | Nothing |
+| Credit notes and cancelling an invoice | FR-ACC-4 | Nothing |
+| Dashboard: sales, purchases, expenses, owed and owing | FR-UI-4 | Nothing |
+| Run on a real phone and fix what breaks | NFR-10 | A phone on USB |
+
+### M2. The return, reviewed
+
+The owner can take a month's GST from draft to a file ready for the portal, in chat.
+
+| Item | Requirement | Depends on |
+|---|---|---|
+| Review cards with "Is this information correct?" | FR-GST-2 | M1 credit notes |
+| Set-off rules and the amount to pay | FR-GST-3 | Advisor CA verification |
+| GSTR-2B upload, credit at risk in the app | FR-2B-1, FR-2B-2 | Nothing |
+| Supplier reminder drafts sent from the owner's own apps | FR-2B-3, FR-2B-4 | PRD Q6 |
+| Entries export for a CA | FR-CA-2 | Nothing |
+
+### M3. Hosted pilot
+
+Real businesses, real data, closed testing on the Play Store.
+
+| Item | Requirement | Depends on |
+|---|---|---|
+| Deploy: Terraform, Cloud Run, Cloud SQL, storage, backups, monitoring | NFR-4 | Google Cloud project |
+| Sign-in for real users | ADR-0008 | SMS registration or Google Sign-In (PRD Q4) |
+| Privacy notice, consent, retention, staff access log | NFR-9 | DPDP assessment |
+| Release build, signing, store listing, data safety form | NFR-10 | Play Console account; name (PRD Q1) |
+| Proposals per member; staff role narrowed | | Nothing |
+
+### M4. Reading documents
+
+| Item | Requirement | Depends on |
+|---|---|---|
+| Photograph or forward a supplier invoice | FR-CAP-1 | Model decision (PRD Q3) |
+| Free-text chat through tool selection | FR-UI-3, FR-UI-5 | Model decision |
+| Evaluation set of messages and documents | ADR-0004 | Pilot data, with consent |
+
+### M5. Filing for real
+
+| Item | Requirement | Depends on |
+|---|---|---|
+| Live GSTR-1, then GSTR-3B | FR-GST-4, FR-GST-5 | GSP/ASP onboarding; PRD Q2 |
+| E-way bill and e-invoice in the invoice flow | FR-INV-5 | NIC production credentials |
+| TDS on entries, quarterly draft and review | FR-TDS-2, FR-TDS-3 | Advisor CA verification |
+| Sync setting for accountants | FR-CA-3 | Nothing |
+
+### M6. Payroll and POS
+
+| Item | Requirement | Depends on |
+|---|---|---|
+| Payroll step 1: compute and record | FR-PAY-1, 2, 4 | Advisor CA verification |
+| Payroll step 2: statutory files | FR-PAY-4 | Step 1 in use |
+| Payroll step 3: payouts | FR-PAY-3 | Payout partner (PRD Q5) |
+| POS inbound API and daily summary import | FR-CAP-2 | A POS partner (PRD Q7) |
+| Quotes | FR-INV-4 | Nothing |
+
+## What can start today with nothing from anyone
+
+All of M1 except device testing; in M2 the review cards, the 2B upload and the entries
+export; in M3 the proposals and role changes; quotes.
+
+## Owner actions that unblock the rest
+
+| Action | Unblocks |
+|---|---|
+| Decide the launch name | Store listing, application id |
+| Create a Google Cloud project with billing | M3 |
+| Start SMS sender registration, or choose Google Sign-In | M3 |
+| Name the advisor CA | Set-off, TDS, payroll, and sign-off on every existing rule |
+| Commission the DPDP assessment | M3, and the model decision |
+| Choose the model and where it may run | M4 |
+| Start GSP/ASP and NIC production onboarding | M5 |
+| Decide who may approve a filing | M5 |
+| Recruit two or three pilot businesses | M3, M4 |
+| Connect a phone | M1 device testing |
+| Restore GitHub Actions, or accept the local gate | Automated checks on every change |
+
+## Not on the roadmap
+
+iOS, web, regional languages, voice, inventory, income tax return filing, notices and
+appeals, a CA-firm console in the hosted service.

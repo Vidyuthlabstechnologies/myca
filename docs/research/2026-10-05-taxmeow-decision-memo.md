@@ -1,5 +1,13 @@
 # TaxMeow decision memo
 
+> **Correction, 2026-10-06.** This memo analyses a merchant-of-record company found by
+> web search under the name TaxMeow. That is not what the owner meant. "Taxmeow" is the
+> working title of the owner's own product, defined in their PRD (v0.1, 28 September
+> 2026): a chat-first tax and accounting assistant for business owners. The conclusion
+> here (do not become a merchant of record) still holds, but the comparison is beside
+> the point. Progress against the real PRD is tracked in
+> `docs/superpowers/PROGRESS.md`.
+
 Date: 2026-10-05. Status: for the owner's decision. No code has changed.
 
 ## Recommendation
