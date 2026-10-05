@@ -9,6 +9,7 @@
 import { randomBytes } from 'node:crypto';
 import { planExpense } from './expenses.mjs';
 import { planCreditNote, creditedAgainst } from './credit-notes.mjs';
+import { checkAnswer, reviewOf, stepText } from './gst-review.mjs';
 import { gstSplit, partyStateOf } from './chart.mjs';
 import { postingDate } from './dates.mjs';
 import { isPeriodLocked } from './period-lock.mjs';
@@ -17,7 +18,7 @@ import { parseZohoBooksCsv } from './import-zoho.mjs';
 import { tallyXmlToDayBookCsv } from './tally-xml.mjs';
 
 export const CONFIRM_TOOLS = new Set([
-  'create_invoice', 'create_purchase', 'record_receipt', 'post_expense', 'set_expense_head', 'create_credit_note', 'cancel_invoice',
+  'create_invoice', 'create_purchase', 'record_receipt', 'post_expense', 'set_expense_head', 'create_credit_note', 'cancel_invoice', 'gst_review_answer',
   'import_tally', 'import_tally_xml', 'import_zoho', 'import_bank',
   'govt_generate_irn', 'govt_nic_cancel_irn',
   'exception_decide',
@@ -155,6 +156,33 @@ function creditNotePreview(state, args, cancel = false) {
   };
 }
 
+const REVIEW_REASONS = {
+  DRAFT_CHANGED: 'Your books for this month changed after you saw these figures. Review again to see the current ones.',
+  STEP_NOT_READY: 'An earlier step of this review is not confirmed yet.',
+  NOTHING_TO_REVIEW: 'There is nothing dated in this month to review.',
+  OWNER_APPROVES: 'Only the owner approves the return.',
+  ANSWER_DOES_NOT_FIT: 'That answer does not fit this step.',
+  UNKNOWN_STEP: 'That is not a step of the review.',
+  INVALID_PERIOD: 'That is not a month I can read.',
+};
+
+function reviewAnswerPreview(state, args) {
+  const checked = checkAnswer(state, args);
+  if (!checked.ok) return { blockers: [REVIEW_REASONS[checked.error] || checked.error], summary: '', effects: [], figures: {} };
+  const { review, step } = checked;
+  const answered = {
+    correct: `You are confirming: ${step.title}.`,
+    wrong: `You are marking ${step.title.toLowerCase()} as not right${args.note ? `: ${args.note}` : ''}. Fix the entries, then review again.`,
+    approve: `You are approving the ${review.month} figures. Nothing is filed.`,
+  }[args.answer];
+  return {
+    blockers: [],
+    summary: stepText(review, step.id, money),
+    effects: [answered],
+    figures: { period: review.period, step: step.id, answer: args.answer, draftHash: review.draftHash },
+  };
+}
+
 function countSkips(skipped = []) {
   const counts = {};
   for (const s of skipped) counts[s.reason] = (counts[s.reason] || 0) + 1;
@@ -246,6 +274,7 @@ const PREVIEWERS = {
   post_expense: expensePreview,
   create_credit_note: creditNotePreview,
   cancel_invoice: (state, args) => creditNotePreview(state, args, true),
+  gst_review_answer: reviewAnswerPreview,
   import_tally: (state, args) => tallyPreview(state, args, args.csv, args.fileName || 'Tally Day Book'),
   import_tally_xml: xmlPreview,
   import_zoho: zohoPreview,

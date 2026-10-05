@@ -91,6 +91,7 @@ key cannot be written through a view.
 | `attachments` | Metadata for attached documents; bytes are in the document store |
 | `pendingChatAction`, `lastConfirmation` | The one held proposal and the last confirmed one, so a confirm can be replayed safely |
 | `exceptions`, `exceptionSeq` | The exception queue |
+| `gstReviews` | Per tax period: the draft hash the owner reviewed, each step's answer with who and when, and the approval |
 | `creditNotes`, `creditNoteSeq` | Credit notes against sales invoices, each linked to its invoice |
 | `expenses`, `expenseSeq`, `expenseTags` | Posted expenses with their heads, and the owner's remembered head choices per payee and wording |
 

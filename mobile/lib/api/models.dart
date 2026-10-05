@@ -569,6 +569,112 @@ BusinessSummary? businessSummaryFrom(Object? json) {
   return data.isEmpty ? null : BusinessSummary.fromJson(data);
 }
 
+class ReviewLine {
+  const ReviewLine({
+    required this.label,
+    required this.amount,
+    required this.strong,
+  });
+
+  factory ReviewLine.fromJson(Object? json) {
+    final map = _map(json);
+    final amount = map['amount'];
+    return ReviewLine(
+      label: _text(map['label']),
+      amount: amount is num ? amount : null,
+      strong: map['strong'] == true,
+    );
+  }
+
+  final String label;
+  final num? amount;
+  final bool strong;
+}
+
+class ReviewStep {
+  const ReviewStep({
+    required this.id,
+    required this.title,
+    required this.lines,
+    required this.explain,
+    required this.question,
+    required this.yes,
+    required this.no,
+    required this.status,
+    required this.waitingFor,
+    required this.note,
+  });
+
+  factory ReviewStep.fromJson(Object? json) {
+    final map = _map(json);
+    final waiting = map['waitingFor'];
+    return ReviewStep(
+      id: _text(map['id']),
+      title: _text(map['title']),
+      lines: _maps(map['lines']).map(ReviewLine.fromJson).toList(),
+      explain: _text(map['note']),
+      question: _text(map['question']),
+      yes: _text(map['yes']),
+      no: _text(map['no']),
+      status: _text(map['status']),
+      waitingFor: waiting is String ? waiting : null,
+      note: _text(_map(map['answer'])['note']),
+    );
+  }
+
+  final String id;
+  final String title;
+  final List<ReviewLine> lines;
+  final String explain;
+  final String question;
+  final String yes;
+  final String no;
+  final String status;
+  final String? waitingFor;
+  final String note;
+}
+
+class GstReview {
+  const GstReview({
+    required this.period,
+    required this.month,
+    required this.draftHash,
+    required this.empty,
+    required this.changed,
+    required this.steps,
+    required this.next,
+    required this.approved,
+    required this.approvedOn,
+  });
+
+  static GstReview? fromTool(Object? json) {
+    final map = toolData(json);
+    if (_text(map['period']).isEmpty) return null;
+    final next = map['next'];
+    return GstReview(
+      period: _text(map['period']),
+      month: _text(map['month']),
+      draftHash: _text(map['draftHash']),
+      empty: map['empty'] == true,
+      changed: map['changed'] == true,
+      steps: _maps(map['steps']).map(ReviewStep.fromJson).toList(),
+      next: next is String ? next : null,
+      approved: map['approved'] == true,
+      approvedOn: _text(_map(map['approval'])['on']),
+    );
+  }
+
+  final String period;
+  final String month;
+  final String draftHash;
+  final bool empty;
+  final bool changed;
+  final List<ReviewStep> steps;
+  final String? next;
+  final bool approved;
+  final String approvedOn;
+}
+
 class Today {
   const Today({
     required this.gst,

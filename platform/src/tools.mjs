@@ -11,7 +11,9 @@ import { createInvoice, recordReceipt, invoicesToSalesCsv, createPurchase, purch
 import { invoiceDocument } from './invoice-document.mjs';
 import { postExpense, retagExpense, listExpenses, expenseHeads } from './expenses.mjs';
 import { businessSummary } from './business-summary.mjs';
-import { createCreditNote, cancelInvoice, creditNotesForPeriod, creditNoteTotals } from './credit-notes.mjs';
+import { gstr3bFor, periodSummary } from './period-summary.mjs';
+import { createCreditNote, cancelInvoice, creditNotesForPeriod } from './credit-notes.mjs';
+import { reviewOf, answerReview } from './gst-review.mjs';
 import { postTallyRows, postBankRows, purchaseRegisterCsv } from './post-import.mjs';
 import { parseZohoBooksCsv } from './import-zoho.mjs';
 import { invoicesToGstr1Json } from './gstr1-json.mjs';
@@ -50,31 +52,6 @@ function resolveToolActor(args = {}, idKey = 'actorId', fallbackUserId = 'ca') {
   return normalizeActor({ userId: args[idKey] || fallbackUserId, role: args.role || '' });
 }
 
-function lessCreditNotes(outward, notes) {
-  const totals = outward?.totals || {};
-  const credit = creditNoteTotals(notes);
-  const r2 = (v) => Math.round(Number(v || 0) * 100) / 100;
-  return {
-    ...outward,
-    grossTotals: totals,
-    totals: {
-      interTaxable: r2(totals.interTaxable - credit.igstTaxable),
-      interIgst: r2(totals.interIgst - credit.igst),
-      intraTaxable: r2(totals.intraTaxable - credit.intraTaxable),
-      intraCgst: r2(totals.intraCgst - credit.cgst),
-      intraSgst: r2(totals.intraSgst - credit.sgst),
-    },
-    creditNotes: credit,
-  };
-}
-
-function gstr3bFor(state, docs, inwardOverride) {
-  const salesText = invoicesToSalesCsv(docs.invoices);
-  const inwardText = inwardOverride || purchasesToInwardCsv(docs.purchases);
-  const result = filingPrep({ salesText, inwardText, supplierState: state.company.state, fy: state.company.fy });
-  const draft = result.gstr3b || {};
-  return { ...draft, outward: lessCreditNotes(draft.outward, docs.creditNotes || []), period: docs.period };
-}
 
 const DEADLINE_COLUMNS = ['clientId', 'name', 'entity', 'turnover', 'gst', 'qrmp', 'tdsDeductor', 'pf', 'advanceTax', 'tp', 'state', 'profession', 'gstTds', 'presumptive'];
 
@@ -595,28 +572,21 @@ export const TOOLS = [
     title: 'GST for one period',
     description: 'For one tax period: tax on sales and input credit by head from the GSTR-3B draft, and what the GSTR-1 file for that period holds. Lists the periods that have documents.',
     args: ['period'],
-    run: (state, args = {}) => {
-      const docs = documentsForPeriod(state, args.period, localToday().slice(0, 7));
-      if (!docs.ok) return fail(docs.error, { hint: docs.hint, periods: docs.periods });
-      const gstr3b = gstr3bFor(state, docs);
-      const outward = gstr3b.outward?.totals || {};
-      const credit = gstr3b.itc?.available || {};
-      const file = docs.invoices.length || docs.creditNotes.length ? invoicesToGstr1Json(state.company, docs.invoices, fpOf(docs.period), { creditNotes: docs.creditNotes }) : null;
-      return ok({
-        period: docs.period,
-        periods: docs.periods,
-        salesCount: docs.invoices.length,
-        creditNoteCount: docs.creditNotes.length,
-        creditNotes: creditNoteTotals(docs.creditNotes),
-        purchaseCount: docs.purchases.length,
-        taxableSales: (Math.round(Number(outward.interTaxable || 0) * 100) + Math.round(Number(outward.intraTaxable || 0) * 100)) / 100,
-        outputTax: taxByHead(outward.interIgst, outward.intraCgst, outward.intraSgst),
-        inputCredit: taxByHead(credit.igst, credit.cgst, credit.sgst),
-        gstr1: file && !file.error
-          ? { fp: file.fp, b2b: file.b2b.length, b2cl: file.b2cl.length, b2cs: file.b2cs.length, cdnr: (file.cdnr || []).length, cdnur: (file.cdnur || []).length, held: file.held || [], warnings: file.warnings || [], hash: file.hash, caveat: file.caveat }
-          : { fp: fpOf(docs.period), b2b: 0, b2cl: 0, b2cs: 0, cdnr: 0, cdnur: 0, held: [], warnings: [], hash: '', caveat: '', error: file ? file.error : '' },
-      });
-    },
+    run: (state, args = {}) => periodSummary(state, args.period),
+  },
+  {
+    name: 'gst_review',
+    title: 'Review the GST return',
+    description: 'The steps of the review for one tax period (the latest with documents unless given): held invoices, sales, purchases and credit, approval. Each step shows its figures and whether it is confirmed for the current draft. Read-only.',
+    args: ['period'],
+    run: (state, args = {}) => reviewOf(state, args.period),
+  },
+  {
+    name: 'gst_review_answer',
+    title: 'Answer a review step',
+    description: 'Record the answer to one review step for the exact draft the owner saw (its hash). Approval records that the owner checked the figures; it files nothing.',
+    args: ['period', 'step', 'answer', 'note', 'draftHash'],
+    run: (state, args = {}) => answerReview(state, args),
   },
   {
     name: 'filing_pack',

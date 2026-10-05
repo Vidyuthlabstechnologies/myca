@@ -141,6 +141,80 @@ class FakeMycaApi implements MycaApi {
   ];
 
   final creditNotes = <Map<String, Object?>>[];
+  final reviewAnswers = <String, String>{};
+  String reviewHash = 'a' * 64;
+
+  Map<String, Object?> reviewData() {
+    const order = ['sales', 'credit', 'approve'];
+    final steps = <Map<String, Object?>>[];
+    String? next;
+    for (final id in order) {
+      final answer = reviewAnswers[id];
+      final status = answer == null
+          ? 'open'
+          : (answer == 'wrong' ? 'wrong' : 'confirmed');
+      final waiting = order
+          .takeWhile((before) => before != id)
+          .where(
+            (before) =>
+                reviewAnswers[before] == null ||
+                reviewAnswers[before] == 'wrong',
+          )
+          .firstOrNull;
+      if (next == null && status != 'confirmed') next = id;
+      steps.add({
+        'id': id,
+        'title': {
+          'sales': 'Sales in October 2026',
+          'credit': 'Purchases and input credit in October 2026',
+          'approve': 'Approve the October 2026 return',
+        }[id],
+        'lines': id == 'sales'
+            ? [
+                {'label': '1 sale, value before tax', 'amount': 20000},
+                {'label': 'Tax on sales', 'amount': 3600, 'strong': true},
+              ]
+            : id == 'credit'
+            ? [
+                {'label': '0 purchase bills'},
+                {'label': 'Input credit', 'amount': 0, 'strong': true},
+              ]
+            : [
+                {'label': 'Tax on sales', 'amount': 3600},
+                {'label': 'Input credit', 'amount': 0},
+              ],
+        'note': id == 'approve'
+            ? 'MyCA does not work out the amount to pay yet.'
+            : 'From the documents of this month.',
+        'question': id == 'approve'
+            ? 'Approve these figures for the return?'
+            : 'Is this information correct?',
+        'yes': id == 'approve' ? 'Approve' : 'Yes, correct',
+        'no': id == 'approve' ? 'Not yet' : 'Something is wrong',
+        'status': status,
+        'waitingFor': waiting,
+        'answer': answer == null
+            ? null
+            : {
+                'answer': answer,
+                'note': answer == 'wrong' ? 'Rate looks wrong' : '',
+              },
+      });
+    }
+    return {
+      'period': '2026-10',
+      'month': 'October 2026',
+      'draftHash': reviewHash,
+      'empty': false,
+      'changed': false,
+      'steps': steps,
+      'next': next,
+      'approved': reviewAnswers['approve'] == 'approve',
+      'approval': reviewAnswers['approve'] == 'approve'
+          ? {'on': '2026-10-05'}
+          : null,
+    };
+  }
 
   final purchases = <Map<String, Object?>>[
     {
@@ -237,6 +311,18 @@ class FakeMycaApi implements MycaApi {
         },
       );
     }
+    if (name == 'gst_review_answer') {
+      if (args['draftHash'] != reviewHash) {
+        _held = null;
+        return ChatReply.fromJson({
+          'reply':
+              'I did not post anything, because:\n· Your books for this month changed after you saw these figures.',
+          'posted': false,
+          'blocked': true,
+        });
+      }
+      return _preview('Review step ${args['step']}: ${args['answer']}.');
+    }
     if (name == 'create_credit_note') {
       final amount = args['amount'];
       return _preview(
@@ -291,6 +377,18 @@ class FakeMycaApi implements MycaApi {
         });
         return ChatReply.fromJson({
           'reply': 'Posted EXP-0003.',
+          'posted': true,
+          'confirmed': true,
+        });
+      }
+      if (held.tool == 'gst_review_answer') {
+        reviewAnswers[held.args['step'] as String] =
+            held.args['answer'] as String;
+        final approved = held.args['answer'] == 'approve';
+        return ChatReply.fromJson({
+          'reply': approved
+              ? 'Approved the October 2026 figures. Nothing has been filed.'
+              : 'Confirmed.',
           'posted': true,
           'confirmed': true,
         });
@@ -499,6 +597,8 @@ class FakeMycaApi implements MycaApi {
             'missing': ['HSN'],
           },
         };
+      case 'gst_review':
+        return {'ok': true, 'data': reviewData()};
       case 'business_summary':
         return {
           'ok': true,
@@ -524,7 +624,8 @@ class FakeMycaApi implements MycaApi {
                 {'name': 'Gujarat Weaves', 'due': 377600, 'invoices': 1},
               ],
             },
-            'caveat': 'Purchases are bill totals; what you still owe suppliers is not tracked yet.',
+            'caveat':
+                'Purchases are bill totals; what you still owe suppliers is not tracked yet.',
           },
         };
       case 'expense_heads':
