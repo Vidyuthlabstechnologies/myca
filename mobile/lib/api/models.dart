@@ -1,3 +1,5 @@
+import '../format.dart';
+
 Map<String, dynamic> _map(Object? value) =>
     value is Map ? value.cast<String, dynamic>() : const <String, dynamic>{};
 
@@ -867,6 +869,158 @@ class Reminder {
 
 List<Reminder> remindersFrom(Object? json) =>
     _maps(toolData(json)['reminders']).map(Reminder.fromJson).toList();
+
+class CashRow {
+  const CashRow({
+    required this.date,
+    required this.label,
+    required this.amount,
+    required this.basis,
+    required this.incoming,
+  });
+
+  factory CashRow.fromJson(Object? json, {required bool incoming}) {
+    final map = _map(json);
+    return CashRow(
+      date: _text(map['date']),
+      label: _text(map['label']),
+      amount: _num(map['amount']),
+      basis: _text(map['basis']),
+      incoming: incoming,
+    );
+  }
+
+  final String date;
+  final String label;
+  final num amount;
+  final String basis;
+  final bool incoming;
+}
+
+class CashForecast {
+  const CashForecast({
+    required this.days,
+    required this.until,
+    required this.startAmount,
+    required this.bank,
+    required this.cash,
+    required this.fromReading,
+    required this.readingOn,
+    required this.startNote,
+    required this.comingTotal,
+    required this.goingTotal,
+    required this.end,
+    required this.lowest,
+    required this.lowestOn,
+    required this.overdueTotal,
+    required this.rows,
+    required this.notes,
+  });
+
+  static CashForecast? fromTool(Object? json) {
+    final map = toolData(json);
+    if (_text(map['from']).isEmpty) return null;
+    final start = _map(map['start']);
+    final coming = _map(map['coming']);
+    final going = _map(map['going']);
+    final lowest = _map(map['lowest']);
+    final rows = [
+      ..._maps(
+        coming['rows'],
+      ).map((row) => CashRow.fromJson(row, incoming: true)),
+      ..._maps(
+        going['rows'],
+      ).map((row) => CashRow.fromJson(row, incoming: false)),
+    ]..sort((a, b) => a.date.compareTo(b.date));
+    final notes = map['notes'];
+    return CashForecast(
+      days: _num(map['days']).toInt(),
+      until: _text(map['until']),
+      startAmount: _num(start['amount']),
+      bank: _num(start['bank']),
+      cash: _num(start['cash']),
+      fromReading: start['source'] == 'reading',
+      readingOn: _text(start['readingOn']),
+      startNote: _text(start['note']),
+      comingTotal: _num(coming['total']),
+      goingTotal: _num(going['total']),
+      end: _num(map['end']),
+      lowest: _num(lowest['amount']),
+      lowestOn: _text(lowest['date']),
+      overdueTotal: _num(_map(map['overdue'])['total']),
+      rows: rows,
+      notes: notes is List ? notes.map(_text).toList() : const [],
+    );
+  }
+
+  final int days;
+  final String until;
+  final num startAmount;
+  final num bank;
+  final num cash;
+  final bool fromReading;
+  final String readingOn;
+  final String startNote;
+  final num comingTotal;
+  final num goingTotal;
+  final num end;
+  final num lowest;
+  final String lowestOn;
+  final num overdueTotal;
+  final List<CashRow> rows;
+  final List<String> notes;
+}
+
+class Affordability {
+  const Affordability({
+    required this.verdict,
+    required this.amount,
+    required this.on,
+    required this.balanceThen,
+    required this.left,
+    required this.monthsCovered,
+    required this.safeToSpend,
+  });
+
+  static Affordability? fromTool(Object? json) {
+    final map = toolData(json);
+    if (_text(map['verdict']).isEmpty) return null;
+    final months = map['monthsCovered'];
+    return Affordability(
+      verdict: _text(map['verdict']),
+      amount: _num(map['amount']),
+      on: _text(map['on']),
+      balanceThen: _num(map['balanceThen']),
+      left: _num(map['left']),
+      monthsCovered: months is num ? months : null,
+      safeToSpend: _num(map['safeToSpend']),
+    );
+  }
+
+  final String verdict;
+  final num amount;
+  final String on;
+  final num balanceThen;
+  final num left;
+  final num? monthsCovered;
+  final num safeToSpend;
+
+  String get headline => switch (verdict) {
+    'yes' => 'Yes',
+    'tight' => 'Yes, but it is tight',
+    _ => 'Not on these figures',
+  };
+
+  String get detail {
+    final covered = monthsCovered == null
+        ? ''
+        : ' That is about $monthsCovered months of your usual outgoings.';
+    final keep = verdict == 'yes'
+        ? ''
+        : ' To keep a month in hand, spend up to ${rupees(safeToSpend)}.';
+    return 'You would have about ${rupees(balanceThen)} then. After spending ${rupees(amount)}, the lowest point in the month after is ${rupees(left)}.$covered$keep';
+  }
+}
 
 class Today {
   const Today({

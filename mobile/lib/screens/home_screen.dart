@@ -12,6 +12,7 @@ import '../theme.dart';
 import '../widgets.dart';
 import 'ask_screen.dart';
 import 'books_check_screen.dart';
+import 'cash_screen.dart';
 import 'reminders_screen.dart';
 import 'expenses_screen.dart';
 import 'business_sheet.dart';
@@ -218,6 +219,14 @@ class _HomeScreenState extends State<HomeScreen> {
                   subtitle: expensesSubtitle(snapshot.expenses),
                   trailing: const Chevron(),
                   onTap: () => _open(const ExpensesScreen()),
+                ),
+                RowCard(
+                  leading: const TintTile(tint: Tint.sales, mark: Mark.bringIn),
+                  title: 'Cash',
+                  subtitle:
+                      'Bank and cash, the next 30 days, and can I afford it',
+                  trailing: const Chevron(),
+                  onTap: () => _open(const CashScreen()),
                 ),
                 RowCard(
                   leading: const TintTile(tint: Tint.ask, mark: Mark.comingUp),

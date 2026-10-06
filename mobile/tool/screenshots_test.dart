@@ -129,6 +129,14 @@ void main() {
     await shot(tester, '17_expense_preview');
   });
 
+  testWidgets('cash', (tester) async {
+    await phone(tester);
+    await tester.pumpWidget(MycaApp(state: testState(FakeMycaApi(signedIn: true)..hasBalance = true)));
+    await tester.pumpAndSettle();
+    await tapRow(tester, 'Cash');
+    await shot(tester, '24_cash');
+  });
+
   testWidgets('books check', (tester) async {
     await phone(tester);
     await tester.pumpWidget(MycaApp(state: testState(FakeMycaApi(signedIn: true))));
