@@ -129,14 +129,14 @@ function dueDates(deadlines, asOfDate) {
 function owed(state, asOfDate) {
   const summary = businessSummary(state, { period: asOfDate.slice(0, 7) });
   if (!summary.ok) return null;
-  const { total, invoices, customers } = summary.data.owedToYou;
+  const { total, invoices, customers, overdue } = summary.data.owedToYou;
   if (total <= 0) return { id: 'owed', severity: 'ok', title: 'No customer owes you money', detail: 'Every invoice is paid or settled.' };
   const top = customers[0];
   return {
     id: 'owed',
     severity: 'check',
     title: `Customers owe you ${money(total)}`,
-    detail: `On ${plural(invoices, 'invoice', 'invoices')}. The largest is ${top.name}, ${money(top.due)}.`,
+    detail: `On ${plural(invoices, 'invoice', 'invoices')}. The largest is ${top.name}, ${money(top.due)}.${overdue && overdue.total > 0 ? ` ${money(overdue.total)} on ${plural(overdue.invoices, 'invoice is', 'invoices are')} past the agreed terms.` : ''}`,
     amount: total,
     action: 'sales',
   };

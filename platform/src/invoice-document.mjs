@@ -62,6 +62,8 @@ export function invoiceDocument(state, id) {
       credited,
       creditNotes,
       status: invoice.status,
+      paymentTermsDays: invoice.paymentTermsDays ?? null,
+      dueDate: invoice.dueDate || '',
       balance: round2(invoice.total - received - credited),
       missing,
     },

@@ -3,6 +3,7 @@ import { gstSplit, nextPartyId, partyStateOf } from './chart.mjs';
 import { csvRows, htmlEscape } from './text-safe.mjs';
 import { isPeriodLocked } from './period-lock.mjs';
 import { postingDate } from './dates.mjs';
+import { invoiceTerms, dueDateOf } from './payment-terms.mjs';
 
 function padInv(n) {
   return `INV-${String(n).padStart(4, '0')}`;
@@ -77,6 +78,8 @@ export function createInvoice(state, input) {
   if (grossTaxable <= 0) return { ok: false, error: 'ZERO_AMOUNT' };
 
   const partyName = String(input.partyName ?? '').trim() || 'Walk-in';
+  const terms = invoiceTerms(state, { name: partyName, gstin: input.partyGstin, override: input.paymentTermsDays });
+  if (terms.error) return { ok: false, error: terms.error };
   const party = ensureParty(state, { name: partyName, gstin: input.partyGstin, stateCode: input.partyState });
   const pos = placeOfSupply(input, party, company);
   const lines = rawLines.map((l, i) => {
@@ -174,6 +177,7 @@ export function createInvoice(state, input) {
     sgst,
     igst,
     total,
+    ...(terms.days == null ? {} : { paymentTermsDays: terms.days, dueDate: dueDateOf(date, terms.days) }),
     status: 'posted',
     transferIds: posted.map((p) => p.id),
   };

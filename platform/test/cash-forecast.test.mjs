@@ -139,6 +139,8 @@ test('contracts, refusals and persistence', async () => {
   assert.equal(validateAssistantToolCall('can_afford', { amount: -1 }).ok, false);
   assert.equal(validateAssistantToolCall('set_cash_balance', { cash: -5 }).ok, false);
   assert.equal(validateAssistantToolCall('cash_forecast', { days: 400 }).ok, false);
+  assert.equal(validateAssistantToolCall('cash_forecast', { days: 60 }).ok, true, 'an in-range whole number of days is accepted');
+  assert.equal(validateAssistantToolCall('cash_forecast', { days: 2.5 }).ok, false);
 });
 
 test('GST for the month goes out on the 3B due date the deadline engine gives, labelled as an estimate before set-off', () => {
