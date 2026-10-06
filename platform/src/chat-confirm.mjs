@@ -20,6 +20,7 @@ import { isReturnPeriod } from './return-period.mjs';
 import { gstSplit, partyStateOf } from './chart.mjs';
 import { postingDate } from './dates.mjs';
 import { isPeriodLocked } from './period-lock.mjs';
+import { lastGstRateFor } from './invoice.mjs';
 import { tally, bank } from './sprint-load.mjs';
 import { parseZohoBooksCsv } from './import-zoho.mjs';
 import { tallyXmlToDayBookCsv } from './tally-xml.mjs';
@@ -58,10 +59,16 @@ function documentPreview(state, args, kind) {
     ? (stateCodeOf(args.partyState) || partyStateOf(args.partyGstin) || company.state)
     : company.state;
   const supplier = sale ? company.state : (partyStateOf(args.partyGstin) || stateCodeOf(args.partyState) || company.state);
+  const unrated = (args.lines || []).findIndex((l) => l.gstRate == null || l.gstRate === '');
+  if (unrated >= 0) {
+    const last = lastGstRateFor(state, { name: args.partyName, gstin: args.partyGstin }, kind);
+    const line = (args.lines || []).length > 1 ? `Line ${unrated + 1} has` : 'This has';
+    blockers.push(`${line} no GST rate, and I will not guess one.${last ? ` ${last.from} on ${last.date} was at ${last.gstRate}%.` : ''} Say the rate, or 0% if none applies.`);
+  }
   const lines = (args.lines || []).map((l) => {
     const qty = Number(l.qty == null || l.qty === '' ? 1 : l.qty);
     const rate = Number(l.rate);
-    const gstRate = Number(l.gstRate == null || l.gstRate === '' ? 18 : l.gstRate);
+    const gstRate = Number(l.gstRate == null || l.gstRate === '' ? 0 : l.gstRate);
     const taxable = Math.round(qty * rate * 100) / 100;
     return { ...gstSplit({ taxable, rate: gstRate, supplierState: supplier, partyState: pos }), taxable, gstRate, qty, rate };
   });

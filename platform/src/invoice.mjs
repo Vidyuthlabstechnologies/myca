@@ -58,6 +58,18 @@ function placeOfSupply(input, party, company) {
   return stateCodeOf(input.partyState) || partyStateOf(party.gstin) || company.state;
 }
 
+export function lastGstRateFor(state, { name, gstin }, kind = 'sale') {
+  const list = kind === 'sale' ? state.invoices : state.purchases;
+  const gstinKey = normGstin(gstin);
+  const nameKey = String(name || '').trim().toLowerCase();
+  const same = (doc) => (gstinKey ? normGstin(doc.partyGstin) === gstinKey : String(doc.partyName || '').trim().toLowerCase() === nameKey);
+  const earlier = (list || []).filter((doc) => doc.status !== 'cancelled' && same(doc) && (doc.lines || []).length);
+  if (!earlier.length || (!gstinKey && !nameKey)) return null;
+  const latest = earlier.reduce((a, b) => (String(b.date) >= String(a.date) ? b : a));
+  const rate = latest.lines[latest.lines.length - 1].gstRate;
+  return Number.isFinite(Number(rate)) ? { gstRate: Number(rate), from: latest.id, date: latest.date } : null;
+}
+
 export function createInvoice(state, input) {
   const company = state.company;
   const date = postingDate(input.date);
@@ -66,10 +78,12 @@ export function createInvoice(state, input) {
   if (input.id && idTaken(state.invoices, input.id)) return { ok: false, error: 'DUPLICATE_ID', id: input.id };
   const rawLines = input.lines || [];
   if (!rawLines.length) return { ok: false, error: 'NO_LINES' };
+  const unrated = rawLines.findIndex((l) => l.gstRate == null || l.gstRate === '');
+  if (unrated >= 0) return { ok: false, error: 'RATE_REQUIRED', line: unrated + 1 };
   const specs = rawLines.map((l) => ({
     qty: Number(l.qty == null || l.qty === '' ? 1 : l.qty),
     rate: Number(l.rate),
-    gstRate: Number(l.gstRate == null || l.gstRate === '' ? 18 : l.gstRate),
+    gstRate: Number(l.gstRate),
   }));
   if (specs.some((s) => !Number.isFinite(s.qty) || s.qty <= 0 || !Number.isFinite(s.rate) || s.rate < 0 || !Number.isFinite(s.gstRate))) {
     return { ok: false, error: 'BAD_LINE' };
@@ -257,10 +271,12 @@ export function createPurchase(state, input) {
   }
   const rawLines = input.lines || [];
   if (!rawLines.length) return { ok: false, error: 'NO_LINES' };
+  const unrated = rawLines.findIndex((l) => l.gstRate == null || l.gstRate === '');
+  if (unrated >= 0) return { ok: false, error: 'RATE_REQUIRED', line: unrated + 1 };
   const specs = rawLines.map((l) => ({
     qty: Number(l.qty == null || l.qty === '' ? 1 : l.qty),
     rate: Number(l.rate),
-    gstRate: Number(l.gstRate == null || l.gstRate === '' ? 18 : l.gstRate),
+    gstRate: Number(l.gstRate),
   }));
   if (specs.some((s) => !Number.isFinite(s.qty) || s.qty <= 0 || !Number.isFinite(s.rate) || s.rate < 0 || !Number.isFinite(s.gstRate))) {
     return { ok: false, error: 'BAD_LINE' };
