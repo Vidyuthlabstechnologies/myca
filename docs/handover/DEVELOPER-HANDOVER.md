@@ -192,7 +192,10 @@ binding. This section adds the technical detail.
 
 1. Set up all four suites and run `check-all` green on your machine. Walk the product owner through the architecture, to show the take-over is complete.
 2. **Run the app on real phones.** Use at least one mid-range and one low-end Android device. Expect layout, keyboard, file-picker, biometric-lock and PDF-share problems that widget tests cannot see. Record every defect.
-3. **Remove the default GST rate.** `platform/src/invoice.mjs` (lines 72 and 263) and `platform/src/chat-confirm.mjs` (line 64) fall back to 18% when no rate is given. Every other path already refuses to assume a rate. Make invoices do the same: ask for the rate, or offer the rate last used for that customer. Update the tests that relied on the default.
+3. **Remove the default GST rate** (**done** 6 October 2026). Invoices and bills with no
+   rate are refused with `RATE_REQUIRED` in the engine. The preview blocks them and
+   mentions the rate last charged to that customer, without using it. The desktop
+   form makes you choose a rate. GST 0% is still a valid rate.
 4. **Supplier payments.**
    - Record payments against bills, in the same way receipts are recorded against invoices.
    - Show "owed to suppliers" on the dashboard; it is the one figure the dashboard is missing.
@@ -259,7 +262,6 @@ outstanding.
 ## 9. Known gaps and risks
 
 - **Never run on a device.** Phase 1 exists for this reason.
-- **Default GST rate of 18%** in two invoice paths (Phase 1, item 3).
 - **Supplier payments are not recorded** against bills (Phase 1, item 4).
 - **Due dates are "passed", not "late".** The product does not know whether a return was
   filed, so it never says one was late. Keep that honesty when filing goes live.

@@ -797,6 +797,11 @@ document.getElementById('file').addEventListener('change', async (e) => {
 document.getElementById('voucher').addEventListener('submit', async (e) => {
   e.preventDefault();
   const kind = document.getElementById('vKind').value;
+  const gstChoice = document.getElementById('vGst').value;
+  if (gstChoice === '') {
+    addBubble('bot', 'Choose the GST rate before booking. Use 0% if none applies.', 'error');
+    return;
+  }
   const args = {
     partyName: document.getElementById('vParty').value.trim() || 'Walk-in',
     partyGstin: document.getElementById('vGstin').value.trim().toUpperCase(),
@@ -805,7 +810,7 @@ document.getElementById('voucher').addEventListener('submit', async (e) => {
       description: document.getElementById('vDesc').value.trim() || 'Supply',
       qty: Number(document.getElementById('vQty').value || 1),
       rate: Number(document.getElementById('vRate').value || 0),
-      gstRate: Number(document.getElementById('vGst').value || 18),
+      gstRate: Number(gstChoice),
     }],
   };
   if (!args.lines[0].rate) {

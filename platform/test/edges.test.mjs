@@ -195,15 +195,15 @@ test('invoice: GST 0% still posts and ties', () => {
   assert.equal(trialBalance(state.ledger).balanced, true);
 });
 
-test('invoice: default GST 18% and default qty 1', () => {
+test('invoice: default qty 1; the GST rate is never defaulted', () => {
   const state = createState();
   const r = createInvoice(state, {
     partyName: 'Walk-in',
-    lines: [{ description: 'Cut', rate: 100 }],
+    lines: [{ description: 'Cut', rate: 100, gstRate: 18 }],
   });
   assert.equal(r.invoice.lines[0].qty, 1);
-  assert.equal(r.invoice.lines[0].gstRate, 18);
   assert.equal(r.invoice.total, 118);
+  assert.equal(createInvoice(state, { partyName: 'Walk-in', lines: [{ description: 'Cut', rate: 100 }] }).error, 'RATE_REQUIRED');
 });
 
 test('invoice: B2C with no GSTIN books intra CGST/SGST against company state', () => {
