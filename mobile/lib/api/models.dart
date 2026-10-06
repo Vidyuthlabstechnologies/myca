@@ -675,6 +675,112 @@ class GstReview {
   final String approvedOn;
 }
 
+class CreditRisk {
+  const CreditRisk({
+    required this.billId,
+    required this.supplierInvoiceNo,
+    required this.supplier,
+    required this.gstin,
+    required this.date,
+    required this.credit,
+    required this.reason,
+    required this.why,
+  });
+
+  factory CreditRisk.fromJson(Object? json) {
+    final map = _map(json);
+    return CreditRisk(
+      billId: _text(map['billId']),
+      supplierInvoiceNo: _text(map['supplierInvoiceNo']),
+      supplier: _text(map['supplier']),
+      gstin: _text(map['gstin']),
+      date: _text(map['date']),
+      credit: _num(map['credit']),
+      reason: _text(map['reason']),
+      why: _text(map['why']),
+    );
+  }
+
+  final String billId;
+  final String supplierInvoiceNo;
+  final String supplier;
+  final String gstin;
+  final String date;
+  final num credit;
+  final String reason;
+  final String why;
+}
+
+class SupplierRisk {
+  const SupplierRisk({
+    required this.supplier,
+    required this.gstin,
+    required this.credit,
+    required this.bills,
+  });
+
+  factory SupplierRisk.fromJson(Object? json) {
+    final map = _map(json);
+    return SupplierRisk(
+      supplier: _text(map['supplier']),
+      gstin: _text(map['gstin']),
+      credit: _num(map['credit']),
+      bills: _num(map['bills']).toInt(),
+    );
+  }
+
+  final String supplier;
+  final String gstin;
+  final num credit;
+  final int bills;
+}
+
+class CreditCheck {
+  const CreditCheck({
+    required this.period,
+    required this.statementFile,
+    required this.statementOn,
+    required this.bills,
+    required this.creditInBooks,
+    required this.creditMatched,
+    required this.creditAtRisk,
+    required this.risks,
+    required this.bySupplier,
+    required this.notBooked,
+  });
+
+  static CreditCheck? fromTool(Object? json) {
+    final map = toolData(json);
+    if (_text(map['period']).isEmpty) return null;
+    final statement = _map(map['statement']);
+    return CreditCheck(
+      period: _text(map['period']),
+      statementFile: _text(statement['fileName']),
+      statementOn: _text(statement['importedOn']),
+      bills: _num(map['bills']).toInt(),
+      creditInBooks: _num(map['creditInBooks']),
+      creditMatched: _num(map['creditMatched']),
+      creditAtRisk: _num(map['creditAtRisk']),
+      risks: _maps(map['risks']).map(CreditRisk.fromJson).toList(),
+      bySupplier: _maps(map['bySupplier']).map(SupplierRisk.fromJson).toList(),
+      notBooked: _maps(map['notBooked']).length,
+    );
+  }
+
+  final String period;
+  final String statementFile;
+  final String statementOn;
+  final int bills;
+  final num creditInBooks;
+  final num creditMatched;
+  final num creditAtRisk;
+  final List<CreditRisk> risks;
+  final List<SupplierRisk> bySupplier;
+  final int notBooked;
+
+  bool get hasStatement => statementFile.isNotEmpty;
+}
+
 class Today {
   const Today({
     required this.gst,

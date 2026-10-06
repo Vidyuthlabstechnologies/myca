@@ -10,6 +10,7 @@ import '../format.dart';
 import '../marks.dart';
 import '../theme.dart';
 import '../widgets.dart';
+import 'credit_card.dart';
 import 'review_screen.dart';
 
 const _heldReasons = {
@@ -251,6 +252,8 @@ class _TaxesScreenState extends State<TaxesScreen> {
                     note: _fileNote,
                     onSave: () => _saveFile(gst),
                   ),
+                  const SizedBox(height: 12),
+                  CreditCard(period: gst.period),
                   const SizedBox(height: 12),
                   SizedBox(
                     width: double.infinity,

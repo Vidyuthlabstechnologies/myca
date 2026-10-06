@@ -36,6 +36,7 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
   final _amount = TextEditingController();
   final _rate = TextEditingController();
   final _what = TextEditingController();
+  final _billNo = TextEditingController();
   late _Composer _composer = widget.openComposer
       ? _Composer.document
       : _Composer.none;
@@ -76,6 +77,7 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
     _amount.dispose();
     _rate.dispose();
     _what.dispose();
+    _billNo.dispose();
     super.dispose();
   }
 
@@ -109,8 +111,10 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
         description: _what.text,
         amount: amount,
         gstRate: rate,
+        supplierInvoiceNo: _sales ? '' : _billNo.text,
       ),
     );
+    _billNo.clear();
   }
 
   Future<void> _submitPayment() async {
@@ -273,6 +277,20 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
   }
 
   List<Widget> _documentFields(List<num> rates) => [
+    if (!_sales) ...[
+      TextField(
+        controller: _billNo,
+        textCapitalization: TextCapitalization.characters,
+        maxLength: 16,
+        decoration: const InputDecoration(
+          labelText: 'Supplier\'s bill number',
+          helperText:
+              'As printed on the bill. It is how the bill is found in GSTR-2B.',
+          counterText: '',
+        ),
+      ),
+      const SizedBox(height: 10),
+    ],
     Row(
       children: [
         Expanded(

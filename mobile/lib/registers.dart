@@ -78,9 +78,12 @@ Map<String, Object?> documentArgs({
   required String description,
   required num amount,
   required num gstRate,
+  String supplierInvoiceNo = '',
 }) => {
   'partyName': partyName.trim(),
   'partyGstin': partyGstin.trim().toUpperCase(),
+  if (supplierInvoiceNo.trim().isNotEmpty)
+    'supplierInvoiceNo': supplierInvoiceNo.trim(),
   'lines': [
     {
       'description': description.trim().isEmpty ? 'Supply' : description.trim(),
