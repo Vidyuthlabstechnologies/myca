@@ -1,4 +1,4 @@
-import { createAccounts, createTransfers, paise, TRANSFER_FLAGS } from './ledger.mjs';
+import { createAccounts, createTransfers, listAccounts, paise, TRANSFER_FLAGS } from './ledger.mjs';
 import { gstSplit, nextPartyId, partyStateOf } from './chart.mjs';
 import { csvRows, htmlEscape } from './text-safe.mjs';
 import { isPeriodLocked } from './period-lock.mjs';
@@ -347,6 +347,59 @@ export function createPurchase(state, input) {
   state.purchases = state.purchases || [];
   state.purchases.push(bill);
   return { ok: true, invoice: bill, posted };
+}
+
+export function billOutstanding(bill) {
+  const paid = (bill.payments || []).reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+  return Math.round((Number(bill.total || 0) - paid) * 100) / 100;
+}
+
+export function cashInHand(state) {
+  const cash = listAccounts(state.ledger).find((account) => account.code === '1001');
+  return cash ? Math.round((cash.debitsPosted - cash.creditsPosted) * 100) / 100 : 0;
+}
+
+export function planPayment(state, { billId, amount, date, mode } = {}) {
+  const bill = (state.purchases || []).find((item) => item.id === billId);
+  if (!bill) return { ok: false, error: 'BILL_NOT_FOUND', billId };
+  const paidOn = date == null || date === '' ? null : postingDate(date);
+  if (date != null && date !== '' && !paidOn) return { ok: false, error: 'INVALID_DATE', date };
+  const when = paidOn || bill.date;
+  if (when < bill.date) return { ok: false, error: 'BEFORE_BILL', date: when, billDate: bill.date };
+  if (isPeriodLocked(state, when)) return { ok: false, error: 'PERIOD_LOCKED', date: when, lockThrough: state.lockThrough };
+  const vendor = (state.vendors || []).find((item) => item.accountId === bill.partyAccountId);
+  if (!vendor) return { ok: false, error: 'PARTY_NOT_FOUND' };
+  const due = billOutstanding(bill);
+  if (due <= 0.005) return { ok: false, error: 'BILL_PAID', billId, total: bill.total };
+  const amt = amount == null || amount === '' ? due : Math.round(Number(amount) * 100) / 100;
+  if (!Number.isFinite(amt) || amt <= 0) return { ok: false, error: 'BAD_AMOUNT' };
+  if (amt > due + 0.005) return { ok: false, error: 'OVERPAYMENT', billId, due };
+  const how = mode === 'cash' ? 'cash' : 'bank';
+  if (how === 'cash') {
+    const inHand = cashInHand(state);
+    if (inHand + 0.005 < amt) return { ok: false, error: 'INSUFFICIENT_CASH', inHand, amount: amt };
+  }
+  return { ok: true, bill, vendor, amount: amt, date: when, mode: how, due, remaining: Math.round((due - amt) * 100) / 100 };
+}
+
+export function recordPayment(state, args = {}) {
+  const plan = planPayment(state, args);
+  if (!plan.ok) return plan;
+  const { bill, vendor, amount, date, mode } = plan;
+  const posted = createTransfers(state.ledger, [{
+    id: nextTransferId(state),
+    debitAccountId: vendor.accountId,
+    creditAccountId: mode === 'cash' ? 1001 : 1002,
+    amount: paise(amount),
+    invoiceId: bill.id,
+    code: 'PAYMENT',
+    userData: date,
+  }]);
+  if (!posted[0].ok) return { ok: false, error: posted[0].error };
+  bill.payments = bill.payments || [];
+  bill.payments.push({ amount, date, mode });
+  bill.status = billOutstanding(bill) <= 0.005 ? 'paid' : 'partial';
+  return { ok: true, bill, payment: { amount, date, mode }, remaining: billOutstanding(bill), posted };
 }
 
 export function printInvoice(state, id) {

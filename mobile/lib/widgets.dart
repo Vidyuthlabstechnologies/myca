@@ -235,7 +235,7 @@ class Bubble extends StatelessWidget {
     };
     final foreground = mine ? Colors.white : Palette.ink;
     final stampColor = switch (stamp) {
-      'Unpaid' || 'Declined' || 'Expired' => Palette.warn,
+      'Unpaid' || 'Part paid' || 'Declined' || 'Expired' => Palette.warn,
       'Cancelled' => Palette.danger,
       'Open' => Palette.muted,
       _ => Palette.accent,

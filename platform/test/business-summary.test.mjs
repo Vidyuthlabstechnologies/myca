@@ -36,7 +36,7 @@ test('the summary gives this month and last month from documents, net of credit 
   assert.equal(d.owedToYou.total, 10500 + 15000 + 3150);
   assert.equal(d.owedToYou.invoices, 3);
   assert.deepEqual(d.owedToYou.customers[0], { name: 'Retail Mart', due: 25500, invoices: 2 });
-  assert.match(d.caveat, /not tracked yet/);
+  assert.match(d.caveat, /payments recorded against bills/);
 });
 
 test('January looks back to December; a bad period is refused; empty books give zeros', async () => {

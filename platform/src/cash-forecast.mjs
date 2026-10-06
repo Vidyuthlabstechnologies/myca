@@ -3,6 +3,7 @@ import { daysBetween } from './reminders.mjs';
 import { outstandingOf } from './credit-notes.mjs';
 import { periodOf } from './return-period.mjs';
 import { periodSummary } from './period-summary.mjs';
+import { billOutstanding } from './invoice.mjs';
 
 const BANK = 1002n;
 const CASH = 1001n;
@@ -158,13 +159,18 @@ function expectedReceipts(state, from, until) {
 }
 
 function expectedBillPayments(state, from, until) {
-  const rows = [];
+  const inWindow = [];
+  const older = [];
   for (const bill of state.purchases || []) {
+    const owed = billOutstanding(bill);
+    if (owed <= 0.005) continue;
     const date = addDays(bill.date, ASSUMED_DAYS);
-    if (date < from || date > until) continue;
-    rows.push({ date, label: `${bill.supplierInvoiceNo || bill.id} to ${bill.partyName}`, amount: round2(bill.total), basis: `bill dated ${bill.date}; assumed paid in ${ASSUMED_DAYS} days` });
+    const part = owed < Number(bill.total || 0) - 0.005 ? `; ₹${round2(Number(bill.total) - owed).toLocaleString('en-IN')} already paid` : '';
+    const row = { date, label: `${bill.supplierInvoiceNo || bill.id} to ${bill.partyName}`, amount: owed, basis: `bill dated ${bill.date}; assumed paid in ${ASSUMED_DAYS} days${part}` };
+    if (date < from) older.push({ ...row, basis: `bill dated ${bill.date}; unpaid past ${ASSUMED_DAYS} days${part}` });
+    else if (date <= until) inWindow.push(row);
   }
-  return rows;
+  return { inWindow, older };
 }
 
 function monthlyAverages(state, from) {
@@ -195,7 +201,8 @@ export function cashForecast(state, { days = 30, from = localToday(), deadlines 
   const start = cashStart(state, from);
   const averages = monthlyAverages(state, from);
   const receipts = expectedReceipts(state, from, until);
-  const bills = expectedBillPayments(state, from, until);
+  const billRows = expectedBillPayments(state, from, until);
+  const bills = billRows.inWindow;
   const gst = gstPayments(state, deadlines, from, until);
   const spending = averages.expenses > 0
     ? [{ date: until, label: 'Usual expenses', amount: round2((averages.expenses * span) / 30), basis: `average of ${averages.months[0]} to ${averages.months.at(-1)}, spread over the days`, spread: true }]
@@ -229,6 +236,7 @@ export function cashForecast(state, { days = 30, from = localToday(), deadlines 
       coming: { total: sum(receipts.inWindow), rows: receipts.inWindow },
       going: { total: round2(sum(bills) + sum(gst) + sum(spending)), rows: [...bills, ...gst, ...spending] },
       overdue: { total: sum(receipts.overdue), rows: receipts.overdue },
+      unpaidBills: { total: sum(billRows.older), rows: billRows.older },
       end: round2(balance),
       lowest,
       monthlyOutgoings: averages.outgoings,
@@ -237,7 +245,7 @@ export function cashForecast(state, { days = 30, from = localToday(), deadlines 
         start.note,
         'Overdue invoices are listed but not counted: MyCA cannot tell when they will be paid.',
         averages.expenses > 0 ? '' : 'No expenses in the last three months, so none are projected.',
-        'MyCA does not yet record payments to suppliers against bills, so older unpaid bills are not in this forecast.',
+        billRows.older.length ? 'Bills unpaid for more than 30 days are listed but not counted: MyCA cannot tell when you will pay them, or whether you paid them outside MyCA.' : '',
       ].filter(Boolean),
     },
   };

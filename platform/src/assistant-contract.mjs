@@ -1,5 +1,6 @@
 import { planReceiptWithoutInvoice } from './receipt-intent.mjs';
 import { planExpenseFromChat } from './expense-intent.mjs';
+import { planPaymentFromChat } from './payment-intent.mjs';
 import { reviewOf } from './gst-review.mjs';
 import { planReminderFromChat } from './reminder-intent.mjs';
 import { planCashFromChat } from './cash-intent.mjs';
@@ -449,6 +450,17 @@ export const TOOL_ARG_SCHEMAS = {
       date: { type: 'string' },
     },
   },
+  record_payment: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['billId'],
+    properties: {
+      billId: { type: 'string', minLength: 1, maxLength: 64 },
+      amount: { type: 'number', exclusiveMinimum: 0 },
+      mode: { type: 'string', enum: ['bank', 'cash'] },
+      date: { type: 'string' },
+    },
+  },
   exceptions: {
     type: 'object',
     additionalProperties: false,
@@ -765,6 +777,7 @@ const TOOL_RISK = {
   create_invoice: 'writes_books',
   create_purchase: 'writes_books',
   record_receipt: 'writes_books',
+  record_payment: 'writes_books',
   import_tally: 'writes_books',
   import_tally_xml: 'writes_books',
   import_zoho: 'writes_books',
@@ -923,6 +936,8 @@ export function planLocalToolCall(state, message) {
       return { kind: 'tool', name: 'create_quote', args: { partyName: quoted.partyName, ...(quoted.partyGstin ? { partyGstin: quoted.partyGstin } : {}), lines: quoted.lines, ...(validity ? { validDays: Number(validity[1]) } : {}) } };
     }
   }
+  const payment = planPaymentFromChat(state, text);
+  if (payment) return payment;
   const saidTerms = takeInvoiceTerms(text);
   const doc = parseDocument(saidTerms.text);
   const asking = isQuestion(text) || isNegated(text);

@@ -85,7 +85,10 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
     _composer = composer;
     _formError = '';
     _amount.clear();
-    if (composer == _Composer.payment) _invoiceId = party.unpaid.first.id;
+    if (composer == _Composer.payment) {
+      _invoiceId = party.unpaid.first.id;
+      if (!_sales) _amount.text = plainNumber(party.unpaid.first.owed);
+    }
   });
 
   Future<void> _submitDocument() async {
@@ -149,10 +152,27 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
     final amount = parseAmount(_amount.text);
     final invoiceId = _invoiceId;
     if (amount == null || invoiceId == null) {
-      return setState(() => _formError = 'Enter the amount received.');
+      return setState(
+        () => _formError = _sales
+            ? 'Enter the amount received.'
+            : 'Enter the amount paid.',
+      );
     }
     final received = isoDate(AppScope.of(context).now());
     setState(() => _composer = _Composer.none);
+    if (!_sales) {
+      await propose(
+        'Paid ${rupees(amount)} by $_mode against $invoiceId',
+        'record_payment',
+        {
+          'billId': invoiceId,
+          'amount': amount,
+          'mode': _mode,
+          'date': received,
+        },
+      );
+      return;
+    }
     await propose(
       'Received ${rupees(amount)} by $_mode against $invoiceId',
       'record_receipt',
@@ -282,9 +302,13 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
           amount: rupees(doc.total),
           tone: BubbleTone.plain,
           label: doc.date,
-          stamp: _sales
-              ? (doc.cancelled ? 'Cancelled' : (doc.paid ? 'Paid' : 'Unpaid'))
-              : null,
+          stamp: doc.cancelled
+              ? 'Cancelled'
+              : doc.paid
+              ? 'Paid'
+              : (!_sales && doc.partial)
+              ? 'Part paid'
+              : 'Unpaid',
           footnotes: _sales
               ? [
                   if (dueWords(
@@ -299,7 +323,9 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
                     ),
                   'Tap to view or send',
                 ]
-              : const [],
+              : [
+                  if (doc.partial) '${rupees(doc.owed)} still owed',
+                ],
           onTap: _sales
               ? () => Navigator.of(context).push(
                   MaterialPageRoute<void>(
@@ -324,6 +350,14 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
             tone: BubbleTone.plain,
             label: receipt.date,
           ),
+        for (final payment in doc.payments)
+          Bubble(
+            text: 'Paid by ${payment.mode} against ${doc.id}',
+            amount: rupees(payment.amount),
+            tone: BubbleTone.plain,
+            label: payment.date,
+          ),
+
       ],
     ];
   }
@@ -399,7 +433,7 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
               busy: busy,
               sales: _sales,
               again: _postedHere,
-              canReceive: _sales && party.unpaid.isNotEmpty,
+              canReceive: party.unpaid.isNotEmpty,
               terms: _sales
                   ? (snapshot?.termsFor(party.name, party.gstin))
                   : null,
@@ -411,7 +445,7 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
           else
             _ComposerCard(
               title: _composer == _Composer.payment
-                  ? 'Payment received'
+                  ? (_sales ? 'Payment received' : 'Payment made')
                   : _composer == _Composer.quote
                   ? 'New quote'
                   : (_sales ? 'New sale' : 'New bill'),
@@ -511,23 +545,34 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
   List<Widget> _paymentFields(Party party) => [
     DropdownButtonFormField<String>(
       initialValue: _invoiceId,
-      decoration: const InputDecoration(labelText: 'Against invoice'),
+      decoration: InputDecoration(
+        labelText: _sales ? 'Against invoice' : 'Against bill',
+      ),
       items: [
         for (final doc in party.unpaid)
           DropdownMenuItem(
             value: doc.id,
-            child: Text('${doc.id} · ${rupees(doc.total)}'),
+            child: Text(
+              _sales
+                  ? '${doc.id} · ${rupees(doc.total)}'
+                  : '${doc.id} · ${rupees(doc.owed)} owed',
+            ),
           ),
       ],
-      onChanged: (value) => setState(() => _invoiceId = value),
+      onChanged: (value) => setState(() {
+        _invoiceId = value;
+        if (_sales) return;
+        final bill = party.unpaid.where((doc) => doc.id == value);
+        if (bill.isNotEmpty) _amount.text = plainNumber(bill.first.owed);
+      }),
     ),
     const SizedBox(height: 10),
     TextField(
       controller: _amount,
       autofocus: true,
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
-      decoration: const InputDecoration(
-        labelText: 'Amount received',
+      decoration: InputDecoration(
+        labelText: _sales ? 'Amount received' : 'Amount paid',
         prefixText: '₹ ',
       ),
     ),
@@ -593,8 +638,11 @@ class _ActionChips extends StatelessWidget {
               ),
               if (canReceive)
                 ActionChip(
-                  avatar: const Icon(Icons.south_west, size: 18),
-                  label: const Text('Payment received'),
+                  avatar: Icon(
+                    sales ? Icons.south_west : Icons.north_east,
+                    size: 18,
+                  ),
+                  label: Text(sales ? 'Payment received' : 'Paid'),
                   onPressed: busy ? null : onPayment,
                 ),
               if (onQuote != null)

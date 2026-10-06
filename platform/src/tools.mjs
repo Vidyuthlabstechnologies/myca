@@ -7,7 +7,7 @@ const { complianceRun } = deadlines;
 const { filingPrep } = filing;
 const { auditRun } = audit;
 import { listAccounts, journal, trialBalance, verifyChain, createTransfers, paise } from './ledger.mjs';
-import { createInvoice, recordReceipt, invoicesToSalesCsv, createPurchase, purchasesToInwardCsv, printInvoice } from './invoice.mjs';
+import { createInvoice, recordReceipt, recordPayment, invoicesToSalesCsv, createPurchase, purchasesToInwardCsv, printInvoice } from './invoice.mjs';
 import { invoiceDocument, quoteDocument } from './invoice-document.mjs';
 import { createQuote, markQuote, convertQuote, listQuotes } from './quotes.mjs';
 import { postExpense, retagExpense, listExpenses, expenseHeads } from './expenses.mjs';
@@ -526,6 +526,13 @@ export const TOOLS = [
     description: 'Receive payment against an invoice (bank or cash) and post the AR settlement.',
     args: ['invoiceId', 'amount', 'mode', 'date'],
     run: (state, args) => recordReceipt(state, args),
+  },
+  {
+    name: 'record_payment',
+    title: 'Pay a supplier',
+    description: 'Record a payment to a supplier against a bill (bank or cash) and post the AP settlement. With no amount, the whole outstanding balance is paid.',
+    args: ['billId', 'amount', 'mode', 'date'],
+    run: (state, args) => recordPayment(state, args),
   },
   {
     name: 'gst_payable',

@@ -2,6 +2,7 @@ import { localToday } from './dates.mjs';
 import { isReturnPeriod, periodOf } from './return-period.mjs';
 import { outstandingOf } from './credit-notes.mjs';
 import { overdueBy } from './payment-terms.mjs';
+import { billOutstanding } from './invoice.mjs';
 
 const round2 = (value) => Math.round(Number(value || 0) * 100) / 100;
 
@@ -42,6 +43,16 @@ export function businessSummary(state, { period } = {}) {
     byCustomer.set(key, row);
   }
   const customers = [...byCustomer.values()].sort((a, b) => b.due - a.due);
+  const unpaidBills = (state.purchases || []).map((bill) => ({ bill, due: billOutstanding(bill) })).filter((item) => item.due > 0.005);
+  const bySupplier = new Map();
+  for (const { bill, due } of unpaidBills) {
+    const key = String(bill.partyName || '').trim().toLowerCase();
+    const row = bySupplier.get(key) || { name: bill.partyName, due: 0, bills: 0 };
+    row.due = round2(row.due + due);
+    row.bills += 1;
+    bySupplier.set(key, row);
+  }
+  const suppliers = [...bySupplier.values()].sort((a, b) => b.due - a.due);
   const today = localToday();
   const late = open.filter(({ invoice }) => (overdueBy(invoice, today) || 0) > 0);
   return {
@@ -57,7 +68,12 @@ export function businessSummary(state, { period } = {}) {
         customers: customers.slice(0, 5),
         overdue: { total: round2(late.reduce((sum, item) => sum + item.due, 0)), invoices: late.length },
       },
-      caveat: 'Purchases are bill totals; what you still owe suppliers is not tracked yet.',
+      owedBySuppliers: {
+        total: round2(unpaidBills.reduce((sum, item) => sum + item.due, 0)),
+        bills: unpaidBills.length,
+        suppliers: suppliers.slice(0, 5),
+      },
+      caveat: 'What you owe suppliers counts only payments recorded against bills; a bill paid outside MyCA shows as owed until its payment is recorded.',
     },
   };
 }

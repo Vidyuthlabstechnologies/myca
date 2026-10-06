@@ -448,6 +448,8 @@ class FakeMycaApi implements MycaApi {
     return _preview(switch (name) {
       'create_invoice' => 'Invoice to ${args['partyName']}: total ₹9,440.00.',
       'record_receipt' => 'Receipt of ₹1,000.00 against ${args['invoiceId']}.',
+      'record_payment' =>
+        'Pay Fabric Co ₹${args['amount']} against ${args['billId']} from the ${args['mode']}.',
       'import_tally' => 'Tally import: 12 vouchers ready, 1 skipped.',
       _ => 'Run $name.',
     });
@@ -459,6 +461,28 @@ class FakeMycaApi implements MycaApi {
     final held = _held;
     if (token == FakeMycaApi.token && held != null) {
       _held = null;
+      if (held.tool == 'record_payment') {
+        final bill = purchases.firstWhere((b) => b['id'] == held.args['billId']);
+        final paid = <Object?>[
+          ...(bill['payments'] as List<Object?>? ?? const <Object?>[]),
+          {
+            'amount': held.args['amount'],
+            'date': held.args['date'],
+            'mode': held.args['mode'],
+          },
+        ];
+        final total = paid.fold<num>(
+          0,
+          (sum, p) => sum + ((p as Map)['amount'] as num),
+        );
+        bill['payments'] = paid;
+        bill['status'] = total >= (bill['total'] as num) ? 'paid' : 'partial';
+        return ChatReply.fromJson({
+          'reply': 'Paid Fabric Co against ${held.args['billId']}.',
+          'posted': true,
+          'confirmed': true,
+        });
+      }
       if (held.tool == 'post_expense') {
         expenses.add({
           'id': 'EXP-0003',
@@ -1131,8 +1155,15 @@ class FakeMycaApi implements MycaApi {
                 {'name': 'Gujarat Weaves', 'due': 377600, 'invoices': 1},
               ],
             },
+            'owedBySuppliers': {
+              'total': 42000,
+              'bills': 1,
+              'suppliers': [
+                {'name': 'Fabric Co', 'due': 42000, 'bills': 1},
+              ],
+            },
             'caveat':
-                'Purchases are bill totals; what you still owe suppliers is not tracked yet.',
+                'What you owe suppliers counts only payments recorded against bills.',
           },
         };
       case 'expense_heads':

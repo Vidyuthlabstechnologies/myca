@@ -106,6 +106,7 @@ class Invoice {
     required this.status,
     required this.receipts,
     required this.gstRates,
+    this.payments = const [],
     this.dueDate = '',
     this.termsDays,
   });
@@ -120,6 +121,7 @@ class Invoice {
       total: _num(map['total']),
       status: _text(map['status']),
       receipts: _maps(map['receipts']).map(Receipt.fromJson).toList(),
+      payments: _maps(map['payments']).map(Receipt.fromJson).toList(),
       dueDate: _text(map['dueDate']),
       termsDays: map['paymentTermsDays'] is num
           ? (map['paymentTermsDays'] as num).toInt()
@@ -138,11 +140,16 @@ class Invoice {
   final num total;
   final String status;
   final List<Receipt> receipts;
+  final List<Receipt> payments;
   final List<num> gstRates;
   final String dueDate;
   final int? termsDays;
 
   bool get paid => status == 'paid';
+
+  bool get partial => status == 'partial';
+
+  num get owed => payments.fold<num>(total, (left, p) => left - p.amount);
 
   bool get cancelled => status == 'cancelled';
 
@@ -565,11 +572,15 @@ class BusinessSummary {
     required this.openInvoices,
     required this.customers,
     required this.caveat,
+    this.owedBySuppliers = 0,
+    this.unpaidBills = 0,
+    this.suppliers = const [],
   });
 
   factory BusinessSummary.fromJson(Object? json) {
     final map = _map(json);
     final owed = _map(map['owedToYou']);
+    final owing = _map(map['owedBySuppliers']);
     return BusinessSummary(
       period: _text(map['period']),
       previousPeriod: _text(map['previousPeriod']),
@@ -579,6 +590,11 @@ class BusinessSummary {
       openInvoices: _num(owed['invoices']).toInt(),
       customers: _maps(owed['customers']).map(OwedCustomer.fromJson).toList(),
       caveat: _text(map['caveat']),
+      owedBySuppliers: _num(owing['total']),
+      unpaidBills: _num(owing['bills']).toInt(),
+      suppliers: _maps(
+        owing['suppliers'],
+      ).map(OwedCustomer.fromJson).toList(),
     );
   }
 
@@ -590,6 +606,9 @@ class BusinessSummary {
   final int openInvoices;
   final List<OwedCustomer> customers;
   final String caveat;
+  final num owedBySuppliers;
+  final int unpaidBills;
+  final List<OwedCustomer> suppliers;
 }
 
 BusinessSummary? businessSummaryFrom(Object? json) {

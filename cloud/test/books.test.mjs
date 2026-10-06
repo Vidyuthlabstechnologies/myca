@@ -152,3 +152,17 @@ test('the service refuses to start with live provider calls switched on', () => 
     else process.env.MYCA_ENABLE_LIVE_CALLS = previous;
   }
 });
+
+test('a supplier bill can be paid from the phone, previewed first, and is part paid after', async () => {
+  const shop = await api.ownerWithBusiness('+919200000077', { name: 'Kaveri Textiles', state: '29' });
+  const bill = await post('propose', { name: 'create_purchase', args: { partyName: 'Fabric Co', date: '2026-09-01', lines: [{ description: 'Cloth', qty: 1, rate: 10000, gstRate: 5 }] } }, shop);
+  assert.equal((await post('confirm', { token: bill.body.preview.token }, shop)).body.posted, true);
+  const held = await post('propose', { name: 'record_payment', args: { billId: 'BILL-0001', amount: 4000, date: '2026-09-10' } }, shop);
+  assert.equal(held.status, 200, held.text);
+  assert.equal(held.body.preview.figures.remaining, 6500);
+  assert.equal((await snapshot(shop)).purchases[0].payments, undefined);
+  assert.equal((await post('confirm', { token: held.body.preview.token }, shop)).body.posted, true);
+  const [paid] = (await snapshot(shop)).purchases;
+  assert.equal(paid.status, 'partial');
+  assert.deepEqual(paid.payments, [{ amount: 4000, date: '2026-09-10', mode: 'bank' }]);
+});

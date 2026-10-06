@@ -56,7 +56,13 @@ Party partyNamed(List<Invoice> documents, String name, String fallbackGstin) {
 
 String lastEntryLine(Invoice doc, RegisterKind kind) {
   final what = kind == RegisterKind.sales ? 'Invoice' : 'Bill';
-  final state = doc.cancelled ? 'cancelled' : (doc.paid ? 'paid' : 'unpaid');
+  final state = doc.cancelled
+      ? 'cancelled'
+      : doc.paid
+      ? 'paid'
+      : doc.partial
+      ? 'part paid'
+      : 'unpaid';
   return '$what ${doc.id}, ${rupees(doc.total)}, $state';
 }
 

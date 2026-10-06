@@ -54,19 +54,19 @@ Read [`docs/product/PRD.md`](../product/PRD.md) for requirements,
 ## 3. Where it stands (6 October 2026)
 
 About **52% of the PRD** is built. See [`docs/superpowers/PROGRESS.md`](../superpowers/PROGRESS.md)
-for the weighted breakdown. There are **1,009 automated tests**:
+for the weighted breakdown. There are **1,032 automated tests**:
 
 | Suite | Tests |
 |---|---|
-| Platform | 531 |
+| Platform | 550 |
 | Engines and statutory rules | 329 |
-| Hosted API | 53 |
-| Android app | 96 |
+| Hosted API | 54 |
+| Android app | 99 |
 
 **Built and tested**
 
 - **Invoices:** by form or message, with a PDF and the share sheet. Payment terms and due dates. Credit notes and cancellation. Quotes, which can be turned into linked invoices.
-- **Expenses:** 15 expense heads, a tagger, and bills carrying the supplier's bill number.
+- **Expenses and bills:** 15 expense heads, a tagger, bills carrying the supplier's bill number, and payments to suppliers against bills.
 - **GST:** the GSTR-1 and GSTR-3B drafts, a review in chat ("Is this information correct?"), GSTR-2B import, and credit at risk.
 - **Checks:** a books check, and an entries export for a CA as a spreadsheet.
 - **Planning:** reminders, a cash forecast, and "can I afford it?".
@@ -196,10 +196,11 @@ binding. This section adds the technical detail.
    rate are refused with `RATE_REQUIRED` in the engine. The preview blocks them and
    mentions the rate last charged to that customer, without using it. The desktop
    form makes you choose a rate. GST 0% is still a valid rate.
-4. **Supplier payments.**
-   - Record payments against bills, in the same way receipts are recorded against invoices.
-   - Show "owed to suppliers" on the dashboard; it is the one figure the dashboard is missing.
-   - Add the outstanding amount to the cash forecast.
+4. **Supplier payments** (**done** 6 October 2026). `record_payment` pays a bill in part
+   or in full from the bank or cash. It works from chat and from the supplier's chat in
+   the app. Home shows what is owed to suppliers, and the cash forecast counts only what
+   is still owed. Still open: Rule 37 reads payment status from an uploaded purchase
+   register, not from these payments.
 5. Add crash and error reporting that carries no personal or financial data.
 
 ### Phase 2: hosted pilot
@@ -262,7 +263,6 @@ outstanding.
 ## 9. Known gaps and risks
 
 - **Never run on a device.** Phase 1 exists for this reason.
-- **Supplier payments are not recorded** against bills (Phase 1, item 4).
 - **Due dates are "passed", not "late".** The product does not know whether a return was
   filed, so it never says one was late. Keep that honesty when filing goes live.
 - **No set-off.** The app shows the return figures but not the cash to pay. Do not add a

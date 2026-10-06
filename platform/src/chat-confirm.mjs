@@ -20,13 +20,13 @@ import { isReturnPeriod } from './return-period.mjs';
 import { gstSplit, partyStateOf } from './chart.mjs';
 import { postingDate } from './dates.mjs';
 import { isPeriodLocked } from './period-lock.mjs';
-import { lastGstRateFor } from './invoice.mjs';
+import { lastGstRateFor, planPayment } from './invoice.mjs';
 import { tally, bank } from './sprint-load.mjs';
 import { parseZohoBooksCsv } from './import-zoho.mjs';
 import { tallyXmlToDayBookCsv } from './tally-xml.mjs';
 
 export const CONFIRM_TOOLS = new Set([
-  'create_invoice', 'create_purchase', 'record_receipt', 'post_expense', 'set_expense_head', 'create_credit_note', 'cancel_invoice', 'gst_review_answer', 'import_gstr2b', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote',
+  'create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'post_expense', 'set_expense_head', 'create_credit_note', 'cancel_invoice', 'gst_review_answer', 'import_gstr2b', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote',
   'import_tally', 'import_tally_xml', 'import_zoho', 'import_bank',
   'govt_generate_irn', 'govt_nic_cancel_irn',
   'exception_decide',
@@ -110,6 +110,37 @@ function receiptPreview(state, args) {
     summary: `Receipt of ${money(amount)} against ${inv.id} (${inv.partyName}) by ${args.mode === 'cash' ? 'cash' : 'bank'} on ${date || '?'}. Outstanding is ${money(due)} of ${money(inv.total)}.`,
     effects: [`Debit ${args.mode === 'cash' ? 'cash' : 'bank'}, credit ${inv.partyName}.`, `${inv.id} becomes ${amount >= due - 0.01 ? 'paid' : 'partly paid'}.`],
     figures: { amount, due, date },
+  };
+}
+
+const PAYMENT_REASONS = {
+  BILL_NOT_FOUND: 'That bill is not in these books.',
+  INVALID_DATE: 'That is not a date I can read.',
+  BEFORE_BILL: 'A payment cannot be dated before the bill.',
+  PERIOD_LOCKED: 'That date is inside the locked period.',
+  PARTY_NOT_FOUND: 'The supplier on that bill is missing from these books.',
+  BILL_PAID: 'That bill is already fully paid.',
+  BAD_AMOUNT: 'A payment has to be a positive amount.',
+  OVERPAYMENT: 'That is more than is still owed on the bill.',
+  INSUFFICIENT_CASH: 'There is not that much cash in hand. Pay from the bank, or record the cash first.',
+};
+
+function paymentPreview(state, args) {
+  const plan = planPayment(state, args);
+  if (!plan.ok) {
+    const bill = (state.purchases || []).find((item) => item.id === args.billId);
+    const detail = plan.error === 'OVERPAYMENT' ? ` ${money(plan.due)} is owed on ${args.billId}.`
+      : plan.error === 'INSUFFICIENT_CASH' ? ` Cash in hand is ${money(plan.inHand)}.`
+        : plan.error === 'BILL_PAID' ? ` ${args.billId} was ${money(plan.total)}.` : '';
+    return { blockers: [`${PAYMENT_REASONS[plan.error] || plan.error}${detail}`], summary: bill ? `Payment against ${bill.id} to ${bill.partyName}.` : `No bill ${args.billId}.`, effects: [], figures: {} };
+  }
+  const { bill, amount, date, mode, due, remaining } = plan;
+  const label = bill.supplierInvoiceNo ? `${bill.id} (their bill ${bill.supplierInvoiceNo})` : bill.id;
+  return {
+    blockers: [],
+    summary: `Pay ${bill.partyName} ${money(amount)} against ${label} from ${mode === 'cash' ? 'cash' : 'the bank'} on ${date}. ${money(due)} is owed on ${money(bill.total)}.`,
+    effects: [`Debit ${bill.partyName}, credit ${mode === 'cash' ? 'cash' : 'bank'}.`, remaining > 0.005 ? `${bill.id} stays partly paid, with ${money(remaining)} still owed.` : `${bill.id} becomes paid.`],
+    figures: { amount, due, remaining, date },
   };
 }
 
@@ -449,6 +480,7 @@ const PREVIEWERS = {
   create_invoice: (state, args) => documentPreview(state, args, 'sale'),
   create_purchase: (state, args) => documentPreview(state, args, 'purchase'),
   record_receipt: receiptPreview,
+  record_payment: paymentPreview,
   post_expense: expensePreview,
   create_credit_note: creditNotePreview,
   cancel_invoice: (state, args) => creditNotePreview(state, args, true),
