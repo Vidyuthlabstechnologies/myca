@@ -146,6 +146,7 @@ class FakeMycaApi implements MycaApi {
   final creditNotes = <Map<String, Object?>>[];
   final reviewAnswers = <String, String>{};
   bool has2b = false;
+  bool hasBalance = false;
   final reminders = <Map<String, Object?>>[
     {
       'id': 'REM-0001',
@@ -333,6 +334,11 @@ class FakeMycaApi implements MycaApi {
         },
       );
     }
+    if (name == 'set_cash_balance') {
+      return _preview(
+        'On 2026-10-05: bank ₹${args['bank']}, cash in hand ₹${args['cash'] ?? 0}.',
+      );
+    }
     if (name == 'add_reminder') {
       return _preview('Remind you on ${args['due']}: ${args['text']}.');
     }
@@ -410,6 +416,14 @@ class FakeMycaApi implements MycaApi {
         });
         return ChatReply.fromJson({
           'reply': 'Posted EXP-0003.',
+          'posted': true,
+          'confirmed': true,
+        });
+      }
+      if (held.tool == 'set_cash_balance') {
+        hasBalance = true;
+        return ChatReply.fromJson({
+          'reply': 'Noted.',
           'posted': true,
           'confirmed': true,
         });
@@ -667,6 +681,89 @@ class FakeMycaApi implements MycaApi {
             'missing': ['HSN'],
           },
         };
+      case 'cash_forecast':
+        return {
+          'ok': true,
+          'data': {
+            'from': '2026-10-05',
+            'until': '2026-11-04',
+            'days': 30,
+            'start': hasBalance
+                ? {
+                    'amount': 300000,
+                    'bank': 295000,
+                    'cash': 5000,
+                    'source': 'reading',
+                    'readingOn': '2026-10-05',
+                    'note': 'From the balance you gave.',
+                  }
+                : {
+                    'amount': 10000,
+                    'bank': 10000,
+                    'cash': 0,
+                    'source': 'recorded',
+                    'readingOn': '',
+                    'note':
+                        'This is only what has been recorded in MyCA, not your bank statement.',
+                  },
+            'coming': {
+              'total': 20000,
+              'rows': [
+                {
+                  'date': '2026-10-15',
+                  'label': 'INV-0002 from Gujarat Weaves',
+                  'amount': 20000,
+                  'basis': 'Gujarat Weaves usually pays in 10 days',
+                },
+              ],
+            },
+            'going': {
+              'total': 9000,
+              'rows': [
+                {
+                  'date': '2026-11-04',
+                  'label': 'Usual expenses',
+                  'amount': 5000,
+                  'basis': 'average of 2026-07 to 2026-09',
+                },
+                {
+                  'date': '2026-10-20',
+                  'label': 'GST for 2026-09',
+                  'amount': 4000,
+                  'basis': 'before head-by-head set-off',
+                },
+              ],
+            },
+            'overdue': {'total': 7000, 'rows': const <Object?>[]},
+            'end': hasBalance ? 311000 : 21000,
+            'lowest': {
+              'date': '2026-10-14',
+              'amount': hasBalance ? 298000 : 8000,
+            },
+            'monthlyOutgoings': 60000,
+            'notes': [
+              'Overdue invoices are listed but not counted.',
+              'Supplier payments are not recorded against bills yet.',
+            ],
+          },
+        };
+      case 'can_afford':
+        final amount = args['amount'] as num;
+        return {
+          'ok': true,
+          'data': {
+            'amount': amount,
+            'on': args['on'],
+            'balanceThen': 300000,
+            'left': 300000 - amount,
+            'monthlyOutgoings': 60000,
+            'monthsCovered': ((300000 - amount) / 60000 * 100).round() / 100,
+            'verdict': amount <= 240000
+                ? 'yes'
+                : (amount <= 300000 ? 'tight' : 'no'),
+            'safeToSpend': 240000,
+          },
+        };
       case 'list_reminders':
         return {
           'ok': true,
@@ -915,7 +1012,11 @@ class FakeMycaApi implements MycaApi {
 
 Future<void> tapRow(WidgetTester tester, String title) async {
   final row = find.text(title);
-  await tester.scrollUntilVisible(row, 200, scrollable: find.byType(Scrollable).first);
+  await tester.scrollUntilVisible(
+    row,
+    200,
+    scrollable: find.byType(Scrollable).first,
+  );
   await tester.ensureVisible(row);
   await tester.pumpAndSettle();
   await tester.tap(row);

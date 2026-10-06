@@ -12,6 +12,7 @@ import { planCreditNote, creditedAgainst } from './credit-notes.mjs';
 import { checkAnswer, reviewOf, stepText } from './gst-review.mjs';
 import { parse2bFile } from './gstr2b-check.mjs';
 import { planReminder, findReminder, whenWords } from './reminders.mjs';
+import { planCashReading } from './cash-forecast.mjs';
 import { isReturnPeriod } from './return-period.mjs';
 import { gstSplit, partyStateOf } from './chart.mjs';
 import { postingDate } from './dates.mjs';
@@ -21,7 +22,7 @@ import { parseZohoBooksCsv } from './import-zoho.mjs';
 import { tallyXmlToDayBookCsv } from './tally-xml.mjs';
 
 export const CONFIRM_TOOLS = new Set([
-  'create_invoice', 'create_purchase', 'record_receipt', 'post_expense', 'set_expense_head', 'create_credit_note', 'cancel_invoice', 'gst_review_answer', 'import_gstr2b', 'add_reminder', 'complete_reminder',
+  'create_invoice', 'create_purchase', 'record_receipt', 'post_expense', 'set_expense_head', 'create_credit_note', 'cancel_invoice', 'gst_review_answer', 'import_gstr2b', 'add_reminder', 'complete_reminder', 'set_cash_balance',
   'import_tally', 'import_tally_xml', 'import_zoho', 'import_bank',
   'govt_generate_irn', 'govt_nic_cancel_irn',
   'exception_decide',
@@ -229,6 +230,26 @@ function completeReminderPreview(state, args) {
   return { blockers: [], summary: `Mark done: ${reminder.text}.`, effects: [], figures: { id: reminder.id } };
 }
 
+function cashReadingPreview(state, args) {
+  const planned = planCashReading(state, args);
+  if (!planned.ok) {
+    const reason = {
+      INVALID_DATE: `${args.on} is not a date I can read.`,
+      FUTURE_DATE: 'A balance can only be given for today or a day that has passed.',
+      BALANCE_REQUIRED: 'Give the bank balance, the cash in hand, or both.',
+      BAD_AMOUNT: 'The balance must be a number; cash in hand cannot be negative.',
+    }[planned.error] || planned.error;
+    return { blockers: [reason], summary: '', effects: [], figures: {} };
+  }
+  const { plan } = planned;
+  return {
+    blockers: [],
+    summary: `On ${plan.on}: bank ${money(plan.bank)}, cash in hand ${money(plan.cash)}. MyCA had recorded bank ${money(plan.recordedBank)} and cash ${money(plan.recordedCash)}.`,
+    effects: ['The cash forecast starts from these figures. Nothing is posted to your books.'],
+    figures: { on: plan.on, bank: plan.bank, cash: plan.cash },
+  };
+}
+
 function countSkips(skipped = []) {
   const counts = {};
   for (const s of skipped) counts[s.reason] = (counts[s.reason] || 0) + 1;
@@ -324,6 +345,7 @@ const PREVIEWERS = {
   import_gstr2b: gstr2bPreview,
   add_reminder: reminderPreview,
   complete_reminder: completeReminderPreview,
+  set_cash_balance: cashReadingPreview,
   import_tally: (state, args) => tallyPreview(state, args, args.csv, args.fileName || 'Tally Day Book'),
   import_tally_xml: xmlPreview,
   import_zoho: zohoPreview,

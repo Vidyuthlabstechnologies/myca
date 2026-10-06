@@ -99,6 +99,29 @@ the hosted API (`propose`, `confirm`, `discard`).
 - Not yet: phone notifications. They need a push service in the hosted deployment;
   until then reminders appear in the app on the day.
 
+### Cash forecast and "can I afford it" (built 2026-10-06)
+
+- `cash-forecast.mjs` starts from the bank and cash balance the owner states (a dated
+  reading that posts nothing to the ledger) plus what MyCA recorded since. Without a
+  reading it uses only what was recorded and says plainly that this is not the bank
+  statement.
+- The next days (30 by default): open invoices expected on each customer's usual
+  paying time (the median of their paid invoices), else assumed 30 days; recent bills
+  assumed paid 30 days after the bill date; GST on the GSTR-3B due date the deadline
+  engine gives, as tax on sales less input credit, labelled an estimate before
+  head-by-head set-off; usual expenses averaged over the last three months and spread
+  over the days. Every row carries its basis. Overdue invoices are listed but not
+  counted.
+- "Can I afford it" takes an amount and a day and answers yes, tight or no from the
+  lowest balance in the month after that day, the months of usual outgoings left, and
+  what can be spent while keeping a month in hand. The answer is the engine's; the chat
+  only picks the question (ADR-0004).
+- Chat: "can I afford 40 lakh of stock in September", "cash forecast", "my bank balance
+  is 3 lakh". App: a Cash screen from Home.
+- Not yet: payments to suppliers recorded against bills (so older unpaid bills are not
+  in the forecast), payment terms per customer, and a balance taken from a bank
+  statement automatically.
+
 ### Expense chats (to build)
 
 One chat per expense head or recurring payee, once tagging exists

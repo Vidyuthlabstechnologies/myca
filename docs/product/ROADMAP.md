@@ -87,7 +87,7 @@ its public page. Each maps onto work here, with how ours should be better.
 | Hindi or Hinglish question about a marketplace payout; matched to bank; a pending claim tracked; "remind me" | Not built: settlement matching, Hindi, reminders | Reminders are small and come first. Hindi follows the language model decision. Settlement matching only if marketplace sellers become a target (open question) |
 | Voice or text, English, Hindi, Telugu, on WhatsApp or Slack; answers auditable; Excel on demand; escalates to an accountant | English text in the app; every answer from a named tool; entries CSV (built) | Escalation goes to the owner's own CA inside the product, with the entries attached; nothing goes out without approval |
 
-Order, after M2: (1) remind-me follow-ups (**done** 2026-10-06, in the app; phone notifications wait for deployment), (2) cash position and forecast tool, (3) invoice
+Order, after M2: (1) remind-me follow-ups (**done** 2026-10-06, in the app; phone notifications wait for deployment), (2) cash position and forecast tool (**done** 2026-10-06), (3) invoice
 terms and IRN in the flow, (4) the language model selecting tools under ADR-0004, which
 unlocks free text, Hindi and voice, (5) WhatsApp as an input channel once PRD Q6 is
 answered, (6) "send this to my CA" on any finding.

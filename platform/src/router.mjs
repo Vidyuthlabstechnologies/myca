@@ -15,6 +15,29 @@ function fmtToolResult(name, result) {
     const i = result.invoice;
     return `Posted ${i.id} to ${i.partyName} on ${i.date} for ${money(i.total)} (taxable ${money(i.taxable)}, GST ${money(i.cgst + i.sgst + i.igst)}). Books updated from the invoice.`;
   }
+  if (name === 'can_afford' && result.data) {
+    const d = result.data;
+    const head = { yes: 'Yes.', tight: 'Yes, but it is tight.', no: 'Not on these figures.' }[d.verdict];
+    const covered = d.monthsCovered == null ? '' : ` That is about ${d.monthsCovered} ${d.monthsCovered === 1 ? 'month' : 'months'} of your usual outgoings.`;
+    const lines = [
+      `${head} You would have about ${money(d.balanceThen)} on ${d.on}. After spending ${money(d.amount)}, the lowest point in the month after is ${money(d.left)}.${covered}`,
+      d.verdict === 'yes' ? '' : `To keep a month of outgoings in hand, spend up to ${money(d.safeToSpend)} then.`,
+      ...d.notes.map((note) => `· ${note}`),
+    ];
+    return lines.filter(Boolean).join('\n');
+  }
+  if (name === 'cash_forecast' && result.data) {
+    const d = result.data;
+    return [
+      `Bank and cash now: ${money(d.start.amount)}. In ${d.days} days: about ${money(d.end)}.`,
+      `Coming in: ${money(d.coming.total)}. Going out: ${money(d.going.total)}. Lowest point: ${money(d.lowest.amount)} on ${d.lowest.date}.`,
+      d.overdue.total > 0 ? `Overdue and not counted: ${money(d.overdue.total)}.` : '',
+      ...d.notes.map((note) => `· ${note}`),
+    ].filter(Boolean).join('\n');
+  }
+  if (name === 'set_cash_balance' && result.reading) {
+    return `Noted. On ${result.reading.on}: bank ${money(result.reading.bank)}, cash in hand ${money(result.reading.cash)}. The forecast starts from here.`;
+  }
   if (name === 'add_reminder' && result.reminder) {
     return `Set. On ${result.reminder.due}: ${result.reminder.text}.`;
   }
