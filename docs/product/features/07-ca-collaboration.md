@@ -43,6 +43,22 @@ sees changes as they happen or at set intervals.
 - All CSV output goes through `text-safe.mjs`.
 - An export is audited: who exported what period and when.
 
+### Ask my CA (built 2026-10-06)
+
+- A question thread kept in the books (`ca-requests.mjs`). The owner, or any member,
+  asks about an invoice, a bill, an expense, a flagged item or a month's GST; the engine
+  attaches the facts (figures, dates, GSTINs, lines, why an item was flagged), so the CA
+  sees what the owner saw rather than a retelling.
+- The invited accountant sees it under "Your CA" and replies; a reply from anyone other
+  than the asker marks it answered, a reply from the asker puts it back with the CA.
+  Only the asker or the owner closes it. Asking, replying and closing go through preview
+  and confirm and are audited with who did it. Nothing leaves MyCA.
+- "Ask my CA" sits on the invoice screen, on a flagged item in Taxes, and on the month's
+  review. When the CA is not on MyCA yet, "Copy to send" puts the question and its facts
+  on the clipboard for WhatsApp or email.
+- Not yet: a notification to the CA (needs push in the deployment), and attaching the
+  source document file.
+
 ### Sync setting (to build)
 
 - Real time: the accountant reads the live books, as today.

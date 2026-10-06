@@ -5,6 +5,7 @@ import '../api/myca_api.dart';
 import '../app_state.dart';
 import '../format.dart';
 import '../theme.dart';
+import 'ca_screen.dart';
 
 class ReviewScreen extends StatefulWidget {
   const ReviewScreen({super.key, required this.period});
@@ -193,6 +194,20 @@ class _ReviewBody extends StatelessWidget {
           ),
           const SizedBox(height: 12),
         ],
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton(
+            onPressed: busy
+                ? null
+                : () => askMyCa(
+                    context,
+                    subject: {'kind': 'period', 'period': review.period},
+                    about: 'the ${review.month} return',
+                  ),
+            child: Text('Ask my CA about ${review.month}'),
+          ),
+        ),
+        const SizedBox(height: 12),
         if (review.approved)
           Text(
             'Next: save the GSTR-1 file from Taxes and upload it on the GST portal, or send it to your CA.',
