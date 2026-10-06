@@ -129,6 +129,18 @@ void main() {
     await shot(tester, '17_expense_preview');
   });
 
+  testWidgets('credit against GSTR-2B', (tester) async {
+    await phone(tester);
+    await tester.pumpWidget(MycaApp(state: testState(FakeMycaApi(signedIn: true)..has2b = true)));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('3 things need you'));
+    await tester.pumpAndSettle();
+    final card = find.text('INPUT CREDIT AGAINST GSTR-2B, OCTOBER 2026');
+    await tester.scrollUntilVisible(card, 200, scrollable: find.byType(Scrollable).last);
+    await tester.drag(find.byType(Scrollable).last, const Offset(0, -260));
+    await shot(tester, '22_credit_at_risk');
+  });
+
   testWidgets('invoice screen', (tester) async {
     await phone(tester);
     await tester.pumpWidget(MycaApp(state: testState(FakeMycaApi(signedIn: true))));

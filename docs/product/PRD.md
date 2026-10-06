@@ -123,8 +123,8 @@ Percentages are engineering estimates and are tracked in
 
 | ID | Requirement | Status |
 |---|---|---|
-| FR-2B-1 | Match purchase entries with GSTR-2B. | Built as an engine; 2B has to be imported as a file |
-| FR-2B-2 | Flag suppliers who filed late or whose figures do not match. | Built as an engine; not shown in the app |
+| FR-2B-1 | Match purchase entries with GSTR-2B. | Built: the owner adds the month's 2B CSV in the app; bills keep the supplier's bill number to match on. Fetching 2B from the portal is not built |
+| FR-2B-2 | Flag suppliers who filed late or whose figures do not match. | Built: credit at risk by supplier on Taxes, with the reason for each bill (not reported, credit not available, amounts or tax type differ, date differs, no bill number) |
 | FR-2B-3 | Draft a reminder to the supplier. | Not built |
 | FR-2B-4 | Send a reminder only with the owner's permission. | Not built |
 

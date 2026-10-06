@@ -241,6 +241,16 @@ export function createPurchase(state, input) {
   if (!date) return { ok: false, error: 'INVALID_DATE', date: input.date };
   if (isPeriodLocked(state, date)) return { ok: false, error: 'PERIOD_LOCKED', date, lockThrough: state.lockThrough };
   if (input.id && idTaken(state.purchases, input.id)) return { ok: false, error: 'DUPLICATE_ID', id: input.id };
+  const supplierInvoiceNo = String(input.supplierInvoiceNo ?? '').trim();
+  if (supplierInvoiceNo.length > 16) return { ok: false, error: 'SUPPLIER_NUMBER_TOO_LONG', supplierInvoiceNo };
+  if (supplierInvoiceNo) {
+    const key = (value) => String(value || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+    const gstinKey = normGstin(input.partyGstin);
+    const nameKey = String(input.partyName || '').trim().toLowerCase();
+    const repeat = (state.purchases || []).find((bill) => key(bill.supplierInvoiceNo) === key(supplierInvoiceNo)
+      && (gstinKey ? normGstin(bill.partyGstin) === gstinKey : String(bill.partyName || '').trim().toLowerCase() === nameKey));
+    if (repeat) return { ok: false, error: 'DUPLICATE_SUPPLIER_BILL', supplierInvoiceNo, existing: repeat.id };
+  }
   const rawLines = input.lines || [];
   if (!rawLines.length) return { ok: false, error: 'NO_LINES' };
   const specs = rawLines.map((l) => ({
@@ -308,7 +318,7 @@ export function createPurchase(state, input) {
     return { ok: false, error: 'LEDGER_REJECT', posted };
   }
   const bill = {
-    id, date, partyName: vendor.name, partyGstin: vendor.gstin, partyState: vendor.state,
+    id, ...(supplierInvoiceNo ? { supplierInvoiceNo } : {}), date, partyName: vendor.name, partyGstin: vendor.gstin, partyState: vendor.state,
     partyAccountId: vendor.accountId,
     lines, taxable, cgst, sgst, igst, total, status: 'posted', kind: 'purchase',
     itcEligible,

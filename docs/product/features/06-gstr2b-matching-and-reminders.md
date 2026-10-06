@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Requirements | FR-2B-1 to 4 in the [product PRD](../PRD.md) |
-| Status | Matching engine built; fetching 2B, showing matches in the app and reminders not built |
+| Status | Matching, adding 2B and credit at risk in the app built (2026-10-06); fetching 2B and reminders not built |
 | Code | `sprints/sprint-3-gst-recon`, exception queue in `platform/src`, `notifications.mjs` |
 
 ## What the owner experiences
@@ -33,17 +33,25 @@ reminder goes only when the owner says so.
 - Every mismatch becomes an item in the exception queue with severity, money at risk,
   the rule that raised it and the evidence.
 
-### Get the 2B (to build)
+### Get the 2B (upload built; fetching to build)
 
-- First: the owner or CA uploads the 2B file downloaded from the portal. The importer
-  exists on the desktop; the app needs the upload entry.
-- Later: fetch through the GSP once onboarding is complete, behind the action gate.
+- Built: "Add GSTR-2B" on Taxes takes the CSV downloaded from the portal for that month.
+  It goes through upload, preview and confirm like any import (`import_gstr2b`), posts
+  nothing to the ledger, and a second file for the same month replaces the first.
+- Built: purchase bills keep the supplier's bill number (`supplierInvoiceNo`, at most 16
+  characters, one per supplier). Without it a bill cannot be found in 2B, and the app
+  says so rather than blaming the supplier.
+- To build: fetch through the GSP once onboarding is complete, behind the action gate.
 
-### Show (to build)
+### Show (built on Taxes; marks in supplier chats to build)
 
-- A "Credit at risk" section in the app's Taxes screen, grouped by supplier.
-- Inside each supplier's chat, the mismatched bills are marked with the reason in plain
-  words: "Mahesh has not reported this bill yet".
+- `credit_at_risk` checks the month's bills against every 2B added so far, so a bill a
+  supplier reports late is matched once that later 2B is added. Each bill at risk has a
+  reason: not reported, credit not available in 2B, amounts or tax type differ, the
+  date differs from the supplier's, or no supplier bill number.
+- Taxes shows matched credit, credit at risk, the suppliers behind it with a sheet per
+  supplier, and how many 2B entries are not in the books.
+- To build: marking the bills inside each supplier's chat.
 
 ### Remind (to build)
 

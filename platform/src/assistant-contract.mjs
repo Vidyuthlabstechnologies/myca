@@ -211,7 +211,10 @@ export const TOOL_ARG_SCHEMAS = {
   },
   list_invoices: noArgs,
   create_invoice: documentSchema,
-  create_purchase: documentSchema,
+  create_purchase: {
+    ...documentSchema,
+    properties: { ...documentSchema.properties, supplierInvoiceNo: { type: 'string', maxLength: 16 } },
+  },
   print_invoice: {
     type: 'object',
     additionalProperties: false,
@@ -251,6 +254,21 @@ export const TOOL_ARG_SCHEMAS = {
     properties: { period: { type: 'string', pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' } },
   },
   business_summary: {
+    type: 'object',
+    additionalProperties: false,
+    properties: { period: { type: 'string', pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' } },
+  },
+  import_gstr2b: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['csv', 'period'],
+    properties: {
+      csv: { type: 'string', minLength: 1 },
+      period: { type: 'string', pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' },
+      fileName: { type: 'string', maxLength: 120 },
+    },
+  },
+  credit_at_risk: {
     type: 'object',
     additionalProperties: false,
     properties: { period: { type: 'string', pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' } },
@@ -613,6 +631,7 @@ const TOOL_RISK = {
   create_credit_note: 'writes_books',
   cancel_invoice: 'writes_books',
   gst_review_answer: 'writes_books',
+  import_gstr2b: 'writes_books',
   govt_nic_auth: 'external_auth_probe',
   govt_generate_irn: 'external_government_api',
   sandbox_operation: 'external_government_api',

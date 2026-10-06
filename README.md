@@ -14,11 +14,11 @@ Taxmeow or MyCA is an open decision.
 
 | | |
 |---|---|
-| Against the product PRD | **About 47% built** ([requirement by requirement](docs/product/PRD.md), [how it is computed](docs/superpowers/PROGRESS.md)) |
+| Against the product PRD | **About 49% built** ([requirement by requirement](docs/product/PRD.md), [how it is computed](docs/superpowers/PROGRESS.md)) |
 | To a Play Store launch | About 44% (estimate) |
 | Engine hardening (Phase 0) | 67%; every Critical and High audit finding closed ([audit](docs/audit/2026-09-21-codebase-audit.md)) |
-| Tests | **938**: platform 490, engines and statutory rules 329, hosted API 53, Android app 66 |
-| Tools | 85 named, schema-validated tools |
+| Tests | **949**: platform 496, engines and statutory rules 329, hosted API 53, Android app 71 |
+| Tools | 87 named, schema-validated tools |
 | Deployed | **Nothing.** The hosted API has run only against a local Postgres; the app has not run on a phone |
 | Live portal calls | Off by default (`MYCA_ENABLE_LIVE_CALLS=0`); no return has been filed through the product |
 | Automated checks | `node scripts/check-all.mjs`. CI is defined but GitHub Actions is not running on the account |
@@ -53,7 +53,7 @@ Taxmeow or MyCA is an open decision.
 | GST returns | Prepared, reviewed in chat, filed after approval | 50% | [03](docs/product/features/03-gst-returns.md) |
 | TDS | Same review and approval as GST | 15% | [04](docs/product/features/04-tds.md) |
 | Payroll | Run payroll and pay salaries from the same product | 0% | [05](docs/product/features/05-payroll.md) |
-| GSTR-2B matching | Flag late or mismatched suppliers; remind only with permission | 45% | [06](docs/product/features/06-gstr2b-matching-and-reminders.md) |
+| GSTR-2B matching | Flag late or mismatched suppliers; remind only with permission | 65% | [06](docs/product/features/06-gstr2b-matching-and-reminders.md) |
 | CA collaboration | Export or invite, with a sync setting | 70% | [07](docs/product/features/07-ca-collaboration.md) |
 | Chat and dashboard | Chat for daily work, dashboard for the picture | 75% | [08](docs/product/features/08-chat-and-dashboard.md) |
 | Reading documents | POS sales and forwarded invoices read automatically | 5% | [09](docs/product/features/09-document-capture-and-pos.md) |
@@ -126,7 +126,7 @@ safe.
                          platform/src/session.mjs      one serialized gate per books
                          router.mjs                    propose → confirm, query
                          assistant-contract.mjs        strict schemas, risk classes
-                         tools.mjs                     85 named tools
+                         tools.mjs                     87 named tools
              ┌───────────────────┼─────────────────────┐
              ▼                   ▼                     ▼
       ledger / invoice     sprints/ engines      action-gate.mjs
@@ -165,7 +165,7 @@ The engine and the desktop server:
 
 ```bash
 cd platform
-npm test                 # 490 tests
+npm test                 # 496 tests
 npm run dev              # http://127.0.0.1:4780 (plain node)
 npm start                # Electron window (after: npm i)
 ```
@@ -182,7 +182,7 @@ The Android app (see [`mobile/README.md`](mobile/README.md)):
 
 ```bash
 cd mobile
-flutter test             # 66 tests
+flutter test             # 71 tests
 flutter run --dart-define=MYCA_CLOUD_URL=http://127.0.0.1:8080
 ```
 
@@ -261,6 +261,8 @@ Configuration is optional for local books. **Outbound calls are opt-in**; set
   what customers owe.
 - GST for one month at a time, the GSTR-1 file saved for the portal, deadlines and
   what needs the owner.
+- GSTR-2B added for a month, and input credit at risk shown by supplier with the
+  reason for each bill.
 - The month's return reviewed step by step ("Is this information correct?") and
   approved by the owner; nothing is filed from the review.
 - Members and invitations, switching business, and a fingerprint or screen lock.

@@ -10,6 +10,8 @@ import { randomBytes } from 'node:crypto';
 import { planExpense } from './expenses.mjs';
 import { planCreditNote, creditedAgainst } from './credit-notes.mjs';
 import { checkAnswer, reviewOf, stepText } from './gst-review.mjs';
+import { parse2bFile } from './gstr2b-check.mjs';
+import { isReturnPeriod } from './return-period.mjs';
 import { gstSplit, partyStateOf } from './chart.mjs';
 import { postingDate } from './dates.mjs';
 import { isPeriodLocked } from './period-lock.mjs';
@@ -18,7 +20,7 @@ import { parseZohoBooksCsv } from './import-zoho.mjs';
 import { tallyXmlToDayBookCsv } from './tally-xml.mjs';
 
 export const CONFIRM_TOOLS = new Set([
-  'create_invoice', 'create_purchase', 'record_receipt', 'post_expense', 'set_expense_head', 'create_credit_note', 'cancel_invoice', 'gst_review_answer',
+  'create_invoice', 'create_purchase', 'record_receipt', 'post_expense', 'set_expense_head', 'create_credit_note', 'cancel_invoice', 'gst_review_answer', 'import_gstr2b',
   'import_tally', 'import_tally_xml', 'import_zoho', 'import_bank',
   'govt_generate_irn', 'govt_nic_cancel_irn',
   'exception_decide',
@@ -183,6 +185,20 @@ function reviewAnswerPreview(state, args) {
   };
 }
 
+function gstr2bPreview(state, args) {
+  if (!isReturnPeriod(args.period)) return { blockers: ['Say which month this 2B is for.'], summary: '', effects: [], figures: {} };
+  const { rows, errors } = parse2bFile(args.csv);
+  if (!rows.length) return { blockers: ['No GSTR-2B rows could be read from this file. Use the CSV downloaded from the GST portal.'], summary: '', effects: [], figures: {} };
+  const suppliers = new Set(rows.map((row) => row.supplierGstin)).size;
+  const replaces = state.gstr2b && Object.hasOwn(state.gstr2b, args.period);
+  return {
+    blockers: [],
+    summary: `GSTR-2B for ${args.period}: ${rows.length} ${rows.length === 1 ? 'entry' : 'entries'} from ${suppliers} ${suppliers === 1 ? 'supplier' : 'suppliers'}${errors.length ? `; ${errors.length} ${errors.length === 1 ? 'row' : 'rows'} could not be read and will be left out` : ''}.${replaces ? ' This replaces the 2B already added for that month.' : ''}`,
+    effects: ['Nothing is posted to your books. Your purchase bills are checked against it.'],
+    figures: { period: args.period, rows: rows.length, suppliers, skipped: errors.length },
+  };
+}
+
 function countSkips(skipped = []) {
   const counts = {};
   for (const s of skipped) counts[s.reason] = (counts[s.reason] || 0) + 1;
@@ -275,6 +291,7 @@ const PREVIEWERS = {
   create_credit_note: creditNotePreview,
   cancel_invoice: (state, args) => creditNotePreview(state, args, true),
   gst_review_answer: reviewAnswerPreview,
+  import_gstr2b: gstr2bPreview,
   import_tally: (state, args) => tallyPreview(state, args, args.csv, args.fileName || 'Tally Day Book'),
   import_tally_xml: xmlPreview,
   import_zoho: zohoPreview,

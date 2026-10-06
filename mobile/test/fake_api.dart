@@ -142,6 +142,7 @@ class FakeMycaApi implements MycaApi {
 
   final creditNotes = <Map<String, Object?>>[];
   final reviewAnswers = <String, String>{};
+  bool has2b = false;
   String reviewHash = 'a' * 64;
 
   Map<String, Object?> reviewData() {
@@ -311,6 +312,11 @@ class FakeMycaApi implements MycaApi {
         },
       );
     }
+    if (name == 'import_gstr2b') {
+      return _preview(
+        'GSTR-2B for ${args['period']}: 4 entries from 4 suppliers.',
+      );
+    }
     if (name == 'gst_review_answer') {
       if (args['draftHash'] != reviewHash) {
         _held = null;
@@ -377,6 +383,14 @@ class FakeMycaApi implements MycaApi {
         });
         return ChatReply.fromJson({
           'reply': 'Posted EXP-0003.',
+          'posted': true,
+          'confirmed': true,
+        });
+      }
+      if (held.tool == 'import_gstr2b') {
+        has2b = true;
+        return ChatReply.fromJson({
+          'reply': 'Added.',
           'posted': true,
           'confirmed': true,
         });
@@ -595,6 +609,77 @@ class FakeMycaApi implements MycaApi {
                 277600 -
                 creditNotes.fold<num>(0, (sum, n) => sum + (n['total'] as num)),
             'missing': ['HSN'],
+          },
+        };
+      case 'credit_at_risk':
+        return {
+          'ok': true,
+          'data': {
+            'period': args['period'],
+            'statement': has2b
+                ? {
+                    'fileName': 'GSTR2B_102026.csv',
+                    'importedOn': '2026-10-05',
+                    'rows': 4,
+                  }
+                : null,
+            'bills': 3,
+            'creditInBooks': 4400,
+            'creditMatched': has2b ? 500 : 0,
+            'creditAtRisk': has2b ? 3900 : 4400,
+            'risks': has2b
+                ? [
+                    {
+                      'billId': 'BILL-0002',
+                      'supplierInvoiceNo': 'GM/77',
+                      'supplier': 'Gujarat Mills',
+                      'gstin': '24AAACF7856R1ZY',
+                      'date': '2026-10-08',
+                      'credit': 3600,
+                      'reason': 'ITC_NOT_AVAILABLE',
+                      'why':
+                          'The supplier reported it, but 2B marks the credit as not available.',
+                    },
+                    {
+                      'billId': 'BILL-0003',
+                      'supplierInvoiceNo': '',
+                      'supplier': 'Box Mart',
+                      'gstin': '27AAACB2222B1Z5',
+                      'date': '2026-10-16',
+                      'credit': 300,
+                      'reason': 'NO_SUPPLIER_NUMBER',
+                      'why':
+                          "Add the supplier's bill number so it can be found in 2B.",
+                    },
+                  ]
+                : const <Object?>[],
+            'bySupplier': has2b
+                ? [
+                    {
+                      'supplier': 'Gujarat Mills',
+                      'gstin': '24AAACF7856R1ZY',
+                      'credit': 3600,
+                      'bills': 1,
+                    },
+                    {
+                      'supplier': 'Box Mart',
+                      'gstin': '27AAACB2222B1Z5',
+                      'credit': 300,
+                      'bills': 1,
+                    },
+                  ]
+                : const <Object?>[],
+            'notBooked': has2b
+                ? [
+                    {
+                      'supplier': 'RETAIL SUPPLY',
+                      'gstin': '27AAACH7409R1Z1',
+                      'invoiceNo': 'RS-1',
+                      'date': '2026-10-15',
+                      'credit': 180,
+                    },
+                  ]
+                : const <Object?>[],
           },
         };
       case 'export_entries':

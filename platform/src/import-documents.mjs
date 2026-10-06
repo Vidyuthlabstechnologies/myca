@@ -5,6 +5,7 @@ export const IMPORT_CONTENT_ARG = Object.freeze({
   import_tally_xml: 'xml',
   import_zoho: 'csv',
   import_bank: 'content',
+  import_gstr2b: 'csv',
 });
 
 export function isImport(name) {
