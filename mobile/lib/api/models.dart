@@ -106,6 +106,8 @@ class Invoice {
     required this.status,
     required this.receipts,
     required this.gstRates,
+    this.dueDate = '',
+    this.termsDays,
   });
 
   factory Invoice.fromJson(Object? json) {
@@ -118,6 +120,10 @@ class Invoice {
       total: _num(map['total']),
       status: _text(map['status']),
       receipts: _maps(map['receipts']).map(Receipt.fromJson).toList(),
+      dueDate: _text(map['dueDate']),
+      termsDays: map['paymentTermsDays'] is num
+          ? (map['paymentTermsDays'] as num).toInt()
+          : null,
       gstRates: [
         for (final line in _maps(map['lines']))
           if (line['gstRate'] is num) line['gstRate'] as num,
@@ -133,6 +139,8 @@ class Invoice {
   final String status;
   final List<Receipt> receipts;
   final List<num> gstRates;
+  final String dueDate;
+  final int? termsDays;
 
   bool get paid => status == 'paid';
 
@@ -218,6 +226,7 @@ class Snapshot {
     required this.purchases,
     required this.expenses,
     required this.creditNotes,
+    this.customerTerms = const {},
     required this.users,
     required this.activeUser,
   });
@@ -231,6 +240,10 @@ class Snapshot {
       purchases: _maps(map['purchases']).map(Invoice.fromJson).toList(),
       expenses: _maps(map['expenses']).map(Expense.fromJson).toList(),
       creditNotes: _maps(map['creditNotes']).map(CreditNote.fromJson).toList(),
+      customerTerms: {
+        for (final entry in _map(map['customerTerms']).entries)
+          if (entry.value is num) entry.key: (entry.value as num).toInt(),
+      },
       users: _maps(map['users']).map(FirmUser.fromJson).toList(),
       activeUser: active is Map ? FirmUser.fromJson(active) : null,
     );
@@ -241,7 +254,17 @@ class Snapshot {
   final List<Invoice> purchases;
   final List<Expense> expenses;
   final List<CreditNote> creditNotes;
+  final Map<String, int> customerTerms;
   final List<FirmUser> users;
+
+  int? termsFor(String name, String gstin) {
+    final tax = gstin.trim().toUpperCase();
+    if (tax.isNotEmpty && customerTerms.containsKey('gstin:$tax')) {
+      return customerTerms['gstin:$tax'];
+    }
+    return customerTerms['name:${name.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ')}'];
+  }
+
   final FirmUser? activeUser;
 }
 
@@ -1122,6 +1145,8 @@ class InvoiceDocument {
     required this.status,
     required this.balance,
     required this.missing,
+    this.dueDate = '',
+    this.termsDays,
   });
 
   static InvoiceDocument? fromTool(Object? json) {
@@ -1156,6 +1181,10 @@ class InvoiceDocument {
       creditNotes: _maps(map['creditNotes']).map(CreditNote.fromJson).toList(),
       status: _text(map['status']),
       balance: _num(map['balance']),
+      dueDate: _text(map['dueDate']),
+      termsDays: map['paymentTermsDays'] is num
+          ? (map['paymentTermsDays'] as num).toInt()
+          : null,
       missing: [
         for (final code in (map['missing'] as List? ?? const [])) _text(code),
       ],
@@ -1184,6 +1213,8 @@ class InvoiceDocument {
   final String status;
   final num balance;
   final List<String> missing;
+  final String dueDate;
+  final int? termsDays;
 
   bool get cancelled => status == 'cancelled';
 

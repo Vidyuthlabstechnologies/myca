@@ -102,6 +102,8 @@ class FakeMycaApi implements MycaApi {
       'partyGstin': '24AAACG1234F1Z5',
       'total': 377600,
       'status': 'posted',
+      'paymentTermsDays': 30,
+      'dueDate': '2026-09-11',
       'lines': [
         {'gstRate': 18},
         {'gstRate': 5},
@@ -147,6 +149,7 @@ class FakeMycaApi implements MycaApi {
   final reviewAnswers = <String, String>{};
   bool has2b = false;
   bool hasBalance = false;
+  final customerTerms = <String, Object?>{'gstin:24AAACG1234F1Z5': 30};
   final reminders = <Map<String, Object?>>[
     {
       'id': 'REM-0001',
@@ -264,6 +267,7 @@ class FakeMycaApi implements MycaApi {
     'purchases': purchases,
     'expenses': expenses,
     'creditNotes': creditNotes,
+    'customerTerms': customerTerms,
     'users': [_user],
     'activeUser': signedIn ? _user : null,
   });
@@ -333,6 +337,9 @@ class FakeMycaApi implements MycaApi {
           'tagSource': chosen == null ? 'default' : 'chosen',
         },
       );
+    }
+    if (name == 'set_payment_terms') {
+      return _preview('${args['partyName']}: Net ${args['days']}.');
     }
     if (name == 'set_cash_balance') {
       return _preview(
@@ -416,6 +423,18 @@ class FakeMycaApi implements MycaApi {
         });
         return ChatReply.fromJson({
           'reply': 'Posted EXP-0003.',
+          'posted': true,
+          'confirmed': true,
+        });
+      }
+      if (held.tool == 'set_payment_terms') {
+        final gstin = held.args['partyGstin'] as String?;
+        customerTerms[gstin == null
+                ? 'name:${(held.args['partyName'] as String).toLowerCase()}'
+                : 'gstin:$gstin'] =
+            held.args['days'];
+        return ChatReply.fromJson({
+          'reply': 'Noted.',
           'posted': true,
           'confirmed': true,
         });
@@ -675,6 +694,8 @@ class FakeMycaApi implements MycaApi {
             ),
             'creditNotes': creditNotes,
             'status': invoices[1]['status'],
+            'paymentTermsDays': 30,
+            'dueDate': '2026-09-11',
             'balance':
                 277600 -
                 creditNotes.fold<num>(0, (sum, n) => sum + (n['total'] as num)),

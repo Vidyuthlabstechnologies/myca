@@ -76,3 +76,18 @@ String compactRupees(num amount) {
   }
   return rupees(amount);
 }
+
+String termsLabel(int? days) =>
+    days == null ? '' : (days == 0 ? 'Due on receipt' : 'Net $days');
+
+String dueWords(String dueDate, DateTime today, {required bool open}) {
+  if (dueDate.isEmpty || !open) return '';
+  final parts = dueDate.split('-').map(int.parse).toList();
+  final due = DateTime(parts[0], parts[1], parts[2]);
+  final days = due
+      .difference(DateTime(today.year, today.month, today.day))
+      .inDays;
+  if (days < 0) return 'Overdue by ${-days} ${days == -1 ? 'day' : 'days'}';
+  if (days == 0) return 'Due today';
+  return 'Due ${longDate(dueDate)}';
+}

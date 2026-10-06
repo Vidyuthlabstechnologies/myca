@@ -15,32 +15,52 @@ const _line = PdfColor.fromInt(0xFFD9D6CE);
 
 String invoiceFileName(InvoiceDocument doc) => '${doc.id}.pdf';
 
-Future<Uint8List> buildInvoicePdf(InvoiceDocument doc, {required ByteData regular, required ByteData bold}) {
+Future<Uint8List> buildInvoicePdf(
+  InvoiceDocument doc, {
+  required ByteData regular,
+  required ByteData bold,
+}) {
   final base = pw.Font.ttf(regular);
   final strong = pw.Font.ttf(bold);
   final body = pw.TextStyle(font: base, fontSize: 9.5, color: _ink);
   final small = pw.TextStyle(font: base, fontSize: 8.5, color: _muted);
-  final label = pw.TextStyle(font: strong, fontSize: 7.5, color: _muted, letterSpacing: 0.8);
+  final label = pw.TextStyle(
+    font: strong,
+    fontSize: 7.5,
+    color: _muted,
+    letterSpacing: 0.8,
+  );
   final heavy = pw.TextStyle(font: strong, fontSize: 9.5, color: _ink);
 
-  pw.Widget cell(String text, {pw.TextStyle? style, pw.Alignment align = pw.Alignment.centerLeft}) => pw.Container(
+  pw.Widget cell(
+    String text, {
+    pw.TextStyle? style,
+    pw.Alignment align = pw.Alignment.centerLeft,
+  }) => pw.Container(
     alignment: align,
     padding: const pw.EdgeInsets.symmetric(vertical: 6, horizontal: 4),
     child: pw.Text(text, style: style ?? body),
   );
 
-  pw.Widget amountRow(String name, num amount, {bool strongRow = false}) => pw.Padding(
-    padding: const pw.EdgeInsets.symmetric(vertical: 2.5),
-    child: pw.Row(
-      children: [
-        pw.Expanded(child: pw.Text(name, style: strongRow ? heavy : body)),
-        pw.Text(rupees(amount), style: strongRow ? heavy.copyWith(fontSize: 12) : body),
-      ],
-    ),
-  );
+  pw.Widget amountRow(String name, num amount, {bool strongRow = false}) =>
+      pw.Padding(
+        padding: const pw.EdgeInsets.symmetric(vertical: 2.5),
+        child: pw.Row(
+          children: [
+            pw.Expanded(child: pw.Text(name, style: strongRow ? heavy : body)),
+            pw.Text(
+              rupees(amount),
+              style: strongRow ? heavy.copyWith(fontSize: 12) : body,
+            ),
+          ],
+        ),
+      );
 
   const right = pw.Alignment.centerRight;
-  final document = pw.Document(title: '${doc.title} ${doc.id}', author: doc.sellerName);
+  final document = pw.Document(
+    title: '${doc.title} ${doc.id}',
+    author: doc.sellerName,
+  );
   document.addPage(
     pw.MultiPage(
       pageFormat: PdfPageFormat.a4,
@@ -53,20 +73,41 @@ Future<Uint8List> buildInvoicePdf(InvoiceDocument doc, {required ByteData regula
               child: pw.Column(
                 crossAxisAlignment: pw.CrossAxisAlignment.start,
                 children: [
-                  pw.Text(doc.sellerName, style: pw.TextStyle(font: strong, fontSize: 16, color: _ink)),
-                  if (doc.sellerAddress.isNotEmpty) pw.Text(doc.sellerAddress, style: small),
-                  if (doc.sellerState.label.isNotEmpty) pw.Text(doc.sellerState.label, style: small),
-                  if (doc.sellerGstin.isNotEmpty) pw.Text('GSTIN ${doc.sellerGstin}', style: body),
+                  pw.Text(
+                    doc.sellerName,
+                    style: pw.TextStyle(
+                      font: strong,
+                      fontSize: 16,
+                      color: _ink,
+                    ),
+                  ),
+                  if (doc.sellerAddress.isNotEmpty)
+                    pw.Text(doc.sellerAddress, style: small),
+                  if (doc.sellerState.label.isNotEmpty)
+                    pw.Text(doc.sellerState.label, style: small),
+                  if (doc.sellerGstin.isNotEmpty)
+                    pw.Text('GSTIN ${doc.sellerGstin}', style: body),
                 ],
               ),
             ),
             pw.Column(
               crossAxisAlignment: pw.CrossAxisAlignment.end,
               children: [
-                pw.Text(doc.title.toUpperCase(), style: label.copyWith(fontSize: 9)),
+                pw.Text(
+                  doc.title.toUpperCase(),
+                  style: label.copyWith(fontSize: 9),
+                ),
                 pw.SizedBox(height: 2),
-                pw.Text(doc.id, style: pw.TextStyle(font: strong, fontSize: 14, color: _ink)),
+                pw.Text(
+                  doc.id,
+                  style: pw.TextStyle(font: strong, fontSize: 14, color: _ink),
+                ),
                 pw.Text(longDate(doc.date), style: body),
+                if (doc.dueDate.isNotEmpty)
+                  pw.Text(
+                    'Due ${longDate(doc.dueDate)} (${termsLabel(doc.termsDays)})',
+                    style: small,
+                  ),
               ],
             ),
           ],
@@ -84,7 +125,8 @@ Future<Uint8List> buildInvoicePdf(InvoiceDocument doc, {required ByteData regula
                   pw.Text('BILL TO', style: label),
                   pw.SizedBox(height: 3),
                   pw.Text(doc.buyerName, style: heavy),
-                  if (doc.buyerGstin.isNotEmpty) pw.Text('GSTIN ${doc.buyerGstin}', style: body),
+                  if (doc.buyerGstin.isNotEmpty)
+                    pw.Text('GSTIN ${doc.buyerGstin}', style: body),
                 ],
               ),
             ),
@@ -101,7 +143,10 @@ Future<Uint8List> buildInvoicePdf(InvoiceDocument doc, {required ByteData regula
         ),
         pw.SizedBox(height: 18),
         pw.Table(
-          border: const pw.TableBorder(horizontalInside: pw.BorderSide(color: _line, width: 0.5), bottom: pw.BorderSide(color: _line, width: 0.5)),
+          border: const pw.TableBorder(
+            horizontalInside: pw.BorderSide(color: _line, width: 0.5),
+            bottom: pw.BorderSide(color: _line, width: 0.5),
+          ),
           columnWidths: const {
             0: pw.FlexColumnWidth(5),
             1: pw.FlexColumnWidth(1.6),
@@ -146,7 +191,8 @@ Future<Uint8List> buildInvoicePdf(InvoiceDocument doc, {required ByteData regula
               child: pw.Column(
                 children: [
                   amountRow('Taxable value', doc.taxable),
-                  for (final (name, amount) in doc.taxHeads) amountRow(name, amount),
+                  for (final (name, amount) in doc.taxHeads)
+                    amountRow(name, amount),
                   pw.Divider(color: _line, thickness: 0.6),
                   amountRow('Total', doc.total, strongRow: true),
                   if (doc.received > 0) ...[

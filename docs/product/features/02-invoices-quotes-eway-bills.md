@@ -50,6 +50,24 @@ WhatsApp or email. For goods on the move, the e-way bill is offered on the same 
 - A sender in the product's own name (WhatsApp Business API, transactional email) is a
   later option and needs open question Q6 answered.
 
+### Payment terms and due dates (built 2026-10-06)
+
+- Each customer can have terms (`set_payment_terms`, 0 to 365 days; 0 is due on
+  receipt), kept by GSTIN, or by name when there is none, and settable before the first
+  invoice. A new invoice takes the customer's terms, or its own (`paymentTermsDays`,
+  as in "net 45 per their PO"), and gets a `dueDate`. Invoices already raised keep
+  theirs; an invoice with no terms has no due date.
+- The invoice preview, screen and PDF show the due date and the terms. The customer chat
+  shows "Due 20 October" or "Overdue by 24 days" on each open invoice, and a Terms chip.
+- Overdue now means past the agreed terms: the dashboard summary and the books check
+  report it. The cash forecast uses a customer's actual paying habit when there is one
+  and their terms otherwise, and shows both.
+- Chat: "Retail Mart pays in 45 days", "set Retail Mart's terms to net 30", "terms for
+  Kiran Stores: on receipt", and "… net 45" at the end of an invoice message.
+- Not built: terms on purchase bills. Payments to micro and small enterprise suppliers
+  carry a statutory time limit with income tax consequences; that belongs with supplier
+  payment tracking and must come from dated rules, not from this feature.
+
 ### Quotes (to build)
 
 - A quote is a document with no ledger effect and no GST liability.
