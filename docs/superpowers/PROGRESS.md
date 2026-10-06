@@ -104,6 +104,6 @@ The owner's PRD is "Taxmeow (working title), Product Requirements Document, v0.1
 | Payroll | 12 | 0% | 0 | Nothing | All of it |
 | GSTR-2B matching and supplier reminders | 8 | 65% | 5.2 | Matching engine; 2B added in the app; credit at risk by supplier with reasons; supplier bill numbers on purchases | Fetching 2B from the portal; reminders with permission |
 | CA access | 6 | 70% | 4.2 | Invite a CA as a member; GSTR-1 file export; monthly entries CSV | Tally-format export; the sync setting |
-| Chat and dashboard | 12 | 80% | 9.6 | Chats by type and by party, expense chats by head, one entry sheet; Home shows taxes, this month against last, who owes, and a books check of what needs you | Rule-based chat only; payroll and money owed to suppliers not on the dashboard |
+| Chat and dashboard | 12 | 85% | 10.2 | Chats by type and by party, expense chats by head, one entry sheet; Home shows taxes, this month against last, who owes you, what you owe suppliers, and a books check of what needs you | Rule-based chat only; payroll not on the dashboard |
 | Reading documents automatically | 12 | 5% | 0.6 | Bank statement, Tally and Zoho file imports | POS sales, and reading a forwarded supplier invoice |
-| **Total** | **100** | | **51.5** | | |
+| **Total** | **100** | | **52.1** | | |

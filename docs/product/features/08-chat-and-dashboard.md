@@ -55,14 +55,14 @@ the hosted API (`propose`, `confirm`, `discard`).
 - The model sees only what the task needs. Which model, and where it runs, is PRD
   question Q3.
 
-### Dashboard (built 2026-10-06, except payroll and money owed to suppliers)
+### Dashboard (built 2026-10-06, except payroll)
 
 - Home shows this month against last month for sales (net of credit notes), purchases
   and expenses, from the read-only tool `business_summary`; each figure opens its
   register. Below it, what customers owe in total and the largest five by name.
 - Amounts read the Indian way: ₹42,000, ₹3.78 L, ₹1.23 cr.
-- Not yet: what the owner owes suppliers, because payments to suppliers are not
-  recorded against bills.
+- What the owner owes suppliers, in total and the largest five, net of payments recorded
+  against bills. A bill paid outside MyCA shows as owed until its payment is recorded.
 - Taxes: as on the Taxes screen. No "amount to pay" until set-off exists
   ([spec 03](03-gst-returns.md)).
 - Payroll: after [spec 05](05-payroll.md).
@@ -118,9 +118,25 @@ the hosted API (`propose`, `confirm`, `discard`).
   only picks the question (ADR-0004).
 - Chat: "can I afford 40 lakh of stock in September", "cash forecast", "my bank balance
   is 3 lakh". App: a Cash screen from Home.
-- Not yet: payments to suppliers recorded against bills (so older unpaid bills are not
-  in the forecast), payment terms per customer, and a balance taken from a bank
-  statement automatically.
+- Bills count only what is still owed on them. Bills unpaid for more than 30 days are
+  listed but not counted: MyCA cannot tell when, or whether outside MyCA, they will be
+  paid.
+- Not yet: a balance taken from a bank statement automatically.
+
+### Paying suppliers (built 2026-10-06)
+
+- `record_payment` (`invoice.mjs`) pays a bill in part or in full, from the bank or from
+  cash: debit the supplier, credit bank or cash. With no amount it pays what is owed.
+  Refused: more than is owed, a fully paid bill, a date before the bill, a locked
+  period, and more cash than is in hand.
+- Chat: "paid BILL-0001", "paid Fabric Co 4200 in cash" (the bill is chosen only when
+  one unpaid bill fits; otherwise the bills are listed), "how much do I owe Fabric Co?".
+  "Fabric Co paid 500" is money in, and "bought ... GST 5% paid cash" is a new bill;
+  neither is read as a payment.
+- App: a Paid chip in the supplier's chat, with what is owed filled in; bills show Paid,
+  Part paid or Unpaid and each payment.
+- Not yet: Rule 37 (credit reversed when a bill is unpaid 180 days after its date) still
+  reads payment status from an uploaded purchase register, not from these payments.
 
 ### Expense chats (to build)
 

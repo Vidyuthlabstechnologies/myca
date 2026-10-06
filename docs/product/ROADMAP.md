@@ -21,7 +21,7 @@ The owner can do a normal day's work in the app.
 | Invoice screen, save as PDF, share by WhatsApp or email (**done** 2026-10-06; audit of a share still to do) | FR-INV-3, FR-INV-6 | Nothing |
 | Expense heads and the tagger, expense chats (**done** 2026-10-06) | FR-TAG-2 to 4, FR-UI-2 | Nothing |
 | Credit notes and cancelling an invoice (**done** 2026-10-06, sales side) | FR-ACC-4 | Nothing |
-| Dashboard: sales, purchases, expenses, owed and owing (**done** 2026-10-06, except owing to suppliers) | FR-UI-4 | Nothing |
+| Dashboard: sales, purchases, expenses, owed and owing (**done** 2026-10-06; owing to suppliers added with supplier payments) | FR-UI-4 | Nothing |
 | Run on a real phone and fix what breaks | NFR-10 | A phone on USB |
 
 ### M2. The return, reviewed

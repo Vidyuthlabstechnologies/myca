@@ -53,7 +53,7 @@
 
 ### What the network can reach
 
-- Remote callers can propose nineteen write tools and the importers, and query a fixed list
+- Remote callers can propose twenty write tools and the importers, and query a fixed list
   of read tools. The rest of the tool catalogue is not reachable.
 - Every tool has a strict schema with no additional properties.
 - Imports refer to an uploaded document by hash; inline content is refused.

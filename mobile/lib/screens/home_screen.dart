@@ -521,6 +521,26 @@ class _SummaryPanel extends StatelessWidget {
                 : owed.map((c) => '${c.name} ${rupees(c.due)}').join(' · '),
             style: text.bodySmall?.copyWith(fontFeatures: moneyFigures),
           ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: Text('You owe suppliers', style: text.titleMedium),
+              ),
+              Text(
+                rupees(summary.owedBySuppliers),
+                style: text.titleMedium?.copyWith(fontFeatures: moneyFigures),
+              ),
+            ],
+          ),
+          Text(
+            summary.unpaidBills == 0
+                ? 'No bill is waiting to be paid.'
+                : summary.suppliers
+                      .map((s) => '${s.name} ${rupees(s.due)}')
+                      .join(' · '),
+            style: text.bodySmall?.copyWith(fontFeatures: moneyFigures),
+          ),
         ],
       ),
     );

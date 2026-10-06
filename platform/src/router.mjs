@@ -83,6 +83,10 @@ function fmtToolResult(name, result) {
     const next = review.steps.find((step) => step.id === review.next);
     return next ? `Confirmed. Next: ${next.title}. Say "review GST" to see it.` : 'Confirmed.';
   }
+  if (name === 'record_payment' && result.bill) {
+    const b = result.bill;
+    return `Paid ${b.partyName} ${money(result.payment.amount)} against ${b.id} by ${result.payment.mode} on ${result.payment.date}. ${result.remaining > 0.005 ? `${money(result.remaining)} is still owed on it.` : `${b.id} is paid in full.`}`;
+  }
   if (name === 'create_purchase' && result.invoice) {
     const i = result.invoice;
     return `Booked ${i.id} from ${i.partyName} for ${money(i.total)}. ITC ${money(i.cgst + i.sgst + i.igst)} posted to GST input. It will appear in the folio as a bill.`;
