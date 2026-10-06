@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -9,6 +11,7 @@ import 'app_state.dart';
 import 'brand.dart';
 import 'cloud/cloud_session.dart';
 import 'cloud/keystore_token_store.dart';
+import 'crash_reports.dart';
 import 'lock/app_lock.dart';
 import 'lock/device_app_lock.dart';
 import 'screens/business_setup_screen.dart';
@@ -28,6 +31,20 @@ void main() {
     ], await rootBundle.loadString('assets/fonts/Inter-LICENSE.txt'));
   });
   const config = AppConfig.fromEnvironment;
+  final crashes = config.hosted
+      ? CrashReporter(store: DeviceCrashStore())
+      : null;
+  if (crashes != null) {
+    final shown = FlutterError.onError;
+    FlutterError.onError = (details) {
+      shown?.call(details);
+      crashes.capture(details.exception, details.stack);
+    };
+    PlatformDispatcher.instance.onError = (error, stack) {
+      crashes.capture(error, stack, kind: 'async');
+      return true;
+    };
+  }
   runApp(
     MycaApp(
       state: AppState(
@@ -43,6 +60,7 @@ void main() {
         pickTextFile: pickTextFileFromDevice,
         saveTextFile: saveTextFileOnDevice,
         pdf: const PdfActions(share: sharePdfFromDevice, print: printPdfFromDevice),
+        crashes: crashes,
       ),
     ),
   );

@@ -21,6 +21,7 @@ const handler = createApi({
   secret: required('MYCA_TOKEN_SECRET'),
   otpSender: otpSender(),
   log: (entry) => console.log(JSON.stringify(entry)),
+  version: process.env.K_REVISION || 'dev',
 });
 const port = Number(process.env.PORT || 8080);
 createServer(handler).listen(port, () => console.log(JSON.stringify({ listening: port })));

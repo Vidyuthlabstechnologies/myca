@@ -29,6 +29,8 @@ dependency-free. Nothing here is deployed yet; it has only run against a local P
 | `src/businesses.mjs` | Creating a business with empty books; memberships and roles |
 | `src/members.mjs` | Invitations by phone number, joining, leaving and removing members |
 | `src/books-runner.mjs` | The per-request transaction around the engine |
+| `src/crash-reports.mjs` | Scrubbing, grouping and keeping crash reports from the app and the server |
+| `src/crashes.mjs` | `npm run crashes [n]`: the latest crash reports, read from `MYCA_DATABASE_URL` |
 | `src/api.mjs` | Routes under `/v1` |
 | `src/server.mjs` | Entry point |
 

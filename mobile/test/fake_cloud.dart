@@ -18,6 +18,8 @@ class FakeCloud {
   final openInvites = <Map<String, Object?>>[];
   final invited = <String>[];
   final removed = <String>[];
+  final crashReports = <Map<String, Object?>>[];
+  bool crashServerDown = false;
   String userName = '';
   String role = 'owner';
   Map<String, Object?> company = const {};
@@ -72,6 +74,12 @@ class FakeCloud {
     if (path == '/v1/auth/logout') {
       logouts += 1;
       return _json(200, {'ok': true});
+    }
+    if (path == '/v1/crash-reports' && request.method == 'POST') {
+      if (crashServerDown) return _json(500, {'ok': false, 'error': 'INTERNAL_ERROR'});
+      final reports = (body['reports'] as List).cast<Map<String, Object?>>();
+      crashReports.addAll(reports);
+      return _json(200, {'ok': true, 'accepted': reports.length, 'refused': 0});
     }
     if (path == '/v1/me' && request.method == 'GET') {
       return _json(200, {

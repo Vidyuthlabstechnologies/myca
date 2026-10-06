@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/widgets.dart';
 
 import 'api/models.dart';
 import 'api/myca_api.dart';
 import 'app_services.dart';
 import 'cloud/cloud_session.dart';
+import 'crash_reports.dart';
 import 'lock/app_lock.dart';
 
 Future<bool> _cannotSave(String name, String content) async => false;
@@ -18,6 +21,7 @@ class AppState extends ChangeNotifier {
     this.pdf = const PdfActions(),
     this.lock = const NoAppLock(),
     this.now = DateTime.now,
+    this.crashes,
   }) : api = api ?? cloud!.api;
 
   final MycaApi api;
@@ -28,6 +32,7 @@ class AppState extends ChangeNotifier {
   final PdfActions pdf;
   final AppLock lock;
   final DateTime Function() now;
+  final CrashReporter? crashes;
 
   Snapshot? snapshot;
   String error = '';
@@ -38,6 +43,7 @@ class AppState extends ChangeNotifier {
   bool lockEnabled = false;
   bool locked = false;
   bool showBooksCheck = false;
+  bool crashReportsOn = false;
   DateTime? _leftAt;
 
   bool get _guards => cloud != null && cloud!.signedIn && lockAvailable && lockEnabled;
@@ -49,6 +55,7 @@ class AppState extends ChangeNotifier {
     lockAvailable = cloud != null && await lock.available();
     lockEnabled = lockAvailable && await store.lockEnabled();
     locked = _guards;
+    crashReportsOn = await crashes?.enabled() ?? false;
     await refresh();
   }
 
@@ -71,12 +78,28 @@ class AppState extends ChangeNotifier {
     notifyListeners();
     try {
       snapshot = await api.snapshot();
+      _sendCrashReports();
     } on SignedOutException {
       snapshot = null;
     } on MycaApiException catch (err) {
       error = err.message;
     }
     loading = false;
+    notifyListeners();
+  }
+
+  void _sendCrashReports() {
+    final reporter = crashes;
+    final hosted = cloud;
+    if (reporter == null || hosted == null || !hosted.signedIn) return;
+    unawaited(reporter.flush(hosted.sendCrashReports));
+  }
+
+  Future<void> setCrashReports(bool enabled) async {
+    final reporter = crashes;
+    if (reporter == null || enabled == crashReportsOn) return;
+    await reporter.setEnabled(enabled);
+    crashReportsOn = enabled;
     notifyListeners();
   }
 

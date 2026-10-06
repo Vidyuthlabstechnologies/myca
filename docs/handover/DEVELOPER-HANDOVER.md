@@ -54,14 +54,14 @@ Read [`docs/product/PRD.md`](../product/PRD.md) for requirements,
 ## 3. Where it stands (6 October 2026)
 
 About **52% of the PRD** is built. See [`docs/superpowers/PROGRESS.md`](../superpowers/PROGRESS.md)
-for the weighted breakdown. There are **1,032 automated tests**:
+for the weighted breakdown. There are **1,044 automated tests**:
 
 | Suite | Tests |
 |---|---|
 | Platform | 550 |
 | Engines and statutory rules | 329 |
-| Hosted API | 54 |
-| Android app | 99 |
+| Hosted API | 60 |
+| Android app | 105 |
 
 **Built and tested**
 
@@ -201,7 +201,9 @@ binding. This section adds the technical detail.
    the app. Home shows what is owed to suppliers, and the cash forecast counts only what
    is still owed. Still open: Rule 37 reads payment status from an uploaded purchase
    register, not from these payments.
-5. Add crash and error reporting that carries no personal or financial data.
+5. **Crash and error reporting** (**done** 6 October 2026). No SDK: app and server
+   crashes are scrubbed of personal and financial data and sent to `POST /v1/crash-reports`.
+   Read them with `npm run crashes`. See SECURITY-AND-PRIVACY.md, "Crash reports".
 
 ### Phase 2: hosted pilot
 

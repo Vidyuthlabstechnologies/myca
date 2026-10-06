@@ -232,6 +232,10 @@ class CloudSession {
     return reply;
   }
 
+  Future<void> sendCrashReports(List<Map<String, Object?>> reports) async {
+    await call('POST', '/v1/crash-reports', {'reports': reports});
+  }
+
   Future<void> requestCode(String phone) async {
     final (_, body) = await _send('POST', '/v1/auth/otp', {
       'phone': phone,
