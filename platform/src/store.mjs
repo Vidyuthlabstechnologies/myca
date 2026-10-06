@@ -43,6 +43,7 @@ export function createState() {
     creditNotes: [],
     creditNoteSeq: 0,
     gstReviews: {},
+    gstr2b: {},
     lockThrough: '',
     integrationConnections: {},
     documents: [],
@@ -85,6 +86,7 @@ export function serialize(state) {
     creditNotes: state.creditNotes || [],
     creditNoteSeq: state.creditNoteSeq || 0,
     gstReviews: state.gstReviews || {},
+    gstr2b: state.gstr2b || {},
     integrationConnections: normalizeIntegrationConnections(state.integrationConnections),
     documents: state.documents || [],
     firmUsers: (state.firmUsers || []).map(withoutPin),
@@ -207,6 +209,7 @@ export function deserialize(raw) {
   state.creditNotes = Array.isArray(raw.creditNotes) ? raw.creditNotes : [];
   state.creditNoteSeq = raw.creditNoteSeq || 0;
   state.gstReviews = raw.gstReviews && typeof raw.gstReviews === 'object' ? raw.gstReviews : {};
+  state.gstr2b = raw.gstr2b && typeof raw.gstr2b === 'object' ? raw.gstr2b : {};
   // Legacy states embedded raw content in `files`; carry it to a one-shot migration.
   state._legacyFiles = raw.files && typeof raw.files === 'object' ? raw.files : null;
   state.integrationConnections = normalizeIntegrationConnections(raw.integrationConnections);

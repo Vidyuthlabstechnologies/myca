@@ -54,6 +54,7 @@ export function newBook(company = {}) {
     creditNotes: [],
     creditNoteSeq: 0,
     gstReviews: {},
+    gstr2b: {},
   };
 }
 
@@ -81,6 +82,7 @@ export function serializeBook(book) {
     creditNotes: book.creditNotes || [],
     creditNoteSeq: book.creditNoteSeq || 0,
     gstReviews: book.gstReviews || {},
+    gstr2b: book.gstr2b || {},
   };
 }
 
@@ -108,6 +110,7 @@ export function deserializeBook(raw) {
   book.creditNotes = Array.isArray(raw.creditNotes) ? raw.creditNotes : [];
   book.creditNoteSeq = raw.creditNoteSeq || 0;
   book.gstReviews = raw.gstReviews && typeof raw.gstReviews === 'object' ? raw.gstReviews : {};
+  book.gstr2b = raw.gstr2b && typeof raw.gstr2b === 'object' ? raw.gstr2b : {};
   return book;
 }
 

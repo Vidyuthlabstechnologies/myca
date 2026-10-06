@@ -15,6 +15,7 @@ import { gstr3bFor, periodSummary } from './period-summary.mjs';
 import { createCreditNote, cancelInvoice, creditNotesForPeriod } from './credit-notes.mjs';
 import { reviewOf, answerReview } from './gst-review.mjs';
 import { exportEntries } from './entries-export.mjs';
+import { import2b, creditAtRisk } from './gstr2b-check.mjs';
 import { postTallyRows, postBankRows, purchaseRegisterCsv } from './post-import.mjs';
 import { parseZohoBooksCsv } from './import-zoho.mjs';
 import { invoicesToGstr1Json } from './gstr1-json.mjs';
@@ -468,7 +469,7 @@ export const TOOLS = [
     name: 'create_purchase',
     title: 'Record purchase bill',
     description: 'Book a supplier invoice: purchases + GST input + AP. Feeds GSTR-3B ITC.',
-    args: ['partyName', 'partyGstin', 'lines', 'date'],
+    args: ['partyName', 'partyGstin', 'lines', 'date', 'supplierInvoiceNo'],
     run: (state, args) => createPurchase(state, args),
   },
   {
@@ -574,6 +575,20 @@ export const TOOLS = [
     description: 'For one tax period: tax on sales and input credit by head from the GSTR-3B draft, and what the GSTR-1 file for that period holds. Lists the periods that have documents.',
     args: ['period'],
     run: (state, args = {}) => periodSummary(state, args.period),
+  },
+  {
+    name: 'import_gstr2b',
+    title: 'Add GSTR-2B',
+    description: 'Store the GSTR-2B statement for one month (the CSV from the GST portal) so purchase bills can be checked against what suppliers reported. Posts nothing to the ledger; a second file for the same month replaces the first.',
+    args: ['csv', 'period', 'fileName'],
+    run: (state, args = {}) => import2b(state, args),
+  },
+  {
+    name: 'credit_at_risk',
+    title: 'Credit at risk',
+    description: 'For one month: the input credit on purchase bills that GSTR-2B does not support (not reported, not available, different amounts or date, or no supplier bill number), by supplier, and 2B entries not in your books. Read-only.',
+    args: ['period'],
+    run: (state, args = {}) => creditAtRisk(state, args),
   },
   {
     name: 'export_entries',

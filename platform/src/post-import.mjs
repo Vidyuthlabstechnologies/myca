@@ -131,7 +131,7 @@ export function postTallyRows(state, rows) {
         date: row.date,
         partyName: row.ledger || 'Supplier',
         partyGstin: row.gstin || '',
-        lines: [{ description: row.narration || 'Purchase', hsn: row.hsn || '0000', qty: 1, rate: taxable, gstRate }],
+        lines: [{ description: row.narration || 'Purchase', hsn: row.hsn || '', qty: 1, rate: taxable, gstRate }],
       });
       posted.push(r);
       continue;
@@ -281,7 +281,7 @@ function dmy(iso) {
 export function purchaseRegisterCsv(purchases) {
   const rows = [['GSTIN', 'SUPPLIER NAME', 'INVOICE NO', 'INVOICE DATE', 'TAXABLE VALUE', 'CGST', 'SGST', 'IGST', 'TOTAL VALUE']];
   for (const p of purchases || []) {
-    rows.push([p.partyGstin, p.partyName, p.id, dmy(p.date), p.taxable, p.cgst, p.sgst, p.igst, p.total]);
+    rows.push([p.partyGstin, p.partyName, p.supplierInvoiceNo || p.id, dmy(p.date), p.taxable, p.cgst, p.sgst, p.igst, p.total]);
   }
   return csvRows(rows);
 }
