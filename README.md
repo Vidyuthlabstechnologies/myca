@@ -17,8 +17,8 @@ Taxmeow or MyCA is an open decision.
 | Against the product PRD | **About 50% built** ([requirement by requirement](docs/product/PRD.md), [how it is computed](docs/superpowers/PROGRESS.md)) |
 | To a Play Store launch | About 44% (estimate) |
 | Engine hardening (Phase 0) | 67%; every Critical and High audit finding closed ([audit](docs/audit/2026-09-21-codebase-audit.md)) |
-| Tests | **957**: platform 501, engines and statutory rules 329, hosted API 53, Android app 74 |
-| Tools | 88 named, schema-validated tools |
+| Tests | **966**: platform 506, engines and statutory rules 329, hosted API 53, Android app 78 |
+| Tools | 91 named, schema-validated tools |
 | Deployed | **Nothing.** The hosted API has run only against a local Postgres; the app has not run on a phone |
 | Live portal calls | Off by default (`MYCA_ENABLE_LIVE_CALLS=0`); no return has been filed through the product |
 | Automated checks | `node scripts/check-all.mjs`. CI is defined but GitHub Actions is not running on the account |
@@ -126,7 +126,7 @@ safe.
                          platform/src/session.mjs      one serialized gate per books
                          router.mjs                    propose → confirm, query
                          assistant-contract.mjs        strict schemas, risk classes
-                         tools.mjs                     88 named tools
+                         tools.mjs                     91 named tools
              ┌───────────────────┼─────────────────────┐
              ▼                   ▼                     ▼
       ledger / invoice     sprints/ engines      action-gate.mjs
@@ -165,7 +165,7 @@ The engine and the desktop server:
 
 ```bash
 cd platform
-npm test                 # 501 tests
+npm test                 # 506 tests
 npm run dev              # http://127.0.0.1:4780 (plain node)
 npm start                # Electron window (after: npm i)
 ```
@@ -182,7 +182,7 @@ The Android app (see [`mobile/README.md`](mobile/README.md)):
 
 ```bash
 cd mobile
-flutter test             # 74 tests
+flutter test             # 78 tests
 flutter run --dart-define=MYCA_CLOUD_URL=http://127.0.0.1:8080
 ```
 
@@ -259,8 +259,8 @@ Configuration is optional for local books. **Outbound calls are opt-in**; set
   shown, and the owner can move one with a tap.
 - An invoice opens from the chat, becomes a PDF, and is sent through the phone's share
   sheet from the owner's own WhatsApp or email.
-- Home shows this month against last month for sales, purchases and expenses, and
-  what customers owe.
+- Home shows this month against last month for sales, purchases and expenses, what
+  customers owe, and reminders due today ("remind me to call Rajesh tomorrow").
 - GST for one month at a time, the GSTR-1 file saved for the portal, deadlines and
   what needs the owner.
 - GSTR-2B added for a month, and input credit at risk shown by supplier with the

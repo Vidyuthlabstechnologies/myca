@@ -52,11 +52,13 @@ Future<Today> loadToday(MycaApi api, {String? period}) async {
     api.query('deadlines'),
     api.query('exceptions'),
     api.query('business_summary', {'period': ?period}),
+    api.query('list_reminders'),
   ]);
   return Today(
     gst: periodGstFrom(results[0]),
     deadlines: deadlinesFrom(results[1]),
     exceptions: exceptionsFrom(results[2]),
     summary: businessSummaryFrom(results[3]),
+    reminders: remindersFrom(results[4]),
   );
 }
