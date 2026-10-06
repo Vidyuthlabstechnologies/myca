@@ -46,6 +46,7 @@ export function createState() {
     gstr2b: {},
     reminders: [],
     reminderSeq: 0,
+    cashReadings: [],
     lockThrough: '',
     integrationConnections: {},
     documents: [],
@@ -91,6 +92,7 @@ export function serialize(state) {
     gstr2b: state.gstr2b || {},
     reminders: state.reminders || [],
     reminderSeq: state.reminderSeq || 0,
+    cashReadings: state.cashReadings || [],
     integrationConnections: normalizeIntegrationConnections(state.integrationConnections),
     documents: state.documents || [],
     firmUsers: (state.firmUsers || []).map(withoutPin),
@@ -216,6 +218,7 @@ export function deserialize(raw) {
   state.gstr2b = raw.gstr2b && typeof raw.gstr2b === 'object' ? raw.gstr2b : {};
   state.reminders = Array.isArray(raw.reminders) ? raw.reminders : [];
   state.reminderSeq = raw.reminderSeq || 0;
+  state.cashReadings = Array.isArray(raw.cashReadings) ? raw.cashReadings : [];
   // Legacy states embedded raw content in `files`; carry it to a one-shot migration.
   state._legacyFiles = raw.files && typeof raw.files === 'object' ? raw.files : null;
   state.integrationConnections = normalizeIntegrationConnections(raw.integrationConnections);

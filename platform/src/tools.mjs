@@ -18,6 +18,7 @@ import { exportEntries } from './entries-export.mjs';
 import { import2b, creditAtRisk } from './gstr2b-check.mjs';
 import { booksCheck } from './books-check.mjs';
 import { addReminder, completeReminder, listReminders } from './reminders.mjs';
+import { cashForecast, canAfford, setCashBalance } from './cash-forecast.mjs';
 import { postTallyRows, postBankRows, purchaseRegisterCsv } from './post-import.mjs';
 import { parseZohoBooksCsv } from './import-zoho.mjs';
 import { invoicesToGstr1Json } from './gstr1-json.mjs';
@@ -577,6 +578,35 @@ export const TOOLS = [
     description: 'For one tax period: tax on sales and input credit by head from the GSTR-3B draft, and what the GSTR-1 file for that period holds. Lists the periods that have documents.',
     args: ['period'],
     run: (state, args = {}) => periodSummary(state, args.period),
+  },
+  {
+    name: 'cash_forecast',
+    title: 'Cash forecast',
+    description: 'Bank and cash today and over the next days (30 unless given): invoices expected in by each customer\'s usual paying time, recent bills assumed paid in 30 days, GST due, usual expenses; the lowest point; overdue invoices listed but not counted. Read-only.',
+    args: ['days'],
+    run: async (state, args = {}) => {
+      const due = await TOOL_MAP.deadlines.run(state, {});
+      const clientId = String(state.activeClientId || 'SELF');
+      return cashForecast(state, { days: args.days, deadlines: (due.data?.deadlines || []).filter((row) => row.clientId === clientId) });
+    },
+  },
+  {
+    name: 'can_afford',
+    title: 'Can I afford it',
+    description: 'Whether spending an amount on a day leaves money in hand, from the cash forecast: the lowest balance after that day less the amount, how many months of usual outgoings that covers, and what can be spent while keeping a month in hand. Read-only.',
+    args: ['amount', 'on'],
+    run: async (state, args = {}) => {
+      const due = await TOOL_MAP.deadlines.run(state, {});
+      const clientId = String(state.activeClientId || 'SELF');
+      return canAfford(state, { amount: args.amount, on: args.on, deadlines: (due.data?.deadlines || []).filter((row) => row.clientId === clientId) });
+    },
+  },
+  {
+    name: 'set_cash_balance',
+    title: 'Bank and cash balance',
+    description: 'Record what the bank and cash in hand actually are on a day, so the forecast starts from real money. A note for forecasting; posts nothing to the ledger.',
+    args: ['bank', 'cash', 'on'],
+    run: (state, args = {}) => setCashBalance(state, args),
   },
   {
     name: 'add_reminder',

@@ -57,6 +57,7 @@ export function newBook(company = {}) {
     gstr2b: {},
     reminders: [],
     reminderSeq: 0,
+    cashReadings: [],
   };
 }
 
@@ -87,6 +88,7 @@ export function serializeBook(book) {
     gstr2b: book.gstr2b || {},
     reminders: book.reminders || [],
     reminderSeq: book.reminderSeq || 0,
+    cashReadings: book.cashReadings || [],
   };
 }
 
@@ -117,6 +119,7 @@ export function deserializeBook(raw) {
   book.gstr2b = raw.gstr2b && typeof raw.gstr2b === 'object' ? raw.gstr2b : {};
   book.reminders = Array.isArray(raw.reminders) ? raw.reminders : [];
   book.reminderSeq = raw.reminderSeq || 0;
+  book.cashReadings = Array.isArray(raw.cashReadings) ? raw.cashReadings : [];
   return book;
 }
 

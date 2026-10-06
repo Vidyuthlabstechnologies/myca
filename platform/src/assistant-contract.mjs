@@ -2,6 +2,7 @@ import { planReceiptWithoutInvoice } from './receipt-intent.mjs';
 import { planExpenseFromChat } from './expense-intent.mjs';
 import { reviewOf } from './gst-review.mjs';
 import { planReminderFromChat } from './reminder-intent.mjs';
+import { planCashFromChat } from './cash-intent.mjs';
 import { localToday } from './dates.mjs';
 import { normalizeChat, parseDocument, receiptAmount, receiptDate, isPurchaseIntent, isSaleIntent, isQuestion, isNegated, ROUTES } from './intent.mjs';
 import { confirmationIntent } from './chat-confirm.mjs';
@@ -270,6 +271,29 @@ export const TOOL_ARG_SCHEMAS = {
     },
   },
   books_check: noArgs,
+  cash_forecast: {
+    type: 'object',
+    additionalProperties: false,
+    properties: { days: { type: 'integer', minimum: 1, maximum: 180 } },
+  },
+  can_afford: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['amount'],
+    properties: {
+      amount: { type: 'number', exclusiveMinimum: 0 },
+      on: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' },
+    },
+  },
+  set_cash_balance: {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      bank: { type: 'number' },
+      cash: { type: 'number', minimum: 0 },
+      on: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' },
+    },
+  },
   add_reminder: {
     type: 'object',
     additionalProperties: false,
@@ -659,6 +683,7 @@ const TOOL_RISK = {
   import_gstr2b: 'writes_books',
   add_reminder: 'writes_books',
   complete_reminder: 'writes_books',
+  set_cash_balance: 'writes_books',
   govt_nic_auth: 'external_auth_probe',
   govt_generate_irn: 'external_government_api',
   sandbox_operation: 'external_government_api',
@@ -853,6 +878,8 @@ export function planLocalToolCall(state, message) {
 
   const reminder = planReminderFromChat(text);
   if (reminder) return reminder;
+  const cash = planCashFromChat(text);
+  if (cash) return cash;
 
   if (/\breview\b.*\b(?:gst|gstr|return)\b|\b(?:gst|gstr-?[13]b?|return)\b.*\breview\b/i.test(text) && !isNegated(text)) {
     return planReview(state, text);
