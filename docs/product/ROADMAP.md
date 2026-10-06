@@ -90,7 +90,7 @@ its public page. Each maps onto work here, with how ours should be better.
 Order, after M2: (1) remind-me follow-ups (**done** 2026-10-06, in the app; phone notifications wait for deployment), (2) cash position and forecast tool (**done** 2026-10-06), (3) invoice
 terms (**done** 2026-10-06) and IRN in the flow (needs NIC credentials), (4) the language model selecting tools under ADR-0004, which
 unlocks free text, Hindi and voice, (5) WhatsApp as an input channel once PRD Q6 is
-answered, (6) "send this to my CA" on any finding.
+answered, (6) "send this to my CA" on any finding (**done** 2026-10-06 as "Ask my CA").
 
 ## What can start today with nothing from anyone
 

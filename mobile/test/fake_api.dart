@@ -150,6 +150,29 @@ class FakeMycaApi implements MycaApi {
   bool has2b = false;
   bool hasBalance = false;
   final customerTerms = <String, Object?>{'gstin:24AAACG1234F1Z5': 30};
+  final caRequests = <Map<String, Object?>>[
+    {
+      'id': 'ASK-0001',
+      'title': 'Invoice INV-0002 to Gujarat Weaves',
+      'facts': [
+        'Dated 2026-08-12, buyer GSTIN 24AAACG1234F1Z5',
+        'Total ₹3,77,600.00',
+      ],
+      'status': 'answered',
+      'askedBy': 'u-owner',
+      'lastOn': '2026-10-04',
+      'messages': <Map<String, Object?>>[
+        {'by': 'u-owner', 'on': '2026-10-03', 'text': 'Is IGST right here?'},
+        {
+          'by': 'u-ca',
+          'on': '2026-10-04',
+          'text': 'Yes, the goods went to Gujarat.',
+        },
+      ],
+      'text':
+          'Invoice INV-0002 to Gujarat Weaves\n- Total ₹3,77,600.00\n\n2026-10-03: Is IGST right here?',
+    },
+  ];
   final reminders = <Map<String, Object?>>[
     {
       'id': 'REM-0001',
@@ -338,6 +361,14 @@ class FakeMycaApi implements MycaApi {
         },
       );
     }
+    if (name == 'ask_ca') {
+      return _preview(
+        'Ask your CA about ${(args['subject'] as Map)['id'] ?? (args['subject'] as Map)['period']}: "${args['note']}"',
+      );
+    }
+    if (name == 'reply_ca' || name == 'close_ca') {
+      return _preview('$name ${args['id']}');
+    }
     if (name == 'set_payment_terms') {
       return _preview('${args['partyName']}: Net ${args['days']}.');
     }
@@ -423,6 +454,51 @@ class FakeMycaApi implements MycaApi {
         });
         return ChatReply.fromJson({
           'reply': 'Posted EXP-0003.',
+          'posted': true,
+          'confirmed': true,
+        });
+      }
+      if (held.tool == 'ask_ca') {
+        caRequests.add({
+          'id': 'ASK-0002',
+          'title':
+              'About ${(held.args['subject'] as Map)['id'] ?? (held.args['subject'] as Map)['period']}',
+          'facts': const <Object?>[],
+          'status': 'open',
+          'askedBy': 'u-owner',
+          'lastOn': '2026-10-05',
+          'messages': <Map<String, Object?>>[
+            {'by': 'u-owner', 'on': '2026-10-05', 'text': held.args['note']},
+          ],
+          'text': '',
+        });
+        return ChatReply.fromJson({
+          'reply': 'Sent to your CA in MyCA (ASK-0002).',
+          'posted': true,
+          'confirmed': true,
+        });
+      }
+      if (held.tool == 'reply_ca') {
+        final request = caRequests.firstWhere(
+          (r) => r['id'] == held.args['id'],
+        );
+        (request['messages'] as List).add({
+          'by': 'u-owner',
+          'on': '2026-10-05',
+          'text': held.args['text'],
+        });
+        request['status'] = 'open';
+        return ChatReply.fromJson({
+          'reply': 'Replied.',
+          'posted': true,
+          'confirmed': true,
+        });
+      }
+      if (held.tool == 'close_ca') {
+        caRequests.firstWhere((r) => r['id'] == held.args['id'])['status'] =
+            'closed';
+        return ChatReply.fromJson({
+          'reply': 'Closed.',
           'posted': true,
           'confirmed': true,
         });
@@ -700,6 +776,20 @@ class FakeMycaApi implements MycaApi {
                 277600 -
                 creditNotes.fold<num>(0, (sum, n) => sum + (n['total'] as num)),
             'missing': ['HSN'],
+          },
+        };
+      case 'list_ca_requests':
+        final status = args['status'] ?? 'open';
+        return {
+          'ok': true,
+          'data': {
+            'requests': caRequests
+                .where(
+                  (r) =>
+                      status == 'all' ||
+                      (status == 'closed') == (r['status'] == 'closed'),
+                )
+                .toList(),
           },
         };
       case 'cash_forecast':

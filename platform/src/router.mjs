@@ -35,6 +35,15 @@ function fmtToolResult(name, result) {
       ...d.notes.map((note) => `· ${note}`),
     ].filter(Boolean).join('\n');
   }
+  if (name === 'ask_ca' && result.request) {
+    return `Sent to your CA in MyCA (${result.request.id}). You will see the reply under Your CA.`;
+  }
+  if (name === 'reply_ca' && result.request) {
+    return `Replied on ${result.request.title}.`;
+  }
+  if (name === 'close_ca' && result.request) {
+    return `Closed: ${result.request.title}.`;
+  }
   if (name === 'set_payment_terms' && result.ok) {
     return `Noted. ${result.customer}: ${result.label}. New invoices to them will show a due date.`;
   }

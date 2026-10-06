@@ -1045,6 +1045,63 @@ class Affordability {
   }
 }
 
+class CaMessage {
+  const CaMessage({required this.by, required this.on, required this.text});
+
+  factory CaMessage.fromJson(Object? json) {
+    final map = _map(json);
+    return CaMessage(
+      by: _text(map['by']),
+      on: _text(map['on']),
+      text: _text(map['text']),
+    );
+  }
+
+  final String by;
+  final String on;
+  final String text;
+}
+
+class CaRequest {
+  const CaRequest({
+    required this.id,
+    required this.title,
+    required this.facts,
+    required this.status,
+    required this.askedBy,
+    required this.lastOn,
+    required this.messages,
+    required this.text,
+  });
+
+  factory CaRequest.fromJson(Object? json) {
+    final map = _map(json);
+    final facts = map['facts'];
+    return CaRequest(
+      id: _text(map['id']),
+      title: _text(map['title']),
+      facts: facts is List ? facts.map(_text).toList() : const [],
+      status: _text(map['status']),
+      askedBy: _text(map['askedBy']),
+      lastOn: _text(map['lastOn']),
+      messages: _maps(map['messages']).map(CaMessage.fromJson).toList(),
+      text: _text(map['text']),
+    );
+  }
+
+  final String id;
+  final String title;
+  final List<String> facts;
+  final String status;
+  final String askedBy;
+  final String lastOn;
+  final List<CaMessage> messages;
+  final String text;
+}
+
+List<CaRequest> caRequestsFrom(Object? json) =>
+    _maps(toolData(json)['requests']).map(CaRequest.fromJson).toList();
+
 class Today {
   const Today({
     required this.gst,

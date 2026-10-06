@@ -14,6 +14,7 @@ import { parse2bFile } from './gstr2b-check.mjs';
 import { planReminder, findReminder, whenWords } from './reminders.mjs';
 import { planCashReading } from './cash-forecast.mjs';
 import { planTerms, termsLabel, invoiceTerms, dueDateOf } from './payment-terms.mjs';
+import { planAsk, planReply } from './ca-requests.mjs';
 import { isReturnPeriod } from './return-period.mjs';
 import { gstSplit, partyStateOf } from './chart.mjs';
 import { postingDate } from './dates.mjs';
@@ -23,7 +24,7 @@ import { parseZohoBooksCsv } from './import-zoho.mjs';
 import { tallyXmlToDayBookCsv } from './tally-xml.mjs';
 
 export const CONFIRM_TOOLS = new Set([
-  'create_invoice', 'create_purchase', 'record_receipt', 'post_expense', 'set_expense_head', 'create_credit_note', 'cancel_invoice', 'gst_review_answer', 'import_gstr2b', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms',
+  'create_invoice', 'create_purchase', 'record_receipt', 'post_expense', 'set_expense_head', 'create_credit_note', 'cancel_invoice', 'gst_review_answer', 'import_gstr2b', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'ask_ca', 'reply_ca', 'close_ca',
   'import_tally', 'import_tally_xml', 'import_zoho', 'import_bank',
   'govt_generate_irn', 'govt_nic_cancel_irn',
   'exception_decide',
@@ -270,6 +271,45 @@ function termsPreview(state, args) {
   };
 }
 
+const CA_REASONS = {
+  NOTE_REQUIRED: 'Write what you want to ask.',
+  NOTE_TOO_LONG: 'Keep it under 1,000 characters.',
+  TEXT_REQUIRED: 'Write a reply.',
+  TEXT_TOO_LONG: 'Keep it under 1,000 characters.',
+  UNKNOWN_SUBJECT: 'That is not something MyCA can attach.',
+  SUBJECT_NOT_FOUND: 'That is not in these books.',
+  REQUEST_NOT_FOUND: 'That question is not here.',
+  REQUEST_CLOSED: 'That question is closed.',
+};
+
+function askPreview(state, args) {
+  const planned = planAsk(state, args);
+  if (!planned.ok) return { blockers: [CA_REASONS[planned.error] || planned.error], summary: '', effects: [], figures: {} };
+  const { plan } = planned;
+  return {
+    blockers: [],
+    summary: `Ask your CA about ${plan.title}: "${plan.note}"`,
+    effects: [
+      plan.context.facts.length ? `MyCA attaches: ${plan.context.facts.join('; ')}.` : 'Nothing is attached.',
+      'Your CA sees it in MyCA once you have invited them. Nothing is sent outside MyCA.',
+    ],
+    figures: { title: plan.title },
+  };
+}
+
+function replyPreview(state, args) {
+  const planned = planReply(state, args);
+  if (!planned.ok) return { blockers: [CA_REASONS[planned.error] || planned.error], summary: '', effects: [], figures: {} };
+  return { blockers: [], summary: `Reply on ${planned.request.title}: "${planned.text}"`, effects: [], figures: {} };
+}
+
+function closePreview(state, args) {
+  const request = (state.caRequests || []).find((item) => item.id === String(args.id || '').toUpperCase());
+  if (!request) return { blockers: [CA_REASONS.REQUEST_NOT_FOUND], summary: '', effects: [], figures: {} };
+  if (request.status === 'closed') return { blockers: [CA_REASONS.REQUEST_CLOSED], summary: '', effects: [], figures: {} };
+  return { blockers: [], summary: `Close the question: ${request.title}.`, effects: [], figures: {} };
+}
+
 function countSkips(skipped = []) {
   const counts = {};
   for (const s of skipped) counts[s.reason] = (counts[s.reason] || 0) + 1;
@@ -367,6 +407,9 @@ const PREVIEWERS = {
   complete_reminder: completeReminderPreview,
   set_cash_balance: cashReadingPreview,
   set_payment_terms: termsPreview,
+  ask_ca: askPreview,
+  reply_ca: replyPreview,
+  close_ca: closePreview,
   import_tally: (state, args) => tallyPreview(state, args, args.csv, args.fileName || 'Tally Day Book'),
   import_tally_xml: xmlPreview,
   import_zoho: zohoPreview,

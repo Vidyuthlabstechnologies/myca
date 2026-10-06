@@ -10,6 +10,7 @@ import '../format.dart';
 import '../marks.dart';
 import '../theme.dart';
 import '../widgets.dart';
+import 'ca_screen.dart';
 import 'credit_card.dart';
 import 'review_screen.dart';
 
@@ -156,6 +157,25 @@ class _TaxesScreenState extends State<TaxesScreen> {
                     child: const Text('Got it'),
                   ),
                 ),
+                if (item.id.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton(
+                      onPressed: () async {
+                        Navigator.of(sheet).pop();
+                        final reply = await askMyCa(
+                          context,
+                          subject: {'kind': 'exception', 'id': item.id},
+                          about: item.title,
+                        );
+                        if (!mounted || reply.isEmpty) return;
+                        setState(() => _fileNote = reply);
+                      },
+                      child: const Text('Ask my CA'),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),

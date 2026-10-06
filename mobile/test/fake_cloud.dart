@@ -163,6 +163,7 @@ class FakeCloud {
         'books_check' => {'ok': false, 'error': 'X'},
         'list_reminders' => {'ok': false, 'error': 'X'},
         'cash_forecast' => {'ok': false, 'error': 'X'},
+        'list_ca_requests' => {'ok': false, 'error': 'X'},
         'gst_period_summary' => {
             'ok': true,
             'data': {

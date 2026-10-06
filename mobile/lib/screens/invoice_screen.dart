@@ -7,6 +7,7 @@ import '../format.dart';
 import '../invoice_pdf.dart';
 import '../proposal_flow.dart';
 import '../widgets.dart';
+import 'ca_screen.dart';
 import 'reminders_screen.dart';
 import '../theme.dart';
 
@@ -105,6 +106,16 @@ class _InvoiceScreenState extends State<InvoiceScreen> with ProposalFlow {
         'amount': ?amount,
       },
     );
+  }
+
+  Future<void> _askCa(InvoiceDocument doc) async {
+    final reply = await askMyCa(
+      context,
+      subject: {'kind': 'invoice', 'id': doc.id},
+      about: 'invoice ${doc.id} to ${doc.buyerName}',
+    );
+    if (!mounted || reply.isEmpty) return;
+    setState(() => _note = reply);
   }
 
   Future<void> _remind(InvoiceDocument doc) async {
@@ -222,6 +233,7 @@ class _InvoiceScreenState extends State<InvoiceScreen> with ProposalFlow {
                   onCancel: doc.cancelled || doc.credited > 0
                       ? null
                       : () => _cancel(doc),
+                  onAskCa: () => _askCa(doc),
                   onRemind: doc.cancelled || doc.balance <= 0
                       ? null
                       : () => _remind(doc),
@@ -253,6 +265,7 @@ class _InvoiceBody extends StatelessWidget {
     required this.onCreditNote,
     required this.onCancel,
     required this.onRemind,
+    required this.onAskCa,
   });
 
   final InvoiceDocument doc;
@@ -265,6 +278,7 @@ class _InvoiceBody extends StatelessWidget {
   final VoidCallback? onCreditNote;
   final VoidCallback? onCancel;
   final VoidCallback? onRemind;
+  final VoidCallback? onAskCa;
 
   @override
   Widget build(BuildContext context) {
@@ -445,7 +459,10 @@ class _InvoiceBody extends StatelessWidget {
               ? text.bodySmall
               : text.bodyMedium?.copyWith(color: Palette.ink),
         ),
-        if (onCreditNote != null || onCancel != null || onRemind != null) ...[
+        if (onCreditNote != null ||
+            onCancel != null ||
+            onRemind != null ||
+            onAskCa != null) ...[
           const SizedBox(height: 20),
           Wrap(
             spacing: 8,
@@ -455,6 +472,11 @@ class _InvoiceBody extends StatelessWidget {
                 ActionChip(
                   label: const Text('Remind me'),
                   onPressed: busy ? null : onRemind,
+                ),
+              if (onAskCa != null)
+                ActionChip(
+                  label: const Text('Ask my CA'),
+                  onPressed: busy ? null : onAskCa,
                 ),
               if (onCreditNote != null)
                 ActionChip(

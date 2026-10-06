@@ -17,8 +17,8 @@ Taxmeow or MyCA is an open decision.
 | Against the product PRD | **About 50% built** ([requirement by requirement](docs/product/PRD.md), [how it is computed](docs/superpowers/PROGRESS.md)) |
 | To a Play Store launch | About 44% (estimate) |
 | Engine hardening (Phase 0) | 67%; every Critical and High audit finding closed ([audit](docs/audit/2026-09-21-codebase-audit.md)) |
-| Tests | **987**: platform 519, engines and statutory rules 329, hosted API 53, Android app 86 |
-| Tools | 95 named, schema-validated tools |
+| Tests | **997**: platform 524, engines and statutory rules 329, hosted API 53, Android app 91 |
+| Tools | 99 named, schema-validated tools |
 | Deployed | **Nothing.** The hosted API has run only against a local Postgres; the app has not run on a phone |
 | Live portal calls | Off by default (`MYCA_ENABLE_LIVE_CALLS=0`); no return has been filed through the product |
 | Automated checks | `node scripts/check-all.mjs`. CI is defined but GitHub Actions is not running on the account |
@@ -126,7 +126,7 @@ safe.
                          platform/src/session.mjs      one serialized gate per books
                          router.mjs                    propose → confirm, query
                          assistant-contract.mjs        strict schemas, risk classes
-                         tools.mjs                     95 named tools
+                         tools.mjs                     99 named tools
              ┌───────────────────┼─────────────────────┐
              ▼                   ▼                     ▼
       ledger / invoice     sprints/ engines      action-gate.mjs
@@ -165,7 +165,7 @@ The engine and the desktop server:
 
 ```bash
 cd platform
-npm test                 # 519 tests
+npm test                 # 524 tests
 npm run dev              # http://127.0.0.1:4780 (plain node)
 npm start                # Electron window (after: npm i)
 ```
@@ -182,7 +182,7 @@ The Android app (see [`mobile/README.md`](mobile/README.md)):
 
 ```bash
 cd mobile
-flutter test             # 86 tests
+flutter test             # 91 tests
 flutter run --dart-define=MYCA_CLOUD_URL=http://127.0.0.1:8080
 ```
 
@@ -271,6 +271,8 @@ Configuration is optional for local books. **Outbound calls are opt-in**; set
 - The month's return reviewed step by step ("Is this information correct?") and
   approved by the owner; nothing is filed from the review.
 - Members and invitations, switching business, and a fingerprint or screen lock.
+- "Ask my CA" on an invoice, a flagged item or a month's return, with the facts
+  attached by the engine and the answer back in the app.
 
 **Safety**
 
