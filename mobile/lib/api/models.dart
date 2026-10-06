@@ -227,6 +227,7 @@ class Snapshot {
     required this.expenses,
     required this.creditNotes,
     this.customerTerms = const {},
+    this.quotes = const [],
     required this.users,
     required this.activeUser,
   });
@@ -240,6 +241,7 @@ class Snapshot {
       purchases: _maps(map['purchases']).map(Invoice.fromJson).toList(),
       expenses: _maps(map['expenses']).map(Expense.fromJson).toList(),
       creditNotes: _maps(map['creditNotes']).map(CreditNote.fromJson).toList(),
+      quotes: _maps(map['quotes']).map(Quote.fromJson).toList(),
       customerTerms: {
         for (final entry in _map(map['customerTerms']).entries)
           if (entry.value is num) entry.key: (entry.value as num).toInt(),
@@ -255,6 +257,7 @@ class Snapshot {
   final List<Expense> expenses;
   final List<CreditNote> creditNotes;
   final Map<String, int> customerTerms;
+  final List<Quote> quotes;
   final List<FirmUser> users;
 
   int? termsFor(String name, String gstin) {
@@ -1102,6 +1105,44 @@ class CaRequest {
 List<CaRequest> caRequestsFrom(Object? json) =>
     _maps(toolData(json)['requests']).map(CaRequest.fromJson).toList();
 
+class Quote {
+  const Quote({
+    required this.id,
+    required this.date,
+    required this.partyName,
+    required this.partyGstin,
+    required this.total,
+    required this.validUntil,
+    required this.status,
+    required this.invoiceId,
+  });
+
+  factory Quote.fromJson(Object? json) {
+    final map = _map(json);
+    return Quote(
+      id: _text(map['id']),
+      date: _text(map['date']),
+      partyName: _text(map['partyName']),
+      partyGstin: _text(map['partyGstin']),
+      total: _num(map['total']),
+      validUntil: _text(map['validUntil']),
+      status: _text(map['status']),
+      invoiceId: _text(map['invoiceId']),
+    );
+  }
+
+  final String id;
+  final String date;
+  final String partyName;
+  final String partyGstin;
+  final num total;
+  final String validUntil;
+  final String status;
+  final String invoiceId;
+
+  String stateOn(String today) => status == 'open' && validUntil.compareTo(today) < 0 ? 'expired' : status;
+}
+
 class Today {
   const Today({
     required this.gst,
@@ -1204,6 +1245,9 @@ class InvoiceDocument {
     required this.missing,
     this.dueDate = '',
     this.termsDays,
+    this.kind = 'invoice',
+    this.validUntil = '',
+    this.linkedId = '',
   });
 
   static InvoiceDocument? fromTool(Object? json) {
@@ -1242,6 +1286,9 @@ class InvoiceDocument {
       termsDays: map['paymentTermsDays'] is num
           ? (map['paymentTermsDays'] as num).toInt()
           : null,
+      kind: _text(map['kind']).isEmpty ? 'invoice' : _text(map['kind']),
+      validUntil: _text(map['validUntil']),
+      linkedId: _text(map['kind']) == 'quote' ? _text(map['invoiceId']) : _text(map['quoteId']),
       missing: [
         for (final code in (map['missing'] as List? ?? const [])) _text(code),
       ],
@@ -1275,7 +1322,13 @@ class InvoiceDocument {
 
   bool get cancelled => status == 'cancelled';
 
-  String get title => sellerGstin.isEmpty ? 'Invoice' : 'Tax invoice';
+  final String kind;
+  final String validUntil;
+  final String linkedId;
+
+  bool get isQuote => kind == 'quote';
+
+  String get title => isQuote ? 'Quotation' : (sellerGstin.isEmpty ? 'Invoice' : 'Tax invoice');
 
   List<(String, num)> get taxHeads => [
     if (cgst > 0) ('CGST', cgst),

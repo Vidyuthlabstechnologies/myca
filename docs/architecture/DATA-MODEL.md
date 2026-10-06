@@ -91,6 +91,7 @@ key cannot be written through a view.
 | `attachments` | Metadata for attached documents; bytes are in the document store |
 | `pendingChatAction`, `lastConfirmation` | The one held proposal and the last confirmed one, so a confirm can be replayed safely |
 | `exceptions`, `exceptionSeq` | The exception queue |
+| `quotes`, `quoteSeq` | Quotations: lines and tax as on an invoice, validity, state, and the invoice they became |
 | `caRequests`, `caRequestSeq` | Questions for the CA: subject, the facts the engine attached, the messages with who and when, status |
 | `customerTerms` | Payment terms in days per customer, keyed by GSTIN or by name |
 | `cashReadings` | Bank and cash balances the owner stated on a day, used as the forecast's starting point; never posted to the ledger |

@@ -30,9 +30,10 @@ String missingNote(List<String> codes) {
 }
 
 class InvoiceScreen extends StatefulWidget {
-  const InvoiceScreen({super.key, required this.invoiceId});
+  const InvoiceScreen({super.key, required this.invoiceId, this.quote = false});
 
   final String invoiceId;
+  final bool quote;
 
   @override
   State<InvoiceScreen> createState() => _InvoiceScreenState();
@@ -51,9 +52,10 @@ class _InvoiceScreenState extends State<InvoiceScreen> with ProposalFlow {
   }
 
   Future<InvoiceDocument?> _load() async {
-    final body = await AppScope.of(
-      context,
-    ).api.query('invoice_document', {'id': widget.invoiceId});
+    final body = await AppScope.of(context).api.query(
+      widget.quote ? 'quote_document' : 'invoice_document',
+      {'id': widget.invoiceId},
+    );
     return InvoiceDocument.fromTool(body);
   }
 
@@ -184,7 +186,11 @@ class _InvoiceScreenState extends State<InvoiceScreen> with ProposalFlow {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Invoice ${widget.invoiceId}')),
+      appBar: AppBar(
+        title: Text(
+          '${widget.quote ? 'Quote' : 'Invoice'} ${widget.invoiceId}',
+        ),
+      ),
       body: FutureBuilder<InvoiceDocument?>(
         future: _document,
         builder: (context, state) {
@@ -227,16 +233,48 @@ class _InvoiceScreenState extends State<InvoiceScreen> with ProposalFlow {
                   scroll: _scroll,
                   onShare: () => _send(doc, share: true),
                   onPrint: () => _send(doc, share: false),
-                  onCreditNote: doc.cancelled || doc.balance + doc.received <= 0
+                  onCreditNote:
+                      doc.isQuote ||
+                          doc.cancelled ||
+                          doc.balance + doc.received <= 0
                       ? null
                       : () => _creditNote(doc),
-                  onCancel: doc.cancelled || doc.credited > 0
+                  onCancel: doc.isQuote || doc.cancelled || doc.credited > 0
                       ? null
                       : () => _cancel(doc),
-                  onAskCa: () => _askCa(doc),
-                  onRemind: doc.cancelled || doc.balance <= 0
+                  onAskCa: doc.isQuote ? null : () => _askCa(doc),
+                  onRemind: doc.isQuote || doc.cancelled || doc.balance <= 0
                       ? null
                       : () => _remind(doc),
+                  onAccept:
+                      doc.isQuote &&
+                          (doc.status == 'open' || doc.status == 'expired')
+                      ? () => propose('${doc.id} accepted', 'mark_quote', {
+                          'id': doc.id,
+                          'outcome': 'accepted',
+                        })
+                      : null,
+                  onDecline:
+                      doc.isQuote &&
+                          (doc.status == 'open' || doc.status == 'expired')
+                      ? () => propose('${doc.id} declined', 'mark_quote', {
+                          'id': doc.id,
+                          'outcome': 'declined',
+                        })
+                      : null,
+                  onMakeInvoice:
+                      doc.isQuote &&
+                          doc.status != 'declined' &&
+                          doc.status != 'invoiced'
+                      ? () => propose(
+                          'Make ${doc.id} an invoice',
+                          'convert_quote',
+                          {
+                            'id': doc.id,
+                            'date': isoDate(AppScope.of(context).now()),
+                          },
+                        )
+                      : null,
                 ),
               ),
               if (pending != null)
@@ -266,6 +304,9 @@ class _InvoiceBody extends StatelessWidget {
     required this.onCancel,
     required this.onRemind,
     required this.onAskCa,
+    this.onAccept,
+    this.onDecline,
+    this.onMakeInvoice,
   });
 
   final InvoiceDocument doc;
@@ -279,6 +320,9 @@ class _InvoiceBody extends StatelessWidget {
   final VoidCallback? onCancel;
   final VoidCallback? onRemind;
   final VoidCallback? onAskCa;
+  final VoidCallback? onAccept;
+  final VoidCallback? onDecline;
+  final VoidCallback? onMakeInvoice;
 
   @override
   Widget build(BuildContext context) {
@@ -319,7 +363,7 @@ class _InvoiceBody extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('BILL TO', style: text.labelSmall),
+                      Text(doc.isQuote ? 'QUOTED TO' : 'BILL TO', style: text.labelSmall),
                       const SizedBox(height: 2),
                       Text(doc.buyerName, style: text.titleMedium),
                       if (doc.buyerGstin.isNotEmpty)
@@ -337,6 +381,27 @@ class _InvoiceBody extends StatelessWidget {
                 ),
               ],
             ),
+            if (doc.isQuote) ...[
+              const SizedBox(height: 12),
+              Text('VALID UNTIL', style: text.labelSmall),
+              const SizedBox(height: 2),
+              Text(longDate(doc.validUntil), style: text.bodyMedium),
+              Text(
+                switch (doc.status) {
+                  'accepted' => 'Accepted by the customer',
+                  'declined' => 'Declined by the customer',
+                  'invoiced' => 'Invoiced as ${doc.linkedId}',
+                  'expired' => 'Expired',
+                  _ => 'Open',
+                },
+                style: text.bodyMedium?.copyWith(
+                  color: doc.status == 'declined' || doc.status == 'expired'
+                      ? Palette.warn
+                      : Palette.accent,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
             if (doc.dueDate.isNotEmpty) ...[
               const SizedBox(height: 12),
               Text('PAYMENT DUE', style: text.labelSmall),
@@ -459,6 +524,35 @@ class _InvoiceBody extends StatelessWidget {
               ? text.bodySmall
               : text.bodyMedium?.copyWith(color: Palette.ink),
         ),
+        if (onMakeInvoice != null || onAccept != null || onDecline != null) ...[
+          const SizedBox(height: 20),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              if (onMakeInvoice != null)
+                ActionChip(
+                  label: const Text('Make invoice'),
+                  onPressed: busy ? null : onMakeInvoice,
+                ),
+              if (onAccept != null)
+                ActionChip(
+                  label: const Text('Accepted'),
+                  onPressed: busy ? null : onAccept,
+                ),
+              if (onDecline != null)
+                ActionChip(
+                  label: const Text('Declined'),
+                  onPressed: busy ? null : onDecline,
+                ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'A quote posts nothing to your books. Making the invoice posts it, with the same lines.',
+            style: text.bodySmall,
+          ),
+        ],
         if (onCreditNote != null ||
             onCancel != null ||
             onRemind != null ||
