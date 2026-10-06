@@ -11,6 +11,7 @@ import '../registers.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import 'ask_screen.dart';
+import 'books_check_screen.dart';
 import 'expenses_screen.dart';
 import 'business_sheet.dart';
 import 'new_entry_sheet.dart';
@@ -44,6 +45,17 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<Today> _loadToday() => loadToday(AppScope.of(context).api);
 
+  void _openCheckOnce() {
+    final state = AppScope.of(context);
+    if (!state.showBooksCheck) return;
+    state.showBooksCheck = false;
+    final books = widget.snapshot;
+    if (books.invoices.isEmpty && books.purchases.isEmpty && books.expenses.isEmpty) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _open(const BooksCheckScreen());
+    });
+  }
+
   void _open(Widget screen) => Navigator.of(
     context,
   ).push(MaterialPageRoute<void>(builder: (_) => screen));
@@ -52,6 +64,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     final state = AppScope.of(context);
     final snapshot = widget.snapshot;
+    _openCheckOnce();
     final text = Theme.of(context).textTheme;
     final company = snapshot.company;
     final empty = snapshot.invoices.isEmpty && snapshot.purchases.isEmpty;
@@ -176,6 +189,13 @@ class _HomeScreenState extends State<HomeScreen> {
                   subtitle: expensesSubtitle(snapshot.expenses),
                   trailing: const Chevron(),
                   onTap: () => _open(const ExpensesScreen()),
+                ),
+                RowCard(
+                  leading: const TintTile(tint: Tint.taxes, mark: Mark.confirm),
+                  title: 'Books check',
+                  subtitle: 'What needs you, worked out from your books',
+                  trailing: const Chevron(),
+                  onTap: () => _open(const BooksCheckScreen()),
                 ),
                 RowCard(
                   leading: const TintTile(tint: Tint.ask, mark: Mark.ask),

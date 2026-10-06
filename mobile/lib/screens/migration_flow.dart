@@ -8,6 +8,7 @@ import '../proposal_flow.dart';
 import '../marks.dart';
 import '../theme.dart';
 import '../widgets.dart';
+import 'books_check_screen.dart';
 
 class MigrationFlow extends StatefulWidget {
   const MigrationFlow({
@@ -27,7 +28,8 @@ class _MigrationFlowState extends State<MigrationFlow> {
   int _step = 0;
   MigrationPath? _path;
 
-  bool get _skipsBusiness => widget.bringMore || AppScope.of(context).cloud != null;
+  bool get _skipsBusiness =>
+      widget.bringMore || AppScope.of(context).cloud != null;
 
   void _choose(MigrationPath path) => setState(() {
     _path = path;
@@ -45,6 +47,9 @@ class _MigrationFlowState extends State<MigrationFlow> {
     final navigator = Navigator.of(context);
     await state.refresh();
     navigator.pop();
+    navigator.push(
+      MaterialPageRoute<void>(builder: (_) => const BooksCheckScreen()),
+    );
   }
 
   @override
@@ -309,7 +314,11 @@ class _ImportStepState extends State<_ImportStep> with ProposalFlow {
       documentSha256 = await api.upload(picked.name, picked.content);
     } on MycaApiException catch (err) {
       if (mounted) {
-        setState(() => entries.add(ThreadEntry(text: err.message, tone: BubbleTone.problem)));
+        setState(
+          () => entries.add(
+            ThreadEntry(text: err.message, tone: BubbleTone.problem),
+          ),
+        );
         onThreadChanged();
       }
       return;

@@ -129,6 +129,14 @@ void main() {
     await shot(tester, '17_expense_preview');
   });
 
+  testWidgets('books check', (tester) async {
+    await phone(tester);
+    await tester.pumpWidget(MycaApp(state: testState(FakeMycaApi(signedIn: true))));
+    await tester.pumpAndSettle();
+    await tapRow(tester, 'Books check');
+    await shot(tester, '23_books_check');
+  });
+
   testWidgets('credit against GSTR-2B', (tester) async {
     await phone(tester);
     await tester.pumpWidget(MycaApp(state: testState(FakeMycaApi(signedIn: true)..has2b = true)));

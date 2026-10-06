@@ -37,6 +37,7 @@ class AppState extends ChangeNotifier {
   bool lockAvailable = false;
   bool lockEnabled = false;
   bool locked = false;
+  bool showBooksCheck = false;
   DateTime? _leftAt;
 
   bool get _guards => cloud != null && cloud!.signedIn && lockAvailable && lockEnabled;
@@ -117,6 +118,7 @@ class AppState extends ChangeNotifier {
   Future<void> finishMigration() async {
     await store.markMigrated();
     migrated = true;
+    showBooksCheck = true;
     await refresh();
   }
 

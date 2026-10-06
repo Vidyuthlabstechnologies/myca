@@ -61,6 +61,7 @@ class FakeMycaApi implements MycaApi {
     if (emptyBooks) {
       invoices.clear();
       purchases.clear();
+      expenses.clear();
     }
   }
 
@@ -609,6 +610,37 @@ class FakeMycaApi implements MycaApi {
                 277600 -
                 creditNotes.fold<num>(0, (sum, n) => sum + (n['total'] as num)),
             'missing': ['HSN'],
+          },
+        };
+      case 'books_check':
+        return {
+          'ok': true,
+          'data': {
+            'asOfDate': '2026-10-05',
+            'headline': '1 thing needs you now',
+            'counts': {'act': 1, 'check': 1, 'ok': 1},
+            'findings': [
+              {
+                'id': 'held',
+                'severity': 'act',
+                'title': '1 sale cannot go in the GST return as it stands',
+                'detail': 'Tax of ₹100.00 on INV-0009.',
+                'action': 'taxes',
+              },
+              {
+                'id': 'owed',
+                'severity': 'check',
+                'title': 'Customers owe you ₹3,77,600.00',
+                'detail': 'On 1 invoice. The largest is Gujarat Weaves.',
+                'action': 'sales',
+              },
+              {
+                'id': 'ledger',
+                'severity': 'ok',
+                'title': 'Your books tie',
+                'detail': 'Every entry has a matching debit and credit.',
+              },
+            ],
           },
         };
       case 'credit_at_risk':

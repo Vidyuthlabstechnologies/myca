@@ -69,6 +69,21 @@ the hosted API (`propose`, `confirm`, `discard`).
 - On a phone the dashboard is the top of Home; on a wide screen it sits beside the
   chat, as the owner's PRD describes.
 
+### Books check (built 2026-10-06)
+
+- `books_check` gives one look at the books, worked out from the engines and changing
+  nothing: what came across, whether the books tie, sales the GST return cannot carry,
+  input credit against GSTR-2B (or how much credit to check), return due dates that
+  passed, money customers owe, missing details (GSTIN, address, HSN codes, supplier
+  bill numbers) and other open items. Each finding is "needs you", "check" or "fine",
+  with a plain reason and the screen where it is fixed.
+- A passed due date is reported as passed, not as late: MyCA cannot see whether a
+  return was filed.
+- It opens by itself after books are brought across (only when something came across),
+  and stays on Home as "Books check". In chat: "check my books".
+- This is the self-serve answer to a competitor's free books audit (see
+  `docs/research/2026-10-06-lighthaus-revisited.md`).
+
 ### Expense chats (to build)
 
 One chat per expense head or recurring payee, once tagging exists
