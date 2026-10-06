@@ -137,9 +137,19 @@ function expectedReceipts(state, from, until) {
     const due = outstandingOf(state, invoice);
     if (due <= 0.005) continue;
     const key = String(invoice.partyName || '').toLowerCase();
-    const days = typical.has(key) ? typical.get(key) : ASSUMED_DAYS;
-    const date = addDays(invoice.date, days);
-    const basis = typical.has(key) ? `${invoice.partyName} usually pays in ${days} days` : `no payment history; assumed ${ASSUMED_DAYS} days`;
+    const terms = invoice.paymentTermsDays == null ? '' : invoice.paymentTermsDays === 0 ? 'due on receipt' : `terms Net ${invoice.paymentTermsDays}`;
+    let date;
+    let basis;
+    if (typical.has(key)) {
+      date = addDays(invoice.date, typical.get(key));
+      basis = `${invoice.partyName} usually pays in ${typical.get(key)} days${terms ? `; ${terms}` : ''}`;
+    } else if (invoice.dueDate) {
+      date = invoice.dueDate;
+      basis = `${terms}; no payment history yet`;
+    } else {
+      date = addDays(invoice.date, ASSUMED_DAYS);
+      basis = `no payment history or terms; assumed ${ASSUMED_DAYS} days`;
+    }
     const row = { date, label: `${invoice.id} from ${invoice.partyName}`, amount: round2(due), basis };
     if (date < from) overdue.push(row);
     else if (date <= until) inWindow.push(row);

@@ -19,6 +19,7 @@ import { import2b, creditAtRisk } from './gstr2b-check.mjs';
 import { booksCheck } from './books-check.mjs';
 import { addReminder, completeReminder, listReminders } from './reminders.mjs';
 import { cashForecast, canAfford, setCashBalance } from './cash-forecast.mjs';
+import { setPaymentTerms } from './payment-terms.mjs';
 import { postTallyRows, postBankRows, purchaseRegisterCsv } from './post-import.mjs';
 import { parseZohoBooksCsv } from './import-zoho.mjs';
 import { invoicesToGstr1Json } from './gstr1-json.mjs';
@@ -465,7 +466,7 @@ export const TOOLS = [
     name: 'create_invoice',
     title: 'Create invoice',
     description: 'Create a GST invoice and post double-entry transfers (AR, sales, GST output). Data entry starts here.',
-    args: ['partyName', 'partyGstin', 'lines', 'date'],
+    args: ['partyName', 'partyGstin', 'lines', 'date', 'paymentTermsDays'],
     run: (state, args) => createInvoice(state, args),
   },
   {
@@ -600,6 +601,13 @@ export const TOOLS = [
       const clientId = String(state.activeClientId || 'SELF');
       return canAfford(state, { amount: args.amount, on: args.on, deadlines: (due.data?.deadlines || []).filter((row) => row.clientId === clientId) });
     },
+  },
+  {
+    name: 'set_payment_terms',
+    title: 'Payment terms',
+    description: 'Set how many days a customer has to pay (0 means on receipt). New invoices to them get a due date; old invoices keep theirs.',
+    args: ['partyName', 'partyGstin', 'days'],
+    run: (state, args = {}) => setPaymentTerms(state, args),
   },
   {
     name: 'set_cash_balance',

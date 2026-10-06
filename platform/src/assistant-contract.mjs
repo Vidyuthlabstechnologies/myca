@@ -3,6 +3,7 @@ import { planExpenseFromChat } from './expense-intent.mjs';
 import { reviewOf } from './gst-review.mjs';
 import { planReminderFromChat } from './reminder-intent.mjs';
 import { planCashFromChat } from './cash-intent.mjs';
+import { planTermsFromChat, takeInvoiceTerms } from './terms-intent.mjs';
 import { localToday } from './dates.mjs';
 import { normalizeChat, parseDocument, receiptAmount, receiptDate, isPurchaseIntent, isSaleIntent, isQuestion, isNegated, ROUTES } from './intent.mjs';
 import { confirmationIntent } from './chat-confirm.mjs';
@@ -212,7 +213,10 @@ export const TOOL_ARG_SCHEMAS = {
     properties: { limit: { type: 'number', minimum: 1, maximum: 500 } },
   },
   list_invoices: noArgs,
-  create_invoice: documentSchema,
+  create_invoice: {
+    ...documentSchema,
+    properties: { ...documentSchema.properties, paymentTermsDays: { type: 'integer', minimum: 0, maximum: 365 } },
+  },
   create_purchase: {
     ...documentSchema,
     properties: { ...documentSchema.properties, supplierInvoiceNo: { type: 'string', maxLength: 16 } },
@@ -292,6 +296,16 @@ export const TOOL_ARG_SCHEMAS = {
       bank: { type: 'number' },
       cash: { type: 'number', minimum: 0 },
       on: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' },
+    },
+  },
+  set_payment_terms: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['days'],
+    properties: {
+      partyName: { type: 'string', maxLength: 80 },
+      partyGstin: { type: 'string', pattern: '^([0-9]{2}[A-Z0-9]{13})?$' },
+      days: { type: 'integer', minimum: 0, maximum: 365 },
     },
   },
   add_reminder: {
@@ -684,6 +698,7 @@ const TOOL_RISK = {
   add_reminder: 'writes_books',
   complete_reminder: 'writes_books',
   set_cash_balance: 'writes_books',
+  set_payment_terms: 'writes_books',
   govt_nic_auth: 'external_auth_probe',
   govt_generate_irn: 'external_government_api',
   sandbox_operation: 'external_government_api',
@@ -713,14 +728,16 @@ function valueType(value) {
 
 function checkScalar(schema, value, path) {
   if (!schema) return null;
-  if (schema.type && valueType(value) !== schema.type) return `${path} must be ${schema.type}`;
+  if (schema.type === 'integer') {
+    if (!Number.isInteger(value)) return `${path} must be integer`;
+  } else if (schema.type && valueType(value) !== schema.type) return `${path} must be ${schema.type}`;
   if (schema.enum && !schema.enum.includes(value)) return `${path} must be one of ${schema.enum.join(', ')}`;
   if (schema.type === 'string') {
     if (schema.minLength != null && value.length < schema.minLength) return `${path} is too short`;
     if (schema.maxLength != null && value.length > schema.maxLength) return `${path} is too long`;
     if (schema.pattern && !(new RegExp(schema.pattern).test(value))) return `${path} does not match ${schema.pattern}`;
   }
-  if (schema.type === 'number') {
+  if (schema.type === 'number' || schema.type === 'integer') {
     if (!Number.isFinite(value)) return `${path} must be finite`;
     if (schema.minimum != null && value < schema.minimum) return `${path} must be >= ${schema.minimum}`;
     if (schema.maximum != null && value > schema.maximum) return `${path} must be <= ${schema.maximum}`;
@@ -802,7 +819,8 @@ export function planLocalToolCall(state, message) {
     };
   }
 
-  const doc = parseDocument(text);
+  const saidTerms = takeInvoiceTerms(text);
+  const doc = parseDocument(saidTerms.text);
   const asking = isQuestion(text) || isNegated(text);
   if (doc && !asking && doc.lines[0].gstRate == null && (isPurchaseIntent(text) || isSaleIntent(text))) {
     return {
@@ -812,7 +830,7 @@ export function planLocalToolCall(state, message) {
     };
   }
   if (doc && !asking && isPurchaseIntent(text)) return { kind: 'tool', name: 'create_purchase', args: doc };
-  if (doc && !asking && isSaleIntent(text)) return { kind: 'tool', name: 'create_invoice', args: doc };
+  if (doc && !asking && isSaleIntent(text)) return { kind: 'tool', name: 'create_invoice', args: saidTerms.days == null ? doc : { ...doc, paymentTermsDays: saidTerms.days } };
   if (doc && asking && (isPurchaseIntent(text) || isSaleIntent(text))) {
     return { kind: 'reply', reply: 'That reads like a question, so I have not posted anything. To post it, say it as an instruction, for example "invoice Retail Mart GSTIN 27AAACH7409R1Z1, 10 rolls at 50000, GST 5%".', tools: [] };
   }
@@ -880,6 +898,8 @@ export function planLocalToolCall(state, message) {
   if (reminder) return reminder;
   const cash = planCashFromChat(text);
   if (cash) return cash;
+  const terms = planTermsFromChat(text);
+  if (terms) return terms;
 
   if (/\breview\b.*\b(?:gst|gstr|return)\b|\b(?:gst|gstr-?[13]b?|return)\b.*\breview\b/i.test(text) && !isNegated(text)) {
     return planReview(state, text);

@@ -13,6 +13,7 @@ import { checkAnswer, reviewOf, stepText } from './gst-review.mjs';
 import { parse2bFile } from './gstr2b-check.mjs';
 import { planReminder, findReminder, whenWords } from './reminders.mjs';
 import { planCashReading } from './cash-forecast.mjs';
+import { planTerms, termsLabel, invoiceTerms, dueDateOf } from './payment-terms.mjs';
 import { isReturnPeriod } from './return-period.mjs';
 import { gstSplit, partyStateOf } from './chart.mjs';
 import { postingDate } from './dates.mjs';
@@ -22,7 +23,7 @@ import { parseZohoBooksCsv } from './import-zoho.mjs';
 import { tallyXmlToDayBookCsv } from './tally-xml.mjs';
 
 export const CONFIRM_TOOLS = new Set([
-  'create_invoice', 'create_purchase', 'record_receipt', 'post_expense', 'set_expense_head', 'create_credit_note', 'cancel_invoice', 'gst_review_answer', 'import_gstr2b', 'add_reminder', 'complete_reminder', 'set_cash_balance',
+  'create_invoice', 'create_purchase', 'record_receipt', 'post_expense', 'set_expense_head', 'create_credit_note', 'cancel_invoice', 'gst_review_answer', 'import_gstr2b', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms',
   'import_tally', 'import_tally_xml', 'import_zoho', 'import_bank',
   'govt_generate_irn', 'govt_nic_cancel_irn',
   'exception_decide',
@@ -67,10 +68,13 @@ function documentPreview(state, args, kind) {
   const tax = Math.round((sum('cgst') + sum('sgst') + sum('igst')) * 100) / 100;
   const party = args.partyName || (sale ? 'Walk-in' : 'Supplier');
   const heads = sum('igst') > 0 ? `IGST ${money(sum('igst'))}` : `CGST ${money(sum('cgst'))} + SGST ${money(sum('sgst'))}`;
+  const terms = sale ? invoiceTerms(state, { name: party, gstin: args.partyGstin, override: args.paymentTermsDays }) : { days: null };
+  if (terms.error) blockers.push('Terms are a whole number of days from 0 to 365.');
+  const due = sale && terms.days != null && date ? ` Due ${dueDateOf(date, terms.days)} (${termsLabel(terms.days)}${terms.source === 'customer' ? `, ${party}'s usual terms` : ''}).` : '';
   return {
     blockers,
     summary: sale
-      ? `Invoice to ${party}${args.partyGstin ? ` (${args.partyGstin})` : ''} dated ${date || '?'}: taxable ${money(taxable)}, ${heads}, total ${money(taxable + tax)}. Place of supply ${pos || '?'}.`
+      ? `Invoice to ${party}${args.partyGstin ? ` (${args.partyGstin})` : ''} dated ${date || '?'}: taxable ${money(taxable)}, ${heads}, total ${money(taxable + tax)}. Place of supply ${pos || '?'}.${due}`
       : `Purchase bill from ${party}${args.partyGstin ? ` (${args.partyGstin})` : ''} dated ${date || '?'}: taxable ${money(taxable)}, ${heads}, total ${money(taxable + tax)}. Input credit ${args.itcEligible === false ? 'blocked (s.17(5)) and added to cost' : money(tax)}.`,
     effects: sale
       ? ['Debit the customer account, credit sales and the GST output accounts.', 'The invoice becomes a row in GSTR-1 for its period.']
@@ -250,6 +254,22 @@ function cashReadingPreview(state, args) {
   };
 }
 
+function termsPreview(state, args) {
+  const planned = planTerms(state, args);
+  if (!planned.ok) {
+    const reason = { CUSTOMER_REQUIRED: 'Say which customer.', BAD_TERMS: 'Terms are a whole number of days from 0 to 365.' }[planned.error] || planned.error;
+    return { blockers: [reason], summary: '', effects: [], figures: {} };
+  }
+  const { plan } = planned;
+  const was = plan.before == null ? '' : ` (was ${termsLabel(plan.before)})`;
+  return {
+    blockers: [],
+    summary: `${plan.name}: ${termsLabel(plan.days)}${was}.`,
+    effects: [plan.known ? 'New invoices to them get a due date from this. Invoices already raised keep theirs.' : 'There is no invoice to this customer yet; the terms apply from the first one.'],
+    figures: { days: plan.days },
+  };
+}
+
 function countSkips(skipped = []) {
   const counts = {};
   for (const s of skipped) counts[s.reason] = (counts[s.reason] || 0) + 1;
@@ -346,6 +366,7 @@ const PREVIEWERS = {
   add_reminder: reminderPreview,
   complete_reminder: completeReminderPreview,
   set_cash_balance: cashReadingPreview,
+  set_payment_terms: termsPreview,
   import_tally: (state, args) => tallyPreview(state, args, args.csv, args.fileName || 'Tally Day Book'),
   import_tally_xml: xmlPreview,
   import_zoho: zohoPreview,

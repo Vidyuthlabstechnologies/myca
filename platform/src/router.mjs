@@ -35,6 +35,9 @@ function fmtToolResult(name, result) {
       ...d.notes.map((note) => `· ${note}`),
     ].filter(Boolean).join('\n');
   }
+  if (name === 'set_payment_terms' && result.ok) {
+    return `Noted. ${result.customer}: ${result.label}. New invoices to them will show a due date.`;
+  }
   if (name === 'set_cash_balance' && result.reading) {
     return `Noted. On ${result.reading.on}: bank ${money(result.reading.bank)}, cash in hand ${money(result.reading.cash)}. The forecast starts from here.`;
   }

@@ -137,6 +137,59 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
     );
   }
 
+  Future<void> _setTerms(Party party) async {
+    final current = AppScope.of(
+      context,
+    ).snapshot?.termsFor(party.name, party.gstin);
+    final days = await showModalBottomSheet<int>(
+      context: context,
+      builder: (sheet) {
+        final text = Theme.of(sheet).textTheme;
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(22, 4, 22, 22),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'How long does ${party.name} have to pay?',
+                  style: text.headlineSmall,
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'New invoices get a due date. Invoices already raised keep theirs.',
+                  style: text.bodySmall,
+                ),
+                const SizedBox(height: 14),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final choice in const [0, 7, 15, 30, 45, 60, 90])
+                      ChoiceChip(
+                        label: Text(termsLabel(choice)),
+                        selected: choice == current,
+                        selectedColor: Palette.sunken,
+                        showCheckmark: false,
+                        onSelected: (_) => Navigator.of(sheet).pop(choice),
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+    if (days == null || !mounted || days == current) return;
+    await propose('${party.name}: ${termsLabel(days)}', 'set_payment_terms', {
+      'partyName': party.name,
+      if (party.gstin.isNotEmpty) 'partyGstin': party.gstin,
+      'days': days,
+    });
+  }
+
   List<Widget> _history(Party party) {
     final what = _sales ? 'Invoice' : 'Bill';
     final notes =
@@ -153,7 +206,21 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
           stamp: _sales
               ? (doc.cancelled ? 'Cancelled' : (doc.paid ? 'Paid' : 'Unpaid'))
               : null,
-          footnotes: _sales ? const ['Tap to view or send'] : const [],
+          footnotes: _sales
+              ? [
+                  if (dueWords(
+                    doc.dueDate,
+                    AppScope.of(context).now(),
+                    open: doc.open,
+                  ).isNotEmpty)
+                    dueWords(
+                      doc.dueDate,
+                      AppScope.of(context).now(),
+                      open: doc.open,
+                    ),
+                  'Tap to view or send',
+                ]
+              : const [],
           onTap: _sales
               ? () => Navigator.of(context).push(
                   MaterialPageRoute<void>(
@@ -254,8 +321,12 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
               sales: _sales,
               again: _postedHere,
               canReceive: _sales && party.unpaid.isNotEmpty,
+              terms: _sales
+                  ? (snapshot?.termsFor(party.name, party.gstin))
+                  : null,
               onDocument: () => _open(_Composer.document, party),
               onPayment: () => _open(_Composer.payment, party),
+              onTerms: _sales ? () => _setTerms(party) : null,
             )
           else
             _ComposerCard(
@@ -401,6 +472,8 @@ class _ActionChips extends StatelessWidget {
     required this.canReceive,
     required this.onDocument,
     required this.onPayment,
+    this.terms,
+    this.onTerms,
   });
 
   final bool busy;
@@ -409,6 +482,8 @@ class _ActionChips extends StatelessWidget {
   final bool canReceive;
   final VoidCallback onDocument;
   final VoidCallback onPayment;
+  final int? terms;
+  final VoidCallback? onTerms;
 
   @override
   Widget build(BuildContext context) {
@@ -435,6 +510,13 @@ class _ActionChips extends StatelessWidget {
                   avatar: const Icon(Icons.south_west, size: 18),
                   label: const Text('Payment received'),
                   onPressed: busy ? null : onPayment,
+                ),
+              if (onTerms != null)
+                ActionChip(
+                  label: Text(
+                    terms == null ? 'Set terms' : 'Terms: ${termsLabel(terms)}',
+                  ),
+                  onPressed: busy ? null : onTerms,
                 ),
             ],
           ),

@@ -323,6 +323,27 @@ class _InvoiceBody extends StatelessWidget {
                 ),
               ],
             ),
+            if (doc.dueDate.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Text('PAYMENT DUE', style: text.labelSmall),
+              const SizedBox(height: 2),
+              Text(
+                '${longDate(doc.dueDate)} (${termsLabel(doc.termsDays)})',
+                style: text.bodyMedium,
+              ),
+              if (dueWords(
+                doc.dueDate,
+                AppScope.of(context).now(),
+                open: !doc.cancelled && doc.balance > 0,
+              ).startsWith('Overdue'))
+                Text(
+                  dueWords(doc.dueDate, AppScope.of(context).now(), open: true),
+                  style: text.bodyMedium?.copyWith(
+                    color: Palette.danger,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+            ],
             if (doc.placeOfSupply.label.isNotEmpty) ...[
               const SizedBox(height: 12),
               Text('PLACE OF SUPPLY', style: text.labelSmall),

@@ -1,6 +1,7 @@
 import { localToday } from './dates.mjs';
 import { isReturnPeriod, periodOf } from './return-period.mjs';
 import { outstandingOf } from './credit-notes.mjs';
+import { overdueBy } from './payment-terms.mjs';
 
 const round2 = (value) => Math.round(Number(value || 0) * 100) / 100;
 
@@ -41,6 +42,8 @@ export function businessSummary(state, { period } = {}) {
     byCustomer.set(key, row);
   }
   const customers = [...byCustomer.values()].sort((a, b) => b.due - a.due);
+  const today = localToday();
+  const late = open.filter(({ invoice }) => (overdueBy(invoice, today) || 0) > 0);
   return {
     ok: true,
     data: {
@@ -52,6 +55,7 @@ export function businessSummary(state, { period } = {}) {
         total: round2(open.reduce((sum, item) => sum + item.due, 0)),
         invoices: open.length,
         customers: customers.slice(0, 5),
+        overdue: { total: round2(late.reduce((sum, item) => sum + item.due, 0)), invoices: late.length },
       },
       caveat: 'Purchases are bill totals; what you still owe suppliers is not tracked yet.',
     },
