@@ -11,7 +11,7 @@ import '../theme.dart';
 import '../widgets.dart';
 import 'invoice_screen.dart';
 
-enum _Composer { none, document, payment }
+enum _Composer { none, document, payment, quote }
 
 class PartyScreen extends StatefulWidget {
   const PartyScreen({
@@ -117,6 +117,34 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
     _billNo.clear();
   }
 
+  Future<void> _submitQuote() async {
+    final amount = parseAmount(_amount.text);
+    final rate = parseRate(_rate.text);
+    if (amount == null) {
+      return setState(() => _formError = 'Enter the amount before GST.');
+    }
+    if (rate == null) {
+      return setState(
+        () => _formError =
+            'Enter the GST rate, for example 5 or 18. Use 0 if there is none.',
+      );
+    }
+    setState(() => _composer = _Composer.none);
+    final args = documentArgs(
+      partyName: widget.partyName,
+      partyGstin: widget.partyGstin,
+      description: _what.text,
+      amount: amount,
+      gstRate: rate,
+    );
+    if ((args['partyGstin'] as String).isEmpty) args.remove('partyGstin');
+    await propose(
+      'Quote: ${rupees(amount)} + GST at ${rateLabel(rate)}%',
+      'create_quote',
+      args,
+    );
+  }
+
   Future<void> _submitPayment() async {
     final amount = parseAmount(_amount.text);
     final invoiceId = _invoiceId;
@@ -196,8 +224,59 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
         AppScope.of(context).snapshot?.creditNotes ?? const <CreditNote>[];
     List<CreditNote> notesFor(String id) =>
         notes.where((note) => note.invoiceId == id).toList();
+    final today = isoDate(AppScope.of(context).now());
+    final quotes = _sales
+        ? (AppScope.of(context).snapshot?.quotes ?? const <Quote>[])
+              .where(
+                (quote) => partyKey(quote.partyName) == partyKey(party.name),
+              )
+              .toList()
+        : const <Quote>[];
+    final groups = <(String, List<Widget>)>[
+      for (final quote in quotes)
+        (
+          quote.date,
+          [
+            Bubble(
+              text: 'Quote ${quote.id}',
+              amount: rupees(quote.total),
+              tone: BubbleTone.plain,
+              label: quote.date,
+              stamp: switch (quote.stateOn(today)) {
+                'accepted' => 'Accepted',
+                'declined' => 'Declined',
+                'invoiced' => 'Invoiced',
+                'expired' => 'Expired',
+                _ => 'Open',
+              },
+              footnotes: [
+                if (quote.stateOn(today) == 'open')
+                  'Valid until ${longDate(quote.validUntil)}',
+                if (quote.invoiceId.isNotEmpty) 'Became ${quote.invoiceId}',
+                'Tap to view or send',
+              ],
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) =>
+                      InvoiceScreen(invoiceId: quote.id, quote: true),
+                ),
+              ),
+            ),
+          ],
+        ),
+      for (final doc in party.documents)
+        (doc.date, _documentBubbles(doc, what, notesFor)),
+    ]..sort((a, b) => a.$1.compareTo(b.$1));
+    return [for (final group in groups) ...group.$2];
+  }
+
+  List<Widget> _documentBubbles(
+    Invoice doc,
+    String what,
+    List<CreditNote> Function(String) notesFor,
+  ) {
     return [
-      for (final doc in party.documents) ...[
+      ...[
         Bubble(
           text: '$what ${doc.id}',
           amount: rupees(doc.total),
@@ -326,17 +405,22 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
                   : null,
               onDocument: () => _open(_Composer.document, party),
               onPayment: () => _open(_Composer.payment, party),
+              onQuote: _sales ? () => _open(_Composer.quote, party) : null,
               onTerms: _sales ? () => _setTerms(party) : null,
             )
           else
             _ComposerCard(
               title: _composer == _Composer.payment
                   ? 'Payment received'
+                  : _composer == _Composer.quote
+                  ? 'New quote'
                   : (_sales ? 'New sale' : 'New bill'),
               error: _formError,
               onCancel: () => setState(() => _composer = _Composer.none),
               onSubmit: _composer == _Composer.payment
                   ? _submitPayment
+                  : _composer == _Composer.quote
+                  ? _submitQuote
                   : _submitDocument,
               children: _composer == _Composer.payment
                   ? _paymentFields(party)
@@ -474,6 +558,7 @@ class _ActionChips extends StatelessWidget {
     required this.onPayment,
     this.terms,
     this.onTerms,
+    this.onQuote,
   });
 
   final bool busy;
@@ -484,6 +569,7 @@ class _ActionChips extends StatelessWidget {
   final VoidCallback onPayment;
   final int? terms;
   final VoidCallback? onTerms;
+  final VoidCallback? onQuote;
 
   @override
   Widget build(BuildContext context) {
@@ -510,6 +596,11 @@ class _ActionChips extends StatelessWidget {
                   avatar: const Icon(Icons.south_west, size: 18),
                   label: const Text('Payment received'),
                   onPressed: busy ? null : onPayment,
+                ),
+              if (onQuote != null)
+                ActionChip(
+                  label: const Text('Quote'),
+                  onPressed: busy ? null : onQuote,
                 ),
               if (onTerms != null)
                 ActionChip(

@@ -150,6 +150,18 @@ class FakeMycaApi implements MycaApi {
   bool has2b = false;
   bool hasBalance = false;
   final customerTerms = <String, Object?>{'gstin:24AAACG1234F1Z5': 30};
+  final quotes = <Map<String, Object?>>[
+    {
+      'id': 'QT-0001',
+      'date': '2026-09-20',
+      'partyName': 'Gujarat Weaves',
+      'partyGstin': '24AAACG1234F1Z5',
+      'total': 59000,
+      'validUntil': '2026-10-20',
+      'status': 'open',
+      'invoiceId': '',
+    },
+  ];
   final caRequests = <Map<String, Object?>>[
     {
       'id': 'ASK-0001',
@@ -291,6 +303,7 @@ class FakeMycaApi implements MycaApi {
     'expenses': expenses,
     'creditNotes': creditNotes,
     'customerTerms': customerTerms,
+    'quotes': quotes,
     'users': [_user],
     'activeUser': signedIn ? _user : null,
   });
@@ -359,6 +372,19 @@ class FakeMycaApi implements MycaApi {
           'headName': headName,
           'tagSource': chosen == null ? 'default' : 'chosen',
         },
+      );
+    }
+    if (name == 'create_quote') {
+      return _preview(
+        'Quote to ${args['partyName']}: total ₹59,000.00. Valid until 2026-11-04.',
+      );
+    }
+    if (name == 'mark_quote') {
+      return _preview('${args['id']}: ${args['outcome']}.');
+    }
+    if (name == 'convert_quote') {
+      return _preview(
+        'From quote ${args['id']}: Invoice to Gujarat Weaves, total ₹59,000.00.',
       );
     }
     if (name == 'ask_ca') {
@@ -454,6 +480,42 @@ class FakeMycaApi implements MycaApi {
         });
         return ChatReply.fromJson({
           'reply': 'Posted EXP-0003.',
+          'posted': true,
+          'confirmed': true,
+        });
+      }
+      if (held.tool == 'create_quote') {
+        quotes.add({
+          'id': 'QT-0002',
+          'date': '2026-10-05',
+          'partyName': held.args['partyName'],
+          'partyGstin': held.args['partyGstin'] ?? '',
+          'total': 59000,
+          'validUntil': '2026-11-04',
+          'status': 'open',
+          'invoiceId': '',
+        });
+        return ChatReply.fromJson({
+          'reply': 'Quote QT-0002 made.',
+          'posted': true,
+          'confirmed': true,
+        });
+      }
+      if (held.tool == 'mark_quote') {
+        quotes.firstWhere((q) => q['id'] == held.args['id'])['status'] =
+            held.args['outcome'];
+        return ChatReply.fromJson({
+          'reply': 'Marked.',
+          'posted': true,
+          'confirmed': true,
+        });
+      }
+      if (held.tool == 'convert_quote') {
+        final quote = quotes.firstWhere((q) => q['id'] == held.args['id']);
+        quote['status'] = 'invoiced';
+        quote['invoiceId'] = 'INV-0003';
+        return ChatReply.fromJson({
+          'reply': 'Posted INV-0003 from quote ${held.args['id']}.',
           'posted': true,
           'confirmed': true,
         });
@@ -776,6 +838,52 @@ class FakeMycaApi implements MycaApi {
                 277600 -
                 creditNotes.fold<num>(0, (sum, n) => sum + (n['total'] as num)),
             'missing': ['HSN'],
+          },
+        };
+      case 'quote_document':
+        final quote = quotes.firstWhere((q) => q['id'] == args['id']);
+        return {
+          'ok': true,
+          'data': {
+            'id': quote['id'],
+            'date': quote['date'],
+            'kind': 'quote',
+            'validUntil': quote['validUntil'],
+            'status': quote['status'],
+            'invoiceId': quote['invoiceId'],
+            'seller': {
+              'name': 'Nalanda Textiles LLP',
+              'gstin': '27AAACN1234F1Z5',
+              'address': '12 Market Road',
+              'state': {'code': '27', 'name': 'Maharashtra'},
+            },
+            'buyer': {'name': quote['partyName'], 'gstin': quote['partyGstin']},
+            'placeOfSupply': {'code': '24', 'name': 'Gujarat'},
+            'lines': [
+              {
+                'description': 'Consulting',
+                'hsn': '998311',
+                'qty': 1,
+                'rate': 50000,
+                'gstRate': 18,
+                'taxable': 50000,
+                'cgst': 0,
+                'sgst': 0,
+                'igst': 9000,
+                'amount': 59000,
+              },
+            ],
+            'taxable': 50000,
+            'cgst': 0,
+            'sgst': 0,
+            'igst': 9000,
+            'total': 59000,
+            'receipts': const <Object?>[],
+            'received': 0,
+            'credited': 0,
+            'creditNotes': const <Object?>[],
+            'balance': 59000,
+            'missing': const <Object?>[],
           },
         };
       case 'list_ca_requests':

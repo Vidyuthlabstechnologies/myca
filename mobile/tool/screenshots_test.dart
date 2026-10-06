@@ -129,6 +129,19 @@ void main() {
     await shot(tester, '17_expense_preview');
   });
 
+  testWidgets('quote', (tester) async {
+    await phone(tester);
+    await tester.pumpWidget(MycaApp(state: testState(FakeMycaApi(signedIn: true))));
+    await tester.pumpAndSettle();
+    await tapRow(tester, 'Sales');
+    await tester.tap(find.text('Gujarat Weaves'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Quote QT-0001'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.text('Make invoice'), 200, scrollable: find.byType(Scrollable).last);
+    await shot(tester, '25_quote');
+  });
+
   testWidgets('cash', (tester) async {
     await phone(tester);
     await tester.pumpWidget(MycaApp(state: testState(FakeMycaApi(signedIn: true)..hasBalance = true)));

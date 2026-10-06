@@ -92,7 +92,7 @@ The goal is now an owner-first Android app on the Play Store. The weights below 
 
 The owner's PRD is "Taxmeow (working title), Product Requirements Document, v0.1, 28 September 2026". This is the yardstick for the product; the launch table above measures plumbing the PRD does not mention. Weights are an engineering estimate. Nothing below is deployed, and "files through the API" also depends on provider onboarding.
 
-**About 50% of the PRD is built.**
+**About 52% of the PRD is built.**
 
 | PRD item | Weight | Done | Points | What exists | What is missing |
 |---|---|---|---|---|---|
@@ -100,10 +100,10 @@ The owner's PRD is "Taxmeow (working title), Product Requirements Document, v0.1
 | Smart tagging | 6 | 80% | 4.8 | Sales, purchases and GST heads automatic; expenses tagged to fifteen heads with memory per payee and wording, changeable before or after posting | Correction by typing; blocked-credit heads |
 | GST returns: prepare, review, file | 14 | 50% | 7.0 | GSTR-1 and GSTR-3B drafts per period with credit notes, GSTR-1 JSON, the review step by step in the app and in chat, provider adapters behind the action gate | Set-off and amount payable, and live filing |
 | TDS filing | 8 | 15% | 1.2 | Threshold monitor; FVU generation wired to the provider | TDS on entries, a return draft, review and filing |
-| Invoices, quotes, e-way bills, sending | 10 | 55% | 5.5 | Invoices by form or message; invoice screen, PDF and share sheet in the app; e-way bill client | Quotes, e-way bill in the flow, buyer address on the invoice, audit of a share |
+| Invoices, quotes, e-way bills, sending | 10 | 75% | 7.5 | Invoices and quotes by form or message; invoice and quote screens, PDF and share sheet; payment terms and due dates; e-way bill client | E-way bill in the flow, buyer address on the invoice, audit of a share |
 | Payroll | 12 | 0% | 0 | Nothing | All of it |
 | GSTR-2B matching and supplier reminders | 8 | 65% | 5.2 | Matching engine; 2B added in the app; credit at risk by supplier with reasons; supplier bill numbers on purchases | Fetching 2B from the portal; reminders with permission |
 | CA access | 6 | 70% | 4.2 | Invite a CA as a member; GSTR-1 file export; monthly entries CSV | Tally-format export; the sync setting |
 | Chat and dashboard | 12 | 80% | 9.6 | Chats by type and by party, expense chats by head, one entry sheet; Home shows taxes, this month against last, who owes, and a books check of what needs you | Rule-based chat only; payroll and money owed to suppliers not on the dashboard |
 | Reading documents automatically | 12 | 5% | 0.6 | Bank statement, Tally and Zoho file imports | POS sales, and reading a forwarded supplier invoice |
-| **Total** | **100** | | **49.5** | | |
+| **Total** | **100** | | **51.5** | | |

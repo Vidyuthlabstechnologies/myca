@@ -103,6 +103,7 @@ Future<Uint8List> buildInvoicePdf(
                   style: pw.TextStyle(font: strong, fontSize: 14, color: _ink),
                 ),
                 pw.Text(longDate(doc.date), style: body),
+                if (doc.isQuote && doc.validUntil.isNotEmpty) pw.Text('Valid until ${longDate(doc.validUntil)}', style: small),
                 if (doc.dueDate.isNotEmpty)
                   pw.Text(
                     'Due ${longDate(doc.dueDate)} (${termsLabel(doc.termsDays)})',
@@ -122,7 +123,7 @@ Future<Uint8List> buildInvoicePdf(
               child: pw.Column(
                 crossAxisAlignment: pw.CrossAxisAlignment.start,
                 children: [
-                  pw.Text('BILL TO', style: label),
+                  pw.Text(doc.isQuote ? 'QUOTED TO' : 'BILL TO', style: label),
                   pw.SizedBox(height: 3),
                   pw.Text(doc.buyerName, style: heavy),
                   if (doc.buyerGstin.isNotEmpty)

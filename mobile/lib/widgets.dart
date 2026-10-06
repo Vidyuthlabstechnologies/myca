@@ -234,9 +234,12 @@ class Bubble extends StatelessWidget {
       _ => Palette.muted,
     };
     final foreground = mine ? Colors.white : Palette.ink;
-    final stampColor = stamp == 'Unpaid'
-        ? Palette.warn
-        : (stamp == 'Cancelled' ? Palette.danger : Palette.accent);
+    final stampColor = switch (stamp) {
+      'Unpaid' || 'Declined' || 'Expired' => Palette.warn,
+      'Cancelled' => Palette.danger,
+      'Open' => Palette.muted,
+      _ => Palette.accent,
+    };
     final body = Align(
       alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
       child: GestureDetector(

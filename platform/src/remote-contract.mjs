@@ -13,6 +13,8 @@ export const REMOTE_QUERY_TOOLS = new Set([
   'cash_forecast',
   'can_afford',
   'list_ca_requests',
+  'list_quotes',
+  'quote_document',
   'expense_heads',
   'gst_payable',
   'gst_period_summary',

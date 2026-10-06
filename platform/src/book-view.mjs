@@ -9,6 +9,7 @@ export const BOOK_KEYS = new Set([
   'reminders', 'reminderSeq',
   'cashReadings', 'customerTerms',
   'caRequests', 'caRequestSeq',
+  'quotes', 'quoteSeq',
 ]);
 
 export const FIRM_KEYS = new Set([

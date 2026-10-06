@@ -8,7 +8,8 @@ const { filingPrep } = filing;
 const { auditRun } = audit;
 import { listAccounts, journal, trialBalance, verifyChain, createTransfers, paise } from './ledger.mjs';
 import { createInvoice, recordReceipt, invoicesToSalesCsv, createPurchase, purchasesToInwardCsv, printInvoice } from './invoice.mjs';
-import { invoiceDocument } from './invoice-document.mjs';
+import { invoiceDocument, quoteDocument } from './invoice-document.mjs';
+import { createQuote, markQuote, convertQuote, listQuotes } from './quotes.mjs';
 import { postExpense, retagExpense, listExpenses, expenseHeads } from './expenses.mjs';
 import { businessSummary } from './business-summary.mjs';
 import { gstr3bFor, periodSummary } from './period-summary.mjs';
@@ -602,6 +603,41 @@ export const TOOLS = [
       const clientId = String(state.activeClientId || 'SELF');
       return canAfford(state, { amount: args.amount, on: args.on, deadlines: (due.data?.deadlines || []).filter((row) => row.clientId === clientId) });
     },
+  },
+  {
+    name: 'create_quote',
+    title: 'Quote',
+    description: 'Make a quotation for a customer with GST worked out as on an invoice, valid for a number of days (30 unless given). It posts nothing to the books and is not in any return.',
+    args: ['partyName', 'partyGstin', 'lines', 'date', 'validDays'],
+    run: (state, args = {}) => createQuote(state, args),
+  },
+  {
+    name: 'mark_quote',
+    title: 'Quote accepted or declined',
+    description: 'Record that the customer accepted or declined a quote.',
+    args: ['id', 'outcome'],
+    run: (state, args = {}) => markQuote(state, args),
+  },
+  {
+    name: 'convert_quote',
+    title: 'Invoice from quote',
+    description: 'Raise the tax invoice for a quote with the same lines, linked both ways. A declined or already-invoiced quote is refused.',
+    args: ['id', 'date'],
+    run: (state, args = {}) => convertQuote(state, args),
+  },
+  {
+    name: 'list_quotes',
+    title: 'Quotes',
+    description: 'Quotes with their state (open, accepted, declined, expired, invoiced). Read-only.',
+    args: ['status'],
+    run: (state, args = {}) => listQuotes(state, args),
+  },
+  {
+    name: 'quote_document',
+    title: 'Quote to show or send',
+    description: 'One quote laid out like an invoice, for display or a PDF. Read-only.',
+    args: ['id'],
+    run: (state, args = {}) => quoteDocument(state, args.id),
   },
   {
     name: 'ask_ca',

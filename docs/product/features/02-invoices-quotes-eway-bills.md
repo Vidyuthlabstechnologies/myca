@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Requirements | FR-INV-1 to 6 in the [product PRD](../PRD.md) |
-| Status | Invoice creation, the invoice screen, PDF and sharing built; quotes and e-way bill in the flow not built |
+| Status | Invoices, the invoice screen, PDF, sharing, payment terms and quotes built; e-way bill in the flow not built |
 | Code | `platform/src/invoice.mjs`, `intent.mjs`, `nic-client.mjs`, `nic-actions.mjs`; app: `mobile/lib/screens/party_screen.dart` |
 
 ## What the owner experiences
@@ -68,12 +68,22 @@ WhatsApp or email. For goods on the move, the e-way bill is offered on the same 
   carry a statutory time limit with income tax consequences; that belongs with supplier
   payment tracking and must come from dated rules, not from this feature.
 
-### Quotes (to build)
+### Quotes (built 2026-10-06)
 
-- A quote is a document with no ledger effect and no GST liability.
-- Accepting a quote creates an invoice preview with the same lines; the owner confirms
-  as usual. The invoice refers to the quote.
-- Quotes have their own number series and an expiry date.
+- A quote (`quotes.mjs`, QT-0001 onwards) is priced exactly like an invoice: GST split by
+  place of supply from the buyer's GSTIN. A GST rate is required and must be one in force
+  on the quote date; nothing is assumed. It is valid for 30 days unless another period
+  is given. It posts nothing to the books and is in no return.
+- States: open, accepted, declined, invoiced, and expired once open past its validity.
+- "Make invoice" raises the invoice with the same lines through the usual invoice
+  preview, with the customer's payment terms; the invoice carries `quoteId` and the
+  quote `invoiceId`. A declined or already-invoiced quote is refused; an expired one is
+  allowed, and the preview says it expired.
+- The app makes quotes from the customer's chat, shows them there by date with their
+  state, and opens them in the invoice screen in quote mode: QUOTATION on screen and on
+  the PDF, valid-until, Make invoice, Accepted, Declined.
+- Chat: "quote ABC Ltd 50000 for consulting GST 18% valid for 15 days", "QT-0001
+  accepted", "make QT-0001 an invoice".
 
 ### E-way bill and e-invoice (partly built)
 
