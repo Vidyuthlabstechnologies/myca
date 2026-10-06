@@ -268,6 +268,7 @@ export const TOOL_ARG_SCHEMAS = {
       fileName: { type: 'string', maxLength: 120 },
     },
   },
+  books_check: noArgs,
   credit_at_risk: {
     type: 'object',
     additionalProperties: false,

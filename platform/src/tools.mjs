@@ -16,6 +16,7 @@ import { createCreditNote, cancelInvoice, creditNotesForPeriod } from './credit-
 import { reviewOf, answerReview } from './gst-review.mjs';
 import { exportEntries } from './entries-export.mjs';
 import { import2b, creditAtRisk } from './gstr2b-check.mjs';
+import { booksCheck } from './books-check.mjs';
 import { postTallyRows, postBankRows, purchaseRegisterCsv } from './post-import.mjs';
 import { parseZohoBooksCsv } from './import-zoho.mjs';
 import { invoicesToGstr1Json } from './gstr1-json.mjs';
@@ -575,6 +576,19 @@ export const TOOLS = [
     description: 'For one tax period: tax on sales and input credit by head from the GSTR-3B draft, and what the GSTR-1 file for that period holds. Lists the periods that have documents.',
     args: ['period'],
     run: (state, args = {}) => periodSummary(state, args.period),
+  },
+  {
+    name: 'books_check',
+    title: 'Books check',
+    description: 'One look at the books: what came across, whether they tie, sales the GST return cannot carry, input credit against GSTR-2B, due dates that passed, money owed, missing details and other open items, each with what to do. Read-only apart from refreshing the exception queue.',
+    run: async (state) => {
+      const asOfDate = localToday();
+      const clientId = String(state.activeClientId || 'SELF');
+      const due = await TOOL_MAP.deadlines.run(state, { asOfDate });
+      const open = await TOOL_MAP.exceptions.run(state, { asOfDate });
+      const deadlines = (due.data?.deadlines || []).filter((row) => row.clientId === clientId);
+      return booksCheck(state, { deadlines, exceptions: open.data?.exceptions || [], asOfDate });
+    },
   },
   {
     name: 'import_gstr2b',
