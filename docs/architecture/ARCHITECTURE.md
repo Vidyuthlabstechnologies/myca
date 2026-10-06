@@ -47,8 +47,8 @@ designed and not built.
 | Engine | `platform/src/` | Node 22, ESM, zero runtime dependencies | None of its own; works on stores it is given | Built, 550 tests |
 | Statutory rules and engines | `sprints/` | Same | Rule records and golden cases in the repo | Built, 329 tests; frozen unless a task targets them |
 | Desktop app | `platform/desktop/`, `platform/src/server.mjs` | Electron, local HTTP on 127.0.0.1 | JSON state file, content-addressed documents, encrypted credential and PIN vaults | Built |
-| Hosted API | `cloud/` | Node 22, one dependency (`pg`) | Postgres | Built, 54 tests against a local Postgres; not deployed |
-| Android app | `mobile/` | Flutter 3.44, Dart 3.12 | Refresh token in the Android keystore; preferences | Built, 99 tests; never run on a device |
+| Hosted API | `cloud/` | Node 22, one dependency (`pg`) | Postgres | Built, 60 tests against a local Postgres; not deployed |
+| Android app | `mobile/` | Flutter 3.44, Dart 3.12 | Refresh token in the Android keystore; preferences | Built, 105 tests; never run on a device |
 | Infrastructure | `infra/`, `.github/workflows/` | Terraform, GitHub Actions | | Marketing site and Windows release only; nothing for the hosted API |
 
 ## 4. The engine
@@ -130,6 +130,7 @@ section 9.
 | Businesses | `businesses` (list, create), `reference/states` |
 | Books | `businesses/:id/snapshot`, `propose`, `confirm`, `discard`, `query`, `ask`, `company`, `uploads` |
 | People | `businesses/:id/members`, `invitations`; `invitations/:id/accept` and `decline`; delete a member or an invitation |
+| Crash reports | `crash-reports` (signed in; no business; see SECURITY-AND-PRIVACY.md) |
 
 Only twenty tools can be proposed remotely (`create_invoice`, `create_purchase`,
 `record_receipt`, `record_payment`, `post_expense`, `set_expense_head`, `create_credit_note`,
@@ -180,8 +181,8 @@ provider credentials do not exist there yet.
 |---|---|---|
 | Everything | `node scripts/check-all.mjs` | Platform, every engine, hosted API if Postgres is reachable, app analysis and tests |
 | Platform | `cd platform && npm test` | 550 tests |
-| Hosted API | `cd cloud && npm test` | 54 tests; each file creates and drops its own database |
-| App | `cd mobile && flutter analyze && flutter test` | 99 tests |
+| Hosted API | `cd cloud && npm test` | 60 tests; each file creates and drops its own database |
+| App | `cd mobile && flutter analyze && flutter test` | 105 tests |
 | Stress | `cd platform && npm run stress` | Permanent stress harness |
 
 There is no linter or type checker for the Node code; the suites are the gate. CI

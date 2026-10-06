@@ -8,9 +8,11 @@ import { createBooksRunner } from './books-runner.mjs';
 import { createMembers } from './members.mjs';
 import { IMPORT_CONTENT_ARG, isImport } from '../../platform/src/import-documents.mjs';
 import { assertSecret } from './tokens.mjs';
+import { createCrashReports } from './crash-reports.mjs';
 
 const MAX_BODY_BYTES = 1024 * 1024;
 export const MAX_UPLOAD_BYTES = 8 * 1024 * 1024;
+const MAX_CRASH_BYTES = 64 * 1024;
 
 export const PROPOSABLE = new Set(['create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'post_expense', 'set_expense_head', 'create_credit_note', 'cancel_invoice', 'gst_review_answer', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote', 'exception_decide']);
 
@@ -82,13 +84,14 @@ function appSnapshot(snapshot, user, role) {
   };
 }
 
-export function createApi({ db, secret, otpSender, now = () => Date.now(), log = () => {} }) {
+export function createApi({ db, secret, otpSender, now = () => Date.now(), log = () => {}, version = 'dev' }) {
   assertSecret(secret);
   if (liveCallsEnabled()) throw new Error('the hosted API must not start with live provider calls enabled');
   const auth = createAuth({ db, secret, otpSender, now });
   const businesses = createBusinesses({ db, now });
   const withBooks = createBooksRunner({ db });
   const members = createMembers({ db, secret, now });
+  const crashes = createCrashReports({ db, now });
 
   async function signedIn(req) {
     const who = await auth.authenticate(bearer(req));
@@ -120,6 +123,10 @@ export function createApi({ db, secret, otpSender, now = () => Date.now(), log =
     }
 
     const user = await signedIn(req);
+
+    if (parts[1] === 'crash-reports' && parts.length === 2 && method === 'POST') {
+      return crashes.record(await readJson(req, MAX_CRASH_BYTES));
+    }
 
     if (parts[1] === 'reference' && parts[2] === 'states' && method === 'GET') {
       return { ok: true, states: businessStates(new Date(now()).toISOString().slice(0, 10)) };
@@ -229,7 +236,10 @@ export function createApi({ db, secret, otpSender, now = () => Date.now(), log =
     } catch (err) {
       status = err.statusCode || 500;
       body = err.body || { ok: false, error: status === 500 ? 'INTERNAL_ERROR' : String(err.message) };
-      if (status === 500) log({ requestId, error: String(err && err.stack ? err.stack : err) });
+      if (status === 500) {
+        log({ requestId, error: String(err && err.stack ? err.stack : err) });
+        await crashes.recordServer(err, version).catch(() => {});
+      }
     }
     log({ requestId, method: req.method, path: new URL(req.url, 'http://localhost').pathname.replace(/[0-9a-f-]{36}/gi, ':id'), status });
     res.writeHead(status, { 'content-type': 'application/json', 'cache-control': 'no-store', 'x-request-id': requestId });

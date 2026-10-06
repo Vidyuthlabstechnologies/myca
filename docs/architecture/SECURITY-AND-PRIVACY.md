@@ -82,6 +82,33 @@
 - Desktop provider credentials are encrypted at rest.
 - `.env` files are not committed.
 
+### Crash reports
+
+- Built without a crash-reporting SDK, so no third party receives anything and no
+  dependency was added. The app catches Flutter and async errors in hosted builds only.
+- What a report holds: the kind (`flutter`, `async`, `server`), the error type, the
+  message, the stack, the app version and a count. Nothing about the user, device or
+  business.
+- Before a report is queued on the phone, and again on the server, the message and the
+  stack are scrubbed:
+  - quoted text, GSTINs, PANs, phone numbers, email addresses, rupee amounts, numbers of
+    four or more digits, ids, tokens and URL query strings are replaced with markers;
+  - file names and line numbers are kept.
+- The message is cut to 300 characters and the stack to 40 frames.
+- Limits:
+  - the queue on the phone holds at most 20 reports, with repeats counted;
+  - reports are sent only after sign-in, at most ten per request in a 64 KB body.
+- The same crash in the same version is one row with a count. Rows are deleted 90 days
+  after the crash was last seen.
+- Server 500s are recorded the same way, with the Cloud Run revision as the version.
+- The owner can switch it off in the business sheet, which also drops anything queued.
+  It is on by default, so the privacy notice and the Play data-safety form must say
+  "crash logs, not linked to the user".
+- Read them with `npm run crashes` in `cloud/` against the production database.
+- Scrubbing is pattern-based. A name that is not quoted in an error message would get
+  through, which is why only unhandled errors are reported, not the app's own error
+  messages.
+
 ### Supply chain
 
 - The engine has no runtime dependencies. The hosted API has one (`pg`). The app has
@@ -121,7 +148,8 @@ Not in use today. When one is added (ADR-0004):
 ## 6. Play Store
 
 The listing will need a privacy policy URL, the data safety form (phone number,
-financial information, files; none shared with third parties today), account deletion
+financial information, files, crash logs not linked to the user; none shared with third
+parties today), account deletion
 reachable from inside and outside the app, and a justification for each permission
 (biometric today; camera and storage when capture is built). None of this is started.
 

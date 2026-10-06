@@ -64,6 +64,8 @@ Future<void> showBusinessSheet(BuildContext context, Snapshot snapshot) {
                 ),
                 const SizedBox(height: 12),
               ],
+              if (state.cloud != null && state.crashes != null)
+                _CrashSwitch(state: state),
               if (state.lockAvailable)
                 _LockSwitch(state: state)
               else if (state.cloud != null)
@@ -137,6 +139,32 @@ Future<void> showBusinessSheet(BuildContext context, Snapshot snapshot) {
       );
     },
   );
+}
+
+class _CrashSwitch extends StatelessWidget {
+  const _CrashSwitch({required this.state});
+
+  final AppState state;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: state,
+      builder: (context, _) => SwitchListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+        title: Text(
+          'Send crash reports',
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
+        subtitle: const Text(
+          'Only what went wrong in the app. Names, amounts, GSTINs and phone numbers are removed before it leaves the phone.',
+        ),
+        value: state.crashReportsOn,
+        activeTrackColor: Palette.ink,
+        onChanged: (enabled) => state.setCrashReports(enabled),
+      ),
+    );
+  }
 }
 
 class _LockSwitch extends StatelessWidget {

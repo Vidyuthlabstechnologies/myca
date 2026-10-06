@@ -71,6 +71,7 @@ erDiagram
 | `books` | The engine's state for one business and a version that increases on every write. Deleting a business with books is restricted. |
 | `documents` | Uploaded files by sha256, per business. Text content for now; object storage is planned. |
 | `audit_log` | Append-only. Triggers refuse update, delete and truncate. |
+| `crash_reports` | Scrubbed crash reports, one row per crash and app version with a count. No user, device or business. Deleted 90 days after a crash was last seen. |
 
 ## 2. Books layer (the engine's state)
 
