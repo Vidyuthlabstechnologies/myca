@@ -15,6 +15,18 @@ function fmtToolResult(name, result) {
     const i = result.invoice;
     return `Posted ${i.id} to ${i.partyName} on ${i.date} for ${money(i.total)} (taxable ${money(i.taxable)}, GST ${money(i.cgst + i.sgst + i.igst)}). Books updated from the invoice.`;
   }
+  if (name === 'add_reminder' && result.reminder) {
+    return `Set. On ${result.reminder.due}: ${result.reminder.text}.`;
+  }
+  if (name === 'complete_reminder' && result.reminder) {
+    return `Done: ${result.reminder.text}.`;
+  }
+  if (name === 'list_reminders' && result.data) {
+    const rows = result.data.reminders;
+    if (!rows.length) return 'You have no open reminders.';
+    const when = { overdue: 'Overdue', today: 'Today', later: 'On' };
+    return rows.map((item) => `· ${item.state === 'later' ? `${when.later} ${item.due}` : when[item.state]}: ${item.text} (${item.id})`).join('\n');
+  }
   if (name === 'books_check' && result.data) {
     const mark = { act: 'Needs you', check: 'Check', ok: 'Fine' };
     const lines = result.data.findings.map((item) => `· ${mark[item.severity]}: ${item.title}. ${item.detail}`);

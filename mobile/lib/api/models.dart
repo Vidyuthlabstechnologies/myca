@@ -830,18 +830,58 @@ class BooksCheck {
   final List<CheckFinding> findings;
 }
 
+class Reminder {
+  const Reminder({
+    required this.id,
+    required this.text,
+    required this.due,
+    required this.inDays,
+    required this.state,
+    required this.aboutLabel,
+  });
+
+  factory Reminder.fromJson(Object? json) {
+    final map = _map(json);
+    final about = _map(map['about']);
+    final id = _text(about['id']);
+    final name = _text(about['name']);
+    return Reminder(
+      id: _text(map['id']),
+      text: _text(map['text']),
+      due: _text(map['due']),
+      inDays: _num(map['inDays']).toInt(),
+      state: _text(map['state']),
+      aboutLabel: [id, name].where((part) => part.isNotEmpty).join(', '),
+    );
+  }
+
+  final String id;
+  final String text;
+  final String due;
+  final int inDays;
+  final String state;
+  final String aboutLabel;
+
+  bool get isDue => state == 'overdue' || state == 'today';
+}
+
+List<Reminder> remindersFrom(Object? json) =>
+    _maps(toolData(json)['reminders']).map(Reminder.fromJson).toList();
+
 class Today {
   const Today({
     required this.gst,
     required this.deadlines,
     required this.exceptions,
     this.summary,
+    this.reminders = const [],
   });
 
   final PeriodGst? gst;
   final List<Deadline> deadlines;
   final List<ExceptionItem> exceptions;
   final BusinessSummary? summary;
+  final List<Reminder> reminders;
 }
 
 class ToolOutcome {

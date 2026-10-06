@@ -17,6 +17,7 @@ import { reviewOf, answerReview } from './gst-review.mjs';
 import { exportEntries } from './entries-export.mjs';
 import { import2b, creditAtRisk } from './gstr2b-check.mjs';
 import { booksCheck } from './books-check.mjs';
+import { addReminder, completeReminder, listReminders } from './reminders.mjs';
 import { postTallyRows, postBankRows, purchaseRegisterCsv } from './post-import.mjs';
 import { parseZohoBooksCsv } from './import-zoho.mjs';
 import { invoicesToGstr1Json } from './gstr1-json.mjs';
@@ -576,6 +577,27 @@ export const TOOLS = [
     description: 'For one tax period: tax on sales and input credit by head from the GSTR-3B draft, and what the GSTR-1 file for that period holds. Lists the periods that have documents.',
     args: ['period'],
     run: (state, args = {}) => periodSummary(state, args.period),
+  },
+  {
+    name: 'add_reminder',
+    title: 'Remind me',
+    description: 'Set a reminder for a day, optionally about an invoice, a bill or a party. It appears in the app on that day; nothing is sent to anyone.',
+    args: ['text', 'due', 'invoiceId', 'billId', 'party'],
+    run: (state, args = {}) => addReminder(state, args),
+  },
+  {
+    name: 'complete_reminder',
+    title: 'Reminder done',
+    description: 'Mark a reminder done.',
+    args: ['id'],
+    run: (state, args = {}) => completeReminder(state, args),
+  },
+  {
+    name: 'list_reminders',
+    title: 'Reminders',
+    description: 'Open reminders by date, with which are due today or overdue. Read-only.',
+    args: ['status'],
+    run: (state, args = {}) => listReminders(state, args),
   },
   {
     name: 'books_check',

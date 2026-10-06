@@ -1,6 +1,7 @@
 import { planReceiptWithoutInvoice } from './receipt-intent.mjs';
 import { planExpenseFromChat } from './expense-intent.mjs';
 import { reviewOf } from './gst-review.mjs';
+import { planReminderFromChat } from './reminder-intent.mjs';
 import { localToday } from './dates.mjs';
 import { normalizeChat, parseDocument, receiptAmount, receiptDate, isPurchaseIntent, isSaleIntent, isQuestion, isNegated, ROUTES } from './intent.mjs';
 import { confirmationIntent } from './chat-confirm.mjs';
@@ -269,6 +270,29 @@ export const TOOL_ARG_SCHEMAS = {
     },
   },
   books_check: noArgs,
+  add_reminder: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['text', 'due'],
+    properties: {
+      text: { type: 'string', minLength: 1, maxLength: 200 },
+      due: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' },
+      invoiceId: { type: 'string', pattern: '^INV-[0-9]{4,}$' },
+      billId: { type: 'string', pattern: '^BILL-[0-9]{4,}$' },
+      party: { type: 'string', maxLength: 80 },
+    },
+  },
+  complete_reminder: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['id'],
+    properties: { id: { type: 'string', pattern: '^REM-[0-9]{4,}$' } },
+  },
+  list_reminders: {
+    type: 'object',
+    additionalProperties: false,
+    properties: { status: { type: 'string', enum: ['open', 'done', 'all'] } },
+  },
   credit_at_risk: {
     type: 'object',
     additionalProperties: false,
@@ -633,6 +657,8 @@ const TOOL_RISK = {
   cancel_invoice: 'writes_books',
   gst_review_answer: 'writes_books',
   import_gstr2b: 'writes_books',
+  add_reminder: 'writes_books',
+  complete_reminder: 'writes_books',
   govt_nic_auth: 'external_auth_probe',
   govt_generate_irn: 'external_government_api',
   sandbox_operation: 'external_government_api',
@@ -824,6 +850,9 @@ export function planLocalToolCall(state, message) {
     const gstin = trackQuery[1] ? trackQuery[1].toUpperCase() : undefined;
     return { kind: 'tool', name: 'track_gst_returns', args: gstin ? { gstin } : {} };
   }
+
+  const reminder = planReminderFromChat(text);
+  if (reminder) return reminder;
 
   if (/\breview\b.*\b(?:gst|gstr|return)\b|\b(?:gst|gstr-?[13]b?|return)\b.*\breview\b/i.test(text) && !isNegated(text)) {
     return planReview(state, text);

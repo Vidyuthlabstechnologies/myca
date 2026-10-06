@@ -84,6 +84,21 @@ the hosted API (`propose`, `confirm`, `discard`).
 - This is the self-serve answer to a competitor's free books audit (see
   `docs/research/2026-10-06-lighthaus-revisited.md`).
 
+### Reminders (built 2026-10-06)
+
+- "Remind me" reminders are kept in the books (`reminders.mjs`): what to do, the day,
+  and optionally the invoice, bill or party it is about. Adding one and marking it done
+  go through preview and confirm, so both are audited with who did it.
+- Chat reads "remind me to call Rajesh tomorrow", "remind me about INV-0002 in 3 days",
+  "remind me on 15 Oct to pay Mahesh", "remind me next Friday …", and a Hinglish
+  "yaad dilana kal …". Days are worked out from today by plain date arithmetic; a
+  sentence with no day gets a question, never a guessed day. "my reminders" lists them.
+- Home shows a "Due today" panel (today and overdue); tapping one marks it done. The
+  Reminders screen adds with quick days (today, tomorrow, in a week, or a picked day).
+  An unpaid invoice offers "Remind me", pre-filled to follow up the payment.
+- Not yet: phone notifications. They need a push service in the hosted deployment;
+  until then reminders appear in the app on the day.
+
 ### Expense chats (to build)
 
 One chat per expense head or recurring payee, once tagging exists

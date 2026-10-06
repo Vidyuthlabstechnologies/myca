@@ -11,6 +11,7 @@ import { planExpense } from './expenses.mjs';
 import { planCreditNote, creditedAgainst } from './credit-notes.mjs';
 import { checkAnswer, reviewOf, stepText } from './gst-review.mjs';
 import { parse2bFile } from './gstr2b-check.mjs';
+import { planReminder, findReminder, whenWords } from './reminders.mjs';
 import { isReturnPeriod } from './return-period.mjs';
 import { gstSplit, partyStateOf } from './chart.mjs';
 import { postingDate } from './dates.mjs';
@@ -20,7 +21,7 @@ import { parseZohoBooksCsv } from './import-zoho.mjs';
 import { tallyXmlToDayBookCsv } from './tally-xml.mjs';
 
 export const CONFIRM_TOOLS = new Set([
-  'create_invoice', 'create_purchase', 'record_receipt', 'post_expense', 'set_expense_head', 'create_credit_note', 'cancel_invoice', 'gst_review_answer', 'import_gstr2b',
+  'create_invoice', 'create_purchase', 'record_receipt', 'post_expense', 'set_expense_head', 'create_credit_note', 'cancel_invoice', 'gst_review_answer', 'import_gstr2b', 'add_reminder', 'complete_reminder',
   'import_tally', 'import_tally_xml', 'import_zoho', 'import_bank',
   'govt_generate_irn', 'govt_nic_cancel_irn',
   'exception_decide',
@@ -199,6 +200,35 @@ function gstr2bPreview(state, args) {
   };
 }
 
+const REMINDER_REASONS = {
+  TEXT_REQUIRED: () => 'Say what to remind you about.',
+  TEXT_TOO_LONG: () => 'Keep the reminder under 200 characters.',
+  INVALID_DATE: (p) => `${p.due} is not a date I can read.`,
+  DATE_PASSED: (p) => `${p.due} has already passed.`,
+  INVOICE_NOT_FOUND: (p) => `${p.invoiceId} is not an invoice in these books.`,
+  BILL_NOT_FOUND: (p) => `${p.billId} is not a bill in these books.`,
+};
+
+function reminderPreview(state, args) {
+  const planned = planReminder(state, args);
+  if (!planned.ok) return { blockers: [(REMINDER_REASONS[planned.error] || (() => planned.error))(planned)], summary: '', effects: [], figures: {} };
+  const { plan } = planned;
+  const about = plan.about ? ` (${plan.about.id || plan.about.name}${plan.about.kind === 'invoice' || plan.about.kind === 'bill' ? `, ${plan.about.name}` : ''})` : '';
+  return {
+    blockers: [],
+    summary: `Remind you ${whenWords(plan.inDays, plan.due)}: ${plan.text}${about}.`,
+    effects: ['It shows on Home on that day. Nothing is sent to anyone.'],
+    figures: { due: plan.due, inDays: plan.inDays },
+  };
+}
+
+function completeReminderPreview(state, args) {
+  const reminder = findReminder(state, args.id);
+  if (!reminder) return { blockers: [`${args.id} is not a reminder here.`], summary: '', effects: [], figures: {} };
+  if (reminder.done) return { blockers: [`${reminder.id} is already done.`], summary: '', effects: [], figures: {} };
+  return { blockers: [], summary: `Mark done: ${reminder.text}.`, effects: [], figures: { id: reminder.id } };
+}
+
 function countSkips(skipped = []) {
   const counts = {};
   for (const s of skipped) counts[s.reason] = (counts[s.reason] || 0) + 1;
@@ -292,6 +322,8 @@ const PREVIEWERS = {
   cancel_invoice: (state, args) => creditNotePreview(state, args, true),
   gst_review_answer: reviewAnswerPreview,
   import_gstr2b: gstr2bPreview,
+  add_reminder: reminderPreview,
+  complete_reminder: completeReminderPreview,
   import_tally: (state, args) => tallyPreview(state, args, args.csv, args.fileName || 'Tally Day Book'),
   import_tally_xml: xmlPreview,
   import_zoho: zohoPreview,

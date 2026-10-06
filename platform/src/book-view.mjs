@@ -6,6 +6,7 @@ export const BOOK_KEYS = new Set([
   'expenses', 'expenseSeq', 'expenseTags',
   'creditNotes', 'creditNoteSeq',
   'gstReviews', 'gstr2b',
+  'reminders', 'reminderSeq',
 ]);
 
 export const FIRM_KEYS = new Set([

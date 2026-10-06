@@ -1,3 +1,4 @@
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:myca/api/models.dart';
 import 'package:myca/api/myca_api.dart';
@@ -62,6 +63,7 @@ class FakeMycaApi implements MycaApi {
       invoices.clear();
       purchases.clear();
       expenses.clear();
+      reminders.clear();
     }
   }
 
@@ -144,6 +146,24 @@ class FakeMycaApi implements MycaApi {
   final creditNotes = <Map<String, Object?>>[];
   final reviewAnswers = <String, String>{};
   bool has2b = false;
+  final reminders = <Map<String, Object?>>[
+    {
+      'id': 'REM-0001',
+      'text': 'Call Rajesh about the order',
+      'due': '2026-10-05',
+      'inDays': 0,
+      'state': 'today',
+      'about': null,
+    },
+    {
+      'id': 'REM-0002',
+      'text': 'Pay rent',
+      'due': '2026-10-09',
+      'inDays': 4,
+      'state': 'later',
+      'about': null,
+    },
+  ];
   String reviewHash = 'a' * 64;
 
   Map<String, Object?> reviewData() {
@@ -313,6 +333,12 @@ class FakeMycaApi implements MycaApi {
         },
       );
     }
+    if (name == 'add_reminder') {
+      return _preview('Remind you on ${args['due']}: ${args['text']}.');
+    }
+    if (name == 'complete_reminder') {
+      return _preview('Mark done: ${args['id']}.');
+    }
     if (name == 'import_gstr2b') {
       return _preview(
         'GSTR-2B for ${args['period']}: 4 entries from 4 suppliers.',
@@ -384,6 +410,35 @@ class FakeMycaApi implements MycaApi {
         });
         return ChatReply.fromJson({
           'reply': 'Posted EXP-0003.',
+          'posted': true,
+          'confirmed': true,
+        });
+      }
+      if (held.tool == 'add_reminder') {
+        reminders.add({
+          'id': 'REM-0003',
+          'text': held.args['text'],
+          'due': held.args['due'],
+          'inDays': 1,
+          'state': 'later',
+          'about': held.args['invoiceId'] == null
+              ? null
+              : {
+                  'kind': 'invoice',
+                  'id': held.args['invoiceId'],
+                  'name': 'Gujarat Weaves',
+                },
+        });
+        return ChatReply.fromJson({
+          'reply': 'Set. On ${held.args['due']}: ${held.args['text']}.',
+          'posted': true,
+          'confirmed': true,
+        });
+      }
+      if (held.tool == 'complete_reminder') {
+        reminders.removeWhere((r) => r['id'] == held.args['id']);
+        return ChatReply.fromJson({
+          'reply': 'Done.',
           'posted': true,
           'confirmed': true,
         });
@@ -610,6 +665,15 @@ class FakeMycaApi implements MycaApi {
                 277600 -
                 creditNotes.fold<num>(0, (sum, n) => sum + (n['total'] as num)),
             'missing': ['HSN'],
+          },
+        };
+      case 'list_reminders':
+        return {
+          'ok': true,
+          'data': {
+            'today': '2026-10-05',
+            'reminders': reminders,
+            'due': reminders.where((r) => r['state'] == 'today').length,
           },
         };
       case 'books_check':
@@ -851,6 +915,7 @@ class FakeMycaApi implements MycaApi {
 
 Future<void> tapRow(WidgetTester tester, String title) async {
   final row = find.text(title);
+  await tester.scrollUntilVisible(row, 200, scrollable: find.byType(Scrollable).first);
   await tester.ensureVisible(row);
   await tester.pumpAndSettle();
   await tester.tap(row);

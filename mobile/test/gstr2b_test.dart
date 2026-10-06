@@ -118,7 +118,18 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('Gujarat Mills'), findsOneWidget);
-      expect(find.text('₹3,600.00'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find
+              .ancestor(
+                of: find.text('Gujarat Mills'),
+                matching: find.byType(Row),
+              )
+              .first,
+          matching: find.text('₹3,600.00'),
+        ),
+        findsOneWidget,
+      );
       expect(find.text('1 bill in 2B is not in your books.'), findsOneWidget);
 
       await tester.tap(find.text('Gujarat Mills'));

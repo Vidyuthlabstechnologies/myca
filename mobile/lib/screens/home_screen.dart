@@ -12,6 +12,7 @@ import '../theme.dart';
 import '../widgets.dart';
 import 'ask_screen.dart';
 import 'books_check_screen.dart';
+import 'reminders_screen.dart';
 import 'expenses_screen.dart';
 import 'business_sheet.dart';
 import 'new_entry_sheet.dart';
@@ -50,7 +51,11 @@ class _HomeScreenState extends State<HomeScreen> {
     if (!state.showBooksCheck) return;
     state.showBooksCheck = false;
     final books = widget.snapshot;
-    if (books.invoices.isEmpty && books.purchases.isEmpty && books.expenses.isEmpty) return;
+    if (books.invoices.isEmpty &&
+        books.purchases.isEmpty &&
+        books.expenses.isEmpty) {
+      return;
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _open(const BooksCheckScreen());
     });
@@ -129,6 +134,30 @@ class _HomeScreenState extends State<HomeScreen> {
             FutureBuilder<Today>(
               future: _today,
               builder: (context, today) {
+                final due = (today.data?.reminders ?? const <Reminder>[])
+                    .where((r) => r.isDue)
+                    .toList();
+                if (due.isEmpty) return const SizedBox.shrink();
+                return Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: _DuePanel(
+                    reminders: due,
+                    onTap: (reminder) async {
+                      if (await confirmReminderDone(context, reminder) &&
+                          mounted) {
+                        final next = _loadToday();
+                        setState(() {
+                          _today = next;
+                        });
+                      }
+                    },
+                  ),
+                );
+              },
+            ),
+            FutureBuilder<Today>(
+              future: _today,
+              builder: (context, today) {
                 final summary = today.data?.summary;
                 if (summary == null) return const SizedBox.shrink();
                 return Padding(
@@ -189,6 +218,13 @@ class _HomeScreenState extends State<HomeScreen> {
                   subtitle: expensesSubtitle(snapshot.expenses),
                   trailing: const Chevron(),
                   onTap: () => _open(const ExpensesScreen()),
+                ),
+                RowCard(
+                  leading: const TintTile(tint: Tint.ask, mark: Mark.comingUp),
+                  title: 'Reminders',
+                  subtitle: 'Anything you asked to be reminded of',
+                  trailing: const Chevron(),
+                  onTap: () => _open(const RemindersScreen()),
                 ),
                 RowCard(
                   leading: const TintTile(tint: Tint.taxes, mark: Mark.confirm),
@@ -515,6 +551,40 @@ class _Figure extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _DuePanel extends StatelessWidget {
+  const _DuePanel({required this.reminders, required this.onTap});
+
+  final List<Reminder> reminders;
+  final void Function(Reminder) onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SectionLabel('Due today'),
+        Panel(
+          children: [
+            for (final reminder in reminders)
+              RowCard(
+                leading: TintTile(
+                  tint: reminder.state == 'overdue' ? Tint.urgent : Tint.taxes,
+                  mark: Mark.dueSoon,
+                ),
+                title: reminder.text,
+                subtitle: [
+                  reminderWhen(reminder),
+                  if (reminder.aboutLabel.isNotEmpty) reminder.aboutLabel,
+                ].join(' · '),
+                onTap: () => onTap(reminder),
+              ),
+          ],
+        ),
+      ],
     );
   }
 }

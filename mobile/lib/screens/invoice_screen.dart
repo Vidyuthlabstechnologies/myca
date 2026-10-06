@@ -7,6 +7,7 @@ import '../format.dart';
 import '../invoice_pdf.dart';
 import '../proposal_flow.dart';
 import '../widgets.dart';
+import 'reminders_screen.dart';
 import '../theme.dart';
 
 const _missingWords = {
@@ -104,6 +105,19 @@ class _InvoiceScreenState extends State<InvoiceScreen> with ProposalFlow {
         'amount': ?amount,
       },
     );
+  }
+
+  Future<void> _remind(InvoiceDocument doc) async {
+    final draft = await showReminderSheet(
+      context,
+      text: 'Follow up payment from ${doc.buyerName}',
+    );
+    if (draft == null || !mounted) return;
+    await propose('Remind me: ${draft.text}', 'add_reminder', {
+      'text': draft.text,
+      'due': draft.due,
+      'invoiceId': doc.id,
+    });
   }
 
   Future<void> _cancel(InvoiceDocument doc) async {
@@ -208,6 +222,9 @@ class _InvoiceScreenState extends State<InvoiceScreen> with ProposalFlow {
                   onCancel: doc.cancelled || doc.credited > 0
                       ? null
                       : () => _cancel(doc),
+                  onRemind: doc.cancelled || doc.balance <= 0
+                      ? null
+                      : () => _remind(doc),
                 ),
               ),
               if (pending != null)
@@ -235,6 +252,7 @@ class _InvoiceBody extends StatelessWidget {
     required this.onPrint,
     required this.onCreditNote,
     required this.onCancel,
+    required this.onRemind,
   });
 
   final InvoiceDocument doc;
@@ -246,6 +264,7 @@ class _InvoiceBody extends StatelessWidget {
   final VoidCallback onPrint;
   final VoidCallback? onCreditNote;
   final VoidCallback? onCancel;
+  final VoidCallback? onRemind;
 
   @override
   Widget build(BuildContext context) {
@@ -405,12 +424,17 @@ class _InvoiceBody extends StatelessWidget {
               ? text.bodySmall
               : text.bodyMedium?.copyWith(color: Palette.ink),
         ),
-        if (onCreditNote != null || onCancel != null) ...[
+        if (onCreditNote != null || onCancel != null || onRemind != null) ...[
           const SizedBox(height: 20),
           Wrap(
             spacing: 8,
             runSpacing: 8,
             children: [
+              if (onRemind != null)
+                ActionChip(
+                  label: const Text('Remind me'),
+                  onPressed: busy ? null : onRemind,
+                ),
               if (onCreditNote != null)
                 ActionChip(
                   label: const Text('Credit note'),
