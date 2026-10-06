@@ -781,6 +781,55 @@ class CreditCheck {
   bool get hasStatement => statementFile.isNotEmpty;
 }
 
+class CheckFinding {
+  const CheckFinding({
+    required this.id,
+    required this.severity,
+    required this.title,
+    required this.detail,
+    required this.action,
+  });
+
+  factory CheckFinding.fromJson(Object? json) {
+    final map = _map(json);
+    return CheckFinding(
+      id: _text(map['id']),
+      severity: _text(map['severity']),
+      title: _text(map['title']),
+      detail: _text(map['detail']),
+      action: _text(map['action']),
+    );
+  }
+
+  final String id;
+  final String severity;
+  final String title;
+  final String detail;
+  final String action;
+}
+
+class BooksCheck {
+  const BooksCheck({
+    required this.asOfDate,
+    required this.headline,
+    required this.findings,
+  });
+
+  static BooksCheck? fromTool(Object? json) {
+    final map = toolData(json);
+    if (_text(map['headline']).isEmpty) return null;
+    return BooksCheck(
+      asOfDate: _text(map['asOfDate']),
+      headline: _text(map['headline']),
+      findings: _maps(map['findings']).map(CheckFinding.fromJson).toList(),
+    );
+  }
+
+  final String asOfDate;
+  final String headline;
+  final List<CheckFinding> findings;
+}
+
 class Today {
   const Today({
     required this.gst,

@@ -6,7 +6,7 @@
 | Basis | The [product PRD](PRD.md); progress in [`../superpowers/PROGRESS.md`](../superpowers/PROGRESS.md) |
 | Status | Engineering's proposed order. No dates: the pace depends on owner actions listed at the end. |
 
-About 49% of the PRD is built. The order below is chosen so that each milestone gives a
+About 50% of the PRD is built. The order below is chosen so that each milestone gives a
 pilot owner something usable, and so that work blocked on outside parties is not on the
 critical path of work that is not.
 
@@ -74,6 +74,23 @@ Real businesses, real data, closed testing on the Play Store.
 | Payroll step 3: payouts | FR-PAY-3 | Payout partner (PRD Q5) |
 | POS inbound API and daily summary import | FR-CAP-2 | A POS partner (PRD Q7) |
 | Quotes | FR-INV-4 | Nothing |
+
+## Matching and beating Spark
+
+The owner's goal is to lead this sector. Lighthaus's assistant, Spark, shows four things on
+its public page. Each maps onto work here, with how ours should be better.
+
+| Spark shows | Ours, built or planned | How ours is better |
+|---|---|---|
+| Invoice from one WhatsApp message: GST-correct, buyer GSTIN verified, payment terms from the PO, "shall I send it?", sends, generates the IRN, books the entry | Invoice by message with preview and confirm, PDF, share sheet (built). To build: payment terms on the customer, IRN in the flow (needs NIC credentials), WhatsApp as an input channel | The owner sees every figure before it posts; the GST rate is never guessed but offered from what this customer was charged before; the GSTIN is checked by its checksum before anything is sent |
+| "Can I afford ₹40L of stock in September?" answered with a cash projection and a suggested split | Not built. Needs a cash position and forecast engine first (balances, receivables, payables, recurring expenses) | Every number in the answer comes from that engine with the entries behind it, so the owner can see why; the model only chooses the question |
+| Hindi or Hinglish question about a marketplace payout; matched to bank; a pending claim tracked; "remind me" | Not built: settlement matching, Hindi, reminders | Reminders are small and come first. Hindi follows the language model decision. Settlement matching only if marketplace sellers become a target (open question) |
+| Voice or text, English, Hindi, Telugu, on WhatsApp or Slack; answers auditable; Excel on demand; escalates to an accountant | English text in the app; every answer from a named tool; entries CSV (built) | Escalation goes to the owner's own CA inside the product, with the entries attached; nothing goes out without approval |
+
+Order, after M2: (1) remind-me follow-ups, (2) cash position and forecast tool, (3) invoice
+terms and IRN in the flow, (4) the language model selecting tools under ADR-0004, which
+unlocks free text, Hindi and voice, (5) WhatsApp as an input channel once PRD Q6 is
+answered, (6) "send this to my CA" on any finding.
 
 ## What can start today with nothing from anyone
 

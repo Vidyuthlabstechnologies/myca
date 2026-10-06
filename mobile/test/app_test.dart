@@ -70,6 +70,9 @@ void main() {
     expect(api.sent, isEmpty);
     await tester.tap(find.text('Open my books'));
     await tester.pumpAndSettle();
+    expect(find.text('Your books check'), findsOneWidget);
+    await tester.pageBack();
+    await tester.pumpAndSettle();
 
     expect(find.text('YOUR BOOKS'), findsOneWidget);
     expect(find.text('Kiran Traders'), findsOneWidget);
@@ -305,6 +308,9 @@ void main() {
     await tester.tap(find.text('Bring it in'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Done'));
+    await tester.pumpAndSettle();
+    expect(find.text('Your books check'), findsOneWidget);
+    await tester.pageBack();
     await tester.pumpAndSettle();
     expect(find.text('YOUR BOOKS'), findsOneWidget);
 

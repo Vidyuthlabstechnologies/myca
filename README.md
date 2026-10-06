@@ -14,11 +14,11 @@ Taxmeow or MyCA is an open decision.
 
 | | |
 |---|---|
-| Against the product PRD | **About 49% built** ([requirement by requirement](docs/product/PRD.md), [how it is computed](docs/superpowers/PROGRESS.md)) |
+| Against the product PRD | **About 50% built** ([requirement by requirement](docs/product/PRD.md), [how it is computed](docs/superpowers/PROGRESS.md)) |
 | To a Play Store launch | About 44% (estimate) |
 | Engine hardening (Phase 0) | 67%; every Critical and High audit finding closed ([audit](docs/audit/2026-09-21-codebase-audit.md)) |
-| Tests | **949**: platform 496, engines and statutory rules 329, hosted API 53, Android app 71 |
-| Tools | 87 named, schema-validated tools |
+| Tests | **957**: platform 501, engines and statutory rules 329, hosted API 53, Android app 74 |
+| Tools | 88 named, schema-validated tools |
 | Deployed | **Nothing.** The hosted API has run only against a local Postgres; the app has not run on a phone |
 | Live portal calls | Off by default (`MYCA_ENABLE_LIVE_CALLS=0`); no return has been filed through the product |
 | Automated checks | `node scripts/check-all.mjs`. CI is defined but GitHub Actions is not running on the account |
@@ -55,7 +55,7 @@ Taxmeow or MyCA is an open decision.
 | Payroll | Run payroll and pay salaries from the same product | 0% | [05](docs/product/features/05-payroll.md) |
 | GSTR-2B matching | Flag late or mismatched suppliers; remind only with permission | 65% | [06](docs/product/features/06-gstr2b-matching-and-reminders.md) |
 | CA collaboration | Export or invite, with a sync setting | 70% | [07](docs/product/features/07-ca-collaboration.md) |
-| Chat and dashboard | Chat for daily work, dashboard for the picture | 75% | [08](docs/product/features/08-chat-and-dashboard.md) |
+| Chat and dashboard | Chat for daily work, dashboard for the picture | 80% | [08](docs/product/features/08-chat-and-dashboard.md) |
 | Reading documents | POS sales and forwarded invoices read automatically | 5% | [09](docs/product/features/09-document-capture-and-pos.md) |
 
 Percentages are engineering estimates. "Built" means implemented and covered by tests,
@@ -126,7 +126,7 @@ safe.
                          platform/src/session.mjs      one serialized gate per books
                          router.mjs                    propose → confirm, query
                          assistant-contract.mjs        strict schemas, risk classes
-                         tools.mjs                     87 named tools
+                         tools.mjs                     88 named tools
              ┌───────────────────┼─────────────────────┐
              ▼                   ▼                     ▼
       ledger / invoice     sprints/ engines      action-gate.mjs
@@ -165,7 +165,7 @@ The engine and the desktop server:
 
 ```bash
 cd platform
-npm test                 # 496 tests
+npm test                 # 501 tests
 npm run dev              # http://127.0.0.1:4780 (plain node)
 npm start                # Electron window (after: npm i)
 ```
@@ -182,7 +182,7 @@ The Android app (see [`mobile/README.md`](mobile/README.md)):
 
 ```bash
 cd mobile
-flutter test             # 71 tests
+flutter test             # 74 tests
 flutter run --dart-define=MYCA_CLOUD_URL=http://127.0.0.1:8080
 ```
 
@@ -251,7 +251,9 @@ Configuration is optional for local books. **Outbound calls are opt-in**; set
 
 **Android app** (`mobile/`, not yet run on a phone)
 
-- Onboarding that brings books from Tally, Zoho Books or a bank statement.
+- Onboarding that brings books from Tally, Zoho Books or a bank statement, then a books
+  check of what needs the owner: sales the return cannot carry, credit at risk, due
+  dates, money owed, missing details.
 - Chats by kind and by customer or supplier, and one per expense head; every entry
   previewed and confirmed. Expenses are tagged to a head automatically, with the reason
   shown, and the owner can move one with a tap.

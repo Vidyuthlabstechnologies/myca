@@ -171,6 +171,9 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Open my books'));
     await tester.pumpAndSettle();
+    expect(find.text('Your books check'), findsOneWidget);
+    await tester.pageBack();
+    await tester.pumpAndSettle();
 
     expect(find.text('Asha Traders'), findsOneWidget);
     expect(find.text('You are all caught up'), findsOneWidget);

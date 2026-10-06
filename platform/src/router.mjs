@@ -15,6 +15,11 @@ function fmtToolResult(name, result) {
     const i = result.invoice;
     return `Posted ${i.id} to ${i.partyName} on ${i.date} for ${money(i.total)} (taxable ${money(i.taxable)}, GST ${money(i.cgst + i.sgst + i.igst)}). Books updated from the invoice.`;
   }
+  if (name === 'books_check' && result.data) {
+    const mark = { act: 'Needs you', check: 'Check', ok: 'Fine' };
+    const lines = result.data.findings.map((item) => `· ${mark[item.severity]}: ${item.title}. ${item.detail}`);
+    return [result.data.headline + '.', ...lines].join('\n');
+  }
   if (name === 'gst_review_answer' && result.review) {
     const review = result.review;
     if (result.approved) return `Approved the ${review.month} figures. Nothing has been filed. Save the GSTR-1 file from Taxes, or send it to your CA.`;

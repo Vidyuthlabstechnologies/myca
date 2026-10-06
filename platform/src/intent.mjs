@@ -151,6 +151,7 @@ export function isSaleIntent(text) {
 }
 
 export const ROUTES = [
+  { re: /\bcheck\s+(?:my\s+|the\s+)?books\b|\bbooks?\s+(?:check|health)\b|\bhealth\s*check\b/i, tool: 'books_check' },
   { re: /\btrial\s*balance\b|\bdoes (the )?books? tie\b/i, tool: 'trial_balance' },
   { re: /\bchart of accounts\b|\bcoa\b/i, tool: 'chart_of_accounts' },
   { re: /\bjournal\b|\bday book\b/i, tool: 'journal' },

@@ -160,6 +160,7 @@ class FakeCloud {
         'expense_heads' => {'ok': true, 'data': const <Object?>[]},
         'business_summary' => {'ok': false, 'error': 'X'},
         'credit_at_risk' => {'ok': false, 'error': 'X'},
+        'books_check' => {'ok': false, 'error': 'X'},
         'gst_period_summary' => {
             'ok': true,
             'data': {
