@@ -15,6 +15,7 @@ import { planReminder, findReminder, whenWords } from './reminders.mjs';
 import { planCashReading } from './cash-forecast.mjs';
 import { planTerms, termsLabel, invoiceTerms, dueDateOf } from './payment-terms.mjs';
 import { planAsk, planReply } from './ca-requests.mjs';
+import { planQuote, findQuote, checkConvert, invoiceArgsFromQuote } from './quotes.mjs';
 import { isReturnPeriod } from './return-period.mjs';
 import { gstSplit, partyStateOf } from './chart.mjs';
 import { postingDate } from './dates.mjs';
@@ -24,7 +25,7 @@ import { parseZohoBooksCsv } from './import-zoho.mjs';
 import { tallyXmlToDayBookCsv } from './tally-xml.mjs';
 
 export const CONFIRM_TOOLS = new Set([
-  'create_invoice', 'create_purchase', 'record_receipt', 'post_expense', 'set_expense_head', 'create_credit_note', 'cancel_invoice', 'gst_review_answer', 'import_gstr2b', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'ask_ca', 'reply_ca', 'close_ca',
+  'create_invoice', 'create_purchase', 'record_receipt', 'post_expense', 'set_expense_head', 'create_credit_note', 'cancel_invoice', 'gst_review_answer', 'import_gstr2b', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote',
   'import_tally', 'import_tally_xml', 'import_zoho', 'import_bank',
   'govt_generate_irn', 'govt_nic_cancel_irn',
   'exception_decide',
@@ -310,6 +311,49 @@ function closePreview(state, args) {
   return { blockers: [], summary: `Close the question: ${request.title}.`, effects: [], figures: {} };
 }
 
+const QUOTE_REASONS = {
+  INVALID_DATE: 'That is not a date I can read.',
+  CUSTOMER_REQUIRED: 'Say who the quote is for.',
+  BAD_VALIDITY: 'A quote is valid for 1 to 365 days.',
+  NO_LINES: 'Add what is being quoted.',
+  RATE_REQUIRED: 'Give the GST rate for each item; MyCA does not assume one.',
+  BAD_LINE: 'Each item needs a quantity above zero and a price.',
+  RATE_NOT_IN_FORCE: 'That GST rate is not one in force on the quote date.',
+  ZERO_AMOUNT: 'The quote comes to nothing.',
+  QUOTE_NOT_FOUND: 'That quote is not in these books.',
+  ALREADY_INVOICED: 'That quote has already been invoiced.',
+  QUOTE_DECLINED: 'That quote was declined. Make a new quote or an invoice instead.',
+  BAD_OUTCOME: 'A quote is accepted or declined.',
+};
+
+function quotePreview(state, args) {
+  const planned = planQuote(state, args);
+  if (!planned.ok) return { blockers: [QUOTE_REASONS[planned.error] || planned.error], summary: '', effects: [], figures: {} };
+  const { plan } = planned;
+  const heads = plan.igst > 0 ? `IGST ${money(plan.igst)}` : `CGST ${money(plan.cgst)} + SGST ${money(plan.sgst)}`;
+  return {
+    blockers: [],
+    summary: `Quote to ${plan.partyName}${plan.partyGstin ? ` (${plan.partyGstin})` : ''} dated ${plan.date}: taxable ${money(plan.taxable)}, ${heads}, total ${money(plan.total)}. Valid until ${plan.validUntil}.`,
+    effects: ['Nothing is posted to your books and it is in no return until it becomes an invoice.'],
+    figures: { total: plan.total, validUntil: plan.validUntil },
+  };
+}
+
+function markQuotePreview(state, args) {
+  const quote = findQuote(state, args.id);
+  if (!quote) return { blockers: [QUOTE_REASONS.QUOTE_NOT_FOUND], summary: '', effects: [], figures: {} };
+  if (quote.status === 'invoiced') return { blockers: [QUOTE_REASONS.ALREADY_INVOICED], summary: '', effects: [], figures: {} };
+  return { blockers: [], summary: `${quote.id} to ${quote.partyName}: ${args.outcome}.`, effects: [], figures: {} };
+}
+
+function convertPreview(state, args) {
+  const checked = checkConvert(state, args);
+  if (!checked.ok) return { blockers: [QUOTE_REASONS[checked.error] || checked.error], summary: '', effects: [], figures: {} };
+  const invoice = documentPreview(state, invoiceArgsFromQuote(checked.quote, args), 'sale');
+  const note = checked.expired ? ` The quote expired on ${checked.quote.validUntil}.` : '';
+  return { ...invoice, summary: `From quote ${checked.quote.id}: ${invoice.summary}${note}` };
+}
+
 function countSkips(skipped = []) {
   const counts = {};
   for (const s of skipped) counts[s.reason] = (counts[s.reason] || 0) + 1;
@@ -408,6 +452,9 @@ const PREVIEWERS = {
   set_cash_balance: cashReadingPreview,
   set_payment_terms: termsPreview,
   ask_ca: askPreview,
+  create_quote: quotePreview,
+  mark_quote: markQuotePreview,
+  convert_quote: convertPreview,
   reply_ca: replyPreview,
   close_ca: closePreview,
   import_tally: (state, args) => tallyPreview(state, args, args.csv, args.fileName || 'Tally Day Book'),

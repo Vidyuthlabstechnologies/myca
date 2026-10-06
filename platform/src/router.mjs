@@ -35,6 +35,15 @@ function fmtToolResult(name, result) {
       ...d.notes.map((note) => `· ${note}`),
     ].filter(Boolean).join('\n');
   }
+  if (name === 'create_quote' && result.quote) {
+    return `Quote ${result.quote.id} to ${result.quote.partyName} for ${money(result.quote.total)}, valid until ${result.quote.validUntil}. Nothing was posted to your books.`;
+  }
+  if (name === 'mark_quote' && result.quote) {
+    return `${result.quote.id} marked ${result.quote.status}.`;
+  }
+  if (name === 'convert_quote' && result.invoice) {
+    return `Posted ${result.invoice.id} to ${result.invoice.partyName} for ${money(result.invoice.total)} from quote ${result.quote.id}.`;
+  }
   if (name === 'ask_ca' && result.request) {
     return `Sent to your CA in MyCA (${result.request.id}). You will see the reply under Your CA.`;
   }

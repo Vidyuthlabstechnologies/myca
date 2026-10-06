@@ -298,6 +298,47 @@ export const TOOL_ARG_SCHEMAS = {
       on: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' },
     },
   },
+  create_quote: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['partyName', 'lines'],
+    properties: {
+      partyName: { type: 'string', minLength: 1, maxLength: 80 },
+      partyGstin: { type: 'string' },
+      date: { type: 'string' },
+      validDays: { type: 'integer', minimum: 1, maximum: 365 },
+      lines: { type: 'array', minItems: 1, items: lineSchema },
+    },
+  },
+  mark_quote: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['id', 'outcome'],
+    properties: {
+      id: { type: 'string', pattern: '^QT-[0-9]{4,}$' },
+      outcome: { type: 'string', enum: ['accepted', 'declined'] },
+    },
+  },
+  convert_quote: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['id'],
+    properties: {
+      id: { type: 'string', pattern: '^QT-[0-9]{4,}$' },
+      date: { type: 'string' },
+    },
+  },
+  list_quotes: {
+    type: 'object',
+    additionalProperties: false,
+    properties: { status: { type: 'string', enum: ['all', 'open', 'accepted', 'declined', 'expired', 'invoiced'] } },
+  },
+  quote_document: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['id'],
+    properties: { id: { type: 'string', pattern: '^QT-[0-9]{4,}$' } },
+  },
   ask_ca: {
     type: 'object',
     additionalProperties: false,
@@ -739,6 +780,9 @@ const TOOL_RISK = {
   set_cash_balance: 'writes_books',
   set_payment_terms: 'writes_books',
   ask_ca: 'writes_books',
+  create_quote: 'writes_books',
+  mark_quote: 'writes_books',
+  convert_quote: 'writes_books',
   reply_ca: 'writes_books',
   close_ca: 'writes_books',
   govt_nic_auth: 'external_auth_probe',
@@ -861,6 +905,24 @@ export function planLocalToolCall(state, message) {
     };
   }
 
+  const quoteRef = text.match(/\b(QT-\d{4,})\b/i);
+  if (quoteRef && !isQuestion(text) && !isNegated(text)) {
+    const id = quoteRef[1].toUpperCase();
+    if (/\b(?:convert|make|turn|raise)\b.*\binvoice\b|\binvoice\s+(?:it|for|from)?\s*QT-/i.test(text)) return { kind: 'tool', name: 'convert_quote', args: { id } };
+    if (/\baccepted\b|\bapproved\b|\bconfirmed\b/i.test(text)) return { kind: 'tool', name: 'mark_quote', args: { id, outcome: 'accepted' } };
+    if (/\bdeclined\b|\brejected\b|\bnot\s+going\s+ahead\b/i.test(text)) return { kind: 'tool', name: 'mark_quote', args: { id, outcome: 'declined' } };
+  }
+  if (/\b(?:quote|quotation|estimate)\b/i.test(text) && !quoteRef && !isQuestion(text) && !isNegated(text)) {
+    const validity = text.match(/\s*,?\s*\bvalid\s+(?:for\s+)?(\d{1,3})\s*days?\b/i);
+    const asInvoice = (validity ? text.replace(validity[0], ' ') : text).replace(/\b(?:make\s+(?:a|an)\s+|send\s+(?:a|an)\s+)?(?:quotation|quote|estimate)\b/i, 'invoice');
+    const quoted = parseDocument(asInvoice);
+    if (quoted) {
+      if (quoted.lines[0].gstRate == null) {
+        return { kind: 'reply', reply: 'I have not made the quote, because I will not guess the GST rate. Say it again with the rate, for example "quote ABC Ltd 50000 for consulting GST 18%".', tools: [] };
+      }
+      return { kind: 'tool', name: 'create_quote', args: { partyName: quoted.partyName, ...(quoted.partyGstin ? { partyGstin: quoted.partyGstin } : {}), lines: quoted.lines, ...(validity ? { validDays: Number(validity[1]) } : {}) } };
+    }
+  }
   const saidTerms = takeInvoiceTerms(text);
   const doc = parseDocument(saidTerms.text);
   const asking = isQuestion(text) || isNegated(text);
