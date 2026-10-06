@@ -8,6 +8,7 @@ export const BOOK_KEYS = new Set([
   'gstReviews', 'gstr2b',
   'reminders', 'reminderSeq',
   'cashReadings', 'customerTerms',
+  'caRequests', 'caRequestSeq',
 ]);
 
 export const FIRM_KEYS = new Set([

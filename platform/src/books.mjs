@@ -59,6 +59,8 @@ export function newBook(company = {}) {
     reminderSeq: 0,
     cashReadings: [],
     customerTerms: {},
+    caRequests: [],
+    caRequestSeq: 0,
   };
 }
 
@@ -91,6 +93,8 @@ export function serializeBook(book) {
     reminderSeq: book.reminderSeq || 0,
     cashReadings: book.cashReadings || [],
     customerTerms: book.customerTerms || {},
+    caRequests: book.caRequests || [],
+    caRequestSeq: book.caRequestSeq || 0,
   };
 }
 
@@ -123,6 +127,8 @@ export function deserializeBook(raw) {
   book.reminderSeq = raw.reminderSeq || 0;
   book.cashReadings = Array.isArray(raw.cashReadings) ? raw.cashReadings : [];
   book.customerTerms = raw.customerTerms && typeof raw.customerTerms === 'object' ? raw.customerTerms : {};
+  book.caRequests = Array.isArray(raw.caRequests) ? raw.caRequests : [];
+  book.caRequestSeq = raw.caRequestSeq || 0;
   return book;
 }
 

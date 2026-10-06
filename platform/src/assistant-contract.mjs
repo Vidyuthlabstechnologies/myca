@@ -298,6 +298,45 @@ export const TOOL_ARG_SCHEMAS = {
       on: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' },
     },
   },
+  ask_ca: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['subject', 'note'],
+    properties: {
+      subject: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['kind'],
+        properties: {
+          kind: { type: 'string', enum: ['invoice', 'bill', 'expense', 'exception', 'period', 'other'] },
+          id: { type: 'string', maxLength: 40 },
+          period: { type: 'string', pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' },
+        },
+      },
+      title: { type: 'string', maxLength: 160 },
+      note: { type: 'string', minLength: 1, maxLength: 1000 },
+    },
+  },
+  reply_ca: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['id', 'text'],
+    properties: {
+      id: { type: 'string', pattern: '^ASK-[0-9]{4,}$' },
+      text: { type: 'string', minLength: 1, maxLength: 1000 },
+    },
+  },
+  close_ca: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['id'],
+    properties: { id: { type: 'string', pattern: '^ASK-[0-9]{4,}$' } },
+  },
+  list_ca_requests: {
+    type: 'object',
+    additionalProperties: false,
+    properties: { status: { type: 'string', enum: ['open', 'closed', 'all'] } },
+  },
   set_payment_terms: {
     type: 'object',
     additionalProperties: false,
@@ -699,6 +738,9 @@ const TOOL_RISK = {
   complete_reminder: 'writes_books',
   set_cash_balance: 'writes_books',
   set_payment_terms: 'writes_books',
+  ask_ca: 'writes_books',
+  reply_ca: 'writes_books',
+  close_ca: 'writes_books',
   govt_nic_auth: 'external_auth_probe',
   govt_generate_irn: 'external_government_api',
   sandbox_operation: 'external_government_api',

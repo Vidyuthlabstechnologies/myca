@@ -20,6 +20,7 @@ import { booksCheck } from './books-check.mjs';
 import { addReminder, completeReminder, listReminders } from './reminders.mjs';
 import { cashForecast, canAfford, setCashBalance } from './cash-forecast.mjs';
 import { setPaymentTerms } from './payment-terms.mjs';
+import { askCa, replyCa, closeCa, listCaRequests } from './ca-requests.mjs';
 import { postTallyRows, postBankRows, purchaseRegisterCsv } from './post-import.mjs';
 import { parseZohoBooksCsv } from './import-zoho.mjs';
 import { invoicesToGstr1Json } from './gstr1-json.mjs';
@@ -601,6 +602,34 @@ export const TOOLS = [
       const clientId = String(state.activeClientId || 'SELF');
       return canAfford(state, { amount: args.amount, on: args.on, deadlines: (due.data?.deadlines || []).filter((row) => row.clientId === clientId) });
     },
+  },
+  {
+    name: 'ask_ca',
+    title: 'Ask my CA',
+    description: 'Send a question to the business\'s CA inside MyCA about an invoice, bill, expense, flagged item or a month\'s GST, with the facts attached by the engine. Nothing leaves MyCA.',
+    args: ['subject', 'title', 'note'],
+    run: (state, args = {}) => askCa(state, args),
+  },
+  {
+    name: 'reply_ca',
+    title: 'Reply',
+    description: 'Add a reply to a question for the CA; a reply from someone other than the asker marks it answered.',
+    args: ['id', 'text'],
+    run: (state, args = {}) => replyCa(state, args),
+  },
+  {
+    name: 'close_ca',
+    title: 'Close question',
+    description: 'Close a question for the CA. Only the person who asked or the owner can close it.',
+    args: ['id'],
+    run: (state, args = {}) => closeCa(state, args),
+  },
+  {
+    name: 'list_ca_requests',
+    title: 'Questions for the CA',
+    description: 'Questions for the CA with their attached facts and replies, open unless asked otherwise. Read-only.',
+    args: ['status'],
+    run: (state, args = {}) => listCaRequests(state, args),
   },
   {
     name: 'set_payment_terms',
