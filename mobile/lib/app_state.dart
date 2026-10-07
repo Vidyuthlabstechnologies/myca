@@ -6,6 +6,7 @@ import 'api/models.dart';
 import 'api/myca_api.dart';
 import 'app_services.dart';
 import 'cloud/cloud_session.dart';
+import 'cloud/google_auth.dart';
 import 'crash_reports.dart';
 import 'lock/app_lock.dart';
 
@@ -22,6 +23,7 @@ class AppState extends ChangeNotifier {
     this.lock = const NoAppLock(),
     this.now = DateTime.now,
     this.crashes,
+    this.google,
   }) : api = api ?? cloud!.api;
 
   final MycaApi api;
@@ -33,6 +35,7 @@ class AppState extends ChangeNotifier {
   final AppLock lock;
   final DateTime Function() now;
   final CrashReporter? crashes;
+  final GoogleAuth? google;
 
   Snapshot? snapshot;
   String error = '';
@@ -153,6 +156,7 @@ class AppState extends ChangeNotifier {
     } on MycaApiException catch (err) {
       error = err.message;
     }
+    await google?.signOut().catchError((Object _) {});
     if (cloud != null) snapshot = null;
     locked = false;
     await refresh();

@@ -63,7 +63,7 @@ erDiagram
 
 | Table | Notes |
 |---|---|
-| `users` | One per phone number. The number is stored as given, because it is the sign-in identifier. |
+| `users` | One per phone number or Google account (`google_sub`, the account's stable id); every user has at least one. The phone number is stored as given, because it is the sign-in identifier. `email` is kept only when Google says it is verified. |
 | `devices`, `refresh_tokens` | A session belongs to a device. Only a hash of the refresh token is stored. Reuse of a spent token revokes the device. |
 | `otp_challenges` | Salted hash of the code and a hash of the phone number; attempts are counted. |
 | `businesses`, `memberships` | Role is `owner`, `staff` or `accountant`. A business keeps at least one owner. |

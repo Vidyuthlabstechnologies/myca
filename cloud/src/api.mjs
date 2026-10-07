@@ -10,6 +10,7 @@ import { IMPORT_CONTENT_ARG, isImport } from '../../platform/src/import-document
 import { assertSecret } from './tokens.mjs';
 import { createCrashReports } from './crash-reports.mjs';
 import { PRIVACY_NOTICE, consentExempt, createConsent } from './consent.mjs';
+import { createGoogleKeys, createGoogleVerifier } from './google.mjs';
 
 const MAX_BODY_BYTES = 1024 * 1024;
 export const MAX_UPLOAD_BYTES = 8 * 1024 * 1024;
@@ -70,6 +71,8 @@ function statusOf(result) {
   if (!result || result.ok !== false) return 200;
   if (result.error === 'TOO_MANY_REQUESTS' || result.error === 'TOO_MANY_ATTEMPTS') return 429;
   if (result.error === 'OWNER_ONLY') return 403;
+  if (result.error === 'PHONE_SIGN_IN_UNAVAILABLE' || result.error === 'GOOGLE_SIGN_IN_UNAVAILABLE') return 503;
+  if (result.error === 'GOOGLE_UNREACHABLE') return 502;
   if (result.error === 'INVITATION_NOT_FOUND' || result.error === 'MEMBER_NOT_FOUND') return 404;
   return 400;
 }
@@ -85,7 +88,7 @@ function appSnapshot(snapshot, user, role) {
   };
 }
 
-export function createApi({ db, secret, otpSender, now = () => Date.now(), log = () => {}, version = 'dev' }) {
+export function createApi({ db, secret, otpSender = null, googleClientIds = [], googleKeys, now = () => Date.now(), log = () => {}, version = 'dev' }) {
   assertSecret(secret);
   if (liveCallsEnabled()) throw new Error('the hosted API must not start with live provider calls enabled');
   const auth = createAuth({ db, secret, otpSender, now });
@@ -94,6 +97,12 @@ export function createApi({ db, secret, otpSender, now = () => Date.now(), log =
   const members = createMembers({ db, secret, now });
   const crashes = createCrashReports({ db, now });
   const consent = createConsent({ db, now });
+  const google = createGoogleVerifier({ clientIds: googleClientIds, keys: googleKeys || createGoogleKeys({ now }), now });
+  if (!otpSender && !google.enabled) throw new Error('no sign-in method: configure an SMS sender or MYCA_GOOGLE_CLIENT_IDS');
+
+  async function withConsent(signedIn) {
+    return signedIn.ok && signedIn.user ? { ...signedIn, consent: await consent.status(signedIn.user.id) } : signedIn;
+  }
 
   async function signedIn(req) {
     const who = await auth.authenticate(bearer(req));
@@ -115,13 +124,18 @@ export function createApi({ db, secret, otpSender, now = () => Date.now(), log =
 
     if (parts[1] === 'health' && method === 'GET') return { ok: true };
     if (parts[1] === 'privacy-notice' && parts.length === 2 && method === 'GET') return { ok: true, notice: PRIVACY_NOTICE };
+    if (parts[1] === 'auth' && parts[2] === 'methods' && parts.length === 3 && method === 'GET') {
+      return { ok: true, phone: auth.phoneEnabled, google: google.enabled };
+    }
 
     if (parts[1] === 'auth' && method === 'POST') {
       const body = await readJson(req);
       if (parts[2] === 'otp') return auth.requestOtp(body.phone);
-      if (parts[2] === 'verify') {
-        const verified = await auth.verifyOtp(body);
-        return verified.ok && verified.user ? { ...verified, consent: await consent.status(verified.user.id) } : verified;
+      if (parts[2] === 'verify') return withConsent(await auth.verifyOtp(body));
+      if (parts[2] === 'google') {
+        const identity = await google.verify(body.idToken);
+        if (!identity.ok) return identity;
+        return withConsent(await auth.signInWithGoogle(identity, body.deviceLabel));
       }
       if (parts[2] === 'refresh') return auth.refresh(body.refreshToken);
       if (parts[2] === 'logout') return auth.logout((await signedIn(req)).deviceId);

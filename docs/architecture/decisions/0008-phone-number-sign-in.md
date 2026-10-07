@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Status | Accepted by the owner on 2026-10-06. The SMS sender is not chosen. |
+| Status | Accepted by the owner on 2026-10-06. The SMS sender is not chosen. On 2026-10-07 the owner chose Google Sign-In for the pilot, with phone and code to follow once DLT registration is through; both are built, and the API reports which are on. |
 | Date | 2026-10-06 |
 
 ## Context

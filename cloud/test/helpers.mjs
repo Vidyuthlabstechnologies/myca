@@ -1,5 +1,5 @@
 import { createServer } from 'node:http';
-import { randomBytes } from 'node:crypto';
+import { createSign, generateKeyPairSync, randomBytes } from 'node:crypto';
 import pg from 'pg';
 import { createApi } from '../src/api.mjs';
 import { createCaptureSender } from '../src/auth.mjs';
@@ -8,6 +8,18 @@ import { PRIVACY_NOTICE } from '../src/consent.mjs';
 
 const ADMIN_URL = process.env.MYCA_TEST_DATABASE_URL || 'postgres://myca@127.0.0.1:54329/postgres';
 export const SECRET = 'test-secret-that-is-long-enough-for-hmac-0123456789';
+export const GOOGLE_CLIENT = 'myca-test.apps.googleusercontent.com';
+const GOOGLE_KEY = generateKeyPairSync('rsa', { modulusLength: 2048 });
+export const TEST_GOOGLE_KEYS = { get: async (kid) => (kid === 'test-kid' ? GOOGLE_KEY.publicKey : null) };
+
+export function googleToken(claims = {}, { kid = 'test-kid', privateKey = GOOGLE_KEY.privateKey, alg = 'RS256' } = {}) {
+  const seconds = Math.floor(Date.now() / 1000);
+  const body = { iss: 'https://accounts.google.com', aud: GOOGLE_CLIENT, sub: '110169484474386276334', email: 'asha@example.com', email_verified: true, name: 'Asha Rao', iat: seconds, exp: seconds + 3600, ...claims };
+  const part = (value) => Buffer.from(JSON.stringify(value)).toString('base64url');
+  const signing = `${part({ alg, kid, typ: 'JWT' })}.${part(body)}`;
+  const signature = createSign('RSA-SHA256').update(signing).sign(privateKey).toString('base64url');
+  return `${signing}.${signature}`;
+}
 
 export const SALE = {
   partyName: 'Kiran Stores',
@@ -25,7 +37,7 @@ async function admin(sql) {
   }
 }
 
-export async function startApi() {
+export async function startApi(options = {}) {
   const name = `myca_t_${randomBytes(6).toString('hex')}`;
   await admin(`create database ${name}`);
   const url = new URL(ADMIN_URL);
@@ -35,7 +47,7 @@ export async function startApi() {
   const sender = createCaptureSender();
   const clock = { now: Date.now(), advance(ms) { this.now += ms; } };
   const logs = [];
-  const handler = createApi({ db, secret: SECRET, otpSender: sender, now: () => clock.now, log: (entry) => logs.push(entry) });
+  const handler = createApi({ db, secret: SECRET, otpSender: options.phone === false ? null : sender, googleClientIds: [GOOGLE_CLIENT], googleKeys: TEST_GOOGLE_KEYS, now: () => clock.now, log: (entry) => logs.push(entry) });
   const server = createServer(handler);
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
   const base = `http://127.0.0.1:${server.address().port}`;

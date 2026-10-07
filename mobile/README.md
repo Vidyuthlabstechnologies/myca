@@ -60,8 +60,23 @@ dart run -DMYCA_API_TOKEN=<the same string> tool/live_check.dart
 
 ## Running against the hosted API
 
-Built with `MYCA_CLOUD_URL`, the app signs in by phone and code, creates the business,
-and keeps its tokens in the Android Keystore. See `cloud/README.md` to start the API.
+Built with `MYCA_CLOUD_URL`, the app signs in with Google (when built with
+`MYCA_GOOGLE_SERVER_CLIENT_ID`) or by phone and code, whichever the API says are on,
+creates the business, and keeps its tokens in the Android Keystore. See
+`cloud/README.md` to start the API.
+
+Google Sign-In needs two OAuth clients in the Google Cloud project, created by the
+company:
+
+1. A **web** client. Its id is passed to the app as `MYCA_GOOGLE_SERVER_CLIENT_ID` and
+   to the API as `MYCA_GOOGLE_CLIENT_IDS`. ID tokens are issued for it.
+2. An **Android** client for package `com.mldynamic.myca` and the SHA-1 of the signing
+   key. Add one for the upload key and, once Play App Signing is on, one for Play's
+   app signing key; otherwise sign-in fails on installed builds.
+
+```bash
+flutter run --dart-define=MYCA_CLOUD_URL=<api url> --dart-define=MYCA_GOOGLE_SERVER_CLIENT_ID=<web client id>
+```
 
 ```bash
 flutter run --dart-define=MYCA_CLOUD_URL=http://127.0.0.1:8080

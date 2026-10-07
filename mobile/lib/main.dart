@@ -10,6 +10,7 @@ import 'app_services.dart';
 import 'app_state.dart';
 import 'brand.dart';
 import 'cloud/cloud_session.dart';
+import 'cloud/google_auth.dart';
 import 'cloud/keystore_token_store.dart';
 import 'crash_reports.dart';
 import 'lock/app_lock.dart';
@@ -62,6 +63,9 @@ void main() {
         saveTextFile: saveTextFileOnDevice,
         pdf: const PdfActions(share: sharePdfFromDevice, print: printPdfFromDevice),
         crashes: crashes,
+        google: config.hosted && config.googleServerClientId.isNotEmpty
+            ? DeviceGoogleAuth(config.googleServerClientId)
+            : null,
       ),
     ),
   );
