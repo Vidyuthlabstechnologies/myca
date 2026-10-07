@@ -63,6 +63,7 @@ export function newBook(company = {}) {
     caRequestSeq: 0,
     quotes: [],
     quoteSeq: 0,
+    filings: [],
   };
 }
 
@@ -98,6 +99,7 @@ export function serializeBook(book) {
     caRequests: book.caRequests || [],
     caRequestSeq: book.caRequestSeq || 0,
     quotes: book.quotes || [],
+    filings: book.filings || [],
     quoteSeq: book.quoteSeq || 0,
   };
 }
@@ -134,6 +136,7 @@ export function deserializeBook(raw) {
   book.caRequests = Array.isArray(raw.caRequests) ? raw.caRequests : [];
   book.caRequestSeq = raw.caRequestSeq || 0;
   book.quotes = Array.isArray(raw.quotes) ? raw.quotes : [];
+  book.filings = Array.isArray(raw.filings) ? raw.filings : [];
   book.quoteSeq = raw.quoteSeq || 0;
   return book;
 }

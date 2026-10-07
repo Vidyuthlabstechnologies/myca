@@ -10,6 +10,7 @@ export const BOOK_KEYS = new Set([
   'cashReadings', 'customerTerms',
   'caRequests', 'caRequestSeq',
   'quotes', 'quoteSeq',
+  'filings',
 ]);
 
 export const FIRM_KEYS = new Set([

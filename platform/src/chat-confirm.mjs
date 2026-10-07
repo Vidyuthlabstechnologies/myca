@@ -21,12 +21,14 @@ import { gstSplit, partyStateOf } from './chart.mjs';
 import { postingDate } from './dates.mjs';
 import { isPeriodLocked } from './period-lock.mjs';
 import { lastGstRateFor, planPayment } from './invoice.mjs';
+import { planFiling } from './filings.mjs';
+import { filingRows } from './deadline-run.mjs';
 import { tally, bank } from './sprint-load.mjs';
 import { parseZohoBooksCsv } from './import-zoho.mjs';
 import { tallyXmlToDayBookCsv } from './tally-xml.mjs';
 
 export const CONFIRM_TOOLS = new Set([
-  'create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'post_expense', 'set_expense_head', 'create_credit_note', 'cancel_invoice', 'gst_review_answer', 'import_gstr2b', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote',
+  'create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'record_filing', 'post_expense', 'set_expense_head', 'create_credit_note', 'cancel_invoice', 'gst_review_answer', 'import_gstr2b', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote',
   'import_tally', 'import_tally_xml', 'import_zoho', 'import_bank',
   'govt_generate_irn', 'govt_nic_cancel_irn',
   'exception_decide',
@@ -141,6 +143,31 @@ function paymentPreview(state, args) {
     summary: `Pay ${bill.partyName} ${money(amount)} against ${label} from ${mode === 'cash' ? 'cash' : 'the bank'} on ${date}. ${money(due)} is owed on ${money(bill.total)}.`,
     effects: [`Debit ${bill.partyName}, credit ${mode === 'cash' ? 'cash' : 'bank'}.`, remaining > 0.005 ? `${bill.id} stays partly paid, with ${money(remaining)} still owed.` : `${bill.id} becomes paid.`],
     figures: { amount, due, remaining, date },
+  };
+}
+
+const FILING_REASONS = {
+  RETURN_REQUIRED: () => 'Say which return and which period, for example "filed GSTR-1 for September, ARN AA2909261234567".',
+  BAD_ARN: () => 'An acknowledgement number (ARN) is 10 to 20 letters and digits, as printed on the acknowledgement.',
+  INVALID_DATE: () => 'That is not a date I can read.',
+  FUTURE_DATE: () => 'A filing date cannot be in the future.',
+  UNKNOWN_RETURN: (p) => `MyCA does not list ${p.returnType} for ${p.period} for this business.${p.known?.length ? ` Recent ones: ${p.known.join(', ')}.` : ''}`,
+  ALREADY_RECORDED: (p) => `${p.returnType} for ${p.period} is already recorded as filed on ${p.filedOn} (ARN ${p.arn}).`,
+  ARN_USED: (p) => `ARN ${p.arn} is already recorded against another return.`,
+};
+
+function filingPreview(state, args) {
+  const plan = planFiling(state, args, filingRows(state, args.filedOn));
+  if (!plan.ok) {
+    const reason = FILING_REASONS[plan.error];
+    return { blockers: [reason ? reason(plan) : plan.error], summary: '', effects: [], figures: {} };
+  }
+  const f = plan.filing;
+  return {
+    blockers: [],
+    summary: `Record ${f.label} for ${f.period} as filed on ${f.filedOn}, ARN ${f.arn}${f.filedBy ? `, by ${f.filedBy}` : ''}. It was due on ${f.dueDate}.${f.late ? ' That is after the due date.' : ''}`,
+    effects: ['MyCA files nothing; this records a filing already made.', 'The return stops showing as due, and the ARN is kept with the books.'],
+    figures: { returnType: f.returnType, period: f.period, arn: f.arn, filedOn: f.filedOn, dueDate: f.dueDate, late: f.late },
   };
 }
 
@@ -481,6 +508,7 @@ const PREVIEWERS = {
   create_purchase: (state, args) => documentPreview(state, args, 'purchase'),
   record_receipt: receiptPreview,
   record_payment: paymentPreview,
+  record_filing: filingPreview,
   post_expense: expensePreview,
   create_credit_note: creditNotePreview,
   cancel_invoice: (state, args) => creditNotePreview(state, args, true),

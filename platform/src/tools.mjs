@@ -1,9 +1,8 @@
-import { tally, bank, gst, gstin, deadlines, filing, audit } from './sprint-load.mjs';
+import { tally, bank, gst, gstin, filing, audit } from './sprint-load.mjs';
 const ingestTally = tally.ingest;
 const ingestBank = bank.ingest;
 const { reconcile } = gst;
 const { validateGstin } = gstin;
-const { complianceRun } = deadlines;
 const { filingPrep } = filing;
 const { auditRun } = audit;
 import { listAccounts, journal, trialBalance, verifyChain, createTransfers, paise } from './ledger.mjs';
@@ -18,6 +17,8 @@ import { reviewOf, answerReview } from './gst-review.mjs';
 import { exportEntries } from './entries-export.mjs';
 import { import2b, creditAtRisk } from './gstr2b-check.mjs';
 import { booksCheck } from './books-check.mjs';
+import { deadlineRun, filingRows } from './deadline-run.mjs';
+import { listFilings, recordFiling } from './filings.mjs';
 import { addReminder, completeReminder, listReminders } from './reminders.mjs';
 import { cashForecast, canAfford, setCashBalance } from './cash-forecast.mjs';
 import { setPaymentTerms } from './payment-terms.mjs';
@@ -45,7 +46,6 @@ import { requestApproval, decideApproval, approvalStatus, normalizeActor } from 
 import { normalizeClientId, getBook } from './books.mjs';
 import { refreshExceptions, listExceptions, summarise, decideException } from './exceptions.mjs';
 import { appendAuditEvent } from './ca-api.mjs';
-import { csvRows } from './text-safe.mjs';
 import { liveCallsEnabled, mockModeEnabled } from './runtime-config.mjs';
 import { seedDemo } from './store.mjs';
 
@@ -60,36 +60,6 @@ function resolveToolActor(args = {}, idKey = 'actorId', fallbackUserId = 'ca') {
   return normalizeActor({ userId: args[idKey] || fallbackUserId, role: args.role || '' });
 }
 
-
-const DEADLINE_COLUMNS = ['clientId', 'name', 'entity', 'turnover', 'gst', 'qrmp', 'tdsDeductor', 'pf', 'advanceTax', 'tp', 'state', 'profession', 'gstTds', 'presumptive'];
-
-
-function yes(value) {
-  return value === true || /^(y|yes|true|1)$/i.test(String(value ?? '').trim());
-}
-
-function deadlineProfile(clientId, company, extra, salesInvoices) {
-  const gstin = String(company.gstin || '');
-  const turnover = Number.isFinite(Number(extra.turnover)) && Number(extra.turnover) > 0
-    ? Number(extra.turnover)
-    : salesInvoices.reduce((sum, inv) => sum + (Number(inv.total) || 0), 0);
-  return {
-    clientId,
-    name: company.name || clientId,
-    entity: String(extra.entityType || company.entityType || 'proprietor').toLowerCase(),
-    turnover: Math.round(turnover),
-    gst: gstin ? 'TRUE' : 'FALSE',
-    qrmp: String(extra.gstFrequency || company.gstFrequency || 'monthly').toLowerCase() === 'quarterly' ? 'TRUE' : 'FALSE',
-    tdsDeductor: yes(extra.tdsDeductor ?? company.tdsDeductor) ? 'TRUE' : 'FALSE',
-    pf: yes(extra.pf ?? company.pf) ? 'TRUE' : 'FALSE',
-    advanceTax: yes(extra.advanceTax ?? company.advanceTax) ? 'TRUE' : 'FALSE',
-    tp: yes(extra.transferPricing ?? company.transferPricing) ? 'TRUE' : 'FALSE',
-    state: String(extra.state || company.state || gstin.slice(0, 2) || ''),
-    profession: yes(extra.profession ?? company.profession) ? 'TRUE' : 'FALSE',
-    gstTds: yes(extra.gstTds ?? company.gstTds) ? 'TRUE' : 'FALSE',
-    presumptive: yes(extra.presumptive ?? company.presumptive) ? 'TRUE' : 'FALSE',
-  };
-}
 
 const HELD_BACK_REASONS = new Set([
   'gst_rate_unknown', 'gst_rate_unreadable', 'gst_rates_unknown_on_date', 'gst_rate_missing',
@@ -111,16 +81,6 @@ function reconcileFor(state, asOfDate) {
     { purchaseRegisterText: purchaseRegister, gstr2bText: state.files.gstr2b, gstr1Text: gstr1, gstr3bText: state.files.gstr3b },
     { clientGstin: state.company.gstin, asOfDate, supplierFilings: undefined },
   );
-}
-
-function deadlineProfiles(state) {
-  const root = state.__root || state;
-  const profiles = [deadlineProfile('SELF', root.company || {}, {}, root.invoices || [])];
-  for (const client of root.clients || []) {
-    const book = root.extraBooks?.[client.clientId];
-    profiles.push(deadlineProfile(client.clientId, { ...client, ...(book?.company || {}) }, client, book?.invoices || []));
-  }
-  return profiles;
 }
 
 function activeClientId(state) {
@@ -1387,11 +1347,22 @@ export const TOOLS = [
     description: 'Statutory due dates for the firm and every registered client (GSTR-1/3B, PMT-06, TDS, PF, advance tax, ITR, GSTR-9) from the dated rules, as of today. Due dates never roll over weekends or holidays.',
     run: (state, args = {}) => {
       const asOfDate = /^\d{4}-\d{2}-\d{2}$/.test(String(args.asOfDate || '')) ? args.asOfDate : localToday();
-      const clientsText = csvRows([DEADLINE_COLUMNS, ...deadlineProfiles(state).map((p) => DEADLINE_COLUMNS.map((key) => p[key]))]);
-      const docsText = 'clientId,period,returnType,docType,status,receivedDate,source\n';
-      const run = complianceRun({ clientsText, docsText, holidaysText: args.holidaysText || '' }, { months: args.months, asOfDate });
+      const run = deadlineRun(state, { asOfDate, months: args.months, holidaysText: args.holidaysText || '' });
       return ok({ asOfDate, ...run });
     },
+  },
+  {
+    name: 'list_filings',
+    title: 'Filed returns',
+    description: 'Returns recorded as filed, newest first, with their ARN and date. Read-only.',
+    run: (state) => listFilings(state),
+  },
+  {
+    name: 'record_filing',
+    title: 'Record a filed return',
+    description: 'Record that a return was filed outside MyCA (on the portal or by the CA), with its acknowledgement (ARN) and date. The return must be one MyCA lists for this business. Files nothing.',
+    args: ['returnType', 'period', 'arn', 'filedOn', 'filedBy'],
+    run: (state, args = {}) => recordFiling(state, args, filingRows(state, args.filedOn)),
   },
   {
     name: 'exceptions',
@@ -1400,8 +1371,7 @@ export const TOOLS = [
     args: ['scope', 'status', 'severity', 'source', 'asOfDate'],
     run: (state, args = {}) => {
       const asOfDate = /^\d{4}-\d{2}-\d{2}$/.test(String(args.asOfDate || '')) ? args.asOfDate : localToday();
-      const clientsText = csvRows([DEADLINE_COLUMNS, ...deadlineProfiles(state).map((p) => DEADLINE_COLUMNS.map((key) => p[key]))]);
-      const run = complianceRun({ clientsText, docsText: 'clientId,period,returnType,docType,status,receivedDate,source\n', holidaysText: '' }, { asOfDate });
+      const run = deadlineRun(state, { asOfDate });
       const byClient = new Map();
       for (const row of run.deadlines || []) {
         if (!byClient.has(row.clientId)) byClient.set(row.clientId, []);

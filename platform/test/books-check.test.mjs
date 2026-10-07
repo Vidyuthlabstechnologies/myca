@@ -39,7 +39,7 @@ test('the check reports what came across and every gap, needs-you first', () => 
   assert.equal(f.credit.amount, 200);
   assert.match(f.credit.detail, /Add the GSTR-2B/);
   assert.equal(f.due.severity, 'check');
-  assert.match(f.due.detail, /GSTR-1 2026-08\. MyCA cannot see whether these were filed/);
+  assert.match(f.due.detail, /GSTR-1 2026-08\. MyCA has no filing recorded for these/);
   assert.match(f.due.detail, /Next: GSTR-3B \(monthly\) for 2026-09, due 2026-10-20\./);
   assert.equal(f.owed.severity, 'check');
   assert.equal(f.owed.amount, 12600);

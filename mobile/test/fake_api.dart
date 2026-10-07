@@ -162,6 +162,7 @@ class FakeMycaApi implements MycaApi {
       'invoiceId': '',
     },
   ];
+  final filings = <Map<String, Object?>>[];
   final caRequests = <Map<String, Object?>>[
     {
       'id': 'ASK-0001',
@@ -387,6 +388,9 @@ class FakeMycaApi implements MycaApi {
         'From quote ${args['id']}: Invoice to Gujarat Weaves, total ₹59,000.00.',
       );
     }
+    if (name == 'record_filing') {
+      return _preview('Record GSTR-1 (monthly) for ${args['period']} as filed on ${args['filedOn']}, ARN ${args['arn']}. It was due on 2026-09-11. That is after the due date.');
+    }
     if (name == 'ask_ca') {
       return _preview(
         'Ask your CA about ${(args['subject'] as Map)['id'] ?? (args['subject'] as Map)['period']}: "${args['note']}"',
@@ -543,6 +547,17 @@ class FakeMycaApi implements MycaApi {
           'posted': true,
           'confirmed': true,
         });
+      }
+      if (held.tool == 'record_filing') {
+        filings.insert(0, {
+          'returnType': held.args['returnType'],
+          'label': 'GSTR-1 (monthly)',
+          'period': held.args['period'],
+          'arn': held.args['arn'],
+          'filedOn': held.args['filedOn'],
+          'late': true,
+        });
+        return ChatReply.fromJson({'reply': 'Recorded GSTR-1 (monthly) for ${held.args['period']} as filed. MyCA did not file anything.', 'posted': true, 'confirmed': true});
       }
       if (held.tool == 'ask_ca') {
         caRequests.add({
@@ -1186,12 +1201,15 @@ class FakeMycaApi implements MycaApi {
             'b2b': const <Object?>[],
           },
         };
+      case 'list_filings':
+        return {'ok': true, 'data': filings};
       case 'deadlines':
         return {
           'ok': true,
           'data': {
             'deadlines': [
               {
+                'returnType': 'GSTR-1',
                 'returnLabel': 'GSTR-1 (monthly)',
                 'period': '2026-08',
                 'dueDate': '2026-09-11',

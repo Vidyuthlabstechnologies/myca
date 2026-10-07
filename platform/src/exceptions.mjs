@@ -81,6 +81,7 @@ function gstr1Candidates(book) {
 function deadlineCandidates(rows = []) {
   const out = [];
   for (const row of rows) {
+    if (row.filed) continue;
     const overdue = row.level === 'overdue';
     if (!overdue && !(Number(row.daysUntil) >= 0 && Number(row.daysUntil) <= 7)) continue;
     out.push({
@@ -88,9 +89,9 @@ function deadlineCandidates(rows = []) {
       source: 'deadlines',
       code: overdue ? 'RETURN_OVERDUE' : 'RETURN_DUE_SOON',
       severity: overdue ? 'high' : 'medium',
-      title: `${row.returnType} for ${row.period} ${overdue ? 'is overdue' : `is due on ${row.dueDate}`}`,
+      title: `${row.returnType} for ${row.period} ${overdue ? 'has no filing recorded' : `is due on ${row.dueDate}`}`,
       why: overdue
-        ? `It was due on ${row.dueDate}, ${Math.abs(Number(row.daysUntil) || 0)} days ago. Late filing carries interest and a late fee.`
+        ? `It was due on ${row.dueDate}, ${Math.abs(Number(row.daysUntil) || 0)} days ago, and MyCA has no filing recorded. If it was filed, record it with its ARN; if not, late filing carries interest and a late fee.`
         : `It is due on ${row.dueDate}, in ${row.daysUntil} days.`,
       moneyAtRisk: 0,
       evidence: { period: row.period, returnType: row.returnType, dueDate: row.dueDate },

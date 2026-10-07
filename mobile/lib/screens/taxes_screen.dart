@@ -12,6 +12,7 @@ import '../theme.dart';
 import '../widgets.dart';
 import 'ca_screen.dart';
 import 'credit_card.dart';
+import 'filing_screen.dart';
 import 'review_screen.dart';
 
 const _heldReasons = {
@@ -32,6 +33,7 @@ class TaxesScreen extends StatefulWidget {
 
 class _TaxesScreenState extends State<TaxesScreen> {
   Future<Today>? _today;
+  Future<List<FiledReturn>>? _filed;
   String? _period;
   String _fileNote = '';
   bool _saving = false;
@@ -41,6 +43,31 @@ class _TaxesScreenState extends State<TaxesScreen> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     _today ??= loadToday(AppScope.of(context).api);
+    _filed ??= _loadFiled();
+  }
+
+  Future<List<FiledReturn>> _loadFiled() async {
+    try {
+      return filedReturnsFrom(
+        await AppScope.of(context).api.query('list_filings'),
+      );
+    } on MycaApiException {
+      return const [];
+    }
+  }
+
+  Future<void> _recordFiling(List<Deadline> deadlines) async {
+    final open = deadlines
+        .where((d) => !d.filed && d.returnType.isNotEmpty && d.daysUntil <= 31)
+        .toList();
+    final done = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (_) => RecordFilingScreen(returns: open)),
+    );
+    if (done != true || !mounted) return;
+    setState(() {
+      _filed = _loadFiled();
+    });
+    await _reload();
   }
 
   Future<void> _reload({String? period}) async {
@@ -308,6 +335,40 @@ class _TaxesScreenState extends State<TaxesScreen> {
                       ),
                     ),
                 ],
+                const SizedBox(height: 26),
+                const SectionLabel('Filed'),
+                FutureBuilder<List<FiledReturn>>(
+                  future: _filed,
+                  builder: (context, snap) {
+                    final filed = snap.data ?? const <FiledReturn>[];
+                    return Panel(
+                      children: [
+                        for (final item in filed.take(4))
+                          RowCard(
+                            leading: const TintTile(
+                              tint: Tint.ask,
+                              mark: Mark.comingUp,
+                            ),
+                            title: '${item.label} for ${item.period}',
+                            subtitle:
+                                'Filed ${longDate(item.filedOn)}${item.late ? ', after the due date' : ''} · ARN ${item.arn}',
+                          ),
+                        RowCard(
+                          leading: const TintTile(
+                            tint: Tint.ask,
+                            mark: Mark.comingUp,
+                          ),
+                          title: 'Record a filing',
+                          subtitle: filed.isEmpty
+                              ? 'Filed a return on the portal or through your CA? Keep its ARN here.'
+                              : 'Add another return with its ARN',
+                          trailing: const Chevron(),
+                          onTap: () => _recordFiling(today.deadlines),
+                        ),
+                      ],
+                    );
+                  },
+                ),
                 if (upcoming.isNotEmpty) ...[
                   const SizedBox(height: 26),
                   const SectionLabel('Coming up'),

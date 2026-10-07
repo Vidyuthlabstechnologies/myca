@@ -2,6 +2,7 @@ import { planReceiptWithoutInvoice } from './receipt-intent.mjs';
 import { planExpenseFromChat } from './expense-intent.mjs';
 import { planPaymentFromChat } from './payment-intent.mjs';
 import { planOweQuestion } from './owe-intent.mjs';
+import { planFilingFromChat } from './filing-intent.mjs';
 import { reviewOf } from './gst-review.mjs';
 import { planReminderFromChat } from './reminder-intent.mjs';
 import { planCashFromChat } from './cash-intent.mjs';
@@ -291,6 +292,18 @@ export const TOOL_ARG_SCHEMAS = {
       on: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' },
     },
   },
+  record_filing: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['returnType', 'period', 'arn'],
+    properties: {
+      returnType: { type: 'string', pattern: '^[A-Za-z0-9_-]{2,20}$' },
+      period: { type: 'string', minLength: 4, maxLength: 20 },
+      arn: { type: 'string', pattern: '^[A-Za-z0-9 ]{10,24}$' },
+      filedOn: { type: 'string' },
+      filedBy: { type: 'string', maxLength: 60 },
+    },
+  },
   set_cash_balance: {
     type: 'object',
     additionalProperties: false,
@@ -407,6 +420,11 @@ export const TOOL_ARG_SCHEMAS = {
     additionalProperties: false,
     required: ['id'],
     properties: { id: { type: 'string', pattern: '^REM-[0-9]{4,}$' } },
+  },
+  list_filings: {
+    type: 'object',
+    additionalProperties: false,
+    properties: {},
   },
   list_reminders: {
     type: 'object',
@@ -792,6 +810,7 @@ const TOOL_RISK = {
   add_reminder: 'writes_books',
   complete_reminder: 'writes_books',
   set_cash_balance: 'writes_books',
+  record_filing: 'writes_books',
   set_payment_terms: 'writes_books',
   ask_ca: 'writes_books',
   create_quote: 'writes_books',
@@ -937,6 +956,8 @@ export function planLocalToolCall(state, message) {
       return { kind: 'tool', name: 'create_quote', args: { partyName: quoted.partyName, ...(quoted.partyGstin ? { partyGstin: quoted.partyGstin } : {}), lines: quoted.lines, ...(validity ? { validDays: Number(validity[1]) } : {}) } };
     }
   }
+  const filed = planFilingFromChat(text);
+  if (filed) return filed;
   const owed = planOweQuestion(state, text);
   if (owed) return owed;
   const payment = planPaymentFromChat(state, text);
