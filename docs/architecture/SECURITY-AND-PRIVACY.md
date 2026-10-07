@@ -82,6 +82,20 @@
 - Desktop provider credentials are encrypted at rest.
 - `.env` files are not committed.
 
+### Privacy notice and consent
+
+- The notice lives in `cloud/src/consent.mjs` with a version id, and is served at
+  `GET /v1/privacy-notice` without sign-in, so the app, the website and the Play listing
+  can show the same text.
+- After the sign-in code, the app shows the notice. "I agree" records the user, the
+  notice version, the device and the time in `consents`. "Not now" signs out.
+- The server enforces it: until the current version is accepted, every route except
+  reading your own profile, accepting, deleting your account, crash reports and the
+  state list answers `403 CONSENT_REQUIRED`. A new notice version asks everyone again,
+  on the next request or the next time the app opens.
+- The current text is a draft marked as one on screen. It must not reach real users
+  until counsel approves it and the placeholders are filled.
+
 ### Crash reports
 
 - Built without a crash-reporting SDK, so no third party receives anything and no
@@ -126,7 +140,7 @@
 | Phone numbers are stored in clear in `users` | Exposure in a breach | Acceptable as the login identifier; revisit with the assessment |
 | Reads write an audit event into the books row | Not a confidentiality risk; a contention and cost issue | Separate read path |
 | Retention policy is not written | Account deletion cannot be completed correctly: tax law requires records to be kept for years, privacy law requires deletion on request | Legal advice, then implement both |
-| No consent or notice screens | DPDP Act duties | Privacy notice, consent record, grievance contact |
+| The privacy notice is a draft: retention periods and the Grievance Officer are placeholders | Showing it to real users before counsel approves it | Legal review, then a new version id |
 | Staff role has the same permissions as accountant | Over-broad access for a billing clerk | Role review before pilot |
 | Desktop default admin PIN | Known credential on first run | Force a change on first sign-in |
 | The app has never run on a device | Keystore and biometric paths unverified | Device testing |

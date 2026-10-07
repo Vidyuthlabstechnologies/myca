@@ -54,14 +54,14 @@ Read [`docs/product/PRD.md`](../product/PRD.md) for requirements,
 ## 3. Where it stands (6 October 2026)
 
 About **52% of the PRD** is built. See [`docs/superpowers/PROGRESS.md`](../superpowers/PROGRESS.md)
-for the weighted breakdown. There are **1,044 automated tests**:
+for the weighted breakdown. There are **1,050 automated tests**:
 
 | Suite | Tests |
 |---|---|
 | Platform | 550 |
 | Engines and statutory rules | 329 |
-| Hosted API | 60 |
-| Android app | 105 |
+| Hosted API | 63 |
+| Android app | 108 |
 
 **Built and tested**
 
@@ -214,11 +214,14 @@ binding. This section adds the technical detail.
    - Replace the development OTP with a registered SMS sender (DLT) or Google Sign-In, as the company decides ([ADR-0008](../architecture/decisions/0008-phone-number-sign-in.md)).
    - Rate-limit OTP requests and verification attempts.
 3. **Privacy.**
-   - Show a privacy notice and record consent.
+   - Show a privacy notice and record consent (**done** 6 October 2026, with draft text:
+     `cloud/src/consent.mjs`, enforced by the server).
    - Set retention periods and let users delete their data.
    - Log every staff access to a business's data. The DPDP assessment decides the details.
 4. **Release.**
-   - Application id and signing key, held by the company.
+   - Application id and signing key, held by the company. (Release signing from
+     `android/key.properties` **done** 6 October 2026; the id and the key are the
+     company's to decide and create.)
    - A release build, a store listing draft, the data-safety form, and the closed testing track.
 5. Run a pilot with two or three businesses for four weeks. Write and test a restore-from-backup drill.
 

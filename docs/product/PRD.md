@@ -213,7 +213,7 @@ full tax period:
 
 | # | Question | Who decides | Blocks |
 |---|---|---|---|
-| Q1 | Is the product named Taxmeow or MyCA at launch? The Play listing, app id (`in.myca.app`) and every screen depend on it. | Owner | Store listing |
+| Q1 | Is the product named Taxmeow or MyCA at launch? The Play listing, app id (now decided: `com.mldynamic.myca`) and every screen depend on it. | Owner | Store listing |
 | Q2 | Who may approve a live filing: the owner only, or also an invited CA? | Owner | FR-GST-4 |
 | Q3 | Which language model reads documents and free text, and may documents leave India to reach it? | Owner, with the DPDP assessment | FR-CAP-1, FR-UI-5 |
 | Q4 | Sign-in at launch: SMS code (needs DLT) or Google Sign-In? | Owner | Closed testing |

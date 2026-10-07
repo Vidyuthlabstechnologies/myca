@@ -3,7 +3,7 @@
 The owner's app. Books are organised like a messenger: registers (Sales, Purchases,
 Taxes and filings), then one thread per customer or supplier, where each entry is
 previewed and confirmed before it reaches the books. Flutter, Android only,
-application id `in.myca.app`.
+application id `com.mldynamic.myca`.
 
 The app holds no tax logic and computes no figures. Every number on screen comes from
 the MyCA server; the app only formats and orders what it receives. Forms send
@@ -94,10 +94,26 @@ file contents never sit in a waiting preview.
 Direct import from Vyapar, Khatabook, Busy, Marg or a free-form spreadsheet is not
 built; the server has no parser for them.
 
+## Release build
+
+Release builds are signed with the upload key named in `android/key.properties`, which
+git ignores, as do keystores. Copy `android/key.properties.example`, point `storeFile`
+at the company's upload keystore, and fill in the passwords from the company's password
+manager. The key and its passwords never go in the repository. Without the file, a
+release build falls back to the debug key, prints a warning, and cannot be uploaded to
+Play.
+
+```bash
+flutter build appbundle --release --dart-define=MYCA_CLOUD_URL=https://<api host>
+```
+
+The application id is `com.mldynamic.myca` (owner decision, 6 October 2026). It cannot
+change after the first upload to Play.
+
 ## Not built yet
 
 - A deployed backend. The hosted API in `cloud/` works locally but is not deployed.
-- Release signing, app icon, Play listing, Data safety and Financial features forms.
+- App icon, Play listing, Data safety and Financial features forms.
 - Bill capture by camera, payroll, GST filing pack, notifications.
 
 Plain HTTP is allowed in debug builds only; release builds require HTTPS.

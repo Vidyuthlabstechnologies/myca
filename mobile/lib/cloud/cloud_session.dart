@@ -7,6 +7,8 @@ import '../api/myca_api.dart';
 import 'token_store.dart';
 
 const _messages = {
+  'CONSENT_REQUIRED': 'Read and accept the privacy notice to continue.',
+  'NOTICE_CHANGED': 'The privacy notice has changed. Read the new one and accept it.',
   'INVALID_PHONE': 'Enter a 10-digit Indian mobile number.',
   'TOO_MANY_REQUESTS': 'Too many codes requested. Try again in an hour.',
   'INVALID_CODE': 'That code is not right. Check the SMS and try again.',
@@ -91,6 +93,43 @@ List<Map<String, dynamic>> _rows(Object? value) => [
           if (row is Map) row.cast<String, dynamic>(),
     ];
 
+class NoticeSection {
+  const NoticeSection({required this.heading, required this.body});
+
+  final String heading;
+  final String body;
+}
+
+class PrivacyNotice {
+  const PrivacyNotice({
+    required this.document,
+    required this.version,
+    required this.title,
+    required this.status,
+    required this.sections,
+  });
+
+  factory PrivacyNotice.fromJson(Object? json) {
+    final map = json is Map ? json : const {};
+    return PrivacyNotice(
+      document: '${map['document'] ?? ''}',
+      version: '${map['version'] ?? ''}',
+      title: '${map['title'] ?? ''}',
+      status: '${map['status'] ?? ''}',
+      sections: [
+        for (final row in _rows(map['sections']))
+          NoticeSection(heading: '${row['heading'] ?? ''}', body: '${row['body'] ?? ''}'),
+      ],
+    );
+  }
+
+  final String document;
+  final String version;
+  final String title;
+  final String status;
+  final List<NoticeSection> sections;
+}
+
 class StateRef {
   const StateRef({required this.code, required this.name});
 
@@ -129,6 +168,7 @@ class CloudSession {
   bool get ready => signedIn && _businessId != null;
   bool get awaitingCode => _challengeId != null;
   bool needsName = false;
+  bool needsConsent = false;
   String? get businessId => _businessId;
   late final MycaApi api = _CloudBooksApi(this);
 
@@ -224,6 +264,9 @@ class CloudSession {
       await _forget();
       throw const SignedOutException();
     }
+    if (status == 403 && reply['error'] == 'CONSENT_REQUIRED') {
+      needsConsent = true;
+    }
     if (status >= 400 &&
         reply['error'] is String &&
         !reply.containsKey('reply')) {
@@ -263,8 +306,39 @@ class CloudSession {
     _challengeId = null;
     final user = body['user'];
     needsName = user is Map && '${user['name'] ?? ''}'.trim().isEmpty;
+    final consent = body['consent'];
+    needsConsent = consent is Map && consent['accepted'] == false;
+    if (needsConsent) return;
     final mine = await businesses();
     if (mine.isNotEmpty) await _choose(mine.first.id);
+  }
+
+  Future<void> checkConsent() async {
+    if (!signedIn) return;
+    try {
+      final body = await call('GET', '/v1/me');
+      final consent = body['consent'];
+      needsConsent = consent is Map && consent['accepted'] == false;
+    } on MycaApiException {
+      return;
+    }
+  }
+
+  Future<PrivacyNotice> privacyNotice() async {
+    final (status, body) = await _send('GET', '/v1/privacy-notice', null, authed: false);
+    if (status != 200 || body['notice'] is! Map) {
+      throw MycaApiException(cloudMessage('${body['error'] ?? 'UNKNOWN'}'));
+    }
+    return PrivacyNotice.fromJson(body['notice']);
+  }
+
+  Future<void> acceptNotice(PrivacyNotice notice) async {
+    await call('POST', '/v1/me/consent', {'document': notice.document, 'version': notice.version});
+    needsConsent = false;
+    if (_businessId == null) {
+      final mine = await businesses();
+      if (mine.isNotEmpty) await _choose(mine.first.id);
+    }
   }
 
   Future<void> _choose(String id) async {

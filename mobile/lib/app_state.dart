@@ -55,6 +55,7 @@ class AppState extends ChangeNotifier {
     lockAvailable = cloud != null && await lock.available();
     lockEnabled = lockAvailable && await store.lockEnabled();
     locked = _guards;
+    if (!locked) await cloud?.checkConsent();
     crashReportsOn = await crashes?.enabled() ?? false;
     await refresh();
   }
@@ -108,6 +109,7 @@ class AppState extends ChangeNotifier {
     if (!await lock.unlock('Unlock MyCA')) return false;
     locked = false;
     _leftAt = null;
+    await cloud?.checkConsent();
     await refresh();
     return true;
   }

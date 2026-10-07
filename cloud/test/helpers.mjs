@@ -4,6 +4,7 @@ import pg from 'pg';
 import { createApi } from '../src/api.mjs';
 import { createCaptureSender } from '../src/auth.mjs';
 import { createDb, migrate } from '../src/db.mjs';
+import { PRIVACY_NOTICE } from '../src/consent.mjs';
 
 const ADMIN_URL = process.env.MYCA_TEST_DATABASE_URL || 'postgres://myca@127.0.0.1:54329/postgres';
 export const SECRET = 'test-secret-that-is-long-enough-for-hmac-0123456789';
@@ -55,12 +56,16 @@ export async function startApi() {
     return { status: res.status, body: parsed, text, requestId: res.headers.get('x-request-id') };
   }
 
-  async function signIn(phone) {
+  async function signIn(phone, { agree = true } = {}) {
     const otp = await call('POST', '/v1/auth/otp', { body: { phone } });
     const verified = await call('POST', '/v1/auth/verify', {
       body: { challengeId: otp.body.challengeId, phone, code: sender.last().code, deviceLabel: 'test phone' },
     });
     if (verified.status !== 200) throw new Error(`sign-in failed: ${verified.text}`);
+    if (agree) {
+      const agreed = await call('POST', '/v1/me/consent', { token: verified.body.accessToken, body: { document: PRIVACY_NOTICE.document, version: PRIVACY_NOTICE.version } });
+      if (agreed.status !== 200) throw new Error(`consent failed: ${agreed.text}`);
+    }
     return verified.body;
   }
 

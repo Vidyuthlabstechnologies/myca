@@ -9,6 +9,7 @@ import { createMembers } from './members.mjs';
 import { IMPORT_CONTENT_ARG, isImport } from '../../platform/src/import-documents.mjs';
 import { assertSecret } from './tokens.mjs';
 import { createCrashReports } from './crash-reports.mjs';
+import { PRIVACY_NOTICE, consentExempt, createConsent } from './consent.mjs';
 
 const MAX_BODY_BYTES = 1024 * 1024;
 export const MAX_UPLOAD_BYTES = 8 * 1024 * 1024;
@@ -92,6 +93,7 @@ export function createApi({ db, secret, otpSender, now = () => Date.now(), log =
   const withBooks = createBooksRunner({ db });
   const members = createMembers({ db, secret, now });
   const crashes = createCrashReports({ db, now });
+  const consent = createConsent({ db, now });
 
   async function signedIn(req) {
     const who = await auth.authenticate(bearer(req));
@@ -112,17 +114,29 @@ export function createApi({ db, secret, otpSender, now = () => Date.now(), log =
     if (parts[0] !== 'v1') throw httpError(404, 'NOT_FOUND');
 
     if (parts[1] === 'health' && method === 'GET') return { ok: true };
+    if (parts[1] === 'privacy-notice' && parts.length === 2 && method === 'GET') return { ok: true, notice: PRIVACY_NOTICE };
 
     if (parts[1] === 'auth' && method === 'POST') {
       const body = await readJson(req);
       if (parts[2] === 'otp') return auth.requestOtp(body.phone);
-      if (parts[2] === 'verify') return auth.verifyOtp(body);
+      if (parts[2] === 'verify') {
+        const verified = await auth.verifyOtp(body);
+        return verified.ok && verified.user ? { ...verified, consent: await consent.status(verified.user.id) } : verified;
+      }
       if (parts[2] === 'refresh') return auth.refresh(body.refreshToken);
       if (parts[2] === 'logout') return auth.logout((await signedIn(req)).deviceId);
       throw httpError(404, 'NOT_FOUND');
     }
 
     const user = await signedIn(req);
+
+    if (!consentExempt(method, parts) && !(await consent.accepted(user.userId))) {
+      throw httpError(403, 'CONSENT_REQUIRED', { document: PRIVACY_NOTICE.document, version: PRIVACY_NOTICE.version });
+    }
+
+    if (parts[1] === 'me' && parts[2] === 'consent' && parts.length === 3 && method === 'POST') {
+      return consent.accept(user.userId, user.deviceId, await readJson(req));
+    }
 
     if (parts[1] === 'crash-reports' && parts.length === 2 && method === 'POST') {
       return crashes.record(await readJson(req, MAX_CRASH_BYTES));
@@ -137,6 +151,7 @@ export function createApi({ db, secret, otpSender, now = () => Date.now(), log =
         return {
           ok: true,
           user: { id: user.userId, name: user.name },
+          consent: await consent.status(user.userId),
           businesses: await businesses.listFor(user.userId),
           invitations: await members.pendingFor(user.phone),
         };
