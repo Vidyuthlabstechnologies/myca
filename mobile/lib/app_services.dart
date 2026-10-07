@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/services.dart';
 import 'package:printing/printing.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 abstract class OnboardingStore {
@@ -54,6 +55,13 @@ class PickedText {
 typedef PickTextFile = Future<PickedText?> Function(List<String> extensions);
 
 typedef SaveTextFile = Future<bool> Function(String name, String content);
+
+typedef ShareText = Future<bool> Function(String text);
+
+Future<bool> shareTextFromDevice(String text) async {
+  final result = await SharePlus.instance.share(ShareParams(text: text));
+  return result.status != ShareResultStatus.unavailable;
+}
 
 Future<bool> saveTextFileOnDevice(String name, String content) async {
   final saved = await FilePicker.saveFile(

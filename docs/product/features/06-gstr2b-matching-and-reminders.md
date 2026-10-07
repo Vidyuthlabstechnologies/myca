@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Requirements | FR-2B-1 to 4 in the [product PRD](../PRD.md) |
-| Status | Matching, adding 2B and credit at risk in the app built (2026-10-06); fetching 2B and reminders not built |
+| Status | Matching, adding 2B and credit at risk in the app built (2026-10-06); reminders built (2026-10-07); fetching 2B not built |
 | Code | `sprints/sprint-3-gst-recon`, exception queue in `platform/src`, `notifications.mjs` |
 
 ## What the owner experiences
@@ -53,16 +53,25 @@ reminder goes only when the owner says so.
   supplier, and how many 2B entries are not in the books.
 - To build: marking the bills inside each supplier's chat.
 
-### Remind (to build)
+### Remind (built 2026-10-07)
 
-- The product drafts the message: which bills, which month, what is needed. The owner
-  can edit it.
-- Sending uses the share sheet from the owner's own WhatsApp or email in the first
-  version (PRD Q6). Each send is audited.
-- No reminder is ever scheduled or sent automatically. A repeat reminder is offered,
-  not sent.
-- Reminders contain only what the supplier already knows: their own bill numbers,
-  dates and amounts.
+- `supplier_reminder_draft` (read-only, `supplier-reminders.mjs`) drafts the message
+  for one supplier and month: their bill numbers, dates and amounts, and what is wrong
+  with each in plain words (not in 2B yet, credit marked not available, different
+  amount, tax type or date). It contains nothing else the supplier would not already
+  know: no MyCA bill ids, no other suppliers, no credit figures.
+- No draft when no 2B has been added for the month (MyCA cannot tell what was reported),
+  when nothing from that supplier is at risk, or when the only gap is the owner's own
+  missing supplier bill number (the owner is told to add it instead).
+- `record_supplier_reminder` is previewed, then records the message as sent, who sent
+  it and the day, in `supplierReminders`. Only after that does the app hand the message
+  to the phone's share sheet, so it goes from the owner's own WhatsApp, email or other
+  app (PRD Q6, first version). MyCA sends nothing itself and nothing is scheduled.
+- A later draft for the same supplier and month says when they were last reminded and
+  how many times; it is offered, never sent.
+- App: "Remind supplier" on the supplier's sheet in Taxes, an editable message, "Send
+  from my phone", the preview, "Yes, send it", then the share sheet and a "Copy
+  message" fallback.
 
 ## Acceptance criteria
 

@@ -102,6 +102,13 @@ function fmtToolResult(name, result) {
     const head = n.cancels ? `Cancelled ${n.invoiceId} with credit note ${n.id}` : `Credit note ${n.id} for ${money(n.total)} against ${n.invoiceId}`;
     return `${head} (${n.partyName}, ${n.date}).${result.refundDue > 0 ? ` ${money(result.refundDue)} was already received and is now due back to ${n.partyName}.` : ''}`;
   }
+  if (name === 'record_supplier_reminder' && result.reminder) {
+    const r = result.reminder;
+    return `Reminder ${r.id} to ${r.supplier} for ${r.period} is ready to send from your phone. Nothing has gone from MyCA.`;
+  }
+  if (name === 'supplier_reminder_draft' && result.data) {
+    return result.data.message;
+  }
   if (name === 'list_filings' && result.data) {
     return result.data.length
       ? `Recorded as filed:\n${result.data.slice(0, 12).map((f) => `· ${f.label} for ${f.period}: ${f.filedOn}, ARN ${f.arn}${f.late ? ' (after the due date)' : ''}`).join('\n')}`

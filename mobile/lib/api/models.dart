@@ -823,6 +823,40 @@ class SupplierRisk {
   final int bills;
 }
 
+class SupplierReminderDraft {
+  const SupplierReminderDraft({
+    required this.supplier,
+    required this.period,
+    required this.bills,
+    required this.credit,
+    required this.message,
+    required this.lastSent,
+    required this.timesSent,
+  });
+
+  static SupplierReminderDraft? fromTool(Object? json) {
+    final map = toolData(json);
+    if (_text(map['message']).isEmpty) return null;
+    return SupplierReminderDraft(
+      supplier: _text(map['supplier']),
+      period: _text(map['period']),
+      bills: _maps(map['bills']).length,
+      credit: _num(map['credit']),
+      message: _text(map['message']),
+      lastSent: _text(map['lastSent']),
+      timesSent: _num(map['timesSent']).toInt(),
+    );
+  }
+
+  final String supplier;
+  final String period;
+  final int bills;
+  final num credit;
+  final String message;
+  final String lastSent;
+  final int timesSent;
+}
+
 class CreditCheck {
   const CreditCheck({
     required this.period,

@@ -163,6 +163,7 @@ class FakeMycaApi implements MycaApi {
     },
   ];
   final filings = <Map<String, Object?>>[];
+  final supplierReminders = <Map<String, Object?>>[];
   final caRequests = <Map<String, Object?>>[
     {
       'id': 'ASK-0001',
@@ -388,6 +389,9 @@ class FakeMycaApi implements MycaApi {
         'From quote ${args['id']}: Invoice to Gujarat Weaves, total ₹59,000.00.',
       );
     }
+    if (name == 'record_supplier_reminder') {
+      return _preview('Send a reminder to Gujarat Mills about 1 bill for ${args['period']}, with ₹3,600.00 of your input credit waiting on them.');
+    }
     if (name == 'record_filing') {
       return _preview('Record GSTR-1 (monthly) for ${args['period']} as filed on ${args['filedOn']}, ARN ${args['arn']}. It was due on 2026-09-11. That is after the due date.');
     }
@@ -547,6 +551,10 @@ class FakeMycaApi implements MycaApi {
           'posted': true,
           'confirmed': true,
         });
+      }
+      if (held.tool == 'record_supplier_reminder') {
+        supplierReminders.add(held.args);
+        return ChatReply.fromJson({'reply': 'Reminder SRM-0001 to Gujarat Mills for ${held.args['period']} is ready to send from your phone. Nothing has gone from MyCA.', 'posted': true, 'confirmed': true});
       }
       if (held.tool == 'record_filing') {
         filings.insert(0, {
@@ -1199,6 +1207,22 @@ class FakeMycaApi implements MycaApi {
             'fp': args['fp'],
             'version': 'GST3.1.6',
             'b2b': const <Object?>[],
+          },
+        };
+      case 'supplier_reminder_draft':
+        return {
+          'ok': true,
+          'data': {
+            'supplier': 'Gujarat Mills',
+            'gstin': '24AAACF7856R1ZY',
+            'period': args['period'],
+            'bills': [
+              {'billId': 'BILL-0002', 'supplierInvoiceNo': 'GM/77', 'reason': 'ITC_NOT_AVAILABLE'},
+            ],
+            'credit': 3600,
+            'message': 'Hello Gujarat Mills,\n\nFor October 2026, this bill from you is not showing correctly for us:\n• Bill GM/77 dated 8 October 2026, ₹23,600.00: shown in our GSTR-2B with the credit marked not available',
+            'lastSent': supplierReminders.isEmpty ? '' : '2026-10-05',
+            'timesSent': supplierReminders.length,
           },
         };
       case 'list_filings':

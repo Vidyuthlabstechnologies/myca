@@ -94,6 +94,7 @@ key cannot be written through a view.
 | `pendingChatAction`, `lastConfirmation` | The one held proposal and the last confirmed one, so a confirm can be replayed safely |
 | `exceptions`, `exceptionSeq` | The exception queue |
 | `purchases[].payments` | Payments to the supplier against a bill: amount, date, bank or cash. The bill is `partial` until nothing is owed, then `paid` |
+| `supplierReminders`, `supplierReminderSeq` | GSTR-2B reminders the owner sent from their phone: supplier, month, bills, the message as sent, whether it was edited, who sent it and when |
 | `filings` | Returns recorded as filed outside MyCA: return, period, ARN, filing date, due date, whether late, and who filed it |
 | `quotes`, `quoteSeq` | Quotations: lines and tax as on an invoice, validity, state, and the invoice they became |
 | `caRequests`, `caRequestSeq` | Questions for the CA: subject, the facts the engine attached, the messages with who and when, status |
