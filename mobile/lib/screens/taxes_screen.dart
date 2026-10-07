@@ -349,7 +349,7 @@ class _TaxesScreenState extends State<TaxesScreen> {
                               tint: Tint.ask,
                               mark: Mark.comingUp,
                             ),
-                            title: '${item.label} for ${item.period}',
+                            title: '${item.label} for ${monthLabel(item.period)}',
                             subtitle:
                                 'Filed ${longDate(item.filedOn)}${item.late ? ', after the due date' : ''} · ARN ${item.arn}',
                           ),
@@ -380,9 +380,9 @@ class _TaxesScreenState extends State<TaxesScreen> {
                             tint: Tint.ask,
                             mark: Mark.comingUp,
                           ),
-                          title: '${deadline.label} for ${deadline.period}',
+                          title: '${deadline.label} for ${monthLabel(deadline.period)}',
                           subtitle:
-                              '${dueLabel(deadline.daysUntil)} (${deadline.dueDate})',
+                              '${dueLabel(deadline.daysUntil)}, ${longDate(deadline.dueDate)}',
                         ),
                     ],
                   ),

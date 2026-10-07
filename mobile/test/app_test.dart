@@ -23,7 +23,7 @@ Future<void> startSaleFor(WidgetTester tester, String name) async {
   await tester.tap(find.text('I sold something'));
   await tester.pumpAndSettle();
   expect(find.text('Who did you sell to?'), findsOneWidget);
-  await tester.enterText(find.byType(TextField), name);
+  await tester.enterText(find.byType(TextField).last, name);
   await tester.pumpAndSettle();
 }
 
@@ -422,17 +422,30 @@ void main() {
     expect(find.text('Welcome back'), findsOneWidget);
   });
 
-  testWidgets('Ask MyCA answers a question without offering to post', (
+  testWidgets('a question typed on Home is answered in Ask, without offering to post', (
     tester,
   ) async {
     final api = FakeMycaApi(signedIn: true);
     await openHome(tester, api);
     await tester.pumpAndSettle();
-    await tapRow(tester, 'Ask MyCA');
-    await tester.tap(find.text('What is my GST payable?'));
+    final bar = find.widgetWithText(TextField, 'Tell or ask MyCA anything');
+    expect(bar, findsOneWidget, reason: 'chat is the first thing on Home');
+    await tester.enterText(bar, 'who owes me?');
+    await tester.tap(find.byTooltip('Send'));
     await tester.pumpAndSettle();
-    expect(api.sent.single, 'What is my GST payable?');
-    expect(find.textContaining('payable ₹80,690.00'), findsOneWidget);
+    expect(api.sent.single, 'who owes me?');
+    expect(find.textContaining('Customers owe you ₹3,77,600.00'), findsOneWidget);
     expect(find.text('Post it'), findsNothing);
+  });
+
+  testWidgets('Ask offers owner questions to start with, not accounting terms', (
+    tester,
+  ) async {
+    final api = FakeMycaApi(signedIn: true);
+    await openHome(tester, api);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Send'));
+    await tester.pumpAndSettle();
+    expect(api.sent, isEmpty, reason: 'an empty bar sends nothing');
   });
 }

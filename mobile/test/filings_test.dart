@@ -76,7 +76,7 @@ void main() {
       await tester.tap(find.text('Done'));
       await tester.pumpAndSettle();
 
-      final filed = find.text('GSTR-1 (monthly) for 2026-08');
+      final filed = find.text('GSTR-1 (monthly) for August 2026');
       await tester.scrollUntilVisible(
         filed,
         200,

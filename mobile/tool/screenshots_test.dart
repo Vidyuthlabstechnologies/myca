@@ -65,9 +65,9 @@ void main() {
     await shot(tester, '06_new_entry');
     await tester.tap(find.text('I sold something'));
     await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField), 'Kir');
+    await tester.enterText(find.byType(TextField).last, 'Kir');
     await shot(tester, '07_who_did_you_sell_to');
-    await tester.enterText(find.byType(TextField), 'guj');
+    await tester.enterText(find.byType(TextField).last, 'guj');
     await tester.pumpAndSettle();
     await tester.tap(find.text('Gujarat Weaves'));
     await tester.pumpAndSettle();

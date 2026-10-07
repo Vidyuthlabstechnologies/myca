@@ -817,7 +817,7 @@ class FakeMycaApi implements MycaApi {
   Future<ChatReply> chat(String message) async {
     sent.add(message);
     return ChatReply.fromJson({
-      'reply': 'GST output ₹82,690.00 − input ₹2,000.00 = payable ₹80,690.00.',
+      'reply': 'Customers owe you ₹3,77,600.00 in all: Gujarat Weaves ₹3,77,600.00. Nothing was recorded.',
     });
   }
 
