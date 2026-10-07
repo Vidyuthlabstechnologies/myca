@@ -20,6 +20,8 @@ class FakeCloud {
   final removed = <String>[];
   final crashReports = <Map<String, Object?>>[];
   bool crashServerDown = false;
+  bool noticeAccepted = true;
+  final consents = <String>[];
   String userName = '';
   String role = 'owner';
   Map<String, Object?> company = const {};
@@ -48,6 +50,21 @@ class FakeCloud {
     requests.add('${request.method} $path');
     final body = request.body.isEmpty ? <String, dynamic>{} : (jsonDecode(request.body) as Map).cast<String, dynamic>();
 
+    if (path == '/v1/privacy-notice') {
+      return _json(200, {
+        'ok': true,
+        'notice': {
+          'document': 'privacy',
+          'version': 'v-test',
+          'title': 'How MyCA uses your information',
+          'status': 'Draft for legal review.',
+          'sections': [
+            {'heading': 'Who we are', 'body': 'MyCA is provided by ML Dynamic Solutions Private Limited.'},
+            {'heading': 'Your rights', 'body': 'You can ask to see, correct or erase your information.'},
+          ],
+        },
+      });
+    }
     if (path == '/v1/auth/otp') {
       final phone = '${body['phone']}'.replaceAll(' ', '');
       if (!RegExp(r'^(\+91)?[6-9]\d{9}$').hasMatch(phone)) return _json(400, {'ok': false, 'error': 'INVALID_PHONE'});
@@ -55,7 +72,11 @@ class FakeCloud {
     }
     if (path == '/v1/auth/verify') {
       if (body['code'] != code) return _json(400, {'ok': false, 'error': 'INVALID_CODE', 'attemptsRemaining': 4});
-      return _json(200, {..._issue(), 'user': {'id': 'u1', 'name': userName, 'isNew': businesses.isEmpty}});
+      return _json(200, {
+        ..._issue(),
+        'user': {'id': 'u1', 'name': userName, 'isNew': businesses.isEmpty},
+        'consent': {'document': 'privacy', 'version': 'v-test', 'accepted': noticeAccepted},
+      });
     }
     if (path == '/v1/auth/refresh') {
       refreshes += 1;
@@ -71,6 +92,16 @@ class FakeCloud {
       access = 'expired';
       return _json(401, {'ok': false, 'error': 'UNAUTHENTICATED', 'reason': 'TOKEN_EXPIRED'});
     }
+    if (path == '/v1/me/consent' && request.method == 'POST') {
+      if (body['version'] != 'v-test') return _json(400, {'ok': false, 'error': 'NOTICE_CHANGED'});
+      noticeAccepted = true;
+      consents.add('${body['document']}@${body['version']}');
+      return _json(200, {'ok': true});
+    }
+    final exempt = path == '/v1/me' && request.method == 'GET' || path == '/v1/crash-reports' || path == '/v1/auth/logout';
+    if (!noticeAccepted && !exempt) {
+      return _json(403, {'ok': false, 'error': 'CONSENT_REQUIRED', 'document': 'privacy', 'version': 'v-test'});
+    }
     if (path == '/v1/auth/logout') {
       logouts += 1;
       return _json(200, {'ok': true});
@@ -85,6 +116,7 @@ class FakeCloud {
       return _json(200, {
         'ok': true,
         'user': {'id': 'u1', 'name': userName},
+        'consent': {'document': 'privacy', 'version': 'v-test', 'accepted': noticeAccepted},
         'businesses': businesses,
         'invitations': myInvitations,
       });

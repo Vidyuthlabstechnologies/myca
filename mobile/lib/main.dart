@@ -18,6 +18,7 @@ import 'screens/business_setup_screen.dart';
 import 'screens/lock_screen.dart';
 import 'screens/name_screen.dart';
 import 'screens/phone_sign_in_screen.dart';
+import 'screens/privacy_notice_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/migration_flow.dart';
 import 'screens/sign_in_screen.dart';
@@ -131,6 +132,7 @@ class AppGate extends StatelessWidget {
     if (!state.welcomed) return const WelcomeScreen();
     final cloud = state.cloud;
     if (cloud != null && !cloud.signedIn) return const PhoneSignInScreen();
+    if (cloud != null && cloud.needsConsent) return const PrivacyNoticeScreen();
     if (cloud != null && cloud.needsName) return const NameScreen();
     if (cloud != null && !cloud.ready) return const BusinessSetupScreen();
     if (snapshot == null) {

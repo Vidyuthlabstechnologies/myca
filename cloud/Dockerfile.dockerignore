@@ -1,0 +1,12 @@
+*
+!cloud/package.json
+!cloud/package-lock.json
+!cloud/src
+!cloud/migrations
+!platform/package.json
+!platform/src
+!sprints
+sprints/*/test
+sprints/*/node_modules
+sprints/statutory-rules/golden
+**/.env*

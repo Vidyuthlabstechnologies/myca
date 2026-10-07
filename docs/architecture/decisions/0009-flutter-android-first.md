@@ -14,7 +14,8 @@ icons and typography, and an iOS version is likely later.
 ## Decision
 
 - The client is a Flutter app in `mobile/`, Android only for now, application id
-  `in.myca.app`.
+  `com.mldynamic.myca` (owner decision, 6 October 2026; it cannot change after the first
+  Play upload).
 - The app is thin: it calls the hosted API, formats what the engine returns, and never
   computes a tax or a total.
 - Design tokens, the icon set and the logo mark are code. Inter is bundled.
