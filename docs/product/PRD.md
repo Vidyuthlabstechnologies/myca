@@ -134,7 +134,7 @@ Percentages are engineering estimates and are tracked in
 |---|---|---|
 | FR-CA-1 | The owner can invite a CA to the business. | Built |
 | FR-CA-2 | The owner can export the accounting entries for a CA. | Built: one CSV per month of sales, receipts, credit notes, purchases and expenses with heads and tax by head, plus the GSTR-1 file. A Tally-importable file is not built |
-| FR-CA-3 | A sync setting: the CA sees changes in real time or at set intervals. | Not built; an invited CA currently always sees live books |
+| FR-CA-3 | A sync setting: the CA sees changes in real time or at set intervals. | Built: live, daily, weekly, at month end, or only when the owner shares; a shared view is read-only |
 | FR-CA-4 | The owner can remove a CA's access at any time. | Built |
 
 ### 5.9 Chat and dashboard ([feature spec](features/08-chat-and-dashboard.md))

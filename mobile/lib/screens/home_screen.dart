@@ -122,6 +122,13 @@ class _HomeScreenState extends State<HomeScreen> {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
+                  if (widget.snapshot.sharedAsOf.isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      'Shared by the owner as of ${sharedOn(widget.snapshot.sharedAsOf)}. Entries after that are not shown, and changes are made by the owner.',
+                      style: text.bodyMedium?.copyWith(color: Palette.warn),
+                    ),
+                  ],
                 ],
               ),
             ),

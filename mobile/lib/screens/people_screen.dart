@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../api/myca_api.dart';
 import '../app_state.dart';
+import '../format.dart';
 import '../cloud/cloud_session.dart';
 import '../theme.dart';
 import '../widgets.dart';
@@ -13,6 +14,22 @@ const _roleHelp = {
   'accountant': 'Works in the books like staff. For your CA or bookkeeper.',
 };
 
+const caSyncChoices = [
+  ('live', 'As things happen', 'Your accountant sees every entry at once.'),
+  ('daily', 'Once a day', 'The books as they stood at midnight.'),
+  ('weekly', 'Once a week', 'The books as they stood at midnight on Monday.'),
+  ('month_close', 'At month end', 'The books as they stood when the month closed.'),
+  ('manual', 'Only when I share', 'The books as they were when you last pressed Share now.'),
+];
+
+String sharedWhen(String iso) {
+  final at = DateTime.tryParse(iso)?.toUtc().add(const Duration(hours: 5, minutes: 30));
+  if (at == null) return '';
+  final minutes = at.minute.toString().padLeft(2, '0');
+  final hour = at.hour % 12 == 0 ? 12 : at.hour % 12;
+  return '${longDate(isoDate(at))}, $hour:$minutes ${at.hour < 12 ? 'am' : 'pm'}';
+}
+
 class PeopleScreen extends StatefulWidget {
   const PeopleScreen({super.key});
 
@@ -22,12 +39,82 @@ class PeopleScreen extends StatefulWidget {
 
 class _PeopleScreenState extends State<PeopleScreen> {
   Future<People>? _people;
+  Future<CaSync>? _sync;
   String _error = '';
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     _people ??= AppScope.of(context).cloud!.people();
+    _sync ??= AppScope.of(context).cloud!.caSync();
+  }
+
+  Future<void> _setSync(String mode) async {
+    final cloud = AppScope.of(context).cloud!;
+    final next = cloud.setCaSync(mode);
+    setState(() {
+      _error = '';
+      _sync = next;
+    });
+    try {
+      await next;
+    } on MycaApiException catch (err) {
+      if (mounted) {
+        setState(() {
+          _error = err.message;
+          _sync = cloud.caSync();
+        });
+      }
+    }
+  }
+
+  Future<void> _shareNow() async {
+    final cloud = AppScope.of(context).cloud!;
+    setState(() => _error = '');
+    try {
+      await cloud.shareWithCa();
+      if (!mounted) return;
+      setState(() {
+        _sync = cloud.caSync();
+      });
+    } on MycaApiException catch (err) {
+      if (mounted) setState(() => _error = err.message);
+    }
+  }
+
+  Widget _syncPanel(CaSync sync) {
+    final text = Theme.of(context).textTheme;
+    return Panel(
+      children: [
+        for (final (mode, title, help) in caSyncChoices)
+          RowCard(
+            leading: TintTile(
+              tint: Tint.ask,
+              letter: sync.mode == mode ? '✓' : '',
+            ),
+            title: title,
+            subtitle: help,
+            onTap: sync.mode == mode ? null : () => _setSync(mode),
+          ),
+        if (sync.mode != 'live')
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    sync.sharedAsOf.isEmpty
+                        ? 'Not shared yet.'
+                        : 'Your accountant sees the books as of ${sharedWhen(sync.sharedAsOf)}.',
+                    style: text.bodyMedium,
+                  ),
+                ),
+                TextButton(onPressed: _shareNow, child: const Text('Share now')),
+              ],
+            ),
+          ),
+      ],
+    );
   }
 
   void _reload() {
@@ -139,6 +226,16 @@ class _PeopleScreenState extends State<PeopleScreen> {
                     ),
                 ],
               ),
+              if (owner) ...[
+                const SizedBox(height: 26),
+                const SectionLabel('What your accountant sees'),
+                FutureBuilder<CaSync>(
+                  future: _sync,
+                  builder: (context, sync) => sync.data == null
+                      ? const SizedBox(height: 48, child: Center(child: CircularProgressIndicator()))
+                      : _syncPanel(sync.data!),
+                ),
+              ],
               if (people.invites.isNotEmpty) ...[
                 const SizedBox(height: 26),
                 const SectionLabel('Invited, not joined yet'),

@@ -7,6 +7,9 @@ import '../api/myca_api.dart';
 import 'token_store.dart';
 
 const _messages = {
+  'SHARED_VIEW_READ_ONLY': 'The owner shares these books with you as of an earlier date, so nothing can be posted from here. Ask the owner to make the change, or to share the books again.',
+  'CA_SEES_LIVE_BOOKS': 'Your accountant already sees the books as they change.',
+  'NOT_SHARED_YET': 'The owner has not shared the books with you yet.',
   'PHONE_SIGN_IN_UNAVAILABLE': 'Sign-in by mobile number is not available yet. Continue with Google.',
   'GOOGLE_SIGN_IN_UNAVAILABLE': 'Google sign-in is not available yet.',
   'INVALID_GOOGLE_TOKEN': 'Google could not confirm who you are. Try again.',
@@ -141,6 +144,13 @@ class SignInMethods {
 
   final bool phone;
   final bool google;
+}
+
+class CaSync {
+  const CaSync({required this.mode, required this.sharedAsOf});
+
+  final String mode;
+  final String sharedAsOf;
 }
 
 class StateRef {
@@ -485,6 +495,21 @@ class CloudSession {
         for (final row in _rows(body['invitations'])) OpenInvite(id: '${row['id']}', phoneHint: '${row['phoneHint']}', role: '${row['role']}'),
       ],
     );
+  }
+
+  Future<CaSync> caSync() async {
+    final body = await call('GET', '$_books/ca-sync');
+    return CaSync(mode: '${body['mode'] ?? 'live'}', sharedAsOf: '${body['sharedAsOf'] ?? ''}');
+  }
+
+  Future<CaSync> setCaSync(String mode) async {
+    final body = await call('POST', '$_books/ca-sync', {'mode': mode});
+    return CaSync(mode: '${body['mode'] ?? mode}', sharedAsOf: '${body['sharedAsOf'] ?? ''}');
+  }
+
+  Future<String> shareWithCa() async {
+    final body = await call('POST', '$_books/ca-share');
+    return '${body['sharedAsOf'] ?? ''}';
   }
 
   Future<void> invite(String phone, String role) => call('POST', '$_books/invitations', {'phone': phone, 'role': role});

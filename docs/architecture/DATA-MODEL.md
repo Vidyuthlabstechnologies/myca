@@ -70,6 +70,7 @@ erDiagram
 | `invitations` | Stored against a hash of the invited number plus a three-digit hint. One open invitation per business and number. |
 | `books` | The engine's state for one business and a version that increases on every write. Deleting a business with books is restricted. |
 | `documents` | Uploaded files by sha256, per business. Text content for now; object storage is planned. |
+| `shared_books`, `businesses.ca_sync` | What an accountant sees when the owner chooses intervals: one copy of the books per business, the moment it stands for, when and why it was taken. |
 | `audit_log` | Append-only. Triggers refuse update, delete and truncate. |
 | `consents` | Which version of which notice a user accepted, when, and on which device. Kept as proof of consent. |
 | `crash_reports` | Scrubbed crash reports, one row per crash and app version with a count. No user, device or business. Deleted 90 days after a crash was last seen. |

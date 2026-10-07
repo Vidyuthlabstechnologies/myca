@@ -14,10 +14,10 @@ Taxmeow or MyCA is an open decision.
 
 | | |
 |---|---|
-| Against the product PRD | **About 54% built** ([requirement by requirement](docs/product/PRD.md), [how it is computed](docs/superpowers/PROGRESS.md)) |
+| Against the product PRD | **About 55% built** ([requirement by requirement](docs/product/PRD.md), [how it is computed](docs/superpowers/PROGRESS.md)) |
 | To a Play Store launch | About 44% (estimate) |
 | Engine hardening (Phase 0) | 67%; every Critical and High audit finding closed ([audit](docs/audit/2026-09-21-codebase-audit.md)) |
-| Tests | **1,087**: platform 571, engines and statutory rules 329, hosted API 70, Android app 117 |
+| Tests | **1,096**: platform 571, engines and statutory rules 329, hosted API 76, Android app 120 |
 | Tools | 109 named, schema-validated tools |
 | Deployed | **Nothing.** The hosted API has run only against a local Postgres; the app has not run on a phone |
 | Live portal calls | Off by default (`MYCA_ENABLE_LIVE_CALLS=0`); no return has been filed through the product |
@@ -175,14 +175,14 @@ The hosted API, against a local Postgres (see [`cloud/README.md`](cloud/README.m
 ```bash
 cd cloud
 npm install
-npm test                 # 70 tests; needs MYCA_TEST_DATABASE_URL
+npm test                 # 76 tests; needs MYCA_TEST_DATABASE_URL
 ```
 
 The Android app (see [`mobile/README.md`](mobile/README.md)):
 
 ```bash
 cd mobile
-flutter test             # 117 tests
+flutter test             # 120 tests
 flutter run --dart-define=MYCA_CLOUD_URL=http://127.0.0.1:8080
 ```
 

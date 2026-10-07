@@ -11,6 +11,7 @@ import { assertSecret } from './tokens.mjs';
 import { createCrashReports } from './crash-reports.mjs';
 import { PRIVACY_NOTICE, consentExempt, createConsent } from './consent.mjs';
 import { createGoogleKeys, createGoogleVerifier } from './google.mjs';
+import { CA_SYNC_MODES, syncOf } from './ca-sync.mjs';
 
 const MAX_BODY_BYTES = 1024 * 1024;
 export const MAX_UPLOAD_BYTES = 8 * 1024 * 1024;
@@ -93,7 +94,8 @@ export function createApi({ db, secret, otpSender = null, googleClientIds = [], 
   if (liveCallsEnabled()) throw new Error('the hosted API must not start with live provider calls enabled');
   const auth = createAuth({ db, secret, otpSender, now });
   const businesses = createBusinesses({ db, now });
-  const withBooks = createBooksRunner({ db });
+  const runner = createBooksRunner({ db, now });
+  const withBooks = runner.withBooks;
   const members = createMembers({ db, secret, now });
   const crashes = createCrashReports({ db, now });
   const consent = createConsent({ db, now });
@@ -204,9 +206,17 @@ export function createApi({ db, secret, otpSender = null, googleClientIds = [], 
       const context = { userId: user.userId, deviceId: user.deviceId, requestId };
       const actor = { actor: { userId: user.userId, role: engineRole(role), name: user.name || user.userId } };
       const action = parts[3];
+      const sync = await syncOf((text, params) => db.query(text, params), businessId);
+      const sharedView = role === 'accountant' && sync && sync.mode !== 'live';
 
       if (method === 'GET' && action === 'snapshot') {
+        if (sharedView) {
+          return runner.withSharedBooks(businessId, context, async (session, { asOf }) => ({ ...appSnapshot(session.snapshot(), user, role), sharedAsOf: asOf }));
+        }
         return withBooks(businessId, context, async (session) => appSnapshot(session.snapshot(), user, role));
+      }
+      if (method === 'GET' && action === 'ca-sync') {
+        return { ok: true, mode: sync.mode, sharedAsOf: sync.mode === 'live' ? null : sync.asOf, modes: CA_SYNC_MODES };
       }
       if (method === 'GET' && action === 'members') {
         return {
@@ -218,6 +228,32 @@ export function createApi({ db, secret, otpSender = null, googleClientIds = [], 
       if (method !== 'POST') throw httpError(404, 'NOT_FOUND');
 
       const body = await readJson(req, action === 'uploads' ? MAX_UPLOAD_BYTES : MAX_BODY_BYTES);
+      if (action === 'ca-sync') {
+        if (role !== 'owner') throw httpError(403, 'OWNER_ONLY');
+        const mode = String(body.mode || '');
+        if (!CA_SYNC_MODES.includes(mode)) throw httpError(400, 'BAD_SYNC_MODE', { modes: CA_SYNC_MODES });
+        await db.query('update businesses set ca_sync = $2 where id = $1', [businessId, mode]);
+        const sharedAsOf = mode === 'live' ? null : await runner.share(businessId, user.userId);
+        return { ok: true, mode, sharedAsOf };
+      }
+      if (action === 'ca-share') {
+        if (role !== 'owner') throw httpError(403, 'OWNER_ONLY');
+        if (sync.mode === 'live') throw httpError(409, 'CA_SEES_LIVE_BOOKS');
+        return { ok: true, sharedAsOf: await runner.share(businessId, user.userId) };
+      }
+      if (sharedView) {
+        if (action === 'query') return runner.withSharedBooks(businessId, context, (session) => session.query(body.name, body.args || {}, actor));
+        if (action === 'ask') {
+          const message = String(body.message ?? '').slice(0, 2000);
+          if (!message.trim()) throw httpError(400, 'MESSAGE_REQUIRED');
+          return runner.withSharedBooks(businessId, context, async (session, { asOf }) => {
+            const out = await session.chat(message, actor);
+            if (!out.preview && !out.awaitingConfirmation) return out;
+            return { reply: `These books are shared with you as they stood on ${new Date(asOf.getTime() + 330 * 60 * 1000).toISOString().slice(0, 10)}, so nothing can be posted from here. Ask the owner to make the change, or to share the books again.`, tools: [] };
+          });
+        }
+        throw httpError(403, 'SHARED_VIEW_READ_ONLY', { sharedAsOf: sync.asOf });
+      }
       if (action === 'invitations') {
         if (role !== 'owner') throw httpError(403, 'OWNER_ONLY');
         return members.invite(businessId, context, body);
