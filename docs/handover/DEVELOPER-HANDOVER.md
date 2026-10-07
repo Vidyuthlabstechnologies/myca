@@ -54,14 +54,14 @@ Read [`docs/product/PRD.md`](../product/PRD.md) for requirements,
 ## 3. Where it stands (6 October 2026)
 
 About **52% of the PRD** is built. See [`docs/superpowers/PROGRESS.md`](../superpowers/PROGRESS.md)
-for the weighted breakdown. There are **1,050 automated tests**:
+for the weighted breakdown. There are **1,072 automated tests**:
 
 | Suite | Tests |
 |---|---|
-| Platform | 550 |
+| Platform | 560 |
 | Engines and statutory rules | 329 |
-| Hosted API | 63 |
-| Android app | 108 |
+| Hosted API | 70 |
+| Android app | 113 |
 
 **Built and tested**
 
@@ -212,6 +212,8 @@ binding. This section adds the technical detail.
    - all in the Mumbai region, through Terraform in `infra/`.
 2. **Sign-in.**
    - Replace the development OTP with a registered SMS sender (DLT) or Google Sign-In, as the company decides ([ADR-0008](../architecture/decisions/0008-phone-number-sign-in.md)).
+     Google Sign-In is **done** (7 October 2026) and is the pilot's method; the company
+     creates the web and Android OAuth clients (see `mobile/README.md`).
    - Rate-limit OTP requests and verification attempts.
 3. **Privacy.**
    - Show a privacy notice and record consent (**done** 6 October 2026, with draft text:

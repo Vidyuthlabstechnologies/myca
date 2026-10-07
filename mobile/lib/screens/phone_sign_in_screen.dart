@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../api/myca_api.dart';
 import '../app_state.dart';
 import '../brand.dart';
+import '../cloud/cloud_session.dart';
 import '../theme.dart';
 
 class PhoneSignInScreen extends StatefulWidget {
@@ -18,6 +19,18 @@ class _PhoneSignInScreenState extends State<PhoneSignInScreen> {
   final _code = TextEditingController();
   String _error = '';
   bool _busy = false;
+  SignInMethods? _methods;
+  bool _asked = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_asked) return;
+    _asked = true;
+    AppScope.of(context).cloud!.methods().then((methods) {
+      if (mounted) setState(() => _methods = methods);
+    });
+  }
 
   @override
   void dispose() {
@@ -49,6 +62,16 @@ class _PhoneSignInScreenState extends State<PhoneSignInScreen> {
     });
   }
 
+  Future<void> _google() {
+    final state = AppScope.of(context);
+    return _run(() async {
+      final token = await state.google!.idToken();
+      if (token == null) return;
+      await state.cloud!.signInWithGoogle(token);
+      await state.refresh();
+    });
+  }
+
   Future<void> _verify() {
     final state = AppScope.of(context);
     return _run(() async {
@@ -60,8 +83,12 @@ class _PhoneSignInScreenState extends State<PhoneSignInScreen> {
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
-    final cloud = AppScope.of(context).cloud!;
+    final state = AppScope.of(context);
+    final cloud = state.cloud!;
     final awaitingCode = cloud.awaitingCode;
+    final googleOn = state.google != null && (_methods?.google ?? true);
+    final phoneOn = _methods?.phone ?? true;
+    final phoneOnly = phoneOn && !googleOn;
     return Scaffold(
       body: SafeArea(
         child: Center(
@@ -78,18 +105,45 @@ class _PhoneSignInScreenState extends State<PhoneSignInScreen> {
                   ),
                   const SizedBox(height: 24),
                   Text(
-                    awaitingCode ? 'Enter the code' : 'Your mobile number',
+                    awaitingCode
+                        ? 'Enter the code'
+                        : (phoneOnly ? 'Your mobile number' : 'Sign in'),
                     style: text.displaySmall,
                   ),
                   const SizedBox(height: 8),
                   Text(
                     awaitingCode
                         ? 'We sent a 6-digit code to ${_phone.text.trim()}.'
-                        : 'We will text you a code to sign in. No password to remember.',
+                        : (phoneOnly
+                              ? 'We will text you a code to sign in. No password to remember.'
+                              : 'Use your Google account. No new password to remember.'),
                     style: text.bodyLarge?.copyWith(color: Palette.muted),
                   ),
                   const SizedBox(height: 28),
-                  if (!awaitingCode)
+                  if (googleOn && !awaitingCode) ...[
+                    FilledButton(
+                      onPressed: _busy ? null : _google,
+                      child: Text(
+                        _busy ? 'Please wait…' : 'Continue with Google',
+                      ),
+                    ),
+                    if (phoneOn) ...[
+                      const SizedBox(height: 24),
+                      Text(
+                        'Or use your mobile number',
+                        style: text.bodyMedium?.copyWith(color: Palette.muted),
+                      ),
+                      const SizedBox(height: 8),
+                    ],
+                  ],
+                  if (!phoneOn && !googleOn)
+                    Text(
+                      'Sign-in is not available right now. Try again later.',
+                      style: text.bodyLarge,
+                    )
+                  else if (!phoneOn)
+                    const SizedBox.shrink()
+                  else if (!awaitingCode)
                     TextField(
                       controller: _phone,
                       autofocus: true,
@@ -131,17 +185,24 @@ class _PhoneSignInScreenState extends State<PhoneSignInScreen> {
                       ),
                     ),
                   ],
-                  const SizedBox(height: 20),
-                  FilledButton(
-                    onPressed: _busy
-                        ? null
-                        : (awaitingCode ? _verify : _sendCode),
-                    child: Text(
-                      _busy
-                          ? 'Please wait…'
-                          : (awaitingCode ? 'Sign in' : 'Send code'),
-                    ),
-                  ),
+                  if (phoneOn) ...[
+                    const SizedBox(height: 20),
+                    (googleOn && !awaitingCode)
+                        ? OutlinedButton(
+                            onPressed: _busy ? null : _sendCode,
+                            child: const Text('Send code'),
+                          )
+                        : FilledButton(
+                            onPressed: _busy
+                                ? null
+                                : (awaitingCode ? _verify : _sendCode),
+                            child: Text(
+                              _busy
+                                  ? 'Please wait…'
+                                  : (awaitingCode ? 'Sign in' : 'Send code'),
+                            ),
+                          ),
+                  ],
                   if (awaitingCode) ...[
                     const SizedBox(height: 8),
                     TextButton(

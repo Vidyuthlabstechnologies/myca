@@ -52,8 +52,11 @@ Each test file creates and drops its own database.
 MYCA_DATABASE_URL=postgres://myca@127.0.0.1:54329/myca_dev MYCA_TOKEN_SECRET=<32+ random characters> MYCA_DEV_OTP=1 PORT=8080 npm run dev
 ```
 
-`MYCA_DEV_OTP=1` prints sign-in codes to the console instead of sending an SMS. It is
-for local development only; without it the server refuses to start because no SMS
+`MYCA_GOOGLE_CLIENT_IDS` lists the OAuth client ids (comma-separated) whose Google ID
+tokens the API accepts; set it to the web client id the app passes as
+`MYCA_GOOGLE_SERVER_CLIENT_ID`. `MYCA_DEV_OTP=1` prints phone sign-in codes to the
+console instead of sending an SMS, for local development only. The server needs at
+least one of the two; without either it refuses to start, because no SMS
 sender exists yet. The server also refuses to start if `MYCA_ENABLE_LIVE_CALLS` is set.
 
 Point the app at it:
@@ -67,7 +70,7 @@ flutter run --dart-define=MYCA_CLOUD_URL=http://127.0.0.1:8080
 ## Not built yet
 
 - Deployment: Terraform, Cloud Run, Cloud SQL, HTTPS. Needs a Google Cloud project.
-- An SMS sender, and Google Sign-In for closed testing.
+- An SMS sender. Google Sign-In is built (2026-10-07) and is the pilot's sign-in.
 - Telling an invited person. An invitation is only visible to them after they sign in
   with that number; no SMS is sent because there is no sender yet.
 - Changing a member's role, or adding a second owner.

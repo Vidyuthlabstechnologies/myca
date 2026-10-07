@@ -30,8 +30,18 @@
 
 ### Identity and sessions
 
+- Google Sign-In (the pilot's method). The app gets an ID token from Google for the
+  API's web client id. The API verifies it itself with `node:crypto`:
+  - the RS256 signature, against Google's published keys (cached for their max-age and
+    refetched for an unknown key id);
+  - the issuer, the audience (`MYCA_GOOGLE_CLIENT_IDS`) and the expiry.
+  The user is found or created by Google's account id, never by email. An email is
+  stored only when Google marks it verified.
 - Phone and one-time code. Codes are stored as salted hashes, expire in five minutes,
-  allow five tries, and are limited to five an hour per number.
+  allow five tries, and are limited to five an hour per number. Off until an SMS sender
+  exists; `GET /v1/auth/methods` tells the app which methods are on.
+- A Google-only user has no phone number, so invitations (which are addressed to a
+  number) do not reach them yet.
 - Access tokens are signed, last 15 minutes, and are checked against the device and
   user on every request, so revoking a device takes effect at once.
 - Refresh tokens are stored as hashes, rotate on use, and reuse of a spent token

@@ -21,6 +21,8 @@ class FakeCloud {
   final crashReports = <Map<String, Object?>>[];
   bool crashServerDown = false;
   bool noticeAccepted = true;
+  bool phoneOn = true;
+  bool googleOn = true;
   final consents = <String>[];
   String userName = '';
   String role = 'owner';
@@ -65,7 +67,20 @@ class FakeCloud {
         },
       });
     }
+    if (path == '/v1/auth/methods') {
+      return _json(200, {'ok': true, 'phone': phoneOn, 'google': googleOn});
+    }
+    if (path == '/v1/auth/google') {
+      if (body['idToken'] != 'google-id-token') return _json(400, {'ok': false, 'error': 'INVALID_GOOGLE_TOKEN'});
+      if (userName.isEmpty) userName = 'Asha Rao';
+      return _json(200, {
+        ..._issue(),
+        'user': {'id': 'u1', 'name': userName, 'isNew': businesses.isEmpty},
+        'consent': {'document': 'privacy', 'version': 'v-test', 'accepted': noticeAccepted},
+      });
+    }
     if (path == '/v1/auth/otp') {
+      if (!phoneOn) return _json(503, {'ok': false, 'error': 'PHONE_SIGN_IN_UNAVAILABLE'});
       final phone = '${body['phone']}'.replaceAll(' ', '');
       if (!RegExp(r'^(\+91)?[6-9]\d{9}$').hasMatch(phone)) return _json(400, {'ok': false, 'error': 'INVALID_PHONE'});
       return _json(200, {'ok': true, 'challengeId': challengeId, 'expiresInSeconds': 300});

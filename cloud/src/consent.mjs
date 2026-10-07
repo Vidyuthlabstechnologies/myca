@@ -1,6 +1,6 @@
 export const PRIVACY_NOTICE = {
   document: 'privacy',
-  version: 'draft-2026-10-06',
+  version: 'draft-2026-10-07',
   title: 'How MyCA uses your information',
   status: 'Draft for legal review. Not yet approved for release.',
   controller: 'ML Dynamic Solutions Private Limited, 606, 6th Floor, Gowra Fountainhead, Patrika Nagar, Madhapur, HITEC City, Hyderabad, Telangana 500081',
@@ -11,7 +11,7 @@ export const PRIVACY_NOTICE = {
     },
     {
       heading: 'What we collect',
-      body: 'Your mobile number, to sign you in. Your name, so people you work with know who recorded what. The books of the businesses you keep in MyCA: invoices, bills, expenses, receipts and payments, the customers and suppliers named in them, and files you upload. Which phone you signed in on, and a record of every change made to the books and by whom. Crash reports, with names, amounts, GSTINs and phone numbers removed, unless you switch them off.',
+      body: 'Your mobile number, or the name and email address of the Google account you choose, to sign you in. Your name, so people you work with know who recorded what. The books of the businesses you keep in MyCA: invoices, bills, expenses, receipts and payments, the customers and suppliers named in them, and files you upload. Which phone you signed in on, and a record of every change made to the books and by whom. Crash reports, with names, amounts, GSTINs and phone numbers removed, unless you switch them off.',
     },
     {
       heading: 'Why we use it',

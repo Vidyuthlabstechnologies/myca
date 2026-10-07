@@ -76,6 +76,7 @@ export function createMembers({ db, secret, now = () => Date.now() }) {
     },
 
     async pendingFor(phone) {
+      if (!phone) return [];
       const found = await db.query(
         `select i.id, i.role, b.name as "businessName", u.name as "invitedBy"
            from invitations i join businesses b on b.id = i.business_id join users u on u.id = i.invited_by

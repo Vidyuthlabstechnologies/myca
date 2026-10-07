@@ -51,7 +51,10 @@ export function createAuth({ db, secret, otpSender, now = () => Date.now() }) {
   }
 
   return {
+    phoneEnabled: Boolean(otpSender),
+
     async requestOtp(phoneInput) {
+      if (!otpSender) return fail('PHONE_SIGN_IN_UNAVAILABLE');
       const phone = normalizePhone(phoneInput);
       if (!phone) return fail('INVALID_PHONE');
       const phoneHash = keyedHash(secret, phone);
@@ -98,6 +101,26 @@ export function createAuth({ db, secret, otpSender, now = () => Date.now() }) {
            on conflict (phone) do update set deleted_at = null
            returning id, name, (xmax = 0) as created`,
           [phone, at()],
+        );
+        const userId = user.rows[0].id;
+        const device = await q('insert into devices (user_id, label, created_at, last_seen_at) values ($1, $2, $3, $3) returning id', [
+          userId,
+          String(deviceLabel).slice(0, 80),
+          at(),
+        ]);
+        const tokens = await issueTokens(q, userId, device.rows[0].id);
+        return { ok: true, ...tokens, user: { id: userId, name: user.rows[0].name, isNew: user.rows[0].created } };
+      });
+    },
+
+    async signInWithGoogle({ sub, email = '', name = '' }, deviceLabel = '') {
+      return db.tx(async (q) => {
+        const user = await q(
+          `insert into users (google_sub, email, name, created_at) values ($1, nullif($2, ''), $3, $4)
+           on conflict (google_sub) do update
+             set deleted_at = null, email = coalesce(nullif(excluded.email, ''), users.email)
+           returning id, name, (xmax = 0) as created`,
+          [sub, email, name, at()],
         );
         const userId = user.rows[0].id;
         const device = await q('insert into devices (user_id, label, created_at, last_seen_at) values ($1, $2, $3, $3) returning id', [

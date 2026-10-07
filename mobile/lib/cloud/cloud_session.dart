@@ -7,6 +7,12 @@ import '../api/myca_api.dart';
 import 'token_store.dart';
 
 const _messages = {
+  'PHONE_SIGN_IN_UNAVAILABLE': 'Sign-in by mobile number is not available yet. Continue with Google.',
+  'GOOGLE_SIGN_IN_UNAVAILABLE': 'Google sign-in is not available yet.',
+  'INVALID_GOOGLE_TOKEN': 'Google could not confirm who you are. Try again.',
+  'WRONG_AUDIENCE': 'This copy of the app is not set up for Google sign-in.',
+  'GOOGLE_TOKEN_EXPIRED': 'That Google sign-in took too long. Try again.',
+  'GOOGLE_UNREACHABLE': 'MyCA could not reach Google. Try again in a minute.',
   'CONSENT_REQUIRED': 'Read and accept the privacy notice to continue.',
   'NOTICE_CHANGED': 'The privacy notice has changed. Read the new one and accept it.',
   'INVALID_PHONE': 'Enter a 10-digit Indian mobile number.',
@@ -128,6 +134,13 @@ class PrivacyNotice {
   final String title;
   final String status;
   final List<NoticeSection> sections;
+}
+
+class SignInMethods {
+  const SignInMethods({required this.phone, required this.google});
+
+  final bool phone;
+  final bool google;
 }
 
 class StateRef {
@@ -304,6 +317,35 @@ class CloudSession {
     }
     await _keep(body);
     _challengeId = null;
+    await _signedIn(body);
+  }
+
+  Future<SignInMethods> methods() async {
+    try {
+      final (status, body) = await _send('GET', '/v1/auth/methods', null, authed: false);
+      if (status == 200 && body['ok'] == true) {
+        return SignInMethods(phone: body['phone'] == true, google: body['google'] == true);
+      }
+    } on MycaApiException {
+      return const SignInMethods(phone: true, google: true);
+    }
+    return const SignInMethods(phone: true, google: true);
+  }
+
+  Future<void> signInWithGoogle(String idToken) async {
+    final (_, body) = await _send('POST', '/v1/auth/google', {
+      'idToken': idToken,
+      'deviceLabel': 'Android',
+    }, authed: false);
+    if (body['ok'] != true) {
+      throw MycaApiException(cloudMessage('${body['error'] ?? 'UNKNOWN'}'));
+    }
+    await _keep(body);
+    _challengeId = null;
+    await _signedIn(body);
+  }
+
+  Future<void> _signedIn(Map<String, dynamic> body) async {
     final user = body['user'];
     needsName = user is Map && '${user['name'] ?? ''}'.trim().isEmpty;
     final consent = body['consent'];
