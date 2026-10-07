@@ -53,6 +53,8 @@ export function createState() {
     quotes: [],
     quoteSeq: 0,
     filings: [],
+    supplierReminders: [],
+    supplierReminderSeq: 0,
     lockThrough: '',
     integrationConnections: {},
     documents: [],
@@ -104,6 +106,8 @@ export function serialize(state) {
     caRequestSeq: state.caRequestSeq || 0,
     quotes: state.quotes || [],
     filings: state.filings || [],
+    supplierReminders: state.supplierReminders || [],
+    supplierReminderSeq: state.supplierReminderSeq || 0,
     quoteSeq: state.quoteSeq || 0,
     integrationConnections: normalizeIntegrationConnections(state.integrationConnections),
     documents: state.documents || [],
@@ -236,6 +240,8 @@ export function deserialize(raw) {
   state.caRequestSeq = raw.caRequestSeq || 0;
   state.quotes = Array.isArray(raw.quotes) ? raw.quotes : [];
   state.filings = Array.isArray(raw.filings) ? raw.filings : [];
+  state.supplierReminders = Array.isArray(raw.supplierReminders) ? raw.supplierReminders : [];
+  state.supplierReminderSeq = raw.supplierReminderSeq || 0;
   state.quoteSeq = raw.quoteSeq || 0;
   // Legacy states embedded raw content in `files`; carry it to a one-shot migration.
   state._legacyFiles = raw.files && typeof raw.files === 'object' ? raw.files : null;

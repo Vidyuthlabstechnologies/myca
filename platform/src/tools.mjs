@@ -19,6 +19,7 @@ import { import2b, creditAtRisk } from './gstr2b-check.mjs';
 import { booksCheck } from './books-check.mjs';
 import { deadlineRun, filingRows } from './deadline-run.mjs';
 import { listFilings, recordFiling } from './filings.mjs';
+import { draftSupplierReminder, recordSupplierReminder } from './supplier-reminders.mjs';
 import { addReminder, completeReminder, listReminders } from './reminders.mjs';
 import { cashForecast, canAfford, setCashBalance } from './cash-forecast.mjs';
 import { setPaymentTerms } from './payment-terms.mjs';
@@ -1350,6 +1351,20 @@ export const TOOLS = [
       const run = deadlineRun(state, { asOfDate, months: args.months, holidaysText: args.holidaysText || '' });
       return ok({ asOfDate, ...run });
     },
+  },
+  {
+    name: 'supplier_reminder_draft',
+    title: 'Draft a reminder to a supplier',
+    description: 'Draft a message to one supplier about their bills that are missing or wrong in GSTR-2B for a month, using only their own bill numbers, dates and amounts. Read-only; sends nothing.',
+    args: ['supplier', 'period'],
+    run: (state, args = {}) => draftSupplierReminder(state, args),
+  },
+  {
+    name: 'record_supplier_reminder',
+    title: 'Send a reminder to a supplier',
+    description: 'Record that the owner is sending a GSTR-2B reminder to a supplier from their own phone, with the message as sent. MyCA does not send it; the app hands it to the share sheet after this is confirmed.',
+    args: ['supplier', 'period', 'message', 'channel'],
+    run: (state, args = {}) => recordSupplierReminder(state, args),
   },
   {
     name: 'list_filings',

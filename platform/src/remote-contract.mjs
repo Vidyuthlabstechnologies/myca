@@ -11,6 +11,7 @@ export const REMOTE_QUERY_TOOLS = new Set([
   'books_check',
   'list_reminders',
   'list_filings',
+  'supplier_reminder_draft',
   'cash_forecast',
   'can_afford',
   'list_ca_requests',

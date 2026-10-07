@@ -421,6 +421,26 @@ export const TOOL_ARG_SCHEMAS = {
     required: ['id'],
     properties: { id: { type: 'string', pattern: '^REM-[0-9]{4,}$' } },
   },
+  supplier_reminder_draft: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['supplier'],
+    properties: {
+      supplier: { type: 'string', minLength: 1, maxLength: 120 },
+      period: { type: 'string', pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' },
+    },
+  },
+  record_supplier_reminder: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['supplier', 'period'],
+    properties: {
+      supplier: { type: 'string', minLength: 1, maxLength: 120 },
+      period: { type: 'string', pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' },
+      message: { type: 'string', maxLength: 2000 },
+      channel: { type: 'string', enum: ['whatsapp', 'email', 'other'] },
+    },
+  },
   list_filings: {
     type: 'object',
     additionalProperties: false,
@@ -811,6 +831,7 @@ const TOOL_RISK = {
   complete_reminder: 'writes_books',
   set_cash_balance: 'writes_books',
   record_filing: 'writes_books',
+  record_supplier_reminder: 'writes_books',
   set_payment_terms: 'writes_books',
   ask_ca: 'writes_books',
   create_quote: 'writes_books',

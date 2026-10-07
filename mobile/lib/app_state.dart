@@ -12,6 +12,8 @@ import 'lock/app_lock.dart';
 
 Future<bool> _cannotSave(String name, String content) async => false;
 
+Future<bool> _cannotShare(String text) async => false;
+
 class AppState extends ChangeNotifier {
   AppState({
     MycaApi? api,
@@ -19,6 +21,7 @@ class AppState extends ChangeNotifier {
     required this.store,
     required this.pickTextFile,
     this.saveTextFile = _cannotSave,
+    this.shareText = _cannotShare,
     this.pdf = const PdfActions(),
     this.lock = const NoAppLock(),
     this.now = DateTime.now,
@@ -31,6 +34,7 @@ class AppState extends ChangeNotifier {
   final OnboardingStore store;
   final PickTextFile pickTextFile;
   final SaveTextFile saveTextFile;
+  final ShareText shareText;
   final PdfActions pdf;
   final AppLock lock;
   final DateTime Function() now;

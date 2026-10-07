@@ -5,6 +5,7 @@ import '../api/myca_api.dart';
 import '../app_state.dart';
 import '../format.dart';
 import '../theme.dart';
+import 'remind_supplier_screen.dart';
 
 class CreditCard extends StatefulWidget {
   const CreditCard({super.key, required this.period});
@@ -153,9 +154,33 @@ class _CreditCardState extends State<CreditCard> {
                   Text(risk.why, style: text.bodyMedium),
                   const SizedBox(height: 14),
                 ],
+                if (check.hasStatement &&
+                    risks.any((r) => r.reason != 'NO_SUPPLIER_NUMBER')) ...[
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      onPressed: () {
+                        final navigator = Navigator.of(context);
+                        Navigator.of(sheet).pop();
+                        navigator.push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => RemindSupplierScreen(
+                              supplier: supplier.gstin.isEmpty
+                                  ? supplier.supplier
+                                  : supplier.gstin,
+                              period: check.period,
+                            ),
+                          ),
+                        );
+                      },
+                      child: const Text('Remind supplier'),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                ],
                 SizedBox(
                   width: double.infinity,
-                  child: FilledButton(
+                  child: OutlinedButton(
                     onPressed: () => Navigator.of(sheet).pop(),
                     child: const Text('Got it'),
                   ),

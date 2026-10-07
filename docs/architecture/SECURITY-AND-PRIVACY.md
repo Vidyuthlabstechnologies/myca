@@ -63,7 +63,7 @@
 
 ### What the network can reach
 
-- Remote callers can propose twenty-one write tools and the importers, and query a fixed list
+- Remote callers can propose twenty-two write tools and the importers, and query a fixed list
   of read tools. The rest of the tool catalogue is not reachable.
 - Every tool has a strict schema with no additional properties.
 - Imports refer to an uploaded document by hash; inline content is refused.
@@ -136,7 +136,8 @@
 ### Supply chain
 
 - The engine has no runtime dependencies. The hosted API has one (`pg`). The app has
-  seven packages. `vendor/` is never imported.
+  nine packages (Google Sign-In and share_plus were added on 2026-10-07). `vendor/` is
+  never imported.
 
 ## 4. Gaps, stated plainly
 

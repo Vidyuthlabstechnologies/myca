@@ -22,13 +22,14 @@ import { postingDate } from './dates.mjs';
 import { isPeriodLocked } from './period-lock.mjs';
 import { lastGstRateFor, planPayment } from './invoice.mjs';
 import { planFiling } from './filings.mjs';
+import { planSupplierReminder } from './supplier-reminders.mjs';
 import { filingRows } from './deadline-run.mjs';
 import { tally, bank } from './sprint-load.mjs';
 import { parseZohoBooksCsv } from './import-zoho.mjs';
 import { tallyXmlToDayBookCsv } from './tally-xml.mjs';
 
 export const CONFIRM_TOOLS = new Set([
-  'create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'record_filing', 'post_expense', 'set_expense_head', 'create_credit_note', 'cancel_invoice', 'gst_review_answer', 'import_gstr2b', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote',
+  'create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'record_filing', 'record_supplier_reminder', 'post_expense', 'set_expense_head', 'create_credit_note', 'cancel_invoice', 'gst_review_answer', 'import_gstr2b', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote',
   'import_tally', 'import_tally_xml', 'import_zoho', 'import_bank',
   'govt_generate_irn', 'govt_nic_cancel_irn',
   'exception_decide',
@@ -155,6 +156,30 @@ const FILING_REASONS = {
   ALREADY_RECORDED: (p) => `${p.returnType} for ${p.period} is already recorded as filed on ${p.filedOn} (ARN ${p.arn}).`,
   ARN_USED: (p) => `ARN ${p.arn} is already recorded against another return.`,
 };
+
+const SUPPLIER_REMINDER_REASONS = {
+  INVALID_PERIOD: () => 'That is not a month I can read.',
+  NO_STATEMENT: (p) => `No GSTR-2B has been added for ${p.period}, so MyCA cannot tell what the supplier reported. Add the 2B first.`,
+  NOTHING_TO_ASK: () => 'Nothing from this supplier is at risk for that month.',
+  OWN_GAPS_ONLY: (p) => `The bills from ${p.supplier} that are at risk are missing their supplier bill number in your books (${p.billIds.join(', ')}). Add the numbers; there is nothing to ask the supplier yet.`,
+  EMPTY_MESSAGE: () => 'The message is empty.',
+  MESSAGE_TOO_LONG: (p) => `The message is longer than ${p.max} characters.`,
+};
+
+function supplierReminderPreview(state, args) {
+  const plan = planSupplierReminder(state, args);
+  if (!plan.ok) {
+    const reason = SUPPLIER_REMINDER_REASONS[plan.error];
+    return { blockers: [reason ? reason(plan) : plan.error], summary: '', effects: [], figures: {} };
+  }
+  const d = plan.draft;
+  return {
+    blockers: [],
+    summary: `Send a reminder to ${d.supplier} about ${d.bills.length === 1 ? '1 bill' : `${d.bills.length} bills`} for ${d.period}, with ${money(d.credit)} of your input credit waiting on them.${d.timesSent ? ` You last reminded them on ${d.lastSent}.` : ''}`,
+    effects: ['It goes from your own phone: your WhatsApp, email or another app you pick. MyCA sends nothing itself.', 'The message and the day are kept with the books.'],
+    figures: { supplier: d.supplier, period: d.period, bills: d.bills.length, credit: d.credit, edited: plan.edited, timesSent: d.timesSent },
+  };
+}
 
 function filingPreview(state, args) {
   const plan = planFiling(state, args, filingRows(state, args.filedOn));
@@ -509,6 +534,7 @@ const PREVIEWERS = {
   record_receipt: receiptPreview,
   record_payment: paymentPreview,
   record_filing: filingPreview,
+  record_supplier_reminder: supplierReminderPreview,
   post_expense: expensePreview,
   create_credit_note: creditNotePreview,
   cancel_invoice: (state, args) => creditNotePreview(state, args, true),
