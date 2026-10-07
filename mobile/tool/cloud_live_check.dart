@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:myca/api/models.dart';
 import 'package:myca/api/myca_api.dart';
 import 'package:myca/attention.dart';
 import 'package:myca/cloud/cloud_session.dart';
@@ -23,11 +24,18 @@ Future<String> latestCode() async {
   return RegExp(r'-> (\d{6})').firstMatch(lines.last)!.group(1)!;
 }
 
-Future<CloudSession> signIn(String phone, TokenStore tokens) async {
+Future<CloudSession> signIn(String phone, TokenStore tokens, {bool agree = true}) async {
   final session = CloudSession(baseUrl: cloudUrl, tokens: tokens);
   await session.requestCode(phone);
   await session.verifyCode(await latestCode());
+  if (agree && session.needsConsent) await session.acceptNotice(await session.privacyNotice());
   return session;
+}
+
+Future<ChatReply> post(MycaApi api, String tool, Map<String, Object?> args) async {
+  final held = await api.propose(tool, args);
+  if (held.preview == null) return held;
+  return api.confirm(held.preview!.token);
 }
 
 Future<bool> refused(Future<Object?> Function() call) async {
@@ -42,8 +50,14 @@ Future<bool> refused(Future<Object?> Function() call) async {
 Future<void> main() async {
   final suffix = (DateTime.now().millisecondsSinceEpoch % 10000000).toString().padLeft(7, '0');
   final tokens = MemoryTokenStore();
-  final asha = await signIn('987$suffix', tokens);
+  final asha = await signIn('987$suffix', tokens, agree: false);
   check('signed in by phone and code', asha.signedIn && !asha.ready);
+  check('a new user is asked to accept the privacy notice', asha.needsConsent);
+  check('nothing opens before the notice is accepted', await refused(() => asha.createBusiness(name: 'Too Early', state: '29')));
+  final notice = await asha.privacyNotice();
+  check('the notice loads', notice.sections.length >= 5, '${notice.version}: ${notice.title}');
+  await asha.acceptNotice(notice);
+  check('accepting the notice clears the gate', !asha.needsConsent);
 
   final states = await asha.states();
   check('state list loads', states.any((s) => s.code == '29' && s.name == 'Karnataka'), '${states.length} states');
@@ -69,6 +83,32 @@ Future<void> main() async {
   check('sale is in the books', after.invoices.length == 1 && after.invoices.single.total == 9440, lastEntryLine(after.invoices.single, RegisterKind.sales));
   final afterSale = (await loadToday(api)).gst;
   check('tax on sales for the period moved by the tax on the sale', afterSale != null && afterSale.outputTax.total - today.gst!.outputTax.total == 1440 && afterSale.salesCount == 1);
+
+  final day = isoDate(DateTime.now());
+  final invoiceId = after.invoices.single.id;
+  final receipt = await post(api, 'record_receipt', {'invoiceId': invoiceId, 'amount': 4000, 'mode': 'bank', 'date': day});
+  final partly = (await api.snapshot()).invoices.single;
+  check('a part receipt is recorded against the invoice', receipt.posted && partly.status == 'partial' && partly.receipts.single.amount == 4000, receipt.reply);
+
+  final unrated = await api.propose('create_invoice', {'partyName': 'Kiran Stores', 'lines': [{'description': 'Supply', 'qty': 1, 'rate': 500}]});
+  check('a sale with no GST rate is not posted', unrated.preview == null || unrated.preview!.token.isEmpty, unrated.reply.split('\n').first);
+  if (unrated.preview != null) await api.discard();
+
+  final bill = await post(api, 'create_purchase', documentArgs(partyName: 'Fabric Co', partyGstin: '', description: 'Grey cloth', amount: 10000, gstRate: 5, supplierInvoiceNo: 'FC-881'));
+  final billed = (await api.snapshot()).purchases;
+  check('a supplier bill is booked', bill.posted && billed.length == 1 && billed.single.total == 10500, bill.reply);
+  final paid = await post(api, 'record_payment', {'billId': billed.single.id, 'mode': 'bank', 'date': day});
+  final settled = (await api.snapshot()).purchases.single;
+  check('the bill is paid in full from the bank', paid.posted && settled.paid && settled.owed == 0, paid.reply);
+
+  final expense = await post(api, 'post_expense', {'narration': 'Office rent', 'amount': 12000, 'gstRate': 0, 'mode': 'bank', 'date': day, 'payee': 'Landlord'});
+  check('an expense posts under a head', expense.posted, expense.reply.split('\n').first);
+
+  final summary = businessSummaryFrom(await api.query('business_summary'));
+  check('the dashboard shows what is owed both ways', summary != null && summary.owedToYou == 5440 && summary.owedBySuppliers == 0 && summary.current.expenses == 12000,
+      summary == null ? 'no summary' : 'owed to you ${rupees(summary.owedToYou)}, you owe ${rupees(summary.owedBySuppliers)}, spent ${rupees(summary.current.expenses)}');
+  final booksCheck = toolData(await api.query('books_check'));
+  check('the books check runs', booksCheck.isNotEmpty);
 
   check('an import with inline content is refused', await refused(() => api.propose('import_bank', {'content': 'x', 'type': 'csv'})));
   final statement = await api.upload('bank.csv', 'Date,Narration,Withdrawal,Deposit,Balance\n01-08-2026,UPI rent,100,,900\n02-08-2026,NEFT sale,,500,1400\n');

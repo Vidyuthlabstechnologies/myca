@@ -1,6 +1,7 @@
 import { planReceiptWithoutInvoice } from './receipt-intent.mjs';
 import { planExpenseFromChat } from './expense-intent.mjs';
 import { planPaymentFromChat } from './payment-intent.mjs';
+import { planOweQuestion } from './owe-intent.mjs';
 import { reviewOf } from './gst-review.mjs';
 import { planReminderFromChat } from './reminder-intent.mjs';
 import { planCashFromChat } from './cash-intent.mjs';
@@ -904,7 +905,7 @@ export function planLocalToolCall(state, message) {
   if (/^(help|\?)$/i.test(text) || /^what can you do$/i.test(text)) {
     return {
       kind: 'reply',
-      reply: `MyCA posts invoices and purchase bills into an append-only ledger, then GST/Tally/bank/audit tools read those books.\n\nExamples:\n· Purchase from Fabrics Co GSTIN 27AABCT1332L1ZE, 2 rolls at 10000, GST 5%\n· Invoice Retail Mart GSTIN 27AAACH7409R1Z1, 10 rolls at 50000, GST 5%\n· trial balance\n· export gstr1 json\n· probe govt\n· nic auth`,
+      reply: `MyCA posts invoices, bills, payments and expenses to your books, but only after you see a preview and say yes.\n\nYou can say:\n· invoice Kiran Stores 50000 for consulting GST 18%\n· received 20000 from Kiran Stores\n· bill from Fabric Co 10000 GST 5%\n· paid Fabric Co 4000\n· paid 12000 rent\n· who owes me? / how much do I owe Fabric Co?\n· quote Retail Mart 25000 for design GST 18%\n· credit note INV-0001 5000 damaged goods\n· cash forecast · review GST · remind me to call Kiran tomorrow`,
       tools: [],
     };
   }
@@ -936,6 +937,8 @@ export function planLocalToolCall(state, message) {
       return { kind: 'tool', name: 'create_quote', args: { partyName: quoted.partyName, ...(quoted.partyGstin ? { partyGstin: quoted.partyGstin } : {}), lines: quoted.lines, ...(validity ? { validDays: Number(validity[1]) } : {}) } };
     }
   }
+  const owed = planOweQuestion(state, text);
+  if (owed) return owed;
   const payment = planPaymentFromChat(state, text);
   if (payment) return payment;
   const saidTerms = takeInvoiceTerms(text);
@@ -1032,7 +1035,8 @@ export function planLocalToolCall(state, message) {
   const creditMatch = text.match(/\bcredit\s+note\b.*?\b(INV-\d{4,})\b/i);
   if (creditMatch && !isQuestion(text) && !isNegated(text)) {
     const amount = receiptAmount(text);
-    const reason = (text.match(/(?:because|reason|:|-)\s*([^0-9₹][^,]*?)\s*$/i) || [])[1] || '';
+    const afterInvoice = text.slice(text.toUpperCase().indexOf(creditMatch[1].toUpperCase()) + creditMatch[1].length);
+    const reason = (text.match(/(?:because|reason|:|-)\s*([^0-9₹][^,]*?)\s*$/i) || afterInvoice.match(/(?:₹|rs\.?\s*)?\d[\d,]*(?:\.\d+)?\s+(?:for\s+)?([A-Za-z][^,]*?)\s*$/i) || [])[1] || '';
     if (!reason.trim()) {
       return { kind: 'reply', reply: `Say why, for example "credit note for ${creditMatch[1].toUpperCase()} 2000 - goods returned". I have recorded nothing.`, tools: [] };
     }

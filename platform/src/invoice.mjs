@@ -208,11 +208,11 @@ export function recordReceipt(state, { invoiceId, amount, date, mode } = {}) {
   if (isPeriodLocked(state, receiptDate)) return { ok: false, error: 'PERIOD_LOCKED', date: receiptDate, lockThrough: state.lockThrough };
   const party = (state.parties || []).find((p) => (inv.partyAccountId ? p.accountId === inv.partyAccountId : p.name === inv.partyName && normGstin(p.gstin) === normGstin(inv.partyGstin)));
   if (!party) return { ok: false, error: 'PARTY_NOT_FOUND' };
-  const amt = amount == null ? inv.total : Number(amount);
-  if (!Number.isFinite(amt) || amt <= 0) return { ok: false, error: 'BAD_AMOUNT' };
   if (inv.status === 'cancelled') return { ok: false, error: 'INVOICE_CANCELLED', invoiceId };
   const already = (inv.receipts || []).reduce((s, r) => s + Number(r.amount || 0), 0);
   const credited = (state.creditNotes || []).filter((note) => note.invoiceId === invoiceId).reduce((s, note) => s + Number(note.total || 0), 0);
+  const amt = amount == null || amount === '' ? Math.round((inv.total - already - credited) * 100) / 100 : Number(amount);
+  if (!Number.isFinite(amt) || amt <= 0) return { ok: false, error: 'BAD_AMOUNT' };
   if (already + credited + amt > inv.total + 0.01) {
     return {
       ok: false,
