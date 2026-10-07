@@ -8,7 +8,9 @@ import '../theme.dart';
 import '../widgets.dart';
 
 class AskScreen extends StatefulWidget {
-  const AskScreen({super.key});
+  const AskScreen({super.key, this.first});
+
+  final String? first;
 
   @override
   State<AskScreen> createState() => _AskScreenState();
@@ -16,9 +18,11 @@ class AskScreen extends StatefulWidget {
 
 class _AskScreenState extends State<AskScreen> with ProposalFlow {
   static const _starters = [
-    'What is my GST payable?',
+    'Who owes me?',
+    'Who do I owe?',
+    'Cash forecast',
+    'My reminders',
     'Show deadlines',
-    'Trial balance',
   ];
 
   final _input = TextEditingController();
@@ -35,6 +39,17 @@ class _AskScreenState extends State<AskScreen> with ProposalFlow {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scroll.hasClients) _scroll.jumpTo(_scroll.position.maxScrollExtent);
     });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    final first = widget.first?.trim() ?? '';
+    if (first.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) say(first);
+      });
+    }
   }
 
   @override

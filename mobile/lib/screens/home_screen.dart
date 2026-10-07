@@ -133,6 +133,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 ],
               ),
             ),
+            _AskBar(onSubmit: (text) => _open(AskScreen(first: text))),
+            const SizedBox(height: 18),
             FutureBuilder<Today>(
               future: _today,
               builder: (context, today) => _TodayPanel(
@@ -229,6 +231,21 @@ class _HomeScreenState extends State<HomeScreen> {
                   trailing: const Chevron(),
                   onTap: () => _open(const ExpensesScreen()),
                 ),
+                if (snapshot.activeUser?.role != 'staff' &&
+                    snapshot.activeUser?.role != 'accountant')
+                  RowCard(
+                    leading: const TintTile(tint: Tint.ask, mark: Mark.employee),
+                    title: 'Employees',
+                    subtitle: 'Who works for you and what they are paid',
+                    trailing: const Chevron(),
+                    onTap: () => _open(const EmployeesScreen()),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 26),
+            const SectionLabel('Money and follow-up'),
+            Panel(
+              children: [
                 RowCard(
                   leading: const TintTile(tint: Tint.sales, mark: Mark.bringIn),
                   title: 'Cash',
@@ -237,15 +254,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   trailing: const Chevron(),
                   onTap: () => _open(const CashScreen()),
                 ),
-                if (snapshot.activeUser?.role != 'staff' &&
-                    snapshot.activeUser?.role != 'accountant')
-                  RowCard(
-                    leading: const TintTile(tint: Tint.ask, mark: Mark.people),
-                    title: 'Employees',
-                    subtitle: 'Who works for you and what they are paid',
-                    trailing: const Chevron(),
-                    onTap: () => _open(const EmployeesScreen()),
-                  ),
                 RowCard(
                   leading: const TintTile(tint: Tint.ask, mark: Mark.people),
                   title: 'Your CA',
@@ -266,13 +274,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   subtitle: 'What needs you, worked out from your books',
                   trailing: const Chevron(),
                   onTap: () => _open(const BooksCheckScreen()),
-                ),
-                RowCard(
-                  leading: const TintTile(tint: Tint.ask, mark: Mark.ask),
-                  title: 'Ask MyCA',
-                  subtitle: 'Type anything about your books',
-                  trailing: const Chevron(),
-                  onTap: () => _open(const AskScreen()),
                 ),
               ],
             ),
@@ -338,16 +339,17 @@ class _TodayPanel extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
+                        Wrap(
+                          spacing: 12,
+                          runSpacing: 4,
+                          crossAxisAlignment: WrapCrossAlignment.center,
                           children: [
                             Text('TAXES AND FILINGS', style: text.labelSmall),
-                            if (open.isNotEmpty) ...[
-                              const SizedBox(width: 12),
+                            if (open.isNotEmpty)
                               StatusTag(
                                 text: urgent ? 'Overdue' : 'Due soon',
                                 color: urgent ? Palette.danger : Palette.warn,
                               ),
-                            ],
                           ],
                         ),
                         const SizedBox(height: 8),
@@ -392,25 +394,30 @@ class _TodayPanel extends StatelessWidget {
                         ],
                       ),
                     ),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(
-                          gst.salesCount == 1
-                              ? '1 sale'
-                              : '${gst.salesCount} sales',
-                          style: text.bodySmall?.copyWith(
-                            fontFeatures: moneyFigures,
+                    const SizedBox(width: 12),
+                    Flexible(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            gst.salesCount == 1
+                                ? '1 sale'
+                                : '${gst.salesCount} sales',
+                            textAlign: TextAlign.end,
+                            style: text.bodySmall?.copyWith(
+                              fontFeatures: moneyFigures,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          'Credit on purchases ${rupees(gst.inputCredit.total)}',
-                          style: text.bodySmall?.copyWith(
-                            fontFeatures: moneyFigures,
+                          const SizedBox(height: 2),
+                          Text(
+                            'Credit on purchases ${rupees(gst.inputCredit.total)}',
+                            textAlign: TextAlign.end,
+                            style: text.bodySmall?.copyWith(
+                              fontFeatures: moneyFigures,
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ],
                 ),
@@ -525,10 +532,18 @@ class _SummaryPanel extends StatelessWidget {
           const SizedBox(height: 10),
           Row(
             children: [
-              Expanded(child: Text('Owed to you', style: text.titleMedium)),
-              Text(
-                rupees(summary.owedToYou),
-                style: text.titleMedium?.copyWith(fontFeatures: moneyFigures),
+              Expanded(flex: 3, child: Text('Owed to you', style: text.titleMedium)),
+              const SizedBox(width: 12),
+              Expanded(
+                flex: 2,
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerRight,
+                  child: Text(
+                    rupees(summary.owedToYou),
+                    style: text.titleMedium?.copyWith(fontFeatures: moneyFigures),
+                  ),
+                ),
               ),
             ],
           ),
@@ -542,11 +557,20 @@ class _SummaryPanel extends StatelessWidget {
           Row(
             children: [
               Expanded(
+                flex: 3,
                 child: Text('You owe suppliers', style: text.titleMedium),
               ),
-              Text(
-                rupees(summary.owedBySuppliers),
-                style: text.titleMedium?.copyWith(fontFeatures: moneyFigures),
+              const SizedBox(width: 12),
+              Expanded(
+                flex: 2,
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerRight,
+                  child: Text(
+                    rupees(summary.owedBySuppliers),
+                    style: text.titleMedium?.copyWith(fontFeatures: moneyFigures),
+                  ),
+                ),
               ),
             ],
           ),
@@ -559,6 +583,54 @@ class _SummaryPanel extends StatelessWidget {
             style: text.bodySmall?.copyWith(fontFeatures: moneyFigures),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _AskBar extends StatefulWidget {
+  const _AskBar({required this.onSubmit});
+
+  final ValueChanged<String> onSubmit;
+
+  @override
+  State<_AskBar> createState() => _AskBarState();
+}
+
+class _AskBarState extends State<_AskBar> {
+  final _text = TextEditingController();
+
+  @override
+  void dispose() {
+    _text.dispose();
+    super.dispose();
+  }
+
+  void _send() {
+    final message = _text.text.trim();
+    if (message.isEmpty) return;
+    _text.clear();
+    FocusScope.of(context).unfocus();
+    widget.onSubmit(message);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      controller: _text,
+      textInputAction: TextInputAction.send,
+      onSubmitted: (_) => _send(),
+      decoration: InputDecoration(
+        hintText: 'Tell or ask MyCA anything',
+        prefixIcon: const Padding(
+          padding: EdgeInsets.all(12),
+          child: MarkIcon(mark: Mark.ask, size: 20, color: Palette.muted),
+        ),
+        suffixIcon: IconButton(
+          tooltip: 'Send',
+          icon: const Icon(Icons.arrow_upward, size: 20),
+          onPressed: _send,
+        ),
       ),
     );
   }

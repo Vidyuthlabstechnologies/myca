@@ -67,7 +67,7 @@ class _RecordFilingScreenState extends State<RecordFilingScreen>
     final filedOn = isoDate(_filedOn ?? AppScope.of(context).now());
     setState(() => _error = '');
     await propose(
-      '${chosen.label} for ${chosen.period} filed on $filedOn, ARN $arn',
+      '${chosen.label} for ${monthLabel(chosen.period)} filed on ${longDate(filedOn)}, ARN $arn',
       'record_filing',
       {
         'returnType': chosen.returnType,
@@ -107,7 +107,7 @@ class _RecordFilingScreenState extends State<RecordFilingScreen>
                         DropdownMenuItem(
                           value: item,
                           child: Text(
-                            '${item.label} for ${item.period} · due ${longDate(item.dueDate)}',
+                            '${item.label} for ${monthLabel(item.period)} · due ${longDate(item.dueDate)}',
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),

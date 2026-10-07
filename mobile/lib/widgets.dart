@@ -267,8 +267,10 @@ class Bubble extends StatelessWidget {
               if (label != null || stamp != null)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 5),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
+                  child: Wrap(
+                    spacing: 12,
+                    runSpacing: 4,
+                    crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       if (label != null)
                         Text(
@@ -280,8 +282,6 @@ class Bubble extends StatelessWidget {
                             letterSpacing: 0.8,
                           ),
                         ),
-                      if (label != null && stamp != null)
-                        const SizedBox(width: 12),
                       if (stamp != null)
                         StatusTag(text: stamp!, color: stampColor),
                     ],

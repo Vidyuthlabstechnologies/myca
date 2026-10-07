@@ -371,13 +371,16 @@ class _InvoiceBody extends StatelessWidget {
                     ],
                   ),
                 ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text('DATED', style: text.labelSmall),
-                    const SizedBox(height: 2),
-                    Text(longDate(doc.date), style: text.bodyMedium),
-                  ],
+                const SizedBox(width: 12),
+                Flexible(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text('DATED', style: text.labelSmall),
+                      const SizedBox(height: 2),
+                      Text(longDate(doc.date), textAlign: TextAlign.end, style: text.bodyMedium),
+                    ],
+                  ),
                 ),
               ],
             ),

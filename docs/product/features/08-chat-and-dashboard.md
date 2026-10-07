@@ -55,6 +55,22 @@ the hosted API (`propose`, `confirm`, `discard`).
 - The model sees only what the task needs. Which model, and where it runs, is PRD
   question Q3.
 
+### Home layout (revised 2026-10-07)
+
+- Chat comes first: a "Tell or ask MyCA anything" bar under the business name opens
+  Ask with the message already sent. Ask's starting suggestions are owner questions
+  (who owes me, who do I owe, cash forecast, reminders, deadlines). "What is my GST
+  payable" was removed: it answered with output tax less input credit, an amount to pay
+  the product deliberately does not show until set-off is built.
+- Below the taxes card and the month's figures, two groups: Your books (sales,
+  purchases, expenses, employees) and Money and follow-up (cash, your CA, reminders,
+  books check). Employees has its own mark.
+- Dates the app writes itself read as words ("20 October 2026", "August 2026"), not
+  ISO dates.
+- Everything on Home, Taxes, the registers, a customer chat, an invoice and the entry
+  sheets fits at 1.5x and 2x text size on a phone-width screen; `test/large_text_test.dart`
+  fails on any overflow.
+
 ### Dashboard (built 2026-10-06, except payroll)
 
 - Home shows this month against last month for sales (net of credit notes), purchases
