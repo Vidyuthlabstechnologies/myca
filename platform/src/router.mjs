@@ -9,6 +9,7 @@ function money(n) {
 }
 
 function fmtToolResult(name, result) {
+  if (result?.error === 'SALARIES_PRIVATE') return 'Only the owner can see or change employees and salaries.';
   if (!result || result.ok === false) return `Tool ${name} failed: ${result?.error || JSON.stringify(result)}`;
   const d = result.data ?? result.invoice ?? result;
   if (name === 'create_invoice' && result.invoice) {
@@ -101,6 +102,22 @@ function fmtToolResult(name, result) {
     const n = result.creditNote;
     const head = n.cancels ? `Cancelled ${n.invoiceId} with credit note ${n.id}` : `Credit note ${n.id} for ${money(n.total)} against ${n.invoiceId}`;
     return `${head} (${n.partyName}, ${n.date}).${result.refundDue > 0 ? ` ${money(result.refundDue)} was already received and is now due back to ${n.partyName}.` : ''}`;
+  }
+  if (name === 'add_employee' && result.employee) {
+    const e = result.employee;
+    return `Added ${e.name} as ${e.id}, at ${money(e.salary[0].monthly)} a month from ${e.joinedOn}. No payroll has been run.`;
+  }
+  if (name === 'change_salary' && result.salary) {
+    return `${result.employee.name} is at ${money(result.salary.monthly)} a month from ${result.salary.from}.`;
+  }
+  if (name === 'end_employment' && result.employee) {
+    return `Recorded that ${result.employee.name} left on ${result.employee.leftOn}.`;
+  }
+  if (name === 'list_employees' && result.data) {
+    const rows = result.data.employees;
+    return rows.length
+      ? `${rows.length === 1 ? '1 employee' : `${rows.length} employees`}, ${money(result.data.monthlyTotal)} a month before deductions:\n${rows.map((e) => `· ${e.id} ${e.name}${e.designation ? `, ${e.designation}` : ''}: ${money(e.monthly)}`).join('\n')}`
+      : 'No employees yet. Say, for example, "add employee Ravi Kumar joined 2026-09-01 salary 25000".';
   }
   if (name === 'record_supplier_reminder' && result.reminder) {
     const r = result.reminder;

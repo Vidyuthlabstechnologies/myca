@@ -53,15 +53,15 @@ Read [`docs/product/PRD.md`](../product/PRD.md) for requirements,
 
 ## 3. Where it stands (6 October 2026)
 
-About **55% of the PRD** is built. See [`docs/superpowers/PROGRESS.md`](../superpowers/PROGRESS.md)
-for the weighted breakdown. There are **1,096 automated tests**:
+About **57% of the PRD** is built. See [`docs/superpowers/PROGRESS.md`](../superpowers/PROGRESS.md)
+for the weighted breakdown. There are **1,108 automated tests**:
 
 | Suite | Tests |
 |---|---|
-| Platform | 571 |
+| Platform | 579 |
 | Engines and statutory rules | 329 |
-| Hosted API | 76 |
-| Android app | 120 |
+| Hosted API | 77 |
+| Android app | 123 |
 
 **Built and tested**
 

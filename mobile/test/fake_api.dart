@@ -164,6 +164,30 @@ class FakeMycaApi implements MycaApi {
   ];
   final filings = <Map<String, Object?>>[];
   final supplierReminders = <Map<String, Object?>>[];
+  final employees = <Map<String, Object?>>[
+    {
+      'id': 'EMP-0001',
+      'name': 'Ravi Kumar',
+      'designation': 'Store manager',
+      'joinedOn': '2026-09-01',
+      'leftOn': '',
+      'monthly': 25000,
+      'active': true,
+      'pfMember': true,
+      'esiMember': false,
+      'taxRegime': 'new',
+      'salary': [
+        {
+          'from': '2026-09-01',
+          'monthly': 25000,
+          'components': [
+            {'name': 'Basic', 'amount': 15000},
+            {'name': 'HRA', 'amount': 10000},
+          ],
+        },
+      ],
+    },
+  ];
   final caRequests = <Map<String, Object?>>[
     {
       'id': 'ASK-0001',
@@ -389,6 +413,15 @@ class FakeMycaApi implements MycaApi {
         'From quote ${args['id']}: Invoice to Gujarat Weaves, total ₹59,000.00.',
       );
     }
+    if (name == 'add_employee') {
+      return _preview('Add ${args['name']}, joined ${args['joinedOn']}, at ₹21,000.00 a month.');
+    }
+    if (name == 'change_salary') {
+      return _preview('Ravi Kumar: ₹30,000.00 a month from ${args['effectiveFrom']}, was ₹25,000.00.');
+    }
+    if (name == 'end_employment') {
+      return _preview('Ravi Kumar left; last day ${args['leftOn']}.');
+    }
     if (name == 'record_supplier_reminder') {
       return _preview('Send a reminder to Gujarat Mills about 1 bill for ${args['period']}, with ₹3,600.00 of your input credit waiting on them.');
     }
@@ -551,6 +584,32 @@ class FakeMycaApi implements MycaApi {
           'posted': true,
           'confirmed': true,
         });
+      }
+      if (held.tool == 'add_employee') {
+        final parts = (held.args['components'] as List).cast<Map<String, Object?>>();
+        final monthly = parts.fold<num>(0, (sum, p) => sum + (p['amount'] as num));
+        employees.add({
+          'id': 'EMP-0002',
+          'name': held.args['name'],
+          'designation': held.args['designation'] ?? '',
+          'joinedOn': held.args['joinedOn'],
+          'leftOn': '',
+          'monthly': monthly,
+          'active': true,
+          'pfMember': held.args['pfMember'] == true,
+          'esiMember': held.args['esiMember'] == true,
+          'taxRegime': '',
+          'salary': [
+            {'from': held.args['joinedOn'], 'monthly': monthly, 'components': parts},
+          ],
+        });
+        return ChatReply.fromJson({'reply': 'Added ${held.args['name']} as EMP-0002. No payroll has been run.', 'posted': true, 'confirmed': true});
+      }
+      if (held.tool == 'end_employment') {
+        final e = employees.firstWhere((e) => e['id'] == held.args['id']);
+        e['leftOn'] = held.args['leftOn'];
+        e['active'] = false;
+        return ChatReply.fromJson({'reply': 'Recorded that ${e['name']} left on ${held.args['leftOn']}.', 'posted': true, 'confirmed': true});
       }
       if (held.tool == 'record_supplier_reminder') {
         supplierReminders.add(held.args);
@@ -1207,6 +1266,16 @@ class FakeMycaApi implements MycaApi {
             'fp': args['fp'],
             'version': 'GST3.1.6',
             'b2b': const <Object?>[],
+          },
+        };
+      case 'list_employees':
+        final active = employees.where((e) => e['active'] == true);
+        return {
+          'ok': true,
+          'data': {
+            'employees': employees,
+            'monthlyTotal': active.fold<num>(0, (sum, e) => sum + (e['monthly'] as num)),
+            'note': 'Monthly pay before any deduction. Provident fund, state insurance, professional tax and TDS are not worked out yet.',
           },
         };
       case 'supplier_reminder_draft':

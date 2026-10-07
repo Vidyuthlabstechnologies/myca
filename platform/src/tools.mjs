@@ -20,6 +20,7 @@ import { booksCheck } from './books-check.mjs';
 import { deadlineRun, filingRows } from './deadline-run.mjs';
 import { listFilings, recordFiling } from './filings.mjs';
 import { draftSupplierReminder, recordSupplierReminder } from './supplier-reminders.mjs';
+import { addEmployee, changeSalary, endEmployment, listEmployees } from './employees.mjs';
 import { addReminder, completeReminder, listReminders } from './reminders.mjs';
 import { cashForecast, canAfford, setCashBalance } from './cash-forecast.mjs';
 import { setPaymentTerms } from './payment-terms.mjs';
@@ -1351,6 +1352,34 @@ export const TOOLS = [
       const run = deadlineRun(state, { asOfDate, months: args.months, holidaysText: args.holidaysText || '' });
       return ok({ asOfDate, ...run });
     },
+  },
+  {
+    name: 'list_employees',
+    title: 'Employees',
+    description: 'Employees with their monthly pay as it stands today, before any deduction. Owner only. Read-only.',
+    args: ['include'],
+    run: (state, args = {}) => listEmployees(state, args),
+  },
+  {
+    name: 'add_employee',
+    title: 'Add an employee',
+    description: 'Add an employee with a joining date and a monthly salary in parts (for example Basic, HRA). Records only; no payroll is run and no deduction is worked out. Owner only.',
+    args: ['name', 'joinedOn', 'components', 'designation', 'pan', 'uan', 'pfMember', 'esiMember', 'ptState', 'taxRegime'],
+    run: (state, args = {}) => addEmployee(state, args),
+  },
+  {
+    name: 'change_salary',
+    title: 'Change a salary',
+    description: 'Set an employee\'s monthly salary from a date. Earlier months keep the salary they had. Owner only.',
+    args: ['id', 'effectiveFrom', 'components'],
+    run: (state, args = {}) => changeSalary(state, args),
+  },
+  {
+    name: 'end_employment',
+    title: 'Employee left',
+    description: 'Record the last day of an employee. Their record and salary history are kept. Owner only.',
+    args: ['id', 'leftOn'],
+    run: (state, args = {}) => endEmployment(state, args),
   },
   {
     name: 'supplier_reminder_draft',

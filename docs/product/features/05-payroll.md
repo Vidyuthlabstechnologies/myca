@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Requirements | FR-PAY-1 to 4 in the [product PRD](../PRD.md) |
-| Status | Not built. This is the largest gap against the PRD. |
+| Status | Employee records built (2026-10-07). The monthly run, payslips, postings and statutory files are not built; they wait for payroll rules signed off by the advisor CA. |
 | Code | None yet. Proposed: `platform/src/payroll.mjs`, payroll rules in `sprints/statutory-rules` |
 
 ## What the owner experiences
@@ -32,6 +32,24 @@ The owner's PRD describes this as payroll "like Razorpay X", inside the same pro
 
 Step 1 gives the owner the main value without the product touching money. Step 3 is a
 partnership and compliance project more than an engineering one.
+
+## Employee records (built 2026-10-07)
+
+- `employees.mjs`: an employee has a name, joining date, designation, PAN and UAN if
+  given, whether they are in provident fund and state insurance, the professional tax
+  state, and the tax regime they chose (left blank until stated; never assumed).
+- Salary is a dated history of monthly structures in parts (Basic, HRA, any others).
+  A change applies from a date; earlier months keep the salary they had, so a later
+  payroll run for any month uses the structure in force then. `salaryOn(employee, date)`.
+- Leaving records the last day and keeps the record and history.
+- Nothing is posted to the books and no deduction is worked out; every screen and reply
+  says so. No bank details are kept until payouts exist.
+- Only the owner can see or change employees (`SALARIES_PRIVATE` for staff and
+  accountants, through the API as well as the engine). Whether an owner can grant a CA
+  access is still open.
+- Tools: `add_employee`, `change_salary`, `end_employment` (previewed, proposable from
+  the phone), `list_employees` (read). Chat: "add employee Ravi Kumar as store manager,
+  joined 2026-09-01, salary 25000", "my employees". App: Employees on Home.
 
 ## Behaviour (step 1)
 
