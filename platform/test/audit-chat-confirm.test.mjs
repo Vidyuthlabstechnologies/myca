@@ -92,7 +92,7 @@ test('H10: "no" discards, and a later "yes" posts nothing', async () => {
   const state = createState();
   await chat(state, SALE);
   const dropped = await chat(state, 'no');
-  assert.match(dropped.reply, /^Discarded/);
+  assert.match(dropped.reply, /^Not posted: /);
   assert.equal(state.pendingChatAction, null);
   const stray = await chat(state, 'yes');
   assert.match(stray.reply, /nothing waiting/i);

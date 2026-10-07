@@ -1,5 +1,6 @@
 import { trialBalance, verifyChain } from './ledger.mjs';
 import { periodsWithDocuments } from './return-period.mjs';
+import { inWords } from './words.mjs';
 import { periodSummary } from './period-summary.mjs';
 import { creditAtRisk, supplierNumberOf } from './gstr2b-check.mjs';
 import { businessSummary } from './business-summary.mjs';
@@ -189,6 +190,10 @@ export function booksCheck(state, { deadlines = [], exceptions = [], asOfDate })
     otherExceptions(exceptions),
   ].filter(Boolean);
   findings.sort((a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity]);
+  for (const item of findings) {
+    item.title = inWords(item.title);
+    item.detail = inWords(item.detail);
+  }
   const count = (severity) => findings.filter((item) => item.severity === severity).length;
   const act = count('act');
   const check = count('check');

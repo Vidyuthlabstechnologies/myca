@@ -70,7 +70,7 @@ test('discardPending drops a preview and says so when there is none', () => {
   assert.match(discardPending(state).reply, /nothing waiting/);
   propose(state, 'create_invoice', SALE);
   const out = discardPending(state);
-  assert.match(out.reply, /^Discarded: Invoice to Kiran Stores/);
+  assert.match(out.reply, /^Not posted: Invoice to Kiran Stores/);
   assert.equal(state.pendingChatAction, null);
 });
 

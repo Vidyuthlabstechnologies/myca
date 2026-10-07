@@ -145,7 +145,7 @@ test('chat: "review GST for September" asks "Is this information correct?", yes 
 test('chat: "no" discards and records nothing; an empty month says there is nothing to review', async () => {
   const state = books();
   await chat(state, 'review GST 2026-09');
-  assert.match((await chat(state, 'no')).reply, /Discarded|discarded|Nothing/);
+  assert.match((await chat(state, 'no')).reply, /Not posted|Nothing/);
   assert.deepEqual(state.gstReviews, {});
   assert.match((await chat(state, 'review gst for march')).reply, /nothing to review/);
 });

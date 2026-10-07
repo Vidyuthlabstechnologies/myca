@@ -12,6 +12,7 @@ import { createCrashReports } from './crash-reports.mjs';
 import { PRIVACY_NOTICE, consentExempt, createConsent } from './consent.mjs';
 import { createGoogleKeys, createGoogleVerifier } from './google.mjs';
 import { CA_SYNC_MODES, syncOf } from './ca-sync.mjs';
+import { inWords } from '../../platform/src/words.mjs';
 
 const MAX_BODY_BYTES = 1024 * 1024;
 export const MAX_UPLOAD_BYTES = 8 * 1024 * 1024;
@@ -249,7 +250,7 @@ export function createApi({ db, secret, otpSender = null, googleClientIds = [], 
           return runner.withSharedBooks(businessId, context, async (session, { asOf }) => {
             const out = await session.chat(message, actor);
             if (!out.preview && !out.awaitingConfirmation) return out;
-            return { reply: `These books are shared with you as they stood on ${new Date(asOf.getTime() + 330 * 60 * 1000).toISOString().slice(0, 10)}, so nothing can be posted from here. Ask the owner to make the change, or to share the books again.`, tools: [] };
+            return { reply: `These books are shared with you as they stood on ${inWords(new Date(asOf.getTime() + 330 * 60 * 1000).toISOString().slice(0, 10))}, so nothing can be posted from here. Ask the owner to make the change, or to share the books again.`, tools: [] };
           });
         }
         throw httpError(403, 'SHARED_VIEW_READ_ONLY', { sharedAsOf: sync.asOf });

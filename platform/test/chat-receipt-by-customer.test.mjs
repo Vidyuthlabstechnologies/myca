@@ -49,8 +49,8 @@ test('a customer with several unpaid invoices is asked which one, and nothing is
   const out = await chat(state, 'received 5000 from Gujarat Weaves');
   assert.equal(out.awaitingConfirmation, undefined);
   assert.match(out.reply, /Gujarat Weaves has 2 unpaid invoices/);
-  assert.match(out.reply, /INV-0002 of 2026-08-05, ₹21,000\.00 outstanding/);
-  assert.match(out.reply, /INV-0003 of 2026-08-09, ₹4,200\.00 outstanding/);
+  assert.match(out.reply, /INV-0002 of 5 August 2026, ₹21,000\.00 outstanding/);
+  assert.match(out.reply, /INV-0003 of 9 August 2026, ₹4,200\.00 outstanding/);
   assert.match(out.reply, /received 5000 against INV-0002/);
   assert.equal(state.pendingChatAction, null);
   assert.deepEqual(receiptsOf(state, 'INV-0002'), []);

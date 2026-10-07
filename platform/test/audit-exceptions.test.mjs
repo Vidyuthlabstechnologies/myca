@@ -87,7 +87,7 @@ test('queue: reconciliation findings arrive with the rule that produced them and
   assert.match(blocked.why, /16\(2\)\(aa\)/);
   assert.equal(reversal.moneyAtRisk, 12000);
   assert.deepEqual(reversal.ruleIds, ['gst.rule37a.deadlines@2026-09-30']);
-  assert.match(reversal.title, /by 2026-11-30/);
+  assert.match(reversal.title, /by 30 November 2026/);
   assert.equal(summarise(rows).moneyAtRisk, 14400);
 });
 

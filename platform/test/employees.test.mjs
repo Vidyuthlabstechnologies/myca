@@ -104,8 +104,8 @@ test('chat adds an employee after a preview and lists them; records survive savi
   const state = createState();
   const held = await chat(state, 'add employee Ravi Kumar as store manager, joined 2026-09-01, salary 25,000');
   assert.equal(held.preview?.tool, 'add_employee', held.reply);
-  assert.match(held.preview.summary, /^Add Ravi Kumar, store manager, joined 2026-09-01, at ₹25,000/);
-  assert.equal((await chat(state, 'yes')).reply, 'Added Ravi Kumar as EMP-0001, at ₹25,000.00 a month from 2026-09-01. No payroll has been run.');
+  assert.match(held.preview.summary, /^Add Ravi Kumar, store manager, joined 1 September 2026, at ₹25,000/);
+  assert.equal((await chat(state, 'yes')).reply, 'Added Ravi Kumar as EMP-0001, at ₹25,000.00 a month from 1 September 2026. No payroll has been run.');
   assert.match((await chat(state, 'my employees')).reply, /^1 employee, ₹25,000\.00 a month before deductions:\n· EMP-0001 Ravi Kumar, store manager: ₹25,000\.00$/);
   assert.match((await chat(state, 'add employee Meena')).reply, /^To add an employee, say their name, the day they joined and the monthly salary/);
   assert.deepEqual(deserialize(serialize(state)).employees, state.employees);

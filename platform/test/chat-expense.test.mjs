@@ -32,7 +32,7 @@ test('"paid 12000 rent" previews under Rent and posts only on yes', async () => 
   const out = await chat(state, 'paid 12000 rent');
   assert.equal(out.posted, false);
   assert.equal(out.awaitingConfirmation, true, JSON.stringify(out));
-  assert.match(out.preview.summary, /^Rent: rent ₹12,000\.00 paid from bank on \d{4}-\d{2}-\d{2}\. No GST separated\./);
+  assert.match(out.preview.summary, /^Rent: rent ₹12,000\.00 paid from bank on \d{1,2} [A-Z][a-z]+ \d{4}\. No GST separated\./);
   assert.equal(out.preview.figures.head, '5110');
   assert.equal((state.expenses || []).length, 0);
   const posted = await chat(state, 'yes');

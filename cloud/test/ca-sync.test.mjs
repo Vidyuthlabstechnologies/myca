@@ -71,7 +71,7 @@ test('in a shared view the accountant can read and ask, but not post', async () 
   const asked = await api.call('POST', at(b, 'ask'), { token: b.ca.token, body: { message: 'who owes me?' } });
   assert.match(asked.body.reply, /Kiran Stores owes you|Customers owe you/);
   const write = await api.call('POST', at(b, 'ask'), { token: b.ca.token, body: { message: 'invoice Kiran Stores 5000 GST 18%' } });
-  assert.match(write.body.reply, /^These books are shared with you as they stood on \d{4}-\d{2}-\d{2}, so nothing can be posted from here\./);
+  assert.match(write.body.reply, /^These books are shared with you as they stood on \d{1,2} [A-Z][a-z]+ \d{4}, so nothing can be posted from here\./);
   const audit = await api.db.query("select count(*)::int as n from audit_log where business_id = $1 and user_id is not null and action <> ''", [b.id]);
   assert.ok(audit.rows[0].n > 0, 'shared reads are still audited');
 });

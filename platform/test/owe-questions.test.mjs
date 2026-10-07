@@ -18,7 +18,7 @@ test('what a customer owes is answered from the books, and nothing is recorded',
   const state = books();
   for (const text of ['how much does Kiran Stores owe?', 'what does Kiran Stores owe me', 'Kiran Stores outstanding?']) {
     const out = await chat(state, text);
-    assert.equal(out.reply, 'Kiran Stores owes you ₹39,000.00: INV-0001 of 2026-09-01, ₹39,000.00. Nothing was recorded.', text);
+    assert.equal(out.reply, 'Kiran Stores owes you ₹39,000.00: INV-0001 of 1 September 2026, ₹39,000.00. Nothing was recorded.', text);
     assert.equal(out.awaitingConfirmation, undefined, text);
   }
   assert.equal((await chat(state, 'who owes me?')).reply, 'Customers owe you ₹40,180.00 in all: Kiran Stores ₹39,000.00, Retail Mart ₹1,180.00. Nothing was recorded.');
@@ -26,7 +26,7 @@ test('what a customer owes is answered from the books, and nothing is recorded',
 
 test('what you owe a supplier is answered from the bills, net of payments', async () => {
   const state = books();
-  assert.equal((await chat(state, 'how much do I owe Fabric Co?')).reply, 'You owe Fabric Co ₹6,500.00: BILL-0001 (their FC-881) of 2026-09-02, ₹6,500.00. Nothing was recorded.');
+  assert.equal((await chat(state, 'how much do I owe Fabric Co?')).reply, 'You owe Fabric Co ₹6,500.00: BILL-0001 (their FC-881) of 2 September 2026, ₹6,500.00. Nothing was recorded.');
   assert.equal((await chat(state, 'who do I owe?')).reply, 'You owe suppliers ₹6,500.00 in all: Fabric Co ₹6,500.00. Nothing was recorded.');
   assert.equal(state.purchases[0].payments.length, 1);
 });

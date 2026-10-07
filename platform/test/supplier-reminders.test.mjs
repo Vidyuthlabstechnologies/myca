@@ -73,10 +73,10 @@ test('sending is previewed, recorded with the message as sent, and offered again
   const state = await books();
   const edited = 'Hi Dye Works team, please upload DW-3 and DW-4 for September. Thanks, Asha';
   const held = propose(state, 'record_supplier_reminder', { supplier: 'Dye Works', period: '2026-09', message: edited, channel: 'whatsapp' });
-  assert.match(held.preview.summary, /^Send a reminder to Dye Works about 2 bills for 2026-09, with ₹540\.00 of your input credit waiting on them\.$/);
+  assert.match(held.preview.summary, /^Send a reminder to Dye Works about 2 bills for September 2026, with ₹540\.00 of your input credit waiting on them\.$/);
   assert.equal((state.supplierReminders || []).length, 0, 'nothing before yes');
   const done = await confirmPending(state, held.preview.token);
-  assert.equal(done.reply, 'Reminder SRM-0001 to Dye Works for 2026-09 is ready to send from your phone. Nothing has gone from MyCA.');
+  assert.equal(done.reply, 'Reminder SRM-0001 to Dye Works for September 2026 is ready to send from your phone. Nothing has gone from MyCA.');
   const [sent] = state.supplierReminders;
   assert.equal(sent.message, edited);
   assert.equal(sent.edited, true);

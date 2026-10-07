@@ -3,18 +3,39 @@ import { planLocalToolCall, validateAssistantToolCall } from './assistant-contra
 import { needsConfirmation, previewOf, openPending, takePending, clearPending, previewReply, blockedReply } from './chat-confirm.mjs';
 import { liveCallsEnabled, mockModeEnabled } from './runtime-config.mjs';
 import { referenceImportContent, resolveImportContent } from './import-documents.mjs';
+import { spoken } from './words.mjs';
 
 function money(n) {
   return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 }).format(Number(n) || 0);
 }
 
+const FAILURES = {
+  PERIOD_LOCKED: (r) => `That date is in a period that is closed${r.lockThrough ? ` (up to ${r.lockThrough})` : ''}, so nothing was changed.`,
+  INVALID_DATE: () => 'That is not a date I can read, so nothing was changed.',
+  DUPLICATE_ID: (r) => `${r.id || 'That number'} is already used in these books, so nothing was changed.`,
+  INVOICE_NOT_FOUND: () => 'That invoice is not in these books, so nothing was changed.',
+  BILL_NOT_FOUND: () => 'That bill is not in these books, so nothing was changed.',
+  BAD_AMOUNT: () => 'That amount does not work here, so nothing was changed.',
+  OVERPAYMENT: (r) => `That is more than is owed${r.due != null ? ` (${money(r.due)})` : ''}, so nothing was changed.`,
+  RATE_REQUIRED: () => 'A GST rate is needed for each item; MyCA does not assume one. Nothing was changed.',
+  NO_LINES: () => 'There is nothing to put on it, so nothing was changed.',
+  ZERO_AMOUNT: () => 'It comes to nothing, so nothing was changed.',
+  INSUFFICIENT_CASH: (r) => `There is not that much cash in hand${r.inHand != null ? ` (${money(r.inHand)})` : ''}. Nothing was changed.`,
+};
+
+function failedInWords(code, result = {}) {
+  const plain = FAILURES[code];
+  if (plain) return plain(result || {});
+  return `That did not go through${code ? ` (${code})` : ''}, so nothing was changed.`;
+}
+
 function fmtToolResult(name, result) {
   if (result?.error === 'SALARIES_PRIVATE') return 'Only the owner can see or change employees and salaries.';
-  if (!result || result.ok === false) return `Tool ${name} failed: ${result?.error || JSON.stringify(result)}`;
+  if (!result || result.ok === false) return failedInWords(result?.error, result);
   const d = result.data ?? result.invoice ?? result;
   if (name === 'create_invoice' && result.invoice) {
     const i = result.invoice;
-    return `Posted ${i.id} to ${i.partyName} on ${i.date} for ${money(i.total)} (taxable ${money(i.taxable)}, GST ${money(i.cgst + i.sgst + i.igst)}). Books updated from the invoice.`;
+    return `Posted ${i.id} to ${i.partyName} on ${i.date} for ${money(i.total)} (${money(i.taxable)} plus ${money(i.cgst + i.sgst + i.igst)} GST).`;
   }
   if (name === 'can_afford' && result.data) {
     const d = result.data;
@@ -141,7 +162,7 @@ function fmtToolResult(name, result) {
   }
   if (name === 'create_purchase' && result.invoice) {
     const i = result.invoice;
-    return `Booked ${i.id} from ${i.partyName} for ${money(i.total)}. ITC ${money(i.cgst + i.sgst + i.igst)} posted to GST input. It will appear in the folio as a bill.`;
+    return `Booked ${i.id} from ${i.partyName} for ${money(i.total)}${i.itcEligible === false ? '. The GST on it cannot be claimed, so it is part of the cost.' : `, with ${money(i.cgst + i.sgst + i.igst)} of GST counted as input credit.`}`;
   }
   if (name === 'filing_pack') {
     return `Filing pack ${d.period || ''} for ${d.gstin}. GSTR-1 taxable ${money(d.gstr1?.totalTaxable)}. GST payable ${money(d.payable)}. ${d.caveat}`;
@@ -355,7 +376,7 @@ function holdForConfirmation(state, plan) {
   const resolved = resolveImportContent(state, plan.name, plan.args);
   if (!resolved.ok) return unreadableFile(resolved.error);
   const schemaCheck = validateAssistantToolCall(plan.name, resolved.args);
-  if (!schemaCheck.ok) return { reply: `Tool ${plan.name} blocked: ${schemaCheck.error}`, tools: [], blocked: true };
+  if (!schemaCheck.ok) return { reply: `I could not take that as it is (${schemaCheck.error}), so nothing was changed.`, tools: [], blocked: true };
   const preview = previewOf(state, plan.name, resolved.args);
   if (preview.blockers.length) {
     clearPending(state);
@@ -373,7 +394,7 @@ function holdForConfirmation(state, plan) {
 
 // A form on the phone already knows the tool and its arguments, so it skips the
 // text parser but not the preview: the same token must come back before anything posts.
-export function propose(state, name, args = {}) {
+function proposeCore(state, name, args = {}) {
   if (!needsConfirmation(name)) {
     return { reply: `${String(name)} is not an action that is previewed.`, tools: [], posted: false, blocked: true, error: 'NOT_PROPOSABLE' };
   }
@@ -397,7 +418,7 @@ async function runConfirmation(state, decision) {
   const resolved = resolveImportContent(state, pending.name, pending.args);
   if (!resolved.ok) return unreadableFile(resolved.error);
   const recheck = validateAssistantToolCall(pending.name, resolved.args);
-  if (!recheck.ok) return { reply: `Tool ${pending.name} blocked: ${recheck.error}`, tools: [], blocked: true };
+  if (!recheck.ok) return { reply: `I could not take that as it is (${recheck.error}), so nothing was changed.`, tools: [], blocked: true };
   const result = await runPlanned(state, pending.name, resolved.args, pending.clearsPendingFile);
   const out = { reply: fmtToolResult(pending.name, result), tools: [{ name: pending.name, result }], posted: result.ok !== false, confirmed: true };
   state.lastConfirmation = { token: pending.token, tool: pending.name, reply: out.reply, posted: out.posted };
@@ -406,7 +427,7 @@ async function runConfirmation(state, decision) {
 
 // A phone on a poor connection will send the same confirmation twice. The second
 // one must report what the first one did, not post again and not look like a failure.
-export async function confirmPending(state, token) {
+async function confirmCore(state, token) {
   const code = String(token == null ? '' : token).trim().toLowerCase();
   if (!CONFIRM_TOKEN.test(code)) {
     return { reply: 'A confirmation needs the code from its preview.', tools: [], posted: false, error: 'TOKEN_REQUIRED' };
@@ -418,25 +439,25 @@ export async function confirmPending(state, token) {
   return runConfirmation(state, { token: code });
 }
 
-export function discardPending(state) {
+function discardCore(state) {
   const pending = state.pendingChatAction;
   if (!pending) return { reply: NOTHING_PENDING, tools: [], posted: false };
   clearPending(state);
-  return { reply: `Discarded: ${pending.summary || 'nothing was posted'}`, tools: [], posted: false };
+  return { reply: `Not posted: ${pending.summary || 'nothing was waiting'}`, tools: [], posted: false };
 }
 
-export async function chat(state, message) {
+async function chatCore(state, message) {
   const plan = planLocalToolCall(state, message);
   if (plan.kind === 'reply') return { reply: plan.reply, tools: plan.tools || [], blocked: plan.blocked || false };
 
-  if (plan.kind === 'cancel') return discardPending(state);
+  if (plan.kind === 'cancel') return discardCore(state);
 
   if (plan.kind === 'confirm') return runConfirmation(state, plan.decision);
 
   if (needsConfirmation(plan.name)) return holdForConfirmation(state, plan);
 
   const valid = validateAssistantToolCall(plan.name, plan.args);
-  if (!valid.ok) return { reply: `Tool ${plan.name} blocked: ${valid.error}`, tools: [], blocked: true };
+  if (!valid.ok) return { reply: `I could not take that as it is (${valid.error}), so nothing was changed.`, tools: [], blocked: true };
 
   const runArgs = plan.name === 'sandbox_operation' ? { ...plan.args, actorId: 'assistant' } : plan.args;
   const result = await runTool(state, plan.name, runArgs);
@@ -463,6 +484,22 @@ export async function chat(state, message) {
     };
   }
   return { reply: fmtToolResult(plan.name, result), tools: [{ name: plan.name, result }] };
+}
+
+export function propose(state, name, args = {}) {
+  return spoken(proposeCore(state, name, args));
+}
+
+export async function confirmPending(state, token) {
+  return spoken(await confirmCore(state, token));
+}
+
+export function discardPending(state) {
+  return spoken(discardCore(state));
+}
+
+export async function chat(state, message) {
+  return spoken(await chatCore(state, message));
 }
 
 export { fmtToolResult, TOOLS };

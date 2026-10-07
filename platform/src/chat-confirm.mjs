@@ -25,7 +25,7 @@ import { planFiling } from './filings.mjs';
 import { planSupplierReminder } from './supplier-reminders.mjs';
 import { planEmployee, planSalaryChange, planLeaving } from './employees.mjs';
 import { filingRows } from './deadline-run.mjs';
-import { tally, bank } from './sprint-load.mjs';
+import { tally, bank, gstin as gstinRules } from './sprint-load.mjs';
 import { parseZohoBooksCsv } from './import-zoho.mjs';
 import { tallyXmlToDayBookCsv } from './tally-xml.mjs';
 
@@ -87,11 +87,11 @@ function documentPreview(state, args, kind) {
   return {
     blockers,
     summary: sale
-      ? `Invoice to ${party}${args.partyGstin ? ` (${args.partyGstin})` : ''} dated ${date || '?'}: taxable ${money(taxable)}, ${heads}, total ${money(taxable + tax)}. Place of supply ${pos || '?'}.${due}`
+      ? `Invoice to ${party}${args.partyGstin ? ` (${args.partyGstin})` : ''} dated ${date || '?'}: taxable ${money(taxable)}, ${heads}, total ${money(taxable + tax)}. Place of supply ${gstinRules.STATE_CODES?.[pos] || pos || '?'}.${due}`
       : `Purchase bill from ${party}${args.partyGstin ? ` (${args.partyGstin})` : ''} dated ${date || '?'}: taxable ${money(taxable)}, ${heads}, total ${money(taxable + tax)}. Input credit ${args.itcEligible === false ? 'blocked (s.17(5)) and added to cost' : money(tax)}.`,
     effects: sale
-      ? ['Debit the customer account, credit sales and the GST output accounts.', 'The invoice becomes a row in GSTR-1 for its period.']
-      : ['Debit purchases and the GST input accounts, credit the supplier account.', 'The bill joins the purchase register for 2B matching.'],
+      ? [`${party} owes you ${money(taxable + tax)} more.`, `It goes into your GSTR-1${date ? ` for ${date.slice(0, 7)}` : ''}.`]
+      : [`You owe ${party} ${money(taxable + tax)} more.`, args.itcEligible === false ? 'The GST on it cannot be claimed, so it is part of the cost.' : 'It is checked against your GSTR-2B when you add one.'],
     figures: { date, taxable, tax, total: Math.round((taxable + tax) * 100) / 100, placeOfSupply: pos },
   };
 }
@@ -112,7 +112,7 @@ function receiptPreview(state, args) {
   return {
     blockers,
     summary: `Receipt of ${money(amount)} against ${inv.id} (${inv.partyName}) by ${args.mode === 'cash' ? 'cash' : 'bank'} on ${date || '?'}. Outstanding is ${money(due)} of ${money(inv.total)}.`,
-    effects: [`Debit ${args.mode === 'cash' ? 'cash' : 'bank'}, credit ${inv.partyName}.`, `${inv.id} becomes ${amount >= due - 0.01 ? 'paid' : 'partly paid'}.`],
+    effects: [`${money(amount)} goes into your ${args.mode === 'cash' ? 'cash' : 'bank'}.`, `${inv.id} becomes ${amount >= due - 0.01 ? 'paid' : 'partly paid'}.`],
     figures: { amount, due, date },
   };
 }
@@ -143,7 +143,7 @@ function paymentPreview(state, args) {
   return {
     blockers: [],
     summary: `Pay ${bill.partyName} ${money(amount)} against ${label} from ${mode === 'cash' ? 'cash' : 'the bank'} on ${date}. ${money(due)} is owed on ${money(bill.total)}.`,
-    effects: [`Debit ${bill.partyName}, credit ${mode === 'cash' ? 'cash' : 'bank'}.`, remaining > 0.005 ? `${bill.id} stays partly paid, with ${money(remaining)} still owed.` : `${bill.id} becomes paid.`],
+    effects: [`${money(amount)} goes out of your ${mode === 'cash' ? 'cash' : 'bank'}.`, remaining > 0.005 ? `${bill.id} stays partly paid, with ${money(remaining)} still owed.` : `${bill.id} becomes paid.`],
     figures: { amount, due, remaining, date },
   };
 }
@@ -285,7 +285,7 @@ function expensePreview(state, args) {
   return {
     blockers: [],
     summary: `${plan.tag.headName}: ${what} ${money(plan.amount)} paid from ${plan.mode} on ${plan.date}. ${plan.creditNote}`,
-    effects: [plan.tag.why, `Debit ${plan.tag.headName} ${money(plan.taxable)}${plan.inputCredit ? ' and GST input' : ''}, credit ${plan.mode}.`],
+    effects: [plan.tag.why, `${money(plan.amount)} goes out of your ${plan.mode === 'cash' ? 'cash' : 'bank'}${plan.inputCredit ? ', with the GST in it counted as input credit' : ''}.`],
     figures: { date: plan.date, head: plan.tag.head, headName: plan.tag.headName, tagSource: plan.tag.source, taxable: plan.taxable, gstRate: plan.gstRate, inputCredit: plan.inputCredit, amount: plan.amount, mode: plan.mode },
   };
 }
@@ -320,7 +320,7 @@ function creditNotePreview(state, args, cancel = false) {
   return {
     blockers: [],
     summary: `${what} dated ${plan.date}: taxable ${money(plan.taxable)}${heads ? `, ${heads}` : ''}. Reason: ${plan.reason}.${refund}`,
-    effects: ['Debit sales and the GST output accounts, credit the customer. The invoice stays in the journal; the note is reported in the GSTR-1 of its own month.'],
+    effects: ['The customer owes you that much less, or is owed it back if they have already paid.', 'The invoice stays as it was; the credit note goes into the GSTR-1 for its own month.'],
     figures: { invoiceId: plan.invoice.id, date: plan.date, taxable: plan.taxable, cgst: plan.cgst, sgst: plan.sgst, igst: plan.igst, total: plan.total, refundDue: plan.refundDue, cancels: cancel },
   };
 }
