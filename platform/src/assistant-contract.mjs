@@ -3,6 +3,7 @@ import { planExpenseFromChat } from './expense-intent.mjs';
 import { planPaymentFromChat } from './payment-intent.mjs';
 import { planOweQuestion } from './owe-intent.mjs';
 import { planFilingFromChat } from './filing-intent.mjs';
+import { planEmployeeFromChat } from './employee-intent.mjs';
 import { reviewOf } from './gst-review.mjs';
 import { planReminderFromChat } from './reminder-intent.mjs';
 import { planCashFromChat } from './cash-intent.mjs';
@@ -27,6 +28,16 @@ const lineSchema = {
     qty: { type: 'number', exclusiveMinimum: 0 },
     rate: { type: 'number', minimum: 0 },
     gstRate: { type: 'number', minimum: 0, maximum: 28 },
+  },
+};
+
+const salaryComponent = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['name', 'amount'],
+  properties: {
+    name: { type: 'string', minLength: 1, maxLength: 40 },
+    amount: { type: 'number', minimum: 0 },
   },
 };
 
@@ -420,6 +431,47 @@ export const TOOL_ARG_SCHEMAS = {
     additionalProperties: false,
     required: ['id'],
     properties: { id: { type: 'string', pattern: '^REM-[0-9]{4,}$' } },
+  },
+  list_employees: {
+    type: 'object',
+    additionalProperties: false,
+    properties: { include: { type: 'string', enum: ['current', 'all'] } },
+  },
+  add_employee: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['name', 'joinedOn', 'components'],
+    properties: {
+      name: { type: 'string', minLength: 1, maxLength: 80 },
+      joinedOn: { type: 'string' },
+      components: { type: 'array', minItems: 1, maxItems: 10, items: salaryComponent },
+      designation: { type: 'string', maxLength: 60 },
+      pan: { type: 'string', maxLength: 10 },
+      uan: { type: 'string', maxLength: 14 },
+      pfMember: { type: 'boolean' },
+      esiMember: { type: 'boolean' },
+      ptState: { type: 'string', pattern: '^[0-9]{2}$' },
+      taxRegime: { type: 'string', enum: ['new', 'old'] },
+    },
+  },
+  change_salary: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['id', 'effectiveFrom', 'components'],
+    properties: {
+      id: { type: 'string', pattern: '^EMP-[0-9]{4,}$' },
+      effectiveFrom: { type: 'string' },
+      components: { type: 'array', minItems: 1, maxItems: 10, items: salaryComponent },
+    },
+  },
+  end_employment: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['id', 'leftOn'],
+    properties: {
+      id: { type: 'string', pattern: '^EMP-[0-9]{4,}$' },
+      leftOn: { type: 'string' },
+    },
   },
   supplier_reminder_draft: {
     type: 'object',
@@ -832,6 +884,9 @@ const TOOL_RISK = {
   set_cash_balance: 'writes_books',
   record_filing: 'writes_books',
   record_supplier_reminder: 'writes_books',
+  add_employee: 'writes_books',
+  change_salary: 'writes_books',
+  end_employment: 'writes_books',
   set_payment_terms: 'writes_books',
   ask_ca: 'writes_books',
   create_quote: 'writes_books',
@@ -977,6 +1032,8 @@ export function planLocalToolCall(state, message) {
       return { kind: 'tool', name: 'create_quote', args: { partyName: quoted.partyName, ...(quoted.partyGstin ? { partyGstin: quoted.partyGstin } : {}), lines: quoted.lines, ...(validity ? { validDays: Number(validity[1]) } : {}) } };
     }
   }
+  const hired = planEmployeeFromChat(text);
+  if (hired) return hired;
   const filed = planFilingFromChat(text);
   if (filed) return filed;
   const owed = planOweQuestion(state, text);

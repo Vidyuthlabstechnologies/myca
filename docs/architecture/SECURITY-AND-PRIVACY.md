@@ -63,7 +63,7 @@
 
 ### What the network can reach
 
-- Remote callers can propose twenty-two write tools and the importers, and query a fixed list
+- Remote callers can propose twenty-five write tools and the importers, and query a fixed list
   of read tools. The rest of the tool catalogue is not reachable.
 - Every tool has a strict schema with no additional properties.
 - Imports refer to an uploaded document by hash; inline content is refused.
@@ -105,6 +105,13 @@
   on the next request or the next time the app opens.
 - The current text is a draft marked as one on screen. It must not reach real users
   until counsel approves it and the placeholders are filled.
+
+### Salaries
+
+- Employee records and salaries are visible to the owner only. Staff and accountants are
+  refused in the engine (`SALARIES_PRIVATE`), so the hosted API, chat and the app all
+  refuse them too; the books snapshot sent to the phone carries no employees.
+- No employee bank account is stored.
 
 ### What an accountant sees
 

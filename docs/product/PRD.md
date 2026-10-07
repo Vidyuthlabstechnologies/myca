@@ -114,7 +114,7 @@ Percentages are engineering estimates and are tracked in
 
 | ID | Requirement | Status |
 |---|---|---|
-| FR-PAY-1 | Keep employees and their salary structures. | Not built |
+| FR-PAY-1 | Keep employees and their salary structures. | Built: employees, dated salary history in parts, leaving; owner only. No deduction is worked out |
 | FR-PAY-2 | Run payroll for a month: gross, statutory deductions, net. | Not built |
 | FR-PAY-3 | Pay salaries from the same product. | Not built; needs a payout partner (Q5) |
 | FR-PAY-4 | Post payroll to the books and feed TDS on salary into the TDS return. | Not built |

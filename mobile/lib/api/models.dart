@@ -826,6 +826,112 @@ class SupplierRisk {
   final int bills;
 }
 
+class SalaryPart {
+  const SalaryPart({required this.name, required this.amount});
+
+  final String name;
+  final num amount;
+}
+
+class SalaryRow {
+  const SalaryRow({required this.from, required this.monthly, required this.parts});
+
+  factory SalaryRow.fromJson(Object? json) {
+    final map = _map(json);
+    return SalaryRow(
+      from: _text(map['from']),
+      monthly: _num(map['monthly']),
+      parts: [
+        for (final part in _maps(map['components']))
+          SalaryPart(name: _text(part['name']), amount: _num(part['amount'])),
+      ],
+    );
+  }
+
+  final String from;
+  final num monthly;
+  final List<SalaryPart> parts;
+}
+
+class Employee {
+  const Employee({
+    required this.id,
+    required this.name,
+    required this.designation,
+    required this.joinedOn,
+    required this.leftOn,
+    required this.monthly,
+    required this.active,
+    required this.pfMember,
+    required this.esiMember,
+    required this.taxRegime,
+    required this.salary,
+  });
+
+  factory Employee.fromJson(Object? json) {
+    final map = _map(json);
+    return Employee(
+      id: _text(map['id']),
+      name: _text(map['name']),
+      designation: _text(map['designation']),
+      joinedOn: _text(map['joinedOn']),
+      leftOn: _text(map['leftOn']),
+      monthly: _num(map['monthly']),
+      active: map['active'] != false,
+      pfMember: map['pfMember'] == true,
+      esiMember: map['esiMember'] == true,
+      taxRegime: _text(map['taxRegime']),
+      salary: _maps(map['salary']).map(SalaryRow.fromJson).toList(),
+    );
+  }
+
+  final String id;
+  final String name;
+  final String designation;
+  final String joinedOn;
+  final String leftOn;
+  final num monthly;
+  final bool active;
+  final bool pfMember;
+  final bool esiMember;
+  final String taxRegime;
+  final List<SalaryRow> salary;
+}
+
+class EmployeeList {
+  const EmployeeList({
+    required this.employees,
+    required this.monthlyTotal,
+    required this.note,
+    this.error = '',
+  });
+
+  factory EmployeeList.fromTool(Object? json) {
+    final map = _map(json);
+    if (map['ok'] == false) {
+      return EmployeeList(
+        employees: const [],
+        monthlyTotal: 0,
+        note: '',
+        error: map['error'] == 'SALARIES_PRIVATE'
+            ? 'Only the owner can see employees and salaries.'
+            : 'Employees could not be loaded.',
+      );
+    }
+    final data = toolData(json);
+    return EmployeeList(
+      employees: _maps(data['employees']).map(Employee.fromJson).toList(),
+      monthlyTotal: _num(data['monthlyTotal']),
+      note: _text(data['note']),
+    );
+  }
+
+  final List<Employee> employees;
+  final num monthlyTotal;
+  final String note;
+  final String error;
+}
+
 class SupplierReminderDraft {
   const SupplierReminderDraft({
     required this.supplier,

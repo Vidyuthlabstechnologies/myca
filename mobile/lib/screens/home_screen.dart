@@ -12,6 +12,7 @@ import '../theme.dart';
 import '../widgets.dart';
 import 'ask_screen.dart';
 import 'books_check_screen.dart';
+import 'employees_screen.dart';
 import 'ca_screen.dart';
 import 'cash_screen.dart';
 import 'reminders_screen.dart';
@@ -236,6 +237,15 @@ class _HomeScreenState extends State<HomeScreen> {
                   trailing: const Chevron(),
                   onTap: () => _open(const CashScreen()),
                 ),
+                if (snapshot.activeUser?.role != 'staff' &&
+                    snapshot.activeUser?.role != 'accountant')
+                  RowCard(
+                    leading: const TintTile(tint: Tint.ask, mark: Mark.people),
+                    title: 'Employees',
+                    subtitle: 'Who works for you and what they are paid',
+                    trailing: const Chevron(),
+                    onTap: () => _open(const EmployeesScreen()),
+                  ),
                 RowCard(
                   leading: const TintTile(tint: Tint.ask, mark: Mark.people),
                   title: 'Your CA',

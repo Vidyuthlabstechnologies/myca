@@ -23,13 +23,14 @@ import { isPeriodLocked } from './period-lock.mjs';
 import { lastGstRateFor, planPayment } from './invoice.mjs';
 import { planFiling } from './filings.mjs';
 import { planSupplierReminder } from './supplier-reminders.mjs';
+import { planEmployee, planSalaryChange, planLeaving } from './employees.mjs';
 import { filingRows } from './deadline-run.mjs';
 import { tally, bank } from './sprint-load.mjs';
 import { parseZohoBooksCsv } from './import-zoho.mjs';
 import { tallyXmlToDayBookCsv } from './tally-xml.mjs';
 
 export const CONFIRM_TOOLS = new Set([
-  'create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'record_filing', 'record_supplier_reminder', 'post_expense', 'set_expense_head', 'create_credit_note', 'cancel_invoice', 'gst_review_answer', 'import_gstr2b', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote',
+  'create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'record_filing', 'record_supplier_reminder', 'add_employee', 'change_salary', 'end_employment', 'post_expense', 'set_expense_head', 'create_credit_note', 'cancel_invoice', 'gst_review_answer', 'import_gstr2b', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote',
   'import_tally', 'import_tally_xml', 'import_zoho', 'import_bank',
   'govt_generate_irn', 'govt_nic_cancel_irn',
   'exception_decide',
@@ -178,6 +179,74 @@ function supplierReminderPreview(state, args) {
     summary: `Send a reminder to ${d.supplier} about ${d.bills.length === 1 ? '1 bill' : `${d.bills.length} bills`} for ${d.period}, with ${money(d.credit)} of your input credit waiting on them.${d.timesSent ? ` You last reminded them on ${d.lastSent}.` : ''}`,
     effects: ['It goes from your own phone: your WhatsApp, email or another app you pick. MyCA sends nothing itself.', 'The message and the day are kept with the books.'],
     figures: { supplier: d.supplier, period: d.period, bills: d.bills.length, credit: d.credit, edited: plan.edited, timesSent: d.timesSent },
+  };
+}
+
+const EMPLOYEE_REASONS = {
+  SALARIES_PRIVATE: () => 'Only the owner can see or change employees and salaries.',
+  NAME_REQUIRED: () => 'Give the employee\'s name.',
+  INVALID_DATE: () => 'That is not a date I can read.',
+  SALARY_REQUIRED: () => 'Give the monthly salary, in one amount or in parts.',
+  TOO_MANY_COMPONENTS: (p) => `A salary can have at most ${p.max} parts.`,
+  BAD_COMPONENT: () => 'Each part of the salary needs a name of up to 40 letters.',
+  DUPLICATE_COMPONENT: (p) => `${p.name} is listed twice.`,
+  BAD_AMOUNT: (p) => `${p.name} needs an amount of zero or more.`,
+  ZERO_SALARY: () => 'The monthly salary comes to nothing.',
+  BAD_PAN: () => 'A PAN is five letters, four digits and a letter.',
+  BAD_UAN: () => 'A UAN is 12 digits.',
+  BAD_STATE: () => 'Give the state as its two-digit GST code.',
+  BAD_REGIME: () => 'The tax regime is new or old.',
+  ALREADY_EMPLOYED: (p) => `${p.name} is already on the list as ${p.id}.`,
+  EMPLOYEE_NOT_FOUND: (p) => `${p.id} is not on the list of employees.`,
+  BEFORE_JOINING: (p) => `That is before they joined on ${p.joinedOn}.`,
+  AFTER_LEAVING: (p) => `That is after they left on ${p.leftOn}.`,
+  ALREADY_LEFT: (p) => `They are already recorded as having left on ${p.leftOn}.`,
+};
+
+function employeeBlocked(plan) {
+  const reason = EMPLOYEE_REASONS[plan.error];
+  return { blockers: [reason ? reason(plan) : plan.error], summary: '', effects: [], figures: {} };
+}
+
+function partsOf(components) {
+  return components.map((item) => `${item.name} ${money(item.amount)}`).join(' + ');
+}
+
+const NO_PAYROLL = 'Nothing is posted to the books and no payroll is run. Deductions are not worked out yet.';
+
+function employeePreview(state, args) {
+  const plan = planEmployee(state, args);
+  if (!plan.ok) return employeeBlocked(plan);
+  const e = plan.employee;
+  const pay = e.salary[0];
+  const flags = [e.pfMember ? 'in provident fund' : '', e.esiMember ? 'in state insurance' : '', e.taxRegime ? `${e.taxRegime} tax regime` : ''].filter(Boolean);
+  return {
+    blockers: [],
+    summary: `Add ${e.name}${e.designation ? `, ${e.designation},` : ''} joined ${e.joinedOn}, at ${money(pay.monthly)} a month${pay.components.length > 1 ? ` (${partsOf(pay.components)})` : ''}.${flags.length ? ` ${flags.join(', ')}.` : ''}`,
+    effects: [NO_PAYROLL, 'Only the owner sees salaries.'],
+    figures: { monthly: pay.monthly, joinedOn: e.joinedOn },
+  };
+}
+
+function salaryChangePreview(state, args) {
+  const plan = planSalaryChange(state, args);
+  if (!plan.ok) return employeeBlocked(plan);
+  return {
+    blockers: [],
+    summary: `${plan.employee.name}: ${money(plan.row.monthly)} a month from ${plan.row.from}${plan.before ? `, was ${money(plan.before.monthly)}` : ''}.`,
+    effects: ['Earlier months keep the salary they had.', NO_PAYROLL],
+    figures: { monthly: plan.row.monthly, from: plan.row.from, was: plan.before?.monthly ?? null },
+  };
+}
+
+function leavingPreview(state, args) {
+  const plan = planLeaving(state, args);
+  if (!plan.ok) return employeeBlocked(plan);
+  return {
+    blockers: [],
+    summary: `${plan.employee.name} left; last day ${plan.leftOn}.`,
+    effects: ['Their record and salary history are kept.', 'No final settlement is worked out.'],
+    figures: { leftOn: plan.leftOn },
   };
 }
 
@@ -535,6 +604,9 @@ const PREVIEWERS = {
   record_payment: paymentPreview,
   record_filing: filingPreview,
   record_supplier_reminder: supplierReminderPreview,
+  add_employee: employeePreview,
+  change_salary: salaryChangePreview,
+  end_employment: leavingPreview,
   post_expense: expensePreview,
   create_credit_note: creditNotePreview,
   cancel_invoice: (state, args) => creditNotePreview(state, args, true),
