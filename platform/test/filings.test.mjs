@@ -6,6 +6,7 @@ import { runTool } from '../src/tools.mjs';
 import { localToday } from '../src/dates.mjs';
 import { monthsBack } from '../src/filings.mjs';
 import { planFilingFromChat } from '../src/filing-intent.mjs';
+import { inWords } from '../src/words.mjs';
 
 function shiftMonth(ym, by) {
   const [y, m] = ym.split('-').map(Number);
@@ -33,7 +34,7 @@ test('a filing said in chat is previewed, recorded on yes, and the return shows 
   assert.equal(before.level, 'overdue');
   const held = await chat(state, `filed GSTR-1 for ${twoBack}, ARN AA2708261234567`);
   assert.equal(held.preview?.tool, 'record_filing', held.reply);
-  assert.match(held.preview.summary, new RegExp(`^Record GSTR-1 \\(monthly\\) for ${twoBack} as filed on ${localToday()}, ARN AA2708261234567\\. It was due on ${before.dueDate}\\. That is after the due date\\.$`));
+  assert.match(held.preview.summary, new RegExp(`^Record GSTR-1 \\(monthly\\) for ${inWords(twoBack)} as filed on ${inWords(localToday())}, ARN AA2708261234567\\. It was due on ${inWords(before.dueDate)}\\. That is after the due date\\.$`));
   assert.equal(state.filings.length, 0, 'nothing before yes');
   const done = await chat(state, 'yes');
   assert.match(done.reply, /^Recorded GSTR-1 \(monthly\) for .* MyCA did not file anything\.$/);
@@ -45,12 +46,12 @@ test('a filing said in chat is previewed, recorded on yes, and the return shows 
 test('a recorded filing clears the overdue item and the books check stops listing it', async () => {
   const state = books();
   const open = async () => (await runTool(state, 'exceptions', {})).data.exceptions.map((item) => item.title);
-  assert.ok((await open()).includes(`GSTR-1 for ${twoBack} has no filing recorded`));
+  assert.ok((await open()).includes(`GSTR-1 for ${inWords(twoBack)} has no filing recorded`));
   await runTool(state, 'record_filing', { returnType: 'GSTR-1', period: twoBack, arn: 'AA2708261234567' });
-  assert.equal((await open()).includes(`GSTR-1 for ${twoBack} has no filing recorded`), false);
+  assert.equal((await open()).includes(`GSTR-1 for ${inWords(twoBack)} has no filing recorded`), false);
   const check = await runTool(state, 'books_check', {});
   const due = check.data.findings.find((item) => item.id === 'due');
-  assert.doesNotMatch(due.detail, new RegExp(`GSTR-1 ${twoBack}`));
+  assert.doesNotMatch(due.detail, new RegExp(`GSTR-1 ${inWords(twoBack)}`));
 });
 
 test('an on-time filing is not called late, and the record survives saving', async () => {
@@ -74,7 +75,7 @@ test('refusals: an unknown return, a bad ARN, a future date, twice, or a reused 
   assert.equal((await runTool(state, 'record_filing', { returnType: 'GSTR-3B', period: twoBack, arn: 'AA2708261234567' })).error, 'ARN_USED');
   assert.equal(state.filings.length, 1);
   const blocked = await chat(state, 'filed GSTR-1 for 2019-01, ARN AA2701191234567');
-  assert.match(blocked.reply, /MyCA does not list GSTR-1 for 2019-01 for this business/);
+  assert.match(blocked.reply, /MyCA does not list GSTR-1 for January 2019 for this business/);
 });
 
 test('chat needs the period and the ARN, and reads month names as the most recent past month', () => {

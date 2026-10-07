@@ -68,7 +68,7 @@ test('figures come from the engine: a sale changes GST payable by its tax', asyn
 test('a discarded preview posts nothing, and its token is dead', async () => {
   const before = (await snapshot()).invoices.length;
   const held = await post('propose', { name: 'create_invoice', args: SALE });
-  assert.match((await post('discard', {})).body.reply, /^Discarded/);
+  assert.match((await post('discard', {})).body.reply, /^Not posted: /);
   const late = await post('confirm', { token: held.body.preview.token });
   assert.notEqual(late.body.posted, true);
   assert.equal((await snapshot()).invoices.length, before);

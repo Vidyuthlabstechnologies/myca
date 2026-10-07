@@ -30,7 +30,7 @@ test('the check reports what came across and every gap, needs-you first', () => 
   const f = byId(data);
   assert.equal(f.books.severity, 'ok');
   assert.equal(f.books.title, '2 sales, 1 purchase bill and 0 expenses');
-  assert.match(f.books.detail, /From 2026-09-03 to 2026-09-05, with 2 customers and 1 supplier/);
+  assert.match(f.books.detail, /From 3 September 2026 to 5 September 2026, with 2 customers and 1 supplier/);
   assert.equal(f.ledger.severity, 'ok');
   assert.equal(f.held.severity, 'act');
   assert.match(f.held.title, /^1 sale cannot go in the GST return as it stands$/);
@@ -39,8 +39,8 @@ test('the check reports what came across and every gap, needs-you first', () => 
   assert.equal(f.credit.amount, 200);
   assert.match(f.credit.detail, /Add the GSTR-2B/);
   assert.equal(f.due.severity, 'check');
-  assert.match(f.due.detail, /GSTR-1 2026-08\. MyCA has no filing recorded for these/);
-  assert.match(f.due.detail, /Next: GSTR-3B \(monthly\) for 2026-09, due 2026-10-20\./);
+  assert.match(f.due.detail, /GSTR-1 August 2026\. MyCA has no filing recorded for these/);
+  assert.match(f.due.detail, /Next: GSTR-3B \(monthly\) for September 2026, due 20 October 2026\./);
   assert.equal(f.owed.severity, 'check');
   assert.equal(f.owed.amount, 12600);
   assert.match(f.setup.detail, /^Add your business address, HSN or SAC codes on 1 invoice and the supplier's bill number on 1 bill\.$/);

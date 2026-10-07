@@ -81,11 +81,11 @@ test('chat: "remind me … tomorrow" previews and sets on yes; no date asks; "my
   assert.equal((state.reminders || []).length, 0);
   const set = await chat(state, 'yes');
   assert.equal(set.posted, true);
-  assert.match(set.reply, /^Set\. On \d{4}-\d{2}-\d{2}: Call Rajesh\.$/);
+  assert.match(set.reply, /^Set\. On \d{1,2} [A-Z][a-z]+ \d{4}: Call Rajesh\.$/);
   const ask = await chat(state, 'remind me to pay Mahesh');
   assert.notEqual(ask.awaitingConfirmation, true);
   assert.match(ask.reply, /When should I remind you to pay Mahesh\?/);
-  assert.match((await chat(state, 'show my reminders')).reply, /^· On \d{4}-\d{2}-\d{2}: Call Rajesh \(REM-0001\)$/);
+  assert.match((await chat(state, 'show my reminders')).reply, /^· On \d{1,2} [A-Z][a-z]+ \d{4}: Call Rajesh \(REM-0001\)$/);
   assert.equal((await chat(state, "don't remind me to call Rajesh tomorrow")).awaitingConfirmation, undefined);
 });
 

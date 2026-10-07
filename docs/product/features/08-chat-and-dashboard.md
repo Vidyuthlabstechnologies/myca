@@ -71,6 +71,17 @@ the hosted API (`propose`, `confirm`, `discard`).
   sheets fits at 1.5x and 2x text size on a phone-width screen; `test/large_text_test.dart`
   fails on any overflow.
 
+### How the server words things (2026-10-07)
+
+- Every reply, preview and blocker leaving the router, every "needs you" item and every
+  books-check finding passes through `words.mjs`: dates read "7 October 2026" and
+  months "October 2026". Data fields keep ISO dates for the app.
+- Previews say what changes for the owner ("Kiran Stores owes you ₹59,000.00 more",
+  "₹20,000.00 goes into your bank"), not debits and credits. Failures say what went
+  wrong and that nothing was changed, not "Tool … failed: CODE".
+- `test/words.test.mjs` runs everyday messages and fails on ISO dates, debit/credit
+  wording, "folio", "ITC" or a raw tool failure in any reply.
+
 ### Dashboard (built 2026-10-06, except payroll)
 
 - Home shows this month against last month for sales (net of credit notes), purchases

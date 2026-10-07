@@ -1,5 +1,6 @@
 import { trialBalance, verifyChain } from './ledger.mjs';
 import { invoicesToGstr1Json } from './gstr1-json.mjs';
+import { inWords } from './words.mjs';
 import { appendAuditEvent } from './ca-api.mjs';
 
 export const SEVERITIES = ['critical', 'high', 'medium', 'low'];
@@ -8,6 +9,10 @@ const SEVERITY_RANK = Object.fromEntries(SEVERITIES.map((s, i) => [s, i]));
 
 function rupees(value) {
   return Math.round((Number(value) || 0) * 100) / 100;
+}
+
+function inr(value) {
+  return `₹${rupees(value).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 function itcOf(row) {
@@ -33,7 +38,7 @@ function ledgerCandidates(book) {
       code: 'BOOKS_NOT_TIED',
       severity: 'critical',
       title: 'The trial balance does not tie',
-      why: `Debits ${rupees(tb.debit)} against credits ${rupees(tb.credit)}. Every report built on these books is unreliable until this is explained.`,
+      why: `Debits ${inr(tb.debit)} against credits ${inr(tb.credit)}. Every report built on these books is unreliable until this is explained.`,
       moneyAtRisk: rupees(Math.abs(tb.debit - tb.credit)),
       evidence: {},
     });
@@ -111,7 +116,7 @@ function reconcileCandidates(recon) {
       source: 'itc',
       code: entry.code,
       severity: 'high',
-      title: `Input credit of ${rupees(entry.blockedCredit)} on ${entry.purchase.invoiceNo} cannot be claimed`,
+      title: `Input credit of ${inr(entry.blockedCredit)} on ${entry.purchase.invoiceNo} cannot be claimed`,
       why: `${entry.reason} (${entry.section}). Supplier ${entry.purchase.supplierName || entry.purchase.gstin}.`,
       ruleIds: [],
       moneyAtRisk: rupees(entry.blockedCredit),
@@ -125,8 +130,8 @@ function reconcileCandidates(recon) {
       source: 'rule37',
       code: 'RULE_37_REVERSAL',
       severity: 'high',
-      title: `Reverse ${rupees(entry.reversalItc)} of credit on ${entry.purchase.invoiceNo}`,
-      why: `${rupees(entry.unpaidValue)} was still unpaid 180 days after the invoice (by ${entry.deadline}), so the proportionate credit is reversed in GSTR-3B for ${entry.reverseInReturnFor}.`,
+      title: `Reverse ${inr(entry.reversalItc)} of credit on ${entry.purchase.invoiceNo}`,
+      why: `${inr(entry.unpaidValue)} was still unpaid 180 days after the invoice (by ${entry.deadline}), so the proportionate credit is reversed in GSTR-3B for ${entry.reverseInReturnFor}.`,
       ruleIds: entry.rulesUsed || [],
       moneyAtRisk: rupees(entry.reversalItc),
       evidence: { invoiceNo: entry.purchase.invoiceNo, deadline: entry.deadline },
@@ -151,7 +156,7 @@ function reconcileCandidates(recon) {
       source: 'rule37a',
       code: 'RULE_37A_REVERSAL',
       severity: 'high',
-      title: `Reverse ${rupees(entry.reversalItc)} by ${entry.reverseBy}: supplier did not file GSTR-3B`,
+      title: `Reverse ${inr(entry.reversalItc)} by ${entry.reverseBy}: supplier did not file GSTR-3B`,
       why: `The supplier had not filed GSTR-3B for ${entry.period} by ${entry.supplierBy}, so the credit is reversed under Rule 37A on or before ${entry.reverseBy}.`,
       ruleIds: entry.rulesUsed || [],
       moneyAtRisk: rupees(entry.reversalItc),
@@ -164,7 +169,7 @@ function reconcileCandidates(recon) {
       source: 'rule37a',
       code: 'SUPPLIER_GSTR3B_PENDING',
       severity: 'medium',
-      title: `${rupees(entry.reversalItc)} at risk: supplier has not filed GSTR-3B for ${entry.period}`,
+      title: `${inr(entry.reversalItc)} at risk: supplier has not filed GSTR-3B for ${entry.period}`,
       why: `If the supplier does not file by ${entry.supplierBy}, this credit must be reversed by ${entry.reverseBy}. Chase the supplier while it is still recoverable.`,
       ruleIds: entry.rulesUsed || [],
       moneyAtRisk: rupees(entry.reversalItc),
@@ -179,7 +184,7 @@ function reconcileCandidates(recon) {
       code: 'INVOICE_NOT_IN_2B',
       severity: 'high',
       title: `${row.invoiceNo} is booked but absent from GSTR-2B`,
-      why: `${row.supplierName || row.gstin} has not reported this invoice, so its credit of ${rupees(itcOf(row))} cannot be claimed yet.`,
+      why: `${row.supplierName || row.gstin} has not reported this invoice, so its credit of ${inr(itcOf(row))} cannot be claimed yet.`,
       moneyAtRisk: itcOf(row),
       evidence: { invoiceNo: row.invoiceNo, gstin: row.gstin },
     });
@@ -191,7 +196,7 @@ function reconcileCandidates(recon) {
       code: 'CREDIT_NOTE_NOT_BOOKED',
       severity: 'high',
       title: `Credit note ${row.invoiceNo} in GSTR-2B was never booked`,
-      why: `It reduces input credit by ${rupees(Math.abs(itcOf(row)))}. Until it is booked, the books overstate credit.`,
+      why: `It reduces input credit by ${inr(Math.abs(itcOf(row)))}. Until it is booked, the books overstate credit.`,
       moneyAtRisk: rupees(Math.abs(itcOf(row))),
       evidence: { invoiceNo: row.invoiceNo, gstin: row.supplierGstin },
     });
@@ -253,7 +258,7 @@ export function detectExceptions(book, inputs = {}) {
     ...deadlineCandidates(inputs.deadlines),
     ...reconcileCandidates(inputs.reconcile),
     ...importCandidates(book),
-  ];
+  ].map((item) => ({ ...item, title: inWords(item.title), why: inWords(item.why) }));
 }
 
 function ensureQueue(book) {

@@ -90,7 +90,7 @@ test('chat: terms are set in plain words, and "net 45" on an invoice sets that i
   const state = createState();
   const held = await chat(state, 'Create an invoice for ABC Ltd for Rs. 50,000 for consulting services GST 18% net 45');
   assert.equal(held.awaitingConfirmation, true, JSON.stringify(held));
-  assert.match(held.preview.summary, /total ₹59,000\.00\..*Due \d{4}-\d{2}-\d{2} \(Net 45\)\.$/);
+  assert.match(held.preview.summary, /total ₹59,000\.00\..*Due \d{1,2} [A-Z][a-z]+ \d{4} \(Net 45\)\.$/);
   await chat(state, 'yes');
   assert.equal(state.invoices[0].paymentTermsDays, 45);
   const terms = await chat(state, 'ABC Ltd pays in 30 days');

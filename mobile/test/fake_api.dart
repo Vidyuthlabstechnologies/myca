@@ -808,7 +808,7 @@ class FakeMycaApi implements MycaApi {
     discards += 1;
     _held = null;
     return ChatReply.fromJson({
-      'reply': 'Discarded. Nothing was posted.',
+      'reply': 'Not posted: nothing was waiting.',
       'posted': false,
     });
   }
