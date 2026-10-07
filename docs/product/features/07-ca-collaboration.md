@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Requirements | FR-CA-1 to 4 in the [product PRD](../PRD.md) |
-| Status | Invite, remove and the monthly entries export built; Tally-format export and the sync setting not built |
+| Status | Invite, remove and the monthly entries export built; the sync setting built (2026-10-07); Tally-format export not built |
 | Code | `cloud/src/members.mjs`, `cloud/src/businesses.mjs`; app: `mobile/lib/screens/people_screen.dart`, `invitation_cards.dart` |
 
 ## What the owner experiences
@@ -59,13 +59,23 @@ sees changes as they happen or at set intervals.
 - Not yet: a notification to the CA (needs push in the deployment), and attaching the
   source document file.
 
-### Sync setting (to build)
+### Sync setting (built 2026-10-07)
 
-- Real time: the accountant reads the live books, as today.
-- At intervals: the accountant reads the books as of the last sync point. The owner
-  sets the interval (daily, weekly, at month close) or pushes a sync by hand.
-- This needs a stored snapshot per sync point. The journal is append-only, so a sync
-  point can be a position in the journal, not a copy of the data.
+- The owner chooses on People: as things happen (live, the default), once a day, once
+  a week, at month end, or only when they share. "Share now" pushes a sync point at
+  any time. Owners and staff always see the live books.
+- A sync point is a stored copy of the books (`shared_books`), not a journal position
+  as first planned: the books hold invoices, bills, reminders and filings as well as
+  the journal, so a copy is the simple way to show all of them as they stood.
+- Boundaries are midnight in India: each day, each Monday, the first of the month. A
+  sync point is taken from the books just before the first request after a boundary,
+  so it is exactly the books as they stood at that midnight, even if the owner posts
+  before the accountant looks.
+- An accountant on a shared view reads and asks against the sync point; every read is
+  still in the audit log. They cannot post: proposals answer
+  `403 SHARED_VIEW_READ_ONLY`, and a chat that would post says to ask the owner. Home
+  tells them the date the books are shared as of.
+- API: `GET/POST businesses/:id/ca-sync` (owner sets), `POST businesses/:id/ca-share`.
 
 ### What an accountant may do (to decide)
 

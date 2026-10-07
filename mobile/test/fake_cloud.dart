@@ -23,6 +23,9 @@ class FakeCloud {
   bool noticeAccepted = true;
   bool phoneOn = true;
   bool googleOn = true;
+  String caMode = 'live';
+  String sharedAsOf = '';
+  int shares = 0;
   final consents = <String>[];
   String userName = '';
   String role = 'owner';
@@ -208,7 +211,21 @@ class FakeCloud {
         'purchases': const <Object?>[],
         'role': role,
         'user': {'id': 'u1', 'name': userName.isEmpty ? 'Asha' : userName},
+        if (role == 'accountant' && caMode != 'live') 'sharedAsOf': sharedAsOf,
       });
+    }
+    if (path == '$books/ca-sync' && request.method == 'GET') {
+      return _json(200, {'ok': true, 'mode': caMode, 'sharedAsOf': caMode == 'live' ? null : sharedAsOf});
+    }
+    if (path == '$books/ca-sync' && request.method == 'POST') {
+      caMode = '${body['mode']}';
+      sharedAsOf = caMode == 'live' ? '' : '2026-10-07T09:30:00.000Z';
+      return _json(200, {'ok': true, 'mode': caMode, 'sharedAsOf': caMode == 'live' ? null : sharedAsOf});
+    }
+    if (path == '$books/ca-share') {
+      shares += 1;
+      sharedAsOf = '2026-10-07T12:45:00.000Z';
+      return _json(200, {'ok': true, 'sharedAsOf': sharedAsOf});
     }
     if (path == '$books/query') {
       return _json(200, switch (body['name']) {

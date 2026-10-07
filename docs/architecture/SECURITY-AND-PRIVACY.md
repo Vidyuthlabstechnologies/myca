@@ -106,6 +106,13 @@
 - The current text is a draft marked as one on screen. It must not reach real users
   until counsel approves it and the placeholders are filled.
 
+### What an accountant sees
+
+- The owner decides whether an accountant reads the live books or a copy as of the last
+  sync point. A shared view is read-only, and every read is audited.
+- The copy is of the whole books, stored in the same database and region, and replaced
+  at each sync point; it is not kept as a history.
+
 ### Crash reports
 
 - Built without a crash-reporting SDK, so no third party receives anything and no

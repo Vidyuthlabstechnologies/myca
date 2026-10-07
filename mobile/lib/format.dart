@@ -42,6 +42,11 @@ String monthLabel(String period) {
   return '${_months[month - 1]} ${parts[0]}';
 }
 
+String sharedOn(String timestamp) {
+  final at = DateTime.tryParse(timestamp);
+  return at == null ? '' : longDate(isoDate(at.toUtc().add(const Duration(hours: 5, minutes: 30))));
+}
+
 String longDate(String iso) {
   final parts = iso.split('-');
   final month = parts.length == 3 ? int.tryParse(parts[1]) : null;
