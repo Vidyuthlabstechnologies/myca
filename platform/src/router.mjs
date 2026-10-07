@@ -83,6 +83,25 @@ function fmtToolResult(name, result) {
     const next = review.steps.find((step) => step.id === review.next);
     return next ? `Confirmed. Next: ${next.title}. Say "review GST" to see it.` : 'Confirmed.';
   }
+  if (name === 'record_receipt' && result.invoice) {
+    const i = result.invoice;
+    const last = (i.receipts || []).at(-1) || {};
+    const received = (i.receipts || []).reduce((sum, receipt) => sum + Number(receipt.amount || 0), 0);
+    return `Recorded ${money(last.amount)} received from ${i.partyName} by ${last.mode || 'bank'} on ${last.date} against ${i.id}. ${i.status === 'paid' ? `${i.id} is paid in full.` : `${money(received)} of ${money(i.total)} received so far.`}`;
+  }
+  if (name === 'post_expense' && result.expense) {
+    const e = result.expense;
+    return `Posted ${e.id}: ${money(e.amount)} ${e.description ? `for ${e.description} ` : ''}from ${e.mode === 'cash' ? 'cash' : 'the bank'} on ${e.date}, under ${e.headName}.${e.inputCredit ? ` Input credit ${money((e.cgst || 0) + (e.sgst || 0) + (e.igst || 0))}.` : ''}`;
+  }
+  if (name === 'set_expense_head' && result.expense) {
+    const e = result.expense;
+    return result.unchanged ? `${e.id} is already under ${e.headName}.` : `Moved ${e.id} to ${e.headName}.`;
+  }
+  if ((name === 'create_credit_note' || name === 'cancel_invoice') && result.creditNote) {
+    const n = result.creditNote;
+    const head = n.cancels ? `Cancelled ${n.invoiceId} with credit note ${n.id}` : `Credit note ${n.id} for ${money(n.total)} against ${n.invoiceId}`;
+    return `${head} (${n.partyName}, ${n.date}).${result.refundDue > 0 ? ` ${money(result.refundDue)} was already received and is now due back to ${n.partyName}.` : ''}`;
+  }
   if (name === 'record_payment' && result.bill) {
     const b = result.bill;
     return `Paid ${b.partyName} ${money(result.payment.amount)} against ${b.id} by ${result.payment.mode} on ${result.payment.date}. ${result.remaining > 0.005 ? `${money(result.remaining)} is still owed on it.` : `${b.id} is paid in full.`}`;
@@ -406,7 +425,7 @@ export async function chat(state, message) {
       }
     }
     return {
-      reply: `I did not match that. ${fmtToolResult('company_profile', result)}\n\nTry “probe govt” or “purchase from Fabrics Co GSTIN 27AABCT1332L1ZE, 2 rolls at 10000, GST 5%”.`,
+      reply: 'I did not match that to anything I can do, so nothing was recorded. Try "invoice Kiran Stores 50000 GST 18%", "paid 12000 rent", "who owes me?", or say "help" for more.',
       tools: [{ name: plan.name, result }],
     };
   }

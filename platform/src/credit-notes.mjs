@@ -72,6 +72,12 @@ export function planCreditNote(state, args = {}) {
   if (requested > room + 0.005) return { ok: false, error: 'EXCEEDS_INVOICE', invoiceId, room, credited: alreadyCredited };
   const fraction = full && alreadyCredited === 0 ? 1 : requested / Number(invoice.total);
   const lines = scaledLines(invoice, fraction, state.company || {});
+  if (fraction !== 1 && lines.length) {
+    const scaled = round2(lines.reduce((sum, line) => sum + line.amount, 0));
+    const last = lines[lines.length - 1];
+    last.taxable = round2(last.taxable + requested - scaled);
+    last.amount = round2(last.taxable + last.cgst + last.sgst + last.igst);
+  }
   const taxable = round2(lines.reduce((sum, line) => sum + line.taxable, 0));
   const cgst = round2(lines.reduce((sum, line) => sum + line.cgst, 0));
   const sgst = round2(lines.reduce((sum, line) => sum + line.sgst, 0));

@@ -8,7 +8,7 @@
  */
 import { randomBytes } from 'node:crypto';
 import { planExpense } from './expenses.mjs';
-import { planCreditNote, creditedAgainst } from './credit-notes.mjs';
+import { planCreditNote, creditedAgainst, outstandingOf } from './credit-notes.mjs';
 import { checkAnswer, reviewOf, stepText } from './gst-review.mjs';
 import { parse2bFile } from './gstr2b-check.mjs';
 import { planReminder, findReminder, whenWords } from './reminders.mjs';
@@ -95,14 +95,14 @@ function documentPreview(state, args, kind) {
 function receiptPreview(state, args) {
   const inv = (state.invoices || []).find((i) => i.id === args.invoiceId);
   if (!inv) return { blockers: [`${args.invoiceId} is not in these books.`], summary: `No invoice ${args.invoiceId}.`, effects: [], figures: {} };
-  const received = (inv.receipts || []).reduce((s, r) => s + Number(r.amount || 0), 0);
-  const due = Math.round((inv.total - received) * 100) / 100;
+  const due = outstandingOf(state, inv);
   const amount = args.amount == null || args.amount === '' ? due : Number(args.amount);
   const date = args.date == null || args.date === '' ? inv.date : postingDate(args.date);
   const blockers = [];
   if (!date) blockers.push(`${args.date} is not a date I can read.`);
   else if (isPeriodLocked(state, date)) blockers.push(`${date} is inside the locked period (through ${state.lockThrough}).`);
-  if (due <= 0.01) blockers.push(`${inv.id} is already fully received (${money(inv.total)}).`);
+  if (inv.status === 'cancelled') blockers.push(`${inv.id} is cancelled, so nothing can be received against it.`);
+  else if (due <= 0.01) blockers.push(`${inv.id} is already fully received or credited (${money(inv.total)}).`);
   else if (amount > due + 0.01) blockers.push(`${money(amount)} is more than the ${money(due)} outstanding on ${inv.id}.`);
   else if (!(amount > 0)) blockers.push('A receipt has to be a positive amount.');
   return {

@@ -382,7 +382,8 @@ test('intent: em-dash strip, comma rates, purchase vs sale, help and empty', () 
 test('chat: empty, help, unknown, gstn does not file, import without attach', async () => {
   const state = createState();
   assert.match((await chat(state, '  ')).reply, /Tell me what/);
-  assert.match((await chat(state, 'help')).reply, /MyCA posts invoices/);
+  assert.match((await chat(state, 'help')).reply, /MyCA posts invoices, bills, payments and expenses/);
+  assert.doesNotMatch((await chat(state, 'help')).reply, /probe govt|nic auth|json/);
   const unk = await chat(state, 'please dance');
   assert.match(unk.reply, /did not match/);
   const gstn = await chat(state, 'gstn');
