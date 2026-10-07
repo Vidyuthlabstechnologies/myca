@@ -110,8 +110,8 @@ function creditCheck(state, periods) {
 }
 
 function dueDates(deadlines, asOfDate) {
-  const passed = deadlines.filter((row) => row.daysUntil < 0 && row.daysUntil >= -90);
-  const next = deadlines.filter((row) => row.daysUntil >= 0).sort((a, b) => a.daysUntil - b.daysUntil)[0];
+  const passed = deadlines.filter((row) => row.daysUntil < 0 && row.daysUntil >= -90 && !row.filed);
+  const next = deadlines.filter((row) => row.daysUntil >= 0 && !row.filed).sort((a, b) => a.daysUntil - b.daysUntil)[0];
   const nextLine = next ? `Next: ${next.returnLabel || next.returnType} for ${next.period}, due ${next.dueDate}.` : '';
   if (!passed.length) {
     return { id: 'due', severity: 'ok', title: 'No due date has passed in the last three months', detail: nextLine || `As of ${asOfDate}.` };
@@ -120,8 +120,8 @@ function dueDates(deadlines, asOfDate) {
   return {
     id: 'due',
     severity: 'check',
-    title: `${plural(names.length, 'return', 'returns')} had due dates in the last three months`,
-    detail: `${names.slice(0, 4).join(', ')}${names.length > 4 ? ` and ${names.length - 4} more` : ''}. MyCA cannot see whether these were filed; check with whoever filed them. ${nextLine}`.trim(),
+    title: `${plural(names.length, 'return has', 'returns have')} no filing recorded`,
+    detail: `${names.slice(0, 4).join(', ')}${names.length > 4 ? ` and ${names.length - 4} more` : ''}. MyCA has no filing recorded for these. If one was filed, say so with its ARN, for example "filed GSTR-1 for 2026-08, ARN AA2709261234567". ${nextLine}`.trim(),
     action: 'taxes',
   };
 }

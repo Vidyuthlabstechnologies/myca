@@ -185,7 +185,7 @@ function monthlyAverages(state, from) {
 function gstPayments(state, deadlines, from, until) {
   const rows = [];
   for (const row of deadlines) {
-    if (row.returnType !== 'GSTR-3B' || row.dueDate < from || row.dueDate > until) continue;
+    if (row.returnType !== 'GSTR-3B' || row.filed || row.dueDate < from || row.dueDate > until) continue;
     const summary = periodSummary(state, row.period);
     if (!summary.ok) continue;
     const owed = round2(Math.max(0, summary.data.outputTax.total - summary.data.inputCredit.total));

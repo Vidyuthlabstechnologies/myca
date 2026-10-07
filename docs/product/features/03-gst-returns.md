@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Requirements | FR-GST-1 to 6 in the [product PRD](../PRD.md) |
-| Status | Drafts, GSTR-1 file and the review built (2026-10-06); set-off and live filing not built |
+| Status | Drafts, GSTR-1 file and the review built (2026-10-06); recording a filing and its ARN built (2026-10-07); set-off and live filing not built |
 | Code | `platform/src/return-period.mjs`, `gstr1-json.mjs`, `tools.mjs` (`prepare_gstr1`, `prepare_gstr3b`, `gst_period_summary`, `filing_pack`), `action-gate.mjs`, `sprints/sprint-3-gst-recon`, `sprints/sprint-5-filing-assistant` |
 
 ## What the owner experiences
@@ -84,6 +84,27 @@ flowchart TD
 - The owner's OTP or EVC is entered by the owner. The product never stores it.
 - Until live filing exists, the end of the review is "Save the file", and the product
   says plainly that it has not filed anything.
+
+## Recording a filing (built 2026-10-07)
+
+Until MyCA files live, returns are filed on the portal or by the CA. The owner records
+each one so MyCA stops treating it as due:
+
+- `record_filing` (`filings.mjs`) takes the return, the period, the ARN and the filing
+  date. The return must be one the deadlines engine lists for this business in the 24
+  months before the filing date. It is refused when the ARN is not 10 to 20 letters and
+  digits, when the date is in the future, when the return is already recorded, or when
+  the ARN is already used. MyCA does not validate the ARN's internal structure.
+- Recorded filings are laid over every deadline (`deadline-run.mjs`). The row becomes
+  `filed`, with the ARN and whether it was filed after the due date. The overdue item
+  leaves "needs you", the books check stops listing it, and a filed GSTR-3B is no
+  longer projected as a payment in the cash forecast.
+- An unrecorded return past its due date now reads "has no filing recorded", not
+  "overdue": MyCA cannot tell whether it was filed.
+- Chat: "filed GSTR-1 for September, ARN AA2909261234567", "GSTR-3B for 2026-09 filed
+  by my CA, ack no …", "my filings". A month name is the most recent past one.
+  Sentences with "not", "never", "haven't" are not read as filings.
+- App: Taxes has a Filed section and "Record a filing", with the engine's preview first.
 
 ## Acceptance criteria
 

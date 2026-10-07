@@ -462,6 +462,8 @@ class Deadline {
     required this.dueDate,
     required this.daysUntil,
     required this.level,
+    this.returnType = '',
+    this.filedArn = '',
   });
 
   factory Deadline.fromJson(Object? json) {
@@ -469,20 +471,59 @@ class Deadline {
     final label = _text(map['returnLabel']);
     return Deadline(
       label: label.isEmpty ? _text(map['returnType']) : label,
+      returnType: _text(map['returnType']),
       period: _text(map['period']),
       dueDate: _text(map['dueDate']),
       daysUntil: _num(map['daysUntil']).toInt(),
       level: _text(map['level']),
+      filedArn: _text(_map(map['filed'])['arn']),
+    );
+  }
+
+  final String label;
+  final String returnType;
+  final String period;
+  final String dueDate;
+  final int daysUntil;
+  final String level;
+  final String filedArn;
+
+  bool get onTrack => level == 'on_track';
+
+  bool get filed => filedArn.isNotEmpty;
+}
+
+class FiledReturn {
+  const FiledReturn({
+    required this.label,
+    required this.period,
+    required this.arn,
+    required this.filedOn,
+    required this.late,
+  });
+
+  factory FiledReturn.fromJson(Object? json) {
+    final map = _map(json);
+    final label = _text(map['label']);
+    return FiledReturn(
+      label: label.isEmpty ? _text(map['returnType']) : label,
+      period: _text(map['period']),
+      arn: _text(map['arn']),
+      filedOn: _text(map['filedOn']),
+      late: map['late'] == true,
     );
   }
 
   final String label;
   final String period;
-  final String dueDate;
-  final int daysUntil;
-  final String level;
+  final String arn;
+  final String filedOn;
+  final bool late;
+}
 
-  bool get onTrack => level == 'on_track';
+List<FiledReturn> filedReturnsFrom(Object? json) {
+  final data = json is Map ? json['data'] : null;
+  return data is List ? data.map(FiledReturn.fromJson).toList() : const [];
 }
 
 class ExceptionItem {

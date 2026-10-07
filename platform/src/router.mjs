@@ -102,6 +102,15 @@ function fmtToolResult(name, result) {
     const head = n.cancels ? `Cancelled ${n.invoiceId} with credit note ${n.id}` : `Credit note ${n.id} for ${money(n.total)} against ${n.invoiceId}`;
     return `${head} (${n.partyName}, ${n.date}).${result.refundDue > 0 ? ` ${money(result.refundDue)} was already received and is now due back to ${n.partyName}.` : ''}`;
   }
+  if (name === 'list_filings' && result.data) {
+    return result.data.length
+      ? `Recorded as filed:\n${result.data.slice(0, 12).map((f) => `· ${f.label} for ${f.period}: ${f.filedOn}, ARN ${f.arn}${f.late ? ' (after the due date)' : ''}`).join('\n')}`
+      : 'No filing is recorded yet. When a return is filed, say so with its ARN, for example "filed GSTR-1 for September, ARN AA2909261234567".';
+  }
+  if (name === 'record_filing' && result.filing) {
+    const f = result.filing;
+    return `Recorded ${f.label} for ${f.period} as filed on ${f.filedOn}, ARN ${f.arn}.${f.late ? ` That was after its due date of ${f.dueDate}.` : ''} MyCA did not file anything.`;
+  }
   if (name === 'record_payment' && result.bill) {
     const b = result.bill;
     return `Paid ${b.partyName} ${money(result.payment.amount)} against ${b.id} by ${result.payment.mode} on ${result.payment.date}. ${result.remaining > 0.005 ? `${money(result.remaining)} is still owed on it.` : `${b.id} is paid in full.`}`;

@@ -52,6 +52,7 @@ export function createState() {
     caRequestSeq: 0,
     quotes: [],
     quoteSeq: 0,
+    filings: [],
     lockThrough: '',
     integrationConnections: {},
     documents: [],
@@ -102,6 +103,7 @@ export function serialize(state) {
     caRequests: state.caRequests || [],
     caRequestSeq: state.caRequestSeq || 0,
     quotes: state.quotes || [],
+    filings: state.filings || [],
     quoteSeq: state.quoteSeq || 0,
     integrationConnections: normalizeIntegrationConnections(state.integrationConnections),
     documents: state.documents || [],
@@ -233,6 +235,7 @@ export function deserialize(raw) {
   state.caRequests = Array.isArray(raw.caRequests) ? raw.caRequests : [];
   state.caRequestSeq = raw.caRequestSeq || 0;
   state.quotes = Array.isArray(raw.quotes) ? raw.quotes : [];
+  state.filings = Array.isArray(raw.filings) ? raw.filings : [];
   state.quoteSeq = raw.quoteSeq || 0;
   // Legacy states embedded raw content in `files`; carry it to a one-shot migration.
   state._legacyFiles = raw.files && typeof raw.files === 'object' ? raw.files : null;
