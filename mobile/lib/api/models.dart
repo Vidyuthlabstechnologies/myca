@@ -1620,6 +1620,8 @@ class InvoiceDocument {
     required this.status,
     required this.balance,
     required this.missing,
+    this.debited = 0,
+    this.debitNotes = const <CreditNote>[],
     this.dueDate = '',
     this.termsDays,
     this.kind = 'invoice',
@@ -1657,6 +1659,8 @@ class InvoiceDocument {
       received: _num(map['received']),
       credited: _num(map['credited']),
       creditNotes: _maps(map['creditNotes']).map(CreditNote.fromJson).toList(),
+      debited: _num(map['debited']),
+      debitNotes: _maps(map['debitNotes']).map(CreditNote.fromJson).toList(),
       status: _text(map['status']),
       balance: _num(map['balance']),
       dueDate: _text(map['dueDate']),
@@ -1691,6 +1695,8 @@ class InvoiceDocument {
   final num received;
   final num credited;
   final List<CreditNote> creditNotes;
+  final num debited;
+  final List<CreditNote> debitNotes;
   final String status;
   final num balance;
   final List<String> missing;

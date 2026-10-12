@@ -110,6 +110,26 @@ class _InvoiceScreenState extends State<InvoiceScreen> with ProposalFlow {
     );
   }
 
+  Future<void> _debitNote(InvoiceDocument doc) async {
+    final result = await showModalBottomSheet<(num?, String)>(
+      context: context,
+      isScrollControlled: true,
+      builder: (sheet) => _CreditNoteSheet(doc: doc, debit: true),
+    );
+    if (result == null || !mounted) return;
+    final (amount, reason) = result;
+    await propose(
+      'Debit note of ${rupees(amount ?? 0)} against ${doc.id}: $reason',
+      'create_debit_note',
+      {
+        'invoiceId': doc.id,
+        'date': isoDate(AppScope.of(context).now()),
+        'reason': reason,
+        'amount': amount,
+      },
+    );
+  }
+
   Future<void> _askCa(InvoiceDocument doc) async {
     final reply = await askMyCa(
       context,
@@ -239,6 +259,9 @@ class _InvoiceScreenState extends State<InvoiceScreen> with ProposalFlow {
                           doc.balance + doc.received <= 0
                       ? null
                       : () => _creditNote(doc),
+                  onDebitNote: doc.isQuote || doc.cancelled
+                      ? null
+                      : () => _debitNote(doc),
                   onCancel: doc.isQuote || doc.cancelled || doc.credited > 0
                       ? null
                       : () => _cancel(doc),
@@ -301,6 +324,7 @@ class _InvoiceBody extends StatelessWidget {
     required this.onShare,
     required this.onPrint,
     required this.onCreditNote,
+    required this.onDebitNote,
     required this.onCancel,
     required this.onRemind,
     required this.onAskCa,
@@ -317,6 +341,7 @@ class _InvoiceBody extends StatelessWidget {
   final VoidCallback onShare;
   final VoidCallback onPrint;
   final VoidCallback? onCreditNote;
+  final VoidCallback? onDebitNote;
   final VoidCallback? onCancel;
   final VoidCallback? onRemind;
   final VoidCallback? onAskCa;
@@ -477,8 +502,10 @@ class _InvoiceBody extends StatelessWidget {
               amount: doc.total,
               style: text.titleLarge?.copyWith(fontFeatures: moneyFigures),
             ),
-            if (doc.received > 0 || doc.credited > 0) ...[
+            if (doc.received > 0 || doc.credited > 0 || doc.debited > 0) ...[
               const SizedBox(height: 6),
+              if (doc.debited > 0)
+                _Amount(name: 'Added by debit note', amount: doc.debited, style: money),
               if (doc.received > 0)
                 _Amount(name: 'Received', amount: doc.received, style: money),
               if (doc.credited > 0)
@@ -493,6 +520,13 @@ class _InvoiceBody extends StatelessWidget {
               const SizedBox(height: 8),
               Text(
                 '${note.cancels ? 'Cancelled' : 'Credit note ${note.id}'} on ${longDate(note.date)}: ${note.reason}',
+                style: text.bodySmall,
+              ),
+            ],
+            for (final note in doc.debitNotes) ...[
+              const SizedBox(height: 8),
+              Text(
+                'Debit note ${note.id} on ${longDate(note.date)}: ${note.reason}',
                 style: text.bodySmall,
               ),
             ],
@@ -580,6 +614,11 @@ class _InvoiceBody extends StatelessWidget {
                   label: const Text('Credit note'),
                   onPressed: busy ? null : onCreditNote,
                 ),
+              if (onDebitNote != null)
+                ActionChip(
+                  label: const Text('Debit note'),
+                  onPressed: busy ? null : onDebitNote,
+                ),
               if (onCancel != null)
                 ActionChip(
                   label: const Text('Cancel invoice'),
@@ -589,7 +628,7 @@ class _InvoiceBody extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            'A credit note or a cancellation reverses the amount with a new entry; the invoice itself is never changed.',
+            'A credit note, a debit note or a cancellation changes the amount with a new entry; the invoice itself is never changed.',
             style: text.bodySmall,
           ),
         ],
@@ -600,9 +639,10 @@ class _InvoiceBody extends StatelessWidget {
 }
 
 class _CreditNoteSheet extends StatefulWidget {
-  const _CreditNoteSheet({required this.doc});
+  const _CreditNoteSheet({required this.doc, this.debit = false});
 
   final InvoiceDocument doc;
+  final bool debit;
 
   @override
   State<_CreditNoteSheet> createState() => _CreditNoteSheetState();
@@ -623,16 +663,21 @@ class _CreditNoteSheetState extends State<_CreditNoteSheet> {
   void _done() {
     final reason = _reason.text.trim();
     if (reason.isEmpty) {
-      return setState(() => _error = 'Say why: goods returned, price reduced…');
+      return setState(
+        () => _error = widget.debit
+            ? 'Say why: price revised, extra charge…'
+            : 'Say why: goods returned, price reduced…',
+      );
     }
     final raw = _amount.text.trim();
     num? amount;
-    if (raw.isNotEmpty) {
+    if (raw.isNotEmpty || widget.debit) {
       amount = num.tryParse(raw.replaceAll(',', ''));
       if (amount == null || amount <= 0) {
         return setState(
-          () => _error =
-              'Enter the amount, or leave it blank for the whole invoice.',
+          () => _error = widget.debit
+              ? 'Enter the amount to add, with GST.'
+              : 'Enter the amount, or leave it blank for the whole invoice.',
         );
       }
     }
@@ -655,20 +700,26 @@ class _CreditNoteSheetState extends State<_CreditNoteSheet> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Credit note against ${widget.doc.id}',
+            widget.debit
+                ? 'Debit note against ${widget.doc.id}'
+                : 'Credit note against ${widget.doc.id}',
             style: text.headlineSmall,
           ),
           const SizedBox(height: 6),
           Text(
-            'Up to ${rupees(left)} including GST. Leave the amount blank to credit the whole invoice.',
+            widget.debit
+                ? 'Adds to what ${widget.doc.buyerName} owes, with GST at the invoice rates. The note goes into the GSTR-1 of its own month.'
+                : 'Up to ${rupees(left)} including GST. Leave the amount blank to credit the whole invoice.',
             style: text.bodySmall,
           ),
           const SizedBox(height: 14),
           TextField(
             controller: _amount,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: const InputDecoration(
-              labelText: 'Amount, with GST (optional)',
+            decoration: InputDecoration(
+              labelText: widget.debit
+                  ? 'Amount to add, with GST'
+                  : 'Amount, with GST (optional)',
               prefixText: '₹ ',
             ),
           ),

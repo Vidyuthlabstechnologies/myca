@@ -20,9 +20,13 @@ function monthFigures(state, period) {
   const inPeriod = (doc) => periodOf(doc?.date) === period;
   const sales = sumOf((state.invoices || []).filter(inPeriod), 'total');
   const creditNotes = sumOf((state.creditNotes || []).filter(inPeriod), 'total');
+  const debitNotes = sumOf((state.debitNotes || []).filter(inPeriod), 'total');
+  const purchaseNotes = sumOf((state.purchaseNotes || []).filter(inPeriod), 'total');
   return {
-    sales: { ...sales, net: round2(sales.total - creditNotes.total) },
+    sales: { ...sales, net: round2(sales.total - creditNotes.total + debitNotes.total) },
     creditNotes,
+    debitNotes,
+    purchaseNotes,
     purchases: sumOf((state.purchases || []).filter(inPeriod), 'total'),
     expenses: sumOf((state.expenses || []).filter(inPeriod), 'amount'),
   };

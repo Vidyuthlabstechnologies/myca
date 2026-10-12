@@ -1,5 +1,5 @@
 import { gstin } from './sprint-load.mjs';
-import { creditedAgainst } from './credit-notes.mjs';
+import { creditedAgainst, debitedAgainst } from './credit-notes.mjs';
 import { quoteState } from './quotes.mjs';
 
 const round2 = (value) => Math.round(Number(value || 0) * 100) / 100;
@@ -61,6 +61,8 @@ export function invoiceDocument(state, id) {
   const received = round2(receipts.reduce((sum, receipt) => sum + receipt.amount, 0));
   const credited = creditedAgainst(state, invoice.id);
   const creditNotes = (state.creditNotes || []).filter((note) => note.invoiceId === invoice.id).map((note) => ({ id: note.id, date: note.date, reason: note.reason, total: note.total, cancels: Boolean(note.cancels) }));
+  const debited = debitedAgainst(state, invoice.id);
+  const debitNotes = (state.debitNotes || []).filter((note) => note.invoiceId === invoice.id).map((note) => ({ id: note.id, date: note.date, reason: note.reason, total: note.total }));
   return {
     ok: true,
     data: {
@@ -70,6 +72,8 @@ export function invoiceDocument(state, id) {
       received,
       credited,
       creditNotes,
+      debited,
+      debitNotes,
       status: invoice.status,
       paymentTermsDays: invoice.paymentTermsDays ?? null,
       dueDate: invoice.dueDate || '',

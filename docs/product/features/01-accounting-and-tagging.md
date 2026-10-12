@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Requirements | FR-ACC-1 to 5, FR-TAG-1 to 4 in the [product PRD](../PRD.md) |
-| Status | Accounting, expense tagging and sales credit notes built (2026-10-06); debit notes not built |
+| Status | Accounting, expense tagging and sales credit notes built (2026-10-06); sales debit notes and debit notes to suppliers built (2026-10-12) |
 | Code | `platform/src/ledger.mjs`, `invoice.mjs`, `chart.mjs`, `tools.mjs`, `intent.mjs` |
 
 ## What the owner experiences
@@ -61,7 +61,7 @@ or a credit unless they ask.
   unknown wording (as a proposal only, never posted without confirmation); blocked
   credit heads under s.17(5) such as food and personal use.
 
-### Corrections (credit notes built; debit notes to build)
+### Corrections (credit and debit notes built)
 
 - A credit note (`credit-notes.mjs`) is a document linked to the invoice, for part of
   it or all of it, dated on or after the invoice and never in a locked month. It posts
@@ -78,8 +78,25 @@ or a credit unless they ask.
   month's notes, and net.
 - In chat: "cancel INV-0002", "credit note for INV-0001 2100 - goods returned". The
   app offers both from the invoice screen; the customer chat shows each note.
-- To build: debit notes; credit and debit notes on purchases; the e-invoice (IRN) for a
-  credit note where the business is in the e-invoicing bracket.
+- A debit note on a sale (`debit-notes.mjs`, `create_debit_note`) adds to the invoice:
+  price revised upward, an extra charge. It needs an amount and a reason, is dated on or
+  after the invoice, scales the invoice's lines to the amount at the same GST rates, and
+  posts debit customer, credit sales and the output tax heads. The customer owes that
+  much more; a paid invoice with a debit note is open again for the difference. GSTR-1
+  reports it in the month of the note as a D row in CDNR or CDNUR, or added to the B2CS
+  row; GSTR-3B outward and the amount to pay include it.
+- A debit note to a supplier (`create_purchase_note`) reduces a bill: goods returned,
+  short supply, price reduced. It cannot exceed what is left of the bill, scales the
+  bill's lines, and posts debit supplier, credit purchases and the input credit heads
+  (or purchases alone where the credit was blocked). You owe the supplier that much
+  less, or are owed it back if already paid; the month's input credit is reduced by the
+  reversed tax and the review says so. TDS already deducted on the bill is not changed.
+- In chat: "debit note for INV-0001 2000 - price revised", "debit note for BILL-0003
+  1000 - goods returned". App: the invoice screen offers a debit note beside the credit
+  note; debit notes to suppliers are made in chat for now.
+- To build: a supplier's own debit note that increases a bill; the e-invoice (IRN) for
+  a credit or debit note where the business is in the e-invoicing bracket; debit notes
+  to suppliers from the bill in the app.
 
 ## Acceptance criteria
 

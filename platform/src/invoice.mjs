@@ -211,7 +211,8 @@ export function recordReceipt(state, { invoiceId, amount, date, mode } = {}) {
   if (!party) return { ok: false, error: 'PARTY_NOT_FOUND' };
   if (inv.status === 'cancelled') return { ok: false, error: 'INVOICE_CANCELLED', invoiceId };
   const already = (inv.receipts || []).reduce((s, r) => s + Number(r.amount || 0), 0);
-  const credited = (state.creditNotes || []).filter((note) => note.invoiceId === invoiceId).reduce((s, note) => s + Number(note.total || 0), 0);
+  const credited = (state.creditNotes || []).filter((note) => note.invoiceId === invoiceId).reduce((s, note) => s + Number(note.total || 0), 0)
+    - (state.debitNotes || []).filter((note) => note.invoiceId === invoiceId).reduce((s, note) => s + Number(note.total || 0), 0);
   const amt = amount == null || amount === '' ? Math.round((inv.total - already - credited) * 100) / 100 : Number(amount);
   if (!Number.isFinite(amt) || amt <= 0) return { ok: false, error: 'BAD_AMOUNT' };
   if (already + credited + amt > inv.total + 0.01) {
@@ -361,7 +362,7 @@ export function createPurchase(state, input) {
 
 export function billOutstanding(bill) {
   const paid = (bill.payments || []).reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
-  return Math.round((Number(bill.total || 0) - Number(bill.tds?.amount || 0) - paid) * 100) / 100;
+  return Math.round((Number(bill.total || 0) - Number(bill.notedTotal || 0) - Number(bill.tds?.amount || 0) - paid) * 100) / 100;
 }
 
 export function cashInHand(state) {

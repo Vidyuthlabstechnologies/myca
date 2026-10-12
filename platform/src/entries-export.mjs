@@ -30,6 +30,12 @@ function rowsFor(state, period) {
   for (const note of (state.creditNotes || []).filter(inPeriod)) {
     rows.push([note.date, note.cancels ? 'Cancellation' : 'Credit note', note.id, note.partyName, note.partyGstin || '', 'Sales', note.reason, round2(-note.taxable), round2(-note.cgst), round2(-note.sgst), round2(-note.igst), round2(-note.total), '', note.invoiceId]);
   }
+  for (const note of (state.debitNotes || []).filter(inPeriod)) {
+    rows.push([note.date, 'Debit note', note.id, note.partyName, note.partyGstin || '', 'Sales', note.reason, round2(note.taxable), round2(note.cgst), round2(note.sgst), round2(note.igst), round2(note.total), '', note.invoiceId]);
+  }
+  for (const note of (state.purchaseNotes || []).filter(inPeriod)) {
+    rows.push([note.date, 'Debit note to supplier', note.id, note.partyName, note.partyGstin || '', 'Purchases', note.reason, round2(-note.taxable), round2(-note.cgst), round2(-note.sgst), round2(-note.igst), round2(-note.total), '', note.billId]);
+  }
   for (const bill of (state.purchases || []).filter(inPeriod)) {
     rows.push([bill.date, 'Purchase', bill.id, bill.partyName, bill.partyGstin || '', 'Purchases', describe(bill.lines), round2(bill.taxable), round2(bill.cgst), round2(bill.sgst), round2(bill.igst), round2(bill.total), '', '']);
   }

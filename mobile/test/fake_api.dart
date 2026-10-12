@@ -164,6 +164,7 @@ class FakeMycaApi implements MycaApi {
   ];
   final filings = <Map<String, Object?>>[];
   final supplierReminders = <Map<String, Object?>>[];
+  final debitNotes = <Map<String, Object?>>[];
   bool tdsDeductor = false;
   num tdsDue = 6000;
   final tdsDeposits = <Map<String, Object?>>[];
@@ -483,6 +484,12 @@ class FakeMycaApi implements MycaApi {
         {'invoiceId': args['invoiceId'], 'total': amount ?? 377600},
       );
     }
+    if (name == 'create_debit_note') {
+      return _preview(
+        'Debit note of ₹${args['amount']} against ${args['invoiceId']} (Gujarat Weaves) dated ${args['date']}. Reason: ${args['reason']}.',
+        {'invoiceId': args['invoiceId'], 'total': args['amount']},
+      );
+    }
     if (name == 'cancel_invoice') {
       return _preview(
         'Cancel ${args['invoiceId']} (Gujarat Weaves) by a credit note for its full ₹3,77,600.00 dated ${args['date']}.',
@@ -758,6 +765,21 @@ class FakeMycaApi implements MycaApi {
           'confirmed': true,
         });
       }
+      if (held.tool == 'create_debit_note') {
+        debitNotes.add({
+          'id': 'DN-0001',
+          'date': held.args['date'],
+          'invoiceId': held.args['invoiceId'],
+          'partyName': 'Gujarat Weaves',
+          'reason': held.args['reason'],
+          'total': held.args['amount'],
+        });
+        return ChatReply.fromJson({
+          'reply': 'Debit note DN-0001 for ₹${held.args['amount']} against ${held.args['invoiceId']}.',
+          'posted': true,
+          'confirmed': true,
+        });
+      }
       if (held.tool == 'create_credit_note' || held.tool == 'cancel_invoice') {
         final cancels = held.tool == 'cancel_invoice';
         creditNotes.add({
@@ -988,6 +1010,11 @@ class FakeMycaApi implements MycaApi {
               (sum, n) => sum + (n['total'] as num),
             ),
             'creditNotes': creditNotes,
+            'debited': debitNotes.fold<num>(
+              0,
+              (sum, n) => sum + (n['total'] as num),
+            ),
+            'debitNotes': debitNotes,
             'status': invoices[1]['status'],
             'paymentTermsDays': 30,
             'dueDate': '2026-09-11',

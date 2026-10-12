@@ -130,6 +130,14 @@ function fmtToolResult(name, result) {
     const e = result.expense;
     return result.unchanged ? `${e.id} is already under ${e.headName}.` : `Moved ${e.id} to ${e.headName}.`;
   }
+  if (name === 'create_debit_note' && result.debitNote) {
+    const n = result.debitNote;
+    return `Debit note ${n.id} for ${money(n.total)} against ${n.invoiceId} (${n.partyName}, ${n.date}). ${n.partyName} now owes ${money(result.outstanding)}.`;
+  }
+  if (name === 'create_purchase_note' && result.purchaseNote) {
+    const n = result.purchaseNote;
+    return `Debit note ${n.id} to ${n.partyName} for ${money(n.total)} against ${n.billId} (${n.date}).${result.refundDue > 0 ? ` ${money(result.refundDue)} was already paid and is now due back to you.` : ` You owe ${money(result.outstanding)} on it now.`}`;
+  }
   if ((name === 'create_credit_note' || name === 'cancel_invoice') && result.creditNote) {
     const n = result.creditNote;
     const head = n.cancels ? `Cancelled ${n.invoiceId} with credit note ${n.id}` : `Credit note ${n.id} for ${money(n.total)} against ${n.invoiceId}`;

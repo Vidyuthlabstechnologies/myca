@@ -269,6 +269,33 @@ export const TOOL_ARG_SCHEMAS = {
       reason: { type: 'string', minLength: 1, maxLength: 200 },
     },
   },
+  create_debit_note: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['invoiceId', 'amount', 'reason'],
+    properties: {
+      invoiceId: { type: 'string', pattern: '^INV-[0-9]{4,}$' },
+      amount: { type: 'number', exclusiveMinimum: 0 },
+      date: { type: 'string' },
+      reason: { type: 'string', minLength: 1, maxLength: 200 },
+    },
+  },
+  create_purchase_note: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['billId', 'amount', 'reason'],
+    properties: {
+      billId: { type: 'string', pattern: '^BILL-[0-9]{4,}$' },
+      amount: { type: 'number', exclusiveMinimum: 0 },
+      date: { type: 'string' },
+      reason: { type: 'string', minLength: 1, maxLength: 200 },
+    },
+  },
+  list_debit_notes: {
+    type: 'object',
+    additionalProperties: false,
+    properties: { period: { type: 'string', pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' } },
+  },
   cancel_invoice: {
     type: 'object',
     additionalProperties: false,
@@ -946,6 +973,8 @@ const TOOL_RISK = {
   post_expense: 'writes_books',
   set_expense_head: 'writes_books',
   create_credit_note: 'writes_books',
+  create_debit_note: 'writes_books',
+  create_purchase_note: 'writes_books',
   cancel_invoice: 'writes_books',
   gst_review_answer: 'writes_books',
   import_gstr2b: 'writes_books',
@@ -1215,6 +1244,24 @@ export function planLocalToolCall(state, message) {
   if (cancelMatch && !isQuestion(text) && !/(?:do\s*not|don'?t|never)/i.test(text) && !/(?:irn|e-?invoice)/i.test(text)) {
     const reason = String(cancelMatch[2] || '').trim();
     return { kind: 'tool', name: 'cancel_invoice', args: { invoiceId: cancelMatch[1].toUpperCase(), date: receiptDate(text, localToday()), ...(reason ? { reason: reason.slice(0, 200) } : {}) } };
+  }
+  const supplierNote = text.match(/\bdebit\s+note\b.*?\b(BILL-\d{4,})\b/i);
+  if (supplierNote && !isQuestion(text) && !isNegated(text)) {
+    const amount = receiptAmount(text);
+    const afterBill = text.slice(text.toUpperCase().indexOf(supplierNote[1].toUpperCase()) + supplierNote[1].length);
+    const reason = (text.match(/(?:because|reason|:|-)\s*([^0-9₹][^,]*?)\s*$/i) || afterBill.match(/(?:₹|rs\.?\s*)?\d[\d,]*(?:\.\d+)?\s+(?:for\s+)?([A-Za-z][^,]*?)\s*$/i) || [])[1] || '';
+    if (amount == null) return { kind: 'reply', reply: `Say the amount, for example "debit note for ${supplierNote[1].toUpperCase()} 1000 - goods returned". I have recorded nothing.`, tools: [] };
+    if (!reason.trim()) return { kind: 'reply', reply: `Say why, for example "debit note for ${supplierNote[1].toUpperCase()} 1000 - goods returned". I have recorded nothing.`, tools: [] };
+    return { kind: 'tool', name: 'create_purchase_note', args: { billId: supplierNote[1].toUpperCase(), amount, date: receiptDate(text, localToday()), reason: reason.trim().slice(0, 200) } };
+  }
+  const debitMatch = text.match(/\bdebit\s+note\b.*?\b(INV-\d{4,})\b/i);
+  if (debitMatch && !isQuestion(text) && !isNegated(text)) {
+    const amount = receiptAmount(text);
+    const afterInvoice = text.slice(text.toUpperCase().indexOf(debitMatch[1].toUpperCase()) + debitMatch[1].length);
+    const reason = (text.match(/(?:because|reason|:|-)\s*([^0-9₹][^,]*?)\s*$/i) || afterInvoice.match(/(?:₹|rs\.?\s*)?\d[\d,]*(?:\.\d+)?\s+(?:for\s+)?([A-Za-z][^,]*?)\s*$/i) || [])[1] || '';
+    if (amount == null) return { kind: 'reply', reply: `Say the amount, for example "debit note for ${debitMatch[1].toUpperCase()} 2000 - price revised". I have recorded nothing.`, tools: [] };
+    if (!reason.trim()) return { kind: 'reply', reply: `Say why, for example "debit note for ${debitMatch[1].toUpperCase()} 2000 - price revised". I have recorded nothing.`, tools: [] };
+    return { kind: 'tool', name: 'create_debit_note', args: { invoiceId: debitMatch[1].toUpperCase(), amount, date: receiptDate(text, localToday()), reason: reason.trim().slice(0, 200) } };
   }
   const creditMatch = text.match(/\bcredit\s+note\b.*?\b(INV-\d{4,})\b/i);
   if (creditMatch && !isQuestion(text) && !isNegated(text)) {

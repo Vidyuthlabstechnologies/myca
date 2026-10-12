@@ -32,7 +32,7 @@ function headsOf(state, period) {
     output: taxByHead(outward.interIgst, outward.intraCgst, outward.intraSgst),
     credit: taxByHead(available.igst, available.cgst, available.sgst),
     purchases: docs.purchases.length,
-    sales: docs.invoices.length + docs.creditNotes.length,
+    sales: docs.invoices.length + docs.creditNotes.length + (docs.debitNotes || []).length,
   };
 }
 
@@ -79,7 +79,7 @@ export function paymentFor(state, requested, { payOn } = {}) {
   if (!result.ok) return result;
   const rulesUsed = [result.ruleUsed];
   let unreviewed = !result.attested;
-  const nil = summary.salesCount === 0 && summary.creditNoteCount === 0 && summary.purchaseCount === 0;
+  const nil = summary.salesCount === 0 && summary.creditNoteCount === 0 && summary.purchaseCount === 0 && (summary.debitNoteCount || 0) === 0 && (summary.purchaseNoteCount || 0) === 0;
   const row = dueRow(state, period);
   const filed = filingFor(state, 'GSTR-3B', period);
   let late = null;

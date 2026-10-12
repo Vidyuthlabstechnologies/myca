@@ -13,6 +13,7 @@ import { postExpense, retagExpense, listExpenses, expenseHeads } from './expense
 import { businessSummary } from './business-summary.mjs';
 import { gstr3bFor, periodSummary } from './period-summary.mjs';
 import { createCreditNote, cancelInvoice, creditNotesForPeriod } from './credit-notes.mjs';
+import { createDebitNote, createPurchaseNote, debitNotesForPeriod, purchaseNotesForPeriod } from './debit-notes.mjs';
 import { reviewOf, answerReview } from './gst-review.mjs';
 import { exportEntries } from './entries-export.mjs';
 import { import2b, creditAtRisk } from './gstr2b-check.mjs';
@@ -473,6 +474,30 @@ export const TOOLS = [
     run: (state, args) => cancelInvoice(state, args),
   },
   {
+    name: 'create_debit_note',
+    title: 'Debit note',
+    description: 'Increase a posted sales invoice by a debit note (price revised upward, extra charge) with entries that add to sales and output tax; the customer owes that much more. Never edits the invoice.',
+    args: ['invoiceId', 'amount', 'date', 'reason'],
+    run: (state, args) => createDebitNote(state, args),
+  },
+  {
+    name: 'create_purchase_note',
+    title: 'Debit note to a supplier',
+    description: 'Reduce a posted supplier bill by a debit note (goods returned, price reduced) with entries that reverse the purchase and its input credit; you owe the supplier that much less. Never edits the bill.',
+    args: ['billId', 'amount', 'date', 'reason'],
+    run: (state, args) => createPurchaseNote(state, args),
+  },
+  {
+    name: 'list_debit_notes',
+    title: 'Debit notes',
+    description: 'Debit notes on sales invoices and debit notes to suppliers, optionally for one month (YYYY-MM). Read-only.',
+    args: ['period'],
+    run: (state, args = {}) => ok({
+      sales: args.period ? debitNotesForPeriod(state, String(args.period)) : state.debitNotes || [],
+      purchases: args.period ? purchaseNotesForPeriod(state, String(args.period)) : state.purchaseNotes || [],
+    }),
+  },
+  {
     name: 'list_credit_notes',
     title: 'Credit notes',
     description: 'Credit notes against sales invoices, optionally for one month (YYYY-MM). Read-only.',
@@ -534,6 +559,7 @@ export const TOOLS = [
     run: (state, args = {}) => {
       const json = invoicesToGstr1Json(state.company, state.invoices || [], args.fp, {
         creditNotes: state.creditNotes || [],
+        debitNotes: state.debitNotes || [],
         grossTurnover: args.grossTurnover,
         currentGrossTurnover: args.currentGrossTurnover,
       });

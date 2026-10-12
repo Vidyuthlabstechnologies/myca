@@ -37,6 +37,8 @@ export function draftHashOf(summary, payment = null) {
     outputTax: summary.outputTax,
     inputCredit: summary.inputCredit,
     creditNotes: summary.creditNotes,
+    debitNotes: summary.debitNotes || null,
+    purchaseNotes: summary.purchaseNotes || null,
     held,
   };
   return createHash('sha256').update(JSON.stringify(basis)).digest('hex');
@@ -84,12 +86,15 @@ function stepsFor(summary, payment) {
     });
   }
   const notes = summary.creditNotes || { count: 0, total: 0 };
+  const debits = summary.debitNotes || { count: 0, total: 0 };
+  const purchaseNotes = summary.purchaseNotes || { count: 0, total: 0 };
   steps.push({
     id: 'sales',
     title: `Sales in ${month}`,
     lines: [
       { label: summary.salesCount === 1 ? '1 sale, value before tax' : `${summary.salesCount} sales, value before tax, after credit notes`, amount: round2(summary.taxableSales) },
       ...(notes.count ? [{ label: notes.count === 1 ? '1 credit note, including tax' : `${notes.count} credit notes, including tax`, amount: round2(-notes.total) }] : []),
+      ...(debits.count ? [{ label: debits.count === 1 ? '1 debit note, including tax' : `${debits.count} debit notes, including tax`, amount: round2(debits.total) }] : []),
       ...heads(summary.outputTax).map((head) => ({ label: `${head.label} on sales`, amount: head.amount })),
       { label: 'Tax on sales', amount: round2(summary.outputTax.total), strong: true },
       { label: `In the GSTR-1 file: ${file.b2b} to registered buyers, ${file.b2cl} large to unregistered, ${file.b2cs} summary ${file.b2cs === 1 ? 'row' : 'rows'}${file.cdnr || file.cdnur ? `, ${file.cdnr + file.cdnur} credit ${file.cdnr + file.cdnur === 1 ? 'note' : 'notes'}` : ''}` },
@@ -104,6 +109,7 @@ function stepsFor(summary, payment) {
     title: `Purchases and input credit in ${month}`,
     lines: [
       { label: summary.purchaseCount === 1 ? '1 purchase bill' : `${summary.purchaseCount} purchase bills` },
+      ...(purchaseNotes.count ? [{ label: purchaseNotes.count === 1 ? '1 debit note to a supplier, credit reversed' : `${purchaseNotes.count} debit notes to suppliers, credit reversed`, amount: round2(-(purchaseNotes.cgst + purchaseNotes.sgst + purchaseNotes.igst)) }] : []),
       ...heads(summary.inputCredit).map((head) => ({ label: `${head.label} credit`, amount: head.amount })),
       { label: 'Input credit', amount: round2(summary.inputCredit.total), strong: true },
     ],
@@ -169,7 +175,7 @@ export function reviewOf(state, period) {
       periods: summary.periods,
       month: monthName(summary.period),
       draftHash,
-      empty: summary.salesCount === 0 && summary.purchaseCount === 0 && (summary.creditNotes?.count || 0) === 0,
+      empty: summary.salesCount === 0 && summary.purchaseCount === 0 && (summary.creditNotes?.count || 0) === 0 && (summary.debitNoteCount || 0) === 0 && (summary.purchaseNoteCount || 0) === 0,
       toPay: payment ? payment.toPay : null,
       changed,
       steps: steps.map((step) => ({ ...step, waitingFor: blockedBy(step)?.id || null })),

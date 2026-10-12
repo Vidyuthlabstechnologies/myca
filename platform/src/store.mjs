@@ -42,6 +42,10 @@ export function createState() {
     expenseTags: {},
     creditNotes: [],
     creditNoteSeq: 0,
+    debitNotes: [],
+    debitNoteSeq: 0,
+    purchaseNotes: [],
+    purchaseNoteSeq: 0,
     gstReviews: {},
     gstr2b: {},
     reminders: [],
@@ -102,6 +106,10 @@ export function serialize(state) {
     expenseTags: state.expenseTags || {},
     creditNotes: state.creditNotes || [],
     creditNoteSeq: state.creditNoteSeq || 0,
+    debitNotes: state.debitNotes || [],
+    debitNoteSeq: state.debitNoteSeq || 0,
+    purchaseNotes: state.purchaseNotes || [],
+    purchaseNoteSeq: state.purchaseNoteSeq || 0,
     gstReviews: state.gstReviews || {},
     gstr2b: state.gstr2b || {},
     reminders: state.reminders || [],
@@ -242,6 +250,10 @@ export function deserialize(raw) {
   state.expenseTags = raw.expenseTags && typeof raw.expenseTags === 'object' ? raw.expenseTags : {};
   state.creditNotes = Array.isArray(raw.creditNotes) ? raw.creditNotes : [];
   state.creditNoteSeq = raw.creditNoteSeq || 0;
+  state.debitNotes = Array.isArray(raw.debitNotes) ? raw.debitNotes : [];
+  state.debitNoteSeq = raw.debitNoteSeq || 0;
+  state.purchaseNotes = Array.isArray(raw.purchaseNotes) ? raw.purchaseNotes : [];
+  state.purchaseNoteSeq = raw.purchaseNoteSeq || 0;
   state.gstReviews = raw.gstReviews && typeof raw.gstReviews === 'object' ? raw.gstReviews : {};
   state.gstr2b = raw.gstr2b && typeof raw.gstr2b === 'object' ? raw.gstr2b : {};
   state.reminders = Array.isArray(raw.reminders) ? raw.reminders : [];

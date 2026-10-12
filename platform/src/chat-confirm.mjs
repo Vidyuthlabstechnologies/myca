@@ -9,6 +9,7 @@
 import { randomBytes } from 'node:crypto';
 import { planExpense } from './expenses.mjs';
 import { planCreditNote, creditedAgainst, outstandingOf } from './credit-notes.mjs';
+import { planDebitNote, planPurchaseNote } from './debit-notes.mjs';
 import { checkAnswer, reviewOf, stepText } from './gst-review.mjs';
 import { parse2bFile } from './gstr2b-check.mjs';
 import { planReminder, findReminder, whenWords } from './reminders.mjs';
@@ -33,7 +34,7 @@ import { parseZohoBooksCsv } from './import-zoho.mjs';
 import { tallyXmlToDayBookCsv } from './tally-xml.mjs';
 
 export const CONFIRM_TOOLS = new Set([
-  'create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'record_filing', 'record_supplier_reminder', 'add_employee', 'change_salary', 'end_employment', 'set_tds_deductor', 'record_tds_deposit', 'tds_review_answer', 'set_gst_credit_opening', 'post_expense', 'set_expense_head', 'create_credit_note', 'cancel_invoice', 'gst_review_answer', 'import_gstr2b', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote',
+  'create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'record_filing', 'record_supplier_reminder', 'add_employee', 'change_salary', 'end_employment', 'set_tds_deductor', 'record_tds_deposit', 'tds_review_answer', 'set_gst_credit_opening', 'post_expense', 'set_expense_head', 'create_credit_note', 'create_debit_note', 'create_purchase_note', 'cancel_invoice', 'gst_review_answer', 'import_gstr2b', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote',
   'import_tally', 'import_tally_xml', 'import_zoho', 'import_bank',
   'govt_generate_irn', 'govt_nic_cancel_irn',
   'exception_decide',
@@ -402,6 +403,49 @@ function creditNotePreview(state, args, cancel = false) {
   };
 }
 
+const DEBIT_NOTE_REASONS = {
+  ...CREDIT_NOTE_REASONS,
+  BILL_NOT_FOUND: (p, args) => `${args.billId} is not a bill in these books.`,
+  BEFORE_INVOICE: (p) => `A debit note cannot be dated before the document it is against (${p.invoiceDate}).`,
+  REASON_REQUIRED: () => 'Say why: price revised, extra charge, goods returned, or short supply.',
+  BAD_AMOUNT: () => 'Say the amount of the note as a positive number.',
+  FULLY_NOTED: (p) => `${p.billId} is already reduced to nothing by earlier notes.`,
+  EXCEEDS_BILL: (p) => `Only ${money(p.room)} of ${p.billId} is left to reduce.`,
+};
+
+function debitNotePreview(state, args) {
+  const planned = planDebitNote(state, args);
+  if (!planned.ok) {
+    const explain = DEBIT_NOTE_REASONS[planned.error];
+    return { blockers: [explain ? explain(planned, args, state) : planned.error], summary: '', effects: [], figures: {} };
+  }
+  const { plan } = planned;
+  const heads = [plan.cgst > 0 ? `CGST ${money(plan.cgst)}` : '', plan.sgst > 0 ? `SGST ${money(plan.sgst)}` : '', plan.igst > 0 ? `IGST ${money(plan.igst)}` : ''].filter(Boolean).join(' + ');
+  return {
+    blockers: [],
+    summary: `Debit note of ${money(plan.total)} against ${plan.invoice.id} (${plan.invoice.partyName}) dated ${plan.date}: taxable ${money(plan.taxable)}${heads ? `, ${heads}` : ''}. Reason: ${plan.reason}.`,
+    effects: ['The customer owes you that much more.', 'The invoice stays as it was; the debit note goes into the GSTR-1 for its own month and adds to that month\'s tax on sales.'],
+    figures: { invoiceId: plan.invoice.id, date: plan.date, taxable: plan.taxable, cgst: plan.cgst, sgst: plan.sgst, igst: plan.igst, total: plan.total },
+  };
+}
+
+function purchaseNotePreview(state, args) {
+  const planned = planPurchaseNote(state, args);
+  if (!planned.ok) {
+    const explain = DEBIT_NOTE_REASONS[planned.error];
+    return { blockers: [explain ? explain(planned, args, state) : planned.error], summary: '', effects: [], figures: {} };
+  }
+  const { plan } = planned;
+  const heads = [plan.cgst > 0 ? `CGST ${money(plan.cgst)}` : '', plan.sgst > 0 ? `SGST ${money(plan.sgst)}` : '', plan.igst > 0 ? `IGST ${money(plan.igst)}` : ''].filter(Boolean).join(' + ');
+  const refund = plan.refundDue > 0 ? ` You have paid ${money(plan.paid)} on it, so ${money(plan.refundDue)} becomes due back to you.` : '';
+  return {
+    blockers: [],
+    summary: `Debit note to ${plan.bill.partyName} of ${money(plan.total)} against ${plan.bill.id}${plan.full ? ', the whole bill' : ''} dated ${plan.date}: taxable ${money(plan.taxable)}${heads ? `, ${heads}` : ''}. Reason: ${plan.reason}.${refund}`,
+    effects: ['You owe the supplier that much less, or are owed it back if you have already paid.', plan.itcEligible && heads ? 'The input credit on that part is reversed in the month of the note.' : 'The bill stays as it was.'],
+    figures: { billId: plan.bill.id, date: plan.date, taxable: plan.taxable, cgst: plan.cgst, sgst: plan.sgst, igst: plan.igst, total: plan.total, refundDue: plan.refundDue },
+  };
+}
+
 const REVIEW_REASONS = {
   DRAFT_CHANGED: 'Your books for this month changed after you saw these figures. Review again to see the current ones.',
   STEP_NOT_READY: 'An earlier step of this review is not confirmed yet.',
@@ -706,6 +750,8 @@ const PREVIEWERS = {
   end_employment: leavingPreview,
   post_expense: expensePreview,
   create_credit_note: creditNotePreview,
+  create_debit_note: debitNotePreview,
+  create_purchase_note: purchaseNotePreview,
   cancel_invoice: (state, args) => creditNotePreview(state, args, true),
   gst_review_answer: reviewAnswerPreview,
   tds_review_answer: tdsReviewAnswerPreview,
