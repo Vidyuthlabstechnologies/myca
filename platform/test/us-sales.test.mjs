@@ -7,6 +7,7 @@ import { previewOf } from '../src/chat-confirm.mjs';
 import { listAccounts, trialBalance } from '../src/ledger.mjs';
 import { planUsFromChat } from '../src/us-intent.mjs';
 import { rules } from '../src/sprint-load.mjs';
+import { localToday } from '../src/dates.mjs';
 
 const acc = (state, code) => listAccounts(state.ledger).find((a) => a.code === code);
 
@@ -108,7 +109,7 @@ test('a US bill and expense take no input credit, and contractor payments are co
 test('chat for a US business: rates, invoices with tax or exempt, bills with tax paid, contractors and the 1099 list', async () => {
   const state = await bakery();
   assert.deepEqual(planUsFromChat(state, 'sales tax rate TX 6.25%').name, 'set_sales_tax_rate');
-  assert.deepEqual(planUsFromChat(state, 'sales tax rate TX 6.25%').args, { code: 'TX', ratePercent: 6.25, from: '2026-10-13' });
+  assert.deepEqual(planUsFromChat(state, 'sales tax rate TX 6.25%').args, { code: 'TX', ratePercent: 6.25, from: localToday() });
   const sale = planUsFromChat(state, 'invoice Cafe Luna 500 for wedding cake, tax TX-AUSTIN');
   assert.equal(sale.name, 'create_invoice');
   assert.equal(sale.args.taxJurisdiction, 'TX-AUSTIN');
