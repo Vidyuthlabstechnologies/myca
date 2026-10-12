@@ -1488,6 +1488,21 @@ class FakeMycaApi implements MycaApi {
             'approval': null,
           },
         };
+      case 'pf_ecr':
+        return {
+          'ok': true,
+          'data': {
+            'period': args['period'],
+            'month': 'October 2026',
+            'members': 1,
+            'totals': {'remittance': 4175},
+            'missingUan': const <Object?>[],
+            'fileName': 'ECR_27AAACN1234F1Z5_${args['period']}.txt',
+            'text': '100200300400#~#RAVI KUMAR#~#30000#~#15000#~#15000#~#15000#~#1800#~#1250#~#550#~#0#~#0\n',
+          },
+        };
+      case 'esi_return':
+        return {'ok': false, 'error': 'NO_ESI_MEMBERS'};
       case 'payroll_run':
         return {
           'ok': true,

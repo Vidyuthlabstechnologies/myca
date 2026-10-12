@@ -1,17 +1,17 @@
 import { localToday } from './dates.mjs';
-import { tdsReturnDraft } from './tds-return.mjs';
+import { tdsReturnDraft, TDS_FORMS } from './tds-return.mjs';
 
 export const TDS_REVIEW_ANSWERS = ['correct', 'wrong', 'approve'];
 const round2 = (value) => Math.round(Number(value || 0) * 100) / 100;
 
 function stepsFor(draft) {
-  const quarter = draft.quarter;
+  const quarter = `${draft.quarter}${draft.kind === 'salary' ? ' (salary)' : ''}`;
   const steps = [];
   steps.push({
     id: 'deductees',
     title: `TDS deducted in ${quarter}`,
     lines: [
-      ...draft.deductees.map((row) => ({ label: `${row.payee || row.pan}${row.pan ? ` (${row.pan})` : ' (no PAN)'}, ${row.section}, ${row.count === 1 ? '1 payment' : `${row.count} payments`} of ${money(row.basis)} at ${row.rate}%`, amount: row.tds })),
+      ...draft.deductees.map((row) => ({ label: `${row.payee || row.pan}${row.pan ? ` (${row.pan})` : ' (no PAN)'}, ${row.section}, ${row.count === 1 ? '1 payment' : `${row.count} payments`} of ${money(row.basis)}${draft.kind === 'salary' ? '' : ` at ${row.rate}%`}`, amount: row.tds })),
       ...draft.sections.map((row) => ({ label: `${row.section}: ${row.deductees === 1 ? '1 deductee' : `${row.deductees} deductees`}`, amount: row.tds })),
       { label: 'TDS deducted', amount: round2(draft.deducted), strong: true },
     ],
@@ -43,7 +43,7 @@ function stepsFor(draft) {
       { label: 'Deposited for this quarter', amount: round2(draft.deposited) },
       ...(draft.shortfall > 0 ? [{ label: 'Still to deposit', amount: round2(draft.shortfall), strong: true }] : []),
     ],
-    note: `${draft.form ? `This is the quarterly statement for payments other than salary (Form ${draft.form}). ` : ''}Approving records that you checked these figures; it files nothing and moves no money.${draft.dueDate ? ` It is due by ${draft.dueDate}.` : ''}`,
+    note: `${draft.form ? `This is the quarterly statement for ${draft.kindLabel} (Form ${draft.form}). ` : ''}Approving records that you checked these figures; it files nothing and moves no money.${draft.dueDate ? ` It is due by ${draft.dueDate}.` : ''}`,
     question: 'Approve these figures for the statement?',
     yes: 'Approve',
     no: 'Not yet',
@@ -55,16 +55,22 @@ function money(amount) {
   return `₹${Number(amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-function recordFor(state, quarter) {
-  const all = state.tdsReviews && typeof state.tdsReviews === 'object' ? state.tdsReviews : {};
-  return Object.hasOwn(all, quarter) ? all[quarter] : null;
+function reviewKey(form, quarter) {
+  return form === 'salary' ? `salary:${quarter}` : quarter;
 }
 
-export function tdsReviewOf(state, quarter) {
-  const drafted = tdsReturnDraft(state, quarter);
+function recordFor(state, quarter, form = 'other') {
+  const all = state.tdsReviews && typeof state.tdsReviews === 'object' ? state.tdsReviews : {};
+  const key = reviewKey(form, quarter);
+  return Object.hasOwn(all, key) ? all[key] : null;
+}
+
+export function tdsReviewOf(state, quarter, form = 'other') {
+  if (!TDS_FORMS[form]) return { ok: false, error: 'UNKNOWN_FORM', form };
+  const drafted = tdsReturnDraft(state, quarter, { form });
   if (!drafted.ok) return drafted;
   const draft = drafted.data;
-  const record = recordFor(state, draft.quarter);
+  const record = recordFor(state, draft.quarter, form);
   const current = record && record.draftHash === draft.draftHash ? record : null;
   const changed = Boolean(record && !current && Object.keys(record.answers || {}).length);
   const steps = stepsFor(draft).map((step) => {
@@ -78,7 +84,8 @@ export function tdsReviewOf(state, quarter) {
     data: {
       period: draft.quarter,
       periods: draft.quarters,
-      month: draft.quarter,
+      month: `${draft.quarter}${form === 'salary' ? ' salary' : ''}`,
+      kind: form,
       draftHash: draft.draftHash,
       empty: draft.empty,
       changed,
@@ -102,7 +109,7 @@ function actorOf(state, args) {
 }
 
 export function checkTdsAnswer(state, args = {}) {
-  const review = tdsReviewOf(state, args.period);
+  const review = tdsReviewOf(state, args.period, args.form || 'other');
   if (!review.ok) return review;
   const data = review.data;
   if (args.draftHash !== data.draftHash) return { ok: false, error: 'DRAFT_CHANGED', period: data.period };
@@ -124,13 +131,14 @@ export function answerTdsReview(state, args = {}) {
   if (!checked.ok) return checked;
   const { review, step, actor } = checked;
   state.tdsReviews = state.tdsReviews && typeof state.tdsReviews === 'object' ? state.tdsReviews : {};
-  const existing = recordFor(state, review.period);
+  const form = review.kind || 'other';
+  const existing = recordFor(state, review.period, form);
   const record = existing && existing.draftHash === review.draftHash ? existing : { draftHash: review.draftHash, answers: {}, approval: null };
   const on = localToday();
   const note = String(args.note || '').trim().slice(0, 500);
   record.answers[step.id] = { answer: args.answer, by: actor.userId, on, ...(note ? { note } : {}) };
   if (step.id === 'approve' && args.answer === 'approve') record.approval = { by: actor.userId, on, draftHash: review.draftHash };
-  state.tdsReviews[review.period] = record;
-  const after = tdsReviewOf(state, review.period).data;
+  state.tdsReviews[reviewKey(form, review.period)] = record;
+  const after = tdsReviewOf(state, review.period, form).data;
   return { ok: true, period: review.period, step: step.id, answer: args.answer, next: after.next, approved: after.approved, review: after };
 }

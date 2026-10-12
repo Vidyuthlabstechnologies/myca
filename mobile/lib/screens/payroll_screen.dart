@@ -21,6 +21,7 @@ class PayrollScreen extends StatefulWidget {
 class _PayrollScreenState extends State<PayrollScreen> with ProposalFlow {
   Future<PayrollRun?>? _run;
   bool _posted = false;
+  String _fileNote = '';
 
   @override
   MycaApi get api => AppScope.of(context).api;
@@ -49,6 +50,31 @@ class _PayrollScreenState extends State<PayrollScreen> with ProposalFlow {
     'approve_payroll',
     {'period': run.period, 'draftHash': run.draftHash},
   );
+
+  Future<void> _saveFile(PayrollRun run, {required bool pf}) async {
+    final state = AppScope.of(context);
+    setState(() => _fileNote = '');
+    var note = '';
+    try {
+      final data = toolData(
+        await state.api.query(pf ? 'pf_ecr' : 'esi_return', {'period': run.period}),
+      );
+      if (data.isEmpty) {
+        note = pf ? 'No provident fund member in this month.' : 'No state insurance member in this month.';
+      } else {
+        final name = data['fileName'] as String;
+        final saved = await state.saveTextFile(name, (pf ? data['text'] : data['csv']) as String);
+        final missing = (data[pf ? 'missingUan' : 'missingIp'] as List<Object?>? ?? const <Object?>[]).map((e) => '$e').toList();
+        note = saved
+            ? 'Saved $name. Upload it on the ${pf ? 'EPFO' : 'ESIC'} portal and pay the challan.${missing.isEmpty ? '' : ' No ${pf ? 'UAN' : 'insurance number'} for ${missing.join(', ')}; add it on the employee first.'}'
+            : 'Not saved.';
+      }
+    } on MycaApiException catch (err) {
+      note = err.message;
+    }
+    if (!mounted) return;
+    setState(() => _fileNote = note);
+  }
 
   Future<void> _paid(PayrollRun run) => propose(
     'Salaries for ${run.month} paid',
@@ -107,6 +133,26 @@ class _PayrollScreenState extends State<PayrollScreen> with ProposalFlow {
                     for (final note in run.notes) ...[
                       const SizedBox(height: 8),
                       Text(note, style: text.bodySmall),
+                    ],
+                    if (run.status == 'approved') ...[
+                      const SizedBox(height: 16),
+                      Wrap(
+                        spacing: 8,
+                        children: [
+                          ActionChip(
+                            label: const Text('Save PF file'),
+                            onPressed: busy ? null : () => _saveFile(run, pf: true),
+                          ),
+                          ActionChip(
+                            label: const Text('Save ESI file'),
+                            onPressed: busy ? null : () => _saveFile(run, pf: false),
+                          ),
+                        ],
+                      ),
+                      if (_fileNote.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Text(_fileNote, style: text.bodyMedium),
+                      ],
                     ],
                     for (final entry in entries) entry.toBubble(),
                     if (pending == null && !_posted && run.employees > 0) ...[

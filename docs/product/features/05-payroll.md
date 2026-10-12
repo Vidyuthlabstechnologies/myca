@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Requirements | FR-PAY-1 to 4 in the [product PRD](../PRD.md) |
-| Status | Employee records built (2026-10-07). Step 1 built (2026-10-12): the monthly run, approval and postings, salary payment, payslips and salary TDS, from dated payroll rules not yet signed off by the advisor CA. Statutory files and payouts not built. |
+| Status | Employee records built (2026-10-07). Steps 1 and 2 built (2026-10-12): the monthly run, approval and postings, salary payment, payslips and salary TDS from dated payroll rules not yet signed off by the advisor CA; the PF ECR file, the ESI contribution file and the salary TDS statement (Form 138) with its review. Payouts not built. |
 | Code | `platform/src/payroll.mjs`, `payroll-intent.mjs`, `employees.mjs`; rules `payroll.*` in `sprints/statutory-rules/src/rules/payroll.mjs`; app `mobile/lib/screens/payroll_screen.dart` |
 
 ## What the owner experiences
@@ -95,6 +95,30 @@ partnership and compliance project more than an engineering one.
   employer's cost, and approves or records payment after a preview.
 - Every run names the rule versions used and says the CA has not reviewed them while
   any used rule carries no attestation.
+
+## Statutory files (step 2, built 2026-10-12)
+
+- `pf_ecr` gives the ECR 2.0 text file for an approved month: one line per provident
+  fund member (UAN, name, gross, EPF, EPS and EDLI wages, the employee share, the
+  pension share, the employer's EPF difference, non-contributory days, refund of
+  advances, separated by `#~#`), in whole rupees as the portal expects, with the
+  remittance total including EDLI and the administrative charge. A member without a UAN
+  is listed by name as not uploadable.
+- `esi_return` gives the state insurance monthly contribution file in the columns of the
+  ESIC upload (insurance number, name, days, wages, reason code, last working day), with
+  the remittance; the portal works the contributions out from the wages. A member
+  without an insurance number is named. An employee may now carry an `esiNumber`.
+- The salary TDS statement (Form 138, earlier 24Q) is `tds_return` with `form: 'salary'`:
+  deductees under section 192 by PAN from the approved months of the quarter, with the
+  challans matched in date order across both statements (one challan may cover salary
+  and other TDS), and reviewed step by step with `tds_review` / `tds_review_answer`
+  and `form: 'salary'` ([spec 04](04-tds.md)). Annexure II (the year's salary detail
+  in the fourth quarter) is not drafted.
+- Chat: "PF file for October", "ESI return for October", "salary TDS statement for Q3
+  2026-27", "review salary TDS". App: the payroll screen saves the PF and ESI files for
+  an approved month; Taxes lists the salary TDS statement beside the other one.
+- Not built: uploading to the EPFO or ESIC portals (no API for employers), the ESI
+  return deadline in the deadlines list, and Annexure II.
 
 ## Statutory care
 

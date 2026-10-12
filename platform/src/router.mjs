@@ -154,16 +154,24 @@ function fmtToolResult(name, result) {
   }
   if (name === 'tds_review_answer' && result.review) {
     const review = result.review;
-    if (result.approved) return `Approved the ${review.period} TDS statement. Nothing has been filed. ${review.shortfall > 0 ? `${money(review.shortfall)} is still to deposit before it can be filed.` : 'File it on the TRACES or income-tax portal, or send it to your CA, and record the acknowledgement.'}`;
+    if (result.approved) return `Approved the ${review.period}${review.kind === 'salary' ? ' salary' : ''} TDS statement. Nothing has been filed. ${review.shortfall > 0 ? `${money(review.shortfall)} is still to deposit before it can be filed.` : 'File it on the TRACES or income-tax portal, or send it to your CA, and record the acknowledgement.'}`;
     if (result.answer === 'wrong') return 'Noted that it is not right. Fix the entries; the review starts again from that step when the figures change.';
     const next = review.steps.find((step) => step.id === review.next);
-    return next ? `Confirmed. Next: ${next.title}. Say "review TDS" to see it.` : 'Confirmed.';
+    return next ? `Confirmed. Next: ${next.title}. Say "review ${review.kind === 'salary' ? 'salary ' : ''}TDS" to see it.` : 'Confirmed.';
+  }
+  if (name === 'pf_ecr' && result.data) {
+    const d = result.data;
+    return `PF file for ${d.month}: ${d.members === 1 ? '1 member' : `${d.members} members`}, remittance ${money(d.totals.remittance)} (employee share ${money(d.totals.employeeShare)}, pension ${money(d.totals.pensionShare)}, employer PF ${money(d.totals.employerEpfShare)}, EDLI ${money(d.totals.edli)}, administrative charge ${money(d.totals.adminCharge)}). Saved as ${d.fileName} from the payroll screen.${d.missingUan.length ? ` No UAN for ${d.missingUan.join(', ')}; add it before uploading.` : ''}`;
+  }
+  if (name === 'esi_return' && result.data) {
+    const d = result.data;
+    return `ESI file for ${d.month}: ${d.members === 1 ? '1 member' : `${d.members} members`}, wages ${money(d.totals.wages)}, remittance ${money(d.totals.remittance)} (employees ${money(d.totals.employeeContribution)}, employer ${money(d.totals.employerContribution)}). Saved as ${d.fileName} from the payroll screen.${d.missingIp.length ? ` No insurance number for ${d.missingIp.join(', ')}; add it before uploading.` : ''}`;
   }
   if (name === 'tds_return' && result.data) {
     const d = result.data;
-    if (d.empty) return `Nothing was deducted in ${d.quarter}.`;
+    if (d.empty) return `Nothing was deducted in ${d.quarter}${d.kind === 'salary' ? ' on salaries' : ''}.`;
     const rows = d.sections.map((s) => `· ${s.section}: ${s.deductees === 1 ? '1 deductee' : `${s.deductees} deductees`}, ${money(s.tds)}`).join('\n');
-    return `TDS statement for ${d.quarter}${d.form ? ` (Form ${d.form})` : ''}: deducted ${money(d.deducted)}, deposited ${money(d.deposited)}${d.shortfall > 0 ? `, still to deposit ${money(d.shortfall)}` : ''}.${d.filed ? ` Recorded as filed on ${d.filed.filedOn}, ARN ${d.filed.arn}.` : d.dueDate ? ` Due by ${d.dueDate}.` : ''}\n${rows}\nSay "review TDS" to check it step by step.`;
+    return `TDS statement for ${d.kindLabel} for ${d.quarter}${d.form ? ` (Form ${d.form})` : ''}: deducted ${money(d.deducted)}, deposited ${money(d.deposited)}${d.shortfall > 0 ? `, still to deposit ${money(d.shortfall)}` : ''}.${d.filed ? ` Recorded as filed on ${d.filed.filedOn}, ARN ${d.filed.arn}.` : d.dueDate ? ` Due by ${d.dueDate}.` : ''}\n${rows}\nSay "review TDS" to check it step by step.`;
   }
   if (name === 'export_tally' && result.data) {
     const d = result.data;

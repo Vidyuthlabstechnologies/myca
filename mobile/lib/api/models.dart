@@ -38,6 +38,7 @@ class TdsMonth {
 class TdsQuarter {
   const TdsQuarter({
     required this.quarter,
+    this.kind = 'other',
     required this.deducted,
     required this.deposited,
     required this.shortfall,
@@ -52,6 +53,7 @@ class TdsQuarter {
     final filed = map['filed'];
     return TdsQuarter(
       quarter: _text(map['quarter']),
+      kind: _text(map['kind']).isEmpty ? 'other' : _text(map['kind']),
       deducted: _num(map['deducted']),
       deposited: _num(map['deposited']),
       shortfall: _num(map['shortfall']),
@@ -63,6 +65,7 @@ class TdsQuarter {
   }
 
   final String quarter;
+  final String kind;
   final num deducted;
   final num deposited;
   final num shortfall;

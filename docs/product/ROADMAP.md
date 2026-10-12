@@ -6,7 +6,7 @@
 | Basis | The [product PRD](PRD.md); progress in [`../superpowers/PROGRESS.md`](../superpowers/PROGRESS.md) |
 | Status | Engineering's proposed order. No dates: the pace depends on owner actions listed at the end. |
 
-About 76% of the PRD is built. The order below is chosen so that each milestone gives a
+About 78% of the PRD is built. The order below is chosen so that each milestone gives a
 pilot owner something usable, and so that work blocked on outside parties is not on the
 critical path of work that is not.
 
@@ -70,7 +70,7 @@ Real businesses, real data, closed testing on the Play Store.
 | Item | Requirement | Depends on |
 |---|---|---|
 | Payroll step 1: compute and record (**done** 2026-10-12 from dated rules; labelled unreviewed until the advisor CA attests them) | FR-PAY-1, 2, 4 | Nothing |
-| Payroll step 2: statutory files (ECR, ESI return, Form 138) | FR-PAY-4 | Step 1 in use |
+| Payroll step 2: statutory files (ECR, ESI file, Form 138 **done** 2026-10-12) | FR-PAY-4 | Nothing |
 | Payroll step 3: payouts | FR-PAY-3 | Payout partner (PRD Q5) |
 | POS inbound API and daily summary import | FR-CAP-2 | A POS partner (PRD Q7) |
 | Quotes (**done** 2026-10-06) | FR-INV-4 | Nothing |

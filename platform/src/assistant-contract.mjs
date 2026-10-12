@@ -569,6 +569,7 @@ export const TOOL_ARG_SCHEMAS = {
       designation: { type: 'string', maxLength: 60 },
       pan: { type: 'string', maxLength: 10 },
       uan: { type: 'string', maxLength: 14 },
+      esiNumber: { type: 'string', maxLength: 12 },
       pfMember: { type: 'boolean' },
       esiMember: { type: 'boolean' },
       ptState: { type: 'string', pattern: '^[0-9]{2}$' },
@@ -636,12 +637,24 @@ export const TOOL_ARG_SCHEMAS = {
   tds_return: {
     type: 'object',
     additionalProperties: false,
-    properties: { quarter: { type: 'string', pattern: '^Q[1-4] [0-9]{4}-[0-9]{2}$' } },
+    properties: { quarter: { type: 'string', pattern: '^Q[1-4] [0-9]{4}-[0-9]{2}$' }, form: { type: 'string', enum: ['other', 'salary'] } },
   },
   tds_review: {
     type: 'object',
     additionalProperties: false,
-    properties: { period: { type: 'string', pattern: '^Q[1-4] [0-9]{4}-[0-9]{2}$' } },
+    properties: { period: { type: 'string', pattern: '^Q[1-4] [0-9]{4}-[0-9]{2}$' }, form: { type: 'string', enum: ['other', 'salary'] } },
+  },
+  pf_ecr: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['period'],
+    properties: { period: { type: 'string', pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' } },
+  },
+  esi_return: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['period'],
+    properties: { period: { type: 'string', pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' } },
   },
   tds_review_answer: {
     type: 'object',
@@ -649,6 +662,7 @@ export const TOOL_ARG_SCHEMAS = {
     required: ['period', 'step', 'answer', 'draftHash'],
     properties: {
       period: { type: 'string', pattern: '^Q[1-4] [0-9]{4}-[0-9]{2}$' },
+      form: { type: 'string', enum: ['other', 'salary'] },
       step: { type: 'string', enum: ['deductees', 'challans', 'approve'] },
       answer: { type: 'string', enum: ['correct', 'wrong', 'approve'] },
       draftHash: { type: 'string', pattern: '^[0-9a-f]{64}$' },
@@ -1331,11 +1345,18 @@ export function planLocalToolCall(state, message) {
   if (terms) return terms;
 
   if (/\breview\b.*\btds\b|\btds\b.*\breview\b/i.test(text) && !isNegated(text)) {
-    return planTdsReview(state, text);
+    return planTdsReview(state, text, /\bsalar(?:y|ies)\b|\b24q\b|\bform\s*138\b/i.test(text) ? 'salary' : 'other');
   }
-  if (/\btds\b.*\b(?:return|statement|26q|24q|form\s*140|quarterly)\b|\b(?:return|statement|26q|24q|quarterly)\b.*\btds\b/i.test(text) && !isNegated(text)) {
+  if (/\btds\b.*\b(?:return|statement|26q|24q|form\s*1(?:38|40)|quarterly)\b|\b(?:return|statement|26q|24q|quarterly)\b.*\btds\b/i.test(text) && !isNegated(text)) {
     const quarter = quarterSaid(text);
-    return { kind: 'tool', name: 'tds_return', args: quarter ? { quarter } : {} };
+    const form = /\bsalar(?:y|ies)\b|\b24q\b|\bform\s*138\b/i.test(text) ? 'salary' : 'other';
+    return { kind: 'tool', name: 'tds_return', args: { ...(quarter ? { quarter } : {}), ...(form === 'salary' ? { form } : {}) } };
+  }
+  if (/\b(?:pf|provident\s+fund|epf)\b.*\b(?:file|ecr|return|challan)\b|\becr\b/i.test(text) && !isNegated(text) && !isQuestion(text)) {
+    return { kind: 'tool', name: 'pf_ecr', args: { period: monthSaid(text) } };
+  }
+  if (/\besi(?:c)?\b.*\b(?:file|return|contribution)\b|\bstate\s+insurance\s+(?:file|return)\b/i.test(text) && !isNegated(text) && !isQuestion(text)) {
+    return { kind: 'tool', name: 'esi_return', args: { period: monthSaid(text) } };
   }
   if (/\breview\b.*\b(?:gst|gstr|return)\b|\b(?:gst|gstr-?[13]b?|return)\b.*\breview\b/i.test(text) && !isNegated(text)) {
     return planReview(state, text);
@@ -1489,6 +1510,18 @@ function reviewPeriodSaid(state, text) {
   return known.at(-1) || `${localToday().slice(0, 4)}-${wanted}`;
 }
 
+function monthSaid(text) {
+  const iso = text.match(/\b(20\d{2})-(0[1-9]|1[0-2])\b/);
+  if (iso) return `${iso[1]}-${iso[2]}`;
+  const lower = text.toLowerCase();
+  const index = MONTH_NAMES.findIndex((name) => new RegExp(`\\b${name.slice(0, 3)}(?:${name.slice(3)})?\\b`).test(lower));
+  const today = localToday();
+  if (index < 0) return today.slice(0, 7);
+  const [y, m] = today.split('-').map(Number);
+  const year = index + 1 <= m ? y : y - 1;
+  return `${year}-${String(index + 1).padStart(2, '0')}`;
+}
+
 function quarterSaid(text) {
   const said = text.match(/\b(?:FY\s*)?(\d{4}-\d{2})\s*[-,]?\s*Q([1-4])\b|\bQ([1-4])\b(?:\s*(?:of\s*|,\s*|FY\s*)?(\d{4}-\d{2}))?/i);
   if (!said) return '';
@@ -1501,11 +1534,11 @@ function quarterSaid(text) {
   return `Q${quarter} ${start}-${String((start + 1) % 100).padStart(2, '0')}`;
 }
 
-function planTdsReview(state, text) {
-  const review = tdsReviewOf(state, quarterSaid(text) || undefined);
+function planTdsReview(state, text, form = 'other') {
+  const review = tdsReviewOf(state, quarterSaid(text) || undefined, form);
   if (!review.ok) {
     if (review.error === 'NOT_A_DEDUCTOR') return { kind: 'reply', reply: 'This business is not set up to deduct TDS. Say "we deduct TDS, TAN" followed by your TAN to start.', tools: [] };
-    if (review.error === 'NO_DEDUCTIONS') return { kind: 'reply', reply: 'No TDS has been deducted yet, so there is no statement to review.', tools: [] };
+    if (review.error === 'NO_DEDUCTIONS') return { kind: 'reply', reply: form === 'salary' ? 'No salary TDS has been deducted yet; approve a payroll month first.' : 'No TDS has been deducted yet, so there is no statement to review.', tools: [] };
     return { kind: 'reply', reply: 'I could not read the quarter. Say it like "review TDS for Q2 2026-27".', tools: [] };
   }
   const data = review.data;
@@ -1515,7 +1548,7 @@ function planTdsReview(state, text) {
   return {
     kind: 'tool',
     name: 'tds_review_answer',
-    args: { period: data.period, step: step.id, answer: step.id === 'approve' ? 'approve' : 'correct', draftHash: data.draftHash },
+    args: { period: data.period, ...(form === 'salary' ? { form } : {}), step: step.id, answer: step.id === 'approve' ? 'approve' : 'correct', draftHash: data.draftHash },
   };
 }
 

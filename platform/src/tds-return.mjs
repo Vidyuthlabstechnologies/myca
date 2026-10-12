@@ -42,21 +42,27 @@ export function parseQuarter(value) {
   return null;
 }
 
-function entriesOf(state, { deductedOnly = true } = {}) {
-  return (state.tdsEntries || []).filter((entry) => entry.section !== '192' && (!deductedOnly || entry.tds > 0)).slice().sort((a, b) => a.date.localeCompare(b.date));
+export const TDS_FORMS = { other: { formIndex: 1, label: 'payments other than salary' }, salary: { formIndex: 0, label: 'salary' } };
+
+export function formOfEntry(entry) {
+  return entry.section === '192' ? 'salary' : 'other';
 }
 
-export function quartersWithDeductions(state) {
+function entriesOf(state, { deductedOnly = true, form = 'other' } = {}) {
+  return (state.tdsEntries || []).filter((entry) => (form === 'all' || formOfEntry(entry) === form) && (!deductedOnly || entry.tds > 0)).slice().sort((a, b) => a.date.localeCompare(b.date));
+}
+
+export function quartersWithDeductions(state, form = 'other') {
   const seen = new Map();
-  for (const entry of entriesOf(state)) {
+  for (const entry of entriesOf(state, { form })) {
     const q = quarterOf(entry.date);
     if (q && !seen.has(q.label)) seen.set(q.label, q);
   }
   return [...seen.values()].sort((a, b) => a.endDate.localeCompare(b.endDate));
 }
 
-function allocateDeposits(state) {
-  const deductions = entriesOf(state).map((entry) => ({ entry, left: paise(entry.tds) }));
+export function allocateDeposits(state) {
+  const deductions = entriesOf(state, { form: 'all' }).map((entry) => ({ entry, left: paise(entry.tds) }));
   const deposits = (state.tdsDeposits || []).slice().sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id));
   const covered = new Map();
   let cursor = 0;
@@ -67,7 +73,7 @@ function allocateDeposits(state) {
       const take = Math.min(left, slot.left);
       slot.left -= take;
       left -= take;
-      const key = quarterOf(slot.entry.date)?.label || '';
+      const key = `${formOfEntry(slot.entry)}|${quarterOf(slot.entry.date)?.label || ''}`;
       const row = covered.get(deposit.id) || { deposit, byQuarter: new Map() };
       row.byQuarter.set(key, (row.byQuarter.get(key) || 0) + take);
       covered.set(deposit.id, row);
@@ -86,15 +92,16 @@ function dueRow(state, quarter) {
   return (run.deadlines || []).find((row) => row.clientId === 'SELF' && row.returnType === 'TDS_QUARTERLY' && row.period === quarter.label) || null;
 }
 
-function formFor(quarter) {
+function formFor(quarter, form) {
   const found = rules.rule('due-date.tds.statement', quarter.endDate);
   const forms = found.ok && Array.isArray(found.record.value?.forms) ? found.record.value.forms : [];
-  return { form: forms[1] || '', ruleUsed: found.ok ? `${found.record.id}@${found.record.effectiveFrom}` : '' };
+  return { form: forms[TDS_FORMS[form].formIndex] || '', ruleUsed: found.ok ? `${found.record.id}@${found.record.effectiveFrom}` : '' };
 }
 
-export function tdsReturnDraft(state, requested) {
+export function tdsReturnDraft(state, requested, { form = 'other' } = {}) {
+  if (!TDS_FORMS[form]) return fail('UNKNOWN_FORM', { form });
   if (!state.company?.tdsDeductor) return fail('NOT_A_DEDUCTOR');
-  const quarters = quartersWithDeductions(state);
+  const quarters = quartersWithDeductions(state, form);
   let quarter = null;
   if (requested != null && requested !== '') {
     quarter = parseQuarter(requested);
@@ -103,7 +110,7 @@ export function tdsReturnDraft(state, requested) {
     quarter = quarters.at(-1) || null;
   }
   if (!quarter) return fail('NO_DEDUCTIONS', { quarters: [] });
-  const inQuarter = entriesOf(state, { deductedOnly: false }).filter((entry) => quarter.months.includes(entry.date.slice(0, 7)));
+  const inQuarter = entriesOf(state, { deductedOnly: false, form }).filter((entry) => quarter.months.includes(entry.date.slice(0, 7)));
   const deductedInQuarter = inQuarter.filter((entry) => entry.tds > 0);
   const byDeductee = new Map();
   for (const entry of inQuarter) {
@@ -128,7 +135,7 @@ export function tdsReturnDraft(state, requested) {
   const covered = allocateDeposits(state);
   const challans = [];
   for (const { deposit, byQuarter } of covered.values()) {
-    const amount = byQuarter.get(quarter.label) || 0;
+    const amount = byQuarter.get(`${form}|${quarter.label}`) || 0;
     if (amount > 0) challans.push({ id: deposit.id, date: deposit.date, challan: deposit.challan, amount: round2(deposit.amount), covers: amount / 100 });
   }
   challans.sort((a, b) => a.date.localeCompare(b.date));
@@ -136,16 +143,18 @@ export function tdsReturnDraft(state, requested) {
   const deposited = round2(challans.reduce((sum, row) => sum + row.covers, 0));
   const row = dueRow(state, quarter);
   const filed = filingFor(state, 'TDS_QUARTERLY', quarter.label);
-  const { form, ruleUsed } = formFor(quarter);
+  const { form: formNumber, ruleUsed } = formFor(quarter, form);
   const unreviewed = inQuarter.some((entry) => entry.unreviewed);
-  const basis = { quarter: quarter.label, deductees: deductees.map((d) => [d.pan || d.payee, d.section, d.count, d.basis, d.tds]), challans: challans.map((c) => [c.id, c.covers]) };
+  const basis = { form, quarter: quarter.label, deductees: deductees.map((d) => [d.pan || d.payee, d.section, d.count, d.basis, d.tds]), challans: challans.map((c) => [c.id, c.covers]) };
   return {
     ok: true,
     data: {
       quarter: quarter.label,
       quarters: quarters.map((q) => q.label),
       months: quarter.months,
-      form,
+      kind: form,
+      kindLabel: TDS_FORMS[form].label,
+      form: formNumber,
       formRuleUsed: ruleUsed,
       tan: state.company.tan || '',
       deductees,

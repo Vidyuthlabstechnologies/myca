@@ -21,6 +21,8 @@ export const REMOTE_QUERY_TOOLS = new Set([
   'payslip',
   'tds_summary',
   'tds_return',
+  'pf_ecr',
+  'esi_return',
   'tds_review',
   'cash_forecast',
   'can_afford',

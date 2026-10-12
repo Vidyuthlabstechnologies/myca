@@ -84,10 +84,14 @@ way as a GST return.
 - Chat: "TDS return for Q2 2026-27", "review TDS", then "yes" step by step. App: the
   TDS section of Taxes lists the latest quarters with their state (to review, approved,
   filed) and opens the same review screen as GST.
+- The salary statement (Form 138, earlier 24Q) is the same draft and review with
+  `form: 'salary'`, fed by approved payroll months ([spec 05](05-payroll.md)); the two
+  statements share the recorded challans in date order.
 - Still to build: generating and validating the file through the provider behind the
   action gate, submission through the same gate, recording the token the portal
-  returns, and certificates to suppliers shared the same way as invoices. Until then
-  the owner files on the portal or through the CA and records the acknowledgement.
+  returns, Annexure II of the salary statement, and certificates to suppliers shared
+  the same way as invoices. Until then the owner files on the portal or through the CA
+  and records the acknowledgement.
 
 ## Statutory care
 

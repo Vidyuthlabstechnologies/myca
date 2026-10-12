@@ -24,6 +24,7 @@ import { listFilings, recordFiling } from './filings.mjs';
 import { draftSupplierReminder, recordSupplierReminder } from './supplier-reminders.mjs';
 import { addEmployee, changeSalary, endEmployment, listEmployees } from './employees.mjs';
 import { payrollFor, approvePayroll, recordSalaryPayment, listPayroll, payslip } from './payroll.mjs';
+import { pfEcr, esiReturn } from './payroll-files.mjs';
 import { recordTdsDeposit, setDeductor, tdsSummary } from './tds-deduction.mjs';
 import { paymentFor, setCreditOpening } from './gst-payment.mjs';
 import { tdsReturnDraft } from './tds-return.mjs';
@@ -1486,23 +1487,37 @@ export const TOOLS = [
   {
     name: 'tds_return',
     title: 'Quarterly TDS statement',
-    description: 'Draft of the quarterly TDS statement for payments other than salary: deductees by PAN and section, totals by section, the challans that cover the quarter, what is still to deposit, the due date and any recorded filing. The latest quarter with deductions unless one is given as Q2 2026-27. Read-only.',
-    args: ['quarter'],
-    run: (state, args = {}) => tdsReturnDraft(state, args.quarter),
+    description: 'Draft of the quarterly TDS statement for payments other than salary (form "other", the default) or for salary (form "salary"): deductees by PAN and section, totals by section, the challans that cover the quarter, what is still to deposit, the due date and any recorded filing. The latest quarter with deductions unless one is given as Q2 2026-27. Read-only.',
+    args: ['quarter', 'form'],
+    run: (state, args = {}) => tdsReturnDraft(state, args.quarter, { form: args.form || 'other' }),
   },
   {
     name: 'tds_review',
     title: 'Review the TDS statement',
-    description: 'The quarterly TDS statement step by step: deductees, challans, then approval, each asking "Is this information correct?". Read-only.',
-    args: ['period'],
-    run: (state, args = {}) => tdsReviewOf(state, args.period),
+    description: 'The quarterly TDS statement (non-salary by default, or form "salary") step by step: deductees, challans, then approval, each asking "Is this information correct?". Read-only.',
+    args: ['period', 'form'],
+    run: (state, args = {}) => tdsReviewOf(state, args.period, args.form || 'other'),
   },
   {
     name: 'tds_review_answer',
     title: 'Answer a TDS review step',
     description: 'Confirm a step of the quarterly TDS statement, mark it wrong with a note, or approve the statement. Bound to the draft the owner saw. Files nothing.',
-    args: ['period', 'step', 'answer', 'draftHash', 'note'],
+    args: ['period', 'form', 'step', 'answer', 'draftHash', 'note'],
     run: (state, args = {}) => answerTdsReview(state, args),
+  },
+  {
+    name: 'pf_ecr',
+    title: 'PF file (ECR)',
+    description: 'The provident fund ECR text file for an approved payroll month, one line per member in the ECR 2.0 layout, with the remittance total. Owner only. Read-only.',
+    args: ['period'],
+    run: (state, args = {}) => pfEcr(state, args.period),
+  },
+  {
+    name: 'esi_return',
+    title: 'ESI file',
+    description: 'The state insurance monthly contribution file for an approved payroll month, in the columns of the ESIC upload, with the remittance total. Owner only. Read-only.',
+    args: ['period'],
+    run: (state, args = {}) => esiReturn(state, args.period),
   },
   {
     name: 'list_employees',

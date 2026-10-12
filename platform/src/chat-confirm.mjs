@@ -526,13 +526,13 @@ function tdsReviewAnswerPreview(state, args) {
   const answered = {
     correct: `You are confirming: ${step.title}.`,
     wrong: `You are marking ${step.title.toLowerCase()} as not right${args.note ? `: ${args.note}` : ''}. Fix the entries, then review again.`,
-    approve: `You are approving the ${review.period} TDS statement. Nothing is filed.`,
+    approve: `You are approving the ${review.period}${review.kind === 'salary' ? ' salary' : ''} TDS statement. Nothing is filed.`,
   }[args.answer];
   return {
     blockers: [],
     summary: stepText(review, step.id, money),
     effects: [answered],
-    figures: { period: review.period, step: step.id, answer: args.answer, draftHash: review.draftHash },
+    figures: { period: review.period, form: review.kind, step: step.id, answer: args.answer, draftHash: review.draftHash },
   };
 }
 

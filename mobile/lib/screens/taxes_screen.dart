@@ -66,7 +66,8 @@ class _TaxesScreenState extends State<TaxesScreen> {
           period: quarter.quarter,
           tool: 'tds_review',
           answerTool: 'tds_review_answer',
-          title: 'Review the TDS statement',
+          title: quarter.kind == 'salary' ? 'Review the salary TDS statement' : 'Review the TDS statement',
+          extraArgs: quarter.kind == 'salary' ? const {'form': 'salary'} : const {},
         ),
       ),
     );
@@ -431,10 +432,10 @@ class _TaxesScreenState extends State<TaxesScreen> {
                                   trailing: tds.due > 0 ? const Chevron() : null,
                                   onTap: tds.due > 0 ? () => _openTds(tds) : null,
                                 ),
-                                for (final quarter in tds.quarters.reversed.take(2))
+                                for (final quarter in tds.quarters.reversed.take(4))
                                   RowCard(
                                     leading: const TintTile(tint: Tint.taxes, mark: Mark.taxes),
-                                    title: 'TDS statement for ${quarter.quarter}',
+                                    title: '${quarter.kind == 'salary' ? 'Salary TDS statement' : 'TDS statement'} for ${quarter.quarter}',
                                     subtitle: quarter.filedArn.isNotEmpty
                                         ? 'Filed, ARN ${quarter.filedArn}'
                                         : quarter.approved

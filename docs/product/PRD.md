@@ -117,7 +117,7 @@ Percentages are engineering estimates and are tracked in
 | FR-PAY-1 | Keep employees and their salary structures. | Built: employees, dated salary history in parts, fund memberships, state, regime, sex, leaving; owner only |
 | FR-PAY-2 | Run payroll for a month: gross, statutory deductions, net. | Built: a monthly run with PF, ESI, professional tax (Maharashtra) and salary TDS from dated rules, prorated for joiners and leavers, approved after a preview; payslips; labelled unreviewed until the CA attests the rules |
 | FR-PAY-3 | Pay salaries from the same product. | Not built; needs a payout partner (Q5) |
-| FR-PAY-4 | Post payroll to the books and feed TDS on salary into the TDS return. | Built: approval posts salaries, each payable and the employer contributions, and records salary TDS so deposits include it; the salary TDS statement (Form 138) is not drafted yet |
+| FR-PAY-4 | Post payroll to the books and feed TDS on salary into the TDS return. | Built: approval posts salaries, each payable and the employer contributions; salary TDS feeds the Form 138 statement, drafted and reviewed like the other; the PF ECR and ESI files are produced for each approved month |
 
 ### 5.7 GSTR-2B matching and supplier reminders ([feature spec](features/06-gstr2b-matching-and-reminders.md))
 

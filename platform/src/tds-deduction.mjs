@@ -206,12 +206,14 @@ export function tdsSummary(state) {
       tan: state.company?.tan || '',
       ...totals,
       months: [...byMonth.values()].sort((a, b) => a.month.localeCompare(b.month)),
-      quarters: quartersWithDeductions(state).map((q) => {
-        const draft = tdsReturnDraft(state, q.label);
-        const review = state.tdsReviews && typeof state.tdsReviews === 'object' && Object.hasOwn(state.tdsReviews, q.label) ? state.tdsReviews[q.label] : null;
+      quarters: ['other', 'salary'].flatMap((form) => quartersWithDeductions(state, form).map((q) => {
+        const draft = tdsReturnDraft(state, q.label, { form });
+        const key = form === 'salary' ? `salary:${q.label}` : q.label;
+        const review = state.tdsReviews && typeof state.tdsReviews === 'object' && Object.hasOwn(state.tdsReviews, key) ? state.tdsReviews[key] : null;
         const data = draft.ok ? draft.data : null;
         return {
           quarter: q.label,
+          kind: form,
           deducted: data ? data.deducted : 0,
           deposited: data ? data.deposited : 0,
           shortfall: data ? data.shortfall : 0,
@@ -220,7 +222,7 @@ export function tdsSummary(state) {
           approved: Boolean(data && review && review.approval && review.draftHash === data.draftHash),
           filed: data ? data.filed : null,
         };
-      }),
+      })).sort((a, b) => a.quarter.localeCompare(b.quarter) || a.kind.localeCompare(b.kind)),
       entries: [...(state.tdsEntries || [])].reverse().slice(0, 50),
       deposits: [...(state.tdsDeposits || [])].reverse(),
     },

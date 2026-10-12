@@ -130,7 +130,7 @@ test('chat: "TDS return" summarises the quarter and "review TDS" walks the steps
   const state = books();
   await quarterWithDeductions(state);
   const summary = await chat(state, 'tds return for Q2 2026-27');
-  assert.match(summary.reply, /^TDS statement for Q2 2026-27 \(Form 140\): deducted ₹[\d,]+\.\d\d, deposited ₹0\.00, still to deposit/);
+  assert.match(summary.reply, /^TDS statement for payments other than salary for Q2 2026-27 \(Form 140\): deducted ₹[\d,]+\.\d\d, deposited ₹0\.00, still to deposit/);
   assert.match(summary.reply, /· 194J: 1 deductee, ₹6,000\.00/);
   const first = await chat(state, 'review TDS');
   assert.equal(first.awaitingConfirmation, true, JSON.stringify(first));
