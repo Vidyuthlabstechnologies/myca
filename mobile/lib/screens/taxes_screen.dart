@@ -36,6 +36,7 @@ class _TaxesScreenState extends State<TaxesScreen> {
   Future<Today>? _today;
   Future<List<FiledReturn>>? _filed;
   Future<TdsSummary?>? _tds;
+  Future<RulesStatus?>? _rules;
   String? _period;
   String _fileNote = '';
   bool _saving = false;
@@ -47,6 +48,15 @@ class _TaxesScreenState extends State<TaxesScreen> {
     _today ??= loadToday(AppScope.of(context).api);
     _filed ??= _loadFiled();
     _tds ??= _loadTds();
+    _rules ??= _loadRules();
+  }
+
+  Future<RulesStatus?> _loadRules() async {
+    try {
+      return RulesStatus.fromTool(await AppScope.of(context).api.query('rules_status'));
+    } on MycaApiException {
+      return null;
+    }
   }
 
   Future<TdsSummary?> _loadTds() async {
@@ -504,6 +514,7 @@ class _TaxesScreenState extends State<TaxesScreen> {
                     ],
                   ),
                 ],
+                if (_rules != null) RulesStatusNote(status: _rules!),
               ],
             ),
           );

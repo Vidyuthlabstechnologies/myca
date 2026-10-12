@@ -1950,6 +1950,32 @@ class InvoiceDocument {
 
 String _plainRate(num value) => value == value.roundToDouble() ? value.toInt().toString() : value.toString();
 
+class RulesStatus {
+  const RulesStatus({required this.asOf, required this.records, required this.attested, required this.attention, required this.notes});
+
+  static RulesStatus? fromTool(Object? json) {
+    final map = _map(json);
+    if (map['ok'] == false) return null;
+    final data = toolData(json);
+    final totals = _map(data['totals']);
+    return RulesStatus(
+      asOf: _text(data['asOf']),
+      records: totals['records'] is num ? (totals['records'] as num).toInt() : 0,
+      attested: totals['attested'] is num ? (totals['attested'] as num).toInt() : 0,
+      attention: [for (final row in _maps(data['families'])) if (row['attention'] == true) _text(row['title'])],
+      notes: [for (final note in (data['notes'] as List? ?? const [])) _text(note)],
+    );
+  }
+
+  final String asOf;
+  final int records;
+  final int attested;
+  final List<String> attention;
+  final List<String> notes;
+
+  String get summary => '$records dated records, $attested reviewed by your accountant.';
+}
+
 class SalesTaxFiled {
   const SalesTaxFiled({required this.confirmation, required this.filedOn, required this.late});
 

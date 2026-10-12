@@ -484,6 +484,11 @@ export const TOOL_ARG_SCHEMAS = {
     additionalProperties: false,
     properties: { year: { type: 'string', pattern: '^[0-9]{4}$' } },
   },
+  rules_status: {
+    type: 'object',
+    additionalProperties: false,
+    properties: { asOf: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' }, country: { type: 'string', enum: ['IN', 'US'] } },
+  },
   set_sales_tax_nexus: {
     type: 'object',
     additionalProperties: false,

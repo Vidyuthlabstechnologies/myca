@@ -27,6 +27,7 @@ import { payrollFor, approvePayroll, recordSalaryPayment, listPayroll, payslip }
 import { pfEcr, esiReturn } from './payroll-files.mjs';
 import { countryOf, isCountry, toolServesCountry } from './country.mjs';
 import { createUsInvoice, createUsPurchase, setSalesTaxRate, listSalesTaxRates, setContractor, contractorPayments } from './us-sales.mjs';
+import { rulesStatus } from './rules-status.mjs';
 import { setNexus, listNexus, salesTaxReturn, salesTaxReviewOf, answerSalesTaxReview, recordSalesTaxPayment, recordSalesTaxFiling, salesTaxOverview } from './us-sales-tax.mjs';
 import { recordTdsDeposit, setDeductor, tdsSummary } from './tds-deduction.mjs';
 import { paymentFor, setCreditOpening } from './gst-payment.mjs';
@@ -603,6 +604,13 @@ export const TOOLS = [
     description: 'What was paid to each contractor in a calendar year, who is at or above the 1099-NEC threshold from the dated rule, and whose W-9 is missing. US only. Read-only.',
     args: ['year'],
     run: (state, args = {}) => contractorPayments(state, args),
+  },
+  {
+    name: 'rules_status',
+    title: 'Statutory rules status',
+    description: 'How current the dated statutory rules are for this business\'s country: per family, records in force today, the latest effective date, what is covered until when, rule ids with nothing in force, records ending soon with no successor, how many a CA or CPA has attested, and the official sources to watch. Read-only.',
+    args: ['asOf', 'country'],
+    run: (state, args = {}) => rulesStatus(state, args),
   },
   {
     name: 'set_sales_tax_nexus',

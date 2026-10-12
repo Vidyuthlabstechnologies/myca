@@ -1014,6 +1014,19 @@ class FakeMycaApi implements MycaApi {
           shares.add({'on': '2026-10-05T10:00:00.000Z', 'by': 'u-owner', 'channel': args['channel'], 'outcome': args['outcome']});
         }
         return {'ok': true, 'invoiceId': args['invoiceId'], 'recorded': args['outcome'] != 'cancelled'};
+      case 'rules_status':
+        return {
+          'ok': true,
+          'data': {
+            'asOf': '2026-10-05',
+            'country': country,
+            'totals': {'records': country == 'US' ? 4 : 164, 'attested': 0, 'gaps': 0, 'ending': country == 'US' ? 0 : 1},
+            'families': [
+              {'key': 'holiday', 'title': 'Gazetted holiday calendar', 'attention': country != 'US'},
+            ],
+            'notes': [country == 'US' ? 'No rule has been reviewed by a US CPA yet; figures carry a not-reviewed note until one attests.' : 'No rule has been reviewed by your CA yet; figures carry a not-reviewed note until one attests.'],
+          },
+        };
       case 'sales_tax_overview':
         return {
           'ok': true,

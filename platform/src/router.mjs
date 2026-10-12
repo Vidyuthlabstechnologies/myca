@@ -9,6 +9,7 @@ import { paymentWords } from './gst-payment.mjs';
 import { transportWords } from './eway-bill.mjs';
 import { payrollWords } from './payroll.mjs';
 import { setCurrentCountry, formatMoneyCurrent } from './country.mjs';
+import { rulesStatusWords } from './rules-status.mjs';
 import { inWords as monthWords } from './words.mjs';
 
 function money(n) {
@@ -196,6 +197,7 @@ function fmtToolResult(name, result) {
     if (!d.contractors.length) return `No supplier is marked as a contractor. Say "<name> is a contractor" to start counting towards 1099s for ${d.year}.`;
     return `Contractor payments in ${d.year} (1099-NEC at or above ${money(d.threshold)}):\n${d.contractors.map((c) => `· ${c.name}: ${money(c.total)}${c.needs1099 ? ' — needs a 1099-NEC' : ''}${c.needs1099 && !c.w9Received ? ', W-9 missing' : ''}`).join('\n')}${d.notes.length ? `\n${d.notes.join(' ')}` : ''}`;
   }
+  if (name === 'rules_status' && result.data) return rulesStatusWords(result.data);
   if (name === 'set_sales_tax_nexus' && result.nexus) {
     return `Recorded: you collect sales tax in ${result.nexus.state} and file ${result.nexus.frequency} from ${result.nexus.from}. Say "sales tax return ${result.nexus.state}" to see a period.`;
   }

@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>MyCA Validation Brief</title>
+</head>
+<body>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  /* Layout: a ledger-like document. One reading column, a thin index rail on wide screens, tables ruled like a working paper. */
+  :root {
+    --bg: #fbfaf7;
+    --paper: #ffffff;
+    --fg: #1f2a24;
+    --muted: #5d6b63;
+    --rule: #d9ddd6;
+    --accent: #1b5e3f;
+    --accent-soft: #e4efe8;
+    --warn: #8a5a00;
+    --warn-soft: #f7ecd3;
+    --code-bg: #f1f3ef;
+    --display: 'Source Serif 4', Georgia, 'Times New Roman', serif;
+    --body: 'IBM Plex Sans', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    --mono: 'IBM Plex Mono', Consolas, 'Courier New', monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #131916; --paper: #1a211d; --fg: #e8ebe6; --muted: #a2ada6; --rule: #2e3833;
+      --accent: #7fc29c; --accent-soft: #1f3328; --warn: #e3b35a; --warn-soft: #3a2e14; --code-bg: #222b26;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #131916; --paper: #1a211d; --fg: #e8ebe6; --muted: #a2ada6; --rule: #2e3833;
+    --accent: #7fc29c; --accent-soft: #1f3328; --warn: #e3b35a; --warn-soft: #3a2e14; --code-bg: #222b26;
+    color-scheme: dark;
+  }
+  body { background: var(--bg); color: var(--fg); font-family: var(--body); line-height: 1.55; font-size: 16px; }
+  .wrap { max-width: 1120px; margin: 0 auto; padding-inline: 20px; padding-block: 32px 64px; display: grid; grid-template-columns: 1fr; gap: 32px; }
+  @media (min-width: 960px) { .wrap { grid-template-columns: 220px minmax(0, 1fr); } }
+  nav.rail { font-size: 14px; }
+  @media (min-width: 960px) { nav.rail { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 24px); align-self: start; } }
+  nav.rail ol { list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 6px 14px; }
+  @media (min-width: 960px) { nav.rail ol { flex-direction: column; } }
+  nav.rail a { color: var(--muted); text-decoration: none; }
+  nav.rail a:hover, nav.rail a:focus-visible { color: var(--accent); }
+  main { min-width: 0; max-width: 760px; }
+  header.title { border-bottom: 2px solid var(--accent); padding-bottom: 18px; margin-bottom: 28px; }
+  .eyebrow { font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+  h1 { font-family: var(--display); font-weight: 600; font-size: clamp(30px, 4.5vw, 42px); line-height: 1.12; margin: 8px 0 10px; text-wrap: balance; }
+  h2 { font-family: var(--display); font-weight: 600; font-size: 25px; margin: 44px 0 10px; text-wrap: balance; }
+  h3 { font-size: 17px; font-weight: 600; margin: 24px 0 6px; }
+  p { margin: 0 0 12px; max-width: 68ch; }
+  p.lede { font-size: 18px; color: var(--muted); max-width: 60ch; }
+  a { color: var(--accent); }
+  table { border-collapse: collapse; width: 100%; font-size: 14.5px; margin: 10px 0 18px; }
+  .scroll { overflow-x: auto; }
+  th, td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--rule); }
+  th { font-weight: 600; font-size: 12.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  code, pre { font-family: var(--mono); font-size: 13.5px; }
+  code { background: var(--code-bg); padding: 1px 5px; border-radius: 3px; }
+  pre { background: var(--code-bg); padding: 14px 16px; border-radius: 6px; overflow-x: auto; margin: 10px 0 18px; }
+  pre code { background: none; padding: 0; }
+  .card { background: var(--paper); border: 1px solid var(--rule); border-radius: 8px; padding: 16px 18px; margin: 14px 0 20px; }
+  .card.warn { border-left: 4px solid var(--warn); background: var(--warn-soft); }
+  .card.key { border-left: 4px solid var(--accent); background: var(--accent-soft); }
+  ul, ol.steps { padding-left: 22px; margin: 0 0 14px; }
+  li { margin-bottom: 6px; max-width: 68ch; }
+  .pill { display: inline-block; font-size: 12px; font-weight: 500; padding: 2px 8px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); white-space: nowrap; }
+  .pill.warn { background: var(--warn-soft); color: var(--warn); }
+  .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin: 12px 0 20px; }
+  .grid2 .card { margin: 0; }
+  .card h3 { margin-top: 0; }
+  figure { margin: 12px 0 20px; }
+  figcaption { font-size: 13px; color: var(--muted); margin-top: 6px; }
+  pre.mermaid { background: var(--paper); border: 1px solid var(--rule); }
+  .checklist li { list-style: none; position: relative; padding-left: 28px; }
+  .checklist li::before { content: ''; position: absolute; left: 0; top: 4px; width: 16px; height: 16px; border: 1.5px solid var(--accent); border-radius: 3px; }
+  .checklist { padding-left: 0; }
+  footer { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--rule); font-size: 13.5px; color: var(--muted); }
+  @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+</style>
+
+<div class="wrap">
+  <nav class="rail" aria-label="Sections">
+    <ol>
+      <li><a href="#purpose">1. Purpose</a></li>
+      <li><a href="#principles">2. Principles</a></li>
+      <li><a href="#shape">3. Shape of the system</a></li>
+      <li><a href="#rules">4. Statutory rules</a></li>
+      <li><a href="#engines">5. What the engines compute</a></li>
+      <li><a href="#flow">6. A posting, end to end</a></li>
+      <li><a href="#data">7. Data and privacy</a></li>
+      <li><a href="#validate">8. The validation we ask for</a></li>
+      <li><a href="#currency">9. Keeping rules current</a></li>
+      <li><a href="#open">10. Open questions</a></li>
+    </ol>
+  </nav>
+
+  <main>
+    <header class="title">
+      <div class="eyebrow">Case study partner · architecture and validation brief</div>
+      <h1>MyCA: how the figures are made, and what we ask you to check</h1>
+      <p class="lede">A working brief for the chartered accountancy firm validating MyCA. It explains where every number comes from, what the firm's attestation changes in the product, and the checks that would let us call a figure reviewed.</p>
+      <p><span class="pill">Version 13 October 2026</span> &nbsp; <span class="pill">India and United States editions</span> &nbsp; <span class="pill warn">No rule attested yet</span></p>
+    </header>
+
+    <h2 id="purpose">1. Purpose of this page</h2>
+    <p>MyCA is an owner-first bookkeeping and compliance app for small businesses: an Android app for the owner, a hosted service that keeps the books, and the same engine on Windows for a firm. An Indian business keeps GST, TDS, payroll and income tax; a United States business keeps sales tax by state and contractor reporting. Both run on one engine.</p>
+    <p>The product makes one promise that needs an accountant to stand behind it: <strong>no statutory figure is ever invented</strong>. Every rate, threshold, due date and slab is a dated record with its act, section and source, and the engine refuses to compute when no record is in force. What the engine cannot do is confirm that a record is right. That is the partner firm's role, and this page sets out how it works.</p>
+
+    <h2 id="principles">2. The principles the code keeps</h2>
+    <p>Eleven architecture decisions are recorded in the repository. The ones a validator needs are these.</p>
+    <div class="scroll"><table>
+      <thead><tr><th>Decision</th><th>What it means in practice</th></tr></thead>
+      <tbody>
+        <tr><td>The invoice is the source of truth</td><td>Trial balance, GST returns, sales tax returns and TDS statements are projections of posted documents, computed on demand. There is no second ledger to drift.</td></tr>
+        <tr><td>Money is integer minor units</td><td>Paise for India, cents for the US, inside the ledger. Rupees and dollars appear only at the edges. Rounding happens once, on output.</td></tr>
+        <tr><td>The journal is append-only</td><td>A posted transfer is never changed. A correction is a new entry that refers to the old one. A checksum chain detects tampering.</td></tr>
+        <tr><td>Statutory values are dated rules that fail closed</td><td>A date outside every record's window returns <code>RULE_NOT_IN_FORCE</code>. Nothing falls back to a default or a hard-coded number.</td></tr>
+        <tr><td>Preview, then confirm</td><td>Nothing posts from chat or a form without a preview the owner sees and a separate confirm. The preview is bound to the exact figures shown.</td></tr>
+        <tr><td>A language model may only choose tools</td><td>If a model is connected it picks a named tool and fills its arguments against a strict schema. It never produces a figure. Today no model is connected; the parser is deterministic.</td></tr>
+        <tr><td>One gate for every external action</td><td>Filing, e-invoice generation, OTP and credential operations pass one gate: secrets redacted, a live switch, the assistant blocked, and a named human approval. MyCA files nothing on its own.</td></tr>
+        <tr><td>Not a merchant of record</td><td>MyCA holds no money and is not the seller of record in either country.</td></tr>
+        <tr><td>Country is a property of the business</td><td>Chosen at creation. It selects the currency, the financial or calendar year, the rule families, the tools and the screens. An Indian business cannot see a US tool and the reverse.</td></tr>
+      </tbody>
+    </table></div>
+
+    <h2 id="shape">3. Shape of the system</h2>
+    <figure>
+      <pre class="mermaid">
+flowchart LR
+  owner([Owner]) --> app[Android app]
+  firm([Partner CA firm]) --> desktop[Windows desktop app]
+  app -- HTTPS --> api[Hosted API, one transaction per request]
+  api --> pg[(Postgres, one row per business)]
+  desktop --> local[(Local state file and documents)]
+  api --> engine[Engine: tools, ledger, reviews]
+  desktop --> engine
+  engine --> rules[(Dated statutory rules)]
+  engine -. behind the action gate .-> portals[GST, NIC, state portals]
+      </pre>
+      <figcaption>One engine, two hosts. The app and the desktop never compute a figure; they display what the engine returns.</figcaption>
+    </figure>
+    <div class="scroll"><table>
+      <thead><tr><th>Part</th><th>Where</th><th>Built with</th><th>Tests</th></tr></thead>
+      <tbody>
+        <tr><td>Engine (tools, ledger, documents, reviews, chat parser)</td><td><code>platform/src/</code></td><td>Node 22, no runtime dependencies</td><td class="num">646</td></tr>
+        <tr><td>Statutory rules registry</td><td><code>sprints/statutory-rules/</code></td><td>Dated records, validation, attestation, golden cases</td><td class="num">137</td></tr>
+        <tr><td>Frozen engines (GST reconciliation, deadlines, filing packs, income tax, audit)</td><td><code>sprints/sprint-1…6/</code></td><td>Same; read-only unless a task targets them</td><td class="num">192</td></tr>
+        <tr><td>Hosted API</td><td><code>cloud/</code></td><td>Node 22, Postgres</td><td class="num">77</td></tr>
+        <tr><td>Android app</td><td><code>mobile/</code></td><td>Flutter; holds no tax logic</td><td class="num">150</td></tr>
+      </tbody>
+    </table></div>
+    <p>The engine exposes about 150 named tools. Each has a strict argument schema and a risk class. The app may run a short list of read-only tools directly and may <em>propose</em> a write; the engine previews it and waits for the confirm.</p>
+
+    <h2 id="rules">4. Statutory rules: the part you validate</h2>
+    <h3>Anatomy of a record</h3>
+    <pre><code>{
+  id: 'tds.no-pan.rate',
+  value: { basisPoints: 2000 },
+  basis: 'percent_of_payment_as_basis_points_when_the_payee_gives_no_pan',
+  effectiveFrom: '2010-04-01',
+  effectiveTo: null,
+  act: 'IT-1961',
+  section: '206AA',
+  source: 'Income-tax Act 1961 section 206AA(1): the higher of the rate in the Act, the rate in force, or twenty per cent (official text not re-read for this record)',
+  attestations: []
+}</code></pre>
+    <p>Five things to notice. The id is stable across versions; a change in law is a new record with the same id and new dates. The value is in the smallest unit (basis points, paise, cents, a day of the month). The window is explicit and open-ended only when the law is. The source names where the figure was read and says plainly when the primary text was not re-read. The attestations start empty.</p>
+
+    <h3>What your attestation changes</h3>
+    <div class="card key">
+      <p>While a record has no <code>verified</code> attestation, every figure that depends on it carries the words <strong>"your CA has not reviewed yet"</strong> in chat, in previews, in review steps and on the app. When the firm adds an attestation, that note disappears for that figure and only that figure. A <code>disputed</code> verdict outranks a verified one, so a wrong figure can be flagged at once without waiting for engineering.</p>
+    </div>
+    <pre><code>attestations: [
+  { by: 'CA R. Sharma', role: 'firm', firmId: 'YOUR-FIRM-ID', on: '2026-10-20', verdict: 'verified' }
+]</code></pre>
+    <p>The function that decides whether a figure is reviewed is <code>isVerifiedFor(record, firmId)</code>. It is the only place that logic lives.</p>
+
+    <h3>Inventory as of 13 October 2026</h3>
+    <div class="scroll"><table>
+      <thead><tr><th>Family</th><th>Country</th><th class="num">Records</th><th>Covers</th><th>Notes for the reviewer</th></tr></thead>
+      <tbody>
+        <tr><td>GST rates, registration thresholds, set-off order, interest, late fee, blocked credit, e-way bill limit</td><td>IN</td><td class="num">30</td><td>Open-ended, dated from the notification that set each</td><td>Set-off order under rule 88A; interest under s.50; late fee caps by turnover</td></tr>
+        <tr><td>TDS sections, rates, thresholds, no-PAN rate</td><td>IN</td><td class="num">38</td><td>FY 2024-25 to FY 2026-27</td><td>194A, 194C, 194I, 194J, 192 (salary via slabs); thresholds raised from 1 April 2025 encoded</td></tr>
+        <tr><td>Income tax slabs, rebate, surcharge, cess, both regimes</td><td>IN</td><td class="num">45</td><td>FY 2024-25 to FY 2026-27 (ends 31 March 2027)</td><td>2026-27 relies on budget analyses; the Finance Act 2026 First Schedule was not read directly</td></tr>
+        <tr><td>Return due dates, QRMP day by state, extensions, rollover</td><td>IN</td><td class="num">24</td><td>Open-ended plus dated extensions</td><td>Rollover of weekend and holiday is a rule, not an assumption</td></tr>
+        <tr><td>Tax audit and presumptive limits</td><td>IN</td><td class="num">4</td><td>Open-ended</td><td>Under the Income-tax Act 2025 ss.58 and 63</td></tr>
+        <tr><td>Gazetted holidays</td><td>IN</td><td class="num">2</td><td>Calendar 2026 only</td><td>Shown on the deadline calendar; never move a statutory due date. 2027 is needed by December.</td></tr>
+        <tr><td>Provident fund, pension, EDLI, administrative charge, state insurance</td><td>IN</td><td class="num">7</td><td>Open-ended</td><td>Wage ceiling fifteen thousand; ESI at 0.75% and 3.25% up to twenty-one thousand</td></tr>
+        <tr><td>Professional tax, fourteen states</td><td>IN</td><td class="num">14</td><td>Open-ended, dated per state notification</td><td>Monthly, annual and half-yearly bases; Maharashtra women's threshold and February catch-up encoded; Bihar and the north-eastern states not yet</td></tr>
+        <tr><td>Federal information reporting: 1099-NEC threshold</td><td>US</td><td class="num">2</td><td>$600 to 2025; $2,000 from 2026</td><td>The 2026 figure comes from P.L. 119-21 §70433 as reported; the enacted text was not re-read</td></tr>
+        <tr><td>State sales tax due dates</td><td>US</td><td class="num">2</td><td>Texas and California only</td><td>Any other state shows no due date rather than a guess</td></tr>
+      </tbody>
+    </table></div>
+    <p>Total: 168 records across 90 rule ids, none attested. The <code>rules_status</code> tool prints this inventory for a business's country at any date and flags gaps and records ending within ninety days.</p>
+
+    <h2 id="engines">5. What the engines compute, and against what</h2>
+    <div class="grid2">
+      <div class="card"><h3>GST (India)</h3><p>Intra and inter-state split per line; GSTR-1 tables and the offline-utility JSON; GSTR-3B draft; set-off in the rule 88A order with credit brought forward; interest and late fee if paid after the due date; GSTR-2B matching per tax head with rule 37 and 37A checks; e-way bill need; blocked credit under s.17(5) by expense head.</p><p>Fixtures: <code>sprints/sprint-3-gst-recon/BENCHMARK.md</code>, <code>platform/test/gst-*.test.mjs</code>.</p></div>
+      <div class="card"><h3>TDS (India)</h3><p>Deduction on bills and expenses by section and category, no-PAN rate, quarterly statement draft with deposits allocated in date order across the non-salary and salary forms, review steps, deposit posting.</p><p>Fixtures: <code>platform/test/tds-*.test.mjs</code>.</p></div>
+      <div class="card"><h3>Payroll (India)</h3><p>Monthly run with EPF, EPS, EDLI, administrative charge, ESI, professional tax by state and salary TDS projected over the year; approval, postings, payslips, PF ECR and ESI contribution files, the salary TDS statement.</p><p>Fixtures: <code>platform/test/payroll*.test.mjs</code>.</p></div>
+      <div class="card"><h3>Income tax and audit (India)</h3><p>Old versus new regime comparison from AIS and 26AS, advance tax, audit and presumptive thresholds, SA 230 working papers and sampling in the audit engine.</p><p>Fixtures: <code>sprints/sprint-5-filing-assistant/BENCHMARK.md</code>.</p></div>
+      <div class="card"><h3>Sales tax (US)</h3><p>Owner-entered jurisdiction rates applied by invoice date; exempt sales with a reason; nexus per state with a filing frequency; the state return by period (gross, exempt, non-taxable, taxable, tax by jurisdiction); review, payment, filing confirmation.</p><p>Fixtures: <code>platform/test/us-sales*.test.mjs</code>.</p></div>
+      <div class="card"><h3>Contractor reporting (US)</h3><p>Suppliers marked as contractors with W-9 details (only the last four digits of a TIN are kept); calendar-year totals against the dated 1099-NEC threshold; corporations excluded.</p><p>Fixtures: <code>platform/test/us-sales.test.mjs</code>.</p></div>
+    </div>
+    <p>Every engine is deterministic: no clock and no randomness inside a rule or flag engine; dates are arguments. The same input gives the same figure on every machine, which is what lets a golden case stand as evidence.</p>
+
+    <h2 id="flow">6. A posting, end to end</h2>
+    <figure>
+      <pre class="mermaid">
+sequenceDiagram
+  participant O as Owner
+  participant A as App
+  participant E as Engine
+  participant R as Rules
+  O->>A: "invoice Kiran Stores 50000 for consulting GST 18%"
+  A->>E: propose create_invoice
+  E->>R: gst.rate in force on the invoice date?
+  R-->>E: record, or RULE_NOT_IN_FORCE
+  E-->>A: preview: taxable, CGST, SGST, total, "not reviewed" note if unattested
+  O->>A: Post it
+  A->>E: confirm (token bound to that preview)
+  E-->>A: posted; journal entries; audit event
+      </pre>
+      <figcaption>The preview and the posting use the same engine call, so what the owner approved is what posts. A changed draft invalidates the token.</figcaption>
+    </figure>
+    <p>Returns follow the same shape. A review walks fixed steps (sales, credit, approval for GST; deductees, challans, approval for TDS; sales, tax, approval for a state sales tax return). Each step is bound to a hash of the draft. If any underlying document changes, the review starts again from that step, so an approval always refers to the figures that were on screen.</p>
+
+    <h2 id="data">7. Data and privacy</h2>
+    <ul>
+      <li>A business's books are one JSON state. On the desktop it is a local file; in the hosted service it is one Postgres row locked for the duration of each request. The hosted service is designed for Google Cloud in Mumbai and is not yet deployed.</li>
+      <li>Documents are content-addressed by SHA-256 and re-verified on every read.</li>
+      <li>Secrets never appear in the state, logs or tool results. Credentials live in an encrypted vault. PINs are stripped from every backup.</li>
+      <li>Who acted comes from the session, not from the arguments. Every state change writes an audit event; every flag carries a <em>why</em> and a <em>source</em>.</li>
+      <li>An accountant sees a business only through a share the owner made, as of a stated date.</li>
+    </ul>
+
+    <h2 id="validate">8. The validation we ask for</h2>
+    <p>Three layers, in the order that gives the most assurance per hour.</p>
+    <h3>Layer 1: attest the rule records</h3>
+    <ol class="steps">
+      <li>Take the inventory in section 4, family by family, starting with GST and TDS.</li>
+      <li>For each record, read the act, section and source cited. Confirm the value, the unit and the window.</li>
+      <li>Add an attestation with your firm id and the date: <code>verified</code> when it is right, <code>disputed</code> with a note to engineering when it is not.</li>
+      <li>Where a source says "official text not re-read", read it. Those records are the ones most worth your time.</li>
+    </ol>
+    <h3>Layer 2: re-perform the golden cases</h3>
+    <p>Each engine ships with worked examples and expected figures. Re-perform a sample by hand or in a spreadsheet and compare to the output. Disagreements are either a wrong rule (go to layer 1) or an engine defect (report with the fixture name).</p>
+    <div class="scroll"><table>
+      <thead><tr><th>Area</th><th>Start with</th><th>What to re-perform</th></tr></thead>
+      <tbody>
+        <tr><td>GST set-off and payment</td><td><code>platform/test/gst-setoff.test.mjs</code></td><td>Credit utilisation order, interest days, late fee cap</td></tr>
+        <tr><td>GSTR-1 JSON</td><td><code>sprints/sprint-3-gst-recon/BENCHMARK.md</code></td><td>B2B, B2CL, B2CS grouping and the held-back invoices</td></tr>
+        <tr><td>TDS statement</td><td><code>platform/test/tds-return.test.mjs</code></td><td>Section, rate, threshold, challan allocation across quarters</td></tr>
+        <tr><td>Payroll</td><td><code>platform/test/payroll.test.mjs</code></td><td>EPF ceiling, EPS split, ESI eligibility, professional tax for Maharashtra and Karnataka, salary TDS projection</td></tr>
+        <tr><td>US sales tax return</td><td><code>platform/test/us-sales-tax.test.mjs</code></td><td>Taxable versus exempt lines, tax by jurisdiction, due date from the rule</td></tr>
+      </tbody>
+    </table></div>
+    <h3>Layer 3: walk the product as an owner</h3>
+    <ul class="checklist">
+      <li>Post an invoice, a bill, an expense and a receipt from chat and from the forms; confirm the preview matches the posting.</li>
+      <li>Run a GST review for a month and approve it; then change an invoice and confirm the review reopens.</li>
+      <li>Run a payroll month, approve it, and check the payslip and the PF and ESI files against the postings.</li>
+      <li>Try to make the engine guess: an invoice without a GST rate, a US sale without a jurisdiction, a date outside every rule. Each should refuse with a reason, never a number.</li>
+      <li>Try to file or sign anything. Nothing should leave the system without the gate and a named approval.</li>
+    </ul>
+    <div class="card warn">
+      <p><strong>What we are not asking.</strong> We are not asking the firm to sign off the product as a whole, to review the code, or to accept liability for a client's return. The attestation is a statement that a named record matches the law on a date, made by a named person. That is what the product shows to the owner.</p>
+    </div>
+
+    <h2 id="currency">9. Keeping the rules current</h2>
+    <p>MyCA does not fetch law from the internet and never changes a figure on a schedule. A change in law is a person reading an official source and adding a dated record. The process is written down in <code>docs/product/RULES-CURRENCY.md</code>: what to watch for each family, a monthly check driven by the <code>rules_status</code> tool, and annual deadlines (Finance Act figures by 31 March, state professional tax by 30 April, the holiday calendar by 31 July, IRS adjustments by 30 November, state sales tax calendars by 31 January).</p>
+    <p>The app shows the owner the same status: how many records their country has, how many are reviewed, and any family that needs an update.</p>
+
+    <h2 id="open">10. Open questions for the firm</h2>
+    <ol class="steps">
+      <li>ESI contribution due date: the frozen deadline engine carries one figure; please confirm the current one.</li>
+      <li>Professional tax for Bihar and the north-eastern states: should they be added before the pilot, and from which notifications?</li>
+      <li>Income tax 2026-27: the Finance Act 2026 First Schedule was not read directly. Can the firm supply the text or confirm no change?</li>
+      <li>Who may approve a filing in the hosted service: the owner only, or also an accountant with a share?</li>
+      <li>For the US edition, who attests federal and state records? A US CPA has not been named; until then every US figure stays marked not reviewed.</li>
+    </ol>
+
+    <footer>
+      Prepared from the MyCA repository as of 13 October 2026. Figures and counts come from the test suites and the rules registry on that date. This page describes engineering controls; it is not legal or tax advice.
+    </footer>
+  </main>
+</div>
+
+</body>
+</html>

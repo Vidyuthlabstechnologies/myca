@@ -151,6 +151,7 @@ export function isSaleIntent(text) {
 }
 
 export const ROUTES = [
+  { re: /\brules?\s+status\b|\bstatutory\s+rules\b|\brules\s+(?:current|up\s*to\s*date|updated)\b|\bare\s+(?:the\s+)?(?:tax\s+)?rules\s+(?:current|up\s*to\s*date)\b/i, tool: 'rules_status' },
   { re: /\b(?:my|open|show|list|what are my)\s+reminders\b|^\s*reminders\s*$/i, tool: 'list_reminders' },
   { re: /\b(?:my|show|list|all)\s+employees\b|^\s*employees\s*$/i, tool: 'list_employees' },
   { re: /\b(?:my|show|list|which)\s+(?:filings|filed\s+returns|returns\s+(?:are\s+|were\s+)?filed)\b|^\s*filings\s*$/i, tool: 'list_filings' },

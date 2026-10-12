@@ -39,6 +39,7 @@ class SalesTaxScreen extends StatefulWidget {
 
 class _SalesTaxScreenState extends State<SalesTaxScreen> with ProposalFlow {
   Future<SalesTaxOverview?>? _overview;
+  Future<RulesStatus?>? _rules;
   final _stateCode = TextEditingController();
   final _permit = TextEditingController();
   final _amount = TextEditingController();
@@ -58,6 +59,15 @@ class _SalesTaxScreenState extends State<SalesTaxScreen> with ProposalFlow {
   void didChangeDependencies() {
     super.didChangeDependencies();
     _overview ??= loadSalesTax(api);
+    _rules ??= _loadRules();
+  }
+
+  Future<RulesStatus?> _loadRules() async {
+    try {
+      return RulesStatus.fromTool(await api.query('rules_status'));
+    } on MycaApiException {
+      return null;
+    }
   }
 
   @override
@@ -329,6 +339,7 @@ class _SalesTaxScreenState extends State<SalesTaxScreen> with ProposalFlow {
                       ),
                     ],
                     for (final entry in entries) entry.toBubble(),
+                    if (_rules != null) RulesStatusNote(status: _rules!),
                   ],
                 ),
               ),

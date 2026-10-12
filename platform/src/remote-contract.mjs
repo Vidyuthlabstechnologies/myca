@@ -19,6 +19,7 @@ export const REMOTE_QUERY_TOOLS = new Set([
   'list_sales_tax_rates',
   'contractor_payments',
   'list_sales_tax_nexus',
+  'rules_status',
   'sales_tax_return',
   'sales_tax_review',
   'sales_tax_overview',
