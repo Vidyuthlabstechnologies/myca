@@ -160,6 +160,7 @@ export const ROUTES = [
   { re: /\bjournal\b|\bday book\b/i, tool: 'journal' },
   { re: /\blist invoices\b|\bshow invoices\b/i, tool: 'list_invoices' },
   { re: /\bgst payable\b|\bgst liability\b|\bhow much gst\b/i, tool: 'gst_payable' },
+  { re: /\btally\s+(?:file|export|xml)\b|\bexport\b.*\btally\b|\bfor\s+tally\b/i, tool: 'export_tally' },
   { re: /\bgstr-?1\s*json\b|\bexport gstr/i, tool: 'export_gstr1_json' },
   { re: /\bgstr-?1\b|\bprepare gstr 1\b/i, tool: 'prepare_gstr1' },
   { re: /\bprobe govt\b|\bconnect gst\b|\bgovt status\b|\bnic sandbox\b/i, tool: 'govt_probe' },

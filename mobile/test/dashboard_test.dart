@@ -40,6 +40,8 @@ void main() {
     expect(find.text('₹20,000'), findsOneWidget);
     expect(find.text('last ₹9.03 L'), findsOneWidget);
     expect(find.text('Bought'), findsOneWidget);
+    expect(find.text('Paid staff'), findsOneWidget);
+    expect(find.text('last ₹30,000'), findsOneWidget);
     expect(find.text('₹42,000'), findsOneWidget);
     expect(find.text('last ₹0'), findsOneWidget);
     expect(find.text('Spent'), findsOneWidget);

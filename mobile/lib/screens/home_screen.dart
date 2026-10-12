@@ -182,6 +182,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       const RegisterScreen(kind: RegisterKind.purchases),
                     ),
                     onExpenses: () => _open(const ExpensesScreen()),
+                    onPayroll: () => _open(const EmployeesScreen()),
                   ),
                 );
               },
@@ -479,12 +480,14 @@ class _SummaryPanel extends StatelessWidget {
     required this.onSales,
     required this.onPurchases,
     required this.onExpenses,
+    this.onPayroll,
   });
 
   final BusinessSummary summary;
   final VoidCallback onSales;
   final VoidCallback onPurchases;
   final VoidCallback onExpenses;
+  final VoidCallback? onPayroll;
 
   @override
   Widget build(BuildContext context) {
@@ -525,6 +528,14 @@ class _SummaryPanel extends StatelessWidget {
                 before: summary.previous.expenses,
                 onTap: onExpenses,
               ),
+              if (summary.current.payrollStatus == 'approved' ||
+                  summary.previous.payrollStatus == 'approved')
+                _Figure(
+                  label: 'Paid staff',
+                  amount: summary.current.payrollGross,
+                  before: summary.previous.payrollGross,
+                  onTap: onPayroll ?? () {},
+                ),
             ],
           ),
           const SizedBox(height: 14),

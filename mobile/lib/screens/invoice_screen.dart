@@ -110,6 +110,26 @@ class _InvoiceScreenState extends State<InvoiceScreen> with ProposalFlow {
     );
   }
 
+  Future<void> _transport(InvoiceDocument doc) async {
+    final result = await showModalBottomSheet<Map<String, Object?>>(
+      context: context,
+      isScrollControlled: true,
+      builder: (sheet) => _TransportSheet(doc: doc),
+    );
+    if (result == null || !mounted) return;
+    await propose(
+      'Transport for ${doc.id}: ${result['vehicleNo'] ?? ''} ${result['distanceKm']} km',
+      'set_transport',
+      {'invoiceId': doc.id, ...result},
+    );
+  }
+
+  Future<void> _ewayBill(InvoiceDocument doc) async {
+    await propose('Generate the e-way bill for ${doc.id}', 'govt_generate_ewb', {
+      'invoiceId': doc.id,
+    });
+  }
+
   Future<void> _debitNote(InvoiceDocument doc) async {
     final result = await showModalBottomSheet<(num?, String)>(
       context: context,
@@ -173,11 +193,13 @@ class _InvoiceScreenState extends State<InvoiceScreen> with ProposalFlow {
 
   Future<void> _send(InvoiceDocument doc, {required bool share}) async {
     final pdf = AppScope.of(context).pdf;
+    final api = AppScope.of(context).api;
     setState(() {
       _busy = true;
       _note = '';
     });
     var note = '';
+    var recorded = false;
     try {
       final bytes = await buildInvoicePdf(
         doc,
@@ -193,6 +215,16 @@ class _InvoiceScreenState extends State<InvoiceScreen> with ProposalFlow {
             ? 'Handed to the app you chose. MyCA cannot see whether it was delivered.'
             : 'Not sent.';
       }
+      try {
+        await api.query('record_share', {
+          'invoiceId': doc.id,
+          'channel': share ? 'share_sheet' : 'print',
+          'outcome': !done ? 'cancelled' : share ? 'shared' : 'printed',
+        });
+        recorded = done;
+      } on Object {
+        note = '$note Could not note the share in the audit log.'.trim();
+      }
     } on Object {
       note = 'The PDF could not be prepared on this phone.';
     }
@@ -201,6 +233,7 @@ class _InvoiceScreenState extends State<InvoiceScreen> with ProposalFlow {
       _busy = false;
       _note = note;
     });
+    if (recorded) _reload();
   }
 
   @override
@@ -262,6 +295,10 @@ class _InvoiceScreenState extends State<InvoiceScreen> with ProposalFlow {
                   onDebitNote: doc.isQuote || doc.cancelled
                       ? null
                       : () => _debitNote(doc),
+                  onTransport: doc.isQuote || doc.cancelled || doc.ewayBill?.needed != true
+                      ? null
+                      : () => _transport(doc),
+                  onEwayBill: doc.ewayBill?.status == 'ready' ? () => _ewayBill(doc) : null,
                   onCancel: doc.isQuote || doc.cancelled || doc.credited > 0
                       ? null
                       : () => _cancel(doc),
@@ -325,6 +362,8 @@ class _InvoiceBody extends StatelessWidget {
     required this.onPrint,
     required this.onCreditNote,
     required this.onDebitNote,
+    required this.onTransport,
+    required this.onEwayBill,
     required this.onCancel,
     required this.onRemind,
     required this.onAskCa,
@@ -342,6 +381,8 @@ class _InvoiceBody extends StatelessWidget {
   final VoidCallback onPrint;
   final VoidCallback? onCreditNote;
   final VoidCallback? onDebitNote;
+  final VoidCallback? onTransport;
+  final VoidCallback? onEwayBill;
   final VoidCallback? onCancel;
   final VoidCallback? onRemind;
   final VoidCallback? onAskCa;
@@ -391,6 +432,8 @@ class _InvoiceBody extends StatelessWidget {
                       Text(doc.isQuote ? 'QUOTED TO' : 'BILL TO', style: text.labelSmall),
                       const SizedBox(height: 2),
                       Text(doc.buyerName, style: text.titleMedium),
+                      if (doc.buyerAddress.isNotEmpty)
+                        Text(doc.buyerAddress, style: text.bodySmall),
                       if (doc.buyerGstin.isNotEmpty)
                         Text('GSTIN ${doc.buyerGstin}', style: text.bodySmall),
                     ],
@@ -536,6 +579,54 @@ class _InvoiceBody extends StatelessWidget {
           const SizedBox(height: 12),
           Text(missing, style: text.bodyMedium?.copyWith(color: Palette.warn)),
         ],
+        if (doc.ewayBill case final ewb? when ewb.needed) ...[
+          const SizedBox(height: 16),
+          _Sheet(
+            children: [
+              Text('E-WAY BILL', style: text.labelSmall),
+              const SizedBox(height: 6),
+              Text(
+                ewb.ewbNo.isNotEmpty
+                    ? 'E-way bill ${ewb.ewbNo}${ewb.ewbValidity.isEmpty ? '' : ', valid till ${ewb.ewbValidity}'}'
+                    : 'Needed for this invoice',
+                style: text.titleMedium,
+              ),
+              const SizedBox(height: 4),
+              Text(ewb.why, style: text.bodySmall),
+              if (ewb.transportWords.isNotEmpty) ...[
+                const SizedBox(height: 6),
+                Text('Transport: ${ewb.transportWords}', style: text.bodyMedium),
+              ],
+              if (ewb.next.isNotEmpty) ...[
+                const SizedBox(height: 6),
+                Text(ewb.next, style: text.bodySmall),
+              ],
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 8,
+                children: [
+                  if (onTransport != null)
+                    ActionChip(
+                      label: Text(ewb.transportWords.isEmpty ? 'Add transport details' : 'Change transport'),
+                      onPressed: busy ? null : onTransport,
+                    ),
+                  if (onEwayBill != null)
+                    ActionChip(
+                      label: const Text('Generate e-way bill'),
+                      onPressed: busy ? null : onEwayBill,
+                    ),
+                ],
+              ),
+            ],
+          ),
+        ],
+        if (doc.shares.isNotEmpty) ...[
+          const SizedBox(height: 10),
+          Text(
+            'Shared ${doc.shares.length == 1 ? 'once' : '${doc.shares.length} times'}, last on ${longDate(doc.shares.last.on.length >= 10 ? doc.shares.last.on.substring(0, 10) : doc.shares.last.on)}. Delivery is not something MyCA can know.',
+            style: text.bodySmall,
+          ),
+        ],
         const SizedBox(height: 20),
         SizedBox(
           width: double.infinity,
@@ -634,6 +725,106 @@ class _InvoiceBody extends StatelessWidget {
         ],
         ...thread,
       ],
+    );
+  }
+}
+
+class _TransportSheet extends StatefulWidget {
+  const _TransportSheet({required this.doc});
+
+  final InvoiceDocument doc;
+
+  @override
+  State<_TransportSheet> createState() => _TransportSheetState();
+}
+
+class _TransportSheetState extends State<_TransportSheet> {
+  final _vehicle = TextEditingController();
+  final _distance = TextEditingController();
+  final _transporter = TextEditingController();
+  String _mode = 'road';
+  String _error = '';
+
+  @override
+  void dispose() {
+    _vehicle.dispose();
+    _distance.dispose();
+    _transporter.dispose();
+    super.dispose();
+  }
+
+  void _done() {
+    final distance = int.tryParse(_distance.text.trim());
+    if (distance == null || distance < 1 || distance > 4000) {
+      return setState(() => _error = 'Enter the distance in whole kilometres, 1 to 4000.');
+    }
+    final vehicle = _vehicle.text.replaceAll(RegExp(r'[\s-]+'), '').toUpperCase();
+    if (_mode == 'road' && vehicle.isEmpty) {
+      return setState(() => _error = 'Enter the vehicle number, for example MH12AB1234.');
+    }
+    Navigator.of(context).pop({
+      'distanceKm': distance,
+      'mode': _mode,
+      if (vehicle.isNotEmpty) 'vehicleNo': vehicle,
+      if (_transporter.text.trim().isNotEmpty) 'transporterName': _transporter.text.trim(),
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(22, 4, 22, 22 + MediaQuery.viewInsetsOf(context).bottom),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Transport for ${widget.doc.id}', style: text.headlineSmall),
+          const SizedBox(height: 6),
+          Text('How the goods move. MyCA puts this on the e-way bill request; nothing is sent until you approve it.', style: text.bodySmall),
+          const SizedBox(height: 14),
+          Wrap(
+            spacing: 8,
+            children: [
+              for (final mode in const ['road', 'rail', 'air', 'ship'])
+                ChoiceChip(
+                  label: Text(mode[0].toUpperCase() + mode.substring(1)),
+                  selected: mode == _mode,
+                  selectedColor: Palette.sunken,
+                  showCheckmark: false,
+                  onSelected: (_) => setState(() => _mode = mode),
+                ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: _vehicle,
+            textCapitalization: TextCapitalization.characters,
+            decoration: const InputDecoration(labelText: 'Vehicle number'),
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: _distance,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(labelText: 'Distance in km'),
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: _transporter,
+            textCapitalization: TextCapitalization.words,
+            decoration: const InputDecoration(labelText: 'Transporter (optional)'),
+          ),
+          if (_error.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Text(_error, style: const TextStyle(color: Palette.danger, fontWeight: FontWeight.w600)),
+          ],
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton(onPressed: _done, child: const Text('Preview')),
+          ),
+        ],
+      ),
     );
   }
 }

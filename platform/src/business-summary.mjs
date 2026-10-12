@@ -1,6 +1,7 @@
 import { localToday } from './dates.mjs';
 import { isReturnPeriod, periodOf } from './return-period.mjs';
 import { outstandingOf } from './credit-notes.mjs';
+import { salaryPrivate } from './employees.mjs';
 import { overdueBy } from './payment-terms.mjs';
 import { billOutstanding } from './invoice.mjs';
 
@@ -29,7 +30,15 @@ function monthFigures(state, period) {
     purchaseNotes,
     purchases: sumOf((state.purchases || []).filter(inPeriod), 'total'),
     expenses: sumOf((state.expenses || []).filter(inPeriod), 'amount'),
+    payroll: payrollFigures(state, period),
   };
+}
+
+function payrollFigures(state, period) {
+  if (salaryPrivate(state)) return null;
+  const run = state.payrollRuns && typeof state.payrollRuns === 'object' && Object.hasOwn(state.payrollRuns, period) ? state.payrollRuns[period] : null;
+  if (!run || run.status !== 'approved') return { status: (state.employees || []).some((e) => !e.leftOn) ? 'draft' : 'none', employees: 0, gross: 0, net: 0, employerCost: 0, paidOn: '' };
+  return { status: 'approved', employees: run.employees, gross: round2(run.totals.grossPaise / 100), net: round2(run.totals.netPaise / 100), employerCost: round2(run.totals.employerCostPaise / 100), paidOn: run.paidOn || '' };
 }
 
 export function businessSummary(state, { period } = {}) {

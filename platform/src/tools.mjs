@@ -16,15 +16,19 @@ import { createCreditNote, cancelInvoice, creditNotesForPeriod } from './credit-
 import { createDebitNote, createPurchaseNote, debitNotesForPeriod, purchaseNotesForPeriod } from './debit-notes.mjs';
 import { reviewOf, answerReview } from './gst-review.mjs';
 import { exportEntries } from './entries-export.mjs';
+import { exportTallyXml } from './tally-export.mjs';
 import { import2b, creditAtRisk } from './gstr2b-check.mjs';
 import { booksCheck } from './books-check.mjs';
 import { deadlineRun, filingRows } from './deadline-run.mjs';
 import { listFilings, recordFiling } from './filings.mjs';
 import { draftSupplierReminder, recordSupplierReminder } from './supplier-reminders.mjs';
 import { addEmployee, changeSalary, endEmployment, listEmployees } from './employees.mjs';
+import { payrollFor, approvePayroll, recordSalaryPayment, listPayroll, payslip } from './payroll.mjs';
 import { recordTdsDeposit, setDeductor, tdsSummary } from './tds-deduction.mjs';
 import { paymentFor, setCreditOpening } from './gst-payment.mjs';
 import { tdsReturnDraft } from './tds-return.mjs';
+import { setTransport, recordShare, ewayBillStatus, transportPayload } from './eway-bill.mjs';
+import { ensureParty } from './invoice.mjs';
 import { tdsReviewOf, answerTdsReview } from './tds-review.mjs';
 import { addReminder, completeReminder, listReminders } from './reminders.mjs';
 import { cashForecast, canAfford, setCashBalance } from './cash-forecast.mjs';
@@ -262,6 +266,67 @@ export const TOOLS = [
       const queued = queueNotification(root, built.draft, { createdBy: args.createdBy || 'ca' });
       if (!queued.ok) return fail(queued.error);
       return ok({ message: queued.message, link: shareLink(built.draft), draft: built.draft });
+    },
+  },
+  {
+    name: 'record_share',
+    title: 'Record that an invoice was shared',
+    description: 'Note that the owner handed an invoice or quote to another app to send, or printed it, so the audit log shows who shared what and when. A cancelled share records nothing. MyCA cannot know whether it was delivered.',
+    args: ['invoiceId', 'channel', 'outcome', 'to'],
+    run: (state, args = {}) => recordShare(state, args),
+  },
+  {
+    name: 'set_party_address',
+    title: 'Customer address',
+    description: 'Record a customer\'s address so it prints on their invoices (Rule 46 needs it for a registered buyer and for large sales to an unregistered one).',
+    args: ['partyName', 'partyGstin', 'address'],
+    run: (state, args = {}) => {
+      const name = String(args.partyName || '').trim();
+      const address = String(args.address || '').trim();
+      if (!name) return fail('CUSTOMER_REQUIRED');
+      if (!address) return fail('ADDRESS_REQUIRED');
+      const party = ensureParty(state, { name, gstin: args.partyGstin, address });
+      return ok({ party: { name: party.name, gstin: party.gstin, address: party.address } });
+    },
+  },
+  {
+    name: 'set_transport',
+    title: 'Transport details',
+    description: 'Record how the goods on an invoice move (vehicle, distance, transporter, mode) for the e-way bill. Changes no figure.',
+    args: ['invoiceId', 'vehicleNo', 'distanceKm', 'transporterName', 'transporterId', 'mode', 'docNo'],
+    run: (state, args = {}) => setTransport(state, args),
+  },
+  {
+    name: 'eway_bill_status',
+    title: 'E-way bill status',
+    description: 'Whether an invoice needs an e-way bill under the dated threshold rule, what is still missing (transport details, the IRN), and the number once generated. Read-only.',
+    args: ['invoiceId'],
+    run: (state, args = {}) => {
+      const invoice = (state.invoices || []).find((item) => item.id === String(args.invoiceId || '').trim().toUpperCase());
+      if (!invoice) return fail('INVOICE_NOT_FOUND');
+      return ok(ewayBillStatus(state, invoice));
+    },
+  },
+  {
+    name: 'govt_generate_ewb',
+    title: 'Generate e-way bill',
+    description: 'Generate the e-way bill for an invoice from its IRN and transport details through the action gate (live switch and a matching approval). Refused without transport details or an IRN.',
+    args: ['invoiceId', 'caApprovalId'],
+    run: async (state, args = {}) => {
+      const invoice = (state.invoices || []).find((item) => item.id === String(args.invoiceId || '').trim().toUpperCase());
+      if (!invoice) return fail('INVOICE_NOT_FOUND');
+      const status = ewayBillStatus(state, invoice);
+      if (status.ewbNo) return fail('ALREADY_GENERATED', { ewbNo: status.ewbNo });
+      if (!status.transport) return fail('TRANSPORT_REQUIRED', { hint: status.why });
+      if (!invoice.irn) return fail('IRN_REQUIRED', { hint: 'Generate the e-invoice first; MyCA generates the e-way bill from the IRN.' });
+      const out = await nicActions.generateEwayBill(state, { irn: invoice.irn, transport: transportPayload(status.transport), caApprovalId: args.caApprovalId }, resolveToolActor(args));
+      if (out?.ok && out.data?.EwbNo && !out.mock && !out.dryRunId) {
+        invoice.ewbNo = String(out.data.EwbNo);
+        invoice.ewbDate = out.data.EwbDt || '';
+        invoice.ewbValidity = out.data.Validity || '';
+      }
+      if (!out?.ok) return fail(out?.error || 'EWB_FAILED', { ...out, invoiceId: invoice.id });
+      return ok({ ...out, invoiceId: invoice.id, ewbNo: invoice.ewbNo || '' });
     },
   },
   {
@@ -742,6 +807,13 @@ export const TOOLS = [
     description: 'One CSV of the month: sales, receipts, credit notes, purchases and expenses with heads and tax by head, for a CA or another accounting package. Read-only.',
     args: ['period'],
     run: (state, args = {}) => exportEntries(state, args),
+  },
+  {
+    name: 'export_tally',
+    title: 'Tally file for your CA',
+    description: 'One Tally import file (XML) of the month: ledger masters, then every sale, receipt, credit and debit note, purchase, payment, expense and TDS deposit as a voucher. Read-only.',
+    args: ['period'],
+    run: (state, args = {}) => exportTallyXml(state, args),
   },
   {
     name: 'gst_review',
@@ -1440,10 +1512,44 @@ export const TOOLS = [
     run: (state, args = {}) => listEmployees(state, args),
   },
   {
+    name: 'payroll_run',
+    title: 'Payroll for a month',
+    description: 'Each employee\'s pay for a month with the days worked, provident fund, state insurance, professional tax and salary TDS from the dated rules, the net to pay and the employer\'s contributions. A draft until approved; after approval the figures are the ones posted. Owner only. Read-only.',
+    args: ['period'],
+    run: (state, args = {}) => payrollFor(state, args.period),
+  },
+  {
+    name: 'approve_payroll',
+    title: 'Approve payroll',
+    description: 'Approve a month\'s payroll: posts salaries, each deduction payable and net salary payable, and records the salary TDS. Pays nothing. Owner only.',
+    args: ['period', 'draftHash'],
+    run: (state, args = {}) => approvePayroll(state, args),
+  },
+  {
+    name: 'record_salary_payment',
+    title: 'Salaries paid',
+    description: 'Record that the net salaries for an approved month were paid from the bank or cash. Owner only.',
+    args: ['period', 'date', 'mode'],
+    run: (state, args = {}) => recordSalaryPayment(state, args),
+  },
+  {
+    name: 'list_payroll',
+    title: 'Payroll months',
+    description: 'Approved payroll months with gross, net, employer cost and whether the salaries were paid. Owner only. Read-only.',
+    run: (state) => listPayroll(state),
+  },
+  {
+    name: 'payslip',
+    title: 'Payslip',
+    description: 'One employee\'s payslip for an approved month, laid out for display or a PDF. Owner only. Read-only.',
+    args: ['period', 'employeeId'],
+    run: (state, args = {}) => payslip(state, args),
+  },
+  {
     name: 'add_employee',
     title: 'Add an employee',
     description: 'Add an employee with a joining date and a monthly salary in parts (for example Basic, HRA). Records only; no payroll is run and no deduction is worked out. Owner only.',
-    args: ['name', 'joinedOn', 'components', 'designation', 'pan', 'uan', 'pfMember', 'esiMember', 'ptState', 'taxRegime'],
+    args: ['name', 'joinedOn', 'components', 'designation', 'pan', 'uan', 'pfMember', 'esiMember', 'ptState', 'taxRegime', 'sex'],
     run: (state, args = {}) => addEmployee(state, args),
   },
   {

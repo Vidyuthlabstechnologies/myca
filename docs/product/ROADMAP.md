@@ -6,7 +6,7 @@
 | Basis | The [product PRD](PRD.md); progress in [`../superpowers/PROGRESS.md`](../superpowers/PROGRESS.md) |
 | Status | Engineering's proposed order. No dates: the pace depends on owner actions listed at the end. |
 
-About 68% of the PRD is built. The order below is chosen so that each milestone gives a
+About 76% of the PRD is built. The order below is chosen so that each milestone gives a
 pilot owner something usable, and so that work blocked on outside parties is not on the
 critical path of work that is not.
 
@@ -18,7 +18,7 @@ The owner can do a normal day's work in the app.
 
 | Item | Requirement | Depends on |
 |---|---|---|
-| Invoice screen, save as PDF, share by WhatsApp or email (**done** 2026-10-06; audit of a share still to do) | FR-INV-3, FR-INV-6 | Nothing |
+| Invoice screen, save as PDF, share by WhatsApp or email (**done** 2026-10-06; share audit and buyer address 2026-10-12) | FR-INV-3, FR-INV-6 | Nothing |
 | Expense heads and the tagger, expense chats (**done** 2026-10-06) | FR-TAG-2 to 4, FR-UI-2 | Nothing |
 | Credit notes, debit notes and cancelling an invoice (**done** 2026-10-06 and 2026-10-12) | FR-ACC-4 | Nothing |
 | Dashboard: sales, purchases, expenses, owed and owing (**done** 2026-10-06; owing to suppliers added with supplier payments) | FR-UI-4 | Nothing |
@@ -34,7 +34,7 @@ The owner can take a month's GST from draft to a file ready for the portal, in c
 | Set-off rules and the amount to pay (**done** 2026-10-12; labelled unreviewed until the advisor CA attests the rules) | FR-GST-3 | Nothing |
 | GSTR-2B upload, credit at risk in the app (**done** 2026-10-06) | FR-2B-1, FR-2B-2 | Nothing |
 | Supplier reminder drafts sent from the owner's own apps (**done** 2026-10-07, share sheet) | FR-2B-3, FR-2B-4 | PRD Q6 answered for now: the owner's own apps |
-| Entries export for a CA (**done** 2026-10-06, spreadsheet; Tally format to come) | FR-CA-2 | Nothing |
+| Entries export for a CA (**done** 2026-10-06 spreadsheet, 2026-10-12 Tally file) | FR-CA-2 | Nothing |
 
 ### M3. Hosted pilot
 
@@ -61,7 +61,7 @@ Real businesses, real data, closed testing on the Play Store.
 | Item | Requirement | Depends on |
 |---|---|---|
 | Live GSTR-1, then GSTR-3B | FR-GST-4, FR-GST-5 | GSP/ASP onboarding; PRD Q2 |
-| E-way bill and e-invoice in the invoice flow | FR-INV-5 | NIC production credentials |
+| E-way bill and e-invoice in the invoice flow (need, transport details and the gated request **done** 2026-10-12) | FR-INV-5 | NIC production credentials |
 | TDS on entries, quarterly draft and review (**done** 2026-10-12; filing through the provider to come) | FR-TDS-2, FR-TDS-3 | Nothing |
 | Sync setting for accountants (**done** 2026-10-07) | FR-CA-3 | Nothing |
 
@@ -69,8 +69,8 @@ Real businesses, real data, closed testing on the Play Store.
 
 | Item | Requirement | Depends on |
 |---|---|---|
-| Payroll step 1: compute and record (employee records **done** 2026-10-07; the run waits for the rules) | FR-PAY-1, 2, 4 | Advisor CA verification |
-| Payroll step 2: statutory files | FR-PAY-4 | Step 1 in use |
+| Payroll step 1: compute and record (**done** 2026-10-12 from dated rules; labelled unreviewed until the advisor CA attests them) | FR-PAY-1, 2, 4 | Nothing |
+| Payroll step 2: statutory files (ECR, ESI return, Form 138) | FR-PAY-4 | Step 1 in use |
 | Payroll step 3: payouts | FR-PAY-3 | Payout partner (PRD Q5) |
 | POS inbound API and daily summary import | FR-CAP-2 | A POS partner (PRD Q7) |
 | Quotes (**done** 2026-10-06) | FR-INV-4 | Nothing |

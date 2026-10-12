@@ -86,10 +86,10 @@ Percentages are engineering estimates and are tracked in
 |---|---|---|
 | FR-INV-1 | Create a tax invoice from one message, for example "Create an invoice for ABC Ltd for Rs. 50,000 for consulting services." | Built, rule-based |
 | FR-INV-2 | The owner sees the invoice before it is posted and confirms it. | Built |
-| FR-INV-3 | Send the invoice by email or WhatsApp after the owner checks it. | Built in the app through the phone's share sheet; not yet tried on a phone, and a share is not yet audited |
+| FR-INV-3 | Send the invoice by email or WhatsApp after the owner checks it. | Built in the app through the phone's share sheet, with each share or print recorded in the audit log; not yet tried on a phone |
 | FR-INV-4 | Create and send a quote, and turn an accepted quote into an invoice. | Built: quotes priced like invoices, sent as a PDF, marked accepted or declined, and turned into a linked invoice |
-| FR-INV-5 | Generate an e-way bill with the invoice when goods move. | Partly: provider client exists, not in the flow |
-| FR-INV-6 | An invoice the owner can save or print as a PDF. | Built in the app; the invoice has no buyer address, and HSN codes are blank unless entered |
+| FR-INV-5 | Generate an e-way bill with the invoice when goods move. | Mostly: the need is decided from the dated threshold rule, transport details are taken on the invoice, and the request goes through the action gate from the IRN; live generation waits on NIC credentials and the e-invoice |
+| FR-INV-6 | An invoice the owner can save or print as a PDF. | Built in the app, with the buyer's address once recorded; HSN codes are blank unless entered |
 
 ### 5.4 GST returns ([feature spec](features/03-gst-returns.md))
 
@@ -114,10 +114,10 @@ Percentages are engineering estimates and are tracked in
 
 | ID | Requirement | Status |
 |---|---|---|
-| FR-PAY-1 | Keep employees and their salary structures. | Built: employees, dated salary history in parts, leaving; owner only. No deduction is worked out |
-| FR-PAY-2 | Run payroll for a month: gross, statutory deductions, net. | Not built |
+| FR-PAY-1 | Keep employees and their salary structures. | Built: employees, dated salary history in parts, fund memberships, state, regime, sex, leaving; owner only |
+| FR-PAY-2 | Run payroll for a month: gross, statutory deductions, net. | Built: a monthly run with PF, ESI, professional tax (Maharashtra) and salary TDS from dated rules, prorated for joiners and leavers, approved after a preview; payslips; labelled unreviewed until the CA attests the rules |
 | FR-PAY-3 | Pay salaries from the same product. | Not built; needs a payout partner (Q5) |
-| FR-PAY-4 | Post payroll to the books and feed TDS on salary into the TDS return. | Not built |
+| FR-PAY-4 | Post payroll to the books and feed TDS on salary into the TDS return. | Built: approval posts salaries, each payable and the employer contributions, and records salary TDS so deposits include it; the salary TDS statement (Form 138) is not drafted yet |
 
 ### 5.7 GSTR-2B matching and supplier reminders ([feature spec](features/06-gstr2b-matching-and-reminders.md))
 
@@ -133,7 +133,7 @@ Percentages are engineering estimates and are tracked in
 | ID | Requirement | Status |
 |---|---|---|
 | FR-CA-1 | The owner can invite a CA to the business. | Built |
-| FR-CA-2 | The owner can export the accounting entries for a CA. | Built: one CSV per month of sales, receipts, credit notes, purchases and expenses with heads and tax by head, plus the GSTR-1 file. A Tally-importable file is not built |
+| FR-CA-2 | The owner can export the accounting entries for a CA. | Built: one CSV per month of sales, receipts, notes, purchases and expenses with heads and tax by head, a Tally import file (ledger masters and vouchers) for the month, plus the GSTR-1 file |
 | FR-CA-3 | A sync setting: the CA sees changes in real time or at set intervals. | Built: live, daily, weekly, at month end, or only when the owner shares; a shared view is read-only |
 | FR-CA-4 | The owner can remove a CA's access at any time. | Built |
 
@@ -144,7 +144,7 @@ Percentages are engineering estimates and are tracked in
 | FR-UI-1 | Chat is the main screen. | Built |
 | FR-UI-2 | Chats are grouped by transaction type, one chat per customer or supplier. | Built: sales and purchases by party, expenses by head |
 | FR-UI-3 | A single "one-chat" entry point that takes any message. | Built, rule-based |
-| FR-UI-4 | A dashboard showing sales, purchases, taxes and payroll at a glance. | Partly: taxes, and this month against last month for sales (net of credit notes), purchases and expenses, plus what customers owe and what is owed to suppliers. Payroll waits for payroll |
+| FR-UI-4 | A dashboard showing sales, purchases, taxes and payroll at a glance. | Built: taxes, and this month against last month for sales (net of notes), purchases, expenses and approved payroll (owner only), plus what customers owe and what is owed to suppliers |
 | FR-UI-5 | The owner can ask a doubt in plain words and get a plain answer. | Partly: fixed questions only |
 
 ### 5.10 Reading documents ([feature spec](features/09-document-capture-and-pos.md))

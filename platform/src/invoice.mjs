@@ -36,13 +36,16 @@ function accountName(prefix, list, name, gstin) {
   return clash && gstin ? `${prefix} · ${name} (${gstin})` : `${prefix} · ${name}`;
 }
 
-export function ensureParty(state, { name, gstin, stateCode }) {
+export function ensureParty(state, { name, gstin, stateCode, address }) {
   let party = findParty(state.parties, name, gstin);
-  if (party) return party;
+  if (party) {
+    if (address != null && String(address).trim()) party.address = String(address).trim().slice(0, 200);
+    return party;
+  }
   const g = normGstin(gstin);
   const accountId = nextPartyId(state);
   createAccounts(state.ledger, [{ id: accountId, code: String(accountId), name: accountName('AR', state.parties, name, g), type: 'asset', gstin: g }]);
-  party = { name, gstin: g, state: partyStateOf(g) || stateCodeOf(stateCode), accountId: String(accountId) };
+  party = { name, gstin: g, state: partyStateOf(g) || stateCodeOf(stateCode), accountId: String(accountId), ...(address != null && String(address).trim() ? { address: String(address).trim().slice(0, 200) } : {}) };
   state.parties = state.parties || [];
   state.parties.push(party);
   return party;
@@ -95,7 +98,7 @@ export function createInvoice(state, input) {
   const partyName = String(input.partyName ?? '').trim() || 'Walk-in';
   const terms = invoiceTerms(state, { name: partyName, gstin: input.partyGstin, override: input.paymentTermsDays });
   if (terms.error) return { ok: false, error: terms.error };
-  const party = ensureParty(state, { name: partyName, gstin: input.partyGstin, stateCode: input.partyState });
+  const party = ensureParty(state, { name: partyName, gstin: input.partyGstin, stateCode: input.partyState, address: input.partyAddress });
   const pos = placeOfSupply(input, party, company);
   const lines = rawLines.map((l, i) => {
     const { qty, rate: rateAmt, gstRate } = specs[i];

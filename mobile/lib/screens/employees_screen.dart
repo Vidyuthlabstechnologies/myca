@@ -10,6 +10,7 @@ import '../proposal_flow.dart';
 import '../registers.dart';
 import '../theme.dart';
 import '../widgets.dart';
+import 'payroll_screen.dart';
 
 class EmployeesScreen extends StatefulWidget {
   const EmployeesScreen({super.key});
@@ -74,6 +75,18 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
               const SizedBox(height: 4),
               Text(list.note, style: text.bodySmall),
               const SizedBox(height: 16),
+              if (current.isNotEmpty) ...[
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton(
+                    onPressed: () => _open(
+                      PayrollScreen(period: isoDate(AppScope.of(context).now()).substring(0, 7)),
+                    ),
+                    child: Text('Payroll for ${monthLabel(isoDate(AppScope.of(context).now()).substring(0, 7))}'),
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
               if (current.isNotEmpty)
                 Panel(
                   children: [

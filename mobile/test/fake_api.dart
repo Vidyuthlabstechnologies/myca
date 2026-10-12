@@ -165,6 +165,11 @@ class FakeMycaApi implements MycaApi {
   final filings = <Map<String, Object?>>[];
   final supplierReminders = <Map<String, Object?>>[];
   final debitNotes = <Map<String, Object?>>[];
+  bool payrollApproved = false;
+  bool payrollPaid = false;
+  final shares = <Map<String, Object?>>[];
+  Map<String, Object?>? transport;
+  String buyerAddress = '';
   bool tdsDeductor = false;
   num tdsDue = 6000;
   final tdsDeposits = <Map<String, Object?>>[];
@@ -484,6 +489,21 @@ class FakeMycaApi implements MycaApi {
         {'invoiceId': args['invoiceId'], 'total': amount ?? 377600},
       );
     }
+    if (name == 'approve_payroll') {
+      return _preview(
+        'Payroll for October 2026: 1 employee, gross ₹30,000.00, deductions ₹2,000.00, net to pay ₹28,000.00.',
+        {'period': args['period'], 'net': 28000},
+      );
+    }
+    if (name == 'record_salary_payment') {
+      return _preview('Salaries for October 2026: ₹28,000.00 paid from the bank on ${args['date']}.', {'period': args['period']});
+    }
+    if (name == 'set_transport') {
+      return _preview(
+        'Transport for ${args['invoiceId']} (Gujarat Weaves): ${args['distanceKm']} km by road, vehicle ${args['vehicleNo']}.',
+        {'invoiceId': args['invoiceId'], 'distanceKm': args['distanceKm'], 'vehicleNo': args['vehicleNo']},
+      );
+    }
     if (name == 'create_debit_note') {
       return _preview(
         'Debit note of ₹${args['amount']} against ${args['invoiceId']} (Gujarat Weaves) dated ${args['date']}. Reason: ${args['reason']}.',
@@ -765,6 +785,22 @@ class FakeMycaApi implements MycaApi {
           'confirmed': true,
         });
       }
+      if (held.tool == 'approve_payroll') {
+        payrollApproved = true;
+        return ChatReply.fromJson({'reply': 'Approved payroll for October 2026.', 'posted': true, 'confirmed': true});
+      }
+      if (held.tool == 'record_salary_payment') {
+        payrollPaid = true;
+        return ChatReply.fromJson({'reply': 'Recorded salaries paid.', 'posted': true, 'confirmed': true});
+      }
+      if (held.tool == 'set_transport') {
+        transport = {'distanceKm': held.args['distanceKm'], 'vehicleNo': held.args['vehicleNo']};
+        return ChatReply.fromJson({
+          'reply': 'Recorded transport for ${held.args['invoiceId']}.',
+          'posted': true,
+          'confirmed': true,
+        });
+      }
       if (held.tool == 'create_debit_note') {
         debitNotes.add({
           'id': 'DN-0001',
@@ -951,6 +987,11 @@ class FakeMycaApi implements MycaApi {
                   },
           },
         };
+      case 'record_share':
+        if (args['outcome'] != 'cancelled') {
+          shares.add({'on': '2026-10-05T10:00:00.000Z', 'by': 'u-owner', 'channel': args['channel'], 'outcome': args['outcome']});
+        }
+        return {'ok': true, 'invoiceId': args['invoiceId'], 'recorded': args['outcome'] != 'cancelled'};
       case 'invoice_document':
         if (args['id'] != 'INV-0002') {
           return {'ok': false, 'error': 'INVOICE_NOT_FOUND'};
@@ -968,7 +1009,17 @@ class FakeMycaApi implements MycaApi {
               'pin': '411001',
               'state': {'code': '27', 'name': 'Maharashtra'},
             },
-            'buyer': {'name': 'Gujarat Weaves', 'gstin': '24AAACG1234F1Z5'},
+            'buyer': {'name': 'Gujarat Weaves', 'gstin': '24AAACG1234F1Z5', 'address': buyerAddress},
+            'shares': shares,
+            'ewayBill': {
+              'needed': true,
+              'why': 'Goods worth ₹3,77,600.00 move to another state, above the ₹50,000.00 limit.',
+              'status': transport == null ? 'transport-needed' : 'irn-needed',
+              'transport': transport == null ? null : {'words': '${transport!['distanceKm']} km by road, vehicle ${transport!['vehicleNo']}'},
+              'ewbNo': '',
+              'ewbValidity': '',
+              'next': transport == null ? 'Add the vehicle, distance and transporter, then the e-way bill can be generated.' : 'Generate the e-invoice (IRN) first; the e-way bill is generated from it through the action gate.',
+            },
             'placeOfSupply': {'code': '24', 'name': 'Gujarat'},
             'lines': [
               {
@@ -1301,12 +1352,14 @@ class FakeMycaApi implements MycaApi {
               'creditNotes': {'count': 0, 'total': 0},
               'purchases': {'count': 1, 'total': 42000},
               'expenses': {'count': 1, 'total': 5000},
+              'payroll': {'status': payrollApproved ? 'approved' : 'draft', 'employees': 1, 'gross': payrollApproved ? 30000 : 0, 'net': payrollApproved ? 28000 : 0, 'employerCost': payrollApproved ? 32375 : 0, 'paidOn': payrollPaid ? '2026-10-05' : ''},
             },
             'previous': {
               'sales': {'count': 2, 'total': 902600, 'net': 902600},
               'creditNotes': {'count': 0, 'total': 0},
               'purchases': {'count': 0, 'total': 0},
               'expenses': {'count': 1, 'total': 12000},
+              'payroll': {'status': 'approved', 'employees': 1, 'gross': 30000, 'net': 28000, 'employerCost': 32375, 'paidOn': '2026-09-05'},
             },
             'owedToYou': {
               'total': 377600,
@@ -1324,6 +1377,17 @@ class FakeMycaApi implements MycaApi {
             },
             'caveat':
                 'What you owe suppliers counts only payments recorded against bills.',
+          },
+        };
+      case 'export_tally':
+        return {
+          'ok': true,
+          'data': {
+            'period': args['period'],
+            'count': 4,
+            'ledgers': 12,
+            'fileName': 'tally_27AAACN1234F1Z5_${args['period']}.xml',
+            'xml': '<ENVELOPE></ENVELOPE>',
           },
         };
       case 'expense_heads':
@@ -1422,6 +1486,24 @@ class FakeMycaApi implements MycaApi {
             'next': 'deductees',
             'approved': false,
             'approval': null,
+          },
+        };
+      case 'payroll_run':
+        return {
+          'ok': true,
+          'data': {
+            'period': args['period'],
+            'month': 'October 2026',
+            'status': payrollApproved ? 'approved' : 'draft',
+            'employees': 1,
+            'rows': [
+              {'employeeId': 'EMP-0001', 'name': 'Ravi Kumar', 'daysWorked': 31, 'daysInMonth': 31, 'gross': 30000, 'deductions': 2000, 'net': 28000, 'notes': const <Object?>[]},
+            ],
+            'totals': {'gross': 30000, 'pfEmployee': 1800, 'esiEmployee': 0, 'pt': 200, 'tds': 0, 'deductions': 2000, 'net': 28000, 'employerContributions': 2375, 'employerCost': 32375},
+            'notes': ['The contribution rates, limits and slabs come from the dated rules, which your CA has not reviewed yet.'],
+            'draftHash': 'd' * 64,
+            'approvedOn': payrollApproved ? '2026-10-05' : '',
+            'paidOn': payrollPaid ? '2026-10-05' : '',
           },
         };
       case 'list_employees':

@@ -28,13 +28,15 @@ import { planEmployee, planSalaryChange, planLeaving } from './employees.mjs';
 import { planDeductor, planTds, planTdsDeposit, tdsWords, wantsTds } from './tds-deduction.mjs';
 import { planCreditOpening } from './gst-payment.mjs';
 import { checkTdsAnswer } from './tds-review.mjs';
+import { planTransport, transportWords, ewayBillNeed } from './eway-bill.mjs';
+import { planApproval, planSalaryPayment, payrollWords } from './payroll.mjs';
 import { filingRows } from './deadline-run.mjs';
 import { tally, bank, gstin as gstinRules } from './sprint-load.mjs';
 import { parseZohoBooksCsv } from './import-zoho.mjs';
 import { tallyXmlToDayBookCsv } from './tally-xml.mjs';
 
 export const CONFIRM_TOOLS = new Set([
-  'create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'record_filing', 'record_supplier_reminder', 'add_employee', 'change_salary', 'end_employment', 'set_tds_deductor', 'record_tds_deposit', 'tds_review_answer', 'set_gst_credit_opening', 'post_expense', 'set_expense_head', 'create_credit_note', 'create_debit_note', 'create_purchase_note', 'cancel_invoice', 'gst_review_answer', 'import_gstr2b', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote',
+  'create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'record_filing', 'record_supplier_reminder', 'add_employee', 'change_salary', 'end_employment', 'approve_payroll', 'record_salary_payment', 'set_tds_deductor', 'record_tds_deposit', 'tds_review_answer', 'set_gst_credit_opening', 'post_expense', 'set_expense_head', 'create_credit_note', 'create_debit_note', 'create_purchase_note', 'cancel_invoice', 'gst_review_answer', 'import_gstr2b', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'set_party_address', 'set_transport', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote',
   'import_tally', 'import_tally_xml', 'import_zoho', 'import_bank',
   'govt_generate_irn', 'govt_nic_cancel_irn',
   'exception_decide',
@@ -291,6 +293,50 @@ function partsOf(components) {
 }
 
 const NO_PAYROLL = 'Nothing is posted to the books and no payroll is run. Deductions are not worked out yet.';
+
+const PAYROLL_REASONS = {
+  SALARIES_PRIVATE: () => 'Only the owner runs payroll.',
+  INVALID_PERIOD: () => 'Say the month as YYYY-MM, for example 2026-10.',
+  ALREADY_APPROVED: (p) => `Payroll for ${p.period} is already approved.`,
+  NO_EMPLOYEES: (p) => `No employee was employed in ${p.period}.`,
+  PERIOD_LOCKED: (p, args, state) => `${p.date} is inside the locked period (through ${state.lockThrough}).`,
+  DRAFT_CHANGED: () => 'The payroll changed after you saw it. Look at it again before approving.',
+  PAYROLL_RULE_MISSING: (p) => `The rule ${p.ruleId} is not in force for that month, so MyCA will not guess.`,
+  NOT_APPROVED: (p) => `Payroll for ${p.period} is not approved yet.`,
+  ALREADY_PAID: (p) => `Salaries for ${p.period} were recorded as paid on ${p.paidOn}.`,
+  INVALID_DATE: (p) => `${p.date} is not a date I can read.`,
+  FUTURE_DATE: () => 'The payment date cannot be in the future.',
+  BEFORE_PERIOD: (p) => `Salaries for ${p.period} cannot be paid before that month starts.`,
+  INSUFFICIENT_CASH: (p) => `There is not that much cash in hand (${money(p.inHand)}).`,
+};
+
+function payrollBlocked(plan, args, state) {
+  const reason = PAYROLL_REASONS[plan.error];
+  return { blockers: [reason ? reason(plan, args, state) : plan.error], summary: '', effects: [], figures: {} };
+}
+
+function payrollApprovalPreview(state, args) {
+  const planned = planApproval(state, args);
+  if (!planned.ok) return payrollBlocked(planned, args, state);
+  const d = planned.data;
+  return {
+    blockers: [],
+    summary: payrollWords({ ...d, status: 'draft' }, money),
+    effects: [`Posts ${money(d.totals.gross)} of salaries, ${money(d.totals.net)} as salaries payable, and each deduction as payable; records ${money(d.totals.tds)} of salary TDS. Pays nothing.`],
+    figures: { period: d.period, employees: d.employees, gross: d.totals.gross, net: d.totals.net, employerCost: d.totals.employerCost, draftHash: d.draftHash },
+  };
+}
+
+function salaryPaymentPreview(state, args) {
+  const planned = planSalaryPayment(state, args);
+  if (!planned.ok) return payrollBlocked(planned, args, state);
+  return {
+    blockers: [],
+    summary: `Salaries for ${planned.run.month}: ${money(planned.amount)} paid from ${planned.mode === 'cash' ? 'cash' : 'the bank'} on ${planned.date}.`,
+    effects: ['Clears salaries payable. The deductions stay payable until deposited.'],
+    figures: { period: planned.run.period, amount: planned.amount, date: planned.date, mode: planned.mode },
+  };
+}
 
 function employeePreview(state, args) {
   const plan = planEmployee(state, args);
@@ -553,6 +599,46 @@ function cashReadingPreview(state, args) {
   };
 }
 
+const TRANSPORT_REASONS = {
+  INVOICE_NOT_FOUND: (p) => `${p.invoiceId} is not an invoice in these books.`,
+  INVOICE_CANCELLED: (p) => `${p.invoiceId} is cancelled.`,
+  BAD_MODE: () => 'The mode is road, rail, air or ship.',
+  VEHICLE_REQUIRED: () => 'Say the vehicle number for movement by road, for example MH12AB1234.',
+  BAD_VEHICLE: (p) => `${p.vehicleNo} is not a vehicle number I can read (for example MH12AB1234).`,
+  BAD_DISTANCE: () => 'Say the distance as whole kilometres, from 1 to 4000.',
+  BAD_TRANSPORTER_ID: (p) => `${p.transporterId} is not a 15-character transporter id (GSTIN or TRANSIN).`,
+  DOC_REQUIRED: (p) => `For movement by ${p.mode}, say the transport document number.`,
+};
+
+function transportPreview(state, args) {
+  const planned = planTransport(state, args);
+  if (!planned.ok) {
+    const reason = TRANSPORT_REASONS[planned.error];
+    return { blockers: [reason ? reason(planned) : planned.error], summary: '', effects: [], figures: {} };
+  }
+  const need = ewayBillNeed(state, planned.invoice);
+  return {
+    blockers: [],
+    summary: `Transport for ${planned.invoice.id} (${planned.invoice.partyName}): ${transportWords(planned.transport)}${planned.was ? ' (replaces the earlier details)' : ''}.`,
+    effects: [need.needed ? `${need.why} The e-way bill can then be generated through the action gate.` : `${need.why} The details are kept with the invoice.`, 'No figure changes.'],
+    figures: { invoiceId: planned.invoice.id, ...planned.transport },
+  };
+}
+
+function addressPreview(state, args) {
+  const name = String(args.partyName || '').trim();
+  const address = String(args.address || '').trim();
+  if (!name) return { blockers: ['Say which customer.'], summary: '', effects: [], figures: {} };
+  if (!address) return { blockers: ['Say the address.'], summary: '', effects: [], figures: {} };
+  const known = (state.parties || []).find((p) => p.name.toLowerCase() === name.toLowerCase());
+  return {
+    blockers: [],
+    summary: `${name}: address ${address}${known?.address ? ` (was ${known.address})` : ''}.`,
+    effects: ['It prints on their invoices from now on. Invoices already made are not changed.'],
+    figures: { partyName: name, address },
+  };
+}
+
 function termsPreview(state, args) {
   const planned = planTerms(state, args);
   if (!planned.ok) {
@@ -743,6 +829,8 @@ const PREVIEWERS = {
   record_filing: filingPreview,
   record_supplier_reminder: supplierReminderPreview,
   add_employee: employeePreview,
+  approve_payroll: payrollApprovalPreview,
+  record_salary_payment: salaryPaymentPreview,
   set_tds_deductor: deductorPreview,
   set_gst_credit_opening: creditOpeningPreview,
   record_tds_deposit: tdsDepositPreview,
@@ -760,6 +848,8 @@ const PREVIEWERS = {
   complete_reminder: completeReminderPreview,
   set_cash_balance: cashReadingPreview,
   set_payment_terms: termsPreview,
+  set_party_address: addressPreview,
+  set_transport: transportPreview,
   ask_ca: askPreview,
   create_quote: quotePreview,
   mark_quote: markQuotePreview,

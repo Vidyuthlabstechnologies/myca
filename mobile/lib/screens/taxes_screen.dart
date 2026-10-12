@@ -167,22 +167,24 @@ class _TaxesScreenState extends State<TaxesScreen> {
     });
   }
 
-  Future<void> _saveEntries(String period) async {
+  Future<void> _saveEntries(String period, {bool tally = false}) async {
     final state = AppScope.of(context);
     setState(() => _entriesNote = '');
     var note = '';
     try {
       final data = toolData(
-        await state.api.query('export_entries', {'period': period}),
+        await state.api.query(tally ? 'export_tally' : 'export_entries', {'period': period}),
       );
       if (data.isEmpty) {
         note = 'The entries could not be prepared.';
       } else {
         final name = data['fileName'] as String;
         final count = data['count'] as num;
-        final saved = await state.saveTextFile(name, data['csv'] as String);
+        final saved = await state.saveTextFile(name, data[tally ? 'xml' : 'csv'] as String);
         note = saved
-            ? 'Saved $name with ${count == 1 ? '1 entry' : '$count entries'}. Send it to your CA.'
+            ? tally
+                  ? 'Saved $name with ${count == 1 ? '1 voucher' : '$count vouchers'}. Import it in Tally (Import Data) or send it to your CA.'
+                  : 'Saved $name with ${count == 1 ? '1 entry' : '$count entries'}. Send it to your CA.'
             : 'Not saved.';
       }
     } on MycaApiException catch (err) {
@@ -373,6 +375,14 @@ class _TaxesScreenState extends State<TaxesScreen> {
                     child: OutlinedButton(
                       onPressed: () => _saveEntries(gst.period),
                       child: const Text('Save entries for your CA'),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton(
+                      onPressed: () => _saveEntries(gst.period, tally: true),
+                      child: const Text('Save a Tally file'),
                     ),
                   ),
                   if (_entriesNote.isNotEmpty)

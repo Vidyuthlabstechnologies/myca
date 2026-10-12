@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Requirements | FR-CA-1 to 4 in the [product PRD](../PRD.md) |
-| Status | Invite, remove and the monthly entries export built; the sync setting built (2026-10-07); Tally-format export not built |
+| Status | Invite, remove and the monthly entries export built; the sync setting built (2026-10-07); Tally import file built (2026-10-12) |
 | Code | `cloud/src/members.mjs`, `cloud/src/businesses.mjs`; app: `mobile/lib/screens/people_screen.dart`, `invitation_cards.dart` |
 
 ## What the owner experiences
@@ -33,13 +33,22 @@ sees changes as they happen or at set intervals.
   next request.
 - A person who belongs to several businesses switches between them in the app.
 
-### Export (spreadsheet built; Tally format to build)
+### Export (spreadsheet and Tally file built)
 
 - Built: `export_entries` gives one CSV for a month with every sale, receipt, credit
   note, purchase and expense in date order: number, party and GSTIN, head, taxable value,
   each tax head, total, how it was paid, and the invoice a receipt or note refers to.
   Taxes has "Save entries for your CA".
-- To build: a Tally-importable file, and the trial balance in the same export.
+- Built (2026-10-12): `export_tally` gives one Tally import file (XML) for a month:
+  an "All Masters" envelope with every ledger used (customers under Sundry Debtors with
+  their GSTIN, suppliers under Sundry Creditors, Sales, Purchases, the six GST ledgers
+  and TDS Payable under Duties & Taxes, expense heads under Indirect Expenses, Bank and
+  Cash), then a "Vouchers" envelope with each sale, receipt, credit note, debit note,
+  purchase, payment, debit note to a supplier, expense and TDS deposit as a voucher in
+  Tally's sign convention (debits negative, `ISDEEMEDPOSITIVE` Yes). Blocked credit
+  goes into Purchases; TDS splits the supplier credit from TDS Payable. Taxes has "Save a
+  Tally file"; chat answers "export for Tally". Ledger names are MyCA's, so the CA maps
+  them if their Tally uses others; the trial balance is not in the file.
 - All CSV output goes through `text-safe.mjs`.
 - An export is audited: who exported what period and when.
 

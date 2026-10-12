@@ -1,0 +1,184 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
+import '../api/models.dart';
+import '../api/myca_api.dart';
+import '../app_state.dart';
+import '../format.dart';
+import '../proposal_flow.dart';
+import '../theme.dart';
+import '../widgets.dart';
+
+class PayrollScreen extends StatefulWidget {
+  const PayrollScreen({super.key, required this.period});
+
+  final String period;
+
+  @override
+  State<PayrollScreen> createState() => _PayrollScreenState();
+}
+
+class _PayrollScreenState extends State<PayrollScreen> with ProposalFlow {
+  Future<PayrollRun?>? _run;
+  bool _posted = false;
+
+  @override
+  MycaApi get api => AppScope.of(context).api;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _run ??= _load();
+  }
+
+  Future<PayrollRun?> _load() async => PayrollRun.fromTool(
+    await AppScope.of(context).api.query('payroll_run', {'period': widget.period}),
+  );
+
+  @override
+  Future<void> onPosted() async {
+    HapticFeedback.mediumImpact();
+    setState(() {
+      _posted = true;
+      _run = _load();
+    });
+  }
+
+  Future<void> _approve(PayrollRun run) => propose(
+    'Approve payroll for ${run.month}',
+    'approve_payroll',
+    {'period': run.period, 'draftHash': run.draftHash},
+  );
+
+  Future<void> _paid(PayrollRun run) => propose(
+    'Salaries for ${run.month} paid',
+    'record_salary_payment',
+    {'period': run.period, 'date': isoDate(AppScope.of(context).now())},
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    return Scaffold(
+      appBar: AppBar(title: Text('Payroll for ${monthLabel(widget.period)}')),
+      body: FutureBuilder<PayrollRun?>(
+        future: _run,
+        builder: (context, snap) {
+          if (snap.connectionState != ConnectionState.done) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          final run = snap.data;
+          if (run == null) {
+            return const EmptyNote(text: 'Payroll could not be prepared. Only the owner can run it.');
+          }
+          return Column(
+            children: [
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                  children: [
+                    Text(
+                      run.employees == 0
+                          ? 'No one was employed in ${monthLabel(run.period)}.'
+                          : '${run.employees == 1 ? '1 employee' : '${run.employees} employees'} · gross ${rupees(run.totals.gross)} · net to pay ${rupees(run.totals.net)}',
+                      style: text.titleMedium,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      run.status == 'approved'
+                          ? 'Approved on ${longDate(run.approvedOn)}.${run.paidOn.isEmpty ? ' Salaries not yet recorded as paid.' : ' Paid on ${longDate(run.paidOn)}.'}'
+                          : 'A draft. Nothing is posted until you approve it.',
+                      style: text.bodySmall,
+                    ),
+                    const SizedBox(height: 16),
+                    Panel(
+                      children: [
+                        for (final row in run.rows)
+                          RowCard(
+                            leading: TintTile(tint: Tint.ask, letter: row.name[0].toUpperCase()),
+                            title: row.name,
+                            subtitle:
+                                'Gross ${rupees(row.gross)} · deductions ${rupees(row.deductions)} · net ${rupees(row.net)}${row.daysWorked < row.daysInMonth ? ' · ${row.daysWorked} of ${row.daysInMonth} days' : ''}',
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    _Totals(totals: run.totals),
+                    for (final note in run.notes) ...[
+                      const SizedBox(height: 8),
+                      Text(note, style: text.bodySmall),
+                    ],
+                    for (final entry in entries) entry.toBubble(),
+                    if (pending == null && !_posted && run.employees > 0) ...[
+                      const SizedBox(height: 16),
+                      if (run.status != 'approved')
+                        FilledButton(
+                          onPressed: busy ? null : () => _approve(run),
+                          child: const Text('Approve payroll'),
+                        )
+                      else if (run.paidOn.isEmpty)
+                        FilledButton(
+                          onPressed: busy ? null : () => _paid(run),
+                          child: const Text('Salaries paid'),
+                        ),
+                    ],
+                    if (_posted) ...[
+                      const SizedBox(height: 16),
+                      FilledButton(
+                        onPressed: () => Navigator.of(context).pop(true),
+                        child: const Text('Done'),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              if (pending != null)
+                ProposalBar(busy: busy, onPost: postPending, onDiscard: discardPending),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _Totals extends StatelessWidget {
+  const _Totals({required this.totals});
+
+  final PayrollTotals totals;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    Widget line(String label, num amount, {bool strong = false}) => Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        children: [
+          Expanded(child: Text(label, style: strong ? text.titleMedium : text.bodyMedium)),
+          Text(rupees(amount), style: (strong ? text.titleMedium : text.bodyMedium)?.copyWith(fontFeatures: moneyFigures)),
+        ],
+      ),
+    );
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Palette.surface,
+        borderRadius: BorderRadius.circular(radiusCard),
+        border: Border.all(color: Palette.line),
+      ),
+      child: Column(
+        children: [
+          line('Gross salaries', totals.gross),
+          line('Provident fund (employees)', totals.pfEmployee),
+          line('State insurance (employees)', totals.esiEmployee),
+          line('Professional tax', totals.pt),
+          line('Income tax (TDS)', totals.tds),
+          line('Net to pay', totals.net, strong: true),
+          const Divider(height: 18),
+          line('Employer contributions', totals.employerContributions),
+          line('Total cost', totals.employerCost, strong: true),
+        ],
+      ),
+    );
+  }
+}

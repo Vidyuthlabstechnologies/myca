@@ -43,7 +43,7 @@ export function parseQuarter(value) {
 }
 
 function entriesOf(state, { deductedOnly = true } = {}) {
-  return (state.tdsEntries || []).filter((entry) => !deductedOnly || entry.tds > 0).slice().sort((a, b) => a.date.localeCompare(b.date));
+  return (state.tdsEntries || []).filter((entry) => entry.section !== '192' && (!deductedOnly || entry.tds > 0)).slice().sort((a, b) => a.date.localeCompare(b.date));
 }
 
 export function quartersWithDeductions(state) {

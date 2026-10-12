@@ -592,6 +592,54 @@ class GstPayment {
   final List<String> notes;
 }
 
+class InvoiceShare {
+  const InvoiceShare({required this.on, required this.by, required this.channel, required this.outcome});
+
+  factory InvoiceShare.fromJson(Object? json) {
+    final map = _map(json);
+    return InvoiceShare(on: _text(map['on']), by: _text(map['by']), channel: _text(map['channel']), outcome: _text(map['outcome']));
+  }
+
+  final String on;
+  final String by;
+  final String channel;
+  final String outcome;
+}
+
+class EwayBill {
+  const EwayBill({
+    required this.needed,
+    required this.why,
+    required this.status,
+    required this.transportWords,
+    required this.ewbNo,
+    required this.ewbValidity,
+    required this.next,
+  });
+
+  factory EwayBill.fromJson(Object? json) {
+    final map = _map(json);
+    final transport = map['transport'];
+    return EwayBill(
+      needed: map['needed'] == true,
+      why: _text(map['why']),
+      status: _text(map['status']),
+      transportWords: transport is Map ? _text(transport['words']) : '',
+      ewbNo: _text(map['ewbNo']),
+      ewbValidity: _text(map['ewbValidity']),
+      next: _text(map['next']),
+    );
+  }
+
+  final bool needed;
+  final String why;
+  final String status;
+  final String transportWords;
+  final String ewbNo;
+  final String ewbValidity;
+  final String next;
+}
+
 class PeriodGst {
   const PeriodGst({
     required this.period,
@@ -741,15 +789,22 @@ class MonthFigures {
     required this.salesNet,
     required this.purchases,
     required this.expenses,
+    this.payrollStatus = 'hidden',
+    this.payrollGross = 0,
+    this.payrollPaidOn = '',
   });
 
   factory MonthFigures.fromJson(Object? json) {
     final map = _map(json);
+    final payroll = map['payroll'];
     return MonthFigures(
       sales: _num(_map(map['sales'])['total']),
       salesNet: _num(_map(map['sales'])['net']),
       purchases: _num(_map(map['purchases'])['total']),
       expenses: _num(_map(map['expenses'])['total']),
+      payrollStatus: payroll is Map ? _text(payroll['status']) : 'hidden',
+      payrollGross: payroll is Map ? _num(payroll['gross']) : 0,
+      payrollPaidOn: payroll is Map ? _text(payroll['paidOn']) : '',
     );
   }
 
@@ -757,6 +812,9 @@ class MonthFigures {
   final num salesNet;
   final num purchases;
   final num expenses;
+  final String payrollStatus;
+  final num payrollGross;
+  final String payrollPaidOn;
 }
 
 class OwedCustomer {
@@ -1070,6 +1128,127 @@ class Employee {
   final bool esiMember;
   final String taxRegime;
   final List<SalaryRow> salary;
+}
+
+class PayrollTotals {
+  const PayrollTotals({
+    required this.gross,
+    required this.pfEmployee,
+    required this.esiEmployee,
+    required this.pt,
+    required this.tds,
+    required this.deductions,
+    required this.net,
+    required this.employerContributions,
+    required this.employerCost,
+  });
+
+  factory PayrollTotals.fromJson(Object? json) {
+    final map = _map(json);
+    return PayrollTotals(
+      gross: _num(map['gross']),
+      pfEmployee: _num(map['pfEmployee']),
+      esiEmployee: _num(map['esiEmployee']),
+      pt: _num(map['pt']),
+      tds: _num(map['tds']),
+      deductions: _num(map['deductions']),
+      net: _num(map['net']),
+      employerContributions: _num(map['employerContributions']),
+      employerCost: _num(map['employerCost']),
+    );
+  }
+
+  final num gross;
+  final num pfEmployee;
+  final num esiEmployee;
+  final num pt;
+  final num tds;
+  final num deductions;
+  final num net;
+  final num employerContributions;
+  final num employerCost;
+}
+
+class PayrollRow {
+  const PayrollRow({
+    required this.employeeId,
+    required this.name,
+    required this.daysWorked,
+    required this.daysInMonth,
+    required this.gross,
+    required this.deductions,
+    required this.net,
+    required this.notes,
+  });
+
+  factory PayrollRow.fromJson(Object? json) {
+    final map = _map(json);
+    final notes = map['notes'];
+    return PayrollRow(
+      employeeId: _text(map['employeeId']),
+      name: _text(map['name']),
+      daysWorked: _num(map['daysWorked']).toInt(),
+      daysInMonth: _num(map['daysInMonth']).toInt(),
+      gross: _num(map['gross']),
+      deductions: _num(map['deductions']),
+      net: _num(map['net']),
+      notes: notes is List ? notes.map(_text).toList() : const <String>[],
+    );
+  }
+
+  final String employeeId;
+  final String name;
+  final int daysWorked;
+  final int daysInMonth;
+  final num gross;
+  final num deductions;
+  final num net;
+  final List<String> notes;
+}
+
+class PayrollRun {
+  const PayrollRun({
+    required this.period,
+    required this.month,
+    required this.status,
+    required this.employees,
+    required this.rows,
+    required this.totals,
+    required this.notes,
+    required this.draftHash,
+    required this.approvedOn,
+    required this.paidOn,
+  });
+
+  static PayrollRun? fromTool(Object? json) {
+    final map = _map(json);
+    if (map['ok'] == false) return null;
+    final data = toolData(json);
+    final notes = data['notes'];
+    return PayrollRun(
+      period: _text(data['period']),
+      month: _text(data['month']),
+      status: _text(data['status']),
+      employees: _num(data['employees']).toInt(),
+      rows: _maps(data['rows']).map(PayrollRow.fromJson).toList(),
+      totals: PayrollTotals.fromJson(data['totals']),
+      notes: notes is List ? notes.map(_text).toList() : const <String>[],
+      draftHash: _text(data['draftHash']),
+      approvedOn: _text(data['approvedOn']),
+      paidOn: _text(data['paidOn']),
+    );
+  }
+
+  final String period;
+  final String month;
+  final String status;
+  final int employees;
+  final List<PayrollRow> rows;
+  final PayrollTotals totals;
+  final List<String> notes;
+  final String draftHash;
+  final String approvedOn;
+  final String paidOn;
 }
 
 class EmployeeList {
@@ -1622,6 +1801,9 @@ class InvoiceDocument {
     required this.missing,
     this.debited = 0,
     this.debitNotes = const <CreditNote>[],
+    this.buyerAddress = '',
+    this.shares = const <InvoiceShare>[],
+    this.ewayBill,
     this.dueDate = '',
     this.termsDays,
     this.kind = 'invoice',
@@ -1661,6 +1843,9 @@ class InvoiceDocument {
       creditNotes: _maps(map['creditNotes']).map(CreditNote.fromJson).toList(),
       debited: _num(map['debited']),
       debitNotes: _maps(map['debitNotes']).map(CreditNote.fromJson).toList(),
+      buyerAddress: _text(buyer['address']),
+      shares: _maps(map['shares']).map(InvoiceShare.fromJson).toList(),
+      ewayBill: map['ewayBill'] is Map ? EwayBill.fromJson(map['ewayBill']) : null,
       status: _text(map['status']),
       balance: _num(map['balance']),
       dueDate: _text(map['dueDate']),
@@ -1697,6 +1882,9 @@ class InvoiceDocument {
   final List<CreditNote> creditNotes;
   final num debited;
   final List<CreditNote> debitNotes;
+  final String buyerAddress;
+  final List<InvoiceShare> shares;
+  final EwayBill? ewayBill;
   final String status;
   final num balance;
   final List<String> missing;

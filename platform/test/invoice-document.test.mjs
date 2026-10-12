@@ -22,7 +22,7 @@ test('an invoice document carries the posted figures, the parties and the place 
   assert.equal(out.ok, true, JSON.stringify(out));
   const doc = out.data;
   assert.deepEqual(doc.seller, { name: 'Asha Traders', gstin: '27AAACH7409R1Z1', address: '12 Market Road', city: 'Pune', pin: '411001', state: { code: '27', name: 'Maharashtra' } });
-  assert.deepEqual(doc.buyer, { name: 'Rajesh Stores', gstin: '27AABCT1332L1ZE' });
+  assert.deepEqual(doc.buyer, { name: 'Rajesh Stores', gstin: '27AABCT1332L1ZE', address: '' });
   assert.deepEqual(doc.placeOfSupply, { code: '27', name: 'Maharashtra' });
   assert.equal(doc.taxable, 5000);
   assert.equal(doc.cgst, 125);
@@ -30,7 +30,7 @@ test('an invoice document carries the posted figures, the parties and the place 
   assert.equal(doc.igst, 0);
   assert.equal(doc.total, 5250);
   assert.deepEqual(doc.lines[0], { description: 'Cotton rolls', hsn: '5208', qty: 10, rate: 500, gstRate: 5, taxable: 5000, cgst: 125, sgst: 125, igst: 0, amount: 5250 });
-  assert.deepEqual(doc.missing, []);
+  assert.deepEqual(doc.missing, ['BUYER_ADDRESS']);
   const posted = state.invoices[0];
   assert.equal(doc.total, posted.total);
 });
@@ -48,7 +48,7 @@ test('no HSN code is invented: a line entered without one stays blank and is rep
   assert.equal(state.invoices[1].lines[0].hsn, '');
   const doc = (await runTool(state, 'invoice_document', { id: 'INV-0002' })).data;
   assert.equal(doc.lines[0].hsn, '');
-  assert.deepEqual(doc.missing, ['HSN']);
+  assert.deepEqual(doc.missing, ['BUYER_ADDRESS', 'HSN']);
   const bill = createPurchase(state, { date: '2026-10-05', partyName: 'Fabric Co', partyGstin: '27AABCT1332L1ZE', lines: [{ description: 'Grey cloth', qty: 1, rate: 1000, gstRate: 5 }] });
   assert.equal(bill.invoice.lines[0].hsn, '');
 });

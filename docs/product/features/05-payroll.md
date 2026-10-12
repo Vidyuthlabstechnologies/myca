@@ -3,8 +3,8 @@
 | | |
 |---|---|
 | Requirements | FR-PAY-1 to 4 in the [product PRD](../PRD.md) |
-| Status | Employee records built (2026-10-07). The monthly run, payslips, postings and statutory files are not built; they wait for payroll rules signed off by the advisor CA. |
-| Code | None yet. Proposed: `platform/src/payroll.mjs`, payroll rules in `sprints/statutory-rules` |
+| Status | Employee records built (2026-10-07). Step 1 built (2026-10-12): the monthly run, approval and postings, salary payment, payslips and salary TDS, from dated payroll rules not yet signed off by the advisor CA. Statutory files and payouts not built. |
+| Code | `platform/src/payroll.mjs`, `payroll-intent.mjs`, `employees.mjs`; rules `payroll.*` in `sprints/statutory-rules/src/rules/payroll.mjs`; app `mobile/lib/screens/payroll_screen.dart` |
 
 ## What the owner experiences
 
@@ -51,17 +51,50 @@ partnership and compliance project more than an engineering one.
   the phone), `list_employees` (read). Chat: "add employee Ravi Kumar as store manager,
   joined 2026-09-01, salary 25000", "my employees". App: Employees on Home.
 
-## Behaviour (step 1)
+## Behaviour (step 1, built 2026-10-12)
 
 - Employees and salary structures are stored per business in the books, so they are
-  isolated and audited like everything else.
-- The monthly run is a pure function of employees, attendance adjustments and the dated
-  rules for that month. Running it twice gives the same result.
-- The run is a preview. Approving it posts salary expense, each deduction payable and
-  net salary payable. Recording the payment clears net salary payable.
-- A payslip is a document produced by the engine, shared like an invoice.
-- Deductions covered: provident fund, employees' state insurance, professional tax by
-  state, and TDS on salary under the old or new regime the employee chose.
+  isolated and audited like everything else. An employee may now carry a sex (for the
+  professional tax slab) besides the PAN, UAN, fund memberships, state and regime.
+- `payroll_run` is a pure function of the employees, the month and the dated rules on
+  its last day; running it twice gives the same figures and the same draft hash. A
+  joiner or leaver is paid for the days employed, pro rata by calendar days.
+- Provident fund: pay wages are the Basic and DA parts (the whole pay when there is no
+  such part, and the row says so), capped at the `payroll.epf.wage-ceiling`; employee
+  and employer shares at the `payroll.epf.*` rates with the pension share diverted
+  (`payroll.epf.employer-rate`), EDLI at `payroll.edli.employer-rate`, and the
+  administrative charge with its monthly minimum (`payroll.epf.admin-charge`). Figures
+  are kept in paise; the EPFO's rounding to the rupee is not applied.
+- State insurance: only when the full month's pay is within `payroll.esi.wage-ceiling`;
+  employee and employer shares from `payroll.esi.rates`, with the employee share
+  waived under the daily-wage limit in that rule. Coverage carried to the end of a
+  contribution period after pay crosses the limit is not modelled.
+- Professional tax: from `payroll.pt.<state code>` for the employee's state, by pay slab
+  and sex, with the February amount; only Maharashtra (27) is encoded, and an employee
+  in another state gets none with a note. No sex recorded means the slab for men.
+- Salary TDS (section 192): the year's salary is estimated from the months already
+  approved in MyCA, this month, and the months left (earlier months not run in MyCA are
+  taken at this month's pay, and the run says so); the income-tax engine gives the
+  year's tax for the employee's regime (new when none is recorded, the default in law);
+  the tax still due is spread over the months left and rounded to the rupee. A payee
+  without PAN pays at least the `tds.no-pan.rate` rate. The deduction is recorded as a
+  TDS entry under section 192, so deposits and the TDS summary include it; the
+  non-salary statement excludes it (the salary statement, Form 138, is still to build).
+- Approval (`approve_payroll`, previewed, owner only, bound to the draft hash) posts
+  salaries (5120) against salaries payable (2300), provident fund payable (2310), state
+  insurance payable (2320), professional tax payable (2330) and TDS payable (2200), and
+  the employer's contributions (5125) against the fund payables. The month is then
+  frozen: later salary changes do not alter it. Approving a month also switches on the
+  PF deadline for the business.
+- `record_salary_payment` clears salaries payable from the bank or cash on the date
+  given; the deductions stay payable until deposited. `payslip` lays out one employee's
+  month; `list_payroll` lists approved months.
+- Chat: "run payroll for October", "approve payroll", "paid salaries for October",
+  "payslip for EMP-0001 for October", "payroll months". App: Employees has "Payroll for
+  <month>", which shows each person's gross, deductions and net, the totals and the
+  employer's cost, and approves or records payment after a preview.
+- Every run names the rule versions used and says the CA has not reviewed them while
+  any used rule carries no attestation.
 
 ## Statutory care
 
@@ -90,5 +123,6 @@ full-and-final settlement, contractor payments (these are purchases with TDS, se
 ## Open questions
 
 - Q5 in the PRD: does the product move money?
-- Which states first for professional tax?
+- Which states next for professional tax? Maharashtra is encoded; others need their
+  schedules verified before they are added.
 - Is salary data visible to an invited CA by default?

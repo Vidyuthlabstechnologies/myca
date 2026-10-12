@@ -6,6 +6,8 @@ import { planFilingFromChat } from './filing-intent.mjs';
 import { planEmployeeFromChat } from './employee-intent.mjs';
 import { planTdsFromChat } from './tds-intent.mjs';
 import { planGstPayFromChat } from './gst-pay-intent.mjs';
+import { planTransportFromChat, planAddressFromChat } from './eway-intent.mjs';
+import { planPayrollFromChat } from './payroll-intent.mjs';
 import { tdsReviewOf } from './tds-review.mjs';
 import { parseQuarter } from './tds-return.mjs';
 import { reviewOf } from './gst-review.mjs';
@@ -442,6 +444,53 @@ export const TOOL_ARG_SCHEMAS = {
     additionalProperties: false,
     properties: { status: { type: 'string', enum: ['open', 'closed', 'all'] } },
   },
+  set_party_address: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['partyName', 'address'],
+    properties: {
+      partyName: { type: 'string', minLength: 1, maxLength: 80 },
+      partyGstin: { type: 'string', pattern: '^([0-9]{2}[A-Z0-9]{13})?$' },
+      address: { type: 'string', minLength: 1, maxLength: 200 },
+    },
+  },
+  set_transport: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['invoiceId', 'distanceKm'],
+    properties: {
+      invoiceId: { type: 'string', pattern: '^INV-[0-9]{4,}$' },
+      vehicleNo: { type: 'string', maxLength: 12 },
+      distanceKm: { type: 'integer', minimum: 1, maximum: 4000 },
+      transporterName: { type: 'string', maxLength: 100 },
+      transporterId: { type: 'string', maxLength: 15 },
+      mode: { type: 'string', enum: ['road', 'rail', 'air', 'ship'] },
+      docNo: { type: 'string', maxLength: 15 },
+    },
+  },
+  record_share: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['invoiceId'],
+    properties: {
+      invoiceId: { type: 'string', pattern: '^(INV|QT)-[0-9]{4,}$' },
+      channel: { type: 'string', maxLength: 40 },
+      outcome: { type: 'string', enum: ['shared', 'printed', 'cancelled'] },
+      to: { type: 'string', maxLength: 120 },
+    },
+  },
+  eway_bill_status: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['invoiceId'],
+    properties: { invoiceId: { type: 'string', pattern: '^INV-[0-9]{4,}$' } },
+  },
+  govt_generate_ewb: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['invoiceId'],
+    properties: { invoiceId: { type: 'string', pattern: '^INV-[0-9]{4,}$' }, caApprovalId: { type: 'string', maxLength: 40 } },
+  },
   set_payment_terms: {
     type: 'object',
     additionalProperties: false,
@@ -475,6 +524,40 @@ export const TOOL_ARG_SCHEMAS = {
     additionalProperties: false,
     properties: { include: { type: 'string', enum: ['current', 'all'] } },
   },
+  payroll_run: {
+    type: 'object',
+    additionalProperties: false,
+    properties: { period: { type: 'string', pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' } },
+  },
+  approve_payroll: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['period'],
+    properties: {
+      period: { type: 'string', pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' },
+      draftHash: { type: 'string', pattern: '^[0-9a-f]{64}$' },
+    },
+  },
+  record_salary_payment: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['period'],
+    properties: {
+      period: { type: 'string', pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' },
+      date: { type: 'string' },
+      mode: { type: 'string', enum: ['bank', 'cash'] },
+    },
+  },
+  list_payroll: noArgs,
+  payslip: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['period', 'employeeId'],
+    properties: {
+      period: { type: 'string', pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' },
+      employeeId: { type: 'string', pattern: '^EMP-[0-9]{4,}$' },
+    },
+  },
   add_employee: {
     type: 'object',
     additionalProperties: false,
@@ -490,6 +573,7 @@ export const TOOL_ARG_SCHEMAS = {
       esiMember: { type: 'boolean' },
       ptState: { type: 'string', pattern: '^[0-9]{2}$' },
       taxRegime: { type: 'string', enum: ['new', 'old'] },
+      sex: { type: 'string', enum: ['male', 'female'] },
     },
   },
   change_salary: {
@@ -587,6 +671,11 @@ export const TOOL_ARG_SCHEMAS = {
     properties: { period: { type: 'string', pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' } },
   },
   export_entries: {
+    type: 'object',
+    additionalProperties: false,
+    properties: { period: { type: 'string', pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' } },
+  },
+  export_tally: {
     type: 'object',
     additionalProperties: false,
     properties: { period: { type: 'string', pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' } },
@@ -984,6 +1073,8 @@ const TOOL_RISK = {
   record_filing: 'writes_books',
   record_supplier_reminder: 'writes_books',
   add_employee: 'writes_books',
+  approve_payroll: 'writes_books',
+  record_salary_payment: 'writes_books',
   set_tds_deductor: 'writes_books',
   set_gst_credit_opening: 'writes_books',
   tds_review_answer: 'writes_books',
@@ -991,6 +1082,10 @@ const TOOL_RISK = {
   change_salary: 'writes_books',
   end_employment: 'writes_books',
   set_payment_terms: 'writes_books',
+  set_party_address: 'writes_books',
+  set_transport: 'writes_books',
+  record_share: 'writes_books',
+  govt_generate_ewb: 'external_government_api',
   ask_ca: 'writes_books',
   create_quote: 'writes_books',
   mark_quote: 'writes_books',
@@ -1139,6 +1234,12 @@ export function planLocalToolCall(state, message) {
   if (tdsAsk) return tdsAsk;
   const gstPay = planGstPayFromChat(text);
   if (gstPay) return gstPay;
+  const transport = planTransportFromChat(text);
+  if (transport) return transport;
+  const address = planAddressFromChat(state, text);
+  if (address) return address;
+  const payroll = planPayrollFromChat(state, text);
+  if (payroll) return payroll;
   const hired = planEmployeeFromChat(text);
   if (hired) return hired;
   const filed = planFilingFromChat(text);

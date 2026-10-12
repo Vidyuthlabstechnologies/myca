@@ -6,6 +6,8 @@ import { referenceImportContent, resolveImportContent } from './import-documents
 import { spoken } from './words.mjs';
 import { planEntryWithTds } from './tds-intent.mjs';
 import { paymentWords } from './gst-payment.mjs';
+import { transportWords } from './eway-bill.mjs';
+import { payrollWords } from './payroll.mjs';
 import { inWords as monthWords } from './words.mjs';
 
 function money(n) {
@@ -163,6 +165,20 @@ function fmtToolResult(name, result) {
     const rows = d.sections.map((s) => `· ${s.section}: ${s.deductees === 1 ? '1 deductee' : `${s.deductees} deductees`}, ${money(s.tds)}`).join('\n');
     return `TDS statement for ${d.quarter}${d.form ? ` (Form ${d.form})` : ''}: deducted ${money(d.deducted)}, deposited ${money(d.deposited)}${d.shortfall > 0 ? `, still to deposit ${money(d.shortfall)}` : ''}.${d.filed ? ` Recorded as filed on ${d.filed.filedOn}, ARN ${d.filed.arn}.` : d.dueDate ? ` Due by ${d.dueDate}.` : ''}\n${rows}\nSay "review TDS" to check it step by step.`;
   }
+  if (name === 'export_tally' && result.data) {
+    const d = result.data;
+    return `Tally file for ${d.period} is ready: ${d.count === 1 ? '1 voucher' : `${d.count} vouchers`} and ${d.ledgers} ledgers, saved as ${d.fileName} from Taxes. ${d.caveat}`;
+  }
+  if (name === 'set_transport' && result.transport) {
+    return `Recorded transport for ${result.invoiceId}: ${transportWords(result.transport)}.${result.need?.needed ? ` ${result.need.why}` : ''}`;
+  }
+  if (name === 'set_party_address' && result.data?.party) {
+    return `Recorded the address of ${result.data.party.name}: ${result.data.party.address}. It prints on their invoices from now on.`;
+  }
+  if (name === 'eway_bill_status' && result.data) {
+    const s = result.data;
+    return s.ewbNo ? `E-way bill ${s.ewbNo}${s.ewbValidity ? `, valid till ${s.ewbValidity}` : ''}.` : `${s.why}${s.needed && s.transport ? ` Transport: ${transportWords(s.transport)}.` : ''}${s.needed && !s.transport ? ' Say the transport details, for example "transport for INV-0001: vehicle MH12AB1234, 120 km, transporter ABC Logistics".' : ''}`;
+  }
   if (name === 'set_tds_deductor' && result.tan) {
     return `Done. This business deducts TDS under TAN ${result.tan}.`;
   }
@@ -175,6 +191,26 @@ function fmtToolResult(name, result) {
     if (!d.deductor) return 'This business is not set up to deduct TDS. Say "we deduct TDS, TAN" followed by your TAN to start.';
     const months = d.months.map((m) => `· ${m.month}: deducted ${money(m.deducted)}${m.depositBy ? `, deposit by ${m.depositBy}` : ''}`).join('\n');
     return `TDS deducted ${money(d.deducted)}, deposited ${money(d.deposited)}, still to deposit ${money(d.due)}.${months ? `\n${months}` : ''}`;
+  }
+  if (name === 'payroll_run' && result.data) {
+    return payrollWords(result.data, money);
+  }
+  if (name === 'approve_payroll' && result.run) {
+    const r = result.run;
+    return `Approved payroll for ${r.month}: ${money(r.totals.gross)} gross, ${money(r.totals.net)} net to pay. Nothing is paid yet; say "paid salaries for ${r.period}" once they are.`;
+  }
+  if (name === 'record_salary_payment' && result.paidOn) {
+    return `Recorded ${money(result.amount)} of salaries for ${result.period} paid from ${result.mode === 'cash' ? 'cash' : 'the bank'} on ${result.paidOn}.`;
+  }
+  if (name === 'list_payroll' && result.data) {
+    const rows = result.data.runs;
+    return rows.length
+      ? `Payroll months:\n${rows.map((r) => `· ${r.month}: ${r.employees === 1 ? '1 employee' : `${r.employees} employees`}, gross ${money(r.gross)}, net ${money(r.net)}${r.paidOn ? `, paid ${r.paidOn}` : ', not yet paid'}`).join('\n')}`
+      : 'No payroll has been approved yet. Say "run payroll" to see this month.';
+  }
+  if (name === 'payslip' && result.data) {
+    const p = result.data;
+    return `Payslip for ${p.employee.name}, ${p.month}: gross ${money(p.gross)}, deductions ${money(p.totalDeductions)}, net ${money(p.net)}${p.paidOn ? `, paid on ${p.paidOn}` : ''}.`;
   }
   if (name === 'add_employee' && result.employee) {
     const e = result.employee;

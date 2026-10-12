@@ -55,6 +55,8 @@ function detailsOf(args, existing = {}) {
   if (ptState && !STATE.test(ptState)) return fail('BAD_STATE', { ptState });
   const taxRegime = String(pick('taxRegime') || '');
   if (taxRegime && !['new', 'old'].includes(taxRegime)) return fail('BAD_REGIME', { taxRegime });
+  const sex = String(pick('sex') || '').toLowerCase();
+  if (sex && !['male', 'female'].includes(sex)) return fail('BAD_SEX', { sex });
   return {
     ok: true,
     details: {
@@ -65,6 +67,7 @@ function detailsOf(args, existing = {}) {
       esiMember: Boolean(pick('esiMember')),
       ptState,
       taxRegime,
+      sex,
     },
   };
 }

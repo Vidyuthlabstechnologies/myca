@@ -126,8 +126,12 @@ Future<Uint8List> buildInvoicePdf(
                   pw.Text(doc.isQuote ? 'QUOTED TO' : 'BILL TO', style: label),
                   pw.SizedBox(height: 3),
                   pw.Text(doc.buyerName, style: heavy),
+                  if (doc.buyerAddress.isNotEmpty)
+                    pw.Text(doc.buyerAddress, style: small),
                   if (doc.buyerGstin.isNotEmpty)
                     pw.Text('GSTIN ${doc.buyerGstin}', style: body),
+                  if (doc.ewayBill?.ewbNo.isNotEmpty ?? false)
+                    pw.Text('E-way bill ${doc.ewayBill!.ewbNo}', style: body),
                 ],
               ),
             ),

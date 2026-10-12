@@ -1,6 +1,7 @@
 import { gstin } from './sprint-load.mjs';
 import { creditedAgainst, debitedAgainst } from './credit-notes.mjs';
 import { quoteState } from './quotes.mjs';
+import { ewayBillStatus, transportWords } from './eway-bill.mjs';
 
 const round2 = (value) => Math.round(Number(value || 0) * 100) / 100;
 const text = (value) => String(value ?? '').trim();
@@ -10,11 +11,18 @@ function place(code) {
   return { code: stateCode, name: gstin.STATE_CODES[stateCode] || '' };
 }
 
+function partyOf(state, doc) {
+  return (state.parties || []).find((p) => (doc.partyAccountId ? p.accountId === doc.partyAccountId : p.name === doc.partyName && text(p.gstin) === text(doc.partyGstin))) || null;
+}
+
 function common(state, doc) {
   const company = state.company || {};
+  const party = partyOf(state, doc);
+  const buyerAddress = text(doc.partyAddress || party?.address);
   const missing = [];
   if (!text(company.gstin)) missing.push('SELLER_GSTIN');
   if (!text(company.address)) missing.push('SELLER_ADDRESS');
+  if (!buyerAddress && (text(doc.partyGstin) || round2(doc.total) >= 50000)) missing.push('BUYER_ADDRESS');
   if (doc.lines.some((line) => !text(line.hsn))) missing.push('HSN');
   return {
     id: doc.id,
@@ -27,7 +35,7 @@ function common(state, doc) {
       pin: text(company.pin),
       state: place(company.state),
     },
-    buyer: { name: text(doc.partyName), gstin: text(doc.partyGstin) },
+    buyer: { name: text(doc.partyName), gstin: text(doc.partyGstin), address: buyerAddress },
     placeOfSupply: place(doc.placeOfSupply || doc.partyState),
     lines: doc.lines.map((line) => ({
       description: text(line.description),
@@ -74,12 +82,35 @@ export function invoiceDocument(state, id) {
       creditNotes,
       debited,
       debitNotes,
+      shares: (invoice.shares || []).map((share) => ({ on: share.on, by: share.by, channel: share.channel, outcome: share.outcome })),
+      ewayBill: ewayBillWords(ewayBillStatus(state, invoice)),
       status: invoice.status,
       paymentTermsDays: invoice.paymentTermsDays ?? null,
       dueDate: invoice.dueDate || '',
       quoteId: invoice.quoteId || '',
       balance: round2(invoice.total - received - credited),
     },
+  };
+}
+
+function ewayBillWords(status) {
+  return {
+    needed: Boolean(status.needed),
+    why: status.why || '',
+    status: status.status,
+    threshold: status.threshold ?? null,
+    interState: Boolean(status.interState),
+    transport: status.transport ? { ...status.transport, words: transportWords(status.transport) } : null,
+    ewbNo: status.ewbNo || '',
+    ewbValidity: status.ewbValidity || '',
+    hasIrn: Boolean(status.hasIrn),
+    next: {
+      'not-needed': '',
+      'transport-needed': 'Add the vehicle, distance and transporter, then the e-way bill can be generated.',
+      'irn-needed': 'Generate the e-invoice (IRN) first; the e-way bill is generated from it through the action gate.',
+      ready: 'Ready to generate through the action gate (live switch and approval).',
+      generated: '',
+    }[status.status] || '',
   };
 }
 

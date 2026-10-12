@@ -91,6 +91,8 @@ the hosted API (`propose`, `confirm`, `discard`).
   against bills. A bill paid outside MyCA shows as owed until its payment is recorded.
 - Taxes: as on the Taxes screen, with the cash to pay after set-off
   ([spec 03](03-gst-returns.md)).
+- Paid staff: this month's approved payroll against last month's, shown to the owner
+  only once a month has been approved; it opens Employees ([spec 05](05-payroll.md)).
 - Payroll: after [spec 05](05-payroll.md).
 - On a phone the dashboard is the top of Home; on a wide screen it sits beside the
   chat, as the owner's PRD describes.

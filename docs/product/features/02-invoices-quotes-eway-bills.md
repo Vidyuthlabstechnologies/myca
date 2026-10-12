@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Requirements | FR-INV-1 to 6 in the [product PRD](../PRD.md) |
-| Status | Invoices, the invoice screen, PDF, sharing, payment terms and quotes built; e-way bill in the flow not built |
+| Status | Invoices, the invoice screen, PDF, sharing, payment terms and quotes built; buyer address, share audit, transport details and the e-way bill need check built (2026-10-12); generation waits on the IRN and NIC credentials |
 | Code | `platform/src/invoice.mjs`, `intent.mjs`, `nic-client.mjs`, `nic-actions.mjs`; app: `mobile/lib/screens/party_screen.dart` |
 
 ## What the owner experiences
@@ -40,13 +40,20 @@ WhatsApp or email. For goods on the move, the e-way bill is offered on the same 
 - The tool also reports what the invoice lacks (the seller's GSTIN or address, an HSN
   or SAC code on a line) and the screen says so before the owner sends it. The engine
   used to fill in a textile HSN code when none was given; it now leaves it blank.
-- Still missing from the invoice itself: the buyer's address, a unit of measure, and a
-  reverse-charge statement. What a tax invoice must carry is set by the CGST Rules
-  (Rule 46) and needs the advisor CA's check before owners rely on this PDF.
+- The buyer's address (built 2026-10-12) is kept on the customer (`set_party_address`,
+  "address of Gujarat Mills is 7 Ring Road, Surat", or `partyAddress` on a new
+  invoice) and prints under the buyer's name. The document reports `BUYER_ADDRESS` as
+  missing for a registered buyer and for a sale of fifty thousand rupees or more to an
+  unregistered one (Rule 46(c) and (e)); smaller cash sales need none.
+- Still missing from the invoice itself: a unit of measure and a reverse-charge
+  statement. What a tax invoice must carry is set by the CGST Rules (Rule 46) and needs
+  the advisor CA's check before owners rely on this PDF.
 - Save as PDF and Share use the phone's share sheet, so the message goes from the
   owner's own WhatsApp or email. Nothing is sent by the product on its own.
-- To build: sending records an audit event, who shared which invoice and when. The product cannot
-  know whether the customer received it and must not claim so.
+- Sharing is audited (built 2026-10-12): after the share sheet or print dialog closes,
+  the app calls `record_share`, which keeps who, when and how on the invoice and in the
+  audit log; a cancelled share records nothing. The screen shows how many times and when
+  it was last shared, and says MyCA cannot see whether it was delivered.
 - A sender in the product's own name (WhatsApp Business API, transactional email) is a
   later option and needs open question Q6 answered.
 
@@ -85,15 +92,30 @@ WhatsApp or email. For goods on the move, the e-way bill is offered on the same 
 - Chat: "quote ABC Ltd 50000 for consulting GST 18% valid for 15 days", "QT-0001
   accepted", "make QT-0001 an invoice".
 
-### E-way bill and e-invoice (partly built)
+### E-way bill and e-invoice (need, transport and the gated request built 2026-10-12)
 
-- The NIC client and the action gate already exist: an e-way bill or IRN request needs
-  the live switch and an approval bound to the exact payload.
-- To build: transport details on the invoice (vehicle, distance, transporter), the
-  offer in the app, and per-business NIC credentials in the hosted service.
-- Whether a given invoice needs an e-way bill or an e-invoice is decided by dated rules
-  in `sprints/statutory-rules`, never by a constant in the app. Thresholds must be
-  verified against the current notifications before this ships.
+- Whether an invoice needs an e-way bill comes from the dated rule
+  `gst.ewaybill.threshold` (Rule 138: consignment value above fifty thousand rupees,
+  from April 2018) applied to the invoice's goods lines: lines with a SAC starting 99 are
+  services and never count; lines without an HSN are counted as goods and the owner is
+  told so. For movement within the state the product says some states set a higher
+  limit and that it applies the central one. The rule's attestation state is stated.
+- Transport details (`set_transport`, "transport for INV-0001: vehicle MH12AB1234, 120
+  km, transporter ABC Logistics", or the sheet on the invoice screen): mode, vehicle
+  number (needed by road), distance in whole kilometres, transporter name and id, and
+  the transport document for rail, air or ship. Previewed, kept on the invoice, no
+  figure changes.
+- The invoice screen shows the e-way bill card only when one is needed: why, the
+  transport, what is still missing, and the number once generated. The PDF prints the
+  number.
+- `govt_generate_ewb` builds the NIC request from the IRN and the transport details and
+  sends it through the action gate (live switch, approval bound to the payload). It is
+  refused without transport details or an IRN, and a dry run or a simulated reply never
+  stores a number. MyCA generates e-way bills from the e-invoice; the separate e-way
+  bill system for businesses outside e-invoicing is not wired.
+- Still to build: per-business NIC credentials in the hosted service, generating the
+  IRN from the invoice screen, and the e-way bill system route for businesses outside
+  the e-invoicing bracket.
 
 ## Acceptance criteria
 

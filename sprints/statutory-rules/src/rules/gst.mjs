@@ -297,5 +297,16 @@ export const RULES = [
     section: 'Section 17(5)',
     source: 'CGST (Amendment) Act 2018 (31 of 2018) section 9, in force from 01.02.2019 by Notification 2/2019-Central Tax, substituting clauses (a), (aa), (ab) and (b) of section 17(5): motor vehicles for transport of persons with seating up to thirteen (clause (a)); services of general insurance, servicing, repair and maintenance of such vehicles (clause (ab)); food and beverages, outdoor catering, beauty treatment, health services, cosmetic and plastic surgery (clause (b)(i)); membership of a club, health and fitness centre (clause (b)(ii)); travel benefits to employees on vacation (clause (b)(iv)); clauses (g) and (h) unchanged; credit is allowed where the inward supply is used to make an outward supply of the same category or where an employer must provide it under a law in force',
     attestations: []
+  },
+  {
+    id: 'gst.ewaybill.threshold',
+    value: { consignmentValuePaiseMoreThan: 50000 * RUPEE },
+    basis: 'consignment_value_paise_more_than',
+    effectiveFrom: '2018-04-01',
+    effectiveTo: null,
+    act: 'CGST',
+    section: 'Rule 138(1), CGST Rules 2017',
+    source: 'Notification 12/2018-Central Tax dated 07.03.2018 substituting rule 138, brought into force for inter-State movement from 01.04.2018 by Notification 15/2018-Central Tax: every registered person who causes movement of goods of consignment value exceeding fifty thousand rupees furnishes Part A of FORM GST EWB-01; intra-State movement followed from April to June 2018 by State notifications, several of which set a higher limit for movement within the State (not encoded; MyCA applies the central limit and says so)',
+    attestations: []
   }
 ];
