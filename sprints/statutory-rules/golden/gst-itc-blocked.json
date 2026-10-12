@@ -1,0 +1,38 @@
+[
+  {
+    "name": "food and beverages: credit blocked on 2026-09-01",
+    "input": { "category": "food-beverages-catering-beauty-health", "onDate": "2026-09-01" },
+    "expected": { "blocked": true, "clause": "17(5)(b)(i)", "ruleUsed": "gst.itc.blocked@2019-02-01" },
+    "citation": "CGST Act 2017 section 17(5)(b)(i) as substituted by the CGST (Amendment) Act 2018 from 01.02.2019: food and beverages, outdoor catering, beauty treatment, health services, cosmetic and plastic surgery"
+  },
+  {
+    "name": "car servicing and insurance: credit blocked from 1 February 2019",
+    "input": { "category": "motor-vehicle-services-insurance-repair", "onDate": "2019-02-01" },
+    "expected": { "blocked": true, "clause": "17(5)(ab)", "ruleUsed": "gst.itc.blocked@2019-02-01" },
+    "citation": "CGST Act 2017 section 17(5)(ab), inserted by the CGST (Amendment) Act 2018 section 9, in force from 01.02.2019 (Notification 2/2019-Central Tax)"
+  },
+  {
+    "name": "car servicing and insurance: no clause blocks it on 31 January 2019",
+    "input": { "category": "motor-vehicle-services-insurance-repair", "onDate": "2019-01-31" },
+    "expected": { "blocked": false, "ruleUsed": "gst.itc.blocked@2017-07-01" },
+    "citation": "CGST Act 2017 section 17(5) as originally enacted had no clause (ab); services on motor vehicles were not listed"
+  },
+  {
+    "name": "gifts and free samples: credit blocked under clause (h) since 2017",
+    "input": { "category": "gifts-free-samples-lost-stolen", "onDate": "2017-07-01" },
+    "expected": { "blocked": true, "clause": "17(5)(h)", "ruleUsed": "gst.itc.blocked@2017-07-01" },
+    "citation": "CGST Act 2017 section 17(5)(h): goods lost, stolen, destroyed, written off or disposed of by way of gift or free samples"
+  },
+  {
+    "name": "personal consumption: credit blocked under clause (g)",
+    "input": { "category": "personal-consumption", "onDate": "2026-04-15" },
+    "expected": { "blocked": true, "clause": "17(5)(g)", "ruleUsed": "gst.itc.blocked@2019-02-01" },
+    "citation": "CGST Act 2017 section 17(5)(g): goods or services or both used for personal consumption"
+  },
+  {
+    "name": "a head with no blocked category keeps its credit",
+    "input": { "category": "", "onDate": "2026-09-01" },
+    "expected": { "blocked": false },
+    "citation": "CGST Act 2017 section 16(1): a registered person is entitled to credit on supplies used in the course or furtherance of business, subject to section 17(5)"
+  }
+]

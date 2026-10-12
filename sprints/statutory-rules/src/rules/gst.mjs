@@ -260,5 +260,42 @@ export const RULES = [
     section: 'Section 47(1) and section 128',
     source: 'Notification 20/2021-Central Tax dated 01.06.2021 for FORM GSTR-1 of June 2021 onwards: the same caps as Notification 19/2021-Central Tax (two hundred and fifty rupees where there are no outward supplies, one thousand up to one and a half crore turnover, two thousand five hundred up to five crore, five thousand otherwise) under each Act; twenty-five rupees a day under each Act (ten where nil) from Notification 4/2018-Central Tax',
     attestations: []
+  },
+  {
+    id: 'gst.itc.blocked',
+    value: {
+      'motor-vehicles-for-persons': '17(5)(a)',
+      'food-beverages-catering-beauty-health': '17(5)(b)(i)',
+      'club-health-fitness-membership': '17(5)(b)(ii)',
+      'employee-travel-benefits': '17(5)(b)(iv)',
+      'personal-consumption': '17(5)(g)',
+      'gifts-free-samples-lost-stolen': '17(5)(h)'
+    },
+    basis: 'input_tax_credit_blocked_by_expense_category_with_clause',
+    effectiveFrom: '2017-07-01',
+    effectiveTo: '2019-01-31',
+    act: 'CGST',
+    section: 'Section 17(5)',
+    source: 'CGST Act 2017, section 17(5) as originally enacted: credit not available on motor vehicles and other conveyances except for the listed uses (clause (a)); food and beverages, outdoor catering, beauty treatment, health services, cosmetic and plastic surgery (clause (b)(i)); membership of a club, health and fitness centre (clause (b)(ii)); travel benefits to employees on vacation (clause (b)(iv)); goods or services used for personal consumption (clause (g)); goods lost, stolen, destroyed, written off or disposed of by way of gift or free samples (clause (h))',
+    attestations: []
+  },
+  {
+    id: 'gst.itc.blocked',
+    value: {
+      'motor-vehicles-for-persons': '17(5)(a)',
+      'motor-vehicle-services-insurance-repair': '17(5)(ab)',
+      'food-beverages-catering-beauty-health': '17(5)(b)(i)',
+      'club-health-fitness-membership': '17(5)(b)(ii)',
+      'employee-travel-benefits': '17(5)(b)(iv)',
+      'personal-consumption': '17(5)(g)',
+      'gifts-free-samples-lost-stolen': '17(5)(h)'
+    },
+    basis: 'input_tax_credit_blocked_by_expense_category_with_clause',
+    effectiveFrom: '2019-02-01',
+    effectiveTo: null,
+    act: 'CGST',
+    section: 'Section 17(5)',
+    source: 'CGST (Amendment) Act 2018 (31 of 2018) section 9, in force from 01.02.2019 by Notification 2/2019-Central Tax, substituting clauses (a), (aa), (ab) and (b) of section 17(5): motor vehicles for transport of persons with seating up to thirteen (clause (a)); services of general insurance, servicing, repair and maintenance of such vehicles (clause (ab)); food and beverages, outdoor catering, beauty treatment, health services, cosmetic and plastic surgery (clause (b)(i)); membership of a club, health and fitness centre (clause (b)(ii)); travel benefits to employees on vacation (clause (b)(iv)); clauses (g) and (h) unchanged; credit is allowed where the inward supply is used to make an outward supply of the same category or where an employer must provide it under a law in force',
+    attestations: []
   }
 ];

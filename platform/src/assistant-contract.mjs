@@ -1,5 +1,5 @@
 import { planReceiptWithoutInvoice } from './receipt-intent.mjs';
-import { planExpenseFromChat } from './expense-intent.mjs';
+import { planExpenseFromChat, planRetagFromChat } from './expense-intent.mjs';
 import { planPaymentFromChat } from './payment-intent.mjs';
 import { planOweQuestion } from './owe-intent.mjs';
 import { planFilingFromChat } from './filing-intent.mjs';
@@ -1329,6 +1329,8 @@ export function planLocalToolCall(state, message) {
     };
   }
 
+  const retag = planRetagFromChat(state, text);
+  if (retag) return retag;
   const expense = planExpenseFromChat(state, text);
   if (expense) return expense;
   const receipt = planReceiptWithoutInvoice(state, text);

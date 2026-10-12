@@ -78,7 +78,7 @@ Percentages are engineering estimates and are tracked in
 | FR-TAG-1 | Sales, purchases and each GST head are placed under the right account automatically. | Built |
 | FR-TAG-2 | An expense is placed under the right expense head (rent, salary, travel, and so on) from its description or its supplier. | Built: fifteen heads, a word-based tagger that says why; unknown wording goes to Other expenses with a nudge |
 | FR-TAG-3 | The product remembers how a supplier or an item was tagged and reuses it. | Built, per payee and per wording |
-| FR-TAG-4 | The owner can correct a tag in plain words, and the correction is remembered. | Built by tapping (a head picker before or after posting); not yet by typing |
+| FR-TAG-4 | The owner can correct a tag in plain words, and the correction is remembered. | Built: by tapping (a head picker before or after posting) and by typing ("that was rent", "tag EXP-0003 as travel"), previewed first and remembered |
 
 ### 5.3 Invoices, quotes and e-way bills ([feature spec](features/02-invoices-quotes-eway-bills.md))
 

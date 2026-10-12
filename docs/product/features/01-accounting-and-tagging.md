@@ -57,9 +57,23 @@ or a credit unless they ask.
 - In chat: "paid 12000 rent", "spent 450 on petrol by cash", "paid 2000 to Mahesh
   Transport for freight". A sentence naming a customer, a question, a negation or more
   than one amount records nothing.
-- Still to do: correcting a tag by typing; a language model proposing a head for
-  unknown wording (as a proposal only, never posted without confirmation); blocked
-  credit heads under s.17(5) such as food and personal use.
+- Correcting a tag by typing (built 2026-10-12): "that was rent" or "no, it should be
+  advertising" moves the expense just posted; "tag EXP-0003 as travel", "EXP-0003 is
+  software" names one. The head is found from its name, part of its name or one of its
+  keywords; an unknown word gets the list of heads and changes nothing. The move is
+  previewed, posted as a new entry, and remembered for that payee and wording.
+- Blocked-credit heads (built 2026-10-12): five heads carry a category of CGST Act
+  s.17(5), read from the dated rule `gst.itc.blocked` on the expense date: Food and
+  refreshments (clause (b)(i)), Staff welfare and gifts ((h)), Club and fitness
+  memberships ((b)(ii)), Car running and insurance ((ab), from February 2019), Personal
+  and household ((g)). An expense under one of them takes no input credit even when the
+  supplier's GSTIN and the GST rate are given; the preview says which clause, the whole
+  amount is cost, and the rule's attestation state is stated. Not covered: the
+  exceptions in s.17(5) (the same outward supply, or a legal obligation on the
+  employer); the owner can choose another head when one applies.
+- Still to do: a language model proposing a head for unknown wording (as a proposal
+  only, never posted without confirmation); GSTR-3B Table 4(D) reporting of blocked
+  credit.
 
 ### Corrections (credit and debit notes built)
 
