@@ -21,6 +21,7 @@ import 'business_sheet.dart';
 import 'new_entry_sheet.dart';
 import 'party_picker.dart';
 import 'register_screen.dart';
+import 'sales_tax_screen.dart';
 import 'taxes_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -34,17 +35,24 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   Future<Today>? _today;
+  Future<SalesTaxOverview?>? _salesTax;
+
+  bool get _us => widget.snapshot.company.country == 'US';
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     _today ??= _loadToday();
+    if (_us) _salesTax ??= loadSalesTax(AppScope.of(context).api);
   }
 
   @override
   void didUpdateWidget(HomeScreen old) {
     super.didUpdateWidget(old);
-    if (old.snapshot != widget.snapshot) _today = _loadToday();
+    if (old.snapshot != widget.snapshot) {
+      _today = _loadToday();
+      if (_us) _salesTax = loadSalesTax(AppScope.of(context).api);
+    }
   }
 
   Future<Today> _loadToday() => loadToday(AppScope.of(context).api);
@@ -142,6 +150,19 @@ class _HomeScreenState extends State<HomeScreen> {
                   today: today.data,
                   failed: today.hasError,
                   onTap: () => _open(const TaxesScreen()),
+                ),
+              )
+            else
+              FutureBuilder<SalesTaxOverview?>(
+                future: _salesTax,
+                builder: (context, snap) => _SalesTaxPanel(
+                  overview: snap.data,
+                  loading: snap.connectionState != ConnectionState.done,
+                  onTap: () async {
+                    await Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const SalesTaxScreen()));
+                    if (!mounted) return;
+                    setState(() { _salesTax = loadSalesTax(AppScope.of(context).api); });
+                  },
                 ),
               ),
             FutureBuilder<Today>(
@@ -280,6 +301,70 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SalesTaxPanel extends StatelessWidget {
+  const _SalesTaxPanel({required this.overview, required this.loading, required this.onTap});
+
+  final SalesTaxOverview? overview;
+  final bool loading;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    final data = overview;
+    final first = data?.states.firstOrNull;
+    final headline = loading
+        ? 'Checking your sales tax…'
+        : data == null
+        ? 'Could not check your sales tax'
+        : !data.hasNexus
+        ? 'Set up sales tax'
+        : data.overdue > 0
+        ? (data.overdue == 1 ? '1 sales tax return is overdue' : '${data.overdue} sales tax returns are overdue')
+        : 'Sales tax is on track';
+    final detail = loading
+        ? ''
+        : data == null
+        ? 'Pull down to try again.'
+        : !data.hasNexus
+        ? 'Say which states you collect sales tax in.'
+        : first?.lastPeriod == null
+        ? '${first?.state}: no period has ended yet.'
+        : '${first!.state} ${salesTaxPeriodWords(first.lastPeriod!)}';
+    return Material(
+      color: Palette.surface,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radiusCard), side: const BorderSide(color: Palette.line)),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(18, 16, 14, 16),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('SALES TAX', style: text.labelSmall),
+                    const SizedBox(height: 6),
+                    Text(headline, style: text.titleLarge),
+                    if (detail.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(detail, style: text.bodyMedium?.copyWith(color: Palette.muted)),
+                    ],
+                  ],
+                ),
+              ),
+              const Chevron(),
+            ],
+          ),
         ),
       ),
     );

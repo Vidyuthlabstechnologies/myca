@@ -100,6 +100,10 @@ export function planUsInvoice(state, input = {}) {
   const taxableLines = parsed.lines.filter((line) => line.taxable);
   let jurisdiction = '';
   let rate = null;
+  if (taxExempt && input.taxJurisdiction) {
+    jurisdiction = normalizeJurisdiction(input.taxJurisdiction);
+    if (!JURISDICTION.test(jurisdiction)) return fail('BAD_JURISDICTION', { code: jurisdiction });
+  }
   if (!taxExempt && taxableLines.length) {
     jurisdiction = normalizeJurisdiction(input.taxJurisdiction);
     if (!jurisdiction) return fail('JURISDICTION_REQUIRED');

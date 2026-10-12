@@ -224,6 +224,31 @@ attests it; one Play listing with a country choice; hosting unchanged.
 - Not built in U1: QuickBooks/Xero imports (bank CSV import is the shared one), a dedicated
   CPA pack beyond the entries CSV and Tally-free exports.
 
+## 12. U2 as built (2026-10-13)
+
+Owner-entered only; no rate or filing provider is connected (decision 3 in section 9 still
+open). Filing stays outside MyCA.
+
+- `platform/src/us-sales-tax.mjs`: the owner declares where they collect (`set_sales_tax_nexus`:
+  state, monthly/quarterly/annual, from, permit number); `sales_tax_return` drafts a state's return
+  for a period from the invoices whose jurisdiction is in that state (gross, exempt, non-taxable,
+  taxable, tax by jurisdiction and rate, payments, to pay), with the due date from a dated rule
+  where one exists (`us.salestax.due.TX` the 20th of the month after, `us.salestax.due.CA` the
+  last day of the month after; both unattested) and no date at all for other states;
+  `sales_tax_review` walks sales, tax and approval bound to a draft hash like the GST and TDS
+  reviews; `record_sales_tax_payment` posts Dr 2110 / Cr bank or cash; `record_sales_tax_filing`
+  stores the state's confirmation in the shared `filings` list as `SALES_TAX_<ST>`;
+  `sales_tax_overview` feeds the app. Exempt invoices keep their jurisdiction so they count as
+  exempt sales on the state's return.
+- Chat: "I collect sales tax in TX, quarterly", "sales tax return TX", "review sales tax for TX",
+  "paid sales tax to TX for Q3", "filed sales tax for TX for Q3, confirmation 778899",
+  "what sales tax do I owe?".
+- App: Home shows a Sales tax panel for a US business (replacing the Indian taxes panel) that
+  opens the Sales tax screen: states with their latest period, review (the shared review screen),
+  record a payment, record the filing, add a state.
+- Not built: state-specific period calendars (New York's non-calendar quarters), prepayment and
+  accelerated schedules, local return splits, a provider adapter, and a filing pack per state.
+
 ## 10. Recommendation
 
 Approve option A and phase U0 now: it is a week, it does not change anything an Indian

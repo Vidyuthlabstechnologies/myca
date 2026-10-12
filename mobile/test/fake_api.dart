@@ -172,6 +172,10 @@ class FakeMycaApi implements MycaApi {
   String buyerAddress = '';
   bool tdsDeductor = false;
   String country = 'IN';
+  final salesTaxStates = <Map<String, Object?>>[];
+  bool salesTaxPaid = false;
+  bool salesTaxFiled = false;
+  bool salesTaxApproved = false;
   num tdsDue = 6000;
   final tdsDeposits = <Map<String, Object?>>[];
   final employees = <Map<String, Object?>>[
@@ -851,6 +855,23 @@ class FakeMycaApi implements MycaApi {
           'confirmed': true,
         });
       }
+      if (held.tool == 'set_sales_tax_nexus') {
+        salesTaxStates.removeWhere((row) => row['state'] == held.args['state']);
+        salesTaxStates.add({'state': held.args['state'], 'frequency': held.args['frequency']});
+        return ChatReply.fromJson({'reply': 'Recorded: you collect sales tax in ${held.args['state']} and file ${held.args['frequency']}.', 'posted': true});
+      }
+      if (held.tool == 'record_sales_tax_payment') {
+        salesTaxPaid = true;
+        return ChatReply.fromJson({'reply': 'Recorded \$53.75 of sales tax paid to ${held.args['state']} for ${held.args['period']}.', 'posted': true});
+      }
+      if (held.tool == 'record_sales_tax_filing') {
+        salesTaxFiled = true;
+        return ChatReply.fromJson({'reply': 'Recorded the sales tax return ${held.args['state']} for ${held.args['period']} as filed, confirmation ${held.args['confirmation']}.', 'posted': true});
+      }
+      if (held.tool == 'sales_tax_review_answer') {
+        salesTaxApproved = true;
+        return ChatReply.fromJson({'reply': 'Confirmed.', 'posted': true});
+      }
       if (held.tool == 'create_invoice') {
         invoices.add({
           'id': 'INV-0003',
@@ -993,6 +1014,68 @@ class FakeMycaApi implements MycaApi {
           shares.add({'on': '2026-10-05T10:00:00.000Z', 'by': 'u-owner', 'channel': args['channel'], 'outcome': args['outcome']});
         }
         return {'ok': true, 'invoiceId': args['invoiceId'], 'recorded': args['outcome'] != 'cancelled'};
+      case 'sales_tax_overview':
+        return {
+          'ok': true,
+          'data': {
+            'states': [
+              for (final row in salesTaxStates)
+                {
+                  'state': row['state'],
+                  'frequency': row['frequency'],
+                  'permitNo': '',
+                  'lastPeriod': {
+                    'period': '2026-Q3',
+                    'taxCollected': 53.75,
+                    'toPay': salesTaxPaid ? 0 : 53.75,
+                    'dueDate': '2026-10-20',
+                    'filed': salesTaxFiled ? {'confirmation': 'TX778899', 'filedOn': '2026-10-05', 'late': false} : null,
+                    'approved': salesTaxApproved,
+                    'empty': false,
+                    'ended': true,
+                  },
+                  'currentPeriod': {'period': '2026-Q4', 'taxCollected': 8.25, 'invoices': 1},
+                  'overdue': false,
+                  'notes': const ['The due date comes from a dated rule your CPA has not reviewed yet.'],
+                },
+            ],
+            'overdue': 0,
+            'hasNexus': salesTaxStates.isNotEmpty,
+          },
+        };
+      case 'sales_tax_review':
+        return {
+          'ok': true,
+          'data': {
+            'state': 'TX',
+            'period': '2026-Q3',
+            'periods': ['2026-Q3'],
+            'month': 'TX 2026-Q3',
+            'draftHash': 'd' * 64,
+            'empty': false,
+            'changed': false,
+            'steps': [
+              {
+                'id': 'sales',
+                'title': 'Sales in TX for 2026-Q3',
+                'lines': [
+                  {'label': 'Gross sales on 3 invoices', 'amount': 940},
+                  {'label': 'Taxable sales', 'amount': 700, 'strong': true},
+                ],
+                'note': 'Every figure comes from the invoices in this period.',
+                'question': 'Is this information correct?',
+                'yes': 'Yes, correct',
+                'no': 'Something is wrong',
+                'status': salesTaxApproved ? 'confirmed' : 'open',
+                'waitingFor': null,
+                'answer': null,
+              },
+            ],
+            'next': salesTaxApproved ? null : 'sales',
+            'approved': salesTaxApproved,
+            'approval': null,
+          },
+        };
       case 'list_sales_tax_rates':
         return {
           'ok': true,

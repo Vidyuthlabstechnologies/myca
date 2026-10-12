@@ -196,6 +196,47 @@ function fmtToolResult(name, result) {
     if (!d.contractors.length) return `No supplier is marked as a contractor. Say "<name> is a contractor" to start counting towards 1099s for ${d.year}.`;
     return `Contractor payments in ${d.year} (1099-NEC at or above ${money(d.threshold)}):\n${d.contractors.map((c) => `· ${c.name}: ${money(c.total)}${c.needs1099 ? ' — needs a 1099-NEC' : ''}${c.needs1099 && !c.w9Received ? ', W-9 missing' : ''}`).join('\n')}${d.notes.length ? `\n${d.notes.join(' ')}` : ''}`;
   }
+  if (name === 'set_sales_tax_nexus' && result.nexus) {
+    return `Recorded: you collect sales tax in ${result.nexus.state} and file ${result.nexus.frequency} from ${result.nexus.from}. Say "sales tax return ${result.nexus.state}" to see a period.`;
+  }
+  if (name === 'list_sales_tax_nexus' && result.data) {
+    const rows = result.data.states;
+    return rows.length ? `You collect sales tax in:\n${rows.map((r) => `· ${r.state}, filed ${r.frequency} from ${r.from}${r.permitNo ? `, permit ${r.permitNo}` : ''}`).join('\n')}` : 'No state is recorded yet. Say, for example, "I collect sales tax in TX, quarterly".';
+  }
+  if ((name === 'sales_tax_return' || name === 'sales_tax_overview') && result.data && name === 'sales_tax_return') {
+    const d = result.data;
+    const head = `Sales tax return ${d.state} for ${d.period} (${d.from} to ${d.to})${d.dueDate ? `, due ${d.dueDate}` : ''}:`;
+    const lines = [
+      `· Gross sales ${money(d.grossSales)} on ${d.invoices === 1 ? '1 invoice' : `${d.invoices} invoices`}`,
+      ...(d.exemptSales > 0 ? [`· Exempt ${money(d.exemptSales)}`] : []),
+      ...(d.nonTaxableSales > 0 ? [`· Non-taxable ${money(d.nonTaxableSales)}`] : []),
+      `· Taxable ${money(d.taxableSales)}`,
+      ...d.byJurisdiction.map((r) => `· ${r.name} (${r.code}) at ${r.ratePercent}%: ${money(r.tax)}`),
+      `· Tax collected ${money(d.taxCollected)}${d.paid > 0 ? `, paid ${money(d.paid)}` : ''}, to pay ${money(d.toPay)}`,
+      d.filed ? `· Filed on ${d.filed.filedOn}, confirmation ${d.filed.confirmation}` : d.approved ? '· Approved, not yet recorded as filed' : '· Not yet reviewed; say "review sales tax ${d.state}"',
+    ];
+    return [head, ...lines, ...(d.notes.length ? [d.notes.join(' ')] : [])].join('\n');
+  }
+  if (name === 'sales_tax_overview' && result.data) {
+    const rows = result.data.states;
+    if (!rows.length) return 'No state is recorded yet. Say, for example, "I collect sales tax in TX, quarterly".';
+    return rows.map((r) => `${r.state} (${r.frequency}): ${r.lastPeriod ? `${r.lastPeriod.period} collected ${money(r.lastPeriod.taxCollected)}, to pay ${money(r.lastPeriod.toPay)}${r.lastPeriod.dueDate ? `, due ${r.lastPeriod.dueDate}` : ''}${r.lastPeriod.filed ? ', filed' : r.lastPeriod.approved ? ', approved' : ''}` : 'no period yet'}${r.overdue ? ' — overdue' : ''}`).join('\n');
+  }
+  if (name === 'sales_tax_review_answer' && result.review) {
+    const review = result.review;
+    if (result.approved) return `Approved the ${review.month} sales tax return. Nothing has been filed. ${review.toPay > 0 ? `${money(review.toPay)} is to pay with it.` : ''}File it on the state portal, or send it to your CPA, and record the confirmation.`;
+    if (result.answer === 'wrong') return 'Noted that it is not right. Fix the entries; the review starts again from that step when the figures change.';
+    const next = review.steps.find((step) => step.id === review.next);
+    return next ? `Confirmed. Next: ${next.title}. Say "review sales tax ${review.state}" to see it.` : 'Confirmed.';
+  }
+  if (name === 'record_sales_tax_payment' && result.payment) {
+    const p = result.payment;
+    return `Recorded ${money(p.amount)} of sales tax paid to ${p.state} for ${p.period} on ${p.date}.${result.left > 0.005 ? ` ${money(result.left)} is still to pay.` : ' Nothing is left to pay for that period.'}`;
+  }
+  if (name === 'record_sales_tax_filing' && result.filing) {
+    const f = result.filing;
+    return `Recorded the ${f.label} for ${f.period} as filed on ${f.filedOn}, confirmation ${f.arn}.${f.late ? ` It was due by ${f.dueDate}.` : ''}`;
+  }
   if (name === 'set_transport' && result.transport) {
     return `Recorded transport for ${result.invoiceId}: ${transportWords(result.transport)}.${result.need?.needed ? ` ${result.need.why}` : ''}`;
   }

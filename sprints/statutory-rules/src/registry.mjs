@@ -6,6 +6,7 @@ import { RULES as AUDIT_THRESHOLD_RULES } from './rules/audit-thresholds.mjs';
 import { RULES as HOLIDAY_RULES } from './rules/holidays.mjs';
 import { RULES as PAYROLL_RULES } from './rules/payroll.mjs';
 import { RULES as US_FEDERAL_RULES } from './rules/us-federal.mjs';
+import { RULES as US_SALES_TAX_RULES } from './rules/us-sales-tax.mjs';
 
 export const RULE_MODULES = Object.freeze({
   'gst': GST_RULES,
@@ -15,7 +16,8 @@ export const RULE_MODULES = Object.freeze({
   'audit-thresholds': AUDIT_THRESHOLD_RULES,
   'holidays': HOLIDAY_RULES,
   'payroll': PAYROLL_RULES,
-  'us-federal': US_FEDERAL_RULES
+  'us-federal': US_FEDERAL_RULES,
+  'us-sales-tax': US_SALES_TAX_RULES
 });
 
 export function registeredRecords() {

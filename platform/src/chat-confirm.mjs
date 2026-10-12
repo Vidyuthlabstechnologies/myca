@@ -32,13 +32,14 @@ import { planTransport, transportWords, ewayBillNeed } from './eway-bill.mjs';
 import { planApproval, planSalaryPayment, payrollWords } from './payroll.mjs';
 import { setCurrentCountry, formatMoneyCurrent, countryOf } from './country.mjs';
 import { usDocumentPreview, planSalesTaxRate, planContractor } from './us-sales.mjs';
+import { planNexus, checkSalesTaxAnswer, planSalesTaxPayment, planSalesTaxFiling } from './us-sales-tax.mjs';
 import { filingRows } from './deadline-run.mjs';
 import { tally, bank, gstin as gstinRules } from './sprint-load.mjs';
 import { parseZohoBooksCsv } from './import-zoho.mjs';
 import { tallyXmlToDayBookCsv } from './tally-xml.mjs';
 
 export const CONFIRM_TOOLS = new Set([
-  'create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'record_filing', 'record_supplier_reminder', 'add_employee', 'change_salary', 'end_employment', 'approve_payroll', 'record_salary_payment', 'set_tds_deductor', 'record_tds_deposit', 'tds_review_answer', 'set_gst_credit_opening', 'post_expense', 'set_expense_head', 'create_credit_note', 'create_debit_note', 'create_purchase_note', 'cancel_invoice', 'gst_review_answer', 'import_gstr2b', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'set_party_address', 'set_transport', 'set_sales_tax_rate', 'set_contractor', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote',
+  'create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'record_filing', 'record_supplier_reminder', 'add_employee', 'change_salary', 'end_employment', 'approve_payroll', 'record_salary_payment', 'set_tds_deductor', 'record_tds_deposit', 'tds_review_answer', 'set_gst_credit_opening', 'post_expense', 'set_expense_head', 'create_credit_note', 'create_debit_note', 'create_purchase_note', 'cancel_invoice', 'gst_review_answer', 'import_gstr2b', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'set_party_address', 'set_transport', 'set_sales_tax_rate', 'set_contractor', 'set_sales_tax_nexus', 'sales_tax_review_answer', 'record_sales_tax_payment', 'record_sales_tax_filing', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote',
   'import_tally', 'import_tally_xml', 'import_zoho', 'import_bank',
   'govt_generate_irn', 'govt_nic_cancel_irn',
   'exception_decide',
@@ -83,6 +84,82 @@ function contractorPreview(state, args) {
     summary: `${c.partyName}: ${c.contractor ? 'a contractor' : 'not a contractor'}${c.entityType ? `, ${c.entityType}` : ''}${c.w9Received ? ', W-9 received' : ', W-9 not yet received'}${c.tinLast4 ? `, TIN ending ${c.tinLast4}` : ''}.`,
     effects: [c.contractor ? 'Payments to them count towards a 1099-NEC for the year.' : 'Payments to them are no longer counted towards a 1099-NEC.', 'Only the last four digits of a TIN are kept here.'],
     figures: { partyName: c.partyName, contractor: c.contractor },
+  };
+}
+
+const SALES_TAX_REASONS = {
+  BAD_STATE: (p) => `${p.state || 'That'} is not a two-letter state code.`,
+  BAD_FREQUENCY: () => 'The filing frequency is monthly, quarterly or annual.',
+  NO_NEXUS: (p) => `You have not said that you collect sales tax in ${p.state}. Say "I collect sales tax in ${p.state}, quarterly" first.`,
+  BAD_PERIOD: (p) => `${p.period} is not a ${p.frequency} period (for example ${p.frequency === 'monthly' ? '2026-09' : p.frequency === 'quarterly' ? '2026-Q3' : '2026'}).`,
+  INVALID_DATE: () => 'That is not a date I can read.',
+  FUTURE_DATE: () => 'That date has not come yet.',
+  PERIOD_LOCKED: (p) => `That date is in a locked period (through ${p.lockThrough}).`,
+  NOTHING_DUE: (p) => `Nothing is left to pay for ${p.state} ${p.period}.`,
+  BAD_AMOUNT: () => 'The amount must be more than zero.',
+  MORE_THAN_DUE: (p) => `That is more than is left to pay (${formatMoneyCurrent(p.due)}).`,
+  BAD_CONFIRMATION: () => 'The confirmation number is 3 to 40 letters, digits or dashes.',
+  PERIOD_NOT_ENDED: (p) => `${p.period} has not ended yet (it runs to ${p.to}).`,
+  ALREADY_RECORDED: (p) => `${p.period} is already recorded as filed (${p.arn} on ${p.filedOn}).`,
+  ARN_USED: (p) => `Confirmation ${p.arn} is already recorded against another return.`,
+};
+
+function salesTaxBlocked(plan) {
+  const reason = SALES_TAX_REASONS[plan.error] || REVIEW_REASONS[plan.error];
+  return { blockers: [reason ? (typeof reason === 'function' ? reason(plan) : reason) : plan.error], summary: '', effects: [], figures: {} };
+}
+
+function nexusPreview(state, args) {
+  const plan = planNexus(state, args);
+  if (!plan.ok) return salesTaxBlocked(plan);
+  const n = plan.nexus;
+  return {
+    blockers: [],
+    summary: `You collect sales tax in ${n.state} and file ${n.frequency} from ${n.from}${n.permitNo ? `, permit ${n.permitNo}` : ''}${plan.was ? ` (was ${plan.was.frequency} from ${plan.was.from})` : ''}.`,
+    effects: ['Returns for that state are drafted from your invoices by period. Nothing is filed by MyCA.'],
+    figures: { state: n.state, frequency: n.frequency, from: n.from },
+  };
+}
+
+function salesTaxReviewAnswerPreview(state, args) {
+  const checked = checkSalesTaxAnswer(state, args);
+  if (!checked.ok) return salesTaxBlocked(checked);
+  const { review, step } = checked;
+  const answered = {
+    correct: `You are confirming: ${step.title}.`,
+    wrong: `You are marking ${step.title.toLowerCase()} as not right${args.note ? `: ${args.note}` : ''}. Fix the entries, then review again.`,
+    approve: `You are approving the ${review.month} sales tax return. Nothing is filed.`,
+  }[args.answer];
+  return {
+    blockers: [],
+    summary: `${step.title}: ${step.lines.map((line) => `${line.label} ${formatMoneyCurrent(line.amount)}`).join('; ')}.`,
+    effects: [answered],
+    figures: { state: review.state, period: review.period, step: step.id, answer: args.answer, draftHash: review.draftHash },
+  };
+}
+
+function salesTaxPaymentPreview(state, args) {
+  const plan = planSalesTaxPayment(state, args);
+  if (!plan.ok) return salesTaxBlocked(plan);
+  const p = plan.payment;
+  const left = Math.round((plan.draft.toPay - p.amount) * 100) / 100;
+  return {
+    blockers: [],
+    summary: `Sales tax payment to ${p.state} for ${p.period}: ${formatMoneyCurrent(p.amount)} on ${p.date} from ${p.mode === 'cash' ? 'cash' : 'the bank'}${p.reference ? `, reference ${p.reference}` : ''}.`,
+    effects: [`${formatMoneyCurrent(p.amount)} goes out of your ${p.mode === 'cash' ? 'cash' : 'bank'} and reduces sales tax payable.`, left > 0.005 ? `${formatMoneyCurrent(left)} is still to pay for this period.` : 'Nothing is left to pay for this period.'],
+    figures: { state: p.state, period: p.period, amount: p.amount, date: p.date, left },
+  };
+}
+
+function salesTaxFilingPreview(state, args) {
+  const plan = planSalesTaxFiling(state, args);
+  if (!plan.ok) return salesTaxBlocked(plan);
+  const f = plan.filing;
+  return {
+    blockers: [],
+    summary: `Record the ${plan.draft.state} sales tax return for ${f.period} as filed on ${f.filedOn}, confirmation ${f.arn}${f.filedBy ? ` by ${f.filedBy}` : ''}.`,
+    effects: [f.late ? `It was due by ${f.dueDate}, so this is late.` : f.dueDate ? `It was due by ${f.dueDate}.` : 'No due date is in the rules for this state.', plan.draft.approved ? 'The figures were approved in the review.' : 'The figures were not approved in the review; the record is kept anyway.', 'MyCA files nothing; this only records what you did.'],
+    figures: { state: plan.draft.state, period: f.period, confirmation: f.arn, filedOn: f.filedOn, late: f.late },
   };
 }
 
@@ -883,6 +960,10 @@ const PREVIEWERS = {
   set_party_address: addressPreview,
   set_sales_tax_rate: salesTaxRatePreview,
   set_contractor: contractorPreview,
+  set_sales_tax_nexus: nexusPreview,
+  sales_tax_review_answer: salesTaxReviewAnswerPreview,
+  record_sales_tax_payment: salesTaxPaymentPreview,
+  record_sales_tax_filing: salesTaxFilingPreview,
   set_transport: transportPreview,
   ask_ca: askPreview,
   create_quote: quotePreview,

@@ -27,6 +27,7 @@ import { payrollFor, approvePayroll, recordSalaryPayment, listPayroll, payslip }
 import { pfEcr, esiReturn } from './payroll-files.mjs';
 import { countryOf, isCountry, toolServesCountry } from './country.mjs';
 import { createUsInvoice, createUsPurchase, setSalesTaxRate, listSalesTaxRates, setContractor, contractorPayments } from './us-sales.mjs';
+import { setNexus, listNexus, salesTaxReturn, salesTaxReviewOf, answerSalesTaxReview, recordSalesTaxPayment, recordSalesTaxFiling, salesTaxOverview } from './us-sales-tax.mjs';
 import { recordTdsDeposit, setDeductor, tdsSummary } from './tds-deduction.mjs';
 import { paymentFor, setCreditOpening } from './gst-payment.mjs';
 import { tdsReturnDraft } from './tds-return.mjs';
@@ -602,6 +603,60 @@ export const TOOLS = [
     description: 'What was paid to each contractor in a calendar year, who is at or above the 1099-NEC threshold from the dated rule, and whose W-9 is missing. US only. Read-only.',
     args: ['year'],
     run: (state, args = {}) => contractorPayments(state, args),
+  },
+  {
+    name: 'set_sales_tax_nexus',
+    title: 'Sales tax registration',
+    description: 'Record that the business collects sales tax in a state (two-letter code), how often it files there (monthly, quarterly or annual) and from when, with the permit number if wanted. US only.',
+    args: ['state', 'frequency', 'from', 'permitNo'],
+    run: (state, args = {}) => setNexus(state, args),
+  },
+  {
+    name: 'list_sales_tax_nexus',
+    title: 'Sales tax registrations',
+    description: 'The states where the business collects sales tax and how often it files. US only. Read-only.',
+    run: (state) => listNexus(state),
+  },
+  {
+    name: 'sales_tax_return',
+    title: 'Sales tax return',
+    description: 'The sales tax return for one state and period (the latest ended period unless given): gross, exempt, non-taxable and taxable sales, tax collected by jurisdiction, payments made, what is left to pay, the due date from the dated rule where one exists, and whether it is approved or recorded as filed. US only. Read-only.',
+    args: ['state', 'period'],
+    run: (state, args = {}) => salesTaxReturn(state, args),
+  },
+  {
+    name: 'sales_tax_review',
+    title: 'Review the sales tax return',
+    description: 'The steps of the review for one state and period: sales, tax collected, then approval, each asking "Is this information correct?". US only. Read-only.',
+    args: ['state', 'period'],
+    run: (state, args = {}) => salesTaxReviewOf(state, args),
+  },
+  {
+    name: 'sales_tax_review_answer',
+    title: 'Answer a sales tax review step',
+    description: 'Confirm a step of a state sales tax return, mark it wrong with a note, or approve the return. Bound to the draft the owner saw. Files nothing. US only.',
+    args: ['state', 'period', 'step', 'answer', 'draftHash', 'note'],
+    run: (state, args = {}) => answerSalesTaxReview(state, args),
+  },
+  {
+    name: 'record_sales_tax_payment',
+    title: 'Record a sales tax payment',
+    description: 'Record sales tax paid to a state for a period, from the bank or cash, with the reference. Defaults to everything still to pay for that period. US only.',
+    args: ['state', 'period', 'amount', 'date', 'mode', 'reference'],
+    run: (state, args = {}) => recordSalesTaxPayment(state, args),
+  },
+  {
+    name: 'record_sales_tax_filing',
+    title: 'Record a filed sales tax return',
+    description: 'Record that a state sales tax return was filed outside MyCA, with its confirmation number and date. Files nothing. US only.',
+    args: ['state', 'period', 'confirmation', 'filedOn', 'filedBy'],
+    run: (state, args = {}) => recordSalesTaxFiling(state, args),
+  },
+  {
+    name: 'sales_tax_overview',
+    title: 'Sales tax overview',
+    description: 'Every state the business collects sales tax in, with the latest ended period (tax collected, to pay, due date, approved, filed) and the running period. US only. Read-only.',
+    run: (state) => salesTaxOverview(state),
   },
   {
     name: 'list_credit_notes',
