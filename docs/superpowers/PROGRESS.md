@@ -116,7 +116,7 @@ the PRD percentage above; the PRD is the Indian product.
 | Phase | Status |
 |---|---|
 | U0 Country-aware core: `company.country`, currency and locale per country, year per country, the `us-federal` rules namespace, tools and the Taxes screen gated by country, money formatting in chat, previews and the app | ✅ Built 2026-10-13; Indian suites unchanged |
-| U1 Books, invoicing, imports, CPA export for a US business | ⏳ Waits on the owner's six decisions (spec section 9) |
+| U1 Books, invoicing, imports, CPA export for a US business | ✅ Core built 2026-10-13 under stated assumptions (spec section 11): owner-entered jurisdiction rates, invoices with sales tax or exemption, bills with tax paid as cost, contractors and the 1099-NEC list from a dated rule, US entries CSV, app forms. Not yet: QuickBooks/Xero imports, a fuller CPA pack |
 | U2 Sales tax returns | ⏳ |
 | U3 Payroll | ⏳ Needs a US CPA for attestation |
 | U4 Owner's taxes | ⏳ |

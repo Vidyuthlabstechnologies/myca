@@ -8,6 +8,8 @@ import { planTdsFromChat } from './tds-intent.mjs';
 import { planGstPayFromChat } from './gst-pay-intent.mjs';
 import { planTransportFromChat, planAddressFromChat } from './eway-intent.mjs';
 import { planPayrollFromChat } from './payroll-intent.mjs';
+import { planUsFromChat } from './us-intent.mjs';
+import { countryOf } from './country.mjs';
 import { tdsReviewOf } from './tds-review.mjs';
 import { parseQuarter } from './tds-return.mjs';
 import { reviewOf } from './gst-review.mjs';
@@ -27,13 +29,14 @@ const noArgs = {
 const lineSchema = {
   type: 'object',
   additionalProperties: false,
-  required: ['description', 'qty', 'rate', 'gstRate'],
+  required: ['description', 'qty', 'rate'],
   properties: {
     description: { type: 'string', minLength: 1 },
     hsn: { type: 'string' },
     qty: { type: 'number', exclusiveMinimum: 0 },
     rate: { type: 'number', minimum: 0 },
     gstRate: { type: 'number', minimum: 0, maximum: 28 },
+    taxable: { type: 'boolean' },
   },
 };
 
@@ -244,11 +247,16 @@ export const TOOL_ARG_SCHEMAS = {
   list_invoices: noArgs,
   create_invoice: {
     ...documentSchema,
-    properties: { ...documentSchema.properties, paymentTermsDays: { type: 'integer', minimum: 0, maximum: 365 } },
+    properties: {
+      taxJurisdiction: { type: 'string', maxLength: 24 },
+      taxExempt: { type: 'boolean' },
+      exemptionReason: { type: 'string', maxLength: 120 },
+      partyAddress: { type: 'string', maxLength: 200 }, ...documentSchema.properties, paymentTermsDays: { type: 'integer', minimum: 0, maximum: 365 } },
   },
   create_purchase: {
     ...documentSchema,
-    properties: { ...documentSchema.properties, supplierInvoiceNo: { type: 'string', maxLength: 16 }, ...tdsProperties },
+    properties: {
+      salesTaxPaid: { type: 'number', minimum: 0 }, ...documentSchema.properties, supplierInvoiceNo: { type: 'string', maxLength: 16 }, ...tdsProperties },
   },
   print_invoice: {
     type: 'object',
@@ -445,6 +453,36 @@ export const TOOL_ARG_SCHEMAS = {
     type: 'object',
     additionalProperties: false,
     properties: { status: { type: 'string', enum: ['open', 'closed', 'all'] } },
+  },
+  set_sales_tax_rate: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['code', 'ratePercent'],
+    properties: {
+      code: { type: 'string', maxLength: 24 },
+      name: { type: 'string', maxLength: 80 },
+      ratePercent: { type: 'number', minimum: 0, maximum: 20 },
+      from: { type: 'string' },
+    },
+  },
+  list_sales_tax_rates: noArgs,
+  set_contractor: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['partyName'],
+    properties: {
+      partyName: { type: 'string', minLength: 1, maxLength: 120 },
+      contractor: { type: 'boolean' },
+      w9Name: { type: 'string', maxLength: 120 },
+      entityType: { type: 'string', enum: ['individual', 'sole-proprietor', 'llc', 'partnership', 'c-corp', 's-corp', 'other'] },
+      tinLast4: { type: 'string', pattern: '^([0-9]{4})?$' },
+      w9Received: { type: 'boolean' },
+    },
+  },
+  contractor_payments: {
+    type: 'object',
+    additionalProperties: false,
+    properties: { year: { type: 'string', pattern: '^[0-9]{4}$' } },
   },
   set_party_address: {
     type: 'object',
@@ -1099,6 +1137,8 @@ const TOOL_RISK = {
   end_employment: 'writes_books',
   set_payment_terms: 'writes_books',
   set_party_address: 'writes_books',
+  set_sales_tax_rate: 'writes_books',
+  set_contractor: 'writes_books',
   set_transport: 'writes_books',
   record_share: 'writes_books',
   govt_generate_ewb: 'external_government_api',
@@ -1264,6 +1304,10 @@ export function planLocalToolCall(state, message) {
   if (owed) return owed;
   const payment = planPaymentFromChat(state, text);
   if (payment) return payment;
+  if (countryOf(state) === 'US') {
+    const us = planUsFromChat(state, text);
+    if (us) return us;
+  }
   const saidTerms = takeInvoiceTerms(text);
   const doc = parseDocument(saidTerms.text);
   const asking = isQuestion(text) || isNegated(text);

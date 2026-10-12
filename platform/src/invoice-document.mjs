@@ -2,6 +2,7 @@ import { gstin } from './sprint-load.mjs';
 import { creditedAgainst, debitedAgainst } from './credit-notes.mjs';
 import { quoteState } from './quotes.mjs';
 import { ewayBillStatus, transportWords } from './eway-bill.mjs';
+import { countryOf } from './country.mjs';
 
 const round2 = (value) => Math.round(Number(value || 0) * 100) / 100;
 const text = (value) => String(value ?? '').trim();
@@ -19,11 +20,12 @@ function common(state, doc) {
   const company = state.company || {};
   const party = partyOf(state, doc);
   const buyerAddress = text(doc.partyAddress || party?.address);
+  const us = countryOf(state) === 'US';
   const missing = [];
-  if (!text(company.gstin)) missing.push('SELLER_GSTIN');
+  if (!us && !text(company.gstin)) missing.push('SELLER_GSTIN');
   if (!text(company.address)) missing.push('SELLER_ADDRESS');
-  if (!buyerAddress && (text(doc.partyGstin) || round2(doc.total) >= 50000)) missing.push('BUYER_ADDRESS');
-  if (doc.lines.some((line) => !text(line.hsn))) missing.push('HSN');
+  if (!us && !buyerAddress && (text(doc.partyGstin) || round2(doc.total) >= 50000)) missing.push('BUYER_ADDRESS');
+  if (!us && doc.lines.some((line) => !text(line.hsn))) missing.push('HSN');
   return {
     id: doc.id,
     date: doc.date,
@@ -48,6 +50,7 @@ function common(state, doc) {
       sgst: round2(line.sgst),
       igst: round2(line.igst),
       amount: round2(line.amount),
+      ...(us ? { taxRate: Number(line.taxRate || 0), salesTax: round2(line.salesTax || 0) } : {}),
     })),
     taxable: round2(doc.taxable),
     cgst: round2(doc.cgst),
@@ -55,6 +58,7 @@ function common(state, doc) {
     igst: round2(doc.igst),
     total: round2(doc.total),
     missing,
+    ...(us ? { country: 'US', subtotal: round2(doc.subtotal ?? doc.taxable), salesTax: round2(doc.salesTax ?? doc.salesTaxPaid ?? 0), taxJurisdiction: text(doc.taxJurisdiction), taxRate: Number(doc.taxRate || 0), taxExempt: Boolean(doc.taxExempt), exemptionReason: text(doc.exemptionReason) } : { country: 'IN' }),
   };
 }
 

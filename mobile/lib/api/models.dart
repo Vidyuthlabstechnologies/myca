@@ -1756,6 +1756,7 @@ class InvoiceLine {
     required this.gstRate,
     required this.taxable,
     required this.amount,
+    this.taxRate = 0,
   });
 
   factory InvoiceLine.fromJson(Object? json) {
@@ -1768,6 +1769,7 @@ class InvoiceLine {
       gstRate: _num(map['gstRate']),
       taxable: _num(map['taxable']),
       amount: _num(map['amount']),
+      taxRate: _num(map['taxRate']),
     );
   }
 
@@ -1778,6 +1780,7 @@ class InvoiceLine {
   final num gstRate;
   final num taxable;
   final num amount;
+  final num taxRate;
 }
 
 class InvoiceDocument {
@@ -1814,6 +1817,13 @@ class InvoiceDocument {
     this.kind = 'invoice',
     this.validUntil = '',
     this.linkedId = '',
+    this.country = 'IN',
+    this.subtotal = 0,
+    this.salesTax = 0,
+    this.taxJurisdiction = '',
+    this.taxRate = 0,
+    this.taxExempt = false,
+    this.exemptionReason = '',
   });
 
   static InvoiceDocument? fromTool(Object? json) {
@@ -1860,6 +1870,13 @@ class InvoiceDocument {
       kind: _text(map['kind']).isEmpty ? 'invoice' : _text(map['kind']),
       validUntil: _text(map['validUntil']),
       linkedId: _text(map['kind']) == 'quote' ? _text(map['invoiceId']) : _text(map['quoteId']),
+      country: _text(map['country']).isEmpty ? 'IN' : _text(map['country']).toUpperCase(),
+      subtotal: _num(map['subtotal']),
+      salesTax: _num(map['salesTax']),
+      taxJurisdiction: _text(map['taxJurisdiction']),
+      taxRate: _num(map['taxRate']),
+      taxExempt: map['taxExempt'] == true,
+      exemptionReason: _text(map['exemptionReason']),
       missing: [
         for (final code in (map['missing'] as List? ?? const [])) _text(code),
       ],
@@ -1901,17 +1918,37 @@ class InvoiceDocument {
   final String kind;
   final String validUntil;
   final String linkedId;
+  final String country;
+  final num subtotal;
+  final num salesTax;
+  final String taxJurisdiction;
+  final num taxRate;
+  final bool taxExempt;
+  final String exemptionReason;
 
   bool get isQuote => kind == 'quote';
 
+  bool get isUs => country == 'US';
+
   String get title => isQuote ? 'Quotation' : (sellerGstin.isEmpty ? 'Invoice' : 'Tax invoice');
 
-  List<(String, num)> get taxHeads => [
-    if (cgst > 0) ('CGST', cgst),
-    if (sgst > 0) ('SGST', sgst),
-    if (igst > 0) ('IGST', igst),
-  ];
+  String get subtotalLabel => isUs ? 'Subtotal' : 'Taxable value';
+
+  List<(String, num)> get taxHeads => isUs
+      ? [
+          if (taxExempt)
+            ('Sales tax: exempt ($exemptionReason)', 0)
+          else if (taxJurisdiction.isNotEmpty)
+            ('Sales tax ($taxJurisdiction ${_plainRate(taxRate)}%)', salesTax),
+        ]
+      : [
+          if (cgst > 0) ('CGST', cgst),
+          if (sgst > 0) ('SGST', sgst),
+          if (igst > 0) ('IGST', igst),
+        ];
 }
+
+String _plainRate(num value) => value == value.roundToDouble() ? value.toInt().toString() : value.toString();
 
 Map<String, dynamic> toolData(Object? json) {
   final map = _map(json);

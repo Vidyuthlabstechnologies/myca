@@ -171,6 +171,7 @@ class FakeMycaApi implements MycaApi {
   Map<String, Object?>? transport;
   String buyerAddress = '';
   bool tdsDeductor = false;
+  String country = 'IN';
   num tdsDue = 6000;
   final tdsDeposits = <Map<String, Object?>>[];
   final employees = <Map<String, Object?>>[
@@ -332,7 +333,7 @@ class FakeMycaApi implements MycaApi {
 
   @override
   Future<Snapshot> snapshot() async => Snapshot.fromJson({
-    'company': {'name': companyName, 'gstin': '27AABCU9603R1ZN', 'tdsDeductor': tdsDeductor},
+    'company': {'name': companyName, 'gstin': country == 'US' ? '' : '27AABCU9603R1ZN', 'tdsDeductor': tdsDeductor, 'country': country},
     'invoices': invoices,
     'purchases': purchases,
     'expenses': expenses,
@@ -992,9 +993,54 @@ class FakeMycaApi implements MycaApi {
           shares.add({'on': '2026-10-05T10:00:00.000Z', 'by': 'u-owner', 'channel': args['channel'], 'outcome': args['outcome']});
         }
         return {'ok': true, 'invoiceId': args['invoiceId'], 'recorded': args['outcome'] != 'cancelled'};
+      case 'list_sales_tax_rates':
+        return {
+          'ok': true,
+          'data': {
+            'rates': [
+              {'code': 'TX-AUSTIN', 'name': 'Austin, Texas', 'ratePercent': 8.25, 'from': '2026-01-01', 'history': 1},
+            ],
+          },
+        };
       case 'invoice_document':
         if (args['id'] != 'INV-0002') {
           return {'ok': false, 'error': 'INVOICE_NOT_FOUND'};
+        }
+        if (country == 'US') {
+          return {
+            'ok': true,
+            'data': {
+              'id': 'INV-0002',
+              'date': '2026-08-12',
+              'country': 'US',
+              'seller': {'name': 'Maple Street Bakery', 'gstin': '', 'address': '12 Maple St', 'city': 'Austin', 'pin': '78701', 'state': {'code': '', 'name': ''}},
+              'buyer': {'name': 'Gujarat Weaves', 'gstin': '', 'address': buyerAddress},
+              'shares': shares,
+              'placeOfSupply': {'code': '', 'name': ''},
+              'lines': [
+                {'description': 'Wedding cake', 'hsn': '', 'qty': 1, 'rate': 500, 'gstRate': 0, 'taxable': 500, 'cgst': 0, 'sgst': 0, 'igst': 0, 'amount': 541.25, 'taxRate': 8.25, 'salesTax': 41.25},
+                {'description': 'Delivery', 'hsn': '', 'qty': 1, 'rate': 40, 'gstRate': 0, 'taxable': 0, 'cgst': 0, 'sgst': 0, 'igst': 0, 'amount': 40, 'taxRate': 0, 'salesTax': 0},
+              ],
+              'taxable': 540,
+              'subtotal': 540,
+              'salesTax': 41.25,
+              'taxJurisdiction': 'TX-AUSTIN',
+              'taxRate': 8.25,
+              'taxExempt': false,
+              'exemptionReason': '',
+              'cgst': 0,
+              'sgst': 0,
+              'igst': 0,
+              'total': 581.25,
+              'receipts': const [],
+              'received': 0,
+              'credited': 0,
+              'creditNotes': const [],
+              'status': 'open',
+              'balance': 581.25,
+              'missing': const [],
+            },
+          };
         }
         return {
           'ok': true,

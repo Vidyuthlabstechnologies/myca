@@ -49,6 +49,9 @@ function fmtToolResult(name, result) {
   const d = result.data ?? result.invoice ?? result;
   if (name === 'create_invoice' && result.invoice) {
     const i = result.invoice;
+    if (i.country === 'US') {
+      return `Posted ${i.id} to ${i.partyName} on ${i.date} for ${money(i.total)} (${money(i.subtotal)}${i.taxExempt ? `, exempt from sales tax: ${i.exemptionReason}` : ` plus ${money(i.salesTax)} sales tax`}).`;
+    }
     return `Posted ${i.id} to ${i.partyName} on ${i.date} for ${money(i.total)} (${money(i.taxable)} plus ${money(i.cgst + i.sgst + i.igst)} GST).`;
   }
   if (name === 'can_afford' && result.data) {
@@ -177,6 +180,21 @@ function fmtToolResult(name, result) {
   if (name === 'export_tally' && result.data) {
     const d = result.data;
     return `Tally file for ${d.period} is ready: ${d.count === 1 ? '1 voucher' : `${d.count} vouchers`} and ${d.ledgers} ledgers, saved as ${d.fileName} from Taxes. ${d.caveat}`;
+  }
+  if (name === 'set_sales_tax_rate' && result.rate) {
+    return `Recorded sales tax for ${result.rate.name}: ${result.rate.ratePercent}% from ${result.rate.from}.`;
+  }
+  if (name === 'list_sales_tax_rates' && result.data) {
+    const rows = result.data.rates;
+    return rows.length ? `Sales tax rates:\n${rows.map((r) => `· ${r.name} (${r.code}): ${r.ratePercent}% from ${r.from}`).join('\n')}` : 'No sales tax rate is recorded yet. Say, for example, "sales tax rate TX 6.25%".';
+  }
+  if (name === 'set_contractor' && result.vendor) {
+    return `${result.vendor.name} is ${result.vendor.contractor ? 'now a contractor; payments count towards a 1099-NEC' : 'no longer a contractor'}.`;
+  }
+  if (name === 'contractor_payments' && result.data) {
+    const d = result.data;
+    if (!d.contractors.length) return `No supplier is marked as a contractor. Say "<name> is a contractor" to start counting towards 1099s for ${d.year}.`;
+    return `Contractor payments in ${d.year} (1099-NEC at or above ${money(d.threshold)}):\n${d.contractors.map((c) => `· ${c.name}: ${money(c.total)}${c.needs1099 ? ' — needs a 1099-NEC' : ''}${c.needs1099 && !c.w9Received ? ', W-9 missing' : ''}`).join('\n')}${d.notes.length ? `\n${d.notes.join(' ')}` : ''}`;
   }
   if (name === 'set_transport' && result.transport) {
     return `Recorded transport for ${result.invoiceId}: ${transportWords(result.transport)}.${result.need?.needed ? ` ${result.need.why}` : ''}`;

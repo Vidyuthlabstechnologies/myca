@@ -30,14 +30,15 @@ import { planCreditOpening } from './gst-payment.mjs';
 import { checkTdsAnswer } from './tds-review.mjs';
 import { planTransport, transportWords, ewayBillNeed } from './eway-bill.mjs';
 import { planApproval, planSalaryPayment, payrollWords } from './payroll.mjs';
-import { setCurrentCountry, formatMoneyCurrent } from './country.mjs';
+import { setCurrentCountry, formatMoneyCurrent, countryOf } from './country.mjs';
+import { usDocumentPreview, planSalesTaxRate, planContractor } from './us-sales.mjs';
 import { filingRows } from './deadline-run.mjs';
 import { tally, bank, gstin as gstinRules } from './sprint-load.mjs';
 import { parseZohoBooksCsv } from './import-zoho.mjs';
 import { tallyXmlToDayBookCsv } from './tally-xml.mjs';
 
 export const CONFIRM_TOOLS = new Set([
-  'create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'record_filing', 'record_supplier_reminder', 'add_employee', 'change_salary', 'end_employment', 'approve_payroll', 'record_salary_payment', 'set_tds_deductor', 'record_tds_deposit', 'tds_review_answer', 'set_gst_credit_opening', 'post_expense', 'set_expense_head', 'create_credit_note', 'create_debit_note', 'create_purchase_note', 'cancel_invoice', 'gst_review_answer', 'import_gstr2b', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'set_party_address', 'set_transport', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote',
+  'create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'record_filing', 'record_supplier_reminder', 'add_employee', 'change_salary', 'end_employment', 'approve_payroll', 'record_salary_payment', 'set_tds_deductor', 'record_tds_deposit', 'tds_review_answer', 'set_gst_credit_opening', 'post_expense', 'set_expense_head', 'create_credit_note', 'create_debit_note', 'create_purchase_note', 'cancel_invoice', 'gst_review_answer', 'import_gstr2b', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'set_party_address', 'set_transport', 'set_sales_tax_rate', 'set_contractor', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote',
   'import_tally', 'import_tally_xml', 'import_zoho', 'import_bank',
   'govt_generate_irn', 'govt_nic_cancel_irn',
   'exception_decide',
@@ -56,7 +57,37 @@ function stateCodeOf(value) {
   return /^\d{1,2}$/.test(s) ? s.padStart(2, '0') : '';
 }
 
+function salesTaxRatePreview(state, args) {
+  const plan = planSalesTaxRate(state, args);
+  if (!plan.ok) {
+    const reason = { BAD_JURISDICTION: `${plan.code || 'That'} is not a jurisdiction code I can read (for example TX or TX-AUSTIN).`, BAD_RATE: 'The rate is a percentage from 0 to 20.', INVALID_DATE: 'That is not a date I can read.' }[plan.error] || plan.error;
+    return { blockers: [reason], summary: '', effects: [], figures: {} };
+  }
+  return {
+    blockers: [],
+    summary: `Sales tax for ${plan.rate.name}${plan.rate.name !== plan.rate.code ? ` (${plan.rate.code})` : ''}: ${plan.rate.ratePercent}% from ${plan.rate.from}${plan.was ? ` (was ${plan.was.ratePercent}% from ${plan.was.from})` : ''}.`,
+    effects: ['Invoices to this jurisdiction dated on or after that day use this rate. Invoices already made keep theirs.'],
+    figures: { code: plan.rate.code, ratePercent: plan.rate.ratePercent, from: plan.rate.from },
+  };
+}
+
+function contractorPreview(state, args) {
+  const plan = planContractor(state, args);
+  if (!plan.ok) {
+    const reason = { VENDOR_REQUIRED: 'Say which supplier.', BAD_ENTITY_TYPE: 'The entity type is individual, sole-proprietor, llc, partnership, c-corp, s-corp or other.', BAD_TIN_LAST4: 'Give only the last four digits of the TIN.' }[plan.error] || plan.error;
+    return { blockers: [reason], summary: '', effects: [], figures: {} };
+  }
+  const c = plan.contractor;
+  return {
+    blockers: [],
+    summary: `${c.partyName}: ${c.contractor ? 'a contractor' : 'not a contractor'}${c.entityType ? `, ${c.entityType}` : ''}${c.w9Received ? ', W-9 received' : ', W-9 not yet received'}${c.tinLast4 ? `, TIN ending ${c.tinLast4}` : ''}.`,
+    effects: [c.contractor ? 'Payments to them count towards a 1099-NEC for the year.' : 'Payments to them are no longer counted towards a 1099-NEC.', 'Only the last four digits of a TIN are kept here.'],
+    figures: { partyName: c.partyName, contractor: c.contractor },
+  };
+}
+
 function documentPreview(state, args, kind) {
+  if (countryOf(state) === 'US') return usDocumentPreview(state, args, kind);
   const company = state.company || {};
   const date = postingDate(args.date);
   const blockers = [];
@@ -850,6 +881,8 @@ const PREVIEWERS = {
   set_cash_balance: cashReadingPreview,
   set_payment_terms: termsPreview,
   set_party_address: addressPreview,
+  set_sales_tax_rate: salesTaxRatePreview,
+  set_contractor: contractorPreview,
   set_transport: transportPreview,
   ask_ca: askPreview,
   create_quote: quotePreview,

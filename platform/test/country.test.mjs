@@ -45,7 +45,7 @@ test('the country is set once, before anything is posted, and a US business need
   assert.equal(copy.company.country, 'US');
 });
 
-test('a US business sees only the shared tools; Indian tools are refused for it and an Indian business sees everything', async () => {
+test('a US business sees the shared and US-only tools; Indian tools are refused for it and an Indian business sees everything but the US-only ones', async () => {
   const shared = toolsForCountry(TOOLS, 'US').map((tool) => tool.name);
   assert.ok(shared.includes('list_invoices'));
   assert.ok(shared.includes('cash_forecast'));
@@ -54,7 +54,12 @@ test('a US business sees only the shared tools; Indian tools are refused for it 
     assert.equal(shared.includes(indian), false, indian);
     assert.equal(toolServesCountry(indian, 'IN'), true);
   }
-  assert.equal(toolsForCountry(TOOLS, 'IN').length, TOOLS.length);
+  const usOnly = ['set_sales_tax_rate', 'list_sales_tax_rates', 'set_contractor', 'contractor_payments'];
+  for (const name of usOnly) {
+    assert.ok(shared.includes(name), name);
+    assert.equal(toolServesCountry(name, 'IN'), false, name);
+  }
+  assert.equal(toolsForCountry(TOOLS, 'IN').length, TOOLS.length - usOnly.length);
   const state = createState();
   state.company = { name: 'Maple Street Bakery', country: 'US', gstin: '', state: '' };
   const refused = await runTool(state, 'gst_payable', {});

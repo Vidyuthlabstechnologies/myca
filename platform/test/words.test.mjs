@@ -47,7 +47,7 @@ test('everyday chat replies and previews read as plain words', async () => {
   }
   said.push(['bad receipt', (await propose(state, 'record_receipt', { invoiceId: 'INV-9999' })).reply]);
   const unrated = await propose(state, 'create_invoice', { partyName: 'Kiran Stores', lines: [{ description: 'Supply', qty: 1, rate: 500 }] });
-  assert.equal(unrated.reply, 'A GST rate is needed for each item; MyCA does not assume one. Nothing was changed.');
+  assert.match(unrated.reply, /^I did not post anything, because:\n· This has no GST rate, and I will not guess one\./);
   said.push(['unrated', unrated.reply]);
   said.push(['locked', (await chat(state, 'invoice Retail Mart 8000 GST 18% on 2019-01-01')).reply]);
   const check = await runTool(state, 'books_check', {});

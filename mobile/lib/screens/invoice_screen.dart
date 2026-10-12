@@ -527,7 +527,10 @@ class _InvoiceBody extends StatelessWidget {
               Text(
                 [
                   '${plainNumber(line.qty)} × ${rupees(line.rate)}',
-                  'GST ${plainNumber(line.gstRate)}%',
+                  if (doc.isUs)
+                    (line.taxRate > 0 ? 'tax ${plainNumber(line.taxRate)}%' : 'not taxed')
+                  else
+                    'GST ${plainNumber(line.gstRate)}%',
                   if (line.hsn.isNotEmpty) 'HSN ${line.hsn}',
                 ].join(' · '),
                 style: text.bodySmall?.copyWith(fontFeatures: moneyFigures),
@@ -536,7 +539,7 @@ class _InvoiceBody extends StatelessWidget {
             ],
             const Divider(),
             const SizedBox(height: 10),
-            _Amount(name: 'Taxable value', amount: doc.taxable, style: money),
+            _Amount(name: doc.subtotalLabel, amount: doc.taxable, style: money),
             for (final (name, amount) in doc.taxHeads)
               _Amount(name: name, amount: amount, style: money),
             const SizedBox(height: 6),

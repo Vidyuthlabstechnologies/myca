@@ -4,6 +4,7 @@ import { postingDate } from './dates.mjs';
 import { isPeriodLocked } from './period-lock.mjs';
 import { planTds, recordTdsEntry, tdsPayableAccountId, wantsTds } from './tds-deduction.mjs';
 import { rules } from './sprint-load.mjs';
+import { countryOf } from './country.mjs';
 
 export const GENERAL_HEAD = '5100';
 
@@ -132,13 +133,14 @@ export function planExpense(state, args = {}) {
   if (isPeriodLocked(state, date)) return { ok: false, error: 'PERIOD_LOCKED', date, lockThrough: state.lockThrough };
   const amount = Math.round(Number(args.amount) * 100) / 100;
   if (!Number.isFinite(amount) || amount <= 0) return { ok: false, error: 'BAD_AMOUNT' };
-  const gstRate = args.gstRate == null || args.gstRate === '' ? 0 : Number(args.gstRate);
+  const us = countryOf(state) === 'US';
+  const gstRate = us || args.gstRate == null || args.gstRate === '' ? 0 : Number(args.gstRate);
   if (!Number.isFinite(gstRate) || gstRate < 0 || gstRate > 28) return { ok: false, error: 'BAD_RATE' };
   const mode = args.mode == null || args.mode === '' ? 'bank' : String(args.mode).toLowerCase();
   if (mode !== 'bank' && mode !== 'cash') return { ok: false, error: 'BAD_MODE' };
   const description = String(args.narration ?? args.description ?? '').trim();
   const payee = String(args.payee ?? '').trim();
-  const supplierGstin = String(args.supplierGstin ?? '').trim().toUpperCase();
+  const supplierGstin = us ? '' : String(args.supplierGstin ?? '').trim().toUpperCase();
   if (supplierGstin && !GSTIN_SHAPE.test(supplierGstin)) return { ok: false, error: 'BAD_GSTIN' };
   const chosen = args.head == null || args.head === '' ? null : headNamed(args.head);
   if (args.head != null && args.head !== '' && !chosen) return { ok: false, error: 'UNKNOWN_HEAD', head: args.head };
@@ -178,7 +180,7 @@ export function planExpense(state, args = {}) {
   } else if (gstRate > 0) {
     creditNote = `GST ${gstRate}% is inside the amount, but without the supplier's GSTIN no input credit is taken; the whole amount is cost.`;
   } else {
-    creditNote = 'No GST separated.';
+    creditNote = us ? 'Any sales tax paid is part of the cost; there is no input credit.' : 'No GST separated.';
   }
   let tds = null;
   if (wantsTds(args)) {

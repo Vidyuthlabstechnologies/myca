@@ -1,6 +1,6 @@
 # United States edition: decision memo and phased design
 
-Date: 2026-10-13. Status: draft for the owner's decisions (section 9). No code yet.
+Date: 2026-10-13. Status: U0 and the core of U1 built on 2026-10-13 under the assumptions in section 11; the owner's decisions (section 9) still stand for U2 onward.
 
 Goal stated by the owner: make MyCA "totally compatible with the United States as well".
 This document says what that means, what in the current product is India-specific, how a
@@ -197,6 +197,32 @@ single and $32,200 married filing jointly; 1099-NEC threshold $2,000; Publicatio
 5. The US legal entity and the GCP project/region for US data; who pays for it.
 6. Whether the app ships as the same Play listing with a country choice, or a separate
    US listing.
+
+## 11. U1 as built (2026-10-13)
+
+Built without waiting for the six decisions, on these stated assumptions: MyCA is the owner's
+bookkeeper, not a seller of record; sales tax rates are entered by the owner per jurisdiction
+and never guessed; every federal figure is a dated rule marked as not reviewed until a US CPA
+attests it; one Play listing with a country choice; hosting unchanged.
+
+- `platform/src/us-sales.mjs`: jurisdiction rates (`set_sales_tax_rate`, dated, per code such
+  as `TX` or `TX-AUSTIN`, `list_sales_tax_rates`); US invoices through the shared
+  `create_invoice` (the rate in force on the invoice date, or exempt with a reason; lines may be
+  non-taxable; sales tax posted to 2110 Sales tax payable); US bills through `create_purchase`
+  with `salesTaxPaid` as part of the cost and no input credit; expenses ignore GST fields;
+  contractors (`set_contractor`, W-9 details with only the last four digits of the TIN) and
+  `contractor_payments` against the dated rule `us.federal.1099-nec.threshold` ($600 to 2025,
+  $2,000 from 2026 under P.L. 119-21 §70433, unattested).
+- Chat: "sales tax rate TX 6.25%", "invoice Cafe Luna 500 for wedding cake, tax TX-AUSTIN",
+  "... tax exempt (resale certificate)", "bill from Flour Mill Co 300 for flour plus tax 24.75",
+  "Joe Plumbing is a contractor, W-9 received", "who needs a 1099 for 2026?".
+- Documents and exports: the invoice document and PDF carry subtotal, sales tax and jurisdiction
+  with no GSTIN or HSN expectations; the entries CSV for a US business has
+  `subtotal, sales_tax, total` columns instead of GST heads.
+- App: the sale form asks for the jurisdiction (chips from the recorded rates) or an exemption
+  with its reason, the bill form takes the sales tax paid; quotes stay Indian for now.
+- Not built in U1: QuickBooks/Xero imports (bank CSV import is the shared one), a dedicated
+  CPA pack beyond the entries CSV and Tally-free exports.
 
 ## 10. Recommendation
 

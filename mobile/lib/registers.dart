@@ -83,7 +83,7 @@ Map<String, Object?> documentArgs({
   required String partyGstin,
   required String description,
   required num amount,
-  required num gstRate,
+  num? gstRate,
   String supplierInvoiceNo = '',
 }) => {
   'partyName': partyName.trim(),
@@ -95,10 +95,57 @@ Map<String, Object?> documentArgs({
       'description': description.trim().isEmpty ? 'Supply' : description.trim(),
       'qty': 1,
       'rate': amount,
-      'gstRate': gstRate,
+      'gstRate': ?gstRate,
     },
   ],
 };
+
+Map<String, Object?> usSaleArgs({
+  required String partyName,
+  required String description,
+  required num amount,
+  required String taxJurisdiction,
+  required bool taxExempt,
+  required String exemptionReason,
+}) => {
+  ...documentArgs(partyName: partyName, partyGstin: '', description: description, amount: amount),
+  if (taxExempt) 'taxExempt': true,
+  if (taxExempt) 'exemptionReason': exemptionReason.trim(),
+  if (!taxExempt) 'taxJurisdiction': taxJurisdiction.trim().toUpperCase(),
+};
+
+Map<String, Object?> usBillArgs({
+  required String partyName,
+  required String description,
+  required num amount,
+  required num salesTaxPaid,
+  String supplierInvoiceNo = '',
+}) => {
+  ...documentArgs(partyName: partyName, partyGstin: '', description: description, amount: amount, supplierInvoiceNo: supplierInvoiceNo),
+  if (salesTaxPaid > 0) 'salesTaxPaid': salesTaxPaid,
+};
+
+class SalesTaxRate {
+  const SalesTaxRate({required this.code, required this.name, required this.ratePercent});
+
+  factory SalesTaxRate.fromJson(Object? json) {
+    final map = json is Map ? json : const {};
+    return SalesTaxRate(
+      code: '${map['code'] ?? ''}',
+      name: '${map['name'] ?? ''}',
+      ratePercent: map['ratePercent'] is num ? map['ratePercent'] as num : 0,
+    );
+  }
+
+  static List<SalesTaxRate> listFromTool(Object? json) {
+    final data = toolData(json);
+    return [for (final row in (data['rates'] as List? ?? const [])) SalesTaxRate.fromJson(row)];
+  }
+
+  final String code;
+  final String name;
+  final num ratePercent;
+}
 
 const rateSuggestionLimit = 4;
 

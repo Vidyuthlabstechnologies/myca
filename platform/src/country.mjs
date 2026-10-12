@@ -61,9 +61,12 @@ export function formatMoneyCurrent(amount, options) {
   return formatMoney({ country: currentCountry }, amount, options);
 }
 
+const US_ONLY_TOOLS = new Set(['set_sales_tax_rate', 'list_sales_tax_rates', 'set_contractor', 'contractor_payments']);
+
 export function toolServesCountry(toolName, country) {
-  if (country === 'IN') return true;
-  return SHARED_TOOLS.has(String(toolName || ''));
+  const name = String(toolName || '');
+  if (country === 'IN') return !US_ONLY_TOOLS.has(name);
+  return SHARED_TOOLS.has(name) || US_ONLY_TOOLS.has(name) || name === 'create_invoice' || name === 'create_purchase' || name === 'post_expense' || name === 'set_expense_head';
 }
 
 export function toolsForCountry(tools, country) {

@@ -26,6 +26,7 @@ import { addEmployee, changeSalary, endEmployment, listEmployees } from './emplo
 import { payrollFor, approvePayroll, recordSalaryPayment, listPayroll, payslip } from './payroll.mjs';
 import { pfEcr, esiReturn } from './payroll-files.mjs';
 import { countryOf, isCountry, toolServesCountry } from './country.mjs';
+import { createUsInvoice, createUsPurchase, setSalesTaxRate, listSalesTaxRates, setContractor, contractorPayments } from './us-sales.mjs';
 import { recordTdsDeposit, setDeductor, tdsSummary } from './tds-deduction.mjs';
 import { paymentFor, setCreditOpening } from './gst-payment.mjs';
 import { tdsReturnDraft } from './tds-return.mjs';
@@ -512,16 +513,16 @@ export const TOOLS = [
   {
     name: 'create_invoice',
     title: 'Create invoice',
-    description: 'Create a GST invoice and post double-entry transfers (AR, sales, GST output). Data entry starts here.',
-    args: ['partyName', 'partyGstin', 'lines', 'date', 'paymentTermsDays'],
-    run: (state, args) => createInvoice(state, args),
+    description: 'Create a tax invoice and post double-entry transfers (AR, sales, tax output). In India GST by rate and place of supply; in the US sales tax from the recorded rate of the jurisdiction given, or exempt with a reason. Data entry starts here.',
+    args: ['partyName', 'partyGstin', 'lines', 'date', 'paymentTermsDays', 'taxJurisdiction', 'taxExempt', 'exemptionReason', 'partyAddress'],
+    run: (state, args) => (countryOf(state) === 'US' ? createUsInvoice(state, args) : createInvoice(state, args)),
   },
   {
     name: 'create_purchase',
     title: 'Record purchase bill',
-    description: 'Book a supplier invoice: purchases + GST input + AP. Feeds GSTR-3B ITC.',
-    args: ['partyName', 'partyGstin', 'lines', 'date', 'supplierInvoiceNo'],
-    run: (state, args) => createPurchase(state, args),
+    description: 'Book a supplier invoice: purchases + AP (with GST input credit in India; in the US any sales tax paid is part of the cost).',
+    args: ['partyName', 'partyGstin', 'lines', 'date', 'supplierInvoiceNo', 'salesTaxPaid'],
+    run: (state, args) => (countryOf(state) === 'US' ? createUsPurchase(state, args) : createPurchase(state, args)),
   },
   {
     name: 'print_invoice',
@@ -574,6 +575,33 @@ export const TOOLS = [
       sales: args.period ? debitNotesForPeriod(state, String(args.period)) : state.debitNotes || [],
       purchases: args.period ? purchaseNotesForPeriod(state, String(args.period)) : state.purchaseNotes || [],
     }),
+  },
+  {
+    name: 'set_sales_tax_rate',
+    title: 'Sales tax rate',
+    description: 'Record the sales tax rate for a jurisdiction (a state code such as TX, or state-local such as TX-AUSTIN) from a date. MyCA never guesses a rate; invoices to that jurisdiction use the rate in force on their date. US only.',
+    args: ['code', 'name', 'ratePercent', 'from'],
+    run: (state, args = {}) => setSalesTaxRate(state, args),
+  },
+  {
+    name: 'list_sales_tax_rates',
+    title: 'Sales tax rates',
+    description: 'The sales tax jurisdictions recorded and their rate today. US only. Read-only.',
+    run: (state) => listSalesTaxRates(state),
+  },
+  {
+    name: 'set_contractor',
+    title: 'Contractor',
+    description: 'Mark a supplier as a contractor whose payments count towards a 1099-NEC, with the W-9 details kept (name, entity type, last four of the TIN, whether the W-9 was received). US only.',
+    args: ['partyName', 'contractor', 'w9Name', 'entityType', 'tinLast4', 'w9Received'],
+    run: (state, args = {}) => setContractor(state, args),
+  },
+  {
+    name: 'contractor_payments',
+    title: 'Contractor payments and 1099s',
+    description: 'What was paid to each contractor in a calendar year, who is at or above the 1099-NEC threshold from the dated rule, and whose W-9 is missing. US only. Read-only.',
+    args: ['year'],
+    run: (state, args = {}) => contractorPayments(state, args),
   },
   {
     name: 'list_credit_notes',
