@@ -13,6 +13,7 @@ export const BOOK_KEYS = new Set([
   'filings',
   'supplierReminders', 'supplierReminderSeq',
   'employees', 'employeeSeq',
+  'tdsEntries', 'tdsDeposits',
 ]);
 
 export const FIRM_KEYS = new Set([

@@ -21,6 +21,7 @@ import { deadlineRun, filingRows } from './deadline-run.mjs';
 import { listFilings, recordFiling } from './filings.mjs';
 import { draftSupplierReminder, recordSupplierReminder } from './supplier-reminders.mjs';
 import { addEmployee, changeSalary, endEmployment, listEmployees } from './employees.mjs';
+import { recordTdsDeposit, setDeductor, tdsSummary } from './tds-deduction.mjs';
 import { addReminder, completeReminder, listReminders } from './reminders.mjs';
 import { cashForecast, canAfford, setCashBalance } from './cash-forecast.mjs';
 import { setPaymentTerms } from './payment-terms.mjs';
@@ -1352,6 +1353,26 @@ export const TOOLS = [
       const run = deadlineRun(state, { asOfDate, months: args.months, holidaysText: args.holidaysText || '' });
       return ok({ asOfDate, ...run });
     },
+  },
+  {
+    name: 'tds_summary',
+    title: 'TDS',
+    description: 'TDS deducted on bills and expenses, deposited with the government, and still to deposit, by month with the deposit date. Read-only.',
+    run: (state) => tdsSummary(state),
+  },
+  {
+    name: 'set_tds_deductor',
+    title: 'We deduct TDS',
+    description: 'Record that this business deducts TDS, with its TAN. Bills and expenses can then carry a TDS section.',
+    args: ['tan'],
+    run: (state, args = {}) => setDeductor(state, args),
+  },
+  {
+    name: 'record_tds_deposit',
+    title: 'Record a TDS deposit',
+    description: 'Record TDS paid to the government with its challan reference. Defaults to everything still to deposit.',
+    args: ['amount', 'date', 'challan', 'mode'],
+    run: (state, args = {}) => recordTdsDeposit(state, args),
   },
   {
     name: 'list_employees',

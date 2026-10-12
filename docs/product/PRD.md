@@ -107,7 +107,7 @@ Percentages are engineering estimates and are tracked in
 | ID | Requirement | Status |
 |---|---|---|
 | FR-TDS-1 | Warn when a payment to a supplier crosses a TDS threshold. | Built |
-| FR-TDS-2 | Work out the TDS on a payment and post it. | Not built |
+| FR-TDS-2 | Work out the TDS on a payment and post it. | Built for 194A, 194C, 194I and 194J on bills and expenses, from the dated rules (not yet CA-reviewed); deposits recorded with the challan. No rule yet for a payee without PAN |
 | FR-TDS-3 | Prepare the quarterly TDS return and take it through the same review and approval as GST. | Partly: file generation is wired to a provider; no draft or review |
 
 ### 5.6 Payroll ([feature spec](features/05-payroll.md))

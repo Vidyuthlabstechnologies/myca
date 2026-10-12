@@ -13,6 +13,7 @@ export const REMOTE_QUERY_TOOLS = new Set([
   'list_filings',
   'supplier_reminder_draft',
   'list_employees',
+  'tds_summary',
   'cash_forecast',
   'can_afford',
   'list_ca_requests',

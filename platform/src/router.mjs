@@ -4,6 +4,7 @@ import { needsConfirmation, previewOf, openPending, takePending, clearPending, p
 import { liveCallsEnabled, mockModeEnabled } from './runtime-config.mjs';
 import { referenceImportContent, resolveImportContent } from './import-documents.mjs';
 import { spoken } from './words.mjs';
+import { planEntryWithTds } from './tds-intent.mjs';
 
 function money(n) {
   return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 }).format(Number(n) || 0);
@@ -22,6 +23,14 @@ const FAILURES = {
   ZERO_AMOUNT: () => 'It comes to nothing, so nothing was changed.',
   INSUFFICIENT_CASH: (r) => `There is not that much cash in hand${r.inHand != null ? ` (${money(r.inHand)})` : ''}. Nothing was changed.`,
 };
+
+function notAccepted(error) {
+  const text = String(error || '');
+  if (/gstRate is required/.test(text)) return 'A GST rate is needed for each item; MyCA does not assume one. Nothing was changed.';
+  if (/partyName/.test(text)) return 'Say who it is with. Nothing was changed.';
+  if (/amount|rate|qty/.test(text) && /minimum|exclusiveMinimum|number/.test(text)) return 'One of the amounts is not a usable number. Nothing was changed.';
+  return 'Some of the details were missing or not in the right form, so nothing was changed.';
+}
 
 function failedInWords(code, result = {}) {
   const plain = FAILURES[code];
@@ -113,7 +122,7 @@ function fmtToolResult(name, result) {
   }
   if (name === 'post_expense' && result.expense) {
     const e = result.expense;
-    return `Posted ${e.id}: ${money(e.amount)} ${e.description ? `for ${e.description} ` : ''}from ${e.mode === 'cash' ? 'cash' : 'the bank'} on ${e.date}, under ${e.headName}.${e.inputCredit ? ` Input credit ${money((e.cgst || 0) + (e.sgst || 0) + (e.igst || 0))}.` : ''}`;
+    return `Posted ${e.id}: ${money(e.amount)} ${e.description ? `for ${e.description} ` : ''}from ${e.mode === 'cash' ? 'cash' : 'the bank'} on ${e.date}, under ${e.headName}.${e.inputCredit ? ` Input credit ${money((e.cgst || 0) + (e.sgst || 0) + (e.igst || 0))}.` : ''}${e.tds?.amount ? ` ${money(e.tds.amount)} TDS under ${e.tds.section} held back; ${money(e.amount - e.tds.amount)} paid.` : ''}`;
   }
   if (name === 'set_expense_head' && result.expense) {
     const e = result.expense;
@@ -123,6 +132,19 @@ function fmtToolResult(name, result) {
     const n = result.creditNote;
     const head = n.cancels ? `Cancelled ${n.invoiceId} with credit note ${n.id}` : `Credit note ${n.id} for ${money(n.total)} against ${n.invoiceId}`;
     return `${head} (${n.partyName}, ${n.date}).${result.refundDue > 0 ? ` ${money(result.refundDue)} was already received and is now due back to ${n.partyName}.` : ''}`;
+  }
+  if (name === 'set_tds_deductor' && result.tan) {
+    return `Done. This business deducts TDS under TAN ${result.tan}.`;
+  }
+  if (name === 'record_tds_deposit' && result.deposit) {
+    const d = result.deposit;
+    return `Recorded the TDS deposit of ${money(d.amount)} on ${d.date}, challan ${d.challan}.${result.left > 0.005 ? ` ${money(result.left)} is still to deposit.` : ' Nothing is left to deposit.'}`;
+  }
+  if (name === 'tds_summary' && result.data) {
+    const d = result.data;
+    if (!d.deductor) return 'This business is not set up to deduct TDS. Say "we deduct TDS, TAN" followed by your TAN to start.';
+    const months = d.months.map((m) => `· ${m.month}: deducted ${money(m.deducted)}${m.depositBy ? `, deposit by ${m.depositBy}` : ''}`).join('\n');
+    return `TDS deducted ${money(d.deducted)}, deposited ${money(d.deposited)}, still to deposit ${money(d.due)}.${months ? `\n${months}` : ''}`;
   }
   if (name === 'add_employee' && result.employee) {
     const e = result.employee;
@@ -162,7 +184,7 @@ function fmtToolResult(name, result) {
   }
   if (name === 'create_purchase' && result.invoice) {
     const i = result.invoice;
-    return `Booked ${i.id} from ${i.partyName} for ${money(i.total)}${i.itcEligible === false ? '. The GST on it cannot be claimed, so it is part of the cost.' : `, with ${money(i.cgst + i.sgst + i.igst)} of GST counted as input credit.`}`;
+    return `Booked ${i.id} from ${i.partyName} for ${money(i.total)}${i.itcEligible === false ? '. The GST on it cannot be claimed, so it is part of the cost.' : `, with ${money(i.cgst + i.sgst + i.igst)} of GST counted as input credit.`}${i.tds?.amount ? ` ${money(i.tds.amount)} TDS under ${i.tds.section} is held back, so ${money(i.total - i.tds.amount)} is owed to ${i.partyName}.` : ''}`;
   }
   if (name === 'filing_pack') {
     return `Filing pack ${d.period || ''} for ${d.gstin}. GSTR-1 taxable ${money(d.gstr1?.totalTaxable)}. GST payable ${money(d.payable)}. ${d.caveat}`;
@@ -198,7 +220,7 @@ function fmtToolResult(name, result) {
     return `Audit ${d.summary.flags} flags (high ${d.summary.high} / medium ${d.summary.medium} / low ${d.summary.low}).`;
   }
   if (name === 'import_tally' || name === 'import_bank') {
-    return `${name}: ${d.rows?.length ?? 0} parsed, ${d.ledger?.posted ?? 0} posted to the ledger.`;
+    return `${name === 'import_bank' ? 'Bank statement' : name === 'import_tally' ? 'Tally data' : 'File'} brought in: ${d.rows?.length ?? 0} ${(d.rows?.length ?? 0) === 1 ? 'row' : 'rows'} read, ${d.ledger?.posted ?? 0} posted to your books.`;
   }
   if (name === 'govt_probe') {
     if (d.ok === false) return `Govt probe not run: ${d.error}${d.hint ? `
@@ -376,7 +398,7 @@ function holdForConfirmation(state, plan) {
   const resolved = resolveImportContent(state, plan.name, plan.args);
   if (!resolved.ok) return unreadableFile(resolved.error);
   const schemaCheck = validateAssistantToolCall(plan.name, resolved.args);
-  if (!schemaCheck.ok) return { reply: `I could not take that as it is (${schemaCheck.error}), so nothing was changed.`, tools: [], blocked: true };
+  if (!schemaCheck.ok) return { reply: notAccepted(schemaCheck.error), tools: [], blocked: true };
   const preview = previewOf(state, plan.name, resolved.args);
   if (preview.blockers.length) {
     clearPending(state);
@@ -418,7 +440,7 @@ async function runConfirmation(state, decision) {
   const resolved = resolveImportContent(state, pending.name, pending.args);
   if (!resolved.ok) return unreadableFile(resolved.error);
   const recheck = validateAssistantToolCall(pending.name, resolved.args);
-  if (!recheck.ok) return { reply: `I could not take that as it is (${recheck.error}), so nothing was changed.`, tools: [], blocked: true };
+  if (!recheck.ok) return { reply: notAccepted(recheck.error), tools: [], blocked: true };
   const result = await runPlanned(state, pending.name, resolved.args, pending.clearsPendingFile);
   const out = { reply: fmtToolResult(pending.name, result), tools: [{ name: pending.name, result }], posted: result.ok !== false, confirmed: true };
   state.lastConfirmation = { token: pending.token, tool: pending.name, reply: out.reply, posted: out.posted };
@@ -447,7 +469,7 @@ function discardCore(state) {
 }
 
 async function chatCore(state, message) {
-  const plan = planLocalToolCall(state, message);
+  const plan = planEntryWithTds((text) => planLocalToolCall(state, text), message);
   if (plan.kind === 'reply') return { reply: plan.reply, tools: plan.tools || [], blocked: plan.blocked || false };
 
   if (plan.kind === 'cancel') return discardCore(state);
@@ -457,7 +479,7 @@ async function chatCore(state, message) {
   if (needsConfirmation(plan.name)) return holdForConfirmation(state, plan);
 
   const valid = validateAssistantToolCall(plan.name, plan.args);
-  if (!valid.ok) return { reply: `I could not take that as it is (${valid.error}), so nothing was changed.`, tools: [], blocked: true };
+  if (!valid.ok) return { reply: notAccepted(valid.error), tools: [], blocked: true };
 
   const runArgs = plan.name === 'sandbox_operation' ? { ...plan.args, actorId: 'assistant' } : plan.args;
   const result = await runTool(state, plan.name, runArgs);

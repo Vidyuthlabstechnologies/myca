@@ -91,7 +91,7 @@ Future<void> main() async {
   check('a part receipt is recorded against the invoice', receipt.posted && partly.status == 'partial' && partly.receipts.single.amount == 4000, receipt.reply);
 
   final unrated = await api.propose('create_invoice', {'partyName': 'Kiran Stores', 'lines': [{'description': 'Supply', 'qty': 1, 'rate': 500}]});
-  check('a sale with no GST rate is not posted', unrated.preview == null || unrated.preview!.token.isEmpty, unrated.reply.split('\n').first);
+  check('a sale with no GST rate is not posted, and says why in plain words', unrated.preview == null && unrated.reply.startsWith('A GST rate is needed'), unrated.reply);
   if (unrated.preview != null) await api.discard();
 
   final bill = await post(api, 'create_purchase', documentArgs(partyName: 'Fabric Co', partyGstin: '', description: 'Grey cloth', amount: 10000, gstRate: 5, supplierInvoiceNo: 'FC-881'));
@@ -109,6 +109,19 @@ Future<void> main() async {
       summary == null ? 'no summary' : 'owed to you ${rupees(summary.owedToYou)}, you owe ${rupees(summary.owedBySuppliers)}, spent ${rupees(summary.current.expenses)}');
   final booksCheck = toolData(await api.query('books_check'));
   check('the books check runs', booksCheck.isNotEmpty);
+
+  final noTds = await api.propose('create_purchase', {...documentArgs(partyName: 'Rao & Co', partyGstin: '', description: 'Audit fee', amount: 60000, gstRate: 18), 'tdsSection': '194J', 'tdsCategory': 'professional', 'payeePan': 'AAAFR1234K'});
+  check('TDS is refused until the business is a deductor', noTds.preview == null && noTds.reply.contains('not set up to deduct TDS'));
+  final deductor = await post(api, 'set_tds_deductor', {'tan': 'MUMA12345B'});
+  check('the business is set up to deduct TDS', deductor.posted, deductor.reply);
+  final fees = await api.propose('create_purchase', {...documentArgs(partyName: 'Rao & Co', partyGstin: '', description: 'Audit fee', amount: 60000, gstRate: 18), 'tdsSection': '194J', 'tdsCategory': 'professional', 'payeePan': 'AAAFR1234K'});
+  check('a professional fee previews 10% TDS on the amount before GST', fees.preview?.figures['tds'] == 6000, fees.preview?.effects.last ?? fees.reply);
+  final booked = await api.confirm(fees.preview!.token);
+  check('the bill is booked net of TDS', booked.posted && booked.reply.contains('₹64,800.00 is owed'), booked.reply);
+  final owed = toolData(await api.query('tds_summary'));
+  check('the TDS summary shows what is still to deposit', owed['due'] == 6000, '${owed['due']}');
+  final challan = await post(api, 'record_tds_deposit', {'challan': '0510308 05112026 12345', 'date': day});
+  check('a TDS deposit clears what is due', challan.posted && toolData(await api.query('tds_summary'))['due'] == 0, challan.reply);
 
   check('an import with inline content is refused', await refused(() => api.propose('import_bank', {'content': 'x', 'type': 'csv'})));
   final statement = await api.upload('bank.csv', 'Date,Narration,Withdrawal,Deposit,Balance\n01-08-2026,UPI rent,100,,900\n02-08-2026,NEFT sale,,500,1400\n');

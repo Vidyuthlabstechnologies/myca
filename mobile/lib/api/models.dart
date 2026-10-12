@@ -11,15 +11,63 @@ num _num(Object? value) => value is num ? value : 0;
 String _text(Object? value) => value == null ? '' : value.toString();
 
 class Company {
-  const Company({required this.name, required this.gstin});
+  const Company({required this.name, required this.gstin, this.tdsDeductor = false});
 
   factory Company.fromJson(Object? json) {
     final map = _map(json);
-    return Company(name: _text(map['name']), gstin: _text(map['gstin']));
+    return Company(
+      name: _text(map['name']),
+      gstin: _text(map['gstin']),
+      tdsDeductor: map['tdsDeductor'] == true,
+    );
   }
 
   final String name;
   final String gstin;
+  final bool tdsDeductor;
+}
+
+class TdsMonth {
+  const TdsMonth({required this.month, required this.deducted, required this.depositBy});
+
+  final String month;
+  final num deducted;
+  final String depositBy;
+}
+
+class TdsSummary {
+  const TdsSummary({
+    required this.deductor,
+    required this.tan,
+    required this.deducted,
+    required this.deposited,
+    required this.due,
+    required this.months,
+  });
+
+  static TdsSummary? fromTool(Object? json) {
+    final map = _map(json);
+    if (map['ok'] == false) return null;
+    final data = toolData(json);
+    return TdsSummary(
+      deductor: data['deductor'] == true,
+      tan: _text(data['tan']),
+      deducted: _num(data['deducted']),
+      deposited: _num(data['deposited']),
+      due: _num(data['due']),
+      months: [
+        for (final row in _maps(data['months']))
+          TdsMonth(month: _text(row['month']), deducted: _num(row['deducted']), depositBy: _text(row['depositBy'])),
+      ],
+    );
+  }
+
+  final bool deductor;
+  final String tan;
+  final num deducted;
+  final num deposited;
+  final num due;
+  final List<TdsMonth> months;
 }
 
 class FirmUser {

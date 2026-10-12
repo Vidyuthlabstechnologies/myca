@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'tds_fields.dart';
 import '../api/models.dart';
 import '../api/myca_api.dart';
 import '../app_state.dart';
@@ -37,6 +38,7 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
   final _rate = TextEditingController();
   final _what = TextEditingController();
   final _billNo = TextEditingController();
+  final _tds = TdsChoice();
   late _Composer _composer = widget.openComposer
       ? _Composer.document
       : _Composer.none;
@@ -78,6 +80,7 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
     _rate.dispose();
     _what.dispose();
     _billNo.dispose();
+    _tds.dispose();
     super.dispose();
   }
 
@@ -103,21 +106,27 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
             'Enter the GST rate, for example 5 or 18. Use 0 if there is none.',
       );
     }
+    final tdsProblem = _sales ? null : _tds.problem();
+    if (tdsProblem != null) return setState(() => _formError = tdsProblem);
     setState(() => _composer = _Composer.none);
     final what = _sales ? 'Sale' : 'Bill';
     await propose(
-      '$what: ${rupees(amount)} + GST at ${rateLabel(rate)}%',
+      '$what: ${rupees(amount)} + GST at ${rateLabel(rate)}%${!_sales && _tds.chosen ? ', TDS ${_tds.option.section}' : ''}',
       _sales ? 'create_invoice' : 'create_purchase',
-      documentArgs(
-        partyName: widget.partyName,
-        partyGstin: widget.partyGstin,
-        description: _what.text,
-        amount: amount,
-        gstRate: rate,
-        supplierInvoiceNo: _sales ? '' : _billNo.text,
-      ),
+      {
+        ...documentArgs(
+          partyName: widget.partyName,
+          partyGstin: widget.partyGstin,
+          description: _what.text,
+          amount: amount,
+          gstRate: rate,
+          supplierInvoiceNo: _sales ? '' : _billNo.text,
+        ),
+        if (!_sales) ..._tds.args(),
+      },
     );
     _billNo.clear();
+    _tds.reset();
   }
 
   Future<void> _submitQuote() async {
@@ -466,6 +475,11 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
   }
 
   List<Widget> _documentFields(List<num> rates) => [
+    if (!_sales &&
+        (AppScope.of(context).snapshot?.company.tdsDeductor ?? false)) ...[
+      TdsFields(choice: _tds),
+      const SizedBox(height: 10),
+    ],
     if (!_sales) ...[
       TextField(
         controller: _billNo,

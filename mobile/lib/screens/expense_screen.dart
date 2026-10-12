@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'tds_fields.dart';
 import '../api/models.dart';
 import '../api/myca_api.dart';
 import '../app_state.dart';
@@ -22,6 +23,7 @@ class ExpenseScreen extends StatefulWidget {
 class _ExpenseScreenState extends State<ExpenseScreen> with ProposalFlow {
   final _what = TextEditingController();
   final _payee = TextEditingController();
+  final _tds = TdsChoice();
   final _amount = TextEditingController();
   final _rate = TextEditingController();
   final _scroll = ScrollController();
@@ -54,6 +56,7 @@ class _ExpenseScreenState extends State<ExpenseScreen> with ProposalFlow {
     _scroll.dispose();
     _what.dispose();
     _payee.dispose();
+    _tds.dispose();
     _amount.dispose();
     _rate.dispose();
     super.dispose();
@@ -72,6 +75,8 @@ class _ExpenseScreenState extends State<ExpenseScreen> with ProposalFlow {
         () => _error = 'The GST rate must be a number, or leave it blank.',
       );
     }
+    final tdsProblem = _tds.problem();
+    if (tdsProblem != null) return setState(() => _error = tdsProblem);
     setState(() => _error = '');
     FocusScope.of(context).unfocus();
     final payee = _payee.text.trim();
@@ -83,6 +88,7 @@ class _ExpenseScreenState extends State<ExpenseScreen> with ProposalFlow {
       'date': isoDate(AppScope.of(context).now()),
       if (payee.isNotEmpty) 'payee': payee,
       if (_head != null) 'head': _head!.code,
+      ..._tds.args(),
     };
     _lastArgs = args;
     await propose(

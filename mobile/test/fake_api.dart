@@ -164,6 +164,9 @@ class FakeMycaApi implements MycaApi {
   ];
   final filings = <Map<String, Object?>>[];
   final supplierReminders = <Map<String, Object?>>[];
+  bool tdsDeductor = false;
+  num tdsDue = 6000;
+  final tdsDeposits = <Map<String, Object?>>[];
   final employees = <Map<String, Object?>>[
     {
       'id': 'EMP-0001',
@@ -323,7 +326,7 @@ class FakeMycaApi implements MycaApi {
 
   @override
   Future<Snapshot> snapshot() async => Snapshot.fromJson({
-    'company': {'name': companyName, 'gstin': '27AABCU9603R1ZN'},
+    'company': {'name': companyName, 'gstin': '27AABCU9603R1ZN', 'tdsDeductor': tdsDeductor},
     'invoices': invoices,
     'purchases': purchases,
     'expenses': expenses,
@@ -412,6 +415,12 @@ class FakeMycaApi implements MycaApi {
       return _preview(
         'From quote ${args['id']}: Invoice to Gujarat Weaves, total ₹59,000.00.',
       );
+    }
+    if (name == 'set_tds_deductor') {
+      return _preview('This business deducts TDS, TAN ${args['tan']}.');
+    }
+    if (name == 'record_tds_deposit') {
+      return _preview('TDS deposit of ₹6,000.00 on ${args['date']}, challan ${args['challan']}, from the bank.');
     }
     if (name == 'add_employee') {
       return _preview('Add ${args['name']}, joined ${args['joinedOn']}, at ₹21,000.00 a month.');
@@ -584,6 +593,15 @@ class FakeMycaApi implements MycaApi {
           'posted': true,
           'confirmed': true,
         });
+      }
+      if (held.tool == 'set_tds_deductor') {
+        tdsDeductor = true;
+        return ChatReply.fromJson({'reply': 'Done. This business deducts TDS under TAN ${held.args['tan']}.', 'posted': true, 'confirmed': true});
+      }
+      if (held.tool == 'record_tds_deposit') {
+        tdsDeposits.add(held.args);
+        tdsDue = 0;
+        return ChatReply.fromJson({'reply': 'Recorded the TDS deposit. Nothing is left to deposit.', 'posted': true, 'confirmed': true});
       }
       if (held.tool == 'add_employee') {
         final parts = (held.args['components'] as List).cast<Map<String, Object?>>();
@@ -1266,6 +1284,22 @@ class FakeMycaApi implements MycaApi {
             'fp': args['fp'],
             'version': 'GST3.1.6',
             'b2b': const <Object?>[],
+          },
+        };
+      case 'tds_summary':
+        return {
+          'ok': true,
+          'data': {
+            'deductor': tdsDeductor,
+            'tan': tdsDeductor ? 'MUMA12345B' : '',
+            'deducted': tdsDeductor ? 6000 : 0,
+            'deposited': tdsDeductor ? 6000 - tdsDue : 0,
+            'due': tdsDeductor ? tdsDue : 0,
+            'months': tdsDeductor
+                ? [
+                    {'month': '2026-10', 'deducted': 6000, 'depositBy': '2026-11-07'},
+                  ]
+                : const <Object?>[],
           },
         };
       case 'list_employees':

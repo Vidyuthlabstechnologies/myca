@@ -4,6 +4,7 @@ import { planPaymentFromChat } from './payment-intent.mjs';
 import { planOweQuestion } from './owe-intent.mjs';
 import { planFilingFromChat } from './filing-intent.mjs';
 import { planEmployeeFromChat } from './employee-intent.mjs';
+import { planTdsFromChat } from './tds-intent.mjs';
 import { reviewOf } from './gst-review.mjs';
 import { planReminderFromChat } from './reminder-intent.mjs';
 import { planCashFromChat } from './cash-intent.mjs';
@@ -39,6 +40,13 @@ const salaryComponent = {
     name: { type: 'string', minLength: 1, maxLength: 40 },
     amount: { type: 'number', minimum: 0 },
   },
+};
+
+const tdsProperties = {
+  tdsSection: { type: 'string', enum: ['194A', '194C', '194I', '194J'] },
+  tdsCategory: { type: 'string', enum: ['professional', 'technical', 'director'] },
+  tdsAsset: { type: 'string', enum: ['building', 'plant'] },
+  payeePan: { type: 'string', maxLength: 12 },
 };
 
 const documentSchema = {
@@ -233,7 +241,7 @@ export const TOOL_ARG_SCHEMAS = {
   },
   create_purchase: {
     ...documentSchema,
-    properties: { ...documentSchema.properties, supplierInvoiceNo: { type: 'string', maxLength: 16 } },
+    properties: { ...documentSchema.properties, supplierInvoiceNo: { type: 'string', maxLength: 16 }, ...tdsProperties },
   },
   print_invoice: {
     type: 'object',
@@ -491,6 +499,24 @@ export const TOOL_ARG_SCHEMAS = {
       period: { type: 'string', pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' },
       message: { type: 'string', maxLength: 2000 },
       channel: { type: 'string', enum: ['whatsapp', 'email', 'other'] },
+    },
+  },
+  tds_summary: noArgs,
+  set_tds_deductor: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['tan'],
+    properties: { tan: { type: 'string', maxLength: 12 } },
+  },
+  record_tds_deposit: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['challan'],
+    properties: {
+      amount: { type: 'number', exclusiveMinimum: 0 },
+      date: { type: 'string' },
+      challan: { type: 'string', maxLength: 40 },
+      mode: { type: 'string', enum: ['bank', 'cash'] },
     },
   },
   list_filings: {
@@ -827,6 +853,7 @@ export const TOOL_ARG_SCHEMAS = {
       payee: { type: 'string', maxLength: 80 },
       supplierGstin: { type: 'string', pattern: '^([0-9]{2}[A-Z0-9]{13})?$' },
       head: { type: 'string', pattern: '^5[0-9]{3}$' },
+      ...tdsProperties,
     },
   },
   set_expense_head: {
@@ -885,6 +912,8 @@ const TOOL_RISK = {
   record_filing: 'writes_books',
   record_supplier_reminder: 'writes_books',
   add_employee: 'writes_books',
+  set_tds_deductor: 'writes_books',
+  record_tds_deposit: 'writes_books',
   change_salary: 'writes_books',
   end_employment: 'writes_books',
   set_payment_terms: 'writes_books',
@@ -1032,6 +1061,8 @@ export function planLocalToolCall(state, message) {
       return { kind: 'tool', name: 'create_quote', args: { partyName: quoted.partyName, ...(quoted.partyGstin ? { partyGstin: quoted.partyGstin } : {}), lines: quoted.lines, ...(validity ? { validDays: Number(validity[1]) } : {}) } };
     }
   }
+  const tdsAsk = planTdsFromChat(text);
+  if (tdsAsk) return tdsAsk;
   const hired = planEmployeeFromChat(text);
   if (hired) return hired;
   const filed = planFilingFromChat(text);

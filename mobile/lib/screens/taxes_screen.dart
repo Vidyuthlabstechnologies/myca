@@ -13,6 +13,7 @@ import '../widgets.dart';
 import 'ca_screen.dart';
 import 'credit_card.dart';
 import 'filing_screen.dart';
+import 'tds_screen.dart';
 import 'review_screen.dart';
 
 const _heldReasons = {
@@ -34,6 +35,7 @@ class TaxesScreen extends StatefulWidget {
 class _TaxesScreenState extends State<TaxesScreen> {
   Future<Today>? _today;
   Future<List<FiledReturn>>? _filed;
+  Future<TdsSummary?>? _tds;
   String? _period;
   String _fileNote = '';
   bool _saving = false;
@@ -44,6 +46,30 @@ class _TaxesScreenState extends State<TaxesScreen> {
     super.didChangeDependencies();
     _today ??= loadToday(AppScope.of(context).api);
     _filed ??= _loadFiled();
+    _tds ??= _loadTds();
+  }
+
+  Future<TdsSummary?> _loadTds() async {
+    try {
+      return TdsSummary.fromTool(
+        await AppScope.of(context).api.query('tds_summary'),
+      );
+    } on MycaApiException {
+      return null;
+    }
+  }
+
+  Future<void> _openTds(TdsSummary summary) async {
+    final state = AppScope.of(context);
+    final done = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (_) => TdsActionScreen(summary: summary)),
+    );
+    if (done != true || !mounted) return;
+    setState(() {
+      _tds = _loadTds();
+    });
+    await state.refresh();
+    await _reload();
   }
 
   Future<List<FiledReturn>> _loadFiled() async {
@@ -58,7 +84,13 @@ class _TaxesScreenState extends State<TaxesScreen> {
 
   Future<void> _recordFiling(List<Deadline> deadlines) async {
     final open = deadlines
-        .where((d) => !d.filed && d.returnType.isNotEmpty && d.daysUntil <= 31)
+        .where(
+          (d) =>
+              !d.filed &&
+              d.returnType.isNotEmpty &&
+              d.returnType != 'TDS_DEPOSIT' &&
+              d.daysUntil <= 31,
+        )
         .toList();
     final done = await Navigator.of(context).push<bool>(
       MaterialPageRoute(builder: (_) => RecordFilingScreen(returns: open)),
@@ -335,6 +367,51 @@ class _TaxesScreenState extends State<TaxesScreen> {
                       ),
                     ),
                 ],
+                FutureBuilder<TdsSummary?>(
+                  future: _tds,
+                  builder: (context, snap) {
+                    final tds = snap.data;
+                    if (tds == null) return const SizedBox.shrink();
+                    return Padding(
+                      padding: const EdgeInsets.only(top: 26),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          const SectionLabel('TDS'),
+                          Panel(
+                            children: [
+                              if (!tds.deductor)
+                                RowCard(
+                                  leading: const TintTile(tint: Tint.taxes, mark: Mark.taxes),
+                                  title: 'Deduct TDS on bills',
+                                  subtitle: 'Add your TAN if you deduct TDS on contractors, fees or rent',
+                                  trailing: const Chevron(),
+                                  onTap: () => _openTds(tds),
+                                )
+                              else ...[
+                                for (final month in tds.months.reversed.take(3))
+                                  RowCard(
+                                    leading: const TintTile(tint: Tint.taxes, mark: Mark.taxes),
+                                    title: '${rupees(month.deducted)} deducted in ${monthLabel(month.month)}',
+                                    subtitle: month.depositBy.isEmpty ? '' : 'Deposit by ${longDate(month.depositBy)}',
+                                  ),
+                                RowCard(
+                                  leading: const TintTile(tint: Tint.taxes, mark: Mark.taxes),
+                                  title: tds.due > 0 ? '${rupees(tds.due)} still to deposit' : 'Nothing left to deposit',
+                                  subtitle: tds.due > 0
+                                      ? 'Record a challan once you have paid it'
+                                      : 'Deducted ${rupees(tds.deducted)}, deposited ${rupees(tds.deposited)}',
+                                  trailing: tds.due > 0 ? const Chevron() : null,
+                                  onTap: tds.due > 0 ? () => _openTds(tds) : null,
+                                ),
+                              ],
+                            ],
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
                 const SizedBox(height: 26),
                 const SectionLabel('Filed'),
                 FutureBuilder<List<FiledReturn>>(

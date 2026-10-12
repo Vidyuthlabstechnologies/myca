@@ -2,6 +2,7 @@ import { createAccounts, createTransfers, listAccounts, paise } from './ledger.m
 import { gstSplit, partyStateOf } from './chart.mjs';
 import { postingDate } from './dates.mjs';
 import { isPeriodLocked } from './period-lock.mjs';
+import { planTds, recordTdsEntry, tdsPayableAccountId, wantsTds } from './tds-deduction.mjs';
 
 export const GENERAL_HEAD = '5100';
 
@@ -146,9 +147,15 @@ export function planExpense(state, args = {}) {
   } else {
     creditNote = 'No GST separated.';
   }
+  let tds = null;
+  if (wantsTds(args)) {
+    const planned = planTds(state, args, { date, basis: taxable, payable: amount, payee: payee || description || 'the payee', beforeGst: inputCredit });
+    if (!planned.ok) return planned;
+    tds = planned.tds;
+  }
   return {
     ok: true,
-    plan: { date, amount, gstRate, mode, description, payee, supplierGstin, tag, taxable, cgst, sgst, igst, inputCredit, creditNote },
+    plan: { date, amount, gstRate, mode, description, payee, supplierGstin, tag, taxable, cgst, sgst, igst, inputCredit, creditNote, tds },
   };
 }
 
@@ -186,6 +193,7 @@ export function postExpense(state, args = {}) {
   if (plan.cgst > 0) transfers.push({ id: nextTransferId(state), debitAccountId: 1200, creditAccountId: paidFrom, amount: paise(plan.cgst), code: 'ITC-CGST', userData: plan.date, invoiceId: id });
   if (plan.sgst > 0) transfers.push({ id: nextTransferId(state), debitAccountId: 1201, creditAccountId: paidFrom, amount: paise(plan.sgst), code: 'ITC-SGST', userData: plan.date, invoiceId: id });
   if (plan.igst > 0) transfers.push({ id: nextTransferId(state), debitAccountId: 1202, creditAccountId: paidFrom, amount: paise(plan.igst), code: 'ITC-IGST', userData: plan.date, invoiceId: id });
+  if (plan.tds && plan.tds.tds > 0) transfers.push({ id: nextTransferId(state), debitAccountId: paidFrom, creditAccountId: tdsPayableAccountId(), amount: paise(plan.tds.tds), code: `TDS-${plan.tds.section}`, userData: plan.date, invoiceId: id });
   const posted = createTransfers(state.ledger, transfers);
   if (posted.some((result) => !result.ok)) {
     state.transferSeq = seqBefore;
@@ -208,9 +216,11 @@ export function postExpense(state, args = {}) {
     sgst: plan.sgst,
     igst: plan.igst,
     inputCredit: plan.inputCredit,
+    ...(plan.tds ? { tds: { section: plan.tds.section, rate: plan.tds.rate, basis: plan.tds.basis, amount: plan.tds.tds, pan: plan.tds.pan } } : {}),
     tag: { source: plan.tag.source, why: plan.tag.why },
     transferIds: posted.map((result) => result.id),
   };
+  if (plan.tds) recordTdsEntry(state, plan.tds, id);
   state.expenses = state.expenses || [];
   state.expenses.push(expense);
   if (plan.tag.source === 'chosen') rememberExpenseTag(state, plan, plan.tag.head);

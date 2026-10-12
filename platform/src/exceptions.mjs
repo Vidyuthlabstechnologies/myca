@@ -94,7 +94,7 @@ function deadlineCandidates(rows = []) {
       source: 'deadlines',
       code: overdue ? 'RETURN_OVERDUE' : 'RETURN_DUE_SOON',
       severity: overdue ? 'high' : 'medium',
-      title: `${row.returnType} for ${row.period} ${overdue ? 'has no filing recorded' : `is due on ${row.dueDate}`}`,
+      title: `${row.returnType.startsWith('TDS_') ? row.returnLabel : row.returnType} for ${row.period} ${overdue ? (row.returnType === 'TDS_DEPOSIT' ? 'is not recorded as deposited' : 'has no filing recorded') : `is due on ${row.dueDate}`}`,
       why: overdue
         ? `It was due on ${row.dueDate}, ${Math.abs(Number(row.daysUntil) || 0)} days ago, and MyCA has no filing recorded. If it was filed, record it with its ARN; if not, late filing carries interest and a late fee.`
         : `It is due on ${row.dueDate}, in ${row.daysUntil} days.`,

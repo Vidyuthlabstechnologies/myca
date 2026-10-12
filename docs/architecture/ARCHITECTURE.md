@@ -44,11 +44,11 @@ designed and not built.
 
 | Container | Path | Technology | State | Status |
 |---|---|---|---|---|
-| Engine | `platform/src/` | Node 22, ESM, zero runtime dependencies | None of its own; works on stores it is given | Built, 579 tests |
+| Engine | `platform/src/` | Node 22, ESM, zero runtime dependencies | None of its own; works on stores it is given | Built, 591 tests |
 | Statutory rules and engines | `sprints/` | Same | Rule records and golden cases in the repo | Built, 329 tests; frozen unless a task targets them |
 | Desktop app | `platform/desktop/`, `platform/src/server.mjs` | Electron, local HTTP on 127.0.0.1 | JSON state file, content-addressed documents, encrypted credential and PIN vaults | Built |
 | Hosted API | `cloud/` | Node 22, one dependency (`pg`) | Postgres | Built, 77 tests against a local Postgres; not deployed |
-| Android app | `mobile/` | Flutter 3.44, Dart 3.12 | Refresh token in the Android keystore; preferences | Built, 123 tests; never run on a device |
+| Android app | `mobile/` | Flutter 3.44, Dart 3.12 | Refresh token in the Android keystore; preferences | Built, 131 tests; never run on a device |
 | Infrastructure | `infra/`, `.github/workflows/` | Terraform, GitHub Actions | | Marketing site and Windows release only; nothing for the hosted API |
 
 ## 4. The engine
@@ -58,7 +58,7 @@ flowchart TD
   caller[Server or hosted API] --> session[session.mjs: one serialized gate per books]
   session --> router[router.mjs: propose, confirm, discard, query]
   router --> contract[assistant-contract.mjs: strict schemas, risk classes]
-  contract --> tools[tools.mjs: 113 named tools]
+  contract --> tools[tools.mjs: 116 named tools]
   tools --> ledger[ledger.mjs, invoice.mjs: postings in paise]
   tools --> engines[sprints: GST, credit matching, deadlines, income tax, TDS, importers]
   tools --> gate[action-gate.mjs: the only way out]
@@ -133,9 +133,9 @@ section 9.
 | Crash reports | `crash-reports` (signed in; no business; see SECURITY-AND-PRIVACY.md) |
 | Privacy | `privacy-notice` (public); `me/consent`. Until the current notice is accepted, every route except `me`, `me/consent`, `crash-reports` and the state list answers 403 `CONSENT_REQUIRED` |
 
-Only twenty-five tools can be proposed remotely (`create_invoice`, `create_purchase`,
+Only twenty-seven tools can be proposed remotely (`create_invoice`, `create_purchase`,
 `record_receipt`, `record_payment`, `record_filing`, `record_supplier_reminder`,
-`add_employee`, `change_salary`, `end_employment`, `post_expense`, `set_expense_head`, `create_credit_note`,
+`add_employee`, `change_salary`, `end_employment`, `set_tds_deductor`, `record_tds_deposit`, `post_expense`, `set_expense_head`, `create_credit_note`,
 `cancel_invoice`, `gst_review_answer`, `add_reminder`, `complete_reminder`,
 `set_cash_balance`, `set_payment_terms`, `ask_ca`, `reply_ca`, `close_ca`,
 `create_quote`, `mark_quote`, `convert_quote`, `exception_decide`), plus the importers by document
@@ -182,9 +182,9 @@ provider credentials do not exist there yet.
 | Gate | Command | Covers |
 |---|---|---|
 | Everything | `node scripts/check-all.mjs` | Platform, every engine, hosted API if Postgres is reachable, app analysis and tests |
-| Platform | `cd platform && npm test` | 579 tests |
+| Platform | `cd platform && npm test` | 591 tests |
 | Hosted API | `cd cloud && npm test` | 77 tests; each file creates and drops its own database |
-| App | `cd mobile && flutter analyze && flutter test` | 123 tests |
+| App | `cd mobile && flutter analyze && flutter test` | 131 tests |
 | Stress | `cd platform && npm run stress` | Permanent stress harness |
 
 There is no linter or type checker for the Node code; the suites are the gate. CI

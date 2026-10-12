@@ -24,13 +24,14 @@ import { lastGstRateFor, planPayment } from './invoice.mjs';
 import { planFiling } from './filings.mjs';
 import { planSupplierReminder } from './supplier-reminders.mjs';
 import { planEmployee, planSalaryChange, planLeaving } from './employees.mjs';
+import { planDeductor, planTds, planTdsDeposit, tdsWords, wantsTds } from './tds-deduction.mjs';
 import { filingRows } from './deadline-run.mjs';
 import { tally, bank, gstin as gstinRules } from './sprint-load.mjs';
 import { parseZohoBooksCsv } from './import-zoho.mjs';
 import { tallyXmlToDayBookCsv } from './tally-xml.mjs';
 
 export const CONFIRM_TOOLS = new Set([
-  'create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'record_filing', 'record_supplier_reminder', 'add_employee', 'change_salary', 'end_employment', 'post_expense', 'set_expense_head', 'create_credit_note', 'cancel_invoice', 'gst_review_answer', 'import_gstr2b', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote',
+  'create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'record_filing', 'record_supplier_reminder', 'add_employee', 'change_salary', 'end_employment', 'set_tds_deductor', 'record_tds_deposit', 'post_expense', 'set_expense_head', 'create_credit_note', 'cancel_invoice', 'gst_review_answer', 'import_gstr2b', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote',
   'import_tally', 'import_tally_xml', 'import_zoho', 'import_bank',
   'govt_generate_irn', 'govt_nic_cancel_irn',
   'exception_decide',
@@ -84,6 +85,12 @@ function documentPreview(state, args, kind) {
   const terms = sale ? invoiceTerms(state, { name: party, gstin: args.partyGstin, override: args.paymentTermsDays }) : { days: null };
   if (terms.error) blockers.push('Terms are a whole number of days from 0 to 365.');
   const due = sale && terms.days != null && date ? ` Due ${dueDateOf(date, terms.days)} (${termsLabel(terms.days)}${terms.source === 'customer' ? `, ${party}'s usual terms` : ''}).` : '';
+  let tds = null;
+  if (!sale && wantsTds(args) && date && !blockers.length) {
+    const planned = planTds(state, args, { date, basis: taxable, payable: taxable + tax, payee: party, beforeGst: true });
+    if (planned.ok) tds = planned.tds;
+    else blockers.push((TDS_REASONS[planned.error] || (() => planned.error))(planned));
+  }
   return {
     blockers,
     summary: sale
@@ -91,8 +98,8 @@ function documentPreview(state, args, kind) {
       : `Purchase bill from ${party}${args.partyGstin ? ` (${args.partyGstin})` : ''} dated ${date || '?'}: taxable ${money(taxable)}, ${heads}, total ${money(taxable + tax)}. Input credit ${args.itcEligible === false ? 'blocked (s.17(5)) and added to cost' : money(tax)}.`,
     effects: sale
       ? [`${party} owes you ${money(taxable + tax)} more.`, `It goes into your GSTR-1${date ? ` for ${date.slice(0, 7)}` : ''}.`]
-      : [`You owe ${party} ${money(taxable + tax)} more.`, args.itcEligible === false ? 'The GST on it cannot be claimed, so it is part of the cost.' : 'It is checked against your GSTR-2B when you add one.'],
-    figures: { date, taxable, tax, total: Math.round((taxable + tax) * 100) / 100, placeOfSupply: pos },
+      : [`You owe ${party} ${money(taxable + tax - (tds?.tds || 0))} more.`, args.itcEligible === false ? 'The GST on it cannot be claimed, so it is part of the cost.' : 'It is checked against your GSTR-2B when you add one.', ...(tds ? [tdsWords(tds, taxable + tax - tds.tds, `you owe ${party}`)] : [])],
+    figures: { date, taxable, tax, total: Math.round((taxable + tax) * 100) / 100, placeOfSupply: pos, ...(tds ? { tds: tds.tds, tdsSection: tds.section, tdsRate: tds.rate } : {}) },
   };
 }
 
@@ -153,7 +160,8 @@ const FILING_REASONS = {
   BAD_ARN: () => 'An acknowledgement number (ARN) is 10 to 20 letters and digits, as printed on the acknowledgement.',
   INVALID_DATE: () => 'That is not a date I can read.',
   FUTURE_DATE: () => 'A filing date cannot be in the future.',
-  UNKNOWN_RETURN: (p) => `MyCA does not list ${p.returnType} for ${p.period} for this business.${p.known?.length ? ` Recent ones: ${p.known.join(', ')}.` : ''}`,
+  UNKNOWN_RETURN: (p) => `MyCA does not list ${p.returnType} for ${p.period} for this business${!p.registered && /^GSTR/.test(p.returnType) ? ', which has no GSTIN in MyCA' : ''}.${p.known?.length ? ` Recent ones: ${p.known.join(', ')}.` : ''}`,
+  DEPOSIT_NOT_A_FILING: () => 'A TDS deposit is recorded with its challan, not an ARN. Say "deposited TDS, challan" followed by the reference.',
   ALREADY_RECORDED: (p) => `${p.returnType} for ${p.period} is already recorded as filed on ${p.filedOn} (ARN ${p.arn}).`,
   ARN_USED: (p) => `ARN ${p.arn} is already recorded against another return.`,
 };
@@ -179,6 +187,53 @@ function supplierReminderPreview(state, args) {
     summary: `Send a reminder to ${d.supplier} about ${d.bills.length === 1 ? '1 bill' : `${d.bills.length} bills`} for ${d.period}, with ${money(d.credit)} of your input credit waiting on them.${d.timesSent ? ` You last reminded them on ${d.lastSent}.` : ''}`,
     effects: ['It goes from your own phone: your WhatsApp, email or another app you pick. MyCA sends nothing itself.', 'The message and the day are kept with the books.'],
     figures: { supplier: d.supplier, period: d.period, bills: d.bills.length, credit: d.credit, edited: plan.edited, timesSent: d.timesSent },
+  };
+}
+
+export const TDS_REASONS = {
+  NOT_A_DEDUCTOR: () => 'This business is not set up to deduct TDS. Say "we deduct TDS, TAN" followed by your TAN first.',
+  BAD_TDS_SECTION: () => 'MyCA handles TDS under 194A (interest), 194C (contractors), 194I (rent) and 194J (professional or technical fees).',
+  TDS_CATEGORY_REQUIRED: () => 'Under 194J, say whether it is for professional services, technical services or director remuneration; the rate differs.',
+  TDS_ASSET_REQUIRED: () => 'Under 194I, say whether the rent is for land, building or furniture, or for plant and machinery; the rate differs.',
+  PAN_REQUIRED: () => 'Give the payee\'s PAN. MyCA does not yet have the rule for a payee without a PAN, so it will not guess the rate.',
+  BAD_PAN: () => 'That PAN is not in the right form: five letters, four digits and a letter.',
+  TDS_RULE_MISSING: () => 'MyCA has no TDS rule in force for that section on that date, so it will not work out a deduction.',
+  BAD_TAN: () => 'A TAN is four letters, five digits and a letter.',
+  INVALID_DATE: () => 'That is not a date I can read.',
+  FUTURE_DATE: () => 'A deposit date cannot be in the future.',
+  PERIOD_LOCKED: (p) => `${p.date} is inside the locked period (through ${p.lockThrough}).`,
+  BAD_CHALLAN: () => 'Give the challan reference as printed (the CIN, or the BSR code and serial number).',
+  CHALLAN_USED: (p) => `Challan ${p.challan} is already recorded.`,
+  NOTHING_DUE: () => 'There is no TDS waiting to be deposited.',
+  BAD_AMOUNT: () => 'The amount must be a positive number.',
+  MORE_THAN_DUE: (p) => `That is more than the ${money(p.due)} of TDS still to deposit.`,
+};
+
+function tdsBlocked(plan) {
+  const reason = TDS_REASONS[plan.error];
+  return { blockers: [reason ? reason(plan) : plan.error], summary: '', effects: [], figures: {} };
+}
+
+function deductorPreview(state, args) {
+  const plan = planDeductor(state, args);
+  if (!plan.ok) return tdsBlocked(plan);
+  return {
+    blockers: [],
+    summary: `This business deducts TDS, TAN ${plan.tan}${plan.was && plan.was !== plan.tan ? ` (was ${plan.was})` : ''}.`,
+    effects: ['Bills and expenses can then carry a TDS section, and TDS deposits and statements show in your deadlines.'],
+    figures: { tan: plan.tan },
+  };
+}
+
+function tdsDepositPreview(state, args) {
+  const plan = planTdsDeposit(state, args);
+  if (!plan.ok) return tdsBlocked(plan);
+  const d = plan.deposit;
+  return {
+    blockers: [],
+    summary: `TDS deposit of ${money(d.amount)} on ${d.date}, challan ${d.challan}, from ${d.mode === 'cash' ? 'cash' : 'the bank'}.`,
+    effects: [`${money(d.amount)} goes out of your ${d.mode === 'cash' ? 'cash' : 'bank'}.`, plan.due - d.amount > 0.005 ? `${money(plan.due - d.amount)} of TDS is still to deposit.` : 'Nothing is left to deposit.'],
+    figures: { amount: d.amount, date: d.date, challan: d.challan, left: Math.round((plan.due - d.amount) * 100) / 100 },
   };
 }
 
@@ -277,7 +332,7 @@ function expensePreview(state, args) {
       INSUFFICIENT_CASH: `Cash in hand is ${money(planned.inHand)} and this is ${money(planned.amount)}. Record where the cash came from first, or pay it from bank.`,
       BAD_GSTIN: 'That supplier GSTIN is not 15 characters.',
       UNKNOWN_HEAD: `${args.head} is not an expense head.`,
-    }[planned.error] || planned.error;
+    }[planned.error] || (TDS_REASONS[planned.error] ? TDS_REASONS[planned.error](planned) : planned.error);
     return { blockers: [reason], summary: '', effects: [], figures: {} };
   }
   const { plan } = planned;
@@ -285,8 +340,8 @@ function expensePreview(state, args) {
   return {
     blockers: [],
     summary: `${plan.tag.headName}: ${what} ${money(plan.amount)} paid from ${plan.mode} on ${plan.date}. ${plan.creditNote}`,
-    effects: [plan.tag.why, `${money(plan.amount)} goes out of your ${plan.mode === 'cash' ? 'cash' : 'bank'}${plan.inputCredit ? ', with the GST in it counted as input credit' : ''}.`],
-    figures: { date: plan.date, head: plan.tag.head, headName: plan.tag.headName, tagSource: plan.tag.source, taxable: plan.taxable, gstRate: plan.gstRate, inputCredit: plan.inputCredit, amount: plan.amount, mode: plan.mode },
+    effects: [plan.tag.why, `${money(plan.amount - (plan.tds?.tds || 0))} goes out of your ${plan.mode === 'cash' ? 'cash' : 'bank'}${plan.inputCredit ? ', with the GST in it counted as input credit' : ''}.`, ...(plan.tds ? [tdsWords(plan.tds, plan.amount - plan.tds.tds, `pay ${plan.payee || 'them'}`)] : [])],
+    figures: { date: plan.date, head: plan.tag.head, headName: plan.tag.headName, tagSource: plan.tag.source, taxable: plan.taxable, gstRate: plan.gstRate, inputCredit: plan.inputCredit, amount: plan.amount, mode: plan.mode, ...(plan.tds ? { tds: plan.tds.tds, tdsSection: plan.tds.section, tdsRate: plan.tds.rate } : {}) },
   };
 }
 
@@ -605,6 +660,8 @@ const PREVIEWERS = {
   record_filing: filingPreview,
   record_supplier_reminder: supplierReminderPreview,
   add_employee: employeePreview,
+  set_tds_deductor: deductorPreview,
+  record_tds_deposit: tdsDepositPreview,
   change_salary: salaryChangePreview,
   end_employment: leavingPreview,
   post_expense: expensePreview,
