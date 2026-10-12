@@ -71,6 +71,7 @@ export function newBook(company = {}) {
     tdsEntries: [],
     tdsDeposits: [],
     gstCreditOpening: null,
+    tdsReviews: {},
   };
 }
 
@@ -114,6 +115,7 @@ export function serializeBook(book) {
     tdsEntries: book.tdsEntries || [],
     tdsDeposits: book.tdsDeposits || [],
     gstCreditOpening: book.gstCreditOpening || null,
+    tdsReviews: book.tdsReviews || {},
     quoteSeq: book.quoteSeq || 0,
   };
 }
@@ -158,6 +160,7 @@ export function deserializeBook(raw) {
   book.tdsEntries = Array.isArray(raw.tdsEntries) ? raw.tdsEntries : [];
   book.tdsDeposits = Array.isArray(raw.tdsDeposits) ? raw.tdsDeposits : [];
   book.gstCreditOpening = raw.gstCreditOpening && typeof raw.gstCreditOpening === 'object' ? raw.gstCreditOpening : null;
+  book.tdsReviews = raw.tdsReviews && typeof raw.tdsReviews === 'object' ? raw.tdsReviews : {};
   book.quoteSeq = raw.quoteSeq || 0;
   return book;
 }

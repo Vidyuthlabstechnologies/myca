@@ -6,7 +6,7 @@
 | Basis | The [product PRD](PRD.md); progress in [`../superpowers/PROGRESS.md`](../superpowers/PROGRESS.md) |
 | Status | Engineering's proposed order. No dates: the pace depends on owner actions listed at the end. |
 
-About 63% of the PRD is built. The order below is chosen so that each milestone gives a
+About 66% of the PRD is built. The order below is chosen so that each milestone gives a
 pilot owner something usable, and so that work blocked on outside parties is not on the
 critical path of work that is not.
 
@@ -62,7 +62,7 @@ Real businesses, real data, closed testing on the Play Store.
 |---|---|---|
 | Live GSTR-1, then GSTR-3B | FR-GST-4, FR-GST-5 | GSP/ASP onboarding; PRD Q2 |
 | E-way bill and e-invoice in the invoice flow | FR-INV-5 | NIC production credentials |
-| TDS on entries, quarterly draft and review | FR-TDS-2, FR-TDS-3 | Advisor CA verification |
+| TDS on entries, quarterly draft and review (**done** 2026-10-12; filing through the provider to come) | FR-TDS-2, FR-TDS-3 | Nothing |
 | Sync setting for accountants (**done** 2026-10-07) | FR-CA-3 | Nothing |
 
 ### M6. Payroll and POS

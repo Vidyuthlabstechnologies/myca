@@ -142,6 +142,19 @@ function fmtToolResult(name, result) {
     const o = result.opening;
     return `Recorded the GST credit balance at the start of ${monthWords(o.period)}: IGST ${money(o.igst)}, CGST ${money(o.cgst)}, SGST ${money(o.sgst)}. Set-off from that month on counts it.`;
   }
+  if (name === 'tds_review_answer' && result.review) {
+    const review = result.review;
+    if (result.approved) return `Approved the ${review.period} TDS statement. Nothing has been filed. ${review.shortfall > 0 ? `${money(review.shortfall)} is still to deposit before it can be filed.` : 'File it on the TRACES or income-tax portal, or send it to your CA, and record the acknowledgement.'}`;
+    if (result.answer === 'wrong') return 'Noted that it is not right. Fix the entries; the review starts again from that step when the figures change.';
+    const next = review.steps.find((step) => step.id === review.next);
+    return next ? `Confirmed. Next: ${next.title}. Say "review TDS" to see it.` : 'Confirmed.';
+  }
+  if (name === 'tds_return' && result.data) {
+    const d = result.data;
+    if (d.empty) return `Nothing was deducted in ${d.quarter}.`;
+    const rows = d.sections.map((s) => `· ${s.section}: ${s.deductees === 1 ? '1 deductee' : `${s.deductees} deductees`}, ${money(s.tds)}`).join('\n');
+    return `TDS statement for ${d.quarter}${d.form ? ` (Form ${d.form})` : ''}: deducted ${money(d.deducted)}, deposited ${money(d.deposited)}${d.shortfall > 0 ? `, still to deposit ${money(d.shortfall)}` : ''}.${d.filed ? ` Recorded as filed on ${d.filed.filedOn}, ARN ${d.filed.arn}.` : d.dueDate ? ` Due by ${d.dueDate}.` : ''}\n${rows}\nSay "review TDS" to check it step by step.`;
+  }
   if (name === 'set_tds_deductor' && result.tan) {
     return `Done. This business deducts TDS under TAN ${result.tan}.`;
   }

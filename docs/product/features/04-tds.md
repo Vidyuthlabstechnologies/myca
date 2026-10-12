@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Requirements | FR-TDS-1 to 3 in the [product PRD](../PRD.md) |
-| Status | Threshold monitor built; deduction on bills and expenses and deposits built (2026-10-08); return draft and review not built |
+| Status | Threshold monitor built; deduction on bills and expenses and deposits built (2026-10-08); payees without PAN at the higher rate, the quarterly statement draft and its review built (2026-10-12); filing and certificates not built |
 | Code | `sprints/statutory-rules/src/rules` (TDS rules, golden cases in `golden/tds.json`), `sprints/sprint-4-deadlines`, provider adapter for file generation |
 
 ## What the owner experiences
@@ -45,8 +45,11 @@ way as a GST return.
   (P) or HUF (H), which 194C charges at the lower rate.
 - TDS is worked out on the amount before GST when GST is shown separately (a bill, or an
   expense with the supplier's GSTIN), otherwise on the whole amount.
-- No PAN: refused. The rule for a payee without a PAN is not in MyCA yet, so it does not
-  guess a rate.
+- No PAN: deducted at the higher rate from the dated rule `tds.no-pan.rate` (s.206AA(1)
+  of the 1961 Act, s.397(2) of the 2025 Act: the highest of the rate specified, the rate
+  in force and twenty per cent for the sections MyCA handles). Payments to such a payee
+  aggregate by name within the section and year, the entry is marked `noPan`, and the
+  preview says why the rate is higher. A payee with neither a name nor a PAN is refused.
 - Posting: a bill credits the supplier for the net and TDS payable (2200) for the TDS;
   an expense pays the net from the bank or cash and credits TDS payable. The supplier's
   outstanding and the payment default are net of TDS.
@@ -61,14 +64,30 @@ way as a GST return.
   office rent to … tds 194I PAN …", "my tds", "deposited TDS, challan …". App: TDS on
   the bill and expense forms for a deductor, and a TDS card on Taxes.
 
-### Return (to build)
+### Return (draft and review built 2026-10-12; filing to build)
 
-- A quarterly draft per form from the period's deductions and challans.
-- Review cards as in [spec 03](03-gst-returns.md): deductees, amounts, challans, then
-  approval.
-- File generation and validation are already wired to a provider behind the action
-  gate; submission follows the same gate.
-- Certificates to suppliers after filing, shared the same way as invoices.
+- `tds-return.mjs` drafts the quarterly statement for payments other than salary
+  (`tds_return`): quarters follow the financial year (Q2 2026-27 is July to September
+  2026); the form number comes from the dated due-date rule (Form 140 under the 2025
+  Act, 26Q before). Deductees are grouped by PAN and section (by name where there is no
+  PAN), with the number of payments, the amount, the rate and the TDS; totals by
+  section; and the challans that cover the quarter. Deposits are matched to deductions
+  in date order, so a challan that also covers an earlier quarter shows only the part
+  for this one. The draft carries what is still to deposit, the statement's due date
+  from the deadlines engine, and any recorded filing.
+- Review (`tds-review.mjs`, `tds_review`, `tds_review_answer`): deductees, challans,
+  then approval, each asking "Is this information correct?", bound to a hash of the
+  draft as in [spec 03](03-gst-returns.md). A new deduction or challan in the quarter
+  voids earlier answers. Only the owner approves when the role is known. Approval
+  records who checked which draft; it files nothing and moves no money. The statement
+  cannot be filed before the TDS is deposited, and the review says so.
+- Chat: "TDS return for Q2 2026-27", "review TDS", then "yes" step by step. App: the
+  TDS section of Taxes lists the latest quarters with their state (to review, approved,
+  filed) and opens the same review screen as GST.
+- Still to build: generating and validating the file through the provider behind the
+  action gate, submission through the same gate, recording the token the portal
+  returns, and certificates to suppliers shared the same way as invoices. Until then
+  the owner files on the portal or through the CA and records the acknowledgement.
 
 ## Statutory care
 

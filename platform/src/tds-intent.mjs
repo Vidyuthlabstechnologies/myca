@@ -77,6 +77,7 @@ export function planTdsFromChat(text) {
       },
     };
   }
+  if (/\b(?:return|statement|review|quarter(?:ly)?|26q|24q|form)\b/i.test(raw)) return null;
   if (/^(?:my\s+|show\s+(?:my\s+)?|how\s+much\s+)?tds\b|\btds\s+(?:due|payable|to\s+deposit|summary)\b/i.test(raw)) {
     return { kind: 'tool', name: 'tds_summary', args: {} };
   }

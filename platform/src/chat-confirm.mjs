@@ -26,13 +26,14 @@ import { planSupplierReminder } from './supplier-reminders.mjs';
 import { planEmployee, planSalaryChange, planLeaving } from './employees.mjs';
 import { planDeductor, planTds, planTdsDeposit, tdsWords, wantsTds } from './tds-deduction.mjs';
 import { planCreditOpening } from './gst-payment.mjs';
+import { checkTdsAnswer } from './tds-review.mjs';
 import { filingRows } from './deadline-run.mjs';
 import { tally, bank, gstin as gstinRules } from './sprint-load.mjs';
 import { parseZohoBooksCsv } from './import-zoho.mjs';
 import { tallyXmlToDayBookCsv } from './tally-xml.mjs';
 
 export const CONFIRM_TOOLS = new Set([
-  'create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'record_filing', 'record_supplier_reminder', 'add_employee', 'change_salary', 'end_employment', 'set_tds_deductor', 'record_tds_deposit', 'set_gst_credit_opening', 'post_expense', 'set_expense_head', 'create_credit_note', 'cancel_invoice', 'gst_review_answer', 'import_gstr2b', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote',
+  'create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'record_filing', 'record_supplier_reminder', 'add_employee', 'change_salary', 'end_employment', 'set_tds_deductor', 'record_tds_deposit', 'tds_review_answer', 'set_gst_credit_opening', 'post_expense', 'set_expense_head', 'create_credit_note', 'cancel_invoice', 'gst_review_answer', 'import_gstr2b', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote',
   'import_tally', 'import_tally_xml', 'import_zoho', 'import_bank',
   'govt_generate_irn', 'govt_nic_cancel_irn',
   'exception_decide',
@@ -428,6 +429,23 @@ function reviewAnswerPreview(state, args) {
   };
 }
 
+function tdsReviewAnswerPreview(state, args) {
+  const checked = checkTdsAnswer(state, args);
+  if (!checked.ok) return { blockers: [REVIEW_REASONS[checked.error] || checked.error], summary: '', effects: [], figures: {} };
+  const { review, step } = checked;
+  const answered = {
+    correct: `You are confirming: ${step.title}.`,
+    wrong: `You are marking ${step.title.toLowerCase()} as not right${args.note ? `: ${args.note}` : ''}. Fix the entries, then review again.`,
+    approve: `You are approving the ${review.period} TDS statement. Nothing is filed.`,
+  }[args.answer];
+  return {
+    blockers: [],
+    summary: stepText(review, step.id, money),
+    effects: [answered],
+    figures: { period: review.period, step: step.id, answer: args.answer, draftHash: review.draftHash },
+  };
+}
+
 function gstr2bPreview(state, args) {
   if (!isReturnPeriod(args.period)) return { blockers: ['Say which month this 2B is for.'], summary: '', effects: [], figures: {} };
   const { rows, errors } = parse2bFile(args.csv);
@@ -690,6 +708,7 @@ const PREVIEWERS = {
   create_credit_note: creditNotePreview,
   cancel_invoice: (state, args) => creditNotePreview(state, args, true),
   gst_review_answer: reviewAnswerPreview,
+  tds_review_answer: tdsReviewAnswerPreview,
   import_gstr2b: gstr2bPreview,
   add_reminder: reminderPreview,
   complete_reminder: completeReminderPreview,

@@ -6,6 +6,8 @@ import { planFilingFromChat } from './filing-intent.mjs';
 import { planEmployeeFromChat } from './employee-intent.mjs';
 import { planTdsFromChat } from './tds-intent.mjs';
 import { planGstPayFromChat } from './gst-pay-intent.mjs';
+import { tdsReviewOf } from './tds-review.mjs';
+import { parseQuarter } from './tds-return.mjs';
 import { reviewOf } from './gst-review.mjs';
 import { planReminderFromChat } from './reminder-intent.mjs';
 import { planCashFromChat } from './cash-intent.mjs';
@@ -520,6 +522,28 @@ export const TOOL_ARG_SCHEMAS = {
       mode: { type: 'string', enum: ['bank', 'cash'] },
     },
   },
+  tds_return: {
+    type: 'object',
+    additionalProperties: false,
+    properties: { quarter: { type: 'string', pattern: '^Q[1-4] [0-9]{4}-[0-9]{2}$' } },
+  },
+  tds_review: {
+    type: 'object',
+    additionalProperties: false,
+    properties: { period: { type: 'string', pattern: '^Q[1-4] [0-9]{4}-[0-9]{2}$' } },
+  },
+  tds_review_answer: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['period', 'step', 'answer', 'draftHash'],
+    properties: {
+      period: { type: 'string', pattern: '^Q[1-4] [0-9]{4}-[0-9]{2}$' },
+      step: { type: 'string', enum: ['deductees', 'challans', 'approve'] },
+      answer: { type: 'string', enum: ['correct', 'wrong', 'approve'] },
+      draftHash: { type: 'string', pattern: '^[0-9a-f]{64}$' },
+      note: { type: 'string', maxLength: 500 },
+    },
+  },
   list_filings: {
     type: 'object',
     additionalProperties: false,
@@ -933,6 +957,7 @@ const TOOL_RISK = {
   add_employee: 'writes_books',
   set_tds_deductor: 'writes_books',
   set_gst_credit_opening: 'writes_books',
+  tds_review_answer: 'writes_books',
   record_tds_deposit: 'writes_books',
   change_salary: 'writes_books',
   end_employment: 'writes_books',
@@ -1175,6 +1200,13 @@ export function planLocalToolCall(state, message) {
   const terms = planTermsFromChat(text);
   if (terms) return terms;
 
+  if (/\breview\b.*\btds\b|\btds\b.*\breview\b/i.test(text) && !isNegated(text)) {
+    return planTdsReview(state, text);
+  }
+  if (/\btds\b.*\b(?:return|statement|26q|24q|form\s*140|quarterly)\b|\b(?:return|statement|26q|24q|quarterly)\b.*\btds\b/i.test(text) && !isNegated(text)) {
+    const quarter = quarterSaid(text);
+    return { kind: 'tool', name: 'tds_return', args: quarter ? { quarter } : {} };
+  }
   if (/\breview\b.*\b(?:gst|gstr|return)\b|\b(?:gst|gstr-?[13]b?|return)\b.*\breview\b/i.test(text) && !isNegated(text)) {
     return planReview(state, text);
   }
@@ -1305,6 +1337,36 @@ function reviewPeriodSaid(state, text) {
   const wanted = String(index + 1).padStart(2, '0');
   const known = (reviewOf(state).data?.periods || []).filter((period) => period.endsWith(`-${wanted}`));
   return known.at(-1) || `${localToday().slice(0, 4)}-${wanted}`;
+}
+
+function quarterSaid(text) {
+  const said = text.match(/\b(?:FY\s*)?(\d{4}-\d{2})\s*[-,]?\s*Q([1-4])\b|\bQ([1-4])\b(?:\s*(?:of\s*|,\s*|FY\s*)?(\d{4}-\d{2}))?/i);
+  if (!said) return '';
+  const quarter = said[2] || said[3];
+  const fy = said[1] || said[4];
+  if (fy) return parseQuarter(`Q${quarter} ${fy}`)?.label || '';
+  const today = localToday();
+  const year = Number(today.slice(0, 4));
+  const start = Number(today.slice(5, 7)) >= 4 ? year : year - 1;
+  return `Q${quarter} ${start}-${String((start + 1) % 100).padStart(2, '0')}`;
+}
+
+function planTdsReview(state, text) {
+  const review = tdsReviewOf(state, quarterSaid(text) || undefined);
+  if (!review.ok) {
+    if (review.error === 'NOT_A_DEDUCTOR') return { kind: 'reply', reply: 'This business is not set up to deduct TDS. Say "we deduct TDS, TAN" followed by your TAN to start.', tools: [] };
+    if (review.error === 'NO_DEDUCTIONS') return { kind: 'reply', reply: 'No TDS has been deducted yet, so there is no statement to review.', tools: [] };
+    return { kind: 'reply', reply: 'I could not read the quarter. Say it like "review TDS for Q2 2026-27".', tools: [] };
+  }
+  const data = review.data;
+  if (data.empty) return { kind: 'reply', reply: `Nothing was deducted in ${data.period}, so there is nothing to review.`, tools: [] };
+  if (data.approved) return { kind: 'reply', reply: `You approved the ${data.period} TDS statement on ${data.approval.on}. Nothing has changed since.`, tools: [] };
+  const step = data.steps.find((item) => item.id === data.next);
+  return {
+    kind: 'tool',
+    name: 'tds_review_answer',
+    args: { period: data.period, step: step.id, answer: step.id === 'approve' ? 'approve' : 'correct', draftHash: data.draftHash },
+  };
 }
 
 function planReview(state, text) {

@@ -23,6 +23,8 @@ import { draftSupplierReminder, recordSupplierReminder } from './supplier-remind
 import { addEmployee, changeSalary, endEmployment, listEmployees } from './employees.mjs';
 import { recordTdsDeposit, setDeductor, tdsSummary } from './tds-deduction.mjs';
 import { paymentFor, setCreditOpening } from './gst-payment.mjs';
+import { tdsReturnDraft } from './tds-return.mjs';
+import { tdsReviewOf, answerTdsReview } from './tds-review.mjs';
 import { addReminder, completeReminder, listReminders } from './reminders.mjs';
 import { cashForecast, canAfford, setCashBalance } from './cash-forecast.mjs';
 import { setPaymentTerms } from './payment-terms.mjs';
@@ -1382,6 +1384,27 @@ export const TOOLS = [
     description: 'Record TDS paid to the government with its challan reference. Defaults to everything still to deposit.',
     args: ['amount', 'date', 'challan', 'mode'],
     run: (state, args = {}) => recordTdsDeposit(state, args),
+  },
+  {
+    name: 'tds_return',
+    title: 'Quarterly TDS statement',
+    description: 'Draft of the quarterly TDS statement for payments other than salary: deductees by PAN and section, totals by section, the challans that cover the quarter, what is still to deposit, the due date and any recorded filing. The latest quarter with deductions unless one is given as Q2 2026-27. Read-only.',
+    args: ['quarter'],
+    run: (state, args = {}) => tdsReturnDraft(state, args.quarter),
+  },
+  {
+    name: 'tds_review',
+    title: 'Review the TDS statement',
+    description: 'The quarterly TDS statement step by step: deductees, challans, then approval, each asking "Is this information correct?". Read-only.',
+    args: ['period'],
+    run: (state, args = {}) => tdsReviewOf(state, args.period),
+  },
+  {
+    name: 'tds_review_answer',
+    title: 'Answer a TDS review step',
+    description: 'Confirm a step of the quarterly TDS statement, mark it wrong with a note, or approve the statement. Bound to the draft the owner saw. Files nothing.',
+    args: ['period', 'step', 'answer', 'draftHash', 'note'],
+    run: (state, args = {}) => answerTdsReview(state, args),
   },
   {
     name: 'list_employees',

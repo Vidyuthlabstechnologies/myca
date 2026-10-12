@@ -3,6 +3,7 @@ import { localToday, postingDate } from './dates.mjs';
 import { isPeriodLocked } from './period-lock.mjs';
 import { createTransfers, paise } from './ledger.mjs';
 import { deadlineRun } from './deadline-run.mjs';
+import { quartersWithDeductions, tdsReturnDraft } from './tds-return.mjs';
 
 export const TDS_SECTIONS = ['194A', '194C', '194I', '194J'];
 const PAN = /^[A-Z]{3}[ABCFGHJLPT][A-Z][0-9]{4}[A-Z]$/;
@@ -36,8 +37,7 @@ function terms(args) {
   if (section === '194J' && !CATEGORY[category]) return fail('TDS_CATEGORY_REQUIRED');
   if (section === '194I' && !ASSET[asset]) return fail('TDS_ASSET_REQUIRED');
   const pan = String(args.payeePan || '').replace(/\s+/g, '').toUpperCase();
-  if (!pan) return fail('PAN_REQUIRED');
-  if (!PAN.test(pan)) return fail('BAD_PAN', { pan });
+  if (pan && !PAN.test(pan)) return fail('BAD_PAN', { pan });
   return { ok: true, section, category: section === '194J' ? category : '', asset: section === '194I' ? asset : '', pan };
 }
 
@@ -60,18 +60,24 @@ export function planTds(state, args = {}, { date, basis, payable, payee, beforeG
   if (!t.ok) return t;
   const fy = rules.fyOf(date);
   if (!fy) return fail('INVALID_DATE');
-  const same = (entry) => entry.pan === t.pan && entry.section === t.section && entry.category === t.category && entry.fy === fy;
+  const payeeKey = t.pan || `NOPAN:${String(payee || '').trim().toUpperCase()}`;
+  if (!t.pan && !String(payee || '').trim()) return fail('PAN_REQUIRED');
+  const same = (entry) => (entry.pan || `NOPAN:${String(entry.payee || '').trim().toUpperCase()}`) === payeeKey && entry.section === t.section && entry.category === t.category && entry.fy === fy;
   const priors = (state.tdsEntries || []).filter(same);
-  const payeeType = payeeTypeOf(t.pan);
-  const payment = (entry) => ({ fy, payee: t.pan, section: t.section, date: entry.date, amount: entry.basis, payeeType, payerType: '', asset: t.asset, category: t.category });
+  const payeeType = t.pan ? payeeTypeOf(t.pan) : 'other';
+  const payment = (entry) => ({ fy, payee: payeeKey, section: t.section, date: entry.date, amount: entry.basis, payeeType, payerType: '', asset: t.asset, category: t.category });
   const flags = tdsMonitor.monitorTds({ payments: [...priors.map(payment), payment({ date, basis })], fy });
   if (flags.errors?.length) return fail('TDS_RULE_MISSING', { ruleId: flags.errors[0].ruleId || '', detail: flags.errors[0].error });
-  const flag = flags.find((item) => item.payee === t.pan && item.section === t.section);
+  const flag = flags.find((item) => item.payee === payeeKey && item.section === t.section);
+  const noPan = flag && !t.pan ? rules.rule('tds.no-pan.rate', date) : null;
+  if (noPan && !noPan.ok) return fail('TDS_RULE_MISSING', { ruleId: 'tds.no-pan.rate', detail: noPan.error });
+  const floor = noPan ? noPan.record.value.basisPoints / 10000 : 0;
+  const rate = flag ? Math.max(flag.rate, floor) : 0;
   const already = round2(priors.reduce((sum, entry) => sum + entry.tds, 0));
-  const due = flag ? round2(flag.assumedTds - already) : 0;
+  const due = flag ? round2(flag.assumedTds * (rate / flag.rate) - already) : 0;
   const tds = Math.max(0, Math.min(due, round2(payable)));
   const shortfall = round2(Math.max(0, due - tds));
-  const used = flag ? flag.rulesUsed : [];
+  const used = flag ? [...flag.rulesUsed, ...(noPan ? [`${noPan.record.id}@${noPan.record.effectiveFrom}`] : [])] : [];
   return {
     ok: true,
     tds: {
@@ -86,7 +92,8 @@ export function planTds(state, args = {}, { date, basis, payable, payee, beforeG
       beforeGst,
       tds,
       shortfall,
-      rate: flag ? round2(flag.rate * 100) : 0,
+      rate: round2(rate * 100),
+      noPan: !t.pan,
       threshold: flag ? flag.threshold : null,
       crossed: Boolean(flag),
       kind: flag ? flag.kind : '',
@@ -109,7 +116,7 @@ export function tdsWords(tds, net, who) {
   if (!tds.crossed || tds.tds <= 0) {
     return `No TDS yet under ${tds.section}: payments to ${tds.payee} this year are within the limit.`;
   }
-  const lines = [`Deduct ${money(tds.tds)} TDS under ${tds.section} at ${tds.rate}% on ${money(tds.basis)}${tds.beforeGst ? ' before GST' : ''}; ${who} ${money(net)}.`];
+  const lines = [`Deduct ${money(tds.tds)} TDS under ${tds.section} at ${tds.rate}%${tds.noPan ? ' (the higher rate, because no PAN was given)' : ''} on ${money(tds.basis)}${tds.beforeGst ? ' before GST' : ''}; ${who} ${money(net)}.`];
   if (tds.kind === 'aggregate' && tds.tds > round2(tds.basis * tds.rate / 100) + 0.005) lines.push('This includes TDS on earlier payments this year, now that the yearly limit is crossed.');
   if (tds.shortfall > 0) lines.push(`${money(tds.shortfall)} more TDS is due on earlier payments; it will be taken from the next one.`);
   if (tds.depositBy) lines.push(`Deposit it with the government by ${tds.depositBy}.`);
@@ -199,6 +206,21 @@ export function tdsSummary(state) {
       tan: state.company?.tan || '',
       ...totals,
       months: [...byMonth.values()].sort((a, b) => a.month.localeCompare(b.month)),
+      quarters: quartersWithDeductions(state).map((q) => {
+        const draft = tdsReturnDraft(state, q.label);
+        const review = state.tdsReviews && typeof state.tdsReviews === 'object' && Object.hasOwn(state.tdsReviews, q.label) ? state.tdsReviews[q.label] : null;
+        const data = draft.ok ? draft.data : null;
+        return {
+          quarter: q.label,
+          deducted: data ? data.deducted : 0,
+          deposited: data ? data.deposited : 0,
+          shortfall: data ? data.shortfall : 0,
+          dueDate: data ? data.dueDate : '',
+          form: data ? data.form : '',
+          approved: Boolean(data && review && review.approval && review.draftHash === data.draftHash),
+          filed: data ? data.filed : null,
+        };
+      }),
       entries: [...(state.tdsEntries || [])].reverse().slice(0, 50),
       deposits: [...(state.tdsDeposits || [])].reverse(),
     },

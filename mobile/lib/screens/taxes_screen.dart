@@ -59,6 +59,23 @@ class _TaxesScreenState extends State<TaxesScreen> {
     }
   }
 
+  Future<void> _openTdsReview(TdsQuarter quarter) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ReviewScreen(
+          period: quarter.quarter,
+          tool: 'tds_review',
+          answerTool: 'tds_review_answer',
+          title: 'Review the TDS statement',
+        ),
+      ),
+    );
+    if (!mounted) return;
+    setState(() {
+      _tds = _loadTds();
+    });
+  }
+
   Future<void> _openTds(TdsSummary summary) async {
     final state = AppScope.of(context);
     final done = await Navigator.of(context).push<bool>(
@@ -404,6 +421,18 @@ class _TaxesScreenState extends State<TaxesScreen> {
                                   trailing: tds.due > 0 ? const Chevron() : null,
                                   onTap: tds.due > 0 ? () => _openTds(tds) : null,
                                 ),
+                                for (final quarter in tds.quarters.reversed.take(2))
+                                  RowCard(
+                                    leading: const TintTile(tint: Tint.taxes, mark: Mark.taxes),
+                                    title: 'TDS statement for ${quarter.quarter}',
+                                    subtitle: quarter.filedArn.isNotEmpty
+                                        ? 'Filed, ARN ${quarter.filedArn}'
+                                        : quarter.approved
+                                            ? 'Approved · ${rupees(quarter.deducted)} deducted${quarter.shortfall > 0 ? ', ${rupees(quarter.shortfall)} still to deposit' : ''}'
+                                            : '${rupees(quarter.deducted)} deducted${quarter.dueDate.isEmpty ? '' : ' · due by ${longDate(quarter.dueDate)}'} · review it',
+                                    trailing: const Chevron(),
+                                    onTap: () => _openTdsReview(quarter),
+                                  ),
                               ],
                             ],
                           ),

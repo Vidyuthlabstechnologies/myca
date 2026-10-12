@@ -772,5 +772,53 @@
       "error": "RULE_NOT_IN_FORCE"
     },
     "citation": "Finance Act, 2026 (4 of 2026) First Schedule Part II fixes the rates in force for deductions during FY 2026-27 only"
+  },
+  {
+    "name": "section 206AA: twenty per cent when no PAN is furnished, FY 2024-25 (2025-03-31)",
+    "input": {
+      "id": "tds.no-pan.rate",
+      "onDate": "2025-03-31"
+    },
+    "expected": {
+      "value": {
+        "basisPoints": 2000
+      },
+      "basis": null,
+      "act": "IT-1961",
+      "section": "206AA(1)"
+    },
+    "citation": "Income-tax Act, 1961 s.206AA(1): the higher of the rate specified, the rate or rates in force, or twenty per cent"
+  },
+  {
+    "name": "section 206AA: twenty per cent when no PAN is furnished, FY 2025-26 (2025-04-01)",
+    "input": {
+      "id": "tds.no-pan.rate",
+      "onDate": "2025-04-01"
+    },
+    "expected": {
+      "value": {
+        "basisPoints": 2000
+      },
+      "basis": null,
+      "act": "IT-1961",
+      "section": "206AA(1)"
+    },
+    "citation": "Income-tax Act, 1961 s.206AA(1), unchanged by Finance Act, 2025"
+  },
+  {
+    "name": "section 397(2): twenty per cent when no PAN is furnished, FY 2026-27 (2026-04-01)",
+    "input": {
+      "id": "tds.no-pan.rate",
+      "onDate": "2026-04-01"
+    },
+    "expected": {
+      "value": {
+        "basisPoints": 2000
+      },
+      "basis": null,
+      "act": "IT-2025",
+      "section": "397(2)"
+    },
+    "citation": "Income-tax Act, 2025 s.397(2): the highest of the rate specified, the rates in force, five per cent for s.393(1) Table Sl. No. 8(ii) and 8(v), or twenty per cent in any other case"
   }
 ]

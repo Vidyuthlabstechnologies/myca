@@ -35,6 +35,43 @@ class TdsMonth {
   final String depositBy;
 }
 
+class TdsQuarter {
+  const TdsQuarter({
+    required this.quarter,
+    required this.deducted,
+    required this.deposited,
+    required this.shortfall,
+    required this.dueDate,
+    required this.form,
+    required this.approved,
+    required this.filedArn,
+  });
+
+  factory TdsQuarter.fromJson(Object? json) {
+    final map = _map(json);
+    final filed = map['filed'];
+    return TdsQuarter(
+      quarter: _text(map['quarter']),
+      deducted: _num(map['deducted']),
+      deposited: _num(map['deposited']),
+      shortfall: _num(map['shortfall']),
+      dueDate: _text(map['dueDate']),
+      form: _text(map['form']),
+      approved: map['approved'] == true,
+      filedArn: filed is Map ? _text(filed['arn']) : '',
+    );
+  }
+
+  final String quarter;
+  final num deducted;
+  final num deposited;
+  final num shortfall;
+  final String dueDate;
+  final String form;
+  final bool approved;
+  final String filedArn;
+}
+
 class TdsSummary {
   const TdsSummary({
     required this.deductor,
@@ -43,6 +80,7 @@ class TdsSummary {
     required this.deposited,
     required this.due,
     required this.months,
+    this.quarters = const <TdsQuarter>[],
   });
 
   static TdsSummary? fromTool(Object? json) {
@@ -59,6 +97,7 @@ class TdsSummary {
         for (final row in _maps(data['months']))
           TdsMonth(month: _text(row['month']), deducted: _num(row['deducted']), depositBy: _text(row['depositBy'])),
       ],
+      quarters: _maps(data['quarters']).map(TdsQuarter.fromJson).toList(),
     );
   }
 
@@ -68,6 +107,7 @@ class TdsSummary {
   final num deposited;
   final num due;
   final List<TdsMonth> months;
+  final List<TdsQuarter> quarters;
 }
 
 class FirmUser {

@@ -76,7 +76,6 @@ test('MyCA refuses to guess: no deductor, no PAN, no 194J category, no 194I asse
   assert.match(previewOf(plain, 'create_purchase', bill('2026-10-05', 60000, 18)).blockers[0], /not set up to deduct TDS/);
   const state = books();
   const cases = [
-    [{ tdsSection: '194J', tdsCategory: 'professional' }, /Give the payee's PAN/],
     [{ ...RAO, payeePan: 'ABC123' }, /PAN is not in the right form/],
     [{ tdsSection: '194J', payeePan: 'AAAFR1234K' }, /professional services, technical services or director/],
     [{ tdsSection: '194I', payeePan: 'AAAFR1234K' }, /land, building or furniture, or for plant/],

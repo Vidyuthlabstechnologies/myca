@@ -27,7 +27,8 @@ const EXPECTED_IDS = [
   'tds.194J.rate.other',
   'tds.194J.rate.technical-film-royalty-call-centre',
   'tds.194J.threshold.director-remuneration',
-  'tds.194J.threshold.per-category'
+  'tds.194J.threshold.per-category',
+  'tds.no-pan.rate'
 ];
 
 const RECORD_KEYS = new Set(['id', 'value', 'basis', 'effectiveFrom', 'effectiveTo', 'act', 'section', 'source', 'attestations']);
@@ -111,10 +112,11 @@ test('Income-tax Act 1961 records end by 31 March 2026 and Income-tax Act 2025 r
     assert.ok(isIsoDate(record.effectiveFrom), label(record));
     if (record.act === 'IT-1961') {
       assert.ok(record.effectiveTo !== null && record.effectiveTo <= OLD_ACT_LAST_DAY, label(record));
-      assert.ok(record.section.startsWith('194'), label(record));
+      assert.ok(record.section.startsWith('194') || (record.id === 'tds.no-pan.rate' && record.section === '206AA(1)'), label(record));
     } else {
       assert.ok(record.effectiveFrom >= NEW_ACT_FIRST_DAY, label(record));
-      assert.match(record.section, /^393\(1\) Table Sl\. No\. \d\((i|ii|iii)\)/, label(record));
+      if (record.id === 'tds.no-pan.rate') assert.equal(record.section, '397(2)', label(record));
+      else assert.match(record.section, /^393\(1\) Table Sl\. No\. \d\((i|ii|iii)\)/, label(record));
     }
   }
 });

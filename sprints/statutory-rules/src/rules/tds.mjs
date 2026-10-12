@@ -358,5 +358,23 @@ export const RULES = [
     section: '393(1) Table Sl. No. 6(iii)',
     source: `${ITA_2025}: s.393(1) Table Sl. No. 6(iii), col. D rate (b) 10% of such sum in cases other than (a); ${ITA_2025_UNCHANGED}`,
     attestations: []
+  },
+  {
+    id: 'tds.no-pan.rate',
+    value: { basisPoints: 2000 },
+    ...FY_2024_26,
+    act: 'IT-1961',
+    section: '206AA(1)',
+    source: `${ACT_1961_TEXT}: s.206AA(1), inserted by Finance (No. 2) Act, 2009 w.e.f. 1-4-2010, tax deducted at the higher of the rate specified in the relevant provision, the rate or rates in force, or twenty per cent where the deductee fails to furnish a Permanent Account Number; the five per cent rate of the proviso (Finance Act, 2021) applies only to ss.194-O and 194Q, which MyCA does not handle. ${COVERAGE}`,
+    attestations: []
+  },
+  {
+    id: 'tds.no-pan.rate',
+    value: { basisPoints: 2000 },
+    ...FROM_2026,
+    act: 'IT-2025',
+    section: '397(2)',
+    source: `${ITA_2025}: s.397(2), tax deducted at the highest of the rate specified, the rate or rates in force, five per cent where tax is deductible under s.393(1) Table Sl. No. 8(ii) or 8(v), or twenty per cent in any other case; twenty per cent is the figure for the s.393(1) Table Sl. No. 2, 5 and 6 payments MyCA handles. Department FAQs "Higher rate of TDS under section 397" (incometaxindia.gov.in) as summarised at blog.tdsman.com, 2026-05`,
+    attestations: []
   }
 ];

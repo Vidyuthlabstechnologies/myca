@@ -1333,6 +1333,68 @@ class FakeMycaApi implements MycaApi {
                     {'month': '2026-10', 'deducted': 6000, 'depositBy': '2026-11-07'},
                   ]
                 : const <Object?>[],
+            'quarters': tdsDeductor
+                ? [
+                    {'quarter': 'Q3 2026-27', 'deducted': 6000, 'deposited': 6000 - tdsDue, 'shortfall': tdsDue, 'dueDate': '2027-01-31', 'form': '140', 'approved': false, 'filed': null},
+                  ]
+                : const <Object?>[],
+          },
+        };
+      case 'tds_review':
+        return {
+          'ok': true,
+          'data': {
+            'period': 'Q3 2026-27',
+            'periods': ['Q3 2026-27'],
+            'month': 'Q3 2026-27',
+            'draftHash': 'c' * 64,
+            'empty': false,
+            'changed': false,
+            'steps': [
+              {
+                'id': 'deductees',
+                'title': 'TDS deducted in Q3 2026-27',
+                'lines': [
+                  {'label': 'Rao & Co (AAAFR1234K), 194J, 1 payment of ₹60,000.00 at 10%', 'amount': 6000},
+                  {'label': 'TDS deducted', 'amount': 6000, 'strong': true},
+                ],
+                'note': 'Every figure comes from the bills and expenses dated in this quarter.',
+                'question': 'Is this information correct?',
+                'yes': 'Yes, correct',
+                'no': 'Something is wrong',
+                'status': 'open',
+                'waitingFor': null,
+              },
+              {
+                'id': 'challans',
+                'title': 'Challans for Q3 2026-27',
+                'lines': [
+                  {'label': 'Deposited for this quarter', 'amount': 6000 - tdsDue, 'strong': true},
+                ],
+                'note': 'Deposits are matched to deductions in date order.',
+                'question': 'Is this information correct?',
+                'yes': 'Yes, correct',
+                'no': 'Something is wrong',
+                'status': 'open',
+                'waitingFor': 'deductees',
+              },
+              {
+                'id': 'approve',
+                'title': 'Approve the Q3 2026-27 TDS statement',
+                'lines': [
+                  {'label': 'TDS deducted', 'amount': 6000},
+                ],
+                'note': 'Approving records that you checked these figures; it files nothing.',
+                'question': 'Approve these figures for the statement?',
+                'yes': 'Approve',
+                'no': 'Not yet',
+                'status': 'open',
+                'waitingFor': 'deductees',
+              },
+            ],
+            'next': 'deductees',
+            'approved': false,
+            'approval': null,
           },
         };
       case 'list_employees':
