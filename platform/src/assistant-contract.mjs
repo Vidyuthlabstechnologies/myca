@@ -77,6 +77,8 @@ export const TOOL_ARG_SCHEMAS = {
     type: 'object',
     additionalProperties: false,
     properties: {
+      country: { type: 'string', enum: ['IN', 'US'] },
+      ein: { type: 'string', pattern: '^([0-9]{2}-?[0-9]{7})?$' },
       name: { type: 'string' },
       gstin: { type: 'string', maxLength: 15 },
       pan: { type: 'string', maxLength: 10 },

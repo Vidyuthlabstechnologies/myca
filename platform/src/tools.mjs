@@ -25,6 +25,7 @@ import { draftSupplierReminder, recordSupplierReminder } from './supplier-remind
 import { addEmployee, changeSalary, endEmployment, listEmployees } from './employees.mjs';
 import { payrollFor, approvePayroll, recordSalaryPayment, listPayroll, payslip } from './payroll.mjs';
 import { pfEcr, esiReturn } from './payroll-files.mjs';
+import { countryOf, isCountry, toolServesCountry } from './country.mjs';
 import { recordTdsDeposit, setDeductor, tdsSummary } from './tds-deduction.mjs';
 import { paymentFor, setCreditOpening } from './gst-payment.mjs';
 import { tdsReturnDraft } from './tds-return.mjs';
@@ -115,11 +116,22 @@ export const TOOLS = [
   {
     name: 'set_company',
     title: 'Set business profile',
-    description: 'Set this book\'s own business identity (name, GSTIN, PAN, state, FY, address). Affects future postings only; history is untouched.',
-    args: ['name', 'gstin', 'pan', 'state', 'fy', 'address', 'city', 'pin', 'entityType'],
+    description: 'Set this book\'s own business identity (name, GSTIN, PAN, state, FY, address; country and EIN before anything is posted). Affects future postings only; history is untouched.',
+    args: ['name', 'gstin', 'pan', 'state', 'fy', 'address', 'city', 'pin', 'entityType', 'country', 'ein'],
     run: (state, args = {}) => {
       const company = state.company;
       const patch = {};
+      if (args.country != null) {
+        const code = String(args.country).trim().toUpperCase();
+        if (!isCountry(code)) return fail('UNKNOWN_COUNTRY', { country: code });
+        if (code !== countryOf(state) && (state.ledger?.transfers || []).length) return fail('COUNTRY_FIXED', { country: countryOf(state) });
+        patch.country = code;
+      }
+      if (args.ein != null) {
+        const ein = String(args.ein).trim();
+        if (ein && !/^\d{2}-?\d{7}$/.test(ein)) return fail('INVALID_EIN');
+        patch.ein = ein;
+      }
       if (args.name != null) {
         const name = String(args.name).trim();
         if (!name) return fail('COMPANY_NAME_REQUIRED');
@@ -1716,6 +1728,8 @@ function withTrustedActor(state, tool, args) {
 export async function runTool(state, name, args = {}) {
   const tool = TOOL_MAP[name];
   if (!tool) return fail(`Unknown tool ${name}`);
+  const country = countryOf(state);
+  if (!toolServesCountry(name, country)) return fail('NOT_FOR_COUNTRY', { tool: name, country });
   try {
     return await tool.run(state, withTrustedActor(state, tool, args || {}));
   } catch (err) {

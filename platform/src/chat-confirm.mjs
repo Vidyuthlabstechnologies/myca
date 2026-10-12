@@ -30,6 +30,7 @@ import { planCreditOpening } from './gst-payment.mjs';
 import { checkTdsAnswer } from './tds-review.mjs';
 import { planTransport, transportWords, ewayBillNeed } from './eway-bill.mjs';
 import { planApproval, planSalaryPayment, payrollWords } from './payroll.mjs';
+import { setCurrentCountry, formatMoneyCurrent } from './country.mjs';
 import { filingRows } from './deadline-run.mjs';
 import { tally, bank, gstin as gstinRules } from './sprint-load.mjs';
 import { parseZohoBooksCsv } from './import-zoho.mjs';
@@ -47,7 +48,7 @@ const CONFIRM_RE = /^\s*(y|yes|yeah|yep|ok|okay|confirm|confirmed|post it|post|g
 const CANCEL_RE = /^\s*(n|no|nope|cancel|discard|stop|don'?t|do not|abort|nahi|nahin)\b[\s!.]*$/i;
 
 function money(n) {
-  return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 }).format(Number(n) || 0);
+  return formatMoneyCurrent(Number(n) || 0);
 }
 
 function stateCodeOf(value) {
@@ -890,6 +891,7 @@ export function needsConfirmation(name) {
 }
 
 export function previewOf(state, name, args = {}) {
+  setCurrentCountry(state);
   const build = PREVIEWERS[name];
   if (!build) return { blockers: [], summary: `Run ${name}.`, effects: [], figures: {} };
   try {

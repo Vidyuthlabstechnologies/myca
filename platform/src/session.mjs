@@ -3,6 +3,7 @@ import { createFileStores } from './store-ports.mjs';
 import { createHash } from 'node:crypto';
 import { chat, propose, confirmPending, discardPending } from './router.mjs';
 import { isRemoteQuery, companyProfilePatch } from './remote-contract.mjs';
+import { countryOf, countryInfo, toolsForCountry } from './country.mjs';
 import { runTool, TOOLS } from './tools.mjs';
 import { OSS_CATALOG } from './oss-catalog.mjs';
 import { publicGovtConfig } from './govt.mjs';
@@ -354,7 +355,9 @@ export function openSession(target = defaultDataPath(), { seed = true } = {}) {
         dataPath: path,
         liveCallsEnabled: liveCallsEnabled(),
         mockMode: mockModeEnabled(),
-        tools: TOOLS.map(({ name, title, description }) => ({ name, title, description })),
+        tools: toolsForCountry(TOOLS, countryOf(view)).map(({ name, title, description }) => ({ name, title, description })),
+        country: countryOf(view),
+        currency: countryInfo(view).currency,
         oss: OSS_CATALOG,
         govt: publicGovtConfig(),
         integrationReadiness: integrationReadiness(state.integrationConnections || {}),

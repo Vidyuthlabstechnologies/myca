@@ -71,7 +71,7 @@ flowchart TD
 
 - **The invoice is the source of truth.** The trial balance and every return are
   projections of posted documents, computed on demand.
-- **Money is integer paise.** Rupees appear only at the edges.
+- **Money is integer minor units** (paise for an Indian business, cents for a US one). Rupees or dollars appear only at the edges, formatted for the business's country (`country.mjs`, ADR-0011).
 - **The journal is append-only** with a checksum chain. Corrections are new entries.
 - **Statutory values are dated records** with act, section and source. Asking for a
   rule outside its dates returns `RULE_NOT_IN_FORCE`; nothing falls back to a default.

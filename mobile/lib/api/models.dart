@@ -11,7 +11,7 @@ num _num(Object? value) => value is num ? value : 0;
 String _text(Object? value) => value == null ? '' : value.toString();
 
 class Company {
-  const Company({required this.name, required this.gstin, this.tdsDeductor = false});
+  const Company({required this.name, required this.gstin, this.tdsDeductor = false, this.country = 'IN'});
 
   factory Company.fromJson(Object? json) {
     final map = _map(json);
@@ -19,11 +19,13 @@ class Company {
       name: _text(map['name']),
       gstin: _text(map['gstin']),
       tdsDeductor: map['tdsDeductor'] == true,
+      country: _text(map['country']).isEmpty ? 'IN' : _text(map['country']).toUpperCase(),
     );
   }
 
   final String name;
   final String gstin;
+  final String country;
   final bool tdsDeductor;
 }
 

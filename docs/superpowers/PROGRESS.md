@@ -107,3 +107,17 @@ The owner's PRD is "Taxmeow (working title), Product Requirements Document, v0.1
 | Chat and dashboard | 12 | 90% | 10.8 | Chats by type and by party, expense chats by head, one entry sheet; Home shows taxes, this month against last including approved payroll, who owes you, what you owe suppliers, and a books check of what needs you | Rule-based chat only (ADR-0004) |
 | Reading documents automatically | 12 | 5% | 0.6 | Bank statement, Tally and Zoho file imports | POS sales, and reading a forwarded supplier invoice |
 | **Total** | **100** | | **78.4** | | |
+
+## United States edition (added 2026-10-13)
+
+Design: `docs/superpowers/specs/2026-10-13-us-edition-design.md` (ADR-0011). Not counted in
+the PRD percentage above; the PRD is the Indian product.
+
+| Phase | Status |
+|---|---|
+| U0 Country-aware core: `company.country`, currency and locale per country, year per country, the `us-federal` rules namespace, tools and the Taxes screen gated by country, money formatting in chat, previews and the app | ✅ Built 2026-10-13; Indian suites unchanged |
+| U1 Books, invoicing, imports, CPA export for a US business | ⏳ Waits on the owner's six decisions (spec section 9) |
+| U2 Sales tax returns | ⏳ |
+| U3 Payroll | ⏳ Needs a US CPA for attestation |
+| U4 Owner's taxes | ⏳ |
+| U5 US hosting and listing | ⏳ |

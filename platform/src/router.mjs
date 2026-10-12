@@ -8,10 +8,11 @@ import { planEntryWithTds } from './tds-intent.mjs';
 import { paymentWords } from './gst-payment.mjs';
 import { transportWords } from './eway-bill.mjs';
 import { payrollWords } from './payroll.mjs';
+import { setCurrentCountry, formatMoneyCurrent } from './country.mjs';
 import { inWords as monthWords } from './words.mjs';
 
 function money(n) {
-  return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 }).format(Number(n) || 0);
+  return formatMoneyCurrent(Number(n) || 0);
 }
 
 const FAILURES = {
@@ -583,10 +584,12 @@ async function chatCore(state, message) {
 }
 
 export function propose(state, name, args = {}) {
+  setCurrentCountry(state);
   return spoken(proposeCore(state, name, args));
 }
 
 export async function confirmPending(state, token) {
+  setCurrentCountry(state);
   return spoken(await confirmCore(state, token));
 }
 
@@ -595,6 +598,7 @@ export function discardPending(state) {
 }
 
 export async function chat(state, message) {
+  setCurrentCountry(state);
   return spoken(await chatCore(state, message));
 }
 

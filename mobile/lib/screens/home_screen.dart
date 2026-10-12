@@ -135,14 +135,15 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             _AskBar(onSubmit: (text) => _open(AskScreen(first: text))),
             const SizedBox(height: 18),
-            FutureBuilder<Today>(
-              future: _today,
-              builder: (context, today) => _TodayPanel(
-                today: today.data,
-                failed: today.hasError,
-                onTap: () => _open(const TaxesScreen()),
+            if (company.country == 'IN')
+              FutureBuilder<Today>(
+                future: _today,
+                builder: (context, today) => _TodayPanel(
+                  today: today.data,
+                  failed: today.hasError,
+                  onTap: () => _open(const TaxesScreen()),
+                ),
               ),
-            ),
             FutureBuilder<Today>(
               future: _today,
               builder: (context, today) {

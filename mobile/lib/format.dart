@@ -1,4 +1,7 @@
+String moneyCountry = 'IN';
+
 String rupees(num amount) {
+  if (moneyCountry == 'US') return dollars(amount);
   final negative = amount < 0;
   final fixed = amount.abs().toStringAsFixed(2);
   final dot = fixed.indexOf('.');
@@ -15,6 +18,21 @@ String rupees(num amount) {
   }
   if (rest.isNotEmpty) groups.insert(0, rest);
   return '$sign₹${groups.join(',')},$lastThree$paise';
+}
+
+String dollars(num amount) {
+  final negative = amount < 0;
+  final fixed = amount.abs().toStringAsFixed(2);
+  final dot = fixed.indexOf('.');
+  var whole = fixed.substring(0, dot);
+  final cents = fixed.substring(dot);
+  final groups = <String>[];
+  while (whole.length > 3) {
+    groups.insert(0, whole.substring(whole.length - 3));
+    whole = whole.substring(0, whole.length - 3);
+  }
+  groups.insert(0, whole);
+  return '${negative ? '-' : ''}\$${groups.join(',')}$cents';
 }
 
 String isoDate(DateTime date) =>

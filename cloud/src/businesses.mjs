@@ -19,19 +19,19 @@ function fail(error, extra = {}) {
   return { ok: false, error, ...extra };
 }
 
-async function openingBooks({ name, gstin, state }, today) {
+async function openingBooks({ name, gstin, state, country }, today) {
   const books = createState();
   books.company = { name: '', gstin: '', state: '', pan: '', fy: financialYear(today), address: '' };
-  const set = await runTool(books, 'set_company', { name, gstin, ...(state ? { state } : {}) });
+  const set = await runTool(books, 'set_company', { name, ...(country ? { country } : {}), gstin, ...(state ? { state } : {}) });
   if (set.ok === false) return fail(set.error || 'INVALID_COMPANY', { errors: set.errors });
-  if (!books.company.state) return fail('STATE_REQUIRED');
+  if (books.company.country !== 'US' && !books.company.state) return fail('STATE_REQUIRED');
   return { ok: true, state: serialize(books), company: books.company };
 }
 
 export function createBusinesses({ db, now = () => Date.now() }) {
   return {
-    async create(userId, { name, gstin = '', state = '' } = {}) {
-      const opening = await openingBooks({ name: String(name ?? ''), gstin: String(gstin ?? ''), state: String(state ?? '') }, new Date(now()));
+    async create(userId, { name, gstin = '', state = '', country = '' } = {}) {
+      const opening = await openingBooks({ name: String(name ?? ''), gstin: String(gstin ?? ''), state: String(state ?? ''), country: String(country ?? '') }, new Date(now()));
       if (!opening.ok) return opening;
       return db.tx(async (q) => {
         const business = await q('insert into businesses (name, gstin, created_by, created_at) values ($1, $2, $3, $4) returning id', [
