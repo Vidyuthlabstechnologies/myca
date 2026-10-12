@@ -469,6 +469,89 @@ class Gstr1File {
   bool get empty => b2b + b2cl + b2cs == 0;
 }
 
+class GstLate {
+  const GstLate({
+    required this.payOn,
+    required this.days,
+    required this.interest,
+    required this.lateFee,
+    required this.total,
+  });
+
+  factory GstLate.fromJson(Object? json) {
+    final map = _map(json);
+    return GstLate(
+      payOn: _text(map['payOn']),
+      days: _num(map['days']).toInt(),
+      interest: _num(map['interest']),
+      lateFee: _num(map['lateFee']),
+      total: _num(map['total']),
+    );
+  }
+
+  final String payOn;
+  final int days;
+  final num interest;
+  final num lateFee;
+  final num total;
+}
+
+class GstPayment {
+  const GstPayment({
+    required this.period,
+    required this.output,
+    required this.credit,
+    required this.broughtForward,
+    required this.broughtForwardKnown,
+    required this.creditUsed,
+    required this.cash,
+    required this.toPay,
+    required this.carried,
+    required this.dueDate,
+    required this.filedArn,
+    required this.late,
+    required this.unreviewed,
+    required this.notes,
+  });
+
+  factory GstPayment.fromJson(Object? json) {
+    final map = _map(json);
+    final notes = map['notes'];
+    final filed = map['filed'];
+    return GstPayment(
+      period: _text(map['period']),
+      output: TaxHeads.fromJson(map['output']),
+      credit: TaxHeads.fromJson(map['credit']),
+      broughtForward: TaxHeads.fromJson(map['broughtForward']),
+      broughtForwardKnown: map['broughtForwardKnown'] == true,
+      creditUsed: _num(map['creditUsed']),
+      cash: TaxHeads.fromJson(map['cash']),
+      toPay: _num(map['toPay']),
+      carried: TaxHeads.fromJson(map['carried']),
+      dueDate: _text(map['dueDate']),
+      filedArn: filed is Map ? _text(filed['arn']) : '',
+      late: map['late'] is Map ? GstLate.fromJson(map['late']) : null,
+      unreviewed: map['unreviewed'] == true,
+      notes: notes is List ? notes.map(_text).toList() : const <String>[],
+    );
+  }
+
+  final String period;
+  final TaxHeads output;
+  final TaxHeads credit;
+  final TaxHeads broughtForward;
+  final bool broughtForwardKnown;
+  final num creditUsed;
+  final TaxHeads cash;
+  final num toPay;
+  final TaxHeads carried;
+  final String dueDate;
+  final String filedArn;
+  final GstLate? late;
+  final bool unreviewed;
+  final List<String> notes;
+}
+
 class PeriodGst {
   const PeriodGst({
     required this.period,
@@ -479,6 +562,7 @@ class PeriodGst {
     required this.outputTax,
     required this.inputCredit,
     required this.gstr1,
+    this.payment,
   });
 
   factory PeriodGst.fromJson(Object? json) {
@@ -493,6 +577,7 @@ class PeriodGst {
       outputTax: TaxHeads.fromJson(map['outputTax']),
       inputCredit: TaxHeads.fromJson(map['inputCredit']),
       gstr1: Gstr1File.fromJson(map['gstr1']),
+      payment: map['payment'] is Map ? GstPayment.fromJson(map['payment']) : null,
     );
   }
 
@@ -504,6 +589,7 @@ class PeriodGst {
   final TaxHeads outputTax;
   final TaxHeads inputCredit;
   final Gstr1File gstr1;
+  final GstPayment? payment;
 }
 
 class Deadline {

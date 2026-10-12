@@ -143,7 +143,7 @@ test('contracts, refusals and persistence', async () => {
   assert.equal(validateAssistantToolCall('cash_forecast', { days: 2.5 }).ok, false);
 });
 
-test('GST for the month goes out on the 3B due date the deadline engine gives, labelled as an estimate before set-off', () => {
+test('GST for the month goes out on the 3B due date the deadline engine gives, as the cash to pay after set-off', () => {
   const state = createState();
   state.cashReadings = [{ on: TODAY, bank: 50000, cash: 0, by: '' }];
   createInvoice(state, { id: 'INV-0001', date: TODAY, partyName: 'Retail Mart', partyGstin: '27AAACH7409R1Z1', lines: [{ description: 'Cloth', hsn: '5208', qty: 1, rate: 10000, gstRate: 5 }] });
@@ -152,6 +152,6 @@ test('GST for the month goes out on the 3B due date the deadline engine gives, l
   const gst = cashForecast(state, { days: 20, from: TODAY, deadlines }).data.going.rows.find((row) => /^GST for/.test(row.label));
   assert.equal(gst.date, shift(15));
   assert.equal(gst.amount, 500 - 100);
-  assert.match(gst.basis, /before head-by-head set-off/);
+  assert.match(gst.basis, /set off head by head/);
   assert.equal(cashForecast(state, { days: 10, from: TODAY, deadlines }).data.going.rows.some((row) => /^GST for/.test(row.label)), false, 'outside the window it is not counted');
 });

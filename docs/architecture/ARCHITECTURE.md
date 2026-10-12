@@ -200,7 +200,7 @@ account at present, so the local command is the gate of record.
 | One pending proposal per business | Two members previewing at once replace each other's preview | Key proposals by member and device |
 | Document bytes in Postgres, 8 MB per upload | No large scans | Object storage with direct uploads |
 | Chat is rule-based | Free text beyond known phrasings is not understood | Model that selects tools under the existing contract (ADR-0004) |
-| No set-off of credit against tax | No "amount to pay" | Dated set-off rules with golden cases (feature spec 03) |
+| Set-off rules carry no attestation yet | The amount to pay says the CA has not reviewed the rules | Advisor CA attests `gst.setoff.order`, `gst.interest.rate` and `gst.late-fee.*` |
 | A requester cannot approve their own external action | A one-person business cannot file | Product decision (PRD Q2) |
 | Not deployed | No real users | Needs a Google Cloud project; Terraform to be written |
 | App untested on hardware | File picker, save dialog and fingerprint prompt are unverified | A phone on USB |

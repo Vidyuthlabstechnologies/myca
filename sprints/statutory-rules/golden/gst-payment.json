@@ -1,0 +1,110 @@
+[
+  {
+    "name": "no IGST credit: CGST and SGST credit go against their own heads, IGST paid in cash",
+    "input": { "check": "set-off", "onDate": "2026-09-20", "output": { "igst": 9000, "cgst": 2500, "sgst": 2500 }, "credit": { "igst": 0, "cgst": 1000, "sgst": 1000 } },
+    "expected": { "cash": { "igst": 9000, "cgst": 1500, "sgst": 1500, "total": 12000 }, "carried": { "igst": 0, "cgst": 0, "sgst": 0, "total": 0 }, "creditUsed": 2000, "ruleUsed": "gst.setoff.order@2019-04-01" },
+    "citation": "CGST Act 2017 section 49(5)(b) and (c): central tax credit towards central tax, State tax credit towards State tax; neither can be used for the other"
+  },
+  {
+    "name": "IGST credit first against IGST, the remainder against the head short of its own credit",
+    "input": { "check": "set-off", "onDate": "2026-09-20", "output": { "igst": 1000, "cgst": 5000, "sgst": 5000 }, "credit": { "igst": 4000, "cgst": 2000, "sgst": 1000 } },
+    "expected": { "cash": { "igst": 0, "cgst": 0, "sgst": 4000, "total": 4000 }, "carried": { "igst": 0, "cgst": 0, "sgst": 0, "total": 0 }, "creditUsed": 7000, "ruleUsed": "gst.setoff.order@2019-04-01" },
+    "citation": "Rule 88A, CGST Rules 2017 (Notification 16/2019-Central Tax) and Circular 98/17/2019-GST: integrated tax credit first towards integrated tax, then towards central and State tax in any order and proportion"
+  },
+  {
+    "name": "IGST credit must be used up before CGST or SGST credit, so own-head credit is carried forward",
+    "input": { "check": "set-off", "onDate": "2026-09-20", "output": { "igst": 0, "cgst": 1000, "sgst": 1000 }, "credit": { "igst": 5000, "cgst": 500, "sgst": 500 } },
+    "expected": { "cash": { "igst": 0, "cgst": 0, "sgst": 0, "total": 0 }, "carried": { "igst": 3000, "cgst": 500, "sgst": 500, "total": 4000 }, "creditUsed": 2000, "ruleUsed": "gst.setoff.order@2019-04-01" },
+    "citation": "CGST Act 2017 section 49A (inserted by the CGST (Amendment) Act 2018 from 01.02.2019) read with rule 88A: credit of central tax or State tax is utilised only after the integrated tax credit has been utilised fully"
+  },
+  {
+    "name": "before February 2019 the original section 49(5) order applies",
+    "input": { "check": "set-off", "onDate": "2018-06-20", "output": { "igst": 0, "cgst": 1000, "sgst": 1000 }, "credit": { "igst": 5000, "cgst": 500, "sgst": 500 } },
+    "expected": { "cash": { "igst": 0, "cgst": 0, "sgst": 0, "total": 0 }, "carried": { "igst": 3000, "cgst": 500, "sgst": 500, "total": 4000 }, "creditUsed": 2000, "ruleUsed": "gst.setoff.order@2017-07-01" },
+    "citation": "CGST Act 2017 section 49(5)(a) as originally enacted: integrated tax credit first towards integrated tax and the amount remaining, if any, towards central tax and State tax"
+  },
+  {
+    "name": "February and March 2019: the IGST remainder goes to CGST before SGST",
+    "input": { "check": "set-off", "onDate": "2019-03-10", "output": { "igst": 0, "cgst": 1000, "sgst": 1000 }, "credit": { "igst": 1500, "cgst": 0, "sgst": 0 } },
+    "expected": { "cash": { "igst": 0, "cgst": 0, "sgst": 500, "total": 500 }, "carried": { "igst": 0, "cgst": 0, "sgst": 0, "total": 0 }, "creditUsed": 1500, "ruleUsed": "gst.setoff.order@2019-02-01" },
+    "citation": "CGST Act 2017 section 49A in force from 01.02.2019 (Notification 2/2019-Central Tax) before rule 88A from 01.04.2019: the common portal applied the integrated tax remainder to central tax first"
+  },
+  {
+    "name": "CGST and SGST credit each go against IGST after their own head",
+    "input": { "check": "set-off", "onDate": "2026-09-20", "output": { "igst": 3000, "cgst": 0, "sgst": 0 }, "credit": { "igst": 0, "cgst": 2000, "sgst": 500 } },
+    "expected": { "cash": { "igst": 500, "cgst": 0, "sgst": 0, "total": 500 }, "carried": { "igst": 0, "cgst": 0, "sgst": 0, "total": 0 }, "creditUsed": 2500, "ruleUsed": "gst.setoff.order@2019-04-01" },
+    "citation": "CGST Act 2017 section 49(5)(b) and (c): central tax credit towards central tax then integrated tax; State tax credit towards State tax then integrated tax"
+  },
+  {
+    "name": "CGST credit is never used for SGST, so it is carried forward while SGST is paid in cash",
+    "input": { "check": "set-off", "onDate": "2026-09-20", "output": { "igst": 0, "cgst": 0, "sgst": 1000 }, "credit": { "igst": 0, "cgst": 5000, "sgst": 0 } },
+    "expected": { "cash": { "igst": 0, "cgst": 0, "sgst": 1000, "total": 1000 }, "carried": { "igst": 0, "cgst": 5000, "sgst": 0, "total": 5000 }, "creditUsed": 0, "ruleUsed": "gst.setoff.order@2019-04-01" },
+    "citation": "CGST Act 2017 section 49(5)(e): the central tax shall not be utilised towards payment of State tax"
+  },
+  {
+    "name": "paise are kept exact through the set-off",
+    "input": { "check": "set-off", "onDate": "2026-09-20", "output": { "igst": 0, "cgst": 100.55, "sgst": 100.55 }, "credit": { "igst": 50.5, "cgst": 0.05, "sgst": 0 } },
+    "expected": { "cash": { "igst": 0, "cgst": 50, "sgst": 100.55, "total": 150.55 }, "carried": { "igst": 0, "cgst": 0, "sgst": 0, "total": 0 }, "creditUsed": 50.55, "ruleUsed": "gst.setoff.order@2019-04-01" },
+    "citation": "Rule 88A: the integrated tax remainder may be applied to central and State tax in any proportion; here it goes to CGST, whose own credit of five paise then covers the rest"
+  },
+  {
+    "name": "interest at 18 per cent a year for 15 days on the cash part",
+    "input": { "check": "interest", "cash": 12000, "dueDate": "2026-10-20", "payOn": "2026-11-04" },
+    "expected": { "days": 15, "interest": 88.77, "ruleUsed": "gst.interest.rate@2017-07-01" },
+    "citation": "CGST Act 2017 section 50(1) and Notification 13/2017-Central Tax: 18 per cent per annum; proviso to section 50(1) as substituted by Finance Act 2021 section 112: on the tax paid through the electronic cash ledger"
+  },
+  {
+    "name": "no interest when paid on the due date",
+    "input": { "check": "interest", "cash": 12000, "dueDate": "2026-10-20", "payOn": "2026-10-20" },
+    "expected": { "days": 0, "interest": 0, "ruleUsed": "gst.interest.rate@2017-07-01" },
+    "citation": "CGST Act 2017 section 50(1): interest runs for the period for which the tax remains unpaid after the due date"
+  },
+  {
+    "name": "GSTR-3B 15 days late, turnover one crore: fifty rupees a day under both Acts",
+    "input": { "check": "late-fee", "returnType": "GSTR-3B", "period": "2026-09", "nil": false, "turnover": 10000000, "dueDate": "2026-10-20", "payOn": "2026-11-04" },
+    "expected": { "days": 15, "lateFee": 750, "cap": 2000, "turnoverAssumedAboveCaps": false, "ruleUsed": "gst.late-fee.gstr3b@2021-06-01" },
+    "citation": "Notification 64/2017-Central Tax: twenty-five rupees a day under the CGST Act and the same under the State Act; Notification 19/2021-Central Tax: capped at one thousand rupees under each Act where the preceding year's aggregate turnover is up to one and a half crore rupees"
+  },
+  {
+    "name": "GSTR-3B nil return 15 days late: twenty rupees a day",
+    "input": { "check": "late-fee", "returnType": "GSTR-3B", "period": "2026-09", "nil": true, "turnover": 10000000, "dueDate": "2026-10-20", "payOn": "2026-11-04" },
+    "expected": { "days": 15, "lateFee": 300, "cap": 500, "turnoverAssumedAboveCaps": false, "ruleUsed": "gst.late-fee.gstr3b@2021-06-01" },
+    "citation": "Notification 64/2017-Central Tax: ten rupees a day under each Act where the central tax payable is nil; Notification 19/2021-Central Tax: capped at two hundred and fifty rupees under each Act for a nil return"
+  },
+  {
+    "name": "GSTR-3B 60 days late, turnover one crore: capped at two thousand rupees",
+    "input": { "check": "late-fee", "returnType": "GSTR-3B", "period": "2026-09", "nil": false, "turnover": 10000000, "dueDate": "2026-10-20", "payOn": "2026-12-19" },
+    "expected": { "days": 60, "lateFee": 2000, "cap": 2000, "turnoverAssumedAboveCaps": false, "ruleUsed": "gst.late-fee.gstr3b@2021-06-01" },
+    "citation": "Notification 19/2021-Central Tax: one thousand rupees under each Act where the aggregate turnover of the preceding financial year is up to one and a half crore rupees"
+  },
+  {
+    "name": "GSTR-3B 60 days late, turnover three crore: capped at five thousand rupees",
+    "input": { "check": "late-fee", "returnType": "GSTR-3B", "period": "2026-09", "nil": false, "turnover": 30000000, "dueDate": "2026-10-20", "payOn": "2026-12-19" },
+    "expected": { "days": 60, "lateFee": 3000, "cap": 5000, "turnoverAssumedAboveCaps": false, "ruleUsed": "gst.late-fee.gstr3b@2021-06-01" },
+    "citation": "Notification 19/2021-Central Tax: two thousand five hundred rupees under each Act where the aggregate turnover is above one and a half crore and up to five crore rupees"
+  },
+  {
+    "name": "turnover not known: the highest cap is assumed and said so",
+    "input": { "check": "late-fee", "returnType": "GSTR-3B", "period": "2026-09", "nil": false, "turnover": null, "dueDate": "2026-10-20", "payOn": "2027-06-01" },
+    "expected": { "days": 224, "lateFee": 10000, "cap": 10000, "turnoverAssumedAboveCaps": true, "ruleUsed": "gst.late-fee.gstr3b@2021-06-01" },
+    "citation": "CGST Act 2017 section 47(1): five thousand rupees under each Act is the statutory maximum, which Notification 19/2021-Central Tax leaves for turnover above five crore rupees"
+  },
+  {
+    "name": "May 2021 GSTR-3B before the 2021 caps: five thousand rupees under each Act",
+    "input": { "check": "late-fee", "returnType": "GSTR-3B", "period": "2021-05", "nil": false, "turnover": 10000000, "dueDate": "2021-06-20", "payOn": "2022-04-16" },
+    "expected": { "days": 300, "lateFee": 10000, "cap": 10000, "turnoverAssumedAboveCaps": false, "ruleUsed": "gst.late-fee.gstr3b@2017-10-01" },
+    "citation": "Notification 19/2021-Central Tax applies to the tax period June 2021 onwards; before that section 47(1) caps the fee at five thousand rupees under each Act"
+  },
+  {
+    "name": "August 2017 GSTR-3B: late fee waived",
+    "input": { "check": "late-fee", "returnType": "GSTR-3B", "period": "2017-08", "nil": false, "turnover": 10000000, "dueDate": "2017-09-20", "payOn": "2017-12-31" },
+    "expected": { "days": 102, "lateFee": 0, "cap": 0, "turnoverAssumedAboveCaps": false, "ruleUsed": "gst.late-fee.gstr3b@2017-07-01" },
+    "citation": "Notification 50/2017-Central Tax dated 24.10.2017 waiving the late fee for FORM GSTR-3B of August and September 2017"
+  },
+  {
+    "name": "GSTR-1 15 days late, turnover three crore",
+    "input": { "check": "late-fee", "returnType": "GSTR-1", "period": "2026-09", "nil": false, "turnover": 30000000, "dueDate": "2026-10-11", "payOn": "2026-10-26" },
+    "expected": { "days": 15, "lateFee": 750, "cap": 5000, "turnoverAssumedAboveCaps": false, "ruleUsed": "gst.late-fee.gstr1@2021-06-01" },
+    "citation": "Notification 4/2018-Central Tax: twenty-five rupees a day under each Act for FORM GSTR-1; Notification 20/2021-Central Tax: capped at two thousand five hundred rupees under each Act for turnover above one and a half crore and up to five crore rupees"
+  }
+]

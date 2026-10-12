@@ -294,7 +294,7 @@ The order of work, and what each milestone waits on, is in the
 | Milestone | Delivers | Waits on |
 |---|---|---|
 | M1 Daily use on a phone | Invoice view and sharing, expense tagging, credit notes, dashboard | Nothing; a phone for device testing |
-| M2 The return, reviewed | Review in chat, amount to pay, GSTR-2B in the app, reminders, entries export | Advisor CA for set-off |
+| M2 The return, reviewed | Review in chat, amount to pay, GSTR-2B in the app, reminders, entries export | Nothing; the advisor CA's attestation removes the "not reviewed" label |
 | M3 Hosted pilot | Deployment, real sign-in, privacy work, Play closed testing | Google Cloud project, SMS or Google Sign-In, DPDP assessment |
 | M4 Reading documents | Supplier invoices by photo or forward; free-text chat | Choice of language model |
 | M5 Filing for real | Live GST filing, e-way bill, TDS return, CA sync setting | GSP/ASP and NIC onboarding |

@@ -22,6 +22,7 @@ import { listFilings, recordFiling } from './filings.mjs';
 import { draftSupplierReminder, recordSupplierReminder } from './supplier-reminders.mjs';
 import { addEmployee, changeSalary, endEmployment, listEmployees } from './employees.mjs';
 import { recordTdsDeposit, setDeductor, tdsSummary } from './tds-deduction.mjs';
+import { paymentFor, setCreditOpening } from './gst-payment.mjs';
 import { addReminder, completeReminder, listReminders } from './reminders.mjs';
 import { cashForecast, canAfford, setCashBalance } from './cash-forecast.mjs';
 import { setPaymentTerms } from './payment-terms.mjs';
@@ -499,14 +500,17 @@ export const TOOLS = [
   },
   {
     name: 'gst_payable',
-    title: 'GST payable',
-    description: 'Net GST liability from the books (output − input).',
-    run: (state) => {
-      const acc = Object.fromEntries(listAccounts(state.ledger).map((a) => [a.code, a]));
-      const output = (acc['2100']?.creditsPosted || 0) + (acc['2101']?.creditsPosted || 0) + (acc['2102']?.creditsPosted || 0);
-      const input = (acc['1200']?.debitsPosted || 0) + (acc['1201']?.debitsPosted || 0) + (acc['1202']?.debitsPosted || 0);
-      return ok({ output, input, payable: Math.round((output - input) * 100) / 100 });
-    },
+    title: 'GST to pay',
+    description: 'For one tax period: input credit (and any credit brought forward) set off against tax on sales head by head in the order the law sets, the cash to pay by head, the credit carried forward, and the interest and late fee if paid after the due date. Read-only.',
+    args: ['period', 'payOn'],
+    run: (state, args = {}) => paymentFor(state, args.period, { payOn: args.payOn }),
+  },
+  {
+    name: 'set_gst_credit_opening',
+    title: 'GST credit balance',
+    description: 'Record the electronic credit ledger balance by head at the start of a month, from the GST portal, so set-off counts credit brought forward from earlier months.',
+    args: ['period', 'igst', 'cgst', 'sgst'],
+    run: (state, args = {}) => setCreditOpening(state, args),
   },
   {
     name: 'prepare_gstr1',
@@ -550,7 +554,12 @@ export const TOOLS = [
     title: 'GST for one period',
     description: 'For one tax period: tax on sales and input credit by head from the GSTR-3B draft, and what the GSTR-1 file for that period holds. Lists the periods that have documents.',
     args: ['period'],
-    run: (state, args = {}) => periodSummary(state, args.period),
+    run: (state, args = {}) => {
+      const summary = periodSummary(state, args.period);
+      if (!summary.ok) return summary;
+      const payment = paymentFor(state, summary.data.period);
+      return ok({ ...summary.data, payment: payment.ok ? payment.data : null, paymentError: payment.ok ? '' : payment.error });
+    },
   },
   {
     name: 'cash_forecast',
@@ -731,17 +740,17 @@ export const TOOLS = [
       const salesText = invoicesToSalesCsv(docs.invoices);
       const inwardText = purchasesToInwardCsv(docs.purchases);
       const filed = filingPrep({ salesText, inwardText, supplierState: state.company.state, fy: state.company.fy });
-      const acc = Object.fromEntries(listAccounts(state.ledger).map((a) => [a.code, a]));
-      const output = (acc['2100']?.creditsPosted || 0) + (acc['2101']?.creditsPosted || 0) + (acc['2102']?.creditsPosted || 0);
-      const input = (acc['1200']?.debitsPosted || 0) + (acc['1201']?.debitsPosted || 0) + (acc['1202']?.debitsPosted || 0);
+      const payment = paymentFor(state, docs.period);
+      if (!payment.ok) return fail(payment.error, payment);
       return ok({
         gstin: state.company.gstin,
         period: docs.period,
         periods: docs.periods,
         gstr1: filed.gstr1,
         gstr3b: filed.gstr3b,
-        payable: Math.round((output - input) * 100) / 100,
-        payableBasis: 'all periods in the ledger, not this return period',
+        payable: payment.data.toPay,
+        payment: payment.data,
+        payableBasis: 'this return period, after input credit and credit brought forward are set off head by head',
         trialBalance: trialBalance(state.ledger),
         caveat: 'Prepared locally. A practising CA must review and file on GSTN. MyCA does not hold DSC; live GSTR APIs need a GSP.',
       });

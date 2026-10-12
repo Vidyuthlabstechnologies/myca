@@ -527,11 +527,39 @@ class _PeriodCard extends StatelessWidget {
         _HeadsRow(label: 'Tax on sales', heads: gst.outputTax),
         const SizedBox(height: 10),
         _HeadsRow(label: 'Credit on purchases', heads: gst.inputCredit),
-        const SizedBox(height: 12),
-        Text(
-          'What you pay after credit is set off head by head is worked out in the return, not here.',
-          style: text.bodySmall,
-        ),
+        const SizedBox(height: 14),
+        const Divider(),
+        const SizedBox(height: 10),
+        if (gst.payment case final pay?) ...[
+          _HeadsRow(label: 'To pay in cash', heads: pay.cash),
+          const SizedBox(height: 6),
+          Text(
+            pay.broughtForwardKnown
+                ? 'Credit brought forward ${rupees(pay.broughtForward.total)} · credit used ${rupees(pay.creditUsed)}'
+                : 'Credit used ${rupees(pay.creditUsed)}',
+            style: text.bodySmall?.copyWith(fontFeatures: moneyFigures),
+          ),
+          if (pay.carried.total > 0)
+            Text(
+              'Credit carried forward ${rupees(pay.carried.total)}',
+              style: text.bodySmall?.copyWith(fontFeatures: moneyFigures),
+            ),
+          if (pay.filedArn.isNotEmpty)
+            Text('Filed, ARN ${pay.filedArn}.', style: text.bodySmall)
+          else if (pay.late case final late?)
+            Text(
+              'If paid today, ${late.days} ${late.days == 1 ? 'day' : 'days'} late: interest ${rupees(late.interest)} and late fee ${rupees(late.lateFee)}, ${rupees(late.total)} in all.',
+              style: text.bodyMedium?.copyWith(fontFeatures: moneyFigures),
+            )
+          else if (pay.dueDate.isNotEmpty)
+            Text('Due by ${longDate(pay.dueDate)}.', style: text.bodyMedium),
+          const SizedBox(height: 8),
+          Text(pay.notes.join(' '), style: text.bodySmall),
+        ] else
+          Text(
+            'The amount to pay could not be worked out for this month.',
+            style: text.bodySmall,
+          ),
       ],
     );
   }

@@ -25,13 +25,14 @@ import { planFiling } from './filings.mjs';
 import { planSupplierReminder } from './supplier-reminders.mjs';
 import { planEmployee, planSalaryChange, planLeaving } from './employees.mjs';
 import { planDeductor, planTds, planTdsDeposit, tdsWords, wantsTds } from './tds-deduction.mjs';
+import { planCreditOpening } from './gst-payment.mjs';
 import { filingRows } from './deadline-run.mjs';
 import { tally, bank, gstin as gstinRules } from './sprint-load.mjs';
 import { parseZohoBooksCsv } from './import-zoho.mjs';
 import { tallyXmlToDayBookCsv } from './tally-xml.mjs';
 
 export const CONFIRM_TOOLS = new Set([
-  'create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'record_filing', 'record_supplier_reminder', 'add_employee', 'change_salary', 'end_employment', 'set_tds_deductor', 'record_tds_deposit', 'post_expense', 'set_expense_head', 'create_credit_note', 'cancel_invoice', 'gst_review_answer', 'import_gstr2b', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote',
+  'create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'record_filing', 'record_supplier_reminder', 'add_employee', 'change_salary', 'end_employment', 'set_tds_deductor', 'record_tds_deposit', 'set_gst_credit_opening', 'post_expense', 'set_expense_head', 'create_credit_note', 'cancel_invoice', 'gst_review_answer', 'import_gstr2b', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote',
   'import_tally', 'import_tally_xml', 'import_zoho', 'import_bank',
   'govt_generate_irn', 'govt_nic_cancel_irn',
   'exception_decide',
@@ -212,6 +213,26 @@ export const TDS_REASONS = {
 function tdsBlocked(plan) {
   const reason = TDS_REASONS[plan.error];
   return { blockers: [reason ? reason(plan) : plan.error], summary: '', effects: [], figures: {} };
+}
+
+const CREDIT_OPENING_REASONS = {
+  INVALID_PERIOD: () => 'Say the month as YYYY-MM, for example 2026-09.',
+  BAD_AMOUNT: (plan) => `The ${String(plan.head || '').toUpperCase()} balance must be a number of rupees, zero or more.`,
+};
+
+function creditOpeningPreview(state, args) {
+  const plan = planCreditOpening(state, args);
+  if (!plan.ok) {
+    const reason = CREDIT_OPENING_REASONS[plan.error];
+    return { blockers: [reason ? reason(plan) : plan.error], summary: '', effects: [], figures: {} };
+  }
+  const o = plan.opening;
+  return {
+    blockers: [],
+    summary: `GST credit balance at the start of ${o.period}: IGST ${money(o.igst)}, CGST ${money(o.cgst)}, SGST ${money(o.sgst)}, ${money(o.total)} in all${plan.was ? ` (replaces the balance set for ${plan.was.period})` : ''}.`,
+    effects: ["From that month on, the amount to pay counts this credit brought forward, set off before the month's own credit."],
+    figures: { period: o.period, igst: o.igst, cgst: o.cgst, sgst: o.sgst },
+  };
 }
 
 function deductorPreview(state, args) {
@@ -661,6 +682,7 @@ const PREVIEWERS = {
   record_supplier_reminder: supplierReminderPreview,
   add_employee: employeePreview,
   set_tds_deductor: deductorPreview,
+  set_gst_credit_opening: creditOpeningPreview,
   record_tds_deposit: tdsDepositPreview,
   change_salary: salaryChangePreview,
   end_employment: leavingPreview,

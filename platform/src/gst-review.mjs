@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { localToday } from './dates.mjs';
 import { periodSummary } from './period-summary.mjs';
+import { paymentFor } from './gst-payment.mjs';
 
 export const REVIEW_ANSWERS = ['correct', 'wrong', 'approve'];
 
@@ -23,9 +24,11 @@ function heldWhy(code) {
   return HELD_WORDS[code] || String(code || '').toLowerCase().replace(/_/g, ' ');
 }
 
-export function draftHashOf(summary) {
+export function draftHashOf(summary, payment = null) {
   const held = (summary.gstr1.held || []).map((item) => `${item.inum}:${item.code}`).sort();
   const basis = {
+    broughtForward: payment ? payment.broughtForward : null,
+    toPay: payment ? payment.toPay : null,
     period: summary.period,
     file: summary.gstr1.hash || '',
     salesCount: summary.salesCount,
@@ -47,7 +50,25 @@ function heads(tax) {
   ];
 }
 
-function stepsFor(summary) {
+function payLines(payment) {
+  const lines = [
+    { label: 'Tax on sales', amount: round2(payment.output.total) },
+    { label: 'Input credit this month', amount: round2(payment.credit.total) },
+  ];
+  if (payment.broughtForwardKnown) lines.push({ label: `Credit brought forward from before ${monthName(payment.period)}`, amount: round2(payment.broughtForward.total) });
+  lines.push({ label: 'Credit used', amount: round2(-payment.creditUsed) });
+  for (const head of heads(payment.cash)) lines.push({ label: `${head.label} to pay`, amount: head.amount });
+  lines.push({ label: 'To pay in cash', amount: round2(payment.toPay), strong: true });
+  if (payment.carried.total > 0) lines.push({ label: 'Credit carried forward', amount: round2(payment.carried.total) });
+  if (payment.late) {
+    lines.push({ label: `Interest if paid on ${payment.late.payOn}, ${payment.late.days} ${payment.late.days === 1 ? 'day' : 'days'} late`, amount: round2(payment.late.interest) });
+    lines.push({ label: 'Late fee', amount: round2(payment.late.lateFee) });
+    lines.push({ label: `Total if paid on ${payment.late.payOn}`, amount: round2(payment.late.total), strong: true });
+  }
+  return lines;
+}
+
+function stepsFor(summary, payment) {
   const month = monthName(summary.period);
   const file = summary.gstr1;
   const steps = [];
@@ -91,14 +112,28 @@ function stepsFor(summary) {
     yes: 'Yes, correct',
     no: 'Something is wrong',
   });
+  if (payment) {
+    steps.push({
+      id: 'pay',
+      title: `Amount to pay for ${month}`,
+      lines: payLines(payment),
+      note: payment.notes.join(' '),
+      question: 'Is this information correct?',
+      yes: 'Yes, correct',
+      no: 'Something is wrong',
+    });
+  }
   steps.push({
     id: 'approve',
     title: `Approve the ${month} return`,
     lines: [
       { label: 'Tax on sales', amount: round2(summary.outputTax.total) },
       { label: 'Input credit', amount: round2(summary.inputCredit.total) },
+      ...(payment ? [{ label: 'To pay in cash', amount: round2(payment.toPay), strong: true }] : []),
     ],
-    note: 'What you pay is worked out by setting credit off against tax head by head, in the order the law sets. MyCA does not work that out yet, so no amount to pay is shown here. Approving records that you checked these figures; it does not file anything.',
+    note: payment
+      ? 'Approving records that you checked these figures and the amount to pay; it does not file anything and moves no money.'
+      : 'The amount to pay could not be worked out for this month, so none is shown. Approving records that you checked these figures; it does not file anything.',
     question: 'Approve these figures for the return?',
     yes: 'Approve',
     no: 'Not yet',
@@ -115,11 +150,13 @@ export function reviewOf(state, period) {
   const summarised = periodSummary(state, period);
   if (!summarised.ok) return summarised;
   const summary = summarised.data;
-  const draftHash = draftHashOf(summary);
+  const paid = paymentFor(state, summary.period);
+  const payment = paid.ok ? paid.data : null;
+  const draftHash = draftHashOf(summary, payment);
   const record = recordFor(state, summary.period);
   const current = record && record.draftHash === draftHash ? record : null;
   const changed = Boolean(record && !current && Object.keys(record.answers || {}).length);
-  const steps = stepsFor(summary).map((step) => {
+  const steps = stepsFor(summary, payment).map((step) => {
     const answer = current?.answers?.[step.id] || null;
     return { ...step, status: answer ? (answer.answer === 'wrong' ? 'wrong' : 'confirmed') : 'open', answer };
   });
@@ -133,6 +170,7 @@ export function reviewOf(state, period) {
       month: monthName(summary.period),
       draftHash,
       empty: summary.salesCount === 0 && summary.purchaseCount === 0 && (summary.creditNotes?.count || 0) === 0,
+      toPay: payment ? payment.toPay : null,
       changed,
       steps: steps.map((step) => ({ ...step, waitingFor: blockedBy(step)?.id || null })),
       next: next ? next.id : null,

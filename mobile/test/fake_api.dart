@@ -873,6 +873,39 @@ class FakeMycaApi implements MycaApi {
             'inputCredit': august
                 ? {'igst': 0, 'cgst': 1000, 'sgst': 1000, 'total': 2000}
                 : {'igst': 0, 'cgst': 0, 'sgst': 0, 'total': 0},
+            'payment': august
+                ? {
+                    'period': '2026-08',
+                    'output': {'igst': 9000, 'cgst': 2500, 'sgst': 2500, 'total': 14000},
+                    'credit': {'igst': 0, 'cgst': 1000, 'sgst': 1000, 'total': 2000},
+                    'broughtForward': {'igst': 0, 'cgst': 0, 'sgst': 0, 'total': 0},
+                    'broughtForwardKnown': false,
+                    'creditUsed': 2000,
+                    'cash': {'igst': 9000, 'cgst': 1500, 'sgst': 1500, 'total': 12000},
+                    'toPay': 12000,
+                    'carried': {'igst': 0, 'cgst': 0, 'sgst': 0, 'total': 0},
+                    'dueDate': '2026-09-20',
+                    'filed': null,
+                    'late': {'payOn': '2026-10-12', 'days': 22, 'interest': 130.19, 'lateFee': 1100, 'total': 13230.19},
+                    'unreviewed': true,
+                    'notes': ['Credit is set off head by head in the order the law sets.', 'The set-off order, interest rate and late fee come from the dated rules, which your CA has not reviewed yet.'],
+                  }
+                : {
+                    'period': '2026-10',
+                    'output': {'igst': 0, 'cgst': 1800, 'sgst': 1800, 'total': 3600},
+                    'credit': {'igst': 0, 'cgst': 0, 'sgst': 0, 'total': 0},
+                    'broughtForward': {'igst': 0, 'cgst': 0, 'sgst': 0, 'total': 0},
+                    'broughtForwardKnown': false,
+                    'creditUsed': 0,
+                    'cash': {'igst': 0, 'cgst': 1800, 'sgst': 1800, 'total': 3600},
+                    'toPay': 3600,
+                    'carried': {'igst': 0, 'cgst': 0, 'sgst': 0, 'total': 0},
+                    'dueDate': '2026-11-20',
+                    'filed': null,
+                    'late': null,
+                    'unreviewed': true,
+                    'notes': ['Credit is set off head by head in the order the law sets.'],
+                  },
             'gstr1': august
                 ? {
                     'fp': '082026',

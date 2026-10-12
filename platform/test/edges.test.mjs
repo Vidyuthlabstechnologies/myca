@@ -767,8 +767,9 @@ test('tools: unknown, missing args, gstin check, gst payable net, seed is idempo
   assert.equal(good.data.ok, true);
   intra(state, { lines: [line({ rate: 10000 })] });
   createPurchase(state, { partyName: 'V', partyGstin: '27AABCT1332L1ZE', partyState: '27', lines: [line({ rate: 2000 })] });
-  const pay = await runTool(state, 'gst_payable', {});
-  assert.ok(pay.data.output > pay.data.input);
+  const pay = await runTool(state, 'gst_payable', { period: '2026-08' });
+  assert.ok(pay.data.output.total > pay.data.credit.total);
+  assert.equal(pay.data.toPay, pay.data.cash.total);
   const a = seedDemo(createState());
   const n = a.invoices.length;
   seedDemo(a);

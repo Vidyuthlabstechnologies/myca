@@ -16,7 +16,7 @@ Start with the product PRD, then the architecture. Everything else is reference.
 |---|---|---|
 | [01](product/features/01-accounting-and-tagging.md) | Automatic accounting and smart tagging | Accounting built; expense tagging not |
 | [02](product/features/02-invoices-quotes-eway-bills.md) | Invoices, quotes and e-way bills | Invoices built; sending, quotes not |
-| [03](product/features/03-gst-returns.md) | GST returns, review and file | Drafts built; review, set-off, filing not |
+| [03](product/features/03-gst-returns.md) | GST returns, review and file | Drafts, review, set-off and recorded filings built; live filing not |
 | [04](product/features/04-tds.md) | TDS | Monitor built; the rest not |
 | [05](product/features/05-payroll.md) | Payroll | Not built |
 | [06](product/features/06-gstr2b-matching-and-reminders.md) | GSTR-2B matching and supplier reminders | Engine built; app and reminders not |

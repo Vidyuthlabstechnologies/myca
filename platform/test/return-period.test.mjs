@@ -66,7 +66,7 @@ test('GSTR-1 tables and the filing pack are built for the same single month', as
   assert.equal(pack.period, '2026-08');
   assert.equal(pack.gstr1.totalTaxable, 150000);
   assert.deepEqual(pack.gstr3b.outward.totals.intraTaxable, 100000);
-  assert.match(pack.payableBasis, /all periods/);
+  assert.match(pack.payableBasis, /this return period/);
 });
 
 test('the period summary gives tax on sales and credit by head, from the 3B draft', async () => {

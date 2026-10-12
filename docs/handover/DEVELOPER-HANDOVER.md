@@ -86,7 +86,6 @@ for the weighted breakdown. There are **1,128 automated tests**:
 - TDS on entries.
 - Payroll.
 - POS import.
-- Set-off and the amount of tax to pay.
 
 ## 4. Architecture
 
@@ -245,7 +244,7 @@ binding. This section adds the technical detail.
 2. **E-invoice (IRN) and e-way bill inside the invoice flow.**
    - The NIC client exists (`nic-client.mjs`; one session per taxpayer).
    - It needs production credentials and the flow wiring.
-3. **TDS on entries** and a quarterly draft for review. Set-off and the amount to pay need the advisor CA's sign-off on the rules first.
+3. **A TDS quarterly draft** for review (deduction on entries is built). The advisor CA's sign-off on the set-off, interest and late-fee rules removes their "not reviewed" label.
 4. **For accountants.** A Tally-format export and the sync setting.
 5. **A second language** (Hindi first, unless the company says otherwise) in the app and in chat.
 
@@ -272,8 +271,9 @@ outstanding.
 - **Never run on a device.** Phase 1 exists for this reason.
 - **Due dates are "passed", not "late".** The product does not know whether a return was
   filed, so it never says one was late. Keep that honesty when filing goes live.
-- **No set-off.** The app shows the return figures but not the cash to pay. Do not add a
-  "to pay" figure until the advisor CA has signed off the rules.
+- **Set-off is from unattested rules.** The cash to pay is shown with the sentence that
+  the CA has not reviewed the rules; it goes away only when the rules carry an
+  attestation. Do not remove the sentence by hand.
 - **No CI.** `check-all` must be run by hand before every push.
 - **The desktop app** (Electron, local-only) is behind the phone in features. It is not
   a launch target.

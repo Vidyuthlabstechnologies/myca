@@ -5,6 +5,7 @@ import { planOweQuestion } from './owe-intent.mjs';
 import { planFilingFromChat } from './filing-intent.mjs';
 import { planEmployeeFromChat } from './employee-intent.mjs';
 import { planTdsFromChat } from './tds-intent.mjs';
+import { planGstPayFromChat } from './gst-pay-intent.mjs';
 import { reviewOf } from './gst-review.mjs';
 import { planReminderFromChat } from './reminder-intent.mjs';
 import { planCashFromChat } from './cash-intent.mjs';
@@ -550,7 +551,7 @@ export const TOOL_ARG_SCHEMAS = {
     required: ['period', 'step', 'answer', 'draftHash'],
     properties: {
       period: { type: 'string', pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' },
-      step: { type: 'string', enum: ['held', 'sales', 'credit', 'approve'] },
+      step: { type: 'string', enum: ['held', 'sales', 'credit', 'pay', 'approve'] },
       answer: { type: 'string', enum: ['correct', 'wrong', 'approve'] },
       note: { type: 'string', maxLength: 500 },
       draftHash: { type: 'string', pattern: '^[0-9a-f]{64}$' },
@@ -600,7 +601,25 @@ export const TOOL_ARG_SCHEMAS = {
       owner: { type: 'string', maxLength: 64 },
     },
   },
-  gst_payable: noArgs,
+  gst_payable: {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      period: { type: 'string', pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' },
+      payOn: { type: 'string' },
+    },
+  },
+  set_gst_credit_opening: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['period'],
+    properties: {
+      period: { type: 'string', pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' },
+      igst: { type: 'number', minimum: 0 },
+      cgst: { type: 'number', minimum: 0 },
+      sgst: { type: 'number', minimum: 0 },
+    },
+  },
   prepare_gstr1: {
     type: 'object',
     additionalProperties: false,
@@ -913,6 +932,7 @@ const TOOL_RISK = {
   record_supplier_reminder: 'writes_books',
   add_employee: 'writes_books',
   set_tds_deductor: 'writes_books',
+  set_gst_credit_opening: 'writes_books',
   record_tds_deposit: 'writes_books',
   change_salary: 'writes_books',
   end_employment: 'writes_books',
@@ -1063,6 +1083,8 @@ export function planLocalToolCall(state, message) {
   }
   const tdsAsk = planTdsFromChat(text);
   if (tdsAsk) return tdsAsk;
+  const gstPay = planGstPayFromChat(text);
+  if (gstPay) return gstPay;
   const hired = planEmployeeFromChat(text);
   if (hired) return hired;
   const filed = planFilingFromChat(text);

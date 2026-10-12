@@ -59,6 +59,7 @@ export function createState() {
     employeeSeq: 0,
     tdsEntries: [],
     tdsDeposits: [],
+    gstCreditOpening: null,
     lockThrough: '',
     integrationConnections: {},
     documents: [],
@@ -116,6 +117,7 @@ export function serialize(state) {
     employeeSeq: state.employeeSeq || 0,
     tdsEntries: state.tdsEntries || [],
     tdsDeposits: state.tdsDeposits || [],
+    gstCreditOpening: state.gstCreditOpening || null,
     quoteSeq: state.quoteSeq || 0,
     integrationConnections: normalizeIntegrationConnections(state.integrationConnections),
     documents: state.documents || [],
@@ -254,6 +256,7 @@ export function deserialize(raw) {
   state.employeeSeq = raw.employeeSeq || 0;
   state.tdsEntries = Array.isArray(raw.tdsEntries) ? raw.tdsEntries : [];
   state.tdsDeposits = Array.isArray(raw.tdsDeposits) ? raw.tdsDeposits : [];
+  state.gstCreditOpening = raw.gstCreditOpening && typeof raw.gstCreditOpening === 'object' ? raw.gstCreditOpening : null;
   state.quoteSeq = raw.quoteSeq || 0;
   // Legacy states embedded raw content in `files`; carry it to a one-shot migration.
   state._legacyFiles = raw.files && typeof raw.files === 'object' ? raw.files : null;

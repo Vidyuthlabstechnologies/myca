@@ -5,6 +5,8 @@ import { liveCallsEnabled, mockModeEnabled } from './runtime-config.mjs';
 import { referenceImportContent, resolveImportContent } from './import-documents.mjs';
 import { spoken } from './words.mjs';
 import { planEntryWithTds } from './tds-intent.mjs';
+import { paymentWords } from './gst-payment.mjs';
+import { inWords as monthWords } from './words.mjs';
 
 function money(n) {
   return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 }).format(Number(n) || 0);
@@ -132,6 +134,13 @@ function fmtToolResult(name, result) {
     const n = result.creditNote;
     const head = n.cancels ? `Cancelled ${n.invoiceId} with credit note ${n.id}` : `Credit note ${n.id} for ${money(n.total)} against ${n.invoiceId}`;
     return `${head} (${n.partyName}, ${n.date}).${result.refundDue > 0 ? ` ${money(result.refundDue)} was already received and is now due back to ${n.partyName}.` : ''}`;
+  }
+  if (name === 'gst_payable' && result.data) {
+    return paymentWords(result.data, money, monthWords);
+  }
+  if (name === 'set_gst_credit_opening' && result.opening) {
+    const o = result.opening;
+    return `Recorded the GST credit balance at the start of ${monthWords(o.period)}: IGST ${money(o.igst)}, CGST ${money(o.cgst)}, SGST ${money(o.sgst)}. Set-off from that month on counts it.`;
   }
   if (name === 'set_tds_deductor' && result.tan) {
     return `Done. This business deducts TDS under TAN ${result.tan}.`;
