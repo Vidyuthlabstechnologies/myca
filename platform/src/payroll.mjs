@@ -74,11 +74,17 @@ function pfWagesOf(components) {
   return { paise: base.reduce((sum, item) => sum + item.paise, 0), assumed: false };
 }
 
-function slabCharge(slabs, payPaise) {
-  for (const slab of slabs) {
-    if (slab.monthlyPayUpToPaise === null || payPaise <= slab.monthlyPayUpToPaise) return slab.paise;
-  }
-  return 0;
+function professionalTax(rule, employee, fullMonthGrossPaise, period) {
+  const value = rule.value;
+  const pay = value.basis === 'annual' ? fullMonthGrossPaise * 12 : value.basis === 'half-yearly' ? fullMonthGrossPaise * 6 : fullMonthGrossPaise;
+  const slabs = value.slabs.all || (employee.sex === 'female' ? value.slabs.women : value.slabs.men) || [];
+  const slab = slabs.find((item) => item.payUpToPaise === null || pay <= item.payUpToPaise);
+  if (!slab) return 0;
+  const month = Number(period.slice(5, 7));
+  if (value.basis === 'half-yearly') return (value.deductedInMonths || []).includes(month) ? slab.paise : 0;
+  if (month === 2 && slab.februaryPaise != null) return slab.februaryPaise;
+  if (month === 3 && slab.lastMonthPaise != null) return slab.lastMonthPaise;
+  return slab.paise;
 }
 
 function fyOf(period) {
@@ -195,12 +201,11 @@ export function computePayroll(state, requested) {
         const key = `${pt.record.id}@${pt.record.effectiveFrom}`;
         if (!used.includes(key)) used.push(key);
         if (!(pt.record.attestations || []).length) unreviewed.add(key);
-        const slabs = employee.sex === 'female' ? pt.record.value.monthlySlabs.women : pt.record.value.monthlySlabs.men;
         const fullMonthGross = structure.components.reduce((sum, item) => sum + paise(item.amount), 0);
-        let charge = slabCharge(slabs, fullMonthGross);
-        if (charge === 200 * 100 && period.endsWith('-02')) charge = pt.record.value.februaryPaiseWhereMonthlyIs200;
-        row.ptPaise = charge;
-        if (!employee.sex) row.notes.push('No sex recorded, so the professional tax slab for men is used.');
+        row.ptPaise = professionalTax(pt.record, employee, fullMonthGross, period);
+        row.ptState = pt.record.value.state;
+        if (!employee.sex && !pt.record.value.slabs.all) row.notes.push('No sex recorded, so the professional tax slab for men is used.');
+        if (pt.record.value.basis === 'half-yearly') row.notes.push(`Professional tax in ${pt.record.value.state} is half-yearly; it is deducted in the months the rule names.`);
       }
     }
     const tds = salaryTds(state, employee, period, grossPaise, used, unreviewed, notes);

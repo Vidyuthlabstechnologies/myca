@@ -69,9 +69,17 @@ partnership and compliance project more than an engineering one.
   employee and employer shares from `payroll.esi.rates`, with the employee share
   waived under the daily-wage limit in that rule. Coverage carried to the end of a
   contribution period after pay crosses the limit is not modelled.
-- Professional tax: from `payroll.pt.<state code>` for the employee's state, by pay slab
-  and sex, with the February amount; only Maharashtra (27) is encoded, and an employee
-  in another state gets none with a note. No sex recorded means the slab for men.
+- Professional tax: from `payroll.pt.<state code>` for the employee's state. Each rule
+  carries slabs on monthly, annual (twelve times the month's full pay) or half-yearly
+  (six times) pay, a February or last-month amount where the schedule has one, and for
+  half-yearly states the months in which it is deducted. Encoded (2026-10-12):
+  Maharashtra (by sex), Karnataka, West Bengal, Telangana, Andhra Pradesh, Gujarat,
+  Madhya Pradesh, Odisha, Jharkhand, Assam, Chhattisgarh, Punjab, Tamil Nadu (the
+  Greater Chennai schedule; other local bodies differ) and Kerala. All but Maharashtra
+  are taken from payroll and tax publications checked against each other, with the
+  official schedule not re-read, and say so in their source. An employee in any other
+  state gets none, with a note. No sex recorded means the slab for men where sex
+  matters.
 - Salary TDS (section 192): the year's salary is estimated from the months already
   approved in MyCA, this month, and the months left (earlier months not run in MyCA are
   taken at this month's pay, and the run says so); the income-tax engine gives the
@@ -147,6 +155,8 @@ full-and-final settlement, contractor payments (these are purchases with TDS, se
 ## Open questions
 
 - Q5 in the PRD: does the product move money?
-- Which states next for professional tax? Maharashtra is encoded; others need their
-  schedules verified before they are added.
+- Remaining professional tax states (Bihar, Meghalaya, Tripura, Manipur, Mizoram,
+  Nagaland, Sikkim, Puducherry) and Tamil Nadu local bodies other than Chennai need
+  their schedules read before they are added; Bihar's annual amounts need its
+  deduction month confirmed.
 - Is salary data visible to an invited CA by default?
