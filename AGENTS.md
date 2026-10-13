@@ -68,9 +68,9 @@ node scripts/check-all.mjs            # everything
 node scripts/check-all.mjs platform   # or any of: platform sprints cloud mobile
 ```
 
-GitHub Actions is not running jobs for this repository at the moment (account billing),
-so this command is the gate: run it before every push and say in the commit what it
-reported. The hosted API suite is skipped, and reported as skipped, when no Postgres is
+GitHub Actions runs on every push and pull request (the repository lives in the
+Vidyuthlabstechnologies enterprise organization since 2026-10-13); this command is still the
+local gate: run it before every push and say in the commit what it reported. The hosted API suite is skipped, and reported as skipped, when no Postgres is
 reachable.
 
 There is **no linter or typechecker**. The `npm test` suites are the gate. Run the
