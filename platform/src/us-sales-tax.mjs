@@ -87,15 +87,20 @@ export function periodsOf(frequency, from, today) {
   return out;
 }
 
-function dueDateFor(stateCode, range) {
-  const found = rules.rule(`us.salestax.due.${stateCode}`, range.to);
-  if (!found || !found.record) return { dueDate: '', ruleUsed: '', unreviewed: false };
-  const value = found.record.value || {};
+function dueDateFor(stateCode, range, nexus = null) {
   const nextMonth = range.endMonth === 12 ? 1 : range.endMonth + 1;
   const nextYear = range.endMonth === 12 ? range.endYear + 1 : range.endYear;
-  const day = value.lastDayOfMonthAfter ? lastDay(nextYear, nextMonth) : Number(value.dayOfMonthAfter || 0);
-  if (!day) return { dueDate: '', ruleUsed: '', unreviewed: false };
-  return { dueDate: iso(nextYear, nextMonth, day), ruleUsed: `${found.record.id}@${found.record.effectiveFrom}`, unreviewed: !(found.record.attestations || []).length };
+  const found = rules.rule(`us.salestax.due.${stateCode}`, range.to);
+  if (found && found.record) {
+    const value = found.record.value || {};
+    const day = value.lastDayOfMonthAfter ? lastDay(nextYear, nextMonth) : Number(value.dayOfMonthAfter || 0);
+    if (day) return { dueDate: iso(nextYear, nextMonth, day), ruleUsed: `${found.record.id}@${found.record.effectiveFrom}`, unreviewed: !(found.record.attestations || []).length, ownerEntered: false };
+  }
+  if (nexus && nexus.dueDay) {
+    const day = nexus.dueDay === 'last' ? lastDay(nextYear, nextMonth) : Number(nexus.dueDay);
+    return { dueDate: iso(nextYear, nextMonth, day), ruleUsed: '', unreviewed: false, ownerEntered: true };
+  }
+  return { dueDate: '', ruleUsed: '', unreviewed: false, ownerEntered: false };
 }
 
 export function planNexus(state, args = {}) {
@@ -106,8 +111,11 @@ export function planNexus(state, args = {}) {
   const from = args.from == null || args.from === '' ? localToday() : postingDate(args.from);
   if (!from) return fail('INVALID_DATE', { date: args.from });
   const permitNo = String(args.permitNo || '').trim().slice(0, 40);
+  const dueDayRaw = args.dueDay == null || args.dueDay === '' ? '' : String(args.dueDay).trim().toLowerCase();
+  const dueDay = dueDayRaw === '' ? '' : dueDayRaw === 'last' ? 'last' : Number(dueDayRaw);
+  if (dueDay !== '' && dueDay !== 'last' && !(Number.isInteger(dueDay) && dueDay >= 1 && dueDay <= 28)) return fail('BAD_DUE_DAY', { dueDay: args.dueDay });
   const was = nexusFor(state, code);
-  return { ok: true, nexus: { state: code, frequency, from, permitNo, setOn: localToday(), by: String(state?.__actor?.userId || '') }, was };
+  return { ok: true, nexus: { state: code, frequency, from, permitNo, dueDay, setOn: localToday(), by: String(state?.__actor?.userId || '') }, was };
 }
 
 export function setNexus(state, args = {}) {
@@ -172,14 +180,15 @@ export function salesTaxReturn(state, args = {}) {
   }
   const byJurisdiction = [...byCode.values()].map((row) => ({ ...row, invoices: row.invoices.size })).sort((a, b) => a.code.localeCompare(b.code) || a.ratePercent - b.ratePercent);
   const paid = round2(paymentsFor(state, code, period).reduce((sum, row) => sum + row.amount, 0));
-  const due = dueDateFor(code, range);
+  const due = dueDateFor(code, range, nexus);
   const returnType = `SALES_TAX_${code}`;
   const filing = filingFor(state, returnType, period);
   const basis = { code, period, from: range.from, to: range.to, invoices: inState.map((inv) => inv.id).sort(), gross, exempt, nonTaxable, taxable, tax, byJurisdiction, paid };
   const draftHash = createHash('sha256').update(JSON.stringify(basis)).digest('hex');
   const review = state.salesTaxReviews && typeof state.salesTaxReviews === 'object' && Object.hasOwn(state.salesTaxReviews, `${code}:${period}`) ? state.salesTaxReviews[`${code}:${period}`] : null;
   const notes = [];
-  if (!due.dueDate) notes.push(`The due date for ${code} is not in MyCA's rules yet; your CPA sets it.`);
+  if (!due.dueDate) notes.push(`The due date for ${code} is not in MyCA's rules yet; your CPA sets it, or say "I collect sales tax in ${code}, ${nexus.frequency}, due on the 20th" to record the day.`);
+  else if (due.ownerEntered) notes.push(`The due date is the day you entered for ${code}, not a rule MyCA holds.`);
   else if (due.unreviewed) notes.push('The due date comes from a dated rule your CPA has not reviewed yet.');
   if (unassigned.length) notes.push(`${unassigned.length === 1 ? '1 exempt invoice has' : `${unassigned.length} exempt invoices have`} no jurisdiction, so ${unassigned.length === 1 ? 'it is' : 'they are'} not on any state's return.`);
   if (range.to > today) notes.push('This period has not ended yet.');

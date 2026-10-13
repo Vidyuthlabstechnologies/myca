@@ -253,6 +253,8 @@ open). Filing stays outside MyCA.
 - Not built: state-specific period calendars (New York's non-calendar quarters), prepayment and
   accelerated schedules, local return splits, a provider adapter, and a filing pack per state.
 
+- Added later: the owner may record a state's due day on the nexus ("due on the 20th" or "last") for states without a rule; a rule MyCA holds always wins.
+
 ## 13. U3 and U4 as built (2026-10-13)
 
 Built before a US CPA was named, so every federal figure is a dated rule marked not

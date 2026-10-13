@@ -45,6 +45,8 @@ export const REMOTE_QUERY_TOOLS = new Set([
   'quote_document',
   'expense_heads',
   'gst_payable',
+  'list_gst_payments',
+  'gstr9_draft',
   'gst_period_summary',
   'export_gstr1_json',
   'deadlines',

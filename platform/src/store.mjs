@@ -70,6 +70,7 @@ export function createState() {
     salesTaxNexus: [],
     salesTaxReviews: {},
     salesTaxPayments: [],
+    gstPayments: {},
     lockThrough: '',
     integrationConnections: {},
     documents: [],
@@ -138,6 +139,7 @@ export function serialize(state) {
     salesTaxNexus: state.salesTaxNexus || [],
     salesTaxReviews: state.salesTaxReviews || {},
     salesTaxPayments: state.salesTaxPayments || [],
+    gstPayments: state.gstPayments || {},
     quoteSeq: state.quoteSeq || 0,
     integrationConnections: normalizeIntegrationConnections(state.integrationConnections),
     documents: state.documents || [],
@@ -287,6 +289,7 @@ export function deserialize(raw) {
   state.salesTaxNexus = Array.isArray(raw.salesTaxNexus) ? raw.salesTaxNexus : [];
   state.salesTaxReviews = raw.salesTaxReviews && typeof raw.salesTaxReviews === 'object' ? raw.salesTaxReviews : {};
   state.salesTaxPayments = Array.isArray(raw.salesTaxPayments) ? raw.salesTaxPayments : [];
+  state.gstPayments = raw.gstPayments && typeof raw.gstPayments === 'object' ? raw.gstPayments : {};
   state.quoteSeq = raw.quoteSeq || 0;
   // Legacy states embedded raw content in `files`; carry it to a one-shot migration.
   state._legacyFiles = raw.files && typeof raw.files === 'object' ? raw.files : null;

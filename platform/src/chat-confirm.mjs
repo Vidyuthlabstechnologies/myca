@@ -33,6 +33,7 @@ import { planApproval, planSalaryPayment, payrollWords } from './payroll.mjs';
 import { setCurrentCountry, formatMoneyCurrent, countryOf } from './country.mjs';
 import { usDocumentPreview, planSalesTaxRate, planContractor } from './us-sales.mjs';
 import { planNexus, checkSalesTaxAnswer, planSalesTaxPayment, planSalesTaxFiling } from './us-sales-tax.mjs';
+import { planGstPayment } from './gst-pay-record.mjs';
 import { planWithholding } from './us-payroll.mjs';
 import { planUsImport } from './import-us-books.mjs';
 import { planSupplierNote } from './supplier-notes.mjs';
@@ -43,7 +44,7 @@ import { parseZohoBooksCsv } from './import-zoho.mjs';
 import { tallyXmlToDayBookCsv } from './tally-xml.mjs';
 
 export const CONFIRM_TOOLS = new Set([
-  'create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'record_filing', 'record_supplier_reminder', 'add_employee', 'change_salary', 'end_employment', 'approve_payroll', 'record_salary_payment', 'set_tds_deductor', 'record_tds_deposit', 'tds_review_answer', 'set_gst_credit_opening', 'post_expense', 'set_expense_head', 'create_credit_note', 'create_debit_note', 'create_purchase_note', 'record_supplier_debit_note', 'cancel_invoice', 'gst_review_answer', 'import_gstr2b', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'set_party_address', 'set_transport', 'set_sales_tax_rate', 'set_contractor', 'set_sales_tax_nexus', 'sales_tax_review_answer', 'record_sales_tax_payment', 'record_sales_tax_filing', 'set_withholding', 'import_us_invoices', 'import_pos_sales', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote',
+  'create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'record_filing', 'record_supplier_reminder', 'add_employee', 'change_salary', 'end_employment', 'approve_payroll', 'record_salary_payment', 'set_tds_deductor', 'record_tds_deposit', 'tds_review_answer', 'set_gst_credit_opening', 'record_gst_payment', 'post_expense', 'set_expense_head', 'create_credit_note', 'create_debit_note', 'create_purchase_note', 'record_supplier_debit_note', 'cancel_invoice', 'gst_review_answer', 'import_gstr2b', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'set_party_address', 'set_transport', 'set_sales_tax_rate', 'set_contractor', 'set_sales_tax_nexus', 'sales_tax_review_answer', 'record_sales_tax_payment', 'record_sales_tax_filing', 'set_withholding', 'import_us_invoices', 'import_pos_sales', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote',
   'import_tally', 'import_tally_xml', 'import_zoho', 'import_bank',
   'govt_generate_irn', 'govt_nic_cancel_irn',
   'exception_decide',
@@ -164,6 +165,22 @@ function salesTaxFilingPreview(state, args) {
     summary: `Record the ${plan.draft.state} sales tax return for ${f.period} as filed on ${f.filedOn}, confirmation ${f.arn}${f.filedBy ? ` by ${f.filedBy}` : ''}.`,
     effects: [f.late ? `It was due by ${f.dueDate}, so this is late.` : f.dueDate ? `It was due by ${f.dueDate}.` : 'No due date is in the rules for this state.', plan.draft.approved ? 'The figures were approved in the review.' : 'The figures were not approved in the review; the record is kept anyway.', 'MyCA files nothing; this only records what you did.'],
     figures: { state: plan.draft.state, period: f.period, confirmation: f.arn, filedOn: f.filedOn, late: f.late },
+  };
+}
+
+function gstPaymentPreview(state, args) {
+  const plan = planGstPayment(state, args);
+  if (!plan.ok) {
+    const reason = { INVALID_PERIOD: 'Say the month as YYYY-MM, for example 2026-09.', INVALID_DATE: 'That is not a date I can read.', FUTURE_DATE: 'That date has not come yet.', PERIOD_LOCKED: `That date is in a locked period (through ${plan.lockThrough}).`, ALREADY_RECORDED: `The GST payment for ${plan.period} is already recorded (paid ${plan.paidOn}).`, BAD_CPIN: 'A CPIN is the fourteen-digit challan number from the GST portal.', NOTHING_DUE: `Nothing is due for ${plan.period}: no tax to pay and no credit to set off.` }[plan.error] || plan.error;
+    return { blockers: [reason], summary: '', effects: [], figures: {} };
+  }
+  const p = plan.payment;
+  const heads = ['igst', 'cgst', 'sgst'].filter((h) => p.cash[h] > 0).map((h) => `${h.toUpperCase()} ${money(p.cash[h])}`).join(' + ');
+  return {
+    blockers: [],
+    summary: `GST for ${p.period} paid on ${p.date}${p.cpin ? `, CPIN ${p.cpin}` : ''}: ${money(p.cash.total)} in cash${heads ? ` (${heads})` : ''}${p.interest > 0 ? `, interest ${money(p.interest)}` : ''}${p.lateFee > 0 ? `, late fee ${money(p.lateFee)}` : ''}; ${money(p.creditUsed)} of input credit set off.`,
+    effects: [`${money(p.cashTotal)} goes out of your ${p.mode === 'cash' ? 'cash' : 'bank'}.`, 'Output tax is cleared by the credit set off and the cash paid; the credit used leaves the input credit accounts.', ...(p.unreviewed ? ['The set-off order, interest and late fee come from dated rules your CA has not reviewed yet.'] : [])],
+    figures: { period: p.period, date: p.date, cash: p.cash, interest: p.interest, lateFee: p.lateFee, creditUsed: p.creditUsed, cashTotal: p.cashTotal },
   };
 }
 
@@ -1010,6 +1027,7 @@ const PREVIEWERS = {
   record_salary_payment: salaryPaymentPreview,
   set_tds_deductor: deductorPreview,
   set_gst_credit_opening: creditOpeningPreview,
+  record_gst_payment: gstPaymentPreview,
   record_tds_deposit: tdsDepositPreview,
   change_salary: salaryChangePreview,
   end_employment: leavingPreview,

@@ -559,6 +559,7 @@ export const TOOL_ARG_SCHEMAS = {
       frequency: { type: 'string', enum: ['monthly', 'quarterly', 'annual'] },
       from: { type: 'string' },
       permitNo: { type: 'string', maxLength: 40 },
+      dueDay: { type: 'string', pattern: '^([1-9]|1[0-9]|2[0-8]|last)$' },
     },
   },
   list_sales_tax_nexus: noArgs,
@@ -941,6 +942,22 @@ export const TOOL_ARG_SCHEMAS = {
       owner: { type: 'string', maxLength: 64 },
     },
   },
+  record_gst_payment: {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      period: { type: 'string', pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' },
+      date: { type: 'string' },
+      mode: { type: 'string', enum: ['bank', 'cash'] },
+      cpin: { type: 'string', pattern: '^[0-9]{14}$' },
+    },
+  },
+  list_gst_payments: noArgs,
+  gstr9_draft: {
+    type: 'object',
+    additionalProperties: false,
+    properties: { fy: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}$' } },
+  },
   gst_payable: {
     type: 'object',
     additionalProperties: false,
@@ -1278,6 +1295,7 @@ const TOOL_RISK = {
   record_salary_payment: 'writes_books',
   set_tds_deductor: 'writes_books',
   set_gst_credit_opening: 'writes_books',
+  record_gst_payment: 'writes_books',
   tds_review_answer: 'writes_books',
   record_tds_deposit: 'writes_books',
   change_salary: 'writes_books',

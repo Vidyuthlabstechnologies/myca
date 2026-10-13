@@ -119,6 +119,7 @@ export function paymentFor(state, requested, { payOn } = {}) {
       nil,
       dueDate: row ? row.dueDate : '',
       filed: filed ? { arn: filed.arn, filedOn: filed.filedOn } : null,
+      paid: state.gstPayments && typeof state.gstPayments === 'object' && Object.hasOwn(state.gstPayments, period) ? { date: state.gstPayments[period].date, cpin: state.gstPayments[period].cpin, cashTotal: state.gstPayments[period].cashTotal } : null,
       late,
       rulesUsed,
       unreviewed,

@@ -13,6 +13,7 @@ import { rulesStatusWords } from './rules-status.mjs';
 import { usPayrollWords } from './us-payroll.mjs';
 import { ownerTaxWords } from './us-owner-tax.mjs';
 import { usImportWords } from './import-us-books.mjs';
+import { gstr9Words } from './gstr9.mjs';
 import { annexureWords } from './salary-annexure.mjs';
 import { certificateWords } from './tds-certificates.mjs';
 import { posImportWords } from './import-pos.mjs';
@@ -209,6 +210,15 @@ function fmtToolResult(name, result) {
     return `Contractor payments in ${d.year} (1099-NEC at or above ${money(d.threshold)}):\n${d.contractors.map((c) => `· ${c.name}: ${money(c.total)}${c.needs1099 ? ' — needs a 1099-NEC' : ''}${c.needs1099 && !c.w9Received ? ', W-9 missing' : ''}`).join('\n')}${d.notes.length ? `\n${d.notes.join(' ')}` : ''}`;
   }
   if (name === 'rules_status' && result.data) return rulesStatusWords(result.data);
+  if (name === 'record_gst_payment' && result.payment) {
+    const p = result.payment;
+    return `Recorded the GST payment for ${p.period}: ${money(p.cash.total)} in cash${p.interest > 0 ? `, interest ${money(p.interest)}` : ''}${p.lateFee > 0 ? `, late fee ${money(p.lateFee)}` : ''}, with ${money(p.creditUsed)} of input credit set off${p.cpin ? ` (CPIN ${p.cpin})` : ''}. Record the GSTR-3B filing with its ARN once filed.`;
+  }
+  if (name === 'list_gst_payments' && result.data) {
+    const rows = result.data.payments;
+    return rows.length ? `GST payments recorded:\n${rows.map((r) => `· ${r.period}: ${money(r.cashTotal)} on ${r.date}${r.cpin ? `, CPIN ${r.cpin}` : ''}${r.late ? ' (after the due date)' : ''}`).join('\n')}` : 'No GST payment is recorded yet. Say "paid GST for September, CPIN 12345678901234".';
+  }
+  if (name === 'gstr9_draft' && result.data) return gstr9Words(result.data, money);
   if (name === 'salary_annexure' && result.data) return annexureWords(result.data, money);
   if (name === 'tds_certificates' && result.data) return certificateWords(result.data, money);
   if (name === 'import_pos_sales' && result.data?.created) return posImportWords(result.data, money);
