@@ -282,6 +282,7 @@ reviewed. Withholding is deliberately not computed.
   employee form asks for the work state and monthly federal withholding instead of PAN, PF
   and ESI.
 - Added later the same day: `contractor_1099_file`, the 1099-NEC data file per payee (box 1, entity type, TIN last four, W-9 status) with the due date from the dated rule.
+- Added later the same day: the app's Federal and owner taxes screen (estimated tax dates, Schedule C totals, Form 941 quarters, W-2 count and due date, contractors and the 1099-NEC file), and US bank statement CSVs through the shared bank import (`platform/src/us-bank.mjs`: a signed amount column or debit and credit columns, month-first dates; a day-first date is refused, not guessed).
 - Not built: computed withholding from a W-4 (Publication 15-T tables), state unemployment
   and state withholding tables, Forms 941, 940 and W-2 as files, a Schedule C PDF, the
   weekend and holiday shift on federal due dates.

@@ -22,6 +22,7 @@ import 'new_entry_sheet.dart';
 import 'party_picker.dart';
 import 'register_screen.dart';
 import 'sales_tax_screen.dart';
+import 'us_taxes_screen.dart';
 import 'taxes_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -165,6 +166,11 @@ class _HomeScreenState extends State<HomeScreen> {
                   },
                 ),
               ),
+            if (company.country != 'IN')
+              Padding(
+                padding: const EdgeInsets.only(top: 12),
+                child: _UsTaxesPanel(onTap: () => _open(const UsTaxesScreen())),
+              ),
             FutureBuilder<Today>(
               future: _today,
               builder: (context, today) {
@@ -301,6 +307,43 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _UsTaxesPanel extends StatelessWidget {
+  const _UsTaxesPanel({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    return Material(
+      color: Palette.surface,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radiusCard), side: const BorderSide(color: Palette.line)),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(18, 16, 14, 16),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('FEDERAL AND OWNER TAXES', style: text.labelSmall),
+                    const SizedBox(height: 6),
+                    Text('Estimated tax dates, Schedule C, Form 941, W-2 and 1099', style: text.titleMedium),
+                  ],
+                ),
+              ),
+              const Chevron(),
+            ],
+          ),
         ),
       ),
     );
