@@ -1,6 +1,7 @@
 import { localToday } from './dates.mjs';
 import { isReturnPeriod, periodOf } from './return-period.mjs';
 import { outstandingOf } from './credit-notes.mjs';
+import { salaryPrivate } from './employees.mjs';
 import { overdueBy } from './payment-terms.mjs';
 import { billOutstanding } from './invoice.mjs';
 
@@ -20,12 +21,25 @@ function monthFigures(state, period) {
   const inPeriod = (doc) => periodOf(doc?.date) === period;
   const sales = sumOf((state.invoices || []).filter(inPeriod), 'total');
   const creditNotes = sumOf((state.creditNotes || []).filter(inPeriod), 'total');
+  const debitNotes = sumOf((state.debitNotes || []).filter(inPeriod), 'total');
+  const purchaseNotes = sumOf((state.purchaseNotes || []).filter(inPeriod), 'total');
   return {
-    sales: { ...sales, net: round2(sales.total - creditNotes.total) },
+    sales: { ...sales, net: round2(sales.total - creditNotes.total + debitNotes.total) },
     creditNotes,
+    debitNotes,
+    purchaseNotes,
     purchases: sumOf((state.purchases || []).filter(inPeriod), 'total'),
     expenses: sumOf((state.expenses || []).filter(inPeriod), 'amount'),
+    payroll: payrollFigures(state, period),
   };
+}
+
+function payrollFigures(state, period) {
+  if (salaryPrivate(state)) return null;
+  const run = state.payrollRuns && typeof state.payrollRuns === 'object' && Object.hasOwn(state.payrollRuns, period) ? state.payrollRuns[period] : null;
+  if (!run || run.status !== 'approved') return { status: (state.employees || []).some((e) => !e.leftOn) ? 'draft' : 'none', employees: 0, gross: 0, net: 0, employerCost: 0, paidOn: '' };
+  const minor = (key) => run.totals[`${key}Paise`] ?? run.totals[`${key}Cents`] ?? 0;
+  return { status: 'approved', employees: run.employees, gross: round2(minor('gross') / 100), net: round2(minor('net') / 100), employerCost: round2(minor('employerCost') / 100), paidOn: run.paidOn || '' };
 }
 
 export function businessSummary(state, { period } = {}) {

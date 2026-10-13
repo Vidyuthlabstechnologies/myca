@@ -1,9 +1,17 @@
 import { planReceiptWithoutInvoice } from './receipt-intent.mjs';
-import { planExpenseFromChat } from './expense-intent.mjs';
+import { planExpenseFromChat, planRetagFromChat } from './expense-intent.mjs';
 import { planPaymentFromChat } from './payment-intent.mjs';
 import { planOweQuestion } from './owe-intent.mjs';
 import { planFilingFromChat } from './filing-intent.mjs';
 import { planEmployeeFromChat } from './employee-intent.mjs';
+import { planTdsFromChat } from './tds-intent.mjs';
+import { planGstPayFromChat } from './gst-pay-intent.mjs';
+import { planTransportFromChat, planAddressFromChat } from './eway-intent.mjs';
+import { planPayrollFromChat } from './payroll-intent.mjs';
+import { planUsFromChat } from './us-intent.mjs';
+import { countryOf } from './country.mjs';
+import { tdsReviewOf } from './tds-review.mjs';
+import { parseQuarter } from './tds-return.mjs';
 import { reviewOf } from './gst-review.mjs';
 import { planReminderFromChat } from './reminder-intent.mjs';
 import { planCashFromChat } from './cash-intent.mjs';
@@ -21,13 +29,14 @@ const noArgs = {
 const lineSchema = {
   type: 'object',
   additionalProperties: false,
-  required: ['description', 'qty', 'rate', 'gstRate'],
+  required: ['description', 'qty', 'rate'],
   properties: {
     description: { type: 'string', minLength: 1 },
     hsn: { type: 'string' },
     qty: { type: 'number', exclusiveMinimum: 0 },
     rate: { type: 'number', minimum: 0 },
     gstRate: { type: 'number', minimum: 0, maximum: 28 },
+    taxable: { type: 'boolean' },
   },
 };
 
@@ -39,6 +48,13 @@ const salaryComponent = {
     name: { type: 'string', minLength: 1, maxLength: 40 },
     amount: { type: 'number', minimum: 0 },
   },
+};
+
+const tdsProperties = {
+  tdsSection: { type: 'string', enum: ['194A', '194C', '194I', '194J'] },
+  tdsCategory: { type: 'string', enum: ['professional', 'technical', 'director'] },
+  tdsAsset: { type: 'string', enum: ['building', 'plant'] },
+  payeePan: { type: 'string', maxLength: 12 },
 };
 
 const documentSchema = {
@@ -64,6 +80,8 @@ export const TOOL_ARG_SCHEMAS = {
     type: 'object',
     additionalProperties: false,
     properties: {
+      country: { type: 'string', enum: ['IN', 'US'] },
+      ein: { type: 'string', pattern: '^([0-9]{2}-?[0-9]{7})?$' },
       name: { type: 'string' },
       gstin: { type: 'string', maxLength: 15 },
       pan: { type: 'string', maxLength: 10 },
@@ -229,11 +247,16 @@ export const TOOL_ARG_SCHEMAS = {
   list_invoices: noArgs,
   create_invoice: {
     ...documentSchema,
-    properties: { ...documentSchema.properties, paymentTermsDays: { type: 'integer', minimum: 0, maximum: 365 } },
+    properties: {
+      taxJurisdiction: { type: 'string', maxLength: 24 },
+      taxExempt: { type: 'boolean' },
+      exemptionReason: { type: 'string', maxLength: 120 },
+      partyAddress: { type: 'string', maxLength: 200 }, ...documentSchema.properties, paymentTermsDays: { type: 'integer', minimum: 0, maximum: 365 } },
   },
   create_purchase: {
     ...documentSchema,
-    properties: { ...documentSchema.properties, supplierInvoiceNo: { type: 'string', maxLength: 16 } },
+    properties: {
+      salesTaxPaid: { type: 'number', minimum: 0 }, ...documentSchema.properties, supplierInvoiceNo: { type: 'string', maxLength: 16 }, ...tdsProperties },
   },
   print_invoice: {
     type: 'object',
@@ -257,6 +280,45 @@ export const TOOL_ARG_SCHEMAS = {
       date: { type: 'string' },
       reason: { type: 'string', minLength: 1, maxLength: 200 },
     },
+  },
+  create_debit_note: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['invoiceId', 'amount', 'reason'],
+    properties: {
+      invoiceId: { type: 'string', pattern: '^INV-[0-9]{4,}$' },
+      amount: { type: 'number', exclusiveMinimum: 0 },
+      date: { type: 'string' },
+      reason: { type: 'string', minLength: 1, maxLength: 200 },
+    },
+  },
+  create_purchase_note: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['billId', 'amount', 'reason'],
+    properties: {
+      billId: { type: 'string', pattern: '^BILL-[0-9]{4,}$' },
+      amount: { type: 'number', exclusiveMinimum: 0 },
+      date: { type: 'string' },
+      reason: { type: 'string', minLength: 1, maxLength: 200 },
+    },
+  },
+  record_supplier_debit_note: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['billId', 'amount', 'reason'],
+    properties: {
+      billId: { type: 'string', pattern: '^BILL-[0-9]{4,}$' },
+      amount: { type: 'number', exclusiveMinimum: 0 },
+      date: { type: 'string' },
+      reason: { type: 'string', minLength: 1, maxLength: 200 },
+      supplierNoteNo: { type: 'string', maxLength: 16 },
+    },
+  },
+  list_debit_notes: {
+    type: 'object',
+    additionalProperties: false,
+    properties: { period: { type: 'string', pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' } },
   },
   cancel_invoice: {
     type: 'object',
@@ -404,6 +466,187 @@ export const TOOL_ARG_SCHEMAS = {
     additionalProperties: false,
     properties: { status: { type: 'string', enum: ['open', 'closed', 'all'] } },
   },
+  set_sales_tax_rate: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['code', 'ratePercent'],
+    properties: {
+      code: { type: 'string', maxLength: 24 },
+      name: { type: 'string', maxLength: 80 },
+      ratePercent: { type: 'number', minimum: 0, maximum: 20 },
+      from: { type: 'string' },
+    },
+  },
+  list_sales_tax_rates: noArgs,
+  set_contractor: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['partyName'],
+    properties: {
+      partyName: { type: 'string', minLength: 1, maxLength: 120 },
+      contractor: { type: 'boolean' },
+      w9Name: { type: 'string', maxLength: 120 },
+      entityType: { type: 'string', enum: ['individual', 'sole-proprietor', 'llc', 'partnership', 'c-corp', 's-corp', 'other'] },
+      tinLast4: { type: 'string', pattern: '^([0-9]{4})?$' },
+      w9Received: { type: 'boolean' },
+    },
+  },
+  contractor_payments: {
+    type: 'object',
+    additionalProperties: false,
+    properties: { year: { type: 'string', pattern: '^[0-9]{4}$' } },
+  },
+  set_withholding: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['id'],
+    properties: {
+      id: { type: 'string', pattern: '^EMP-[0-9]{4,}$' },
+      federalWithholding: { type: 'number', minimum: 0 },
+      stateWithholding: { type: 'number', minimum: 0 },
+      workState: { type: 'string', pattern: '^[A-Za-z]{2}$' },
+    },
+  },
+  us_payroll_filings: {
+    type: 'object',
+    additionalProperties: false,
+    properties: { year: { type: 'string', pattern: '^[0-9]{4}$' } },
+  },
+  schedule_c_summary: {
+    type: 'object',
+    additionalProperties: false,
+    properties: { year: { type: 'string', pattern: '^[0-9]{4}$' } },
+  },
+  estimated_tax_dates: {
+    type: 'object',
+    additionalProperties: false,
+    properties: { year: { type: 'string', pattern: '^[0-9]{4}$' } },
+  },
+  import_us_invoices: {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      csv: { type: 'string' },
+      documentSha256: { type: 'string', pattern: '^[0-9a-f]{64}$' },
+      taxJurisdiction: { type: 'string', maxLength: 24 },
+    },
+  },
+  export_trial_balance: noArgs,
+  rules_status: {
+    type: 'object',
+    additionalProperties: false,
+    properties: { asOf: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' }, country: { type: 'string', enum: ['IN', 'US'] } },
+  },
+  set_sales_tax_nexus: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['state', 'frequency'],
+    properties: {
+      state: { type: 'string', pattern: '^[A-Za-z]{2}$' },
+      frequency: { type: 'string', enum: ['monthly', 'quarterly', 'annual'] },
+      from: { type: 'string' },
+      permitNo: { type: 'string', maxLength: 40 },
+    },
+  },
+  list_sales_tax_nexus: noArgs,
+  sales_tax_return: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['state'],
+    properties: { state: { type: 'string', pattern: '^[A-Za-z]{2}$' }, period: { type: 'string', pattern: '^[0-9]{4}(-(0[1-9]|1[0-2]|Q[1-4]))?$' } },
+  },
+  sales_tax_review: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['state'],
+    properties: { state: { type: 'string', pattern: '^[A-Za-z]{2}$' }, period: { type: 'string', pattern: '^[0-9]{4}(-(0[1-9]|1[0-2]|Q[1-4]))?$' } },
+  },
+  sales_tax_review_answer: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['state', 'period', 'step', 'answer', 'draftHash'],
+    properties: {
+      state: { type: 'string', pattern: '^[A-Za-z]{2}$' },
+      period: { type: 'string', pattern: '^[0-9]{4}(-(0[1-9]|1[0-2]|Q[1-4]))?$' },
+      step: { type: 'string', enum: ['sales', 'tax', 'approve'] },
+      answer: { type: 'string', enum: ['correct', 'wrong', 'approve'] },
+      draftHash: { type: 'string', pattern: '^[0-9a-f]{64}$' },
+      note: { type: 'string', maxLength: 500 },
+    },
+  },
+  record_sales_tax_payment: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['state'],
+    properties: {
+      state: { type: 'string', pattern: '^[A-Za-z]{2}$' },
+      period: { type: 'string', pattern: '^[0-9]{4}(-(0[1-9]|1[0-2]|Q[1-4]))?$' },
+      amount: { type: 'number', exclusiveMinimum: 0 },
+      date: { type: 'string' },
+      mode: { type: 'string', enum: ['bank', 'cash'] },
+      reference: { type: 'string', maxLength: 40 },
+    },
+  },
+  record_sales_tax_filing: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['state', 'confirmation'],
+    properties: {
+      state: { type: 'string', pattern: '^[A-Za-z]{2}$' },
+      period: { type: 'string', pattern: '^[0-9]{4}(-(0[1-9]|1[0-2]|Q[1-4]))?$' },
+      confirmation: { type: 'string', minLength: 3, maxLength: 40 },
+      filedOn: { type: 'string' },
+      filedBy: { type: 'string', maxLength: 60 },
+    },
+  },
+  sales_tax_overview: noArgs,
+  set_party_address: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['partyName', 'address'],
+    properties: {
+      partyName: { type: 'string', minLength: 1, maxLength: 80 },
+      partyGstin: { type: 'string', pattern: '^([0-9]{2}[A-Z0-9]{13})?$' },
+      address: { type: 'string', minLength: 1, maxLength: 200 },
+    },
+  },
+  set_transport: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['invoiceId', 'distanceKm'],
+    properties: {
+      invoiceId: { type: 'string', pattern: '^INV-[0-9]{4,}$' },
+      vehicleNo: { type: 'string', maxLength: 12 },
+      distanceKm: { type: 'integer', minimum: 1, maximum: 4000 },
+      transporterName: { type: 'string', maxLength: 100 },
+      transporterId: { type: 'string', maxLength: 15 },
+      mode: { type: 'string', enum: ['road', 'rail', 'air', 'ship'] },
+      docNo: { type: 'string', maxLength: 15 },
+    },
+  },
+  record_share: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['invoiceId'],
+    properties: {
+      invoiceId: { type: 'string', pattern: '^(INV|QT)-[0-9]{4,}$' },
+      channel: { type: 'string', maxLength: 40 },
+      outcome: { type: 'string', enum: ['shared', 'printed', 'cancelled'] },
+      to: { type: 'string', maxLength: 120 },
+    },
+  },
+  eway_bill_status: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['invoiceId'],
+    properties: { invoiceId: { type: 'string', pattern: '^INV-[0-9]{4,}$' } },
+  },
+  govt_generate_ewb: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['invoiceId'],
+    properties: { invoiceId: { type: 'string', pattern: '^INV-[0-9]{4,}$' }, caApprovalId: { type: 'string', maxLength: 40 } },
+  },
   set_payment_terms: {
     type: 'object',
     additionalProperties: false,
@@ -437,6 +680,40 @@ export const TOOL_ARG_SCHEMAS = {
     additionalProperties: false,
     properties: { include: { type: 'string', enum: ['current', 'all'] } },
   },
+  payroll_run: {
+    type: 'object',
+    additionalProperties: false,
+    properties: { period: { type: 'string', pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' } },
+  },
+  approve_payroll: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['period'],
+    properties: {
+      period: { type: 'string', pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' },
+      draftHash: { type: 'string', pattern: '^[0-9a-f]{64}$' },
+    },
+  },
+  record_salary_payment: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['period'],
+    properties: {
+      period: { type: 'string', pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' },
+      date: { type: 'string' },
+      mode: { type: 'string', enum: ['bank', 'cash'] },
+    },
+  },
+  list_payroll: noArgs,
+  payslip: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['period', 'employeeId'],
+    properties: {
+      period: { type: 'string', pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' },
+      employeeId: { type: 'string', pattern: '^EMP-[0-9]{4,}$' },
+    },
+  },
   add_employee: {
     type: 'object',
     additionalProperties: false,
@@ -448,10 +725,15 @@ export const TOOL_ARG_SCHEMAS = {
       designation: { type: 'string', maxLength: 60 },
       pan: { type: 'string', maxLength: 10 },
       uan: { type: 'string', maxLength: 14 },
+      esiNumber: { type: 'string', maxLength: 12 },
       pfMember: { type: 'boolean' },
       esiMember: { type: 'boolean' },
       ptState: { type: 'string', pattern: '^[0-9]{2}$' },
       taxRegime: { type: 'string', enum: ['new', 'old'] },
+      sex: { type: 'string', enum: ['male', 'female'] },
+      workState: { type: 'string', pattern: '^[A-Za-z]{2}$' },
+      federalWithholding: { type: 'number', minimum: 0 },
+      stateWithholding: { type: 'number', minimum: 0 },
     },
   },
   change_salary: {
@@ -493,6 +775,64 @@ export const TOOL_ARG_SCHEMAS = {
       channel: { type: 'string', enum: ['whatsapp', 'email', 'other'] },
     },
   },
+  tds_summary: noArgs,
+  set_tds_deductor: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['tan'],
+    properties: { tan: { type: 'string', maxLength: 12 } },
+  },
+  record_tds_deposit: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['challan'],
+    properties: {
+      amount: { type: 'number', exclusiveMinimum: 0 },
+      date: { type: 'string' },
+      challan: { type: 'string', maxLength: 40 },
+      mode: { type: 'string', enum: ['bank', 'cash'] },
+    },
+  },
+  tds_return: {
+    type: 'object',
+    additionalProperties: false,
+    properties: { quarter: { type: 'string', pattern: '^Q[1-4] [0-9]{4}-[0-9]{2}$' }, form: { type: 'string', enum: ['other', 'salary'] } },
+  },
+  tds_review: {
+    type: 'object',
+    additionalProperties: false,
+    properties: { period: { type: 'string', pattern: '^Q[1-4] [0-9]{4}-[0-9]{2}$' }, form: { type: 'string', enum: ['other', 'salary'] } },
+  },
+  salary_annexure: {
+    type: 'object',
+    additionalProperties: false,
+    properties: { fy: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}$' } },
+  },
+  pf_ecr: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['period'],
+    properties: { period: { type: 'string', pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' } },
+  },
+  esi_return: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['period'],
+    properties: { period: { type: 'string', pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' } },
+  },
+  tds_review_answer: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['period', 'step', 'answer', 'draftHash'],
+    properties: {
+      period: { type: 'string', pattern: '^Q[1-4] [0-9]{4}-[0-9]{2}$' },
+      form: { type: 'string', enum: ['other', 'salary'] },
+      step: { type: 'string', enum: ['deductees', 'challans', 'approve'] },
+      answer: { type: 'string', enum: ['correct', 'wrong', 'approve'] },
+      draftHash: { type: 'string', pattern: '^[0-9a-f]{64}$' },
+      note: { type: 'string', maxLength: 500 },
+    },
+  },
   list_filings: {
     type: 'object',
     additionalProperties: false,
@@ -513,6 +853,11 @@ export const TOOL_ARG_SCHEMAS = {
     additionalProperties: false,
     properties: { period: { type: 'string', pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' } },
   },
+  export_tally: {
+    type: 'object',
+    additionalProperties: false,
+    properties: { period: { type: 'string', pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' } },
+  },
   gst_review: {
     type: 'object',
     additionalProperties: false,
@@ -524,7 +869,7 @@ export const TOOL_ARG_SCHEMAS = {
     required: ['period', 'step', 'answer', 'draftHash'],
     properties: {
       period: { type: 'string', pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' },
-      step: { type: 'string', enum: ['held', 'sales', 'credit', 'approve'] },
+      step: { type: 'string', enum: ['held', 'sales', 'credit', 'pay', 'approve'] },
       answer: { type: 'string', enum: ['correct', 'wrong', 'approve'] },
       note: { type: 'string', maxLength: 500 },
       draftHash: { type: 'string', pattern: '^[0-9a-f]{64}$' },
@@ -574,7 +919,25 @@ export const TOOL_ARG_SCHEMAS = {
       owner: { type: 'string', maxLength: 64 },
     },
   },
-  gst_payable: noArgs,
+  gst_payable: {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      period: { type: 'string', pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' },
+      payOn: { type: 'string' },
+    },
+  },
+  set_gst_credit_opening: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['period'],
+    properties: {
+      period: { type: 'string', pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' },
+      igst: { type: 'number', minimum: 0 },
+      cgst: { type: 'number', minimum: 0 },
+      sgst: { type: 'number', minimum: 0 },
+    },
+  },
   prepare_gstr1: {
     type: 'object',
     additionalProperties: false,
@@ -827,6 +1190,7 @@ export const TOOL_ARG_SCHEMAS = {
       payee: { type: 'string', maxLength: 80 },
       supplierGstin: { type: 'string', pattern: '^([0-9]{2}[A-Z0-9]{13})?$' },
       head: { type: 'string', pattern: '^5[0-9]{3}$' },
+      ...tdsProperties,
     },
   },
   set_expense_head: {
@@ -876,6 +1240,9 @@ const TOOL_RISK = {
   post_expense: 'writes_books',
   set_expense_head: 'writes_books',
   create_credit_note: 'writes_books',
+  create_debit_note: 'writes_books',
+  create_purchase_note: 'writes_books',
+  record_supplier_debit_note: 'writes_books',
   cancel_invoice: 'writes_books',
   gst_review_answer: 'writes_books',
   import_gstr2b: 'writes_books',
@@ -885,9 +1252,27 @@ const TOOL_RISK = {
   record_filing: 'writes_books',
   record_supplier_reminder: 'writes_books',
   add_employee: 'writes_books',
+  approve_payroll: 'writes_books',
+  record_salary_payment: 'writes_books',
+  set_tds_deductor: 'writes_books',
+  set_gst_credit_opening: 'writes_books',
+  tds_review_answer: 'writes_books',
+  record_tds_deposit: 'writes_books',
   change_salary: 'writes_books',
   end_employment: 'writes_books',
   set_payment_terms: 'writes_books',
+  set_party_address: 'writes_books',
+  set_sales_tax_rate: 'writes_books',
+  set_contractor: 'writes_books',
+  set_sales_tax_nexus: 'writes_books',
+  set_withholding: 'writes_books',
+  import_us_invoices: 'writes_books',
+  sales_tax_review_answer: 'writes_books',
+  record_sales_tax_payment: 'writes_books',
+  record_sales_tax_filing: 'writes_books',
+  set_transport: 'writes_books',
+  record_share: 'writes_books',
+  govt_generate_ewb: 'external_government_api',
   ask_ca: 'writes_books',
   create_quote: 'writes_books',
   mark_quote: 'writes_books',
@@ -1032,6 +1417,16 @@ export function planLocalToolCall(state, message) {
       return { kind: 'tool', name: 'create_quote', args: { partyName: quoted.partyName, ...(quoted.partyGstin ? { partyGstin: quoted.partyGstin } : {}), lines: quoted.lines, ...(validity ? { validDays: Number(validity[1]) } : {}) } };
     }
   }
+  const tdsAsk = planTdsFromChat(text);
+  if (tdsAsk) return tdsAsk;
+  const gstPay = planGstPayFromChat(text);
+  if (gstPay) return gstPay;
+  const transport = planTransportFromChat(text);
+  if (transport) return transport;
+  const address = planAddressFromChat(state, text);
+  if (address) return address;
+  const payroll = planPayrollFromChat(state, text);
+  if (payroll) return payroll;
   const hired = planEmployeeFromChat(text);
   if (hired) return hired;
   const filed = planFilingFromChat(text);
@@ -1040,8 +1435,12 @@ export function planLocalToolCall(state, message) {
   if (owed) return owed;
   const payment = planPaymentFromChat(state, text);
   if (payment) return payment;
+  if (countryOf(state) === 'US') {
+    const us = planUsFromChat(state, text);
+    if (us) return us;
+  }
   const saidTerms = takeInvoiceTerms(text);
-  const doc = parseDocument(saidTerms.text);
+  const doc = /\b(?:debit|credit)\s+note\b/i.test(text) ? null : parseDocument(saidTerms.text);
   const asking = isQuestion(text) || isNegated(text);
   if (doc && !asking && doc.lines[0].gstRate == null && (isPurchaseIntent(text) || isSaleIntent(text))) {
     return {
@@ -1122,6 +1521,20 @@ export function planLocalToolCall(state, message) {
   const terms = planTermsFromChat(text);
   if (terms) return terms;
 
+  if (/\breview\b.*\btds\b|\btds\b.*\breview\b/i.test(text) && !isNegated(text)) {
+    return planTdsReview(state, text, /\bsalar(?:y|ies)\b|\b24q\b|\bform\s*138\b/i.test(text) ? 'salary' : 'other');
+  }
+  if (/\btds\b.*\b(?:return|statement|26q|24q|form\s*1(?:38|40)|quarterly)\b|\b(?:return|statement|26q|24q|quarterly)\b.*\btds\b/i.test(text) && !isNegated(text)) {
+    const quarter = quarterSaid(text);
+    const form = /\bsalar(?:y|ies)\b|\b24q\b|\bform\s*138\b/i.test(text) ? 'salary' : 'other';
+    return { kind: 'tool', name: 'tds_return', args: { ...(quarter ? { quarter } : {}), ...(form === 'salary' ? { form } : {}) } };
+  }
+  if (/\b(?:pf|provident\s+fund|epf)\b.*\b(?:file|ecr|return|challan)\b|\becr\b/i.test(text) && !isNegated(text) && !isQuestion(text)) {
+    return { kind: 'tool', name: 'pf_ecr', args: { period: monthSaid(text) } };
+  }
+  if (/\besi(?:c)?\b.*\b(?:file|return|contribution)\b|\bstate\s+insurance\s+(?:file|return)\b/i.test(text) && !isNegated(text) && !isQuestion(text)) {
+    return { kind: 'tool', name: 'esi_return', args: { period: monthSaid(text) } };
+  }
   if (/\breview\b.*\b(?:gst|gstr|return)\b|\b(?:gst|gstr-?[13]b?|return)\b.*\breview\b/i.test(text) && !isNegated(text)) {
     return planReview(state, text);
   }
@@ -1130,6 +1543,35 @@ export function planLocalToolCall(state, message) {
   if (cancelMatch && !isQuestion(text) && !/(?:do\s*not|don'?t|never)/i.test(text) && !/(?:irn|e-?invoice)/i.test(text)) {
     const reason = String(cancelMatch[2] || '').trim();
     return { kind: 'tool', name: 'cancel_invoice', args: { invoiceId: cancelMatch[1].toUpperCase(), date: receiptDate(text, localToday()), ...(reason ? { reason: reason.slice(0, 200) } : {}) } };
+  }
+  const supplierNote = text.match(/\bdebit\s+note\b.*?\b(BILL-\d{4,})\b/i);
+  const supplierIssued = supplierNote && /\b(?:supplier'?s?|their|vendor'?s?)\s+debit\s+note\b|\bdebit\s+note\s+from\b|\breceived\s+(?:a\s+)?debit\s+note\b/i.test(text);
+  if (supplierIssued && !isQuestion(text) && !isNegated(text)) {
+    const amount = receiptAmount(text.replace(/\b(?:no\b\.?|number\b|#)\s*[A-Z0-9/-]+/i, ' '));
+    const noteNo = (text.match(/\b(?:note\s+)?(?:no\b\.?|number\b|#)\s*([A-Z0-9][A-Z0-9/-]{0,15})\b/i) || [])[1] || '';
+    const cleaned = text.replace(/,?\s*(?:note\s+)?(?:no\b\.?|number\b|#)\s*[A-Z0-9][A-Z0-9/-]*\s*$/i, '');
+    const afterBill = cleaned.slice(cleaned.toUpperCase().indexOf(supplierNote[1].toUpperCase()) + supplierNote[1].length);
+    const reason = (cleaned.match(/(?:because|reason|:|-)\s*([^0-9₹][^,]*?)\s*$/i) || afterBill.match(/(?:₹|rs\.?\s*)?\d[\d,]*(?:\.\d+)?\s+(?:for\s+)?([A-Za-z][^,]*?)\s*$/i) || [])[1] || '';
+    if (amount == null) return { kind: 'reply', reply: `Say the amount, for example "supplier's debit note on ${supplierNote[1].toUpperCase()} 2360 - extra freight, no. FC-7". I have recorded nothing.`, tools: [] };
+    if (!reason.trim()) return { kind: 'reply', reply: `Say why, for example "supplier's debit note on ${supplierNote[1].toUpperCase()} 2360 - extra freight". I have recorded nothing.`, tools: [] };
+    return { kind: 'tool', name: 'record_supplier_debit_note', args: { billId: supplierNote[1].toUpperCase(), amount, date: receiptDate(text, localToday()), reason: reason.replace(/,?\s*(?:note\s+)?(?:no\b\.?|number\b|#)\s*[A-Z0-9/-]+\s*$/i, '').trim().slice(0, 200), ...(noteNo ? { supplierNoteNo: noteNo.toUpperCase() } : {}) } };
+  }
+  if (supplierNote && !isQuestion(text) && !isNegated(text)) {
+    const amount = receiptAmount(text);
+    const afterBill = text.slice(text.toUpperCase().indexOf(supplierNote[1].toUpperCase()) + supplierNote[1].length);
+    const reason = (text.match(/(?:because|reason|:|-)\s*([^0-9₹][^,]*?)\s*$/i) || afterBill.match(/(?:₹|rs\.?\s*)?\d[\d,]*(?:\.\d+)?\s+(?:for\s+)?([A-Za-z][^,]*?)\s*$/i) || [])[1] || '';
+    if (amount == null) return { kind: 'reply', reply: `Say the amount, for example "debit note for ${supplierNote[1].toUpperCase()} 1000 - goods returned". I have recorded nothing.`, tools: [] };
+    if (!reason.trim()) return { kind: 'reply', reply: `Say why, for example "debit note for ${supplierNote[1].toUpperCase()} 1000 - goods returned". I have recorded nothing.`, tools: [] };
+    return { kind: 'tool', name: 'create_purchase_note', args: { billId: supplierNote[1].toUpperCase(), amount, date: receiptDate(text, localToday()), reason: reason.trim().slice(0, 200) } };
+  }
+  const debitMatch = text.match(/\bdebit\s+note\b.*?\b(INV-\d{4,})\b/i);
+  if (debitMatch && !isQuestion(text) && !isNegated(text)) {
+    const amount = receiptAmount(text);
+    const afterInvoice = text.slice(text.toUpperCase().indexOf(debitMatch[1].toUpperCase()) + debitMatch[1].length);
+    const reason = (text.match(/(?:because|reason|:|-)\s*([^0-9₹][^,]*?)\s*$/i) || afterInvoice.match(/(?:₹|rs\.?\s*)?\d[\d,]*(?:\.\d+)?\s+(?:for\s+)?([A-Za-z][^,]*?)\s*$/i) || [])[1] || '';
+    if (amount == null) return { kind: 'reply', reply: `Say the amount, for example "debit note for ${debitMatch[1].toUpperCase()} 2000 - price revised". I have recorded nothing.`, tools: [] };
+    if (!reason.trim()) return { kind: 'reply', reply: `Say why, for example "debit note for ${debitMatch[1].toUpperCase()} 2000 - price revised". I have recorded nothing.`, tools: [] };
+    return { kind: 'tool', name: 'create_debit_note', args: { invoiceId: debitMatch[1].toUpperCase(), amount, date: receiptDate(text, localToday()), reason: reason.trim().slice(0, 200) } };
   }
   const creditMatch = text.match(/\bcredit\s+note\b.*?\b(INV-\d{4,})\b/i);
   if (creditMatch && !isQuestion(text) && !isNegated(text)) {
@@ -1197,6 +1639,8 @@ export function planLocalToolCall(state, message) {
     };
   }
 
+  const retag = planRetagFromChat(state, text);
+  if (retag) return retag;
   const expense = planExpenseFromChat(state, text);
   if (expense) return expense;
   const receipt = planReceiptWithoutInvoice(state, text);
@@ -1218,6 +1662,12 @@ export function planLocalToolCall(state, message) {
     const csv = state.pendingFile?.content || state.files.tally;
     if (!csv) return { kind: 'reply', reply: 'Attach a Tally Day Book CSV first (dropdown: Tally Day Book).', tools: [] };
     return { kind: 'tool', name: 'import_tally', args: { csv, fileName: state.pendingFile?.name || 'tally.csv' }, clearsPendingFile: true };
+  }
+  if (/\bimport\s+(?:quickbooks|qbo|xero)\b|\b(?:quickbooks|xero)\s+(?:invoices|export|csv)\b/i.test(text)) {
+    const csv = state.pendingFile?.content;
+    if (!csv) return { kind: 'reply', reply: 'Attach the QuickBooks or Xero invoice CSV first, then say "import xero" or "import quickbooks". I will show what would post before anything lands in the books.', tools: [] };
+    const jurisdiction = (text.match(/\b(?:tax|jurisdiction)\s+([A-Z]{2}(?:-[A-Z0-9]{2,20})?)\b/) || [])[1];
+    return { kind: 'tool', name: 'import_us_invoices', args: { csv, ...(jurisdiction ? { taxJurisdiction: jurisdiction } : {}) }, clearsPendingFile: true };
   }
   if (/\bimport zoho\b|\bzoho books\b/i.test(text)) {
     const csv = state.pendingFile?.content || state.files.zoho;
@@ -1252,6 +1702,48 @@ function reviewPeriodSaid(state, text) {
   const wanted = String(index + 1).padStart(2, '0');
   const known = (reviewOf(state).data?.periods || []).filter((period) => period.endsWith(`-${wanted}`));
   return known.at(-1) || `${localToday().slice(0, 4)}-${wanted}`;
+}
+
+function monthSaid(text) {
+  const iso = text.match(/\b(20\d{2})-(0[1-9]|1[0-2])\b/);
+  if (iso) return `${iso[1]}-${iso[2]}`;
+  const lower = text.toLowerCase();
+  const index = MONTH_NAMES.findIndex((name) => new RegExp(`\\b${name.slice(0, 3)}(?:${name.slice(3)})?\\b`).test(lower));
+  const today = localToday();
+  if (index < 0) return today.slice(0, 7);
+  const [y, m] = today.split('-').map(Number);
+  const year = index + 1 <= m ? y : y - 1;
+  return `${year}-${String(index + 1).padStart(2, '0')}`;
+}
+
+function quarterSaid(text) {
+  const said = text.match(/\b(?:FY\s*)?(\d{4}-\d{2})\s*[-,]?\s*Q([1-4])\b|\bQ([1-4])\b(?:\s*(?:of\s*|,\s*|FY\s*)?(\d{4}-\d{2}))?/i);
+  if (!said) return '';
+  const quarter = said[2] || said[3];
+  const fy = said[1] || said[4];
+  if (fy) return parseQuarter(`Q${quarter} ${fy}`)?.label || '';
+  const today = localToday();
+  const year = Number(today.slice(0, 4));
+  const start = Number(today.slice(5, 7)) >= 4 ? year : year - 1;
+  return `Q${quarter} ${start}-${String((start + 1) % 100).padStart(2, '0')}`;
+}
+
+function planTdsReview(state, text, form = 'other') {
+  const review = tdsReviewOf(state, quarterSaid(text) || undefined, form);
+  if (!review.ok) {
+    if (review.error === 'NOT_A_DEDUCTOR') return { kind: 'reply', reply: 'This business is not set up to deduct TDS. Say "we deduct TDS, TAN" followed by your TAN to start.', tools: [] };
+    if (review.error === 'NO_DEDUCTIONS') return { kind: 'reply', reply: form === 'salary' ? 'No salary TDS has been deducted yet; approve a payroll month first.' : 'No TDS has been deducted yet, so there is no statement to review.', tools: [] };
+    return { kind: 'reply', reply: 'I could not read the quarter. Say it like "review TDS for Q2 2026-27".', tools: [] };
+  }
+  const data = review.data;
+  if (data.empty) return { kind: 'reply', reply: `Nothing was deducted in ${data.period}, so there is nothing to review.`, tools: [] };
+  if (data.approved) return { kind: 'reply', reply: `You approved the ${data.period} TDS statement on ${data.approval.on}. Nothing has changed since.`, tools: [] };
+  const step = data.steps.find((item) => item.id === data.next);
+  return {
+    kind: 'tool',
+    name: 'tds_review_answer',
+    args: { period: data.period, ...(form === 'salary' ? { form } : {}), step: step.id, answer: step.id === 'approve' ? 'approve' : 'correct', draftHash: data.draftHash },
+  };
 }
 
 function planReview(state, text) {

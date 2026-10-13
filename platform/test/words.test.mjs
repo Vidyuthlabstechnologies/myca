@@ -22,7 +22,7 @@ test('only the words change, never the data', () => {
   assert.equal(out.tools[0].result.date, '2026-10-08');
 });
 
-const JARGON = /\b20\d{2}-(0[1-9]|1[0-2])-\d{2}\b|\bDebit\b|\bcredit (cash|bank|sales)\b|\bfolio\b|\bITC\b|Tool \w+ (failed|blocked)/;
+const JARGON = /\b20\d{2}-(0[1-9]|1[0-2])-\d{2}\b|\bDebit\b|\bcredit (cash|bank|sales)\b|\bfolio\b|\bITC\b|Tool \w+ (failed|blocked)|\bargs\.|\bimport_\w+/;
 
 test('everyday chat replies and previews read as plain words', async () => {
   const state = createState();
@@ -46,6 +46,9 @@ test('everyday chat replies and previews read as plain words', async () => {
     said.push([message, out.reply, ...(out.preview?.effects || [])]);
   }
   said.push(['bad receipt', (await propose(state, 'record_receipt', { invoiceId: 'INV-9999' })).reply]);
+  const unrated = await propose(state, 'create_invoice', { partyName: 'Kiran Stores', lines: [{ description: 'Supply', qty: 1, rate: 500 }] });
+  assert.match(unrated.reply, /^I did not post anything, because:\n· This has no GST rate, and I will not guess one\./);
+  said.push(['unrated', unrated.reply]);
   said.push(['locked', (await chat(state, 'invoice Retail Mart 8000 GST 18% on 2019-01-01')).reply]);
   const check = await runTool(state, 'books_check', {});
   for (const finding of check.data.findings) said.push(['books check', finding.title, finding.detail]);

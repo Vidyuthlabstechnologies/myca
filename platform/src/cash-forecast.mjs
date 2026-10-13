@@ -2,7 +2,7 @@ import { localToday, postingDate } from './dates.mjs';
 import { daysBetween } from './reminders.mjs';
 import { outstandingOf } from './credit-notes.mjs';
 import { periodOf } from './return-period.mjs';
-import { periodSummary } from './period-summary.mjs';
+import { paymentFor } from './gst-payment.mjs';
 import { billOutstanding } from './invoice.mjs';
 
 const BANK = 1002n;
@@ -186,11 +186,11 @@ function gstPayments(state, deadlines, from, until) {
   const rows = [];
   for (const row of deadlines) {
     if (row.returnType !== 'GSTR-3B' || row.filed || row.dueDate < from || row.dueDate > until) continue;
-    const summary = periodSummary(state, row.period);
-    if (!summary.ok) continue;
-    const owed = round2(Math.max(0, summary.data.outputTax.total - summary.data.inputCredit.total));
+    const payment = paymentFor(state, row.period);
+    if (!payment.ok) continue;
+    const owed = round2(payment.data.toPay);
     if (owed <= 0) continue;
-    rows.push({ date: row.dueDate, label: `GST for ${row.period}`, amount: owed, basis: 'tax on sales less input credit, before head-by-head set-off; the return may differ' });
+    rows.push({ date: row.dueDate, label: `GST for ${row.period}`, amount: owed, basis: 'cash to pay after input credit is set off head by head; not checked against GSTR-2B' });
   }
   return rows;
 }

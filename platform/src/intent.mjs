@@ -151,15 +151,19 @@ export function isSaleIntent(text) {
 }
 
 export const ROUTES = [
+  { re: /\bannexure\s*(?:ii|2)\b|\bsalary\s+annexure\b|\b24q\s+annexure\b/i, tool: 'salary_annexure' },
+  { re: /\brules?\s+status\b|\bstatutory\s+rules\b|\brules\s+(?:current|up\s*to\s*date|updated)\b|\bare\s+(?:the\s+)?(?:tax\s+)?rules\s+(?:current|up\s*to\s*date)\b/i, tool: 'rules_status' },
   { re: /\b(?:my|open|show|list|what are my)\s+reminders\b|^\s*reminders\s*$/i, tool: 'list_reminders' },
   { re: /\b(?:my|show|list|all)\s+employees\b|^\s*employees\s*$/i, tool: 'list_employees' },
   { re: /\b(?:my|show|list|which)\s+(?:filings|filed\s+returns|returns\s+(?:are\s+|were\s+)?filed)\b|^\s*filings\s*$/i, tool: 'list_filings' },
   { re: /\bcheck\s+(?:my\s+|the\s+)?books\b|\bbooks?\s+(?:check|health)\b|\bhealth\s*check\b/i, tool: 'books_check' },
+  { re: /\b(?:export|save|download|send)\b.*\btrial\s*balance\b|\btrial\s*balance\b.*\b(?:for\s+(?:my\s+)?ca|csv|file|export)\b/i, tool: 'export_trial_balance' },
   { re: /\btrial\s*balance\b|\bdoes (the )?books? tie\b/i, tool: 'trial_balance' },
   { re: /\bchart of accounts\b|\bcoa\b/i, tool: 'chart_of_accounts' },
   { re: /\bjournal\b|\bday book\b/i, tool: 'journal' },
   { re: /\blist invoices\b|\bshow invoices\b/i, tool: 'list_invoices' },
   { re: /\bgst payable\b|\bgst liability\b|\bhow much gst\b/i, tool: 'gst_payable' },
+  { re: /\btally\s+(?:file|export|xml)\b|\bexport\b.*\btally\b|\bfor\s+tally\b/i, tool: 'export_tally' },
   { re: /\bgstr-?1\s*json\b|\bexport gstr/i, tool: 'export_gstr1_json' },
   { re: /\bgstr-?1\b|\bprepare gstr 1\b/i, tool: 'prepare_gstr1' },
   { re: /\bprobe govt\b|\bconnect gst\b|\bgovt status\b|\bnic sandbox\b/i, tool: 'govt_probe' },

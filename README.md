@@ -14,11 +14,11 @@ Taxmeow or MyCA is an open decision.
 
 | | |
 |---|---|
-| Against the product PRD | **About 57% built** ([requirement by requirement](docs/product/PRD.md), [how it is computed](docs/superpowers/PROGRESS.md)) |
+| Against the product PRD | **About 60% built** ([requirement by requirement](docs/product/PRD.md), [how it is computed](docs/superpowers/PROGRESS.md)) |
 | To a Play Store launch | About 44% (estimate) |
 | Engine hardening (Phase 0) | 67%; every Critical and High audit finding closed ([audit](docs/audit/2026-09-21-codebase-audit.md)) |
-| Tests | **1,108**: platform 579, engines and statutory rules 329, hosted API 77, Android app 123 |
-| Tools | 113 named, schema-validated tools |
+| Tests | **1,128**: platform 591, engines and statutory rules 329, hosted API 77, Android app 131 |
+| Tools | 116 named, schema-validated tools |
 | Deployed | **Nothing.** The hosted API has run only against a local Postgres; the app has not run on a phone |
 | Live portal calls | Off by default (`MYCA_ENABLE_LIVE_CALLS=0`); no return has been filed through the product |
 | Automated checks | `node scripts/check-all.mjs`. CI is defined but GitHub Actions is not running on the account |
@@ -126,7 +126,7 @@ safe.
                          platform/src/session.mjs      one serialized gate per books
                          router.mjs                    propose → confirm, query
                          assistant-contract.mjs        strict schemas, risk classes
-                         tools.mjs                     113 named tools
+                         tools.mjs                     116 named tools
              ┌───────────────────┼─────────────────────┐
              ▼                   ▼                     ▼
       ledger / invoice     sprints/ engines      action-gate.mjs
@@ -165,7 +165,7 @@ The engine and the desktop server:
 
 ```bash
 cd platform
-npm test                 # 579 tests
+npm test                 # 591 tests
 npm run dev              # http://127.0.0.1:4780 (plain node)
 npm start                # Electron window (after: npm i)
 ```
@@ -182,7 +182,7 @@ The Android app (see [`mobile/README.md`](mobile/README.md)):
 
 ```bash
 cd mobile
-flutter test             # 123 tests
+flutter test             # 131 tests
 flutter run --dart-define=MYCA_CLOUD_URL=http://127.0.0.1:8080
 ```
 
@@ -294,7 +294,7 @@ The order of work, and what each milestone waits on, is in the
 | Milestone | Delivers | Waits on |
 |---|---|---|
 | M1 Daily use on a phone | Invoice view and sharing, expense tagging, credit notes, dashboard | Nothing; a phone for device testing |
-| M2 The return, reviewed | Review in chat, amount to pay, GSTR-2B in the app, reminders, entries export | Advisor CA for set-off |
+| M2 The return, reviewed | Review in chat, amount to pay, GSTR-2B in the app, reminders, entries export | Nothing; the advisor CA's attestation removes the "not reviewed" label |
 | M3 Hosted pilot | Deployment, real sign-in, privacy work, Play closed testing | Google Cloud project, SMS or Google Sign-In, DPDP assessment |
 | M4 Reading documents | Supplier invoices by photo or forward; free-text chat | Choice of language model |
 | M5 Filing for real | Live GST filing, e-way bill, TDS return, CA sync setting | GSP/ASP and NIC onboarding |

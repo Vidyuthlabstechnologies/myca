@@ -92,18 +92,32 @@ The goal is now an owner-first Android app on the Play Store. The weights below 
 
 The owner's PRD is "Taxmeow (working title), Product Requirements Document, v0.1, 28 September 2026". This is the yardstick for the product; the launch table above measures plumbing the PRD does not mention. Weights are an engineering estimate. Nothing below is deployed, and "files through the API" also depends on provider onboarding.
 
-**About 57% of the PRD is built.**
+**About 78% of the PRD is built.**
 
 | PRD item | Weight | Done | Points | What exists | What is missing |
 |---|---|---|---|---|---|
-| Automatic accounting | 12 | 95% | 11.4 | Double-entry postings for sales, bills, receipts, expenses and imports, with a checksummed journal; credit notes and cancellation for sales | Debit notes; notes on purchases |
-| Smart tagging | 6 | 80% | 4.8 | Sales, purchases and GST heads automatic; expenses tagged to fifteen heads with memory per payee and wording, changeable before or after posting | Correction by typing; blocked-credit heads |
-| GST returns: prepare, review, file | 14 | 55% | 7.7 | GSTR-1 and GSTR-3B drafts per period with credit notes, GSTR-1 JSON, the review step by step in the app and in chat, recording a filing and its ARN, provider adapters behind the action gate | Set-off and amount payable, and live filing |
-| TDS filing | 8 | 15% | 1.2 | Threshold monitor; FVU generation wired to the provider | TDS on entries, a return draft, review and filing |
-| Invoices, quotes, e-way bills, sending | 10 | 75% | 7.5 | Invoices and quotes by form or message; invoice and quote screens, PDF and share sheet; payment terms and due dates; e-way bill client | E-way bill in the flow, buyer address on the invoice, audit of a share |
-| Payroll | 12 | 15% | 1.8 | Employees with dated salary structures, leaving, owner-only access, in the app and in chat | Payroll rules (advisor CA), the monthly run, payslips, postings, statutory files, payouts |
+| Automatic accounting | 12 | 100% | 12.0 | Double-entry postings for sales, bills, receipts, expenses and imports, with a checksummed journal; credit notes, debit notes and cancellation for sales; debit notes to suppliers with input credit reversed | — (a supplier's own debit note that adds to a bill was added 2026-10-13) |
+| Smart tagging | 6 | 100% | 6.0 | Sales, purchases and GST heads automatic; expenses tagged to twenty heads with memory per payee and wording, changeable before or after posting by tapping or by typing; five heads block input credit under s.17(5) from a dated rule | A model proposing a head for unknown wording (ADR-0004) |
+| GST returns: prepare, review, file | 14 | 80% | 11.2 | GSTR-1 and GSTR-3B drafts per period with credit notes, GSTR-1 JSON, the review step by step in the app and in chat including the amount to pay, set-off head by head from dated rules with credit brought forward, interest and late fee, recording a filing and its ARN, provider adapters behind the action gate | Live filing; attestation of the set-off rules |
+| TDS filing | 8 | 80% | 6.4 | Threshold monitor; TDS on bills and expenses for 194A/C/I/J with deposits and challans; payees without PAN at the higher rate; the quarterly statement draft by deductee, section and challan, reviewed and approved in the app and in chat; FVU generation wired to the provider | File generation and submission inside the flow; certificates |
+| Invoices, quotes, e-way bills, sending | 10 | 90% | 9.0 | Invoices and quotes by form or message; invoice and quote screens, PDF and share sheet with each share audited; buyer address; payment terms and due dates; e-way bill need from the dated rule, transport details, and the gated request from the IRN | Live e-way bill generation (NIC credentials, IRN from the screen) |
+| Payroll | 12 | 80% | 9.6 | Employees with dated salary structures; the monthly run with PF, ESI, professional tax for fifteen states and salary TDS from dated rules, prorated; approval posts to the books; salary payment; payslips; the PF ECR and ESI files; the salary TDS statement reviewed like the other; on the dashboard; in the app and in chat | Attestation of the rules; the remaining professional tax states (north-east other than Assam); payouts. Annexure II of Form 24Q added 2026-10-13 from approved months (declarations and section 10 exemptions still the employee's) |
 | GSTR-2B matching and supplier reminders | 8 | 85% | 6.8 | Matching engine; 2B added in the app; credit at risk by supplier with reasons; supplier bill numbers on purchases; reminders drafted, previewed, recorded and sent from the owner's phone | Fetching 2B from the portal |
-| CA access | 6 | 85% | 5.1 | Invite a CA as a member; GSTR-1 file export; monthly entries CSV; the sync setting | Tally-format export |
-| Chat and dashboard | 12 | 85% | 10.2 | Chats by type and by party, expense chats by head, one entry sheet; Home shows taxes, this month against last, who owes you, what you owe suppliers, and a books check of what needs you | Rule-based chat only; payroll not on the dashboard |
+| CA access | 6 | 100% | 6.0 | Invite a CA as a member; GSTR-1 file export; monthly entries CSV and a Tally import file; the sync setting | — (the trial balance CSV was added 2026-10-13) |
+| Chat and dashboard | 12 | 90% | 10.8 | Chats by type and by party, expense chats by head, one entry sheet; Home shows taxes, this month against last including approved payroll, who owes you, what you owe suppliers, and a books check of what needs you | Rule-based chat only (ADR-0004) |
 | Reading documents automatically | 12 | 5% | 0.6 | Bank statement, Tally and Zoho file imports | POS sales, and reading a forwarded supplier invoice |
-| **Total** | **100** | | **57.1** | | |
+| **Total** | **100** | | **78.4** | | |
+
+## United States edition (added 2026-10-13)
+
+Design: `docs/superpowers/specs/2026-10-13-us-edition-design.md` (ADR-0011). Not counted in
+the PRD percentage above; the PRD is the Indian product.
+
+| Phase | Status |
+|---|---|
+| U0 Country-aware core: `company.country`, currency and locale per country, year per country, the `us-federal` rules namespace, tools and the Taxes screen gated by country, money formatting in chat, previews and the app | ✅ Built 2026-10-13; Indian suites unchanged |
+| U1 Books, invoicing, imports, CPA export for a US business | ✅ Core built 2026-10-13 under stated assumptions (spec section 11): owner-entered jurisdiction rates, invoices with sales tax or exemption, bills with tax paid as cost, contractors and the 1099-NEC list from a dated rule, US entries CSV, app forms. QuickBooks Online and Xero invoice CSV imports added 2026-10-13 (sales tax from recorded rates; invoices whose tax differs are held back by number). Not yet: a fuller CPA pack |
+| U2 Sales tax returns | ✅ Core built 2026-10-13, owner-entered only (spec section 12): nexus per state with filing frequency, state return drafted by period from invoice jurisdictions, due dates from dated rules for TX and CA only (no date is ever guessed), step-by-step review, payment posting, filing confirmation recorded, Home panel and Sales tax screen. Not yet: non-calendar state quarters, prepayments, a provider adapter |
+| U3 Payroll | ✅ Federal core built 2026-10-13 (spec section 13): Social Security with the yearly wage base, Medicare and Additional Medicare, FUTA, owner-recorded federal and state withholding (never computed from a W-4), postings, payslips, Form 941 quarter and W-2 year drafts with dated due dates. All unattested until a US CPA reviews. Not yet: withholding tables, state unemployment and withholding, forms as files |
+| U4 Owner's taxes | ✅ Built 2026-10-13: Schedule C summary by line for the CPA, estimated tax instalment dates from a dated rule. Not yet: a PDF, self-employment tax |
+| U5 US hosting and listing | ⏳ |

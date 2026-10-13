@@ -3,8 +3,8 @@
 | | |
 |---|---|
 | Requirements | FR-PAY-1 to 4 in the [product PRD](../PRD.md) |
-| Status | Employee records built (2026-10-07). The monthly run, payslips, postings and statutory files are not built; they wait for payroll rules signed off by the advisor CA. |
-| Code | None yet. Proposed: `platform/src/payroll.mjs`, payroll rules in `sprints/statutory-rules` |
+| Status | Employee records built (2026-10-07). Steps 1 and 2 built (2026-10-12): the monthly run, approval and postings, salary payment, payslips and salary TDS from dated payroll rules not yet signed off by the advisor CA; the PF ECR file, the ESI contribution file and the salary TDS statement (Form 138) with its review. Payouts not built. |
+| Code | `platform/src/payroll.mjs`, `payroll-intent.mjs`, `employees.mjs`; rules `payroll.*` in `sprints/statutory-rules/src/rules/payroll.mjs`; app `mobile/lib/screens/payroll_screen.dart` |
 
 ## What the owner experiences
 
@@ -51,17 +51,82 @@ partnership and compliance project more than an engineering one.
   the phone), `list_employees` (read). Chat: "add employee Ravi Kumar as store manager,
   joined 2026-09-01, salary 25000", "my employees". App: Employees on Home.
 
-## Behaviour (step 1)
+## Behaviour (step 1, built 2026-10-12)
 
 - Employees and salary structures are stored per business in the books, so they are
-  isolated and audited like everything else.
-- The monthly run is a pure function of employees, attendance adjustments and the dated
-  rules for that month. Running it twice gives the same result.
-- The run is a preview. Approving it posts salary expense, each deduction payable and
-  net salary payable. Recording the payment clears net salary payable.
-- A payslip is a document produced by the engine, shared like an invoice.
-- Deductions covered: provident fund, employees' state insurance, professional tax by
-  state, and TDS on salary under the old or new regime the employee chose.
+  isolated and audited like everything else. An employee may now carry a sex (for the
+  professional tax slab) besides the PAN, UAN, fund memberships, state and regime.
+- `payroll_run` is a pure function of the employees, the month and the dated rules on
+  its last day; running it twice gives the same figures and the same draft hash. A
+  joiner or leaver is paid for the days employed, pro rata by calendar days.
+- Provident fund: pay wages are the Basic and DA parts (the whole pay when there is no
+  such part, and the row says so), capped at the `payroll.epf.wage-ceiling`; employee
+  and employer shares at the `payroll.epf.*` rates with the pension share diverted
+  (`payroll.epf.employer-rate`), EDLI at `payroll.edli.employer-rate`, and the
+  administrative charge with its monthly minimum (`payroll.epf.admin-charge`). Figures
+  are kept in paise; the EPFO's rounding to the rupee is not applied.
+- State insurance: only when the full month's pay is within `payroll.esi.wage-ceiling`;
+  employee and employer shares from `payroll.esi.rates`, with the employee share
+  waived under the daily-wage limit in that rule. Coverage carried to the end of a
+  contribution period after pay crosses the limit is not modelled.
+- Professional tax: from `payroll.pt.<state code>` for the employee's state. Each rule
+  carries slabs on monthly, annual (twelve times the month's full pay) or half-yearly
+  (six times) pay, a February or last-month amount where the schedule has one, and for
+  half-yearly states the months in which it is deducted. Encoded (2026-10-12):
+  Maharashtra (by sex), Karnataka, West Bengal, Telangana, Andhra Pradesh, Gujarat,
+  Madhya Pradesh, Odisha, Jharkhand, Assam, Chhattisgarh, Punjab, Tamil Nadu (the
+  Greater Chennai schedule; other local bodies differ) and Kerala. All but Maharashtra
+  are taken from payroll and tax publications checked against each other, with the
+  official schedule not re-read, and say so in their source. An employee in any other
+  state gets none, with a note. No sex recorded means the slab for men where sex
+  matters.
+- Salary TDS (section 192): the year's salary is estimated from the months already
+  approved in MyCA, this month, and the months left (earlier months not run in MyCA are
+  taken at this month's pay, and the run says so); the income-tax engine gives the
+  year's tax for the employee's regime (new when none is recorded, the default in law);
+  the tax still due is spread over the months left and rounded to the rupee. A payee
+  without PAN pays at least the `tds.no-pan.rate` rate. The deduction is recorded as a
+  TDS entry under section 192, so deposits and the TDS summary include it; the
+  non-salary statement excludes it (the salary statement, Form 138, is still to build).
+- Approval (`approve_payroll`, previewed, owner only, bound to the draft hash) posts
+  salaries (5120) against salaries payable (2300), provident fund payable (2310), state
+  insurance payable (2320), professional tax payable (2330) and TDS payable (2200), and
+  the employer's contributions (5125) against the fund payables. The month is then
+  frozen: later salary changes do not alter it. Approving a month also switches on the
+  PF deadline for the business.
+- `record_salary_payment` clears salaries payable from the bank or cash on the date
+  given; the deductions stay payable until deposited. `payslip` lays out one employee's
+  month; `list_payroll` lists approved months.
+- Chat: "run payroll for October", "approve payroll", "paid salaries for October",
+  "payslip for EMP-0001 for October", "payroll months". App: Employees has "Payroll for
+  <month>", which shows each person's gross, deductions and net, the totals and the
+  employer's cost, and approves or records payment after a preview.
+- Every run names the rule versions used and says the CA has not reviewed them while
+  any used rule carries no attestation.
+
+## Statutory files (step 2, built 2026-10-12)
+
+- `pf_ecr` gives the ECR 2.0 text file for an approved month: one line per provident
+  fund member (UAN, name, gross, EPF, EPS and EDLI wages, the employee share, the
+  pension share, the employer's EPF difference, non-contributory days, refund of
+  advances, separated by `#~#`), in whole rupees as the portal expects, with the
+  remittance total including EDLI and the administrative charge. A member without a UAN
+  is listed by name as not uploadable.
+- `esi_return` gives the state insurance monthly contribution file in the columns of the
+  ESIC upload (insurance number, name, days, wages, reason code, last working day), with
+  the remittance; the portal works the contributions out from the wages. A member
+  without an insurance number is named. An employee may now carry an `esiNumber`.
+- The salary TDS statement (Form 138, earlier 24Q) is `tds_return` with `form: 'salary'`:
+  deductees under section 192 by PAN from the approved months of the quarter, with the
+  challans matched in date order across both statements (one challan may cover salary
+  and other TDS), and reviewed step by step with `tds_review` / `tds_review_answer`
+  and `form: 'salary'` ([spec 04](04-tds.md)). Annexure II (the year's salary detail
+  in the fourth quarter) is not drafted.
+- Chat: "PF file for October", "ESI return for October", "salary TDS statement for Q3
+  2026-27", "review salary TDS". App: the payroll screen saves the PF and ESI files for
+  an approved month; Taxes lists the salary TDS statement beside the other one.
+- Not built: uploading to the EPFO or ESIC portals (no API for employers), the ESI
+  return deadline in the deadlines list, and Annexure II.
 
 ## Statutory care
 
@@ -90,5 +155,8 @@ full-and-final settlement, contractor payments (these are purchases with TDS, se
 ## Open questions
 
 - Q5 in the PRD: does the product move money?
-- Which states first for professional tax?
+- Remaining professional tax states (Bihar, Meghalaya, Tripura, Manipur, Mizoram,
+  Nagaland, Sikkim, Puducherry) and Tamil Nadu local bodies other than Chennai need
+  their schedules read before they are added; Bihar's annual amounts need its
+  deduction month confirmed.
 - Is salary data visible to an invited CA by default?

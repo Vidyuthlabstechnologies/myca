@@ -44,7 +44,7 @@ test('the tagger reads the words, says why, and falls back to Other expenses wit
   const rent = tagExpense(state, { description: 'rent' });
   assert.equal(rent.source, 'keyword');
   assert.match(rent.why, /reads as Rent/);
-  const unknown = tagExpense(state, { description: 'Diwali gifts' });
+  const unknown = tagExpense(state, { description: 'Something odd' });
   assert.equal(unknown.head, '5100');
   assert.equal(unknown.source, 'default');
   assert.match(unknown.why, /Tap to change it/);

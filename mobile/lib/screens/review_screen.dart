@@ -8,9 +8,20 @@ import '../theme.dart';
 import 'ca_screen.dart';
 
 class ReviewScreen extends StatefulWidget {
-  const ReviewScreen({super.key, required this.period});
+  const ReviewScreen({
+    super.key,
+    required this.period,
+    this.tool = 'gst_review',
+    this.answerTool = 'gst_review_answer',
+    this.title = 'Review the return',
+    this.extraArgs = const <String, Object?>{},
+  });
 
   final String period;
+  final String tool;
+  final String answerTool;
+  final String title;
+  final Map<String, Object?> extraArgs;
 
   @override
   State<ReviewScreen> createState() => _ReviewScreenState();
@@ -30,7 +41,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
   Future<GstReview?> _load() async => GstReview.fromTool(
     await AppScope.of(
       context,
-    ).api.query('gst_review', {'period': widget.period}),
+    ).api.query(widget.tool, {'period': widget.period, ...widget.extraArgs}),
   );
 
   void _reload({String message = ''}) {
@@ -54,8 +65,9 @@ class _ReviewScreenState extends State<ReviewScreen> {
     });
     var message = '';
     try {
-      final held = await api.propose('gst_review_answer', {
+      final held = await api.propose(widget.answerTool, {
         'period': review.period,
+        ...widget.extraArgs,
         'step': step.id,
         'answer': answer,
         'draftHash': review.draftHash,
@@ -89,7 +101,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Review the return')),
+      appBar: AppBar(title: Text(widget.title)),
       body: FutureBuilder<GstReview?>(
         future: _review,
         builder: (context, state) {

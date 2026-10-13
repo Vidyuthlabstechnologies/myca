@@ -3,8 +3,8 @@
 | | |
 |---|---|
 | Requirements | FR-GST-1 to 6 in the [product PRD](../PRD.md) |
-| Status | Drafts, GSTR-1 file and the review built (2026-10-06); recording a filing and its ARN built (2026-10-07); set-off and live filing not built |
-| Code | `platform/src/return-period.mjs`, `gstr1-json.mjs`, `tools.mjs` (`prepare_gstr1`, `prepare_gstr3b`, `gst_period_summary`, `filing_pack`), `action-gate.mjs`, `sprints/sprint-3-gst-recon`, `sprints/sprint-5-filing-assistant` |
+| Status | Drafts, GSTR-1 file and the review built (2026-10-06); recording a filing and its ARN built (2026-10-07); set-off, the amount to pay, interest and late fee built (2026-10-12); live filing not built |
+| Code | `platform/src/return-period.mjs`, `gstr1-json.mjs`, `gst-setoff.mjs`, `gst-payment.mjs`, `gst-review.mjs`, `tools.mjs` (`prepare_gstr1`, `prepare_gstr3b`, `gst_period_summary`, `gst_payable`, `set_gst_credit_opening`, `filing_pack`), `action-gate.mjs`, `sprints/sprint-3-gst-recon`, `sprints/sprint-5-filing-assistant`, rules `gst.setoff.order`, `gst.interest.rate`, `gst.late-fee.*` with golden cases in `sprints/statutory-rules/golden/gst-payment.json` |
 
 ## What the owner experiences
 
@@ -64,16 +64,43 @@ flowchart TD
   next step as a preview and "yes" confirms it; "no" records nothing.
 - The input credit step says plainly that it has not been checked against GSTR-2B.
 
-### Amount to pay (to build)
+### Amount to pay (built 2026-10-12)
 
-- Input credit must be set off against output tax head by head in the order the law
-  prescribes (CGST Act s.49 and Rule 88A), with the cash ledger and credit ledger
-  balances taken into account. This is not implemented; the app deliberately shows tax
-  on sales and credit on purchases separately and says so.
-- The set-off order, interest and late fee must be added as dated rules with golden
-  cases and verified against the Act before any "amount to pay" is shown.
-- QRMP businesses file quarterly with monthly payment; the review must follow the
-  scheme the business is in.
+- `gst-setoff.mjs` sets input credit off against tax on sales head by head in the
+  order the dated rule `gst.setoff.order` gives for the last day of the period: IGST
+  credit against IGST first and then CGST and SGST (section 49(5), 49A and rule 88A
+  from April 2019, with the February–March 2019 and pre-2019 orders as earlier
+  versions); CGST credit against CGST then IGST; SGST credit against SGST then IGST;
+  never CGST for SGST or the reverse. The IGST remainder goes first to whichever head is
+  short of its own credit, so the cash to pay is the least the rule allows. Paise are
+  exact throughout.
+- `gst-payment.mjs` adds the credit brought forward. The owner records the electronic
+  credit ledger balance by head at the start of a month from the portal
+  (`set_gst_credit_opening`, previewed first in chat); from that month on each month's
+  closing credit is the next month's opening. Without it the product says plainly that
+  no brought-forward credit is counted. Months before the recorded balance count none.
+- The result gives the credit used, the cash to pay by head, the credit carried
+  forward, and the GSTR-3B due date. A recorded filing switches the late charges off.
+- Interest and late fee: if the pay-on date (today unless given) is after the due date
+  and no filing is recorded, interest runs at the `gst.interest.rate` rule (18% a year
+  on the cash part, section 50(1) and its proviso, 365-day year) and the late fee at
+  `gst.late-fee.gstr3b` (₹25 + ₹25 a day, ₹10 + ₹10 for a nil return, capped by the
+  preceding year's turnover under Notification 19/2021). When the turnover is not set
+  the highest cap is used and said so. A nil return is one with no sales, credit notes
+  or purchases in the month.
+- Every figure carries the rule versions used, and while any rule used has no
+  attestation the review, the Taxes card and chat say the CA has not reviewed them.
+  Attesting the rules (advisor or firm) removes that sentence; nothing else changes.
+- Not counted, and said so: the electronic cash ledger balance, GSTR-2B matching, and
+  reverse-charge liability. QRMP businesses file quarterly with monthly payment; the
+  monthly figure is still computed, and the review follows the monthly draft.
+- Review: a fourth step, "Amount to pay", sits between input credit and approval and
+  the approval step repeats the cash to pay. The draft hash covers the brought-forward
+  credit and the amount, so changing the opening balance voids earlier answers.
+- Chat: "how much GST do I pay for September", "GST to pay", "GST credit balance at
+  start of August: IGST 0, CGST 1200, SGST 1200". App: the Taxes card shows "To pay in
+  cash" by head, the credit used and carried, the due date or the late charges, and
+  the notes. The cash forecast and the filing pack use the same figure.
 
 ### File (partly built)
 

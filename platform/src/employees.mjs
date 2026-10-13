@@ -2,6 +2,7 @@ import { localToday, postingDate } from './dates.mjs';
 
 const PAN = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
 const UAN = /^[0-9]{12}$/;
+const ESI_NUMBER = /^[0-9]{10}$/;
 const STATE = /^[0-9]{2}$/;
 const MAX_COMPONENTS = 10;
 const round2 = (value) => Math.round(Number(value || 0) * 100) / 100;
@@ -51,20 +52,35 @@ function detailsOf(args, existing = {}) {
   if (pan && !PAN.test(pan)) return fail('BAD_PAN', { pan });
   const uan = String(pick('uan') || '').replace(/\s+/g, '');
   if (uan && !UAN.test(uan)) return fail('BAD_UAN');
+  const esiNumber = String(pick('esiNumber') || '').replace(/\s+/g, '');
+  if (esiNumber && !ESI_NUMBER.test(esiNumber)) return fail('BAD_ESI_NUMBER');
   const ptState = String(pick('ptState') || '').trim();
   if (ptState && !STATE.test(ptState)) return fail('BAD_STATE', { ptState });
   const taxRegime = String(pick('taxRegime') || '');
   if (taxRegime && !['new', 'old'].includes(taxRegime)) return fail('BAD_REGIME', { taxRegime });
+  const sex = String(pick('sex') || '').toLowerCase();
+  if (sex && !['male', 'female'].includes(sex)) return fail('BAD_SEX', { sex });
+  const workState = String(pick('workState') || '').trim().toUpperCase();
+  if (workState && !/^[A-Z]{2}$/.test(workState)) return fail('BAD_STATE', { workState });
+  const federalWithholding = Number(pick('federalWithholding') || 0);
+  const stateWithholding = Number(pick('stateWithholding') || 0);
+  if (!Number.isFinite(federalWithholding) || federalWithholding < 0) return fail('BAD_AMOUNT', { name: 'federalWithholding' });
+  if (!Number.isFinite(stateWithholding) || stateWithholding < 0) return fail('BAD_AMOUNT', { name: 'stateWithholding' });
   return {
     ok: true,
     details: {
+      workState,
+      federalWithholding: round2(federalWithholding),
+      stateWithholding: round2(stateWithholding),
       designation: String(pick('designation') || '').trim().slice(0, 60),
       pan,
       uan,
+      esiNumber,
       pfMember: Boolean(pick('pfMember')),
       esiMember: Boolean(pick('esiMember')),
       ptState,
       taxRegime,
+      sex,
     },
   };
 }

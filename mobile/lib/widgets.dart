@@ -4,6 +4,44 @@ import 'api/models.dart';
 import 'marks.dart';
 import 'theme.dart';
 
+class RulesStatusNote extends StatelessWidget {
+  const RulesStatusNote({super.key, required this.status});
+
+  final Future<RulesStatus?> status;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    return FutureBuilder<RulesStatus?>(
+      future: status,
+      builder: (context, snap) {
+        final rules = snap.data;
+        if (rules == null) return const SizedBox.shrink();
+        return Padding(
+          padding: const EdgeInsets.only(top: 26),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SectionLabel('Statutory rules'),
+              Text(rules.summary, style: text.bodyMedium),
+              for (final family in rules.attention)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text('Needs an update: $family', style: text.bodyMedium?.copyWith(color: Palette.warn)),
+                ),
+              for (final note in rules.notes)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text(note, style: text.bodySmall?.copyWith(color: Palette.muted)),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
 class TintTile extends StatelessWidget {
   const TintTile({
     super.key,

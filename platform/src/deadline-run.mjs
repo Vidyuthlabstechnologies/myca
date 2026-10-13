@@ -44,12 +44,31 @@ function deadlineProfiles(root) {
   return profiles;
 }
 
+const round2 = (value) => Math.round(Number(value || 0) * 100) / 100;
+
+function withTdsDeposits(rows, bookOf) {
+  return rows.map((row) => {
+    if (row.returnType !== 'TDS_DEPOSIT' || row.filed) return row;
+    const book = bookOf(row.clientId);
+    const entries = (book?.tdsEntries || []).filter((entry) => entry.tds > 0);
+    const inMonth = round2(entries.filter((entry) => entry.date.slice(0, 7) === row.period).reduce((sum, entry) => sum + entry.tds, 0));
+    if (inMonth <= 0) return { ...row, level: 'nothing_due', filed: { arn: '', filedOn: '', late: false, nothingDeducted: true } };
+    const owed = round2(entries.filter((entry) => entry.date.slice(0, 7) <= row.period).reduce((sum, entry) => sum + entry.tds, 0));
+    let paid = 0;
+    for (const deposit of [...(book?.tdsDeposits || [])].sort((a, b) => a.date.localeCompare(b.date))) {
+      paid = round2(paid + deposit.amount);
+      if (paid + 0.005 >= owed) return { ...row, level: 'filed', filed: { arn: deposit.challan, filedOn: deposit.date, late: deposit.date > row.dueDate } };
+    }
+    return row;
+  });
+}
+
 export function deadlineRun(state, { asOfDate, months, holidaysText = '' } = {}) {
   const root = state.__root || state;
   const clientsText = csvRows([DEADLINE_COLUMNS, ...deadlineProfiles(root).map((p) => DEADLINE_COLUMNS.map((key) => p[key]))]);
   const run = complianceRun({ clientsText, docsText: NO_DOCS, holidaysText }, { months, asOfDate });
   const bookOf = (clientId) => (clientId === 'SELF' ? root : getBook(root, clientId));
-  return { ...run, deadlines: withFilings(run.deadlines || [], bookOf) };
+  return { ...run, deadlines: withTdsDeposits(withFilings(run.deadlines || [], bookOf), bookOf) };
 }
 
 export function filingRows(state, filedOn) {

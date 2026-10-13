@@ -58,10 +58,10 @@ test('requests arriving together are applied one after another with none lost', 
 });
 
 test('figures come from the engine: a sale changes GST payable by its tax', async () => {
-  const before = (await post('query', { name: 'gst_payable' })).body.data.payable;
+  const before = (await post('query', { name: 'gst_payable' })).body.data.toPay;
   const held = await post('propose', { name: 'create_invoice', args: SALE });
   await post('confirm', { token: held.body.preview.token });
-  const after = (await post('query', { name: 'gst_payable' })).body.data.payable;
+  const after = (await post('query', { name: 'gst_payable' })).body.data.toPay;
   assert.equal(after - before, 1440);
 });
 

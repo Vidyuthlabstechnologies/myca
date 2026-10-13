@@ -32,10 +32,12 @@ export function planFiling(state, args = {}, rows = []) {
   const filedOn = args.filedOn == null || args.filedOn === '' ? today : postingDate(args.filedOn);
   if (!filedOn) return { ok: false, error: 'INVALID_DATE', date: args.filedOn };
   if (filedOn > today) return { ok: false, error: 'FUTURE_DATE', date: filedOn };
-  const row = rows.find((item) => item.returnType === returnType && item.period === period);
+  const returns = rows.filter((item) => item.returnType !== 'TDS_DEPOSIT');
+  const row = returns.find((item) => item.returnType === returnType && item.period === period);
   if (!row) {
-    const known = [...new Set(rows.filter((item) => item.dueDate <= today).map((item) => `${item.returnType} ${item.period}`))].slice(-6);
-    return { ok: false, error: 'UNKNOWN_RETURN', returnType, period, known };
+    if (returnType === 'TDS_DEPOSIT') return { ok: false, error: 'DEPOSIT_NOT_A_FILING' };
+    const known = [...new Set(returns.filter((item) => item.dueDate <= today).map((item) => `${item.returnLabel || item.returnType} for ${item.period}`))].slice(-6);
+    return { ok: false, error: 'UNKNOWN_RETURN', returnType, period, known, registered: Boolean(state.company?.gstin) };
   }
   const existing = filingFor(state, returnType, period);
   if (existing) return { ok: false, error: 'ALREADY_RECORDED', returnType, period, arn: existing.arn, filedOn: existing.filedOn };

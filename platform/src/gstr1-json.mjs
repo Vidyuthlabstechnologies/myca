@@ -113,7 +113,10 @@ export function invoicesToGstr1Json(company, invoices = [], periodFp, opts = {})
   const cdnrMap = new Map();
   const cdnur = [];
   const allInvoices = new Map((invoices || []).map((inv) => [inv.id, inv]));
-  const notesInPeriod = (opts.creditNotes || []).filter((note) => note.date && fpFromDate(note.date) === fp);
+  const notesInPeriod = [
+    ...(opts.creditNotes || []).map((note) => ({ ...note, ntty: 'C', sign: -1 })),
+    ...(opts.debitNotes || []).map((note) => ({ ...note, ntty: 'D', sign: 1 })),
+  ].filter((note) => note.date && fpFromDate(note.date) === fp);
   for (const note of notesInPeriod) {
     const reason = holdReason(note);
     if (reason) {
@@ -126,9 +129,9 @@ export function invoicesToGstr1Json(company, invoices = [], periodFp, opts = {})
     if (note.partyGstin) {
       const ctin = String(note.partyGstin).toUpperCase();
       if (!cdnrMap.has(ctin)) cdnrMap.set(ctin, []);
-      cdnrMap.get(ctin).push({ ntty: 'C', nt_num: note.id, nt_dt: ddmmyyyy(note.date), pos, rchrg: 'N', inv_typ: 'R', val, itms: itemsByRate(note.lines) });
+      cdnrMap.get(ctin).push({ ntty: note.ntty, nt_num: note.id, nt_dt: ddmmyyyy(note.date), pos, rchrg: 'N', inv_typ: 'R', val, itms: itemsByRate(note.lines) });
     } else if (isB2cl(original, pos, supplierState)) {
-      cdnur.push({ ntty: 'C', nt_num: note.id, nt_dt: ddmmyyyy(note.date), typ: 'B2CL', pos, val, itms: itemsByRate(note.lines) });
+      cdnur.push({ ntty: note.ntty, nt_num: note.id, nt_dt: ddmmyyyy(note.date), typ: 'B2CL', pos, val, itms: itemsByRate(note.lines) });
     } else {
       // Credit notes against small unregistered sales are netted in B2CS (table 7).
       for (const { itm_det } of itemsByRate(note.lines)) {
@@ -137,10 +140,10 @@ export function invoicesToGstr1Json(company, invoices = [], periodFp, opts = {})
           b2csMap.set(key, { sply_ty: pos === supplierState ? 'INTRA' : 'INTER', rt: itm_det.rt, typ: 'OE', pos, txval: 0, camt: 0, samt: 0, iamt: 0, csamt: 0 });
         }
         const row = b2csMap.get(key);
-        row.txval = round2(row.txval - itm_det.txval);
-        row.camt = round2(row.camt - itm_det.camt);
-        row.samt = round2(row.samt - itm_det.samt);
-        row.iamt = round2(row.iamt - itm_det.iamt);
+        row.txval = round2(row.txval + note.sign * itm_det.txval);
+        row.camt = round2(row.camt + note.sign * itm_det.camt);
+        row.samt = round2(row.samt + note.sign * itm_det.samt);
+        row.iamt = round2(row.iamt + note.sign * itm_det.iamt);
       }
     }
   }

@@ -126,8 +126,12 @@ Future<Uint8List> buildInvoicePdf(
                   pw.Text(doc.isQuote ? 'QUOTED TO' : 'BILL TO', style: label),
                   pw.SizedBox(height: 3),
                   pw.Text(doc.buyerName, style: heavy),
+                  if (doc.buyerAddress.isNotEmpty)
+                    pw.Text(doc.buyerAddress, style: small),
                   if (doc.buyerGstin.isNotEmpty)
                     pw.Text('GSTIN ${doc.buyerGstin}', style: body),
+                  if (doc.ewayBill?.ewbNo.isNotEmpty ?? false)
+                    pw.Text('E-way bill ${doc.ewayBill!.ewbNo}', style: body),
                 ],
               ),
             ),
@@ -161,11 +165,11 @@ Future<Uint8List> buildInvoicePdf(
             pw.TableRow(
               children: [
                 cell('ITEM', style: label),
-                cell('HSN/SAC', style: label),
+                cell(doc.isUs ? '' : 'HSN/SAC', style: label),
                 cell('QTY', style: label, align: right),
                 cell('RATE', style: label, align: right),
-                cell('TAXABLE', style: label, align: right),
-                cell('GST', style: label, align: right),
+                cell(doc.isUs ? 'SUBTOTAL' : 'TAXABLE', style: label, align: right),
+                cell(doc.isUs ? 'TAX' : 'GST', style: label, align: right),
                 cell('AMOUNT', style: label, align: right),
               ],
             ),
@@ -176,8 +180,8 @@ Future<Uint8List> buildInvoicePdf(
                   cell(line.hsn),
                   cell(plainNumber(line.qty), align: right),
                   cell(rupees(line.rate), align: right),
-                  cell(rupees(line.taxable), align: right),
-                  cell('${plainNumber(line.gstRate)}%', align: right),
+                  cell(rupees(doc.isUs ? line.qty * line.rate : line.taxable), align: right),
+                  cell(doc.isUs ? (line.taxRate > 0 ? '${plainNumber(line.taxRate)}%' : '-') : '${plainNumber(line.gstRate)}%', align: right),
                   cell(rupees(line.amount), align: right),
                 ],
               ),
@@ -191,7 +195,7 @@ Future<Uint8List> buildInvoicePdf(
               flex: 4,
               child: pw.Column(
                 children: [
-                  amountRow('Taxable value', doc.taxable),
+                  amountRow(doc.subtotalLabel, doc.taxable),
                   for (final (name, amount) in doc.taxHeads)
                     amountRow(name, amount),
                   pw.Divider(color: _line, thickness: 0.6),

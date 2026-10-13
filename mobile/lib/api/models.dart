@@ -11,15 +11,108 @@ num _num(Object? value) => value is num ? value : 0;
 String _text(Object? value) => value == null ? '' : value.toString();
 
 class Company {
-  const Company({required this.name, required this.gstin});
+  const Company({required this.name, required this.gstin, this.tdsDeductor = false, this.country = 'IN'});
 
   factory Company.fromJson(Object? json) {
     final map = _map(json);
-    return Company(name: _text(map['name']), gstin: _text(map['gstin']));
+    return Company(
+      name: _text(map['name']),
+      gstin: _text(map['gstin']),
+      tdsDeductor: map['tdsDeductor'] == true,
+      country: _text(map['country']).isEmpty ? 'IN' : _text(map['country']).toUpperCase(),
+    );
   }
 
   final String name;
   final String gstin;
+  final String country;
+  final bool tdsDeductor;
+}
+
+class TdsMonth {
+  const TdsMonth({required this.month, required this.deducted, required this.depositBy});
+
+  final String month;
+  final num deducted;
+  final String depositBy;
+}
+
+class TdsQuarter {
+  const TdsQuarter({
+    required this.quarter,
+    this.kind = 'other',
+    required this.deducted,
+    required this.deposited,
+    required this.shortfall,
+    required this.dueDate,
+    required this.form,
+    required this.approved,
+    required this.filedArn,
+  });
+
+  factory TdsQuarter.fromJson(Object? json) {
+    final map = _map(json);
+    final filed = map['filed'];
+    return TdsQuarter(
+      quarter: _text(map['quarter']),
+      kind: _text(map['kind']).isEmpty ? 'other' : _text(map['kind']),
+      deducted: _num(map['deducted']),
+      deposited: _num(map['deposited']),
+      shortfall: _num(map['shortfall']),
+      dueDate: _text(map['dueDate']),
+      form: _text(map['form']),
+      approved: map['approved'] == true,
+      filedArn: filed is Map ? _text(filed['arn']) : '',
+    );
+  }
+
+  final String quarter;
+  final String kind;
+  final num deducted;
+  final num deposited;
+  final num shortfall;
+  final String dueDate;
+  final String form;
+  final bool approved;
+  final String filedArn;
+}
+
+class TdsSummary {
+  const TdsSummary({
+    required this.deductor,
+    required this.tan,
+    required this.deducted,
+    required this.deposited,
+    required this.due,
+    required this.months,
+    this.quarters = const <TdsQuarter>[],
+  });
+
+  static TdsSummary? fromTool(Object? json) {
+    final map = _map(json);
+    if (map['ok'] == false) return null;
+    final data = toolData(json);
+    return TdsSummary(
+      deductor: data['deductor'] == true,
+      tan: _text(data['tan']),
+      deducted: _num(data['deducted']),
+      deposited: _num(data['deposited']),
+      due: _num(data['due']),
+      months: [
+        for (final row in _maps(data['months']))
+          TdsMonth(month: _text(row['month']), deducted: _num(row['deducted']), depositBy: _text(row['depositBy'])),
+      ],
+      quarters: _maps(data['quarters']).map(TdsQuarter.fromJson).toList(),
+    );
+  }
+
+  final bool deductor;
+  final String tan;
+  final num deducted;
+  final num deposited;
+  final num due;
+  final List<TdsMonth> months;
+  final List<TdsQuarter> quarters;
 }
 
 class FirmUser {
@@ -421,6 +514,137 @@ class Gstr1File {
   bool get empty => b2b + b2cl + b2cs == 0;
 }
 
+class GstLate {
+  const GstLate({
+    required this.payOn,
+    required this.days,
+    required this.interest,
+    required this.lateFee,
+    required this.total,
+  });
+
+  factory GstLate.fromJson(Object? json) {
+    final map = _map(json);
+    return GstLate(
+      payOn: _text(map['payOn']),
+      days: _num(map['days']).toInt(),
+      interest: _num(map['interest']),
+      lateFee: _num(map['lateFee']),
+      total: _num(map['total']),
+    );
+  }
+
+  final String payOn;
+  final int days;
+  final num interest;
+  final num lateFee;
+  final num total;
+}
+
+class GstPayment {
+  const GstPayment({
+    required this.period,
+    required this.output,
+    required this.credit,
+    required this.broughtForward,
+    required this.broughtForwardKnown,
+    required this.creditUsed,
+    required this.cash,
+    required this.toPay,
+    required this.carried,
+    required this.dueDate,
+    required this.filedArn,
+    required this.late,
+    required this.unreviewed,
+    required this.notes,
+  });
+
+  factory GstPayment.fromJson(Object? json) {
+    final map = _map(json);
+    final notes = map['notes'];
+    final filed = map['filed'];
+    return GstPayment(
+      period: _text(map['period']),
+      output: TaxHeads.fromJson(map['output']),
+      credit: TaxHeads.fromJson(map['credit']),
+      broughtForward: TaxHeads.fromJson(map['broughtForward']),
+      broughtForwardKnown: map['broughtForwardKnown'] == true,
+      creditUsed: _num(map['creditUsed']),
+      cash: TaxHeads.fromJson(map['cash']),
+      toPay: _num(map['toPay']),
+      carried: TaxHeads.fromJson(map['carried']),
+      dueDate: _text(map['dueDate']),
+      filedArn: filed is Map ? _text(filed['arn']) : '',
+      late: map['late'] is Map ? GstLate.fromJson(map['late']) : null,
+      unreviewed: map['unreviewed'] == true,
+      notes: notes is List ? notes.map(_text).toList() : const <String>[],
+    );
+  }
+
+  final String period;
+  final TaxHeads output;
+  final TaxHeads credit;
+  final TaxHeads broughtForward;
+  final bool broughtForwardKnown;
+  final num creditUsed;
+  final TaxHeads cash;
+  final num toPay;
+  final TaxHeads carried;
+  final String dueDate;
+  final String filedArn;
+  final GstLate? late;
+  final bool unreviewed;
+  final List<String> notes;
+}
+
+class InvoiceShare {
+  const InvoiceShare({required this.on, required this.by, required this.channel, required this.outcome});
+
+  factory InvoiceShare.fromJson(Object? json) {
+    final map = _map(json);
+    return InvoiceShare(on: _text(map['on']), by: _text(map['by']), channel: _text(map['channel']), outcome: _text(map['outcome']));
+  }
+
+  final String on;
+  final String by;
+  final String channel;
+  final String outcome;
+}
+
+class EwayBill {
+  const EwayBill({
+    required this.needed,
+    required this.why,
+    required this.status,
+    required this.transportWords,
+    required this.ewbNo,
+    required this.ewbValidity,
+    required this.next,
+  });
+
+  factory EwayBill.fromJson(Object? json) {
+    final map = _map(json);
+    final transport = map['transport'];
+    return EwayBill(
+      needed: map['needed'] == true,
+      why: _text(map['why']),
+      status: _text(map['status']),
+      transportWords: transport is Map ? _text(transport['words']) : '',
+      ewbNo: _text(map['ewbNo']),
+      ewbValidity: _text(map['ewbValidity']),
+      next: _text(map['next']),
+    );
+  }
+
+  final bool needed;
+  final String why;
+  final String status;
+  final String transportWords;
+  final String ewbNo;
+  final String ewbValidity;
+  final String next;
+}
+
 class PeriodGst {
   const PeriodGst({
     required this.period,
@@ -431,6 +655,7 @@ class PeriodGst {
     required this.outputTax,
     required this.inputCredit,
     required this.gstr1,
+    this.payment,
   });
 
   factory PeriodGst.fromJson(Object? json) {
@@ -445,6 +670,7 @@ class PeriodGst {
       outputTax: TaxHeads.fromJson(map['outputTax']),
       inputCredit: TaxHeads.fromJson(map['inputCredit']),
       gstr1: Gstr1File.fromJson(map['gstr1']),
+      payment: map['payment'] is Map ? GstPayment.fromJson(map['payment']) : null,
     );
   }
 
@@ -456,6 +682,7 @@ class PeriodGst {
   final TaxHeads outputTax;
   final TaxHeads inputCredit;
   final Gstr1File gstr1;
+  final GstPayment? payment;
 }
 
 class Deadline {
@@ -567,15 +794,22 @@ class MonthFigures {
     required this.salesNet,
     required this.purchases,
     required this.expenses,
+    this.payrollStatus = 'hidden',
+    this.payrollGross = 0,
+    this.payrollPaidOn = '',
   });
 
   factory MonthFigures.fromJson(Object? json) {
     final map = _map(json);
+    final payroll = map['payroll'];
     return MonthFigures(
       sales: _num(_map(map['sales'])['total']),
       salesNet: _num(_map(map['sales'])['net']),
       purchases: _num(_map(map['purchases'])['total']),
       expenses: _num(_map(map['expenses'])['total']),
+      payrollStatus: payroll is Map ? _text(payroll['status']) : 'hidden',
+      payrollGross: payroll is Map ? _num(payroll['gross']) : 0,
+      payrollPaidOn: payroll is Map ? _text(payroll['paidOn']) : '',
     );
   }
 
@@ -583,6 +817,9 @@ class MonthFigures {
   final num salesNet;
   final num purchases;
   final num expenses;
+  final String payrollStatus;
+  final num payrollGross;
+  final String payrollPaidOn;
 }
 
 class OwedCustomer {
@@ -896,6 +1133,141 @@ class Employee {
   final bool esiMember;
   final String taxRegime;
   final List<SalaryRow> salary;
+}
+
+class PayrollTotals {
+  const PayrollTotals({
+    required this.gross,
+    required this.pfEmployee,
+    required this.esiEmployee,
+    required this.pt,
+    required this.tds,
+    required this.deductions,
+    required this.net,
+    required this.employerContributions,
+    required this.employerCost,
+    this.lines = const <(String, num)>[],
+    this.employerLines = const <(String, num)>[],
+  });
+
+  factory PayrollTotals.fromJson(Object? json) {
+    final map = _map(json);
+    List<(String, num)> pairs(Object? rows) => [for (final row in _maps(rows)) (_text(row['name']), _num(row['amount']))];
+    return PayrollTotals(
+      lines: pairs(map['lines']),
+      employerLines: pairs(map['employerLines']),
+      gross: _num(map['gross']),
+      pfEmployee: _num(map['pfEmployee']),
+      esiEmployee: _num(map['esiEmployee']),
+      pt: _num(map['pt']),
+      tds: _num(map['tds']),
+      deductions: _num(map['deductions']),
+      net: _num(map['net']),
+      employerContributions: _num(map['employerContributions']),
+      employerCost: _num(map['employerCost']),
+    );
+  }
+
+  final num gross;
+  final num pfEmployee;
+  final num esiEmployee;
+  final num pt;
+  final num tds;
+  final num deductions;
+  final num net;
+  final num employerContributions;
+  final num employerCost;
+  final List<(String, num)> lines;
+  final List<(String, num)> employerLines;
+
+  bool get hasOwnLines => lines.isNotEmpty || employerLines.isNotEmpty;
+}
+
+class PayrollRow {
+  const PayrollRow({
+    required this.employeeId,
+    required this.name,
+    required this.daysWorked,
+    required this.daysInMonth,
+    required this.gross,
+    required this.deductions,
+    required this.net,
+    required this.notes,
+  });
+
+  factory PayrollRow.fromJson(Object? json) {
+    final map = _map(json);
+    final notes = map['notes'];
+    return PayrollRow(
+      employeeId: _text(map['employeeId']),
+      name: _text(map['name']),
+      daysWorked: _num(map['daysWorked']).toInt(),
+      daysInMonth: _num(map['daysInMonth']).toInt(),
+      gross: _num(map['gross']),
+      deductions: _num(map['deductions']),
+      net: _num(map['net']),
+      notes: notes is List ? notes.map(_text).toList() : const <String>[],
+    );
+  }
+
+  final String employeeId;
+  final String name;
+  final int daysWorked;
+  final int daysInMonth;
+  final num gross;
+  final num deductions;
+  final num net;
+  final List<String> notes;
+}
+
+class PayrollRun {
+  const PayrollRun({
+    required this.period,
+    required this.month,
+    required this.status,
+    required this.employees,
+    required this.rows,
+    required this.totals,
+    required this.notes,
+    required this.draftHash,
+    required this.approvedOn,
+    required this.paidOn,
+    this.country = 'IN',
+  });
+
+  static PayrollRun? fromTool(Object? json) {
+    final map = _map(json);
+    if (map['ok'] == false) return null;
+    final data = toolData(json);
+    final notes = data['notes'];
+    return PayrollRun(
+      period: _text(data['period']),
+      month: _text(data['month']),
+      status: _text(data['status']),
+      employees: _num(data['employees']).toInt(),
+      rows: _maps(data['rows']).map(PayrollRow.fromJson).toList(),
+      totals: PayrollTotals.fromJson(data['totals']),
+      notes: notes is List ? notes.map(_text).toList() : const <String>[],
+      draftHash: _text(data['draftHash']),
+      approvedOn: _text(data['approvedOn']),
+      country: _text(data['country']).isEmpty ? 'IN' : _text(data['country']).toUpperCase(),
+      paidOn: _text(data['paidOn']),
+    );
+  }
+
+  final String period;
+  final String month;
+  final String status;
+  final int employees;
+  final List<PayrollRow> rows;
+  final PayrollTotals totals;
+  final List<String> notes;
+  final String draftHash;
+  final String approvedOn;
+  final String paidOn;
+  final String country;
+
+  bool get isUs => country == 'US';
 }
 
 class EmployeeList {
@@ -1398,6 +1770,7 @@ class InvoiceLine {
     required this.gstRate,
     required this.taxable,
     required this.amount,
+    this.taxRate = 0,
   });
 
   factory InvoiceLine.fromJson(Object? json) {
@@ -1410,6 +1783,7 @@ class InvoiceLine {
       gstRate: _num(map['gstRate']),
       taxable: _num(map['taxable']),
       amount: _num(map['amount']),
+      taxRate: _num(map['taxRate']),
     );
   }
 
@@ -1420,6 +1794,7 @@ class InvoiceLine {
   final num gstRate;
   final num taxable;
   final num amount;
+  final num taxRate;
 }
 
 class InvoiceDocument {
@@ -1446,11 +1821,23 @@ class InvoiceDocument {
     required this.status,
     required this.balance,
     required this.missing,
+    this.debited = 0,
+    this.debitNotes = const <CreditNote>[],
+    this.buyerAddress = '',
+    this.shares = const <InvoiceShare>[],
+    this.ewayBill,
     this.dueDate = '',
     this.termsDays,
     this.kind = 'invoice',
     this.validUntil = '',
     this.linkedId = '',
+    this.country = 'IN',
+    this.subtotal = 0,
+    this.salesTax = 0,
+    this.taxJurisdiction = '',
+    this.taxRate = 0,
+    this.taxExempt = false,
+    this.exemptionReason = '',
   });
 
   static InvoiceDocument? fromTool(Object? json) {
@@ -1483,6 +1870,11 @@ class InvoiceDocument {
       received: _num(map['received']),
       credited: _num(map['credited']),
       creditNotes: _maps(map['creditNotes']).map(CreditNote.fromJson).toList(),
+      debited: _num(map['debited']),
+      debitNotes: _maps(map['debitNotes']).map(CreditNote.fromJson).toList(),
+      buyerAddress: _text(buyer['address']),
+      shares: _maps(map['shares']).map(InvoiceShare.fromJson).toList(),
+      ewayBill: map['ewayBill'] is Map ? EwayBill.fromJson(map['ewayBill']) : null,
       status: _text(map['status']),
       balance: _num(map['balance']),
       dueDate: _text(map['dueDate']),
@@ -1492,6 +1884,13 @@ class InvoiceDocument {
       kind: _text(map['kind']).isEmpty ? 'invoice' : _text(map['kind']),
       validUntil: _text(map['validUntil']),
       linkedId: _text(map['kind']) == 'quote' ? _text(map['invoiceId']) : _text(map['quoteId']),
+      country: _text(map['country']).isEmpty ? 'IN' : _text(map['country']).toUpperCase(),
+      subtotal: _num(map['subtotal']),
+      salesTax: _num(map['salesTax']),
+      taxJurisdiction: _text(map['taxJurisdiction']),
+      taxRate: _num(map['taxRate']),
+      taxExempt: map['taxExempt'] == true,
+      exemptionReason: _text(map['exemptionReason']),
       missing: [
         for (final code in (map['missing'] as List? ?? const [])) _text(code),
       ],
@@ -1517,6 +1916,11 @@ class InvoiceDocument {
   final num received;
   final num credited;
   final List<CreditNote> creditNotes;
+  final num debited;
+  final List<CreditNote> debitNotes;
+  final String buyerAddress;
+  final List<InvoiceShare> shares;
+  final EwayBill? ewayBill;
   final String status;
   final num balance;
   final List<String> missing;
@@ -1528,16 +1932,156 @@ class InvoiceDocument {
   final String kind;
   final String validUntil;
   final String linkedId;
+  final String country;
+  final num subtotal;
+  final num salesTax;
+  final String taxJurisdiction;
+  final num taxRate;
+  final bool taxExempt;
+  final String exemptionReason;
 
   bool get isQuote => kind == 'quote';
 
+  bool get isUs => country == 'US';
+
   String get title => isQuote ? 'Quotation' : (sellerGstin.isEmpty ? 'Invoice' : 'Tax invoice');
 
-  List<(String, num)> get taxHeads => [
-    if (cgst > 0) ('CGST', cgst),
-    if (sgst > 0) ('SGST', sgst),
-    if (igst > 0) ('IGST', igst),
-  ];
+  String get subtotalLabel => isUs ? 'Subtotal' : 'Taxable value';
+
+  List<(String, num)> get taxHeads => isUs
+      ? [
+          if (taxExempt)
+            ('Sales tax: exempt ($exemptionReason)', 0)
+          else if (taxJurisdiction.isNotEmpty)
+            ('Sales tax ($taxJurisdiction ${_plainRate(taxRate)}%)', salesTax),
+        ]
+      : [
+          if (cgst > 0) ('CGST', cgst),
+          if (sgst > 0) ('SGST', sgst),
+          if (igst > 0) ('IGST', igst),
+        ];
+}
+
+String _plainRate(num value) => value == value.roundToDouble() ? value.toInt().toString() : value.toString();
+
+class RulesStatus {
+  const RulesStatus({required this.asOf, required this.records, required this.attested, required this.attention, required this.notes});
+
+  static RulesStatus? fromTool(Object? json) {
+    final map = _map(json);
+    if (map['ok'] == false) return null;
+    final data = toolData(json);
+    final totals = _map(data['totals']);
+    return RulesStatus(
+      asOf: _text(data['asOf']),
+      records: totals['records'] is num ? (totals['records'] as num).toInt() : 0,
+      attested: totals['attested'] is num ? (totals['attested'] as num).toInt() : 0,
+      attention: [for (final row in _maps(data['families'])) if (row['attention'] == true) _text(row['title'])],
+      notes: [for (final note in (data['notes'] as List? ?? const [])) _text(note)],
+    );
+  }
+
+  final String asOf;
+  final int records;
+  final int attested;
+  final List<String> attention;
+  final List<String> notes;
+
+  String get summary => '$records dated records, $attested reviewed by your accountant.';
+}
+
+class SalesTaxFiled {
+  const SalesTaxFiled({required this.confirmation, required this.filedOn, required this.late});
+
+  final String confirmation;
+  final String filedOn;
+  final bool late;
+}
+
+class SalesTaxPeriod {
+  const SalesTaxPeriod({
+    required this.period,
+    required this.taxCollected,
+    required this.toPay,
+    required this.dueDate,
+    required this.filed,
+    required this.approved,
+    required this.empty,
+    required this.ended,
+  });
+
+  factory SalesTaxPeriod.fromJson(Object? json) {
+    final map = _map(json);
+    final filed = map['filed'] is Map ? _map(map['filed']) : null;
+    return SalesTaxPeriod(
+      period: _text(map['period']),
+      taxCollected: _num(map['taxCollected']),
+      toPay: _num(map['toPay']),
+      dueDate: _text(map['dueDate']),
+      filed: filed == null ? null : SalesTaxFiled(confirmation: _text(filed['confirmation']), filedOn: _text(filed['filedOn']), late: filed['late'] == true),
+      approved: map['approved'] == true,
+      empty: map['empty'] == true,
+      ended: map['ended'] != false,
+    );
+  }
+
+  final String period;
+  final num taxCollected;
+  final num toPay;
+  final String dueDate;
+  final SalesTaxFiled? filed;
+  final bool approved;
+  final bool empty;
+  final bool ended;
+}
+
+class SalesTaxStateRow {
+  const SalesTaxStateRow({
+    required this.state,
+    required this.frequency,
+    required this.permitNo,
+    required this.lastPeriod,
+    required this.overdue,
+    required this.notes,
+  });
+
+  factory SalesTaxStateRow.fromJson(Object? json) {
+    final map = _map(json);
+    return SalesTaxStateRow(
+      state: _text(map['state']),
+      frequency: _text(map['frequency']),
+      permitNo: _text(map['permitNo']),
+      lastPeriod: map['lastPeriod'] is Map ? SalesTaxPeriod.fromJson(map['lastPeriod']) : null,
+      overdue: map['overdue'] == true,
+      notes: [for (final note in (map['notes'] as List? ?? const [])) _text(note)],
+    );
+  }
+
+  final String state;
+  final String frequency;
+  final String permitNo;
+  final SalesTaxPeriod? lastPeriod;
+  final bool overdue;
+  final List<String> notes;
+}
+
+class SalesTaxOverview {
+  const SalesTaxOverview({required this.states, required this.overdue});
+
+  static SalesTaxOverview? fromTool(Object? json) {
+    final map = _map(json);
+    if (map['ok'] == false) return null;
+    final data = toolData(json);
+    return SalesTaxOverview(
+      states: _maps(data['states']).map(SalesTaxStateRow.fromJson).toList(),
+      overdue: data['overdue'] is num ? (data['overdue'] as num).toInt() : 0,
+    );
+  }
+
+  final List<SalesTaxStateRow> states;
+  final int overdue;
+
+  bool get hasNexus => states.isNotEmpty;
 }
 
 Map<String, dynamic> toolData(Object? json) {

@@ -33,11 +33,11 @@ async function answer(state, step, value, extra = {}) {
   return runTool(state, 'gst_review_answer', { period: '2026-09', step, answer: value, draftHash: current.draftHash, ...extra });
 }
 
-test('the review shows sales, then credit, then approval, with the engine figures and no amount to pay', async () => {
+test('the review shows sales, credit, the amount to pay, then approval, with the engine figures', async () => {
   const data = await review(books());
   assert.equal(data.month, 'September 2026');
   assert.match(data.draftHash, /^[0-9a-f]{64}$/);
-  assert.deepEqual(data.steps.map((s) => s.id), ['sales', 'credit', 'approve']);
+  assert.deepEqual(data.steps.map((s) => s.id), ['sales', 'credit', 'pay', 'approve']);
   assert.equal(data.next, 'sales');
   const sales = data.steps[0];
   assert.equal(sales.question, 'Is this information correct?');
@@ -46,16 +46,19 @@ test('the review shows sales, then credit, then approval, with the engine figure
   assert.match(sales.lines.at(-1).label, /2 to registered buyers/);
   assert.equal(data.steps[1].lines.find((l) => l.label === 'Input credit').amount, 200);
   assert.match(data.steps[1].note, /not been checked against GSTR-2B/);
-  const approve = data.steps[2];
+  const pay = data.steps[2];
+  assert.equal(pay.waitingFor, 'sales');
+  assert.deepEqual(pay.lines.find((l) => l.label === 'To pay in cash'), { label: 'To pay in cash', amount: 9300, strong: true });
+  const approve = data.steps[3];
   assert.equal(approve.waitingFor, 'sales');
-  assert.match(approve.note, /no amount to pay is shown/);
-  assert.equal(approve.lines.some((l) => /pay/i.test(l.label)), false);
+  assert.match(approve.note, /moves no money/);
+  assert.deepEqual(approve.lines.at(-1), { label: 'To pay in cash', amount: 9300, strong: true });
 });
 
 test('held invoices come first and must be acknowledged before the sales step', async () => {
   const state = books({ held: true });
   const data = await review(state);
-  assert.deepEqual(data.steps.map((s) => s.id), ['held', 'sales', 'credit', 'approve']);
+  assert.deepEqual(data.steps.map((s) => s.id), ['held', 'sales', 'credit', 'pay', 'approve']);
   assert.equal(data.steps[0].lines[0].label, 'INV-0003: the buyer GSTIN is not valid');
   assert.equal((await answer(state, 'sales', 'correct')).error, 'STEP_NOT_READY');
   assert.equal((await answer(state, 'held', 'correct')).ok, true);
@@ -70,7 +73,8 @@ test('steps are answered in order, the owner approves, and approval files nothin
   const sales = await answer(state, 'sales', 'correct');
   assert.equal(sales.ok, true, JSON.stringify(sales));
   assert.equal(sales.next, 'credit');
-  assert.equal((await answer(state, 'credit', 'correct')).next, 'approve');
+  assert.equal((await answer(state, 'credit', 'correct')).next, 'pay');
+  assert.equal((await answer(state, 'pay', 'correct')).next, 'approve');
   const approved = await answer(state, 'approve', 'approve');
   assert.equal(approved.approved, true);
   const data = await review(state);
@@ -115,6 +119,7 @@ test('only the owner approves when a role is known; staff and accountants can an
   const hash = (await review(root)).draftHash;
   assert.equal((await runTool(asStaff, 'gst_review_answer', { period: '2026-09', step: 'sales', answer: 'correct', draftHash: hash })).ok, true);
   assert.equal((await runTool(asStaff, 'gst_review_answer', { period: '2026-09', step: 'credit', answer: 'correct', draftHash: hash })).ok, true);
+  assert.equal((await runTool(asStaff, 'gst_review_answer', { period: '2026-09', step: 'pay', answer: 'correct', draftHash: hash })).ok, true);
   assert.equal((await runTool(asStaff, 'gst_review_answer', { period: '2026-09', step: 'approve', answer: 'approve', draftHash: hash })).error, 'OWNER_APPROVES');
   assert.deepEqual(previewOf(asStaff, 'gst_review_answer', { period: '2026-09', step: 'approve', answer: 'approve', draftHash: hash }).blockers, ['Only the owner approves the return.']);
   const approved = await runTool(asOwner, 'gst_review_answer', { period: '2026-09', step: 'approve', answer: 'approve', draftHash: hash });
@@ -134,6 +139,10 @@ test('chat: "review GST for September" asks "Is this information correct?", yes 
   assert.equal(yes.posted, true);
   assert.match(yes.reply, /Next: Purchases and input credit in September 2026/);
   await chat(state, 'review gst');
+  assert.match((await chat(state, 'yes')).reply, /Next: Amount to pay for September 2026/);
+  const pay = await chat(state, 'review gst');
+  assert.match(pay.reply, /^Amount to pay for September 2026\n/);
+  assert.match(pay.reply, /To pay in cash: ₹9,300.00/);
   await chat(state, 'yes');
   const last = await chat(state, 'review gst');
   assert.match(last.reply, /Approve these figures for the return\?/);

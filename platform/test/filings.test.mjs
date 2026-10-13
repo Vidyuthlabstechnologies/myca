@@ -96,3 +96,12 @@ test('filings are listed newest first, in chat and for the app', async () => {
   assert.deepEqual(listed.data.map((f) => f.returnType), ['GSTR-3B', 'GSTR-1']);
   assert.match((await chat(state, 'show filed returns')).reply, /^Recorded as filed:\n· GSTR-3B/);
 });
+
+test('a business without a GSTIN is told why, and a TDS deposit is pointed to its challan', async () => {
+  const state = createState();
+  state.company = { ...state.company, name: 'Small Shop', gstin: '', state: '29', tdsDeductor: true, tan: 'MUMA12345B' };
+  const out = await chat(state, 'filed GSTR-1 for September, ARN AA2909261234567');
+  assert.match(out.reply, /MyCA does not list GSTR-1 for September 2026 for this business, which has no GSTIN in MyCA\./);
+  assert.doesNotMatch(out.reply, /TDS_DEPOSIT|TDS_QUARTERLY|TDS deposit/);
+  assert.equal((await runTool(state, 'record_filing', { returnType: 'TDS_DEPOSIT', period: twoBack, arn: 'AA2708261234567' })).error, 'DEPOSIT_NOT_A_FILING');
+});

@@ -1,0 +1,56 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { createState } from '../src/store.mjs';
+import { runTool } from '../src/tools.mjs';
+import { chat } from '../src/router.mjs';
+
+test('Annexure II adds each employee\'s approved months, works the year\'s tax under their regime, and shows the TDS shortfall', async () => {
+  const state = createState();
+  state.company = { ...state.company, name: 'Asha Traders', gstin: '27AABCU9603R1ZN', state: '27', tan: 'MUMA12345B', tdsDeductor: true };
+  const arjun = await runTool(state, 'add_employee', { name: 'Arjun Rao', joinedOn: '2026-04-01', components: [{ name: 'Basic', amount: 100000 }, { name: 'HRA', amount: 50000 }], ptState: '27', sex: 'male', taxRegime: 'new', pan: 'ABCPR1234L' });
+  assert.equal(arjun.ok, true, JSON.stringify(arjun));
+  const ravi = await runTool(state, 'add_employee', { name: 'Ravi Kumar', joinedOn: '2026-04-01', components: [{ name: 'Basic', amount: 20000 }], pfMember: true, ptState: '27', sex: 'male', taxRegime: 'old' });
+  assert.equal(ravi.ok, true, JSON.stringify(ravi));
+  for (const period of ['2026-04', '2026-05', '2026-06']) {
+    const out = await runTool(state, 'approve_payroll', { period });
+    assert.equal(out.ok, true, `${period} ${JSON.stringify(out)}`);
+  }
+  const out = await runTool(state, 'salary_annexure', { fy: '2026-27' });
+  assert.equal(out.ok, true, JSON.stringify(out));
+  const d = out.data;
+  assert.equal(d.fy, '2026-27');
+  assert.deepEqual(d.months, ['2026-04', '2026-05', '2026-06']);
+  assert.equal(d.employees, 2);
+  const a = d.rows.find((row) => row.name === 'Arjun Rao');
+  assert.equal(a.pan, 'ABCPR1234L');
+  assert.equal(a.regime, 'new');
+  assert.equal(a.monthsPaid, 3);
+  assert.equal(a.grossSalary, 450000);
+  assert.equal(a.professionalTax, 600);
+  assert.equal(a.providentFund80C, 0);
+  assert.equal(a.standardDeduction, 75000);
+  assert.equal(a.totalIncome, 375000);
+  assert.equal(a.taxOnTotalIncome, 0, 'three months of salary are under the new-regime rebate');
+  assert.ok(a.tdsDeducted > 0, 'TDS was deducted on the projected full year');
+  assert.equal(a.excess, a.tdsDeducted);
+  const r = d.rows.find((row) => row.name === 'Ravi Kumar');
+  assert.equal(r.regime, 'old');
+  assert.equal(r.pan, '');
+  assert.equal(r.providentFund80C, 5400, 'three months of employee PF at 12% of the 15,000 wage ceiling');
+  assert.equal(r.taxOnTotalIncome, 0);
+  assert.match(d.notes.join(' '), /Ravi Kumar: no PAN recorded/);
+  assert.match(d.notes.join(' '), /3 months of 2026-27 were run in MyCA/);
+  assert.match(d.notes.join(' '), /Exemptions under section 10/);
+  assert.equal(d.fileName, '24Q_AnnexureII_MUMA12345B_2026-27.csv');
+  const lines = d.csv.trim().split(/\r?\n/);
+  assert.equal(lines[0], 'employee_id,name,pan,regime,months_paid,gross_salary,professional_tax_16iii,standard_deduction_16ia,provident_fund_80c,total_income,tax_on_total_income,tds_deducted,shortfall,excess');
+  assert.equal(lines.length, 3);
+  const reply = await chat(state, 'annexure II');
+  assert.match(reply.reply, /24Q Annexure II for 2026-27 \(2 employees, 3 months run\)/);
+  assert.match(reply.reply, /Arjun Rao \(ABCPR1234L\), new regime: salary ₹4,50,000\.00/);
+  const empty = await runTool(state, 'salary_annexure', { fy: '2025-26' });
+  assert.equal(empty.data.rows.length, 0);
+  const us = createState();
+  us.company = { name: 'Maple Street Bakery', country: 'US', gstin: '', state: '' };
+  assert.equal((await runTool(us, 'salary_annexure', {})).error, 'NOT_FOR_COUNTRY');
+});

@@ -6,7 +6,7 @@ Everything after the one-time bootstrap is triggered by `git push`.
 ## Architecture
 
 ```
-GitHub (varshinicb1/myca)
+GitHub (Vidyuthlabstechnologies/myca, moved from varshinicb1/myca on 2026-10-13; the old URL redirects)
   │
   ├─ push to main, deploy/public/** ──► deploy-site ──► GCS site bucket ──► Cloud CDN
   │                                                                       └─► Global HTTPS LB ──► myca.in (+ www)
@@ -56,11 +56,11 @@ then:
 gcloud config set project YOUR_PROJECT_ID
 
 # 2. get the repo (or upload the infra/ folder) — replace with the real repo URL
-git clone https://github.com/varshinicb1/myca.git
+git clone https://github.com/Vidyuthlabstechnologies/myca.git
 cd myca/infra/bootstrap
 
 # 3. the repository's numeric ID (survives renames; a deleted repo's name cannot hijack it)
-gh api repos/varshinicb1/myca --jq .id     # or ask the repo owner for it
+gh api repos/Vidyuthlabstechnologies/myca --jq .id     # or ask the repo owner for it
 
 # 4. one-time apply: APIs, state bucket, both WIF pools, deployer + planner SAs
 terraform init
@@ -240,7 +240,7 @@ push a `v*` tag, and either one obtains a `gh-deployer` token. Two options:
 - **Recommended:** upgrade the org/account to **GitHub Pro** (~$4/user/month), then:
 
   ```bash
-  gh api --method PUT repos/varshinicb1/myca/branches/main/protection \
+  gh api --method PUT repos/Vidyuthlabstechnologies/myca/branches/main/protection \
     --input .github/branch-protection.json -H "Accept: application/vnd.github+json"
   ```
 

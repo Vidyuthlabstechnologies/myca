@@ -4,6 +4,7 @@ import { csvRows, htmlEscape } from './text-safe.mjs';
 import { isPeriodLocked } from './period-lock.mjs';
 import { postingDate } from './dates.mjs';
 import { invoiceTerms, dueDateOf } from './payment-terms.mjs';
+import { planTds, recordTdsEntry, tdsPayableAccountId, wantsTds } from './tds-deduction.mjs';
 
 function padInv(n) {
   return `INV-${String(n).padStart(4, '0')}`;
@@ -35,13 +36,16 @@ function accountName(prefix, list, name, gstin) {
   return clash && gstin ? `${prefix} · ${name} (${gstin})` : `${prefix} · ${name}`;
 }
 
-export function ensureParty(state, { name, gstin, stateCode }) {
+export function ensureParty(state, { name, gstin, stateCode, address }) {
   let party = findParty(state.parties, name, gstin);
-  if (party) return party;
+  if (party) {
+    if (address != null && String(address).trim()) party.address = String(address).trim().slice(0, 200);
+    return party;
+  }
   const g = normGstin(gstin);
   const accountId = nextPartyId(state);
   createAccounts(state.ledger, [{ id: accountId, code: String(accountId), name: accountName('AR', state.parties, name, g), type: 'asset', gstin: g }]);
-  party = { name, gstin: g, state: partyStateOf(g) || stateCodeOf(stateCode), accountId: String(accountId) };
+  party = { name, gstin: g, state: partyStateOf(g) || stateCodeOf(stateCode), accountId: String(accountId), ...(address != null && String(address).trim() ? { address: String(address).trim().slice(0, 200) } : {}) };
   state.parties = state.parties || [];
   state.parties.push(party);
   return party;
@@ -94,7 +98,7 @@ export function createInvoice(state, input) {
   const partyName = String(input.partyName ?? '').trim() || 'Walk-in';
   const terms = invoiceTerms(state, { name: partyName, gstin: input.partyGstin, override: input.paymentTermsDays });
   if (terms.error) return { ok: false, error: terms.error };
-  const party = ensureParty(state, { name: partyName, gstin: input.partyGstin, stateCode: input.partyState });
+  const party = ensureParty(state, { name: partyName, gstin: input.partyGstin, stateCode: input.partyState, address: input.partyAddress });
   const pos = placeOfSupply(input, party, company);
   const lines = rawLines.map((l, i) => {
     const { qty, rate: rateAmt, gstRate } = specs[i];
@@ -210,7 +214,8 @@ export function recordReceipt(state, { invoiceId, amount, date, mode } = {}) {
   if (!party) return { ok: false, error: 'PARTY_NOT_FOUND' };
   if (inv.status === 'cancelled') return { ok: false, error: 'INVOICE_CANCELLED', invoiceId };
   const already = (inv.receipts || []).reduce((s, r) => s + Number(r.amount || 0), 0);
-  const credited = (state.creditNotes || []).filter((note) => note.invoiceId === invoiceId).reduce((s, note) => s + Number(note.total || 0), 0);
+  const credited = (state.creditNotes || []).filter((note) => note.invoiceId === invoiceId).reduce((s, note) => s + Number(note.total || 0), 0)
+    - (state.debitNotes || []).filter((note) => note.invoiceId === invoiceId).reduce((s, note) => s + Number(note.total || 0), 0);
   const amt = amount == null || amount === '' ? Math.round((inv.total - already - credited) * 100) / 100 : Number(amount);
   if (!Number.isFinite(amt) || amt <= 0) return { ok: false, error: 'BAD_AMOUNT' };
   if (already + credited + amt > inv.total + 0.01) {
@@ -311,6 +316,12 @@ export function createPurchase(state, input) {
   const sgst = lines.reduce((s, l) => s + l.sgst, 0);
   const igst = lines.reduce((s, l) => s + l.igst, 0);
   const total = Math.round((taxable + cgst + sgst + igst) * 100) / 100;
+  let tds = null;
+  if (wantsTds(input)) {
+    const planned = planTds(state, input, { date, basis: taxable, payable: total, payee: vendor.name, beforeGst: true });
+    if (!planned.ok) return planned;
+    tds = planned.tds;
+  }
   const assignedSeq = !input.id;
   const billName = (n) => `BILL-${String(n).padStart(4, '0')}`;
   const seqBefore = state.billSeq || 0;
@@ -332,16 +343,19 @@ export function createPurchase(state, input) {
     // Blocked credit (section 17(5)) is part of the cost, not an input tax asset.
     bundle.push({ id: nextTransferId(state), debitAccountId: 5000, creditAccountId: vendor.accountId, amount: paise(cgst + sgst + igst), flags: linked, invoiceId: id, code: 'GST-BLOCKED' });
   }
+  if (tds && tds.tds > 0) bundle.push({ id: nextTransferId(state), debitAccountId: vendor.accountId, creditAccountId: tdsPayableAccountId(), amount: paise(tds.tds), flags: linked, invoiceId: id, code: `TDS-${tds.section}` });
   const posted = createTransfers(state.ledger, bundle);
   if (posted.some((p) => !p.ok)) {
     if (assignedSeq) state.billSeq = seqBefore;
     return { ok: false, error: 'LEDGER_REJECT', posted };
   }
+  if (tds) recordTdsEntry(state, tds, id);
   const bill = {
     id, ...(supplierInvoiceNo ? { supplierInvoiceNo } : {}), date, partyName: vendor.name, partyGstin: vendor.gstin, partyState: vendor.state,
     partyAccountId: vendor.accountId,
     lines, taxable, cgst, sgst, igst, total, status: 'posted', kind: 'purchase',
     itcEligible,
+    ...(tds ? { tds: { section: tds.section, rate: tds.rate, basis: tds.basis, amount: tds.tds, pan: tds.pan } } : {}),
     transferIds: posted.map((p) => p.id),
   };
   state.purchases = state.purchases || [];
@@ -351,7 +365,7 @@ export function createPurchase(state, input) {
 
 export function billOutstanding(bill) {
   const paid = (bill.payments || []).reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
-  return Math.round((Number(bill.total || 0) - paid) * 100) / 100;
+  return Math.round((Number(bill.total || 0) - Number(bill.notedTotal || 0) - Number(bill.tds?.amount || 0) - paid) * 100) / 100;
 }
 
 export function cashInHand(state) {

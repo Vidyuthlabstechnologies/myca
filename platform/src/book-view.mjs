@@ -5,6 +5,7 @@ export const BOOK_KEYS = new Set([
   'exceptions', 'exceptionSeq',
   'expenses', 'expenseSeq', 'expenseTags',
   'creditNotes', 'creditNoteSeq',
+  'debitNotes', 'debitNoteSeq', 'purchaseNotes', 'purchaseNoteSeq',
   'gstReviews', 'gstr2b',
   'reminders', 'reminderSeq',
   'cashReadings', 'customerTerms',
@@ -13,6 +14,8 @@ export const BOOK_KEYS = new Set([
   'filings',
   'supplierReminders', 'supplierReminderSeq',
   'employees', 'employeeSeq',
+  'tdsEntries', 'tdsDeposits',
+  'gstCreditOpening', 'tdsReviews', 'payrollRuns', 'salesTaxRates', 'salesTaxNexus', 'salesTaxReviews', 'salesTaxPayments',
 ]);
 
 export const FIRM_KEYS = new Set([

@@ -53,6 +53,10 @@ export function newBook(company = {}) {
     expenseTags: {},
     creditNotes: [],
     creditNoteSeq: 0,
+    debitNotes: [],
+    debitNoteSeq: 0,
+    purchaseNotes: [],
+    purchaseNoteSeq: 0,
     gstReviews: {},
     gstr2b: {},
     reminders: [],
@@ -68,6 +72,15 @@ export function newBook(company = {}) {
     supplierReminderSeq: 0,
     employees: [],
     employeeSeq: 0,
+    tdsEntries: [],
+    tdsDeposits: [],
+    gstCreditOpening: null,
+    tdsReviews: {},
+    payrollRuns: {},
+    salesTaxRates: [],
+    salesTaxNexus: [],
+    salesTaxReviews: {},
+    salesTaxPayments: [],
   };
 }
 
@@ -94,6 +107,10 @@ export function serializeBook(book) {
     expenseTags: book.expenseTags || {},
     creditNotes: book.creditNotes || [],
     creditNoteSeq: book.creditNoteSeq || 0,
+    debitNotes: book.debitNotes || [],
+    debitNoteSeq: book.debitNoteSeq || 0,
+    purchaseNotes: book.purchaseNotes || [],
+    purchaseNoteSeq: book.purchaseNoteSeq || 0,
     gstReviews: book.gstReviews || {},
     gstr2b: book.gstr2b || {},
     reminders: book.reminders || [],
@@ -108,6 +125,15 @@ export function serializeBook(book) {
     supplierReminderSeq: book.supplierReminderSeq || 0,
     employees: book.employees || [],
     employeeSeq: book.employeeSeq || 0,
+    tdsEntries: book.tdsEntries || [],
+    tdsDeposits: book.tdsDeposits || [],
+    gstCreditOpening: book.gstCreditOpening || null,
+    tdsReviews: book.tdsReviews || {},
+    payrollRuns: book.payrollRuns || {},
+    salesTaxRates: book.salesTaxRates || [],
+    salesTaxNexus: book.salesTaxNexus || [],
+    salesTaxReviews: book.salesTaxReviews || {},
+    salesTaxPayments: book.salesTaxPayments || [],
     quoteSeq: book.quoteSeq || 0,
   };
 }
@@ -149,6 +175,15 @@ export function deserializeBook(raw) {
   book.supplierReminderSeq = raw.supplierReminderSeq || 0;
   book.employees = Array.isArray(raw.employees) ? raw.employees : [];
   book.employeeSeq = raw.employeeSeq || 0;
+  book.tdsEntries = Array.isArray(raw.tdsEntries) ? raw.tdsEntries : [];
+  book.tdsDeposits = Array.isArray(raw.tdsDeposits) ? raw.tdsDeposits : [];
+  book.gstCreditOpening = raw.gstCreditOpening && typeof raw.gstCreditOpening === 'object' ? raw.gstCreditOpening : null;
+  book.tdsReviews = raw.tdsReviews && typeof raw.tdsReviews === 'object' ? raw.tdsReviews : {};
+  book.payrollRuns = raw.payrollRuns && typeof raw.payrollRuns === 'object' ? raw.payrollRuns : {};
+  book.salesTaxRates = Array.isArray(raw.salesTaxRates) ? raw.salesTaxRates : [];
+  book.salesTaxNexus = Array.isArray(raw.salesTaxNexus) ? raw.salesTaxNexus : [];
+  book.salesTaxReviews = raw.salesTaxReviews && typeof raw.salesTaxReviews === 'object' ? raw.salesTaxReviews : {};
+  book.salesTaxPayments = Array.isArray(raw.salesTaxPayments) ? raw.salesTaxPayments : [];
   book.quoteSeq = raw.quoteSeq || 0;
   return book;
 }

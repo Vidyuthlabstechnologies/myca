@@ -161,5 +161,152 @@ export const RULES = [
     section: 'Rule 37A, CGST Rules 2017',
     source: 'Notification 26/2022-Central Tax dated 26.12.2022 inserting rule 37A: where the supplier has not furnished FORM GSTR-3B for the period by the 30th day of September following the end of the financial year in which the credit was availed, the recipient reverses it in FORM GSTR-3B on or before the 30th day of November following the end of that financial year',
     attestations: []
+  },
+  {
+    id: 'gst.setoff.order',
+    value: { ownHeadFirst: true, igstCreditExhaustedFirst: false, igstRemainder: 'any-order', crossHeads: { cgst: ['cgst', 'igst'], sgst: ['sgst', 'igst'] } },
+    basis: 'credit_utilisation_order',
+    effectiveFrom: '2017-07-01',
+    effectiveTo: '2019-01-31',
+    act: 'CGST',
+    section: 'Section 49(5)',
+    source: 'CGST Act 2017, section 49(5)(a) to (e) as originally enacted: integrated tax credit first towards integrated tax and the remainder, if any, towards central tax and State tax; central tax credit towards central tax then integrated tax; State tax credit towards State tax then integrated tax; central tax credit is never used for State tax nor State tax credit for central tax',
+    attestations: []
+  },
+  {
+    id: 'gst.setoff.order',
+    value: { ownHeadFirst: true, igstCreditExhaustedFirst: true, igstRemainder: 'cgst-then-sgst', crossHeads: { cgst: ['cgst', 'igst'], sgst: ['sgst', 'igst'] } },
+    basis: 'credit_utilisation_order',
+    effectiveFrom: '2019-02-01',
+    effectiveTo: '2019-03-31',
+    act: 'CGST',
+    section: 'Section 49(5), 49A and 49B',
+    source: 'CGST (Amendment) Act 2018 (31 of 2018) sections 20 and 21 inserting sections 49A and 49B, brought into force on 01.02.2019 by Notification 2/2019-Central Tax: credit of central tax or State tax is utilised only after the credit of integrated tax has been utilised fully; the common portal applied the integrated tax remainder to central tax before State tax until rule 88A',
+    attestations: []
+  },
+  {
+    id: 'gst.setoff.order',
+    value: { ownHeadFirst: true, igstCreditExhaustedFirst: true, igstRemainder: 'any-order', crossHeads: { cgst: ['cgst', 'igst'], sgst: ['sgst', 'igst'] } },
+    basis: 'credit_utilisation_order',
+    effectiveFrom: '2019-04-01',
+    effectiveTo: null,
+    act: 'CGST',
+    section: 'Section 49(5), 49A and 49B; Rule 88A, CGST Rules 2017',
+    source: 'Notification 16/2019-Central Tax dated 29.03.2019 inserting rule 88A; Circular 98/17/2019-GST dated 23.04.2019: integrated tax credit first towards integrated tax, the remainder towards central tax and State tax in any order and in any proportion, and the integrated tax credit is used up fully before central tax or State tax credit is used; central tax credit then towards central tax and integrated tax, State tax credit towards State tax and integrated tax',
+    attestations: []
+  },
+  {
+    id: 'gst.interest.rate',
+    value: { percentPerAnnum: 18, on: 'net_cash_liability', daysInYear: 365 },
+    basis: 'interest_on_tax_paid_late',
+    effectiveFrom: '2017-07-01',
+    effectiveTo: null,
+    act: 'CGST',
+    section: 'Section 50(1) with its proviso',
+    source: 'Notification 13/2017-Central Tax dated 28.06.2017 fixing the rate under section 50(1) at 18 per cent per annum; proviso to section 50(1) substituted by Finance Act 2021 section 112 and brought into force from 01.07.2017 by Notification 16/2021-Central Tax dated 01.06.2021: interest on tax paid late through FORM GSTR-3B is on the portion paid by debiting the electronic cash ledger; computed for the days of delay on a 365-day year as on the common portal',
+    attestations: []
+  },
+  {
+    id: 'gst.late-fee.gstr3b',
+    value: { perDayPaise: { normal: 0, nil: 0 }, capPaise: [{ turnoverUpToPaise: null, normal: 0, nil: 0 }] },
+    basis: 'late_fee_per_day_and_cap_by_preceding_year_turnover',
+    effectiveFrom: '2017-07-01',
+    effectiveTo: '2017-09-30',
+    act: 'CGST',
+    section: 'Section 47(1) and section 128',
+    source: 'Notification 28/2017-Central Tax dated 01.09.2017 (July 2017) and Notification 50/2017-Central Tax dated 24.10.2017 (August and September 2017) waiving the late fee under section 47 for FORM GSTR-3B of those months',
+    attestations: []
+  },
+  {
+    id: 'gst.late-fee.gstr3b',
+    value: { perDayPaise: { normal: 5000, nil: 2000 }, capPaise: [{ turnoverUpToPaise: null, normal: 1000000, nil: 1000000 }] },
+    basis: 'late_fee_per_day_and_cap_by_preceding_year_turnover',
+    effectiveFrom: '2017-10-01',
+    effectiveTo: '2021-05-31',
+    act: 'CGST',
+    section: 'Section 47(1) and section 128',
+    source: 'Notification 64/2017-Central Tax dated 15.11.2017 for FORM GSTR-3B from October 2017: late fee in excess of twenty-five rupees a day under the CGST Act waived (ten rupees where central tax payable is nil); the same under the State or Union territory Act; the cap of five thousand rupees under each Act is section 47(1)',
+    attestations: []
+  },
+  {
+    id: 'gst.late-fee.gstr3b',
+    value: { perDayPaise: { normal: 5000, nil: 2000 }, capPaise: [{ turnoverUpToPaise: 150 * LAKH, normal: 200000, nil: 50000 }, { turnoverUpToPaise: 5 * CRORE, normal: 500000, nil: 50000 }, { turnoverUpToPaise: null, normal: 1000000, nil: 50000 }] },
+    basis: 'late_fee_per_day_and_cap_by_preceding_year_turnover',
+    effectiveFrom: '2021-06-01',
+    effectiveTo: null,
+    act: 'CGST',
+    section: 'Section 47(1) and section 128',
+    source: 'Notification 19/2021-Central Tax dated 01.06.2021 for FORM GSTR-3B of June 2021 onwards: late fee under the CGST Act capped at two hundred and fifty rupees where central tax payable is nil, one thousand rupees where the aggregate turnover of the preceding financial year is up to one and a half crore rupees, two thousand five hundred rupees where it is above that and up to five crore rupees, and five thousand rupees otherwise (section 47(1)); the same again under the State or Union territory Act; twenty-five rupees a day under each Act (ten where nil) from Notification 64/2017-Central Tax',
+    attestations: []
+  },
+  {
+    id: 'gst.late-fee.gstr1',
+    value: { perDayPaise: { normal: 5000, nil: 2000 }, capPaise: [{ turnoverUpToPaise: null, normal: 1000000, nil: 1000000 }] },
+    basis: 'late_fee_per_day_and_cap_by_preceding_year_turnover',
+    effectiveFrom: '2017-07-01',
+    effectiveTo: '2021-05-31',
+    act: 'CGST',
+    section: 'Section 47(1) and section 128',
+    source: 'Notification 4/2018-Central Tax dated 23.01.2018: late fee for FORM GSTR-1 in excess of twenty-five rupees a day under the CGST Act waived (ten rupees where there are no outward supplies); the same under the State or Union territory Act; the cap of five thousand rupees under each Act is section 47(1)',
+    attestations: []
+  },
+  {
+    id: 'gst.late-fee.gstr1',
+    value: { perDayPaise: { normal: 5000, nil: 2000 }, capPaise: [{ turnoverUpToPaise: 150 * LAKH, normal: 200000, nil: 50000 }, { turnoverUpToPaise: 5 * CRORE, normal: 500000, nil: 50000 }, { turnoverUpToPaise: null, normal: 1000000, nil: 50000 }] },
+    basis: 'late_fee_per_day_and_cap_by_preceding_year_turnover',
+    effectiveFrom: '2021-06-01',
+    effectiveTo: null,
+    act: 'CGST',
+    section: 'Section 47(1) and section 128',
+    source: 'Notification 20/2021-Central Tax dated 01.06.2021 for FORM GSTR-1 of June 2021 onwards: the same caps as Notification 19/2021-Central Tax (two hundred and fifty rupees where there are no outward supplies, one thousand up to one and a half crore turnover, two thousand five hundred up to five crore, five thousand otherwise) under each Act; twenty-five rupees a day under each Act (ten where nil) from Notification 4/2018-Central Tax',
+    attestations: []
+  },
+  {
+    id: 'gst.itc.blocked',
+    value: {
+      'motor-vehicles-for-persons': '17(5)(a)',
+      'food-beverages-catering-beauty-health': '17(5)(b)(i)',
+      'club-health-fitness-membership': '17(5)(b)(ii)',
+      'employee-travel-benefits': '17(5)(b)(iv)',
+      'personal-consumption': '17(5)(g)',
+      'gifts-free-samples-lost-stolen': '17(5)(h)'
+    },
+    basis: 'input_tax_credit_blocked_by_expense_category_with_clause',
+    effectiveFrom: '2017-07-01',
+    effectiveTo: '2019-01-31',
+    act: 'CGST',
+    section: 'Section 17(5)',
+    source: 'CGST Act 2017, section 17(5) as originally enacted: credit not available on motor vehicles and other conveyances except for the listed uses (clause (a)); food and beverages, outdoor catering, beauty treatment, health services, cosmetic and plastic surgery (clause (b)(i)); membership of a club, health and fitness centre (clause (b)(ii)); travel benefits to employees on vacation (clause (b)(iv)); goods or services used for personal consumption (clause (g)); goods lost, stolen, destroyed, written off or disposed of by way of gift or free samples (clause (h))',
+    attestations: []
+  },
+  {
+    id: 'gst.itc.blocked',
+    value: {
+      'motor-vehicles-for-persons': '17(5)(a)',
+      'motor-vehicle-services-insurance-repair': '17(5)(ab)',
+      'food-beverages-catering-beauty-health': '17(5)(b)(i)',
+      'club-health-fitness-membership': '17(5)(b)(ii)',
+      'employee-travel-benefits': '17(5)(b)(iv)',
+      'personal-consumption': '17(5)(g)',
+      'gifts-free-samples-lost-stolen': '17(5)(h)'
+    },
+    basis: 'input_tax_credit_blocked_by_expense_category_with_clause',
+    effectiveFrom: '2019-02-01',
+    effectiveTo: null,
+    act: 'CGST',
+    section: 'Section 17(5)',
+    source: 'CGST (Amendment) Act 2018 (31 of 2018) section 9, in force from 01.02.2019 by Notification 2/2019-Central Tax, substituting clauses (a), (aa), (ab) and (b) of section 17(5): motor vehicles for transport of persons with seating up to thirteen (clause (a)); services of general insurance, servicing, repair and maintenance of such vehicles (clause (ab)); food and beverages, outdoor catering, beauty treatment, health services, cosmetic and plastic surgery (clause (b)(i)); membership of a club, health and fitness centre (clause (b)(ii)); travel benefits to employees on vacation (clause (b)(iv)); clauses (g) and (h) unchanged; credit is allowed where the inward supply is used to make an outward supply of the same category or where an employer must provide it under a law in force',
+    attestations: []
+  },
+  {
+    id: 'gst.ewaybill.threshold',
+    value: { consignmentValuePaiseMoreThan: 50000 * RUPEE },
+    basis: 'consignment_value_paise_more_than',
+    effectiveFrom: '2018-04-01',
+    effectiveTo: null,
+    act: 'CGST',
+    section: 'Rule 138(1), CGST Rules 2017',
+    source: 'Notification 12/2018-Central Tax dated 07.03.2018 substituting rule 138, brought into force for inter-State movement from 01.04.2018 by Notification 15/2018-Central Tax: every registered person who causes movement of goods of consignment value exceeding fifty thousand rupees furnishes Part A of FORM GST EWB-01; intra-State movement followed from April to June 2018 by State notifications, several of which set a higher limit for movement within the State (not encoded; MyCA applies the central limit and says so)',
+    attestations: []
   }
 ];

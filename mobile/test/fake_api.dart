@@ -164,6 +164,20 @@ class FakeMycaApi implements MycaApi {
   ];
   final filings = <Map<String, Object?>>[];
   final supplierReminders = <Map<String, Object?>>[];
+  final debitNotes = <Map<String, Object?>>[];
+  bool payrollApproved = false;
+  bool payrollPaid = false;
+  final shares = <Map<String, Object?>>[];
+  Map<String, Object?>? transport;
+  String buyerAddress = '';
+  bool tdsDeductor = false;
+  String country = 'IN';
+  final salesTaxStates = <Map<String, Object?>>[];
+  bool salesTaxPaid = false;
+  bool salesTaxFiled = false;
+  bool salesTaxApproved = false;
+  num tdsDue = 6000;
+  final tdsDeposits = <Map<String, Object?>>[];
   final employees = <Map<String, Object?>>[
     {
       'id': 'EMP-0001',
@@ -323,7 +337,7 @@ class FakeMycaApi implements MycaApi {
 
   @override
   Future<Snapshot> snapshot() async => Snapshot.fromJson({
-    'company': {'name': companyName, 'gstin': '27AABCU9603R1ZN'},
+    'company': {'name': companyName, 'gstin': country == 'US' ? '' : '27AABCU9603R1ZN', 'tdsDeductor': tdsDeductor, 'country': country},
     'invoices': invoices,
     'purchases': purchases,
     'expenses': expenses,
@@ -413,6 +427,12 @@ class FakeMycaApi implements MycaApi {
         'From quote ${args['id']}: Invoice to Gujarat Weaves, total ₹59,000.00.',
       );
     }
+    if (name == 'set_tds_deductor') {
+      return _preview('This business deducts TDS, TAN ${args['tan']}.');
+    }
+    if (name == 'record_tds_deposit') {
+      return _preview('TDS deposit of ₹6,000.00 on ${args['date']}, challan ${args['challan']}, from the bank.');
+    }
     if (name == 'add_employee') {
       return _preview('Add ${args['name']}, joined ${args['joinedOn']}, at ₹21,000.00 a month.');
     }
@@ -472,6 +492,27 @@ class FakeMycaApi implements MycaApi {
       return _preview(
         'Credit note of ₹${amount ?? '3,77,600.00'} against ${args['invoiceId']} (Gujarat Weaves) dated ${args['date']}. Reason: ${args['reason']}.',
         {'invoiceId': args['invoiceId'], 'total': amount ?? 377600},
+      );
+    }
+    if (name == 'approve_payroll') {
+      return _preview(
+        'Payroll for October 2026: 1 employee, gross ₹30,000.00, deductions ₹2,000.00, net to pay ₹28,000.00.',
+        {'period': args['period'], 'net': 28000},
+      );
+    }
+    if (name == 'record_salary_payment') {
+      return _preview('Salaries for October 2026: ₹28,000.00 paid from the bank on ${args['date']}.', {'period': args['period']});
+    }
+    if (name == 'set_transport') {
+      return _preview(
+        'Transport for ${args['invoiceId']} (Gujarat Weaves): ${args['distanceKm']} km by road, vehicle ${args['vehicleNo']}.',
+        {'invoiceId': args['invoiceId'], 'distanceKm': args['distanceKm'], 'vehicleNo': args['vehicleNo']},
+      );
+    }
+    if (name == 'create_debit_note') {
+      return _preview(
+        'Debit note of ₹${args['amount']} against ${args['invoiceId']} (Gujarat Weaves) dated ${args['date']}. Reason: ${args['reason']}.',
+        {'invoiceId': args['invoiceId'], 'total': args['amount']},
       );
     }
     if (name == 'cancel_invoice') {
@@ -584,6 +625,15 @@ class FakeMycaApi implements MycaApi {
           'posted': true,
           'confirmed': true,
         });
+      }
+      if (held.tool == 'set_tds_deductor') {
+        tdsDeductor = true;
+        return ChatReply.fromJson({'reply': 'Done. This business deducts TDS under TAN ${held.args['tan']}.', 'posted': true, 'confirmed': true});
+      }
+      if (held.tool == 'record_tds_deposit') {
+        tdsDeposits.add(held.args);
+        tdsDue = 0;
+        return ChatReply.fromJson({'reply': 'Recorded the TDS deposit. Nothing is left to deposit.', 'posted': true, 'confirmed': true});
       }
       if (held.tool == 'add_employee') {
         final parts = (held.args['components'] as List).cast<Map<String, Object?>>();
@@ -740,6 +790,37 @@ class FakeMycaApi implements MycaApi {
           'confirmed': true,
         });
       }
+      if (held.tool == 'approve_payroll') {
+        payrollApproved = true;
+        return ChatReply.fromJson({'reply': 'Approved payroll for October 2026.', 'posted': true, 'confirmed': true});
+      }
+      if (held.tool == 'record_salary_payment') {
+        payrollPaid = true;
+        return ChatReply.fromJson({'reply': 'Recorded salaries paid.', 'posted': true, 'confirmed': true});
+      }
+      if (held.tool == 'set_transport') {
+        transport = {'distanceKm': held.args['distanceKm'], 'vehicleNo': held.args['vehicleNo']};
+        return ChatReply.fromJson({
+          'reply': 'Recorded transport for ${held.args['invoiceId']}.',
+          'posted': true,
+          'confirmed': true,
+        });
+      }
+      if (held.tool == 'create_debit_note') {
+        debitNotes.add({
+          'id': 'DN-0001',
+          'date': held.args['date'],
+          'invoiceId': held.args['invoiceId'],
+          'partyName': 'Gujarat Weaves',
+          'reason': held.args['reason'],
+          'total': held.args['amount'],
+        });
+        return ChatReply.fromJson({
+          'reply': 'Debit note DN-0001 for ₹${held.args['amount']} against ${held.args['invoiceId']}.',
+          'posted': true,
+          'confirmed': true,
+        });
+      }
       if (held.tool == 'create_credit_note' || held.tool == 'cancel_invoice') {
         final cancels = held.tool == 'cancel_invoice';
         creditNotes.add({
@@ -773,6 +854,23 @@ class FakeMycaApi implements MycaApi {
           'posted': true,
           'confirmed': true,
         });
+      }
+      if (held.tool == 'set_sales_tax_nexus') {
+        salesTaxStates.removeWhere((row) => row['state'] == held.args['state']);
+        salesTaxStates.add({'state': held.args['state'], 'frequency': held.args['frequency']});
+        return ChatReply.fromJson({'reply': 'Recorded: you collect sales tax in ${held.args['state']} and file ${held.args['frequency']}.', 'posted': true});
+      }
+      if (held.tool == 'record_sales_tax_payment') {
+        salesTaxPaid = true;
+        return ChatReply.fromJson({'reply': 'Recorded \$53.75 of sales tax paid to ${held.args['state']} for ${held.args['period']}.', 'posted': true});
+      }
+      if (held.tool == 'record_sales_tax_filing') {
+        salesTaxFiled = true;
+        return ChatReply.fromJson({'reply': 'Recorded the sales tax return ${held.args['state']} for ${held.args['period']} as filed, confirmation ${held.args['confirmation']}.', 'posted': true});
+      }
+      if (held.tool == 'sales_tax_review_answer') {
+        salesTaxApproved = true;
+        return ChatReply.fromJson({'reply': 'Confirmed.', 'posted': true});
       }
       if (held.tool == 'create_invoice') {
         invoices.add({
@@ -855,6 +953,39 @@ class FakeMycaApi implements MycaApi {
             'inputCredit': august
                 ? {'igst': 0, 'cgst': 1000, 'sgst': 1000, 'total': 2000}
                 : {'igst': 0, 'cgst': 0, 'sgst': 0, 'total': 0},
+            'payment': august
+                ? {
+                    'period': '2026-08',
+                    'output': {'igst': 9000, 'cgst': 2500, 'sgst': 2500, 'total': 14000},
+                    'credit': {'igst': 0, 'cgst': 1000, 'sgst': 1000, 'total': 2000},
+                    'broughtForward': {'igst': 0, 'cgst': 0, 'sgst': 0, 'total': 0},
+                    'broughtForwardKnown': false,
+                    'creditUsed': 2000,
+                    'cash': {'igst': 9000, 'cgst': 1500, 'sgst': 1500, 'total': 12000},
+                    'toPay': 12000,
+                    'carried': {'igst': 0, 'cgst': 0, 'sgst': 0, 'total': 0},
+                    'dueDate': '2026-09-20',
+                    'filed': null,
+                    'late': {'payOn': '2026-10-12', 'days': 22, 'interest': 130.19, 'lateFee': 1100, 'total': 13230.19},
+                    'unreviewed': true,
+                    'notes': ['Credit is set off head by head in the order the law sets.', 'The set-off order, interest rate and late fee come from the dated rules, which your CA has not reviewed yet.'],
+                  }
+                : {
+                    'period': '2026-10',
+                    'output': {'igst': 0, 'cgst': 1800, 'sgst': 1800, 'total': 3600},
+                    'credit': {'igst': 0, 'cgst': 0, 'sgst': 0, 'total': 0},
+                    'broughtForward': {'igst': 0, 'cgst': 0, 'sgst': 0, 'total': 0},
+                    'broughtForwardKnown': false,
+                    'creditUsed': 0,
+                    'cash': {'igst': 0, 'cgst': 1800, 'sgst': 1800, 'total': 3600},
+                    'toPay': 3600,
+                    'carried': {'igst': 0, 'cgst': 0, 'sgst': 0, 'total': 0},
+                    'dueDate': '2026-11-20',
+                    'filed': null,
+                    'late': null,
+                    'unreviewed': true,
+                    'notes': ['Credit is set off head by head in the order the law sets.'],
+                  },
             'gstr1': august
                 ? {
                     'fp': '082026',
@@ -878,9 +1009,134 @@ class FakeMycaApi implements MycaApi {
                   },
           },
         };
+      case 'record_share':
+        if (args['outcome'] != 'cancelled') {
+          shares.add({'on': '2026-10-05T10:00:00.000Z', 'by': 'u-owner', 'channel': args['channel'], 'outcome': args['outcome']});
+        }
+        return {'ok': true, 'invoiceId': args['invoiceId'], 'recorded': args['outcome'] != 'cancelled'};
+      case 'rules_status':
+        return {
+          'ok': true,
+          'data': {
+            'asOf': '2026-10-05',
+            'country': country,
+            'totals': {'records': country == 'US' ? 4 : 164, 'attested': 0, 'gaps': 0, 'ending': country == 'US' ? 0 : 1},
+            'families': [
+              {'key': 'holiday', 'title': 'Gazetted holiday calendar', 'attention': country != 'US'},
+            ],
+            'notes': [country == 'US' ? 'No rule has been reviewed by a US CPA yet; figures carry a not-reviewed note until one attests.' : 'No rule has been reviewed by your CA yet; figures carry a not-reviewed note until one attests.'],
+          },
+        };
+      case 'sales_tax_overview':
+        return {
+          'ok': true,
+          'data': {
+            'states': [
+              for (final row in salesTaxStates)
+                {
+                  'state': row['state'],
+                  'frequency': row['frequency'],
+                  'permitNo': '',
+                  'lastPeriod': {
+                    'period': '2026-Q3',
+                    'taxCollected': 53.75,
+                    'toPay': salesTaxPaid ? 0 : 53.75,
+                    'dueDate': '2026-10-20',
+                    'filed': salesTaxFiled ? {'confirmation': 'TX778899', 'filedOn': '2026-10-05', 'late': false} : null,
+                    'approved': salesTaxApproved,
+                    'empty': false,
+                    'ended': true,
+                  },
+                  'currentPeriod': {'period': '2026-Q4', 'taxCollected': 8.25, 'invoices': 1},
+                  'overdue': false,
+                  'notes': const ['The due date comes from a dated rule your CPA has not reviewed yet.'],
+                },
+            ],
+            'overdue': 0,
+            'hasNexus': salesTaxStates.isNotEmpty,
+          },
+        };
+      case 'sales_tax_review':
+        return {
+          'ok': true,
+          'data': {
+            'state': 'TX',
+            'period': '2026-Q3',
+            'periods': ['2026-Q3'],
+            'month': 'TX 2026-Q3',
+            'draftHash': 'd' * 64,
+            'empty': false,
+            'changed': false,
+            'steps': [
+              {
+                'id': 'sales',
+                'title': 'Sales in TX for 2026-Q3',
+                'lines': [
+                  {'label': 'Gross sales on 3 invoices', 'amount': 940},
+                  {'label': 'Taxable sales', 'amount': 700, 'strong': true},
+                ],
+                'note': 'Every figure comes from the invoices in this period.',
+                'question': 'Is this information correct?',
+                'yes': 'Yes, correct',
+                'no': 'Something is wrong',
+                'status': salesTaxApproved ? 'confirmed' : 'open',
+                'waitingFor': null,
+                'answer': null,
+              },
+            ],
+            'next': salesTaxApproved ? null : 'sales',
+            'approved': salesTaxApproved,
+            'approval': null,
+          },
+        };
+      case 'list_sales_tax_rates':
+        return {
+          'ok': true,
+          'data': {
+            'rates': [
+              {'code': 'TX-AUSTIN', 'name': 'Austin, Texas', 'ratePercent': 8.25, 'from': '2026-01-01', 'history': 1},
+            ],
+          },
+        };
       case 'invoice_document':
         if (args['id'] != 'INV-0002') {
           return {'ok': false, 'error': 'INVOICE_NOT_FOUND'};
+        }
+        if (country == 'US') {
+          return {
+            'ok': true,
+            'data': {
+              'id': 'INV-0002',
+              'date': '2026-08-12',
+              'country': 'US',
+              'seller': {'name': 'Maple Street Bakery', 'gstin': '', 'address': '12 Maple St', 'city': 'Austin', 'pin': '78701', 'state': {'code': '', 'name': ''}},
+              'buyer': {'name': 'Gujarat Weaves', 'gstin': '', 'address': buyerAddress},
+              'shares': shares,
+              'placeOfSupply': {'code': '', 'name': ''},
+              'lines': [
+                {'description': 'Wedding cake', 'hsn': '', 'qty': 1, 'rate': 500, 'gstRate': 0, 'taxable': 500, 'cgst': 0, 'sgst': 0, 'igst': 0, 'amount': 541.25, 'taxRate': 8.25, 'salesTax': 41.25},
+                {'description': 'Delivery', 'hsn': '', 'qty': 1, 'rate': 40, 'gstRate': 0, 'taxable': 0, 'cgst': 0, 'sgst': 0, 'igst': 0, 'amount': 40, 'taxRate': 0, 'salesTax': 0},
+              ],
+              'taxable': 540,
+              'subtotal': 540,
+              'salesTax': 41.25,
+              'taxJurisdiction': 'TX-AUSTIN',
+              'taxRate': 8.25,
+              'taxExempt': false,
+              'exemptionReason': '',
+              'cgst': 0,
+              'sgst': 0,
+              'igst': 0,
+              'total': 581.25,
+              'receipts': const [],
+              'received': 0,
+              'credited': 0,
+              'creditNotes': const [],
+              'status': 'open',
+              'balance': 581.25,
+              'missing': const [],
+            },
+          };
         }
         return {
           'ok': true,
@@ -895,7 +1151,17 @@ class FakeMycaApi implements MycaApi {
               'pin': '411001',
               'state': {'code': '27', 'name': 'Maharashtra'},
             },
-            'buyer': {'name': 'Gujarat Weaves', 'gstin': '24AAACG1234F1Z5'},
+            'buyer': {'name': 'Gujarat Weaves', 'gstin': '24AAACG1234F1Z5', 'address': buyerAddress},
+            'shares': shares,
+            'ewayBill': {
+              'needed': true,
+              'why': 'Goods worth ₹3,77,600.00 move to another state, above the ₹50,000.00 limit.',
+              'status': transport == null ? 'transport-needed' : 'irn-needed',
+              'transport': transport == null ? null : {'words': '${transport!['distanceKm']} km by road, vehicle ${transport!['vehicleNo']}'},
+              'ewbNo': '',
+              'ewbValidity': '',
+              'next': transport == null ? 'Add the vehicle, distance and transporter, then the e-way bill can be generated.' : 'Generate the e-invoice (IRN) first; the e-way bill is generated from it through the action gate.',
+            },
             'placeOfSupply': {'code': '24', 'name': 'Gujarat'},
             'lines': [
               {
@@ -937,6 +1203,11 @@ class FakeMycaApi implements MycaApi {
               (sum, n) => sum + (n['total'] as num),
             ),
             'creditNotes': creditNotes,
+            'debited': debitNotes.fold<num>(
+              0,
+              (sum, n) => sum + (n['total'] as num),
+            ),
+            'debitNotes': debitNotes,
             'status': invoices[1]['status'],
             'paymentTermsDays': 30,
             'dueDate': '2026-09-11',
@@ -1200,6 +1471,20 @@ class FakeMycaApi implements MycaApi {
                 : const <Object?>[],
           },
         };
+      case 'export_trial_balance':
+        return {
+          'ok': true,
+          'data': {
+            'asOf': '2026-10-05',
+            'currency': 'INR',
+            'accounts': 6,
+            'debit': 377600,
+            'credit': 377600,
+            'balanced': true,
+            'fileName': 'trial_balance_27AABCU9603R1ZN_2026-10-05.csv',
+            'csv': 'code,account,type,debits_posted,credits_posted,closing_debit,closing_credit\n1002,Bank,asset,100000,0,100000,0\n',
+          },
+        };
       case 'export_entries':
         return {
           'ok': true,
@@ -1223,12 +1508,14 @@ class FakeMycaApi implements MycaApi {
               'creditNotes': {'count': 0, 'total': 0},
               'purchases': {'count': 1, 'total': 42000},
               'expenses': {'count': 1, 'total': 5000},
+              'payroll': {'status': payrollApproved ? 'approved' : 'draft', 'employees': 1, 'gross': payrollApproved ? 30000 : 0, 'net': payrollApproved ? 28000 : 0, 'employerCost': payrollApproved ? 32375 : 0, 'paidOn': payrollPaid ? '2026-10-05' : ''},
             },
             'previous': {
               'sales': {'count': 2, 'total': 902600, 'net': 902600},
               'creditNotes': {'count': 0, 'total': 0},
               'purchases': {'count': 0, 'total': 0},
               'expenses': {'count': 1, 'total': 12000},
+              'payroll': {'status': 'approved', 'employees': 1, 'gross': 30000, 'net': 28000, 'employerCost': 32375, 'paidOn': '2026-09-05'},
             },
             'owedToYou': {
               'total': 377600,
@@ -1246,6 +1533,17 @@ class FakeMycaApi implements MycaApi {
             },
             'caveat':
                 'What you owe suppliers counts only payments recorded against bills.',
+          },
+        };
+      case 'export_tally':
+        return {
+          'ok': true,
+          'data': {
+            'period': args['period'],
+            'count': 4,
+            'ledgers': 12,
+            'fileName': 'tally_27AAACN1234F1Z5_${args['period']}.xml',
+            'xml': '<ENVELOPE></ENVELOPE>',
           },
         };
       case 'expense_heads':
@@ -1266,6 +1564,167 @@ class FakeMycaApi implements MycaApi {
             'fp': args['fp'],
             'version': 'GST3.1.6',
             'b2b': const <Object?>[],
+          },
+        };
+      case 'tds_summary':
+        return {
+          'ok': true,
+          'data': {
+            'deductor': tdsDeductor,
+            'tan': tdsDeductor ? 'MUMA12345B' : '',
+            'deducted': tdsDeductor ? 6000 : 0,
+            'deposited': tdsDeductor ? 6000 - tdsDue : 0,
+            'due': tdsDeductor ? tdsDue : 0,
+            'months': tdsDeductor
+                ? [
+                    {'month': '2026-10', 'deducted': 6000, 'depositBy': '2026-11-07'},
+                  ]
+                : const <Object?>[],
+            'quarters': tdsDeductor
+                ? [
+                    {'quarter': 'Q3 2026-27', 'deducted': 6000, 'deposited': 6000 - tdsDue, 'shortfall': tdsDue, 'dueDate': '2027-01-31', 'form': '140', 'approved': false, 'filed': null},
+                  ]
+                : const <Object?>[],
+          },
+        };
+      case 'tds_review':
+        return {
+          'ok': true,
+          'data': {
+            'period': 'Q3 2026-27',
+            'periods': ['Q3 2026-27'],
+            'month': 'Q3 2026-27',
+            'draftHash': 'c' * 64,
+            'empty': false,
+            'changed': false,
+            'steps': [
+              {
+                'id': 'deductees',
+                'title': 'TDS deducted in Q3 2026-27',
+                'lines': [
+                  {'label': 'Rao & Co (AAAFR1234K), 194J, 1 payment of ₹60,000.00 at 10%', 'amount': 6000},
+                  {'label': 'TDS deducted', 'amount': 6000, 'strong': true},
+                ],
+                'note': 'Every figure comes from the bills and expenses dated in this quarter.',
+                'question': 'Is this information correct?',
+                'yes': 'Yes, correct',
+                'no': 'Something is wrong',
+                'status': 'open',
+                'waitingFor': null,
+              },
+              {
+                'id': 'challans',
+                'title': 'Challans for Q3 2026-27',
+                'lines': [
+                  {'label': 'Deposited for this quarter', 'amount': 6000 - tdsDue, 'strong': true},
+                ],
+                'note': 'Deposits are matched to deductions in date order.',
+                'question': 'Is this information correct?',
+                'yes': 'Yes, correct',
+                'no': 'Something is wrong',
+                'status': 'open',
+                'waitingFor': 'deductees',
+              },
+              {
+                'id': 'approve',
+                'title': 'Approve the Q3 2026-27 TDS statement',
+                'lines': [
+                  {'label': 'TDS deducted', 'amount': 6000},
+                ],
+                'note': 'Approving records that you checked these figures; it files nothing.',
+                'question': 'Approve these figures for the statement?',
+                'yes': 'Approve',
+                'no': 'Not yet',
+                'status': 'open',
+                'waitingFor': 'deductees',
+              },
+            ],
+            'next': 'deductees',
+            'approved': false,
+            'approval': null,
+          },
+        };
+      case 'salary_annexure':
+        return {
+          'ok': true,
+          'data': {
+            'fy': '2026-27',
+            'form': '24Q Annexure II',
+            'employees': 1,
+            'rows': [
+              {'employeeId': 'EMP-0001', 'name': 'Ravi Kumar', 'pan': 'ABCPK1234L', 'regime': 'new', 'monthsPaid': 1, 'grossSalary': 30000, 'professionalTax': 200, 'standardDeduction': 30000, 'providentFund80C': 0, 'totalIncome': 0, 'taxOnTotalIncome': 0, 'tdsDeducted': 0, 'shortfall': 0, 'excess': 0, 'noPan': false},
+            ],
+            'totals': {'grossSalary': 30000, 'professionalTax': 200, 'taxOnTotalIncome': 0, 'tdsDeducted': 0, 'shortfall': 0, 'excess': 0},
+            'months': ['2026-10'],
+            'unreviewed': true,
+            'notes': const <Object?>[],
+            'fileName': '24Q_AnnexureII_MUMA12345B_2026-27.csv',
+            'csv': 'employee_id,name,pan\nEMP-0001,Ravi Kumar,ABCPK1234L\n',
+          },
+        };
+      case 'pf_ecr':
+        return {
+          'ok': true,
+          'data': {
+            'period': args['period'],
+            'month': 'October 2026',
+            'members': 1,
+            'totals': {'remittance': 4175},
+            'missingUan': const <Object?>[],
+            'fileName': 'ECR_27AAACN1234F1Z5_${args['period']}.txt',
+            'text': '100200300400#~#RAVI KUMAR#~#30000#~#15000#~#15000#~#15000#~#1800#~#1250#~#550#~#0#~#0\n',
+          },
+        };
+      case 'esi_return':
+        return {'ok': false, 'error': 'NO_ESI_MEMBERS'};
+      case 'payroll_run':
+        if (country == 'US') {
+          return {
+            'ok': true,
+            'data': {
+              'country': 'US',
+              'period': args['period'],
+              'month': 'October 2026',
+              'status': payrollApproved ? 'approved' : 'draft',
+              'employees': 1,
+              'rows': [
+                {'employeeId': 'EMP-0001', 'name': 'Ravi Kumar', 'daysWorked': 31, 'daysInMonth': 31, 'gross': 5000, 'deductions': 782.5, 'net': 4217.5, 'notes': const <Object?>[]},
+              ],
+              'totals': {
+                'gross': 5000, 'deductions': 782.5, 'net': 4217.5, 'employerContributions': 412.5, 'employerCost': 5412.5,
+                'lines': [
+                  {'name': 'Social Security (employees)', 'amount': 310},
+                  {'name': 'Medicare (employees)', 'amount': 72.5},
+                  {'name': 'Federal income tax withheld', 'amount': 400},
+                ],
+                'employerLines': [
+                  {'name': 'Social Security (employer)', 'amount': 310},
+                  {'name': 'Medicare (employer)', 'amount': 72.5},
+                  {'name': 'Federal unemployment (FUTA)', 'amount': 30},
+                ],
+              },
+              'notes': ['The FICA and FUTA rates and wage bases come from dated rules, which a US CPA has not reviewed yet.'],
+              'draftHash': 'd' * 64,
+              'approvedOn': payrollApproved ? '2026-10-05' : '',
+              'paidOn': payrollPaid ? '2026-10-05' : '',
+            },
+          };
+        }
+        return {
+          'ok': true,
+          'data': {
+            'period': args['period'],
+            'month': 'October 2026',
+            'status': payrollApproved ? 'approved' : 'draft',
+            'employees': 1,
+            'rows': [
+              {'employeeId': 'EMP-0001', 'name': 'Ravi Kumar', 'daysWorked': 31, 'daysInMonth': 31, 'gross': 30000, 'deductions': 2000, 'net': 28000, 'notes': const <Object?>[]},
+            ],
+            'totals': {'gross': 30000, 'pfEmployee': 1800, 'esiEmployee': 0, 'pt': 200, 'tds': 0, 'deductions': 2000, 'net': 28000, 'employerContributions': 2375, 'employerCost': 32375},
+            'notes': ['The contribution rates, limits and slabs come from the dated rules, which your CA has not reviewed yet.'],
+            'draftHash': 'd' * 64,
+            'approvedOn': payrollApproved ? '2026-10-05' : '',
+            'paidOn': payrollPaid ? '2026-10-05' : '',
           },
         };
       case 'list_employees':

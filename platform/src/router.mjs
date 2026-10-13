@@ -4,9 +4,20 @@ import { needsConfirmation, previewOf, openPending, takePending, clearPending, p
 import { liveCallsEnabled, mockModeEnabled } from './runtime-config.mjs';
 import { referenceImportContent, resolveImportContent } from './import-documents.mjs';
 import { spoken } from './words.mjs';
+import { planEntryWithTds } from './tds-intent.mjs';
+import { paymentWords } from './gst-payment.mjs';
+import { transportWords } from './eway-bill.mjs';
+import { payrollWords } from './payroll.mjs';
+import { setCurrentCountry, formatMoneyCurrent } from './country.mjs';
+import { rulesStatusWords } from './rules-status.mjs';
+import { usPayrollWords } from './us-payroll.mjs';
+import { ownerTaxWords } from './us-owner-tax.mjs';
+import { usImportWords } from './import-us-books.mjs';
+import { annexureWords } from './salary-annexure.mjs';
+import { inWords as monthWords } from './words.mjs';
 
 function money(n) {
-  return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 }).format(Number(n) || 0);
+  return formatMoneyCurrent(Number(n) || 0);
 }
 
 const FAILURES = {
@@ -23,6 +34,14 @@ const FAILURES = {
   INSUFFICIENT_CASH: (r) => `There is not that much cash in hand${r.inHand != null ? ` (${money(r.inHand)})` : ''}. Nothing was changed.`,
 };
 
+function notAccepted(error) {
+  const text = String(error || '');
+  if (/gstRate is required/.test(text)) return 'A GST rate is needed for each item; MyCA does not assume one. Nothing was changed.';
+  if (/partyName/.test(text)) return 'Say who it is with. Nothing was changed.';
+  if (/amount|rate|qty/.test(text) && /minimum|exclusiveMinimum|number/.test(text)) return 'One of the amounts is not a usable number. Nothing was changed.';
+  return 'Some of the details were missing or not in the right form, so nothing was changed.';
+}
+
 function failedInWords(code, result = {}) {
   const plain = FAILURES[code];
   if (plain) return plain(result || {});
@@ -35,6 +54,9 @@ function fmtToolResult(name, result) {
   const d = result.data ?? result.invoice ?? result;
   if (name === 'create_invoice' && result.invoice) {
     const i = result.invoice;
+    if (i.country === 'US') {
+      return `Posted ${i.id} to ${i.partyName} on ${i.date} for ${money(i.total)} (${money(i.subtotal)}${i.taxExempt ? `, exempt from sales tax: ${i.exemptionReason}` : ` plus ${money(i.salesTax)} sales tax`}).`;
+    }
     return `Posted ${i.id} to ${i.partyName} on ${i.date} for ${money(i.total)} (${money(i.taxable)} plus ${money(i.cgst + i.sgst + i.igst)} GST).`;
   }
   if (name === 'can_afford' && result.data) {
@@ -113,16 +135,174 @@ function fmtToolResult(name, result) {
   }
   if (name === 'post_expense' && result.expense) {
     const e = result.expense;
-    return `Posted ${e.id}: ${money(e.amount)} ${e.description ? `for ${e.description} ` : ''}from ${e.mode === 'cash' ? 'cash' : 'the bank'} on ${e.date}, under ${e.headName}.${e.inputCredit ? ` Input credit ${money((e.cgst || 0) + (e.sgst || 0) + (e.igst || 0))}.` : ''}`;
+    return `Posted ${e.id}: ${money(e.amount)} ${e.description ? `for ${e.description} ` : ''}from ${e.mode === 'cash' ? 'cash' : 'the bank'} on ${e.date}, under ${e.headName}.${e.inputCredit ? ` Input credit ${money((e.cgst || 0) + (e.sgst || 0) + (e.igst || 0))}.` : ''}${e.tds?.amount ? ` ${money(e.tds.amount)} TDS under ${e.tds.section} held back; ${money(e.amount - e.tds.amount)} paid.` : ''}`;
   }
   if (name === 'set_expense_head' && result.expense) {
     const e = result.expense;
     return result.unchanged ? `${e.id} is already under ${e.headName}.` : `Moved ${e.id} to ${e.headName}.`;
   }
+  if (name === 'create_debit_note' && result.debitNote) {
+    const n = result.debitNote;
+    return `Debit note ${n.id} for ${money(n.total)} against ${n.invoiceId} (${n.partyName}, ${n.date}). ${n.partyName} now owes ${money(result.outstanding)}.`;
+  }
+  if (name === 'record_supplier_debit_note' && result.supplierNote) {
+    const n = result.supplierNote;
+    return `Recorded ${n.partyName}'s debit note${n.supplierInvoiceNo ? ` ${n.supplierInvoiceNo}` : ''} as ${n.id} against ${n.noteOf}: ${money(n.total)} more owed (${money(n.taxable)} plus ${money(n.cgst + n.sgst + n.igst)} GST).`;
+  }
+  if (name === 'create_purchase_note' && result.purchaseNote) {
+    const n = result.purchaseNote;
+    return `Debit note ${n.id} to ${n.partyName} for ${money(n.total)} against ${n.billId} (${n.date}).${result.refundDue > 0 ? ` ${money(result.refundDue)} was already paid and is now due back to you.` : ` You owe ${money(result.outstanding)} on it now.`}`;
+  }
   if ((name === 'create_credit_note' || name === 'cancel_invoice') && result.creditNote) {
     const n = result.creditNote;
     const head = n.cancels ? `Cancelled ${n.invoiceId} with credit note ${n.id}` : `Credit note ${n.id} for ${money(n.total)} against ${n.invoiceId}`;
     return `${head} (${n.partyName}, ${n.date}).${result.refundDue > 0 ? ` ${money(result.refundDue)} was already received and is now due back to ${n.partyName}.` : ''}`;
+  }
+  if (name === 'gst_payable' && result.data) {
+    return paymentWords(result.data, money, monthWords);
+  }
+  if (name === 'set_gst_credit_opening' && result.opening) {
+    const o = result.opening;
+    return `Recorded the GST credit balance at the start of ${monthWords(o.period)}: IGST ${money(o.igst)}, CGST ${money(o.cgst)}, SGST ${money(o.sgst)}. Set-off from that month on counts it.`;
+  }
+  if (name === 'tds_review_answer' && result.review) {
+    const review = result.review;
+    if (result.approved) return `Approved the ${review.period}${review.kind === 'salary' ? ' salary' : ''} TDS statement. Nothing has been filed. ${review.shortfall > 0 ? `${money(review.shortfall)} is still to deposit before it can be filed.` : 'File it on the TRACES or income-tax portal, or send it to your CA, and record the acknowledgement.'}`;
+    if (result.answer === 'wrong') return 'Noted that it is not right. Fix the entries; the review starts again from that step when the figures change.';
+    const next = review.steps.find((step) => step.id === review.next);
+    return next ? `Confirmed. Next: ${next.title}. Say "review ${review.kind === 'salary' ? 'salary ' : ''}TDS" to see it.` : 'Confirmed.';
+  }
+  if (name === 'pf_ecr' && result.data) {
+    const d = result.data;
+    return `PF file for ${d.month}: ${d.members === 1 ? '1 member' : `${d.members} members`}, remittance ${money(d.totals.remittance)} (employee share ${money(d.totals.employeeShare)}, pension ${money(d.totals.pensionShare)}, employer PF ${money(d.totals.employerEpfShare)}, EDLI ${money(d.totals.edli)}, administrative charge ${money(d.totals.adminCharge)}). Saved as ${d.fileName} from the payroll screen.${d.missingUan.length ? ` No UAN for ${d.missingUan.join(', ')}; add it before uploading.` : ''}`;
+  }
+  if (name === 'esi_return' && result.data) {
+    const d = result.data;
+    return `ESI file for ${d.month}: ${d.members === 1 ? '1 member' : `${d.members} members`}, wages ${money(d.totals.wages)}, remittance ${money(d.totals.remittance)} (employees ${money(d.totals.employeeContribution)}, employer ${money(d.totals.employerContribution)}). Saved as ${d.fileName} from the payroll screen.${d.missingIp.length ? ` No insurance number for ${d.missingIp.join(', ')}; add it before uploading.` : ''}`;
+  }
+  if (name === 'tds_return' && result.data) {
+    const d = result.data;
+    if (d.empty) return `Nothing was deducted in ${d.quarter}${d.kind === 'salary' ? ' on salaries' : ''}.`;
+    const rows = d.sections.map((s) => `· ${s.section}: ${s.deductees === 1 ? '1 deductee' : `${s.deductees} deductees`}, ${money(s.tds)}`).join('\n');
+    return `TDS statement for ${d.kindLabel} for ${d.quarter}${d.form ? ` (Form ${d.form})` : ''}: deducted ${money(d.deducted)}, deposited ${money(d.deposited)}${d.shortfall > 0 ? `, still to deposit ${money(d.shortfall)}` : ''}.${d.filed ? ` Recorded as filed on ${d.filed.filedOn}, ARN ${d.filed.arn}.` : d.dueDate ? ` Due by ${d.dueDate}.` : ''}\n${rows}\nSay "review TDS" to check it step by step.`;
+  }
+  if (name === 'export_tally' && result.data) {
+    const d = result.data;
+    return `Tally file for ${d.period} is ready: ${d.count === 1 ? '1 voucher' : `${d.count} vouchers`} and ${d.ledgers} ledgers, saved as ${d.fileName} from Taxes. ${d.caveat}`;
+  }
+  if (name === 'set_sales_tax_rate' && result.rate) {
+    return `Recorded sales tax for ${result.rate.name}: ${result.rate.ratePercent}% from ${result.rate.from}.`;
+  }
+  if (name === 'list_sales_tax_rates' && result.data) {
+    const rows = result.data.rates;
+    return rows.length ? `Sales tax rates:\n${rows.map((r) => `· ${r.name} (${r.code}): ${r.ratePercent}% from ${r.from}`).join('\n')}` : 'No sales tax rate is recorded yet. Say, for example, "sales tax rate TX 6.25%".';
+  }
+  if (name === 'set_contractor' && result.vendor) {
+    return `${result.vendor.name} is ${result.vendor.contractor ? 'now a contractor; payments count towards a 1099-NEC' : 'no longer a contractor'}.`;
+  }
+  if (name === 'contractor_payments' && result.data) {
+    const d = result.data;
+    if (!d.contractors.length) return `No supplier is marked as a contractor. Say "<name> is a contractor" to start counting towards 1099s for ${d.year}.`;
+    return `Contractor payments in ${d.year} (1099-NEC at or above ${money(d.threshold)}):\n${d.contractors.map((c) => `· ${c.name}: ${money(c.total)}${c.needs1099 ? ' — needs a 1099-NEC' : ''}${c.needs1099 && !c.w9Received ? ', W-9 missing' : ''}`).join('\n')}${d.notes.length ? `\n${d.notes.join(' ')}` : ''}`;
+  }
+  if (name === 'rules_status' && result.data) return rulesStatusWords(result.data);
+  if (name === 'salary_annexure' && result.data) return annexureWords(result.data, money);
+  if (name === 'export_trial_balance' && result.data) return `Trial balance as of ${result.data.asOf}: ${result.data.accounts === 1 ? '1 account' : `${result.data.accounts} accounts`}, debits ${money(result.data.debit)}, credits ${money(result.data.credit)}${result.data.balanced ? ', ties' : ', does not tie'}. Saved as ${result.data.fileName} from the Taxes screen.`;
+  if (name === 'import_us_invoices' && result.data?.created) return usImportWords(result.data, money);
+  if ((name === 'schedule_c_summary' || name === 'estimated_tax_dates') && result.data) return ownerTaxWords(name, result.data, money);
+  if (name === 'set_withholding' && result.employee) {
+    const e = result.employee;
+    return `Recorded for ${e.name}: federal withholding ${money(e.federalWithholding)} a month${e.stateWithholding > 0 ? `, state ${money(e.stateWithholding)}` : ''}${e.workState ? `, works in ${e.workState}` : ''}.`;
+  }
+  if (name === 'us_payroll_filings' && result.data) {
+    const d = result.data;
+    const rows = d.quarters.filter((q) => q.months > 0).map((q) => `· ${q.quarter}: wages ${money(q.wages)}, federal withholding ${money(q.federalWithholding)}, Social Security tax ${money(q.socialSecurityTax)}, Medicare tax ${money(q.medicareTax)}, total ${money(q.totalTaxes)}${q.dueDate ? `, Form 941 due ${q.dueDate}` : ''}${q.filed ? ' (filed)' : ''}`);
+    return [`Payroll filings for ${d.year}:`, ...(rows.length ? rows : ['· No approved payroll month yet.']), `· W-2s for ${d.w2.length === 1 ? '1 employee' : `${d.w2.length} employees`}${d.w2DueDate ? `, due ${d.w2DueDate}` : ''}; FUTA for the year ${money(d.futa.total)}.`, d.notes.join(' ')].join('\n');
+  }
+  if (name === 'set_sales_tax_nexus' && result.nexus) {
+    return `Recorded: you collect sales tax in ${result.nexus.state} and file ${result.nexus.frequency} from ${result.nexus.from}. Say "sales tax return ${result.nexus.state}" to see a period.`;
+  }
+  if (name === 'list_sales_tax_nexus' && result.data) {
+    const rows = result.data.states;
+    return rows.length ? `You collect sales tax in:\n${rows.map((r) => `· ${r.state}, filed ${r.frequency} from ${r.from}${r.permitNo ? `, permit ${r.permitNo}` : ''}`).join('\n')}` : 'No state is recorded yet. Say, for example, "I collect sales tax in TX, quarterly".';
+  }
+  if ((name === 'sales_tax_return' || name === 'sales_tax_overview') && result.data && name === 'sales_tax_return') {
+    const d = result.data;
+    const head = `Sales tax return ${d.state} for ${d.period} (${d.from} to ${d.to})${d.dueDate ? `, due ${d.dueDate}` : ''}:`;
+    const lines = [
+      `· Gross sales ${money(d.grossSales)} on ${d.invoices === 1 ? '1 invoice' : `${d.invoices} invoices`}`,
+      ...(d.exemptSales > 0 ? [`· Exempt ${money(d.exemptSales)}`] : []),
+      ...(d.nonTaxableSales > 0 ? [`· Non-taxable ${money(d.nonTaxableSales)}`] : []),
+      `· Taxable ${money(d.taxableSales)}`,
+      ...d.byJurisdiction.map((r) => `· ${r.name} (${r.code}) at ${r.ratePercent}%: ${money(r.tax)}`),
+      `· Tax collected ${money(d.taxCollected)}${d.paid > 0 ? `, paid ${money(d.paid)}` : ''}, to pay ${money(d.toPay)}`,
+      d.filed ? `· Filed on ${d.filed.filedOn}, confirmation ${d.filed.confirmation}` : d.approved ? '· Approved, not yet recorded as filed' : '· Not yet reviewed; say "review sales tax ${d.state}"',
+    ];
+    return [head, ...lines, ...(d.notes.length ? [d.notes.join(' ')] : [])].join('\n');
+  }
+  if (name === 'sales_tax_overview' && result.data) {
+    const rows = result.data.states;
+    if (!rows.length) return 'No state is recorded yet. Say, for example, "I collect sales tax in TX, quarterly".';
+    return rows.map((r) => `${r.state} (${r.frequency}): ${r.lastPeriod ? `${r.lastPeriod.period} collected ${money(r.lastPeriod.taxCollected)}, to pay ${money(r.lastPeriod.toPay)}${r.lastPeriod.dueDate ? `, due ${r.lastPeriod.dueDate}` : ''}${r.lastPeriod.filed ? ', filed' : r.lastPeriod.approved ? ', approved' : ''}` : 'no period yet'}${r.overdue ? ' — overdue' : ''}`).join('\n');
+  }
+  if (name === 'sales_tax_review_answer' && result.review) {
+    const review = result.review;
+    if (result.approved) return `Approved the ${review.month} sales tax return. Nothing has been filed. ${review.toPay > 0 ? `${money(review.toPay)} is to pay with it.` : ''}File it on the state portal, or send it to your CPA, and record the confirmation.`;
+    if (result.answer === 'wrong') return 'Noted that it is not right. Fix the entries; the review starts again from that step when the figures change.';
+    const next = review.steps.find((step) => step.id === review.next);
+    return next ? `Confirmed. Next: ${next.title}. Say "review sales tax ${review.state}" to see it.` : 'Confirmed.';
+  }
+  if (name === 'record_sales_tax_payment' && result.payment) {
+    const p = result.payment;
+    return `Recorded ${money(p.amount)} of sales tax paid to ${p.state} for ${p.period} on ${p.date}.${result.left > 0.005 ? ` ${money(result.left)} is still to pay.` : ' Nothing is left to pay for that period.'}`;
+  }
+  if (name === 'record_sales_tax_filing' && result.filing) {
+    const f = result.filing;
+    return `Recorded the ${f.label} for ${f.period} as filed on ${f.filedOn}, confirmation ${f.arn}.${f.late ? ` It was due by ${f.dueDate}.` : ''}`;
+  }
+  if (name === 'set_transport' && result.transport) {
+    return `Recorded transport for ${result.invoiceId}: ${transportWords(result.transport)}.${result.need?.needed ? ` ${result.need.why}` : ''}`;
+  }
+  if (name === 'set_party_address' && result.data?.party) {
+    return `Recorded the address of ${result.data.party.name}: ${result.data.party.address}. It prints on their invoices from now on.`;
+  }
+  if (name === 'eway_bill_status' && result.data) {
+    const s = result.data;
+    return s.ewbNo ? `E-way bill ${s.ewbNo}${s.ewbValidity ? `, valid till ${s.ewbValidity}` : ''}.` : `${s.why}${s.needed && s.transport ? ` Transport: ${transportWords(s.transport)}.` : ''}${s.needed && !s.transport ? ' Say the transport details, for example "transport for INV-0001: vehicle MH12AB1234, 120 km, transporter ABC Logistics".' : ''}`;
+  }
+  if (name === 'set_tds_deductor' && result.tan) {
+    return `Done. This business deducts TDS under TAN ${result.tan}.`;
+  }
+  if (name === 'record_tds_deposit' && result.deposit) {
+    const d = result.deposit;
+    return `Recorded the TDS deposit of ${money(d.amount)} on ${d.date}, challan ${d.challan}.${result.left > 0.005 ? ` ${money(result.left)} is still to deposit.` : ' Nothing is left to deposit.'}`;
+  }
+  if (name === 'tds_summary' && result.data) {
+    const d = result.data;
+    if (!d.deductor) return 'This business is not set up to deduct TDS. Say "we deduct TDS, TAN" followed by your TAN to start.';
+    const months = d.months.map((m) => `· ${m.month}: deducted ${money(m.deducted)}${m.depositBy ? `, deposit by ${m.depositBy}` : ''}`).join('\n');
+    return `TDS deducted ${money(d.deducted)}, deposited ${money(d.deposited)}, still to deposit ${money(d.due)}.${months ? `\n${months}` : ''}`;
+  }
+  if (name === 'payroll_run' && result.data) {
+    if (result.data.country === 'US') return usPayrollWords(result.data, money);
+    return payrollWords(result.data, money);
+  }
+  if (name === 'approve_payroll' && result.run) {
+    const r = result.run;
+    return `Approved payroll for ${r.month}: ${money(r.totals.gross)} gross, ${money(r.totals.net)} net to pay. Nothing is paid yet; say "paid salaries for ${r.period}" once they are.`;
+  }
+  if (name === 'record_salary_payment' && result.paidOn) {
+    return `Recorded ${money(result.amount)} of salaries for ${result.period} paid from ${result.mode === 'cash' ? 'cash' : 'the bank'} on ${result.paidOn}.`;
+  }
+  if (name === 'list_payroll' && result.data) {
+    const rows = result.data.runs;
+    return rows.length
+      ? `Payroll months:\n${rows.map((r) => `· ${r.month}: ${r.employees === 1 ? '1 employee' : `${r.employees} employees`}, gross ${money(r.gross)}, net ${money(r.net)}${r.paidOn ? `, paid ${r.paidOn}` : ', not yet paid'}`).join('\n')}`
+      : 'No payroll has been approved yet. Say "run payroll" to see this month.';
+  }
+  if (name === 'payslip' && result.data) {
+    const p = result.data;
+    return `Payslip for ${p.employee.name}, ${p.month}: gross ${money(p.gross)}, deductions ${money(p.totalDeductions)}, net ${money(p.net)}${p.paidOn ? `, paid on ${p.paidOn}` : ''}.`;
   }
   if (name === 'add_employee' && result.employee) {
     const e = result.employee;
@@ -162,7 +342,7 @@ function fmtToolResult(name, result) {
   }
   if (name === 'create_purchase' && result.invoice) {
     const i = result.invoice;
-    return `Booked ${i.id} from ${i.partyName} for ${money(i.total)}${i.itcEligible === false ? '. The GST on it cannot be claimed, so it is part of the cost.' : `, with ${money(i.cgst + i.sgst + i.igst)} of GST counted as input credit.`}`;
+    return `Booked ${i.id} from ${i.partyName} for ${money(i.total)}${i.itcEligible === false ? '. The GST on it cannot be claimed, so it is part of the cost.' : `, with ${money(i.cgst + i.sgst + i.igst)} of GST counted as input credit.`}${i.tds?.amount ? ` ${money(i.tds.amount)} TDS under ${i.tds.section} is held back, so ${money(i.total - i.tds.amount)} is owed to ${i.partyName}.` : ''}`;
   }
   if (name === 'filing_pack') {
     return `Filing pack ${d.period || ''} for ${d.gstin}. GSTR-1 taxable ${money(d.gstr1?.totalTaxable)}. GST payable ${money(d.payable)}. ${d.caveat}`;
@@ -198,7 +378,7 @@ function fmtToolResult(name, result) {
     return `Audit ${d.summary.flags} flags (high ${d.summary.high} / medium ${d.summary.medium} / low ${d.summary.low}).`;
   }
   if (name === 'import_tally' || name === 'import_bank') {
-    return `${name}: ${d.rows?.length ?? 0} parsed, ${d.ledger?.posted ?? 0} posted to the ledger.`;
+    return `${name === 'import_bank' ? 'Bank statement' : name === 'import_tally' ? 'Tally data' : 'File'} brought in: ${d.rows?.length ?? 0} ${(d.rows?.length ?? 0) === 1 ? 'row' : 'rows'} read, ${d.ledger?.posted ?? 0} posted to your books.`;
   }
   if (name === 'govt_probe') {
     if (d.ok === false) return `Govt probe not run: ${d.error}${d.hint ? `
@@ -376,7 +556,7 @@ function holdForConfirmation(state, plan) {
   const resolved = resolveImportContent(state, plan.name, plan.args);
   if (!resolved.ok) return unreadableFile(resolved.error);
   const schemaCheck = validateAssistantToolCall(plan.name, resolved.args);
-  if (!schemaCheck.ok) return { reply: `I could not take that as it is (${schemaCheck.error}), so nothing was changed.`, tools: [], blocked: true };
+  if (!schemaCheck.ok) return { reply: notAccepted(schemaCheck.error), tools: [], blocked: true };
   const preview = previewOf(state, plan.name, resolved.args);
   if (preview.blockers.length) {
     clearPending(state);
@@ -418,7 +598,7 @@ async function runConfirmation(state, decision) {
   const resolved = resolveImportContent(state, pending.name, pending.args);
   if (!resolved.ok) return unreadableFile(resolved.error);
   const recheck = validateAssistantToolCall(pending.name, resolved.args);
-  if (!recheck.ok) return { reply: `I could not take that as it is (${recheck.error}), so nothing was changed.`, tools: [], blocked: true };
+  if (!recheck.ok) return { reply: notAccepted(recheck.error), tools: [], blocked: true };
   const result = await runPlanned(state, pending.name, resolved.args, pending.clearsPendingFile);
   const out = { reply: fmtToolResult(pending.name, result), tools: [{ name: pending.name, result }], posted: result.ok !== false, confirmed: true };
   state.lastConfirmation = { token: pending.token, tool: pending.name, reply: out.reply, posted: out.posted };
@@ -447,7 +627,7 @@ function discardCore(state) {
 }
 
 async function chatCore(state, message) {
-  const plan = planLocalToolCall(state, message);
+  const plan = planEntryWithTds((text) => planLocalToolCall(state, text), message);
   if (plan.kind === 'reply') return { reply: plan.reply, tools: plan.tools || [], blocked: plan.blocked || false };
 
   if (plan.kind === 'cancel') return discardCore(state);
@@ -457,7 +637,7 @@ async function chatCore(state, message) {
   if (needsConfirmation(plan.name)) return holdForConfirmation(state, plan);
 
   const valid = validateAssistantToolCall(plan.name, plan.args);
-  if (!valid.ok) return { reply: `I could not take that as it is (${valid.error}), so nothing was changed.`, tools: [], blocked: true };
+  if (!valid.ok) return { reply: notAccepted(valid.error), tools: [], blocked: true };
 
   const runArgs = plan.name === 'sandbox_operation' ? { ...plan.args, actorId: 'assistant' } : plan.args;
   const result = await runTool(state, plan.name, runArgs);
@@ -487,10 +667,12 @@ async function chatCore(state, message) {
 }
 
 export function propose(state, name, args = {}) {
+  setCurrentCountry(state);
   return spoken(proposeCore(state, name, args));
 }
 
 export async function confirmPending(state, token) {
+  setCurrentCountry(state);
   return spoken(await confirmCore(state, token));
 }
 
@@ -499,6 +681,7 @@ export function discardPending(state) {
 }
 
 export async function chat(state, message) {
+  setCurrentCountry(state);
   return spoken(await chatCore(state, message));
 }
 

@@ -184,13 +184,14 @@ void main() {
       await tester.scrollUntilVisible(find.textContaining('is left out'), 200);
       expect(
         find.text('IGST ₹0.00 · CGST ₹1,800.00 · SGST ₹1,800.00'),
-        findsOneWidget,
+        findsNWidgets(2),
       );
       expect(
         find.text('INV-0009 is left out: the buyer GSTIN is not valid.'),
         findsOneWidget,
       );
-      expect(find.textContaining('worked out in the return'), findsOneWidget);
+      expect(find.text('To pay in cash'), findsOneWidget);
+      expect(find.text('Due by 20 November 2026.'), findsOneWidget);
 
       await tester.scrollUntilVisible(
         find.widgetWithText(ChoiceChip, 'August 2026'),

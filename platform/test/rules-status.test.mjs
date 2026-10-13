@@ -1,0 +1,55 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { createState } from '../src/store.mjs';
+import { runTool } from '../src/tools.mjs';
+import { chat } from '../src/router.mjs';
+import { rulesStatus, rulesStatusWords } from '../src/rules-status.mjs';
+
+test('the rules status lists every Indian family with what is in force, what ends soon, and that nothing is attested yet', async () => {
+  const state = createState();
+  const out = await runTool(state, 'rules_status', { asOf: '2026-10-13' });
+  assert.equal(out.ok, true, JSON.stringify(out));
+  const d = out.data;
+  assert.equal(d.country, 'IN');
+  assert.equal(d.integrity, 0);
+  assert.deepEqual(d.families.map((f) => f.key), ['gst', 'tds', 'income-tax', 'audit-threshold', 'due-date', 'holiday', 'payroll', 'professional-tax']);
+  assert.equal(d.totals.records, d.families.reduce((sum, f) => sum + f.records, 0));
+  assert.ok(d.totals.records >= 160, `${d.totals.records} records`);
+  assert.equal(d.totals.attested, 0);
+  const holidays = d.families.find((f) => f.key === 'holiday');
+  assert.equal(holidays.coveredUntil, '2026-12-31');
+  assert.deepEqual(holidays.ending.map((row) => row.effectiveTo), ['2026-12-31', '2026-12-31']);
+  assert.equal(holidays.attention, true);
+  const gst = d.families.find((f) => f.key === 'gst');
+  assert.equal(gst.attention, false);
+  assert.deepEqual(gst.gaps, []);
+  assert.ok(gst.watch.length >= 1);
+  const pt = d.families.find((f) => f.key === 'professional-tax');
+  assert.ok(pt.ids >= 14, `${pt.ids} states`);
+  assert.match(d.notes[0], /No rule has been reviewed by your CA yet/);
+  assert.match(d.notes.join(' '), /Gazetted holiday calendar: 2 records end by 2026-12-31 with no successor recorded/);
+  const words = rulesStatusWords(d);
+  assert.match(words, /dated statutory records for India as of 2026-10-13; 0 reviewed by your CA\./);
+  assert.match(words, /Gazetted holiday calendar: 2 in force, latest from 2026-01-01, covered until 2026-12-31 — needs attention/);
+  const later = rulesStatus(state, { asOf: '2026-07-01' });
+  assert.equal(later.data.families.find((f) => f.key === 'holiday').attention, false, 'nothing ends within ninety days of July');
+  const yearEnd = rulesStatus(state, { asOf: '2027-01-15' });
+  assert.deepEqual(yearEnd.data.families.find((f) => f.key === 'holiday').gaps, ['holiday.central-government.compulsory', 'holiday.central-government.delhi']);
+});
+
+test('a US business sees only the US families, and chat answers "rules status" in words', async () => {
+  const state = createState();
+  state.company = { name: 'Maple Street Bakery', country: 'US', gstin: '', state: '' };
+  const out = await runTool(state, 'rules_status', { asOf: '2026-10-13' });
+  assert.deepEqual(out.data.families.map((f) => f.key), ['us-federal', 'us-sales-tax']);
+  assert.equal(out.data.totals.records, 11);
+  assert.match(out.data.notes[0], /US CPA/);
+  const federal = out.data.families[0];
+  assert.equal(federal.inForce, 7);
+  assert.equal(federal.latestFrom, '2026-01-01');
+  const reply = await chat(state, 'rules status');
+  assert.match(reply.reply, /11 dated statutory records for the United States/);
+  assert.match(reply.reply, /State sales tax due dates: 2 in force/);
+  const indian = await chat(createState(), 'are the tax rules up to date?');
+  assert.match(indian.reply, /dated statutory records for India/);
+});

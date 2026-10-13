@@ -13,6 +13,7 @@ import '../widgets.dart';
 import 'ca_screen.dart';
 import 'credit_card.dart';
 import 'filing_screen.dart';
+import 'tds_screen.dart';
 import 'review_screen.dart';
 
 const _heldReasons = {
@@ -34,6 +35,8 @@ class TaxesScreen extends StatefulWidget {
 class _TaxesScreenState extends State<TaxesScreen> {
   Future<Today>? _today;
   Future<List<FiledReturn>>? _filed;
+  Future<TdsSummary?>? _tds;
+  Future<RulesStatus?>? _rules;
   String? _period;
   String _fileNote = '';
   bool _saving = false;
@@ -44,6 +47,57 @@ class _TaxesScreenState extends State<TaxesScreen> {
     super.didChangeDependencies();
     _today ??= loadToday(AppScope.of(context).api);
     _filed ??= _loadFiled();
+    _tds ??= _loadTds();
+    _rules ??= _loadRules();
+  }
+
+  Future<RulesStatus?> _loadRules() async {
+    try {
+      return RulesStatus.fromTool(await AppScope.of(context).api.query('rules_status'));
+    } on MycaApiException {
+      return null;
+    }
+  }
+
+  Future<TdsSummary?> _loadTds() async {
+    try {
+      return TdsSummary.fromTool(
+        await AppScope.of(context).api.query('tds_summary'),
+      );
+    } on MycaApiException {
+      return null;
+    }
+  }
+
+  Future<void> _openTdsReview(TdsQuarter quarter) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ReviewScreen(
+          period: quarter.quarter,
+          tool: 'tds_review',
+          answerTool: 'tds_review_answer',
+          title: quarter.kind == 'salary' ? 'Review the salary TDS statement' : 'Review the TDS statement',
+          extraArgs: quarter.kind == 'salary' ? const {'form': 'salary'} : const {},
+        ),
+      ),
+    );
+    if (!mounted) return;
+    setState(() {
+      _tds = _loadTds();
+    });
+  }
+
+  Future<void> _openTds(TdsSummary summary) async {
+    final state = AppScope.of(context);
+    final done = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (_) => TdsActionScreen(summary: summary)),
+    );
+    if (done != true || !mounted) return;
+    setState(() {
+      _tds = _loadTds();
+    });
+    await state.refresh();
+    await _reload();
   }
 
   Future<List<FiledReturn>> _loadFiled() async {
@@ -58,7 +112,13 @@ class _TaxesScreenState extends State<TaxesScreen> {
 
   Future<void> _recordFiling(List<Deadline> deadlines) async {
     final open = deadlines
-        .where((d) => !d.filed && d.returnType.isNotEmpty && d.daysUntil <= 31)
+        .where(
+          (d) =>
+              !d.filed &&
+              d.returnType.isNotEmpty &&
+              d.returnType != 'TDS_DEPOSIT' &&
+              d.daysUntil <= 31,
+        )
         .toList();
     final done = await Navigator.of(context).push<bool>(
       MaterialPageRoute(builder: (_) => RecordFilingScreen(returns: open)),
@@ -118,22 +178,28 @@ class _TaxesScreenState extends State<TaxesScreen> {
     });
   }
 
-  Future<void> _saveEntries(String period) async {
+  Future<void> _saveEntries(String period, {bool tally = false, bool trialBalance = false}) async {
     final state = AppScope.of(context);
     setState(() => _entriesNote = '');
     var note = '';
     try {
       final data = toolData(
-        await state.api.query('export_entries', {'period': period}),
+        trialBalance
+            ? await state.api.query('export_trial_balance')
+            : await state.api.query(tally ? 'export_tally' : 'export_entries', {'period': period}),
       );
       if (data.isEmpty) {
-        note = 'The entries could not be prepared.';
+        note = trialBalance ? 'The trial balance could not be prepared.' : 'The entries could not be prepared.';
       } else {
         final name = data['fileName'] as String;
-        final count = data['count'] as num;
-        final saved = await state.saveTextFile(name, data['csv'] as String);
+        final count = (trialBalance ? data['accounts'] : data['count']) as num;
+        final saved = await state.saveTextFile(name, data[tally ? 'xml' : 'csv'] as String);
         note = saved
-            ? 'Saved $name with ${count == 1 ? '1 entry' : '$count entries'}. Send it to your CA.'
+            ? trialBalance
+                  ? 'Saved $name with ${count == 1 ? '1 account' : '$count accounts'}${data['balanced'] == false ? ' (it does not tie; ask your CA to look)' : ''}. Send it to your CA.'
+                  : tally
+                  ? 'Saved $name with ${count == 1 ? '1 voucher' : '$count vouchers'}. Import it in Tally (Import Data) or send it to your CA.'
+                  : 'Saved $name with ${count == 1 ? '1 entry' : '$count entries'}. Send it to your CA.'
             : 'Not saved.';
       }
     } on MycaApiException catch (err) {
@@ -326,6 +392,22 @@ class _TaxesScreenState extends State<TaxesScreen> {
                       child: const Text('Save entries for your CA'),
                     ),
                   ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton(
+                      onPressed: () => _saveEntries(gst.period, tally: true),
+                      child: const Text('Save a Tally file'),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton(
+                      onPressed: () => _saveEntries(gst.period, trialBalance: true),
+                      child: const Text('Save the trial balance'),
+                    ),
+                  ),
                   if (_entriesNote.isNotEmpty)
                     Padding(
                       padding: const EdgeInsets.only(top: 8),
@@ -335,6 +417,63 @@ class _TaxesScreenState extends State<TaxesScreen> {
                       ),
                     ),
                 ],
+                FutureBuilder<TdsSummary?>(
+                  future: _tds,
+                  builder: (context, snap) {
+                    final tds = snap.data;
+                    if (tds == null) return const SizedBox.shrink();
+                    return Padding(
+                      padding: const EdgeInsets.only(top: 26),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          const SectionLabel('TDS'),
+                          Panel(
+                            children: [
+                              if (!tds.deductor)
+                                RowCard(
+                                  leading: const TintTile(tint: Tint.taxes, mark: Mark.taxes),
+                                  title: 'Deduct TDS on bills',
+                                  subtitle: 'Add your TAN if you deduct TDS on contractors, fees or rent',
+                                  trailing: const Chevron(),
+                                  onTap: () => _openTds(tds),
+                                )
+                              else ...[
+                                for (final month in tds.months.reversed.take(3))
+                                  RowCard(
+                                    leading: const TintTile(tint: Tint.taxes, mark: Mark.taxes),
+                                    title: '${rupees(month.deducted)} deducted in ${monthLabel(month.month)}',
+                                    subtitle: month.depositBy.isEmpty ? '' : 'Deposit by ${longDate(month.depositBy)}',
+                                  ),
+                                RowCard(
+                                  leading: const TintTile(tint: Tint.taxes, mark: Mark.taxes),
+                                  title: tds.due > 0 ? '${rupees(tds.due)} still to deposit' : 'Nothing left to deposit',
+                                  subtitle: tds.due > 0
+                                      ? 'Record a challan once you have paid it'
+                                      : 'Deducted ${rupees(tds.deducted)}, deposited ${rupees(tds.deposited)}',
+                                  trailing: tds.due > 0 ? const Chevron() : null,
+                                  onTap: tds.due > 0 ? () => _openTds(tds) : null,
+                                ),
+                                for (final quarter in tds.quarters.reversed.take(4))
+                                  RowCard(
+                                    leading: const TintTile(tint: Tint.taxes, mark: Mark.taxes),
+                                    title: '${quarter.kind == 'salary' ? 'Salary TDS statement' : 'TDS statement'} for ${quarter.quarter}',
+                                    subtitle: quarter.filedArn.isNotEmpty
+                                        ? 'Filed, ARN ${quarter.filedArn}'
+                                        : quarter.approved
+                                            ? 'Approved · ${rupees(quarter.deducted)} deducted${quarter.shortfall > 0 ? ', ${rupees(quarter.shortfall)} still to deposit' : ''}'
+                                            : '${rupees(quarter.deducted)} deducted${quarter.dueDate.isEmpty ? '' : ' · due by ${longDate(quarter.dueDate)}'} · review it',
+                                    trailing: const Chevron(),
+                                    onTap: () => _openTdsReview(quarter),
+                                  ),
+                              ],
+                            ],
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
                 const SizedBox(height: 26),
                 const SectionLabel('Filed'),
                 FutureBuilder<List<FiledReturn>>(
@@ -387,6 +526,7 @@ class _TaxesScreenState extends State<TaxesScreen> {
                     ],
                   ),
                 ],
+                if (_rules != null) RulesStatusNote(status: _rules!),
               ],
             ),
           );
@@ -450,11 +590,39 @@ class _PeriodCard extends StatelessWidget {
         _HeadsRow(label: 'Tax on sales', heads: gst.outputTax),
         const SizedBox(height: 10),
         _HeadsRow(label: 'Credit on purchases', heads: gst.inputCredit),
-        const SizedBox(height: 12),
-        Text(
-          'What you pay after credit is set off head by head is worked out in the return, not here.',
-          style: text.bodySmall,
-        ),
+        const SizedBox(height: 14),
+        const Divider(),
+        const SizedBox(height: 10),
+        if (gst.payment case final pay?) ...[
+          _HeadsRow(label: 'To pay in cash', heads: pay.cash),
+          const SizedBox(height: 6),
+          Text(
+            pay.broughtForwardKnown
+                ? 'Credit brought forward ${rupees(pay.broughtForward.total)} · credit used ${rupees(pay.creditUsed)}'
+                : 'Credit used ${rupees(pay.creditUsed)}',
+            style: text.bodySmall?.copyWith(fontFeatures: moneyFigures),
+          ),
+          if (pay.carried.total > 0)
+            Text(
+              'Credit carried forward ${rupees(pay.carried.total)}',
+              style: text.bodySmall?.copyWith(fontFeatures: moneyFigures),
+            ),
+          if (pay.filedArn.isNotEmpty)
+            Text('Filed, ARN ${pay.filedArn}.', style: text.bodySmall)
+          else if (pay.late case final late?)
+            Text(
+              'If paid today, ${late.days} ${late.days == 1 ? 'day' : 'days'} late: interest ${rupees(late.interest)} and late fee ${rupees(late.lateFee)}, ${rupees(late.total)} in all.',
+              style: text.bodyMedium?.copyWith(fontFeatures: moneyFigures),
+            )
+          else if (pay.dueDate.isNotEmpty)
+            Text('Due by ${longDate(pay.dueDate)}.', style: text.bodyMedium),
+          const SizedBox(height: 8),
+          Text(pay.notes.join(' '), style: text.bodySmall),
+        ] else
+          Text(
+            'The amount to pay could not be worked out for this month.',
+            style: text.bodySmall,
+          ),
       ],
     );
   }

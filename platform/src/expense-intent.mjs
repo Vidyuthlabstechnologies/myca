@@ -1,5 +1,6 @@
 import { isNegated, isQuestion, normalizeChat, receiptDate } from './intent.mjs';
 import { localToday } from './dates.mjs';
+import { EXPENSE_HEADS, headByWords } from './expenses.mjs';
 
 const STARTS_AS_EXPENSE = /^(?:i\s+)?(?:paid|spent|expense|expenses|bought)\b/i;
 const EXPENSE_WORDS = /\b(?:paid|spent|expense|expenses)\b/i;
@@ -70,6 +71,45 @@ export function parseExpense(text, today = localToday()) {
   }
   const narration = rest.replace(/[₹,]/g, ' ').replace(FILLER, ' ').replace(/\s+/g, ' ').trim();
   return { ok: true, args: { narration: narration || payee || 'Expense', amount: amounts[0].value, gstRate: gstRate == null ? 0 : gstRate, date, mode, ...(payee ? { payee } : {}), ...(supplierGstin ? { supplierGstin } : {}) }, ratedSaid: gstRate != null };
+}
+
+const RETAG_BY_ID = /^(?:please\s+)?(?:tag|retag|move|put|file|book|change|mark)\s+(EXP-\d{4,})\s+(?:as|to|under|into)\s+(.+?)\s*[.!]?$/i;
+const ID_IS = /^(EXP-\d{4,})\s+(?:is|was|should\s+be|goes\s+under|belongs\s+(?:to|under))\s+(?:not\s+[a-z ]+?[,;]\s*)?(.+?)\s*[.!]?$/i;
+const LAST_WAS = /^(?:no[,.]?\s+)?(?:that|it|this|the\s+last\s+one|that\s+expense|that\s+one)\s+(?:was|is|should\s+be|goes\s+under|belongs\s+(?:to|under))\s+(?:not\s+[a-z ]+?[,;]\s*)?(.+?)\s*[.!]?$/i;
+
+function lastExpenseId(state) {
+  const last = state?.lastConfirmation;
+  if (!last || last.tool !== 'post_expense' || !last.posted) return '';
+  const found = String(last.reply || '').match(/\b(EXP-\d{4,})\b/);
+  return found ? found[1] : '';
+}
+
+function headWords(said) {
+  return String(said || '').replace(/^(?:under|as|to|in)\s+/i, '').replace(/\b(?:expenses?|head|account)\b/gi, ' ').replace(/\s+/g, ' ').trim();
+}
+
+export function planRetagFromChat(state, text) {
+  const raw = normalizeChat(text);
+  if (isQuestion(raw)) return null;
+  let id = '';
+  let said = '';
+  const byId = raw.match(RETAG_BY_ID) || raw.match(ID_IS);
+  if (byId) {
+    id = byId[1].toUpperCase();
+    said = byId[2];
+  } else {
+    const last = raw.match(LAST_WAS);
+    if (!last) return null;
+    said = last[1];
+    if (!/\b(?:rent|salary|salaries|wages|travel|conveyance|electricity|water|phone|telephone|internet|repairs?|maintenance|professional|fees|bank|charges|office|stationery|advertising|marketing|freight|delivery|transport|insurance|software|subscription|packing|food|lunch|dinner|meals?|gifts?|welfare|club|gym|fitness|membership|car|vehicle|personal|household|other)\b/i.test(said)) return null;
+    id = lastExpenseId(state);
+    if (!id) return reply('Say which expense, for example "EXP-0003 is rent". I have changed nothing.');
+  }
+  const head = headByWords(headWords(said));
+  if (!head) {
+    return reply(`I do not have a head called "${said.trim()}". The heads are ${EXPENSE_HEADS.map((item) => item.name).join(', ')}. I have changed nothing.`);
+  }
+  return { kind: 'tool', name: 'set_expense_head', args: { id, head: head.code } };
 }
 
 export function planExpenseFromChat(state, text, today = localToday()) {

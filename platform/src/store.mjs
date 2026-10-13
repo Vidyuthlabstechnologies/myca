@@ -42,6 +42,10 @@ export function createState() {
     expenseTags: {},
     creditNotes: [],
     creditNoteSeq: 0,
+    debitNotes: [],
+    debitNoteSeq: 0,
+    purchaseNotes: [],
+    purchaseNoteSeq: 0,
     gstReviews: {},
     gstr2b: {},
     reminders: [],
@@ -57,6 +61,15 @@ export function createState() {
     supplierReminderSeq: 0,
     employees: [],
     employeeSeq: 0,
+    tdsEntries: [],
+    tdsDeposits: [],
+    gstCreditOpening: null,
+    tdsReviews: {},
+    payrollRuns: {},
+    salesTaxRates: [],
+    salesTaxNexus: [],
+    salesTaxReviews: {},
+    salesTaxPayments: [],
     lockThrough: '',
     integrationConnections: {},
     documents: [],
@@ -98,6 +111,10 @@ export function serialize(state) {
     expenseTags: state.expenseTags || {},
     creditNotes: state.creditNotes || [],
     creditNoteSeq: state.creditNoteSeq || 0,
+    debitNotes: state.debitNotes || [],
+    debitNoteSeq: state.debitNoteSeq || 0,
+    purchaseNotes: state.purchaseNotes || [],
+    purchaseNoteSeq: state.purchaseNoteSeq || 0,
     gstReviews: state.gstReviews || {},
     gstr2b: state.gstr2b || {},
     reminders: state.reminders || [],
@@ -112,6 +129,15 @@ export function serialize(state) {
     supplierReminderSeq: state.supplierReminderSeq || 0,
     employees: state.employees || [],
     employeeSeq: state.employeeSeq || 0,
+    tdsEntries: state.tdsEntries || [],
+    tdsDeposits: state.tdsDeposits || [],
+    gstCreditOpening: state.gstCreditOpening || null,
+    tdsReviews: state.tdsReviews || {},
+    payrollRuns: state.payrollRuns || {},
+    salesTaxRates: state.salesTaxRates || [],
+    salesTaxNexus: state.salesTaxNexus || [],
+    salesTaxReviews: state.salesTaxReviews || {},
+    salesTaxPayments: state.salesTaxPayments || [],
     quoteSeq: state.quoteSeq || 0,
     integrationConnections: normalizeIntegrationConnections(state.integrationConnections),
     documents: state.documents || [],
@@ -234,6 +260,10 @@ export function deserialize(raw) {
   state.expenseTags = raw.expenseTags && typeof raw.expenseTags === 'object' ? raw.expenseTags : {};
   state.creditNotes = Array.isArray(raw.creditNotes) ? raw.creditNotes : [];
   state.creditNoteSeq = raw.creditNoteSeq || 0;
+  state.debitNotes = Array.isArray(raw.debitNotes) ? raw.debitNotes : [];
+  state.debitNoteSeq = raw.debitNoteSeq || 0;
+  state.purchaseNotes = Array.isArray(raw.purchaseNotes) ? raw.purchaseNotes : [];
+  state.purchaseNoteSeq = raw.purchaseNoteSeq || 0;
   state.gstReviews = raw.gstReviews && typeof raw.gstReviews === 'object' ? raw.gstReviews : {};
   state.gstr2b = raw.gstr2b && typeof raw.gstr2b === 'object' ? raw.gstr2b : {};
   state.reminders = Array.isArray(raw.reminders) ? raw.reminders : [];
@@ -248,6 +278,15 @@ export function deserialize(raw) {
   state.supplierReminderSeq = raw.supplierReminderSeq || 0;
   state.employees = Array.isArray(raw.employees) ? raw.employees : [];
   state.employeeSeq = raw.employeeSeq || 0;
+  state.tdsEntries = Array.isArray(raw.tdsEntries) ? raw.tdsEntries : [];
+  state.tdsDeposits = Array.isArray(raw.tdsDeposits) ? raw.tdsDeposits : [];
+  state.gstCreditOpening = raw.gstCreditOpening && typeof raw.gstCreditOpening === 'object' ? raw.gstCreditOpening : null;
+  state.tdsReviews = raw.tdsReviews && typeof raw.tdsReviews === 'object' ? raw.tdsReviews : {};
+  state.payrollRuns = raw.payrollRuns && typeof raw.payrollRuns === 'object' ? raw.payrollRuns : {};
+  state.salesTaxRates = Array.isArray(raw.salesTaxRates) ? raw.salesTaxRates : [];
+  state.salesTaxNexus = Array.isArray(raw.salesTaxNexus) ? raw.salesTaxNexus : [];
+  state.salesTaxReviews = raw.salesTaxReviews && typeof raw.salesTaxReviews === 'object' ? raw.salesTaxReviews : {};
+  state.salesTaxPayments = Array.isArray(raw.salesTaxPayments) ? raw.salesTaxPayments : [];
   state.quoteSeq = raw.quoteSeq || 0;
   // Legacy states embedded raw content in `files`; carry it to a one-shot migration.
   state._legacyFiles = raw.files && typeof raw.files === 'object' ? raw.files : null;

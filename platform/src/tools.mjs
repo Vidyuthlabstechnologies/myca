@@ -13,14 +13,34 @@ import { postExpense, retagExpense, listExpenses, expenseHeads } from './expense
 import { businessSummary } from './business-summary.mjs';
 import { gstr3bFor, periodSummary } from './period-summary.mjs';
 import { createCreditNote, cancelInvoice, creditNotesForPeriod } from './credit-notes.mjs';
+import { createDebitNote, createPurchaseNote, debitNotesForPeriod, purchaseNotesForPeriod } from './debit-notes.mjs';
 import { reviewOf, answerReview } from './gst-review.mjs';
 import { exportEntries } from './entries-export.mjs';
+import { exportTallyXml } from './tally-export.mjs';
 import { import2b, creditAtRisk } from './gstr2b-check.mjs';
 import { booksCheck } from './books-check.mjs';
 import { deadlineRun, filingRows } from './deadline-run.mjs';
 import { listFilings, recordFiling } from './filings.mjs';
 import { draftSupplierReminder, recordSupplierReminder } from './supplier-reminders.mjs';
 import { addEmployee, changeSalary, endEmployment, listEmployees } from './employees.mjs';
+import { payrollFor, approvePayroll, recordSalaryPayment, listPayroll, payslip } from './payroll.mjs';
+import { pfEcr, esiReturn } from './payroll-files.mjs';
+import { countryOf, isCountry, toolServesCountry } from './country.mjs';
+import { createUsInvoice, createUsPurchase, setSalesTaxRate, listSalesTaxRates, setContractor, contractorPayments } from './us-sales.mjs';
+import { rulesStatus } from './rules-status.mjs';
+import { usPayrollFor, approveUsPayroll, listUsPayroll, usPayslip, usPayrollFilings, setWithholding } from './us-payroll.mjs';
+import { scheduleCSummary, estimatedTaxDates } from './us-owner-tax.mjs';
+import { importUsInvoices } from './import-us-books.mjs';
+import { exportTrialBalance } from './trial-balance-export.mjs';
+import { salaryAnnexureII } from './salary-annexure.mjs';
+import { recordSupplierNote } from './supplier-notes.mjs';
+import { setNexus, listNexus, salesTaxReturn, salesTaxReviewOf, answerSalesTaxReview, recordSalesTaxPayment, recordSalesTaxFiling, salesTaxOverview } from './us-sales-tax.mjs';
+import { recordTdsDeposit, setDeductor, tdsSummary } from './tds-deduction.mjs';
+import { paymentFor, setCreditOpening } from './gst-payment.mjs';
+import { tdsReturnDraft } from './tds-return.mjs';
+import { setTransport, recordShare, ewayBillStatus, transportPayload } from './eway-bill.mjs';
+import { ensureParty } from './invoice.mjs';
+import { tdsReviewOf, answerTdsReview } from './tds-review.mjs';
 import { addReminder, completeReminder, listReminders } from './reminders.mjs';
 import { cashForecast, canAfford, setCashBalance } from './cash-forecast.mjs';
 import { setPaymentTerms } from './payment-terms.mjs';
@@ -105,11 +125,22 @@ export const TOOLS = [
   {
     name: 'set_company',
     title: 'Set business profile',
-    description: 'Set this book\'s own business identity (name, GSTIN, PAN, state, FY, address). Affects future postings only; history is untouched.',
-    args: ['name', 'gstin', 'pan', 'state', 'fy', 'address', 'city', 'pin', 'entityType'],
+    description: 'Set this book\'s own business identity (name, GSTIN, PAN, state, FY, address; country and EIN before anything is posted). Affects future postings only; history is untouched.',
+    args: ['name', 'gstin', 'pan', 'state', 'fy', 'address', 'city', 'pin', 'entityType', 'country', 'ein'],
     run: (state, args = {}) => {
       const company = state.company;
       const patch = {};
+      if (args.country != null) {
+        const code = String(args.country).trim().toUpperCase();
+        if (!isCountry(code)) return fail('UNKNOWN_COUNTRY', { country: code });
+        if (code !== countryOf(state) && (state.ledger?.transfers || []).length) return fail('COUNTRY_FIXED', { country: countryOf(state) });
+        patch.country = code;
+      }
+      if (args.ein != null) {
+        const ein = String(args.ein).trim();
+        if (ein && !/^\d{2}-?\d{7}$/.test(ein)) return fail('INVALID_EIN');
+        patch.ein = ein;
+      }
       if (args.name != null) {
         const name = String(args.name).trim();
         if (!name) return fail('COMPANY_NAME_REQUIRED');
@@ -257,6 +288,67 @@ export const TOOLS = [
       const queued = queueNotification(root, built.draft, { createdBy: args.createdBy || 'ca' });
       if (!queued.ok) return fail(queued.error);
       return ok({ message: queued.message, link: shareLink(built.draft), draft: built.draft });
+    },
+  },
+  {
+    name: 'record_share',
+    title: 'Record that an invoice was shared',
+    description: 'Note that the owner handed an invoice or quote to another app to send, or printed it, so the audit log shows who shared what and when. A cancelled share records nothing. MyCA cannot know whether it was delivered.',
+    args: ['invoiceId', 'channel', 'outcome', 'to'],
+    run: (state, args = {}) => recordShare(state, args),
+  },
+  {
+    name: 'set_party_address',
+    title: 'Customer address',
+    description: 'Record a customer\'s address so it prints on their invoices (Rule 46 needs it for a registered buyer and for large sales to an unregistered one).',
+    args: ['partyName', 'partyGstin', 'address'],
+    run: (state, args = {}) => {
+      const name = String(args.partyName || '').trim();
+      const address = String(args.address || '').trim();
+      if (!name) return fail('CUSTOMER_REQUIRED');
+      if (!address) return fail('ADDRESS_REQUIRED');
+      const party = ensureParty(state, { name, gstin: args.partyGstin, address });
+      return ok({ party: { name: party.name, gstin: party.gstin, address: party.address } });
+    },
+  },
+  {
+    name: 'set_transport',
+    title: 'Transport details',
+    description: 'Record how the goods on an invoice move (vehicle, distance, transporter, mode) for the e-way bill. Changes no figure.',
+    args: ['invoiceId', 'vehicleNo', 'distanceKm', 'transporterName', 'transporterId', 'mode', 'docNo'],
+    run: (state, args = {}) => setTransport(state, args),
+  },
+  {
+    name: 'eway_bill_status',
+    title: 'E-way bill status',
+    description: 'Whether an invoice needs an e-way bill under the dated threshold rule, what is still missing (transport details, the IRN), and the number once generated. Read-only.',
+    args: ['invoiceId'],
+    run: (state, args = {}) => {
+      const invoice = (state.invoices || []).find((item) => item.id === String(args.invoiceId || '').trim().toUpperCase());
+      if (!invoice) return fail('INVOICE_NOT_FOUND');
+      return ok(ewayBillStatus(state, invoice));
+    },
+  },
+  {
+    name: 'govt_generate_ewb',
+    title: 'Generate e-way bill',
+    description: 'Generate the e-way bill for an invoice from its IRN and transport details through the action gate (live switch and a matching approval). Refused without transport details or an IRN.',
+    args: ['invoiceId', 'caApprovalId'],
+    run: async (state, args = {}) => {
+      const invoice = (state.invoices || []).find((item) => item.id === String(args.invoiceId || '').trim().toUpperCase());
+      if (!invoice) return fail('INVOICE_NOT_FOUND');
+      const status = ewayBillStatus(state, invoice);
+      if (status.ewbNo) return fail('ALREADY_GENERATED', { ewbNo: status.ewbNo });
+      if (!status.transport) return fail('TRANSPORT_REQUIRED', { hint: status.why });
+      if (!invoice.irn) return fail('IRN_REQUIRED', { hint: 'Generate the e-invoice first; MyCA generates the e-way bill from the IRN.' });
+      const out = await nicActions.generateEwayBill(state, { irn: invoice.irn, transport: transportPayload(status.transport), caApprovalId: args.caApprovalId }, resolveToolActor(args));
+      if (out?.ok && out.data?.EwbNo && !out.mock && !out.dryRunId) {
+        invoice.ewbNo = String(out.data.EwbNo);
+        invoice.ewbDate = out.data.EwbDt || '';
+        invoice.ewbValidity = out.data.Validity || '';
+      }
+      if (!out?.ok) return fail(out?.error || 'EWB_FAILED', { ...out, invoiceId: invoice.id });
+      return ok({ ...out, invoiceId: invoice.id, ewbNo: invoice.ewbNo || '' });
     },
   },
   {
@@ -429,16 +521,16 @@ export const TOOLS = [
   {
     name: 'create_invoice',
     title: 'Create invoice',
-    description: 'Create a GST invoice and post double-entry transfers (AR, sales, GST output). Data entry starts here.',
-    args: ['partyName', 'partyGstin', 'lines', 'date', 'paymentTermsDays'],
-    run: (state, args) => createInvoice(state, args),
+    description: 'Create a tax invoice and post double-entry transfers (AR, sales, tax output). In India GST by rate and place of supply; in the US sales tax from the recorded rate of the jurisdiction given, or exempt with a reason. Data entry starts here.',
+    args: ['partyName', 'partyGstin', 'lines', 'date', 'paymentTermsDays', 'taxJurisdiction', 'taxExempt', 'exemptionReason', 'partyAddress'],
+    run: (state, args) => (countryOf(state) === 'US' ? createUsInvoice(state, args) : createInvoice(state, args)),
   },
   {
     name: 'create_purchase',
     title: 'Record purchase bill',
-    description: 'Book a supplier invoice: purchases + GST input + AP. Feeds GSTR-3B ITC.',
-    args: ['partyName', 'partyGstin', 'lines', 'date', 'supplierInvoiceNo'],
-    run: (state, args) => createPurchase(state, args),
+    description: 'Book a supplier invoice: purchases + AP (with GST input credit in India; in the US any sales tax paid is part of the cost).',
+    args: ['partyName', 'partyGstin', 'lines', 'date', 'supplierInvoiceNo', 'salesTaxPaid'],
+    run: (state, args) => (countryOf(state) === 'US' ? createUsPurchase(state, args) : createPurchase(state, args)),
   },
   {
     name: 'print_invoice',
@@ -467,6 +559,153 @@ export const TOOLS = [
     description: 'Cancel a posted sales invoice by a credit note for its full value; the invoice stays in the journal and the return of its period.',
     args: ['invoiceId', 'date', 'reason'],
     run: (state, args) => cancelInvoice(state, args),
+  },
+  {
+    name: 'create_debit_note',
+    title: 'Debit note',
+    description: 'Increase a posted sales invoice by a debit note (price revised upward, extra charge) with entries that add to sales and output tax; the customer owes that much more. Never edits the invoice.',
+    args: ['invoiceId', 'amount', 'date', 'reason'],
+    run: (state, args) => createDebitNote(state, args),
+  },
+  {
+    name: 'create_purchase_note',
+    title: 'Debit note to a supplier',
+    description: 'Reduce a posted supplier bill by a debit note (goods returned, price reduced) with entries that reverse the purchase and its input credit; you owe the supplier that much less. Never edits the bill.',
+    args: ['billId', 'amount', 'date', 'reason'],
+    run: (state, args) => createPurchaseNote(state, args),
+  },
+  {
+    name: 'record_supplier_debit_note',
+    title: 'Supplier\'s debit note',
+    description: 'Record a debit note the supplier issued that adds to a posted bill (a price increase, extra freight, a short charge): posts the extra purchase and its input credit at the bill\'s rates and you owe the supplier that much more. It is a document of its own with the supplier\'s note number, so it matches GSTR-2B. Never edits the bill.',
+    args: ['billId', 'amount', 'date', 'reason', 'supplierNoteNo'],
+    run: (state, args = {}) => recordSupplierNote(state, args),
+  },
+  {
+    name: 'list_debit_notes',
+    title: 'Debit notes',
+    description: 'Debit notes on sales invoices and debit notes to suppliers, optionally for one month (YYYY-MM). Read-only.',
+    args: ['period'],
+    run: (state, args = {}) => ok({
+      sales: args.period ? debitNotesForPeriod(state, String(args.period)) : state.debitNotes || [],
+      purchases: args.period ? purchaseNotesForPeriod(state, String(args.period)) : state.purchaseNotes || [],
+    }),
+  },
+  {
+    name: 'set_sales_tax_rate',
+    title: 'Sales tax rate',
+    description: 'Record the sales tax rate for a jurisdiction (a state code such as TX, or state-local such as TX-AUSTIN) from a date. MyCA never guesses a rate; invoices to that jurisdiction use the rate in force on their date. US only.',
+    args: ['code', 'name', 'ratePercent', 'from'],
+    run: (state, args = {}) => setSalesTaxRate(state, args),
+  },
+  {
+    name: 'list_sales_tax_rates',
+    title: 'Sales tax rates',
+    description: 'The sales tax jurisdictions recorded and their rate today. US only. Read-only.',
+    run: (state) => listSalesTaxRates(state),
+  },
+  {
+    name: 'set_contractor',
+    title: 'Contractor',
+    description: 'Mark a supplier as a contractor whose payments count towards a 1099-NEC, with the W-9 details kept (name, entity type, last four of the TIN, whether the W-9 was received). US only.',
+    args: ['partyName', 'contractor', 'w9Name', 'entityType', 'tinLast4', 'w9Received'],
+    run: (state, args = {}) => setContractor(state, args),
+  },
+  {
+    name: 'contractor_payments',
+    title: 'Contractor payments and 1099s',
+    description: 'What was paid to each contractor in a calendar year, who is at or above the 1099-NEC threshold from the dated rule, and whose W-9 is missing. US only. Read-only.',
+    args: ['year'],
+    run: (state, args = {}) => contractorPayments(state, args),
+  },
+  {
+    name: 'set_withholding',
+    title: 'Withholding amounts',
+    description: 'Record an employee\'s monthly federal and state income tax withholding as worked out from the W-4 (IRS Tax Withholding Estimator or Publication 15-T) and the work state. MyCA never computes withholding itself. US only. Owner only.',
+    args: ['id', 'federalWithholding', 'stateWithholding', 'workState'],
+    run: (state, args = {}) => setWithholding(state, args),
+  },
+  {
+    name: 'us_payroll_filings',
+    title: 'Form 941 and W-2 drafts',
+    description: 'For a calendar year: each quarter\'s Form 941 figures (wages, federal withholding, Social Security and Medicare wages and tax) with the due date from the dated rule, W-2 totals per employee, and the FUTA total for Form 940. Drafts from approved payroll months; files nothing. US only. Read-only.',
+    args: ['year'],
+    run: (state, args = {}) => usPayrollFilings(state, args),
+  },
+  {
+    name: 'schedule_c_summary',
+    title: 'Schedule C summary',
+    description: 'A calendar year summarised on Schedule C lines for the owner\'s CPA: gross receipts, returns, cost of goods sold, expenses by line with the limits the CPA applies, and the net profit before anything outside the books. US only. Read-only.',
+    args: ['year'],
+    run: (state, args = {}) => scheduleCSummary(state, args),
+  },
+  {
+    name: 'estimated_tax_dates',
+    title: 'Estimated tax dates',
+    description: 'The four federal estimated tax instalment dates for a year from the dated rule, which are past, and which are recorded as paid. The amount is the CPA\'s. US only. Read-only.',
+    args: ['year'],
+    run: (state, args = {}) => estimatedTaxDates(state, args),
+  },
+  {
+    name: 'rules_status',
+    title: 'Statutory rules status',
+    description: 'How current the dated statutory rules are for this business\'s country: per family, records in force today, the latest effective date, what is covered until when, rule ids with nothing in force, records ending soon with no successor, how many a CA or CPA has attested, and the official sources to watch. Read-only.',
+    args: ['asOf', 'country'],
+    run: (state, args = {}) => rulesStatus(state, args),
+  },
+  {
+    name: 'set_sales_tax_nexus',
+    title: 'Sales tax registration',
+    description: 'Record that the business collects sales tax in a state (two-letter code), how often it files there (monthly, quarterly or annual) and from when, with the permit number if wanted. US only.',
+    args: ['state', 'frequency', 'from', 'permitNo'],
+    run: (state, args = {}) => setNexus(state, args),
+  },
+  {
+    name: 'list_sales_tax_nexus',
+    title: 'Sales tax registrations',
+    description: 'The states where the business collects sales tax and how often it files. US only. Read-only.',
+    run: (state) => listNexus(state),
+  },
+  {
+    name: 'sales_tax_return',
+    title: 'Sales tax return',
+    description: 'The sales tax return for one state and period (the latest ended period unless given): gross, exempt, non-taxable and taxable sales, tax collected by jurisdiction, payments made, what is left to pay, the due date from the dated rule where one exists, and whether it is approved or recorded as filed. US only. Read-only.',
+    args: ['state', 'period'],
+    run: (state, args = {}) => salesTaxReturn(state, args),
+  },
+  {
+    name: 'sales_tax_review',
+    title: 'Review the sales tax return',
+    description: 'The steps of the review for one state and period: sales, tax collected, then approval, each asking "Is this information correct?". US only. Read-only.',
+    args: ['state', 'period'],
+    run: (state, args = {}) => salesTaxReviewOf(state, args),
+  },
+  {
+    name: 'sales_tax_review_answer',
+    title: 'Answer a sales tax review step',
+    description: 'Confirm a step of a state sales tax return, mark it wrong with a note, or approve the return. Bound to the draft the owner saw. Files nothing. US only.',
+    args: ['state', 'period', 'step', 'answer', 'draftHash', 'note'],
+    run: (state, args = {}) => answerSalesTaxReview(state, args),
+  },
+  {
+    name: 'record_sales_tax_payment',
+    title: 'Record a sales tax payment',
+    description: 'Record sales tax paid to a state for a period, from the bank or cash, with the reference. Defaults to everything still to pay for that period. US only.',
+    args: ['state', 'period', 'amount', 'date', 'mode', 'reference'],
+    run: (state, args = {}) => recordSalesTaxPayment(state, args),
+  },
+  {
+    name: 'record_sales_tax_filing',
+    title: 'Record a filed sales tax return',
+    description: 'Record that a state sales tax return was filed outside MyCA, with its confirmation number and date. Files nothing. US only.',
+    args: ['state', 'period', 'confirmation', 'filedOn', 'filedBy'],
+    run: (state, args = {}) => recordSalesTaxFiling(state, args),
+  },
+  {
+    name: 'sales_tax_overview',
+    title: 'Sales tax overview',
+    description: 'Every state the business collects sales tax in, with the latest ended period (tax collected, to pay, due date, approved, filed) and the running period. US only. Read-only.',
+    run: (state) => salesTaxOverview(state),
   },
   {
     name: 'list_credit_notes',
@@ -498,14 +737,17 @@ export const TOOLS = [
   },
   {
     name: 'gst_payable',
-    title: 'GST payable',
-    description: 'Net GST liability from the books (output − input).',
-    run: (state) => {
-      const acc = Object.fromEntries(listAccounts(state.ledger).map((a) => [a.code, a]));
-      const output = (acc['2100']?.creditsPosted || 0) + (acc['2101']?.creditsPosted || 0) + (acc['2102']?.creditsPosted || 0);
-      const input = (acc['1200']?.debitsPosted || 0) + (acc['1201']?.debitsPosted || 0) + (acc['1202']?.debitsPosted || 0);
-      return ok({ output, input, payable: Math.round((output - input) * 100) / 100 });
-    },
+    title: 'GST to pay',
+    description: 'For one tax period: input credit (and any credit brought forward) set off against tax on sales head by head in the order the law sets, the cash to pay by head, the credit carried forward, and the interest and late fee if paid after the due date. Read-only.',
+    args: ['period', 'payOn'],
+    run: (state, args = {}) => paymentFor(state, args.period, { payOn: args.payOn }),
+  },
+  {
+    name: 'set_gst_credit_opening',
+    title: 'GST credit balance',
+    description: 'Record the electronic credit ledger balance by head at the start of a month, from the GST portal, so set-off counts credit brought forward from earlier months.',
+    args: ['period', 'igst', 'cgst', 'sgst'],
+    run: (state, args = {}) => setCreditOpening(state, args),
   },
   {
     name: 'prepare_gstr1',
@@ -527,6 +769,7 @@ export const TOOLS = [
     run: (state, args = {}) => {
       const json = invoicesToGstr1Json(state.company, state.invoices || [], args.fp, {
         creditNotes: state.creditNotes || [],
+        debitNotes: state.debitNotes || [],
         grossTurnover: args.grossTurnover,
         currentGrossTurnover: args.currentGrossTurnover,
       });
@@ -549,7 +792,12 @@ export const TOOLS = [
     title: 'GST for one period',
     description: 'For one tax period: tax on sales and input credit by head from the GSTR-3B draft, and what the GSTR-1 file for that period holds. Lists the periods that have documents.',
     args: ['period'],
-    run: (state, args = {}) => periodSummary(state, args.period),
+    run: (state, args = {}) => {
+      const summary = periodSummary(state, args.period);
+      if (!summary.ok) return summary;
+      const payment = paymentFor(state, summary.data.period);
+      return ok({ ...summary.data, payment: payment.ok ? payment.data : null, paymentError: payment.ok ? '' : payment.error });
+    },
   },
   {
     name: 'cash_forecast',
@@ -699,11 +947,24 @@ export const TOOLS = [
     run: (state, args = {}) => creditAtRisk(state, args),
   },
   {
+    name: 'export_trial_balance',
+    title: 'Trial balance for your CA',
+    description: 'The posted trial balance as one CSV: every account with debits, credits and the closing balance on each side, and the totals, which always tie. For a CA or another accounting package. Read-only.',
+    run: (state) => exportTrialBalance(state),
+  },
+  {
     name: 'export_entries',
     title: 'Entries for your CA',
     description: 'One CSV of the month: sales, receipts, credit notes, purchases and expenses with heads and tax by head, for a CA or another accounting package. Read-only.',
     args: ['period'],
     run: (state, args = {}) => exportEntries(state, args),
+  },
+  {
+    name: 'export_tally',
+    title: 'Tally file for your CA',
+    description: 'One Tally import file (XML) of the month: ledger masters, then every sale, receipt, credit and debit note, purchase, payment, expense and TDS deposit as a voucher. Read-only.',
+    args: ['period'],
+    run: (state, args = {}) => exportTallyXml(state, args),
   },
   {
     name: 'gst_review',
@@ -730,17 +991,17 @@ export const TOOLS = [
       const salesText = invoicesToSalesCsv(docs.invoices);
       const inwardText = purchasesToInwardCsv(docs.purchases);
       const filed = filingPrep({ salesText, inwardText, supplierState: state.company.state, fy: state.company.fy });
-      const acc = Object.fromEntries(listAccounts(state.ledger).map((a) => [a.code, a]));
-      const output = (acc['2100']?.creditsPosted || 0) + (acc['2101']?.creditsPosted || 0) + (acc['2102']?.creditsPosted || 0);
-      const input = (acc['1200']?.debitsPosted || 0) + (acc['1201']?.debitsPosted || 0) + (acc['1202']?.debitsPosted || 0);
+      const payment = paymentFor(state, docs.period);
+      if (!payment.ok) return fail(payment.error, payment);
       return ok({
         gstin: state.company.gstin,
         period: docs.period,
         periods: docs.periods,
         gstr1: filed.gstr1,
         gstr3b: filed.gstr3b,
-        payable: Math.round((output - input) * 100) / 100,
-        payableBasis: 'all periods in the ledger, not this return period',
+        payable: payment.data.toPay,
+        payment: payment.data,
+        payableBasis: 'this return period, after input credit and credit brought forward are set off head by head',
         trialBalance: trialBalance(state.ledger),
         caveat: 'Prepared locally. A practising CA must review and file on GSTN. MyCA does not hold DSC; live GSTR APIs need a GSP.',
       });
@@ -1167,6 +1428,19 @@ export const TOOLS = [
     },
   },
   {
+    name: 'import_us_invoices',
+    title: 'Import QuickBooks or Xero invoices',
+    description: 'Parse an invoice export from QuickBooks Online or Xero (CSV) and post each invoice with sales tax from the recorded jurisdiction rate. An invoice whose tax in the file differs from the recorded rate, has no jurisdiction, or has no rate recorded is held back by name. US only.',
+    args: ['csv', 'taxJurisdiction'],
+    run: (state, args = {}) => {
+      if (!args.csv) return fail('csv required');
+      const result = importUsInvoices(state, args);
+      if (!result.ok) return fail(result.error, { parsed: result.parsed });
+      state.imports.push({ source: result.parsed.source, at: new Date().toISOString(), count: result.created.length, skipped: result.skipped.length, heldBack: heldBackFrom(result.skipped.map((s) => ({ voucherNo: s.id, reason: s.reason }))) });
+      return ok(result);
+    },
+  },
+  {
     name: 'import_bank',
     title: 'Import bank statement',
     description: 'Ingest HDFC-style CSV, fixed-width TXT, or matrix bank statement with running-balance tie-out.',
@@ -1354,6 +1628,68 @@ export const TOOLS = [
     },
   },
   {
+    name: 'tds_summary',
+    title: 'TDS',
+    description: 'TDS deducted on bills and expenses, deposited with the government, and still to deposit, by month with the deposit date. Read-only.',
+    run: (state) => tdsSummary(state),
+  },
+  {
+    name: 'set_tds_deductor',
+    title: 'We deduct TDS',
+    description: 'Record that this business deducts TDS, with its TAN. Bills and expenses can then carry a TDS section.',
+    args: ['tan'],
+    run: (state, args = {}) => setDeductor(state, args),
+  },
+  {
+    name: 'record_tds_deposit',
+    title: 'Record a TDS deposit',
+    description: 'Record TDS paid to the government with its challan reference. Defaults to everything still to deposit.',
+    args: ['amount', 'date', 'challan', 'mode'],
+    run: (state, args = {}) => recordTdsDeposit(state, args),
+  },
+  {
+    name: 'tds_return',
+    title: 'Quarterly TDS statement',
+    description: 'Draft of the quarterly TDS statement for payments other than salary (form "other", the default) or for salary (form "salary"): deductees by PAN and section, totals by section, the challans that cover the quarter, what is still to deposit, the due date and any recorded filing. The latest quarter with deductions unless one is given as Q2 2026-27. Read-only.',
+    args: ['quarter', 'form'],
+    run: (state, args = {}) => tdsReturnDraft(state, args.quarter, { form: args.form || 'other' }),
+  },
+  {
+    name: 'tds_review',
+    title: 'Review the TDS statement',
+    description: 'The quarterly TDS statement (non-salary by default, or form "salary") step by step: deductees, challans, then approval, each asking "Is this information correct?". Read-only.',
+    args: ['period', 'form'],
+    run: (state, args = {}) => tdsReviewOf(state, args.period, args.form || 'other'),
+  },
+  {
+    name: 'tds_review_answer',
+    title: 'Answer a TDS review step',
+    description: 'Confirm a step of the quarterly TDS statement, mark it wrong with a note, or approve the statement. Bound to the draft the owner saw. Files nothing.',
+    args: ['period', 'form', 'step', 'answer', 'draftHash', 'note'],
+    run: (state, args = {}) => answerTdsReview(state, args),
+  },
+  {
+    name: 'salary_annexure',
+    title: '24Q Annexure II',
+    description: 'The salary annexure for the year\'s last quarterly statement (Form 24Q Annexure II) from the approved payroll months: each employee\'s gross salary, professional tax, standard deduction, provident fund under 80C for the old regime, total income, tax and TDS deducted, with any shortfall or excess, as rows and a CSV. Exemptions and the employee\'s own declarations are not in it. Owner only. Read-only.',
+    args: ['fy'],
+    run: (state, args = {}) => salaryAnnexureII(state, args),
+  },
+  {
+    name: 'pf_ecr',
+    title: 'PF file (ECR)',
+    description: 'The provident fund ECR text file for an approved payroll month, one line per member in the ECR 2.0 layout, with the remittance total. Owner only. Read-only.',
+    args: ['period'],
+    run: (state, args = {}) => pfEcr(state, args.period),
+  },
+  {
+    name: 'esi_return',
+    title: 'ESI file',
+    description: 'The state insurance monthly contribution file for an approved payroll month, in the columns of the ESIC upload, with the remittance total. Owner only. Read-only.',
+    args: ['period'],
+    run: (state, args = {}) => esiReturn(state, args.period),
+  },
+  {
     name: 'list_employees',
     title: 'Employees',
     description: 'Employees with their monthly pay as it stands today, before any deduction. Owner only. Read-only.',
@@ -1361,10 +1697,44 @@ export const TOOLS = [
     run: (state, args = {}) => listEmployees(state, args),
   },
   {
+    name: 'payroll_run',
+    title: 'Payroll for a month',
+    description: 'Each employee\'s pay for a month with the days worked, provident fund, state insurance, professional tax and salary TDS from the dated rules, the net to pay and the employer\'s contributions. A draft until approved; after approval the figures are the ones posted. Owner only. Read-only.',
+    args: ['period'],
+    run: (state, args = {}) => (countryOf(state) === 'US' ? usPayrollFor(state, args.period) : payrollFor(state, args.period)),
+  },
+  {
+    name: 'approve_payroll',
+    title: 'Approve payroll',
+    description: 'Approve a month\'s payroll: posts salaries, each deduction payable and net salary payable, and records the salary TDS. Pays nothing. Owner only.',
+    args: ['period', 'draftHash'],
+    run: (state, args = {}) => (countryOf(state) === 'US' ? approveUsPayroll(state, args) : approvePayroll(state, args)),
+  },
+  {
+    name: 'record_salary_payment',
+    title: 'Salaries paid',
+    description: 'Record that the net salaries for an approved month were paid from the bank or cash. Owner only.',
+    args: ['period', 'date', 'mode'],
+    run: (state, args = {}) => recordSalaryPayment(state, args),
+  },
+  {
+    name: 'list_payroll',
+    title: 'Payroll months',
+    description: 'Approved payroll months with gross, net, employer cost and whether the salaries were paid. Owner only. Read-only.',
+    run: (state) => (countryOf(state) === 'US' ? listUsPayroll(state) : listPayroll(state)),
+  },
+  {
+    name: 'payslip',
+    title: 'Payslip',
+    description: 'One employee\'s payslip for an approved month, laid out for display or a PDF. Owner only. Read-only.',
+    args: ['period', 'employeeId'],
+    run: (state, args = {}) => (countryOf(state) === 'US' ? usPayslip(state, args) : payslip(state, args)),
+  },
+  {
     name: 'add_employee',
     title: 'Add an employee',
     description: 'Add an employee with a joining date and a monthly salary in parts (for example Basic, HRA). Records only; no payroll is run and no deduction is worked out. Owner only.',
-    args: ['name', 'joinedOn', 'components', 'designation', 'pan', 'uan', 'pfMember', 'esiMember', 'ptState', 'taxRegime'],
+    args: ['name', 'joinedOn', 'components', 'designation', 'pan', 'uan', 'pfMember', 'esiMember', 'ptState', 'taxRegime', 'sex', 'workState', 'federalWithholding', 'stateWithholding'],
     run: (state, args = {}) => addEmployee(state, args),
   },
   {
@@ -1516,6 +1886,8 @@ function withTrustedActor(state, tool, args) {
 export async function runTool(state, name, args = {}) {
   const tool = TOOL_MAP[name];
   if (!tool) return fail(`Unknown tool ${name}`);
+  const country = countryOf(state);
+  if (!toolServesCountry(name, country)) return fail('NOT_FOR_COUNTRY', { tool: name, country });
   try {
     return await tool.run(state, withTrustedActor(state, tool, args || {}));
   } catch (err) {

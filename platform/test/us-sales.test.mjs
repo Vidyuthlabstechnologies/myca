@@ -1,0 +1,132 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { createState, serialize, deserialize } from '../src/store.mjs';
+import { runTool } from '../src/tools.mjs';
+import { chat } from '../src/router.mjs';
+import { previewOf } from '../src/chat-confirm.mjs';
+import { listAccounts, trialBalance } from '../src/ledger.mjs';
+import { planUsFromChat } from '../src/us-intent.mjs';
+import { rules } from '../src/sprint-load.mjs';
+import { localToday } from '../src/dates.mjs';
+
+const acc = (state, code) => listAccounts(state.ledger).find((a) => a.code === code);
+
+async function bakery() {
+  const state = createState();
+  state.company = { name: 'Maple Street Bakery', country: 'US', gstin: '', state: '', pan: '', fy: '', address: '12 Maple St, Austin, TX 78701' };
+  const rate = await runTool(state, 'set_sales_tax_rate', { code: 'tx-austin', name: 'Austin, Texas', ratePercent: 8.25, from: '2026-01-01' });
+  assert.equal(rate.ok, true, JSON.stringify(rate));
+  return state;
+}
+
+test('a US invoice takes sales tax from the recorded jurisdiction rate, posts it as a liability, and refuses to guess', async () => {
+  const state = await bakery();
+  const blocked = previewOf(state, 'create_invoice', { partyName: 'Cafe Luna', lines: [{ description: 'Wedding cake', qty: 1, rate: 500 }], date: '2026-10-10' });
+  assert.match(blocked.blockers[0], /Say which sales tax applies/);
+  const unknown = previewOf(state, 'create_invoice', { partyName: 'Cafe Luna', lines: [{ description: 'Wedding cake', qty: 1, rate: 500 }], date: '2026-10-10', taxJurisdiction: 'CA' });
+  assert.match(unknown.blockers[0], /no sales tax rate recorded for CA/);
+  const preview = previewOf(state, 'create_invoice', { partyName: 'Cafe Luna', lines: [{ description: 'Wedding cake', qty: 1, rate: 500 }, { description: 'Delivery', qty: 1, rate: 40, taxable: false }], date: '2026-10-10', taxJurisdiction: 'TX-AUSTIN' });
+  assert.deepEqual(preview.blockers, []);
+  assert.match(preview.summary, /^Invoice to Cafe Luna dated 2026-10-10: subtotal \$540\.00, sales tax \$41\.25 at 8\.25% \(Austin, Texas\), total \$581\.25\./);
+  const out = await runTool(state, 'create_invoice', { partyName: 'Cafe Luna', lines: [{ description: 'Wedding cake', qty: 1, rate: 500 }, { description: 'Delivery', qty: 1, rate: 40, taxable: false }], date: '2026-10-10', taxJurisdiction: 'TX-AUSTIN' });
+  assert.equal(out.ok, true, JSON.stringify(out));
+  const inv = out.invoice;
+  assert.equal(inv.country, 'US');
+  assert.equal(inv.subtotal, 540);
+  assert.equal(inv.salesTax, 41.25);
+  assert.equal(inv.total, 581.25);
+  assert.equal(inv.lines[1].taxRate, 0);
+  assert.equal(acc(state, '2110').creditsPosted, 41.25);
+  assert.equal(acc(state, '4000').creditsPosted, 540);
+  assert.equal(trialBalance(state.ledger).balanced, true);
+  const exempt = await runTool(state, 'create_invoice', { partyName: 'Church Bazaar', lines: [{ description: 'Cookies', qty: 100, rate: 2 }], date: '2026-10-11', taxExempt: true, exemptionReason: 'Exemption certificate on file' });
+  assert.equal(exempt.ok, true, JSON.stringify(exempt));
+  assert.equal(exempt.invoice.salesTax, 0);
+  assert.equal((await runTool(state, 'create_invoice', { partyName: 'X', lines: [{ description: 'Y', qty: 1, rate: 1 }], taxExempt: true })).error, 'EXEMPTION_REASON_REQUIRED');
+  const doc = await runTool(state, 'invoice_document', { id: inv.id });
+  assert.equal(doc.data.country, 'US');
+  assert.equal(doc.data.salesTax, 41.25);
+  assert.equal(doc.data.taxRate, 8.25);
+  assert.deepEqual(doc.data.missing, [], 'no GSTIN or HSN is expected of a US business');
+  const receipt = await runTool(state, 'record_receipt', { invoiceId: inv.id, amount: 581.25, date: '2026-10-12' });
+  assert.equal(receipt.ok, true, JSON.stringify(receipt));
+  assert.equal(state.invoices[0].status, 'paid');
+  const copy = deserialize(JSON.parse(JSON.stringify(serialize(state))));
+  assert.equal(copy.salesTaxRates.length, 1);
+  assert.equal((await runTool(state, 'gst_payable', {})).error, 'NOT_FOR_COUNTRY');
+});
+
+test('rates are dated per jurisdiction; a later rate applies from its day and earlier invoices keep theirs', async () => {
+  const state = await bakery();
+  await runTool(state, 'set_sales_tax_rate', { code: 'TX-AUSTIN', ratePercent: 8.5, from: '2026-11-01' });
+  const october = await runTool(state, 'create_invoice', { partyName: 'A', lines: [{ description: 'Cake', qty: 1, rate: 100 }], date: '2026-10-05', taxJurisdiction: 'TX-AUSTIN' });
+  const november = await runTool(state, 'create_invoice', { partyName: 'A', lines: [{ description: 'Cake', qty: 1, rate: 100 }], date: '2026-11-05', taxJurisdiction: 'TX-AUSTIN' });
+  assert.equal(october.invoice.salesTax, 8.25);
+  assert.equal(november.invoice.salesTax, 8.5);
+  const list = await runTool(state, 'list_sales_tax_rates', {});
+  assert.equal(list.data.rates[0].history, 2);
+  assert.equal((await runTool(state, 'set_sales_tax_rate', { code: 'texas', ratePercent: 6.25 })).error, 'BAD_JURISDICTION');
+  assert.equal((await runTool(state, 'set_sales_tax_rate', { code: 'TX', ratePercent: 25 })).error, 'BAD_RATE');
+  const indian = createState();
+  assert.equal((await runTool(indian, 'set_sales_tax_rate', { code: 'TX', ratePercent: 6.25 })).error, 'NOT_FOR_COUNTRY', 'an Indian business never sees sales tax');
+});
+
+test('a US bill and expense take no input credit, and contractor payments are counted towards the 1099-NEC threshold from the dated rule', async () => {
+  const state = await bakery();
+  const bill = await runTool(state, 'create_purchase', { partyName: 'Flour Mill Co', lines: [{ description: 'Flour', qty: 10, rate: 30 }], date: '2026-10-02', salesTaxPaid: 24.75, supplierInvoiceNo: 'FM-77' });
+  assert.equal(bill.ok, true, JSON.stringify(bill));
+  assert.equal(bill.invoice.total, 324.75);
+  assert.equal(acc(state, '5000').debitsPosted, 324.75);
+  assert.equal(acc(state, '1200')?.debitsPosted || 0, 0, 'no input credit');
+  const expense = await runTool(state, 'post_expense', { narration: 'Shop rent', payee: 'Maple Realty', amount: 2000, gstRate: 18, supplierGstin: '27AABCT1332L1ZE', date: '2026-10-03' });
+  assert.equal(expense.ok, true, JSON.stringify(expense));
+  assert.equal(expense.expense.inputCredit, false);
+  assert.equal(expense.expense.taxable, 2000);
+  const plumber = await runTool(state, 'create_purchase', { partyName: 'Joe Plumbing', lines: [{ description: 'Repairs', qty: 1, rate: 1500 }], date: '2026-10-04' });
+  assert.equal((await runTool(state, 'record_payment', { billId: plumber.invoice.id, amount: 1500, date: '2026-10-05' })).ok, true);
+  await runTool(state, 'post_expense', { narration: 'Emergency call-out', payee: 'Joe Plumbing', amount: 600, date: '2026-10-06' });
+  const marked = await runTool(state, 'set_contractor', { partyName: 'joe plumbing', entityType: 'sole-proprietor', tinLast4: '1234', w9Received: true });
+  assert.equal(marked.ok, true, JSON.stringify(marked));
+  assert.equal(marked.vendor.name, 'Joe Plumbing');
+  await runTool(state, 'set_contractor', { partyName: 'Flour Mill Co', entityType: 'c-corp' });
+  const report = await runTool(state, 'contractor_payments', { year: '2026' });
+  assert.equal(report.ok, true, JSON.stringify(report));
+  assert.equal(report.data.threshold, 2000);
+  assert.equal(report.data.ruleUsed, 'us.federal.1099-nec.threshold@2026-01-01');
+  const joe = report.data.contractors.find((c) => c.name === 'Joe Plumbing');
+  assert.equal(joe.total, 2100);
+  assert.equal(joe.needs1099, true);
+  assert.equal(report.data.needing1099, 1);
+  assert.deepEqual(report.data.missingW9, []);
+  assert.equal(report.data.contractors.find((c) => c.name === 'Flour Mill Co').needs1099, false, 'corporations are not reported');
+  assert.equal(rules.rule('us.federal.1099-nec.threshold', '2025-06-01').record.value.amountCents, 60000);
+  assert.match(report.data.notes.join(' '), /CPA has not reviewed yet/);
+  const entries = await runTool(state, 'export_entries', { period: '2026-10' });
+  assert.match(entries.data.csv.split(/\r?\n/)[0], /^date,type,number,party,account,description,subtotal,sales_tax,total,paid_by,refers_to$/);
+  assert.match(entries.data.csv, /Purchase,BILL-0001,Flour Mill Co,Purchases,Flour,300,0,324\.75/);
+});
+
+test('chat for a US business: rates, invoices with tax or exempt, bills with tax paid, contractors and the 1099 list', async () => {
+  const state = await bakery();
+  assert.deepEqual(planUsFromChat(state, 'sales tax rate TX 6.25%').name, 'set_sales_tax_rate');
+  assert.deepEqual(planUsFromChat(state, 'sales tax rate TX 6.25%').args, { code: 'TX', ratePercent: 6.25, from: localToday() });
+  const sale = planUsFromChat(state, 'invoice Cafe Luna 500 for wedding cake, tax TX-AUSTIN');
+  assert.equal(sale.name, 'create_invoice');
+  assert.equal(sale.args.taxJurisdiction, 'TX-AUSTIN');
+  assert.equal(sale.args.lines[0].rate, 500);
+  const exempt = planUsFromChat(state, 'invoice Church Bazaar 200 for cookies, tax exempt (resale certificate)');
+  assert.equal(exempt.args.taxExempt, true);
+  assert.equal(exempt.args.exemptionReason, 'resale certificate');
+  assert.match(planUsFromChat(state, 'invoice Cafe Luna 500 for wedding cake').reply, /Say which sales tax applies/);
+  const bill = planUsFromChat(state, 'bill from Flour Mill Co 300 for flour plus tax 24.75');
+  assert.equal(bill.name, 'create_purchase');
+  assert.equal(bill.args.salesTaxPaid, 24.75);
+  assert.deepEqual(planUsFromChat(state, 'Joe Plumbing is a contractor, W-9 received'), { kind: 'tool', name: 'set_contractor', args: { partyName: 'Joe Plumbing', contractor: true, w9Received: true } });
+  assert.equal(planUsFromChat(state, 'who needs a 1099 for 2026?').name, 'contractor_payments');
+  const held = await chat(state, 'invoice Cafe Luna 500 for wedding cake, tax TX-AUSTIN');
+  assert.equal(held.preview?.tool, 'create_invoice', held.reply);
+  assert.match(held.preview.summary, /sales tax \$41\.25 at 8\.25%/);
+  const done = await chat(state, 'yes');
+  assert.match(done.reply, /\$541\.25/);
+  assert.ok(!/₹|GST/.test(done.reply), done.reply);
+});

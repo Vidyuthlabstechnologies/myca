@@ -68,7 +68,7 @@ Percentages are engineering estimates and are tracked in
 | FR-ACC-1 | Every sale, purchase, receipt, payment and expense creates balanced double-entry postings without the owner seeing them. | Built |
 | FR-ACC-2 | The books always tie: total debits equal total credits, verifiable at any time. | Built |
 | FR-ACC-3 | A posted entry is never edited; a correction is a new entry that refers to the old one. | Built |
-| FR-ACC-4 | Credit notes, debit notes and cancelling a posted invoice. | Built for sales: credit notes (partial or full) and cancellation by a full credit note, reported in GSTR-1 (CDNR, CDNUR, or netted in B2CS) and GSTR-3B. Debit notes and purchase-side notes not built |
+| FR-ACC-4 | Credit notes, debit notes and cancelling a posted invoice. | Built: credit notes (partial or full), cancellation by a full credit note, debit notes on sales, and debit notes to suppliers that reverse the purchase and its input credit; all reported in GSTR-1 (C and D rows in CDNR and CDNUR, or netted in B2CS) and GSTR-3B. A supplier's own debit note that increases a bill is not built |
 | FR-ACC-5 | Existing books can be brought in from Tally, Zoho Books or a bank statement. | Built |
 
 ### 5.2 Smart tagging
@@ -78,7 +78,7 @@ Percentages are engineering estimates and are tracked in
 | FR-TAG-1 | Sales, purchases and each GST head are placed under the right account automatically. | Built |
 | FR-TAG-2 | An expense is placed under the right expense head (rent, salary, travel, and so on) from its description or its supplier. | Built: fifteen heads, a word-based tagger that says why; unknown wording goes to Other expenses with a nudge |
 | FR-TAG-3 | The product remembers how a supplier or an item was tagged and reuses it. | Built, per payee and per wording |
-| FR-TAG-4 | The owner can correct a tag in plain words, and the correction is remembered. | Built by tapping (a head picker before or after posting); not yet by typing |
+| FR-TAG-4 | The owner can correct a tag in plain words, and the correction is remembered. | Built: by tapping (a head picker before or after posting) and by typing ("that was rent", "tag EXP-0003 as travel"), previewed first and remembered |
 
 ### 5.3 Invoices, quotes and e-way bills ([feature spec](features/02-invoices-quotes-eway-bills.md))
 
@@ -86,10 +86,10 @@ Percentages are engineering estimates and are tracked in
 |---|---|---|
 | FR-INV-1 | Create a tax invoice from one message, for example "Create an invoice for ABC Ltd for Rs. 50,000 for consulting services." | Built, rule-based |
 | FR-INV-2 | The owner sees the invoice before it is posted and confirms it. | Built |
-| FR-INV-3 | Send the invoice by email or WhatsApp after the owner checks it. | Built in the app through the phone's share sheet; not yet tried on a phone, and a share is not yet audited |
+| FR-INV-3 | Send the invoice by email or WhatsApp after the owner checks it. | Built in the app through the phone's share sheet, with each share or print recorded in the audit log; not yet tried on a phone |
 | FR-INV-4 | Create and send a quote, and turn an accepted quote into an invoice. | Built: quotes priced like invoices, sent as a PDF, marked accepted or declined, and turned into a linked invoice |
-| FR-INV-5 | Generate an e-way bill with the invoice when goods move. | Partly: provider client exists, not in the flow |
-| FR-INV-6 | An invoice the owner can save or print as a PDF. | Built in the app; the invoice has no buyer address, and HSN codes are blank unless entered |
+| FR-INV-5 | Generate an e-way bill with the invoice when goods move. | Mostly: the need is decided from the dated threshold rule, transport details are taken on the invoice, and the request goes through the action gate from the IRN; live generation waits on NIC credentials and the e-invoice |
+| FR-INV-6 | An invoice the owner can save or print as a PDF. | Built in the app, with the buyer's address once recorded; HSN codes are blank unless entered |
 
 ### 5.4 GST returns ([feature spec](features/03-gst-returns.md))
 
@@ -97,7 +97,7 @@ Percentages are engineering estimates and are tracked in
 |---|---|---|
 | FR-GST-1 | Prepare GSTR-1 and GSTR-3B drafts for one tax period from the posted entries. | Built |
 | FR-GST-2 | Walk the owner through the draft in chat: "Is this information correct?", answered by typing or tapping. | Built: held invoices, sales, purchases and credit, then approval; by tapping in the app or typing "review GST" and "yes" in chat. A change to the month voids earlier answers |
-| FR-GST-3 | Show the amount to pay after input credit is set off. | Not built: set-off is not implemented, so the app shows tax and credit separately |
+| FR-GST-3 | Show the amount to pay after input credit is set off. | Built: set off head by head from dated rules, with credit brought forward, interest and late fee; shown in the review, on Taxes and in chat, labelled unreviewed until the CA attests the rules |
 | FR-GST-4 | File through the API only after the owner approves. | Partly: provider adapters behind the action gate, sandbox only |
 | FR-GST-5 | Save the acknowledgement in the chat. | Built for filings made outside MyCA: the owner records the ARN in chat or on Taxes, and the return shows as filed everywhere. Saving the ARN a live filing returns waits for live filing |
 | FR-GST-6 | Export the GSTR-1 file for the GST offline tool. | Built |
@@ -107,17 +107,17 @@ Percentages are engineering estimates and are tracked in
 | ID | Requirement | Status |
 |---|---|---|
 | FR-TDS-1 | Warn when a payment to a supplier crosses a TDS threshold. | Built |
-| FR-TDS-2 | Work out the TDS on a payment and post it. | Not built |
-| FR-TDS-3 | Prepare the quarterly TDS return and take it through the same review and approval as GST. | Partly: file generation is wired to a provider; no draft or review |
+| FR-TDS-2 | Work out the TDS on a payment and post it. | Built for 194A, 194C, 194I and 194J on bills and expenses, from the dated rules (not yet CA-reviewed); payees without PAN at the higher rate; deposits recorded with the challan |
+| FR-TDS-3 | Prepare the quarterly TDS return and take it through the same review and approval as GST. | Built: quarterly draft by deductee, section and challan, reviewed and approved step by step in the app and in chat. File generation and submission through the provider not wired into the flow |
 
 ### 5.6 Payroll ([feature spec](features/05-payroll.md))
 
 | ID | Requirement | Status |
 |---|---|---|
-| FR-PAY-1 | Keep employees and their salary structures. | Built: employees, dated salary history in parts, leaving; owner only. No deduction is worked out |
-| FR-PAY-2 | Run payroll for a month: gross, statutory deductions, net. | Not built |
+| FR-PAY-1 | Keep employees and their salary structures. | Built: employees, dated salary history in parts, fund memberships, state, regime, sex, leaving; owner only |
+| FR-PAY-2 | Run payroll for a month: gross, statutory deductions, net. | Built: a monthly run with PF, ESI, professional tax for fourteen states and salary TDS from dated rules, prorated for joiners and leavers, approved after a preview; payslips; labelled unreviewed until the CA attests the rules |
 | FR-PAY-3 | Pay salaries from the same product. | Not built; needs a payout partner (Q5) |
-| FR-PAY-4 | Post payroll to the books and feed TDS on salary into the TDS return. | Not built |
+| FR-PAY-4 | Post payroll to the books and feed TDS on salary into the TDS return. | Built: approval posts salaries, each payable and the employer contributions; salary TDS feeds the Form 138 statement, drafted and reviewed like the other; the PF ECR and ESI files are produced for each approved month |
 
 ### 5.7 GSTR-2B matching and supplier reminders ([feature spec](features/06-gstr2b-matching-and-reminders.md))
 
@@ -133,7 +133,7 @@ Percentages are engineering estimates and are tracked in
 | ID | Requirement | Status |
 |---|---|---|
 | FR-CA-1 | The owner can invite a CA to the business. | Built |
-| FR-CA-2 | The owner can export the accounting entries for a CA. | Built: one CSV per month of sales, receipts, credit notes, purchases and expenses with heads and tax by head, plus the GSTR-1 file. A Tally-importable file is not built |
+| FR-CA-2 | The owner can export the accounting entries for a CA. | Built: one CSV per month of sales, receipts, notes, purchases and expenses with heads and tax by head, a Tally import file (ledger masters and vouchers) for the month, plus the GSTR-1 file |
 | FR-CA-3 | A sync setting: the CA sees changes in real time or at set intervals. | Built: live, daily, weekly, at month end, or only when the owner shares; a shared view is read-only |
 | FR-CA-4 | The owner can remove a CA's access at any time. | Built |
 
@@ -144,7 +144,7 @@ Percentages are engineering estimates and are tracked in
 | FR-UI-1 | Chat is the main screen. | Built |
 | FR-UI-2 | Chats are grouped by transaction type, one chat per customer or supplier. | Built: sales and purchases by party, expenses by head |
 | FR-UI-3 | A single "one-chat" entry point that takes any message. | Built, rule-based |
-| FR-UI-4 | A dashboard showing sales, purchases, taxes and payroll at a glance. | Partly: taxes, and this month against last month for sales (net of credit notes), purchases and expenses, plus what customers owe and what is owed to suppliers. Payroll waits for payroll |
+| FR-UI-4 | A dashboard showing sales, purchases, taxes and payroll at a glance. | Built: taxes, and this month against last month for sales (net of notes), purchases, expenses and approved payroll (owner only), plus what customers owe and what is owed to suppliers |
 | FR-UI-5 | The owner can ask a doubt in plain words and get a plain answer. | Partly: fixed questions only |
 
 ### 5.10 Reading documents ([feature spec](features/09-document-capture-and-pos.md))

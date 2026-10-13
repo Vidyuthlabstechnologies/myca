@@ -59,9 +59,8 @@ the hosted API (`propose`, `confirm`, `discard`).
 
 - Chat comes first: a "Tell or ask MyCA anything" bar under the business name opens
   Ask with the message already sent. Ask's starting suggestions are owner questions
-  (who owes me, who do I owe, cash forecast, reminders, deadlines). "What is my GST
-  payable" was removed: it answered with output tax less input credit, an amount to pay
-  the product deliberately does not show until set-off is built.
+  (who owes me, who do I owe, cash forecast, reminders, deadlines). "How much GST do I
+  pay" answers with the cash to pay after head-by-head set-off ([spec 03](03-gst-returns.md)).
 - Below the taxes card and the month's figures, two groups: Your books (sales,
   purchases, expenses, employees) and Money and follow-up (cash, your CA, reminders,
   books check). Employees has its own mark.
@@ -90,8 +89,10 @@ the hosted API (`propose`, `confirm`, `discard`).
 - Amounts read the Indian way: ₹42,000, ₹3.78 L, ₹1.23 cr.
 - What the owner owes suppliers, in total and the largest five, net of payments recorded
   against bills. A bill paid outside MyCA shows as owed until its payment is recorded.
-- Taxes: as on the Taxes screen. No "amount to pay" until set-off exists
+- Taxes: as on the Taxes screen, with the cash to pay after set-off
   ([spec 03](03-gst-returns.md)).
+- Paid staff: this month's approved payroll against last month's, shown to the owner
+  only once a month has been approved; it opens Employees ([spec 05](05-payroll.md)).
 - Payroll: after [spec 05](05-payroll.md).
 - On a phone the dashboard is the top of Home; on a wide screen it sits beside the
   chat, as the owner's PRD describes.
@@ -135,8 +136,8 @@ the hosted API (`propose`, `confirm`, `discard`).
 - The next days (30 by default): open invoices expected on each customer's usual
   paying time (the median of their paid invoices), else assumed 30 days; recent bills
   assumed paid 30 days after the bill date; GST on the GSTR-3B due date the deadline
-  engine gives, as tax on sales less input credit, labelled an estimate before
-  head-by-head set-off; usual expenses averaged over the last three months and spread
+  engine gives, as the cash to pay after head-by-head set-off (not checked against
+  GSTR-2B); usual expenses averaged over the last three months and spread
   over the days. Every row carries its basis. Overdue invoices are listed but not
   counted.
 - "Can I afford it" takes an amount and a day and answers yes, tight or no from the

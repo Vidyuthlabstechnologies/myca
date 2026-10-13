@@ -2,6 +2,9 @@ import { createAccounts, createTransfers, listAccounts, paise } from './ledger.m
 import { gstSplit, partyStateOf } from './chart.mjs';
 import { postingDate } from './dates.mjs';
 import { isPeriodLocked } from './period-lock.mjs';
+import { planTds, recordTdsEntry, tdsPayableAccountId, wantsTds } from './tds-deduction.mjs';
+import { rules } from './sprint-load.mjs';
+import { countryOf } from './country.mjs';
 
 export const GENERAL_HEAD = '5100';
 
@@ -21,12 +24,40 @@ export const EXPENSE_HEADS = [
   { code: '5220', name: 'Insurance', keywords: ['insurance', 'premium', 'policy', 'mediclaim', 'lic'] },
   { code: '5230', name: 'Software and subscriptions', keywords: ['software', 'subscription', 'subscriptions', 'saas', 'licence', 'license', 'tally', 'zoho', 'hosting', 'domain', 'google workspace', 'microsoft 365', 'office 365', 'canva', 'app'] },
   { code: '5240', name: 'Packing material', keywords: ['packing', 'packaging', 'cartons', 'carton', 'boxes', 'bubble wrap', 'tape', 'labels', 'polybags', 'poly bags'] },
+  { code: '5250', name: 'Food and refreshments', blocked: 'food-beverages-catering-beauty-health', keywords: ['food', 'lunch', 'dinner', 'breakfast', 'meals', 'meal', 'restaurant', 'hotel bill', 'swiggy', 'zomato', 'catering', 'caterer', 'canteen', 'sweets', 'refreshments', 'beverages', 'cold drinks', 'juice', 'pizza', 'biryani'] },
+  { code: '5260', name: 'Staff welfare and gifts', blocked: 'gifts-free-samples-lost-stolen', keywords: ['gift', 'gifts', 'diwali gift', 'diwali gifts', 'free samples', 'free sample', 'samples', 'staff welfare', 'staff party', 'farewell', 'vouchers', 'sweets box'] },
+  { code: '5270', name: 'Club and fitness memberships', blocked: 'club-health-fitness-membership', keywords: ['club', 'gym', 'fitness', 'membership', 'health club', 'cult fit', 'cultfit', 'golf', 'swimming pool'] },
+  { code: '5280', name: 'Car running and insurance', blocked: 'motor-vehicle-services-insurance-repair', keywords: ['car service', 'car servicing', 'car insurance', 'car repair', 'car repairs', 'car wash', 'car maintenance', 'bike insurance', 'scooter service', 'two wheeler insurance', 'vehicle insurance', 'motor insurance'] },
+  { code: '5290', name: 'Personal and household', blocked: 'personal-consumption', keywords: ['personal', 'household', 'home expenses', 'family', 'school fees', 'groceries', 'grocery', 'personal use', 'own use', 'drawings'] },
 ];
 
 const HEAD_BY_CODE = new Map(EXPENSE_HEADS.map((head) => [head.code, head]));
 
 export function expenseHeads() {
-  return EXPENSE_HEADS.map(({ code, name }) => ({ code, name }));
+  return EXPENSE_HEADS.map(({ code, name, blocked }) => ({ code, name, ...(blocked ? { blockedCredit: true } : {}) }));
+}
+
+export function blockedCreditFor(head, date) {
+  const category = typeof head === 'string' ? head : head?.blocked;
+  if (!category) return { blocked: false };
+  const found = rules.rule('gst.itc.blocked', date);
+  if (!found.ok) return { blocked: false, error: 'GST_RULE_MISSING', ruleId: 'gst.itc.blocked' };
+  const clause = found.record.value[category];
+  if (!clause) return { blocked: false, ruleUsed: `${found.record.id}@${found.record.effectiveFrom}` };
+  return { blocked: true, category, clause, section: `${found.record.act} Act s.${clause}`, ruleUsed: `${found.record.id}@${found.record.effectiveFrom}`, attested: (found.record.attestations || []).length > 0 };
+}
+
+export function headByWords(text) {
+  const key = tagKey(text);
+  if (!key) return null;
+  const exact = EXPENSE_HEADS.find((head) => tagKey(head.name) === key);
+  if (exact) return exact;
+  const starts = EXPENSE_HEADS.filter((head) => tagKey(head.name).startsWith(key) || tagKey(head.name).split(' and ').some((part) => part.trim() === key));
+  if (starts.length === 1) return starts[0];
+  const byKeyword = keywordHead(text);
+  if (byKeyword) return byKeyword;
+  const contains = EXPENSE_HEADS.filter((head) => ` ${tagKey(head.name)} `.includes(` ${key} `));
+  return contains.length === 1 ? contains[0] : null;
 }
 
 export function headNamed(code) {
@@ -102,13 +133,14 @@ export function planExpense(state, args = {}) {
   if (isPeriodLocked(state, date)) return { ok: false, error: 'PERIOD_LOCKED', date, lockThrough: state.lockThrough };
   const amount = Math.round(Number(args.amount) * 100) / 100;
   if (!Number.isFinite(amount) || amount <= 0) return { ok: false, error: 'BAD_AMOUNT' };
-  const gstRate = args.gstRate == null || args.gstRate === '' ? 0 : Number(args.gstRate);
+  const us = countryOf(state) === 'US';
+  const gstRate = us || args.gstRate == null || args.gstRate === '' ? 0 : Number(args.gstRate);
   if (!Number.isFinite(gstRate) || gstRate < 0 || gstRate > 28) return { ok: false, error: 'BAD_RATE' };
   const mode = args.mode == null || args.mode === '' ? 'bank' : String(args.mode).toLowerCase();
   if (mode !== 'bank' && mode !== 'cash') return { ok: false, error: 'BAD_MODE' };
   const description = String(args.narration ?? args.description ?? '').trim();
   const payee = String(args.payee ?? '').trim();
-  const supplierGstin = String(args.supplierGstin ?? '').trim().toUpperCase();
+  const supplierGstin = us ? '' : String(args.supplierGstin ?? '').trim().toUpperCase();
   if (supplierGstin && !GSTIN_SHAPE.test(supplierGstin)) return { ok: false, error: 'BAD_GSTIN' };
   const chosen = args.head == null || args.head === '' ? null : headNamed(args.head);
   if (args.head != null && args.head !== '' && !chosen) return { ok: false, error: 'UNKNOWN_HEAD', head: args.head };
@@ -128,7 +160,11 @@ export function planExpense(state, args = {}) {
   let igst = 0;
   let inputCredit = false;
   let creditNote = '';
-  if (gstRate > 0 && supplierGstin) {
+  const blocked = blockedCreditFor(headNamed(tag.head), date);
+  if (blocked.error) return { ok: false, error: blocked.error, ruleId: blocked.ruleId };
+  if (gstRate > 0 && supplierGstin && blocked.blocked) {
+    creditNote = `GST ${gstRate}% is inside the amount, but input credit on ${tag.headName.toLowerCase()} is blocked (${blocked.section}), so the whole amount is cost.${blocked.attested ? '' : ' That rule has not been reviewed by your CA yet.'}`;
+  } else if (gstRate > 0 && supplierGstin) {
     const taxablePaise = Math.round((amountPaise * 100) / (100 + gstRate));
     taxable = taxablePaise / 100;
     const split = gstSplit({ taxable, rate: gstRate, supplierState: partyStateOf(supplierGstin), partyState: (state.company || {}).state });
@@ -144,11 +180,17 @@ export function planExpense(state, args = {}) {
   } else if (gstRate > 0) {
     creditNote = `GST ${gstRate}% is inside the amount, but without the supplier's GSTIN no input credit is taken; the whole amount is cost.`;
   } else {
-    creditNote = 'No GST separated.';
+    creditNote = us ? 'Any sales tax paid is part of the cost; there is no input credit.' : 'No GST separated.';
+  }
+  let tds = null;
+  if (wantsTds(args)) {
+    const planned = planTds(state, args, { date, basis: taxable, payable: amount, payee: payee || description || 'the payee', beforeGst: inputCredit });
+    if (!planned.ok) return planned;
+    tds = planned.tds;
   }
   return {
     ok: true,
-    plan: { date, amount, gstRate, mode, description, payee, supplierGstin, tag, taxable, cgst, sgst, igst, inputCredit, creditNote },
+    plan: { date, amount, gstRate, mode, description, payee, supplierGstin, tag, taxable, cgst, sgst, igst, inputCredit, creditNote, tds, blockedCredit: blocked.blocked ? { category: blocked.category, section: blocked.section, ruleUsed: blocked.ruleUsed } : null },
   };
 }
 
@@ -186,6 +228,7 @@ export function postExpense(state, args = {}) {
   if (plan.cgst > 0) transfers.push({ id: nextTransferId(state), debitAccountId: 1200, creditAccountId: paidFrom, amount: paise(plan.cgst), code: 'ITC-CGST', userData: plan.date, invoiceId: id });
   if (plan.sgst > 0) transfers.push({ id: nextTransferId(state), debitAccountId: 1201, creditAccountId: paidFrom, amount: paise(plan.sgst), code: 'ITC-SGST', userData: plan.date, invoiceId: id });
   if (plan.igst > 0) transfers.push({ id: nextTransferId(state), debitAccountId: 1202, creditAccountId: paidFrom, amount: paise(plan.igst), code: 'ITC-IGST', userData: plan.date, invoiceId: id });
+  if (plan.tds && plan.tds.tds > 0) transfers.push({ id: nextTransferId(state), debitAccountId: paidFrom, creditAccountId: tdsPayableAccountId(), amount: paise(plan.tds.tds), code: `TDS-${plan.tds.section}`, userData: plan.date, invoiceId: id });
   const posted = createTransfers(state.ledger, transfers);
   if (posted.some((result) => !result.ok)) {
     state.transferSeq = seqBefore;
@@ -208,9 +251,12 @@ export function postExpense(state, args = {}) {
     sgst: plan.sgst,
     igst: plan.igst,
     inputCredit: plan.inputCredit,
+    ...(plan.blockedCredit ? { blockedCredit: plan.blockedCredit } : {}),
+    ...(plan.tds ? { tds: { section: plan.tds.section, rate: plan.tds.rate, basis: plan.tds.basis, amount: plan.tds.tds, pan: plan.tds.pan } } : {}),
     tag: { source: plan.tag.source, why: plan.tag.why },
     transferIds: posted.map((result) => result.id),
   };
+  if (plan.tds) recordTdsEntry(state, plan.tds, id);
   state.expenses = state.expenses || [];
   state.expenses.push(expense);
   if (plan.tag.source === 'chosen') rememberExpenseTag(state, plan, plan.tag.head);

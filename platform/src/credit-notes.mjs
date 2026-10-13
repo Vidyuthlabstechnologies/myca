@@ -29,8 +29,12 @@ export function receivedAgainst(invoice) {
   return round2((invoice.receipts || []).reduce((sum, receipt) => sum + Number(receipt.amount || 0), 0));
 }
 
+export function debitedAgainst(state, invoiceId) {
+  return round2((state.debitNotes || []).filter((note) => note.invoiceId === invoiceId).reduce((sum, note) => sum + Number(note.total || 0), 0));
+}
+
 export function outstandingOf(state, invoice) {
-  return round2(Number(invoice.total || 0) - receivedAgainst(invoice) - creditedAgainst(state, invoice.id));
+  return round2(Number(invoice.total || 0) + debitedAgainst(state, invoice.id) - receivedAgainst(invoice) - creditedAgainst(state, invoice.id));
 }
 
 function scaledLines(invoice, fraction, company) {

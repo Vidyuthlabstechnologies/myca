@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'format.dart';
 
 import 'package:flutter/widgets.dart';
 
@@ -86,6 +87,7 @@ class AppState extends ChangeNotifier {
     notifyListeners();
     try {
       snapshot = await api.snapshot();
+      moneyCountry = snapshot?.company.country ?? 'IN';
       _sendCrashReports();
     } on SignedOutException {
       snapshot = null;

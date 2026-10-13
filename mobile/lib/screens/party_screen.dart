@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'tds_fields.dart';
 import '../api/models.dart';
 import '../api/myca_api.dart';
 import '../app_state.dart';
@@ -37,6 +38,12 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
   final _rate = TextEditingController();
   final _what = TextEditingController();
   final _billNo = TextEditingController();
+  final _jurisdiction = TextEditingController();
+  final _exemptionReason = TextEditingController();
+  final _taxPaid = TextEditingController();
+  final _tds = TdsChoice();
+  bool _exempt = false;
+  List<SalesTaxRate> _salesTaxRates = const [];
   late _Composer _composer = widget.openComposer
       ? _Composer.document
       : _Composer.none;
@@ -47,8 +54,22 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
 
   bool get _sales => widget.kind == RegisterKind.sales;
 
+  bool get _us => (AppScope.of(context).snapshot?.company.country ?? 'IN') == 'US';
+
   @override
   MycaApi get api => AppScope.of(context).api;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_us && _sales && _salesTaxRates.isEmpty) _loadSalesTaxRates();
+  }
+
+  Future<void> _loadSalesTaxRates() async {
+    final rates = SalesTaxRate.listFromTool(await api.query('list_sales_tax_rates'));
+    if (!mounted) return;
+    setState(() => _salesTaxRates = rates);
+  }
 
   @override
   Future<void> onPosted() async {
@@ -78,6 +99,10 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
     _rate.dispose();
     _what.dispose();
     _billNo.dispose();
+    _jurisdiction.dispose();
+    _exemptionReason.dispose();
+    _taxPaid.dispose();
+    _tds.dispose();
     super.dispose();
   }
 
@@ -91,8 +116,58 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
     }
   });
 
+  Future<void> _submitUsDocument(num? amount) async {
+    if (amount == null) {
+      return setState(() => _formError = 'Enter the amount before sales tax.');
+    }
+    if (_sales && !_exempt && _jurisdiction.text.trim().isEmpty) {
+      return setState(() => _formError = 'Say which sales tax applies, for example TX or TX-AUSTIN, or mark the sale exempt. No rate is ever guessed.');
+    }
+    if (_sales && _exempt && _exemptionReason.text.trim().isEmpty) {
+      return setState(() => _formError = 'Say why this sale is exempt, for example a resale certificate on file.');
+    }
+    final taxPaid = _taxPaid.text.trim().isEmpty ? 0 : parseAmount(_taxPaid.text);
+    if (!_sales && taxPaid == null) {
+      return setState(() => _formError = 'Enter the sales tax paid as an amount, or leave it blank.');
+    }
+    setState(() => _composer = _Composer.none);
+    if (_sales) {
+      await propose(
+        _exempt
+            ? 'Sale: ${rupees(amount)}, exempt from sales tax'
+            : 'Sale: ${rupees(amount)} + sales tax (${_jurisdiction.text.trim().toUpperCase()})',
+        'create_invoice',
+        usSaleArgs(
+          partyName: widget.partyName,
+          description: _what.text,
+          amount: amount,
+          taxJurisdiction: _jurisdiction.text,
+          taxExempt: _exempt,
+          exemptionReason: _exemptionReason.text,
+        ),
+      );
+    } else {
+      await propose(
+        'Bill: ${rupees(amount)}${taxPaid! > 0 ? ' + ${rupees(taxPaid)} sales tax' : ''}',
+        'create_purchase',
+        usBillArgs(
+          partyName: widget.partyName,
+          description: _what.text,
+          amount: amount,
+          salesTaxPaid: taxPaid,
+          supplierInvoiceNo: _billNo.text,
+        ),
+      );
+    }
+    _billNo.clear();
+    _taxPaid.clear();
+    _exemptionReason.clear();
+    setState(() => _exempt = false);
+  }
+
   Future<void> _submitDocument() async {
     final amount = parseAmount(_amount.text);
+    if (_us) return _submitUsDocument(amount);
     final rate = parseRate(_rate.text);
     if (amount == null) {
       return setState(() => _formError = 'Enter the amount before GST.');
@@ -103,21 +178,27 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
             'Enter the GST rate, for example 5 or 18. Use 0 if there is none.',
       );
     }
+    final tdsProblem = _sales ? null : _tds.problem();
+    if (tdsProblem != null) return setState(() => _formError = tdsProblem);
     setState(() => _composer = _Composer.none);
     final what = _sales ? 'Sale' : 'Bill';
     await propose(
-      '$what: ${rupees(amount)} + GST at ${rateLabel(rate)}%',
+      '$what: ${rupees(amount)} + GST at ${rateLabel(rate)}%${!_sales && _tds.chosen ? ', TDS ${_tds.option.section}' : ''}',
       _sales ? 'create_invoice' : 'create_purchase',
-      documentArgs(
-        partyName: widget.partyName,
-        partyGstin: widget.partyGstin,
-        description: _what.text,
-        amount: amount,
-        gstRate: rate,
-        supplierInvoiceNo: _sales ? '' : _billNo.text,
-      ),
+      {
+        ...documentArgs(
+          partyName: widget.partyName,
+          partyGstin: widget.partyGstin,
+          description: _what.text,
+          amount: amount,
+          gstRate: rate,
+          supplierInvoiceNo: _sales ? '' : _billNo.text,
+        ),
+        if (!_sales) ..._tds.args(),
+      },
     );
     _billNo.clear();
+    _tds.reset();
   }
 
   Future<void> _submitQuote() async {
@@ -439,7 +520,7 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
                   : null,
               onDocument: () => _open(_Composer.document, party),
               onPayment: () => _open(_Composer.payment, party),
-              onQuote: _sales ? () => _open(_Composer.quote, party) : null,
+              onQuote: _sales && !_us ? () => _open(_Composer.quote, party) : null,
               onTerms: _sales ? () => _setTerms(party) : null,
             )
           else
@@ -465,7 +546,105 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
     );
   }
 
+  List<Widget> _usDocumentFields() => [
+    if (!_sales) ...[
+      TextField(
+        controller: _billNo,
+        textCapitalization: TextCapitalization.characters,
+        maxLength: 16,
+        decoration: const InputDecoration(
+          labelText: 'Supplier\'s bill number',
+          helperText: 'As printed on the bill.',
+          counterText: '',
+        ),
+      ),
+      const SizedBox(height: 10),
+    ],
+    TextField(
+      controller: _amount,
+      autofocus: true,
+      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+      textInputAction: TextInputAction.next,
+      decoration: const InputDecoration(
+        labelText: 'Amount before sales tax',
+        prefixText: '\$ ',
+      ),
+    ),
+    const SizedBox(height: 10),
+    if (_sales) ...[
+      Row(
+        children: [
+          const Expanded(child: Text('Exempt from sales tax')),
+          Switch(
+            value: _exempt,
+            onChanged: (value) => setState(() => _exempt = value),
+          ),
+        ],
+      ),
+      if (_exempt)
+        TextField(
+          controller: _exemptionReason,
+          textCapitalization: TextCapitalization.sentences,
+          decoration: const InputDecoration(
+            labelText: 'Why it is exempt',
+            helperText: 'For example a resale certificate on file. It is printed on the invoice.',
+          ),
+        )
+      else ...[
+        TextField(
+          controller: _jurisdiction,
+          textCapitalization: TextCapitalization.characters,
+          decoration: const InputDecoration(
+            labelText: 'Sales tax jurisdiction',
+            helperText: 'A code you have recorded a rate for, such as TX or TX-AUSTIN. The rate on the invoice date is used.',
+          ),
+        ),
+        if (_salesTaxRates.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              for (final rate in _salesTaxRates)
+                ActionChip(
+                  label: Text('${rate.code} ${plainNumber(rate.ratePercent)}%'),
+                  visualDensity: VisualDensity.compact,
+                  onPressed: () => setState(() => _jurisdiction.text = rate.code),
+                ),
+            ],
+          ),
+        ],
+      ],
+    ] else
+      TextField(
+        controller: _taxPaid,
+        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        decoration: const InputDecoration(
+          labelText: 'Sales tax paid (optional)',
+          prefixText: '\$ ',
+          helperText: 'Part of the cost; there is no credit for it.',
+        ),
+      ),
+    const SizedBox(height: 10),
+    TextField(
+      controller: _what,
+      textCapitalization: TextCapitalization.sentences,
+      decoration: InputDecoration(
+        labelText: _sales ? 'What was sold (optional)' : 'What was bought (optional)',
+      ),
+    ),
+  ];
+
   List<Widget> _documentFields(List<num> rates) => [
+    if (_us) ..._usDocumentFields() else ..._indianDocumentFields(rates),
+  ];
+
+  List<Widget> _indianDocumentFields(List<num> rates) => [
+    if (!_sales &&
+        (AppScope.of(context).snapshot?.company.tdsDeductor ?? false)) ...[
+      TdsFields(choice: _tds),
+      const SizedBox(height: 10),
+    ],
     if (!_sales) ...[
       TextField(
         controller: _billNo,

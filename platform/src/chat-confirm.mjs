@@ -9,6 +9,7 @@
 import { randomBytes } from 'node:crypto';
 import { planExpense } from './expenses.mjs';
 import { planCreditNote, creditedAgainst, outstandingOf } from './credit-notes.mjs';
+import { planDebitNote, planPurchaseNote } from './debit-notes.mjs';
 import { checkAnswer, reviewOf, stepText } from './gst-review.mjs';
 import { parse2bFile } from './gstr2b-check.mjs';
 import { planReminder, findReminder, whenWords } from './reminders.mjs';
@@ -24,13 +25,24 @@ import { lastGstRateFor, planPayment } from './invoice.mjs';
 import { planFiling } from './filings.mjs';
 import { planSupplierReminder } from './supplier-reminders.mjs';
 import { planEmployee, planSalaryChange, planLeaving } from './employees.mjs';
+import { planDeductor, planTds, planTdsDeposit, tdsWords, wantsTds } from './tds-deduction.mjs';
+import { planCreditOpening } from './gst-payment.mjs';
+import { checkTdsAnswer } from './tds-review.mjs';
+import { planTransport, transportWords, ewayBillNeed } from './eway-bill.mjs';
+import { planApproval, planSalaryPayment, payrollWords } from './payroll.mjs';
+import { setCurrentCountry, formatMoneyCurrent, countryOf } from './country.mjs';
+import { usDocumentPreview, planSalesTaxRate, planContractor } from './us-sales.mjs';
+import { planNexus, checkSalesTaxAnswer, planSalesTaxPayment, planSalesTaxFiling } from './us-sales-tax.mjs';
+import { planWithholding } from './us-payroll.mjs';
+import { planUsImport } from './import-us-books.mjs';
+import { planSupplierNote } from './supplier-notes.mjs';
 import { filingRows } from './deadline-run.mjs';
 import { tally, bank, gstin as gstinRules } from './sprint-load.mjs';
 import { parseZohoBooksCsv } from './import-zoho.mjs';
 import { tallyXmlToDayBookCsv } from './tally-xml.mjs';
 
 export const CONFIRM_TOOLS = new Set([
-  'create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'record_filing', 'record_supplier_reminder', 'add_employee', 'change_salary', 'end_employment', 'post_expense', 'set_expense_head', 'create_credit_note', 'cancel_invoice', 'gst_review_answer', 'import_gstr2b', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote',
+  'create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'record_filing', 'record_supplier_reminder', 'add_employee', 'change_salary', 'end_employment', 'approve_payroll', 'record_salary_payment', 'set_tds_deductor', 'record_tds_deposit', 'tds_review_answer', 'set_gst_credit_opening', 'post_expense', 'set_expense_head', 'create_credit_note', 'create_debit_note', 'create_purchase_note', 'record_supplier_debit_note', 'cancel_invoice', 'gst_review_answer', 'import_gstr2b', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'set_party_address', 'set_transport', 'set_sales_tax_rate', 'set_contractor', 'set_sales_tax_nexus', 'sales_tax_review_answer', 'record_sales_tax_payment', 'record_sales_tax_filing', 'set_withholding', 'import_us_invoices', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote',
   'import_tally', 'import_tally_xml', 'import_zoho', 'import_bank',
   'govt_generate_irn', 'govt_nic_cancel_irn',
   'exception_decide',
@@ -41,7 +53,7 @@ const CONFIRM_RE = /^\s*(y|yes|yeah|yep|ok|okay|confirm|confirmed|post it|post|g
 const CANCEL_RE = /^\s*(n|no|nope|cancel|discard|stop|don'?t|do not|abort|nahi|nahin)\b[\s!.]*$/i;
 
 function money(n) {
-  return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 }).format(Number(n) || 0);
+  return formatMoneyCurrent(Number(n) || 0);
 }
 
 function stateCodeOf(value) {
@@ -49,7 +61,128 @@ function stateCodeOf(value) {
   return /^\d{1,2}$/.test(s) ? s.padStart(2, '0') : '';
 }
 
+function salesTaxRatePreview(state, args) {
+  const plan = planSalesTaxRate(state, args);
+  if (!plan.ok) {
+    const reason = { BAD_JURISDICTION: `${plan.code || 'That'} is not a jurisdiction code I can read (for example TX or TX-AUSTIN).`, BAD_RATE: 'The rate is a percentage from 0 to 20.', INVALID_DATE: 'That is not a date I can read.' }[plan.error] || plan.error;
+    return { blockers: [reason], summary: '', effects: [], figures: {} };
+  }
+  return {
+    blockers: [],
+    summary: `Sales tax for ${plan.rate.name}${plan.rate.name !== plan.rate.code ? ` (${plan.rate.code})` : ''}: ${plan.rate.ratePercent}% from ${plan.rate.from}${plan.was ? ` (was ${plan.was.ratePercent}% from ${plan.was.from})` : ''}.`,
+    effects: ['Invoices to this jurisdiction dated on or after that day use this rate. Invoices already made keep theirs.'],
+    figures: { code: plan.rate.code, ratePercent: plan.rate.ratePercent, from: plan.rate.from },
+  };
+}
+
+function contractorPreview(state, args) {
+  const plan = planContractor(state, args);
+  if (!plan.ok) {
+    const reason = { VENDOR_REQUIRED: 'Say which supplier.', BAD_ENTITY_TYPE: 'The entity type is individual, sole-proprietor, llc, partnership, c-corp, s-corp or other.', BAD_TIN_LAST4: 'Give only the last four digits of the TIN.' }[plan.error] || plan.error;
+    return { blockers: [reason], summary: '', effects: [], figures: {} };
+  }
+  const c = plan.contractor;
+  return {
+    blockers: [],
+    summary: `${c.partyName}: ${c.contractor ? 'a contractor' : 'not a contractor'}${c.entityType ? `, ${c.entityType}` : ''}${c.w9Received ? ', W-9 received' : ', W-9 not yet received'}${c.tinLast4 ? `, TIN ending ${c.tinLast4}` : ''}.`,
+    effects: [c.contractor ? 'Payments to them count towards a 1099-NEC for the year.' : 'Payments to them are no longer counted towards a 1099-NEC.', 'Only the last four digits of a TIN are kept here.'],
+    figures: { partyName: c.partyName, contractor: c.contractor },
+  };
+}
+
+const SALES_TAX_REASONS = {
+  BAD_STATE: (p) => `${p.state || 'That'} is not a two-letter state code.`,
+  BAD_FREQUENCY: () => 'The filing frequency is monthly, quarterly or annual.',
+  NO_NEXUS: (p) => `You have not said that you collect sales tax in ${p.state}. Say "I collect sales tax in ${p.state}, quarterly" first.`,
+  BAD_PERIOD: (p) => `${p.period} is not a ${p.frequency} period (for example ${p.frequency === 'monthly' ? '2026-09' : p.frequency === 'quarterly' ? '2026-Q3' : '2026'}).`,
+  INVALID_DATE: () => 'That is not a date I can read.',
+  FUTURE_DATE: () => 'That date has not come yet.',
+  PERIOD_LOCKED: (p) => `That date is in a locked period (through ${p.lockThrough}).`,
+  NOTHING_DUE: (p) => `Nothing is left to pay for ${p.state} ${p.period}.`,
+  BAD_AMOUNT: () => 'The amount must be more than zero.',
+  MORE_THAN_DUE: (p) => `That is more than is left to pay (${formatMoneyCurrent(p.due)}).`,
+  BAD_CONFIRMATION: () => 'The confirmation number is 3 to 40 letters, digits or dashes.',
+  PERIOD_NOT_ENDED: (p) => `${p.period} has not ended yet (it runs to ${p.to}).`,
+  ALREADY_RECORDED: (p) => `${p.period} is already recorded as filed (${p.arn} on ${p.filedOn}).`,
+  ARN_USED: (p) => `Confirmation ${p.arn} is already recorded against another return.`,
+};
+
+function salesTaxBlocked(plan) {
+  const reason = SALES_TAX_REASONS[plan.error] || REVIEW_REASONS[plan.error];
+  return { blockers: [reason ? (typeof reason === 'function' ? reason(plan) : reason) : plan.error], summary: '', effects: [], figures: {} };
+}
+
+function nexusPreview(state, args) {
+  const plan = planNexus(state, args);
+  if (!plan.ok) return salesTaxBlocked(plan);
+  const n = plan.nexus;
+  return {
+    blockers: [],
+    summary: `You collect sales tax in ${n.state} and file ${n.frequency} from ${n.from}${n.permitNo ? `, permit ${n.permitNo}` : ''}${plan.was ? ` (was ${plan.was.frequency} from ${plan.was.from})` : ''}.`,
+    effects: ['Returns for that state are drafted from your invoices by period. Nothing is filed by MyCA.'],
+    figures: { state: n.state, frequency: n.frequency, from: n.from },
+  };
+}
+
+function salesTaxReviewAnswerPreview(state, args) {
+  const checked = checkSalesTaxAnswer(state, args);
+  if (!checked.ok) return salesTaxBlocked(checked);
+  const { review, step } = checked;
+  const answered = {
+    correct: `You are confirming: ${step.title}.`,
+    wrong: `You are marking ${step.title.toLowerCase()} as not right${args.note ? `: ${args.note}` : ''}. Fix the entries, then review again.`,
+    approve: `You are approving the ${review.month} sales tax return. Nothing is filed.`,
+  }[args.answer];
+  return {
+    blockers: [],
+    summary: `${step.title}: ${step.lines.map((line) => `${line.label} ${formatMoneyCurrent(line.amount)}`).join('; ')}.`,
+    effects: [answered],
+    figures: { state: review.state, period: review.period, step: step.id, answer: args.answer, draftHash: review.draftHash },
+  };
+}
+
+function salesTaxPaymentPreview(state, args) {
+  const plan = planSalesTaxPayment(state, args);
+  if (!plan.ok) return salesTaxBlocked(plan);
+  const p = plan.payment;
+  const left = Math.round((plan.draft.toPay - p.amount) * 100) / 100;
+  return {
+    blockers: [],
+    summary: `Sales tax payment to ${p.state} for ${p.period}: ${formatMoneyCurrent(p.amount)} on ${p.date} from ${p.mode === 'cash' ? 'cash' : 'the bank'}${p.reference ? `, reference ${p.reference}` : ''}.`,
+    effects: [`${formatMoneyCurrent(p.amount)} goes out of your ${p.mode === 'cash' ? 'cash' : 'bank'} and reduces sales tax payable.`, left > 0.005 ? `${formatMoneyCurrent(left)} is still to pay for this period.` : 'Nothing is left to pay for this period.'],
+    figures: { state: p.state, period: p.period, amount: p.amount, date: p.date, left },
+  };
+}
+
+function salesTaxFilingPreview(state, args) {
+  const plan = planSalesTaxFiling(state, args);
+  if (!plan.ok) return salesTaxBlocked(plan);
+  const f = plan.filing;
+  return {
+    blockers: [],
+    summary: `Record the ${plan.draft.state} sales tax return for ${f.period} as filed on ${f.filedOn}, confirmation ${f.arn}${f.filedBy ? ` by ${f.filedBy}` : ''}.`,
+    effects: [f.late ? `It was due by ${f.dueDate}, so this is late.` : f.dueDate ? `It was due by ${f.dueDate}.` : 'No due date is in the rules for this state.', plan.draft.approved ? 'The figures were approved in the review.' : 'The figures were not approved in the review; the record is kept anyway.', 'MyCA files nothing; this only records what you did.'],
+    figures: { state: plan.draft.state, period: f.period, confirmation: f.arn, filedOn: f.filedOn, late: f.late },
+  };
+}
+
+function withholdingPreview(state, args) {
+  const plan = planWithholding(state, args);
+  if (!plan.ok) {
+    const reason = { SALARIES_PRIVATE: 'Only the owner can see or change employees and salaries.', EMPLOYEE_NOT_FOUND: 'That employee is not in these books.', BAD_AMOUNT: 'Withholding is an amount of zero or more a month.', BAD_STATE: 'The work state is a two-letter code.' }[plan.error] || plan.error;
+    return { blockers: [reason], summary: '', effects: [], figures: {} };
+  }
+  const w = plan.withholding;
+  return {
+    blockers: [],
+    summary: `${plan.employee.name}: federal withholding ${formatMoneyCurrent(w.federalWithholding)} a month${w.stateWithholding > 0 ? `, state withholding ${formatMoneyCurrent(w.stateWithholding)}` : ''}${w.workState ? `, works in ${w.workState}` : ''}.`,
+    effects: ['Payroll months from now on withhold these amounts. MyCA does not work them out from the W-4; they are what you entered.'],
+    figures: { id: plan.employee.id, federalWithholding: w.federalWithholding, stateWithholding: w.stateWithholding },
+  };
+}
+
 function documentPreview(state, args, kind) {
+  if (countryOf(state) === 'US') return usDocumentPreview(state, args, kind);
   const company = state.company || {};
   const date = postingDate(args.date);
   const blockers = [];
@@ -84,6 +217,12 @@ function documentPreview(state, args, kind) {
   const terms = sale ? invoiceTerms(state, { name: party, gstin: args.partyGstin, override: args.paymentTermsDays }) : { days: null };
   if (terms.error) blockers.push('Terms are a whole number of days from 0 to 365.');
   const due = sale && terms.days != null && date ? ` Due ${dueDateOf(date, terms.days)} (${termsLabel(terms.days)}${terms.source === 'customer' ? `, ${party}'s usual terms` : ''}).` : '';
+  let tds = null;
+  if (!sale && wantsTds(args) && date && !blockers.length) {
+    const planned = planTds(state, args, { date, basis: taxable, payable: taxable + tax, payee: party, beforeGst: true });
+    if (planned.ok) tds = planned.tds;
+    else blockers.push((TDS_REASONS[planned.error] || (() => planned.error))(planned));
+  }
   return {
     blockers,
     summary: sale
@@ -91,8 +230,8 @@ function documentPreview(state, args, kind) {
       : `Purchase bill from ${party}${args.partyGstin ? ` (${args.partyGstin})` : ''} dated ${date || '?'}: taxable ${money(taxable)}, ${heads}, total ${money(taxable + tax)}. Input credit ${args.itcEligible === false ? 'blocked (s.17(5)) and added to cost' : money(tax)}.`,
     effects: sale
       ? [`${party} owes you ${money(taxable + tax)} more.`, `It goes into your GSTR-1${date ? ` for ${date.slice(0, 7)}` : ''}.`]
-      : [`You owe ${party} ${money(taxable + tax)} more.`, args.itcEligible === false ? 'The GST on it cannot be claimed, so it is part of the cost.' : 'It is checked against your GSTR-2B when you add one.'],
-    figures: { date, taxable, tax, total: Math.round((taxable + tax) * 100) / 100, placeOfSupply: pos },
+      : [`You owe ${party} ${money(taxable + tax - (tds?.tds || 0))} more.`, args.itcEligible === false ? 'The GST on it cannot be claimed, so it is part of the cost.' : 'It is checked against your GSTR-2B when you add one.', ...(tds ? [tdsWords(tds, taxable + tax - tds.tds, `you owe ${party}`)] : [])],
+    figures: { date, taxable, tax, total: Math.round((taxable + tax) * 100) / 100, placeOfSupply: pos, ...(tds ? { tds: tds.tds, tdsSection: tds.section, tdsRate: tds.rate } : {}) },
   };
 }
 
@@ -153,7 +292,8 @@ const FILING_REASONS = {
   BAD_ARN: () => 'An acknowledgement number (ARN) is 10 to 20 letters and digits, as printed on the acknowledgement.',
   INVALID_DATE: () => 'That is not a date I can read.',
   FUTURE_DATE: () => 'A filing date cannot be in the future.',
-  UNKNOWN_RETURN: (p) => `MyCA does not list ${p.returnType} for ${p.period} for this business.${p.known?.length ? ` Recent ones: ${p.known.join(', ')}.` : ''}`,
+  UNKNOWN_RETURN: (p) => `MyCA does not list ${p.returnType} for ${p.period} for this business${!p.registered && /^GSTR/.test(p.returnType) ? ', which has no GSTIN in MyCA' : ''}.${p.known?.length ? ` Recent ones: ${p.known.join(', ')}.` : ''}`,
+  DEPOSIT_NOT_A_FILING: () => 'A TDS deposit is recorded with its challan, not an ARN. Say "deposited TDS, challan" followed by the reference.',
   ALREADY_RECORDED: (p) => `${p.returnType} for ${p.period} is already recorded as filed on ${p.filedOn} (ARN ${p.arn}).`,
   ARN_USED: (p) => `ARN ${p.arn} is already recorded against another return.`,
 };
@@ -179,6 +319,73 @@ function supplierReminderPreview(state, args) {
     summary: `Send a reminder to ${d.supplier} about ${d.bills.length === 1 ? '1 bill' : `${d.bills.length} bills`} for ${d.period}, with ${money(d.credit)} of your input credit waiting on them.${d.timesSent ? ` You last reminded them on ${d.lastSent}.` : ''}`,
     effects: ['It goes from your own phone: your WhatsApp, email or another app you pick. MyCA sends nothing itself.', 'The message and the day are kept with the books.'],
     figures: { supplier: d.supplier, period: d.period, bills: d.bills.length, credit: d.credit, edited: plan.edited, timesSent: d.timesSent },
+  };
+}
+
+export const TDS_REASONS = {
+  NOT_A_DEDUCTOR: () => 'This business is not set up to deduct TDS. Say "we deduct TDS, TAN" followed by your TAN first.',
+  BAD_TDS_SECTION: () => 'MyCA handles TDS under 194A (interest), 194C (contractors), 194I (rent) and 194J (professional or technical fees).',
+  TDS_CATEGORY_REQUIRED: () => 'Under 194J, say whether it is for professional services, technical services or director remuneration; the rate differs.',
+  TDS_ASSET_REQUIRED: () => 'Under 194I, say whether the rent is for land, building or furniture, or for plant and machinery; the rate differs.',
+  PAN_REQUIRED: () => 'Give the payee\'s PAN. MyCA does not yet have the rule for a payee without a PAN, so it will not guess the rate.',
+  BAD_PAN: () => 'That PAN is not in the right form: five letters, four digits and a letter.',
+  TDS_RULE_MISSING: () => 'MyCA has no TDS rule in force for that section on that date, so it will not work out a deduction.',
+  BAD_TAN: () => 'A TAN is four letters, five digits and a letter.',
+  INVALID_DATE: () => 'That is not a date I can read.',
+  FUTURE_DATE: () => 'A deposit date cannot be in the future.',
+  PERIOD_LOCKED: (p) => `${p.date} is inside the locked period (through ${p.lockThrough}).`,
+  BAD_CHALLAN: () => 'Give the challan reference as printed (the CIN, or the BSR code and serial number).',
+  CHALLAN_USED: (p) => `Challan ${p.challan} is already recorded.`,
+  NOTHING_DUE: () => 'There is no TDS waiting to be deposited.',
+  BAD_AMOUNT: () => 'The amount must be a positive number.',
+  MORE_THAN_DUE: (p) => `That is more than the ${money(p.due)} of TDS still to deposit.`,
+};
+
+function tdsBlocked(plan) {
+  const reason = TDS_REASONS[plan.error];
+  return { blockers: [reason ? reason(plan) : plan.error], summary: '', effects: [], figures: {} };
+}
+
+const CREDIT_OPENING_REASONS = {
+  INVALID_PERIOD: () => 'Say the month as YYYY-MM, for example 2026-09.',
+  BAD_AMOUNT: (plan) => `The ${String(plan.head || '').toUpperCase()} balance must be a number of rupees, zero or more.`,
+};
+
+function creditOpeningPreview(state, args) {
+  const plan = planCreditOpening(state, args);
+  if (!plan.ok) {
+    const reason = CREDIT_OPENING_REASONS[plan.error];
+    return { blockers: [reason ? reason(plan) : plan.error], summary: '', effects: [], figures: {} };
+  }
+  const o = plan.opening;
+  return {
+    blockers: [],
+    summary: `GST credit balance at the start of ${o.period}: IGST ${money(o.igst)}, CGST ${money(o.cgst)}, SGST ${money(o.sgst)}, ${money(o.total)} in all${plan.was ? ` (replaces the balance set for ${plan.was.period})` : ''}.`,
+    effects: ["From that month on, the amount to pay counts this credit brought forward, set off before the month's own credit."],
+    figures: { period: o.period, igst: o.igst, cgst: o.cgst, sgst: o.sgst },
+  };
+}
+
+function deductorPreview(state, args) {
+  const plan = planDeductor(state, args);
+  if (!plan.ok) return tdsBlocked(plan);
+  return {
+    blockers: [],
+    summary: `This business deducts TDS, TAN ${plan.tan}${plan.was && plan.was !== plan.tan ? ` (was ${plan.was})` : ''}.`,
+    effects: ['Bills and expenses can then carry a TDS section, and TDS deposits and statements show in your deadlines.'],
+    figures: { tan: plan.tan },
+  };
+}
+
+function tdsDepositPreview(state, args) {
+  const plan = planTdsDeposit(state, args);
+  if (!plan.ok) return tdsBlocked(plan);
+  const d = plan.deposit;
+  return {
+    blockers: [],
+    summary: `TDS deposit of ${money(d.amount)} on ${d.date}, challan ${d.challan}, from ${d.mode === 'cash' ? 'cash' : 'the bank'}.`,
+    effects: [`${money(d.amount)} goes out of your ${d.mode === 'cash' ? 'cash' : 'bank'}.`, plan.due - d.amount > 0.005 ? `${money(plan.due - d.amount)} of TDS is still to deposit.` : 'Nothing is left to deposit.'],
+    figures: { amount: d.amount, date: d.date, challan: d.challan, left: Math.round((plan.due - d.amount) * 100) / 100 },
   };
 }
 
@@ -213,6 +420,50 @@ function partsOf(components) {
 }
 
 const NO_PAYROLL = 'Nothing is posted to the books and no payroll is run. Deductions are not worked out yet.';
+
+const PAYROLL_REASONS = {
+  SALARIES_PRIVATE: () => 'Only the owner runs payroll.',
+  INVALID_PERIOD: () => 'Say the month as YYYY-MM, for example 2026-10.',
+  ALREADY_APPROVED: (p) => `Payroll for ${p.period} is already approved.`,
+  NO_EMPLOYEES: (p) => `No employee was employed in ${p.period}.`,
+  PERIOD_LOCKED: (p, args, state) => `${p.date} is inside the locked period (through ${state.lockThrough}).`,
+  DRAFT_CHANGED: () => 'The payroll changed after you saw it. Look at it again before approving.',
+  PAYROLL_RULE_MISSING: (p) => `The rule ${p.ruleId} is not in force for that month, so MyCA will not guess.`,
+  NOT_APPROVED: (p) => `Payroll for ${p.period} is not approved yet.`,
+  ALREADY_PAID: (p) => `Salaries for ${p.period} were recorded as paid on ${p.paidOn}.`,
+  INVALID_DATE: (p) => `${p.date} is not a date I can read.`,
+  FUTURE_DATE: () => 'The payment date cannot be in the future.',
+  BEFORE_PERIOD: (p) => `Salaries for ${p.period} cannot be paid before that month starts.`,
+  INSUFFICIENT_CASH: (p) => `There is not that much cash in hand (${money(p.inHand)}).`,
+};
+
+function payrollBlocked(plan, args, state) {
+  const reason = PAYROLL_REASONS[plan.error];
+  return { blockers: [reason ? reason(plan, args, state) : plan.error], summary: '', effects: [], figures: {} };
+}
+
+function payrollApprovalPreview(state, args) {
+  const planned = planApproval(state, args);
+  if (!planned.ok) return payrollBlocked(planned, args, state);
+  const d = planned.data;
+  return {
+    blockers: [],
+    summary: payrollWords({ ...d, status: 'draft' }, money),
+    effects: [`Posts ${money(d.totals.gross)} of salaries, ${money(d.totals.net)} as salaries payable, and each deduction as payable; records ${money(d.totals.tds)} of salary TDS. Pays nothing.`],
+    figures: { period: d.period, employees: d.employees, gross: d.totals.gross, net: d.totals.net, employerCost: d.totals.employerCost, draftHash: d.draftHash },
+  };
+}
+
+function salaryPaymentPreview(state, args) {
+  const planned = planSalaryPayment(state, args);
+  if (!planned.ok) return payrollBlocked(planned, args, state);
+  return {
+    blockers: [],
+    summary: `Salaries for ${planned.run.month}: ${money(planned.amount)} paid from ${planned.mode === 'cash' ? 'cash' : 'the bank'} on ${planned.date}.`,
+    effects: ['Clears salaries payable. The deductions stay payable until deposited.'],
+    figures: { period: planned.run.period, amount: planned.amount, date: planned.date, mode: planned.mode },
+  };
+}
 
 function employeePreview(state, args) {
   const plan = planEmployee(state, args);
@@ -277,7 +528,7 @@ function expensePreview(state, args) {
       INSUFFICIENT_CASH: `Cash in hand is ${money(planned.inHand)} and this is ${money(planned.amount)}. Record where the cash came from first, or pay it from bank.`,
       BAD_GSTIN: 'That supplier GSTIN is not 15 characters.',
       UNKNOWN_HEAD: `${args.head} is not an expense head.`,
-    }[planned.error] || planned.error;
+    }[planned.error] || (TDS_REASONS[planned.error] ? TDS_REASONS[planned.error](planned) : planned.error);
     return { blockers: [reason], summary: '', effects: [], figures: {} };
   }
   const { plan } = planned;
@@ -285,8 +536,8 @@ function expensePreview(state, args) {
   return {
     blockers: [],
     summary: `${plan.tag.headName}: ${what} ${money(plan.amount)} paid from ${plan.mode} on ${plan.date}. ${plan.creditNote}`,
-    effects: [plan.tag.why, `${money(plan.amount)} goes out of your ${plan.mode === 'cash' ? 'cash' : 'bank'}${plan.inputCredit ? ', with the GST in it counted as input credit' : ''}.`],
-    figures: { date: plan.date, head: plan.tag.head, headName: plan.tag.headName, tagSource: plan.tag.source, taxable: plan.taxable, gstRate: plan.gstRate, inputCredit: plan.inputCredit, amount: plan.amount, mode: plan.mode },
+    effects: [plan.tag.why, `${money(plan.amount - (plan.tds?.tds || 0))} goes out of your ${plan.mode === 'cash' ? 'cash' : 'bank'}${plan.inputCredit ? ', with the GST in it counted as input credit' : ''}.`, ...(plan.tds ? [tdsWords(plan.tds, plan.amount - plan.tds.tds, `pay ${plan.payee || 'them'}`)] : [])],
+    figures: { date: plan.date, head: plan.tag.head, headName: plan.tag.headName, tagSource: plan.tag.source, taxable: plan.taxable, gstRate: plan.gstRate, inputCredit: plan.inputCredit, amount: plan.amount, mode: plan.mode, ...(plan.tds ? { tds: plan.tds.tds, tdsSection: plan.tds.section, tdsRate: plan.tds.rate } : {}) },
   };
 }
 
@@ -325,6 +576,65 @@ function creditNotePreview(state, args, cancel = false) {
   };
 }
 
+const DEBIT_NOTE_REASONS = {
+  ...CREDIT_NOTE_REASONS,
+  BILL_NOT_FOUND: (p, args) => `${args.billId} is not a bill in these books.`,
+  BEFORE_INVOICE: (p) => `A debit note cannot be dated before the document it is against (${p.invoiceDate}).`,
+  REASON_REQUIRED: () => 'Say why: price revised, extra charge, goods returned, or short supply.',
+  BAD_AMOUNT: () => 'Say the amount of the note as a positive number.',
+  FULLY_NOTED: (p) => `${p.billId} is already reduced to nothing by earlier notes.`,
+  EXCEEDS_BILL: (p) => `Only ${money(p.room)} of ${p.billId} is left to reduce.`,
+};
+
+function debitNotePreview(state, args) {
+  const planned = planDebitNote(state, args);
+  if (!planned.ok) {
+    const explain = DEBIT_NOTE_REASONS[planned.error];
+    return { blockers: [explain ? explain(planned, args, state) : planned.error], summary: '', effects: [], figures: {} };
+  }
+  const { plan } = planned;
+  const heads = [plan.cgst > 0 ? `CGST ${money(plan.cgst)}` : '', plan.sgst > 0 ? `SGST ${money(plan.sgst)}` : '', plan.igst > 0 ? `IGST ${money(plan.igst)}` : ''].filter(Boolean).join(' + ');
+  return {
+    blockers: [],
+    summary: `Debit note of ${money(plan.total)} against ${plan.invoice.id} (${plan.invoice.partyName}) dated ${plan.date}: taxable ${money(plan.taxable)}${heads ? `, ${heads}` : ''}. Reason: ${plan.reason}.`,
+    effects: ['The customer owes you that much more.', 'The invoice stays as it was; the debit note goes into the GSTR-1 for its own month and adds to that month\'s tax on sales.'],
+    figures: { invoiceId: plan.invoice.id, date: plan.date, taxable: plan.taxable, cgst: plan.cgst, sgst: plan.sgst, igst: plan.igst, total: plan.total },
+  };
+}
+
+function purchaseNotePreview(state, args) {
+  const planned = planPurchaseNote(state, args);
+  if (!planned.ok) {
+    const explain = DEBIT_NOTE_REASONS[planned.error];
+    return { blockers: [explain ? explain(planned, args, state) : planned.error], summary: '', effects: [], figures: {} };
+  }
+  const { plan } = planned;
+  const heads = [plan.cgst > 0 ? `CGST ${money(plan.cgst)}` : '', plan.sgst > 0 ? `SGST ${money(plan.sgst)}` : '', plan.igst > 0 ? `IGST ${money(plan.igst)}` : ''].filter(Boolean).join(' + ');
+  const refund = plan.refundDue > 0 ? ` You have paid ${money(plan.paid)} on it, so ${money(plan.refundDue)} becomes due back to you.` : '';
+  return {
+    blockers: [],
+    summary: `Debit note to ${plan.bill.partyName} of ${money(plan.total)} against ${plan.bill.id}${plan.full ? ', the whole bill' : ''} dated ${plan.date}: taxable ${money(plan.taxable)}${heads ? `, ${heads}` : ''}. Reason: ${plan.reason}.${refund}`,
+    effects: ['You owe the supplier that much less, or are owed it back if you have already paid.', plan.itcEligible && heads ? 'The input credit on that part is reversed in the month of the note.' : 'The bill stays as it was.'],
+    figures: { billId: plan.bill.id, date: plan.date, taxable: plan.taxable, cgst: plan.cgst, sgst: plan.sgst, igst: plan.igst, total: plan.total, refundDue: plan.refundDue },
+  };
+}
+
+function supplierNotePreview(state, args) {
+  const planned = planSupplierNote(state, args);
+  if (!planned.ok) {
+    const explain = DEBIT_NOTE_REASONS[planned.error] || { NOTE_ON_NOTE: (p) => `${p.billId} is itself a supplier's debit note; record the new one against ${p.noteOf}.`, SUPPLIER_NUMBER_TOO_LONG: () => 'The supplier\'s note number is up to 16 characters.' }[planned.error];
+    return { blockers: [explain ? explain(planned, args, state) : planned.error], summary: '', effects: [], figures: {} };
+  }
+  const { plan } = planned;
+  const heads = [plan.cgst > 0 ? `CGST ${money(plan.cgst)}` : '', plan.sgst > 0 ? `SGST ${money(plan.sgst)}` : '', plan.igst > 0 ? `IGST ${money(plan.igst)}` : ''].filter(Boolean).join(' + ');
+  return {
+    blockers: [],
+    summary: `${plan.bill.partyName}'s debit note${plan.supplierNoteNo ? ` ${plan.supplierNoteNo}` : ''} of ${money(plan.total)} on ${plan.bill.id} dated ${plan.date}: taxable ${money(plan.taxable)}${heads ? `, ${heads}` : ''}. Reason: ${plan.reason}.${plan.alreadyAdded > 0 ? ` ${money(plan.alreadyAdded)} was already added to this bill by earlier notes.` : ''}`,
+    effects: ['You owe the supplier that much more; the bill itself is unchanged.', plan.itcEligible && heads ? 'The input credit on it counts in the month of the note, as a document of its own for GSTR-2B.' : 'The whole amount is cost; no input credit is taken.'],
+    figures: { billId: plan.bill.id, date: plan.date, taxable: plan.taxable, cgst: plan.cgst, sgst: plan.sgst, igst: plan.igst, total: plan.total },
+  };
+}
+
 const REVIEW_REASONS = {
   DRAFT_CHANGED: 'Your books for this month changed after you saw these figures. Review again to see the current ones.',
   STEP_NOT_READY: 'An earlier step of this review is not confirmed yet.',
@@ -349,6 +659,23 @@ function reviewAnswerPreview(state, args) {
     summary: stepText(review, step.id, money),
     effects: [answered],
     figures: { period: review.period, step: step.id, answer: args.answer, draftHash: review.draftHash },
+  };
+}
+
+function tdsReviewAnswerPreview(state, args) {
+  const checked = checkTdsAnswer(state, args);
+  if (!checked.ok) return { blockers: [REVIEW_REASONS[checked.error] || checked.error], summary: '', effects: [], figures: {} };
+  const { review, step } = checked;
+  const answered = {
+    correct: `You are confirming: ${step.title}.`,
+    wrong: `You are marking ${step.title.toLowerCase()} as not right${args.note ? `: ${args.note}` : ''}. Fix the entries, then review again.`,
+    approve: `You are approving the ${review.period}${review.kind === 'salary' ? ' salary' : ''} TDS statement. Nothing is filed.`,
+  }[args.answer];
+  return {
+    blockers: [],
+    summary: stepText(review, step.id, money),
+    effects: [answered],
+    figures: { period: review.period, form: review.kind, step: step.id, answer: args.answer, draftHash: review.draftHash },
   };
 }
 
@@ -412,6 +739,46 @@ function cashReadingPreview(state, args) {
     summary: `On ${plan.on}: bank ${money(plan.bank)}, cash in hand ${money(plan.cash)}. MyCA had recorded bank ${money(plan.recordedBank)} and cash ${money(plan.recordedCash)}.`,
     effects: ['The cash forecast starts from these figures. Nothing is posted to your books.'],
     figures: { on: plan.on, bank: plan.bank, cash: plan.cash },
+  };
+}
+
+const TRANSPORT_REASONS = {
+  INVOICE_NOT_FOUND: (p) => `${p.invoiceId} is not an invoice in these books.`,
+  INVOICE_CANCELLED: (p) => `${p.invoiceId} is cancelled.`,
+  BAD_MODE: () => 'The mode is road, rail, air or ship.',
+  VEHICLE_REQUIRED: () => 'Say the vehicle number for movement by road, for example MH12AB1234.',
+  BAD_VEHICLE: (p) => `${p.vehicleNo} is not a vehicle number I can read (for example MH12AB1234).`,
+  BAD_DISTANCE: () => 'Say the distance as whole kilometres, from 1 to 4000.',
+  BAD_TRANSPORTER_ID: (p) => `${p.transporterId} is not a 15-character transporter id (GSTIN or TRANSIN).`,
+  DOC_REQUIRED: (p) => `For movement by ${p.mode}, say the transport document number.`,
+};
+
+function transportPreview(state, args) {
+  const planned = planTransport(state, args);
+  if (!planned.ok) {
+    const reason = TRANSPORT_REASONS[planned.error];
+    return { blockers: [reason ? reason(planned) : planned.error], summary: '', effects: [], figures: {} };
+  }
+  const need = ewayBillNeed(state, planned.invoice);
+  return {
+    blockers: [],
+    summary: `Transport for ${planned.invoice.id} (${planned.invoice.partyName}): ${transportWords(planned.transport)}${planned.was ? ' (replaces the earlier details)' : ''}.`,
+    effects: [need.needed ? `${need.why} The e-way bill can then be generated through the action gate.` : `${need.why} The details are kept with the invoice.`, 'No figure changes.'],
+    figures: { invoiceId: planned.invoice.id, ...planned.transport },
+  };
+}
+
+function addressPreview(state, args) {
+  const name = String(args.partyName || '').trim();
+  const address = String(args.address || '').trim();
+  if (!name) return { blockers: ['Say which customer.'], summary: '', effects: [], figures: {} };
+  if (!address) return { blockers: ['Say the address.'], summary: '', effects: [], figures: {} };
+  const known = (state.parties || []).find((p) => p.name.toLowerCase() === name.toLowerCase());
+  return {
+    blockers: [],
+    summary: `${name}: address ${address}${known?.address ? ` (was ${known.address})` : ''}.`,
+    effects: ['It prints on their invoices from now on. Invoices already made are not changed.'],
+    figures: { partyName: name, address },
   };
 }
 
@@ -556,6 +923,23 @@ function zohoPreview(state, args) {
   };
 }
 
+function usImportPreview(state, args) {
+  const plan = planUsImport(state, args);
+  if (!plan.ok) return { blockers: [`The file could not be read: ${plan.error}.`], summary: '', effects: [], figures: {} };
+  const reasons = {};
+  for (const row of plan.skipped) reasons[row.reason] = (reasons[row.reason] || 0) + 1;
+  const words = { exists: 'already booked', jurisdiction_missing: 'with no sales tax jurisdiction (say "import xero tax TX" to apply one)', tax_differs: 'whose sales tax differs from the recorded rate', RATE_UNKNOWN: 'with no rate recorded for their jurisdiction', INVALID_DATE: 'with a date I cannot read', PERIOD_LOCKED: 'in a locked period' };
+  const held = Object.entries(reasons).map(([reason, count]) => `${count} ${words[reason] || reason}`);
+  const source = plan.parsed.source === 'xero' ? 'Xero' : plan.parsed.source === 'quickbooks' ? 'QuickBooks' : 'Invoice file';
+  const total = plan.ready.reduce((sum, item) => sum + item.total, 0);
+  return {
+    blockers: [],
+    summary: `${source}: ${plan.parsed.count} invoices read, ${plan.ready.length} ready to post${plan.ready.length ? ` totalling ${formatMoneyCurrent(total)}` : ''}${held.length ? `; held back: ${held.join('; ')}` : ''}.`,
+    effects: ['Each ready invoice posts with sales tax from the rate you recorded for its jurisdiction; the file\'s own tax figure is only checked against it.', 'Held-back invoices are listed by number so you can fix the rate or the file and import again.'],
+    figures: { invoices: plan.parsed.count, ready: plan.ready.length, heldBack: plan.skipped.length },
+  };
+}
+
 function xmlPreview(state, args) {
   const converted = tallyXmlToDayBookCsv(args.xml);
   if (!converted.ok) return { blockers: [converted.error], summary: 'The XML could not be read.', effects: [], figures: {} };
@@ -605,17 +989,35 @@ const PREVIEWERS = {
   record_filing: filingPreview,
   record_supplier_reminder: supplierReminderPreview,
   add_employee: employeePreview,
+  approve_payroll: payrollApprovalPreview,
+  record_salary_payment: salaryPaymentPreview,
+  set_tds_deductor: deductorPreview,
+  set_gst_credit_opening: creditOpeningPreview,
+  record_tds_deposit: tdsDepositPreview,
   change_salary: salaryChangePreview,
   end_employment: leavingPreview,
   post_expense: expensePreview,
   create_credit_note: creditNotePreview,
+  create_debit_note: debitNotePreview,
+  create_purchase_note: purchaseNotePreview,
+  record_supplier_debit_note: supplierNotePreview,
   cancel_invoice: (state, args) => creditNotePreview(state, args, true),
   gst_review_answer: reviewAnswerPreview,
+  tds_review_answer: tdsReviewAnswerPreview,
   import_gstr2b: gstr2bPreview,
   add_reminder: reminderPreview,
   complete_reminder: completeReminderPreview,
   set_cash_balance: cashReadingPreview,
   set_payment_terms: termsPreview,
+  set_party_address: addressPreview,
+  set_sales_tax_rate: salesTaxRatePreview,
+  set_contractor: contractorPreview,
+  set_sales_tax_nexus: nexusPreview,
+  set_withholding: withholdingPreview,
+  sales_tax_review_answer: salesTaxReviewAnswerPreview,
+  record_sales_tax_payment: salesTaxPaymentPreview,
+  record_sales_tax_filing: salesTaxFilingPreview,
+  set_transport: transportPreview,
   ask_ca: askPreview,
   create_quote: quotePreview,
   mark_quote: markQuotePreview,
@@ -625,6 +1027,7 @@ const PREVIEWERS = {
   import_tally: (state, args) => tallyPreview(state, args, args.csv, args.fileName || 'Tally Day Book'),
   import_tally_xml: xmlPreview,
   import_zoho: zohoPreview,
+  import_us_invoices: usImportPreview,
   import_bank: bankPreview,
   govt_generate_irn: (state, args) => irnPreview(state, args, false),
   govt_nic_cancel_irn: (state, args) => irnPreview(state, args, true),
@@ -656,6 +1059,7 @@ export function needsConfirmation(name) {
 }
 
 export function previewOf(state, name, args = {}) {
+  setCurrentCountry(state);
   const build = PREVIEWERS[name];
   if (!build) return { blockers: [], summary: `Run ${name}.`, effects: [], figures: {} };
   try {
