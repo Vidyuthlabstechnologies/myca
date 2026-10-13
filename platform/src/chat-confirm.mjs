@@ -33,14 +33,15 @@ import { planApproval, planSalaryPayment, payrollWords } from './payroll.mjs';
 import { setCurrentCountry, formatMoneyCurrent, countryOf } from './country.mjs';
 import { usDocumentPreview, planSalesTaxRate, planContractor } from './us-sales.mjs';
 import { planNexus, checkSalesTaxAnswer, planSalesTaxPayment, planSalesTaxFiling } from './us-sales-tax.mjs';
-import { planWithholding, planUsApproval, usPayrollWords } from './us-payroll.mjs';
+import { planWithholding } from './us-payroll.mjs';
+import { planUsImport } from './import-us-books.mjs';
 import { filingRows } from './deadline-run.mjs';
 import { tally, bank, gstin as gstinRules } from './sprint-load.mjs';
 import { parseZohoBooksCsv } from './import-zoho.mjs';
 import { tallyXmlToDayBookCsv } from './tally-xml.mjs';
 
 export const CONFIRM_TOOLS = new Set([
-  'create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'record_filing', 'record_supplier_reminder', 'add_employee', 'change_salary', 'end_employment', 'approve_payroll', 'record_salary_payment', 'set_tds_deductor', 'record_tds_deposit', 'tds_review_answer', 'set_gst_credit_opening', 'post_expense', 'set_expense_head', 'create_credit_note', 'create_debit_note', 'create_purchase_note', 'cancel_invoice', 'gst_review_answer', 'import_gstr2b', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'set_party_address', 'set_transport', 'set_sales_tax_rate', 'set_contractor', 'set_sales_tax_nexus', 'sales_tax_review_answer', 'record_sales_tax_payment', 'record_sales_tax_filing', 'set_withholding', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote',
+  'create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'record_filing', 'record_supplier_reminder', 'add_employee', 'change_salary', 'end_employment', 'approve_payroll', 'record_salary_payment', 'set_tds_deductor', 'record_tds_deposit', 'tds_review_answer', 'set_gst_credit_opening', 'post_expense', 'set_expense_head', 'create_credit_note', 'create_debit_note', 'create_purchase_note', 'cancel_invoice', 'gst_review_answer', 'import_gstr2b', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'set_party_address', 'set_transport', 'set_sales_tax_rate', 'set_contractor', 'set_sales_tax_nexus', 'sales_tax_review_answer', 'record_sales_tax_payment', 'record_sales_tax_filing', 'set_withholding', 'import_us_invoices', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote',
   'import_tally', 'import_tally_xml', 'import_zoho', 'import_bank',
   'govt_generate_irn', 'govt_nic_cancel_irn',
   'exception_decide',
@@ -905,6 +906,23 @@ function zohoPreview(state, args) {
   };
 }
 
+function usImportPreview(state, args) {
+  const plan = planUsImport(state, args);
+  if (!plan.ok) return { blockers: [`The file could not be read: ${plan.error}.`], summary: '', effects: [], figures: {} };
+  const reasons = {};
+  for (const row of plan.skipped) reasons[row.reason] = (reasons[row.reason] || 0) + 1;
+  const words = { exists: 'already booked', jurisdiction_missing: 'with no sales tax jurisdiction (say "import xero tax TX" to apply one)', tax_differs: 'whose sales tax differs from the recorded rate', RATE_UNKNOWN: 'with no rate recorded for their jurisdiction', INVALID_DATE: 'with a date I cannot read', PERIOD_LOCKED: 'in a locked period' };
+  const held = Object.entries(reasons).map(([reason, count]) => `${count} ${words[reason] || reason}`);
+  const source = plan.parsed.source === 'xero' ? 'Xero' : plan.parsed.source === 'quickbooks' ? 'QuickBooks' : 'Invoice file';
+  const total = plan.ready.reduce((sum, item) => sum + item.total, 0);
+  return {
+    blockers: [],
+    summary: `${source}: ${plan.parsed.count} invoices read, ${plan.ready.length} ready to post${plan.ready.length ? ` totalling ${formatMoneyCurrent(total)}` : ''}${held.length ? `; held back: ${held.join('; ')}` : ''}.`,
+    effects: ['Each ready invoice posts with sales tax from the rate you recorded for its jurisdiction; the file\'s own tax figure is only checked against it.', 'Held-back invoices are listed by number so you can fix the rate or the file and import again.'],
+    figures: { invoices: plan.parsed.count, ready: plan.ready.length, heldBack: plan.skipped.length },
+  };
+}
+
 function xmlPreview(state, args) {
   const converted = tallyXmlToDayBookCsv(args.xml);
   if (!converted.ok) return { blockers: [converted.error], summary: 'The XML could not be read.', effects: [], figures: {} };
@@ -991,6 +1009,7 @@ const PREVIEWERS = {
   import_tally: (state, args) => tallyPreview(state, args, args.csv, args.fileName || 'Tally Day Book'),
   import_tally_xml: xmlPreview,
   import_zoho: zohoPreview,
+  import_us_invoices: usImportPreview,
   import_bank: bankPreview,
   govt_generate_irn: (state, args) => irnPreview(state, args, false),
   govt_nic_cancel_irn: (state, args) => irnPreview(state, args, true),

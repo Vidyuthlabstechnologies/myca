@@ -30,6 +30,8 @@ import { createUsInvoice, createUsPurchase, setSalesTaxRate, listSalesTaxRates, 
 import { rulesStatus } from './rules-status.mjs';
 import { usPayrollFor, approveUsPayroll, listUsPayroll, usPayslip, usPayrollFilings, setWithholding } from './us-payroll.mjs';
 import { scheduleCSummary, estimatedTaxDates } from './us-owner-tax.mjs';
+import { importUsInvoices } from './import-us-books.mjs';
+import { exportTrialBalance } from './trial-balance-export.mjs';
 import { setNexus, listNexus, salesTaxReturn, salesTaxReviewOf, answerSalesTaxReview, recordSalesTaxPayment, recordSalesTaxFiling, salesTaxOverview } from './us-sales-tax.mjs';
 import { recordTdsDeposit, setDeductor, tdsSummary } from './tds-deduction.mjs';
 import { paymentFor, setCreditOpening } from './gst-payment.mjs';
@@ -936,6 +938,12 @@ export const TOOLS = [
     run: (state, args = {}) => creditAtRisk(state, args),
   },
   {
+    name: 'export_trial_balance',
+    title: 'Trial balance for your CA',
+    description: 'The posted trial balance as one CSV: every account with debits, credits and the closing balance on each side, and the totals, which always tie. For a CA or another accounting package. Read-only.',
+    run: (state) => exportTrialBalance(state),
+  },
+  {
     name: 'export_entries',
     title: 'Entries for your CA',
     description: 'One CSV of the month: sales, receipts, credit notes, purchases and expenses with heads and tax by head, for a CA or another accounting package. Read-only.',
@@ -1408,6 +1416,19 @@ export const TOOLS = [
       }
       state.imports.push({ source: 'zoho', at: new Date().toISOString(), count: created.length, skipped: skipped.length, heldBack: heldBackFrom(skipped.map((s) => ({ voucherNo: s.id, reason: s.reason }))) });
       return ok({ parsed: parsed.meta, created, skipped });
+    },
+  },
+  {
+    name: 'import_us_invoices',
+    title: 'Import QuickBooks or Xero invoices',
+    description: 'Parse an invoice export from QuickBooks Online or Xero (CSV) and post each invoice with sales tax from the recorded jurisdiction rate. An invoice whose tax in the file differs from the recorded rate, has no jurisdiction, or has no rate recorded is held back by name. US only.',
+    args: ['csv', 'taxJurisdiction'],
+    run: (state, args = {}) => {
+      if (!args.csv) return fail('csv required');
+      const result = importUsInvoices(state, args);
+      if (!result.ok) return fail(result.error, { parsed: result.parsed });
+      state.imports.push({ source: result.parsed.source, at: new Date().toISOString(), count: result.created.length, skipped: result.skipped.length, heldBack: heldBackFrom(result.skipped.map((s) => ({ voucherNo: s.id, reason: s.reason }))) });
+      return ok(result);
     },
   },
   {

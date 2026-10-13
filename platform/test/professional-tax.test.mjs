@@ -4,7 +4,7 @@ import { createState } from '../src/store.mjs';
 import { runTool } from '../src/tools.mjs';
 import { rules } from '../src/sprint-load.mjs';
 
-const STATES = ['27', '29', '19', '36', '37', '24', '23', '21', '20', '18', '22', '03', '33', '32'];
+const STATES = ['27', '29', '19', '36', '37', '24', '23', '21', '20', '18', '22', '03', '33', '32', '10'];
 
 async function ptFor({ state: code, monthly, sex = 'male', period = '2026-10' }) {
   const state = createState();
@@ -63,6 +63,12 @@ test('annual-pay states: Madhya Pradesh, Jharkhand, Chhattisgarh, Punjab, with t
   assert.equal((await ptFor({ state: '22', monthly: 25000, period: '2027-03' })).pt, 212);
   assert.equal((await ptFor({ state: '03', monthly: 20000 })).pt, 0);
   assert.equal((await ptFor({ state: '03', monthly: 21000 })).pt, 200);
+  assert.equal((await ptFor({ state: '10', monthly: 25000 })).pt, 0, 'Bihar: three lakh a year is nil');
+  assert.equal((await ptFor({ state: '10', monthly: 30000 })).pt, 83);
+  assert.equal((await ptFor({ state: '10', monthly: 30000, period: '2027-03' })).pt, 87, 'eleven months of 83 and 87 in March make one thousand');
+  assert.equal((await ptFor({ state: '10', monthly: 60000 })).pt, 166);
+  assert.equal((await ptFor({ state: '10', monthly: 100000 })).pt, 208);
+  assert.equal((await ptFor({ state: '10', monthly: 100000, period: '2027-03' })).pt, 212);
 });
 
 test('half-yearly states deduct only in the named months: Chennai in September and March, Kerala in August and February', async () => {

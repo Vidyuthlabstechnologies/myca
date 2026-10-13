@@ -510,6 +510,16 @@ export const TOOL_ARG_SCHEMAS = {
     additionalProperties: false,
     properties: { year: { type: 'string', pattern: '^[0-9]{4}$' } },
   },
+  import_us_invoices: {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      csv: { type: 'string' },
+      documentSha256: { type: 'string', pattern: '^[0-9a-f]{64}$' },
+      taxJurisdiction: { type: 'string', maxLength: 24 },
+    },
+  },
+  export_trial_balance: noArgs,
   rules_status: {
     type: 'object',
     additionalProperties: false,
@@ -1238,6 +1248,7 @@ const TOOL_RISK = {
   set_contractor: 'writes_books',
   set_sales_tax_nexus: 'writes_books',
   set_withholding: 'writes_books',
+  import_us_invoices: 'writes_books',
   sales_tax_review_answer: 'writes_books',
   record_sales_tax_payment: 'writes_books',
   record_sales_tax_filing: 'writes_books',
@@ -1622,6 +1633,12 @@ export function planLocalToolCall(state, message) {
     const csv = state.pendingFile?.content || state.files.tally;
     if (!csv) return { kind: 'reply', reply: 'Attach a Tally Day Book CSV first (dropdown: Tally Day Book).', tools: [] };
     return { kind: 'tool', name: 'import_tally', args: { csv, fileName: state.pendingFile?.name || 'tally.csv' }, clearsPendingFile: true };
+  }
+  if (/\bimport\s+(?:quickbooks|qbo|xero)\b|\b(?:quickbooks|xero)\s+(?:invoices|export|csv)\b/i.test(text)) {
+    const csv = state.pendingFile?.content;
+    if (!csv) return { kind: 'reply', reply: 'Attach the QuickBooks or Xero invoice CSV first, then say "import xero" or "import quickbooks". I will show what would post before anything lands in the books.', tools: [] };
+    const jurisdiction = (text.match(/\b(?:tax|jurisdiction)\s+([A-Z]{2}(?:-[A-Z0-9]{2,20})?)\b/) || [])[1];
+    return { kind: 'tool', name: 'import_us_invoices', args: { csv, ...(jurisdiction ? { taxJurisdiction: jurisdiction } : {}) }, clearsPendingFile: true };
   }
   if (/\bimport zoho\b|\bzoho books\b/i.test(text)) {
     const csv = state.pendingFile?.content || state.files.zoho;

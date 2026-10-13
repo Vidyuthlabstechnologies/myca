@@ -1471,6 +1471,20 @@ class FakeMycaApi implements MycaApi {
                 : const <Object?>[],
           },
         };
+      case 'export_trial_balance':
+        return {
+          'ok': true,
+          'data': {
+            'asOf': '2026-10-05',
+            'currency': 'INR',
+            'accounts': 6,
+            'debit': 377600,
+            'credit': 377600,
+            'balanced': true,
+            'fileName': 'trial_balance_27AABCU9603R1ZN_2026-10-05.csv',
+            'csv': 'code,account,type,debits_posted,credits_posted,closing_debit,closing_credit\n1002,Bank,asset,100000,0,100000,0\n',
+          },
+        };
       case 'export_entries':
         return {
           'ok': true,

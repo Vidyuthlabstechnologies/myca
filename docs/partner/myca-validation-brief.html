@@ -147,7 +147,7 @@ flowchart LR
     <div class="scroll"><table>
       <thead><tr><th>Part</th><th>Where</th><th>Built with</th><th>Tests</th></tr></thead>
       <tbody>
-        <tr><td>Engine (tools, ledger, documents, reviews, chat parser)</td><td><code>platform/src/</code></td><td>Node 22, no runtime dependencies</td><td class="num">646</td></tr>
+        <tr><td>Engine (tools, ledger, documents, reviews, chat parser)</td><td><code>platform/src/</code></td><td>Node 22, no runtime dependencies</td><td class="num">653</td></tr>
         <tr><td>Statutory rules registry</td><td><code>sprints/statutory-rules/</code></td><td>Dated records, validation, attestation, golden cases</td><td class="num">137</td></tr>
         <tr><td>Frozen engines (GST reconciliation, deadlines, filing packs, income tax, audit)</td><td><code>sprints/sprint-1…6/</code></td><td>Same; read-only unless a task targets them</td><td class="num">192</td></tr>
         <tr><td>Hosted API</td><td><code>cloud/</code></td><td>Node 22, Postgres</td><td class="num">77</td></tr>
@@ -191,12 +191,13 @@ flowchart LR
         <tr><td>Tax audit and presumptive limits</td><td>IN</td><td class="num">4</td><td>Open-ended</td><td>Under the Income-tax Act 2025 ss.58 and 63</td></tr>
         <tr><td>Gazetted holidays</td><td>IN</td><td class="num">2</td><td>Calendar 2026 only</td><td>Shown on the deadline calendar; never move a statutory due date. 2027 is needed by December.</td></tr>
         <tr><td>Provident fund, pension, EDLI, administrative charge, state insurance</td><td>IN</td><td class="num">7</td><td>Open-ended</td><td>Wage ceiling fifteen thousand; ESI at 0.75% and 3.25% up to twenty-one thousand</td></tr>
-        <tr><td>Professional tax, fourteen states</td><td>IN</td><td class="num">14</td><td>Open-ended, dated per state notification</td><td>Monthly, annual and half-yearly bases; Maharashtra women's threshold and February catch-up encoded; Bihar and the north-eastern states not yet</td></tr>
+        <tr><td>Professional tax, fifteen states</td><td>IN</td><td class="num">15</td><td>Open-ended, dated per state notification</td><td>Monthly, annual and half-yearly bases; Maharashtra women's threshold and February catch-up encoded; Bihar added 13 October; the north-eastern states other than Assam not yet</td></tr>
         <tr><td>Federal information reporting: 1099-NEC threshold</td><td>US</td><td class="num">2</td><td>$600 to 2025; $2,000 from 2026</td><td>The 2026 figure comes from P.L. 119-21 §70433 as reported; the enacted text was not re-read</td></tr>
+        <tr><td>Federal payroll: Social Security, Medicare, FUTA; Form 941, W-2 and estimated tax due dates</td><td>US</td><td class="num">7</td><td>Wage base for 2025 and 2026; the rest open-ended</td><td>Withholding itself is owner-entered, never computed; figures from IRS and SSA guidance, Publication 15 not re-read</td></tr>
         <tr><td>State sales tax due dates</td><td>US</td><td class="num">2</td><td>Texas and California only</td><td>Any other state shows no due date rather than a guess</td></tr>
       </tbody>
     </table></div>
-    <p>Total: 168 records across 90 rule ids, none attested. The <code>rules_status</code> tool prints this inventory for a business's country at any date and flags gaps and records ending within ninety days.</p>
+    <p>Total: 176 records across 97 rule ids, none attested. The <code>rules_status</code> tool prints this inventory for a business's country at any date and flags gaps and records ending within ninety days.</p>
 
     <h2 id="engines">5. What the engines compute, and against what</h2>
     <div class="grid2">
@@ -205,6 +206,8 @@ flowchart LR
       <div class="card"><h3>Payroll (India)</h3><p>Monthly run with EPF, EPS, EDLI, administrative charge, ESI, professional tax by state and salary TDS projected over the year; approval, postings, payslips, PF ECR and ESI contribution files, the salary TDS statement.</p><p>Fixtures: <code>platform/test/payroll*.test.mjs</code>.</p></div>
       <div class="card"><h3>Income tax and audit (India)</h3><p>Old versus new regime comparison from AIS and 26AS, advance tax, audit and presumptive thresholds, SA 230 working papers and sampling in the audit engine.</p><p>Fixtures: <code>sprints/sprint-5-filing-assistant/BENCHMARK.md</code>.</p></div>
       <div class="card"><h3>Sales tax (US)</h3><p>Owner-entered jurisdiction rates applied by invoice date; exempt sales with a reason; nexus per state with a filing frequency; the state return by period (gross, exempt, non-taxable, taxable, tax by jurisdiction); review, payment, filing confirmation.</p><p>Fixtures: <code>platform/test/us-sales*.test.mjs</code>.</p></div>
+      <div class="card"><h3>Payroll (US)</h3><p>Monthly run with Social Security up to the yearly wage base, Medicare and the Additional Medicare Tax, FUTA at the net rate, owner-recorded federal and state withholding; postings, payslips, Form 941 quarter and W-2 year drafts, FUTA total for Form 940.</p><p>Fixtures: <code>platform/test/us-payroll.test.mjs</code>.</p></div>
+      <div class="card"><h3>Owner's taxes (US)</h3><p>A calendar year on Schedule C lines with the meals, gifts, club and personal rules noted; the four estimated tax instalment dates from the dated rule.</p><p>Fixtures: <code>platform/test/us-payroll.test.mjs</code>.</p></div>
       <div class="card"><h3>Contractor reporting (US)</h3><p>Suppliers marked as contractors with W-9 details (only the last four digits of a TIN are kept); calendar-year totals against the dated 1099-NEC threshold; corporations excluded.</p><p>Fixtures: <code>platform/test/us-sales.test.mjs</code>.</p></div>
     </div>
     <p>Every engine is deterministic: no clock and no randomness inside a rule or flag engine; dates are arguments. The same input gives the same figure on every machine, which is what lets a golden case stand as evidence.</p>
@@ -282,7 +285,7 @@ sequenceDiagram
       <li>Professional tax for Bihar and the north-eastern states: should they be added before the pilot, and from which notifications?</li>
       <li>Income tax 2026-27: the Finance Act 2026 First Schedule was not read directly. Can the firm supply the text or confirm no change?</li>
       <li>Who may approve a filing in the hosted service: the owner only, or also an accountant with a share?</li>
-      <li>For the US edition, who attests federal and state records? A US CPA has not been named; until then every US figure stays marked not reviewed.</li>
+      <li>For the US edition, who attests federal and state records? A US CPA has not been named; until then every US figure stays marked not reviewed. Payroll withholding is deliberately owner-entered: should MyCA compute it from Publication 15-T once a CPA attests the tables?</li>
     </ol>
 
     <footer>

@@ -1,0 +1,33 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { createState } from '../src/store.mjs';
+import { runTool } from '../src/tools.mjs';
+import { chat } from '../src/router.mjs';
+
+test('the trial balance export lists every posted account with closing sides, ties, and is reachable from chat', async () => {
+  const state = createState();
+  state.company = { ...state.company, gstin: '27AABCU9603R1ZN' };
+  await runTool(state, 'create_invoice', { partyName: 'Kiran Stores', partyGstin: '27AAACK1234F1Z5', lines: [{ description: 'Consulting', qty: 1, rate: 50000, gstRate: 18 }], date: '2026-10-01' });
+  await runTool(state, 'record_receipt', { invoiceId: 'INV-0001', amount: 20000, date: '2026-10-05' });
+  const out = await runTool(state, 'export_trial_balance', {});
+  assert.equal(out.ok, true, JSON.stringify(out));
+  const d = out.data;
+  assert.equal(d.balanced, true);
+  assert.equal(d.currency, 'INR');
+  assert.match(d.fileName, /^trial_balance_27AABCU9603R1ZN_\d{4}-\d{2}-\d{2}\.csv$/);
+  const lines = d.csv.trim().split(/\r?\n/);
+  assert.equal(lines[0], 'code,account,type,debits_posted,credits_posted,closing_debit,closing_credit');
+  assert.match(d.csv, /\n1002,Bank,asset,20000,0,20000,0\r?\n/);
+  assert.match(d.csv, /\n4000,Sales,income,0,50000,0,50000\r?\n/);
+  const total = lines[lines.length - 1].split(',');
+  assert.equal(total[1], 'Total');
+  assert.equal(total[3], total[4]);
+  assert.equal(total[5], total[6]);
+  const asked = await chat(state, 'export the trial balance for my CA');
+  assert.match(asked.reply, /Trial balance as of \d{1,2} \w+ \d{4}: \d+ accounts, debits ₹79,000\.00, credits ₹79,000\.00, ties\./);
+  const us = createState();
+  us.company = { name: 'Maple Street Bakery', country: 'US', gstin: '', state: '', ein: '12-3456789' };
+  const usOut = await runTool(us, 'export_trial_balance', {});
+  assert.equal(usOut.data.currency, 'USD');
+  assert.match(usOut.data.fileName, /^trial_balance_12-3456789_/);
+});

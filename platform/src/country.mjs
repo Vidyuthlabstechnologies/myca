@@ -42,7 +42,7 @@ export function yearWords(stateOrCompany, isoDate) {
 const SHARED_TOOLS = new Set([
   'company_profile', 'set_company', 'rules_status', 'chart_of_accounts', 'trial_balance', 'journal', 'period_status', 'lock_period', 'unlock_period',
   'list_invoices', 'invoice_document', 'record_receipt', 'record_payment', 'list_expenses', 'expense_heads', 'business_summary',
-  'export_entries', 'books_check', 'list_reminders', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'cash_forecast', 'can_afford',
+  'export_entries', 'export_trial_balance', 'books_check', 'list_reminders', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'cash_forecast', 'can_afford',
   'ask_ca', 'reply_ca', 'close_ca', 'list_ca_requests', 'list_quotes', 'quote_document', 'mark_quote',
   'list_employees', 'add_employee', 'change_salary', 'end_employment', 'set_payment_terms', 'set_party_address', 'record_share',
   'exceptions', 'exception_decide', 'approval_list', 'approval_request', 'approval_decide',
@@ -61,7 +61,7 @@ export function formatMoneyCurrent(amount, options) {
   return formatMoney({ country: currentCountry }, amount, options);
 }
 
-const US_ONLY_TOOLS = new Set(['set_sales_tax_rate', 'list_sales_tax_rates', 'set_contractor', 'contractor_payments', 'set_sales_tax_nexus', 'list_sales_tax_nexus', 'sales_tax_return', 'sales_tax_review', 'sales_tax_review_answer', 'record_sales_tax_payment', 'record_sales_tax_filing', 'sales_tax_overview', 'set_withholding', 'us_payroll_filings', 'schedule_c_summary', 'estimated_tax_dates']);
+const US_ONLY_TOOLS = new Set(['set_sales_tax_rate', 'list_sales_tax_rates', 'set_contractor', 'contractor_payments', 'set_sales_tax_nexus', 'list_sales_tax_nexus', 'sales_tax_return', 'sales_tax_review', 'sales_tax_review_answer', 'record_sales_tax_payment', 'record_sales_tax_filing', 'sales_tax_overview', 'set_withholding', 'us_payroll_filings', 'schedule_c_summary', 'estimated_tax_dates', 'import_us_invoices']);
 
 export function toolServesCountry(toolName, country) {
   const name = String(toolName || '');

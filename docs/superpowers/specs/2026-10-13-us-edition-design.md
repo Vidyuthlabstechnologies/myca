@@ -221,8 +221,12 @@ attests it; one Play listing with a country choice; hosting unchanged.
   `subtotal, sales_tax, total` columns instead of GST heads.
 - App: the sale form asks for the jurisdiction (chips from the recorded rates) or an exemption
   with its reason, the bill form takes the sales tax paid; quotes stay Indian for now.
-- Not built in U1: QuickBooks/Xero imports (bank CSV import is the shared one), a dedicated
-  CPA pack beyond the entries CSV and Tally-free exports.
+- Imports (added later the same day): `import_us_invoices` reads a QuickBooks Online or Xero
+  invoice CSV (`platform/src/import-us-books.mjs`), posts each invoice with sales tax from the
+  recorded jurisdiction rate, and holds back by number any invoice whose file tax differs from
+  that rate, has no jurisdiction (a `taxJurisdiction` argument or "import xero tax TX" applies
+  one), or has no rate recorded. The app offers it as a migration path.
+- Not built in U1: a dedicated CPA pack beyond the entries CSV.
 
 ## 12. U2 as built (2026-10-13)
 

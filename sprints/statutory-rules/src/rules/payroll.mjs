@@ -204,6 +204,21 @@ export const RULES = [
     attestations: []
   },
   {
+    id: 'payroll.pt.10',
+    value: {
+      state: 'Bihar',
+      basis: 'annual',
+      slabs: { all: [{ payUpToPaise: 300000 * RUPEE, paise: 0 * RUPEE }, { payUpToPaise: 500000 * RUPEE, paise: 83 * RUPEE, lastMonthPaise: 87 * RUPEE }, { payUpToPaise: 1000000 * RUPEE, paise: 166 * RUPEE, lastMonthPaise: 174 * RUPEE }, { payUpToPaise: null, paise: 208 * RUPEE, lastMonthPaise: 212 * RUPEE }] }
+    },
+    basis: 'professional_tax_by_pay_slab',
+    effectiveFrom: '2024-04-01',
+    effectiveTo: IN_FORCE,
+    act: 'BR-PT-2011',
+    section: 'Schedule',
+    source: 'Bihar Tax on Professions, Trades, Callings and Employments Act 2011, Schedule, by annual pay: up to three lakh rupees nil, up to five lakh one thousand a year, up to ten lakh two thousand a year, above that two thousand five hundred a year; the annual amount is spread as eleven equal months and the balance in March, and the annual pay is taken as twelve times the month\'s full pay; figures as published by payroll and tax sites in 2025-26 and checked against each other on 2026-10-13; the official schedule was not re-read for this record',
+    attestations: []
+  },
+  {
     id: 'payroll.pt.20',
     value: {
       state: 'Jharkhand',

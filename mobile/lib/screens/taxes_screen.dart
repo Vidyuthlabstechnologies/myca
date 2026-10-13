@@ -178,22 +178,26 @@ class _TaxesScreenState extends State<TaxesScreen> {
     });
   }
 
-  Future<void> _saveEntries(String period, {bool tally = false}) async {
+  Future<void> _saveEntries(String period, {bool tally = false, bool trialBalance = false}) async {
     final state = AppScope.of(context);
     setState(() => _entriesNote = '');
     var note = '';
     try {
       final data = toolData(
-        await state.api.query(tally ? 'export_tally' : 'export_entries', {'period': period}),
+        trialBalance
+            ? await state.api.query('export_trial_balance')
+            : await state.api.query(tally ? 'export_tally' : 'export_entries', {'period': period}),
       );
       if (data.isEmpty) {
-        note = 'The entries could not be prepared.';
+        note = trialBalance ? 'The trial balance could not be prepared.' : 'The entries could not be prepared.';
       } else {
         final name = data['fileName'] as String;
-        final count = data['count'] as num;
+        final count = (trialBalance ? data['accounts'] : data['count']) as num;
         final saved = await state.saveTextFile(name, data[tally ? 'xml' : 'csv'] as String);
         note = saved
-            ? tally
+            ? trialBalance
+                  ? 'Saved $name with ${count == 1 ? '1 account' : '$count accounts'}${data['balanced'] == false ? ' (it does not tie; ask your CA to look)' : ''}. Send it to your CA.'
+                  : tally
                   ? 'Saved $name with ${count == 1 ? '1 voucher' : '$count vouchers'}. Import it in Tally (Import Data) or send it to your CA.'
                   : 'Saved $name with ${count == 1 ? '1 entry' : '$count entries'}. Send it to your CA.'
             : 'Not saved.';
@@ -394,6 +398,14 @@ class _TaxesScreenState extends State<TaxesScreen> {
                     child: OutlinedButton(
                       onPressed: () => _saveEntries(gst.period, tally: true),
                       child: const Text('Save a Tally file'),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton(
+                      onPressed: () => _saveEntries(gst.period, trialBalance: true),
+                      child: const Text('Save the trial balance'),
                     ),
                   ),
                   if (_entriesNote.isNotEmpty)

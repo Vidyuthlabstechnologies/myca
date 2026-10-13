@@ -1,6 +1,7 @@
 import { rules } from './sprint-load.mjs';
 import { localToday } from './dates.mjs';
 import { filingFor } from './filings.mjs';
+import { salaryPrivate } from './employees.mjs';
 
 const round2 = (value) => Math.round(Number(value || 0) * 100) / 100;
 
@@ -48,7 +49,8 @@ export function scheduleCSummary(state, args = {}) {
     row.heads.add(expense.headName || String(expense.head));
     byHead.set(key, row);
   }
-  const payrollTaxes = round2(Object.values(state.payrollRuns || {}).filter((run) => run.country === 'US' && run.period.startsWith(year)).reduce((sum, run) => sum + (run.totals.employerTaxesCents || 0) / 100, 0));
+  const payrollHidden = salaryPrivate(state);
+  const payrollTaxes = payrollHidden ? 0 : round2(Object.values(state.payrollRuns || {}).filter((run) => run.country === 'US' && run.period.startsWith(year)).reduce((sum, run) => sum + (run.totals.employerTaxesCents || 0) / 100, 0));
   if (payrollTaxes > 0) {
     const entry = SCHEDULE_C_LINES[5125];
     const key = `${entry.line}|${entry.label}`;
@@ -83,6 +85,7 @@ export function scheduleCSummary(state, args = {}) {
         'Cost of goods sold is the total of supplier bills in the year, including any sales tax paid on them; MyCA keeps no inventory, so your CPA adjusts for opening and closing stock.',
         'Depreciation, home office, health insurance and the self-employment tax deduction are not in these books.',
         'This is a summary for your CPA. MyCA does not compute federal income tax or self-employment tax.',
+        ...(payrollHidden ? ['Employer payroll taxes are left out because only the owner can see payroll.'] : []),
         ...expenses.filter((row) => row.note).map((row) => `${row.label}: ${row.note}`),
       ],
     },

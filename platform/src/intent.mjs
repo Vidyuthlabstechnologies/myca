@@ -156,6 +156,7 @@ export const ROUTES = [
   { re: /\b(?:my|show|list|all)\s+employees\b|^\s*employees\s*$/i, tool: 'list_employees' },
   { re: /\b(?:my|show|list|which)\s+(?:filings|filed\s+returns|returns\s+(?:are\s+|were\s+)?filed)\b|^\s*filings\s*$/i, tool: 'list_filings' },
   { re: /\bcheck\s+(?:my\s+|the\s+)?books\b|\bbooks?\s+(?:check|health)\b|\bhealth\s*check\b/i, tool: 'books_check' },
+  { re: /\b(?:export|save|download|send)\b.*\btrial\s*balance\b|\btrial\s*balance\b.*\b(?:for\s+(?:my\s+)?ca|csv|file|export)\b/i, tool: 'export_trial_balance' },
   { re: /\btrial\s*balance\b|\bdoes (the )?books? tie\b/i, tool: 'trial_balance' },
   { re: /\bchart of accounts\b|\bcoa\b/i, tool: 'chart_of_accounts' },
   { re: /\bjournal\b|\bday book\b/i, tool: 'journal' },

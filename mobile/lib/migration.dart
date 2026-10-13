@@ -1,7 +1,7 @@
 import 'marks.dart';
 import 'theme.dart';
 
-enum BooksSource { tally, zoho, otherApp, spreadsheet, paper, fresh }
+enum BooksSource { tally, zoho, usBooks, otherApp, spreadsheet, paper, fresh }
 
 class ImportOption {
   const ImportOption({
@@ -62,6 +62,13 @@ const zohoCsv = ImportOption(
   tool: 'import_zoho',
 );
 
+const usInvoicesCsv = ImportOption(
+  title: 'QuickBooks or Xero invoices (CSV)',
+  howTo: 'In QuickBooks Online: Sales > Invoices > Export to Excel, saved as CSV. In Xero: Business > Invoices > Export. Sales tax is applied from the rates you recorded; invoices whose tax differs are held back by number.',
+  extensions: ['csv'],
+  tool: 'import_us_invoices',
+);
+
 const bankCsv = ImportOption(
   title: 'Bank statement (CSV)',
   howTo:
@@ -91,6 +98,16 @@ const migrationPaths = [
     promise:
         'Bring your invoices across from a Zoho export. Each invoice is checked before it is posted.',
     imports: [zohoCsv, bankCsv],
+  ),
+  MigrationPath(
+    source: BooksSource.usBooks,
+    title: 'QuickBooks or Xero',
+    subtitle: 'For a US business: invoices exported as CSV',
+    mark: Mark.cloudBooks,
+    tint: Tint.sales,
+    promise:
+        'Bring your invoices across from a QuickBooks Online or Xero export. Each invoice is checked against the sales tax rates you recorded before it is posted.',
+    imports: [usInvoicesCsv, bankCsv],
   ),
   MigrationPath(
     source: BooksSource.otherApp,

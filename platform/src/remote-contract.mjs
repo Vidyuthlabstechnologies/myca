@@ -9,6 +9,7 @@ export const REMOTE_QUERY_TOOLS = new Set([
   'business_summary',
   'gst_review',
   'export_entries',
+  'export_trial_balance',
   'export_tally',
   'credit_at_risk',
   'books_check',
