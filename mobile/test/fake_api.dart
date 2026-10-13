@@ -1528,6 +1528,8 @@ class FakeMycaApi implements MycaApi {
                 : const <Object?>[],
           },
         };
+      case 'gst_payable':
+        return {'ok': true, 'data': {'period': args['period'], 'toPay': {'igst': 0, 'cgst': 1800, 'sgst': 1800, 'total': 3600}, 'notes': const <Object?>[]}};
       case 'export_trial_balance':
         return {
           'ok': true,
@@ -1590,6 +1592,19 @@ class FakeMycaApi implements MycaApi {
             },
             'caveat':
                 'What you owe suppliers counts only payments recorded against bills.',
+          },
+        };
+      case 'filing_pack':
+        return {
+          'ok': true,
+          'data': {
+            'gstin': '27AABCU9603R1ZN',
+            'period': args['period'],
+            'gstr1': {'b2b': const <Object?>[]},
+            'gstr3b': {'outward': {'taxable': 20000}},
+            'payable': 3600,
+            'trialBalance': {'balanced': true},
+            'caveat': 'Prepared locally. A practising CA must review and file on GSTN.',
           },
         };
       case 'export_tally':

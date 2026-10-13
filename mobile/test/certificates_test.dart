@@ -25,6 +25,8 @@ void main() {
     await tester.pumpAndSettle();
     final row = find.text('Form 16A drafts');
     await tester.scrollUntilVisible(row, 200, scrollable: find.byType(Scrollable).first);
+    await tester.ensureVisible(row);
+    await tester.pumpAndSettle();
     expect(find.textContaining('One per deductee for Q3 2026-27'), findsOneWidget);
     await tester.tap(row);
     await tester.pumpAndSettle();
