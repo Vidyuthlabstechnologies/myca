@@ -38,6 +38,8 @@ import { tdsCertificates } from './tds-certificates.mjs';
 import { importPosSales } from './import-pos.mjs';
 import { contractor1099File } from './us-1099.mjs';
 import { usBankMatrix } from './us-bank.mjs';
+import { recordGstPayment, listGstPayments } from './gst-pay-record.mjs';
+import { gstr9Draft } from './gstr9.mjs';
 import { setNexus, listNexus, salesTaxReturn, salesTaxReviewOf, answerSalesTaxReview, recordSalesTaxPayment, recordSalesTaxFiling, salesTaxOverview } from './us-sales-tax.mjs';
 import { recordTdsDeposit, setDeductor, tdsSummary } from './tds-deduction.mjs';
 import { paymentFor, setCreditOpening } from './gst-payment.mjs';
@@ -668,7 +670,7 @@ export const TOOLS = [
     name: 'set_sales_tax_nexus',
     title: 'Sales tax registration',
     description: 'Record that the business collects sales tax in a state (two-letter code), how often it files there (monthly, quarterly or annual) and from when, with the permit number if wanted. US only.',
-    args: ['state', 'frequency', 'from', 'permitNo'],
+    args: ['state', 'frequency', 'from', 'permitNo', 'dueDay'],
     run: (state, args = {}) => setNexus(state, args),
   },
   {
@@ -745,6 +747,26 @@ export const TOOLS = [
     description: 'Record a payment to a supplier against a bill (bank or cash) and post the AP settlement. With no amount, the whole outstanding balance is paid.',
     args: ['billId', 'amount', 'mode', 'date'],
     run: (state, args) => recordPayment(state, args),
+  },
+  {
+    name: 'record_gst_payment',
+    title: 'Record the GST payment',
+    description: 'Record that a month\'s GST was paid on the portal (CPIN challan, from the bank or cash): posts the set-off of input credit against output tax head by head and the cash paid, with any interest and late fee as an expense. Once per month. Pays nothing itself.',
+    args: ['period', 'date', 'mode', 'cpin'],
+    run: (state, args = {}) => recordGstPayment(state, args),
+  },
+  {
+    name: 'list_gst_payments',
+    title: 'GST payments',
+    description: 'The months whose GST payment is recorded, with the cash paid by head, interest, late fee and the challan. Read-only.',
+    run: (state) => listGstPayments(state),
+  },
+  {
+    name: 'gstr9_draft',
+    title: 'GSTR-9 annual return draft',
+    description: 'A draft of the annual return for a financial year from the twelve monthly figures: outward supplies and tax by head (table 4 and 5 where known), credit and debit notes, input credit availed by head (table 6), reversals (table 7), GSTR-2B against credit availed (table 8 where 2B was added), tax paid in cash and by credit (table 9), and the HSN summary (table 17). Read-only; files nothing.',
+    args: ['fy'],
+    run: (state, args = {}) => gstr9Draft(state, args),
   },
   {
     name: 'gst_payable',

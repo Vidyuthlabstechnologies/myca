@@ -24,7 +24,7 @@ function amountOf(raw, head) {
 
 export function planGstPayFromChat(text) {
   const raw = normalizeChat(text);
-  if (!/\bgst\b/i.test(raw) || isNegated(raw)) return null;
+  if (!/\bgst\b|\bgstr[\s-]?9\b|\bannual\s+return\b/i.test(raw) || isNegated(raw)) return null;
   const today = localToday();
   if (/\bcredit\s+(?:ledger\s+)?balance\b|\bopening\s+(?:itc|credit)\b|\bitc\s+balance\b|\bcredit\s+(?:brought|carried)\s+forward\b/i.test(raw)) {
     const period = periodOf(raw, today);
@@ -38,6 +38,16 @@ export function planGstPayFromChat(text) {
       return { kind: 'reply', reply: `Say the ${whole[1]} by head so MyCA knows which tax it belongs to, for example "IGST 0, CGST ${whole[1]}, SGST 0". I have recorded nothing.`, tools: [] };
     }
     return { kind: 'tool', name: 'set_gst_credit_opening', args: { period, igst: igst || 0, cgst: cgst || 0, sgst: sgst || 0 } };
+  }
+  if (/\bpaid\s+(?:the\s+)?gst\b|\bgst\s+paid\b|\bgst\s+(?:challan|cpin)\b/i.test(raw) && !/\?\s*$/.test(raw)) {
+    const period = periodOf(raw, today);
+    const cpin = (raw.match(/\b(?:cpin|challan)\s*[:#-]?\s*([0-9]{14})\b/i) || [])[1];
+    const date = (raw.match(/\b(\d{4}-\d{2}-\d{2})\b/) || [])[1];
+    return { kind: 'tool', name: 'record_gst_payment', args: { ...(period ? { period } : {}), ...(cpin ? { cpin } : {}), ...(date ? { date } : {}), mode: /\bcash\b/i.test(raw) ? 'cash' : 'bank' } };
+  }
+  if (/\bgstr[\s-]?9\b|\bannual\s+return\b/i.test(raw)) {
+    const fy = (raw.match(/\b(20\d{2}-\d{2})\b/) || [])[1];
+    return { kind: 'tool', name: 'gstr9_draft', args: fy ? { fy } : {} };
   }
   if (/\b(?:gst|tax)\s+(?:to\s+pay|payable|liability|due)\b|\bhow\s+much\s+gst\b|\bpay\s+(?:in|for)\s+gst\b|\bgst\s+(?:in\s+)?cash\b|\bset[\s-]?off\b/i.test(raw)) {
     const period = periodOf(raw, today);
