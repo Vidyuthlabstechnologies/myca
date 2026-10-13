@@ -34,5 +34,10 @@ void main() {
     await tester.pumpAndSettle();
     expect(api.queries.contains('esi_return'), isTrue);
     expect(find.text('No state insurance member in this month.'), findsOneWidget);
+    await tester.tap(find.text('Save Annexure II'));
+    await tester.pumpAndSettle();
+    expect(api.queries.contains('salary_annexure'), isTrue);
+    expect(saved.keys, contains('24Q_AnnexureII_MUMA12345B_2026-27.csv'));
+    expect(find.textContaining('Saved 24Q_AnnexureII_MUMA12345B_2026-27.csv with 1 employee'), findsOneWidget);
   });
 }

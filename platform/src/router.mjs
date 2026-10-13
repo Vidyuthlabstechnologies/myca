@@ -13,6 +13,7 @@ import { rulesStatusWords } from './rules-status.mjs';
 import { usPayrollWords } from './us-payroll.mjs';
 import { ownerTaxWords } from './us-owner-tax.mjs';
 import { usImportWords } from './import-us-books.mjs';
+import { annexureWords } from './salary-annexure.mjs';
 import { inWords as monthWords } from './words.mjs';
 
 function money(n) {
@@ -201,6 +202,7 @@ function fmtToolResult(name, result) {
     return `Contractor payments in ${d.year} (1099-NEC at or above ${money(d.threshold)}):\n${d.contractors.map((c) => `· ${c.name}: ${money(c.total)}${c.needs1099 ? ' — needs a 1099-NEC' : ''}${c.needs1099 && !c.w9Received ? ', W-9 missing' : ''}`).join('\n')}${d.notes.length ? `\n${d.notes.join(' ')}` : ''}`;
   }
   if (name === 'rules_status' && result.data) return rulesStatusWords(result.data);
+  if (name === 'salary_annexure' && result.data) return annexureWords(result.data, money);
   if (name === 'export_trial_balance' && result.data) return `Trial balance as of ${result.data.asOf}: ${result.data.accounts === 1 ? '1 account' : `${result.data.accounts} accounts`}, debits ${money(result.data.debit)}, credits ${money(result.data.credit)}${result.data.balanced ? ', ties' : ', does not tie'}. Saved as ${result.data.fileName} from the Taxes screen.`;
   if (name === 'import_us_invoices' && result.data?.created) return usImportWords(result.data, money);
   if ((name === 'schedule_c_summary' || name === 'estimated_tax_dates') && result.data) return ownerTaxWords(name, result.data, money);

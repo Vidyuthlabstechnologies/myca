@@ -32,6 +32,7 @@ import { usPayrollFor, approveUsPayroll, listUsPayroll, usPayslip, usPayrollFili
 import { scheduleCSummary, estimatedTaxDates } from './us-owner-tax.mjs';
 import { importUsInvoices } from './import-us-books.mjs';
 import { exportTrialBalance } from './trial-balance-export.mjs';
+import { salaryAnnexureII } from './salary-annexure.mjs';
 import { setNexus, listNexus, salesTaxReturn, salesTaxReviewOf, answerSalesTaxReview, recordSalesTaxPayment, recordSalesTaxFiling, salesTaxOverview } from './us-sales-tax.mjs';
 import { recordTdsDeposit, setDeductor, tdsSummary } from './tds-deduction.mjs';
 import { paymentFor, setCreditOpening } from './gst-payment.mjs';
@@ -1658,6 +1659,13 @@ export const TOOLS = [
     description: 'Confirm a step of the quarterly TDS statement, mark it wrong with a note, or approve the statement. Bound to the draft the owner saw. Files nothing.',
     args: ['period', 'form', 'step', 'answer', 'draftHash', 'note'],
     run: (state, args = {}) => answerTdsReview(state, args),
+  },
+  {
+    name: 'salary_annexure',
+    title: '24Q Annexure II',
+    description: 'The salary annexure for the year\'s last quarterly statement (Form 24Q Annexure II) from the approved payroll months: each employee\'s gross salary, professional tax, standard deduction, provident fund under 80C for the old regime, total income, tax and TDS deducted, with any shortfall or excess, as rows and a CSV. Exemptions and the employee\'s own declarations are not in it. Owner only. Read-only.',
+    args: ['fy'],
+    run: (state, args = {}) => salaryAnnexureII(state, args),
   },
   {
     name: 'pf_ecr',

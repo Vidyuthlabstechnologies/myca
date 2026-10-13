@@ -1644,6 +1644,24 @@ class FakeMycaApi implements MycaApi {
             'approval': null,
           },
         };
+      case 'salary_annexure':
+        return {
+          'ok': true,
+          'data': {
+            'fy': '2026-27',
+            'form': '24Q Annexure II',
+            'employees': 1,
+            'rows': [
+              {'employeeId': 'EMP-0001', 'name': 'Ravi Kumar', 'pan': 'ABCPK1234L', 'regime': 'new', 'monthsPaid': 1, 'grossSalary': 30000, 'professionalTax': 200, 'standardDeduction': 30000, 'providentFund80C': 0, 'totalIncome': 0, 'taxOnTotalIncome': 0, 'tdsDeducted': 0, 'shortfall': 0, 'excess': 0, 'noPan': false},
+            ],
+            'totals': {'grossSalary': 30000, 'professionalTax': 200, 'taxOnTotalIncome': 0, 'tdsDeducted': 0, 'shortfall': 0, 'excess': 0},
+            'months': ['2026-10'],
+            'unreviewed': true,
+            'notes': const <Object?>[],
+            'fileName': '24Q_AnnexureII_MUMA12345B_2026-27.csv',
+            'csv': 'employee_id,name,pan\nEMP-0001,Ravi Kumar,ABCPK1234L\n',
+          },
+        };
       case 'pf_ecr':
         return {
           'ok': true,

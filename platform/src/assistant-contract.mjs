@@ -791,6 +791,11 @@ export const TOOL_ARG_SCHEMAS = {
     additionalProperties: false,
     properties: { period: { type: 'string', pattern: '^Q[1-4] [0-9]{4}-[0-9]{2}$' }, form: { type: 'string', enum: ['other', 'salary'] } },
   },
+  salary_annexure: {
+    type: 'object',
+    additionalProperties: false,
+    properties: { fy: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}$' } },
+  },
   pf_ecr: {
     type: 'object',
     additionalProperties: false,

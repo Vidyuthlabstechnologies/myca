@@ -76,6 +76,29 @@ class _PayrollScreenState extends State<PayrollScreen> with ProposalFlow {
     setState(() => _fileNote = note);
   }
 
+  Future<void> _saveAnnexure(PayrollRun run) async {
+    final state = AppScope.of(context);
+    setState(() => _fileNote = '');
+    var note = '';
+    try {
+      final data = toolData(await state.api.query('salary_annexure'));
+      final rows = data['rows'] as List<Object?>? ?? const <Object?>[];
+      if (data.isEmpty || rows.isEmpty) {
+        note = 'No approved salary month in this year yet, so Annexure II has no rows.';
+      } else {
+        final name = data['fileName'] as String;
+        final saved = await state.saveTextFile(name, data['csv'] as String);
+        note = saved
+            ? 'Saved $name with ${rows.length == 1 ? '1 employee' : '${rows.length} employees'}. Add each employee\'s declaration (section 10 exemptions, other 80C and 80D) before filing the Q4 statement.'
+            : 'Not saved.';
+      }
+    } on MycaApiException catch (err) {
+      note = err.message;
+    }
+    if (!mounted) return;
+    setState(() => _fileNote = note);
+  }
+
   Future<void> _paid(PayrollRun run) => propose(
     'Salaries for ${run.month} paid',
     'record_salary_payment',
@@ -146,6 +169,10 @@ class _PayrollScreenState extends State<PayrollScreen> with ProposalFlow {
                           ActionChip(
                             label: const Text('Save ESI file'),
                             onPressed: busy ? null : () => _saveFile(run, pf: false),
+                          ),
+                          ActionChip(
+                            label: const Text('Save Annexure II'),
+                            onPressed: busy ? null : () => _saveAnnexure(run),
                           ),
                         ],
                       ),
