@@ -484,6 +484,32 @@ export const TOOL_ARG_SCHEMAS = {
     additionalProperties: false,
     properties: { year: { type: 'string', pattern: '^[0-9]{4}$' } },
   },
+  set_withholding: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['id'],
+    properties: {
+      id: { type: 'string', pattern: '^EMP-[0-9]{4,}$' },
+      federalWithholding: { type: 'number', minimum: 0 },
+      stateWithholding: { type: 'number', minimum: 0 },
+      workState: { type: 'string', pattern: '^[A-Za-z]{2}$' },
+    },
+  },
+  us_payroll_filings: {
+    type: 'object',
+    additionalProperties: false,
+    properties: { year: { type: 'string', pattern: '^[0-9]{4}$' } },
+  },
+  schedule_c_summary: {
+    type: 'object',
+    additionalProperties: false,
+    properties: { year: { type: 'string', pattern: '^[0-9]{4}$' } },
+  },
+  estimated_tax_dates: {
+    type: 'object',
+    additionalProperties: false,
+    properties: { year: { type: 'string', pattern: '^[0-9]{4}$' } },
+  },
   rules_status: {
     type: 'object',
     additionalProperties: false,
@@ -683,6 +709,9 @@ export const TOOL_ARG_SCHEMAS = {
       ptState: { type: 'string', pattern: '^[0-9]{2}$' },
       taxRegime: { type: 'string', enum: ['new', 'old'] },
       sex: { type: 'string', enum: ['male', 'female'] },
+      workState: { type: 'string', pattern: '^[A-Za-z]{2}$' },
+      federalWithholding: { type: 'number', minimum: 0 },
+      stateWithholding: { type: 'number', minimum: 0 },
     },
   },
   change_salary: {
@@ -1208,6 +1237,7 @@ const TOOL_RISK = {
   set_sales_tax_rate: 'writes_books',
   set_contractor: 'writes_books',
   set_sales_tax_nexus: 'writes_books',
+  set_withholding: 'writes_books',
   sales_tax_review_answer: 'writes_books',
   record_sales_tax_payment: 'writes_books',
   record_sales_tax_filing: 'writes_books',

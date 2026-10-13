@@ -1146,11 +1146,16 @@ class PayrollTotals {
     required this.net,
     required this.employerContributions,
     required this.employerCost,
+    this.lines = const <(String, num)>[],
+    this.employerLines = const <(String, num)>[],
   });
 
   factory PayrollTotals.fromJson(Object? json) {
     final map = _map(json);
+    List<(String, num)> pairs(Object? rows) => [for (final row in _maps(rows)) (_text(row['name']), _num(row['amount']))];
     return PayrollTotals(
+      lines: pairs(map['lines']),
+      employerLines: pairs(map['employerLines']),
       gross: _num(map['gross']),
       pfEmployee: _num(map['pfEmployee']),
       esiEmployee: _num(map['esiEmployee']),
@@ -1172,6 +1177,10 @@ class PayrollTotals {
   final num net;
   final num employerContributions;
   final num employerCost;
+  final List<(String, num)> lines;
+  final List<(String, num)> employerLines;
+
+  bool get hasOwnLines => lines.isNotEmpty || employerLines.isNotEmpty;
 }
 
 class PayrollRow {
@@ -1223,6 +1232,7 @@ class PayrollRun {
     required this.draftHash,
     required this.approvedOn,
     required this.paidOn,
+    this.country = 'IN',
   });
 
   static PayrollRun? fromTool(Object? json) {
@@ -1240,6 +1250,7 @@ class PayrollRun {
       notes: notes is List ? notes.map(_text).toList() : const <String>[],
       draftHash: _text(data['draftHash']),
       approvedOn: _text(data['approvedOn']),
+      country: _text(data['country']).isEmpty ? 'IN' : _text(data['country']).toUpperCase(),
       paidOn: _text(data['paidOn']),
     );
   }
@@ -1254,6 +1265,9 @@ class PayrollRun {
   final String draftHash;
   final String approvedOn;
   final String paidOn;
+  final String country;
+
+  bool get isUs => country == 'US';
 }
 
 class EmployeeList {

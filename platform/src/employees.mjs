@@ -60,9 +60,18 @@ function detailsOf(args, existing = {}) {
   if (taxRegime && !['new', 'old'].includes(taxRegime)) return fail('BAD_REGIME', { taxRegime });
   const sex = String(pick('sex') || '').toLowerCase();
   if (sex && !['male', 'female'].includes(sex)) return fail('BAD_SEX', { sex });
+  const workState = String(pick('workState') || '').trim().toUpperCase();
+  if (workState && !/^[A-Z]{2}$/.test(workState)) return fail('BAD_STATE', { workState });
+  const federalWithholding = Number(pick('federalWithholding') || 0);
+  const stateWithholding = Number(pick('stateWithholding') || 0);
+  if (!Number.isFinite(federalWithholding) || federalWithholding < 0) return fail('BAD_AMOUNT', { name: 'federalWithholding' });
+  if (!Number.isFinite(stateWithholding) || stateWithholding < 0) return fail('BAD_AMOUNT', { name: 'stateWithholding' });
   return {
     ok: true,
     details: {
+      workState,
+      federalWithholding: round2(federalWithholding),
+      stateWithholding: round2(stateWithholding),
       designation: String(pick('designation') || '').trim().slice(0, 60),
       pan,
       uan,

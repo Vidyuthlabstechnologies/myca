@@ -209,9 +209,13 @@ class _EmployeeFormScreenState extends State<EmployeeFormScreen>
   final _basic = TextEditingController();
   final _hra = TextEditingController();
   final _other = TextEditingController();
+  final _workState = TextEditingController();
+  final _federalWithholding = TextEditingController();
   DateTime? _date;
   bool _pf = false;
   bool _esi = false;
+
+  bool get _us => (AppScope.of(context).snapshot?.company.country ?? 'IN') == 'US';
   String _error = '';
   bool _posted = false;
 
@@ -287,9 +291,14 @@ class _EmployeeFormScreenState extends State<EmployeeFormScreen>
         'joinedOn': day,
         'components': parts,
         if (_role.text.trim().isNotEmpty) 'designation': _role.text.trim(),
-        if (_pan.text.trim().isNotEmpty) 'pan': _pan.text.trim().toUpperCase(),
-        'pfMember': _pf,
-        'esiMember': _esi,
+        if (_us) ...{
+          if (_workState.text.trim().isNotEmpty) 'workState': _workState.text.trim().toUpperCase(),
+          if (parseAmount(_federalWithholding.text) != null) 'federalWithholding': parseAmount(_federalWithholding.text),
+        } else ...{
+          if (_pan.text.trim().isNotEmpty) 'pan': _pan.text.trim().toUpperCase(),
+          'pfMember': _pf,
+          'esiMember': _esi,
+        },
       });
     } else {
       await propose('New salary from $day', 'change_salary', {
@@ -375,7 +384,26 @@ class _EmployeeFormScreenState extends State<EmployeeFormScreen>
                       ),
                     ),
                   ],
-                  if (_adding) ...[
+                  if (_adding && _us) ...[
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: _workState,
+                      textCapitalization: TextCapitalization.characters,
+                      maxLength: 2,
+                      decoration: const InputDecoration(labelText: 'Work state', helperText: 'Two letters, for example TX.', counterText: ''),
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: _federalWithholding,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      decoration: const InputDecoration(
+                        labelText: 'Federal withholding a month (optional)',
+                        prefixText: '\$ ',
+                        helperText: 'From the IRS Tax Withholding Estimator or the W-4 tables. MyCA does not work it out.',
+                      ),
+                    ),
+                  ],
+                  if (_adding && !_us) ...[
                     const SizedBox(height: 10),
                     TextField(
                       controller: _pan,

@@ -1646,6 +1646,38 @@ class FakeMycaApi implements MycaApi {
       case 'esi_return':
         return {'ok': false, 'error': 'NO_ESI_MEMBERS'};
       case 'payroll_run':
+        if (country == 'US') {
+          return {
+            'ok': true,
+            'data': {
+              'country': 'US',
+              'period': args['period'],
+              'month': 'October 2026',
+              'status': payrollApproved ? 'approved' : 'draft',
+              'employees': 1,
+              'rows': [
+                {'employeeId': 'EMP-0001', 'name': 'Ravi Kumar', 'daysWorked': 31, 'daysInMonth': 31, 'gross': 5000, 'deductions': 782.5, 'net': 4217.5, 'notes': const <Object?>[]},
+              ],
+              'totals': {
+                'gross': 5000, 'deductions': 782.5, 'net': 4217.5, 'employerContributions': 412.5, 'employerCost': 5412.5,
+                'lines': [
+                  {'name': 'Social Security (employees)', 'amount': 310},
+                  {'name': 'Medicare (employees)', 'amount': 72.5},
+                  {'name': 'Federal income tax withheld', 'amount': 400},
+                ],
+                'employerLines': [
+                  {'name': 'Social Security (employer)', 'amount': 310},
+                  {'name': 'Medicare (employer)', 'amount': 72.5},
+                  {'name': 'Federal unemployment (FUTA)', 'amount': 30},
+                ],
+              },
+              'notes': ['The FICA and FUTA rates and wage bases come from dated rules, which a US CPA has not reviewed yet.'],
+              'draftHash': 'd' * 64,
+              'approvedOn': payrollApproved ? '2026-10-05' : '',
+              'paidOn': payrollPaid ? '2026-10-05' : '',
+            },
+          };
+        }
         return {
           'ok': true,
           'data': {

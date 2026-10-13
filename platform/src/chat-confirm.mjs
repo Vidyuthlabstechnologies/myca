@@ -33,13 +33,14 @@ import { planApproval, planSalaryPayment, payrollWords } from './payroll.mjs';
 import { setCurrentCountry, formatMoneyCurrent, countryOf } from './country.mjs';
 import { usDocumentPreview, planSalesTaxRate, planContractor } from './us-sales.mjs';
 import { planNexus, checkSalesTaxAnswer, planSalesTaxPayment, planSalesTaxFiling } from './us-sales-tax.mjs';
+import { planWithholding, planUsApproval, usPayrollWords } from './us-payroll.mjs';
 import { filingRows } from './deadline-run.mjs';
 import { tally, bank, gstin as gstinRules } from './sprint-load.mjs';
 import { parseZohoBooksCsv } from './import-zoho.mjs';
 import { tallyXmlToDayBookCsv } from './tally-xml.mjs';
 
 export const CONFIRM_TOOLS = new Set([
-  'create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'record_filing', 'record_supplier_reminder', 'add_employee', 'change_salary', 'end_employment', 'approve_payroll', 'record_salary_payment', 'set_tds_deductor', 'record_tds_deposit', 'tds_review_answer', 'set_gst_credit_opening', 'post_expense', 'set_expense_head', 'create_credit_note', 'create_debit_note', 'create_purchase_note', 'cancel_invoice', 'gst_review_answer', 'import_gstr2b', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'set_party_address', 'set_transport', 'set_sales_tax_rate', 'set_contractor', 'set_sales_tax_nexus', 'sales_tax_review_answer', 'record_sales_tax_payment', 'record_sales_tax_filing', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote',
+  'create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'record_filing', 'record_supplier_reminder', 'add_employee', 'change_salary', 'end_employment', 'approve_payroll', 'record_salary_payment', 'set_tds_deductor', 'record_tds_deposit', 'tds_review_answer', 'set_gst_credit_opening', 'post_expense', 'set_expense_head', 'create_credit_note', 'create_debit_note', 'create_purchase_note', 'cancel_invoice', 'gst_review_answer', 'import_gstr2b', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'set_party_address', 'set_transport', 'set_sales_tax_rate', 'set_contractor', 'set_sales_tax_nexus', 'sales_tax_review_answer', 'record_sales_tax_payment', 'record_sales_tax_filing', 'set_withholding', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote',
   'import_tally', 'import_tally_xml', 'import_zoho', 'import_bank',
   'govt_generate_irn', 'govt_nic_cancel_irn',
   'exception_decide',
@@ -160,6 +161,21 @@ function salesTaxFilingPreview(state, args) {
     summary: `Record the ${plan.draft.state} sales tax return for ${f.period} as filed on ${f.filedOn}, confirmation ${f.arn}${f.filedBy ? ` by ${f.filedBy}` : ''}.`,
     effects: [f.late ? `It was due by ${f.dueDate}, so this is late.` : f.dueDate ? `It was due by ${f.dueDate}.` : 'No due date is in the rules for this state.', plan.draft.approved ? 'The figures were approved in the review.' : 'The figures were not approved in the review; the record is kept anyway.', 'MyCA files nothing; this only records what you did.'],
     figures: { state: plan.draft.state, period: f.period, confirmation: f.arn, filedOn: f.filedOn, late: f.late },
+  };
+}
+
+function withholdingPreview(state, args) {
+  const plan = planWithholding(state, args);
+  if (!plan.ok) {
+    const reason = { SALARIES_PRIVATE: 'Only the owner can see or change employees and salaries.', EMPLOYEE_NOT_FOUND: 'That employee is not in these books.', BAD_AMOUNT: 'Withholding is an amount of zero or more a month.', BAD_STATE: 'The work state is a two-letter code.' }[plan.error] || plan.error;
+    return { blockers: [reason], summary: '', effects: [], figures: {} };
+  }
+  const w = plan.withholding;
+  return {
+    blockers: [],
+    summary: `${plan.employee.name}: federal withholding ${formatMoneyCurrent(w.federalWithholding)} a month${w.stateWithholding > 0 ? `, state withholding ${formatMoneyCurrent(w.stateWithholding)}` : ''}${w.workState ? `, works in ${w.workState}` : ''}.`,
+    effects: ['Payroll months from now on withhold these amounts. MyCA does not work them out from the W-4; they are what you entered.'],
+    figures: { id: plan.employee.id, federalWithholding: w.federalWithholding, stateWithholding: w.stateWithholding },
   };
 }
 
@@ -961,6 +977,7 @@ const PREVIEWERS = {
   set_sales_tax_rate: salesTaxRatePreview,
   set_contractor: contractorPreview,
   set_sales_tax_nexus: nexusPreview,
+  set_withholding: withholdingPreview,
   sales_tax_review_answer: salesTaxReviewAnswerPreview,
   record_sales_tax_payment: salesTaxPaymentPreview,
   record_sales_tax_filing: salesTaxFilingPreview,

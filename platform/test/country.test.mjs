@@ -50,11 +50,11 @@ test('a US business sees the shared and US-only tools; Indian tools are refused 
   assert.ok(shared.includes('list_invoices'));
   assert.ok(shared.includes('cash_forecast'));
   assert.ok(shared.includes('list_employees'));
-  for (const indian of ['gst_payable', 'prepare_gstr1', 'tds_summary', 'payroll_run', 'import_tally', 'govt_generate_irn', 'gst_review', 'tds_return']) {
+  for (const indian of ['gst_payable', 'prepare_gstr1', 'tds_summary', 'pf_ecr', 'import_tally', 'govt_generate_irn', 'gst_review', 'tds_return']) {
     assert.equal(shared.includes(indian), false, indian);
     assert.equal(toolServesCountry(indian, 'IN'), true);
   }
-  const usOnly = ['set_sales_tax_rate', 'list_sales_tax_rates', 'set_contractor', 'contractor_payments', 'set_sales_tax_nexus', 'list_sales_tax_nexus', 'sales_tax_return', 'sales_tax_review', 'sales_tax_review_answer', 'record_sales_tax_payment', 'record_sales_tax_filing', 'sales_tax_overview'];
+  const usOnly = ['set_sales_tax_rate', 'list_sales_tax_rates', 'set_contractor', 'contractor_payments', 'set_sales_tax_nexus', 'list_sales_tax_nexus', 'sales_tax_return', 'sales_tax_review', 'sales_tax_review_answer', 'record_sales_tax_payment', 'record_sales_tax_filing', 'sales_tax_overview', 'set_withholding', 'us_payroll_filings', 'schedule_c_summary', 'estimated_tax_dates'];
   for (const name of usOnly) {
     assert.ok(shared.includes(name), name);
     assert.equal(toolServesCountry(name, 'IN'), false, name);

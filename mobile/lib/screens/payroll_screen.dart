@@ -134,7 +134,7 @@ class _PayrollScreenState extends State<PayrollScreen> with ProposalFlow {
                       const SizedBox(height: 8),
                       Text(note, style: text.bodySmall),
                     ],
-                    if (run.status == 'approved') ...[
+                    if (run.status == 'approved' && !run.isUs) ...[
                       const SizedBox(height: 16),
                       Wrap(
                         spacing: 8,
@@ -214,14 +214,21 @@ class _Totals extends StatelessWidget {
       ),
       child: Column(
         children: [
-          line('Gross salaries', totals.gross),
-          line('Provident fund (employees)', totals.pfEmployee),
-          line('State insurance (employees)', totals.esiEmployee),
-          line('Professional tax', totals.pt),
-          line('Income tax (TDS)', totals.tds),
+          line(totals.hasOwnLines ? 'Gross wages' : 'Gross salaries', totals.gross),
+          if (totals.hasOwnLines)
+            for (final (name, amount) in totals.lines) line(name, amount)
+          else ...[
+            line('Provident fund (employees)', totals.pfEmployee),
+            line('State insurance (employees)', totals.esiEmployee),
+            line('Professional tax', totals.pt),
+            line('Income tax (TDS)', totals.tds),
+          ],
           line('Net to pay', totals.net, strong: true),
           const Divider(height: 18),
-          line('Employer contributions', totals.employerContributions),
+          if (totals.hasOwnLines)
+            for (final (name, amount) in totals.employerLines) line(name, amount)
+          else
+            line('Employer contributions', totals.employerContributions),
           line('Total cost', totals.employerCost, strong: true),
         ],
       ),

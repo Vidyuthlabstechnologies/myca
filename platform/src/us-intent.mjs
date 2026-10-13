@@ -75,9 +75,27 @@ function planSalesTaxFromChat(raw, today) {
   return null;
 }
 
+function planOwnerTaxFromChat(raw, today) {
+  const year = (raw.match(/\b(20\d{2})\b/) || [])[1];
+  if (/\bschedule\s*c\b|\bprofit\s+(?:and|or)\s+loss\b.*\b(?:cpa|tax)\b|\bbusiness\s+profit\s+for\s+(?:my\s+)?(?:taxes|cpa)\b/i.test(raw)) return { kind: 'tool', name: 'schedule_c_summary', args: year ? { year } : {} };
+  if (/\bestimated\s+tax(?:es)?\b|\b1040-?es\b|\bquarterly\s+tax(?:es)?\s+(?:dates?|due)\b/i.test(raw)) return { kind: 'tool', name: 'estimated_tax_dates', args: year ? { year } : {} };
+  if (/\b(?:form\s+)?941\b|\bw-?2s?\b|\bpayroll\s+(?:filings?|taxes\s+due|tax\s+forms?)\b/i.test(raw)) return { kind: 'tool', name: 'us_payroll_filings', args: year ? { year } : {} };
+  const withholding = raw.match(/\b(?:withhold(?:ing)?|federal\s+tax)\b.*\b(EMP-\d{4,})\b.*?\$?\s*(\d[\d,]*(?:\.\d{1,2})?)\b|\b(EMP-\d{4,})\b.*\bwithhold(?:ing)?\b.*?\$?\s*(\d[\d,]*(?:\.\d{1,2})?)\b/i);
+  if (withholding && !isQuestion(raw)) {
+    const id = (withholding[1] || withholding[3]).toUpperCase();
+    const amount = Number((withholding[2] || withholding[4]).replace(/,/g, ''));
+    const stateAmount = raw.match(/\bstate\s+(?:withholding\s+)?\$?\s*(\d[\d,]*(?:\.\d{1,2})?)\b/i);
+    const workState = (raw.match(/\bworks?\s+in\s+([A-Z]{2})\b/) || [])[1];
+    return { kind: 'tool', name: 'set_withholding', args: { id, federalWithholding: amount, ...(stateAmount ? { stateWithholding: Number(stateAmount[1].replace(/,/g, '')) } : {}), ...(workState ? { workState } : {}) } };
+  }
+  return null;
+}
+
 export function planUsFromChat(state, text) {
   const raw = normalizeChat(text);
   if (isNegated(raw)) return null;
+  const ownerTax = planOwnerTaxFromChat(raw, localToday());
+  if (ownerTax) return ownerTax;
   const salesTax = planSalesTaxFromChat(raw, localToday());
   if (salesTax) return salesTax;
   if (/\b(?:who|which)\b.*\b1099\b|\b1099s?\b.*\b(?:due|needed|list|report)\b|\bcontractor\s+payments?\b/i.test(raw)) {

@@ -28,6 +28,8 @@ import { pfEcr, esiReturn } from './payroll-files.mjs';
 import { countryOf, isCountry, toolServesCountry } from './country.mjs';
 import { createUsInvoice, createUsPurchase, setSalesTaxRate, listSalesTaxRates, setContractor, contractorPayments } from './us-sales.mjs';
 import { rulesStatus } from './rules-status.mjs';
+import { usPayrollFor, approveUsPayroll, listUsPayroll, usPayslip, usPayrollFilings, setWithholding } from './us-payroll.mjs';
+import { scheduleCSummary, estimatedTaxDates } from './us-owner-tax.mjs';
 import { setNexus, listNexus, salesTaxReturn, salesTaxReviewOf, answerSalesTaxReview, recordSalesTaxPayment, recordSalesTaxFiling, salesTaxOverview } from './us-sales-tax.mjs';
 import { recordTdsDeposit, setDeductor, tdsSummary } from './tds-deduction.mjs';
 import { paymentFor, setCreditOpening } from './gst-payment.mjs';
@@ -604,6 +606,34 @@ export const TOOLS = [
     description: 'What was paid to each contractor in a calendar year, who is at or above the 1099-NEC threshold from the dated rule, and whose W-9 is missing. US only. Read-only.',
     args: ['year'],
     run: (state, args = {}) => contractorPayments(state, args),
+  },
+  {
+    name: 'set_withholding',
+    title: 'Withholding amounts',
+    description: 'Record an employee\'s monthly federal and state income tax withholding as worked out from the W-4 (IRS Tax Withholding Estimator or Publication 15-T) and the work state. MyCA never computes withholding itself. US only. Owner only.',
+    args: ['id', 'federalWithholding', 'stateWithholding', 'workState'],
+    run: (state, args = {}) => setWithholding(state, args),
+  },
+  {
+    name: 'us_payroll_filings',
+    title: 'Form 941 and W-2 drafts',
+    description: 'For a calendar year: each quarter\'s Form 941 figures (wages, federal withholding, Social Security and Medicare wages and tax) with the due date from the dated rule, W-2 totals per employee, and the FUTA total for Form 940. Drafts from approved payroll months; files nothing. US only. Read-only.',
+    args: ['year'],
+    run: (state, args = {}) => usPayrollFilings(state, args),
+  },
+  {
+    name: 'schedule_c_summary',
+    title: 'Schedule C summary',
+    description: 'A calendar year summarised on Schedule C lines for the owner\'s CPA: gross receipts, returns, cost of goods sold, expenses by line with the limits the CPA applies, and the net profit before anything outside the books. US only. Read-only.',
+    args: ['year'],
+    run: (state, args = {}) => scheduleCSummary(state, args),
+  },
+  {
+    name: 'estimated_tax_dates',
+    title: 'Estimated tax dates',
+    description: 'The four federal estimated tax instalment dates for a year from the dated rule, which are past, and which are recorded as paid. The amount is the CPA\'s. US only. Read-only.',
+    args: ['year'],
+    run: (state, args = {}) => estimatedTaxDates(state, args),
   },
   {
     name: 'rules_status',
@@ -1634,14 +1664,14 @@ export const TOOLS = [
     title: 'Payroll for a month',
     description: 'Each employee\'s pay for a month with the days worked, provident fund, state insurance, professional tax and salary TDS from the dated rules, the net to pay and the employer\'s contributions. A draft until approved; after approval the figures are the ones posted. Owner only. Read-only.',
     args: ['period'],
-    run: (state, args = {}) => payrollFor(state, args.period),
+    run: (state, args = {}) => (countryOf(state) === 'US' ? usPayrollFor(state, args.period) : payrollFor(state, args.period)),
   },
   {
     name: 'approve_payroll',
     title: 'Approve payroll',
     description: 'Approve a month\'s payroll: posts salaries, each deduction payable and net salary payable, and records the salary TDS. Pays nothing. Owner only.',
     args: ['period', 'draftHash'],
-    run: (state, args = {}) => approvePayroll(state, args),
+    run: (state, args = {}) => (countryOf(state) === 'US' ? approveUsPayroll(state, args) : approvePayroll(state, args)),
   },
   {
     name: 'record_salary_payment',
@@ -1654,20 +1684,20 @@ export const TOOLS = [
     name: 'list_payroll',
     title: 'Payroll months',
     description: 'Approved payroll months with gross, net, employer cost and whether the salaries were paid. Owner only. Read-only.',
-    run: (state) => listPayroll(state),
+    run: (state) => (countryOf(state) === 'US' ? listUsPayroll(state) : listPayroll(state)),
   },
   {
     name: 'payslip',
     title: 'Payslip',
     description: 'One employee\'s payslip for an approved month, laid out for display or a PDF. Owner only. Read-only.',
     args: ['period', 'employeeId'],
-    run: (state, args = {}) => payslip(state, args),
+    run: (state, args = {}) => (countryOf(state) === 'US' ? usPayslip(state, args) : payslip(state, args)),
   },
   {
     name: 'add_employee',
     title: 'Add an employee',
     description: 'Add an employee with a joining date and a monthly salary in parts (for example Basic, HRA). Records only; no payroll is run and no deduction is worked out. Owner only.',
-    args: ['name', 'joinedOn', 'components', 'designation', 'pan', 'uan', 'pfMember', 'esiMember', 'ptState', 'taxRegime', 'sex'],
+    args: ['name', 'joinedOn', 'components', 'designation', 'pan', 'uan', 'pfMember', 'esiMember', 'ptState', 'taxRegime', 'sex', 'workState', 'federalWithholding', 'stateWithholding'],
     run: (state, args = {}) => addEmployee(state, args),
   },
   {

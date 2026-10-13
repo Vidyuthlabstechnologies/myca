@@ -10,6 +10,8 @@ import { transportWords } from './eway-bill.mjs';
 import { payrollWords } from './payroll.mjs';
 import { setCurrentCountry, formatMoneyCurrent } from './country.mjs';
 import { rulesStatusWords } from './rules-status.mjs';
+import { usPayrollWords } from './us-payroll.mjs';
+import { ownerTaxWords } from './us-owner-tax.mjs';
 import { inWords as monthWords } from './words.mjs';
 
 function money(n) {
@@ -198,6 +200,16 @@ function fmtToolResult(name, result) {
     return `Contractor payments in ${d.year} (1099-NEC at or above ${money(d.threshold)}):\n${d.contractors.map((c) => `· ${c.name}: ${money(c.total)}${c.needs1099 ? ' — needs a 1099-NEC' : ''}${c.needs1099 && !c.w9Received ? ', W-9 missing' : ''}`).join('\n')}${d.notes.length ? `\n${d.notes.join(' ')}` : ''}`;
   }
   if (name === 'rules_status' && result.data) return rulesStatusWords(result.data);
+  if ((name === 'schedule_c_summary' || name === 'estimated_tax_dates') && result.data) return ownerTaxWords(name, result.data, money);
+  if (name === 'set_withholding' && result.employee) {
+    const e = result.employee;
+    return `Recorded for ${e.name}: federal withholding ${money(e.federalWithholding)} a month${e.stateWithholding > 0 ? `, state ${money(e.stateWithholding)}` : ''}${e.workState ? `, works in ${e.workState}` : ''}.`;
+  }
+  if (name === 'us_payroll_filings' && result.data) {
+    const d = result.data;
+    const rows = d.quarters.filter((q) => q.months > 0).map((q) => `· ${q.quarter}: wages ${money(q.wages)}, federal withholding ${money(q.federalWithholding)}, Social Security tax ${money(q.socialSecurityTax)}, Medicare tax ${money(q.medicareTax)}, total ${money(q.totalTaxes)}${q.dueDate ? `, Form 941 due ${q.dueDate}` : ''}${q.filed ? ' (filed)' : ''}`);
+    return [`Payroll filings for ${d.year}:`, ...(rows.length ? rows : ['· No approved payroll month yet.']), `· W-2s for ${d.w2.length === 1 ? '1 employee' : `${d.w2.length} employees`}${d.w2DueDate ? `, due ${d.w2DueDate}` : ''}; FUTA for the year ${money(d.futa.total)}.`, d.notes.join(' ')].join('\n');
+  }
   if (name === 'set_sales_tax_nexus' && result.nexus) {
     return `Recorded: you collect sales tax in ${result.nexus.state} and file ${result.nexus.frequency} from ${result.nexus.from}. Say "sales tax return ${result.nexus.state}" to see a period.`;
   }
@@ -263,6 +275,7 @@ function fmtToolResult(name, result) {
     return `TDS deducted ${money(d.deducted)}, deposited ${money(d.deposited)}, still to deposit ${money(d.due)}.${months ? `\n${months}` : ''}`;
   }
   if (name === 'payroll_run' && result.data) {
+    if (result.data.country === 'US') return usPayrollWords(result.data, money);
     return payrollWords(result.data, money);
   }
   if (name === 'approve_payroll' && result.run) {

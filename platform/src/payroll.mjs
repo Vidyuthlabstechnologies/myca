@@ -380,9 +380,9 @@ export function planSalaryPayment(state, args = {}) {
   if (mode === 'cash') {
     const cash = listAccounts(state.ledger).find((account) => account.code === '1001');
     const inHand = cash ? round2(cash.debitsPosted - cash.creditsPosted) : 0;
-    if (inHand + 0.005 < toRupees(run.totals.netPaise)) return fail('INSUFFICIENT_CASH', { inHand, amount: toRupees(run.totals.netPaise) });
+    if (inHand + 0.005 < toRupees(run.totals.netPaise ?? run.totals.netCents)) return fail('INSUFFICIENT_CASH', { inHand, amount: toRupees(run.totals.netPaise ?? run.totals.netCents) });
   }
-  return { ok: true, run, date, mode, amount: toRupees(run.totals.netPaise) };
+  return { ok: true, run, date, mode, amount: toRupees(run.totals.netPaise ?? run.totals.netCents) };
 }
 
 export function recordSalaryPayment(state, args = {}) {
@@ -390,7 +390,7 @@ export function recordSalaryPayment(state, args = {}) {
   if (!plan.ok) return plan;
   ensurePayrollAccounts(state.ledger);
   const posted = createTransfers(state.ledger, [
-    { id: nextTransferId(state), debitAccountId: 2300, creditAccountId: plan.mode === 'cash' ? 1001 : 1002, amount: BigInt(plan.run.totals.netPaise), code: 'SALARY-PAID', userData: plan.date, invoiceId: `PAY-${plan.run.period}` },
+    { id: nextTransferId(state), debitAccountId: 2300, creditAccountId: plan.mode === 'cash' ? 1001 : 1002, amount: BigInt(plan.run.totals.netPaise ?? plan.run.totals.netCents), code: 'SALARY-PAID', userData: plan.date, invoiceId: `PAY-${plan.run.period}` },
   ]);
   if (posted.some((result) => !result.ok)) return fail('LEDGER_REJECT', { posted });
   plan.run.paidOn = plan.date;

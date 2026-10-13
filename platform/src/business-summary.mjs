@@ -38,7 +38,8 @@ function payrollFigures(state, period) {
   if (salaryPrivate(state)) return null;
   const run = state.payrollRuns && typeof state.payrollRuns === 'object' && Object.hasOwn(state.payrollRuns, period) ? state.payrollRuns[period] : null;
   if (!run || run.status !== 'approved') return { status: (state.employees || []).some((e) => !e.leftOn) ? 'draft' : 'none', employees: 0, gross: 0, net: 0, employerCost: 0, paidOn: '' };
-  return { status: 'approved', employees: run.employees, gross: round2(run.totals.grossPaise / 100), net: round2(run.totals.netPaise / 100), employerCost: round2(run.totals.employerCostPaise / 100), paidOn: run.paidOn || '' };
+  const minor = (key) => run.totals[`${key}Paise`] ?? run.totals[`${key}Cents`] ?? 0;
+  return { status: 'approved', employees: run.employees, gross: round2(minor('gross') / 100), net: round2(minor('net') / 100), employerCost: round2(minor('employerCost') / 100), paidOn: run.paidOn || '' };
 }
 
 export function businessSummary(state, { period } = {}) {

@@ -249,6 +249,38 @@ open). Filing stays outside MyCA.
 - Not built: state-specific period calendars (New York's non-calendar quarters), prepayment and
   accelerated schedules, local return splits, a provider adapter, and a filing pack per state.
 
+## 13. U3 and U4 as built (2026-10-13)
+
+Built before a US CPA was named, so every federal figure is a dated rule marked not
+reviewed. Withholding is deliberately not computed.
+
+- `platform/src/us-payroll.mjs`: a monthly run for a US business through the shared payroll
+  tools (`payroll_run`, `approve_payroll`, `record_salary_payment`, `list_payroll`,
+  `payslip`). Social Security at 6.2% each side up to the year's wage base
+  (`us.federal.fica.social-security`, 2025 and 2026 records), Medicare at 1.45% each side
+  with the 0.9% Additional Medicare Tax above $200,000 of wages from the same employer
+  (`us.federal.fica.medicare`), FUTA at the net 0.6% on the first $7,000 (`us.federal.futa`).
+  Federal and state income tax withholding are the monthly amounts the owner records per
+  employee (`set_withholding`, or on `add_employee`) from the IRS estimator or Publication
+  15-T; MyCA never derives them from a W-4. Postings: Dr 5120 wages, Dr 5125 employer taxes;
+  Cr 2300 net, 2340 federal payroll taxes, 2350 FUTA, 2360 state withholding.
+  `us_payroll_filings` drafts each quarter's Form 941 figures with the due date from
+  `us.federal.form941.due`, W-2 totals per employee, the W-2 and 1099 due date from
+  `us.federal.w2.due`, and the FUTA total for Form 940.
+- `platform/src/us-owner-tax.mjs`: `schedule_c_summary` lays a calendar year on Schedule C
+  lines (gross receipts from invoice subtotals, returns, supplier bills as cost of goods,
+  expenses by head with the meals, gifts, club and personal rules noted and non-deductible
+  heads excluded, employer payroll taxes on line 23); `estimated_tax_dates` gives the four
+  instalment dates from `us.federal.estimated-tax.due` and which are recorded as paid.
+- Chat: "withholding for EMP-0002 is 2500, state 900, works in CA", "schedule c for 2026",
+  "when are my estimated taxes due?", "941 for 2026".
+- App: the payroll screen shows the federal lines and no PF or ESI files for a US run; the
+  employee form asks for the work state and monthly federal withholding instead of PAN, PF
+  and ESI.
+- Not built: computed withholding from a W-4 (Publication 15-T tables), state unemployment
+  and state withholding tables, Forms 941, 940 and W-2 as files, a Schedule C PDF, the
+  weekend and holiday shift on federal due dates.
+
 ## 10. Recommendation
 
 Approve option A and phase U0 now: it is a week, it does not change anything an Indian
