@@ -10,6 +10,7 @@ import { IMPORT_CONTENT_ARG, isImport } from '../../platform/src/import-document
 import { assertSecret } from './tokens.mjs';
 import { createCrashReports } from './crash-reports.mjs';
 import { PRIVACY_NOTICE, consentExempt, createConsent } from './consent.mjs';
+import { createJobs, jobTokenMatches, JOB_HEADER } from './jobs.mjs';
 import { createGoogleKeys, createGoogleVerifier } from './google.mjs';
 import { CA_SYNC_MODES, syncOf } from './ca-sync.mjs';
 import { inWords } from '../../platform/src/words.mjs';
@@ -90,7 +91,7 @@ function appSnapshot(snapshot, user, role) {
   };
 }
 
-export function createApi({ db, secret, otpSender = null, googleClientIds = [], googleKeys, now = () => Date.now(), log = () => {}, version = 'dev' }) {
+export function createApi({ db, secret, otpSender = null, googleClientIds = [], googleKeys, now = () => Date.now(), log = () => {}, version = 'dev', jobToken = '' }) {
   assertSecret(secret);
   if (liveCallsEnabled()) throw new Error('the hosted API must not start with live provider calls enabled');
   const auth = createAuth({ db, secret, otpSender, now });
@@ -100,6 +101,7 @@ export function createApi({ db, secret, otpSender = null, googleClientIds = [], 
   const members = createMembers({ db, secret, now });
   const crashes = createCrashReports({ db, now });
   const consent = createConsent({ db, now });
+  const jobs = createJobs({ db, withBooks, log });
   const google = createGoogleVerifier({ clientIds: googleClientIds, keys: googleKeys || createGoogleKeys({ now }), now });
   if (!otpSender && !google.enabled) throw new Error('no sign-in method: configure an SMS sender or MYCA_GOOGLE_CLIENT_IDS');
 
@@ -143,6 +145,11 @@ export function createApi({ db, secret, otpSender = null, googleClientIds = [], 
       if (parts[2] === 'refresh') return auth.refresh(body.refreshToken);
       if (parts[2] === 'logout') return auth.logout((await signedIn(req)).deviceId);
       throw httpError(404, 'NOT_FOUND');
+    }
+
+    if (parts[1] === 'jobs' && parts[2] === 'daily' && parts.length === 3 && method === 'POST') {
+      if (!jobTokenMatches(jobToken, req.headers[JOB_HEADER])) throw httpError(404, 'NOT_FOUND');
+      return jobs.daily(requestId);
     }
 
     const user = await signedIn(req);

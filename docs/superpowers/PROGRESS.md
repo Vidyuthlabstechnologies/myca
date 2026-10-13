@@ -2,7 +2,7 @@
 
 **Phase 0 (pilot readiness) engineering: 67% complete**
 
-**Whole product to a Play Store launch: about 44% complete** (estimate, see the last section)
+**Whole product to a Play Store launch: about 47% complete** (estimate, see the last section)
 
 Last updated 2026-09-27 (after H10 — every Critical and High finding closed). Work now happens directly on the main branch (`claude/codebase-audit-review-9cf396`) with no background workflows. The release, statutory-rules, gate and ledger-integrity lanes are merged in. Suite: platform 362/362, every sprint and rules suite green, `npm run stress` passing.
 
@@ -80,8 +80,8 @@ The goal is now an owner-first Android app on the Play Store. The weights below 
 | Area | Weight | Done | Contribution | Basis |
 |---|---|---|---|---|
 | Hardened core: ledger, engines, gate (Phase 0) | 25 | 67% | 16.8 | Table above |
-| Cloud core: accounts, sync, hosted API, DPDP | 20 | 55% | 11.0 | C0 done. C1 built and tested on local Postgres: phone sign-in, sessions, businesses and roles, the `/v1` API, the engine running per request (37 tests), and the app's hosted mode. File uploads work, so Tally, Zoho and bank imports run when hosted. Owners can invite staff and accountants (53 tests). Not deployed; no SMS sender; privacy assessment not started |
-| Pipeline and exception queue | 10 | 30% | 3.0 | Exception queue built; no job pipeline |
+| Cloud core: accounts, sync, hosted API, DPDP | 20 | 58% | 11.6 | C0 done. C1 built and tested on local Postgres: phone sign-in, sessions, businesses and roles, the `/v1` API, the engine running per request (37 tests), and the app's hosted mode. File uploads work, so Tally, Zoho and bank imports run when hosted. Owners can invite staff and accountants (53 tests). Not deployed (the deploy workflow, scheduler, graceful shutdown and startup retry are written, 2026-10-14); no SMS sender; privacy assessment not started |
+| Pipeline and exception queue | 10 | 55% | 5.5 | Exception queue built; the daily job (`/v1/jobs/daily` from Cloud Scheduler, `run_automation` per business) adds reminders for what falls due, verifies the ledger chain and checks the rules; the desktop runs the same checks on launch and hourly, keeps fourteen verified daily backups and self-restores from them; nightly CI with a self-closing issue; Android and hosted API release workflows (2026-10-14). No document pipeline |
 | Android app | 25 | 30% | 7.5 | `mobile/` (Flutter): welcome, brand, sign-in, migration onboarding and later re-import (Tally, Zoho, bank statement), home summary, customer picker, threads with preview and confirm, expenses, taxes, Ask; 18 tests, debug APK builds, checked against the live server. Filing pack saved as one file from Taxes (2026-10-13); the GST payment, GSTR-9, quarterly GSTR-1 and IFF, year close, SUTA rates, the week ahead on Home and US quotes (2026-10-14). Not yet run on a device; no bill capture, notifications or release build |
 | LLM chat agent | 8 | 35% | 2.8 | Tool contracts, keyword router, preview/confirm; no model in the loop |
 | Live filing connections | 7 | 40% | 2.8 | Adapters wired against sandbox; onboarding not started |

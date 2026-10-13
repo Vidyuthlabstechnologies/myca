@@ -47,15 +47,15 @@ export async function startApi(options = {}) {
   const sender = createCaptureSender();
   const clock = { now: Date.now(), advance(ms) { this.now += ms; } };
   const logs = [];
-  const handler = createApi({ db, secret: SECRET, otpSender: options.phone === false ? null : sender, googleClientIds: [GOOGLE_CLIENT], googleKeys: TEST_GOOGLE_KEYS, now: () => clock.now, log: (entry) => logs.push(entry) });
+  const handler = createApi({ db, secret: SECRET, otpSender: options.phone === false ? null : sender, googleClientIds: [GOOGLE_CLIENT], googleKeys: TEST_GOOGLE_KEYS, now: () => clock.now, log: (entry) => logs.push(entry), jobToken: options.jobToken || '' });
   const server = createServer(handler);
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
   const base = `http://127.0.0.1:${server.address().port}`;
 
-  async function call(method, path, { token, body, raw } = {}) {
+  async function call(method, path, { token, body, raw, headers = {} } = {}) {
     const res = await fetch(`${base}${path}`, {
       method,
-      headers: { 'content-type': 'application/json', ...(token ? { authorization: `Bearer ${token}` } : {}) },
+      headers: { 'content-type': 'application/json', ...(token ? { authorization: `Bearer ${token}` } : {}), ...headers },
       body: raw !== undefined ? raw : body === undefined ? undefined : JSON.stringify(body),
     });
     const text = await res.text();

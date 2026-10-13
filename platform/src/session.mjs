@@ -120,6 +120,7 @@ export function openSession(target = defaultDataPath(), { seed = true } = {}) {
   return {
     path,
     state,
+    stores,
     persist() { saveBooks(); },
     signIn(userId, pin) {
       return exclusive(async () => {

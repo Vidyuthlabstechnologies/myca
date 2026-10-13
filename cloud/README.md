@@ -5,7 +5,8 @@ the unchanged engines in `platform/src` once per request against Postgres. Desig
 `docs/superpowers/specs/2026-10-06-cloud-backend-design.md`.
 
 This package has one dependency, the Postgres driver `pg`. `platform/` stays
-dependency-free. Nothing here is deployed yet; it has only run against a local Postgres.
+dependency-free. It has run against a local Postgres and in CI; the Google Cloud project it deploys to is
+not created yet (`infra/cloud` is written and validated, applied by hand).
 
 ## How a request runs
 
@@ -67,9 +68,21 @@ flutter run --dart-define=MYCA_CLOUD_URL=http://127.0.0.1:8080
 
 (with `adb reverse tcp:8080 tcp:8080` for a phone on USB).
 
+## Operations
+
+- `POST /v1/jobs/daily` with the `x-myca-job-token` header (`MYCA_JOB_TOKEN`, 32+
+  characters, else the route does not exist) runs the daily checks for every business:
+  reminders for what falls due, the ledger chain, the dated rules. Cloud Scheduler calls
+  it at 02:30 IST (`infra/cloud`). Each run is one transaction per business, audited.
+- Startup waits for the database (ten tries, three seconds apart); `SIGTERM` drains
+  in-flight requests before the pool closes. `npm run migrate` applies migrations on
+  their own, for a restore drill.
+- `.github/workflows/deploy-cloud.yml` builds the image and rolls it out on merge to
+  `main` once `GCP_API_REGION` is set. `docs/operations/RUNBOOK.md` has the rest.
+
 ## Not built yet
 
-- Deployment: Terraform, Cloud Run, Cloud SQL, HTTPS. Needs a Google Cloud project.
+- The Google Cloud project itself, and the first `terraform apply` of `infra/cloud`.
 - An SMS sender. Google Sign-In is built (2026-10-07) and is the pilot's sign-in.
 - Telling an invited person. An invitation is only visible to them after they sign in
   with that number; no SMS is sent because there is no sender yet.

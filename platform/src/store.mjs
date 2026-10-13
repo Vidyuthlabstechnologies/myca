@@ -1,4 +1,4 @@
-import { closeSync, mkdirSync, openSync, readFileSync, writeFileSync, renameSync, unlinkSync, existsSync } from 'node:fs';
+import { closeSync, fsyncSync, mkdirSync, openSync, readFileSync, writeFileSync, renameSync, unlinkSync, existsSync } from 'node:fs';
 import { basename, dirname, extname, isAbsolute, join, normalize, relative } from 'node:path';
 import { tmpdir } from 'node:os';
 import { emptyLedger, freeze, hydrate } from './ledger.mjs';
@@ -73,6 +73,7 @@ export function createState() {
     gstPayments: {},
     sutaRates: [],
     yearClosings: {},
+    automation: { lastRun: '', log: [] },
     lockThrough: '',
     integrationConnections: {},
     documents: [],
@@ -144,6 +145,7 @@ export function serialize(state) {
     gstPayments: state.gstPayments || {},
     sutaRates: state.sutaRates || [],
     yearClosings: state.yearClosings || {},
+    automation: state.automation || { lastRun: '', log: [] },
     quoteSeq: state.quoteSeq || 0,
     integrationConnections: normalizeIntegrationConnections(state.integrationConnections),
     documents: state.documents || [],
@@ -296,6 +298,7 @@ export function deserialize(raw) {
   state.gstPayments = raw.gstPayments && typeof raw.gstPayments === 'object' ? raw.gstPayments : {};
   state.sutaRates = Array.isArray(raw.sutaRates) ? raw.sutaRates : [];
   state.yearClosings = raw.yearClosings && typeof raw.yearClosings === 'object' ? raw.yearClosings : {};
+  state.automation = raw.automation && typeof raw.automation === 'object' ? raw.automation : { lastRun: '', log: [] };
   state.quoteSeq = raw.quoteSeq || 0;
   // Legacy states embedded raw content in `files`; carry it to a one-shot migration.
   state._legacyFiles = raw.files && typeof raw.files === 'object' ? raw.files : null;
@@ -401,11 +404,42 @@ export function saveState(path, state) {
   const text = JSON.stringify(serialize(state), null, 2);
   savePinVault(safePath, state);
   try {
-    writeFileSync(tempPath, text, 'utf8');
-    renameSync(tempPath, safePath);
+    writeDurably(tempPath, text);
+    renameWithRetry(tempPath, safePath);
   } catch (err) {
     try { unlinkSync(tempPath); } catch {}
     throw err;
+  }
+  return text;
+}
+
+const RENAME_RETRIES = 6;
+const RENAME_WAIT_MS = 50;
+const TRANSIENT_RENAME = new Set(['EPERM', 'EBUSY', 'EACCES']);
+
+function writeDurably(path, text) {
+  const fd = openSync(path, 'w');
+  try {
+    writeFileSync(fd, text, 'utf8');
+    fsyncSync(fd);
+  } finally {
+    closeSync(fd);
+  }
+}
+
+function pause(ms) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
+function renameWithRetry(from, to) {
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      renameSync(from, to);
+      return;
+    } catch (err) {
+      if (!TRANSIENT_RENAME.has(err.code) || attempt >= RENAME_RETRIES) throw err;
+      pause(RENAME_WAIT_MS * attempt);
+    }
   }
 }
 

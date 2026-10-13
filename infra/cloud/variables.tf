@@ -54,6 +54,24 @@ variable "deletion_protection" {
   default     = true
 }
 
+variable "daily_job_schedule" {
+  description = "Cron for the daily checks, in daily_job_time_zone."
+  type        = string
+  default     = "30 2 * * *"
+}
+
+variable "daily_job_time_zone" {
+  description = "Time zone the daily schedule is read in."
+  type        = string
+  default     = "Asia/Kolkata"
+}
+
+variable "sql_availability_type" {
+  description = "ZONAL (one zone, cheapest) or REGIONAL (a standby in a second zone, automatic failover, about twice the database cost)."
+  type        = string
+  default     = "ZONAL"
+}
+
 variable "alert_email" {
   description = "Email for API alerts. Empty disables alerting."
   type        = string

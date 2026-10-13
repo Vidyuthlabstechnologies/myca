@@ -5,6 +5,11 @@ import { extname, join, dirname, resolve, relative, isAbsolute } from 'node:path
 import { fileURLToPath } from 'node:url';
 import { openSession } from './session.mjs';
 import { migrateGovtVault } from './govt.mjs';
+import { verifyChain } from './ledger.mjs';
+import { automationStatus } from './automation.mjs';
+
+const APP_VERSION = JSON.parse(readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'package.json'), 'utf8')).version;
+const TICK_MS = 60 * 60 * 1000;
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const types = {
@@ -27,6 +32,40 @@ let httpServer;
 let openError = '';
 let apiToken = '';
 let boundPort = 0;
+let tick = null;
+let startedAt = 0;
+let lastTick = null;
+
+async function runDailyChecks(reason) {
+  if (!session) return;
+  try {
+    const out = await session.tool('run_automation', {});
+    lastTick = { at: new Date().toISOString(), reason, ok: out.ok !== false, skipped: out.data?.skipped === true, warnings: out.data?.run?.warnings?.length || 0 };
+    if (lastTick.warnings) console.warn(`MyCA daily checks: ${out.data.run.warnings.join(' | ')}`);
+  } catch (err) {
+    lastTick = { at: new Date().toISOString(), reason, ok: false, error: String(err?.message || err) };
+    console.error(`MyCA daily checks failed: ${lastTick.error}`);
+  }
+}
+
+export function healthReport() {
+  const stores = session?.stores?.books?.health ? session.stores.books.health() : null;
+  const chain = session ? verifyChain(session.state.ledger) : null;
+  const automation = session ? automationStatus(session.state).data : null;
+  const ok = Boolean(session) && !openError && (chain ? chain.ok : false);
+  return {
+    ok,
+    version: APP_VERSION,
+    uptimeSeconds: startedAt ? Math.round((Date.now() - startedAt) / 1000) : 0,
+    books: session ? { open: true, path: session.path || '', invoices: session.state.invoices.length, transfers: session.state.ledger.transfers.length } : { open: false, error: openError },
+    chain: chain ? (chain.ok ? { ok: true } : { ok: false, error: chain.error, at: chain.at }) : null,
+    backups: stores ? stores.backups : null,
+    lastBackup: stores ? stores.lastBackup : null,
+    recovered: stores ? stores.recovered : null,
+    automation: automation ? { lastRun: automation.lastRun, warnings: automation.warnings } : null,
+    lastTick,
+  };
+}
 
 export function apiClientToken() {
   return apiToken;
@@ -215,6 +254,7 @@ function handler(req, res) {
       const body = req.method === 'POST' ? JSON.parse(await readBody(req) || '{}') : {};
       return send(req, res, 200, await session.caApi(req.method, url.pathname, body));
     }
+    if (url.pathname === '/api/health') return send(req, res, healthReport().ok ? 200 : 503, healthReport());
     if (url.pathname === '/api/snapshot') return send(req, res, 200, session.snapshot());
     const ui = resolve(root, 'desktop', 'renderer');
     const rel = url.pathname === '/' ? 'index.html' : decodeURIComponent(url.pathname.replace(/^\//, ''));
@@ -254,6 +294,10 @@ export function startServer(port = Number(process.env.PORT || 4780)) {
         resolveListen({ port: bound, reused: false, error: openError });
         return;
       }
+      startedAt = Date.now();
+      runDailyChecks('startup');
+      tick = setInterval(() => runDailyChecks('timer'), TICK_MS);
+      tick.unref();
       console.log(`MyCA http://127.0.0.1:${bound}`);
       resolveListen({ port: bound, reused: false });
     });

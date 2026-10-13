@@ -28,6 +28,7 @@ import { pfEcr, esiReturn } from './payroll-files.mjs';
 import { countryOf, isCountry, toolServesCountry } from './country.mjs';
 import { createUsInvoice, createUsPurchase, setSalesTaxRate, listSalesTaxRates, setContractor, contractorPayments } from './us-sales.mjs';
 import { rulesStatus } from './rules-status.mjs';
+import { runDailyAutomation, automationStatus } from './automation.mjs';
 import { usPayrollFor, approveUsPayroll, listUsPayroll, usPayslip, usPayrollFilings, setWithholding, setSutaRate, listSutaRates } from './us-payroll.mjs';
 import { scheduleCSummary, estimatedTaxDates } from './us-owner-tax.mjs';
 import { importUsInvoices } from './import-us-books.mjs';
@@ -681,6 +682,20 @@ export const TOOLS = [
     description: 'How current the dated statutory rules are for this business\'s country: per family, records in force today, the latest effective date, what is covered until when, rule ids with nothing in force, records ending soon with no successor, how many a CA or CPA has attested, and the official sources to watch. Read-only.',
     args: ['asOf', 'country'],
     run: (state, args = {}) => rulesStatus(state, args),
+  },
+  {
+    name: 'run_automation',
+    title: 'Run the daily checks',
+    description: 'The daily automation, run once a day when MyCA opens and by the hosted service overnight: adds a reminder for every filing, estimated tax instalment or payroll approval falling due in the next fourteen days (never twice for the same one), verifies the ledger chain, and checks the dated statutory rules for gaps and records ending soon. Safe to repeat; a second run on the same day does nothing unless force is given.',
+    args: ['asOf', 'force'],
+    run: (state, args = {}) => runDailyAutomation(state, args),
+  },
+  {
+    name: 'automation_status',
+    title: 'Daily checks status',
+    description: 'When the daily checks last ran, what they added, whether the ledger chain was intact, and any warnings. Read-only.',
+    args: [],
+    run: (state) => automationStatus(state),
   },
   {
     name: 'set_sales_tax_nexus',

@@ -1,0 +1,120 @@
+name: Build Android app
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Release APK and app bundle
+    runs-on: ubuntu-latest
+    env:
+      HAS_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+      CLOUD_URL: ${{ vars.MYCA_CLOUD_URL }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-java@c5195efecf7bdfc987ee8bae7a71cb8b11521c00 # v4.7.1
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install Flutter at the pinned version
+        shell: bash
+        env:
+          FLUTTER_VERSION: "3.44.9"
+        run: |
+          set -euo pipefail
+          git clone --depth 1 --branch "$FLUTTER_VERSION" https://github.com/flutter/flutter.git "$RUNNER_TEMP/flutter"
+          echo "$RUNNER_TEMP/flutter/bin" >> "$GITHUB_PATH"
+
+      - name: Fetch packages
+        working-directory: mobile
+        run: flutter pub get --enforce-lockfile
+
+      - name: Analyze and test before building
+        working-directory: mobile
+        run: |
+          flutter analyze
+          flutter test
+
+      - name: Install the upload key
+        if: env.HAS_KEYSTORE == 'true'
+        working-directory: mobile/android
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$KEYSTORE_BASE64" | base64 -d > upload.jks
+          {
+            echo "storeFile=$PWD/upload.jks"
+            echo "storePassword=$KEYSTORE_PASSWORD"
+            echo "keyAlias=$KEY_ALIAS"
+            echo "keyPassword=$KEY_PASSWORD"
+          } > key.properties
+
+      - name: Build
+        working-directory: mobile
+        shell: bash
+        run: |
+          set -euo pipefail
+          define=()
+          if [ -n "$CLOUD_URL" ]; then define=(--dart-define="MYCA_CLOUD_URL=$CLOUD_URL"); fi
+          flutter build apk --release "${define[@]}"
+          flutter build appbundle --release "${define[@]}"
+          mkdir -p ../dist
+          cp build/app/outputs/flutter-apk/app-release.apk ../dist/myca-android.apk
+          cp build/app/outputs/bundle/release/app-release.aab ../dist/myca-android.aab
+          (cd ../dist && sha256sum myca-android.apk myca-android.aab > SHA256SUMS-android.txt)
+
+      - name: Remove the key from the runner
+        if: always()
+        run: rm -f mobile/android/upload.jks mobile/android/key.properties
+
+      - name: Say how it was signed
+        shell: bash
+        run: |
+          {
+            echo "### Android build"
+            if [ "$HAS_KEYSTORE" = "true" ]; then echo "- Signed with the upload key: ready for Play."; else echo "- Signed with the debug key: installable for testing, not uploadable to Play. Add ANDROID_KEYSTORE_BASE64 and the three key secrets to sign."; fi
+            if [ -n "$CLOUD_URL" ]; then echo "- Hosted mode: \`$CLOUD_URL\`"; else echo "- Local mode: no MYCA_CLOUD_URL variable set."; fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: myca-android
+          path: dist/
+          if-no-files-found: error
+
+  publish:
+    name: Attach to the release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: myca-android
+          path: dist
+      - name: Upload the files to the tag's release
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME}"
+          if ! gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release create "$tag" --repo "$GITHUB_REPOSITORY" --title "$tag" --notes "MyCA $tag" --draft=false
+          fi
+          gh release upload "$tag" dist/myca-android.apk dist/myca-android.aab dist/SHA256SUMS-android.txt --repo "$GITHUB_REPOSITORY" --clobber

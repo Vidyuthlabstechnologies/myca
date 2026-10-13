@@ -1,0 +1,87 @@
+name: Nightly checks
+
+on:
+  schedule:
+    - cron: "30 21 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nightly
+  cancel-in-progress: false
+
+jobs:
+  suites:
+    name: Every suite against today's clock
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: myca
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: "--health-cmd \"pg_isready -U myca\" --health-interval 5s --health-timeout 5s --health-retries 12"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22"
+      - name: Install the hosted API's one dependency
+        working-directory: cloud
+        run: npm ci --ignore-scripts
+      - name: Platform, sprint and hosted API suites
+        env:
+          MYCA_TEST_DATABASE_URL: postgres://myca@127.0.0.1:5432/postgres
+        run: node scripts/check-all.mjs platform sprints cloud
+
+  rules:
+    name: Statutory rules still current
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22"
+      - name: Gaps and records ending within ninety days
+        run: node scripts/rules-watch.mjs | tee "$GITHUB_STEP_SUMMARY"
+
+  report:
+    name: Open or update the issue
+    needs: [suites, rules]
+    if: always()
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SUITES: ${{ needs.suites.result }}
+      RULES: ${{ needs.rules.result }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - name: File what failed, close it when everything passes
+        shell: bash
+        run: |
+          set -euo pipefail
+          title="Nightly checks need attention"
+          existing="$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "\"$title\" in:title" --json number --jq '.[0].number // empty')"
+          if [ "$SUITES" = "success" ] && [ "$RULES" = "success" ]; then
+            if [ -n "$existing" ]; then
+              gh issue close "$existing" --repo "$GITHUB_REPOSITORY" --comment "Every nightly check passed on $(date -u +%F): $RUN_URL"
+            fi
+            exit 0
+          fi
+          body="$(printf 'Nightly run on %s: %s\n\n- Test suites: **%s**\n- Statutory rules: **%s**\n\nThe rules job prints which family has a gap or a record ending with no successor. Add the new dated record as docs/product/RULES-CURRENCY.md describes; never edit an existing one. This issue closes itself on the first green night.' "$(date -u +%F)" "$RUN_URL" "$SUITES" "$RULES")"
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --repo "$GITHUB_REPOSITORY" --body "$body"
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --body "$body" --label automation || gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --body "$body"
+          fi

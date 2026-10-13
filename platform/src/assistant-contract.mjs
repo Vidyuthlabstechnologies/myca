@@ -562,6 +562,12 @@ export const TOOL_ARG_SCHEMAS = {
     additionalProperties: false,
     properties: { asOf: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' }, country: { type: 'string', enum: ['IN', 'US'] } },
   },
+  run_automation: {
+    type: 'object',
+    additionalProperties: false,
+    properties: { asOf: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' }, force: { type: 'boolean' } },
+  },
+  automation_status: { type: 'object', additionalProperties: false, properties: {} },
   set_sales_tax_nexus: {
     type: 'object',
     additionalProperties: false,
@@ -1332,6 +1338,7 @@ const TOOL_RISK = {
   set_gst_credit_opening: 'writes_books',
   record_gst_payment: 'writes_books',
   close_year: 'writes_books',
+  run_automation: 'writes_books',
   tds_review_answer: 'writes_books',
   record_tds_deposit: 'writes_books',
   change_salary: 'writes_books',

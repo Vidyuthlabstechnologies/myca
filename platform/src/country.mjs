@@ -40,7 +40,7 @@ export function yearWords(stateOrCompany, isoDate) {
 }
 
 const SHARED_TOOLS = new Set([
-  'company_profile', 'set_company', 'rules_status', 'chart_of_accounts', 'trial_balance', 'journal', 'period_status', 'lock_period', 'unlock_period',
+  'company_profile', 'set_company', 'rules_status', 'run_automation', 'automation_status', 'chart_of_accounts', 'trial_balance', 'journal', 'period_status', 'lock_period', 'unlock_period',
   'list_invoices', 'invoice_document', 'record_receipt', 'record_payment', 'list_expenses', 'expense_heads', 'business_summary',
   'export_entries', 'export_trial_balance', 'import_bank', 'books_check', 'list_reminders', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'cash_forecast', 'can_afford',
   'ask_ca', 'reply_ca', 'close_ca', 'list_ca_requests', 'list_quotes', 'quote_document', 'mark_quote', 'create_quote', 'convert_quote', 'create_credit_note', 'close_year', 'list_year_closings', 'week_ahead',
