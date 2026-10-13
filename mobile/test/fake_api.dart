@@ -1014,6 +1014,63 @@ class FakeMycaApi implements MycaApi {
           shares.add({'on': '2026-10-05T10:00:00.000Z', 'by': 'u-owner', 'channel': args['channel'], 'outcome': args['outcome']});
         }
         return {'ok': true, 'invoiceId': args['invoiceId'], 'recorded': args['outcome'] != 'cancelled'};
+      case 'estimated_tax_dates':
+        return {
+          'ok': true,
+          'data': {
+            'year': '2026',
+            'installments': [
+              {'installment': 1, 'covers': 'income from 1 January to 31 March', 'dueDate': '2026-04-15', 'past': true, 'paid': {'confirmation': 'EFTPS1', 'paidOn': '2026-04-10'}},
+              {'installment': 2, 'covers': 'income from 1 April to 31 May', 'dueDate': '2026-06-15', 'past': true, 'paid': null},
+              {'installment': 3, 'covers': 'income from 1 June to 31 August', 'dueDate': '2026-09-15', 'past': true, 'paid': null},
+              {'installment': 4, 'covers': 'income from 1 September to 31 December', 'dueDate': '2027-01-15', 'past': false, 'paid': null},
+            ],
+            'unreviewed': true,
+            'notes': const <Object?>[],
+          },
+        };
+      case 'schedule_c_summary':
+        return {
+          'ok': true,
+          'data': {'year': '2026', 'grossReceipts': 1000, 'returnsAndAllowances': 0, 'costOfGoodsSold': 324.75, 'grossIncome': 675.25, 'expenses': const <Object?>[], 'totalExpenses': 2080, 'excluded': 50, 'netProfit': -1404.75, 'notes': const <Object?>[]},
+        };
+      case 'us_payroll_filings':
+        return {
+          'ok': true,
+          'data': {
+            'year': '2026',
+            'quarters': [
+              {'quarter': '2026-Q3', 'months': 3, 'wages': 15000, 'federalWithholding': 1200, 'socialSecurityTax': 1860, 'medicareTax': 435, 'totalTaxes': 3495, 'dueDate': '2026-10-31', 'filed': null},
+              {'quarter': '2026-Q4', 'months': 0, 'wages': 0, 'totalTaxes': 0, 'dueDate': '2027-01-31', 'filed': null},
+            ],
+            'w2': [
+              {'employeeId': 'EMP-0001', 'name': 'Ravi Kumar', 'wages': 15000},
+            ],
+            'w2DueDate': '2027-01-31',
+            'futa': {'total': 42},
+            'notes': const <Object?>[],
+          },
+        };
+      case 'contractor_payments':
+        return {
+          'ok': true,
+          'data': {
+            'year': '2026',
+            'threshold': 2000,
+            'contractors': [
+              {'name': 'Joe Plumbing', 'entityType': 'sole-proprietor', 'w9Received': false, 'tinLast4': '', 'total': 2500, 'needs1099': true},
+              {'name': 'Small Gig', 'entityType': 'individual', 'w9Received': true, 'tinLast4': '1111', 'total': 300, 'needs1099': false},
+            ],
+            'needing1099': 1,
+            'missingW9': ['Joe Plumbing'],
+            'notes': const <Object?>[],
+          },
+        };
+      case 'contractor_1099_file':
+        return {
+          'ok': true,
+          'data': {'year': '2026', 'payees': [{'recipient': 'Joe Plumbing', 'nonemployeeCompensation': 2500}], 'fileName': '1099NEC_EIN_2026.csv', 'csv': 'tax_year,recipient\n2026,Joe Plumbing\n'},
+        };
       case 'rules_status':
         return {
           'ok': true,
@@ -1471,6 +1528,8 @@ class FakeMycaApi implements MycaApi {
                 : const <Object?>[],
           },
         };
+      case 'gst_payable':
+        return {'ok': true, 'data': {'period': args['period'], 'toPay': {'igst': 0, 'cgst': 1800, 'sgst': 1800, 'total': 3600}, 'notes': const <Object?>[]}};
       case 'export_trial_balance':
         return {
           'ok': true,
@@ -1533,6 +1592,19 @@ class FakeMycaApi implements MycaApi {
             },
             'caveat':
                 'What you owe suppliers counts only payments recorded against bills.',
+          },
+        };
+      case 'filing_pack':
+        return {
+          'ok': true,
+          'data': {
+            'gstin': '27AABCU9603R1ZN',
+            'period': args['period'],
+            'gstr1': {'b2b': const <Object?>[]},
+            'gstr3b': {'outward': {'taxable': 20000}},
+            'payable': 3600,
+            'trialBalance': {'balanced': true},
+            'caveat': 'Prepared locally. A practising CA must review and file on GSTN.',
           },
         };
       case 'export_tally':

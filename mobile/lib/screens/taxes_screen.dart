@@ -101,6 +101,46 @@ class _TaxesScreenState extends State<TaxesScreen> {
     await _reload();
   }
 
+  Future<void> _saveFilingPack(String period) async {
+    final state = AppScope.of(context);
+    setState(() => _entriesNote = '');
+    var note = '';
+    try {
+      final results = await Future.wait([
+        state.api.query('gst_period_summary', {'period': period}),
+        state.api.query('export_gstr1_json', {'fp': '${period.substring(5, 7)}${period.substring(0, 4)}'}),
+        state.api.query('gst_payable', {'period': period}),
+        state.api.query('export_trial_balance'),
+      ]);
+      final summary = toolData(results[0]);
+      final gstr1 = toolData(results[1]);
+      final payable = toolData(results[2]);
+      final trialBalance = toolData(results[3]);
+      if (summary.isEmpty) {
+        note = 'The filing pack could not be prepared.';
+      } else {
+        final data = <String, Object?>{
+          'gstin': gstr1['gstin'] ?? '',
+          'period': period,
+          'summary': summary,
+          'gstr1': gstr1,
+          'payable': payable,
+          'trialBalance': trialBalance,
+          'caveat': 'Prepared on the phone from the books. A practising CA must review and file on GSTN; MyCA files nothing.',
+        };
+        final name = 'filing_pack_${data['gstin']}_$period.json';
+        final saved = await state.saveTextFile(name, const JsonEncoder.withIndent('  ').convert(data));
+        note = saved
+            ? 'Saved $name: GSTR-1, GSTR-3B, the amount to pay and the trial balance in one file for your CA to file on GSTN.'
+            : 'Not saved.';
+      }
+    } on MycaApiException catch (err) {
+      note = err.message;
+    }
+    if (!mounted) return;
+    setState(() => _entriesNote = note);
+  }
+
   Future<void> _saveForm16A(TdsQuarter quarter) async {
     final state = AppScope.of(context);
     setState(() => _tdsNote = '');
@@ -422,6 +462,14 @@ class _TaxesScreenState extends State<TaxesScreen> {
                     child: OutlinedButton(
                       onPressed: () => _saveEntries(gst.period, tally: true),
                       child: const Text('Save a Tally file'),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton(
+                      onPressed: () => _saveFilingPack(gst.period),
+                      child: const Text('Save the filing pack for your CA'),
                     ),
                   ),
                   const SizedBox(height: 8),

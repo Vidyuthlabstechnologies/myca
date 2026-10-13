@@ -37,6 +37,7 @@ import { recordSupplierNote } from './supplier-notes.mjs';
 import { tdsCertificates } from './tds-certificates.mjs';
 import { importPosSales } from './import-pos.mjs';
 import { contractor1099File } from './us-1099.mjs';
+import { usBankMatrix } from './us-bank.mjs';
 import { setNexus, listNexus, salesTaxReturn, salesTaxReviewOf, answerSalesTaxReview, recordSalesTaxPayment, recordSalesTaxFiling, salesTaxOverview } from './us-sales-tax.mjs';
 import { recordTdsDeposit, setDeductor, tdsSummary } from './tds-deduction.mjs';
 import { paymentFor, setCreditOpening } from './gst-payment.mjs';
@@ -1470,7 +1471,16 @@ export const TOOLS = [
     args: ['content', 'type'],
     run: (state, args) => {
       const type = args.type || 'csv';
-      const result = ingestBank({ type, content: args.content }, { asOfDate: args.asOfDate, fileLabel: args.fileName || 'bank' });
+      let feed = { type, content: args.content };
+      let usHeld = [];
+      if (countryOf(state) === 'US' && type === 'csv') {
+        const shaped = usBankMatrix(args.content || '');
+        if (!shaped.ok) return fail(shaped.error, { hint: shaped.need ? `The statement needs ${shaped.need}.` : 'The statement could not be read.' });
+        feed = { type: 'matrix', rows: shaped.rows };
+        usHeld = shaped.held;
+      }
+      const result = ingestBank(feed, { asOfDate: args.asOfDate, fileLabel: args.fileName || 'bank' });
+      if (usHeld.length) result.usHeld = usHeld;
       const good = (result.rows || []).filter((r) => !r._blocking);
       const ledger = postBankRows(state, good);
       state.imports.push({ source: 'bank', at: new Date().toISOString(), ok: result.ok, rows: result.rows?.length || 0, posted: ledger.posted, heldBack: heldBackFrom(ledger.skipped) });

@@ -42,7 +42,7 @@ export function yearWords(stateOrCompany, isoDate) {
 const SHARED_TOOLS = new Set([
   'company_profile', 'set_company', 'rules_status', 'chart_of_accounts', 'trial_balance', 'journal', 'period_status', 'lock_period', 'unlock_period',
   'list_invoices', 'invoice_document', 'record_receipt', 'record_payment', 'list_expenses', 'expense_heads', 'business_summary',
-  'export_entries', 'export_trial_balance', 'books_check', 'list_reminders', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'cash_forecast', 'can_afford',
+  'export_entries', 'export_trial_balance', 'import_bank', 'books_check', 'list_reminders', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'cash_forecast', 'can_afford',
   'ask_ca', 'reply_ca', 'close_ca', 'list_ca_requests', 'list_quotes', 'quote_document', 'mark_quote',
   'list_employees', 'add_employee', 'change_salary', 'end_employment', 'set_payment_terms', 'set_party_address', 'record_share',
   'exceptions', 'exception_decide', 'approval_list', 'approval_request', 'approval_decide',
