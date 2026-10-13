@@ -9,7 +9,7 @@ const GOLDEN = fileURLToPath(new URL('../../statutory-rules/golden/deadlines.jso
 test('H2: every golden due date resolves exactly, with no weekend or holiday rollover', async () => {
   const report = await runGolden(GOLDEN, (input) => dueDateFor(input));
   assert.equal(report.ok, true, JSON.stringify(report.failures, null, 1));
-  assert.equal(report.total, 118);
+  assert.equal(report.total, 130);
 });
 
 test('H2: a due date that falls on a weekend stays on that day', () => {

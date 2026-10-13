@@ -36,13 +36,14 @@ import { planNexus, checkSalesTaxAnswer, planSalesTaxPayment, planSalesTaxFiling
 import { planWithholding } from './us-payroll.mjs';
 import { planUsImport } from './import-us-books.mjs';
 import { planSupplierNote } from './supplier-notes.mjs';
+import { planPosImport } from './import-pos.mjs';
 import { filingRows } from './deadline-run.mjs';
 import { tally, bank, gstin as gstinRules } from './sprint-load.mjs';
 import { parseZohoBooksCsv } from './import-zoho.mjs';
 import { tallyXmlToDayBookCsv } from './tally-xml.mjs';
 
 export const CONFIRM_TOOLS = new Set([
-  'create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'record_filing', 'record_supplier_reminder', 'add_employee', 'change_salary', 'end_employment', 'approve_payroll', 'record_salary_payment', 'set_tds_deductor', 'record_tds_deposit', 'tds_review_answer', 'set_gst_credit_opening', 'post_expense', 'set_expense_head', 'create_credit_note', 'create_debit_note', 'create_purchase_note', 'record_supplier_debit_note', 'cancel_invoice', 'gst_review_answer', 'import_gstr2b', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'set_party_address', 'set_transport', 'set_sales_tax_rate', 'set_contractor', 'set_sales_tax_nexus', 'sales_tax_review_answer', 'record_sales_tax_payment', 'record_sales_tax_filing', 'set_withholding', 'import_us_invoices', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote',
+  'create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'record_filing', 'record_supplier_reminder', 'add_employee', 'change_salary', 'end_employment', 'approve_payroll', 'record_salary_payment', 'set_tds_deductor', 'record_tds_deposit', 'tds_review_answer', 'set_gst_credit_opening', 'post_expense', 'set_expense_head', 'create_credit_note', 'create_debit_note', 'create_purchase_note', 'record_supplier_debit_note', 'cancel_invoice', 'gst_review_answer', 'import_gstr2b', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'set_party_address', 'set_transport', 'set_sales_tax_rate', 'set_contractor', 'set_sales_tax_nexus', 'sales_tax_review_answer', 'record_sales_tax_payment', 'record_sales_tax_filing', 'set_withholding', 'import_us_invoices', 'import_pos_sales', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote',
   'import_tally', 'import_tally_xml', 'import_zoho', 'import_bank',
   'govt_generate_irn', 'govt_nic_cancel_irn',
   'exception_decide',
@@ -940,6 +941,22 @@ function usImportPreview(state, args) {
   };
 }
 
+function posImportPreview(state, args) {
+  const plan = planPosImport(state, args);
+  if (!plan.ok) return { blockers: [plan.error === 'NO_HEADER' ? `The file needs ${plan.parsed.need}.` : `The file could not be read: ${plan.error}.`], summary: '', effects: [], figures: {} };
+  const reasons = {};
+  for (const row of plan.skipped) reasons[row.reason] = (reasons[row.reason] || 0) + 1;
+  const words = { exists: 'already imported', tax_differs: 'whose GST in the file differs from the rate', RATE_REQUIRED: 'rows with no GST rate', INVALID_DATE: 'rows with a date I cannot read', BAD_AMOUNT: 'rows with an amount I cannot read', PERIOD_LOCKED: 'in a locked period' };
+  const held = Object.entries(reasons).map(([reason, count]) => `${count} ${words[reason] || reason}`);
+  const total = plan.ready.reduce((sum, item) => sum + item.taxable + item.tax, 0);
+  return {
+    blockers: [],
+    summary: `Counter sales: ${plan.parsed.count === 1 ? '1 day' : `${plan.parsed.count} days`} read, ${plan.ready.length} ready to post${plan.ready.length ? ` totalling ${money(total)}` : ''}${held.length ? `; held back: ${held.join('; ')}` : ''}.`,
+    effects: ['Each day posts as one walk-in invoice with a line per GST rate, so GSTR-1 shows it under B2CS by rate.', 'Nothing is matched to a customer; these are counter sales to unregistered buyers.'],
+    figures: { days: plan.parsed.count, ready: plan.ready.length, heldBack: plan.skipped.length },
+  };
+}
+
 function xmlPreview(state, args) {
   const converted = tallyXmlToDayBookCsv(args.xml);
   if (!converted.ok) return { blockers: [converted.error], summary: 'The XML could not be read.', effects: [], figures: {} };
@@ -1028,6 +1045,7 @@ const PREVIEWERS = {
   import_tally_xml: xmlPreview,
   import_zoho: zohoPreview,
   import_us_invoices: usImportPreview,
+  import_pos_sales: posImportPreview,
   import_bank: bankPreview,
   govt_generate_irn: (state, args) => irnPreview(state, args, false),
   govt_nic_cancel_irn: (state, args) => irnPreview(state, args, true),

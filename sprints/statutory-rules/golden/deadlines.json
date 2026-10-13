@@ -1314,6 +1314,138 @@
         "dueDate": "2027-04-15"
       },
       "citation": "EPF Scheme 1952 para 38(1): within fifteen days of the close of the month"
+    },
+    {
+      "name": "ESI contribution for April 2026 is due 2026-05-15",
+      "input": {
+        "rule": "due-date.esi.contribution",
+        "periodEnd": "2026-04-30"
+      },
+      "expected": {
+        "dueDate": "2026-05-15"
+      },
+      "citation": "ESI (General) Regulations 1950 reg. 31: within fifteen days of the last day of the calendar month"
+    },
+    {
+      "name": "ESI contribution for May 2026 is due 2026-06-15",
+      "input": {
+        "rule": "due-date.esi.contribution",
+        "periodEnd": "2026-05-31"
+      },
+      "expected": {
+        "dueDate": "2026-06-15"
+      },
+      "citation": "ESI (General) Regulations 1950 reg. 31: within fifteen days of the last day of the calendar month"
+    },
+    {
+      "name": "ESI contribution for June 2026 is due 2026-07-15",
+      "input": {
+        "rule": "due-date.esi.contribution",
+        "periodEnd": "2026-06-30"
+      },
+      "expected": {
+        "dueDate": "2026-07-15"
+      },
+      "citation": "ESI (General) Regulations 1950 reg. 31: within fifteen days of the last day of the calendar month"
+    },
+    {
+      "name": "ESI contribution for July 2026 is due 2026-08-15",
+      "input": {
+        "rule": "due-date.esi.contribution",
+        "periodEnd": "2026-07-31"
+      },
+      "expected": {
+        "dueDate": "2026-08-15"
+      },
+      "citation": "ESI (General) Regulations 1950 reg. 31: within fifteen days of the last day of the calendar month"
+    },
+    {
+      "name": "ESI contribution for August 2026 is due 2026-09-15",
+      "input": {
+        "rule": "due-date.esi.contribution",
+        "periodEnd": "2026-08-31"
+      },
+      "expected": {
+        "dueDate": "2026-09-15"
+      },
+      "citation": "ESI (General) Regulations 1950 reg. 31: within fifteen days of the last day of the calendar month"
+    },
+    {
+      "name": "ESI contribution for September 2026 is due 2026-10-15",
+      "input": {
+        "rule": "due-date.esi.contribution",
+        "periodEnd": "2026-09-30"
+      },
+      "expected": {
+        "dueDate": "2026-10-15"
+      },
+      "citation": "ESI (General) Regulations 1950 reg. 31: within fifteen days of the last day of the calendar month"
+    },
+    {
+      "name": "ESI contribution for October 2026 is due 2026-11-15",
+      "input": {
+        "rule": "due-date.esi.contribution",
+        "periodEnd": "2026-10-31"
+      },
+      "expected": {
+        "dueDate": "2026-11-15"
+      },
+      "citation": "ESI (General) Regulations 1950 reg. 31: within fifteen days of the last day of the calendar month"
+    },
+    {
+      "name": "ESI contribution for November 2026 is due 2026-12-15",
+      "input": {
+        "rule": "due-date.esi.contribution",
+        "periodEnd": "2026-11-30"
+      },
+      "expected": {
+        "dueDate": "2026-12-15"
+      },
+      "citation": "ESI (General) Regulations 1950 reg. 31: within fifteen days of the last day of the calendar month"
+    },
+    {
+      "name": "ESI contribution for December 2026 is due 2027-01-15",
+      "input": {
+        "rule": "due-date.esi.contribution",
+        "periodEnd": "2026-12-31"
+      },
+      "expected": {
+        "dueDate": "2027-01-15"
+      },
+      "citation": "ESI (General) Regulations 1950 reg. 31: within fifteen days of the last day of the calendar month"
+    },
+    {
+      "name": "ESI contribution for January 2027 is due 2027-02-15",
+      "input": {
+        "rule": "due-date.esi.contribution",
+        "periodEnd": "2027-01-31"
+      },
+      "expected": {
+        "dueDate": "2027-02-15"
+      },
+      "citation": "ESI (General) Regulations 1950 reg. 31: within fifteen days of the last day of the calendar month"
+    },
+    {
+      "name": "ESI contribution for February 2027 is due 2027-03-15",
+      "input": {
+        "rule": "due-date.esi.contribution",
+        "periodEnd": "2027-02-28"
+      },
+      "expected": {
+        "dueDate": "2027-03-15"
+      },
+      "citation": "ESI (General) Regulations 1950 reg. 31: within fifteen days of the last day of the calendar month"
+    },
+    {
+      "name": "ESI contribution for March 2027 is due 2027-04-15",
+      "input": {
+        "rule": "due-date.esi.contribution",
+        "periodEnd": "2027-03-31"
+      },
+      "expected": {
+        "dueDate": "2027-04-15"
+      },
+      "citation": "ESI (General) Regulations 1950 reg. 31: within fifteen days of the last day of the calendar month"
     }
   ]
 }

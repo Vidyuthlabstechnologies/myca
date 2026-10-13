@@ -5,7 +5,7 @@ import { localToday } from './dates.mjs';
 import { monthsBack, withFilings } from './filings.mjs';
 
 const { complianceRun } = deadlines;
-const DEADLINE_COLUMNS = ['clientId', 'name', 'entity', 'turnover', 'gst', 'qrmp', 'tdsDeductor', 'pf', 'advanceTax', 'tp', 'state', 'profession', 'gstTds', 'presumptive'];
+const DEADLINE_COLUMNS = ['clientId', 'name', 'entity', 'turnover', 'gst', 'qrmp', 'tdsDeductor', 'pf', 'esi', 'advanceTax', 'tp', 'state', 'profession', 'gstTds', 'presumptive'];
 const NO_DOCS = 'clientId,period,returnType,docType,status,receivedDate,source\n';
 
 function yes(value) {
@@ -26,6 +26,7 @@ function deadlineProfile(clientId, company, extra, salesInvoices) {
     qrmp: String(extra.gstFrequency || company.gstFrequency || 'monthly').toLowerCase() === 'quarterly' ? 'TRUE' : 'FALSE',
     tdsDeductor: yes(extra.tdsDeductor ?? company.tdsDeductor) ? 'TRUE' : 'FALSE',
     pf: yes(extra.pf ?? company.pf) ? 'TRUE' : 'FALSE',
+    esi: yes(extra.esi ?? company.esi) ? 'TRUE' : 'FALSE',
     advanceTax: yes(extra.advanceTax ?? company.advanceTax) ? 'TRUE' : 'FALSE',
     tp: yes(extra.transferPricing ?? company.transferPricing) ? 'TRUE' : 'FALSE',
     state: String(extra.state || company.state || gstin.slice(0, 2) || ''),

@@ -281,6 +281,7 @@ reviewed. Withholding is deliberately not computed.
 - App: the payroll screen shows the federal lines and no PF or ESI files for a US run; the
   employee form asks for the work state and monthly federal withholding instead of PAN, PF
   and ESI.
+- Added later the same day: `contractor_1099_file`, the 1099-NEC data file per payee (box 1, entity type, TIN last four, W-9 status) with the due date from the dated rule.
 - Not built: computed withholding from a W-4 (Publication 15-T tables), state unemployment
   and state withholding tables, Forms 941, 940 and W-2 as files, a Schedule C PDF, the
   weekend and holiday shift on federal due dates.

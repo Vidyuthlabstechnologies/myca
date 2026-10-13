@@ -160,6 +160,12 @@ const RETURN_RULES = RETURN_ROWS.flatMap(([id, monthsAfterPeriodEnd, day, applie
 
 const OTHER_RULES = [
   record(
+    'due-date.esi.contribution',
+    { period: 'month', monthsAfterPeriodEnd: 1, day: 15 },
+    '2017-01-01', IN_FORCE, 'ESI-1948', 'ESI (General) Regulations 1950 reg. 31',
+    'Employees\' State Insurance (General) Regulations 1950 regulation 31, as amended by ESIC notification of 2017: the employer pays the contribution for a calendar month within fifteen days of the last day of that month, through the ESIC portal challan (official text not re-read for this record; the Code on Social Security 2020 in force from 21.11.2025 may change the citation)'
+  ),
+  record(
     'due-date.pf.contribution',
     { period: 'month', monthsAfterPeriodEnd: 1, day: 15 },
     '2025-04-01', IN_FORCE, 'EPF-1952', 'EPF Scheme 1952 para 38(1)',

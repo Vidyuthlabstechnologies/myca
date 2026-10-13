@@ -33,6 +33,7 @@ const BASE_DUE_DATE_IDS = [
   'due-date.income-tax.return.non-audit-business',
   'due-date.income-tax.return.other',
   'due-date.pf.contribution',
+  'due-date.esi.contribution',
   'due-date.rollover'
 ].sort();
 

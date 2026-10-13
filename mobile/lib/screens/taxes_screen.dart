@@ -41,6 +41,7 @@ class _TaxesScreenState extends State<TaxesScreen> {
   String _fileNote = '';
   bool _saving = false;
   String _entriesNote = '';
+  String _tdsNote = '';
 
   @override
   void didChangeDependencies() {
@@ -98,6 +99,29 @@ class _TaxesScreenState extends State<TaxesScreen> {
     });
     await state.refresh();
     await _reload();
+  }
+
+  Future<void> _saveForm16A(TdsQuarter quarter) async {
+    final state = AppScope.of(context);
+    setState(() => _tdsNote = '');
+    var note = '';
+    try {
+      final data = toolData(await state.api.query('tds_certificates', {'quarter': quarter.quarter}));
+      final rows = data['certificates'] as List<Object?>? ?? const <Object?>[];
+      if (data.isEmpty || rows.isEmpty) {
+        note = 'No Form 16A draft for ${quarter.quarter}: nothing was deducted in it.';
+      } else {
+        final name = data['fileName'] as String;
+        final saved = await state.saveTextFile(name, data['csv'] as String);
+        note = saved
+            ? 'Saved $name with ${rows.length == 1 ? '1 deductee' : '${rows.length} deductees'}. The certificates themselves are generated on TRACES once the statement is processed.'
+            : 'Not saved.';
+      }
+    } on MycaApiException catch (err) {
+      note = err.message;
+    }
+    if (!mounted) return;
+    setState(() => _tdsNote = note);
   }
 
   Future<List<FiledReturn>> _loadFiled() async {
@@ -466,9 +490,22 @@ class _TaxesScreenState extends State<TaxesScreen> {
                                     trailing: const Chevron(),
                                     onTap: () => _openTdsReview(quarter),
                                   ),
+                                if (tds.quarters.any((q) => q.kind != 'salary'))
+                                  RowCard(
+                                    leading: const TintTile(tint: Tint.taxes, mark: Mark.comingUp),
+                                    title: 'Form 16A drafts',
+                                    subtitle: 'One per deductee for ${tds.quarters.lastWhere((q) => q.kind != 'salary').quarter}, for checking before TRACES issues them',
+                                    trailing: const Chevron(),
+                                    onTap: () => _saveForm16A(tds.quarters.lastWhere((q) => q.kind != 'salary')),
+                                  ),
                               ],
                             ],
                           ),
+                          if (_tdsNote.isNotEmpty && tds.deductor)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 8),
+                              child: Text(_tdsNote, style: Theme.of(context).textTheme.bodyMedium),
+                            ),
                         ],
                       ),
                     );

@@ -151,6 +151,8 @@ export function isSaleIntent(text) {
 }
 
 export const ROUTES = [
+  { re: /\bform\s*16a?\b|\btds\s+certificates?\b/i, tool: 'tds_certificates' },
+  { re: /\b1099\s*(?:-|\s)?nec\s+(?:file|data|forms?|csv)\b|\bprepare\s+(?:the\s+)?1099s?\b|\b1099\s+file\b/i, tool: 'contractor_1099_file' },
   { re: /\bannexure\s*(?:ii|2)\b|\bsalary\s+annexure\b|\b24q\s+annexure\b/i, tool: 'salary_annexure' },
   { re: /\brules?\s+status\b|\bstatutory\s+rules\b|\brules\s+(?:current|up\s*to\s*date|updated)\b|\bare\s+(?:the\s+)?(?:tax\s+)?rules\s+(?:current|up\s*to\s*date)\b/i, tool: 'rules_status' },
   { re: /\b(?:my|open|show|list|what are my)\s+reminders\b|^\s*reminders\s*$/i, tool: 'list_reminders' },

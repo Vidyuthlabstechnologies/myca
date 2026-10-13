@@ -362,6 +362,7 @@ export function approvePayroll(state, args = {}) {
   state.payrollRuns = state.payrollRuns && typeof state.payrollRuns === 'object' ? state.payrollRuns : {};
   state.payrollRuns[data.period] = record;
   if (rows.some((row) => row.pfWagesPaise) && !state.company?.pf) state.company = { ...state.company, pf: true };
+  if (rows.some((row) => row.esiEmployerPaise > 0) && !state.company?.esi) state.company = { ...state.company, esi: true };
   return { ok: true, run: payrollFor(state, data.period).data, posted };
 }
 
