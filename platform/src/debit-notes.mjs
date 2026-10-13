@@ -33,7 +33,7 @@ export function notedAgainstBill(state, billId) {
   return round2((state.purchaseNotes || []).filter((note) => note.billId === billId).reduce((sum, note) => sum + Number(note.total || 0), 0));
 }
 
-function scaledLines(document, fraction, { supplierState, partyState }) {
+export function scaledLines(document, fraction, { supplierState, partyState }) {
   return (document.lines || []).map((line) => {
     const taxable = round2(Number(line.taxable || 0) * fraction);
     const split = gstSplit({ taxable, rate: Number(line.gstRate || 0), supplierState, partyState });
@@ -52,7 +52,7 @@ function scaledLines(document, fraction, { supplierState, partyState }) {
   });
 }
 
-function settle(lines, requested) {
+export function settle(lines, requested) {
   if (!lines.length) return lines;
   const scaled = round2(lines.reduce((sum, line) => sum + line.amount, 0));
   const last = lines[lines.length - 1];
@@ -61,7 +61,7 @@ function settle(lines, requested) {
   return lines;
 }
 
-function totalsOf(lines) {
+export function totalsOf(lines) {
   const sum = (key) => round2(lines.reduce((total, line) => total + line[key], 0));
   const taxable = sum('taxable');
   const cgst = sum('cgst');

@@ -33,6 +33,7 @@ import { scheduleCSummary, estimatedTaxDates } from './us-owner-tax.mjs';
 import { importUsInvoices } from './import-us-books.mjs';
 import { exportTrialBalance } from './trial-balance-export.mjs';
 import { salaryAnnexureII } from './salary-annexure.mjs';
+import { recordSupplierNote } from './supplier-notes.mjs';
 import { setNexus, listNexus, salesTaxReturn, salesTaxReviewOf, answerSalesTaxReview, recordSalesTaxPayment, recordSalesTaxFiling, salesTaxOverview } from './us-sales-tax.mjs';
 import { recordTdsDeposit, setDeductor, tdsSummary } from './tds-deduction.mjs';
 import { paymentFor, setCreditOpening } from './gst-payment.mjs';
@@ -572,6 +573,13 @@ export const TOOLS = [
     description: 'Reduce a posted supplier bill by a debit note (goods returned, price reduced) with entries that reverse the purchase and its input credit; you owe the supplier that much less. Never edits the bill.',
     args: ['billId', 'amount', 'date', 'reason'],
     run: (state, args) => createPurchaseNote(state, args),
+  },
+  {
+    name: 'record_supplier_debit_note',
+    title: 'Supplier\'s debit note',
+    description: 'Record a debit note the supplier issued that adds to a posted bill (a price increase, extra freight, a short charge): posts the extra purchase and its input credit at the bill\'s rates and you owe the supplier that much more. It is a document of its own with the supplier\'s note number, so it matches GSTR-2B. Never edits the bill.',
+    args: ['billId', 'amount', 'date', 'reason', 'supplierNoteNo'],
+    run: (state, args = {}) => recordSupplierNote(state, args),
   },
   {
     name: 'list_debit_notes',

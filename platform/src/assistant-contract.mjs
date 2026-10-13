@@ -303,6 +303,18 @@ export const TOOL_ARG_SCHEMAS = {
       reason: { type: 'string', minLength: 1, maxLength: 200 },
     },
   },
+  record_supplier_debit_note: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['billId', 'amount', 'reason'],
+    properties: {
+      billId: { type: 'string', pattern: '^BILL-[0-9]{4,}$' },
+      amount: { type: 'number', exclusiveMinimum: 0 },
+      date: { type: 'string' },
+      reason: { type: 'string', minLength: 1, maxLength: 200 },
+      supplierNoteNo: { type: 'string', maxLength: 16 },
+    },
+  },
   list_debit_notes: {
     type: 'object',
     additionalProperties: false,
@@ -1230,6 +1242,7 @@ const TOOL_RISK = {
   create_credit_note: 'writes_books',
   create_debit_note: 'writes_books',
   create_purchase_note: 'writes_books',
+  record_supplier_debit_note: 'writes_books',
   cancel_invoice: 'writes_books',
   gst_review_answer: 'writes_books',
   import_gstr2b: 'writes_books',
@@ -1427,7 +1440,7 @@ export function planLocalToolCall(state, message) {
     if (us) return us;
   }
   const saidTerms = takeInvoiceTerms(text);
-  const doc = parseDocument(saidTerms.text);
+  const doc = /\b(?:debit|credit)\s+note\b/i.test(text) ? null : parseDocument(saidTerms.text);
   const asking = isQuestion(text) || isNegated(text);
   if (doc && !asking && doc.lines[0].gstRate == null && (isPurchaseIntent(text) || isSaleIntent(text))) {
     return {
@@ -1532,6 +1545,17 @@ export function planLocalToolCall(state, message) {
     return { kind: 'tool', name: 'cancel_invoice', args: { invoiceId: cancelMatch[1].toUpperCase(), date: receiptDate(text, localToday()), ...(reason ? { reason: reason.slice(0, 200) } : {}) } };
   }
   const supplierNote = text.match(/\bdebit\s+note\b.*?\b(BILL-\d{4,})\b/i);
+  const supplierIssued = supplierNote && /\b(?:supplier'?s?|their|vendor'?s?)\s+debit\s+note\b|\bdebit\s+note\s+from\b|\breceived\s+(?:a\s+)?debit\s+note\b/i.test(text);
+  if (supplierIssued && !isQuestion(text) && !isNegated(text)) {
+    const amount = receiptAmount(text.replace(/\b(?:no\b\.?|number\b|#)\s*[A-Z0-9/-]+/i, ' '));
+    const noteNo = (text.match(/\b(?:note\s+)?(?:no\b\.?|number\b|#)\s*([A-Z0-9][A-Z0-9/-]{0,15})\b/i) || [])[1] || '';
+    const cleaned = text.replace(/,?\s*(?:note\s+)?(?:no\b\.?|number\b|#)\s*[A-Z0-9][A-Z0-9/-]*\s*$/i, '');
+    const afterBill = cleaned.slice(cleaned.toUpperCase().indexOf(supplierNote[1].toUpperCase()) + supplierNote[1].length);
+    const reason = (cleaned.match(/(?:because|reason|:|-)\s*([^0-9₹][^,]*?)\s*$/i) || afterBill.match(/(?:₹|rs\.?\s*)?\d[\d,]*(?:\.\d+)?\s+(?:for\s+)?([A-Za-z][^,]*?)\s*$/i) || [])[1] || '';
+    if (amount == null) return { kind: 'reply', reply: `Say the amount, for example "supplier's debit note on ${supplierNote[1].toUpperCase()} 2360 - extra freight, no. FC-7". I have recorded nothing.`, tools: [] };
+    if (!reason.trim()) return { kind: 'reply', reply: `Say why, for example "supplier's debit note on ${supplierNote[1].toUpperCase()} 2360 - extra freight". I have recorded nothing.`, tools: [] };
+    return { kind: 'tool', name: 'record_supplier_debit_note', args: { billId: supplierNote[1].toUpperCase(), amount, date: receiptDate(text, localToday()), reason: reason.replace(/,?\s*(?:note\s+)?(?:no\b\.?|number\b|#)\s*[A-Z0-9/-]+\s*$/i, '').trim().slice(0, 200), ...(noteNo ? { supplierNoteNo: noteNo.toUpperCase() } : {}) } };
+  }
   if (supplierNote && !isQuestion(text) && !isNegated(text)) {
     const amount = receiptAmount(text);
     const afterBill = text.slice(text.toUpperCase().indexOf(supplierNote[1].toUpperCase()) + supplierNote[1].length);

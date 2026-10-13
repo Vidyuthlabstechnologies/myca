@@ -35,13 +35,14 @@ import { usDocumentPreview, planSalesTaxRate, planContractor } from './us-sales.
 import { planNexus, checkSalesTaxAnswer, planSalesTaxPayment, planSalesTaxFiling } from './us-sales-tax.mjs';
 import { planWithholding } from './us-payroll.mjs';
 import { planUsImport } from './import-us-books.mjs';
+import { planSupplierNote } from './supplier-notes.mjs';
 import { filingRows } from './deadline-run.mjs';
 import { tally, bank, gstin as gstinRules } from './sprint-load.mjs';
 import { parseZohoBooksCsv } from './import-zoho.mjs';
 import { tallyXmlToDayBookCsv } from './tally-xml.mjs';
 
 export const CONFIRM_TOOLS = new Set([
-  'create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'record_filing', 'record_supplier_reminder', 'add_employee', 'change_salary', 'end_employment', 'approve_payroll', 'record_salary_payment', 'set_tds_deductor', 'record_tds_deposit', 'tds_review_answer', 'set_gst_credit_opening', 'post_expense', 'set_expense_head', 'create_credit_note', 'create_debit_note', 'create_purchase_note', 'cancel_invoice', 'gst_review_answer', 'import_gstr2b', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'set_party_address', 'set_transport', 'set_sales_tax_rate', 'set_contractor', 'set_sales_tax_nexus', 'sales_tax_review_answer', 'record_sales_tax_payment', 'record_sales_tax_filing', 'set_withholding', 'import_us_invoices', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote',
+  'create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'record_filing', 'record_supplier_reminder', 'add_employee', 'change_salary', 'end_employment', 'approve_payroll', 'record_salary_payment', 'set_tds_deductor', 'record_tds_deposit', 'tds_review_answer', 'set_gst_credit_opening', 'post_expense', 'set_expense_head', 'create_credit_note', 'create_debit_note', 'create_purchase_note', 'record_supplier_debit_note', 'cancel_invoice', 'gst_review_answer', 'import_gstr2b', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'set_party_address', 'set_transport', 'set_sales_tax_rate', 'set_contractor', 'set_sales_tax_nexus', 'sales_tax_review_answer', 'record_sales_tax_payment', 'record_sales_tax_filing', 'set_withholding', 'import_us_invoices', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote',
   'import_tally', 'import_tally_xml', 'import_zoho', 'import_bank',
   'govt_generate_irn', 'govt_nic_cancel_irn',
   'exception_decide',
@@ -618,6 +619,22 @@ function purchaseNotePreview(state, args) {
   };
 }
 
+function supplierNotePreview(state, args) {
+  const planned = planSupplierNote(state, args);
+  if (!planned.ok) {
+    const explain = DEBIT_NOTE_REASONS[planned.error] || { NOTE_ON_NOTE: (p) => `${p.billId} is itself a supplier's debit note; record the new one against ${p.noteOf}.`, SUPPLIER_NUMBER_TOO_LONG: () => 'The supplier\'s note number is up to 16 characters.' }[planned.error];
+    return { blockers: [explain ? explain(planned, args, state) : planned.error], summary: '', effects: [], figures: {} };
+  }
+  const { plan } = planned;
+  const heads = [plan.cgst > 0 ? `CGST ${money(plan.cgst)}` : '', plan.sgst > 0 ? `SGST ${money(plan.sgst)}` : '', plan.igst > 0 ? `IGST ${money(plan.igst)}` : ''].filter(Boolean).join(' + ');
+  return {
+    blockers: [],
+    summary: `${plan.bill.partyName}'s debit note${plan.supplierNoteNo ? ` ${plan.supplierNoteNo}` : ''} of ${money(plan.total)} on ${plan.bill.id} dated ${plan.date}: taxable ${money(plan.taxable)}${heads ? `, ${heads}` : ''}. Reason: ${plan.reason}.${plan.alreadyAdded > 0 ? ` ${money(plan.alreadyAdded)} was already added to this bill by earlier notes.` : ''}`,
+    effects: ['You owe the supplier that much more; the bill itself is unchanged.', plan.itcEligible && heads ? 'The input credit on it counts in the month of the note, as a document of its own for GSTR-2B.' : 'The whole amount is cost; no input credit is taken.'],
+    figures: { billId: plan.bill.id, date: plan.date, taxable: plan.taxable, cgst: plan.cgst, sgst: plan.sgst, igst: plan.igst, total: plan.total },
+  };
+}
+
 const REVIEW_REASONS = {
   DRAFT_CHANGED: 'Your books for this month changed after you saw these figures. Review again to see the current ones.',
   STEP_NOT_READY: 'An earlier step of this review is not confirmed yet.',
@@ -983,6 +1000,7 @@ const PREVIEWERS = {
   create_credit_note: creditNotePreview,
   create_debit_note: debitNotePreview,
   create_purchase_note: purchaseNotePreview,
+  record_supplier_debit_note: supplierNotePreview,
   cancel_invoice: (state, args) => creditNotePreview(state, args, true),
   gst_review_answer: reviewAnswerPreview,
   tds_review_answer: tdsReviewAnswerPreview,

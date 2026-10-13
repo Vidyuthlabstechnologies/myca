@@ -145,6 +145,10 @@ function fmtToolResult(name, result) {
     const n = result.debitNote;
     return `Debit note ${n.id} for ${money(n.total)} against ${n.invoiceId} (${n.partyName}, ${n.date}). ${n.partyName} now owes ${money(result.outstanding)}.`;
   }
+  if (name === 'record_supplier_debit_note' && result.supplierNote) {
+    const n = result.supplierNote;
+    return `Recorded ${n.partyName}'s debit note${n.supplierInvoiceNo ? ` ${n.supplierInvoiceNo}` : ''} as ${n.id} against ${n.noteOf}: ${money(n.total)} more owed (${money(n.taxable)} plus ${money(n.cgst + n.sgst + n.igst)} GST).`;
+  }
   if (name === 'create_purchase_note' && result.purchaseNote) {
     const n = result.purchaseNote;
     return `Debit note ${n.id} to ${n.partyName} for ${money(n.total)} against ${n.billId} (${n.date}).${result.refundDue > 0 ? ` ${money(result.refundDue)} was already paid and is now due back to you.` : ` You owe ${money(result.outstanding)} on it now.`}`;
