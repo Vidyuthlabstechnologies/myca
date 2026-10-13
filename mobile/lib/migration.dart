@@ -69,6 +69,13 @@ const usInvoicesCsv = ImportOption(
   tool: 'import_us_invoices',
 );
 
+const posCsv = ImportOption(
+  title: 'Counter sales from a billing app (CSV)',
+  howTo: 'Export the daily sales summary with the date, GST rate and taxable value (and the GST if it has it). Each day becomes one walk-in invoice by rate.',
+  extensions: ['csv'],
+  tool: 'import_pos_sales',
+);
+
 const bankCsv = ImportOption(
   title: 'Bank statement (CSV)',
   howTo:
@@ -118,7 +125,7 @@ const migrationPaths = [
     promise:
         'MyCA cannot read this app\'s export yet. Start from your bank statement so your money trail is in, '
         'then add sales and bills as you go. If the app can export a Tally-format Day Book, use that instead.',
-    imports: [bankCsv, tallyCsv],
+    imports: [posCsv, bankCsv, tallyCsv],
   ),
   MigrationPath(
     source: BooksSource.spreadsheet,

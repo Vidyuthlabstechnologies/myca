@@ -522,6 +522,19 @@ export const TOOL_ARG_SCHEMAS = {
     additionalProperties: false,
     properties: { year: { type: 'string', pattern: '^[0-9]{4}$' } },
   },
+  import_pos_sales: {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      csv: { type: 'string' },
+      documentSha256: { type: 'string', pattern: '^[0-9a-f]{64}$' },
+    },
+  },
+  contractor_1099_file: {
+    type: 'object',
+    additionalProperties: false,
+    properties: { year: { type: 'string', pattern: '^[0-9]{4}$' } },
+  },
   import_us_invoices: {
     type: 'object',
     additionalProperties: false,
@@ -807,6 +820,15 @@ export const TOOL_ARG_SCHEMAS = {
     type: 'object',
     additionalProperties: false,
     properties: { fy: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}$' } },
+  },
+  tds_certificates: {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      quarter: { type: 'string', pattern: '^Q[1-4] [0-9]{4}-[0-9]{2}$' },
+      form: { type: 'string', enum: ['other', 'salary', '16A', '16'] },
+      fy: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}$' },
+    },
   },
   pf_ecr: {
     type: 'object',
@@ -1267,6 +1289,7 @@ const TOOL_RISK = {
   set_sales_tax_nexus: 'writes_books',
   set_withholding: 'writes_books',
   import_us_invoices: 'writes_books',
+  import_pos_sales: 'writes_books',
   sales_tax_review_answer: 'writes_books',
   record_sales_tax_payment: 'writes_books',
   record_sales_tax_filing: 'writes_books',
@@ -1662,6 +1685,11 @@ export function planLocalToolCall(state, message) {
     const csv = state.pendingFile?.content || state.files.tally;
     if (!csv) return { kind: 'reply', reply: 'Attach a Tally Day Book CSV first (dropdown: Tally Day Book).', tools: [] };
     return { kind: 'tool', name: 'import_tally', args: { csv, fileName: state.pendingFile?.name || 'tally.csv' }, clearsPendingFile: true };
+  }
+  if (/\bimport\s+(?:pos|counter|daily)\s*(?:sales)?\b|\b(?:pos|counter)\s+sales\s+(?:csv|file|import)\b/i.test(text)) {
+    const csv = state.pendingFile?.content;
+    if (!csv) return { kind: 'reply', reply: 'Attach the daily sales CSV from your billing counter first (date, GST rate, taxable value, and the GST if it has it), then say "import pos sales". Each day becomes one walk-in invoice by rate after you see the preview.', tools: [] };
+    return { kind: 'tool', name: 'import_pos_sales', args: { csv }, clearsPendingFile: true };
   }
   if (/\bimport\s+(?:quickbooks|qbo|xero)\b|\b(?:quickbooks|xero)\s+(?:invoices|export|csv)\b/i.test(text)) {
     const csv = state.pendingFile?.content;

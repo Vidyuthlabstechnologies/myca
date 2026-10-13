@@ -84,6 +84,7 @@ export function profileOf(raw) {
     gstTdsDeductor: truthy(raw.gstTds),
     tdsDeductor: truthy(raw.tdsDeductor),
     pf: truthy(raw.pf),
+    esi: truthy(raw.esi),
     advanceTax: truthy(raw.advanceTax),
     presumptive: truthy(raw.presumptive),
     tp: truthy(raw.tp),
@@ -110,6 +111,7 @@ function monthlySpecs(profile) {
   if (profile.gstTdsDeductor) specs.push({ returnType: 'GSTR-7', label: 'GSTR-7', rule: 'due-date.gst.gstr-7' });
   if (profile.tdsDeductor) specs.push({ returnType: 'TDS_DEPOSIT', label: 'TDS deposit', rule: 'due-date.tds.deposit' });
   if (profile.pf) specs.push({ returnType: 'PF', label: 'PF', rule: 'due-date.pf.contribution' });
+  if (profile.esi) specs.push({ returnType: 'ESI', label: 'ESI', rule: 'due-date.esi.contribution' });
   return specs;
 }
 

@@ -9,6 +9,7 @@ const REQUIRED_DOCS_MAP = {
   'ITR': ['bank_statements', '26as', 'ais', 'tally_export'],
   'GSTR-9': ['gstr9_working', 'reconciliation'],
   'PF': ['pf_challan'],
+  'ESI': ['esi_challan'],
   'ADVANCE_TAX': ['advance_tax_challan'],
 };
 

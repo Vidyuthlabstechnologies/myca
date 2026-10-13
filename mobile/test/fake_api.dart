@@ -1644,6 +1644,35 @@ class FakeMycaApi implements MycaApi {
             'approval': null,
           },
         };
+      case 'tds_certificates':
+        if (args['form'] == 'salary') {
+          return {
+            'ok': true,
+            'data': {
+              'form': '16',
+              'fy': '2026-27',
+              'certificates': [
+                {'certificateNo': '16/2026-27/EMP-0001', 'employee': {'id': 'EMP-0001', 'name': 'Ravi Kumar', 'pan': 'ABCPK1234L', 'regime': 'new'}, 'partA': const <Object?>[], 'partB': {'grossSalary': 30000, 'taxOnTotalIncome': 0, 'tdsDeducted': 0}, 'notes': const <Object?>[]},
+              ],
+              'notes': const <Object?>[],
+              'fileName': 'Form16_MUMA12345B_2026-27.csv',
+              'csv': 'certificate_no,employee\n16/2026-27/EMP-0001,Ravi Kumar\n',
+            },
+          };
+        }
+        return {
+          'ok': true,
+          'data': {
+            'form': '16A',
+            'quarter': args['quarter'] ?? 'Q3 2026-27',
+            'certificates': [
+              {'certificateNo': '16A/Q3-2026-27/001', 'deductee': {'name': 'Rao & Co', 'pan': 'AAAFR1234K', 'noPan': false}, 'section': '194J', 'amountPaid': 60000, 'tdsDeducted': 6000, 'payments': const <Object?>[], 'challans': const <Object?>[], 'notes': const <Object?>[]},
+            ],
+            'notes': const <Object?>[],
+            'fileName': 'Form16A_MUMA12345B_Q3-2026-27.csv',
+            'csv': 'certificate_no,deductee\n16A/Q3-2026-27/001,Rao & Co\n',
+          },
+        };
       case 'salary_annexure':
         return {
           'ok': true,

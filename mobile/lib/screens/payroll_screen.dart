@@ -99,6 +99,29 @@ class _PayrollScreenState extends State<PayrollScreen> with ProposalFlow {
     setState(() => _fileNote = note);
   }
 
+  Future<void> _saveForm16(PayrollRun run) async {
+    final state = AppScope.of(context);
+    setState(() => _fileNote = '');
+    var note = '';
+    try {
+      final data = toolData(await state.api.query('tds_certificates', {'form': 'salary'}));
+      final rows = data['certificates'] as List<Object?>? ?? const <Object?>[];
+      if (data.isEmpty || rows.isEmpty) {
+        note = 'No Form 16 draft yet: approve a salary month with TDS first, and record the TAN under Taxes.';
+      } else {
+        final name = data['fileName'] as String;
+        final saved = await state.saveTextFile(name, data['csv'] as String);
+        note = saved
+            ? 'Saved $name with ${rows.length == 1 ? '1 employee' : '${rows.length} employees'}. Part A comes from TRACES after the 24Q statements are processed; these are the books\' own figures for checking.'
+            : 'Not saved.';
+      }
+    } on MycaApiException catch (err) {
+      note = err.message;
+    }
+    if (!mounted) return;
+    setState(() => _fileNote = note);
+  }
+
   Future<void> _paid(PayrollRun run) => propose(
     'Salaries for ${run.month} paid',
     'record_salary_payment',
@@ -173,6 +196,10 @@ class _PayrollScreenState extends State<PayrollScreen> with ProposalFlow {
                           ActionChip(
                             label: const Text('Save Annexure II'),
                             onPressed: busy ? null : () => _saveAnnexure(run),
+                          ),
+                          ActionChip(
+                            label: const Text('Save Form 16 drafts'),
+                            onPressed: busy ? null : () => _saveForm16(run),
                           ),
                         ],
                       ),

@@ -39,5 +39,9 @@ void main() {
     expect(api.queries.contains('salary_annexure'), isTrue);
     expect(saved.keys, contains('24Q_AnnexureII_MUMA12345B_2026-27.csv'));
     expect(find.textContaining('Saved 24Q_AnnexureII_MUMA12345B_2026-27.csv with 1 employee'), findsOneWidget);
+    await tester.tap(find.text('Save Form 16 drafts'));
+    await tester.pumpAndSettle();
+    expect(saved.keys, contains('Form16_MUMA12345B_2026-27.csv'));
+    expect(find.textContaining('Saved Form16_MUMA12345B_2026-27.csv with 1 employee'), findsOneWidget);
   });
 }

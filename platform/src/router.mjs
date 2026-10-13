@@ -14,6 +14,9 @@ import { usPayrollWords } from './us-payroll.mjs';
 import { ownerTaxWords } from './us-owner-tax.mjs';
 import { usImportWords } from './import-us-books.mjs';
 import { annexureWords } from './salary-annexure.mjs';
+import { certificateWords } from './tds-certificates.mjs';
+import { posImportWords } from './import-pos.mjs';
+import { file1099Words } from './us-1099.mjs';
 import { inWords as monthWords } from './words.mjs';
 
 function money(n) {
@@ -207,6 +210,9 @@ function fmtToolResult(name, result) {
   }
   if (name === 'rules_status' && result.data) return rulesStatusWords(result.data);
   if (name === 'salary_annexure' && result.data) return annexureWords(result.data, money);
+  if (name === 'tds_certificates' && result.data) return certificateWords(result.data, money);
+  if (name === 'import_pos_sales' && result.data?.created) return posImportWords(result.data, money);
+  if (name === 'contractor_1099_file' && result.data) return file1099Words(result.data, money);
   if (name === 'export_trial_balance' && result.data) return `Trial balance as of ${result.data.asOf}: ${result.data.accounts === 1 ? '1 account' : `${result.data.accounts} accounts`}, debits ${money(result.data.debit)}, credits ${money(result.data.credit)}${result.data.balanced ? ', ties' : ', does not tie'}. Saved as ${result.data.fileName} from the Taxes screen.`;
   if (name === 'import_us_invoices' && result.data?.created) return usImportWords(result.data, money);
   if ((name === 'schedule_c_summary' || name === 'estimated_tax_dates') && result.data) return ownerTaxWords(name, result.data, money);

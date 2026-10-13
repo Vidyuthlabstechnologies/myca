@@ -34,6 +34,9 @@ import { importUsInvoices } from './import-us-books.mjs';
 import { exportTrialBalance } from './trial-balance-export.mjs';
 import { salaryAnnexureII } from './salary-annexure.mjs';
 import { recordSupplierNote } from './supplier-notes.mjs';
+import { tdsCertificates } from './tds-certificates.mjs';
+import { importPosSales } from './import-pos.mjs';
+import { contractor1099File } from './us-1099.mjs';
 import { setNexus, listNexus, salesTaxReturn, salesTaxReviewOf, answerSalesTaxReview, recordSalesTaxPayment, recordSalesTaxFiling, salesTaxOverview } from './us-sales-tax.mjs';
 import { recordTdsDeposit, setDeductor, tdsSummary } from './tds-deduction.mjs';
 import { paymentFor, setCreditOpening } from './gst-payment.mjs';
@@ -645,6 +648,13 @@ export const TOOLS = [
     description: 'The four federal estimated tax instalment dates for a year from the dated rule, which are past, and which are recorded as paid. The amount is the CPA\'s. US only. Read-only.',
     args: ['year'],
     run: (state, args = {}) => estimatedTaxDates(state, args),
+  },
+  {
+    name: 'contractor_1099_file',
+    title: '1099-NEC data file',
+    description: 'For a calendar year, the payees at or above the 1099-NEC threshold with box 1 nonemployee compensation, entity type, whether a W-9 is on file and the last four of the TIN, as rows and a CSV for the IRS IRIS portal or a filing service, with the due date from the dated rule. US only. Read-only.',
+    args: ['year'],
+    run: (state, args = {}) => contractor1099File(state, args),
   },
   {
     name: 'rules_status',
@@ -1428,6 +1438,19 @@ export const TOOLS = [
     },
   },
   {
+    name: 'import_pos_sales',
+    title: 'Import counter sales',
+    description: 'Parse a daily sales summary from a billing counter or POS (CSV with date, GST rate and taxable value, optionally CGST, SGST, IGST and bill count) and post one walk-in invoice per day by GST rate, which lands in B2CS of GSTR-1. A day already imported, a row without a rate or date, or a day whose GST in the file differs from the rate is held back by name.',
+    args: ['csv'],
+    run: (state, args = {}) => {
+      if (!args.csv) return fail('csv required');
+      const result = importPosSales(state, args);
+      if (!result.ok) return fail(result.error, { parsed: result.parsed });
+      state.imports.push({ source: 'pos', at: new Date().toISOString(), count: result.created.length, skipped: result.skipped.length, heldBack: heldBackFrom(result.skipped.map((s) => ({ voucherNo: s.id, reason: s.reason }))) });
+      return ok(result);
+    },
+  },
+  {
     name: 'import_us_invoices',
     title: 'Import QuickBooks or Xero invoices',
     description: 'Parse an invoice export from QuickBooks Online or Xero (CSV) and post each invoice with sales tax from the recorded jurisdiction rate. An invoice whose tax in the file differs from the recorded rate, has no jurisdiction, or has no rate recorded is held back by name. US only.',
@@ -1674,6 +1697,13 @@ export const TOOLS = [
     description: 'The salary annexure for the year\'s last quarterly statement (Form 24Q Annexure II) from the approved payroll months: each employee\'s gross salary, professional tax, standard deduction, provident fund under 80C for the old regime, total income, tax and TDS deducted, with any shortfall or excess, as rows and a CSV. Exemptions and the employee\'s own declarations are not in it. Owner only. Read-only.',
     args: ['fy'],
     run: (state, args = {}) => salaryAnnexureII(state, args),
+  },
+  {
+    name: 'tds_certificates',
+    title: 'TDS certificate drafts',
+    description: 'Drafts of Form 16A for a quarter (payments other than salary, one per deductee with the payments, TDS and the quarter\'s challans) or Form 16 for a financial year (form "salary": Part A by quarter and Part B from the approved payroll months), as rows and a CSV. The issued certificates come from TRACES after the statement is processed; MyCA files nothing. Read-only.',
+    args: ['quarter', 'form', 'fy'],
+    run: (state, args = {}) => tdsCertificates(state, args),
   },
   {
     name: 'pf_ecr',
