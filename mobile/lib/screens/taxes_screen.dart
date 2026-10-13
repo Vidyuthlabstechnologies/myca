@@ -13,6 +13,8 @@ import '../widgets.dart';
 import 'ca_screen.dart';
 import 'credit_card.dart';
 import 'filing_screen.dart';
+import 'gst_payment_screen.dart';
+import 'year_close_screen.dart';
 import 'tds_screen.dart';
 import 'review_screen.dart';
 
@@ -99,6 +101,88 @@ class _TaxesScreenState extends State<TaxesScreen> {
     });
     await state.refresh();
     await _reload();
+  }
+
+  Future<void> _recordGstPayment(PeriodGst gst) async {
+    final state = AppScope.of(context);
+    num toPay = 0;
+    try {
+      final payable = toolData(await state.api.query('gst_payable', {'period': gst.period}));
+      final heads = payable['toPay'];
+      if (heads is Map && heads['total'] is num) toPay = heads['total'] as num;
+      if (payable['paid'] is Map) {
+        setState(() => _entriesNote = 'The GST payment for ${monthLabel(gst.period)} is already recorded.');
+        return;
+      }
+    } on MycaApiException catch (err) {
+      setState(() => _entriesNote = err.message);
+      return;
+    }
+    if (!mounted) return;
+    final done = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (_) => GstPaymentScreen(period: gst.period, toPay: toPay)),
+    );
+    if (done != true || !mounted) return;
+    await state.refresh();
+    await _reload();
+  }
+
+  Future<void> _saveQuarterly({required bool iff}) async {
+    final state = AppScope.of(context);
+    setState(() => _entriesNote = '');
+    var note = '';
+    try {
+      final period = _period ?? '';
+      final month = period.isEmpty ? '' : period.substring(5, 7);
+      final quarter = period.isEmpty ? '' : 'Q${((int.parse(month) + 8) % 12) ~/ 3 + 1} ${_fyOf(period)}';
+      final data = toolData(await state.api.query(iff ? 'export_iff' : 'export_gstr1_quarter', iff ? {'period': period} : {'quarter': quarter}));
+      if (data.isEmpty) {
+        note = iff ? 'The IFF file could not be prepared for this month.' : 'The quarterly file could not be prepared.';
+      } else {
+        final name = data['fileName'] as String;
+        final saved = await state.saveTextFile(name, const JsonEncoder.withIndent('  ').convert(data));
+        note = saved ? 'Saved $name. ${data['note'] ?? ''}' : 'Not saved.';
+      }
+    } on MycaApiException catch (err) {
+      note = err.message;
+    }
+    if (!mounted) return;
+    setState(() => _entriesNote = note);
+  }
+
+  String _fyOf(String period) {
+    final y = int.parse(period.substring(0, 4));
+    final m = int.parse(period.substring(5, 7));
+    final start = m >= 4 ? y : y - 1;
+    return '$start-${((start + 1) % 100).toString().padLeft(2, '0')}';
+  }
+
+  Future<void> _closeYear() async {
+    final state = AppScope.of(context);
+    final done = await Navigator.of(context).push<bool>(MaterialPageRoute(builder: (_) => const YearCloseScreen()));
+    if (done != true || !mounted) return;
+    await state.refresh();
+    await _reload();
+  }
+
+  Future<void> _saveGstr9() async {
+    final state = AppScope.of(context);
+    setState(() => _entriesNote = '');
+    var note = '';
+    try {
+      final data = toolData(await state.api.query('gstr9_draft'));
+      if (data.isEmpty) {
+        note = 'The GSTR-9 draft could not be prepared.';
+      } else {
+        final name = 'GSTR9_draft_${data['gstin'] ?? ''}_${data['fy'] ?? ''}.json';
+        final saved = await state.saveTextFile(name, const JsonEncoder.withIndent('  ').convert(data));
+        note = saved ? 'Saved $name: the annual return tables from the months so far, for your CA to complete and file.' : 'Not saved.';
+      }
+    } on MycaApiException catch (err) {
+      note = err.message;
+    }
+    if (!mounted) return;
+    setState(() => _entriesNote = note);
   }
 
   Future<void> _saveFilingPack(String period) async {
@@ -452,8 +536,50 @@ class _TaxesScreenState extends State<TaxesScreen> {
                   SizedBox(
                     width: double.infinity,
                     child: OutlinedButton(
+                      onPressed: () => _recordGstPayment(gst),
+                      child: const Text('Record the GST payment'),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton(
                       onPressed: () => _saveEntries(gst.period),
                       child: const Text('Save entries for your CA'),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton(
+                      onPressed: _saveGstr9,
+                      child: const Text('Save the GSTR-9 draft'),
+                    ),
+                  ),
+                  if (AppScope.of(context).snapshot?.company.quarterlyGst ?? false) ...[
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton(
+                        onPressed: () => _saveQuarterly(iff: false),
+                        child: const Text('Save the quarterly GSTR-1'),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton(
+                        onPressed: () => _saveQuarterly(iff: true),
+                        child: const Text('Save the IFF for this month'),
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton(
+                      onPressed: _closeYear,
+                      child: const Text('Close the year'),
                     ),
                   ),
                   const SizedBox(height: 8),

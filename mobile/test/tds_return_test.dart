@@ -31,6 +31,8 @@ void main() {
     await tester.pumpAndSettle();
     final row = find.text('TDS statement for Q3 2026-27');
     await tester.scrollUntilVisible(row, 200, scrollable: find.byType(Scrollable).first);
+    await tester.ensureVisible(row);
+    await tester.pumpAndSettle();
     expect(find.textContaining('due by 31 January 2027 · review it'), findsOneWidget);
     await tester.tap(row);
     await tester.pumpAndSettle();

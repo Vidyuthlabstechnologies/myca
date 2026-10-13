@@ -24,7 +24,7 @@ function amountOf(raw, head) {
 
 export function planGstPayFromChat(text) {
   const raw = normalizeChat(text);
-  if (!/\bgst\b|\bgstr[\s-]?9\b|\bannual\s+return\b/i.test(raw) || isNegated(raw)) return null;
+  if (!/\bgst\b|\bgstr[\s-]?[19]\b|\bannual\s+return\b|\biff\b|\binvoice\s+furnishing\b|\bqrmp\b/i.test(raw) || isNegated(raw)) return null;
   const today = localToday();
   if (/\bcredit\s+(?:ledger\s+)?balance\b|\bopening\s+(?:itc|credit)\b|\bitc\s+balance\b|\bcredit\s+(?:brought|carried)\s+forward\b/i.test(raw)) {
     const period = periodOf(raw, today);
@@ -44,6 +44,14 @@ export function planGstPayFromChat(text) {
     const cpin = (raw.match(/\b(?:cpin|challan)\s*[:#-]?\s*([0-9]{14})\b/i) || [])[1];
     const date = (raw.match(/\b(\d{4}-\d{2}-\d{2})\b/) || [])[1];
     return { kind: 'tool', name: 'record_gst_payment', args: { ...(period ? { period } : {}), ...(cpin ? { cpin } : {}), ...(date ? { date } : {}), mode: /\bcash\b/i.test(raw) ? 'cash' : 'bank' } };
+  }
+  if (/\biff\b|\binvoice\s+furnishing\b/i.test(raw)) {
+    const period = periodOf(raw, today);
+    return period ? { kind: 'tool', name: 'export_iff', args: { period } } : { kind: 'reply', reply: 'Say the month, for example "IFF for July". I have made nothing.', tools: [] };
+  }
+  if (/\bquarterly\s+gstr[\s-]?1\b|\bgstr[\s-]?1\s+(?:for\s+)?(?:the\s+)?quarter\b|\bqrmp\s+(?:return|gstr)/i.test(raw)) {
+    const quarter = (raw.match(/\b(Q[1-4]\s+20\d{2}-\d{2})\b/i) || [])[1];
+    return quarter ? { kind: 'tool', name: 'export_gstr1_quarter', args: { quarter: quarter.toUpperCase() } } : { kind: 'reply', reply: 'Say the quarter, for example "quarterly GSTR-1 for Q2 2026-27". I have made nothing.', tools: [] };
   }
   if (/\bgstr[\s-]?9\b|\bannual\s+return\b/i.test(raw)) {
     const fy = (raw.match(/\b(20\d{2}-\d{2})\b/) || [])[1];

@@ -73,7 +73,7 @@ export function invoicesToGstr1Json(company, invoices = [], periodFp, opts = {})
   }
   const dated = (invoices || []).filter((i) => i.date);
   const fp = periodFp || fpFromDate(dated.map((i) => i.date).sort().slice(-1)[0] || '');
-  const inPeriod = dated.filter((i) => fpFromDate(i.date) === fp);
+  const inPeriod = opts.allGiven ? dated : dated.filter((i) => fpFromDate(i.date) === fp);
   const b2bMap = new Map();
   const b2clMap = new Map();
   const b2csMap = new Map();

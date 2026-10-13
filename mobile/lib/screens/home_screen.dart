@@ -37,6 +37,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   Future<Today>? _today;
   Future<SalesTaxOverview?>? _salesTax;
+  Future<Map<String, dynamic>>? _week;
 
   bool get _us => widget.snapshot.company.country == 'US';
 
@@ -44,7 +45,16 @@ class _HomeScreenState extends State<HomeScreen> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     _today ??= _loadToday();
+    _week ??= _loadWeek();
     if (_us) _salesTax ??= loadSalesTax(AppScope.of(context).api);
+  }
+
+  Future<Map<String, dynamic>> _loadWeek() async {
+    try {
+      return toolData(await AppScope.of(context).api.query('week_ahead'));
+    } on MycaApiException {
+      return const <String, dynamic>{};
+    }
   }
 
   @override
@@ -52,6 +62,7 @@ class _HomeScreenState extends State<HomeScreen> {
     super.didUpdateWidget(old);
     if (old.snapshot != widget.snapshot) {
       _today = _loadToday();
+      _week = _loadWeek();
       if (_us) _salesTax = loadSalesTax(AppScope.of(context).api);
     }
   }
@@ -171,6 +182,17 @@ class _HomeScreenState extends State<HomeScreen> {
                 padding: const EdgeInsets.only(top: 12),
                 child: _UsTaxesPanel(onTap: () => _open(const UsTaxesScreen())),
               ),
+            FutureBuilder<Map<String, dynamic>>(
+              future: _week,
+              builder: (context, snap) {
+                final items = [for (final row in (snap.data?['items'] as List? ?? const [])) if (row is Map) Map<String, dynamic>.from(row)];
+                if (items.isEmpty) return const SizedBox.shrink();
+                return Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: _WeekPanel(items: items),
+                );
+              },
+            ),
             FutureBuilder<Today>(
               future: _today,
               builder: (context, today) {
@@ -817,6 +839,33 @@ class _Figure extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _WeekPanel extends StatelessWidget {
+  const _WeekPanel({required this.items});
+
+  final List<Map<String, dynamic>> items;
+
+  @override
+  Widget build(BuildContext context) {
+    final overdue = items.where((item) => item['overdue'] == true).length;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SectionLabel(overdue > 0 ? 'This week · $overdue overdue' : 'This week'),
+        Panel(
+          children: [
+            for (final item in items.take(6))
+              RowCard(
+                leading: TintTile(tint: item['overdue'] == true ? Tint.urgent : Tint.taxes, mark: item['overdue'] == true ? Mark.urgent : Mark.comingUp),
+                title: item['kind'] == 'receivable' ? '${'${item['title']}'.split(' owes ').first} owes ${rupees(item['amount'] as num? ?? 0)} on ${item['invoiceId'] ?? ''}' : '${item['title']}',
+                subtitle: '${item['detail'] ?? ''}',
+              ),
+          ],
+        ),
+      ],
     );
   }
 }

@@ -11,7 +11,7 @@ num _num(Object? value) => value is num ? value : 0;
 String _text(Object? value) => value == null ? '' : value.toString();
 
 class Company {
-  const Company({required this.name, required this.gstin, this.tdsDeductor = false, this.country = 'IN'});
+  const Company({required this.name, required this.gstin, this.tdsDeductor = false, this.country = 'IN', this.gstFrequency = 'monthly'});
 
   factory Company.fromJson(Object? json) {
     final map = _map(json);
@@ -20,12 +20,16 @@ class Company {
       gstin: _text(map['gstin']),
       tdsDeductor: map['tdsDeductor'] == true,
       country: _text(map['country']).isEmpty ? 'IN' : _text(map['country']).toUpperCase(),
+      gstFrequency: _text(map['gstFrequency']).toLowerCase() == 'quarterly' ? 'quarterly' : 'monthly',
     );
   }
 
   final String name;
   final String gstin;
   final String country;
+  final String gstFrequency;
+
+  bool get quarterlyGst => gstFrequency == 'quarterly';
   final bool tdsDeductor;
 }
 

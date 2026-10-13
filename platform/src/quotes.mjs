@@ -3,6 +3,8 @@ import { localToday, postingDate } from './dates.mjs';
 import { rules } from './sprint-load.mjs';
 import { createInvoice } from './invoice.mjs';
 import { daysBetween } from './reminders.mjs';
+import { countryOf } from './country.mjs';
+import { rateFor, normalizeJurisdiction, createUsInvoice } from './us-sales.mjs';
 
 const round2 = (value) => Math.round(Number(value || 0) * 100) / 100;
 export const DEFAULT_VALID_DAYS = 30;
@@ -41,6 +43,7 @@ export function planQuote(state, args = {}) {
   const company = state.company || {};
   const pos = partyStateOf(partyGstin) || company.state;
   const lines = [];
+  if (countryOf(state) === 'US') return planUsQuote(state, { date, validDays, partyName, raw, args });
   for (const line of raw) {
     const qty = Number(line.qty == null || line.qty === '' ? 1 : line.qty);
     const rate = Number(line.rate);
@@ -83,6 +86,34 @@ export function planQuote(state, args = {}) {
   };
 }
 
+function planUsQuote(state, { date, validDays, partyName, raw, args }) {
+  const taxExempt = args.taxExempt === true;
+  const exemptionReason = String(args.exemptionReason || '').trim().slice(0, 120);
+  if (taxExempt && !exemptionReason) return { ok: false, error: 'EXEMPTION_REASON_REQUIRED' };
+  const parsed = raw.map((line) => ({ description: String(line.description || 'Supply'), qty: Number(line.qty == null || line.qty === '' ? 1 : line.qty), rate: Number(line.rate), taxable: taxExempt ? false : line.taxable !== false }));
+  if (parsed.some((line) => !Number.isFinite(line.qty) || line.qty <= 0 || !Number.isFinite(line.rate) || line.rate < 0)) return { ok: false, error: 'BAD_LINE' };
+  let jurisdiction = '';
+  let rate = null;
+  if (!taxExempt && parsed.some((line) => line.taxable)) {
+    jurisdiction = normalizeJurisdiction(args.taxJurisdiction);
+    if (!jurisdiction) return { ok: false, error: 'JURISDICTION_REQUIRED' };
+    rate = rateFor(state, jurisdiction, date);
+    if (!rate) return { ok: false, error: 'RATE_UNKNOWN', code: jurisdiction, date };
+  }
+  const lines = parsed.map((line) => {
+    const subtotal = round2(line.qty * line.rate);
+    const tax = rate && line.taxable ? round2((subtotal * rate.ratePercent) / 100) : 0;
+    return { description: line.description, hsn: '', qty: line.qty, rate: line.rate, gstRate: 0, taxable: line.taxable ? subtotal : 0, subtotal, taxRate: rate && line.taxable ? rate.ratePercent : 0, salesTax: tax, cgst: 0, sgst: 0, igst: 0, amount: round2(subtotal + tax) };
+  });
+  const subtotal = round2(lines.reduce((sum, line) => sum + line.subtotal, 0));
+  if (subtotal <= 0) return { ok: false, error: 'ZERO_AMOUNT' };
+  const salesTax = round2(lines.reduce((sum, line) => sum + line.salesTax, 0));
+  return {
+    ok: true,
+    plan: { country: 'US', date, validUntil: addDays(date, validDays), partyName, partyGstin: '', placeOfSupply: '', lines, taxable: subtotal, subtotal, salesTax, taxJurisdiction: jurisdiction, taxRate: rate ? rate.ratePercent : 0, taxExempt, exemptionReason, cgst: 0, sgst: 0, igst: 0, total: round2(subtotal + salesTax) },
+  };
+}
+
 export function createQuote(state, args = {}) {
   const planned = planQuote(state, args);
   if (!planned.ok) return planned;
@@ -117,7 +148,8 @@ export function invoiceArgsFromQuote(quote, args = {}) {
     partyName: quote.partyName,
     ...(quote.partyGstin ? { partyGstin: quote.partyGstin } : {}),
     date: args.date == null || args.date === '' ? localToday() : args.date,
-    lines: quote.lines.map((line) => ({ description: line.description, hsn: line.hsn, qty: line.qty, rate: line.rate, gstRate: line.gstRate })),
+    lines: quote.lines.map((line) => (quote.country === 'US' ? { description: line.description, qty: line.qty, rate: line.rate, taxable: line.taxable > 0 } : { description: line.description, hsn: line.hsn, qty: line.qty, rate: line.rate, gstRate: line.gstRate })),
+    ...(quote.country === 'US' ? (quote.taxExempt ? { taxExempt: true, exemptionReason: quote.exemptionReason } : { taxJurisdiction: quote.taxJurisdiction }) : {}),
   };
 }
 
@@ -133,7 +165,7 @@ export function convertQuote(state, args = {}) {
   const checked = checkConvert(state, args);
   if (!checked.ok) return checked;
   const { quote } = checked;
-  const made = createInvoice(state, invoiceArgsFromQuote(quote, args));
+  const made = quote.country === 'US' ? createUsInvoice(state, invoiceArgsFromQuote(quote, args)) : createInvoice(state, invoiceArgsFromQuote(quote, args));
   if (made.ok === false) return made;
   made.invoice.quoteId = quote.id;
   quote.status = 'invoiced';

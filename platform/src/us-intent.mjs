@@ -80,6 +80,10 @@ function planOwnerTaxFromChat(raw, today) {
   if (/\bschedule\s*c\b|\bprofit\s+(?:and|or)\s+loss\b.*\b(?:cpa|tax)\b|\bbusiness\s+profit\s+for\s+(?:my\s+)?(?:taxes|cpa)\b/i.test(raw)) return { kind: 'tool', name: 'schedule_c_summary', args: year ? { year } : {} };
   if (/\bestimated\s+tax(?:es)?\b|\b1040-?es\b|\bquarterly\s+tax(?:es)?\s+(?:dates?|due)\b/i.test(raw)) return { kind: 'tool', name: 'estimated_tax_dates', args: year ? { year } : {} };
   if (/\b(?:form\s+)?941\b|\bw-?2s?\b|\bpayroll\s+(?:filings?|taxes\s+due|tax\s+forms?)\b/i.test(raw)) return { kind: 'tool', name: 'us_payroll_filings', args: year ? { year } : {} };
+  const suta = raw.match(/\b(?:suta|SUTA|Suta|state\s+unemployment|State\s+unemployment|unemployment\s+(?:tax|insurance)|Unemployment\s+(?:tax|insurance))\b.*?\b([A-Z]{2})\b.*?(\d{1,2}(?:\.\d{1,3})?)\s*%(?:.*?\b(?:up\s+to|on\s+the\s+first|wage\s+base)\s*\$?\s*(\d[\d,]*))?/);
+  if (suta && !isQuestion(raw)) {
+    return { kind: 'tool', name: 'set_suta_rate', args: { state: suta[1], ratePercent: Number(suta[2]), ...(suta[3] ? { wageBase: Number(suta[3].replace(/,/g, '')) } : {}) } };
+  }
   const withholding = raw.match(/\b(?:withhold(?:ing)?|federal\s+tax)\b.*\b(EMP-\d{4,})\b.*?\$?\s*(\d[\d,]*(?:\.\d{1,2})?)\b|\b(EMP-\d{4,})\b.*\bwithhold(?:ing)?\b.*?\$?\s*(\d[\d,]*(?:\.\d{1,2})?)\b/i);
   if (withholding && !isQuestion(raw)) {
     const id = (withholding[1] || withholding[3]).toUpperCase();

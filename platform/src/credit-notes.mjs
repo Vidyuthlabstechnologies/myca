@@ -38,6 +38,13 @@ export function outstandingOf(state, invoice) {
 }
 
 function scaledLines(invoice, fraction, company) {
+  if (invoice.country === 'US') {
+    return (invoice.lines || []).map((line) => {
+      const subtotal = round2(Number(line.subtotal ?? line.taxable ?? 0) * fraction);
+      const salesTax = round2(Number(line.salesTax || 0) * fraction);
+      return { description: line.description, hsn: '', qty: round2(Number(line.qty || 0) * fraction), rate: line.rate, gstRate: 0, taxable: subtotal, subtotal, taxRate: line.taxRate || 0, salesTax, cgst: 0, sgst: 0, igst: 0, amount: round2(subtotal + salesTax) };
+    });
+  }
   return (invoice.lines || []).map((line) => {
     const taxable = round2(Number(line.taxable || 0) * fraction);
     const split = gstSplit({ taxable, rate: Number(line.gstRate || 0), supplierState: company.state, partyState: invoice.placeOfSupply || invoice.partyState });
@@ -80,18 +87,20 @@ export function planCreditNote(state, args = {}) {
     const scaled = round2(lines.reduce((sum, line) => sum + line.amount, 0));
     const last = lines[lines.length - 1];
     last.taxable = round2(last.taxable + requested - scaled);
-    last.amount = round2(last.taxable + last.cgst + last.sgst + last.igst);
+    if (last.subtotal != null) last.subtotal = last.taxable;
+    last.amount = round2(last.taxable + last.cgst + last.sgst + last.igst + Number(last.salesTax || 0));
   }
+  const salesTax = round2(lines.reduce((sum, line) => sum + Number(line.salesTax || 0), 0));
   const taxable = round2(lines.reduce((sum, line) => sum + line.taxable, 0));
   const cgst = round2(lines.reduce((sum, line) => sum + line.cgst, 0));
   const sgst = round2(lines.reduce((sum, line) => sum + line.sgst, 0));
   const igst = round2(lines.reduce((sum, line) => sum + line.igst, 0));
-  const total = round2(taxable + cgst + sgst + igst);
+  const total = round2(taxable + cgst + sgst + igst + salesTax);
   const received = receivedAgainst(invoice);
   const refundDue = round2(Math.max(0, received + alreadyCredited + total - Number(invoice.total)));
   return {
     ok: true,
-    plan: { invoice, date, reason, full: fraction === 1, lines, taxable, cgst, sgst, igst, total, alreadyCredited, received, refundDue },
+    plan: { invoice, date, reason, full: fraction === 1, lines, taxable, cgst, sgst, igst, salesTax, country: invoice.country || 'IN', total, alreadyCredited, received, refundDue },
   };
 }
 
@@ -111,6 +120,7 @@ export function createCreditNote(state, args = {}) {
   if (plan.cgst > 0) bundle.push({ id: nextTransferId(state), debitAccountId: 2100, creditAccountId: party.accountId, amount: paise(plan.cgst), flags: linked, invoiceId: id, code: 'CN-CGST', userData: plan.date });
   if (plan.sgst > 0) bundle.push({ id: nextTransferId(state), debitAccountId: 2101, creditAccountId: party.accountId, amount: paise(plan.sgst), flags: linked, invoiceId: id, code: 'CN-SGST', userData: plan.date });
   if (plan.igst > 0) bundle.push({ id: nextTransferId(state), debitAccountId: 2102, creditAccountId: party.accountId, amount: paise(plan.igst), flags: linked, invoiceId: id, code: 'CN-IGST', userData: plan.date });
+  if (plan.salesTax > 0) bundle.push({ id: nextTransferId(state), debitAccountId: 2110, creditAccountId: party.accountId, amount: paise(plan.salesTax), flags: linked, invoiceId: id, code: 'CN-SALES-TAX', userData: plan.date });
   const posted = createTransfers(state.ledger, bundle);
   if (posted.some((result) => !result.ok)) {
     state.transferSeq = seqBefore;
@@ -123,6 +133,8 @@ export function createCreditNote(state, args = {}) {
     invoiceId: invoice.id,
     invoiceDate: invoice.date,
     partyName: invoice.partyName,
+    country: plan.country,
+    salesTax: plan.salesTax,
     partyGstin: invoice.partyGstin,
     partyState: invoice.partyState,
     placeOfSupply: invoice.placeOfSupply || invoice.partyState,
