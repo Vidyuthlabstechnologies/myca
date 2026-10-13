@@ -14,6 +14,7 @@ import { usPayrollWords } from './us-payroll.mjs';
 import { ownerTaxWords } from './us-owner-tax.mjs';
 import { usImportWords } from './import-us-books.mjs';
 import { gstr9Words } from './gstr9.mjs';
+import { weekAheadWords } from './week-ahead.mjs';
 import { annexureWords } from './salary-annexure.mjs';
 import { certificateWords } from './tds-certificates.mjs';
 import { posImportWords } from './import-pos.mjs';
@@ -219,6 +220,17 @@ function fmtToolResult(name, result) {
     return rows.length ? `GST payments recorded:\n${rows.map((r) => `· ${r.period}: ${money(r.cashTotal)} on ${r.date}${r.cpin ? `, CPIN ${r.cpin}` : ''}${r.late ? ' (after the due date)' : ''}`).join('\n')}` : 'No GST payment is recorded yet. Say "paid GST for September, CPIN 12345678901234".';
   }
   if (name === 'gstr9_draft' && result.data) return gstr9Words(result.data, money);
+  if (name === 'week_ahead' && result.data) return weekAheadWords(result.data, money);
+  if (name === 'close_year' && result.closing) {
+    const c = result.closing;
+    return `Closed ${c.year}: income ${money(c.income)}, expenses ${money(c.expenses)}, ${c.profit >= 0 ? 'profit' : 'loss'} ${money(Math.abs(c.profit))} moved to capital. The books are locked through ${c.to}.`;
+  }
+  if (name === 'list_year_closings' && result.data) {
+    const rows = result.data.closings;
+    return rows.length ? `Closed years:\n${rows.map((c) => `· ${c.year}: income ${money(c.income)}, expenses ${money(c.expenses)}, ${c.profit >= 0 ? 'profit' : 'loss'} ${money(Math.abs(c.profit))}, closed on ${c.closedOn}`).join('\n')}` : `No year is closed yet. Say "close the year ${result.data.nextYear}" once your CA has signed off that year.`;
+  }
+  if (name === 'export_gstr1_quarter' && result.data) return `Quarterly GSTR-1 for ${result.data.quarter}: ${result.data.invoices === 1 ? '1 invoice' : `${result.data.invoices} invoices`} over ${result.data.months.join(', ')}; B2B ${result.data.b2b.length}, B2CL ${result.data.b2cl.length}, B2CS ${result.data.b2cs.length}${result.data.held?.length ? `, ${result.data.held.length} held back` : ''}. Saved as ${result.data.fileName} from the Taxes screen. ${result.data.note}`;
+  if (name === 'export_iff' && result.data) return `IFF for ${result.data.period}: ${result.data.invoices === 1 ? '1 B2B invoice' : `${result.data.invoices} B2B invoices`}${result.data.held?.length ? `, ${result.data.held.length} held back` : ''}. Saved as ${result.data.fileName} from the Taxes screen. ${result.data.note}`;
   if (name === 'salary_annexure' && result.data) return annexureWords(result.data, money);
   if (name === 'tds_certificates' && result.data) return certificateWords(result.data, money);
   if (name === 'import_pos_sales' && result.data?.created) return posImportWords(result.data, money);
@@ -226,6 +238,14 @@ function fmtToolResult(name, result) {
   if (name === 'export_trial_balance' && result.data) return `Trial balance as of ${result.data.asOf}: ${result.data.accounts === 1 ? '1 account' : `${result.data.accounts} accounts`}, debits ${money(result.data.debit)}, credits ${money(result.data.credit)}${result.data.balanced ? ', ties' : ', does not tie'}. Saved as ${result.data.fileName} from the Taxes screen.`;
   if (name === 'import_us_invoices' && result.data?.created) return usImportWords(result.data, money);
   if ((name === 'schedule_c_summary' || name === 'estimated_tax_dates') && result.data) return ownerTaxWords(name, result.data, money);
+  if (name === 'set_suta_rate' && result.rate) {
+    const r = result.rate;
+    return `Recorded state unemployment for ${r.state}: ${r.ratePercent}% on the first ${money(r.wageBase)} of wages from ${r.from}.`;
+  }
+  if (name === 'list_suta_rates' && result.data) {
+    const rows = result.data.rates;
+    return rows.length ? `State unemployment rates:\n${rows.map((r) => `· ${r.state}: ${r.ratePercent}% up to ${money(r.wageBase)} from ${r.from}`).join('\n')}` : 'No state unemployment rate is recorded. Say, for example, "SUTA rate TX 2.7% up to 9000".';
+  }
   if (name === 'set_withholding' && result.employee) {
     const e = result.employee;
     return `Recorded for ${e.name}: federal withholding ${money(e.federalWithholding)} a month${e.stateWithholding > 0 ? `, state ${money(e.stateWithholding)}` : ''}${e.workState ? `, works in ${e.workState}` : ''}.`;

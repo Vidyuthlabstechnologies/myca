@@ -1,0 +1,46 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { createState, serialize, deserialize } from '../src/store.mjs';
+import { runTool } from '../src/tools.mjs';
+import { chat } from '../src/router.mjs';
+import { listAccounts, trialBalance } from '../src/ledger.mjs';
+import { planUsFromChat } from '../src/us-intent.mjs';
+
+const acc = (state, code) => listAccounts(state.ledger).find((a) => a.code === code);
+
+test('a recorded state unemployment rate is charged on wages up to its base, posted as an employer tax, and shown on the payslip', async () => {
+  const state = createState();
+  state.company = { name: 'Maple Street Bakery', country: 'US', gstin: '', state: '', ein: '12-3456789' };
+  await runTool(state, 'add_employee', { name: 'Ana Lopez', joinedOn: '2026-01-01', components: [{ name: 'Salary', amount: 5000 }], workState: 'TX', federalWithholding: 400 });
+  const before = await runTool(state, 'payroll_run', { period: '2026-01' });
+  assert.equal(before.data.rows[0].suta, 0);
+  assert.match(before.data.rows[0].notes.join(' '), /No state unemployment rate is recorded for TX/);
+  assert.equal((await runTool(state, 'set_suta_rate', { state: 'TX', ratePercent: 2.7, wageBase: 9000 })).ok, true);
+  assert.equal((await runTool(state, 'set_suta_rate', { state: 'TX', ratePercent: 40, wageBase: 9000 })).error, 'BAD_RATE');
+  const january = await runTool(state, 'payroll_run', { period: '2026-01' });
+  const ana = january.data.rows[0];
+  assert.equal(ana.suta, 135, '2.7% of 5,000');
+  assert.equal(ana.employerTaxes, 310 + 72.5 + 30 + 135);
+  assert.ok(january.data.totals.employerLines.some((line) => line.name === 'State unemployment (SUTA)' && line.amount === 135));
+  assert.match(january.data.notes.join(' '), /rate and wage base you recorded/);
+  assert.equal((await runTool(state, 'approve_payroll', { period: '2026-01' })).ok, true);
+  assert.equal(acc(state, '2370').creditsPosted, 135);
+  assert.equal(trialBalance(state.ledger).balanced, true);
+  const february = await runTool(state, 'payroll_run', { period: '2026-02' });
+  assert.equal(february.data.rows[0].suta, 108, 'only the remaining 4,000 of the 9,000 base');
+  assert.equal((await runTool(state, 'approve_payroll', { period: '2026-02' })).ok, true);
+  const march = await runTool(state, 'payroll_run', { period: '2026-03' });
+  assert.equal(march.data.rows[0].suta, 0, 'the base is used up');
+  const slip = await runTool(state, 'payslip', { period: '2026-01', employeeId: ana.employeeId });
+  assert.ok(slip.data.employerContributions.some((item) => item.name === 'State unemployment' && item.amount === 135));
+  const copy = deserialize(JSON.parse(JSON.stringify(serialize(state))));
+  assert.equal(copy.sutaRates.length, 1);
+  assert.deepEqual(planUsFromChat(state, 'SUTA rate TX 2.7% up to 9000'), { kind: 'tool', name: 'set_suta_rate', args: { state: 'TX', ratePercent: 2.7, wageBase: 9000 } });
+  const held = await chat(state, 'state unemployment rate for CA is 3.4% on the first 7000');
+  assert.equal(held.preview?.tool, 'set_suta_rate', held.reply);
+  assert.match(held.preview.summary, /State unemployment for CA: 3\.4% on the first \$7,000\.00/);
+  const done = await chat(state, 'yes');
+  assert.match(done.reply, /Recorded state unemployment for CA: 3\.4% on the first \$7,000\.00/);
+  assert.equal((await runTool(state, 'list_suta_rates', {})).data.rates.length, 2);
+  assert.equal((await runTool(createState(), 'set_suta_rate', { state: 'TX', ratePercent: 2.7, wageBase: 9000 })).error, 'NOT_FOR_COUNTRY');
+});

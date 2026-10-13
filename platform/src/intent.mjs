@@ -151,6 +151,8 @@ export function isSaleIntent(text) {
 }
 
 export const ROUTES = [
+  { re: /\b(?:this|the|coming|next)\s+week\b|\bweek\s+ahead\b|\bwhat(?:'s| is)\s+due\b|\bdue\s+(?:this|next)\s+week\b/i, tool: 'week_ahead' },
+  { re: /\bclosed\s+years\b|\byear[\s-]?end\s+status\b|\bwhich\s+years?\s+(?:are|is)\s+closed\b/i, tool: 'list_year_closings' },
   { re: /\bform\s*16a?\b|\btds\s+certificates?\b/i, tool: 'tds_certificates' },
   { re: /\b1099\s*(?:-|\s)?nec\s+(?:file|data|forms?|csv)\b|\bprepare\s+(?:the\s+)?1099s?\b|\b1099\s+file\b/i, tool: 'contractor_1099_file' },
   { re: /\bannexure\s*(?:ii|2)\b|\bsalary\s+annexure\b|\b24q\s+annexure\b/i, tool: 'salary_annexure' },

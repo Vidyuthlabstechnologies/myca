@@ -28,7 +28,7 @@ import { pfEcr, esiReturn } from './payroll-files.mjs';
 import { countryOf, isCountry, toolServesCountry } from './country.mjs';
 import { createUsInvoice, createUsPurchase, setSalesTaxRate, listSalesTaxRates, setContractor, contractorPayments } from './us-sales.mjs';
 import { rulesStatus } from './rules-status.mjs';
-import { usPayrollFor, approveUsPayroll, listUsPayroll, usPayslip, usPayrollFilings, setWithholding } from './us-payroll.mjs';
+import { usPayrollFor, approveUsPayroll, listUsPayroll, usPayslip, usPayrollFilings, setWithholding, setSutaRate, listSutaRates } from './us-payroll.mjs';
 import { scheduleCSummary, estimatedTaxDates } from './us-owner-tax.mjs';
 import { importUsInvoices } from './import-us-books.mjs';
 import { exportTrialBalance } from './trial-balance-export.mjs';
@@ -40,6 +40,9 @@ import { contractor1099File } from './us-1099.mjs';
 import { usBankMatrix } from './us-bank.mjs';
 import { recordGstPayment, listGstPayments } from './gst-pay-record.mjs';
 import { gstr9Draft } from './gstr9.mjs';
+import { closeYear, listYearClosings } from './year-close.mjs';
+import { weekAhead } from './week-ahead.mjs';
+import { exportGstr1Quarter, exportIff } from './gstr1-quarter.mjs';
 import { setNexus, listNexus, salesTaxReturn, salesTaxReviewOf, answerSalesTaxReview, recordSalesTaxPayment, recordSalesTaxFiling, salesTaxOverview } from './us-sales-tax.mjs';
 import { recordTdsDeposit, setDeductor, tdsSummary } from './tds-deduction.mjs';
 import { paymentFor, setCreditOpening } from './gst-payment.mjs';
@@ -632,6 +635,19 @@ export const TOOLS = [
     run: (state, args = {}) => setWithholding(state, args),
   },
   {
+    name: 'set_suta_rate',
+    title: 'State unemployment rate',
+    description: 'Record the state unemployment (SUTA) rate and wage base the state assigned to the business, from a date. Payroll charges it on each employee\'s wages in that work state up to the base. MyCA holds no state rates; this is what the notice says. US only.',
+    args: ['state', 'ratePercent', 'wageBase', 'from'],
+    run: (state, args = {}) => setSutaRate(state, args),
+  },
+  {
+    name: 'list_suta_rates',
+    title: 'State unemployment rates',
+    description: 'The SUTA rates and wage bases recorded by state. US only. Read-only.',
+    run: (state) => listSutaRates(state),
+  },
+  {
     name: 'us_payroll_filings',
     title: 'Form 941 and W-2 drafts',
     description: 'For a calendar year: each quarter\'s Form 941 figures (wages, federal withholding, Social Security and Medicare wages and tax) with the due date from the dated rule, W-2 totals per employee, and the FUTA total for Form 940. Drafts from approved payroll months; files nothing. US only. Read-only.',
@@ -762,6 +778,40 @@ export const TOOLS = [
     run: (state) => listGstPayments(state),
   },
   {
+    name: 'export_gstr1_quarter',
+    title: 'Quarterly GSTR-1 (QRMP)',
+    description: 'For a business on the quarterly scheme: the GSTN offline-utility JSON for a whole quarter (Q2 2026-27), with the last month as the return period. Does not upload.',
+    args: ['quarter', 'grossTurnover', 'currentGrossTurnover'],
+    run: (state, args = {}) => exportGstr1Quarter(state, args),
+  },
+  {
+    name: 'export_iff',
+    title: 'Invoice furnishing facility (IFF)',
+    description: 'For a business on the quarterly scheme: the B2B invoices and their notes of the first or second month of a quarter as GSTN JSON, so buyers see their credit in time. Does not upload.',
+    args: ['period'],
+    run: (state, args = {}) => exportIff(state, args),
+  },
+  {
+    name: 'close_year',
+    title: 'Close the year',
+    description: 'Close a financial year (India, 2025-26) or calendar year (US, 2025) that has ended: transfer every income and expense balance of the year to capital and lock the books through its last day. Once per year; the closing entries are new entries, nothing is changed. Owner only.',
+    args: ['year'],
+    run: (state, args = {}) => closeYear(state, args),
+  },
+  {
+    name: 'list_year_closings',
+    title: 'Closed years',
+    description: 'The years closed so far with income, expenses and profit, and the next year that can be closed. Read-only.',
+    run: (state) => listYearClosings(state),
+  },
+  {
+    name: 'week_ahead',
+    title: 'The week ahead',
+    description: 'Everything due in the next seven days and anything overdue: filings from the dated rules (India) or state sales tax and estimated tax (US), reminders, invoices past or near their due date, and last month\'s payroll if not approved or paid. Read-only.',
+    args: ['asOf'],
+    run: (state, args = {}) => weekAhead(state, args),
+  },
+  {
     name: 'gstr9_draft',
     title: 'GSTR-9 annual return draft',
     description: 'A draft of the annual return for a financial year from the twelve monthly figures: outward supplies and tax by head (table 4 and 5 where known), credit and debit notes, input credit availed by head (table 6), reversals (table 7), GSTR-2B against credit availed (table 8 where 2B was added), tax paid in cash and by credit (table 9), and the HSN summary (table 17). Read-only; files nothing.',
@@ -858,7 +908,7 @@ export const TOOLS = [
     name: 'create_quote',
     title: 'Quote',
     description: 'Make a quotation for a customer with GST worked out as on an invoice, valid for a number of days (30 unless given). It posts nothing to the books and is not in any return.',
-    args: ['partyName', 'partyGstin', 'lines', 'date', 'validDays'],
+    args: ['partyName', 'partyGstin', 'lines', 'date', 'validDays', 'taxJurisdiction', 'taxExempt', 'exemptionReason'],
     run: (state, args = {}) => createQuote(state, args),
   },
   {

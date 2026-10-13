@@ -507,6 +507,18 @@ export const TOOL_ARG_SCHEMAS = {
       workState: { type: 'string', pattern: '^[A-Za-z]{2}$' },
     },
   },
+  set_suta_rate: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['state', 'ratePercent', 'wageBase'],
+    properties: {
+      state: { type: 'string', pattern: '^[A-Za-z]{2}$' },
+      ratePercent: { type: 'number', minimum: 0, maximum: 15 },
+      wageBase: { type: 'number', exclusiveMinimum: 0, maximum: 100000 },
+      from: { type: 'string' },
+    },
+  },
+  list_suta_rates: noArgs,
   us_payroll_filings: {
     type: 'object',
     additionalProperties: false,
@@ -953,6 +965,29 @@ export const TOOL_ARG_SCHEMAS = {
     },
   },
   list_gst_payments: noArgs,
+  export_gstr1_quarter: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['quarter'],
+    properties: { quarter: { type: 'string', pattern: '^Q[1-4] [0-9]{4}-[0-9]{2}$' }, grossTurnover: { type: 'number', minimum: 0 }, currentGrossTurnover: { type: 'number', minimum: 0 } },
+  },
+  export_iff: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['period'],
+    properties: { period: { type: 'string', pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' } },
+  },
+  close_year: {
+    type: 'object',
+    additionalProperties: false,
+    properties: { year: { type: 'string', pattern: '^[0-9]{4}(-[0-9]{2})?$' } },
+  },
+  list_year_closings: noArgs,
+  week_ahead: {
+    type: 'object',
+    additionalProperties: false,
+    properties: { asOf: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' } },
+  },
   gstr9_draft: {
     type: 'object',
     additionalProperties: false,
@@ -1296,6 +1331,7 @@ const TOOL_RISK = {
   set_tds_deductor: 'writes_books',
   set_gst_credit_opening: 'writes_books',
   record_gst_payment: 'writes_books',
+  close_year: 'writes_books',
   tds_review_answer: 'writes_books',
   record_tds_deposit: 'writes_books',
   change_salary: 'writes_books',
@@ -1306,6 +1342,7 @@ const TOOL_RISK = {
   set_contractor: 'writes_books',
   set_sales_tax_nexus: 'writes_books',
   set_withholding: 'writes_books',
+  set_suta_rate: 'writes_books',
   import_us_invoices: 'writes_books',
   import_pos_sales: 'writes_books',
   sales_tax_review_answer: 'writes_books',
@@ -1458,6 +1495,8 @@ export function planLocalToolCall(state, message) {
       return { kind: 'tool', name: 'create_quote', args: { partyName: quoted.partyName, ...(quoted.partyGstin ? { partyGstin: quoted.partyGstin } : {}), lines: quoted.lines, ...(validity ? { validDays: Number(validity[1]) } : {}) } };
     }
   }
+  const closeYearAsk = text.match(/\bclose\s+(?:the\s+)?(?:year|books?\s+for|financial\s+year|fy)\s*(\d{4}(?:-\d{2})?)?\b/i);
+  if (closeYearAsk && !isQuestion(text) && !isNegated(text)) return { kind: 'tool', name: 'close_year', args: closeYearAsk[1] ? { year: closeYearAsk[1] } : {} };
   const tdsAsk = planTdsFromChat(text);
   if (tdsAsk) return tdsAsk;
   const gstPay = planGstPayFromChat(text);

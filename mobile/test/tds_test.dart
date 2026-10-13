@@ -76,7 +76,9 @@ void main() {
       expect(find.text('₹6,000.00 deducted in October 2026'), findsOneWidget);
       expect(find.text('Deposit by 7 November 2026'), findsOneWidget);
       final due = find.text('₹6,000.00 still to deposit');
+      await tester.scrollUntilVisible(due, 200, scrollable: find.byType(Scrollable).first);
       await tester.ensureVisible(due);
+      await tester.pumpAndSettle();
       await tester.tap(due);
       await tester.pumpAndSettle();
       await tester.enterText(

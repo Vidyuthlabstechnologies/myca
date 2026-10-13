@@ -203,6 +203,23 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
 
   Future<void> _submitQuote() async {
     final amount = parseAmount(_amount.text);
+    if (_us) {
+      if (amount == null) {
+        return setState(() => _formError = 'Enter the amount before sales tax.');
+      }
+      if (!_exempt && _jurisdiction.text.trim().isEmpty) {
+        return setState(() => _formError = 'Say which sales tax applies, for example TX or TX-AUSTIN, or mark the quote exempt.');
+      }
+      if (_exempt && _exemptionReason.text.trim().isEmpty) {
+        return setState(() => _formError = 'Say why this quote is exempt.');
+      }
+      setState(() => _composer = _Composer.none);
+      final args = usSaleArgs(partyName: widget.partyName, description: _what.text, amount: amount, taxJurisdiction: _jurisdiction.text, taxExempt: _exempt, exemptionReason: _exemptionReason.text);
+      args.remove('partyGstin');
+      await propose(_exempt ? 'Quote: ${rupees(amount)}, exempt from sales tax' : 'Quote: ${rupees(amount)} + sales tax (${_jurisdiction.text.trim().toUpperCase()})', 'create_quote', args);
+      setState(() => _exempt = false);
+      return;
+    }
     final rate = parseRate(_rate.text);
     if (amount == null) {
       return setState(() => _formError = 'Enter the amount before GST.');
@@ -520,7 +537,7 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
                   : null,
               onDocument: () => _open(_Composer.document, party),
               onPayment: () => _open(_Composer.payment, party),
-              onQuote: _sales && !_us ? () => _open(_Composer.quote, party) : null,
+              onQuote: _sales ? () => _open(_Composer.quote, party) : null,
               onTerms: _sales ? () => _setTerms(party) : null,
             )
           else
@@ -539,6 +556,8 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
                   : _submitDocument,
               children: _composer == _Composer.payment
                   ? _paymentFields(party)
+                  : _composer == _Composer.quote && _us
+                  ? _usDocumentFields()
                   : _documentFields(rates),
             ),
         ],

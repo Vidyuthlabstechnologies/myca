@@ -42,6 +42,7 @@ class _SalesTaxScreenState extends State<SalesTaxScreen> with ProposalFlow {
   Future<RulesStatus?>? _rules;
   final _stateCode = TextEditingController();
   final _permit = TextEditingController();
+  final _dueDay = TextEditingController();
   final _amount = TextEditingController();
   final _reference = TextEditingController();
   final _confirmation = TextEditingController();
@@ -74,6 +75,7 @@ class _SalesTaxScreenState extends State<SalesTaxScreen> with ProposalFlow {
   void dispose() {
     _stateCode.dispose();
     _permit.dispose();
+    _dueDay.dispose();
     _amount.dispose();
     _reference.dispose();
     _confirmation.dispose();
@@ -137,6 +139,7 @@ class _SalesTaxScreenState extends State<SalesTaxScreen> with ProposalFlow {
         'state': code,
         'frequency': _frequency,
         if (_permit.text.trim().isNotEmpty) 'permitNo': _permit.text.trim(),
+        if (_dueDay.text.trim().isNotEmpty) 'dueDay': _dueDay.text.trim().toLowerCase(),
       });
     }
     final period = row?.lastPeriod;
@@ -318,6 +321,14 @@ class _SalesTaxScreenState extends State<SalesTaxScreen> with ProposalFlow {
                         controller: _permit,
                         textCapitalization: TextCapitalization.characters,
                         decoration: const InputDecoration(labelText: 'Permit number (optional)'),
+                      ),
+                      const SizedBox(height: 10),
+                      TextField(
+                        controller: _dueDay,
+                        decoration: const InputDecoration(
+                          labelText: 'Return due day (optional)',
+                          helperText: 'The day of the month after the period, from the state\'s notice: 20, or "last". Used only when MyCA holds no rule for the state.',
+                        ),
                       ),
                     ],
                     if (_composer != _Composer.none && pending == null) ...[

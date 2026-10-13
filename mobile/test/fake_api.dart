@@ -176,6 +176,10 @@ class FakeMycaApi implements MycaApi {
   bool salesTaxPaid = false;
   bool salesTaxFiled = false;
   bool salesTaxApproved = false;
+  bool gstPaid = false;
+  bool yearClosed = false;
+  bool quarterlyGst = false;
+  final sutaRates = <Map<String, Object?>>[];
   num tdsDue = 6000;
   final tdsDeposits = <Map<String, Object?>>[];
   final employees = <Map<String, Object?>>[
@@ -337,7 +341,7 @@ class FakeMycaApi implements MycaApi {
 
   @override
   Future<Snapshot> snapshot() async => Snapshot.fromJson({
-    'company': {'name': companyName, 'gstin': country == 'US' ? '' : '27AABCU9603R1ZN', 'tdsDeductor': tdsDeductor, 'country': country},
+    'company': {'name': companyName, 'gstin': country == 'US' ? '' : '27AABCU9603R1ZN', 'tdsDeductor': tdsDeductor, 'country': country, 'gstFrequency': quarterlyGst ? 'quarterly' : 'monthly'},
     'invoices': invoices,
     'purchases': purchases,
     'expenses': expenses,
@@ -855,6 +859,18 @@ class FakeMycaApi implements MycaApi {
           'confirmed': true,
         });
       }
+      if (held.tool == 'set_suta_rate') {
+        sutaRates.add({'state': held.args['state'], 'ratePercent': held.args['ratePercent'], 'wageBase': held.args['wageBase'], 'from': '2026-01-01'});
+        return ChatReply.fromJson({'reply': 'Recorded state unemployment for ${held.args['state']}.', 'posted': true, 'confirmed': true});
+      }
+      if (held.tool == 'close_year') {
+        yearClosed = true;
+        return ChatReply.fromJson({'reply': 'Closed ${held.args['year']}: profit ₹80,000.00 moved to capital.', 'posted': true, 'confirmed': true});
+      }
+      if (held.tool == 'record_gst_payment') {
+        gstPaid = true;
+        return ChatReply.fromJson({'reply': 'Recorded the GST payment for ${held.args['period']}: ₹3,600.00 in cash.', 'posted': true, 'confirmed': true});
+      }
       if (held.tool == 'set_sales_tax_nexus') {
         salesTaxStates.removeWhere((row) => row['state'] == held.args['state']);
         salesTaxStates.add({'state': held.args['state'], 'frequency': held.args['frequency']});
@@ -1071,6 +1087,28 @@ class FakeMycaApi implements MycaApi {
           'ok': true,
           'data': {'year': '2026', 'payees': [{'recipient': 'Joe Plumbing', 'nonemployeeCompensation': 2500}], 'fileName': '1099NEC_EIN_2026.csv', 'csv': 'tax_year,recipient\n2026,Joe Plumbing\n'},
         };
+      case 'week_ahead':
+        return {
+          'ok': true,
+          'data': {
+            'today': '2026-10-05',
+            'until': '2026-10-12',
+            'items': [
+              {'kind': 'filing', 'when': '2026-10-11', 'overdue': false, 'title': 'GSTR-1 (monthly) for 2026-09', 'detail': 'Due 2026-10-11'},
+              {'kind': 'receivable', 'when': '2026-09-30', 'overdue': true, 'title': 'Gujarat Weaves owes 277600 on INV-0002', 'detail': 'Overdue since 2026-09-30', 'amount': 277600, 'invoiceId': 'INV-0002'},
+            ],
+            'overdue': 1,
+            'count': 2,
+          },
+        };
+      case 'list_suta_rates':
+        return {'ok': true, 'data': {'rates': sutaRates}};
+      case 'list_year_closings':
+        return {'ok': true, 'data': {'closings': yearClosed ? [{'year': '2025-26', 'income': 100000, 'expenses': 20000, 'profit': 80000, 'closedOn': '2026-10-05'}] : const <Object?>[], 'nextYear': '2025-26'}};
+      case 'export_gstr1_quarter':
+        return {'ok': true, 'data': {'quarter': args['quarter'], 'invoices': 3, 'fileName': 'GSTR1_27AABCU9603R1ZN_Q2-2026-27.json', 'b2b': const <Object?>[], 'note': 'One file for the quarter.'}};
+      case 'export_iff':
+        return {'ok': true, 'data': {'period': args['period'], 'invoices': 1, 'fileName': 'IFF_27AABCU9603R1ZN_082026.json', 'note': 'B2B only.'}};
       case 'rules_status':
         return {
           'ok': true,
@@ -1529,7 +1567,12 @@ class FakeMycaApi implements MycaApi {
           },
         };
       case 'gst_payable':
-        return {'ok': true, 'data': {'period': args['period'], 'toPay': {'igst': 0, 'cgst': 1800, 'sgst': 1800, 'total': 3600}, 'notes': const <Object?>[]}};
+        return {'ok': true, 'data': {'period': args['period'], 'toPay': {'igst': 0, 'cgst': 1800, 'sgst': 1800, 'total': 3600}, 'paid': gstPaid ? {'date': '2026-10-05', 'cpin': '26100012345678', 'cashTotal': 3600} : null, 'notes': const <Object?>[]}};
+      case 'gstr9_draft':
+        return {
+          'ok': true,
+          'data': {'fy': '2026-27', 'form': 'GSTR-9', 'gstin': '27AABCU9603R1ZN', 'table4': {'outwardTaxable': 120000}, 'table6': {'itcAvailed': {'total': 2000}}, 'table9': {'paidInCash': {'total': 3600}}, 'table17': const <Object?>[], 'notes': const <Object?>[]},
+        };
       case 'export_trial_balance':
         return {
           'ok': true,

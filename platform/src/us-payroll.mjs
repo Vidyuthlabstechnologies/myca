@@ -11,6 +11,7 @@ export const US_PAYROLL_ACCOUNTS = [
   { id: 2340, code: '2340', name: 'Federal payroll taxes payable', type: 'liability' },
   { id: 2350, code: '2350', name: 'Federal unemployment tax payable', type: 'liability' },
   { id: 2360, code: '2360', name: 'State withholding payable', type: 'liability' },
+  { id: 2370, code: '2370', name: 'State unemployment tax payable', type: 'liability' },
 ];
 
 export const NO_INCOME_TAX_STATES = ['AK', 'FL', 'NV', 'NH', 'SD', 'TN', 'TX', 'WA', 'WY'];
@@ -64,6 +65,36 @@ function daysWorked(employee, period) {
   const to = employee.leftOn && employee.leftOn < end ? employee.leftOn : end;
   if (to < from) return 0;
   return Number(to.slice(8, 10)) - Number(from.slice(8, 10)) + 1;
+}
+
+export function sutaRateFor(state, code, date) {
+  const rows = (state.sutaRates || []).filter((row) => row.state === code && row.from <= date).sort((a, b) => a.from.localeCompare(b.from));
+  return rows.length ? rows[rows.length - 1] : null;
+}
+
+export function planSutaRate(state, args = {}) {
+  const code = String(args.state || '').trim().toUpperCase();
+  if (!/^[A-Z]{2}$/.test(code)) return fail('BAD_STATE', { state: code });
+  const ratePercent = Number(args.ratePercent);
+  if (!Number.isFinite(ratePercent) || ratePercent < 0 || ratePercent > 15) return fail('BAD_RATE', { ratePercent: args.ratePercent });
+  const wageBase = Number(args.wageBase);
+  if (!Number.isFinite(wageBase) || wageBase <= 0 || wageBase > 100000) return fail('BAD_WAGE_BASE', { wageBase: args.wageBase });
+  const from = args.from == null || args.from === '' ? `${localToday().slice(0, 4)}-01-01` : String(args.from);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(from)) return fail('INVALID_DATE', { date: args.from });
+  return { ok: true, rate: { state: code, ratePercent: round2(ratePercent), wageBase: round2(wageBase), from, setOn: localToday() }, was: sutaRateFor(state, code, from) };
+}
+
+export function setSutaRate(state, args = {}) {
+  const planned = planSutaRate(state, args);
+  if (!planned.ok) return planned;
+  state.sutaRates = (state.sutaRates || []).filter((row) => !(row.state === planned.rate.state && row.from === planned.rate.from));
+  state.sutaRates.push(planned.rate);
+  state.sutaRates.sort((a, b) => a.state.localeCompare(b.state) || a.from.localeCompare(b.from));
+  return { ok: true, rate: planned.rate, was: planned.was };
+}
+
+export function listSutaRates(state) {
+  return { ok: true, data: { rates: (state.sutaRates || []).map((row) => ({ ...row })) } };
 }
 
 function runRecord(state, period) {
@@ -131,15 +162,24 @@ export function computeUsPayroll(state, requested) {
       stateWithholdingCents: Math.min(grossCents, Math.round(cents(employee.stateWithholding) * fraction)),
       futaWagesCents: futaWages,
       futaCents: Math.round((futaWages * (futa.value.basisPoints - futa.value.creditBasisPoints)) / 10000),
+      sutaCents: 0,
       notes: [],
     };
+    const suta = employee.workState ? sutaRateFor(state, employee.workState, asOf) : null;
+    if (suta) {
+      const sutaWages = Math.max(0, Math.min(grossCents, cents(suta.wageBase) - ytd));
+      row.sutaCents = Math.round((sutaWages * suta.ratePercent) / 100);
+      row.sutaWagesCents = sutaWages;
+    } else if (employee.workState) {
+      row.notes.push(`No state unemployment rate is recorded for ${employee.workState}; say "SUTA rate ${employee.workState} 2.7% up to 9000" with the rate and wage base from the state's notice.`);
+    }
     if (ssWages < grossCents) row.notes.push(`Social Security wages are capped at the ${year} wage base; ${toDollars(ssWages) === 0 ? 'nothing' : `$${toDollars(ssWages)}`} of this month counts.`);
     if (additionalWages > 0) row.notes.push('Wages for the year are above the Additional Medicare threshold, so the extra employee rate applies to the part above it.');
     if (!(employee.federalWithholding > 0)) row.notes.push('No federal withholding amount is recorded for this employee; MyCA does not work it out from the W-4. Enter the amount from the IRS Tax Withholding Estimator or Publication 15-T.');
     if (employee.workState && !NO_INCOME_TAX_STATES.includes(employee.workState) && !(employee.stateWithholding > 0)) row.notes.push(`${employee.workState} has an income tax; no state withholding amount is recorded, so none is deducted.`);
     row.deductionsCents = row.socialSecurityEmployeeCents + row.medicareEmployeeCents + row.additionalMedicareCents + row.federalWithholdingCents + row.stateWithholdingCents;
     row.netCents = grossCents - row.deductionsCents;
-    row.employerTaxesCents = row.socialSecurityEmployerCents + row.medicareEmployerCents + row.futaCents;
+    row.employerTaxesCents = row.socialSecurityEmployerCents + row.medicareEmployerCents + row.futaCents + row.sutaCents;
     row.employerCostCents = grossCents + row.employerTaxesCents;
     rows.push(row);
   }
@@ -154,6 +194,7 @@ export function computeUsPayroll(state, requested) {
     federalWithholdingCents: sum('federalWithholdingCents'),
     stateWithholdingCents: sum('stateWithholdingCents'),
     futaCents: sum('futaCents'),
+    sutaCents: sum('sutaCents'),
     deductionsCents: sum('deductionsCents'),
     netCents: sum('netCents'),
     employerTaxesCents: sum('employerTaxesCents'),
@@ -163,6 +204,7 @@ export function computeUsPayroll(state, requested) {
   totals.federalPayableCents = totals.socialSecurityEmployeeCents + totals.socialSecurityEmployerCents + totals.medicareEmployeeCents + totals.medicareEmployerCents + totals.additionalMedicareCents + totals.federalWithholdingCents;
   notes.add('Federal and state income tax withholding are the amounts recorded per employee; MyCA does not compute them from a W-4.');
   notes.add('FUTA is shown at the net rate after the full state credit; a credit reduction state owes more.');
+  if (rows.some((row) => row.sutaCents > 0)) notes.add('State unemployment tax uses the rate and wage base you recorded from the state\'s notice; MyCA holds no state rates.');
   if (unreviewed.size) notes.add('The FICA and FUTA rates and wage bases come from MyCA\'s dated rules, which a US CPA has not reviewed yet.');
   const draftHash = createHash('sha256').update(JSON.stringify({ period, rows: rows.map((row) => [row.employeeId, row.grossCents, row.deductionsCents, row.netCents]), totals })).digest('hex');
   return {
@@ -206,6 +248,7 @@ function totalsInDollars(totals) {
     { name: 'Social Security (employer)', amount: out.socialSecurityEmployer },
     { name: 'Medicare (employer)', amount: out.medicareEmployer },
     { name: 'Federal unemployment (FUTA)', amount: out.futa },
+    { name: 'State unemployment (SUTA)', amount: out.suta },
   ].filter((line) => line.amount > 0);
   return out;
 }
@@ -252,6 +295,7 @@ export function approveUsPayroll(state, args = {}) {
   post(5120, 2360, totals.stateWithholdingCents, 'SALARY-STATE');
   post(5125, 2340, totals.socialSecurityEmployerCents + totals.medicareEmployerCents, 'EMPLOYER-FICA');
   post(5125, 2350, totals.futaCents, 'EMPLOYER-FUTA');
+  post(5125, 2370, totals.sutaCents, 'EMPLOYER-SUTA');
   const posted = createTransfers(state.ledger, bundle);
   if (posted.some((result) => !result.ok)) {
     state.transferSeq = seqBefore;
@@ -326,6 +370,7 @@ export function usPayslip(state, args = {}) {
         { name: 'Social Security', amount: r.socialSecurityEmployer },
         { name: 'Medicare', amount: r.medicareEmployer },
         { name: 'Federal unemployment', amount: r.futa },
+        { name: 'State unemployment', amount: r.suta },
       ].filter((item) => item.amount > 0),
       yearToDate: { wages: round2(r.ytdWages + r.gross) },
       paidOn: run.paidOn || '',
@@ -430,7 +475,7 @@ export function setWithholding(state, args = {}) {
 export function usPayrollWords(data, money) {
   const t = data.totals;
   const lines = [`Payroll for ${data.month}: ${data.employees === 1 ? '1 employee' : `${data.employees} employees`}, gross ${money(t.gross)}, withheld ${money(t.deductions)} (Social Security ${money(t.socialSecurityEmployee)}, Medicare ${money(round2(t.medicareEmployee + t.additionalMedicare))}, federal income tax ${money(t.federalWithholding)}${t.stateWithholding > 0 ? `, state income tax ${money(t.stateWithholding)}` : ''}), net to pay ${money(t.net)}.`];
-  lines.push(`Employer taxes ${money(t.employerTaxes)} (Social Security ${money(t.socialSecurityEmployer)}, Medicare ${money(t.medicareEmployer)}, FUTA ${money(t.futa)}); total cost ${money(t.employerCost)}.`);
+  lines.push(`Employer taxes ${money(t.employerTaxes)} (Social Security ${money(t.socialSecurityEmployer)}, Medicare ${money(t.medicareEmployer)}, FUTA ${money(t.futa)}${t.suta > 0 ? `, SUTA ${money(t.suta)}` : ''}); total cost ${money(t.employerCost)}.`);
   for (const row of data.rows) lines.push(`· ${row.name}: gross ${money(row.gross)}, net ${money(row.net)}${row.daysWorked < row.daysInMonth ? ` (${row.daysWorked} of ${row.daysInMonth} days)` : ''}`);
   if (data.status === 'approved') lines.push(`Approved on ${data.approvedOn}.${data.paidOn ? ` Paid on ${data.paidOn}.` : ' Say "paid salaries" once the wages are paid.'}`);
   else lines.push('A draft. Say "approve payroll" to post it.');

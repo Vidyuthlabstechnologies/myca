@@ -5,6 +5,7 @@ import '../api/myca_api.dart';
 import '../app_state.dart';
 import '../format.dart';
 import '../marks.dart';
+import '../proposal_flow.dart';
 import '../theme.dart';
 import '../widgets.dart';
 
@@ -42,10 +43,55 @@ class UsTaxesScreen extends StatefulWidget {
   State<UsTaxesScreen> createState() => _UsTaxesScreenState();
 }
 
-class _UsTaxesScreenState extends State<UsTaxesScreen> {
+class _UsTaxesScreenState extends State<UsTaxesScreen> with ProposalFlow {
   Future<UsTaxes>? _taxes;
   Future<RulesStatus?>? _rules;
+  Future<List<Map<String, dynamic>>>? _suta;
+  final _sutaState = TextEditingController();
+  final _sutaRate = TextEditingController();
+  final _sutaBase = TextEditingController();
+  bool _addingSuta = false;
   String _note = '';
+
+  @override
+  MycaApi get api => AppScope.of(context).api;
+
+  @override
+  Future<void> onPosted() async {
+    setState(() {
+      _addingSuta = false;
+      entries.clear();
+      _suta = _loadSuta(api);
+      _note = 'Recorded.';
+    });
+  }
+
+  Future<List<Map<String, dynamic>>> _loadSuta(MycaApi api) async {
+    try {
+      return _rows(toolData(await api.query('list_suta_rates'))['rates']);
+    } on MycaApiException {
+      return const [];
+    }
+  }
+
+  @override
+  void dispose() {
+    _sutaState.dispose();
+    _sutaRate.dispose();
+    _sutaBase.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submitSuta() async {
+    final code = _sutaState.text.trim().toUpperCase();
+    final rate = double.tryParse(_sutaRate.text.trim());
+    final base = double.tryParse(_sutaBase.text.replaceAll(',', '').trim());
+    if (!RegExp(r'^[A-Z]{2}$').hasMatch(code) || rate == null || base == null) {
+      return setState(() => _note = 'Enter the two-letter state, the rate as a percentage and the wage base from the state\'s notice.');
+    }
+    setState(() => _note = '');
+    await propose('SUTA rate $code $rate% up to $base', 'set_suta_rate', {'state': code, 'ratePercent': rate, 'wageBase': base});
+  }
 
   @override
   void didChangeDependencies() {
@@ -53,6 +99,7 @@ class _UsTaxesScreenState extends State<UsTaxesScreen> {
     final api = AppScope.of(context).api;
     _taxes ??= loadUsTaxes(api);
     _rules ??= _loadRules(api);
+    _suta ??= _loadSuta(api);
   }
 
   Future<RulesStatus?> _loadRules(MycaApi api) async {
@@ -110,7 +157,10 @@ class _UsTaxesScreenState extends State<UsTaxesScreen> {
           final contractors = _rows(taxes.contractors['contractors']);
           final needing = contractors.where((c) => c['needs1099'] == true).toList();
           final c = taxes.scheduleC;
-          return ListView(
+          return Column(
+            children: [
+              Expanded(
+                child: ListView(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
             children: [
               Text(
@@ -189,11 +239,53 @@ class _UsTaxesScreenState extends State<UsTaxesScreen> {
                   ),
                 ],
               ),
+              const SizedBox(height: 20),
+              const SectionLabel('State unemployment (SUTA)'),
+              FutureBuilder<List<Map<String, dynamic>>>(
+                future: _suta,
+                builder: (context, snap) {
+                  final rates = snap.data ?? const <Map<String, dynamic>>[];
+                  return Panel(
+                    children: [
+                      for (final row in rates)
+                        RowCard(
+                          leading: const TintTile(tint: Tint.taxes, mark: Mark.taxes),
+                          title: '${row['state']}: ${row['ratePercent']}% up to ${rupees(_n(row['wageBase']))}',
+                          subtitle: 'From ${longDate(_t(row['from']))}',
+                        ),
+                      if (!_addingSuta && pending == null)
+                        RowCard(
+                          leading: const TintTile(tint: Tint.ask, mark: Mark.comingUp),
+                          title: rates.isEmpty ? 'Record your state unemployment rate' : 'Add or change a state rate',
+                          subtitle: 'The rate and wage base from the state\'s notice; payroll charges it as an employer tax',
+                          trailing: const Chevron(),
+                          onTap: () => setState(() => _addingSuta = true),
+                        ),
+                    ],
+                  );
+                },
+              ),
+              if (_addingSuta && pending == null) ...[
+                const SizedBox(height: 10),
+                TextField(controller: _sutaState, textCapitalization: TextCapitalization.characters, maxLength: 2, decoration: const InputDecoration(labelText: 'State', counterText: '')),
+                const SizedBox(height: 10),
+                TextField(controller: _sutaRate, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: 'Rate', suffixText: '%')),
+                const SizedBox(height: 10),
+                TextField(controller: _sutaBase, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: 'Wage base per employee', prefixText: '\$ ')),
+                const SizedBox(height: 14),
+                FilledButton(onPressed: busy ? null : _submitSuta, child: const Text('Preview')),
+                TextButton(onPressed: () => setState(() => _addingSuta = false), child: const Text('Cancel')),
+              ],
+              for (final entry in entries) entry.toBubble(),
               if (_note.isNotEmpty) ...[
                 const SizedBox(height: 8),
                 Text(_note, style: text.bodyMedium),
               ],
               if (_rules != null) RulesStatusNote(status: _rules!),
+            ],
+                ),
+              ),
+              if (pending != null) ProposalBar(busy: busy, onPost: postPending, onDiscard: discardPending),
             ],
           );
         },

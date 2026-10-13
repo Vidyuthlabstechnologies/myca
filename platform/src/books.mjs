@@ -82,6 +82,8 @@ export function newBook(company = {}) {
     salesTaxReviews: {},
     salesTaxPayments: [],
     gstPayments: {},
+    sutaRates: [],
+    yearClosings: {},
   };
 }
 
@@ -136,6 +138,8 @@ export function serializeBook(book) {
     salesTaxReviews: book.salesTaxReviews || {},
     salesTaxPayments: book.salesTaxPayments || [],
     gstPayments: book.gstPayments || {},
+    sutaRates: book.sutaRates || [],
+    yearClosings: book.yearClosings || {},
     quoteSeq: book.quoteSeq || 0,
   };
 }
@@ -187,6 +191,8 @@ export function deserializeBook(raw) {
   book.salesTaxReviews = raw.salesTaxReviews && typeof raw.salesTaxReviews === 'object' ? raw.salesTaxReviews : {};
   book.salesTaxPayments = Array.isArray(raw.salesTaxPayments) ? raw.salesTaxPayments : [];
   book.gstPayments = raw.gstPayments && typeof raw.gstPayments === 'object' ? raw.gstPayments : {};
+  book.sutaRates = Array.isArray(raw.sutaRates) ? raw.sutaRates : [];
+  book.yearClosings = raw.yearClosings && typeof raw.yearClosings === 'object' ? raw.yearClosings : {};
   book.quoteSeq = raw.quoteSeq || 0;
   return book;
 }
