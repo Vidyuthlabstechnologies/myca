@@ -1,9 +1,10 @@
 import { createHash } from 'node:crypto';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { loadState, saveState, safeStatePath, serialize, deserialize, createState } from './store.mjs';
 import { createFileDocumentStore, documentsOf, isSha256 } from './document-store.mjs';
 import { pinRecords, applyPinRecords } from './identity.mjs';
+import { rotateBackups, latestGoodBackup, setAsideCorruptFile, backupSummary } from './backup-rotation.mjs';
 
 // The session reads and writes books and document bytes only through these two
 // shapes. On a desktop they are the files beside the app; a hosted service supplies
@@ -29,16 +30,34 @@ function moved(expectedVersion, current) {
 export function createFileBooksStore(path) {
   const safePath = safeStatePath(path);
   const versionOnDisk = () => (existsSync(safePath) ? sha256Of(readFileSync(safePath, 'utf8')) : '');
+  let recovered = null;
+  let lastBackup = null;
+  const health = () => ({ recovered, lastBackup, backups: backupSummary(safePath) });
   return {
     kind: 'file',
     path: safePath,
+    health,
     load() {
-      return { state: loadState(safePath), version: versionOnDisk() };
+      try {
+        return { state: loadState(safePath), version: versionOnDisk(), recovered };
+      } catch (err) {
+        const good = latestGoodBackup(safePath);
+        if (!good) throw err;
+        const aside = setAsideCorruptFile(safePath);
+        writeFileSync(safePath, good.text, 'utf8');
+        recovered = { from: good.day, setAside: aside, reason: String(err && err.message ? err.message : err) };
+        return { state: loadState(safePath), version: versionOnDisk(), recovered };
+      }
     },
     save(state, expectedVersion) {
       const current = versionOnDisk();
       if (moved(expectedVersion, current)) return { ok: false, error: VERSION_CONFLICT, version: current };
-      saveState(safePath, state);
+      const text = saveState(safePath, state);
+      try {
+        lastBackup = rotateBackups(safePath, text);
+      } catch (err) {
+        lastBackup = { written: false, error: String(err && err.message ? err.message : err) };
+      }
       return { ok: true, version: versionOnDisk() };
     },
   };

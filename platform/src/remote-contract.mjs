@@ -21,6 +21,7 @@ export const REMOTE_QUERY_TOOLS = new Set([
   'contractor_payments',
   'list_sales_tax_nexus',
   'rules_status',
+  'automation_status',
   'us_payroll_filings',
   'list_suta_rates',
   'schedule_c_summary',

@@ -10,6 +10,7 @@ import { transportWords } from './eway-bill.mjs';
 import { payrollWords } from './payroll.mjs';
 import { setCurrentCountry, formatMoneyCurrent } from './country.mjs';
 import { rulesStatusWords } from './rules-status.mjs';
+import { automationWords } from './automation.mjs';
 import { usPayrollWords } from './us-payroll.mjs';
 import { ownerTaxWords } from './us-owner-tax.mjs';
 import { usImportWords } from './import-us-books.mjs';
@@ -211,6 +212,8 @@ function fmtToolResult(name, result) {
     return `Contractor payments in ${d.year} (1099-NEC at or above ${money(d.threshold)}):\n${d.contractors.map((c) => `· ${c.name}: ${money(c.total)}${c.needs1099 ? ' — needs a 1099-NEC' : ''}${c.needs1099 && !c.w9Received ? ', W-9 missing' : ''}`).join('\n')}${d.notes.length ? `\n${d.notes.join(' ')}` : ''}`;
   }
   if (name === 'rules_status' && result.data) return rulesStatusWords(result.data);
+  if (name === 'automation_status' && result.data) return automationWords(result.data);
+  if (name === 'run_automation' && result.data) return result.data.skipped ? `The daily checks already ran today (${result.data.ranOn}).` : automationWords({ lastRun: result.data.ranOn, last: result.data.run });
   if (name === 'record_gst_payment' && result.payment) {
     const p = result.payment;
     return `Recorded the GST payment for ${p.period}: ${money(p.cash.total)} in cash${p.interest > 0 ? `, interest ${money(p.interest)}` : ''}${p.lateFee > 0 ? `, late fee ${money(p.lateFee)}` : ''}, with ${money(p.creditUsed)} of input credit set off${p.cpin ? ` (CPIN ${p.cpin})` : ''}. Record the GSTR-3B filing with its ARN once filed.`;

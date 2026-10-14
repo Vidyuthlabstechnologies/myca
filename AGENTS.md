@@ -66,6 +66,7 @@ and the Android app) and prints a pass/fail table:
 ```bash
 node scripts/check-all.mjs            # everything
 node scripts/check-all.mjs platform   # or any of: platform sprints cloud mobile
+node scripts/rules-watch.mjs          # gaps and records ending soon; exit 1 when a person is needed
 ```
 
 GitHub Actions runs on every push and pull request (the repository lives in the
@@ -111,6 +112,13 @@ Test script note: suites use `node --test "test/*.test.mjs"` (quoted glob). This
   re-implement env loading; do not add a second source of truth for the live switch.
 - **Provider calls** go through `sandbox-adapter.mjs` (`runSandboxOperation`), which
   enforces the four gates. Do not call `sandbox-client.mjs` directly from a tool.
+- **Backups and the daily checks are automatic.** `createFileBooksStore` keeps one
+  verified copy of `state.json` per day in `backups/` (fourteen kept) on every save and
+  restores the newest good one when the file will not parse; `server.mjs` runs
+  `run_automation` on launch and hourly, and the hosted API's `/v1/jobs/daily` runs it
+  for every business overnight. A reminder the automation creates carries `source`; a
+  new dated item goes in `automation.mjs` `dueSoon`, never a second scheduler. The
+  nightly workflow and `scripts/rules-watch.mjs` watch the rules; `docs/operations/RUNBOOK.md`.
 - **Storage goes through `store-ports.mjs`.** `session.mjs` loads and saves books only
   through a `BooksStore` (`load()` / `save(state, expectedVersion)`, which refuses a
   stale version with `VERSION_CONFLICT`) and reads and writes document bytes only

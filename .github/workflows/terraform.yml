@@ -47,11 +47,11 @@ jobs:
       - name: Terraform fmt
         run: terraform fmt -check -recursive infra
 
-      - name: Terraform validate (root and bootstrap)
+      - name: Terraform validate (root, bootstrap and cloud)
         shell: bash
         run: |
           set -euo pipefail
-          for dir in infra infra/bootstrap; do
+          for dir in infra infra/bootstrap infra/cloud; do
             terraform -chdir="$dir" init -backend=false -input=false -lockfile=readonly
             terraform -chdir="$dir" validate -no-color
           done

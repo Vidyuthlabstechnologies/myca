@@ -115,6 +115,8 @@ source of truth: a value set only on someone's laptop is reverted by the next CI
 | `GCP_MANAGE_DNS` | `true` or `false` | `manage_dns` (required) |
 | `GCP_CREATE_ARTIFACT_REGISTRY` | `true` or `false` | `create_artifact_registry` (required) |
 | `GCP_ALERT_EMAIL` | an address, or empty to skip alerting | `alert_email` |
+| `GCP_API_REGION` | the region `infra/cloud` was applied in, or empty until it is | hosted API deploys (`deploy-cloud`) |
+| `MYCA_CLOUD_URL` | the `api_url` output of `infra/cloud`, or empty for a local-mode app | Android release builds (`build-android`) |
 
 `GCP_MANAGE_DNS` and `GCP_CREATE_ARTIFACT_REGISTRY` must be `true` or `false`: an empty
 value fails the plan instead of silently falling back to a default. `GCP_PROJECT_ID` and
@@ -150,8 +152,10 @@ wait for the managed certificate to go `ACTIVE` (up to ~30 min).
 | Update the marketing site | Edit `deploy/public/**`, commit, push to `main` → syncs the bucket + purges the CDN |
 | Ship a Windows build | `git tag v0.2.0 && git push origin v0.2.0` → GitHub Release with the installers and `SHA256SUMS`, archived to the artifacts bucket, and `/downloads/*` updated |
 | Test a Windows build (no release) | Actions → **Build Windows installer** → *Run workflow* → download the `myca-windows` artifact (the publish job does not run) |
-| Change cloud infra | Edit `infra/**`, open a PR (fmt/validate + read-only plan shown), merge to `main` (applied) |
-| Verify code | Every push and PR runs **CI**: the platform suite and every sprint suite |
+| Change cloud infra | Edit `infra/**`, open a PR (fmt/validate + read-only plan shown), merge to `main` (applied). `infra/cloud` is validated too but applied by hand, because it creates billable Cloud SQL and Cloud Run resources |
+| Ship an Android build | The same `v*` tag runs **Build Android app**: APK and app bundle with sums attached to the release, signed with the upload key when the `ANDROID_*` secrets exist |
+| Ship the hosted API | Merge to `main` touching `cloud/`, `platform/src/` or `sprints/` → **Deploy hosted API**: suite, image, Cloud Run roll-out, live health check. Skips until `GCP_API_REGION` is set |
+| Verify code | Every push and PR runs **CI**: all four suites. **Nightly checks** rerun the Node suites against today's clock, run `scripts/rules-watch.mjs`, and open or close the issue "Nightly checks need attention" (`docs/operations/RUNBOOK.md`) |
 
 ### How a release is published
 
@@ -225,6 +229,10 @@ Today the `.exe` is unsigned → users see a SmartScreen prompt. To sign, add tw
 |---|---|
 | `CSC_LINK` | base64 of your `.pfx` (or a `data:` URL / file URL) |
 | `CSC_KEY_PASSWORD` | the `.pfx` password |
+| `ANDROID_KEYSTORE_BASE64` | base64 of the Play upload keystore (`upload.jks`); without it the Android build is signed with the debug key and cannot go to Play |
+| `ANDROID_KEYSTORE_PASSWORD` | the keystore password |
+| `ANDROID_KEY_ALIAS` | the key alias inside it |
+| `ANDROID_KEY_PASSWORD` | the key password |
 
 `electron-builder` signs whenever `CSC_LINK` is set (there is no `signExecutable` switch in
 `platform/package.json`). When the secret is present the build job also checks every `.exe`

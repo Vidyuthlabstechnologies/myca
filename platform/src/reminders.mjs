@@ -47,7 +47,7 @@ export function planReminder(state, args = {}) {
   if (text.length > MAX_TEXT) return { ok: false, error: 'TEXT_TOO_LONG' };
   const due = postingDate(args.due);
   if (!due) return { ok: false, error: 'INVALID_DATE', due: args.due };
-  const today = localToday();
+  const today = /^\d{4}-\d{2}-\d{2}$/.test(String(args.today || '')) ? args.today : localToday();
   if (due < today) return { ok: false, error: 'DATE_PASSED', due, today };
   const about = aboutOf(state, args);
   if (about.error) return { ok: false, ...about };

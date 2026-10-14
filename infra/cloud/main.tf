@@ -18,6 +18,7 @@ locals {
     "monitoring.googleapis.com",
     "logging.googleapis.com",
     "iam.googleapis.com",
+    "cloudscheduler.googleapis.com",
   ]
 }
 
@@ -69,7 +70,7 @@ resource "google_sql_database_instance" "main" {
   settings {
     tier              = var.db_tier
     edition           = "ENTERPRISE"
-    availability_type = "ZONAL"
+    availability_type = var.sql_availability_type
     disk_type         = "PD_SSD"
     disk_size         = 10
     disk_autoresize   = true
@@ -132,11 +133,17 @@ resource "random_password" "token_secret" {
   special = false
 }
 
+resource "random_password" "job_token" {
+  length  = 64
+  special = false
+}
+
 locals {
   database_url = "postgres://${google_sql_user.api.name}:${random_password.db.result}@localhost/${google_sql_database.main.name}?host=/cloudsql/${google_sql_database_instance.main.connection_name}"
   secrets = {
     "myca-database-url" = local.database_url
     "myca-token-secret" = random_password.token_secret.result
+    "myca-job-token"    = random_password.job_token.result
   }
 }
 
@@ -239,6 +246,16 @@ resource "google_cloud_run_v2_service" "api" {
         value = join(",", var.google_client_ids)
       }
 
+      env {
+        name = "MYCA_JOB_TOKEN"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.api["myca-job-token"].secret_id
+            version = "latest"
+          }
+        }
+      }
+
       volume_mounts {
         name       = "cloudsql"
         mount_path = "/cloudsql"
@@ -270,6 +287,34 @@ resource "google_cloud_run_v2_service" "api" {
     google_secret_manager_secret_version.api,
     google_project_iam_member.api_sql,
   ]
+}
+
+# ---------------------------------------------------------------------------
+# The daily job: every business gets its reminders, chain check and rules check
+# overnight, whether or not anyone opens the app.
+resource "google_cloud_scheduler_job" "daily" {
+  name             = "${local.name}-daily"
+  region           = var.region
+  description      = "Runs MyCA's daily checks for every business"
+  schedule         = var.daily_job_schedule
+  time_zone        = var.daily_job_time_zone
+  attempt_deadline = "600s"
+
+  retry_config {
+    retry_count          = 3
+    min_backoff_duration = "60s"
+    max_backoff_duration = "600s"
+  }
+
+  http_target {
+    http_method = "POST"
+    uri         = "${google_cloud_run_v2_service.api.uri}/v1/jobs/daily"
+    headers = {
+      "x-myca-job-token" = random_password.job_token.result
+    }
+  }
+
+  depends_on = [google_project_service.apis]
 }
 
 resource "google_cloud_run_v2_service_iam_member" "public" {
