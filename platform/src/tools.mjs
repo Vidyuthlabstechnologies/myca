@@ -29,6 +29,11 @@ import { countryOf, isCountry, toolServesCountry } from './country.mjs';
 import { createUsInvoice, createUsPurchase, setSalesTaxRate, listSalesTaxRates, setContractor, contractorPayments } from './us-sales.mjs';
 import { rulesStatus } from './rules-status.mjs';
 import { runDailyAutomation, automationStatus } from './automation.mjs';
+import { readDocument } from './document-reader.mjs';
+import { amendInvoice, listAmendments } from './invoice-amendments.mjs';
+import { scheduleSe } from './us-se-tax.mjs';
+import { scheduleCDocument, cpaPack } from './us-cpa-pack.mjs';
+import { form941File, w2File } from './us-payroll-files.mjs';
 import { usPayrollFor, approveUsPayroll, listUsPayroll, usPayslip, usPayrollFilings, setWithholding, setSutaRate, listSutaRates } from './us-payroll.mjs';
 import { scheduleCSummary, estimatedTaxDates } from './us-owner-tax.mjs';
 import { importUsInvoices } from './import-us-books.mjs';
@@ -689,6 +694,62 @@ export const TOOLS = [
     description: 'The daily automation, run once a day when MyCA opens and by the hosted service overnight: adds a reminder for every filing, estimated tax instalment or payroll approval falling due in the next fourteen days (never twice for the same one), verifies the ledger chain, and checks the dated statutory rules for gaps and records ending soon. Safe to repeat; a second run on the same day does nothing unless force is given.',
     args: ['asOf', 'force'],
     run: (state, args = {}) => runDailyAutomation(state, args),
+  },
+  {
+    name: 'read_document',
+    title: 'Read an uploaded bill',
+    description: 'A model reads an uploaded supplier bill (text, image or PDF sent through /api/upload as a data URL) and returns the supplier, number, date and lines it saw, with a ready create_purchase proposal. MyCA computes nothing from the page; the purchase is previewed and posts only when confirmed. Needs MYCA_MODEL_API_KEY.',
+    args: ['documentSha256'],
+    run: (state, args = {}) => readDocument(state, args),
+  },
+  {
+    name: 'amend_invoice',
+    title: 'Amend a filed invoice',
+    description: 'Change the lines or the buyer GSTIN of an invoice whose GSTR-1 month is already recorded as filed. The difference is posted to the books and the amendment goes into the GSTR-1 of the month it is made (B2BA, B2CLA or B2CSA) with the original number and date; the original month\'s return is unchanged. India only.',
+    args: ['invoiceId', 'lines', 'partyGstin', 'date', 'reason'],
+    run: (state, args = {}) => amendInvoice(state, args),
+  },
+  {
+    name: 'list_amendments',
+    title: 'Invoice amendments',
+    description: 'Amendments made to filed invoices, optionally for one GSTR-1 month. Read-only.',
+    args: ['period'],
+    run: (state, args = {}) => listAmendments(state, args),
+  },
+  {
+    name: 'schedule_se',
+    title: 'Schedule SE draft',
+    description: 'Self-employment tax for the year from the Schedule C net profit: net earnings after the statutory reduction, the Social Security part up to the wage base less any wages earned elsewhere (owner-entered), the Medicare part, the deductible half, and the additional Medicare tax shown separately. Dated rules a CPA has not reviewed. Read-only.',
+    args: ['year', 'filingStatus', 'otherSocialSecurityWages'],
+    run: (state, args = {}) => scheduleSe(state, args),
+  },
+  {
+    name: 'schedule_c_document',
+    title: 'Schedule C document',
+    description: 'A printable Schedule C summary for the year with the Schedule SE draft, as one HTML file for the CPA. Read-only.',
+    args: ['year', 'filingStatus', 'otherSocialSecurityWages'],
+    run: (state, args = {}) => scheduleCDocument(state, args),
+  },
+  {
+    name: 'cpa_pack',
+    title: 'CPA pack',
+    description: 'Everything the CPA needs for the year in one file: Schedule C and SE drafts, estimated tax dates, Form 941 quarters and W-2 totals, the 1099-NEC list, every sales tax return of the year and the trial balance. Read-only.',
+    args: ['year'],
+    run: (state, args = {}) => cpaPack(state, args),
+  },
+  {
+    name: 'payroll_941_file',
+    title: 'Form 941 file',
+    description: 'The Form 941 draft lines for a quarter as a CSV file. Read-only.',
+    args: ['quarter'],
+    run: (state, args = {}) => form941File(state, args),
+  },
+  {
+    name: 'payroll_w2_file',
+    title: 'W-2 and W-3 file',
+    description: 'W-2 box figures for every employee and the W-3 totals for the year as one CSV file. Read-only.',
+    args: ['year'],
+    run: (state, args = {}) => w2File(state, args),
   },
   {
     name: 'automation_status',

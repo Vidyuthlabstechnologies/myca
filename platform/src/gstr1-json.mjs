@@ -7,6 +7,7 @@
  * back with a reason instead of being guessed into a table.
  */
 import { createHash } from 'node:crypto';
+import { invoiceAsFiled, amendmentsInPeriod } from './invoice-amendments.mjs';
 import { rules, gstin as gstinLib } from './sprint-load.mjs';
 
 const FP_RE = /^(0[1-9]|1[0-2])\d{4}$/;
@@ -73,7 +74,7 @@ export function invoicesToGstr1Json(company, invoices = [], periodFp, opts = {})
   }
   const dated = (invoices || []).filter((i) => i.date);
   const fp = periodFp || fpFromDate(dated.map((i) => i.date).sort().slice(-1)[0] || '');
-  const inPeriod = opts.allGiven ? dated : dated.filter((i) => fpFromDate(i.date) === fp);
+  const inPeriod = (opts.allGiven ? dated : dated.filter((i) => fpFromDate(i.date) === fp)).map((i) => invoiceAsFiled(i, `${fp.slice(2)}-${fp.slice(0, 2)}`));
   const b2bMap = new Map();
   const b2clMap = new Map();
   const b2csMap = new Map();
@@ -158,6 +159,39 @@ export function invoicesToGstr1Json(company, invoices = [], periodFp, opts = {})
   body.b2b = [...b2bMap.entries()].map(([ctin, inv]) => ({ ctin, inv }));
   body.b2cl = [...b2clMap.entries()].map(([pos, inv]) => ({ pos, inv }));
   body.b2cs = [...b2csMap.values()];
+  const b2baMap = new Map();
+  const b2claMap = new Map();
+  const b2csaMap = new Map();
+  for (const { original, revised, amendment } of amendmentsInPeriod(invoices || [], `${fp.slice(2)}-${fp.slice(0, 2)}`)) {
+    if (holdReason(revised)) {
+      held.push({ inum: revised.id, idt: ddmmyyyy(revised.date), ...holdReason(revised), amendment: amendment.id });
+      continue;
+    }
+    const pos = String(revised.partyState || revised.placeOfSupply || supplierState).padStart(2, '0');
+    const entry = { oinum: original.id, oidt: ddmmyyyy(original.date), inum: revised.id, idt: ddmmyyyy(revised.date), val: round2(revised.total), pos, rchrg: 'N', inv_typ: 'R', itms: itemsByRate(revised.lines) };
+    if (revised.partyGstin) {
+      const ctin = String(revised.partyGstin).toUpperCase();
+      if (!b2baMap.has(ctin)) b2baMap.set(ctin, []);
+      b2baMap.get(ctin).push(entry);
+    } else if (isB2cl(revised, pos, supplierState)) {
+      if (!b2claMap.has(pos)) b2claMap.set(pos, []);
+      b2claMap.get(pos).push({ oinum: entry.oinum, oidt: entry.oidt, inum: entry.inum, idt: entry.idt, val: entry.val, itms: entry.itms });
+    } else {
+      const omon = fpFromDate(original.date);
+      for (const { itm_det } of itemsByRate(revised.lines)) {
+        const key = `${pos}|${itm_det.rt}|${omon}`;
+        if (!b2csaMap.has(key)) b2csaMap.set(key, { sply_ty: pos === supplierState ? 'INTRA' : 'INTER', omon, rt: itm_det.rt, typ: 'OE', pos, txval: 0, camt: 0, samt: 0, iamt: 0, csamt: 0 });
+        const row = b2csaMap.get(key);
+        row.txval = round2(row.txval + itm_det.txval);
+        row.camt = round2(row.camt + itm_det.camt);
+        row.samt = round2(row.samt + itm_det.samt);
+        row.iamt = round2(row.iamt + itm_det.iamt);
+      }
+    }
+  }
+  if (b2baMap.size) body.b2ba = [...b2baMap.entries()].map(([ctin, inv]) => ({ ctin, inv }));
+  if (b2claMap.size) body.b2cla = [...b2claMap.entries()].map(([pos, inv]) => ({ pos, inv }));
+  if (b2csaMap.size) body.b2csa = [...b2csaMap.values()];
   if (cdnrMap.size) body.cdnr = [...cdnrMap.entries()].map(([ctin, nt]) => ({ ctin, nt }));
   if (cdnur.length) body.cdnur = cdnur;
   const hash = createHash('sha256').update(JSON.stringify(body)).digest('hex');

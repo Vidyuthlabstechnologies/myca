@@ -21,6 +21,14 @@ Cloud project are written and validated but not yet applied (see the last sectio
 | Dependabot | Weekly | Grouped update PRs for Actions, `platform` dev dependencies, `cloud` and the Flutter packages. CI runs on each. | Pull requests |
 | Cloud Monitoring (`infra/cloud`) | Always, once `alert_email` is set | Uptime check on `/v1/health` every minute; alerts when it fails, on 5xx responses, and when p95 latency passes three seconds. | Email |
 
+## 1a. Switches that are off until a person sets them
+
+| Variable | Where | What it turns on |
+|---|---|---|
+| `MYCA_MODEL_API_KEY` (and `MYCA_MODEL`, default `claude-sonnet-5-5`) | `platform/.env` on a desktop; Cloud Run env for the hosted API | Chat messages that match no built-in action are routed by the model to one tool (never a figure); bills chosen on the phone are read into a draft purchase. Off: the rule-based parser and hand entry, exactly as before |
+| `MYCA_SMS_PROVIDER` = `twilio` (`MYCA_SMS_TWILIO_SID`, `_TOKEN`, `_FROM`) or `msg91` (`MYCA_SMS_MSG91_AUTHKEY`, `_TEMPLATE_ID`) | Cloud Run env | Phone-number sign-in. Off: Google Sign-In only |
+| `MYCA_DEV_OTP=1` | local only | Prints the code to the console instead of sending it |
+
 ## 2. Health
 
 Desktop: `GET http://127.0.0.1:4780/api/health` with the launch token header. The answer

@@ -41,6 +41,8 @@ export function gstr9Draft(state, args = {}) {
   const twoB = { months: 0, available: heads() };
   const paid = { cash: heads(), credit: 0, interest: 0, lateFee: 0, months: 0 };
   const hsn = new Map();
+  const nilRated = { taxable: 0, lines: 0 };
+  const amended = { count: 0, taxable: 0, tax: heads() };
   const monthRows = [];
   const notes = new Set();
   let unreviewed = false;
@@ -70,6 +72,10 @@ export function gstr9Draft(state, args = {}) {
     for (const inv of docs.invoices) {
       if (inv.status === 'cancelled') continue;
       for (const line of inv.lines || []) {
+        if (Number(line.gstRate || 0) === 0) {
+          nilRated.taxable = round2(nilRated.taxable + Number(line.taxable || 0));
+          nilRated.lines += 1;
+        }
         const key = `${line.hsn || ''}|${line.gstRate}`;
         const row = hsn.get(key) || { hsn: line.hsn || '', ratePercent: Number(line.gstRate || 0), qty: 0, taxable: 0, tax: heads() };
         row.qty = round2(row.qty + Number(line.qty || 0));
@@ -94,12 +100,20 @@ export function gstr9Draft(state, args = {}) {
     }
     monthRows.push({ period, documents: docs.invoices.length + docs.purchases.length, taxableSales: s.taxableSales, outputTax: s.outputTax.total, inputCredit: s.inputCredit.total, filed: filingFor(state, 'GSTR-3B', period) ? 'filed' : 'not recorded', paid: payment ? 'paid' : 'not recorded' });
   }
+  for (const inv of state.invoices || []) {
+    for (const amendment of Array.isArray(inv.amendments) ? inv.amendments : []) {
+      if (!months.includes(amendment.period) || amendment.period > today) continue;
+      amended.count += 1;
+      amended.taxable = round2(amended.taxable + amendment.delta.taxable);
+      add(amended.tax, amendment.delta);
+    }
+  }
   const unpaid = monthRows.filter((row) => row.documents > 0 && row.paid !== 'paid').map((row) => row.period);
   const unfiled = monthRows.filter((row) => row.documents > 0 && row.filed !== 'filed').map((row) => row.period);
   if (unpaid.length) notes.add(`Table 9 (tax paid) only has the months whose GST payment is recorded; missing: ${unpaid.join(', ')}.`);
   if (unfiled.length) notes.add(`GSTR-3B is not recorded as filed for ${unfiled.join(', ')}; record each ARN so the annual return reconciles.`);
   if (twoB.months < monthRows.filter((row) => row.documents > 0).length) notes.add(`GSTR-2B was added for ${twoB.months === 1 ? '1 month' : `${twoB.months} months`}; table 8 compares only those.`);
-  notes.add('Table 5 (exempt, nil-rated and non-GST outward supplies), advances (table 4F), and amendments made on the portal are not in these books; your CA adds them.');
+  notes.add('Table 5 shows lines invoiced at 0% GST as one figure; MyCA cannot tell nil-rated from exempt or non-GST supplies, so your CA splits them. Advances (table 4F) and amendments made directly on the portal are not in these books.');
   notes.add('Blocked-credit purchases are shown for table 7; ITC on capital goods, imports and reverse charge is not separated.');
   if (unreviewed) notes.add('Set-off, interest and late fee figures come from dated rules your CA has not reviewed yet.');
   const hsnRows = [...hsn.values()].sort((a, b) => a.hsn.localeCompare(b.hsn) || a.ratePercent - b.ratePercent);
@@ -111,7 +125,8 @@ export function gstr9Draft(state, args = {}) {
       form: 'GSTR-9',
       gstin: state.company?.gstin || '',
       months: monthRows,
-      table4: { outwardTaxable: outward.taxable, outwardTax: outward.tax, b2bInvoices: outward.b2b, b2cInvoices: outward.b2c, creditNotes: outward.creditNotes, debitNotes: outward.debitNotes, netTaxable: round2(outward.taxable - outward.creditNotes.taxable + outward.debitNotes.taxable) },
+      table4: { outwardTaxable: outward.taxable, outwardTax: outward.tax, b2bInvoices: outward.b2b, b2cInvoices: outward.b2c, creditNotes: outward.creditNotes, debitNotes: outward.debitNotes, amendments: amended, netTaxable: round2(outward.taxable - outward.creditNotes.taxable + outward.debitNotes.taxable) },
+      table5: { nilRatedOrExempt: nilRated.taxable, lines: nilRated.lines, note: 'Lines at 0% GST; nil-rated, exempt and non-GST are not separated.' },
       table6: { itcAvailed: itc.availed, purchases: itc.purchases },
       table7: { reversed: itc.reversed, blocked: itc.blocked },
       table8: { gstr2bMonths: twoB.months, gstr2bAvailable: twoB.available, availed: itc.availed, difference: add(heads(), { igst: twoB.available.igst - itc.availed.igst, cgst: twoB.available.cgst - itc.availed.cgst, sgst: twoB.available.sgst - itc.availed.sgst }) },

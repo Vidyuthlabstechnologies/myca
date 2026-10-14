@@ -10,10 +10,13 @@ import 'cloud/cloud_session.dart';
 import 'cloud/google_auth.dart';
 import 'crash_reports.dart';
 import 'lock/app_lock.dart';
+import 'notifications.dart';
 
 Future<bool> _cannotSave(String name, String content) async => false;
 
 Future<bool> _cannotShare(String text) async => false;
+
+Future<PickedFile?> _cannotPickAny() async => null;
 
 class AppState extends ChangeNotifier {
   AppState({
@@ -21,6 +24,8 @@ class AppState extends ChangeNotifier {
     this.cloud,
     required this.store,
     required this.pickTextFile,
+    this.pickAnyFile = _cannotPickAny,
+    this.notifications = const NoNotifications(),
     this.saveTextFile = _cannotSave,
     this.shareText = _cannotShare,
     this.pdf = const PdfActions(),
@@ -34,6 +39,8 @@ class AppState extends ChangeNotifier {
   final CloudSession? cloud;
   final OnboardingStore store;
   final PickTextFile pickTextFile;
+  final PickAnyFile pickAnyFile;
+  final NotificationPlanner notifications;
   final SaveTextFile saveTextFile;
   final ShareText shareText;
   final PdfActions pdf;

@@ -42,10 +42,11 @@ import { planPosImport } from './import-pos.mjs';
 import { filingRows } from './deadline-run.mjs';
 import { tally, bank, gstin as gstinRules } from './sprint-load.mjs';
 import { parseZohoBooksCsv } from './import-zoho.mjs';
+import { planAmendment } from './invoice-amendments.mjs';
 import { tallyXmlToDayBookCsv } from './tally-xml.mjs';
 
 export const CONFIRM_TOOLS = new Set([
-  'create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'record_filing', 'record_supplier_reminder', 'add_employee', 'change_salary', 'end_employment', 'approve_payroll', 'record_salary_payment', 'set_tds_deductor', 'record_tds_deposit', 'tds_review_answer', 'set_gst_credit_opening', 'record_gst_payment', 'close_year', 'post_expense', 'set_expense_head', 'create_credit_note', 'create_debit_note', 'create_purchase_note', 'record_supplier_debit_note', 'cancel_invoice', 'gst_review_answer', 'import_gstr2b', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'set_party_address', 'set_transport', 'set_sales_tax_rate', 'set_contractor', 'set_sales_tax_nexus', 'sales_tax_review_answer', 'record_sales_tax_payment', 'record_sales_tax_filing', 'set_withholding', 'set_suta_rate', 'import_us_invoices', 'import_pos_sales', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote',
+  'create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'record_filing', 'record_supplier_reminder', 'add_employee', 'change_salary', 'end_employment', 'approve_payroll', 'record_salary_payment', 'set_tds_deductor', 'record_tds_deposit', 'tds_review_answer', 'set_gst_credit_opening', 'record_gst_payment', 'close_year', 'post_expense', 'set_expense_head', 'create_credit_note', 'create_debit_note', 'create_purchase_note', 'record_supplier_debit_note', 'cancel_invoice', 'gst_review_answer', 'import_gstr2b', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'set_party_address', 'set_transport', 'set_sales_tax_rate', 'set_contractor', 'set_sales_tax_nexus', 'sales_tax_review_answer', 'record_sales_tax_payment', 'record_sales_tax_filing', 'set_withholding', 'set_suta_rate', 'import_us_invoices', 'import_pos_sales', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote', 'amend_invoice',
   'import_tally', 'import_tally_xml', 'import_zoho', 'import_bank',
   'govt_generate_irn', 'govt_nic_cancel_irn',
   'exception_decide',
@@ -166,6 +167,22 @@ function salesTaxFilingPreview(state, args) {
     summary: `Record the ${plan.draft.state} sales tax return for ${f.period} as filed on ${f.filedOn}, confirmation ${f.arn}${f.filedBy ? ` by ${f.filedBy}` : ''}.`,
     effects: [f.late ? `It was due by ${f.dueDate}, so this is late.` : f.dueDate ? `It was due by ${f.dueDate}.` : 'No due date is in the rules for this state.', plan.draft.approved ? 'The figures were approved in the review.' : 'The figures were not approved in the review; the record is kept anyway.', 'MyCA files nothing; this only records what you did.'],
     figures: { state: plan.draft.state, period: f.period, confirmation: f.arn, filedOn: f.filedOn, late: f.late },
+  };
+}
+
+function amendmentPreview(state, args) {
+  const planned = planAmendment(state, args);
+  if (!planned.ok) {
+    const reason = { INVOICE_NOT_FOUND: `There is no invoice ${planned.invoiceId}.`, NOT_FILED: planned.hint, AMENDMENT_PERIOD_FILED: planned.hint, REASON_REQUIRED: 'Say why the invoice is being amended.', NOTHING_CHANGED: 'Nothing on the invoice would change.', INVALID_GSTIN: `${planned.partyGstin} is not a GSTIN.`, PERIOD_LOCKED: `The books are locked through ${planned.lockThrough}.`, DATE_BEFORE_INVOICE: 'An amendment cannot be dated before the invoice.', INVOICE_CANCELLED: 'That invoice is cancelled.' }[planned.error] || planned.error;
+    return { blockers: [reason], summary: '', effects: [], figures: {} };
+  }
+  const p = planned.plan;
+  const gstinChange = p.before.partyGstin !== p.after.partyGstin ? ` Buyer GSTIN ${p.before.partyGstin || 'none'} → ${p.after.partyGstin || 'none'}.` : '';
+  return {
+    blockers: [],
+    summary: `Amend ${p.invoice.id} (${p.originalPeriod}, filed) for ${p.reason}: total ${formatMoneyCurrent(p.before.total)} → ${formatMoneyCurrent(p.after.total)}.${gstinChange}`,
+    effects: [`The difference of ${formatMoneyCurrent(Math.abs(p.delta.total))} is posted ${p.delta.total >= 0 ? 'to' : 'off'} ${p.invoice.partyName}'s account dated ${p.date}.`, `It goes into GSTR-1 for ${p.period} as an amendment with the original number and date; the ${p.originalPeriod} return is unchanged.`],
+    figures: { invoiceId: p.invoice.id, before: p.before.total, after: p.after.total, delta: p.delta.total, period: p.period },
   };
 }
 
@@ -1060,6 +1077,7 @@ const PREVIEWERS = {
   set_gst_credit_opening: creditOpeningPreview,
   record_gst_payment: gstPaymentPreview,
   close_year: yearClosePreview,
+  amend_invoice: amendmentPreview,
   record_tds_deposit: tdsDepositPreview,
   change_salary: salaryChangePreview,
   end_employment: leavingPreview,

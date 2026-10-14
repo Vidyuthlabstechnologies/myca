@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Status | Accepted as a constraint. No model is in use; the choice of model is open (PRD Q3). |
+| Status | Accepted as a constraint. Implemented 2026-10-14 behind `platform/src/model-adapter.mjs` (Claude Messages API, off until `MYCA_MODEL_API_KEY` is set); the choice of provider and region is still the owner's (PRD Q3, DPDP assessment). |
 | Date | Recorded 2026-10-06; golden rule 1 in `AGENTS.md` since the start |
 
 ## Context

@@ -5,6 +5,7 @@ import '../registers.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import 'ask_screen.dart';
+import 'bill_capture_screen.dart';
 import 'expense_screen.dart';
 import 'party_picker.dart';
 
@@ -50,6 +51,13 @@ Future<void> showNewEntrySheet(BuildContext context) {
               title: 'I bought something',
               subtitle: 'Add a supplier bill',
               onTap: () => entry(RegisterKind.purchases),
+            ),
+            _SheetRow(
+              tint: Tint.purchases,
+              mark: Mark.comingUp,
+              title: 'Read a bill from a photo',
+              subtitle: 'A photo, PDF or text of a supplier bill, previewed before it posts',
+              onTap: () => go(const BillCaptureScreen()),
             ),
             _SheetRow(
               tint: Tint.expense,

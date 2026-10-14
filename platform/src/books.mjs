@@ -85,6 +85,7 @@ export function newBook(company = {}) {
     sutaRates: [],
     yearClosings: {},
     automation: { lastRun: '', log: [] },
+    amendmentSeq: 0,
   };
 }
 
@@ -142,6 +143,7 @@ export function serializeBook(book) {
     sutaRates: book.sutaRates || [],
     yearClosings: book.yearClosings || {},
     automation: book.automation || { lastRun: '', log: [] },
+    amendmentSeq: book.amendmentSeq || 0,
     quoteSeq: book.quoteSeq || 0,
   };
 }
@@ -196,6 +198,7 @@ export function deserializeBook(raw) {
   book.sutaRates = Array.isArray(raw.sutaRates) ? raw.sutaRates : [];
   book.yearClosings = raw.yearClosings && typeof raw.yearClosings === 'object' ? raw.yearClosings : {};
   book.automation = raw.automation && typeof raw.automation === 'object' ? raw.automation : { lastRun: '', log: [] };
+  book.amendmentSeq = raw.amendmentSeq || 0;
   book.quoteSeq = raw.quoteSeq || 0;
   return book;
 }

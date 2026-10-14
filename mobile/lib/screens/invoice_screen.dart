@@ -6,6 +6,7 @@ import '../app_state.dart';
 import '../format.dart';
 import '../invoice_pdf.dart';
 import '../proposal_flow.dart';
+import '../registers.dart';
 import '../widgets.dart';
 import 'ca_screen.dart';
 import 'reminders_screen.dart';
@@ -108,6 +109,16 @@ class _InvoiceScreenState extends State<InvoiceScreen> with ProposalFlow {
         'amount': ?amount,
       },
     );
+  }
+
+  Future<void> _amend(InvoiceDocument doc) async {
+    final result = await showModalBottomSheet<Map<String, Object?>>(
+      context: context,
+      isScrollControlled: true,
+      builder: (sheet) => _AmendSheet(doc: doc),
+    );
+    if (result == null || !mounted) return;
+    await propose('Amend ${doc.id}: ${result['reason']}', 'amend_invoice', {'invoiceId': doc.id, ...result});
   }
 
   Future<void> _transport(InvoiceDocument doc) async {
@@ -295,6 +306,9 @@ class _InvoiceScreenState extends State<InvoiceScreen> with ProposalFlow {
                   onDebitNote: doc.isQuote || doc.cancelled
                       ? null
                       : () => _debitNote(doc),
+                  onAmend: doc.isQuote || doc.cancelled || doc.country == 'US'
+                      ? null
+                      : () => _amend(doc),
                   onTransport: doc.isQuote || doc.cancelled || doc.ewayBill?.needed != true
                       ? null
                       : () => _transport(doc),
@@ -362,6 +376,7 @@ class _InvoiceBody extends StatelessWidget {
     required this.onPrint,
     required this.onCreditNote,
     required this.onDebitNote,
+    this.onAmend,
     required this.onTransport,
     required this.onEwayBill,
     required this.onCancel,
@@ -381,6 +396,7 @@ class _InvoiceBody extends StatelessWidget {
   final VoidCallback onPrint;
   final VoidCallback? onCreditNote;
   final VoidCallback? onDebitNote;
+  final VoidCallback? onAmend;
   final VoidCallback? onTransport;
   final VoidCallback? onEwayBill;
   final VoidCallback? onCancel;
@@ -655,6 +671,16 @@ class _InvoiceBody extends StatelessWidget {
               ? text.bodySmall
               : text.bodyMedium?.copyWith(color: Palette.ink),
         ),
+        if (onAmend != null) ...[
+          const SizedBox(height: 8),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: ActionChip(
+              label: const Text('Amend after filing'),
+              onPressed: busy ? null : onAmend,
+            ),
+          ),
+        ],
         if (onMakeInvoice != null || onAccept != null || onDecline != null) ...[
           const SizedBox(height: 20),
           Wrap(
@@ -827,6 +853,105 @@ class _TransportSheetState extends State<_TransportSheet> {
             child: FilledButton(onPressed: _done, child: const Text('Preview')),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _AmendSheet extends StatefulWidget {
+  const _AmendSheet({required this.doc});
+
+  final InvoiceDocument doc;
+
+  @override
+  State<_AmendSheet> createState() => _AmendSheetState();
+}
+
+class _AmendSheetState extends State<_AmendSheet> {
+  final _reason = TextEditingController();
+  final _gstin = TextEditingController();
+  late final List<List<TextEditingController>> _lines;
+  String _error = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _gstin.text = widget.doc.buyerGstin;
+    _lines = [
+      for (final line in widget.doc.lines) [TextEditingController(text: '${line.qty}'), TextEditingController(text: '${line.rate}'), TextEditingController(text: '${line.gstRate}')],
+    ];
+  }
+
+  @override
+  void dispose() {
+    _reason.dispose();
+    _gstin.dispose();
+    for (final line in _lines) {
+      for (final field in line) {
+        field.dispose();
+      }
+    }
+    super.dispose();
+  }
+
+  void _submit() {
+    final reason = _reason.text.trim();
+    if (reason.isEmpty) return setState(() => _error = 'Say why the invoice is being amended.');
+    final lines = <Map<String, Object?>>[];
+    for (var i = 0; i < _lines.length; i += 1) {
+      final qty = num.tryParse(_lines[i][0].text.trim());
+      final rate = parseAmount(_lines[i][1].text);
+      final gstRate = parseRate(_lines[i][2].text);
+      if (qty == null || qty <= 0 || rate == null || gstRate == null) return setState(() => _error = 'Line ${i + 1} needs a quantity, a rate and a GST rate.');
+      final line = widget.doc.lines[i];
+      lines.add({'description': line.description, 'hsn': line.hsn, 'qty': qty, 'rate': rate, 'gstRate': gstRate});
+    }
+    final gstin = _gstin.text.trim().toUpperCase();
+    Navigator.of(context).pop({
+      'reason': reason,
+      'lines': lines,
+      if (gstin != widget.doc.buyerGstin) 'partyGstin': gstin,
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(20, 16, 20, 20 + MediaQuery.viewInsetsOf(context).bottom),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Amend ${widget.doc.id}', style: text.headlineSmall),
+            const SizedBox(height: 6),
+            Text('For an invoice whose GSTR-1 month is already filed. The difference posts to the books and the amendment goes in the next GSTR-1 with the original number and date.', style: text.bodySmall),
+            const SizedBox(height: 12),
+            TextField(controller: _gstin, textCapitalization: TextCapitalization.characters, decoration: const InputDecoration(labelText: 'Buyer GSTIN')),
+            for (var i = 0; i < _lines.length; i += 1) ...[
+              const SizedBox(height: 10),
+              Text(widget.doc.lines[i].description, style: text.bodyMedium),
+              Row(
+                children: [
+                  Expanded(child: TextField(controller: _lines[i][0], keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: 'Qty'))),
+                  const SizedBox(width: 8),
+                  Expanded(flex: 2, child: TextField(controller: _lines[i][1], keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: 'Rate'))),
+                  const SizedBox(width: 8),
+                  Expanded(child: TextField(controller: _lines[i][2], keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: 'GST %'))),
+                ],
+              ),
+            ],
+            const SizedBox(height: 10),
+            TextField(controller: _reason, decoration: const InputDecoration(labelText: 'Reason')),
+            if (_error.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(_error, style: text.bodyMedium?.copyWith(color: Palette.danger)),
+            ],
+            const SizedBox(height: 14),
+            FilledButton(onPressed: _submit, child: const Text('Preview the amendment')),
+          ],
+        ),
       ),
     );
   }

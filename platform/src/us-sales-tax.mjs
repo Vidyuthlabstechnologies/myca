@@ -368,7 +368,7 @@ export function planSalesTaxPayment(state, args = {}) {
   if (amount > draft.toPay + 0.005) return fail('MORE_THAN_DUE', { due: draft.toPay });
   const mode = args.mode === 'cash' ? 'cash' : 'bank';
   const reference = String(args.reference || '').trim().slice(0, 40);
-  return { ok: true, payment: { state: draft.state, period: draft.period, date, amount, mode, reference }, draft };
+  return { ok: true, payment: { state: draft.state, period: draft.period, date, amount, mode, reference, prepayment: date <= draft.to }, draft };
 }
 
 function nextTransferId(state) {
