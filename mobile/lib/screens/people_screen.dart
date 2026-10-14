@@ -166,6 +166,33 @@ class _PeopleScreenState extends State<PeopleScreen> {
     await _do(() => cloud.removeMember(member.id));
   }
 
+  Future<void> _changeRole(MemberRef member) async {
+    final cloud = AppScope.of(context).cloud!;
+    final chosen = await showModalBottomSheet<String>(
+      context: context,
+      builder: (sheet) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 6),
+              child: Text('${member.name.isEmpty ? 'This person' : member.name} is ${roleLabel(member.role).toLowerCase()}', style: Theme.of(sheet).textTheme.titleMedium),
+            ),
+            for (final role in const ['owner', 'staff', 'accountant'])
+              ListTile(
+                title: Text(roleLabel(role)),
+                subtitle: Text(_roleHelp[role] ?? 'Can do everything, including deleting the business and inviting others.'),
+                trailing: role == member.role ? const Icon(Icons.check) : null,
+                onTap: () => Navigator.of(sheet).pop(role),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (chosen == null || chosen == member.role || !mounted) return;
+    await _do(() => cloud.changeRole(member.id, chosen));
+  }
+
   Future<void> _leave(String myId) async {
     final state = AppScope.of(context);
     final navigator = Navigator.of(context);
@@ -218,6 +245,7 @@ class _PeopleScreenState extends State<PeopleScreen> {
                       leading: TintTile(tint: Tint.ask, letter: member.name.isEmpty ? '?' : member.name[0].toUpperCase()),
                       title: member.id == me?.userId ? '${member.name.isEmpty ? 'You' : member.name} (you)' : (member.name.isEmpty ? 'No name yet' : member.name),
                       subtitle: roleLabel(member.role),
+                      onTap: owner && member.id != me?.userId ? () => _changeRole(member) : null,
                       trailing: member.id == me?.userId
                           ? (owner ? null : TextButton(onPressed: () => _leave(member.id), child: const Text('Leave')))
                           : (owner && member.role != 'owner'

@@ -2,7 +2,7 @@
 
 **Phase 0 (pilot readiness) engineering: 67% complete**
 
-**Whole product to a Play Store launch: about 58% complete** (estimate, see the last section)
+**Whole product to a Play Store launch: about 60% complete** (estimate, see the last section)
 
 Last updated 2026-10-14 (automation and redundancy batch, PR #41). Work now happens directly on the main branch (`claude/codebase-audit-review-9cf396`) with no background workflows. The release, statutory-rules, gate and ledger-integrity lanes are merged in. Suite: platform 362/362, every sprint and rules suite green, `npm run stress` passing.
 
@@ -80,13 +80,13 @@ The goal is now an owner-first Android app on the Play Store. The weights below 
 | Area | Weight | Done | Contribution | Basis |
 |---|---|---|---|---|
 | Hardened core: ledger, engines, gate (Phase 0) | 25 | 67% | 16.8 | Table above |
-| Cloud core: accounts, sync, hosted API, DPDP | 20 | 68% | 13.6 | C0 done. C1 built and tested on local Postgres: phone sign-in, sessions, businesses and roles, the `/v1` API, the engine running per request (37 tests), and the app's hosted mode. File uploads work, so Tally, Zoho and bank imports run when hosted. Owners can invite staff and accountants (53 tests). Not deployed (the deploy workflow, scheduler, graceful shutdown and startup retry are written, 2026-10-14); SMS senders for Twilio and MSG91 behind an env switch, the DPDP assessment and the privacy policy drafted (2026-10-14); no provider accounts yet |
+| Cloud core: accounts, sync, hosted API, DPDP | 20 | 74% | 14.8 | C0 done. C1 built and tested on local Postgres: phone sign-in, sessions, businesses and roles, the `/v1` API, the engine running per request (37 tests), and the app's hosted mode. File uploads work, so Tally, Zoho and bank imports run when hosted. Owners can invite staff and accountants (53 tests). Not deployed (the deploy workflow, scheduler, graceful shutdown and startup retry are written, 2026-10-14); SMS senders for Twilio and MSG91 behind an env switch, the DPDP assessment and the privacy policy drafted (2026-10-14); member role changes with a second owner, invitation SMS, owner-side business deletion and account deletion from the app, reads that no longer rewrite the books row, a 200 MB document cap per business, a breach procedure in the runbook (2026-10-14, batch 7); no provider accounts yet |
 | Pipeline and exception queue | 10 | 55% | 5.5 | Exception queue built; the daily job (`/v1/jobs/daily` from Cloud Scheduler, `run_automation` per business) adds reminders for what falls due, verifies the ledger chain and checks the rules; the desktop runs the same checks on launch and hourly, keeps fourteen verified daily backups and self-restores from them; nightly CI with a self-closing issue; Android and hosted API release workflows (2026-10-14). No document pipeline |
 | Android app | 25 | 45% | 11.3 | `mobile/` (Flutter): welcome, brand, sign-in, migration onboarding and later re-import (Tally, Zoho, bank statement), home summary, customer picker, threads with preview and confirm, expenses, taxes, Ask; 18 tests, debug APK builds, checked against the live server. Filing pack saved as one file from Taxes (2026-10-13); the GST payment, GSTR-9, quarterly GSTR-1 and IFF, year close, SUTA rates, the week ahead on Home and US quotes (2026-10-14). Bill capture from a photo, due-date notifications, amend after filing, the Schedule SE panel and the CPA, 941 and W-2 files, release workflow (2026-10-14). Not yet run on a device |
-| LLM chat agent | 8 | 85% | 6.8 | Tool contracts, keyword router, preview/confirm; the model adapter routes unmatched messages to one tool and reads bills, off until a key is set | The provider decision; a conversation memory |
+| LLM chat agent | 8 | 90% | 7.2 | Tool contracts, keyword router, preview/confirm; the model adapter routes unmatched messages to one tool and reads bills, off until a key is set; the last six exchanges of a business's chat are given to the model as context | The provider decision |
 | Live filing connections | 7 | 40% | 2.8 | Adapters wired against sandbox; onboarding not started |
 | Play release work: listing, declarations, policy, testing | 5 | 60% | 3.0 | Listing, data safety answers, permissions, declarations, testing checklist and the privacy policy drafted (`docs/release/`); the developer account, keystore and a device run are the owner's |
-| **Total** | **100** | | **58.2** | |
+| **Total** | **100** | | **59.8** | |
 
 ## Measured against the product PRD (added 2026-10-06)
 

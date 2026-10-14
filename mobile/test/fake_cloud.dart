@@ -18,6 +18,9 @@ class FakeCloud {
   final openInvites = <Map<String, Object?>>[];
   final invited = <String>[];
   final removed = <String>[];
+  final roleChanges = <String>[];
+  final deletedBusinesses = <String>[];
+  bool accountDeleted = false;
   final crashReports = <Map<String, Object?>>[];
   bool crashServerDown = false;
   bool noticeAccepted = true;
@@ -195,6 +198,23 @@ class FakeCloud {
     }
     if (path.startsWith('$books/invitations/') && request.method == 'DELETE') {
       openInvites.removeWhere((i) => path.endsWith('/${i['id']}'));
+      return _json(200, {'ok': true});
+    }
+    if (path.startsWith('$books/members/') && request.method == 'PATCH') {
+      final id = path.split('/').last;
+      roleChanges.add('$id:${body['role']}');
+      for (final m in members) {
+        if (m['id'] == id) m['role'] = body['role'];
+      }
+      return _json(200, {'ok': true, 'role': body['role'], 'was': 'staff'});
+    }
+    if (path == '/v1/businesses/$businessId' && request.method == 'DELETE') {
+      deletedBusinesses.add(businessId);
+      businesses.clear();
+      return _json(200, {'ok': true, 'deleted': true});
+    }
+    if (path == '/v1/me' && request.method == 'DELETE') {
+      accountDeleted = true;
       return _json(200, {'ok': true});
     }
     if (path.startsWith('$books/members/') && request.method == 'DELETE') {

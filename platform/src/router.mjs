@@ -17,6 +17,7 @@ import { scheduleSeWords } from './us-se-tax.mjs';
 import { cpaPackWords } from './us-cpa-pack.mjs';
 import { payrollFileWords } from './us-payroll-files.mjs';
 import { chooseTool, modelConfigured } from './model-adapter.mjs';
+import { rememberTurn, recentTurns } from './chat-memory.mjs';
 import { assistantTools } from './assistant-contract.mjs';
 import { usPayrollWords } from './us-payroll.mjs';
 import { ownerTaxWords } from './us-owner-tax.mjs';
@@ -703,7 +704,7 @@ async function chatCore(state, message) {
   }
   if (plan.fallback) {
     if (modelConfigured()) {
-      const chosen = await chooseTool({ message, tools: assistantTools(TOOLS).filter((tool) => tool.risk !== 'external_government_api' && !['run_automation', 'read_document', 'sandbox_operation', 'nim_ask'].includes(tool.name)), country: state.company?.country || 'IN' });
+      const chosen = await chooseTool({ message, tools: assistantTools(TOOLS).filter((tool) => tool.risk !== 'external_government_api' && !['run_automation', 'read_document', 'sandbox_operation', 'nim_ask'].includes(tool.name)), country: state.company?.country || 'IN', history: recentTurns(state) });
       if (chosen.ok) {
         const modelPlan = { kind: 'tool', name: chosen.name, args: chosen.args, viaModel: true };
         if (needsConfirmation(modelPlan.name)) return holdForConfirmation(state, modelPlan);
@@ -749,7 +750,9 @@ export function discardPending(state) {
 
 export async function chat(state, message) {
   setCurrentCountry(state);
-  return spoken(await chatCore(state, message));
+  const out = spoken(await chatCore(state, message));
+  rememberTurn(state, message, out.reply);
+  return out;
 }
 
 export { fmtToolResult, TOOLS };

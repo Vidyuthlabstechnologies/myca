@@ -1,7 +1,7 @@
 # MyCA — Status
 
-As of the working tree on 2026-10-06 (uncommitted). Verification: platform **447/447**,
-engines **329/329** (`11 / 11 / 49 / 51 / 68 / 2` plus **137** statutory-rule tests),
+As of main on 2026-10-14. Verification: platform **682/682**,
+engines **330/330** (`11 / 11 / 49 / 51 / 68 / 2` plus **138** statutory-rule tests), the hosted API suite against Postgres in CI, the Android app **166** widget tests,
 CI green, end-to-end smoke runs on Windows. "Verified" means covered by tests or an
 actual run — not merely written.
 
@@ -183,7 +183,7 @@ no live switch, no CA approvals, and no bytes leaving the PC.
 | REQ-CA-011–015 | Task/deadline API, client chase portal, notifications (email/WhatsApp/SMS), knowledge base (RAG), eval logs |
 | Live filing | ASP/GSP onboarding, production credentials, column-exact GSTR-1 save/file, ITR, MCA21, DSC signing |
 | Integrations | Account Aggregator bank feed, Tally/Zoho write-back, real OCR provider |
-| Firm backend | Cloud Run + Cloud SQL + GCS document vault; multi-tenant auth/SSO/RBAC |
+| Firm backend | The hosted API (`cloud/`) is built with accounts, tenancy, roles, backups and a daily job, and deploys itself once a Google Cloud project exists; GCS document vault and SSO are not started |
 | UI polish | Invoice template designer, multi-currency, keyboard shortcuts |
 | Ops | Custom domain + TLS active, GitHub Pro branch protection, code-signing certificate, app auto-update |
 

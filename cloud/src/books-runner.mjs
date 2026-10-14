@@ -87,6 +87,19 @@ export function createBooksRunner({ db, now = () => Date.now() }) {
     });
   }
 
+  async function withReadOnlyBooks(businessId, context, run) {
+    return db.tx(async (q) => {
+      const found = await q('select version, state from books where business_id = $1 for share', [businessId]);
+      const row = found.rows[0];
+      if (!row) throw fail(404, 'BUSINESS_NOT_FOUND');
+      const { session } = await open(q, businessId, row.state, row.version);
+      const auditedBefore = session.state.auditEvents.length;
+      const out = await run(session);
+      await audit(q, businessId, context, session.state.auditEvents.slice(auditedBefore));
+      return out;
+    });
+  }
+
   async function withSharedBooks(businessId, context, run) {
     return db.tx(async (q) => {
       await lockLive(q, businessId);
@@ -108,5 +121,5 @@ export function createBooksRunner({ db, now = () => Date.now() }) {
     });
   }
 
-  return { withBooks, withSharedBooks, share };
+  return { withBooks, withReadOnlyBooks, withSharedBooks, share };
 }

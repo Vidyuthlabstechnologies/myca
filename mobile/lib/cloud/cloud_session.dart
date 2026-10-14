@@ -518,6 +518,28 @@ class CloudSession {
 
   Future<void> removeMember(String userId) => call('DELETE', '$_books/members/$userId');
 
+  Future<void> changeRole(String userId, String role) async {
+    final body = await call('PATCH', '$_books/members/$userId', {'role': role});
+    if (body['ok'] == false) throw MycaApiException(cloudMessage('${body['error']}'));
+  }
+
+  Future<void> deleteBusiness() async {
+    final id = _businessId;
+    if (id == null) return;
+    final body = await call('DELETE', '/v1/businesses/$id');
+    if (body['ok'] == false) throw MycaApiException(cloudMessage('${body['error']}'));
+    _businessId = null;
+    await tokens.delete(_businessKey);
+    final mine = await businesses();
+    if (mine.isNotEmpty) await _choose(mine.first.id);
+  }
+
+  Future<void> deleteAccount() async {
+    final body = await call('DELETE', '/v1/me');
+    if (body['ok'] == false) throw MycaApiException(cloudMessage('${body['error']}'));
+    await _forget();
+  }
+
   Future<void> leaveBusiness(String userId) async {
     await removeMember(userId);
     _businessId = null;

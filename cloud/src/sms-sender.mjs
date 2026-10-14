@@ -21,17 +21,19 @@ async function post(fetchImpl, url, init) {
 export function createTwilioSender({ accountSid, authToken, from, fetchImpl = fetch, log = () => {} }) {
   if (!accountSid || !authToken || !from) throw new Error('twilio needs MYCA_SMS_TWILIO_SID, MYCA_SMS_TWILIO_TOKEN and MYCA_SMS_TWILIO_FROM');
   const auth = Buffer.from(`${accountSid}:${authToken}`).toString('base64');
+  async function sendText(phone, text) {
+    const body = new URLSearchParams({ To: phone, From: from, Body: text });
+    await post(fetchImpl, `https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(accountSid)}/Messages.json`, {
+      method: 'POST',
+      headers: { authorization: `Basic ${auth}`, 'content-type': 'application/x-www-form-urlencoded' },
+      body: body.toString(),
+    });
+    log({ sms: 'sent', provider: 'twilio', to: masked(phone) });
+  }
   return {
     provider: 'twilio',
-    async send(phone, code) {
-      const body = new URLSearchParams({ To: phone, From: from, Body: `${code} is your MyCA sign-in code. It expires in five minutes.` });
-      await post(fetchImpl, `https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(accountSid)}/Messages.json`, {
-        method: 'POST',
-        headers: { authorization: `Basic ${auth}`, 'content-type': 'application/x-www-form-urlencoded' },
-        body: body.toString(),
-      });
-      log({ sms: 'sent', provider: 'twilio', to: masked(phone) });
-    },
+    send: (phone, code) => sendText(phone, `${code} is your MyCA sign-in code. It expires in five minutes.`),
+    sendText,
   };
 }
 

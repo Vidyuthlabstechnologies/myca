@@ -15,7 +15,9 @@ function hint(phone) {
   return `xxxxxxx${phone.slice(-3)}`;
 }
 
-export function createMembers({ db, secret, now = () => Date.now() }) {
+export const MEMBER_ROLES = ['owner', 'staff', 'accountant'];
+
+export function createMembers({ db, secret, now = () => Date.now(), notify = null }) {
   const at = () => new Date(now());
 
   async function audit(q, businessId, context, action, metadata) {
@@ -48,7 +50,44 @@ export function createMembers({ db, secret, now = () => Date.now() }) {
           [businessId, phoneHash, hint(phone), role, context.userId, at(), new Date(now() + INVITE_TTL_DAYS * 24 * 60 * 60 * 1000)],
         );
         await audit(q, businessId, context, 'member.invite', { invitationId: created.rows[0].id, role });
-        return { ok: true, invitation: { id: created.rows[0].id, phoneHint: hint(phone), role } };
+        return { ok: true, invitation: { id: created.rows[0].id, phoneHint: hint(phone), role }, phone };
+      }).then(async (out) => {
+        if (!out.ok) return out;
+        const { phone, ...rest } = out;
+        if (notify) {
+          const text = `You have been invited to a business on MyCA as ${role}. Install MyCA and sign in with this number to see it.`;
+          try {
+            await notify(phone, text);
+            rest.notified = true;
+          } catch {
+            rest.notified = false;
+          }
+        }
+        return rest;
+      });
+    },
+
+    async changeRole(businessId, context, actorRole, targetUserId, role) {
+      if (!isUuid(targetUserId)) return fail('MEMBER_NOT_FOUND');
+      if (actorRole !== 'owner') return fail('OWNER_ONLY');
+      if (!MEMBER_ROLES.includes(role)) return fail('INVALID_ROLE');
+      return db.tx(async (q) => {
+        await q('select 1 from businesses where id = $1 for update', [businessId]);
+        const target = await q('select role from memberships where business_id = $1 and user_id = $2', [businessId, targetUserId]);
+        if (!target.rowCount) return fail('MEMBER_NOT_FOUND');
+        const was = target.rows[0].role;
+        if (was === role) return { ok: true, role, unchanged: true };
+        if (was === 'owner') {
+          const owners = await q(
+            `select count(*)::int as n from memberships m join users u on u.id = m.user_id
+              where m.business_id = $1 and m.role = 'owner' and u.deleted_at is null`,
+            [businessId],
+          );
+          if (owners.rows[0].n <= 1) return fail('LAST_OWNER');
+        }
+        await q('update memberships set role = $3 where business_id = $1 and user_id = $2', [businessId, targetUserId, role]);
+        await audit(q, businessId, context, 'member.role_changed', { userId: targetUserId, from: was, to: role });
+        return { ok: true, role, was };
       });
     },
 

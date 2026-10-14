@@ -68,7 +68,7 @@ const SYSTEM_CHOOSE = [
   `When no tool fits, or the message is ambiguous, call ${NO_ACTION} and say briefly why.`,
 ].join(' ');
 
-export async function chooseTool({ message, tools, country = 'IN' }) {
+export async function chooseTool({ message, tools, country = 'IN', history = [] }) {
   const text = String(message || '').trim();
   if (!text) return { ok: false, error: 'EMPTY_MESSAGE' };
   const offered = (tools || []).map((tool) => ({ name: tool.name, description: tool.description, input_schema: tool.parameters }));
@@ -77,7 +77,7 @@ export async function chooseTool({ message, tools, country = 'IN' }) {
     system: `${SYSTEM_CHOOSE} The business is in ${country === 'US' ? 'the United States' : 'India'}.`,
     tools: offered,
     tool_choice: { type: 'any' },
-    messages: [{ role: 'user', content: text }],
+    messages: [...history, { role: 'user', content: text }],
   });
   if (!called.ok) return called;
   const use = toolUseOf(called.response);
