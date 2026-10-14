@@ -25,8 +25,6 @@ Run environment or `platform/.env` only.
 | Google Play developer account | one-time registration fee | Register the company; complete identity verification | Internal testing, then closed testing (Play requires 14 days with at least 12 testers for a new account), then production |
 | Anthropic API key (if Claude is chosen) | pay per use | Create the key in the console with a spend limit | Model-routed chat and bill reading |
 | Twilio or MSG91 account (if phone sign-in is wanted) | pay per SMS | Twilio: account SID, auth token, a sending number. MSG91: auth key and an approved OTP template | Phone-number sign-in |
-| Sandbox (Quicko) GSP account | per their plan | `developer.sandbox.co.in`; generate the live API key and secret; GSP/ASP onboarding is a separate agreement with them | Live GST filing and GSTR-2B fetch through the action gate |
-| NIC e-invoice registration | free | Register the GSTIN on `einvoice1.gst.gov.in` (production) and the sandbox; download the public key | Live IRN and e-way bill generation |
 | A US CPA (if the US edition ships) | per engagement | Attest the `us.federal.*` and `us.salestax.*` rules and answer the section-9 questions | The "not reviewed" note on every US figure |
 
 ## C. Keys and secrets to place (never in chat, never in the repo)
@@ -37,7 +35,7 @@ Run environment or `platform/.env` only.
 | Windows code-signing certificate: `CSC_LINK`, `CSC_KEY_PASSWORD` (optional) | GitHub Secrets | Signed installers |
 | `MYCA_MODEL_API_KEY` | Cloud Run env (Secret Manager) and `platform/.env` on your machine | The model |
 | SMS provider keys | Cloud Run env | Sign-in codes |
-| GSP live key and secret, NIC credentials | The app's own credential vault through the Integrations screen, with `MYCA_ENABLE_LIVE_CALLS` kept off until a CA approves each action | Live filing |
+| GSP, NIC and TRACES credentials | Come from the CA firm (their request document, section 3), entered on the Integrations screen into the app's vault; `MYCA_ENABLE_LIVE_CALLS` stays off until the firm signs off the sandbox run | Live filing |
 | Google Sign-In client ids | `google_client_ids` Terraform variable and the app's `--dart-define` | Sign-in with Google |
 
 ## D. GitHub variables to set (DEPLOYMENT.md Phase 1)
@@ -76,4 +74,4 @@ API deploys) and `MYCA_CLOUD_URL` (puts the hosted address into Android release 
 3. Google Cloud: bootstrap, variables, `infra/cloud` apply; then `GCP_API_REGION` and `MYCA_CLOUD_URL`.
 4. Model key and SMS provider if chosen.
 5. Device run; screenshots; privacy policy URL; internal testing track.
-6. GSP and NIC onboarding with the CA, last, because live filing stays behind the approval gate regardless.
+6. The government credentials arrive from the CA firm, last, because live filing stays behind the approval gate regardless.
