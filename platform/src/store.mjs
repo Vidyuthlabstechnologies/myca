@@ -74,6 +74,7 @@ export function createState() {
     sutaRates: [],
     yearClosings: {},
     automation: { lastRun: '', log: [] },
+    amendmentSeq: 0,
     lockThrough: '',
     integrationConnections: {},
     documents: [],
@@ -146,6 +147,7 @@ export function serialize(state) {
     sutaRates: state.sutaRates || [],
     yearClosings: state.yearClosings || {},
     automation: state.automation || { lastRun: '', log: [] },
+    amendmentSeq: state.amendmentSeq || 0,
     quoteSeq: state.quoteSeq || 0,
     integrationConnections: normalizeIntegrationConnections(state.integrationConnections),
     documents: state.documents || [],
@@ -299,6 +301,7 @@ export function deserialize(raw) {
   state.sutaRates = Array.isArray(raw.sutaRates) ? raw.sutaRates : [];
   state.yearClosings = raw.yearClosings && typeof raw.yearClosings === 'object' ? raw.yearClosings : {};
   state.automation = raw.automation && typeof raw.automation === 'object' ? raw.automation : { lastRun: '', log: [] };
+  state.amendmentSeq = raw.amendmentSeq || 0;
   state.quoteSeq = raw.quoteSeq || 0;
   // Legacy states embedded raw content in `files`; carry it to a one-shot migration.
   state._legacyFiles = raw.files && typeof raw.files === 'object' ? raw.files : null;

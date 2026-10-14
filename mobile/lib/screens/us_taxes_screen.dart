@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 
 import '../api/models.dart';
@@ -47,6 +49,7 @@ class _UsTaxesScreenState extends State<UsTaxesScreen> with ProposalFlow {
   Future<UsTaxes>? _taxes;
   Future<RulesStatus?>? _rules;
   Future<List<Map<String, dynamic>>>? _suta;
+  Future<Map<String, dynamic>>? _se;
   final _sutaState = TextEditingController();
   final _sutaRate = TextEditingController();
   final _sutaBase = TextEditingController();
@@ -100,6 +103,15 @@ class _UsTaxesScreenState extends State<UsTaxesScreen> with ProposalFlow {
     _taxes ??= loadUsTaxes(api);
     _rules ??= _loadRules(api);
     _suta ??= _loadSuta(api);
+    _se ??= _loadSe(api);
+  }
+
+  Future<Map<String, dynamic>> _loadSe(MycaApi api) async {
+    try {
+      return toolData(await api.query('schedule_se'));
+    } on MycaApiException {
+      return const <String, dynamic>{};
+    }
   }
 
   Future<RulesStatus?> _loadRules(MycaApi api) async {
@@ -110,18 +122,24 @@ class _UsTaxesScreenState extends State<UsTaxesScreen> with ProposalFlow {
     }
   }
 
-  Future<void> _save(String tool, String what) async {
+  Future<void> _save(String tool, String what, [Map<String, Object?> args = const {}]) async {
     final state = AppScope.of(context);
     setState(() => _note = '');
     var note = '';
     try {
-      final data = toolData(await state.api.query(tool));
+      final data = toolData(await state.api.query(tool, args));
       final name = _t(data['fileName']);
-      final csv = _t(data['csv']);
-      if (name.isEmpty || csv.isEmpty) {
+      final content = data['csv'] is String
+          ? _t(data['csv'])
+          : data['html'] is String
+          ? _t(data['html'])
+          : data['pack'] is Map
+          ? const JsonEncoder.withIndent('  ').convert(data['pack'])
+          : '';
+      if (name.isEmpty || content.isEmpty) {
         note = 'Nothing to save for $what yet.';
       } else {
-        final saved = await state.saveTextFile(name, csv);
+        final saved = await state.saveTextFile(name, content);
         note = saved ? 'Saved $name. Send it to your CPA or use it in the IRS portal.' : 'Not saved.';
       }
     } on MycaApiException catch (err) {
@@ -195,6 +213,38 @@ class _UsTaxesScreenState extends State<UsTaxesScreen> with ProposalFlow {
                     _Line('Net profit before items outside the books', _n(c['netProfit']), strong: true),
                   ],
                 ),
+                const SizedBox(height: 8),
+                FutureBuilder<Map<String, dynamic>>(
+                  future: _se,
+                  builder: (context, se) {
+                    final data = se.data ?? const <String, dynamic>{};
+                    if (data.isEmpty) return const SizedBox.shrink();
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SectionLabel('Schedule SE ${_t(data['year'])}'),
+                        Panel(
+                          children: [
+                            _Line('Net earnings from self-employment', _n(data['netEarnings'])),
+                            _Line('Self-employment tax', _n(data['selfEmploymentTax']), strong: true),
+                            _Line('Deductible half', _n(data['deduction'])),
+                            if (_n(data['additionalMedicareTax']) > 0) _Line('Additional Medicare tax (Form 8959)', _n(data['additionalMedicareTax'])),
+                          ],
+                        ),
+                        if (data['unreviewed'] == true) Padding(padding: const EdgeInsets.only(top: 6), child: Text('From dated rules a CPA has not reviewed yet.', style: text.bodySmall)),
+                      ],
+                    );
+                  },
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    ActionChip(label: const Text('Save the Schedule C document'), onPressed: () => _save('schedule_c_document', 'the Schedule C document', {'year': _t(c['year'])})),
+                    ActionChip(label: const Text('Save the CPA pack'), onPressed: () => _save('cpa_pack', 'the CPA pack', {'year': _t(c['year'])})),
+                  ],
+                ),
                 const SizedBox(height: 20),
               ],
               SectionLabel('Payroll filings ${_t(taxes.payroll['year'])}'),
@@ -209,6 +259,7 @@ class _UsTaxesScreenState extends State<UsTaxesScreen> with ProposalFlow {
                   for (final q in quarters)
                     RowCard(
                       leading: const TintTile(tint: Tint.taxes, mark: Mark.taxes),
+                      onTap: () => _save('payroll_941_file', 'Form 941 for ${_t(q['quarter'])}', {'quarter': _t(q['quarter'])}),
                       title: 'Form 941 for ${_t(q['quarter'])}',
                       subtitle: 'Wages ${rupees(_n(q['wages']))} · total taxes ${rupees(_n(q['totalTaxes']))}${_t(q['dueDate']).isEmpty ? '' : ' · due ${longDate(_t(q['dueDate']))}'}',
                     ),
@@ -216,6 +267,7 @@ class _UsTaxesScreenState extends State<UsTaxesScreen> with ProposalFlow {
                     RowCard(
                       leading: const TintTile(tint: Tint.taxes, mark: Mark.comingUp),
                       title: 'W-2 for ${w2.length == 1 ? '1 employee' : '${w2.length} employees'}',
+                      onTap: w2.isEmpty ? null : () => _save('payroll_w2_file', 'the W-2 file', {'year': _t(taxes.payroll['year'])}),
                       subtitle: _t(taxes.payroll['w2DueDate']).isEmpty ? 'Totals from the approved months' : 'Due ${longDate(_t(taxes.payroll['w2DueDate']))}',
                     ),
                 ],

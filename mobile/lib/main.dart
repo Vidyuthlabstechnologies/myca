@@ -14,6 +14,7 @@ import 'cloud/google_auth.dart';
 import 'cloud/keystore_token_store.dart';
 import 'crash_reports.dart';
 import 'lock/app_lock.dart';
+import 'notifications.dart';
 import 'lock/device_app_lock.dart';
 import 'screens/business_setup_screen.dart';
 import 'screens/lock_screen.dart';
@@ -60,6 +61,8 @@ void main() {
         store: DeviceOnboardingStore(),
         lock: config.hosted ? DeviceAppLock() : const NoAppLock(),
         pickTextFile: pickTextFileFromDevice,
+        pickAnyFile: pickAnyFileFromDevice,
+        notifications: DeviceNotifications(),
         saveTextFile: saveTextFileOnDevice,
         shareText: shareTextFromDevice,
         pdf: const PdfActions(share: sharePdfFromDevice, print: printPdfFromDevice),

@@ -190,7 +190,10 @@ The listing will need a privacy policy URL, the data safety form (phone number,
 financial information, files, crash logs not linked to the user; none shared with third
 parties today), account deletion
 reachable from inside and outside the app, and a justification for each permission
-(biometric today; camera and storage when capture is built). None of this is started.
+(biometric, notifications, and the system file picker for bills). Drafted 2026-10-14 in
+`docs/release/PLAY-LISTING.md`, `docs/release/PRIVACY-POLICY.md` (served as
+`deploy/public/privacy.html`) and `docs/architecture/DPDP-ASSESSMENT.md`; the owner
+names the entity, the processors and the grievance officer before publishing.
 
 ## 7. Reporting a vulnerability
 

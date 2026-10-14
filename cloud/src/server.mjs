@@ -3,6 +3,7 @@ import { createApi } from './api.mjs';
 import { createConsoleSender } from './auth.mjs';
 import { createDb, migrate } from './db.mjs';
 import { clientIdsFrom } from './google.mjs';
+import { smsSenderFromEnv } from './sms-sender.mjs';
 
 const STARTUP_ATTEMPTS = 10;
 const STARTUP_WAIT_MS = 3000;
@@ -15,7 +16,8 @@ function required(name) {
 }
 
 function otpSender() {
-  return process.env.MYCA_DEV_OTP === '1' ? createConsoleSender() : null;
+  if (process.env.MYCA_DEV_OTP === '1') return createConsoleSender();
+  return smsSenderFromEnv(process.env, { log });
 }
 
 const log = (entry) => console.log(JSON.stringify(entry));

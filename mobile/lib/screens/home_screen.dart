@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../api/models.dart';
+import '../notifications.dart';
 import '../api/myca_api.dart';
 import '../app_state.dart';
 import '../attention.dart';
@@ -50,8 +53,12 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<Map<String, dynamic>> _loadWeek() async {
+    final state = AppScope.of(context);
     try {
-      return toolData(await AppScope.of(context).api.query('week_ahead'));
+      final data = toolData(await state.api.query('week_ahead'));
+      final items = [for (final row in (data['items'] as List? ?? const [])) DueItem.fromJson(row)].whereType<DueItem>().toList();
+      unawaited(state.notifications.plan(items));
+      return data;
     } on MycaApiException {
       return const <String, dynamic>{};
     }

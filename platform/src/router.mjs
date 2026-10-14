@@ -11,6 +11,13 @@ import { payrollWords } from './payroll.mjs';
 import { setCurrentCountry, formatMoneyCurrent } from './country.mjs';
 import { rulesStatusWords } from './rules-status.mjs';
 import { automationWords } from './automation.mjs';
+import { readDocumentWords } from './document-reader.mjs';
+import { amendmentWords } from './invoice-amendments.mjs';
+import { scheduleSeWords } from './us-se-tax.mjs';
+import { cpaPackWords } from './us-cpa-pack.mjs';
+import { payrollFileWords } from './us-payroll-files.mjs';
+import { chooseTool, modelConfigured } from './model-adapter.mjs';
+import { assistantTools } from './assistant-contract.mjs';
 import { usPayrollWords } from './us-payroll.mjs';
 import { ownerTaxWords } from './us-owner-tax.mjs';
 import { usImportWords } from './import-us-books.mjs';
@@ -213,6 +220,13 @@ function fmtToolResult(name, result) {
   }
   if (name === 'rules_status' && result.data) return rulesStatusWords(result.data);
   if (name === 'automation_status' && result.data) return automationWords(result.data);
+  if (name === 'read_document' && result.data) return readDocumentWords(result.data);
+  if (name === 'amend_invoice' && result.amendment) return amendmentWords(result, money);
+  if (name === 'list_amendments' && result.data) return result.data.count ? `Amendments:\n${result.data.amendments.map((a) => `· ${a.id} ${a.date}: ${a.invoiceId} (${a.originalPeriod}) ${money(a.before)} → ${money(a.after)}, in GSTR-1 ${a.period}, ${a.reason}`).join('\n')}` : 'No invoice has been amended.';
+  if (name === 'schedule_se' && result.data) return scheduleSeWords(result.data, money);
+  if (name === 'schedule_c_document' && result.data) return `Schedule C ${result.data.year}: net profit ${money(result.data.netProfit)}${result.data.selfEmploymentTax != null ? `, self-employment tax ${money(result.data.selfEmploymentTax)}` : ''}. Saved as ${result.data.fileName} from the Federal and owner taxes screen.`;
+  if (name === 'cpa_pack' && result.data) return cpaPackWords(result.data, money);
+  if ((name === 'payroll_941_file' || name === 'payroll_w2_file') && result.data) return payrollFileWords(name, result.data, money);
   if (name === 'run_automation' && result.data) return result.data.skipped ? `The daily checks already ran today (${result.data.ranOn}).` : automationWords({ lastRun: result.data.ranOn, last: result.data.run });
   if (name === 'record_gst_payment' && result.payment) {
     const p = result.payment;
@@ -688,6 +702,20 @@ async function chatCore(state, message) {
     };
   }
   if (plan.fallback) {
+    if (modelConfigured()) {
+      const chosen = await chooseTool({ message, tools: assistantTools(TOOLS).filter((tool) => tool.risk !== 'external_government_api' && !['run_automation', 'read_document', 'sandbox_operation', 'nim_ask'].includes(tool.name)), country: state.company?.country || 'IN' });
+      if (chosen.ok) {
+        const modelPlan = { kind: 'tool', name: chosen.name, args: chosen.args, viaModel: true };
+        if (needsConfirmation(modelPlan.name)) return holdForConfirmation(state, modelPlan);
+        const checked = validateAssistantToolCall(modelPlan.name, modelPlan.args);
+        if (!checked.ok) return { reply: notAccepted(checked.error), tools: [], blocked: true };
+        const chosenResult = await runTool(state, modelPlan.name, { ...modelPlan.args, actorId: 'assistant' });
+        return { reply: fmtToolResult(modelPlan.name, chosenResult), tools: [{ name: modelPlan.name, result: chosenResult }], viaModel: true };
+      }
+      if (chosen.error === 'MODEL_NO_MATCH') {
+        return { reply: `I did not match that to anything I can do${chosen.reason ? ` (${chosen.reason})` : ''}, so nothing was recorded. Try "invoice Kiran Stores 50000 GST 18%", "paid 12000 rent", "who owes me?", or say "help" for more.`, tools: [{ name: plan.name, result }], viaModel: true };
+      }
+    }
     if (liveCallsEnabled() || mockModeEnabled()) {
       const ask = await runTool(state, 'nim_ask', { prompt: message });
       if (ask.ok && ask.data?.reply) {

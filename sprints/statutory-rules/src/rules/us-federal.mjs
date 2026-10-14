@@ -101,5 +101,16 @@ export const RULES = [
     section: '6654(c)(2)',
     source: `IRC section 6654(c)(2): instalments due 15 April, 15 June and 15 September of the taxable year and 15 January of the following year; the weekend and holiday shift under section 7503 is not encoded (${NOT_REREAD_IRS}). Registry coverage starts 1 January 2020`,
     attestations: []
-  }
+  },
+  {
+    id: 'us.federal.se-tax',
+    value: { netEarningsBasisPoints: 9235, socialSecurityBasisPoints: 1240, medicareBasisPoints: 290, additionalMedicareBasisPoints: 90, additionalMedicareThresholdCents: { single: 200000 * DOLLAR, head_of_household: 200000 * DOLLAR, married_joint: 250000 * DOLLAR, married_separate: 125000 * DOLLAR }, minimumNetEarningsCents: 400 * DOLLAR, halfDeductible: true },
+    basis: 'self_employment_tax_on_net_earnings_after_the_seven_point_six_five_percent_reduction_social_security_part_up_to_the_wage_base',
+    effectiveFrom: '2020-01-01',
+    effectiveTo: null,
+    act: 'IRC',
+    section: '1401(a); 1401(b); 1402(a)(12); 1402(b)(2); 164(f)',
+    source: `Internal Revenue Code section 1401(a) 12.4 per cent old-age, survivors and disability part and 1401(b)(1) 2.9 per cent hospital insurance part of net earnings from self-employment; 1401(b)(2) additional 0.9 per cent above two hundred thousand dollars (single, head of household), two hundred fifty thousand (joint) and one hundred twenty-five thousand (married filing separately); 1402(a)(12) reduces net earnings by 7.65 per cent; 1402(b)(2) no tax when net earnings are under four hundred dollars; 164(f) one half deductible. The rates have not changed since 1990 and registry coverage starts 1 January 2020; the Social Security wage base comes from us.federal.fica.social-security (${NOT_REREAD_IRS})`,
+    attestations: []
+  },
 ];

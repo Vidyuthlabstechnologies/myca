@@ -177,6 +177,9 @@ class FakeMycaApi implements MycaApi {
   bool salesTaxFiled = false;
   bool salesTaxApproved = false;
   bool gstPaid = false;
+  bool modelOff = false;
+  final readDocuments = <String>[];
+  final amendments = <Map<String, Object?>>[];
   bool yearClosed = false;
   bool quarterlyGst = false;
   final sutaRates = <Map<String, Object?>>[];
@@ -859,6 +862,13 @@ class FakeMycaApi implements MycaApi {
           'confirmed': true,
         });
       }
+      if (held.tool == 'amend_invoice') {
+        amendments.add({'id': 'AMD-0001', 'invoiceId': held.args['invoiceId'], 'reason': held.args['reason']});
+        return ChatReply.fromJson({'reply': '${held.args['invoiceId']} amended (AMD-0001) for ${held.args['reason']}.', 'posted': true, 'confirmed': true});
+      }
+      if (held.tool == 'create_purchase' && held.args['supplierInvoiceNo'] == 'GM/221') {
+        return ChatReply.fromJson({'reply': 'Posted PUR-0002 from Ganga Mills for ₹12,600.00.', 'posted': true, 'confirmed': true});
+      }
       if (held.tool == 'set_suta_rate') {
         sutaRates.add({'state': held.args['state'], 'ratePercent': held.args['ratePercent'], 'wageBase': held.args['wageBase'], 'from': '2026-01-01'});
         return ChatReply.fromJson({'reply': 'Recorded state unemployment for ${held.args['state']}.', 'posted': true, 'confirmed': true});
@@ -1087,6 +1097,32 @@ class FakeMycaApi implements MycaApi {
           'ok': true,
           'data': {'year': '2026', 'payees': [{'recipient': 'Joe Plumbing', 'nonemployeeCompensation': 2500}], 'fileName': '1099NEC_EIN_2026.csv', 'csv': 'tax_year,recipient\n2026,Joe Plumbing\n'},
         };
+      case 'read_document':
+        readDocuments.add('${args['documentSha256']}');
+        if (modelOff) return {'ok': false, 'error': 'MODEL_NOT_CONFIGURED'};
+        return {
+          'ok': true,
+          'data': {
+            'documentSha256': args['documentSha256'],
+            'kind': 'supplier_bill',
+            'extracted': {'supplierName': 'Ganga Mills', 'supplierGstin': '27AAACG1234A1Z5', 'invoiceNo': 'GM/221', 'date': '2026-10-03', 'lines': [{'description': 'Cotton yarn', 'hsn': '5205', 'qty': 10, 'rate': 1200, 'gstRate': 5}], 'total': 12600, 'confidence': 0.9},
+            'proposal': {'tool': 'create_purchase', 'args': {'partyName': 'Ganga Mills', 'partyGstin': '27AAACG1234A1Z5', 'supplierInvoiceNo': 'GM/221', 'date': '2026-10-03', 'lines': [{'description': 'Cotton yarn', 'hsn': '5205', 'qty': 10, 'rate': 1200, 'gstRate': 5}]}},
+            'confidence': 0.9,
+            'warnings': const <Object?>[],
+          },
+        };
+      case 'schedule_se':
+        return country == 'US' ? {'ok': true, 'data': {'year': '2026', 'netEarnings': 46175, 'selfEmploymentTax': 7064.78, 'deduction': 3532.39, 'additionalMedicareTax': 0, 'unreviewed': true, 'lines': const <Object?>[]}} : {'ok': false, 'error': 'NOT_FOR_COUNTRY'};
+      case 'schedule_c_document':
+        return {'ok': true, 'data': {'year': args['year'], 'fileName': 'schedule_c_${args['year']}.html', 'html': '<!doctype html><html><body>Schedule C</body></html>'}};
+      case 'cpa_pack':
+        return {'ok': true, 'data': {'year': args['year'], 'fileName': 'cpa_pack_${args['year']}.json', 'pack': {'year': args['year'], 'scheduleC': {'netProfit': 50000}}}};
+      case 'payroll_941_file':
+        return {'ok': true, 'data': {'quarter': args['quarter'], 'fileName': 'form_941_${args['quarter']}.csv', 'csv': 'line,description,amount\n2,Wages,25000\n'}};
+      case 'payroll_w2_file':
+        return {'ok': true, 'data': {'year': args['year'], 'fileName': 'forms_w2_w3_${args['year']}.csv', 'csv': 'form,employee\nW-2,Ana Lopez\n'}};
+      case 'list_amendments':
+        return {'ok': true, 'data': {'amendments': amendments, 'count': amendments.length}};
       case 'week_ahead':
         return {
           'ok': true,

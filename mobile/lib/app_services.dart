@@ -54,6 +54,32 @@ class PickedText {
 
 typedef PickTextFile = Future<PickedText?> Function(List<String> extensions);
 
+class PickedFile {
+  const PickedFile({required this.name, required this.mime, required this.bytes});
+
+  final String name;
+  final String mime;
+  final Uint8List bytes;
+}
+
+typedef PickAnyFile = Future<PickedFile?> Function();
+
+const _mimeByExtension = {'jpg': 'image/jpeg', 'jpeg': 'image/jpeg', 'png': 'image/png', 'webp': 'image/webp', 'pdf': 'application/pdf', 'txt': 'text/plain', 'csv': 'text/csv'};
+
+String mimeOfName(String name) => _mimeByExtension[name.split('.').last.toLowerCase()] ?? 'application/octet-stream';
+
+String dataUrlOf(PickedFile file) {
+  if (file.mime.startsWith('text/')) return utf8.decode(file.bytes, allowMalformed: true);
+  return 'data:${file.mime};base64,${base64Encode(file.bytes)}';
+}
+
+Future<PickedFile?> pickAnyFileFromDevice() async {
+  final files = await FilePicker.pickFiles(type: FileType.custom, allowedExtensions: _mimeByExtension.keys.toList());
+  if (files.isEmpty) return null;
+  final first = files.first;
+  return PickedFile(name: first.name, mime: mimeOfName(first.name), bytes: await first.readAsBytes());
+}
+
 typedef SaveTextFile = Future<bool> Function(String name, String content);
 
 typedef ShareText = Future<bool> Function(String text);
@@ -67,7 +93,7 @@ Future<bool> saveTextFileOnDevice(String name, String content) async {
   final saved = await FilePicker.saveFile(
     fileName: name,
     bytes: Uint8List.fromList(utf8.encode(content)),
-    mimeType: name.endsWith('.csv') ? 'text/csv' : 'application/json',
+    mimeType: name.endsWith('.csv') ? 'text/csv' : name.endsWith('.html') ? 'text/html' : 'application/json',
   );
   return saved != null;
 }

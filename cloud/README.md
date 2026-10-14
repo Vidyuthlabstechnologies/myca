@@ -83,7 +83,7 @@ flutter run --dart-define=MYCA_CLOUD_URL=http://127.0.0.1:8080
 ## Not built yet
 
 - The Google Cloud project itself, and the first `terraform apply` of `infra/cloud`.
-- An SMS sender. Google Sign-In is built (2026-10-07) and is the pilot's sign-in.
+- An SMS provider account: the Twilio and MSG91 senders exist (`src/sms-sender.mjs`, chosen by `MYCA_SMS_PROVIDER`); without one Google Sign-In is the only sign-in.
 - Telling an invited person. An invitation is only visible to them after they sign in
   with that number; no SMS is sent because there is no sender yet.
 - Changing a member's role, or adding a second owner.

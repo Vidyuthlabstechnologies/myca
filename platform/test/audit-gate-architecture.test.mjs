@@ -8,8 +8,10 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const SRC = resolve(HERE, '../src');
 const SPRINTS = resolve(HERE, '../../sprints');
 const GATE = 'action-gate.mjs';
-const TRANSPORT_MODULES = new Set(['sandbox-client.mjs', 'nic-client.mjs', 'nim-client.mjs', 'notifications.mjs', 'govt.mjs', 'reachability.mjs']);
+const TRANSPORT_MODULES = new Set(['sandbox-client.mjs', 'nic-client.mjs', 'nim-client.mjs', 'model-adapter.mjs', 'notifications.mjs', 'govt.mjs', 'reachability.mjs']);
 const PENDING_LATER_SLICES = new Set([
+  'document-reader.mjs -> model-adapter.mjs',
+  'router.mjs -> model-adapter.mjs',
   'govt.mjs -> nic-client.mjs',
   'govt.mjs -> reachability.mjs',
   'provider-doctor.mjs -> nim-client.mjs',
