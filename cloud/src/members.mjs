@@ -55,9 +55,7 @@ export function createMembers({ db, secret, now = () => Date.now(), notify = nul
         if (!out.ok) return out;
         const { phone, ...rest } = out;
         if (notify) {
-          const business = await db.query('select name from businesses where id = $1', [businessId]);
-          const inviter = await db.query('select name from users where id = $1', [context.userId]);
-          const text = `${inviter.rows[0]?.name || 'Someone'} invited you to ${business.rows[0]?.name || 'a business'} on MyCA as ${role}. Install MyCA and sign in with this number to accept.`;
+          const text = `You have been invited to a business on MyCA as ${role}. Install MyCA and sign in with this number to see it.`;
           try {
             await notify(phone, text);
             rest.notified = true;

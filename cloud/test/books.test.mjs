@@ -50,7 +50,7 @@ test('requests arriving together are applied one after another with none lost', 
   const startAudit = (await api.db.query('select count(*)::int as n from audit_log where business_id = $1', [owner.businessId])).rows[0].n;
   const burst = await Promise.all(Array.from({ length: 16 }, (_, i) => post('query', { name: i % 2 ? 'gst_payable' : 'deadlines' })));
   assert.equal(burst.every((r) => r.status === 200 && r.body.ok === true), true);
-  assert.equal(await version(), startVersion + 16);
+  assert.equal(await version(), startVersion, 'reads leave the books version alone');
   const endAudit = (await api.db.query('select count(*)::int as n from audit_log where business_id = $1', [owner.businessId])).rows[0].n;
   assert.equal(endAudit, startAudit + 16);
   const trial = await post('query', { name: 'trial_balance' });

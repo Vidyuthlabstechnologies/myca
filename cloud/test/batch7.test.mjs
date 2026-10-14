@@ -25,12 +25,13 @@ async function joinedMember(phone, role = 'staff') {
   return { token: person.accessToken, id: me.user.id, invitation: sent.body };
 }
 
-test('an invitation is texted to the invited number when a sender exists, without the code format', async () => {
+test('an invitation is texted to the invited number from a fixed template that carries no typed names', async () => {
   const ravi = await joinedMember('+919600000002', 'accountant');
   assert.equal(ravi.invitation.notified, true);
   const text = api.sender.sent.find((row) => row.text);
   assert.ok(text, 'an SMS with text was sent');
-  assert.match(text.text, /^Asha invited you to Asha Traders on MyCA as accountant/);
+  assert.equal(text.text, 'You have been invited to a business on MyCA as accountant. Install MyCA and sign in with this number to see it.');
+  assert.doesNotMatch(text.text, /Asha/);
 });
 
 test("an owner changes a member's role, may make a second owner, and the last owner cannot be demoted", async () => {
