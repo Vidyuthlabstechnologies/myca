@@ -26,7 +26,7 @@ test('with a model configured, an unmatched message is routed to one tool; write
   const seen = [];
   setModelTransport(async (body) => {
     seen.push(body);
-    const text = body.messages[0].content;
+    const text = body.messages.at(-1).content;
     if (/money/.test(text)) return { ok: true, response: toolUse('business_summary', {}) };
     if (/bill Kiran/.test(text)) return { ok: true, response: toolUse('create_invoice', { partyName: 'Kiran Stores', lines: [{ description: 'Repair', hsn: '9987', qty: 1, rate: 2500, gstRate: 18 }] }) };
     return { ok: true, response: toolUse('no_matching_action', { reason: 'not about the books' }) };

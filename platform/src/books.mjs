@@ -86,6 +86,7 @@ export function newBook(company = {}) {
     yearClosings: {},
     automation: { lastRun: '', log: [] },
     amendmentSeq: 0,
+    chatRecent: [],
   };
 }
 
@@ -144,6 +145,7 @@ export function serializeBook(book) {
     yearClosings: book.yearClosings || {},
     automation: book.automation || { lastRun: '', log: [] },
     amendmentSeq: book.amendmentSeq || 0,
+    chatRecent: Array.isArray(book.chatRecent) ? book.chatRecent : [],
     quoteSeq: book.quoteSeq || 0,
   };
 }
@@ -199,6 +201,7 @@ export function deserializeBook(raw) {
   book.yearClosings = raw.yearClosings && typeof raw.yearClosings === 'object' ? raw.yearClosings : {};
   book.automation = raw.automation && typeof raw.automation === 'object' ? raw.automation : { lastRun: '', log: [] };
   book.amendmentSeq = raw.amendmentSeq || 0;
+  book.chatRecent = Array.isArray(raw.chatRecent) ? raw.chatRecent : [];
   book.quoteSeq = raw.quoteSeq || 0;
   return book;
 }

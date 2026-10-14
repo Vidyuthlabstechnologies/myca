@@ -1,0 +1,55 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:myca/app_state.dart';
+import 'package:myca/main.dart';
+
+import 'cloud_test.dart' show signedIn;
+import 'fake_api.dart';
+import 'fake_cloud.dart';
+
+void main() {
+  testWidgets("an owner changes a member's role from People", (tester) async {
+    final cloud = FakeCloud()
+      ..userName = 'Asha'
+      ..members.add({'id': 'u2', 'name': 'Ravi', 'role': 'staff'});
+    final session = await signedIn(cloud);
+    await session.createBusiness(name: 'Asha Traders', state: '29');
+    final state = AppState(cloud: session, store: MemoryOnboardingStore(isWelcomed: true, isMigrated: true), pickTextFile: (_) async => null);
+    await tester.pumpWidget(MycaApp(state: state));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Your business'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('People'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Ravi'));
+    await tester.pumpAndSettle();
+    expect(find.text('Ravi is staff'), findsOneWidget);
+    await tester.tap(find.widgetWithText(ListTile, 'Accountant'));
+    await tester.pumpAndSettle();
+    expect(cloud.roleChanges, ['u2:accountant']);
+    expect(find.text('Accountant'), findsWidgets);
+  });
+
+  testWidgets('an owner deletes the business after confirming, and can delete the account', (tester) async {
+    final cloud = FakeCloud()..userName = 'Asha';
+    final session = await signedIn(cloud);
+    await session.createBusiness(name: 'Asha Traders', state: '29');
+    final state = AppState(cloud: session, store: MemoryOnboardingStore(isWelcomed: true, isMigrated: true), pickTextFile: (_) async => null);
+    await tester.pumpWidget(MycaApp(state: state));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Your business'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Your businesses'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Delete Asha Traders'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Keep'));
+    await tester.pumpAndSettle();
+    expect(cloud.deletedBusinesses, isEmpty);
+    await tester.tap(find.text('Delete Asha Traders'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Delete'));
+    await tester.pumpAndSettle();
+    expect(cloud.deletedBusinesses, [FakeCloud.businessId]);
+  });
+}

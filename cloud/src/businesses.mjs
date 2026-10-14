@@ -75,6 +75,24 @@ export function createBusinesses({ db, now = () => Date.now() }) {
       return found.rows;
     },
 
+    async requestDeletion(businessId, context) {
+      return db.tx(async (q) => {
+        const done = await q('update businesses set deletion_requested_at = $2 where id = $1 and deletion_requested_at is null returning name', [businessId, new Date(now())]);
+        if (!done.rowCount) return { ok: false, error: 'BUSINESS_NOT_FOUND' };
+        await q(
+          `insert into audit_log (business_id, user_id, device_id, request_id, action, metadata)
+           values ($1, $2, $3, $4, 'business.deletion_requested', $5::jsonb)`,
+          [businessId, context.userId || null, context.deviceId || null, context.requestId || '', JSON.stringify({ name: done.rows[0].name })],
+        );
+        return { ok: true, deleted: true };
+      });
+    },
+
+    async storedBytes(businessId) {
+      const found = await db.query('select coalesce(sum(bytes), 0)::bigint as total from documents where business_id = $1', [businessId]);
+      return Number(found.rows[0].total);
+    },
+
     async rename(businessId, company) {
       await db.query('update businesses set name = $2, gstin = $3 where id = $1', [businessId, company.name || '', company.gstin || '']);
     },

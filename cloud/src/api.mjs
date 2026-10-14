@@ -17,6 +17,7 @@ import { inWords } from '../../platform/src/words.mjs';
 
 const MAX_BODY_BYTES = 1024 * 1024;
 export const MAX_UPLOAD_BYTES = 8 * 1024 * 1024;
+export const MAX_BUSINESS_BYTES = 200 * 1024 * 1024;
 const MAX_CRASH_BYTES = 64 * 1024;
 
 export const PROPOSABLE = new Set(['create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'record_filing', 'record_supplier_reminder', 'add_employee', 'set_tds_deductor', 'record_tds_deposit', 'change_salary', 'end_employment', 'post_expense', 'set_expense_head', 'create_credit_note', 'cancel_invoice', 'gst_review_answer', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote', 'exception_decide']);
@@ -76,7 +77,8 @@ function statusOf(result) {
   if (result.error === 'OWNER_ONLY') return 403;
   if (result.error === 'PHONE_SIGN_IN_UNAVAILABLE' || result.error === 'GOOGLE_SIGN_IN_UNAVAILABLE') return 503;
   if (result.error === 'GOOGLE_UNREACHABLE') return 502;
-  if (result.error === 'INVITATION_NOT_FOUND' || result.error === 'MEMBER_NOT_FOUND') return 404;
+  if (result.error === 'INVITATION_NOT_FOUND' || result.error === 'MEMBER_NOT_FOUND' || result.error === 'BUSINESS_NOT_FOUND') return 404;
+  if (result.error === 'STORAGE_FULL') return 413;
   return 400;
 }
 
@@ -98,7 +100,7 @@ export function createApi({ db, secret, otpSender = null, googleClientIds = [], 
   const businesses = createBusinesses({ db, now });
   const runner = createBooksRunner({ db, now });
   const withBooks = runner.withBooks;
-  const members = createMembers({ db, secret, now });
+  const members = createMembers({ db, secret, now, notify: otpSender && typeof otpSender.sendText === 'function' ? (phone, text) => otpSender.sendText(phone, text) : null });
   const crashes = createCrashReports({ db, now });
   const consent = createConsent({ db, now });
   const jobs = createJobs({ db, withBooks, log });
@@ -189,6 +191,22 @@ export function createApi({ db, secret, otpSender = null, googleClientIds = [], 
       return members.respond(user, context, parts[2], parts[3] === 'accept');
     }
 
+    if (parts[1] === 'businesses' && parts.length === 3 && method === 'DELETE') {
+      const businessId = parts[2];
+      if (!isUuid(businessId)) throw httpError(404, 'BUSINESS_NOT_FOUND');
+      const role = await member(user, businessId);
+      if (role !== 'owner') throw httpError(403, 'OWNER_ONLY');
+      return businesses.requestDeletion(businessId, { userId: user.userId, deviceId: user.deviceId, requestId });
+    }
+
+    if (parts[1] === 'businesses' && parts.length === 5 && parts[3] === 'members' && method === 'PATCH') {
+      const businessId = parts[2];
+      if (!isUuid(businessId)) throw httpError(404, 'BUSINESS_NOT_FOUND');
+      const role = await member(user, businessId);
+      const context = { userId: user.userId, deviceId: user.deviceId, requestId };
+      return members.changeRole(businessId, context, role, parts[4], String((await readJson(req)).role || ''));
+    }
+
     if (parts[1] === 'businesses' && parts.length === 5 && method === 'DELETE') {
       const businessId = parts[2];
       if (!isUuid(businessId)) throw httpError(404, 'BUSINESS_NOT_FOUND');
@@ -221,7 +239,7 @@ export function createApi({ db, secret, otpSender = null, googleClientIds = [], 
         if (sharedView) {
           return runner.withSharedBooks(businessId, context, async (session, { asOf }) => ({ ...appSnapshot(session.snapshot(), user, role), sharedAsOf: asOf }));
         }
-        return withBooks(businessId, context, async (session) => appSnapshot(session.snapshot(), user, role));
+        return runner.withReadOnlyBooks(businessId, context, async (session) => appSnapshot(session.snapshot(), user, role));
       }
       if (method === 'GET' && action === 'ca-sync') {
         return { ok: true, mode: sync.mode, sharedAsOf: sync.mode === 'live' ? null : sync.asOf, modes: CA_SYNC_MODES };
@@ -267,6 +285,9 @@ export function createApi({ db, secret, otpSender = null, googleClientIds = [], 
         return members.invite(businessId, context, body);
       }
       if (action === 'uploads') {
+        const stored = await businesses.storedBytes(businessId);
+        const incoming = Buffer.byteLength(String(body.content || ''), 'utf8');
+        if (stored + incoming > MAX_BUSINESS_BYTES) return { ok: false, error: 'STORAGE_FULL', storedBytes: stored, limitBytes: MAX_BUSINESS_BYTES };
         return withBooks(businessId, context, (session) => session.uploadDocument(body.name, body.content, actor));
       }
       if (action === 'propose') {
@@ -281,7 +302,7 @@ export function createApi({ db, secret, otpSender = null, googleClientIds = [], 
       }
       if (action === 'confirm') return withBooks(businessId, context, (session) => session.confirm(body.token, actor));
       if (action === 'discard') return withBooks(businessId, context, (session) => session.discard(actor));
-      if (action === 'query') return withBooks(businessId, context, (session) => session.query(body.name, body.args || {}, actor));
+      if (action === 'query') return runner.withReadOnlyBooks(businessId, context, (session) => session.query(body.name, body.args || {}, actor));
       if (action === 'ask') {
         const message = String(body.message ?? '').slice(0, 2000);
         if (!message.trim()) throw httpError(400, 'MESSAGE_REQUIRED');

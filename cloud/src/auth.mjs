@@ -208,6 +208,9 @@ export function createCaptureSender() {
     async send(phone, code) {
       sent.push({ phone, code });
     },
+    async sendText(phone, text) {
+      sent.push({ phone, text });
+    },
   };
 }
 
@@ -215,6 +218,9 @@ export function createConsoleSender(log = console.log) {
   return {
     async send(phone, code) {
       log(`[dev otp] ${phone.slice(0, 5)}*****${phone.slice(-2)} -> ${code}`);
+    },
+    async sendText(phone, text) {
+      log(`[dev sms] ${phone.slice(0, 5)}*****${phone.slice(-2)} -> ${text}`);
     },
   };
 }

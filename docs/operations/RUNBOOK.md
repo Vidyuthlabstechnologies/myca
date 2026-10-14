@@ -70,6 +70,17 @@ schema change): create a clone from a point in time, point a local API at it wit
 Auth Proxy (`database_connection_name` output), run `npm test` style smoke calls against
 `/v1/health` and a business snapshot, delete the clone.
 
+**A suspected data breach** (a lost phone with the app signed in, a leaked token, an
+unexpected member in a business, a provider key seen in a log). Within the hour: revoke
+the device from the database (`update devices set revoked_at = now() where id = ...`;
+every refresh from it fails at once), rotate the secret involved in Secret Manager and
+redeploy, and export the `audit_log` rows for the business from the suspected time. Within
+seventy-two hours, as the Digital Personal Data Protection Act requires: tell each
+affected business owner in the app's own words what was seen, when, and what they
+should change, and write the same to the Data Protection Board of India once it is
+constituted; keep the audit export with the notice. Afterwards: add the gap to
+`docs/architecture/SECURITY-AND-PRIVACY.md` section 4 and the fix to the next release.
+
 ## 4. Redundancy choices and their cost
 
 | Switch | Default | What it buys | Cost |

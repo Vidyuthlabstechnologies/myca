@@ -86,11 +86,10 @@ flutter run --dart-define=MYCA_CLOUD_URL=http://127.0.0.1:8080
 - An SMS provider account: the Twilio and MSG91 senders exist (`src/sms-sender.mjs`, chosen by `MYCA_SMS_PROVIDER`); without one Google Sign-In is the only sign-in.
 - Telling an invited person. An invitation is only visible to them after they sign in
   with that number; no SMS is sent because there is no sender yet.
-- Changing a member's role, or adding a second owner.
 - Per-business provider credentials, so e-invoice and filing actions cannot be proposed.
 - Each business holds one pending preview. Two members previewing at once replace each
   other's preview; nothing wrong is posted, but one of them has to start again.
-- Reads write: every query appends an audit event, so it rewrites the books row.
+- Reads are audited but no longer rewrite the books row (\`withReadOnlyBooks\`, 2026-10-14).
 - Document bytes are in a Postgres table for now, not Cloud Storage. Uploads are sent
   in the request body, up to 8 MB; larger files need direct-to-storage uploads.
-- No limit yet on how much a business can upload in total.
+- A business may hold 200 MB of documents in total (\`MAX_BUSINESS_BYTES\`); beyond that an upload answers 413 STORAGE_FULL.
