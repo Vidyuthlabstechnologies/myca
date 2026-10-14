@@ -4,7 +4,7 @@
 
 **Whole product to a Play Store launch: about 47% complete** (estimate, see the last section)
 
-Last updated 2026-09-27 (after H10 — every Critical and High finding closed). Work now happens directly on the main branch (`claude/codebase-audit-review-9cf396`) with no background workflows. The release, statutory-rules, gate and ledger-integrity lanes are merged in. Suite: platform 362/362, every sprint and rules suite green, `npm run stress` passing.
+Last updated 2026-10-14 (automation and redundancy batch, PR #41). Work now happens directly on the main branch (`claude/codebase-audit-review-9cf396`) with no background workflows. The release, statutory-rules, gate and ledger-integrity lanes are merged in. Suite: platform 362/362, every sprint and rules suite green, `npm run stress` passing.
 
 ## How the percentage is computed
 
@@ -86,7 +86,7 @@ The goal is now an owner-first Android app on the Play Store. The weights below 
 | LLM chat agent | 8 | 35% | 2.8 | Tool contracts, keyword router, preview/confirm; no model in the loop |
 | Live filing connections | 7 | 40% | 2.8 | Adapters wired against sandbox; onboarding not started |
 | Play release work: listing, declarations, policy, testing | 5 | 0% | 0 | Not started |
-| **Total** | **100** | | **43.9** | |
+| **Total** | **100** | | **47.0** | |
 
 ## Measured against the product PRD (added 2026-10-06)
 
