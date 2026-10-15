@@ -41,6 +41,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<Today>? _today;
   Future<SalesTaxOverview?>? _salesTax;
   Future<Map<String, dynamic>>? _week;
+  Future<Map<String, dynamic>>? _close;
 
   bool get _us => widget.snapshot.company.country == 'US';
 
@@ -49,7 +50,17 @@ class _HomeScreenState extends State<HomeScreen> {
     super.didChangeDependencies();
     _today ??= _loadToday();
     _week ??= _loadWeek();
+    _close ??= _loadClose();
     if (_us) _salesTax ??= loadSalesTax(AppScope.of(context).api);
+  }
+
+  Future<Map<String, dynamic>> _loadClose() async {
+    final state = AppScope.of(context);
+    try {
+      return toolData(await state.api.query('daily_close'));
+    } on MycaApiException {
+      return const <String, dynamic>{};
+    }
   }
 
   Future<Map<String, dynamic>> _loadWeek() async {
@@ -70,6 +81,7 @@ class _HomeScreenState extends State<HomeScreen> {
     if (old.snapshot != widget.snapshot) {
       _today = _loadToday();
       _week = _loadWeek();
+      _close = _loadClose();
       if (_us) _salesTax = loadSalesTax(AppScope.of(context).api);
     }
   }
@@ -189,6 +201,18 @@ class _HomeScreenState extends State<HomeScreen> {
                 padding: const EdgeInsets.only(top: 12),
                 child: _UsTaxesPanel(onTap: () => _open(const UsTaxesScreen())),
               ),
+            FutureBuilder<Map<String, dynamic>>(
+              future: _close,
+              builder: (context, snap) {
+                final data = snap.data ?? const <String, dynamic>{};
+                final checklist = [for (final row in (data['checklist'] as List? ?? const [])) if (row is Map) Map<String, dynamic>.from(row)];
+                if (checklist.isEmpty) return const SizedBox.shrink();
+                return Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: _ClosePanel(data: data, checklist: checklist),
+                );
+              },
+            ),
             FutureBuilder<Map<String, dynamic>>(
               future: _week,
               builder: (context, snap) {
@@ -846,6 +870,42 @@ class _Figure extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _ClosePanel extends StatelessWidget {
+  const _ClosePanel({required this.data, required this.checklist});
+
+  final Map<String, dynamic> data;
+  final List<Map<String, dynamic>> checklist;
+
+  @override
+  Widget build(BuildContext context) {
+    final closed = data['status'] == 'closed';
+    final needs = [for (final item in (data['needsYou'] as List? ?? const [])) '$item'];
+    final cash = data['cash'] is Map ? Map<String, dynamic>.from(data['cash'] as Map) : const <String, dynamic>{};
+    final rows = closed ? checklist.take(3).toList() : checklist.where((row) => row['ok'] != true).toList();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SectionLabel(closed ? 'Books today · closed' : 'Books today · ${needs.length} ${needs.length == 1 ? 'needs' : 'need'} you'),
+        Panel(
+          children: [
+            for (final row in rows)
+              RowCard(
+                leading: TintTile(tint: row['ok'] == true ? Tint.ask : Tint.urgent, mark: row['ok'] == true ? Mark.comingUp : Mark.urgent),
+                title: '${row['item']}',
+                subtitle: '${row['detail'] ?? ''}',
+              ),
+            RowCard(
+              leading: const TintTile(tint: Tint.taxes, mark: Mark.sales),
+              title: 'Bank ${rupees(cash['bank'] as num? ?? 0)} · customers owe ${rupees(data['receivable'] as num? ?? 0)}',
+              subtitle: cash['source'] == 'recorded' ? 'As recorded; give today\'s bank balance for the real figure' : 'From the balance on ${cash['readingOn'] ?? ''} plus what was recorded since',
+            ),
+          ],
+        ),
+      ],
     );
   }
 }
