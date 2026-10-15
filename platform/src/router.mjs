@@ -3,7 +3,7 @@ import { templateWords } from './invoice-template.mjs';
 import { settlementWords, settlementStatusWords } from './settlements.mjs';
 import { orderImportWords } from './marketplace-orders.mjs';
 import { creditsWords } from './marketplace-credits.mjs';
-import { marginsWords, stockWords } from './sku-margins.mjs';
+import { marginsWords, stockWords, stockMovesWords } from './sku-margins.mjs';
 import { closeWords } from './daily-close.mjs';
 import { registrationsWords } from './registrations.mjs';
 import { stockTransferWords } from './stock-transfers.mjs';
@@ -333,6 +333,7 @@ function fmtToolResult(name, result) {
   if (name === 'import_sku_costs' && result.data) return `Recorded costs for ${result.data.updated === 1 ? '1 SKU' : `${result.data.updated} SKUs`}${result.data.held.length ? `; ${result.data.held.length} rows held back` : ''}.`;
   if (name === 'record_stock' && result.move) return `${result.move.qty > 0 ? `Added ${result.move.qty}` : `Removed ${-result.move.qty}`} of ${result.move.sku} at ${result.move.location}; now ${result.onHand} there.`;
   if (name === 'stock_position' && result.data) return stockWords(result.data, money);
+  if (name === 'stock_moves' && result.data) return stockMovesWords(result.data);
   if (name === 'sku_margins' && result.data) return marginsWords(result.data, money);
   if (name === 'daily_close' && result.data) return closeWords(result.data, money);
   if (name === 'registrations' && result.data) return registrationsWords(result.data);

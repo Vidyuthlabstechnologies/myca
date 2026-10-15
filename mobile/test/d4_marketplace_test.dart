@@ -18,6 +18,13 @@ void main() {
     expect(find.text('Margin ₹15,680.00 on net sales ₹42,500.00'), findsOneWidget);
     expect(find.text('SKU-B on amazon: -₹1,020.00 (-22.67%)'), findsOneWidget);
     expect(find.text('SKU-B at amazon: -1'), findsOneWidget);
+    await tester.tap(find.text('SKU-A at amazon: 58'));
+    await tester.pumpAndSettle();
+    expect(api.queries, contains('stock_moves'));
+    expect(find.text('58 on hand'), findsOneWidget);
+    expect(find.text('+60 on 2 September 2026'), findsOneWidget);
+    await tester.tapAt(const Offset(10, 10));
+    await tester.pumpAndSettle();
     expect(find.text('Principal · 27AABCU9603R1ZN'), findsOneWidget);
 
     final add = find.widgetWithText(ActionChip, 'Add a registration');

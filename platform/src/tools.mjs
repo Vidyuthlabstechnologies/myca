@@ -3,7 +3,7 @@ import { invoiceTemplate, setInvoiceTemplate } from './invoice-template.mjs';
 import { importSettlement, settlementStatus } from './settlements.mjs';
 import { importMarketplaceOrders, postSettlement } from './marketplace-orders.mjs';
 import { setChannelIdentity, importTcsStatement, import26asCredits, marketplaceCredits } from './marketplace-credits.mjs';
-import { setSkuCost, importSkuCosts, recordStock, stockPosition, skuMargins } from './sku-margins.mjs';
+import { setSkuCost, importSkuCosts, recordStock, stockPosition, skuMargins, stockMoves } from './sku-margins.mjs';
 import { dailyClose } from './daily-close.mjs';
 import { regArg, companyAs, forRegistration, setRegistration, retireRegistration, listRegistrations } from './registrations.mjs';
 import { recordStockTransfer } from './stock-transfers.mjs';
@@ -1776,6 +1776,13 @@ export const TOOLS = [
     description: 'Quantity on hand by SKU and location from recorded movements, valued at the recorded cost; locations gone negative are listed. Read-only.',
     args: ['sku', 'location'],
     run: (state, args = {}) => stockPosition(state, args),
+  },
+  {
+    name: 'stock_moves',
+    title: 'Stock history',
+    description: 'The recorded movements of a SKU or a location, newest first: orders out, returns in, stock recorded or transferred, each with its reference. Read-only.',
+    args: ['sku', 'location', 'limit'],
+    run: (state, args = {}) => stockMoves(state, args),
   },
   {
     name: 'sku_margins',
