@@ -155,6 +155,25 @@ export function stockPosition(state, { sku, location } = {}) {
   return { ok: true, data: { rows, negative: rows.filter((row) => row.qty < 0).map((row) => ({ sku: row.sku, location: row.location, qty: row.qty })), value: round2(rows.reduce((sum, row) => sum + (row.value || 0), 0)) } };
 }
 
+export function stockMoves(state, { sku, location, limit = 50 } = {}) {
+  const wantedSku = skuKey(sku);
+  const wantedLocation = String(location || '').trim().toLowerCase();
+  const rows = (state.stockMoves || [])
+    .filter((move) => (!wantedSku || move.sku === wantedSku) && (!wantedLocation || move.location === wantedLocation))
+    .map((move, index) => ({ ...move, index }))
+    .sort((a, b) => b.date.localeCompare(a.date) || b.index - a.index)
+    .slice(0, Math.max(1, Math.min(500, Number(limit) || 50)));
+  const onHand = stockPosition(state, { sku: wantedSku, location: wantedLocation }).data.rows.reduce((sum, row) => sum + row.qty, 0);
+  return { ok: true, data: { sku: wantedSku, location: wantedLocation, onHand: Math.round(onHand * 1000) / 1000, moves: rows.map(({ index, ...move }) => move), total: (state.stockMoves || []).length } };
+}
+
+export function stockMovesWords(data) {
+  if (!data.moves.length) return `No stock movement recorded${data.sku ? ` for ${data.sku}` : ''}${data.location ? ` at ${data.location}` : ''}.`;
+  const lines = [`${data.sku || 'All SKUs'}${data.location ? ` at ${data.location}` : ''}: ${data.onHand} on hand after ${data.moves.length === 1 ? '1 movement' : `${data.moves.length} movements`}.`];
+  for (const move of data.moves.slice(0, 12)) lines.push(`· ${move.date}: ${move.qty > 0 ? `+${move.qty}` : move.qty} ${move.sku} at ${move.location}${move.note ? `, ${move.note}` : ''}${move.ref ? ` (${move.ref})` : ''}`);
+  return lines.join('\n');
+}
+
 function feesByOrder(state, channel, period) {
   const out = new Map();
   for (const settlement of state.settlements || []) {

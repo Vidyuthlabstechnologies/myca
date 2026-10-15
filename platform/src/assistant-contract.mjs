@@ -667,6 +667,11 @@ export const TOOL_ARG_SCHEMAS = {
     additionalProperties: false,
     properties: { sku: { type: 'string', maxLength: 64 }, location: { type: 'string', maxLength: 40 } },
   },
+  stock_moves: {
+    type: 'object',
+    additionalProperties: false,
+    properties: { sku: { type: 'string', maxLength: 64 }, location: { type: 'string', maxLength: 40 }, limit: { type: 'integer', minimum: 1, maximum: 500 } },
+  },
   sku_margins: {
     type: 'object',
     additionalProperties: false,
@@ -1686,6 +1691,7 @@ const TOOL_RISK = {
   import_sku_costs: 'writes_books',
   record_stock: 'writes_books',
   stock_position: 'read_only',
+  stock_moves: 'read_only',
   sku_margins: 'read_only',
   daily_close: 'read_only',
   set_registration: 'writes_books',
@@ -2196,6 +2202,8 @@ export function planLocalToolCall(state, message) {
       const channel = /\b(amazon|flipkart|myntra|nykaa|meesho|shopify|razorpay)\b/i.exec(text);
       return { kind: 'tool', name: 'sku_margins', args: { ...(period ? { period: period[1] } : {}), ...(channel ? { channel: channel[1].toLowerCase() } : {}) } };
     }
+    const history = /\b(?:stock\s+(?:history|movements?|moves)|movements?\s+of)\s*(?:of\s+|for\s+)?([A-Za-z0-9][A-Za-z0-9_./-]{0,63})?\s*\??$/i.exec(text.trim());
+    if (history) return { kind: 'tool', name: 'stock_moves', args: history[1] ? { sku: history[1].toUpperCase() } : {} };
     if (/\bstock\s+(?:on\s+hand|position|level|left|balance)\b|\bhow\s+much\s+stock\b|\bstock\s+(?:at|in)\s+[A-Za-z]/i.test(text)) {
       const location = /\bstock\s+(?:at|in)\s+([A-Za-z0-9][A-Za-z0-9 _-]{0,39}?)\s*\??$/i.exec(text.trim());
       return { kind: 'tool', name: 'stock_position', args: location ? { location: location[1].trim().toLowerCase() } : {} };

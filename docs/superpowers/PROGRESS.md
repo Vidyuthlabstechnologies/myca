@@ -119,11 +119,11 @@ automated (`docs/superpowers/specs/2026-10-16-d2c-programme.md`).
 | D2 Orders and returns | 100% | Orders as day-and-state B2CS invoices with order ids and SKUs, returns as itemised credit notes, settlements settling the invoices with fees, TDS and TCS receivables; GSTR-1 table 14 by operator GSTIN (2026-10-16) | — |
 | D3 TCS and 194-O credits | 100% | Channel GSTIN and TAN, the portal's TCS statement and Form 26AS matched by number, gaps as exceptions, confirmed TCS used in the GST payment first | — |
 | D4 Several GSTINs | 100% | Registrations of one PAN, documents under them, GST split by the registration's state, returns, payments and filings per registration, orders by ship-from state, stock transfers at cost settled by contra; the daily checks remind about each registration's GSTR-1 and GSTR-3B separately (2026-10-16) | — |
-| D5 SKU costs, stock, margins | 100% | Costs by chat or sheet, stock by location moved by orders, returns and transfers, margins by SKU and channel with fees allocated from settlements, losing SKUs and negative stock as exceptions | Inventory valuation in the ledger |
+| D5 SKU costs, stock, margins | 100% | Costs by chat or sheet, stock by location moved by orders, returns and transfers with a history per SKU and location, margins by SKU and channel with fees allocated from settlements, losing SKUs and negative stock as exceptions | Inventory valuation in the ledger (an owner decision: it moves cost of goods out of purchases) |
 | D6 Channel APIs | 0% | File imports for every report | Amazon SP-API, Flipkart, Shopify, Razorpay, Unicommerce behind the action gate; need seller credentials |
 | D7 Daily close | 100% | The seven-point closure written by the daily job and on Home | — |
 | D8 WhatsApp and languages | 0% | — | Meta business verification; the model decision for Hindi and Telugu |
-| App | 95% | Marketplace screen with recent settlements, the close on Home, Taxes per registration | A stock history view |
+| App | 100% | Marketplace screen with recent settlements and stock history, the close on Home, Taxes per registration | — |
 
 ## United States edition (added 2026-10-13)
 

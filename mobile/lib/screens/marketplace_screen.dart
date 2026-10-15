@@ -102,6 +102,37 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with ProposalFlow
         ),
       );
 
+  Future<void> _showMoves(String sku, String location) async {
+    final data = toolData(await api.query('stock_moves', {'sku': sku, 'location': location}));
+    if (!mounted) return;
+    final moves = _maps(data['moves']);
+    await showModalBottomSheet<void>(
+      context: context,
+      builder: (sheet) {
+        final text = Theme.of(sheet).textTheme;
+        return SafeArea(
+          child: ListView(
+            shrinkWrap: true,
+            padding: const EdgeInsets.fromLTRB(22, 12, 22, 22),
+            children: [
+              Text('$sku at $location', style: text.headlineSmall),
+              Text('${data['onHand'] ?? 0} on hand', style: text.bodyMedium),
+              const SizedBox(height: 10),
+              if (moves.isEmpty) Text('No movement recorded yet.', style: text.bodyMedium),
+              for (final move in moves.take(20))
+                ListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  title: Text('${_num(move['qty']) > 0 ? '+' : ''}${move['qty']} on ${longDate('${move['date']}')}'),
+                  subtitle: Text('${move['note'] ?? ''}${'${move['ref'] ?? ''}'.isNotEmpty ? ' (${move['ref']})' : ''}'),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   Future<void> _addRegistration() async {
     final draft = await showModalBottomSheet<_RegistrationDraft>(context: context, isScrollControlled: true, builder: (_) => const _RegistrationSheet());
     if (draft == null || !mounted) return;
@@ -250,6 +281,8 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with ProposalFlow
                               leading: TintTile(tint: _num(row['qty']) < 0 ? Tint.urgent : Tint.purchases, mark: Mark.purchases),
                               title: '${row['sku']} at ${row['location']}: ${row['qty']}',
                               subtitle: row['value'] != null ? 'worth ${rupees(_num(row['value']))} at cost' : 'no cost set',
+                              trailing: const Chevron(),
+                              onTap: () => _showMoves('${row['sku']}', '${row['location']}'),
                             ),
                         ],
                       ),

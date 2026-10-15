@@ -1206,6 +1206,17 @@ class FakeMycaApi implements MycaApi {
             'totals': {'net': 42500, 'fees': 7300, 'cogs': 19520, 'margin': 15680},
           },
         };
+      case 'stock_moves':
+        return {
+          'ok': true,
+          'data': {
+            'sku': args['sku'], 'location': args['location'], 'onHand': 58, 'total': 3,
+            'moves': [
+              {'date': '2026-10-01', 'sku': 'SKU-A', 'qty': -2, 'location': 'amazon', 'kind': 'out', 'ref': 'INV-0031', 'note': 'Sold on amazon, order 403-9'},
+              {'date': '2026-09-02', 'sku': 'SKU-A', 'qty': 60, 'location': 'amazon', 'kind': 'in', 'ref': 'BILL-0007', 'note': 'Received from Principal'},
+            ],
+          },
+        };
       case 'stock_position':
         return {
           'ok': true,
