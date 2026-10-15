@@ -18,6 +18,7 @@ import { cpaPackWords } from './us-cpa-pack.mjs';
 import { payrollFileWords } from './us-payroll-files.mjs';
 import { chooseTool, modelConfigured } from './model-adapter.mjs';
 import { rememberTurn, recentTurns } from './chat-memory.mjs';
+import { logEvalEvent } from './practice.mjs';
 import { assistantTools } from './assistant-contract.mjs';
 import { usPayrollWords } from './us-payroll.mjs';
 import { ownerTaxWords } from './us-owner-tax.mjs';
@@ -189,6 +190,31 @@ function fmtToolResult(name, result) {
   if (name === 'pf_ecr' && result.data) {
     const d = result.data;
     return `PF file for ${d.month}: ${d.members === 1 ? '1 member' : `${d.members} members`}, remittance ${money(d.totals.remittance)} (employee share ${money(d.totals.employeeShare)}, pension ${money(d.totals.pensionShare)}, employer PF ${money(d.totals.employerEpfShare)}, EDLI ${money(d.totals.edli)}, administrative charge ${money(d.totals.adminCharge)}). Saved as ${d.fileName} from the payroll screen.${d.missingUan.length ? ` No UAN for ${d.missingUan.join(', ')}; add it before uploading.` : ''}`;
+  }
+  if (name === 'request_documents' && result.ok !== false) {
+    const r = result.request;
+    return `${r.id}: asked ${r.clientName} for ${r.items.map((item) => item.kind).join(', ')}${r.period ? ` for ${r.period}` : ''}${r.dueOn ? `, by ${r.dueOn}` : ''}. The message is ready to copy; say "received <item> for ${r.id}" as each arrives.\n\n${r.message}`;
+  }
+  if (name === 'record_document_received' && result.ok !== false) {
+    return result.outstanding.length ? `Noted. Still waiting on ${result.outstanding.join(', ')} for ${result.request.id}.` : `${result.request.id} is complete; everything asked for has arrived.`;
+  }
+  if (name === 'document_requests' && result.data) {
+    const d = result.data;
+    if (!d.requests.length) return 'No document requests are open. Say "request from CL-001: bank statement, sales register for 2026-09" to ask a client.';
+    const lines = d.requests.slice(0, 10).map((r) => `· ${r.id} ${r.clientName}: ${r.outstanding.length ? `waiting on ${r.outstanding.join(', ')}` : 'complete'}${r.dueOn ? ` (by ${r.dueOn}${r.overdue ? ', overdue' : ''})` : ''}`).join('\n');
+    return `${d.open === 1 ? '1 request open' : `${d.open} requests open`}${d.overdue ? `, ${d.overdue} overdue` : ''}:\n${lines}`;
+  }
+  if (name === 'eval_events' && result.data) {
+    const d = result.data;
+    if (!d.events.length) return 'Nothing logged yet.';
+    const lines = d.events.slice(0, 10).map((e) => `· ${e.id} "${e.input.slice(0, 60)}" → ${e.toolName || 'reply'} (${e.outcome}${e.viaModel ? ', model' : ''})${e.correction ? ` corrected: ${e.correction.correctTool || e.correction.note}` : ''}`).join('\n');
+    return `${d.total} messages logged, ${d.viaModel} routed by the model, ${d.blocked} blocked, ${d.corrected} corrected:\n${lines}`;
+  }
+  if (name === 'correct_eval' && result.ok !== false) return `Correction recorded on ${result.event.id}.`;
+  if (name === 'search_firm_notes' && result.data) {
+    const d = result.data;
+    if (!d.hits.length) return `Nothing in the firm's notes mentions "${d.query}".`;
+    return `${d.total === 1 ? '1 note mentions' : `${d.total} notes mention`} "${d.query}":\n${d.hits.slice(0, 8).map((h) => `· ${h.kind} ${h.id}: ${h.excerpt}`).join('\n')}`;
   }
   if (name === 'set_invoice_numbering' && result.ok !== false) {
     const mode = result.mode;
@@ -771,6 +797,7 @@ export async function chat(state, message) {
   setCurrentCountry(state);
   const out = spoken(await chatCore(state, message));
   rememberTurn(state, message, out.reply);
+  logEvalEvent(state, { input: message, toolName: out.tools?.[0]?.name || out.preview?.tool || out.pending?.name || out.pending?.tool || '', outcome: out.blocked ? 'blocked' : out.awaitingConfirmation || out.pending ? 'held' : out.tools?.length ? 'ran' : 'answered', viaModel: Boolean(out.viaModel), blocked: Boolean(out.blocked), reply: out.reply });
   return out;
 }
 

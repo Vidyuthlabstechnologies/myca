@@ -51,7 +51,9 @@ export function planReminder(state, args = {}) {
   if (due < today) return { ok: false, error: 'DATE_PASSED', due, today };
   const about = aboutOf(state, args);
   if (about.error) return { ok: false, ...about };
-  return { ok: true, plan: { text, due, about: about.about, inDays: daysBetween(today, due) } };
+  const assignedTo = String(args.assignedTo || '').trim().toUpperCase();
+  if (assignedTo && Array.isArray(state.firmUsers) && state.firmUsers.length && !state.firmUsers.some((user) => String(user.userId || '').toUpperCase() === assignedTo)) return { ok: false, error: 'USER_NOT_FOUND', assignedTo };
+  return { ok: true, plan: { text, due, about: about.about, inDays: daysBetween(today, due), assignedTo } };
 }
 
 function actorId(state, args) {
@@ -69,6 +71,7 @@ export function addReminder(state, args = {}) {
     ...(plan.about ? { about: plan.about } : {}),
     createdOn: localToday(),
     createdBy: actorId(state, args),
+    ...(plan.assignedTo ? { assignedTo: plan.assignedTo } : {}),
     done: null,
   };
   state.reminders = state.reminders || [];
@@ -88,10 +91,12 @@ export function completeReminder(state, args = {}) {
   return { ok: true, reminder };
 }
 
-export function listReminders(state, { status = 'open', today: asOf } = {}) {
+export function listReminders(state, { status = 'open', today: asOf, assignedTo } = {}) {
   const today = /^\d{4}-\d{2}-\d{2}$/.test(String(asOf || '')) ? asOf : localToday();
+  const wantedUser = String(assignedTo || '').trim().toUpperCase();
   const rows = (state.reminders || [])
     .filter((item) => (status === 'all' ? true : status === 'done' ? item.done : !item.done))
+    .filter((item) => !wantedUser || String(item.assignedTo || '').toUpperCase() === wantedUser)
     .map((item) => {
       const inDays = daysBetween(today, item.due);
       return { ...item, inDays, state: item.done ? 'done' : inDays < 0 ? 'overdue' : inDays === 0 ? 'today' : 'later' };

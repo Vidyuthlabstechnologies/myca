@@ -752,6 +752,7 @@ export const TOOL_ARG_SCHEMAS = {
       due: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' },
       invoiceId: { type: 'string', pattern: '^INV-[0-9]{4,}$' },
       billId: { type: 'string', pattern: '^BILL-[0-9]{4,}$' },
+      assignedTo: { type: 'string', maxLength: 32 },
       party: { type: 'string', maxLength: 80 },
     },
   },
@@ -859,6 +860,56 @@ export const TOOL_ARG_SCHEMAS = {
       leftOn: { type: 'string' },
     },
   },
+  request_documents: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['clientId', 'items'],
+    properties: {
+      clientId: { type: 'string', minLength: 1, maxLength: 32 },
+      period: { type: 'string', pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' },
+      items: { type: 'array', minItems: 1, maxItems: 20, items: { type: 'string', minLength: 1, maxLength: 60 } },
+      dueOn: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' },
+      note: { type: 'string', maxLength: 500 },
+    },
+  },
+  record_document_received: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['id'],
+    properties: {
+      id: { type: 'string', pattern: '^DRQ-[0-9]{4,}$' },
+      item: { type: 'string', maxLength: 60 },
+      on: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' },
+      documentSha256: { type: 'string', pattern: '^[a-f0-9]{64}$' },
+    },
+  },
+  document_requests: {
+    type: 'object',
+    additionalProperties: false,
+    properties: { clientId: { type: 'string', maxLength: 32 }, status: { type: 'string', enum: ['open', 'complete', 'all'] } },
+  },
+  eval_events: {
+    type: 'object',
+    additionalProperties: false,
+    properties: { status: { type: 'string', enum: ['all', 'corrected', 'uncorrected', 'failed'] }, limit: { type: 'integer', minimum: 1, maximum: 200 } },
+  },
+  correct_eval: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['id'],
+    properties: {
+      id: { type: 'string', pattern: '^EVL-[0-9]{5,}$' },
+      correctTool: { type: 'string', maxLength: 60 },
+      note: { type: 'string', maxLength: 500 },
+      wasRight: { type: 'boolean' },
+    },
+  },
+  search_firm_notes: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['query'],
+    properties: { query: { type: 'string', minLength: 2, maxLength: 120 } },
+  },
   supplier_reminder_draft: {
     type: 'object',
     additionalProperties: false,
@@ -954,7 +1005,7 @@ export const TOOL_ARG_SCHEMAS = {
   list_reminders: {
     type: 'object',
     additionalProperties: false,
-    properties: { status: { type: 'string', enum: ['open', 'done', 'all'] } },
+    properties: { status: { type: 'string', enum: ['open', 'done', 'all'] }, assignedTo: { type: 'string', maxLength: 32 } },
   },
   credit_at_risk: {
     type: 'object',
@@ -1419,6 +1470,9 @@ const TOOL_RISK = {
   set_employee_bank: 'writes_books',
   set_payment_terms: 'writes_books',
   set_supplier_terms: 'writes_books',
+  request_documents: 'writes_books',
+  record_document_received: 'writes_books',
+  correct_eval: 'writes_books',
   set_invoice_numbering: 'writes_books',
   set_party_address: 'writes_books',
   set_sales_tax_rate: 'writes_books',
@@ -1691,6 +1745,18 @@ export function planLocalToolCall(state, message) {
     const quarter = quarterSaid(text);
     const form = /\bsalar(?:y|ies)\b|\b24q\b|\bform\s*138\b/i.test(text) ? 'salary' : 'other';
     return { kind: 'tool', name: 'tds_return', args: { ...(quarter ? { quarter } : {}), ...(form === 'salary' ? { form } : {}) } };
+  }
+  {
+    const ask = /^(?:request|ask)\s+(?:documents?\s+)?from\s+([A-Za-z0-9_-]+)\s*:\s*(.+?)(?:\s+for\s+(\d{4}-\d{2}))?(?:\s+by\s+(\d{4}-\d{2}-\d{2}))?\s*$/i.exec(text.trim());
+    if (ask && !isNegated(text)) {
+      return { kind: 'tool', name: 'request_documents', args: { clientId: ask[1].toUpperCase(), items: ask[2].split(',').map((item) => item.trim()).filter(Boolean), ...(ask[3] ? { period: ask[3] } : {}), ...(ask[4] ? { dueOn: ask[4] } : {}) } };
+    }
+    const got = /^(?:received|got)\s+(.+?)\s+(?:for|against|on)\s+(DRQ-\d{4,})\s*$/i.exec(text.trim());
+    if (got && !isNegated(text)) return { kind: 'tool', name: 'record_document_received', args: { id: got[2].toUpperCase(), ...(/^(?:all|everything)$/i.test(got[1].trim()) ? {} : { item: got[1].trim().toLowerCase() }) } };
+    if (/^\s*(?:document\s+requests?|what\s+(?:documents?|files)\s+(?:are|is)\s+(?:still\s+)?(?:outstanding|pending|due)|outstanding\s+documents?)\s*\??\s*$/i.test(text)) return { kind: 'tool', name: 'document_requests', args: {} };
+    if (/^\s*(?:eval\s+(?:log|events?)|assistant\s+log|corrections?\s+log)\s*$/i.test(text)) return { kind: 'tool', name: 'eval_events', args: {} };
+    const search = /^\s*(?:search|find)\s+(?:firm\s+)?notes?\s+(?:for\s+)?(.+?)\s*$/i.exec(text);
+    if (search) return { kind: 'tool', name: 'search_firm_notes', args: { query: search[1] } };
   }
   if (/\b(?:number|numbering|series)\b.*\binvoices?\b.*\b(?:per|by|each|every)\s+(?:financial\s+)?year\b|\binvoices?\s+(?:numbering|numbers?|series)\b.*\b(?:per|by|each|every)\s+(?:financial\s+)?year\b|\byearly\s+invoice\s+(?:numbers?|numbering|series)\b/i.test(text) && !isNegated(text) && !isQuestion(text)) {
     return { kind: 'tool', name: 'set_invoice_numbering', args: { mode: 'yearly' } };

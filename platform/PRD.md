@@ -35,11 +35,11 @@ This PRD defines the external API requirements needed to turn MyCA from a local 
 | REQ-CA-008 | GSTIN Status | Validate GSTIN legal name, state, active/cancelled status, and taxpayer type. | GST | Readiness tracks `gstin_status` as a read-only integration. |
 | REQ-CA-009 | AIS/26AS | Import AIS and Form 26AS data for income and TDS credit reconciliation. | Income Tax | Readiness tracks `ais_26as` as a read integration. |
 | REQ-CA-010 | TDS Returns | Read/write deductee payments, sections, challans, deductions, and return-prep data. | Income Tax | Readiness tracks `tds_returns` as a read/write integration. |
-| REQ-CA-011 | Tasks/Deadlines | Create, assign, update, and read compliance tasks, periods, due dates, and statuses. | Practice | Readiness tracks `task_deadline` as a practice integration. |
-| REQ-CA-012 | Client Chase | Request missing documents and track collection status by client and period. | Practice | Readiness tracks `client_chase` as a practice integration. |
-| REQ-CA-013 | Notifications | Send approved email, WhatsApp, or SMS reminders and internal alerts. | Practice | Readiness tracks `notifications` as a write integration. |
-| REQ-CA-014 | Knowledge Base | Search firm SOPs, engagement notes, prior positions, and working papers. | AI | Readiness tracks `knowledge_base` as a read integration. |
-| REQ-CA-015 | Eval Logs | Store prompts, tool calls, outcomes, reviewer corrections, and failed scenarios. | AI | Readiness tracks `eval_logs` as a write integration. |
+| REQ-CA-011 | Tasks/Deadlines | Create, assign, update, and read compliance tasks, periods, due dates, and statuses. | Practice | Built in (2026-10-15): the deadline engine, reminders with an assignee (`add_reminder assignedTo`, `list_reminders assignedTo`), the week ahead and the daily automation. Readiness reports it built in. |
+| REQ-CA-012 | Client Chase | Request missing documents and track collection status by client and period. | Practice | Built in (2026-10-15): `request_documents`, `record_document_received`, `document_requests`; `/api/ca/document-requests`. |
+| REQ-CA-013 | Notifications | Send approved email, WhatsApp, or SMS reminders and internal alerts. | Practice | Built in: the outbox with the email relay, WhatsApp and SMS senders behind the live switch; readiness reports it built in (2026-10-15). |
+| REQ-CA-014 | Knowledge Base | Search firm SOPs, engagement notes, prior positions, and working papers. | AI | Built in as plain search (2026-10-15): `search_firm_notes` over questions to the CA, reminders, document requests, supplier reminders, document names and corrections; `/api/ca/knowledge/search`. Retrieval through the model is not built. |
+| REQ-CA-015 | Eval Logs | Store prompts, tool calls, outcomes, reviewer corrections, and failed scenarios. | AI | Built in (2026-10-15): every chat message is logged with the tool chosen, whether the model chose it and whether it was blocked (`eval_events`); reviewers record corrections (`correct_eval`); `/api/ca/ai/eval-events`. |
 
 ## Readiness Rules
 

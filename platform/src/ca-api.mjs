@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { requestDocuments, recordDocumentReceived, documentRequests, correctEval, evalEvents, searchFirmNotes } from './practice.mjs';
 import { journal, trialBalance } from './ledger.mjs';
 import { createInvoice, createPurchase } from './invoice.mjs';
 import { getBook, canonicalClientId, normalizeClientId, isValidClientId, ensureBooks } from './books.mjs';
@@ -303,6 +304,14 @@ export function handleCaApi(state, method, pathname, body = {}) {
     if (out) return out;
   }
 
+  if (path === '/document-requests') {
+    if (method === 'GET') return documentRequests(state, { clientId: body.clientId, status: body.status || 'open' });
+    if (method === 'POST') return requestDocuments(state, body);
+  }
+  if (method === 'POST' && path === '/document-requests/received') return recordDocumentReceived(state, body);
+  if (method === 'GET' && path === '/ai/eval-events') return evalEvents(state, body);
+  if (method === 'POST' && path === '/ai/eval-events') return correctEval(state, body);
+  if (method === 'POST' && path === '/knowledge/search') return searchFirmNotes(state, body);
   if (method === 'GET' && path === '/users') {
     return { ok: true, data: { users: listUsers(state) } };
   }

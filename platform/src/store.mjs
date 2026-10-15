@@ -88,6 +88,10 @@ export function createState() {
     clients: [],
     extraBooks: emptyBooks(),
     approvals: [],
+    documentRequests: [],
+    documentRequestSeq: 0,
+    evalEvents: [],
+    evalEventSeq: 0,
     approvalSeq: 0,
     activeClientId: 'SELF',
     outbox: [],
@@ -166,6 +170,10 @@ export function serialize(state) {
       Object.entries(state.extraBooks || {}).map(([id, book]) => [id, serializeBook(book)]),
     ),
     approvals: state.approvals || [],
+    documentRequests: state.documentRequests || [],
+    documentRequestSeq: state.documentRequestSeq || 0,
+    evalEvents: state.evalEvents || [],
+    evalEventSeq: state.evalEventSeq || 0,
     approvalSeq: state.approvalSeq || 0,
     activeClientId: state.activeClientId || 'SELF',
     outbox: state.outbox || [],
@@ -330,6 +338,10 @@ export function deserialize(raw) {
   for (const [id, book] of Object.entries(rawBooks(raw))) books[remap.get(id)] = deserializeBook(book);
   state.extraBooks = books;
   state.approvals = raw.approvals || [];
+  state.documentRequests = Array.isArray(raw.documentRequests) ? raw.documentRequests : [];
+  state.documentRequestSeq = raw.documentRequestSeq || 0;
+  state.evalEvents = Array.isArray(raw.evalEvents) ? raw.evalEvents : [];
+  state.evalEventSeq = raw.evalEventSeq || 0;
   state.approvalSeq = raw.approvalSeq || 0;
   state.activeClientId = loadedActiveClientId(raw, remap, state.clients);
   state.outbox = raw.outbox || [];
