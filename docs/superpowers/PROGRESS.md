@@ -2,7 +2,7 @@
 
 **Phase 0 (pilot readiness) engineering: 67% complete**
 
-**Whole product to a Play Store launch: about 67% complete** (estimate, see the last section)
+**Whole product to a Play Store launch: about 70.6% complete** (estimate, see the last section)
 
 Last updated 2026-10-14 (automation and redundancy batch, PR #41). Work now happens directly on the main branch (`claude/codebase-audit-review-9cf396`) with no background workflows. The release, statutory-rules, gate and ledger-integrity lanes are merged in. Suite: platform 362/362, every sprint and rules suite green, `npm run stress` passing.
 
