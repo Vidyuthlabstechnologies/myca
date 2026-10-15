@@ -6,7 +6,7 @@ import { isoDate, postingDate, localToday } from './dates.mjs';
 import { isPeriodLocked } from './period-lock.mjs';
 import { CHANNELS } from './settlements.mjs';
 import { recordOrderStockMoves } from './sku-margins.mjs';
-import { registrationByState, docFieldsFor, principalOf } from './registrations.mjs';
+import { registrationByState, principalOf } from './registrations.mjs';
 
 const round2 = (value) => Math.round(Number(value || 0) * 100) / 100;
 export const MARKETPLACE_ACCOUNTS = [
