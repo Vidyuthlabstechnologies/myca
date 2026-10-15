@@ -5,6 +5,7 @@ import { gstin as gstinRules } from './sprint-load.mjs';
 import { isoDate, postingDate, localToday } from './dates.mjs';
 import { isPeriodLocked } from './period-lock.mjs';
 import { CHANNELS } from './settlements.mjs';
+import { recordOrderStockMoves } from './sku-margins.mjs';
 
 const round2 = (value) => Math.round(Number(value || 0) * 100) / 100;
 export const MARKETPLACE_ACCOUNTS = [
@@ -242,6 +243,7 @@ export function importMarketplaceOrders(state, args = {}) {
     result.invoice.source = 'marketplace';
     result.invoice.channel = planned.channel;
     result.invoice.orders = item.orders;
+    recordOrderStockMoves(state, { channel: planned.channel, invoiceId: result.invoice.id, date: item.date, orders: item.orders, direction: 'out' });
     created.push({ id: result.invoice.id, date: item.date, state: item.state, orders: item.orders.length, taxable: result.invoice.taxable, total: result.invoice.total });
     for (const order of item.orders) byOrder.set(order.orderId, result.invoice);
   }
@@ -254,6 +256,8 @@ export function importMarketplaceOrders(state, args = {}) {
     if (!note.ok) { skipped.push({ id: ret.orderId, reason: note.error }); continue; }
     note.creditNote.marketplaceOrderId = ret.orderId;
     note.creditNote.channel = planned.channel;
+    const returned = (invoice.orders || []).find((order) => order.orderId === ret.orderId);
+    if (returned) recordOrderStockMoves(state, { channel: planned.channel, invoiceId: note.creditNote.id, date: note.creditNote.date, orders: [{ ...returned, qty: 1 }], direction: 'in' });
     credited.push({ id: note.creditNote.id, invoiceId: invoice.id, orderId: ret.orderId, total: note.creditNote.total });
   }
   return { ok: true, channel: planned.channel, parsed: planned.parsed, created, credited, skipped };

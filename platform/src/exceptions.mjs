@@ -2,6 +2,7 @@ import { trialBalance, verifyChain } from './ledger.mjs';
 import { invoicesToGstr1Json } from './gstr1-json.mjs';
 import { inWords } from './words.mjs';
 import { marketplaceCredits } from './marketplace-credits.mjs';
+import { skuMargins, stockPosition } from './sku-margins.mjs';
 import { appendAuditEvent } from './ca-api.mjs';
 
 export const SEVERITIES = ['critical', 'high', 'medium', 'low'];
@@ -284,6 +285,39 @@ function creditCandidates(book) {
   return out;
 }
 
+function marginCandidates(book) {
+  const out = [];
+  const period = (book.invoices || []).filter((inv) => inv.source === 'marketplace').map((inv) => inv.date.slice(0, 7)).sort().at(-1);
+  if (!period) return out;
+  const margins = skuMargins(book, { period }).data;
+  for (const row of margins.negative) {
+    out.push({
+      key: `margin:negative:${period}:${row.channel}:${row.sku}`,
+      source: 'settlement',
+      code: 'NEGATIVE_MARGIN',
+      severity: 'medium',
+      title: `${row.sku} lost ${Math.abs(row.margin)} on ${row.channel} in ${period}`,
+      why: `Net sales ${row.net} less fees ${row.fees} and cost of goods ${row.cogs} is below zero. Raise the price, cut the fees, or stop listing it there.`,
+      moneyAtRisk: Math.abs(row.margin),
+      evidence: { sku: row.sku, channel: row.channel, period, net: row.net, fees: row.fees, cogs: row.cogs },
+    });
+  }
+  const stock = stockPosition(book).data;
+  for (const row of stock.negative) {
+    out.push({
+      key: `stock:negative:${row.sku}:${row.location}`,
+      source: 'settlement',
+      code: 'STOCK_NEGATIVE',
+      severity: 'low',
+      title: `${row.sku} at ${row.location} shows ${row.qty}, more sold than was recorded as sent there`,
+      why: 'Orders moved out more units than the stock recorded at that location. Record the stock sent there so the count is right.',
+      moneyAtRisk: 0,
+      evidence: { sku: row.sku, location: row.location, qty: row.qty },
+    });
+  }
+  return out;
+}
+
 function settlementCandidates(book) {
   const out = [];
   for (const item of book.settlements || []) {
@@ -332,6 +366,7 @@ export function detectExceptions(book, inputs = {}) {
   return [
     ...settlementCandidates(book),
     ...creditCandidates(book),
+    ...marginCandidates(book),
     ...ledgerCandidates(book),
     ...gstr1Candidates(book),
     ...deadlineCandidates(inputs.deadlines),

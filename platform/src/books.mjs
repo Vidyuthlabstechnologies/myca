@@ -76,6 +76,8 @@ export function newBook(company = {}) {
     channels: {},
     tcsStatements: [],
     tdsCreditStatements: [],
+    skus: {},
+    stockMoves: [],
     supplierReminderSeq: 0,
     employees: [],
     employeeSeq: 0,
@@ -142,6 +144,8 @@ export function serializeBook(book) {
     channels: book.channels || {},
     tcsStatements: book.tcsStatements || [],
     tdsCreditStatements: book.tdsCreditStatements || [],
+    skus: book.skus || {},
+    stockMoves: book.stockMoves || [],
     supplierReminderSeq: book.supplierReminderSeq || 0,
     employees: book.employees || [],
     employeeSeq: book.employeeSeq || 0,
@@ -205,6 +209,8 @@ export function deserializeBook(raw) {
   book.channels = raw.channels && typeof raw.channels === 'object' ? raw.channels : {};
   book.tcsStatements = Array.isArray(raw.tcsStatements) ? raw.tcsStatements : [];
   book.tdsCreditStatements = Array.isArray(raw.tdsCreditStatements) ? raw.tdsCreditStatements : [];
+  book.skus = raw.skus && typeof raw.skus === 'object' ? raw.skus : {};
+  book.stockMoves = Array.isArray(raw.stockMoves) ? raw.stockMoves : [];
   book.supplierReminderSeq = raw.supplierReminderSeq || 0;
   book.employees = Array.isArray(raw.employees) ? raw.employees : [];
   book.employeeSeq = raw.employeeSeq || 0;

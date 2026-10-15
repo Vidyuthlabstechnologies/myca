@@ -49,7 +49,7 @@ import { planAmendment } from './invoice-amendments.mjs';
 import { tallyXmlToDayBookCsv } from './tally-xml.mjs';
 
 export const CONFIRM_TOOLS = new Set([
-  'create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'record_filing', 'record_supplier_reminder', 'add_employee', 'change_salary', 'end_employment', 'approve_payroll', 'record_salary_payment', 'set_tds_deductor', 'record_tds_deposit', 'tds_review_answer', 'set_gst_credit_opening', 'record_gst_payment', 'close_year', 'post_expense', 'set_expense_head', 'create_credit_note', 'create_debit_note', 'create_purchase_note', 'record_supplier_debit_note', 'cancel_invoice', 'gst_review_answer', 'import_gstr2b', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'set_party_address', 'set_transport', 'set_sales_tax_rate', 'set_contractor', 'set_sales_tax_nexus', 'sales_tax_review_answer', 'record_sales_tax_payment', 'record_sales_tax_filing', 'set_withholding', 'set_suta_rate', 'import_us_invoices', 'import_pos_sales', 'import_settlement', 'import_marketplace_orders', 'import_tcs_statement', 'import_26as_credits', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote', 'amend_invoice',
+  'create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'record_filing', 'record_supplier_reminder', 'add_employee', 'change_salary', 'end_employment', 'approve_payroll', 'record_salary_payment', 'set_tds_deductor', 'record_tds_deposit', 'tds_review_answer', 'set_gst_credit_opening', 'record_gst_payment', 'close_year', 'post_expense', 'set_expense_head', 'create_credit_note', 'create_debit_note', 'create_purchase_note', 'record_supplier_debit_note', 'cancel_invoice', 'gst_review_answer', 'import_gstr2b', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'set_party_address', 'set_transport', 'set_sales_tax_rate', 'set_contractor', 'set_sales_tax_nexus', 'sales_tax_review_answer', 'record_sales_tax_payment', 'record_sales_tax_filing', 'set_withholding', 'set_suta_rate', 'import_us_invoices', 'import_pos_sales', 'import_settlement', 'import_marketplace_orders', 'import_tcs_statement', 'import_26as_credits', 'record_stock', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote', 'amend_invoice',
   'import_tally', 'import_tally_xml', 'import_zoho', 'import_bank',
   'govt_generate_irn', 'govt_nic_cancel_irn',
   'exception_decide',
@@ -1017,6 +1017,21 @@ function usImportPreview(state, args) {
   };
 }
 
+function stockPreview(state, args) {
+  const sku = String(args.sku || '').trim().toUpperCase();
+  const qty = Number(args.qty);
+  const blockers = [];
+  if (!sku) blockers.push('Say which SKU.');
+  if (!Number.isFinite(qty) || qty === 0) blockers.push('A quantity is a number other than zero.');
+  const location = String(args.location || 'own').trim().toLowerCase();
+  return {
+    blockers,
+    summary: blockers.length ? '' : `${qty > 0 ? `Stock in: ${qty}` : `Stock out: ${-qty}`} of ${sku} at ${location}${args.date ? ` on ${args.date}` : ''}.`,
+    effects: ['Only the stock count changes; nothing posts to the ledger.'],
+    figures: { qty, sku, location },
+  };
+}
+
 function tcsStatementPreview(state, args) {
   const planned = planTcsStatement(state, args);
   if (!planned.ok) return { blockers: [planned.error === 'NO_HEADER' ? `The statement needs ${planned.parsed.need}.` : 'The statement has no TCS rows I can read.'], summary: '', effects: [], figures: {} };
@@ -1202,6 +1217,7 @@ const PREVIEWERS = {
   import_settlement: settlementPreview,
   import_marketplace_orders: ordersPreview,
   import_tcs_statement: tcsStatementPreview,
+  record_stock: stockPreview,
   import_26as_credits: credits26asPreview,
   import_bank: bankPreview,
   govt_generate_irn: (state, args) => irnPreview(state, args, false),

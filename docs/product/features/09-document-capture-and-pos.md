@@ -145,3 +145,17 @@ quarter where the marketplace deducted more than it reported is an exception. TC
 by the statement is used from the electronic cash ledger in the next GST payment before new
 cash, head by head, and posted against the GST TCS receivable (1210); the TDS 194-O
 receivable (1150) is the credit to claim in the income-tax return once 26AS confirms it.
+
+## SKU costs, stock and margins (D5, 2026-10-16)
+
+`set_sku_cost` ("cost of SKU-A is 450") or `import_sku_costs` records each product's landed
+unit cost. Marketplace orders move stock out of the channel's location as they are
+imported and returns move it back; `record_stock` ("stock in SKU-A 120 at amazon") records
+what was sent or counted, and `stock_position` shows quantity and value by SKU and
+location, with locations gone negative listed. `sku_margins` ("margins by sku for
+2026-09") gives, per SKU and channel, units, net sales after returns, the channel's fees
+and penalties allocated to each order from its settlements (order-level charges to the
+order, the rest pro rata by sale value, reimbursements credited back), cost of goods from
+the recorded cost, and the margin with its percentage. A SKU that lost money in the latest
+month and a location gone negative are exceptions. Nothing here posts to the ledger;
+inventory valuation in the books is a later decision.
