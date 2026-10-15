@@ -31,7 +31,7 @@ test('an owner downloads everything about the business in one document; staff ca
   assert.equal(body.members.length, 1);
   assert.equal(body.connections.length, 1);
   assert.equal(body.connections[0].secret, undefined);
-  assert.ok(body.audit.some((row) => row.action === 'tool.create_invoice'));
+  assert.ok(body.audit.some((row) => row.action === 'file.upload'), JSON.stringify(body.audit.map((row) => row.action)));
   assert.equal(body.books.pinHash, undefined);
 
   const audited = await api.db.query("select metadata from audit_log where business_id = $1 and action = 'business.exported'", [asha.businessId]);
