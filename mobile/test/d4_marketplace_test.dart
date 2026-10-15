@@ -12,7 +12,8 @@ void main() {
     await tapRow(tester, 'Marketplace');
     expect(api.queries, containsAll(['registrations', 'settlement_status', 'marketplace_credits', 'sku_margins', 'stock_position']));
     expect(find.text('Amazon: expected ₹1,84,000.00, paid ₹1,82,500.00'), findsOneWidget);
-    expect(find.textContaining('short ₹1,500.00'), findsOneWidget);
+    expect(find.textContaining('short ₹1,500.00'), findsNWidgets(2));
+    expect(find.text('STL-0002 Amazon 12345678902: ₹92,000.00'), findsOneWidget);
     expect(find.text('GST TCS: ₹920.00 deducted, ₹900.00 confirmed'), findsOneWidget);
     expect(find.text('Margin ₹15,680.00 on net sales ₹42,500.00'), findsOneWidget);
     expect(find.text('SKU-B on amazon: -₹1,020.00 (-22.67%)'), findsOneWidget);

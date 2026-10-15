@@ -237,6 +237,21 @@ export function invoicesToGstr1Json(company, invoices = [], periodFp, opts = {})
     }
   }
   if (nilMap.size) body.nil = { inv: [...nilMap.values()] };
+  const ecoMap = new Map();
+  const heldIds = new Set(held.map((row) => row.inum));
+  let ecoUnknown = 0;
+  for (const inv of dated.filter((i) => (opts.allGiven || fpFromDate(i.date) === fp) && i.source === 'marketplace' && i.status !== 'cancelled' && !heldIds.has(i.id))) {
+    const etin = String(opts.channels?.[inv.channel]?.gstin || '').toUpperCase();
+    if (!etin) { ecoUnknown += 1; continue; }
+    const row = ecoMap.get(etin) || { etin, suppval: 0, igst: 0, cgst: 0, sgst: 0, csamt: 0 };
+    row.suppval = round2(row.suppval + Number(inv.taxable || 0));
+    row.igst = round2(row.igst + Number(inv.igst || 0));
+    row.cgst = round2(row.cgst + Number(inv.cgst || 0));
+    row.sgst = round2(row.sgst + Number(inv.sgst || 0));
+    ecoMap.set(etin, row);
+  }
+  if (ecoMap.size) body.supeco = { clttx: [...ecoMap.values()] };
+  if (ecoUnknown) warnings.push(`${ecoUnknown === 1 ? '1 marketplace invoice is' : `${ecoUnknown} marketplace invoices are`} left out of table 14 because the operator's GSTIN is not set; say "amazon GSTIN ..." (or the channel's) so supplies through it are reported.`);
   if (unsplitZeroLines) warnings.push(`${unsplitZeroLines === 1 ? '1 line' : `${unsplitZeroLines} lines`} at 0% GST carry no supply type and are left out of table 8 (nil); mark each as nil-rated, exempt or non-GST.`);
   if (body.b2cs.some((row) => row.txval < 0)) warnings.push('B2CS_NEGATIVE: credit notes against small unregistered sales exceed those sales in this month; the net row is negative.');
   return {

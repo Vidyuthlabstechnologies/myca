@@ -8,6 +8,8 @@ import { verifyChain } from './ledger.mjs';
 import { rulesStatus } from './rules-status.mjs';
 import { normalizeClientId } from './books.mjs';
 import { dailyClose } from './daily-close.mjs';
+import { registrationsOf } from './registrations.mjs';
+import { filingFor } from './filings.mjs';
 
 const LOOK_AHEAD_DAYS = 14;
 const LOG_LIMIT = 60;
@@ -33,6 +35,15 @@ function dueSoon(state, today, until) {
       if (row.clientId !== clientId || row.filed || row.level === 'nothing_due') continue;
       if (row.dueDate < today || row.dueDate > until) continue;
       items.push({ key: `filing:${row.returnType}:${row.period}`, due: row.dueDate, text: `${row.returnLabel || row.returnType} for ${row.period} is due` });
+    }
+    const extra = registrationsOf(state, { includeRetired: false }).filter((reg) => reg.kind !== 'principal');
+    for (const reg of extra) {
+      for (const row of run.deadlines || []) {
+        if (row.clientId !== clientId || row.level === 'nothing_due' || !/^GSTR-(1|3B)$/.test(row.returnType)) continue;
+        if (row.dueDate < today || row.dueDate > until) continue;
+        if (filingFor(state, row.returnType, row.period, reg.gstin)) continue;
+        items.push({ key: `filing:${row.returnType}:${row.period}:${reg.gstin}`, due: row.dueDate, text: `${row.returnLabel || row.returnType} for ${row.period} is due for ${reg.label} (${reg.gstin})` });
+      }
     }
   } else {
     const overview = salesTaxOverview(state);

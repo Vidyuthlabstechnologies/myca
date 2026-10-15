@@ -55,7 +55,7 @@ export function periodSummary(state, period, gstin) {
   const gstr3b = gstr3bFor(state, docs);
   const outward = gstr3b.outward?.totals || {};
   const credit = gstr3b.itc?.available || {};
-  const file = docs.invoices.length || docs.creditNotes.length || docs.debitNotes.length ? invoicesToGstr1Json(docs.gstin !== undefined ? companyAs(state, docs.gstin) : state.company, docs.invoices, fpOf(docs.period), { creditNotes: docs.creditNotes, debitNotes: docs.debitNotes }) : null;
+  const file = docs.invoices.length || docs.creditNotes.length || docs.debitNotes.length ? invoicesToGstr1Json(docs.gstin !== undefined ? companyAs(state, docs.gstin) : state.company, docs.invoices, fpOf(docs.period), { creditNotes: docs.creditNotes, debitNotes: docs.debitNotes, channels: state.channels }) : null;
   return {
     ok: true,
     data: {

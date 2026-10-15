@@ -64,7 +64,7 @@ function ledgerCandidates(book) {
 function gstr1Candidates(book) {
   const out = [];
   for (const fp of periodsOf(book.invoices)) {
-    const json = invoicesToGstr1Json(book.company || {}, book.invoices || [], fp);
+    const json = invoicesToGstr1Json(book.company || {}, book.invoices || [], fp, { channels: book.channels });
     if (json.error) continue;
     for (const held of json.held || []) {
       const invoice = (book.invoices || []).find((i) => i.id === held.inum);
