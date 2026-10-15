@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -99,4 +100,11 @@ test('H16: a second launch mints a different token, so a stale one stops working
   assert.notEqual(first.token, second.token);
   const stale = probe([{ name: 'stale', headers: { 'x-myca-client': first.token } }]);
   assert.equal(stale.results[0].status, 403);
+});
+
+test('H16: the packaged app listens on a random port and opens the window on the port actually bound', () => {
+  const main = readFileSync(new URL('../desktop/main.cjs', import.meta.url), 'utf8');
+  assert.match(main, /app\.isPackaged \? 0 : 4780/, 'port 0 when packaged, 4780 for npm run dev');
+  assert.match(main, /createWindow\(started\.port\)/, 'the window uses the bound port, not the requested one');
+  assert.match(main, /loadURL\(`http:\/\/127\.0\.0\.1:\$\{port\}/);
 });

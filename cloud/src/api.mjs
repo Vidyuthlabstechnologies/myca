@@ -47,17 +47,27 @@ function readJson(req, limit = MAX_BODY_BYTES) {
   return new Promise((resolve, reject) => {
     const chunks = [];
     let bytes = 0;
+    let tooLarge = false;
+    const declared = Number(req.headers['content-length'] || 0);
+    if (declared > limit) {
+      req.resume();
+      reject(httpError(413, 'BODY_TOO_LARGE'));
+      return;
+    }
     req.on('data', (chunk) => {
+      if (tooLarge) return;
       bytes += chunk.length;
       if (bytes > limit) {
+        tooLarge = true;
+        chunks.length = 0;
         reject(httpError(413, 'BODY_TOO_LARGE'));
-        req.destroy();
         return;
       }
       chunks.push(chunk);
     });
     req.on('error', reject);
     req.on('end', () => {
+      if (tooLarge) return;
       if (!chunks.length) return resolve({});
       try {
         const parsed = JSON.parse(Buffer.concat(chunks).toString('utf8'));

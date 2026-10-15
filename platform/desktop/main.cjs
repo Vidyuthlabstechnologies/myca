@@ -3,12 +3,12 @@ const path = require('path');
 const { pathToFileURL } = require('url');
 const { writeFileSync, unlinkSync } = require('fs');
 
-const PORT = Number(process.env.PORT || 4780);
+const PORT = process.env.PORT ? Number(process.env.PORT) : app.isPackaged ? 0 : 4780;
 if (app.isPackaged) process.env.MYCA_REQUIRE_SAFE_STORAGE = '1';
 const MAX_HTML_BYTES = 5 * 1024 * 1024;
 let mainWindow = null;
 
-function createWindow() {
+function createWindow(port) {
   mainWindow = new BrowserWindow({
     width: 1480,
     height: 940,
@@ -23,7 +23,7 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.cjs'),
     },
   });
-  mainWindow.loadURL(`http://127.0.0.1:${PORT}/?v=17`);
+  mainWindow.loadURL(`http://127.0.0.1:${port}/?v=17`);
 }
 
 ipcMain.handle('myca:save-pdf', async (_event, payload = {}) => {
@@ -73,7 +73,7 @@ app.whenReady().then(async () => {
   const { startServer } = await import(pathToFileURL(path.join(__dirname, '../src/server.mjs')).href);
   const started = await startServer(PORT);
   if (started.error) dialog.showErrorBox('MyCA could not open your books', started.error);
-  createWindow();
+  createWindow(started.port);
 });
 
 app.on('window-all-closed', () => app.quit());

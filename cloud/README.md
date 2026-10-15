@@ -104,6 +104,14 @@ header:
   it has its attachments (or its text) stored for that business with a reminder. An
   unknown address answers 404 so the relay bounces the mail.
 
+## Security tests
+
+`test/security.test.mjs` is the consolidated check the cloud plan's step C3 asks for: owner-only
+routes refuse staff, every business route looks the same to an outsider as a missing one,
+malformed and oversize input stops before any engine runs, a connection key is not a user
+token and the reverse, old tokens die on sign-out, revocation and account deletion, and
+no response carries a secret, a hash or a phone number.
+
 ## Not built yet
 
 - The Google Cloud project itself, and the first `terraform apply` of `infra/cloud`.
