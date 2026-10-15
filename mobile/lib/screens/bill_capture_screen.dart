@@ -11,7 +11,9 @@ import '../theme.dart';
 import '../widgets.dart';
 
 class BillCaptureScreen extends StatefulWidget {
-  const BillCaptureScreen({super.key});
+  const BillCaptureScreen({super.key, this.initial});
+
+  final PickedFile? initial;
 
   @override
   State<BillCaptureScreen> createState() => _BillCaptureScreenState();
@@ -32,6 +34,13 @@ class _BillCaptureScreenState extends State<BillCaptureScreen> with ProposalFlow
     if (mounted) setState(() => _read = null);
   }
 
+  @override
+  void initState() {
+    super.initState();
+    final shared = widget.initial;
+    if (shared != null) WidgetsBinding.instance.addPostFrameCallback((_) => _readFile(shared));
+  }
+
   Future<void> _pick() async {
     final state = AppScope.of(context);
     setState(() {
@@ -40,7 +49,14 @@ class _BillCaptureScreenState extends State<BillCaptureScreen> with ProposalFlow
     });
     final picked = await state.pickAnyFile();
     if (picked == null || !mounted) return;
+    await _readFile(picked);
+  }
+
+  Future<void> _readFile(PickedFile picked) async {
+    final state = AppScope.of(context);
     setState(() {
+      _note = '';
+      _read = null;
       _reading = true;
       _fileName = picked.name;
     });

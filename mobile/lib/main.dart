@@ -16,6 +16,7 @@ import 'crash_reports.dart';
 import 'lock/app_lock.dart';
 import 'notifications.dart';
 import 'lock/device_app_lock.dart';
+import 'screens/bill_capture_screen.dart';
 import 'screens/business_setup_screen.dart';
 import 'screens/lock_screen.dart';
 import 'screens/name_screen.dart';
@@ -25,6 +26,7 @@ import 'screens/home_screen.dart';
 import 'screens/migration_flow.dart';
 import 'screens/sign_in_screen.dart';
 import 'screens/welcome_screen.dart';
+import 'shared_file.dart';
 import 'theme.dart';
 
 void main() {
@@ -62,6 +64,7 @@ void main() {
         lock: config.hosted ? DeviceAppLock() : const NoAppLock(),
         pickTextFile: pickTextFileFromDevice,
         pickAnyFile: pickAnyFileFromDevice,
+        takeSharedFile: takeSharedFileFromDevice,
         notifications: DeviceNotifications(),
         saveTextFile: saveTextFileOnDevice,
         shareText: shareTextFromDevice,
@@ -85,23 +88,44 @@ class MycaApp extends StatefulWidget {
 }
 
 class _MycaAppState extends State<MycaApp> with WidgetsBindingObserver {
+  final _navigator = GlobalKey<NavigatorState>();
+  bool _openingShared = false;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    widget.state.start();
+    widget.state.addListener(_openSharedFile);
+    widget.state.start().then((_) => widget.state.checkSharedFile());
   }
 
   @override
   void dispose() {
+    widget.state.removeListener(_openSharedFile);
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  void _openSharedFile() {
+    final state = widget.state;
+    if (state.sharedFile == null || !state.readyForEntries || _openingShared) return;
+    final navigator = _navigator.currentState;
+    if (navigator == null) return;
+    _openingShared = true;
+    final file = state.takeSharedFileForEntry()!;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await navigator.push(MaterialPageRoute<void>(builder: (_) => BillCaptureScreen(initial: file)));
+      _openingShared = false;
+    });
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState lifecycle) {
     if (lifecycle == AppLifecycleState.paused || lifecycle == AppLifecycleState.hidden) widget.state.leftApp();
-    if (lifecycle == AppLifecycleState.resumed) widget.state.returnedToApp();
+    if (lifecycle == AppLifecycleState.resumed) {
+      widget.state.returnedToApp();
+      widget.state.checkSharedFile();
+    }
   }
 
   @override
@@ -109,6 +133,7 @@ class _MycaAppState extends State<MycaApp> with WidgetsBindingObserver {
     return AppScope(
       state: widget.state,
       child: MaterialApp(
+        navigatorKey: _navigator,
         title: 'MyCA',
         debugShowCheckedModeBanner: false,
         theme: mycaTheme(),
