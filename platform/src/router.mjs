@@ -4,6 +4,7 @@ import { settlementWords, settlementStatusWords } from './settlements.mjs';
 import { orderImportWords } from './marketplace-orders.mjs';
 import { creditsWords } from './marketplace-credits.mjs';
 import { marginsWords, stockWords } from './sku-margins.mjs';
+import { closeWords } from './daily-close.mjs';
 import { planLocalToolCall, validateAssistantToolCall } from './assistant-contract.mjs';
 import { needsConfirmation, previewOf, openPending, takePending, clearPending, previewReply, blockedReply } from './chat-confirm.mjs';
 import { liveCallsEnabled, mockModeEnabled } from './runtime-config.mjs';
@@ -324,6 +325,7 @@ function fmtToolResult(name, result) {
   if (name === 'record_stock' && result.move) return `${result.move.qty > 0 ? `Added ${result.move.qty}` : `Removed ${-result.move.qty}`} of ${result.move.sku} at ${result.move.location}; now ${result.onHand} there.`;
   if (name === 'stock_position' && result.data) return stockWords(result.data, money);
   if (name === 'sku_margins' && result.data) return marginsWords(result.data, money);
+  if (name === 'daily_close' && result.data) return closeWords(result.data, money);
   if (name === 'settlement_status' && result.data) return settlementStatusWords(result.data, money);
   if (name === 'contractor_1099_file' && result.data) return file1099Words(result.data, money);
   if (name === 'export_trial_balance' && result.data) return `Trial balance as of ${result.data.asOf}: ${result.data.accounts === 1 ? '1 account' : `${result.data.accounts} accounts`}, debits ${money(result.data.debit)}, credits ${money(result.data.credit)}${result.data.balanced ? ', ties' : ', does not tie'}. Saved as ${result.data.fileName} from the Taxes screen.`;
