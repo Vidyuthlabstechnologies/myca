@@ -53,7 +53,16 @@ class Proposal {
   final Map<String, Object?> args;
 }
 
+class QueryCall {
+  const QueryCall(this.name, this.args);
+
+  final String name;
+  final Map<String, Object?> args;
+}
+
 class FakeMycaApi implements MycaApi {
+  bool severalRegistrations = false;
+  final queryArgs = <QueryCall>[];
   FakeMycaApi({
     this.signedIn = false,
     this.pin = '4321',
@@ -983,6 +992,7 @@ class FakeMycaApi implements MycaApi {
     Map<String, Object?> args = const {},
   ]) async {
     queries.add(name);
+    queryArgs.add(QueryCall(name, args));
     switch (name) {
       case 'gst_period_summary':
         periodsAsked.add(args['period'] as String?);
@@ -1145,6 +1155,66 @@ class FakeMycaApi implements MycaApi {
         return {'ok': true, 'data': {'year': args['year'], 'fileName': 'forms_w2_w3_${args['year']}.csv', 'csv': 'form,employee\nW-2,Ana Lopez\n'}};
       case 'list_amendments':
         return {'ok': true, 'data': {'amendments': amendments, 'count': amendments.length}};
+      case 'registrations':
+        return {
+          'ok': true,
+          'data': {
+            'several': severalRegistrations,
+            'registrations': [
+              {'gstin': '27AABCU9603R1ZN', 'state': '27', 'stateName': 'Maharashtra', 'kind': 'principal', 'label': 'Principal', 'effectiveFrom': '', 'effectiveTo': '', 'invoices': 14, 'purchases': 9, 'periods': const [], 'open': 0},
+              if (severalRegistrations)
+                {'gstin': '29AABCU9603R1ZJ', 'state': '29', 'stateName': 'Karnataka', 'kind': 'apob', 'label': 'Amazon BLR', 'effectiveFrom': '2026-09-01', 'effectiveTo': '', 'invoices': 3, 'purchases': 1, 'periods': const [], 'open': 0},
+            ],
+          },
+        };
+      case 'settlement_status':
+        return {
+          'ok': true,
+          'data': {
+            'total': 2,
+            'settlements': const [],
+            'byChannel': {
+              'amazon': {'settlements': 2, 'expected': 184000, 'paid': 182500, 'short': 1500, 'unmatched': 0, 'penalties': 250, 'tcs': 920, 'tds': 920, 'latest': '2026-10-01'},
+            },
+          },
+        };
+      case 'marketplace_credits':
+        return {
+          'ok': true,
+          'data': {
+            'tcs': const [],
+            'tds': const [],
+            'totals': {'tcsRecorded': 920, 'tcsReported': 900, 'tcsUsedInGst': 0, 'tcsAvailable': 900, 'tdsRecorded': 920, 'tdsIn26as': 0},
+            'channels': const {},
+          },
+        };
+      case 'sku_margins':
+        return {
+          'ok': true,
+          'data': {
+            'period': '',
+            'rows': [
+              {'sku': 'SKU-B', 'channel': 'amazon', 'units': 10, 'returnedUnits': 1, 'net': 4500, 'fees': 1200, 'cogs': 4320, 'margin': -1020, 'marginPercent': -22.67, 'costMissing': false},
+              {'sku': 'SKU-A', 'channel': 'amazon', 'units': 40, 'returnedUnits': 2, 'net': 38000, 'fees': 6100, 'cogs': 15200, 'margin': 16700, 'marginPercent': 43.95, 'costMissing': false},
+            ],
+            'byChannel': {'amazon': {'units': 47, 'net': 42500, 'fees': 7300, 'cogs': 19520, 'margin': 15680, 'marginPercent': 36.89}},
+            'negative': const [],
+            'costMissing': const [],
+            'totals': {'net': 42500, 'fees': 7300, 'cogs': 19520, 'margin': 15680},
+          },
+        };
+      case 'stock_position':
+        return {
+          'ok': true,
+          'data': {
+            'rows': [
+              {'sku': 'SKU-A', 'location': 'amazon', 'qty': 58, 'name': '', 'cost': 400, 'value': 23200, 'lastMove': '2026-10-01'},
+              {'sku': 'SKU-B', 'location': 'amazon', 'qty': -1, 'name': 'Cotton scarf', 'cost': 480, 'value': -480, 'lastMove': '2026-10-01'},
+            ],
+            'negative': [{'sku': 'SKU-B', 'location': 'amazon', 'qty': -1}],
+            'value': 22720,
+          },
+        };
       case 'daily_close':
         return {
           'ok': true,

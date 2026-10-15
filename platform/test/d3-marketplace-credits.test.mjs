@@ -36,7 +36,9 @@ test('TCS and TDS 194-O deducted in settlements are matched to the portal statem
   assert.equal(quarterOfDate('2026-09-30'), 'Q2 2026-27');
   assert.equal(quarterOfDate('2027-02-01'), 'Q4 2026-27');
 
-  const named = await chat(state, 'amazon GSTIN 29AAACA1234A1ZX TAN BLRA12345A');
+  const naming = await chat(state, 'amazon GSTIN 29AAACA1234A1ZX TAN BLRA12345A');
+  assert.equal(naming.awaitingConfirmation, true, naming.reply);
+  const named = await chat(state, 'yes');
   assert.match(named.reply, /Amazon: GSTIN 29AAACA1234A1ZX, TAN BLRA12345A/, named.reply);
   assert.equal((await runTool(state, 'set_channel_identity', { channel: 'flipkart', gstin: 'nope' })).error, 'BAD_GSTIN');
 

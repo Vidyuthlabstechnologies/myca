@@ -42,7 +42,9 @@ import { planPosImport } from './import-pos.mjs';
 import { planSettlement, settlementWords } from './settlements.mjs';
 import { planOrderImport, settlementInvoices } from './marketplace-orders.mjs';
 import { planTcsStatement, plan26asCredits } from './marketplace-credits.mjs';
-import { regArg, registrationsWords } from './registrations.mjs';
+import { regArg, registrationsWords, planRegistration, openDocumentsFor, registrationByGstin } from './registrations.mjs';
+import { planSkuCost, parseSkuCostsCsv } from './sku-margins.mjs';
+import { planChannelIdentity } from './marketplace-credits.mjs';
 import { planStockTransfer } from './stock-transfers.mjs';
 import { filingRows } from './deadline-run.mjs';
 import { tally, bank, gstin as gstinRules } from './sprint-load.mjs';
@@ -51,7 +53,7 @@ import { planAmendment } from './invoice-amendments.mjs';
 import { tallyXmlToDayBookCsv } from './tally-xml.mjs';
 
 export const CONFIRM_TOOLS = new Set([
-  'create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'record_filing', 'record_supplier_reminder', 'add_employee', 'change_salary', 'end_employment', 'approve_payroll', 'record_salary_payment', 'set_tds_deductor', 'record_tds_deposit', 'tds_review_answer', 'set_gst_credit_opening', 'record_gst_payment', 'close_year', 'post_expense', 'set_expense_head', 'create_credit_note', 'create_debit_note', 'create_purchase_note', 'record_supplier_debit_note', 'cancel_invoice', 'gst_review_answer', 'import_gstr2b', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'set_party_address', 'set_transport', 'set_sales_tax_rate', 'set_contractor', 'set_sales_tax_nexus', 'sales_tax_review_answer', 'record_sales_tax_payment', 'record_sales_tax_filing', 'set_withholding', 'set_suta_rate', 'import_us_invoices', 'import_pos_sales', 'import_settlement', 'import_marketplace_orders', 'import_tcs_statement', 'import_26as_credits', 'record_stock', 'record_stock_transfer', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote', 'amend_invoice',
+  'create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'record_filing', 'record_supplier_reminder', 'add_employee', 'change_salary', 'end_employment', 'approve_payroll', 'record_salary_payment', 'set_tds_deductor', 'record_tds_deposit', 'tds_review_answer', 'set_gst_credit_opening', 'record_gst_payment', 'close_year', 'post_expense', 'set_expense_head', 'create_credit_note', 'create_debit_note', 'create_purchase_note', 'record_supplier_debit_note', 'cancel_invoice', 'gst_review_answer', 'import_gstr2b', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'set_party_address', 'set_transport', 'set_sales_tax_rate', 'set_contractor', 'set_sales_tax_nexus', 'sales_tax_review_answer', 'record_sales_tax_payment', 'record_sales_tax_filing', 'set_withholding', 'set_suta_rate', 'import_us_invoices', 'import_pos_sales', 'import_settlement', 'import_marketplace_orders', 'import_tcs_statement', 'import_26as_credits', 'record_stock', 'record_stock_transfer', 'set_sku_cost', 'import_sku_costs', 'set_registration', 'retire_registration', 'set_channel_identity', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote', 'amend_invoice',
   'import_tally', 'import_tally_xml', 'import_zoho', 'import_bank',
   'govt_generate_irn', 'govt_nic_cancel_irn',
   'exception_decide',
@@ -1022,6 +1024,61 @@ function usImportPreview(state, args) {
   };
 }
 
+function skuCostPreview(state, args) {
+  const planned = planSkuCost(state, args);
+  if (!planned.ok) return { blockers: [{ SKU_REQUIRED: 'Say which SKU.', BAD_AMOUNT: 'The cost is zero or more per unit.', BAD_RATE: 'A GST rate is 0 to 28.', NOTHING_TO_CHANGE: 'Give a cost, a name, an HSN or a GST rate.', INVALID_DATE: 'That is not a date I can read.' }[planned.error] || planned.error], summary: '', effects: [], figures: {} };
+  const { plan } = planned;
+  return {
+    blockers: [],
+    summary: `${plan.sku}${plan.next.name ? ` (${plan.next.name})` : ''}: cost ${plan.next.cost == null ? 'not set' : money(plan.next.cost)} per unit${plan.next.gstRate != null ? `, GST ${plan.next.gstRate}%` : ''}${plan.before?.cost != null && plan.before.cost !== plan.next.cost ? ` (was ${money(plan.before.cost)})` : ''}.`,
+    effects: ['Margins and stock values use it from now; nothing posts to the ledger.'],
+    figures: { cost: plan.next.cost },
+  };
+}
+
+function skuCostsImportPreview(state, args) {
+  const parsed = parseSkuCostsCsv(args.csv || '');
+  if (!parsed.ok) return { blockers: [parsed.error === 'NO_HEADER' ? `The sheet needs ${parsed.need}.` : 'The sheet has no SKU rows I can read.'], summary: '', effects: [], figures: {} };
+  return {
+    blockers: [],
+    summary: `SKU costs: ${parsed.lines.length === 1 ? '1 SKU' : `${parsed.lines.length} SKUs`} read${parsed.held.length ? `; ${parsed.held.length} rows held back` : ''}.`,
+    effects: ['Later rows for the same SKU replace earlier ones; margins and stock values use them from now.'],
+    figures: { skus: parsed.lines.length },
+  };
+}
+
+function registrationPreview(state, args) {
+  const planned = planRegistration(state, args);
+  if (!planned.ok) {
+    const reason = { BAD_GSTIN: 'That is not a valid GSTIN.', PRINCIPAL_REQUIRED: 'Set the company GSTIN first.', IS_PRINCIPAL: 'That is the principal GSTIN already.', DIFFERENT_PAN: 'That GSTIN carries a different PAN, so it is not a registration of this business.', BAD_STATE: 'The state code in the GSTIN is not one MyCA knows.', BAD_KIND: 'The kind is apob, warehouse or branch.', STATE_TAKEN: `There is already an active registration in that state (${planned.by}).`, INVALID_DATE: 'That is not a date I can read.' }[planned.error] || planned.error;
+    return { blockers: [reason], summary: '', effects: [], figures: {} };
+  }
+  const { plan } = planned;
+  return {
+    blockers: [],
+    summary: `${plan.existing ? 'Update' : 'Add'} ${plan.next.label} ${plan.next.gstin} (${plan.next.kind}, state ${plan.next.state}) from ${plan.next.effectiveFrom}.`,
+    effects: ['Invoices and bills can be raised under it; its returns and filings are tracked by its GSTIN.', 'Marketplace orders shipped from its state post under it.'],
+    figures: { gstin: plan.next.gstin },
+  };
+}
+
+function retireRegistrationPreview(state, args) {
+  const gstin = String(args.gstin || '').replace(/\s+/g, '').toUpperCase();
+  const reg = registrationByGstin(state, gstin);
+  if (!reg || reg.kind === 'principal') return { blockers: [reg ? 'That is the principal GSTIN; change it on the company.' : `${gstin} is not a registration of this business.`], summary: '', effects: [], figures: {} };
+  if (reg.effectiveTo) return { blockers: [`${gstin} is already retired from ${reg.effectiveTo}.`], summary: '', effects: [], figures: {} };
+  const open = openDocumentsFor(state, gstin);
+  if (open.count) return { blockers: [`${gstin} still has ${open.count === 1 ? '1 open document' : `${open.count} open documents`} (${[...open.invoices, ...open.purchases].slice(0, 6).join(', ')}); settle or cancel them first.`], summary: '', effects: [], figures: {} };
+  return { blockers: [], summary: `Retire ${reg.label} ${gstin}${args.effectiveTo ? ` from ${args.effectiveTo}` : ' from today'}.`, effects: ['No new document can be raised under it; its past documents and returns stay.'], figures: {} };
+}
+
+function channelIdentityPreview(state, args) {
+  const planned = planChannelIdentity(state, args);
+  if (!planned.ok) return { blockers: [{ BAD_CHANNEL: 'Say which marketplace.', BAD_GSTIN: 'That is not a valid GSTIN.', BAD_TAN: 'A TAN is four letters, five digits and a letter.', NOTHING_TO_CHANGE: 'Give the GSTIN, the TAN or a name.' }[planned.error] || planned.error], summary: '', effects: [], figures: {} };
+  const { plan } = planned;
+  return { blockers: [], summary: `${plan.channel}: ${[plan.next.gstin ? `GSTIN ${plan.next.gstin}` : '', plan.next.tan ? `TAN ${plan.next.tan}` : '', plan.next.name || ''].filter(Boolean).join(', ')}.`, effects: ['The TCS statement and Form 26AS match this channel by number from now.'], figures: {} };
+}
+
 function stockTransferPreview(state, args) {
   const planned = planStockTransfer(state, args);
   if (!planned.ok) {
@@ -1240,6 +1297,11 @@ const PREVIEWERS = {
   import_tcs_statement: tcsStatementPreview,
   record_stock: stockPreview,
   record_stock_transfer: stockTransferPreview,
+  set_sku_cost: skuCostPreview,
+  import_sku_costs: skuCostsImportPreview,
+  set_registration: registrationPreview,
+  retire_registration: retireRegistrationPreview,
+  set_channel_identity: channelIdentityPreview,
   import_26as_credits: credits26asPreview,
   import_bank: bankPreview,
   govt_generate_irn: (state, args) => irnPreview(state, args, false),

@@ -46,9 +46,9 @@ void checkUploadSize(String content) {
   }
 }
 
-Future<Today> loadToday(MycaApi api, {String? period}) async {
+Future<Today> loadToday(MycaApi api, {String? period, String? gstin}) async {
   final results = await Future.wait([
-    api.query('gst_period_summary', {'period': ?period}),
+    api.query('gst_period_summary', {'period': ?period, if (gstin != null && gstin.isNotEmpty) 'gstin': gstin}),
     api.query('deadlines'),
     api.query('exceptions'),
     api.query('business_summary', {'period': ?period}),

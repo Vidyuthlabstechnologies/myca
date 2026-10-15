@@ -32,7 +32,10 @@ test('a second registration shares the PAN and takes one state; documents under 
   const state = books();
   assert.equal((await runTool(state, 'set_registration', { gstin: OTHER_PAN })).error, 'DIFFERENT_PAN');
   assert.equal((await runTool(state, 'set_registration', { gstin: PRINCIPAL })).error, 'IS_PRINCIPAL');
-  const added = await chat(state, `add registration ${KARNATAKA} as apob called Amazon BLR`);
+  const adding = await chat(state, `add registration ${KARNATAKA} as apob called Amazon BLR`);
+  assert.equal(adding.awaitingConfirmation, true, adding.reply);
+  assert.ok(adding.reply.includes(`Add Amazon BLR ${KARNATAKA} (apob, state 29)`), adding.reply);
+  const added = await chat(state, 'yes');
   assert.ok(added.reply.includes(`Added Amazon BLR ${KARNATAKA} (apob, state 29)`), added.reply);
   assert.equal((await runTool(state, 'set_registration', { gstin: withCheck('29AABCU9603R2Z') })).error, 'STATE_TAKEN');
   const listed = await runTool(state, 'registrations', {});

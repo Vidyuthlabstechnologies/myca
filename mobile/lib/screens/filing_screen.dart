@@ -10,9 +10,10 @@ import '../theme.dart';
 import '../widgets.dart';
 
 class RecordFilingScreen extends StatefulWidget {
-  const RecordFilingScreen({super.key, required this.returns});
+  const RecordFilingScreen({super.key, required this.returns, this.gstin = ''});
 
   final List<Deadline> returns;
+  final String gstin;
 
   @override
   State<RecordFilingScreen> createState() => _RecordFilingScreenState();
@@ -72,6 +73,7 @@ class _RecordFilingScreenState extends State<RecordFilingScreen>
       {
         'returnType': chosen.returnType,
         'period': chosen.period,
+        if (widget.gstin.isNotEmpty) 'gstin': widget.gstin,
         'arn': arn,
         'filedOn': filedOn,
       },
