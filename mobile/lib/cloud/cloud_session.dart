@@ -561,6 +561,8 @@ class CloudSession {
     if (body['ok'] == false) throw MycaApiException(cloudMessage('${body['error']}'));
   }
 
+  Future<Map<String, dynamic>> exportBusiness() => call('GET', '$_books/export');
+
   Future<void> deleteBusiness() async {
     final id = _businessId;
     if (id == null) return;

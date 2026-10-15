@@ -270,6 +270,31 @@ export function createApi({ db, secret, otpSender = null, googleClientIds = [], 
         if (role !== 'owner') throw httpError(403, 'OWNER_ONLY');
         return inbound.list(businessId);
       }
+      if (method === 'GET' && action === 'export') {
+        if (role !== 'owner') throw httpError(403, 'OWNER_ONLY');
+        const business = (await businesses.listFor(user.userId)).find((b) => b.id === businessId) || { id: businessId };
+        const people = await businesses.members(businessId);
+        const auditRows = await db.query('select id, user_id as "userId", request_id as "requestId", action, before_hash as "beforeHash", after_hash as "afterHash", metadata, at from audit_log where business_id = $1 order by id', [businessId]);
+        const inboundKeys = await inbound.list(businessId);
+        const out = await runner.withReadOnlyBooks(businessId, context, async (session) => session.backup());
+        const stored = await db.query('select sha256, content from documents where business_id = $1 order by created_at', [businessId]);
+        const documents = Object.fromEntries(stored.rows.map((row) => [row.sha256, row.content]));
+        await db.query(
+          `insert into audit_log (business_id, user_id, device_id, request_id, action, metadata) values ($1, $2, $3, $4, 'business.exported', $5::jsonb)`,
+          [businessId, user.userId, user.deviceId, requestId, JSON.stringify({ documents: stored.rowCount, auditRows: auditRows.rowCount })],
+        );
+        return {
+          ok: true,
+          exportedAt: out.exportedAt,
+          business: { id: business.id, name: business.name || '', gstin: business.gstin || '' },
+          members: people,
+          connections: inboundKeys.keys || [],
+          books: out.state,
+          documents,
+          audit: auditRows.rows,
+          note: 'This is everything MyCA holds about this business: the books as one document, every uploaded file keyed by its sha256, who is a member, the connected systems, and the audit trail. Restore it on the Windows app or keep it.',
+        };
+      }
       if (method === 'GET' && action === 'members') {
         return {
           ok: true,

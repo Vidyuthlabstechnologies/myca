@@ -33,9 +33,18 @@ function machineKey(salt) {
   return scryptSync(`${hostname()}::${user}::${DOMAIN}`, salt, 32);
 }
 
+export function safeStorageRequired() {
+  return process.env.MYCA_REQUIRE_SAFE_STORAGE === '1' && !safeStorage;
+}
+
 export function encryptSecret(value) {
   const text = value == null ? '' : String(value);
   if (!text) return null;
+  if (safeStorageRequired()) {
+    const err = new Error('SAFE_STORAGE_REQUIRED');
+    err.code = 'SAFE_STORAGE_REQUIRED';
+    throw err;
+  }
   if (safeStorage) {
     return { scheme: 'safeStorage', data: safeStorage.encryptString(text).toString('base64') };
   }

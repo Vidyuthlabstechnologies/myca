@@ -23,6 +23,7 @@ class FakeCloud {
   final disabledKeys = <String>[];
   final deletedBusinesses = <String>[];
   bool accountDeleted = false;
+  int exports = 0;
   final crashReports = <Map<String, Object?>>[];
   bool crashServerDown = false;
   bool noticeAccepted = true;
@@ -225,6 +226,10 @@ class FakeCloud {
         if (m['id'] == id) m['role'] = body['role'];
       }
       return _json(200, {'ok': true, 'role': body['role'], 'was': 'staff'});
+    }
+    if (path == '$books/export' && request.method == 'GET') {
+      exports += 1;
+      return _json(200, {'ok': true, 'exportedAt': '2026-10-15T10:00:00.000Z', 'business': {'id': businessId, 'name': 'Asha Traders', 'gstin': ''}, 'members': const <Object?>[], 'connections': const <Object?>[], 'books': {'company': company}, 'documents': const <String, Object?>{}, 'audit': const <Object?>[]});
     }
     if (path == '/v1/businesses/$businessId' && request.method == 'DELETE') {
       deletedBusinesses.add(businessId);

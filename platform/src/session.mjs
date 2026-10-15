@@ -5,6 +5,7 @@ import { chat, propose, confirmPending, discardPending } from './router.mjs';
 import { isRemoteQuery, companyProfilePatch } from './remote-contract.mjs';
 import { countryOf, countryInfo, toolsForCountry } from './country.mjs';
 import { runTool, TOOLS } from './tools.mjs';
+import { verifyChain } from './ledger.mjs';
 import { OSS_CATALOG } from './oss-catalog.mjs';
 import { publicGovtConfig } from './govt.mjs';
 import { integrationReadiness } from './integration-contract.mjs';
@@ -316,9 +317,16 @@ export function openSession(target = defaultDataPath(), { seed = true } = {}) {
           return { ok: false, error: 'INVALID_BACKUP' };
         }
         if (!next.ledger || !Array.isArray(next.invoices)) return { ok: false, error: 'INVALID_BACKUP' };
-        for (const content of Object.values(payload.documents || {})) {
-          if (typeof content === 'string') stores.documents.put(content);
+        const chain = verifyChain(next.ledger);
+        if (chain && chain.ok === false) return { ok: false, error: 'INVALID_BACKUP', reason: 'CHAIN_BROKEN' };
+        const documents = payload.documents && typeof payload.documents === 'object' ? payload.documents : {};
+        for (const [sha, content] of Object.entries(documents)) {
+          if (!/^[a-f0-9]{64}$/.test(sha) || typeof content !== 'string') return { ok: false, error: 'INVALID_BACKUP', reason: 'BAD_DOCUMENT_KEY' };
+          if (createHash('sha256').update(content, 'utf8').digest('hex') !== sha) return { ok: false, error: 'INVALID_BACKUP', reason: 'DOCUMENT_HASH_MISMATCH', sha256: sha };
         }
+        for (const content of Object.values(documents)) stores.documents.put(content);
+        next.approvals = [];
+        next.pendingChatAction = null;
         next._dataDir = state._dataDir;
         next._documents = stores.documents;
         next.firmUsers = (next.firmUsers || []).map(withoutPin);

@@ -8,10 +8,12 @@ export function htmlEscape(value) {
   }[ch]));
 }
 
+const FORMULA_START = /^[\s\uFEFF]*[=+\-@\t\r\uFF1D\uFF0B\uFF0D\uFF20]/;
+
 export function csvCell(value) {
   let text = String(value ?? '');
   const numeric = /^-?\d+(?:\.\d+)?$/.test(text);
-  if (!numeric && /^[=+\-@]/.test(text)) text = `'${text}`;
+  if (!numeric && (FORMULA_START.test(text) || /^[\t\r]/.test(text))) text = `'${text}`;
   if (/[",\r\n]/.test(text)) return `"${text.replace(/"/g, '""')}"`;
   return text;
 }

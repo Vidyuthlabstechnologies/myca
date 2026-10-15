@@ -4,6 +4,7 @@ const { pathToFileURL } = require('url');
 const { writeFileSync, unlinkSync } = require('fs');
 
 const PORT = Number(process.env.PORT || 4780);
+if (app.isPackaged) process.env.MYCA_REQUIRE_SAFE_STORAGE = '1';
 const MAX_HTML_BYTES = 5 * 1024 * 1024;
 let mainWindow = null;
 
@@ -33,11 +34,14 @@ ipcMain.handle('myca:save-pdf', async (_event, payload = {}) => {
   const tmpHtml = path.join(app.getPath('temp'), `myca-print-${Date.now()}.html`);
   let win;
   try {
-    writeFileSync(tmpHtml, html, 'utf8');
+    const strict = `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:; font-src data:">`;
+    writeFileSync(tmpHtml, /<head[^>]*>/i.test(html) ? html.replace(/<head[^>]*>/i, (open) => `${open}${strict}`) : `${strict}${html}`, 'utf8');
     win = new BrowserWindow({
       show: false,
-      webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true },
+      webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true, javascript: false, webSecurity: true, allowRunningInsecureContent: false },
     });
+    win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+    win.webContents.on('will-navigate', (event) => event.preventDefault());
     await win.loadFile(tmpHtml);
     const pdf = await win.webContents.printToPDF({ printBackground: true, pageSize: 'A4' });
     const { canceled, filePath } = await dialog.showSaveDialog(mainWindow, {
