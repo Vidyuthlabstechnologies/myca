@@ -12,7 +12,7 @@ test('the rules status lists every Indian family with what is in force, what end
   const d = out.data;
   assert.equal(d.country, 'IN');
   assert.equal(d.integrity, 0);
-  assert.deepEqual(d.families.map((f) => f.key), ['gst', 'tds', 'income-tax', 'audit-threshold', 'due-date', 'holiday', 'payroll', 'professional-tax']);
+  assert.deepEqual(d.families.map((f) => f.key), ['gst', 'tds', 'income-tax', 'audit-threshold', 'msme', 'due-date', 'holiday', 'payroll', 'professional-tax']);
   assert.equal(d.totals.records, d.families.reduce((sum, f) => sum + f.records, 0));
   assert.ok(d.totals.records >= 160, `${d.totals.records} records`);
   assert.equal(d.totals.attested, 0);

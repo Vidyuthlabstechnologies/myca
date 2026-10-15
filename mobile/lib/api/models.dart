@@ -206,6 +206,7 @@ class Invoice {
     this.payments = const [],
     this.dueDate = '',
     this.termsDays,
+    this.msme = false,
   });
 
   factory Invoice.fromJson(Object? json) {
@@ -220,6 +221,7 @@ class Invoice {
       receipts: _maps(map['receipts']).map(Receipt.fromJson).toList(),
       payments: _maps(map['payments']).map(Receipt.fromJson).toList(),
       dueDate: _text(map['dueDate']),
+      msme: map['msme'] == true,
       termsDays: map['paymentTermsDays'] is num
           ? (map['paymentTermsDays'] as num).toInt()
           : null,
@@ -241,6 +243,7 @@ class Invoice {
   final List<num> gstRates;
   final String dueDate;
   final int? termsDays;
+  final bool msme;
 
   bool get paid => status == 'paid';
 

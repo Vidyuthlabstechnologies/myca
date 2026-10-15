@@ -6,6 +6,7 @@ import { outstandingOf } from './credit-notes.mjs';
 import { salesTaxOverview } from './us-sales-tax.mjs';
 import { estimatedTaxDates } from './us-owner-tax.mjs';
 import { normalizeClientId } from './books.mjs';
+import { supplierDues } from './supplier-dues.mjs';
 
 const round2 = (value) => Math.round(Number(value || 0) * 100) / 100;
 
@@ -53,6 +54,10 @@ export function weekAhead(state, args = {}) {
     const due = round2(outstandingOf(state, invoice));
     if (due <= 0.005) continue;
     items.push({ kind: 'receivable', when: invoice.dueDate, overdue: invoice.dueDate < today, title: `${invoice.partyName} owes ${due} on ${invoice.id}`, detail: invoice.dueDate < today ? `Overdue since ${invoice.dueDate}` : `Due ${invoice.dueDate}`, invoiceId: invoice.id, amount: due });
+  }
+  for (const bill of supplierDues(state, { asOf: today }).data.bills) {
+    if (bill.payBy > until) continue;
+    items.push({ kind: 'payable', when: bill.payBy, overdue: bill.overdue, title: `Pay ${bill.supplier} ${bill.outstanding} on ${bill.billId}${bill.msme ? ' (MSME)' : ''}`, detail: bill.overdue ? `${bill.msme ? 'Past the MSMED limit since' : 'Overdue since'} ${bill.payBy}` : `Pay by ${bill.payBy}`, billId: bill.billId, amount: bill.outstanding, msme: bill.msme });
   }
   const payrollMonth = plusDays(today, 0).slice(0, 7);
   const lastMonth = plusDays(`${payrollMonth}-01`, -1).slice(0, 7);

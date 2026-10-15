@@ -71,9 +71,13 @@ WhatsApp or email. For goods on the move, the e-way bill is offered on the same 
   and their terms otherwise, and shows both.
 - Chat: "Retail Mart pays in 45 days", "set Retail Mart's terms to net 30", "terms for
   Kiran Stores: on receipt", and "… net 45" at the end of an invoice message.
-- Not built: terms on purchase bills. Payments to micro and small enterprise suppliers
-  carry a statutory time limit with income tax consequences; that belongs with supplier
-  payment tracking and must come from dated rules, not from this feature.
+- Supplier terms (built 2026-10-15): `set_supplier_terms` records a supplier's agreed
+  days and whether they are a micro or small enterprise (Udyam number optional). A new
+  bill carries its pay-by date; for an MSME it comes from the dated MSMED rule (the
+  agreed days, at most 45, or 15 with no agreement). `supplier_dues` lists unpaid bills
+  by pay-by date and the MSME position under s.43B(h); the week ahead and the app's
+  supplier chat show them. Chat: "Fabric Co is MSME, UDYAM-MH-12-1234567, net 30",
+  "msme dues".
 
 ### Quotes (built 2026-10-06)
 

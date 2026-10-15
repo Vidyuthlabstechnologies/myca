@@ -52,6 +52,7 @@ export function createState() {
     reminderSeq: 0,
     cashReadings: [],
     customerTerms: {},
+    supplierTerms: {},
     caRequests: [],
     caRequestSeq: 0,
     quotes: [],
@@ -127,6 +128,7 @@ export function serialize(state) {
     reminderSeq: state.reminderSeq || 0,
     cashReadings: state.cashReadings || [],
     customerTerms: state.customerTerms || {},
+    supplierTerms: state.supplierTerms || {},
     caRequests: state.caRequests || [],
     caRequestSeq: state.caRequestSeq || 0,
     quotes: state.quotes || [],
@@ -282,6 +284,7 @@ export function deserialize(raw) {
   state.reminderSeq = raw.reminderSeq || 0;
   state.cashReadings = Array.isArray(raw.cashReadings) ? raw.cashReadings : [];
   state.customerTerms = raw.customerTerms && typeof raw.customerTerms === 'object' ? raw.customerTerms : {};
+  state.supplierTerms = raw.supplierTerms && typeof raw.supplierTerms === 'object' ? raw.supplierTerms : {};
   state.caRequests = Array.isArray(raw.caRequests) ? raw.caRequests : [];
   state.caRequestSeq = raw.caRequestSeq || 0;
   state.quotes = Array.isArray(raw.quotes) ? raw.quotes : [];

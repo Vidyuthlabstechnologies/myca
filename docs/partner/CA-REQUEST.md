@@ -9,7 +9,7 @@ send it in, and what it unblocks. The reference material is the validation brief
 ## 1. Attestation of the statutory rules (highest value, about two days of review)
 
 MyCA holds every statutory figure as a dated record with its act, section and source.
-None of the 98 rule ids (177 records) has been reviewed by a CA yet, so every figure in
+None of the 100 rule ids (180 records) has been reviewed by a CA yet, so every figure in
 the app carries a "not reviewed" note. Your attestation removes that note for your
 clients.
 
@@ -21,6 +21,7 @@ clients.
 | Tax audit and presumptive limits (44AB, 44AD, 44ADA) | 2 | Finance Act amendments |
 | Return due dates and rollover: GSTR-1, GSTR-3B, QRMP day by state, TDS statements, ITR | 20 | CBIC and CBDT notifications |
 | Gazetted holidays 2026 | 2 | DoPT memorandum |
+| MSME payment time limit and the deduction only on payment | 2 | MSMED Act 2006 s.15 and s.2(b); Finance Act 2023 s.43B(h); the successor section in the Income-tax Act 2025 (not re-read; please confirm) |
 | EPF and ESI: rates, wage ceilings, administrative charges | 7 | EPFO and ESIC circulars |
 | Professional tax slabs for fifteen states | 15 | Each state's commercial tax department |
 

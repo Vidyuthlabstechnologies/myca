@@ -190,6 +190,17 @@ function fmtToolResult(name, result) {
     const d = result.data;
     return `PF file for ${d.month}: ${d.members === 1 ? '1 member' : `${d.members} members`}, remittance ${money(d.totals.remittance)} (employee share ${money(d.totals.employeeShare)}, pension ${money(d.totals.pensionShare)}, employer PF ${money(d.totals.employerEpfShare)}, EDLI ${money(d.totals.edli)}, administrative charge ${money(d.totals.adminCharge)}). Saved as ${d.fileName} from the payroll screen.${d.missingUan.length ? ` No UAN for ${d.missingUan.join(', ')}; add it before uploading.` : ''}`;
   }
+  if (name === 'set_supplier_terms' && result.ok !== false) {
+    const d = result;
+    return `${d.supplier}${d.msme ? ` is recorded as an MSME${d.category ? ` (${d.category})` : ''}${d.udyam ? `, ${d.udyam}` : ''}` : ' is not an MSME'}${d.days != null ? `; agreed terms ${d.days === 0 ? 'on receipt' : `${d.days} days`}` : ''}. New bills from them carry the pay-by date${d.msme ? ' from the MSMED Act' : ''}; old bills keep theirs.`;
+  }
+  if (name === 'supplier_dues' && result.data) {
+    const d = result.data;
+    if (!d.bills.length) return d.msme.count ? 'Nothing is owed to suppliers with a pay-by date.' : d.note;
+    const lines = d.bills.slice(0, 8).map((b) => `· ${b.supplier} ${money(b.outstanding)} on ${b.billId}: ${b.overdue ? `${-b.daysLeft} days past` : b.daysLeft === 0 ? 'due today' : `due in ${b.daysLeft} days`} (${b.payBy})${b.msme ? ', MSME' : ''}`).join('\n');
+    const msme = d.msme.count ? ` MSME suppliers are owed ${money(d.msme.outstanding)}${d.msme.overdue ? `, of which ${money(d.msme.overdueOutstanding)} is past the MSMED limit and not deductible until paid (${d.msme.rule})` : ', none past the MSMED limit'}.` : '';
+    return `${d.bills.length === 1 ? '1 bill' : `${d.bills.length} bills`} with a pay-by date:\n${lines}${d.bills.length > 8 ? `\n· and ${d.bills.length - 8} more` : ''}.${msme}`;
+  }
   if (name === 'payroll_payout_file' && result.data) {
     const d = result.data;
     return `Salary payout for ${d.month}: ${d.employees === 1 ? '1 employee' : `${d.employees} employees`}, ${money(d.total)}. Saved as ${d.fileName} from the payroll screen.${d.missingBank.length ? ` No bank account for ${d.missingBank.join(', ')}; add it before uploading.` : ''}${d.paidOn ? ` Already recorded as paid on ${d.paidOn}.` : ''}`;

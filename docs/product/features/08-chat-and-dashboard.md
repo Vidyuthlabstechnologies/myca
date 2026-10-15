@@ -48,7 +48,7 @@ the hosted API (`propose`, `confirm`, `discard`).
 
 - Today a rule-based parser handles invoices, bills, receipts and expenses in common
   phrasings, and names its doubt when a message is ambiguous.
-- To build: a language model that turns free text into a tool call from the fixed
+- Built 2026-10-14 (off until a key is set): a language model that turns free text into a tool call from the fixed
   catalogue with a strict schema. It chooses the tool and fills the arguments; the
   engine computes; the owner confirms. It never produces a figure that is not in the
   message or computed by a tool (principle P5).
@@ -149,7 +149,8 @@ the hosted API (`propose`, `confirm`, `discard`).
 - Bills count only what is still owed on them. Bills unpaid for more than 30 days are
   listed but not counted: MyCA cannot tell when, or whether outside MyCA, they will be
   paid.
-- Not yet: a balance taken from a bank statement automatically.
+- A bank statement import records its closing balance as the bank balance on the
+  statement's last date, so the forecast starts from the bank's figure (2026-10-15).
 
 ### Paying suppliers (built 2026-10-06)
 
@@ -163,8 +164,9 @@ the hosted API (`propose`, `confirm`, `discard`).
   neither is read as a payment.
 - App: a Paid chip in the supplier's chat, with what is owed filled in; bills show Paid,
   Part paid or Unpaid and each payment.
-- Not yet: Rule 37 (credit reversed when a bill is unpaid 180 days after its date) still
-  reads payment status from an uploaded purchase register, not from these payments.
+- Rule 37 (credit reversed when a bill is unpaid 180 days after its date) reads the
+  payments recorded here: the purchase register MyCA builds from the books carries the
+  amount paid and the last payment date (2026-10-15).
 
 ### Expense chats (to build)
 
