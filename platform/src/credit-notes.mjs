@@ -48,7 +48,7 @@ function itemisedLines(invoice, raw, company) {
     if (!Number.isFinite(qty) || qty <= 0 || !Number.isFinite(rate) || rate <= 0 || !Number.isFinite(gstRate)) return { ok: false, error: 'BAD_LINE', line: i + 1 };
     if (!rates.has(gstRate)) return { ok: false, error: 'RATE_NOT_ON_INVOICE', line: i + 1, gstRate, rates: [...rates] };
     const taxable = round2(qty * rate);
-    const split = gstSplit({ taxable, rate: gstRate, supplierState: company.state, partyState: invoice.placeOfSupply || invoice.partyState });
+    const split = gstSplit({ taxable, rate: gstRate, supplierState: invoice.registrationState || company.state, partyState: invoice.placeOfSupply || invoice.partyState });
     lines.push({ description: String(item.description || '').trim() || 'Credit', hsn: String(item.hsn || '').trim(), qty, rate, gstRate, taxable, cgst: split.cgst, sgst: split.sgst, igst: split.igst, amount: round2(taxable + split.tax) });
   }
   return { ok: true, lines, total: round2(lines.reduce((sum, line) => sum + line.amount, 0)) };
@@ -64,7 +64,7 @@ function scaledLines(invoice, fraction, company) {
   }
   return (invoice.lines || []).map((line) => {
     const taxable = round2(Number(line.taxable || 0) * fraction);
-    const split = gstSplit({ taxable, rate: Number(line.gstRate || 0), supplierState: company.state, partyState: invoice.placeOfSupply || invoice.partyState });
+    const split = gstSplit({ taxable, rate: Number(line.gstRate || 0), supplierState: invoice.registrationState || company.state, partyState: invoice.placeOfSupply || invoice.partyState });
     return {
       description: line.description,
       hsn: line.hsn,

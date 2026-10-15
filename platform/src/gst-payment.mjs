@@ -5,6 +5,7 @@ import { deadlineRun } from './deadline-run.mjs';
 import { filingFor } from './filings.mjs';
 import { localToday, postingDate } from './dates.mjs';
 import { tcsAvailableFor } from './marketplace-credits.mjs';
+import { isPrincipal, scopeKey } from './registrations.mjs';
 
 const HEADS = ['igst', 'cgst', 'sgst'];
 const round2 = (value) => Math.round(Number(value || 0) * 100) / 100;
@@ -23,8 +24,8 @@ function lastDayOf(period) {
   return `${period}-${String(new Date(Date.UTC(y, m, 0)).getUTCDate()).padStart(2, '0')}`;
 }
 
-function headsOf(state, period) {
-  const docs = documentsForPeriod(state, period);
+function headsOf(state, period, gstin) {
+  const docs = documentsForPeriod(state, period, '', gstin);
   if (!docs.ok || !docs.period) return { output: taxByHead(0, 0, 0), credit: taxByHead(0, 0, 0), purchases: 0, sales: 0 };
   const draft = gstr3bFor(state, docs);
   const outward = draft.outward?.totals || {};
@@ -46,13 +47,13 @@ export function creditOpening(state) {
   return opening && typeof opening === 'object' && isReturnPeriod(opening.period) ? opening : null;
 }
 
-export function broughtForward(state, period) {
-  const opening = creditOpening(state);
+export function broughtForward(state, period, gstin) {
+  const opening = isPrincipal(state, gstin) ? creditOpening(state) : null;
   if (!opening) return { ok: true, credit: taxByHead(0, 0, 0), from: '', known: false };
   if (period < opening.period) return { ok: true, credit: taxByHead(0, 0, 0), from: opening.period, known: false, beforeOpening: true };
   let carried = taxByHead(opening.igst, opening.cgst, opening.sgst);
   for (let month = opening.period; month < period; month = nextPeriod(month)) {
-    const heads = headsOf(state, month);
+    const heads = headsOf(state, month, gstin);
     const result = setOff({ output: heads.output, credit: addHeads(heads.credit, carried), onDate: lastDayOf(month) });
     if (!result.ok) return result;
     carried = taxByHead(result.carried.igst, result.carried.cgst, result.carried.sgst);
@@ -65,22 +66,22 @@ function dueRow(state, period) {
   return (run.deadlines || []).find((row) => row.clientId === 'SELF' && row.returnType === 'GSTR-3B' && row.period === period) || null;
 }
 
-export function paymentFor(state, requested, { payOn } = {}) {
-  const summarised = periodSummary(state, requested);
+export function paymentFor(state, requested, { payOn, gstin } = {}) {
+  const summarised = periodSummary(state, requested, gstin);
   if (!summarised.ok) return summarised;
   const summary = summarised.data;
   const period = summary.period;
   const today = localToday();
   const on = payOn == null || payOn === '' ? today : postingDate(payOn);
   if (!on) return fail('INVALID_DATE', { payOn });
-  const forward = broughtForward(state, period);
+  const forward = broughtForward(state, period, gstin);
   if (!forward.ok) return forward;
   const available = addHeads(summary.inputCredit, forward.credit);
   const result = setOff({ output: summary.outputTax, credit: available, onDate: lastDayOf(period) });
   if (!result.ok) return result;
   const rulesUsed = [result.ruleUsed];
   let unreviewed = !result.attested;
-  const tcsAvailable = tcsAvailableFor(state, period, { excludePeriod: period });
+  const tcsAvailable = tcsAvailableFor(state, period, { excludePeriod: period, gstin });
   const tcsUsed = { igst: round2(Math.min(result.cash.igst, tcsAvailable.igst)), cgst: round2(Math.min(result.cash.cgst, tcsAvailable.cgst)), sgst: round2(Math.min(result.cash.sgst, tcsAvailable.sgst)) };
   tcsUsed.total = round2(tcsUsed.igst + tcsUsed.cgst + tcsUsed.sgst);
   const cashAfterTcs = { igst: round2(result.cash.igst - tcsUsed.igst), cgst: round2(result.cash.cgst - tcsUsed.cgst), sgst: round2(result.cash.sgst - tcsUsed.sgst) };
@@ -112,6 +113,7 @@ export function paymentFor(state, requested, { payOn } = {}) {
     data: {
       period,
       periods: summary.periods,
+      gstin: summary.gstin,
       output: summary.outputTax,
       credit: summary.inputCredit,
       broughtForward: forward.credit,
@@ -128,7 +130,7 @@ export function paymentFor(state, requested, { payOn } = {}) {
       nil,
       dueDate: row ? row.dueDate : '',
       filed: filed ? { arn: filed.arn, filedOn: filed.filedOn } : null,
-      paid: state.gstPayments && typeof state.gstPayments === 'object' && Object.hasOwn(state.gstPayments, period) ? { date: state.gstPayments[period].date, cpin: state.gstPayments[period].cpin, cashTotal: state.gstPayments[period].cashTotal } : null,
+      paid: state.gstPayments && typeof state.gstPayments === 'object' && Object.hasOwn(state.gstPayments, scopeKey(state, period, gstin)) ? { date: state.gstPayments[scopeKey(state, period, gstin)].date, cpin: state.gstPayments[scopeKey(state, period, gstin)].cpin, cashTotal: state.gstPayments[scopeKey(state, period, gstin)].cashTotal } : null,
       late,
       rulesUsed,
       unreviewed,

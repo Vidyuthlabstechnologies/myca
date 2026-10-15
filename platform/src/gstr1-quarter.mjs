@@ -1,5 +1,6 @@
 import { invoicesToGstr1Json } from './gstr1-json.mjs';
 import { parseQuarter } from './tds-return.mjs';
+import { regArg, companyAs, forRegistration } from './registrations.mjs';
 
 function inMonths(months) {
   return (doc) => months.includes(String(doc.date || '').slice(0, 7));
@@ -12,12 +13,14 @@ function fpOf(month) {
 export function exportGstr1Quarter(state, args = {}) {
   const quarter = parseQuarter(args.quarter);
   if (!quarter) return { ok: false, error: 'INVALID_QUARTER', hint: 'Say the quarter as Q2 2026-27.' };
-  const company = state.company || {};
+  const regd = regArg(state, args.gstin);
+  if (!regd.ok) return regd;
+  const company = companyAs(state, regd.gstin);
   if (String(company.gstFrequency || 'monthly').toLowerCase() !== 'quarterly') return { ok: false, error: 'NOT_QRMP', hint: 'This business files GSTR-1 monthly; the quarterly file is for QRMP filers. Set the GST frequency to quarterly on the company first.' };
   const pick = inMonths(quarter.months);
-  const invoices = (state.invoices || []).filter(pick);
-  const creditNotes = (state.creditNotes || []).filter(pick);
-  const debitNotes = (state.debitNotes || []).filter(pick);
+  const invoices = forRegistration(state, (state.invoices || []).filter(pick), regd.gstin);
+  const creditNotes = forRegistration(state, (state.creditNotes || []).filter(pick), regd.gstin);
+  const debitNotes = forRegistration(state, (state.debitNotes || []).filter(pick), regd.gstin);
   const json = invoicesToGstr1Json(company, invoices, fpOf(quarter.months[2]), { creditNotes, debitNotes, allGiven: true, grossTurnover: args.grossTurnover, currentGrossTurnover: args.currentGrossTurnover });
   if (json.error) return { ok: false, error: json.error, hint: json.hint };
   const iff = quarter.months.slice(0, 2).map((month) => ({ month, b2b: invoices.filter((inv) => inv.partyGstin && String(inv.date).startsWith(month)).length }));
@@ -27,14 +30,16 @@ export function exportGstr1Quarter(state, args = {}) {
 export function exportIff(state, args = {}) {
   const month = String(args.period || '').trim();
   if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) return { ok: false, error: 'INVALID_PERIOD', hint: 'Use YYYY-MM, for example 2026-07.' };
-  const company = state.company || {};
+  const regd = regArg(state, args.gstin);
+  if (!regd.ok) return regd;
+  const company = companyAs(state, regd.gstin);
   if (String(company.gstFrequency || 'monthly').toLowerCase() !== 'quarterly') return { ok: false, error: 'NOT_QRMP', hint: 'The invoice furnishing facility is for QRMP filers only.' };
   const m = Number(month.slice(5, 7));
   if (m % 3 === 0) return { ok: false, error: 'QUARTER_END', hint: 'The last month of a quarter goes in the quarterly GSTR-1, not IFF.' };
   const pick = inMonths([month]);
-  const invoices = (state.invoices || []).filter((inv) => pick(inv) && inv.partyGstin);
-  const creditNotes = (state.creditNotes || []).filter((note) => pick(note) && note.partyGstin);
-  const debitNotes = (state.debitNotes || []).filter((note) => pick(note) && note.partyGstin);
+  const invoices = forRegistration(state, (state.invoices || []).filter((inv) => pick(inv) && inv.partyGstin), regd.gstin);
+  const creditNotes = forRegistration(state, (state.creditNotes || []).filter((note) => pick(note) && note.partyGstin), regd.gstin);
+  const debitNotes = forRegistration(state, (state.debitNotes || []).filter((note) => pick(note) && note.partyGstin), regd.gstin);
   const json = invoicesToGstr1Json(company, invoices, fpOf(month), { creditNotes, debitNotes, allGiven: true });
   if (json.error) return { ok: false, error: json.error, hint: json.hint };
   const { b2cl, b2cs, cdnur, ...rest } = json;

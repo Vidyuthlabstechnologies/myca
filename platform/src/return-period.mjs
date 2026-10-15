@@ -1,3 +1,5 @@
+import { docGstin } from './registrations.mjs';
+
 const PERIOD = /^\d{4}-(0[1-9]|1[0-2])$/;
 
 export function isReturnPeriod(value) {
@@ -29,17 +31,20 @@ function periodsOf(documents) {
 // A GST return covers one tax period. Every return figure is built from the documents
 // of that month only; without this, a later month's invoices were added into an earlier
 // month's draft. With no period asked for, the latest month that has documents is used.
-export function documentsForPeriod(state, requested, fallback = '') {
+export function documentsForPeriod(state, requested, fallback = '', gstin) {
   const periods = periodsWithDocuments(state);
+  const wanted = gstin === undefined ? undefined : String(gstin || '').toUpperCase();
+  const mine = (doc) => wanted === undefined || docGstin(state, doc) === wanted;
   if (requested != null && requested !== '' && !isReturnPeriod(requested)) {
     return { ok: false, error: 'INVALID_PERIOD', hint: 'Use YYYY-MM, for example 2026-09.', periods };
   }
   const period = requested || periods.at(-1) || (isReturnPeriod(fallback) ? fallback : '');
-  const inPeriod = (doc) => periodOf(doc?.date) === period;
+  const inPeriod = (doc) => periodOf(doc?.date) === period && mine(doc);
   return {
     ok: true,
     period,
     periods,
+    gstin: wanted,
     invoices: (state.invoices || []).filter(inPeriod),
     purchases: (state.purchases || []).filter(inPeriod),
     creditNotes: (state.creditNotes || []).filter(inPeriod),

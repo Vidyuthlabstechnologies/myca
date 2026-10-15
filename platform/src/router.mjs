@@ -5,6 +5,8 @@ import { orderImportWords } from './marketplace-orders.mjs';
 import { creditsWords } from './marketplace-credits.mjs';
 import { marginsWords, stockWords } from './sku-margins.mjs';
 import { closeWords } from './daily-close.mjs';
+import { registrationsWords } from './registrations.mjs';
+import { stockTransferWords } from './stock-transfers.mjs';
 import { planLocalToolCall, validateAssistantToolCall } from './assistant-contract.mjs';
 import { needsConfirmation, previewOf, openPending, takePending, clearPending, previewReply, blockedReply } from './chat-confirm.mjs';
 import { liveCallsEnabled, mockModeEnabled } from './runtime-config.mjs';
@@ -42,6 +44,13 @@ function money(n) {
 }
 
 const FAILURES = {
+  OPEN_DOCUMENTS: (r) => `${r.gstin} still has ${r.count === 1 ? '1 open document' : `${r.count} open documents`} (${[...r.invoices, ...r.purchases].slice(0, 6).join(', ')}); settle or cancel them before retiring it.`,
+  UNKNOWN_REGISTRATION: (r) => `${r.gstin} is not a registration of this business${r.known?.length ? ` (known: ${r.known.join(', ')})` : ''}.`,
+  DIFFERENT_PAN: () => 'That GSTIN carries a different PAN, so it is not a registration of this business.',
+  STATE_TAKEN: (r) => `There is already an active registration in state ${r.stateCode} (${r.by}); retire it first.`,
+  IS_PRINCIPAL: () => 'That is the principal GSTIN; change it on the company.',
+  COST_REQUIRED: () => 'Set the SKU cost first ("cost of SKU-A is 450 at 12%"), or give a unit value; transfers go at cost by default.',
+  SAME_REGISTRATION: () => 'Both ends are the same registration; record the stock at its new location instead.',
   PERIOD_LOCKED: (r) => `That date is in a period that is closed${r.lockThrough ? ` (up to ${r.lockThrough})` : ''}, so nothing was changed.`,
   INVALID_DATE: () => 'That is not a date I can read, so nothing was changed.',
   DUPLICATE_ID: (r) => `${r.id || 'That number'} is already used in these books, so nothing was changed.`,
@@ -326,6 +335,10 @@ function fmtToolResult(name, result) {
   if (name === 'stock_position' && result.data) return stockWords(result.data, money);
   if (name === 'sku_margins' && result.data) return marginsWords(result.data, money);
   if (name === 'daily_close' && result.data) return closeWords(result.data, money);
+  if (name === 'registrations' && result.data) return registrationsWords(result.data);
+  if (name === 'set_registration' && result.registration) return `${result.updated ? 'Updated' : 'Added'} ${result.registration.label} ${result.registration.gstin} (${result.registration.kind}, state ${result.registration.state}) from ${result.registration.effectiveFrom}. Invoices and bills can name it with registrationGstin; returns and filings take gstin.`;
+  if (name === 'retire_registration' && result.registration) return `Retired ${result.registration.label} ${result.registration.gstin} from ${result.registration.effectiveTo}. Its past documents and returns stay.`;
+  if (name === 'record_stock_transfer' && result.invoice) return stockTransferWords(result, money);
   if (name === 'settlement_status' && result.data) return settlementStatusWords(result.data, money);
   if (name === 'contractor_1099_file' && result.data) return file1099Words(result.data, money);
   if (name === 'export_trial_balance' && result.data) return `Trial balance as of ${result.data.asOf}: ${result.data.accounts === 1 ? '1 account' : `${result.data.accounts} accounts`}, debits ${money(result.data.debit)}, credits ${money(result.data.credit)}${result.data.balanced ? ', ties' : ', does not tie'}. Saved as ${result.data.fileName} from the Taxes screen.`;

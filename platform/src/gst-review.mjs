@@ -1,3 +1,4 @@
+import { regArg, scopeKey } from './registrations.mjs';
 import { createHash } from 'node:crypto';
 import { localToday } from './dates.mjs';
 import { periodSummary } from './period-summary.mjs';
@@ -147,19 +148,22 @@ function stepsFor(summary, payment) {
   return steps;
 }
 
-function recordFor(state, period) {
+function recordFor(state, period, gstin) {
   const all = state.gstReviews && typeof state.gstReviews === 'object' ? state.gstReviews : {};
-  return Object.hasOwn(all, period) ? all[period] : null;
+  const key = scopeKey(state, period, gstin);
+  return Object.hasOwn(all, key) ? all[key] : null;
 }
 
-export function reviewOf(state, period) {
-  const summarised = periodSummary(state, period);
+export function reviewOf(state, period, gstin) {
+  const regd = regArg(state, gstin);
+  if (!regd.ok) return regd;
+  const summarised = periodSummary(state, period, regd.gstin);
   if (!summarised.ok) return summarised;
   const summary = summarised.data;
-  const paid = paymentFor(state, summary.period);
+  const paid = paymentFor(state, summary.period, { gstin: regd.gstin });
   const payment = paid.ok ? paid.data : null;
   const draftHash = draftHashOf(summary, payment);
-  const record = recordFor(state, summary.period);
+  const record = recordFor(state, summary.period, regd.gstin);
   const current = record && record.draftHash === draftHash ? record : null;
   const changed = Boolean(record && !current && Object.keys(record.answers || {}).length);
   const steps = stepsFor(summary, payment).map((step) => {
@@ -173,6 +177,7 @@ export function reviewOf(state, period) {
     data: {
       period: summary.period,
       periods: summary.periods,
+      gstin: regd.gstin,
       month: monthName(summary.period),
       draftHash,
       empty: summary.salesCount === 0 && summary.purchaseCount === 0 && (summary.creditNotes?.count || 0) === 0 && (summary.debitNoteCount || 0) === 0 && (summary.purchaseNoteCount || 0) === 0,
@@ -195,7 +200,7 @@ function actorOf(state, args) {
 }
 
 export function checkAnswer(state, args = {}) {
-  const review = reviewOf(state, args.period);
+  const review = reviewOf(state, args.period, args.gstin);
   if (!review.ok) return review;
   const data = review.data;
   if (args.draftHash !== data.draftHash) return { ok: false, error: 'DRAFT_CHANGED', period: data.period };
@@ -217,14 +222,14 @@ export function answerReview(state, args = {}) {
   if (!checked.ok) return checked;
   const { review, step, actor } = checked;
   state.gstReviews = state.gstReviews && typeof state.gstReviews === 'object' ? state.gstReviews : {};
-  const existing = recordFor(state, review.period);
+  const existing = recordFor(state, review.period, review.gstin);
   const record = existing && existing.draftHash === review.draftHash ? existing : { draftHash: review.draftHash, answers: {}, approval: null };
   const on = localToday();
   const note = String(args.note || '').trim().slice(0, 500);
   record.answers[step.id] = { answer: args.answer, by: actor.userId, on, ...(note ? { note } : {}) };
   if (step.id === 'approve' && args.answer === 'approve') record.approval = { by: actor.userId, on, draftHash: review.draftHash };
-  state.gstReviews[review.period] = record;
-  const after = reviewOf(state, review.period).data;
+  state.gstReviews[scopeKey(state, review.period, review.gstin)] = record;
+  const after = reviewOf(state, review.period, review.gstin).data;
   return { ok: true, period: review.period, step: step.id, answer: args.answer, next: after.next, approved: after.approved, review: after };
 }
 

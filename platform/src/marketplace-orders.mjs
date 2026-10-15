@@ -6,6 +6,7 @@ import { isoDate, postingDate, localToday } from './dates.mjs';
 import { isPeriodLocked } from './period-lock.mjs';
 import { CHANNELS } from './settlements.mjs';
 import { recordOrderStockMoves } from './sku-margins.mjs';
+import { registrationByState, docFieldsFor, principalOf } from './registrations.mjs';
 
 const round2 = (value) => Math.round(Number(value || 0) * 100) / 100;
 export const MARKETPLACE_ACCOUNTS = [
@@ -28,6 +29,7 @@ const ALIASES = {
   gstRate: ['tax rate', 'gst rate', 'igst rate', 'rate', 'tax %', 'gst %'],
   hsn: ['hsn', 'hsn code', 'hsn/sac', 'hsn_code'],
   description: ['item description', 'product name', 'title', 'description', 'product'],
+  shipFrom: ['ship from state', 'ship-from state', 'fulfillment center state', 'fulfilment centre state', 'fc state', 'seller state', 'warehouse state', 'dispatch state', 'ship from', 'ship-from-state', 'seller warehouse state'],
 };
 
 function split(text) {
@@ -142,7 +144,8 @@ export function parseOrdersCsv(text, { channel } = {}) {
     const sku = idx.sku == null ? '' : String(cells[idx.sku] || '').trim();
     const hsn = idx.hsn == null ? '' : String(cells[idx.hsn] || '').trim();
     const description = idx.description == null ? '' : String(cells[idx.description] || '').trim();
-    const line = { row: rowNo, orderId, date, state, gstRate, taxable: Math.abs(taxable), tax: tax == null ? null : Math.abs(tax), qty, sku, hsn, description };
+    const shipFrom = idx.shipFrom == null ? '' : stateCodeFromName(cells[idx.shipFrom]);
+    const line = { row: rowNo, orderId, date, state, shipFrom, gstRate, taxable: Math.abs(taxable), tax: tax == null ? null : Math.abs(tax), qty, sku, hsn, description };
     if (isReturn(idx.type == null ? '' : cells[idx.type], taxable)) returns.push(line);
     else sales.push(line);
   }
@@ -186,8 +189,9 @@ export function planOrderImport(state, args = {}) {
     if (orderCount >= ORDER_CAP) { skipped.push({ id: line.orderId, reason: 'TOO_MANY_ROWS' }); continue; }
     if (isPeriodLocked(state, line.date)) { skipped.push({ id: line.orderId, reason: 'PERIOD_LOCKED' }); continue; }
     if (!seenInFile.has(key)) { seenInFile.add(key); orderCount += 1; }
-    const dayKey = `${line.date}|${line.state}`;
-    const day = days.get(dayKey) || { date: line.date, state: line.state, lines: new Map(), orders: [], fileTax: 0, hasFileTax: false };
+    const registration = (line.shipFrom && registrationByState(state, line.shipFrom)) || principalOf(state);
+    const dayKey = `${line.date}|${line.state}|${registration.gstin}`;
+    const day = days.get(dayKey) || { date: line.date, state: line.state, registration, lines: new Map(), orders: [], fileTax: 0, hasFileTax: false };
     const rateLine = day.lines.get(line.gstRate) || { description: `${channelName(channel)} orders at ${line.gstRate}% GST`, hsn: line.hsn, gstRate: line.gstRate, taxable: 0, qty: 0 };
     rateLine.taxable = round2(rateLine.taxable + line.taxable);
     rateLine.qty += line.qty;
@@ -204,7 +208,8 @@ export function planOrderImport(state, args = {}) {
       date: day.date,
       state: day.state,
       orders: day.orders,
-      input: { partyName: `${channelName(channel)} customers`, partyGstin: '', partyState: day.state, date: day.date, lines },
+      registration: day.registration.gstin,
+      input: { partyName: `${channelName(channel)} customers`, partyGstin: '', partyState: day.state, date: day.date, lines, ...(day.registration.kind === 'principal' ? {} : { registrationGstin: day.registration.gstin }) },
       taxable,
       fileTax: day.hasFileTax ? day.fileTax : null,
     };

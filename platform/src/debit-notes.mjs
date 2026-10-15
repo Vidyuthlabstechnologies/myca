@@ -90,7 +90,7 @@ export function planDebitNote(state, args = {}) {
   const checked = commonChecks(state, invoice, { ...args, id: invoiceId }, { notFound: 'INVOICE_NOT_FOUND' });
   if (!checked.ok) return { ...checked, invoiceId };
   const company = state.company || {};
-  const lines = settle(scaledLines(invoice, checked.requested / Number(invoice.total), { supplierState: company.state, partyState: invoice.placeOfSupply || invoice.partyState }), checked.requested);
+  const lines = settle(scaledLines(invoice, checked.requested / Number(invoice.total), { supplierState: invoice.registrationState || company.state, partyState: invoice.placeOfSupply || invoice.partyState }), checked.requested);
   const totals = totalsOf(lines);
   const alreadyDebited = debitedAgainst(state, invoiceId);
   return { ok: true, plan: { invoice, date: checked.date, reason: checked.reason, lines, ...totals, alreadyDebited } };
@@ -157,7 +157,7 @@ export function planPurchaseNote(state, args = {}) {
   const company = state.company || {};
   const full = Math.abs(checked.requested - room) < 0.005 && alreadyNoted === 0;
   const supplierState = partyStateOf(bill.partyGstin) || bill.partyState || company.state;
-  const lines = full ? scaledLines(bill, 1, { supplierState, partyState: company.state }) : settle(scaledLines(bill, checked.requested / Number(bill.total), { supplierState, partyState: company.state }), checked.requested);
+  const lines = full ? scaledLines(bill, 1, { supplierState, partyState: bill.registrationState || company.state }) : settle(scaledLines(bill, checked.requested / Number(bill.total), { supplierState, partyState: bill.registrationState || company.state }), checked.requested);
   const totals = totalsOf(lines);
   const paid = round2((bill.payments || []).reduce((sum, payment) => sum + Number(payment.amount || 0), 0));
   const refundDue = round2(Math.max(0, paid + Number(bill.tds?.amount || 0) + alreadyNoted + totals.total - Number(bill.total)));

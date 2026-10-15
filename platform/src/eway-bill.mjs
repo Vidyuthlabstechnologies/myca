@@ -27,7 +27,7 @@ export function ewayBillNeed(state, invoice) {
   const goodsLines = (invoice.lines || []).filter((line) => !isService(line));
   const unknownLines = goodsLines.filter((line) => !String(line.hsn || '').trim()).length;
   const value = round2(Number(invoice.total || 0));
-  const supplierState = String(company.state || '');
+  const supplierState = String(invoice.registrationState || company.state || '');
   const placeOfSupply = String(invoice.placeOfSupply || invoice.partyState || partyStateOf(invoice.partyGstin) || supplierState);
   const interState = Boolean(supplierState && placeOfSupply && supplierState !== placeOfSupply);
   const base = { threshold, value, interState, ruleUsed, attested, goodsLines: goodsLines.length, unknownLines };

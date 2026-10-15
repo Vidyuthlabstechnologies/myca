@@ -171,3 +171,19 @@ margins positive for the latest marketplace month; nothing high-severity open; w
 cash position and what customers owe. Each line is a check with a detail; the day is
 "closed" when every check passes, otherwise it says what needs you. The app's Home panel
 for it is pending.
+
+## Several GSTINs under one business (D4, 2026-10-16)
+
+`set_registration` ("add registration 29AAACN1234F1Z5 as apob") adds a registration of the
+same PAN in another state; the principal is the company GSTIN. An invoice or bill can name
+its registration (`registrationGstin`); without one it is under the principal, so a
+single-GSTIN business sees no change. The GST split takes the registration's state as the
+supplier's state, the e-invoice payload and the e-way bill check use it, and the printed
+and app invoices show it. GSTR-1, GSTR-3B, the review, the payment and the filing record
+take `gstin` and work on that registration's documents alone; the TCS statement can carry
+your GSTIN per row. Marketplace order reports with a ship-from state post each day's
+orders under the registration of that state. `record_stock_transfer` ("transfer 50 SKU-A
+from 27... to 29...") raises the transfer invoice at cost (or a stated value) with IGST
+under the sender, the bill with credit under the receiver, settles them by contra, moves
+the stock and says whether an e-way bill is needed. A registration cannot be retired while
+it has unpaid invoices or bills.

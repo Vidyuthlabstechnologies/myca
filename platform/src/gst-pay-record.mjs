@@ -3,6 +3,7 @@ import { localToday, postingDate } from './dates.mjs';
 import { isPeriodLocked } from './period-lock.mjs';
 import { isReturnPeriod } from './return-period.mjs';
 import { paymentFor } from './gst-payment.mjs';
+import { regArg, scopeKey } from './registrations.mjs';
 
 const OUTPUT = { cgst: 2100, sgst: 2101, igst: 2102 };
 const INPUT = { cgst: 1200, sgst: 1201, igst: 1202 };
@@ -25,9 +26,10 @@ function nextTransferId(state) {
   return BigInt(state.transferSeq);
 }
 
-export function gstPaymentFor(state, period) {
+export function gstPaymentFor(state, period, gstin) {
   const all = state.gstPayments && typeof state.gstPayments === 'object' ? state.gstPayments : {};
-  return Object.hasOwn(all, period) ? all[period] : null;
+  const key = scopeKey(state, period, gstin);
+  return Object.hasOwn(all, key) ? all[key] : null;
 }
 
 export function planGstPayment(state, args = {}) {
@@ -37,10 +39,12 @@ export function planGstPayment(state, args = {}) {
   if (!date) return fail('INVALID_DATE', { date: args.date });
   if (date > localToday()) return fail('FUTURE_DATE', { date });
   if (isPeriodLocked(state, date)) return fail('PERIOD_LOCKED', { date, lockThrough: state.lockThrough });
-  const computed = paymentFor(state, period, { payOn: date });
+  const regd = regArg(state, args.gstin);
+  if (!regd.ok) return regd;
+  const computed = paymentFor(state, period, { payOn: date, gstin: regd.gstin });
   if (!computed.ok) return computed;
   const d = computed.data;
-  if (gstPaymentFor(state, d.period)) return fail('ALREADY_RECORDED', { period: d.period, paidOn: gstPaymentFor(state, d.period).date });
+  if (gstPaymentFor(state, d.period, regd.gstin)) return fail('ALREADY_RECORDED', { period: d.period, paidOn: gstPaymentFor(state, d.period, regd.gstin).date });
   const cpin = String(args.cpin || '').replace(/\s+/g, '');
   if (cpin && !CPIN.test(cpin)) return fail('BAD_CPIN');
   const mode = args.mode === 'cash' ? 'cash' : 'bank';
@@ -52,7 +56,7 @@ export function planGstPayment(state, args = {}) {
   if (cashTotal <= 0.005 && d.creditUsed <= 0.005 && tcsUsed.total <= 0.005) return fail('NOTHING_DUE', { period: d.period });
   const creditApplied = { igst: round2(d.output.igst - d.cash.igst), cgst: round2(d.output.cgst - d.cash.cgst), sgst: round2(d.output.sgst - d.cash.sgst) };
   const creditDrawn = { igst: round2(Object.values(d.used.igst).reduce((s, v) => s + v, 0)), cgst: round2(Object.values(d.used.cgst).reduce((s, v) => s + v, 0)), sgst: round2(Object.values(d.used.sgst).reduce((s, v) => s + v, 0)) };
-  return { ok: true, payment: { period: d.period, date, mode, cpin, cash: cashPaid, cashBeforeTcs: d.cash, tcsUsed, interest, lateFee, cashTotal, creditApplied, creditDrawn, creditUsed: d.creditUsed, carried: d.carried, dueDate: d.dueDate, late: Boolean(d.late), rulesUsed: d.rulesUsed, unreviewed: d.unreviewed }, computed: d };
+  return { ok: true, payment: { period: d.period, gstin: regd.gstin, principal: regd.principal, date, mode, cpin, cash: cashPaid, cashBeforeTcs: d.cash, tcsUsed, interest, lateFee, cashTotal, creditApplied, creditDrawn, creditUsed: d.creditUsed, carried: d.carried, dueDate: d.dueDate, late: Boolean(d.late), rulesUsed: d.rulesUsed, unreviewed: d.unreviewed }, computed: d };
 }
 
 export function recordGstPayment(state, args = {}) {
@@ -60,7 +64,7 @@ export function recordGstPayment(state, args = {}) {
   if (!planned.ok) return planned;
   const { payment } = planned;
   createAccounts(state.ledger, GST_PAYMENT_ACCOUNTS.map((account) => ({ ...account, flags: 0 })));
-  const id = `GSTP-${payment.period}`;
+  const id = payment.principal ? `GSTP-${payment.period}` : `GSTP-${payment.period}-${payment.gstin}`;
   const linked = TRANSFER_FLAGS.LINKED;
   const seqBefore = state.transferSeq;
   const bundle = [];
@@ -95,7 +99,7 @@ export function recordGstPayment(state, args = {}) {
   }
   const record = { id, ...payment, transferIds: posted.map((result) => result.id), recordedOn: localToday() };
   state.gstPayments = state.gstPayments && typeof state.gstPayments === 'object' ? state.gstPayments : {};
-  state.gstPayments[payment.period] = record;
+  state.gstPayments[scopeKey(state, payment.period, payment.gstin)] = record;
   return { ok: true, payment: record, posted };
 }
 

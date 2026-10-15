@@ -10,8 +10,15 @@ export function monthsBack(asOfDate, back = 24, ahead = 2) {
   });
 }
 
-export function filingFor(book, returnType, period) {
-  return (book?.filings || []).find((item) => item.returnType === returnType && item.period === period) || null;
+function filingGstin(book, gstin) {
+  const wanted = String(gstin || '').replace(/\s+/g, '').toUpperCase();
+  const principal = String(book?.company?.gstin || '').replace(/\s+/g, '').toUpperCase();
+  return !wanted || wanted === principal ? '' : wanted;
+}
+
+export function filingFor(book, returnType, period, gstin) {
+  const wanted = filingGstin(book, gstin);
+  return (book?.filings || []).find((item) => item.returnType === returnType && item.period === period && String(item.gstin || '') === wanted) || null;
 }
 
 export function withFilings(rows, bookOf) {
@@ -39,13 +46,15 @@ export function planFiling(state, args = {}, rows = []) {
     const known = [...new Set(returns.filter((item) => item.dueDate <= today).map((item) => `${item.returnLabel || item.returnType} for ${item.period}`))].slice(-6);
     return { ok: false, error: 'UNKNOWN_RETURN', returnType, period, known, registered: Boolean(state.company?.gstin) };
   }
-  const existing = filingFor(state, returnType, period);
+  const gstin = filingGstin(state, args.gstin);
+  if (args.gstin && !(state.company?.registrations || []).some((reg) => reg.gstin === gstin) && gstin) return { ok: false, error: 'UNKNOWN_REGISTRATION', gstin };
+  const existing = filingFor(state, returnType, period, gstin);
   if (existing) return { ok: false, error: 'ALREADY_RECORDED', returnType, period, arn: existing.arn, filedOn: existing.filedOn };
   if ((state.filings || []).some((item) => item.arn === arn)) return { ok: false, error: 'ARN_USED', arn };
   const filedBy = String(args.filedBy || '').trim().slice(0, 60);
   return {
     ok: true,
-    filing: { returnType, period, label: row.returnLabel || returnType, arn, filedOn, dueDate: row.dueDate, late: filedOn > row.dueDate, filedBy, source: 'recorded' },
+    filing: { returnType, period, ...(gstin ? { gstin } : {}), label: row.returnLabel || returnType, arn, filedOn, dueDate: row.dueDate, late: filedOn > row.dueDate, filedBy, source: 'recorded' },
   };
 }
 
