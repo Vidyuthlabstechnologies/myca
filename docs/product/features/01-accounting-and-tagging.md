@@ -108,9 +108,11 @@ or a credit unless they ask.
 - In chat: "debit note for INV-0001 2000 - price revised", "debit note for BILL-0003
   1000 - goods returned". App: the invoice screen offers a debit note beside the credit
   note; debit notes to suppliers are made in chat for now.
-- To build: a supplier's own debit note that increases a bill; the e-invoice (IRN) for
-  a credit or debit note where the business is in the e-invoicing bracket; debit notes
-  to suppliers from the bill in the app.
+- A supplier's own debit note that increases a bill was built 2026-10-13
+  (`record_supplier_debit_note`).
+- To build: the e-invoice (IRN) for a credit or debit note where the business is in the
+  e-invoicing bracket (needs NIC credentials); debit notes to suppliers from the bill in
+  the app.
 
 ## Acceptance criteria
 

@@ -42,6 +42,7 @@ export function gstr9Draft(state, args = {}) {
   const paid = { cash: heads(), credit: 0, interest: 0, lateFee: 0, months: 0 };
   const hsn = new Map();
   const nilRated = { taxable: 0, lines: 0 };
+  const zero = { nil: { taxable: 0, lines: 0 }, exempt: { taxable: 0, lines: 0 }, 'non-gst': { taxable: 0, lines: 0 }, unsplit: { taxable: 0, lines: 0 } };
   const amended = { count: 0, taxable: 0, tax: heads() };
   const monthRows = [];
   const notes = new Set();
@@ -75,6 +76,9 @@ export function gstr9Draft(state, args = {}) {
         if (Number(line.gstRate || 0) === 0) {
           nilRated.taxable = round2(nilRated.taxable + Number(line.taxable || 0));
           nilRated.lines += 1;
+          const bucket = zero[line.supply] || zero.unsplit;
+          bucket.taxable = round2(bucket.taxable + Number(line.taxable || 0));
+          bucket.lines += 1;
         }
         const key = `${line.hsn || ''}|${line.gstRate}`;
         const row = hsn.get(key) || { hsn: line.hsn || '', ratePercent: Number(line.gstRate || 0), qty: 0, taxable: 0, tax: heads() };
@@ -113,7 +117,8 @@ export function gstr9Draft(state, args = {}) {
   if (unpaid.length) notes.add(`Table 9 (tax paid) only has the months whose GST payment is recorded; missing: ${unpaid.join(', ')}.`);
   if (unfiled.length) notes.add(`GSTR-3B is not recorded as filed for ${unfiled.join(', ')}; record each ARN so the annual return reconciles.`);
   if (twoB.months < monthRows.filter((row) => row.documents > 0).length) notes.add(`GSTR-2B was added for ${twoB.months === 1 ? '1 month' : `${twoB.months} months`}; table 8 compares only those.`);
-  notes.add('Table 5 shows lines invoiced at 0% GST as one figure; MyCA cannot tell nil-rated from exempt or non-GST supplies, so your CA splits them. Advances (table 4F) and amendments made directly on the portal are not in these books.');
+  notes.add(zero.unsplit.lines ? `Table 5: ${zero.unsplit.lines === 1 ? '1 line' : `${zero.unsplit.lines} lines`} at 0% GST (${zero.unsplit.taxable}) carry no supply type; mark each as nil-rated, exempt or non-GST on the invoice so the split is complete.` : 'Table 5 is split from the supply type recorded on each 0% line.');
+  notes.add('Advances (table 4F) and amendments made directly on the portal are not in these books.');
   notes.add('Blocked-credit purchases are shown for table 7; ITC on capital goods, imports and reverse charge is not separated.');
   if (unreviewed) notes.add('Set-off, interest and late fee figures come from dated rules your CA has not reviewed yet.');
   const hsnRows = [...hsn.values()].sort((a, b) => a.hsn.localeCompare(b.hsn) || a.ratePercent - b.ratePercent);
@@ -126,7 +131,7 @@ export function gstr9Draft(state, args = {}) {
       gstin: state.company?.gstin || '',
       months: monthRows,
       table4: { outwardTaxable: outward.taxable, outwardTax: outward.tax, b2bInvoices: outward.b2b, b2cInvoices: outward.b2c, creditNotes: outward.creditNotes, debitNotes: outward.debitNotes, amendments: amended, netTaxable: round2(outward.taxable - outward.creditNotes.taxable + outward.debitNotes.taxable) },
-      table5: { nilRatedOrExempt: nilRated.taxable, lines: nilRated.lines, note: 'Lines at 0% GST; nil-rated, exempt and non-GST are not separated.' },
+      table5: { nilRatedOrExempt: nilRated.taxable, lines: nilRated.lines, nilRated: zero.nil.taxable, exempt: zero.exempt.taxable, nonGst: zero['non-gst'].taxable, unsplit: zero.unsplit.taxable, unsplitLines: zero.unsplit.lines, note: zero.unsplit.lines ? 'Some 0% lines carry no supply type yet.' : 'Split from the supply type on each 0% line (5D nil-rated, 5E exempt, 5F non-GST).' },
       table6: { itcAvailed: itc.availed, purchases: itc.purchases },
       table7: { reversed: itc.reversed, blocked: itc.blocked },
       table8: { gstr2bMonths: twoB.months, gstr2bAvailable: twoB.available, availed: itc.availed, difference: add(heads(), { igst: twoB.available.igst - itc.availed.igst, cgst: twoB.available.cgst - itc.availed.cgst, sgst: twoB.available.sgst - itc.availed.sgst }) },

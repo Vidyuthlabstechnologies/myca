@@ -29,7 +29,7 @@ confirm. In a shop, each sale at the counter appears in the sales register on it
   into previews. Importing the same file twice posts nothing.
 - A row that cannot be read with certainty is held back and shown with its reason.
 
-### Reading a supplier invoice (to build)
+### Reading a supplier invoice (built 2026-10-14; off until a model key is set)
 
 ```mermaid
 flowchart LR

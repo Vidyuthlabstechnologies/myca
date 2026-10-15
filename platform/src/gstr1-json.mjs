@@ -159,6 +159,7 @@ export function invoicesToGstr1Json(company, invoices = [], periodFp, opts = {})
   body.b2b = [...b2bMap.entries()].map(([ctin, inv]) => ({ ctin, inv }));
   body.b2cl = [...b2clMap.entries()].map(([pos, inv]) => ({ pos, inv }));
   body.b2cs = [...b2csMap.values()];
+
   const b2baMap = new Map();
   const b2claMap = new Map();
   const b2csaMap = new Map();
@@ -198,6 +199,28 @@ export function invoicesToGstr1Json(company, invoices = [], periodFp, opts = {})
   const warnings = [];
   if (gt == null || curGt == null) warnings.push('GT_NOT_PROVIDED: enter last FY and current FY aggregate turnover before upload if the offline tool asks for them.');
   if (held.length) warnings.push(`${held.length} invoice(s) held back for review; see held.`);
+  const nilMap = new Map();
+  let unsplitZeroLines = 0;
+  for (const inv of inPeriod) {
+    if (inv.status === 'cancelled') continue;
+    const pos = String(inv.placeOfSupply || inv.partyState || supplierState);
+    const intra = pos === supplierState;
+    const registered = Boolean(inv.partyGstin);
+    const sply_ty = `${intra ? 'INTRA' : 'INTR'}${registered ? 'B2B' : 'B2C'}`;
+    for (const line of inv.lines || []) {
+      if (Number(line.gstRate || 0) !== 0) continue;
+      if (!line.supply) {
+        unsplitZeroLines += 1;
+        continue;
+      }
+      if (!nilMap.has(sply_ty)) nilMap.set(sply_ty, { sply_ty, nil_amt: 0, expt_amt: 0, ngsup_amt: 0 });
+      const row = nilMap.get(sply_ty);
+      const field = line.supply === 'nil' ? 'nil_amt' : line.supply === 'exempt' ? 'expt_amt' : 'ngsup_amt';
+      row[field] = round2(row[field] + Number(line.taxable || 0));
+    }
+  }
+  if (nilMap.size) body.nil = { inv: [...nilMap.values()] };
+  if (unsplitZeroLines) warnings.push(`${unsplitZeroLines === 1 ? '1 line' : `${unsplitZeroLines} lines`} at 0% GST carry no supply type and are left out of table 8 (nil); mark each as nil-rated, exempt or non-GST.`);
   if (body.b2cs.some((row) => row.txval < 0)) warnings.push('B2CS_NEGATIVE: credit notes against small unregistered sales exceed those sales in this month; the net row is negative.');
   return {
     ...body,

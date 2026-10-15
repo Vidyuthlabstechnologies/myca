@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Requirements | FR-2B-1 to 4 in the [product PRD](../PRD.md) |
-| Status | Matching, adding 2B and credit at risk in the app built (2026-10-06); reminders built (2026-10-07); fetching 2B not built |
+| Status | Matching, adding 2B and credit at risk in the app built (2026-10-06); reminders built (2026-10-07); credit-at-risk marks in the supplier chat and Rule 37 from recorded payments (2026-10-15); fetching 2B needs the GSP |
 | Code | `sprints/sprint-3-gst-recon`, exception queue in `platform/src`, `notifications.mjs` |
 
 ## What the owner experiences
