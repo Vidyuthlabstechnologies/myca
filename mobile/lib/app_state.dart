@@ -4,6 +4,7 @@ import 'format.dart';
 import 'package:flutter/widgets.dart';
 
 import 'api/models.dart';
+import 'shared_file.dart';
 import 'api/myca_api.dart';
 import 'app_services.dart';
 import 'cloud/cloud_session.dart';
@@ -25,6 +26,7 @@ class AppState extends ChangeNotifier {
     required this.store,
     required this.pickTextFile,
     this.pickAnyFile = _cannotPickAny,
+    this.takeSharedFile = noSharedFile,
     this.notifications = const NoNotifications(),
     this.saveTextFile = _cannotSave,
     this.shareText = _cannotShare,
@@ -40,6 +42,8 @@ class AppState extends ChangeNotifier {
   final OnboardingStore store;
   final PickTextFile pickTextFile;
   final PickAnyFile pickAnyFile;
+  final TakeSharedFile takeSharedFile;
+  PickedFile? sharedFile;
   final NotificationPlanner notifications;
   final SaveTextFile saveTextFile;
   final ShareText shareText;
@@ -62,6 +66,21 @@ class AppState extends ChangeNotifier {
   DateTime? _leftAt;
 
   bool get _guards => cloud != null && cloud!.signedIn && lockAvailable && lockEnabled;
+
+  Future<void> checkSharedFile() async {
+    final file = await takeSharedFile();
+    if (file == null) return;
+    sharedFile = file;
+    notifyListeners();
+  }
+
+  bool get readyForEntries => snapshot?.activeUser != null && welcomed && migrated && !locked && (cloud == null || cloud!.ready);
+
+  PickedFile? takeSharedFileForEntry() {
+    final file = sharedFile;
+    sharedFile = null;
+    return file;
+  }
 
   Future<void> start() async {
     welcomed = await store.welcomed();

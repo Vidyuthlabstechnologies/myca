@@ -11,11 +11,16 @@ import 'package:myca/notifications.dart';
 
 import 'fake_api.dart';
 
-AppState stateFor(FakeMycaApi api, {Map<String, String>? saved, PickedFile? picked, RecordingNotifications? notifications}) => AppState(
+AppState stateFor(FakeMycaApi api, {Map<String, String>? saved, PickedFile? picked, PickedFile? shared, RecordingNotifications? notifications}) => AppState(
   api: api,
   store: MemoryOnboardingStore(isWelcomed: true, isMigrated: true),
   pickTextFile: (_) async => null,
   pickAnyFile: () async => picked,
+  takeSharedFile: () async {
+    final file = shared;
+    shared = null;
+    return file;
+  },
   notifications: notifications ?? const NoNotifications(),
   saveTextFile: (name, content) async {
     saved?[name] = content;
@@ -49,6 +54,21 @@ void main() {
     await tester.tap(find.text('Post it'));
     await tester.pumpAndSettle();
     expect(find.textContaining('Posted PUR-0002'), findsOneWidget);
+  });
+
+  testWidgets('a bill shared into the app from another app opens Read a bill and is read at once', (tester) async {
+    final api = FakeMycaApi(signedIn: true);
+    final shared = PickedFile(name: 'bill.jpg', mime: 'image/jpeg', bytes: Uint8List.fromList(utf8.encode('jpeg bytes')));
+    await tester.pumpWidget(MycaApp(state: stateFor(api, shared: shared)));
+    await tester.pumpAndSettle();
+    expect(find.text('Read a bill'), findsOneWidget);
+    expect(api.uploads['sha-of-bill.jpg'], startsWith('data:image/jpeg;base64,'));
+    expect(api.readDocuments, ['sha-of-bill.jpg']);
+    expect(find.text('Ganga Mills'), findsOneWidget);
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    expect(find.text('Read a bill'), findsNothing);
+    expect(api.readDocuments.length, 1, reason: 'a shared file is read once, not again on every rebuild');
   });
 
   testWidgets('when the model is off the capture screen says so instead of failing silently', (tester) async {
