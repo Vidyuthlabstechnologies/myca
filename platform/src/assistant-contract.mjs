@@ -787,6 +787,8 @@ export const TOOL_ARG_SCHEMAS = {
       due: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' },
       invoiceId: { type: 'string', pattern: '^INV-[0-9]{4,}$' },
       billId: { type: 'string', pattern: '^BILL-[0-9]{4,}$' },
+      documentSha256: { type: 'string', pattern: '^[a-f0-9]{64}$' },
+      documentName: { type: 'string', maxLength: 120 },
       assignedTo: { type: 'string', maxLength: 32 },
       party: { type: 'string', maxLength: 80 },
     },

@@ -250,6 +250,16 @@ class FakeMycaApi implements MycaApi {
       'state': 'later',
       'about': null,
     },
+    {
+      'id': 'REM-0003',
+      'text': 'Bill from Ganga Mills (GM/221) arrived through Scanner: bill-78.jpg. Open it to check the lines and post it.',
+      'due': '2026-10-09',
+      'inDays': 4,
+      'state': 'later',
+      'about': {'kind': 'document', 'id': 'a' * 64, 'name': 'bill-78.jpg'},
+      'documentSha256': 'a' * 64,
+      'documentName': 'bill-78.jpg',
+    },
   ];
   String reviewHash = 'a' * 64;
 

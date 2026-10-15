@@ -12,7 +12,9 @@ void main() {
     () async {
       final api = FakeMycaApi(signedIn: true);
       final reminders = remindersFrom(await api.query('list_reminders'));
-      expect(reminders.map((r) => r.id), ['REM-0001', 'REM-0002']);
+      expect(reminders.map((r) => r.id), ['REM-0001', 'REM-0002', 'REM-0003']);
+      expect(reminders.last.hasDocument, isTrue);
+      expect(reminders.last.aboutLabel, 'bill-78.jpg');
       expect(reminders.first.isDue, isTrue);
       expect(reminderWhen(reminders.first), 'Today');
       expect(reminderWhen(reminders.last), '9 October 2026');
@@ -99,6 +101,27 @@ void main() {
       await tester.pumpAndSettle();
       expect(api.reminders.last['text'], 'Check the 2B');
       expect(find.text('Check the 2B'), findsWidgets);
+    },
+  );
+
+  testWidgets(
+    'a reminder that carries a file opens the bill already read, and the reminder is not marked done by that',
+    (tester) async {
+      final api = FakeMycaApi(signedIn: true);
+      await tester.pumpWidget(MycaApp(state: testState(api)));
+      await tester.pumpAndSettle();
+      await tapRow(tester, 'Reminders');
+      final row = find.textContaining('Bill from Ganga Mills');
+      expect(row, findsOneWidget);
+      expect(find.textContaining('bill-78.jpg'), findsWidgets);
+      await tester.tap(row);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Open the bill'));
+      await tester.pumpAndSettle();
+      expect(api.queries, contains('read_document'));
+      expect(find.text('Read a bill'), findsOneWidget);
+      expect(find.textContaining('Ganga Mills'), findsWidgets);
+      expect(api.proposals.where((p) => p.tool == 'complete_reminder'), isEmpty);
     },
   );
 

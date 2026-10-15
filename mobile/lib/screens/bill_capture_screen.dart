@@ -11,9 +11,16 @@ import '../theme.dart';
 import '../widgets.dart';
 
 class BillCaptureScreen extends StatefulWidget {
-  const BillCaptureScreen({super.key, this.initial});
+  const BillCaptureScreen({
+    super.key,
+    this.initial,
+    this.documentSha256 = '',
+    this.fileName = '',
+  });
 
   final PickedFile? initial;
+  final String documentSha256;
+  final String fileName;
 
   @override
   State<BillCaptureScreen> createState() => _BillCaptureScreenState();
@@ -39,6 +46,11 @@ class _BillCaptureScreenState extends State<BillCaptureScreen> with ProposalFlow
     super.initState();
     final shared = widget.initial;
     if (shared != null) WidgetsBinding.instance.addPostFrameCallback((_) => _readFile(shared));
+    if (shared == null && widget.documentSha256.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _readStored(widget.documentSha256, widget.fileName.isEmpty ? 'the file' : widget.fileName),
+      );
+    }
   }
 
   Future<void> _pick() async {
@@ -60,10 +72,32 @@ class _BillCaptureScreenState extends State<BillCaptureScreen> with ProposalFlow
       _reading = true;
       _fileName = picked.name;
     });
+    String sha;
+    try {
+      sha = await state.api.upload(picked.name, dataUrlOf(picked));
+    } on MycaApiException catch (err) {
+      if (!mounted) return;
+      setState(() {
+        _reading = false;
+        _note = err.message;
+      });
+      return;
+    }
+    if (!mounted) return;
+    await _readStored(sha, picked.name);
+  }
+
+  Future<void> _readStored(String sha, String name) async {
+    final state = AppScope.of(context);
+    setState(() {
+      _note = '';
+      _read = null;
+      _reading = true;
+      _fileName = name;
+    });
     var note = '';
     Map<String, dynamic>? read;
     try {
-      final sha = await state.api.upload(picked.name, dataUrlOf(picked));
       final answer = await state.api.query('read_document', {'documentSha256': sha});
       final data = toolData(answer);
       if (data.isEmpty) {

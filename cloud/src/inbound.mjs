@@ -1,5 +1,6 @@
 import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { keyedHash } from './tokens.mjs';
+import { modelConfigured } from '../../platform/src/model-adapter.mjs';
 
 export const INBOUND_HEADER = 'x-myca-key';
 export const INBOUND_SOURCES = ['pos', 'documents'];
@@ -26,6 +27,21 @@ export function relayTokenMatches(configured, given) {
 
 function fail(error, extra = {}) {
   return { ok: false, error, ...extra };
+}
+
+async function noteDocument(session, { sha256, name, from, via, today, actor }) {
+  let read = null;
+  if (modelConfigured()) {
+    const out = await session.tool('read_document', { documentSha256: sha256 }, actor);
+    const args = out?.data?.proposal?.args;
+    if (out?.ok !== false && args?.partyName) read = args;
+  }
+  const who = from ? ` from ${from}` : '';
+  const text = read
+    ? `Bill from ${read.partyName}${read.supplierInvoiceNo ? ` (${read.supplierInvoiceNo})` : ''}${read.date ? ` dated ${read.date}` : ''} arrived${who} through ${via}: ${name}. Open it to check the lines and post it.`
+    : `A document arrived${who} through ${via}: ${name}. Read it and record the bill if it is one.`;
+  await session.tool('add_reminder', { text: text.slice(0, 200), due: today, documentSha256: sha256, documentName: name }, actor);
+  return Boolean(read);
 }
 
 function isUuid(value) {
@@ -169,9 +185,11 @@ export function createInbound({ db, secret, now = () => Date.now(), withBooks, e
           stored.push({ name: file.name, sha256: put.sha256 });
         }
         if (!stored.length) return fail('NOTHING_TO_STORE');
-        const what = stored.length === 1 ? stored[0].name : `${stored.length} files`;
-        await session.tool('add_reminder', { text: `Mail arrived${from ? ` from ${from}` : ''}${subject ? ` about "${subject}"` : ''} with ${what}. Read it and record the bill if it is one.`.slice(0, 200), due: today }, actor);
-        return { ok: true, stored: stored.length, files: stored };
+        let read = 0;
+        for (const file of stored) {
+          if (await noteDocument(session, { sha256: file.sha256, name: file.name, from: subject ? `${from || 'mail'} about "${subject}"` : from, via: key.label, today, actor })) read += 1;
+        }
+        return { ok: true, stored: stored.length, read, files: stored };
       });
     },
 
@@ -186,8 +204,8 @@ export function createInbound({ db, secret, now = () => Date.now(), withBooks, e
         const stored = await session.uploadDocument(name, content, actor);
         if (stored.ok === false) return stored;
         const from = String(body.from || '').trim().slice(0, 80);
-        await session.tool('add_reminder', { text: `A document arrived${from ? ` from ${from}` : ''} through ${key.label}: ${name}. Read it and record the bill if it is one.`, due: today }, actor);
-        return { ok: true, sha256: stored.sha256, bytes: stored.bytes };
+        const read = await noteDocument(session, { sha256: stored.sha256, name, from, via: key.label, today, actor });
+        return { ok: true, sha256: stored.sha256, bytes: stored.bytes, read };
       });
     },
   };

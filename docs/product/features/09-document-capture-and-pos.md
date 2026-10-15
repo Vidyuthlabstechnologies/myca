@@ -93,3 +93,14 @@ settlement reports.
 - Q3 and Q7 in the PRD.
 - How long are document images kept, and may the owner delete one that backs a posted
   entry? This belongs in the retention policy.
+
+## Documents that arrive on their own (2026-10-16)
+
+A file that reaches the business through an inbound documents key or the forwarding
+email address is stored, and then, when the model is switched on, read at once with
+`read_document`. The reminder that is created names the supplier, bill number and date
+the model saw and carries the file (`documentSha256`, `documentName`); it never carries
+an amount, because the engine prices the bill only when the owner opens it. On the phone
+the reminder offers "Open the bill", which lands in the bill preview with the file already
+read; the owner checks the lines and posts, or corrects. With the model off the reminder
+still carries the file, so the same tap opens it for reading by hand.
