@@ -57,6 +57,13 @@ void main() {
     await tester.pumpAndSettle();
     expect(api.proposals.last.tool, 'record_stock_transfer');
     expect(api.proposals.last.args, {'sku': 'SKU-A', 'qty': 40, 'fromGstin': '27AABCU9603R1ZN', 'toGstin': '29AABCU9603R1ZJ'});
+    await tester.tap(find.text('Discard'));
+    await tester.pumpAndSettle();
+    final value = find.widgetWithText(ActionChip, 'Value inventory in the books');
+    await tester.scrollUntilVisible(value, 200, scrollable: find.byType(Scrollable).first);
+    await tester.tap(value);
+    await tester.pumpAndSettle();
+    expect(api.proposals.last.tool, 'value_inventory');
 
     await tester.pageBack();
     await tester.pumpAndSettle();

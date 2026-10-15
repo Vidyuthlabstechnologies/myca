@@ -287,7 +287,14 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with ProposalFlow
                         ],
                       ),
                       const SizedBox(height: 8),
-                      ActionChip(avatar: const Icon(Icons.move_down, size: 18), label: const Text('Stock in or transfer'), onPressed: busy ? null : () => _stockIn(registrations)),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          ActionChip(avatar: const Icon(Icons.move_down, size: 18), label: const Text('Stock in or transfer'), onPressed: busy ? null : () => _stockIn(registrations)),
+                          ActionChip(avatar: const Icon(Icons.account_balance_outlined, size: 18), label: const Text('Value inventory in the books'), onPressed: busy ? null : () => propose('Value inventory today', 'value_inventory', const {})),
+                        ],
+                      ),
                       const SizedBox(height: 22),
                       const SectionLabel('GST registrations'),
                       Panel(
