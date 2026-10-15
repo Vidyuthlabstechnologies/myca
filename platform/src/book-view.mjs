@@ -8,7 +8,7 @@ export const BOOK_KEYS = new Set([
   'debitNotes', 'debitNoteSeq', 'purchaseNotes', 'purchaseNoteSeq',
   'gstReviews', 'gstr2b',
   'reminders', 'reminderSeq',
-  'cashReadings', 'customerTerms',
+  'cashReadings', 'customerTerms', 'supplierTerms',
   'caRequests', 'caRequestSeq',
   'quotes', 'quoteSeq',
   'filings',

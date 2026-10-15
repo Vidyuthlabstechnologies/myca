@@ -698,6 +698,23 @@ export const TOOL_ARG_SCHEMAS = {
     required: ['invoiceId'],
     properties: { invoiceId: { type: 'string', pattern: '^INV-[0-9]{4,}$' }, caApprovalId: { type: 'string', maxLength: 40 } },
   },
+  set_supplier_terms: {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      partyName: { type: 'string', maxLength: 80 },
+      partyGstin: { type: 'string', pattern: '^([0-9]{2}[A-Z0-9]{13})?$' },
+      msme: { type: 'boolean' },
+      udyam: { type: 'string', maxLength: 19 },
+      category: { type: 'string', enum: ['micro', 'small', 'medium'] },
+      days: { type: 'integer', minimum: 0, maximum: 365 },
+    },
+  },
+  supplier_dues: {
+    type: 'object',
+    additionalProperties: false,
+    properties: { asOf: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' } },
+  },
   set_payment_terms: {
     type: 'object',
     additionalProperties: false,
@@ -1383,6 +1400,7 @@ const TOOL_RISK = {
   end_employment: 'writes_books',
   set_employee_bank: 'writes_books',
   set_payment_terms: 'writes_books',
+  set_supplier_terms: 'writes_books',
   set_party_address: 'writes_books',
   set_sales_tax_rate: 'writes_books',
   set_contractor: 'writes_books',
@@ -1654,6 +1672,18 @@ export function planLocalToolCall(state, message) {
     const quarter = quarterSaid(text);
     const form = /\bsalar(?:y|ies)\b|\b24q\b|\bform\s*138\b/i.test(text) ? 'salary' : 'other';
     return { kind: 'tool', name: 'tds_return', args: { ...(quarter ? { quarter } : {}), ...(form === 'salary' ? { form } : {}) } };
+  }
+  if (/\b(?:msme|udyam|micro|small\s+enterprise)\b.*\b(?:dues?|owe|owed|payable|bills?|pay)\b|\b(?:supplier|vendor)\s+dues\b|\bwhat\s+do\s+i\s+owe\s+(?:my\s+)?(?:msme|suppliers)\b/i.test(text) && !/\bis\s+(?:an?\s+)?msme\b/i.test(text)) {
+    return { kind: 'tool', name: 'supplier_dues', args: {} };
+  }
+  {
+    const msmeSaid = /^(.+?)\s+is\s+(?:an?\s+|a\s+registered\s+)?(?:msme|micro\s+enterprise|small\s+enterprise)\b(?:[,;\s]+(?:udyam\s*(?:no\.?|number)?\s*[:#]?\s*)?(UDYAM-[A-Z]{2}-\d{2}-\d{7}))?(?:.*?\bnet\s+(\d{1,3})\b|.*?\b(\d{1,3})\s+days\b)?/i.exec(text.trim());
+    if (msmeSaid && !isNegated(text) && !isQuestion(text)) {
+      const days = msmeSaid[3] || msmeSaid[4];
+      return { kind: 'tool', name: 'set_supplier_terms', args: { partyName: msmeSaid[1].trim(), msme: true, ...(msmeSaid[2] ? { udyam: msmeSaid[2].toUpperCase() } : {}), ...(days ? { days: Number(days) } : {}) } };
+    }
+    const udyamOnly = /^(.+?)(?:'s)?\s+udyam\s*(?:no\.?|number)?\s*(?:is\s*)?[:#]?\s*(UDYAM-[A-Z]{2}-\d{2}-\d{7})\b/i.exec(text.trim());
+    if (udyamOnly && !isNegated(text)) return { kind: 'tool', name: 'set_supplier_terms', args: { partyName: udyamOnly[1].trim(), msme: true, udyam: udyamOnly[2].toUpperCase() } };
   }
   if (/\b(?:salary|payroll)\b.*\b(?:payout|bank)\b.*\bfile\b|\bpayout\s+file\b/i.test(text) && !isNegated(text) && !isQuestion(text)) {
     return { kind: 'tool', name: 'payroll_payout_file', args: { period: monthSaid(text) } };

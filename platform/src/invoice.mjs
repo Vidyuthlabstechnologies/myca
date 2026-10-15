@@ -4,6 +4,7 @@ import { csvRows, htmlEscape } from './text-safe.mjs';
 import { isPeriodLocked } from './period-lock.mjs';
 import { postingDate } from './dates.mjs';
 import { invoiceTerms, dueDateOf } from './payment-terms.mjs';
+import { billPayBy } from './supplier-dues.mjs';
 import { planTds, recordTdsEntry, tdsPayableAccountId, wantsTds } from './tds-deduction.mjs';
 
 function padInv(n) {
@@ -358,6 +359,12 @@ export function createPurchase(state, input) {
     ...(tds ? { tds: { section: tds.section, rate: tds.rate, basis: tds.basis, amount: tds.tds, pan: tds.pan } } : {}),
     transferIds: posted.map((p) => p.id),
   };
+  const payBy = billPayBy(state, { partyName: vendor.name, partyGstin: vendor.gstin, date });
+  if (payBy) {
+    bill.dueDate = payBy.payBy;
+    bill.termsDays = payBy.days;
+    if (payBy.msme) bill.msme = true;
+  }
   state.purchases = state.purchases || [];
   state.purchases.push(bill);
   return { ok: true, invoice: bill, posted };

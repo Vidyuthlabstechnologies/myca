@@ -59,6 +59,7 @@ import { tdsReviewOf, answerTdsReview } from './tds-review.mjs';
 import { addReminder, completeReminder, listReminders } from './reminders.mjs';
 import { cashForecast, canAfford, setCashBalance } from './cash-forecast.mjs';
 import { setPaymentTerms } from './payment-terms.mjs';
+import { setSupplierTerms, supplierDues } from './supplier-dues.mjs';
 import { askCa, replyCa, closeCa, listCaRequests } from './ca-requests.mjs';
 import { postTallyRows, postBankRows, purchaseRegisterCsv } from './post-import.mjs';
 import { parseZohoBooksCsv } from './import-zoho.mjs';
@@ -1044,6 +1045,20 @@ export const TOOLS = [
     run: (state, args = {}) => listCaRequests(state, args),
   },
   {
+    name: 'set_supplier_terms',
+    title: 'Supplier terms and MSME status',
+    description: 'Mark a supplier as a micro or small enterprise (optionally with their Udyam number and category) and the agreed payment days. New bills to them carry the pay-by date from the dated MSMED rule: the agreed days, at most 45, or 15 with no agreement. Owner only.',
+    args: ['partyName', 'partyGstin', 'msme', 'udyam', 'category', 'days'],
+    run: (state, args = {}) => setSupplierTerms(state, args),
+  },
+  {
+    name: 'supplier_dues',
+    title: 'Supplier dues',
+    description: 'Unpaid bills with a pay-by date, soonest first, and the MSME position: how much is owed to micro and small enterprises, what is past the MSMED time limit and therefore not deductible until paid (s.43B(h)). Read-only.',
+    args: ['asOf'],
+    run: (state, args = {}) => supplierDues(state, args),
+  },
+  {
     name: 'set_payment_terms',
     title: 'Payment terms',
     description: 'Set how many days a customer has to pay (0 means on receipt). New invoices to them get a due date; old invoices keep theirs.',
@@ -1632,7 +1647,14 @@ export const TOOLS = [
       const good = (result.rows || []).filter((r) => !r._blocking);
       const ledger = postBankRows(state, good);
       state.imports.push({ source: 'bank', at: new Date().toISOString(), ok: result.ok, rows: result.rows?.length || 0, posted: ledger.posted, heldBack: heldBackFrom(ledger.skipped) });
-      return ok({ ...result, ledger });
+      const withBalance = good.filter((r) => r.date && r.balance != null && Number.isFinite(Number(r.balance))).sort((a, b) => a.date.localeCompare(b.date) || (a.sourceRow || 0) - (b.sourceRow || 0));
+      const last = withBalance.at(-1);
+      let bankBalance = null;
+      if (last) {
+        const reading = setCashBalance(state, { on: last.date, bank: Number(last.balance) });
+        bankBalance = reading.ok ? { on: last.date, balance: Number(last.balance), source: 'bank statement' } : { on: last.date, balance: Number(last.balance), notRecorded: reading.error };
+      }
+      return ok({ ...result, ledger, ...(bankBalance ? { bankBalance } : {}) });
     },
   },
   {

@@ -423,6 +423,7 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
                 ]
               : [
                   if (doc.partial) '${rupees(doc.owed)} still owed',
+                  if (!doc.paid && !doc.cancelled && doc.dueDate.isNotEmpty) 'Pay by ${longDate(doc.dueDate)}${doc.msme ? ' (MSME)' : ''}',
                 ],
           onTap: _sales
               ? () => Navigator.of(context).push(

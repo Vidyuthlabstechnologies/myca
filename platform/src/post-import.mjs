@@ -279,9 +279,12 @@ function dmy(iso) {
 }
 
 export function purchaseRegisterCsv(purchases) {
-  const rows = [['GSTIN', 'SUPPLIER NAME', 'INVOICE NO', 'INVOICE DATE', 'TAXABLE VALUE', 'CGST', 'SGST', 'IGST', 'TOTAL VALUE']];
+  const rows = [['GSTIN', 'SUPPLIER NAME', 'INVOICE NO', 'INVOICE DATE', 'TAXABLE VALUE', 'CGST', 'SGST', 'IGST', 'TOTAL VALUE', 'AMOUNT PAID', 'PAYMENT DATE']];
   for (const p of purchases || []) {
-    rows.push([p.partyGstin, p.partyName, p.supplierInvoiceNo || p.id, dmy(p.date), p.taxable, p.cgst, p.sgst, p.igst, p.total]);
+    const payments = Array.isArray(p.payments) ? p.payments : [];
+    const paid = Math.round(payments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0) * 100) / 100;
+    const lastPaid = payments.map((payment) => payment.date).filter(Boolean).sort().at(-1) || '';
+    rows.push([p.partyGstin, p.partyName, p.supplierInvoiceNo || p.id, dmy(p.date), p.taxable, p.cgst, p.sgst, p.igst, p.total, paid, lastPaid ? dmy(lastPaid) : '']);
   }
   return csvRows(rows);
 }

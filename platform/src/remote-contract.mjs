@@ -61,6 +61,7 @@ export const REMOTE_QUERY_TOOLS = new Set([
   'export_iff',
   'list_year_closings',
   'week_ahead',
+  'supplier_dues',
   'gst_period_summary',
   'export_gstr1_json',
   'deadlines',

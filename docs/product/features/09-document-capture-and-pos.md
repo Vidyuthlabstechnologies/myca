@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Requirements | FR-CAP-1 to 3 in the [product PRD](../PRD.md) |
-| Status | File imports built; reading a supplier invoice and POS sales not built |
+| Status | File imports built; reading a supplier invoice (model, off until a key is set), POS sales, forwarding and the per-business address built (2026-10-14 and 15) |
 | Code | Importers in `platform/src` (`import-zoho.mjs`, `tally-xml.mjs`, `post-import.mjs`, `import-documents.mjs`), `sprints/sprint-1-tally-ingestion`, `sprints/sprint-2-bank-ocr`; uploads in `cloud/src/api.mjs` |
 
 ## What the owner experiences
