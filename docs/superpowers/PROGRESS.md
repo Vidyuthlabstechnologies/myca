@@ -1,6 +1,6 @@
 # MyCA: progress tracker
 
-**Phase 0 (pilot readiness) engineering: 67% complete**
+**Phase 0 (pilot readiness) engineering: 87% complete**
 
 **Whole product to a Play Store launch: about 70.6% complete** (estimate, see the last section)
 
@@ -33,7 +33,7 @@ Weights were rebalanced when you asked for stress testing, to fit the stress cam
 | 6 | Release pipeline (H17, CI) | 5 | 1 / 2 | 2.5 | 🔨 12 commits; build slice approved; final review in flight |
 | 7 | Docs sync | 3 | 0 / – | 0 | ⏳ Last |
 | S | Stress testing: recon, then permanent harness and fixes (Plan 8) | 8 | 2 / 2 | 8.0 | ✅ Done: permanent stress harness passing in npm run stress |
-| | **Total** | **100** | | **81.75** | |
+| | **Total** | **100** | | **86.75** | |
 
 ## Audit findings closed
 
