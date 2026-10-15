@@ -88,6 +88,7 @@ export function invoiceDocument(state, id) {
       debitNotes,
       shares: (invoice.shares || []).map((share) => ({ on: share.on, by: share.by, channel: share.channel, outcome: share.outcome })),
       ewayBill: ewayBillWords(ewayBillStatus(state, invoice)),
+      einvoice: einvoiceWords(state, invoice),
       status: invoice.status,
       paymentTermsDays: invoice.paymentTermsDays ?? null,
       dueDate: invoice.dueDate || '',
@@ -95,6 +96,15 @@ export function invoiceDocument(state, id) {
       balance: round2(invoice.total - received - credited),
     },
   };
+}
+
+function einvoiceWords(state, invoice) {
+  if ((state.company?.country || 'IN') !== 'IN') return null;
+  if (invoice.status === 'cancelled') return { status: 'not-applicable', irn: '', why: 'The invoice is cancelled.' };
+  if (!invoice.partyGstin) return { status: 'not-applicable', irn: '', why: 'E-invoicing applies to invoices to registered buyers (B2B); this one is to an unregistered buyer.' };
+  if (invoice.irn) return { status: 'issued', irn: invoice.irn, ackNo: invoice.ackNo || '', why: 'IRN issued by the IRP.' };
+  if (invoice.mockIrn) return { status: 'mock', irn: invoice.mockIrn, ackNo: invoice.mockAckNo || '', why: 'Simulated IRN; nothing reached the IRP.' };
+  return { status: 'ready', irn: '', why: 'If your turnover brings you into e-invoicing, generate the IRN; it goes through the action gate and needs a CA approval before anything reaches the IRP.' };
 }
 
 function ewayBillWords(status) {

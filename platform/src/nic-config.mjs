@@ -172,9 +172,19 @@ export function saveNicPublicKey(input) {
   return { ok: true, bits: normalized.bits };
 }
 
+export function nicDocType(id) {
+  const prefix = String(id || '').split('-')[0].toUpperCase();
+  return prefix === 'CN' ? 'CRN' : prefix === 'DN' ? 'DBN' : 'INV';
+}
+
+function nicDate(iso) {
+  const dt = String(iso || '').split('-');
+  return dt.length === 3 ? `${dt[2]}/${dt[1]}/${dt[0]}` : String(iso || '');
+}
+
 export function invoiceToNicPayload(company, inv) {
-  const dt = String(inv.date || '').split('-');
-  const date = dt.length === 3 ? `${dt[2]}/${dt[1]}/${dt[0]}` : inv.date;
+  const date = nicDate(inv.date);
+  const docType = nicDocType(inv.id);
   const pin = Number(company.pin || 411001);
   const loc = company.city || 'Pune';
   const items = (inv.lines || []).map((l, i) => ({
@@ -197,7 +207,8 @@ export function invoiceToNicPayload(company, inv) {
   return {
     Version: '1.1',
     TranDtls: { TaxSch: 'GST', SupTyp: inv.partyGstin ? 'B2B' : 'B2C', RegRev: 'N', IgstOnIntra: 'N' },
-    DocDtls: { Typ: 'INV', No: String(inv.id).slice(0, 16), Dt: date },
+    DocDtls: { Typ: docType, No: String(inv.id).slice(0, 16), Dt: date },
+    ...(docType !== 'INV' && inv.invoiceId ? { PrecDocDtls: [{ InvNo: String(inv.invoiceId).slice(0, 16), InvDt: nicDate(inv.invoiceDate) }] } : {}),
     SellerDtls: {
       Gstin: company.gstin,
       LglNm: company.name,
@@ -235,7 +246,7 @@ export function generateMockIrnPayload(company, inv) {
     SellerGstin: company?.gstin || '27AABCN1234F1ZW',
     BuyerGstin: inv?.partyGstin || 'URP',
     DocNo: inv?.id || 'INV-0001',
-    DocTyp: 'INV',
+    DocTyp: nicDocType(inv?.id),
     DocDt: inv?.date || '2026-08-05',
     TotInvVal: inv?.total || 0,
     ItemCnt: (inv?.lines || []).length || 1,

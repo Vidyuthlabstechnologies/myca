@@ -265,7 +265,7 @@ export async function nicGstinMaster(gstin, cfgOrFetch = loadGovtConfig(), fetch
 }
 
 export async function nicGenerateIrn(state, invoiceId, fetchFn = fetch, options = {}) {
-  const inv = (state.invoices || []).find((i) => i.id === invoiceId);
+  const inv = [...(state.invoices || []), ...(state.creditNotes || []), ...(state.debitNotes || [])].find((i) => i.id === invoiceId);
   if (!inv) return { ok: false, error: 'INVOICE_NOT_FOUND', invoiceId };
   const cfg = loadGovtConfig();
   const useMock = options.mock === false ? false : Boolean(options.mock || cfg.env === 'mock' || cfg.useMock || mockModeEnabled());

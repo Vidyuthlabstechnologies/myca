@@ -7,8 +7,12 @@ function clientOf(state) {
   return normalizeClientId(state.activeClientId);
 }
 
+export function nicDocuments(state) {
+  return [...(state.invoices || []), ...(state.creditNotes || []), ...(state.debitNotes || [])];
+}
+
 function findInvoice(state, invoiceId) {
-  return (state.invoices || []).find((inv) => inv.id === invoiceId) || null;
+  return nicDocuments(state).find((inv) => inv.id === invoiceId) || null;
 }
 
 function defined(fields) {
@@ -48,14 +52,14 @@ export async function generateIrn(state, invoiceId, actor) {
     actor,
     payload,
     metadata: { invoiceId },
-    fixture: (copy) => stampMockIrn(copy.invoices, copy.company, invoiceId),
+    fixture: (copy) => stampMockIrn(nicDocuments(copy), copy.company, invoiceId),
   }, (t) => t.nic.generateIrn(state, invoiceId));
   return { payload, ...out };
 }
 
 export async function simulateIrn(state, invoiceId, actor) {
   if (mockModeEnabled()) return generateIrn(state, invoiceId, actor);
-  return { ...stampMockIrn(state.invoices, state.company, invoiceId), mock: true };
+  return { ...stampMockIrn(nicDocuments(state), state.company, invoiceId), mock: true };
 }
 
 export async function authenticate(state, actor) {

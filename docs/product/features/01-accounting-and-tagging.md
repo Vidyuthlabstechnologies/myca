@@ -110,9 +110,10 @@ or a credit unless they ask.
   note; debit notes to suppliers are made in chat for now.
 - A supplier's own debit note that increases a bill was built 2026-10-13
   (`record_supplier_debit_note`).
-- To build: the e-invoice (IRN) for a credit or debit note where the business is in the
-  e-invoicing bracket (needs NIC credentials); debit notes to suppliers from the bill in
-  the app.
+- The e-invoice (IRN) for a credit or debit note goes through the same gate as an
+  invoice (`govt_generate_irn CN-0001`), with the original invoice as the preceding
+  document; debit notes to suppliers are made from the supplier's chat in the app
+  (2026-10-15). Live generation still needs NIC credentials.
 
 ## Acceptance criteria
 

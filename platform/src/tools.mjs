@@ -1231,7 +1231,7 @@ export const TOOLS = [
   {
     name: 'govt_generate_irn',
     title: 'Generate e-invoice IRN',
-    description: 'Build NIC Invoice JSON from a posted tax invoice and generate its IRN through the action gate (live switch and a matching CA approval).',
+    description: 'Build NIC Invoice JSON from a posted tax invoice, credit note (CN-) or debit note (DN-) and generate its IRN through the action gate (live switch and a matching CA approval). A note carries the original invoice as PrecDocDtls.',
     args: ['invoiceId', 'provider', 'caApprovalId'],
     run: async (state, args = {}) => {
       if (!args.invoiceId) return fail('invoiceId required, e.g. INV-0001');

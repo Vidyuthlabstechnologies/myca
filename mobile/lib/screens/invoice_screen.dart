@@ -135,6 +135,12 @@ class _InvoiceScreenState extends State<InvoiceScreen> with ProposalFlow {
     );
   }
 
+  Future<void> _einvoice(InvoiceDocument doc) async {
+    await propose('Generate the e-invoice (IRN) for ${doc.id}', 'govt_generate_irn', {
+      'invoiceId': doc.id,
+    });
+  }
+
   Future<void> _ewayBill(InvoiceDocument doc) async {
     await propose('Generate the e-way bill for ${doc.id}', 'govt_generate_ewb', {
       'invoiceId': doc.id,
@@ -313,6 +319,7 @@ class _InvoiceScreenState extends State<InvoiceScreen> with ProposalFlow {
                       ? null
                       : () => _transport(doc),
                   onEwayBill: doc.ewayBill?.status == 'ready' ? () => _ewayBill(doc) : null,
+                  onEinvoice: doc.einvoice?.status == 'ready' ? () => _einvoice(doc) : null,
                   onCancel: doc.isQuote || doc.cancelled || doc.credited > 0
                       ? null
                       : () => _cancel(doc),
@@ -379,6 +386,7 @@ class _InvoiceBody extends StatelessWidget {
     this.onAmend,
     required this.onTransport,
     required this.onEwayBill,
+    this.onEinvoice,
     required this.onCancel,
     required this.onRemind,
     required this.onAskCa,
@@ -399,6 +407,7 @@ class _InvoiceBody extends StatelessWidget {
   final VoidCallback? onAmend;
   final VoidCallback? onTransport;
   final VoidCallback? onEwayBill;
+  final VoidCallback? onEinvoice;
   final VoidCallback? onCancel;
   final VoidCallback? onRemind;
   final VoidCallback? onAskCa;
@@ -597,6 +606,32 @@ class _InvoiceBody extends StatelessWidget {
         if (missing.isNotEmpty) ...[
           const SizedBox(height: 12),
           Text(missing, style: text.bodyMedium?.copyWith(color: Palette.warn)),
+        ],
+        if (doc.einvoice case final ei? when ei.status != 'not-applicable') ...[
+          const SizedBox(height: 16),
+          _Sheet(
+            children: [
+              Text('E-INVOICE', style: text.labelSmall),
+              const SizedBox(height: 6),
+              Text(
+                ei.status == 'issued'
+                    ? 'IRN ${ei.irn}'
+                    : ei.status == 'mock'
+                    ? 'Simulated IRN ${ei.irn.length > 12 ? ei.irn.substring(0, 12) : ei.irn}…'
+                    : 'No IRN yet',
+                style: text.titleMedium,
+              ),
+              const SizedBox(height: 4),
+              Text(ei.why, style: text.bodySmall),
+              if (onEinvoice != null) ...[
+                const SizedBox(height: 10),
+                ActionChip(
+                  label: const Text('Generate e-invoice'),
+                  onPressed: busy ? null : onEinvoice,
+                ),
+              ],
+            ],
+          ),
         ],
         if (doc.ewayBill case final ewb? when ewb.needed) ...[
           const SizedBox(height: 16),
