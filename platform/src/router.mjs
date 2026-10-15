@@ -67,6 +67,11 @@ function fmtToolResult(name, result) {
   if (result?.error === 'SALARIES_PRIVATE') return 'Only the owner can see or change employees and salaries.';
   if (!result || result.ok === false) return failedInWords(result?.error, result);
   const d = result.data ?? result.invoice ?? result;
+  if (name === 'create_invoice' && result.invoice?.export) {
+    const inv = result.invoice;
+    const e = inv.export;
+    return `Export invoice ${inv.id} to ${inv.partyName}: ${e.currency === 'INR' ? '' : `${e.currency} ${e.foreignTotal} at ${e.exchangeRate}, `}${money(inv.total)} in rupees${e.withTax ? `, IGST ${money(inv.igst)} charged (refund claimable)` : ', zero-rated without IGST under LUT or bond'}. Place of supply 96; it goes to GSTR-1 table 6A (${e.withTax ? 'WPAY' : 'WOPAY'}).${e.shippingBillNo ? '' : ' Add the shipping bill number, date and port code when you have them.'}`;
+  }
   if (name === 'create_invoice' && result.invoice) {
     const i = result.invoice;
     if (i.country === 'US') {

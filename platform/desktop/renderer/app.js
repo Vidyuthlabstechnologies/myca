@@ -828,6 +828,34 @@ document.getElementById('voucher').addEventListener('submit', async (e) => {
   await refresh();
 });
 
+document.addEventListener('keydown', (e) => {
+  const tag = String((e.target && e.target.tagName) || '').toLowerCase();
+  const typing = tag === 'input' || tag === 'textarea' || tag === 'select' || (e.target && e.target.isContentEditable);
+  const q = document.getElementById('q');
+  if ((e.ctrlKey || e.metaKey) && !e.altKey && e.key.toLowerCase() === 'k') {
+    e.preventDefault();
+    q.focus();
+    q.select();
+    return;
+  }
+  if ((e.ctrlKey || e.metaKey) && !e.altKey && /^[1-8]$/.test(e.key)) {
+    const tab = document.querySelectorAll('.tabs button')[Number(e.key) - 1];
+    if (tab) {
+      e.preventDefault();
+      tab.click();
+    }
+    return;
+  }
+  if (!typing && e.key === '/') {
+    e.preventDefault();
+    q.focus();
+    return;
+  }
+  if (e.key === 'Escape' && e.target === q) {
+    q.value = '';
+  }
+});
+
 document.getElementById('q').addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && !e.shiftKey) {
     e.preventDefault();

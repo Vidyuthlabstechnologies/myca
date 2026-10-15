@@ -8,6 +8,24 @@ import { billPayBy } from './supplier-dues.mjs';
 import { planTds, recordTdsEntry, tdsPayableAccountId, wantsTds } from './tds-deduction.mjs';
 
 export const ZERO_RATE_SUPPLY = ['nil', 'exempt', 'non-gst'];
+export const FOREIGN_POS = '96';
+const CURRENCY = /^[A-Z]{3}$/;
+
+function exportPlan(input) {
+  const raw = input.exportSale;
+  if (raw == null || raw === false) return { ok: true, plan: null };
+  if (typeof raw !== 'object') return { ok: false, error: 'BAD_EXPORT' };
+  const currency = String(raw.currency || 'INR').trim().toUpperCase();
+  if (!CURRENCY.test(currency)) return { ok: false, error: 'BAD_CURRENCY', currency };
+  const exchangeRate = currency === 'INR' ? 1 : Number(raw.exchangeRate);
+  if (!Number.isFinite(exchangeRate) || exchangeRate <= 0) return { ok: false, error: 'EXCHANGE_RATE_REQUIRED', hint: 'Give the rupees per unit of the currency, for example 83.5 for USD.' };
+  const withTax = Boolean(raw.withTax);
+  const shippingBillNo = String(raw.shippingBillNo || '').trim().slice(0, 7);
+  const shippingBillDate = raw.shippingBillDate ? postingDate(raw.shippingBillDate) : '';
+  if (raw.shippingBillDate && !shippingBillDate) return { ok: false, error: 'INVALID_DATE', shippingBillDate: raw.shippingBillDate };
+  const portCode = String(raw.portCode || '').trim().toUpperCase().slice(0, 6);
+  return { ok: true, plan: { currency, exchangeRate, withTax, shippingBillNo, shippingBillDate, portCode } };
+}
 
 function padInv(n) {
   return `INV-${String(n).padStart(4, '0')}`;
@@ -120,6 +138,10 @@ export function createInvoice(state, input) {
   if (specs.some((s) => !Number.isFinite(s.qty) || s.qty <= 0 || !Number.isFinite(s.rate) || s.rate < 0 || !Number.isFinite(s.gstRate))) {
     return { ok: false, error: 'BAD_LINE' };
   }
+  const exporting = exportPlan(input);
+  if (!exporting.ok) return exporting;
+  const exportSale = exporting.plan;
+  if (exportSale && String(input.partyGstin || '').trim()) return { ok: false, error: 'EXPORT_BUYER_HAS_GSTIN', hint: 'An export goes to a buyer outside India, who has no GSTIN.' };
   const badSupply = rawLines.findIndex((l) => l.supply != null && l.supply !== '' && !ZERO_RATE_SUPPLY.includes(String(l.supply)));
   if (badSupply >= 0) return { ok: false, error: 'BAD_SUPPLY_TYPE', line: badSupply + 1, hint: 'nil, exempt or non-gst' };
   const supplyOnRated = rawLines.findIndex((l, i) => l.supply && specs[i].gstRate !== 0);
@@ -130,22 +152,25 @@ export function createInvoice(state, input) {
   const partyName = String(input.partyName ?? '').trim() || 'Walk-in';
   const terms = invoiceTerms(state, { name: partyName, gstin: input.partyGstin, override: input.paymentTermsDays });
   if (terms.error) return { ok: false, error: terms.error };
-  const party = ensureParty(state, { name: partyName, gstin: input.partyGstin, stateCode: input.partyState, address: input.partyAddress });
-  const pos = placeOfSupply(input, party, company);
+  const party = ensureParty(state, { name: partyName, gstin: input.partyGstin, stateCode: exportSale ? FOREIGN_POS : input.partyState, address: input.partyAddress });
+  const pos = exportSale ? FOREIGN_POS : placeOfSupply(input, party, company);
   const lines = rawLines.map((l, i) => {
-    const { qty, rate: rateAmt, gstRate } = specs[i];
+    const { qty, rate: foreignRate, gstRate } = specs[i];
+    const rateAmt = exportSale ? Math.round(foreignRate * exportSale.exchangeRate * 100) / 100 : foreignRate;
     const taxable = Math.round(qty * rateAmt * 100) / 100;
-    const split = gstSplit({
+    const computed = gstSplit({
       taxable,
       rate: gstRate,
       supplierState: company.state,
       partyState: pos,
     });
+    const split = exportSale && !exportSale.withTax ? { intra: false, cgst: 0, sgst: 0, igst: 0, tax: 0 } : computed;
     return {
       description: l.description,
       hsn: String(l.hsn ?? '').trim(),
       qty,
       rate: rateAmt,
+      ...(exportSale && exportSale.currency !== 'INR' ? { foreignRate, foreignAmount: Math.round(qty * foreignRate * 100) / 100 } : {}),
       gstRate,
       ...(gstRate === 0 && l.supply ? { supply: String(l.supply) } : {}),
       taxable,
@@ -229,6 +254,7 @@ export function createInvoice(state, input) {
     igst,
     total,
     ...(terms.days == null ? {} : { paymentTermsDays: terms.days, dueDate: dueDateOf(date, terms.days) }),
+    ...(exportSale ? { export: { ...exportSale, foreignTotal: exportSale.currency === 'INR' ? total : Math.round(lines.reduce((s, l) => s + Number(l.foreignAmount || 0), 0) * 100) / 100 }, zeroRated: !exportSale.withTax } : {}),
     status: 'posted',
     transferIds: posted.map((p) => p.id),
   };

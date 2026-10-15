@@ -258,9 +258,15 @@ function documentPreview(state, args, kind) {
   const list = sale ? state.invoices : state.purchases;
   if (args.id && (list || []).some((d) => d.id === args.id)) blockers.push(`${args.id} already exists in these books.`);
 
-  const pos = sale
-    ? (stateCodeOf(args.partyState) || partyStateOf(args.partyGstin) || company.state)
-    : company.state;
+  const exportSale = sale && args.exportSale && typeof args.exportSale === 'object' ? args.exportSale : null;
+  const fx = exportSale ? Number(String(exportSale.currency || 'INR').toUpperCase() === 'INR' ? 1 : exportSale.exchangeRate) : 1;
+  if (exportSale && !(fx > 0)) blockers.push('An export needs the exchange rate: rupees per unit of the currency.');
+  if (exportSale && String(args.partyGstin || '').trim()) blockers.push('An export goes to a buyer outside India, who has no GSTIN.');
+  const pos = exportSale
+    ? '96'
+    : sale
+      ? (stateCodeOf(args.partyState) || partyStateOf(args.partyGstin) || company.state)
+      : company.state;
   const supplier = sale ? company.state : (partyStateOf(args.partyGstin) || stateCodeOf(args.partyState) || company.state);
   const unrated = (args.lines || []).findIndex((l) => l.gstRate == null || l.gstRate === '');
   if (unrated >= 0) {
@@ -270,16 +276,18 @@ function documentPreview(state, args, kind) {
   }
   const lines = (args.lines || []).map((l) => {
     const qty = Number(l.qty == null || l.qty === '' ? 1 : l.qty);
-    const rate = Number(l.rate);
+    const rate = exportSale ? Math.round(Number(l.rate) * (fx > 0 ? fx : 0) * 100) / 100 : Number(l.rate);
     const gstRate = Number(l.gstRate == null || l.gstRate === '' ? 0 : l.gstRate);
     const taxable = Math.round(qty * rate * 100) / 100;
-    return { ...gstSplit({ taxable, rate: gstRate, supplierState: supplier, partyState: pos }), taxable, gstRate, qty, rate };
+    const split = exportSale && !exportSale.withTax ? { cgst: 0, sgst: 0, igst: 0 } : gstSplit({ taxable, rate: gstRate, supplierState: supplier, partyState: pos });
+    return { ...split, taxable, gstRate, qty, rate };
   });
   const sum = (key) => Math.round(lines.reduce((s, l) => s + (l[key] || 0), 0) * 100) / 100;
   const taxable = sum('taxable');
   const tax = Math.round((sum('cgst') + sum('sgst') + sum('igst')) * 100) / 100;
   const party = args.partyName || (sale ? 'Walk-in' : 'Supplier');
-  const heads = sum('igst') > 0 ? `IGST ${money(sum('igst'))}` : `CGST ${money(sum('cgst'))} + SGST ${money(sum('sgst'))}`;
+  const heads = exportSale && !exportSale.withTax ? 'no IGST (zero-rated under LUT or bond)' : sum('igst') > 0 ? `IGST ${money(sum('igst'))}` : `CGST ${money(sum('cgst'))} + SGST ${money(sum('sgst'))}`;
+  const exportWords = exportSale ? `Export invoice (${String(exportSale.currency || 'INR').toUpperCase()}${fx > 0 && fx !== 1 ? ` at ${fx}` : ''}) to` : 'Invoice to';
   const terms = sale ? invoiceTerms(state, { name: party, gstin: args.partyGstin, override: args.paymentTermsDays }) : { days: null };
   if (terms.error) blockers.push('Terms are a whole number of days from 0 to 365.');
   const due = sale && terms.days != null && date ? ` Due ${dueDateOf(date, terms.days)} (${termsLabel(terms.days)}${terms.source === 'customer' ? `, ${party}'s usual terms` : ''}).` : '';
@@ -292,10 +300,10 @@ function documentPreview(state, args, kind) {
   return {
     blockers,
     summary: sale
-      ? `Invoice to ${party}${args.partyGstin ? ` (${args.partyGstin})` : ''} dated ${date || '?'}: taxable ${money(taxable)}, ${heads}, total ${money(taxable + tax)}. Place of supply ${gstinRules.STATE_CODES?.[pos] || pos || '?'}.${due}`
+      ? `${exportWords} ${party}${args.partyGstin ? ` (${args.partyGstin})` : ''} dated ${date || '?'}: taxable ${money(taxable)}, ${heads}, total ${money(taxable + tax)}. Place of supply ${exportSale ? 'outside India (96)' : gstinRules.STATE_CODES?.[pos] || pos || '?'}.${due}`
       : `Purchase bill from ${party}${args.partyGstin ? ` (${args.partyGstin})` : ''} dated ${date || '?'}: taxable ${money(taxable)}, ${heads}, total ${money(taxable + tax)}. Input credit ${args.itcEligible === false ? 'blocked (s.17(5)) and added to cost' : money(tax)}.`,
     effects: sale
-      ? [`${party} owes you ${money(taxable + tax)} more.`, `It goes into your GSTR-1${date ? ` for ${date.slice(0, 7)}` : ''}.`]
+      ? [`${party} owes you ${money(taxable + tax)} more.`, exportSale ? `It goes into GSTR-1 table 6A${date ? ` for ${date.slice(0, 7)}` : ''} as ${exportSale.withTax ? 'WPAY' : 'WOPAY'}.` : `It goes into your GSTR-1${date ? ` for ${date.slice(0, 7)}` : ''}.`]
       : [`You owe ${party} ${money(taxable + tax - (tds?.tds || 0))} more.`, args.itcEligible === false ? 'The GST on it cannot be claimed, so it is part of the cost.' : 'It is checked against your GSTR-2B when you add one.', ...(tds ? [tdsWords(tds, taxable + tax - tds.tds, `you owe ${party}`)] : [])],
     figures: { date, taxable, tax, total: Math.round((taxable + tax) * 100) / 100, placeOfSupply: pos, ...(tds ? { tds: tds.tds, tdsSection: tds.section, tdsRate: tds.rate } : {}) },
   };
