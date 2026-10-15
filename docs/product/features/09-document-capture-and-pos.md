@@ -104,3 +104,17 @@ an amount, because the engine prices the bill only when the owner opens it. On t
 the reminder offers "Open the bill", which lands in the bill preview with the file already
 read; the owner checks the lines and posts, or corrects. With the model off the reminder
 still carries the file, so the same tap opens it for reading by hand.
+
+## Marketplace settlements (D1, 2026-10-16)
+
+`import_settlement` reads a payout report from Amazon, Flipkart, another marketplace or a
+gateway: either one amount per row with a description (Amazon's settlement report) or one
+row per order with sale, fees, TCS, TDS and settlement value columns (Flipkart's sheet).
+Every line is typed as sale, tax, refund, fee, penalty, reimbursement, TCS or TDS 194-O;
+the expected payout is the sum of the rows, never a figure the file asserts. The payout is
+matched to a bank credit already in the ledger within twelve days, or to the amount the
+owner states ("import amazon settlement, bank received 1,23,456"). A shortfall, a payout
+not yet in the bank and each penalty become exceptions with the order ids behind them.
+`settlement_status` ("did Amazon pay correctly?") shows expected against paid by channel
+and the TCS and TDS credits to claim. Nothing posts to the ledger until D2 gives the
+settlement orders to settle against.

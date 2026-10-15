@@ -566,6 +566,24 @@ export const TOOL_ARG_SCHEMAS = {
       documentSha256: { type: 'string', pattern: '^[0-9a-f]{64}$' },
     },
   },
+  import_settlement: {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      csv: { type: 'string' },
+      documentSha256: { type: 'string', pattern: '^[0-9a-f]{64}$' },
+      channel: { type: 'string', enum: ['amazon', 'flipkart', 'myntra', 'nykaa', 'meesho', 'shopify', 'razorpay', 'quick-commerce', 'marketplace'] },
+      bankAmount: { type: 'number', minimum: 0 },
+    },
+  },
+  settlement_status: {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      channel: { type: 'string', enum: ['amazon', 'flipkart', 'myntra', 'nykaa', 'meesho', 'shopify', 'razorpay', 'quick-commerce', 'marketplace'] },
+      limit: { type: 'integer', minimum: 1, maximum: 200 },
+    },
+  },
   contractor_1099_file: {
     type: 'object',
     additionalProperties: false,
@@ -1521,6 +1539,8 @@ const TOOL_RISK = {
   set_suta_rate: 'writes_books',
   import_us_invoices: 'writes_books',
   import_pos_sales: 'writes_books',
+  import_settlement: 'writes_books',
+  settlement_status: 'read_only',
   sales_tax_review_answer: 'writes_books',
   record_sales_tax_payment: 'writes_books',
   record_sales_tax_filing: 'writes_books',
@@ -1994,6 +2014,21 @@ export function planLocalToolCall(state, message) {
     const csv = state.pendingFile?.content || state.files.tally;
     if (!csv) return { kind: 'reply', reply: 'Attach a Tally Day Book CSV first (dropdown: Tally Day Book).', tools: [] };
     return { kind: 'tool', name: 'import_tally', args: { csv, fileName: state.pendingFile?.name || 'tally.csv' }, clearsPendingFile: true };
+  }
+  {
+    const settle = /\bimport\s+(?:the\s+)?(?:(amazon|flipkart|myntra|nykaa|meesho|shopify|razorpay|quick[\s-]?commerce)\s+)?(?:settlement|payout)s?\b(?:\s+(?:report|file|csv))?(?:.*?\b(?:bank|received|got|paid)\s+(?:₹|rs\.?\s*)?([\d,]+(?:\.\d+)?))?/i.exec(text);
+    if (settle && !isQuestion(text)) {
+      const csv = state.pendingFile?.content;
+      if (!csv) return { kind: 'reply', reply: 'Attach the settlement or payout report first (Amazon settlement CSV, Flipkart settlement sheet, or any sheet with sale, fees and settlement value per order), then say "import settlement". Add "bank received 1,23,456" if the bank credit is not in the books yet.', tools: [] };
+      const channel = settle[1] ? settle[1].toLowerCase().replace(/\s+/, '-') : undefined;
+      const bankAmount = settle[2] ? Number(settle[2].replace(/,/g, '')) : undefined;
+      return { kind: 'tool', name: 'import_settlement', args: { csv, ...(channel ? { channel } : {}), ...(bankAmount != null ? { bankAmount } : {}) }, clearsPendingFile: true };
+    }
+    const paid = /\b(?:did|has|have)\s+(amazon|flipkart|myntra|nykaa|meesho|shopify|razorpay)\s+(?:pay|paid|settle|settled)\b|\b(amazon|flipkart|myntra|nykaa|meesho|shopify|razorpay)\s+(?:payout|payouts|settlement|settlements)\b|\bsettlement\s+status\b|\b(?:marketplace\s+)?payouts?\s+(?:status|so far|this month)\b/i.exec(text);
+    if (paid) {
+      const channel = (paid[1] || paid[2] || '').toLowerCase();
+      return { kind: 'tool', name: 'settlement_status', args: channel ? { channel } : {} };
+    }
   }
   if (/\bimport\s+(?:pos|counter|daily)\s*(?:sales)?\b|\b(?:pos|counter)\s+sales\s+(?:csv|file|import)\b/i.test(text)) {
     const csv = state.pendingFile?.content;

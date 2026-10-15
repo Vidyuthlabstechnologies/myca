@@ -251,8 +251,53 @@ function importCandidates(book) {
   return out;
 }
 
+function settlementCandidates(book) {
+  const out = [];
+  for (const item of book.settlements || []) {
+    const name = item.channel[0].toUpperCase() + item.channel.slice(1);
+    if (item.status === 'short') {
+      out.push({
+        key: `settlement:short:${item.id}`,
+        source: 'settlement',
+        code: 'SETTLEMENT_SHORT',
+        severity: 'high',
+        title: `${name} paid ${item.shortfall} less than settlement ${item.settlementId} adds up to`,
+        why: `The report's rows add up to ${item.expected} and ${item.paid} arrived. The difference is owed by ${name} or explained by a line the report does not show.`,
+        moneyAtRisk: Number(item.shortfall || 0),
+        evidence: { settlementId: item.settlementId, id: item.id, expected: item.expected, paid: item.paid },
+      });
+    }
+    if (item.status === 'unmatched') {
+      out.push({
+        key: `settlement:unmatched:${item.id}`,
+        source: 'settlement',
+        code: 'SETTLEMENT_NOT_IN_BANK',
+        severity: 'medium',
+        title: `${name} settlement ${item.settlementId} of ${item.expected} is not in the bank yet`,
+        why: 'No bank credit of this amount is in the books within twelve days of the settlement. Import the bank statement that carries it, or state the amount received.',
+        moneyAtRisk: Number(item.expected || 0),
+        evidence: { settlementId: item.settlementId, id: item.id, expected: item.expected },
+      });
+    }
+    for (const [n, penalty] of (item.penalties || []).entries()) {
+      out.push({
+        key: `settlement:penalty:${item.id}:${n}`,
+        source: 'settlement',
+        code: 'MARKETPLACE_PENALTY',
+        severity: 'low',
+        title: `${name} charged a penalty of ${Math.abs(penalty.amount)}${penalty.orderId ? ` on order ${penalty.orderId}` : ''}`,
+        why: `${penalty.description || 'A penalty'} in settlement ${item.settlementId}. Penalties are disputable within the marketplace's window.`,
+        moneyAtRisk: Math.abs(Number(penalty.amount || 0)),
+        evidence: { settlementId: item.settlementId, id: item.id, orderId: penalty.orderId, description: penalty.description },
+      });
+    }
+  }
+  return out;
+}
+
 export function detectExceptions(book, inputs = {}) {
   return [
+    ...settlementCandidates(book),
     ...ledgerCandidates(book),
     ...gstr1Candidates(book),
     ...deadlineCandidates(inputs.deadlines),

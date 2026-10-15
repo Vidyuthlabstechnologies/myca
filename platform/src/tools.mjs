@@ -1,5 +1,6 @@
 import { tally, bank, gst, gstin, filing, audit } from './sprint-load.mjs';
 import { invoiceTemplate, setInvoiceTemplate } from './invoice-template.mjs';
+import { importSettlement, settlementStatus } from './settlements.mjs';
 const ingestTally = tally.ingest;
 const ingestBank = bank.ingest;
 const { reconcile } = gst;
@@ -1647,6 +1648,26 @@ export const TOOLS = [
       state.imports.push({ source: 'pos', at: new Date().toISOString(), count: result.created.length, skipped: result.skipped.length, heldBack: heldBackFrom(result.skipped.map((s) => ({ voucherNo: s.id, reason: s.reason }))) });
       return ok(result);
     },
+  },
+  {
+    name: 'import_settlement',
+    title: 'Import a marketplace settlement',
+    description: 'Read a payout report from Amazon, Flipkart, another marketplace or a gateway (CSV: one amount per row with a description, or one row per order with sale, fees and settlement value). Every line is typed as sale, tax, refund, fee, penalty, reimbursement, TCS or TDS 194-O; the expected payout is their sum; it is matched to a bank credit already in the books, or to the amount you state. A shortfall, a penalty or a payout missing from the bank becomes an exception with the orders behind it. Figures come only from the file and the ledger.',
+    args: ['csv', 'channel', 'bankAmount'],
+    run: (state, args = {}) => {
+      if (!args.csv) return fail('csv required');
+      const result = importSettlement(state, args);
+      if (!result.ok) return fail(result.error, { parsed: result.parsed, id: result.id, settlementId: result.settlementId });
+      state.imports.push({ source: `settlement:${result.settlement.channel}`, at: new Date().toISOString(), count: 1, skipped: result.settlement.held.length, heldBack: heldBackFrom(result.settlement.held.map((h) => ({ voucherNo: `row ${h.row}`, reason: h.reason }))) });
+      return ok({ settlement: result.settlement });
+    },
+  },
+  {
+    name: 'settlement_status',
+    title: 'Marketplace settlements',
+    description: 'Settlements imported so far by channel: expected against paid, shortfalls, payouts not yet seen in the bank, penalties, and the TCS and TDS 194-O credits to claim. Read-only.',
+    args: ['channel', 'limit'],
+    run: (state, args = {}) => settlementStatus(state, args),
   },
   {
     name: 'import_us_invoices',

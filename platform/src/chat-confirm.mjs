@@ -39,6 +39,7 @@ import { planWithholding, planSutaRate } from './us-payroll.mjs';
 import { planUsImport } from './import-us-books.mjs';
 import { planSupplierNote } from './supplier-notes.mjs';
 import { planPosImport } from './import-pos.mjs';
+import { planSettlement, settlementWords } from './settlements.mjs';
 import { filingRows } from './deadline-run.mjs';
 import { tally, bank, gstin as gstinRules } from './sprint-load.mjs';
 import { parseZohoBooksCsv } from './import-zoho.mjs';
@@ -46,7 +47,7 @@ import { planAmendment } from './invoice-amendments.mjs';
 import { tallyXmlToDayBookCsv } from './tally-xml.mjs';
 
 export const CONFIRM_TOOLS = new Set([
-  'create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'record_filing', 'record_supplier_reminder', 'add_employee', 'change_salary', 'end_employment', 'approve_payroll', 'record_salary_payment', 'set_tds_deductor', 'record_tds_deposit', 'tds_review_answer', 'set_gst_credit_opening', 'record_gst_payment', 'close_year', 'post_expense', 'set_expense_head', 'create_credit_note', 'create_debit_note', 'create_purchase_note', 'record_supplier_debit_note', 'cancel_invoice', 'gst_review_answer', 'import_gstr2b', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'set_party_address', 'set_transport', 'set_sales_tax_rate', 'set_contractor', 'set_sales_tax_nexus', 'sales_tax_review_answer', 'record_sales_tax_payment', 'record_sales_tax_filing', 'set_withholding', 'set_suta_rate', 'import_us_invoices', 'import_pos_sales', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote', 'amend_invoice',
+  'create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'record_filing', 'record_supplier_reminder', 'add_employee', 'change_salary', 'end_employment', 'approve_payroll', 'record_salary_payment', 'set_tds_deductor', 'record_tds_deposit', 'tds_review_answer', 'set_gst_credit_opening', 'record_gst_payment', 'close_year', 'post_expense', 'set_expense_head', 'create_credit_note', 'create_debit_note', 'create_purchase_note', 'record_supplier_debit_note', 'cancel_invoice', 'gst_review_answer', 'import_gstr2b', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'set_party_address', 'set_transport', 'set_sales_tax_rate', 'set_contractor', 'set_sales_tax_nexus', 'sales_tax_review_answer', 'record_sales_tax_payment', 'record_sales_tax_filing', 'set_withholding', 'set_suta_rate', 'import_us_invoices', 'import_pos_sales', 'import_settlement', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote', 'amend_invoice',
   'import_tally', 'import_tally_xml', 'import_zoho', 'import_bank',
   'govt_generate_irn', 'govt_nic_cancel_irn',
   'exception_decide',
@@ -1014,6 +1015,27 @@ function usImportPreview(state, args) {
   };
 }
 
+function settlementPreview(state, args) {
+  const planned = planSettlement(state, args);
+  if (!planned.ok) {
+    const reason = planned.error === 'NO_HEADER' ? `The file needs ${planned.parsed.need}.` : planned.error === 'SETTLEMENT_EXISTS' ? `This settlement is already in the books as ${planned.id}.` : planned.error === 'EMPTY' || planned.error === 'NO_ROWS' ? 'The file has no settlement rows I can read.' : `The file could not be read: ${planned.error}.`;
+    return { blockers: [reason], summary: '', effects: [], figures: {} };
+  }
+  const { plan } = planned;
+  const effects = ['Nothing posts to the ledger: the settlement is recorded with its figures and the orders behind them.'];
+  if (plan.status === 'short') effects.push(`The shortfall of ${money(plan.shortfall)} becomes an exception to take up with the marketplace.`);
+  if (plan.status === 'unmatched') effects.push('No bank credit of this amount is in the books yet; it stays an exception until the statement with it is imported, or say "import settlement, bank received <amount>".');
+  if (plan.penalties.length) effects.push(`${plan.penalties.length === 1 ? '1 penalty' : `${plan.penalties.length} penalties`} totalling ${money(-plan.totals.penalty)} become exceptions with their order ids.`);
+  if (plan.totals.tcs || plan.totals.tds) effects.push(`TCS ${money(-plan.totals.tcs)} and TDS 194-O ${money(-plan.totals.tds)} are recorded as credits to claim.`);
+  if (plan.held.length) effects.push(`${plan.held.length} rows with an amount I cannot read were skipped.`);
+  return {
+    blockers: [],
+    summary: settlementWords(plan, money),
+    effects,
+    figures: { expected: plan.expected, paid: plan.paid, shortfall: plan.shortfall, orders: plan.orders, status: plan.status },
+  };
+}
+
 function posImportPreview(state, args) {
   const plan = planPosImport(state, args);
   if (!plan.ok) return { blockers: [plan.error === 'NO_HEADER' ? `The file needs ${plan.parsed.need}.` : `The file could not be read: ${plan.error}.`], summary: '', effects: [], figures: {} };
@@ -1123,6 +1145,7 @@ const PREVIEWERS = {
   import_zoho: zohoPreview,
   import_us_invoices: usImportPreview,
   import_pos_sales: posImportPreview,
+  import_settlement: settlementPreview,
   import_bank: bankPreview,
   govt_generate_irn: (state, args) => irnPreview(state, args, false),
   govt_nic_cancel_irn: (state, args) => irnPreview(state, args, true),

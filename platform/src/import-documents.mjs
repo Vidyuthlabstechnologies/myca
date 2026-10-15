@@ -6,6 +6,7 @@ export const IMPORT_CONTENT_ARG = Object.freeze({
   import_zoho: 'csv',
   import_us_invoices: 'csv',
   import_pos_sales: 'csv',
+  import_settlement: 'csv',
   import_bank: 'content',
   import_gstr2b: 'csv',
 });
