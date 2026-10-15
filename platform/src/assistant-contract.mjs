@@ -671,6 +671,11 @@ export const TOOL_ARG_SCHEMAS = {
       channel: { type: 'string', enum: ['amazon', 'flipkart', 'myntra', 'nykaa', 'meesho', 'shopify', 'razorpay', 'quick-commerce', 'marketplace'] },
     },
   },
+  daily_close: {
+    type: 'object',
+    additionalProperties: false,
+    properties: { asOf: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' } },
+  },
   settlement_status: {
     type: 'object',
     additionalProperties: false,
@@ -1645,6 +1650,7 @@ const TOOL_RISK = {
   record_stock: 'writes_books',
   stock_position: 'read_only',
   sku_margins: 'read_only',
+  daily_close: 'read_only',
   settlement_status: 'read_only',
   sales_tax_review_answer: 'writes_books',
   record_sales_tax_payment: 'writes_books',
@@ -2119,6 +2125,10 @@ export function planLocalToolCall(state, message) {
     const csv = state.pendingFile?.content || state.files.tally;
     if (!csv) return { kind: 'reply', reply: 'Attach a Tally Day Book CSV first (dropdown: Tally Day Book).', tools: [] };
     return { kind: 'tool', name: 'import_tally', args: { csv, fileName: state.pendingFile?.name || 'tally.csv' }, clearsPendingFile: true };
+  }
+  if (/\b(?:daily|nightly|day'?s|today'?s)\s+close\b|\bclose\s+(?:status|checklist|the\s+books|of\s+the\s+day)\b|\b(?:are|is)\s+(?:the\s+|my\s+)?books\s+closed\b|\bbooks\s+closed\s*\??$|^closure\s*\??$/i.test(text) && !/\bclose\s+(?:the\s+)?year\b|\byear\s+close\b/i.test(text)) {
+    const on = /\b(\d{4}-\d{2}-\d{2})\b/.exec(text);
+    return { kind: 'tool', name: 'daily_close', args: on ? { asOf: on[1] } : {} };
   }
   {
     const cost = /^(?:cost\s+of\s+|set\s+cost\s+(?:of\s+)?)([A-Za-z0-9][A-Za-z0-9_./-]{0,63})\s+(?:is|=|:|to|at)?\s*(?:₹|rs\.?\s*)?([\d,]+(?:\.\d+)?)\s*$/i.exec(text.trim());

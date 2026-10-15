@@ -4,6 +4,7 @@ import { importSettlement, settlementStatus } from './settlements.mjs';
 import { importMarketplaceOrders, postSettlement } from './marketplace-orders.mjs';
 import { setChannelIdentity, importTcsStatement, import26asCredits, marketplaceCredits } from './marketplace-credits.mjs';
 import { setSkuCost, importSkuCosts, recordStock, stockPosition, skuMargins } from './sku-margins.mjs';
+import { dailyClose } from './daily-close.mjs';
 const ingestTally = tally.ingest;
 const ingestBank = bank.ingest;
 const { reconcile } = gst;
@@ -762,6 +763,13 @@ export const TOOLS = [
     description: 'W-2 box figures for every employee and the W-3 totals for the year as one CSV file. Read-only.',
     args: ['year'],
     run: (state, args = {}) => w2File(state, args),
+  },
+  {
+    name: 'daily_close',
+    title: 'Daily close',
+    description: 'The closure checklist for a day: sales, purchases and expenses posted; whether the bank balance is current; settlements matched; TCS and TDS confirmed; margins positive; nothing high-severity open. With month-to-date figures, the cash position and what customers owe. Computed from the books, run nightly by the daily job. Read-only apart from refreshing the exception queue.',
+    args: ['asOf'],
+    run: (state, args = {}) => dailyClose(state, { asOf: args.asOf, clientId: normalizeClientId(state.activeClientId) }),
   },
   {
     name: 'automation_status',

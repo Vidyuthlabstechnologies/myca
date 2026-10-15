@@ -7,6 +7,7 @@ import { addReminder } from './reminders.mjs';
 import { verifyChain } from './ledger.mjs';
 import { rulesStatus } from './rules-status.mjs';
 import { normalizeClientId } from './books.mjs';
+import { dailyClose } from './daily-close.mjs';
 
 const LOOK_AHEAD_DAYS = 14;
 const LOG_LIMIT = 60;
@@ -105,6 +106,7 @@ export function runDailyAutomation(state, args = {}) {
     chain: chain.ok ? { ok: true, rows: state.ledger.transfers.length } : { ok: false, error: chain.error, at: chain.at },
     rules: rulesCheck(state, today),
   };
+  run.close = dailyClose(state, { asOf: today, clientId: normalizeClientId(state.activeClientId) }).data;
   run.warnings = warningsOf(run);
   automation.lastRun = today;
   automation.log.push(run);
@@ -125,5 +127,6 @@ export function automationWords(data) {
   const lines = [`Daily checks last ran on ${data.lastRun}: ${last.reminders.length === 0 ? 'no new reminders' : `${last.reminders.length} reminder${last.reminders.length === 1 ? '' : 's'} added`}, ledger chain ${last.chain.ok ? 'intact' : 'BROKEN'}, ${last.rules.records} statutory records checked.`];
   for (const reminder of last.reminders) lines.push(`· ${reminder.due}: ${reminder.text}`);
   for (const warning of last.warnings) lines.push(`! ${warning}`);
+  if (last.close) lines.push(`Close: ${last.close.status === 'closed' ? 'nothing needs you' : `${last.close.needsYou.length} ${last.close.needsYou.length === 1 ? 'item needs' : 'items need'} you: ${last.close.needsYou.join(', ')}`}.`);
   return lines.join('\n');
 }

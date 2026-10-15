@@ -159,3 +159,15 @@ order, the rest pro rata by sale value, reimbursements credited back), cost of g
 the recorded cost, and the margin with its percentage. A SKU that lost money in the latest
 month and a location gone negative are exceptions. Nothing here posts to the ledger;
 inventory valuation in the books is a later decision.
+
+## The daily close (D7, 2026-10-16)
+
+The daily job (on launch and hourly on the desktop, overnight for every business on the
+hosted service) now writes a close for the day alongside its reminders and checks, and
+`daily_close` ("are the books closed?") computes it on demand: sales, purchases and
+expenses posted today and this month; whether the bank balance is current (within three
+days); settlements matched to the bank; TCS and TDS 194-O confirmed by the statements;
+margins positive for the latest marketplace month; nothing high-severity open; with the
+cash position and what customers owe. Each line is a check with a detail; the day is
+"closed" when every check passes, otherwise it says what needs you. The app's Home panel
+for it is pending.
