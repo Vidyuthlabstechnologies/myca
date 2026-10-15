@@ -194,12 +194,20 @@ function availableFrom(input = []) {
   };
 }
 
+export const BUILT_IN_REQUIREMENTS = Object.freeze({
+  task_deadline: 'deadlines, reminders with an assignee, the week ahead and the daily automation',
+  client_chase: 'request_documents, record_document_received and document_requests, with the message drafted for the outbox',
+  notifications: 'the outbox with the email relay, WhatsApp and SMS senders behind the live switch',
+  knowledge_base: 'search_firm_notes over questions to the CA, reminders, document requests, supplier reminders, documents and corrections',
+  eval_logs: 'eval_events and correct_eval, logged on every chat message',
+});
+
 export function integrationReadiness(available = []) {
   const { availableSet, connections } = availableFrom(available);
   const rows = CA_API_REQUIREMENTS.map((req) => ({
     ...req,
-    status: availableSet.has(req.id) || availableSet.has(req.requirementId) ? 'available' : 'missing',
-    connection: connections[req.requirementId] || null,
+    status: availableSet.has(req.id) || availableSet.has(req.requirementId) ? 'available' : Object.hasOwn(BUILT_IN_REQUIREMENTS, req.id) ? 'built-in' : 'missing',
+    connection: connections[req.requirementId] || (Object.hasOwn(BUILT_IN_REQUIREMENTS, req.id) ? { provider: 'MyCA', builtIn: true, notes: BUILT_IN_REQUIREMENTS[req.id] } : null),
   }));
   const missing = rows.filter((row) => row.status === 'missing');
   const availableRows = rows.filter((row) => row.status === 'available');

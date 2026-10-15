@@ -60,6 +60,7 @@ import { addReminder, completeReminder, listReminders } from './reminders.mjs';
 import { cashForecast, canAfford, setCashBalance } from './cash-forecast.mjs';
 import { setPaymentTerms } from './payment-terms.mjs';
 import { setSupplierTerms, supplierDues } from './supplier-dues.mjs';
+import { requestDocuments, recordDocumentReceived, documentRequests, correctEval, evalEvents, searchFirmNotes } from './practice.mjs';
 import { askCa, replyCa, closeCa, listCaRequests } from './ca-requests.mjs';
 import { postTallyRows, postBankRows, purchaseRegisterCsv } from './post-import.mjs';
 import { parseZohoBooksCsv } from './import-zoho.mjs';
@@ -1094,7 +1095,7 @@ export const TOOLS = [
     name: 'add_reminder',
     title: 'Remind me',
     description: 'Set a reminder for a day, optionally about an invoice, a bill or a party. It appears in the app on that day; nothing is sent to anyone.',
-    args: ['text', 'due', 'invoiceId', 'billId', 'party'],
+    args: ['text', 'due', 'invoiceId', 'billId', 'party', 'assignedTo'],
     run: (state, args = {}) => addReminder(state, args),
   },
   {
@@ -1108,7 +1109,7 @@ export const TOOLS = [
     name: 'list_reminders',
     title: 'Reminders',
     description: 'Open reminders by date, with which are due today or overdue. Read-only.',
-    args: ['status'],
+    args: ['status', 'assignedTo'],
     run: (state, args = {}) => listReminders(state, args),
   },
   {
@@ -1992,6 +1993,48 @@ export const TOOLS = [
     description: 'Record the last day of an employee. Their record and salary history are kept. Owner only.',
     args: ['id', 'leftOn'],
     run: (state, args = {}) => endEmployment(state, args),
+  },
+  {
+    name: 'request_documents',
+    title: 'Ask a client for documents',
+    description: 'Ask a client for the files the firm needs (bank statement, sales register, GSTR-2B, TDS challans, ...) for a period, with a due date; records the request and drafts the message to send. Practice use.',
+    args: ['clientId', 'period', 'items', 'dueOn', 'note'],
+    run: (state, args = {}) => requestDocuments(state, args),
+  },
+  {
+    name: 'record_document_received',
+    title: 'Document received from a client',
+    description: 'Mark one item (or all) of a document request as received, optionally with the uploaded file hash; the request completes when nothing is outstanding.',
+    args: ['id', 'item', 'on', 'documentSha256'],
+    run: (state, args = {}) => recordDocumentReceived(state, args),
+  },
+  {
+    name: 'document_requests',
+    title: 'Document requests',
+    description: 'Open document requests by client with what is still outstanding and what is overdue. Read-only.',
+    args: ['clientId', 'status'],
+    run: (state, args = {}) => documentRequests(state, args),
+  },
+  {
+    name: 'eval_events',
+    title: 'Assistant eval log',
+    description: 'What the assistant did with each message: the tool chosen, whether the model chose it, whether it was blocked, and reviewer corrections. Read-only.',
+    args: ['status', 'limit'],
+    run: (state, args = {}) => evalEvents(state, args),
+  },
+  {
+    name: 'correct_eval',
+    title: 'Correct an assistant decision',
+    description: 'Record a reviewer correction against an eval event: the tool that should have run, or a note; used to improve routing.',
+    args: ['id', 'correctTool', 'note', 'wasRight'],
+    run: (state, args = {}) => correctEval(state, args),
+  },
+  {
+    name: 'search_firm_notes',
+    title: 'Search firm notes',
+    description: 'Search questions to the CA, reminders, document requests, supplier reminders, document names and reviewer corrections for a phrase. Read-only.',
+    args: ['query'],
+    run: (state, args = {}) => searchFirmNotes(state, args),
   },
   {
     name: 'supplier_reminder_draft',

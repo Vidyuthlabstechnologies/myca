@@ -180,7 +180,7 @@ no live switch, no CA approvals, and no bytes leaving the PC.
 
 | Area | Missing |
 |---|---|
-| REQ-CA-011–015 | Task/deadline API, client chase portal, notifications (email/WhatsApp/SMS), knowledge base (RAG), eval logs |
+| REQ-CA-011–015 | Built in on 2026-10-15 (reminders with an assignee, document requests to clients, the outbox, plain-text firm search, the eval log with corrections); retrieval through the model for the knowledge base is not built |
 | Live filing | ASP/GSP onboarding, production credentials, column-exact GSTR-1 save/file, ITR, MCA21, DSC signing |
 | Integrations | Account Aggregator bank feed, Tally/Zoho write-back, real OCR provider |
 | Firm backend | The hosted API (`cloud/`) is built with accounts, tenancy, roles, backups and a daily job, and deploys itself once a Google Cloud project exists; GCS document vault and SSO are not started |

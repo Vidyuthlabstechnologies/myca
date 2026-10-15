@@ -44,7 +44,7 @@ const SHARED_TOOLS = new Set([
   'list_invoices', 'invoice_document', 'record_receipt', 'record_payment', 'list_expenses', 'expense_heads', 'business_summary',
   'export_entries', 'export_trial_balance', 'import_bank', 'books_check', 'list_reminders', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'cash_forecast', 'can_afford',
   'ask_ca', 'reply_ca', 'close_ca', 'list_ca_requests', 'list_quotes', 'quote_document', 'mark_quote', 'create_quote', 'convert_quote', 'create_credit_note', 'close_year', 'list_year_closings', 'week_ahead',
-  'list_employees', 'add_employee', 'change_salary', 'end_employment', 'set_employee_bank', 'payroll_payout_file', 'set_payment_terms', 'set_supplier_terms', 'supplier_dues', 'set_invoice_numbering', 'set_party_address', 'record_share',
+  'list_employees', 'add_employee', 'change_salary', 'end_employment', 'set_employee_bank', 'payroll_payout_file', 'set_payment_terms', 'set_supplier_terms', 'supplier_dues', 'set_invoice_numbering', 'request_documents', 'record_document_received', 'document_requests', 'eval_events', 'correct_eval', 'search_firm_notes', 'set_party_address', 'record_share',
   'exceptions', 'exception_decide', 'approval_list', 'approval_request', 'approval_decide',
   'list_clients', 'register_client', 'set_active_client', 'list_documents', 'upload_document', 'get_document',
   'list_debit_notes', 'list_credit_notes', 'list_payroll', 'payroll_run', 'approve_payroll', 'record_salary_payment', 'payslip', 'list_filings', 'list_outbox',

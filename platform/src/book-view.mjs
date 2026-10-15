@@ -24,6 +24,7 @@ export const FIRM_KEYS = new Set([
   'approvals', 'approvalSeq', 'activeClientId',
   'outbox', 'outboxSeq', '_dataDir', '_documents', '_legacyFiles',
   'dryRuns', 'dryRunSeq',
+  'documentRequests', 'documentRequestSeq', 'evalEvents', 'evalEventSeq',
 ]);
 
 function ownerOf(root, book, key) {
