@@ -65,8 +65,9 @@ sees changes as they happen or at set intervals.
 - "Ask my CA" sits on the invoice screen, on a flagged item in Taxes, and on the month's
   review. When the CA is not on MyCA yet, "Copy to send" puts the question and its facts
   on the clipboard for WhatsApp or email.
-- Not yet: a notification to the CA (needs push in the deployment), and attaching the
-  source document file.
+- Up to five uploaded files can be attached to a question (`documents` on `ask_ca`,
+  "Attach a file" on the sheet); the CA sees them named on the request (2026-10-15).
+- Not yet: a notification to the CA (needs push in the deployment).
 
 ### Sync setting (built 2026-10-07)
 

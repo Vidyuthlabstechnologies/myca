@@ -51,7 +51,8 @@ reminder goes only when the owner says so.
   date differs from the supplier's, or no supplier bill number.
 - Taxes shows matched credit, credit at risk, the suppliers behind it with a sheet per
   supplier, and how many 2B entries are not in the books.
-- To build: marking the bills inside each supplier's chat.
+- Each bill in the supplier's chat shows "Credit at risk" with the reason when the
+  month's check flags it (2026-10-15).
 
 ### Remind (built 2026-10-07)
 

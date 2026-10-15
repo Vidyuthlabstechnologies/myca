@@ -1020,7 +1020,7 @@ export const TOOLS = [
     name: 'ask_ca',
     title: 'Ask my CA',
     description: 'Send a question to the business\'s CA inside MyCA about an invoice, bill, expense, flagged item or a month\'s GST, with the facts attached by the engine. Nothing leaves MyCA.',
-    args: ['subject', 'title', 'note'],
+    args: ['subject', 'title', 'note', 'documents'],
     run: (state, args = {}) => askCa(state, args),
   },
   {

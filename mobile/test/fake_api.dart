@@ -460,8 +460,9 @@ class FakeMycaApi implements MycaApi {
       return _preview('Record GSTR-1 (monthly) for ${args['period']} as filed on ${args['filedOn']}, ARN ${args['arn']}. It was due on 2026-09-11. That is after the due date.');
     }
     if (name == 'ask_ca') {
+      final docs = args['documents'] as List? ?? const [];
       return _preview(
-        'Ask your CA about ${(args['subject'] as Map)['id'] ?? (args['subject'] as Map)['period']}: "${args['note']}"',
+        'Ask your CA about ${(args['subject'] as Map)['id'] ?? (args['subject'] as Map)['period']}: "${args['note']}"${docs.isEmpty ? '' : ' with ${docs.length} file(s) attached'}',
       );
     }
     if (name == 'reply_ca' || name == 'close_ca') {
@@ -703,6 +704,7 @@ class FakeMycaApi implements MycaApi {
           'messages': <Map<String, Object?>>[
             {'by': 'u-owner', 'on': '2026-10-05', 'text': held.args['note']},
           ],
+          if (held.args['documents'] != null) 'attachments': held.args['documents'],
           'text': '',
         });
         return ChatReply.fromJson({

@@ -444,6 +444,16 @@ export const TOOL_ARG_SCHEMAS = {
       },
       title: { type: 'string', maxLength: 160 },
       note: { type: 'string', minLength: 1, maxLength: 1000 },
+      documents: {
+        type: 'array',
+        maxItems: 5,
+        items: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['sha256'],
+          properties: { sha256: { type: 'string', pattern: '^[a-f0-9]{64}$' }, name: { type: 'string', maxLength: 120 } },
+        },
+      },
     },
   },
   reply_ca: {

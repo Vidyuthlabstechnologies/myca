@@ -1657,6 +1657,7 @@ class CaRequest {
     required this.lastOn,
     required this.messages,
     required this.text,
+    this.attachments = const [],
   });
 
   factory CaRequest.fromJson(Object? json) {
@@ -1670,6 +1671,7 @@ class CaRequest {
       askedBy: _text(map['askedBy']),
       lastOn: _text(map['lastOn']),
       messages: _maps(map['messages']).map(CaMessage.fromJson).toList(),
+      attachments: [for (final a in _maps(map['attachments'])) _text(a['name']).isEmpty ? _text(a['sha256']).substring(0, 12) : _text(a['name'])],
       text: _text(map['text']),
     );
   }
@@ -1682,6 +1684,7 @@ class CaRequest {
   final String lastOn;
   final List<CaMessage> messages;
   final String text;
+  final List<String> attachments;
 }
 
 List<CaRequest> caRequestsFrom(Object? json) =>

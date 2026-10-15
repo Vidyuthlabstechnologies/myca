@@ -5,6 +5,7 @@ import '../api/models.dart';
 import '../api/myca_api.dart';
 import '../app_state.dart';
 import '../format.dart';
+import '../app_services.dart';
 import '../marks.dart';
 import '../theme.dart';
 import '../widgets.dart';
@@ -14,17 +15,19 @@ Future<String> askMyCa(
   required Map<String, Object?> subject,
   required String about,
 }) async {
-  final api = AppScope.of(context).api;
-  final note = await showModalBottomSheet<String>(
+  final state = AppScope.of(context);
+  final api = state.api;
+  final asked = await showModalBottomSheet<_Ask>(
     context: context,
     isScrollControlled: true,
-    builder: (sheet) => _AskSheet(about: about),
+    builder: (sheet) => _AskSheet(about: about, pickFile: state.pickAnyFile, upload: api.upload),
   );
-  if (note == null || !context.mounted) return '';
+  if (asked == null || !context.mounted) return '';
   try {
     final held = await api.propose('ask_ca', {
       'subject': subject,
-      'note': note,
+      'note': asked.note,
+      if (asked.documents.isNotEmpty) 'documents': [for (final doc in asked.documents) {'sha256': doc.sha256, 'name': doc.name}],
     });
     final preview = held.preview;
     if (preview == null) return held.reply;
@@ -58,10 +61,26 @@ Future<String> askMyCa(
   }
 }
 
+class _Attached {
+  const _Attached({required this.sha256, required this.name});
+
+  final String sha256;
+  final String name;
+}
+
+class _Ask {
+  const _Ask({required this.note, required this.documents});
+
+  final String note;
+  final List<_Attached> documents;
+}
+
 class _AskSheet extends StatefulWidget {
-  const _AskSheet({required this.about});
+  const _AskSheet({required this.about, required this.pickFile, required this.upload});
 
   final String about;
+  final PickAnyFile pickFile;
+  final Future<String> Function(String name, String content) upload;
 
   @override
   State<_AskSheet> createState() => _AskSheetState();
@@ -69,7 +88,28 @@ class _AskSheet extends StatefulWidget {
 
 class _AskSheetState extends State<_AskSheet> {
   final _note = TextEditingController();
+  final _documents = <_Attached>[];
   String _error = '';
+  bool _attaching = false;
+
+  Future<void> _attach() async {
+    if (_documents.length >= 5) return setState(() => _error = 'At most five files on one question.');
+    setState(() {
+      _error = '';
+      _attaching = true;
+    });
+    try {
+      final picked = await widget.pickFile();
+      if (picked == null) return;
+      final sha = await widget.upload(picked.name, dataUrlOf(picked));
+      if (!mounted) return;
+      setState(() => _documents.add(_Attached(sha256: sha, name: picked.name)));
+    } on MycaApiException catch (err) {
+      if (mounted) setState(() => _error = err.message);
+    } finally {
+      if (mounted) setState(() => _attaching = false);
+    }
+  }
 
   @override
   void dispose() {
@@ -110,6 +150,24 @@ class _AskSheetState extends State<_AskSheet> {
               counterText: '',
             ),
           ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 4,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              ActionChip(
+                avatar: const Icon(Icons.attach_file, size: 16),
+                label: Text(_attaching ? 'Attaching…' : 'Attach a file'),
+                onPressed: _attaching ? null : _attach,
+              ),
+              for (final doc in _documents)
+                InputChip(
+                  label: Text(doc.name),
+                  onDeleted: () => setState(() => _documents.remove(doc)),
+                ),
+            ],
+          ),
           if (_error.isNotEmpty) ...[
             const SizedBox(height: 8),
             Text(
@@ -130,7 +188,7 @@ class _AskSheetState extends State<_AskSheet> {
                   setState(() => _error = 'Write what you want to ask.');
                   return;
                 }
-                Navigator.of(context).pop(note);
+                Navigator.of(context).pop(_Ask(note: note, documents: List.of(_documents)));
               },
               child: const Text('Preview'),
             ),
@@ -329,6 +387,13 @@ class _CaThreadScreenState extends State<CaThreadScreen> {
                         ),
                       ),
                     ),
+                ],
+                if (_request.attachments.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    'Attached: ${_request.attachments.join(', ')}',
+                    style: text.bodySmall,
+                  ),
                 ],
                 const SizedBox(height: 14),
                 for (final message in _request.messages)
