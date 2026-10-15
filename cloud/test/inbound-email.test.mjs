@@ -38,8 +38,11 @@ test('a documents key gets a forwarding address; mail to it stores the attachmen
   assert.equal(stored.body.stored, 2);
   assert.ok(stored.body.files.every((f) => /^[a-f0-9]{64}$/.test(f.sha256)));
   const reminders = (await api.call('POST', biz('query'), { token: asha.token, body: { name: 'list_reminders', args: {} } })).body.data.reminders;
-  assert.equal(reminders.length, 1);
-  assert.equal(reminders[0].text, 'Mail arrived from kiran@example.com about "Bill for September" with 2 files. Read it and record the bill if it is one.');
+  assert.equal(reminders.length, 2, 'one reminder per file, each carrying its file');
+  for (const reminder of reminders) {
+    assert.match(reminder.text, /^A document arrived from kiran@example\.com about "Bill for September" through .+: (GM-221\.pdf|note\.txt)\. Read it and record the bill if it is one\.$/);
+    assert.ok(stored.body.files.some((f) => f.sha256 === reminder.documentSha256 && f.name === reminder.documentName), JSON.stringify(reminder));
+  }
 });
 
 test('plus-addressing works, text-only mail is kept as a text file, and the wrong token, an unknown address or a disabled key are refused', async () => {

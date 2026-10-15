@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../api/models.dart';
+import 'bill_capture_screen.dart';
 import '../api/myca_api.dart';
 import '../app_state.dart';
 import '../format.dart';
@@ -161,6 +162,7 @@ Future<bool> confirmReminderDone(
   Reminder reminder,
 ) async {
   final api = AppScope.of(context).api;
+  final navigator = Navigator.of(context);
   final yes = await showModalBottomSheet<bool>(
     context: context,
     builder: (sheet) {
@@ -181,12 +183,38 @@ Future<bool> confirmReminderDone(
               if (reminder.aboutLabel.isNotEmpty)
                 Text(reminder.aboutLabel, style: text.bodyMedium),
               const SizedBox(height: 18),
+              if (reminder.hasDocument) ...[
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: () {
+                      Navigator.of(sheet).pop(false);
+                      navigator.push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => BillCaptureScreen(
+                            documentSha256: reminder.documentSha256,
+                            fileName: reminder.documentName,
+                          ),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.receipt_long_outlined),
+                    label: const Text('Open the bill'),
+                  ),
+                ),
+                const SizedBox(height: 8),
+              ],
               SizedBox(
                 width: double.infinity,
-                child: FilledButton(
-                  onPressed: () => Navigator.of(sheet).pop(true),
-                  child: const Text('Mark done'),
-                ),
+                child: reminder.hasDocument
+                    ? OutlinedButton(
+                        onPressed: () => Navigator.of(sheet).pop(true),
+                        child: const Text('Mark done'),
+                      )
+                    : FilledButton(
+                        onPressed: () => Navigator.of(sheet).pop(true),
+                        child: const Text('Mark done'),
+                      ),
               ),
             ],
           ),

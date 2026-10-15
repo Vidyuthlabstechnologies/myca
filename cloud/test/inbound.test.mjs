@@ -2,6 +2,7 @@ import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { INBOUND_HEADER } from '../src/inbound.mjs';
 import { startApi } from './helpers.mjs';
+import { setModelTransport } from '../../platform/src/model-adapter.mjs';
 
 let api;
 let asha;
@@ -9,7 +10,7 @@ before(async () => {
   api = await startApi();
   asha = await api.ownerWithBusiness('+919700000001', { name: 'Asha Traders', state: '29' });
 });
-after(async () => { await api.close(); });
+after(async () => { setModelTransport(null); await api.close(); });
 
 const biz = (rest) => `/v1/businesses/${asha.businessId}/${rest}`;
 const SALE = { saleId: 'POS-1001', lines: [{ description: 'Tea', qty: 2, rate: 50, gstRate: 5 }] };
@@ -75,4 +76,27 @@ test('a forwarded document is stored and leaves a reminder, and only an owner ma
   assert.equal(refused.status, 403);
   const refusedList = await api.call('GET', biz('inbound'), { token: staff.accessToken });
   assert.equal(refusedList.status, 403);
+});
+
+test('with the model on, a document that arrives is read into a reminder that names the supplier and carries the file, so the phone opens it straight into the bill preview; the reminder holds no amount', async () => {
+  const docs = (await api.call('POST', biz('inbound'), { token: asha.token, body: { label: 'Scanner', source: 'documents' } })).body.key;
+  setModelTransport(async () => ({ ok: true, response: { content: [{ type: 'tool_use', id: 'tu_1', name: 'supplier_bill', input: { supplierName: 'Ganga Mills', invoiceNo: 'GM/221', date: '2026-10-03', lines: [{ description: 'Cotton yarn', hsn: '5205', qty: 10, rate: 1200, gstRate: 5 }], total: 12600, confidence: 0.9 } }] } }));
+  const stored = await api.call('POST', '/v1/inbound/documents', { headers: { [INBOUND_HEADER]: docs.secret }, body: { name: 'bill-78.txt', content: 'Ganga Mills GM/221 Cotton yarn 10 x 1200', from: 'accounts@ganga.example' } });
+  assert.equal(stored.status, 200, stored.text);
+  assert.equal(stored.body.read, true);
+  const reminders = (await api.call('POST', biz('query'), { token: asha.token, body: { name: 'list_reminders', args: {} } })).body.data.reminders;
+  const noted = reminders.find((item) => item.documentSha256 === stored.body.sha256);
+  assert.ok(noted, JSON.stringify(reminders));
+  assert.equal(noted.text, 'Bill from Ganga Mills (GM/221) dated 2026-10-03 arrived from accounts@ganga.example through Scanner: bill-78.txt. Open it to check the lines and post it.');
+  assert.equal(noted.documentName, 'bill-78.txt');
+  assert.equal(noted.about.kind, 'document');
+  assert.doesNotMatch(noted.text, /12,?600/);
+  const again = await api.call('POST', biz('query'), { token: asha.token, body: { name: 'read_document', args: { documentSha256: stored.body.sha256 } } });
+  assert.ok(again.body.data, again.text);
+  assert.equal(again.body.data.proposal.args.partyName, 'Ganga Mills');
+  setModelTransport(null);
+  const plain = await api.call('POST', '/v1/inbound/documents', { headers: { [INBOUND_HEADER]: docs.secret }, body: { name: 'note.txt', content: 'hello' } });
+  assert.equal(plain.body.read, false);
+  const later = (await api.call('POST', biz('query'), { token: asha.token, body: { name: 'list_reminders', args: {} } })).body.data.reminders;
+  assert.match(later.find((item) => item.documentSha256 === plain.body.sha256).text, /^A document arrived through Scanner: note\.txt\./);
 });

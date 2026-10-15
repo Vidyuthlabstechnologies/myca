@@ -1462,6 +1462,8 @@ class Reminder {
     required this.inDays,
     required this.state,
     required this.aboutLabel,
+    this.documentSha256 = '',
+    this.documentName = '',
   });
 
   factory Reminder.fromJson(Object? json) {
@@ -1475,7 +1477,11 @@ class Reminder {
       due: _text(map['due']),
       inDays: _num(map['inDays']).toInt(),
       state: _text(map['state']),
-      aboutLabel: [id, name].where((part) => part.isNotEmpty).join(', '),
+      aboutLabel: _text(about['kind']) == 'document'
+          ? name
+          : [id, name].where((part) => part.isNotEmpty).join(', '),
+      documentSha256: _text(map['documentSha256']),
+      documentName: _text(map['documentName']),
     );
   }
 
@@ -1485,7 +1491,10 @@ class Reminder {
   final int inDays;
   final String state;
   final String aboutLabel;
+  final String documentSha256;
+  final String documentName;
 
+  bool get hasDocument => documentSha256.isNotEmpty;
   bool get isDue => state == 'overdue' || state == 'today';
 }
 

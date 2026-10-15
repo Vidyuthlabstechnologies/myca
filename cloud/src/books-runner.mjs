@@ -14,6 +14,7 @@ function referencedHashes(state) {
   for (const book of books) {
     for (const attachment of Object.values(book?.attachments || {})) note(attachment?.sha256);
     note(book?.pendingChatAction?.args?.documentSha256);
+    for (const reminder of book?.reminders || []) note(reminder?.documentSha256);
   }
   return [...hashes];
 }

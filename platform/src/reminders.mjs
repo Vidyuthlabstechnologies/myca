@@ -1,4 +1,5 @@
 import { localToday, postingDate } from './dates.mjs';
+import { isSha256 } from './document-store.mjs';
 
 const MAX_TEXT = 200;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -36,6 +37,11 @@ function aboutOf(state, args) {
     if (!bill) return { error: 'BILL_NOT_FOUND', billId };
     return { about: { kind: 'bill', id: bill.id, name: bill.partyName } };
   }
+  const documentSha256 = String(args.documentSha256 || '').trim().toLowerCase();
+  if (documentSha256) {
+    if (!isSha256(documentSha256)) return { error: 'INVALID_SHA256' };
+    return { about: { kind: 'document', id: documentSha256, name: String(args.documentName || '').trim().slice(0, 120) } };
+  }
   const party = String(args.party || '').trim();
   if (party) return { about: { kind: 'party', name: party.slice(0, 80) } };
   return { about: null };
@@ -69,6 +75,7 @@ export function addReminder(state, args = {}) {
     text: plan.text,
     due: plan.due,
     ...(plan.about ? { about: plan.about } : {}),
+    ...(plan.about?.kind === 'document' ? { documentSha256: plan.about.id, documentName: plan.about.name } : {}),
     createdOn: localToday(),
     createdBy: actorId(state, args),
     ...(plan.assignedTo ? { assignedTo: plan.assignedTo } : {}),
