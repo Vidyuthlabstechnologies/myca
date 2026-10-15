@@ -728,6 +728,29 @@ export const TOOL_ARG_SCHEMAS = {
     required: ['mode'],
     properties: { mode: { type: 'string', enum: ['continuous', 'yearly'] } },
   },
+  set_invoice_template: {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      accent: { type: 'string', maxLength: 7 },
+      layout: { type: 'string', enum: ['classic', 'minimal'] },
+      signatory: { type: 'string', maxLength: 80 },
+      footer: { type: 'string', maxLength: 300 },
+      terms: { type: 'string', maxLength: 600 },
+      showHsn: { type: 'boolean' },
+      bank: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          name: { type: 'string', maxLength: 80 },
+          account: { type: 'string', maxLength: 20 },
+          ifsc: { type: 'string', maxLength: 11 },
+          upi: { type: 'string', maxLength: 80 },
+        },
+      },
+    },
+  },
+  invoice_template: { type: 'object', additionalProperties: false, properties: {} },
   set_supplier_terms: {
     type: 'object',
     additionalProperties: false,
@@ -1486,6 +1509,8 @@ const TOOL_RISK = {
   record_document_received: 'writes_books',
   correct_eval: 'writes_books',
   set_invoice_numbering: 'writes_books',
+  set_invoice_template: 'writes_books',
+  invoice_template: 'read_only',
   set_party_address: 'writes_books',
   set_sales_tax_rate: 'writes_books',
   set_contractor: 'writes_books',
@@ -1594,6 +1619,35 @@ export function validateAssistantToolCall(name, args = {}) {
 }
 
 const MAX_CHAT_CHARS = 2000;
+
+function planInvoiceDesignFromChat(text) {
+  const t = text.trim();
+  if (isNegated(t)) return null;
+  if (/^(?:show|what(?:'s| is)|see)\s+(?:the\s+|my\s+)?invoice\s+(?:design|template|look|layout)\??$/i.test(t)) return { kind: 'tool', name: 'invoice_template', args: {} };
+  const bank = /^(?:bank|payment)\s+details?\s+(?:on|for)\s+(?:the\s+|my\s+)?invoices?\s*[:\-]?\s*(.+)$/i.exec(t);
+  if (bank) {
+    const body = bank[1];
+    const account = /\b(?:a\/c|account|acct)\.?\s*(?:no\.?|number)?\s*[:#]?\s*([0-9][0-9 ]{5,24})/i.exec(body);
+    const ifsc = /\bifsc\s*[:#]?\s*([A-Za-z]{4}0[A-Za-z0-9]{6})\b/i.exec(body);
+    const upi = /\bupi\s*(?:id)?\s*[:#]?\s*([a-z0-9][a-z0-9._-]+@[a-z][a-z0-9]+)/i.exec(body);
+    const name = /^([A-Za-z][A-Za-z&. ]{1,60}?)\s*(?:,|a\/c|account|acct|ifsc|upi)/i.exec(body);
+    if (!account && !upi) return null;
+    return { kind: 'tool', name: 'set_invoice_template', args: { bank: { ...(name ? { name: name[1].trim() } : {}), ...(account ? { account: account[1].replace(/\s/g, '') } : {}), ...(ifsc ? { ifsc: ifsc[1].toUpperCase() } : {}), ...(upi ? { upi: upi[1].toLowerCase() } : {}) } } };
+  }
+  const footer = /^(?:invoice\s+)?footer\s*(?:line|text)?\s*[:\-]\s*(.+)$/i.exec(t);
+  if (footer) return { kind: 'tool', name: 'set_invoice_template', args: { footer: footer[1].trim() } };
+  const terms = /^(?:invoice\s+)?terms\s*(?:on\s+(?:the\s+)?invoices?)?\s*[:\-]\s*(.+)$/i.exec(t);
+  if (terms) return { kind: 'tool', name: 'set_invoice_template', args: { terms: terms[1].trim() } };
+  const signed = /^sign\s+(?:the\s+|my\s+)?invoices?\s+(?:as|by)\s+(.+)$/i.exec(t);
+  if (signed) return { kind: 'tool', name: 'set_invoice_template', args: { signatory: signed[1].trim() } };
+  const colour = /^invoice\s+colou?r\s*[:\-]?\s*(#[0-9a-f]{6}|default)\s*$/i.exec(t);
+  if (colour) return { kind: 'tool', name: 'set_invoice_template', args: { accent: colour[1].toLowerCase() } };
+  const layout = /^(?:invoice\s+)?layout\s*[:\-]?\s*(classic|minimal)\s*$|^(classic|minimal)\s+invoices?\s*$/i.exec(t);
+  if (layout) return { kind: 'tool', name: 'set_invoice_template', args: { layout: (layout[1] || layout[2]).toLowerCase() } };
+  const hsn = /^(hide|show)\s+(?:the\s+)?hsn(?:\s+column)?(?:\s+on\s+(?:the\s+)?invoices?)?\s*$/i.exec(t);
+  if (hsn) return { kind: 'tool', name: 'set_invoice_template', args: { showHsn: hsn[1].toLowerCase() === 'show' } };
+  return null;
+}
 
 export function planLocalToolCall(state, message) {
   const raw = String(message == null ? '' : message);
@@ -1779,6 +1833,10 @@ export function planLocalToolCall(state, message) {
     if (/^\s*(?:eval\s+(?:log|events?)|assistant\s+log|corrections?\s+log)\s*$/i.test(text)) return { kind: 'tool', name: 'eval_events', args: {} };
     const search = /^\s*(?:search|find)\s+(?:firm\s+)?notes?\s+(?:for\s+)?(.+?)\s*$/i.exec(text);
     if (search) return { kind: 'tool', name: 'search_firm_notes', args: { query: search[1] } };
+  }
+  {
+    const design = planInvoiceDesignFromChat(text);
+    if (design) return design;
   }
   if (/\b(?:number|numbering|series)\b.*\binvoices?\b.*\b(?:per|by|each|every)\s+(?:financial\s+)?year\b|\binvoices?\s+(?:numbering|numbers?|series)\b.*\b(?:per|by|each|every)\s+(?:financial\s+)?year\b|\byearly\s+invoice\s+(?:numbers?|numbering|series)\b/i.test(text) && !isNegated(text) && !isQuestion(text)) {
     return { kind: 'tool', name: 'set_invoice_numbering', args: { mode: 'yearly' } };

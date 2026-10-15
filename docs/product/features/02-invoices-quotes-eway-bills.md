@@ -34,6 +34,12 @@ WhatsApp or email. For goods on the move, the e-way bill is offered on the same 
   to 96 and, under LUT or bond, charges no IGST; GSTR-1 carries them in table 6A as
   WOPAY or WPAY and GSTR-9 in 4C or 5A. Chat: "export invoice to Acme Inc USD 1200 at
   83.5 under LUT". The buyer has no GSTIN.
+- Invoice design (2026-10-16): `set_invoice_template` sets the accent colour, a classic or
+  minimal layout, bank details for payment (account with IFSC, or UPI), terms under the
+  totals, a footer line, the signatory's name and whether the HSN column shows. The
+  desktop print, the app's PDF and `invoice_document` all carry it; figures never change.
+  Chat: "bank details on invoices: HDFC Bank, account 50100123456789, IFSC HDFC0001234",
+  "terms: payment within 30 days", "sign invoices as Asha Rao", "show invoice design".
 - Invoice numbers are one sequence per business (INV-0001 onwards), or one series per
   financial year when the owner asks ("number invoices per financial year":
   `invoiceNumbering: yearly` on the profile; INV-26270001 is the first of 2026-27).

@@ -99,6 +99,19 @@ void main() {
     expect(invoiceFileName(doc), 'INV-0002.pdf');
   });
 
+  test('the invoice design from the server is read, with the standard design when none is set', () {
+    final design = InvoiceTemplate.fromJson({'accent': '#1d4ed8', 'layout': 'minimal', 'signatory': 'Asha Rao', 'footer': 'Thank you', 'terms': 'Net 30', 'bankWords': 'HDFC Bank, A/c 50100123456789, IFSC HDFC0001234', 'showHsn': false});
+    expect(design.accent, 0xFF1D4ED8);
+    expect(design.minimal, isTrue);
+    expect(design.signatory, 'Asha Rao');
+    expect(design.bankWords, contains('IFSC HDFC0001234'));
+    expect(design.showHsn, isFalse);
+    final plain = InvoiceTemplate.fromJson(null);
+    expect(plain.accent, 0xFFB42318);
+    expect(plain.minimal, isFalse);
+    expect(plain.showHsn, isTrue);
+  });
+
   testWidgets('an invoice opens from the customer chat with the figures the engine returned', (tester) async {
     final api = FakeMycaApi(signedIn: true);
     await openInvoice(tester, api, Sent());

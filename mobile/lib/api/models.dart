@@ -1821,6 +1821,45 @@ class InvoiceLine {
   final num taxRate;
 }
 
+class InvoiceTemplate {
+  const InvoiceTemplate({
+    this.accent = 0xFFB42318,
+    this.layout = 'classic',
+    this.signatory = '',
+    this.footer = '',
+    this.terms = '',
+    this.bankWords = '',
+    this.showHsn = true,
+  });
+
+  factory InvoiceTemplate.fromJson(Object? json) {
+    final map = _map(json);
+    final hex = _text(map['accent']);
+    final parsed = RegExp(r'^#[0-9a-fA-F]{6}$').hasMatch(hex)
+        ? int.parse(hex.substring(1), radix: 16)
+        : 0xB42318;
+    return InvoiceTemplate(
+      accent: 0xFF000000 | parsed,
+      layout: _text(map['layout']) == 'minimal' ? 'minimal' : 'classic',
+      signatory: _text(map['signatory']),
+      footer: _text(map['footer']),
+      terms: _text(map['terms']),
+      bankWords: _text(map['bankWords']),
+      showHsn: map['showHsn'] != false,
+    );
+  }
+
+  final int accent;
+  final String layout;
+  final String signatory;
+  final String footer;
+  final String terms;
+  final String bankWords;
+  final bool showHsn;
+
+  bool get minimal => layout == 'minimal';
+}
+
 class InvoiceDocument {
   const InvoiceDocument({
     required this.id,
@@ -1863,6 +1902,7 @@ class InvoiceDocument {
     this.taxRate = 0,
     this.taxExempt = false,
     this.exemptionReason = '',
+    this.template = const InvoiceTemplate(),
   });
 
   static InvoiceDocument? fromTool(Object? json) {
@@ -1917,6 +1957,7 @@ class InvoiceDocument {
       taxRate: _num(map['taxRate']),
       taxExempt: map['taxExempt'] == true,
       exemptionReason: _text(map['exemptionReason']),
+      template: InvoiceTemplate.fromJson(map['template']),
       missing: [
         for (final code in (map['missing'] as List? ?? const [])) _text(code),
       ],
@@ -1966,6 +2007,7 @@ class InvoiceDocument {
   final num taxRate;
   final bool taxExempt;
   final String exemptionReason;
+  final InvoiceTemplate template;
 
   bool get isQuote => kind == 'quote';
 
