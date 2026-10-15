@@ -63,6 +63,7 @@ Start with the product PRD, then the architecture. Everything else is reference.
 | [Merchant-of-record decision memo](research/2026-10-05-taxmeow-decision-memo.md) | Why the product does not become seller of record. Read the correction at the top. |
 | [Lighthaus teardown](research/2026-09-27-lighthaus-teardown.md) | A competitor's product |
 | [Lighthaus revisited](research/2026-10-06-lighthaus-revisited.md) | The same competitor against Taxmeow as built, and what to take |
+| [Lighthaus, third look](research/2026-10-16-lighthaus-third-look.md) | The same competitor re-scored against the build on 16 October: seven of eleven gaps closed, what is left and why |
 | [Public APIs review](research/2026-09-27-public-apis-review.md) | Government and provider APIs |
 
 ## Keeping documents honest
