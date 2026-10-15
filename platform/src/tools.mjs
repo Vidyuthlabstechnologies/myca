@@ -959,6 +959,7 @@ export const TOOLS = [
       const json = invoicesToGstr1Json(companyAs(state, regd.gstin), forRegistration(state, state.invoices || [], regd.gstin), args.fp, {
         creditNotes: forRegistration(state, state.creditNotes || [], regd.gstin),
         debitNotes: forRegistration(state, state.debitNotes || [], regd.gstin),
+        channels: state.channels,
         grossTurnover: args.grossTurnover,
         currentGrossTurnover: args.currentGrossTurnover,
       });

@@ -21,7 +21,7 @@ export function exportGstr1Quarter(state, args = {}) {
   const invoices = forRegistration(state, (state.invoices || []).filter(pick), regd.gstin);
   const creditNotes = forRegistration(state, (state.creditNotes || []).filter(pick), regd.gstin);
   const debitNotes = forRegistration(state, (state.debitNotes || []).filter(pick), regd.gstin);
-  const json = invoicesToGstr1Json(company, invoices, fpOf(quarter.months[2]), { creditNotes, debitNotes, allGiven: true, grossTurnover: args.grossTurnover, currentGrossTurnover: args.currentGrossTurnover });
+  const json = invoicesToGstr1Json(company, invoices, fpOf(quarter.months[2]), { creditNotes, debitNotes, allGiven: true, grossTurnover: args.grossTurnover, currentGrossTurnover: args.currentGrossTurnover, channels: state.channels });
   if (json.error) return { ok: false, error: json.error, hint: json.hint };
   const iff = quarter.months.slice(0, 2).map((month) => ({ month, b2b: invoices.filter((inv) => inv.partyGstin && String(inv.date).startsWith(month)).length }));
   return { ok: true, data: { quarter: quarter.label, months: quarter.months, fp: json.fp, invoices: invoices.length, iffMonths: iff, ...json, fileName: `GSTR1_${company.gstin || 'GSTIN'}_${quarter.label.replace(/\s+/g, '-')}.json`, note: 'One file for the quarter with the last month as the return period, as the QRMP scheme files it; B2B invoices already sent through IFF for the first two months are included again here only if the portal expects the full quarter.' } };
@@ -40,7 +40,7 @@ export function exportIff(state, args = {}) {
   const invoices = forRegistration(state, (state.invoices || []).filter((inv) => pick(inv) && inv.partyGstin), regd.gstin);
   const creditNotes = forRegistration(state, (state.creditNotes || []).filter((note) => pick(note) && note.partyGstin), regd.gstin);
   const debitNotes = forRegistration(state, (state.debitNotes || []).filter((note) => pick(note) && note.partyGstin), regd.gstin);
-  const json = invoicesToGstr1Json(company, invoices, fpOf(month), { creditNotes, debitNotes, allGiven: true });
+  const json = invoicesToGstr1Json(company, invoices, fpOf(month), { creditNotes, debitNotes, allGiven: true, channels: state.channels });
   if (json.error) return { ok: false, error: json.error, hint: json.hint };
   const { b2cl, b2cs, cdnur, ...rest } = json;
   return { ok: true, data: { period: month, invoices: invoices.length, ...rest, b2cl: [], b2cs: [], cdnur: [], fileName: `IFF_${company.gstin || 'GSTIN'}_${fpOf(month)}.json`, note: 'The invoice furnishing facility carries only B2B invoices and their notes for the month, so the buyer sees the credit in time; B2C sales wait for the quarterly GSTR-1. Optional, and only until the 13th of the next month.' } };

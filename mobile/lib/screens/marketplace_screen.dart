@@ -141,6 +141,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with ProposalFlow
                   return Center(child: FilledButton(onPressed: _reload, child: const Text('Try again')));
                 }
                 final registrations = _maps(data.registrations['registrations']);
+                final settlementRows = _maps(data.settlements['settlements']);
                 final byChannel = data.settlements['byChannel'] is Map ? Map<String, dynamic>.from(data.settlements['byChannel'] as Map) : const <String, dynamic>{};
                 final creditTotals = data.credits['totals'] is Map ? Map<String, dynamic>.from(data.credits['totals'] as Map) : const <String, dynamic>{};
                 final marginTotals = data.margins['totals'] is Map ? Map<String, dynamic>.from(data.margins['totals'] as Map) : const <String, dynamic>{};
@@ -166,6 +167,12 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with ProposalFlow
                                 if (_num(entry.value['penalties']) > 0) 'penalties ${rupees(_num(entry.value['penalties']))}',
                                 'TCS ${rupees(_num(entry.value['tcs']))}, TDS ${rupees(_num(entry.value['tds']))} to claim',
                               ].join(' · '),
+                            ),
+                          for (final row in settlementRows.take(5))
+                            RowCard(
+                              leading: TintTile(tint: row['status'] == 'matched' ? Tint.ask : Tint.urgent, mark: row['status'] == 'matched' ? Mark.confirm : Mark.urgent),
+                              title: '${row['id']} ${_cap('${row['channel']}')} ${row['settlementId']}: ${rupees(_num(row['expected']))}',
+                              subtitle: '${longDate('${row['from']}')} to ${longDate('${row['to']}')} · ${_num(row['orders']).toInt()} orders · ${row['status'] == 'matched' ? 'paid in full' : row['status'] == 'short' ? 'short ${rupees(_num(row['shortfall']))}' : row['status'] == 'over' ? 'overpaid' : 'not in the bank yet'}',
                             ),
                         ],
                       ),

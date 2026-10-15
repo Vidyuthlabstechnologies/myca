@@ -1172,7 +1172,10 @@ class FakeMycaApi implements MycaApi {
           'ok': true,
           'data': {
             'total': 2,
-            'settlements': const [],
+            'settlements': [
+              {'id': 'STL-0002', 'channel': 'amazon', 'settlementId': '12345678902', 'from': '2026-09-16', 'to': '2026-09-30', 'orders': 61, 'expected': 92000, 'paid': 90500, 'shortfall': 1500, 'status': 'short'},
+              {'id': 'STL-0001', 'channel': 'amazon', 'settlementId': '12345678901', 'from': '2026-09-01', 'to': '2026-09-15', 'orders': 58, 'expected': 92000, 'paid': 92000, 'shortfall': 0, 'status': 'matched'},
+            ],
             'byChannel': {
               'amazon': {'settlements': 2, 'expected': 184000, 'paid': 182500, 'short': 1500, 'unmatched': 0, 'penalties': 250, 'tcs': 920, 'tds': 920, 'latest': '2026-10-01'},
             },
