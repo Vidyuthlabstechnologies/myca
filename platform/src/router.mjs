@@ -1,4 +1,5 @@
 import { TOOLS, runTool } from './tools.mjs';
+import { templateWords } from './invoice-template.mjs';
 import { planLocalToolCall, validateAssistantToolCall } from './assistant-contract.mjs';
 import { needsConfirmation, previewOf, openPending, takePending, clearPending, previewReply, blockedReply } from './chat-confirm.mjs';
 import { liveCallsEnabled, mockModeEnabled } from './runtime-config.mjs';
@@ -220,6 +221,12 @@ function fmtToolResult(name, result) {
     const d = result.data;
     if (!d.hits.length) return `Nothing in the firm's notes mentions "${d.query}".`;
     return `${d.total === 1 ? '1 note mentions' : `${d.total} notes mention`} "${d.query}":\n${d.hits.slice(0, 8).map((h) => `· ${h.kind} ${h.id}: ${h.excerpt}`).join('\n')}`;
+  }
+  if (name === 'set_invoice_template' && result.ok !== false) {
+    return `Invoice design updated (${result.changed.join(', ')}). It applies to every invoice and quote PDF from now, including ones already raised.\n${templateWords(result.template)}`;
+  }
+  if (name === 'invoice_template' && result.data) {
+    return `${result.data.isDefault ? 'The invoice uses the standard design.\n' : ''}${templateWords(result.data)}\nChange it with "invoice colour #1d4ed8", "layout minimal", "bank details on invoices: HDFC Bank, account 50100123456789, IFSC HDFC0001234, UPI asha@okhdfc", "terms: ...", "footer: ...", "sign invoices as ...", or "hide HSN".`;
   }
   if (name === 'set_invoice_numbering' && result.ok !== false) {
     const mode = result.mode;

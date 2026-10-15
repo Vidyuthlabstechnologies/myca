@@ -3,6 +3,7 @@ import { creditedAgainst, debitedAgainst } from './credit-notes.mjs';
 import { quoteState } from './quotes.mjs';
 import { ewayBillStatus, transportWords } from './eway-bill.mjs';
 import { countryOf } from './country.mjs';
+import { invoiceTemplateOf, bankWords } from './invoice-template.mjs';
 
 const round2 = (value) => Math.round(Number(value || 0) * 100) / 100;
 const text = (value) => String(value ?? '').trim();
@@ -58,6 +59,7 @@ function common(state, doc) {
     igst: round2(doc.igst),
     total: round2(doc.total),
     missing,
+    template: (() => { const t = invoiceTemplateOf(state); return { ...t, bankWords: bankWords(t.bank) }; })(),
     ...(us ? { country: 'US', subtotal: round2(doc.subtotal ?? doc.taxable), salesTax: round2(doc.salesTax ?? doc.salesTaxPaid ?? 0), taxJurisdiction: text(doc.taxJurisdiction), taxRate: Number(doc.taxRate || 0), taxExempt: Boolean(doc.taxExempt), exemptionReason: text(doc.exemptionReason) } : { country: 'IN' }),
   };
 }

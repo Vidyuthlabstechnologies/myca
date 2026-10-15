@@ -1,4 +1,5 @@
 import { tally, bank, gst, gstin, filing, audit } from './sprint-load.mjs';
+import { invoiceTemplate, setInvoiceTemplate } from './invoice-template.mjs';
 const ingestTally = tally.ingest;
 const ingestBank = bank.ingest;
 const { reconcile } = gst;
@@ -1062,6 +1063,20 @@ export const TOOLS = [
       state.company.invoiceNumbering = mode;
       return { ok: true, mode, before };
     },
+  },
+  {
+    name: 'set_invoice_template',
+    title: 'Invoice design',
+    description: 'Design the invoice and quote PDF: accent colour, classic or minimal layout, bank details for payment (account with IFSC, or UPI), terms printed under the totals, a footer line, the name of the signatory, whether to show the HSN column. Figures never change. Owner only.',
+    args: ['accent', 'layout', 'bank', 'terms', 'footer', 'signatory', 'showHsn'],
+    run: (state, args = {}) => setInvoiceTemplate(state, args),
+  },
+  {
+    name: 'invoice_template',
+    title: 'Invoice design (read)',
+    description: 'The current invoice and quote design: colour, layout, bank details, terms, footer, signatory. Read-only.',
+    args: [],
+    run: (state) => invoiceTemplate(state),
   },
   {
     name: 'set_supplier_terms',

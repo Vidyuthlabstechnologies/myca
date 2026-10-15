@@ -5,6 +5,7 @@ import { isPeriodLocked } from './period-lock.mjs';
 import { postingDate } from './dates.mjs';
 import { invoiceTerms, dueDateOf } from './payment-terms.mjs';
 import { billPayBy } from './supplier-dues.mjs';
+import { invoiceTemplateOf, bankWords } from './invoice-template.mjs';
 import { planTds, recordTdsEntry, tdsPayableAccountId, wantsTds } from './tds-deduction.mjs';
 
 export const ZERO_RATE_SUPPLY = ['nil', 'exempt', 'non-gst'];
@@ -485,13 +486,24 @@ export function printInvoice(state, id) {
   const inv = [...(state.invoices || []), ...(state.purchases || [])].find((i) => i.id === id);
   if (!inv) return { ok: false, error: 'NOT_FOUND' };
   const c = state.company;
-  const rows = inv.lines.map((l) => `<tr><td>${htmlEscape(l.description)}</td><td>${htmlEscape(l.hsn)}</td><td class="num">${htmlEscape(l.qty)}</td><td class="num">${htmlEscape(l.rate)}</td><td class="num">${htmlEscape(l.taxable)}</td><td class="num">${htmlEscape(l.gstRate)}%</td><td class="num">${htmlEscape(l.amount)}</td></tr>`).join('');
+  const t = invoiceTemplateOf(state);
+  const sale = inv.kind !== 'purchase';
+  const hsnHead = t.showHsn ? '<th>HSN</th>' : '';
+  const rows = inv.lines.map((l) => `<tr><td>${htmlEscape(l.description)}</td>${t.showHsn ? `<td>${htmlEscape(l.hsn)}</td>` : ''}<td class="num">${htmlEscape(l.qty)}</td><td class="num">${htmlEscape(l.rate)}</td><td class="num">${htmlEscape(l.taxable)}</td><td class="num">${htmlEscape(l.gstRate)}%</td><td class="num">${htmlEscape(l.amount)}</td></tr>`).join('');
+  const minimal = t.layout === 'minimal';
+  const rule = minimal ? `1px solid ${t.accent}` : `3px double ${t.accent}`;
+  const font = minimal ? 'Segoe UI,Helvetica,Arial,sans-serif' : 'Georgia,serif';
+  const payment = sale ? bankWords(t.bank) : '';
+  const terms = sale && t.terms ? `<section class="terms"><strong>Terms</strong><br>${t.terms.split('\n').map((line) => htmlEscape(line)).join('<br>')}</section>` : '';
+  const pay = payment ? `<section class="pay"><strong>Pay to</strong><br>${htmlEscape(payment)}</section>` : '';
+  const signed = sale ? `<section class="sign">For ${htmlEscape(c.name)}<br><br><br>${htmlEscape(t.signatory || 'Authorised signatory')}</section>` : '';
+  const foot = t.footer ? `<p class="foot">${htmlEscape(t.footer)}</p>` : '';
   const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${htmlEscape(inv.id)}</title>
-<style>body{font-family:Georgia,serif;padding:32px;color:#1c1917}h1{border-bottom:3px double #b42318}table{width:100%;border-collapse:collapse;margin-top:16px}td,th{border-bottom:1px solid #e4d8c4;padding:6px;text-align:left}.num{text-align:right}footer{margin-top:24px;border-top:3px double #b42318;padding-top:8px}</style></head>
+<style>body{font-family:${font};padding:32px;color:#1c1917}h1{border-bottom:${rule};color:${t.accent}}table{width:100%;border-collapse:collapse;margin-top:16px}td,th{border-bottom:1px solid #e4d8c4;padding:6px;text-align:left}th{color:${t.accent}}.num{text-align:right}footer{margin-top:24px;border-top:${rule};padding-top:8px}.pay,.terms{margin-top:16px;font-size:0.9em}.sign{margin-top:32px;text-align:right}.foot{margin-top:24px;font-size:0.85em;color:#57534e;text-align:center}</style></head>
 <body><p>${htmlEscape(c.name)} · ${htmlEscape(c.gstin)}</p><h1>Tax Invoice ${htmlEscape(inv.id)}</h1>
-<p>${inv.kind === 'purchase' ? 'Supplier' : 'Bill to'}: ${htmlEscape(inv.partyName)} ${htmlEscape(inv.partyGstin || '')}<br>Date ${htmlEscape(inv.date)}</p>
-<table><thead><tr><th>Item</th><th>HSN</th><th>Qty</th><th>Rate</th><th>Taxable</th><th>GST</th><th>Amount</th></tr></thead><tbody>${rows}</tbody></table>
-<footer>Taxable ₹${htmlEscape(inv.taxable)} &nbsp; CGST ₹${htmlEscape(inv.cgst)} &nbsp; SGST ₹${htmlEscape(inv.sgst)} &nbsp; IGST ₹${htmlEscape(inv.igst)}<br><strong>Total ₹${htmlEscape(inv.total)}</strong></footer></body></html>`;
+<p>${sale ? 'Bill to' : 'Supplier'}: ${htmlEscape(inv.partyName)} ${htmlEscape(inv.partyGstin || '')}<br>Date ${htmlEscape(inv.date)}</p>
+<table><thead><tr><th>Item</th>${hsnHead}<th>Qty</th><th>Rate</th><th>Taxable</th><th>GST</th><th>Amount</th></tr></thead><tbody>${rows}</tbody></table>
+<footer>Taxable ₹${htmlEscape(inv.taxable)} &nbsp; CGST ₹${htmlEscape(inv.cgst)} &nbsp; SGST ₹${htmlEscape(inv.sgst)} &nbsp; IGST ₹${htmlEscape(inv.igst)}<br><strong>Total ₹${htmlEscape(inv.total)}</strong></footer>${pay}${terms}${signed}${foot}</body></html>`;
   return { ok: true, html, invoice: inv };
 }
 

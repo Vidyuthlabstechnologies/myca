@@ -22,6 +22,9 @@ Future<Uint8List> buildInvoicePdf(
 }) {
   final base = pw.Font.ttf(regular);
   final strong = pw.Font.ttf(bold);
+  final design = doc.template;
+  final accent = PdfColor.fromInt(design.accent);
+  final showHsn = design.showHsn && !doc.isUs;
   final body = pw.TextStyle(font: base, fontSize: 9.5, color: _ink);
   final small = pw.TextStyle(font: base, fontSize: 8.5, color: _muted);
   final label = pw.TextStyle(
@@ -78,7 +81,7 @@ Future<Uint8List> buildInvoicePdf(
                     style: pw.TextStyle(
                       font: strong,
                       fontSize: 16,
-                      color: _ink,
+                      color: design.minimal ? _ink : accent,
                     ),
                   ),
                   if (doc.sellerAddress.isNotEmpty)
@@ -95,7 +98,7 @@ Future<Uint8List> buildInvoicePdf(
               children: [
                 pw.Text(
                   doc.title.toUpperCase(),
-                  style: label.copyWith(fontSize: 9),
+                  style: label.copyWith(fontSize: 9, color: accent),
                 ),
                 pw.SizedBox(height: 2),
                 pw.Text(
@@ -114,7 +117,7 @@ Future<Uint8List> buildInvoicePdf(
           ],
         ),
         pw.SizedBox(height: 18),
-        pw.Divider(color: _line, thickness: 0.6),
+        pw.Divider(color: design.minimal ? _line : accent, thickness: design.minimal ? 0.6 : 1.2),
         pw.SizedBox(height: 10),
         pw.Row(
           crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -152,20 +155,20 @@ Future<Uint8List> buildInvoicePdf(
             horizontalInside: pw.BorderSide(color: _line, width: 0.5),
             bottom: pw.BorderSide(color: _line, width: 0.5),
           ),
-          columnWidths: const {
-            0: pw.FlexColumnWidth(5),
-            1: pw.FlexColumnWidth(1.6),
-            2: pw.FlexColumnWidth(1.2),
-            3: pw.FlexColumnWidth(2.2),
-            4: pw.FlexColumnWidth(2.4),
-            5: pw.FlexColumnWidth(1.2),
-            6: pw.FlexColumnWidth(2.6),
+          columnWidths: {
+            0: const pw.FlexColumnWidth(5),
+            1: pw.FlexColumnWidth(showHsn ? 1.6 : 0.01),
+            2: const pw.FlexColumnWidth(1.2),
+            3: const pw.FlexColumnWidth(2.2),
+            4: const pw.FlexColumnWidth(2.4),
+            5: const pw.FlexColumnWidth(1.2),
+            6: const pw.FlexColumnWidth(2.6),
           },
           children: [
             pw.TableRow(
               children: [
                 cell('ITEM', style: label),
-                cell(doc.isUs ? '' : 'HSN/SAC', style: label),
+                cell(showHsn ? 'HSN/SAC' : '', style: label),
                 cell('QTY', style: label, align: right),
                 cell('RATE', style: label, align: right),
                 cell(doc.isUs ? 'SUBTOTAL' : 'TAXABLE', style: label, align: right),
@@ -177,7 +180,7 @@ Future<Uint8List> buildInvoicePdf(
               pw.TableRow(
                 children: [
                   cell(line.description),
-                  cell(line.hsn),
+                  cell(showHsn ? line.hsn : ''),
                   cell(plainNumber(line.qty), align: right),
                   cell(rupees(line.rate), align: right),
                   cell(rupees(doc.isUs ? line.qty * line.rate : line.taxable), align: right),
@@ -210,6 +213,18 @@ Future<Uint8List> buildInvoicePdf(
             ),
           ],
         ),
+        if (design.bankWords.isNotEmpty && !doc.isQuote) ...[
+          pw.SizedBox(height: 18),
+          pw.Text('PAY TO', style: label),
+          pw.SizedBox(height: 3),
+          pw.Text(design.bankWords, style: body),
+        ],
+        if (design.terms.isNotEmpty) ...[
+          pw.SizedBox(height: 14),
+          pw.Text('TERMS', style: label),
+          pw.SizedBox(height: 3),
+          pw.Text(design.terms, style: small),
+        ],
         pw.SizedBox(height: 44),
         pw.Align(
           alignment: right,
@@ -218,10 +233,18 @@ Future<Uint8List> buildInvoicePdf(
             children: [
               pw.Text('For ${doc.sellerName}', style: body),
               pw.SizedBox(height: 34),
-              pw.Text('Authorised signatory', style: small),
+              pw.Text(
+                design.signatory.isEmpty ? 'Authorised signatory' : design.signatory,
+                style: design.signatory.isEmpty ? small : heavy,
+              ),
+              if (design.signatory.isNotEmpty) pw.Text('Authorised signatory', style: small),
             ],
           ),
         ),
+        if (design.footer.isNotEmpty) ...[
+          pw.SizedBox(height: 24),
+          pw.Center(child: pw.Text(design.footer, style: small)),
+        ],
       ],
     ),
   );

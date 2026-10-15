@@ -1,7 +1,7 @@
 export const REMOTE_QUERY_TOOLS = new Set([
   'company_profile',
   'list_invoices',
-  'invoice_document',
+  'invoice_document', 'invoice_template',
   'record_share',
   'eway_bill_status',
   'list_expenses',
@@ -71,7 +71,7 @@ export const REMOTE_QUERY_TOOLS = new Set([
   'validate_gstin',
 ]);
 
-export const COMPANY_PROFILE_FIELDS = ['name', 'gstin', 'pan', 'state', 'address', 'city', 'pin', 'entityType', 'invoiceNumbering'];
+export const COMPANY_PROFILE_FIELDS = ['name', 'gstin', 'pan', 'state', 'address', 'city', 'pin', 'entityType', 'invoiceNumbering', 'invoiceTemplate'];
 
 export function isRemoteQuery(name) {
   return REMOTE_QUERY_TOOLS.has(String(name));
