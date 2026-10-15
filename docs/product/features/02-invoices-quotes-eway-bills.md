@@ -119,8 +119,9 @@ WhatsApp or email. For goods on the move, the e-way bill is offered on the same 
   refused without transport details or an IRN, and a dry run or a simulated reply never
   stores a number. MyCA generates e-way bills from the e-invoice; the separate e-way
   bill system for businesses outside e-invoicing is not wired.
-- The invoice screen shows the e-invoice state and offers "Generate e-invoice" for a
-  B2B invoice; it goes through the action gate (2026-10-15).
+- The invoice screen shows the e-invoice state and, when the app works against the
+  Windows server, offers "Generate e-invoice" for a B2B invoice through the action gate
+  (2026-10-15). The hosted service never takes a government action from a phone.
 - Still to build: per-business NIC credentials in the hosted service (credentials are
   resolved per machine today), and the e-way bill system route for businesses outside
   the e-invoicing bracket.

@@ -319,7 +319,7 @@ class _InvoiceScreenState extends State<InvoiceScreen> with ProposalFlow {
                       ? null
                       : () => _transport(doc),
                   onEwayBill: doc.ewayBill?.status == 'ready' ? () => _ewayBill(doc) : null,
-                  onEinvoice: doc.einvoice?.status == 'ready' ? () => _einvoice(doc) : null,
+                  onEinvoice: doc.einvoice?.status == 'ready' && AppScope.of(context).cloud == null ? () => _einvoice(doc) : null,
                   onCancel: doc.isQuote || doc.cancelled || doc.credited > 0
                       ? null
                       : () => _cancel(doc),
