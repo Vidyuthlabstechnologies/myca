@@ -1,6 +1,6 @@
 export const BOOK_KEYS = new Set([
   'company', 'ledger', 'parties', 'vendors', 'invoices', 'purchases',
-  'invoiceSeq', 'billSeq', 'transferSeq', 'imports', 'lockThrough',
+  'invoiceSeq', 'invoiceSeqByFy', 'billSeq', 'transferSeq', 'imports', 'lockThrough',
   'files', 'attachments', 'pendingFile', 'pendingChatAction', 'lastConfirmation',
   'exceptions', 'exceptionSeq',
   'expenses', 'expenseSeq', 'expenseTags',

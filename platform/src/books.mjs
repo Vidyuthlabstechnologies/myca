@@ -37,6 +37,7 @@ export function newBook(company = {}) {
     invoices: [],
     purchases: [],
     invoiceSeq: 0,
+    invoiceSeqByFy: {},
     billSeq: 0,
     transferSeq: 100000,
     imports: [],
@@ -100,6 +101,7 @@ export function serializeBook(book) {
     invoices: book.invoices || [],
     purchases: book.purchases || [],
     invoiceSeq: book.invoiceSeq || 0,
+    invoiceSeqByFy: book.invoiceSeqByFy || {},
     billSeq: book.billSeq || 0,
     transferSeq: book.transferSeq || 100000,
     imports: book.imports || [],
@@ -161,6 +163,7 @@ export function deserializeBook(raw) {
   book.invoices = raw.invoices || [];
   book.purchases = raw.purchases || [];
   book.invoiceSeq = raw.invoiceSeq || 0;
+  book.invoiceSeqByFy = raw.invoiceSeqByFy && typeof raw.invoiceSeqByFy === 'object' ? raw.invoiceSeqByFy : {};
   book.billSeq = raw.billSeq || 0;
   book.transferSeq = raw.transferSeq || 100000;
   book.imports = raw.imports || [];

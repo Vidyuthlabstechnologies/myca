@@ -314,7 +314,7 @@ export function createApi({ db, secret, otpSender = null, googleClientIds = [], 
       }
       if (method !== 'POST') throw httpError(404, 'NOT_FOUND');
 
-      const body = await readJson(req, action === 'uploads' ? MAX_UPLOAD_BYTES : MAX_BODY_BYTES);
+      const body = await readJson(req, action === 'uploads' ? MAX_UPLOAD_BYTES : action === 'replace' ? MAX_BUSINESS_BYTES : MAX_BODY_BYTES);
       if (action === 'ca-sync') {
         if (role !== 'owner') throw httpError(403, 'OWNER_ONLY');
         const mode = String(body.mode || '');
@@ -348,6 +348,14 @@ export function createApi({ db, secret, otpSender = null, googleClientIds = [], 
       if (action === 'inbound') {
         if (role !== 'owner') throw httpError(403, 'OWNER_ONLY');
         return inbound.create(businessId, context, body);
+      }
+      if (action === 'replace') {
+        if (role !== 'owner') throw httpError(403, 'OWNER_ONLY');
+        const state = body.books && !body.state ? body.books : body.state;
+        if (!state || typeof state !== 'object') return { ok: false, error: 'INVALID_BACKUP', hint: 'Send the file saved by "Download everything" or a backup from the Windows app.' };
+        const out = await runner.replaceBooks(businessId, context, { version: 1, state, documents: body.documents || {}, exportedAt: body.exportedAt || '' });
+        if (out.ok !== false) await businesses.rename(businessId, state.company || {});
+        return out;
       }
       if (action === 'uploads') {
         const stored = await businesses.storedBytes(businessId);

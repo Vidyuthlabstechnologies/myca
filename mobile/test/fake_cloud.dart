@@ -24,6 +24,7 @@ class FakeCloud {
   final deletedBusinesses = <String>[];
   bool accountDeleted = false;
   int exports = 0;
+  final replaced = <Map<String, dynamic>>[];
   final crashReports = <Map<String, Object?>>[];
   bool crashServerDown = false;
   bool noticeAccepted = true;
@@ -226,6 +227,10 @@ class FakeCloud {
         if (m['id'] == id) m['role'] = body['role'];
       }
       return _json(200, {'ok': true, 'role': body['role'], 'was': 'staff'});
+    }
+    if (path == '$books/replace' && request.method == 'POST') {
+      replaced.add(body);
+      return _json(200, {'ok': true, 'replaced': true, 'restored': {'invoices': 2, 'clients': 0, 'documents': 1}});
     }
     if (path == '$books/export' && request.method == 'GET') {
       exports += 1;

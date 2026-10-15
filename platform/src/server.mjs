@@ -250,7 +250,8 @@ function handler(req, res) {
       return send(req, res, 200, session.backup());
     }
     if (req.method === 'POST' && url.pathname === '/api/restore') {
-      const payload = JSON.parse(await readBody(req) || '{}');
+      const raw = JSON.parse(await readBody(req) || '{}');
+      const payload = raw && raw.books && !raw.state ? { ...raw, version: 1, state: raw.books } : raw;
       return send(req, res, 200, await session.restore(payload));
     }
     if (url.pathname.startsWith('/api/ca/')) {

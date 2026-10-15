@@ -28,8 +28,10 @@ WhatsApp or email. For goods on the move, the e-way bill is offered on the same 
   message. An ambiguous message produces a question, not an entry.
 - The preview shows taxable value, each tax head and the total. Nothing is posted until
   the owner confirms.
-- Invoice numbers are one sequence per business (INV-0001 onwards). A series per
-  financial year or per branch is not built.
+- Invoice numbers are one sequence per business (INV-0001 onwards), or one series per
+  financial year when the owner asks ("number invoices per financial year":
+  `invoiceNumbering: yearly` on the profile; INV-26270001 is the first of 2026-27).
+  A series per branch is not built: a branch with its own GSTIN is its own business.
 
 ### View and send (built 2026-10-06, except the audit event)
 

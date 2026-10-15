@@ -187,7 +187,7 @@ capped at 1 MB; files go straight to storage. Errors keep the existing
 | C1 | Accounts, OTP, tokens, memberships; `/v1` API on Cloud Run with Postgres and Cloud Storage; app switches to `/v1` and gains sign-in | First point a real phone works over the internet |
 | C2 | Move journal, documents and audit events out of the single document; signed uploads; deadline notifications | Removes the size limit before volume customers |
 | C3 | Backups drill, alerts, account deletion and export, privacy assessment, security test, Play closed testing | Launch readiness |
-| Later | Windows app sync with the cloud; accountant invitations; several GSTINs per business | Not needed for the first Play release |
+| Later | Windows app sync with the cloud (done by file, 2026-10-15: the export restores on the Windows app and a Windows backup replaces the hosted books through `/v1/businesses/:id/replace`); accountant invitations (done); several GSTINs per business (a branch is its own business; a combined view is not built) | Not needed for the first Play release |
 
 ## Decisions needed from the owner
 

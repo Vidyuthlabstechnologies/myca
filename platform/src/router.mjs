@@ -190,6 +190,10 @@ function fmtToolResult(name, result) {
     const d = result.data;
     return `PF file for ${d.month}: ${d.members === 1 ? '1 member' : `${d.members} members`}, remittance ${money(d.totals.remittance)} (employee share ${money(d.totals.employeeShare)}, pension ${money(d.totals.pensionShare)}, employer PF ${money(d.totals.employerEpfShare)}, EDLI ${money(d.totals.edli)}, administrative charge ${money(d.totals.adminCharge)}). Saved as ${d.fileName} from the payroll screen.${d.missingUan.length ? ` No UAN for ${d.missingUan.join(', ')}; add it before uploading.` : ''}`;
   }
+  if (name === 'set_invoice_numbering' && result.ok !== false) {
+    const mode = result.mode;
+    return mode === 'yearly' ? 'New invoices are numbered per financial year, as INV-<year><number> (for example INV-26270001 for the first of 2026-27). Existing invoices keep their numbers.' : 'New invoices continue one series, INV-0001 onwards.';
+  }
   if (name === 'set_supplier_terms' && result.ok !== false) {
     const d = result;
     return `${d.supplier}${d.msme ? ` is recorded as an MSME${d.category ? ` (${d.category})` : ''}${d.udyam ? `, ${d.udyam}` : ''}` : ' is not an MSME'}${d.days != null ? `; agreed terms ${d.days === 0 ? 'on receipt' : `${d.days} days`}` : ''}. New bills from them carry the pay-by date${d.msme ? ' from the MSMED Act' : ''}; old bills keep theirs.`;

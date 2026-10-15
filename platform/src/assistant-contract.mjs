@@ -91,6 +91,7 @@ export const TOOL_ARG_SCHEMAS = {
       city: { type: 'string' },
       pin: { type: 'string' },
       entityType: { type: 'string' },
+      invoiceNumbering: { type: 'string', enum: ['continuous', 'yearly'] },
     },
   },
   list_clients: noArgs,
@@ -707,6 +708,12 @@ export const TOOL_ARG_SCHEMAS = {
     additionalProperties: false,
     required: ['invoiceId'],
     properties: { invoiceId: { type: 'string', pattern: '^INV-[0-9]{4,}$' }, caApprovalId: { type: 'string', maxLength: 40 } },
+  },
+  set_invoice_numbering: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['mode'],
+    properties: { mode: { type: 'string', enum: ['continuous', 'yearly'] } },
   },
   set_supplier_terms: {
     type: 'object',
@@ -1411,6 +1418,7 @@ const TOOL_RISK = {
   set_employee_bank: 'writes_books',
   set_payment_terms: 'writes_books',
   set_supplier_terms: 'writes_books',
+  set_invoice_numbering: 'writes_books',
   set_party_address: 'writes_books',
   set_sales_tax_rate: 'writes_books',
   set_contractor: 'writes_books',
@@ -1682,6 +1690,12 @@ export function planLocalToolCall(state, message) {
     const quarter = quarterSaid(text);
     const form = /\bsalar(?:y|ies)\b|\b24q\b|\bform\s*138\b/i.test(text) ? 'salary' : 'other';
     return { kind: 'tool', name: 'tds_return', args: { ...(quarter ? { quarter } : {}), ...(form === 'salary' ? { form } : {}) } };
+  }
+  if (/\b(?:number|numbering|series)\b.*\binvoices?\b.*\b(?:per|by|each|every)\s+(?:financial\s+)?year\b|\binvoices?\s+(?:numbering|numbers?|series)\b.*\b(?:per|by|each|every)\s+(?:financial\s+)?year\b|\byearly\s+invoice\s+(?:numbers?|numbering|series)\b/i.test(text) && !isNegated(text) && !isQuestion(text)) {
+    return { kind: 'tool', name: 'set_invoice_numbering', args: { mode: 'yearly' } };
+  }
+  if (/\b(?:continuous|single|one)\s+(?:invoice\s+)?(?:series|numbering|sequence)\b|\bnumber\s+invoices\s+continuously\b/i.test(text) && !isNegated(text) && !isQuestion(text)) {
+    return { kind: 'tool', name: 'set_invoice_numbering', args: { mode: 'continuous' } };
   }
   if (/\b(?:msme|udyam|micro|small\s+enterprise)\b.*\b(?:dues?|owe|owed|payable|bills?|pay)\b|\b(?:supplier|vendor)\s+dues\b|\bwhat\s+do\s+i\s+owe\s+(?:my\s+)?(?:msme|suppliers)\b/i.test(text) && !/\bis\s+(?:an?\s+)?msme\b/i.test(text)) {
     return { kind: 'tool', name: 'supplier_dues', args: {} };

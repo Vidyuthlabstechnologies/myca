@@ -563,6 +563,12 @@ class CloudSession {
 
   Future<Map<String, dynamic>> exportBusiness() => call('GET', '$_books/export');
 
+  Future<Map<String, dynamic>> replaceBooks(Map<String, Object?> payload) async {
+    final body = await call('POST', '$_books/replace', payload);
+    if (body['ok'] == false) throw MycaApiException(cloudMessage('${body['error']}'));
+    return body;
+  }
+
   Future<void> deleteBusiness() async {
     final id = _businessId;
     if (id == null) return;
