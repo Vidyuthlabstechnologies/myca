@@ -43,7 +43,7 @@ export function weekAhead(state, args = {}) {
       }
     }
   }
-  const reminders = listReminders(state, { status: 'open' });
+  const reminders = listReminders(state, { status: 'open', today });
   for (const reminder of reminders.data.reminders) {
     if (reminder.due > until) continue;
     items.push({ kind: 'reminder', when: reminder.due, overdue: reminder.state === 'overdue', title: reminder.text, detail: reminder.state === 'overdue' ? 'Overdue' : reminder.state === 'today' ? 'Today' : `Due ${reminder.due}`, id: reminder.id });

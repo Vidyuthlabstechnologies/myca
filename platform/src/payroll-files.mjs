@@ -66,6 +66,41 @@ export function pfEcr(state, requested) {
   };
 }
 
+export function payrollPayoutFile(state, requested) {
+  if (salaryPrivate(state)) return fail('SALARIES_PRIVATE');
+  const period = String(requested || '').trim();
+  const found = approvedRun(state, period);
+  if (!found.ok) return found;
+  const { run } = found;
+  const rows = [];
+  const missing = [];
+  for (const row of run.rows) {
+    const net = Number(row.netPaise ?? row.netCents ?? 0);
+    if (net <= 0) continue;
+    const employee = employeeOf(state, row.employeeId);
+    if (!employee.bankAccount || !employee.ifsc) missing.push(row.name);
+    rows.push({ employeeId: row.employeeId, name: row.name, account: employee.bankAccount || '', ifsc: employee.ifsc || '', amount: toRupees(net), narration: `SAL-${period}` });
+  }
+  if (!rows.length) return fail('NOTHING_TO_PAY', { period });
+  const header = ['Beneficiary Name', 'Account Number', 'IFSC', 'Amount', 'Narration'];
+  const csv = csvRows([header, ...rows.map((r) => [r.name, r.account, r.ifsc, r.amount.toFixed(2), r.narration])]);
+  return {
+    ok: true,
+    data: {
+      period,
+      month: run.month,
+      employees: rows.length,
+      total: toRupees(rows.reduce((sum, r) => sum + Math.round(r.amount * 100), 0)),
+      paidOn: run.paidOn || '',
+      missingBank: missing,
+      rows,
+      fileName: `salary-payout-${period}.csv`,
+      csv,
+      note: missing.length ? 'Rows without an account cannot be uploaded; add bank details on the employee first.' : "Upload on the bank's bulk payment page, then record the salary payment here once it goes through.",
+    },
+  };
+}
+
 export function esiReturn(state, requested) {
   if (salaryPrivate(state)) return fail('SALARIES_PRIVATE');
   const period = String(requested || '').trim();

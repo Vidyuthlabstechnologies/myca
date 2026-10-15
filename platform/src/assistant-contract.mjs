@@ -785,7 +785,25 @@ export const TOOL_ARG_SCHEMAS = {
       workState: { type: 'string', pattern: '^[A-Za-z]{2}$' },
       federalWithholding: { type: 'number', minimum: 0 },
       stateWithholding: { type: 'number', minimum: 0 },
+      bankAccount: { type: 'string', minLength: 9, maxLength: 18 },
+      ifsc: { type: 'string', minLength: 9, maxLength: 11 },
     },
+  },
+  set_employee_bank: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['id', 'bankAccount', 'ifsc'],
+    properties: {
+      id: { type: 'string', pattern: '^EMP-[0-9]{4,}$' },
+      bankAccount: { type: 'string', minLength: 9, maxLength: 18 },
+      ifsc: { type: 'string', minLength: 9, maxLength: 11 },
+    },
+  },
+  payroll_payout_file: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['period'],
+    properties: { period: { type: 'string', pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' } },
   },
   change_salary: {
     type: 'object',
@@ -1363,6 +1381,7 @@ const TOOL_RISK = {
   record_tds_deposit: 'writes_books',
   change_salary: 'writes_books',
   end_employment: 'writes_books',
+  set_employee_bank: 'writes_books',
   set_payment_terms: 'writes_books',
   set_party_address: 'writes_books',
   set_sales_tax_rate: 'writes_books',
@@ -1635,6 +1654,9 @@ export function planLocalToolCall(state, message) {
     const quarter = quarterSaid(text);
     const form = /\bsalar(?:y|ies)\b|\b24q\b|\bform\s*138\b/i.test(text) ? 'salary' : 'other';
     return { kind: 'tool', name: 'tds_return', args: { ...(quarter ? { quarter } : {}), ...(form === 'salary' ? { form } : {}) } };
+  }
+  if (/\b(?:salary|payroll)\b.*\b(?:payout|bank)\b.*\bfile\b|\bpayout\s+file\b/i.test(text) && !isNegated(text) && !isQuestion(text)) {
+    return { kind: 'tool', name: 'payroll_payout_file', args: { period: monthSaid(text) } };
   }
   if (/\b(?:pf|provident\s+fund|epf)\b.*\b(?:file|ecr|return|challan)\b|\becr\b/i.test(text) && !isNegated(text) && !isQuestion(text)) {
     return { kind: 'tool', name: 'pf_ecr', args: { period: monthSaid(text) } };

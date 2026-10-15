@@ -6,6 +6,7 @@ import '../marks.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import 'businesses_screen.dart';
+import 'connections_screen.dart';
 import 'migration_flow.dart';
 import 'people_screen.dart';
 
@@ -50,6 +51,17 @@ Future<void> showBusinessSheet(BuildContext context, Snapshot snapshot) {
                         navigator.push(MaterialPageRoute<void>(builder: (_) => const PeopleScreen()));
                       },
                     ),
+                    if (user?.role == 'owner')
+                      RowCard(
+                        leading: const TintTile(tint: Tint.ask, mark: Mark.otherApp),
+                        title: 'Connections',
+                        subtitle: 'A POS or an inbox that feeds these books',
+                        trailing: const Chevron(),
+                        onTap: () {
+                          navigator.pop();
+                          navigator.push(MaterialPageRoute<void>(builder: (_) => const ConnectionsScreen()));
+                        },
+                      ),
                     RowCard(
                       leading: const TintTile(tint: Tint.ask, mark: Mark.switchBooks),
                       title: 'Your businesses',

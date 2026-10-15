@@ -185,6 +185,100 @@ class EmployeeScreen extends StatelessWidget {
                 open(EmployeeFormScreen(employee: employee, leaving: true)),
             child: const Text('Record leaving'),
           ),
+          const SizedBox(height: 8),
+          OutlinedButton(
+            onPressed: () => open(EmployeeBankScreen(employee: employee)),
+            child: const Text('Bank account for salary'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class EmployeeBankScreen extends StatefulWidget {
+  const EmployeeBankScreen({super.key, required this.employee});
+
+  final Employee employee;
+
+  @override
+  State<EmployeeBankScreen> createState() => _EmployeeBankScreenState();
+}
+
+class _EmployeeBankScreenState extends State<EmployeeBankScreen> with ProposalFlow {
+  final _account = TextEditingController();
+  final _ifsc = TextEditingController();
+  String _error = '';
+
+  @override
+  MycaApi get api => AppScope.of(context).api;
+
+  @override
+  Future<void> onPosted() async {
+    await AppScope.of(context).refresh();
+    if (mounted) Navigator.of(context).pop(true);
+  }
+
+  @override
+  void dispose() {
+    _account.dispose();
+    _ifsc.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    final account = _account.text.replaceAll(' ', '');
+    final ifsc = _ifsc.text.replaceAll(' ', '').toUpperCase();
+    if (!RegExp(r'^[0-9]{9,18}$').hasMatch(account)) return setState(() => _error = 'Enter the account number: 9 to 18 digits.');
+    if (!RegExp(r'^[A-Z]{4}0[A-Z0-9]{6}$').hasMatch(ifsc) && !RegExp(r'^[0-9]{9}$').hasMatch(ifsc)) {
+      return setState(() => _error = 'Enter the IFSC (11 characters, like HDFC0001234) or a 9-digit US routing number.');
+    }
+    setState(() => _error = '');
+    await propose('Pay ${widget.employee.name} into account ending ${account.substring(account.length - 4)}', 'set_employee_bank', {
+      'id': widget.employee.id,
+      'bankAccount': account,
+      'ifsc': ifsc,
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    return Scaffold(
+      appBar: AppBar(title: Text(widget.employee.name)),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+        children: [
+          Text('Used only for the salary payout file you upload to the bank. Kept with the employee, never shown in full again.', style: text.bodyMedium),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _account,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(labelText: 'Account number'),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _ifsc,
+            textCapitalization: TextCapitalization.characters,
+            decoration: const InputDecoration(labelText: 'IFSC'),
+          ),
+          if (_error.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(_error, style: const TextStyle(color: Palette.danger)),
+          ],
+          const SizedBox(height: 16),
+          for (final entry in entries) entry.toBubble(),
+          const SizedBox(height: 12),
+          if (pending == null)
+            FilledButton(onPressed: busy ? null : _submit, child: const Text('Save'))
+          else
+            Row(
+              children: [
+                FilledButton(onPressed: busy ? null : postPending, child: const Text('Confirm')),
+                const SizedBox(width: 8),
+                TextButton(onPressed: busy ? null : discardPending, child: const Text('Not now')),
+              ],
+            ),
         ],
       ),
     );

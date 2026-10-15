@@ -53,15 +53,19 @@ flowchart LR
 - The extraction service is behind an interface so the model can change. What may be
   sent to it, and where it runs, is PRD question Q3.
 
-### Forwarding into the app (to build)
+### Forwarding into the app (partly built)
 
-Register the app as a share target for images and PDFs. Email forwarding to a
-per-business address is a later option and needs the deployment.
+A documents key (Connections in the app) lets a mail relay or scanner post a file to
+`POST /v1/inbound/documents`; the file is stored and the owner gets a reminder to read
+it (2026-10-15). Registering the app as a share target for images and PDFs, and a
+per-business email address on the hosted service, are still to build.
 
-### POS sales (to build)
+### POS sales (built 2026-10-15, except the daily file)
 
 - An inbound API per business with a signed secret: a POS posts a sale, the product
-  creates the sales entry. Idempotent on the POS's own sale id.
+  creates the sales entry. Idempotent on the POS's own sale id. (`POST /v1/inbound/sales`
+  with a key made under Connections; the owner sees today's count and total per key and
+  turns a key off there.)
 - Counter sales to unregistered buyers are recorded individually and reported in the
   return's summary table by the existing GSTR-1 logic.
 - A daily summary import (file) for POS systems with no API.

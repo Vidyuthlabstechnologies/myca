@@ -4,6 +4,9 @@ const PAN = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
 const UAN = /^[0-9]{12}$/;
 const ESI_NUMBER = /^[0-9]{10}$/;
 const STATE = /^[0-9]{2}$/;
+const IFSC = /^[A-Z]{4}0[A-Z0-9]{6}$/;
+const ACCOUNT = /^[0-9]{9,18}$/;
+const ROUTING = /^[0-9]{9}$/;
 const MAX_COMPONENTS = 10;
 const round2 = (value) => Math.round(Number(value || 0) * 100) / 100;
 
@@ -62,6 +65,10 @@ function detailsOf(args, existing = {}) {
   if (sex && !['male', 'female'].includes(sex)) return fail('BAD_SEX', { sex });
   const workState = String(pick('workState') || '').trim().toUpperCase();
   if (workState && !/^[A-Z]{2}$/.test(workState)) return fail('BAD_STATE', { workState });
+  const bankAccount = String(pick('bankAccount') || '').replace(/\s+/g, '');
+  if (bankAccount && !ACCOUNT.test(bankAccount)) return fail('BAD_BANK_ACCOUNT');
+  const ifsc = String(pick('ifsc') || '').replace(/\s+/g, '').toUpperCase();
+  if (ifsc && !IFSC.test(ifsc) && !ROUTING.test(ifsc)) return fail('BAD_IFSC', { ifsc });
   const federalWithholding = Number(pick('federalWithholding') || 0);
   const stateWithholding = Number(pick('stateWithholding') || 0);
   if (!Number.isFinite(federalWithholding) || federalWithholding < 0) return fail('BAD_AMOUNT', { name: 'federalWithholding' });
@@ -76,6 +83,8 @@ function detailsOf(args, existing = {}) {
       pan,
       uan,
       esiNumber,
+      bankAccount,
+      ifsc,
       pfMember: Boolean(pick('pfMember')),
       esiMember: Boolean(pick('esiMember')),
       ptState,
@@ -157,6 +166,18 @@ export function planLeaving(state, args = {}) {
   if (!leftOn) return fail('INVALID_DATE', { date: args.leftOn });
   if (leftOn < employee.joinedOn) return fail('BEFORE_JOINING', { joinedOn: employee.joinedOn });
   return { ok: true, employee, leftOn };
+}
+
+export function setEmployeeBank(state, args = {}) {
+  if (salaryPrivate(state)) return fail('SALARIES_PRIVATE');
+  const employee = findEmployee(state, args.id);
+  if (!employee) return fail('EMPLOYEE_NOT_FOUND', { id: args.id });
+  const more = detailsOf({ bankAccount: args.bankAccount, ifsc: args.ifsc }, employee);
+  if (!more.ok) return more;
+  if (!more.details.bankAccount || !more.details.ifsc) return fail('BANK_DETAILS_REQUIRED');
+  employee.bankAccount = more.details.bankAccount;
+  employee.ifsc = more.details.ifsc;
+  return { ok: true, employee: { id: employee.id, name: employee.name, bankAccount: `xxxx${employee.bankAccount.slice(-4)}`, ifsc: employee.ifsc } };
 }
 
 export function endEmployment(state, args = {}) {
