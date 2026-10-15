@@ -1145,6 +1145,33 @@ class FakeMycaApi implements MycaApi {
         return {'ok': true, 'data': {'year': args['year'], 'fileName': 'forms_w2_w3_${args['year']}.csv', 'csv': 'form,employee\nW-2,Ana Lopez\n'}};
       case 'list_amendments':
         return {'ok': true, 'data': {'amendments': amendments, 'count': amendments.length}};
+      case 'daily_close':
+        return {
+          'ok': true,
+          'data': {
+            'day': '2026-10-05',
+            'status': 'needs you',
+            'needsYou': ['Bank statement current', 'Settlements matched to the bank'],
+            'checklist': [
+              {'item': 'Sales posted', 'ok': true, 'detail': '2 today, 14 this month'},
+              {'item': 'Purchases and expenses posted', 'ok': true, 'detail': '1 today, 9 this month'},
+              {'item': 'Bank statement current', 'ok': false, 'detail': 'last balance 2026-09-28, 7 days ago'},
+              {'item': 'Settlements matched to the bank', 'ok': false, 'detail': '3 imported, 1 not in the bank'},
+              {'item': 'TCS and TDS 194-O confirmed', 'ok': true, 'detail': 'no gaps'},
+              {'item': 'Margins positive', 'ok': true, 'detail': '0 SKUs losing money in 2026-09'},
+              {'item': 'Nothing high-severity open', 'ok': true, 'detail': '2 open, 0 high'},
+            ],
+            'sales': {'today': 2, 'todayTotal': 5000, 'month': 14, 'monthTotal': 412000},
+            'purchases': {'today': 1, 'todayTotal': 1000, 'month': 6, 'monthTotal': 90000},
+            'expenses': {'today': 0, 'todayTotal': 0, 'month': 3, 'monthTotal': 12000},
+            'cash': {'bank': 184000, 'cash': 2000, 'source': 'reading', 'readingOn': '2026-09-28'},
+            'receivable': 277600,
+            'exceptions': {'count': 2, 'bySeverity': {'high': 0, 'medium': 2, 'low': 0}, 'moneyAtRisk': 1200},
+            'settlements': {'imported': 3, 'unmatched': 1, 'short': 0, 'latest': '2026-10-01'},
+            'credits': {'gaps': 0, 'tcsAvailable': 0},
+            'margins': null,
+          },
+        };
       case 'week_ahead':
         return {
           'ok': true,
