@@ -3,6 +3,7 @@ import { invoiceTemplate, setInvoiceTemplate } from './invoice-template.mjs';
 import { importSettlement, settlementStatus } from './settlements.mjs';
 import { importMarketplaceOrders, postSettlement } from './marketplace-orders.mjs';
 import { setChannelIdentity, importTcsStatement, import26asCredits, marketplaceCredits } from './marketplace-credits.mjs';
+import { setSkuCost, importSkuCosts, recordStock, stockPosition, skuMargins } from './sku-margins.mjs';
 const ingestTally = tally.ingest;
 const ingestBank = bank.ingest;
 const { reconcile } = gst;
@@ -1717,6 +1718,46 @@ export const TOOLS = [
     description: 'What marketplaces deducted from settlements as GST TCS (by month) and income-tax TDS under 194-O (by quarter), against what the portal statement and Form 26AS confirm; the gaps; how much TCS is available for the next GST payment. Read-only.',
     args: ['fy'],
     run: (state, args = {}) => marketplaceCredits(state, args),
+  },
+  {
+    name: 'set_sku_cost',
+    title: 'SKU cost',
+    description: 'Record a product\'s unit cost (and name, HSN) so margins by SKU and channel can be computed. The cost is what you paid per unit, landed. Owner only.',
+    args: ['sku', 'cost', 'name', 'hsn', 'on'],
+    run: (state, args = {}) => setSkuCost(state, args),
+  },
+  {
+    name: 'import_sku_costs',
+    title: 'Import SKU costs',
+    description: 'Read a sheet of SKUs with their unit cost (CSV: sku, cost, optionally name and HSN) and record them. Later rows for the same SKU replace earlier ones.',
+    args: ['csv'],
+    run: (state, args = {}) => {
+      if (!args.csv) return fail('csv required');
+      const result = importSkuCosts(state, args);
+      if (!result.ok) return fail(result.error, { need: result.need });
+      return ok(result);
+    },
+  },
+  {
+    name: 'record_stock',
+    title: 'Stock in or out',
+    description: 'Record stock received, sent to a warehouse or counted: a positive quantity adds, a negative removes, at a location (own, amazon, flipkart, a warehouse name). Marketplace orders move stock out of the channel\'s location on import; returns move it back.',
+    args: ['sku', 'qty', 'location', 'date', 'note', 'kind'],
+    run: (state, args = {}) => recordStock(state, args),
+  },
+  {
+    name: 'stock_position',
+    title: 'Stock on hand',
+    description: 'Quantity on hand by SKU and location from recorded movements, valued at the recorded cost; locations gone negative are listed. Read-only.',
+    args: ['sku', 'location'],
+    run: (state, args = {}) => stockPosition(state, args),
+  },
+  {
+    name: 'sku_margins',
+    title: 'Margins by SKU and channel',
+    description: 'For marketplace orders in a month: units, net sales after returns, the channel\'s fees and penalties allocated to each order from its settlements, cost of goods from the recorded SKU cost, and the margin and its percentage, by SKU and by channel. SKUs without a cost are listed. Read-only.',
+    args: ['period', 'channel'],
+    run: (state, args = {}) => skuMargins(state, args),
   },
   {
     name: 'settlement_status',

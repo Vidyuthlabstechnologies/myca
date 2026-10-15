@@ -65,6 +65,8 @@ export function createState() {
     channels: {},
     tcsStatements: [],
     tdsCreditStatements: [],
+    skus: {},
+    stockMoves: [],
     supplierReminderSeq: 0,
     employees: [],
     employeeSeq: 0,
@@ -150,6 +152,8 @@ export function serialize(state) {
     channels: state.channels || {},
     tcsStatements: state.tcsStatements || [],
     tdsCreditStatements: state.tdsCreditStatements || [],
+    skus: state.skus || {},
+    stockMoves: state.stockMoves || [],
     supplierReminderSeq: state.supplierReminderSeq || 0,
     employees: state.employees || [],
     employeeSeq: state.employeeSeq || 0,
@@ -316,6 +320,8 @@ export function deserialize(raw) {
   state.channels = raw.channels && typeof raw.channels === 'object' ? raw.channels : {};
   state.tcsStatements = Array.isArray(raw.tcsStatements) ? raw.tcsStatements : [];
   state.tdsCreditStatements = Array.isArray(raw.tdsCreditStatements) ? raw.tdsCreditStatements : [];
+  state.skus = raw.skus && typeof raw.skus === 'object' ? raw.skus : {};
+  state.stockMoves = Array.isArray(raw.stockMoves) ? raw.stockMoves : [];
   state.supplierReminderSeq = raw.supplierReminderSeq || 0;
   state.employees = Array.isArray(raw.employees) ? raw.employees : [];
   state.employeeSeq = raw.employeeSeq || 0;

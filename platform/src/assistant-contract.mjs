@@ -628,6 +628,49 @@ export const TOOL_ARG_SCHEMAS = {
     additionalProperties: false,
     properties: { fy: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}$' } },
   },
+  set_sku_cost: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['sku'],
+    properties: {
+      sku: { type: 'string', minLength: 1, maxLength: 64 },
+      cost: { type: 'number', minimum: 0 },
+      name: { type: 'string', maxLength: 120 },
+      hsn: { type: 'string', maxLength: 8 },
+      on: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' },
+    },
+  },
+  import_sku_costs: {
+    type: 'object',
+    additionalProperties: false,
+    properties: { csv: { type: 'string' }, documentSha256: { type: 'string', pattern: '^[0-9a-f]{64}$' } },
+  },
+  record_stock: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['sku', 'qty'],
+    properties: {
+      sku: { type: 'string', minLength: 1, maxLength: 64 },
+      qty: { type: 'number' },
+      location: { type: 'string', maxLength: 40 },
+      date: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' },
+      note: { type: 'string', maxLength: 200 },
+      kind: { type: 'string', enum: ['in', 'out', 'adjust'] },
+    },
+  },
+  stock_position: {
+    type: 'object',
+    additionalProperties: false,
+    properties: { sku: { type: 'string', maxLength: 64 }, location: { type: 'string', maxLength: 40 } },
+  },
+  sku_margins: {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      period: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}$' },
+      channel: { type: 'string', enum: ['amazon', 'flipkart', 'myntra', 'nykaa', 'meesho', 'shopify', 'razorpay', 'quick-commerce', 'marketplace'] },
+    },
+  },
   settlement_status: {
     type: 'object',
     additionalProperties: false,
@@ -1597,6 +1640,11 @@ const TOOL_RISK = {
   import_tcs_statement: 'writes_books',
   import_26as_credits: 'writes_books',
   marketplace_credits: 'read_only',
+  set_sku_cost: 'writes_books',
+  import_sku_costs: 'writes_books',
+  record_stock: 'writes_books',
+  stock_position: 'read_only',
+  sku_margins: 'read_only',
   settlement_status: 'read_only',
   sales_tax_review_answer: 'writes_books',
   record_sales_tax_payment: 'writes_books',
@@ -2071,6 +2119,27 @@ export function planLocalToolCall(state, message) {
     const csv = state.pendingFile?.content || state.files.tally;
     if (!csv) return { kind: 'reply', reply: 'Attach a Tally Day Book CSV first (dropdown: Tally Day Book).', tools: [] };
     return { kind: 'tool', name: 'import_tally', args: { csv, fileName: state.pendingFile?.name || 'tally.csv' }, clearsPendingFile: true };
+  }
+  {
+    const cost = /^(?:cost\s+of\s+|set\s+cost\s+(?:of\s+)?)([A-Za-z0-9][A-Za-z0-9_./-]{0,63})\s+(?:is|=|:|to|at)?\s*(?:₹|rs\.?\s*)?([\d,]+(?:\.\d+)?)\s*$/i.exec(text.trim());
+    if (cost && !isNegated(text)) return { kind: 'tool', name: 'set_sku_cost', args: { sku: cost[1].toUpperCase(), cost: Number(cost[2].replace(/,/g, '')) } };
+    const stock = /^stock\s+(in|out)\s+([A-Za-z0-9][A-Za-z0-9_./-]{0,63})\s+([\d.]+)(?:\s+(?:at|to|from|in)\s+([A-Za-z0-9][A-Za-z0-9 _-]{0,39}))?\s*$/i.exec(text.trim());
+    if (stock && !isNegated(text)) return { kind: 'tool', name: 'record_stock', args: { sku: stock[2].toUpperCase(), qty: stock[1].toLowerCase() === 'in' ? Number(stock[3]) : -Number(stock[3]), ...(stock[4] ? { location: stock[4].trim().toLowerCase() } : {}) } };
+    if (/\bimport\s+(?:sku\s+)?costs?\b|\bsku\s+costs?\s+(?:file|csv|sheet)\b/i.test(text) && !isQuestion(text)) {
+      const csv = state.pendingFile?.content;
+      if (!csv) return { kind: 'reply', reply: 'Attach a sheet with sku and cost columns (name and HSN optional), then say "import sku costs".', tools: [] };
+      return { kind: 'tool', name: 'import_sku_costs', args: { csv }, clearsPendingFile: true };
+    }
+    const margins = /\bmargins?\b.*\b(?:sku|channel|product)s?\b|\b(?:sku|product|channel)\s+margins?\b|\bwhich\s+(?:skus?|products?)\s+(?:make|lose|earn)\b|\bmargins?\s+(?:for|in)\s+(\d{4}-\d{2})\b|^margins?\??$/i.exec(text);
+    if (margins) {
+      const period = /\b(\d{4}-(?:0[1-9]|1[0-2]))\b/.exec(text);
+      const channel = /\b(amazon|flipkart|myntra|nykaa|meesho|shopify|razorpay)\b/i.exec(text);
+      return { kind: 'tool', name: 'sku_margins', args: { ...(period ? { period: period[1] } : {}), ...(channel ? { channel: channel[1].toLowerCase() } : {}) } };
+    }
+    if (/\bstock\s+(?:on\s+hand|position|level|left|balance)\b|\bhow\s+much\s+stock\b|\bstock\s+(?:at|in)\s+[A-Za-z]/i.test(text)) {
+      const location = /\bstock\s+(?:at|in)\s+([A-Za-z0-9][A-Za-z0-9 _-]{0,39}?)\s*\??$/i.exec(text.trim());
+      return { kind: 'tool', name: 'stock_position', args: location ? { location: location[1].trim().toLowerCase() } : {} };
+    }
   }
   {
     const identity = /^(amazon|flipkart|myntra|nykaa|meesho|shopify|razorpay)\s+(?:gstin|tan)\b/i.exec(text.trim());
