@@ -34,6 +34,7 @@ Run environment or `platform/.env` only.
 | Android upload keystore: `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD` | GitHub → Settings → Secrets | Signed APK and app bundle on every `v*` tag; without them the build is debug-signed and cannot go to Play |
 | Windows code-signing certificate: `CSC_LINK`, `CSC_KEY_PASSWORD` (optional) | GitHub Secrets | Signed installers |
 | `MYCA_MODEL_API_KEY` | Cloud Run env (Secret Manager) and `platform/.env` on your machine | The model |
+| Email relay: `INBOUND_RELAY_TOKEN` (the `inbound_relay_token` output of `infra/cloud`) and `vars.MYCA_API_URL`; Email Routing catch-all on the `inbound_email_domain` sent to the Worker | `wrangler secret put` in `email-relay/`; Cloudflare dashboard | Per-business forwarding addresses for bills |
 | SMS provider keys | Cloud Run env | Sign-in codes |
 | GSP, NIC and TRACES credentials | Come from the CA firm (their request document, section 3), entered on the Integrations screen into the app's vault; `MYCA_ENABLE_LIVE_CALLS` stays off until the firm signs off the sandbox run | Live filing |
 | Google Sign-In client ids | `google_client_ids` Terraform variable and the app's `--dart-define` | Sign-in with Google |

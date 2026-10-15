@@ -50,6 +50,12 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
     if (made == true && mounted) _reload();
   }
 
+  Future<void> _copyAddress(String email) async {
+    await Clipboard.setData(ClipboardData(text: email));
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Copied $email')));
+  }
+
   Future<void> _turnOff(InboundKey key) async {
     final cloud = AppScope.of(context).cloud!;
     final yes = await showDialog<bool>(
@@ -117,7 +123,10 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
                         title: key.label,
                         subtitle: key.source == 'pos'
                             ? 'Today: ${key.todayCount == 1 ? '1 sale' : '${key.todayCount} sales'}, ${rupees(key.todayTotal)}'
-                            : sourceLabel(key.source),
+                            : key.email.isEmpty
+                                ? sourceLabel(key.source)
+                                : 'Forward bills to ${key.email}',
+                        onTap: key.email.isEmpty ? null : () => _copyAddress(key.email),
                         trailing: TextButton(onPressed: () => _turnOff(key), child: const Text('Turn off')),
                       ),
                   ],
@@ -230,6 +239,12 @@ class _NewKeySheetState extends State<_NewKeySheet> {
                 Text('Give this key to the system once. It is shown only now; if it is lost, turn this connection off and make a new one.', style: text.bodyMedium),
                 const SizedBox(height: 12),
                 SelectableText(made.secret, style: text.bodyLarge?.copyWith(fontFamily: 'monospace')),
+                if (made.email.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Text('Or forward bills by mail to this address; it stays on the Connections list.', style: text.bodyMedium),
+                  const SizedBox(height: 6),
+                  SelectableText(made.email, style: text.bodyLarge),
+                ],
                 const SizedBox(height: 12),
                 Row(
                   children: [

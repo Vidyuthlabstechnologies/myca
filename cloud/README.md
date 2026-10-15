@@ -94,6 +94,11 @@ header:
   off; a disabled key answers 401.
 - `POST /v1/inbound/documents` `{ name, content, from? }` stores a forwarded bill or
   statement and leaves a reminder for the owner to read it. Nothing posts.
+- `POST /v1/inbound/email` is for the email relay only (`x-myca-relay-token` must equal
+  `MYCA_INBOUND_RELAY_TOKEN`, 32+ characters). With `MYCA_INBOUND_EMAIL_DOMAIN` set,
+  every documents key gets an address `<token>@<domain>` shown under Connections; mail to
+  it has its attachments (or its text) stored for that business with a reminder. An
+  unknown address answers 404 so the relay bounces the mail.
 
 ## Not built yet
 

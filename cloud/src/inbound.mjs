@@ -1,4 +1,4 @@
-import { randomBytes } from 'node:crypto';
+import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { keyedHash } from './tokens.mjs';
 
 export const INBOUND_HEADER = 'x-myca-key';
@@ -6,6 +6,23 @@ export const INBOUND_SOURCES = ['pos', 'documents'];
 export const MAX_INBOUND_KEYS = 10;
 const KEY_PREFIX = 'mk_';
 const SALE_ID = /^[A-Za-z0-9._:-]{1,64}$/;
+const EMAIL_TOKEN = /^[a-z0-9]{10}$/;
+const MAX_MAIL_ATTACHMENTS = 10;
+const MAX_ATTACHMENT_BYTES = 8 * 1024 * 1024;
+
+function emailToken() {
+  for (;;) {
+    const candidate = randomBytes(12).toString('base64url').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 10);
+    if (EMAIL_TOKEN.test(candidate)) return candidate;
+  }
+}
+
+export function relayTokenMatches(configured, given) {
+  if (!configured || configured.length < 32) return false;
+  const a = Buffer.from(String(given || ''));
+  const b = Buffer.from(configured);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
 
 function fail(error, extra = {}) {
   return { ok: false, error, ...extra };
@@ -19,8 +36,10 @@ function dayOf(now) {
   return new Date(now).toISOString().slice(0, 10);
 }
 
-export function createInbound({ db, secret, now = () => Date.now(), withBooks }) {
+export function createInbound({ db, secret, now = () => Date.now(), withBooks, email = {} }) {
   const at = () => new Date(now());
+  const domain = String(email.domain || '').trim().toLowerCase();
+  const addressOf = (token) => (domain && token ? `${token}@${domain}` : '');
 
   async function audit(q, businessId, context, action, metadata) {
     await q(
@@ -39,26 +58,27 @@ export function createInbound({ db, secret, now = () => Date.now(), withBooks })
       return db.tx(async (q) => {
         const open = await q('select count(*)::int as n from inbound_keys where business_id = $1 and disabled_at is null', [businessId]);
         if (open.rows[0].n >= MAX_INBOUND_KEYS) return fail('TOO_MANY_KEYS');
+        const token = source === 'documents' ? emailToken() : null;
         const created = await q(
-          'insert into inbound_keys (business_id, label, source, key_hash, created_by, created_at) values ($1, $2, $3, $4, $5, $6) returning id',
-          [businessId, name, source, keyedHash(secret, key), context.userId, at()],
+          'insert into inbound_keys (business_id, label, source, key_hash, created_by, created_at, email_token) values ($1, $2, $3, $4, $5, $6, $7) returning id',
+          [businessId, name, source, keyedHash(secret, key), context.userId, at(), token],
         );
         await audit(q, businessId, context, 'inbound.key_created', { keyId: created.rows[0].id, label: name, source });
-        return { ok: true, key: { id: created.rows[0].id, label: name, source, secret: key } };
+        return { ok: true, key: { id: created.rows[0].id, label: name, source, secret: key, email: addressOf(token) } };
       });
     },
 
     async list(businessId) {
       const start = new Date(`${dayOf(now())}T00:00:00.000Z`);
       const found = await db.query(
-        `select k.id, k.label, k.source, k.created_at as "createdAt", k.last_used_at as "lastUsedAt", k.disabled_at as "disabledAt",
+        `select k.id, k.label, k.source, k.email_token as "emailToken", k.created_at as "createdAt", k.last_used_at as "lastUsedAt", k.disabled_at as "disabledAt",
                 coalesce(s.n, 0)::int as "todayCount", coalesce(s.total, 0)::numeric as "todayTotal"
            from inbound_keys k
            left join (select key_id, count(*) as n, sum(total) as total from inbound_sales where received_at >= $2 group by key_id) s on s.key_id = k.id
           where k.business_id = $1 order by k.created_at`,
         [businessId, start],
       );
-      return { ok: true, keys: found.rows.map((row) => ({ ...row, todayTotal: Number(row.todayTotal), enabled: !row.disabledAt })) };
+      return { ok: true, keys: found.rows.map(({ emailToken, ...row }) => ({ ...row, todayTotal: Number(row.todayTotal), enabled: !row.disabledAt, email: row.disabledAt ? '' : addressOf(emailToken) })) };
     },
 
     async disable(businessId, context, keyId) {
@@ -110,6 +130,49 @@ export function createInbound({ db, secret, now = () => Date.now(), withBooks })
         [key.businessId, key.id, saleId, String(invoice.id || ''), Number(invoice.total || 0), at()],
       );
       return { ok: true, invoiceId: invoice.id, total: invoice.total, duplicate: false };
+    },
+
+    async mail(requestId, body = {}, today) {
+      const to = String(body.to || '').trim().toLowerCase();
+      const token = to.split('@')[0].split('+')[0];
+      if (!EMAIL_TOKEN.test(token) || (domain && to.split('@')[1] !== domain)) return fail('ADDRESS_NOT_FOUND');
+      const found = await db.query(
+        `select k.id, k.business_id as "businessId", k.label, k.source from inbound_keys k join businesses b on b.id = k.business_id
+          where k.email_token = $1 and k.source = 'documents' and k.disabled_at is null and b.deletion_requested_at is null`,
+        [token],
+      );
+      const key = found.rows[0];
+      if (!key) return fail('ADDRESS_NOT_FOUND');
+      await db.query('update inbound_keys set last_used_at = $2 where id = $1', [key.id, at()]);
+      const from = String(body.from || '').trim().slice(0, 120);
+      const subject = String(body.subject || '').trim().slice(0, 200);
+      const files = [];
+      for (const item of (Array.isArray(body.attachments) ? body.attachments : []).slice(0, MAX_MAIL_ATTACHMENTS)) {
+        const name = String(item?.name || '').trim().slice(0, 120);
+        const mime = String(item?.mime || 'application/octet-stream').toLowerCase();
+        const base64 = typeof item?.base64 === 'string' ? item.base64 : '';
+        if (!name || !base64) continue;
+        const bytes = Buffer.from(base64, 'base64');
+        if (!bytes.length || bytes.length > MAX_ATTACHMENT_BYTES) continue;
+        files.push({ name, content: mime.startsWith('text/') ? bytes.toString('utf8') : `data:${mime};base64,${base64}` });
+      }
+      const text = String(body.text || '').trim();
+      if (!files.length && text) files.push({ name: `${(subject || 'mail').replace(/[^A-Za-z0-9 ._-]+/g, ' ').trim().slice(0, 60) || 'mail'}.txt`, content: text });
+      if (!files.length) return fail('NOTHING_TO_STORE');
+      const context = { userId: null, deviceId: null, requestId };
+      const actor = { actor: { userId: `mail:${key.id}`, role: 'staff', name: key.label } };
+      return withBooks(key.businessId, context, async (session) => {
+        const stored = [];
+        for (const file of files) {
+          const put = await session.uploadDocument(file.name, file.content, actor);
+          if (put.ok === false) continue;
+          stored.push({ name: file.name, sha256: put.sha256 });
+        }
+        if (!stored.length) return fail('NOTHING_TO_STORE');
+        const what = stored.length === 1 ? stored[0].name : `${stored.length} files`;
+        await session.tool('add_reminder', { text: `Mail arrived${from ? ` from ${from}` : ''}${subject ? ` about "${subject}"` : ''} with ${what}. Read it and record the bill if it is one.`.slice(0, 200), due: today }, actor);
+        return { ok: true, stored: stored.length, files: stored };
+      });
     },
 
     async document(key, requestId, body = {}, today) {

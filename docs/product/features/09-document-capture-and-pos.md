@@ -53,14 +53,15 @@ flowchart LR
 - The extraction service is behind an interface so the model can change. What may be
   sent to it, and where it runs, is PRD question Q3.
 
-### Forwarding into the app (built, except the email address)
+### Forwarding into the app (built)
 
 A documents key (Connections in the app) lets a mail relay or scanner post a file to
 `POST /v1/inbound/documents`; the file is stored and the owner gets a reminder to read
 it (2026-10-15). The app is an Android share target for images, PDFs and text: a bill
 shared from the camera, gallery, a mail app or WhatsApp opens Read a bill and is read at
-once (2026-10-15, unverified on a device). A per-business email address on the hosted
-service is still to build.
+once (2026-10-15, unverified on a device). Every documents key has a forwarding address
+(`<token>@<inbound domain>`) once the owner points Email Routing at the relay Worker;
+attachments land as documents with a reminder (2026-10-15, needs the domain set up).
 
 ### POS sales (built 2026-10-15, except the daily file)
 
