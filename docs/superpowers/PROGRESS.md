@@ -82,11 +82,11 @@ The goal is now an owner-first Android app on the Play Store. The weights below 
 | Hardened core: ledger, engines, gate (Phase 0) | 25 | 82% | 20.5 | Table above |
 | Cloud core: accounts, sync, hosted API, DPDP | 20 | 82% | 16.4 | C0 done. C1 built and tested on local Postgres: phone sign-in, sessions, businesses and roles, the `/v1` API, the engine running per request (37 tests), and the app's hosted mode. File uploads work, so Tally, Zoho and bank imports run when hosted. Owners can invite staff and accountants (53 tests). Not deployed (the deploy workflow, scheduler, graceful shutdown and startup retry are written, 2026-10-14); SMS senders for Twilio and MSG91 behind an env switch, the DPDP assessment and the privacy policy drafted (2026-10-14); member role changes with a second owner, invitation SMS, owner-side business deletion and account deletion from the app, reads that no longer rewrite the books row, a 200 MB document cap per business, a breach procedure in the runbook (2026-10-14, batch 7); no provider accounts yet |
 | Pipeline and exception queue | 10 | 70% | 7.0 | Exception queue built; the daily job (`/v1/jobs/daily` from Cloud Scheduler, `run_automation` per business) adds reminders for what falls due, verifies the ledger chain and checks the rules; the desktop runs the same checks on launch and hourly, keeps fourteen verified daily backups and self-restores from them; nightly CI with a self-closing issue; Android and hosted API release workflows (2026-10-14). Document pipeline (2026-10-16): a file that arrives through an inbound key or the forwarding address is read by the model when it is on, and the reminder names the supplier and opens the bill preview on the phone; without the model the reminder still carries the file |
-| Android app | 25 | 49% | 12.3 | `mobile/` (Flutter): welcome, brand, sign-in, migration onboarding and later re-import (Tally, Zoho, bank statement), home summary, customer picker, threads with preview and confirm, expenses, taxes, Ask; 18 tests, debug APK builds, checked against the live server. Filing pack saved as one file from Taxes (2026-10-13); the GST payment, GSTR-9, quarterly GSTR-1 and IFF, year close, SUTA rates, the week ahead on Home and US quotes (2026-10-14). Bill capture from a photo, due-date notifications, amend after filing, the Schedule SE panel and the CPA, 941 and W-2 files, release workflow (2026-10-14). Not yet run on a device |
+| Android app | 25 | 56% | 14.0 | `mobile/` (Flutter): welcome, brand, sign-in, migration onboarding and later re-import (Tally, Zoho, bank statement), home summary, customer picker, threads with preview and confirm, expenses, taxes, Ask; 18 tests, debug APK builds, checked against the live server. Filing pack saved as one file from Taxes (2026-10-13); the GST payment, GSTR-9, quarterly GSTR-1 and IFF, year close, SUTA rates, the week ahead on Home and US quotes (2026-10-14). Bill capture from a photo, due-date notifications, amend after filing, the Schedule SE panel and the CPA, 941 and W-2 files, release workflow (2026-10-14). Not yet run on a device. The daily close on Home, the Marketplace screen (payouts, credits, margins, stock, registrations, imports) and Taxes scoped by registration (2026-10-16) |
 | LLM chat agent | 8 | 90% | 7.2 | Tool contracts, keyword router, preview/confirm; the model adapter routes unmatched messages to one tool and reads bills, off until a key is set; the last six exchanges of a business's chat are given to the model as context | The provider decision |
 | Live filing connections | 7 | 40% | 2.8 | Adapters wired against sandbox; onboarding not started |
 | Play release work: listing, declarations, policy, testing | 5 | 60% | 3.0 | Listing, data safety answers, permissions, declarations, testing checklist and the privacy policy drafted (`docs/release/`); the developer account, keystore and a device run are the owner's |
-| **Total** | **100** | | **68.9** | |
+| **Total** | **100** | | **70.6** | |
 
 ## Measured against the product PRD (added 2026-10-06)
 
@@ -107,6 +107,23 @@ The owner's PRD is "Taxmeow (working title), Product Requirements Document, v0.1
 | Chat and dashboard | 12 | 98% | 11.8 | Chats by type and by party, expense chats by head, one entry sheet; Home shows taxes, this month against last including approved payroll, who owes you, what you owe suppliers, a books check of what needs you, and the week ahead (filings, reminders, overdue invoices, payroll not yet approved) also answered in chat as "what is due this week" (2026-10-14); a model routes any message the rules miss to one tool behind the same preview, off until a key is set (2026-10-14) | The provider and region decision (ADR-0004) |
 | Reading documents automatically | 12 | 76% | 9.1 | Bank statement, Tally, Zoho, QuickBooks and Xero file imports; daily counter sales from a billing app as one walk-in invoice per day by rate (added 2026-10-13); a bill chosen as a photo, PDF or text on the phone is read by the model into a draft purchase that the engine prices and previews, with the GSTIN checked and missing rates flagged (2026-10-14); a file that arrives through an inbound key or the forwarding address is read on arrival when the model is on, and its reminder opens the bill preview on the phone (2026-10-16) | The provider decision (ADR-0004); the inbound mail domain set up on Cloudflare (the address per documents key, the relay's mail handler and the API route exist, 2026-10-15) |
 | **Total** | **100** | | **86.6** | | |
+
+## D2C and marketplace brands (added 2026-10-16)
+
+The owner's decision of 2026-10-16: sell to D2C and marketplace brands too, end to end and
+automated (`docs/superpowers/specs/2026-10-16-d2c-programme.md`).
+
+| Phase | Done | What exists | What is missing |
+|---|---|---|---|
+| D1 Settlement reconciliation | 100% | Amazon and Flipkart payout reports typed line by line, expected payout, bank match, shortfalls, unmatched payouts and penalties as exceptions | — |
+| D2 Orders and returns | 100% | Orders as day-and-state B2CS invoices with order ids and SKUs, returns as itemised credit notes, settlements settling the invoices with fees, TDS and TCS receivables | GSTR-1 table 14 (supplies through an e-commerce operator) |
+| D3 TCS and 194-O credits | 100% | Channel GSTIN and TAN, the portal's TCS statement and Form 26AS matched by number, gaps as exceptions, confirmed TCS used in the GST payment first | — |
+| D4 Several GSTINs | 100% | Registrations of one PAN, documents under them, GST split by the registration's state, returns, payments and filings per registration, orders by ship-from state, stock transfers at cost settled by contra | The deadline calendar is per business, not per registration |
+| D5 SKU costs, stock, margins | 100% | Costs by chat or sheet, stock by location moved by orders, returns and transfers, margins by SKU and channel with fees allocated from settlements, losing SKUs and negative stock as exceptions | Inventory valuation in the ledger |
+| D6 Channel APIs | 0% | File imports for every report | Amazon SP-API, Flipkart, Shopify, Razorpay, Unicommerce behind the action gate; need seller credentials |
+| D7 Daily close | 100% | The seven-point closure written by the daily job and on Home | — |
+| D8 WhatsApp and languages | 0% | — | Meta business verification; the model decision for Hindi and Telugu |
+| App | 90% | Marketplace screen, the close on Home, Taxes per registration | Per-channel settlement detail and a stock history view |
 
 ## United States edition (added 2026-10-13)
 
