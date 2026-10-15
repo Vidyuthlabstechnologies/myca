@@ -14,7 +14,9 @@ import { createJobs, jobTokenMatches, JOB_HEADER } from './jobs.mjs';
 import { createGoogleKeys, createGoogleVerifier } from './google.mjs';
 import { CA_SYNC_MODES, syncOf } from './ca-sync.mjs';
 import { inWords } from '../../platform/src/words.mjs';
-import { createInbound, INBOUND_HEADER } from './inbound.mjs';
+import { createInbound, INBOUND_HEADER, relayTokenMatches } from './inbound.mjs';
+
+export const INBOUND_RELAY_HEADER = 'x-myca-relay-token';
 
 const MAX_BODY_BYTES = 1024 * 1024;
 export const MAX_UPLOAD_BYTES = 8 * 1024 * 1024;
@@ -80,7 +82,7 @@ function statusOf(result) {
   if (result.error === 'GOOGLE_UNREACHABLE') return 502;
   if (result.error === 'INVITATION_NOT_FOUND' || result.error === 'MEMBER_NOT_FOUND' || result.error === 'BUSINESS_NOT_FOUND') return 404;
   if (result.error === 'STORAGE_FULL') return 413;
-  if (result.error === 'KEY_NOT_FOUND') return 404;
+  if (result.error === 'KEY_NOT_FOUND' || result.error === 'ADDRESS_NOT_FOUND') return 404;
   return 400;
 }
 
@@ -95,7 +97,7 @@ function appSnapshot(snapshot, user, role) {
   };
 }
 
-export function createApi({ db, secret, otpSender = null, googleClientIds = [], googleKeys, now = () => Date.now(), log = () => {}, version = 'dev', jobToken = '' }) {
+export function createApi({ db, secret, otpSender = null, googleClientIds = [], googleKeys, now = () => Date.now(), log = () => {}, version = 'dev', jobToken = '', inboundEmail = {} }) {
   assertSecret(secret);
   if (liveCallsEnabled()) throw new Error('the hosted API must not start with live provider calls enabled');
   const auth = createAuth({ db, secret, otpSender, now });
@@ -104,7 +106,7 @@ export function createApi({ db, secret, otpSender = null, googleClientIds = [], 
   const withBooks = runner.withBooks;
   const members = createMembers({ db, secret, now, notify: otpSender && typeof otpSender.sendText === 'function' ? (phone, text) => otpSender.sendText(phone, text) : null });
   const crashes = createCrashReports({ db, now });
-  const inbound = createInbound({ db, secret, now, withBooks });
+  const inbound = createInbound({ db, secret, now, withBooks, email: { domain: inboundEmail.domain } });
   const consent = createConsent({ db, now });
   const jobs = createJobs({ db, withBooks, log });
   const google = createGoogleVerifier({ clientIds: googleClientIds, keys: googleKeys || createGoogleKeys({ now }), now });
@@ -150,6 +152,11 @@ export function createApi({ db, secret, otpSender = null, googleClientIds = [], 
       if (parts[2] === 'refresh') return auth.refresh(body.refreshToken);
       if (parts[2] === 'logout') return auth.logout((await signedIn(req)).deviceId);
       throw httpError(404, 'NOT_FOUND');
+    }
+
+    if (parts[1] === 'inbound' && parts[2] === 'email' && parts.length === 3 && method === 'POST') {
+      if (!relayTokenMatches(String(inboundEmail.relayToken || ''), req.headers[INBOUND_RELAY_HEADER])) throw httpError(401, 'INVALID_RELAY_TOKEN');
+      return inbound.mail(requestId, await readJson(req, MAX_UPLOAD_BYTES * 2), new Date(now()).toISOString().slice(0, 10));
     }
 
     if (parts[1] === 'inbound' && parts.length === 3 && method === 'POST') {

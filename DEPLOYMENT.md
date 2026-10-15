@@ -280,6 +280,11 @@ It deliberately keeps `enforce_admins: false` so the owner has an emergency bypa
 every send until `ALLOWED_FROM_DOMAIN` is set in `email-relay/wrangler.jsonc`, accepts at most
 10 recipients per request, and returns `{ ok, id, messageId }`.
 
+The same Worker receives mail for the per-business forwarding addresses: Email Routing on
+`inbound_email_domain` sends a catch-all to the Worker, which posts attachments to
+`/v1/inbound/email` with the `inbound_relay_token` output of `infra/cloud` (set it with
+`wrangler secret put INBOUND_RELAY_TOKEN`, and `vars.MYCA_API_URL` to the API URL).
+
 ---
 
 ## Costs (asia-south1, low traffic)

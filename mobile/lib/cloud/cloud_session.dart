@@ -65,7 +65,7 @@ class InvitationRef {
 }
 
 class InboundKey {
-  const InboundKey({required this.id, required this.label, required this.source, required this.enabled, this.todayCount = 0, this.todayTotal = 0, this.secret = ''});
+  const InboundKey({required this.id, required this.label, required this.source, required this.enabled, this.todayCount = 0, this.todayTotal = 0, this.secret = '', this.email = ''});
 
   final String id;
   final String label;
@@ -74,6 +74,7 @@ class InboundKey {
   final int todayCount;
   final num todayTotal;
   final String secret;
+  final String email;
 }
 
 class MemberRef {
@@ -541,6 +542,7 @@ class CloudSession {
           enabled: row['enabled'] != false,
           todayCount: (row['todayCount'] as num?)?.toInt() ?? 0,
           todayTotal: row['todayTotal'] as num? ?? 0,
+          email: '${row['email'] ?? ''}',
         ),
     ];
   }
@@ -549,7 +551,7 @@ class CloudSession {
     final body = await call('POST', '$_books/inbound', {'label': label, 'source': source});
     if (body['ok'] == false) throw MycaApiException(cloudMessage('${body['error']}'));
     final key = body['key'] as Map;
-    return InboundKey(id: '${key['id']}', label: '${key['label']}', source: '${key['source']}', enabled: true, secret: '${key['secret']}');
+    return InboundKey(id: '${key['id']}', label: '${key['label']}', source: '${key['source']}', enabled: true, secret: '${key['secret']}', email: '${key['email'] ?? ''}');
   }
 
   Future<void> disableInboundKey(String id) => call('DELETE', '$_books/inbound/$id');

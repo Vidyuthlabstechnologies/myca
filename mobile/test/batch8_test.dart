@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:myca/app_state.dart';
 import 'package:myca/main.dart';
@@ -40,6 +41,40 @@ void main() {
     await tester.pumpAndSettle();
     expect(cloud.disabledKeys, ['key-1']);
     expect(find.text('Off'), findsOneWidget);
+  });
+
+  testWidgets('a documents connection shows its forwarding address and copies it on tap', (tester) async {
+    String? copied;
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+      if (call.method == 'Clipboard.setData') copied = (call.arguments as Map)['text'] as String;
+      return null;
+    });
+    addTearDown(() => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, null));
+    final cloud = FakeCloud()..userName = 'Asha';
+    final session = await signedIn(cloud);
+    await session.createBusiness(name: 'Asha Traders', state: '29');
+    final state = AppState(cloud: session, store: MemoryOnboardingStore(isWelcomed: true, isMigrated: true), pickTextFile: (_) async => null);
+    await tester.pumpWidget(MycaApp(state: state));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Your business'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Connections'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Connect something'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'Mail inbox');
+    await tester.tap(find.widgetWithText(ChoiceChip, 'Documents in'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Create key'));
+    await tester.pumpAndSettle();
+    expect(find.text('tok1abcdefg@inbox.example.test'), findsOneWidget);
+    await tester.tap(find.text('Done'));
+    await tester.pumpAndSettle();
+    expect(find.text('Forward bills to tok1abcdefg@inbox.example.test'), findsOneWidget);
+    await tester.tap(find.text('Mail inbox'));
+    await tester.pumpAndSettle();
+    expect(copied, 'tok1abcdefg@inbox.example.test');
+    expect(find.text('Copied tok1abcdefg@inbox.example.test'), findsOneWidget);
   });
 
   testWidgets('an approved month offers the payout file and names who has no bank account', (tester) async {

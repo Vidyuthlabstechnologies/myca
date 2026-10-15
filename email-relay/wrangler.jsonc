@@ -11,6 +11,7 @@
     }
   ],
   "vars": {
-    "ALLOWED_FROM_DOMAIN": ""
+    "ALLOWED_FROM_DOMAIN": "",
+    "MYCA_API_URL": ""
   }
 }

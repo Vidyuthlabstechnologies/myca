@@ -58,6 +58,27 @@ MYCA_EMAIL_RELAY_TOKEN=<the RELAY_TOKEN you set>
 Then in MyCA: **Firm** tab → **Send test notification** (or `test_notification` tool).
 `provider_doctor` will show `email` as configured.
 
+## Inbound mail: a per-business address for forwarded bills
+
+The same Worker also receives mail. With Cloudflare Email Routing on a domain you own
+(for example `inbox.yourfirm.in`), route a catch-all to this Worker; it parses the
+message and posts the attachments to the hosted API as documents for the business whose
+address it was sent to. Nothing posts to the books: the owner gets a reminder to read
+each file, exactly as with a documents key.
+
+```bash
+# wrangler.jsonc -> vars.MYCA_API_URL = "https://<the hosted API>"
+npx wrangler secret put INBOUND_RELAY_TOKEN   # the same value as MYCA_INBOUND_RELAY_TOKEN on the API
+npm run deploy
+# Cloudflare dashboard -> Email -> Email Routing -> Catch-all -> Send to a Worker -> myca-email-relay
+```
+
+On the API, set `MYCA_INBOUND_EMAIL_DOMAIN=inbox.yourfirm.in`; the Connections screen
+then shows each documents key's address (`<token>@inbox.yourfirm.in`). The relay keeps
+at most ten attachments per mail, drops any over 8 MB, and rejects a message addressed
+to no business (the sender gets a bounce). The parser is dependency-free and covered by
+`npm test` here.
+
 ## Local testing
 
 ```bash

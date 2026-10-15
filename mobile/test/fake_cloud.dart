@@ -206,7 +206,7 @@ class FakeCloud {
       return _json(200, {'ok': true, 'keys': inboundKeys});
     }
     if (path == '$books/inbound' && request.method == 'POST') {
-      final key = {'id': 'key-${inboundKeys.length + 1}', 'label': body['label'], 'source': body['source'], 'enabled': true, 'todayCount': 0, 'todayTotal': 0};
+      final key = {'id': 'key-${inboundKeys.length + 1}', 'label': body['label'], 'source': body['source'], 'enabled': true, 'todayCount': 0, 'todayTotal': 0, 'email': body['source'] == 'documents' ? 'tok${inboundKeys.length + 1}abcdefg@inbox.example.test' : ''};
       inboundKeys.add(key);
       return _json(200, {'ok': true, 'key': {...key, 'secret': 'mk_testsecret${inboundKeys.length}'}});
     }

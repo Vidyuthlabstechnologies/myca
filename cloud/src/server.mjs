@@ -45,6 +45,7 @@ const handler = createApi({
   otpSender: otpSender(),
   googleClientIds: clientIdsFrom(process.env.MYCA_GOOGLE_CLIENT_IDS),
   jobToken: String(process.env.MYCA_JOB_TOKEN || '').trim(),
+  inboundEmail: { domain: String(process.env.MYCA_INBOUND_EMAIL_DOMAIN || '').trim(), relayToken: String(process.env.MYCA_INBOUND_RELAY_TOKEN || '').trim() },
   log,
   version: process.env.K_REVISION || 'dev',
 });

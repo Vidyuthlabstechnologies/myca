@@ -1,4 +1,9 @@
+import { parseMail, addressOf, base64Of } from './mime.js';
+
 const MAX_BYTES = 1024 * 1024;
+const MAX_MAIL_BYTES = 12 * 1024 * 1024;
+const MAX_ATTACHMENT_BYTES = 8 * 1024 * 1024;
+const MAX_ATTACHMENTS = 10;
 const MAX_RECIPIENTS = 10;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const LINE_BREAKS = /[\r\n]+/g;
@@ -35,7 +40,85 @@ async function tokenMatches(presented, expected) {
   return diff === 0;
 }
 
+export function inboundPayload(mail, { maxAttachmentBytes = MAX_ATTACHMENT_BYTES } = {}) {
+  const attachments = [];
+  const dropped = [];
+  for (const part of mail.attachments) {
+    if (attachments.length >= MAX_ATTACHMENTS) break;
+    if (part.bytes.length > maxAttachmentBytes) {
+      dropped.push(part.name);
+      continue;
+    }
+    attachments.push({ name: part.name, mime: part.mime, base64: base64Of(part.bytes) });
+  }
+  return {
+    to: addressOf(mail.to),
+    from: addressOf(mail.from),
+    subject: singleLine(mail.subject).slice(0, 200),
+    text: String(mail.text || '').slice(0, 20000),
+    attachments,
+    dropped,
+  };
+}
+
+async function readAll(stream, limit) {
+  const chunks = [];
+  let total = 0;
+  const reader = stream.getReader();
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.length;
+    if (total > limit) throw new Error('MAIL_TOO_LARGE');
+    chunks.push(value);
+  }
+  const out = new Uint8Array(total);
+  let at = 0;
+  for (const chunk of chunks) {
+    out.set(chunk, at);
+    at += chunk.length;
+  }
+  return new TextDecoder('utf-8', { fatal: false }).decode(out);
+}
+
 export default {
+  async email(message, env) {
+    const apiUrl = String(env.MYCA_API_URL || '').replace(/\/+$/, '');
+    const token = String(env.INBOUND_RELAY_TOKEN || '');
+    if (!apiUrl || token.length < 32) {
+      message.setReject('MyCA inbound mail is not configured on this relay');
+      return;
+    }
+    let raw;
+    try {
+      raw = await readAll(message.raw, MAX_MAIL_BYTES);
+    } catch {
+      message.setReject('Message too large');
+      return;
+    }
+    const mail = parseMail(raw);
+    const payload = inboundPayload(mail);
+    if (!payload.to) payload.to = String(message.to || '').toLowerCase();
+    if (!payload.from) payload.from = String(message.from || '').toLowerCase();
+    const doFetch = env.FETCH || fetch;
+    let res;
+    try {
+      res = await doFetch(`${apiUrl}/v1/inbound/email`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-myca-relay-token': token },
+        body: JSON.stringify(payload),
+      });
+    } catch (err) {
+      message.setReject(`MyCA could not be reached: ${String(err.message || err).slice(0, 80)}`);
+      return;
+    }
+    if (res.status === 404) {
+      message.setReject('No MyCA business is listening at this address');
+      return;
+    }
+    if (!res.ok) message.setReject(`MyCA refused the message (${res.status})`);
+  },
+
   async fetch(request, env) {
     if (request.method !== 'POST') return json({ ok: false, error: 'METHOD_NOT_ALLOWED' }, 405);
     if (!env.RELAY_TOKEN) {

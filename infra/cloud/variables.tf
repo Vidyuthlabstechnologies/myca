@@ -72,6 +72,12 @@ variable "sql_availability_type" {
   default     = "ZONAL"
 }
 
+variable "inbound_email_domain" {
+  description = "Domain whose mail the email relay forwards to the API as documents (for example inbox.myca.in). Empty hides the addresses."
+  type        = string
+  default     = ""
+}
+
 variable "alert_email" {
   description = "Email for API alerts. Empty disables alerting."
   type        = string

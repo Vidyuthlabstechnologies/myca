@@ -138,12 +138,18 @@ resource "random_password" "job_token" {
   special = false
 }
 
+resource "random_password" "inbound_relay_token" {
+  length  = 64
+  special = false
+}
+
 locals {
   database_url = "postgres://${google_sql_user.api.name}:${random_password.db.result}@localhost/${google_sql_database.main.name}?host=/cloudsql/${google_sql_database_instance.main.connection_name}"
   secrets = {
-    "myca-database-url" = local.database_url
-    "myca-token-secret" = random_password.token_secret.result
-    "myca-job-token"    = random_password.job_token.result
+    "myca-database-url"        = local.database_url
+    "myca-token-secret"        = random_password.token_secret.result
+    "myca-job-token"           = random_password.job_token.result
+    "myca-inbound-relay-token" = random_password.inbound_relay_token.result
   }
 }
 
@@ -251,6 +257,21 @@ resource "google_cloud_run_v2_service" "api" {
         value_source {
           secret_key_ref {
             secret  = google_secret_manager_secret.api["myca-job-token"].secret_id
+            version = "latest"
+          }
+        }
+      }
+
+      env {
+        name  = "MYCA_INBOUND_EMAIL_DOMAIN"
+        value = var.inbound_email_domain
+      }
+
+      env {
+        name = "MYCA_INBOUND_RELAY_TOKEN"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.api["myca-inbound-relay-token"].secret_id
             version = "latest"
           }
         }
