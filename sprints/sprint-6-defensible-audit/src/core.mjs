@@ -12,10 +12,13 @@ export function r4(n) {
 export function parseAmount(v) {
   if (typeof v === 'number') return v;
   if (v === null || v === undefined) return NaN;
-  const s = String(v).trim();
+  let s = String(v).trim();
   if (!s) return NaN;
-  const neg = s.startsWith('(') || s.trim().endsWith('-') || s.startsWith('-');
-  const digits = s.replace(/[^0-9.\-]/g, '');
+  s = s.replace(/(?:^|\s)(?:dr|db|cr)\.?(?:\s|$)/i, ' ').trim();
+  s = s.replace(/^(?:rs\.?|inr|₹)\s*/i, '').replace(/\s*(?:rs\.?|inr)$/i, '').trim();
+  const neg = (s.startsWith('(') && s.endsWith(')')) || s.endsWith('-') || s.startsWith('-');
+  const digits = s.replace(/[^0-9.]/g, '');
+  if (!/^\d+(?:\.\d+)?$|^\.\d+$/.test(digits)) return NaN;
   const n = Number(digits);
   if (Number.isNaN(n)) return NaN;
   return neg && n > 0 ? -n : n;

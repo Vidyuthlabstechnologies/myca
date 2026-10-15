@@ -152,11 +152,11 @@ CL-003 = 3 flags (high 1, medium 0, low 2), flaggedAmount = 7000+0 = 7000.
 ## Clause checks (clausechecks.mjs) — Schedule III / CARO / 3CD
 `runClauseChecks({ rows, flags=[], asOfDate='2026-09-15' })` → checks[] in THIS order; each
 `{ clauseId, clause, title, pass, detail, severity }` with severity = pass ? 'info' : 'error':
-- `3CD-1` | `3CD 21(b)` | 'Contract payments > ₹1L; each payment covered by TDS 194C'
-  detail cites FLG-005 | pass **FALSE**
-- `3CD-2` | `3CD 26` | 'Rent > ₹2.4L deducted under 194I' | pass **TRUE**
-- `CARO-1` | `CARO 3(i)(a)` | 'Fixed-asset additions disclosed' | pass **TRUE** (₹17,50,000)
-- `CARO-2` | `CARO 3(iii)(a)` | 'Borrowings with interest movement disclosed' | pass **TRUE** (₹50L loan, ₹60,000 interest)
+- `3CD-1` | `Form 3CD clause 34(a); s.194C` | 'Contract payments above the 194C limits carry TDS'
+  detail cites FLG-005 | pass **FALSE** (superseded 2026-10-15: the clause was wrongly cited as 21(b); the check passes when no 194C flag exists)
+- `3CD-2` | `Form 3CD clause 34(a); s.194I` | 'Rent above ₹2.4L a year carries TDS under 194I' | pass **TRUE** (superseded: rent within the limit also passes; cited as 26 before)
+- `CARO-1` | `CARO 2020 paragraph 3(i)(a)` | 'Property, plant and equipment additions carry a party and a date' | pass **TRUE** (superseded: no additions is a pass, not a fail)
+- `CARO-2` | `CARO 2020 paragraph 3(ix)(a)` | 'Borrowings taken in the period have interest recorded' | pass **TRUE** (superseded: borrowings are 3(ix), not 3(iii) which is loans granted; no borrowing is a pass)
 - `SCHEDULEIII-1` | `Schedule III` | 'P&L by nature complete — no unclassified expense' | pass **FALSE** (FLG-007)
 - `SCHEDULEIII-2` | `Schedule III` | 'Income by nature disclosed for all credit entries' | pass **TRUE**
 2 fails, 4 passes.

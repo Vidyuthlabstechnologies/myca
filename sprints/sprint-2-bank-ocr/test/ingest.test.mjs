@@ -190,3 +190,23 @@ test('GATE 11: real-world casual narrations classify sensibly', () => {
     assert.equal(classify(n).category, expected, `${n} -> ${expected}`);
   }
 });
+test('GATE 12: amounts with Rs., INR, ₹, Dr/Cr markers, parentheses and trailing minus parse to one signed figure', () => {
+  assert.deepEqual(parseAmount('Rs. 1,000.50'), { ok: true, value: 1000.5, side: null });
+  assert.deepEqual(parseAmount('Rs.1000'), { ok: true, value: 1000, side: null });
+  assert.deepEqual(parseAmount('INR 2,50,000'), { ok: true, value: 250000, side: null });
+  assert.deepEqual(parseAmount('₹ 75.25'), { ok: true, value: 75.25, side: null });
+  assert.deepEqual(parseAmount('1,500.00 Dr'), { ok: true, value: -1500, side: 'debit' });
+  assert.deepEqual(parseAmount('1,500.00 Cr'), { ok: true, value: 1500, side: 'credit' });
+  assert.deepEqual(parseAmount('Dr 320'), { ok: true, value: -320, side: 'debit' });
+  assert.deepEqual(parseAmount('Rs. 4,69,420.00 Cr'), { ok: true, value: 469420, side: 'credit' });
+  assert.deepEqual(parseAmount('(2,000)'), { ok: true, value: -2000, side: null });
+  assert.deepEqual(parseAmount('2,000-'), { ok: true, value: -2000, side: null });
+  assert.deepEqual(parseAmount('-2,000'), { ok: true, value: -2000, side: null });
+  assert.equal(parseAmount('abc').ok, false);
+  assert.equal(parseAmount('1.2.3').ok, false);
+  assert.equal(parseAmount('').ok, false);
+  const csv = 'Date,Narration,Amount,Balance\n01/04/2025,Opening,,"Rs. 10,000.00 Cr"\n02/04/2025,UPI to Raj,"1,000.00 Dr","9,000.00 Cr"\n03/04/2025,NEFT from Kiran,"Rs. 5,000 Cr","14,000.00 Cr"\n';
+  const res = ingest({ type: 'csv', content: csv }, { asOfDate: AS_OF, clientRef: 'CL-101' });
+  const rows = res.rows.filter((r) => r.type === 'debit' || r.type === 'credit');
+  assert.deepEqual(rows.map((r) => [r.type, r.amount]), [['debit', -1000], ['credit', 5000]]);
+});
