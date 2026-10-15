@@ -187,3 +187,15 @@ from 27... to 29...") raises the transfer invoice at cost (or a stated value) wi
 under the sender, the bill with credit under the receiver, settles them by contra, moves
 the stock and says whether an e-way bill is needed. A registration cannot be retired while
 it has unpaid invoices or bills.
+
+## Inventory valued in the books (2026-10-16, owner's decision)
+
+`value_inventory` ("value inventory", "value stock at 2026-09-30") values the stock on
+hand at recorded SKU cost as at a date and posts the change since the last valuation to
+the Inventory asset (1300) against Change in inventory (5005). Cost of goods for a period
+is therefore purchases less the rise in stock, or plus the fall, the periodic method; no
+SKU is needed on a purchase line. SKUs without a cost are left out and named so the owner
+can set them and value again. Each valuation is dated after the last; the daily close
+checks that the month has been valued. `inventory_valuations` lists what was posted and
+what stock is worth now against it. On the phone, the Marketplace screen's stock section
+has "Value inventory in the books".

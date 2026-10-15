@@ -4,6 +4,7 @@ import { cashStart, latestReading } from './cash-forecast.mjs';
 import { marketplaceCredits } from './marketplace-credits.mjs';
 import { skuMargins } from './sku-margins.mjs';
 import { outstandingOf } from './credit-notes.mjs';
+import { listInventoryValuations } from './inventory.mjs';
 
 const round2 = (value) => Math.round(Number(value || 0) * 100) / 100;
 const BANK_FRESH_DAYS = 3;
@@ -41,6 +42,7 @@ export function dailyClose(state, { asOf, clientId = 'SELF' } = {}) {
   const creditGaps = credits.tcs.filter((row) => row.status === 'short in statement').length + credits.tds.filter((row) => row.status === 'short in 26AS').length;
   const marketplaceMonth = (state.invoices || []).filter((inv) => inv.source === 'marketplace').map((inv) => inv.date.slice(0, 7)).sort().at(-1) || '';
   const margins = marketplaceMonth ? skuMargins(state, { period: marketplaceMonth }).data : null;
+  const inventory = (state.stockMoves || []).length ? listInventoryValuations(state).data : null;
   const checklist = [
     { item: 'Sales posted', ok: true, detail: `${sales.today} today, ${sales.month} this month` },
     { item: 'Purchases and expenses posted', ok: true, detail: `${purchases.today + expenses.today} today, ${purchases.month + expenses.month} this month` },
@@ -48,6 +50,7 @@ export function dailyClose(state, { asOf, clientId = 'SELF' } = {}) {
     { item: 'Settlements matched to the bank', ok: !unmatched.length && !short.length, detail: settlements.length ? `${settlements.length} imported${unmatched.length ? `, ${unmatched.length} not in the bank` : ''}${short.length ? `, ${short.length} short` : ''}` : 'none imported' },
     { item: 'TCS and TDS 194-O confirmed', ok: creditGaps === 0, detail: creditGaps ? `${creditGaps} ${creditGaps === 1 ? 'gap' : 'gaps'} against the statements` : credits.tcs.length || credits.tds.length ? 'no gaps' : 'nothing deducted yet' },
     { item: 'Margins positive', ok: !margins || margins.negative.length === 0, detail: margins ? `${margins.negative.length} ${margins.negative.length === 1 ? 'SKU' : 'SKUs'} losing money in ${marketplaceMonth}` : 'no marketplace orders' },
+    ...(inventory ? [{ item: 'Inventory valued', ok: Boolean(inventory.latest) && inventory.latest.asOf.slice(0, 7) >= day.slice(0, 7), detail: inventory.latest ? `last valued ${inventory.latest.asOf} at ${inventory.latest.value}${Math.abs(inventory.unposted) >= 0.005 ? `, ${Math.abs(inventory.unposted)} ${inventory.unposted > 0 ? 'more' : 'less'} on hand now` : ''}` : 'never valued; say "value inventory"' }] : []),
     { item: 'Nothing high-severity open', ok: (exceptions.bySeverity.high || 0) === 0 && (exceptions.bySeverity.critical || 0) === 0, detail: `${exceptions.count} open, ${(exceptions.bySeverity.high || 0) + (exceptions.bySeverity.critical || 0)} high` },
   ];
   const needsYou = checklist.filter((row) => !row.ok);

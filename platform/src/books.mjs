@@ -78,6 +78,7 @@ export function newBook(company = {}) {
     tdsCreditStatements: [],
     skus: {},
     stockMoves: [],
+    inventoryValuations: [],
     supplierReminderSeq: 0,
     employees: [],
     employeeSeq: 0,
@@ -146,6 +147,7 @@ export function serializeBook(book) {
     tdsCreditStatements: book.tdsCreditStatements || [],
     skus: book.skus || {},
     stockMoves: book.stockMoves || [],
+    inventoryValuations: book.inventoryValuations || [],
     supplierReminderSeq: book.supplierReminderSeq || 0,
     employees: book.employees || [],
     employeeSeq: book.employeeSeq || 0,
@@ -211,6 +213,7 @@ export function deserializeBook(raw) {
   book.tdsCreditStatements = Array.isArray(raw.tdsCreditStatements) ? raw.tdsCreditStatements : [];
   book.skus = raw.skus && typeof raw.skus === 'object' ? raw.skus : {};
   book.stockMoves = Array.isArray(raw.stockMoves) ? raw.stockMoves : [];
+  book.inventoryValuations = Array.isArray(raw.inventoryValuations) ? raw.inventoryValuations : [];
   book.supplierReminderSeq = raw.supplierReminderSeq || 0;
   book.employees = Array.isArray(raw.employees) ? raw.employees : [];
   book.employeeSeq = raw.employeeSeq || 0;

@@ -7,6 +7,7 @@ import { setSkuCost, importSkuCosts, recordStock, stockPosition, skuMargins, sto
 import { dailyClose } from './daily-close.mjs';
 import { regArg, companyAs, forRegistration, setRegistration, retireRegistration, listRegistrations } from './registrations.mjs';
 import { recordStockTransfer } from './stock-transfers.mjs';
+import { valueInventory, listInventoryValuations } from './inventory.mjs';
 const ingestTally = tally.ingest;
 const ingestBank = bank.ingest;
 const { reconcile } = gst;
@@ -1783,6 +1784,20 @@ export const TOOLS = [
     description: 'The recorded movements of a SKU or a location, newest first: orders out, returns in, stock recorded or transferred, each with its reference. Read-only.',
     args: ['sku', 'location', 'limit'],
     run: (state, args = {}) => stockMoves(state, args),
+  },
+  {
+    name: 'value_inventory',
+    title: 'Value inventory in the books',
+    description: 'Post the value of stock on hand at recorded cost as at a date: the change since the last valuation goes to the Inventory asset against Change in inventory, so cost of goods for the period is purchases less the rise in stock (or plus the fall). SKUs without a cost are left out and named. Each valuation is dated after the last. Owner only.',
+    args: ['asOf'],
+    run: (state, args = {}) => valueInventory(state, args),
+  },
+  {
+    name: 'inventory_valuations',
+    title: 'Inventory valuations',
+    description: 'The valuations posted so far, the latest, and what stock on hand is worth now against what is posted. Read-only.',
+    args: [],
+    run: (state) => listInventoryValuations(state),
   },
   {
     name: 'sku_margins',

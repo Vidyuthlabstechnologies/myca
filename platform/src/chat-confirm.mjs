@@ -44,6 +44,7 @@ import { planOrderImport, settlementInvoices } from './marketplace-orders.mjs';
 import { planTcsStatement, plan26asCredits } from './marketplace-credits.mjs';
 import { regArg, planRegistration, openDocumentsFor, registrationByGstin } from './registrations.mjs';
 import { planSkuCost, parseSkuCostsCsv } from './sku-margins.mjs';
+import { planInventoryValuation } from './inventory.mjs';
 import { planChannelIdentity } from './marketplace-credits.mjs';
 import { planStockTransfer } from './stock-transfers.mjs';
 import { filingRows } from './deadline-run.mjs';
@@ -53,7 +54,7 @@ import { planAmendment } from './invoice-amendments.mjs';
 import { tallyXmlToDayBookCsv } from './tally-xml.mjs';
 
 export const CONFIRM_TOOLS = new Set([
-  'create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'record_filing', 'record_supplier_reminder', 'add_employee', 'change_salary', 'end_employment', 'approve_payroll', 'record_salary_payment', 'set_tds_deductor', 'record_tds_deposit', 'tds_review_answer', 'set_gst_credit_opening', 'record_gst_payment', 'close_year', 'post_expense', 'set_expense_head', 'create_credit_note', 'create_debit_note', 'create_purchase_note', 'record_supplier_debit_note', 'cancel_invoice', 'gst_review_answer', 'import_gstr2b', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'set_party_address', 'set_transport', 'set_sales_tax_rate', 'set_contractor', 'set_sales_tax_nexus', 'sales_tax_review_answer', 'record_sales_tax_payment', 'record_sales_tax_filing', 'set_withholding', 'set_suta_rate', 'import_us_invoices', 'import_pos_sales', 'import_settlement', 'import_marketplace_orders', 'import_tcs_statement', 'import_26as_credits', 'record_stock', 'record_stock_transfer', 'set_sku_cost', 'import_sku_costs', 'set_registration', 'retire_registration', 'set_channel_identity', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote', 'amend_invoice',
+  'create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'record_filing', 'record_supplier_reminder', 'add_employee', 'change_salary', 'end_employment', 'approve_payroll', 'record_salary_payment', 'set_tds_deductor', 'record_tds_deposit', 'tds_review_answer', 'set_gst_credit_opening', 'record_gst_payment', 'close_year', 'post_expense', 'set_expense_head', 'create_credit_note', 'create_debit_note', 'create_purchase_note', 'record_supplier_debit_note', 'cancel_invoice', 'gst_review_answer', 'import_gstr2b', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'set_party_address', 'set_transport', 'set_sales_tax_rate', 'set_contractor', 'set_sales_tax_nexus', 'sales_tax_review_answer', 'record_sales_tax_payment', 'record_sales_tax_filing', 'set_withholding', 'set_suta_rate', 'import_us_invoices', 'import_pos_sales', 'import_settlement', 'import_marketplace_orders', 'import_tcs_statement', 'import_26as_credits', 'record_stock', 'record_stock_transfer', 'set_sku_cost', 'import_sku_costs', 'value_inventory', 'set_registration', 'retire_registration', 'set_channel_identity', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote', 'amend_invoice',
   'import_tally', 'import_tally_xml', 'import_zoho', 'import_bank',
   'govt_generate_irn', 'govt_nic_cancel_irn',
   'exception_decide',
@@ -1024,6 +1025,24 @@ function usImportPreview(state, args) {
   };
 }
 
+function inventoryValuationPreview(state, args) {
+  const planned = planInventoryValuation(state, args);
+  if (!planned.ok) {
+    const reason = { INVALID_DATE: 'That is not a date I can read.', FUTURE_DATE: 'That date has not come yet.', PERIOD_LOCKED: `That date is in a locked period (through ${planned.lockThrough}).`, NOT_AFTER_LAST: `The last valuation is dated ${planned.lastAsOf}; the next must be after it.`, NO_STOCK: 'Record stock and SKU costs first; nothing is on hand to value.' }[planned.error] || planned.error;
+    return { blockers: [reason], summary: '', effects: [], figures: {} };
+  }
+  const { plan } = planned;
+  return {
+    blockers: [],
+    summary: `Inventory at ${plan.asOf}: ${money(plan.value)} across ${plan.lines.length === 1 ? '1 SKU' : `${plan.lines.length} SKUs`} at recorded cost${plan.previousAsOf ? `, ${money(plan.before)} posted on ${plan.previousAsOf}` : ''}; change ${money(plan.delta)}.`,
+    effects: [
+      plan.delta > 0 ? `${money(plan.delta)} goes into Inventory against Change in inventory, so cost of goods this period falls by that much.` : plan.delta < 0 ? `${money(-plan.delta)} comes out of Inventory, so cost of goods this period rises by that much.` : 'Nothing posts; the value is unchanged.',
+      ...(plan.uncosted.length ? [`Left out, no cost set: ${plan.uncosted.map((row) => `${row.sku} (${row.qty})`).join(', ')}. Set their costs and value again for the full figure.`] : []),
+    ],
+    figures: { value: plan.value, delta: plan.delta },
+  };
+}
+
 function skuCostPreview(state, args) {
   const planned = planSkuCost(state, args);
   if (!planned.ok) return { blockers: [{ SKU_REQUIRED: 'Say which SKU.', BAD_AMOUNT: 'The cost is zero or more per unit.', BAD_RATE: 'A GST rate is 0 to 28.', NOTHING_TO_CHANGE: 'Give a cost, a name, an HSN or a GST rate.', INVALID_DATE: 'That is not a date I can read.' }[planned.error] || planned.error], summary: '', effects: [], figures: {} };
@@ -1298,6 +1317,7 @@ const PREVIEWERS = {
   record_stock: stockPreview,
   record_stock_transfer: stockTransferPreview,
   set_sku_cost: skuCostPreview,
+  value_inventory: inventoryValuationPreview,
   import_sku_costs: skuCostsImportPreview,
   set_registration: registrationPreview,
   retire_registration: retireRegistrationPreview,
