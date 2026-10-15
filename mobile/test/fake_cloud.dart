@@ -19,6 +19,8 @@ class FakeCloud {
   final invited = <String>[];
   final removed = <String>[];
   final roleChanges = <String>[];
+  final inboundKeys = <Map<String, Object?>>[];
+  final disabledKeys = <String>[];
   final deletedBusinesses = <String>[];
   bool accountDeleted = false;
   final crashReports = <Map<String, Object?>>[];
@@ -198,6 +200,22 @@ class FakeCloud {
     }
     if (path.startsWith('$books/invitations/') && request.method == 'DELETE') {
       openInvites.removeWhere((i) => path.endsWith('/${i['id']}'));
+      return _json(200, {'ok': true});
+    }
+    if (path == '$books/inbound' && request.method == 'GET') {
+      return _json(200, {'ok': true, 'keys': inboundKeys});
+    }
+    if (path == '$books/inbound' && request.method == 'POST') {
+      final key = {'id': 'key-${inboundKeys.length + 1}', 'label': body['label'], 'source': body['source'], 'enabled': true, 'todayCount': 0, 'todayTotal': 0};
+      inboundKeys.add(key);
+      return _json(200, {'ok': true, 'key': {...key, 'secret': 'mk_testsecret${inboundKeys.length}'}});
+    }
+    if (path.startsWith('$books/inbound/') && request.method == 'DELETE') {
+      final id = path.split('/').last;
+      disabledKeys.add(id);
+      for (final k in inboundKeys) {
+        if (k['id'] == id) k['enabled'] = false;
+      }
       return _json(200, {'ok': true});
     }
     if (path.startsWith('$books/members/') && request.method == 'PATCH') {

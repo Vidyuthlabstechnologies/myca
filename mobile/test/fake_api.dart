@@ -184,6 +184,7 @@ class FakeMycaApi implements MycaApi {
   bool quarterlyGst = false;
   final sutaRates = <Map<String, Object?>>[];
   num tdsDue = 6000;
+  final bankDetails = <Map<String, Object?>>[];
   final tdsDeposits = <Map<String, Object?>>[];
   final employees = <Map<String, Object?>>[
     {
@@ -449,6 +450,9 @@ class FakeMycaApi implements MycaApi {
     if (name == 'end_employment') {
       return _preview('Ravi Kumar left; last day ${args['leftOn']}.');
     }
+    if (name == 'set_employee_bank') {
+      return _preview('Ravi Kumar is paid into account ending ${'${args['bankAccount']}'.substring('${args['bankAccount']}'.length - 4)} at ${args['ifsc']}.');
+    }
     if (name == 'record_supplier_reminder') {
       return _preview('Send a reminder to Gujarat Mills about 1 bill for ${args['period']}, with ₹3,600.00 of your input credit waiting on them.');
     }
@@ -661,6 +665,10 @@ class FakeMycaApi implements MycaApi {
           ],
         });
         return ChatReply.fromJson({'reply': 'Added ${held.args['name']} as EMP-0002. No payroll has been run.', 'posted': true, 'confirmed': true});
+      }
+      if (held.tool == 'set_employee_bank') {
+        bankDetails.add(held.args);
+        return ChatReply.fromJson({'reply': 'Recorded the bank account.', 'posted': true, 'confirmed': true});
       }
       if (held.tool == 'end_employment') {
         final e = employees.firstWhere((e) => e['id'] == held.args['id']);
@@ -1857,6 +1865,20 @@ class FakeMycaApi implements MycaApi {
         };
       case 'esi_return':
         return {'ok': false, 'error': 'NO_ESI_MEMBERS'};
+      case 'payroll_payout_file':
+        return {
+          'ok': true,
+          'data': {
+            'period': args['period'],
+            'month': 'October 2026',
+            'employees': 1,
+            'total': 27450,
+            'paidOn': '',
+            'missingBank': const <Object?>['Ravi Kumar'],
+            'fileName': 'salary-payout-${args['period']}.csv',
+            'csv': 'Beneficiary Name,Account Number,IFSC,Amount,Narration\nRavi Kumar,,,27450.00,SAL-${args['period']}\n',
+          },
+        };
       case 'payroll_run':
         if (country == 'US') {
           return {

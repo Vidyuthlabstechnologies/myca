@@ -76,6 +76,30 @@ class _PayrollScreenState extends State<PayrollScreen> with ProposalFlow {
     setState(() => _fileNote = note);
   }
 
+  Future<void> _savePayout(PayrollRun run) async {
+    final state = AppScope.of(context);
+    setState(() => _fileNote = '');
+    var note = '';
+    try {
+      final data = toolData(await state.api.query('payroll_payout_file', {'period': run.period}));
+      if (data.isEmpty) {
+        note = 'Nothing to pay out this month.';
+      } else {
+        final name = data['fileName'] as String;
+        final saved = await state.saveTextFile(name, data['csv'] as String);
+        final missing = (data['missingBank'] as List<Object?>? ?? const <Object?>[]).map((e) => '$e').toList();
+        final count = data['employees'] as num? ?? 0;
+        note = saved
+            ? 'Saved $name with ${count == 1 ? '1 employee' : '$count employees'}, ${rupees(data['total'] as num? ?? 0)}. Upload it on the bank\'s bulk payment page, then record the salary payment here.${missing.isEmpty ? '' : ' No bank account for ${missing.join(', ')}; add it on the employee first.'}'
+            : 'Not saved.';
+      }
+    } on MycaApiException catch (err) {
+      note = err.message;
+    }
+    if (!mounted) return;
+    setState(() => _fileNote = note);
+  }
+
   Future<void> _saveAnnexure(PayrollRun run) async {
     final state = AppScope.of(context);
     setState(() => _fileNote = '');
@@ -192,6 +216,10 @@ class _PayrollScreenState extends State<PayrollScreen> with ProposalFlow {
                           ActionChip(
                             label: const Text('Save ESI file'),
                             onPressed: busy ? null : () => _saveFile(run, pf: false),
+                          ),
+                          ActionChip(
+                            label: const Text('Save payout file'),
+                            onPressed: busy ? null : () => _savePayout(run),
                           ),
                           ActionChip(
                             label: const Text('Save Annexure II'),

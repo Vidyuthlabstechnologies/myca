@@ -80,6 +80,21 @@ flutter run --dart-define=MYCA_CLOUD_URL=http://127.0.0.1:8080
 - `.github/workflows/deploy-cloud.yml` builds the image and rolls it out on merge to
   `main` once `GCP_API_REGION` is set. `docs/operations/RUNBOOK.md` has the rest.
 
+## Inbound keys
+
+An owner creates a key per connected system from the app (Connections) or with
+`POST /v1/businesses/:id/inbound` `{ label, source }`; `source` is `pos` or `documents`.
+The secret is shown once and stored hashed. The system sends it in the `x-myca-key`
+header:
+
+- `POST /v1/inbound/sales` `{ saleId, lines, partyName?, partyGstin?, date? }` posts a sale
+  as an invoice without a per-entry confirmation (the one flow that does). It is
+  idempotent on `saleId`: the same sale sent twice answers with the first invoice and
+  `duplicate: true`. The owner sees today's count and total per key and can turn a key
+  off; a disabled key answers 401.
+- `POST /v1/inbound/documents` `{ name, content, from? }` stores a forwarded bill or
+  statement and leaves a reminder for the owner to read it. Nothing posts.
+
 ## Not built yet
 
 - The Google Cloud project itself, and the first `terraform apply` of `infra/cloud`.

@@ -190,6 +190,10 @@ function fmtToolResult(name, result) {
     const d = result.data;
     return `PF file for ${d.month}: ${d.members === 1 ? '1 member' : `${d.members} members`}, remittance ${money(d.totals.remittance)} (employee share ${money(d.totals.employeeShare)}, pension ${money(d.totals.pensionShare)}, employer PF ${money(d.totals.employerEpfShare)}, EDLI ${money(d.totals.edli)}, administrative charge ${money(d.totals.adminCharge)}). Saved as ${d.fileName} from the payroll screen.${d.missingUan.length ? ` No UAN for ${d.missingUan.join(', ')}; add it before uploading.` : ''}`;
   }
+  if (name === 'payroll_payout_file' && result.data) {
+    const d = result.data;
+    return `Salary payout for ${d.month}: ${d.employees === 1 ? '1 employee' : `${d.employees} employees`}, ${money(d.total)}. Saved as ${d.fileName} from the payroll screen.${d.missingBank.length ? ` No bank account for ${d.missingBank.join(', ')}; add it before uploading.` : ''}${d.paidOn ? ` Already recorded as paid on ${d.paidOn}.` : ''}`;
+  }
   if (name === 'esi_return' && result.data) {
     const d = result.data;
     return `ESI file for ${d.month}: ${d.members === 1 ? '1 member' : `${d.members} members`}, wages ${money(d.totals.wages)}, remittance ${money(d.totals.remittance)} (employees ${money(d.totals.employeeContribution)}, employer ${money(d.totals.employerContribution)}). Saved as ${d.fileName} from the payroll screen.${d.missingIp.length ? ` No insurance number for ${d.missingIp.join(', ')}; add it before uploading.` : ''}`;

@@ -14,6 +14,7 @@ import { createJobs, jobTokenMatches, JOB_HEADER } from './jobs.mjs';
 import { createGoogleKeys, createGoogleVerifier } from './google.mjs';
 import { CA_SYNC_MODES, syncOf } from './ca-sync.mjs';
 import { inWords } from '../../platform/src/words.mjs';
+import { createInbound, INBOUND_HEADER } from './inbound.mjs';
 
 const MAX_BODY_BYTES = 1024 * 1024;
 export const MAX_UPLOAD_BYTES = 8 * 1024 * 1024;
@@ -79,6 +80,7 @@ function statusOf(result) {
   if (result.error === 'GOOGLE_UNREACHABLE') return 502;
   if (result.error === 'INVITATION_NOT_FOUND' || result.error === 'MEMBER_NOT_FOUND' || result.error === 'BUSINESS_NOT_FOUND') return 404;
   if (result.error === 'STORAGE_FULL') return 413;
+  if (result.error === 'KEY_NOT_FOUND') return 404;
   return 400;
 }
 
@@ -102,6 +104,7 @@ export function createApi({ db, secret, otpSender = null, googleClientIds = [], 
   const withBooks = runner.withBooks;
   const members = createMembers({ db, secret, now, notify: otpSender && typeof otpSender.sendText === 'function' ? (phone, text) => otpSender.sendText(phone, text) : null });
   const crashes = createCrashReports({ db, now });
+  const inbound = createInbound({ db, secret, now, withBooks });
   const consent = createConsent({ db, now });
   const jobs = createJobs({ db, withBooks, log });
   const google = createGoogleVerifier({ clientIds: googleClientIds, keys: googleKeys || createGoogleKeys({ now }), now });
@@ -146,6 +149,14 @@ export function createApi({ db, secret, otpSender = null, googleClientIds = [], 
       }
       if (parts[2] === 'refresh') return auth.refresh(body.refreshToken);
       if (parts[2] === 'logout') return auth.logout((await signedIn(req)).deviceId);
+      throw httpError(404, 'NOT_FOUND');
+    }
+
+    if (parts[1] === 'inbound' && parts.length === 3 && method === 'POST') {
+      const key = await inbound.authenticate(req.headers[INBOUND_HEADER]);
+      if (!key) throw httpError(401, 'INVALID_KEY');
+      if (parts[2] === 'sales') return inbound.sale(key, requestId, await readJson(req));
+      if (parts[2] === 'documents') return inbound.document(key, requestId, await readJson(req, MAX_UPLOAD_BYTES), new Date(now()).toISOString().slice(0, 10));
       throw httpError(404, 'NOT_FOUND');
     }
 
@@ -213,6 +224,10 @@ export function createApi({ db, secret, otpSender = null, googleClientIds = [], 
       const role = await member(user, businessId);
       const context = { userId: user.userId, deviceId: user.deviceId, requestId };
       if (parts[3] === 'members') return members.remove(businessId, context, role, parts[4]);
+      if (parts[3] === 'inbound') {
+        if (role !== 'owner') throw httpError(403, 'OWNER_ONLY');
+        return inbound.disable(businessId, context, parts[4]);
+      }
       if (parts[3] === 'invitations') {
         if (role !== 'owner') throw httpError(403, 'OWNER_ONLY');
         return members.revoke(businessId, context, parts[4]);
@@ -243,6 +258,10 @@ export function createApi({ db, secret, otpSender = null, googleClientIds = [], 
       }
       if (method === 'GET' && action === 'ca-sync') {
         return { ok: true, mode: sync.mode, sharedAsOf: sync.mode === 'live' ? null : sync.asOf, modes: CA_SYNC_MODES };
+      }
+      if (method === 'GET' && action === 'inbound') {
+        if (role !== 'owner') throw httpError(403, 'OWNER_ONLY');
+        return inbound.list(businessId);
       }
       if (method === 'GET' && action === 'members') {
         return {
@@ -283,6 +302,10 @@ export function createApi({ db, secret, otpSender = null, googleClientIds = [], 
       if (action === 'invitations') {
         if (role !== 'owner') throw httpError(403, 'OWNER_ONLY');
         return members.invite(businessId, context, body);
+      }
+      if (action === 'inbound') {
+        if (role !== 'owner') throw httpError(403, 'OWNER_ONLY');
+        return inbound.create(businessId, context, body);
       }
       if (action === 'uploads') {
         const stored = await businesses.storedBytes(businessId);

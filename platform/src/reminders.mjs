@@ -88,8 +88,8 @@ export function completeReminder(state, args = {}) {
   return { ok: true, reminder };
 }
 
-export function listReminders(state, { status = 'open' } = {}) {
-  const today = localToday();
+export function listReminders(state, { status = 'open', today: asOf } = {}) {
+  const today = /^\d{4}-\d{2}-\d{2}$/.test(String(asOf || '')) ? asOf : localToday();
   const rows = (state.reminders || [])
     .filter((item) => (status === 'all' ? true : status === 'done' ? item.done : !item.done))
     .map((item) => {

@@ -64,6 +64,18 @@ class InvitationRef {
   final String invitedBy;
 }
 
+class InboundKey {
+  const InboundKey({required this.id, required this.label, required this.source, required this.enabled, this.todayCount = 0, this.todayTotal = 0, this.secret = ''});
+
+  final String id;
+  final String label;
+  final String source;
+  final bool enabled;
+  final int todayCount;
+  final num todayTotal;
+  final String secret;
+}
+
 class MemberRef {
   const MemberRef({required this.id, required this.name, required this.role});
 
@@ -517,6 +529,30 @@ class CloudSession {
   Future<void> revokeInvitation(String id) => call('DELETE', '$_books/invitations/$id');
 
   Future<void> removeMember(String userId) => call('DELETE', '$_books/members/$userId');
+
+  Future<List<InboundKey>> inboundKeys() async {
+    final body = await call('GET', '$_books/inbound');
+    return [
+      for (final row in _rows(body['keys']))
+        InboundKey(
+          id: '${row['id']}',
+          label: '${row['label']}',
+          source: '${row['source']}',
+          enabled: row['enabled'] != false,
+          todayCount: (row['todayCount'] as num?)?.toInt() ?? 0,
+          todayTotal: row['todayTotal'] as num? ?? 0,
+        ),
+    ];
+  }
+
+  Future<InboundKey> createInboundKey(String label, String source) async {
+    final body = await call('POST', '$_books/inbound', {'label': label, 'source': source});
+    if (body['ok'] == false) throw MycaApiException(cloudMessage('${body['error']}'));
+    final key = body['key'] as Map;
+    return InboundKey(id: '${key['id']}', label: '${key['label']}', source: '${key['source']}', enabled: true, secret: '${key['secret']}');
+  }
+
+  Future<void> disableInboundKey(String id) => call('DELETE', '$_books/inbound/$id');
 
   Future<void> changeRole(String userId, String role) async {
     final body = await call('PATCH', '$_books/members/$userId', {'role': role});

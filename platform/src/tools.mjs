@@ -22,9 +22,9 @@ import { booksCheck } from './books-check.mjs';
 import { deadlineRun, filingRows } from './deadline-run.mjs';
 import { listFilings, recordFiling } from './filings.mjs';
 import { draftSupplierReminder, recordSupplierReminder } from './supplier-reminders.mjs';
-import { addEmployee, changeSalary, endEmployment, listEmployees } from './employees.mjs';
+import { addEmployee, changeSalary, endEmployment, listEmployees, setEmployeeBank } from './employees.mjs';
 import { payrollFor, approvePayroll, recordSalaryPayment, listPayroll, payslip } from './payroll.mjs';
-import { pfEcr, esiReturn } from './payroll-files.mjs';
+import { pfEcr, esiReturn, payrollPayoutFile } from './payroll-files.mjs';
 import { countryOf, isCountry, toolServesCountry } from './country.mjs';
 import { createUsInvoice, createUsPurchase, setSalesTaxRate, listSalesTaxRates, setContractor, contractorPayments } from './us-sales.mjs';
 import { rulesStatus } from './rules-status.mjs';
@@ -1922,7 +1922,7 @@ export const TOOLS = [
     name: 'add_employee',
     title: 'Add an employee',
     description: 'Add an employee with a joining date and a monthly salary in parts (for example Basic, HRA). Records only; no payroll is run and no deduction is worked out. Owner only.',
-    args: ['name', 'joinedOn', 'components', 'designation', 'pan', 'uan', 'pfMember', 'esiMember', 'ptState', 'taxRegime', 'sex', 'workState', 'federalWithholding', 'stateWithholding'],
+    args: ['name', 'joinedOn', 'components', 'designation', 'pan', 'uan', 'pfMember', 'esiMember', 'ptState', 'taxRegime', 'sex', 'workState', 'federalWithholding', 'stateWithholding', 'bankAccount', 'ifsc'],
     run: (state, args = {}) => addEmployee(state, args),
   },
   {
@@ -1931,6 +1931,20 @@ export const TOOLS = [
     description: 'Set an employee\'s monthly salary from a date. Earlier months keep the salary they had. Owner only.',
     args: ['id', 'effectiveFrom', 'components'],
     run: (state, args = {}) => changeSalary(state, args),
+  },
+  {
+    name: 'set_employee_bank',
+    title: 'Employee bank account',
+    description: 'Record where an employee is paid: account number and IFSC (or a US routing number). Used only for the salary payout file. Owner only.',
+    args: ['id', 'bankAccount', 'ifsc'],
+    run: (state, args = {}) => setEmployeeBank(state, args),
+  },
+  {
+    name: 'payroll_payout_file',
+    title: 'Salary payout file',
+    description: 'A bank bulk-payment CSV for an approved payroll month: one row per employee with net pay, account and IFSC, narration SAL-<month>. Lists who has no bank details yet. Owner only. Read-only.',
+    args: ['period'],
+    run: (state, args = {}) => payrollPayoutFile(state, args.period),
   },
   {
     name: 'end_employment',

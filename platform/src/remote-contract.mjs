@@ -46,6 +46,7 @@ export const REMOTE_QUERY_TOOLS = new Set([
   'tds_certificates',
   'contractor_1099_file',
   'esi_return',
+  'payroll_payout_file',
   'tds_review',
   'cash_forecast',
   'can_afford',
