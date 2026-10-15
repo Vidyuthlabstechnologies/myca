@@ -2,6 +2,7 @@ import { TOOLS, runTool } from './tools.mjs';
 import { templateWords } from './invoice-template.mjs';
 import { settlementWords, settlementStatusWords } from './settlements.mjs';
 import { orderImportWords } from './marketplace-orders.mjs';
+import { creditsWords } from './marketplace-credits.mjs';
 import { planLocalToolCall, validateAssistantToolCall } from './assistant-contract.mjs';
 import { needsConfirmation, previewOf, openPending, takePending, clearPending, previewReply, blockedReply } from './chat-confirm.mjs';
 import { liveCallsEnabled, mockModeEnabled } from './runtime-config.mjs';
@@ -313,6 +314,10 @@ function fmtToolResult(name, result) {
   if (name === 'import_pos_sales' && result.data?.created) return posImportWords(result.data, money);
   if (name === 'import_settlement' && result.data?.settlement) return `Recorded ${result.data.settlement.id}. ${settlementWords(result.data.settlement, money)}${result.data.posting?.posted ? ` Settled ${result.data.posting.posting.receipts.length === 1 ? '1 invoice' : `${result.data.posting.posting.receipts.length} invoices`}: ${money(result.data.posting.posting.paid)} to the bank, fees ${money(result.data.posting.posting.fees)}, TDS ${money(result.data.posting.posting.tds)} and TCS ${money(result.data.posting.posting.tcs)} to claim${result.data.posting.posting.leftOpen > 0 ? `, ${money(result.data.posting.posting.leftOpen)} still outstanding` : ''}.` : result.data.posting?.error ? ` Not settled against the books: ${result.data.posting.error}.` : ''}`;
   if (name === 'import_marketplace_orders' && result.data?.created) return orderImportWords(result.data, money);
+  if (name === 'set_channel_identity' && result.identity) return `${result.channel[0].toUpperCase()}${result.channel.slice(1)}: ${[result.identity.gstin ? `GSTIN ${result.identity.gstin}` : '', result.identity.tan ? `TAN ${result.identity.tan}` : '', result.identity.name || ''].filter(Boolean).join(', ')}. Statements now match this channel by number.`;
+  if (name === 'import_tcs_statement' && result.data) return `Recorded ${result.data.imported === 1 ? '1 operator-month' : `${result.data.imported} operator-months`} of TCS totalling ${money(result.data.total)}.${result.data.unknownOperators.length ? ` ${result.data.unknownOperators.length === 1 ? 'One operator GSTIN is' : `${result.data.unknownOperators.length} operator GSTINs are`} not tied to a channel yet: ${result.data.unknownOperators.join(', ')}.` : ''} The next GST payment uses the confirmed TCS before new cash.`;
+  if (name === 'import_26as_credits' && result.data) return `Recorded ${result.data.imported === 1 ? '1 entry' : `${result.data.imported} entries`} of TDS under 194-O totalling ${money(result.data.total)}${result.data.otherSections ? ` (${result.data.otherSections} rows under other sections ignored)` : ''}.`;
+  if (name === 'marketplace_credits' && result.data) return creditsWords(result.data, money);
   if (name === 'settlement_status' && result.data) return settlementStatusWords(result.data, money);
   if (name === 'contractor_1099_file' && result.data) return file1099Words(result.data, money);
   if (name === 'export_trial_balance' && result.data) return `Trial balance as of ${result.data.asOf}: ${result.data.accounts === 1 ? '1 account' : `${result.data.accounts} accounts`}, debits ${money(result.data.debit)}, credits ${money(result.data.credit)}${result.data.balanced ? ', ties' : ', does not tie'}. Saved as ${result.data.fileName} from the Taxes screen.`;

@@ -1,6 +1,7 @@
 import { trialBalance, verifyChain } from './ledger.mjs';
 import { invoicesToGstr1Json } from './gstr1-json.mjs';
 import { inWords } from './words.mjs';
+import { marketplaceCredits } from './marketplace-credits.mjs';
 import { appendAuditEvent } from './ca-api.mjs';
 
 export const SEVERITIES = ['critical', 'high', 'medium', 'low'];
@@ -251,6 +252,38 @@ function importCandidates(book) {
   return out;
 }
 
+function creditCandidates(book) {
+  const out = [];
+  const credits = marketplaceCredits(book).data;
+  for (const row of credits.tcs) {
+    if (row.status !== 'short in statement') continue;
+    out.push({
+      key: `tcs:short:${row.channel}:${row.period}`,
+      source: 'settlement',
+      code: 'TCS_NOT_REPORTED',
+      severity: 'high',
+      title: `${row.channel} deducted ${row.gap} more TCS in ${row.period} than the portal statement shows`,
+      why: `Settlements carry ${row.recorded} of TCS for the month and the TDS and TCS credit statement shows ${row.reported}. The difference is cash the marketplace holds that you cannot use against GST until it is deposited and reported.`,
+      moneyAtRisk: row.gap,
+      evidence: { channel: row.channel, period: row.period, recorded: row.recorded, reported: row.reported, settlements: row.settlements },
+    });
+  }
+  for (const row of credits.tds) {
+    if (row.status !== 'short in 26AS') continue;
+    out.push({
+      key: `tds194o:short:${row.channel}:${row.quarter}`,
+      source: 'settlement',
+      code: 'TDS_194O_NOT_IN_26AS',
+      severity: 'high',
+      title: `${row.channel} deducted ${row.gap} more TDS under 194-O in ${row.quarter} than Form 26AS shows`,
+      why: `Settlements carry ${row.recorded} of TDS for the quarter and 26AS shows ${row.in26as}. Until the marketplace deposits and files it, the credit cannot be claimed in your return.`,
+      moneyAtRisk: row.gap,
+      evidence: { channel: row.channel, quarter: row.quarter, recorded: row.recorded, in26as: row.in26as, settlements: row.settlements },
+    });
+  }
+  return out;
+}
+
 function settlementCandidates(book) {
   const out = [];
   for (const item of book.settlements || []) {
@@ -298,6 +331,7 @@ function settlementCandidates(book) {
 export function detectExceptions(book, inputs = {}) {
   return [
     ...settlementCandidates(book),
+    ...creditCandidates(book),
     ...ledgerCandidates(book),
     ...gstr1Candidates(book),
     ...deadlineCandidates(inputs.deadlines),

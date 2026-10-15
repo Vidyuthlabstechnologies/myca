@@ -602,6 +602,32 @@ export const TOOL_ARG_SCHEMAS = {
       channel: { type: 'string', enum: ['amazon', 'flipkart', 'myntra', 'nykaa', 'meesho', 'shopify', 'razorpay', 'quick-commerce', 'marketplace'] },
     },
   },
+  set_channel_identity: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['channel'],
+    properties: {
+      channel: { type: 'string', enum: ['amazon', 'flipkart', 'myntra', 'nykaa', 'meesho', 'shopify', 'razorpay', 'quick-commerce'] },
+      gstin: { type: 'string', maxLength: 15 },
+      tan: { type: 'string', maxLength: 10 },
+      name: { type: 'string', maxLength: 120 },
+    },
+  },
+  import_tcs_statement: {
+    type: 'object',
+    additionalProperties: false,
+    properties: { csv: { type: 'string' }, documentSha256: { type: 'string', pattern: '^[0-9a-f]{64}$' } },
+  },
+  import_26as_credits: {
+    type: 'object',
+    additionalProperties: false,
+    properties: { csv: { type: 'string' }, documentSha256: { type: 'string', pattern: '^[0-9a-f]{64}$' } },
+  },
+  marketplace_credits: {
+    type: 'object',
+    additionalProperties: false,
+    properties: { fy: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}$' } },
+  },
   settlement_status: {
     type: 'object',
     additionalProperties: false,
@@ -1567,6 +1593,10 @@ const TOOL_RISK = {
   import_pos_sales: 'writes_books',
   import_settlement: 'writes_books',
   import_marketplace_orders: 'writes_books',
+  set_channel_identity: 'writes_books',
+  import_tcs_statement: 'writes_books',
+  import_26as_credits: 'writes_books',
+  marketplace_credits: 'read_only',
   settlement_status: 'read_only',
   sales_tax_review_answer: 'writes_books',
   record_sales_tax_payment: 'writes_books',
@@ -2041,6 +2071,27 @@ export function planLocalToolCall(state, message) {
     const csv = state.pendingFile?.content || state.files.tally;
     if (!csv) return { kind: 'reply', reply: 'Attach a Tally Day Book CSV first (dropdown: Tally Day Book).', tools: [] };
     return { kind: 'tool', name: 'import_tally', args: { csv, fileName: state.pendingFile?.name || 'tally.csv' }, clearsPendingFile: true };
+  }
+  {
+    const identity = /^(amazon|flipkart|myntra|nykaa|meesho|shopify|razorpay)\s+(?:gstin|tan)\b/i.exec(text.trim());
+    if (identity && !isQuestion(text)) {
+      const gstin = /\bgstin\s*[:#]?\s*([0-9]{2}[A-Z0-9]{13})\b/i.exec(text);
+      const tan = /\btan\s*[:#]?\s*([A-Z]{4}[0-9]{5}[A-Z])\b/i.exec(text);
+      return { kind: 'tool', name: 'set_channel_identity', args: { channel: identity[1].toLowerCase(), ...(gstin ? { gstin: gstin[1].toUpperCase() } : {}), ...(tan ? { tan: tan[1].toUpperCase() } : {}) } };
+    }
+    if (/\bimport\s+(?:the\s+)?tcs\s+(?:credit\s+)?(?:statement|received|credits?)\b|\btds\s+and\s+tcs\s+credit\s+received\b/i.test(text) && !isQuestion(text)) {
+      const csv = state.pendingFile?.content;
+      if (!csv) return { kind: 'reply', reply: 'Attach the "TDS and TCS credit received" statement from the GST portal (operator GSTIN, period, integrated, central and state tax), then say "import tcs statement".', tools: [] };
+      return { kind: 'tool', name: 'import_tcs_statement', args: { csv }, clearsPendingFile: true };
+    }
+    if (/\bimport\s+(?:form\s+)?26\s*as\b|\b26\s*as\s+(?:credits?|194-?o)\b/i.test(text) && !isQuestion(text)) {
+      const csv = state.pendingFile?.content;
+      if (!csv) return { kind: 'reply', reply: 'Attach Form 26AS as a CSV or text table (section, TAN of deductor, tax deducted, date), then say "import 26AS". Only section 194-O rows are read here.', tools: [] };
+      return { kind: 'tool', name: 'import_26as_credits', args: { csv }, clearsPendingFile: true };
+    }
+    if (/\b(?:tcs|194-?o|tds\s+194)\b.*\b(?:credits?|claim|status|available|deducted)\b|\b(?:marketplace|amazon|flipkart)\s+(?:tcs|tds)\b|\btcs\s+and\s+tds\b/i.test(text)) {
+      return { kind: 'tool', name: 'marketplace_credits', args: {} };
+    }
   }
   {
     const orders = /\bimport\s+(?:the\s+)?(?:(amazon|flipkart|myntra|nykaa|meesho|shopify|razorpay|quick[\s-]?commerce)\s+)?(?:orders?|mtr|order\s+report|sales\s+report|gst\s+report)\b/i.exec(text);

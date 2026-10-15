@@ -8,6 +8,8 @@ export const IMPORT_CONTENT_ARG = Object.freeze({
   import_pos_sales: 'csv',
   import_settlement: 'csv',
   import_marketplace_orders: 'csv',
+  import_tcs_statement: 'csv',
+  import_26as_credits: 'csv',
   import_bank: 'content',
   import_gstr2b: 'csv',
 });
