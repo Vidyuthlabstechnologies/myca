@@ -51,6 +51,8 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
   String _mode = 'bank';
   String _formError = '';
   bool _postedHere = false;
+  Map<String, String> _riskByBill = const {};
+  bool _risksLoaded = false;
 
   bool get _sales => widget.kind == RegisterKind.sales;
 
@@ -63,6 +65,28 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (_us && _sales && _salesTaxRates.isEmpty) _loadSalesTaxRates();
+    if (!_sales && !_us && !_risksLoaded) _loadRisks();
+  }
+
+  Future<void> _loadRisks() async {
+    _risksLoaded = true;
+    final snapshot = AppScope.of(context).snapshot;
+    final months = <String>{
+      for (final doc in snapshot?.purchases ?? const <Invoice>[])
+        if (partyKey(doc.partyName) == partyKey(widget.partyName) && doc.date.length >= 7) doc.date.substring(0, 7),
+    };
+    final found = <String, String>{};
+    for (final month in months) {
+      try {
+        final check = CreditCheck.fromTool(await api.query('credit_at_risk', {'period': month}));
+        for (final risk in check?.risks ?? const <CreditRisk>[]) {
+          found[risk.billId] = risk.why;
+        }
+      } on MycaApiException {
+        return;
+      }
+    }
+    if (mounted) setState(() => _riskByBill = found);
   }
 
   Future<void> _loadSalesTaxRates() async {
@@ -424,6 +448,7 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
               : [
                   if (doc.partial) '${rupees(doc.owed)} still owed',
                   if (!doc.paid && !doc.cancelled && doc.dueDate.isNotEmpty) 'Pay by ${longDate(doc.dueDate)}${doc.msme ? ' (MSME)' : ''}',
+                  if (_riskByBill.containsKey(doc.id)) 'Credit at risk: ${_riskByBill[doc.id]}',
                 ],
           onTap: _sales
               ? () => Navigator.of(context).push(

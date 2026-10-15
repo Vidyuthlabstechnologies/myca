@@ -1,4 +1,7 @@
 import { localToday } from './dates.mjs';
+import { documentsOf, isSha256 } from './document-store.mjs';
+
+const MAX_ATTACHMENTS = 5;
 import { periodSummary } from './period-summary.mjs';
 import { outstandingOf } from './credit-notes.mjs';
 
@@ -106,7 +109,18 @@ export function planAsk(state, args = {}) {
   const context = contextFor(state, args.subject || {});
   if (context.error) return { ok: false, ...context };
   const title = String(args.title || '').trim().slice(0, 160) || context.title || note.slice(0, 80);
-  return { ok: true, plan: { title, note, context } };
+  const wanted = Array.isArray(args.documents) ? args.documents : args.documentSha256 ? [args.documentSha256] : [];
+  if (wanted.length > MAX_ATTACHMENTS) return { ok: false, error: 'TOO_MANY_ATTACHMENTS', max: MAX_ATTACHMENTS };
+  const store = documentsOf(state);
+  const attachments = [];
+  for (const item of wanted) {
+    const sha256 = String(item?.sha256 ?? item ?? '').trim().toLowerCase();
+    if (!isSha256(sha256)) return { ok: false, error: 'BAD_ATTACHMENT', sha256 };
+    if (!store.exists(sha256)) return { ok: false, error: 'ATTACHMENT_NOT_UPLOADED', sha256, hint: 'Upload the file first, then attach its sha256.' };
+    const name = String(item?.name || '').trim().slice(0, 120);
+    if (!attachments.some((a) => a.sha256 === sha256)) attachments.push({ sha256, ...(name ? { name } : {}) });
+  }
+  return { ok: true, plan: { title, note, context, attachments } };
 }
 
 export function askCa(state, args = {}) {
@@ -123,6 +137,7 @@ export function askCa(state, args = {}) {
     askedBy: actor.userId,
     askedOn: localToday(),
     messages: [{ by: actor.userId, role: actor.role, on: localToday(), text: plan.note }],
+    ...(plan.attachments.length ? { attachments: plan.attachments } : {}),
   };
   state.caRequests = state.caRequests || [];
   state.caRequests.push(request);
@@ -177,6 +192,7 @@ export function requestAsText(request, companyName = '') {
   return [
     `${companyName ? `${companyName}: ` : ''}${request.title}`,
     ...request.facts.map((fact) => `- ${fact}`),
+    ...((request.attachments || []).length ? [`- Attached: ${request.attachments.map((a) => a.name || a.sha256.slice(0, 12)).join(', ')}`] : []),
     '',
     ...request.messages.map((message) => `${message.on}: ${message.text}`),
   ].join('\n');
