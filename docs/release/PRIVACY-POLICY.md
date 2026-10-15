@@ -35,10 +35,11 @@ from other apps.
 
 ## Your rights
 
-You can see everything MyCA holds about your business from inside the app. You can
-delete a business from the Businesses screen, which removes its books and documents.
-You can ask for your account to be deleted by writing to the support email; we do it
-within thirty days. Where the Digital Personal Data Protection Act, 2023 or another law
+You can see everything MyCA holds about your business from inside the app, and download
+all of it as one file from the Businesses screen (the books, every uploaded document,
+who has access, connected systems and the audit trail). You can delete a business from
+the same screen, which removes its books and documents, and delete your account there
+too; both take effect at once. Where the Digital Personal Data Protection Act, 2023 or another law
 gives you further rights, you can exercise them through the same address.
 
 ## Retention and security

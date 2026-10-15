@@ -34,13 +34,23 @@ void main() {
     final cloud = FakeCloud()..userName = 'Asha';
     final session = await signedIn(cloud);
     await session.createBusiness(name: 'Asha Traders', state: '29');
-    final state = AppState(cloud: session, store: MemoryOnboardingStore(isWelcomed: true, isMigrated: true), pickTextFile: (_) async => null);
+    final saved = <String, String>{};
+    final state = AppState(cloud: session, store: MemoryOnboardingStore(isWelcomed: true, isMigrated: true), pickTextFile: (_) async => null, saveTextFile: (name, content) async {
+      saved[name] = content;
+      return true;
+    });
     await tester.pumpWidget(MycaApp(state: state));
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('Your business'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Your businesses'));
     await tester.pumpAndSettle();
+    await tester.tap(find.text('Download everything about Asha Traders'));
+    await tester.pumpAndSettle();
+    expect(cloud.exports, 1);
+    expect(saved.keys.single, startsWith('myca-asha-traders-'));
+    expect(saved.values.single, contains('"exportedAt"'));
+    expect(find.textContaining('your books, every uploaded file'), findsOneWidget);
     await tester.tap(find.text('Delete Asha Traders'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Keep'));

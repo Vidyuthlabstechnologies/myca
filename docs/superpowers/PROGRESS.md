@@ -2,7 +2,7 @@
 
 **Phase 0 (pilot readiness) engineering: 67% complete**
 
-**Whole product to a Play Store launch: about 63% complete** (estimate, see the last section)
+**Whole product to a Play Store launch: about 65% complete** (estimate, see the last section)
 
 Last updated 2026-10-14 (automation and redundancy batch, PR #41). Work now happens directly on the main branch (`claude/codebase-audit-review-9cf396`) with no background workflows. The release, statutory-rules, gate and ledger-integrity lanes are merged in. Suite: platform 362/362, every sprint and rules suite green, `npm run stress` passing.
 
@@ -22,18 +22,18 @@ Weights were rebalanced when you asked for stress testing, to fit the stress cam
 |---|---|---|---|---|---|
 | 0 | Audit, design spec, plan index | 5 | 3 / 3 | 5.0 | ✅ Done |
 | 1 | State isolation (C4, H7, H14, documents) | 10 | 8 / 8 | 10.0 | ✅ Done. All tasks reviewed; I did the final integration review myself, not the three-angle panel |
-| 2a | Action gate core, NIC fixes, payload-bound approvals, timeouts (C2, C3, H8, H9) | 10 | 2 / 4 | 5.0 | 🔨 Gate core and NIC-through-gate done; left: timeouts and body caps on every client, secret blocklist, provider_doctor, notification mock marking |
+| 2a | Action gate core, NIC fixes, payload-bound approvals, timeouts (C2, C3, H8, H9) | 10 | 4 / 4 | 10.0 | ✅ Done: gate core, NIC through the gate, timeouts in every transport (the model adapter also caps its response at 2 MB, 2026-10-15), the secret-key blocklist, provider_doctor, mock marking on notifications |
 | 2b | Firm-user PIN identity | 4 | 4 / 4 | 4.0 | ✅ Done: scrypt hashing, 5-strike lockout, session auth, audit attribution |
 | 3a | Statutory rules package and GST engines (C1, H4–H6) | 12 | 4.5 / 5 | 10.8 | 🔨 Rules API and GST rules merged; C1 GSTIN checksum; H6 GSTR-1 dated rates, B2CL, period filter; H4/H5 per-head 2B matching, s.16(2)(aa), Rule 37, Rule 37A, IMS credit-note sign; left: final review |
 | 3b | Income tax, TDS, deadlines (H1–H3, H18) | 12 | 5 / 6 | 10.0 | 🔨 Deadlines (H2, H18), income tax on 65 golden cases (H1) and TDS monitor (H3) rebuilt on the rules; left: final review |
 | 3c | Parsing and audit engine (mediums) | 7 | 2 / 3 | 4.7 | 🔨 Bank and ledger amounts accept Rs./INR/₹ prefixes, Dr/Cr markers (a single amount column with a side marker now ingests), parentheses and trailing minus; the sprint-6 clause checks cite Form 3CD clause 34(a) and CARO 2020 3(i)(a)/3(ix)(a), pass vacuously when nothing applies, and state their basis; sampling basis stated on the working papers (2026-10-15). Left: the IMS credit-note sign and sprint-6 rule review by the advisor |
 | 4a | Ledger chain, invoice/tax correctness, dates, idempotent imports (H11–H13, H15) | 9 | 3 / 4 | 6.75 | 🔨 Ledger slice merged; invoice/tax slice done (H13 strict dates and lock, H15 GSTIN parties and per-invoice place of supply, CGST=SGST in paise, blocked ITC to cost, DUPLICATE_ID); import slice done (H11 rate never assumed, H12 dedup across Tally, bank and Zoho, Tally XML entities); left: final review |
 | 4b | Chat preview/confirm, atomic saves, audit hygiene, TOOL_RISK classes (H10) | 5 | 4 / 4 | 5.0 | ✅ Done: H10 preview/confirm, atomic renameSync saves, input capped |
-| 5 | Desktop hardening and shadow harness (H16) | 10 | 2 / 4 | 5.0 | 🔨 H16 closed; shadow harness implemented (`scripts/shadow.mjs`); left: remaining desktop hardening |
+| 5 | Desktop hardening and shadow harness (H16) | 10 | 3.5 / 4 | 8.75 | 🔨 H16 closed; shadow harness (`scripts/shadow.mjs`); frame-denying and nosniff headers on every response, the print window with JavaScript off and a strict CSP, restore that verifies the ledger chain and each document's sha256 and drops approvals and sessions, the packaged app refusing to store a secret without safeStorage, CSV neutralisation for tabs, returns, leading whitespace and fullwidth operators (2026-10-15); left: listening on port 0 in the packaged app |
 | 6 | Release pipeline (H17, CI) | 5 | 1 / 2 | 2.5 | 🔨 12 commits; build slice approved; final review in flight |
 | 7 | Docs sync | 3 | 0 / – | 0 | ⏳ Last |
 | S | Stress testing: recon, then permanent harness and fixes (Plan 8) | 8 | 2 / 2 | 8.0 | ✅ Done: permanent stress harness passing in npm run stress |
-| | **Total** | **100** | | **71.75** | |
+| | **Total** | **100** | | **80.5** | |
 
 ## Audit findings closed
 
@@ -79,14 +79,14 @@ The goal is now an owner-first Android app on the Play Store. The weights below 
 
 | Area | Weight | Done | Contribution | Basis |
 |---|---|---|---|---|
-| Hardened core: ledger, engines, gate (Phase 0) | 25 | 72% | 18.0 | Table above |
-| Cloud core: accounts, sync, hosted API, DPDP | 20 | 76% | 15.2 | C0 done. C1 built and tested on local Postgres: phone sign-in, sessions, businesses and roles, the `/v1` API, the engine running per request (37 tests), and the app's hosted mode. File uploads work, so Tally, Zoho and bank imports run when hosted. Owners can invite staff and accountants (53 tests). Not deployed (the deploy workflow, scheduler, graceful shutdown and startup retry are written, 2026-10-14); SMS senders for Twilio and MSG91 behind an env switch, the DPDP assessment and the privacy policy drafted (2026-10-14); member role changes with a second owner, invitation SMS, owner-side business deletion and account deletion from the app, reads that no longer rewrite the books row, a 200 MB document cap per business, a breach procedure in the runbook (2026-10-14, batch 7); no provider accounts yet |
+| Hardened core: ledger, engines, gate (Phase 0) | 25 | 80% | 20.0 | Table above |
+| Cloud core: accounts, sync, hosted API, DPDP | 20 | 78% | 15.6 | C0 done. C1 built and tested on local Postgres: phone sign-in, sessions, businesses and roles, the `/v1` API, the engine running per request (37 tests), and the app's hosted mode. File uploads work, so Tally, Zoho and bank imports run when hosted. Owners can invite staff and accountants (53 tests). Not deployed (the deploy workflow, scheduler, graceful shutdown and startup retry are written, 2026-10-14); SMS senders for Twilio and MSG91 behind an env switch, the DPDP assessment and the privacy policy drafted (2026-10-14); member role changes with a second owner, invitation SMS, owner-side business deletion and account deletion from the app, reads that no longer rewrite the books row, a 200 MB document cap per business, a breach procedure in the runbook (2026-10-14, batch 7); no provider accounts yet |
 | Pipeline and exception queue | 10 | 62% | 6.2 | Exception queue built; the daily job (`/v1/jobs/daily` from Cloud Scheduler, `run_automation` per business) adds reminders for what falls due, verifies the ledger chain and checks the rules; the desktop runs the same checks on launch and hourly, keeps fourteen verified daily backups and self-restores from them; nightly CI with a self-closing issue; Android and hosted API release workflows (2026-10-14). No document pipeline |
 | Android app | 25 | 49% | 12.3 | `mobile/` (Flutter): welcome, brand, sign-in, migration onboarding and later re-import (Tally, Zoho, bank statement), home summary, customer picker, threads with preview and confirm, expenses, taxes, Ask; 18 tests, debug APK builds, checked against the live server. Filing pack saved as one file from Taxes (2026-10-13); the GST payment, GSTR-9, quarterly GSTR-1 and IFF, year close, SUTA rates, the week ahead on Home and US quotes (2026-10-14). Bill capture from a photo, due-date notifications, amend after filing, the Schedule SE panel and the CPA, 941 and W-2 files, release workflow (2026-10-14). Not yet run on a device |
 | LLM chat agent | 8 | 90% | 7.2 | Tool contracts, keyword router, preview/confirm; the model adapter routes unmatched messages to one tool and reads bills, off until a key is set; the last six exchanges of a business's chat are given to the model as context | The provider decision |
 | Live filing connections | 7 | 40% | 2.8 | Adapters wired against sandbox; onboarding not started |
 | Play release work: listing, declarations, policy, testing | 5 | 60% | 3.0 | Listing, data safety answers, permissions, declarations, testing checklist and the privacy policy drafted (`docs/release/`); the developer account, keystore and a device run are the owner's |
-| **Total** | **100** | | **63.1** | |
+| **Total** | **100** | | **65.5** | |
 
 ## Measured against the product PRD (added 2026-10-06)
 

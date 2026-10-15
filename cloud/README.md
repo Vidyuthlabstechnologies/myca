@@ -94,6 +94,10 @@ header:
   off; a disabled key answers 401.
 - `POST /v1/inbound/documents` `{ name, content, from? }` stores a forwarded bill or
   statement and leaves a reminder for the owner to read it. Nothing posts.
+- `GET /v1/businesses/:id/export` (owner only) returns everything the service holds about
+  the business as one JSON document: the books, every file keyed by sha256, members,
+  connections and the audit trail; the download itself is audited. The Windows app can
+  restore the `books` and `documents` parts as a backup.
 - `POST /v1/inbound/email` is for the email relay only (`x-myca-relay-token` must equal
   `MYCA_INBOUND_RELAY_TOKEN`, 32+ characters). With `MYCA_INBOUND_EMAIL_DOMAIN` set,
   every documents key gets an address `<token>@<domain>` shown under Connections; mail to

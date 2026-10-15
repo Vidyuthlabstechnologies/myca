@@ -131,6 +131,9 @@ function send(req, res, code, body, type = 'application/json') {
   const headers = {
     'content-type': type,
     'cache-control': 'no-store',
+    'x-frame-options': 'DENY',
+    'content-security-policy': "frame-ancestors 'none'",
+    'x-content-type-options': 'nosniff',
     ...corsHeaders(req),
   };
   res.writeHead(code, headers);

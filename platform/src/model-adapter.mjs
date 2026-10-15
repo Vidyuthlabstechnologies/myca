@@ -33,6 +33,8 @@ export function modelConfigured() {
   return modelConfig().configured;
 }
 
+const MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
+
 async function callModel(body) {
   const config = modelConfig();
   if (transportOverride) return transportOverride(body);
@@ -46,7 +48,10 @@ async function callModel(body) {
       body: JSON.stringify({ model: config.model, max_tokens: MAX_TOKENS, ...body }),
       signal: controller.signal,
     });
+    const declared = Number(res.headers.get('content-length') || 0);
+    if (declared > MAX_RESPONSE_BYTES) return { ok: false, error: 'MODEL_RESPONSE_TOO_LARGE', bytes: declared };
     const text = await res.text();
+    if (text.length > MAX_RESPONSE_BYTES) return { ok: false, error: 'MODEL_RESPONSE_TOO_LARGE', bytes: text.length };
     if (!res.ok) return { ok: false, error: 'MODEL_HTTP_ERROR', status: res.status, detail: text.slice(0, 300) };
     return { ok: true, response: JSON.parse(text) };
   } catch (err) {

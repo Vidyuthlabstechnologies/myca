@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 
 import '../api/myca_api.dart';
@@ -73,6 +75,22 @@ class _BusinessesScreenState extends State<BusinessesScreen> {
     }
   }
 
+  Future<void> _download(String name) async {
+    final state = AppScope.of(context);
+    setState(() {
+      _error = '';
+      _note = '';
+    });
+    try {
+      final data = await state.cloud!.exportBusiness();
+      final file = 'myca-${name.replaceAll(RegExp(r'[^A-Za-z0-9]+'), '-').toLowerCase()}-${DateTime.now().toIso8601String().substring(0, 10)}.json';
+      final saved = await state.saveTextFile(file, const JsonEncoder.withIndent('  ').convert(data));
+      if (mounted) setState(() => _note = saved ? 'Saved $file: your books, every uploaded file, members, connections and the audit trail.' : 'Not saved.');
+    } on MycaApiException catch (err) {
+      if (mounted) setState(() => _error = err.message);
+    }
+  }
+
   Future<void> _deleteAccount() async {
     final state = AppScope.of(context);
     if (!await _sure('Delete your account?', 'You are signed out everywhere. A business where you are the only owner is deleted with you; one with another owner stays with them.', 'Delete account')) return;
@@ -85,6 +103,7 @@ class _BusinessesScreenState extends State<BusinessesScreen> {
   }
 
   String _error = '';
+  String _note = '';
 
   @override
   Widget build(BuildContext context) {
@@ -125,6 +144,23 @@ class _BusinessesScreenState extends State<BusinessesScreen> {
                 const SizedBox(height: 10),
                 Text(_error, style: const TextStyle(color: Palette.danger, fontWeight: FontWeight.w500)),
               ],
+              if (_note.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                Text(_note, style: Theme.of(context).textTheme.bodyMedium),
+              ],
+              const SizedBox(height: 26),
+              const SectionLabel('Your data'),
+              Panel(
+                children: [
+                  for (final business in me.businesses.where((b) => b.id == current && b.role == 'owner'))
+                    RowCard(
+                      leading: const TintTile(tint: Tint.ask, mark: Mark.spreadsheet),
+                      title: 'Download everything about ${business.name}',
+                      subtitle: 'One file with the books, documents, members and audit trail',
+                      onTap: () => _download(business.name),
+                    ),
+                ],
+              ),
               const SizedBox(height: 26),
               const SectionLabel('Leaving'),
               Panel(
