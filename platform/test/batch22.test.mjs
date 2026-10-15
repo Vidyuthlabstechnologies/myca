@@ -24,3 +24,23 @@ test('a reminder can carry the file it is about, which survives a save and is re
   assert.equal(copy.reminders[0].documentSha256, SHA);
   assert.equal(copy.reminders[0].about.kind, 'document');
 });
+
+test('the assistant log keeps payroll and salary messages and replies out, and only the owner or an admin reads or corrects it', async () => {
+  const { chat } = await import('../src/router.mjs');
+  const state = createState();
+  state.company = { ...state.company, name: 'Asha Traders', gstin: '27AABCU9603R1ZN', state: '27' };
+  await chat(state, 'who owes me?');
+  await chat(state, 'raise Ravi salary to 65000 from next month');
+  const log = await runTool(state, 'eval_events', {});
+  assert.equal(log.ok, true);
+  const salary = log.data.events.find((event) => /payroll or salary message/.test(event.input));
+  assert.ok(salary, JSON.stringify(log.data.events));
+  assert.equal(salary.reply, '');
+  assert.doesNotMatch(JSON.stringify(log.data.events), /65,?000|Ravi/);
+  state.__actor = { userId: 'USR-STAFF', role: 'staff' };
+  assert.equal((await runTool(state, 'eval_events', {})).error, 'OWNER_ONLY');
+  assert.equal((await runTool(state, 'correct_eval', { id: log.data.events[0].id, note: 'x' })).error, 'OWNER_ONLY');
+  state.__actor = { userId: 'USR-ADMIN', role: 'admin' };
+  assert.equal((await runTool(state, 'eval_events', {})).ok, true);
+  delete state.__actor;
+});

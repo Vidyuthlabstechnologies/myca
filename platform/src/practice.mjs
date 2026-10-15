@@ -1,9 +1,16 @@
 import { localToday, postingDate } from './dates.mjs';
 import { isReturnPeriod } from './return-period.mjs';
+import { salaryPrivate } from './employees.mjs';
 
 const MAX_ITEMS = 20;
 const MAX_EVENTS = 500;
 const MAX_HITS = 25;
+const PRIVATE_TOOL = /payroll|salary|employee|payslip|withholding/i;
+const PRIVATE_INPUT = '(a payroll or salary message; kept out of the log)';
+
+export function isPrivateTool(name) {
+  return PRIVATE_TOOL.test(String(name || ''));
+}
 const DOCUMENT_KINDS = ['bank statement', 'sales register', 'purchase register', 'gstr-2b', 'tds challans', 'payroll register', 'fixed asset list', 'loan statements', 'cash book', 'stock statement', 'form 26as', 'ais', 'other'];
 
 function fail(error, extra = {}) {
@@ -136,8 +143,11 @@ function nextEvalId(state) {
 }
 
 export function logEvalEvent(state, { input, toolName = '', outcome = '', viaModel = false, blocked = false, reply = '' } = {}) {
-  const text = String(input || '').trim().slice(0, 300);
-  if (!text) return null;
+  const raw = String(input || '').trim().slice(0, 300);
+  if (!raw) return null;
+  const privateTool = isPrivateTool(toolName) || PRIVATE_TOOL.test(raw);
+  const text = privateTool ? PRIVATE_INPUT : raw;
+  if (privateTool) reply = '';
   state.evalEvents = Array.isArray(state.evalEvents) ? state.evalEvents : [];
   const event = {
     id: nextEvalId(state),
@@ -156,6 +166,7 @@ export function logEvalEvent(state, { input, toolName = '', outcome = '', viaMod
 }
 
 export function correctEval(state, args = {}) {
+  if (salaryPrivate(state)) return fail('OWNER_ONLY', { hint: 'Only the owner or an admin reviews the assistant log.' });
   const event = (state.evalEvents || []).find((item) => item.id === String(args.id || '').trim().toUpperCase());
   if (!event) return fail('EVENT_NOT_FOUND', { id: args.id });
   const note = String(args.note || '').trim().slice(0, 500);
@@ -166,6 +177,7 @@ export function correctEval(state, args = {}) {
 }
 
 export function evalEvents(state, { status = 'all', limit = 50 } = {}) {
+  if (salaryPrivate(state)) return fail('OWNER_ONLY', { hint: 'Only the owner or an admin reviews the assistant log.' });
   const rows = (state.evalEvents || [])
     .filter((event) => (status === 'corrected' ? Boolean(event.correction) : status === 'uncorrected' ? !event.correction : status === 'failed' ? event.blocked || event.outcome === 'failed' : true))
     .slice(-Math.max(1, Math.min(200, Number(limit) || 50)))
@@ -204,7 +216,7 @@ export function searchFirmNotes(state, { query } = {}) {
   for (const request of state.documentRequests || []) push('document-request', request.id, `${request.clientName}: ${request.items.map((item) => item.kind).join(', ')}`, `${request.note}\n${request.message}`, request.requestedOn);
   for (const reminder of state.supplierReminders || []) push('supplier-reminder', reminder.id, `${reminder.supplier} ${reminder.period}`, reminder.message || '', reminder.date);
   for (const doc of state.documents || []) push('document', doc.id || doc.sha256 || '', doc.name || doc.kind || '', `${doc.name || ''} ${doc.kind || ''} ${doc.note || ''}`, doc.uploadedOn || doc.createdOn || '');
-  for (const event of state.evalEvents || []) if (event.correction) push('correction', event.id, event.input, `${event.correction.note} ${event.correction.correctTool}`, event.correction.on);
+  if (!salaryPrivate(state)) for (const event of state.evalEvents || []) if (event.correction) push('correction', event.id, event.input, `${event.correction.note} ${event.correction.correctTool}`, event.correction.on);
   hits.sort((a, b) => String(b.on).localeCompare(String(a.on)));
   return { ok: true, data: { query: q, hits: hits.slice(0, MAX_HITS), total: hits.length } };
 }
