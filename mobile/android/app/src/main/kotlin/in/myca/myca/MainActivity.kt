@@ -1,5 +1,6 @@
 package `in`.myca.myca
 
+import android.content.ContentResolver
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -38,7 +39,11 @@ class MainActivity : FlutterFragmentActivity() {
     private fun remember(intent: Intent?) {
         if (intent == null || intent.action != Intent.ACTION_SEND) return
         val uri: Uri = intent.getParcelableExtra(Intent.EXTRA_STREAM) ?: return
-        val mime = intent.type ?: contentResolver.getType(uri) ?: "application/octet-stream"
+        if (uri.scheme != ContentResolver.SCHEME_CONTENT) return
+        val authority = uri.authority ?: return
+        val owner = packageManager.resolveContentProvider(authority, 0)?.packageName
+        if (owner == null || owner == packageName) return
+        val mime = contentResolver.getType(uri) ?: return
         if (!ACCEPTED.any { mime.startsWith(it) }) return
         val bytes = try {
             contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: return
