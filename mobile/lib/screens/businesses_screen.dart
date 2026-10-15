@@ -91,6 +91,35 @@ class _BusinessesScreenState extends State<BusinessesScreen> {
     }
   }
 
+  Future<void> _restoreFromFile(String name) async {
+    final state = AppScope.of(context);
+    setState(() {
+      _error = '';
+      _note = '';
+    });
+    final picked = await state.pickTextFile(const ['json']);
+    if (picked == null || !mounted) return;
+    Map<String, Object?> payload;
+    try {
+      final decoded = jsonDecode(picked.content);
+      if (decoded is! Map) throw const FormatException();
+      payload = decoded.cast<String, Object?>();
+    } on FormatException {
+      setState(() => _error = 'That file is not a MyCA export or backup.');
+      return;
+    }
+    final invoices = ((payload['books'] ?? payload['state']) as Map?)?['invoices'];
+    final count = invoices is List ? invoices.length : 0;
+    if (!await _sure('Replace $name with ${picked.name}?', 'The books on MyCA become the ones in this file (${count == 1 ? '1 invoice' : '$count invoices'}). What is on MyCA now is kept in the audit trail and the fourteen-day backups, but the screens will show the file.', 'Replace')) return;
+    try {
+      final out = await state.cloud!.replaceBooks(payload);
+      await state.refresh();
+      if (mounted) setState(() => _note = 'Replaced from ${picked.name}: ${out['restored'] is Map ? '${(out['restored'] as Map)['invoices']} invoices, ${(out['restored'] as Map)['documents']} documents' : 'done'}.');
+    } on MycaApiException catch (err) {
+      if (mounted) setState(() => _error = err.message);
+    }
+  }
+
   Future<void> _deleteAccount() async {
     final state = AppScope.of(context);
     if (!await _sure('Delete your account?', 'You are signed out everywhere. A business where you are the only owner is deleted with you; one with another owner stays with them.', 'Delete account')) return;
@@ -158,6 +187,13 @@ class _BusinessesScreenState extends State<BusinessesScreen> {
                       title: 'Download everything about ${business.name}',
                       subtitle: 'One file with the books, documents, members and audit trail',
                       onTap: () => _download(business.name),
+                    ),
+                  for (final business in me.businesses.where((b) => b.id == current && b.role == 'owner'))
+                    RowCard(
+                      leading: const TintTile(tint: Tint.ask, mark: Mark.bringIn),
+                      title: 'Restore ${business.name} from a file',
+                      subtitle: 'A download from here, or a backup from the Windows app',
+                      onTap: () => _restoreFromFile(business.name),
                     ),
                 ],
               ),

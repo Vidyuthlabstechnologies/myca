@@ -11,6 +11,31 @@ function padInv(n) {
   return `INV-${String(n).padStart(4, '0')}`;
 }
 
+export function fyCodeOf(date) {
+  const [y, m] = String(date || '').split('-').map(Number);
+  const start = m >= 4 ? y : y - 1;
+  return `${String(start).slice(-2)}${String(start + 1).slice(-2)}`;
+}
+
+function yearlyInv(fy, n) {
+  return `INV-${fy}${String(n).padStart(4, '0')}`;
+}
+
+export function nextInvoiceId(state, date) {
+  if (state.company?.invoiceNumbering === 'yearly') {
+    const fy = fyCodeOf(date);
+    state.invoiceSeqByFy = state.invoiceSeqByFy && typeof state.invoiceSeqByFy === 'object' ? state.invoiceSeqByFy : {};
+    let n = Number(state.invoiceSeqByFy[fy] || 0);
+    do n += 1;
+    while (idTaken(state.invoices, yearlyInv(fy, n)));
+    state.invoiceSeqByFy[fy] = n;
+    return yearlyInv(fy, n);
+  }
+  do state.invoiceSeq = (state.invoiceSeq || 0) + 1;
+  while (idTaken(state.invoices, padInv(state.invoiceSeq)));
+  return padInv(state.invoiceSeq);
+}
+
 function nextTransferId(state) {
   return BigInt(state.transferSeq = (state.transferSeq || 100000) + 1);
 }
@@ -128,11 +153,8 @@ export function createInvoice(state, input) {
   const total = Math.round((taxable + cgst + sgst + igst) * 100) / 100;
   const assignedSeq = !input.id;
   const seqBefore = state.invoiceSeq || 0;
-  if (assignedSeq) {
-    do state.invoiceSeq = (state.invoiceSeq || 0) + 1;
-    while (idTaken(state.invoices, padInv(state.invoiceSeq)));
-  }
-  const id = input.id || padInv(state.invoiceSeq);
+  const seqByFyBefore = JSON.stringify(state.invoiceSeqByFy || {});
+  const id = input.id || nextInvoiceId(state, date);
   const linked = TRANSFER_FLAGS.LINKED;
   const bundle = [];
   bundle.push({
@@ -179,7 +201,10 @@ export function createInvoice(state, input) {
   }
   const posted = createTransfers(state.ledger, bundle);
   if (posted.some((p) => !p.ok)) {
-    if (assignedSeq) state.invoiceSeq = seqBefore;
+    if (assignedSeq) {
+      state.invoiceSeq = seqBefore;
+      state.invoiceSeqByFy = JSON.parse(seqByFyBefore);
+    }
     return { ok: false, error: 'LEDGER_REJECT', posted };
   }
   const invoice = {

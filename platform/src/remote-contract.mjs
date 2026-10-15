@@ -71,7 +71,7 @@ export const REMOTE_QUERY_TOOLS = new Set([
   'validate_gstin',
 ]);
 
-export const COMPANY_PROFILE_FIELDS = ['name', 'gstin', 'pan', 'state', 'address', 'city', 'pin', 'entityType'];
+export const COMPANY_PROFILE_FIELDS = ['name', 'gstin', 'pan', 'state', 'address', 'city', 'pin', 'entityType', 'invoiceNumbering'];
 
 export function isRemoteQuery(name) {
   return REMOTE_QUERY_TOOLS.has(String(name));

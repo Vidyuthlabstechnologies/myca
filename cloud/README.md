@@ -98,6 +98,11 @@ header:
   the business as one JSON document: the books, every file keyed by sha256, members,
   connections and the audit trail; the download itself is audited. The Windows app can
   restore the `books` and `documents` parts as a backup.
+- `POST /v1/businesses/:id/replace` (owner only) replaces the books with a file saved by
+  "Download everything" or a backup from the Windows app: the ledger chain and every
+  document hash are verified, approvals and pending actions are dropped, the new files
+  are stored, and the replacement is audited with the counts before and after. With the
+  export this is how a CA firm's Windows app and the hosted books move either way.
 - `POST /v1/inbound/email` is for the email relay only (`x-myca-relay-token` must equal
   `MYCA_INBOUND_RELAY_TOKEN`, 32+ characters). With `MYCA_INBOUND_EMAIL_DOMAIN` set,
   every documents key gets an address `<token>@<domain>` shown under Connections; mail to

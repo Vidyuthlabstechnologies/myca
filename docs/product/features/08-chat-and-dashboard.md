@@ -168,10 +168,10 @@ the hosted API (`propose`, `confirm`, `discard`).
   payments recorded here: the purchase register MyCA builds from the books carries the
   amount paid and the last payment date (2026-10-15).
 
-### Expense chats (to build)
+### Expense chats (built)
 
-One chat per expense head or recurring payee, once tagging exists
-([spec 01](01-accounting-and-tagging.md)), for example "Stationery purchase".
+One chat per expense head (`ExpenseHeadScreen`), reached from Expenses; each shows the
+head's entries and takes a new expense.
 
 ## Acceptance criteria
 

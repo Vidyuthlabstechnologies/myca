@@ -87,6 +87,30 @@ export function createBooksRunner({ db, now = () => Date.now() }) {
     });
   }
 
+  async function replaceBooks(businessId, context, payload) {
+    return db.tx(async (q) => {
+      const row = await lockLive(q, businessId);
+      const { books, documents, session } = await open(q, businessId, row.state, row.version);
+      const before = { invoices: session.state.invoices.length, version: Number(row.version) };
+      const out = await session.restore({ ...payload, confirm: true });
+      if (out.ok === false) return out;
+      await q('update books set state = $2::jsonb, version = version + 1, updated_at = now() where business_id = $1', [businessId, books.stored()]);
+      let stored = 0;
+      for (const doc of documents.added()) {
+        await q(
+          'insert into documents (business_id, sha256, content, bytes) values ($1, $2, $3, $4) on conflict do nothing',
+          [businessId, doc.sha256, doc.content, Buffer.byteLength(doc.content, 'utf8')],
+        );
+        stored += 1;
+      }
+      await q(
+        `insert into audit_log (business_id, user_id, device_id, request_id, action, metadata) values ($1, $2, $3, $4, 'books.replaced', $5::jsonb)`,
+        [businessId, context.userId || null, context.deviceId || null, context.requestId || '', JSON.stringify({ before, after: { invoices: out.restored.invoices, documents: out.restored.documents, documentsStored: stored }, exportedAt: payload.exportedAt || '' })],
+      );
+      return { ...out, replaced: true, documentsStored: stored };
+    });
+  }
+
   async function withReadOnlyBooks(businessId, context, run) {
     return db.tx(async (q) => {
       const found = await q('select version, state from books where business_id = $1 for share', [businessId]);
@@ -121,5 +145,5 @@ export function createBooksRunner({ db, now = () => Date.now() }) {
     });
   }
 
-  return { withBooks, withReadOnlyBooks, withSharedBooks, share };
+  return { withBooks, withReadOnlyBooks, withSharedBooks, share, replaceBooks };
 }

@@ -28,6 +28,7 @@ export function createState() {
     invoices: [],
     purchases: [],
     invoiceSeq: 0,
+    invoiceSeqByFy: {},
     billSeq: 0,
     transferSeq: 100000,
     imports: [],
@@ -104,6 +105,7 @@ export function serialize(state) {
     invoices: state.invoices,
     purchases: state.purchases || [],
     invoiceSeq: state.invoiceSeq,
+    invoiceSeqByFy: state.invoiceSeqByFy || {},
     billSeq: state.billSeq || 0,
     transferSeq: state.transferSeq,
     imports: state.imports,
@@ -259,6 +261,7 @@ export function deserialize(raw) {
   state.invoices = raw.invoices || [];
   state.purchases = raw.purchases || [];
   state.invoiceSeq = raw.invoiceSeq || 0;
+  state.invoiceSeqByFy = raw.invoiceSeqByFy && typeof raw.invoiceSeqByFy === 'object' ? raw.invoiceSeqByFy : {};
   state.billSeq = raw.billSeq || 0;
   state.transferSeq = raw.transferSeq || 100000;
   state.imports = raw.imports || [];

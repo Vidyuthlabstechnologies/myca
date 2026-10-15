@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:myca/app_services.dart';
 import 'package:myca/app_state.dart';
 import 'package:myca/main.dart';
 
@@ -35,7 +36,7 @@ void main() {
     final session = await signedIn(cloud);
     await session.createBusiness(name: 'Asha Traders', state: '29');
     final saved = <String, String>{};
-    final state = AppState(cloud: session, store: MemoryOnboardingStore(isWelcomed: true, isMigrated: true), pickTextFile: (_) async => null, saveTextFile: (name, content) async {
+    final state = AppState(cloud: session, store: MemoryOnboardingStore(isWelcomed: true, isMigrated: true), pickTextFile: (_) async => const PickedText(name: 'myca-backup.json', content: '{"version":1,"books":{"invoices":[{"id":"INV-0001"},{"id":"INV-0002"}]},"documents":{}}'), saveTextFile: (name, content) async {
       saved[name] = content;
       return true;
     });
@@ -51,6 +52,14 @@ void main() {
     expect(saved.keys.single, startsWith('myca-asha-traders-'));
     expect(saved.values.single, contains('"exportedAt"'));
     expect(find.textContaining('your books, every uploaded file'), findsOneWidget);
+    await tester.tap(find.text('Restore Asha Traders from a file'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('2 invoices'), findsOneWidget);
+    await tester.tap(find.widgetWithText(FilledButton, 'Replace'));
+    await tester.pumpAndSettle();
+    expect(cloud.replaced.length, 1);
+    expect((cloud.replaced.single['books'] as Map)['invoices'], hasLength(2));
+    expect(find.textContaining('Replaced from myca-backup.json: 2 invoices, 1 documents'), findsOneWidget);
     await tester.tap(find.text('Delete Asha Traders'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Keep'));

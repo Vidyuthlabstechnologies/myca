@@ -142,7 +142,7 @@ export const TOOLS = [
     name: 'set_company',
     title: 'Set business profile',
     description: 'Set this book\'s own business identity (name, GSTIN, PAN, state, FY, address; country and EIN before anything is posted). Affects future postings only; history is untouched.',
-    args: ['name', 'gstin', 'pan', 'state', 'fy', 'address', 'city', 'pin', 'entityType', 'country', 'ein'],
+    args: ['name', 'gstin', 'pan', 'state', 'fy', 'address', 'city', 'pin', 'entityType', 'country', 'ein', 'invoiceNumbering'],
     run: (state, args = {}) => {
       const company = state.company;
       const patch = {};
@@ -151,6 +151,11 @@ export const TOOLS = [
         if (!isCountry(code)) return fail('UNKNOWN_COUNTRY', { country: code });
         if (code !== countryOf(state) && (state.ledger?.transfers || []).length) return fail('COUNTRY_FIXED', { country: countryOf(state) });
         patch.country = code;
+      }
+      if (args.invoiceNumbering != null) {
+        const mode = String(args.invoiceNumbering).trim().toLowerCase();
+        if (!['continuous', 'yearly'].includes(mode)) return fail('BAD_NUMBERING', { invoiceNumbering: mode, hint: 'continuous or yearly' });
+        patch.invoiceNumbering = mode;
       }
       if (args.ein != null) {
         const ein = String(args.ein).trim();
@@ -1043,6 +1048,19 @@ export const TOOLS = [
     description: 'Questions for the CA with their attached facts and replies, open unless asked otherwise. Read-only.',
     args: ['status'],
     run: (state, args = {}) => listCaRequests(state, args),
+  },
+  {
+    name: 'set_invoice_numbering',
+    title: 'Invoice numbering',
+    description: 'Choose how new invoices are numbered: one continuous series (INV-0001 onwards) or one series per financial year (INV-26270001 is the first of 2026-27). Existing invoices keep their numbers. Owner only.',
+    args: ['mode'],
+    run: (state, args = {}) => {
+      const mode = String(args.mode || '').trim().toLowerCase();
+      if (!['continuous', 'yearly'].includes(mode)) return fail('BAD_NUMBERING', { mode, hint: 'continuous or yearly' });
+      const before = state.company.invoiceNumbering || 'continuous';
+      state.company.invoiceNumbering = mode;
+      return { ok: true, mode, before };
+    },
   },
   {
     name: 'set_supplier_terms',
