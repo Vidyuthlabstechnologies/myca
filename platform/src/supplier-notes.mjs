@@ -28,7 +28,7 @@ export function planSupplierNote(state, args = {}) {
   if (supplierNoteNo.length > 16) return { ok: false, error: 'SUPPLIER_NUMBER_TOO_LONG', supplierNoteNo };
   const company = state.company || {};
   const supplierState = partyStateOf(bill.partyGstin) || bill.partyState || company.state;
-  const lines = settle(scaledLines(bill, requested / Number(bill.total), { supplierState, partyState: company.state }), requested);
+  const lines = settle(scaledLines(bill, requested / Number(bill.total), { supplierState, partyState: bill.registrationState || company.state }), requested);
   const totals = totalsOf(lines);
   const itcEligible = bill.itcEligible !== false;
   return { ok: true, plan: { bill, date, reason, supplierNoteNo, lines, ...totals, itcEligible, alreadyAdded: round2(supplierNotesAgainst(state, billId).reduce((sum, note) => sum + Number(note.total || 0), 0)) } };

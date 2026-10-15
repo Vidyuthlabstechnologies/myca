@@ -58,6 +58,8 @@ const tdsProperties = {
   payeePan: { type: 'string', maxLength: 12 },
 };
 
+const REGISTRATION_ARG = { type: 'string', pattern: '^([0-9]{2}[A-Z0-9]{13})?$' };
+
 const documentSchema = {
   type: 'object',
   additionalProperties: false,
@@ -66,6 +68,7 @@ const documentSchema = {
     partyName: { type: 'string', minLength: 1 },
     partyGstin: { type: 'string' },
     partyState: { type: 'string' },
+    registrationGstin: REGISTRATION_ARG,
     date: { type: 'string' },
     lines: {
       type: 'array',
@@ -400,7 +403,7 @@ export const TOOL_ARG_SCHEMAS = {
     type: 'object',
     additionalProperties: false,
     required: ['returnType', 'period', 'arn'],
-    properties: {
+    properties: { gstin: REGISTRATION_ARG,
       returnType: { type: 'string', pattern: '^[A-Za-z0-9_-]{2,20}$' },
       period: { type: 'string', minLength: 4, maxLength: 20 },
       arn: { type: 'string', pattern: '^[A-Za-z0-9 ]{10,24}$' },
@@ -637,6 +640,7 @@ export const TOOL_ARG_SCHEMAS = {
       cost: { type: 'number', minimum: 0 },
       name: { type: 'string', maxLength: 120 },
       hsn: { type: 'string', maxLength: 8 },
+      gstRate: { type: 'number', minimum: 0, maximum: 28 },
       on: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' },
     },
   },
@@ -675,6 +679,39 @@ export const TOOL_ARG_SCHEMAS = {
     type: 'object',
     additionalProperties: false,
     properties: { asOf: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' } },
+  },
+  set_registration: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['gstin'],
+    properties: {
+      gstin: { type: 'string', maxLength: 15 },
+      kind: { type: 'string', enum: ['apob', 'warehouse', 'branch'] },
+      label: { type: 'string', maxLength: 60 },
+      effectiveFrom: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' },
+    },
+  },
+  retire_registration: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['gstin'],
+    properties: { gstin: { type: 'string', maxLength: 15 }, effectiveTo: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' } },
+  },
+  registrations: { type: 'object', additionalProperties: false, properties: {} },
+  record_stock_transfer: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['sku', 'qty', 'fromGstin', 'toGstin'],
+    properties: {
+      sku: { type: 'string', minLength: 1, maxLength: 64 },
+      qty: { type: 'number', exclusiveMinimum: 0 },
+      fromGstin: { type: 'string', maxLength: 15 },
+      toGstin: { type: 'string', maxLength: 15 },
+      date: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' },
+      unitValue: { type: 'number', minimum: 0 },
+      gstRate: { type: 'number', minimum: 0, maximum: 28 },
+      hsn: { type: 'string', maxLength: 8 },
+    },
   },
   settlement_status: {
     type: 'object',
@@ -1180,13 +1217,13 @@ export const TOOL_ARG_SCHEMAS = {
   gst_review: {
     type: 'object',
     additionalProperties: false,
-    properties: { period: { type: 'string', pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' } },
+    properties: { gstin: REGISTRATION_ARG, period: { type: 'string', pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' } },
   },
   gst_review_answer: {
     type: 'object',
     additionalProperties: false,
     required: ['period', 'step', 'answer', 'draftHash'],
-    properties: {
+    properties: { gstin: REGISTRATION_ARG,
       period: { type: 'string', pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' },
       step: { type: 'string', enum: ['held', 'sales', 'credit', 'pay', 'approve'] },
       answer: { type: 'string', enum: ['correct', 'wrong', 'approve'] },
@@ -1241,7 +1278,7 @@ export const TOOL_ARG_SCHEMAS = {
   record_gst_payment: {
     type: 'object',
     additionalProperties: false,
-    properties: {
+    properties: { gstin: REGISTRATION_ARG,
       period: { type: 'string', pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' },
       date: { type: 'string' },
       mode: { type: 'string', enum: ['bank', 'cash'] },
@@ -1253,13 +1290,13 @@ export const TOOL_ARG_SCHEMAS = {
     type: 'object',
     additionalProperties: false,
     required: ['quarter'],
-    properties: { quarter: { type: 'string', pattern: '^Q[1-4] [0-9]{4}-[0-9]{2}$' }, grossTurnover: { type: 'number', minimum: 0 }, currentGrossTurnover: { type: 'number', minimum: 0 } },
+    properties: { gstin: REGISTRATION_ARG, quarter: { type: 'string', pattern: '^Q[1-4] [0-9]{4}-[0-9]{2}$' }, grossTurnover: { type: 'number', minimum: 0 }, currentGrossTurnover: { type: 'number', minimum: 0 } },
   },
   export_iff: {
     type: 'object',
     additionalProperties: false,
     required: ['period'],
-    properties: { period: { type: 'string', pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' } },
+    properties: { gstin: REGISTRATION_ARG, period: { type: 'string', pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' } },
   },
   close_year: {
     type: 'object',
@@ -1280,7 +1317,7 @@ export const TOOL_ARG_SCHEMAS = {
   gst_payable: {
     type: 'object',
     additionalProperties: false,
-    properties: {
+    properties: { gstin: REGISTRATION_ARG,
       period: { type: 'string', pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' },
       payOn: { type: 'string' },
     },
@@ -1299,17 +1336,17 @@ export const TOOL_ARG_SCHEMAS = {
   prepare_gstr1: {
     type: 'object',
     additionalProperties: false,
-    properties: { period: { type: 'string', pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' } },
+    properties: { gstin: REGISTRATION_ARG, period: { type: 'string', pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' } },
   },
   gst_period_summary: {
     type: 'object',
     additionalProperties: false,
-    properties: { period: { type: 'string', pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' } },
+    properties: { gstin: REGISTRATION_ARG, period: { type: 'string', pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' } },
   },
   export_gstr1_json: {
     type: 'object',
     additionalProperties: false,
-    properties: {
+    properties: { gstin: REGISTRATION_ARG,
       fp: { type: 'string', pattern: '^(0[1-9]|1[0-2])[0-9]{4}$' },
       grossTurnover: { type: 'number', minimum: 0 },
       currentGrossTurnover: { type: 'number', minimum: 0 },
@@ -1318,12 +1355,12 @@ export const TOOL_ARG_SCHEMAS = {
   prepare_gstr3b: {
     type: 'object',
     additionalProperties: false,
-    properties: { inwardText: { type: 'string' }, period: { type: 'string', pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' } },
+    properties: { gstin: REGISTRATION_ARG, inwardText: { type: 'string' }, period: { type: 'string', pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' } },
   },
   filing_pack: {
     type: 'object',
     additionalProperties: false,
-    properties: { period: { type: 'string', pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' } },
+    properties: { gstin: REGISTRATION_ARG, period: { type: 'string', pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' } },
   },
   govt_probe: noArgs,
   govt_nic_auth: noArgs,
@@ -1651,6 +1688,10 @@ const TOOL_RISK = {
   stock_position: 'read_only',
   sku_margins: 'read_only',
   daily_close: 'read_only',
+  set_registration: 'writes_books',
+  retire_registration: 'writes_books',
+  registrations: 'read_only',
+  record_stock_transfer: 'writes_books',
   settlement_status: 'read_only',
   sales_tax_review_answer: 'writes_books',
   record_sales_tax_payment: 'writes_books',
@@ -2126,13 +2167,22 @@ export function planLocalToolCall(state, message) {
     if (!csv) return { kind: 'reply', reply: 'Attach a Tally Day Book CSV first (dropdown: Tally Day Book).', tools: [] };
     return { kind: 'tool', name: 'import_tally', args: { csv, fileName: state.pendingFile?.name || 'tally.csv' }, clearsPendingFile: true };
   }
+  {
+    const addReg = /^(?:add|register|new)\s+(?:gst\s+)?registration\s+([0-9]{2}[A-Z0-9]{13})(?:\s+(?:as|kind)\s+(apob|warehouse|branch))?(?:\s+(?:called|labelled|label)\s+(.+))?\s*$/i.exec(text.trim());
+    if (addReg && !isNegated(text)) return { kind: 'tool', name: 'set_registration', args: { gstin: addReg[1].toUpperCase(), ...(addReg[2] ? { kind: addReg[2].toLowerCase() } : {}), ...(addReg[3] ? { label: addReg[3].trim() } : {}) } };
+    const retire = /^(?:retire|surrender|close)\s+(?:gst\s+)?registration\s+([0-9]{2}[A-Z0-9]{13})(?:\s+(?:from|on)\s+(\d{4}-\d{2}-\d{2}))?\s*$/i.exec(text.trim());
+    if (retire && !isNegated(text)) return { kind: 'tool', name: 'retire_registration', args: { gstin: retire[1].toUpperCase(), ...(retire[2] ? { effectiveTo: retire[2] } : {}) } };
+    if (/^(?:gst\s+)?registrations\??$|\b(?:my|our|list)\s+(?:gst\s+)?registrations\b|\bwhich\s+gstins?\b/i.test(text.trim())) return { kind: 'tool', name: 'registrations', args: {} };
+    const move = /^(?:transfer|move)\s+([\d.]+)\s+(?:of\s+)?([A-Za-z0-9][A-Za-z0-9_./-]{0,63})\s+from\s+([0-9]{2}[A-Z0-9]{13})\s+to\s+([0-9]{2}[A-Z0-9]{13})(?:\s+at\s+(?:₹|rs\.?\s*)?([\d,]+(?:\.\d+)?)\s*(?:each|per unit)?)?(?:\s+(?:gst\s+)?(\d{1,2})%)?\s*$/i.exec(text.trim());
+    if (move && !isNegated(text)) return { kind: 'tool', name: 'record_stock_transfer', args: { sku: move[2].toUpperCase(), qty: Number(move[1]), fromGstin: move[3].toUpperCase(), toGstin: move[4].toUpperCase(), ...(move[5] ? { unitValue: Number(move[5].replace(/,/g, '')) } : {}), ...(move[6] ? { gstRate: Number(move[6]) } : {}) } };
+  }
   if (/\b(?:daily|nightly|day'?s|today'?s)\s+close\b|\bclose\s+(?:status|checklist|the\s+books|of\s+the\s+day)\b|\b(?:are|is)\s+(?:the\s+|my\s+)?books\s+closed\b|\bbooks\s+closed\s*\??$|^closure\s*\??$/i.test(text) && !/\bclose\s+(?:the\s+)?year\b|\byear\s+close\b/i.test(text)) {
     const on = /\b(\d{4}-\d{2}-\d{2})\b/.exec(text);
     return { kind: 'tool', name: 'daily_close', args: on ? { asOf: on[1] } : {} };
   }
   {
-    const cost = /^(?:cost\s+of\s+|set\s+cost\s+(?:of\s+)?)([A-Za-z0-9][A-Za-z0-9_./-]{0,63})\s+(?:is|=|:|to|at)?\s*(?:₹|rs\.?\s*)?([\d,]+(?:\.\d+)?)\s*$/i.exec(text.trim());
-    if (cost && !isNegated(text)) return { kind: 'tool', name: 'set_sku_cost', args: { sku: cost[1].toUpperCase(), cost: Number(cost[2].replace(/,/g, '')) } };
+    const cost = /^(?:cost\s+of\s+|set\s+cost\s+(?:of\s+)?)([A-Za-z0-9][A-Za-z0-9_./-]{0,63})\s+(?:is|=|:|to|at)?\s*(?:₹|rs\.?\s*)?([\d,]+(?:\.\d+)?)(?:\s+(?:at|gst)\s+(\d{1,2})%)?\s*$/i.exec(text.trim());
+    if (cost && !isNegated(text)) return { kind: 'tool', name: 'set_sku_cost', args: { sku: cost[1].toUpperCase(), cost: Number(cost[2].replace(/,/g, '')), ...(cost[3] ? { gstRate: Number(cost[3]) } : {}) } };
     const stock = /^stock\s+(in|out)\s+([A-Za-z0-9][A-Za-z0-9_./-]{0,63})\s+([\d.]+)(?:\s+(?:at|to|from|in)\s+([A-Za-z0-9][A-Za-z0-9 _-]{0,39}))?\s*$/i.exec(text.trim());
     if (stock && !isNegated(text)) return { kind: 'tool', name: 'record_stock', args: { sku: stock[2].toUpperCase(), qty: stock[1].toLowerCase() === 'in' ? Number(stock[3]) : -Number(stock[3]), ...(stock[4] ? { location: stock[4].trim().toLowerCase() } : {}) } };
     if (/\bimport\s+(?:sku\s+)?costs?\b|\bsku\s+costs?\s+(?:file|csv|sheet)\b/i.test(text) && !isQuestion(text)) {

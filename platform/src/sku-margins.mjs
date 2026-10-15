@@ -55,10 +55,12 @@ export function planSkuCost(state, args = {}) {
   const before = skus(state)[sku] || null;
   const name = args.name != null ? String(args.name).trim().slice(0, 120) : before?.name || '';
   const hsn = args.hsn != null ? String(args.hsn).trim().slice(0, 8) : before?.hsn || '';
-  if (cost == null && !name && !hsn) return { ok: false, error: 'NOTHING_TO_CHANGE' };
+  const gstRate = args.gstRate == null || args.gstRate === '' ? before?.gstRate ?? null : Number(args.gstRate);
+  if (gstRate != null && !(Number.isFinite(gstRate) && gstRate >= 0 && gstRate <= 28)) return { ok: false, error: 'BAD_RATE' };
+  if (cost == null && !name && !hsn && args.gstRate == null) return { ok: false, error: 'NOTHING_TO_CHANGE' };
   const on = args.on ? postingDate(args.on) : localToday();
   if (args.on && !on) return { ok: false, error: 'INVALID_DATE', on: args.on };
-  return { ok: true, plan: { sku, next: { name, hsn, cost: cost == null ? before?.cost ?? null : cost, costOn: cost == null ? before?.costOn || '' : on }, before } };
+  return { ok: true, plan: { sku, next: { name, hsn, gstRate, cost: cost == null ? before?.cost ?? null : cost, costOn: cost == null ? before?.costOn || '' : on }, before } };
 }
 
 export function setSkuCost(state, args = {}) {

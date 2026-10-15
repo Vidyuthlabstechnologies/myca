@@ -1,6 +1,6 @@
 # D4: several GSTINs under one business
 
-Date: 2026-10-16. Status: design; no code yet. Part of the
+Date: 2026-10-16. Status: built 2026-10-16 (steps 1 to 5 in the platform; the owner decided transfers at cost by default and no retiring with open documents); step 6, the app, follows. Part of the
 [D2C programme](2026-10-16-d2c-programme.md).
 
 ## 1. The problem

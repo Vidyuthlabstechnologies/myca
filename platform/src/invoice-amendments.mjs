@@ -35,7 +35,7 @@ function revisedLines(state, invoice, rawLines) {
   if (specs.some((spec) => !Number.isFinite(spec.qty) || spec.qty <= 0 || !Number.isFinite(spec.rate) || spec.rate < 0 || !Number.isFinite(spec.gstRate))) return { error: 'BAD_LINE' };
   const lines = specs.map((spec) => {
     const taxable = round2(spec.qty * spec.rate);
-    const split = gstSplit({ taxable, rate: spec.gstRate, supplierState: state.company.state, partyState: invoice.placeOfSupply || invoice.partyState });
+    const split = gstSplit({ taxable, rate: spec.gstRate, supplierState: invoice.registrationState || state.company.state, partyState: invoice.placeOfSupply || invoice.partyState });
     return { description: spec.description, hsn: spec.hsn, qty: spec.qty, rate: spec.rate, gstRate: spec.gstRate, taxable, ...split, amount: round2(taxable + split.tax) };
   });
   const sum = (key) => round2(lines.reduce((total, line) => total + Number(line[key] || 0), 0));

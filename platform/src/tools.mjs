@@ -5,6 +5,8 @@ import { importMarketplaceOrders, postSettlement } from './marketplace-orders.mj
 import { setChannelIdentity, importTcsStatement, import26asCredits, marketplaceCredits } from './marketplace-credits.mjs';
 import { setSkuCost, importSkuCosts, recordStock, stockPosition, skuMargins } from './sku-margins.mjs';
 import { dailyClose } from './daily-close.mjs';
+import { regArg, companyAs, forRegistration, setRegistration, retireRegistration, listRegistrations } from './registrations.mjs';
+import { recordStockTransfer } from './stock-transfers.mjs';
 const ingestTally = tally.ingest;
 const ingestBank = bank.ingest;
 const { reconcile } = gst;
@@ -919,7 +921,11 @@ export const TOOLS = [
     title: 'GST to pay',
     description: 'For one tax period: input credit (and any credit brought forward) set off against tax on sales head by head in the order the law sets, the cash to pay by head, the credit carried forward, and the interest and late fee if paid after the due date. Read-only.',
     args: ['period', 'payOn'],
-    run: (state, args = {}) => paymentFor(state, args.period, { payOn: args.payOn }),
+    run: (state, args = {}) => {
+      const regd = regArg(state, args.gstin);
+      if (!regd.ok) return fail(regd.error, regd);
+      return paymentFor(state, args.period, { payOn: args.payOn, gstin: regd.gstin });
+    },
   },
   {
     name: 'set_gst_credit_opening',
@@ -934,11 +940,13 @@ export const TOOLS = [
     description: 'Build GSTR-1 tables and e-invoice checks from the invoices of one tax period (the latest with documents unless a period is given).',
     args: ['period'],
     run: (state, args = {}) => {
-      const docs = documentsForPeriod(state, args.period);
+      const regd = regArg(state, args.gstin);
+      if (!regd.ok) return fail(regd.error, regd);
+      const docs = documentsForPeriod(state, args.period, '', regd.gstin);
       if (!docs.ok) return fail(docs.error, { hint: docs.hint, periods: docs.periods });
       const salesText = invoicesToSalesCsv(docs.invoices);
-      const result = filingPrep({ salesText, supplierState: state.company.state, fy: state.company.fy });
-      return ok({ period: docs.period, periods: docs.periods, salesText, gstr1: result.gstr1, eInvoice: result.summary });
+      const result = filingPrep({ salesText, supplierState: regd.registration.state, fy: state.company.fy });
+      return ok({ period: docs.period, periods: docs.periods, gstin: regd.gstin, salesText, gstr1: result.gstr1, eInvoice: result.summary });
     },
   },
   {
@@ -946,9 +954,11 @@ export const TOOLS = [
     title: 'Export GSTR-1 JSON',
     description: 'GSTN offline-utility JSON from posted invoices (does not upload).',
     run: (state, args = {}) => {
-      const json = invoicesToGstr1Json(state.company, state.invoices || [], args.fp, {
-        creditNotes: state.creditNotes || [],
-        debitNotes: state.debitNotes || [],
+      const regd = regArg(state, args.gstin);
+      if (!regd.ok) return fail(regd.error, regd);
+      const json = invoicesToGstr1Json(companyAs(state, regd.gstin), forRegistration(state, state.invoices || [], regd.gstin), args.fp, {
+        creditNotes: forRegistration(state, state.creditNotes || [], regd.gstin),
+        debitNotes: forRegistration(state, state.debitNotes || [], regd.gstin),
         grossTurnover: args.grossTurnover,
         currentGrossTurnover: args.currentGrossTurnover,
       });
@@ -961,9 +971,11 @@ export const TOOLS = [
     description: 'Draft GSTR-3B outward and ITC from the invoices and bills of one tax period (the latest with documents unless a period is given), plus an optional inward CSV.',
     args: ['period', 'inwardText'],
     run: (state, args = {}) => {
-      const docs = documentsForPeriod(state, args.period);
+      const regd = regArg(state, args.gstin);
+      if (!regd.ok) return fail(regd.error, regd);
+      const docs = documentsForPeriod(state, args.period, '', regd.gstin);
       if (!docs.ok) return fail(docs.error, { hint: docs.hint, periods: docs.periods });
-      return ok({ ...gstr3bFor(state, docs, args.inwardText || state.files.inward), periods: docs.periods });
+      return ok({ ...gstr3bFor(state, docs, args.inwardText || state.files.inward), periods: docs.periods, gstin: regd.gstin });
     },
   },
   {
@@ -972,9 +984,11 @@ export const TOOLS = [
     description: 'For one tax period: tax on sales and input credit by head from the GSTR-3B draft, and what the GSTR-1 file for that period holds. Lists the periods that have documents.',
     args: ['period'],
     run: (state, args = {}) => {
-      const summary = periodSummary(state, args.period);
+      const regd = regArg(state, args.gstin);
+      if (!regd.ok) return fail(regd.error, regd);
+      const summary = periodSummary(state, args.period, regd.gstin);
       if (!summary.ok) return summary;
-      const payment = paymentFor(state, summary.data.period);
+      const payment = paymentFor(state, summary.data.period, { gstin: regd.gstin });
       return ok({ ...summary.data, payment: payment.ok ? payment.data : null, paymentError: payment.ok ? '' : payment.error });
     },
   },
@@ -1191,7 +1205,7 @@ export const TOOLS = [
     title: 'Review the GST return',
     description: 'The steps of the review for one tax period (the latest with documents unless given): held invoices, sales, purchases and credit, approval. Each step shows its figures and whether it is confirmed for the current draft. Read-only.',
     args: ['period'],
-    run: (state, args = {}) => reviewOf(state, args.period),
+    run: (state, args = {}) => reviewOf(state, args.period, args.gstin),
   },
   {
     name: 'gst_review_answer',
@@ -1206,15 +1220,17 @@ export const TOOLS = [
     description: 'Assemble GSTR-1 + 3B + payable + TB for a CA to file. Does not upload to GSTN.',
     args: ['period'],
     run: (state, args = {}) => {
-      const docs = documentsForPeriod(state, args.period);
+      const regd = regArg(state, args.gstin);
+      if (!regd.ok) return fail(regd.error, regd);
+      const docs = documentsForPeriod(state, args.period, '', regd.gstin);
       if (!docs.ok) return fail(docs.error, { hint: docs.hint, periods: docs.periods });
       const salesText = invoicesToSalesCsv(docs.invoices);
       const inwardText = purchasesToInwardCsv(docs.purchases);
-      const filed = filingPrep({ salesText, inwardText, supplierState: state.company.state, fy: state.company.fy });
-      const payment = paymentFor(state, docs.period);
+      const filed = filingPrep({ salesText, inwardText, supplierState: regd.registration.state, fy: state.company.fy });
+      const payment = paymentFor(state, docs.period, { gstin: regd.gstin });
       if (!payment.ok) return fail(payment.error, payment);
       return ok({
-        gstin: state.company.gstin,
+        gstin: regd.gstin,
         period: docs.period,
         periods: docs.periods,
         gstr1: filed.gstr1,
@@ -1731,7 +1747,7 @@ export const TOOLS = [
     name: 'set_sku_cost',
     title: 'SKU cost',
     description: 'Record a product\'s unit cost (and name, HSN) so margins by SKU and channel can be computed. The cost is what you paid per unit, landed. Owner only.',
-    args: ['sku', 'cost', 'name', 'hsn', 'on'],
+    args: ['sku', 'cost', 'name', 'hsn', 'gstRate', 'on'],
     run: (state, args = {}) => setSkuCost(state, args),
   },
   {
@@ -1766,6 +1782,34 @@ export const TOOLS = [
     description: 'For marketplace orders in a month: units, net sales after returns, the channel\'s fees and penalties allocated to each order from its settlements, cost of goods from the recorded SKU cost, and the margin and its percentage, by SKU and by channel. SKUs without a cost are listed. Read-only.',
     args: ['period', 'channel'],
     run: (state, args = {}) => skuMargins(state, args),
+  },
+  {
+    name: 'set_registration',
+    title: 'Add a GST registration',
+    description: 'Add or update a second registration of this business in another state (an additional place of business in a marketplace warehouse, a warehouse of your own, or a branch) by its GSTIN. It shares the PAN of the principal GSTIN; one active registration per state. Invoices, bills, returns and filings can then name it; without a GSTIN they mean the principal. Owner only.',
+    args: ['gstin', 'kind', 'label', 'effectiveFrom'],
+    run: (state, args = {}) => setRegistration(state, args),
+  },
+  {
+    name: 'retire_registration',
+    title: 'Retire a GST registration',
+    description: 'Mark a registration as surrendered from a date. Refused while it has unpaid invoices or bills; settle or cancel them first. Owner only.',
+    args: ['gstin', 'effectiveTo'],
+    run: (state, args = {}) => retireRegistration(state, args),
+  },
+  {
+    name: 'registrations',
+    title: 'GST registrations',
+    description: 'The registrations of this business: principal and additional, their states, documents under each, and whether GSTR-1 and GSTR-3B are recorded as filed for the last three months. Read-only.',
+    args: [],
+    run: (state) => listRegistrations(state),
+  },
+  {
+    name: 'record_stock_transfer',
+    title: 'Stock transfer between registrations',
+    description: 'Move stock from one registration of the business to another (for example to a marketplace warehouse in another state): raises the transfer invoice under the sending registration at cost (or a stated unit value) with IGST, the matching bill with input credit under the receiving one, settles the two by contra, moves the stock, and says whether an e-way bill is needed.',
+    args: ['sku', 'qty', 'fromGstin', 'toGstin', 'date', 'unitValue', 'gstRate', 'hsn'],
+    run: (state, args = {}) => recordStockTransfer(state, args),
   },
   {
     name: 'settlement_status',

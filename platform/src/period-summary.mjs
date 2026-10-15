@@ -1,3 +1,4 @@
+import { companyAs } from './registrations.mjs';
 import { filing } from './sprint-load.mjs';
 import { invoicesToSalesCsv, purchasesToInwardCsv } from './invoice.mjs';
 import { invoicesToGstr1Json } from './gstr1-json.mjs';
@@ -43,23 +44,24 @@ function lessPurchaseNotes(itc, notes) {
 export function gstr3bFor(state, docs, inwardOverride) {
   const salesText = invoicesToSalesCsv(docs.invoices);
   const inwardText = inwardOverride || purchasesToInwardCsv(docs.purchases);
-  const result = filingPrep({ salesText, inwardText, supplierState: state.company.state, fy: state.company.fy });
+  const result = filingPrep({ salesText, inwardText, supplierState: docs.gstin !== undefined ? companyAs(state, docs.gstin).state : state.company.state, fy: state.company.fy });
   const draft = result.gstr3b || {};
   return { ...draft, outward: netOfNotes(draft.outward, docs.creditNotes || [], docs.debitNotes || []), itc: lessPurchaseNotes(draft.itc, docs.purchaseNotes || []), period: docs.period };
 }
 
-export function periodSummary(state, period) {
-  const docs = documentsForPeriod(state, period, localToday().slice(0, 7));
+export function periodSummary(state, period, gstin) {
+  const docs = documentsForPeriod(state, period, localToday().slice(0, 7), gstin);
   if (!docs.ok) return { ok: false, error: docs.error, hint: docs.hint, periods: docs.periods };
   const gstr3b = gstr3bFor(state, docs);
   const outward = gstr3b.outward?.totals || {};
   const credit = gstr3b.itc?.available || {};
-  const file = docs.invoices.length || docs.creditNotes.length || docs.debitNotes.length ? invoicesToGstr1Json(state.company, docs.invoices, fpOf(docs.period), { creditNotes: docs.creditNotes, debitNotes: docs.debitNotes }) : null;
+  const file = docs.invoices.length || docs.creditNotes.length || docs.debitNotes.length ? invoicesToGstr1Json(docs.gstin !== undefined ? companyAs(state, docs.gstin) : state.company, docs.invoices, fpOf(docs.period), { creditNotes: docs.creditNotes, debitNotes: docs.debitNotes }) : null;
   return {
     ok: true,
     data: {
       period: docs.period,
       periods: docs.periods,
+      gstin: docs.gstin,
       salesCount: docs.invoices.length,
       creditNoteCount: docs.creditNotes.length,
       creditNotes: creditNoteTotals(docs.creditNotes),

@@ -15,6 +15,7 @@ const TCS_ALIASES = {
   cgst: ['central tax', 'cgst', 'central tax amount', 'tcs cgst'],
   sgst: ['state/ut tax', 'state tax', 'sgst', 'state/ut tax amount', 'utgst', 'tcs sgst'],
   total: ['tcs', 'total tax', 'amount of tax', 'total tcs', 'tax amount'],
+  ourGstin: ['gstin of registered person', 'gstin of taxpayer', 'your gstin', 'recipient gstin', 'gstin of supplier', 'supplier gstin'],
 };
 
 const TDS_ALIASES = {
@@ -156,7 +157,7 @@ export function parseTcsStatement(text) {
     const stated = idx.total == null ? null : Math.abs(money(cells[idx.total]) || 0);
     const total = heads > 0 ? heads : stated || 0;
     if (!(total > 0)) { held.push({ row: n + 2, reason: 'BAD_AMOUNT', gstin, period }); continue; }
-    lines.push({ row: n + 2, gstin, name: idx.name == null ? '' : String(cells[idx.name] || '').trim(), period, taxable: idx.taxable == null ? null : Math.abs(money(cells[idx.taxable]) || 0), igst, cgst, sgst, total: round2(total) });
+    lines.push({ row: n + 2, gstin, ourGstin: idx.ourGstin == null ? '' : String(cells[idx.ourGstin] || '').replace(/\s+/g, '').toUpperCase(), name: idx.name == null ? '' : String(cells[idx.name] || '').trim(), period, taxable: idx.taxable == null ? null : Math.abs(money(cells[idx.taxable]) || 0), igst, cgst, sgst, total: round2(total) });
   }
   if (!lines.length) return { ok: false, error: 'NO_ROWS', held };
   return { ok: true, lines, held };
@@ -165,11 +166,11 @@ export function parseTcsStatement(text) {
 export function planTcsStatement(state, args = {}) {
   const parsed = parseTcsStatement(args.csv || '');
   if (!parsed.ok) return { ok: false, error: parsed.error, parsed };
-  const existing = new Set((state.tcsStatements || []).map((row) => `${row.gstin}|${row.period}`));
+  const existing = new Set((state.tcsStatements || []).map((row) => `${row.gstin}|${row.ourGstin || ''}|${row.period}`));
   const ready = [];
   const skipped = parsed.held.map((row) => ({ id: `row ${row.row}`, reason: row.reason }));
   for (const line of parsed.lines) {
-    const key = `${line.gstin}|${line.period}`;
+    const key = `${line.gstin}|${line.ourGstin || ''}|${line.period}`;
     if (existing.has(key)) { skipped.push({ id: key, reason: 'exists' }); continue; }
     existing.add(key);
     const channel = channelByGstin(state, line.gstin) || channelByName(line.name);
@@ -183,7 +184,7 @@ export function importTcsStatement(state, args = {}) {
   if (!planned.ok) return planned;
   state.tcsStatements = Array.isArray(state.tcsStatements) ? state.tcsStatements : [];
   const importedOn = localToday();
-  for (const line of planned.ready) state.tcsStatements.push({ gstin: line.gstin, name: line.name, period: line.period, channel: line.channel, taxable: line.taxable, igst: line.igst, cgst: line.cgst, sgst: line.sgst, total: line.total, importedOn });
+  for (const line of planned.ready) state.tcsStatements.push({ gstin: line.gstin, ourGstin: line.ourGstin || '', name: line.name, period: line.period, channel: line.channel, taxable: line.taxable, igst: line.igst, cgst: line.cgst, sgst: line.sgst, total: line.total, importedOn });
   return { ok: true, imported: planned.ready.length, total: planned.total, skipped: planned.skipped, unknownOperators: planned.ready.filter((line) => line.unknownOperator).map((line) => line.gstin) };
 }
 
@@ -312,17 +313,21 @@ export function marketplaceCredits(state, { fy } = {}) {
   };
 }
 
-export function tcsAvailableFor(state, period, { excludePeriod = '' } = {}) {
+export function tcsAvailableFor(state, period, { excludePeriod = '', gstin } = {}) {
   const heads = { igst: 0, cgst: 0, sgst: 0, total: 0 };
+  const principal = String(state.company?.gstin || '').toUpperCase();
+  const wanted = String(gstin || principal).toUpperCase();
+  const ours = (row) => !row.ourGstin || row.ourGstin === wanted || (!gstin && row.ourGstin === principal);
   for (const row of state.tcsStatements || []) {
-    if (row.period > period) continue;
+    if (row.period > period || !ours(row)) continue;
     heads.igst = round2(heads.igst + (row.igst || 0));
     heads.cgst = round2(heads.cgst + (row.cgst || 0));
     heads.sgst = round2(heads.sgst + (row.sgst || 0));
     heads.total = round2(heads.total + (row.total || 0));
   }
   for (const [p, payment] of Object.entries(state.gstPayments || {})) {
-    if (p > period || p === excludePeriod || !payment.tcsUsed) continue;
+    const [pPeriod, pGstin = principal] = String(p).split('@');
+    if (pPeriod > period || pPeriod === excludePeriod || !payment.tcsUsed || pGstin !== wanted) continue;
     heads.igst = round2(heads.igst - (payment.tcsUsed.igst || 0));
     heads.cgst = round2(heads.cgst - (payment.tcsUsed.cgst || 0));
     heads.sgst = round2(heads.sgst - (payment.tcsUsed.sgst || 0));

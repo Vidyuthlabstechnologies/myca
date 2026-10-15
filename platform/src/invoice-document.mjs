@@ -32,11 +32,11 @@ function common(state, doc) {
     date: doc.date,
     seller: {
       name: text(company.name),
-      gstin: text(company.gstin),
+      gstin: text(doc.registrationGstin || company.gstin),
       address: text(company.address),
       city: text(company.city),
       pin: text(company.pin),
-      state: place(company.state),
+      state: place(doc.registrationState || company.state),
     },
     buyer: { name: text(doc.partyName), gstin: text(doc.partyGstin), address: buyerAddress },
     placeOfSupply: place(doc.placeOfSupply || doc.partyState),

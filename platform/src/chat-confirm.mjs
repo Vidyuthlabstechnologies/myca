@@ -42,6 +42,8 @@ import { planPosImport } from './import-pos.mjs';
 import { planSettlement, settlementWords } from './settlements.mjs';
 import { planOrderImport, settlementInvoices } from './marketplace-orders.mjs';
 import { planTcsStatement, plan26asCredits } from './marketplace-credits.mjs';
+import { regArg, registrationsWords } from './registrations.mjs';
+import { planStockTransfer } from './stock-transfers.mjs';
 import { filingRows } from './deadline-run.mjs';
 import { tally, bank, gstin as gstinRules } from './sprint-load.mjs';
 import { parseZohoBooksCsv } from './import-zoho.mjs';
@@ -49,7 +51,7 @@ import { planAmendment } from './invoice-amendments.mjs';
 import { tallyXmlToDayBookCsv } from './tally-xml.mjs';
 
 export const CONFIRM_TOOLS = new Set([
-  'create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'record_filing', 'record_supplier_reminder', 'add_employee', 'change_salary', 'end_employment', 'approve_payroll', 'record_salary_payment', 'set_tds_deductor', 'record_tds_deposit', 'tds_review_answer', 'set_gst_credit_opening', 'record_gst_payment', 'close_year', 'post_expense', 'set_expense_head', 'create_credit_note', 'create_debit_note', 'create_purchase_note', 'record_supplier_debit_note', 'cancel_invoice', 'gst_review_answer', 'import_gstr2b', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'set_party_address', 'set_transport', 'set_sales_tax_rate', 'set_contractor', 'set_sales_tax_nexus', 'sales_tax_review_answer', 'record_sales_tax_payment', 'record_sales_tax_filing', 'set_withholding', 'set_suta_rate', 'import_us_invoices', 'import_pos_sales', 'import_settlement', 'import_marketplace_orders', 'import_tcs_statement', 'import_26as_credits', 'record_stock', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote', 'amend_invoice',
+  'create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'record_filing', 'record_supplier_reminder', 'add_employee', 'change_salary', 'end_employment', 'approve_payroll', 'record_salary_payment', 'set_tds_deductor', 'record_tds_deposit', 'tds_review_answer', 'set_gst_credit_opening', 'record_gst_payment', 'close_year', 'post_expense', 'set_expense_head', 'create_credit_note', 'create_debit_note', 'create_purchase_note', 'record_supplier_debit_note', 'cancel_invoice', 'gst_review_answer', 'import_gstr2b', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'set_party_address', 'set_transport', 'set_sales_tax_rate', 'set_contractor', 'set_sales_tax_nexus', 'sales_tax_review_answer', 'record_sales_tax_payment', 'record_sales_tax_filing', 'set_withholding', 'set_suta_rate', 'import_us_invoices', 'import_pos_sales', 'import_settlement', 'import_marketplace_orders', 'import_tcs_statement', 'import_26as_credits', 'record_stock', 'record_stock_transfer', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote', 'amend_invoice',
   'import_tally', 'import_tally_xml', 'import_zoho', 'import_bank',
   'govt_generate_irn', 'govt_nic_cancel_irn',
   'exception_decide',
@@ -265,12 +267,15 @@ function documentPreview(state, args, kind) {
   const fx = exportSale ? Number(String(exportSale.currency || 'INR').toUpperCase() === 'INR' ? 1 : exportSale.exchangeRate) : 1;
   if (exportSale && !(fx > 0)) blockers.push('An export needs the exchange rate: rupees per unit of the currency.');
   if (exportSale && String(args.partyGstin || '').trim()) blockers.push('An export goes to a buyer outside India, who has no GSTIN.');
+  const regd = regArg(state, args.registrationGstin);
+  if (!regd.ok) blockers.push(`${args.registrationGstin} is not a registration of this business.`);
+  const ownState = regd.ok ? regd.registration.state : company.state;
   const pos = exportSale
     ? '96'
     : sale
-      ? (stateCodeOf(args.partyState) || partyStateOf(args.partyGstin) || company.state)
-      : company.state;
-  const supplier = sale ? company.state : (partyStateOf(args.partyGstin) || stateCodeOf(args.partyState) || company.state);
+      ? (stateCodeOf(args.partyState) || partyStateOf(args.partyGstin) || ownState)
+      : ownState;
+  const supplier = sale ? ownState : (partyStateOf(args.partyGstin) || stateCodeOf(args.partyState) || ownState);
   const unrated = (args.lines || []).findIndex((l) => l.gstRate == null || l.gstRate === '');
   if (unrated >= 0) {
     const last = lastGstRateFor(state, { name: args.partyName, gstin: args.partyGstin }, kind);
@@ -1017,6 +1022,22 @@ function usImportPreview(state, args) {
   };
 }
 
+function stockTransferPreview(state, args) {
+  const planned = planStockTransfer(state, args);
+  if (!planned.ok) {
+    const reason = { SKU_REQUIRED: 'Say which SKU.', BAD_QTY: 'A quantity is a number above zero.', UNKNOWN_REGISTRATION: `${planned.gstin} is not a registration of this business.`, SAME_REGISTRATION: 'Both ends are the same registration; record the stock at its new location instead.', REGISTRATION_RETIRED: 'That registration is retired.', INVALID_DATE: 'That is not a date I can read.', COST_REQUIRED: 'Set the SKU cost first, or give a unit value; transfers go at cost by default.', RATE_REQUIRED: 'Say the GST rate of the goods, or set it on the SKU.', BAD_AMOUNT: 'The unit value must be zero or more.' }[planned.error] || planned.error;
+    return { blockers: [reason], summary: '', effects: [], figures: {} };
+  }
+  const { plan } = planned;
+  const tax = Math.round(plan.taxable * plan.gstRate) / 100;
+  return {
+    blockers: [],
+    summary: `Transfer ${plan.qty} of ${plan.sku} from ${plan.from.label} (${plan.from.gstin}) to ${plan.to.label} (${plan.to.gstin}) on ${plan.date} ${plan.atCost ? 'at cost' : 'at the stated value'}: ${money(plan.taxable)} plus IGST ${money(tax)}.`,
+    effects: ['A transfer invoice posts under the sending registration and a bill with input credit under the receiving one; the two are settled by contra, so nothing is owed.', 'The stock moves between the two locations.', 'If the goods are above the e-way bill limit, the invoice will say an e-way bill is needed.'],
+    figures: { taxable: plan.taxable, tax, qty: plan.qty },
+  };
+}
+
 function stockPreview(state, args) {
   const sku = String(args.sku || '').trim().toUpperCase();
   const qty = Number(args.qty);
@@ -1218,6 +1239,7 @@ const PREVIEWERS = {
   import_marketplace_orders: ordersPreview,
   import_tcs_statement: tcsStatementPreview,
   record_stock: stockPreview,
+  record_stock_transfer: stockTransferPreview,
   import_26as_credits: credits26asPreview,
   import_bank: bankPreview,
   govt_generate_irn: (state, args) => irnPreview(state, args, false),

@@ -6,6 +6,7 @@ import { postingDate } from './dates.mjs';
 import { invoiceTerms, dueDateOf } from './payment-terms.mjs';
 import { billPayBy } from './supplier-dues.mjs';
 import { invoiceTemplateOf, bankWords } from './invoice-template.mjs';
+import { regArg, docFieldsFor } from './registrations.mjs';
 import { planTds, recordTdsEntry, tdsPayableAccountId, wantsTds } from './tds-deduction.mjs';
 
 export const ZERO_RATE_SUPPLY = ['nil', 'exempt', 'non-gst'];
@@ -123,6 +124,9 @@ export function lastGstRateFor(state, { name, gstin }, kind = 'sale') {
 
 export function createInvoice(state, input) {
   const company = state.company;
+  const regd = regArg(state, input.registrationGstin);
+  if (!regd.ok) return regd;
+  const reg = regd.registration;
   const date = postingDate(input.date);
   if (!date) return { ok: false, error: 'INVALID_DATE', date: input.date };
   if (isPeriodLocked(state, date)) return { ok: false, error: 'PERIOD_LOCKED', date, lockThrough: state.lockThrough };
@@ -154,7 +158,7 @@ export function createInvoice(state, input) {
   const terms = invoiceTerms(state, { name: partyName, gstin: input.partyGstin, override: input.paymentTermsDays });
   if (terms.error) return { ok: false, error: terms.error };
   const party = ensureParty(state, { name: partyName, gstin: input.partyGstin, stateCode: exportSale ? FOREIGN_POS : input.partyState, address: input.partyAddress });
-  const pos = exportSale ? FOREIGN_POS : placeOfSupply(input, party, company);
+  const pos = exportSale ? FOREIGN_POS : placeOfSupply(input, party, { ...company, state: reg.state });
   const lines = rawLines.map((l, i) => {
     const { qty, rate: foreignRate, gstRate } = specs[i];
     const rateAmt = exportSale ? Math.round(foreignRate * exportSale.exchangeRate * 100) / 100 : foreignRate;
@@ -162,7 +166,7 @@ export function createInvoice(state, input) {
     const computed = gstSplit({
       taxable,
       rate: gstRate,
-      supplierState: company.state,
+      supplierState: reg.state,
       partyState: pos,
     });
     const split = exportSale && !exportSale.withTax ? { intra: false, cgst: 0, sgst: 0, igst: 0, tax: 0 } : computed;
@@ -256,6 +260,7 @@ export function createInvoice(state, input) {
     total,
     ...(terms.days == null ? {} : { paymentTermsDays: terms.days, dueDate: dueDateOf(date, terms.days) }),
     ...(exportSale ? { export: { ...exportSale, foreignTotal: exportSale.currency === 'INR' ? total : Math.round(lines.reduce((s, l) => s + Number(l.foreignAmount || 0), 0) * 100) / 100 }, zeroRated: !exportSale.withTax } : {}),
+    ...docFieldsFor(reg),
     status: 'posted',
     transferIds: posted.map((p) => p.id),
   };
@@ -320,6 +325,9 @@ export function ensureVendor(state, { name, gstin, stateCode }) {
 
 export function createPurchase(state, input) {
   const company = state.company;
+  const regd = regArg(state, input.registrationGstin);
+  if (!regd.ok) return regd;
+  const reg = regd.registration;
   const date = postingDate(input.date);
   if (!date) return { ok: false, error: 'INVALID_DATE', date: input.date };
   if (isPeriodLocked(state, date)) return { ok: false, error: 'PERIOD_LOCKED', date, lockThrough: state.lockThrough };
@@ -357,8 +365,8 @@ export function createPurchase(state, input) {
     const split = gstSplit({
       taxable,
       rate: gstRate,
-      supplierState: partyStateOf(vendor.gstin) || stateCodeOf(input.partyState) || company.state,
-      partyState: company.state,
+      supplierState: partyStateOf(vendor.gstin) || stateCodeOf(input.partyState) || reg.state,
+      partyState: reg.state,
     });
     return {
       description: l.description,
@@ -414,6 +422,7 @@ export function createPurchase(state, input) {
     id, ...(supplierInvoiceNo ? { supplierInvoiceNo } : {}), date, partyName: vendor.name, partyGstin: vendor.gstin, partyState: vendor.state,
     partyAccountId: vendor.accountId,
     lines, taxable, cgst, sgst, igst, total, status: 'posted', kind: 'purchase',
+    ...docFieldsFor(reg),
     itcEligible,
     ...(tds ? { tds: { section: tds.section, rate: tds.rate, basis: tds.basis, amount: tds.tds, pan: tds.pan } } : {}),
     transferIds: posted.map((p) => p.id),
@@ -500,7 +509,7 @@ export function printInvoice(state, id) {
   const foot = t.footer ? `<p class="foot">${htmlEscape(t.footer)}</p>` : '';
   const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${htmlEscape(inv.id)}</title>
 <style>body{font-family:${font};padding:32px;color:#1c1917}h1{border-bottom:${rule};color:${t.accent}}table{width:100%;border-collapse:collapse;margin-top:16px}td,th{border-bottom:1px solid #e4d8c4;padding:6px;text-align:left}th{color:${t.accent}}.num{text-align:right}footer{margin-top:24px;border-top:${rule};padding-top:8px}.pay,.terms{margin-top:16px;font-size:0.9em}.sign{margin-top:32px;text-align:right}.foot{margin-top:24px;font-size:0.85em;color:#57534e;text-align:center}</style></head>
-<body><p>${htmlEscape(c.name)} · ${htmlEscape(c.gstin)}</p><h1>Tax Invoice ${htmlEscape(inv.id)}</h1>
+<body><p>${htmlEscape(c.name)} · ${htmlEscape(inv.registrationGstin || c.gstin)}</p><h1>Tax Invoice ${htmlEscape(inv.id)}</h1>
 <p>${sale ? 'Bill to' : 'Supplier'}: ${htmlEscape(inv.partyName)} ${htmlEscape(inv.partyGstin || '')}<br>Date ${htmlEscape(inv.date)}</p>
 <table><thead><tr><th>Item</th>${hsnHead}<th>Qty</th><th>Rate</th><th>Taxable</th><th>GST</th><th>Amount</th></tr></thead><tbody>${rows}</tbody></table>
 <footer>Taxable ₹${htmlEscape(inv.taxable)} &nbsp; CGST ₹${htmlEscape(inv.cgst)} &nbsp; SGST ₹${htmlEscape(inv.sgst)} &nbsp; IGST ₹${htmlEscape(inv.igst)}<br><strong>Total ₹${htmlEscape(inv.total)}</strong></footer>${pay}${terms}${signed}${foot}</body></html>`;
