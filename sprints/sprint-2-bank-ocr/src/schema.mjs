@@ -36,6 +36,9 @@ export const COLUMN_ALIASES = {
     'Credit', 'Cr', 'Cr Amount', 'Credit Amount', 'Money In', 'Receipts',
     'Cheque Deposited', 'Chq Deposited', 'Credit (Rs)', 'Cr (Rs)', 'Deposit (Cr)'
   ],
+  amount: [
+    'Amount', 'Amount (Rs)', 'Amount (INR)', 'Amt', 'Transaction Amount', 'Txn Amount', 'Amount (Dr/Cr)', 'Amount Dr/Cr'
+  ],
   balance: [
     'Balance', 'Closing Balance', 'Balance Amount', 'Balance Amt', 'Running Balance',
     'Available Balance', 'Bal', 'Ledger Balance', 'Book Balance', 'Balance (Rs)'

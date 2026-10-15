@@ -13,20 +13,34 @@ const MONTHS = {
   jul: '07', aug: '08', sep: '09', oct: '10', nov: '11', dec: '12'
 };
 
+const SIDE = /^(dr|cr|db)\.?$|^(dr|cr|db)\.?\s|\s(dr|cr|db)\.?$/i;
+
 export function parseAmount(raw) {
-  if (raw == null) return { ok: false, value: null };
+  if (raw == null) return { ok: false, value: null, side: null };
   let s = String(raw).trim();
-  if (s === '') return { ok: false, value: null };
+  if (s === '') return { ok: false, value: null, side: null };
+  let side = null;
+  const marker = s.match(/(?:^|\s)(dr|db|cr)\.?(?:\s|$)/i);
+  if (marker) {
+    side = /^c/i.test(marker[1]) ? 'credit' : 'debit';
+    s = s.replace(marker[0], ' ').trim();
+  }
+  s = s.replace(/^(?:rs\.?|inr|₹)\s*/i, '').replace(/\s*(?:rs\.?|inr)$/i, '');
   let negative = false;
-  if (s.startsWith('(') && s.endsWith(')')) { negative = true; s = s.slice(1, -1); }
-  if (s.endsWith('-')) { negative = true; s = s.slice(0, -1); }
-  if (s.startsWith('-')) { negative = true; s = s.slice(1); }
+  if (s.startsWith('(') && s.endsWith(')')) { negative = true; s = s.slice(1, -1).trim(); }
+  if (s.endsWith('-')) { negative = true; s = s.slice(0, -1).trim(); }
+  if (s.startsWith('-')) { negative = true; s = s.slice(1).trim(); }
+  if (s.startsWith('+')) s = s.slice(1).trim();
   s = s.replace(/[₹,\s]/g, '');
-  if (!s || !/^[\d.]+$/.test(s)) return { ok: false, value: null };
+  if (!s || !/^\d+\.?\d*$|^\.\d+$/.test(s)) return { ok: false, value: null, side };
   const n = parseFloat(s);
-  if (Number.isNaN(n)) return { ok: false, value: null };
-  return { ok: true, value: negative ? -n : n };
+  if (Number.isNaN(n)) return { ok: false, value: null, side };
+  if (side === 'debit') negative = true;
+  if (side === 'credit') negative = false;
+  return { ok: true, value: negative ? -n : n, side };
 }
+
+export const AMOUNT_SIDE_MARKER = SIDE;
 
 export function parseDate(raw, asOfDate) {
   let m;

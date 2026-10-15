@@ -5,7 +5,7 @@ engines **330/330** (`11 / 11 / 49 / 51 / 68 / 2` plus **138** statutory-rule te
 CI green, end-to-end smoke runs on Windows. "Verified" means covered by tests or an
 actual run — not merely written.
 
-Phase 0 (pilot readiness) is **67% complete**: every Critical (4/4) and High (18/18) audit finding is closed.
+Phase 0 (pilot readiness) is **72% complete**: every Critical (4/4) and High (18/18) audit finding is closed; of the mediums, amount parsing and the audit clause checks are done (2026-10-15).
 See [`docs/superpowers/PROGRESS.md`](docs/superpowers/PROGRESS.md) for the live tracker
 and [`README.md`](README.md) for what is left and how it is being done.
 
