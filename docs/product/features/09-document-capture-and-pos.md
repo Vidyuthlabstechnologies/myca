@@ -118,3 +118,17 @@ not yet in the bank and each penalty become exceptions with the order ids behind
 `settlement_status` ("did Amazon pay correctly?") shows expected against paid by channel
 and the TCS and TDS credits to claim. Nothing posts to the ledger until D2 gives the
 settlement orders to settle against.
+
+## Marketplace orders and returns (D2, 2026-10-16)
+
+`import_marketplace_orders` reads an Amazon MTR, a Flipkart GST report or any sheet with
+order id, date, delivery state, GST rate and taxable value, and posts the orders as sales
+to "<Channel> customers", one invoice per day and delivery state with a line per GST rate,
+so GSTR-1 carries them under B2CS by state (never B2CL, whatever the day's total). Each
+invoice keeps its order ids and SKUs. Return and refund rows become credit notes against
+the order they reverse; a return for an order not in the books is held back by name. When
+a settlement from the same channel is then imported, it settles those invoices: the payout
+to the bank, fees and penalties to Marketplace fees (5210), TDS 194-O to a receivable
+(1150) and GST TCS to a receivable (1210) to be claimed in D3; a shortfall stays
+outstanding on the channel. Table 14 of GSTR-1 (supplies through an e-commerce operator)
+is not generated yet.

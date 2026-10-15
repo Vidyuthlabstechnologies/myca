@@ -37,6 +37,23 @@ export function outstandingOf(state, invoice) {
   return round2(Number(invoice.total || 0) + debitedAgainst(state, invoice.id) - receivedAgainst(invoice) - creditedAgainst(state, invoice.id));
 }
 
+function itemisedLines(invoice, raw, company) {
+  if (invoice.country === 'US') return { ok: false, error: 'LINES_NOT_FOR_COUNTRY' };
+  const rates = new Set((invoice.lines || []).map((line) => Number(line.gstRate || 0)));
+  const lines = [];
+  for (const [i, item] of raw.entries()) {
+    const qty = Number(item.qty == null || item.qty === '' ? 1 : item.qty);
+    const rate = Number(item.rate);
+    const gstRate = Number(item.gstRate == null || item.gstRate === '' ? NaN : item.gstRate);
+    if (!Number.isFinite(qty) || qty <= 0 || !Number.isFinite(rate) || rate <= 0 || !Number.isFinite(gstRate)) return { ok: false, error: 'BAD_LINE', line: i + 1 };
+    if (!rates.has(gstRate)) return { ok: false, error: 'RATE_NOT_ON_INVOICE', line: i + 1, gstRate, rates: [...rates] };
+    const taxable = round2(qty * rate);
+    const split = gstSplit({ taxable, rate: gstRate, supplierState: company.state, partyState: invoice.placeOfSupply || invoice.partyState });
+    lines.push({ description: String(item.description || '').trim() || 'Credit', hsn: String(item.hsn || '').trim(), qty, rate, gstRate, taxable, cgst: split.cgst, sgst: split.sgst, igst: split.igst, amount: round2(taxable + split.tax) });
+  }
+  return { ok: true, lines, total: round2(lines.reduce((sum, line) => sum + line.amount, 0)) };
+}
+
 function scaledLines(invoice, fraction, company) {
   if (invoice.country === 'US') {
     return (invoice.lines || []).map((line) => {
@@ -77,13 +94,15 @@ export function planCreditNote(state, args = {}) {
   const alreadyCredited = creditedAgainst(state, invoiceId);
   const room = round2(Number(invoice.total) - alreadyCredited);
   if (room <= 0) return { ok: false, error: 'FULLY_CREDITED', invoiceId, credited: alreadyCredited };
-  const full = args.amount == null || args.amount === '';
-  const requested = full ? room : round2(args.amount);
+  const itemised = Array.isArray(args.lines) && args.lines.length ? itemisedLines(invoice, args.lines, state.company || {}) : null;
+  if (itemised && !itemised.ok) return itemised;
+  const full = !itemised && (args.amount == null || args.amount === '');
+  const requested = itemised ? itemised.total : full ? room : round2(args.amount);
   if (!Number.isFinite(requested) || requested <= 0) return { ok: false, error: 'BAD_AMOUNT' };
   if (requested > room + 0.005) return { ok: false, error: 'EXCEEDS_INVOICE', invoiceId, room, credited: alreadyCredited };
-  const fraction = full && alreadyCredited === 0 ? 1 : requested / Number(invoice.total);
-  const lines = scaledLines(invoice, fraction, state.company || {});
-  if (fraction !== 1 && lines.length) {
+  const fraction = itemised ? requested / Number(invoice.total) : full && alreadyCredited === 0 ? 1 : requested / Number(invoice.total);
+  const lines = itemised ? itemised.lines : scaledLines(invoice, fraction, state.company || {});
+  if (!itemised && fraction !== 1 && lines.length) {
     const scaled = round2(lines.reduce((sum, line) => sum + line.amount, 0));
     const last = lines[lines.length - 1];
     last.taxable = round2(last.taxable + requested - scaled);
