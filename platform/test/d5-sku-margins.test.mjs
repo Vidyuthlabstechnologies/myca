@@ -33,7 +33,9 @@ const SETTLEMENT = [
 
 test('SKU costs, stock moved by orders and returns, and margins by SKU and channel with fees allocated from the settlement; a losing SKU and negative stock are exceptions', async () => {
   const state = books();
-  assert.match((await chat(state, 'cost of SKU-A is 450')).reply, /SKU-A: cost ₹450\.00 per unit/);
+  const costing = await chat(state, 'cost of SKU-A is 450');
+  assert.equal(costing.awaitingConfirmation, true, costing.reply);
+  assert.match((await chat(state, 'yes')).reply, /SKU-A: cost ₹450\.00 per unit/);
   const sheet = await runTool(state, 'import_sku_costs', { csv: 'SKU,Product name,HSN,Unit cost\nSKU-B,Cotton scarf,5205,480\nSKU-C,Gift box,4819,30' });
   assert.equal(sheet.data.updated, 2);
   assert.equal(state.skus['SKU-B'].name, 'Cotton scarf');

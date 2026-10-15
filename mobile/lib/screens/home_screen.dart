@@ -15,6 +15,7 @@ import '../theme.dart';
 import '../widgets.dart';
 import 'ask_screen.dart';
 import 'books_check_screen.dart';
+import 'marketplace_screen.dart';
 import 'employees_screen.dart';
 import 'ca_screen.dart';
 import 'cash_screen.dart';
@@ -335,6 +336,13 @@ class _HomeScreenState extends State<HomeScreen> {
                       'Bank and cash, the next 30 days, and can I afford it',
                   trailing: const Chevron(),
                   onTap: () => _open(const CashScreen()),
+                ),
+                RowCard(
+                  leading: const TintTile(tint: Tint.sales, mark: Mark.otherApp),
+                  title: 'Marketplace',
+                  subtitle: 'Payouts, TCS and TDS, margins by SKU, stock, GST registrations',
+                  trailing: const Chevron(),
+                  onTap: () => _open(const MarketplaceScreen()),
                 ),
                 RowCard(
                   leading: const TintTile(tint: Tint.ask, mark: Mark.people),

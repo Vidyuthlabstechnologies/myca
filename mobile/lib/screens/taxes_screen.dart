@@ -40,6 +40,8 @@ class _TaxesScreenState extends State<TaxesScreen> {
   Future<TdsSummary?>? _tds;
   Future<RulesStatus?>? _rules;
   String? _period;
+  String _gstin = '';
+  Future<List<Map<String, dynamic>>>? _registrations;
   String _fileNote = '';
   bool _saving = false;
   String _entriesNote = '';
@@ -49,10 +51,23 @@ class _TaxesScreenState extends State<TaxesScreen> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     _today ??= loadToday(AppScope.of(context).api);
+    _registrations ??= _loadRegistrations();
     _filed ??= _loadFiled();
     _tds ??= _loadTds();
     _rules ??= _loadRules();
   }
+
+  Future<List<Map<String, dynamic>>> _loadRegistrations() async {
+    try {
+      final data = toolData(await AppScope.of(context).api.query('registrations'));
+      final rows = [for (final row in (data['registrations'] as List? ?? const [])) if (row is Map) Map<String, dynamic>.from(row)];
+      return rows.where((row) => '${row['effectiveTo'] ?? ''}'.isEmpty && '${row['gstin'] ?? ''}'.isNotEmpty).toList();
+    } on MycaApiException {
+      return const [];
+    }
+  }
+
+  Map<String, Object?> get _regArgs => _gstin.isEmpty ? const {} : {'gstin': _gstin};
 
   Future<RulesStatus?> _loadRules() async {
     try {
@@ -107,7 +122,7 @@ class _TaxesScreenState extends State<TaxesScreen> {
     final state = AppScope.of(context);
     num toPay = 0;
     try {
-      final payable = toolData(await state.api.query('gst_payable', {'period': gst.period}));
+      final payable = toolData(await state.api.query('gst_payable', {'period': gst.period, ..._regArgs}));
       final heads = payable['toPay'];
       if (heads is Map && heads['total'] is num) toPay = heads['total'] as num;
       if (payable['paid'] is Map) {
@@ -120,7 +135,7 @@ class _TaxesScreenState extends State<TaxesScreen> {
     }
     if (!mounted) return;
     final done = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(builder: (_) => GstPaymentScreen(period: gst.period, toPay: toPay)),
+      MaterialPageRoute(builder: (_) => GstPaymentScreen(period: gst.period, toPay: toPay, gstin: _gstin)),
     );
     if (done != true || !mounted) return;
     await state.refresh();
@@ -135,7 +150,7 @@ class _TaxesScreenState extends State<TaxesScreen> {
       final period = _period ?? '';
       final month = period.isEmpty ? '' : period.substring(5, 7);
       final quarter = period.isEmpty ? '' : 'Q${((int.parse(month) + 8) % 12) ~/ 3 + 1} ${_fyOf(period)}';
-      final data = toolData(await state.api.query(iff ? 'export_iff' : 'export_gstr1_quarter', iff ? {'period': period} : {'quarter': quarter}));
+      final data = toolData(await state.api.query(iff ? 'export_iff' : 'export_gstr1_quarter', iff ? {'period': period, ..._regArgs} : {'quarter': quarter, ..._regArgs}));
       if (data.isEmpty) {
         note = iff ? 'The IFF file could not be prepared for this month.' : 'The quarterly file could not be prepared.';
       } else {
@@ -191,9 +206,9 @@ class _TaxesScreenState extends State<TaxesScreen> {
     var note = '';
     try {
       final results = await Future.wait([
-        state.api.query('gst_period_summary', {'period': period}),
-        state.api.query('export_gstr1_json', {'fp': '${period.substring(5, 7)}${period.substring(0, 4)}'}),
-        state.api.query('gst_payable', {'period': period}),
+        state.api.query('gst_period_summary', {'period': period, ..._regArgs}),
+        state.api.query('export_gstr1_json', {'fp': '${period.substring(5, 7)}${period.substring(0, 4)}', ..._regArgs}),
+        state.api.query('gst_payable', {'period': period, ..._regArgs}),
         state.api.query('export_trial_balance'),
       ]);
       final summary = toolData(results[0]);
@@ -269,7 +284,7 @@ class _TaxesScreenState extends State<TaxesScreen> {
         )
         .toList();
     final done = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(builder: (_) => RecordFilingScreen(returns: open)),
+      MaterialPageRoute(builder: (_) => RecordFilingScreen(returns: open, gstin: _gstin)),
     );
     if (done != true || !mounted) return;
     setState(() {
@@ -278,10 +293,11 @@ class _TaxesScreenState extends State<TaxesScreen> {
     await _reload();
   }
 
-  Future<void> _reload({String? period}) async {
-    final next = loadToday(AppScope.of(context).api, period: period ?? _period);
+  Future<void> _reload({String? period, String? gstin}) async {
+    final next = loadToday(AppScope.of(context).api, period: period ?? _period, gstin: gstin ?? _gstin);
     setState(() {
       _period = period ?? _period;
+      _gstin = gstin ?? _gstin;
       _today = next;
       _fileNote = '';
     });
@@ -487,6 +503,30 @@ class _TaxesScreenState extends State<TaxesScreen> {
                   ),
                 const SizedBox(height: 26),
                 if (gst != null) ...[
+                  FutureBuilder<List<Map<String, dynamic>>>(
+                    future: _registrations,
+                    builder: (context, regs) {
+                      final rows = regs.data ?? const <Map<String, dynamic>>[];
+                      if (rows.length < 2) return const SizedBox.shrink();
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            for (final reg in rows)
+                              ChoiceChip(
+                                label: Text('${reg['label']}'),
+                                selected: (reg['kind'] == 'principal' && _gstin.isEmpty) || '${reg['gstin']}' == _gstin,
+                                selectedColor: Palette.sunken,
+                                showCheckmark: false,
+                                onSelected: (_) => _reload(gstin: reg['kind'] == 'principal' ? '' : '${reg['gstin']}'),
+                              ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
                   if (gst.periods.length > 1)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 12),
@@ -524,7 +564,7 @@ class _TaxesScreenState extends State<TaxesScreen> {
                           : () => Navigator.of(context).push(
                               MaterialPageRoute<void>(
                                 builder: (_) =>
-                                    ReviewScreen(period: gst.period),
+                                    ReviewScreen(period: gst.period, extraArgs: _regArgs),
                               ),
                             ),
                       child: Text(

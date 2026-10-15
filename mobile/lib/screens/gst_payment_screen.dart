@@ -9,7 +9,9 @@ import '../theme.dart';
 import '../widgets.dart';
 
 class GstPaymentScreen extends StatefulWidget {
-  const GstPaymentScreen({super.key, required this.period, required this.toPay});
+  const GstPaymentScreen({super.key, required this.period, required this.toPay, this.gstin = ''});
+
+  final String gstin;
 
   final String period;
   final num toPay;
@@ -54,6 +56,7 @@ class _GstPaymentScreenState extends State<GstPaymentScreen> with ProposalFlow {
     setState(() => _error = '');
     await propose('Paid GST for ${monthLabel(widget.period)}', 'record_gst_payment', {
       'period': widget.period,
+      if (widget.gstin.isNotEmpty) 'gstin': widget.gstin,
       'date': isoDate(_date ?? AppScope.of(context).now()),
       'mode': _mode,
       if (cpin.isNotEmpty) 'cpin': cpin,
