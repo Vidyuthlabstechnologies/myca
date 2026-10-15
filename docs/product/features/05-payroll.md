@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Requirements | FR-PAY-1 to 4 in the [product PRD](../PRD.md) |
-| Status | Employee records built (2026-10-07). Steps 1 and 2 built (2026-10-12): the monthly run, approval and postings, salary payment, payslips and salary TDS from dated payroll rules not yet signed off by the advisor CA; the PF ECR file, the ESI contribution file and the salary TDS statement (Form 138) with its review. Payouts not built. |
+| Status | Employee records built (2026-10-07). Steps 1 and 2 built (2026-10-12): the monthly run, approval and postings, salary payment, payslips and salary TDS from dated payroll rules not yet signed off by the advisor CA; the PF ECR file, the ESI contribution file and the salary TDS statement (Form 138) with its review. Bank accounts on employees and the salary payout file (2026-10-15); the payment itself is recorded by hand. |
 | Code | `platform/src/payroll.mjs`, `payroll-intent.mjs`, `employees.mjs`; rules `payroll.*` in `sprints/statutory-rules/src/rules/payroll.mjs`; app `mobile/lib/screens/payroll_screen.dart` |
 
 ## What the owner experiences
@@ -87,7 +87,8 @@ partnership and compliance project more than an engineering one.
   the tax still due is spread over the months left and rounded to the rupee. A payee
   without PAN pays at least the `tds.no-pan.rate` rate. The deduction is recorded as a
   TDS entry under section 192, so deposits and the TDS summary include it; the
-  non-salary statement excludes it (the salary statement, Form 138, is still to build).
+  non-salary statement excludes it; the salary statement (Form 138, `tds_return` with
+  form "salary") carries it with its own review.
 - Approval (`approve_payroll`, previewed, owner only, bound to the draft hash) posts
   salaries (5120) against salaries payable (2300), provident fund payable (2310), state
   insurance payable (2320), professional tax payable (2330) and TDS payable (2200), and

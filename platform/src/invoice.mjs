@@ -7,6 +7,8 @@ import { invoiceTerms, dueDateOf } from './payment-terms.mjs';
 import { billPayBy } from './supplier-dues.mjs';
 import { planTds, recordTdsEntry, tdsPayableAccountId, wantsTds } from './tds-deduction.mjs';
 
+export const ZERO_RATE_SUPPLY = ['nil', 'exempt', 'non-gst'];
+
 function padInv(n) {
   return `INV-${String(n).padStart(4, '0')}`;
 }
@@ -118,6 +120,10 @@ export function createInvoice(state, input) {
   if (specs.some((s) => !Number.isFinite(s.qty) || s.qty <= 0 || !Number.isFinite(s.rate) || s.rate < 0 || !Number.isFinite(s.gstRate))) {
     return { ok: false, error: 'BAD_LINE' };
   }
+  const badSupply = rawLines.findIndex((l) => l.supply != null && l.supply !== '' && !ZERO_RATE_SUPPLY.includes(String(l.supply)));
+  if (badSupply >= 0) return { ok: false, error: 'BAD_SUPPLY_TYPE', line: badSupply + 1, hint: 'nil, exempt or non-gst' };
+  const supplyOnRated = rawLines.findIndex((l, i) => l.supply && specs[i].gstRate !== 0);
+  if (supplyOnRated >= 0) return { ok: false, error: 'SUPPLY_TYPE_NEEDS_ZERO_RATE', line: supplyOnRated + 1 };
   const grossTaxable = specs.reduce((sum, s) => sum + Math.round(s.qty * s.rate * 100) / 100, 0);
   if (grossTaxable <= 0) return { ok: false, error: 'ZERO_AMOUNT' };
 
@@ -141,6 +147,7 @@ export function createInvoice(state, input) {
       qty,
       rate: rateAmt,
       gstRate,
+      ...(gstRate === 0 && l.supply ? { supply: String(l.supply) } : {}),
       taxable,
       ...split,
       amount: Math.round((taxable + split.tax) * 100) / 100,

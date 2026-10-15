@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Requirements | FR-GST-1 to 6 in the [product PRD](../PRD.md) |
-| Status | Drafts, GSTR-1 file and the review built (2026-10-06); recording a filing and its ARN built (2026-10-07); set-off, the amount to pay, interest and late fee built (2026-10-12); live filing not built |
+| Status | Drafts, GSTR-1 file and the review built (2026-10-06); recording a filing and its ARN built (2026-10-07); set-off, the amount to pay, interest and late fee built (2026-10-12); amendments after filing, GSTR-9 with table 5 split from the supply type on 0% lines (2026-10-14 and 15); live filing not built |
 | Code | `platform/src/return-period.mjs`, `gstr1-json.mjs`, `gst-setoff.mjs`, `gst-payment.mjs`, `gst-review.mjs`, `tools.mjs` (`prepare_gstr1`, `prepare_gstr3b`, `gst_period_summary`, `gst_payable`, `set_gst_credit_opening`, `filing_pack`), `action-gate.mjs`, `sprints/sprint-3-gst-recon`, `sprints/sprint-5-filing-assistant`, rules `gst.setoff.order`, `gst.interest.rate`, `gst.late-fee.*` with golden cases in `sprints/statutory-rules/golden/gst-payment.json` |
 
 ## What the owner experiences

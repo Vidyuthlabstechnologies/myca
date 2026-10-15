@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Requirements | FR-UI-1 to 5 in the [product PRD](../PRD.md) |
-| Status | Chats by type and party, one entry sheet and a taxes summary built; free-text understanding and the full dashboard not built |
+| Status | Chats by type and party, one entry sheet, the taxes summary, the week ahead, the cash forecast and reminders built; free-text understanding through the model (off until a key is set, 2026-10-14); push notifications need a service |
 | Code | `mobile/lib/` (screens, `registers.dart`, `proposal_flow.dart`), `platform/src/intent.mjs`, `receipt-intent.mjs`, `router.mjs`, `assistant-contract.mjs` |
 
 ## What the owner experiences
@@ -124,8 +124,9 @@ the hosted API (`propose`, `confirm`, `discard`).
 - Home shows a "Due today" panel (today and overdue); tapping one marks it done. The
   Reminders screen adds with quick days (today, tomorrow, in a week, or a picked day).
   An unpaid invoice offers "Remind me", pre-filled to follow up the payment.
-- Not yet: phone notifications. They need a push service in the hosted deployment;
-  until then reminders appear in the app on the day.
+- The app schedules its own notifications for the week ahead (due dates, overdue
+  invoices, payroll) from the phone itself (2026-10-14, unverified on a device). Push
+  from the hosted service needs a push provider and is not built.
 
 ### Cash forecast and "can I afford it" (built 2026-10-06)
 
