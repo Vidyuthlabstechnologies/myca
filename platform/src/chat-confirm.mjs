@@ -42,7 +42,7 @@ import { planPosImport } from './import-pos.mjs';
 import { planSettlement, settlementWords } from './settlements.mjs';
 import { planOrderImport, settlementInvoices } from './marketplace-orders.mjs';
 import { planTcsStatement, plan26asCredits } from './marketplace-credits.mjs';
-import { regArg, registrationsWords, planRegistration, openDocumentsFor, registrationByGstin } from './registrations.mjs';
+import { regArg, planRegistration, openDocumentsFor, registrationByGstin } from './registrations.mjs';
 import { planSkuCost, parseSkuCostsCsv } from './sku-margins.mjs';
 import { planChannelIdentity } from './marketplace-credits.mjs';
 import { planStockTransfer } from './stock-transfers.mjs';
