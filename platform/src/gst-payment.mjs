@@ -4,6 +4,7 @@ import { setOff, interestOn, lateFeeFor } from './gst-setoff.mjs';
 import { deadlineRun } from './deadline-run.mjs';
 import { filingFor } from './filings.mjs';
 import { localToday, postingDate } from './dates.mjs';
+import { tcsAvailableFor } from './marketplace-credits.mjs';
 
 const HEADS = ['igst', 'cgst', 'sgst'];
 const round2 = (value) => Math.round(Number(value || 0) * 100) / 100;
@@ -79,12 +80,17 @@ export function paymentFor(state, requested, { payOn } = {}) {
   if (!result.ok) return result;
   const rulesUsed = [result.ruleUsed];
   let unreviewed = !result.attested;
+  const tcsAvailable = tcsAvailableFor(state, period, { excludePeriod: period });
+  const tcsUsed = { igst: round2(Math.min(result.cash.igst, tcsAvailable.igst)), cgst: round2(Math.min(result.cash.cgst, tcsAvailable.cgst)), sgst: round2(Math.min(result.cash.sgst, tcsAvailable.sgst)) };
+  tcsUsed.total = round2(tcsUsed.igst + tcsUsed.cgst + tcsUsed.sgst);
+  const cashAfterTcs = { igst: round2(result.cash.igst - tcsUsed.igst), cgst: round2(result.cash.cgst - tcsUsed.cgst), sgst: round2(result.cash.sgst - tcsUsed.sgst) };
+  cashAfterTcs.total = round2(cashAfterTcs.igst + cashAfterTcs.cgst + cashAfterTcs.sgst);
   const nil = summary.salesCount === 0 && summary.creditNoteCount === 0 && summary.purchaseCount === 0 && (summary.debitNoteCount || 0) === 0 && (summary.purchaseNoteCount || 0) === 0;
   const row = dueRow(state, period);
   const filed = filingFor(state, 'GSTR-3B', period);
   let late = null;
   if (row && !filed && on > row.dueDate) {
-    const interest = interestOn({ cash: result.cash.total, dueDate: row.dueDate, payOn: on });
+    const interest = interestOn({ cash: cashAfterTcs.total, dueDate: row.dueDate, payOn: on });
     if (!interest.ok) return interest;
     const fee = lateFeeFor({ returnType: 'GSTR-3B', period, nil, turnover: state.company?.grossTurnoverPrevFy, dueDate: row.dueDate, payOn: on });
     if (!fee.ok) return fee;
@@ -98,7 +104,7 @@ export function paymentFor(state, requested, { payOn } = {}) {
       lateFee: fee.lateFee,
       lateFeeCap: fee.cap,
       turnoverAssumedAboveCaps: fee.turnoverAssumedAboveCaps,
-      total: round2(result.cash.total + interest.interest + fee.lateFee),
+      total: round2(cashAfterTcs.total + interest.interest + fee.lateFee),
     };
   }
   return {
@@ -114,7 +120,10 @@ export function paymentFor(state, requested, { payOn } = {}) {
       used: result.used,
       creditUsed: result.creditUsed,
       cash: result.cash,
-      toPay: result.cash.total,
+      tcsAvailable,
+      tcsUsed,
+      cashAfterTcs,
+      toPay: cashAfterTcs.total,
       carried: result.carried,
       nil,
       dueDate: row ? row.dueDate : '',
@@ -123,12 +132,12 @@ export function paymentFor(state, requested, { payOn } = {}) {
       late,
       rulesUsed,
       unreviewed,
-      notes: paymentNotes({ forward, nil, late, unreviewed }),
+      notes: paymentNotes({ forward, nil, late, unreviewed, tcsUsed }),
     },
   };
 }
 
-function paymentNotes({ forward, nil, late, unreviewed }) {
+function paymentNotes({ forward, nil, late, unreviewed, tcsUsed }) {
   const notes = [];
   notes.push('Credit is set off head by head in the order the law sets: IGST credit against IGST first, then CGST and SGST; CGST credit against CGST then IGST; SGST credit against SGST then IGST. CGST credit is never used for SGST, nor SGST credit for CGST.');
   if (!forward.known) {
@@ -136,7 +145,7 @@ function paymentNotes({ forward, nil, late, unreviewed }) {
       ? 'This month is before the credit balance you set, so no credit is brought forward into it.'
       : 'No credit brought forward from earlier months is counted. Tell MyCA the credit ledger balance from the GST portal at the start of a month, for example "GST credit balance at start of September: IGST 0, CGST 1200, SGST 1200".');
   }
-  notes.push('The input credit has not been checked against GSTR-2B. Cash already in the electronic cash ledger is not counted.');
+  notes.push(tcsUsed && tcsUsed.total > 0 ? `TCS of ${tcsUsed.total} confirmed by the portal's TDS and TCS credit statement is used from the electronic cash ledger before any new cash. The input credit has not been checked against GSTR-2B.` : 'The input credit has not been checked against GSTR-2B. Cash already in the electronic cash ledger is not counted, except TCS confirmed by the portal statement.');
   if (nil) notes.push('Nothing was sold or bought this month, so this is a nil return.');
   if (late) {
     notes.push(`The due date has passed. If paid on ${late.payOn}, ${late.days} ${late.days === 1 ? 'day' : 'days'} late, interest at ${late.interestRatePercent}% a year on the cash part and the late fee are added.`);
@@ -171,8 +180,9 @@ export function paymentWords(data, money, monthName) {
   const lines = [];
   if (data.filed) lines.push(`GSTR-3B for ${month} is recorded as filed on ${data.filed.filedOn}, ARN ${data.filed.arn}.`);
   lines.push(`GST for ${month}: tax on sales ${money(data.output.total)}, input credit ${money(data.credit.total)}${data.broughtForwardKnown && data.broughtForward.total > 0 ? ` plus ${money(data.broughtForward.total)} brought forward` : ''}, credit used ${money(data.creditUsed)}.`);
+  if (data.tcsUsed && data.tcsUsed.total > 0) lines.push(`TCS credit used from the cash ledger: ${money(data.tcsUsed.total)}.`);
   lines.push(data.toPay > 0
-    ? `To pay in cash: ${money(data.toPay)} (IGST ${money(data.cash.igst)}, CGST ${money(data.cash.cgst)}, SGST ${money(data.cash.sgst)}).`
+    ? `To pay in cash: ${money(data.toPay)} (IGST ${money(data.cashAfterTcs ? data.cashAfterTcs.igst : data.cash.igst)}, CGST ${money(data.cashAfterTcs ? data.cashAfterTcs.cgst : data.cash.cgst)}, SGST ${money(data.cashAfterTcs ? data.cashAfterTcs.sgst : data.cash.sgst)}).`
     : 'Nothing to pay in cash.');
   if (data.carried.total > 0) lines.push(`Credit carried forward: ${money(data.carried.total)}.`);
   if (data.dueDate && !data.filed) lines.push(`Due by ${data.dueDate}.`);

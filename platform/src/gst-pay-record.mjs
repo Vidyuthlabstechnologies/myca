@@ -8,6 +8,7 @@ const OUTPUT = { cgst: 2100, sgst: 2101, igst: 2102 };
 const INPUT = { cgst: 1200, sgst: 1201, igst: 1202 };
 const CASH = 1001;
 const BANK = 1002;
+const TCS_RECEIVABLE = 1210;
 const CPIN = /^[0-9]{14}$/;
 const round2 = (value) => Math.round(Number(value || 0) * 100) / 100;
 
@@ -45,11 +46,13 @@ export function planGstPayment(state, args = {}) {
   const mode = args.mode === 'cash' ? 'cash' : 'bank';
   const interest = d.late ? d.late.interest : 0;
   const lateFee = d.late ? d.late.lateFee : 0;
-  const cashTotal = round2(d.cash.total + interest + lateFee);
-  if (cashTotal <= 0.005 && d.creditUsed <= 0.005) return fail('NOTHING_DUE', { period: d.period });
+  const tcsUsed = d.tcsUsed || { igst: 0, cgst: 0, sgst: 0, total: 0 };
+  const cashPaid = d.cashAfterTcs || d.cash;
+  const cashTotal = round2(cashPaid.total + interest + lateFee);
+  if (cashTotal <= 0.005 && d.creditUsed <= 0.005 && tcsUsed.total <= 0.005) return fail('NOTHING_DUE', { period: d.period });
   const creditApplied = { igst: round2(d.output.igst - d.cash.igst), cgst: round2(d.output.cgst - d.cash.cgst), sgst: round2(d.output.sgst - d.cash.sgst) };
   const creditDrawn = { igst: round2(Object.values(d.used.igst).reduce((s, v) => s + v, 0)), cgst: round2(Object.values(d.used.cgst).reduce((s, v) => s + v, 0)), sgst: round2(Object.values(d.used.sgst).reduce((s, v) => s + v, 0)) };
-  return { ok: true, payment: { period: d.period, date, mode, cpin, cash: d.cash, interest, lateFee, cashTotal, creditApplied, creditDrawn, creditUsed: d.creditUsed, carried: d.carried, dueDate: d.dueDate, late: Boolean(d.late), rulesUsed: d.rulesUsed, unreviewed: d.unreviewed }, computed: d };
+  return { ok: true, payment: { period: d.period, date, mode, cpin, cash: cashPaid, cashBeforeTcs: d.cash, tcsUsed, interest, lateFee, cashTotal, creditApplied, creditDrawn, creditUsed: d.creditUsed, carried: d.carried, dueDate: d.dueDate, late: Boolean(d.late), rulesUsed: d.rulesUsed, unreviewed: d.unreviewed }, computed: d };
 }
 
 export function recordGstPayment(state, args = {}) {
@@ -80,6 +83,8 @@ export function recordGstPayment(state, args = {}) {
     }
   }
   const from = payment.mode === 'cash' ? CASH : BANK;
+  if (payment.tcsUsed && payment.tcsUsed.total > 0.005) createAccounts(state.ledger, [{ id: TCS_RECEIVABLE, code: '1210', name: 'GST TCS receivable', type: 'asset', flags: 0 }]);
+  for (const head of ['igst', 'cgst', 'sgst']) post(OUTPUT[head], TCS_RECEIVABLE, payment.tcsUsed ? payment.tcsUsed[head] : 0, `GST-TCS-${head.toUpperCase()}`);
   for (const head of ['igst', 'cgst', 'sgst']) post(OUTPUT[head], from, payment.cash[head], `GST-PAID-${head.toUpperCase()}`);
   post(5310, from, payment.interest, 'GST-INTEREST');
   post(5310, from, payment.lateFee, 'GST-LATE-FEE');

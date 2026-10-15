@@ -41,6 +41,7 @@ import { planSupplierNote } from './supplier-notes.mjs';
 import { planPosImport } from './import-pos.mjs';
 import { planSettlement, settlementWords } from './settlements.mjs';
 import { planOrderImport, settlementInvoices } from './marketplace-orders.mjs';
+import { planTcsStatement, plan26asCredits } from './marketplace-credits.mjs';
 import { filingRows } from './deadline-run.mjs';
 import { tally, bank, gstin as gstinRules } from './sprint-load.mjs';
 import { parseZohoBooksCsv } from './import-zoho.mjs';
@@ -48,7 +49,7 @@ import { planAmendment } from './invoice-amendments.mjs';
 import { tallyXmlToDayBookCsv } from './tally-xml.mjs';
 
 export const CONFIRM_TOOLS = new Set([
-  'create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'record_filing', 'record_supplier_reminder', 'add_employee', 'change_salary', 'end_employment', 'approve_payroll', 'record_salary_payment', 'set_tds_deductor', 'record_tds_deposit', 'tds_review_answer', 'set_gst_credit_opening', 'record_gst_payment', 'close_year', 'post_expense', 'set_expense_head', 'create_credit_note', 'create_debit_note', 'create_purchase_note', 'record_supplier_debit_note', 'cancel_invoice', 'gst_review_answer', 'import_gstr2b', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'set_party_address', 'set_transport', 'set_sales_tax_rate', 'set_contractor', 'set_sales_tax_nexus', 'sales_tax_review_answer', 'record_sales_tax_payment', 'record_sales_tax_filing', 'set_withholding', 'set_suta_rate', 'import_us_invoices', 'import_pos_sales', 'import_settlement', 'import_marketplace_orders', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote', 'amend_invoice',
+  'create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'record_filing', 'record_supplier_reminder', 'add_employee', 'change_salary', 'end_employment', 'approve_payroll', 'record_salary_payment', 'set_tds_deductor', 'record_tds_deposit', 'tds_review_answer', 'set_gst_credit_opening', 'record_gst_payment', 'close_year', 'post_expense', 'set_expense_head', 'create_credit_note', 'create_debit_note', 'create_purchase_note', 'record_supplier_debit_note', 'cancel_invoice', 'gst_review_answer', 'import_gstr2b', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'set_party_address', 'set_transport', 'set_sales_tax_rate', 'set_contractor', 'set_sales_tax_nexus', 'sales_tax_review_answer', 'record_sales_tax_payment', 'record_sales_tax_filing', 'set_withholding', 'set_suta_rate', 'import_us_invoices', 'import_pos_sales', 'import_settlement', 'import_marketplace_orders', 'import_tcs_statement', 'import_26as_credits', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote', 'amend_invoice',
   'import_tally', 'import_tally_xml', 'import_zoho', 'import_bank',
   'govt_generate_irn', 'govt_nic_cancel_irn',
   'exception_decide',
@@ -1016,6 +1017,31 @@ function usImportPreview(state, args) {
   };
 }
 
+function tcsStatementPreview(state, args) {
+  const planned = planTcsStatement(state, args);
+  if (!planned.ok) return { blockers: [planned.error === 'NO_HEADER' ? `The statement needs ${planned.parsed.need}.` : 'The statement has no TCS rows I can read.'], summary: '', effects: [], figures: {} };
+  const dup = planned.skipped.filter((row) => row.reason === 'exists').length;
+  const unknown = planned.ready.filter((row) => row.unknownOperator).length;
+  return {
+    blockers: planned.ready.length ? [] : [dup ? 'Every row is already recorded.' : 'No row could be read.'],
+    summary: `TCS statement: ${planned.ready.length === 1 ? '1 month' : `${planned.ready.length} operator-months`} totalling ${money(planned.total)}${dup ? `; ${dup} already recorded` : ''}${unknown ? `; ${unknown} from an operator GSTIN not yet tied to a channel` : ''}.`,
+    effects: ['Each confirmed month is TCS in your electronic cash ledger; the next GST payment uses it before new cash.', 'Months where a marketplace deducted more in settlements than it reported become exceptions to raise with the marketplace.'],
+    figures: { rows: planned.ready.length, total: planned.total },
+  };
+}
+
+function credits26asPreview(state, args) {
+  const planned = plan26asCredits(state, args);
+  if (!planned.ok) return { blockers: [planned.error === 'NO_HEADER' ? `The file needs ${planned.parsed.need}.` : `No section 194-O row could be read${planned.parsed?.otherSections ? ` (${planned.parsed.otherSections} rows under other sections were ignored)` : ''}.`], summary: '', effects: [], figures: {} };
+  const dup = planned.skipped.filter((row) => row.reason === 'exists').length;
+  return {
+    blockers: planned.ready.length ? [] : [dup ? 'Every row is already recorded.' : 'No row could be read.'],
+    summary: `Form 26AS: ${planned.ready.length === 1 ? '1 entry' : `${planned.ready.length} entries`} under section 194-O totalling ${money(planned.total)}${planned.otherSections ? ` (${planned.otherSections} rows under other sections ignored here)` : ''}${dup ? `; ${dup} already recorded` : ''}.`,
+    effects: ['The TDS is credit against your income tax for the year; quarters where a marketplace deducted more in settlements than 26AS shows become exceptions.'],
+    figures: { rows: planned.ready.length, total: planned.total },
+  };
+}
+
 function ordersPreview(state, args) {
   const planned = planOrderImport(state, args);
   if (!planned.ok) {
@@ -1175,6 +1201,8 @@ const PREVIEWERS = {
   import_pos_sales: posImportPreview,
   import_settlement: settlementPreview,
   import_marketplace_orders: ordersPreview,
+  import_tcs_statement: tcsStatementPreview,
+  import_26as_credits: credits26asPreview,
   import_bank: bankPreview,
   govt_generate_irn: (state, args) => irnPreview(state, args, false),
   govt_nic_cancel_irn: (state, args) => irnPreview(state, args, true),

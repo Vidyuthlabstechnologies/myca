@@ -62,6 +62,9 @@ export function createState() {
     supplierReminders: [],
     settlements: [],
     settlementSeq: 0,
+    channels: {},
+    tcsStatements: [],
+    tdsCreditStatements: [],
     supplierReminderSeq: 0,
     employees: [],
     employeeSeq: 0,
@@ -144,6 +147,9 @@ export function serialize(state) {
     supplierReminders: state.supplierReminders || [],
     settlements: state.settlements || [],
     settlementSeq: state.settlementSeq || 0,
+    channels: state.channels || {},
+    tcsStatements: state.tcsStatements || [],
+    tdsCreditStatements: state.tdsCreditStatements || [],
     supplierReminderSeq: state.supplierReminderSeq || 0,
     employees: state.employees || [],
     employeeSeq: state.employeeSeq || 0,
@@ -307,6 +313,9 @@ export function deserialize(raw) {
   state.supplierReminders = Array.isArray(raw.supplierReminders) ? raw.supplierReminders : [];
   state.settlements = Array.isArray(raw.settlements) ? raw.settlements : [];
   state.settlementSeq = Number(raw.settlementSeq || 0);
+  state.channels = raw.channels && typeof raw.channels === 'object' ? raw.channels : {};
+  state.tcsStatements = Array.isArray(raw.tcsStatements) ? raw.tcsStatements : [];
+  state.tdsCreditStatements = Array.isArray(raw.tdsCreditStatements) ? raw.tdsCreditStatements : [];
   state.supplierReminderSeq = raw.supplierReminderSeq || 0;
   state.employees = Array.isArray(raw.employees) ? raw.employees : [];
   state.employeeSeq = raw.employeeSeq || 0;

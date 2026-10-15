@@ -2,6 +2,7 @@ import { tally, bank, gst, gstin, filing, audit } from './sprint-load.mjs';
 import { invoiceTemplate, setInvoiceTemplate } from './invoice-template.mjs';
 import { importSettlement, settlementStatus } from './settlements.mjs';
 import { importMarketplaceOrders, postSettlement } from './marketplace-orders.mjs';
+import { setChannelIdentity, importTcsStatement, import26asCredits, marketplaceCredits } from './marketplace-credits.mjs';
 const ingestTally = tally.ingest;
 const ingestBank = bank.ingest;
 const { reconcile } = gst;
@@ -1676,6 +1677,46 @@ export const TOOLS = [
       state.imports.push({ source: `orders:${result.channel}`, at: new Date().toISOString(), count: result.created.length + result.credited.length, skipped: result.skipped.length, heldBack: heldBackFrom(result.skipped.map((s) => ({ voucherNo: s.id, reason: s.reason }))) });
       return ok(result);
     },
+  },
+  {
+    name: 'set_channel_identity',
+    title: 'Marketplace GSTIN and TAN',
+    description: 'Record a marketplace\'s GSTIN (the e-commerce operator that collects TCS) and TAN (the deductor of TDS under section 194-O), so the portal\'s TCS statement and Form 26AS match the channel by number. Owner only.',
+    args: ['channel', 'gstin', 'tan', 'name'],
+    run: (state, args = {}) => setChannelIdentity(state, args),
+  },
+  {
+    name: 'import_tcs_statement',
+    title: 'Import the TCS credit statement',
+    description: 'Read the GST portal\'s "TDS and TCS credit received" statement (CSV: operator GSTIN, period, integrated, central and state tax) and record the TCS each marketplace deposited for you, month by month. A confirmed month is used from the electronic cash ledger in the next GST payment before new cash. Rows already recorded are skipped.',
+    args: ['csv'],
+    run: (state, args = {}) => {
+      if (!args.csv) return fail('csv required');
+      const result = importTcsStatement(state, args);
+      if (!result.ok) return fail(result.error, { parsed: result.parsed });
+      state.imports.push({ source: 'tcs-statement', at: new Date().toISOString(), count: result.imported, skipped: result.skipped.length, heldBack: heldBackFrom(result.skipped.filter((s) => s.reason !== 'exists').map((s) => ({ voucherNo: s.id, reason: s.reason }))) });
+      return ok(result);
+    },
+  },
+  {
+    name: 'import_26as_credits',
+    title: 'Import 194-O credits from Form 26AS',
+    description: 'Read Form 26AS (CSV or text table: section, TAN of deductor, tax deducted, date) and record the TDS under section 194-O each marketplace deposited against your PAN, quarter by quarter. Other sections are ignored here. Rows already recorded are skipped.',
+    args: ['csv'],
+    run: (state, args = {}) => {
+      if (!args.csv) return fail('csv required');
+      const result = import26asCredits(state, args);
+      if (!result.ok) return fail(result.error, { parsed: result.parsed });
+      state.imports.push({ source: '26as-194o', at: new Date().toISOString(), count: result.imported, skipped: result.skipped.length, heldBack: heldBackFrom(result.skipped.filter((s) => s.reason !== 'exists').map((s) => ({ voucherNo: s.id, reason: s.reason }))) });
+      return ok(result);
+    },
+  },
+  {
+    name: 'marketplace_credits',
+    title: 'TCS and TDS 194-O credits',
+    description: 'What marketplaces deducted from settlements as GST TCS (by month) and income-tax TDS under 194-O (by quarter), against what the portal statement and Form 26AS confirm; the gaps; how much TCS is available for the next GST payment. Read-only.',
+    args: ['fy'],
+    run: (state, args = {}) => marketplaceCredits(state, args),
   },
   {
     name: 'settlement_status',
