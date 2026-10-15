@@ -60,6 +60,8 @@ export function createState() {
     quoteSeq: 0,
     filings: [],
     supplierReminders: [],
+    settlements: [],
+    settlementSeq: 0,
     supplierReminderSeq: 0,
     employees: [],
     employeeSeq: 0,
@@ -140,6 +142,8 @@ export function serialize(state) {
     quotes: state.quotes || [],
     filings: state.filings || [],
     supplierReminders: state.supplierReminders || [],
+    settlements: state.settlements || [],
+    settlementSeq: state.settlementSeq || 0,
     supplierReminderSeq: state.supplierReminderSeq || 0,
     employees: state.employees || [],
     employeeSeq: state.employeeSeq || 0,
@@ -301,6 +305,8 @@ export function deserialize(raw) {
   state.quotes = Array.isArray(raw.quotes) ? raw.quotes : [];
   state.filings = Array.isArray(raw.filings) ? raw.filings : [];
   state.supplierReminders = Array.isArray(raw.supplierReminders) ? raw.supplierReminders : [];
+  state.settlements = Array.isArray(raw.settlements) ? raw.settlements : [];
+  state.settlementSeq = Number(raw.settlementSeq || 0);
   state.supplierReminderSeq = raw.supplierReminderSeq || 0;
   state.employees = Array.isArray(raw.employees) ? raw.employees : [];
   state.employeeSeq = raw.employeeSeq || 0;

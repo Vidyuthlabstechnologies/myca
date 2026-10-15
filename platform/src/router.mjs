@@ -1,5 +1,6 @@
 import { TOOLS, runTool } from './tools.mjs';
 import { templateWords } from './invoice-template.mjs';
+import { settlementWords, settlementStatusWords } from './settlements.mjs';
 import { planLocalToolCall, validateAssistantToolCall } from './assistant-contract.mjs';
 import { needsConfirmation, previewOf, openPending, takePending, clearPending, previewReply, blockedReply } from './chat-confirm.mjs';
 import { liveCallsEnabled, mockModeEnabled } from './runtime-config.mjs';
@@ -309,6 +310,8 @@ function fmtToolResult(name, result) {
   if (name === 'salary_annexure' && result.data) return annexureWords(result.data, money);
   if (name === 'tds_certificates' && result.data) return certificateWords(result.data, money);
   if (name === 'import_pos_sales' && result.data?.created) return posImportWords(result.data, money);
+  if (name === 'import_settlement' && result.data?.settlement) return `Recorded ${result.data.settlement.id}. ${settlementWords(result.data.settlement, money)}`;
+  if (name === 'settlement_status' && result.data) return settlementStatusWords(result.data, money);
   if (name === 'contractor_1099_file' && result.data) return file1099Words(result.data, money);
   if (name === 'export_trial_balance' && result.data) return `Trial balance as of ${result.data.asOf}: ${result.data.accounts === 1 ? '1 account' : `${result.data.accounts} accounts`}, debits ${money(result.data.debit)}, credits ${money(result.data.credit)}${result.data.balanced ? ', ties' : ', does not tie'}. Saved as ${result.data.fileName} from the Taxes screen.`;
   if (name === 'import_us_invoices' && result.data?.created) return usImportWords(result.data, money);

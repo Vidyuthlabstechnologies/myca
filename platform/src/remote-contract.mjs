@@ -1,7 +1,7 @@
 export const REMOTE_QUERY_TOOLS = new Set([
   'company_profile',
   'list_invoices',
-  'invoice_document', 'invoice_template',
+  'invoice_document', 'invoice_template', 'settlement_status',
   'record_share',
   'eway_bill_status',
   'list_expenses',
