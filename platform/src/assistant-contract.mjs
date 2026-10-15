@@ -253,7 +253,19 @@ export const TOOL_ARG_SCHEMAS = {
       taxJurisdiction: { type: 'string', maxLength: 24 },
       taxExempt: { type: 'boolean' },
       exemptionReason: { type: 'string', maxLength: 120 },
-      partyAddress: { type: 'string', maxLength: 200 }, ...documentSchema.properties, paymentTermsDays: { type: 'integer', minimum: 0, maximum: 365 } },
+      partyAddress: { type: 'string', maxLength: 200 },
+      exportSale: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          currency: { type: 'string', pattern: '^[A-Za-z]{3}$' },
+          exchangeRate: { type: 'number', exclusiveMinimum: 0 },
+          withTax: { type: 'boolean' },
+          shippingBillNo: { type: 'string', maxLength: 7 },
+          shippingBillDate: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' },
+          portCode: { type: 'string', maxLength: 6 },
+        },
+      }, ...documentSchema.properties, paymentTermsDays: { type: 'integer', minimum: 0, maximum: 365 } },
   },
   create_purchase: {
     ...documentSchema,
@@ -1655,6 +1667,16 @@ export function planLocalToolCall(state, message) {
   if (countryOf(state) === 'US') {
     const us = planUsFromChat(state, text);
     if (us) return us;
+  }
+  {
+    const exported = /^export\s+(?:invoice|sale)\s+(?:to\s+)?(.+?)\s+(?:([A-Za-z]{3})\s*)?([\d,]+(?:\.\d+)?)\s*([A-Za-z]{3})?\s+(?:at|rate|@)\s*([\d.]+)(?:\s+(under\s+lut|under\s+bond|without\s+(?:tax|igst)|with\s+(?:tax|igst)(?:\s+(\d{1,2})%)?))?\s*$/i.exec(text.trim());
+    if (exported && !isNegated(text) && !isQuestion(text)) {
+      const currency = (exported[2] || exported[4] || 'USD').toUpperCase();
+      const amount = Number(exported[3].replace(/,/g, ''));
+      const withTax = /^with\s/i.test(exported[6] || '');
+      const gstRate = withTax ? Number(exported[7] || 18) : 0;
+      return { kind: 'tool', name: 'create_invoice', args: { partyName: exported[1].trim(), lines: [{ description: 'Export', qty: 1, rate: amount, gstRate }], exportSale: { currency, exchangeRate: Number(exported[5]), withTax } } };
+    }
   }
   const saidTerms = takeInvoiceTerms(text);
   const doc = /\b(?:debit|credit)\s+note\b/i.test(text) ? null : parseDocument(saidTerms.text);

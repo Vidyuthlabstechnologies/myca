@@ -28,6 +28,12 @@ WhatsApp or email. For goods on the move, the e-way bill is offered on the same 
   message. An ambiguous message produces a question, not an entry.
 - The preview shows taxable value, each tax head and the total. Nothing is posted until
   the owner confirms.
+- Export sales (2026-10-15): `create_invoice` with `exportSale` (currency, rupees per
+  unit, with or without IGST, shipping bill and port when known) prices the lines in the
+  foreign currency, records the rupee value at the stated rate, sets the place of supply
+  to 96 and, under LUT or bond, charges no IGST; GSTR-1 carries them in table 6A as
+  WOPAY or WPAY and GSTR-9 in 4C or 5A. Chat: "export invoice to Acme Inc USD 1200 at
+  83.5 under LUT". The buyer has no GSTIN.
 - Invoice numbers are one sequence per business (INV-0001 onwards), or one series per
   financial year when the owner asks ("number invoices per financial year":
   `invoiceNumbering: yearly` on the profile; INV-26270001 is the first of 2026-27).

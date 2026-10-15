@@ -78,6 +78,7 @@ export function invoicesToGstr1Json(company, invoices = [], periodFp, opts = {})
   const b2bMap = new Map();
   const b2clMap = new Map();
   const b2csMap = new Map();
+  const expMap = new Map();
   const held = [];
 
   for (const inv of inPeriod) {
@@ -88,6 +89,20 @@ export function invoicesToGstr1Json(company, invoices = [], periodFp, opts = {})
     }
     const pos = String(inv.partyState || inv.placeOfSupply || supplierState).padStart(2, '0');
     const val = round2(inv.total);
+    if (inv.export) {
+      const expTyp = inv.export.withTax ? 'WPAY' : 'WOPAY';
+      if (!expMap.has(expTyp)) expMap.set(expTyp, []);
+      expMap.get(expTyp).push({
+        inum: inv.id,
+        idt: ddmmyyyy(inv.date),
+        val,
+        ...(inv.export.portCode ? { sbpcode: inv.export.portCode } : {}),
+        ...(inv.export.shippingBillNo ? { sbnum: inv.export.shippingBillNo } : {}),
+        ...(inv.export.shippingBillDate ? { sbdt: ddmmyyyy(inv.export.shippingBillDate) } : {}),
+        itms: (inv.lines || []).map((l, i) => ({ num: i + 1, txval: round2(l.taxable), rt: Number(l.gstRate || 0), iamt: round2(l.igst), csamt: 0 })),
+      });
+      continue;
+    }
     if (inv.partyGstin) {
       const ctin = String(inv.partyGstin).toUpperCase();
       if (!b2bMap.has(ctin)) b2bMap.set(ctin, []);
@@ -159,6 +174,7 @@ export function invoicesToGstr1Json(company, invoices = [], periodFp, opts = {})
   body.b2b = [...b2bMap.entries()].map(([ctin, inv]) => ({ ctin, inv }));
   body.b2cl = [...b2clMap.entries()].map(([pos, inv]) => ({ pos, inv }));
   body.b2cs = [...b2csMap.values()];
+  if (expMap.size) body.exp = [...expMap.entries()].map(([exp_typ, inv]) => ({ exp_typ, inv }));
 
   const b2baMap = new Map();
   const b2claMap = new Map();

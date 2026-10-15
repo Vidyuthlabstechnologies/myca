@@ -16,6 +16,12 @@ import { CA_SYNC_MODES, syncOf } from './ca-sync.mjs';
 import { inWords } from '../../platform/src/words.mjs';
 import { createInbound, INBOUND_HEADER, relayTokenMatches } from './inbound.mjs';
 
+const INDIA_OFFSET_MS = 330 * 60 * 1000;
+
+function indiaDate(at) {
+  return new Date(Number(at) + INDIA_OFFSET_MS).toISOString().slice(0, 10);
+}
+
 export const INBOUND_RELAY_HEADER = 'x-myca-relay-token';
 
 const MAX_BODY_BYTES = 1024 * 1024;
@@ -166,14 +172,14 @@ export function createApi({ db, secret, otpSender = null, googleClientIds = [], 
 
     if (parts[1] === 'inbound' && parts[2] === 'email' && parts.length === 3 && method === 'POST') {
       if (!relayTokenMatches(String(inboundEmail.relayToken || ''), req.headers[INBOUND_RELAY_HEADER])) throw httpError(401, 'INVALID_RELAY_TOKEN');
-      return inbound.mail(requestId, await readJson(req, MAX_UPLOAD_BYTES * 2), new Date(now()).toISOString().slice(0, 10));
+      return inbound.mail(requestId, await readJson(req, MAX_UPLOAD_BYTES * 2), indiaDate(now()));
     }
 
     if (parts[1] === 'inbound' && parts.length === 3 && method === 'POST') {
       const key = await inbound.authenticate(req.headers[INBOUND_HEADER]);
       if (!key) throw httpError(401, 'INVALID_KEY');
       if (parts[2] === 'sales') return inbound.sale(key, requestId, await readJson(req));
-      if (parts[2] === 'documents') return inbound.document(key, requestId, await readJson(req, MAX_UPLOAD_BYTES), new Date(now()).toISOString().slice(0, 10));
+      if (parts[2] === 'documents') return inbound.document(key, requestId, await readJson(req, MAX_UPLOAD_BYTES), indiaDate(now()));
       throw httpError(404, 'NOT_FOUND');
     }
 
@@ -336,7 +342,7 @@ export function createApi({ db, secret, otpSender = null, googleClientIds = [], 
           return runner.withSharedBooks(businessId, context, async (session, { asOf }) => {
             const out = await session.chat(message, actor);
             if (!out.preview && !out.awaitingConfirmation) return out;
-            return { reply: `These books are shared with you as they stood on ${inWords(new Date(asOf.getTime() + 330 * 60 * 1000).toISOString().slice(0, 10))}, so nothing can be posted from here. Ask the owner to make the change, or to share the books again.`, tools: [] };
+            return { reply: `These books are shared with you as they stood on ${inWords(indiaDate(asOf.getTime()))}, so nothing can be posted from here. Ask the owner to make the change, or to share the books again.`, tools: [] };
           });
         }
         throw httpError(403, 'SHARED_VIEW_READ_ONLY', { sharedAsOf: sync.asOf });

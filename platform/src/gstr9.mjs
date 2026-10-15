@@ -37,6 +37,7 @@ export function gstr9Draft(state, args = {}) {
   const months = monthsOf(fy);
   const today = localToday().slice(0, 7);
   const outward = { taxable: 0, tax: heads(), creditNotes: { taxable: 0, tax: heads() }, debitNotes: { taxable: 0, tax: heads() }, b2b: 0, b2c: 0, invoices: 0 };
+  const exports = { withTax: { count: 0, taxable: 0, igst: 0 }, withoutTax: { count: 0, taxable: 0 } };
   const itc = { availed: heads(), reversed: heads(), blocked: heads(), purchases: 0 };
   const twoB = { months: 0, available: heads() };
   const paid = { cash: heads(), credit: 0, interest: 0, lateFee: 0, months: 0 };
@@ -65,7 +66,14 @@ export function gstr9Draft(state, args = {}) {
     add(outward.debitNotes.tax, s.debitNotes);
     outward.invoices += docs.invoices.length;
     outward.b2b += docs.invoices.filter((inv) => inv.partyGstin).length;
-    outward.b2c += docs.invoices.filter((inv) => !inv.partyGstin).length;
+    outward.b2c += docs.invoices.filter((inv) => !inv.partyGstin && !inv.export).length;
+    for (const inv of docs.invoices) {
+      if (!inv.export || inv.status === 'cancelled') continue;
+      const bucket = inv.export.withTax ? exports.withTax : exports.withoutTax;
+      bucket.count += 1;
+      bucket.taxable = round2(bucket.taxable + Number(inv.taxable || 0));
+      if (inv.export.withTax) bucket.igst = round2(bucket.igst + Number(inv.igst || 0));
+    }
     add(itc.availed, { igst: Number(s.inputCredit.igst) + Number(s.purchaseNotes?.igst || 0), cgst: Number(s.inputCredit.cgst) + Number(s.purchaseNotes?.cgst || 0), sgst: Number(s.inputCredit.sgst) + Number(s.purchaseNotes?.sgst || 0) });
     add(itc.reversed, s.purchaseNotes);
     itc.purchases += docs.purchases.length;
@@ -130,8 +138,8 @@ export function gstr9Draft(state, args = {}) {
       form: 'GSTR-9',
       gstin: state.company?.gstin || '',
       months: monthRows,
-      table4: { outwardTaxable: outward.taxable, outwardTax: outward.tax, b2bInvoices: outward.b2b, b2cInvoices: outward.b2c, creditNotes: outward.creditNotes, debitNotes: outward.debitNotes, amendments: amended, netTaxable: round2(outward.taxable - outward.creditNotes.taxable + outward.debitNotes.taxable) },
-      table5: { nilRatedOrExempt: nilRated.taxable, lines: nilRated.lines, nilRated: zero.nil.taxable, exempt: zero.exempt.taxable, nonGst: zero['non-gst'].taxable, unsplit: zero.unsplit.taxable, unsplitLines: zero.unsplit.lines, note: zero.unsplit.lines ? 'Some 0% lines carry no supply type yet.' : 'Split from the supply type on each 0% line (5D nil-rated, 5E exempt, 5F non-GST).' },
+      table4: { outwardTaxable: outward.taxable, outwardTax: outward.tax, b2bInvoices: outward.b2b, b2cInvoices: outward.b2c, exportsWithTax: exports.withTax, creditNotes: outward.creditNotes, debitNotes: outward.debitNotes, amendments: amended, netTaxable: round2(outward.taxable - outward.creditNotes.taxable + outward.debitNotes.taxable) },
+      table5: { exportsWithoutTax: exports.withoutTax, nilRatedOrExempt: nilRated.taxable, lines: nilRated.lines, nilRated: zero.nil.taxable, exempt: zero.exempt.taxable, nonGst: zero['non-gst'].taxable, unsplit: zero.unsplit.taxable, unsplitLines: zero.unsplit.lines, note: zero.unsplit.lines ? 'Some 0% lines carry no supply type yet.' : 'Split from the supply type on each 0% line (5D nil-rated, 5E exempt, 5F non-GST).' },
       table6: { itcAvailed: itc.availed, purchases: itc.purchases },
       table7: { reversed: itc.reversed, blocked: itc.blocked },
       table8: { gstr2bMonths: twoB.months, gstr2bAvailable: twoB.available, availed: itc.availed, difference: add(heads(), { igst: twoB.available.igst - itc.availed.igst, cgst: twoB.available.cgst - itc.availed.cgst, sgst: twoB.available.sgst - itc.availed.sgst }) },
