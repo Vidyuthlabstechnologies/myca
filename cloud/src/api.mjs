@@ -276,13 +276,12 @@ export function createApi({ db, secret, otpSender = null, googleClientIds = [], 
         const people = await businesses.members(businessId);
         const auditRows = await db.query('select id, user_id as "userId", request_id as "requestId", action, before_hash as "beforeHash", after_hash as "afterHash", metadata, at from audit_log where business_id = $1 order by id', [businessId]);
         const inboundKeys = await inbound.list(businessId);
-        const out = await runner.withReadOnlyBooks(businessId, context, async (session) => {
-          const backup = session.backup();
-          return backup;
-        });
+        const out = await runner.withReadOnlyBooks(businessId, context, async (session) => session.backup());
+        const stored = await db.query('select sha256, content from documents where business_id = $1 order by created_at', [businessId]);
+        const documents = Object.fromEntries(stored.rows.map((row) => [row.sha256, row.content]));
         await db.query(
           `insert into audit_log (business_id, user_id, device_id, request_id, action, metadata) values ($1, $2, $3, $4, 'business.exported', $5::jsonb)`,
-          [businessId, user.userId, user.deviceId, requestId, JSON.stringify({ documents: Object.keys(out.documents || {}).length, auditRows: auditRows.rowCount })],
+          [businessId, user.userId, user.deviceId, requestId, JSON.stringify({ documents: stored.rowCount, auditRows: auditRows.rowCount })],
         );
         return {
           ok: true,
@@ -291,7 +290,7 @@ export function createApi({ db, secret, otpSender = null, googleClientIds = [], 
           members: people,
           connections: inboundKeys.keys || [],
           books: out.state,
-          documents: out.documents,
+          documents,
           audit: auditRows.rows,
           note: 'This is everything MyCA holds about this business: the books as one document, every uploaded file keyed by its sha256, who is a member, the connected systems, and the audit trail. Restore it on the Windows app or keep it.',
         };
