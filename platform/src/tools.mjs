@@ -1,6 +1,7 @@
 import { tally, bank, gst, gstin, filing, audit } from './sprint-load.mjs';
 import { invoiceTemplate, setInvoiceTemplate } from './invoice-template.mjs';
 import { importSettlement, settlementStatus } from './settlements.mjs';
+import { importMarketplaceOrders, postSettlement } from './marketplace-orders.mjs';
 const ingestTally = tally.ingest;
 const ingestBank = bank.ingest;
 const { reconcile } = gst;
@@ -1659,7 +1660,21 @@ export const TOOLS = [
       const result = importSettlement(state, args);
       if (!result.ok) return fail(result.error, { parsed: result.parsed, id: result.id, settlementId: result.settlementId });
       state.imports.push({ source: `settlement:${result.settlement.channel}`, at: new Date().toISOString(), count: 1, skipped: result.settlement.held.length, heldBack: heldBackFrom(result.settlement.held.map((h) => ({ voucherNo: `row ${h.row}`, reason: h.reason }))) });
-      return ok({ settlement: result.settlement });
+      const posting = postSettlement(state, result.settlement);
+      return ok({ settlement: result.settlement, posting });
+    },
+  },
+  {
+    name: 'import_marketplace_orders',
+    title: 'Import marketplace orders',
+    description: 'Read an order report from Amazon (MTR), Flipkart (GST report) or another channel (CSV with order id, date, delivery state, GST rate and taxable value or invoice amount) and post the orders as sales to unregistered buyers, one invoice per day and delivery state with a line per GST rate, so GSTR-1 carries them under B2CS by state. Return and refund rows become credit notes against the order they reverse. An order already in the books, a row without a state or rate, or a return for an order not in the books is held back by name.',
+    args: ['csv', 'channel'],
+    run: (state, args = {}) => {
+      if (!args.csv) return fail('csv required');
+      const result = importMarketplaceOrders(state, args);
+      if (!result.ok) return fail(result.error, { parsed: result.parsed });
+      state.imports.push({ source: `orders:${result.channel}`, at: new Date().toISOString(), count: result.created.length + result.credited.length, skipped: result.skipped.length, heldBack: heldBackFrom(result.skipped.map((s) => ({ voucherNo: s.id, reason: s.reason }))) });
+      return ok(result);
     },
   },
   {

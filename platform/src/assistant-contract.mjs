@@ -293,6 +293,23 @@ export const TOOL_ARG_SCHEMAS = {
       amount: { type: 'number', exclusiveMinimum: 0 },
       date: { type: 'string' },
       reason: { type: 'string', minLength: 1, maxLength: 200 },
+      lines: {
+        type: 'array',
+        minItems: 1,
+        maxItems: 50,
+        items: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['rate', 'gstRate'],
+          properties: {
+            description: { type: 'string', maxLength: 200 },
+            hsn: { type: 'string', maxLength: 8 },
+            qty: { type: 'number', exclusiveMinimum: 0 },
+            rate: { type: 'number', exclusiveMinimum: 0 },
+            gstRate: { type: 'number', minimum: 0, maximum: 28 },
+          },
+        },
+      },
     },
   },
   create_debit_note: {
@@ -574,6 +591,15 @@ export const TOOL_ARG_SCHEMAS = {
       documentSha256: { type: 'string', pattern: '^[0-9a-f]{64}$' },
       channel: { type: 'string', enum: ['amazon', 'flipkart', 'myntra', 'nykaa', 'meesho', 'shopify', 'razorpay', 'quick-commerce', 'marketplace'] },
       bankAmount: { type: 'number', minimum: 0 },
+    },
+  },
+  import_marketplace_orders: {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      csv: { type: 'string' },
+      documentSha256: { type: 'string', pattern: '^[0-9a-f]{64}$' },
+      channel: { type: 'string', enum: ['amazon', 'flipkart', 'myntra', 'nykaa', 'meesho', 'shopify', 'razorpay', 'quick-commerce', 'marketplace'] },
     },
   },
   settlement_status: {
@@ -1540,6 +1566,7 @@ const TOOL_RISK = {
   import_us_invoices: 'writes_books',
   import_pos_sales: 'writes_books',
   import_settlement: 'writes_books',
+  import_marketplace_orders: 'writes_books',
   settlement_status: 'read_only',
   sales_tax_review_answer: 'writes_books',
   record_sales_tax_payment: 'writes_books',
@@ -2014,6 +2041,15 @@ export function planLocalToolCall(state, message) {
     const csv = state.pendingFile?.content || state.files.tally;
     if (!csv) return { kind: 'reply', reply: 'Attach a Tally Day Book CSV first (dropdown: Tally Day Book).', tools: [] };
     return { kind: 'tool', name: 'import_tally', args: { csv, fileName: state.pendingFile?.name || 'tally.csv' }, clearsPendingFile: true };
+  }
+  {
+    const orders = /\bimport\s+(?:the\s+)?(?:(amazon|flipkart|myntra|nykaa|meesho|shopify|razorpay|quick[\s-]?commerce)\s+)?(?:orders?|mtr|order\s+report|sales\s+report|gst\s+report)\b/i.exec(text);
+    if (orders && !isQuestion(text)) {
+      const csv = state.pendingFile?.content;
+      if (!csv) return { kind: 'reply', reply: 'Attach the order report first (Amazon MTR, Flipkart GST report, or any sheet with order id, date, delivery state, GST rate and taxable value), then say "import amazon orders". Each day and state becomes one invoice to unregistered buyers after you see the preview; returns become credit notes.', tools: [] };
+      const channel = orders[1] ? orders[1].toLowerCase().replace(/\s+/, '-') : undefined;
+      return { kind: 'tool', name: 'import_marketplace_orders', args: { csv, ...(channel ? { channel } : {}) }, clearsPendingFile: true };
+    }
   }
   {
     const settle = /\bimport\s+(?:the\s+)?(?:(amazon|flipkart|myntra|nykaa|meesho|shopify|razorpay|quick[\s-]?commerce)\s+)?(?:settlement|payout)s?\b(?:\s+(?:report|file|csv))?(?:.*?\b(?:bank|received|got|paid)\s+(?:₹|rs\.?\s*)?([\d,]+(?:\.\d+)?))?/i.exec(text);

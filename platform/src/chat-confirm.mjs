@@ -40,6 +40,7 @@ import { planUsImport } from './import-us-books.mjs';
 import { planSupplierNote } from './supplier-notes.mjs';
 import { planPosImport } from './import-pos.mjs';
 import { planSettlement, settlementWords } from './settlements.mjs';
+import { planOrderImport, settlementInvoices } from './marketplace-orders.mjs';
 import { filingRows } from './deadline-run.mjs';
 import { tally, bank, gstin as gstinRules } from './sprint-load.mjs';
 import { parseZohoBooksCsv } from './import-zoho.mjs';
@@ -47,7 +48,7 @@ import { planAmendment } from './invoice-amendments.mjs';
 import { tallyXmlToDayBookCsv } from './tally-xml.mjs';
 
 export const CONFIRM_TOOLS = new Set([
-  'create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'record_filing', 'record_supplier_reminder', 'add_employee', 'change_salary', 'end_employment', 'approve_payroll', 'record_salary_payment', 'set_tds_deductor', 'record_tds_deposit', 'tds_review_answer', 'set_gst_credit_opening', 'record_gst_payment', 'close_year', 'post_expense', 'set_expense_head', 'create_credit_note', 'create_debit_note', 'create_purchase_note', 'record_supplier_debit_note', 'cancel_invoice', 'gst_review_answer', 'import_gstr2b', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'set_party_address', 'set_transport', 'set_sales_tax_rate', 'set_contractor', 'set_sales_tax_nexus', 'sales_tax_review_answer', 'record_sales_tax_payment', 'record_sales_tax_filing', 'set_withholding', 'set_suta_rate', 'import_us_invoices', 'import_pos_sales', 'import_settlement', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote', 'amend_invoice',
+  'create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'record_filing', 'record_supplier_reminder', 'add_employee', 'change_salary', 'end_employment', 'approve_payroll', 'record_salary_payment', 'set_tds_deductor', 'record_tds_deposit', 'tds_review_answer', 'set_gst_credit_opening', 'record_gst_payment', 'close_year', 'post_expense', 'set_expense_head', 'create_credit_note', 'create_debit_note', 'create_purchase_note', 'record_supplier_debit_note', 'cancel_invoice', 'gst_review_answer', 'import_gstr2b', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'set_party_address', 'set_transport', 'set_sales_tax_rate', 'set_contractor', 'set_sales_tax_nexus', 'sales_tax_review_answer', 'record_sales_tax_payment', 'record_sales_tax_filing', 'set_withholding', 'set_suta_rate', 'import_us_invoices', 'import_pos_sales', 'import_settlement', 'import_marketplace_orders', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote', 'amend_invoice',
   'import_tally', 'import_tally_xml', 'import_zoho', 'import_bank',
   'govt_generate_irn', 'govt_nic_cancel_irn',
   'exception_decide',
@@ -1015,6 +1016,30 @@ function usImportPreview(state, args) {
   };
 }
 
+function ordersPreview(state, args) {
+  const planned = planOrderImport(state, args);
+  if (!planned.ok) {
+    const reason = planned.error === 'NO_HEADER' ? `The file needs ${planned.parsed.need}.` : planned.error === 'EMPTY' || planned.error === 'NO_ROWS' ? 'The file has no order rows I can read.' : `The file could not be read: ${planned.error}.`;
+    return { blockers: [reason], summary: '', effects: [], figures: {} };
+  }
+  const reasons = {};
+  for (const row of planned.skipped) reasons[row.reason] = (reasons[row.reason] || 0) + 1;
+  const words = { exists: 'already in the books', return_exists: 'returns already recorded', ORDER_NOT_FOUND: 'returns for orders not in the books', STATE_UNKNOWN: 'rows with a delivery state I cannot place', RATE_REQUIRED: 'rows with no GST rate', INVALID_DATE: 'rows with a date I cannot read', BAD_AMOUNT: 'rows with an amount I cannot read', PERIOD_LOCKED: 'in a locked period', ORDER_ID_REQUIRED: 'rows with no order id', TOO_MANY_ROWS: 'rows beyond the 5,000 an import takes' };
+  const held = Object.entries(reasons).map(([reason, count]) => `${count} ${words[reason] || reason}`);
+  const taxable = planned.ready.reduce((sum, day) => sum + day.taxable, 0);
+  const states = new Set(planned.ready.map((day) => day.state));
+  const name = planned.channel === 'marketplace' ? 'Marketplace' : planned.channel[0].toUpperCase() + planned.channel.slice(1);
+  const effects = [`Each day and delivery state posts as one invoice to "${name} customers" with a line per GST rate, so GSTR-1 shows them under B2CS by state.`];
+  if (planned.returns.length) effects.push(`${planned.returns.length === 1 ? '1 return posts' : `${planned.returns.length} returns post`} as credit notes against the orders they reverse.`);
+  effects.push('Nothing is received yet; the next settlement from this channel settles these invoices and books the fees, TCS and TDS.');
+  return {
+    blockers: planned.ready.length || planned.returns.length ? [] : [`Every row was held back${held.length ? `: ${held.join('; ')}` : ''}; nothing to post.`],
+    summary: `${name} orders: ${planned.parsed.orders === 1 ? '1 order' : `${planned.parsed.orders} orders`} over ${planned.ready.length === 1 ? '1 day-and-state invoice' : `${planned.ready.length} day-and-state invoices`} across ${states.size === 1 ? '1 state' : `${states.size} states`}, taxable ${money(taxable)}${planned.returns.length ? `, ${planned.returns.length === 1 ? '1 return' : `${planned.returns.length} returns`}` : ''}${held.length ? `; held back: ${held.join('; ')}` : ''}.`,
+    effects,
+    figures: { orders: planned.parsed.orders, invoices: planned.ready.length, returns: planned.returns.length, taxable: Math.round(taxable * 100) / 100, heldBack: planned.skipped.length },
+  };
+}
+
 function settlementPreview(state, args) {
   const planned = planSettlement(state, args);
   if (!planned.ok) {
@@ -1022,7 +1047,10 @@ function settlementPreview(state, args) {
     return { blockers: [reason], summary: '', effects: [], figures: {} };
   }
   const { plan } = planned;
-  const effects = ['Nothing posts to the ledger: the settlement is recorded with its figures and the orders behind them.'];
+  const settles = settlementInvoices(state, plan);
+  const effects = [settles.length
+    ? `It settles ${settles.length === 1 ? '1 marketplace invoice' : `${settles.length} marketplace invoices`} in the books: the payout goes to the bank, fees and penalties to Marketplace fees, TCS and TDS 194-O to receivables to claim; any shortfall stays outstanding on the channel.`
+    : 'None of these orders is in the books yet, so nothing posts to the ledger: the settlement is recorded with its figures. Import the order report first to have it settle the sales.'];
   if (plan.status === 'short') effects.push(`The shortfall of ${money(plan.shortfall)} becomes an exception to take up with the marketplace.`);
   if (plan.status === 'unmatched') effects.push('No bank credit of this amount is in the books yet; it stays an exception until the statement with it is imported, or say "import settlement, bank received <amount>".');
   if (plan.penalties.length) effects.push(`${plan.penalties.length === 1 ? '1 penalty' : `${plan.penalties.length} penalties`} totalling ${money(-plan.totals.penalty)} become exceptions with their order ids.`);
@@ -1146,6 +1174,7 @@ const PREVIEWERS = {
   import_us_invoices: usImportPreview,
   import_pos_sales: posImportPreview,
   import_settlement: settlementPreview,
+  import_marketplace_orders: ordersPreview,
   import_bank: bankPreview,
   govt_generate_irn: (state, args) => irnPreview(state, args, false),
   govt_nic_cancel_irn: (state, args) => irnPreview(state, args, true),

@@ -58,6 +58,7 @@ function holdReason(inv) {
 
 function isB2cl(inv, pos, supplierState) {
   if (pos === supplierState) return false;
+  if (inv.source === 'marketplace') return false;
   const found = rules.rule('gst.b2cl.threshold', inv.date);
   return found.ok && Math.round((Number(inv.total) || 0) * 100) > found.value;
 }
