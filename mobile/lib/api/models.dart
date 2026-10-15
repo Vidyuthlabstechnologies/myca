@@ -618,6 +618,20 @@ class InvoiceShare {
   final String outcome;
 }
 
+class EInvoice {
+  const EInvoice({required this.status, required this.irn, required this.ackNo, required this.why});
+
+  factory EInvoice.fromJson(Object? json) {
+    final map = _map(json);
+    return EInvoice(status: _text(map['status']), irn: _text(map['irn']), ackNo: _text(map['ackNo']), why: _text(map['why']));
+  }
+
+  final String status;
+  final String irn;
+  final String ackNo;
+  final String why;
+}
+
 class EwayBill {
   const EwayBill({
     required this.needed,
@@ -1836,6 +1850,7 @@ class InvoiceDocument {
     this.buyerAddress = '',
     this.shares = const <InvoiceShare>[],
     this.ewayBill,
+    this.einvoice,
     this.dueDate = '',
     this.termsDays,
     this.kind = 'invoice',
@@ -1885,6 +1900,7 @@ class InvoiceDocument {
       buyerAddress: _text(buyer['address']),
       shares: _maps(map['shares']).map(InvoiceShare.fromJson).toList(),
       ewayBill: map['ewayBill'] is Map ? EwayBill.fromJson(map['ewayBill']) : null,
+      einvoice: map['einvoice'] is Map ? EInvoice.fromJson(map['einvoice']) : null,
       status: _text(map['status']),
       balance: _num(map['balance']),
       dueDate: _text(map['dueDate']),
@@ -1931,6 +1947,7 @@ class InvoiceDocument {
   final String buyerAddress;
   final List<InvoiceShare> shares;
   final EwayBill? ewayBill;
+  final EInvoice? einvoice;
   final String status;
   final num balance;
   final List<String> missing;

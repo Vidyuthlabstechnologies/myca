@@ -544,6 +544,8 @@ class FakeMycaApi implements MycaApi {
       'record_receipt' => 'Receipt of ₹1,000.00 against ${args['invoiceId']}.',
       'record_payment' =>
         'Pay Fabric Co ₹${args['amount']} against ${args['billId']} from the ${args['mode']}.',
+      'create_purchase_note' => 'Debit note of ₹${args['amount']} against ${args['billId']}: ${args['reason']}. You owe Fabric Co that much less.',
+      'govt_generate_irn' => 'Generate the IRN for ${args['invoiceId']} through the action gate.',
       'import_tally' => 'Tally import: 12 vouchers ready, 1 skipped.',
       _ => 'Run $name.',
     });

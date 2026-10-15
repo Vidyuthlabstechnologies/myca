@@ -12,7 +12,7 @@ import '../theme.dart';
 import '../widgets.dart';
 import 'invoice_screen.dart';
 
-enum _Composer { none, document, payment, quote }
+enum _Composer { none, document, payment, quote, purchaseNote }
 
 class PartyScreen extends StatefulWidget {
   const PartyScreen({
@@ -38,6 +38,7 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
   final _rate = TextEditingController();
   final _what = TextEditingController();
   final _billNo = TextEditingController();
+  final _noteReason = TextEditingController();
   final _jurisdiction = TextEditingController();
   final _exemptionReason = TextEditingController();
   final _taxPaid = TextEditingController();
@@ -123,6 +124,7 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
     _rate.dispose();
     _what.dispose();
     _billNo.dispose();
+    _noteReason.dispose();
     _jurisdiction.dispose();
     _exemptionReason.dispose();
     _taxPaid.dispose();
@@ -138,7 +140,52 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
       _invoiceId = party.unpaid.first.id;
       if (!_sales) _amount.text = plainNumber(party.unpaid.first.owed);
     }
+    if (composer == _Composer.purchaseNote) {
+      final open = party.documents.where((d) => !d.cancelled).toList();
+      _invoiceId = open.isEmpty ? null : open.last.id;
+      _noteReason.clear();
+    }
   });
+
+  Future<void> _submitPurchaseNote() async {
+    final amount = parseAmount(_amount.text);
+    final billId = _invoiceId;
+    final reason = _noteReason.text.trim();
+    if (billId == null) return setState(() => _formError = 'Choose the bill.');
+    if (amount == null || amount <= 0) return setState(() => _formError = 'Enter how much less you owe.');
+    if (reason.isEmpty) return setState(() => _formError = 'Say why: goods returned, price reduced.');
+    setState(() => _composer = _Composer.none);
+    await propose(
+      'Debit note of ${rupees(amount)} against $billId: $reason',
+      'create_purchase_note',
+      {'billId': billId, 'amount': amount, 'date': isoDate(AppScope.of(context).now()), 'reason': reason},
+    );
+  }
+
+  List<Widget> _purchaseNoteFields(Party party) => [
+    DropdownButtonFormField<String>(
+      initialValue: _invoiceId,
+      decoration: const InputDecoration(labelText: 'Against bill'),
+      items: [
+        for (final doc in party.documents.where((d) => !d.cancelled))
+          DropdownMenuItem(value: doc.id, child: Text('${doc.id} · ${rupees(doc.total)}')),
+      ],
+      onChanged: (value) => setState(() => _invoiceId = value),
+    ),
+    const SizedBox(height: 10),
+    TextField(
+      controller: _amount,
+      autofocus: true,
+      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+      decoration: const InputDecoration(labelText: 'Reduce the bill by', prefixText: '₹ '),
+    ),
+    const SizedBox(height: 10),
+    TextField(
+      controller: _noteReason,
+      textCapitalization: TextCapitalization.sentences,
+      decoration: const InputDecoration(labelText: 'Reason', hintText: 'Goods returned, price reduced'),
+    ),
+  ];
 
   Future<void> _submitUsDocument(num? amount) async {
     if (amount == null) {
@@ -564,6 +611,7 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
               onDocument: () => _open(_Composer.document, party),
               onPayment: () => _open(_Composer.payment, party),
               onQuote: _sales ? () => _open(_Composer.quote, party) : null,
+              onDebitNote: !_sales && party.documents.any((d) => !d.cancelled) ? () => _open(_Composer.purchaseNote, party) : null,
               onTerms: _sales ? () => _setTerms(party) : null,
             )
           else
@@ -572,6 +620,8 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
                   ? (_sales ? 'Payment received' : 'Payment made')
                   : _composer == _Composer.quote
                   ? 'New quote'
+                  : _composer == _Composer.purchaseNote
+                  ? 'Debit note to supplier'
                   : (_sales ? 'New sale' : 'New bill'),
               error: _formError,
               onCancel: () => setState(() => _composer = _Composer.none),
@@ -579,9 +629,13 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
                   ? _submitPayment
                   : _composer == _Composer.quote
                   ? _submitQuote
+                  : _composer == _Composer.purchaseNote
+                  ? _submitPurchaseNote
                   : _submitDocument,
               children: _composer == _Composer.payment
                   ? _paymentFields(party)
+                  : _composer == _Composer.purchaseNote
+                  ? _purchaseNoteFields(party)
                   : _composer == _Composer.quote && _us
                   ? _usDocumentFields()
                   : _documentFields(rates),
@@ -828,6 +882,7 @@ class _ActionChips extends StatelessWidget {
     this.terms,
     this.onTerms,
     this.onQuote,
+    this.onDebitNote,
   });
 
   final bool busy;
@@ -839,6 +894,7 @@ class _ActionChips extends StatelessWidget {
   final int? terms;
   final VoidCallback? onTerms;
   final VoidCallback? onQuote;
+  final VoidCallback? onDebitNote;
 
   @override
   Widget build(BuildContext context) {
@@ -873,6 +929,11 @@ class _ActionChips extends StatelessWidget {
                 ActionChip(
                   label: const Text('Quote'),
                   onPressed: busy ? null : onQuote,
+                ),
+              if (onDebitNote != null)
+                ActionChip(
+                  label: const Text('Debit note'),
+                  onPressed: busy ? null : onDebitNote,
                 ),
               if (onTerms != null)
                 ActionChip(

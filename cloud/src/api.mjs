@@ -23,7 +23,7 @@ export const MAX_UPLOAD_BYTES = 8 * 1024 * 1024;
 export const MAX_BUSINESS_BYTES = 200 * 1024 * 1024;
 const MAX_CRASH_BYTES = 64 * 1024;
 
-export const PROPOSABLE = new Set(['create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'record_filing', 'record_supplier_reminder', 'add_employee', 'set_tds_deductor', 'record_tds_deposit', 'change_salary', 'end_employment', 'post_expense', 'set_expense_head', 'create_credit_note', 'cancel_invoice', 'gst_review_answer', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote', 'exception_decide']);
+export const PROPOSABLE = new Set(['create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'record_filing', 'record_supplier_reminder', 'add_employee', 'set_tds_deductor', 'record_tds_deposit', 'change_salary', 'end_employment', 'post_expense', 'set_expense_head', 'create_credit_note', 'cancel_invoice', 'gst_review_answer', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote', 'exception_decide', 'create_purchase_note']);
 
 const NOT_A_PLACE_OF_BUSINESS = new Set(['97', '99']);
 

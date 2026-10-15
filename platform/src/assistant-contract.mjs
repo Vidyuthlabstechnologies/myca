@@ -1131,7 +1131,7 @@ export const TOOL_ARG_SCHEMAS = {
     additionalProperties: false,
     required: ['invoiceId'],
     properties: {
-      invoiceId: { type: 'string', pattern: '^INV-[0-9]{4,}$' },
+      invoiceId: { type: 'string', pattern: '^(INV|CN|DN)-[0-9]{4,}$' },
       provider: { type: 'string', enum: ['nic', 'sandbox'] },
       caApprovalId: { type: 'string' },
     },
@@ -1790,12 +1790,12 @@ export function planLocalToolCall(state, message) {
     return { kind: 'tool', name: 'print_invoice', args: { id: printId[1].toUpperCase() } };
   }
 
-  const mockIrnId = text.match(/\b(INV-\d+)\b/i);
+  const mockIrnId = text.match(/\b((?:INV|CN|DN)-\d+)\b/i);
   if (mockIrnId && /\bmock\s*(irn|einvoice|e-invoice)\b/i.test(text)) {
     return { kind: 'tool', name: 'govt_nic_mock', args: { invoiceId: mockIrnId[1].toUpperCase() } };
   }
 
-  const irnId = text.match(/\b(INV-\d+)\b/i);
+  const irnId = text.match(/\b((?:INV|CN|DN)-\d+)\b/i);
   if (irnId && /\birn\b|e-?invoice/i.test(text)) {
     const invoiceId = irnId[1].toUpperCase();
     if (/\bcancel/i.test(text)) return { kind: 'tool', name: 'govt_nic_cancel_irn', args: { invoiceId } };
