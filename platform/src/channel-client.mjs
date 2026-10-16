@@ -3,6 +3,7 @@ const AMAZON_REGIONS = { IN: 'https://sellingpartnerapi-eu.amazon.com', EU: 'htt
 const AMAZON_REPORTS = { settlement: 'GET_V2_SETTLEMENT_REPORT_DATA_FLAT_FILE_V2', orders: 'GET_FLAT_FILE_ALL_ORDERS_DATA_BY_LAST_UPDATE_GENERAL' };
 const RAZORPAY_BASE = 'https://api.razorpay.com/v1';
 const SHOPIFY_VERSION = '2025-10';
+const ZOHO_DCS = { in: 'in', com: 'com', eu: 'eu', au: 'com.au' };
 const POLL_MS = 15000;
 const POLL_LIMIT = 40;
 
@@ -76,6 +77,51 @@ export class ChannelClient {
       url = next ? next[1] : '';
     }
     return { ok: true, pages };
+  }
+
+  async zohoToken(config, signal) {
+    const dc = ZOHO_DCS[config.dc || 'in'] || 'in';
+    const body = new URLSearchParams({ grant_type: 'refresh_token', refresh_token: config.refreshToken, client_id: config.clientId, client_secret: config.clientSecret });
+    const res = await this.fetchFn(`https://accounts.zoho.${dc}/oauth/v2/token`, { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: body.toString(), signal });
+    const data = await asJson(res);
+    if (!res.ok || !data.access_token) return { ok: false, error: 'ZOHO_AUTH_FAILED', status: res.status };
+    return { ok: true, token: data.access_token, base: `https://www.zohoapis.${dc}/books/v3` };
+  }
+
+  async zoho({ config, op, params = {} }, signal) {
+    const auth = await this.zohoToken(config, signal);
+    if (!auth.ok) return auth;
+    const call = async (method, path, body) => {
+      const joiner = path.includes('?') ? '&' : '?';
+      const res = await this.fetchFn(`${auth.base}${path}${joiner}organization_id=${encodeURIComponent(config.orgId)}`, {
+        method,
+        headers: { authorization: `Zoho-oauthtoken ${auth.token}`, accept: 'application/json', ...(body ? { 'content-type': 'application/json' } : {}) },
+        ...(body ? { body: JSON.stringify(body) } : {}),
+        signal,
+      });
+      const data = await asJson(res);
+      if (!res.ok || (data.code != null && Number(data.code) !== 0)) return { ok: false, error: 'ZOHO_REQUEST_FAILED', status: res.status, detail: String(data.message || data.raw || '').slice(0, 200) };
+      return { ok: true, data };
+    };
+    if (op === 'taxes') {
+      const out = await call('GET', '/settings/taxes');
+      return out.ok ? { ok: true, taxes: out.data.taxes || [] } : out;
+    }
+    if (op === 'findContact') {
+      const out = await call('GET', `/contacts?contact_name=${encodeURIComponent(params.name)}&contact_type=customer`);
+      if (!out.ok) return out;
+      const hit = (out.data.contacts || []).find((c) => String(c.contact_name).trim().toLowerCase() === String(params.name).trim().toLowerCase());
+      return { ok: true, contactId: hit ? String(hit.contact_id) : '' };
+    }
+    if (op === 'createContact') {
+      const out = await call('POST', '/contacts', { contact_name: params.name, contact_type: 'customer', gst_treatment: params.gstin ? 'business_gst' : 'consumer', ...(params.gstin ? { gst_no: params.gstin } : {}), ...(params.state ? { place_of_contact: params.state } : {}) });
+      return out.ok ? { ok: true, contactId: String(out.data.contact?.contact_id || '') } : out;
+    }
+    if (op === 'createInvoice') {
+      const out = await call('POST', '/invoices', params.invoice);
+      return out.ok ? { ok: true, invoiceId: String(out.data.invoice?.invoice_id || ''), invoiceNumber: String(out.data.invoice?.invoice_number || '') } : out;
+    }
+    return { ok: false, error: 'UNKNOWN_ZOHO_OP' };
   }
 
   async razorpay({ config, from, to }, signal) {

@@ -13,6 +13,7 @@ export const CONNECTOR_CHANNELS = {
   amazon: { title: 'Amazon Seller Central (SP-API)', fields: ['clientId', 'clientSecret', 'refreshToken', 'marketplaceId', 'region'], secrets: ['clientSecret', 'refreshToken'], kinds: ['settlement', 'orders'] },
   shopify: { title: 'Shopify Admin API', fields: ['shopDomain', 'accessToken'], secrets: ['accessToken'], kinds: ['settlement', 'orders'] },
   razorpay: { title: 'Razorpay', fields: ['keyId', 'keySecret'], secrets: ['keySecret'], kinds: ['settlement'] },
+  zoho: { title: 'Zoho Books', fields: ['orgId', 'dc', 'clientId', 'clientSecret', 'refreshToken'], secrets: ['clientSecret', 'refreshToken'], kinds: [], pushes: ['invoices'] },
 };
 export const FILE_ONLY_CHANNELS = { flipkart: 'Flipkart publishes settlement and GST reports from Seller Hub as files; import them.', unicommerce: 'Unicommerce exports orders as files; import them.', myntra: 'Myntra, Nykaa and Meesho publish payout files; import them.' };
 
@@ -49,10 +50,10 @@ export function publicChannelConfig(channel) {
   const spec = CONNECTOR_CHANNELS[channel];
   const cfg = loadChannelConfig(channel);
   if (!spec) return null;
-  if (!cfg) return { channel, title: spec.title, configured: false, kinds: spec.kinds, fields: spec.fields, secrets: spec.secrets };
+  if (!cfg) return { channel, title: spec.title, configured: false, kinds: spec.kinds, pushes: spec.pushes || [], fields: spec.fields, secrets: spec.secrets };
   const shown = {};
   for (const field of spec.fields) shown[field] = spec.secrets.includes(field) ? (cfg[field] ? 'set' : '') : cfg[field];
-  return { channel, title: spec.title, configured: spec.fields.every((field) => Boolean(cfg[field]) || field === 'region'), enabled: cfg.enabled, lastFetchedTo: cfg.lastFetchedTo, kinds: spec.kinds, fields: spec.fields, secrets: spec.secrets, ...shown };
+  return { channel, title: spec.title, configured: spec.fields.every((field) => Boolean(cfg[field]) || field === 'region' || field === 'dc'), enabled: cfg.enabled, lastFetchedTo: cfg.lastFetchedTo, kinds: spec.kinds, pushes: spec.pushes || [], fields: spec.fields, secrets: spec.secrets, ...shown };
 }
 
 export function saveChannelConfig(channel, patch = {}) {
@@ -237,7 +238,7 @@ export async function syncChannels(state, args = {}, { actor } = {}) {
 
 export function connectorsWords(data) {
   const lines = [];
-  for (const c of data.connectors) lines.push(`· ${c.title}: ${c.configured ? `connected${c.enabled === false ? ', paused' : ''}${c.lastFetchedTo ? `, fetched to ${c.lastFetchedTo}` : ''}` : 'not connected'} (${c.kinds.join(', ')})`);
+  for (const c of data.connectors) lines.push(`· ${c.title}: ${c.configured ? `connected${c.enabled === false ? ', paused' : ''}${c.lastFetchedTo ? `, fetched to ${c.lastFetchedTo}` : ''}` : 'not connected'} (${[...c.kinds, ...(c.pushes || []).map((p) => `push ${p}`)].join(', ')})`);
   for (const [channel, note] of Object.entries(data.fileOnly)) lines.push(`· ${channel}: ${note}`);
   lines.push('Fetching runs through the action gate: nothing is pulled until live calls are on, and every report lands as a file you import after a preview.');
   return lines.join('\n');

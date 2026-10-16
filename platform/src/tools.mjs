@@ -12,6 +12,7 @@ import { saveChannelConfig, listConnectors, fetchChannelReport, syncChannels } f
 import { saveGstr1ToPortal, fileGstr1OnPortal, generateTdsFvu, portalStatus } from './portal-filing.mjs';
 import { aaBankFeed } from './aa-import.mjs';
 import { askKnowledge } from './knowledge.mjs';
+import { pushZohoInvoices } from './zoho-push.mjs';
 const ingestTally = tally.ingest;
 const ingestBank = bank.ingest;
 const { reconcile } = gst;
@@ -1892,6 +1893,16 @@ export const TOOLS = [
     description: 'Which channels are connected for fetching settlement and order reports, when each was last fetched, and which channels stay file imports. Read-only; no secrets.',
     args: [],
     run: () => listConnectors(),
+  },
+  {
+    name: 'push_zoho_invoices',
+    title: 'Send invoices to Zoho Books',
+    description: "Send the month's invoices that are not yet in Zoho Books to the connected Zoho organisation through the action gate: the customer is found or created, each line carries its HSN and the matching Zoho tax, and the invoice keeps its Zoho id. Live calls must be on and a CA approval named; mock mode simulates and marks nothing. Your books do not change.",
+    args: ['period', 'caApprovalId'],
+    run: async (state, args = {}) => {
+      const out = await pushZohoInvoices(state, args, { actor: resolveToolActor(args) });
+      return out.ok === false ? fail(out.error, out) : ok(out);
+    },
   },
   {
     name: 'fetch_channel_report',

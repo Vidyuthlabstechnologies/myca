@@ -80,6 +80,7 @@ export const ACTION_CLASSES = Object.freeze(Object.assign(Object.create(null), {
   nim_status: read('nim', ['nim.ping']),
   provider_doctor_ping: read('provider', ['sandbox.ping', 'nim.ping', 'reachability.probeTally'], PROBE),
   channel_fetch_report: read('channel', ['channel.pull'], { timeoutMs: 12 * MINUTE_MS }),
+  zoho_push_invoices: write('channel', ['channel.zoho'], { timeoutMs: 10 * MINUTE_MS }),
 }));
 
 function transportOptions(ctx) {
@@ -126,6 +127,7 @@ const CHANNEL_TRANSPORT = Object.freeze({
     if (request.channel === 'razorpay') return client.razorpay(request, ctx.signal);
     return { ok: false, error: 'UNKNOWN_CONNECTOR' };
   },
+  zoho: (ctx) => (request) => signalled(getChannelClient(), ctx.signal).zoho(request, ctx.signal),
 });
 
 const TRANSPORT_TABLES = Object.freeze({

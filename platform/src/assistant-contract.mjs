@@ -748,10 +748,11 @@ export const TOOL_ARG_SCHEMAS = {
     additionalProperties: false,
     required: ['channel'],
     properties: {
-      channel: { type: 'string', enum: ['amazon', 'shopify', 'razorpay'] },
+      channel: { type: 'string', enum: ['amazon', 'shopify', 'razorpay', 'zoho'] },
       clientId: { type: 'string', maxLength: 200 }, clientSecret: { type: 'string', maxLength: 500 }, refreshToken: { type: 'string', maxLength: 2000 }, marketplaceId: { type: 'string', maxLength: 40 }, region: { type: 'string', enum: ['IN', 'EU', 'NA', 'FE'] },
       shopDomain: { type: 'string', maxLength: 120 }, accessToken: { type: 'string', maxLength: 500 },
       keyId: { type: 'string', maxLength: 120 }, keySecret: { type: 'string', maxLength: 500 },
+      orgId: { type: 'string', maxLength: 40 }, dc: { type: 'string', enum: ['in', 'com', 'eu', 'au'] },
       enabled: { type: 'boolean' },
     },
   },
@@ -768,6 +769,7 @@ export const TOOL_ARG_SCHEMAS = {
     },
   },
   sync_channels: { type: 'object', additionalProperties: false, properties: { to: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' } } },
+  push_zoho_invoices: { type: 'object', additionalProperties: false, properties: { period: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}$' }, caApprovalId: { type: 'string', maxLength: 80 } } },
   settlement_status: {
     type: 'object',
     additionalProperties: false,
@@ -1758,6 +1760,7 @@ const TOOL_RISK = {
   channel_connectors: 'read_only',
   fetch_channel_report: 'external_government_api',
   sync_channels: 'external_government_api',
+  push_zoho_invoices: 'external_government_api',
   inventory_valuations: 'read_only',
   sku_margins: 'read_only',
   daily_close: 'read_only',
@@ -2326,6 +2329,8 @@ export function planLocalToolCall(state, message) {
     const fetching = /^(?:[f]etch|pull|download)\s+(?:the\s+)?(amazon|shopify|razorpay)\s+(settlement|payout|orders?)s?(?:\s+(?:report|file))?(?:\s+(?:from|since)\s+(\d{4}-\d{2}-\d{2}))?(?:\s+(?:to|until)\s+(\d{4}-\d{2}-\d{2}))?\s*$/i.exec(text.trim());
     if (fetching && !isNegated(text)) return { kind: 'tool', name: 'fetch_channel_report', args: { channel: fetching[1].toLowerCase(), kind: /^order/i.test(fetching[2]) ? 'orders' : 'settlement', ...(fetching[3] ? { from: fetching[3] } : {}), ...(fetching[4] ? { to: fetching[4] } : {}) } };
     if (/^(?:sync|[f]etch|pull)\s+(?:all\s+)?(?:channels?|marketplaces?|connectors?)\s*$/i.test(text.trim()) && !isNegated(text)) return { kind: 'tool', name: 'sync_channels', args: {} };
+    const zohoPush = /^\s*(?:push|send|sync)\s+(?:the\s+)?(?:invoices\s+)?(?:to\s+)?zoho(?:\s+books)?(?:\s+(?:invoices|for))?\s*(\d{4}-\d{2})?\s*(?:with\s+approval\s+([A-Za-z0-9-]+))?\s*$/i.exec(text);
+    if (zohoPush && !isNegated(text)) return { kind: 'tool', name: 'push_zoho_invoices', args: { ...(zohoPush[1] ? { period: zohoPush[1] } : {}), ...(zohoPush[2] ? { caApprovalId: zohoPush[2] } : {}) } };
     if (/\b(?:channel|marketplace)\s+connectors?\b|\bconnected\s+channels\b|\bwhich\s+channels\s+are\s+connected\b/i.test(text)) return { kind: 'tool', name: 'channel_connectors', args: {} };
   }
   {
