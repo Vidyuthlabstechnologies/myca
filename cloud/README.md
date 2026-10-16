@@ -55,7 +55,14 @@ MYCA_DATABASE_URL=postgres://myca@127.0.0.1:54329/myca_dev MYCA_TOKEN_SECRET=<32
 
 `MYCA_GOOGLE_CLIENT_IDS` lists the OAuth client ids (comma-separated) whose Google ID
 tokens the API accepts; set it to the web client id the app passes as
-`MYCA_GOOGLE_SERVER_CLIENT_ID`. `MYCA_DEV_OTP=1` prints phone sign-in codes to the
+`MYCA_GOOGLE_SERVER_CLIENT_ID`. `MYCA_OIDC_ISSUER` with `MYCA_OIDC_CLIENT_IDS` turns on
+`POST /v1/auth/oidc` for any OpenID Connect issuer (a firm's Keycloak, Azure AD or
+Okta): the issuer's keys are found through its discovery document, or at
+`MYCA_OIDC_JWKS_URL` when given, and `GET /v1/auth/methods` names the issuer so the app
+can show the button. `MYCA_DOCUMENT_BUCKET` names a Cloud Storage bucket; when set,
+uploaded document bytes go there under `businesses/<id>/<sha256>` with the Cloud Run
+service account's token from the metadata server, and Postgres keeps only the index
+row (`location = 'gcs'`). Without it the bytes stay in Postgres, as they do in tests. `MYCA_DEV_OTP=1` prints phone sign-in codes to the
 console instead of sending an SMS, for local development only. The server needs at
 least one of the two; without either it refuses to start, because no SMS
 sender exists yet. The server also refuses to start if `MYCA_ENABLE_LIVE_CALLS` is set.
@@ -125,9 +132,12 @@ no response carries a secret, a hash or a phone number.
 - Telling an invited person. An invitation is only visible to them after they sign in
   with that number; no SMS is sent because there is no sender yet.
 - Per-business provider credentials, so e-invoice and filing actions cannot be proposed.
+- The app has no OIDC sign-in screen yet: `POST /v1/auth/oidc` is served, but the Android app only offers phone and Google until a firm names its issuer.
 - Each business holds one pending preview. Two members previewing at once replace each
   other's preview; nothing wrong is posted, but one of them has to start again.
 - Reads are audited but no longer rewrite the books row (\`withReadOnlyBooks\`, 2026-10-14).
-- Document bytes are in a Postgres table for now, not Cloud Storage. Uploads are sent
-  in the request body, up to 8 MB; larger files need direct-to-storage uploads.
+- Document bytes go to Cloud Storage once `MYCA_DOCUMENT_BUCKET` is set (Terraform
+  creates the bucket and sets it); until the project exists they are in Postgres.
+  Uploads are still sent in the request body, up to 8 MB; larger files need
+  direct-to-storage uploads.
 - A business may hold 200 MB of documents in total (\`MAX_BUSINESS_BYTES\`); beyond that an upload answers 413 STORAGE_FULL.

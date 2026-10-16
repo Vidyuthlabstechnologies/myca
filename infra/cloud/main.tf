@@ -59,6 +59,31 @@ resource "google_project_iam_member" "api_sql" {
 }
 
 # ---------------------------------------------------------------------------
+# Document vault: uploaded files by sha256, one prefix per business
+# ---------------------------------------------------------------------------
+resource "google_storage_bucket" "documents" {
+  name                        = "${var.project_id}-myca-documents"
+  location                    = var.region
+  storage_class               = "STANDARD"
+  uniform_bucket_level_access = true
+  public_access_prevention    = "enforced"
+  force_destroy               = !var.deletion_protection
+  labels                      = local.labels
+
+  versioning {
+    enabled = false
+  }
+
+  depends_on = [google_project_service.apis]
+}
+
+resource "google_storage_bucket_iam_member" "api_documents" {
+  bucket = google_storage_bucket.documents.name
+  role   = "roles/storage.objectUser"
+  member = "serviceAccount:${google_service_account.api.email}"
+}
+
+# ---------------------------------------------------------------------------
 # Database: Postgres in Mumbai, daily backups kept 14 days, point-in-time recovery
 # ---------------------------------------------------------------------------
 resource "google_sql_database_instance" "main" {
@@ -258,6 +283,21 @@ resource "google_cloud_run_v2_service" "api" {
       env {
         name  = "MYCA_GOOGLE_CLIENT_IDS"
         value = join(",", var.google_client_ids)
+      }
+
+      env {
+        name  = "MYCA_OIDC_ISSUER"
+        value = var.oidc_issuer
+      }
+
+      env {
+        name  = "MYCA_OIDC_CLIENT_IDS"
+        value = join(",", var.oidc_client_ids)
+      }
+
+      env {
+        name  = "MYCA_DOCUMENT_BUCKET"
+        value = google_storage_bucket.documents.name
       }
 
       env {

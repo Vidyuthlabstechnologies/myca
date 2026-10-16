@@ -15,7 +15,7 @@ const users = async () => (await api.db.query('select id, phone, google_sub, ema
 
 test('the app can ask which sign-in methods are on', async () => {
   const out = await api.call('GET', '/v1/auth/methods');
-  assert.deepEqual(out.body, { ok: true, phone: true, google: true });
+  assert.deepEqual(out.body, { ok: true, phone: true, google: true, oidc: false });
 });
 
 test('a valid Google token signs a new user in, with their name and a session, and asks for consent', async () => {
@@ -77,7 +77,7 @@ test('an unverified email is not stored', async () => {
 test('without an SMS sender the service starts on Google alone and says phone sign-in is off', async () => {
   const googleOnly = await startApi({ phone: false });
   try {
-    assert.deepEqual((await googleOnly.call('GET', '/v1/auth/methods')).body, { ok: true, phone: false, google: true });
+    assert.deepEqual((await googleOnly.call('GET', '/v1/auth/methods')).body, { ok: true, phone: false, google: true, oidc: false });
     const otp = await googleOnly.call('POST', '/v1/auth/otp', { body: { phone: '9876543210' } });
     assert.equal(otp.status, 503);
     assert.equal(otp.body.error, 'PHONE_SIGN_IN_UNAVAILABLE');

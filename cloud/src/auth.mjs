@@ -133,6 +133,26 @@ export function createAuth({ db, secret, otpSender, now = () => Date.now() }) {
       });
     },
 
+    async signInWithOidc({ issuer, sub, email = '', name = '' }, deviceLabel = '') {
+      return db.tx(async (q) => {
+        const user = await q(
+          `insert into users (oidc_issuer, oidc_sub, email, name, created_at) values ($1, $2, nullif($3, ''), $4, $5)
+           on conflict (oidc_issuer, oidc_sub) do update
+             set deleted_at = null, email = coalesce(nullif(excluded.email, ''), users.email)
+           returning id, name, (xmax = 0) as created`,
+          [issuer, sub, email, name, at()],
+        );
+        const userId = user.rows[0].id;
+        const device = await q('insert into devices (user_id, label, created_at, last_seen_at) values ($1, $2, $3, $3) returning id', [
+          userId,
+          String(deviceLabel).slice(0, 80),
+          at(),
+        ]);
+        const tokens = await issueTokens(q, userId, device.rows[0].id);
+        return { ok: true, ...tokens, user: { id: userId, name: user.rows[0].name, isNew: user.rows[0].created } };
+      });
+    },
+
     async refresh(refreshToken) {
       if (typeof refreshToken !== 'string' || !refreshToken) return fail('INVALID_REFRESH_TOKEN');
       return db.tx(async (q) => {
