@@ -115,6 +115,10 @@ or a credit unless they ask.
   document; debit notes to suppliers are made from the supplier's chat in the app
   (2026-10-15). Live generation still needs NIC credentials.
 
+### Account Aggregator data (built 2026-10-16)
+
+The owner's Account Aggregator app delivers the bank account's FI data as JSON once consent is given. Attached and sent with "import account aggregator data" (or any `.json` with "import bank"), every account's Transactions become statement rows: credits and debits on the value date with the narration, the running balance and the reference, and the preview shows the masked account number before anything posts. A transaction without a date or an amount is skipped and counted. The consent flow, the FIU registration and the decryption happen in the AA client, not here.
+
 ## Acceptance criteria
 
 - The trial balance ties after every operation, including a failed or refused one.

@@ -76,6 +76,7 @@ export const ACTION_CLASSES = Object.freeze(Object.assign(Object.create(null), {
   govt_probe: read('govt', ['reachability.probeGovt'], PROBE),
   notification_send: write('notification', ['notifications.send'], IRREVERSIBLE),
   nim_ask: read('nim', ['nim.complete'], MODEL),
+  knowledge_answer: read('nim', ['nim.complete'], MODEL),
   nim_status: read('nim', ['nim.ping']),
   provider_doctor_ping: read('provider', ['sandbox.ping', 'nim.ping', 'reachability.probeTally'], PROBE),
   channel_fetch_report: read('channel', ['channel.pull'], { timeoutMs: 12 * MINUTE_MS }),
