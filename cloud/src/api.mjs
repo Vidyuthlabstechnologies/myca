@@ -143,9 +143,17 @@ function appSnapshot(snapshot, user, role) {
   };
 }
 
-function clientAddress(req) {
-  const forwarded = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim();
-  return (forwarded || String(req.socket?.remoteAddress || '')).slice(0, 64);
+export function trustedProxyHops(env = process.env) {
+  const given = Number(env.MYCA_TRUSTED_PROXY_HOPS);
+  if (Number.isInteger(given) && given >= 0) return given;
+  return env.K_SERVICE ? 1 : 0;
+}
+
+export function clientAddress(req, hops = trustedProxyHops()) {
+  const socket = String(req.socket?.remoteAddress || '').slice(0, 64);
+  if (!hops) return socket;
+  const parts = String(req.headers['x-forwarded-for'] || '').split(',').map((part) => part.trim()).filter(Boolean);
+  return String(parts[parts.length - hops] || '').slice(0, 64);
 }
 
 export function createApi({ db, secret, otpSender = null, googleClientIds = [], googleKeys, oidc = {}, oidcKeys = null, documentVault = null, connectorKey = '', now = () => Date.now(), log = () => {}, version = 'dev', jobToken = '', inboundEmail = {}, whatsapp = {}, whatsappSender = null }) {

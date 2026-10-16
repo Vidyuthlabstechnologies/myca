@@ -6,6 +6,8 @@ import { createCaptureSender } from '../src/auth.mjs';
 import { createDb, migrate } from '../src/db.mjs';
 import { PRIVACY_NOTICE } from '../src/consent.mjs';
 
+process.env.MYCA_TRUSTED_PROXY_HOPS = '1';
+
 const ADMIN_URL = process.env.MYCA_TEST_DATABASE_URL || 'postgres://myca@127.0.0.1:54329/postgres';
 export const SECRET = 'test-secret-that-is-long-enough-for-hmac-0123456789';
 export const GOOGLE_CLIENT = 'myca-test.apps.googleusercontent.com';

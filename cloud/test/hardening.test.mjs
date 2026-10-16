@@ -5,6 +5,7 @@ import { INBOUND_HEADER } from '../src/inbound.mjs';
 import { JOB_HEADER } from '../src/jobs.mjs';
 import { OTP_MAX_PER_ADDRESS_PER_HOUR } from '../src/auth.mjs';
 import { createJwksKeys } from '../src/oidc.mjs';
+import { clientAddress, trustedProxyHops } from '../src/api.mjs';
 import { startApi, SALE } from './helpers.mjs';
 
 const CONFIG = { verifyToken: 'verify-me', appSecret: 'app-secret', phoneNumberId: '1234', accessToken: 'tok' };
@@ -49,10 +50,21 @@ test('an accountant on WhatsApp sees the shared books and cannot post when the o
   assert.doesNotMatch(replies.at(-1).text, /shared with you/);
 });
 
+test('the rate-limit address comes from the trusted hop, never from what the caller prepends', () => {
+  const req = (xff, socket = '10.0.0.7') => ({ headers: xff == null ? {} : { 'x-forwarded-for': xff }, socket: { remoteAddress: socket } });
+  assert.equal(trustedProxyHops({}), 0);
+  assert.equal(trustedProxyHops({ K_SERVICE: 'myca-api' }), 1);
+  assert.equal(trustedProxyHops({ K_SERVICE: 'myca-api', MYCA_TRUSTED_PROXY_HOPS: '2' }), 2);
+  assert.equal(clientAddress(req('1.2.3.4'), 0), '10.0.0.7', 'without a proxy the header is ignored');
+  assert.equal(clientAddress(req('spoofed, 203.0.113.9'), 1), '203.0.113.9', 'behind one proxy the last entry is the client');
+  assert.equal(clientAddress(req('spoofed, 203.0.113.9, 35.1.1.1'), 2), '203.0.113.9');
+  assert.equal(clientAddress(req(null), 1), '', 'behind a proxy a missing header is unknown, not the socket');
+});
+
 test('one address cannot burn OTP quotas for many numbers', async () => {
   let last;
   for (let i = 0; i < OTP_MAX_PER_ADDRESS_PER_HOUR; i += 1) {
-    last = await api.call('POST', '/v1/auth/otp', { body: { phone: `+9198${String(10000000 + i).padStart(8, '0')}` }, headers: { 'x-forwarded-for': '203.0.113.9, 10.0.0.1' } });
+    last = await api.call('POST', '/v1/auth/otp', { body: { phone: `+9198${String(10000000 + i).padStart(8, '0')}` }, headers: { 'x-forwarded-for': 'spoofed, 203.0.113.9' } });
     assert.equal(last.status, 200, last.text);
   }
   const blocked = await api.call('POST', '/v1/auth/otp', { body: { phone: '+919899999999' }, headers: { 'x-forwarded-for': '203.0.113.9' } });
