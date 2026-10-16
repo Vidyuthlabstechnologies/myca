@@ -1,5 +1,5 @@
 import { createCipheriv, createDecipheriv, hkdfSync, randomBytes } from 'node:crypto';
-import { CONNECTOR_CHANNELS } from '../../platform/src/channel-connectors.mjs';
+import { CONNECTOR_CHANNELS, checkConnectorField } from '../../platform/src/channel-connectors.mjs';
 
 const MIN_KEY_LENGTH = 32;
 const ALGORITHM = 'aes-256-gcm';
@@ -73,6 +73,8 @@ export function createConnectorStore({ db, key = '' }) {
         for (const field of spec.fields) {
           if (body[field] == null) continue;
           const value = String(body[field]).trim().slice(0, 2000);
+          const checked = checkConnectorField(field, value);
+          if (!checked.ok) return fail(checked.error, { channel, field, hint: checked.hint });
           if (spec.secrets.includes(field)) {
             if (value) secrets[field] = value;
             else delete secrets[field];

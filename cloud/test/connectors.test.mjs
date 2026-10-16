@@ -55,6 +55,11 @@ test('secrets are sealed per business with the service key and never shown back'
   const partial = await post(asha, 'connectors', { channel: 'amazon', marketplaceId: 'A21TJRUUN4KGX' });
   assert.equal(partial.body.configured, true, 'a later save keeps the secrets already stored');
   assert.equal((await post(asha, 'connectors', { channel: 'flipkart' })).body.error, 'UNKNOWN_CONNECTOR');
+  for (const bad of [{ channel: 'shopify', shopDomain: 'metadata.google.internal', accessToken: 't' }, { channel: 'shopify', shopDomain: 'evil.example/..', accessToken: 't' }, { channel: 'amazon', region: 'XX' }, { channel: 'zoho', dc: 'internal' }]) {
+    const refused = await post(asha, 'connectors', bad);
+    assert.equal(refused.body.error, 'INVALID_FIELD', JSON.stringify(bad));
+  }
+  assert.equal((await api.db.query("select 1 from business_connectors where business_id = $1 and channel <> 'amazon'", [asha.businessId])).rowCount, 0, 'a refused save stores nothing');
   assert.equal((await api.call('GET', `/v1/businesses/${asha.businessId}/connectors`, { token: bala.token })).status, 404);
   const audit = await api.db.query("select metadata from audit_log where business_id = $1 and action = 'connector.saved'", [asha.businessId]);
   assert.equal(audit.rowCount, 2);

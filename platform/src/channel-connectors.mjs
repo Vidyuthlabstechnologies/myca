@@ -15,6 +15,22 @@ export const CONNECTOR_CHANNELS = {
   razorpay: { title: 'Razorpay', fields: ['keyId', 'keySecret'], secrets: ['keySecret'], kinds: ['settlement'] },
   zoho: { title: 'Zoho Books', fields: ['orgId', 'dc', 'clientId', 'clientSecret', 'refreshToken'], secrets: ['clientSecret', 'refreshToken'], kinds: [], pushes: ['invoices'] },
 };
+const FIELD_RULES = {
+  shopDomain: { test: (v) => /^[a-z0-9][a-z0-9-]{0,98}\.myshopify\.com$/.test(v), hint: 'the shop host, like nalanda.myshopify.com' },
+  region: { test: (v) => ['IN', 'EU', 'NA', 'FE'].includes(v), hint: 'IN, EU, NA or FE' },
+  dc: { test: (v) => ['in', 'com', 'eu', 'au'].includes(v), hint: 'in, com, eu or au' },
+  marketplaceId: { test: (v) => /^[A-Z0-9]{8,20}$/.test(v), hint: 'the Amazon marketplace id, like A21TJRUUN4KGV' },
+  orgId: { test: (v) => /^[0-9]{1,30}$/.test(v), hint: 'the numeric Zoho organisation id' },
+  keyId: { test: (v) => /^[A-Za-z0-9_]{1,120}$/.test(v), hint: 'the Razorpay key id' },
+  clientId: { test: (v) => /^[A-Za-z0-9._-]{1,200}$/.test(v), hint: 'the client id as issued' },
+};
+
+export function checkConnectorField(field, value) {
+  const rule = FIELD_RULES[field];
+  if (!rule || value === '') return { ok: true };
+  return rule.test(value) ? { ok: true } : { ok: false, error: 'INVALID_FIELD', field, hint: `${field} must be ${rule.hint}.` };
+}
+
 export const FILE_ONLY_CHANNELS = { flipkart: 'Flipkart publishes settlement and GST reports from Seller Hub as files; import them.', unicommerce: 'Unicommerce exports orders as files; import them.', myntra: 'Myntra, Nykaa and Meesho publish payout files; import them.' };
 
 function fail(error, extra = {}) {
@@ -65,6 +81,8 @@ export function saveChannelConfig(channel, patch = {}) {
   for (const field of spec.fields) {
     if (patch[field] == null) continue;
     const value = String(patch[field]).trim();
+    const checked = checkConnectorField(field, value);
+    if (!checked.ok) return fail(checked.error, { channel, field, hint: checked.hint });
     if (spec.secrets.includes(field)) {
       if (value) next.secrets[field] = encryptSecret(value);
       else delete next.secrets[field];

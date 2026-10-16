@@ -13,6 +13,7 @@ import { performExternalAction } from '../src/action-gate.mjs';
 import { setChannelClient, ChannelClient } from '../src/channel-client.mjs';
 import { syncChannels } from '../src/channel-connectors.mjs';
 import { channelPullsEnabled } from '../src/runtime-config.mjs';
+import { checkConnectorField } from '../src/channel-connectors.mjs';
 
 async function withEnv(vars, fn) {
   const saved = Object.fromEntries(Object.keys(vars).map((key) => [key, process.env[key]]));
@@ -48,6 +49,23 @@ test('MYCA_ENABLE_CHANNEL_PULLS opens only read pulls on the channel family; gov
     assert.equal(out.error, 'LIVE_CALLS_DISABLED', actionId);
   }
   assert.equal(ran.length, 1);
+});
+
+test('host-bearing connector fields are checked against a fixed shape on both the desktop and the hosted save, and the Shopify client refuses any other host', async () => {
+  const state = books();
+  assert.equal((await runTool(state, 'set_channel_connector', { channel: 'shopify', shopDomain: 'metadata.google.internal', accessToken: 't' })).error, 'INVALID_FIELD');
+  assert.equal((await runTool(state, 'set_channel_connector', { channel: 'shopify', shopDomain: 'nalanda.myshopify.com', accessToken: 't' })).data.configured, true);
+  assert.equal((await runTool(state, 'set_channel_connector', { channel: 'amazon', region: 'XX' })).error, 'INVALID_FIELD');
+  assert.equal(checkConnectorField('dc', 'internal').ok, false);
+  assert.equal(checkConnectorField('dc', 'in').ok, true);
+  assert.equal(checkConnectorField('unknownField', 'anything').ok, true);
+  const calls = [];
+  const client = new ChannelClient({ fetchFn: async (url, init = {}) => { calls.push({ url, redirect: init.redirect }); return { ok: true, status: 200, headers: { get: () => '' }, text: async () => '{"orders":[]}' }; } });
+  assert.equal((await client.shopify({ config: { shopDomain: '169.254.169.254', accessToken: 't' }, kind: 'orders', from: '2026-09-01', to: '2026-09-02' })).error, 'SHOPIFY_HOST_REFUSED');
+  assert.equal(calls.length, 0);
+  const fine = await client.shopify({ config: { shopDomain: 'nalanda.myshopify.com', accessToken: 't' }, kind: 'orders', from: '2026-09-01', to: '2026-09-02' });
+  assert.equal(fine.ok, true);
+  assert.equal(calls[0].redirect, 'manual');
 });
 
 test('a sync with explicit connectors uses the given credentials and reports back through the callback instead of the local vault', async () => {
