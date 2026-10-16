@@ -9,6 +9,7 @@ import { regArg, companyAs, forRegistration, setRegistration, retireRegistration
 import { recordStockTransfer } from './stock-transfers.mjs';
 import { valueInventory, listInventoryValuations } from './inventory.mjs';
 import { saveChannelConfig, listConnectors, fetchChannelReport, syncChannels } from './channel-connectors.mjs';
+import { saveGstr1ToPortal, fileGstr1OnPortal, generateTdsFvu, portalStatus } from './portal-filing.mjs';
 const ingestTally = tally.ingest;
 const ingestBank = bank.ingest;
 const { reconcile } = gst;
@@ -1834,6 +1835,43 @@ export const TOOLS = [
     description: 'Move stock from one registration of the business to another (for example to a marketplace warehouse in another state): raises the transfer invoice under the sending registration at cost (or a stated unit value) with IGST, the matching bill with input credit under the receiving one, settles the two by contra, moves the stock, and says whether an e-way bill is needed.',
     args: ['sku', 'qty', 'fromGstin', 'toGstin', 'date', 'unitValue', 'gstRate', 'hsn'],
     run: (state, args = {}) => recordStockTransfer(state, args),
+  },
+  {
+    name: 'save_gstr1_portal',
+    title: 'Save GSTR-1 to the GST portal',
+    description: 'Build the GSTR-1 of a month (and registration) from the books and save it to the GST portal through the GSP behind the action gate: live calls on and a CA approval for the operation. Refused while any invoice is held back. Files nothing; filing is a separate step.',
+    args: ['period', 'gstin', 'caApprovalId'],
+    run: async (state, args = {}) => {
+      const out = await saveGstr1ToPortal(state, args, resolveToolActor(args));
+      return out.ok ? ok(out) : fail(out.error, out);
+    },
+  },
+  {
+    name: 'file_gstr1_portal',
+    title: 'File GSTR-1 on the GST portal (EVC)',
+    description: 'File the GSTR-1 saved to the portal for a month with the EVC OTP, through the GSP behind the action gate (live calls on, CA approval). Only after the review for the month is approved and only if the invoices have not changed since the save. Records the filing with its acknowledgement. Cannot be undone.',
+    args: ['period', 'gstin', 'otp', 'pan', 'caApprovalId'],
+    run: async (state, args = {}) => {
+      const out = await fileGstr1OnPortal(state, args, resolveToolActor(args));
+      return out.ok ? ok(out) : fail(out.error, out);
+    },
+  },
+  {
+    name: 'generate_tds_fvu',
+    title: 'Generate the TDS FVU through the provider',
+    description: 'Submit the quarter\'s TDS statement (24Q salary, 26Q others, 27Q non-residents) to the provider\'s FVU job behind the action gate, and keep the job id and file links. The signed TXT and CSI uploads still happen on the provider\'s links.',
+    args: ['quarter', 'form', 'tan', 'filingType', 'caApprovalId'],
+    run: async (state, args = {}) => {
+      const out = await generateTdsFvu(state, args, resolveToolActor(args));
+      return out.ok ? ok(out) : fail(out.error, out);
+    },
+  },
+  {
+    name: 'portal_status',
+    title: 'Portal saves and FVU jobs',
+    description: 'What has been saved to the GST portal, what was filed with its acknowledgement, and the TDS FVU jobs. Read-only.',
+    args: [],
+    run: (state) => portalStatus(state),
   },
   {
     name: 'set_channel_connector',
