@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { liveCallsEnabled, loadEnvFile, mockModeEnabled } from './runtime-config.mjs';
+import { channelPullsEnabled, liveCallsEnabled, loadEnvFile, mockModeEnabled } from './runtime-config.mjs';
 import { appendAuditEvent, stateDigest } from './ca-api.mjs';
 import { normalizeClientId } from './books.mjs';
 import { BOOK_KEYS } from './book-view.mjs';
@@ -471,7 +471,8 @@ export async function performExternalAction(state, request = {}, execute) {
 
   if (mockModeEnabled()) return runFixture(action, request.fixture);
 
-  if (!liveCallsEnabled()) return recordDryRun(action, request.payload ?? params);
+  const pullAllowed = item.family === 'channel' && item.actionClass === 'read' && channelPullsEnabled();
+  if (!liveCallsEnabled() && !pullAllowed) return recordDryRun(action, request.payload ?? params);
 
   const beforeHash = stateDigest(state);
   const claim = item.actionClass === 'write' ? claimApproval(action, request.approvalId) : { ok: true, approval: null };

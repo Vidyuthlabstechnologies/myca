@@ -15,6 +15,22 @@ export const CONNECTOR_CHANNELS = {
   razorpay: { title: 'Razorpay', fields: ['keyId', 'keySecret'], secrets: ['keySecret'], kinds: ['settlement'] },
   zoho: { title: 'Zoho Books', fields: ['orgId', 'dc', 'clientId', 'clientSecret', 'refreshToken'], secrets: ['clientSecret', 'refreshToken'], kinds: [], pushes: ['invoices'] },
 };
+const FIELD_RULES = {
+  shopDomain: { test: (v) => /^[a-z0-9][a-z0-9-]{0,98}\.myshopify\.com$/.test(v), hint: 'the shop host, like nalanda.myshopify.com' },
+  region: { test: (v) => ['IN', 'EU', 'NA', 'FE'].includes(v), hint: 'IN, EU, NA or FE' },
+  dc: { test: (v) => ['in', 'com', 'eu', 'au'].includes(v), hint: 'in, com, eu or au' },
+  marketplaceId: { test: (v) => /^[A-Z0-9]{8,20}$/.test(v), hint: 'the Amazon marketplace id, like A21TJRUUN4KGV' },
+  orgId: { test: (v) => /^[0-9]{1,30}$/.test(v), hint: 'the numeric Zoho organisation id' },
+  keyId: { test: (v) => /^[A-Za-z0-9_]{1,120}$/.test(v), hint: 'the Razorpay key id' },
+  clientId: { test: (v) => /^[A-Za-z0-9._-]{1,200}$/.test(v), hint: 'the client id as issued' },
+};
+
+export function checkConnectorField(field, value) {
+  const rule = FIELD_RULES[field];
+  if (!rule || value === '') return { ok: true };
+  return rule.test(value) ? { ok: true } : { ok: false, error: 'INVALID_FIELD', field, hint: `${field} must be ${rule.hint}.` };
+}
+
 export const FILE_ONLY_CHANNELS = { flipkart: 'Flipkart publishes settlement and GST reports from Seller Hub as files; import them.', unicommerce: 'Unicommerce exports orders as files; import them.', myntra: 'Myntra, Nykaa and Meesho publish payout files; import them.' };
 
 function fail(error, extra = {}) {
@@ -65,6 +81,8 @@ export function saveChannelConfig(channel, patch = {}) {
   for (const field of spec.fields) {
     if (patch[field] == null) continue;
     const value = String(patch[field]).trim();
+    const checked = checkConnectorField(field, value);
+    if (!checked.ok) return fail(checked.error, { channel, field, hint: checked.hint });
     if (spec.secrets.includes(field)) {
       if (value) next.secrets[field] = encryptSecret(value);
       else delete next.secrets[field];
@@ -176,7 +194,7 @@ function mockReport(channel, kind, from, to) {
   ]);
 }
 
-export async function fetchChannelReport(state, args = {}, { actor } = {}) {
+export async function fetchChannelReport(state, args = {}, { actor, config: given = null, onFetched = null } = {}) {
   const channel = String(args.channel || '').trim().toLowerCase();
   const spec = CONNECTOR_CHANNELS[channel];
   if (!spec) return fail('UNKNOWN_CONNECTOR', { channel, known: Object.keys(CONNECTOR_CHANNELS), fileOnly: FILE_ONLY_CHANNELS[channel] || '' });
@@ -185,7 +203,7 @@ export async function fetchChannelReport(state, args = {}, { actor } = {}) {
   const to = args.to ? isoDate(args.to) : localToday();
   const from = args.from ? isoDate(args.from) : (() => { const d = new Date(`${to}T00:00:00Z`); d.setUTCDate(d.getUTCDate() - 14); return d.toISOString().slice(0, 10); })();
   if (!from || !to || from > to) return fail('INVALID_RANGE', { from: args.from, to: args.to });
-  const config = loadChannelConfig(channel);
+  const config = given || loadChannelConfig(channel);
   const result = await performExternalAction(state, {
     actionId: 'channel_fetch_report',
     clientId: String(state.activeClientId || 'SELF'),
@@ -217,20 +235,27 @@ export async function fetchChannelReport(state, args = {}, { actor } = {}) {
   state.attachments = state.attachments && typeof state.attachments === 'object' ? state.attachments : {};
   state.attachments[`channel:${channel}:${kind}`] = { sha256: stored.sha256, name, bytes: stored.bytes, at: new Date().toISOString(), channel, reportKind: kind, from, to, mock: Boolean(result.mock) };
   const reminder = addReminder(state, { text: `${spec.title.split(' (')[0]} ${kind === 'orders' ? 'orders' : 'settlement'} report for ${from} to ${to} is in: ${name}. Import it to post.`, due: localToday(), documentSha256: stored.sha256, documentName: name, actorId: 'automation', today: localToday() });
-  if (!result.mock) markFetched(channel, to);
-  return { ok: true, channel, kind, from, to, documentSha256: stored.sha256, name, bytes: stored.bytes, rows: text.split(/\r?\n/).filter((line) => line.trim()).length - 1, importTool: tool, reminderId: reminder.ok ? reminder.reminder.id : '', mock: Boolean(result.mock), dryRun: Boolean(result.dryRun) };
+  if (!result.mock) {
+    if (onFetched) await onFetched(to);
+    else if (!given) markFetched(channel, to);
+  }
+  return { ok: true, channel, kind, from, to, documentSha256: stored.sha256, name, bytes: stored.bytes, rows: text.split(/\r?\n/).filter((line) => line.trim()).length - 1, importTool: tool, reminderId: reminder.ok ? reminder.reminder.id : '', reminderError: reminder.ok ? '' : String(reminder.error || ''), mock: Boolean(result.mock), dryRun: Boolean(result.dryRun) };
 }
 
-export async function syncChannels(state, args = {}, { actor } = {}) {
+function localConnectors() {
+  return Object.keys(CONNECTOR_CHANNELS).map((channel) => publicChannelConfig(channel)).filter((cfg) => cfg && cfg.configured && cfg.enabled !== false).map((cfg) => ({ channel: cfg.channel, lastFetchedTo: cfg.lastFetchedTo }));
+}
+
+export async function syncChannels(state, args = {}, { actor, connectors = null } = {}) {
   const today = localToday();
   const results = [];
-  for (const channel of Object.keys(CONNECTOR_CHANNELS)) {
-    const cfg = publicChannelConfig(channel);
-    if (!cfg || !cfg.configured || cfg.enabled === false) continue;
-    const from = cfg.lastFetchedTo || undefined;
+  for (const item of connectors || localConnectors()) {
+    const channel = item.channel;
+    if (!CONNECTOR_CHANNELS[channel]) continue;
+    const from = item.lastFetchedTo || undefined;
     for (const kind of CONNECTOR_CHANNELS[channel].kinds) {
-      const out = await fetchChannelReport(state, { channel, kind, from, to: args.to || today }, { actor });
-      results.push({ channel, kind, ok: out.ok !== false, error: out.error || '', empty: Boolean(out.empty), rows: out.rows || 0, documentSha256: out.documentSha256 || '', mock: Boolean(out.mock) });
+      const out = await fetchChannelReport(state, { channel, kind, from, to: args.to || today }, { actor, config: item.config || null, onFetched: item.onFetched || null });
+      results.push({ channel, kind, ok: out.ok !== false, error: out.error || '', empty: Boolean(out.empty), rows: out.rows || 0, documentSha256: out.documentSha256 || '', reminderId: out.reminderId || '', reminderError: out.reminderError || '', mock: Boolean(out.mock), dryRun: Boolean(out.dryRun) });
     }
   }
   return { ok: true, data: { ranOn: today, fetched: results.filter((r) => r.ok && !r.empty).length, results } };

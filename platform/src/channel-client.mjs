@@ -61,6 +61,7 @@ export class ChannelClient {
   }
 
   async shopify({ config, kind, from, to }, signal) {
+    if (!/^[a-z0-9][a-z0-9-]{0,98}\.myshopify\.com$/.test(String(config.shopDomain || ''))) return { ok: false, error: 'SHOPIFY_HOST_REFUSED' };
     const base = `https://${config.shopDomain}/admin/api/${SHOPIFY_VERSION}`;
     const headers = { 'X-Shopify-Access-Token': config.accessToken, accept: 'application/json' };
     const pages = [];
@@ -68,7 +69,8 @@ export class ChannelClient {
       ? `${base}/orders.json?status=any&limit=250&created_at_min=${from}T00:00:00Z&created_at_max=${to}T23:59:59Z`
       : `${base}/shopify_payments/balance/transactions.json?limit=250&processed_at_min=${from}T00:00:00Z&processed_at_max=${to}T23:59:59Z`;
     for (let i = 0; i < 40 && url; i += 1) {
-      const res = await this.fetchFn(url, { headers, signal });
+      if (new URL(url).hostname !== config.shopDomain) return { ok: false, error: 'SHOPIFY_HOST_REFUSED' };
+      const res = await this.fetchFn(url, { headers, signal, redirect: 'manual' });
       const data = await asJson(res);
       if (!res.ok) return { ok: false, error: 'SHOPIFY_REQUEST_FAILED', status: res.status, detail: data.errors || data.raw || '' };
       pages.push(data);

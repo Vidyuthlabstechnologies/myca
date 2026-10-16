@@ -45,6 +45,12 @@ export function liveCallsEnabled() {
 // the live switch, or CA approvals. No bytes ever leave the machine in mock mode.
 // Deterministic outputs; every result is tagged mock:true so it is never mistaken for
 // a real filing. Default OFF: real operations stay fail-closed until deliberately enabled.
+export function channelPullsEnabled() {
+  const env = loadEnvFile();
+  const raw = process.env.MYCA_ENABLE_CHANNEL_PULLS ?? env.MYCA_ENABLE_CHANNEL_PULLS ?? '';
+  return TRUTHY.has(String(raw).trim().toLowerCase());
+}
+
 export function mockModeEnabled() {
   const env = loadEnvFile();
   const raw = process.env.MYCA_MOCK_MODE ?? env.MYCA_MOCK_MODE ?? '';
