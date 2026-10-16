@@ -47,7 +47,7 @@ export async function startApi(options = {}) {
   const sender = createCaptureSender();
   const clock = { now: Date.now(), advance(ms) { this.now += ms; } };
   const logs = [];
-  const handler = createApi({ db, secret: SECRET, otpSender: options.phone === false ? null : sender, googleClientIds: [GOOGLE_CLIENT], googleKeys: TEST_GOOGLE_KEYS, now: () => clock.now, log: (entry) => logs.push(entry), jobToken: options.jobToken || '', inboundEmail: options.inboundEmail || {} });
+  const handler = createApi({ db, secret: SECRET, otpSender: options.phone === false ? null : sender, googleClientIds: [GOOGLE_CLIENT], googleKeys: TEST_GOOGLE_KEYS, now: () => clock.now, log: (entry) => logs.push(entry), jobToken: options.jobToken || '', inboundEmail: options.inboundEmail || {}, whatsapp: options.whatsapp || {}, whatsappSender: options.whatsappSender || null });
   const server = createServer(handler);
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
   const base = `http://127.0.0.1:${server.address().port}`;

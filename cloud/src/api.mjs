@@ -15,6 +15,7 @@ import { createGoogleKeys, createGoogleVerifier } from './google.mjs';
 import { CA_SYNC_MODES, syncOf } from './ca-sync.mjs';
 import { inWords } from '../../platform/src/words.mjs';
 import { createInbound, INBOUND_HEADER, relayTokenMatches } from './inbound.mjs';
+import { createWhatsApp } from './whatsapp.mjs';
 
 const INDIA_OFFSET_MS = 330 * 60 * 1000;
 
@@ -47,6 +48,30 @@ function httpError(statusCode, error, extra = {}) {
   err.statusCode = statusCode;
   err.body = { ok: false, error, ...extra };
   return err;
+}
+
+function readRaw(req, limit = MAX_BODY_BYTES) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    let bytes = 0;
+    let tooLarge = false;
+    req.on('data', (chunk) => {
+      if (tooLarge) return;
+      bytes += chunk.length;
+      if (bytes > limit) {
+        tooLarge = true;
+        chunks.length = 0;
+        reject(httpError(413, 'BODY_TOO_LARGE'));
+        return;
+      }
+      chunks.push(chunk);
+    });
+    req.on('error', reject);
+    req.on('end', () => {
+      if (tooLarge) return;
+      resolve(Buffer.concat(chunks));
+    });
+  });
 }
 
 function readJson(req, limit = MAX_BODY_BYTES) {
@@ -113,7 +138,7 @@ function appSnapshot(snapshot, user, role) {
   };
 }
 
-export function createApi({ db, secret, otpSender = null, googleClientIds = [], googleKeys, now = () => Date.now(), log = () => {}, version = 'dev', jobToken = '', inboundEmail = {} }) {
+export function createApi({ db, secret, otpSender = null, googleClientIds = [], googleKeys, now = () => Date.now(), log = () => {}, version = 'dev', jobToken = '', inboundEmail = {}, whatsapp = {}, whatsappSender = null }) {
   assertSecret(secret);
   if (liveCallsEnabled()) throw new Error('the hosted API must not start with live provider calls enabled');
   const auth = createAuth({ db, secret, otpSender, now });
@@ -123,6 +148,7 @@ export function createApi({ db, secret, otpSender = null, googleClientIds = [], 
   const members = createMembers({ db, secret, now, notify: otpSender && typeof otpSender.sendText === 'function' ? (phone, text) => otpSender.sendText(phone, text) : null });
   const crashes = createCrashReports({ db, now });
   const inbound = createInbound({ db, secret, now, withBooks, email: { domain: inboundEmail.domain } });
+  const whatsApp = createWhatsApp({ db, withBooks, config: whatsapp, sender: whatsappSender, now, log });
   const consent = createConsent({ db, now });
   const jobs = createJobs({ db, withBooks, log });
   const google = createGoogleVerifier({ clientIds: googleClientIds, keys: googleKeys || createGoogleKeys({ now }), now });
@@ -168,6 +194,21 @@ export function createApi({ db, secret, otpSender = null, googleClientIds = [], 
       if (parts[2] === 'refresh') return auth.refresh(body.refreshToken);
       if (parts[2] === 'logout') return auth.logout((await signedIn(req)).deviceId);
       throw httpError(404, 'NOT_FOUND');
+    }
+
+    if (parts[1] === 'whatsapp' && parts[2] === 'webhook' && parts.length === 3) {
+      if (method === 'GET') {
+        const verified = whatsApp.verify(url.searchParams);
+        if (!verified.ok) throw httpError(verified.statusCode, verified.error);
+        return { __text: verified.text };
+      }
+      if (method === 'POST') {
+        const raw = await readRaw(req, MAX_BODY_BYTES);
+        const received = await whatsApp.receive(requestId, raw, req.headers['x-hub-signature-256']);
+        if (!received.ok) throw httpError(received.statusCode, received.error);
+        return received;
+      }
+      throw httpError(405, 'METHOD_NOT_ALLOWED');
     }
 
     if (parts[1] === 'inbound' && parts[2] === 'email' && parts.length === 3 && method === 'POST') {
@@ -415,6 +456,11 @@ export function createApi({ db, secret, otpSender = null, googleClientIds = [], 
       }
     }
     log({ requestId, method: req.method, path: new URL(req.url, 'http://localhost').pathname.replace(/[0-9a-f-]{36}/gi, ':id'), status });
+    if (body && typeof body === 'object' && typeof body.__text === 'string') {
+      res.writeHead(status, { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store', 'x-request-id': requestId });
+      res.end(body.__text);
+      return;
+    }
     res.writeHead(status, { 'content-type': 'application/json', 'cache-control': 'no-store', 'x-request-id': requestId });
     res.end(JSON.stringify(body, (_key, value) => (typeof value === 'bigint' ? Number(value) : value)));
   };

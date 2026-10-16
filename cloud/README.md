@@ -120,6 +120,7 @@ no response carries a secret, a hash or a phone number.
 ## Not built yet
 
 - The Google Cloud project itself, and the first `terraform apply` of `infra/cloud`.
+- A WhatsApp Business account on the Meta Cloud API: the webhook (`GET`/`POST /v1/whatsapp/webhook`, `src/whatsapp.mjs`) verifies with `MYCA_WHATSAPP_VERIFY_TOKEN`, checks the `X-Hub-Signature-256` with `MYCA_WHATSAPP_APP_SECRET`, maps the sender's number to a member and runs the same chat as the app (preview, then "yes"), replying through `MYCA_WHATSAPP_PHONE_NUMBER_ID` and `MYCA_WHATSAPP_ACCESS_TOKEN`. Without those four the route answers 404. A member of several businesses is asked which and "use 2" is remembered.
 - An SMS provider account: the Twilio and MSG91 senders exist (`src/sms-sender.mjs`, chosen by `MYCA_SMS_PROVIDER`); without one Google Sign-In is the only sign-in.
 - Telling an invited person. An invitation is only visible to them after they sign in
   with that number; no SMS is sent because there is no sender yet.

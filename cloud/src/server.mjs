@@ -4,6 +4,7 @@ import { createConsoleSender } from './auth.mjs';
 import { createDb, migrate } from './db.mjs';
 import { clientIdsFrom } from './google.mjs';
 import { smsSenderFromEnv } from './sms-sender.mjs';
+import { whatsAppConfigFromEnv, createWhatsAppSender } from './whatsapp.mjs';
 
 const STARTUP_ATTEMPTS = 10;
 const STARTUP_WAIT_MS = 3000;
@@ -46,6 +47,8 @@ const handler = createApi({
   googleClientIds: clientIdsFrom(process.env.MYCA_GOOGLE_CLIENT_IDS),
   jobToken: String(process.env.MYCA_JOB_TOKEN || '').trim(),
   inboundEmail: { domain: String(process.env.MYCA_INBOUND_EMAIL_DOMAIN || '').trim(), relayToken: String(process.env.MYCA_INBOUND_RELAY_TOKEN || '').trim() },
+  whatsapp: whatsAppConfigFromEnv(process.env),
+  whatsappSender: (() => { const cfg = whatsAppConfigFromEnv(process.env); return cfg.phoneNumberId && cfg.accessToken ? createWhatsAppSender({ phoneNumberId: cfg.phoneNumberId, accessToken: cfg.accessToken, log }) : null; })(),
   log,
   version: process.env.K_REVISION || 'dev',
 });

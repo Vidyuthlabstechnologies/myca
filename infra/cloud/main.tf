@@ -143,13 +143,21 @@ resource "random_password" "inbound_relay_token" {
   special = false
 }
 
+resource "random_password" "whatsapp_verify_token" {
+  length  = 48
+  special = false
+}
+
 locals {
   database_url = "postgres://${google_sql_user.api.name}:${random_password.db.result}@localhost/${google_sql_database.main.name}?host=/cloudsql/${google_sql_database_instance.main.connection_name}"
   secrets = {
-    "myca-database-url"        = local.database_url
-    "myca-token-secret"        = random_password.token_secret.result
-    "myca-job-token"           = random_password.job_token.result
-    "myca-inbound-relay-token" = random_password.inbound_relay_token.result
+    "myca-database-url"          = local.database_url
+    "myca-token-secret"          = random_password.token_secret.result
+    "myca-job-token"             = random_password.job_token.result
+    "myca-inbound-relay-token"   = random_password.inbound_relay_token.result
+    "myca-whatsapp-verify-token" = random_password.whatsapp_verify_token.result
+    "myca-whatsapp-app-secret"   = var.whatsapp_app_secret
+    "myca-whatsapp-access-token" = var.whatsapp_access_token
   }
 }
 
@@ -267,6 +275,37 @@ resource "google_cloud_run_v2_service" "api" {
         value = var.inbound_email_domain
       }
 
+      env {
+        name = "MYCA_WHATSAPP_VERIFY_TOKEN"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.api["myca-whatsapp-verify-token"].secret_id
+            version = "latest"
+          }
+        }
+      }
+      env {
+        name = "MYCA_WHATSAPP_APP_SECRET"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.api["myca-whatsapp-app-secret"].secret_id
+            version = "latest"
+          }
+        }
+      }
+      env {
+        name = "MYCA_WHATSAPP_ACCESS_TOKEN"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.api["myca-whatsapp-access-token"].secret_id
+            version = "latest"
+          }
+        }
+      }
+      env {
+        name  = "MYCA_WHATSAPP_PHONE_NUMBER_ID"
+        value = var.whatsapp_phone_number_id
+      }
       env {
         name = "MYCA_INBOUND_RELAY_TOKEN"
         value_source {
