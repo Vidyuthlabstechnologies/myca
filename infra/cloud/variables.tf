@@ -83,3 +83,23 @@ variable "alert_email" {
   type        = string
   default     = ""
 }
+
+variable "whatsapp_app_secret" {
+  description = "Meta app secret for the WhatsApp Cloud API webhook signature. Leave \"unset\" until the WhatsApp Business account exists."
+  type        = string
+  default     = "unset"
+  sensitive   = true
+}
+
+variable "whatsapp_access_token" {
+  description = "WhatsApp Cloud API system-user access token used to send replies. Leave \"unset\" until the account exists."
+  type        = string
+  default     = "unset"
+  sensitive   = true
+}
+
+variable "whatsapp_phone_number_id" {
+  description = "WhatsApp Cloud API phone number id that receives and sends messages. Leave \"unset\" until the account exists."
+  type        = string
+  default     = "unset"
+}

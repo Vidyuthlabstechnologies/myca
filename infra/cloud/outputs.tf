@@ -18,3 +18,9 @@ output "inbound_relay_token" {
   value       = random_password.inbound_relay_token.result
   sensitive   = true
 }
+
+output "whatsapp_verify_token" {
+  description = "Paste this as the webhook verify token in the Meta app's WhatsApp configuration; the callback URL is <service url>/v1/whatsapp/webhook."
+  value       = random_password.whatsapp_verify_token.result
+  sensitive   = true
+}
