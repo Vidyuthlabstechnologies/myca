@@ -83,12 +83,20 @@ test('a member of two businesses is asked which one, and "use 2" is remembered',
   assert.doesNotMatch(replies.at(-1).text, /Which business/);
 });
 
-test('without configuration the webhook does not exist', async () => {
+test('without configuration the webhook does not exist, and without an app secret messages are refused rather than trusted', async () => {
   const bare = await startApi();
   try {
     const res = await bare.call('GET', '/v1/whatsapp/webhook?hub.mode=subscribe&hub.verify_token=x&hub.challenge=1');
     assert.equal(res.status, 404);
   } finally {
     await bare.close();
+  }
+  const noSecret = await startApi({ whatsapp: { ...CONFIG, appSecret: '' }, whatsappSender: sender });
+  try {
+    const raw = JSON.stringify(incoming('919700000001', 'wamid.9', 'hello'));
+    const res = await noSecret.call('POST', '/v1/whatsapp/webhook', { raw, headers: {} });
+    assert.equal(res.status, 404, 'the route is off until the app secret is set');
+  } finally {
+    await noSecret.close();
   }
 });

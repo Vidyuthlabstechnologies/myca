@@ -48,7 +48,7 @@ export function whatsAppConfigFromEnv(env = process.env) {
 }
 
 export function signatureMatches(appSecret, rawBody, header) {
-  if (!appSecret) return true;
+  if (!appSecret) return false;
   const given = String(header || '').replace(/^sha256=/, '');
   if (!/^[0-9a-f]{64}$/i.test(given)) return false;
   const expected = createHmac('sha256', appSecret).update(rawBody).digest('hex');
@@ -56,7 +56,7 @@ export function signatureMatches(appSecret, rawBody, header) {
 }
 
 export function createWhatsApp({ db, withBooks, config = {}, sender = null, now = () => Date.now(), log = () => {} }) {
-  const enabled = Boolean(config.verifyToken) && Boolean(sender);
+  const enabled = Boolean(config.verifyToken) && Boolean(config.appSecret) && Boolean(sender);
 
   function verify(query) {
     if (!config.verifyToken) return { ok: false, statusCode: 404, error: 'WHATSAPP_NOT_CONFIGURED' };
