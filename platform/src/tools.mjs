@@ -10,6 +10,8 @@ import { recordStockTransfer } from './stock-transfers.mjs';
 import { valueInventory, listInventoryValuations } from './inventory.mjs';
 import { saveChannelConfig, listConnectors, fetchChannelReport, syncChannels } from './channel-connectors.mjs';
 import { saveGstr1ToPortal, fileGstr1OnPortal, generateTdsFvu, portalStatus } from './portal-filing.mjs';
+import { aaBankFeed } from './aa-import.mjs';
+import { askKnowledge } from './knowledge.mjs';
 const ingestTally = tally.ingest;
 const ingestBank = bank.ingest;
 const { reconcile } = gst;
@@ -1937,7 +1939,10 @@ export const TOOLS = [
       const type = args.type || 'csv';
       let feed = { type, content: args.content };
       let usHeld = [];
-      if (countryOf(state) === 'US' && type === 'csv') {
+      const aa = aaBankFeed(args);
+      if (aa && !aa.ok) return fail(aa.error, { hint: aa.hint });
+      if (aa) feed = aa.feed;
+      if (!aa && countryOf(state) === 'US' && type === 'csv') {
         const shaped = usBankMatrix(args.content || '');
         if (!shaped.ok) return fail(shaped.error, { hint: shaped.need ? `The statement needs ${shaped.need}.` : 'The statement could not be read.' });
         feed = { type: 'matrix', rows: shaped.rows };
@@ -1955,7 +1960,7 @@ export const TOOLS = [
         const reading = setCashBalance(state, { on: last.date, bank: Number(last.balance) });
         bankBalance = reading.ok ? { on: last.date, balance: Number(last.balance), source: 'bank statement' } : { on: last.date, balance: Number(last.balance), notRecorded: reading.error };
       }
-      return ok({ ...result, ledger, ...(bankBalance ? { bankBalance } : {}) });
+      return ok({ ...result, ledger, ...(bankBalance ? { bankBalance } : {}), ...(aa ? { aa: { accounts: aa.accounts, skipped: aa.skipped } } : {}) });
     },
   },
   {
@@ -2317,6 +2322,13 @@ export const TOOLS = [
     description: 'Search questions to the CA, reminders, document requests, supplier reminders, document names and reviewer corrections for a phrase. Read-only.',
     args: ['query'],
     run: (state, args = {}) => searchFirmNotes(state, args),
+  },
+  {
+    name: 'ask_knowledge',
+    title: 'Answer from the firm notes',
+    description: "Answer a question from the firm's own notes: finds the notes that mention the question's words, then asks the model to answer from those notes only, citing them. The model never computes a figure. Read-only.",
+    args: ['question'],
+    run: (state, args = {}, actor) => askKnowledge(state, args, actor),
   },
   {
     name: 'supplier_reminder_draft',

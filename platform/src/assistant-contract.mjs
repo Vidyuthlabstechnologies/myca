@@ -1157,6 +1157,12 @@ export const TOOL_ARG_SCHEMAS = {
     required: ['query'],
     properties: { query: { type: 'string', minLength: 2, maxLength: 120 } },
   },
+  ask_knowledge: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['question'],
+    properties: { question: { type: 'string', minLength: 3, maxLength: 400 } },
+  },
   supplier_reminder_draft: {
     type: 'object',
     additionalProperties: false,
@@ -1574,7 +1580,7 @@ export const TOOL_ARG_SCHEMAS = {
     required: ['content'],
     properties: {
       content: { type: 'string', minLength: 1 },
-      type: { type: 'string', enum: ['csv', 'text'] },
+      type: { type: 'string', enum: ['csv', 'text', 'aa'] },
       fileName: { type: 'string' },
       asOfDate: { type: 'string' },
     },
@@ -1748,6 +1754,7 @@ const TOOL_RISK = {
   file_gstr1_portal: 'external_government_api',
   generate_tds_fvu: 'external_government_api',
   portal_status: 'read_only',
+  ask_knowledge: 'read_only',
   channel_connectors: 'read_only',
   fetch_channel_report: 'external_government_api',
   sync_channels: 'external_government_api',
@@ -2082,6 +2089,8 @@ export function planLocalToolCall(state, message) {
     if (/^\s*(?:eval\s+(?:log|events?)|assistant\s+log|corrections?\s+log)\s*$/i.test(text)) return { kind: 'tool', name: 'eval_events', args: {} };
     const search = /^\s*(?:search|find)\s+(?:firm\s+)?notes?\s+(?:for\s+)?(.+?)\s*$/i.exec(text);
     if (search) return { kind: 'tool', name: 'search_firm_notes', args: { query: search[1] } };
+    const asked = /^\s*(?:what\s+do\s+(?:the|our)\s+notes\s+say\s+about|ask\s+(?:the\s+)?notes?|from\s+(?:the|our)\s+notes[,:]?)\s+(.+?)\s*\??\s*$/i.exec(text);
+    if (asked) return { kind: 'tool', name: 'ask_knowledge', args: { question: asked[1] } };
   }
   {
     const design = planInvoiceDesignFromChat(text);
@@ -2352,10 +2361,11 @@ export function planLocalToolCall(state, message) {
     if (!csv) return { kind: 'reply', reply: 'Attach a Zoho Books invoice CSV first.', tools: [] };
     return { kind: 'tool', name: 'import_zoho', args: { csv }, clearsPendingFile: true };
   }
-  if (/\bimport bank\b|\bbank statement\b/i.test(text)) {
+  if (/\bimport bank\b|\bbank statement\b|\bimport\s+(?:account\s+aggregator|aa)\s+(?:data|file|json|statement)\b|\baccount\s+aggregator\s+(?:data|file|json)\b/i.test(text)) {
     const content = state.pendingFile?.content || state.files.bank;
-    if (!content) return { kind: 'reply', reply: 'Attach a bank CSV or TXT first.', tools: [] };
-    return { kind: 'tool', name: 'import_bank', args: { content, type: /\.txt$/i.test(state.pendingFile?.name || '') ? 'text' : 'csv' }, clearsPendingFile: true };
+    if (!content) return { kind: 'reply', reply: 'Attach a bank CSV or TXT, or the Account Aggregator FI data JSON, first.', tools: [] };
+    const name = state.pendingFile?.name || '';
+    return { kind: 'tool', name: 'import_bank', args: { content, type: /\.json$/i.test(name) || /account\s+aggregator|\baa\b/i.test(text) ? 'aa' : /\.txt$/i.test(name) ? 'text' : 'csv' }, clearsPendingFile: true };
   }
 
   for (const route of ROUTES) {

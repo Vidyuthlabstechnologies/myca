@@ -8,6 +8,7 @@
  */
 import { randomBytes } from 'node:crypto';
 import { planExpense } from './expenses.mjs';
+import { aaBankFeed } from './aa-import.mjs';
 import { planCreditNote, creditedAgainst, outstandingOf } from './credit-notes.mjs';
 import { planDebitNote, planPurchaseNote } from './debit-notes.mjs';
 import { checkAnswer, reviewOf, stepText } from './gst-review.mjs';
@@ -985,11 +986,13 @@ function tallyPreview(state, args, csv, label) {
 }
 
 function bankPreview(state, args) {
-  const parsed = bank.ingest({ type: args.type || 'csv', content: args.content }, { fileLabel: args.fileName || 'bank' });
+  const aa = aaBankFeed(args);
+  if (aa && !aa.ok) return { blockers: [`${aa.error}: ${aa.hint || 'the Account Aggregator file could not be read'}`], summary: 'Account Aggregator data could not be read.', effects: [], figures: {} };
+  const parsed = bank.ingest(aa ? aa.feed : { type: args.type || 'csv', content: args.content }, { fileLabel: args.fileName || 'bank' });
   const rows = (parsed.rows || []).filter((r) => !r._blocking && r.type !== 'balance-only');
   return {
     blockers: [],
-    summary: `Bank statement: ${(parsed.rows || []).length} rows parsed, ${rows.length} postable${parsed.ok === false ? ' (the running balance does not tie — check the statement)' : ''}.`,
+    summary: `${aa ? `Account Aggregator data (${aa.accounts.map((a) => a.maskedAccNumber || 'account').join(', ')})` : 'Bank statement'}: ${(parsed.rows || []).length} rows parsed, ${rows.length} postable${parsed.ok === false ? ' (the running balance does not tie — check the statement)' : ''}.`,
     effects: ['Each row posts against bank with the classified account.', 'Rows already imported are recognised and skipped.'],
     figures: { rows: (parsed.rows || []).length, postable: rows.length, tied: parsed.ok !== false },
   };

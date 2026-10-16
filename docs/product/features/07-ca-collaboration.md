@@ -87,6 +87,10 @@ sees changes as they happen or at set intervals.
   tells them the date the books are shared as of.
 - API: `GET/POST businesses/:id/ca-sync` (owner sets), `POST businesses/:id/ca-share`.
 
+### Answers from the firm's notes (built 2026-10-16)
+
+"What do our notes say about the audit fee for Kiran?" finds the questions to the CA, reminders, document requests, supplier reminders, document names and reviewer corrections that mention the question's words, and asks the model to answer from those notes only, quoting the note it relied on. The prompt forbids any amount, date, rate or deadline that is not in the notes, and forbids calculation. The model call goes through the action gate: in mock mode the answer is simulated and marked so; with live calls off the owner still sees the notes that were found. With no matching note nothing is sent to the model. Salary matters stay out of the notes that are searched when the books mark them private.
+
 ### What an accountant may do (to decide)
 
 - Today an accountant can record entries and decide exceptions, the same as staff.
