@@ -8,6 +8,8 @@
  */
 import { randomBytes } from 'node:crypto';
 import { planExpense } from './expenses.mjs';
+import { planInvoiceTemplate } from './invoice-template.mjs';
+import { salaryPrivate } from './employees.mjs';
 import { aaBankFeed } from './aa-import.mjs';
 import { planCreditNote, creditedAgainst, outstandingOf } from './credit-notes.mjs';
 import { planDebitNote, planPurchaseNote } from './debit-notes.mjs';
@@ -56,6 +58,7 @@ import { tallyXmlToDayBookCsv } from './tally-xml.mjs';
 
 export const CONFIRM_TOOLS = new Set([
   'create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'record_filing', 'record_supplier_reminder', 'add_employee', 'change_salary', 'end_employment', 'approve_payroll', 'record_salary_payment', 'set_tds_deductor', 'record_tds_deposit', 'tds_review_answer', 'set_gst_credit_opening', 'record_gst_payment', 'close_year', 'post_expense', 'set_expense_head', 'create_credit_note', 'create_debit_note', 'create_purchase_note', 'record_supplier_debit_note', 'cancel_invoice', 'gst_review_answer', 'import_gstr2b', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'set_party_address', 'set_transport', 'set_sales_tax_rate', 'set_contractor', 'set_sales_tax_nexus', 'sales_tax_review_answer', 'record_sales_tax_payment', 'record_sales_tax_filing', 'set_withholding', 'set_suta_rate', 'import_us_invoices', 'import_pos_sales', 'import_settlement', 'import_marketplace_orders', 'import_tcs_statement', 'import_26as_credits', 'record_stock', 'record_stock_transfer', 'set_sku_cost', 'import_sku_costs', 'value_inventory', 'set_registration', 'retire_registration', 'set_channel_identity', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote', 'amend_invoice',
+  'set_invoice_template', 'set_invoice_numbering',
   'import_tally', 'import_tally_xml', 'import_zoho', 'import_bank',
   'govt_generate_irn', 'govt_nic_cancel_irn',
   'exception_decide',
@@ -808,6 +811,33 @@ function completeReminderPreview(state, args) {
   return { blockers: [], summary: `Mark done: ${reminder.text}.`, effects: [], figures: { id: reminder.id } };
 }
 
+function invoiceTemplatePreview(state, args) {
+  if (salaryPrivate(state)) return { blockers: ['Only the owner can change how invoices look and which bank account they show.'], summary: 'Invoice design is owner-only.', effects: [], figures: {} };
+  const planned = planInvoiceTemplate(state, args);
+  if (!planned.ok) return { blockers: [planned.hint || planned.error], summary: 'The invoice design change could not be read.', effects: [], figures: {} };
+  const { changed, next } = planned.plan;
+  const bank = next.bank || {};
+  return {
+    blockers: [],
+    summary: `Invoice design: ${changed.join(', ')} ${changed.length === 1 ? 'changes' : 'change'}.${changed.includes('bank details') ? ` Invoices will show ${bank.account ? `account ${bank.account}` : ''}${bank.ifsc ? ` IFSC ${bank.ifsc}` : ''}${bank.upi ? ` UPI ${bank.upi}` : ''}.` : ''}`,
+    effects: ['Applies to every invoice and quote PDF from now, including ones already raised.'],
+    figures: { changed },
+  };
+}
+
+function invoiceNumberingPreview(state, args) {
+  if (salaryPrivate(state)) return { blockers: ['Only the owner can change invoice numbering.'], summary: 'Invoice numbering is owner-only.', effects: [], figures: {} };
+  const mode = String(args.mode || '').trim().toLowerCase();
+  if (!['continuous', 'yearly'].includes(mode)) return { blockers: ['Say continuous or yearly.'], summary: 'Numbering mode not understood.', effects: [], figures: {} };
+  const before = state.company?.invoiceNumbering || 'continuous';
+  return {
+    blockers: before === mode ? [`Invoices are already numbered ${mode === 'yearly' ? 'per financial year' : 'in one continuous series'}.`] : [],
+    summary: `Invoice numbering: ${mode === 'yearly' ? 'one series per financial year (INV-26270001 is the first of 2026-27)' : 'one continuous series (INV-0001 onwards)'}.`,
+    effects: ['Existing invoices keep their numbers; only new ones follow the new series.'],
+    figures: { before, after: mode },
+  };
+}
+
 function cashReadingPreview(state, args) {
   const planned = planCashReading(state, args);
   if (!planned.ok) {
@@ -1292,6 +1322,8 @@ const PREVIEWERS = {
   add_reminder: reminderPreview,
   complete_reminder: completeReminderPreview,
   set_cash_balance: cashReadingPreview,
+  set_invoice_template: invoiceTemplatePreview,
+  set_invoice_numbering: invoiceNumberingPreview,
   set_payment_terms: termsPreview,
   set_party_address: addressPreview,
   set_sales_tax_rate: salesTaxRatePreview,

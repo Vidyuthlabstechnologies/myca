@@ -1,3 +1,4 @@
+import { isoDate } from './dates.mjs';
 const GSTIN_RE = /\b(\d{2}[A-Z]{5}\d{4}[A-Z][0-9A-Z]Z[0-9A-Z])\b/i;
 
 export function normalizeChat(text) {
@@ -91,6 +92,8 @@ function partyOf(text) {
 // sentence does not state one: a rate is never assumed.
 //   "10 rolls at 500"  -> ten at 500 each
 //   "2 units 8000"     -> one line of 8000, the quantity kept in the description
+const SAID_DATE = /\b(\d{4}-\d{2}-\d{2}|\d{1,2}[-/]\d{1,2}[-/]\d{4})\b/;
+
 export function parseDocument(text) {
   const raw = normalizeChat(text);
   const gstinMatch = raw.match(GSTIN_RE);
@@ -116,11 +119,14 @@ export function parseDocument(text) {
   }
   if (!line || !(line.rate > 0) || !(line.qty > 0)) return null;
   if (gstRate != null) line.gstRate = gstRate;
+  const said = withoutGstin.match(SAID_DATE);
+  const date = said ? isoDate(said[1]) : '';
   return {
-    partyName: partyOf(withoutGstin),
+    partyName: partyOf(said ? withoutGstin.replace(said[0], ' ').replace(/\b(?:dated|date|on)\s*$/i, '') : withoutGstin),
     partyGstin: gstin,
     partyState: gstin.slice(0, 2),
     lines: [line],
+    ...(date ? { date } : {}),
   };
 }
 
@@ -128,7 +134,6 @@ export function receiptAmount(text) {
   return loneAmount(normalizeChat(text));
 }
 
-const SAID_DATE = /\b(\d{4}-\d{2}-\d{2}|\d{1,2}[-/]\d{1,2}[-/]\d{4})\b/;
 
 // Money received is dated the day it is recorded unless the sentence gives a date.
 // Without this a receipt would silently take the date of the invoice it settles.

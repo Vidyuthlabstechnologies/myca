@@ -37,7 +37,9 @@ and [`README.md`](README.md) for what is left and how it is being done.
   weekend/gazetted-holiday rollover and escalation levels
 - ITR regime comparison (AIS/26AS, old vs new); TDS 194A/C/I/J threshold monitor
 - Defensible audit: full-population rules, SA 230 working papers, systematic sampling,
-  Schedule III / CARO / 3CD checks, engagement risk scoring
+  Schedule III / CARO / 3CD checks, engagement risk scoring. "Audit the books" runs on the
+  books themselves (sales, receipts, credit notes, purchases, payments, expenses with their
+  heads and TDS sections, approved payroll) when no ledger file is attached (2026-10-16)
 
 ### Data import
 - Tally Day Book CSV and TallyPrime XML → posted invoices (row isolation, alias mapping)
@@ -192,6 +194,11 @@ no live switch, no CA approvals, and no bytes leaving the PC.
 
 - The AES-256-GCM vault fallback is not hardware-backed; the shipped Electron app uses
   real DPAPI via `safeStorage`.
+- A fresh install opens with empty books (2026-10-16); sample books load only through
+  `seed_demo`, so demo invoices never mix into a real company's returns.
+- The desktop serves its API token inside the page it renders; on a shared Windows
+  machine another local user who can reach 127.0.0.1 could read it. Moving the token to
+  the Electron preload bridge is the fix; not done yet.
 - The local CA API is a contract/test harness, not a production connector layer.
 - The marketing site under `deploy/` is research/status content, not the product.
 - `vendor/` reference clones are never imported (licence reasons — see `vendor/README.md`).

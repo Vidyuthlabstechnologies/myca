@@ -2,7 +2,7 @@ import { planReceiptWithoutInvoice } from './receipt-intent.mjs';
 import { planExpenseFromChat, planRetagFromChat } from './expense-intent.mjs';
 import { planPaymentFromChat } from './payment-intent.mjs';
 import { planOweQuestion } from './owe-intent.mjs';
-import { planFilingFromChat } from './filing-intent.mjs';
+import { planFilingFromChat, saidPeriod } from './filing-intent.mjs';
 import { planEmployeeFromChat } from './employee-intent.mjs';
 import { planTdsFromChat } from './tds-intent.mjs';
 import { planGstPayFromChat } from './gst-pay-intent.mjs';
@@ -17,6 +17,19 @@ import { planReminderFromChat } from './reminder-intent.mjs';
 import { planCashFromChat } from './cash-intent.mjs';
 import { planTermsFromChat, takeInvoiceTerms } from './terms-intent.mjs';
 import { localToday } from './dates.mjs';
+import { documentsOf } from './document-store.mjs';
+
+const PERIOD_TOOLS = new Set(['gst_payable', 'export_tally', 'export_gstr1_json', 'prepare_gstr1', 'filing_pack', 'prepare_gstr3b']);
+
+export function pendingFileContent(state) {
+  const pending = state.pendingFile;
+  if (!pending) return '';
+  if (typeof pending.content === 'string') return pending.content;
+  if (!pending.sha256) return '';
+  const read = documentsOf(state).read(pending.sha256);
+  if (typeof read === 'string') return read;
+  return read && read.ok ? String(read.content ?? '') : '';
+}
 import { normalizeChat, parseDocument, receiptAmount, receiptDate, isPurchaseIntent, isSaleIntent, isQuestion, isNegated, ROUTES } from './intent.mjs';
 import { confirmationIntent } from './chat-confirm.mjs';
 
@@ -2245,12 +2258,12 @@ export function planLocalToolCall(state, message) {
     };
   }
   if (/\bimport tally xml\b|\btally xml\b/i.test(text)) {
-    const xml = state.pendingFile?.content || state.files.tallyXml;
+    const xml = pendingFileContent(state) || state.files.tallyXml;
     if (!xml) return { kind: 'reply', reply: 'Attach a Tally XML file first (dropdown: Tally XML).', tools: [] };
     return { kind: 'tool', name: 'import_tally_xml', args: { xml, fileName: state.pendingFile?.name || 'tally.xml' }, clearsPendingFile: true };
   }
   if (/\bimport tally\b|\btally day/i.test(text)) {
-    const csv = state.pendingFile?.content || state.files.tally;
+    const csv = pendingFileContent(state) || state.files.tally;
     if (!csv) return { kind: 'reply', reply: 'Attach a Tally Day Book CSV first (dropdown: Tally Day Book).', tools: [] };
     return { kind: 'tool', name: 'import_tally', args: { csv, fileName: state.pendingFile?.name || 'tally.csv' }, clearsPendingFile: true };
   }
@@ -2273,7 +2286,7 @@ export function planLocalToolCall(state, message) {
     const stock = /^stock\s+(in|out)\s+([A-Za-z0-9][A-Za-z0-9_./-]{0,63})\s+([\d.]+)(?:\s+(?:at|to|from|in)\s+([A-Za-z0-9][A-Za-z0-9 _-]{0,39}))?\s*$/i.exec(text.trim());
     if (stock && !isNegated(text)) return { kind: 'tool', name: 'record_stock', args: { sku: stock[2].toUpperCase(), qty: stock[1].toLowerCase() === 'in' ? Number(stock[3]) : -Number(stock[3]), ...(stock[4] ? { location: stock[4].trim().toLowerCase() } : {}) } };
     if (/\bimport\s+(?:sku\s+)?costs?\b|\bsku\s+costs?\s+(?:file|csv|sheet)\b/i.test(text) && !isQuestion(text)) {
-      const csv = state.pendingFile?.content;
+      const csv = pendingFileContent(state);
       if (!csv) return { kind: 'reply', reply: 'Attach a sheet with sku and cost columns (name and HSN optional), then say "import sku costs".', tools: [] };
       return { kind: 'tool', name: 'import_sku_costs', args: { csv }, clearsPendingFile: true };
     }
@@ -2301,12 +2314,12 @@ export function planLocalToolCall(state, message) {
       return { kind: 'tool', name: 'set_channel_identity', args: { channel: identity[1].toLowerCase(), ...(gstin ? { gstin: gstin[1].toUpperCase() } : {}), ...(tan ? { tan: tan[1].toUpperCase() } : {}) } };
     }
     if (/\bimport\s+(?:the\s+)?tcs\s+(?:credit\s+)?(?:statement|received|credits?)\b|\btds\s+and\s+tcs\s+credit\s+received\b/i.test(text) && !isQuestion(text)) {
-      const csv = state.pendingFile?.content;
+      const csv = pendingFileContent(state);
       if (!csv) return { kind: 'reply', reply: 'Attach the "TDS and TCS credit received" statement from the GST portal (operator GSTIN, period, integrated, central and state tax), then say "import tcs statement".', tools: [] };
       return { kind: 'tool', name: 'import_tcs_statement', args: { csv }, clearsPendingFile: true };
     }
     if (/\bimport\s+(?:form\s+)?26\s*as\b|\b26\s*as\s+(?:credits?|194-?o)\b/i.test(text) && !isQuestion(text)) {
-      const csv = state.pendingFile?.content;
+      const csv = pendingFileContent(state);
       if (!csv) return { kind: 'reply', reply: 'Attach Form 26AS as a CSV or text table (section, TAN of deductor, tax deducted, date), then say "import 26AS". Only section 194-O rows are read here.', tools: [] };
       return { kind: 'tool', name: 'import_26as_credits', args: { csv }, clearsPendingFile: true };
     }
@@ -2317,7 +2330,7 @@ export function planLocalToolCall(state, message) {
   {
     const orders = /\bimport\s+(?:the\s+)?(?:(amazon|flipkart|myntra|nykaa|meesho|shopify|razorpay|quick[\s-]?commerce)\s+)?(?:orders?|mtr|order\s+report|sales\s+report|gst\s+report)\b/i.exec(text);
     if (orders && !isQuestion(text)) {
-      const csv = state.pendingFile?.content;
+      const csv = pendingFileContent(state);
       const fetchedOrders = !csv && orders[1] ? state.attachments?.[`channel:${orders[1].toLowerCase()}:orders`] : null;
       if (!csv && fetchedOrders) return { kind: 'tool', name: 'import_marketplace_orders', args: { documentSha256: fetchedOrders.sha256, channel: orders[1].toLowerCase() } };
       if (!csv) return { kind: 'reply', reply: 'Attach the order report first (Amazon MTR, Flipkart GST report, or any sheet with order id, date, delivery state, GST rate and taxable value), then say "import amazon orders". Each day and state becomes one invoice to unregistered buyers after you see the preview; returns become credit notes.', tools: [] };
@@ -2336,7 +2349,7 @@ export function planLocalToolCall(state, message) {
   {
     const settle = /\bimport\s+(?:the\s+)?(?:(amazon|flipkart|myntra|nykaa|meesho|shopify|razorpay|quick[\s-]?commerce)\s+)?(?:settlement|payout)s?\b(?:\s+(?:report|file|csv))?(?:.*?\b(?:bank|received|got|paid)\s+(?:₹|rs\.?\s*)?([\d,]+(?:\.\d+)?))?/i.exec(text);
     if (settle && !isQuestion(text)) {
-      const csv = state.pendingFile?.content;
+      const csv = pendingFileContent(state);
       const fetchedSettlement = !csv && settle[1] ? state.attachments?.[`channel:${settle[1].toLowerCase()}:settlement`] : null;
       if (!csv && fetchedSettlement) return { kind: 'tool', name: 'import_settlement', args: { documentSha256: fetchedSettlement.sha256, channel: settle[1].toLowerCase(), ...(settle[2] ? { bankAmount: Number(settle[2].replace(/,/g, '')) } : {}) } };
       if (!csv) return { kind: 'reply', reply: 'Attach the settlement or payout report first (Amazon settlement CSV, Flipkart settlement sheet, or any sheet with sale, fees and settlement value per order), then say "import settlement". Add "bank received 1,23,456" if the bank credit is not in the books yet.', tools: [] };
@@ -2351,30 +2364,32 @@ export function planLocalToolCall(state, message) {
     }
   }
   if (/\bimport\s+(?:pos|counter|daily)\s*(?:sales)?\b|\b(?:pos|counter)\s+sales\s+(?:csv|file|import)\b/i.test(text)) {
-    const csv = state.pendingFile?.content;
+    const csv = pendingFileContent(state);
     if (!csv) return { kind: 'reply', reply: 'Attach the daily sales CSV from your billing counter first (date, GST rate, taxable value, and the GST if it has it), then say "import pos sales". Each day becomes one walk-in invoice by rate after you see the preview.', tools: [] };
     return { kind: 'tool', name: 'import_pos_sales', args: { csv }, clearsPendingFile: true };
   }
   if (/\bimport\s+(?:quickbooks|qbo|xero)\b|\b(?:quickbooks|xero)\s+(?:invoices|export|csv)\b/i.test(text)) {
-    const csv = state.pendingFile?.content;
+    const csv = pendingFileContent(state);
     if (!csv) return { kind: 'reply', reply: 'Attach the QuickBooks or Xero invoice CSV first, then say "import xero" or "import quickbooks". I will show what would post before anything lands in the books.', tools: [] };
     const jurisdiction = (text.match(/\b(?:tax|jurisdiction)\s+([A-Z]{2}(?:-[A-Z0-9]{2,20})?)\b/) || [])[1];
     return { kind: 'tool', name: 'import_us_invoices', args: { csv, ...(jurisdiction ? { taxJurisdiction: jurisdiction } : {}) }, clearsPendingFile: true };
   }
   if (/\bimport zoho\b|\bzoho books\b/i.test(text)) {
-    const csv = state.pendingFile?.content || state.files.zoho;
+    const csv = pendingFileContent(state) || state.files.zoho;
     if (!csv) return { kind: 'reply', reply: 'Attach a Zoho Books invoice CSV first.', tools: [] };
     return { kind: 'tool', name: 'import_zoho', args: { csv }, clearsPendingFile: true };
   }
   if (/\bimport bank\b|\bbank statement\b|\bimport\s+(?:account\s+aggregator|aa)\s+(?:data|file|json|statement)\b|\baccount\s+aggregator\s+(?:data|file|json)\b/i.test(text)) {
-    const content = state.pendingFile?.content || state.files.bank;
+    const content = pendingFileContent(state) || state.files.bank;
     if (!content) return { kind: 'reply', reply: 'Attach a bank CSV or TXT, or the Account Aggregator FI data JSON, first.', tools: [] };
     const name = state.pendingFile?.name || '';
     return { kind: 'tool', name: 'import_bank', args: { content, type: /\.json$/i.test(name) || /account\s+aggregator|\baa\b/i.test(text) ? 'aa' : /\.txt$/i.test(name) ? 'text' : 'csv' }, clearsPendingFile: true };
   }
 
   for (const route of ROUTES) {
-    if (route.re.test(text)) return { kind: 'tool', name: route.tool, args: {} };
+    if (!route.re.test(text)) continue;
+    const period = PERIOD_TOOLS.has(route.tool) ? saidPeriod(text) : '';
+    return { kind: 'tool', name: route.tool, args: period ? { period } : {} };
   }
 
   if (doc) {

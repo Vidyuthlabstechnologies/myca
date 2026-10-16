@@ -37,6 +37,10 @@
   - the issuer, the audience (`MYCA_GOOGLE_CLIENT_IDS`) and the expiry.
   The user is found or created by Google's account id, never by email. An email is
   stored only when Google marks it verified.
+- Owner-only settings are enforced in the engine, not only in the app: the invoice design
+  (including the bank account printed on invoices) and invoice numbering refuse any actor
+  who is not the owner, and both are previewed before they change (2026-10-16). Salary TDS
+  rows (form 24Q) are shown to the owner only, like payroll.
 - Phone and one-time code. Codes are stored as salted hashes, expire in five minutes,
   allow five tries, and are limited to five an hour per number. Off until an SMS sender
   exists; `GET /v1/auth/methods` tells the app which methods are on.
@@ -60,6 +64,16 @@
   in a request body are overwritten (`withTrustedActor`).
 - Provider sessions are keyed by environment, client, user and GSTIN, so one taxpayer's
   session is never reused for another.
+- The WhatsApp channel applies the same shared-view rule as the API: an accountant whose
+  owner shares the books daily or by hand reads the shared copy and cannot post (2026-10-16).
+- One address may ask for at most thirty sign-in codes an hour across all numbers, beside
+  the five per number, so one caller cannot lock many people out or run up the SMS bill.
+- Inbound documents and mail count against the business's storage cap like uploads; a POS
+  sale id is posted once even under concurrent retries (an advisory lock around the check
+  and the insert).
+- The nightly job and connector pulls skip a business whose owner asked for deletion.
+- Signing keys for Google and OIDC are refetched at most once a minute, so a flood of
+  unknown key ids cannot make the service hammer the issuer.
 
 ### What the network can reach
 
@@ -162,13 +176,14 @@
 | No encryption of the books column beyond what the database provides | A database administrator can read every business | Decide on per-business envelope encryption |
 | No staff access control or access log for production data | Insider access is invisible | Break-glass access with logging before launch |
 | No rate limit beyond sign-in codes | Abuse of the API by a signed-in device | Per-device and per-business limits at the edge |
-| No limit on total uploads per business | Storage exhaustion | Quotas |
+| Uploads, inbound documents and mail are capped at 200 MB per business; nothing purges a deleted business's data after the grace period | Storage grows until a retention policy exists | The retention decision below, then a purge job |
 | Phone numbers are stored in clear in `users` | Exposure in a breach | Acceptable as the login identifier; revisit with the assessment |
 | Reads write an audit event into the books row | Not a confidentiality risk; a contention and cost issue | Separate read path |
 | Retention policy is not written | Account deletion cannot be completed correctly: tax law requires records to be kept for years, privacy law requires deletion on request | Legal advice, then implement both |
 | The privacy notice is a draft: retention periods and the Grievance Officer are placeholders | Showing it to real users before counsel approves it | Legal review, then a new version id |
 | Staff role has the same permissions as accountant | Over-broad access for a billing clerk | Role review before pilot |
 | Desktop default admin PIN | Known credential on first run | Force a change on first sign-in |
+| The desktop page carries the local API token | Another local user on a shared Windows machine who can reach 127.0.0.1 could call the local API | Hand the token over the Electron preload bridge instead of the page |
 | The app has never run on a device | Keystore and biometric paths unverified | Device testing |
 | No penetration test, no dependency or secret scanning in a working CI | Unknown unknowns | Before launch |
 

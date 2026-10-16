@@ -22,8 +22,10 @@ test('invoices can be numbered per financial year: INV-<fy><0001>, one series ea
   assert.equal(fyCodeOf('2026-09-01'), '2627');
   assert.equal(fyCodeOf('2027-03-31'), '2627');
   assert.equal(fyCodeOf('2027-04-01'), '2728');
-  const said = await chat(state, 'number invoices per financial year');
-  assert.match(said.reply, /numbered per financial year/);
+  const held = await chat(state, 'number invoices per financial year');
+  assert.match(held.reply, /one series per financial year/, held.reply);
+  const said = await chat(state, 'yes');
+  assert.match(said.reply, /numbered per financial year/, said.reply);
   assert.equal(state.company.invoiceNumbering, 'yearly');
   const a = await runTool(state, 'create_invoice', SALE('2026-10-02'));
   const b = await runTool(state, 'create_invoice', SALE('2026-10-03'));
@@ -34,7 +36,9 @@ test('invoices can be numbered per financial year: INV-<fy><0001>, one series ea
   assert.deepEqual(copy.invoiceSeqByFy, { 2627: 2, 2728: 1 });
   const printed = await runTool(state, 'print_invoice', { id: 'INV-26270001' });
   assert.equal(printed.ok, true, JSON.stringify(printed).slice(0, 200));
-  const back = await chat(state, 'use a continuous invoice series');
+  const backHeld = await chat(state, 'use a continuous invoice series');
+  assert.match(backHeld.reply, /one continuous series/, backHeld.reply);
+  const back = await chat(state, 'yes');
   assert.match(back.reply, /one series/);
   const again = await runTool(state, 'create_invoice', SALE('2027-04-06'));
   assert.equal(again.invoice.id, 'INV-0002', 'the continuous series resumes where it left off');

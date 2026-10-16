@@ -1,3 +1,4 @@
+import { salaryPrivate } from './employees.mjs';
 export const INVOICE_LAYOUTS = ['classic', 'minimal'];
 export const DEFAULT_ACCENT = '#b42318';
 const MAX_FOOTER = 300;
@@ -110,6 +111,7 @@ export function planInvoiceTemplate(state, args = {}) {
 }
 
 export function setInvoiceTemplate(state, args = {}) {
+  if (salaryPrivate(state)) return fail('OWNER_ONLY', { hint: 'Only the owner can change how invoices look and which bank account they show.' });
   const planned = planInvoiceTemplate(state, args);
   if (!planned.ok) return planned;
   state.company = state.company || {};

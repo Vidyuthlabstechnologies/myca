@@ -791,7 +791,7 @@ document.getElementById('file').addEventListener('change', async (e) => {
   if (!f) return;
   const kind = document.getElementById('kind').value;
   await api.attach(kind, f.name, await f.text());
-  addBubble('bot', `Attached ${f.name} as ${kind}. Say “import tally”, “import tally xml”, or “import zoho”.`, kind);
+  addBubble('bot', `Attached ${f.name} as ${kind}. Say “import bank”, “import tally”, “import zoho”, “import settlement”, “import amazon orders” or “import pos sales”, and you will see what would post before anything lands.`, kind);
 });
 
 document.getElementById('voucher').addEventListener('submit', async (e) => {

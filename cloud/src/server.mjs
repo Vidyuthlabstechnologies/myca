@@ -20,7 +20,10 @@ function required(name) {
 }
 
 function otpSender() {
-  if (process.env.MYCA_DEV_OTP === '1') return createConsoleSender();
+  if (process.env.MYCA_DEV_OTP === '1') {
+    if (process.env.K_SERVICE) throw new Error('MYCA_DEV_OTP prints sign-in codes to the log and must not be set on Cloud Run');
+    return createConsoleSender();
+  }
   return smsSenderFromEnv(process.env, { log });
 }
 

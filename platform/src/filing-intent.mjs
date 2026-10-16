@@ -14,6 +14,10 @@ function returnTypeOf(raw) {
   return `GSTR-${compact.slice(4)}`;
 }
 
+export function saidPeriod(text, today = localToday()) {
+  return periodOf(normalizeChat(text), today);
+}
+
 function periodOf(raw, today) {
   const iso = raw.match(/\b(20\d{2})-(0[1-9]|1[0-2])\b(?!-\d)/);
   if (iso) return `${iso[1]}-${iso[2]}`;

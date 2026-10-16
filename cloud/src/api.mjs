@@ -143,6 +143,11 @@ function appSnapshot(snapshot, user, role) {
   };
 }
 
+function clientAddress(req) {
+  const forwarded = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim();
+  return (forwarded || String(req.socket?.remoteAddress || '')).slice(0, 64);
+}
+
 export function createApi({ db, secret, otpSender = null, googleClientIds = [], googleKeys, oidc = {}, oidcKeys = null, documentVault = null, connectorKey = '', now = () => Date.now(), log = () => {}, version = 'dev', jobToken = '', inboundEmail = {}, whatsapp = {}, whatsappSender = null }) {
   assertSecret(secret);
   if (liveCallsEnabled()) throw new Error('the hosted API must not start with live provider calls enabled');
@@ -154,8 +159,8 @@ export function createApi({ db, secret, otpSender = null, googleClientIds = [], 
   const withBooks = runner.withBooks;
   const members = createMembers({ db, secret, now, notify: otpSender && typeof otpSender.sendText === 'function' ? (phone, text) => otpSender.sendText(phone, text) : null });
   const crashes = createCrashReports({ db, now });
-  const inbound = createInbound({ db, secret, now, withBooks, email: { domain: inboundEmail.domain } });
-  const whatsApp = createWhatsApp({ db, withBooks, config: whatsapp, sender: whatsappSender, now, log });
+  const inbound = createInbound({ db, secret, now, withBooks, email: { domain: inboundEmail.domain }, storedBytes: (businessId) => businesses.storedBytes(businessId), limitBytes: MAX_BUSINESS_BYTES });
+  const whatsApp = createWhatsApp({ db, withBooks, withSharedBooks: runner.withSharedBooks, syncOf, config: whatsapp, sender: whatsappSender, now, log });
   const consent = createConsent({ db, now });
   const jobs = createJobs({ db, withBooks, connectors, syncChannels, pullsEnabled: channelPullsEnabled, log });
   const google = createGoogleVerifier({ clientIds: googleClientIds, keys: googleKeys || createGoogleKeys({ now }), now });
@@ -192,7 +197,7 @@ export function createApi({ db, secret, otpSender = null, googleClientIds = [], 
 
     if (parts[1] === 'auth' && method === 'POST') {
       const body = await readJson(req);
-      if (parts[2] === 'otp') return auth.requestOtp(body.phone);
+      if (parts[2] === 'otp') return auth.requestOtp(body.phone, clientAddress(req));
       if (parts[2] === 'verify') return withConsent(await auth.verifyOtp(body));
       if (parts[2] === 'google') {
         const identity = await google.verify(body.idToken);

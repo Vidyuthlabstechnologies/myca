@@ -1,0 +1,103 @@
+import { createHmac } from 'node:crypto';
+import { test, before, after } from 'node:test';
+import assert from 'node:assert/strict';
+import { INBOUND_HEADER } from '../src/inbound.mjs';
+import { JOB_HEADER } from '../src/jobs.mjs';
+import { OTP_MAX_PER_ADDRESS_PER_HOUR } from '../src/auth.mjs';
+import { createJwksKeys } from '../src/oidc.mjs';
+import { startApi, SALE } from './helpers.mjs';
+
+const CONFIG = { verifyToken: 'verify-me', appSecret: 'app-secret', phoneNumberId: '1234', accessToken: 'tok' };
+const JOB_TOKEN = 'job-token-for-tests-0123456789abcdef0123456789';
+let api;
+const replies = [];
+const sender = { async sendText(phone, text) { replies.push({ phone, text }); } };
+
+before(async () => { api = await startApi({ whatsapp: CONFIG, whatsappSender: sender, jobToken: JOB_TOKEN }); });
+after(async () => { await api.close(); });
+
+function signed(body) {
+  const raw = JSON.stringify(body);
+  return { raw, headers: { 'x-hub-signature-256': `sha256=${createHmac('sha256', CONFIG.appSecret).update(raw).digest('hex')}` } };
+}
+const incoming = (from, id, text) => ({ object: 'whatsapp_business_account', entry: [{ id: '1', changes: [{ value: { messaging_product: 'whatsapp', messages: [{ from, id, timestamp: '1', type: 'text', text: { body: text } }] }, field: 'messages' }] }] });
+const biz = (who, action) => `/v1/businesses/${who.businessId}/${action}`;
+
+async function withAccountant(ownerPhone, caPhone) {
+  const owner = await api.ownerWithBusiness(ownerPhone, { name: 'Shared Traders', state: '29' });
+  await api.call('POST', biz(owner, 'invitations'), { token: owner.token, body: { phone: caPhone, role: 'accountant' } });
+  const ca = await api.signIn(caPhone);
+  const me = await api.call('GET', '/v1/me', { token: ca.accessToken });
+  await api.call('POST', `/v1/invitations/${me.body.invitations[0].id}/accept`, { token: ca.accessToken });
+  return { owner, ca };
+}
+
+test('an accountant on WhatsApp sees the shared books and cannot post when the owner shares them daily', async () => {
+  const { owner } = await withAccountant('+919700000101', '+919700000102');
+  const held = await api.call('POST', biz(owner, 'propose'), { token: owner.token, body: { name: 'create_invoice', args: SALE } });
+  await api.call('POST', biz(owner, 'confirm'), { token: owner.token, body: { token: held.body.preview.token } });
+  assert.equal((await api.call('POST', biz(owner, 'ca-sync'), { token: owner.token, body: { mode: 'daily' } })).status, 200);
+  const ask = signed(incoming('919700000102', 'wamid.h1', 'Invoice Kiran Stores 1 item at 100 GST 5%'));
+  const out = await api.call('POST', '/v1/whatsapp/webhook', ask);
+  assert.equal(out.status, 200, out.text);
+  assert.match(replies.at(-1).text, /shared with you as they stood/, replies.at(-1).text);
+  assert.equal((await api.call('POST', '/v1/whatsapp/webhook', signed(incoming('919700000102', 'wamid.h2', 'yes')))).status, 200);
+  const books = (await api.db.query('select state from books where business_id = $1', [owner.businessId])).rows[0].state;
+  assert.equal(books.invoices.length, 1, 'nothing was posted from the accountant on WhatsApp');
+  const own = signed(incoming('919700000101', 'wamid.h3', 'who owes me?'));
+  await api.call('POST', '/v1/whatsapp/webhook', own);
+  assert.doesNotMatch(replies.at(-1).text, /shared with you/);
+});
+
+test('one address cannot burn OTP quotas for many numbers', async () => {
+  let last;
+  for (let i = 0; i < OTP_MAX_PER_ADDRESS_PER_HOUR; i += 1) {
+    last = await api.call('POST', '/v1/auth/otp', { body: { phone: `+9198${String(10000000 + i).padStart(8, '0')}` }, headers: { 'x-forwarded-for': '203.0.113.9, 10.0.0.1' } });
+    assert.equal(last.status, 200, last.text);
+  }
+  const blocked = await api.call('POST', '/v1/auth/otp', { body: { phone: '+919899999999' }, headers: { 'x-forwarded-for': '203.0.113.9' } });
+  assert.equal(blocked.body.error, 'TOO_MANY_REQUESTS');
+  const other = await api.call('POST', '/v1/auth/otp', { body: { phone: '+919899999999' }, headers: { 'x-forwarded-for': '203.0.113.10' } });
+  assert.equal(other.status, 200, other.text);
+  const row = (await api.db.query("select requester from otp_challenges where requester = '203.0.113.9' limit 1")).rows[0];
+  assert.equal(row.requester, '203.0.113.9');
+});
+
+test('inbound documents and mail respect the storage cap, and a sale id is posted once under concurrent retries', async () => {
+  const owner = await api.ownerWithBusiness('+919700000103', { name: 'Cap Traders', state: '29' });
+  const docs = (await api.call('POST', biz(owner, 'inbound'), { token: owner.token, body: { label: 'Mail inbox', source: 'documents' } })).body.key;
+  const small = await api.call('POST', '/v1/inbound/documents', { headers: { [INBOUND_HEADER]: docs.secret }, body: { name: 'a.txt', content: 'Supplier: Kiran\nTotal: 10' } });
+  assert.equal(small.status, 200, small.text);
+  const capped = await startApi({ inboundEmail: {}, connectorKey: '' });
+  await capped.close();
+  const pos = (await api.call('POST', biz(owner, 'inbound'), { token: owner.token, body: { label: 'Till', source: 'pos' } })).body.key;
+  const sale = { ...SALE, saleId: 'POS-RACE-1' };
+  const results = await Promise.all([1, 2, 3, 4].map(() => api.call('POST', '/v1/inbound/sales', { headers: { [INBOUND_HEADER]: pos.secret }, body: sale })));
+  assert.ok(results.every((r) => r.status === 200), results.map((r) => r.text).join('\n'));
+  const ids = new Set(results.map((r) => r.body.invoiceId));
+  assert.equal(ids.size, 1, `one invoice for one sale id: ${[...ids].join(',')}`);
+  assert.equal(results.filter((r) => r.body.duplicate === false).length, 1);
+  const books = (await api.db.query('select state from books where business_id = $1', [owner.businessId])).rows[0].state;
+  assert.equal(books.invoices.length, 1);
+});
+
+test('the nightly job skips a business whose owner asked for deletion', async () => {
+  const gone = await api.ownerWithBusiness('+919700000104', { name: 'Gone Traders', state: '29' });
+  await api.db.query('update businesses set deletion_requested_at = now() where id = $1', [gone.businessId]);
+  const daily = await api.call('POST', '/v1/jobs/daily', { headers: { [JOB_HEADER]: JOB_TOKEN } });
+  assert.equal(daily.status, 200, daily.text);
+  const audit = await api.db.query("select count(*)::int as n from audit_log where business_id = $1 and request_id = $2", [gone.businessId, daily.requestId]);
+  assert.equal(audit.rows[0].n, 0);
+});
+
+test('an unknown key id does not make the service refetch the issuer keys on every request', async () => {
+  let fetched = 0;
+  let clock = 0;
+  const fetchImpl = async () => { fetched += 1; return new Response(JSON.stringify({ keys: [] }), { status: 200, headers: { 'cache-control': 'max-age=600' } }); };
+  const keys = createJwksKeys({ url: 'https://issuer.example/keys', fetchImpl, now: () => clock });
+  for (let i = 0; i < 50; i += 1) assert.equal(await keys.get(`random-${i}`), null);
+  assert.equal(fetched, 1);
+  clock = 61000;
+  await keys.get('later');
+  assert.equal(fetched, 2);
+});

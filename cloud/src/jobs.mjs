@@ -12,7 +12,7 @@ export function jobTokenMatches(configured, given) {
 
 export function createJobs({ db, withBooks, connectors = null, syncChannels = null, pullsEnabled = () => false, log = () => {} }) {
   async function daily(requestId) {
-    const found = await db.query('select business_id from books order by business_id');
+    const found = await db.query('select b.business_id from books b join businesses x on x.id = b.business_id where x.deletion_requested_at is null order by b.business_id');
     const summary = { ok: true, businesses: found.rowCount, ran: 0, skipped: 0, reminders: 0, warnings: 0, pulled: 0, failed: [] };
     for (const row of found.rows) {
       const businessId = row.business_id;

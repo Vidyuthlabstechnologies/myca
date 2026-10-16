@@ -380,7 +380,7 @@
           <div class="composer-meta">
             <label class="filechip">
               Attach
-              <input id="file" type="file" accept=".csv,.txt,.xlsx,.xml" hidden />
+              <input id="file" type="file" accept=".csv,.txt,.xlsx,.xml,.json,.tsv" hidden />
             </label>
             <select id="kind">
               <option value="tally">Tally Day Book</option>
@@ -390,6 +390,12 @@
               <option value="gstr2b">GSTR-2B</option>
               <option value="gstr3b">GSTR-3B</option>
               <option value="auditLedger">Audit ledger</option>
+              <option value="settlement">Marketplace settlement or payout</option>
+              <option value="orders">Marketplace order report</option>
+              <option value="pos">POS daily sales</option>
+              <option value="tcs">GST TCS statement</option>
+              <option value="aa">Account Aggregator data (JSON)</option>
+              <option value="other">Other file</option>
             </select>
           </div>
           <div class="composer-row">

@@ -12,6 +12,7 @@ import {
 export const OTP_TTL_SECONDS = 5 * 60;
 export const OTP_MAX_ATTEMPTS = 5;
 export const OTP_MAX_PER_HOUR = 5;
+export const OTP_MAX_PER_ADDRESS_PER_HOUR = 30;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export function isUuid(value) {
@@ -53,7 +54,7 @@ export function createAuth({ db, secret, otpSender, now = () => Date.now() }) {
   return {
     phoneEnabled: Boolean(otpSender),
 
-    async requestOtp(phoneInput) {
+    async requestOtp(phoneInput, address = '') {
       if (!otpSender) return fail('PHONE_SIGN_IN_UNAVAILABLE');
       const phone = normalizePhone(phoneInput);
       if (!phone) return fail('INVALID_PHONE');
@@ -67,10 +68,14 @@ export function createAuth({ db, secret, otpSender, now = () => Date.now() }) {
           new Date(now() - 60 * 60 * 1000),
         ]);
         if (recent.rows[0].n >= OTP_MAX_PER_HOUR) return null;
+        if (address) {
+          const fromAddress = await q('select count(*)::int as n from otp_challenges where requester = $1 and created_at > $2', [address, new Date(now() - 60 * 60 * 1000)]);
+          if (fromAddress.rows[0].n >= OTP_MAX_PER_ADDRESS_PER_HOUR) return null;
+        }
         await q('update otp_challenges set consumed_at = $2 where phone_hash = $1 and consumed_at is null', [phoneHash, at()]);
         const inserted = await q(
-          'insert into otp_challenges (phone_hash, salt, code_hash, created_at, expires_at) values ($1, $2, $3, $4, $5) returning id',
-          [phoneHash, salt, codeHash(salt, code).toString('hex'), at(), new Date(now() + OTP_TTL_SECONDS * 1000)],
+          'insert into otp_challenges (phone_hash, salt, code_hash, created_at, expires_at, requester) values ($1, $2, $3, $4, $5, $6) returning id',
+          [phoneHash, salt, codeHash(salt, code).toString('hex'), at(), new Date(now() + OTP_TTL_SECONDS * 1000), address || null],
         );
         return inserted.rows[0].id;
       });

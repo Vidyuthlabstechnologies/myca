@@ -57,6 +57,9 @@ const FAILURES = {
   PAN_REQUIRED: () => 'Set the company PAN first.',
   TAN_REQUIRED: () => 'Set the deductor TAN first.',
   CA_APPROVAL_REQUIRED: () => 'This operation needs a CA approval: request one (approval_request) and have the CA approve it, then say it again with the approval id.',
+  NOT_A_DEDUCTOR: () => 'This business is not set up to deduct TDS. Say "we deduct TDS, TAN" followed by your TAN first.',
+  NOTHING_TO_REVIEW: (r) => `There are no sales, purchases or credit notes dated in ${r.period || 'that month'}, so there is nothing to review.`,
+  STEP_NOT_READY: (r) => `Confirm the ${r.waitingFor || 'earlier'} step first; the review goes in order.`,
   CONNECTOR_NOT_CONFIGURED: (r) => `${r.channel} is not connected; save its credentials first (${(r.fields || []).join(', ')}).`,
   CONNECTOR_DISABLED: (r) => `${r.channel} is paused; enable it to pull reports.`,
   UNKNOWN_CONNECTOR: (r) => `${r.channel || 'That channel'} has no API connector${r.fileOnly ? `: ${r.fileOnly}` : ''}.`,
@@ -97,6 +100,7 @@ function failedInWords(code, result = {}) {
 
 function fmtToolResult(name, result) {
   if (result?.error === 'SALARIES_PRIVATE') return 'Only the owner can see or change employees and salaries.';
+  if (result?.error === 'OWNER_ONLY') return result.hint || 'Only the owner can do that.';
   if (!result || result.ok === false) return failedInWords(result?.error, result);
   const d = result.data ?? result.invoice ?? result;
   if (name === 'create_invoice' && result.invoice?.export) {
@@ -545,7 +549,22 @@ function fmtToolResult(name, result) {
   }
   if (name === 'audit_books') {
     if (!d.summary) return result.error || JSON.stringify(d);
-    return `Audit ${d.summary.flags} flags (high ${d.summary.high} / medium ${d.summary.medium} / low ${d.summary.low}).`;
+    const s = d.summary;
+    const top = (d.flags || []).slice(0, 6).map((f) => `· ${f.date} ${f.party || ''} ${money(f.amount)}: ${f.why}`).join('\n');
+    return `Audited ${s.population} entries from ${d.source || 'the ledger'}: ${s.flags === 0 ? 'nothing flagged' : `${s.flags} ${s.flags === 1 ? 'flag' : 'flags'} (high ${s.high}, medium ${s.medium}, low ${s.low})`}.${top ? `\n${top}` : ''}${(d.flags || []).length > 6 ? `\n… and ${d.flags.length - 6} more.` : ''}`;
+  }
+  if (name === 'prepare_gstr3b' && d.outward) {
+    const o = d.outward;
+    const t = o.totals || {};
+    const itc = d.itc || {};
+    const lines = (o.rows3a || []).map((r) => `· ${r.rate}% ${r.interState ? 'inter-state' : 'within the state'}: taxable ${money(r.taxable)}, ${r.interState ? `IGST ${money(r.igst)}` : `CGST ${money(r.cgst)} + SGST ${money(r.sgst)}`}`);
+    const notes = o.creditNotes?.count ? `\nCredit notes netted: ${o.creditNotes.count} for ${money(o.creditNotes.taxable)} taxable.` : '';
+    return `GSTR-3B ${d.period}${d.gstin ? ` (${d.gstin})` : ''}\nOutward (3.1): taxable ${money((t.interTaxable || 0) + (t.intraTaxable || 0))}; IGST ${money(t.interIgst)}, CGST ${money(t.intraCgst)}, SGST ${money(t.intraSgst)}.${lines.length ? `\n${lines.join('\n')}` : ''}${notes}\nITC (4A): IGST ${money(itc.available?.igst)}, CGST ${money(itc.available?.cgst)}, SGST ${money(itc.available?.sgst)}; ineligible ${money((itc.ineligible?.igst || 0) + (itc.ineligible?.cgst || 0) + (itc.ineligible?.sgst || 0))}; net ${money(itc.netItc)}.\nSay "gst payable for ${d.periods?.[0] || ''}" for the cash and credit split.`;
+  }
+  if (name === 'monitor_tds') {
+    const rows = Array.isArray(d) ? d : d.flags || d.rows || [];
+    if (!rows.length) return 'No payments file is attached, and nothing crossed a TDS threshold in it. TDS on the bills and expenses you post here is deducted at posting (say "tds statement" for the quarter); attach a payments CSV as "payments" to scan an outside list.';
+    return `${rows.length} ${rows.length === 1 ? 'payment' : 'payments'} crossed a TDS threshold:\n${rows.slice(0, 10).map((r) => `· ${r.party || r.vendor || ''} ${r.section || ''} ${money(r.amount || r.total || 0)}${r.why ? `: ${r.why}` : ''}`).join('\n')}`;
   }
   if (name === 'import_bank' && d.aa) {
     const accounts = (d.aa.accounts || []).map((a) => `${a.maskedAccNumber || 'account'}${a.fipId ? ` at ${a.fipId}` : ''}`).join(', ');
@@ -837,7 +856,7 @@ async function chatCore(state, message) {
         return { reply: `I did not match that to anything I can do${chosen.reason ? ` (${chosen.reason})` : ''}, so nothing was recorded. Try "invoice Kiran Stores 50000 GST 18%", "paid 12000 rent", "who owes me?", or say "help" for more.`, tools: [{ name: plan.name, result }], viaModel: true };
       }
     }
-    if (liveCallsEnabled() || mockModeEnabled()) {
+    if (liveCallsEnabled() && !mockModeEnabled()) {
       const ask = await runTool(state, 'nim_ask', { prompt: message });
       if (ask.ok && ask.data?.reply) {
         return {

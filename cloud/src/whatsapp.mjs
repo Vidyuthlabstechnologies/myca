@@ -55,7 +55,7 @@ export function signatureMatches(appSecret, rawBody, header) {
   return timingSafeEqual(Buffer.from(expected, 'hex'), Buffer.from(given, 'hex'));
 }
 
-export function createWhatsApp({ db, withBooks, config = {}, sender = null, now = () => Date.now(), log = () => {} }) {
+export function createWhatsApp({ db, withBooks, withSharedBooks = null, syncOf = null, config = {}, sender = null, now = () => Date.now(), log = () => {} }) {
   const enabled = Boolean(config.verifyToken) && Boolean(config.appSecret) && Boolean(sender);
 
   function verify(query) {
@@ -118,7 +118,8 @@ export function createWhatsApp({ db, withBooks, config = {}, sender = null, now 
         }
       }
       const business = businesses.find((b) => b.id === chosenId);
-      return { businessId: business.id, business: business.name, user: { userId: business.userId, role: business.role, name: business.userName } };
+      const sync = business.role === 'accountant' && syncOf ? await syncOf(q, business.id) : null;
+      return { businessId: business.id, business: business.name, shared: Boolean(sync && sync.mode !== 'live'), user: { userId: business.userId, role: business.role, name: business.userName } };
     });
     if (answer.duplicate) return { ok: true, duplicate: true };
     if (answer.text) {
@@ -126,7 +127,14 @@ export function createWhatsApp({ db, withBooks, config = {}, sender = null, now 
       return { ok: true, replied: true };
     }
     const actor = { actor: { userId: answer.user.userId, role: engineRole(answer.user.role), name: answer.user.name || answer.user.userId } };
-    const out = await withBooks(answer.businessId, { requestId, userId: answer.user.userId, deviceId: null }, (session) => session.chat(text, actor));
+    const run = answer.shared && withSharedBooks
+      ? withSharedBooks(answer.businessId, { requestId, userId: answer.user.userId, deviceId: null }, async (session) => {
+        const got = await session.chat(text, actor);
+        if (!got.preview && !got.awaitingConfirmation) return got;
+        return { reply: 'These books are shared with you as they stood when the owner last shared them, so nothing can be posted from here. Ask the owner to make the change.', tools: [] };
+      })
+      : withBooks(answer.businessId, { requestId, userId: answer.user.userId, deviceId: null }, (session) => session.chat(text, actor));
+    const out = await run;
     const spoken = String(out?.reply || 'I could not read that.').slice(0, REPLY_LIMIT);
     await reply(phone, spoken);
     return { ok: true, replied: true, posted: Boolean(out?.posted), awaitingConfirmation: Boolean(out?.awaitingConfirmation) };

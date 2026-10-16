@@ -13,6 +13,8 @@ import { saveGstr1ToPortal, fileGstr1OnPortal, generateTdsFvu, portalStatus } fr
 import { aaBankFeed } from './aa-import.mjs';
 import { askKnowledge } from './knowledge.mjs';
 import { pushZohoInvoices } from './zoho-push.mjs';
+import { booksAuditLedger } from './audit-ledger.mjs';
+import { salaryPrivate } from './employees.mjs';
 const ingestTally = tally.ingest;
 const ingestBank = bank.ingest;
 const { reconcile } = gst;
@@ -1090,6 +1092,7 @@ export const TOOLS = [
     description: 'Choose how new invoices are numbered: one continuous series (INV-0001 onwards) or one series per financial year (INV-26270001 is the first of 2026-27). Existing invoices keep their numbers. Owner only.',
     args: ['mode'],
     run: (state, args = {}) => {
+      if (salaryPrivate(state)) return fail('OWNER_ONLY', { hint: 'Only the owner can change invoice numbering.' });
       const mode = String(args.mode || '').trim().toLowerCase();
       if (!['continuous', 'yearly'].includes(mode)) return fail('BAD_NUMBERING', { mode, hint: 'continuous or yearly' });
       const before = state.company.invoiceNumbering || 'continuous';
@@ -2417,9 +2420,15 @@ export const TOOLS = [
     title: 'Defensible audit',
     description: 'Full-population ledger scrutiny, SA 230 working papers, Schedule III / CARO / 3CD, engagement risk.',
     run: (state, args = {}) => {
-      const text = args.ledgerText || state.files.auditLedger;
-      if (!text) return fail('Pass ledgerText (clientId,date,narration,debit,credit,party,category,tdsSection).');
-      return ok(auditRun({ ledgerText: text, asOfDate: args.asOfDate || localToday() }));
+      let text = args.ledgerText || state.files.auditLedger;
+      let source = 'ledger file';
+      if (!text) {
+        const built = booksAuditLedger(state);
+        if (!built.ok) return fail(built.error, { hint: built.hint });
+        text = built.text;
+        source = `the books (${built.rows} entries)`;
+      }
+      return ok({ ...auditRun({ ledgerText: text, asOfDate: args.asOfDate || localToday() }), source });
     },
   },
   {
