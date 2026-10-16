@@ -73,6 +73,7 @@
 
 - The action gate, described in the [architecture](ARCHITECTURE.md#7-the-action-gate).
 - The live switch is off by default, and the hosted server refuses to start with it on.
+- A second, narrower switch (`MYCA_ENABLE_CHANNEL_PULLS`, 2026-10-16) opens only read-only pulls on the channel family (marketplace and payment reports); every government, model and write action still needs the live switch. The hosted API may run with the pull switch on; each business's channel credentials are sealed per business with the service's connector key.
 - An approval is bound to a hash of the exact payload; changing anything voids it.
 - OTP, EVC and DSC steps are performed by the taxpayer. The product does not store
   them.

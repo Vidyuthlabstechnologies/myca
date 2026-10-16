@@ -14,6 +14,9 @@ import { createJobs, jobTokenMatches, JOB_HEADER } from './jobs.mjs';
 import { createGoogleKeys, createGoogleVerifier } from './google.mjs';
 import { createOidcVerifier } from './oidc.mjs';
 import { createDocumentVault } from './document-vault.mjs';
+import { createConnectorStore } from './connectors.mjs';
+import { syncChannels } from '../../platform/src/channel-connectors.mjs';
+import { channelPullsEnabled } from '../../platform/src/runtime-config.mjs';
 import { CA_SYNC_MODES, syncOf } from './ca-sync.mjs';
 import { inWords } from '../../platform/src/words.mjs';
 import { createInbound, INBOUND_HEADER, relayTokenMatches } from './inbound.mjs';
@@ -140,20 +143,21 @@ function appSnapshot(snapshot, user, role) {
   };
 }
 
-export function createApi({ db, secret, otpSender = null, googleClientIds = [], googleKeys, oidc = {}, oidcKeys = null, documentVault = null, now = () => Date.now(), log = () => {}, version = 'dev', jobToken = '', inboundEmail = {}, whatsapp = {}, whatsappSender = null }) {
+export function createApi({ db, secret, otpSender = null, googleClientIds = [], googleKeys, oidc = {}, oidcKeys = null, documentVault = null, connectorKey = '', now = () => Date.now(), log = () => {}, version = 'dev', jobToken = '', inboundEmail = {}, whatsapp = {}, whatsappSender = null }) {
   assertSecret(secret);
   if (liveCallsEnabled()) throw new Error('the hosted API must not start with live provider calls enabled');
   const auth = createAuth({ db, secret, otpSender, now });
   const businesses = createBusinesses({ db, now });
   const vault = documentVault || createDocumentVault({ now, log });
   const runner = createBooksRunner({ db, now, vault });
+  const connectors = createConnectorStore({ db, key: connectorKey });
   const withBooks = runner.withBooks;
   const members = createMembers({ db, secret, now, notify: otpSender && typeof otpSender.sendText === 'function' ? (phone, text) => otpSender.sendText(phone, text) : null });
   const crashes = createCrashReports({ db, now });
   const inbound = createInbound({ db, secret, now, withBooks, email: { domain: inboundEmail.domain } });
   const whatsApp = createWhatsApp({ db, withBooks, config: whatsapp, sender: whatsappSender, now, log });
   const consent = createConsent({ db, now });
-  const jobs = createJobs({ db, withBooks, log });
+  const jobs = createJobs({ db, withBooks, connectors, syncChannels, pullsEnabled: channelPullsEnabled, log });
   const google = createGoogleVerifier({ clientIds: googleClientIds, keys: googleKeys || createGoogleKeys({ now }), now });
   const openId = createOidcVerifier({ issuer: oidc.issuer || '', clientIds: oidc.clientIds || [], jwksUrl: oidc.jwksUrl || '', keys: oidcKeys, now });
   if (!otpSender && !google.enabled && !openId.enabled) throw new Error('no sign-in method: configure an SMS sender, MYCA_GOOGLE_CLIENT_IDS or MYCA_OIDC_ISSUER with MYCA_OIDC_CLIENT_IDS');
@@ -336,6 +340,10 @@ export function createApi({ db, secret, otpSender = null, googleClientIds = [], 
         if (role !== 'owner') throw httpError(403, 'OWNER_ONLY');
         return inbound.list(businessId);
       }
+      if (method === 'GET' && action === 'connectors') {
+        if (role !== 'owner') throw httpError(403, 'OWNER_ONLY');
+        return { ...(await connectors.list(businessId)), pulls: channelPullsEnabled() };
+      }
       if (method === 'GET' && action === 'export') {
         if (role !== 'owner') throw httpError(403, 'OWNER_ONLY');
         const business = (await businesses.listFor(user.userId)).find((b) => b.id === businessId) || { id: businessId };
@@ -404,6 +412,20 @@ export function createApi({ db, secret, otpSender = null, googleClientIds = [], 
       if (action === 'inbound') {
         if (role !== 'owner') throw httpError(403, 'OWNER_ONLY');
         return inbound.create(businessId, context, body);
+      }
+      if (action === 'connectors') {
+        if (role !== 'owner') throw httpError(403, 'OWNER_ONLY');
+        return connectors.save(businessId, context, body);
+      }
+      if (action === 'connector-sync') {
+        if (role !== 'owner') throw httpError(403, 'OWNER_ONLY');
+        const configured = await connectors.configured(businessId);
+        if (!configured.length) return { ok: false, error: 'NO_CONNECTORS', hint: 'Connect a channel first.' };
+        return withBooks(businessId, context, async (session) => {
+          const out = await syncChannels(session.state, { to: body.to }, { actor: actor.actor, connectors: configured });
+          session.persist();
+          return out;
+        });
       }
       if (action === 'replace') {
         if (role !== 'owner') throw httpError(403, 'OWNER_ONLY');

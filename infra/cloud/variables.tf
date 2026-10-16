@@ -84,6 +84,12 @@ variable "alert_email" {
   default     = ""
 }
 
+variable "enable_channel_pulls" {
+  description = "Let the hosted API pull marketplace and payment reports (Amazon, Shopify, Razorpay) for businesses that saved their connector credentials. Read-only pulls; government and model calls stay off. Owner decision."
+  type        = bool
+  default     = false
+}
+
 variable "oidc_issuer" {
   description = "OpenID Connect issuer URL whose ID tokens the API accepts beside Google (for example a Keycloak realm or an Azure AD tenant). Leave \"unset\" to keep the route off."
   type        = string

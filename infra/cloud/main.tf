@@ -173,6 +173,11 @@ resource "random_password" "whatsapp_verify_token" {
   special = false
 }
 
+resource "random_password" "connector_key" {
+  length  = 64
+  special = false
+}
+
 locals {
   database_url = "postgres://${google_sql_user.api.name}:${random_password.db.result}@localhost/${google_sql_database.main.name}?host=/cloudsql/${google_sql_database_instance.main.connection_name}"
   secrets = {
@@ -181,6 +186,7 @@ locals {
     "myca-job-token"             = random_password.job_token.result
     "myca-inbound-relay-token"   = random_password.inbound_relay_token.result
     "myca-whatsapp-verify-token" = random_password.whatsapp_verify_token.result
+    "myca-connector-key"         = random_password.connector_key.result
     "myca-whatsapp-app-secret"   = var.whatsapp_app_secret
     "myca-whatsapp-access-token" = var.whatsapp_access_token
   }
@@ -298,6 +304,21 @@ resource "google_cloud_run_v2_service" "api" {
       env {
         name  = "MYCA_DOCUMENT_BUCKET"
         value = google_storage_bucket.documents.name
+      }
+
+      env {
+        name = "MYCA_CONNECTOR_KEY"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.api["myca-connector-key"].secret_id
+            version = "latest"
+          }
+        }
+      }
+
+      env {
+        name  = "MYCA_ENABLE_CHANNEL_PULLS"
+        value = var.enable_channel_pulls ? "1" : "0"
       }
 
       env {
