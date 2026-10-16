@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { loadState, saveState, safeStatePath, serialize, deserialize, createState } from './store.mjs';
 import { createFileDocumentStore, documentsOf, isSha256 } from './document-store.mjs';
@@ -29,7 +29,22 @@ function moved(expectedVersion, current) {
 
 export function createFileBooksStore(path) {
   const safePath = safeStatePath(path);
-  const versionOnDisk = () => (existsSync(safePath) ? sha256Of(readFileSync(safePath, 'utf8')) : '');
+  let known = null;
+  const stamp = () => {
+    try {
+      const info = statSync(safePath);
+      return `${info.size}:${info.mtimeMs}`;
+    } catch {
+      return '';
+    }
+  };
+  const remember = (version) => { known = { version, stamp: stamp() }; return version; };
+  const versionOnDisk = () => {
+    if (!existsSync(safePath)) { known = null; return ''; }
+    const current = stamp();
+    if (known && known.stamp === current) return known.version;
+    return remember(sha256Of(readFileSync(safePath, 'utf8')));
+  };
   let recovered = null;
   let lastBackup = null;
   const health = () => ({ recovered, lastBackup, backups: backupSummary(safePath) });
@@ -53,12 +68,13 @@ export function createFileBooksStore(path) {
       const current = versionOnDisk();
       if (moved(expectedVersion, current)) return { ok: false, error: VERSION_CONFLICT, version: current };
       const text = saveState(safePath, state);
+      const version = remember(sha256Of(text));
       try {
         lastBackup = rotateBackups(safePath, text);
       } catch (err) {
         lastBackup = { written: false, error: String(err && err.message ? err.message : err) };
       }
-      return { ok: true, version: versionOnDisk() };
+      return { ok: true, version };
     },
   };
 }

@@ -7,6 +7,7 @@
   "main": "desktop/main.cjs",
   "scripts": {
     "test": "node --env-file=.env.test --test \"test/*.test.mjs\"",
+    "posttest": "node scripts/clean-test-temp.mjs",
     "start": "electron .",
     "dev": "node src/server.mjs",
     "stress": "node scripts/stress.mjs",

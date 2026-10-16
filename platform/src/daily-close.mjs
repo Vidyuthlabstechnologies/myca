@@ -21,7 +21,7 @@ function postedOn(rows, day, month) {
   return { today: today.length, todayTotal: total(today), month: mtd.length, monthTotal: total(mtd) };
 }
 
-export function dailyClose(state, { asOf, clientId = 'SELF' } = {}) {
+export function dailyClose(state, { asOf, clientId = 'SELF', chain = null } = {}) {
   const day = /^\d{4}-\d{2}-\d{2}$/.test(String(asOf || '')) ? asOf : localToday();
   const month = day.slice(0, 7);
   const sales = postedOn(state.invoices || [], day, month);
@@ -30,7 +30,7 @@ export function dailyClose(state, { asOf, clientId = 'SELF' } = {}) {
   const reading = latestReading(state);
   const bankAge = reading ? dayNumber(day) - dayNumber(reading.on) : null;
   const cash = cashStart(state, day);
-  refreshExceptions(state, {}, { asOfDate: day, clientId });
+  refreshExceptions(state, chain ? { chain } : {}, { asOfDate: day, clientId });
   const open = listExceptions(state, { status: 'open' });
   const exceptions = summarise(open);
   const settlements = (state.settlements || []);

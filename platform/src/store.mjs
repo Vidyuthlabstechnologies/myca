@@ -455,7 +455,7 @@ export function saveState(path, state) {
   const dir = dirname(safePath);
   mkdirSync(dir, { recursive: true });
   const tempPath = join(dir, `.${basename(safePath)}.${process.pid}.${Date.now()}.${Math.random().toString(36).slice(2)}.tmp`);
-  const text = JSON.stringify(serialize(state), null, 2);
+  const text = JSON.stringify(serialize(state));
   savePinVault(safePath, state);
   try {
     writeDurably(tempPath, text);
