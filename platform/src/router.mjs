@@ -8,6 +8,7 @@ import { valuationWords, valuationsWords } from './inventory.mjs';
 import { connectorsWords, fetchWords } from './channel-connectors.mjs';
 import { portalWords } from './portal-filing.mjs';
 import { knowledgeWords } from './knowledge.mjs';
+import { zohoPushWords } from './zoho-push.mjs';
 import { closeWords } from './daily-close.mjs';
 import { registrationsWords } from './registrations.mjs';
 import { stockTransferWords } from './stock-transfers.mjs';
@@ -356,6 +357,7 @@ function fmtToolResult(name, result) {
   if (name === 'portal_status' && result.data) return portalWords(name, result);
   if (name === 'ask_knowledge') return knowledgeWords(result);
   if (name === 'fetch_channel_report' && result.data?.channel) return fetchWords(result.data);
+  if (name === 'push_zoho_invoices' && result.data?.period) return zohoPushWords(result.data);
   if (name === 'sync_channels' && result.data) return result.data.results.length ? `Fetched ${result.data.fetched} ${result.data.fetched === 1 ? 'report' : 'reports'}: ${result.data.results.map((r) => `${r.channel} ${r.kind} ${r.ok ? (r.empty ? 'empty' : `${r.rows} rows`) : r.error}`).join('; ')}.` : 'No channel is connected yet. Say "channel connectors" to see which can be.';
   if (name === 'set_channel_connector' && result.data?.channel) return `${result.data.title}: ${result.data.configured ? 'connected' : 'saved, but a field is still missing'}${result.data.enabled === false ? ', paused' : ''}. Fetching runs when live calls are on; until then "pull amazon settlement" is a dry run.`;
   if (name === 'inventory_valuations' && result.data) return valuationsWords(result.data, money);
