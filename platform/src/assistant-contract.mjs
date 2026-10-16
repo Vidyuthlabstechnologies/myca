@@ -724,6 +724,25 @@ export const TOOL_ARG_SCHEMAS = {
       hsn: { type: 'string', maxLength: 8 },
     },
   },
+  save_gstr1_portal: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['period'],
+    properties: { period: { type: 'string', pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' }, gstin: REGISTRATION_ARG, caApprovalId: { type: 'string', maxLength: 40 } },
+  },
+  file_gstr1_portal: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['period', 'otp'],
+    properties: { period: { type: 'string', pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' }, gstin: REGISTRATION_ARG, otp: { type: 'string', pattern: '^[0-9]{6}$' }, pan: { type: 'string', maxLength: 10 }, caApprovalId: { type: 'string', maxLength: 40 } },
+  },
+  generate_tds_fvu: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['quarter'],
+    properties: { quarter: { type: 'string', pattern: '^Q[1-4] [0-9]{4}-[0-9]{2}$' }, form: { type: 'string', enum: ['24Q', '26Q', '27Q'] }, tan: { type: 'string', maxLength: 10 }, filingType: { type: 'string', enum: ['regular', 'correction'] }, caApprovalId: { type: 'string', maxLength: 40 } },
+  },
+  portal_status: { type: 'object', additionalProperties: false, properties: {} },
   set_channel_connector: {
     type: 'object',
     additionalProperties: false,
@@ -1725,6 +1744,10 @@ const TOOL_RISK = {
   stock_moves: 'read_only',
   value_inventory: 'writes_books',
   set_channel_connector: 'writes_books',
+  save_gstr1_portal: 'external_government_api',
+  file_gstr1_portal: 'external_government_api',
+  generate_tds_fvu: 'external_government_api',
+  portal_status: 'read_only',
   channel_connectors: 'read_only',
   fetch_channel_report: 'external_government_api',
   sync_channels: 'external_government_api',
@@ -1888,6 +1911,15 @@ export function planLocalToolCall(state, message) {
     };
   }
 
+  {
+    const saving = /^save\s+gstr-?1\s+(?:for\s+)?(\d{4}-\d{2})(?:\s+(?:for|under)\s+([0-9]{2}[A-Z0-9]{13}))?\s+(?:to|on)\s+(?:the\s+)?portal(?:\s+(?:with\s+)?approval\s+(APR-\d+))?\s*$/i.exec(text.trim());
+    if (saving && !isNegated(text)) return { kind: 'tool', name: 'save_gstr1_portal', args: { period: saving[1], ...(saving[2] ? { gstin: saving[2].toUpperCase() } : {}), ...(saving[3] ? { caApprovalId: saving[3].toUpperCase() } : {}) } };
+    const filing = /^file\s+gstr-?1\s+(?:for\s+)?(\d{4}-\d{2})(?:\s+(?:for|under)\s+([0-9]{2}[A-Z0-9]{13}))?\s+(?:with\s+)?otp\s+(\d{6})(?:\s+(?:with\s+)?approval\s+(APR-\d+))?\s*$/i.exec(text.trim());
+    if (filing && !isNegated(text)) return { kind: 'tool', name: 'file_gstr1_portal', args: { period: filing[1], otp: filing[3], ...(filing[2] ? { gstin: filing[2].toUpperCase() } : {}), ...(filing[4] ? { caApprovalId: filing[4].toUpperCase() } : {}) } };
+    const fvu = /^(?:generate|make|prepare)\s+(?:the\s+)?fvu\s+(?:for\s+)?(Q[1-4]\s+\d{4}-\d{2})(?:\s+(24Q|26Q|27Q))?(?:\s+(?:with\s+)?approval\s+(APR-\d+))?\s*$/i.exec(text.trim());
+    if (fvu && !isNegated(text)) return { kind: 'tool', name: 'generate_tds_fvu', args: { quarter: fvu[1].toUpperCase(), ...(fvu[2] ? { form: fvu[2].toUpperCase() } : {}), ...(fvu[3] ? { caApprovalId: fvu[3].toUpperCase() } : {}) } };
+    if (/\bportal\s+(?:status|saves)\b|\bwhat\s+(?:is|was)\s+saved\s+to\s+the\s+portal\b|\bfvu\s+jobs?\b/i.test(text)) return { kind: 'tool', name: 'portal_status', args: {} };
+  }
   if (/\b(upload|submit|sign|file)\b.*\b(gstn|return|gstr|dsc|otp)\b/i.test(text)) {
     return {
       kind: 'reply',

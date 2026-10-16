@@ -153,3 +153,15 @@ GSTR-9 and GSTR-9C, refunds, amendments to a filed return, composition scheme re
 - Q2 in the PRD: may an invited CA approve filing, or only the owner?
 - Is the first live release GSTR-1 only (no payment involved), with GSTR-3B following
   once set-off is verified? Engineering recommends this order.
+
+## Saving and filing on the GST portal through the GSP (2026-10-16)
+
+`save_gstr1_portal` ("save GSTR-1 for 2026-09 to the portal") builds the month's GSTR-1
+for a registration from the books and saves it through the GSP behind the action gate; it
+refuses while any invoice is held back and remembers the draft's hash. `file_gstr1_portal`
+("file GSTR-1 for 2026-09 with OTP 123456") files it with the EVC OTP only when the review
+for the month is approved and the invoices are unchanged since the save, and records the
+filing with its acknowledgement. `generate_tds_fvu` ("generate FVU for Q2 2026-27 26Q")
+submits the quarter's statement to the provider's FVU job and keeps the job id and links.
+All three are write operations: live calls must be on and a CA approval must name the
+operation; in mock mode they return simulated results and record nothing as filed.

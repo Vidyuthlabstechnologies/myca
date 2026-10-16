@@ -68,6 +68,8 @@ export function createState() {
     skus: {},
     stockMoves: [],
     inventoryValuations: [],
+    portalSaves: {},
+    tdsFvuJobs: [],
     supplierReminderSeq: 0,
     employees: [],
     employeeSeq: 0,
@@ -156,6 +158,8 @@ export function serialize(state) {
     skus: state.skus || {},
     stockMoves: state.stockMoves || [],
     inventoryValuations: state.inventoryValuations || [],
+    portalSaves: state.portalSaves || {},
+    tdsFvuJobs: state.tdsFvuJobs || [],
     supplierReminderSeq: state.supplierReminderSeq || 0,
     employees: state.employees || [],
     employeeSeq: state.employeeSeq || 0,
@@ -325,6 +329,8 @@ export function deserialize(raw) {
   state.skus = raw.skus && typeof raw.skus === 'object' ? raw.skus : {};
   state.stockMoves = Array.isArray(raw.stockMoves) ? raw.stockMoves : [];
   state.inventoryValuations = Array.isArray(raw.inventoryValuations) ? raw.inventoryValuations : [];
+  state.portalSaves = raw.portalSaves && typeof raw.portalSaves === 'object' ? raw.portalSaves : {};
+  state.tdsFvuJobs = Array.isArray(raw.tdsFvuJobs) ? raw.tdsFvuJobs : [];
   state.supplierReminderSeq = raw.supplierReminderSeq || 0;
   state.employees = Array.isArray(raw.employees) ? raw.employees : [];
   state.employeeSeq = raw.employeeSeq || 0;

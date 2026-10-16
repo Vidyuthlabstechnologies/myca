@@ -6,6 +6,7 @@ import { creditsWords } from './marketplace-credits.mjs';
 import { marginsWords, stockWords, stockMovesWords } from './sku-margins.mjs';
 import { valuationWords, valuationsWords } from './inventory.mjs';
 import { connectorsWords, fetchWords } from './channel-connectors.mjs';
+import { portalWords } from './portal-filing.mjs';
 import { closeWords } from './daily-close.mjs';
 import { registrationsWords } from './registrations.mjs';
 import { stockTransferWords } from './stock-transfers.mjs';
@@ -46,6 +47,14 @@ function money(n) {
 }
 
 const FAILURES = {
+  INVOICES_HELD: (r) => `${(r.held || []).length === 1 ? '1 invoice is' : `${(r.held || []).length} invoices are`} held back (${(r.held || []).slice(0, 5).join(', ')}); fix them before saving to the portal.`,
+  NOT_SAVED: () => 'Save the GSTR-1 to the portal first, then file it.',
+  DRAFT_CHANGED: () => 'The invoices changed since the save; save to the portal again, then file.',
+  REVIEW_NOT_APPROVED: () => 'Approve the GST review for that month first; filing cannot be undone.',
+  OTP_REQUIRED: () => 'Give the six-digit EVC OTP the portal sent.',
+  PAN_REQUIRED: () => 'Set the company PAN first.',
+  TAN_REQUIRED: () => 'Set the deductor TAN first.',
+  CA_APPROVAL_REQUIRED: () => 'This operation needs a CA approval: request one (approval_request) and have the CA approve it, then say it again with the approval id.',
   CONNECTOR_NOT_CONFIGURED: (r) => `${r.channel} is not connected; save its credentials first (${(r.fields || []).join(', ')}).`,
   CONNECTOR_DISABLED: (r) => `${r.channel} is paused; enable it to pull reports.`,
   UNKNOWN_CONNECTOR: (r) => `${r.channel || 'That channel'} has no API connector${r.fileOnly ? `: ${r.fileOnly}` : ''}.`,
@@ -342,6 +351,8 @@ function fmtToolResult(name, result) {
   if (name === 'stock_moves' && result.data) return stockMovesWords(result.data);
   if (name === 'value_inventory' && result.valuation) return valuationWords(result, money);
   if (name === 'channel_connectors' && result.data) return connectorsWords(result.data);
+  if (['save_gstr1_portal', 'file_gstr1_portal', 'generate_tds_fvu'].includes(name) && result.data) return portalWords(name, result.data);
+  if (name === 'portal_status' && result.data) return portalWords(name, result);
   if (name === 'fetch_channel_report' && result.data?.channel) return fetchWords(result.data);
   if (name === 'sync_channels' && result.data) return result.data.results.length ? `Fetched ${result.data.fetched} ${result.data.fetched === 1 ? 'report' : 'reports'}: ${result.data.results.map((r) => `${r.channel} ${r.kind} ${r.ok ? (r.empty ? 'empty' : `${r.rows} rows`) : r.error}`).join('; ')}.` : 'No channel is connected yet. Say "channel connectors" to see which can be.';
   if (name === 'set_channel_connector' && result.data?.channel) return `${result.data.title}: ${result.data.configured ? 'connected' : 'saved, but a field is still missing'}${result.data.enabled === false ? ', paused' : ''}. Fetching runs when live calls are on; until then "pull amazon settlement" is a dry run.`;
