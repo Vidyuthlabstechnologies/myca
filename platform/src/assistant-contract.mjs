@@ -724,6 +724,31 @@ export const TOOL_ARG_SCHEMAS = {
       hsn: { type: 'string', maxLength: 8 },
     },
   },
+  set_channel_connector: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['channel'],
+    properties: {
+      channel: { type: 'string', enum: ['amazon', 'shopify', 'razorpay'] },
+      clientId: { type: 'string', maxLength: 200 }, clientSecret: { type: 'string', maxLength: 500 }, refreshToken: { type: 'string', maxLength: 2000 }, marketplaceId: { type: 'string', maxLength: 40 }, region: { type: 'string', enum: ['IN', 'EU', 'NA', 'FE'] },
+      shopDomain: { type: 'string', maxLength: 120 }, accessToken: { type: 'string', maxLength: 500 },
+      keyId: { type: 'string', maxLength: 120 }, keySecret: { type: 'string', maxLength: 500 },
+      enabled: { type: 'boolean' },
+    },
+  },
+  channel_connectors: { type: 'object', additionalProperties: false, properties: {} },
+  fetch_channel_report: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['channel'],
+    properties: {
+      channel: { type: 'string', enum: ['amazon', 'shopify', 'razorpay'] },
+      kind: { type: 'string', enum: ['settlement', 'orders'] },
+      from: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' },
+      to: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' },
+    },
+  },
+  sync_channels: { type: 'object', additionalProperties: false, properties: { to: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' } } },
   settlement_status: {
     type: 'object',
     additionalProperties: false,
@@ -1632,7 +1657,7 @@ export const TOOL_ARG_SCHEMAS = {
   },
 };
 
-const ASSISTANT_BLOCKED_TOOLS = new Set(['govt_save_credentials', 'govt_set_public_key', 'govt_nic_cancel_irn', 'govt_nic_generate_ewb', 'seed_demo', 'approval_decide', 'set_company', 'add_client', 'set_active_client', 'save_document', 'get_document', 'lock_period', 'unlock_period', 'send_notification', 'test_notification']);
+const ASSISTANT_BLOCKED_TOOLS = new Set(['govt_save_credentials', 'set_channel_connector', 'govt_set_public_key', 'govt_nic_cancel_irn', 'govt_nic_generate_ewb', 'seed_demo', 'approval_decide', 'set_company', 'add_client', 'set_active_client', 'save_document', 'get_document', 'lock_period', 'unlock_period', 'send_notification', 'test_notification']);
 
 const TOOL_RISK = {
   create_invoice: 'writes_books',
@@ -1699,6 +1724,10 @@ const TOOL_RISK = {
   stock_position: 'read_only',
   stock_moves: 'read_only',
   value_inventory: 'writes_books',
+  set_channel_connector: 'writes_books',
+  channel_connectors: 'read_only',
+  fetch_channel_report: 'external_government_api',
+  sync_channels: 'external_government_api',
   inventory_valuations: 'read_only',
   sku_margins: 'read_only',
   daily_close: 'read_only',
@@ -2245,15 +2274,25 @@ export function planLocalToolCall(state, message) {
     const orders = /\bimport\s+(?:the\s+)?(?:(amazon|flipkart|myntra|nykaa|meesho|shopify|razorpay|quick[\s-]?commerce)\s+)?(?:orders?|mtr|order\s+report|sales\s+report|gst\s+report)\b/i.exec(text);
     if (orders && !isQuestion(text)) {
       const csv = state.pendingFile?.content;
+      const fetchedOrders = !csv && orders[1] ? state.attachments?.[`channel:${orders[1].toLowerCase()}:orders`] : null;
+      if (!csv && fetchedOrders) return { kind: 'tool', name: 'import_marketplace_orders', args: { documentSha256: fetchedOrders.sha256, channel: orders[1].toLowerCase() } };
       if (!csv) return { kind: 'reply', reply: 'Attach the order report first (Amazon MTR, Flipkart GST report, or any sheet with order id, date, delivery state, GST rate and taxable value), then say "import amazon orders". Each day and state becomes one invoice to unregistered buyers after you see the preview; returns become credit notes.', tools: [] };
       const channel = orders[1] ? orders[1].toLowerCase().replace(/\s+/, '-') : undefined;
       return { kind: 'tool', name: 'import_marketplace_orders', args: { csv, ...(channel ? { channel } : {}) }, clearsPendingFile: true };
     }
   }
   {
+    const fetching = /^(?:[f]etch|pull|download)\s+(?:the\s+)?(amazon|shopify|razorpay)\s+(settlement|payout|orders?)s?(?:\s+(?:report|file))?(?:\s+(?:from|since)\s+(\d{4}-\d{2}-\d{2}))?(?:\s+(?:to|until)\s+(\d{4}-\d{2}-\d{2}))?\s*$/i.exec(text.trim());
+    if (fetching && !isNegated(text)) return { kind: 'tool', name: 'fetch_channel_report', args: { channel: fetching[1].toLowerCase(), kind: /^order/i.test(fetching[2]) ? 'orders' : 'settlement', ...(fetching[3] ? { from: fetching[3] } : {}), ...(fetching[4] ? { to: fetching[4] } : {}) } };
+    if (/^(?:sync|[f]etch|pull)\s+(?:all\s+)?(?:channels?|marketplaces?|connectors?)\s*$/i.test(text.trim()) && !isNegated(text)) return { kind: 'tool', name: 'sync_channels', args: {} };
+    if (/\b(?:channel|marketplace)\s+connectors?\b|\bconnected\s+channels\b|\bwhich\s+channels\s+are\s+connected\b/i.test(text)) return { kind: 'tool', name: 'channel_connectors', args: {} };
+  }
+  {
     const settle = /\bimport\s+(?:the\s+)?(?:(amazon|flipkart|myntra|nykaa|meesho|shopify|razorpay|quick[\s-]?commerce)\s+)?(?:settlement|payout)s?\b(?:\s+(?:report|file|csv))?(?:.*?\b(?:bank|received|got|paid)\s+(?:₹|rs\.?\s*)?([\d,]+(?:\.\d+)?))?/i.exec(text);
     if (settle && !isQuestion(text)) {
       const csv = state.pendingFile?.content;
+      const fetchedSettlement = !csv && settle[1] ? state.attachments?.[`channel:${settle[1].toLowerCase()}:settlement`] : null;
+      if (!csv && fetchedSettlement) return { kind: 'tool', name: 'import_settlement', args: { documentSha256: fetchedSettlement.sha256, channel: settle[1].toLowerCase(), ...(settle[2] ? { bankAmount: Number(settle[2].replace(/,/g, '')) } : {}) } };
       if (!csv) return { kind: 'reply', reply: 'Attach the settlement or payout report first (Amazon settlement CSV, Flipkart settlement sheet, or any sheet with sale, fees and settlement value per order), then say "import settlement". Add "bank received 1,23,456" if the bank credit is not in the books yet.', tools: [] };
       const channel = settle[1] ? settle[1].toLowerCase().replace(/\s+/, '-') : undefined;
       const bankAmount = settle[2] ? Number(settle[2].replace(/,/g, '')) : undefined;

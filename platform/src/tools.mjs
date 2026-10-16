@@ -8,6 +8,7 @@ import { dailyClose } from './daily-close.mjs';
 import { regArg, companyAs, forRegistration, setRegistration, retireRegistration, listRegistrations } from './registrations.mjs';
 import { recordStockTransfer } from './stock-transfers.mjs';
 import { valueInventory, listInventoryValuations } from './inventory.mjs';
+import { saveChannelConfig, listConnectors, fetchChannelReport, syncChannels } from './channel-connectors.mjs';
 const ingestTally = tally.ingest;
 const ingestBank = bank.ingest;
 const { reconcile } = gst;
@@ -1833,6 +1834,41 @@ export const TOOLS = [
     description: 'Move stock from one registration of the business to another (for example to a marketplace warehouse in another state): raises the transfer invoice under the sending registration at cost (or a stated unit value) with IGST, the matching bill with input credit under the receiving one, settles the two by contra, moves the stock, and says whether an e-way bill is needed.',
     args: ['sku', 'qty', 'fromGstin', 'toGstin', 'date', 'unitValue', 'gstRate', 'hsn'],
     run: (state, args = {}) => recordStockTransfer(state, args),
+  },
+  {
+    name: 'set_channel_connector',
+    title: 'Connect a sales channel',
+    description: 'Save the credentials for Amazon Seller Central (SP-API client id, secret, refresh token, marketplace id), Shopify (shop domain, Admin API access token) or Razorpay (key id, secret) in the local vault, or pause a connector. Secrets never appear in replies. Fetching still needs live calls on. Owner only; not for the assistant.',
+    args: ['channel', 'clientId', 'clientSecret', 'refreshToken', 'marketplaceId', 'region', 'shopDomain', 'accessToken', 'keyId', 'keySecret', 'enabled'],
+    run: (_state, args = {}) => {
+      const { channel, ...patch } = args;
+      const out = saveChannelConfig(String(channel || '').toLowerCase(), patch);
+      return out.ok === false ? fail(out.error, out) : ok(out);
+    },
+  },
+  {
+    name: 'channel_connectors',
+    title: 'Sales channel connectors',
+    description: 'Which channels are connected for fetching settlement and order reports, when each was last fetched, and which channels stay file imports. Read-only; no secrets.',
+    args: [],
+    run: () => listConnectors(),
+  },
+  {
+    name: 'fetch_channel_report',
+    title: 'Fetch a channel report',
+    description: 'Pull a settlement or orders report from a connected channel for a date range through the action gate (live calls must be on; mock mode returns a simulated file). The report is stored as a file with a reminder; nothing posts until it is imported after a preview.',
+    args: ['channel', 'kind', 'from', 'to'],
+    run: async (state, args = {}) => {
+      const out = await fetchChannelReport(state, args, { actor: resolveToolActor(args) });
+      return out.ok === false ? fail(out.error, out) : ok(out);
+    },
+  },
+  {
+    name: 'sync_channels',
+    title: 'Fetch every connected channel',
+    description: 'For each connected channel, pull the settlement and orders reports since the last pull (fourteen days the first time), store them and leave a reminder each. Run by the desktop once a day after the daily checks.',
+    args: ['to'],
+    run: async (state, args = {}) => ok((await syncChannels(state, args, { actor: resolveToolActor(args) })).data),
   },
   {
     name: 'settlement_status',

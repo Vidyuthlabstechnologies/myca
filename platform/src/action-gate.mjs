@@ -21,13 +21,14 @@ import { NimClient, getNimClient } from './nim-client.mjs';
 import * as nicClient from './nic-client.mjs';
 import { sendNotification } from './notifications.mjs';
 import { probeGovt, probeTcp } from './reachability.mjs';
+import { getChannelClient } from './channel-client.mjs';
 
 export const DRY_RUN_LIMIT = 200;
 
 const MINUTE_MS = 60000;
 const ASSISTANT = 'assistant';
 const MOCK_FIELD = /^(mock|simulated)/;
-const FIXTURE_SKIP = new Set(['files', 'pendingFile', 'auditEvents', 'auditSeq', 'dryRuns', 'dryRunSeq', '_legacyFiles', 'ledger', 'extraBooks', 'firmUsers']);
+const FIXTURE_SKIP = new Set(['files', 'pendingFile', 'auditEvents', 'auditSeq', 'dryRuns', 'dryRunSeq', '_legacyFiles', '_documents', '_dataDir', 'ledger', 'extraBooks', 'firmUsers']);
 
 function entry(actionClass, family, uses, { irreversible = false, timeoutMs = MINUTE_MS } = {}) {
   return Object.freeze({ actionClass, family, irreversible, uses: Object.freeze([...uses]), timeoutMs });
@@ -77,6 +78,7 @@ export const ACTION_CLASSES = Object.freeze(Object.assign(Object.create(null), {
   nim_ask: read('nim', ['nim.complete'], MODEL),
   nim_status: read('nim', ['nim.ping']),
   provider_doctor_ping: read('provider', ['sandbox.ping', 'nim.ping', 'reachability.probeTally'], PROBE),
+  channel_fetch_report: read('channel', ['channel.pull'], { timeoutMs: 12 * MINUTE_MS }),
 }));
 
 function transportOptions(ctx) {
@@ -115,8 +117,19 @@ const REACHABILITY_TRANSPORT = Object.freeze({
   },
 });
 
+const CHANNEL_TRANSPORT = Object.freeze({
+  pull: (ctx) => (request) => {
+    const client = signalled(getChannelClient(), ctx.signal);
+    if (request.channel === 'amazon') return client.amazonReport(request, ctx.signal);
+    if (request.channel === 'shopify') return client.shopify(request, ctx.signal);
+    if (request.channel === 'razorpay') return client.razorpay(request, ctx.signal);
+    return { ok: false, error: 'UNKNOWN_CONNECTOR' };
+  },
+});
+
 const TRANSPORT_TABLES = Object.freeze({
   nic: NIC_TRANSPORT,
+  channel: CHANNEL_TRANSPORT,
   notifications: NOTIFICATION_TRANSPORT,
   reachability: REACHABILITY_TRANSPORT,
 });
