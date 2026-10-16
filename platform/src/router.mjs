@@ -5,6 +5,7 @@ import { orderImportWords } from './marketplace-orders.mjs';
 import { creditsWords } from './marketplace-credits.mjs';
 import { marginsWords, stockWords, stockMovesWords } from './sku-margins.mjs';
 import { valuationWords, valuationsWords } from './inventory.mjs';
+import { connectorsWords, fetchWords } from './channel-connectors.mjs';
 import { closeWords } from './daily-close.mjs';
 import { registrationsWords } from './registrations.mjs';
 import { stockTransferWords } from './stock-transfers.mjs';
@@ -45,6 +46,10 @@ function money(n) {
 }
 
 const FAILURES = {
+  CONNECTOR_NOT_CONFIGURED: (r) => `${r.channel} is not connected; save its credentials first (${(r.fields || []).join(', ')}).`,
+  CONNECTOR_DISABLED: (r) => `${r.channel} is paused; enable it to pull reports.`,
+  UNKNOWN_CONNECTOR: (r) => `${r.channel || 'That channel'} has no API connector${r.fileOnly ? `: ${r.fileOnly}` : ''}.`,
+  KIND_NOT_SUPPORTED: (r) => `${r.channel} gives ${(r.kinds || []).join(' and ')} reports, not ${r.kind}.`,
   OPEN_DOCUMENTS: (r) => `${r.gstin} still has ${r.count === 1 ? '1 open document' : `${r.count} open documents`} (${[...r.invoices, ...r.purchases].slice(0, 6).join(', ')}); settle or cancel them before retiring it.`,
   UNKNOWN_REGISTRATION: (r) => `${r.gstin} is not a registration of this business${r.known?.length ? ` (known: ${r.known.join(', ')})` : ''}.`,
   DIFFERENT_PAN: () => 'That GSTIN carries a different PAN, so it is not a registration of this business.',
@@ -336,6 +341,10 @@ function fmtToolResult(name, result) {
   if (name === 'stock_position' && result.data) return stockWords(result.data, money);
   if (name === 'stock_moves' && result.data) return stockMovesWords(result.data);
   if (name === 'value_inventory' && result.valuation) return valuationWords(result, money);
+  if (name === 'channel_connectors' && result.data) return connectorsWords(result.data);
+  if (name === 'fetch_channel_report' && result.data?.channel) return fetchWords(result.data);
+  if (name === 'sync_channels' && result.data) return result.data.results.length ? `Fetched ${result.data.fetched} ${result.data.fetched === 1 ? 'report' : 'reports'}: ${result.data.results.map((r) => `${r.channel} ${r.kind} ${r.ok ? (r.empty ? 'empty' : `${r.rows} rows`) : r.error}`).join('; ')}.` : 'No channel is connected yet. Say "channel connectors" to see which can be.';
+  if (name === 'set_channel_connector' && result.data?.channel) return `${result.data.title}: ${result.data.configured ? 'connected' : 'saved, but a field is still missing'}${result.data.enabled === false ? ', paused' : ''}. Fetching runs when live calls are on; until then "pull amazon settlement" is a dry run.`;
   if (name === 'inventory_valuations' && result.data) return valuationsWords(result.data, money);
   if (name === 'sku_margins' && result.data) return marginsWords(result.data, money);
   if (name === 'daily_close' && result.data) return closeWords(result.data, money);

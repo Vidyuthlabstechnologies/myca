@@ -199,3 +199,19 @@ can set them and value again. Each valuation is dated after the last; the daily 
 checks that the month has been valued. `inventory_valuations` lists what was posted and
 what stock is worth now against it. On the phone, the Marketplace screen's stock section
 has "Value inventory in the books".
+
+## Channel connectors (D6, 2026-10-16)
+
+`set_channel_connector` keeps a channel's API credentials in the local vault (Amazon
+SP-API: client id, secret, refresh token, marketplace id; Shopify: shop domain and Admin
+API token; Razorpay: key id and secret). `fetch_channel_report` ("fetch amazon settlement
+from 2026-09-01 to 2026-09-15") pulls a settlement or orders report through the action
+gate: with live calls off it is a dry run, in mock mode a simulated file, and live it
+requests the Amazon report and polls for it, pages Shopify orders or balance
+transactions, or reads Razorpay's settlement reconciliation, then shapes the result into
+the same CSV the file imports take. The report is stored as a file with a reminder;
+"import amazon settlement" then previews and posts it. `sync_channels` fetches every
+connected channel since its last fetch and the desktop runs it once a day after the daily
+checks. Flipkart, Myntra, Nykaa, Meesho and Unicommerce publish files, not report APIs,
+and stay file imports. The hosted service does not fetch yet: it would need per-business
+secret storage.

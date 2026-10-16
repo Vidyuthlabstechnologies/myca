@@ -41,6 +41,10 @@ async function runDailyChecks(reason) {
   try {
     const out = await session.tool('run_automation', {});
     lastTick = { at: new Date().toISOString(), reason, ok: out.ok !== false, skipped: out.data?.skipped === true, warnings: out.data?.run?.warnings?.length || 0 };
+    if (out.data?.skipped !== true) {
+      const synced = await session.tool('sync_channels', {});
+      if (synced.data?.fetched) console.log(`MyCA fetched ${synced.data.fetched} channel report(s)`);
+    }
     if (lastTick.warnings) console.warn(`MyCA daily checks: ${out.data.run.warnings.join(' | ')}`);
   } catch (err) {
     lastTick = { at: new Date().toISOString(), reason, ok: false, error: String(err?.message || err) };
