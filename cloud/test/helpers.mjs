@@ -12,6 +12,9 @@ export const GOOGLE_CLIENT = 'myca-test.apps.googleusercontent.com';
 const GOOGLE_KEY = generateKeyPairSync('rsa', { modulusLength: 2048 });
 export const TEST_GOOGLE_KEYS = { get: async (kid) => (kid === 'test-kid' ? GOOGLE_KEY.publicKey : null) };
 
+export const OIDC_ISSUER = 'https://login.example.test/realms/myca';
+export const OIDC_CLIENT = 'myca-android';
+
 export function googleToken(claims = {}, { kid = 'test-kid', privateKey = GOOGLE_KEY.privateKey, alg = 'RS256' } = {}) {
   const seconds = Math.floor(Date.now() / 1000);
   const body = { iss: 'https://accounts.google.com', aud: GOOGLE_CLIENT, sub: '110169484474386276334', email: 'asha@example.com', email_verified: true, name: 'Asha Rao', iat: seconds, exp: seconds + 3600, ...claims };
@@ -47,7 +50,7 @@ export async function startApi(options = {}) {
   const sender = createCaptureSender();
   const clock = { now: Date.now(), advance(ms) { this.now += ms; } };
   const logs = [];
-  const handler = createApi({ db, secret: SECRET, otpSender: options.phone === false ? null : sender, googleClientIds: [GOOGLE_CLIENT], googleKeys: TEST_GOOGLE_KEYS, now: () => clock.now, log: (entry) => logs.push(entry), jobToken: options.jobToken || '', inboundEmail: options.inboundEmail || {}, whatsapp: options.whatsapp || {}, whatsappSender: options.whatsappSender || null });
+  const handler = createApi({ db, secret: SECRET, otpSender: options.phone === false ? null : sender, googleClientIds: [GOOGLE_CLIENT], googleKeys: TEST_GOOGLE_KEYS, oidc: options.oidc || {}, oidcKeys: options.oidcKeys || null, documentVault: options.documentVault || null, now: () => clock.now, log: (entry) => logs.push(entry), jobToken: options.jobToken || '', inboundEmail: options.inboundEmail || {}, whatsapp: options.whatsapp || {}, whatsappSender: options.whatsappSender || null });
   const server = createServer(handler);
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
   const base = `http://127.0.0.1:${server.address().port}`;

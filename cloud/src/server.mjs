@@ -3,6 +3,8 @@ import { createApi } from './api.mjs';
 import { createConsoleSender } from './auth.mjs';
 import { createDb, migrate } from './db.mjs';
 import { clientIdsFrom } from './google.mjs';
+import { oidcConfigFromEnv } from './oidc.mjs';
+import { createDocumentVault, documentVaultConfigFromEnv } from './document-vault.mjs';
 import { smsSenderFromEnv } from './sms-sender.mjs';
 import { whatsAppConfigFromEnv, createWhatsAppSender } from './whatsapp.mjs';
 
@@ -45,6 +47,8 @@ const handler = createApi({
   secret: required('MYCA_TOKEN_SECRET'),
   otpSender: otpSender(),
   googleClientIds: clientIdsFrom(process.env.MYCA_GOOGLE_CLIENT_IDS),
+  oidc: oidcConfigFromEnv(process.env),
+  documentVault: createDocumentVault({ ...documentVaultConfigFromEnv(process.env), log }),
   jobToken: String(process.env.MYCA_JOB_TOKEN || '').trim(),
   inboundEmail: { domain: String(process.env.MYCA_INBOUND_EMAIL_DOMAIN || '').trim(), relayToken: String(process.env.MYCA_INBOUND_RELAY_TOKEN || '').trim() },
   whatsapp: whatsAppConfigFromEnv(process.env),

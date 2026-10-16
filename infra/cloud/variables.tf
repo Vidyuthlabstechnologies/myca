@@ -84,6 +84,18 @@ variable "alert_email" {
   default     = ""
 }
 
+variable "oidc_issuer" {
+  description = "OpenID Connect issuer URL whose ID tokens the API accepts beside Google (for example a Keycloak realm or an Azure AD tenant). Leave \"unset\" to keep the route off."
+  type        = string
+  default     = "unset"
+}
+
+variable "oidc_client_ids" {
+  description = "Client ids (audiences) at the OIDC issuer whose ID tokens the API accepts."
+  type        = list(string)
+  default     = []
+}
+
 variable "whatsapp_app_secret" {
   description = "Meta app secret for the WhatsApp Cloud API webhook signature. Leave \"unset\" until the WhatsApp Business account exists."
   type        = string

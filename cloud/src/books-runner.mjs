@@ -28,14 +28,12 @@ function fail(statusCode, message) {
 // One request, one transaction. The row lock is what lets any number of server
 // instances share a business: the second writer waits, then runs on the first one's
 // result, so document numbers and the ledger chain never fork.
-export function createBooksRunner({ db, now = () => Date.now() }) {
+export function createBooksRunner({ db, now = () => Date.now(), vault }) {
   async function open(q, businessId, state, version, wanted = []) {
     const hashes = [...new Set([...referencedHashes(state), ...wanted.filter((hash) => SHA256.test(String(hash)))])];
-    const stored = hashes.length
-      ? await q('select content from documents where business_id = $1 and sha256 = any($2)', [businessId, hashes])
-      : { rows: [] };
+    const stored = await vault.read(q, businessId, hashes);
     const books = createMemoryBooksStore({ text: JSON.stringify(state), version });
-    const documents = createMemoryDocumentStore(stored.rows.map((doc) => doc.content));
+    const documents = createMemoryDocumentStore(stored.map((doc) => doc.content));
     const session = openSession({ books, documents, path: '' }, { seed: false });
     return { books, documents, session };
   }
@@ -77,12 +75,7 @@ export function createBooksRunner({ db, now = () => Date.now() }) {
         businessId,
         books.stored(),
       ]);
-      for (const doc of documents.added()) {
-        await q(
-          'insert into documents (business_id, sha256, content, bytes) values ($1, $2, $3, $4) on conflict do nothing',
-          [businessId, doc.sha256, doc.content, Buffer.byteLength(doc.content, 'utf8')],
-        );
-      }
+      for (const doc of documents.added()) await vault.write(q, businessId, doc);
       await audit(q, businessId, context, session.state.auditEvents.slice(auditedBefore));
       return out;
     });
@@ -98,10 +91,7 @@ export function createBooksRunner({ db, now = () => Date.now() }) {
       await q('update books set state = $2::jsonb, version = version + 1, updated_at = now() where business_id = $1', [businessId, books.stored()]);
       let stored = 0;
       for (const doc of documents.added()) {
-        await q(
-          'insert into documents (business_id, sha256, content, bytes) values ($1, $2, $3, $4) on conflict do nothing',
-          [businessId, doc.sha256, doc.content, Buffer.byteLength(doc.content, 'utf8')],
-        );
+        await vault.write(q, businessId, doc);
         stored += 1;
       }
       await q(

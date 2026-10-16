@@ -13,6 +13,11 @@ output "database_connection_name" {
   value       = google_sql_database_instance.main.connection_name
 }
 
+output "documents_bucket" {
+  description = "Cloud Storage bucket holding uploaded documents by sha256 (MYCA_DOCUMENT_BUCKET)."
+  value       = google_storage_bucket.documents.name
+}
+
 output "inbound_relay_token" {
   description = "Set this as INBOUND_RELAY_TOKEN on the email relay Worker (wrangler secret put)."
   value       = random_password.inbound_relay_token.result

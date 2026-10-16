@@ -12,6 +12,8 @@ import { createCrashReports } from './crash-reports.mjs';
 import { PRIVACY_NOTICE, consentExempt, createConsent } from './consent.mjs';
 import { createJobs, jobTokenMatches, JOB_HEADER } from './jobs.mjs';
 import { createGoogleKeys, createGoogleVerifier } from './google.mjs';
+import { createOidcVerifier } from './oidc.mjs';
+import { createDocumentVault } from './document-vault.mjs';
 import { CA_SYNC_MODES, syncOf } from './ca-sync.mjs';
 import { inWords } from '../../platform/src/words.mjs';
 import { createInbound, INBOUND_HEADER, relayTokenMatches } from './inbound.mjs';
@@ -138,12 +140,13 @@ function appSnapshot(snapshot, user, role) {
   };
 }
 
-export function createApi({ db, secret, otpSender = null, googleClientIds = [], googleKeys, now = () => Date.now(), log = () => {}, version = 'dev', jobToken = '', inboundEmail = {}, whatsapp = {}, whatsappSender = null }) {
+export function createApi({ db, secret, otpSender = null, googleClientIds = [], googleKeys, oidc = {}, oidcKeys = null, documentVault = null, now = () => Date.now(), log = () => {}, version = 'dev', jobToken = '', inboundEmail = {}, whatsapp = {}, whatsappSender = null }) {
   assertSecret(secret);
   if (liveCallsEnabled()) throw new Error('the hosted API must not start with live provider calls enabled');
   const auth = createAuth({ db, secret, otpSender, now });
   const businesses = createBusinesses({ db, now });
-  const runner = createBooksRunner({ db, now });
+  const vault = documentVault || createDocumentVault({ now, log });
+  const runner = createBooksRunner({ db, now, vault });
   const withBooks = runner.withBooks;
   const members = createMembers({ db, secret, now, notify: otpSender && typeof otpSender.sendText === 'function' ? (phone, text) => otpSender.sendText(phone, text) : null });
   const crashes = createCrashReports({ db, now });
@@ -152,7 +155,8 @@ export function createApi({ db, secret, otpSender = null, googleClientIds = [], 
   const consent = createConsent({ db, now });
   const jobs = createJobs({ db, withBooks, log });
   const google = createGoogleVerifier({ clientIds: googleClientIds, keys: googleKeys || createGoogleKeys({ now }), now });
-  if (!otpSender && !google.enabled) throw new Error('no sign-in method: configure an SMS sender or MYCA_GOOGLE_CLIENT_IDS');
+  const openId = createOidcVerifier({ issuer: oidc.issuer || '', clientIds: oidc.clientIds || [], jwksUrl: oidc.jwksUrl || '', keys: oidcKeys, now });
+  if (!otpSender && !google.enabled && !openId.enabled) throw new Error('no sign-in method: configure an SMS sender, MYCA_GOOGLE_CLIENT_IDS or MYCA_OIDC_ISSUER with MYCA_OIDC_CLIENT_IDS');
 
   async function withConsent(signedIn) {
     return signedIn.ok && signedIn.user ? { ...signedIn, consent: await consent.status(signedIn.user.id) } : signedIn;
@@ -179,7 +183,7 @@ export function createApi({ db, secret, otpSender = null, googleClientIds = [], 
     if (parts[1] === 'health' && method === 'GET') return { ok: true };
     if (parts[1] === 'privacy-notice' && parts.length === 2 && method === 'GET') return { ok: true, notice: PRIVACY_NOTICE };
     if (parts[1] === 'auth' && parts[2] === 'methods' && parts.length === 3 && method === 'GET') {
-      return { ok: true, phone: auth.phoneEnabled, google: google.enabled };
+      return { ok: true, phone: auth.phoneEnabled, google: google.enabled, oidc: openId.enabled, ...(openId.enabled ? { oidcIssuer: openId.issuer } : {}) };
     }
 
     if (parts[1] === 'auth' && method === 'POST') {
@@ -190,6 +194,11 @@ export function createApi({ db, secret, otpSender = null, googleClientIds = [], 
         const identity = await google.verify(body.idToken);
         if (!identity.ok) return identity;
         return withConsent(await auth.signInWithGoogle(identity, body.deviceLabel));
+      }
+      if (parts[2] === 'oidc') {
+        const identity = await openId.verify(body.idToken);
+        if (!identity.ok) return identity;
+        return withConsent(await auth.signInWithOidc(identity, body.deviceLabel));
       }
       if (parts[2] === 'refresh') return auth.refresh(body.refreshToken);
       if (parts[2] === 'logout') return auth.logout((await signedIn(req)).deviceId);
@@ -334,11 +343,11 @@ export function createApi({ db, secret, otpSender = null, googleClientIds = [], 
         const auditRows = await db.query('select id, user_id as "userId", request_id as "requestId", action, before_hash as "beforeHash", after_hash as "afterHash", metadata, at from audit_log where business_id = $1 order by id', [businessId]);
         const inboundKeys = await inbound.list(businessId);
         const out = await runner.withReadOnlyBooks(businessId, context, async (session) => session.backup());
-        const stored = await db.query('select sha256, content from documents where business_id = $1 order by created_at', [businessId]);
-        const documents = Object.fromEntries(stored.rows.map((row) => [row.sha256, row.content]));
+        const stored = await vault.all((text, params) => db.query(text, params), businessId);
+        const documents = Object.fromEntries(stored.map((row) => [row.sha256, row.content]));
         await db.query(
           `insert into audit_log (business_id, user_id, device_id, request_id, action, metadata) values ($1, $2, $3, $4, 'business.exported', $5::jsonb)`,
-          [businessId, user.userId, user.deviceId, requestId, JSON.stringify({ documents: stored.rowCount, auditRows: auditRows.rowCount })],
+          [businessId, user.userId, user.deviceId, requestId, JSON.stringify({ documents: stored.length, auditRows: auditRows.rowCount })],
         );
         return {
           ok: true,
