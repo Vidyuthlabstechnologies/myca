@@ -61,6 +61,23 @@ function ledgerCandidates(book, chainResult = null) {
   return out;
 }
 
+const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+function periodWords(fp) {
+  const m = Number(String(fp).slice(0, 2));
+  return m >= 1 && m <= 12 ? `${MONTH_NAMES[m - 1]} ${String(fp).slice(2)}` : String(fp);
+}
+const GSTIN_ERROR_WORDS = {
+  INVALID_LENGTH: 'not 15 characters',
+  INVALID_STATE: 'the state code is wrong',
+  INVALID_PAN: 'the PAN inside it is wrong',
+  INVALID_ENTITY_CHAR: 'the 14th character is wrong',
+  CHECK_DIGIT_MISMATCH: 'the check digit is wrong',
+};
+function gstinErrorWords(errors) {
+  const words = (errors || []).map((e) => GSTIN_ERROR_WORDS[typeof e === 'string' ? e : e?.code] || String(typeof e === 'string' ? e : e?.code || '').toLowerCase().replace(/_/g, ' ')).filter(Boolean);
+  return words.length ? words.join(', ') : 'it does not check out';
+}
+
 function invoicesByPeriod(invoices) {
   const buckets = new Map();
   for (const inv of invoices || []) {
@@ -86,10 +103,10 @@ function gstr1Candidates(book) {
         source: 'gstr1',
         code: held.code,
         severity: 'high',
-        title: `${held.inum} cannot be reported in GSTR-1 for ${fp}`,
+        title: `${held.inum} cannot be reported in GSTR-1 for ${periodWords(fp)}`,
         why: held.code === 'RATE_NOT_IN_FORCE'
           ? `The invoice charges GST at ${held.rate}%, which was not in force on ${held.idt}. Either the rate or the date is wrong.`
-          : `The buyer's GSTIN ${held.gstin} fails validation (${(held.errors || []).join(', ')}), so the invoice cannot go into the B2B table.`,
+          : `The buyer's GSTIN ${held.gstin} is not valid (${gstinErrorWords(held.errors)}), so the invoice cannot go into the B2B table. Correct it with the buyer and amend the invoice.`,
         moneyAtRisk: rupees(invoice?.total),
         evidence: { invoiceIds: [held.inum], period: fp },
       });

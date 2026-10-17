@@ -22,7 +22,7 @@ import { planAsk, planReply } from './ca-requests.mjs';
 import { planQuote, findQuote, checkConvert, invoiceArgsFromQuote } from './quotes.mjs';
 import { isReturnPeriod } from './return-period.mjs';
 import { gstSplit, partyStateOf } from './chart.mjs';
-import { postingDate } from './dates.mjs';
+import { postingDate, localToday } from './dates.mjs';
 import { isPeriodLocked } from './period-lock.mjs';
 import { lastGstRateFor, planPayment } from './invoice.mjs';
 import { planFiling } from './filings.mjs';
@@ -259,6 +259,22 @@ function withholdingPreview(state, args) {
   };
 }
 
+const GST_START = '2017-07-01';
+const GSTIN_PROBLEM_WORDS = {
+  INVALID_LENGTH: 'it is not 15 characters',
+  INVALID_STATE: 'the first two digits are not a state code',
+  INVALID_PAN: 'the PAN inside it is not a PAN',
+  INVALID_ENTITY_CHAR: 'the 14th character is not allowed',
+  CHECK_DIGIT_MISMATCH: 'the last character (the check digit) is wrong',
+};
+function gstinProblemWords(errors) {
+  const words = (errors || []).map((e) => GSTIN_PROBLEM_WORDS[e.code] || String(e.message || e.code || '').toLowerCase()).filter(Boolean);
+  return words.length ? words.join(' and ') : 'it does not check out';
+}
+function plusYear(iso) {
+  return `${Number(iso.slice(0, 4)) + 1}${iso.slice(4)}`;
+}
+
 function documentPreview(state, args, kind) {
   if (countryOf(state) === 'US') return usDocumentPreview(state, args, kind);
   const company = state.company || {};
@@ -283,6 +299,13 @@ function documentPreview(state, args, kind) {
       ? (stateCodeOf(args.partyState) || partyStateOf(args.partyGstin) || ownState)
       : ownState;
   const supplier = sale ? ownState : (partyStateOf(args.partyGstin) || stateCodeOf(args.partyState) || ownState);
+  const saidGstin = String(args.partyGstin || '').trim().toUpperCase();
+  if (saidGstin && !exportSale) {
+    const checked = gstinRules.validateGstin(saidGstin);
+    if (!checked.ok) blockers.push(`${saidGstin} is not a valid GSTIN: ${gstinProblemWords(checked.errors)}. Check it with the ${sale ? 'buyer' : 'supplier'}.`);
+  }
+  if (date && date < GST_START) blockers.push(`${date} is before GST began on 1 July 2017.`);
+  if (date && date > plusYear(localToday())) blockers.push(`${date} is more than a year ahead.`);
   const unrated = (args.lines || []).findIndex((l) => l.gstRate == null || l.gstRate === '');
   if (unrated >= 0) {
     const last = lastGstRateFor(state, { name: args.partyName, gstin: args.partyGstin }, kind);
@@ -300,6 +323,7 @@ function documentPreview(state, args, kind) {
   const sum = (key) => Math.round(lines.reduce((s, l) => s + (l[key] || 0), 0) * 100) / 100;
   const taxable = sum('taxable');
   const tax = Math.round((sum('cgst') + sum('sgst') + sum('igst')) * 100) / 100;
+  if (!(taxable > 0)) blockers.push('It comes to nothing, so there is nothing to post.');
   const party = args.partyName || (sale ? 'Walk-in' : 'Supplier');
   const heads = exportSale && !exportSale.withTax ? 'no IGST (zero-rated under LUT or bond)' : sum('igst') > 0 ? `IGST ${money(sum('igst'))}` : `CGST ${money(sum('cgst'))} + SGST ${money(sum('sgst'))}`;
   const exportWords = exportSale ? `Export invoice (${String(exportSale.currency || 'INR').toUpperCase()}${fx > 0 && fx !== 1 ? ` at ${fx}` : ''}) to` : 'Invoice to';
@@ -336,7 +360,7 @@ function receiptPreview(state, args) {
   if (inv.status === 'cancelled') blockers.push(`${inv.id} is cancelled, so nothing can be received against it.`);
   else if (due <= 0.01) blockers.push(`${inv.id} is already fully received or credited (${money(inv.total)}).`);
   else if (amount > due + 0.01) blockers.push(`${money(amount)} is more than the ${money(due)} outstanding on ${inv.id}.`);
-  else if (!(amount > 0)) blockers.push('A receipt has to be a positive amount.');
+  else if (!(amount >= 0.01)) blockers.push('A receipt has to be a positive amount.');
   return {
     blockers,
     summary: `Receipt of ${money(amount)} against ${inv.id} (${inv.partyName}) by ${args.mode === 'cash' ? 'cash' : 'bank'} on ${date || '?'}. Outstanding is ${money(due)} of ${money(inv.total)}.`,

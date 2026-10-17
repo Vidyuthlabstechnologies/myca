@@ -502,9 +502,13 @@ export function journal(ledger) {
 
 export function trialBalance(ledger) {
   const rows = listAccounts(ledger).filter((a) => a.debitsPosted || a.creditsPosted);
-  const debit = rows.reduce((s, a) => s + a.debitsPosted, 0);
-  const credit = rows.reduce((s, a) => s + a.creditsPosted, 0);
-  return { rows, debit, credit, balanced: Math.abs(debit - credit) < 0.001 };
+  let debit = 0n;
+  let credit = 0n;
+  for (const a of ledger.accounts.values()) {
+    debit += a.debitsPosted;
+    credit += a.creditsPosted;
+  }
+  return { rows, debit: rupees(debit), credit: rupees(credit), balanced: debit === credit };
 }
 
 function broken(error, at, extra = {}) {

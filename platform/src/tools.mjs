@@ -547,7 +547,8 @@ export const TOOLS = [
     run: (state, args = {}) => {
       const rows = journal(state.ledger);
       const limit = Number(args.limit || 50);
-      return ok({ count: rows.length, rows: rows.slice(-limit) });
+      const names = new Map([...state.ledger.accounts.values()].map((a) => [a.id.toString(), a.name]));
+      return ok({ count: rows.length, rows: rows.slice(-limit).map((r) => ({ ...r, debitAccount: names.get(r.debitAccountId) || r.debitAccountId, creditAccount: names.get(r.creditAccountId) || r.creditAccountId })) });
     },
   },
   {

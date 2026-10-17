@@ -8,6 +8,15 @@ import { billPayBy } from './supplier-dues.mjs';
 import { invoiceTemplateOf, bankWords } from './invoice-template.mjs';
 import { regArg, docFieldsFor } from './registrations.mjs';
 import { planTds, recordTdsEntry, tdsPayableAccountId, wantsTds } from './tds-deduction.mjs';
+import { gstin as gstinRules } from './sprint-load.mjs';
+
+function badGstin(value) {
+  const said = String(value || '').trim();
+  if (!said) return null;
+  const checked = gstinRules.validateGstin(said.toUpperCase());
+  const structural = (checked.errors || []).map((e) => e.code).filter((code) => code !== 'CHECK_DIGIT_MISMATCH');
+  return structural.length ? { ok: false, error: 'INVALID_GSTIN', gstin: said.toUpperCase(), errors: structural } : null;
+}
 
 export const ZERO_RATE_SUPPLY = ['nil', 'exempt', 'non-gst'];
 export const FOREIGN_POS = '96';
@@ -131,6 +140,8 @@ export function createInvoice(state, input) {
   if (!date) return { ok: false, error: 'INVALID_DATE', date: input.date };
   if (isPeriodLocked(state, date)) return { ok: false, error: 'PERIOD_LOCKED', date, lockThrough: state.lockThrough };
   if (input.id && idTaken(state.invoices, input.id)) return { ok: false, error: 'DUPLICATE_ID', id: input.id };
+  const gstinProblem = input.exportSale ? null : badGstin(input.partyGstin);
+  if (gstinProblem) return gstinProblem;
   const rawLines = input.lines || [];
   if (!rawLines.length) return { ok: false, error: 'NO_LINES' };
   const unrated = rawLines.findIndex((l) => l.gstRate == null || l.gstRate === '');
@@ -332,6 +343,8 @@ export function createPurchase(state, input) {
   if (!date) return { ok: false, error: 'INVALID_DATE', date: input.date };
   if (isPeriodLocked(state, date)) return { ok: false, error: 'PERIOD_LOCKED', date, lockThrough: state.lockThrough };
   if (input.id && idTaken(state.purchases, input.id)) return { ok: false, error: 'DUPLICATE_ID', id: input.id };
+  const purchaseGstinProblem = badGstin(input.partyGstin);
+  if (purchaseGstinProblem) return purchaseGstinProblem;
   const supplierInvoiceNo = String(input.supplierInvoiceNo ?? '').trim();
   if (supplierInvoiceNo.length > 16) return { ok: false, error: 'SUPPLIER_NUMBER_TOO_LONG', supplierInvoiceNo };
   if (supplierInvoiceNo) {

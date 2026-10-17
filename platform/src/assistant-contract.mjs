@@ -30,7 +30,7 @@ export function pendingFileContent(state) {
   if (typeof read === 'string') return read;
   return read && read.ok ? String(read.content ?? '') : '';
 }
-import { normalizeChat, parseDocument, receiptAmount, receiptDate, isPurchaseIntent, isSaleIntent, isQuestion, isNegated, ROUTES } from './intent.mjs';
+import { normalizeChat, parseDocument, documentProblemReply, saidNonPositiveAmount, receiptAmount, receiptDate, isPurchaseIntent, isSaleIntent, isQuestion, isNegated, ROUTES } from './intent.mjs';
 import { confirmationIntent } from './chat-confirm.mjs';
 
 const noArgs = {
@@ -1963,6 +1963,7 @@ export function planLocalToolCall(state, message) {
     const validity = text.match(/\s*,?\s*\bvalid\s+(?:for\s+)?(\d{1,3})\s*days?\b/i);
     const asInvoice = (validity ? text.replace(validity[0], ' ') : text).replace(/\b(?:make\s+(?:a|an)\s+|send\s+(?:a|an)\s+)?(?:quotation|quote|estimate)\b/i, 'invoice');
     const quoted = parseDocument(asInvoice);
+    if (quoted && quoted.problem) return documentProblemReply(quoted);
     if (quoted) {
       if (quoted.lines[0].gstRate == null) {
         return { kind: 'reply', reply: 'I have not made the quote, because I will not guess the GST rate. Say it again with the rate, for example "quote ABC Ltd 50000 for consulting GST 18%".', tools: [] };
@@ -2007,6 +2008,8 @@ export function planLocalToolCall(state, message) {
   const saidTerms = takeInvoiceTerms(text);
   const doc = /\b(?:debit|credit)\s+note\b/i.test(text) ? null : parseDocument(saidTerms.text);
   const asking = isQuestion(text) || isNegated(text);
+  if (doc && doc.problem && !asking && (isPurchaseIntent(text) || isSaleIntent(text))) return documentProblemReply(doc);
+  if (doc && doc.problem) return { kind: 'tool', name: 'company_profile', args: {}, fallback: true };
   if (doc && !asking && doc.lines[0].gstRate == null && (isPurchaseIntent(text) || isSaleIntent(text))) {
     return {
       kind: 'reply',
@@ -2180,6 +2183,7 @@ export function planLocalToolCall(state, message) {
   const creditMatch = text.match(/\bcredit\s+note\b.*?\b(INV-\d{4,})\b/i);
   if (creditMatch && !isQuestion(text) && !isNegated(text)) {
     const amount = receiptAmount(text);
+    if (amount == null && saidNonPositiveAmount(text)) return { kind: 'reply', reply: `A credit note has to be a positive amount, for example "credit note for ${creditMatch[1].toUpperCase()} 2000 - goods returned". I have recorded nothing.`, tools: [] };
     const afterInvoice = text.slice(text.toUpperCase().indexOf(creditMatch[1].toUpperCase()) + creditMatch[1].length);
     const reason = (text.match(/(?:because|reason|:|-)\s*([^0-9₹][^,]*?)\s*$/i) || afterInvoice.match(/(?:₹|rs\.?\s*)?\d[\d,]*(?:\.\d+)?\s+(?:for\s+)?([A-Za-z][^,]*?)\s*$/i) || [])[1] || '';
     if (!reason.trim()) {
@@ -2236,6 +2240,7 @@ export function planLocalToolCall(state, message) {
       return { kind: 'reply', reply: `${status} I have recorded nothing. To record money received, say "record receipt ${invoiceId}" and confirm the preview.`, tools: [] };
     }
     const amount = receiptAmount(text);
+    if (amount == null && saidNonPositiveAmount(text)) return { kind: 'reply', reply: `An amount of zero or less cannot be received. Say the amount, for example "received 5000 against ${invoiceId}", or leave it out to settle the whole invoice. I have recorded nothing.`, tools: [] };
     return {
       kind: 'tool',
       name: 'record_receipt',

@@ -46,7 +46,11 @@ const PER_UNIT = new RegExp(`(?:${NUM}\\s*([a-z]{1,15})?\\s+)?(?:\\bat\\b|@|\\br
 const QTY_WITH_UNIT = new RegExp(`${NUM}\\s*(${UNIT_WORDS})\\b`, 'i');
 const QTY_LABEL = new RegExp(`\\b(?:qty|quantity)\\s*:?\\s*${NUM}`, 'i');
 const AMOUNT = new RegExp(`${CURRENCY}?\\s*(?<![\\w.,-])${NUM}\\s*${MULTIPLIER}?(?![\\w%])`, 'gi');
-const NOT_AMOUNTS = /\b[a-z]{2,6}-\d+\b|\b\d{1,4}[-/]\d{1,2}[-/]\d{1,4}\b/gi;
+const NOT_AMOUNTS = /\b[a-z]{2,6}-\d+\b|\b\d{1,4}[-/]\d{1,2}[-/]\d{1,4}\b|\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\.?\s+(?:19|20)\d{2}\b|\b(?:diwali|deepavali|holi|pongal|onam|eid|christmas|navratri|dussehra|fy|year|financial\s+year)\s+(?:19|20)\d{2}\b|\b(?:19|20)\d{2}\s*-\s*(?:19|20)?\d{2}\b/gi;
+const NEGATIVE_NUMBER = /(?<![\w.,-])-\s?\d/;
+const LONE_PLUS = /(?<![\w])\+(?=\d)/g;
+const NON_POSITIVE_AMOUNT = /(?<![\w.,-])(?:-\s?\d[\d,]*(?:\.\d+)?|0+(?:\.0+)?)(?![\w%.])/;
+export const MAX_CHAT_AMOUNT = 1e9;
 const DOCUMENT_VERBS = 'purchase|purchased|invoice|bill|sale|sales|sold|sell|bought';
 
 function amountValue(digits, multiplier = '') {
@@ -95,7 +99,7 @@ function partyOf(text) {
 const SAID_DATE = /\b(\d{4}-\d{2}-\d{2}|\d{1,2}[-/]\d{1,2}[-/]\d{4})\b/;
 
 export function parseDocument(text) {
-  const raw = normalizeChat(text);
+  const raw = normalizeChat(text).replace(LONE_PLUS, ' ');
   const gstinMatch = raw.match(GSTIN_RE);
   const gstin = gstinMatch ? gstinMatch[1].toUpperCase() : '';
   const withoutGstin = gstin ? raw.replace(gstinMatch[0], ' ') : raw;
@@ -118,9 +122,12 @@ export function parseDocument(text) {
     }
   }
   if (!line || !(line.rate > 0) || !(line.qty > 0)) return null;
+  if (NEGATIVE_NUMBER.test(raw)) return { problem: 'NEGATIVE_NUMBER' };
+  if (line.rate * line.qty > MAX_CHAT_AMOUNT) return { problem: 'AMOUNT_TOO_LARGE' };
   if (gstRate != null) line.gstRate = gstRate;
   const said = withoutGstin.match(SAID_DATE);
   const date = said ? isoDate(said[1]) : '';
+  if (said && !date) return { problem: 'INVALID_DATE', said: said[1] };
   return {
     partyName: partyOf(said ? withoutGstin.replace(said[0], ' ').replace(/\b(?:dated|date|on)\s*$/i, '') : withoutGstin),
     partyGstin: gstin,
@@ -132,6 +139,21 @@ export function parseDocument(text) {
 
 export function receiptAmount(text) {
   return loneAmount(normalizeChat(text));
+}
+
+export function saidNonPositiveAmount(text) {
+  const t = normalizeChat(text).replace(NOT_AMOUNTS, ' ');
+  return NON_POSITIVE_AMOUNT.test(t) && loneAmount(t) == null;
+}
+
+export function documentProblemReply(doc) {
+  if (!doc || !doc.problem) return null;
+  const words = {
+    NEGATIVE_NUMBER: 'A negative number cannot be part of an invoice or bill; use a credit note or a debit note for a reduction.',
+    AMOUNT_TOO_LARGE: 'That amount is larger than I will take from a chat message (the limit is ₹100 crore); enter it as a form if it is right.',
+    INVALID_DATE: `${doc.said} is not a date I can read; say it as 2026-08-15 or 15/08/2026.`,
+  }[doc.problem] || 'I could not read that.';
+  return { kind: 'reply', reply: `${words} I have recorded nothing.`, tools: [] };
 }
 
 

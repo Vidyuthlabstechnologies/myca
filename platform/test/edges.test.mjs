@@ -334,9 +334,11 @@ test('gstr1: B2B groups by GSTIN; B2C goes to b2cs; a malformed GSTIN is held ba
   intra(state, { partyName: 'A' });
   intra(state, { partyName: 'A2' });
   intra(state, { partyName: 'Cash', partyGstin: '', partyState: '27', lines: [line({ rate: 500 })] });
-  intra(state, { partyName: 'Odd', partyGstin: '27SHORT', partyState: '27', lines: [line({ rate: 200 })] });
+  const refused = intra(state, { partyName: 'Odd', partyGstin: '27SHORT', partyState: '27', lines: [line({ rate: 200 })] });
+  assert.equal(refused.error, 'INVALID_GSTIN', 'the engine refuses a structurally wrong GSTIN');
   const json = invoicesToGstr1Json(state.company, [
     ...state.invoices,
+    { id: 'ODD', date: '2026-08-20', partyName: 'Odd', partyGstin: '27SHORT', partyState: '27', taxable: 200, cgst: 5, sgst: 5, igst: 0, total: 210, lines: [{ gstRate: 5, taxable: 200, cgst: 5, sgst: 5, igst: 0 }] },
     { id: 'NODATE', partyGstin: '27AAACH7409R1Z1', lines: [], total: 1 },
   ]);
   assert.equal(json.b2b.length, 1);
@@ -410,7 +412,7 @@ test('chat: GSTR-1 JSON vs GSTR-1 tables; print and pay; IRN missing invoice', a
   const printed = await chat(state, 'print INV-0001');
   assert.match(printed.reply, /Printable INV-0001/);
   const missingPrint = await chat(state, 'print INV-0099');
-  assert.match(missingPrint.reply, /failed|NOT_FOUND/i);
+  assert.match(missingPrint.reply, /failed|could not find/i);
   const receiptPreview = await chat(state, 'INV-0001 paid by bank');
   assert.equal(receiptPreview.awaitingConfirmation, true);
   assert.equal(state.invoices[0].status, 'posted', 'the receipt waits for confirmation');

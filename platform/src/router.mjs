@@ -81,6 +81,16 @@ const FAILURES = {
   RATE_REQUIRED: () => 'A GST rate is needed for each item; MyCA does not assume one. Nothing was changed.',
   NO_LINES: () => 'There is nothing to put on it, so nothing was changed.',
   ZERO_AMOUNT: () => 'It comes to nothing, so nothing was changed.',
+  INVALID_GSTIN: (r) => `${r.gstin || 'That GSTIN'} is not a valid GSTIN, so nothing was changed. Check it with the other party.`,
+  NO_ENTRIES: () => 'There is nothing in the books to audit yet.',
+  NOT_FOR_COUNTRY: () => 'That is for a different country edition, so nothing was changed.',
+  NOT_APPROVED: () => 'That month\'s payroll is not approved yet; approve it first.',
+  NOT_FOUND: () => 'I could not find that in these books, so nothing was changed.',
+  CLIENT_NOT_FOUND: () => 'There is no client by that id.',
+  REQUEST_NOT_FOUND: () => 'There is no document request by that id.',
+  MISSING_SANDBOX_CREDENTIALS: () => 'The provider credentials are not saved yet; set them up first.',
+  UNKNOWN_REQUIREMENT: () => 'That is not an integration I know; say "integration readiness" for the list.',
+  amount_must_be_positive: () => 'The amount has to be more than zero, so nothing was changed.',
   INSUFFICIENT_CASH: (r) => `There is not that much cash in hand${r.inHand != null ? ` (${money(r.inHand)})` : ''}. Nothing was changed.`,
 };
 
@@ -95,7 +105,43 @@ function notAccepted(error) {
 function failedInWords(code, result = {}) {
   const plain = FAILURES[code];
   if (plain) return plain(result || {});
-  return `That did not go through${code ? ` (${code})` : ''}, so nothing was changed.`;
+  const words = String(code || '').toLowerCase().replace(/_/g, ' ').trim();
+  return `That did not go through${words ? ` (${words})` : ''}, so nothing was changed.`;
+}
+
+function humanKey(key) {
+  return String(key).replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/_/g, ' ').toLowerCase().replace(/^./, (c) => c.toUpperCase());
+}
+
+function plainValue(value) {
+  if (typeof value === 'number') return Number.isInteger(value) ? String(value) : money(value);
+  if (typeof value === 'boolean') return value ? 'yes' : 'no';
+  return String(value);
+}
+
+function outline(d, depth = 0) {
+  if (d == null || typeof d !== 'object') return plainValue(d);
+  const pad = '  '.repeat(depth);
+  const lines = [];
+  if (Array.isArray(d)) {
+    for (const item of d.slice(0, 12)) {
+      if (item && typeof item === 'object') {
+        const pairs = Object.entries(item).filter(([, v]) => v != null && v !== '' && typeof v !== 'object').map(([k, v]) => `${humanKey(k)} ${plainValue(v)}`);
+        lines.push(`${pad}· ${pairs.join(', ')}`);
+      } else lines.push(`${pad}· ${plainValue(item)}`);
+    }
+    if (d.length > 12) lines.push(`${pad}… and ${d.length - 12} more.`);
+    return lines.join('\n');
+  }
+  for (const [key, value] of Object.entries(d)) {
+    if (value == null || value === '' || key === 'ok' || (Array.isArray(value) && !value.length)) continue;
+    if (typeof value === 'object') {
+      if (depth >= 2) continue;
+      lines.push(`${pad}${humanKey(key)}:`);
+      lines.push(outline(value, depth + 1));
+    } else lines.push(`${pad}${humanKey(key)}: ${plainValue(value)}`);
+  }
+  return lines.join('\n');
 }
 
 function fmtToolResult(name, result) {
@@ -730,8 +776,12 @@ ${d.hint}` : ''}`;
   if (name === 'company_profile') {
     return `${d.company.name}  GSTIN ${d.company.gstin}  FY ${d.company.fy}\nInvoices ${d.invoices} · purchases ${d.purchases ?? 0} · checksum ${d.chain.ok ? 'intact' : 'BROKEN'}.`;
   }
-  const text = JSON.stringify(d, null, 2);
-  return text.length > 4000 ? `${text.slice(0, 4000)}\n…truncated` : text;
+  if (name === 'journal') {
+    const rows = (d.rows || []).map((r) => `${r.invoiceId || r.code || r.id}  Dr ${r.debitAccount}  Cr ${r.creditAccount}  ${money(r.amount)}${r.voided ? ' (voided)' : r.pending ? ' (pending)' : ''}`).join('\n');
+    return `${d.count} ${d.count === 1 ? 'entry' : 'entries'} in the journal${d.rows?.length < d.count ? `, last ${d.rows.length}` : ''}:\n${rows || 'Nothing posted yet.'}`;
+  }
+  const text = outline(d);
+  return text.length > 4000 ? `${text.slice(0, 4000)}\n…truncated` : text || 'Done.';
 }
 
 async function runPlanned(state, name, args, clearsPendingFile) {
