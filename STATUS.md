@@ -36,6 +36,9 @@ and [`README.md`](README.md) for what is left and how it is being done.
 - Deadline engine (GSTR-1/3B/7/9, TDS quarterly, PF, advance tax, ITR) with
   weekend/gazetted-holiday rollover and escalation levels
 - ITR regime comparison (AIS/26AS, old vs new); TDS 194A/C/I/J threshold monitor
+- Customer payment reminders (2026-10-17): overdue customers scored from a year of paying
+  history, one draft each in a matching tone with the bank details, recent payers left out,
+  a follow-up reminder set on send; from chat or the bell on a customer's thread in the app
 - Defensible audit: full-population rules, SA 230 working papers, systematic sampling,
   Schedule III / CARO / 3CD checks, engagement risk scoring. "Audit the books" runs on the
   books themselves (sales, receipts, credit notes, purchases, payments, expenses with their

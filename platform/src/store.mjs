@@ -60,6 +60,8 @@ export function createState() {
     quoteSeq: 0,
     filings: [],
     supplierReminders: [],
+    collectionReminders: [],
+    collectionReminderSeq: 0,
     settlements: [],
     settlementSeq: 0,
     channels: {},
@@ -150,6 +152,8 @@ export function serialize(state) {
     quotes: state.quotes || [],
     filings: state.filings || [],
     supplierReminders: state.supplierReminders || [],
+    collectionReminders: state.collectionReminders || [],
+    collectionReminderSeq: state.collectionReminderSeq || 0,
     settlements: state.settlements || [],
     settlementSeq: state.settlementSeq || 0,
     channels: state.channels || {},
@@ -321,6 +325,8 @@ export function deserialize(raw) {
   state.quotes = Array.isArray(raw.quotes) ? raw.quotes : [];
   state.filings = Array.isArray(raw.filings) ? raw.filings : [];
   state.supplierReminders = Array.isArray(raw.supplierReminders) ? raw.supplierReminders : [];
+  state.collectionReminders = Array.isArray(raw.collectionReminders) ? raw.collectionReminders : [];
+  state.collectionReminderSeq = Number(raw.collectionReminderSeq || 0);
   state.settlements = Array.isArray(raw.settlements) ? raw.settlements : [];
   state.settlementSeq = Number(raw.settlementSeq || 0);
   state.channels = raw.channels && typeof raw.channels === 'object' ? raw.channels : {};

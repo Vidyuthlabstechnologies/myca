@@ -89,3 +89,23 @@ holding back supplier payments.
 ## Open questions
 
 - Does the owner want a monthly summary of supplier behaviour, or only the exceptions?
+
+## Customer payment reminders (built 2026-10-17)
+
+The mirror of the supplier reminder, for money owed to the owner. "Who should I chase?"
+(or "kis se paisa lena hai") lists every customer with an overdue invoice, largest first,
+with a paying score from their last twelve months: usually on time (three or more paid
+invoices, at least three quarters on time), sometimes late, late more often than not, or
+too new to judge. One consolidated draft per customer, in a tone that matches the score
+(gentle, neutral or firm), lists their own invoice numbers, dates, amounts and days late,
+asks for one sum, and ends with the bank details from the invoice design. A customer who
+paid anything in the last fourteen days is left out and named, so nobody is chased for
+money already on its way.
+
+"Send reminder to Retail Mart" (or "Retail Mart ko reminder bhejo") shows the draft as a
+preview; on yes the message and the day are kept with the books (`collectionReminders`),
+a reminder to check for the payment is set for seven days later, and the phone hands the
+text to WhatsApp or any other app. MyCA sends nothing itself. In the app the bell on a
+customer's thread opens the same screen (`collection_drafts` is a remote query,
+`record_collection_reminder` is previewed and confirmed).
+

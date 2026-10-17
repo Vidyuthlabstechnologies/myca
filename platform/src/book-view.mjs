@@ -12,7 +12,7 @@ export const BOOK_KEYS = new Set([
   'caRequests', 'caRequestSeq',
   'quotes', 'quoteSeq',
   'filings',
-  'supplierReminders', 'supplierReminderSeq',
+  'supplierReminders', 'supplierReminderSeq', 'collectionReminders', 'collectionReminderSeq',
   'employees', 'employeeSeq',
   'tdsEntries', 'tdsDeposits',
   'gstCreditOpening', 'tdsReviews', 'payrollRuns', 'salesTaxRates', 'salesTaxNexus', 'salesTaxReviews', 'salesTaxPayments', 'gstPayments', 'sutaRates', 'yearClosings', 'automation', 'amendmentSeq', 'chatRecent',

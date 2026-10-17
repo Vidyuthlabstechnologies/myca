@@ -71,6 +71,8 @@ export function newBook(company = {}) {
     quoteSeq: 0,
     filings: [],
     supplierReminders: [],
+    collectionReminders: [],
+    collectionReminderSeq: 0,
     settlements: [],
     settlementSeq: 0,
     channels: {},
@@ -142,6 +144,8 @@ export function serializeBook(book) {
     quotes: book.quotes || [],
     filings: book.filings || [],
     supplierReminders: book.supplierReminders || [],
+    collectionReminders: book.collectionReminders || [],
+    collectionReminderSeq: book.collectionReminderSeq || 0,
     settlements: book.settlements || [],
     settlementSeq: book.settlementSeq || 0,
     channels: book.channels || {},
@@ -210,6 +214,8 @@ export function deserializeBook(raw) {
   book.quotes = Array.isArray(raw.quotes) ? raw.quotes : [];
   book.filings = Array.isArray(raw.filings) ? raw.filings : [];
   book.supplierReminders = Array.isArray(raw.supplierReminders) ? raw.supplierReminders : [];
+  book.collectionReminders = Array.isArray(raw.collectionReminders) ? raw.collectionReminders : [];
+  book.collectionReminderSeq = Number(raw.collectionReminderSeq || 0);
   book.settlements = Array.isArray(raw.settlements) ? raw.settlements : [];
   book.settlementSeq = Number(raw.settlementSeq || 0);
   book.channels = raw.channels && typeof raw.channels === 'object' ? raw.channels : {};

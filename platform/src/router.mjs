@@ -43,6 +43,7 @@ import { certificateWords } from './tds-certificates.mjs';
 import { posImportWords } from './import-pos.mjs';
 import { file1099Words } from './us-1099.mjs';
 import { inWords as monthWords } from './words.mjs';
+import { collectionsInWords } from './collections.mjs';
 
 function money(n) {
   return formatMoneyCurrent(Number(n) || 0);
@@ -81,6 +82,9 @@ const FAILURES = {
   RATE_REQUIRED: () => 'A GST rate is needed for each item; MyCA does not assume one. Nothing was changed.',
   NO_LINES: () => 'There is nothing to put on it, so nothing was changed.',
   ZERO_AMOUNT: () => 'It comes to nothing, so nothing was changed.',
+  CUSTOMER_NOT_FOUND: (r) => `There is no customer called ${r.customer || 'that'} in these books.`,
+  NOTHING_OVERDUE: (r) => `${r.customer || 'That customer'} has nothing overdue.`,
+  POSSIBLY_PAID: (r) => `${r.customer || 'That customer'} paid something in the last two weeks; match your bank statement before chasing.`,
   INVALID_GSTIN: (r) => `${r.gstin || 'That GSTIN'} is not a valid GSTIN, so nothing was changed. Check it with the other party.`,
   NO_ENTRIES: () => 'There is nothing in the books to audit yet.',
   NOT_FOR_COUNTRY: () => 'That is for a different country edition, so nothing was changed.',
@@ -544,6 +548,8 @@ function fmtToolResult(name, result) {
     const r = result.reminder;
     return `Reminder ${r.id} to ${r.supplier} for ${r.period} is ready to send from your phone. Nothing has gone from MyCA.`;
   }
+  if (name === 'collection_drafts' && result.data) return collectionsInWords(result.data);
+  if (name === 'record_collection_reminder' && result.reminder) return `Recorded the ${result.reminder.tone} reminder to ${result.reminder.customer} for ${money(result.reminder.total)} on ${result.reminder.date}. Send it from your phone now; I will remind you to check for the payment in a week.`;
   if (name === 'supplier_reminder_draft' && result.data) {
     return result.data.message;
   }

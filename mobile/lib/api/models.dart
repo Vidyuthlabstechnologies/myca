@@ -1325,6 +1325,49 @@ class EmployeeList {
   final String error;
 }
 
+class CollectionDraft {
+  const CollectionDraft({
+    required this.customer,
+    required this.total,
+    required this.invoices,
+    required this.oldestDaysLate,
+    required this.tone,
+    required this.scoreWords,
+    required this.message,
+    required this.lastSent,
+    required this.timesSent,
+  });
+
+  static CollectionDraft? fromTool(Object? json) {
+    final data = toolData(json);
+    final rows = _maps(data['customers']);
+    if (rows.isEmpty) return null;
+    final map = rows.first;
+    if (_text(map['message']).isEmpty) return null;
+    return CollectionDraft(
+      customer: _text(map['customer']),
+      total: _num(map['total']),
+      invoices: _maps(map['invoices']).length,
+      oldestDaysLate: _num(map['oldestDaysLate']).toInt(),
+      tone: _text(map['tone']),
+      scoreWords: _text(map['scoreWords']),
+      message: _text(map['message']),
+      lastSent: _text(map['lastSent']),
+      timesSent: _num(map['timesSent']).toInt(),
+    );
+  }
+
+  final String customer;
+  final num total;
+  final int invoices;
+  final int oldestDaysLate;
+  final String tone;
+  final String scoreWords;
+  final String message;
+  final String lastSent;
+  final int timesSent;
+}
+
 class SupplierReminderDraft {
   const SupplierReminderDraft({
     required this.supplier,

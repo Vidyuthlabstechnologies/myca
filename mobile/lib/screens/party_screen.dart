@@ -11,6 +11,7 @@ import '../registers.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import 'invoice_screen.dart';
+import 'remind_customer_screen.dart';
 
 enum _Composer { none, document, payment, quote, purchaseNote }
 
@@ -574,6 +575,18 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
             ),
           ],
         ),
+        actions: [
+          if (_sales && !_us)
+            IconButton(
+              tooltip: 'Remind customer',
+              icon: const Icon(Icons.notifications_active_outlined),
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => RemindCustomerScreen(customer: party.name),
+                ),
+              ),
+            ),
+        ],
       ),
       body: Column(
         children: [

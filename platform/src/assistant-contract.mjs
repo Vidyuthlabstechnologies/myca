@@ -14,6 +14,7 @@ import { tdsReviewOf } from './tds-review.mjs';
 import { parseQuarter } from './tds-return.mjs';
 import { reviewOf } from './gst-review.mjs';
 import { planReminderFromChat } from './reminder-intent.mjs';
+import { planCollectionFromChat } from './collections-intent.mjs';
 import { planCashFromChat } from './cash-intent.mjs';
 import { planTermsFromChat, takeInvoiceTerms } from './terms-intent.mjs';
 import { localToday } from './dates.mjs';
@@ -1178,6 +1179,21 @@ export const TOOL_ARG_SCHEMAS = {
     required: ['question'],
     properties: { question: { type: 'string', minLength: 3, maxLength: 400 } },
   },
+  collection_drafts: {
+    type: 'object',
+    additionalProperties: false,
+    properties: { customer: { type: 'string', maxLength: 120 } },
+  },
+  record_collection_reminder: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['customer'],
+    properties: {
+      customer: { type: 'string', minLength: 1, maxLength: 120 },
+      message: { type: 'string', maxLength: 2000 },
+      channel: { type: 'string', enum: ['whatsapp', 'email', 'other'] },
+    },
+  },
   supplier_reminder_draft: {
     type: 'object',
     additionalProperties: false,
@@ -1722,6 +1738,7 @@ const TOOL_RISK = {
   set_cash_balance: 'writes_books',
   record_filing: 'writes_books',
   record_supplier_reminder: 'writes_books',
+  record_collection_reminder: 'writes_books',
   add_employee: 'writes_books',
   approve_payroll: 'writes_books',
   record_salary_payment: 'writes_books',
@@ -2252,6 +2269,8 @@ export function planLocalToolCall(state, message) {
   if (retag) return retag;
   const expense = planExpenseFromChat(state, text);
   if (expense) return expense;
+  const chase = planCollectionFromChat(state, text);
+  if (chase) return chase;
   const receipt = planReceiptWithoutInvoice(state, text);
   if (receipt) return receipt;
 

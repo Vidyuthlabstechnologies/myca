@@ -15,6 +15,7 @@ import { askKnowledge } from './knowledge.mjs';
 import { pushZohoInvoices } from './zoho-push.mjs';
 import { booksAuditLedger } from './audit-ledger.mjs';
 import { salaryPrivate } from './employees.mjs';
+import { collectionDrafts, recordCollectionReminder } from './collections.mjs';
 const ingestTally = tally.ingest;
 const ingestBank = bank.ingest;
 const { reconcile } = gst;
@@ -2351,6 +2352,20 @@ export const TOOLS = [
     description: 'Draft a message to one supplier about their bills that are missing or wrong in GSTR-2B for a month, using only their own bill numbers, dates and amounts. Read-only; sends nothing.',
     args: ['supplier', 'period'],
     run: (state, args = {}) => draftSupplierReminder(state, args),
+  },
+  {
+    name: 'collection_drafts',
+    title: 'Who to chase for payment',
+    description: 'Overdue customers with a paying score from their last twelve months (usually on time, sometimes late, late more often than not), one consolidated reminder draft per customer in a matching tone with the bank details from the invoice design, and the customers left out because they paid something in the last fourteen days. Read-only; sends nothing.',
+    args: ['customer'],
+    run: (state, args = {}) => collectionDrafts(state, args),
+  },
+  {
+    name: 'record_collection_reminder',
+    title: 'Send a payment reminder to a customer',
+    description: 'Record that the owner is sending a payment reminder to one customer from their own phone, with the message as sent, and set a reminder to check for the payment in seven days. MyCA does not send it.',
+    args: ['customer', 'message', 'channel'],
+    run: (state, args = {}) => recordCollectionReminder(state, args),
   },
   {
     name: 'record_supplier_reminder',

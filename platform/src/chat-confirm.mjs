@@ -8,6 +8,7 @@
  */
 import { randomBytes } from 'node:crypto';
 import { planExpense } from './expenses.mjs';
+import { planCollectionReminder } from './collections.mjs';
 import { planInvoiceTemplate } from './invoice-template.mjs';
 import { salaryPrivate } from './employees.mjs';
 import { aaBankFeed } from './aa-import.mjs';
@@ -57,7 +58,7 @@ import { planAmendment } from './invoice-amendments.mjs';
 import { tallyXmlToDayBookCsv } from './tally-xml.mjs';
 
 export const CONFIRM_TOOLS = new Set([
-  'create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'record_filing', 'record_supplier_reminder', 'add_employee', 'change_salary', 'end_employment', 'approve_payroll', 'record_salary_payment', 'set_tds_deductor', 'record_tds_deposit', 'tds_review_answer', 'set_gst_credit_opening', 'record_gst_payment', 'close_year', 'post_expense', 'set_expense_head', 'create_credit_note', 'create_debit_note', 'create_purchase_note', 'record_supplier_debit_note', 'cancel_invoice', 'gst_review_answer', 'import_gstr2b', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'set_party_address', 'set_transport', 'set_sales_tax_rate', 'set_contractor', 'set_sales_tax_nexus', 'sales_tax_review_answer', 'record_sales_tax_payment', 'record_sales_tax_filing', 'set_withholding', 'set_suta_rate', 'import_us_invoices', 'import_pos_sales', 'import_settlement', 'import_marketplace_orders', 'import_tcs_statement', 'import_26as_credits', 'record_stock', 'record_stock_transfer', 'set_sku_cost', 'import_sku_costs', 'value_inventory', 'set_registration', 'retire_registration', 'set_channel_identity', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote', 'amend_invoice',
+  'create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'record_filing', 'record_supplier_reminder', 'record_collection_reminder', 'add_employee', 'change_salary', 'end_employment', 'approve_payroll', 'record_salary_payment', 'set_tds_deductor', 'record_tds_deposit', 'tds_review_answer', 'set_gst_credit_opening', 'record_gst_payment', 'close_year', 'post_expense', 'set_expense_head', 'create_credit_note', 'create_debit_note', 'create_purchase_note', 'record_supplier_debit_note', 'cancel_invoice', 'gst_review_answer', 'import_gstr2b', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'set_party_address', 'set_transport', 'set_sales_tax_rate', 'set_contractor', 'set_sales_tax_nexus', 'sales_tax_review_answer', 'record_sales_tax_payment', 'record_sales_tax_filing', 'set_withholding', 'set_suta_rate', 'import_us_invoices', 'import_pos_sales', 'import_settlement', 'import_marketplace_orders', 'import_tcs_statement', 'import_26as_credits', 'record_stock', 'record_stock_transfer', 'set_sku_cost', 'import_sku_costs', 'value_inventory', 'set_registration', 'retire_registration', 'set_channel_identity', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote', 'amend_invoice',
   'set_invoice_template', 'set_invoice_numbering',
   'import_tally', 'import_tally_xml', 'import_zoho', 'import_bank',
   'govt_generate_irn', 'govt_nic_cancel_irn',
@@ -419,6 +420,29 @@ const SUPPLIER_REMINDER_REASONS = {
   EMPTY_MESSAGE: () => 'The message is empty.',
   MESSAGE_TOO_LONG: (p) => `The message is longer than ${p.max} characters.`,
 };
+
+const COLLECTION_REASONS = {
+  CUSTOMER_REQUIRED: () => 'Say which customer.',
+  CUSTOMER_NOT_FOUND: (p) => `There is no customer called ${p.customer} in these books.`,
+  NOTHING_OVERDUE: (p) => `${p.customer} has nothing overdue.`,
+  POSSIBLY_PAID: (p) => `${p.customer} paid something in the last two weeks, so the ${money(p.total)} may already be on its way. Match your bank statement first.`,
+  EMPTY_MESSAGE: () => 'The message is empty.',
+  MESSAGE_TOO_LONG: (p) => `The message is longer than ${p.max} characters.`,
+};
+function collectionReminderPreview(state, args) {
+  const plan = planCollectionReminder(state, args);
+  if (!plan.ok) {
+    const reason = COLLECTION_REASONS[plan.error];
+    return { blockers: [reason ? reason(plan) : plan.error], summary: '', effects: [], figures: {} };
+  }
+  const d = plan.draft;
+  return {
+    blockers: [],
+    summary: `Send a ${d.tone} payment reminder to ${d.customer} for ${money(d.total)} across ${d.invoices.length === 1 ? '1 invoice' : `${d.invoices.length} invoices`} (oldest ${d.oldestDaysLate} days late). ${d.customer} ${d.scoreWords}.${d.timesSent ? ` You last reminded them on ${d.lastSent}.` : ''}${plan.edited ? ' You edited the draft.' : ''}`,
+    effects: ['It goes from your own phone: WhatsApp, email or another app you pick. MyCA sends nothing itself.', 'The message and the day are kept with the books, and a reminder to check for the payment is set for seven days from now.'],
+    figures: { customer: d.customer, total: d.total, invoices: d.invoices.length, tone: d.tone, score: d.score, timesSent: d.timesSent },
+  };
+}
 
 function supplierReminderPreview(state, args) {
   const plan = planSupplierReminder(state, args);
@@ -1323,6 +1347,7 @@ const PREVIEWERS = {
   record_payment: paymentPreview,
   record_filing: filingPreview,
   record_supplier_reminder: supplierReminderPreview,
+  record_collection_reminder: collectionReminderPreview,
   add_employee: employeePreview,
   approve_payroll: payrollApprovalPreview,
   record_salary_payment: salaryPaymentPreview,
