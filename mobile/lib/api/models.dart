@@ -1325,6 +1325,130 @@ class EmployeeList {
   final String error;
 }
 
+class PaymentRunBill {
+  const PaymentRunBill({
+    required this.billId,
+    required this.supplier,
+    required this.supplierInvoiceNo,
+    required this.outstanding,
+    required this.bucket,
+    required this.daysLeft,
+    required this.daysToCredit,
+    required this.age,
+    required this.reason,
+  });
+
+  factory PaymentRunBill.fromJson(Map<String, dynamic> map) => PaymentRunBill(
+    billId: _text(map['billId']),
+    supplier: _text(map['supplier']),
+    supplierInvoiceNo: _text(map['supplierInvoiceNo']),
+    outstanding: _num(map['outstanding']),
+    bucket: _text(map['bucket']),
+    daysLeft: map['daysLeft'] is num ? (map['daysLeft'] as num).toInt() : null,
+    daysToCredit: _num(map['daysToCredit']).toInt(),
+    age: _num(map['age']).toInt(),
+    reason: _text(map['reason']),
+  );
+
+  final String billId;
+  final String supplier;
+  final String supplierInvoiceNo;
+  final num outstanding;
+  final String bucket;
+  final int? daysLeft;
+  final int daysToCredit;
+  final int age;
+  final String reason;
+
+  bool get urgent => bucket == 'msme-limit' || bucket == 'credit-at-risk';
+
+  String get whenWords {
+    final left = daysLeft;
+    switch (bucket) {
+      case 'msme-limit':
+        if (left == null) return 'MSMED pay-by date';
+        if (left < 0) return '${-left} days past the MSMED pay-by date';
+        if (left == 0) return 'MSMED pay-by date is today';
+        return 'MSMED pay-by date in $left days';
+      case 'credit-at-risk':
+        return daysToCredit < 0
+            ? 'past 180 days, credit reversible'
+            : '$daysToCredit days to the 180-day credit limit';
+      case 'due':
+        if (left == null) return 'due';
+        if (left < 0) return '${-left} days past the agreed date';
+        if (left == 0) return 'due today';
+        return 'due in $left days';
+      case 'aging':
+        return '$age days old, no agreed terms';
+      default:
+        return left == null ? '$age days old' : 'due in $left days';
+    }
+  }
+}
+
+class PaymentRun {
+  const PaymentRun({
+    required this.asOf,
+    required this.windowDays,
+    required this.proposed,
+    required this.consider,
+    required this.later,
+    required this.held,
+    required this.total,
+    required this.laterTotal,
+    required this.balance,
+    required this.fromReading,
+    required this.after,
+    required this.verdict,
+  });
+
+  static PaymentRun? fromTool(Object? json) {
+    final map = toolData(json);
+    if (map['proposed'] is! List) return null;
+    return PaymentRun(
+      asOf: _text(map['asOf']),
+      windowDays: _num(map['windowDays']).toInt(),
+      proposed: _maps(map['proposed']).map(PaymentRunBill.fromJson).toList(),
+      consider: _maps(map['consider']).map(PaymentRunBill.fromJson).toList(),
+      later: _maps(map['later']).map(PaymentRunBill.fromJson).toList(),
+      held: _maps(map['held']).map(PaymentRunBill.fromJson).toList(),
+      total: _num(map['total']),
+      laterTotal: _num(map['laterTotal']),
+      balance: _num(map['balance']),
+      fromReading: _text(map['balanceSource']) == 'reading',
+      after: _num(map['after']),
+      verdict: _text(map['verdict']),
+    );
+  }
+
+  final String asOf;
+  final int windowDays;
+  final List<PaymentRunBill> proposed;
+  final List<PaymentRunBill> consider;
+  final List<PaymentRunBill> later;
+  final List<PaymentRunBill> held;
+  final num total;
+  final num laterTotal;
+  final num balance;
+  final bool fromReading;
+  final num after;
+  final String verdict;
+
+  String get verdictWords {
+    switch (verdict) {
+      case 'no':
+        return 'Paying all of these takes the balance below zero before the month is out.';
+      case 'tight':
+        return "Tight against the month's usual outgoings.";
+      case 'yes':
+        return 'Payroll and GST still clear.';
+      default:
+        return '';
+    }
+  }
+}
+
 class CollectionDraft {
   const CollectionDraft({
     required this.customer,

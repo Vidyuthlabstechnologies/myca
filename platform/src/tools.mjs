@@ -16,6 +16,7 @@ import { pushZohoInvoices } from './zoho-push.mjs';
 import { booksAuditLedger } from './audit-ledger.mjs';
 import { salaryPrivate } from './employees.mjs';
 import { collectionDrafts, recordCollectionReminder } from './collections.mjs';
+import { paymentRun, recordPaymentRun } from './payment-run.mjs';
 const ingestTally = tally.ingest;
 const ingestBank = bank.ingest;
 const { reconcile } = gst;
@@ -2366,6 +2367,20 @@ export const TOOLS = [
     description: 'Record that the owner is sending a payment reminder to one customer from their own phone, with the message as sent, and set a reminder to check for the payment in seven days. MyCA does not send it.',
     args: ['customer', 'message', 'channel'],
     run: (state, args = {}) => recordCollectionReminder(state, args),
+  },
+  {
+    name: 'payment_run',
+    title: 'Who to pay',
+    description: 'Unpaid supplier bills ranked on the Indian clocks: at or past the MSMED pay-by date first, then bills within 180 days of their date (after which the input credit is reversed under Rule 37), then bills due within the window on agreed terms; bills older than 45 days with no terms are listed to consider; bills with an open exception are held back. Shows the bank and cash balance, the balance after paying and whether payroll and GST still clear. Read-only.',
+    args: ['windowDays', 'asOf'],
+    run: (state, args = {}) => paymentRun(state, args),
+  },
+  {
+    name: 'record_payment_run',
+    title: 'Pay the proposed bills',
+    description: 'Record the payments in a payment run from the bank (or cash) in one go, each bill in full. With no billIds, the proposed set is paid. Previewed with the total and the balance after.',
+    args: ['billIds', 'date', 'mode'],
+    run: (state, args = {}) => recordPaymentRun(state, args),
   },
   {
     name: 'record_supplier_reminder',

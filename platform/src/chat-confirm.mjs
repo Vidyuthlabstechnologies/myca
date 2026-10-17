@@ -9,6 +9,7 @@
 import { randomBytes } from 'node:crypto';
 import { planExpense } from './expenses.mjs';
 import { planCollectionReminder } from './collections.mjs';
+import { planPaymentRun } from './payment-run.mjs';
 import { planInvoiceTemplate } from './invoice-template.mjs';
 import { salaryPrivate } from './employees.mjs';
 import { aaBankFeed } from './aa-import.mjs';
@@ -58,7 +59,7 @@ import { planAmendment } from './invoice-amendments.mjs';
 import { tallyXmlToDayBookCsv } from './tally-xml.mjs';
 
 export const CONFIRM_TOOLS = new Set([
-  'create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'record_filing', 'record_supplier_reminder', 'record_collection_reminder', 'add_employee', 'change_salary', 'end_employment', 'approve_payroll', 'record_salary_payment', 'set_tds_deductor', 'record_tds_deposit', 'tds_review_answer', 'set_gst_credit_opening', 'record_gst_payment', 'close_year', 'post_expense', 'set_expense_head', 'create_credit_note', 'create_debit_note', 'create_purchase_note', 'record_supplier_debit_note', 'cancel_invoice', 'gst_review_answer', 'import_gstr2b', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'set_party_address', 'set_transport', 'set_sales_tax_rate', 'set_contractor', 'set_sales_tax_nexus', 'sales_tax_review_answer', 'record_sales_tax_payment', 'record_sales_tax_filing', 'set_withholding', 'set_suta_rate', 'import_us_invoices', 'import_pos_sales', 'import_settlement', 'import_marketplace_orders', 'import_tcs_statement', 'import_26as_credits', 'record_stock', 'record_stock_transfer', 'set_sku_cost', 'import_sku_costs', 'value_inventory', 'set_registration', 'retire_registration', 'set_channel_identity', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote', 'amend_invoice',
+  'create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'record_filing', 'record_supplier_reminder', 'record_collection_reminder', 'record_payment_run', 'add_employee', 'change_salary', 'end_employment', 'approve_payroll', 'record_salary_payment', 'set_tds_deductor', 'record_tds_deposit', 'tds_review_answer', 'set_gst_credit_opening', 'record_gst_payment', 'close_year', 'post_expense', 'set_expense_head', 'create_credit_note', 'create_debit_note', 'create_purchase_note', 'record_supplier_debit_note', 'cancel_invoice', 'gst_review_answer', 'import_gstr2b', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'set_party_address', 'set_transport', 'set_sales_tax_rate', 'set_contractor', 'set_sales_tax_nexus', 'sales_tax_review_answer', 'record_sales_tax_payment', 'record_sales_tax_filing', 'set_withholding', 'set_suta_rate', 'import_us_invoices', 'import_pos_sales', 'import_settlement', 'import_marketplace_orders', 'import_tcs_statement', 'import_26as_credits', 'record_stock', 'record_stock_transfer', 'set_sku_cost', 'import_sku_costs', 'value_inventory', 'set_registration', 'retire_registration', 'set_channel_identity', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote', 'amend_invoice',
   'set_invoice_template', 'set_invoice_numbering',
   'import_tally', 'import_tally_xml', 'import_zoho', 'import_bank',
   'govt_generate_irn', 'govt_nic_cancel_irn',
@@ -429,6 +430,28 @@ const COLLECTION_REASONS = {
   EMPTY_MESSAGE: () => 'The message is empty.',
   MESSAGE_TOO_LONG: (p) => `The message is longer than ${p.max} characters.`,
 };
+const PAYMENT_RUN_REASONS = {
+  NOTHING_TO_PAY: () => 'Nothing needs paying right now.',
+  TOO_MANY_BILLS: (p) => `A run pays at most ${p.max} bills at a time.`,
+  INVALID_DATE: (p) => `${p.date} is not a date I can read.`,
+  BILLS_NOT_PAYABLE: (p) => `Some bills cannot be paid: ${p.problems.map((x) => `${x.billId} (${x.error === 'HELD' ? x.reason : PAYMENT_REASONS[x.error] || x.error})`).join('; ')}.`,
+};
+function paymentRunPreview(state, args) {
+  const plan = planPaymentRun(state, args);
+  if (!plan.ok) {
+    const reason = PAYMENT_RUN_REASONS[plan.error];
+    return { blockers: [reason ? reason(plan) : plan.error], summary: '', effects: [], figures: {} };
+  }
+  const lines = plan.payments.map((p) => `${p.supplier} ${money(p.amount)} on ${p.billId}${p.supplierInvoiceNo ? ` (their ${p.supplierInvoiceNo})` : ''}`);
+  const cash = plan.verdict === 'no' ? ' That takes the balance below zero before the month is out.' : plan.verdict === 'tight' ? ' That is tight against the month\'s usual outgoings.' : plan.verdict === 'yes' ? ' Payroll and GST still clear.' : '';
+  return {
+    blockers: plan.verdict === 'no' ? ['The balance would go below zero before the month is out. Pay fewer bills, or give a fresh bank balance first.'] : [],
+    summary: `Pay ${money(plan.total)} to ${new Set(plan.payments.map((p) => p.supplier)).size === 1 ? plan.payments[0].supplier : `${new Set(plan.payments.map((p) => p.supplier)).size} suppliers`} across ${plan.payments.length === 1 ? '1 bill' : `${plan.payments.length} bills`} from ${plan.mode === 'cash' ? 'cash' : 'the bank'} on ${plan.date}: ${lines.join('; ')}. Bank and cash ${money(plan.balance)} before, ${money(plan.after)} after.${cash}`,
+    effects: [`${money(plan.total)} goes out of your ${plan.mode === 'cash' ? 'cash' : 'bank'}, one payment per bill.`, 'Each bill becomes paid; MSMED and Rule 37 clocks stop for them.'],
+    figures: { total: plan.total, bills: plan.payments.length, balance: plan.balance, after: plan.after, date: plan.date, billIds: plan.payments.map((p) => p.billId) },
+  };
+}
+
 function collectionReminderPreview(state, args) {
   const plan = planCollectionReminder(state, args);
   if (!plan.ok) {
@@ -1348,6 +1371,7 @@ const PREVIEWERS = {
   record_filing: filingPreview,
   record_supplier_reminder: supplierReminderPreview,
   record_collection_reminder: collectionReminderPreview,
+  record_payment_run: paymentRunPreview,
   add_employee: employeePreview,
   approve_payroll: payrollApprovalPreview,
   record_salary_payment: salaryPaymentPreview,

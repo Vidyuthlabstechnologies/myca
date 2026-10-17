@@ -6,6 +6,7 @@ import '../app_state.dart';
 import '../format.dart';
 import '../registers.dart';
 import '../theme.dart';
+import 'pay_bills_screen.dart';
 
 class CashScreen extends StatefulWidget {
   const CashScreen({super.key});
@@ -211,6 +212,19 @@ class _CashScreenState extends State<CashScreen> {
                     ),
                   ),
                 ],
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  icon: const Icon(Icons.payments_outlined),
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const PayBillsScreen(),
+                    ),
+                  ),
+                  label: const Text('Who to pay'),
+                ),
               ),
               const SizedBox(height: 12),
               _Card(

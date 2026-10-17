@@ -36,6 +36,9 @@ and [`README.md`](README.md) for what is left and how it is being done.
 - Deadline engine (GSTR-1/3B/7/9, TDS quarterly, PF, advance tax, ITR) with
   weekend/gazetted-holiday rollover and escalation levels
 - ITR regime comparison (AIS/26AS, old vs new); TDS 194A/C/I/J threshold monitor
+- Payment run (2026-10-17): unpaid bills ranked on the MSMED date, the 180-day credit limit
+  and agreed terms, held back for open exceptions, with the balance after and whether payroll
+  and GST still clear; one preview pays the batch; "Who to pay" on the Cash screen in the app
 - Customer payment reminders (2026-10-17): overdue customers scored from a year of paying
   history, one draft each in a matching tone with the bank details, recent payers left out,
   a follow-up reminder set on send; from chat or the bell on a customer's thread in the app

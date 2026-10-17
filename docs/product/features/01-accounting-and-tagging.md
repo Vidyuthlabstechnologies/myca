@@ -136,3 +136,22 @@ Inventory and stock valuation, cost centres, multi-currency, depreciation schedu
 
 - Which expense heads does the first version ship with? The list above is a proposal.
 - Does TDS get worked out at the time an expense is posted? See [spec 04](04-tds.md).
+
+## Who to pay: the payment run (built 2026-10-17)
+
+"Who do I need to pay?" (or "kis ko payment karna hai") ranks every unpaid supplier bill on
+the clocks that matter in India: bills at or past their MSMED pay-by date first (the
+disallowance under Section 43B(h) starts there), then bills within 180 days of their date
+(after which the input credit is reversed under Rule 37), then bills due within the next
+fourteen days on agreed terms. Bills older than 45 days with no agreed terms are listed to
+consider; bills with an open exception are held back and named. The answer shows the bank
+and cash balance from the owner's last reading, the balance after paying, and whether
+payroll and GST still clear from the cash forecast.
+
+"Pay the proposed bills" (optionally "except BILL-0003") previews the batch as one
+proposal with the total and the balance after; a batch that would take the balance below
+zero is blocked at the preview. On yes, MyCA posts one payment per bill from the bank;
+the owner makes the transfers from their bank app. In the app, "Who to pay" on the Cash
+screen shows the same list with a tick per bill (`payment_run` is a remote query,
+`record_payment_run` is previewed and confirmed).
+

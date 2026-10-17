@@ -44,6 +44,7 @@ import { posImportWords } from './import-pos.mjs';
 import { file1099Words } from './us-1099.mjs';
 import { inWords as monthWords } from './words.mjs';
 import { collectionsInWords } from './collections.mjs';
+import { paymentRunInWords } from './payment-run.mjs';
 
 function money(n) {
   return formatMoneyCurrent(Number(n) || 0);
@@ -82,6 +83,9 @@ const FAILURES = {
   RATE_REQUIRED: () => 'A GST rate is needed for each item; MyCA does not assume one. Nothing was changed.',
   NO_LINES: () => 'There is nothing to put on it, so nothing was changed.',
   ZERO_AMOUNT: () => 'It comes to nothing, so nothing was changed.',
+  NOTHING_TO_PAY: () => 'Nothing needs paying right now.',
+  BILLS_NOT_PAYABLE: (r) => `Some bills cannot be paid: ${(r.problems || []).map((x) => `${x.billId} (${String(x.reason || x.error || '').toLowerCase().replace(/_/g, ' ')})`).join('; ')}. Nothing was paid.`,
+  PAYMENT_FAILED: (r) => `Paying ${r.billId} failed (${String(r.cause || '').toLowerCase().replace(/_/g, ' ')}); ${(r.posted || []).length} earlier ${(r.posted || []).length === 1 ? 'payment was' : 'payments were'} posted.`,
   CUSTOMER_NOT_FOUND: (r) => `There is no customer called ${r.customer || 'that'} in these books.`,
   NOTHING_OVERDUE: (r) => `${r.customer || 'That customer'} has nothing overdue.`,
   POSSIBLY_PAID: (r) => `${r.customer || 'That customer'} paid something in the last two weeks; match your bank statement before chasing.`,
@@ -549,6 +553,8 @@ function fmtToolResult(name, result) {
     return `Reminder ${r.id} to ${r.supplier} for ${r.period} is ready to send from your phone. Nothing has gone from MyCA.`;
   }
   if (name === 'collection_drafts' && result.data) return collectionsInWords(result.data);
+  if (name === 'payment_run' && result.data) return paymentRunInWords(result.data, money);
+  if (name === 'record_payment_run' && result.posted) return `Paid ${money(result.total)} across ${result.posted.length === 1 ? '1 bill' : `${result.posted.length} bills`} from ${result.mode === 'cash' ? 'cash' : 'the bank'} on ${result.date}: ${result.posted.map((p) => `${p.supplier} ${money(p.amount)} (${p.billId})`).join('; ')}. Bank and cash now ${money(result.after)}.`;
   if (name === 'record_collection_reminder' && result.reminder) return `Recorded the ${result.reminder.tone} reminder to ${result.reminder.customer} for ${money(result.reminder.total)} on ${result.reminder.date}. Send it from your phone now; I will remind you to check for the payment in a week.`;
   if (name === 'supplier_reminder_draft' && result.data) {
     return result.data.message;

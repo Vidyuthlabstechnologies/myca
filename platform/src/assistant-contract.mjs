@@ -15,6 +15,7 @@ import { parseQuarter } from './tds-return.mjs';
 import { reviewOf } from './gst-review.mjs';
 import { planReminderFromChat } from './reminder-intent.mjs';
 import { planCollectionFromChat } from './collections-intent.mjs';
+import { planPaymentRunFromChat } from './payment-run-intent.mjs';
 import { planCashFromChat } from './cash-intent.mjs';
 import { planTermsFromChat, takeInvoiceTerms } from './terms-intent.mjs';
 import { localToday } from './dates.mjs';
@@ -1179,6 +1180,23 @@ export const TOOL_ARG_SCHEMAS = {
     required: ['question'],
     properties: { question: { type: 'string', minLength: 3, maxLength: 400 } },
   },
+  payment_run: {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      windowDays: { type: 'integer', minimum: 1, maximum: 60 },
+      asOf: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' },
+    },
+  },
+  record_payment_run: {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      billIds: { type: 'array', maxItems: 100, items: { type: 'string', maxLength: 40 } },
+      date: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' },
+      mode: { type: 'string', enum: ['bank', 'cash'] },
+    },
+  },
   collection_drafts: {
     type: 'object',
     additionalProperties: false,
@@ -1739,6 +1757,7 @@ const TOOL_RISK = {
   record_filing: 'writes_books',
   record_supplier_reminder: 'writes_books',
   record_collection_reminder: 'writes_books',
+  record_payment_run: 'writes_books',
   add_employee: 'writes_books',
   approve_payroll: 'writes_books',
   record_salary_payment: 'writes_books',
@@ -2006,6 +2025,8 @@ export function planLocalToolCall(state, message) {
   if (filed) return filed;
   const owed = planOweQuestion(state, text);
   if (owed) return owed;
+  const run = planPaymentRunFromChat(state, text);
+  if (run) return run;
   const payment = planPaymentFromChat(state, text);
   if (payment) return payment;
   if (countryOf(state) === 'US') {
