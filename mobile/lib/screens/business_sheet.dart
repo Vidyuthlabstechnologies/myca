@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../api/models.dart';
+import '../cloud/cloud_session.dart';
 import '../app_state.dart';
 import '../marks.dart';
 import '../theme.dart';
@@ -39,6 +40,10 @@ Future<void> showBusinessSheet(BuildContext context, Snapshot snapshot) {
                 Text('Signed in as ${user.name}', style: text.bodyMedium),
               const SizedBox(height: 18),
               if (state.cloud != null) ...[
+                if (user?.role != 'accountant') ...[
+                  _BriefSwitch(cloud: state.cloud!),
+                  const SizedBox(height: 12),
+                ],
                 Panel(
                   children: [
                     RowCard(
@@ -151,6 +156,70 @@ Future<void> showBusinessSheet(BuildContext context, Snapshot snapshot) {
       );
     },
   );
+}
+
+class _BriefSwitch extends StatefulWidget {
+  const _BriefSwitch({required this.cloud});
+
+  final CloudSession cloud;
+
+  @override
+  State<_BriefSwitch> createState() => _BriefSwitchState();
+}
+
+class _BriefSwitchState extends State<_BriefSwitch> {
+  bool? _on;
+  bool _busy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.cloud.weeklyBrief().then((on) {
+      if (mounted) setState(() => _on = on);
+    }).catchError((_) {
+      if (mounted) setState(() => _on = false);
+    });
+  }
+
+  Future<void> _set(bool on) async {
+    setState(() => _busy = true);
+    try {
+      final now = await widget.cloud.setWeeklyBrief(on);
+      if (mounted) setState(() => _on = now);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+          const SnackBar(content: Text('Could not change the Monday brief setting.')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Palette.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(radiusCard),
+        side: const BorderSide(color: Palette.line),
+      ),
+      child: SwitchListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14),
+        title: Text(
+          'Monday brief on WhatsApp',
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
+        subtitle: const Text(
+          'Every Monday at 7 am: cash and runway, sales against last week, who owes you and for how long, what is due, and the one thing to do.',
+        ),
+        value: _on ?? false,
+        activeTrackColor: Palette.ink,
+        onChanged: _on == null || _busy ? null : _set,
+      ),
+    );
+  }
 }
 
 class _CrashSwitch extends StatelessWidget {

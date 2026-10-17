@@ -1180,6 +1180,11 @@ export const TOOL_ARG_SCHEMAS = {
     required: ['question'],
     properties: { question: { type: 'string', minLength: 3, maxLength: 400 } },
   },
+  weekly_brief: {
+    type: 'object',
+    additionalProperties: false,
+    properties: { asOf: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' } },
+  },
   payment_run: {
     type: 'object',
     additionalProperties: false,

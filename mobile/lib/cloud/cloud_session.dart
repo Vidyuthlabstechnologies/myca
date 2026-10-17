@@ -510,6 +510,16 @@ class CloudSession {
     );
   }
 
+  Future<bool> weeklyBrief() async {
+    final body = await call('GET', '$_books/brief');
+    return body['weekly'] == true;
+  }
+
+  Future<bool> setWeeklyBrief(bool on) async {
+    final body = await call('POST', '$_books/brief', {'weekly': on});
+    return body['weekly'] == true;
+  }
+
   Future<CaSync> caSync() async {
     final body = await call('GET', '$_books/ca-sync');
     return CaSync(mode: '${body['mode'] ?? 'live'}', sharedAsOf: '${body['sharedAsOf'] ?? ''}');

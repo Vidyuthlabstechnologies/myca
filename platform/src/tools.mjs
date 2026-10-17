@@ -17,6 +17,7 @@ import { booksAuditLedger } from './audit-ledger.mjs';
 import { salaryPrivate } from './employees.mjs';
 import { collectionDrafts, recordCollectionReminder } from './collections.mjs';
 import { paymentRun, recordPaymentRun } from './payment-run.mjs';
+import { weeklyBrief } from './weekly-brief.mjs';
 const ingestTally = tally.ingest;
 const ingestBank = bank.ingest;
 const { reconcile } = gst;
@@ -2367,6 +2368,13 @@ export const TOOLS = [
     description: 'Record that the owner is sending a payment reminder to one customer from their own phone, with the message as sent, and set a reminder to check for the payment in seven days. MyCA does not send it.',
     args: ['customer', 'message', 'channel'],
     run: (state, args = {}) => recordCollectionReminder(state, args),
+  },
+  {
+    name: 'weekly_brief',
+    title: 'Weekly brief',
+    description: 'The week in one message: cash with its change on last week and the runway in months, sales this week and this month with deltas, what customers owe in 0-30, 31-60 and over-60-day buckets with the worst late payers, what is owed to suppliers and any MSME bill past its date, what is due this week, open exceptions, and the one thing to do. Read-only.',
+    args: ['asOf'],
+    run: (state, args = {}) => weeklyBrief(state, args),
   },
   {
     name: 'payment_run',

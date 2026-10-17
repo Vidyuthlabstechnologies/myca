@@ -45,6 +45,7 @@ import { file1099Words } from './us-1099.mjs';
 import { inWords as monthWords } from './words.mjs';
 import { collectionsInWords } from './collections.mjs';
 import { paymentRunInWords } from './payment-run.mjs';
+import { weeklyBriefWords } from './weekly-brief.mjs';
 
 function money(n) {
   return formatMoneyCurrent(Number(n) || 0);
@@ -554,6 +555,7 @@ function fmtToolResult(name, result) {
   }
   if (name === 'collection_drafts' && result.data) return collectionsInWords(result.data);
   if (name === 'payment_run' && result.data) return paymentRunInWords(result.data, money);
+  if (name === 'weekly_brief' && result.data) return weeklyBriefWords(result.data, money);
   if (name === 'record_payment_run' && result.posted) return `Paid ${money(result.total)} across ${result.posted.length === 1 ? '1 bill' : `${result.posted.length} bills`} from ${result.mode === 'cash' ? 'cash' : 'the bank'} on ${result.date}: ${result.posted.map((p) => `${p.supplier} ${money(p.amount)} (${p.billId})`).join('; ')}. Bank and cash now ${money(result.after)}.`;
   if (name === 'record_collection_reminder' && result.reminder) return `Recorded the ${result.reminder.tone} reminder to ${result.reminder.customer} for ${money(result.reminder.total)} on ${result.reminder.date}. Send it from your phone now; I will remind you to check for the payment in a week.`;
   if (name === 'supplier_reminder_draft' && result.data) {

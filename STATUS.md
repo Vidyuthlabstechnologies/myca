@@ -36,6 +36,9 @@ and [`README.md`](README.md) for what is left and how it is being done.
 - Deadline engine (GSTR-1/3B/7/9, TDS quarterly, PF, advance tax, ITR) with
   weekend/gazetted-holiday rollover and escalation levels
 - ITR regime comparison (AIS/26AS, old vs new); TDS 194A/C/I/J threshold monitor
+- Monday brief (2026-10-17): cash and runway, sales deltas, receivable aging buckets, dues,
+  exceptions and the one thing to do, from chat and the app; on the hosted service it is sent
+  on WhatsApp every Monday 07:00 IST to members who switched it on
 - Payment run (2026-10-17): unpaid bills ranked on the MSMED date, the 180-day credit limit
   and agreed terms, held back for open exceptions, with the balance after and whether payroll
   and GST still clear; one preview pays the batch; "Who to pay" on the Cash screen in the app

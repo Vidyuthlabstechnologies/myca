@@ -83,8 +83,7 @@ test('"pay the proposed bills" previews one batch, posts a payment per bill, and
   assert.equal(billOutstanding(state.purchases[1]), 2100);
   assert.equal(billOutstanding(state.purchases[2]), 0);
   const left = await chat(state, 'pay the bills');
-  assert.match(left.reply, /^Pay now, ₹2,100\.00 across 1 bill:
-· Big Mills ₹2,100\.00 on BILL-0002 \(their BM\/4\): 1 days past the agreed date\./, left.reply);
+  assert.match(left.reply, /^Pay now, ₹2,100\.00 across 1 bill:\n· Big Mills ₹2,100\.00 on BILL-0002 \(their BM\/4\): 1 days past the agreed date\./, left.reply);
   await chat(state, 'pay the proposed bills');
   await chat(state, 'yes');
   const nothing = await chat(state, 'pay the bills');

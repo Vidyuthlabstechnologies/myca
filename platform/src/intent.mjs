@@ -178,6 +178,7 @@ export function isSaleIntent(text) {
 }
 
 export const ROUTES = [
+  { re: /\bhow(?:'s| is| are)\s+(?:the\s+|my\s+)?business(?:\s+(?:doing|going))?\b|\bweekly\s+brief\b|\bmonday\s+brief\b|\bfriday\s+recap\b|\bbusiness\s+pulse\b|\bdhanda\s+kaisa\b|\bkaisa\s+chal\s+raha\b|\bstart\s+my\s+week\b/i, tool: 'weekly_brief' },
   { re: /\b(?:this|the|coming|next)\s+week\b|\bweek\s+ahead\b|\bwhat(?:'s| is)\s+due\b|\bdue\s+(?:this|next)\s+week\b/i, tool: 'week_ahead' },
   { re: /\bclosed\s+years\b|\byear[\s-]?end\s+status\b|\bwhich\s+years?\s+(?:are|is)\s+closed\b/i, tool: 'list_year_closings' },
   { re: /\bform\s*16a?\b|\btds\s+certificates?\b/i, tool: 'tds_certificates' },

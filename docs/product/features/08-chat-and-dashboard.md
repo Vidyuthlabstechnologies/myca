@@ -194,3 +194,21 @@ deployment), a tablet or web layout.
 - Q3 in the PRD.
 - Which three figures matter most to an owner on opening the app? To be tested with
   pilot businesses.
+
+## The Monday brief (built 2026-10-17)
+
+"How is business?" (or "dhanda kaisa chal raha hai", "weekly brief") answers in one
+message: cash with its change on last week and the runway in months (green at six or
+more, red under three); sales this week against last week and this month against last
+month; what customers owe in 0-30, 31-60 and over-60-day buckets with the worst late
+payers named (red when the over-60 bucket is a tenth of the book or ₹50,000); what is
+owed to suppliers and any MSME bill past its date; what is due this week; open
+exceptions; and the one thing to do, chosen in this order: a critical exception, an MSME
+bill past its date, an overdue or imminent return, the worst late customer, a thin cash
+runway, an unapproved payroll, a missing bank reading.
+
+On the hosted service a member can switch on "Monday brief on WhatsApp" from the
+business menu; every Monday at 07:00 IST the brief is composed from the books and sent
+as a WhatsApp text through the configured sender (`POST /v1/jobs/weekly`, Cloud
+Scheduler). Accountants are never sent it. Nothing else goes out of MyCA unasked.
+

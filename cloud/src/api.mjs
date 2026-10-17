@@ -170,7 +170,7 @@ export function createApi({ db, secret, otpSender = null, googleClientIds = [], 
   const inbound = createInbound({ db, secret, now, withBooks, email: { domain: inboundEmail.domain }, storedBytes: (businessId) => businesses.storedBytes(businessId), limitBytes: MAX_BUSINESS_BYTES });
   const whatsApp = createWhatsApp({ db, withBooks, withSharedBooks: runner.withSharedBooks, syncOf, config: whatsapp, sender: whatsappSender, now, log });
   const consent = createConsent({ db, now });
-  const jobs = createJobs({ db, withBooks, connectors, syncChannels, pullsEnabled: channelPullsEnabled, log });
+  const jobs = createJobs({ db, withBooks, connectors, syncChannels, pullsEnabled: channelPullsEnabled, sender: whatsappSender, log });
   const google = createGoogleVerifier({ clientIds: googleClientIds, keys: googleKeys || createGoogleKeys({ now }), now });
   const openId = createOidcVerifier({ issuer: oidc.issuer || '', clientIds: oidc.clientIds || [], jwksUrl: oidc.jwksUrl || '', keys: oidcKeys, now });
   if (!otpSender && !google.enabled && !openId.enabled) throw new Error('no sign-in method: configure an SMS sender, MYCA_GOOGLE_CLIENT_IDS or MYCA_OIDC_ISSUER with MYCA_OIDC_CLIENT_IDS');
@@ -250,6 +250,10 @@ export function createApi({ db, secret, otpSender = null, googleClientIds = [], 
       throw httpError(404, 'NOT_FOUND');
     }
 
+    if (parts[1] === 'jobs' && parts[2] === 'weekly' && parts.length === 3 && method === 'POST') {
+      if (!jobTokenMatches(jobToken, req.headers[JOB_HEADER])) throw httpError(404, 'NOT_FOUND');
+      return jobs.weekly(requestId);
+    }
     if (parts[1] === 'jobs' && parts[2] === 'daily' && parts.length === 3 && method === 'POST') {
       if (!jobTokenMatches(jobToken, req.headers[JOB_HEADER])) throw httpError(404, 'NOT_FOUND');
       return jobs.daily(requestId);
@@ -346,6 +350,10 @@ export function createApi({ db, secret, otpSender = null, googleClientIds = [], 
         }
         return runner.withReadOnlyBooks(businessId, context, async (session) => appSnapshot(session.snapshot(), user, role));
       }
+      if (method === 'GET' && action === 'brief') {
+        const found = await db.query('select weekly_brief as weekly from memberships where business_id = $1 and user_id = $2', [businessId, user.userId]);
+        return { ok: true, weekly: Boolean(found.rows[0]?.weekly), channel: 'whatsapp', when: 'Monday 07:00 IST' };
+      }
       if (method === 'GET' && action === 'ca-sync') {
         return { ok: true, mode: sync.mode, sharedAsOf: sync.mode === 'live' ? null : sync.asOf, modes: CA_SYNC_MODES };
       }
@@ -392,6 +400,12 @@ export function createApi({ db, secret, otpSender = null, googleClientIds = [], 
       if (method !== 'POST') throw httpError(404, 'NOT_FOUND');
 
       const body = await readJson(req, action === 'uploads' ? MAX_UPLOAD_BYTES : action === 'replace' ? MAX_BUSINESS_BYTES : MAX_BODY_BYTES);
+      if (action === 'brief') {
+        if (role === 'accountant') throw httpError(403, 'NOT_FOR_ACCOUNTANTS');
+        const weekly = body.weekly === true;
+        await db.query('update memberships set weekly_brief = $3 where business_id = $1 and user_id = $2', [businessId, user.userId, weekly]);
+        return { ok: true, weekly, channel: 'whatsapp', when: 'Monday 07:00 IST' };
+      }
       if (action === 'ca-sync') {
         if (role !== 'owner') throw httpError(403, 'OWNER_ONLY');
         const mode = String(body.mode || '');

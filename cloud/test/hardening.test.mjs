@@ -93,6 +93,33 @@ test('inbound documents and mail respect the storage cap, and a sale id is poste
   assert.equal(books.invoices.length, 1);
 });
 
+test('a member who switches the Monday brief on gets it on WhatsApp from the weekly job; accountants and the others do not', async () => {
+  const { owner } = await withAccountant('+919700000105', '+919700000106');
+  await api.call('POST', biz(owner, 'propose'), { token: owner.token, body: { name: 'set_cash_balance', args: { bank: 250000, cash: 0, on: '2026-10-17' } } }).then((held) => api.call('POST', biz(owner, 'confirm'), { token: owner.token, body: { token: held.body.preview.token } }));
+  const before = await api.call('GET', biz(owner, 'brief'), { token: owner.token });
+  assert.equal(before.body.weekly, false);
+  const on = await api.call('POST', biz(owner, 'brief'), { token: owner.token, body: { weekly: true } });
+  assert.equal(on.status, 200, on.text);
+  assert.equal(on.body.weekly, true);
+  assert.equal(on.body.when, 'Monday 07:00 IST');
+  const caToken = (await api.signIn('+919700000106')).accessToken;
+  const refused = await api.call('POST', biz(owner, 'brief'), { token: caToken, body: { weekly: true } });
+  assert.equal(refused.status, 403);
+  const sentBefore = replies.length;
+  const job = await api.call('POST', '/v1/jobs/weekly', { headers: { [JOB_HEADER]: JOB_TOKEN } });
+  assert.equal(job.status, 200, job.text);
+  assert.equal(job.body.sent, 1, JSON.stringify(job.body));
+  const mine = replies.slice(sentBefore).filter((r) => r.phone === '+919700000105');
+  assert.equal(mine.length, 1);
+  assert.match(mine[0].text, /^Week of .*\nCash ₹2,50,000\.00/, mine[0].text);
+  assert.match(mine[0].text, /The one thing:/);
+  assert.equal(replies.slice(sentBefore).some((r) => r.phone === '+919700000106'), false, 'the accountant gets nothing');
+  const off = await api.call('POST', biz(owner, 'brief'), { token: owner.token, body: { weekly: false } });
+  assert.equal(off.body.weekly, false);
+  const again = await api.call('POST', '/v1/jobs/weekly', { headers: { [JOB_HEADER]: JOB_TOKEN } });
+  assert.equal(again.body.sent, 0);
+});
+
 test('the nightly job skips a business whose owner asked for deletion', async () => {
   const gone = await api.ownerWithBusiness('+919700000104', { name: 'Gone Traders', state: '29' });
   await api.db.query('update businesses set deletion_requested_at = now() where id = $1', [gone.businessId]);

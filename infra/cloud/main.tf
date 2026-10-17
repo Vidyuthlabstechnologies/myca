@@ -438,6 +438,31 @@ resource "google_cloud_scheduler_job" "daily" {
   depends_on = [google_project_service.apis]
 }
 
+resource "google_cloud_scheduler_job" "weekly" {
+  name             = "${local.name}-weekly"
+  region           = var.region
+  description      = "Sends MyCA's Monday brief on WhatsApp to members who asked for it"
+  schedule         = var.weekly_job_schedule
+  time_zone        = var.daily_job_time_zone
+  attempt_deadline = "600s"
+
+  retry_config {
+    retry_count          = 3
+    min_backoff_duration = "60s"
+    max_backoff_duration = "600s"
+  }
+
+  http_target {
+    http_method = "POST"
+    uri         = "${google_cloud_run_v2_service.api.uri}/v1/jobs/weekly"
+    headers = {
+      "x-myca-job-token" = random_password.job_token.result
+    }
+  }
+
+  depends_on = [google_project_service.apis]
+}
+
 resource "google_cloud_run_v2_service_iam_member" "public" {
   name     = google_cloud_run_v2_service.api.name
   location = var.region
