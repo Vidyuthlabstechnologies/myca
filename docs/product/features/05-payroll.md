@@ -161,3 +161,18 @@ full-and-final settlement, contractor payments (these are purchases with TDS, se
   their schedules read before they are added; Bihar's annual amounts need its
   deduction month confirmed.
 - Is salary data visible to an invited CA by default?
+
+## Sanity flags and "can I make payroll" (built 2026-10-18)
+
+Every payroll run compares itself with the previous approved month and lists what to
+check, with both figures and never a correction: a salary that changed for someone paid
+the full month both times, a person paid last month who is not in this run and has no
+leaving date, a newcomer, partial days for someone who was full last month, and gross pay
+moving more than a tenth. The flags are in the run, in the approval preview and in chat.
+
+"Can I make payroll?" (or "will the payroll clear?", "salary de paunga?") takes the next
+salary day (the approved month, or the last approved month's net as an estimate), adds
+the PF, ESI and salary TDS due around it, and answers from the cash forecast on that day:
+covered, tight, or short by an amount. When short it names the customers whose usual
+paying time lands before payday, largest first, so the owner knows who to chase.
+

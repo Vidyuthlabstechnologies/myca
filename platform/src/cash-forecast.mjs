@@ -4,11 +4,19 @@ import { outstandingOf } from './credit-notes.mjs';
 import { periodOf } from './return-period.mjs';
 import { paymentFor } from './gst-payment.mjs';
 import { billOutstanding } from './invoice.mjs';
+import { billPayBy } from './supplier-dues.mjs';
 
 const BANK = 1002n;
 const CASH = 1001n;
 const ASSUMED_DAYS = 30;
 const HISTORY_MONTHS = 3;
+const HISTORY_RECEIPTS = 12;
+const THIN_HISTORY = 3;
+const THIN_BAND_PCT = 30;
+const MAX_BAND_PCT = 50;
+const PAYROLL_DAY = 7;
+const STATUTORY_DAY = 15;
+const TDS_DAY = 7;
 const round2 = (value) => Math.round(Number(value || 0) * 100) / 100;
 
 function addDays(iso, days) {
@@ -110,7 +118,7 @@ export function setCashBalance(state, args = {}) {
   return { ok: true, reading: state.cashReadings.at(-1), recordedBank: plan.recordedBank, recordedCash: plan.recordedCash };
 }
 
-function typicalDaysToPay(state) {
+export function payingStats(state) {
   const byCustomer = new Map();
   for (const invoice of state.invoices || []) {
     if (invoice.status !== 'paid' || !(invoice.receipts || []).length) continue;
@@ -118,18 +126,31 @@ function typicalDaysToPay(state) {
     if (!last) continue;
     const key = String(invoice.partyName || '').toLowerCase();
     const list = byCustomer.get(key) || [];
-    list.push(Math.max(0, daysBetween(invoice.date, last)));
+    list.push({ on: last, days: Math.max(0, daysBetween(invoice.date, last)) });
     byCustomer.set(key, list);
   }
-  const typical = new Map();
+  const stats = new Map();
   for (const [key, list] of byCustomer) {
-    const sorted = [...list].sort((a, b) => a - b);
-    typical.set(key, sorted[Math.floor((sorted.length - 1) / 2)]);
+    const recent = list.sort((a, b) => a.on.localeCompare(b.on)).slice(-HISTORY_RECEIPTS).map((item) => item.days);
+    const sorted = [...recent].sort((a, b) => a - b);
+    const median = sorted[Math.floor((sorted.length - 1) / 2)];
+    const mean = recent.reduce((s, d) => s + d, 0) / recent.length;
+    const sd = Math.sqrt(recent.reduce((s, d) => s + (d - mean) ** 2, 0) / recent.length);
+    const thin = recent.length < THIN_HISTORY;
+    const bandPct = thin ? THIN_BAND_PCT : mean <= 1 ? 5 : Math.min(MAX_BAND_PCT, Math.round((sd / Math.max(mean, 1)) * 100));
+    stats.set(key, { median, mean: round2(mean), sd: round2(sd), n: recent.length, thin, bandPct, bandDays: Math.max(0, Math.round((median * bandPct) / 100)), tooThin: !thin && sd / Math.max(mean, 1) > MAX_BAND_PCT / 100 });
   }
+  return stats;
+}
+
+function typicalDaysToPay(state) {
+  const typical = new Map();
+  for (const [key, stat] of payingStats(state)) typical.set(key, stat.median);
   return typical;
 }
 
 function expectedReceipts(state, from, until) {
+  const stats = payingStats(state);
   const typical = typicalDaysToPay(state);
   const inWindow = [];
   const overdue = [];
@@ -141,9 +162,14 @@ function expectedReceipts(state, from, until) {
     const terms = invoice.paymentTermsDays == null ? '' : invoice.paymentTermsDays === 0 ? 'due on receipt' : `terms Net ${invoice.paymentTermsDays}`;
     let date;
     let basis;
+    let bandDays = Math.round((ASSUMED_DAYS * THIN_BAND_PCT) / 100);
+    let thin = true;
     if (typical.has(key)) {
       date = addDays(invoice.date, typical.get(key));
       basis = `${invoice.partyName} usually pays in ${typical.get(key)} days${terms ? `; ${terms}` : ''}`;
+      const stat = stats.get(key);
+      bandDays = stat.bandDays;
+      thin = stat.thin;
     } else if (invoice.dueDate) {
       date = invoice.dueDate;
       basis = `${terms}; no payment history yet`;
@@ -151,7 +177,7 @@ function expectedReceipts(state, from, until) {
       date = addDays(invoice.date, ASSUMED_DAYS);
       basis = `no payment history or terms; assumed ${ASSUMED_DAYS} days`;
     }
-    const row = { date, label: `${invoice.id} from ${invoice.partyName}`, amount: round2(due), basis };
+    const row = { date, label: `${invoice.id} from ${invoice.partyName}`, amount: round2(due), basis, earliest: addDays(date, -bandDays), latest: addDays(date, bandDays), thin };
     if (date < from) overdue.push(row);
     else if (date <= until) inWindow.push(row);
   }
@@ -164,10 +190,12 @@ function expectedBillPayments(state, from, until) {
   for (const bill of state.purchases || []) {
     const owed = billOutstanding(bill);
     if (owed <= 0.005) continue;
-    const date = addDays(bill.date, ASSUMED_DAYS);
+    const terms = bill.status === 'cancelled' ? null : billPayBy(state, bill);
+    const date = terms ? terms.payBy : addDays(bill.date, ASSUMED_DAYS);
     const part = owed < Number(bill.total || 0) - 0.005 ? `; ₹${round2(Number(bill.total) - owed).toLocaleString('en-IN')} already paid` : '';
-    const row = { date, label: `${bill.supplierInvoiceNo || bill.id} to ${bill.partyName}`, amount: owed, basis: `bill dated ${bill.date}; assumed paid in ${ASSUMED_DAYS} days${part}` };
-    if (date < from) older.push({ ...row, basis: `bill dated ${bill.date}; unpaid past ${ASSUMED_DAYS} days${part}` });
+    const why = terms ? (terms.msme ? `MSMED pay-by date, ${terms.days} days from the bill` : `agreed terms, ${terms.days} days`) : `assumed paid in ${ASSUMED_DAYS} days`;
+    const row = { date, label: `${bill.supplierInvoiceNo || bill.id} to ${bill.partyName}`, amount: owed, basis: `bill dated ${bill.date}; ${why}${part}` };
+    if (date < from) older.push({ ...row, basis: `bill dated ${bill.date}; unpaid past the ${terms ? 'pay-by date' : `${ASSUMED_DAYS} days`}${part}` });
     else if (date <= until) inWindow.push(row);
   }
   return { inWindow, older };
@@ -195,6 +223,95 @@ function gstPayments(state, deadlines, from, until) {
   return rows;
 }
 
+function nextMonthDay(period, day) {
+  const [y, m] = period.split('-').map(Number);
+  const date = new Date(Date.UTC(y, m, day));
+  return date.toISOString().slice(0, 10);
+}
+
+function payrollOutgoings(state, from, until) {
+  const rows = [];
+  const runs = state.payrollRuns && typeof state.payrollRuns === 'object' ? Object.values(state.payrollRuns).filter((run) => run && run.status === 'approved') : [];
+  const toRupees = (paise) => round2(Number(paise || 0) / 100);
+  let latest = null;
+  for (const run of runs) {
+    if (!latest || run.period > latest.period) latest = run;
+    const payday = nextMonthDay(run.period, PAYROLL_DAY) < from ? from : nextMonthDay(run.period, PAYROLL_DAY);
+    if (!run.paidOn && payday <= until) rows.push({ date: payday, label: `Salaries for ${run.period}`, amount: toRupees(run.totals.netPaise), basis: 'approved payroll, net pay, by the 7th' });
+    const statutory = round2(toRupees(run.totals.pfPayablePaise) + toRupees(run.totals.esiPayablePaise));
+    const statutoryDue = nextMonthDay(run.period, STATUTORY_DAY);
+    const statutoryDay = statutoryDue < from ? from : statutoryDue;
+    if (statutory > 0 && !run.statutoryPaidOn && statutoryDay <= until) rows.push({ date: statutoryDay, label: `PF and ESI for ${run.period}`, amount: statutory, basis: statutoryDue < from ? `employee and employer shares, was due by ${statutoryDue}` : 'employee and employer shares, due by the 15th' });
+    const tds = toRupees(run.totals.tdsPaise);
+    const tdsDue = nextMonthDay(run.period, TDS_DAY);
+    const tdsDay = tdsDue < from ? from : tdsDue;
+    if (tds > 0 && !run.tdsDepositedOn && tdsDay <= until) rows.push({ date: tdsDay, label: `Salary TDS for ${run.period}`, amount: tds, basis: tdsDue < from ? `deducted from salaries, was due by ${tdsDue}` : 'deducted from salaries, deposit by the 7th' });
+  }
+  const employees = (state.employees || []).filter((e) => !e.leftOn).length;
+  if (latest && employees > 0) {
+    let period = latest.period;
+    for (let i = 0; i < 6; i += 1) {
+      const [y, m] = period.split('-').map(Number);
+      period = `${m === 12 ? y + 1 : y}-${String(m === 12 ? 1 : m + 1).padStart(2, '0')}`;
+      if (state.payrollRuns && Object.hasOwn(state.payrollRuns, period)) continue;
+      const payday = nextMonthDay(period, PAYROLL_DAY);
+      if (payday < from) continue;
+      if (payday > until) break;
+      rows.push({ date: payday, label: `Salaries for ${period} (expected)`, amount: toRupees(latest.totals.netPaise), basis: `same as the last approved month, ${latest.period}; not yet run` });
+    }
+  }
+  return rows;
+}
+
+function windowsOf(from, span, receipts, outgoings, start) {
+  if (span < 60) return [];
+  const out = [];
+  let runningLow = start;
+  let runningExpected = start;
+  let runningHigh = start;
+  for (let w = 0; w * 30 < span; w += 1) {
+    const a = addDays(from, w * 30 + (w ? 1 : 0));
+    const b = addDays(from, Math.min(span, (w + 1) * 30));
+    const inside = (date) => date >= a && date <= b;
+    const expected = round2(receipts.filter((r) => inside(r.date)).reduce((s, r) => s + r.amount, 0));
+    const low = round2(receipts.filter((r) => inside(r.latest) && r.date >= a).reduce((s, r) => s + r.amount, 0));
+    const high = round2(receipts.filter((r) => inside(r.earliest) || inside(r.date)).reduce((s, r) => s + r.amount, 0));
+    const going = round2(outgoings.filter((r) => inside(r.date)).reduce((s, r) => s + r.amount, 0));
+    runningLow = round2(runningLow + low - going);
+    runningExpected = round2(runningExpected + expected - going);
+    runningHigh = round2(runningHigh + high - going);
+    out.push({ from: a, to: b, in: { low, expected, high }, out: going, end: { low: runningLow, expected: runningExpected, high: runningHigh } });
+  }
+  return out;
+}
+
+function risksOf({ start, receipts, overdue, gst, payroll, balanceOn, stats, monthlyOutgoings }) {
+  const risks = [];
+  for (const [key, stat] of stats) {
+    if (stat.median > 45) {
+      const owed = receipts.filter((r) => r.label.toLowerCase().endsWith(`from ${key}`)).reduce((s, r) => s + r.amount, 0);
+      if (owed > 0) risks.push({ kind: 'late-payer', severity: 'high', text: `${receipts.find((r) => r.label.toLowerCase().endsWith(`from ${key}`)).label.split(' from ')[1]} usually pays in ${stat.median} days, so ${inr(owed)} may land after the dates above.` });
+    }
+  }
+  for (const row of payroll) {
+    const day = balanceOn.find((b) => b.date === row.date);
+    if (day && day.amount < 0) risks.push({ kind: 'payroll', severity: 'critical', text: `Cash goes to ${inr(day.amount)} on ${row.date}, the day ${row.label.toLowerCase()} is due.` });
+  }
+  for (const row of gst) {
+    const day = balanceOn.find((b) => b.date === row.date);
+    if (day && day.amount < 0) risks.push({ kind: 'gst', severity: 'critical', text: `Cash goes to ${inr(day.amount)} on ${row.date}, when ${row.label} of ${inr(row.amount)} is due.` });
+  }
+  const thinShare = receipts.length ? receipts.filter((r) => r.thin).reduce((s, r) => s + r.amount, 0) / Math.max(1, receipts.reduce((s, r) => s + r.amount, 0)) : 0;
+  if (receipts.length && thinShare > 0.5) risks.push({ kind: 'thin-history', severity: 'medium', text: 'More than half of the money expected in is from customers with fewer than three paid invoices, so the dates are guesses.' });
+  if (overdue.total > 0 && overdue.total > monthlyOutgoings) risks.push({ kind: 'overdue', severity: 'high', text: `${inr(overdue.total)} is overdue and not counted; that is more than a month of your usual outgoings.` });
+  if (start.source !== 'reading') risks.push({ kind: 'no-reading', severity: 'high', text: 'There is no bank balance from you, so the starting figure is only what MyCA has recorded.' });
+  return risks.slice(0, 5);
+}
+
+function inr(n) {
+  return `₹${Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
 export function cashForecast(state, { days = 30, from = localToday(), deadlines = [] } = {}) {
   const span = Math.max(1, Math.min(180, Math.round(Number(days) || 30)));
   const until = addDays(from, span);
@@ -204,6 +321,8 @@ export function cashForecast(state, { days = 30, from = localToday(), deadlines 
   const billRows = expectedBillPayments(state, from, until);
   const bills = billRows.inWindow;
   const gst = gstPayments(state, deadlines, from, until);
+  const payroll = payrollOutgoings(state, from, until);
+  const stats = payingStats(state);
   const spending = averages.expenses > 0
     ? [{ date: until, label: 'Usual expenses', amount: round2((averages.expenses * span) / 30), basis: `average of ${averages.months[0]} to ${averages.months.at(-1)}, spread over the days`, spread: true }]
     : [];
@@ -212,6 +331,7 @@ export function cashForecast(state, { days = 30, from = localToday(), deadlines 
     ...receipts.inWindow.map((row) => ({ ...row, sign: 1 })),
     ...bills.map((row) => ({ ...row, sign: -1 })),
     ...gst.map((row) => ({ ...row, sign: -1 })),
+    ...payroll.map((row) => ({ ...row, sign: -1 })),
   ].sort((a, b) => a.date.localeCompare(b.date));
   let balance = start.amount;
   let lowest = { date: from, amount: balance };
@@ -234,13 +354,15 @@ export function cashForecast(state, { days = 30, from = localToday(), deadlines 
       days: span,
       start,
       coming: { total: sum(receipts.inWindow), rows: receipts.inWindow },
-      going: { total: round2(sum(bills) + sum(gst) + sum(spending)), rows: [...bills, ...gst, ...spending] },
+      going: { total: round2(sum(bills) + sum(gst) + sum(payroll) + sum(spending)), rows: [...bills, ...gst, ...payroll, ...spending] },
       overdue: { total: sum(receipts.overdue), rows: receipts.overdue },
       unpaidBills: { total: sum(billRows.older), rows: billRows.older },
       end: round2(balance),
       lowest,
       monthlyOutgoings: averages.outgoings,
       balanceOn,
+      windows: windowsOf(from, span, receipts.inWindow, [...bills, ...gst, ...payroll, ...spending.map((row) => ({ ...row, date: until }))], start.amount),
+      risks: risksOf({ start, receipts: receipts.inWindow, overdue: { total: sum(receipts.overdue) }, gst, payroll, balanceOn, stats, monthlyOutgoings: averages.outgoings }),
       notes: [
         start.note,
         'Overdue invoices are listed but not counted: MyCA cannot tell when they will be paid.',
@@ -282,5 +404,36 @@ export function canAfford(state, { amount, on, deadlines = [] } = {}) {
       start: forecast.start,
       notes: forecast.notes,
     },
+  };
+}
+
+export function canMakePayroll(state, { deadlines = [] } = {}) {
+  const today = localToday();
+  const employees = (state.employees || []).filter((e) => !e.leftOn).length;
+  if (!employees) return { ok: false, error: 'NO_EMPLOYEES' };
+  const forecast = cashForecast(state, { days: 60, from: today, deadlines }).data;
+  const next = forecast.going.rows.filter((row) => /^Salaries for/.test(row.label)).sort((a, b) => a.date.localeCompare(b.date))[0];
+  if (!next) return { ok: false, error: 'NO_PAYROLL_IN_VIEW' };
+  const onDay = forecast.balanceOn.find((row) => row.date === next.date) || forecast.balanceOn.at(-1);
+  const before = round2(onDay.amount + next.amount);
+  const statutory = forecast.going.rows.filter((row) => /^(PF and ESI|Salary TDS) for/.test(row.label) && row.date <= addDays(next.date, 10));
+  const need = round2(next.amount + statutory.reduce((s, r) => s + r.amount, 0));
+  const left = round2(before - need);
+  const verdict = left < 0 ? 'short' : forecast.monthlyOutgoings > 0 && left < forecast.monthlyOutgoings / 2 ? 'tight' : 'covered';
+  const gap = left < 0 ? round2(-left) : 0;
+  const stats = payingStats(state);
+  const helpers = [];
+  if (gap > 0) {
+    for (const row of [...forecast.coming.rows, ...forecast.overdue.rows]) {
+      const key = row.label.split(' from ')[1]?.toLowerCase() || '';
+      const stat = stats.get(key);
+      const landsBy = stat ? addDays(today, stat.median) : row.date;
+      if (landsBy <= (next.date > addDays(today, 7) ? next.date : addDays(today, 7))) helpers.push({ customer: row.label.split(' from ')[1], invoice: row.label.split(' from ')[0], amount: row.amount, usuallyPaysIn: stat ? stat.median : null });
+    }
+    helpers.sort((a, b) => b.amount - a.amount);
+  }
+  return {
+    ok: true,
+    data: { payday: next.date, label: next.label, net: next.amount, statutory: round2(need - next.amount), need, balanceBefore: before, left, verdict, gap, helpers: helpers.slice(0, 5), start: forecast.start, estimated: /\(expected\)$/.test(next.label) },
   };
 }

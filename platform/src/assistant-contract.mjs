@@ -1180,6 +1180,7 @@ export const TOOL_ARG_SCHEMAS = {
     required: ['question'],
     properties: { question: { type: 'string', minLength: 3, maxLength: 400 } },
   },
+  can_make_payroll: { type: 'object', additionalProperties: false, properties: {} },
   weekly_brief: {
     type: 'object',
     additionalProperties: false,

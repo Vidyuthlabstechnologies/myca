@@ -178,6 +178,7 @@ export function isSaleIntent(text) {
 }
 
 export const ROUTES = [
+  { re: /\bcan\s+i\s+(?:make|pay|afford|cover)\s+(?:the\s+)?(?:payroll|salaries)\b|\bsalar(?:y|ies)\s+(?:de|nikal)\s+pa(?:u|yu|a)nga\b|\bwill\s+(?:the\s+)?payroll\s+clear\b|\bpayroll\s+clear\b/i, tool: 'can_make_payroll' },
   { re: /\bhow(?:'s| is| are)\s+(?:the\s+|my\s+)?business(?:\s+(?:doing|going))?\b|\bweekly\s+brief\b|\bmonday\s+brief\b|\bfriday\s+recap\b|\bbusiness\s+pulse\b|\bdhanda\s+kaisa\b|\bkaisa\s+chal\s+raha\b|\bstart\s+my\s+week\b/i, tool: 'weekly_brief' },
   { re: /\b(?:this|the|coming|next)\s+week\b|\bweek\s+ahead\b|\bwhat(?:'s| is)\s+due\b|\bdue\s+(?:this|next)\s+week\b/i, tool: 'week_ahead' },
   { re: /\bclosed\s+years\b|\byear[\s-]?end\s+status\b|\bwhich\s+years?\s+(?:are|is)\s+closed\b/i, tool: 'list_year_closings' },

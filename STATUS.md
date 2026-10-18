@@ -36,6 +36,13 @@ and [`README.md`](README.md) for what is left and how it is being done.
 - Deadline engine (GSTR-1/3B/7/9, TDS quarterly, PF, advance tax, ITR) with
   weekend/gazetted-holiday rollover and escalation levels
 - ITR regime comparison (AIS/26AS, old vs new); TDS 194A/C/I/J threshold monitor
+- Cash forecast with confidence (2026-10-18): a timing band per customer from their last
+  twelve receipts (capped at half, thin history said so), 30/60/90-day windows with low,
+  expected and high, bills on their MSMED or agreed pay-by date, salaries, PF, ESI and salary
+  TDS as dated outgoings, and up to five named risks; "can I make payroll" answers covered,
+  tight or short by an amount and names the customers who usually pay before payday;
+  every payroll run flags a changed salary, a missing person, a newcomer, partial days and a
+  gross move against last month, and corrects nothing
 - Monday brief (2026-10-17): cash and runway, sales deltas, receivable aging buckets, dues,
   exceptions and the one thing to do, from chat and the app; on the hosted service it is sent
   on WhatsApp every Monday 07:00 IST to members who switched it on

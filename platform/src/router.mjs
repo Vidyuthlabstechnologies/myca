@@ -85,6 +85,8 @@ const FAILURES = {
   NO_LINES: () => 'There is nothing to put on it, so nothing was changed.',
   ZERO_AMOUNT: () => 'It comes to nothing, so nothing was changed.',
   SETUP_REQUIRED: () => 'Set up the business first: its name and GSTIN, or its state if it is not registered. Nothing was changed.',
+  NO_EMPLOYEES: () => 'There are no employees on the books, so there is no payroll to make.',
+  NO_PAYROLL_IN_VIEW: () => 'No salary day falls in the next sixty days: approve a payroll month first.',
   NOTHING_TO_PAY: () => 'Nothing needs paying right now.',
   BILLS_NOT_PAYABLE: (r) => `Some bills cannot be paid: ${(r.problems || []).map((x) => `${x.billId} (${String(x.reason || x.error || '').toLowerCase().replace(/_/g, ' ')})`).join('; ')}. Nothing was paid.`,
   PAYMENT_FAILED: (r) => `Paying ${r.billId} failed (${String(r.cause || '').toLowerCase().replace(/_/g, ' ')}); ${(r.posted || []).length} earlier ${(r.posted || []).length === 1 ? 'payment was' : 'payments were'} posted.`,
@@ -171,6 +173,15 @@ function fmtToolResult(name, result) {
     }
     return `Posted ${i.id} to ${i.partyName} on ${i.date} for ${money(i.total)} (${money(i.taxable)} plus ${money(i.cgst + i.sgst + i.igst)} GST).`;
   }
+  if (name === 'can_make_payroll' && result.data) {
+    const d = result.data;
+    const head = { covered: 'Yes.', tight: 'Yes, but it is tight.', short: `No, short by ${money(d.gap)}.` }[d.verdict];
+    const lines = [`${head} ${d.label}${d.estimated ? ' (not run yet; taken as last month)' : ''}: ${money(d.net)} net${d.statutory ? ` plus ${money(d.statutory)} of PF, ESI and TDS around it` : ''} on ${d.payday}. Cash that day before paying: about ${money(d.balanceBefore)}; after: ${money(d.left)}.`];
+    if (d.helpers.length) lines.push(`Money that usually lands before payday if you chase it: ${d.helpers.map((h) => `${h.customer} ${money(h.amount)} on ${h.invoice}${h.usuallyPaysIn != null ? ` (pays in about ${h.usuallyPaysIn} days)` : ''}`).join('; ')}. Say "send reminder to ${d.helpers[0].customer}".`);
+    else if (d.gap > 0) lines.push('No customer usually pays before that date; the gap needs a receipt, a delay on a supplier bill, or money in from you.');
+    if (d.start.source !== 'reading') lines.push('· There is no bank balance from you; say "bank balance is ..." for a true picture.');
+    return lines.join('\n');
+  }
   if (name === 'can_afford' && result.data) {
     const d = result.data;
     const head = { yes: 'Yes.', tight: 'Yes, but it is tight.', no: 'Not on these figures.' }[d.verdict];
@@ -187,6 +198,8 @@ function fmtToolResult(name, result) {
     return [
       `Bank and cash now: ${money(d.start.amount)}. In ${d.days} days: about ${money(d.end)}.`,
       `Coming in: ${money(d.coming.total)}. Going out: ${money(d.going.total)}. Lowest point: ${money(d.lowest.amount)} on ${d.lowest.date}.`,
+      ...(d.windows || []).map((w) => `${w.from} to ${w.to}: in ${money(w.in.expected)} (between ${money(w.in.low)} and ${money(w.in.high)} by timing), out ${money(w.out)}, ending about ${money(w.end.expected)}.`),
+      ...(d.risks || []).map((r) => `Risk: ${r.text}`),
       d.overdue.total > 0 ? `Overdue and not counted: ${money(d.overdue.total)}.` : '',
       ...d.notes.map((note) => `· ${note}`),
     ].filter(Boolean).join('\n');

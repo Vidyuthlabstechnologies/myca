@@ -143,6 +143,46 @@ function salaryTds(state, employee, period, grossPaise, used, unreviewed, notes)
   return { paise: monthly, annualTaxPaise: annual, projectedSalaryPaise: projected, regime, noPan, monthsLeft: monthsLeftAfter };
 }
 
+function previousPeriodOf(period) {
+  const [y, m] = period.split('-').map(Number);
+  return `${m === 1 ? y - 1 : y}-${String(m === 1 ? 12 : m - 1).padStart(2, '0')}`;
+}
+
+function payrollFlags(state, period, rows, totals) {
+  const previous = runRecord(state, previousPeriodOf(period));
+  if (!previous) return [];
+  const flags = [];
+  const money = (paise) => `₹${(Number(paise) / 100).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const before = new Map(previous.rows.map((row) => [row.employeeId, row]));
+  const now = new Map(rows.map((row) => [row.employeeId, row]));
+  for (const row of rows) {
+    const was = before.get(row.employeeId);
+    if (!was) {
+      flags.push({ kind: 'new', employeeId: row.employeeId, text: `${row.name} is on the payroll for the first time this month${row.daysWorked < row.daysInMonth ? ` (${row.daysWorked} of ${row.daysInMonth} days)` : ''}.` });
+      continue;
+    }
+    const fullNow = row.daysWorked === row.daysInMonth;
+    const fullThen = was.daysWorked === was.daysInMonth;
+    if (fullNow && fullThen && row.grossPaise !== was.grossPaise) {
+      const employee = (state.employees || []).find((e) => e.id === row.employeeId);
+      const changed = (employee?.salaries || []).map((s) => s.from || s.effectiveFrom || '').filter(Boolean).sort().at(-1);
+      flags.push({ kind: 'changed', employeeId: row.employeeId, text: `${row.name}'s pay is ${money(row.grossPaise)} this month against ${money(was.grossPaise)} last month${changed ? ` (changed ${changed})` : ''}.` });
+    }
+    if (!fullNow && fullThen) flags.push({ kind: 'partial', employeeId: row.employeeId, text: `${row.name} is paid for ${row.daysWorked} of ${row.daysInMonth} days; last month was the full month.` });
+  }
+  for (const was of previous.rows) {
+    if (now.has(was.employeeId)) continue;
+    const employee = (state.employees || []).find((e) => e.id === was.employeeId);
+    if (employee && !employee.leftOn) flags.push({ kind: 'absent', employeeId: was.employeeId, text: `${was.name} was paid last month and is not in this run, with no leaving date recorded.` });
+  }
+  const wasGross = Number(previous.totals?.grossPaise || 0);
+  if (wasGross > 0 && totals.grossPaise > 0) {
+    const move = ((totals.grossPaise - wasGross) / wasGross) * 100;
+    if (Math.abs(move) > 10) flags.push({ kind: 'moved', text: `Gross pay is ${move > 0 ? 'up' : 'down'} ${Math.round(Math.abs(move))}% on last month (${money(totals.grossPaise)} against ${money(wasGross)}).` });
+  }
+  return flags;
+}
+
 export function computePayroll(state, requested) {
   if (salaryPrivate(state)) return fail('SALARIES_PRIVATE');
   const period = String(requested || '').trim() || localToday().slice(0, 7);
@@ -245,6 +285,7 @@ export function computePayroll(state, requested) {
   totals.pfPayablePaise = totals.pfEmployeePaise + totals.pfEmployerPaise + totals.epsPaise + totals.edliPaise + totals.pfAdminPaise;
   totals.esiPayablePaise = totals.esiEmployeePaise + totals.esiEmployerPaise;
   if (unreviewed.size) notes.add('The contribution rates, limits and slabs come from MyCA\'s dated rules, which your CA has not reviewed yet.');
+  const flags = payrollFlags(state, period, rows, totals);
   const draftHash = createHash('sha256').update(JSON.stringify({ period, rows: rows.map((row) => [row.employeeId, row.grossPaise, row.deductionsPaise, row.netPaise]), totals })).digest('hex');
   return {
     ok: true,
@@ -257,6 +298,7 @@ export function computePayroll(state, requested) {
       rulesUsed: used,
       unreviewed: unreviewed.size > 0,
       notes: [...notes],
+      flags,
       draftHash,
       _paise: { rows, totals },
     },
@@ -460,6 +502,7 @@ export function payrollWords(data, money) {
   for (const row of data.rows) lines.push(`· ${row.name}: gross ${money(row.gross)}, net ${money(row.net)}${row.daysWorked < row.daysInMonth ? ` (${row.daysWorked} of ${row.daysInMonth} days)` : ''}`);
   if (data.status === 'approved') lines.push(`Approved on ${data.approvedOn}.${data.paidOn ? ` Paid on ${data.paidOn}.` : ' Say "paid salaries" once the salaries are paid.'}`);
   else lines.push('Nothing is posted until you approve it.');
+  for (const flag of data.flags || []) lines.push(`Check: ${flag.text}`);
   for (const note of data.notes || []) lines.push(note);
   return lines.join('\n');
 }

@@ -212,3 +212,17 @@ business menu; every Monday at 07:00 IST the brief is composed from the books an
 as a WhatsApp text through the configured sender (`POST /v1/jobs/weekly`, Cloud
 Scheduler). Accountants are never sent it. Nothing else goes out of MyCA unasked.
 
+## Cash forecast with confidence (built 2026-10-18)
+
+The forecast learns each customer's timing from their last twelve receipts: the median
+is the expected day and the spread gives a band, capped at half the median; a customer
+with fewer than three paid invoices gets a thirty percent band and is said to be thin.
+"Cash forecast for 90 days" adds a 30/60/90-day table with money in as low, expected and
+high by timing, money out, and the ending balance for each. Bills are paid on their MSMED
+or agreed pay-by date, not an assumed thirty days; approved salaries fall on the 7th,
+PF and ESI on the 15th, salary TDS on the 7th, and the next month's salaries are
+expected at the last approved net. Up to five risks are named in words: a late payer
+moving money past the dates, cash below zero on a salary or GST day, thin history behind
+most of the money expected, overdue money larger than a month of outgoings, no bank
+reading.
+

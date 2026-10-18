@@ -76,7 +76,7 @@ import { setTransport, recordShare, ewayBillStatus, transportPayload } from './e
 import { ensureParty } from './invoice.mjs';
 import { tdsReviewOf, answerTdsReview } from './tds-review.mjs';
 import { addReminder, completeReminder, listReminders } from './reminders.mjs';
-import { cashForecast, canAfford, setCashBalance } from './cash-forecast.mjs';
+import { cashForecast, canAfford, setCashBalance, canMakePayroll } from './cash-forecast.mjs';
 import { setPaymentTerms } from './payment-terms.mjs';
 import { setSupplierTerms, supplierDues } from './supplier-dues.mjs';
 import { requestDocuments, recordDocumentReceived, documentRequests, correctEval, evalEvents, searchFirmNotes } from './practice.mjs';
@@ -1015,6 +1015,17 @@ export const TOOLS = [
       const due = await TOOL_MAP.deadlines.run(state, {});
       const clientId = String(state.activeClientId || 'SELF');
       return cashForecast(state, { days: args.days, deadlines: (due.data?.deadlines || []).filter((row) => row.clientId === clientId) });
+    },
+  },
+  {
+    name: 'can_make_payroll',
+    title: 'Can I make payroll',
+    description: 'Whether the next salary day clears: the approved (or expected, from the last approved month) net pay plus the PF, ESI and TDS due around it against the cash forecast on that day; covered, tight or short by an amount; when short, the customers whose usual paying time lands before payday, largest first. Read-only.',
+    args: [],
+    run: async (state) => {
+      const due = await TOOL_MAP.deadlines.run(state, {});
+      const clientId = String(state.activeClientId || 'SELF');
+      return canMakePayroll(state, { deadlines: (due.data?.deadlines || due.deadlines || []).filter((row) => row.clientId === clientId) });
     },
   },
   {
