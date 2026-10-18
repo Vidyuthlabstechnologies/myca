@@ -114,3 +114,17 @@ test('a payroll run flags a changed salary, a missing person and a newcomer, and
   assert.match(words.reply, /Check: Priya Nair's pay is/, words.reply);
   assert.equal(run.data.rows.find((r) => r.name === 'Priya Nair').gross, 32000, 'the flag does not change the figure');
 });
+
+test('staff see neither payroll rows in the forecast nor the payroll check', async () => {
+  const state = books();
+  await runTool(state, 'add_employee', { name: 'Meena Shah', joinedOn: '2026-04-01', components: [{ name: 'Salary', amount: 18000 }], ptState: '27', sex: 'female' });
+  assert.equal((await runTool(state, 'approve_payroll', { period: shift(-40).slice(0, 7) })).ok, true);
+  const staff = Object.create(null);
+  const view = new Proxy(state, { get: (t, k) => (k === '__actor' ? { userId: 'staff1', role: 'staff' } : t[k]), set: (t, k, v) => { t[k] = v; return true; } });
+  const forecast = cashForecast(view, { days: 60 }).data;
+  assert.equal(forecast.going.rows.some((r) => /Salaries|PF and ESI|Salary TDS/.test(r.label)), false);
+  assert.ok(forecast.notes.some((n) => /only the owner sees payroll/.test(n)));
+  assert.equal(canMakePayroll(view).error, 'SALARIES_PRIVATE');
+  assert.ok(cashForecast(state, { days: 60 }).data.going.rows.some((r) => /^Salaries for/.test(r.label)), 'the owner still sees them');
+  void staff;
+});

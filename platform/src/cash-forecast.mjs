@@ -5,6 +5,7 @@ import { periodOf } from './return-period.mjs';
 import { paymentFor } from './gst-payment.mjs';
 import { billOutstanding } from './invoice.mjs';
 import { billPayBy } from './supplier-dues.mjs';
+import { salaryPrivate } from './employees.mjs';
 
 const BANK = 1002n;
 const CASH = 1001n;
@@ -231,6 +232,7 @@ function nextMonthDay(period, day) {
 
 function payrollOutgoings(state, from, until) {
   const rows = [];
+  if (salaryPrivate(state)) return rows;
   const runs = state.payrollRuns && typeof state.payrollRuns === 'object' ? Object.values(state.payrollRuns).filter((run) => run && run.status === 'approved') : [];
   const toRupees = (paise) => round2(Number(paise || 0) / 100);
   let latest = null;
@@ -368,6 +370,7 @@ export function cashForecast(state, { days = 30, from = localToday(), deadlines 
         'Overdue invoices are listed but not counted: MyCA cannot tell when they will be paid.',
         averages.expenses > 0 ? '' : 'No expenses in the last three months, so none are projected.',
         billRows.older.length ? 'Bills unpaid for more than 30 days are listed but not counted: MyCA cannot tell when you will pay them, or whether you paid them outside MyCA.' : '',
+        salaryPrivate(state) && (state.employees || []).length ? 'Salaries are not shown here: only the owner sees payroll, so the forecast leaves it out.' : '',
       ].filter(Boolean),
     },
   };
@@ -408,6 +411,7 @@ export function canAfford(state, { amount, on, deadlines = [] } = {}) {
 }
 
 export function canMakePayroll(state, { deadlines = [] } = {}) {
+  if (salaryPrivate(state)) return { ok: false, error: 'SALARIES_PRIVATE' };
   const today = localToday();
   const employees = (state.employees || []).filter((e) => !e.leftOn).length;
   if (!employees) return { ok: false, error: 'NO_EMPLOYEES' };

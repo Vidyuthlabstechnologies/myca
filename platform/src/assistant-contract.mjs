@@ -2191,7 +2191,7 @@ export function planLocalToolCall(state, message) {
   }
 
   const cancelMatch = text.match(/\bcancel\s+(?:invoice\s+)?(INV-\d{4,})\b(?:\s*(?:because|reason|:|-)?\s*(.+))?$/i);
-  if (cancelMatch && !isQuestion(text) && !/(?:do\s*not|don'?t|never)/i.test(text) && !/(?:irn|e-?invoice)/i.test(text)) {
+  if (cancelMatch && !isQuestion(text) && !/\b(?:do\s*not|don'?t|never)\b/i.test(text) && !/\b(?:irn|e-?invoice)\b/i.test(text)) {
     const reason = String(cancelMatch[2] || '').trim();
     return { kind: 'tool', name: 'cancel_invoice', args: { invoiceId: cancelMatch[1].toUpperCase(), date: receiptDate(text, localToday()), ...(reason ? { reason: reason.slice(0, 200) } : {}) } };
   }
