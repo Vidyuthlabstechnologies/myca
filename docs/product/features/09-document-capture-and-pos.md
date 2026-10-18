@@ -215,3 +215,23 @@ connected channel since its last fetch and the desktop runs it once a day after 
 checks. Flipkart, Myntra, Nykaa, Meesho and Unicommerce publish files, not report APIs,
 and stay file imports. The hosted service does not fetch yet: it would need per-business
 secret storage.
+
+## What to reorder (built 2026-10-18)
+
+"What should I reorder?" (or "stock running out", "kya order karna hai") reads the stock
+moves that marketplace orders and stock entries leave behind and answers per SKU: on hand
+and on order, units sold a day over the last seven and twenty-eight days net of returns and
+not counting days the SKU was out of stock (suppressed demand is not zero demand), days of
+cover at the faster of the two rates, and a status against the supplier's lead time: too
+late (it runs out before an order placed today arrives), order now, order soon, fine,
+overstock (over 120 days of cover). A SKU with nothing sold in a month is a slow mover
+with the rupees tied up; a SKU with under a month of history says so instead of guessing.
+The order quantity covers sixty days plus the lead time at the 28-day rate, less what is on
+hand and on order, rounded up to the pack and never under the minimum order. With less
+than a year of moves the plan says that festival peaks are not in the rate.
+
+"BX-12 comes from Ravi Packaging, 10 days, pack of 50, moq 100" records the supplier,
+lead time, pack and minimum for a SKU. "Order 250 of BX-12 from Ravi Packaging" is
+previewed and recorded as a purchase order (PO-0001) that counts as on order; nothing
+touches the ledger until the supplier's bill is booked.
+

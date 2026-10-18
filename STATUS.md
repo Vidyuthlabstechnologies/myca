@@ -36,6 +36,11 @@ and [`README.md`](README.md) for what is left and how it is being done.
 - Deadline engine (GSTR-1/3B/7/9, TDS quarterly, PF, advance tax, ITR) with
   weekend/gazetted-holiday rollover and escalation levels
 - ITR regime comparison (AIS/26AS, old vs new); TDS 194A/C/I/J threshold monitor
+- Restock from velocity (2026-10-18): per SKU, units sold a day over 7 and 28 days net of
+  returns and excluding days out of stock, days of cover against the supplier's lead time,
+  a status from too late to overstock, slow movers with the rupees tied up, an order sized
+  for sixty days plus the lead rounded to the pack; supplier, lead time, pack and MOQ per SKU;
+  purchase orders recorded without touching the ledger and counted as on order
 - Month close with sign-off (2026-10-18): nine checks for a finished month (entries, possible
   duplicates, documents for bills and expenses above a threshold, settlements, GSTR-2B, payroll
   approved and paid, a bank reading, nothing high open, month-on-month moves), a narrative from

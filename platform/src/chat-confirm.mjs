@@ -11,6 +11,7 @@ import { planExpense } from './expenses.mjs';
 import { planCollectionReminder } from './collections.mjs';
 import { planPaymentRun } from './payment-run.mjs';
 import { planMonthClose } from './month-close.mjs';
+import { planSkuSupply, planPurchaseOrder } from './restock.mjs';
 import { planInvoiceTemplate } from './invoice-template.mjs';
 import { salaryPrivate } from './employees.mjs';
 import { aaBankFeed } from './aa-import.mjs';
@@ -60,7 +61,7 @@ import { planAmendment } from './invoice-amendments.mjs';
 import { tallyXmlToDayBookCsv } from './tally-xml.mjs';
 
 export const CONFIRM_TOOLS = new Set([
-  'create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'record_filing', 'record_supplier_reminder', 'record_collection_reminder', 'record_payment_run', 'month_close_approve', 'add_employee', 'change_salary', 'end_employment', 'approve_payroll', 'record_salary_payment', 'set_tds_deductor', 'record_tds_deposit', 'tds_review_answer', 'set_gst_credit_opening', 'record_gst_payment', 'close_year', 'post_expense', 'set_expense_head', 'create_credit_note', 'create_debit_note', 'create_purchase_note', 'record_supplier_debit_note', 'cancel_invoice', 'gst_review_answer', 'import_gstr2b', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'set_party_address', 'set_transport', 'set_sales_tax_rate', 'set_contractor', 'set_sales_tax_nexus', 'sales_tax_review_answer', 'record_sales_tax_payment', 'record_sales_tax_filing', 'set_withholding', 'set_suta_rate', 'import_us_invoices', 'import_pos_sales', 'import_settlement', 'import_marketplace_orders', 'import_tcs_statement', 'import_26as_credits', 'record_stock', 'record_stock_transfer', 'set_sku_cost', 'import_sku_costs', 'value_inventory', 'set_registration', 'retire_registration', 'set_channel_identity', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote', 'amend_invoice',
+  'create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'record_filing', 'record_supplier_reminder', 'record_collection_reminder', 'record_payment_run', 'month_close_approve', 'set_sku_supply', 'record_purchase_order', 'add_employee', 'change_salary', 'end_employment', 'approve_payroll', 'record_salary_payment', 'set_tds_deductor', 'record_tds_deposit', 'tds_review_answer', 'set_gst_credit_opening', 'record_gst_payment', 'close_year', 'post_expense', 'set_expense_head', 'create_credit_note', 'create_debit_note', 'create_purchase_note', 'record_supplier_debit_note', 'cancel_invoice', 'gst_review_answer', 'import_gstr2b', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'set_party_address', 'set_transport', 'set_sales_tax_rate', 'set_contractor', 'set_sales_tax_nexus', 'sales_tax_review_answer', 'record_sales_tax_payment', 'record_sales_tax_filing', 'set_withholding', 'set_suta_rate', 'import_us_invoices', 'import_pos_sales', 'import_settlement', 'import_marketplace_orders', 'import_tcs_statement', 'import_26as_credits', 'record_stock', 'record_stock_transfer', 'set_sku_cost', 'import_sku_costs', 'value_inventory', 'set_registration', 'retire_registration', 'set_channel_identity', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote', 'amend_invoice',
   'set_invoice_template', 'set_invoice_numbering',
   'import_tally', 'import_tally_xml', 'import_zoho', 'import_bank',
   'govt_generate_irn', 'govt_nic_cancel_irn',
@@ -451,6 +452,33 @@ function paymentRunPreview(state, args) {
     summary: `Pay ${money(plan.total)} to ${new Set(plan.payments.map((p) => p.supplier)).size === 1 ? plan.payments[0].supplier : `${new Set(plan.payments.map((p) => p.supplier)).size} suppliers`} across ${plan.payments.length === 1 ? '1 bill' : `${plan.payments.length} bills`} from ${plan.mode === 'cash' ? 'cash' : 'the bank'} on ${plan.date}: ${lines.join('; ')}. Bank and cash ${money(plan.balance)} before, ${money(plan.after)} after.${cash}`,
     effects: [`${money(plan.total)} goes out of your ${plan.mode === 'cash' ? 'cash' : 'bank'}, one payment per bill.`, 'Each bill becomes paid; MSMED and Rule 37 clocks stop for them.'],
     figures: { total: plan.total, bills: plan.payments.length, balance: plan.balance, after: plan.after, date: plan.date, billIds: plan.payments.map((p) => p.billId) },
+  };
+}
+
+const SUPPLY_REASONS = { SKU_REQUIRED: 'Say which SKU.', BAD_LEAD_DAYS: 'Lead time is whole days, 0 to 365.', BAD_PACK: 'A pack is a whole number of units, at least 1.', BAD_MOQ: 'The minimum order is a whole number.' };
+function skuSupplyPreview(state, args) {
+  const planned = planSkuSupply(state, args);
+  if (!planned.ok) return { blockers: [SUPPLY_REASONS[planned.error] || planned.error], summary: '', effects: [], figures: {} };
+  const p = planned.plan;
+  const was = p.before ? ` Before: ${p.before.supplier || 'no supplier'}, ${p.before.leadDays} days, pack ${p.before.pack}, MOQ ${p.before.moq}.` : '';
+  return {
+    blockers: [],
+    summary: `${p.sku}${p.known ? '' : ' (not yet in the SKU list)'}: supplier ${p.supplier || 'not named'}, lead time ${p.leadDays} days, pack of ${p.pack}, minimum order ${p.moq}.${was}`,
+    effects: ['The restock plan uses these to time and size orders for this SKU.'],
+    figures: { sku: p.sku, leadDays: p.leadDays, pack: p.pack, moq: p.moq },
+  };
+}
+const PO_REASONS = { SUPPLIER_REQUIRED: 'Say which supplier.', LINES_REQUIRED: 'Say what to order: SKU and quantity.', BAD_LINE: 'Each line needs a SKU and a whole positive quantity.', BAD_RATE: 'A rate is a number, zero or more.', INVALID_DATE: 'That is not a date I can read.' };
+function purchaseOrderPreview(state, args) {
+  const planned = planPurchaseOrder(state, args);
+  if (!planned.ok) return { blockers: [PO_REASONS[planned.error] || planned.error], summary: '', effects: [], figures: {} };
+  const p = planned.plan;
+  const lines = p.lines.map((l) => `${l.sku} x ${l.qty}${l.rate != null ? ` at ${money(l.rate)} = ${money(l.amount)}` : ' (no rate known)'}`).join('; ');
+  return {
+    blockers: [],
+    summary: `Purchase order to ${p.supplier} dated ${p.date}: ${lines}${p.total != null ? `; total ${money(p.total)}` : ''}. Expected ${p.expectedOn}.`,
+    effects: ['Nothing posts to the ledger; the quantities count as on order in the restock plan until the bill is booked.'],
+    figures: { supplier: p.supplier, total: p.total, expectedOn: p.expectedOn, lines: p.lines.length },
   };
 }
 
@@ -1397,6 +1425,8 @@ const PREVIEWERS = {
   record_collection_reminder: collectionReminderPreview,
   record_payment_run: paymentRunPreview,
   month_close_approve: monthClosePreview,
+  set_sku_supply: skuSupplyPreview,
+  record_purchase_order: purchaseOrderPreview,
   add_employee: employeePreview,
   approve_payroll: payrollApprovalPreview,
   record_salary_payment: salaryPaymentPreview,

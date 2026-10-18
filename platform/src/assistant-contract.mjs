@@ -17,6 +17,7 @@ import { planReminderFromChat } from './reminder-intent.mjs';
 import { planCollectionFromChat } from './collections-intent.mjs';
 import { planPaymentRunFromChat } from './payment-run-intent.mjs';
 import { planMonthCloseFromChat } from './month-close-intent.mjs';
+import { planRestockFromChat } from './restock-intent.mjs';
 import { planCashFromChat } from './cash-intent.mjs';
 import { planTermsFromChat, takeInvoiceTerms } from './terms-intent.mjs';
 import { localToday } from './dates.mjs';
@@ -1182,6 +1183,30 @@ export const TOOL_ARG_SCHEMAS = {
     properties: { question: { type: 'string', minLength: 3, maxLength: 400 } },
   },
   can_make_payroll: { type: 'object', additionalProperties: false, properties: {} },
+  restock_plan: { type: 'object', additionalProperties: false, properties: { asOf: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' } } },
+  set_sku_supply: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['sku'],
+    properties: {
+      sku: { type: 'string', minLength: 1, maxLength: 40 },
+      supplier: { type: 'string', maxLength: 80 },
+      leadDays: { type: 'integer', minimum: 0, maximum: 365 },
+      pack: { type: 'integer', minimum: 1 },
+      moq: { type: 'integer', minimum: 0 },
+    },
+  },
+  record_purchase_order: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['supplier', 'lines'],
+    properties: {
+      supplier: { type: 'string', minLength: 1, maxLength: 80 },
+      lines: { type: 'array', minItems: 1, maxItems: 50, items: { type: 'object', additionalProperties: false, required: ['sku', 'qty'], properties: { sku: { type: 'string', minLength: 1, maxLength: 40 }, qty: { type: 'integer', minimum: 1 }, rate: { type: 'number', minimum: 0 } } } },
+      date: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' },
+      expectedOn: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' },
+    },
+  },
   month_close: {
     type: 'object',
     additionalProperties: false,
@@ -1782,6 +1807,8 @@ const TOOL_RISK = {
   record_collection_reminder: 'writes_books',
   record_payment_run: 'writes_books',
   month_close_approve: 'writes_books',
+  set_sku_supply: 'writes_books',
+  record_purchase_order: 'writes_books',
   add_employee: 'writes_books',
   approve_payroll: 'writes_books',
   record_salary_payment: 'writes_books',
@@ -2049,6 +2076,8 @@ export function planLocalToolCall(state, message) {
   if (filed) return filed;
   const owed = planOweQuestion(state, text);
   if (owed) return owed;
+  const stock = planRestockFromChat(state, text);
+  if (stock) return stock;
   const closing = planMonthCloseFromChat(state, text);
   if (closing) return closing;
   const run = planPaymentRunFromChat(state, text);

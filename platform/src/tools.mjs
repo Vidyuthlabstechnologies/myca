@@ -19,6 +19,7 @@ import { collectionDrafts, recordCollectionReminder } from './collections.mjs';
 import { paymentRun, recordPaymentRun } from './payment-run.mjs';
 import { weeklyBrief } from './weekly-brief.mjs';
 import { monthCloseOf, approveMonthClose } from './month-close.mjs';
+import { restockPlan, setSkuSupply, recordPurchaseOrder } from './restock.mjs';
 const ingestTally = tally.ingest;
 const ingestBank = bank.ingest;
 const { reconcile } = gst;
@@ -2381,6 +2382,27 @@ export const TOOLS = [
     description: 'Record that the owner is sending a payment reminder to one customer from their own phone, with the message as sent, and set a reminder to check for the payment in seven days. MyCA does not send it.',
     args: ['customer', 'message', 'channel'],
     run: (state, args = {}) => recordCollectionReminder(state, args),
+  },
+  {
+    name: 'restock_plan',
+    title: 'What to reorder',
+    description: 'Per SKU from the stock moves: on hand and on order, units sold a day over 7 and 28 days net of returns and excluding days out of stock, days of cover, a status (too late, order now, order soon, fine, overstock, slow mover, not enough history) against the supplier lead time, and a quantity sized for sixty days plus the lead time rounded to the pack and at least the MOQ. Read-only.',
+    args: ['asOf'],
+    run: (state, args = {}) => restockPlan(state, args),
+  },
+  {
+    name: 'set_sku_supply',
+    title: 'Supplier and lead time for a SKU',
+    description: 'Record which supplier a SKU comes from, the lead time in days, the pack size and the minimum order, so the restock plan can size and time orders.',
+    args: ['sku', 'supplier', 'leadDays', 'pack', 'moq'],
+    run: (state, args = {}) => setSkuSupply(state, args),
+  },
+  {
+    name: 'record_purchase_order',
+    title: 'Record a purchase order',
+    description: 'Record a purchase order to a supplier (SKU, quantity, rate, expected date). It counts as on order in the restock plan; nothing posts to the ledger until the bill comes.',
+    args: ['supplier', 'lines', 'date', 'expectedOn'],
+    run: (state, args = {}) => recordPurchaseOrder(state, args),
   },
   {
     name: 'month_close',
