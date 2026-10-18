@@ -51,6 +51,7 @@ export function createState() {
     monthCloses: {},
     purchaseOrders: [],
     purchaseOrderSeq: 0,
+    advanceTaxPayments: [],
     gstr2b: {},
     reminders: [],
     reminderSeq: 0,
@@ -146,6 +147,7 @@ export function serialize(state) {
     gstReviews: state.gstReviews || {},
     monthCloses: state.monthCloses || {},
     purchaseOrders: state.purchaseOrders || [],
+    advanceTaxPayments: state.advanceTaxPayments || [],
     purchaseOrderSeq: state.purchaseOrderSeq || 0,
     gstr2b: state.gstr2b || {},
     reminders: state.reminders || [],
@@ -322,6 +324,7 @@ export function deserialize(raw) {
   state.gstReviews = raw.gstReviews && typeof raw.gstReviews === 'object' ? raw.gstReviews : {};
   state.monthCloses = raw.monthCloses && typeof raw.monthCloses === 'object' ? raw.monthCloses : {};
   state.purchaseOrders = Array.isArray(raw.purchaseOrders) ? raw.purchaseOrders : [];
+  state.advanceTaxPayments = Array.isArray(raw.advanceTaxPayments) ? raw.advanceTaxPayments : [];
   state.purchaseOrderSeq = Number(raw.purchaseOrderSeq || 0);
   state.gstr2b = raw.gstr2b && typeof raw.gstr2b === 'object' ? raw.gstr2b : {};
   state.reminders = Array.isArray(raw.reminders) ? raw.reminders : [];

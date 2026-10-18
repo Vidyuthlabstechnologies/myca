@@ -6,7 +6,7 @@ export const BOOK_KEYS = new Set([
   'expenses', 'expenseSeq', 'expenseTags',
   'creditNotes', 'creditNoteSeq',
   'debitNotes', 'debitNoteSeq', 'purchaseNotes', 'purchaseNoteSeq',
-  'gstReviews', 'gstr2b', 'monthCloses', 'purchaseOrders', 'purchaseOrderSeq',
+  'gstReviews', 'gstr2b', 'monthCloses', 'purchaseOrders', 'purchaseOrderSeq', 'advanceTaxPayments',
   'reminders', 'reminderSeq',
   'cashReadings', 'customerTerms', 'supplierTerms',
   'caRequests', 'caRequestSeq',

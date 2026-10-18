@@ -20,6 +20,7 @@ import { paymentRun, recordPaymentRun } from './payment-run.mjs';
 import { weeklyBrief } from './weekly-brief.mjs';
 import { monthCloseOf, approveMonthClose } from './month-close.mjs';
 import { restockPlan, setSkuSupply, recordPurchaseOrder } from './restock.mjs';
+import { advanceTax, recordAdvanceTaxPayment } from './advance-tax.mjs';
 const ingestTally = tally.ingest;
 const ingestBank = bank.ingest;
 const { reconcile } = gst;
@@ -2382,6 +2383,20 @@ export const TOOLS = [
     description: 'Record that the owner is sending a payment reminder to one customer from their own phone, with the message as sent, and set a reminder to check for the payment in seven days. MyCA does not send it.',
     args: ['customer', 'message', 'channel'],
     run: (state, args = {}) => recordCollectionReminder(state, args),
+  },
+  {
+    name: 'advance_tax',
+    title: 'Advance tax to set aside',
+    description: 'For an individual or proprietor: profit for the financial year to date scaled to twelve months (both figures shown), tax under the chosen regime from the dated rules, less TDS credit from Form 26AS or marketplace settlements, split into the instalments due 15 June, 15 September, 15 December and 15 March (or the whole by 15 March when presumptive), with what is met, missed or next. Headed "for your CA to confirm" with its assumptions. Read-only.',
+    args: ['regime', 'presumptive', 'otherIncome', 'asOf'],
+    run: (state, args = {}) => advanceTax(state, args),
+  },
+  {
+    name: 'record_advance_tax',
+    title: 'Record an advance tax payment',
+    description: 'Record an advance tax instalment paid from the bank (or cash) with its challan number; posts bank to the advance tax asset so the next instalment is computed net of it.',
+    args: ['amount', 'date', 'challan', 'mode'],
+    run: (state, args = {}) => recordAdvanceTaxPayment(state, args),
   },
   {
     name: 'restock_plan',

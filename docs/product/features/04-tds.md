@@ -118,3 +118,24 @@ to filed returns. TDS on salary is specified with [payroll](05-payroll.md).
 
 - Which filing route: a provider API, or generate the file and let the owner or CA
   upload it? The second needs no onboarding and can ship first.
+
+## Advance tax to set aside (built 2026-10-18)
+
+"How much tax should I set aside?" (or "advance tax", "tax kitna bachana hai") answers for
+an individual or a proprietor: the profit for the financial year to date (sales less credit
+notes, purchases, expenses and approved payroll, before depreciation and the CA's
+adjustments) scaled to twelve months, with both figures shown and the warning that a
+seasonal business should say its expected year instead; the tax under the new regime (or
+the old, when asked) from the dated slab, rebate, surcharge and cess rules; less the TDS
+credit on record (Form 26AS as imported, else TDS 194-O seen in marketplace settlements);
+split into the instalments the dated rule gives (15, 45, 75 and 100 percent by 15 June,
+15 September, 15 December and 15 March, or the whole by 15 March under presumptive
+income), each marked met, missed or next with the amount to pay. Interest under sections
+234B and 234C is named when an instalment was missed and never computed. Under ₹10,000
+net nothing is due and the answer says so. Every answer is headed "for your CA to
+confirm" and ends with its assumptions. A company or a firm is told that it pays at a flat
+rate and should ask its CA.
+
+"Paid advance tax 48,000 challan 0510001234567" is previewed and, on yes, posts bank to
+the advance tax paid asset and reduces what the next instalment asks for.
+

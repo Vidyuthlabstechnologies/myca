@@ -22,6 +22,7 @@ export const REMOTE_QUERY_TOOLS = new Set([
   'can_make_payroll',
   'month_close',
   'restock_plan',
+  'advance_tax',
   'list_employees',
   'list_sales_tax_rates',
   'contractor_payments',

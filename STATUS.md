@@ -36,6 +36,12 @@ and [`README.md`](README.md) for what is left and how it is being done.
 - Deadline engine (GSTR-1/3B/7/9, TDS quarterly, PF, advance tax, ITR) with
   weekend/gazetted-holiday rollover and escalation levels
 - ITR regime comparison (AIS/26AS, old vs new); TDS 194A/C/I/J threshold monitor
+- Advance tax set-aside (2026-10-18): for an individual or proprietor, the year's profit to
+  date scaled to twelve months (both figures shown), tax under the chosen regime from the
+  dated rules, less TDS credit from Form 26AS or marketplace settlements, split into the
+  instalments by 15 June, September, December and March (or the whole by 15 March when
+  presumptive), met, missed or next, interest sections named not computed, headed "for
+  your CA to confirm" with its assumptions; a paid instalment posts bank to advance tax paid
 - Restock from velocity (2026-10-18): per SKU, units sold a day over 7 and 28 days net of
   returns and excluding days out of stock, days of cover against the supplier's lead time,
   a status from too late to overstock, slow movers with the rupees tied up, an order sized
