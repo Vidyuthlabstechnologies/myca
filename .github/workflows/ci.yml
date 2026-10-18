@@ -33,8 +33,11 @@ jobs:
       - name: Desktop app dependencies against the advisory database
         working-directory: platform
         run: npm audit --audit-level=high
+      # Needs Settings -> Code security -> Dependency graph switched on (Advanced Security on a
+      # private repository). Until the owner turns it on, this step reports and does not fail.
       - name: Review new dependencies on a pull request
         if: github.event_name == 'pull_request'
+        continue-on-error: true
         uses: actions/dependency-review-action@da24556b548a50705dd671f47852072ea4c105d9 # v4.7.1
         with:
           fail-on-severity: high
