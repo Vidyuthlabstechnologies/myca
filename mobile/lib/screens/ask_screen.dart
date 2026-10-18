@@ -19,6 +19,7 @@ class AskScreen extends StatefulWidget {
 class _AskScreenState extends State<AskScreen> with ProposalFlow {
   static const _starters = [
     'How is business?',
+    'Dhanda kaisa chal raha hai?',
     'Who owes me?',
     'Who should I chase?',
     'Who do I need to pay?',
