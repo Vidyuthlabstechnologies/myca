@@ -36,6 +36,11 @@ and [`README.md`](README.md) for what is left and how it is being done.
 - Deadline engine (GSTR-1/3B/7/9, TDS quarterly, PF, advance tax, ITR) with
   weekend/gazetted-holiday rollover and escalation levels
 - ITR regime comparison (AIS/26AS, old vs new); TDS 194A/C/I/J threshold monitor
+- Launch gates (2026-10-18): the books column sealed per business with AES-256-GCM under the
+  service key (required on Cloud Run); an access log the owner can read and pgaudit on the
+  database; a written retention policy enforced by a nightly purge thirty days after a
+  deletion; dependency scanning on every push. Still open: a penetration test by an outside
+  firm, and counsel's sign-off on the retention periods
 - Advance tax set-aside (2026-10-18): for an individual or proprietor, the year's profit to
   date scaled to twelve months (both figures shown), tax under the chosen regime from the
   dated rules, less TDS credit from Form 26AS or marketplace settlements, split into the

@@ -28,7 +28,9 @@ async function openingBooks({ name, gstin, state, country }, today) {
   return { ok: true, state: serialize(books), company: books.company };
 }
 
-export function createBusinesses({ db, now = () => Date.now() }) {
+
+import { storedState } from './books-seal.mjs';
+export function createBusinesses({ db, now = () => Date.now(), booksKey = '' }) {
   return {
     async create(userId, { name, gstin = '', state = '', country = '' } = {}) {
       const opening = await openingBooks({ name: String(name ?? ''), gstin: String(gstin ?? ''), state: String(state ?? ''), country: String(country ?? '') }, new Date(now()));
@@ -42,7 +44,7 @@ export function createBusinesses({ db, now = () => Date.now() }) {
         ]);
         const id = business.rows[0].id;
         await q("insert into memberships (user_id, business_id, role) values ($1, $2, 'owner')", [userId, id]);
-        await q('insert into books (business_id, version, state) values ($1, 0, $2::jsonb)', [id, JSON.stringify(opening.state)]);
+        await q('insert into books (business_id, version, state) values ($1, 0, $2::jsonb)', [id, storedState(booksKey, id, JSON.stringify(opening.state))]);
         return { ok: true, business: { id, name: opening.company.name, gstin: opening.company.gstin, role: 'owner' } };
       });
     },

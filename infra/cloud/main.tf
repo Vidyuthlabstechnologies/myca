@@ -101,6 +101,16 @@ resource "google_sql_database_instance" "main" {
     disk_autoresize   = true
     user_labels       = local.labels
 
+    database_flags {
+      name  = "cloudsql.enable_pgaudit"
+      value = "on"
+    }
+
+    database_flags {
+      name  = "pgaudit.log"
+      value = "read,write"
+    }
+
     backup_configuration {
       enabled                        = true
       start_time                     = "20:30"
@@ -178,6 +188,11 @@ resource "random_password" "connector_key" {
   special = false
 }
 
+resource "random_password" "books_key" {
+  length  = 64
+  special = false
+}
+
 locals {
   database_url = "postgres://${google_sql_user.api.name}:${random_password.db.result}@localhost/${google_sql_database.main.name}?host=/cloudsql/${google_sql_database_instance.main.connection_name}"
   secrets = {
@@ -187,6 +202,7 @@ locals {
     "myca-inbound-relay-token"   = random_password.inbound_relay_token.result
     "myca-whatsapp-verify-token" = random_password.whatsapp_verify_token.result
     "myca-connector-key"         = random_password.connector_key.result
+    "myca-books-key"             = random_password.books_key.result
     "myca-whatsapp-app-secret"   = var.whatsapp_app_secret
     "myca-whatsapp-access-token" = var.whatsapp_access_token
   }
@@ -311,6 +327,16 @@ resource "google_cloud_run_v2_service" "api" {
         value_source {
           secret_key_ref {
             secret  = google_secret_manager_secret.api["myca-connector-key"].secret_id
+            version = "latest"
+          }
+        }
+      }
+
+      env {
+        name = "MYCA_BOOKS_KEY"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.api["myca-books-key"].secret_id
             version = "latest"
           }
         }
@@ -591,4 +617,12 @@ resource "google_monitoring_alert_policy" "latency" {
   }
 
   notification_channels = local.alert_channels
+}
+
+resource "google_logging_project_bucket_config" "default" {
+  project        = var.project_id
+  location       = "global"
+  bucket_id      = "_Default"
+  retention_days = var.log_retention_days
+  description    = "Request, job and database audit logs kept for the CERT-In period"
 }

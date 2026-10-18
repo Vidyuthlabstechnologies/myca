@@ -28,8 +28,11 @@ function fail(statusCode, message) {
 // One request, one transaction. The row lock is what lets any number of server
 // instances share a business: the second writer waits, then runs on the first one's
 // result, so document numbers and the ledger chain never fork.
-export function createBooksRunner({ db, now = () => Date.now(), vault }) {
-  async function open(q, businessId, state, version, wanted = []) {
+
+import { openState, storedState } from './books-seal.mjs';
+export function createBooksRunner({ db, now = () => Date.now(), vault, booksKey = '' }) {
+  async function open(q, businessId, sealedState, version, wanted = []) {
+    const state = openState(booksKey, businessId, sealedState);
     const hashes = [...new Set([...referencedHashes(state), ...wanted.filter((hash) => SHA256.test(String(hash)))])];
     const stored = await vault.read(q, businessId, hashes);
     const books = createMemoryBooksStore({ text: JSON.stringify(state), version });
@@ -73,7 +76,7 @@ export function createBooksRunner({ db, now = () => Date.now(), vault }) {
       const out = await run(session);
       await q('update books set state = $2::jsonb, version = version + 1, updated_at = now() where business_id = $1', [
         businessId,
-        books.stored(),
+        storedState(booksKey, businessId, books.stored()),
       ]);
       for (const doc of documents.added()) await vault.write(q, businessId, doc);
       await audit(q, businessId, context, session.state.auditEvents.slice(auditedBefore));
@@ -88,7 +91,7 @@ export function createBooksRunner({ db, now = () => Date.now(), vault }) {
       const before = { invoices: session.state.invoices.length, version: Number(row.version) };
       const out = await session.restore({ ...payload, confirm: true });
       if (out.ok === false) return out;
-      await q('update books set state = $2::jsonb, version = version + 1, updated_at = now() where business_id = $1', [businessId, books.stored()]);
+      await q('update books set state = $2::jsonb, version = version + 1, updated_at = now() where business_id = $1', [businessId, storedState(booksKey, businessId, books.stored())]);
       let stored = 0;
       for (const doc of documents.added()) {
         await vault.write(q, businessId, doc);

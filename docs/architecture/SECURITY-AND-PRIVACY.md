@@ -37,6 +37,16 @@
   - the issuer, the audience (`MYCA_GOOGLE_CLIENT_IDS`) and the expiry.
   The user is found or created by Google's account id, never by email. An email is
   stored only when Google marks it verified.
+- The books column is sealed per business with AES-256-GCM under a key derived from the
+  service's `MYCA_BOOKS_KEY` and the business id (2026-10-18). The service refuses to start on
+  Cloud Run without the key; a row sealed for one business does not open under another; a
+  row from before the key opens and is sealed on its next write. Nothing in the column is
+  readable from a database dump alone.
+- Every request to a business by a signed-in member is written to an access log the owner
+  can read ("who looked at my books", 365 days); the database itself logs every read and
+  write by any role, including the operator, to Cloud Logging for 180 days (pgaudit).
+- A deleted business is purged thirty days after the request, books, documents and audit
+  trail included (`docs/operations/RETENTION.md`).
 - Owner-only settings are enforced in the engine, not only in the app: the invoice design
   (including the bank account printed on invoices) and invoice numbering refuse any actor
   who is not the owner, and both are previewed before they change (2026-10-16). Salary TDS
@@ -173,19 +183,19 @@
 | Gap | Risk | Needed |
 |---|---|---|
 | Not deployed, so no TLS, network policy, backups or monitoring exist | None yet; all of it before the first real user | Deployment design in the cloud backend spec |
-| No encryption of the books column beyond what the database provides | A database administrator can read every business | Decide on per-business envelope encryption |
-| No staff access control or access log for production data | Insider access is invisible | Break-glass access with logging before launch |
+| Books-column encryption is new (2026-10-18) and the service key lives in Secret Manager with the database password | A compromise of both the database and Secret Manager reads every business; rotating the key means re-sealing every row | Rotation procedure and a KMS-held key before the first hundred businesses |
+| Operator access to the database is logged (pgaudit, 180 days) but not gated | An operator can still read rows; what they read is on record | A break-glass role with a ticket reference before launch |
 | No rate limit beyond sign-in codes | Abuse of the API by a signed-in device | Per-device and per-business limits at the edge |
-| Uploads, inbound documents and mail are capped at 200 MB per business; nothing purges a deleted business's data after the grace period | Storage grows until a retention policy exists | The retention decision below, then a purge job |
+| Uploads, inbound documents and mail are capped at 200 MB per business | Storage per business is bounded; growth is from businesses, not abuse | Watch the bucket size |
 | Phone numbers are stored in clear in `users` | Exposure in a breach | Acceptable as the login identifier; revisit with the assessment |
 | Reads write an audit event into the books row | Not a confidentiality risk; a contention and cost issue | Separate read path |
-| Retention policy is not written | Account deletion cannot be completed correctly: tax law requires records to be kept for years, privacy law requires deletion on request | Legal advice, then implement both |
+| Retention policy written and enforced (`docs/operations/RETENTION.md`); the periods await counsel | A period counsel changes means a code change | Counsel's sign-off |
 | The privacy notice is a draft: retention periods and the Grievance Officer are placeholders | Showing it to real users before counsel approves it | Legal review, then a new version id |
 | Staff role has the same permissions as accountant | Over-broad access for a billing clerk | Role review before pilot |
 | Desktop default admin PIN | Known credential on first run | Force a change on first sign-in |
 | The desktop page carries the local API token | Another local user on a shared Windows machine who can reach 127.0.0.1 could call the local API | Hand the token over the Electron preload bridge instead of the page |
 | The app has never run on a device | Keystore and biometric paths unverified | Device testing |
-| No penetration test, no dependency or secret scanning in a working CI | Unknown unknowns | Before launch |
+| No penetration test; dependency scanning runs on every push (npm audit, dependency review on pull requests, Dependabot weekly) and CodeQL on the JavaScript | Unknown unknowns a scanner does not see | A penetration test by an outside firm before launch |
 
 ## 5. Language models
 

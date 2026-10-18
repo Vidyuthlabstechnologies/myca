@@ -43,7 +43,7 @@ test('an accountant on WhatsApp sees the shared books and cannot post when the o
   assert.equal(out.status, 200, out.text);
   assert.match(replies.at(-1).text, /shared with you as they stood/, replies.at(-1).text);
   assert.equal((await api.call('POST', '/v1/whatsapp/webhook', signed(incoming('919700000102', 'wamid.h2', 'yes')))).status, 200);
-  const books = (await api.db.query('select state from books where business_id = $1', [owner.businessId])).rows[0].state;
+  const books = (await api.books(owner.businessId));
   assert.equal(books.invoices.length, 1, 'nothing was posted from the accountant on WhatsApp');
   const own = signed(incoming('919700000101', 'wamid.h3', 'who owes me?'));
   await api.call('POST', '/v1/whatsapp/webhook', own);
@@ -89,7 +89,7 @@ test('inbound documents and mail respect the storage cap, and a sale id is poste
   const ids = new Set(results.map((r) => r.body.invoiceId));
   assert.equal(ids.size, 1, `one invoice for one sale id: ${[...ids].join(',')}`);
   assert.equal(results.filter((r) => r.body.duplicate === false).length, 1);
-  const books = (await api.db.query('select state from books where business_id = $1', [owner.businessId])).rows[0].state;
+  const books = (await api.books(owner.businessId));
   assert.equal(books.invoices.length, 1);
 });
 

@@ -5,6 +5,7 @@ import { createApi } from '../src/api.mjs';
 import { createCaptureSender } from '../src/auth.mjs';
 import { createDb, migrate } from '../src/db.mjs';
 import { PRIVACY_NOTICE } from '../src/consent.mjs';
+import { openState } from '../src/books-seal.mjs';
 
 process.env.MYCA_TRUSTED_PROXY_HOPS = '1';
 
@@ -42,6 +43,8 @@ async function admin(sql) {
   }
 }
 
+export const BOOKS_KEY = 'test-books-key-0123456789abcdef0123456789abcdef';
+
 export async function startApi(options = {}) {
   const name = `myca_t_${randomBytes(6).toString('hex')}`;
   await admin(`create database ${name}`);
@@ -52,7 +55,7 @@ export async function startApi(options = {}) {
   const sender = createCaptureSender();
   const clock = { now: Date.now(), advance(ms) { this.now += ms; } };
   const logs = [];
-  const handler = createApi({ db, secret: SECRET, otpSender: options.phone === false ? null : sender, googleClientIds: [GOOGLE_CLIENT], googleKeys: TEST_GOOGLE_KEYS, oidc: options.oidc || {}, oidcKeys: options.oidcKeys || null, documentVault: options.documentVault || null, connectorKey: options.connectorKey || '', now: () => clock.now, log: (entry) => logs.push(entry), jobToken: options.jobToken || '', inboundEmail: options.inboundEmail || {}, whatsapp: options.whatsapp || {}, whatsappSender: options.whatsappSender || null });
+  const handler = createApi({ db, secret: SECRET, otpSender: options.phone === false ? null : sender, googleClientIds: [GOOGLE_CLIENT], googleKeys: TEST_GOOGLE_KEYS, oidc: options.oidc || {}, oidcKeys: options.oidcKeys || null, documentVault: options.documentVault || null, connectorKey: options.connectorKey || '', booksKey: options.booksKey === undefined ? BOOKS_KEY : options.booksKey, now: () => clock.now, log: (entry) => logs.push(entry), jobToken: options.jobToken || '', inboundEmail: options.inboundEmail || {}, whatsapp: options.whatsapp || {}, whatsappSender: options.whatsappSender || null });
   const server = createServer(handler);
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
   const base = `http://127.0.0.1:${server.address().port}`;
@@ -93,11 +96,16 @@ export async function startApi(options = {}) {
     return { ...session, token: session.accessToken, businessId: created.body.business.id };
   }
 
+  const books = async (businessId) => {
+    const found = await db.query('select state from books where business_id = $1', [businessId]);
+    return openState(options.booksKey === undefined ? BOOKS_KEY : options.booksKey, businessId, found.rows[0].state);
+  };
   return {
     base,
     db,
     sender,
     clock,
+    books,
     logs,
     call,
     signIn,

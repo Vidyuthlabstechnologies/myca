@@ -6,6 +6,7 @@ import { clientIdsFrom } from './google.mjs';
 import { oidcConfigFromEnv } from './oidc.mjs';
 import { createDocumentVault, documentVaultConfigFromEnv } from './document-vault.mjs';
 import { connectorKeyFromEnv } from './connectors.mjs';
+import { booksKeyFromEnv } from './books-seal.mjs';
 import { smsSenderFromEnv } from './sms-sender.mjs';
 import { whatsAppConfigFromEnv, createWhatsAppSender } from './whatsapp.mjs';
 
@@ -54,6 +55,7 @@ const handler = createApi({
   oidc: oidcConfigFromEnv(process.env),
   documentVault: createDocumentVault({ ...documentVaultConfigFromEnv(process.env), log }),
   connectorKey: connectorKeyFromEnv(process.env),
+  booksKey: (() => { const key = booksKeyFromEnv(process.env); if (!key && process.env.K_SERVICE) throw new Error('MYCA_BOOKS_KEY is required on Cloud Run: the books column is sealed with it'); return key; })(),
   jobToken: String(process.env.MYCA_JOB_TOKEN || '').trim(),
   inboundEmail: { domain: String(process.env.MYCA_INBOUND_EMAIL_DOMAIN || '').trim(), relayToken: String(process.env.MYCA_INBOUND_RELAY_TOKEN || '').trim() },
   whatsapp: whatsAppConfigFromEnv(process.env),

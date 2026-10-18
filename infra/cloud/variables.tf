@@ -66,6 +66,12 @@ variable "weekly_job_schedule" {
   default     = "0 7 * * 1"
 }
 
+variable "log_retention_days" {
+  description = "Days Cloud Logging keeps the _Default bucket (CERT-In directions of April 2022 ask for 180)."
+  type        = number
+  default     = 180
+}
+
 variable "daily_job_time_zone" {
   description = "Time zone the daily schedule is read in."
   type        = string

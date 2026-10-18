@@ -113,7 +113,7 @@ test('the audit log records who did what from which device, and cannot be edited
 test('the engine actor is the signed-in member, whatever the request claims', async () => {
   const held = await post('propose', { name: 'create_invoice', args: SALE });
   await post('discard', {});
-  const state = (await api.db.query('select state from books where business_id = $1', [owner.businessId])).rows[0].state;
+  const state = (await api.books(owner.businessId));
   const last = state.auditEvents.at(-1);
   assert.equal(last.action, 'chat.discard');
   assert.equal(last.actorId, owner.user.id);
@@ -121,7 +121,7 @@ test('the engine actor is the signed-in member, whatever the request claims', as
 });
 
 test('stored books carry no PIN material and no file contents', async () => {
-  const text = JSON.stringify((await api.db.query('select state from books where business_id = $1', [owner.businessId])).rows[0].state);
+  const text = JSON.stringify((await api.books(owner.businessId)));
   for (const field of ['pinHash', 'pinSalt', 'lockedUntil']) assert.equal(text.includes(field), false, field);
 });
 

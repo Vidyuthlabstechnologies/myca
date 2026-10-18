@@ -95,7 +95,7 @@ test('a pull is a dry run until MYCA_ENABLE_CHANNEL_PULLS is on; with it the rep
   assert.ok(calls.some((c) => c.includes('/auth/o2/token')), 'the Amazon token was fetched with the stored refresh token');
   const watermark = (await api.db.query('select last_fetched_to from business_connectors where business_id = $1', [asha.businessId])).rows[0].last_fetched_to;
   assert.equal(watermark, '2026-09-15');
-  const books = (await api.db.query('select state from books where business_id = $1', [asha.businessId])).rows[0].state;
+  const books = (await api.books(asha.businessId));
   assert.ok((books.reminders || []).some((r) => /Amazon.*settlement report/.test(r.text)), JSON.stringify(books.reminders));
   const stored = await api.db.query('select sha256 from documents where business_id = $1', [asha.businessId]);
   assert.equal(stored.rowCount, 1, 'the report is kept as a document');
