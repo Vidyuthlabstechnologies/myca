@@ -121,18 +121,24 @@ class _HomeScreenState extends State<HomeScreen> {
         title: const Wordmark(size: 18),
         actions: [
           Padding(
-            padding: const EdgeInsets.only(right: 16),
+            padding: const EdgeInsets.only(right: 9),
             child: Tooltip(
               message: 'Your business',
               child: InkWell(
                 customBorder: const CircleBorder(),
                 onTap: () => showBusinessSheet(context, snapshot),
-                child: TintTile(
-                  tint: Tint.ask,
-                  letter: company.name.trim().isEmpty
-                      ? '?'
-                      : company.name.trim()[0].toUpperCase(),
-                  size: 34,
+                child: SizedBox(
+                  width: 48,
+                  height: 48,
+                  child: Center(
+                    child: TintTile(
+                      tint: Tint.ask,
+                      letter: company.name.trim().isEmpty
+                          ? '?'
+                          : company.name.trim()[0].toUpperCase(),
+                      size: 34,
+                    ),
+                  ),
                 ),
               ),
             ),

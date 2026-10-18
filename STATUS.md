@@ -36,6 +36,10 @@ and [`README.md`](README.md) for what is left and how it is being done.
 - Deadline engine (GSTR-1/3B/7/9, TDS quarterly, PF, advance tax, ITR) with
   weekend/gazetted-holiday rollover and escalation levels
 - ITR regime comparison (AIS/26AS, old vs new); TDS 194A/C/I/J threshold monitor
+- Accessibility and large type (2026-10-18): fourteen screens checked in the suite for 48-point
+  tap targets, labels and text contrast, and rendered at text scale 2.0 with no overflow; the
+  same screens read through the accessibility tree on an Android 15 emulator with TalkBack;
+  two findings fixed (the Home business tile's tap area, the rupee prefix's contrast)
 - Launch gates (2026-10-18): the books column sealed per business with AES-256-GCM under the
   service key (required on Cloud Run); an access log the owner can read and pgaudit on the
   database; a written retention policy enforced by a nightly purge thirty days after a
