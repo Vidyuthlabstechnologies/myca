@@ -16,6 +16,7 @@ import { reviewOf } from './gst-review.mjs';
 import { planReminderFromChat } from './reminder-intent.mjs';
 import { planCollectionFromChat } from './collections-intent.mjs';
 import { planPaymentRunFromChat } from './payment-run-intent.mjs';
+import { planMonthCloseFromChat } from './month-close-intent.mjs';
 import { planCashFromChat } from './cash-intent.mjs';
 import { planTermsFromChat, takeInvoiceTerms } from './terms-intent.mjs';
 import { localToday } from './dates.mjs';
@@ -288,7 +289,7 @@ export const TOOL_ARG_SCHEMAS = {
   create_purchase: {
     ...documentSchema,
     properties: {
-      salesTaxPaid: { type: 'number', minimum: 0 }, ...documentSchema.properties, supplierInvoiceNo: { type: 'string', maxLength: 16 }, ...tdsProperties },
+      salesTaxPaid: { type: 'number', minimum: 0 }, ...documentSchema.properties, supplierInvoiceNo: { type: 'string', maxLength: 16 }, documentSha256: { type: 'string', pattern: '^[0-9a-f]{64}$' }, ...tdsProperties },
   },
   print_invoice: {
     type: 'object',
@@ -1181,6 +1182,21 @@ export const TOOL_ARG_SCHEMAS = {
     properties: { question: { type: 'string', minLength: 3, maxLength: 400 } },
   },
   can_make_payroll: { type: 'object', additionalProperties: false, properties: {} },
+  month_close: {
+    type: 'object',
+    additionalProperties: false,
+    properties: { period: { type: 'string', pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' }, receiptThreshold: { type: 'number', minimum: 0 } },
+  },
+  month_close_approve: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['period', 'draftHash'],
+    properties: {
+      period: { type: 'string', pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' },
+      draftHash: { type: 'string', pattern: '^[0-9a-f]{64}$' },
+      note: { type: 'string', maxLength: 500 },
+    },
+  },
   weekly_brief: {
     type: 'object',
     additionalProperties: false,
@@ -1693,6 +1709,7 @@ export const TOOL_ARG_SCHEMAS = {
     additionalProperties: false,
     required: ['amount'],
     properties: {
+      documentSha256: { type: 'string', pattern: '^[0-9a-f]{64}$' },
       narration: { type: 'string', maxLength: 200 },
       amount: { type: 'number', exclusiveMinimum: 0 },
       gstRate: { type: 'number', minimum: 0, maximum: 28 },
@@ -1764,6 +1781,7 @@ const TOOL_RISK = {
   record_supplier_reminder: 'writes_books',
   record_collection_reminder: 'writes_books',
   record_payment_run: 'writes_books',
+  month_close_approve: 'writes_books',
   add_employee: 'writes_books',
   approve_payroll: 'writes_books',
   record_salary_payment: 'writes_books',
@@ -2031,6 +2049,8 @@ export function planLocalToolCall(state, message) {
   if (filed) return filed;
   const owed = planOweQuestion(state, text);
   if (owed) return owed;
+  const closing = planMonthCloseFromChat(state, text);
+  if (closing) return closing;
   const run = planPaymentRunFromChat(state, text);
   if (run) return run;
   const payment = planPaymentFromChat(state, text);

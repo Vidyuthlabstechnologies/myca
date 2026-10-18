@@ -36,6 +36,11 @@ and [`README.md`](README.md) for what is left and how it is being done.
 - Deadline engine (GSTR-1/3B/7/9, TDS quarterly, PF, advance tax, ITR) with
   weekend/gazetted-holiday rollover and escalation levels
 - ITR regime comparison (AIS/26AS, old vs new); TDS 194A/C/I/J threshold monitor
+- Month close with sign-off (2026-10-18): nine checks for a finished month (entries, possible
+  duplicates, documents for bills and expenses above a threshold, settlements, GSTR-2B, payroll
+  approved and paid, a bank reading, nothing high open, month-on-month moves), a narrative from
+  the figures, approval bound to a draft hash with a note when items are open, and the books
+  locked through the month's last day; a read bill or an expense can carry its document hash
 - Cash forecast with confidence (2026-10-18): a timing band per customer from their last
   twelve receipts (capped at half, thin history said so), 30/60/90-day windows with low,
   expected and high, bills on their MSMED or agreed pay-by date, salaries, PF, ESI and salary

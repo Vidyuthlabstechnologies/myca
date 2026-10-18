@@ -434,7 +434,7 @@ export function createPurchase(state, input) {
   }
   if (tds) recordTdsEntry(state, tds, id);
   const bill = {
-    id, ...(supplierInvoiceNo ? { supplierInvoiceNo } : {}), date, partyName: vendor.name, partyGstin: vendor.gstin, partyState: vendor.state,
+    id, ...(supplierInvoiceNo ? { supplierInvoiceNo } : {}), ...(/^[0-9a-f]{64}$/i.test(String(input.documentSha256 || '')) ? { documentSha256: String(input.documentSha256).toLowerCase() } : {}), date, partyName: vendor.name, partyGstin: vendor.gstin, partyState: vendor.state,
     partyAccountId: vendor.accountId,
     lines, taxable, cgst, sgst, igst, total, status: 'posted', kind: 'purchase',
     ...docFieldsFor(reg),

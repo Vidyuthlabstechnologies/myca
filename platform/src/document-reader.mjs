@@ -103,7 +103,7 @@ export async function readDocument(state, args = {}) {
       documentSha256: sha,
       kind: 'supplier_bill',
       extracted: read.extracted,
-      proposal: { tool: proposal.tool, args: proposal.args },
+      proposal: { tool: proposal.tool, args: { ...proposal.args, documentSha256: sha } },
       confidence: proposal.confidence,
       warnings: proposal.warnings,
       note: 'A model read the page; MyCA computed nothing from it. The purchase is previewed from these figures and posts only when you confirm.',

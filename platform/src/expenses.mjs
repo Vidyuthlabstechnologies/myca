@@ -242,6 +242,7 @@ export function postExpense(state, args = {}) {
     headName: plan.tag.headName,
     description: plan.description,
     payee: plan.payee,
+    ...(/^[0-9a-f]{64}$/i.test(String(args.documentSha256 || '')) ? { documentSha256: String(args.documentSha256).toLowerCase() } : {}),
     supplierGstin: plan.supplierGstin,
     mode: plan.mode,
     amount: plan.amount,

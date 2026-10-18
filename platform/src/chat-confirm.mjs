@@ -10,6 +10,7 @@ import { randomBytes } from 'node:crypto';
 import { planExpense } from './expenses.mjs';
 import { planCollectionReminder } from './collections.mjs';
 import { planPaymentRun } from './payment-run.mjs';
+import { planMonthClose } from './month-close.mjs';
 import { planInvoiceTemplate } from './invoice-template.mjs';
 import { salaryPrivate } from './employees.mjs';
 import { aaBankFeed } from './aa-import.mjs';
@@ -59,7 +60,7 @@ import { planAmendment } from './invoice-amendments.mjs';
 import { tallyXmlToDayBookCsv } from './tally-xml.mjs';
 
 export const CONFIRM_TOOLS = new Set([
-  'create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'record_filing', 'record_supplier_reminder', 'record_collection_reminder', 'record_payment_run', 'add_employee', 'change_salary', 'end_employment', 'approve_payroll', 'record_salary_payment', 'set_tds_deductor', 'record_tds_deposit', 'tds_review_answer', 'set_gst_credit_opening', 'record_gst_payment', 'close_year', 'post_expense', 'set_expense_head', 'create_credit_note', 'create_debit_note', 'create_purchase_note', 'record_supplier_debit_note', 'cancel_invoice', 'gst_review_answer', 'import_gstr2b', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'set_party_address', 'set_transport', 'set_sales_tax_rate', 'set_contractor', 'set_sales_tax_nexus', 'sales_tax_review_answer', 'record_sales_tax_payment', 'record_sales_tax_filing', 'set_withholding', 'set_suta_rate', 'import_us_invoices', 'import_pos_sales', 'import_settlement', 'import_marketplace_orders', 'import_tcs_statement', 'import_26as_credits', 'record_stock', 'record_stock_transfer', 'set_sku_cost', 'import_sku_costs', 'value_inventory', 'set_registration', 'retire_registration', 'set_channel_identity', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote', 'amend_invoice',
+  'create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'record_filing', 'record_supplier_reminder', 'record_collection_reminder', 'record_payment_run', 'month_close_approve', 'add_employee', 'change_salary', 'end_employment', 'approve_payroll', 'record_salary_payment', 'set_tds_deductor', 'record_tds_deposit', 'tds_review_answer', 'set_gst_credit_opening', 'record_gst_payment', 'close_year', 'post_expense', 'set_expense_head', 'create_credit_note', 'create_debit_note', 'create_purchase_note', 'record_supplier_debit_note', 'cancel_invoice', 'gst_review_answer', 'import_gstr2b', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'set_party_address', 'set_transport', 'set_sales_tax_rate', 'set_contractor', 'set_sales_tax_nexus', 'sales_tax_review_answer', 'record_sales_tax_payment', 'record_sales_tax_filing', 'set_withholding', 'set_suta_rate', 'import_us_invoices', 'import_pos_sales', 'import_settlement', 'import_marketplace_orders', 'import_tcs_statement', 'import_26as_credits', 'record_stock', 'record_stock_transfer', 'set_sku_cost', 'import_sku_costs', 'value_inventory', 'set_registration', 'retire_registration', 'set_channel_identity', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote', 'amend_invoice',
   'set_invoice_template', 'set_invoice_numbering',
   'import_tally', 'import_tally_xml', 'import_zoho', 'import_bank',
   'govt_generate_irn', 'govt_nic_cancel_irn',
@@ -450,6 +451,28 @@ function paymentRunPreview(state, args) {
     summary: `Pay ${money(plan.total)} to ${new Set(plan.payments.map((p) => p.supplier)).size === 1 ? plan.payments[0].supplier : `${new Set(plan.payments.map((p) => p.supplier)).size} suppliers`} across ${plan.payments.length === 1 ? '1 bill' : `${plan.payments.length} bills`} from ${plan.mode === 'cash' ? 'cash' : 'the bank'} on ${plan.date}: ${lines.join('; ')}. Bank and cash ${money(plan.balance)} before, ${money(plan.after)} after.${cash}`,
     effects: [`${money(plan.total)} goes out of your ${plan.mode === 'cash' ? 'cash' : 'bank'}, one payment per bill.`, 'Each bill becomes paid; MSMED and Rule 37 clocks stop for them.'],
     figures: { total: plan.total, bills: plan.payments.length, balance: plan.balance, after: plan.after, date: plan.date, billIds: plan.payments.map((p) => p.billId) },
+  };
+}
+
+const MONTH_CLOSE_REASONS = {
+  INVALID_PERIOD: () => 'Say the month as 2026-09.',
+  MONTH_NOT_OVER: (p) => `${p.period} is not over yet; close it from ${p.lastDay} onwards.`,
+  DRAFT_CHANGED: () => 'The books changed since that close was drafted; say "close the month" again and approve the fresh one.',
+  ALREADY_CLOSED: (p) => `${p.period} was closed on ${p.closedOn}.`,
+  NOTE_REQUIRED: (p) => `${p.needsYou.length} ${p.needsYou.length === 1 ? 'check needs' : 'checks need'} you (${p.needsYou.join(', ')}); add a note saying why you are closing anyway, for example "approve the close: the two Mehta bills are different consignments".`,
+};
+function monthClosePreview(state, args) {
+  const planned = planMonthClose(state, args);
+  if (!planned.ok) {
+    const reason = MONTH_CLOSE_REASONS[planned.error];
+    return { blockers: [reason ? reason(planned) : planned.error], summary: '', effects: [], figures: {} };
+  }
+  const d = planned.close;
+  return {
+    blockers: [],
+    summary: `Sign off ${d.month}: ${d.checks.length - d.needsYou.length} of ${d.checks.length} checks passed${d.needsYou.length ? `; open: ${d.needsYou.join(', ')}` : ''}.${planned.note ? ` Note: ${planned.note}` : ''} ${d.narrative}`,
+    effects: [`The books lock through ${d.lastDay}; nothing dated on or before it can be posted or changed without unlocking.`, 'The close, its open items and the note are kept with the books.'],
+    figures: { period: d.period, draftHash: d.draftHash, openItems: d.needsYou, lockThrough: d.lastDay },
   };
 }
 
@@ -1373,6 +1396,7 @@ const PREVIEWERS = {
   record_supplier_reminder: supplierReminderPreview,
   record_collection_reminder: collectionReminderPreview,
   record_payment_run: paymentRunPreview,
+  month_close_approve: monthClosePreview,
   add_employee: employeePreview,
   approve_payroll: payrollApprovalPreview,
   record_salary_payment: salaryPaymentPreview,

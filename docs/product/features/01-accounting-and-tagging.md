@@ -155,3 +155,21 @@ the owner makes the transfers from their bank app. In the app, "Who to pay" on t
 screen shows the same list with a tick per bill (`payment_run` is a remote query,
 `record_payment_run` is previewed and confirmed).
 
+## Close the month (built 2026-10-18)
+
+"Close the month" (or "close September", "mahina band karo") runs nine checks on a
+finished month and answers each in words: entries posted; possible duplicates (same party,
+amount within a rupee, dated within five days, across invoices, bills and expenses);
+bills and expenses above ₹5,000 with no document (a bill read from a photo or an expense
+posted with its document keeps the hash); marketplace settlements matched; GSTR-2B loaded;
+payroll approved and paid; a bank balance given in the month; nothing high or critical
+open; and any line that moved more than a tenth on the month before, with both figures.
+A short narrative follows, built only from the figures.
+
+"Approve the close" signs it off. The approval is bound to the draft, so a close drafted
+before the books changed cannot be approved by mistake; when checks are open the owner has
+to say why ("approve the close: the two Mehta bills are different consignments") and the
+note and the open items are kept with the close. On yes the books lock through the last
+day of the month, so nothing dated inside it can be posted or changed without unlocking.
+Never a forecast before the close, never an automatic fix of a duplicate.
+

@@ -18,6 +18,7 @@ import { salaryPrivate } from './employees.mjs';
 import { collectionDrafts, recordCollectionReminder } from './collections.mjs';
 import { paymentRun, recordPaymentRun } from './payment-run.mjs';
 import { weeklyBrief } from './weekly-brief.mjs';
+import { monthCloseOf, approveMonthClose } from './month-close.mjs';
 const ingestTally = tally.ingest;
 const ingestBank = bank.ingest;
 const { reconcile } = gst;
@@ -572,7 +573,7 @@ export const TOOLS = [
     name: 'create_purchase',
     title: 'Record purchase bill',
     description: 'Book a supplier invoice: purchases + AP (with GST input credit in India; in the US any sales tax paid is part of the cost).',
-    args: ['partyName', 'partyGstin', 'lines', 'date', 'supplierInvoiceNo', 'salesTaxPaid'],
+    args: ['partyName', 'partyGstin', 'lines', 'date', 'supplierInvoiceNo', 'salesTaxPaid', 'documentSha256'],
     run: (state, args) => (countryOf(state) === 'US' ? createUsPurchase(state, args) : createPurchase(state, args)),
   },
   {
@@ -2382,6 +2383,20 @@ export const TOOLS = [
     run: (state, args = {}) => recordCollectionReminder(state, args),
   },
   {
+    name: 'month_close',
+    title: 'Close the month',
+    description: 'Nine checks for a finished month: entries posted, possible duplicates (same party, amount within a rupee, within five days), bills and expenses above a threshold with no document, marketplace settlements matched, GSTR-2B loaded, payroll approved and paid, a bank balance given in the month, nothing high or critical open, month-on-month moves above a tenth; plus a short narrative from the figures and a draft hash for the sign-off. Read-only.',
+    args: ['period', 'receiptThreshold'],
+    run: (state, args = {}) => monthCloseOf(state, args),
+  },
+  {
+    name: 'month_close_approve',
+    title: 'Sign off the month',
+    description: 'Approve the month close bound to its draft hash; open items need a note and are kept with the close; the books lock through the last day of the month.',
+    args: ['period', 'draftHash', 'note'],
+    run: (state, args = {}) => approveMonthClose(state, args),
+  },
+  {
     name: 'weekly_brief',
     title: 'Weekly brief',
     description: 'The week in one message: cash with its change on last week and the runway in months, sales this week and this month with deltas, what customers owe in 0-30, 31-60 and over-60-day buckets with the worst late payers, what is owed to suppliers and any MSME bill past its date, what is due this week, open exceptions, and the one thing to do. Read-only.',
@@ -2486,7 +2501,7 @@ export const TOOLS = [
     name: 'post_expense',
     title: 'Post expense',
     description: 'Record an expense paid from bank or cash under the right head. The head is chosen from what you tagged before, then from the words, else Other expenses. Input credit only with the supplier GSTIN.',
-    args: ['narration', 'amount', 'gstRate', 'date', 'mode', 'payee', 'supplierGstin', 'head'],
+    args: ['narration', 'amount', 'gstRate', 'date', 'mode', 'payee', 'supplierGstin', 'head', 'documentSha256'],
     run: (state, args) => postExpense(state, args),
   },
   {

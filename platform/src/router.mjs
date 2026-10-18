@@ -46,6 +46,7 @@ import { inWords as monthWords } from './words.mjs';
 import { collectionsInWords } from './collections.mjs';
 import { paymentRunInWords } from './payment-run.mjs';
 import { weeklyBriefWords } from './weekly-brief.mjs';
+import { monthCloseWords } from './month-close.mjs';
 
 function money(n) {
   return formatMoneyCurrent(Number(n) || 0);
@@ -85,6 +86,9 @@ const FAILURES = {
   NO_LINES: () => 'There is nothing to put on it, so nothing was changed.',
   ZERO_AMOUNT: () => 'It comes to nothing, so nothing was changed.',
   SETUP_REQUIRED: () => 'Set up the business first: its name and GSTIN, or its state if it is not registered. Nothing was changed.',
+  MONTH_NOT_OVER: (r) => `${r.period || 'That month'} is not over yet; close it from ${r.lastDay || 'the first of next month'} onwards.`,
+  ALREADY_CLOSED: (r) => `${r.period || 'That month'} was closed on ${r.closedOn || 'an earlier day'}.`,
+  NOTE_REQUIRED: (r) => `${(r.needsYou || []).length} checks still need you; add a note saying why you are closing anyway.`,
   NO_EMPLOYEES: () => 'There are no employees on the books, so there is no payroll to make.',
   NO_PAYROLL_IN_VIEW: () => 'No salary day falls in the next sixty days: approve a payroll month first.',
   NOTHING_TO_PAY: () => 'Nothing needs paying right now.',
@@ -570,6 +574,8 @@ function fmtToolResult(name, result) {
   if (name === 'collection_drafts' && result.data) return collectionsInWords(result.data);
   if (name === 'payment_run' && result.data) return paymentRunInWords(result.data, money);
   if (name === 'weekly_brief' && result.data) return weeklyBriefWords(result.data, money);
+  if (name === 'month_close' && result.data) return monthCloseWords(result.data, money);
+  if (name === 'month_close_approve' && result.period) return `${result.month} is closed as of ${result.on}; the books are locked through ${result.lockThrough}.${result.openItems.length ? ` Open items kept with the close: ${result.openItems.join(', ')}.` : ''}`;
   if (name === 'record_payment_run' && result.posted) return `Paid ${money(result.total)} across ${result.posted.length === 1 ? '1 bill' : `${result.posted.length} bills`} from ${result.mode === 'cash' ? 'cash' : 'the bank'} on ${result.date}: ${result.posted.map((p) => `${p.supplier} ${money(p.amount)} (${p.billId})`).join('; ')}. Bank and cash now ${money(result.after)}.`;
   if (name === 'record_collection_reminder' && result.reminder) return `Recorded the ${result.reminder.tone} reminder to ${result.reminder.customer} for ${money(result.reminder.total)} on ${result.reminder.date}. Send it from your phone now; I will remind you to check for the payment in a week.`;
   if (name === 'supplier_reminder_draft' && result.data) {
