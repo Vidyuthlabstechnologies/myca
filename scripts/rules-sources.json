@@ -1,0 +1,13 @@
+{
+  "note": "Official pages whose change means a dated rule may need adding. The watcher only detects change; a person reads the page and adds the record (docs/product/RULES-CURRENCY.md).",
+  "sources": [
+    { "id": "cbic-central-tax-notifications", "family": "gst.*, due-date.*", "url": "https://taxinformation.cbic.gov.in/content-page/explore-notification", "what": "CBIC central tax and rate notifications" },
+    { "id": "gst-portal-news", "family": "due-date.*, gst.*", "url": "https://www.gst.gov.in/newsandupdates", "what": "GST portal news and updates (extensions, portal changes)" },
+    { "id": "cbdt-circulars", "family": "tds.*, income-tax.*, audit-threshold.*", "url": "https://incometaxindia.gov.in/Pages/communications/circulars.aspx", "what": "CBDT circulars" },
+    { "id": "cbdt-notifications", "family": "tds.*, income-tax.*", "url": "https://incometaxindia.gov.in/Pages/communications/notifications.aspx", "what": "CBDT notifications" },
+    { "id": "epfo-circulars", "family": "payroll.epf.*", "url": "https://www.epfindia.gov.in/site_en/Circulars.php", "what": "EPFO circulars (wage ceiling, contribution rates, admin charges)" },
+    { "id": "esic-circulars", "family": "payroll.esi.*", "url": "https://www.esic.gov.in/circulars", "what": "ESIC circulars (wage ceiling, contribution rates)" },
+    { "id": "dopt-holidays", "family": "holiday.*", "url": "https://dopt.gov.in/holidays", "what": "DoPT holiday memoranda for the next calendar year" },
+    { "id": "irs-information-returns", "family": "us.federal.*", "url": "https://www.irs.gov/instructions/i1099gi", "what": "IRS general instructions for information returns" }
+  ]
+}
