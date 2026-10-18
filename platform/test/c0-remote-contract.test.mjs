@@ -17,7 +17,10 @@ const SALE = {
 };
 
 function session() {
-  return openSession(join(mkdtempSync(join(tmpdir(), 'myca-c0-')), 'state.json'));
+  const s = openSession(join(mkdtempSync(join(tmpdir(), 'myca-c0-')), 'state.json'));
+  s.state.company = { ...s.state.company, name: 'Test Co', gstin: '27AABCU9603R1ZN', state: '27', pan: 'AABCU9603R' };
+  delete s.state.company.setupNeeded;
+  return s;
 }
 
 test('confirmPending posts once and replays the same answer for a repeated token', async () => {

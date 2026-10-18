@@ -133,6 +133,7 @@ export function lastGstRateFor(state, { name, gstin }, kind = 'sale') {
 
 export function createInvoice(state, input) {
   const company = state.company;
+  if (company?.setupNeeded) return { ok: false, error: 'SETUP_REQUIRED' };
   const regd = regArg(state, input.registrationGstin);
   if (!regd.ok) return regd;
   const reg = regd.registration;
@@ -336,6 +337,7 @@ export function ensureVendor(state, { name, gstin, stateCode }) {
 
 export function createPurchase(state, input) {
   const company = state.company;
+  if (company?.setupNeeded) return { ok: false, error: 'SETUP_REQUIRED' };
   const regd = regArg(state, input.registrationGstin);
   if (!regd.ok) return regd;
   const reg = regd.registration;

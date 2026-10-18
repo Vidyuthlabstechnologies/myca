@@ -84,6 +84,7 @@ const FAILURES = {
   RATE_REQUIRED: () => 'A GST rate is needed for each item; MyCA does not assume one. Nothing was changed.',
   NO_LINES: () => 'There is nothing to put on it, so nothing was changed.',
   ZERO_AMOUNT: () => 'It comes to nothing, so nothing was changed.',
+  SETUP_REQUIRED: () => 'Set up the business first: its name and GSTIN, or its state if it is not registered. Nothing was changed.',
   NOTHING_TO_PAY: () => 'Nothing needs paying right now.',
   BILLS_NOT_PAYABLE: (r) => `Some bills cannot be paid: ${(r.problems || []).map((x) => `${x.billId} (${String(x.reason || x.error || '').toLowerCase().replace(/_/g, ' ')})`).join('; ')}. Nothing was paid.`,
   PAYMENT_FAILED: (r) => `Paying ${r.billId} failed (${String(r.cause || '').toLowerCase().replace(/_/g, ' ')}); ${(r.posted || []).length} earlier ${(r.posted || []).length === 1 ? 'payment was' : 'payments were'} posted.`,

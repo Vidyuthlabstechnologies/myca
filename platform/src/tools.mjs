@@ -223,6 +223,7 @@ export const TOOLS = [
         patch.pin = pin ? Number(pin) : '';
       }
       Object.assign(company, patch);
+      if (company.name && company.setupNeeded) delete company.setupNeeded;
       return ok({ company });
     },
   },

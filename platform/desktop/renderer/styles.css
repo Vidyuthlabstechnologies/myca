@@ -531,3 +531,36 @@ body {
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; }
 }
+
+
+.setup {
+  position: fixed; inset: 0; z-index: 50;
+  background: rgba(12, 18, 32, 0.86);
+  backdrop-filter: blur(6px);
+  display: flex; align-items: center; justify-content: center; padding: 24px;
+}
+.setup[hidden] { display: none; }
+.setup-card {
+  width: min(44rem, 100%);
+  background: var(--raised);
+  border: 1px solid var(--line-strong);
+  border-radius: 16px;
+  padding: 28px 30px;
+  box-shadow: 0 30px 60px rgba(0,0,0,.4);
+}
+.setup-kicker { margin: 0 0 6px; font-size: .68rem; letter-spacing: .14em; text-transform: uppercase; color: var(--saffron); }
+.setup-card h2 { margin: 0 0 8px; font-family: var(--display); font-weight: 500; font-size: 1.6rem; color: var(--ink); }
+.setup-lede { margin: 0 0 18px; color: var(--muted); font-size: .92rem; line-height: 1.5; }
+.setup-help { font-size: .7rem; letter-spacing: 0; text-transform: none; color: var(--muted); }
+.setup-error { grid-column: 1 / -1; margin: 0; color: var(--warn); font-size: .88rem; }
+.setup-choices { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.setup-choice {
+  text-align: left; font: inherit; cursor: pointer;
+  background: #0e1522; color: var(--ink);
+  border: 1px solid var(--line-strong); border-radius: 12px; padding: 14px 16px;
+  display: flex; flex-direction: column; gap: 4px;
+}
+.setup-choice:hover { border-color: var(--saffron); }
+.setup-choice b { font-size: .98rem; }
+.setup-choice span { font-size: .8rem; color: var(--muted); }
+@media (max-width: 640px) { .setup-choices { grid-template-columns: 1fr; } .govt-form { grid-template-columns: 1fr; } }

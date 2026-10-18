@@ -107,6 +107,7 @@ test('a session refuses to overwrite books that changed underneath it', async ()
 test('opening by path still works and uses the file stores', async () => {
   const path = join(tempDir(), 'state.json');
   const session = openSession(path);
+  await session.updateCompany({ name: 'Test Co', gstin: '27AABCU9603R1ZN' });
   assert.equal(session.path.endsWith('state.json'), true);
   const { preview } = await session.propose('create_invoice', SALE);
   await session.confirm(preview.token);

@@ -47,8 +47,14 @@ test('a new business is set up, trades for a month, imports its bank and marketp
   assert.equal(health.ok, true);
   const snapshot0 = await api('/api/snapshot', undefined, 'GET');
   assert.equal((snapshot0.invoices || snapshot0.recentInvoices || []).length, 0, 'a fresh install has no demo invoices');
+  assert.equal(snapshot0.company.setupNeeded, true, 'a fresh install asks for the business first');
+  assert.equal(snapshot0.company.name, '');
+  assert.match(snapshot0.company.fy, /^\d{4}-\d{2}$/);
 
   assert.equal((await api('/api/company', { name: 'Nalanda Textiles', gstin: '27AABCU9603R1ZN', state: '27', pan: 'AABCU9603R' })).ok, true);
+  const snapshot1 = await api('/api/snapshot', undefined, 'GET');
+  assert.equal(snapshot1.company.setupNeeded, undefined, 'setup is done once the business is named');
+  assert.equal(snapshot1.company.pan, 'AABCU9603R');
   await say('company profile', /Nalanda Textiles|27AABCU9603R1ZN/);
   await say('we deduct TDS, TAN MUMN12345A', /MUMN12345A/);
   await say('yes', /MUMN12345A|deduct/i);

@@ -203,8 +203,10 @@ no live switch, no CA approvals, and no bytes leaving the PC.
 
 - The AES-256-GCM vault fallback is not hardware-backed; the shipped Electron app uses
   real DPAPI via `safeStorage`.
-- A fresh install opens with empty books (2026-10-16); sample books load only through
-  `seed_demo`, so demo invoices never mix into a real company's returns.
+- A fresh install opens with empty books and a blank business (2026-10-18): the desktop shows a
+  two-step setup (name and GSTIN, with the state and PAN derived; then Tally, Zoho, a bank
+  statement or fresh books) and nothing can post until the business is named; sample books
+  load only through `seed_demo`.
 - The desktop serves its API token inside the page it renders; on a shared Windows
   machine another local user who can reach 127.0.0.1 could read it. Moving the token to
   the Electron preload bridge is the fix; not done yet.

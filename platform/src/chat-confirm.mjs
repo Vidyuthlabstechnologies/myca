@@ -282,6 +282,7 @@ function documentPreview(state, args, kind) {
   const company = state.company || {};
   const date = postingDate(args.date);
   const blockers = [];
+  if (company.setupNeeded) blockers.push('Set up the business first: its name and GSTIN, or its state if it is not registered.');
   if (!date) blockers.push(`${args.date} is not a date I can read.`);
   else if (isPeriodLocked(state, date)) blockers.push(`${date} is inside the locked period (through ${state.lockThrough}).`);
   const sale = kind === 'sale';

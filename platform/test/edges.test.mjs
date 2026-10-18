@@ -806,6 +806,7 @@ test('store: state paths are constrained before file reads', () => {
 test('session: overlapping tools get unique invoice numbers', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'myca-edge-'));
   const sess = openSession(join(dir, 'MyCA', 'state.json'));
+  await sess.updateCompany({ name: 'Test Co', gstin: '27AABCU9603R1ZN' });
   sess.state.invoices = [];
   sess.state.purchases = [];
   sess.state.invoiceSeq = 0;
@@ -1175,6 +1176,7 @@ test('backup/restore: round-trips books, clients and documents', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'myca-backup-'));
   const path = join(dir, 'MyCA', 'state.json');
   const sess = openSession(path);
+  await sess.updateCompany({ name: 'Test Co', gstin: '27AABCU9603R1ZN' });
   sess.state.invoices = [];
   sess.state.invoiceSeq = 0;
   sess.state.parties = [];
@@ -1219,6 +1221,7 @@ test('period lock: rejects postings on or before the locked date, allows after',
 test('period lock: applies per client book, not to SELF', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'myca-lock-'));
   const sess = openSession(join(dir, 'MyCA', 'state.json'));
+  await sess.updateCompany({ name: 'Test Co', gstin: '27AABCU9603R1ZN' });
   await sess.tool('add_client', { clientId: 'CL-1', name: 'Beta', state: '29' });
   await sess.tool('set_active_client', { clientId: 'CL-1' });
   assert.equal((await sess.tool('lock_period', { through: '2026-08-31' })).ok, true);

@@ -38,8 +38,8 @@ sales call, no KYC document, no card.
 3. The dashboard opens on the books. Everything stays on the PC; the daily backup and the
    nightly checks are already running.
 
-Done in this branch: fresh install opens with empty books; the setup wizard is specified in
-the desktop review and is the next piece of desktop work.
+Done in this branch: a fresh install opens with empty books and the two-step setup above;
+nothing can post until the business is named.
 
 ### Where people drop off, and the fix
 

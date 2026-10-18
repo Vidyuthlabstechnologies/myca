@@ -27,6 +27,18 @@ function moved(expectedVersion, current) {
   return expectedVersion != null && expectedVersion !== current;
 }
 
+function financialYearOf(iso) {
+  const [y, m] = iso.split('-').map(Number);
+  const start = m >= 4 ? y : y - 1;
+  return `${start}-${String((start + 1) % 100).padStart(2, '0')}`;
+}
+
+export function freshBooks(today = new Date().toISOString().slice(0, 10)) {
+  const state = createState();
+  state.company = { ...state.company, name: '', gstin: '', state: '', pan: '', address: '', fy: financialYearOf(today), setupNeeded: true };
+  return state;
+}
+
 export function createFileBooksStore(path) {
   const safePath = safeStatePath(path);
   let known = null;
@@ -54,6 +66,7 @@ export function createFileBooksStore(path) {
     health,
     load() {
       try {
+        if (!existsSync(safePath)) return { state: freshBooks(), version: '', recovered };
         return { state: loadState(safePath), version: versionOnDisk(), recovered };
       } catch (err) {
         const good = latestGoodBackup(safePath);

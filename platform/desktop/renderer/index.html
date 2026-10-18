@@ -407,6 +407,37 @@
     </div>
   </div>
   <script src="app.js?v=16"></script>
+  <div id="setup" class="setup" hidden role="dialog" aria-modal="true" aria-labelledby="setupTitle">
+    <div class="setup-card">
+      <div id="setupStep1">
+        <p class="setup-kicker">Welcome to MyCA</p>
+        <h2 id="setupTitle">Tell MyCA about the business</h2>
+        <p class="setup-lede">This goes on your invoices and returns. The state and PAN come from the GSTIN.</p>
+        <form id="setupForm" class="govt-form">
+          <label style="grid-column: 1 / -1">Business name <input id="sName" required autocomplete="organization" placeholder="Nalanda Textiles" /></label>
+          <label>GSTIN <input id="sGstin" maxlength="15" placeholder="27AABCU9603R1ZN" /><span class="setup-help">Leave empty if not registered for GST</span></label>
+          <label>State <select id="sState"></select></label>
+          <label>PAN <input id="sPan" maxlength="10" placeholder="From the GSTIN" /></label>
+          <label>Financial year <input id="sFy" readonly /></label>
+          <p id="setupError" class="setup-error" hidden></p>
+          <div class="form-row"><button type="submit" class="btn primary" id="setupContinue">Continue</button></div>
+        </form>
+      </div>
+      <div id="setupStep2" hidden>
+        <p class="setup-kicker">One more thing</p>
+        <h2>Where are your books today?</h2>
+        <p class="setup-lede">Bring them in now, or start fresh. Every import is previewed with counts before it lands, and you can bring more in later from the strip below the chat.</p>
+        <div class="setup-choices">
+          <button type="button" class="setup-choice" data-import="tallyXml" data-say="import tally xml"><b>Tally</b><span>An XML export of the day book</span></button>
+          <button type="button" class="setup-choice" data-import="zoho" data-say="import zoho"><b>Zoho Books</b><span>The invoices CSV</span></button>
+          <button type="button" class="setup-choice" data-import="bank" data-say="import bank"><b>A bank statement</b><span>CSV from net banking</span></button>
+          <button type="button" class="setup-choice" id="setupFresh"><b>Start fresh</b><span>Empty books; first invoice in a sentence</span></button>
+        </div>
+        <input id="setupFile" type="file" accept=".csv,.txt,.xml,.json" hidden />
+        <p id="setupNote" class="setup-lede" hidden></p>
+      </div>
+    </div>
+  </div>
 </body>
 </html>
 
