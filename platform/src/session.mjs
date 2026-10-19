@@ -87,7 +87,7 @@ function conflict(error) {
   return err;
 }
 
-export function openSession(target = defaultDataPath(), { seed = true } = {}) {
+export function openSession(target = defaultDataPath(), { seed = false } = {}) {
   const stores = typeof target === 'string' ? createFileStores(target) : target;
   const path = stores.path || '';
   const loaded = stores.books.load();

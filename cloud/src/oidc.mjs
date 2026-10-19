@@ -2,6 +2,7 @@ import { createPublicKey, verify } from 'node:crypto';
 
 const SKEW_SECONDS = 60;
 const DEFAULT_CACHE_SECONDS = 3600;
+const MIN_REFETCH_MS = 60000;
 const MAX_TOKEN_LENGTH = 8192;
 const ALGORITHMS = { RS256: 'RSA-SHA256', RS384: 'RSA-SHA384', RS512: 'RSA-SHA512' };
 
@@ -24,6 +25,7 @@ export function clientIdsFrom(value) {
 export function createJwksKeys({ url, fetchImpl = fetch, now = () => Date.now(), discover = null } = {}) {
   let cache = { keys: new Map(), expiresAt: 0 };
   let loading = null;
+  let lastLoadAt = -Infinity;
   let jwksUrl = url || '';
 
   async function load() {
@@ -38,12 +40,14 @@ export function createJwksKeys({ url, fetchImpl = fetch, now = () => Date.now(),
       if (jwk.kty === 'RSA' && typeof jwk.kid === 'string') keys.set(jwk.kid, createPublicKey({ key: jwk, format: 'jwk' }));
     }
     cache = { keys, expiresAt: now() + maxAge * 1000 };
+    lastLoadAt = now();
   }
 
   return {
     async get(kid) {
       const fresh = now() < cache.expiresAt;
       if (fresh && cache.keys.has(kid)) return cache.keys.get(kid);
+      if (fresh && now() - lastLoadAt < MIN_REFETCH_MS) return null;
       loading = loading || load().finally(() => { loading = null; });
       await loading;
       return cache.keys.get(kid) || null;

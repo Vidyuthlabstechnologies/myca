@@ -52,7 +52,11 @@ function dayOf(now) {
   return new Date(now).toISOString().slice(0, 10);
 }
 
-export function createInbound({ db, secret, now = () => Date.now(), withBooks, email = {} }) {
+export function createInbound({ db, secret, now = () => Date.now(), withBooks, email = {}, storedBytes = async () => 0, limitBytes = Infinity }) {
+  async function roomFor(businessId, incoming) {
+    const stored = await storedBytes(businessId);
+    return stored + incoming > limitBytes ? fail('STORAGE_FULL', { storedBytes: stored, limitBytes }) : null;
+  }
   const at = () => new Date(now());
   const domain = String(email.domain || '').trim().toLowerCase();
   const addressOf = (token) => (domain && token ? `${token}@${domain}` : '');
@@ -126,7 +130,9 @@ export function createInbound({ db, secret, now = () => Date.now(), withBooks, e
       if (!SALE_ID.test(saleId)) return fail('INVALID_SALE_ID');
       const lines = Array.isArray(body.lines) ? body.lines : [];
       if (!lines.length) return fail('LINES_REQUIRED');
-      const seen = await db.query('select invoice_id as "invoiceId", total from inbound_sales where business_id = $1 and sale_id = $2', [key.businessId, saleId]);
+      return db.tx(async (q) => {
+      await q('select pg_advisory_xact_lock(hashtext($1))', [`${key.businessId}:${saleId}`]);
+      const seen = await q('select invoice_id as "invoiceId", total from inbound_sales where business_id = $1 and sale_id = $2', [key.businessId, saleId]);
       if (seen.rowCount) return { ok: true, invoiceId: seen.rows[0].invoiceId, total: Number(seen.rows[0].total), duplicate: true };
       const context = { userId: null, deviceId: null, requestId };
       const actor = { actor: { userId: `pos:${key.id}`, role: 'staff', name: key.label } };
@@ -141,11 +147,12 @@ export function createInbound({ db, secret, now = () => Date.now(), withBooks, e
       const out = await withBooks(key.businessId, context, (session) => session.tool('create_invoice', args, actor));
       if (out.ok === false) return out;
       const invoice = out.invoice || {};
-      await db.query(
+      await q(
         'insert into inbound_sales (business_id, key_id, sale_id, invoice_id, total, received_at) values ($1, $2, $3, $4, $5, $6) on conflict do nothing',
         [key.businessId, key.id, saleId, String(invoice.id || ''), Number(invoice.total || 0), at()],
       );
       return { ok: true, invoiceId: invoice.id, total: invoice.total, duplicate: false };
+      });
     },
 
     async mail(requestId, body = {}, today) {
@@ -175,6 +182,8 @@ export function createInbound({ db, secret, now = () => Date.now(), withBooks, e
       const text = String(body.text || '').trim();
       if (!files.length && text) files.push({ name: `${(subject || 'mail').replace(/[^A-Za-z0-9 ._-]+/g, ' ').trim().slice(0, 60) || 'mail'}.txt`, content: text });
       if (!files.length) return fail('NOTHING_TO_STORE');
+      const full = await roomFor(key.businessId, files.reduce((sum, file) => sum + Buffer.byteLength(file.content, 'utf8'), 0));
+      if (full) return full;
       const context = { userId: null, deviceId: null, requestId };
       const actor = { actor: { userId: `mail:${key.id}`, role: 'staff', name: key.label } };
       return withBooks(key.businessId, context, async (session) => {
@@ -198,6 +207,8 @@ export function createInbound({ db, secret, now = () => Date.now(), withBooks, e
       const name = String(body.name || '').trim().slice(0, 120);
       const content = typeof body.content === 'string' ? body.content : '';
       if (!name || !content) return fail('EMPTY_FILE');
+      const full = await roomFor(key.businessId, Buffer.byteLength(content, 'utf8'));
+      if (full) return full;
       const context = { userId: null, deviceId: null, requestId };
       const actor = { actor: { userId: `inbox:${key.id}`, role: 'staff', name: key.label } };
       return withBooks(key.businessId, context, async (session) => {

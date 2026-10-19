@@ -34,6 +34,21 @@ business). Attestation is the partner firm's job; adding records is engineering'
 | US federal information reporting (1099-NEC threshold) | `us.federal.*` | IRS General Instructions for Certain Information Returns; the annual inflation adjustment revenue procedure | October or November each year |
 | US state sales tax due dates | `us.salestax.due.<ST>` | Texas Comptroller; California CDTFA; the department of revenue of any new state | Rare; check when a state is added and each January |
 
+## 2a. The pages are watched every night
+
+`scripts/rules-sources.mjs` reads the official pages listed in `scripts/rules-sources.json`,
+strips them to text, and compares a fingerprint with the last accepted reading in
+`scripts/rules-sources.seen.json`. The nightly workflow runs it; a changed page fails the
+job and the nightly issue names the page and the rule family. The watcher changes nothing:
+a person reads the page, adds the dated record if the law changed, and runs the script with
+`--accept` to record the new reading.
+
+Known limit, checked on 17 October 2026: the CBDT, EPFO, ESIC and DoPT sites refuse
+automated reads (HTTP 403 or no answer) and the CBIC notification page is rendered by
+script, so for those families the monthly check in section 3 remains the real control;
+the watcher reports them as unreadable without failing the job. The GST portal news page
+and the IRS instructions are read in full.
+
 ## 3. The monthly check
 
 1. Run `rules_status` (from chat: "rules status", or `node -e` against

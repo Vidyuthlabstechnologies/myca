@@ -1,4 +1,4 @@
-import { isNegated, isQuestion, normalizeChat, receiptAmount, receiptDate } from './intent.mjs';
+import { isNegated, isQuestion, normalizeChat, receiptAmount, receiptDate, saidNonPositiveAmount } from './intent.mjs';
 import { localToday } from './dates.mjs';
 
 const RECEIPT_WORDS = /\b(received|receipt|receive|paid|payment|pays|got|collected)\b/i;
@@ -65,6 +65,7 @@ export function planReceiptWithoutInvoice(state, text) {
   if (unpaid.length === 0) return reply(`${customer.name} has no unpaid invoice, so I have recorded nothing.`);
 
   const amount = receiptAmount(raw);
+  if (amount == null && saidNonPositiveAmount(raw)) return { kind: 'reply', reply: 'An amount of zero or less cannot be received. Say the amount, or leave it out to settle the whole invoice. I have recorded nothing.', tools: [] };
   const exact = amount == null ? [] : unpaid.filter((invoice) => Math.abs(outstandingOf(invoice) - amount) <= EPSILON);
   const chosen = unpaid.length === 1 ? unpaid[0] : exact.length === 1 ? exact[0] : null;
   if (!chosen) {

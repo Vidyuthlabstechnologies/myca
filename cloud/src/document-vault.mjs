@@ -87,6 +87,19 @@ export function createDocumentVault({ bucket = '', fetchImpl = fetch, tokenSourc
       const stored = await q('select sha256, content, location from documents where business_id = $1 order by created_at', [businessId]);
       return contentsOf(businessId, stored.rows);
     },
+    async purge(q, businessId) {
+      const stored = await q('select sha256, location from documents where business_id = $1', [businessId]);
+      let objects = 0;
+      for (const row of stored.rows) {
+        if (row.location !== 'gcs') continue;
+        const name = objectName(businessId, row.sha256);
+        const res = await fetchImpl(`${STORAGE_API}/b/${encodeURIComponent(bucket)}/o/${encodeURIComponent(name)}`, { method: 'DELETE', headers: { authorization: `Bearer ${await token()}` }, signal: AbortSignal.timeout(TIMEOUT_MS) });
+        if (!res.ok && res.status !== 404) throw new Error(`document vault delete: HTTP ${res.status}`);
+        objects += 1;
+      }
+      const removed = await q('delete from documents where business_id = $1', [businessId]);
+      return { rows: removed.rowCount, objects };
+    },
     async write(q, businessId, doc) {
       const bytes = Buffer.byteLength(doc.content, 'utf8');
       if (kind === 'gcs') {

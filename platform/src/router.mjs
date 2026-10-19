@@ -43,6 +43,14 @@ import { certificateWords } from './tds-certificates.mjs';
 import { posImportWords } from './import-pos.mjs';
 import { file1099Words } from './us-1099.mjs';
 import { inWords as monthWords } from './words.mjs';
+import { collectionsInWords } from './collections.mjs';
+import { paymentRunInWords } from './payment-run.mjs';
+import { weeklyBriefWords } from './weekly-brief.mjs';
+import { monthCloseWords } from './month-close.mjs';
+import { restockWords } from './restock.mjs';
+import { advanceTaxWords } from './advance-tax.mjs';
+import { supplierPayoutWords } from './supplier-bank.mjs';
+import { reportWords } from './reports.mjs';
 
 function money(n) {
   return formatMoneyCurrent(Number(n) || 0);
@@ -57,6 +65,9 @@ const FAILURES = {
   PAN_REQUIRED: () => 'Set the company PAN first.',
   TAN_REQUIRED: () => 'Set the deductor TAN first.',
   CA_APPROVAL_REQUIRED: () => 'This operation needs a CA approval: request one (approval_request) and have the CA approve it, then say it again with the approval id.',
+  NOT_A_DEDUCTOR: () => 'This business is not set up to deduct TDS. Say "we deduct TDS, TAN" followed by your TAN first.',
+  NOTHING_TO_REVIEW: (r) => `There are no sales, purchases or credit notes dated in ${r.period || 'that month'}, so there is nothing to review.`,
+  STEP_NOT_READY: (r) => `Confirm the ${r.waitingFor || 'earlier'} step first; the review goes in order.`,
   CONNECTOR_NOT_CONFIGURED: (r) => `${r.channel} is not connected; save its credentials first (${(r.fields || []).join(', ')}).`,
   CONNECTOR_DISABLED: (r) => `${r.channel} is paused; enable it to pull reports.`,
   UNKNOWN_CONNECTOR: (r) => `${r.channel || 'That channel'} has no API connector${r.fileOnly ? `: ${r.fileOnly}` : ''}.`,
@@ -78,6 +89,44 @@ const FAILURES = {
   RATE_REQUIRED: () => 'A GST rate is needed for each item; MyCA does not assume one. Nothing was changed.',
   NO_LINES: () => 'There is nothing to put on it, so nothing was changed.',
   ZERO_AMOUNT: () => 'It comes to nothing, so nothing was changed.',
+  SETUP_REQUIRED: () => 'Set up the business first: its name and GSTIN, or its state if it is not registered. Nothing was changed.',
+  REPORT_NOT_FOUND: (r) => `There is no saved report called ${r.name || 'that'}${(r.known || []).length ? `; you have ${r.known.join(', ')}` : ''}.`,
+  NAME_REQUIRED: () => 'Give the report a name.',
+  BAD_METRIC: (r) => `The report can be of ${r.hint}.`,
+  BAD_GROUP: (r) => `Group it by ${r.hint}.`,
+  BAD_PERIOD: (r) => `The period is ${r.hint}, or a month like 2026-09.`,
+  ENTRY_NOT_FOUND: (r) => `There is no entry ${r.id || 'by that id'}.`,
+  DOCUMENT_NOT_FOUND: () => 'That document is not in these books; upload it first.',
+  BANK_DETAILS_REQUIRED: () => 'Give an account number with its IFSC, or a UPI id.',
+  BAD_ACCOUNT: () => 'An account number is 6 to 20 digits.',
+  BAD_IFSC: () => 'An IFSC is four letters, a zero and six characters, for example HDFC0001234.',
+  BAD_UPI: () => 'A UPI id looks like name@bank.',
+  NOT_AN_INDIVIDUAL: (r) => `MyCA works out advance tax for an individual or a proprietor; this business is a ${r.entityType || 'company or firm'}, which pays at a flat rate. Ask your CA for the figure.`,
+  RULE_MISSING: () => 'MyCA has no advance tax schedule in force for this year, so it will not guess.',
+  SKU_REQUIRED: () => 'Say which SKU.',
+  SUPPLIER_REQUIRED: () => 'Say which supplier.',
+  LINES_REQUIRED: () => 'Say what to order: a SKU and a quantity.',
+  MONTH_NOT_OVER: (r) => `${r.period || 'That month'} is not over yet; close it from ${r.lastDay || 'the first of next month'} onwards.`,
+  ALREADY_CLOSED: (r) => `${r.period || 'That month'} was closed on ${r.closedOn || 'an earlier day'}.`,
+  NOTE_REQUIRED: (r) => `${(r.needsYou || []).length} checks still need you; add a note saying why you are closing anyway.`,
+  NO_EMPLOYEES: () => 'There are no employees on the books, so there is no payroll to make.',
+  NO_PAYROLL_IN_VIEW: () => 'No salary day falls in the next sixty days: approve a payroll month first.',
+  NOTHING_TO_PAY: () => 'Nothing needs paying right now.',
+  BILLS_NOT_PAYABLE: (r) => `Some bills cannot be paid: ${(r.problems || []).map((x) => `${x.billId} (${String(x.reason || x.error || '').toLowerCase().replace(/_/g, ' ')})`).join('; ')}. Nothing was paid.`,
+  PAYMENT_FAILED: (r) => `Paying ${r.billId} failed (${String(r.cause || '').toLowerCase().replace(/_/g, ' ')}); ${(r.posted || []).length} earlier ${(r.posted || []).length === 1 ? 'payment was' : 'payments were'} posted.`,
+  CUSTOMER_NOT_FOUND: (r) => `There is no customer called ${r.customer || 'that'} in these books.`,
+  NOTHING_OVERDUE: (r) => `${r.customer || 'That customer'} has nothing overdue.`,
+  POSSIBLY_PAID: (r) => `${r.customer || 'That customer'} paid something in the last two weeks; match your bank statement before chasing.`,
+  INVALID_GSTIN: (r) => `${r.gstin || 'That GSTIN'} is not a valid GSTIN, so nothing was changed. Check it with the other party.`,
+  NO_ENTRIES: () => 'There is nothing in the books to audit yet.',
+  NOT_FOR_COUNTRY: () => 'That is for a different country edition, so nothing was changed.',
+  NOT_APPROVED: () => 'That month\'s payroll is not approved yet; approve it first.',
+  NOT_FOUND: () => 'I could not find that in these books, so nothing was changed.',
+  CLIENT_NOT_FOUND: () => 'There is no client by that id.',
+  REQUEST_NOT_FOUND: () => 'There is no document request by that id.',
+  MISSING_SANDBOX_CREDENTIALS: () => 'The provider credentials are not saved yet; set them up first.',
+  UNKNOWN_REQUIREMENT: () => 'That is not an integration I know; say "integration readiness" for the list.',
+  amount_must_be_positive: () => 'The amount has to be more than zero, so nothing was changed.',
   INSUFFICIENT_CASH: (r) => `There is not that much cash in hand${r.inHand != null ? ` (${money(r.inHand)})` : ''}. Nothing was changed.`,
 };
 
@@ -92,11 +141,48 @@ function notAccepted(error) {
 function failedInWords(code, result = {}) {
   const plain = FAILURES[code];
   if (plain) return plain(result || {});
-  return `That did not go through${code ? ` (${code})` : ''}, so nothing was changed.`;
+  const words = String(code || '').toLowerCase().replace(/_/g, ' ').trim();
+  return `That did not go through${words ? ` (${words})` : ''}, so nothing was changed.`;
+}
+
+function humanKey(key) {
+  return String(key).replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/_/g, ' ').toLowerCase().replace(/^./, (c) => c.toUpperCase());
+}
+
+function plainValue(value) {
+  if (typeof value === 'number') return Number.isInteger(value) ? String(value) : money(value);
+  if (typeof value === 'boolean') return value ? 'yes' : 'no';
+  return String(value);
+}
+
+function outline(d, depth = 0) {
+  if (d == null || typeof d !== 'object') return plainValue(d);
+  const pad = '  '.repeat(depth);
+  const lines = [];
+  if (Array.isArray(d)) {
+    for (const item of d.slice(0, 12)) {
+      if (item && typeof item === 'object') {
+        const pairs = Object.entries(item).filter(([, v]) => v != null && v !== '' && typeof v !== 'object').map(([k, v]) => `${humanKey(k)} ${plainValue(v)}`);
+        lines.push(`${pad}· ${pairs.join(', ')}`);
+      } else lines.push(`${pad}· ${plainValue(item)}`);
+    }
+    if (d.length > 12) lines.push(`${pad}… and ${d.length - 12} more.`);
+    return lines.join('\n');
+  }
+  for (const [key, value] of Object.entries(d)) {
+    if (value == null || value === '' || key === 'ok' || (Array.isArray(value) && !value.length)) continue;
+    if (typeof value === 'object') {
+      if (depth >= 2) continue;
+      lines.push(`${pad}${humanKey(key)}:`);
+      lines.push(outline(value, depth + 1));
+    } else lines.push(`${pad}${humanKey(key)}: ${plainValue(value)}`);
+  }
+  return lines.join('\n');
 }
 
 function fmtToolResult(name, result) {
   if (result?.error === 'SALARIES_PRIVATE') return 'Only the owner can see or change employees and salaries.';
+  if (result?.error === 'OWNER_ONLY') return result.hint || 'Only the owner can do that.';
   if (!result || result.ok === false) return failedInWords(result?.error, result);
   const d = result.data ?? result.invoice ?? result;
   if (name === 'create_invoice' && result.invoice?.export) {
@@ -110,6 +196,15 @@ function fmtToolResult(name, result) {
       return `Posted ${i.id} to ${i.partyName} on ${i.date} for ${money(i.total)} (${money(i.subtotal)}${i.taxExempt ? `, exempt from sales tax: ${i.exemptionReason}` : ` plus ${money(i.salesTax)} sales tax`}).`;
     }
     return `Posted ${i.id} to ${i.partyName} on ${i.date} for ${money(i.total)} (${money(i.taxable)} plus ${money(i.cgst + i.sgst + i.igst)} GST).`;
+  }
+  if (name === 'can_make_payroll' && result.data) {
+    const d = result.data;
+    const head = { covered: 'Yes.', tight: 'Yes, but it is tight.', short: `No, short by ${money(d.gap)}.` }[d.verdict];
+    const lines = [`${head} ${d.label}${d.estimated ? ' (not run yet; taken as last month)' : ''}: ${money(d.net)} net${d.statutory ? ` plus ${money(d.statutory)} of PF, ESI and TDS around it` : ''} on ${d.payday}. Cash that day before paying: about ${money(d.balanceBefore)}; after: ${money(d.left)}.`];
+    if (d.helpers.length) lines.push(`Money that usually lands before payday if you chase it: ${d.helpers.map((h) => `${h.customer} ${money(h.amount)} on ${h.invoice}${h.usuallyPaysIn != null ? ` (pays in about ${h.usuallyPaysIn} days)` : ''}`).join('; ')}. Say "send reminder to ${d.helpers[0].customer}".`);
+    else if (d.gap > 0) lines.push('No customer usually pays before that date; the gap needs a receipt, a delay on a supplier bill, or money in from you.');
+    if (d.start.source !== 'reading') lines.push('· There is no bank balance from you; say "bank balance is ..." for a true picture.');
+    return lines.join('\n');
   }
   if (name === 'can_afford' && result.data) {
     const d = result.data;
@@ -127,6 +222,8 @@ function fmtToolResult(name, result) {
     return [
       `Bank and cash now: ${money(d.start.amount)}. In ${d.days} days: about ${money(d.end)}.`,
       `Coming in: ${money(d.coming.total)}. Going out: ${money(d.going.total)}. Lowest point: ${money(d.lowest.amount)} on ${d.lowest.date}.`,
+      ...(d.windows || []).map((w) => `${w.from} to ${w.to}: in ${money(w.in.expected)} (between ${money(w.in.low)} and ${money(w.in.high)} by timing), out ${money(w.out)}, ending about ${money(w.end.expected)}.`),
+      ...(d.risks || []).map((r) => `Risk: ${r.text}`),
       d.overdue.total > 0 ? `Overdue and not counted: ${money(d.overdue.total)}.` : '',
       ...d.notes.map((note) => `· ${note}`),
     ].filter(Boolean).join('\n');
@@ -494,6 +591,25 @@ function fmtToolResult(name, result) {
     const r = result.reminder;
     return `Reminder ${r.id} to ${r.supplier} for ${r.period} is ready to send from your phone. Nothing has gone from MyCA.`;
   }
+  if (name === 'collection_drafts' && result.data) return collectionsInWords(result.data);
+  if (name === 'payment_run' && result.data) return paymentRunInWords(result.data, money);
+  if (name === 'weekly_brief' && result.data) return weeklyBriefWords(result.data, money);
+  if (name === 'month_close' && result.data) return monthCloseWords(result.data, money);
+  if (name === 'restock_plan' && result.data) return restockWords(result.data, money);
+  if (name === 'advance_tax' && result.data) return advanceTaxWords(result.data, money);
+  if (name === 'supplier_payout_file' && result.data) return supplierPayoutWords(result.data, money);
+  if (name === 'attach_document' && result.id) return `The document is kept with ${result.kind} ${result.id}${result.replaced ? ', replacing the earlier one' : ''}. Nothing was posted.`;
+  if (name === 'save_report' && result.report) return `Saved "${result.report.name}"${result.replaced ? ' (replacing the earlier one)' : ''}. Say "run report ${result.report.name}" any time.\n${reportWords('', result.result, money)}`;
+  if (name === 'run_report' && result.result) return reportWords(result.name, result.result, money);
+  if (name === 'list_reports' && result.reports) return result.reports.length ? `Saved reports:\n${result.reports.map((r) => `· ${r.name}: ${r.metric}${r.groupBy !== 'none' ? ` by ${r.groupBy}` : ''}, ${r.period}${r.compare ? ', compared with the period before' : ''}`).join('\n')}\nSay "run report <name>".` : 'No saved reports yet. Say "save report Top customers: sales by customer this month vs last month".';
+  if (name === 'delete_report' && result.name) return `Deleted the saved report "${result.name}".`;
+  if (name === 'set_supplier_bank' && result.bank) return `${result.supplier} is paid to ${[result.bank.account ? `account ${result.bank.account} at ${result.bank.ifsc}` : '', result.bank.upi ? `UPI ${result.bank.upi}` : ''].filter(Boolean).join(', ')}${result.changed ? ' (changed from the earlier details)' : ''}. Confirm it on the phone number you have on file before the first payment.`;
+  if (name === 'record_advance_tax' && result.payment) return `Recorded advance tax ${result.payment.id}: ${money(result.payment.amount)} for ${result.payment.fy} on ${result.payment.date}${result.payment.challan ? `, challan ${result.payment.challan}` : ''}.`;
+  if (name === 'set_sku_supply' && result.supply) return `${result.sku}: ${result.supply.supplier || 'no supplier named'}, lead time ${result.supply.leadDays} days, pack of ${result.supply.pack}, minimum order ${result.supply.moq}.`;
+  if (name === 'record_purchase_order' && result.order) return `Recorded ${result.order.id} to ${result.order.supplier}: ${result.order.lines.map((l) => `${l.sku} x ${l.qty}`).join(', ')}${result.order.total != null ? ` for ${money(result.order.total)}` : ''}, expected ${result.order.expectedOn}. Nothing is posted to the ledger.`;
+  if (name === 'month_close_approve' && result.period) return `${result.month} is closed as of ${result.on}; the books are locked through ${result.lockThrough}.${result.openItems.length ? ` Open items kept with the close: ${result.openItems.join(', ')}.` : ''}`;
+  if (name === 'record_payment_run' && result.posted) return `Paid ${money(result.total)} across ${result.posted.length === 1 ? '1 bill' : `${result.posted.length} bills`} from ${result.mode === 'cash' ? 'cash' : 'the bank'} on ${result.date}: ${result.posted.map((p) => `${p.supplier} ${money(p.amount)} (${p.billId})`).join('; ')}. Bank and cash now ${money(result.after)}.`;
+  if (name === 'record_collection_reminder' && result.reminder) return `Recorded the ${result.reminder.tone} reminder to ${result.reminder.customer} for ${money(result.reminder.total)} on ${result.reminder.date}. Send it from your phone now; I will remind you to check for the payment in a week.`;
   if (name === 'supplier_reminder_draft' && result.data) {
     return result.data.message;
   }
@@ -545,7 +661,22 @@ function fmtToolResult(name, result) {
   }
   if (name === 'audit_books') {
     if (!d.summary) return result.error || JSON.stringify(d);
-    return `Audit ${d.summary.flags} flags (high ${d.summary.high} / medium ${d.summary.medium} / low ${d.summary.low}).`;
+    const s = d.summary;
+    const top = (d.flags || []).slice(0, 6).map((f) => `· ${f.date} ${f.party || ''} ${money(f.amount)}: ${f.why}`).join('\n');
+    return `Audited ${s.population} entries from ${d.source || 'the ledger'}: ${s.flags === 0 ? 'nothing flagged' : `${s.flags} ${s.flags === 1 ? 'flag' : 'flags'} (high ${s.high}, medium ${s.medium}, low ${s.low})`}.${top ? `\n${top}` : ''}${(d.flags || []).length > 6 ? `\n… and ${d.flags.length - 6} more.` : ''}`;
+  }
+  if (name === 'prepare_gstr3b' && d.outward) {
+    const o = d.outward;
+    const t = o.totals || {};
+    const itc = d.itc || {};
+    const lines = (o.rows3a || []).map((r) => `· ${r.rate}% ${r.interState ? 'inter-state' : 'within the state'}: taxable ${money(r.taxable)}, ${r.interState ? `IGST ${money(r.igst)}` : `CGST ${money(r.cgst)} + SGST ${money(r.sgst)}`}`);
+    const notes = o.creditNotes?.count ? `\nCredit notes netted: ${o.creditNotes.count} for ${money(o.creditNotes.taxable)} taxable.` : '';
+    return `GSTR-3B ${d.period}${d.gstin ? ` (${d.gstin})` : ''}\nOutward (3.1): taxable ${money((t.interTaxable || 0) + (t.intraTaxable || 0))}; IGST ${money(t.interIgst)}, CGST ${money(t.intraCgst)}, SGST ${money(t.intraSgst)}.${lines.length ? `\n${lines.join('\n')}` : ''}${notes}\nITC (4A): IGST ${money(itc.available?.igst)}, CGST ${money(itc.available?.cgst)}, SGST ${money(itc.available?.sgst)}; ineligible ${money((itc.ineligible?.igst || 0) + (itc.ineligible?.cgst || 0) + (itc.ineligible?.sgst || 0))}; net ${money(itc.netItc)}.\nSay "gst payable for ${d.periods?.[0] || ''}" for the cash and credit split.`;
+  }
+  if (name === 'monitor_tds') {
+    const rows = Array.isArray(d) ? d : d.flags || d.rows || [];
+    if (!rows.length) return 'No payments file is attached, and nothing crossed a TDS threshold in it. TDS on the bills and expenses you post here is deducted at posting (say "tds statement" for the quarter); attach a payments CSV as "payments" to scan an outside list.';
+    return `${rows.length} ${rows.length === 1 ? 'payment' : 'payments'} crossed a TDS threshold:\n${rows.slice(0, 10).map((r) => `· ${r.party || r.vendor || ''} ${r.section || ''} ${money(r.amount || r.total || 0)}${r.why ? `: ${r.why}` : ''}`).join('\n')}`;
   }
   if (name === 'import_bank' && d.aa) {
     const accounts = (d.aa.accounts || []).map((a) => `${a.maskedAccNumber || 'account'}${a.fipId ? ` at ${a.fipId}` : ''}`).join(', ');
@@ -711,8 +842,12 @@ ${d.hint}` : ''}`;
   if (name === 'company_profile') {
     return `${d.company.name}  GSTIN ${d.company.gstin}  FY ${d.company.fy}\nInvoices ${d.invoices} · purchases ${d.purchases ?? 0} · checksum ${d.chain.ok ? 'intact' : 'BROKEN'}.`;
   }
-  const text = JSON.stringify(d, null, 2);
-  return text.length > 4000 ? `${text.slice(0, 4000)}\n…truncated` : text;
+  if (name === 'journal') {
+    const rows = (d.rows || []).map((r) => `${r.invoiceId || r.code || r.id}  Dr ${r.debitAccount}  Cr ${r.creditAccount}  ${money(r.amount)}${r.voided ? ' (voided)' : r.pending ? ' (pending)' : ''}`).join('\n');
+    return `${d.count} ${d.count === 1 ? 'entry' : 'entries'} in the journal${d.rows?.length < d.count ? `, last ${d.rows.length}` : ''}:\n${rows || 'Nothing posted yet.'}`;
+  }
+  const text = outline(d);
+  return text.length > 4000 ? `${text.slice(0, 4000)}\n…truncated` : text || 'Done.';
 }
 
 async function runPlanned(state, name, args, clearsPendingFile) {
@@ -837,7 +972,7 @@ async function chatCore(state, message) {
         return { reply: `I did not match that to anything I can do${chosen.reason ? ` (${chosen.reason})` : ''}, so nothing was recorded. Try "invoice Kiran Stores 50000 GST 18%", "paid 12000 rent", "who owes me?", or say "help" for more.`, tools: [{ name: plan.name, result }], viaModel: true };
       }
     }
-    if (liveCallsEnabled() || mockModeEnabled()) {
+    if (liveCallsEnabled() && !mockModeEnabled()) {
       const ask = await runTool(state, 'nim_ask', { prompt: message });
       if (ask.ok && ask.data?.reply) {
         return {

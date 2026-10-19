@@ -8,6 +8,15 @@
  */
 import { randomBytes } from 'node:crypto';
 import { planExpense } from './expenses.mjs';
+import { planCollectionReminder } from './collections.mjs';
+import { planPaymentRun } from './payment-run.mjs';
+import { planMonthClose } from './month-close.mjs';
+import { planSkuSupply, planPurchaseOrder } from './restock.mjs';
+import { planAdvanceTaxPayment } from './advance-tax.mjs';
+import { planSupplierBank } from './supplier-bank.mjs';
+import { planAttachDocument } from './receipt-match.mjs';
+import { planInvoiceTemplate } from './invoice-template.mjs';
+import { salaryPrivate } from './employees.mjs';
 import { aaBankFeed } from './aa-import.mjs';
 import { planCreditNote, creditedAgainst, outstandingOf } from './credit-notes.mjs';
 import { planDebitNote, planPurchaseNote } from './debit-notes.mjs';
@@ -20,7 +29,7 @@ import { planAsk, planReply } from './ca-requests.mjs';
 import { planQuote, findQuote, checkConvert, invoiceArgsFromQuote } from './quotes.mjs';
 import { isReturnPeriod } from './return-period.mjs';
 import { gstSplit, partyStateOf } from './chart.mjs';
-import { postingDate } from './dates.mjs';
+import { postingDate, localToday } from './dates.mjs';
 import { isPeriodLocked } from './period-lock.mjs';
 import { lastGstRateFor, planPayment } from './invoice.mjs';
 import { planFiling } from './filings.mjs';
@@ -55,7 +64,8 @@ import { planAmendment } from './invoice-amendments.mjs';
 import { tallyXmlToDayBookCsv } from './tally-xml.mjs';
 
 export const CONFIRM_TOOLS = new Set([
-  'create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'record_filing', 'record_supplier_reminder', 'add_employee', 'change_salary', 'end_employment', 'approve_payroll', 'record_salary_payment', 'set_tds_deductor', 'record_tds_deposit', 'tds_review_answer', 'set_gst_credit_opening', 'record_gst_payment', 'close_year', 'post_expense', 'set_expense_head', 'create_credit_note', 'create_debit_note', 'create_purchase_note', 'record_supplier_debit_note', 'cancel_invoice', 'gst_review_answer', 'import_gstr2b', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'set_party_address', 'set_transport', 'set_sales_tax_rate', 'set_contractor', 'set_sales_tax_nexus', 'sales_tax_review_answer', 'record_sales_tax_payment', 'record_sales_tax_filing', 'set_withholding', 'set_suta_rate', 'import_us_invoices', 'import_pos_sales', 'import_settlement', 'import_marketplace_orders', 'import_tcs_statement', 'import_26as_credits', 'record_stock', 'record_stock_transfer', 'set_sku_cost', 'import_sku_costs', 'value_inventory', 'set_registration', 'retire_registration', 'set_channel_identity', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote', 'amend_invoice',
+  'create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'record_filing', 'record_supplier_reminder', 'record_collection_reminder', 'record_payment_run', 'month_close_approve', 'set_sku_supply', 'record_purchase_order', 'record_advance_tax', 'set_supplier_bank', 'attach_document', 'add_employee', 'change_salary', 'end_employment', 'approve_payroll', 'record_salary_payment', 'set_tds_deductor', 'record_tds_deposit', 'tds_review_answer', 'set_gst_credit_opening', 'record_gst_payment', 'close_year', 'post_expense', 'set_expense_head', 'create_credit_note', 'create_debit_note', 'create_purchase_note', 'record_supplier_debit_note', 'cancel_invoice', 'gst_review_answer', 'import_gstr2b', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'set_party_address', 'set_transport', 'set_sales_tax_rate', 'set_contractor', 'set_sales_tax_nexus', 'sales_tax_review_answer', 'record_sales_tax_payment', 'record_sales_tax_filing', 'set_withholding', 'set_suta_rate', 'import_us_invoices', 'import_pos_sales', 'import_settlement', 'import_marketplace_orders', 'import_tcs_statement', 'import_26as_credits', 'record_stock', 'record_stock_transfer', 'set_sku_cost', 'import_sku_costs', 'value_inventory', 'set_registration', 'retire_registration', 'set_channel_identity', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote', 'amend_invoice',
+  'set_invoice_template', 'set_invoice_numbering',
   'import_tally', 'import_tally_xml', 'import_zoho', 'import_bank',
   'govt_generate_irn', 'govt_nic_cancel_irn',
   'exception_decide',
@@ -256,11 +266,28 @@ function withholdingPreview(state, args) {
   };
 }
 
+const GST_START = '2017-07-01';
+const GSTIN_PROBLEM_WORDS = {
+  INVALID_LENGTH: 'it is not 15 characters',
+  INVALID_STATE: 'the first two digits are not a state code',
+  INVALID_PAN: 'the PAN inside it is not a PAN',
+  INVALID_ENTITY_CHAR: 'the 14th character is not allowed',
+  CHECK_DIGIT_MISMATCH: 'the last character (the check digit) is wrong',
+};
+function gstinProblemWords(errors) {
+  const words = (errors || []).map((e) => GSTIN_PROBLEM_WORDS[e.code] || String(e.message || e.code || '').toLowerCase()).filter(Boolean);
+  return words.length ? words.join(' and ') : 'it does not check out';
+}
+function plusYear(iso) {
+  return `${Number(iso.slice(0, 4)) + 1}${iso.slice(4)}`;
+}
+
 function documentPreview(state, args, kind) {
   if (countryOf(state) === 'US') return usDocumentPreview(state, args, kind);
   const company = state.company || {};
   const date = postingDate(args.date);
   const blockers = [];
+  if (company.setupNeeded) blockers.push('Set up the business first: its name and GSTIN, or its state if it is not registered.');
   if (!date) blockers.push(`${args.date} is not a date I can read.`);
   else if (isPeriodLocked(state, date)) blockers.push(`${date} is inside the locked period (through ${state.lockThrough}).`);
   const sale = kind === 'sale';
@@ -280,6 +307,13 @@ function documentPreview(state, args, kind) {
       ? (stateCodeOf(args.partyState) || partyStateOf(args.partyGstin) || ownState)
       : ownState;
   const supplier = sale ? ownState : (partyStateOf(args.partyGstin) || stateCodeOf(args.partyState) || ownState);
+  const saidGstin = String(args.partyGstin || '').trim().toUpperCase();
+  if (saidGstin && !exportSale) {
+    const checked = gstinRules.validateGstin(saidGstin);
+    if (!checked.ok) blockers.push(`${saidGstin} is not a valid GSTIN: ${gstinProblemWords(checked.errors)}. Check it with the ${sale ? 'buyer' : 'supplier'}.`);
+  }
+  if (date && date < GST_START) blockers.push(`${date} is before GST began on 1 July 2017.`);
+  if (date && date > plusYear(localToday())) blockers.push(`${date} is more than a year ahead.`);
   const unrated = (args.lines || []).findIndex((l) => l.gstRate == null || l.gstRate === '');
   if (unrated >= 0) {
     const last = lastGstRateFor(state, { name: args.partyName, gstin: args.partyGstin }, kind);
@@ -297,6 +331,7 @@ function documentPreview(state, args, kind) {
   const sum = (key) => Math.round(lines.reduce((s, l) => s + (l[key] || 0), 0) * 100) / 100;
   const taxable = sum('taxable');
   const tax = Math.round((sum('cgst') + sum('sgst') + sum('igst')) * 100) / 100;
+  if (!(taxable > 0)) blockers.push('It comes to nothing, so there is nothing to post.');
   const party = args.partyName || (sale ? 'Walk-in' : 'Supplier');
   const heads = exportSale && !exportSale.withTax ? 'no IGST (zero-rated under LUT or bond)' : sum('igst') > 0 ? `IGST ${money(sum('igst'))}` : `CGST ${money(sum('cgst'))} + SGST ${money(sum('sgst'))}`;
   const exportWords = exportSale ? `Export invoice (${String(exportSale.currency || 'INR').toUpperCase()}${fx > 0 && fx !== 1 ? ` at ${fx}` : ''}) to` : 'Invoice to';
@@ -333,7 +368,7 @@ function receiptPreview(state, args) {
   if (inv.status === 'cancelled') blockers.push(`${inv.id} is cancelled, so nothing can be received against it.`);
   else if (due <= 0.01) blockers.push(`${inv.id} is already fully received or credited (${money(inv.total)}).`);
   else if (amount > due + 0.01) blockers.push(`${money(amount)} is more than the ${money(due)} outstanding on ${inv.id}.`);
-  else if (!(amount > 0)) blockers.push('A receipt has to be a positive amount.');
+  else if (!(amount >= 0.01)) blockers.push('A receipt has to be a positive amount.');
   return {
     blockers,
     summary: `Receipt of ${money(amount)} against ${inv.id} (${inv.partyName}) by ${args.mode === 'cash' ? 'cash' : 'bank'} on ${date || '?'}. Outstanding is ${money(due)} of ${money(inv.total)}.`,
@@ -392,6 +427,144 @@ const SUPPLIER_REMINDER_REASONS = {
   EMPTY_MESSAGE: () => 'The message is empty.',
   MESSAGE_TOO_LONG: (p) => `The message is longer than ${p.max} characters.`,
 };
+
+const COLLECTION_REASONS = {
+  CUSTOMER_REQUIRED: () => 'Say which customer.',
+  CUSTOMER_NOT_FOUND: (p) => `There is no customer called ${p.customer} in these books.`,
+  NOTHING_OVERDUE: (p) => `${p.customer} has nothing overdue.`,
+  POSSIBLY_PAID: (p) => `${p.customer} paid something in the last two weeks, so the ${money(p.total)} may already be on its way. Match your bank statement first.`,
+  EMPTY_MESSAGE: () => 'The message is empty.',
+  MESSAGE_TOO_LONG: (p) => `The message is longer than ${p.max} characters.`,
+};
+const PAYMENT_RUN_REASONS = {
+  NOTHING_TO_PAY: () => 'Nothing needs paying right now.',
+  TOO_MANY_BILLS: (p) => `A run pays at most ${p.max} bills at a time.`,
+  INVALID_DATE: (p) => `${p.date} is not a date I can read.`,
+  BILLS_NOT_PAYABLE: (p) => `Some bills cannot be paid: ${p.problems.map((x) => `${x.billId} (${x.error === 'HELD' ? x.reason : PAYMENT_REASONS[x.error] || x.error})`).join('; ')}.`,
+};
+function paymentRunPreview(state, args) {
+  const plan = planPaymentRun(state, args);
+  if (!plan.ok) {
+    const reason = PAYMENT_RUN_REASONS[plan.error];
+    return { blockers: [reason ? reason(plan) : plan.error], summary: '', effects: [], figures: {} };
+  }
+  const lines = plan.payments.map((p) => `${p.supplier} ${money(p.amount)} on ${p.billId}${p.supplierInvoiceNo ? ` (their ${p.supplierInvoiceNo})` : ''}`);
+  const cash = plan.verdict === 'no' ? ' That takes the balance below zero before the month is out.' : plan.verdict === 'tight' ? ' That is tight against the month\'s usual outgoings.' : plan.verdict === 'yes' ? ' Payroll and GST still clear.' : '';
+  return {
+    blockers: plan.verdict === 'no' ? ['The balance would go below zero before the month is out. Pay fewer bills, or give a fresh bank balance first.'] : [],
+    summary: `Pay ${money(plan.total)} to ${new Set(plan.payments.map((p) => p.supplier)).size === 1 ? plan.payments[0].supplier : `${new Set(plan.payments.map((p) => p.supplier)).size} suppliers`} across ${plan.payments.length === 1 ? '1 bill' : `${plan.payments.length} bills`} from ${plan.mode === 'cash' ? 'cash' : 'the bank'} on ${plan.date}: ${lines.join('; ')}. Bank and cash ${money(plan.balance)} before, ${money(plan.after)} after.${cash}`,
+    effects: [`${money(plan.total)} goes out of your ${plan.mode === 'cash' ? 'cash' : 'bank'}, one payment per bill.`, 'Each bill becomes paid; MSMED and Rule 37 clocks stop for them.'],
+    figures: { total: plan.total, bills: plan.payments.length, balance: plan.balance, after: plan.after, date: plan.date, billIds: plan.payments.map((p) => p.billId) },
+  };
+}
+
+const ATTACH_REASONS = { INVALID_SHA256: 'That is not a document MyCA knows.', DOCUMENT_NOT_FOUND: 'That document is not in these books; upload it first.', ENTRY_NOT_FOUND: 'There is no entry by that id.' };
+function attachDocumentPreview(state, args) {
+  const planned = planAttachDocument(state, args);
+  if (!planned.ok) return { blockers: [ATTACH_REASONS[planned.error] || planned.error], summary: '', effects: [], figures: {} };
+  const p = planned.plan;
+  const t = p.target;
+  return {
+    blockers: [],
+    summary: `Keep the document with ${p.kind} ${p.id} (${t.partyName || t.payee || t.narration || ''}, ${money(t.total ?? t.amount)} on ${t.date}).${p.replaces ? ' It replaces the document already attached.' : ''}`,
+    effects: ['Nothing is posted; the entry keeps its figures and gains its document.'],
+    figures: { id: p.id, kind: p.kind },
+  };
+}
+
+const SUPPLIER_BANK_REASONS = { OWNER_ONLY: 'Only the owner can record where a supplier is paid.', SUPPLIER_REQUIRED: 'Say which supplier.', BANK_DETAILS_REQUIRED: 'Give an account number with its IFSC, or a UPI id.', BAD_ACCOUNT: 'An account number is 6 to 20 digits.', BAD_IFSC: 'An IFSC is four letters, a zero and six characters, for example HDFC0001234.', BAD_UPI: 'A UPI id looks like name@bank.' };
+function supplierBankPreview(state, args) {
+  const planned = planSupplierBank(state, args);
+  if (!planned.ok) return { blockers: [SUPPLIER_BANK_REASONS[planned.error] || planned.error], summary: '', effects: [], figures: {} };
+  const p = planned.plan;
+  const words = (b) => [b.account ? `account ${b.account}${b.ifsc ? ` at ${b.ifsc}` : ''}` : '', b.upi ? `UPI ${b.upi}` : ''].filter(Boolean).join(', ');
+  const change = p.changed ? ` This replaces ${words(p.before)}.` : '';
+  return {
+    blockers: [],
+    summary: `${p.name}${p.known ? '' : ' (no bills from them yet)'} is paid to ${words(p.bank)}${p.bank.holder ? ` in the name of ${p.bank.holder}` : ''}.${change}`,
+    effects: [p.changed ? 'A changed bank detail is the commonest invoice fraud: confirm it by calling the number you already have for them, not one on the bill or the email.' : 'Confirm the details by calling the number you already have for them, not one on the bill or the email.', 'Used only in the supplier payout file; MyCA moves no money.'],
+    figures: { supplier: p.name, changed: p.changed },
+  };
+}
+
+const ADVANCE_REASONS = { BAD_AMOUNT: 'The amount has to be more than zero.', INVALID_DATE: 'That is not a date I can read.', FUTURE_DATE: 'A payment cannot be dated in the future.', PERIOD_LOCKED: 'That date is inside the locked period.' };
+function advanceTaxPreview(state, args) {
+  const planned = planAdvanceTaxPayment(state, args);
+  if (!planned.ok) return { blockers: [ADVANCE_REASONS[planned.error] || planned.error], summary: '', effects: [], figures: {} };
+  const p = planned.plan;
+  const e = p.estimate;
+  const against = e ? ` The year's estimate is ${money(e.tax)} less ${money(e.credits.credits)} credit, ${money(e.paid)} already paid${e.next ? `; the next instalment is ${money(e.next.dueNow)} by ${e.next.dueDate}` : ''}.` : '';
+  return {
+    blockers: [],
+    summary: `Record advance tax of ${money(p.amount)} for ${p.fy} paid from ${p.mode === 'cash' ? 'cash' : 'the bank'} on ${p.date}${p.challan ? `, challan ${p.challan}` : ''}.${against}`,
+    effects: [`${money(p.amount)} goes out of your ${p.mode === 'cash' ? 'cash' : 'bank'} into advance tax paid, an asset until the return is assessed.`],
+    figures: { amount: p.amount, date: p.date, fy: p.fy, challan: p.challan },
+  };
+}
+
+const SUPPLY_REASONS = { SKU_REQUIRED: 'Say which SKU.', BAD_LEAD_DAYS: 'Lead time is whole days, 0 to 365.', BAD_PACK: 'A pack is a whole number of units, at least 1.', BAD_MOQ: 'The minimum order is a whole number.' };
+function skuSupplyPreview(state, args) {
+  const planned = planSkuSupply(state, args);
+  if (!planned.ok) return { blockers: [SUPPLY_REASONS[planned.error] || planned.error], summary: '', effects: [], figures: {} };
+  const p = planned.plan;
+  const was = p.before ? ` Before: ${p.before.supplier || 'no supplier'}, ${p.before.leadDays} days, pack ${p.before.pack}, MOQ ${p.before.moq}.` : '';
+  return {
+    blockers: [],
+    summary: `${p.sku}${p.known ? '' : ' (not yet in the SKU list)'}: supplier ${p.supplier || 'not named'}, lead time ${p.leadDays} days, pack of ${p.pack}, minimum order ${p.moq}.${was}`,
+    effects: ['The restock plan uses these to time and size orders for this SKU.'],
+    figures: { sku: p.sku, leadDays: p.leadDays, pack: p.pack, moq: p.moq },
+  };
+}
+const PO_REASONS = { SUPPLIER_REQUIRED: 'Say which supplier.', LINES_REQUIRED: 'Say what to order: SKU and quantity.', BAD_LINE: 'Each line needs a SKU and a whole positive quantity.', BAD_RATE: 'A rate is a number, zero or more.', INVALID_DATE: 'That is not a date I can read.' };
+function purchaseOrderPreview(state, args) {
+  const planned = planPurchaseOrder(state, args);
+  if (!planned.ok) return { blockers: [PO_REASONS[planned.error] || planned.error], summary: '', effects: [], figures: {} };
+  const p = planned.plan;
+  const lines = p.lines.map((l) => `${l.sku} x ${l.qty}${l.rate != null ? ` at ${money(l.rate)} = ${money(l.amount)}` : ' (no rate known)'}`).join('; ');
+  return {
+    blockers: [],
+    summary: `Purchase order to ${p.supplier} dated ${p.date}: ${lines}${p.total != null ? `; total ${money(p.total)}` : ''}. Expected ${p.expectedOn}.`,
+    effects: ['Nothing posts to the ledger; the quantities count as on order in the restock plan until the bill is booked.'],
+    figures: { supplier: p.supplier, total: p.total, expectedOn: p.expectedOn, lines: p.lines.length },
+  };
+}
+
+const MONTH_CLOSE_REASONS = {
+  INVALID_PERIOD: () => 'Say the month as 2026-09.',
+  MONTH_NOT_OVER: (p) => `${p.period} is not over yet; close it from ${p.lastDay} onwards.`,
+  DRAFT_CHANGED: () => 'The books changed since that close was drafted; say "close the month" again and approve the fresh one.',
+  ALREADY_CLOSED: (p) => `${p.period} was closed on ${p.closedOn}.`,
+  NOTE_REQUIRED: (p) => `${p.needsYou.length} ${p.needsYou.length === 1 ? 'check needs' : 'checks need'} you (${p.needsYou.join(', ')}); add a note saying why you are closing anyway, for example "approve the close: the two Mehta bills are different consignments".`,
+};
+function monthClosePreview(state, args) {
+  const planned = planMonthClose(state, args);
+  if (!planned.ok) {
+    const reason = MONTH_CLOSE_REASONS[planned.error];
+    return { blockers: [reason ? reason(planned) : planned.error], summary: '', effects: [], figures: {} };
+  }
+  const d = planned.close;
+  return {
+    blockers: [],
+    summary: `Sign off ${d.month}: ${d.checks.length - d.needsYou.length} of ${d.checks.length} checks passed${d.needsYou.length ? `; open: ${d.needsYou.join(', ')}` : ''}.${planned.note ? ` Note: ${planned.note}` : ''} ${d.narrative}`,
+    effects: [`The books lock through ${d.lastDay}; nothing dated on or before it can be posted or changed without unlocking.`, 'The close, its open items and the note are kept with the books.'],
+    figures: { period: d.period, draftHash: d.draftHash, openItems: d.needsYou, lockThrough: d.lastDay },
+  };
+}
+
+function collectionReminderPreview(state, args) {
+  const plan = planCollectionReminder(state, args);
+  if (!plan.ok) {
+    const reason = COLLECTION_REASONS[plan.error];
+    return { blockers: [reason ? reason(plan) : plan.error], summary: '', effects: [], figures: {} };
+  }
+  const d = plan.draft;
+  return {
+    blockers: [],
+    summary: `Send a ${d.tone} payment reminder to ${d.customer} for ${money(d.total)} across ${d.invoices.length === 1 ? '1 invoice' : `${d.invoices.length} invoices`} (oldest ${d.oldestDaysLate} days late). ${d.customer} ${d.scoreWords}.${d.timesSent ? ` You last reminded them on ${d.lastSent}.` : ''}${plan.edited ? ' You edited the draft.' : ''}`,
+    effects: ['It goes from your own phone: WhatsApp, email or another app you pick. MyCA sends nothing itself.', 'The message and the day are kept with the books, and a reminder to check for the payment is set for seven days from now.'],
+    figures: { customer: d.customer, total: d.total, invoices: d.invoices.length, tone: d.tone, score: d.score, timesSent: d.timesSent },
+  };
+}
 
 function supplierReminderPreview(state, args) {
   const plan = planSupplierReminder(state, args);
@@ -806,6 +979,33 @@ function completeReminderPreview(state, args) {
   if (!reminder) return { blockers: [`${args.id} is not a reminder here.`], summary: '', effects: [], figures: {} };
   if (reminder.done) return { blockers: [`${reminder.id} is already done.`], summary: '', effects: [], figures: {} };
   return { blockers: [], summary: `Mark done: ${reminder.text}.`, effects: [], figures: { id: reminder.id } };
+}
+
+function invoiceTemplatePreview(state, args) {
+  if (salaryPrivate(state)) return { blockers: ['Only the owner can change how invoices look and which bank account they show.'], summary: 'Invoice design is owner-only.', effects: [], figures: {} };
+  const planned = planInvoiceTemplate(state, args);
+  if (!planned.ok) return { blockers: [planned.hint || planned.error], summary: 'The invoice design change could not be read.', effects: [], figures: {} };
+  const { changed, next } = planned.plan;
+  const bank = next.bank || {};
+  return {
+    blockers: [],
+    summary: `Invoice design: ${changed.join(', ')} ${changed.length === 1 ? 'changes' : 'change'}.${changed.includes('bank details') ? ` Invoices will show ${bank.account ? `account ${bank.account}` : ''}${bank.ifsc ? ` IFSC ${bank.ifsc}` : ''}${bank.upi ? ` UPI ${bank.upi}` : ''}.` : ''}`,
+    effects: ['Applies to every invoice and quote PDF from now, including ones already raised.'],
+    figures: { changed },
+  };
+}
+
+function invoiceNumberingPreview(state, args) {
+  if (salaryPrivate(state)) return { blockers: ['Only the owner can change invoice numbering.'], summary: 'Invoice numbering is owner-only.', effects: [], figures: {} };
+  const mode = String(args.mode || '').trim().toLowerCase();
+  if (!['continuous', 'yearly'].includes(mode)) return { blockers: ['Say continuous or yearly.'], summary: 'Numbering mode not understood.', effects: [], figures: {} };
+  const before = state.company?.invoiceNumbering || 'continuous';
+  return {
+    blockers: before === mode ? [`Invoices are already numbered ${mode === 'yearly' ? 'per financial year' : 'in one continuous series'}.`] : [],
+    summary: `Invoice numbering: ${mode === 'yearly' ? 'one series per financial year (INV-26270001 is the first of 2026-27)' : 'one continuous series (INV-0001 onwards)'}.`,
+    effects: ['Existing invoices keep their numbers; only new ones follow the new series.'],
+    figures: { before, after: mode },
+  };
 }
 
 function cashReadingPreview(state, args) {
@@ -1269,6 +1469,14 @@ const PREVIEWERS = {
   record_payment: paymentPreview,
   record_filing: filingPreview,
   record_supplier_reminder: supplierReminderPreview,
+  record_collection_reminder: collectionReminderPreview,
+  record_payment_run: paymentRunPreview,
+  month_close_approve: monthClosePreview,
+  set_sku_supply: skuSupplyPreview,
+  record_advance_tax: advanceTaxPreview,
+  set_supplier_bank: supplierBankPreview,
+  attach_document: attachDocumentPreview,
+  record_purchase_order: purchaseOrderPreview,
   add_employee: employeePreview,
   approve_payroll: payrollApprovalPreview,
   record_salary_payment: salaryPaymentPreview,
@@ -1292,6 +1500,8 @@ const PREVIEWERS = {
   add_reminder: reminderPreview,
   complete_reminder: completeReminderPreview,
   set_cash_balance: cashReadingPreview,
+  set_invoice_template: invoiceTemplatePreview,
+  set_invoice_numbering: invoiceNumberingPreview,
   set_payment_terms: termsPreview,
   set_party_address: addressPreview,
   set_sales_tax_rate: salesTaxRatePreview,

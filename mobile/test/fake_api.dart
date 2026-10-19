@@ -173,6 +173,8 @@ class FakeMycaApi implements MycaApi {
   ];
   final filings = <Map<String, Object?>>[];
   final supplierReminders = <Map<String, Object?>>[];
+  final collectionReminders = <Map<String, Object?>>[];
+  final paymentRuns = <Map<String, Object?>>[];
   final debitNotes = <Map<String, Object?>>[];
   bool payrollApproved = false;
   bool payrollPaid = false;
@@ -472,6 +474,14 @@ class FakeMycaApi implements MycaApi {
     if (name == 'set_employee_bank') {
       return _preview('Ravi Kumar is paid into account ending ${'${args['bankAccount']}'.substring('${args['bankAccount']}'.length - 4)} at ${args['ifsc']}.');
     }
+    if (name == 'record_payment_run') {
+      final ids = (args['billIds'] as List).cast<String>();
+      final two = ids.length == 2;
+      return _preview('Pay ₹${two ? '14,700.00' : '8,400.00'} to ${two ? '2 suppliers' : 'Big Mills'} across ${two ? '2 bills' : '1 bill'} from the bank on 2026-10-05. Bank and cash ₹2,00,000.00 before, ₹${two ? '1,85,300.00' : '1,91,600.00'} after. Payroll and GST still clear.');
+    }
+    if (name == 'record_collection_reminder') {
+      return _preview('Send a neutral payment reminder to ${args['customer']} for ₹5,900.00 across 1 invoice (oldest 40 days late). ${args['customer']} has not paid enough invoices yet to judge.');
+    }
     if (name == 'record_supplier_reminder') {
       return _preview('Send a reminder to Gujarat Mills about 1 bill for ${args['period']}, with ₹3,600.00 of your input credit waiting on them.');
     }
@@ -697,6 +707,14 @@ class FakeMycaApi implements MycaApi {
         e['leftOn'] = held.args['leftOn'];
         e['active'] = false;
         return ChatReply.fromJson({'reply': 'Recorded that ${e['name']} left on ${held.args['leftOn']}.', 'posted': true, 'confirmed': true});
+      }
+      if (held.tool == 'record_payment_run') {
+        paymentRuns.add(held.args);
+        return ChatReply.fromJson({'reply': 'Paid the chosen bills from the bank on 2026-10-05.', 'posted': true, 'confirmed': true});
+      }
+      if (held.tool == 'record_collection_reminder') {
+        collectionReminders.add(held.args);
+        return ChatReply.fromJson({'reply': 'Recorded the neutral reminder to ${held.args['customer']} for ₹5,900.00 on 2026-10-05. Send it from your phone now; I will remind you to check for the payment in a week.', 'posted': true, 'confirmed': true});
       }
       if (held.tool == 'record_supplier_reminder') {
         supplierReminders.add(held.args);
@@ -2062,6 +2080,57 @@ class FakeMycaApi implements MycaApi {
             'employees': employees,
             'monthlyTotal': active.fold<num>(0, (sum, e) => sum + (e['monthly'] as num)),
             'note': 'Monthly pay before any deduction. Provident fund, state insurance, professional tax and TDS are not worked out yet.',
+          },
+        };
+      case 'payment_run':
+        return {
+          'ok': true,
+          'data': {
+            'asOf': '2026-10-05',
+            'windowDays': 14,
+            'proposed': [
+              {'billId': 'BILL-0001', 'supplier': 'Big Mills', 'supplierInvoiceNo': 'BM/3', 'outstanding': 8400, 'bucket': 'msme-limit', 'daysLeft': 1, 'daysToCredit': 160, 'age': 20},
+              {'billId': 'BILL-0003', 'supplier': 'Old Trader', 'supplierInvoiceNo': '', 'outstanding': 6300, 'bucket': 'credit-at-risk', 'daysLeft': null, 'daysToCredit': 5, 'age': 175},
+            ],
+            'consider': <Map<String, Object?>>[],
+            'later': [
+              {'billId': 'BILL-0002', 'supplier': 'Big Mills', 'supplierInvoiceNo': 'BM/4', 'outstanding': 2100, 'bucket': 'later', 'daysLeft': 12, 'daysToCredit': 170, 'age': 10},
+            ],
+            'held': <Map<String, Object?>>[],
+            'total': 14700,
+            'considerTotal': 0,
+            'laterTotal': 2100,
+            'balance': 200000,
+            'balanceSource': 'reading',
+            'after': 185300,
+            'verdict': 'yes',
+          },
+        };
+      case 'collection_drafts':
+        return {
+          'ok': true,
+          'data': {
+            'asOf': '2026-10-05',
+            'customers': [
+              {
+                'customer': args['customer'] ?? 'Retail Mart',
+                'gstin': '',
+                'score': 'new',
+                'scoreWords': 'has not paid enough invoices yet to judge',
+                'tone': 'neutral',
+                'invoices': [
+                  {'id': 'INV-0001', 'date': '2026-08-01', 'dueDate': '2026-08-31', 'daysLate': 40, 'outstanding': 5900},
+                ],
+                'total': 5900,
+                'oldestDaysLate': 40,
+                'message': 'Hello ${args['customer'] ?? 'Retail Mart'},\n\nThis is Asha Traders. This invoice is past due:\n• INV-0001 dated 1 August 2026, ₹5,900.00 (40 days past 31 August 2026)\n\nPlease pay ₹5,900.00 at your convenience, or let us know if anything on it needs correcting.\nThank you.',
+                'lastSent': collectionReminders.isEmpty ? '' : '2026-10-05',
+                'timesSent': collectionReminders.length,
+              },
+            ],
+            'possiblyPaid': [],
+            'total': 5900,
+            'channel': 'whatsapp',
           },
         };
       case 'supplier_reminder_draft':

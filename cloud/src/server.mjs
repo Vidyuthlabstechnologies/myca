@@ -6,6 +6,7 @@ import { clientIdsFrom } from './google.mjs';
 import { oidcConfigFromEnv } from './oidc.mjs';
 import { createDocumentVault, documentVaultConfigFromEnv } from './document-vault.mjs';
 import { connectorKeyFromEnv } from './connectors.mjs';
+import { booksKeyFromEnv } from './books-seal.mjs';
 import { smsSenderFromEnv } from './sms-sender.mjs';
 import { whatsAppConfigFromEnv, createWhatsAppSender } from './whatsapp.mjs';
 
@@ -20,7 +21,10 @@ function required(name) {
 }
 
 function otpSender() {
-  if (process.env.MYCA_DEV_OTP === '1') return createConsoleSender();
+  if (process.env.MYCA_DEV_OTP === '1') {
+    if (process.env.K_SERVICE) throw new Error('MYCA_DEV_OTP prints sign-in codes to the log and must not be set on Cloud Run');
+    return createConsoleSender();
+  }
   return smsSenderFromEnv(process.env, { log });
 }
 
@@ -51,6 +55,7 @@ const handler = createApi({
   oidc: oidcConfigFromEnv(process.env),
   documentVault: createDocumentVault({ ...documentVaultConfigFromEnv(process.env), log }),
   connectorKey: connectorKeyFromEnv(process.env),
+  booksKey: (() => { const key = booksKeyFromEnv(process.env); if (!key && process.env.K_SERVICE) throw new Error('MYCA_BOOKS_KEY is required on Cloud Run: the books column is sealed with it'); return key; })(),
   jobToken: String(process.env.MYCA_JOB_TOKEN || '').trim(),
   inboundEmail: { domain: String(process.env.MYCA_INBOUND_EMAIL_DOMAIN || '').trim(), relayToken: String(process.env.MYCA_INBOUND_RELAY_TOKEN || '').trim() },
   whatsapp: whatsAppConfigFromEnv(process.env),

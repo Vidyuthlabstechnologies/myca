@@ -1,3 +1,4 @@
+import { salaryPrivate } from './employees.mjs';
 import { createHash } from 'node:crypto';
 import { rules } from './sprint-load.mjs';
 import { deadlineRun } from './deadline-run.mjs';
@@ -100,6 +101,7 @@ function formFor(quarter, form) {
 
 export function tdsReturnDraft(state, requested, { form = 'other' } = {}) {
   if (!TDS_FORMS[form]) return fail('UNKNOWN_FORM', { form });
+  if (form !== 'other' && salaryPrivate(state)) return fail('SALARIES_PRIVATE');
   if (!state.company?.tdsDeductor) return fail('NOT_A_DEDUCTOR');
   const quarters = quartersWithDeductions(state, form);
   let quarter = null;

@@ -450,7 +450,8 @@ document.getElementById('doctorBtn').addEventListener('click', async () => {
 async function refresh() {
   const snap = await api.snapshot();
   if (snap.error) throw new Error(snap.error);
-  document.getElementById('firmName').textContent = snap.company.name;
+  document.getElementById('firmName').textContent = snap.company.name || 'Your business';
+  setupInit(snap);
   document.getElementById('firmGstin').textContent = snap.company.gstin;
   document.getElementById('folioMeta').textContent = `FY ${snap.company.fy}`;
 
@@ -791,7 +792,7 @@ document.getElementById('file').addEventListener('change', async (e) => {
   if (!f) return;
   const kind = document.getElementById('kind').value;
   await api.attach(kind, f.name, await f.text());
-  addBubble('bot', `Attached ${f.name} as ${kind}. Say “import tally”, “import tally xml”, or “import zoho”.`, kind);
+  addBubble('bot', `Attached ${f.name} as ${kind}. Say “import bank”, “import tally”, “import zoho”, “import settlement”, “import amazon orders” or “import pos sales”, and you will see what would post before anything lands.`, kind);
 });
 
 document.getElementById('voucher').addEventListener('submit', async (e) => {
@@ -887,6 +888,107 @@ document.getElementById('composer').addEventListener('submit', async (e) => {
   }
   await refresh();
 });
+
+
+const INDIAN_STATES = [['01','Jammu and Kashmir'],['02','Himachal Pradesh'],['03','Punjab'],['04','Chandigarh'],['05','Uttarakhand'],['06','Haryana'],['07','Delhi'],['08','Rajasthan'],['09','Uttar Pradesh'],['10','Bihar'],['11','Sikkim'],['12','Arunachal Pradesh'],['13','Nagaland'],['14','Manipur'],['15','Mizoram'],['16','Tripura'],['17','Meghalaya'],['18','Assam'],['19','West Bengal'],['20','Jharkhand'],['21','Odisha'],['22','Chhattisgarh'],['23','Madhya Pradesh'],['24','Gujarat'],['26','Dadra and Nagar Haveli and Daman and Diu'],['27','Maharashtra'],['29','Karnataka'],['30','Goa'],['31','Lakshadweep'],['32','Kerala'],['33','Tamil Nadu'],['34','Puducherry'],['35','Andaman and Nicobar Islands'],['36','Telangana'],['37','Andhra Pradesh'],['38','Ladakh']];
+const GSTIN_SHAPE = /^\d{2}[A-Z]{5}\d{4}[A-Z][0-9A-Z]Z[0-9A-Z]$/;
+
+function financialYearToday() {
+  const now = new Date();
+  const start = now.getMonth() + 1 >= 4 ? now.getFullYear() : now.getFullYear() - 1;
+  return `${start}-${String((start + 1) % 100).padStart(2, '0')}`;
+}
+
+function setupShow(step) {
+  const box = document.getElementById('setup');
+  box.hidden = false;
+  document.getElementById('setupStep1').hidden = step !== 1;
+  document.getElementById('setupStep2').hidden = step !== 2;
+}
+
+function setupHide() {
+  document.getElementById('setup').hidden = true;
+}
+
+function setupInit(snap) {
+  const company = snap.company || {};
+  if (!company.setupNeeded) return;
+  setupBind();
+  const states = document.getElementById('sState');
+  if (!states.options.length) {
+    states.append(new Option('Choose the state', ''));
+    for (const [code, name] of INDIAN_STATES) states.append(new Option(`${name} (${code})`, code));
+  }
+  document.getElementById('sFy').value = company.fy || financialYearToday();
+  setupShow(1);
+  document.getElementById('sName').focus();
+}
+
+let setupBound = false;
+function setupBind() {
+  if (setupBound) return;
+  setupBound = true;
+document.getElementById('sGstin').addEventListener('input', (e) => {
+  const value = e.target.value.trim().toUpperCase();
+  e.target.value = value;
+  if (value.length >= 2 && /^\d{2}/.test(value)) document.getElementById('sState').value = value.slice(0, 2);
+  if (value.length >= 12) document.getElementById('sPan').value = value.slice(2, 12);
+});
+
+document.getElementById('setupForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const error = document.getElementById('setupError');
+  error.hidden = true;
+  const name = document.getElementById('sName').value.trim();
+  const gstin = document.getElementById('sGstin').value.trim().toUpperCase();
+  const state = document.getElementById('sState').value;
+  const pan = document.getElementById('sPan').value.trim().toUpperCase();
+  const say = (text) => { error.textContent = text; error.hidden = false; };
+  if (!name) return say('Enter the business name.');
+  if (gstin && !GSTIN_SHAPE.test(gstin)) return say('A GSTIN is 15 characters: two digits, the PAN, a letter, a character, Z, a character.');
+  if (!gstin && !state) return say('Choose the state the business is in.');
+  const button = document.getElementById('setupContinue');
+  button.disabled = true;
+  try {
+    const out = await fetch('/api/company', { method: 'POST', headers: apiHeaders, body: JSON.stringify({ name, gstin, ...(state ? { state } : {}), ...(pan ? { pan } : {}), fy: document.getElementById('sFy').value }) }).then((r) => r.json());
+    if (out.ok === false) {
+      const words = { INVALID_GSTIN: 'That GSTIN does not check out; the last character is a check digit, so one wrong letter shows here.', INVALID_PAN: 'A PAN is five letters, four digits and a letter.', INVALID_STATE_CODE: 'Choose a state from the list.' };
+      return say(words[out.error] || `That did not go through (${String(out.error || '').toLowerCase().replace(/_/g, ' ')}).`);
+    }
+    await refresh();
+    setupShow(2);
+  } finally {
+    button.disabled = false;
+  }
+});
+
+for (const choice of document.querySelectorAll('.setup-choice[data-import]')) {
+  choice.addEventListener('click', () => {
+    const file = document.getElementById('setupFile');
+    file.dataset.kind = choice.dataset.import;
+    file.dataset.say = choice.dataset.say;
+    file.value = '';
+    file.click();
+  });
+}
+
+document.getElementById('setupFile').addEventListener('change', async (e) => {
+  const f = e.target.files[0];
+  if (!f) return;
+  const note = document.getElementById('setupNote');
+  note.hidden = false;
+  note.textContent = `Reading ${f.name}…`;
+  await api.attach(e.target.dataset.kind, f.name, await f.text());
+  setupHide();
+  addBubble('bot', `Attached ${f.name}. Here is what it holds; nothing is in the books until you say yes.`, 'setup');
+  sendChat(e.target.dataset.say);
+});
+
+document.getElementById('setupFresh').addEventListener('click', () => {
+  setupHide();
+  addBubble('bot', 'Fresh books. Try: "invoice Retail Mart 8000 GST 18%", or "paid 12000 rent", or attach a bank statement from the strip below.', 'setup');
+});
+}
 
 refresh().then(() => {
   addBubble('bot', 'Books are open. Book a voucher in the strip, or ask for trial balance / GSTR-1 JSON.', 'ready');

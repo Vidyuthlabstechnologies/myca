@@ -44,6 +44,16 @@ figures. One tap posts it; anything else discards it. Questions and negations ("
 invoice Rajesh?", "don't record this") post nothing. This holds in every chat and in
 the hosted API (`propose`, `confirm`, `discard`).
 
+### Saved reports (built 2026-10-19)
+
+"Save report Top customers: sales by customer this month vs last month" keeps a report
+definition by name on the books: a metric (sales, purchases, expenses, owed, owing),
+grouped by customer, supplier, head or month, for this or last month, this quarter, this or
+last financial year or a named month, optionally compared with the period before.
+"Run report Top customers" runs it on the books as they are; "my reports" lists them;
+"delete report Top customers" forgets the definition. Fifty reports per business, twenty
+rows shown. Running and listing are read-only and work on the phone.
+
 ### Understanding messages (partly built)
 
 - Today a rule-based parser handles invoices, bills, receipts and expenses in common
@@ -194,3 +204,35 @@ deployment), a tablet or web layout.
 - Q3 in the PRD.
 - Which three figures matter most to an owner on opening the app? To be tested with
   pilot businesses.
+
+## The Monday brief (built 2026-10-17)
+
+"How is business?" (or "dhanda kaisa chal raha hai", "weekly brief") answers in one
+message: cash with its change on last week and the runway in months (green at six or
+more, red under three); sales this week against last week and this month against last
+month; what customers owe in 0-30, 31-60 and over-60-day buckets with the worst late
+payers named (red when the over-60 bucket is a tenth of the book or ₹50,000); what is
+owed to suppliers and any MSME bill past its date; what is due this week; open
+exceptions; and the one thing to do, chosen in this order: a critical exception, an MSME
+bill past its date, an overdue or imminent return, the worst late customer, a thin cash
+runway, an unapproved payroll, a missing bank reading.
+
+On the hosted service a member can switch on "Monday brief on WhatsApp" from the
+business menu; every Monday at 07:00 IST the brief is composed from the books and sent
+as a WhatsApp text through the configured sender (`POST /v1/jobs/weekly`, Cloud
+Scheduler). Accountants are never sent it. Nothing else goes out of MyCA unasked.
+
+## Cash forecast with confidence (built 2026-10-18)
+
+The forecast learns each customer's timing from their last twelve receipts: the median
+is the expected day and the spread gives a band, capped at half the median; a customer
+with fewer than three paid invoices gets a thirty percent band and is said to be thin.
+"Cash forecast for 90 days" adds a 30/60/90-day table with money in as low, expected and
+high by timing, money out, and the ending balance for each. Bills are paid on their MSMED
+or agreed pay-by date, not an assumed thirty days; approved salaries fall on the 7th,
+PF and ESI on the 15th, salary TDS on the 7th, and the next month's salaries are
+expected at the last approved net. Up to five risks are named in words: a late payer
+moving money past the dates, cash below zero on a salary or GST day, thin history behind
+most of the money expected, overdue money larger than a month of outgoings, no bank
+reading.
+

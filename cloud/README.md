@@ -50,7 +50,7 @@ MYCA_TEST_DATABASE_URL=postgres://myca@127.0.0.1:54329/postgres npm test
 Each test file creates and drops its own database.
 
 ```bash
-MYCA_DATABASE_URL=postgres://myca@127.0.0.1:54329/myca_dev MYCA_TOKEN_SECRET=<32+ random characters> MYCA_DEV_OTP=1 PORT=8080 npm run dev
+MYCA_DATABASE_URL=postgres://myca@127.0.0.1:54329/myca_dev MYCA_TOKEN_SECRET=<32+ random characters> MYCA_BOOKS_KEY=<32+ random characters> MYCA_DEV_OTP=1 PORT=8080 npm run dev
 ```
 
 `MYCA_GOOGLE_CLIENT_IDS` lists the OAuth client ids (comma-separated) whose Google ID
@@ -141,3 +141,5 @@ no response carries a secret, a hash or a phone number.
   Uploads are still sent in the request body, up to 8 MB; larger files need
   direct-to-storage uploads.
 - A business may hold 200 MB of documents in total (\`MAX_BUSINESS_BYTES\`); beyond that an upload answers 413 STORAGE_FULL.
+
+`MYCA_BOOKS_KEY` seals every business's books row (AES-256-GCM, a key derived per business). It is optional locally and required on Cloud Run; Terraform generates it into Secret Manager. Rotating it means re-sealing every row, so keep it where the database password is kept.

@@ -117,7 +117,7 @@ export function runDailyAutomation(state, args = {}) {
     chain: chain.ok ? { ok: true, rows: state.ledger.transfers.length } : { ok: false, error: chain.error, at: chain.at },
     rules: rulesCheck(state, today),
   };
-  run.close = dailyClose(state, { asOf: today, clientId: normalizeClientId(state.activeClientId) }).data;
+  run.close = dailyClose(state, { asOf: today, clientId: normalizeClientId(state.activeClientId), chain }).data;
   run.warnings = warningsOf(run);
   automation.lastRun = today;
   automation.log.push(run);

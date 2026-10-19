@@ -103,8 +103,11 @@ test('Google signing keys are fetched once, cached for their max-age, and refetc
   assert.ok(await keys.get('k1'));
   assert.equal(fetches, 1);
   assert.equal(await keys.get('k2'), null);
-  assert.equal(fetches, 2, 'an unknown key triggers one refetch');
-  clock = 101 * 1000;
+  assert.equal(fetches, 1, 'an unknown key within a minute of the last load does not refetch');
+  clock = 61 * 1000;
+  assert.equal(await keys.get('k2'), null);
+  assert.equal(fetches, 2, 'after a minute an unknown key triggers one refetch');
+  clock = 161 * 1000;
   served = [{ ...jwk, kid: 'k2' }];
   assert.ok(await keys.get('k2'));
   assert.equal(await keys.get('k1'), null, 'a rotated-out key is gone');

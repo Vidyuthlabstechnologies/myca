@@ -334,9 +334,11 @@ test('gstr1: B2B groups by GSTIN; B2C goes to b2cs; a malformed GSTIN is held ba
   intra(state, { partyName: 'A' });
   intra(state, { partyName: 'A2' });
   intra(state, { partyName: 'Cash', partyGstin: '', partyState: '27', lines: [line({ rate: 500 })] });
-  intra(state, { partyName: 'Odd', partyGstin: '27SHORT', partyState: '27', lines: [line({ rate: 200 })] });
+  const refused = intra(state, { partyName: 'Odd', partyGstin: '27SHORT', partyState: '27', lines: [line({ rate: 200 })] });
+  assert.equal(refused.error, 'INVALID_GSTIN', 'the engine refuses a structurally wrong GSTIN');
   const json = invoicesToGstr1Json(state.company, [
     ...state.invoices,
+    { id: 'ODD', date: '2026-08-20', partyName: 'Odd', partyGstin: '27SHORT', partyState: '27', taxable: 200, cgst: 5, sgst: 5, igst: 0, total: 210, lines: [{ gstRate: 5, taxable: 200, cgst: 5, sgst: 5, igst: 0 }] },
     { id: 'NODATE', partyGstin: '27AAACH7409R1Z1', lines: [], total: 1 },
   ]);
   assert.equal(json.b2b.length, 1);
@@ -410,7 +412,7 @@ test('chat: GSTR-1 JSON vs GSTR-1 tables; print and pay; IRN missing invoice', a
   const printed = await chat(state, 'print INV-0001');
   assert.match(printed.reply, /Printable INV-0001/);
   const missingPrint = await chat(state, 'print INV-0099');
-  assert.match(missingPrint.reply, /failed|NOT_FOUND/i);
+  assert.match(missingPrint.reply, /failed|could not find/i);
   const receiptPreview = await chat(state, 'INV-0001 paid by bank');
   assert.equal(receiptPreview.awaitingConfirmation, true);
   assert.equal(state.invoices[0].status, 'posted', 'the receipt waits for confirmation');
@@ -804,6 +806,7 @@ test('store: state paths are constrained before file reads', () => {
 test('session: overlapping tools get unique invoice numbers', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'myca-edge-'));
   const sess = openSession(join(dir, 'MyCA', 'state.json'));
+  await sess.updateCompany({ name: 'Test Co', gstin: '27AABCU9603R1ZN' });
   sess.state.invoices = [];
   sess.state.purchases = [];
   sess.state.invoiceSeq = 0;
@@ -1173,6 +1176,7 @@ test('backup/restore: round-trips books, clients and documents', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'myca-backup-'));
   const path = join(dir, 'MyCA', 'state.json');
   const sess = openSession(path);
+  await sess.updateCompany({ name: 'Test Co', gstin: '27AABCU9603R1ZN' });
   sess.state.invoices = [];
   sess.state.invoiceSeq = 0;
   sess.state.parties = [];
@@ -1217,6 +1221,7 @@ test('period lock: rejects postings on or before the locked date, allows after',
 test('period lock: applies per client book, not to SELF', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'myca-lock-'));
   const sess = openSession(join(dir, 'MyCA', 'state.json'));
+  await sess.updateCompany({ name: 'Test Co', gstin: '27AABCU9603R1ZN' });
   await sess.tool('add_client', { clientId: 'CL-1', name: 'Beta', state: '29' });
   await sess.tool('set_active_client', { clientId: 'CL-1' });
   assert.equal((await sess.tool('lock_period', { through: '2026-08-31' })).ok, true);

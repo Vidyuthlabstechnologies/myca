@@ -136,3 +136,52 @@ Inventory and stock valuation, cost centres, multi-currency, depreciation schedu
 
 - Which expense heads does the first version ship with? The list above is a proposal.
 - Does TDS get worked out at the time an expense is posted? See [spec 04](04-tds.md).
+
+## Who to pay: the payment run (built 2026-10-17)
+
+"Who do I need to pay?" (or "kis ko payment karna hai") ranks every unpaid supplier bill on
+the clocks that matter in India: bills at or past their MSMED pay-by date first (the
+disallowance under Section 43B(h) starts there), then bills within 180 days of their date
+(after which the input credit is reversed under Rule 37), then bills due within the next
+fourteen days on agreed terms. Bills older than 45 days with no agreed terms are listed to
+consider; bills with an open exception are held back and named. The answer shows the bank
+and cash balance from the owner's last reading, the balance after paying, and whether
+payroll and GST still clear from the cash forecast.
+
+"Pay the proposed bills" (optionally "except BILL-0003") previews the batch as one
+proposal with the total and the balance after; a batch that would take the balance below
+zero is blocked at the preview. On yes, MyCA posts one payment per bill from the bank;
+the owner makes the transfers from their bank app. In the app, "Who to pay" on the Cash
+screen shows the same list with a tick per bill (`payment_run` is a remote query,
+`record_payment_run` is previewed and confirmed).
+
+## Close the month (built 2026-10-18)
+
+"Close the month" (or "close September", "mahina band karo") runs nine checks on a
+finished month and answers each in words: entries posted; possible duplicates (same party,
+amount within a rupee, dated within five days, across invoices, bills and expenses);
+bills and expenses above ₹5,000 with no document (a bill read from a photo or an expense
+posted with its document keeps the hash); marketplace settlements matched; GSTR-2B loaded;
+payroll approved and paid; a bank balance given in the month; nothing high or critical
+open; and any line that moved more than a tenth on the month before, with both figures.
+A short narrative follows, built only from the figures.
+
+"Approve the close" signs it off. The approval is bound to the draft, so a close drafted
+before the books changed cannot be approved by mistake; when checks are open the owner has
+to say why ("approve the close: the two Mehta bills are different consignments") and the
+note and the open items are kept with the close. On yes the books lock through the last
+day of the month, so nothing dated inside it can be posted or changed without unlocking.
+Never a forecast before the close, never an automatic fix of a duplicate.
+
+## Where a supplier is paid, and the payout file (built 2026-10-19)
+
+"Ravi Packaging is paid to account 5010 0123 4567 89 IFSC HDFC0001234" (or "... to UPI
+ravi@okaxis") records where a supplier is paid; only the owner can. A change is previewed
+old against new with the one sentence that stops the commonest invoice fraud: confirm it by
+calling the number you already have for them, not one on the bill or the email. The change
+is kept with the record. "Payout file" builds a bulk NEFT or IMPS file for the bills the
+payment run proposes, one row per supplier (beneficiary, account, IFSC, UPI, amount, a
+narration with their bill numbers), names the suppliers with no details on record, and
+warns when a supplier's details changed recently. MyCA moves no money: the file is uploaded
+and approved in the bank, and the payments are recorded with "pay the proposed bills".
+

@@ -48,6 +48,11 @@ export function createState() {
     purchaseNotes: [],
     purchaseNoteSeq: 0,
     gstReviews: {},
+    monthCloses: {},
+    purchaseOrders: [],
+    purchaseOrderSeq: 0,
+    advanceTaxPayments: [],
+    reports: {},
     gstr2b: {},
     reminders: [],
     reminderSeq: 0,
@@ -60,6 +65,8 @@ export function createState() {
     quoteSeq: 0,
     filings: [],
     supplierReminders: [],
+    collectionReminders: [],
+    collectionReminderSeq: 0,
     settlements: [],
     settlementSeq: 0,
     channels: {},
@@ -139,6 +146,11 @@ export function serialize(state) {
     purchaseNotes: state.purchaseNotes || [],
     purchaseNoteSeq: state.purchaseNoteSeq || 0,
     gstReviews: state.gstReviews || {},
+    monthCloses: state.monthCloses || {},
+    purchaseOrders: state.purchaseOrders || [],
+    advanceTaxPayments: state.advanceTaxPayments || [],
+    reports: state.reports || {},
+    purchaseOrderSeq: state.purchaseOrderSeq || 0,
     gstr2b: state.gstr2b || {},
     reminders: state.reminders || [],
     reminderSeq: state.reminderSeq || 0,
@@ -150,6 +162,8 @@ export function serialize(state) {
     quotes: state.quotes || [],
     filings: state.filings || [],
     supplierReminders: state.supplierReminders || [],
+    collectionReminders: state.collectionReminders || [],
+    collectionReminderSeq: state.collectionReminderSeq || 0,
     settlements: state.settlements || [],
     settlementSeq: state.settlementSeq || 0,
     channels: state.channels || {},
@@ -310,6 +324,11 @@ export function deserialize(raw) {
   state.purchaseNotes = Array.isArray(raw.purchaseNotes) ? raw.purchaseNotes : [];
   state.purchaseNoteSeq = raw.purchaseNoteSeq || 0;
   state.gstReviews = raw.gstReviews && typeof raw.gstReviews === 'object' ? raw.gstReviews : {};
+  state.monthCloses = raw.monthCloses && typeof raw.monthCloses === 'object' ? raw.monthCloses : {};
+  state.purchaseOrders = Array.isArray(raw.purchaseOrders) ? raw.purchaseOrders : [];
+  state.advanceTaxPayments = Array.isArray(raw.advanceTaxPayments) ? raw.advanceTaxPayments : [];
+  state.reports = raw.reports && typeof raw.reports === 'object' ? raw.reports : {};
+  state.purchaseOrderSeq = Number(raw.purchaseOrderSeq || 0);
   state.gstr2b = raw.gstr2b && typeof raw.gstr2b === 'object' ? raw.gstr2b : {};
   state.reminders = Array.isArray(raw.reminders) ? raw.reminders : [];
   state.reminderSeq = raw.reminderSeq || 0;
@@ -321,6 +340,8 @@ export function deserialize(raw) {
   state.quotes = Array.isArray(raw.quotes) ? raw.quotes : [];
   state.filings = Array.isArray(raw.filings) ? raw.filings : [];
   state.supplierReminders = Array.isArray(raw.supplierReminders) ? raw.supplierReminders : [];
+  state.collectionReminders = Array.isArray(raw.collectionReminders) ? raw.collectionReminders : [];
+  state.collectionReminderSeq = Number(raw.collectionReminderSeq || 0);
   state.settlements = Array.isArray(raw.settlements) ? raw.settlements : [];
   state.settlementSeq = Number(raw.settlementSeq || 0);
   state.channels = raw.channels && typeof raw.channels === 'object' ? raw.channels : {};
@@ -455,7 +476,7 @@ export function saveState(path, state) {
   const dir = dirname(safePath);
   mkdirSync(dir, { recursive: true });
   const tempPath = join(dir, `.${basename(safePath)}.${process.pid}.${Date.now()}.${Math.random().toString(36).slice(2)}.tmp`);
-  const text = JSON.stringify(serialize(state), null, 2);
+  const text = JSON.stringify(serialize(state));
   savePinVault(safePath, state);
   try {
     writeDurably(tempPath, text);

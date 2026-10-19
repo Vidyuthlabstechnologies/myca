@@ -1,0 +1,20 @@
+{
+  "cbic-central-tax-notifications": {
+    "hash": "8919e800a5a3d39fc9d503bcf02c7e6e5a11744562e3155072c85ac23304e02a",
+    "checkedOn": "2026-10-17",
+    "acceptedOn": "2026-10-17",
+    "chars": 77
+  },
+  "gst-portal-news": {
+    "hash": "5db81988c5a2b5bb01b5b1c0b80ded40ea3b9a4a55a515066eafb6fcdbd67d24",
+    "checkedOn": "2026-10-17",
+    "acceptedOn": "2026-10-17",
+    "chars": 390
+  },
+  "irs-information-returns": {
+    "hash": "e796085870fa5f89bc7cd3bbf9d94d0c65ec42c2808ebafdbdfcada5ee39ff75",
+    "checkedOn": "2026-10-17",
+    "acceptedOn": "2026-10-17",
+    "chars": 161194
+  }
+}

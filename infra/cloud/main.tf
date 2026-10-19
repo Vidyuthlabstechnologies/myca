@@ -101,6 +101,16 @@ resource "google_sql_database_instance" "main" {
     disk_autoresize   = true
     user_labels       = local.labels
 
+    database_flags {
+      name  = "cloudsql.enable_pgaudit"
+      value = "on"
+    }
+
+    database_flags {
+      name  = "pgaudit.log"
+      value = "read,write"
+    }
+
     backup_configuration {
       enabled                        = true
       start_time                     = "20:30"
@@ -178,6 +188,11 @@ resource "random_password" "connector_key" {
   special = false
 }
 
+resource "random_password" "books_key" {
+  length  = 64
+  special = false
+}
+
 locals {
   database_url = "postgres://${google_sql_user.api.name}:${random_password.db.result}@localhost/${google_sql_database.main.name}?host=/cloudsql/${google_sql_database_instance.main.connection_name}"
   secrets = {
@@ -187,6 +202,7 @@ locals {
     "myca-inbound-relay-token"   = random_password.inbound_relay_token.result
     "myca-whatsapp-verify-token" = random_password.whatsapp_verify_token.result
     "myca-connector-key"         = random_password.connector_key.result
+    "myca-books-key"             = random_password.books_key.result
     "myca-whatsapp-app-secret"   = var.whatsapp_app_secret
     "myca-whatsapp-access-token" = var.whatsapp_access_token
   }
@@ -317,6 +333,16 @@ resource "google_cloud_run_v2_service" "api" {
       }
 
       env {
+        name = "MYCA_BOOKS_KEY"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.api["myca-books-key"].secret_id
+            version = "latest"
+          }
+        }
+      }
+
+      env {
         name  = "MYCA_ENABLE_CHANNEL_PULLS"
         value = var.enable_channel_pulls ? "1" : "0"
       }
@@ -430,6 +456,31 @@ resource "google_cloud_scheduler_job" "daily" {
   http_target {
     http_method = "POST"
     uri         = "${google_cloud_run_v2_service.api.uri}/v1/jobs/daily"
+    headers = {
+      "x-myca-job-token" = random_password.job_token.result
+    }
+  }
+
+  depends_on = [google_project_service.apis]
+}
+
+resource "google_cloud_scheduler_job" "weekly" {
+  name             = "${local.name}-weekly"
+  region           = var.region
+  description      = "Sends MyCA's Monday brief on WhatsApp to members who asked for it"
+  schedule         = var.weekly_job_schedule
+  time_zone        = var.daily_job_time_zone
+  attempt_deadline = "600s"
+
+  retry_config {
+    retry_count          = 3
+    min_backoff_duration = "60s"
+    max_backoff_duration = "600s"
+  }
+
+  http_target {
+    http_method = "POST"
+    uri         = "${google_cloud_run_v2_service.api.uri}/v1/jobs/weekly"
     headers = {
       "x-myca-job-token" = random_password.job_token.result
     }
@@ -566,4 +617,12 @@ resource "google_monitoring_alert_policy" "latency" {
   }
 
   notification_channels = local.alert_channels
+}
+
+resource "google_logging_project_bucket_config" "default" {
+  project        = var.project_id
+  location       = "global"
+  bucket_id      = "_Default"
+  retention_days = var.log_retention_days
+  description    = "Request, job and database audit logs kept for the CERT-In period"
 }

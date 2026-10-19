@@ -191,6 +191,8 @@ ThemeData mycaTheme() {
       focusedBorder: field(Palette.ink, 1.4),
       labelStyle: text.bodyLarge?.copyWith(color: Palette.muted),
       hintStyle: text.bodyLarge?.copyWith(color: Palette.faint),
+      prefixStyle: text.bodyLarge?.copyWith(color: Palette.ink),
+      suffixStyle: text.bodyLarge?.copyWith(color: Palette.ink),
       helperStyle: text.bodySmall,
     ),
     chipTheme: base.chipTheme.copyWith(

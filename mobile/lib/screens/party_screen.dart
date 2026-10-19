@@ -11,6 +11,7 @@ import '../registers.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import 'invoice_screen.dart';
+import 'remind_customer_screen.dart';
 
 enum _Composer { none, document, payment, quote, purchaseNote }
 
@@ -138,7 +139,11 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
     _amount.clear();
     if (composer == _Composer.payment) {
       _invoiceId = party.unpaid.first.id;
-      if (!_sales) _amount.text = plainNumber(party.unpaid.first.owed);
+      _amount.text = plainNumber(party.unpaid.first.owed);
+    }
+    if (composer == _Composer.document || composer == _Composer.quote) {
+      final before = ratesUsedBefore(party.documents);
+      if (_rate.text.trim().isEmpty && before.isNotEmpty) _rate.text = rateLabel(before.first);
     }
     if (composer == _Composer.purchaseNote) {
       final open = party.documents.where((d) => !d.cancelled).toList();
@@ -574,6 +579,18 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
             ),
           ],
         ),
+        actions: [
+          if (_sales && !_us)
+            IconButton(
+              tooltip: 'Remind customer',
+              icon: const Icon(Icons.notifications_active_outlined),
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => RemindCustomerScreen(customer: party.name),
+                ),
+              ),
+            ),
+        ],
       ),
       body: Column(
         children: [

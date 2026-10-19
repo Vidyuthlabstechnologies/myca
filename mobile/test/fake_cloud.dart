@@ -19,6 +19,8 @@ class FakeCloud {
   final invited = <String>[];
   final removed = <String>[];
   final roleChanges = <String>[];
+  final briefChanges = <bool>[];
+  bool weeklyBrief = false;
   final inboundKeys = <Map<String, Object?>>[];
   final disabledKeys = <String>[];
   final deletedBusinesses = <String>[];
@@ -261,6 +263,15 @@ class FakeCloud {
         'user': {'id': 'u1', 'name': userName.isEmpty ? 'Asha' : userName},
         if (role == 'accountant' && caMode != 'live') 'sharedAsOf': sharedAsOf,
       });
+    }
+    if (path == '$books/brief' && request.method == 'GET') {
+      return _json(200, {'ok': true, 'weekly': weeklyBrief, 'channel': 'whatsapp', 'when': 'Monday 07:00 IST'});
+    }
+    if (path == '$books/brief' && request.method == 'POST') {
+      if (role == 'accountant') return _json(403, {'ok': false, 'error': 'NOT_FOR_ACCOUNTANTS'});
+      weeklyBrief = body['weekly'] == true;
+      briefChanges.add(weeklyBrief);
+      return _json(200, {'ok': true, 'weekly': weeklyBrief, 'channel': 'whatsapp', 'when': 'Monday 07:00 IST'});
     }
     if (path == '$books/ca-sync' && request.method == 'GET') {
       return _json(200, {'ok': true, 'mode': caMode, 'sharedAsOf': caMode == 'live' ? null : sharedAsOf});

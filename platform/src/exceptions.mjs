@@ -30,7 +30,7 @@ function periodsOf(invoices) {
   return [...set];
 }
 
-function ledgerCandidates(book) {
+function ledgerCandidates(book, chainResult = null) {
   const out = [];
   const tb = trialBalance(book.ledger);
   if (!tb.balanced) {
@@ -45,7 +45,7 @@ function ledgerCandidates(book) {
       evidence: {},
     });
   }
-  const chain = verifyChain(book.ledger);
+  const chain = chainResult || verifyChain(book.ledger);
   if (!chain.ok) {
     out.push({
       key: 'ledger:chain_broken',
@@ -61,22 +61,52 @@ function ledgerCandidates(book) {
   return out;
 }
 
+const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+function periodWords(fp) {
+  const m = Number(String(fp).slice(0, 2));
+  return m >= 1 && m <= 12 ? `${MONTH_NAMES[m - 1]} ${String(fp).slice(2)}` : String(fp);
+}
+const GSTIN_ERROR_WORDS = {
+  INVALID_LENGTH: 'not 15 characters',
+  INVALID_STATE: 'the state code is wrong',
+  INVALID_PAN: 'the PAN inside it is wrong',
+  INVALID_ENTITY_CHAR: 'the 14th character is wrong',
+  CHECK_DIGIT_MISMATCH: 'the check digit is wrong',
+};
+function gstinErrorWords(errors) {
+  const words = (errors || []).map((e) => GSTIN_ERROR_WORDS[typeof e === 'string' ? e : e?.code] || String(typeof e === 'string' ? e : e?.code || '').toLowerCase().replace(/_/g, ' ')).filter(Boolean);
+  return words.length ? words.join(', ') : 'it does not check out';
+}
+
+function invoicesByPeriod(invoices) {
+  const buckets = new Map();
+  for (const inv of invoices || []) {
+    const match = /^(\d{4})-(\d{2})/.exec(String(inv.date || ''));
+    if (!match) continue;
+    const fp = `${match[2]}${match[1]}`;
+    if (!buckets.has(fp)) buckets.set(fp, []);
+    buckets.get(fp).push(inv);
+  }
+  return buckets;
+}
+
 function gstr1Candidates(book) {
   const out = [];
-  for (const fp of periodsOf(book.invoices)) {
-    const json = invoicesToGstr1Json(book.company || {}, book.invoices || [], fp, { channels: book.channels });
+  for (const [fp, invoices] of invoicesByPeriod(book.invoices)) {
+    const json = invoicesToGstr1Json(book.company || {}, invoices, fp, { channels: book.channels, allGiven: true });
     if (json.error) continue;
+    const byId = new Map(invoices.map((i) => [i.id, i]));
     for (const held of json.held || []) {
-      const invoice = (book.invoices || []).find((i) => i.id === held.inum);
+      const invoice = byId.get(held.inum);
       out.push({
         key: `gstr1:${held.code}:${held.inum}`,
         source: 'gstr1',
         code: held.code,
         severity: 'high',
-        title: `${held.inum} cannot be reported in GSTR-1 for ${fp}`,
+        title: `${held.inum} cannot be reported in GSTR-1 for ${periodWords(fp)}`,
         why: held.code === 'RATE_NOT_IN_FORCE'
           ? `The invoice charges GST at ${held.rate}%, which was not in force on ${held.idt}. Either the rate or the date is wrong.`
-          : `The buyer's GSTIN ${held.gstin} fails validation (${(held.errors || []).join(', ')}), so the invoice cannot go into the B2B table.`,
+          : `The buyer's GSTIN ${held.gstin} is not valid (${gstinErrorWords(held.errors)}), so the invoice cannot go into the B2B table. Correct it with the buyer and amend the invoice.`,
         moneyAtRisk: rupees(invoice?.total),
         evidence: { invoiceIds: [held.inum], period: fp },
       });
@@ -367,7 +397,7 @@ export function detectExceptions(book, inputs = {}) {
     ...settlementCandidates(book),
     ...creditCandidates(book),
     ...marginCandidates(book),
-    ...ledgerCandidates(book),
+    ...ledgerCandidates(book, inputs.chain || null),
     ...gstr1Candidates(book),
     ...deadlineCandidates(inputs.deadlines),
     ...reconcileCandidates(inputs.reconcile),
@@ -390,10 +420,11 @@ export function refreshExceptions(book, inputs = {}, options = {}) {
   const seen = new Set();
   let added = 0;
   let reopened = 0;
+  const byKey = new Map(queue.map((e) => [e.key, e]));
 
   for (const candidate of candidates) {
     seen.add(candidate.key);
-    const existing = queue.find((e) => e.key === candidate.key);
+    const existing = byKey.get(candidate.key);
     if (!existing) {
       book.exceptionSeq += 1;
       queue.push({

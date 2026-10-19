@@ -53,9 +53,22 @@ jobs:
       - name: Gaps and records ending within ninety days
         run: node scripts/rules-watch.mjs | tee "$GITHUB_STEP_SUMMARY"
 
+  sources:
+    name: Official sources unchanged
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+      - name: CBIC, GST portal, CBDT, EPFO, ESIC, DoPT and IRS pages against the last accepted reading
+        run: node scripts/rules-sources.mjs | tee "$GITHUB_STEP_SUMMARY"
+
   report:
     name: Open or update the issue
-    needs: [suites, rules]
+    needs: [suites, rules, sources]
     if: always()
     runs-on: ubuntu-latest
     permissions:
@@ -65,6 +78,7 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       SUITES: ${{ needs.suites.result }}
       RULES: ${{ needs.rules.result }}
+      SOURCES: ${{ needs.sources.result }}
       RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
     steps:
       - name: File what failed, close it when everything passes
@@ -73,13 +87,13 @@ jobs:
           set -euo pipefail
           title="Nightly checks need attention"
           existing="$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "\"$title\" in:title" --json number --jq '.[0].number // empty')"
-          if [ "$SUITES" = "success" ] && [ "$RULES" = "success" ]; then
+          if [ "$SUITES" = "success" ] && [ "$RULES" = "success" ] && [ "$SOURCES" = "success" ]; then
             if [ -n "$existing" ]; then
               gh issue close "$existing" --repo "$GITHUB_REPOSITORY" --comment "Every nightly check passed on $(date -u +%F): $RUN_URL"
             fi
             exit 0
           fi
-          body="$(printf 'Nightly run on %s: %s\n\n- Test suites: **%s**\n- Statutory rules: **%s**\n\nThe rules job prints which family has a gap or a record ending with no successor. Add the new dated record as docs/product/RULES-CURRENCY.md describes; never edit an existing one. This issue closes itself on the first green night.' "$(date -u +%F)" "$RUN_URL" "$SUITES" "$RULES")"
+          body="$(printf 'Nightly run on %s: %s\n\n- Test suites: **%s**\n- Statutory rules: **%s**\n- Official sources: **%s**\n\nThe rules job prints which family has a gap or a record ending with no successor. Add the new dated record as docs/product/RULES-CURRENCY.md describes; never edit an existing one. The sources job names an official page that changed since its reading was last accepted: read it, add any new dated record, then run scripts/rules-sources.mjs --accept and commit scripts/rules-sources.seen.json. This issue closes itself on the first green night.' "$(date -u +%F)" "$RUN_URL" "$SUITES" "$RULES" "$SOURCES")"
           if [ -n "$existing" ]; then
             gh issue comment "$existing" --repo "$GITHUB_REPOSITORY" --body "$body"
           else

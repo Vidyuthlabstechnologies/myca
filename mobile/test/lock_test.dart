@@ -119,12 +119,12 @@ void main() {
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('App lock'));
 
-    await tester.tap(find.byType(Switch));
+    await tester.tap(find.descendant(of: find.widgetWithText(SwitchListTile, 'App lock'), matching: find.byType(Switch)));
     await tester.pumpAndSettle();
     expect(state.lockEnabled, isTrue, reason: 'a failed check leaves it on');
     expect(store.isLockEnabled, isTrue);
 
-    await tester.tap(find.byType(Switch));
+    await tester.tap(find.descendant(of: find.widgetWithText(SwitchListTile, 'App lock'), matching: find.byType(Switch)));
     await tester.pumpAndSettle();
     expect(state.lockEnabled, isFalse);
     expect(store.isLockEnabled, isFalse);

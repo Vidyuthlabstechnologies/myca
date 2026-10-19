@@ -68,7 +68,7 @@ export function rotateBackups(statePath, text, { today = localToday(), keep = KE
     writeThenRename(sumPath(target), `${sha256Of(text)}\n`);
     written = true;
   }
-  const kept = listBackups(statePath);
+  const kept = readdirSync(dir).filter((name) => DAILY.test(name)).sort().map((name) => ({ day: DAILY.exec(name)[1], path: join(dir, name) }));
   const removed = [];
   for (const old of kept.slice(0, Math.max(0, kept.length - keep))) {
     try { unlinkSync(old.path); } catch {}

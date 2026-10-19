@@ -36,8 +36,62 @@ and [`README.md`](README.md) for what is left and how it is being done.
 - Deadline engine (GSTR-1/3B/7/9, TDS quarterly, PF, advance tax, ITR) with
   weekend/gazetted-holiday rollover and escalation levels
 - ITR regime comparison (AIS/26AS, old vs new); TDS 194A/C/I/J threshold monitor
+- Supplier bank details and a payout file (2026-10-19): the owner records where a supplier is
+  paid (account and IFSC, or UPI); a change is shown old against new with the warning to
+  confirm it on the number already on file; a bulk NEFT file for the bills the payment run
+  proposes, one row per supplier, with the suppliers lacking details named; MyCA moves no
+  money. The Monday brief names customers who have gone quiet
+- Saved reports and receipt matching (2026-10-19): a report saved by name (sales, purchases,
+  expenses, owed or owing; by customer, supplier, head or month; this or last month, quarter
+  or financial year, compared with the period before) and run again by name, on the phone too;
+  a photographed receipt whose total is within fifty paise and whose date within three days of
+  an expense or bill already posted is offered as an attachment to that entry, so nothing is
+  posted twice
+- Accessibility and large type (2026-10-18): fourteen screens checked in the suite for 48-point
+  tap targets, labels and text contrast, and rendered at text scale 2.0 with no overflow; the
+  same screens read through the accessibility tree on an Android 15 emulator with TalkBack;
+  two findings fixed (the Home business tile's tap area, the rupee prefix's contrast)
+- Launch gates (2026-10-18): the books column sealed per business with AES-256-GCM under the
+  service key (required on Cloud Run); an access log the owner can read and pgaudit on the
+  database; a written retention policy enforced by a nightly purge thirty days after a
+  deletion; dependency scanning on every push. Still open: a penetration test by an outside
+  firm, and counsel's sign-off on the retention periods
+- Advance tax set-aside (2026-10-18): for an individual or proprietor, the year's profit to
+  date scaled to twelve months (both figures shown), tax under the chosen regime from the
+  dated rules, less TDS credit from Form 26AS or marketplace settlements, split into the
+  instalments by 15 June, September, December and March (or the whole by 15 March when
+  presumptive), met, missed or next, interest sections named not computed, headed "for
+  your CA to confirm" with its assumptions; a paid instalment posts bank to advance tax paid
+- Restock from velocity (2026-10-18): per SKU, units sold a day over 7 and 28 days net of
+  returns and excluding days out of stock, days of cover against the supplier's lead time,
+  a status from too late to overstock, slow movers with the rupees tied up, an order sized
+  for sixty days plus the lead rounded to the pack; supplier, lead time, pack and MOQ per SKU;
+  purchase orders recorded without touching the ledger and counted as on order
+- Month close with sign-off (2026-10-18): nine checks for a finished month (entries, possible
+  duplicates, documents for bills and expenses above a threshold, settlements, GSTR-2B, payroll
+  approved and paid, a bank reading, nothing high open, month-on-month moves), a narrative from
+  the figures, approval bound to a draft hash with a note when items are open, and the books
+  locked through the month's last day; a read bill or an expense can carry its document hash
+- Cash forecast with confidence (2026-10-18): a timing band per customer from their last
+  twelve receipts (capped at half, thin history said so), 30/60/90-day windows with low,
+  expected and high, bills on their MSMED or agreed pay-by date, salaries, PF, ESI and salary
+  TDS as dated outgoings, and up to five named risks; "can I make payroll" answers covered,
+  tight or short by an amount and names the customers who usually pay before payday;
+  every payroll run flags a changed salary, a missing person, a newcomer, partial days and a
+  gross move against last month, and corrects nothing
+- Monday brief (2026-10-17): cash and runway, sales deltas, receivable aging buckets, dues,
+  exceptions and the one thing to do, from chat and the app; on the hosted service it is sent
+  on WhatsApp every Monday 07:00 IST to members who switched it on
+- Payment run (2026-10-17): unpaid bills ranked on the MSMED date, the 180-day credit limit
+  and agreed terms, held back for open exceptions, with the balance after and whether payroll
+  and GST still clear; one preview pays the batch; "Who to pay" on the Cash screen in the app
+- Customer payment reminders (2026-10-17): overdue customers scored from a year of paying
+  history, one draft each in a matching tone with the bank details, recent payers left out,
+  a follow-up reminder set on send; from chat or the bell on a customer's thread in the app
 - Defensible audit: full-population rules, SA 230 working papers, systematic sampling,
-  Schedule III / CARO / 3CD checks, engagement risk scoring
+  Schedule III / CARO / 3CD checks, engagement risk scoring. "Audit the books" runs on the
+  books themselves (sales, receipts, credit notes, purchases, payments, expenses with their
+  heads and TDS sections, approved payroll) when no ledger file is attached (2026-10-16)
 
 ### Data import
 - Tally Day Book CSV and TallyPrime XML → posted invoices (row isolation, alias mapping)
@@ -192,6 +246,13 @@ no live switch, no CA approvals, and no bytes leaving the PC.
 
 - The AES-256-GCM vault fallback is not hardware-backed; the shipped Electron app uses
   real DPAPI via `safeStorage`.
+- A fresh install opens with empty books and a blank business (2026-10-18): the desktop shows a
+  two-step setup (name and GSTIN, with the state and PAN derived; then Tally, Zoho, a bank
+  statement or fresh books) and nothing can post until the business is named; sample books
+  load only through `seed_demo`.
+- The desktop serves its API token inside the page it renders; on a shared Windows
+  machine another local user who can reach 127.0.0.1 could read it. Moving the token to
+  the Electron preload bridge is the fix; not done yet.
 - The local CA API is a contract/test harness, not a production connector layer.
 - The marketing site under `deploy/` is research/status content, not the product.
 - `vendor/` reference clones are never imported (licence reasons — see `vendor/README.md`).

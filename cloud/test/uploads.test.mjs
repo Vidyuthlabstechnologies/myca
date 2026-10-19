@@ -17,7 +17,7 @@ before(async () => {
 after(async () => { await api.close(); });
 
 const post = (who, action, body, raw) => api.call('POST', `/v1/businesses/${who.businessId}/${action}`, { token: who.token, body, raw });
-const booksText = async (who) => JSON.stringify((await api.db.query('select state from books where business_id = $1', [who.businessId])).rows[0].state);
+const booksText = async (who) => JSON.stringify((await api.books(who.businessId)));
 
 test('an uploaded statement is previewed in one request and imported in another', async () => {
   const upload = await post(asha, 'uploads', { name: 'bank.csv', content: BANK });

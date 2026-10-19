@@ -2,7 +2,7 @@ import { planReceiptWithoutInvoice } from './receipt-intent.mjs';
 import { planExpenseFromChat, planRetagFromChat } from './expense-intent.mjs';
 import { planPaymentFromChat } from './payment-intent.mjs';
 import { planOweQuestion } from './owe-intent.mjs';
-import { planFilingFromChat } from './filing-intent.mjs';
+import { planFilingFromChat, saidPeriod } from './filing-intent.mjs';
 import { planEmployeeFromChat } from './employee-intent.mjs';
 import { planTdsFromChat } from './tds-intent.mjs';
 import { planGstPayFromChat } from './gst-pay-intent.mjs';
@@ -14,10 +14,30 @@ import { tdsReviewOf } from './tds-review.mjs';
 import { parseQuarter } from './tds-return.mjs';
 import { reviewOf } from './gst-review.mjs';
 import { planReminderFromChat } from './reminder-intent.mjs';
+import { planCollectionFromChat } from './collections-intent.mjs';
+import { planPaymentRunFromChat } from './payment-run-intent.mjs';
+import { planMonthCloseFromChat } from './month-close-intent.mjs';
+import { planRestockFromChat } from './restock-intent.mjs';
+import { planAdvanceTaxFromChat } from './advance-tax-intent.mjs';
+import { planSupplierBankFromChat } from './supplier-bank-intent.mjs';
+import { planReportFromChat } from './reports-intent.mjs';
 import { planCashFromChat } from './cash-intent.mjs';
 import { planTermsFromChat, takeInvoiceTerms } from './terms-intent.mjs';
 import { localToday } from './dates.mjs';
-import { normalizeChat, parseDocument, receiptAmount, receiptDate, isPurchaseIntent, isSaleIntent, isQuestion, isNegated, ROUTES } from './intent.mjs';
+import { documentsOf } from './document-store.mjs';
+
+const PERIOD_TOOLS = new Set(['gst_payable', 'export_tally', 'export_gstr1_json', 'prepare_gstr1', 'filing_pack', 'prepare_gstr3b']);
+
+export function pendingFileContent(state) {
+  const pending = state.pendingFile;
+  if (!pending) return '';
+  if (typeof pending.content === 'string') return pending.content;
+  if (!pending.sha256) return '';
+  const read = documentsOf(state).read(pending.sha256);
+  if (typeof read === 'string') return read;
+  return read && read.ok ? String(read.content ?? '') : '';
+}
+import { normalizeChat, parseDocument, documentProblemReply, saidNonPositiveAmount, receiptAmount, receiptDate, isPurchaseIntent, isSaleIntent, isQuestion, isNegated, ROUTES } from './intent.mjs';
 import { confirmationIntent } from './chat-confirm.mjs';
 
 const noArgs = {
@@ -273,7 +293,7 @@ export const TOOL_ARG_SCHEMAS = {
   create_purchase: {
     ...documentSchema,
     properties: {
-      salesTaxPaid: { type: 'number', minimum: 0 }, ...documentSchema.properties, supplierInvoiceNo: { type: 'string', maxLength: 16 }, ...tdsProperties },
+      salesTaxPaid: { type: 'number', minimum: 0 }, ...documentSchema.properties, supplierInvoiceNo: { type: 'string', maxLength: 16 }, documentSha256: { type: 'string', pattern: '^[0-9a-f]{64}$' }, ...tdsProperties },
   },
   print_invoice: {
     type: 'object',
@@ -1165,6 +1185,132 @@ export const TOOL_ARG_SCHEMAS = {
     required: ['question'],
     properties: { question: { type: 'string', minLength: 3, maxLength: 400 } },
   },
+  can_make_payroll: { type: 'object', additionalProperties: false, properties: {} },
+  attach_document: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['documentSha256', 'id'],
+    properties: { documentSha256: { type: 'string', pattern: '^[0-9a-f]{64}$' }, id: { type: 'string', minLength: 1, maxLength: 24 } },
+  },
+  save_report: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['name', 'metric'],
+    properties: {
+      name: { type: 'string', minLength: 1, maxLength: 60 },
+      metric: { type: 'string', enum: ['sales', 'purchases', 'expenses', 'owed', 'owing'] },
+      groupBy: { type: 'string', enum: ['customer', 'supplier', 'head', 'month', 'none'] },
+      period: { type: 'string', maxLength: 12 },
+      compare: { type: 'boolean' },
+    },
+  },
+  run_report: { type: 'object', additionalProperties: false, required: ['name'], properties: { name: { type: 'string', minLength: 1, maxLength: 60 } } },
+  list_reports: { type: 'object', additionalProperties: false, properties: {} },
+  delete_report: { type: 'object', additionalProperties: false, required: ['name'], properties: { name: { type: 'string', minLength: 1, maxLength: 60 } } },
+  set_supplier_bank: {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      partyName: { type: 'string', maxLength: 80 },
+      partyGstin: { type: 'string', pattern: '^([0-9]{2}[A-Z0-9]{13})?$' },
+      account: { type: 'string', maxLength: 24 },
+      ifsc: { type: 'string', maxLength: 11 },
+      upi: { type: 'string', maxLength: 80 },
+      holder: { type: 'string', maxLength: 80 },
+    },
+  },
+  supplier_payout_file: {
+    type: 'object',
+    additionalProperties: false,
+    properties: { billIds: { type: 'array', maxItems: 100, items: { type: 'string', maxLength: 40 } }, windowDays: { type: 'integer', minimum: 1, maximum: 60 } },
+  },
+  advance_tax: {
+    type: 'object',
+    additionalProperties: false,
+    properties: { regime: { type: 'string', enum: ['old', 'new'] }, presumptive: { type: 'boolean' }, otherIncome: { type: 'number', minimum: 0 }, asOf: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' } },
+  },
+  record_advance_tax: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['amount'],
+    properties: { amount: { type: 'number', exclusiveMinimum: 0 }, date: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' }, challan: { type: 'string', maxLength: 30 }, mode: { type: 'string', enum: ['bank', 'cash'] } },
+  },
+  restock_plan: { type: 'object', additionalProperties: false, properties: { asOf: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' } } },
+  set_sku_supply: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['sku'],
+    properties: {
+      sku: { type: 'string', minLength: 1, maxLength: 40 },
+      supplier: { type: 'string', maxLength: 80 },
+      leadDays: { type: 'integer', minimum: 0, maximum: 365 },
+      pack: { type: 'integer', minimum: 1 },
+      moq: { type: 'integer', minimum: 0 },
+    },
+  },
+  record_purchase_order: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['supplier', 'lines'],
+    properties: {
+      supplier: { type: 'string', minLength: 1, maxLength: 80 },
+      lines: { type: 'array', minItems: 1, maxItems: 50, items: { type: 'object', additionalProperties: false, required: ['sku', 'qty'], properties: { sku: { type: 'string', minLength: 1, maxLength: 40 }, qty: { type: 'integer', minimum: 1 }, rate: { type: 'number', minimum: 0 } } } },
+      date: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' },
+      expectedOn: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' },
+    },
+  },
+  month_close: {
+    type: 'object',
+    additionalProperties: false,
+    properties: { period: { type: 'string', pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' }, receiptThreshold: { type: 'number', minimum: 0 } },
+  },
+  month_close_approve: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['period', 'draftHash'],
+    properties: {
+      period: { type: 'string', pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' },
+      draftHash: { type: 'string', pattern: '^[0-9a-f]{64}$' },
+      note: { type: 'string', maxLength: 500 },
+    },
+  },
+  weekly_brief: {
+    type: 'object',
+    additionalProperties: false,
+    properties: { asOf: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' } },
+  },
+  payment_run: {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      windowDays: { type: 'integer', minimum: 1, maximum: 60 },
+      asOf: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' },
+    },
+  },
+  record_payment_run: {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      billIds: { type: 'array', maxItems: 100, items: { type: 'string', maxLength: 40 } },
+      date: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' },
+      mode: { type: 'string', enum: ['bank', 'cash'] },
+    },
+  },
+  collection_drafts: {
+    type: 'object',
+    additionalProperties: false,
+    properties: { customer: { type: 'string', maxLength: 120 } },
+  },
+  record_collection_reminder: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['customer'],
+    properties: {
+      customer: { type: 'string', minLength: 1, maxLength: 120 },
+      message: { type: 'string', maxLength: 2000 },
+      channel: { type: 'string', enum: ['whatsapp', 'email', 'other'] },
+    },
+  },
   supplier_reminder_draft: {
     type: 'object',
     additionalProperties: false,
@@ -1640,6 +1786,7 @@ export const TOOL_ARG_SCHEMAS = {
     additionalProperties: false,
     required: ['amount'],
     properties: {
+      documentSha256: { type: 'string', pattern: '^[0-9a-f]{64}$' },
       narration: { type: 'string', maxLength: 200 },
       amount: { type: 'number', exclusiveMinimum: 0 },
       gstRate: { type: 'number', minimum: 0, maximum: 28 },
@@ -1709,6 +1856,16 @@ const TOOL_RISK = {
   set_cash_balance: 'writes_books',
   record_filing: 'writes_books',
   record_supplier_reminder: 'writes_books',
+  record_collection_reminder: 'writes_books',
+  record_payment_run: 'writes_books',
+  month_close_approve: 'writes_books',
+  set_sku_supply: 'writes_books',
+  record_advance_tax: 'writes_books',
+  set_supplier_bank: 'writes_books',
+  attach_document: 'writes_books',
+  save_report: 'writes_books',
+  delete_report: 'writes_books',
+  record_purchase_order: 'writes_books',
   add_employee: 'writes_books',
   approve_payroll: 'writes_books',
   record_salary_payment: 'writes_books',
@@ -1950,6 +2107,7 @@ export function planLocalToolCall(state, message) {
     const validity = text.match(/\s*,?\s*\bvalid\s+(?:for\s+)?(\d{1,3})\s*days?\b/i);
     const asInvoice = (validity ? text.replace(validity[0], ' ') : text).replace(/\b(?:make\s+(?:a|an)\s+|send\s+(?:a|an)\s+)?(?:quotation|quote|estimate)\b/i, 'invoice');
     const quoted = parseDocument(asInvoice);
+    if (quoted && quoted.problem) return documentProblemReply(quoted);
     if (quoted) {
       if (quoted.lines[0].gstRate == null) {
         return { kind: 'reply', reply: 'I have not made the quote, because I will not guess the GST rate. Say it again with the rate, for example "quote ABC Ltd 50000 for consulting GST 18%".', tools: [] };
@@ -1975,6 +2133,18 @@ export function planLocalToolCall(state, message) {
   if (filed) return filed;
   const owed = planOweQuestion(state, text);
   if (owed) return owed;
+  const report = planReportFromChat(state, text);
+  if (report) return report;
+  const supplierBank = planSupplierBankFromChat(state, text);
+  if (supplierBank) return supplierBank;
+  const advance = planAdvanceTaxFromChat(state, text);
+  if (advance) return advance;
+  const stock = planRestockFromChat(state, text);
+  if (stock) return stock;
+  const closing = planMonthCloseFromChat(state, text);
+  if (closing) return closing;
+  const run = planPaymentRunFromChat(state, text);
+  if (run) return run;
   const payment = planPaymentFromChat(state, text);
   if (payment) return payment;
   if (countryOf(state) === 'US') {
@@ -1994,6 +2164,8 @@ export function planLocalToolCall(state, message) {
   const saidTerms = takeInvoiceTerms(text);
   const doc = /\b(?:debit|credit)\s+note\b/i.test(text) ? null : parseDocument(saidTerms.text);
   const asking = isQuestion(text) || isNegated(text);
+  if (doc && doc.problem && !asking && (isPurchaseIntent(text) || isSaleIntent(text))) return documentProblemReply(doc);
+  if (doc && doc.problem) return { kind: 'tool', name: 'company_profile', args: {}, fallback: true };
   if (doc && !asking && doc.lines[0].gstRate == null && (isPurchaseIntent(text) || isSaleIntent(text))) {
     return {
       kind: 'reply',
@@ -2131,7 +2303,7 @@ export function planLocalToolCall(state, message) {
   }
 
   const cancelMatch = text.match(/\bcancel\s+(?:invoice\s+)?(INV-\d{4,})\b(?:\s*(?:because|reason|:|-)?\s*(.+))?$/i);
-  if (cancelMatch && !isQuestion(text) && !/(?:do\s*not|don'?t|never)/i.test(text) && !/(?:irn|e-?invoice)/i.test(text)) {
+  if (cancelMatch && !isQuestion(text) && !/\b(?:do\s*not|don'?t|never)\b/i.test(text) && !/\b(?:irn|e-?invoice)\b/i.test(text)) {
     const reason = String(cancelMatch[2] || '').trim();
     return { kind: 'tool', name: 'cancel_invoice', args: { invoiceId: cancelMatch[1].toUpperCase(), date: receiptDate(text, localToday()), ...(reason ? { reason: reason.slice(0, 200) } : {}) } };
   }
@@ -2167,6 +2339,7 @@ export function planLocalToolCall(state, message) {
   const creditMatch = text.match(/\bcredit\s+note\b.*?\b(INV-\d{4,})\b/i);
   if (creditMatch && !isQuestion(text) && !isNegated(text)) {
     const amount = receiptAmount(text);
+    if (amount == null && saidNonPositiveAmount(text)) return { kind: 'reply', reply: `A credit note has to be a positive amount, for example "credit note for ${creditMatch[1].toUpperCase()} 2000 - goods returned". I have recorded nothing.`, tools: [] };
     const afterInvoice = text.slice(text.toUpperCase().indexOf(creditMatch[1].toUpperCase()) + creditMatch[1].length);
     const reason = (text.match(/(?:because|reason|:|-)\s*([^0-9₹][^,]*?)\s*$/i) || afterInvoice.match(/(?:₹|rs\.?\s*)?\d[\d,]*(?:\.\d+)?\s+(?:for\s+)?([A-Za-z][^,]*?)\s*$/i) || [])[1] || '';
     if (!reason.trim()) {
@@ -2223,6 +2396,7 @@ export function planLocalToolCall(state, message) {
       return { kind: 'reply', reply: `${status} I have recorded nothing. To record money received, say "record receipt ${invoiceId}" and confirm the preview.`, tools: [] };
     }
     const amount = receiptAmount(text);
+    if (amount == null && saidNonPositiveAmount(text)) return { kind: 'reply', reply: `An amount of zero or less cannot be received. Say the amount, for example "received 5000 against ${invoiceId}", or leave it out to settle the whole invoice. I have recorded nothing.`, tools: [] };
     return {
       kind: 'tool',
       name: 'record_receipt',
@@ -2234,6 +2408,8 @@ export function planLocalToolCall(state, message) {
   if (retag) return retag;
   const expense = planExpenseFromChat(state, text);
   if (expense) return expense;
+  const chase = planCollectionFromChat(state, text);
+  if (chase) return chase;
   const receipt = planReceiptWithoutInvoice(state, text);
   if (receipt) return receipt;
 
@@ -2245,12 +2421,12 @@ export function planLocalToolCall(state, message) {
     };
   }
   if (/\bimport tally xml\b|\btally xml\b/i.test(text)) {
-    const xml = state.pendingFile?.content || state.files.tallyXml;
+    const xml = pendingFileContent(state) || state.files.tallyXml;
     if (!xml) return { kind: 'reply', reply: 'Attach a Tally XML file first (dropdown: Tally XML).', tools: [] };
     return { kind: 'tool', name: 'import_tally_xml', args: { xml, fileName: state.pendingFile?.name || 'tally.xml' }, clearsPendingFile: true };
   }
   if (/\bimport tally\b|\btally day/i.test(text)) {
-    const csv = state.pendingFile?.content || state.files.tally;
+    const csv = pendingFileContent(state) || state.files.tally;
     if (!csv) return { kind: 'reply', reply: 'Attach a Tally Day Book CSV first (dropdown: Tally Day Book).', tools: [] };
     return { kind: 'tool', name: 'import_tally', args: { csv, fileName: state.pendingFile?.name || 'tally.csv' }, clearsPendingFile: true };
   }
@@ -2273,7 +2449,7 @@ export function planLocalToolCall(state, message) {
     const stock = /^stock\s+(in|out)\s+([A-Za-z0-9][A-Za-z0-9_./-]{0,63})\s+([\d.]+)(?:\s+(?:at|to|from|in)\s+([A-Za-z0-9][A-Za-z0-9 _-]{0,39}))?\s*$/i.exec(text.trim());
     if (stock && !isNegated(text)) return { kind: 'tool', name: 'record_stock', args: { sku: stock[2].toUpperCase(), qty: stock[1].toLowerCase() === 'in' ? Number(stock[3]) : -Number(stock[3]), ...(stock[4] ? { location: stock[4].trim().toLowerCase() } : {}) } };
     if (/\bimport\s+(?:sku\s+)?costs?\b|\bsku\s+costs?\s+(?:file|csv|sheet)\b/i.test(text) && !isQuestion(text)) {
-      const csv = state.pendingFile?.content;
+      const csv = pendingFileContent(state);
       if (!csv) return { kind: 'reply', reply: 'Attach a sheet with sku and cost columns (name and HSN optional), then say "import sku costs".', tools: [] };
       return { kind: 'tool', name: 'import_sku_costs', args: { csv }, clearsPendingFile: true };
     }
@@ -2301,12 +2477,12 @@ export function planLocalToolCall(state, message) {
       return { kind: 'tool', name: 'set_channel_identity', args: { channel: identity[1].toLowerCase(), ...(gstin ? { gstin: gstin[1].toUpperCase() } : {}), ...(tan ? { tan: tan[1].toUpperCase() } : {}) } };
     }
     if (/\bimport\s+(?:the\s+)?tcs\s+(?:credit\s+)?(?:statement|received|credits?)\b|\btds\s+and\s+tcs\s+credit\s+received\b/i.test(text) && !isQuestion(text)) {
-      const csv = state.pendingFile?.content;
+      const csv = pendingFileContent(state);
       if (!csv) return { kind: 'reply', reply: 'Attach the "TDS and TCS credit received" statement from the GST portal (operator GSTIN, period, integrated, central and state tax), then say "import tcs statement".', tools: [] };
       return { kind: 'tool', name: 'import_tcs_statement', args: { csv }, clearsPendingFile: true };
     }
     if (/\bimport\s+(?:form\s+)?26\s*as\b|\b26\s*as\s+(?:credits?|194-?o)\b/i.test(text) && !isQuestion(text)) {
-      const csv = state.pendingFile?.content;
+      const csv = pendingFileContent(state);
       if (!csv) return { kind: 'reply', reply: 'Attach Form 26AS as a CSV or text table (section, TAN of deductor, tax deducted, date), then say "import 26AS". Only section 194-O rows are read here.', tools: [] };
       return { kind: 'tool', name: 'import_26as_credits', args: { csv }, clearsPendingFile: true };
     }
@@ -2317,7 +2493,7 @@ export function planLocalToolCall(state, message) {
   {
     const orders = /\bimport\s+(?:the\s+)?(?:(amazon|flipkart|myntra|nykaa|meesho|shopify|razorpay|quick[\s-]?commerce)\s+)?(?:orders?|mtr|order\s+report|sales\s+report|gst\s+report)\b/i.exec(text);
     if (orders && !isQuestion(text)) {
-      const csv = state.pendingFile?.content;
+      const csv = pendingFileContent(state);
       const fetchedOrders = !csv && orders[1] ? state.attachments?.[`channel:${orders[1].toLowerCase()}:orders`] : null;
       if (!csv && fetchedOrders) return { kind: 'tool', name: 'import_marketplace_orders', args: { documentSha256: fetchedOrders.sha256, channel: orders[1].toLowerCase() } };
       if (!csv) return { kind: 'reply', reply: 'Attach the order report first (Amazon MTR, Flipkart GST report, or any sheet with order id, date, delivery state, GST rate and taxable value), then say "import amazon orders". Each day and state becomes one invoice to unregistered buyers after you see the preview; returns become credit notes.', tools: [] };
@@ -2336,7 +2512,7 @@ export function planLocalToolCall(state, message) {
   {
     const settle = /\bimport\s+(?:the\s+)?(?:(amazon|flipkart|myntra|nykaa|meesho|shopify|razorpay|quick[\s-]?commerce)\s+)?(?:settlement|payout)s?\b(?:\s+(?:report|file|csv))?(?:.*?\b(?:bank|received|got|paid)\s+(?:₹|rs\.?\s*)?([\d,]+(?:\.\d+)?))?/i.exec(text);
     if (settle && !isQuestion(text)) {
-      const csv = state.pendingFile?.content;
+      const csv = pendingFileContent(state);
       const fetchedSettlement = !csv && settle[1] ? state.attachments?.[`channel:${settle[1].toLowerCase()}:settlement`] : null;
       if (!csv && fetchedSettlement) return { kind: 'tool', name: 'import_settlement', args: { documentSha256: fetchedSettlement.sha256, channel: settle[1].toLowerCase(), ...(settle[2] ? { bankAmount: Number(settle[2].replace(/,/g, '')) } : {}) } };
       if (!csv) return { kind: 'reply', reply: 'Attach the settlement or payout report first (Amazon settlement CSV, Flipkart settlement sheet, or any sheet with sale, fees and settlement value per order), then say "import settlement". Add "bank received 1,23,456" if the bank credit is not in the books yet.', tools: [] };
@@ -2351,30 +2527,32 @@ export function planLocalToolCall(state, message) {
     }
   }
   if (/\bimport\s+(?:pos|counter|daily)\s*(?:sales)?\b|\b(?:pos|counter)\s+sales\s+(?:csv|file|import)\b/i.test(text)) {
-    const csv = state.pendingFile?.content;
+    const csv = pendingFileContent(state);
     if (!csv) return { kind: 'reply', reply: 'Attach the daily sales CSV from your billing counter first (date, GST rate, taxable value, and the GST if it has it), then say "import pos sales". Each day becomes one walk-in invoice by rate after you see the preview.', tools: [] };
     return { kind: 'tool', name: 'import_pos_sales', args: { csv }, clearsPendingFile: true };
   }
   if (/\bimport\s+(?:quickbooks|qbo|xero)\b|\b(?:quickbooks|xero)\s+(?:invoices|export|csv)\b/i.test(text)) {
-    const csv = state.pendingFile?.content;
+    const csv = pendingFileContent(state);
     if (!csv) return { kind: 'reply', reply: 'Attach the QuickBooks or Xero invoice CSV first, then say "import xero" or "import quickbooks". I will show what would post before anything lands in the books.', tools: [] };
     const jurisdiction = (text.match(/\b(?:tax|jurisdiction)\s+([A-Z]{2}(?:-[A-Z0-9]{2,20})?)\b/) || [])[1];
     return { kind: 'tool', name: 'import_us_invoices', args: { csv, ...(jurisdiction ? { taxJurisdiction: jurisdiction } : {}) }, clearsPendingFile: true };
   }
   if (/\bimport zoho\b|\bzoho books\b/i.test(text)) {
-    const csv = state.pendingFile?.content || state.files.zoho;
+    const csv = pendingFileContent(state) || state.files.zoho;
     if (!csv) return { kind: 'reply', reply: 'Attach a Zoho Books invoice CSV first.', tools: [] };
     return { kind: 'tool', name: 'import_zoho', args: { csv }, clearsPendingFile: true };
   }
   if (/\bimport bank\b|\bbank statement\b|\bimport\s+(?:account\s+aggregator|aa)\s+(?:data|file|json|statement)\b|\baccount\s+aggregator\s+(?:data|file|json)\b/i.test(text)) {
-    const content = state.pendingFile?.content || state.files.bank;
+    const content = pendingFileContent(state) || state.files.bank;
     if (!content) return { kind: 'reply', reply: 'Attach a bank CSV or TXT, or the Account Aggregator FI data JSON, first.', tools: [] };
     const name = state.pendingFile?.name || '';
     return { kind: 'tool', name: 'import_bank', args: { content, type: /\.json$/i.test(name) || /account\s+aggregator|\baa\b/i.test(text) ? 'aa' : /\.txt$/i.test(name) ? 'text' : 'csv' }, clearsPendingFile: true };
   }
 
   for (const route of ROUTES) {
-    if (route.re.test(text)) return { kind: 'tool', name: route.tool, args: {} };
+    if (!route.re.test(text)) continue;
+    const period = PERIOD_TOOLS.has(route.tool) ? saidPeriod(text) : '';
+    return { kind: 'tool', name: route.tool, args: period ? { period } : {} };
   }
 
   if (doc) {

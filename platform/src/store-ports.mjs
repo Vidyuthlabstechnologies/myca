@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { loadState, saveState, safeStatePath, serialize, deserialize, createState } from './store.mjs';
 import { createFileDocumentStore, documentsOf, isSha256 } from './document-store.mjs';
@@ -27,9 +27,36 @@ function moved(expectedVersion, current) {
   return expectedVersion != null && expectedVersion !== current;
 }
 
+function financialYearOf(iso) {
+  const [y, m] = iso.split('-').map(Number);
+  const start = m >= 4 ? y : y - 1;
+  return `${start}-${String((start + 1) % 100).padStart(2, '0')}`;
+}
+
+export function freshBooks(today = new Date().toISOString().slice(0, 10)) {
+  const state = createState();
+  state.company = { ...state.company, name: '', gstin: '', state: '', pan: '', address: '', fy: financialYearOf(today), setupNeeded: true };
+  return state;
+}
+
 export function createFileBooksStore(path) {
   const safePath = safeStatePath(path);
-  const versionOnDisk = () => (existsSync(safePath) ? sha256Of(readFileSync(safePath, 'utf8')) : '');
+  let known = null;
+  const stamp = () => {
+    try {
+      const info = statSync(safePath);
+      return `${info.size}:${info.mtimeMs}`;
+    } catch {
+      return '';
+    }
+  };
+  const remember = (version) => { known = { version, stamp: stamp() }; return version; };
+  const versionOnDisk = () => {
+    if (!existsSync(safePath)) { known = null; return ''; }
+    const current = stamp();
+    if (known && known.stamp === current) return known.version;
+    return remember(sha256Of(readFileSync(safePath, 'utf8')));
+  };
   let recovered = null;
   let lastBackup = null;
   const health = () => ({ recovered, lastBackup, backups: backupSummary(safePath) });
@@ -39,6 +66,7 @@ export function createFileBooksStore(path) {
     health,
     load() {
       try {
+        if (!existsSync(safePath)) return { state: freshBooks(), version: '', recovered };
         return { state: loadState(safePath), version: versionOnDisk(), recovered };
       } catch (err) {
         const good = latestGoodBackup(safePath);
@@ -53,12 +81,13 @@ export function createFileBooksStore(path) {
       const current = versionOnDisk();
       if (moved(expectedVersion, current)) return { ok: false, error: VERSION_CONFLICT, version: current };
       const text = saveState(safePath, state);
+      const version = remember(sha256Of(text));
       try {
         lastBackup = rotateBackups(safePath, text);
       } catch (err) {
         lastBackup = { written: false, error: String(err && err.message ? err.message : err) };
       }
-      return { ok: true, version: versionOnDisk() };
+      return { ok: true, version };
     },
   };
 }

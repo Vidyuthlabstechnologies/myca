@@ -13,6 +13,17 @@ import { saveGstr1ToPortal, fileGstr1OnPortal, generateTdsFvu, portalStatus } fr
 import { aaBankFeed } from './aa-import.mjs';
 import { askKnowledge } from './knowledge.mjs';
 import { pushZohoInvoices } from './zoho-push.mjs';
+import { booksAuditLedger } from './audit-ledger.mjs';
+import { salaryPrivate } from './employees.mjs';
+import { collectionDrafts, recordCollectionReminder } from './collections.mjs';
+import { paymentRun, recordPaymentRun } from './payment-run.mjs';
+import { weeklyBrief } from './weekly-brief.mjs';
+import { monthCloseOf, approveMonthClose } from './month-close.mjs';
+import { restockPlan, setSkuSupply, recordPurchaseOrder } from './restock.mjs';
+import { advanceTax, recordAdvanceTaxPayment } from './advance-tax.mjs';
+import { setSupplierBank, supplierPayoutFile } from './supplier-bank.mjs';
+import { attachDocument } from './receipt-match.mjs';
+import { saveReport, runReport, listReports, deleteReport } from './reports.mjs';
 const ingestTally = tally.ingest;
 const ingestBank = bank.ingest;
 const { reconcile } = gst;
@@ -71,7 +82,7 @@ import { setTransport, recordShare, ewayBillStatus, transportPayload } from './e
 import { ensureParty } from './invoice.mjs';
 import { tdsReviewOf, answerTdsReview } from './tds-review.mjs';
 import { addReminder, completeReminder, listReminders } from './reminders.mjs';
-import { cashForecast, canAfford, setCashBalance } from './cash-forecast.mjs';
+import { cashForecast, canAfford, setCashBalance, canMakePayroll } from './cash-forecast.mjs';
 import { setPaymentTerms } from './payment-terms.mjs';
 import { setSupplierTerms, supplierDues } from './supplier-dues.mjs';
 import { requestDocuments, recordDocumentReceived, documentRequests, correctEval, evalEvents, searchFirmNotes } from './practice.mjs';
@@ -218,6 +229,7 @@ export const TOOLS = [
         patch.pin = pin ? Number(pin) : '';
       }
       Object.assign(company, patch);
+      if (company.name && company.setupNeeded) delete company.setupNeeded;
       return ok({ company });
     },
   },
@@ -545,7 +557,8 @@ export const TOOLS = [
     run: (state, args = {}) => {
       const rows = journal(state.ledger);
       const limit = Number(args.limit || 50);
-      return ok({ count: rows.length, rows: rows.slice(-limit) });
+      const names = new Map([...state.ledger.accounts.values()].map((a) => [a.id.toString(), a.name]));
+      return ok({ count: rows.length, rows: rows.slice(-limit).map((r) => ({ ...r, debitAccount: names.get(r.debitAccountId) || r.debitAccountId, creditAccount: names.get(r.creditAccountId) || r.creditAccountId })) });
     },
   },
   {
@@ -565,7 +578,7 @@ export const TOOLS = [
     name: 'create_purchase',
     title: 'Record purchase bill',
     description: 'Book a supplier invoice: purchases + AP (with GST input credit in India; in the US any sales tax paid is part of the cost).',
-    args: ['partyName', 'partyGstin', 'lines', 'date', 'supplierInvoiceNo', 'salesTaxPaid'],
+    args: ['partyName', 'partyGstin', 'lines', 'date', 'supplierInvoiceNo', 'salesTaxPaid', 'documentSha256'],
     run: (state, args) => (countryOf(state) === 'US' ? createUsPurchase(state, args) : createPurchase(state, args)),
   },
   {
@@ -1011,6 +1024,17 @@ export const TOOLS = [
     },
   },
   {
+    name: 'can_make_payroll',
+    title: 'Can I make payroll',
+    description: 'Whether the next salary day clears: the approved (or expected, from the last approved month) net pay plus the PF, ESI and TDS due around it against the cash forecast on that day; covered, tight or short by an amount; when short, the customers whose usual paying time lands before payday, largest first. Read-only.',
+    args: [],
+    run: async (state) => {
+      const due = await TOOL_MAP.deadlines.run(state, {});
+      const clientId = String(state.activeClientId || 'SELF');
+      return canMakePayroll(state, { deadlines: (due.data?.deadlines || due.deadlines || []).filter((row) => row.clientId === clientId) });
+    },
+  },
+  {
     name: 'can_afford',
     title: 'Can I afford it',
     description: 'Whether spending an amount on a day leaves money in hand, from the cash forecast: the lowest balance after that day less the amount, how many months of usual outgoings that covers, and what can be spent while keeping a month in hand. Read-only.',
@@ -1090,6 +1114,7 @@ export const TOOLS = [
     description: 'Choose how new invoices are numbered: one continuous series (INV-0001 onwards) or one series per financial year (INV-26270001 is the first of 2026-27). Existing invoices keep their numbers. Owner only.',
     args: ['mode'],
     run: (state, args = {}) => {
+      if (salaryPrivate(state)) return fail('OWNER_ONLY', { hint: 'Only the owner can change invoice numbering.' });
       const mode = String(args.mode || '').trim().toLowerCase();
       if (!['continuous', 'yearly'].includes(mode)) return fail('BAD_NUMBERING', { mode, hint: 'continuous or yearly' });
       const before = state.company.invoiceNumbering || 'continuous';
@@ -2349,6 +2374,139 @@ export const TOOLS = [
     run: (state, args = {}) => draftSupplierReminder(state, args),
   },
   {
+    name: 'collection_drafts',
+    title: 'Who to chase for payment',
+    description: 'Overdue customers with a paying score from their last twelve months (usually on time, sometimes late, late more often than not), one consolidated reminder draft per customer in a matching tone with the bank details from the invoice design, and the customers left out because they paid something in the last fourteen days. Read-only; sends nothing.',
+    args: ['customer'],
+    run: (state, args = {}) => collectionDrafts(state, args),
+  },
+  {
+    name: 'record_collection_reminder',
+    title: 'Send a payment reminder to a customer',
+    description: 'Record that the owner is sending a payment reminder to one customer from their own phone, with the message as sent, and set a reminder to check for the payment in seven days. MyCA does not send it.',
+    args: ['customer', 'message', 'channel'],
+    run: (state, args = {}) => recordCollectionReminder(state, args),
+  },
+  {
+    name: 'attach_document',
+    title: 'Attach a document to an entry',
+    description: 'Keep an uploaded document (a receipt photo, a bill) with an expense, bill or invoice already in the books, instead of posting it again. The reader suggests the match when the amount is within fifty paise and the date within three days.',
+    args: ['documentSha256', 'id'],
+    run: (state, args = {}) => attachDocument(state, args),
+  },
+  {
+    name: 'save_report',
+    title: 'Save a report',
+    description: 'Save a report by name: a metric (sales, purchases, expenses, owed, owing), grouped by customer, supplier, head, month or not at all, for this month, last month, this quarter, this year, last year or a given month, optionally compared with the period before. Run it any time by name.',
+    args: ['name', 'metric', 'groupBy', 'period', 'compare'],
+    run: (state, args = {}) => saveReport(state, args),
+  },
+  {
+    name: 'run_report',
+    title: 'Run a saved report',
+    description: 'Run a saved report by name on the books as they are now. Read-only.',
+    args: ['name'],
+    run: (state, args = {}) => runReport(state, args),
+  },
+  {
+    name: 'list_reports',
+    title: 'Saved reports',
+    description: 'The reports saved on these books. Read-only.',
+    args: [],
+    run: (state) => listReports(state),
+  },
+  {
+    name: 'delete_report',
+    title: 'Delete a saved report',
+    description: 'Remove a saved report definition; the books are untouched.',
+    args: ['name'],
+    run: (state, args = {}) => deleteReport(state, args),
+  },
+  {
+    name: 'set_supplier_bank',
+    title: 'Where a supplier is paid',
+    description: 'Record a supplier\'s bank account and IFSC, or UPI id, for the payout file. A change is shown old against new and should be confirmed on the phone number already on file, never from the bill itself. Owner only.',
+    args: ['partyName', 'partyGstin', 'account', 'ifsc', 'upi', 'holder'],
+    run: (state, args = {}) => setSupplierBank(state, args),
+  },
+  {
+    name: 'supplier_payout_file',
+    title: 'Supplier payout file',
+    description: 'A bulk NEFT file (beneficiary, account, IFSC, UPI, amount, narration) for the bills the payment run proposes, one row per supplier, with the suppliers that have no bank details on record named. MyCA moves no money. Owner only. Read-only.',
+    args: ['billIds', 'windowDays'],
+    run: (state, args = {}) => supplierPayoutFile(state, args),
+  },
+  {
+    name: 'advance_tax',
+    title: 'Advance tax to set aside',
+    description: 'For an individual or proprietor: profit for the financial year to date scaled to twelve months (both figures shown), tax under the chosen regime from the dated rules, less TDS credit from Form 26AS or marketplace settlements, split into the instalments due 15 June, 15 September, 15 December and 15 March (or the whole by 15 March when presumptive), with what is met, missed or next. Headed "for your CA to confirm" with its assumptions. Read-only.',
+    args: ['regime', 'presumptive', 'otherIncome', 'asOf'],
+    run: (state, args = {}) => advanceTax(state, args),
+  },
+  {
+    name: 'record_advance_tax',
+    title: 'Record an advance tax payment',
+    description: 'Record an advance tax instalment paid from the bank (or cash) with its challan number; posts bank to the advance tax asset so the next instalment is computed net of it.',
+    args: ['amount', 'date', 'challan', 'mode'],
+    run: (state, args = {}) => recordAdvanceTaxPayment(state, args),
+  },
+  {
+    name: 'restock_plan',
+    title: 'What to reorder',
+    description: 'Per SKU from the stock moves: on hand and on order, units sold a day over 7 and 28 days net of returns and excluding days out of stock, days of cover, a status (too late, order now, order soon, fine, overstock, slow mover, not enough history) against the supplier lead time, and a quantity sized for sixty days plus the lead time rounded to the pack and at least the MOQ. Read-only.',
+    args: ['asOf'],
+    run: (state, args = {}) => restockPlan(state, args),
+  },
+  {
+    name: 'set_sku_supply',
+    title: 'Supplier and lead time for a SKU',
+    description: 'Record which supplier a SKU comes from, the lead time in days, the pack size and the minimum order, so the restock plan can size and time orders.',
+    args: ['sku', 'supplier', 'leadDays', 'pack', 'moq'],
+    run: (state, args = {}) => setSkuSupply(state, args),
+  },
+  {
+    name: 'record_purchase_order',
+    title: 'Record a purchase order',
+    description: 'Record a purchase order to a supplier (SKU, quantity, rate, expected date). It counts as on order in the restock plan; nothing posts to the ledger until the bill comes.',
+    args: ['supplier', 'lines', 'date', 'expectedOn'],
+    run: (state, args = {}) => recordPurchaseOrder(state, args),
+  },
+  {
+    name: 'month_close',
+    title: 'Close the month',
+    description: 'Nine checks for a finished month: entries posted, possible duplicates (same party, amount within a rupee, within five days), bills and expenses above a threshold with no document, marketplace settlements matched, GSTR-2B loaded, payroll approved and paid, a bank balance given in the month, nothing high or critical open, month-on-month moves above a tenth; plus a short narrative from the figures and a draft hash for the sign-off. Read-only.',
+    args: ['period', 'receiptThreshold'],
+    run: (state, args = {}) => monthCloseOf(state, args),
+  },
+  {
+    name: 'month_close_approve',
+    title: 'Sign off the month',
+    description: 'Approve the month close bound to its draft hash; open items need a note and are kept with the close; the books lock through the last day of the month.',
+    args: ['period', 'draftHash', 'note'],
+    run: (state, args = {}) => approveMonthClose(state, args),
+  },
+  {
+    name: 'weekly_brief',
+    title: 'Weekly brief',
+    description: 'The week in one message: cash with its change on last week and the runway in months, sales this week and this month with deltas, what customers owe in 0-30, 31-60 and over-60-day buckets with the worst late payers, what is owed to suppliers and any MSME bill past its date, what is due this week, open exceptions, and the one thing to do. Read-only.',
+    args: ['asOf'],
+    run: (state, args = {}) => weeklyBrief(state, args),
+  },
+  {
+    name: 'payment_run',
+    title: 'Who to pay',
+    description: 'Unpaid supplier bills ranked on the Indian clocks: at or past the MSMED pay-by date first, then bills within 180 days of their date (after which the input credit is reversed under Rule 37), then bills due within the window on agreed terms; bills older than 45 days with no terms are listed to consider; bills with an open exception are held back. Shows the bank and cash balance, the balance after paying and whether payroll and GST still clear. Read-only.',
+    args: ['windowDays', 'asOf'],
+    run: (state, args = {}) => paymentRun(state, args),
+  },
+  {
+    name: 'record_payment_run',
+    title: 'Pay the proposed bills',
+    description: 'Record the payments in a payment run from the bank (or cash) in one go, each bill in full. With no billIds, the proposed set is paid. Previewed with the total and the balance after.',
+    args: ['billIds', 'date', 'mode'],
+    run: (state, args = {}) => recordPaymentRun(state, args),
+  },
+  {
     name: 'record_supplier_reminder',
     title: 'Send a reminder to a supplier',
     description: 'Record that the owner is sending a GSTR-2B reminder to a supplier from their own phone, with the message as sent. MyCA does not send it; the app hands it to the share sheet after this is confirmed.',
@@ -2417,16 +2575,22 @@ export const TOOLS = [
     title: 'Defensible audit',
     description: 'Full-population ledger scrutiny, SA 230 working papers, Schedule III / CARO / 3CD, engagement risk.',
     run: (state, args = {}) => {
-      const text = args.ledgerText || state.files.auditLedger;
-      if (!text) return fail('Pass ledgerText (clientId,date,narration,debit,credit,party,category,tdsSection).');
-      return ok(auditRun({ ledgerText: text, asOfDate: args.asOfDate || localToday() }));
+      let text = args.ledgerText || state.files.auditLedger;
+      let source = 'ledger file';
+      if (!text) {
+        const built = booksAuditLedger(state);
+        if (!built.ok) return fail(built.error, { hint: built.hint });
+        text = built.text;
+        source = `the books (${built.rows} entries)`;
+      }
+      return ok({ ...auditRun({ ledgerText: text, asOfDate: args.asOfDate || localToday() }), source });
     },
   },
   {
     name: 'post_expense',
     title: 'Post expense',
     description: 'Record an expense paid from bank or cash under the right head. The head is chosen from what you tagged before, then from the words, else Other expenses. Input credit only with the supplier GSTIN.',
-    args: ['narration', 'amount', 'gstRate', 'date', 'mode', 'payee', 'supplierGstin', 'head'],
+    args: ['narration', 'amount', 'gstRate', 'date', 'mode', 'payee', 'supplierGstin', 'head', 'documentSha256'],
     run: (state, args) => postExpense(state, args),
   },
   {

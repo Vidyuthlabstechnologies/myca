@@ -143,21 +143,44 @@ function appSnapshot(snapshot, user, role) {
   };
 }
 
-export function createApi({ db, secret, otpSender = null, googleClientIds = [], googleKeys, oidc = {}, oidcKeys = null, documentVault = null, connectorKey = '', now = () => Date.now(), log = () => {}, version = 'dev', jobToken = '', inboundEmail = {}, whatsapp = {}, whatsappSender = null }) {
+export function trustedProxyHops(env = process.env) {
+  const given = Number(env.MYCA_TRUSTED_PROXY_HOPS);
+  if (Number.isInteger(given) && given >= 0) return given;
+  return env.K_SERVICE ? 1 : 0;
+}
+
+function createAccessLog(db) {
+  return async function recordAccess(businessId, context, method, action, role) {
+    await db.query(
+      'insert into access_log (business_id, user_id, device_id, request_id, method, action, role) values ($1, $2, $3, $4, $5, $6, $7)',
+      [businessId, context.userId || null, context.deviceId || null, context.requestId || '', String(method || '').slice(0, 8), String(action || '').slice(0, 80), String(role || '').slice(0, 20)],
+    );
+  };
+}
+
+export function clientAddress(req, hops = trustedProxyHops()) {
+  const socket = String(req.socket?.remoteAddress || '').slice(0, 64);
+  if (!hops) return socket;
+  const parts = String(req.headers['x-forwarded-for'] || '').split(',').map((part) => part.trim()).filter(Boolean);
+  return String(parts[parts.length - hops] || '').slice(0, 64);
+}
+
+export function createApi({ db, secret, booksKey = '', otpSender = null, googleClientIds = [], googleKeys, oidc = {}, oidcKeys = null, documentVault = null, connectorKey = '', now = () => Date.now(), log = () => {}, version = 'dev', jobToken = '', inboundEmail = {}, whatsapp = {}, whatsappSender = null }) {
   assertSecret(secret);
   if (liveCallsEnabled()) throw new Error('the hosted API must not start with live provider calls enabled');
   const auth = createAuth({ db, secret, otpSender, now });
-  const businesses = createBusinesses({ db, now });
+  const businesses = createBusinesses({ db, now, booksKey });
   const vault = documentVault || createDocumentVault({ now, log });
-  const runner = createBooksRunner({ db, now, vault });
+  const runner = createBooksRunner({ db, now, vault, booksKey });
   const connectors = createConnectorStore({ db, key: connectorKey });
   const withBooks = runner.withBooks;
   const members = createMembers({ db, secret, now, notify: otpSender && typeof otpSender.sendText === 'function' ? (phone, text) => otpSender.sendText(phone, text) : null });
   const crashes = createCrashReports({ db, now });
-  const inbound = createInbound({ db, secret, now, withBooks, email: { domain: inboundEmail.domain } });
-  const whatsApp = createWhatsApp({ db, withBooks, config: whatsapp, sender: whatsappSender, now, log });
+  const inbound = createInbound({ db, secret, now, withBooks, email: { domain: inboundEmail.domain }, storedBytes: (businessId) => businesses.storedBytes(businessId), limitBytes: MAX_BUSINESS_BYTES });
+  const whatsApp = createWhatsApp({ db, withBooks, withSharedBooks: runner.withSharedBooks, syncOf, config: whatsapp, sender: whatsappSender, now, log });
   const consent = createConsent({ db, now });
-  const jobs = createJobs({ db, withBooks, connectors, syncChannels, pullsEnabled: channelPullsEnabled, log });
+  const recordAccess = createAccessLog(db);
+  const jobs = createJobs({ db, withBooks, connectors, syncChannels, pullsEnabled: channelPullsEnabled, sender: whatsappSender, vault, now, log });
   const google = createGoogleVerifier({ clientIds: googleClientIds, keys: googleKeys || createGoogleKeys({ now }), now });
   const openId = createOidcVerifier({ issuer: oidc.issuer || '', clientIds: oidc.clientIds || [], jwksUrl: oidc.jwksUrl || '', keys: oidcKeys, now });
   if (!otpSender && !google.enabled && !openId.enabled) throw new Error('no sign-in method: configure an SMS sender, MYCA_GOOGLE_CLIENT_IDS or MYCA_OIDC_ISSUER with MYCA_OIDC_CLIENT_IDS');
@@ -192,7 +215,7 @@ export function createApi({ db, secret, otpSender = null, googleClientIds = [], 
 
     if (parts[1] === 'auth' && method === 'POST') {
       const body = await readJson(req);
-      if (parts[2] === 'otp') return auth.requestOtp(body.phone);
+      if (parts[2] === 'otp') return auth.requestOtp(body.phone, clientAddress(req));
       if (parts[2] === 'verify') return withConsent(await auth.verifyOtp(body));
       if (parts[2] === 'google') {
         const identity = await google.verify(body.idToken);
@@ -237,6 +260,10 @@ export function createApi({ db, secret, otpSender = null, googleClientIds = [], 
       throw httpError(404, 'NOT_FOUND');
     }
 
+    if (parts[1] === 'jobs' && parts[2] === 'weekly' && parts.length === 3 && method === 'POST') {
+      if (!jobTokenMatches(jobToken, req.headers[JOB_HEADER])) throw httpError(404, 'NOT_FOUND');
+      return jobs.weekly(requestId);
+    }
     if (parts[1] === 'jobs' && parts[2] === 'daily' && parts.length === 3 && method === 'POST') {
       if (!jobTokenMatches(jobToken, req.headers[JOB_HEADER])) throw httpError(404, 'NOT_FOUND');
       return jobs.daily(requestId);
@@ -300,6 +327,7 @@ export function createApi({ db, secret, otpSender = null, googleClientIds = [], 
       if (!isUuid(businessId)) throw httpError(404, 'BUSINESS_NOT_FOUND');
       const role = await member(user, businessId);
       const context = { userId: user.userId, deviceId: user.deviceId, requestId };
+      await recordAccess(businessId, context, method, `${parts[3]}/${parts[4]}`, role);
       if (parts[3] === 'members') return members.remove(businessId, context, role, parts[4]);
       if (parts[3] === 'inbound') {
         if (role !== 'owner') throw httpError(403, 'OWNER_ONLY');
@@ -324,6 +352,18 @@ export function createApi({ db, secret, otpSender = null, googleClientIds = [], 
       const context = { userId: user.userId, deviceId: user.deviceId, requestId };
       const actor = { actor: { userId: user.userId, role: engineRole(role), name: user.name || user.userId } };
       const action = parts[3];
+      await recordAccess(businessId, context, method, action, role);
+      if (method === 'GET' && action === 'access') {
+        if (role !== 'owner') throw httpError(403, 'OWNER_ONLY');
+        const days = Math.max(1, Math.min(365, Number(url.searchParams.get('days')) || 30));
+        const rows = await db.query(
+          `select a.at, a.method, a.action, a.role, a.request_id as "requestId", u.name as "userName", a.user_id as "userId"
+             from access_log a left join users u on u.id = a.user_id
+            where a.business_id = $1 and a.at > $2 order by a.at desc limit 500`,
+          [businessId, new Date(now() - days * 24 * 60 * 60 * 1000)],
+        );
+        return { ok: true, days, access: rows.rows, note: 'Every request to these books by a signed-in member in the period. Reads of the database by the operator are logged separately by the database (pgaudit) and are not shown here.' };
+      }
       const sync = await syncOf((text, params) => db.query(text, params), businessId);
       const sharedView = role === 'accountant' && sync && sync.mode !== 'live';
 
@@ -332,6 +372,10 @@ export function createApi({ db, secret, otpSender = null, googleClientIds = [], 
           return runner.withSharedBooks(businessId, context, async (session, { asOf }) => ({ ...appSnapshot(session.snapshot(), user, role), sharedAsOf: asOf }));
         }
         return runner.withReadOnlyBooks(businessId, context, async (session) => appSnapshot(session.snapshot(), user, role));
+      }
+      if (method === 'GET' && action === 'brief') {
+        const found = await db.query('select weekly_brief as weekly from memberships where business_id = $1 and user_id = $2', [businessId, user.userId]);
+        return { ok: true, weekly: Boolean(found.rows[0]?.weekly), channel: 'whatsapp', when: 'Monday 07:00 IST' };
       }
       if (method === 'GET' && action === 'ca-sync') {
         return { ok: true, mode: sync.mode, sharedAsOf: sync.mode === 'live' ? null : sync.asOf, modes: CA_SYNC_MODES };
@@ -379,6 +423,12 @@ export function createApi({ db, secret, otpSender = null, googleClientIds = [], 
       if (method !== 'POST') throw httpError(404, 'NOT_FOUND');
 
       const body = await readJson(req, action === 'uploads' ? MAX_UPLOAD_BYTES : action === 'replace' ? MAX_BUSINESS_BYTES : MAX_BODY_BYTES);
+      if (action === 'brief') {
+        if (role === 'accountant') throw httpError(403, 'NOT_FOR_ACCOUNTANTS');
+        const weekly = body.weekly === true;
+        await db.query('update memberships set weekly_brief = $3 where business_id = $1 and user_id = $2', [businessId, user.userId, weekly]);
+        return { ok: true, weekly, channel: 'whatsapp', when: 'Monday 07:00 IST' };
+      }
       if (action === 'ca-sync') {
         if (role !== 'owner') throw httpError(403, 'OWNER_ONLY');
         const mode = String(body.mode || '');

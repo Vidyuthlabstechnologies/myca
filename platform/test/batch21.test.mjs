@@ -18,7 +18,10 @@ test('the invoice design is set piece by piece, validated, printed on the deskto
   assert.equal(plain.data.isDefault, true);
   assert.equal(plain.data.accent, '#b42318');
 
-  const bank = await chat(state, 'bank details on invoices: HDFC Bank, account 5010 0123 4567 89, IFSC hdfc0001234, UPI Asha@okhdfc');
+  const bankHeld = await chat(state, 'bank details on invoices: HDFC Bank, account 5010 0123 4567 89, IFSC hdfc0001234, UPI Asha@okhdfc');
+  assert.match(bankHeld.reply, /Invoices will show account 50100123456789 IFSC HDFC0001234 UPI asha@okhdfc/, bankHeld.reply);
+  const bank = await chat(state, 'yes');
+  const set = async (text) => { await chat(state, text); return chat(state, 'yes'); };
   assert.match(bank.reply, /Payment: HDFC Bank, A\/c 50100123456789, IFSC HDFC0001234, UPI asha@okhdfc/, bank.reply);
   const noIfsc = await runTool(state, 'set_invoice_template', { bank: { account: '123456789', ifsc: '' } });
   assert.equal(noIfsc.error, 'IFSC_REQUIRED');
@@ -28,12 +31,12 @@ test('the invoice design is set piece by piece, validated, printed on the deskto
   assert.equal((await runTool(state, 'set_invoice_template', {})).error, 'NOTHING_TO_CHANGE');
   assert.equal(validateAssistantToolCall('set_invoice_template', { bank: { account: '1', extra: 1 } }).ok, false);
 
-  assert.match((await chat(state, 'terms: Payment within 30 days. Interest at 18% after that.')).reply, /Terms: Payment within 30 days\. Interest at 18% after that\./);
-  assert.match((await chat(state, 'sign invoices as Asha Rao')).reply, /Signed for the business by Asha Rao/);
-  assert.match((await chat(state, 'invoice colour #1d4ed8')).reply, /colour #1d4ed8/);
-  assert.match((await chat(state, 'layout minimal')).reply, /Layout minimal/);
-  assert.match((await chat(state, 'hide HSN')).reply, /HSN column hidden/);
-  assert.match((await chat(state, 'footer: Thank you for your business')).reply, /Footer: Thank you for your business/);
+  assert.match((await set('terms: Payment within 30 days. Interest at 18% after that.')).reply, /Terms: Payment within 30 days\. Interest at 18% after that\./);
+  assert.match((await set('sign invoices as Asha Rao')).reply, /Signed for the business by Asha Rao/);
+  assert.match((await set('invoice colour #1d4ed8')).reply, /colour #1d4ed8/);
+  assert.match((await set('layout minimal')).reply, /Layout minimal/);
+  assert.match((await set('hide HSN')).reply, /HSN column hidden/);
+  assert.match((await set('footer: Thank you for your business')).reply, /Footer: Thank you for your business/);
   assert.equal(state.company.invoiceTemplate.bank.account, '50100123456789');
 
   const inv = await runTool(state, 'create_invoice', { partyName: 'Kiran Stores', lines: [{ description: 'Cotton', hsn: '5205', qty: 1, rate: 1000, gstRate: 5 }], date: '2026-09-05' });

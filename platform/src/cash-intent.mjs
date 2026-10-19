@@ -47,7 +47,9 @@ export function planCashFromChat(text, today = localToday()) {
     return { kind: 'tool', name: 'can_afford', args: { amount: value(found[1], found[2]), on: whenSaid(raw, today) } };
   }
   if (/\bcash\s*(?:flow\s*)?forecast\b|\bhow\s+much\s+(?:cash|money)\s+will\s+i\s+have\b|\bcash\s+position\b/i.test(raw)) {
-    return { kind: 'tool', name: 'cash_forecast', args: {} };
+    const span = raw.match(/\b(\d{1,3})\s*days?\b/i) || raw.match(/\b(\d{1,2})\s*months?\b/i);
+    const days = span ? (/month/i.test(span[0]) ? Number(span[1]) * 30 : Number(span[1])) : null;
+    return { kind: 'tool', name: 'cash_forecast', args: days ? { days: Math.max(1, Math.min(180, days)) } : {} };
   }
   const balance = raw.match(/\b(bank|cash(?:\s+in\s+hand)?)\s+balance\s+(?:is|=|:)?\s*(?:now\s+)?(?:₹|rs\.?|inr)?\s*(\d[\d,]*(?:\.\d+)?)\s*(k|lakhs?|lacs?|l|cr|crores?)?\b|\b(cash\s+in\s+hand)\s+(?:is|=|:)\s*(?:₹|rs\.?|inr)?\s*(\d[\d,]*(?:\.\d+)?)\s*(k|lakhs?|lacs?|l|cr|crores?)?\b/i);
   if (balance && !isNegated(raw)) {

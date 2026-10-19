@@ -59,6 +59,11 @@ export function newBook(company = {}) {
     purchaseNotes: [],
     purchaseNoteSeq: 0,
     gstReviews: {},
+    monthCloses: {},
+    purchaseOrders: [],
+    purchaseOrderSeq: 0,
+    advanceTaxPayments: [],
+    reports: {},
     gstr2b: {},
     reminders: [],
     reminderSeq: 0,
@@ -71,6 +76,8 @@ export function newBook(company = {}) {
     quoteSeq: 0,
     filings: [],
     supplierReminders: [],
+    collectionReminders: [],
+    collectionReminderSeq: 0,
     settlements: [],
     settlementSeq: 0,
     channels: {},
@@ -131,6 +138,11 @@ export function serializeBook(book) {
     purchaseNotes: book.purchaseNotes || [],
     purchaseNoteSeq: book.purchaseNoteSeq || 0,
     gstReviews: book.gstReviews || {},
+    monthCloses: book.monthCloses || {},
+    purchaseOrders: book.purchaseOrders || [],
+    advanceTaxPayments: book.advanceTaxPayments || [],
+    reports: book.reports || {},
+    purchaseOrderSeq: book.purchaseOrderSeq || 0,
     gstr2b: book.gstr2b || {},
     reminders: book.reminders || [],
     reminderSeq: book.reminderSeq || 0,
@@ -142,6 +154,8 @@ export function serializeBook(book) {
     quotes: book.quotes || [],
     filings: book.filings || [],
     supplierReminders: book.supplierReminders || [],
+    collectionReminders: book.collectionReminders || [],
+    collectionReminderSeq: book.collectionReminderSeq || 0,
     settlements: book.settlements || [],
     settlementSeq: book.settlementSeq || 0,
     channels: book.channels || {},
@@ -199,6 +213,11 @@ export function deserializeBook(raw) {
   book.creditNotes = Array.isArray(raw.creditNotes) ? raw.creditNotes : [];
   book.creditNoteSeq = raw.creditNoteSeq || 0;
   book.gstReviews = raw.gstReviews && typeof raw.gstReviews === 'object' ? raw.gstReviews : {};
+  book.monthCloses = raw.monthCloses && typeof raw.monthCloses === 'object' ? raw.monthCloses : {};
+  book.purchaseOrders = Array.isArray(raw.purchaseOrders) ? raw.purchaseOrders : [];
+  book.advanceTaxPayments = Array.isArray(raw.advanceTaxPayments) ? raw.advanceTaxPayments : [];
+  book.reports = raw.reports && typeof raw.reports === 'object' ? raw.reports : {};
+  book.purchaseOrderSeq = Number(raw.purchaseOrderSeq || 0);
   book.gstr2b = raw.gstr2b && typeof raw.gstr2b === 'object' ? raw.gstr2b : {};
   book.reminders = Array.isArray(raw.reminders) ? raw.reminders : [];
   book.reminderSeq = raw.reminderSeq || 0;
@@ -210,6 +229,8 @@ export function deserializeBook(raw) {
   book.quotes = Array.isArray(raw.quotes) ? raw.quotes : [];
   book.filings = Array.isArray(raw.filings) ? raw.filings : [];
   book.supplierReminders = Array.isArray(raw.supplierReminders) ? raw.supplierReminders : [];
+  book.collectionReminders = Array.isArray(raw.collectionReminders) ? raw.collectionReminders : [];
+  book.collectionReminderSeq = Number(raw.collectionReminderSeq || 0);
   book.settlements = Array.isArray(raw.settlements) ? raw.settlements : [];
   book.settlementSeq = Number(raw.settlementSeq || 0);
   book.channels = raw.channels && typeof raw.channels === 'object' ? raw.channels : {};
