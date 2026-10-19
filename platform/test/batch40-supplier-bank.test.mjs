@@ -66,7 +66,9 @@ test('a supplier\'s bank details are recorded by the owner only, a change is sho
 
   const bad = await chat(state, 'Mehta Fabrics is paid to account 123 IFSC HDFC0001234');
   assert.match(bad.reply, /6 to 20 digits/, bad.reply);
-  assert.equal((await chat(state, 'Nobody Co is paid to account 1234567890 IFSC HDFC0001234')).awaitingConfirmation, undefined);
+  const unknown = await chat(state, 'Nobody Co is paid to account 1234567890 IFSC HDFC0001234');
+  assert.match(unknown.reply, /no supplier called Nobody Co/, unknown.reply);
+  assert.equal(unknown.awaitingConfirmation, undefined, 'an account number is never read as an amount');
 
   const session = openSession(join(process.env.APPDATA, 'owner', 'state.json'));
   await session.updateCompany({ name: 'Nalanda Textiles', gstin: '27AABCU9603R1ZN' });

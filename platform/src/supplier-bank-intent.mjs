@@ -13,9 +13,12 @@ export function planSupplierBankFromChat(state, text) {
   const said = raw.match(PAID_TO);
   if (!said) return null;
   const name = said[1].trim();
-  const known = (state.purchases || []).some((bill) => String(bill.partyName || '').trim().toLowerCase() === name.toLowerCase());
-  if (!known) return null;
   const rest = said[2];
+  const known = (state.purchases || []).some((bill) => String(bill.partyName || '').trim().toLowerCase() === name.toLowerCase());
+  if (!known) {
+    if (!ACCOUNT.test(rest) && !IFSC.test(rest) && !UPI.test(rest)) return null;
+    return { kind: 'reply', reply: `I have no supplier called ${name} in these books, so I have recorded nothing. Book a bill from them first, or check the name.`, tools: [] };
+  }
   const account = (rest.match(ACCOUNT) || [])[1];
   const ifsc = (rest.match(IFSC) || [])[1];
   const upi = (rest.match(UPI) || [])[1];
