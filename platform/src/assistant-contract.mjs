@@ -20,6 +20,7 @@ import { planMonthCloseFromChat } from './month-close-intent.mjs';
 import { planRestockFromChat } from './restock-intent.mjs';
 import { planAdvanceTaxFromChat } from './advance-tax-intent.mjs';
 import { planSupplierBankFromChat } from './supplier-bank-intent.mjs';
+import { planReportFromChat } from './reports-intent.mjs';
 import { planCashFromChat } from './cash-intent.mjs';
 import { planTermsFromChat, takeInvoiceTerms } from './terms-intent.mjs';
 import { localToday } from './dates.mjs';
@@ -1185,6 +1186,27 @@ export const TOOL_ARG_SCHEMAS = {
     properties: { question: { type: 'string', minLength: 3, maxLength: 400 } },
   },
   can_make_payroll: { type: 'object', additionalProperties: false, properties: {} },
+  attach_document: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['documentSha256', 'id'],
+    properties: { documentSha256: { type: 'string', pattern: '^[0-9a-f]{64}$' }, id: { type: 'string', minLength: 1, maxLength: 24 } },
+  },
+  save_report: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['name', 'metric'],
+    properties: {
+      name: { type: 'string', minLength: 1, maxLength: 60 },
+      metric: { type: 'string', enum: ['sales', 'purchases', 'expenses', 'owed', 'owing'] },
+      groupBy: { type: 'string', enum: ['customer', 'supplier', 'head', 'month', 'none'] },
+      period: { type: 'string', maxLength: 12 },
+      compare: { type: 'boolean' },
+    },
+  },
+  run_report: { type: 'object', additionalProperties: false, required: ['name'], properties: { name: { type: 'string', minLength: 1, maxLength: 60 } } },
+  list_reports: { type: 'object', additionalProperties: false, properties: {} },
+  delete_report: { type: 'object', additionalProperties: false, required: ['name'], properties: { name: { type: 'string', minLength: 1, maxLength: 60 } } },
   set_supplier_bank: {
     type: 'object',
     additionalProperties: false,
@@ -1840,6 +1862,9 @@ const TOOL_RISK = {
   set_sku_supply: 'writes_books',
   record_advance_tax: 'writes_books',
   set_supplier_bank: 'writes_books',
+  attach_document: 'writes_books',
+  save_report: 'writes_books',
+  delete_report: 'writes_books',
   record_purchase_order: 'writes_books',
   add_employee: 'writes_books',
   approve_payroll: 'writes_books',
@@ -2108,6 +2133,8 @@ export function planLocalToolCall(state, message) {
   if (filed) return filed;
   const owed = planOweQuestion(state, text);
   if (owed) return owed;
+  const report = planReportFromChat(state, text);
+  if (report) return report;
   const supplierBank = planSupplierBankFromChat(state, text);
   if (supplierBank) return supplierBank;
   const advance = planAdvanceTaxFromChat(state, text);

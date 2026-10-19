@@ -50,6 +50,11 @@ flowchart LR
 - A field that fails a check or has low confidence is shown as a question on the
   preview. The engine recomputes every total; an extracted total is only compared.
 - The entry keeps a link to the document hash so the original is one tap away.
+- A receipt photographed after the expense was already entered is not posted twice
+  (built 2026-10-19): when the read total is within fifty paise and the date within three
+  days of an expense or bill that has no document yet, the reader names that entry, the
+  same supplier first, and offers "attach it to EXP-0003". The attachment is previewed and
+  confirmed like any change; it posts nothing and the entry keeps its figures.
 - The extraction service is behind an interface so the model can change. What may be
   sent to it, and where it runs, is PRD question Q3.
 

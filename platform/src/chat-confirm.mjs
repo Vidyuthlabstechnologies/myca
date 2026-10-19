@@ -14,6 +14,7 @@ import { planMonthClose } from './month-close.mjs';
 import { planSkuSupply, planPurchaseOrder } from './restock.mjs';
 import { planAdvanceTaxPayment } from './advance-tax.mjs';
 import { planSupplierBank } from './supplier-bank.mjs';
+import { planAttachDocument } from './receipt-match.mjs';
 import { planInvoiceTemplate } from './invoice-template.mjs';
 import { salaryPrivate } from './employees.mjs';
 import { aaBankFeed } from './aa-import.mjs';
@@ -63,7 +64,7 @@ import { planAmendment } from './invoice-amendments.mjs';
 import { tallyXmlToDayBookCsv } from './tally-xml.mjs';
 
 export const CONFIRM_TOOLS = new Set([
-  'create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'record_filing', 'record_supplier_reminder', 'record_collection_reminder', 'record_payment_run', 'month_close_approve', 'set_sku_supply', 'record_purchase_order', 'record_advance_tax', 'set_supplier_bank', 'add_employee', 'change_salary', 'end_employment', 'approve_payroll', 'record_salary_payment', 'set_tds_deductor', 'record_tds_deposit', 'tds_review_answer', 'set_gst_credit_opening', 'record_gst_payment', 'close_year', 'post_expense', 'set_expense_head', 'create_credit_note', 'create_debit_note', 'create_purchase_note', 'record_supplier_debit_note', 'cancel_invoice', 'gst_review_answer', 'import_gstr2b', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'set_party_address', 'set_transport', 'set_sales_tax_rate', 'set_contractor', 'set_sales_tax_nexus', 'sales_tax_review_answer', 'record_sales_tax_payment', 'record_sales_tax_filing', 'set_withholding', 'set_suta_rate', 'import_us_invoices', 'import_pos_sales', 'import_settlement', 'import_marketplace_orders', 'import_tcs_statement', 'import_26as_credits', 'record_stock', 'record_stock_transfer', 'set_sku_cost', 'import_sku_costs', 'value_inventory', 'set_registration', 'retire_registration', 'set_channel_identity', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote', 'amend_invoice',
+  'create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'record_filing', 'record_supplier_reminder', 'record_collection_reminder', 'record_payment_run', 'month_close_approve', 'set_sku_supply', 'record_purchase_order', 'record_advance_tax', 'set_supplier_bank', 'attach_document', 'add_employee', 'change_salary', 'end_employment', 'approve_payroll', 'record_salary_payment', 'set_tds_deductor', 'record_tds_deposit', 'tds_review_answer', 'set_gst_credit_opening', 'record_gst_payment', 'close_year', 'post_expense', 'set_expense_head', 'create_credit_note', 'create_debit_note', 'create_purchase_note', 'record_supplier_debit_note', 'cancel_invoice', 'gst_review_answer', 'import_gstr2b', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'set_party_address', 'set_transport', 'set_sales_tax_rate', 'set_contractor', 'set_sales_tax_nexus', 'sales_tax_review_answer', 'record_sales_tax_payment', 'record_sales_tax_filing', 'set_withholding', 'set_suta_rate', 'import_us_invoices', 'import_pos_sales', 'import_settlement', 'import_marketplace_orders', 'import_tcs_statement', 'import_26as_credits', 'record_stock', 'record_stock_transfer', 'set_sku_cost', 'import_sku_costs', 'value_inventory', 'set_registration', 'retire_registration', 'set_channel_identity', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote', 'amend_invoice',
   'set_invoice_template', 'set_invoice_numbering',
   'import_tally', 'import_tally_xml', 'import_zoho', 'import_bank',
   'govt_generate_irn', 'govt_nic_cancel_irn',
@@ -454,6 +455,20 @@ function paymentRunPreview(state, args) {
     summary: `Pay ${money(plan.total)} to ${new Set(plan.payments.map((p) => p.supplier)).size === 1 ? plan.payments[0].supplier : `${new Set(plan.payments.map((p) => p.supplier)).size} suppliers`} across ${plan.payments.length === 1 ? '1 bill' : `${plan.payments.length} bills`} from ${plan.mode === 'cash' ? 'cash' : 'the bank'} on ${plan.date}: ${lines.join('; ')}. Bank and cash ${money(plan.balance)} before, ${money(plan.after)} after.${cash}`,
     effects: [`${money(plan.total)} goes out of your ${plan.mode === 'cash' ? 'cash' : 'bank'}, one payment per bill.`, 'Each bill becomes paid; MSMED and Rule 37 clocks stop for them.'],
     figures: { total: plan.total, bills: plan.payments.length, balance: plan.balance, after: plan.after, date: plan.date, billIds: plan.payments.map((p) => p.billId) },
+  };
+}
+
+const ATTACH_REASONS = { INVALID_SHA256: 'That is not a document MyCA knows.', DOCUMENT_NOT_FOUND: 'That document is not in these books; upload it first.', ENTRY_NOT_FOUND: 'There is no entry by that id.' };
+function attachDocumentPreview(state, args) {
+  const planned = planAttachDocument(state, args);
+  if (!planned.ok) return { blockers: [ATTACH_REASONS[planned.error] || planned.error], summary: '', effects: [], figures: {} };
+  const p = planned.plan;
+  const t = p.target;
+  return {
+    blockers: [],
+    summary: `Keep the document with ${p.kind} ${p.id} (${t.partyName || t.payee || t.narration || ''}, ${money(t.total ?? t.amount)} on ${t.date}).${p.replaces ? ' It replaces the document already attached.' : ''}`,
+    effects: ['Nothing is posted; the entry keeps its figures and gains its document.'],
+    figures: { id: p.id, kind: p.kind },
   };
 }
 
@@ -1460,6 +1475,7 @@ const PREVIEWERS = {
   set_sku_supply: skuSupplyPreview,
   record_advance_tax: advanceTaxPreview,
   set_supplier_bank: supplierBankPreview,
+  attach_document: attachDocumentPreview,
   record_purchase_order: purchaseOrderPreview,
   add_employee: employeePreview,
   approve_payroll: payrollApprovalPreview,

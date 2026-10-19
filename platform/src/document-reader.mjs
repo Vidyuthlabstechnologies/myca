@@ -1,4 +1,5 @@
 import { documentsOf, isSha256 } from './document-store.mjs';
+import { matchDocument, matchWords } from './receipt-match.mjs';
 import { countryOf } from './country.mjs';
 import { extractWithModel, modelConfigured } from './model-adapter.mjs';
 
@@ -104,6 +105,7 @@ export async function readDocument(state, args = {}) {
       kind: 'supplier_bill',
       extracted: read.extracted,
       proposal: { tool: proposal.tool, args: { ...proposal.args, documentSha256: sha } },
+      matches: matchDocument(state, { total: proposal.readTotal, date: proposal.args.date, partyName: proposal.args.partyName }),
       confidence: proposal.confidence,
       warnings: proposal.warnings,
       note: 'A model read the page; MyCA computed nothing from it. The purchase is previewed from these figures and posts only when you confirm.',
@@ -118,6 +120,7 @@ export function readDocumentWords(data) {
     `Read a bill from ${args.partyName}${args.supplierInvoiceNo ? ` (${args.supplierInvoiceNo})` : ''}${args.date ? ` dated ${args.date}` : ''}:`,
     ...lines,
     ...data.warnings.map((warning) => `! ${warning}`),
+    ...(data.matches && data.matches.length ? [matchWords(data.matches, (n) => `₹${Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`)] : []),
     'Say "record it" to preview the purchase, or correct anything first.',
   ].join('\n');
 }

@@ -22,6 +22,8 @@ import { monthCloseOf, approveMonthClose } from './month-close.mjs';
 import { restockPlan, setSkuSupply, recordPurchaseOrder } from './restock.mjs';
 import { advanceTax, recordAdvanceTaxPayment } from './advance-tax.mjs';
 import { setSupplierBank, supplierPayoutFile } from './supplier-bank.mjs';
+import { attachDocument } from './receipt-match.mjs';
+import { saveReport, runReport, listReports, deleteReport } from './reports.mjs';
 const ingestTally = tally.ingest;
 const ingestBank = bank.ingest;
 const { reconcile } = gst;
@@ -2384,6 +2386,41 @@ export const TOOLS = [
     description: 'Record that the owner is sending a payment reminder to one customer from their own phone, with the message as sent, and set a reminder to check for the payment in seven days. MyCA does not send it.',
     args: ['customer', 'message', 'channel'],
     run: (state, args = {}) => recordCollectionReminder(state, args),
+  },
+  {
+    name: 'attach_document',
+    title: 'Attach a document to an entry',
+    description: 'Keep an uploaded document (a receipt photo, a bill) with an expense, bill or invoice already in the books, instead of posting it again. The reader suggests the match when the amount is within fifty paise and the date within three days.',
+    args: ['documentSha256', 'id'],
+    run: (state, args = {}) => attachDocument(state, args),
+  },
+  {
+    name: 'save_report',
+    title: 'Save a report',
+    description: 'Save a report by name: a metric (sales, purchases, expenses, owed, owing), grouped by customer, supplier, head, month or not at all, for this month, last month, this quarter, this year, last year or a given month, optionally compared with the period before. Run it any time by name.',
+    args: ['name', 'metric', 'groupBy', 'period', 'compare'],
+    run: (state, args = {}) => saveReport(state, args),
+  },
+  {
+    name: 'run_report',
+    title: 'Run a saved report',
+    description: 'Run a saved report by name on the books as they are now. Read-only.',
+    args: ['name'],
+    run: (state, args = {}) => runReport(state, args),
+  },
+  {
+    name: 'list_reports',
+    title: 'Saved reports',
+    description: 'The reports saved on these books. Read-only.',
+    args: [],
+    run: (state) => listReports(state),
+  },
+  {
+    name: 'delete_report',
+    title: 'Delete a saved report',
+    description: 'Remove a saved report definition; the books are untouched.',
+    args: ['name'],
+    run: (state, args = {}) => deleteReport(state, args),
   },
   {
     name: 'set_supplier_bank',

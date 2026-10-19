@@ -41,6 +41,12 @@ and [`README.md`](README.md) for what is left and how it is being done.
   confirm it on the number already on file; a bulk NEFT file for the bills the payment run
   proposes, one row per supplier, with the suppliers lacking details named; MyCA moves no
   money. The Monday brief names customers who have gone quiet
+- Saved reports and receipt matching (2026-10-19): a report saved by name (sales, purchases,
+  expenses, owed or owing; by customer, supplier, head or month; this or last month, quarter
+  or financial year, compared with the period before) and run again by name, on the phone too;
+  a photographed receipt whose total is within fifty paise and whose date within three days of
+  an expense or bill already posted is offered as an attachment to that entry, so nothing is
+  posted twice
 - Accessibility and large type (2026-10-18): fourteen screens checked in the suite for 48-point
   tap targets, labels and text contrast, and rendered at text scale 2.0 with no overflow; the
   same screens read through the accessibility tree on an Android 15 emulator with TalkBack;

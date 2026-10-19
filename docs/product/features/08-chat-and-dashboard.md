@@ -44,6 +44,16 @@ figures. One tap posts it; anything else discards it. Questions and negations ("
 invoice Rajesh?", "don't record this") post nothing. This holds in every chat and in
 the hosted API (`propose`, `confirm`, `discard`).
 
+### Saved reports (built 2026-10-19)
+
+"Save report Top customers: sales by customer this month vs last month" keeps a report
+definition by name on the books: a metric (sales, purchases, expenses, owed, owing),
+grouped by customer, supplier, head or month, for this or last month, this quarter, this or
+last financial year or a named month, optionally compared with the period before.
+"Run report Top customers" runs it on the books as they are; "my reports" lists them;
+"delete report Top customers" forgets the definition. Fifty reports per business, twenty
+rows shown. Running and listing are read-only and work on the phone.
+
 ### Understanding messages (partly built)
 
 - Today a rule-based parser handles invoices, bills, receipts and expenses in common

@@ -50,6 +50,7 @@ import { monthCloseWords } from './month-close.mjs';
 import { restockWords } from './restock.mjs';
 import { advanceTaxWords } from './advance-tax.mjs';
 import { supplierPayoutWords } from './supplier-bank.mjs';
+import { reportWords } from './reports.mjs';
 
 function money(n) {
   return formatMoneyCurrent(Number(n) || 0);
@@ -89,6 +90,13 @@ const FAILURES = {
   NO_LINES: () => 'There is nothing to put on it, so nothing was changed.',
   ZERO_AMOUNT: () => 'It comes to nothing, so nothing was changed.',
   SETUP_REQUIRED: () => 'Set up the business first: its name and GSTIN, or its state if it is not registered. Nothing was changed.',
+  REPORT_NOT_FOUND: (r) => `There is no saved report called ${r.name || 'that'}${(r.known || []).length ? `; you have ${r.known.join(', ')}` : ''}.`,
+  NAME_REQUIRED: () => 'Give the report a name.',
+  BAD_METRIC: (r) => `The report can be of ${r.hint}.`,
+  BAD_GROUP: (r) => `Group it by ${r.hint}.`,
+  BAD_PERIOD: (r) => `The period is ${r.hint}, or a month like 2026-09.`,
+  ENTRY_NOT_FOUND: (r) => `There is no entry ${r.id || 'by that id'}.`,
+  DOCUMENT_NOT_FOUND: () => 'That document is not in these books; upload it first.',
   BANK_DETAILS_REQUIRED: () => 'Give an account number with its IFSC, or a UPI id.',
   BAD_ACCOUNT: () => 'An account number is 6 to 20 digits.',
   BAD_IFSC: () => 'An IFSC is four letters, a zero and six characters, for example HDFC0001234.',
@@ -590,6 +598,11 @@ function fmtToolResult(name, result) {
   if (name === 'restock_plan' && result.data) return restockWords(result.data, money);
   if (name === 'advance_tax' && result.data) return advanceTaxWords(result.data, money);
   if (name === 'supplier_payout_file' && result.data) return supplierPayoutWords(result.data, money);
+  if (name === 'attach_document' && result.id) return `The document is kept with ${result.kind} ${result.id}${result.replaced ? ', replacing the earlier one' : ''}. Nothing was posted.`;
+  if (name === 'save_report' && result.report) return `Saved "${result.report.name}"${result.replaced ? ' (replacing the earlier one)' : ''}. Say "run report ${result.report.name}" any time.\n${reportWords('', result.result, money)}`;
+  if (name === 'run_report' && result.result) return reportWords(result.name, result.result, money);
+  if (name === 'list_reports' && result.reports) return result.reports.length ? `Saved reports:\n${result.reports.map((r) => `· ${r.name}: ${r.metric}${r.groupBy !== 'none' ? ` by ${r.groupBy}` : ''}, ${r.period}${r.compare ? ', compared with the period before' : ''}`).join('\n')}\nSay "run report <name>".` : 'No saved reports yet. Say "save report Top customers: sales by customer this month vs last month".';
+  if (name === 'delete_report' && result.name) return `Deleted the saved report "${result.name}".`;
   if (name === 'set_supplier_bank' && result.bank) return `${result.supplier} is paid to ${[result.bank.account ? `account ${result.bank.account} at ${result.bank.ifsc}` : '', result.bank.upi ? `UPI ${result.bank.upi}` : ''].filter(Boolean).join(', ')}${result.changed ? ' (changed from the earlier details)' : ''}. Confirm it on the phone number you have on file before the first payment.`;
   if (name === 'record_advance_tax' && result.payment) return `Recorded advance tax ${result.payment.id}: ${money(result.payment.amount)} for ${result.payment.fy} on ${result.payment.date}${result.payment.challan ? `, challan ${result.payment.challan}` : ''}.`;
   if (name === 'set_sku_supply' && result.supply) return `${result.sku}: ${result.supply.supplier || 'no supplier named'}, lead time ${result.supply.leadDays} days, pack of ${result.supply.pack}, minimum order ${result.supply.moq}.`;

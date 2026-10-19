@@ -24,6 +24,8 @@ export const REMOTE_QUERY_TOOLS = new Set([
   'restock_plan',
   'advance_tax',
   'supplier_payout_file',
+  'run_report',
+  'list_reports',
   'list_employees',
   'list_sales_tax_rates',
   'contractor_payments',

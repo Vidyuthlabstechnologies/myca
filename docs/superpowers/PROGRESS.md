@@ -4,7 +4,7 @@
 
 **Whole product to a Play Store launch: about 80.1% complete** (estimate, see the last section)
 
-Last updated 2026-10-19 (PR #91, branch claude/hardening-2026-10-16: an end-to-end journey and a security pass, twelve fuzz fixes on money, ten-times faster desktop requests, the eight small-business workflows on Indian terms, desktop first-run setup, the product website and go-to-market plan, the nightly watch on official rule sources, the UX pass with prefilled defaults, four launch gates, accessibility and large-type checks on fourteen screens). Suites: platform 765, hosted 129, Flutter 211.
+Last updated 2026-10-19 (PR #91, branch claude/hardening-2026-10-16: an end-to-end journey and a security pass, twelve fuzz fixes on money, ten-times faster desktop requests, the eight small-business workflows on Indian terms, desktop first-run setup, the product website and go-to-market plan, the nightly watch on official rule sources, the UX pass with prefilled defaults, four launch gates, accessibility and large-type checks on fourteen screens, saved reports and receipt matching). Suites: platform 770, hosted 129, Flutter 211.
 
 ## How the percentage is computed
 
@@ -124,6 +124,8 @@ Anthropic's open-source small-business plugin mapped onto MyCA on Indian terms
 | Restock from velocity, purchase orders | 100% | `restock.mjs` |
 | Advance tax set-aside, for the CA to confirm | 100% | `advance-tax.mjs` |
 | Supplier bank details with a change guard, a bulk payout file | 100% | `supplier-bank.mjs` |
+| Saved reports by name, compared with the period before | 100% | `reports.mjs`, "save report Top customers: sales by customer this month vs last month" |
+| A photographed receipt matched to an expense already posted | 100% | `receipt-match.mjs`, the reader offers "attach it to EXP-0003" |
 
 ## D2C and marketplace brands (added 2026-10-16)
 
