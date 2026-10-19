@@ -173,3 +173,15 @@ note and the open items are kept with the close. On yes the books lock through t
 day of the month, so nothing dated inside it can be posted or changed without unlocking.
 Never a forecast before the close, never an automatic fix of a duplicate.
 
+## Where a supplier is paid, and the payout file (built 2026-10-19)
+
+"Ravi Packaging is paid to account 5010 0123 4567 89 IFSC HDFC0001234" (or "... to UPI
+ravi@okaxis") records where a supplier is paid; only the owner can. A change is previewed
+old against new with the one sentence that stops the commonest invoice fraud: confirm it by
+calling the number you already have for them, not one on the bill or the email. The change
+is kept with the record. "Payout file" builds a bulk NEFT or IMPS file for the bills the
+payment run proposes, one row per supplier (beneficiary, account, IFSC, UPI, amount, a
+narration with their bill numbers), names the suppliers with no details on record, and
+warns when a supplier's details changed recently. MyCA moves no money: the file is uploaded
+and approved in the bank, and the payments are recorded with "pay the proposed bills".
+

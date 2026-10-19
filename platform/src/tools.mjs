@@ -21,6 +21,7 @@ import { weeklyBrief } from './weekly-brief.mjs';
 import { monthCloseOf, approveMonthClose } from './month-close.mjs';
 import { restockPlan, setSkuSupply, recordPurchaseOrder } from './restock.mjs';
 import { advanceTax, recordAdvanceTaxPayment } from './advance-tax.mjs';
+import { setSupplierBank, supplierPayoutFile } from './supplier-bank.mjs';
 const ingestTally = tally.ingest;
 const ingestBank = bank.ingest;
 const { reconcile } = gst;
@@ -2383,6 +2384,20 @@ export const TOOLS = [
     description: 'Record that the owner is sending a payment reminder to one customer from their own phone, with the message as sent, and set a reminder to check for the payment in seven days. MyCA does not send it.',
     args: ['customer', 'message', 'channel'],
     run: (state, args = {}) => recordCollectionReminder(state, args),
+  },
+  {
+    name: 'set_supplier_bank',
+    title: 'Where a supplier is paid',
+    description: 'Record a supplier\'s bank account and IFSC, or UPI id, for the payout file. A change is shown old against new and should be confirmed on the phone number already on file, never from the bill itself. Owner only.',
+    args: ['partyName', 'partyGstin', 'account', 'ifsc', 'upi', 'holder'],
+    run: (state, args = {}) => setSupplierBank(state, args),
+  },
+  {
+    name: 'supplier_payout_file',
+    title: 'Supplier payout file',
+    description: 'A bulk NEFT file (beneficiary, account, IFSC, UPI, amount, narration) for the bills the payment run proposes, one row per supplier, with the suppliers that have no bank details on record named. MyCA moves no money. Owner only. Read-only.',
+    args: ['billIds', 'windowDays'],
+    run: (state, args = {}) => supplierPayoutFile(state, args),
   },
   {
     name: 'advance_tax',

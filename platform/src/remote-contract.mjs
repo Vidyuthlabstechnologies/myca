@@ -23,6 +23,7 @@ export const REMOTE_QUERY_TOOLS = new Set([
   'month_close',
   'restock_plan',
   'advance_tax',
+  'supplier_payout_file',
   'list_employees',
   'list_sales_tax_rates',
   'contractor_payments',

@@ -49,6 +49,7 @@ import { weeklyBriefWords } from './weekly-brief.mjs';
 import { monthCloseWords } from './month-close.mjs';
 import { restockWords } from './restock.mjs';
 import { advanceTaxWords } from './advance-tax.mjs';
+import { supplierPayoutWords } from './supplier-bank.mjs';
 
 function money(n) {
   return formatMoneyCurrent(Number(n) || 0);
@@ -88,6 +89,10 @@ const FAILURES = {
   NO_LINES: () => 'There is nothing to put on it, so nothing was changed.',
   ZERO_AMOUNT: () => 'It comes to nothing, so nothing was changed.',
   SETUP_REQUIRED: () => 'Set up the business first: its name and GSTIN, or its state if it is not registered. Nothing was changed.',
+  BANK_DETAILS_REQUIRED: () => 'Give an account number with its IFSC, or a UPI id.',
+  BAD_ACCOUNT: () => 'An account number is 6 to 20 digits.',
+  BAD_IFSC: () => 'An IFSC is four letters, a zero and six characters, for example HDFC0001234.',
+  BAD_UPI: () => 'A UPI id looks like name@bank.',
   NOT_AN_INDIVIDUAL: (r) => `MyCA works out advance tax for an individual or a proprietor; this business is a ${r.entityType || 'company or firm'}, which pays at a flat rate. Ask your CA for the figure.`,
   RULE_MISSING: () => 'MyCA has no advance tax schedule in force for this year, so it will not guess.',
   SKU_REQUIRED: () => 'Say which SKU.',
@@ -584,6 +589,8 @@ function fmtToolResult(name, result) {
   if (name === 'month_close' && result.data) return monthCloseWords(result.data, money);
   if (name === 'restock_plan' && result.data) return restockWords(result.data, money);
   if (name === 'advance_tax' && result.data) return advanceTaxWords(result.data, money);
+  if (name === 'supplier_payout_file' && result.data) return supplierPayoutWords(result.data, money);
+  if (name === 'set_supplier_bank' && result.bank) return `${result.supplier} is paid to ${[result.bank.account ? `account ${result.bank.account} at ${result.bank.ifsc}` : '', result.bank.upi ? `UPI ${result.bank.upi}` : ''].filter(Boolean).join(', ')}${result.changed ? ' (changed from the earlier details)' : ''}. Confirm it on the phone number you have on file before the first payment.`;
   if (name === 'record_advance_tax' && result.payment) return `Recorded advance tax ${result.payment.id}: ${money(result.payment.amount)} for ${result.payment.fy} on ${result.payment.date}${result.payment.challan ? `, challan ${result.payment.challan}` : ''}.`;
   if (name === 'set_sku_supply' && result.supply) return `${result.sku}: ${result.supply.supplier || 'no supplier named'}, lead time ${result.supply.leadDays} days, pack of ${result.supply.pack}, minimum order ${result.supply.moq}.`;
   if (name === 'record_purchase_order' && result.order) return `Recorded ${result.order.id} to ${result.order.supplier}: ${result.order.lines.map((l) => `${l.sku} x ${l.qty}`).join(', ')}${result.order.total != null ? ` for ${money(result.order.total)}` : ''}, expected ${result.order.expectedOn}. Nothing is posted to the ledger.`;

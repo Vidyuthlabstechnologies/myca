@@ -19,6 +19,7 @@ import { planPaymentRunFromChat } from './payment-run-intent.mjs';
 import { planMonthCloseFromChat } from './month-close-intent.mjs';
 import { planRestockFromChat } from './restock-intent.mjs';
 import { planAdvanceTaxFromChat } from './advance-tax-intent.mjs';
+import { planSupplierBankFromChat } from './supplier-bank-intent.mjs';
 import { planCashFromChat } from './cash-intent.mjs';
 import { planTermsFromChat, takeInvoiceTerms } from './terms-intent.mjs';
 import { localToday } from './dates.mjs';
@@ -1184,6 +1185,23 @@ export const TOOL_ARG_SCHEMAS = {
     properties: { question: { type: 'string', minLength: 3, maxLength: 400 } },
   },
   can_make_payroll: { type: 'object', additionalProperties: false, properties: {} },
+  set_supplier_bank: {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      partyName: { type: 'string', maxLength: 80 },
+      partyGstin: { type: 'string', pattern: '^([0-9]{2}[A-Z0-9]{13})?$' },
+      account: { type: 'string', maxLength: 24 },
+      ifsc: { type: 'string', maxLength: 11 },
+      upi: { type: 'string', maxLength: 80 },
+      holder: { type: 'string', maxLength: 80 },
+    },
+  },
+  supplier_payout_file: {
+    type: 'object',
+    additionalProperties: false,
+    properties: { billIds: { type: 'array', maxItems: 100, items: { type: 'string', maxLength: 40 } }, windowDays: { type: 'integer', minimum: 1, maximum: 60 } },
+  },
   advance_tax: {
     type: 'object',
     additionalProperties: false,
@@ -1821,6 +1839,7 @@ const TOOL_RISK = {
   month_close_approve: 'writes_books',
   set_sku_supply: 'writes_books',
   record_advance_tax: 'writes_books',
+  set_supplier_bank: 'writes_books',
   record_purchase_order: 'writes_books',
   add_employee: 'writes_books',
   approve_payroll: 'writes_books',
@@ -2089,6 +2108,8 @@ export function planLocalToolCall(state, message) {
   if (filed) return filed;
   const owed = planOweQuestion(state, text);
   if (owed) return owed;
+  const supplierBank = planSupplierBankFromChat(state, text);
+  if (supplierBank) return supplierBank;
   const advance = planAdvanceTaxFromChat(state, text);
   if (advance) return advance;
   const stock = planRestockFromChat(state, text);

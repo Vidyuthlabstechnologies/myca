@@ -55,6 +55,31 @@ function agingBuckets(state, today) {
   return { ...buckets, late: late.slice(0, 3), status: buckets.d61 > 0 && (buckets.d61 >= buckets.total * 0.1 || buckets.d61 >= 50000) ? 'red' : buckets.d31 + buckets.d61 > 0 ? 'amber' : 'green' };
 }
 
+function quietCustomers(state, today) {
+  const recentFrom = addDays(today, -90);
+  const earlierFrom = addDays(today, -270);
+  const lastSale = new Map();
+  const earlier = new Set();
+  for (const inv of state.invoices || []) {
+    if (inv.status === 'cancelled' || !inv.date || !inv.partyName) continue;
+    const key = String(inv.partyName).trim().toLowerCase();
+    if (inv.date >= recentFrom) lastSale.set(key, 'recent');
+    else if (inv.date >= earlierFrom) {
+      earlier.add(key);
+      const prev = lastSale.get(key);
+      if (!prev || (prev !== 'recent' && prev < inv.date)) lastSale.set(key, inv.date);
+    }
+  }
+  const out = [];
+  for (const key of earlier) {
+    const last = lastSale.get(key);
+    if (last === 'recent') continue;
+    const name = (state.invoices || []).find((inv) => String(inv.partyName || '').trim().toLowerCase() === key)?.partyName || key;
+    out.push({ customer: name, lastSale: last, daysSince: daysBetween(last, today) });
+  }
+  return out.sort((a, b) => b.daysSince - a.daysSince).slice(0, 5);
+}
+
 function runwayStatus(months) {
   if (months == null) return 'unknown';
   return months >= 6 ? 'green' : months >= 3 ? 'amber' : 'red';
@@ -106,9 +131,11 @@ export function weeklyBrief(state, args = {}) {
     runwayStatus: runwayStatus(runwayMonths),
     lowestIn30: forecast.lowest,
   };
+  const quiet = quietCustomers(state, today);
   const data = {
     asOf: today,
     weekOf: weekStart,
+    quiet,
     cash,
     sales: {
       thisWeek: salesThisWeek,
@@ -150,6 +177,7 @@ export function weeklyBriefWords(d, money) {
   if (d.payables.total > 0) lines.push(`You owe suppliers ${money(d.payables.total)} on ${d.payables.bills === 1 ? '1 bill' : `${d.payables.bills} bills`}${d.payables.msmeOverdue.length ? `; ${d.payables.msmeOverdue.length === 1 ? '1 MSME bill is' : `${d.payables.msmeOverdue.length} MSME bills are`} past the MSMED date [red]` : ''}.`);
   const due = d.dueThisWeek.filter((i) => i.kind !== 'receivable').slice(0, 5);
   if (due.length) lines.push(`Due this week: ${due.map((i) => `${i.title} (${i.overdue ? 'overdue' : longDate(i.when)})`).join('; ')}.`);
+  if (d.quiet && d.quiet.length) lines.push(`Gone quiet: ${d.quiet.map((q) => `${q.customer} (last sale ${q.daysSince} days ago)`).join(', ')}. A call may be worth more than a reminder.`);
   if (d.exceptions.count) lines.push(`Needs you: ${d.exceptions.count} open, ${money(d.exceptions.moneyAtRisk)} at risk${d.exceptions.bySeverity.critical ? `, ${d.exceptions.bySeverity.critical} critical` : ''}.`);
   lines.push(`The one thing: ${d.oneThing}`);
   return lines.join('\n');
