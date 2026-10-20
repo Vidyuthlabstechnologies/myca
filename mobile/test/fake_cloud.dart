@@ -32,6 +32,10 @@ class FakeCloud {
   bool noticeAccepted = true;
   bool phoneOn = true;
   bool googleOn = true;
+  bool oidcOn = false;
+  String oidcIssuer = 'https://login.firm.example';
+  String oidcToken = 'oidc-id-token';
+  final deviceLabels = <String>[];
   String caMode = 'live';
   String sharedAsOf = '';
   int shares = 0;
@@ -80,9 +84,21 @@ class FakeCloud {
       });
     }
     if (path == '/v1/auth/methods') {
-      return _json(200, {'ok': true, 'phone': phoneOn, 'google': googleOn});
+      return _json(200, {'ok': true, 'phone': phoneOn, 'google': googleOn, 'oidc': oidcOn, if (oidcOn) 'oidcIssuer': oidcIssuer});
+    }
+    if (path == '/v1/auth/oidc') {
+      deviceLabels.add('${body['deviceLabel']}');
+      if (!oidcOn) return _json(503, {'ok': false, 'error': 'OIDC_SIGN_IN_UNAVAILABLE'});
+      if (body['idToken'] != oidcToken) return _json(400, {'ok': false, 'error': 'INVALID_OIDC_TOKEN'});
+      if (userName.isEmpty) userName = 'Asha Rao';
+      return _json(200, {
+        ..._issue(),
+        'user': {'id': 'u1', 'name': userName, 'isNew': businesses.isEmpty},
+        'consent': {'document': 'privacy', 'version': 'v-test', 'accepted': noticeAccepted},
+      });
     }
     if (path == '/v1/auth/google') {
+      deviceLabels.add('${body['deviceLabel']}');
       if (body['idToken'] != 'google-id-token') return _json(400, {'ok': false, 'error': 'INVALID_GOOGLE_TOKEN'});
       if (userName.isEmpty) userName = 'Asha Rao';
       return _json(200, {

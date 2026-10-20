@@ -29,8 +29,10 @@ class BillCaptureScreen extends StatefulWidget {
 class _BillCaptureScreenState extends State<BillCaptureScreen> with ProposalFlow {
   Map<String, dynamic>? _read;
   String _fileName = '';
+  String _sha = '';
   String _note = '';
   bool _reading = false;
+  bool _matchDismissed = false;
 
   @override
   MycaApi get api => AppScope.of(context).api;
@@ -97,6 +99,8 @@ class _BillCaptureScreenState extends State<BillCaptureScreen> with ProposalFlow
     });
     var note = '';
     Map<String, dynamic>? read;
+    _sha = sha;
+    _matchDismissed = false;
     try {
       final answer = await state.api.query('read_document', {'documentSha256': sha});
       final data = toolData(answer);
@@ -118,6 +122,34 @@ class _BillCaptureScreenState extends State<BillCaptureScreen> with ProposalFlow
     });
   }
 
+  Future<void> _attach(Map<String, dynamic> match) => propose('Attach $_fileName to ${match['id']}', 'attach_document', {'documentSha256': _sha, 'id': '${match['id']}'});
+
+  Widget _matchCard(Map<String, dynamic> match, TextTheme text) {
+    final kind = match['kind'] == 'bill' ? 'bill' : 'expense';
+    final id = '${match['id']}';
+    final when = '${match['date'] ?? ''}';
+    final party = '${match['party'] ?? ''}';
+    return Panel(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'This looks like $kind $id already in the books: ${rupees(match['amount'] as num? ?? 0)}${party.isEmpty ? '' : ' to $party'}${when.isEmpty ? '' : ' on $when'}',
+                style: text.bodyMedium,
+              ),
+              const SizedBox(height: 10),
+              FilledButton(onPressed: busy ? null : () => _attach(match), child: Text('Attach to $id')),
+              TextButton(onPressed: busy ? null : () => setState(() => _matchDismissed = true), child: const Text('It is a new bill')),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
   Future<void> _record() async {
     final proposal = Map<String, dynamic>.from(_read!['proposal'] as Map);
     final args = Map<String, Object?>.from(proposal['args'] as Map);
@@ -131,6 +163,8 @@ class _BillCaptureScreenState extends State<BillCaptureScreen> with ProposalFlow
     final args = read == null ? null : Map<String, dynamic>.from((read['proposal'] as Map)['args'] as Map);
     final lines = args == null ? const <Map<String, dynamic>>[] : [for (final line in (args['lines'] as List? ?? const [])) if (line is Map) Map<String, dynamic>.from(line)];
     final warnings = read == null ? const <String>[] : [for (final w in (read['warnings'] as List? ?? const [])) '$w'];
+    final matches = read == null ? const <Map<String, dynamic>>[] : [for (final m in (read['matches'] as List? ?? const [])) if (m is Map) Map<String, dynamic>.from(m)];
+    final match = !_matchDismissed && matches.isNotEmpty ? matches.first : null;
     return Scaffold(
       appBar: AppBar(title: const Text('Read a bill')),
       body: Column(
@@ -153,6 +187,10 @@ class _BillCaptureScreenState extends State<BillCaptureScreen> with ProposalFlow
                 ],
                 if (read != null && args != null) ...[
                   const SizedBox(height: 10),
+                  if (match != null && pending == null) ...[
+                    _matchCard(match, text),
+                    const SizedBox(height: 10),
+                  ],
                   SectionLabel('Read from $_fileName'),
                   Panel(
                     children: [
@@ -174,7 +212,7 @@ class _BillCaptureScreenState extends State<BillCaptureScreen> with ProposalFlow
                     Text('! $warning', style: text.bodySmall),
                   ],
                   const SizedBox(height: 14),
-                  if (pending == null) ...[
+                  if (pending == null && match == null) ...[
                     FilledButton(onPressed: busy || lines.isEmpty ? null : _record, child: const Text('Preview the purchase')),
                     TextButton(onPressed: busy ? null : _pick, child: const Text('Choose another bill')),
                   ],

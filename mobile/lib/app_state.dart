@@ -9,6 +9,7 @@ import 'api/myca_api.dart';
 import 'app_services.dart';
 import 'cloud/cloud_session.dart';
 import 'cloud/google_auth.dart';
+import 'cloud/oidc_auth.dart';
 import 'crash_reports.dart';
 import 'lock/app_lock.dart';
 import 'notifications.dart';
@@ -35,6 +36,7 @@ class AppState extends ChangeNotifier {
     this.now = DateTime.now,
     this.crashes,
     this.google,
+    this.oidc,
   }) : api = api ?? cloud!.api;
 
   final MycaApi api;
@@ -52,6 +54,7 @@ class AppState extends ChangeNotifier {
   final DateTime Function() now;
   final CrashReporter? crashes;
   final GoogleAuth? google;
+  final OidcAuth? oidc;
 
   Snapshot? snapshot;
   String error = '';

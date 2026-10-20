@@ -41,6 +41,10 @@ and [`README.md`](README.md) for what is left and how it is being done.
   confirm it on the number already on file; a bulk NEFT file for the bills the payment run
   proposes, one row per supplier, with the suppliers lacking details named; MyCA moves no
   money. The Monday brief names customers who have gone quiet
+- Phone (2026-10-20): the iOS target beside Android (Xcode project, permissions, notifications,
+  an unsigned build on macOS in CI, the App Store checklist; not yet built on a Mac); the
+  Reports screen; a photographed receipt matched to a posted expense with one tap to attach;
+  OpenID Connect sign-in for a firm's own identity provider with the deep link back
 - Windows integrations (2026-10-20): the month pushed to Tally on this machine; DSC signing from
   the Windows certificate store behind the gate; the model proposes an expense head for wording
   nothing has seen before (shown as the model's, changeable); professional tax for Meghalaya,
