@@ -46,7 +46,7 @@ function booksWithInvoice() {
 }
 
 test('scoped transports: every action declares the transport functions it may call', () => {
-  const groups = new Set(['sandbox', 'nic', 'nim', 'notifications', 'reachability', 'channel']);
+  const groups = new Set(['sandbox', 'nic', 'nim', 'notifications', 'reachability', 'channel', 'tally']);
   for (const [id, entry] of Object.entries(ACTION_CLASSES)) {
     assert.ok(Array.isArray(entry.uses), id);
     assert.ok(Number.isInteger(entry.timeoutMs) && entry.timeoutMs > 0, id);
@@ -290,7 +290,8 @@ test('H9: with the live switch off no action in the table executes, and each lea
   const state = createState();
   const calls = [];
   await withEnv(OFF, async () => {
-    for (const actionId of Object.keys(ACTION_CLASSES)) {
+    for (const [actionId, entry] of Object.entries(ACTION_CLASSES)) {
+      if (entry.local) continue;
       const out = await performExternalAction(state, { actionId, params: { probe: actionId }, actor: maker }, async () => {
         calls.push(actionId);
         return { ok: true };
@@ -302,10 +303,28 @@ test('H9: with the live switch off no action in the table executes, and each lea
   assert.deepEqual(calls, []);
 });
 
+test('a local application on this machine (Tally) is reached without the live switch or an approval, and is still audited and timed', async () => {
+  const locals = Object.entries(ACTION_CLASSES).filter(([, entry]) => entry.local).map(([id]) => id);
+  assert.deepEqual(locals, ['tally_push']);
+  const state = createState();
+  const calls = [];
+  await withEnv(OFF, async () => {
+    const out = await performExternalAction(state, { actionId: 'tally_push', params: { period: '2026-09' }, actor: maker }, async (transports) => {
+      calls.push(Object.keys(transports.tally));
+      return { ok: true, text: '<RESPONSE><CREATED>1</CREATED></RESPONSE>' };
+    });
+    assert.equal(out.ok, true, JSON.stringify(out));
+  });
+  assert.deepEqual(calls, [['send']]);
+  assert.equal((state.dryRuns || []).length, 0, 'no dry run: the call happened');
+  assert.ok(state.auditEvents.some((event) => JSON.stringify(event).includes('tally_push')), 'the gate audited it');
+  assert.ok(ACTION_CLASSES.tally_push.timeoutMs <= 30000);
+});
+
 test('C2: with the live switch on no write in the table executes without a matching approval', async () => {
   const state = createState();
   const calls = [];
-  const writes = Object.entries(ACTION_CLASSES).filter(([, entry]) => entry.actionClass === 'write').map(([id]) => id);
+  const writes = Object.entries(ACTION_CLASSES).filter(([, entry]) => entry.actionClass === 'write' && !entry.local).map(([id]) => id);
   assert.ok(writes.length >= 10);
   await withEnv(LIVE, async () => {
     for (const actionId of writes) {

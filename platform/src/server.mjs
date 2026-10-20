@@ -86,6 +86,10 @@ function mintToken() {
   return apiToken;
 }
 
+function tokenInPage() {
+  return String(process.env.MYCA_TOKEN_IN_PAGE ?? '1').trim() !== '0';
+}
+
 function tokenMatches(value) {
   const given = Buffer.from(String(value == null ? '' : value));
   const expected = Buffer.from(apiToken);
@@ -272,7 +276,7 @@ function handler(req, res) {
     // The page is served this launch's token; nothing else can read it, because a
     // request from any other host or site was refused above.
     if (extname(abs) === '.html') {
-      const html = readFileSync(abs, 'utf8').split(TOKEN_MARKER).join(apiToken);
+      const html = readFileSync(abs, 'utf8').split(TOKEN_MARKER).join(tokenInPage() ? apiToken : '');
       return send(req, res, 200, html, types['.html']);
     }
     send(req, res, 200, readFileSync(abs), types[extname(abs)] || 'application/octet-stream');

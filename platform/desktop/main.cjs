@@ -2,9 +2,14 @@ const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const path = require('path');
 const { pathToFileURL } = require('url');
 const { writeFileSync, unlinkSync } = require('fs');
+const { randomBytes } = require('crypto');
+const { checkForUpdate } = require('./update-check.cjs');
 
 const PORT = process.env.PORT ? Number(process.env.PORT) : app.isPackaged ? 0 : 4780;
 if (app.isPackaged) process.env.MYCA_REQUIRE_SAFE_STORAGE = '1';
+const apiToken = randomBytes(32).toString('hex');
+process.env.MYCA_API_TOKEN = apiToken;
+process.env.MYCA_TOKEN_IN_PAGE = '0';
 const MAX_HTML_BYTES = 5 * 1024 * 1024;
 let mainWindow = null;
 
@@ -69,11 +74,32 @@ ipcMain.handle('myca:open-external', async (_event, url) => {
   return { ok: true };
 });
 
+ipcMain.on('myca:api-token', (event) => {
+  event.returnValue = apiToken;
+});
+
+async function offerUpdate() {
+  if (!app.isPackaged && !process.env.MYCA_UPDATE_URL) return;
+  const found = await checkForUpdate({ current: app.getVersion() });
+  if (!found.ok || !found.newer) return;
+  const { response } = await dialog.showMessageBox(mainWindow, {
+    type: 'info',
+    title: 'MyCA update',
+    message: `MyCA ${found.latest} is available; you have ${found.current}.`,
+    detail: 'The download opens in your browser. Your books stay where they are; install the new version over this one.',
+    buttons: found.url ? ['Download', 'Later'] : ['OK'],
+    defaultId: 0,
+    cancelId: 1,
+  });
+  if (response === 0 && found.url) await shell.openExternal(found.url);
+}
+
 app.whenReady().then(async () => {
   const { startServer } = await import(pathToFileURL(path.join(__dirname, '../src/server.mjs')).href);
   const started = await startServer(PORT);
   if (started.error) dialog.showErrorBox('MyCA could not open your books', started.error);
   createWindow(started.port);
+  offerUpdate().catch(() => {});
 });
 
 app.on('window-all-closed', () => app.quit());

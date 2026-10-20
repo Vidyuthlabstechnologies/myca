@@ -143,6 +143,10 @@ Without credentials, **Share** still opens a `wa.me` link.
 3. Verify: `provider_doctor` → `tally` shows `reachable`.
 
 CSV/XML import works with or without a live Tally connection.
+4. Write-back (2026-10-20): "push September to Tally" sends the month's ledger masters and
+   vouchers to that address after a preview; the reply's created/altered/error counts are
+   kept per month and a second send is refused until you say "again". Loopback only; no
+   live switch or approval, because Tally is on this machine, but every send is audited.
 
 ## 6. NVIDIA NIM (optional AI)
 

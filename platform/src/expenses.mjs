@@ -145,7 +145,7 @@ export function planExpense(state, args = {}) {
   const chosen = args.head == null || args.head === '' ? null : headNamed(args.head);
   if (args.head != null && args.head !== '' && !chosen) return { ok: false, error: 'UNKNOWN_HEAD', head: args.head };
   const tag = chosen
-    ? { head: chosen.code, headName: chosen.name, source: 'chosen', why: `You chose ${chosen.name}.` }
+    ? (args.headSource === 'model' ? { head: chosen.code, headName: chosen.name, source: 'model', why: String(args.headWhy || `The model read this as ${chosen.name}; tap to change it.`) } : { head: chosen.code, headName: chosen.name, source: 'chosen', why: `You chose ${chosen.name}.` })
     : tagExpense(state, { description, payee });
 
   if (mode === 'cash') {

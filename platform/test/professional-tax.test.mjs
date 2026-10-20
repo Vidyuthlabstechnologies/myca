@@ -4,7 +4,7 @@ import { createState } from '../src/store.mjs';
 import { runTool } from '../src/tools.mjs';
 import { rules } from '../src/sprint-load.mjs';
 
-const STATES = ['27', '29', '19', '36', '37', '24', '23', '21', '20', '18', '22', '03', '33', '32', '10'];
+const STATES = ['27', '29', '19', '36', '37', '24', '23', '21', '20', '18', '22', '03', '33', '32', '10', '17', '14', '15', '13', '16', '11'];
 
 async function ptFor({ state: code, monthly, sex = 'male', period = '2026-10' }) {
   const state = createState();
@@ -91,4 +91,31 @@ test('Maharashtra keeps its slabs by sex and February charge; an unknown state s
   const unknown = await ptFor({ state: '07', monthly: 30000 });
   assert.equal(unknown.pt, 0);
   assert.match(unknown.notes.join(' '), /not in MyCA's rules yet/);
+});
+
+test('the north-eastern states and Sikkim: Meghalaya, Manipur, Mizoram, Nagaland, Tripura, Sikkim', async () => {
+  assert.equal((await ptFor({ state: '17', monthly: 4166 })).pt, 0);
+  assert.equal((await ptFor({ state: '17', monthly: 5000 })).pt, 16.5);
+  assert.equal((await ptFor({ state: '17', monthly: 20000 })).pt, 83.33);
+  assert.equal((await ptFor({ state: '17', monthly: 41667 })).pt, 208);
+  assert.equal((await ptFor({ state: '14', monthly: 4166 })).pt, 0);
+  assert.equal((await ptFor({ state: '14', monthly: 6000 })).pt, 100);
+  assert.equal((await ptFor({ state: '14', monthly: 8000 })).pt, 166);
+  assert.equal((await ptFor({ state: '14', monthly: 8000, period: '2027-03' })).pt, 174);
+  assert.equal((await ptFor({ state: '14', monthly: 20000, period: '2027-03' })).pt, 212);
+  assert.equal((await ptFor({ state: '15', monthly: 5000 })).pt, 0);
+  assert.equal((await ptFor({ state: '15', monthly: 9000 })).pt, 120);
+  assert.equal((await ptFor({ state: '15', monthly: 18000 })).pt, 195);
+  assert.equal((await ptFor({ state: '15', monthly: 25000 })).pt, 208);
+  assert.equal((await ptFor({ state: '13', monthly: 3999 })).pt, 0);
+  assert.equal((await ptFor({ state: '13', monthly: 4000 })).pt, 35);
+  assert.equal((await ptFor({ state: '13', monthly: 8000 })).pt, 110);
+  assert.equal((await ptFor({ state: '13', monthly: 12000 })).pt, 208);
+  assert.equal((await ptFor({ state: '16', monthly: 7500 })).pt, 0);
+  assert.equal((await ptFor({ state: '16', monthly: 10000 })).pt, 150);
+  assert.equal((await ptFor({ state: '16', monthly: 15001 })).pt, 208);
+  assert.equal((await ptFor({ state: '11', monthly: 20000 })).pt, 0);
+  assert.equal((await ptFor({ state: '11', monthly: 25000 })).pt, 125);
+  assert.equal((await ptFor({ state: '11', monthly: 35000 })).pt, 150);
+  assert.equal((await ptFor({ state: '11', monthly: 40001 })).pt, 200);
 });

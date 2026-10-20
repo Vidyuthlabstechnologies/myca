@@ -51,6 +51,9 @@ import { restockWords } from './restock.mjs';
 import { advanceTaxWords } from './advance-tax.mjs';
 import { supplierPayoutWords } from './supplier-bank.mjs';
 import { reportWords } from './reports.mjs';
+import { tallyPushWords } from './tally-push.mjs';
+import { dscWords } from './dsc.mjs';
+import { suggestExpenseHead } from './expense-head-model.mjs';
 
 function money(n) {
   return formatMoneyCurrent(Number(n) || 0);
@@ -90,6 +93,17 @@ const FAILURES = {
   NO_LINES: () => 'There is nothing to put on it, so nothing was changed.',
   ZERO_AMOUNT: () => 'It comes to nothing, so nothing was changed.',
   SETUP_REQUIRED: () => 'Set up the business first: its name and GSTIN, or its state if it is not registered. Nothing was changed.',
+  TALLY_UNREACHABLE: (r) => `Tally did not answer at ${r.url}. ${r.hint || ''}`.trim(),
+  TALLY_TIMEOUT: (r) => `Tally at ${r.url} took too long to answer; try again with the company loaded.`,
+  TALLY_REJECTED: (r) => `Tally rejected ${r.errors} ${r.errors === 1 ? 'entry' : 'entries'}${r.lineErrors?.length ? `: ${r.lineErrors.join('; ')}` : ''}. Nothing is recorded as sent.`,
+  ALREADY_PUSHED: (r) => `${r.period} was already sent to Tally on ${r.pushedOn}. ${r.hint || ''}`.trim(),
+  NOTHING_TO_PUSH: (r) => `Nothing in ${r.period} to send to Tally.`,
+  TALLY_NOT_LOCAL: () => 'Tally is reached on this machine only, for example http://127.0.0.1:9000.',
+  DSC_WINDOWS_ONLY: () => 'A DSC token is read through the Windows certificate store; sign from the Windows desktop.',
+  DSC_CERT_NOT_FOUND: (r) => `No certificate with thumbprint ${r.thumbprint} has a private key on this machine; plug in the token and list the certificates again.`,
+  DSC_TOOL_FAILED: (r) => `Signing failed: ${r.detail || 'the signing tool did not answer'}.`,
+  BAD_THUMBPRINT: () => 'A certificate thumbprint is forty hexadecimal characters; say "dsc certificates" to list them.',
+  PAYLOAD_REQUIRED: () => 'Attach the document to sign first.',
   REPORT_NOT_FOUND: (r) => `There is no saved report called ${r.name || 'that'}${(r.known || []).length ? `; you have ${r.known.join(', ')}` : ''}.`,
   NAME_REQUIRED: () => 'Give the report a name.',
   BAD_METRIC: (r) => `The report can be of ${r.hint}.`,
@@ -598,6 +612,9 @@ function fmtToolResult(name, result) {
   if (name === 'restock_plan' && result.data) return restockWords(result.data, money);
   if (name === 'advance_tax' && result.data) return advanceTaxWords(result.data, money);
   if (name === 'supplier_payout_file' && result.data) return supplierPayoutWords(result.data, money);
+  if (name === 'push_tally' && result.push) return tallyPushWords(result, money);
+  if ((name === 'dsc_certificates' || name === 'dsc_sign') && dscWords(name, result)) return dscWords(name, result);
+  if (name === 'suggest_expense_head' && result.headName) return `${result.why} Say "record the expense" with the amount to post it.`;
   if (name === 'attach_document' && result.id) return `The document is kept with ${result.kind} ${result.id}${result.replaced ? ', replacing the earlier one' : ''}. Nothing was posted.`;
   if (name === 'save_report' && result.report) return `Saved "${result.report.name}"${result.replaced ? ' (replacing the earlier one)' : ''}. Say "run report ${result.report.name}" any time.\n${reportWords('', result.result, money)}`;
   if (name === 'run_report' && result.result) return reportWords(result.name, result.result, money);
@@ -942,6 +959,11 @@ async function chatCore(state, message) {
   if (plan.kind === 'cancel') return discardCore(state);
 
   if (plan.kind === 'confirm') return runConfirmation(state, plan.decision);
+
+  if (plan.name === 'post_expense' && (plan.args.head == null || plan.args.head === '') && modelConfigured()) {
+    const suggested = await suggestExpenseHead({ description: plan.args.narration || plan.args.description, payee: plan.args.payee });
+    if (suggested.ok) plan.args = { ...plan.args, head: suggested.head, headSource: 'model', headWhy: suggested.why };
+  }
 
   if (needsConfirmation(plan.name)) return holdForConfirmation(state, plan);
 
