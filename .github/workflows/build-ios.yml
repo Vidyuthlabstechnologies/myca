@@ -1,0 +1,67 @@
+name: Build iOS app
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Unsigned Runner.app
+    runs-on: macos-latest
+    env:
+      CLOUD_URL: ${{ vars.MYCA_CLOUD_URL }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install Flutter at the pinned version
+        shell: bash
+        env:
+          FLUTTER_VERSION: "3.44.9"
+        run: |
+          set -euo pipefail
+          git clone --depth 1 --branch "$FLUTTER_VERSION" https://github.com/flutter/flutter.git "$RUNNER_TEMP/flutter"
+          echo "$RUNNER_TEMP/flutter/bin" >> "$GITHUB_PATH"
+
+      - name: Fetch packages
+        working-directory: mobile
+        run: flutter pub get --enforce-lockfile
+
+      - name: Analyze and test before building
+        working-directory: mobile
+        run: |
+          flutter analyze
+          flutter test
+
+      - name: Build without signing (signing and TestFlight upload are the owner's step in Xcode)
+        working-directory: mobile
+        shell: bash
+        run: |
+          set -euo pipefail
+          define=()
+          if [ -n "$CLOUD_URL" ]; then define=(--dart-define="MYCA_CLOUD_URL=$CLOUD_URL"); fi
+          flutter build ios --release --no-codesign "${define[@]}"
+          mkdir -p ../dist
+          (cd build/ios/iphoneos && zip -qry ../../../../dist/myca-ios-unsigned.zip Runner.app)
+          (cd ../dist && shasum -a 256 myca-ios-unsigned.zip > SHA256SUMS-ios.txt)
+
+      - name: Say what this build is
+        shell: bash
+        run: |
+          {
+            echo "### iOS build"
+            echo "- Unsigned Runner.app: not installable until the owner signs it and uploads it to TestFlight from Xcode (docs/release/APP-STORE.md)."
+            if [ -n "$CLOUD_URL" ]; then echo "- Hosted mode: \`$CLOUD_URL\`"; else echo "- Local mode: no MYCA_CLOUD_URL variable set."; fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload the unsigned app for the owner to sign
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: myca-ios-unsigned
+          path: dist/
+          if-no-files-found: error

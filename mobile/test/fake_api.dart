@@ -190,6 +190,12 @@ class FakeMycaApi implements MycaApi {
   bool gstPaid = false;
   bool modelOff = false;
   final readDocuments = <String>[];
+  final documentMatches = <Map<String, Object?>>[];
+  final attachments = <Map<String, Object?>>[];
+  final savedReports = <Map<String, Object?>>[
+    {'name': 'Sales by customer', 'metric': 'sales', 'groupBy': 'customer', 'period': 'this-month', 'compare': true, 'savedOn': '2026-10-01'},
+    {'name': 'Expenses this quarter', 'metric': 'expenses', 'groupBy': 'head', 'period': 'this-quarter', 'compare': false, 'savedOn': '2026-10-02'},
+  ];
   final amendments = <Map<String, Object?>>[];
   bool yearClosed = false;
   bool quarterlyGst = false;
@@ -474,6 +480,15 @@ class FakeMycaApi implements MycaApi {
     if (name == 'set_employee_bank') {
       return _preview('Ravi Kumar is paid into account ending ${'${args['bankAccount']}'.substring('${args['bankAccount']}'.length - 4)} at ${args['ifsc']}.');
     }
+    if (name == 'save_report') {
+      return _preview('Save the report ${args['name']}: ${args['metric']} by ${args['groupBy']} for ${args['period']}${args['compare'] == true ? ', compared with the period before' : ''}.');
+    }
+    if (name == 'delete_report') {
+      return _preview('Delete the saved report ${args['name']}.');
+    }
+    if (name == 'attach_document') {
+      return _preview('Attach the document to ${args['id']}. Nothing else changes.');
+    }
     if (name == 'record_payment_run') {
       final ids = (args['billIds'] as List).cast<String>();
       final two = ids.length == 2;
@@ -707,6 +722,19 @@ class FakeMycaApi implements MycaApi {
         e['leftOn'] = held.args['leftOn'];
         e['active'] = false;
         return ChatReply.fromJson({'reply': 'Recorded that ${e['name']} left on ${held.args['leftOn']}.', 'posted': true, 'confirmed': true});
+      }
+      if (held.tool == 'save_report') {
+        savedReports.removeWhere((r) => r['name'] == held.args['name']);
+        savedReports.add({...held.args, 'savedOn': '2026-10-05'});
+        return ChatReply.fromJson({'reply': 'Saved the report ${held.args['name']}.', 'posted': true, 'confirmed': true});
+      }
+      if (held.tool == 'delete_report') {
+        savedReports.removeWhere((r) => r['name'] == held.args['name']);
+        return ChatReply.fromJson({'reply': 'Deleted the report ${held.args['name']}.', 'posted': true, 'confirmed': true});
+      }
+      if (held.tool == 'attach_document') {
+        attachments.add(held.args);
+        return ChatReply.fromJson({'reply': 'Attached the document to ${held.args['id']}.', 'posted': true, 'confirmed': true});
       }
       if (held.tool == 'record_payment_run') {
         paymentRuns.add(held.args);
@@ -1159,6 +1187,40 @@ class FakeMycaApi implements MycaApi {
             'proposal': {'tool': 'create_purchase', 'args': {'partyName': 'Ganga Mills', 'partyGstin': '27AAACG1234A1Z5', 'supplierInvoiceNo': 'GM/221', 'date': '2026-10-03', 'lines': [{'description': 'Cotton yarn', 'hsn': '5205', 'qty': 10, 'rate': 1200, 'gstRate': 5}]}},
             'confidence': 0.9,
             'warnings': const <Object?>[],
+            'matches': documentMatches,
+          },
+        };
+      case 'list_reports':
+        return {'ok': true, 'reports': savedReports};
+      case 'run_report':
+        final report = savedReports.where((r) => r['name'] == args['name']).firstOrNull;
+        if (report == null) return {'ok': false, 'error': 'REPORT_NOT_FOUND'};
+        final compared = report['compare'] == true;
+        return {
+          'ok': true,
+          'name': report['name'],
+          'result': {
+            'metric': report['metric'],
+            'groupBy': report['groupBy'],
+            'period': report['period'],
+            'range': {'label': 'October 2026', 'from': '2026-10-01', 'to': '2026-10-31'},
+            'rows': [
+              {'label': 'Retail Mart', 'amount': 525000},
+              {'label': 'Gujarat Weaves', 'amount': 63000},
+            ],
+            'more': 0,
+            'total': 588000,
+            'compare': compared
+                ? {
+                    'label': '2026-09',
+                    'total': 525000,
+                    'changePct': 12,
+                    'rows': [
+                      {'label': 'Retail Mart', 'before': 500000},
+                      {'label': 'Gujarat Weaves', 'before': 25000},
+                    ],
+                  }
+                : null,
           },
         };
       case 'schedule_se':

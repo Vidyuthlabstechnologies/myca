@@ -1,4 +1,4 @@
-const apiToken = document.querySelector('meta[name="myca-api-token"]')?.content || '';
+const apiToken = (window.myca && window.myca.apiToken) || document.querySelector('meta[name="myca-api-token"]')?.content || '';
 const apiHeaders = { 'content-type': 'application/json', 'x-myca-client': apiToken };
 
 const api = {

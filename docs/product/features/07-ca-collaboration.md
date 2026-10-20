@@ -52,6 +52,14 @@ sees changes as they happen or at set intervals.
 - All CSV output goes through `text-safe.mjs`.
 - An export is audited: who exported what period and when.
 
+### Tally write-back (built 2026-10-20)
+
+"Push September to Tally" sends the month's ledger masters and vouchers, the same file the
+export makes, to TallyPrime's HTTP server on this machine after a preview. The reply's
+created, altered and rejected counts are kept per month; a rejected line is shown and
+nothing is recorded as sent. A second send of a month is refused until the owner says
+"again", because Tally would duplicate the vouchers. Desktop only; the phone has no Tally.
+
 ### Zoho Books write-back (built 2026-10-16)
 
 A firm that keeps its clients in Zoho Books connects it once ("set_channel_connector zoho": organisation id, data centre, client id and secret, refresh token; the secrets sit in the local vault). "Push invoices to Zoho for 2026-09" then sends the month's invoices that Zoho does not have yet: the customer is looked up by name and created with its GSTIN when missing, each line carries its HSN and the Zoho tax that matches the rate and the direction of supply, and the invoice number is kept. The push is a write through the action gate, so it needs live calls on and a CA approval naming the exact invoices; in mock mode it is simulated and marks nothing. Each sent invoice remembers its Zoho id and is never sent twice. The books themselves do not change.

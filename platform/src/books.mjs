@@ -64,6 +64,8 @@ export function newBook(company = {}) {
     purchaseOrderSeq: 0,
     advanceTaxPayments: [],
     reports: {},
+    tallyPushes: {},
+    dscSignatures: [],
     gstr2b: {},
     reminders: [],
     reminderSeq: 0,
@@ -142,6 +144,8 @@ export function serializeBook(book) {
     purchaseOrders: book.purchaseOrders || [],
     advanceTaxPayments: book.advanceTaxPayments || [],
     reports: book.reports || {},
+    tallyPushes: book.tallyPushes || {},
+    dscSignatures: book.dscSignatures || [],
     purchaseOrderSeq: book.purchaseOrderSeq || 0,
     gstr2b: book.gstr2b || {},
     reminders: book.reminders || [],
@@ -217,6 +221,8 @@ export function deserializeBook(raw) {
   book.purchaseOrders = Array.isArray(raw.purchaseOrders) ? raw.purchaseOrders : [];
   book.advanceTaxPayments = Array.isArray(raw.advanceTaxPayments) ? raw.advanceTaxPayments : [];
   book.reports = raw.reports && typeof raw.reports === 'object' ? raw.reports : {};
+  book.tallyPushes = raw.tallyPushes && typeof raw.tallyPushes === 'object' ? raw.tallyPushes : {};
+  book.dscSignatures = Array.isArray(raw.dscSignatures) ? raw.dscSignatures : [];
   book.purchaseOrderSeq = Number(raw.purchaseOrderSeq || 0);
   book.gstr2b = raw.gstr2b && typeof raw.gstr2b === 'object' ? raw.gstr2b : {};
   book.reminders = Array.isArray(raw.reminders) ? raw.reminders : [];

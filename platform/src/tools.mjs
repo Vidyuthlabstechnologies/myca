@@ -24,6 +24,9 @@ import { advanceTax, recordAdvanceTaxPayment } from './advance-tax.mjs';
 import { setSupplierBank, supplierPayoutFile } from './supplier-bank.mjs';
 import { attachDocument } from './receipt-match.mjs';
 import { saveReport, runReport, listReports, deleteReport } from './reports.mjs';
+import { pushTally } from './tally-push.mjs';
+import { listDscCertificates, signWithDsc } from './dsc.mjs';
+import { suggestExpenseHead } from './expense-head-model.mjs';
 const ingestTally = tally.ingest;
 const ingestBank = bank.ingest;
 const { reconcile } = gst;
@@ -2386,6 +2389,37 @@ export const TOOLS = [
     description: 'Record that the owner is sending a payment reminder to one customer from their own phone, with the message as sent, and set a reminder to check for the payment in seven days. MyCA does not send it.',
     args: ['customer', 'message', 'channel'],
     run: (state, args = {}) => recordCollectionReminder(state, args),
+  },
+  {
+    name: 'push_tally',
+    title: 'Send the month to Tally',
+    description: 'Send the month\'s ledger masters and vouchers to Tally running on this machine (its HTTP server, port 9000 by default) in one import; the same file export_tally produces. Refused a second time for the same month unless asked again, because Tally would duplicate the vouchers.',
+    args: ['period', 'url', 'again'],
+    run: (state, args = {}) => pushTally(state, args, resolveToolActor(args)),
+  },
+  {
+    name: 'dsc_certificates',
+    title: 'Signing certificates on this machine',
+    description: 'The digital signature certificates with a private key in the Windows certificate store, which is where a DSC USB token appears once its driver is installed. Read-only; Windows desktop only.',
+    args: [],
+    run: () => listDscCertificates(),
+  },
+  {
+    name: 'dsc_sign',
+    title: 'Sign with the DSC',
+    description: 'Sign an uploaded document (or text) with a certificate on this machine, producing a detached PKCS#7 signature stored beside the books. Runs through the action gate: live calls on and a CA approval; the token prompts for its PIN on screen. MyCA files nothing with the signature.',
+    args: ['documentSha256', 'text', 'thumbprint', 'purpose', 'caApprovalId'],
+    run: async (state, args = {}) => {
+      const out = await signWithDsc(state, args, resolveToolActor(args));
+      return out.ok ? ok(out) : fail(out.error, out);
+    },
+  },
+  {
+    name: 'suggest_expense_head',
+    title: 'Suggest an expense head',
+    description: 'Ask the model which of the twenty expense heads fits a wording nothing in the books has seen before. Read-only; the owner still confirms the expense. Off until a model key is set.',
+    args: ['description', 'payee'],
+    run: (state, args = {}) => suggestExpenseHead(args),
   },
   {
     name: 'attach_document',

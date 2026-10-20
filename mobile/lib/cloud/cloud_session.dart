@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import '../api/models.dart';
@@ -16,6 +17,10 @@ const _messages = {
   'WRONG_AUDIENCE': 'This copy of the app is not set up for Google sign-in.',
   'GOOGLE_TOKEN_EXPIRED': 'That Google sign-in took too long. Try again.',
   'GOOGLE_UNREACHABLE': 'MyCA could not reach Google. Try again in a minute.',
+  'OIDC_SIGN_IN_UNAVAILABLE': 'Sign-in with your firm\'s account is not available yet.',
+  'INVALID_OIDC_TOKEN': 'Your firm\'s sign-in could not confirm who you are. Try again.',
+  'OIDC_TOKEN_EXPIRED': 'That sign-in took too long. Try again.',
+  'OIDC_UNREACHABLE': 'MyCA could not reach your firm\'s sign-in. Try again in a minute.',
   'CONSENT_REQUIRED': 'Read and accept the privacy notice to continue.',
   'NOTICE_CHANGED': 'The privacy notice has changed. Read the new one and accept it.',
   'INVALID_PHONE': 'Enter a 10-digit Indian mobile number.',
@@ -153,11 +158,17 @@ class PrivacyNotice {
 }
 
 class SignInMethods {
-  const SignInMethods({required this.phone, required this.google});
+  const SignInMethods({required this.phone, required this.google, this.oidc = false, this.oidcIssuer = ''});
 
   final bool phone;
   final bool google;
+  final bool oidc;
+  final String oidcIssuer;
+
+  String get oidcIssuerHost => Uri.tryParse(oidcIssuer)?.host ?? '';
 }
+
+String get deviceLabel => defaultTargetPlatform == TargetPlatform.iOS ? 'iPhone' : 'Android';
 
 class CaSync {
   const CaSync({required this.mode, required this.sharedAsOf});
@@ -333,7 +344,7 @@ class CloudSession {
       'challengeId': _challengeId,
       'phone': _phone,
       'code': code,
-      'deviceLabel': 'Android',
+      'deviceLabel': deviceLabel,
     }, authed: false);
     if (body['ok'] != true) {
       throw MycaApiException(cloudMessage('${body['error'] ?? 'UNKNOWN'}'));
@@ -347,7 +358,12 @@ class CloudSession {
     try {
       final (status, body) = await _send('GET', '/v1/auth/methods', null, authed: false);
       if (status == 200 && body['ok'] == true) {
-        return SignInMethods(phone: body['phone'] == true, google: body['google'] == true);
+        return SignInMethods(
+          phone: body['phone'] == true,
+          google: body['google'] == true,
+          oidc: body['oidc'] == true,
+          oidcIssuer: '${body['oidcIssuer'] ?? ''}',
+        );
       }
     } on MycaApiException {
       return const SignInMethods(phone: true, google: true);
@@ -355,10 +371,14 @@ class CloudSession {
     return const SignInMethods(phone: true, google: true);
   }
 
-  Future<void> signInWithGoogle(String idToken) async {
-    final (_, body) = await _send('POST', '/v1/auth/google', {
+  Future<void> signInWithGoogle(String idToken) => _signInWithIdToken('/v1/auth/google', idToken);
+
+  Future<void> signInWithOidc(String idToken) => _signInWithIdToken('/v1/auth/oidc', idToken);
+
+  Future<void> _signInWithIdToken(String path, String idToken) async {
+    final (_, body) = await _send('POST', path, {
       'idToken': idToken,
-      'deviceLabel': 'Android',
+      'deviceLabel': deviceLabel,
     }, authed: false);
     if (body['ok'] != true) {
       throw MycaApiException(cloudMessage('${body['error'] ?? 'UNKNOWN'}'));

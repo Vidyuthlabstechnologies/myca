@@ -1,8 +1,10 @@
 import 'dart:ui';
 
+import 'package:app_links/app_links.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'api/http_myca_api.dart';
 import 'app_config.dart';
@@ -12,6 +14,7 @@ import 'brand.dart';
 import 'cloud/cloud_session.dart';
 import 'cloud/google_auth.dart';
 import 'cloud/keystore_token_store.dart';
+import 'cloud/oidc_auth.dart';
 import 'crash_reports.dart';
 import 'lock/app_lock.dart';
 import 'notifications.dart';
@@ -72,6 +75,13 @@ void main() {
         crashes: crashes,
         google: config.hosted && config.googleServerClientId.isNotEmpty
             ? DeviceGoogleAuth(config.googleServerClientId)
+            : null,
+        oidc: config.hosted && config.oidcClientId.isNotEmpty
+            ? OidcAuth(
+                clientId: config.oidcClientId,
+                open: (url) => launchUrl(url, mode: LaunchMode.externalApplication),
+                links: AppLinks().uriLinkStream,
+              )
             : null,
       ),
     ),

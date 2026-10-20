@@ -4,6 +4,7 @@ class AppConfig {
     required this.clientToken,
     this.cloudUrl = '',
     this.googleServerClientId = '',
+    this.oidcClientId = '',
   });
 
   static const fromEnvironment = AppConfig(
@@ -14,12 +15,14 @@ class AppConfig {
     clientToken: String.fromEnvironment('MYCA_API_TOKEN'),
     cloudUrl: String.fromEnvironment('MYCA_CLOUD_URL'),
     googleServerClientId: String.fromEnvironment('MYCA_GOOGLE_SERVER_CLIENT_ID'),
+    oidcClientId: String.fromEnvironment('MYCA_OIDC_CLIENT_ID'),
   );
 
   final String baseUrl;
   final String clientToken;
   final String cloudUrl;
   final String googleServerClientId;
+  final String oidcClientId;
 
   bool get hosted => cloudUrl.isNotEmpty;
 }

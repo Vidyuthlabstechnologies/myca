@@ -22,6 +22,7 @@ import * as nicClient from './nic-client.mjs';
 import { sendNotification } from './notifications.mjs';
 import { probeGovt, probeTcp } from './reachability.mjs';
 import { getChannelClient } from './channel-client.mjs';
+import { sendToTally } from './tally-client.mjs';
 
 export const DRY_RUN_LIMIT = 200;
 
@@ -30,8 +31,8 @@ const ASSISTANT = 'assistant';
 const MOCK_FIELD = /^(mock|simulated)/;
 const FIXTURE_SKIP = new Set(['files', 'pendingFile', 'auditEvents', 'auditSeq', 'dryRuns', 'dryRunSeq', '_legacyFiles', '_documents', '_dataDir', 'ledger', 'extraBooks', 'firmUsers']);
 
-function entry(actionClass, family, uses, { irreversible = false, timeoutMs = MINUTE_MS } = {}) {
-  return Object.freeze({ actionClass, family, irreversible, uses: Object.freeze([...uses]), timeoutMs });
+function entry(actionClass, family, uses, { irreversible = false, timeoutMs = MINUTE_MS, local = false } = {}) {
+  return Object.freeze({ actionClass, family, irreversible, local, uses: Object.freeze([...uses]), timeoutMs });
 }
 
 function read(family, uses, options) {
@@ -45,6 +46,7 @@ function write(family, uses, options) {
 const IRREVERSIBLE = { irreversible: true };
 const PROBE = { timeoutMs: 90000 };
 const MODEL = { timeoutMs: 2 * MINUTE_MS };
+const LOCAL_APP = { local: true, timeoutMs: 30000 };
 
 export const ACTION_CLASSES = Object.freeze(Object.assign(Object.create(null), {
   gst_taxpayer_generate_otp: write('sandbox_operation', ['sandbox.generateTaxpayerOtp'], IRREVERSIBLE),
@@ -78,6 +80,8 @@ export const ACTION_CLASSES = Object.freeze(Object.assign(Object.create(null), {
   nim_ask: read('nim', ['nim.complete'], MODEL),
   knowledge_answer: read('nim', ['nim.complete'], MODEL),
   nim_status: read('nim', ['nim.ping']),
+  dsc_sign: write('dsc', [], IRREVERSIBLE),
+  tally_push: write('tally', ['tally.send'], LOCAL_APP),
   provider_doctor_ping: read('provider', ['sandbox.ping', 'nim.ping', 'reachability.probeTally'], PROBE),
   channel_fetch_report: read('channel', ['channel.pull'], { timeoutMs: 12 * MINUTE_MS }),
   zoho_push_invoices: write('channel', ['channel.zoho'], { timeoutMs: 10 * MINUTE_MS }),
@@ -130,7 +134,12 @@ const CHANNEL_TRANSPORT = Object.freeze({
   zoho: (ctx) => (request) => signalled(getChannelClient(), ctx.signal).zoho(request, ctx.signal),
 });
 
+const TALLY_TRANSPORT = Object.freeze({
+  send: (ctx) => (url, xml) => sendToTally(url, xml, ctx.signal),
+});
+
 const TRANSPORT_TABLES = Object.freeze({
+  tally: TALLY_TRANSPORT,
   nic: NIC_TRANSPORT,
   channel: CHANNEL_TRANSPORT,
   notifications: NOTIFICATION_TRANSPORT,
@@ -472,10 +481,10 @@ export async function performExternalAction(state, request = {}, execute) {
   if (mockModeEnabled()) return runFixture(action, request.fixture);
 
   const pullAllowed = item.family === 'channel' && item.actionClass === 'read' && channelPullsEnabled();
-  if (!liveCallsEnabled() && !pullAllowed) return recordDryRun(action, request.payload ?? params);
+  if (!liveCallsEnabled() && !pullAllowed && !item.local) return recordDryRun(action, request.payload ?? params);
 
   const beforeHash = stateDigest(state);
-  const claim = item.actionClass === 'write' ? claimApproval(action, request.approvalId) : { ok: true, approval: null };
+  const claim = item.actionClass === 'write' && !item.local ? claimApproval(action, request.approvalId) : { ok: true, approval: null };
   if (!claim.ok) return claim;
 
   const result = await runWithDeadline(action, execute, deadlineFor(item, request.timeoutMs));

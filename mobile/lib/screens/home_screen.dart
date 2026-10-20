@@ -16,6 +16,7 @@ import '../widgets.dart';
 import 'ask_screen.dart';
 import 'books_check_screen.dart';
 import 'marketplace_screen.dart';
+import 'reports_screen.dart';
 import 'employees_screen.dart';
 import 'ca_screen.dart';
 import 'cash_screen.dart';
@@ -349,6 +350,13 @@ class _HomeScreenState extends State<HomeScreen> {
                   subtitle: 'Payouts, TCS and TDS, margins by SKU, stock, GST registrations',
                   trailing: const Chevron(),
                   onTap: () => _open(const MarketplaceScreen()),
+                ),
+                RowCard(
+                  leading: const TintTile(tint: Tint.taxes, mark: Mark.sales),
+                  title: 'Reports',
+                  subtitle: 'Saved reports run by name, compared with the period before',
+                  trailing: const Chevron(),
+                  onTap: () => _open(const ReportsScreen()),
                 ),
                 RowCard(
                   leading: const TintTile(tint: Tint.ask, mark: Mark.people),

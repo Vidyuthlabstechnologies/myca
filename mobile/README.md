@@ -1,9 +1,9 @@
-# MyCA for Android
+# MyCA for Android and iOS
 
 The owner's app. Books are organised like a messenger: registers (Sales, Purchases,
 Taxes and filings), then one thread per customer or supplier, where each entry is
-previewed and confirmed before it reaches the books. Flutter, Android only,
-application id `com.mldynamic.myca`.
+previewed and confirmed before it reaches the books. Flutter; Android application id
+and iOS bundle id `com.mldynamic.myca`.
 
 The app holds no tax logic and computes no figures. Every number on screen comes from
 the MyCA server; the app only formats and orders what it receives. Forms send
@@ -22,8 +22,9 @@ one-use token; nothing posts until that token is confirmed.
 | `lib/migration.dart` | Where-are-your-books paths and the imports each one offers |
 | `lib/attention.dart` | Ordering of "Needs you" and "Coming up" |
 | `lib/proposal_flow.dart` | Shared preview, post and discard behaviour |
-| `lib/screens/` | Welcome, sign-in, migration, home, business menu, customer picker, register, party thread, expense, taxes, Ask; in hosted mode also phone sign-in, name, business setup, people and invitations, switching business |
-| `lib/cloud/` | Hosted session: tokens, refresh, businesses, people |
+| `lib/screens/` | Welcome, sign-in, migration, home, business menu, customer picker, register, party thread, expense, taxes, reports, Ask; in hosted mode also phone sign-in, name, business setup, people and invitations, switching business |
+| `lib/cloud/` | Hosted session: tokens, refresh, businesses, people; Google and OpenID Connect sign-in |
+| `ios/` | The Xcode project; see the iOS section below |
 | `test/` | Unit and widget tests against a fake API |
 | `tool/live_check.dart` | Contract check against a running MyCA server |
 | `tool/screenshots_test.dart` | Renders every screen to `tool/screens/*.png` |
@@ -61,9 +62,26 @@ dart run -DMYCA_API_TOKEN=<the same string> tool/live_check.dart
 ## Running against the hosted API
 
 Built with `MYCA_CLOUD_URL`, the app signs in with Google (when built with
-`MYCA_GOOGLE_SERVER_CLIENT_ID`) or by phone and code, whichever the API says are on,
-creates the business, and keeps its tokens in the Android Keystore. See
-`cloud/README.md` to start the API.
+`MYCA_GOOGLE_SERVER_CLIENT_ID`), with a firm's OpenID Connect provider (when built with
+`MYCA_OIDC_CLIENT_ID` and the API reports one), or by phone and code, whichever the
+API says are on, creates the business, and keeps its tokens in the Android Keystore or
+the iOS Keychain. See `cloud/README.md` to start the API.
+
+The two sign-in defines:
+
+| Define | What it is |
+|---|---|
+| `MYCA_GOOGLE_SERVER_CLIENT_ID` | The **web** OAuth client id; the API verifies Google ID tokens against it |
+| `MYCA_OIDC_CLIENT_ID` | The client id the firm's identity provider issued for the app, with `com.mldynamic.myca://oidc` registered there as a redirect URI |
+
+OpenID Connect sign-in is offered only when `GET /v1/auth/methods` says `oidc: true`
+and names the issuer. The app reads the issuer's `/.well-known/openid-configuration`,
+opens the authorization endpoint in the system browser (`response_type=id_token`,
+`openid email profile`, a random state and nonce), receives the redirect as a deep
+link on the `com.mldynamic.myca` scheme, checks state and nonce, and posts the ID
+token to `/v1/auth/oidc`. If no link comes back within two minutes the screen says
+"Could not finish the sign-in" and stays signed out. `lib/cloud/oidc_auth.dart` holds
+discovery and the URL building; `test/oidc_test.dart` runs it without a browser.
 
 Google Sign-In needs two OAuth clients in the Google Cloud project, created by the
 company:
@@ -75,7 +93,7 @@ company:
    app signing key; otherwise sign-in fails on installed builds.
 
 ```bash
-flutter run --dart-define=MYCA_CLOUD_URL=<api url> --dart-define=MYCA_GOOGLE_SERVER_CLIENT_ID=<web client id>
+flutter run --dart-define=MYCA_CLOUD_URL=<api url> --dart-define=MYCA_GOOGLE_SERVER_CLIENT_ID=<web client id> --dart-define=MYCA_OIDC_CLIENT_ID=<the firm's client id>
 ```
 
 ```bash
@@ -89,11 +107,44 @@ dart run -DMYCA_CLOUD_URL=http://127.0.0.1:8080 -DMYCA_DEV_OTP_LOG=<server log f
 In hosted mode the app locks itself: on opening, and after two minutes away, it asks
 for the phone's fingerprint, face or screen lock before showing or fetching anything.
 It can be turned off from the business menu, which itself needs the lock. The lock is a
-gate in the app; the stored session is protected by the Android Keystore, not bound to
-the fingerprint.
+gate in the app; the stored session is protected by the Android Keystore or the iOS
+Keychain, not bound to the fingerprint.
+
+## Reports
+
+Home > Reports lists the reports saved on the server (`list_reports`). Tapping one runs
+it (`run_report`) and shows the total for the period, the comparison with the period
+before when the report asks for one ("up 12% on 2026-09, ₹5,25,000.00"), and each row
+with its earlier figure. The + button saves a new report (name, what, grouped by,
+period, compare) through `save_report`, and the bin deletes one through
+`delete_report`; both go through the usual preview and confirm. The app computes
+nothing; every figure is the engine's.
 
 In both modes a picked file is uploaded first and the import refers to it by hash, so
 file contents never sit in a waiting preview.
+
+## iOS
+
+`ios/` is the Xcode project (`Runner.xcodeproj`, `Runner/Info.plist`,
+`AppDelegate.swift`, `Podfile`), bundle id `com.mldynamic.myca`, display name MyCA,
+minimum iOS 14 (what `file_picker` needs; the other plugins need 13). Building and
+signing need a Mac; `Build iOS app` in GitHub Actions builds an unsigned `Runner.app`
+on every `v*` tag. `docs/release/APP-STORE.md` lists the owner's steps.
+
+Two placeholders in `ios/Runner/Info.plist` must be filled from the GCP OAuth **iOS**
+client before Google sign-in works on an iPhone:
+
+| Key | Fill with |
+|---|---|
+| `GIDClientID` (`REPLACE_WITH_GOOGLE_IOS_CLIENT_ID…`) | The iOS client id |
+| First `CFBundleURLSchemes` entry (`REPLACE_WITH_REVERSED_GOOGLE_IOS_CLIENT_ID`) | The same id reversed, `com.googleusercontent.apps.…` |
+
+The second URL type, scheme `com.mldynamic.myca`, carries the OpenID Connect redirect
+and needs no change. Camera, photo library and Face ID usage strings are set; the
+system picker asks for the camera only if the owner opens it. Reminders use the same
+`flutter_local_notifications` schedule on both platforms, asking iOS for permission
+once. Sharing a file into the app from another app is Android only; on iOS the owner
+picks the bill from inside the app.
 
 ## Migration paths
 
@@ -128,7 +179,8 @@ change after the first upload to Play.
 ## Not built yet
 
 - A deployed backend. The hosted API in `cloud/` works locally but is not deployed.
-- App icon, Play listing, Data safety and Financial features forms.
-- Bill capture by camera, payroll, GST filing pack, notifications.
+- App icon, and the Play and App Store listings submitted.
+- An iOS build signed and run on an iPhone; it has only been built unsigned in CI.
+- An iOS share extension (receiving a file from another app).
 
 Plain HTTP is allowed in debug builds only; release builds require HTTPS.

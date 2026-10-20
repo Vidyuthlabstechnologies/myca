@@ -91,6 +91,27 @@ export async function chooseTool({ message, tools, country = 'IN', history = [] 
   return { ok: true, name: String(use.name), args: use.input && typeof use.input === 'object' ? use.input : {} };
 }
 
+const SYSTEM_CHOOSE_AMONG = [
+  'You answer one multiple-choice question for a bookkeeper by calling the tool with exactly one of the offered values.',
+  'You never compute, round, convert or invent any amount, rate or date.',
+].join(' ');
+
+export async function chooseAmong({ question, options, instructions = '' }) {
+  const values = (options || []).map((o) => String(o.value));
+  if (!String(question || '').trim() || !values.length) return { ok: false, error: 'EMPTY_QUESTION' };
+  const called = await callModel({
+    system: `${SYSTEM_CHOOSE_AMONG} ${instructions}`.trim(),
+    tools: [{ name: 'choose', description: 'The one option that fits.', input_schema: { type: 'object', additionalProperties: false, required: ['value'], properties: { value: { type: 'string', enum: values } } } }],
+    tool_choice: { type: 'tool', name: 'choose' },
+    messages: [{ role: 'user', content: `${question}\n\nOptions:\n${(options || []).map((o) => `- ${o.value}: ${o.label}`).join('\n')}` }],
+  });
+  if (!called.ok) return called;
+  const use = toolUseOf(called.response);
+  const value = use && use.name === 'choose' ? String(use.input?.value ?? '') : '';
+  if (!values.includes(value)) return { ok: false, error: 'MODEL_NO_MATCH' };
+  return { ok: true, value };
+}
+
 const SYSTEM_READ = [
   'You read one business document and copy what it says into the structure asked for.',
   'Copy figures exactly as printed; never total, split, convert or infer a number that is not on the page.',

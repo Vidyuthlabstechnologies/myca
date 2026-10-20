@@ -72,6 +72,16 @@ class _PhoneSignInScreenState extends State<PhoneSignInScreen> {
     });
   }
 
+  Future<void> _firm() {
+    final state = AppScope.of(context);
+    final issuer = _methods?.oidcIssuer ?? '';
+    return _run(() async {
+      final token = await state.oidc!.idToken(issuer);
+      await state.cloud!.signInWithOidc(token);
+      await state.refresh();
+    });
+  }
+
   Future<void> _verify() {
     final state = AppScope.of(context);
     return _run(() async {
@@ -87,8 +97,10 @@ class _PhoneSignInScreenState extends State<PhoneSignInScreen> {
     final cloud = state.cloud!;
     final awaitingCode = cloud.awaitingCode;
     final googleOn = state.google != null && (_methods?.google ?? true);
+    final firmOn = state.oidc != null && (_methods?.oidc ?? false);
+    final firmHost = _methods?.oidcIssuerHost ?? '';
     final phoneOn = _methods?.phone ?? true;
-    final phoneOnly = phoneOn && !googleOn;
+    final phoneOnly = phoneOn && !googleOn && !firmOn;
     return Scaffold(
       body: SafeArea(
         child: Center(
@@ -116,7 +128,7 @@ class _PhoneSignInScreenState extends State<PhoneSignInScreen> {
                         ? 'We sent a 6-digit code to ${_phone.text.trim()}.'
                         : (phoneOnly
                               ? 'We will text you a code to sign in. No password to remember.'
-                              : 'Use your Google account. No new password to remember.'),
+                              : (googleOn ? 'Use your Google account. No new password to remember.' : 'Use the account your firm gave you. No new password to remember.')),
                     style: text.bodyLarge?.copyWith(color: Palette.muted),
                   ),
                   const SizedBox(height: 28),
@@ -127,16 +139,23 @@ class _PhoneSignInScreenState extends State<PhoneSignInScreen> {
                         _busy ? 'Please wait…' : 'Continue with Google',
                       ),
                     ),
-                    if (phoneOn) ...[
-                      const SizedBox(height: 24),
-                      Text(
-                        'Or use your mobile number',
-                        style: text.bodyMedium?.copyWith(color: Palette.muted),
-                      ),
-                      const SizedBox(height: 8),
-                    ],
                   ],
-                  if (!phoneOn && !googleOn)
+                  if (firmOn && !awaitingCode) ...[
+                    if (googleOn) const SizedBox(height: 12),
+                    OutlinedButton(
+                      onPressed: _busy ? null : _firm,
+                      child: Text(firmHost.isEmpty ? 'Sign in with your firm\'s account' : 'Sign in with your firm\'s account ($firmHost)'),
+                    ),
+                  ],
+                  if ((googleOn || firmOn) && phoneOn && !awaitingCode) ...[
+                    const SizedBox(height: 24),
+                    Text(
+                      'Or use your mobile number',
+                      style: text.bodyMedium?.copyWith(color: Palette.muted),
+                    ),
+                    const SizedBox(height: 8),
+                  ],
+                  if (!phoneOn && !googleOn && !firmOn)
                     Text(
                       'Sign-in is not available right now. Try again later.',
                       style: text.bodyLarge,
@@ -187,7 +206,7 @@ class _PhoneSignInScreenState extends State<PhoneSignInScreen> {
                   ],
                   if (phoneOn) ...[
                     const SizedBox(height: 20),
-                    (googleOn && !awaitingCode)
+                    ((googleOn || firmOn) && !awaitingCode)
                         ? OutlinedButton(
                             onPressed: _busy ? null : _sendCode,
                             child: const Text('Send code'),

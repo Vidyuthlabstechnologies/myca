@@ -52,9 +52,15 @@ class DeviceNotifications implements NotificationPlanner {
     if (_ready) return _allowed;
     _ready = true;
     tzdata.initializeTimeZones();
-    await _plugin.initialize(settings: const InitializationSettings(android: AndroidInitializationSettings('@mipmap/ic_launcher')));
+    await _plugin.initialize(
+      settings: const InitializationSettings(
+        android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+        iOS: DarwinInitializationSettings(requestAlertPermission: false, requestBadgePermission: false, requestSoundPermission: false),
+      ),
+    );
     final android = _plugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
-    _allowed = await android?.requestNotificationsPermission() ?? false;
+    final ios = _plugin.resolvePlatformSpecificImplementation<IOSFlutterLocalNotificationsPlugin>();
+    _allowed = await android?.requestNotificationsPermission() ?? await ios?.requestPermissions(alert: true, badge: true, sound: true) ?? false;
     return _allowed;
   }
 
@@ -73,7 +79,10 @@ class DeviceNotifications implements NotificationPlanner {
         title: item.title,
         body: item.detail.isEmpty ? 'Due today. Open MyCA to deal with it.' : item.detail,
         scheduledDate: tz.TZDateTime.from(at, tz.local),
-        notificationDetails: const NotificationDetails(android: AndroidNotificationDetails('myca_due', 'What is due', channelDescription: 'Filings, reminders and payroll falling due', importance: Importance.defaultImportance)),
+        notificationDetails: const NotificationDetails(
+          android: AndroidNotificationDetails('myca_due', 'What is due', channelDescription: 'Filings, reminders and payroll falling due', importance: Importance.defaultImportance),
+          iOS: DarwinNotificationDetails(threadIdentifier: 'myca_due'),
+        ),
         androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
       );
     }

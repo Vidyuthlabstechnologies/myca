@@ -2345,3 +2345,125 @@ PeriodGst? periodGstFrom(Object? json) {
   final data = toolData(json);
   return data.isEmpty ? null : PeriodGst.fromJson(data);
 }
+
+const reportMetrics = ['sales', 'purchases', 'expenses', 'owed', 'owing'];
+const reportGroups = ['customer', 'supplier', 'head', 'month', 'none'];
+const reportPeriods = ['this-month', 'last-month', 'this-quarter', 'this-year', 'last-year'];
+
+class SavedReport {
+  const SavedReport({
+    required this.name,
+    required this.metric,
+    required this.groupBy,
+    required this.period,
+    required this.compare,
+    required this.savedOn,
+  });
+
+  factory SavedReport.fromJson(Object? json) {
+    final map = _map(json);
+    return SavedReport(
+      name: _text(map['name']),
+      metric: _text(map['metric']),
+      groupBy: _text(map['groupBy']),
+      period: _text(map['period']),
+      compare: map['compare'] == true,
+      savedOn: _text(map['savedOn']),
+    );
+  }
+
+  final String name;
+  final String metric;
+  final String groupBy;
+  final String period;
+  final bool compare;
+  final String savedOn;
+
+  String get words => '$metric${groupBy == 'none' || groupBy.isEmpty ? '' : ' by $groupBy'}, ${period.replaceAll('-', ' ')}${compare ? ', compared' : ''}';
+}
+
+List<SavedReport> savedReportsFrom(Object? json) {
+  final map = _map(json);
+  if (map['ok'] == false) return const <SavedReport>[];
+  return _maps(map['reports']).map(SavedReport.fromJson).toList();
+}
+
+class ReportRow {
+  const ReportRow({required this.label, required this.amount, this.before});
+
+  final String label;
+  final num amount;
+  final num? before;
+}
+
+class ReportComparison {
+  const ReportComparison({required this.label, required this.total, required this.changePct});
+
+  final String label;
+  final num total;
+  final num? changePct;
+}
+
+class ReportResult {
+  const ReportResult({
+    required this.name,
+    required this.metric,
+    required this.groupBy,
+    required this.period,
+    required this.rangeLabel,
+    required this.rows,
+    required this.more,
+    required this.total,
+    required this.compare,
+  });
+
+  static ReportResult? fromTool(Object? json) {
+    final map = _map(json);
+    if (map['ok'] == false || map['result'] is! Map) return null;
+    final result = _map(map['result']);
+    final compare = result['compare'] is Map ? _map(result['compare']) : null;
+    final before = <String, num>{
+      if (compare != null)
+        for (final row in _maps(compare['rows'])) _text(row['label']): _num(row['before']),
+    };
+    return ReportResult(
+      name: _text(map['name']),
+      metric: _text(result['metric']),
+      groupBy: _text(result['groupBy']),
+      period: _text(result['period']),
+      rangeLabel: _text(_map(result['range'])['label']),
+      rows: [
+        for (final row in _maps(result['rows']))
+          ReportRow(label: _text(row['label']), amount: _num(row['amount']), before: compare == null ? null : before[_text(row['label'])]),
+      ],
+      more: _num(result['more']).toInt(),
+      total: _num(result['total']),
+      compare: compare == null
+          ? null
+          : ReportComparison(
+              label: _text(compare['label']),
+              total: _num(compare['total']),
+              changePct: compare['changePct'] is num ? compare['changePct'] as num : null,
+            ),
+    );
+  }
+
+  final String name;
+  final String metric;
+  final String groupBy;
+  final String period;
+  final String rangeLabel;
+  final List<ReportRow> rows;
+  final int more;
+  final num total;
+  final ReportComparison? compare;
+}
+
+String reportComparisonWords(ReportResult result, String Function(num) money) {
+  final compare = result.compare;
+  if (compare == null) return '';
+  final pct = compare.changePct;
+  if (pct == null) return 'was ${money(compare.total)} on ${compare.label}';
+  final direction = pct == 0 ? 'unchanged' : '${pct > 0 ? 'up' : 'down'} ${pct.abs().toStringAsFixed(pct.abs() == pct.abs().roundToDouble() ? 0 : 1)}%';
+  return '$direction on ${compare.label}, ${money(compare.total)}';
+}

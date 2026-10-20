@@ -21,6 +21,7 @@ import { planRestockFromChat } from './restock-intent.mjs';
 import { planAdvanceTaxFromChat } from './advance-tax-intent.mjs';
 import { planSupplierBankFromChat } from './supplier-bank-intent.mjs';
 import { planReportFromChat } from './reports-intent.mjs';
+import { planIntegrationFromChat } from './integrations-intent.mjs';
 import { planCashFromChat } from './cash-intent.mjs';
 import { planTermsFromChat, takeInvoiceTerms } from './terms-intent.mjs';
 import { localToday } from './dates.mjs';
@@ -1186,6 +1187,23 @@ export const TOOL_ARG_SCHEMAS = {
     properties: { question: { type: 'string', minLength: 3, maxLength: 400 } },
   },
   can_make_payroll: { type: 'object', additionalProperties: false, properties: {} },
+  push_tally: {
+    type: 'object',
+    additionalProperties: false,
+    properties: { period: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}$' }, url: { type: 'string', maxLength: 120 }, again: { type: 'boolean' } },
+  },
+  dsc_certificates: { type: 'object', additionalProperties: false, properties: {} },
+  dsc_sign: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['thumbprint'],
+    properties: { documentSha256: { type: 'string', pattern: '^[0-9a-f]{64}$' }, text: { type: 'string', maxLength: 200000 }, thumbprint: { type: 'string', pattern: '^[0-9A-Fa-f]{40}$' }, purpose: { type: 'string', maxLength: 120 }, caApprovalId: { type: 'string', maxLength: 80 } },
+  },
+  suggest_expense_head: {
+    type: 'object',
+    additionalProperties: false,
+    properties: { description: { type: 'string', maxLength: 200 }, payee: { type: 'string', maxLength: 120 } },
+  },
   attach_document: {
     type: 'object',
     additionalProperties: false,
@@ -1786,6 +1804,9 @@ export const TOOL_ARG_SCHEMAS = {
     additionalProperties: false,
     required: ['amount'],
     properties: {
+      headSource: { type: 'string', enum: ['model'] },
+      headWhy: { type: 'string', maxLength: 200 },
+
       documentSha256: { type: 'string', pattern: '^[0-9a-f]{64}$' },
       narration: { type: 'string', maxLength: 200 },
       amount: { type: 'number', exclusiveMinimum: 0 },
@@ -1863,6 +1884,8 @@ const TOOL_RISK = {
   record_advance_tax: 'writes_books',
   set_supplier_bank: 'writes_books',
   attach_document: 'writes_books',
+  push_tally: 'writes_books',
+  dsc_sign: 'external_government_api',
   save_report: 'writes_books',
   delete_report: 'writes_books',
   record_purchase_order: 'writes_books',
@@ -2087,6 +2110,8 @@ export function planLocalToolCall(state, message) {
     if (fvu && !isNegated(text)) return { kind: 'tool', name: 'generate_tds_fvu', args: { quarter: fvu[1].toUpperCase(), ...(fvu[2] ? { form: fvu[2].toUpperCase() } : {}), ...(fvu[3] ? { caApprovalId: fvu[3].toUpperCase() } : {}) } };
     if (/\bportal\s+(?:status|saves)\b|\bwhat\s+(?:is|was)\s+saved\s+to\s+the\s+portal\b|\bfvu\s+jobs?\b/i.test(text)) return { kind: 'tool', name: 'portal_status', args: {} };
   }
+  const integration = planIntegrationFromChat(state, text);
+  if (integration) return integration;
   if (/\b(upload|submit|sign|file)\b.*\b(gstn|return|gstr|dsc|otp)\b/i.test(text)) {
     return {
       kind: 'reply',

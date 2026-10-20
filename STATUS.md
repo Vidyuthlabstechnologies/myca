@@ -41,6 +41,15 @@ and [`README.md`](README.md) for what is left and how it is being done.
   confirm it on the number already on file; a bulk NEFT file for the bills the payment run
   proposes, one row per supplier, with the suppliers lacking details named; MyCA moves no
   money. The Monday brief names customers who have gone quiet
+- Phone (2026-10-20): the iOS target beside Android (Xcode project, permissions, notifications,
+  an unsigned build on macOS in CI, the App Store checklist; not yet built on a Mac); the
+  Reports screen; a photographed receipt matched to a posted expense with one tap to attach;
+  OpenID Connect sign-in for a firm's own identity provider with the deep link back
+- Windows integrations (2026-10-20): the month pushed to Tally on this machine; DSC signing from
+  the Windows certificate store behind the gate; the model proposes an expense head for wording
+  nothing has seen before (shown as the model's, changeable); professional tax for Meghalaya,
+  Manipur, Mizoram, Nagaland, Tripura and Sikkim; the update check on launch; the API token
+  through the preload bridge
 - Saved reports and receipt matching (2026-10-19): a report saved by name (sales, purchases,
   expenses, owed or owing; by customer, supplier, head or month; this or last month, quarter
   or financial year, compared with the period before) and run again by name, on the phone too;
@@ -235,12 +244,12 @@ no live switch, no CA approvals, and no bytes leaving the PC.
 | Area | Missing |
 |---|---|
 | REQ-CA-011–015 | Built in on 2026-10-15 (reminders with an assignee, document requests to clients, the outbox, plain-text firm search, the eval log with corrections). Answers from the notes through the model built 2026-10-16 (`ask_knowledge`: the notes that mention the question's words go to the model through the action gate with a prompt that forbids any figure not in the notes; the notes found are shown even when the model is off) |
-| Live filing | Save and file GSTR-1 through the GSP and the TDS FVU job are wired end to end behind the action gate (`save_gstr1_portal`, `file_gstr1_portal`, `generate_tds_fvu`, 2026-10-16): a save needs no held invoice, a filing needs the approved review, an unchanged draft, the EVC OTP and a CA approval, and records its acknowledgement. Left: GSP onboarding and production credentials, the live switch, ITR, MCA21, DSC signing |
-| Integrations | Account Aggregator FI data imports as a bank statement (2026-10-16: the decrypted JSON an AA client delivers, every account with its Transactions, through `import_bank`; the consent and FIU licence stay with the owner). Zoho Books write-back built 2026-10-16 (`push_zoho_invoices`: the month's invoices not yet in Zoho go through the action gate as a write with a CA approval, the customer is found or created, each line carries its HSN and the matching Zoho tax, and the invoice keeps its Zoho id; credentials in the local vault as the `zoho` connector). Left: Tally write-back over its HTTP port, real OCR provider |
+| Live filing | Save and file GSTR-1 through the GSP and the TDS FVU job are wired end to end behind the action gate (`save_gstr1_portal`, `file_gstr1_portal`, `generate_tds_fvu`, 2026-10-16): a save needs no held invoice, a filing needs the approved review, an unchanged draft, the EVC OTP and a CA approval, and records its acknowledgement. Left: GSP onboarding and production credentials, the live switch, ITR, MCA21. DSC signing built 2026-10-20 (`dsc_certificates` lists the Windows certificate store, `dsc_sign` makes a detached PKCS#7 over an uploaded document through the action gate with a CA approval and stores it beside the books; verified with a self-signed certificate in the suite) |
+| Integrations | Account Aggregator FI data imports as a bank statement (2026-10-16: the decrypted JSON an AA client delivers, every account with its Transactions, through `import_bank`; the consent and FIU licence stay with the owner). Zoho Books write-back built 2026-10-16 (`push_zoho_invoices`: the month's invoices not yet in Zoho go through the action gate as a write with a CA approval, the customer is found or created, each line carries its HSN and the matching Zoho tax, and the invoice keeps its Zoho id; credentials in the local vault as the `zoho` connector). Tally write-back over its HTTP port built 2026-10-20 (`push_tally`, previewed, loopback only, audited through the gate as a local application). Documents are read by the model (vision), so no separate OCR provider is planned |
 | Firm backend | The hosted API (`cloud/`) is built with accounts, tenancy, roles, backups and a daily job, and deploys itself once a Google Cloud project exists. Built 2026-10-16: the Cloud Storage document vault (`MYCA_DOCUMENT_BUCKET`; bytes by sha256 per business, Postgres keeps the index, every read re-verifies the hash; Terraform creates the bucket) and OpenID Connect sign-in for a firm's own identity provider (`POST /v1/auth/oidc`, `MYCA_OIDC_ISSUER` and `MYCA_OIDC_CLIENT_IDS`, keys through discovery). Left: the Google Cloud project, and an OIDC sign-in screen in the app once a firm names its issuer |
 | D2C and marketplace brands (decided 2026-10-16, `docs/superpowers/specs/2026-10-16-d2c-programme.md`) | Built 2026-10-16: D1 settlement reconciliation, D2 orders and returns with settlements posting, D3 TCS and 194-O credits against the portal statement and 26AS, D4 several GSTINs under one business with stock transfers, D5 SKU costs, stock and margins, D7 the daily close; on the phone as the Marketplace screen, the close on Home and registration-scoped Taxes. D6 connectors built to the credential boundary 2026-10-16 (`set_channel_connector`, `fetch_channel_report`, `sync_channels` for Amazon SP-API, Shopify and Razorpay through the action gate with mock fixtures; the desktop fetches daily; Flipkart, Myntra, Nykaa, Meesho and Unicommerce stay file imports). Hosted pulls built 2026-10-16: each business saves its connector credentials on the hosted API (`POST /v1/businesses/:id/connectors`, sealed per business with `MYCA_CONNECTOR_KEY`, never shown back), the nightly job and `POST .../connector-sync` pull through the gate behind the separate read-only switch `MYCA_ENABLE_CHANNEL_PULLS` (government and model calls stay behind the live switch, which the hosted API still refuses). Left to go live: seller credentials and the owner turning the pull switch on; and D8: the WhatsApp webhook is built on the hosted API (Meta Cloud API, signature-checked, members matched by number, the same preview-and-confirm chat; 2026-10-16) and waits on a WhatsApp Business account; Hindi and Telugu wait on the model decision |
 | UI polish | Invoice design built 2026-10-16 (colour, layout, bank details, terms, footer, signatory, HSN column; desktop print and app PDF). Export invoices in a foreign currency (2026-10-15) cover the multi-currency need for Indian businesses; the desktop has keyboard shortcuts (Ctrl+K or / for chat, Ctrl+1 to 8 for the tabs, Esc clears) |
-| Ops | Custom domain + TLS active, GitHub Pro branch protection, code-signing certificate, app auto-update |
+| Ops | Custom domain + TLS active, GitHub Pro branch protection, code-signing certificate. The packaged app checks the project's GitHub release page on launch and offers the download (2026-10-20); silent in-place updating waits on the code-signing certificate |
 
 ## Known limitations (stated honestly, not hidden)
 
@@ -250,9 +259,9 @@ no live switch, no CA approvals, and no bytes leaving the PC.
   two-step setup (name and GSTIN, with the state and PAN derived; then Tally, Zoho, a bank
   statement or fresh books) and nothing can post until the business is named; sample books
   load only through `seed_demo`.
-- The desktop serves its API token inside the page it renders; on a shared Windows
-  machine another local user who can reach 127.0.0.1 could read it. Moving the token to
-  the Electron preload bridge is the fix; not done yet.
+- Under Electron the API token reaches the renderer through the preload bridge only
+  (`MYCA_TOKEN_IN_PAGE=0`, 2026-10-20); `npm run dev` in a plain browser still serves it in
+  the page, which is a development convenience on a single-user machine.
 - The local CA API is a contract/test harness, not a production connector layer.
 - The marketing site under `deploy/` is research/status content, not the product.
 - `vendor/` reference clones are never imported (licence reasons — see `vendor/README.md`).

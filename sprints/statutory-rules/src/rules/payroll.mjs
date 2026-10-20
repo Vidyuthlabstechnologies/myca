@@ -308,6 +308,95 @@ export const RULES = [
     act: 'KL-MA-1994',
     section: 'Section 254',
     source: 'Kerala Municipality Act 1994 section 254 and the Kerala Municipality (Profession Tax) Rules 2005, by half-yearly pay: below twelve thousand rupees nil, then one hundred and twenty, one hundred and eighty, three hundred, four hundred and fifty, six hundred, seven hundred and fifty, one thousand, and one thousand two hundred and fifty from one lakh twenty-five thousand, paid by 31 August and the end of February (MyCA deducts in August and February); panchayats levy under the Panchayat Raj Act with the same slabs; the half-yearly pay is taken as six times the month\'s full pay; figures as published by payroll and tax sites in 2025-26 and checked against each other on 2026-10-12; the official schedule was not re-read for this record',
+    attestations: []  },
+  {
+    id: 'payroll.pt.17',
+    value: {
+      state: 'Meghalaya',
+      basis: 'monthly',
+      slabs: { all: [{ payUpToPaise: 416600, paise: 0 }, { payUpToPaise: 625000, paise: 1650 }, { payUpToPaise: 833300, paise: 2500 }, { payUpToPaise: 1250000, paise: 4150 }, { payUpToPaise: 1666600, paise: 6250 }, { payUpToPaise: 2083300, paise: 8333 }, { payUpToPaise: 2500000, paise: 10416 }, { payUpToPaise: 2916600, paise: 12500 }, { payUpToPaise: 3333300, paise: 15000 }, { payUpToPaise: 3750000, paise: 17500 }, { payUpToPaise: 4166600, paise: 20000 }, { payUpToPaise: null, paise: 208 * RUPEE }] }
+    },
+    basis: 'professional_tax_by_pay_slab',
+    effectiveFrom: '2023-04-01',
+    effectiveTo: IN_FORCE,
+    act: 'ML-PT-1947',
+    section: 'Schedule by notification',
+    source: 'Meghalaya Professions, Trades, Callings and Employments Taxation Act 1947 as amended in 2022, rates notified under the Amendment Rules of 18 January 2023, twelve monthly slabs: up to four thousand one hundred and sixty-six rupees nil, then sixteen rupees fifty, twenty-five, forty-one fifty, sixty-two fifty, eighty-three thirty-three, one hundred and four sixteen, one hundred and twenty-five, one hundred and fifty, one hundred and seventy-five, two hundred, and two hundred and eight from forty-one thousand six hundred and sixty-seven; figures as published by payroll and tax sites in 2025-26 and checked against each other on 2026-10-19; the official notification was not read for this record',
+    attestations: []
+  },
+  {
+    id: 'payroll.pt.14',
+    value: {
+      state: 'Manipur',
+      basis: 'annual',
+      slabs: { all: [{ payUpToPaise: 50000 * RUPEE, paise: 0 }, { payUpToPaise: 75000 * RUPEE, paise: 100 * RUPEE }, { payUpToPaise: 100000 * RUPEE, paise: 166 * RUPEE, lastMonthPaise: 174 * RUPEE }, { payUpToPaise: 125000 * RUPEE, paise: 200 * RUPEE }, { payUpToPaise: null, paise: 208 * RUPEE, lastMonthPaise: 212 * RUPEE }] }
+    },
+    basis: 'professional_tax_by_pay_slab',
+    effectiveFrom: '2012-09-01',
+    effectiveTo: IN_FORCE,
+    act: 'MN-PT-1981',
+    section: 'Schedule entry 1',
+    source: 'Manipur Professions, Trades, Callings and Employments Taxation Act 1981, Schedule as substituted by the Eighth Amendment Act 2012 (Gazette 31 August 2012), by annual pay: up to fifty thousand rupees nil, then one thousand two hundred, two thousand, two thousand four hundred, and two thousand five hundred above one lakh twenty-five thousand (MyCA deducts a twelfth each month and the balance in March); a Ninth Amendment Act of March 2020 was reported but not read; figures as published by payroll and tax sites in 2025-26 and checked against each other on 2026-10-19',
+    attestations: []
+  },
+  {
+    id: 'payroll.pt.15',
+    value: {
+      state: 'Mizoram',
+      basis: 'monthly',
+      slabs: { all: [{ payUpToPaise: 5000 * RUPEE, paise: 0 }, { payUpToPaise: 8000 * RUPEE, paise: 75 * RUPEE }, { payUpToPaise: 10000 * RUPEE, paise: 120 * RUPEE }, { payUpToPaise: 12000 * RUPEE, paise: 150 * RUPEE }, { payUpToPaise: 15000 * RUPEE, paise: 180 * RUPEE }, { payUpToPaise: 20000 * RUPEE, paise: 195 * RUPEE }, { payUpToPaise: null, paise: 208 * RUPEE }] }
+    },
+    basis: 'professional_tax_by_pay_slab',
+    effectiveFrom: '2024-08-01',
+    effectiveTo: IN_FORCE,
+    act: 'MZ-PT-1995',
+    section: 'Schedule entry 1',
+    source: 'Mizoram Professions, Trades, Callings and Employments Taxation Act 1995, Schedule as revised by notification J.17011/1/2017-TAX of 11 July 2024: up to five thousand rupees a month nil, then seventy-five, one hundred and twenty, one hundred and fifty, one hundred and eighty, one hundred and ninety-five for fifteen to twenty thousand, and two hundred and eight above twenty thousand; some payroll sites still print the earlier schedule without the one hundred and ninety-five band; figures checked across sites on 2026-10-19; the notification was not read for this record',
+    attestations: []
+  },
+  {
+    id: 'payroll.pt.13',
+    value: {
+      state: 'Nagaland',
+      basis: 'monthly',
+      slabs: { all: [{ payUpToPaise: 399999, paise: 0 }, { payUpToPaise: 499999, paise: 35 * RUPEE }, { payUpToPaise: 699999, paise: 75 * RUPEE }, { payUpToPaise: 899999, paise: 110 * RUPEE }, { payUpToPaise: 1199999, paise: 180 * RUPEE }, { payUpToPaise: null, paise: 208 * RUPEE }] }
+    },
+    basis: 'professional_tax_by_pay_slab',
+    effectiveFrom: '2013-01-09',
+    effectiveTo: IN_FORCE,
+    act: 'NL-PT-1968',
+    section: 'Schedule entry 1',
+    source: 'Nagaland Professions, Trades, Callings and Employments Taxation Act 1968, Schedule as substituted by the Fourth Amendment Act 2012 (Gazette 9 January 2013): below four thousand rupees a month nil, four thousand and above thirty-five, five thousand and above seventy-five, seven thousand and above one hundred and ten, nine thousand and above one hundred and eighty, twelve thousand and above two hundred and eight; figures as published by payroll and tax sites in 2025-26 and checked against each other on 2026-10-19; the Gazette was not read for this record',
+    attestations: []
+  },
+  {
+    id: 'payroll.pt.16',
+    value: {
+      state: 'Tripura',
+      basis: 'monthly',
+      slabs: { all: [{ payUpToPaise: 7500 * RUPEE, paise: 0 }, { payUpToPaise: 15000 * RUPEE, paise: 150 * RUPEE }, { payUpToPaise: null, paise: 208 * RUPEE }] }
+    },
+    basis: 'professional_tax_by_pay_slab',
+    effectiveFrom: '2018-08-08',
+    effectiveTo: IN_FORCE,
+    act: 'TR-PT-1997',
+    section: 'Schedule entry 1',
+    source: 'Tripura Professions, Trades, Callings and Employments Taxation Act 1997, rates notified in Tripura Gazette No. 564 of 8 August 2018: up to seven thousand five hundred rupees a month nil, seven thousand five hundred and one to fifteen thousand one hundred and fifty, above that two hundred and eight; an amendment the department posted in February 2025 was not read; figures as published by payroll and tax sites in 2025-26 and checked against each other on 2026-10-19',
+    attestations: []
+  },
+  {
+    id: 'payroll.pt.11',
+    value: {
+      state: 'Sikkim',
+      basis: 'monthly',
+      slabs: { all: [{ payUpToPaise: 20000 * RUPEE, paise: 0 }, { payUpToPaise: 30000 * RUPEE, paise: 125 * RUPEE }, { payUpToPaise: 40000 * RUPEE, paise: 150 * RUPEE }, { payUpToPaise: null, paise: 200 * RUPEE }] }
+    },
+    basis: 'professional_tax_by_pay_slab',
+    effectiveFrom: '2006-04-01',
+    effectiveTo: IN_FORCE,
+    act: 'SK-PT-2006',
+    section: 'Schedule entry 1',
+    source: 'Sikkim Tax on Professions, Trades, Callings and Employments Act 2006 (Gazette 1 April 2006) and Rules of 18 July 2006: up to twenty thousand rupees a month nil, twenty to thirty thousand one hundred and twenty-five, thirty to forty thousand one hundred and fifty, above forty thousand two hundred; figures as published by payroll and tax sites in 2025-26 and checked against each other on 2026-10-19; the Gazette was not read for this record',
     attestations: []
   }
 ];
