@@ -228,7 +228,7 @@ Today the `.exe` is unsigned → users see a SmartScreen prompt. To sign, add tw
 | Secret | Value |
 |---|---|
 | `CSC_LINK` | base64 of your `.pfx` (or a `data:` URL / file URL) |
-| `MYCA_UPDATE_PUBLISHER` (build-time env, optional) | the publisher name the installed app expects in the installer's Authenticode subject before it installs an update quietly; default `Vidyuthlabs`. Set it to match the certificate's subject |
+| Quiet updates (no variable) | the installed app installs an update by itself only when the installer's Authenticode signature is valid, its certificate thumbprint is in `TRUSTED_SIGNER.thumbprints` in `platform/desktop/update-install.cjs`, and the subject CN equals `TRUSTED_SIGNER.commonName`. The list is empty until the certificate exists: add the thumbprint (and the exact CN) in that file and ship a signed build; the pin lives in the signed app, not in a setting, so nothing on GitHub or the machine can widen it |
 | `CSC_KEY_PASSWORD` | the `.pfx` password |
 | `ANDROID_KEYSTORE_BASE64` | base64 of the Play upload keystore (`upload.jks`); without it the Android build is signed with the debug key and cannot go to Play |
 | `ANDROID_KEYSTORE_PASSWORD` | the keystore password |

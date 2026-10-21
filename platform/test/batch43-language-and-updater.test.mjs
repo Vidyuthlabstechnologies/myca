@@ -17,7 +17,7 @@ import { languageOf, figuresOf, figuresKept } from '../src/chat-language.mjs';
 import { localToday } from '../src/dates.mjs';
 
 const require = createRequire(import.meta.url);
-const { pickAssets, parseSums, signatureVerdict, fetchAndVerify, runInstallerSilently } = require('../desktop/update-install.cjs');
+const { pickAssets, parseSums, signatureVerdict, commonNameOf, fetchAndVerify, runInstallerSilently } = require('../desktop/update-install.cjs');
 const { checkForUpdate } = require('../desktop/update-check.cjs');
 const TODAY = localToday();
 afterEach(() => setModelTransport(null));
@@ -122,16 +122,25 @@ test('the quiet updater takes only the project\'s own installer and checksum, ve
   assert.equal(found.assets.installer.name, 'MyCA Setup 0.2.0.exe');
 
   const dir = mkdtempSync(join(tmpdir(), 'myca-upd-'));
-  const signedBy = (subject, status = 'Valid') => async () => ({ ok: true, stdout: JSON.stringify({ Status: status, Subject: subject }) });
-  const good = await fetchAndVerify(found, { fetchImpl, dir, checkSignature: signedBy('CN=Vidyuthlabs Technologies Private Limited, O=Vidyuthlabs Technologies Private Limited, C=IN') });
+  const THUMB = 'A1B2C3D4E5F60718293A4B5C6D7E8F9012345678';
+  const signer = { commonName: 'Vidyuthlabs Technologies Private Limited', thumbprints: [THUMB] };
+  const signedBy = (subject, thumbprint = THUMB, status = 'Valid') => async () => ({ ok: true, stdout: JSON.stringify({ Status: status, Subject: subject, Thumbprint: thumbprint }) });
+  const good = await fetchAndVerify(found, { fetchImpl, dir, signer, checkSignature: signedBy('CN=Vidyuthlabs Technologies Private Limited, O=Vidyuthlabs Technologies Private Limited, C=IN') });
   assert.equal(good.ok, true, JSON.stringify(good));
   assert.equal(good.sha256, sha);
-  const unsigned = await fetchAndVerify(found, { fetchImpl, dir, checkSignature: signedBy('', 'NotSigned') });
+  assert.equal(good.thumbprint, THUMB);
+  const unsigned = await fetchAndVerify(found, { fetchImpl, dir, signer, checkSignature: signedBy('', '', 'NotSigned') });
   assert.equal(unsigned.error, 'SIGNATURE_NOT_VALID');
-  const stranger = await fetchAndVerify(found, { fetchImpl, dir, checkSignature: signedBy('CN=Someone Else') });
-  assert.equal(stranger.error, 'SIGNATURE_WRONG_PUBLISHER');
-  const tampered = await fetchAndVerify(found, { fetchImpl: async (url) => (/SHA256SUMS$/.test(url) ? { ok: true, text: async () => sums.replace(sha, 'f'.repeat(64)) } : fetchImpl(url)), dir, checkSignature: signedBy('CN=Vidyuthlabs') });
+  const stranger = await fetchAndVerify(found, { fetchImpl, dir, signer, checkSignature: signedBy('CN=Vidyuthlabs Technologies Private Limited', 'F'.repeat(40)) });
+  assert.equal(stranger.error, 'SIGNATURE_WRONG_PUBLISHER', 'a valid signature from another certificate is refused');
+  const lookalike = await fetchAndVerify(found, { fetchImpl, dir, signer, checkSignature: signedBy('CN=Vidyuthlabs Technologies Private Limited Ltd') });
+  assert.equal(lookalike.error, 'SIGNATURE_WRONG_PUBLISHER', 'the common name must match exactly');
+  const unpinned = await fetchAndVerify(found, { fetchImpl, dir, checkSignature: signedBy('CN=Vidyuthlabs Technologies Private Limited') });
+  assert.equal(unpinned.error, 'SIGNER_NOT_PINNED', 'until a thumbprint is pinned in the app nothing installs quietly');
+  const tampered = await fetchAndVerify(found, { fetchImpl: async (url) => (/SHA256SUMS$/.test(url) ? { ok: true, text: async () => sums.replace(sha, 'f'.repeat(64)) } : fetchImpl(url)), dir, signer, checkSignature: signedBy('CN=Vidyuthlabs Technologies Private Limited') });
   assert.equal(tampered.error, 'SHA256_MISMATCH');
+  assert.equal(commonNameOf('CN="Vidyuthlabs, Inc.", O=X'), 'Vidyuthlabs, Inc.');
+  assert.equal(commonNameOf('O=X, CN=Plain Name, C=IN'), 'Plain Name');
   assert.deepEqual(signatureVerdict('garbage'), { ok: false, error: 'SIGNATURE_UNREADABLE' });
 
   const spawned = [];
