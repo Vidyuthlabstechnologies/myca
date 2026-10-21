@@ -22,8 +22,8 @@ one-use token; nothing posts until that token is confirmed.
 | `lib/migration.dart` | Where-are-your-books paths and the imports each one offers |
 | `lib/attention.dart` | Ordering of "Needs you" and "Coming up" |
 | `lib/proposal_flow.dart` | Shared preview, post and discard behaviour |
-| `lib/screens/` | Welcome, sign-in, migration, home, business menu, customer picker, register, party thread, expense, taxes, reports, Ask; in hosted mode also phone sign-in, name, business setup, people and invitations, switching business |
-| `lib/cloud/` | Hosted session: tokens, refresh, businesses, people; Google and OpenID Connect sign-in |
+| `lib/screens/` | Welcome, sign-in, migration, home, business menu, customer picker, register, party thread, expense, taxes, reports, Ask; in hosted mode also phone sign-in, name, business setup, people and invitations, switching business, connectors |
+| `lib/cloud/` | Hosted session: tokens, refresh, businesses, people, connectors; Google and OpenID Connect sign-in; Plaid Link behind an interface |
 | `ios/` | The Xcode project; see the iOS section below |
 | `test/` | Unit and widget tests against a fake API |
 | `tool/live_check.dart` | Contract check against a running MyCA server |
@@ -122,6 +122,40 @@ nothing; every figure is the engine's.
 
 In both modes a picked file is uploaded first and the import refers to it by hash, so
 file contents never sit in a waiting preview.
+
+## Connectors (hosted mode, owner only)
+
+Business menu > "Connections to banks and apps" (`lib/screens/connectors_screen.dart`)
+lets the owner connect the channels the hosted API offers without the desktop. A US
+business gets Plaid, TaxJar, Gusto and Track1099; an Indian one Amazon, Shopify,
+Razorpay and Zoho (the business country comes from the snapshot). Each card shows the
+title, connected or not, "Pulled to" when a pull has run, a short how-to with the same
+wording as the desktop keys page, an input per field (secrets as password fields that
+say "(saved)" once set; the machine-managed Plaid and Gusto fields such as access
+tokens, item ids and OAuth state are never shown), the environment as a dropdown, Save,
+and the channel's actions:
+
+| Channel | Action | Route under `/v1/businesses/{id}/` |
+|---|---|---|
+| All | Save | `POST connectors` with `channel` and the typed fields; Pause/Resume sends `enabled` |
+| Plaid | Connect my bank | `POST plaid-link-token`, Plaid Link, then `POST plaid-exchange` with the public token |
+| Gusto | Connect Gusto | `POST gusto-connect`; the URL opens in the system browser and Gusto returns to the API host, so the owner taps Refresh afterwards |
+| TaxJar | Look up rate | `POST taxjar-rate` with zip, city and state; the combined rate and its parts are shown |
+| Channels with pull kinds | Pull transactions / payouts / settlement(s) / payroll summaries | `POST connector-sync`; the result for that channel is shown and the list refreshed |
+
+The keys never touch the phone's storage: they go straight to the API, which stores them
+encrypted, and come back only as "set". When the service has no connector key the screen
+shows the API's hint instead of the cards. `lib/cloud/cloud_session.dart` holds the typed
+calls (`listConnectors`, `saveConnector`, `plaidLinkToken`, `plaidExchange`,
+`gustoConnect`, `taxjarRate`, `connectorSync`).
+
+Plaid Link is the `plaid_flutter` package behind `PlaidLinkOpener`
+(`lib/cloud/plaid_link.dart`); `DevicePlaidLink` opens the native SDK and resolves with
+the public token, or null if the owner closes it, and `AppState.plaidLink` takes a fake
+in tests (`test/connectors_test.dart`). Android needs nothing beyond the dependency.
+iOS needs nothing extra either: the project already targets iOS 14 and carries
+`NSCameraUsageDescription`; Plaid's OAuth redirect (a Universal Link registered in the
+Plaid dashboard) is only needed for OAuth banks outside the Sandbox and is not set up.
 
 ## iOS
 

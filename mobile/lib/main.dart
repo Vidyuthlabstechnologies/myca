@@ -15,6 +15,7 @@ import 'cloud/cloud_session.dart';
 import 'cloud/google_auth.dart';
 import 'cloud/keystore_token_store.dart';
 import 'cloud/oidc_auth.dart';
+import 'cloud/plaid_link.dart';
 import 'crash_reports.dart';
 import 'lock/app_lock.dart';
 import 'notifications.dart';
@@ -83,6 +84,8 @@ void main() {
                 links: AppLinks().uriLinkStream,
               )
             : null,
+        plaidLink: const DevicePlaidLink(),
+        openLink: (url) => launchUrl(url, mode: LaunchMode.externalApplication),
       ),
     ),
   );

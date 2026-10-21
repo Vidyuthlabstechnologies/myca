@@ -23,6 +23,51 @@ class FakeCloud {
   bool weeklyBrief = false;
   final inboundKeys = <Map<String, Object?>>[];
   final disabledKeys = <String>[];
+  static const connectorSpecs = <String, Map<String, Object>>{
+    'amazon': {'title': 'Amazon Seller Central (SP-API)', 'country': 'IN', 'fields': ['clientId', 'clientSecret', 'refreshToken', 'marketplaceId', 'region'], 'secrets': ['clientSecret', 'refreshToken'], 'optional': ['region'], 'kinds': ['settlement', 'orders']},
+    'shopify': {'title': 'Shopify Admin API', 'country': 'IN', 'fields': ['shopDomain', 'accessToken'], 'secrets': ['accessToken'], 'optional': <String>[], 'kinds': ['settlement', 'orders']},
+    'razorpay': {'title': 'Razorpay', 'country': 'IN', 'fields': ['keyId', 'keySecret'], 'secrets': ['keySecret'], 'optional': <String>[], 'kinds': ['settlement']},
+    'zoho': {'title': 'Zoho Books', 'country': 'IN', 'fields': ['orgId', 'dc', 'clientId', 'clientSecret', 'refreshToken'], 'secrets': ['clientSecret', 'refreshToken'], 'optional': ['dc'], 'kinds': <String>[]},
+    'plaid': {'title': 'Plaid (US bank feeds)', 'country': 'US', 'fields': ['clientId', 'secret', 'environment', 'accessToken', 'itemId', 'cursor'], 'secrets': ['secret', 'accessToken'], 'optional': ['itemId', 'cursor'], 'kinds': ['bank']},
+    'taxjar': {'title': 'TaxJar (US sales tax rates)', 'country': 'US', 'fields': ['apiToken', 'environment'], 'secrets': ['apiToken'], 'optional': ['environment'], 'kinds': <String>[]},
+    'gusto': {'title': 'Gusto (US payroll)', 'country': 'US', 'fields': ['clientId', 'clientSecret', 'environment', 'redirectUri', 'accessToken', 'refreshToken', 'companyUuid', 'oauthState'], 'secrets': ['clientSecret', 'accessToken', 'refreshToken'], 'optional': ['environment', 'redirectUri', 'companyUuid', 'oauthState'], 'kinds': ['payroll']},
+    'track1099': {'title': 'Track1099 (US 1099 e-filing)', 'country': 'US', 'fields': ['apiToken', 'teamApiId', 'testMode'], 'secrets': ['apiToken'], 'optional': ['testMode'], 'kinds': <String>[]},
+  };
+  final connectorValues = <String, Map<String, String>>{};
+  final connectorEnabled = <String, bool>{};
+  final connectorFetchedTo = <String, String>{};
+  final connectorSaves = <Map<String, dynamic>>[];
+  final plaidExchanges = <String>[];
+  final taxjarLookups = <Map<String, dynamic>>[];
+  int connectorSyncs = 0;
+  int plaidLinkTokens = 0;
+  int gustoConnects = 0;
+  bool connectorsUnavailable = false;
+  bool pullsOn = true;
+
+  Map<String, Object?> _connectorView(String channel) {
+    final spec = connectorSpecs[channel]!;
+    final fields = (spec['fields'] as List).cast<String>();
+    final secrets = (spec['secrets'] as List).cast<String>();
+    final optional = (spec['optional'] as List).cast<String>();
+    final values = connectorValues[channel] ?? const {};
+    final configured = values.isNotEmpty && fields.every((f) => (values[f] ?? '').isNotEmpty || optional.contains(f));
+    return {
+      'channel': channel,
+      'title': spec['title'],
+      'country': spec['country'],
+      'configured': configured,
+      'enabled': connectorEnabled[channel] ?? true,
+      if (connectorFetchedTo[channel] != null) 'lastFetchedTo': connectorFetchedTo[channel],
+      'kinds': spec['kinds'],
+      'fields': fields,
+      'secrets': secrets,
+      'optional': optional,
+      for (final f in fields) f: secrets.contains(f) ? ((values[f] ?? '').isNotEmpty ? 'set' : '') : (values[f] ?? ''),
+    };
+  }
+
+  static const connectorsOff = {'ok': false, 'error': 'CONNECTORS_UNAVAILABLE', 'hint': 'The service has no connector key; ask the operator to set MYCA_CONNECTOR_KEY.'};
   final deletedBusinesses = <String>[];
   bool accountDeleted = false;
   int exports = 0;
@@ -229,6 +274,58 @@ class FakeCloud {
       final key = {'id': 'key-${inboundKeys.length + 1}', 'label': body['label'], 'source': body['source'], 'enabled': true, 'todayCount': 0, 'todayTotal': 0, 'email': body['source'] == 'documents' ? 'tok${inboundKeys.length + 1}abcdefg@inbox.example.test' : ''};
       inboundKeys.add(key);
       return _json(200, {'ok': true, 'key': {...key, 'secret': 'mk_testsecret${inboundKeys.length}'}});
+    }
+    if (path == '$books/connectors' && request.method == 'GET') {
+      if (role != 'owner') return _json(403, {'ok': false, 'error': 'OWNER_ONLY'});
+      if (connectorsUnavailable) return _json(200, connectorsOff);
+      return _json(200, {'ok': true, 'enabled': true, 'pulls': pullsOn, 'connectors': [for (final channel in connectorSpecs.keys) _connectorView(channel)]});
+    }
+    if (path == '$books/connectors' && request.method == 'POST') {
+      if (role != 'owner') return _json(403, {'ok': false, 'error': 'OWNER_ONLY'});
+      if (connectorsUnavailable) return _json(200, connectorsOff);
+      connectorSaves.add(body);
+      final channel = '${body['channel']}';
+      if (!connectorSpecs.containsKey(channel)) return _json(200, {'ok': false, 'error': 'UNKNOWN_CHANNEL', 'hint': 'Choose a listed channel.'});
+      final values = connectorValues.putIfAbsent(channel, () => {});
+      for (final field in (connectorSpecs[channel]!['fields'] as List).cast<String>()) {
+        if (body[field] is String && '${body[field]}'.isNotEmpty) values[field] = '${body[field]}';
+      }
+      if (body['enabled'] is bool) connectorEnabled[channel] = body['enabled'] as bool;
+      return _json(200, {'ok': true, ..._connectorView(channel)});
+    }
+    if (path == '$books/plaid-link-token') {
+      plaidLinkTokens += 1;
+      if ((connectorValues['plaid'] ?? const {})['clientId'] == null) return _json(200, {'ok': false, 'error': 'CONNECTOR_NOT_CONFIGURED', 'hint': 'Save the Plaid client id and secret first.'});
+      return _json(200, {'ok': true, 'data': {'linkToken': 'link-sandbox-token-$plaidLinkTokens', 'environment': 'sandbox', 'mock': true}});
+    }
+    if (path == '$books/plaid-exchange') {
+      plaidExchanges.add('${body['publicToken']}');
+      connectorValues.putIfAbsent('plaid', () => {})
+        ..['accessToken'] = 'access-sandbox-1'
+        ..['itemId'] = 'item-sandbox-1';
+      return _json(200, {'ok': true, 'data': {'channel': 'plaid', 'itemId': 'item-sandbox-1', 'linkedOn': '2026-10-21'}});
+    }
+    if (path == '$books/gusto-connect') {
+      gustoConnects += 1;
+      return _json(200, {'ok': true, 'data': {'url': 'https://api.gusto-demo.com/oauth/authorize?client_id=demo&state=abc', 'redirectUri': 'https://api.example.test/v1/gusto/callback'}});
+    }
+    if (path == '$books/taxjar-rate') {
+      taxjarLookups.add(body);
+      if (!RegExp(r'^\d{5}(-\d{4})?$').hasMatch('${body['zip']}')) return _json(200, {'ok': false, 'error': 'BAD_ZIP', 'hint': 'A US zip code is five digits, optionally plus four.'});
+      return _json(200, {'ok': true, 'data': {'code': 'TX-AUSTIN', 'name': 'Austin, TX', 'ratePercent': 8.25, 'parts': {'state': 6.25, 'county': 0, 'city': 1, 'special': 1}, 'recorded': true}});
+    }
+    if (path == '$books/connector-sync') {
+      connectorSyncs += 1;
+      final results = <Map<String, Object?>>[];
+      for (final channel in connectorValues.keys) {
+        if (_connectorView(channel)['configured'] != true) continue;
+        for (final kind in (connectorSpecs[channel]!['kinds'] as List).cast<String>()) {
+          results.add({'channel': channel, 'kind': kind, 'ok': true, 'rows': kind == 'bank' ? 12 : 3, 'empty': false, 'dryRun': !pullsOn});
+          if (pullsOn) connectorFetchedTo[channel] = '2026-10-21';
+        }
+      }
+      if (results.isEmpty) return _json(200, {'ok': false, 'error': 'NO_CONNECTORS', 'hint': 'Connect a channel first.'});
+      return _json(200, {'ok': true, 'data': {'fetched': '2026-10-21', 'results': results}});
     }
     if (path.startsWith('$books/inbound/') && request.method == 'DELETE') {
       final id = path.split('/').last;
