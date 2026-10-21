@@ -115,7 +115,13 @@
     </section>
 
     <section class="card">
-      <h2>3. What a sandbox test needs besides the keys</h2>
+      <h2>3. Connectors: banks, sales tax, payroll, marketplaces</h2>
+      <p class="mute">Each card saves its credentials encrypted in the local vault. Pulls (bank transactions, payroll summaries, marketplace reports) run behind the separate read-only switch <code>MYCA_ENABLE_CHANNEL_PULLS=1</code> in <code>platform/.env</code>; the desktop then pulls daily.</p>
+      <div id="connectors"></div>
+    </section>
+
+    <section class="card">
+      <h2>4. What a sandbox test needs besides the keys</h2>
       <p>Sandbox calls leave this PC only when the live switch is on: set <code>MYCA_ENABLE_LIVE_CALLS=1</code> and <code>MYCA_MOCK_MODE=0</code> in <code>platform/.env</code> and restart MyCA. With the switch off, every call is recorded as a dry run and nothing is sent, which is the safe default. Writes (saving or filing a return, generating an IRN) also need a CA approval; reads (GSTIN checks, status, reconciliation jobs) do not.</p>
       <div id="doctor" class="status mute">Run a test above to see the provider check.</div>
     </section>
@@ -196,6 +202,77 @@
       await runTest();
     });
     refresh().then(runTest).catch((err) => show($('sandboxStatus'), `MyCA did not answer: ${err.message}`, 'bad'));
+
+    const STEPS = {
+      plaid: { steps: ['Sign up at <a href="https://dashboard.plaid.com/signup" target="_blank" rel="noopener">dashboard.plaid.com</a>; the Sandbox is free.', 'Open <strong>Developers → Keys</strong>: copy the <strong>client_id</strong> and the <strong>Sandbox secret</strong>.', 'Save them here with environment <strong>sandbox</strong>, then click <strong>Link a sandbox bank</strong>: MyCA creates a test item at the Plaid test bank (user_good / pass_good) without Plaid Link.', 'Click <strong>Pull transactions</strong>: they land as a bank statement file with a reminder; import it from Documents.'], actions: [['Link a sandbox bank', 'plaid_link_sandbox', {}], ['Pull transactions', 'fetch_channel_report', { channel: 'plaid', kind: 'bank' }]] },
+      taxjar: { steps: ['Sign up at <a href="https://app.taxjar.com" target="_blank" rel="noopener">app.taxjar.com</a> (30-day trial) and open <strong>Account → API Access</strong>.', 'Generate a <strong>Sandbox token</strong> (TaxJar Professional and above) or use the live token with environment <strong>production</strong>.', 'Save it, then look up a rate below; MyCA records the combined rate for that jurisdiction from today.'], actions: [['Look up and record the rate', 'taxjar_rate', 'rate']] },
+      gusto: { steps: ['Create a developer account at <a href="https://dev.gusto.com" target="_blank" rel="noopener">dev.gusto.com</a> and add an application.', 'Register these redirect URIs on the application: <code id="gustoRedirects">…</code>. The desktop uses the first; the hosted service uses its own host.', 'Copy the <strong>Client ID</strong> and <strong>Client Secret</strong>, save them here with environment <strong>demo</strong>, then click <strong>Connect Gusto</strong> and allow the app in the browser; Gusto sends the browser back to MyCA.', 'Click <strong>Pull payroll summaries</strong>: processed payrolls land as a CSV with a reminder. MyCA posts nothing from them yet.'], actions: [['Connect Gusto', 'gusto_connect_url', 'open'], ['Pull payroll summaries', 'fetch_channel_report', { channel: 'gusto', kind: 'payroll' }]] },
+      track1099: { steps: ['Sign up at <a href="https://www.track1099.com" target="_blank" rel="noopener">track1099.com</a>; test mode needs no payment.', 'If you have an API key, save it with testMode <strong>true</strong>. Until the Track1099 API routes are confirmed from their documentation, MyCA files nothing through it: the 1099-NEC figures come from the 1099 screen as a file you upload to Track1099.'], actions: [] },
+      amazon: { steps: ['Seller Central → Apps and Services → Develop apps: create a private SP-API app, note the LWA client id and secret, and authorise it to get the refresh token.', 'Marketplace id is A21TJRUUN4KGV for India; region IN.'], actions: [['Pull settlement', 'fetch_channel_report', { channel: 'amazon', kind: 'settlement' }]] },
+      shopify: { steps: ['Shopify admin → Settings → Apps and sales channels → Develop apps: create an app with read_orders and read_shopify_payments_payouts, install it, and copy the Admin API access token.', 'Shop domain is the myshopify.com host.'], actions: [['Pull payouts', 'fetch_channel_report', { channel: 'shopify', kind: 'settlement' }]] },
+      razorpay: { steps: ['Razorpay dashboard → Account & Settings → API Keys: generate the key id and secret (test or live).'], actions: [['Pull settlements', 'fetch_channel_report', { channel: 'razorpay', kind: 'settlement' }]] },
+      zoho: { steps: ['Zoho API console → Self Client: create a client, generate a code for ZohoBooks.fullaccess.all, exchange it for a refresh token; org id from Zoho Books settings; dc is in for India.'], actions: [] },
+    };
+    const LABELS = { clientId: 'Client id', clientSecret: 'Client secret', refreshToken: 'Refresh token', marketplaceId: 'Marketplace id', region: 'Region', shopDomain: 'Shop domain', accessToken: 'Access token', keyId: 'Key id', keySecret: 'Key secret', orgId: 'Organisation id', dc: 'Data centre', secret: 'Secret', environment: 'Environment', apiToken: 'API token', apiKey: 'API key', testMode: 'Test mode (true/false)', redirectUri: 'Redirect URI', companyUuid: 'Company uuid', itemId: 'Item id', cursor: 'Sync cursor', oauthState: 'OAuth state' };
+    const HIDDEN = new Set(['accessToken', 'refreshToken', 'itemId', 'cursor', 'oauthState', 'companyUuid']);
+    const ENVIRONMENTS = { plaid: ['sandbox', 'development', 'production'], taxjar: ['sandbox', 'production'], gusto: ['demo', 'production'] };
+    function esc(v) { return String(v == null ? '' : v).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+    async function renderConnectors() {
+      const listed = await tool('channel_connectors');
+      const us = await tool('us_connectors');
+      const redirects = (us.data && us.data.gustoRedirect && us.data.gustoRedirect.desktop) || [];
+      const box = $('connectors');
+      box.innerHTML = '';
+      const order = ['plaid', 'taxjar', 'gusto', 'track1099', 'amazon', 'shopify', 'razorpay', 'zoho'];
+      const connectors = ((listed.data && listed.data.connectors) || []).slice().sort((a, b) => order.indexOf(a.channel) - order.indexOf(b.channel));
+      for (const c of connectors) {
+        const meta = STEPS[c.channel] || { steps: [], actions: [] };
+        const card = document.createElement('div');
+        card.className = 'card';
+        const fields = c.fields.filter((f) => (c.channel === 'gusto' || c.channel === 'plaid') ? !HIDDEN.has(f) : true);
+        const inputs = fields.map((f) => {
+          const label = LABELS[f] || f;
+          const current = c.secrets.includes(f) ? (c[f] === 'set' ? '(saved)' : '') : (c[f] || '');
+          if (f === 'environment' && ENVIRONMENTS[c.channel]) return `<div><label>${label}</label><select name="${f}">${ENVIRONMENTS[c.channel].map((e) => `<option value="${e}"${current === e ? ' selected' : ''}>${e}</option>`).join('')}</select></div>`;
+          return `<div><label>${label} <span class="mute">${c.secrets.includes(f) ? esc(current) : ''}</span></label><input name="${f}" ${c.secrets.includes(f) ? 'type="password"' : ''} value="${c.secrets.includes(f) ? '' : esc(current)}" autocomplete="off" spellcheck="false" /></div>`;
+        }).join('');
+        card.innerHTML = `<h2>${esc(c.title)} <span class="mute" style="font-size:13px">${c.country === 'US' ? 'United States' : 'India'} · ${c.configured ? (c.enabled === false ? 'saved, paused' : 'connected') : 'not connected'}${c.lastFetchedTo ? ` · pulled to ${esc(c.lastFetchedTo)}` : ''}</span></h2>
+          <ol>${meta.steps.map((t) => `<li>${t}</li>`).join('')}</ol>
+          <form data-channel="${c.channel}"><div class="row">${inputs}</div>
+          ${c.channel === 'taxjar' ? '<div class="row"><div><label>Zip</label><input name="zip" placeholder="78701" /></div><div><label>City</label><input name="city" placeholder="Austin" /></div></div><div class="row"><div><label>State</label><input name="state" placeholder="TX" maxlength="2" /></div></div>' : ''}
+          <div class="actions"><button type="submit">Save</button>${meta.actions.map(([label, name], i) => `<button type="button" class="ghost" data-action="${i}">${label}</button>`).join('')}</div></form>
+          <div class="status mute" data-status="${c.channel}">${c.configured ? 'Credentials saved.' : 'Nothing saved yet.'}</div>`;
+        box.appendChild(card);
+        const form = card.querySelector('form');
+        const status = card.querySelector('[data-status]');
+        form.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          const args = { channel: c.channel };
+          for (const el of form.querySelectorAll('input[name],select[name]')) if (!['zip', 'city', 'state'].includes(el.name) && el.value.trim()) args[el.name] = el.value.trim();
+          const saved = await tool('set_channel_connector', args);
+          show(status, saved.ok ? 'Saved.' : `Not saved: ${saved.hint || saved.error}`, saved.ok ? 'ok' : 'bad');
+          if (saved.ok) await renderConnectors();
+        });
+        meta.actions.forEach(([label, name, args], i) => {
+          form.querySelector(`[data-action="${i}"]`).addEventListener('click', async () => {
+            show(status, `${label}…`);
+            let out;
+            if (args === 'rate') out = await tool('taxjar_rate', { zip: form.zip.value.trim(), city: form.city.value.trim(), state: form.state.value.trim().toUpperCase() });
+            else out = await tool(name, args === 'open' ? {} : args);
+            if (!out.ok) { show(status, `${label}: ${out.hint || out.error}${out.detail ? ` (${out.detail})` : ''}`, 'bad'); return; }
+            const d = out.data || out;
+            if (args === 'open' && d.url) { window.open(d.url, '_blank', 'noopener'); show(status, `Opened Gusto. Allow the app there; the browser comes back to MyCA at ${d.redirectUri}.`, 'warn'); return; }
+            if (args === 'rate') { show(status, `${d.name}: ${d.ratePercent}% combined (state ${d.parts.state}%, county ${d.parts.county}%, city ${d.parts.city}%, special ${d.parts.special}%)${d.recorded ? `, recorded as ${d.code}` : ''}${d.mock ? ' (simulated)' : ''}.`, 'ok'); return; }
+            if (name === 'fetch_channel_report') { show(status, out.empty ? 'Nothing new in the range.' : `${out.rows} rows pulled into ${out.name}${out.mock ? ' (simulated)' : ''}${out.dryRun ? ' (dry run: turn on MYCA_ENABLE_CHANNEL_PULLS)' : ''}; see the reminder in MyCA.`, out.dryRun ? 'warn' : 'ok'); return; }
+            show(status, `${label}: done${d.mock ? ' (simulated)' : ''}${d.itemId ? `, item ${d.itemId}` : ''}.`, 'ok');
+            await renderConnectors();
+          });
+        });
+      }
+      const r = document.getElementById('gustoRedirects');
+      if (r) r.textContent = redirects.join('  and  ');
+    }
+    renderConnectors().catch((err) => { $('connectors').textContent = `Could not list the connectors: ${err.message}`; });
   </script>
 </body>
 </html>

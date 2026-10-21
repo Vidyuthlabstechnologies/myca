@@ -85,6 +85,9 @@ export const ACTION_CLASSES = Object.freeze(Object.assign(Object.create(null), {
   provider_doctor_ping: read('provider', ['sandbox.ping', 'nim.ping', 'reachability.probeTally'], PROBE),
   channel_fetch_report: read('channel', ['channel.pull'], { timeoutMs: 12 * MINUTE_MS }),
   zoho_push_invoices: write('channel', ['channel.zoho'], { timeoutMs: 10 * MINUTE_MS }),
+  plaid_link: read('channel', ['channel.plaid']),
+  taxjar_rate: read('channel', ['channel.taxjar']),
+  gusto_token: read('channel', ['channel.gusto']),
 }));
 
 function transportOptions(ctx) {
@@ -129,9 +132,14 @@ const CHANNEL_TRANSPORT = Object.freeze({
     if (request.channel === 'amazon') return client.amazonReport(request, ctx.signal);
     if (request.channel === 'shopify') return client.shopify(request, ctx.signal);
     if (request.channel === 'razorpay') return client.razorpay(request, ctx.signal);
+    if (request.channel === 'plaid') return client.plaid({ ...request, op: 'sync' }, ctx.signal);
+    if (request.channel === 'gusto') return client.gusto({ ...request, op: 'payrolls' }, ctx.signal);
     return { ok: false, error: 'UNKNOWN_CONNECTOR' };
   },
   zoho: (ctx) => (request) => signalled(getChannelClient(), ctx.signal).zoho(request, ctx.signal),
+  plaid: (ctx) => (request) => signalled(getChannelClient(), ctx.signal).plaid(request, ctx.signal),
+  taxjar: (ctx) => (request) => signalled(getChannelClient(), ctx.signal).taxjar(request, ctx.signal),
+  gusto: (ctx) => (request) => signalled(getChannelClient(), ctx.signal).gusto(request, ctx.signal),
 });
 
 const TALLY_TRANSPORT = Object.freeze({

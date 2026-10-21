@@ -4,6 +4,10 @@ const AMAZON_REPORTS = { settlement: 'GET_V2_SETTLEMENT_REPORT_DATA_FLAT_FILE_V2
 const RAZORPAY_BASE = 'https://api.razorpay.com/v1';
 const SHOPIFY_VERSION = '2025-10';
 const ZOHO_DCS = { in: 'in', com: 'com', eu: 'eu', au: 'com.au' };
+const PLAID_HOSTS = { sandbox: 'https://sandbox.plaid.com', development: 'https://development.plaid.com', production: 'https://production.plaid.com' };
+const TAXJAR_HOSTS = { sandbox: 'https://api.sandbox.taxjar.com', production: 'https://api.taxjar.com' };
+const GUSTO_HOSTS = { demo: 'https://api.gusto-demo.com', production: 'https://api.gusto.com' };
+const GUSTO_VERSION = '2024-04-01';
 const POLL_MS = 15000;
 const POLL_LIMIT = 40;
 
@@ -124,6 +128,77 @@ export class ChannelClient {
       return out.ok ? { ok: true, invoiceId: String(out.data.invoice?.invoice_id || ''), invoiceNumber: String(out.data.invoice?.invoice_number || '') } : out;
     }
     return { ok: false, error: 'UNKNOWN_ZOHO_OP' };
+  }
+
+  async plaid({ config, op, params = {}, from, to }, signal) {
+    const base = PLAID_HOSTS[config.environment || 'sandbox'] || PLAID_HOSTS.sandbox;
+    const post = async (path, body) => {
+      const res = await this.fetchFn(`${base}${path}`, { method: 'POST', headers: { 'content-type': 'application/json' }, signal, body: JSON.stringify({ client_id: config.clientId, secret: config.secret, ...body }) });
+      const data = await asJson(res);
+      if (!res.ok) return { ok: false, error: 'PLAID_ERROR', status: res.status, code: data.error_code || '', detail: data.error_message || data.raw || '' };
+      return { ok: true, data };
+    };
+    if (op === 'sandbox_public_token') return post('/sandbox/public_token/create', { institution_id: params.institution, initial_products: ['transactions'] });
+    if (op === 'exchange') return post('/item/public_token/exchange', { public_token: params.publicToken });
+    if (op === 'link_token') return post('/link/token/create', { client_name: 'MyCA', user: { client_user_id: params.userId || 'owner' }, products: ['transactions'], country_codes: ['US'], language: 'en' });
+    const transactions = [];
+    let cursor = config.cursor || '';
+    for (let i = 0; i < 50; i += 1) {
+      const page = await post('/transactions/sync', cursor ? { access_token: config.accessToken, cursor } : { access_token: config.accessToken });
+      if (!page.ok) return page;
+      for (const t of page.data.added || []) if (!from || !to || (t.date >= from && t.date <= to)) transactions.push(t);
+      cursor = page.data.next_cursor || cursor;
+      if (!page.data.has_more) break;
+    }
+    return { ok: true, transactions, cursor };
+  }
+
+  async taxjar({ config, op, params = {} }, signal) {
+    const base = TAXJAR_HOSTS[config.environment === 'production' ? 'production' : 'sandbox'];
+    const headers = { authorization: `Bearer ${config.apiToken}`, 'x-api-version': '2022-01-24', 'content-type': 'application/json' };
+    if (op === 'rates') {
+      const query = new URLSearchParams();
+      if (params.city) query.set('city', params.city);
+      if (params.state) query.set('state', params.state);
+      query.set('country', 'US');
+      const res = await this.fetchFn(`${base}/v2/rates/${encodeURIComponent(params.zip)}?${query}`, { headers, signal });
+      const data = await asJson(res);
+      if (!res.ok || !data.rate) return { ok: false, error: 'TAXJAR_ERROR', status: res.status, detail: data.detail || data.error || data.raw || '' };
+      return { ok: true, data };
+    }
+    if (op === 'taxes') {
+      const res = await this.fetchFn(`${base}/v2/taxes`, { method: 'POST', headers, signal, body: JSON.stringify(params.order || {}) });
+      const data = await asJson(res);
+      if (!res.ok || !data.tax) return { ok: false, error: 'TAXJAR_ERROR', status: res.status, detail: data.detail || data.error || data.raw || '' };
+      return { ok: true, data };
+    }
+    return { ok: false, error: 'UNKNOWN_OP' };
+  }
+
+  async gusto({ config, op, params = {}, from, to }, signal) {
+    const base = GUSTO_HOSTS[config.environment === 'production' ? 'production' : 'demo'];
+    if (op === 'token' || op === 'refresh') {
+      const body = op === 'token'
+        ? { client_id: config.clientId, client_secret: config.clientSecret, redirect_uri: params.redirectUri, code: params.code, grant_type: 'authorization_code' }
+        : { client_id: config.clientId, client_secret: config.clientSecret, refresh_token: config.refreshToken, grant_type: 'refresh_token' };
+      const res = await this.fetchFn(`${base}/oauth/token`, { method: 'POST', headers: { 'content-type': 'application/json' }, signal, body: JSON.stringify(body) });
+      const data = await asJson(res);
+      if (!res.ok || !data.access_token) return { ok: false, error: 'GUSTO_AUTH_FAILED', status: res.status, detail: data.error_description || data.error || data.raw || '' };
+      return { ok: true, data };
+    }
+    const headers = { authorization: `Bearer ${config.accessToken}`, 'x-gusto-api-version': GUSTO_VERSION, accept: 'application/json' };
+    if (op === 'token_info') {
+      const res = await this.fetchFn(`${base}/v1/token_info`, { headers, signal });
+      const data = await asJson(res);
+      return res.ok ? { ok: true, data } : { ok: false, error: 'GUSTO_ERROR', status: res.status };
+    }
+    const query = new URLSearchParams({ processed: 'true' });
+    if (from) query.set('start_date', from);
+    if (to) query.set('end_date', to);
+    const res = await this.fetchFn(`${base}/v1/companies/${encodeURIComponent(config.companyUuid)}/payrolls?${query}`, { headers, signal });
+    const data = await asJson(res);
+    if (!res.ok || !Array.isArray(data)) return { ok: false, error: 'GUSTO_ERROR', status: res.status, detail: data.message || data.raw || '' };
+    return { ok: true, payrolls: data };
   }
 
   async razorpay({ config, from, to }, signal) {

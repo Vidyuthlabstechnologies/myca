@@ -48,6 +48,7 @@ const SHARED_TOOLS = new Set([
   'exceptions', 'exception_decide', 'approval_list', 'approval_request', 'approval_decide',
   'list_clients', 'register_client', 'set_active_client', 'list_documents', 'upload_document', 'get_document',
   'list_debit_notes', 'list_credit_notes', 'list_payroll', 'payroll_run', 'approve_payroll', 'record_salary_payment', 'payslip', 'list_filings', 'list_outbox',
+  'set_channel_connector', 'channel_connectors', 'fetch_channel_report', 'sync_channels', 'provider_doctor',
 ]);
 
 let currentCountry = DEFAULT_COUNTRY;
@@ -61,7 +62,7 @@ export function formatMoneyCurrent(amount, options) {
   return formatMoney({ country: currentCountry }, amount, options);
 }
 
-const US_ONLY_TOOLS = new Set(['set_sales_tax_rate', 'list_sales_tax_rates', 'set_contractor', 'contractor_payments', 'set_sales_tax_nexus', 'list_sales_tax_nexus', 'sales_tax_return', 'sales_tax_review', 'sales_tax_review_answer', 'record_sales_tax_payment', 'record_sales_tax_filing', 'sales_tax_overview', 'set_withholding', 'us_payroll_filings', 'schedule_c_summary', 'estimated_tax_dates', 'import_us_invoices', 'contractor_1099_file', 'set_suta_rate', 'list_suta_rates', 'schedule_se', 'schedule_c_document', 'cpa_pack', 'payroll_941_file', 'payroll_w2_file']);
+const US_ONLY_TOOLS = new Set(['us_connectors', 'plaid_link_sandbox', 'taxjar_rate', 'gusto_connect_url', 'gusto_callback', 'set_sales_tax_rate', 'list_sales_tax_rates', 'set_contractor', 'contractor_payments', 'set_sales_tax_nexus', 'list_sales_tax_nexus', 'sales_tax_return', 'sales_tax_review', 'sales_tax_review_answer', 'record_sales_tax_payment', 'record_sales_tax_filing', 'sales_tax_overview', 'set_withholding', 'us_payroll_filings', 'schedule_c_summary', 'estimated_tax_dates', 'import_us_invoices', 'contractor_1099_file', 'set_suta_rate', 'list_suta_rates', 'schedule_se', 'schedule_c_document', 'cpa_pack', 'payroll_941_file', 'payroll_w2_file']);
 
 export function toolServesCountry(toolName, country) {
   const name = String(toolName || '');

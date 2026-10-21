@@ -41,6 +41,11 @@ and [`README.md`](README.md) for what is left and how it is being done.
   confirm it on the number already on file; a bulk NEFT file for the bills the payment run
   proposes, one row per supplier, with the suppliers lacking details named; MyCA moves no
   money. The Monday brief names customers who have gone quiet
+- US connectors (2026-10-21): Plaid (sandbox bank linked without Plaid Link, transactions synced by
+  cursor into a bank statement), TaxJar (a zip lookup recorded as the jurisdiction's rate), Gusto
+  (OAuth through MyCA's own callback, payroll summaries stored) and Track1099 (keys kept; routes
+  wait on its documentation), each with a card and its steps on the keys page, behind the channel
+  pull switch; the Indian connectors (Amazon, Shopify, Razorpay, Zoho) got the same cards
 - Sandbox keys page (2026-10-21): `keys.html` beside the desktop (the "Sandbox keys" link on the
   tabs) with the steps to get a Sandbox by Quicko key and the NIC e-invoice sandbox credentials;
   Save stores them encrypted in the local vault, the next sandbox call uses them, and the page
