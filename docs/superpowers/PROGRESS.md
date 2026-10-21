@@ -86,7 +86,7 @@ The goal is now an owner-first Android app on the Play Store. The weights below 
 | LLM chat agent | 8 | 90% | 7.2 | Tool contracts, keyword router, preview/confirm; the model adapter routes unmatched messages to one tool and reads bills, off until a key is set; the last six exchanges of a business's chat are given to the model as context | The provider decision |
 | Live filing connections | 7 | 60% | 4.2 | GSTR-1 save and file through the GSP and the TDS FVU job wired end to end behind the gate with the review, the draft hash, the OTP and a CA approval (2026-10-16, PR #85); adapters against sandbox; onboarding and production credentials not started |
 | Play release work: listing, declarations, policy, testing | 5 | 60% | 3.0 | Listing, data safety answers, permissions, declarations, testing checklist and the privacy policy drafted (`docs/release/`); the developer account, keystore and a device run are the owner's |
-| **Total** | **100** | | **80.1** | |
+| **Total** | **100** | | **83.1** | |
 
 ## Measured against the product PRD (added 2026-10-06)
 
