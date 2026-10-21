@@ -7,6 +7,7 @@ import { trialBalance, listAccounts } from '../src/ledger.mjs';
 import { localToday } from '../src/dates.mjs';
 
 const TODAY = localToday();
+const PAID_ON = '2026-10-18';
 
 const ALPHABET = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 function withCheck(first14) {
@@ -75,21 +76,21 @@ test('a second registration shares the PAN and takes one state; documents under 
   const review = await runTool(state, 'gst_review', { period: '2026-09', gstin: KARNATAKA });
   assert.equal(review.data.gstin, KARNATAKA);
   assert.equal(review.data.toPay, 155);
-  const paid = await runTool(state, 'record_gst_payment', { period: '2026-09', date: TODAY, gstin: KARNATAKA, cpin: '26101234567890' });
+  const paid = await runTool(state, 'record_gst_payment', { period: '2026-09', date: PAID_ON, gstin: KARNATAKA, cpin: '26101234567890' });
   assert.equal(paid.ok, true, JSON.stringify(paid));
   assert.equal(paid.payment.id, `GSTP-2026-09-${KARNATAKA}`);
   assert.equal(paid.payment.cashTotal, 155);
   assert.ok(state.gstPayments[`2026-09@${KARNATAKA}`]);
-  assert.equal((await runTool(state, 'record_gst_payment', { period: '2026-09', date: TODAY, gstin: KARNATAKA })).error, 'ALREADY_RECORDED');
-  const principalPaid = await runTool(state, 'record_gst_payment', { period: '2026-09', date: TODAY });
+  assert.equal((await runTool(state, 'record_gst_payment', { period: '2026-09', date: PAID_ON, gstin: KARNATAKA })).error, 'ALREADY_RECORDED');
+  const principalPaid = await runTool(state, 'record_gst_payment', { period: '2026-09', date: PAID_ON });
   assert.equal(principalPaid.ok, true, JSON.stringify(principalPaid));
   assert.equal(principalPaid.payment.cashTotal, 180);
   assert.equal(trialBalance(state.ledger).balanced, true);
 
-  const filed = await runTool(state, 'record_filing', { returnType: 'GSTR-3B', period: '2026-09', arn: 'AA290926123456K', filedOn: TODAY, gstin: KARNATAKA });
+  const filed = await runTool(state, 'record_filing', { returnType: 'GSTR-3B', period: '2026-09', arn: 'AA290926123456K', filedOn: PAID_ON, gstin: KARNATAKA });
   assert.equal(filed.ok, true, JSON.stringify(filed));
   assert.equal(filed.filing.gstin, KARNATAKA);
-  const again = await runTool(state, 'record_filing', { returnType: 'GSTR-3B', period: '2026-09', arn: 'AA270926123456M', filedOn: TODAY });
+  const again = await runTool(state, 'record_filing', { returnType: 'GSTR-3B', period: '2026-09', arn: 'AA270926123456M', filedOn: PAID_ON });
   assert.equal(again.ok, true, 'the principal can file the same return for the same period');
   const status = (await runTool(state, 'registrations', {})).data.registrations.find((reg) => reg.gstin === KARNATAKA);
   assert.equal(status.periods.find((p) => p.period === '2026-09').gstr3b, true);
