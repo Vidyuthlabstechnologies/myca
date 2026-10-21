@@ -103,7 +103,7 @@ test('the review walks sales, tax and approval, bound to the draft; a payment re
   assert.equal((await runTool(state, 'record_sales_tax_payment', { state: 'TX', period: '2026-Q3' })).error, 'NOTHING_DUE');
 
   assert.equal((await runTool(state, 'record_sales_tax_filing', { state: 'TX', period: '2026-Q4', confirmation: 'ABC123' })).error, 'PERIOD_NOT_ENDED');
-  const filed = await runTool(state, 'record_sales_tax_filing', { state: 'TX', period: '2026-Q3', confirmation: 'tx-2026-q3-778899', filedOn: localToday(), filedBy: 'the owner' });
+  const filed = await runTool(state, 'record_sales_tax_filing', { state: 'TX', period: '2026-Q3', confirmation: 'tx-2026-q3-778899', filedOn: '2026-10-12', filedBy: 'the owner' });
   assert.equal(filed.ok, true, JSON.stringify(filed));
   assert.equal(filed.filing.returnType, 'SALES_TAX_TX');
   assert.equal(filed.filing.late, false);
