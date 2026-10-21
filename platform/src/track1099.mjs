@@ -94,8 +94,8 @@ function jobsOf(state) {
   return state.form1099Jobs;
 }
 
-function configOf() {
-  const config = loadChannelConfig('track1099');
+function configOf(options = {}) {
+  const config = options.config === undefined ? loadChannelConfig('track1099') : options.config;
   if (!config || !config.apiToken || !config.teamApiId) return { ok: false, error: 'CONNECTOR_NOT_CONFIGURED', channel: 'track1099', hint: 'Save the Track1099 API token and Team API ID first.' };
   return { ok: true, config };
 }
@@ -105,8 +105,8 @@ function issuerRow(item) {
   return { id: String(item?.id || ''), name: String(a.name || ''), tinType: String(a.tin_type || ''), taxYear: String(a.tax_year || ''), city: String(a.city || ''), state: String(a.state || ''), email: String(a.email || '') };
 }
 
-export async function track1099Issuers(state, args = {}, actor) {
-  const got = configOf();
+export async function track1099Issuers(state, args = {}, actor, options = {}) {
+  const got = configOf(options);
   if (!got.ok) return got;
   const { config } = got;
   const out = await performExternalAction(state, {
@@ -121,8 +121,8 @@ export async function track1099Issuers(state, args = {}, actor) {
   return { ok: true, data: { issuers: (out.data?.data || []).map(issuerRow), mock: Boolean(out.mock), note: 'Create or correct the payer (issuer) in the Track1099 web app; MyCA only lists it and imports forms under it.' } };
 }
 
-export async function track1099Import(state, args = {}, actor) {
-  const got = configOf();
+export async function track1099Import(state, args = {}, actor, options = {}) {
+  const got = configOf(options);
   if (!got.ok) return got;
   const { config } = got;
   const issuerId = String(args.issuerId || '').trim();
@@ -151,8 +151,8 @@ export async function track1099Import(state, args = {}, actor) {
   return { ok: true, data: { job: record, held: file.data.held, note: 'Forms are imported, not filed: Track1099 e-files only when you schedule and pay for them there. Check the job, then review the forms in Track1099.' } };
 }
 
-export async function track1099Job(state, args = {}, actor) {
-  const got = configOf();
+export async function track1099Job(state, args = {}, actor, options = {}) {
+  const got = configOf(options);
   if (!got.ok) return got;
   const { config } = got;
   const jobId = String(args.jobId || '').trim();

@@ -167,6 +167,7 @@ export function clientAddress(req, hops = trustedProxyHops()) {
 }
 
 export function createApi({ db, secret, booksKey = '', otpSender = null, googleClientIds = [], googleKeys, oidc = {}, oidcKeys = null, documentVault = null, connectorKey = '', now = () => Date.now(), log = () => {}, version = 'dev', jobToken = '', inboundEmail = {}, whatsapp = {}, whatsappSender = null }) {
+  process.env.MYCA_HOSTED = '1';
   assertSecret(secret);
   if (liveCallsEnabled()) throw new Error('the hosted API must not start with live provider calls enabled');
   const auth = createAuth({ db, secret, otpSender, now });

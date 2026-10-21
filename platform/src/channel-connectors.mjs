@@ -57,9 +57,13 @@ function readFile() {
   try { return JSON.parse(readFileSync(p, 'utf8')); } catch { return {}; }
 }
 
+export function localConnectorsAllowed() {
+  return String(process.env.MYCA_HOSTED || '').trim() !== '1';
+}
+
 export function loadChannelConfig(channel) {
   const spec = CONNECTOR_CHANNELS[channel];
-  if (!spec) return null;
+  if (!spec || !localConnectorsAllowed()) return null;
   const raw = readFile()[channel];
   if (!raw) return null;
   const out = {};
@@ -86,6 +90,7 @@ export function publicChannelConfig(channel) {
 export function saveChannelConfig(channel, patch = {}) {
   const spec = CONNECTOR_CHANNELS[channel];
   if (!spec) return fail('UNKNOWN_CONNECTOR', { channel, known: Object.keys(CONNECTOR_CHANNELS), fileOnly: FILE_ONLY_CHANNELS });
+  if (!localConnectorsAllowed()) return fail('LOCAL_CONNECTORS_UNAVAILABLE', { channel, hint: 'On the hosted service credentials are saved per business through its connectors route, never on the machine.' });
   const all = readFile();
   const before = all[channel] || { secrets: {} };
   const next = { ...before, secrets: { ...(before.secrets || {}) }, vault: vaultBackend() };

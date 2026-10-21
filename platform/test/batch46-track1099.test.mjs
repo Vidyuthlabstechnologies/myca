@@ -114,6 +114,11 @@ test('with the token and Team API ID saved, payers list through the API, the imp
   assert.equal(state.form1099Jobs[0].status, 'SUCCESS');
   assert.equal(state.form1099Jobs[0].okCount, 1);
 
+  process.env.MYCA_HOSTED = '1';
+  const hosted = await runTool(state, 'track1099_issuers', {});
+  assert.equal(hosted.error, 'CONNECTOR_NOT_CONFIGURED', 'the machine-local store never answers on the hosted service');
+  assert.equal((await runTool(state, 'set_channel_connector', { channel: 'track1099', apiToken: 't1099-token-abc', teamApiId: 'team-77' })).error, 'LOCAL_CONNECTORS_UNAVAILABLE');
+  delete process.env.MYCA_HOSTED;
   process.env.MYCA_MOCK_MODE = '1';
   const mocked = await runTool(state, 'track1099_issuers', {});
   assert.equal(mocked.data.mock, true);
