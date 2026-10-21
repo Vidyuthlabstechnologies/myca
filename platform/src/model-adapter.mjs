@@ -112,6 +112,27 @@ export async function chooseAmong({ question, options, instructions = '' }) {
   return { ok: true, value };
 }
 
+const SYSTEM_TRANSLATE = [
+  'You translate one message between a small business owner and their bookkeeping assistant.',
+  'Translate the meaning faithfully and keep every number, amount, date, invoice or bill id, GSTIN, name and currency symbol exactly as written, in the same digits.',
+  'Keep line breaks, bullet marks and quotation marks. Add nothing and leave nothing out.',
+].join(' ');
+
+export async function translateWithModel({ text, from, to }) {
+  const value = String(text || '');
+  if (!value.trim()) return { ok: true, text: value };
+  const called = await callModel({
+    system: `${SYSTEM_TRANSLATE} Translate from ${from} to ${to}.`,
+    tools: [{ name: 'translation', description: 'The translated text.', input_schema: { type: 'object', additionalProperties: false, required: ['text'], properties: { text: { type: 'string' } } } }],
+    tool_choice: { type: 'tool', name: 'translation' },
+    messages: [{ role: 'user', content: value.slice(0, 20000) }],
+  });
+  if (!called.ok) return called;
+  const use = toolUseOf(called.response);
+  if (!use || use.name !== 'translation' || typeof use.input?.text !== 'string') return { ok: false, error: 'MODEL_NO_TOOL' };
+  return { ok: true, text: use.input.text };
+}
+
 const SYSTEM_READ = [
   'You read one business document and copy what it says into the structure asked for.',
   'Copy figures exactly as printed; never total, split, convert or infer a number that is not on the page.',

@@ -44,6 +44,17 @@ figures. One tap posts it; anything else discards it. Questions and negations ("
 invoice Rajesh?", "don't record this") post nothing. This holds in every chat and in
 the hosted API (`propose`, `confirm`, `discard`).
 
+### Hindi and Telugu (built 2026-10-21, on when a model key is set)
+
+A message in Devanagari or Telugu script is translated to English by the model, run
+through the same rules, previews and confirmations as an English message, and the reply
+is translated back. Every number, date and id in the message must survive the translation
+unchanged, and every figure in the reply must survive the way back; when either check
+fails the owner is told in their language and nothing is recorded, or the English reply is
+shown as it is. Without a model key the reply explains, in Hindi or Telugu, that the
+assistant works in English for now. Romanised Hindi ("Mehta ko 1200 diye") is read as
+English by the keyword rules and is not translated.
+
 ### Saved reports (built 2026-10-19)
 
 "Save report Top customers: sales by customer this month vs last month" keeps a report

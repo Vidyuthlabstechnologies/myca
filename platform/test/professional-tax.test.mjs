@@ -4,7 +4,7 @@ import { createState } from '../src/store.mjs';
 import { runTool } from '../src/tools.mjs';
 import { rules } from '../src/sprint-load.mjs';
 
-const STATES = ['27', '29', '19', '36', '37', '24', '23', '21', '20', '18', '22', '03', '33', '32', '10', '17', '14', '15', '13', '16', '11'];
+const STATES = ['27', '29', '19', '36', '37', '24', '23', '21', '20', '18', '22', '03', '33', '32', '10', '17', '14', '15', '13', '16', '11', '34', '01', '02', '04', '05', '06', '07', '08', '09', '12', '26', '30', '31', '35', '38'];
 
 async function ptFor({ state: code, monthly, sex = 'male', period = '2026-10' }) {
   const state = createState();
@@ -88,7 +88,7 @@ test('Maharashtra keeps its slabs by sex and February charge; an unknown state s
   assert.equal((await ptFor({ state: '27', monthly: 9000 })).pt, 175);
   assert.equal((await ptFor({ state: '27', monthly: 9000, sex: 'female' })).pt, 0);
   assert.equal((await ptFor({ state: '27', monthly: 30000, period: '2027-02' })).pt, 300);
-  const unknown = await ptFor({ state: '07', monthly: 30000 });
+  const unknown = await ptFor({ state: '97', monthly: 30000 });
   assert.equal(unknown.pt, 0);
   assert.match(unknown.notes.join(' '), /not in MyCA's rules yet/);
 });
@@ -118,4 +118,19 @@ test('the north-eastern states and Sikkim: Meghalaya, Manipur, Mizoram, Nagaland
   assert.equal((await ptFor({ state: '11', monthly: 25000 })).pt, 125);
   assert.equal((await ptFor({ state: '11', monthly: 35000 })).pt, 150);
   assert.equal((await ptFor({ state: '11', monthly: 40001 })).pt, 200);
+});
+
+test('Puducherry is half-yearly in June and December; the states and territories that levy no professional tax carry a nil record, so no payroll says the state is unknown', async () => {
+  assert.equal((await ptFor({ state: '34', monthly: 16666, period: '2026-06' })).pt, 0);
+  assert.equal((await ptFor({ state: '34', monthly: 20000, period: '2026-06' })).pt, 250);
+  assert.equal((await ptFor({ state: '34', monthly: 20000, period: '2026-07' })).pt, 0);
+  assert.equal((await ptFor({ state: '34', monthly: 60000, period: '2026-12' })).pt, 750);
+  assert.equal((await ptFor({ state: '34', monthly: 100000, period: '2026-12' })).pt, 1250);
+  for (const code of ['07', '12', '09', '38']) {
+    const row = await ptFor({ state: code, monthly: 90000 });
+    assert.equal(row.pt, 0, code);
+    assert.ok(!row.notes.some((n) => /not in MyCA's rules/.test(n)), `${code} is a known nil, not a gap`);
+  }
+  const delhi = rules.rule('payroll.pt.07', '2026-10-31');
+  assert.equal(delhi.record.value.levied, false);
 });

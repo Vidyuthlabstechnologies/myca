@@ -1,4 +1,5 @@
 import { loadEnvFile } from './runtime-config.mjs';
+import { loadSandboxKeys, SANDBOX_HOSTS } from './sandbox-keys.mjs';
 
 function detectEnvironment(baseUrl) {
   return /test/i.test(String(baseUrl)) ? 'test' : 'live';
@@ -23,18 +24,21 @@ export class SandboxClient {
   constructor(options = {}) {
     const fileEnv = loadEnvFile();
     const read = (name) => process.env[name] ?? fileEnv[name] ?? '';
-    this.baseUrl = String(options.baseUrl ?? read('MYCA_GSP_BASE_URL') ?? '').replace(/\/+$/, '') || 'https://api.sandbox.co.in';
+    const saved = options.saved === undefined ? loadSandboxKeys() : (options.saved || {});
+    const savedUsable = Boolean(saved.apiKey && saved.apiSecret) && !read('MYCA_GSP_API_KEY') && !read('MYCA_GSP_LIVE_API_KEY') && !read('MYCA_GSP_TEST_API_KEY');
     const declared = String(read('MYCA_GSP_ENV')).toLowerCase();
+    const savedEnvironment = savedUsable && !declared ? saved.environment : '';
+    this.baseUrl = String(options.baseUrl ?? read('MYCA_GSP_BASE_URL') ?? '').replace(/\/+$/, '') || (savedUsable ? (saved.baseUrl || SANDBOX_HOSTS[saved.environment]) : '') || 'https://api.sandbox.co.in';
     this.environment = options.environment
-      ?? (declared === 'live' || declared === 'test' ? declared : detectEnvironment(this.baseUrl));
+      ?? (declared === 'live' || declared === 'test' ? declared : savedEnvironment || detectEnvironment(this.baseUrl));
     const scoped = this.environment === 'live'
       ? { key: 'MYCA_GSP_LIVE_API_KEY', secret: 'MYCA_GSP_LIVE_API_SECRET' }
       : { key: 'MYCA_GSP_TEST_API_KEY', secret: 'MYCA_GSP_TEST_API_SECRET' };
     const scopedKey = read(scoped.key);
     const scopedSecret = read(scoped.secret);
-    this.apiKey = options.apiKey ?? (scopedKey || read('MYCA_GSP_API_KEY'));
-    this.apiSecret = options.apiSecret ?? (scopedSecret || read('MYCA_GSP_API_SECRET'));
-    this.keySource = options.apiKey != null ? 'explicit' : (scopedKey ? scoped.key : 'MYCA_GSP_API_KEY');
+    this.apiKey = options.apiKey ?? (scopedKey || read('MYCA_GSP_API_KEY') || (savedUsable ? saved.apiKey : ''));
+    this.apiSecret = options.apiSecret ?? (scopedSecret || read('MYCA_GSP_API_SECRET') || (savedUsable ? saved.apiSecret : ''));
+    this.keySource = options.apiKey != null ? 'explicit' : scopedKey ? scoped.key : read('MYCA_GSP_API_KEY') ? 'MYCA_GSP_API_KEY' : savedUsable ? 'saved' : 'none';
     this.apiVersion = options.apiVersion ?? '1.0.0';
     this.fetchFn = options.fetchFn || ((...args) => globalThis.fetch(...args));
     this.token = null;
@@ -315,4 +319,8 @@ let defaultClient = null;
 export function getSandboxClient() {
   if (!defaultClient) defaultClient = new SandboxClient();
   return defaultClient;
+}
+
+export function resetSandboxClient() {
+  defaultClient = null;
 }

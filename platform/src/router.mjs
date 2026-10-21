@@ -52,6 +52,8 @@ import { advanceTaxWords } from './advance-tax.mjs';
 import { supplierPayoutWords } from './supplier-bank.mjs';
 import { reportWords } from './reports.mjs';
 import { tallyPushWords } from './tally-push.mjs';
+import { throughLanguage } from './chat-language.mjs';
+import { tagExpense } from './expenses.mjs';
 import { dscWords } from './dsc.mjs';
 import { suggestExpenseHead } from './expense-head-model.mjs';
 
@@ -960,7 +962,7 @@ async function chatCore(state, message) {
 
   if (plan.kind === 'confirm') return runConfirmation(state, plan.decision);
 
-  if (plan.name === 'post_expense' && (plan.args.head == null || plan.args.head === '') && modelConfigured()) {
+  if (plan.name === 'post_expense' && (plan.args.head == null || plan.args.head === '') && modelConfigured() && tagExpense(state, { description: plan.args.narration || plan.args.description, payee: plan.args.payee }).source === 'default') {
     const suggested = await suggestExpenseHead({ description: plan.args.narration || plan.args.description, payee: plan.args.payee });
     if (suggested.ok) plan.args = { ...plan.args, head: suggested.head, headSource: 'model', headWhy: suggested.why };
   }
@@ -1027,7 +1029,7 @@ export function discardPending(state) {
 
 export async function chat(state, message) {
   setCurrentCountry(state);
-  const out = spoken(await chatCore(state, message));
+  const out = await throughLanguage(message, async (english) => spoken(await chatCore(state, english)));
   rememberTurn(state, message, out.reply);
   logEvalEvent(state, { input: message, toolName: out.tools?.[0]?.name || out.preview?.tool || out.pending?.name || out.pending?.tool || '', outcome: out.blocked ? 'blocked' : out.awaitingConfirmation || out.pending ? 'held' : out.tools?.length ? 'ran' : 'answered', viaModel: Boolean(out.viaModel), blocked: Boolean(out.blocked), reply: out.reply });
   return out;

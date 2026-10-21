@@ -37,6 +37,19 @@ Sandbox is the provider API MyCA already speaks.
 3. Verify: `provider_doctor` should show `sandbox [live] reachable`. `sandbox_status`
    prints the environment and key source.
 
+   Or skip the `.env` step: open **Sandbox keys** (top right of the desktop tabs, or
+   <http://127.0.0.1:4780/keys.html>), paste the key and secret, choose Test or Live, and
+   click **Save and test**. The keys are encrypted in the local vault
+   (`%APPDATA%\MyCA\sandbox.json`), every sandbox call uses them from then on, and the
+   page runs `sandbox_status` and `provider_doctor` straight away. `.env` variables, when
+   set, still win. The same page saves the NIC e-invoice sandbox credentials.
+
+Reference: the full documentation index is at <https://developer.sandbox.co.in/llms.txt>
+(GST, TDS and Income Tax overviews, authentication, errors, rate limits) and the official
+SDKs and samples at <https://github.com/in-co-sandbox>. MyCA uses the GST compliance and
+analytics routes (GSTIN, returns, GSTR-2B job, e-invoice) and the TDS e-file job; the
+Income Tax calculator, report and Form 16 OCR routes are not wired.
+
 **Endpoint status (verified live against TEST):** auth, GSTIN search/verify, and the
 GSTR-2B reconciliation job (returns a real `job_id` + signed upload URLs) all work.
 Taxpayer OTP, e-invoice auth, and TDS FVU/analytics accept the request with the correct

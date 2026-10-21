@@ -1651,6 +1651,9 @@ export const TOOL_ARG_SCHEMAS = {
     },
   },
   sandbox_status: noArgs,
+  sandbox_keys: noArgs,
+  sandbox_clear_keys: noArgs,
+  sandbox_save_keys: { type: 'object', additionalProperties: false, required: ['apiKey', 'apiSecret'], properties: { environment: { type: 'string', enum: ['test', 'live'] }, apiKey: { type: 'string', minLength: 8, maxLength: 200 }, apiSecret: { type: 'string', minLength: 8, maxLength: 400 }, baseUrl: { type: 'string', maxLength: 120 } } },
   sandbox_connect: noArgs,
   sandbox_operation: {
     type: 'object',
@@ -1886,6 +1889,8 @@ const TOOL_RISK = {
   attach_document: 'writes_books',
   push_tally: 'writes_books',
   dsc_sign: 'external_government_api',
+  sandbox_save_keys: 'external_government_api',
+  sandbox_clear_keys: 'external_government_api',
   save_report: 'writes_books',
   delete_report: 'writes_books',
   record_purchase_order: 'writes_books',

@@ -98,6 +98,8 @@ body {
 #tbDr { background: var(--saffron); }
 #tbCr { background: var(--tie); }
 
+.keys-link { margin-left: auto; align-self: center; font-size: 13px; color: var(--accent, #4f8cff); text-decoration: none; padding: 6px 10px; }
+.keys-link:hover { text-decoration: underline; }
 .pills { display: flex; gap: 8px; }
 .pill {
   border: 1px solid var(--line-strong);

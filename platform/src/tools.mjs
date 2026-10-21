@@ -106,7 +106,8 @@ import { buildInvoiceShare, shareLink, queueNotification, listOutbox, sendNotifi
 import { providerDoctor } from './provider-doctor.mjs';
 import { providerCatalog, providerRequirementMap } from './provider-catalog.mjs';
 import { sandboxAdapterPlan } from './sandbox-adapter-contract.mjs';
-import { getSandboxClient } from './sandbox-client.mjs';
+import { getSandboxClient, resetSandboxClient } from './sandbox-client.mjs';
+import { saveSandboxKeys, publicSandboxKeys, clearSandboxKeys } from './sandbox-keys.mjs';
 import { getNimClient } from './nim-client.mjs';
 import { runSandboxOperation } from './sandbox-adapter.mjs';
 import { requestApproval, decideApproval, approvalStatus, normalizeActor } from './approvals.mjs';
@@ -1390,6 +1391,33 @@ export const TOOLS = [
       });
       if (!out.operations.length) return fail('SANDBOX_OPERATION_NOT_FOUND');
       return ok(out);
+    },
+  },
+  {
+    name: 'sandbox_keys',
+    title: 'Sandbox keys on this machine',
+    description: 'Whether a Sandbox by Quicko API key and secret are saved on this machine (encrypted), the environment and host they point at, and when they were saved. Never shows the key. Read-only.',
+    run: () => ok(publicSandboxKeys()),
+  },
+  {
+    name: 'sandbox_save_keys',
+    title: 'Save sandbox keys',
+    description: 'Save the Sandbox by Quicko API key and secret from developer.sandbox.co.in on this machine, encrypted in the local vault, with the environment (test or live) and host. Every sandbox call uses them from then on unless MYCA_GSP_* variables are set in .env. Desktop only.',
+    args: ['environment', 'apiKey', 'apiSecret', 'baseUrl'],
+    run: (_state, args = {}) => {
+      const out = saveSandboxKeys(args);
+      if (out.ok) resetSandboxClient();
+      return out.ok ? ok(out.keys) : fail(out.error, out);
+    },
+  },
+  {
+    name: 'sandbox_clear_keys',
+    title: 'Forget sandbox keys',
+    description: 'Remove the saved Sandbox by Quicko key and secret from this machine.',
+    run: () => {
+      const out = clearSandboxKeys();
+      resetSandboxClient();
+      return ok(out.keys);
     },
   },
   {
