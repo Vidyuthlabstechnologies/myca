@@ -7,6 +7,7 @@ import { csvRows } from './text-safe.mjs';
 import { performExternalAction } from './action-gate.mjs';
 import { documentsOf } from './document-store.mjs';
 import { addReminder } from './reminders.mjs';
+import { plaidTransactionsToCsv, gustoPayrollsToCsv, mockUsReport } from './us-connectors.mjs';
 
 const round2 = (value) => Math.round(Number(value || 0) * 100) / 100;
 export const CONNECTOR_CHANNELS = {
@@ -14,6 +15,10 @@ export const CONNECTOR_CHANNELS = {
   shopify: { title: 'Shopify Admin API', fields: ['shopDomain', 'accessToken'], secrets: ['accessToken'], kinds: ['settlement', 'orders'] },
   razorpay: { title: 'Razorpay', fields: ['keyId', 'keySecret'], secrets: ['keySecret'], kinds: ['settlement'] },
   zoho: { title: 'Zoho Books', fields: ['orgId', 'dc', 'clientId', 'clientSecret', 'refreshToken'], secrets: ['clientSecret', 'refreshToken'], kinds: [], pushes: ['invoices'] },
+  plaid: { title: 'Plaid (US bank feeds)', fields: ['clientId', 'secret', 'environment', 'accessToken', 'itemId', 'cursor'], secrets: ['secret', 'accessToken'], optional: ['itemId', 'cursor'], kinds: ['bank'], country: 'US' },
+  taxjar: { title: 'TaxJar (US sales tax rates)', fields: ['apiToken', 'environment'], secrets: ['apiToken'], optional: ['environment'], kinds: [], country: 'US' },
+  gusto: { title: 'Gusto (US payroll)', fields: ['clientId', 'clientSecret', 'environment', 'redirectUri', 'accessToken', 'refreshToken', 'companyUuid', 'oauthState'], secrets: ['clientSecret', 'accessToken', 'refreshToken'], optional: ['environment', 'redirectUri', 'companyUuid', 'oauthState'], kinds: ['payroll'], country: 'US' },
+  track1099: { title: 'Track1099 (US 1099 e-filing)', fields: ['apiKey', 'testMode'], secrets: ['apiKey'], optional: ['testMode'], kinds: [], country: 'US' },
 };
 const FIELD_RULES = {
   shopDomain: { test: (v) => /^[a-z0-9][a-z0-9-]{0,98}\.myshopify\.com$/.test(v), hint: 'the shop host, like nalanda.myshopify.com' },
@@ -23,6 +28,10 @@ const FIELD_RULES = {
   orgId: { test: (v) => /^[0-9]{1,30}$/.test(v), hint: 'the numeric Zoho organisation id' },
   keyId: { test: (v) => /^[A-Za-z0-9_]{1,120}$/.test(v), hint: 'the Razorpay key id' },
   clientId: { test: (v) => /^[A-Za-z0-9._-]{1,200}$/.test(v), hint: 'the client id as issued' },
+  environment: { test: (v) => ['sandbox', 'development', 'production', 'demo'].includes(v), hint: 'sandbox, development, production or demo' },
+  testMode: { test: (v) => ['true', 'false', '1', '0', 'yes', 'no'].includes(v.toLowerCase()), hint: 'true or false' },
+  redirectUri: { test: (v) => /^https?:\/\/(127\.0\.0\.1|localhost|[a-z0-9.-]+\.[a-z]{2,})(:\d+)?\/[A-Za-z0-9/._-]*$/.test(v), hint: 'the callback URL registered with the provider' },
+  companyUuid: { test: (v) => /^[A-Za-z0-9-]{1,80}$/.test(v), hint: 'the Gusto company uuid' },
 };
 
 export function checkConnectorField(field, value) {
@@ -66,10 +75,11 @@ export function publicChannelConfig(channel) {
   const spec = CONNECTOR_CHANNELS[channel];
   const cfg = loadChannelConfig(channel);
   if (!spec) return null;
-  if (!cfg) return { channel, title: spec.title, configured: false, kinds: spec.kinds, pushes: spec.pushes || [], fields: spec.fields, secrets: spec.secrets };
+  if (!cfg) return { channel, title: spec.title, country: spec.country || 'IN', configured: false, kinds: spec.kinds, pushes: spec.pushes || [], fields: spec.fields, secrets: spec.secrets, optional: (spec.optional || []).filter((f) => spec.fields.includes(f)) };
   const shown = {};
   for (const field of spec.fields) shown[field] = spec.secrets.includes(field) ? (cfg[field] ? 'set' : '') : cfg[field];
-  return { channel, title: spec.title, configured: spec.fields.every((field) => Boolean(cfg[field]) || field === 'region' || field === 'dc'), enabled: cfg.enabled, lastFetchedTo: cfg.lastFetchedTo, kinds: spec.kinds, pushes: spec.pushes || [], fields: spec.fields, secrets: spec.secrets, ...shown };
+  const optional = new Set([...(spec.optional || []), 'region', 'dc']);
+  return { channel, title: spec.title, country: spec.country || 'IN', configured: spec.fields.every((field) => Boolean(cfg[field]) || optional.has(field)), enabled: cfg.enabled, lastFetchedTo: cfg.lastFetchedTo, kinds: spec.kinds, pushes: spec.pushes || [], fields: spec.fields, secrets: spec.secrets, optional: [...optional].filter((f) => spec.fields.includes(f)), ...shown };
 }
 
 export function saveChannelConfig(channel, patch = {}) {
@@ -211,9 +221,10 @@ export async function fetchChannelReport(state, args = {}, { actor, config: give
     actor: actor || { userId: 'owner' },
     metadata: { channel, kind, from, to },
     payload: { channel, kind, from, to },
-    fixture: () => ({ ok: true, mock: true, simulated: true, data: { text: mockReport(channel, kind, from, to), source: `${channel}:${kind}:mock` } }),
+    fixture: () => ({ ok: true, mock: true, simulated: true, data: { text: spec.country === 'US' ? mockUsReport(channel, kind, from, to) : mockReport(channel, kind, from, to), source: `${channel}:${kind}:mock` } }),
     preflight: () => {
-      if (!config || !spec.fields.every((field) => Boolean(config[field]) || field === 'region')) return fail('CONNECTOR_NOT_CONFIGURED', { channel, fields: spec.fields, hint: `Save the ${spec.title} credentials first (set_channel_connector).` });
+      const optional = new Set([...(spec.optional || []), 'region']);
+      if (!config || !spec.fields.every((field) => Boolean(config[field]) || optional.has(field))) return fail('CONNECTOR_NOT_CONFIGURED', { channel, fields: spec.fields, hint: channel === 'plaid' ? 'Save the Plaid client id and secret, then link a bank (plaid_link_sandbox in the sandbox).' : channel === 'gusto' ? 'Save the Gusto client id and secret, then connect through gusto_connect_url.' : `Save the ${spec.title} credentials first (set_channel_connector).` });
       if (config.enabled === false) return fail('CONNECTOR_DISABLED', { channel });
       return null;
     },
@@ -224,17 +235,20 @@ export async function fetchChannelReport(state, args = {}, { actor, config: give
     if (channel === 'amazon') text = fetched.text;
     else if (channel === 'shopify') text = kind === 'orders' ? shopifyOrdersToCsv(fetched.pages) : shopifyPayoutsToCsv(fetched.pages, { from, to });
     else if (channel === 'razorpay') text = razorpayReconToCsv(fetched.rows, { from, to });
-    return { ok: true, data: { text, source: `${channel}:${kind}` } };
+    else if (channel === 'plaid') text = plaidTransactionsToCsv(fetched.transactions);
+    else if (channel === 'gusto') text = gustoPayrollsToCsv(fetched.payrolls);
+    return { ok: true, data: { text, source: `${channel}:${kind}`, cursor: fetched.cursor || '' } };
   });
   if (!result.ok) return result;
   const text = String(result.data?.text || '');
   if (!text.trim() || text.split(/\r?\n/).filter((line) => line.trim()).length < 2) return { ok: true, empty: true, channel, kind, from, to, mock: Boolean(result.mock), note: 'The channel returned no rows for the range.' };
   const stored = documentsOf(state).put(text);
   const name = `${channel}-${kind}-${from}-to-${to}.csv`;
-  const tool = kind === 'orders' ? 'import_marketplace_orders' : 'import_settlement';
+  const tool = kind === 'orders' ? 'import_marketplace_orders' : kind === 'bank' ? 'import_bank' : kind === 'payroll' ? '' : 'import_settlement';
+  if (channel === 'plaid' && !result.mock && result.data?.cursor) saveChannelConfig('plaid', { cursor: String(result.data.cursor) });
   state.attachments = state.attachments && typeof state.attachments === 'object' ? state.attachments : {};
   state.attachments[`channel:${channel}:${kind}`] = { sha256: stored.sha256, name, bytes: stored.bytes, at: new Date().toISOString(), channel, reportKind: kind, from, to, mock: Boolean(result.mock) };
-  const reminder = addReminder(state, { text: `${spec.title.split(' (')[0]} ${kind === 'orders' ? 'orders' : 'settlement'} report for ${from} to ${to} is in: ${name}. Import it to post.`, due: localToday(), documentSha256: stored.sha256, documentName: name, actorId: 'automation', today: localToday() });
+  const reminder = addReminder(state, { text: `${spec.title.split(' (')[0]} ${kind === 'orders' ? 'orders' : kind === 'bank' ? 'bank transactions' : kind === 'payroll' ? 'payroll summary' : 'settlement'} report for ${from} to ${to} is in: ${name}. ${kind === 'payroll' ? 'Keep it with the month; MyCA posts nothing from it yet.' : 'Import it to post.'}`, due: localToday(), documentSha256: stored.sha256, documentName: name, actorId: 'automation', today: localToday() });
   if (!result.mock) {
     if (onFetched) await onFetched(to);
     else if (!given) markFetched(channel, to);

@@ -166,6 +166,19 @@ CSV/XML import works with or without a live Tally connection.
 `NVIDIA_NIM_API_KEY=<key from build.nvidia.com>`. An LLM may only choose tools — it never
 produces a financial figure.
 
+## 6a. United States: Plaid, TaxJar, Gusto, Track1099 (2026-10-21)
+
+All four are saved from the **Sandbox keys** page (section 3, "Connectors") or with
+`set_channel_connector`, encrypted in the local vault. Pulls run behind the read-only
+switch `MYCA_ENABLE_CHANNEL_PULLS=1`; nothing here needs the government live switch.
+
+| Provider | What to get | What MyCA does |
+|---|---|---|
+| Plaid | `client_id` and the Sandbox secret from dashboard.plaid.com → Developers → Keys | `plaid_link_sandbox` links the Plaid test bank without Plaid Link (sandbox only); `fetch_channel_report {channel: plaid, kind: bank}` syncs transactions by cursor into a bank statement file that `import_bank` posts. Production needs Plaid Link in the app to obtain the public token. |
+| TaxJar | the API token from app.taxjar.com → Account → API Access (a Sandbox token on Professional and above, else the live token with `environment: production`) | `taxjar_rate {zip, city, state}` records the combined rate as the jurisdiction's sales tax rate from today |
+| Gusto | an application at dev.gusto.com with these redirect URIs registered: `http://127.0.0.1:4780/api/oauth/gusto/callback` and `http://localhost:4780/api/oauth/gusto/callback` (the hosted service will use `https://<api host>/v1/oauth/gusto/callback`); its Client ID and Client Secret, environment `demo` | `gusto_connect_url` opens the OAuth consent; the browser returns to MyCA, which exchanges the code (`gusto_callback`, state checked once) and keeps the tokens; `fetch_channel_report {channel: gusto, kind: payroll}` stores processed payroll summaries as a CSV. Nothing is posted from them yet. |
+| Track1099 | an account at track1099.com; the API key if you have one, `testMode: true` | the key is kept for the day the API routes are confirmed from Track1099's documentation; until then the 1099-NEC figures leave MyCA as a file |
+
 ## 7. Verify everything
 
 ```

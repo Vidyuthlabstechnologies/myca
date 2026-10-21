@@ -206,6 +206,12 @@ function handler(req, res) {
       });
       return res.end();
     }
+    if (req.method === 'GET' && url.pathname === '/api/oauth/gusto/callback') {
+      if (!session) return send(req, res, 503, { error: openError || 'books not open yet' });
+      const out = await session.tool('gusto_callback', { code: url.searchParams.get('code') || '', state: url.searchParams.get('state') || '' });
+      const page = `<!doctype html><meta charset="utf-8"><title>MyCA</title><body style="font:16px system-ui;background:#0c1220;color:#e8edf6;padding:40px"><h1>${out.ok ? 'Gusto is connected' : 'Gusto was not connected'}</h1><p>${out.ok ? 'MyCA keeps the tokens in its vault. You can close this tab and go back to MyCA.' : `${String(out.error || '')}${out.hint ? `: ${out.hint}` : ''}`}</p><p><a style="color:#4f8cff" href="/keys.html">Back to the keys page</a></p></body>`;
+      return send(req, res, out.ok ? 200 : 400, page, types['.html']);
+    }
     if (url.pathname.startsWith('/api/')) assertApiRequest(req);
     if (!session && url.pathname.startsWith('/api/')) {
       return send(req, res, 503, { error: openError || 'books not open yet' });

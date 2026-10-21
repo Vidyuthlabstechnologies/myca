@@ -108,6 +108,7 @@ import { providerCatalog, providerRequirementMap } from './provider-catalog.mjs'
 import { sandboxAdapterPlan } from './sandbox-adapter-contract.mjs';
 import { getSandboxClient, resetSandboxClient } from './sandbox-client.mjs';
 import { saveSandboxKeys, publicSandboxKeys, clearSandboxKeys } from './sandbox-keys.mjs';
+import { plaidLinkSandbox, taxjarRate, gustoConnectUrl, gustoCallback, usConnectorsStatus } from './us-connectors.mjs';
 import { getNimClient } from './nim-client.mjs';
 import { runSandboxOperation } from './sandbox-adapter.mjs';
 import { requestApproval, decideApproval, approvalStatus, normalizeActor } from './approvals.mjs';
@@ -1936,7 +1937,7 @@ export const TOOLS = [
     name: 'set_channel_connector',
     title: 'Connect a sales channel',
     description: 'Save the credentials for Amazon Seller Central (SP-API client id, secret, refresh token, marketplace id), Shopify (shop domain, Admin API access token) or Razorpay (key id, secret) in the local vault, or pause a connector. Secrets never appear in replies. Fetching still needs live calls on. Owner only; not for the assistant.',
-    args: ['channel', 'clientId', 'clientSecret', 'refreshToken', 'marketplaceId', 'region', 'shopDomain', 'accessToken', 'keyId', 'keySecret', 'enabled'],
+    args: ['channel', 'clientId', 'clientSecret', 'refreshToken', 'marketplaceId', 'region', 'shopDomain', 'accessToken', 'keyId', 'keySecret', 'orgId', 'dc', 'secret', 'environment', 'apiToken', 'apiKey', 'testMode', 'redirectUri', 'companyUuid', 'enabled'],
     run: (_state, args = {}) => {
       const { channel, ...patch } = args;
       const out = saveChannelConfig(String(channel || '').toLowerCase(), patch);
@@ -1959,6 +1960,40 @@ export const TOOLS = [
       const out = await pushZohoInvoices(state, args, { actor: resolveToolActor(args) });
       return out.ok === false ? fail(out.error, out) : ok(out);
     },
+  },
+  {
+    name: 'us_connectors',
+    title: 'US connectors',
+    description: 'Plaid, TaxJar, Gusto and Track1099 on this machine: what is saved (never a secret), whether each is linked, and the Gusto redirect URLs to register. Read-only.',
+    run: () => usConnectorsStatus(),
+  },
+  {
+    name: 'plaid_link_sandbox',
+    title: 'Link a Plaid sandbox bank',
+    description: 'In the Plaid sandbox, create a test bank item without Plaid Link (sandbox public token, then the exchange) and keep the access token in the vault, so fetch_channel_report { channel: "plaid", kind: "bank" } pulls its transactions. Behind the channel pull switch; mock mode simulates it.',
+    args: ['institutionId'],
+    run: async (state, args = {}) => plaidLinkSandbox(state, args, resolveToolActor(args)),
+  },
+  {
+    name: 'taxjar_rate',
+    title: 'Sales tax rate from TaxJar',
+    description: 'Look up the combined sales tax rate for a US zip code (with city and state) from TaxJar and record it as the rate for that jurisdiction from today, so invoices there use it. Behind the channel pull switch; mock mode returns a simulated Austin rate.',
+    args: ['zip', 'city', 'state', 'code', 'name', 'from', 'record'],
+    run: async (state, args = {}) => taxjarRate(state, args, resolveToolActor(args)),
+  },
+  {
+    name: 'gusto_connect_url',
+    title: 'Connect Gusto',
+    description: 'Build the Gusto OAuth link for the saved client id; opening it and allowing the app sends the browser back to MyCA, which exchanges the code for tokens and keeps them in the vault.',
+    args: ['redirectUri', 'port'],
+    run: (_state, args = {}) => gustoConnectUrl(args),
+  },
+  {
+    name: 'gusto_callback',
+    title: 'Finish the Gusto connection',
+    description: 'Exchange the code Gusto sent back for tokens (the state must match the link MyCA built). Called by the browser redirect; behind the channel pull switch.',
+    args: ['code', 'state'],
+    run: async (state, args = {}) => gustoCallback(state, args, resolveToolActor(args)),
   },
   {
     name: 'fetch_channel_report',
