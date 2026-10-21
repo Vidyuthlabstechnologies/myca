@@ -40,8 +40,9 @@ function publicView(channel, row) {
   const spec = CONNECTOR_CHANNELS[channel];
   const shown = {};
   for (const field of spec.fields) shown[field] = spec.secrets.includes(field) ? (row?.secretsSet?.includes(field) ? 'set' : '') : String(row?.fields?.[field] || '');
-  const configured = Boolean(row) && spec.fields.every((field) => field === 'region' || field === 'dc' || (spec.secrets.includes(field) ? row.secretsSet.includes(field) : Boolean(row.fields[field])));
-  return { channel, title: spec.title, configured, enabled: row ? row.enabled : true, lastFetchedTo: row?.lastFetchedTo || '', kinds: spec.kinds, pushes: spec.pushes || [], fields: spec.fields, secrets: spec.secrets, ...shown };
+  const optional = new Set([...(spec.optional || []), 'region', 'dc']);
+  const configured = Boolean(row) && spec.fields.every((field) => optional.has(field) || (spec.secrets.includes(field) ? row.secretsSet.includes(field) : Boolean(row.fields[field])));
+  return { channel, title: spec.title, country: spec.country || 'IN', configured, enabled: row ? row.enabled : true, lastFetchedTo: row?.lastFetchedTo || '', kinds: spec.kinds, pushes: spec.pushes || [], fields: spec.fields, secrets: spec.secrets, optional: [...optional].filter((f) => spec.fields.includes(f)), ...shown };
 }
 
 export function createConnectorStore({ db, key = '' }) {
@@ -95,6 +96,17 @@ export function createConnectorStore({ db, key = '' }) {
       });
     },
 
+    async load(businessId, channel) {
+      if (!enabled || !CONNECTOR_CHANNELS[channel]) return null;
+      const row = (await rowsFor((text, params) => db.query(text, params), businessId)).find((item) => item.channel === channel);
+      if (!row) return null;
+      return { ...row.fields, ...openSecrets(key, businessId, row.sealed), enabled: row.enabled, lastFetchedTo: row.lastFetchedTo };
+    },
+
+    async patch(businessId, channel, fields = {}) {
+      return this.save(businessId, { userId: null, deviceId: null, requestId: 'connector-flow' }, { channel, ...fields });
+    },
+
     async configured(businessId) {
       if (!enabled) return [];
       const rows = await rowsFor((text, params) => db.query(text, params), businessId);
@@ -105,6 +117,7 @@ export function createConnectorStore({ db, key = '' }) {
           lastFetchedTo: row.lastFetchedTo,
           config: { ...row.fields, ...openSecrets(key, businessId, row.sealed), enabled: true, lastFetchedTo: row.lastFetchedTo },
           onFetched: (to) => db.query('update business_connectors set last_fetched_to = $3 where business_id = $1 and channel = $2', [businessId, row.channel, to]),
+          onCursor: (cursor) => db.query("update business_connectors set fields = fields || jsonb_build_object('cursor', $3::text) where business_id = $1 and channel = $2", [businessId, row.channel, cursor]),
         }));
     },
   };

@@ -8,6 +8,7 @@ const PLAID_HOSTS = { sandbox: 'https://sandbox.plaid.com', development: 'https:
 const TAXJAR_HOSTS = { sandbox: 'https://api.sandbox.taxjar.com', production: 'https://api.taxjar.com' };
 const GUSTO_HOSTS = { demo: 'https://api.gusto-demo.com', production: 'https://api.gusto.com' };
 const GUSTO_VERSION = '2024-04-01';
+const TRACK1099_HOST = 'https://www.track1099.com';
 const POLL_MS = 15000;
 const POLL_LIMIT = 40;
 
@@ -199,6 +200,24 @@ export class ChannelClient {
     const data = await asJson(res);
     if (!res.ok || !Array.isArray(data)) return { ok: false, error: 'GUSTO_ERROR', status: res.status, detail: data.message || data.raw || '' };
     return { ok: true, payrolls: data };
+  }
+
+  async track1099({ config, op, params = {} }, signal) {
+    const base = `${TRACK1099_HOST}/api/v1/${encodeURIComponent(config.teamApiId)}`;
+    const headers = { authorization: `Bearer ${config.apiToken}`, accept: 'application/vnd.api+json' };
+    const read = async (res) => {
+      const data = await asJson(res);
+      if (!res.ok) return { ok: false, error: 'TRACK1099_ERROR', status: res.status, detail: Array.isArray(data.errors) ? data.errors.map((e) => e.detail || e.title || '').join('; ') : (data.raw || '') };
+      return { ok: true, data };
+    };
+    if (op === 'issuers') return read(await this.fetchFn(`${base}/issuers`, { headers, signal }));
+    if (op === 'job') return read(await this.fetchFn(`${base}/jobs/${encodeURIComponent(params.jobId)}`, { headers, signal }));
+    if (op === 'import') {
+      const form = new FormData();
+      form.set('csv_file', new Blob([params.csv], { type: 'text/csv' }), params.fileName || 'forms.csv');
+      return read(await this.fetchFn(`${base}/issuers/${encodeURIComponent(params.issuerId)}/import-forms`, { method: 'POST', headers, body: form, signal }));
+    }
+    return { ok: false, error: 'UNKNOWN_OP' };
   }
 
   async razorpay({ config, from, to }, signal) {

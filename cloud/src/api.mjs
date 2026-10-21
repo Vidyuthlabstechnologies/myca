@@ -16,6 +16,7 @@ import { createOidcVerifier } from './oidc.mjs';
 import { createDocumentVault } from './document-vault.mjs';
 import { createConnectorStore } from './connectors.mjs';
 import { syncChannels } from '../../platform/src/channel-connectors.mjs';
+import { plaidLinkToken, plaidExchange, gustoConnectUrl, gustoCallback, taxjarRate } from '../../platform/src/us-connectors.mjs';
 import { channelPullsEnabled } from '../../platform/src/runtime-config.mjs';
 import { CA_SYNC_MODES, syncOf } from './ca-sync.mjs';
 import { inWords } from '../../platform/src/words.mjs';
@@ -174,6 +175,12 @@ export function createApi({ db, secret, booksKey = '', otpSender = null, googleC
   const runner = createBooksRunner({ db, now, vault, booksKey });
   const connectors = createConnectorStore({ db, key: connectorKey });
   const withBooks = runner.withBooks;
+  const publicOrigin = (req) => {
+    const configured = String(process.env.MYCA_PUBLIC_URL || '').trim().replace(/\/+$/, '');
+    if (configured) return configured;
+    const host = String(req.headers['x-forwarded-host'] || req.headers.host || 'localhost').split(',')[0].trim();
+    return `${/^(localhost|127\.0\.0\.1)(:|$)/.test(host) ? 'http' : 'https'}://${host}`;
+  };
   const members = createMembers({ db, secret, now, notify: otpSender && typeof otpSender.sendText === 'function' ? (phone, text) => otpSender.sendText(phone, text) : null });
   const crashes = createCrashReports({ db, now });
   const inbound = createInbound({ db, secret, now, withBooks, email: { domain: inboundEmail.domain }, storedBytes: (businessId) => businesses.storedBytes(businessId), limitBytes: MAX_BUSINESS_BYTES });
@@ -211,6 +218,22 @@ export function createApi({ db, secret, booksKey = '', otpSender = null, googleC
     if (parts[1] === 'privacy-notice' && parts.length === 2 && method === 'GET') return { ok: true, notice: PRIVACY_NOTICE };
     if (parts[1] === 'auth' && parts[2] === 'methods' && parts.length === 3 && method === 'GET') {
       return { ok: true, phone: auth.phoneEnabled, google: google.enabled, oidc: openId.enabled, ...(openId.enabled ? { oidcIssuer: openId.issuer } : {}) };
+    }
+
+    if (parts[1] === 'oauth' && parts[2] === 'gusto' && parts[3] === 'callback' && parts.length === 4 && method === 'GET') {
+      const code = url.searchParams.get('code') || '';
+      const givenState = url.searchParams.get('state') || '';
+      const businessId = givenState.split('.')[0] || '';
+      const page = (ok, text) => ({ __html: `<!doctype html><meta charset="utf-8"><title>MyCA</title><body style="font:16px system-ui;background:#0c1220;color:#e8edf6;padding:40px"><h1>${ok ? 'Gusto is connected' : 'Gusto was not connected'}</h1><p>${text}</p><p>You can close this tab and go back to the MyCA app.</p></body>` });
+      if (!/^[0-9a-f-]{8,64}$/i.test(businessId)) return page(false, 'The link did not carry a business.');
+      const config = await connectors.load(businessId, 'gusto');
+      if (!config) return page(false, 'No Gusto application is saved for this business.');
+      const out = await withBooks(businessId, { userId: null, deviceId: null, requestId }, async (session) => {
+        const result = await gustoCallback(session.state, { code, state: givenState }, { userId: 'owner', role: 'owner' }, { config, save: (patch) => connectors.patch(businessId, 'gusto', patch) });
+        session.persist();
+        return result;
+      });
+      return page(out.ok, out.ok ? 'MyCA keeps the tokens sealed for this business.' : `${String(out.error || '')}${out.hint ? `: ${out.hint}` : ''}`);
     }
 
     if (parts[1] === 'auth' && method === 'POST') {
@@ -467,6 +490,21 @@ export function createApi({ db, secret, booksKey = '', otpSender = null, googleC
         if (role !== 'owner') throw httpError(403, 'OWNER_ONLY');
         return connectors.save(businessId, context, body);
       }
+      if (action === 'plaid-link-token' || action === 'plaid-exchange' || action === 'gusto-connect' || action === 'taxjar-rate') {
+        if (role !== 'owner') throw httpError(403, 'OWNER_ONLY');
+        const channel = action.startsWith('plaid') ? 'plaid' : action.startsWith('gusto') ? 'gusto' : 'taxjar';
+        if (!connectors.enabled) return { ok: false, error: 'CONNECTORS_UNAVAILABLE', hint: 'The service has no connector key; ask the operator to set MYCA_CONNECTOR_KEY.' };
+        const config = await connectors.load(businessId, channel);
+        const flow = { config, save: (patch) => connectors.patch(businessId, channel, patch) };
+        if (action === 'gusto-connect') return gustoConnectUrl({ redirectUri: body.redirectUri || `${publicOrigin(req)}/v1/oauth/gusto/callback`, statePrefix: businessId }, flow);
+        return withBooks(businessId, context, async (session) => {
+          const out = action === 'plaid-link-token' ? await plaidLinkToken(session.state, { userId: user.userId }, actor.actor, flow)
+            : action === 'plaid-exchange' ? await plaidExchange(session.state, { publicToken: body.publicToken }, actor.actor, flow)
+            : await taxjarRate(session.state, { zip: body.zip, city: body.city, state: body.state, code: body.code, name: body.name, record: body.record }, actor.actor, flow);
+          session.persist();
+          return out;
+        });
+      }
       if (action === 'connector-sync') {
         if (role !== 'owner') throw httpError(403, 'OWNER_ONLY');
         const configured = await connectors.configured(businessId);
@@ -537,6 +575,11 @@ export function createApi({ db, secret, booksKey = '', otpSender = null, googleC
       }
     }
     log({ requestId, method: req.method, path: new URL(req.url, 'http://localhost').pathname.replace(/[0-9a-f-]{36}/gi, ':id'), status });
+    if (body && typeof body === 'object' && typeof body.__html === 'string') {
+      res.writeHead(status, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'x-request-id': requestId });
+      res.end(body.__html);
+      return;
+    }
     if (body && typeof body === 'object' && typeof body.__text === 'string') {
       res.writeHead(status, { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store', 'x-request-id': requestId });
       res.end(body.__text);

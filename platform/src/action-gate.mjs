@@ -88,6 +88,8 @@ export const ACTION_CLASSES = Object.freeze(Object.assign(Object.create(null), {
   plaid_link: read('channel', ['channel.plaid']),
   taxjar_rate: read('channel', ['channel.taxjar']),
   gusto_token: read('channel', ['channel.gusto']),
+  track1099_read: read('channel', ['channel.track1099']),
+  track1099_import: write('channel', ['channel.track1099'], { timeoutMs: 5 * MINUTE_MS }),
 }));
 
 function transportOptions(ctx) {
@@ -140,6 +142,7 @@ const CHANNEL_TRANSPORT = Object.freeze({
   plaid: (ctx) => (request) => signalled(getChannelClient(), ctx.signal).plaid(request, ctx.signal),
   taxjar: (ctx) => (request) => signalled(getChannelClient(), ctx.signal).taxjar(request, ctx.signal),
   gusto: (ctx) => (request) => signalled(getChannelClient(), ctx.signal).gusto(request, ctx.signal),
+  track1099: (ctx) => (request) => signalled(getChannelClient(), ctx.signal).track1099(request, ctx.signal),
 });
 
 const TALLY_TRANSPORT = Object.freeze({

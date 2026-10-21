@@ -44,8 +44,46 @@ export function mockUsReport(channel, kind, from, to) {
   return '';
 }
 
-export async function plaidLinkSandbox(state, args = {}, actor) {
-  const config = loadChannelConfig('plaid');
+function store(channel, options = {}) {
+  return { config: options.config === undefined ? loadChannelConfig(channel) : options.config, save: options.save || ((patch) => saveChannelConfig(channel, patch)) };
+}
+
+export async function plaidLinkToken(state, args = {}, actor, options = {}) {
+  const { config } = store('plaid', options);
+  if (!config || !config.clientId || !config.secret) return fail('CONNECTOR_NOT_CONFIGURED', { channel: 'plaid', hint: 'Save the Plaid client id and secret first.' });
+  const out = await performExternalAction(state, {
+    actionId: 'plaid_link',
+    clientId: String(state.activeClientId || 'SELF'),
+    params: { op: 'link_token', environment: config.environment || 'sandbox', userId: String(args.userId || 'owner') },
+    actor: actor || { userId: 'owner' },
+    metadata: { op: 'link_token' },
+    fixture: () => ({ ok: true, mock: true, data: { link_token: 'link-sandbox-mock-token', expiration: '' } }),
+  }, async (transports) => transports.channel.plaid({ config, op: 'link_token', params: { userId: String(args.userId || 'owner') } }));
+  if (!out.ok) return out;
+  return { ok: true, data: { linkToken: out.data.link_token, expiration: out.data.expiration || '', environment: config.environment || 'sandbox', mock: Boolean(out.mock) } };
+}
+
+export async function plaidExchange(state, args = {}, actor, options = {}) {
+  const { config, save } = store('plaid', options);
+  if (!config || !config.clientId || !config.secret) return fail('CONNECTOR_NOT_CONFIGURED', { channel: 'plaid', hint: 'Save the Plaid client id and secret first.' });
+  const publicToken = String(args.publicToken || '').trim();
+  if (!/^public-[a-z]+-[A-Za-z0-9-]{8,}$/.test(publicToken)) return fail('BAD_PUBLIC_TOKEN', { hint: 'The public token comes from Plaid Link when the owner finishes choosing the bank.' });
+  const out = await performExternalAction(state, {
+    actionId: 'plaid_link',
+    clientId: String(state.activeClientId || 'SELF'),
+    params: { op: 'exchange', environment: config.environment || 'sandbox', tokenHash: createHash('sha256').update(publicToken).digest('hex').slice(0, 16) },
+    actor: actor || { userId: 'owner' },
+    metadata: { op: 'exchange' },
+    fixture: () => ({ ok: true, mock: true, data: { access_token: 'access-mock-exchange', item_id: 'mock-item-exchange' } }),
+  }, async (transports) => transports.channel.plaid({ config, op: 'exchange', params: { publicToken } }));
+  if (!out.ok) return out;
+  const saved = await save({ accessToken: out.data.access_token, itemId: out.data.item_id, cursor: '' });
+  if (saved && saved.ok === false) return saved;
+  return { ok: true, data: { channel: 'plaid', itemId: out.data.item_id, linkedOn: localToday(), mock: Boolean(out.mock) } };
+}
+
+export async function plaidLinkSandbox(state, args = {}, actor, options = {}) {
+  const { config, save } = store('plaid', options);
   if (!config || !config.clientId || !config.secret) return fail('CONNECTOR_NOT_CONFIGURED', { channel: 'plaid', hint: 'Save the Plaid client id and secret first.' });
   if ((config.environment || 'sandbox') !== 'sandbox') return fail('SANDBOX_ONLY', { hint: 'A test bank can be linked without Plaid Link only in the sandbox environment; production needs Plaid Link in the app.' });
   const institution = String(args.institutionId || PLAID_SANDBOX_INSTITUTION);
@@ -64,13 +102,13 @@ export async function plaidLinkSandbox(state, args = {}, actor) {
     return { ok: true, data: { accessToken: exchanged.data.access_token, itemId: exchanged.data.item_id, institution } };
   });
   if (!out.ok) return out;
-  const saved = saveChannelConfig('plaid', { accessToken: out.data.accessToken, itemId: out.data.itemId, cursor: '' });
-  if (!saved.ok) return saved;
+  const saved = await save({ accessToken: out.data.accessToken, itemId: out.data.itemId, cursor: '' });
+  if (saved && saved.ok === false) return saved;
   return { ok: true, data: { channel: 'plaid', itemId: out.data.itemId, institution: out.data.institution, mock: Boolean(out.mock), linkedOn: localToday(), next: 'fetch_channel_report { channel: "plaid", kind: "bank" } pulls the transactions; the desktop does it daily.' } };
 }
 
-export async function taxjarRate(state, args = {}, actor) {
-  const config = loadChannelConfig('taxjar');
+export async function taxjarRate(state, args = {}, actor, options = {}) {
+  const { config } = store('taxjar', options);
   if (!config || !config.apiToken) return fail('CONNECTOR_NOT_CONFIGURED', { channel: 'taxjar', hint: 'Save the TaxJar API token first.' });
   const zip = String(args.zip || '').trim();
   if (!/^\d{5}(-\d{4})?$/.test(zip)) return fail('BAD_ZIP', { hint: 'A US zip code is five digits, optionally plus four.' });
@@ -98,14 +136,14 @@ export function gustoRedirectUri({ host = '127.0.0.1', port = 4780, https = fals
   return `${https ? 'https' : 'http'}://${host}:${port}${GUSTO_REDIRECT_PATH}`;
 }
 
-export function gustoConnectUrl(args = {}) {
-  const config = loadChannelConfig('gusto');
+export async function gustoConnectUrl(args = {}, options = {}) {
+  const { config, save } = store('gusto', options);
   if (!config || !config.clientId || !config.clientSecret) return fail('CONNECTOR_NOT_CONFIGURED', { channel: 'gusto', hint: 'Save the Gusto client id and secret first.' });
   const environment = config.environment === 'production' ? 'production' : 'demo';
   const redirectUri = String(args.redirectUri || config.redirectUri || gustoRedirectUri({ port: Number(args.port || 4780) }));
-  const oauthState = randomBytes(16).toString('hex');
-  const saved = saveChannelConfig('gusto', { oauthState, redirectUri });
-  if (!saved.ok) return saved;
+  const oauthState = `${args.statePrefix ? `${args.statePrefix}.` : ''}${randomBytes(16).toString('hex')}`;
+  const saved = await save({ oauthState, redirectUri });
+  if (saved && saved.ok === false) return saved;
   const url = new URL(`${GUSTO_HOSTS[environment]}/oauth/authorize`);
   url.searchParams.set('client_id', config.clientId);
   url.searchParams.set('redirect_uri', redirectUri);
@@ -114,8 +152,8 @@ export function gustoConnectUrl(args = {}) {
   return { ok: true, data: { url: url.toString(), redirectUri, environment, note: 'Open the link, sign in to Gusto and allow the app; Gusto sends the browser back to MyCA, which exchanges the code for tokens and keeps them in the vault.' } };
 }
 
-export async function gustoCallback(state, args = {}, actor) {
-  const config = loadChannelConfig('gusto');
+export async function gustoCallback(state, args = {}, actor, options = {}) {
+  const { config, save } = store('gusto', options);
   if (!config || !config.clientId || !config.clientSecret) return fail('CONNECTOR_NOT_CONFIGURED', { channel: 'gusto' });
   const code = String(args.code || '').trim();
   const givenState = String(args.state || '').trim();
@@ -135,8 +173,8 @@ export async function gustoCallback(state, args = {}, actor) {
     return { ok: true, data: { accessToken: token.data.access_token, refreshToken: token.data.refresh_token, companyUuid: info.ok ? String(info.data?.resource?.uuid || '') : '', expiresIn: token.data.expires_in } };
   });
   if (!out.ok) return out;
-  const saved = saveChannelConfig('gusto', { accessToken: out.data.accessToken, refreshToken: out.data.refreshToken, companyUuid: out.data.companyUuid, oauthState: '' });
-  if (!saved.ok) return saved;
+  const saved = await save({ accessToken: out.data.accessToken, refreshToken: out.data.refreshToken, companyUuid: out.data.companyUuid, oauthState: '' });
+  if (saved && saved.ok === false) return saved;
   return { ok: true, data: { channel: 'gusto', companyUuid: out.data.companyUuid, connectedOn: localToday(), mock: Boolean(out.mock) } };
 }
 

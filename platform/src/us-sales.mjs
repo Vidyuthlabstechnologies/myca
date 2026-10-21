@@ -244,8 +244,11 @@ export function planContractor(state, args = {}) {
   const tinLast4 = String(args.tinLast4 || '').replace(/\D/g, '');
   if (tinLast4 && tinLast4.length !== 4) return fail('BAD_TIN_LAST4');
   const w9Name = String(args.w9Name || '').trim().slice(0, 120);
+  const address = args.address == null ? null : String(args.address).trim().slice(0, 200);
+  const email = args.email == null ? null : String(args.email).trim().toLowerCase().slice(0, 120);
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return fail('BAD_EMAIL');
   const existing = (state.vendors || []).find((vendor) => vendor.name.toLowerCase() === name.toLowerCase()) || null;
-  return { ok: true, contractor: { partyName: existing ? existing.name : name, contractor, entityType, tinLast4, w9Name, w9Received: Boolean(args.w9Received) }, existing };
+  return { ok: true, contractor: { partyName: existing ? existing.name : name, contractor, entityType, tinLast4, w9Name, w9Received: Boolean(args.w9Received), address, email }, existing };
 }
 
 export function setContractor(state, args = {}) {
@@ -254,7 +257,9 @@ export function setContractor(state, args = {}) {
   const vendor = ensureVendor(state, { name: plan.contractor.partyName, gstin: '', stateCode: '' });
   vendor.contractor = plan.contractor.contractor;
   vendor.w9 = { name: plan.contractor.w9Name, entityType: plan.contractor.entityType, tinLast4: plan.contractor.tinLast4, received: plan.contractor.w9Received, on: localToday() };
-  return { ok: true, vendor: { name: vendor.name, contractor: vendor.contractor, w9: vendor.w9 } };
+  if (plan.contractor.address != null) vendor.address = plan.contractor.address;
+  if (plan.contractor.email != null) vendor.email = plan.contractor.email;
+  return { ok: true, vendor: { name: vendor.name, contractor: vendor.contractor, w9: vendor.w9, address: vendor.address || '', email: vendor.email || '' } };
 }
 
 export function contractorPayments(state, args = {}) {

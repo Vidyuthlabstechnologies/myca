@@ -136,9 +136,9 @@ test('Gusto: the connect link carries a one-time state, the callback refuses a f
 
 test('Track1099 keys are kept for the day the API is wired; the US connectors view masks every secret; mock mode simulates all four without a network', async () => {
   const state = usBooks();
-  const saved = await runTool(state, 'set_channel_connector', { channel: 'track1099', apiKey: 'track-key-1', testMode: 'true' });
+  const saved = await runTool(state, 'set_channel_connector', { channel: 'track1099', apiToken: 'track-key-1', teamApiId: 'team-1', testMode: 'true' });
   assert.equal(saved.ok, true, JSON.stringify(saved));
-  assert.equal(saved.data.apiKey, 'set');
+  assert.equal(saved.data.apiToken, 'set');
   const view = await runTool(state, 'us_connectors', {});
   assert.deepEqual(view.data.connectors.map((c) => c.channel), ['plaid', 'taxjar', 'gusto', 'track1099']);
   assert.ok(view.data.connectors.every((c) => !JSON.stringify(c).includes('track-key-1')));
