@@ -4,6 +4,7 @@ const { pathToFileURL } = require('url');
 const { writeFileSync, unlinkSync } = require('fs');
 const { randomBytes } = require('crypto');
 const { checkForUpdate } = require('./update-check.cjs');
+const { fetchAndVerify, runInstallerSilently } = require('./update-install.cjs');
 
 const PORT = process.env.PORT ? Number(process.env.PORT) : app.isPackaged ? 0 : 4780;
 if (app.isPackaged) process.env.MYCA_REQUIRE_SAFE_STORAGE = '1';
@@ -82,16 +83,34 @@ async function offerUpdate() {
   if (!app.isPackaged && !process.env.MYCA_UPDATE_URL) return;
   const found = await checkForUpdate({ current: app.getVersion() });
   if (!found.ok || !found.newer) return;
+  const canInstall = Boolean(found.assets) && process.platform === 'win32';
   const { response } = await dialog.showMessageBox(mainWindow, {
     type: 'info',
     title: 'MyCA update',
     message: `MyCA ${found.latest} is available; you have ${found.current}.`,
-    detail: 'The download opens in your browser. Your books stay where they are; install the new version over this one.',
-    buttons: found.url ? ['Download', 'Later'] : ['OK'],
+    detail: canInstall
+      ? 'MyCA downloads the installer, checks its SHA-256 against the release and its publisher signature, then installs it quietly and restarts. Your books stay where they are.'
+      : 'The download opens in your browser. Your books stay where they are; install the new version over this one.',
+    buttons: canInstall ? ['Install now', 'Later'] : found.url ? ['Download', 'Later'] : ['OK'],
     defaultId: 0,
     cancelId: 1,
   });
-  if (response === 0 && found.url) await shell.openExternal(found.url);
+  if (response !== 0) return;
+  if (!canInstall) {
+    if (found.url) await shell.openExternal(found.url);
+    return;
+  }
+  const verified = await fetchAndVerify(found);
+  if (!verified.ok) {
+    const why = verified.error === 'SIGNATURE_NOT_VALID' || verified.error === 'SIGNATURE_WRONG_PUBLISHER' || verified.error === 'SIGNATURE_UNREADABLE'
+      ? 'The installer is not signed by the MyCA publisher yet, so it was not run.'
+      : verified.error === 'SHA256_MISMATCH' ? 'The download did not match the checksum published with the release, so it was not run.' : `The download did not complete (${verified.error}).`;
+    const { response: fallback } = await dialog.showMessageBox(mainWindow, { type: 'warning', title: 'MyCA update', message: 'MyCA could not install the update itself.', detail: `${why}${found.url ? ' You can download it from the release page instead.' : ''}`, buttons: found.url ? ['Open release page', 'Later'] : ['OK'], defaultId: 0, cancelId: 1 });
+    if (fallback === 0 && found.url) await shell.openExternal(found.url);
+    return;
+  }
+  runInstallerSilently(verified.path);
+  app.quit();
 }
 
 app.whenReady().then(async () => {

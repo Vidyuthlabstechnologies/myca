@@ -228,10 +228,14 @@ Today the `.exe` is unsigned → users see a SmartScreen prompt. To sign, add tw
 | Secret | Value |
 |---|---|
 | `CSC_LINK` | base64 of your `.pfx` (or a `data:` URL / file URL) |
+| `MYCA_UPDATE_PUBLISHER` (build-time env, optional) | the publisher name the installed app expects in the installer's Authenticode subject before it installs an update quietly; default `Vidyuthlabs`. Set it to match the certificate's subject |
 | `CSC_KEY_PASSWORD` | the `.pfx` password |
 | `ANDROID_KEYSTORE_BASE64` | base64 of the Play upload keystore (`upload.jks`); without it the Android build is signed with the debug key and cannot go to Play |
 | `ANDROID_KEYSTORE_PASSWORD` | the keystore password |
 | `ANDROID_KEY_ALIAS` | the key alias inside it |
+| `APPLE_CERTIFICATE_BASE64`, `APPLE_CERTIFICATE_PASSWORD` | the Apple Distribution certificate with its key as a base64 `.p12`, and its password; without them the iOS build is unsigned |
+| `APPLE_PROVISIONING_PROFILE_BASE64`, `APPLE_PROFILE_NAME`, `APPLE_TEAM_ID` | the App Store provisioning profile for `com.mldynamic.myca` (base64), its name, and the team id |
+| `APP_STORE_CONNECT_KEY_ID`, `APP_STORE_CONNECT_ISSUER_ID`, `APP_STORE_CONNECT_API_KEY_BASE64` | an App Store Connect API key (App Manager) and its `.p8`; with them the signed IPA is uploaded to TestFlight |
 | `ANDROID_KEY_PASSWORD` | the key password |
 
 `electron-builder` signs whenever `CSC_LINK` is set (there is no `signExecutable` switch in

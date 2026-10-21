@@ -398,5 +398,245 @@ export const RULES = [
     section: 'Schedule entry 1',
     source: 'Sikkim Tax on Professions, Trades, Callings and Employments Act 2006 (Gazette 1 April 2006) and Rules of 18 July 2006: up to twenty thousand rupees a month nil, twenty to thirty thousand one hundred and twenty-five, thirty to forty thousand one hundred and fifty, above forty thousand two hundred; figures as published by payroll and tax sites in 2025-26 and checked against each other on 2026-10-19; the Gazette was not read for this record',
     attestations: []
+  },
+  {
+    id: 'payroll.pt.34',
+    value: {
+      state: 'Puducherry',
+      basis: 'half-yearly',
+      slabs: { all: [{ payUpToPaise: 9999999, paise: 0 }, { payUpToPaise: 20000000, paise: 250 * RUPEE }, { payUpToPaise: 30000000, paise: 500 * RUPEE }, { payUpToPaise: 40000000, paise: 750 * RUPEE }, { payUpToPaise: 50000000, paise: 1000 * RUPEE }, { payUpToPaise: null, paise: 1250 * RUPEE }] },
+      deductedInMonths: [6, 12]
+    },
+    basis: 'professional_tax_by_pay_slab',
+    effectiveFrom: '2017-05-17',
+    effectiveTo: IN_FORCE,
+    act: 'PY-MA-1973',
+    section: 'Schedule IV',
+    source: 'Puducherry Municipalities Act 1973, Schedule IV as substituted by Act 5 of 2017 in force from 17 May 2017, by half-yearly pay: up to ninety-nine thousand nine hundred and ninety-nine rupees nil, then two hundred and fifty, five hundred, seven hundred and fifty, one thousand, and one thousand two hundred and fifty above five lakh, paid by 30 June and 31 December (MyCA deducts in June and December); the half-yearly pay is taken as six times the month\'s full pay; figures as published by the Pondicherry Municipality tariff page and payroll sites and checked against each other on 2026-10-21',
+    attestations: []
+  },
+  {
+    id: 'payroll.pt.01',
+    value: {
+      state: 'Jammu and Kashmir',
+      basis: 'monthly',
+      slabs: { all: [{ payUpToPaise: null, paise: 0 }] },
+      levied: false
+    },
+    basis: 'professional_tax_by_pay_slab',
+    effectiveFrom: '2000-04-01',
+    effectiveTo: IN_FORCE,
+    act: 'JK-PT-NONE',
+    section: 'Article 276 of the Constitution',
+    source: 'No professional tax is deducted in Jammu and Kashmir: Article 276 of the Constitution permits a state or union territory to levy a tax on professions, trades, callings and employments up to two thousand five hundred rupees a year, but no profession tax law has been enacted for the union territory; checked against published state-wise tables on 2026-10-21',
+    attestations: []
+  },
+  {
+    id: 'payroll.pt.02',
+    value: {
+      state: 'Himachal Pradesh',
+      basis: 'monthly',
+      slabs: { all: [{ payUpToPaise: null, paise: 0 }] },
+      levied: false
+    },
+    basis: 'professional_tax_by_pay_slab',
+    effectiveFrom: '2000-04-01',
+    effectiveTo: IN_FORCE,
+    act: 'HP-PT-NONE',
+    section: 'Article 276 of the Constitution',
+    source: 'No professional tax is deducted in Himachal Pradesh: Article 276 of the Constitution permits a state or union territory to levy a tax on professions, trades, callings and employments up to two thousand five hundred rupees a year, but the state has enacted no profession tax law; checked against published state-wise tables on 2026-10-21',
+    attestations: []
+  },
+  {
+    id: 'payroll.pt.04',
+    value: {
+      state: 'Chandigarh',
+      basis: 'monthly',
+      slabs: { all: [{ payUpToPaise: null, paise: 0 }] },
+      levied: false
+    },
+    basis: 'professional_tax_by_pay_slab',
+    effectiveFrom: '2000-04-01',
+    effectiveTo: IN_FORCE,
+    act: 'CH-PT-NONE',
+    section: 'Article 276 of the Constitution',
+    source: 'No professional tax is deducted in Chandigarh: Article 276 of the Constitution permits a state or union territory to levy a tax on professions, trades, callings and employments up to two thousand five hundred rupees a year, but no profession tax law has been enacted for the union territory; checked against published state-wise tables on 2026-10-21',
+    attestations: []
+  },
+  {
+    id: 'payroll.pt.05',
+    value: {
+      state: 'Uttarakhand',
+      basis: 'monthly',
+      slabs: { all: [{ payUpToPaise: null, paise: 0 }] },
+      levied: false
+    },
+    basis: 'professional_tax_by_pay_slab',
+    effectiveFrom: '2000-04-01',
+    effectiveTo: IN_FORCE,
+    act: 'UK-PT-NONE',
+    section: 'Article 276 of the Constitution',
+    source: 'No professional tax is deducted in Uttarakhand: Article 276 of the Constitution permits a state or union territory to levy a tax on professions, trades, callings and employments up to two thousand five hundred rupees a year, but the state has enacted no profession tax law; checked against published state-wise tables on 2026-10-21',
+    attestations: []
+  },
+  {
+    id: 'payroll.pt.06',
+    value: {
+      state: 'Haryana',
+      basis: 'monthly',
+      slabs: { all: [{ payUpToPaise: null, paise: 0 }] },
+      levied: false
+    },
+    basis: 'professional_tax_by_pay_slab',
+    effectiveFrom: '2000-04-01',
+    effectiveTo: IN_FORCE,
+    act: 'HR-PT-NONE',
+    section: 'Article 276 of the Constitution',
+    source: 'No professional tax is deducted in Haryana: Article 276 of the Constitution permits a state or union territory to levy a tax on professions, trades, callings and employments up to two thousand five hundred rupees a year, but the state has enacted no profession tax law; checked against published state-wise tables on 2026-10-21',
+    attestations: []
+  },
+  {
+    id: 'payroll.pt.07',
+    value: {
+      state: 'Delhi',
+      basis: 'monthly',
+      slabs: { all: [{ payUpToPaise: null, paise: 0 }] },
+      levied: false
+    },
+    basis: 'professional_tax_by_pay_slab',
+    effectiveFrom: '2000-04-01',
+    effectiveTo: IN_FORCE,
+    act: 'DL-PT-NONE',
+    section: 'Article 276 of the Constitution',
+    source: 'No professional tax is deducted in Delhi: Article 276 of the Constitution permits a state or union territory to levy a tax on professions, trades, callings and employments up to two thousand five hundred rupees a year, but no profession tax law has been enacted for the national capital territory; checked against published state-wise tables on 2026-10-21',
+    attestations: []
+  },
+  {
+    id: 'payroll.pt.08',
+    value: {
+      state: 'Rajasthan',
+      basis: 'monthly',
+      slabs: { all: [{ payUpToPaise: null, paise: 0 }] },
+      levied: false
+    },
+    basis: 'professional_tax_by_pay_slab',
+    effectiveFrom: '2000-04-01',
+    effectiveTo: IN_FORCE,
+    act: 'RJ-PT-NONE',
+    section: 'Article 276 of the Constitution',
+    source: 'No professional tax is deducted in Rajasthan: Article 276 of the Constitution permits a state or union territory to levy a tax on professions, trades, callings and employments up to two thousand five hundred rupees a year, but the state has enacted no profession tax law; checked against published state-wise tables on 2026-10-21',
+    attestations: []
+  },
+  {
+    id: 'payroll.pt.09',
+    value: {
+      state: 'Uttar Pradesh',
+      basis: 'monthly',
+      slabs: { all: [{ payUpToPaise: null, paise: 0 }] },
+      levied: false
+    },
+    basis: 'professional_tax_by_pay_slab',
+    effectiveFrom: '2000-04-01',
+    effectiveTo: IN_FORCE,
+    act: 'UP-PT-NONE',
+    section: 'Article 276 of the Constitution',
+    source: 'No professional tax is deducted in Uttar Pradesh: Article 276 of the Constitution permits a state or union territory to levy a tax on professions, trades, callings and employments up to two thousand five hundred rupees a year, but the state has enacted no profession tax law; checked against published state-wise tables on 2026-10-21',
+    attestations: []
+  },
+  {
+    id: 'payroll.pt.12',
+    value: {
+      state: 'Arunachal Pradesh',
+      basis: 'monthly',
+      slabs: { all: [{ payUpToPaise: null, paise: 0 }] },
+      levied: false
+    },
+    basis: 'professional_tax_by_pay_slab',
+    effectiveFrom: '2000-04-01',
+    effectiveTo: IN_FORCE,
+    act: 'AR-PT-NONE',
+    section: 'Article 276 of the Constitution',
+    source: 'No professional tax is deducted in Arunachal Pradesh: Article 276 of the Constitution permits a state or union territory to levy a tax on professions, trades, callings and employments up to two thousand five hundred rupees a year, but the state has enacted no profession tax law; checked against published state-wise tables on 2026-10-21',
+    attestations: []
+  },
+  {
+    id: 'payroll.pt.26',
+    value: {
+      state: 'Dadra and Nagar Haveli and Daman and Diu',
+      basis: 'monthly',
+      slabs: { all: [{ payUpToPaise: null, paise: 0 }] },
+      levied: false
+    },
+    basis: 'professional_tax_by_pay_slab',
+    effectiveFrom: '2000-04-01',
+    effectiveTo: IN_FORCE,
+    act: 'DD-PT-NONE',
+    section: 'Article 276 of the Constitution',
+    source: 'No professional tax is deducted in Dadra and Nagar Haveli and Daman and Diu: Article 276 of the Constitution permits a state or union territory to levy a tax on professions, trades, callings and employments up to two thousand five hundred rupees a year, but no profession tax law has been enacted for the union territory; checked against published state-wise tables on 2026-10-21',
+    attestations: []
+  },
+  {
+    id: 'payroll.pt.30',
+    value: {
+      state: 'Goa',
+      basis: 'monthly',
+      slabs: { all: [{ payUpToPaise: null, paise: 0 }] },
+      levied: false
+    },
+    basis: 'professional_tax_by_pay_slab',
+    effectiveFrom: '2000-04-01',
+    effectiveTo: IN_FORCE,
+    act: 'GA-PT-NONE',
+    section: 'Article 276 of the Constitution',
+    source: 'No professional tax is deducted in Goa: Article 276 of the Constitution permits a state or union territory to levy a tax on professions, trades, callings and employments up to two thousand five hundred rupees a year, but the state has enacted no profession tax law; checked against published state-wise tables on 2026-10-21',
+    attestations: []
+  },
+  {
+    id: 'payroll.pt.31',
+    value: {
+      state: 'Lakshadweep',
+      basis: 'monthly',
+      slabs: { all: [{ payUpToPaise: null, paise: 0 }] },
+      levied: false
+    },
+    basis: 'professional_tax_by_pay_slab',
+    effectiveFrom: '2000-04-01',
+    effectiveTo: IN_FORCE,
+    act: 'LD-PT-NONE',
+    section: 'Article 276 of the Constitution',
+    source: 'No professional tax is deducted in Lakshadweep: Article 276 of the Constitution permits a state or union territory to levy a tax on professions, trades, callings and employments up to two thousand five hundred rupees a year, but no profession tax law has been enacted for the union territory; checked against published state-wise tables on 2026-10-21',
+    attestations: []
+  },
+  {
+    id: 'payroll.pt.35',
+    value: {
+      state: 'Andaman and Nicobar Islands',
+      basis: 'monthly',
+      slabs: { all: [{ payUpToPaise: null, paise: 0 }] },
+      levied: false
+    },
+    basis: 'professional_tax_by_pay_slab',
+    effectiveFrom: '2000-04-01',
+    effectiveTo: IN_FORCE,
+    act: 'AN-PT-NONE',
+    section: 'Article 276 of the Constitution',
+    source: 'No professional tax is deducted in Andaman and Nicobar Islands: Article 276 of the Constitution permits a state or union territory to levy a tax on professions, trades, callings and employments up to two thousand five hundred rupees a year, but no profession tax law has been enacted for the union territory; checked against published state-wise tables on 2026-10-21',
+    attestations: []
+  },
+  {
+    id: 'payroll.pt.38',
+    value: {
+      state: 'Ladakh',
+      basis: 'monthly',
+      slabs: { all: [{ payUpToPaise: null, paise: 0 }] },
+      levied: false
+    },
+    basis: 'professional_tax_by_pay_slab',
+    effectiveFrom: '2000-04-01',
+    effectiveTo: IN_FORCE,
+    act: 'LA-PT-NONE',
+    section: 'Article 276 of the Constitution',
+    source: 'No professional tax is deducted in Ladakh: Article 276 of the Constitution permits a state or union territory to levy a tax on professions, trades, callings and employments up to two thousand five hundred rupees a year, but no profession tax law has been enacted for the union territory; checked against published state-wise tables on 2026-10-21',
+    attestations: []
   }
 ];

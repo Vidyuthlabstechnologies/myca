@@ -141,7 +141,7 @@ test('the desktop update check compares release tags and only offers a download 
   assert.equal(parseLatest({ tag_name: 'v0.3.1', prerelease: true }), null);
   const fetchImpl = async () => ({ ok: true, json: async () => ({ tag_name: 'v0.2.0', html_url: 'https://github.com/Vidyuthlabstechnologies/myca/releases/tag/v0.2.0' }) });
   const found = await checkForUpdate({ current: '0.1.0', fetchImpl });
-  assert.deepEqual(found, { ok: true, newer: true, current: '0.1.0', latest: '0.2.0', url: 'https://github.com/Vidyuthlabstechnologies/myca/releases/tag/v0.2.0' });
+  assert.deepEqual(found, { ok: true, newer: true, current: '0.1.0', latest: '0.2.0', url: 'https://github.com/Vidyuthlabstechnologies/myca/releases/tag/v0.2.0', assets: null });
   assert.equal((await checkForUpdate({ current: '0.2.0', fetchImpl })).newer, false);
   assert.equal((await checkForUpdate({ current: '0.1.0', fetchImpl: async () => { throw new Error('offline'); } })).error, 'UPDATE_UNREACHABLE');
 });

@@ -31,6 +31,22 @@ submitting.
 
 ## 3. Signing and TestFlight
 
+The workflow `.github/workflows/build-ios.yml` signs and uploads to TestFlight on its own
+once these repository secrets exist (until then it only uploads the unsigned app):
+
+| Secret | What |
+|---|---|
+| `APPLE_CERTIFICATE_BASE64` | the Apple Distribution certificate with its key, as a base64 `.p12` |
+| `APPLE_CERTIFICATE_PASSWORD` | the `.p12` password |
+| `APPLE_PROVISIONING_PROFILE_BASE64` | the App Store provisioning profile for `com.mldynamic.myca`, base64 |
+| `APPLE_PROFILE_NAME` | that profile's name as shown in the developer portal |
+| `APPLE_TEAM_ID` | the ten-character team id |
+| `APP_STORE_CONNECT_KEY_ID`, `APP_STORE_CONNECT_ISSUER_ID`, `APP_STORE_CONNECT_API_KEY_BASE64` | an App Store Connect API key (App Manager role) and its `.p8`, base64 |
+
+Push a `v*` tag and the signed build lands in TestFlight; the manual steps below remain
+the fallback and the way to do the first upload from a Mac.
+
+
 1. Open `mobile/ios/Runner.xcworkspace` in Xcode on a Mac after `flutter pub get` and
    `pod install` in `mobile/ios`.
 2. In Signing & Capabilities, choose the team and let Xcode manage the distribution

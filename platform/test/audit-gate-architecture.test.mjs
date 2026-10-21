@@ -12,6 +12,7 @@ const TRANSPORT_MODULES = new Set(['sandbox-client.mjs', 'nic-client.mjs', 'nim-
 const PENDING_LATER_SLICES = new Set([
   'document-reader.mjs -> model-adapter.mjs',
   'expense-head-model.mjs -> model-adapter.mjs',
+  'chat-language.mjs -> model-adapter.mjs',
   'router.mjs -> model-adapter.mjs',
   'govt.mjs -> nic-client.mjs',
   'govt.mjs -> reachability.mjs',

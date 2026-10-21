@@ -1,6 +1,7 @@
 const RELEASES_URL = 'https://api.github.com/repos/Vidyuthlabstechnologies/myca/releases/latest';
 const DOWNLOAD_HOST = /^https:\/\/github\.com\/Vidyuthlabstechnologies\/myca\/releases\//;
 const TIMEOUT_MS = 8000;
+const { pickAssets } = require('./update-install.cjs');
 
 function parseVersion(value) {
   const m = /^v?(\d+)\.(\d+)\.(\d+)/.exec(String(value || '').trim());
@@ -20,7 +21,7 @@ function parseLatest(body) {
   const version = parseVersion(body.tag_name) ? String(body.tag_name).replace(/^v/, '') : null;
   if (!version || body.draft === true || body.prerelease === true) return null;
   const url = String(body.html_url || '');
-  return { version, url: DOWNLOAD_HOST.test(url) ? url : '' };
+  return { version, url: DOWNLOAD_HOST.test(url) ? url : '', assets: pickAssets(body.assets) };
 }
 
 async function checkForUpdate({ current, fetchImpl = globalThis.fetch, url = process.env.MYCA_UPDATE_URL || RELEASES_URL } = {}) {
@@ -30,7 +31,7 @@ async function checkForUpdate({ current, fetchImpl = globalThis.fetch, url = pro
     if (!res.ok) return { ok: false, error: 'UPDATE_HTTP_ERROR', status: res.status };
     const latest = parseLatest(await res.json());
     if (!latest) return { ok: true, newer: false, current };
-    return { ok: true, newer: compareVersions(latest.version, current) > 0, current, latest: latest.version, url: latest.url };
+    return { ok: true, newer: compareVersions(latest.version, current) > 0, current, latest: latest.version, url: latest.url, assets: latest.assets };
   } catch (err) {
     return { ok: false, error: err && err.name === 'TimeoutError' ? 'UPDATE_TIMEOUT' : 'UPDATE_UNREACHABLE' };
   }

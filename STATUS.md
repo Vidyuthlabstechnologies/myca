@@ -41,6 +41,19 @@ and [`README.md`](README.md) for what is left and how it is being done.
   confirm it on the number already on file; a bulk NEFT file for the bills the payment run
   proposes, one row per supplier, with the suppliers lacking details named; MyCA moves no
   money. The Monday brief names customers who have gone quiet
+- Sandbox keys page (2026-10-21): `keys.html` beside the desktop (the "Sandbox keys" link on the
+  tabs) with the steps to get a Sandbox by Quicko key and the NIC e-invoice sandbox credentials;
+  Save stores them encrypted in the local vault, the next sandbox call uses them, and the page
+  runs the status and provider checks straight away; `.env` variables still win when set
+- Leftovers closed (2026-10-21): Hindi and Telugu in chat through the model (the message is
+  translated to English, the books change exactly as in English, the reply comes back in the
+  owner's language; a translation that changes any figure is refused and nothing is recorded;
+  without a model key the reply says so in that language); the packaged desktop installs an
+  update quietly once the installer is signed (SHA-256 from the release, Authenticode subject
+  must name the publisher, silent NSIS run, else it opens the release page); the iOS workflow
+  signs and uploads to TestFlight once the Apple secrets exist; professional tax for Puducherry
+  (half-yearly) and nil records for Arunachal Pradesh, the union territories and the states
+  that levy none, so no payroll calls a state unknown
 - Phone (2026-10-20): the iOS target beside Android (Xcode project, permissions, notifications,
   an unsigned build on macOS in CI, the App Store checklist; not yet built on a Mac); the
   Reports screen; a photographed receipt matched to a posted expense with one tap to attach;
@@ -249,7 +262,7 @@ no live switch, no CA approvals, and no bytes leaving the PC.
 | Firm backend | The hosted API (`cloud/`) is built with accounts, tenancy, roles, backups and a daily job, and deploys itself once a Google Cloud project exists. Built 2026-10-16: the Cloud Storage document vault (`MYCA_DOCUMENT_BUCKET`; bytes by sha256 per business, Postgres keeps the index, every read re-verifies the hash; Terraform creates the bucket) and OpenID Connect sign-in for a firm's own identity provider (`POST /v1/auth/oidc`, `MYCA_OIDC_ISSUER` and `MYCA_OIDC_CLIENT_IDS`, keys through discovery). Left: the Google Cloud project, and an OIDC sign-in screen in the app once a firm names its issuer |
 | D2C and marketplace brands (decided 2026-10-16, `docs/superpowers/specs/2026-10-16-d2c-programme.md`) | Built 2026-10-16: D1 settlement reconciliation, D2 orders and returns with settlements posting, D3 TCS and 194-O credits against the portal statement and 26AS, D4 several GSTINs under one business with stock transfers, D5 SKU costs, stock and margins, D7 the daily close; on the phone as the Marketplace screen, the close on Home and registration-scoped Taxes. D6 connectors built to the credential boundary 2026-10-16 (`set_channel_connector`, `fetch_channel_report`, `sync_channels` for Amazon SP-API, Shopify and Razorpay through the action gate with mock fixtures; the desktop fetches daily; Flipkart, Myntra, Nykaa, Meesho and Unicommerce stay file imports). Hosted pulls built 2026-10-16: each business saves its connector credentials on the hosted API (`POST /v1/businesses/:id/connectors`, sealed per business with `MYCA_CONNECTOR_KEY`, never shown back), the nightly job and `POST .../connector-sync` pull through the gate behind the separate read-only switch `MYCA_ENABLE_CHANNEL_PULLS` (government and model calls stay behind the live switch, which the hosted API still refuses). Left to go live: seller credentials and the owner turning the pull switch on; and D8: the WhatsApp webhook is built on the hosted API (Meta Cloud API, signature-checked, members matched by number, the same preview-and-confirm chat; 2026-10-16) and waits on a WhatsApp Business account; Hindi and Telugu wait on the model decision |
 | UI polish | Invoice design built 2026-10-16 (colour, layout, bank details, terms, footer, signatory, HSN column; desktop print and app PDF). Export invoices in a foreign currency (2026-10-15) cover the multi-currency need for Indian businesses; the desktop has keyboard shortcuts (Ctrl+K or / for chat, Ctrl+1 to 8 for the tabs, Esc clears) |
-| Ops | Custom domain + TLS active, GitHub Pro branch protection, code-signing certificate. The packaged app checks the project's GitHub release page on launch and offers the download (2026-10-20); silent in-place updating waits on the code-signing certificate |
+| Ops | Custom domain + TLS active, GitHub Pro branch protection, code-signing certificate. The packaged app checks the project's GitHub release page on launch; once the installer is signed by the publisher it downloads, verifies and installs it quietly (2026-10-21), until then it offers the download |
 
 ## Known limitations (stated honestly, not hidden)
 

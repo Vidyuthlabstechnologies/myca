@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="myca-api-token" content="__MYCA_API_TOKEN__" />
+  <title>MyCA sandbox keys</title>
+  <style>
+    :root { --bg: #0c1220; --card: #141c2e; --line: #26324a; --ink: #e8edf6; --mute: #9aa7bf; --ok: #3ccf8e; --warn: #f2b84b; --bad: #ef6a6a; --accent: #4f8cff; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 system-ui, "Segoe UI", sans-serif; }
+    main { max-width: 920px; margin: 0 auto; padding: 24px 16px 64px; }
+    h1 { font-size: 24px; margin: 0 0 4px; }
+    h2 { font-size: 18px; margin: 0 0 12px; }
+    p { margin: 0 0 10px; }
+    .mute { color: var(--mute); }
+    .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; margin: 18px 0; }
+    ol { padding-left: 22px; margin: 6px 0 14px; }
+    li { margin: 4px 0; }
+    label { display: block; font-size: 13px; color: var(--mute); margin: 10px 0 4px; }
+    input, select { width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--line); background: #0f1626; color: var(--ink); font: inherit; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    @media (max-width: 640px) { .row { grid-template-columns: 1fr; } }
+    .actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+    button { padding: 10px 18px; border-radius: 8px; border: 1px solid var(--line); background: var(--accent); color: #fff; font: inherit; cursor: pointer; }
+    button.ghost { background: transparent; color: var(--ink); }
+    button[disabled] { opacity: 0.6; cursor: wait; }
+    .status { margin-top: 14px; padding: 12px 14px; border-radius: 8px; border: 1px solid var(--line); background: #0f1626; white-space: pre-wrap; font-size: 14px; }
+    .status.ok { border-color: var(--ok); }
+    .status.warn { border-color: var(--warn); }
+    .status.bad { border-color: var(--bad); }
+    code { background: #0f1626; padding: 1px 6px; border-radius: 4px; font-size: 13px; }
+    a { color: var(--accent); }
+    .top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="top">
+      <div>
+        <h1>Sandbox keys</h1>
+        <p class="mute">Saved encrypted on this machine (<span id="vault">…</span>) and used by every sandbox test the moment you click Save. Nothing leaves this PC except the test call itself.</p>
+      </div>
+      <a href="/">← Back to MyCA</a>
+    </div>
+
+    <section class="card">
+      <h2>1. Sandbox by Quicko (GSTIN checks, returns, GSTR-2B job, TDS, e-invoice)</h2>
+      <p class="mute">How to get the keys:</p>
+      <ol>
+        <li>Open <a href="https://developer.sandbox.co.in" target="_blank" rel="noopener">developer.sandbox.co.in</a> and sign up with your work email (free; the TEST plan needs no card).</li>
+        <li>Verify the email, sign in, and open <strong>API keys</strong> in the left menu.</li>
+        <li>Click <strong>Create key</strong>, name it <code>MyCA test</code>, and copy the <strong>API key</strong> and the <strong>API secret</strong>. The secret is shown once; if you lose it, create a new key.</li>
+        <li>For sandbox testing keep the environment on <strong>Test</strong>; it talks to <code>test-api.sandbox.co.in</code>, which answers with fixture data and the same taxpayer for every GSTIN. Switch to <strong>Live</strong> only with a paid plan and a live key.</li>
+        <li>Paste both below and click <strong>Save and test</strong>.</li>
+      </ol>
+      <form id="sandbox">
+        <div class="row">
+          <div>
+            <label for="environment">Environment</label>
+            <select id="environment" name="environment"><option value="test">Test (test-api.sandbox.co.in)</option><option value="live">Live (api.sandbox.co.in)</option></select>
+          </div>
+          <div>
+            <label for="baseUrl">Base URL (leave empty for the default of the environment)</label>
+            <input id="baseUrl" name="baseUrl" placeholder="https://test-api.sandbox.co.in" autocomplete="off" />
+          </div>
+        </div>
+        <div class="row">
+          <div>
+            <label for="apiKey">API key <span id="keyHint" class="mute"></span></label>
+            <input id="apiKey" name="apiKey" autocomplete="off" spellcheck="false" />
+          </div>
+          <div>
+            <label for="apiSecret">API secret</label>
+            <input id="apiSecret" name="apiSecret" type="password" autocomplete="off" spellcheck="false" />
+          </div>
+        </div>
+        <div class="actions">
+          <button type="submit" id="save">Save and test</button>
+          <button type="button" class="ghost" id="test">Test again</button>
+          <button type="button" class="ghost" id="clear">Forget keys</button>
+        </div>
+      </form>
+      <div id="sandboxStatus" class="status mute">Loading…</div>
+    </section>
+
+    <section class="card">
+      <h2>2. NIC e-invoice sandbox (IRN and e-way bill)</h2>
+      <p class="mute">How to get the credentials:</p>
+      <ol>
+        <li>Open <a href="https://einv-apisandbox.nic.in" target="_blank" rel="noopener">einv-apisandbox.nic.in</a> and register with your GSTIN; choose <strong>User type: Tax Payer</strong> (not GSP).</li>
+        <li>After the OTP sign-up, open <strong>API credentials</strong>: note the <strong>Client ID</strong> and <strong>Client Secret</strong> NIC issues for the sandbox.</li>
+        <li>Create an <strong>API user</strong> (username and password) under the same menu; this is different from the portal login.</li>
+        <li>Download the sandbox public key (<code>.cer</code>) from the same page; MyCA uses it to encrypt the session key. Paste its PEM text below or leave it for later.</li>
+        <li>Paste everything below and click <strong>Save</strong>. The live NIC portal needs separate production onboarding; keep this on Sandbox.</li>
+      </ol>
+      <form id="nic">
+        <div class="row">
+          <div><label for="gstin">GSTIN</label><input id="gstin" name="gstin" autocomplete="off" spellcheck="false" /></div>
+          <div><label for="clientId">Client ID</label><input id="clientId" name="clientId" autocomplete="off" spellcheck="false" /></div>
+        </div>
+        <div class="row">
+          <div><label for="clientSecret">Client secret</label><input id="clientSecret" name="clientSecret" type="password" autocomplete="off" /></div>
+          <div><label for="username">API user name</label><input id="username" name="username" autocomplete="off" spellcheck="false" /></div>
+        </div>
+        <div class="row">
+          <div><label for="password">API user password</label><input id="password" name="password" type="password" autocomplete="off" /></div>
+          <div><label for="publicKeyPem">Sandbox public key (PEM, optional)</label><input id="publicKeyPem" name="publicKeyPem" autocomplete="off" spellcheck="false" placeholder="-----BEGIN CERTIFICATE-----…" /></div>
+        </div>
+        <div class="actions">
+          <button type="submit" id="saveNic">Save</button>
+        </div>
+      </form>
+      <div id="nicStatus" class="status mute">Loading…</div>
+    </section>
+
+    <section class="card">
+      <h2>3. What a sandbox test needs besides the keys</h2>
+      <p>Sandbox calls leave this PC only when the live switch is on: set <code>MYCA_ENABLE_LIVE_CALLS=1</code> and <code>MYCA_MOCK_MODE=0</code> in <code>platform/.env</code> and restart MyCA. With the switch off, every call is recorded as a dry run and nothing is sent, which is the safe default. Writes (saving or filing a return, generating an IRN) also need a CA approval; reads (GSTIN checks, status, reconciliation jobs) do not.</p>
+      <div id="doctor" class="status mute">Run a test above to see the provider check.</div>
+    </section>
+  </main>
+  <script>
+    const token = (window.myca && window.myca.apiToken) || document.querySelector('meta[name="myca-api-token"]').content || '';
+    const headers = { 'content-type': 'application/json', 'x-myca-client': token };
+    const $ = (id) => document.getElementById(id);
+    async function tool(name, args = {}) {
+      const r = await fetch('/api/tool', { method: 'POST', headers, body: JSON.stringify({ name, args }) });
+      return r.json();
+    }
+    function show(el, text, kind) {
+      el.textContent = text;
+      el.className = `status ${kind || ''}`.trim();
+    }
+    function sandboxWords(s) {
+      if (!s || s.ok === false && !s.data) return `Not checked: ${s && s.error ? s.error : 'no answer'}`;
+      const d = s.data || s;
+      if (d.mock) return `Mock mode is on (MYCA_MOCK_MODE=1): the keys are saved and the sandbox is simulated. Turn mock mode off and the live switch on in platform/.env to call test-api.sandbox.co.in for real.`;
+      if (!d.configured) return 'No keys yet. Paste the API key and secret above and click Save and test.';
+      if (d.live === false && d.hint) return `Keys saved (${d.environment || ''} ${d.baseUrl || ''}). ${d.hint}`;
+      return `${d.ok ? 'Reachable' : 'Not reachable'}: ${d.environment || ''} ${d.baseUrl || ''}${d.ms != null ? ` in ${d.ms} ms` : ''}${d.hint ? `. ${d.hint}` : ''}${d.error ? `. ${d.error}` : ''}`;
+    }
+    async function refresh() {
+      const keys = await tool('sandbox_keys');
+      const k = keys.data || {};
+      $('vault').textContent = k.vault || 'local vault';
+      $('environment').value = k.environment || 'test';
+      $('baseUrl').placeholder = k.baseUrl || '';
+      $('keyHint').textContent = k.apiKeySet ? `(saved ${k.savedOn || ''}, ends ${k.apiKeyHint})` : '(none saved)';
+      const nic = await tool('govt_status');
+      const n = nic.data || {};
+      show($('nicStatus'), n.gstin || n.clientIdSet ? `Saved for ${n.env || 'sandbox'}: GSTIN ${n.gstin || '—'}, client id ${n.clientIdSet ? 'set' : 'missing'}, API user ${n.username || '—'}, password ${n.passwordSet ? 'set' : 'missing'}, public key ${n.publicKeySet ? 'set' : 'missing'}.` : 'No NIC sandbox credentials saved yet.', n.clientIdSet && n.passwordSet ? 'ok' : 'warn');
+      if (n.gstin) $('gstin').value = n.gstin;
+      if (n.username) $('username').value = n.username;
+    }
+    async function runTest() {
+      show($('sandboxStatus'), 'Testing…');
+      const status = await tool('sandbox_status');
+      const d = status.data || status;
+      show($('sandboxStatus'), sandboxWords(status), d.mock ? 'warn' : d.ok && d.configured ? 'ok' : d.configured ? 'warn' : 'bad');
+      const doctor = await tool('provider_doctor');
+      const lines = [];
+      const providers = (doctor.data && (doctor.data.providers || doctor.data)) || {};
+      for (const [name, info] of Object.entries(providers)) if (info && typeof info === 'object' && ('status' in info || 'reachable' in info || 'configured' in info)) lines.push(`${name}: ${info.status || (info.reachable ? 'reachable' : 'not reachable')}${info.reason ? ` (${info.reason})` : ''}${info.environment ? ` [${info.environment}]` : ''}`);
+      show($('doctor'), lines.length ? lines.join('\n') : JSON.stringify(doctor.data || doctor, null, 2), 'mute');
+    }
+    $('sandbox').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      $('save').disabled = true;
+      const args = { environment: $('environment').value, apiKey: $('apiKey').value.trim(), apiSecret: $('apiSecret').value.trim() };
+      if ($('baseUrl').value.trim()) args.baseUrl = $('baseUrl').value.trim();
+      const saved = await tool('sandbox_save_keys', args);
+      $('save').disabled = false;
+      if (!saved.ok) { show($('sandboxStatus'), `Not saved: ${saved.hint || saved.error}`, 'bad'); return; }
+      $('apiKey').value = '';
+      $('apiSecret').value = '';
+      await refresh();
+      await runTest();
+    });
+    $('test').addEventListener('click', runTest);
+    $('clear').addEventListener('click', async () => {
+      await tool('sandbox_clear_keys');
+      await refresh();
+      show($('sandboxStatus'), 'Keys forgotten on this machine.', 'warn');
+    });
+    $('nic').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      $('saveNic').disabled = true;
+      const args = { env: 'sandbox' };
+      for (const id of ['gstin', 'clientId', 'clientSecret', 'username', 'password', 'publicKeyPem']) if ($(id).value.trim()) args[id] = $(id).value.trim();
+      const saved = await tool('govt_save_credentials', args);
+      $('saveNic').disabled = false;
+      if (!saved.ok) { show($('nicStatus'), `Not saved: ${saved.error || 'unknown'}`, 'bad'); return; }
+      for (const id of ['clientSecret', 'password', 'publicKeyPem']) $(id).value = '';
+      await refresh();
+      await runTest();
+    });
+    refresh().then(runTest).catch((err) => show($('sandboxStatus'), `MyCA did not answer: ${err.message}`, 'bad'));
+  </script>
+</body>
+</html>
