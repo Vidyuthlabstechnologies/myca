@@ -102,8 +102,10 @@ async function offerUpdate() {
   }
   const verified = await fetchAndVerify(found);
   if (!verified.ok) {
-    const why = verified.error === 'SIGNATURE_NOT_VALID' || verified.error === 'SIGNATURE_WRONG_PUBLISHER' || verified.error === 'SIGNATURE_UNREADABLE'
-      ? 'The installer is not signed by the MyCA publisher yet, so it was not run.'
+    const why = verified.error === 'SIGNER_NOT_PINNED'
+      ? 'This build of MyCA does not yet carry the publisher certificate to check against, so the installer was not run.'
+      : verified.error === 'SIGNATURE_NOT_VALID' || verified.error === 'SIGNATURE_WRONG_PUBLISHER' || verified.error === 'SIGNATURE_UNREADABLE'
+      ? 'The installer is not signed by the MyCA publisher, so it was not run.'
       : verified.error === 'SHA256_MISMATCH' ? 'The download did not match the checksum published with the release, so it was not run.' : `The download did not complete (${verified.error}).`;
     const { response: fallback } = await dialog.showMessageBox(mainWindow, { type: 'warning', title: 'MyCA update', message: 'MyCA could not install the update itself.', detail: `${why}${found.url ? ' You can download it from the release page instead.' : ''}`, buttons: found.url ? ['Open release page', 'Later'] : ['OK'], defaultId: 0, cancelId: 1 });
     if (fallback === 0 && found.url) await shell.openExternal(found.url);

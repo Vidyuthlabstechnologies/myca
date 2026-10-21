@@ -9,7 +9,10 @@ const { join } = require('path');
 const INSTALLER = /^MyCA Setup \d+\.\d+\.\d+\.exe$/;
 const SUMS = 'SHA256SUMS';
 const MAX_INSTALLER_BYTES = 400 * 1024 * 1024;
-const DEFAULT_PUBLISHER = process.env.MYCA_UPDATE_PUBLISHER || 'Vidyuthlabs';
+const TRUSTED_SIGNER = Object.freeze({
+  commonName: 'Vidyuthlabs Technologies Private Limited',
+  thumbprints: Object.freeze([]),
+});
 
 function pickAssets(assets) {
   const list = Array.isArray(assets) ? assets : [];
@@ -55,7 +58,13 @@ async function download(url, path, { fetchImpl = globalThis.fetch, maxBytes = MA
   return { ok: true, path, bytes: seen };
 }
 
-function signatureVerdict(stdout, publisher = DEFAULT_PUBLISHER) {
+function commonNameOf(subject) {
+  const m = /(?:^|,\s*)CN=("(?:[^"\\]|\\.)*"|[^,]*)/.exec(String(subject || ''));
+  if (!m) return '';
+  return m[1].startsWith('"') ? m[1].slice(1, -1).replace(/\\(.)/g, '$1').trim() : m[1].trim();
+}
+
+function signatureVerdict(stdout, signer = TRUSTED_SIGNER) {
   let parsed;
   try {
     parsed = JSON.parse(String(stdout || '').trim());
@@ -64,21 +73,24 @@ function signatureVerdict(stdout, publisher = DEFAULT_PUBLISHER) {
   }
   const status = String(parsed.Status || '');
   const subject = String(parsed.Subject || '');
+  const thumbprint = String(parsed.Thumbprint || '').toUpperCase();
   if (status !== 'Valid') return { ok: false, error: 'SIGNATURE_NOT_VALID', status, subject };
-  if (!subject.toLowerCase().includes(String(publisher).toLowerCase())) return { ok: false, error: 'SIGNATURE_WRONG_PUBLISHER', status, subject };
-  return { ok: true, subject };
+  if (!signer.thumbprints.length) return { ok: false, error: 'SIGNER_NOT_PINNED', status, subject, thumbprint };
+  if (!signer.thumbprints.includes(thumbprint)) return { ok: false, error: 'SIGNATURE_WRONG_PUBLISHER', status, subject, thumbprint };
+  if (commonNameOf(subject) !== signer.commonName) return { ok: false, error: 'SIGNATURE_WRONG_PUBLISHER', status, subject, thumbprint };
+  return { ok: true, subject, thumbprint };
 }
 
 function authenticode(path) {
   return new Promise((resolve) => {
-    const script = `$s = Get-AuthenticodeSignature -LiteralPath '${path.replace(/'/g, "''")}'; [pscustomobject]@{ Status = $s.Status.ToString(); Subject = if ($s.SignerCertificate) { $s.SignerCertificate.Subject } else { '' } } | ConvertTo-Json -Compress`;
+    const script = `$s = Get-AuthenticodeSignature -LiteralPath '${path.replace(/'/g, "''")}'; [pscustomobject]@{ Status = $s.Status.ToString(); Subject = if ($s.SignerCertificate) { $s.SignerCertificate.Subject } else { '' }; Thumbprint = if ($s.SignerCertificate) { $s.SignerCertificate.Thumbprint } else { '' } } | ConvertTo-Json -Compress`;
     execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', script], { timeout: 60000, windowsHide: true }, (err, stdout) => {
       resolve(err ? { ok: false, error: 'SIGNATURE_CHECK_FAILED', detail: String(err.message || err) } : { ok: true, stdout: String(stdout || '') });
     });
   });
 }
 
-async function fetchAndVerify(found, { fetchImpl = globalThis.fetch, checkSignature = authenticode, publisher = DEFAULT_PUBLISHER, dir = mkdtempSync(join(tmpdir(), 'myca-update-')) } = {}) {
+async function fetchAndVerify(found, { fetchImpl = globalThis.fetch, checkSignature = authenticode, signer = TRUSTED_SIGNER, dir = mkdtempSync(join(tmpdir(), 'myca-update-')) } = {}) {
   const assets = found && found.assets;
   if (!assets) return { ok: false, error: 'NO_INSTALLER_ASSET' };
   const sumsRes = await fetchImpl(assets.sums.url, { redirect: 'follow', signal: AbortSignal.timeout(30000) });
@@ -92,9 +104,9 @@ async function fetchAndVerify(found, { fetchImpl = globalThis.fetch, checkSignat
   if (actual !== expected) return { ok: false, error: 'SHA256_MISMATCH', expected, actual };
   const checked = await checkSignature(path);
   if (!checked.ok) return checked;
-  const verdict = signatureVerdict(checked.stdout, publisher);
+  const verdict = signatureVerdict(checked.stdout, signer);
   if (!verdict.ok) return { ...verdict, path };
-  return { ok: true, path, sha256: actual, subject: verdict.subject };
+  return { ok: true, path, sha256: actual, subject: verdict.subject, thumbprint: verdict.thumbprint };
 }
 
 function runInstallerSilently(path, spawnImpl = spawn) {
@@ -103,4 +115,4 @@ function runInstallerSilently(path, spawnImpl = spawn) {
   return { ok: true, pid: child.pid };
 }
 
-module.exports = { pickAssets, parseSums, fileSha256, download, signatureVerdict, authenticode, fetchAndVerify, runInstallerSilently, INSTALLER, DEFAULT_PUBLISHER };
+module.exports = { pickAssets, parseSums, fileSha256, download, signatureVerdict, commonNameOf, authenticode, fetchAndVerify, runInstallerSilently, INSTALLER, TRUSTED_SIGNER };
