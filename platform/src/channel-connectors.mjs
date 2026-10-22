@@ -18,7 +18,7 @@ export const CONNECTOR_CHANNELS = {
   plaid: { title: 'Plaid (US bank feeds)', fields: ['clientId', 'secret', 'environment', 'accessToken', 'itemId', 'cursor'], secrets: ['secret', 'accessToken'], optional: ['itemId', 'cursor'], kinds: ['bank'], country: 'US' },
   taxjar: { title: 'TaxJar (US sales tax rates)', fields: ['apiToken', 'environment'], secrets: ['apiToken'], optional: ['environment'], kinds: [], country: 'US' },
   gusto: { title: 'Gusto (US payroll)', fields: ['clientId', 'clientSecret', 'environment', 'redirectUri', 'accessToken', 'refreshToken', 'companyUuid', 'oauthState'], secrets: ['clientSecret', 'accessToken', 'refreshToken'], optional: ['environment', 'redirectUri', 'companyUuid', 'oauthState'], kinds: ['payroll'], country: 'US' },
-  track1099: { title: 'Track1099 (US 1099 e-filing)', fields: ['apiKey', 'testMode'], secrets: ['apiKey'], optional: ['testMode'], kinds: [], country: 'US' },
+  track1099: { title: 'Track1099 (US 1099 e-filing)', fields: ['apiToken', 'teamApiId', 'testMode'], secrets: ['apiToken'], optional: ['testMode'], kinds: [], country: 'US' },
 };
 const FIELD_RULES = {
   shopDomain: { test: (v) => /^[a-z0-9][a-z0-9-]{0,98}\.myshopify\.com$/.test(v), hint: 'the shop host, like nalanda.myshopify.com' },
@@ -32,6 +32,7 @@ const FIELD_RULES = {
   testMode: { test: (v) => ['true', 'false', '1', '0', 'yes', 'no'].includes(v.toLowerCase()), hint: 'true or false' },
   redirectUri: { test: (v) => /^https?:\/\/(127\.0\.0\.1|localhost|[a-z0-9.-]+\.[a-z]{2,})(:\d+)?\/[A-Za-z0-9/._-]*$/.test(v), hint: 'the callback URL registered with the provider' },
   companyUuid: { test: (v) => /^[A-Za-z0-9-]{1,80}$/.test(v), hint: 'the Gusto company uuid' },
+  teamApiId: { test: (v) => /^[A-Za-z0-9_-]{1,80}$/.test(v), hint: 'the Team API ID shown under the API tokens on the Track1099 Account page' },
 };
 
 export function checkConnectorField(field, value) {
@@ -56,9 +57,13 @@ function readFile() {
   try { return JSON.parse(readFileSync(p, 'utf8')); } catch { return {}; }
 }
 
+export function localConnectorsAllowed() {
+  return String(process.env.MYCA_HOSTED || '').trim() !== '1';
+}
+
 export function loadChannelConfig(channel) {
   const spec = CONNECTOR_CHANNELS[channel];
-  if (!spec) return null;
+  if (!spec || !localConnectorsAllowed()) return null;
   const raw = readFile()[channel];
   if (!raw) return null;
   const out = {};
@@ -85,6 +90,7 @@ export function publicChannelConfig(channel) {
 export function saveChannelConfig(channel, patch = {}) {
   const spec = CONNECTOR_CHANNELS[channel];
   if (!spec) return fail('UNKNOWN_CONNECTOR', { channel, known: Object.keys(CONNECTOR_CHANNELS), fileOnly: FILE_ONLY_CHANNELS });
+  if (!localConnectorsAllowed()) return fail('LOCAL_CONNECTORS_UNAVAILABLE', { channel, hint: 'On the hosted service credentials are saved per business through its connectors route, never on the machine.' });
   const all = readFile();
   const before = all[channel] || { secrets: {} };
   const next = { ...before, secrets: { ...(before.secrets || {}) }, vault: vaultBackend() };
@@ -204,7 +210,7 @@ function mockReport(channel, kind, from, to) {
   ]);
 }
 
-export async function fetchChannelReport(state, args = {}, { actor, config: given = null, onFetched = null } = {}) {
+export async function fetchChannelReport(state, args = {}, { actor, config: given = null, onFetched = null, onCursor = null } = {}) {
   const channel = String(args.channel || '').trim().toLowerCase();
   const spec = CONNECTOR_CHANNELS[channel];
   if (!spec) return fail('UNKNOWN_CONNECTOR', { channel, known: Object.keys(CONNECTOR_CHANNELS), fileOnly: FILE_ONLY_CHANNELS[channel] || '' });
@@ -245,7 +251,10 @@ export async function fetchChannelReport(state, args = {}, { actor, config: give
   const stored = documentsOf(state).put(text);
   const name = `${channel}-${kind}-${from}-to-${to}.csv`;
   const tool = kind === 'orders' ? 'import_marketplace_orders' : kind === 'bank' ? 'import_bank' : kind === 'payroll' ? '' : 'import_settlement';
-  if (channel === 'plaid' && !result.mock && result.data?.cursor) saveChannelConfig('plaid', { cursor: String(result.data.cursor) });
+  if (channel === 'plaid' && !result.mock && result.data?.cursor) {
+    if (given && onCursor) await onCursor(String(result.data.cursor));
+    else if (!given) saveChannelConfig('plaid', { cursor: String(result.data.cursor) });
+  }
   state.attachments = state.attachments && typeof state.attachments === 'object' ? state.attachments : {};
   state.attachments[`channel:${channel}:${kind}`] = { sha256: stored.sha256, name, bytes: stored.bytes, at: new Date().toISOString(), channel, reportKind: kind, from, to, mock: Boolean(result.mock) };
   const reminder = addReminder(state, { text: `${spec.title.split(' (')[0]} ${kind === 'orders' ? 'orders' : kind === 'bank' ? 'bank transactions' : kind === 'payroll' ? 'payroll summary' : 'settlement'} report for ${from} to ${to} is in: ${name}. ${kind === 'payroll' ? 'Keep it with the month; MyCA posts nothing from it yet.' : 'Import it to post.'}`, due: localToday(), documentSha256: stored.sha256, documentName: name, actorId: 'automation', today: localToday() });
@@ -268,7 +277,7 @@ export async function syncChannels(state, args = {}, { actor, connectors = null 
     if (!CONNECTOR_CHANNELS[channel]) continue;
     const from = item.lastFetchedTo || undefined;
     for (const kind of CONNECTOR_CHANNELS[channel].kinds) {
-      const out = await fetchChannelReport(state, { channel, kind, from, to: args.to || today }, { actor, config: item.config || null, onFetched: item.onFetched || null });
+      const out = await fetchChannelReport(state, { channel, kind, from, to: args.to || today }, { actor, config: item.config || null, onFetched: item.onFetched || null, onCursor: item.onCursor || null });
       results.push({ channel, kind, ok: out.ok !== false, error: out.error || '', empty: Boolean(out.empty), rows: out.rows || 0, documentSha256: out.documentSha256 || '', reminderId: out.reminderId || '', reminderError: out.reminderError || '', mock: Boolean(out.mock), dryRun: Boolean(out.dryRun) });
     }
   }

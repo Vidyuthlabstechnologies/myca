@@ -108,7 +108,8 @@ import { providerCatalog, providerRequirementMap } from './provider-catalog.mjs'
 import { sandboxAdapterPlan } from './sandbox-adapter-contract.mjs';
 import { getSandboxClient, resetSandboxClient } from './sandbox-client.mjs';
 import { saveSandboxKeys, publicSandboxKeys, clearSandboxKeys } from './sandbox-keys.mjs';
-import { plaidLinkSandbox, taxjarRate, gustoConnectUrl, gustoCallback, usConnectorsStatus } from './us-connectors.mjs';
+import { plaidLinkSandbox, plaidLinkToken, plaidExchange, taxjarRate, gustoConnectUrl, gustoCallback, usConnectorsStatus } from './us-connectors.mjs';
+import { track1099Csv, track1099Issuers, track1099Import, track1099Job } from './track1099.mjs';
 import { getNimClient } from './nim-client.mjs';
 import { runSandboxOperation } from './sandbox-adapter.mjs';
 import { requestApproval, decideApproval, approvalStatus, normalizeActor } from './approvals.mjs';
@@ -662,7 +663,7 @@ export const TOOLS = [
     name: 'set_contractor',
     title: 'Contractor',
     description: 'Mark a supplier as a contractor whose payments count towards a 1099-NEC, with the W-9 details kept (name, entity type, last four of the TIN, whether the W-9 was received). US only.',
-    args: ['partyName', 'contractor', 'w9Name', 'entityType', 'tinLast4', 'w9Received'],
+    args: ['partyName', 'contractor', 'w9Name', 'entityType', 'tinLast4', 'w9Received', 'address', 'email'],
     run: (state, args = {}) => setContractor(state, args),
   },
   {
@@ -1975,6 +1976,20 @@ export const TOOLS = [
     run: async (state, args = {}) => plaidLinkSandbox(state, args, resolveToolActor(args)),
   },
   {
+    name: 'plaid_link_token',
+    title: 'Plaid Link token',
+    description: 'Create the short-lived Plaid Link token the app opens Plaid Link with, so the owner can choose their real bank; the public token that comes back goes to plaid_exchange. Behind the channel pull switch. Read-only.',
+    args: ['userId'],
+    run: async (state, args = {}) => plaidLinkToken(state, args, resolveToolActor(args)),
+  },
+  {
+    name: 'plaid_exchange',
+    title: 'Finish the Plaid link',
+    description: 'Exchange the public token from Plaid Link for the access token and keep it in the vault, so the bank transactions pull from then on. Behind the channel pull switch.',
+    args: ['publicToken'],
+    run: async (state, args = {}) => plaidExchange(state, args, resolveToolActor(args)),
+  },
+  {
     name: 'taxjar_rate',
     title: 'Sales tax rate from TaxJar',
     description: 'Look up the combined sales tax rate for a US zip code (with city and state) from TaxJar and record it as the rate for that jurisdiction from today, so invoices there use it. Behind the channel pull switch; mock mode returns a simulated Austin rate.',
@@ -1994,6 +2009,33 @@ export const TOOLS = [
     description: 'Exchange the code Gusto sent back for tokens (the state must match the link MyCA built). Called by the browser redirect; behind the channel pull switch.',
     args: ['code', 'state'],
     run: async (state, args = {}) => gustoCallback(state, args, resolveToolActor(args)),
+  },
+  {
+    name: 'track1099_csv',
+    title: '1099-NEC forms in Track1099\'s template',
+    description: 'The year\'s 1099-NEC recipients as the CSV Track1099 imports, column for column (reference id, names, federal id type, address, email, box 1). The TIN column stays blank because MyCA keeps only the last four digits. Read-only.',
+    args: ['year'],
+    run: (state, args = {}) => track1099Csv(state, args),
+  },
+  {
+    name: 'track1099_issuers',
+    title: 'Payers in Track1099',
+    description: 'List the payers (issuers) in the Track1099 account, with their ids, so the forms can be imported under the right one. Behind the channel pull switch. Read-only.',
+    run: async (state, args = {}) => track1099Issuers(state, args, resolveToolActor(args)),
+  },
+  {
+    name: 'track1099_import',
+    title: 'Import the 1099-NEC forms into Track1099',
+    description: 'Upload the year\'s 1099-NEC CSV into a Track1099 payer through the action gate (live calls on and a CA approval) and keep the import job. Track1099 e-files only when the forms are scheduled and paid for there; MyCA files nothing.',
+    args: ['year', 'issuerId', 'caApprovalId'],
+    run: async (state, args = {}) => track1099Import(state, args, resolveToolActor(args)),
+  },
+  {
+    name: 'track1099_job',
+    title: 'Track1099 import job status',
+    description: 'Check a Track1099 import job: status and how many forms imported, were ok, lacked an email or had errors. Behind the channel pull switch. Read-only.',
+    args: ['jobId'],
+    run: async (state, args = {}) => track1099Job(state, args, resolveToolActor(args)),
   },
   {
     name: 'fetch_channel_report',

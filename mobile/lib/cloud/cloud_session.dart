@@ -49,8 +49,141 @@ const _messages = {
   'EMPTY_FILE': 'That file is empty.',
 };
 
-String cloudMessage(String code) =>
-    _messages[code] ?? 'Something went wrong ($code).';
+String cloudMessage(String code, [String hint = '']) =>
+    _messages[code] ?? (hint.trim().isNotEmpty ? hint.trim() : 'Something went wrong ($code).');
+
+const connectorOrder = ['plaid', 'taxjar', 'gusto', 'track1099', 'amazon', 'shopify', 'razorpay', 'zoho'];
+
+class ConnectorView {
+  const ConnectorView({
+    required this.channel,
+    required this.title,
+    required this.country,
+    required this.configured,
+    required this.enabled,
+    required this.lastFetchedTo,
+    required this.kinds,
+    required this.fields,
+    required this.secrets,
+    required this.optional,
+    required this.values,
+  });
+
+  factory ConnectorView.fromJson(Map<String, dynamic> map) {
+    final fields = _strings(map['fields']);
+    return ConnectorView(
+      channel: '${map['channel'] ?? ''}',
+      title: '${map['title'] ?? ''}',
+      country: '${map['country'] ?? 'IN'}'.toUpperCase(),
+      configured: map['configured'] == true,
+      enabled: map['enabled'] != false,
+      lastFetchedTo: '${map['lastFetchedTo'] ?? ''}',
+      kinds: _strings(map['kinds']),
+      fields: fields,
+      secrets: _strings(map['secrets']),
+      optional: _strings(map['optional']),
+      values: {for (final field in fields) field: '${map[field] ?? ''}'},
+    );
+  }
+
+  final String channel;
+  final String title;
+  final String country;
+  final bool configured;
+  final bool enabled;
+  final String lastFetchedTo;
+  final List<String> kinds;
+  final List<String> fields;
+  final List<String> secrets;
+  final List<String> optional;
+  final Map<String, String> values;
+
+  bool isSecret(String field) => secrets.contains(field);
+  bool isSet(String field) => isSecret(field) ? values[field] == 'set' : (values[field] ?? '').isNotEmpty;
+}
+
+class ConnectorList {
+  const ConnectorList({required this.pulls, required this.connectors});
+
+  final bool pulls;
+  final List<ConnectorView> connectors;
+
+  List<ConnectorView> forCountry(String country) {
+    final mine = connectors.where((c) => c.country == country).toList()
+      ..sort((a, b) => connectorOrder.indexOf(a.channel).compareTo(connectorOrder.indexOf(b.channel)));
+    return mine;
+  }
+}
+
+class PlaidLinkToken {
+  const PlaidLinkToken({required this.linkToken, required this.environment, required this.mock});
+
+  final String linkToken;
+  final String environment;
+  final bool mock;
+}
+
+class PlaidItem {
+  const PlaidItem({required this.itemId, required this.linkedOn});
+
+  final String itemId;
+  final String linkedOn;
+}
+
+class GustoConnect {
+  const GustoConnect({required this.url, required this.redirectUri});
+
+  final String url;
+  final String redirectUri;
+}
+
+class TaxRate {
+  const TaxRate({required this.code, required this.name, required this.ratePercent, required this.parts, required this.recorded});
+
+  final String code;
+  final String name;
+  final num ratePercent;
+  final Map<String, num> parts;
+  final bool recorded;
+
+  String get line {
+    num part(String key) => parts[key] ?? 0;
+    return '$name: $ratePercent% combined (state ${part('state')}%, county ${part('county')}%, city ${part('city')}%, special ${part('special')}%)${recorded ? ', recorded as $code' : ''}.';
+  }
+}
+
+class SyncResult {
+  const SyncResult({required this.channel, required this.kind, required this.ok, required this.rows, required this.error, required this.empty, required this.dryRun});
+
+  final String channel;
+  final String kind;
+  final bool ok;
+  final int rows;
+  final String error;
+  final bool empty;
+  final bool dryRun;
+
+  String get line {
+    if (!ok) return '$kind: ${error.isEmpty ? 'failed' : error}';
+    if (dryRun) return '$kind: dry run, pulls are off on the service';
+    if (empty) return '$kind: nothing new';
+    return '$kind: $rows ${rows == 1 ? 'row' : 'rows'} pulled; see the reminder in MyCA';
+  }
+}
+
+class ConnectorSync {
+  const ConnectorSync({required this.fetched, required this.results});
+
+  final String fetched;
+  final List<SyncResult> results;
+
+  List<SyncResult> forChannel(String channel) => results.where((r) => r.channel == channel).toList();
+}
+
+List<String> _strings(Object? value) => [
+      if (value is List)
+        for (final item in value) '$item',
+    ];
 
 class BusinessRef {
   const BusinessRef({required this.id, required this.name, required this.role});
@@ -317,9 +450,82 @@ class CloudSession {
     if (status >= 400 &&
         reply['error'] is String &&
         !reply.containsKey('reply')) {
-      throw MycaApiException(cloudMessage(reply['error'] as String));
+      throw MycaApiException(cloudMessage(reply['error'] as String, '${reply['hint'] ?? ''}'));
     }
     return reply;
+  }
+
+  Map<String, dynamic> _accepted(Map<String, dynamic> body) {
+    if (body['ok'] == false) throw MycaApiException(cloudMessage('${body['error'] ?? 'UNKNOWN'}', '${body['hint'] ?? ''}'));
+    return body;
+  }
+
+  Map<String, dynamic> _data(Map<String, dynamic> body) {
+    final data = _accepted(body)['data'];
+    return data is Map ? data.cast<String, dynamic>() : <String, dynamic>{};
+  }
+
+  Future<ConnectorList> listConnectors() async {
+    final body = _accepted(await call('GET', '$_books/connectors'));
+    return ConnectorList(
+      pulls: body['pulls'] == true,
+      connectors: [for (final row in _rows(body['connectors'])) ConnectorView.fromJson(row)],
+    );
+  }
+
+  Future<ConnectorView> saveConnector(String channel, Map<String, Object?> fields) async {
+    final body = _accepted(await call('POST', '$_books/connectors', {'channel': channel, ...fields}));
+    return ConnectorView.fromJson(body);
+  }
+
+  Future<PlaidLinkToken> plaidLinkToken() async {
+    final data = _data(await call('POST', '$_books/plaid-link-token', const {}));
+    return PlaidLinkToken(linkToken: '${data['linkToken'] ?? ''}', environment: '${data['environment'] ?? ''}', mock: data['mock'] == true);
+  }
+
+  Future<PlaidItem> plaidExchange(String publicToken) async {
+    final data = _data(await call('POST', '$_books/plaid-exchange', {'publicToken': publicToken}));
+    return PlaidItem(itemId: '${data['itemId'] ?? ''}', linkedOn: '${data['linkedOn'] ?? ''}');
+  }
+
+  Future<GustoConnect> gustoConnect() async {
+    final data = _data(await call('POST', '$_books/gusto-connect', const {}));
+    return GustoConnect(url: '${data['url'] ?? ''}', redirectUri: '${data['redirectUri'] ?? ''}');
+  }
+
+  Future<TaxRate> taxjarRate({required String zip, required String city, required String state}) async {
+    final data = _data(await call('POST', '$_books/taxjar-rate', {'zip': zip, 'city': city, 'state': state}));
+    final parts = data['parts'];
+    return TaxRate(
+      code: '${data['code'] ?? ''}',
+      name: '${data['name'] ?? ''}',
+      ratePercent: data['ratePercent'] as num? ?? 0,
+      parts: {
+        if (parts is Map)
+          for (final entry in parts.entries)
+            if (entry.value is num) '${entry.key}': entry.value as num,
+      },
+      recorded: data['recorded'] == true,
+    );
+  }
+
+  Future<ConnectorSync> connectorSync() async {
+    final data = _data(await call('POST', '$_books/connector-sync', const {}));
+    return ConnectorSync(
+      fetched: '${data['fetched'] ?? ''}',
+      results: [
+        for (final row in _rows(data['results']))
+          SyncResult(
+            channel: '${row['channel'] ?? ''}',
+            kind: '${row['kind'] ?? ''}',
+            ok: row['ok'] != false,
+            rows: (row['rows'] as num?)?.toInt() ?? 0,
+            error: '${row['hint'] ?? row['error'] ?? ''}',
+            empty: row['empty'] == true,
+            dryRun: row['dryRun'] == true,
+          ),
+      ],
+    );
   }
 
   Future<void> sendCrashReports(List<Map<String, Object?>> reports) async {

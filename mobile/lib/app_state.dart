@@ -10,6 +10,7 @@ import 'app_services.dart';
 import 'cloud/cloud_session.dart';
 import 'cloud/google_auth.dart';
 import 'cloud/oidc_auth.dart';
+import 'cloud/plaid_link.dart';
 import 'crash_reports.dart';
 import 'lock/app_lock.dart';
 import 'notifications.dart';
@@ -17,6 +18,8 @@ import 'notifications.dart';
 Future<bool> _cannotSave(String name, String content) async => false;
 
 Future<bool> _cannotShare(String text) async => false;
+
+Future<bool> _cannotOpen(Uri url) async => false;
 
 Future<PickedFile?> _cannotPickAny() async => null;
 
@@ -37,6 +40,8 @@ class AppState extends ChangeNotifier {
     this.crashes,
     this.google,
     this.oidc,
+    this.plaidLink = const NoPlaidLink(),
+    this.openLink = _cannotOpen,
   }) : api = api ?? cloud!.api;
 
   final MycaApi api;
@@ -55,6 +60,8 @@ class AppState extends ChangeNotifier {
   final CrashReporter? crashes;
   final GoogleAuth? google;
   final OidcAuth? oidc;
+  final PlaidLinkOpener plaidLink;
+  final Future<bool> Function(Uri url) openLink;
 
   Snapshot? snapshot;
   String error = '';

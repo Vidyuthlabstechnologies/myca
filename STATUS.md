@@ -41,6 +41,10 @@ and [`README.md`](README.md) for what is left and how it is being done.
   confirm it on the number already on file; a bulk NEFT file for the bills the payment run
   proposes, one row per supplier, with the suppliers lacking details named; MyCA moves no
   money. The Monday brief names customers who have gone quiet
+- Track1099 and the hosted connector flows (2026-10-21): the 1099-NEC CSV in Track1099's own
+  template, payers listed, the import uploaded behind the gate with a CA approval and its job kept;
+  the hosted API runs Plaid Link token and exchange, the Gusto connect and callback, and TaxJar
+  lookups per business with sealed credentials, so the phone can connect without the desktop
 - US connectors (2026-10-21): Plaid (sandbox bank linked without Plaid Link, transactions synced by
   cursor into a bank statement), TaxJar (a zip lookup recorded as the jurisdiction's rate), Gusto
   (OAuth through MyCA's own callback, payroll summaries stored) and Track1099 (keys kept; routes

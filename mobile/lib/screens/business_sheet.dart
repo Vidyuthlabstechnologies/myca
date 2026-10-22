@@ -8,6 +8,7 @@ import '../theme.dart';
 import '../widgets.dart';
 import 'businesses_screen.dart';
 import 'connections_screen.dart';
+import 'connectors_screen.dart';
 import 'migration_flow.dart';
 import 'people_screen.dart';
 
@@ -65,6 +66,17 @@ Future<void> showBusinessSheet(BuildContext context, Snapshot snapshot) {
                         onTap: () {
                           navigator.pop();
                           navigator.push(MaterialPageRoute<void>(builder: (_) => const ConnectionsScreen()));
+                        },
+                      ),
+                    if (user?.role == 'owner')
+                      RowCard(
+                        leading: const TintTile(tint: Tint.ask, mark: Mark.cloudBooks),
+                        title: 'Connections to banks and apps',
+                        subtitle: company.country == 'US' ? 'Plaid, TaxJar, Gusto and Track1099' : 'Amazon, Shopify, Razorpay and Zoho',
+                        trailing: const Chevron(),
+                        onTap: () {
+                          navigator.pop();
+                          navigator.push(MaterialPageRoute<void>(builder: (_) => const ConnectorsScreen()));
                         },
                       ),
                     RowCard(
