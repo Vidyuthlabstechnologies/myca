@@ -56,6 +56,7 @@ export function createState() {
     tallyPushes: {},
     dscSignatures: [],
     form1099Jobs: [],
+    payrollImports: [],
     gstr2b: {},
     reminders: [],
     reminderSeq: 0,
@@ -156,6 +157,7 @@ export function serialize(state) {
     tallyPushes: state.tallyPushes || {},
     dscSignatures: state.dscSignatures || [],
     form1099Jobs: state.form1099Jobs || [],
+    payrollImports: state.payrollImports || [],
     purchaseOrderSeq: state.purchaseOrderSeq || 0,
     gstr2b: state.gstr2b || {},
     reminders: state.reminders || [],
@@ -337,6 +339,7 @@ export function deserialize(raw) {
   state.tallyPushes = raw.tallyPushes && typeof raw.tallyPushes === 'object' ? raw.tallyPushes : {};
   state.dscSignatures = Array.isArray(raw.dscSignatures) ? raw.dscSignatures : [];
   state.form1099Jobs = Array.isArray(raw.form1099Jobs) ? raw.form1099Jobs : [];
+  state.payrollImports = Array.isArray(raw.payrollImports) ? raw.payrollImports : [];
   state.purchaseOrderSeq = Number(raw.purchaseOrderSeq || 0);
   state.gstr2b = raw.gstr2b && typeof raw.gstr2b === 'object' ? raw.gstr2b : {};
   state.reminders = Array.isArray(raw.reminders) ? raw.reminders : [];

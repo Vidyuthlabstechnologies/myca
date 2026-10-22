@@ -126,7 +126,7 @@ test('Gusto: the connect link carries a one-time state, the callback refuses a f
   const pulledOut = await runTool(state, 'fetch_channel_report', { channel: 'gusto', kind: 'payroll', from: '2026-10-01', to: TODAY });
   assert.equal(pulledOut.ok, true, JSON.stringify(pulledOut));
   const pulled = pulledOut.data;
-  assert.equal(pulled.importTool, '');
+  assert.equal(pulled.importTool, 'import_payroll_summary');
   const text = documentsOf(state).read(pulled.documentSha256);
   assert.match(text, /^Check Date,Period Start,Period End,Gross Pay,Net Pay/);
   assert.match(text, /8200\.00,6410\.50,1789\.50,627\.30/);
@@ -156,6 +156,7 @@ test('Track1099 keys are kept for the day the API is wired; the US connectors vi
   assert.equal(rate.data.mock, true);
   assert.equal(rate.data.ratePercent, 8.25);
   const html = readFileSync(new URL('../desktop/renderer/keys.html', import.meta.url), 'utf8');
-  for (const name of ['us_connectors', 'plaid_link_sandbox', 'taxjar_rate', 'gusto_connect_url', 'set_channel_connector', 'channel_connectors']) assert.ok(html.includes(`'${name}'`), name);
+  for (const name of ['us_connectors', 'plaid_link_sandbox', 'plaid_link_token', 'plaid_exchange', 'taxjar_rate', 'gusto_connect_url', 'set_channel_connector', 'channel_connectors']) assert.ok(html.includes(`'${name}'`), name);
   assert.ok(html.includes('dashboard.plaid.com') && html.includes('app.taxjar.com') && html.includes('dev.gusto.com') && html.includes('track1099.com'));
+  assert.ok(html.includes('https://cdn.plaid.com/link/v2/stable/link-initialize.js'), 'Plaid Link loads from Plaid only');
 });

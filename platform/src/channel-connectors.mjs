@@ -250,14 +250,14 @@ export async function fetchChannelReport(state, args = {}, { actor, config: give
   if (!text.trim() || text.split(/\r?\n/).filter((line) => line.trim()).length < 2) return { ok: true, empty: true, channel, kind, from, to, mock: Boolean(result.mock), note: 'The channel returned no rows for the range.' };
   const stored = documentsOf(state).put(text);
   const name = `${channel}-${kind}-${from}-to-${to}.csv`;
-  const tool = kind === 'orders' ? 'import_marketplace_orders' : kind === 'bank' ? 'import_bank' : kind === 'payroll' ? '' : 'import_settlement';
+  const tool = kind === 'orders' ? 'import_marketplace_orders' : kind === 'bank' ? 'import_bank' : kind === 'payroll' ? 'import_payroll_summary' : 'import_settlement';
   if (channel === 'plaid' && !result.mock && result.data?.cursor) {
     if (given && onCursor) await onCursor(String(result.data.cursor));
     else if (!given) saveChannelConfig('plaid', { cursor: String(result.data.cursor) });
   }
   state.attachments = state.attachments && typeof state.attachments === 'object' ? state.attachments : {};
   state.attachments[`channel:${channel}:${kind}`] = { sha256: stored.sha256, name, bytes: stored.bytes, at: new Date().toISOString(), channel, reportKind: kind, from, to, mock: Boolean(result.mock) };
-  const reminder = addReminder(state, { text: `${spec.title.split(' (')[0]} ${kind === 'orders' ? 'orders' : kind === 'bank' ? 'bank transactions' : kind === 'payroll' ? 'payroll summary' : 'settlement'} report for ${from} to ${to} is in: ${name}. ${kind === 'payroll' ? 'Keep it with the month; MyCA posts nothing from it yet.' : 'Import it to post.'}`, due: localToday(), documentSha256: stored.sha256, documentName: name, actorId: 'automation', today: localToday() });
+  const reminder = addReminder(state, { text: `${spec.title.split(' (')[0]} ${kind === 'orders' ? 'orders' : kind === 'bank' ? 'bank transactions' : kind === 'payroll' ? 'payroll summary' : 'settlement'} report for ${from} to ${to} is in: ${name}. Import it to post.`, due: localToday(), documentSha256: stored.sha256, documentName: name, actorId: 'automation', today: localToday() });
   if (!result.mock) {
     if (onFetched) await onFetched(to);
     else if (!given) markFetched(channel, to);

@@ -67,6 +67,7 @@ export function newBook(company = {}) {
     tallyPushes: {},
     dscSignatures: [],
     form1099Jobs: [],
+    payrollImports: [],
     gstr2b: {},
     reminders: [],
     reminderSeq: 0,
@@ -148,6 +149,7 @@ export function serializeBook(book) {
     tallyPushes: book.tallyPushes || {},
     dscSignatures: book.dscSignatures || [],
     form1099Jobs: book.form1099Jobs || [],
+    payrollImports: book.payrollImports || [],
     purchaseOrderSeq: book.purchaseOrderSeq || 0,
     gstr2b: book.gstr2b || {},
     reminders: book.reminders || [],
@@ -226,6 +228,7 @@ export function deserializeBook(raw) {
   book.tallyPushes = raw.tallyPushes && typeof raw.tallyPushes === 'object' ? raw.tallyPushes : {};
   book.dscSignatures = Array.isArray(raw.dscSignatures) ? raw.dscSignatures : [];
   book.form1099Jobs = Array.isArray(raw.form1099Jobs) ? raw.form1099Jobs : [];
+  book.payrollImports = Array.isArray(raw.payrollImports) ? raw.payrollImports : [];
   book.purchaseOrderSeq = Number(raw.purchaseOrderSeq || 0);
   book.gstr2b = raw.gstr2b && typeof raw.gstr2b === 'object' ? raw.gstr2b : {};
   book.reminders = Array.isArray(raw.reminders) ? raw.reminders : [];

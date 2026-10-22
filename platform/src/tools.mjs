@@ -110,6 +110,7 @@ import { getSandboxClient, resetSandboxClient } from './sandbox-client.mjs';
 import { saveSandboxKeys, publicSandboxKeys, clearSandboxKeys } from './sandbox-keys.mjs';
 import { plaidLinkSandbox, plaidLinkToken, plaidExchange, taxjarRate, gustoConnectUrl, gustoCallback, usConnectorsStatus } from './us-connectors.mjs';
 import { track1099Csv, track1099Issuers, track1099Import, track1099Job } from './track1099.mjs';
+import { postPayrollImport, listPayrollImports } from './us-payroll-import.mjs';
 import { getNimClient } from './nim-client.mjs';
 import { runSandboxOperation } from './sandbox-adapter.mjs';
 import { requestApproval, decideApproval, approvalStatus, normalizeActor } from './approvals.mjs';
@@ -2009,6 +2010,19 @@ export const TOOLS = [
     description: 'Exchange the code Gusto sent back for tokens (the state must match the link MyCA built). Called by the browser redirect; behind the channel pull switch.',
     args: ['code', 'state'],
     run: async (state, args = {}) => gustoCallback(state, args, resolveToolActor(args)),
+  },
+  {
+    name: 'import_payroll_summary',
+    title: 'Post payrolls run by a provider',
+    description: 'Post the payrolls a provider (Gusto) ran, from its summary CSV (check date, gross, net, employee taxes, employer taxes, reimbursements): wages and employer taxes as expenses, the net and taxes as payables, and the bank debits on the check dates unless settle is false. Payrolls already posted are skipped by id. They stay out of MyCA\'s own 941 draft because the provider files it. US only.',
+    args: ['csv', 'documentSha256', 'provider', 'settle', 'fileName'],
+    run: (state, args = {}) => postPayrollImport(state, args),
+  },
+  {
+    name: 'list_payroll_imports',
+    title: 'Payrolls posted from a provider',
+    description: 'The payrolls posted from a provider\'s summaries, with their check dates and totals. Read-only. US only.',
+    run: (state) => listPayrollImports(state),
   },
   {
     name: 'track1099_csv',

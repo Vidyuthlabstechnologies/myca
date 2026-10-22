@@ -13,6 +13,7 @@ export const IMPORT_CONTENT_ARG = Object.freeze({
   import_sku_costs: 'csv',
   import_bank: 'content',
   import_gstr2b: 'csv',
+  import_payroll_summary: 'csv',
 });
 
 export function isImport(name) {
