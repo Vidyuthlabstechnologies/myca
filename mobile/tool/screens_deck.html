@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MyCA Mobile — Screen Deck</title>
+<style>
+:root { color-scheme: light; --ink:#1a1a1a; --muted:#6b6b6b; --line:#e5e0d5; --card:#ffffff; --bg:#f7f5ef; --accent:#1a1a1a; }
+* { box-sizing: border-box; }
+body { margin:0; font-family: Inter, system-ui, -apple-system, sans-serif; background:var(--bg); color:var(--ink); }
+header { max-width: 1080px; margin: 0 auto; padding: 40px 20px 10px; }
+header h1 { margin:0 0 8px; font-size: 32px; letter-spacing:-0.02em; }
+header p { color:var(--muted); max-width: 70ch; line-height:1.55; }
+.stats { display:flex; gap:12px; flex-wrap:wrap; margin:18px 0; }
+.stat { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:10px 14px; font-size:14px; }
+.stat b { display:block; font-size:20px; }
+nav { max-width:1080px; margin:0 auto; padding:10px 20px 30px; }
+nav a { display:inline-block; margin:4px 6px 4px 0; padding:6px 12px; border:1px solid var(--line); border-radius:999px; background:#fff; color:var(--ink); text-decoration:none; font-size:13px; }
+main { max-width:1080px; margin:0 auto; padding:0 20px 80px; display:grid; gap:22px; }
+section.card { background:var(--card); border:1px solid var(--line); border-radius:16px; overflow:hidden; display:grid; grid-template-columns: 300px 1fr; }
+section.card img { width:100%; height:100%; object-fit:contain; background:#efede6; display:block; }
+section.card .body { padding:20px 22px; }
+section.card h2 { margin:0 0 4px; font-size:20px; }
+.kicker { font-size:12px; letter-spacing:0.08em; text-transform:uppercase; color:var(--muted); margin-bottom:8px; }
+section.card p { line-height:1.6; color:#333; margin:8px 0; }
+section.card ul { margin:8px 0; padding-left:20px; line-height:1.6; color:#333; }
+.flow { font-size:13px; background:#f3f1ea; border:1px solid var(--line); border-radius:10px; padding:8px 12px; color:#444; }
+footer { max-width:1080px; margin:0 auto; padding:0 20px 60px; color:var(--muted); font-size:13px; line-height:1.6; }
+@media (max-width: 760px) { section.card { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<header>
+<h1>MyCA Mobile — Screen Deck</h1>
+<p>Owner app for Android (application id <code>com.mldynamic.myca</code>) with iOS project in the same checkout. Books are organised like a messenger: registers, then one thread per customer or supplier. Every number comes from the server; the app only formats and orders. Nothing posts until a preview is confirmed.</p>
+<div class="stats">
+<div class="stat"><b>46</b> screen files in lib/screens</div>
+<div class="stat"><b>26</b> rendered goldens below</div>
+<div class="stat"><b>60</b> widget/unit test files</div>
+<div class="stat"><b>Green</b> flutter analyze + test in CI</div>
+</div>
+<p><b>How complete:</b> onboarding, home, sales, purchase, expense, invoice, credit note, taxes review, books check, cash, quote and empty-books flows are built and rendered below. Hosted-mode screens (phone sign-in, Google and OIDC sign-in, name, business setup, people and invitations, businesses switcher, connectors, lock) exist and are widget-tested but are not part of the golden set because they need cloud credentials. Per mobile/README “Not built yet”: deployed backend, app icon, Play and App Store listings submitted, signed iOS run on hardware, iOS share extension. Release needs HTTPS and an upload keystore.</p>
+</header>
+<nav>
+<a href="#s01">01 Welcome</a><a href="#s02">02 Books location</a><a href="#s03">03 Business</a><a href="#s04">04 Bring books</a><a href="#s05">05 Home</a><a href="#s05c">05c First day</a><a href="#s05b">05b Business menu</a><a href="#s06">06 New entry</a><a href="#s07">07 Customer picker</a><a href="#s08">08 Sales register</a><a href="#s09">09 New sale</a><a href="#s10">10 Preview</a><a href="#s11">11 Posted</a><a href="#s12">12 Taxes</a><a href="#s13">13 Customer thread</a><a href="#s14">14 Invoice</a><a href="#s15">15 Expenses</a><a href="#s16">16 Expense head</a><a href="#s17">17 Expense preview</a><a href="#s18">18 Credit note</a><a href="#s19">19 Credit preview</a><a href="#s20">20 Review sales</a><a href="#s21">21 Approve</a><a href="#s22">22 GSTR-2B risk</a><a href="#s23">23 Books check</a><a href="#s24">24 Cash</a><a href="#s25">25 Quote</a>
+</nav>
+<main>
+
+<section class="card" id="s01"><img src="screens/01_welcome.png" alt="Welcome"><div class="body"><div class="kicker">Onboarding · WelcomeScreen</div><h2>01 — Welcome</h2><p>First-run promise screen: “Your books, without the bookkeeping.” Messenger metaphor up front — sales, bills and expenses with the taxes handled. Single CTA “Get started”.</p><ul><li>What it proves: brand, positioning, no login wall on first run.</li><li>Next: “Where are your books?” migration picker.</li></ul><div class="flow">Flow: Welcome → 02 migration paths → 03 business → 04 import → Home</div></div></section>
+
+<section class="card" id="s02"><img src="screens/02_where_are_your_books.png" alt="Where are your books"><div class="body"><div class="kicker">Onboarding · MigrationFlow</div><h2>02 — Where are your books?</h2><p>The migration fork. Tally, Zoho Books, another billing app, Excel/Sheets, paper or CA, or starting fresh. Each path offers only the imports the server can actually parse (Day Book CSV, TallyPrime XML, bank statement, invoice CSV). Direct Vyapari/Khatabook/Busy/Marg import is explicitly not built.</p><ul><li>Why it matters: sets expectations before any file is picked.</li><li>Files upload first and imports refer to them by hash — contents never sit in a pending preview.</li></ul></div></div></section>
+
+<section class="card" id="s03"><img src="screens/03_business.png" alt="Business"><div class="body"><div class="kicker">Onboarding · BusinessSetup</div><h2>03 — Business</h2><p>Minimal business capture: name, phone, GSTIN with “Look up” validation. Skips straight to “Continue”. Country branching happens here later (IN vs US tax tracks).</p></div></div></section>
+
+<section class="card" id="s04"><img src="screens/04_bring_books_across.png" alt="Bring books across"><div class="body"><div class="kicker">Onboarding · Migration offer</div><h2>04 — Bring your books across</h2><p>Concrete next step for the Tally path: Day Book CSV, TallyPrime XML, bank statement. Copy is honest — sheet keeps only sale, purchase and expense rows; payroll comes later. Skip option preserves the fresh-start path.</p></div></div></section>
+
+<section class="card" id="s05"><img src="screens/05_home.png" alt="Home"><div class="body"><div class="kicker">Daily · HomeScreen</div><h2>05 — Home</h2><p>The operating dashboard: greeting plus business name, Ask bar (“Tell or ask MyCA anything”), Taxes-and-filings panel (“3 things need you”), “Books today · 2 need you”, week ahead, due-today reminders, month summary (Sold / Bought / Spent with prior-period compare, owed to you / you owe), then “Your books” registers and “Money and follow-up” (Cash, Marketplace, Reports, Your CA, Reminders, Books check).</p><ul><li>Data: daily_close, week_ahead, today, business summary — all server-computed.</li><li>FAB: “New entry” is the primary creation path.</li></ul></div></div></section>
+
+<section class="card" id="s05c"><img src="screens/05c_home_first_day.png" alt="First day home"><div class="body"><div class="kicker">Daily · Empty state</div><h2>05c — Home on the first day</h2><p>Same shell with empty books: “Log your first sale” card, “You are all caught up” taxes panel, zeroed month figures. Prevents the cold-start stall.</p></div></div></section>
+
+<section class="card" id="s05b"><img src="screens/05b_business.png" alt="Business menu"><div class="body"><div class="kicker">Daily · BusinessSheet</div><h2>05b — Business menu</h2><p>Bottom sheet for identity and mode switching: business name, “This business deducts TDS”, hosted/local toggle (“Use this phone with the hosted service” vs “Use with MyCA on your computer”), business switcher, people and invitations, connections to banks and apps, lock control, sign-out. Lock toggle lives behind the app lock.</p></div></div></section>
+
+<section class="card" id="s06"><img src="screens/06_new_entry.png" alt="New entry"><div class="body"><div class="kicker">Capture · NewEntrySheet</div><h2>06 — New entry</h2><p>Five-way capture: sold something, bought something, paid for an expense, “bill to pay later…”, “ask or tell MyCA”. One thumb reach from the FAB; routes to party picker or Ask.</p></div></div></section>
+
+<section class="card" id="s07"><img src="screens/07_who_did_you_sell_to.png" alt="Who did you sell to"><div class="body"><div class="kicker">Capture · PartyPicker</div><h2>07 — Who did you sell to?</h2><p>Customer search with recency-ranked threads (“Gujarat Weaves · owes ₹3.3L · Oct 2026”). Typing filters; “New customer …” creates inline. Same pattern reused for suppliers.</p></div></div></section>
+
+<section class="card" id="s08"><img src="screens/08_sales.png" alt="Sales register"><div class="body"><div class="kicker">Registers · RegisterScreen (sales)</div><h2>08 — Sales register</h2><p>All sales in one thread list: customer name, invoice id, amount, status chip (Paid / To receive with due-in days / Overdue), search and GST filter. Entry point to party threads and quotes.</p></div></div></section>
+
+<section class="card" id="s09"><img src="screens/09_new_sale.png" alt="New sale"><div class="body"><div class="kicker">Capture · Invoice form</div><h2>09 — New sale</h2><p>Structured args for /api/propose: date, amount before GST, rate chips (0/5/12/18/28%), place-of-supply note, HSN hint (“Check with your CA before filing”). Preview CTA computes the engine preview; nothing posts here.</p></div></div></section>
+
+<section class="card" id="s10"><img src="screens/10_not_posted_yet.png" alt="Not posted yet"><div class="body"><div class="kicker">Confirm · ProposalFlow</div><h2>10 — Not posted yet</h2><p>The thin-client contract made visible: dark summary bubble plus gold “NOT POSTED YET” card with the exact proposed entry (“Sale of ₹8,000 to Kir … dated 28 Oct 2026”). Books change only after “Post it”; “Discard” drops the one-use token.</p></div></div></section>
+
+<section class="card" id="s11"><img src="screens/11_posted.png" alt="Posted"><div class="body"><div class="kicker">Confirm · Posted</div><h2>11 — Posted</h2><p>Success state of the same sheet: “Posted” confirmation card, invoice id assigned (INV-0010), totals restated. Party thread and registers refresh from the server snapshot.</p></div></div></section>
+
+<section class="card" id="s12"><img src="screens/12_taxes.png" alt="Taxes and filings"><div class="body"><div class="kicker">Taxes · TaxesScreen</div><h2>12 — Taxes and filings</h2><p>Return hub: GSTR-2B import banner, “Review the return” primary action, GST payment, CA pack exports (filing pack, trial balance, TDS, Tally file, year close), TDS section, FILED section for portal-recorded filings. Review is step-gated; filing itself stays on the portal or with the CA.</p></div></div></section>
+
+<section class="card" id="s13"><img src="screens/13_customer_chat.png" alt="Customer thread"><div class="body"><div class="kicker">Threads · PartyScreen</div><h2>13 — Customer thread</h2><p>One customer, one thread: balance owed, quote (QT-0001), invoices (INV-0002). Each entry shows state (To receive, 10 days left). The messenger metaphor lands here — scroll the relationship, tap any entry for detail.</p></div></div></section>
+
+<section class="card" id="s14"><img src="screens/14_invoice.png" alt="Invoice"><div class="body"><div class="kicker">Document · InvoiceScreen</div><h2>14 — Invoice detail</h2><p>Full invoice view: balance, HSN/SAC warning, e-way bill card when interstate value crosses ₹50,000, share via the owner’s own WhatsApp/email (MyCA sends nothing itself), PDF print/save, and corrective actions — Remind me, Ask CA, Credit note, Debit note, Cancel. Corrections are new entries; the invoice is never edited in place.</p></div></div></section>
+
+<section class="card" id="s15"><img src="screens/15_expenses.png" alt="Expenses"><div class="body"><div class="kicker">Registers · ExpensesScreen</div><h2>15 — Expenses</h2><p>Heads (Rent, Fuel, Other) with month spend and bill counts, plus a “New expense” FAB. Routes to the head picker then the expense form.</p></div></div></section>
+
+<section class="card" id="s16"><img src="screens/16_expense_head.png" alt="Expense head"><div class="body"><div class="kicker">Capture · Expense head</div><h2>16 — Expense head</h2><p>Small but important choice: Expense vs Asset changes posting. Head chips (Rent/Fuel/Other) carry the description hint forward.</p></div></div></section>
+
+<section class="card" id="s17"><img src="screens/17_expense_preview.png" alt="Expense preview"><div class="body"><div class="kicker">Confirm · Expense preview</div><h2>17 — Expense preview</h2><p>Same propose/confirm contract as sales: dark “Expense of ₹2,500 … cash” bubble, gold NOT POSTED YET card (“paid 2,500 for Diwali gifts on 28 Oct 2026”), Discard / Post it. Cash vs bank mode is explicit at entry.</p></div></div></section>
+
+<section class="card" id="s18"><img src="screens/18_credit_note_sheet.png" alt="Credit note sheet"><div class="body"><div class="kicker">Correct · Credit note form</div><h2>18 — Credit note entry</h2><p>Bottom-sheet correction against INV-0002: optional partial amount (blank = whole invoice), mandatory reason. Up-to cap shown including GST.</p></div></div></section>
+
+<section class="card" id="s19"><img src="screens/19_credit_note_preview.png" alt="Credit note preview"><div class="body"><div class="kicker">Confirm · Credit note preview</div><h2>19 — Credit note preview</h2><p>Correction preview with the same guarantees: “Credit note of ₹23,600 against INV-0002 … Reason: Design work not done”, not posted until confirmed. Preserves the append-only ledger — new entry, never an edit.</p></div></div></section>
+
+<section class="card" id="s20"><img src="screens/20_review_sales.png" alt="Review sales step"><div class="body"><div class="kicker">Review · GSTR-1 step 1</div><h2>20 — Review the return (sales)</h2><p>Maker-checker review, step by step: sales value and tax from this month’s documents, “Is this information correct?” with Yes / Something-is-wrong. Purchases and approval wait on this step. Nothing is filed from here.</p></div></div></section>
+
+<section class="card" id="s21"><img src="screens/21_review_approve.png" alt="Approve return"><div class="body"><div class="kicker">Review · Approve</div><h2>21 — Approve the return</h2><p>Final gate: both steps confirmed, figures restated (tax on sales, input credit), explicit “MyCA does not work out the amount to pay yet”, Approve / Not yet. Approval records the reviewer; filing stays external with ARN recorded later.</p></div></div></section>
+
+<section class="card" id="s22"><img src="screens/22_credit_at_risk.png" alt="Credit at risk"><div class="body"><div class="kicker">Risk · GSTR-2B</div><h2>22 — Input credit at risk (GSTR-2B)</h2><p>Reconciliation surfacing: credit claimed vs supplier-reported, “at risk” amounts per supplier/period. Drives the “chase the supplier before the reversal” action instead of silent ITC loss.</p></div></div></section>
+
+<section class="card" id="s23"><img src="screens/23_books_check.png" alt="Books check"><div class="body"><div class="kicker">Health · BooksCheckScreen</div><h2>23 — Books check</h2><p>“What needs you, worked out from your books”: blocking issues (invoice that cannot go in the return), money states (customers owe you), and invariants (“Your books tie — every entry has a matching debit and credit”). Nothing changed or filed from here.</p></div></div></section>
+
+<section class="card" id="s24"><img src="screens/24_cash.png" alt="Cash"><div class="body"><div class="kicker">Money · CashScreen</div><h2>24 — Cash</h2><p>Treasury view: bank + cash now from the last stated balance plus recorded movement, “Who to pay”, next-30-days projection (coming in, going out, projected and lowest balances with dated drivers), overdue excluded with the reason stated. “Can I afford it” without guessing.</p></div></div></section>
+
+<section class="card" id="s25"><img src="screens/25_quote.png" alt="Quote"><div class="body"><div class="kicker">Document · Quote</div><h2>25 — Quote QT-0001</h2><p>Pre-book document: quoted-to GSTIN, validity, place of supply, line with HSN, tax split, share/PDF like an invoice — but “A quote posts nothing to your books. Making the invoice posts it, with the same lines.” Accept/Decline/Make-invoice are the only exits.</p></div></div></section>
+
+</main>
+<footer>
+Built from <code>flutter test tool/screenshots_test.dart --update-goldens</code> on this checkout — 10 widget tests, 26 goldens in <code>tool/screens/</code>. Screens that exist but are not golden-rendered (need cloud or device): phone sign-in, Google/OIDC sign-in, name, business setup, businesses switcher, people and invitations, connectors (Plaid/Gusto/TaxJar/channel sync), lock screen, Ask thread, reports, employees/payroll, marketplace, reminders, CA inbox, bill capture, filings and payments. See mobile/README “Not built yet” for the release gap list.
+</footer>
+</body>
+</html>
