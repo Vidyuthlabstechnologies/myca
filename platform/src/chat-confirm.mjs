@@ -16,6 +16,7 @@ import { planAdvanceTaxPayment } from './advance-tax.mjs';
 import { planSupplierBank } from './supplier-bank.mjs';
 import { planAttachDocument } from './receipt-match.mjs';
 import { planTallyPush } from './tally-push.mjs';
+import { planPayrollImport } from './us-payroll-import.mjs';
 import { planInvoiceTemplate } from './invoice-template.mjs';
 import { salaryPrivate } from './employees.mjs';
 import { aaBankFeed } from './aa-import.mjs';
@@ -65,7 +66,7 @@ import { planAmendment } from './invoice-amendments.mjs';
 import { tallyXmlToDayBookCsv } from './tally-xml.mjs';
 
 export const CONFIRM_TOOLS = new Set([
-  'create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'record_filing', 'record_supplier_reminder', 'record_collection_reminder', 'record_payment_run', 'month_close_approve', 'set_sku_supply', 'record_purchase_order', 'record_advance_tax', 'set_supplier_bank', 'attach_document', 'push_tally', 'add_employee', 'change_salary', 'end_employment', 'approve_payroll', 'record_salary_payment', 'set_tds_deductor', 'record_tds_deposit', 'tds_review_answer', 'set_gst_credit_opening', 'record_gst_payment', 'close_year', 'post_expense', 'set_expense_head', 'create_credit_note', 'create_debit_note', 'create_purchase_note', 'record_supplier_debit_note', 'cancel_invoice', 'gst_review_answer', 'import_gstr2b', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'set_party_address', 'set_transport', 'set_sales_tax_rate', 'set_contractor', 'set_sales_tax_nexus', 'sales_tax_review_answer', 'record_sales_tax_payment', 'record_sales_tax_filing', 'set_withholding', 'set_suta_rate', 'import_us_invoices', 'import_pos_sales', 'import_settlement', 'import_marketplace_orders', 'import_tcs_statement', 'import_26as_credits', 'record_stock', 'record_stock_transfer', 'set_sku_cost', 'import_sku_costs', 'value_inventory', 'set_registration', 'retire_registration', 'set_channel_identity', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote', 'amend_invoice',
+  'create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'record_filing', 'record_supplier_reminder', 'record_collection_reminder', 'record_payment_run', 'month_close_approve', 'set_sku_supply', 'record_purchase_order', 'record_advance_tax', 'set_supplier_bank', 'attach_document', 'push_tally', 'import_payroll_summary', 'add_employee', 'change_salary', 'end_employment', 'approve_payroll', 'record_salary_payment', 'set_tds_deductor', 'record_tds_deposit', 'tds_review_answer', 'set_gst_credit_opening', 'record_gst_payment', 'close_year', 'post_expense', 'set_expense_head', 'create_credit_note', 'create_debit_note', 'create_purchase_note', 'record_supplier_debit_note', 'cancel_invoice', 'gst_review_answer', 'import_gstr2b', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'set_party_address', 'set_transport', 'set_sales_tax_rate', 'set_contractor', 'set_sales_tax_nexus', 'sales_tax_review_answer', 'record_sales_tax_payment', 'record_sales_tax_filing', 'set_withholding', 'set_suta_rate', 'import_us_invoices', 'import_pos_sales', 'import_settlement', 'import_marketplace_orders', 'import_tcs_statement', 'import_26as_credits', 'record_stock', 'record_stock_transfer', 'set_sku_cost', 'import_sku_costs', 'value_inventory', 'set_registration', 'retire_registration', 'set_channel_identity', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote', 'amend_invoice',
   'set_invoice_template', 'set_invoice_numbering',
   'import_tally', 'import_tally_xml', 'import_zoho', 'import_bank',
   'govt_generate_irn', 'govt_nic_cancel_irn',
@@ -456,6 +457,29 @@ function paymentRunPreview(state, args) {
     summary: `Pay ${money(plan.total)} to ${new Set(plan.payments.map((p) => p.supplier)).size === 1 ? plan.payments[0].supplier : `${new Set(plan.payments.map((p) => p.supplier)).size} suppliers`} across ${plan.payments.length === 1 ? '1 bill' : `${plan.payments.length} bills`} from ${plan.mode === 'cash' ? 'cash' : 'the bank'} on ${plan.date}: ${lines.join('; ')}. Bank and cash ${money(plan.balance)} before, ${money(plan.after)} after.${cash}`,
     effects: [`${money(plan.total)} goes out of your ${plan.mode === 'cash' ? 'cash' : 'bank'}, one payment per bill.`, 'Each bill becomes paid; MSMED and Rule 37 clocks stop for them.'],
     figures: { total: plan.total, bills: plan.payments.length, balance: plan.balance, after: plan.after, date: plan.date, billIds: plan.payments.map((p) => p.billId) },
+  };
+}
+
+const PAYROLL_IMPORT_REASONS = { NOT_FOR_COUNTRY: 'Provider payrolls are posted for a US business only.', EMPTY: 'The file is empty.', NO_ROWS: 'No payroll row could be read.', ALREADY_IMPORTED: 'Every payroll in this file is already in the books.' };
+function payrollImportPreview(state, args) {
+  const planned = planPayrollImport(state, args);
+  if (!planned.ok) {
+    const reason = planned.error === 'NO_HEADER' ? `The file needs ${planned.need}.` : planned.error === 'PERIOD_LOCKED' ? `${planned.date} is inside the locked period (through ${state.lockThrough}).` : PAYROLL_IMPORT_REASONS[planned.error] || planned.error;
+    return { blockers: [reason], summary: '', effects: [], figures: {} };
+  }
+  const p = planned.plan;
+  const d = (c) => Math.round(c) / 100;
+  const dates = p.rows.map((r) => r.checkDate).sort();
+  return {
+    blockers: [],
+    summary: `Post ${p.rows.length} ${p.provider === 'gusto' ? 'Gusto' : p.provider} ${p.rows.length === 1 ? 'payroll' : 'payrolls'} (${dates[0]}${dates.length > 1 ? ` to ${dates.at(-1)}` : ''}): wages ${money(d(p.totals.grossCents))}, employer taxes ${money(d(p.totals.employerTaxesCents))}, net pay ${money(d(p.totals.netCents))}.`,
+    effects: [
+      `Wages and employer taxes become expenses; the net pay${p.totals.employeeTaxesCents ? ', employee taxes' : ''}${p.totals.employerTaxesCents ? ' and employer taxes' : ''} become payables${p.settle ? ` and ${money(d(p.totals.netCents + p.totals.otherDeductionsCents + p.totals.reimbursementsCents + p.totals.employeeTaxesCents + p.totals.employerTaxesCents))} leaves the bank on the check dates, as the provider debits it` : ''}.`,
+      'The provider files the 941, state returns and W-2 for these payrolls, so MyCA leaves them out of its own 941 draft.',
+      ...(p.duplicates.length ? [`${p.duplicates.length} already in the books will be skipped.`] : []),
+      ...(p.held.length ? [`${p.held.length} rows could not be read and are left out.`] : []),
+    ],
+    figures: { payrolls: p.rows.length, gross: d(p.totals.grossCents), net: d(p.totals.netCents), employerTaxes: d(p.totals.employerTaxesCents), settle: p.settle },
   };
 }
 
@@ -1494,6 +1518,7 @@ const PREVIEWERS = {
   set_supplier_bank: supplierBankPreview,
   attach_document: attachDocumentPreview,
   push_tally: tallyPushPreview,
+  import_payroll_summary: payrollImportPreview,
   record_purchase_order: purchaseOrderPreview,
   add_employee: employeePreview,
   approve_payroll: payrollApprovalPreview,

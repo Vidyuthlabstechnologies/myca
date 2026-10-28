@@ -56,6 +56,7 @@ import { throughLanguage } from './chat-language.mjs';
 import { tagExpense } from './expenses.mjs';
 import { dscWords } from './dsc.mjs';
 import { track1099Words } from './track1099.mjs';
+import { payrollImportWords } from './us-payroll-import.mjs';
 import { suggestExpenseHead } from './expense-head-model.mjs';
 
 function money(n) {
@@ -616,6 +617,7 @@ function fmtToolResult(name, result) {
   if (name === 'advance_tax' && result.data) return advanceTaxWords(result.data, money);
   if (name === 'supplier_payout_file' && result.data) return supplierPayoutWords(result.data, money);
   if (name === 'push_tally' && result.push) return tallyPushWords(result, money);
+  if (name === 'import_payroll_summary' && result.data) return payrollImportWords(result, money);
   if (name.startsWith('track1099_') && result.data && track1099Words(name, result, money)) return track1099Words(name, result, money);
   if ((name === 'dsc_certificates' || name === 'dsc_sign') && dscWords(name, result)) return dscWords(name, result);
   if (name === 'suggest_expense_head' && result.headName) return `${result.why} Say "record the expense" with the amount to post it.`;
