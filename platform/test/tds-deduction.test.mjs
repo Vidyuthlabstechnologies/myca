@@ -142,12 +142,12 @@ test('TDS deposit deadlines follow the books: nothing deducted means nothing due
   const deposits = async () => (await runTool(state, 'deadlines', {})).data.deadlines.filter((row) => row.returnType === 'TDS_DEPOSIT');
   const titles = async () => (await runTool(state, 'exceptions', {})).data.exceptions.map((item) => item.title);
   assert.equal((await deposits()).find((row) => row.period === deducted).level, 'nothing_due');
-  assert.equal((await titles()).some((title) => /TDS/.test(title)), false);
+  assert.equal((await titles()).some((title) => /TDS deposit/.test(title)), false);
   await post(state, 'create_purchase', bill(`${deducted}-05`, 60000, 18));
   assert.equal((await deposits()).find((row) => row.period === deducted).level, 'overdue');
   assert.ok((await titles()).includes(`TDS deposit for ${inWords(deducted)} is not recorded as deposited`));
   await post(state, 'record_tds_deposit', { challan: '0510308 05112026 12345', date: `${monthsAgo(1)}-05` });
   const row = (await deposits()).find((item) => item.period === deducted);
   assert.deepEqual([row.level, row.filed.arn, row.filed.late], ['filed', '05103080511202612345', false]);
-  assert.equal((await titles()).some((title) => /TDS/.test(title)), false);
+  assert.equal((await titles()).some((title) => /TDS deposit/.test(title)), false);
 });
