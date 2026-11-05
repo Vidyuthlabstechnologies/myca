@@ -29,7 +29,7 @@ submitted; nothing here is published by the repository.
 | Location, contacts, messages, device ids | No | |
 | Shared with third parties | Model provider (document text or image, chat text) only when the hosted service has a model key configured; SMS provider (phone number) for sign-in codes; no advertising or analytics SDK | |
 | Encrypted in transit | Yes (HTTPS; the desktop app is loopback only) | |
-| Deletion | The owner can delete the business from Businesses; the account is deleted on request to the support address, and the hosted API will carry a self-service endpoint before launch | |
+| Deletion | The owner deletes a business, or the whole account, from Businesses in the app (`DELETE /v1/me`); without the app, through the request page `deploy/public/delete-account.html`, whose public URL goes in the Data deletion field | |
 | Data processed ephemerally | Chat messages that match no tool are not stored | |
 
 ## 3. Permissions and their justification
@@ -56,7 +56,7 @@ open the camera itself.
 ## 5. Testing track before production
 
 1. Internal testing: the owner and the partner CA firm, from a tagged build (`Build Android app` workflow, signed with the upload key).
-2. Closed testing: ten to twenty businesses for at least fourteen days, as Play requires for a new developer account.
+2. Closed testing: at least twelve testers opted in for at least fourteen days in a row, as Play requires before a new personal developer account can apply for production (an organisation account is exempt).
 3. Checklist per build: sign in, add a business, record a sale and a bill, read a bill from a photo, review a GST month, approve a payroll, save the CA file, open the app after a day and see the week ahead and a notification, delete the business.
 4. Crash reports on for the testing tracks; read them in the hosted database.
 
@@ -67,3 +67,6 @@ open the camera itself.
 - Decide the model provider and sign its terms (ADR-0004), and the SMS provider for phone sign-in.
 - Publish the privacy policy at a public URL and paste it into the listing.
 - Run the app on a real device once before internal testing; the release build has only run in CI.
+- Set the repository variables `MYCA_CLOUD_URL` (the https address of the deployed hosted API) and, for Google sign-in, `MYCA_GOOGLE_SERVER_CLIENT_ID`. A `v*` tag build now refuses to run without the upload key and an https `MYCA_CLOUD_URL`, and takes its version name from the tag and its version code from the run number.
+- Publish `delete-account.html` with the site and paste its URL into the Data deletion field.
+- Decide the package name before the first upload: it is `com.mldynamic.myca` today, and Play never lets it change.
