@@ -219,3 +219,41 @@ variable "model_base_url" {
   type        = string
   default     = ""
 }
+
+variable "razorpay_key_id" {
+  description = "Razorpay key id for subscriptions (rzp_test_... while testing, rzp_live_... at launch). Empty turns billing off: every business keeps its trial plan and nothing is gated."
+  type        = string
+  default     = ""
+}
+
+variable "razorpay_key_secret" {
+  description = "Razorpay key secret that goes with razorpay_key_id."
+  type        = string
+  default     = "unset"
+  sensitive   = true
+}
+
+variable "razorpay_webhook_secret" {
+  description = "Secret set on the Razorpay webhook that points at <api_url>/v1/billing/razorpay/webhook."
+  type        = string
+  default     = "unset"
+  sensitive   = true
+}
+
+variable "razorpay_plan_pro" {
+  description = "Razorpay plan id (plan_...) for the Pro plan."
+  type        = string
+  default     = ""
+}
+
+variable "razorpay_plan_firm" {
+  description = "Razorpay plan id (plan_...) for the CA firm plan."
+  type        = string
+  default     = ""
+}
+
+variable "plan_prices" {
+  description = "Monthly prices shown in the app, in rupees, matching the Razorpay plans, for example \"pro=499,firm=1499\"."
+  type        = string
+  default     = ""
+}

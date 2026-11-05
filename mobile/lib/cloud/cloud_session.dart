@@ -47,12 +47,17 @@ const _messages = {
   'IMPORT_NEEDS_UPLOAD': 'That file has to be uploaded before it can be imported.',
   'BODY_TOO_LARGE': 'That file is larger than 8 MB. Export a shorter period and try again.',
   'EMPTY_FILE': 'That file is empty.',
+  'PLAN_REQUIRED': 'Your plan does not include this. The owner can upgrade under Plan and billing.',
+  'PLAN_LIMIT_REACHED': 'This business has reached its plan limit. The owner can upgrade under Plan and billing.',
+  'ALREADY_SUBSCRIBED': 'This business already has a plan. Cancel it first to change it.',
+  'BILLING_NOT_CONFIGURED': 'Plans cannot be bought yet. Try again later.',
+  'NIC_NOT_CONNECTED': 'Add this business\'s e-invoice keys under Connections to banks and apps first.',
 };
 
 String cloudMessage(String code, [String hint = '']) =>
     _messages[code] ?? (hint.trim().isNotEmpty ? hint.trim() : 'Something went wrong ($code).');
 
-const connectorOrder = ['plaid', 'taxjar', 'gusto', 'track1099', 'amazon', 'shopify', 'razorpay', 'zoho'];
+const connectorOrder = ['nic', 'quicko', 'plaid', 'taxjar', 'gusto', 'track1099', 'amazon', 'shopify', 'razorpay', 'zoho'];
 
 class ConnectorView {
   const ConnectorView({
@@ -113,6 +118,61 @@ class ConnectorList {
       ..sort((a, b) => connectorOrder.indexOf(a.channel).compareTo(connectorOrder.indexOf(b.channel)));
     return mine;
   }
+}
+
+class PlanOffer {
+  const PlanOffer({required this.id, required this.title, required this.monthlyRupees, required this.buyable, required this.features, required this.invoicesPerMonth, required this.members});
+
+  factory PlanOffer.fromJson(Map<String, dynamic> map) {
+    final limits = map['limits'] is Map ? (map['limits'] as Map).cast<String, dynamic>() : const <String, dynamic>{};
+    return PlanOffer(
+      id: '${map['id'] ?? ''}',
+      title: '${map['title'] ?? ''}',
+      monthlyRupees: map['monthlyRupees'] is num ? (map['monthlyRupees'] as num).toInt() : 0,
+      buyable: map['buyable'] == true,
+      features: _strings(map['features']),
+      invoicesPerMonth: limits['invoicesPerMonth'] is num ? (limits['invoicesPerMonth'] as num).toInt() : null,
+      members: limits['members'] is num ? (limits['members'] as num).toInt() : null,
+    );
+  }
+
+  final String id;
+  final String title;
+  final int monthlyRupees;
+  final bool buyable;
+  final List<String> features;
+  final int? invoicesPerMonth;
+  final int? members;
+}
+
+class Entitlement {
+  const Entitlement({required this.plan, required this.planTitle, required this.enforced, required this.testMode, required this.trialDaysLeft, required this.status, required this.currentEnd, required this.checkoutUrl});
+
+  factory Entitlement.fromJson(Map<String, dynamic> map) {
+    final trial = map['trial'] is Map ? (map['trial'] as Map).cast<String, dynamic>() : null;
+    final sub = map['subscription'] is Map ? (map['subscription'] as Map).cast<String, dynamic>() : null;
+    return Entitlement(
+      plan: '${map['plan'] ?? 'free'}',
+      planTitle: '${map['planTitle'] ?? ''}',
+      enforced: map['enforced'] == true,
+      testMode: map['testMode'] == true,
+      trialDaysLeft: trial == null ? null : (trial['daysLeft'] is num ? (trial['daysLeft'] as num).toInt() : 0),
+      status: '${sub?['status'] ?? ''}',
+      currentEnd: '${sub?['currentEnd'] ?? ''}',
+      checkoutUrl: '${sub?['checkoutUrl'] ?? ''}',
+    );
+  }
+
+  final String plan;
+  final String planTitle;
+  final bool enforced;
+  final bool testMode;
+  final int? trialDaysLeft;
+  final String status;
+  final String currentEnd;
+  final String checkoutUrl;
+
+  bool get paying => const {'authenticated', 'active', 'pending'}.contains(status) && trialDaysLeft == null && plan != 'free';
 }
 
 class PlaidLinkToken {
@@ -496,6 +556,24 @@ class CloudSession {
   Future<ConnectorView> saveConnector(String channel, Map<String, Object?> fields) async {
     final body = _accepted(await call('POST', '$_books/connectors', {'channel': channel, ...fields}));
     return ConnectorView.fromJson(body);
+  }
+
+  Future<List<PlanOffer>> plans() async {
+    final body = _accepted(await call('GET', '/v1/plans'));
+    final rows = body['plans'];
+    return [if (rows is List) for (final row in rows) if (row is Map) PlanOffer.fromJson(row.cast<String, dynamic>())];
+  }
+
+  Future<Entitlement> entitlement() async => Entitlement.fromJson(_accepted(await call('GET', '$_books/subscription')));
+
+  Future<String> subscribe(String plan) async {
+    final body = _accepted(await call('POST', '$_books/subscription', {'plan': plan}));
+    return '${body['checkoutUrl'] ?? ''}';
+  }
+
+  Future<bool> cancelSubscription() async {
+    final body = _accepted(await call('POST', '$_books/subscription-cancel', const {}));
+    return body['endsAtCycleEnd'] == true;
   }
 
   Future<EinvoiceOutcome> generateEinvoice(String invoiceId) async {

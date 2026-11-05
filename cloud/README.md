@@ -144,6 +144,27 @@ Filing a return stays a CA's step on the portal by design. `infra/cloud` inputs:
 | `public_url` | `MYCA_PUBLIC_URL` | the https custom domain, used for OAuth redirect URIs |
 | `enable_channel_pulls` | `MYCA_ENABLE_CHANNEL_PULLS` | read-only Amazon, Shopify and Razorpay report pulls with each business's own keys |
 
+## Plans and billing
+
+Every business gets Pro free for 14 days from the day it is created, then Free (30 invoices a
+month, the owner only) unless it pays for Pro or CA firm. E-invoicing, connectors and inviting
+people need a paid plan. Nothing is gated until Razorpay is configured.
+
+| Route | Who | What |
+|---|---|---|
+| `GET /v1/plans` | anyone | plans, prices (`MYCA_PLAN_PRICES`), which can be bought, trial days |
+| `GET /v1/businesses/:id/subscription` | members | current plan, trial days left, status, paid-until |
+| `POST /v1/businesses/:id/subscription {plan}` | owner | creates a Razorpay subscription and returns its hosted checkout link |
+| `POST /v1/businesses/:id/subscription-cancel` | owner | cancels at the end of the paid period |
+| `POST /v1/billing/razorpay/webhook` | Razorpay | `X-Razorpay-Signature` HMAC checked, each event id applied once |
+
+Razorpay setup: create the Pro and CA firm plans (monthly) in the dashboard, add a webhook to
+`<api_url>/v1/billing/razorpay/webhook` with the `subscription.*` events and a secret, then set
+`razorpay_key_id`, `razorpay_key_secret`, `razorpay_webhook_secret`, `razorpay_plan_pro`,
+`razorpay_plan_firm` and `plan_prices` in `infra/cloud`. Use `rzp_test_` keys first: the app says
+billing is in test mode and no money moves. A payment that fails moves the subscription to
+`halted` and the business to Free after three grace days past the paid period.
+
 ## Not built yet
 
 - The Google Cloud project itself, and the first `terraform apply` of `infra/cloud`.

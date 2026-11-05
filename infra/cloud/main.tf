@@ -209,6 +209,8 @@ locals {
     "myca-model-api-key"         = var.model_api_key
     "myca-gsp-test-api-key"      = var.gsp_test_api_key
     "myca-gsp-test-api-secret"   = var.gsp_test_api_secret
+    "myca-razorpay-key-secret"   = var.razorpay_key_secret
+    "myca-razorpay-webhook"      = var.razorpay_webhook_secret
   }
 }
 
@@ -487,6 +489,41 @@ resource "google_cloud_run_v2_service" "api" {
       env {
         name  = "MYCA_MODEL_BASE_URL"
         value = var.model_base_url
+      }
+
+      env {
+        name  = "MYCA_RAZORPAY_KEY_ID"
+        value = var.razorpay_key_id
+      }
+      env {
+        name = "MYCA_RAZORPAY_KEY_SECRET"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.api["myca-razorpay-key-secret"].secret_id
+            version = "latest"
+          }
+        }
+      }
+      env {
+        name = "MYCA_RAZORPAY_WEBHOOK_SECRET"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.api["myca-razorpay-webhook"].secret_id
+            version = "latest"
+          }
+        }
+      }
+      env {
+        name  = "MYCA_RAZORPAY_PLAN_PRO"
+        value = var.razorpay_plan_pro
+      }
+      env {
+        name  = "MYCA_RAZORPAY_PLAN_FIRM"
+        value = var.razorpay_plan_firm
+      }
+      env {
+        name  = "MYCA_PLAN_PRICES"
+        value = var.plan_prices
       }
 
       volume_mounts {
