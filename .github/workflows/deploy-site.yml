@@ -19,7 +19,7 @@ jobs:
   deploy:
     name: Sync to GCS + purge CDN
     # Skips cleanly until Akhil's bootstrap + GitHub variables are in place.
-    if: ${{ vars.GCP_WIF_PROVIDER != '' && github.ref == 'refs/heads/main' }}
+    if: ${{ vars.GCP_WIF_PROVIDER != '' && vars.MYCA_MANAGE_SITE == 'true' && github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
     environment: production
     permissions:

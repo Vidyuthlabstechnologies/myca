@@ -173,6 +173,20 @@ How it holds together:
 - The API calls Google as its Cloud Run service account through the metadata server, so no key
   file is needed. `MYCA_PLAY_SERVICE_ACCOUNT_JSON` is there for running elsewhere.
 
+First apply of `infra/cloud` (Cloud Run needs an image from the registry the same apply
+creates, so it goes in three steps; afterwards `deploy-cloud` rolls out new images and
+Terraform leaves the image alone):
+
+```bash
+cd infra/cloud
+terraform init
+terraform apply -target=google_artifact_registry_repository.api -var-file=myca.tfvars
+gcloud builds submit ../.. --project "$PROJECT" --config ../../cloud/cloudbuild.yaml
+terraform apply -var-file=myca.tfvars \
+  -var="image=asia-south1-docker.pkg.dev/$PROJECT/myca-api/myca-api:first" \
+  -var="deployer_service_account=<bootstrap deploy_service_account output>"
+```
+
 Play setup (after `terraform apply`):
 
 1. Play Console > Monetize > Subscriptions: create two subscriptions, for example

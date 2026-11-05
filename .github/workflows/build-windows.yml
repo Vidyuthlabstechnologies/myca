@@ -114,24 +114,24 @@ jobs:
           fail_on_unmatched_files: true
 
       - name: Authenticate to Google Cloud
-        if: vars.GCP_WIF_PROVIDER != ''
+        if: vars.GCP_WIF_PROVIDER != '' && vars.MYCA_MANAGE_SITE == 'true'
         uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
         with:
           workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
           service_account: ${{ vars.GCP_DEPLOY_SA }}
 
       - uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
-        if: vars.GCP_WIF_PROVIDER != ''
+        if: vars.GCP_WIF_PROVIDER != '' && vars.MYCA_MANAGE_SITE == 'true'
 
       - name: Archive versioned installers
-        if: vars.GCP_WIF_PROVIDER != ''
+        if: vars.GCP_WIF_PROVIDER != '' && vars.MYCA_MANAGE_SITE == 'true'
         shell: bash
         run: |
           set -euo pipefail
           gcloud storage cp dist/*.exe dist/SHA256SUMS "gs://${ARTIFACTS_BUCKET}/releases/${RELEASE_TAG}/"
 
       - name: Point download aliases at the highest archived release
-        if: vars.GCP_WIF_PROVIDER != ''
+        if: vars.GCP_WIF_PROVIDER != '' && vars.MYCA_MANAGE_SITE == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -154,5 +154,5 @@ jobs:
           gcloud storage cp downloads-SHA256SUMS "gs://${DOWNLOADS_BUCKET}/downloads/SHA256SUMS" --cache-control="public, max-age=300"
 
       - name: Purge download aliases from Cloud CDN
-        if: vars.GCP_WIF_PROVIDER != ''
+        if: vars.GCP_WIF_PROVIDER != '' && vars.MYCA_MANAGE_SITE == 'true'
         run: gcloud compute url-maps invalidate-cdn-cache "${URL_MAP}" --path "/downloads/*"

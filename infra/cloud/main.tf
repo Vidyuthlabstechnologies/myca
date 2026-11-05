@@ -58,6 +58,11 @@ resource "google_project_iam_member" "api_sql" {
   project = var.project_id
   role    = "roles/cloudsql.client"
   member  = "serviceAccount:${google_service_account.api.email}"
+
+  condition {
+    title      = "myca-instance-only"
+    expression = "resource.type == \"sqladmin.googleapis.com/Instance\" && resource.name == \"projects/${var.project_id}/instances/myca\""
+  }
 }
 
 # ---------------------------------------------------------------------------
@@ -261,6 +266,10 @@ resource "google_cloud_run_v2_service" "api" {
   ingress             = "INGRESS_TRAFFIC_ALL"
   deletion_protection = false
   labels              = local.labels
+
+  lifecycle {
+    ignore_changes = [template[0].containers[0].image]
+  }
 
   template {
     service_account                  = google_service_account.api.email
@@ -739,12 +748,56 @@ resource "google_monitoring_alert_policy" "latency" {
   notification_channels = local.alert_channels
 }
 
-resource "google_logging_project_bucket_config" "default" {
+resource "google_logging_project_bucket_config" "myca" {
   project        = var.project_id
   location       = "global"
-  bucket_id      = "_Default"
+  bucket_id      = "${local.name}-logs"
   retention_days = var.log_retention_days
-  description    = "Request, job and database audit logs kept for the CERT-In period"
+  description    = "MyCA request, job and database logs kept for the CERT-In period"
+}
+
+resource "google_logging_project_sink" "myca" {
+  name                   = "${local.name}-logs"
+  destination            = "logging.googleapis.com/${google_logging_project_bucket_config.myca.id}"
+  unique_writer_identity = true
+  filter                 = "(resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"${local.name}\") OR (resource.type=\"cloudsql_database\" AND resource.labels.database_id=\"${var.project_id}:myca\") OR (resource.type=\"cloud_scheduler_job\" AND resource.labels.job_id=~\"^${local.name}\")"
+}
+
+resource "google_project_iam_member" "myca_log_writer" {
+  project = var.project_id
+  role    = "roles/logging.bucketWriter"
+  member  = google_logging_project_sink.myca.writer_identity
+
+  condition {
+    title      = "myca-log-bucket-only"
+    expression = "resource.name.endsWith(\"/buckets/${google_logging_project_bucket_config.myca.bucket_id}\")"
+  }
+}
+
+resource "google_artifact_registry_repository_iam_member" "deployer_push" {
+  count = var.deployer_service_account == "" ? 0 : 1
+
+  location   = google_artifact_registry_repository.api.location
+  repository = google_artifact_registry_repository.api.name
+  role       = "roles/artifactregistry.writer"
+  member     = "serviceAccount:${var.deployer_service_account}"
+}
+
+resource "google_cloud_run_v2_service_iam_member" "deployer_rollout" {
+  count = var.deployer_service_account == "" ? 0 : 1
+
+  name     = google_cloud_run_v2_service.api.name
+  location = google_cloud_run_v2_service.api.location
+  role     = "roles/run.developer"
+  member   = "serviceAccount:${var.deployer_service_account}"
+}
+
+resource "google_service_account_iam_member" "deployer_act_as_api" {
+  count = var.deployer_service_account == "" ? 0 : 1
+
+  service_account_id = google_service_account.api.name
+  role               = "roles/iam.serviceAccountUser"
+  member             = "serviceAccount:${var.deployer_service_account}"
 }
 
 resource "google_pubsub_topic" "play_notifications" {

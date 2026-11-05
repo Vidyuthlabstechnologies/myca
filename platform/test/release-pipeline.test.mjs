@@ -321,7 +321,9 @@ test('infra: PR plans use their own pool and a read-only service account', () =>
 
 test('infra: the deployer holds no escalation roles and gets storage per bucket', () => {
   const boot = BOOT();
-  const roles = hclList(boot, 'deployer_roles');
+  const base = hclList(boot, 'deployer_roles');
+  assert.ok(!base.some((r) => /networkAdmin|loadBalancerAdmin|dns\.admin|monitoring\.admin|artifactregistry\.admin/.test(r)), 'without manage_site the deployer holds no project-wide admin role');
+  const roles = [...base, ...hclList(boot.replace('site_deployer_roles = var.manage_site ? [', 'site_deployer_roles = ['), 'site_deployer_roles')];
   for (const banned of ['roles/iam.serviceAccountUser', 'roles/run.admin', 'roles/secretmanager.admin', 'roles/storage.admin', 'roles/owner', 'roles/editor']) {
     assert.ok(!roles.includes(banned), `deployer_roles excludes ${banned}`);
   }
@@ -329,7 +331,7 @@ test('infra: the deployer holds no escalation roles and gets storage per bucket'
   const creator = resource(boot, 'google_project_iam_custom_role', 'bucket_creator');
   assert.deepEqual(hclList(creator, 'permissions'), ['storage.buckets.create']);
   const perBucket = resource(boot, 'google_project_iam_member', 'deployer_bucket_admin');
-  assert.match(perBucket, /for_each\s*=\s*local\.app_buckets/);
+  assert.match(perBucket, /for_each\s*=\s*var\.manage_site \? local\.app_buckets : \{\}/);
   assert.match(perBucket, /role\s*=\s*"roles\/storage\.admin"/);
   assert.match(nested(perBucket, 'condition'), /resource\.name == \\"projects\/_\/buckets\/\$\{each\.value\}\\" \|\| resource\.name\.startsWith\(\\"projects\/_\/buckets\/\$\{each\.value\}\/\\"\)/);
   const apps = hclBody(boot, /app_buckets\s*=\s*\{/);
@@ -399,7 +401,8 @@ test('CI: Terraform plans PRs read-only and applies main with every input as TF_
   assert.ok(!Object.values(wf.permissions || {}).includes('write'), 'no workflow-level write permission');
   const { plan, apply } = wf.jobs;
   assert.ok(plan && apply, 'separate plan and apply jobs');
-  assert.equal(plan.if, "github.event_name == 'pull_request' && vars.GCP_WIF_PLAN_PROVIDER != ''");
+  assert.equal(plan.if, "github.event_name == 'pull_request' && vars.GCP_WIF_PLAN_PROVIDER != '' && vars.MYCA_MANAGE_SITE == 'true'");
+  assert.match(apply.if, /vars\.MYCA_MANAGE_SITE == 'true'/, 'the site module stays off until the owner turns it on');
   assert.equal(plan.environment, undefined, 'the PR plan job has no environment');
   assert.equal(plan.permissions['id-token'], 'write');
   assert.equal(plan.permissions.contents, 'read');

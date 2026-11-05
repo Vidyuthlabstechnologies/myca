@@ -67,7 +67,7 @@ variable "weekly_job_schedule" {
 }
 
 variable "log_retention_days" {
-  description = "Days Cloud Logging keeps the _Default bucket (CERT-In directions of April 2022 ask for 180)."
+  description = "Days the MyCA log bucket keeps the API, database and job logs (CERT-In directions of April 2022 ask for 180). The project _Default bucket is left alone."
   type        = number
   default     = 180
 }
@@ -240,6 +240,12 @@ variable "play_product_firm" {
 
 variable "plan_prices" {
   description = "Monthly prices shown in the app, in rupees, used only until the app reads the Play Store price, for example \"pro=499,firm=1499\"."
+  type        = string
+  default     = ""
+}
+
+variable "deployer_service_account" {
+  description = "The bootstrap deploy_service_account output. It gets push on the myca-api registry, run.developer on the myca-api service and actAs on its service account, so CI can roll out the API and nothing else. Empty skips these grants."
   type        = string
   default     = ""
 }
