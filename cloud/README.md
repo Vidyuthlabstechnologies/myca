@@ -126,13 +126,13 @@ no response carries a secret, a hash or a phone number.
 
 ## Real customers, providers in sandbox
 
-The hosted API refuses to start with `MYCA_ENABLE_LIVE_CALLS` on, so customers' books, invoices,
+The hosted API refuses to start in live mode (`MYCA_PROVIDER_ENV=live` or `MYCA_ENABLE_LIVE_CALLS=1`), so customers' books, invoices,
 GST figures, uploads and chat are real while nothing reaches a government portal or a paid
 provider. Filing itself stays a CA's step on the portal by design. `infra/cloud` inputs for this:
 
 | Input | Sets | Notes |
 |---|---|---|
-| `provider_mode` | `MYCA_MOCK_MODE` | `dry-run` (default): the prepared payload is kept and the customer is told nothing was sent. `simulated`: sandbox-style results (a simulated IRN, a simulated return status), written only to `mock*` fields and labelled "Simulated" in the app and chat |
+| `provider_mode` | `MYCA_PROVIDER_ENV`, `MYCA_MOCK_MODE` | `test` (default): real calls to the Quicko test host and the NIC sandbox IRP only, with `gsp_test_api_key` and `gsp_test_api_secret`; anything without a sandbox (messages to people, DSC, pushes) is held as a dry run. `simulated`: labelled sandbox-style results, no network. `dry-run`: nothing sent. `live` is refused until each business has its own government credentials |
 | `google_client_ids`, `oidc_issuer`, `sms_provider` | sign-in | at least one is required or the API will not start |
 | `sms_provider`, `sms_secret`, `sms_twilio_sid`, `sms_twilio_from`, `sms_msg91_template_id` | `MYCA_SMS_*` | `sms_secret` is the Twilio auth token or the MSG91 auth key, kept in Secret Manager; MSG91 in India needs a DLT-registered template |
 | `model_api_key`, `model_name`, `model_base_url` | `MYCA_MODEL_*` | optional: reading bills and Hindi or Telugu chat; "unset" runs the English rules only |

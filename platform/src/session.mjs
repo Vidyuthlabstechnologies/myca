@@ -14,7 +14,7 @@ import { providerCatalog, providerRequirementMap } from './provider-catalog.mjs'
 import { getBook } from './books.mjs';
 import { approvalStatus } from './approvals.mjs';
 import { bookView } from './book-view.mjs';
-import { liveCallsEnabled, mockModeEnabled } from './runtime-config.mjs';
+import { liveCallsEnabled, mockModeEnabled, providerEnvironment } from './runtime-config.mjs';
 import { findUser, verifyUserPin, listUsers, withoutPin, pinRecords, applyPinRecords, changePin } from './identity.mjs';
 
 function hydrateAttachments(book, documents) {
@@ -406,6 +406,7 @@ export function openSession(target = defaultDataPath(), { seed = false } = {}) {
         approvals: (state.approvals || []).map((a) => ({ ...a, status: approvalStatus(a) })),
         dataPath: path,
         liveCallsEnabled: liveCallsEnabled(),
+        providerEnvironment: providerEnvironment(),
         mockMode: mockModeEnabled(),
         tools: toolsForCountry(TOOLS, countryOf(view)).map(({ name, title, description }) => ({ name, title, description })),
         country: countryOf(view),

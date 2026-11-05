@@ -271,7 +271,7 @@ function renderFirm(snap) {
   document.getElementById('fPin').value = firm.pin || '';
   document.getElementById('fEntity').value = firm.entityType || 'proprietor';
   document.getElementById('firmMeta').textContent = snap.dataPath
-    ? `Data: ${snap.dataPath} · live provider calls ${snap.liveCallsEnabled ? 'ON' : 'off'}`
+    ? `Data: ${snap.dataPath} · provider calls: ${({ live: 'LIVE (real portals)', test: 'TEST (sandbox hosts only)' })[snap.providerEnvironment] || 'off'}${snap.mockMode ? ' · simulated' : ''}`
     : '';
 }
 

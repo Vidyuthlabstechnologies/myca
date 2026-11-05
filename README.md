@@ -186,8 +186,11 @@ flutter test             # 131 tests
 flutter run --dart-define=MYCA_CLOUD_URL=http://127.0.0.1:8080
 ```
 
-Configuration is optional for local books. **Outbound calls are opt-in**; set
-`MYCA_ENABLE_LIVE_CALLS=1` only when you intend to reach a real portal.
+Configuration is optional for local books. **Outbound calls are opt-in** through one
+switch, `MYCA_PROVIDER_ENV`: `off` (the default), `test` (real calls to the Quicko and NIC
+sandbox hosts only; anything without a sandbox is held as a dry run) or `live` (real
+portals). `MYCA_ENABLE_LIVE_CALLS=1` still means `live`. The hosted API runs `off` or
+`test` and refuses `live` until each business carries its own government credentials.
 
 ### Try it in 60 seconds
 

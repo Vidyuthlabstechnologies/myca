@@ -14,7 +14,7 @@ test('a model key left as the Terraform placeholder counts as no key', () => {
   }
 });
 
-test('a hosted dry run tells the customer it is sandbox, not how to edit platform/.env', async () => {
+test('a hosted dry run says nothing was sent, not how to edit platform/.env', async () => {
   const { createState } = await import('../src/store.mjs');
   const { performExternalAction } = await import('../src/action-gate.mjs');
   const saved = { live: process.env.MYCA_ENABLE_LIVE_CALLS, mock: process.env.MYCA_MOCK_MODE, hosted: process.env.MYCA_HOSTED };
@@ -22,7 +22,7 @@ test('a hosted dry run tells the customer it is sandbox, not how to edit platfor
   try {
     const out = await performExternalAction(createState(), { actionId: 'einvoice_authenticate', clientId: 'self', params: { gstin: '27AABCU9603R1ZN' }, actor: { userId: 'ca', role: 'staff' } }, async () => ({ ok: true }));
     assert.equal(out.error, 'LIVE_CALLS_DISABLED');
-    assert.match(out.hint, /sandbox/);
+    assert.match(out.hint, /Nothing was sent/);
     assert.doesNotMatch(out.hint, /platform\/\.env/);
   } finally {
     for (const [key, value] of [['MYCA_ENABLE_LIVE_CALLS', saved.live], ['MYCA_MOCK_MODE', saved.mock], ['MYCA_HOSTED', saved.hosted]]) {

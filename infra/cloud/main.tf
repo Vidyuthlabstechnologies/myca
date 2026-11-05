@@ -207,6 +207,8 @@ locals {
     "myca-whatsapp-access-token" = var.whatsapp_access_token
     "myca-sms-secret"            = var.sms_secret
     "myca-model-api-key"         = var.model_api_key
+    "myca-gsp-test-api-key"      = var.gsp_test_api_key
+    "myca-gsp-test-api-secret"   = var.gsp_test_api_secret
   }
 }
 
@@ -408,6 +410,28 @@ resource "google_cloud_run_v2_service" "api" {
       env {
         name  = "MYCA_MOCK_MODE"
         value = var.provider_mode == "simulated" ? "1" : "0"
+      }
+      env {
+        name  = "MYCA_PROVIDER_ENV"
+        value = var.provider_mode == "test" ? "test" : "off"
+      }
+      env {
+        name = "MYCA_GSP_TEST_API_KEY"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.api["myca-gsp-test-api-key"].secret_id
+            version = "latest"
+          }
+        }
+      }
+      env {
+        name = "MYCA_GSP_TEST_API_SECRET"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.api["myca-gsp-test-api-secret"].secret_id
+            version = "latest"
+          }
+        }
       }
       env {
         name  = "MYCA_PUBLIC_URL"

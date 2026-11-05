@@ -192,6 +192,8 @@ test('every protected route needs a token', async () => {
     assert.equal(out.status, 401, `${method} ${path}`);
     assert.equal(out.body.error, 'UNAUTHENTICATED');
   }
-  assert.equal((await api.call('GET', '/v1/health')).status, 200);
+  const health = await api.call('GET', '/v1/health');
+  assert.equal(health.status, 200);
+  assert.equal(health.body.providerMode, 'off');
   assert.equal((await api.call('GET', '/nope')).status, 404);
 });

@@ -1,4 +1,4 @@
-import { loadEnvFile, liveCallsEnabled, mockModeEnabled } from './runtime-config.mjs';
+import { loadEnvFile, mockModeEnabled, productionCallsEnabled } from './runtime-config.mjs';
 
 export const CHANNELS = ['email', 'whatsapp'];
 
@@ -119,9 +119,9 @@ export async function sendNotification(state, messageId, deps = {}) {
     message.mock = true;
     return { ok: true, mock: true, message, hint: 'Mock mode active (MYCA_MOCK_MODE=1) — no message was actually sent.' };
   }
-  const live = deps.allowLive == null ? liveCallsEnabled() : Boolean(deps.allowLive);
+  const live = deps.allowLive == null ? productionCallsEnabled() : Boolean(deps.allowLive);
   if (!live) {
-    return { ok: false, error: 'LIVE_CALLS_DISABLED', hint: 'Set MYCA_ENABLE_LIVE_CALLS=1 to send notifications.' };
+    return { ok: false, error: 'LIVE_CALLS_DISABLED', hint: 'Messages to real people go out only in live mode (MYCA_PROVIDER_ENV=live). Nothing was sent.' };
   }
   const env = deps.env || loadEnvFile();
   const fetchFn = deps.fetchFn || fetch;

@@ -88,6 +88,7 @@ function money(n) {
 
 const FAILURES = {
   LIVE_CALLS_DISABLED: (r) => r.hint || 'Nothing was sent: government and provider calls are switched off here.',
+  TEST_MODE_HELD: (r) => r.hint || 'Test mode: this action has no sandbox, so nothing was sent.',
   INVOICES_HELD: (r) => `${(r.held || []).length === 1 ? '1 invoice is' : `${(r.held || []).length} invoices are`} held back (${(r.held || []).slice(0, 5).join(', ')}); fix them before saving to the portal.`,
   NOT_SAVED: () => 'Save the GSTR-1 to the portal first, then file it.',
   DRAFT_CHANGED: () => 'The invoices changed since the save; save to the portal again, then file.',

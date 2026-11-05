@@ -1,6 +1,6 @@
 import { createCipheriv, createDecipheriv, randomBytes, createHash } from 'node:crypto';
 import { loadGovtConfig, pemFromDisk, rsaEncryptBase64, GOVT_GUIDE, invoiceToNicPayload, generateMockIrnPayload } from './nic-config.mjs';
-import { liveCallsEnabled, mockModeEnabled } from './runtime-config.mjs';
+import { liveCallsEnabled, mockModeEnabled, testModeEnabled } from './runtime-config.mjs';
 
 export { rsaEncryptBase64 };
 
@@ -24,8 +24,13 @@ export const IRP_PATHS = {
   ewbByIrn: (irn) => `/eiewb/v1.03/ewaybill/irn/${encodeURIComponent(irn)}`,
 };
 
+function nicEnvironment(cfg) {
+  if (testModeEnabled()) return 'sandbox';
+  return cfg.env === 'production' ? 'production' : 'sandbox';
+}
+
 function hostFor(cfg, options = {}) {
-  const env = cfg.env === 'production' ? 'production' : 'sandbox';
+  const env = nicEnvironment(cfg);
   if (options.irp === 'NIC2') return IRP_HOSTS.sandbox2;
   return env === 'production' ? IRP_HOSTS.production : IRP_HOSTS.sandbox;
 }
@@ -154,7 +159,7 @@ export async function nicAuthenticate(cfg = loadGovtConfig(), fetchFn = fetch, o
       hint: 'NIC requires its RSA public key to encrypt credentials. Download the .cer and load it on the Govt tab. MyCA never transmits credentials unencrypted.',
     };
   }
-  const env = cfg.env === 'production' ? 'production' : 'sandbox';
+  const env = nicEnvironment(cfg);
   const url = `${hostFor(cfg, options)}${IRP_PATHS.auth}`;
   const appKey = randomBytes(32).toString('base64');
   const inner = JSON.stringify({

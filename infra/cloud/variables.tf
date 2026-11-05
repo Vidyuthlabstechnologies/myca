@@ -135,14 +135,28 @@ variable "whatsapp_phone_number_id" {
 }
 
 variable "provider_mode" {
-  description = "How government and provider actions behave for customers. \"dry-run\" keeps the prepared payload and sends nothing. \"simulated\" also returns sandbox-style results (simulated IRN, simulated filing) tagged as simulated, written only to mock fields. Live calls stay off on the hosted API either way."
+  description = "Test or dry-run for government and provider actions. \"test\" makes real calls to the Quicko and NIC sandbox hosts only (MYCA_PROVIDER_ENV=test). \"simulated\" answers with labelled sandbox-style results and no network. \"dry-run\" keeps the prepared payload and sends nothing. Live mode is refused by the hosted API."
   type        = string
-  default     = "dry-run"
+  default     = "test"
 
   validation {
-    condition     = contains(["dry-run", "simulated"], var.provider_mode)
-    error_message = "provider_mode is dry-run or simulated; the hosted API never makes live government calls."
+    condition     = contains(["test", "simulated", "dry-run"], var.provider_mode)
+    error_message = "provider_mode is test, simulated or dry-run; the hosted API refuses live mode."
   }
+}
+
+variable "gsp_test_api_key" {
+  description = "Sandbox by Quicko test-environment API key used in test mode. Leave \"unset\" until you have one."
+  type        = string
+  default     = "unset"
+  sensitive   = true
+}
+
+variable "gsp_test_api_secret" {
+  description = "Sandbox by Quicko test-environment API secret used in test mode."
+  type        = string
+  default     = "unset"
+  sensitive   = true
 }
 
 variable "public_url" {
