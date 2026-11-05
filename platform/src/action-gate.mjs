@@ -501,7 +501,7 @@ export async function performExternalAction(state, request = {}, execute) {
   if (testModeEnabled() && !pullAllowed && !item.local && !TEST_MODE_FAMILIES.has(item.family)) return recordDryRun(action, request.payload ?? params, 'TEST_MODE_HELD');
 
   const beforeHash = stateDigest(state);
-  const claim = item.actionClass === 'write' && !item.local ? claimApproval(action, request.approvalId) : { ok: true, approval: null };
+  const claim = item.actionClass === 'write' && !item.local && !testModeEnabled() ? claimApproval(action, request.approvalId) : { ok: true, approval: null };
   if (!claim.ok) return claim;
 
   const result = await runWithDeadline(action, execute, deadlineFor(item, request.timeoutMs));

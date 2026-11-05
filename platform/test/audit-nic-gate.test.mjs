@@ -87,7 +87,8 @@ test('C2: generating an IRN needs a matching CA approval, and the approval is si
     const approvalId = await approve(state, 'nic_irn_generate', { invoiceId: 'INV-0001' });
     const issued = await runTool(state, 'govt_generate_irn', { invoiceId: 'INV-0001' });
     assert.equal(issued.data.ok, true);
-    assert.equal(state.invoices[0].irn, 'REALIRN'.padEnd(64, '0'));
+    assert.equal(state.invoices[0].sandboxIrn, 'REALIRN'.padEnd(64, '0'));
+    assert.equal(state.invoices[0].irn, undefined);
     assert.equal(approvalStatus(findApproval(state, approvalId)), 'used');
     assert.ok(calls.some((c) => c.url.endsWith('/eicore/v1.03/Invoice')));
     const audit = state.auditEvents.filter((e) => e.action === 'external.nic_irn_generate').at(-1);

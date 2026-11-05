@@ -105,6 +105,7 @@ function einvoiceWords(state, invoice) {
   if (invoice.status === 'cancelled') return { status: 'not-applicable', irn: '', why: 'The invoice is cancelled.' };
   if (!invoice.partyGstin) return { status: 'not-applicable', irn: '', why: 'E-invoicing applies to invoices to registered buyers (B2B); this one is to an unregistered buyer.' };
   if (invoice.irn) return { status: 'issued', irn: invoice.irn, ackNo: invoice.ackNo || '', why: 'IRN issued by the IRP.' };
+  if (invoice.sandboxIrn) return { status: 'sandbox', irn: invoice.sandboxIrn, ackNo: invoice.sandboxAckNo || '', why: 'Sandbox IRN from the NIC test IRP. It is not valid for a real supply; switch e-invoicing to live to issue the real one.' };
   if (invoice.mockIrn) return { status: 'mock', irn: invoice.mockIrn, ackNo: invoice.mockAckNo || '', why: 'Simulated IRN; nothing reached the IRP.' };
   return { status: 'ready', irn: '', why: 'If your turnover brings you into e-invoicing, generate the IRN; it goes through the action gate and needs a CA approval before anything reaches the IRP.' };
 }

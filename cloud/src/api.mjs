@@ -1,5 +1,7 @@
 import { randomUUID } from 'node:crypto';
-import { mockModeEnabled, productionCallsEnabled, testModeEnabled } from '../../platform/src/runtime-config.mjs';
+import { mockModeEnabled, serviceProviderEnvironment } from '../../platform/src/runtime-config.mjs';
+import { withProviderContext } from '../../platform/src/provider-context.mjs';
+import { createGovtActions } from './govt-actions.mjs';
 import { gstin } from '../../platform/src/sprint-load.mjs';
 import { rule } from '../../sprints/statutory-rules/src/index.mjs';
 import { createAuth, isUuid } from './auth.mjs';
@@ -169,14 +171,14 @@ export function clientAddress(req, hops = trustedProxyHops()) {
 export function createApi({ db, secret, booksKey = '', otpSender = null, googleClientIds = [], googleKeys, oidc = {}, oidcKeys = null, documentVault = null, connectorKey = '', now = () => Date.now(), log = () => {}, version = 'dev', jobToken = '', inboundEmail = {}, whatsapp = {}, whatsappSender = null }) {
   process.env.MYCA_HOSTED = '1';
   assertSecret(secret);
-  if (productionCallsEnabled()) throw new Error('the hosted API must not start with live provider calls enabled: live mode needs each business\'s own government credentials, so run it with MYCA_PROVIDER_ENV=test or off');
-  const providerMode = testModeEnabled() ? 'test' : mockModeEnabled() ? 'simulated' : 'off';
+  const providerMode = () => (mockModeEnabled() ? 'simulated' : serviceProviderEnvironment());
   const auth = createAuth({ db, secret, otpSender, now });
   const businesses = createBusinesses({ db, now, booksKey });
   const vault = documentVault || createDocumentVault({ now, log });
   const runner = createBooksRunner({ db, now, vault, booksKey });
   const connectors = createConnectorStore({ db, key: connectorKey });
   const withBooks = runner.withBooks;
+  const govt = createGovtActions({ connectors, withBooks: (...args) => runner.withBooks(...args) });
   const publicOrigin = (req) => {
     const configured = String(process.env.MYCA_PUBLIC_URL || '').trim().replace(/\/+$/, '');
     if (configured) return configured;
@@ -216,7 +218,7 @@ export function createApi({ db, secret, booksKey = '', otpSender = null, googleC
     const method = req.method;
     if (parts[0] !== 'v1') throw httpError(404, 'NOT_FOUND');
 
-    if (parts[1] === 'health' && method === 'GET') return { ok: true, providerMode };
+    if (parts[1] === 'health' && method === 'GET') return { ok: true, providerMode: providerMode() };
     if (parts[1] === 'privacy-notice' && parts.length === 2 && method === 'GET') return { ok: true, notice: PRIVACY_NOTICE };
     if (parts[1] === 'auth' && parts[2] === 'methods' && parts.length === 3 && method === 'GET') {
       return { ok: true, phone: auth.phoneEnabled, google: google.enabled, oidc: openId.enabled, ...(openId.enabled ? { oidcIssuer: openId.issuer } : {}) };
@@ -445,6 +447,7 @@ export function createApi({ db, secret, booksKey = '', otpSender = null, googleC
           invitations: role === 'owner' ? await members.openFor(businessId) : [],
         };
       }
+      if (method === 'GET' && action === 'approvals') return govt.approvals(businessId, context, actor, 'GET');
       if (method !== 'POST') throw httpError(404, 'NOT_FOUND');
 
       const body = await readJson(req, action === 'uploads' ? MAX_UPLOAD_BYTES : action === 'replace' ? MAX_BUSINESS_BYTES : MAX_BODY_BYTES);
@@ -466,6 +469,11 @@ export function createApi({ db, secret, booksKey = '', otpSender = null, googleC
         if (role !== 'owner') throw httpError(403, 'OWNER_ONLY');
         if (sync.mode === 'live') throw httpError(409, 'CA_SEES_LIVE_BOOKS');
         return { ok: true, sharedAsOf: await runner.share(businessId, user.userId) };
+      }
+      if (action === 'gstin-check') return govt.gstinCheck(businessId, context, actor, body);
+      if (action === 'einvoice' || action === 'approvals') {
+        if (sharedView) throw httpError(403, 'SHARED_VIEW_READ_ONLY');
+        return action === 'einvoice' ? govt.einvoice(businessId, context, actor, body) : govt.approvals(businessId, context, actor, 'POST', body);
       }
       if (sharedView) {
         if (action === 'query') return runner.withSharedBooks(businessId, context, (session) => session.query(body.name, body.args || {}, actor));
@@ -566,7 +574,7 @@ export function createApi({ db, secret, booksKey = '', otpSender = null, googleC
     let status = 200;
     let body;
     try {
-      body = await route(req, requestId);
+      body = await withProviderContext({ environment: 'off' }, () => route(req, requestId));
       status = statusOf(body);
     } catch (err) {
       status = err.statusCode || 500;

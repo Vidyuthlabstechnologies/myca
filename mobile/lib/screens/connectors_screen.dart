@@ -36,6 +36,11 @@ const connectorFieldLabels = {
   'teamApiId': 'Team API ID',
   'testMode': 'Test mode (true/false)',
   'redirectUri': 'Redirect URI',
+  'apiSecret': 'API secret',
+  'username': 'API user name',
+  'password': 'API password',
+  'gstin': 'GSTIN',
+  'publicKeyPem': 'NIC public key (paste the .pem text)',
 };
 
 const machineManagedFields = {'accessToken', 'refreshToken', 'itemId', 'cursor', 'oauthState', 'companyUuid'};
@@ -44,7 +49,16 @@ const connectorEnvironments = {
   'plaid': ['sandbox', 'development', 'production'],
   'taxjar': ['sandbox', 'production'],
   'gusto': ['demo', 'production'],
+  'quicko': ['sandbox', 'production'],
+  'nic': ['sandbox', 'production'],
 };
+
+const modeChannels = {'quicko', 'nic'};
+
+String environmentLabel(String channel, String choice) {
+  if (!modeChannels.contains(channel)) return choice;
+  return choice == 'production' ? 'Live (real portal)' : 'Test (sandbox)';
+}
 
 const connectorPullLabels = {
   'plaid': 'Pull transactions',
@@ -293,14 +307,14 @@ class _ConnectorCardState extends State<ConnectorCard> {
       });
 
   Widget _field(String field) {
-    final label = connectorFieldLabels[field] ?? field;
+    final label = field == 'environment' && modeChannels.contains(view.channel) ? 'Mode' : connectorFieldLabels[field] ?? field;
     final choices = field == 'environment' ? connectorEnvironments[view.channel] : null;
     if (choices != null) {
       return DropdownButtonFormField<String>(
         key: ValueKey('${view.channel}.environment'),
         initialValue: _environment,
         decoration: InputDecoration(labelText: label),
-        items: [for (final choice in choices) DropdownMenuItem(value: choice, child: Text(choice))],
+        items: [for (final choice in choices) DropdownMenuItem(value: choice, child: Text(environmentLabel(view.channel, choice)))],
         onChanged: _busy ? null : (value) => setState(() => _environment = value ?? _environment),
       );
     }

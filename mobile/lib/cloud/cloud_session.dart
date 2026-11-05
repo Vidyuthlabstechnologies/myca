@@ -123,6 +123,26 @@ class PlaidLinkToken {
   final bool mock;
 }
 
+class EinvoiceOutcome {
+  const EinvoiceOutcome({required this.ok, required this.error, required this.hint, required this.irn, required this.mode, required this.sandbox});
+
+  factory EinvoiceOutcome.fromJson(Map<String, dynamic> map) => EinvoiceOutcome(
+        ok: map['ok'] == true,
+        error: '${map['error'] ?? ''}',
+        hint: '${map['hint'] ?? ''}',
+        irn: '${map['irn'] ?? ''}',
+        mode: '${map['mode'] ?? ''}',
+        sandbox: map['sandbox'] == true,
+      );
+
+  final bool ok;
+  final String error;
+  final String hint;
+  final String irn;
+  final String mode;
+  final bool sandbox;
+}
+
 class PlaidItem {
   const PlaidItem({required this.itemId, required this.linkedOn});
 
@@ -476,6 +496,28 @@ class CloudSession {
   Future<ConnectorView> saveConnector(String channel, Map<String, Object?> fields) async {
     final body = _accepted(await call('POST', '$_books/connectors', {'channel': channel, ...fields}));
     return ConnectorView.fromJson(body);
+  }
+
+  Future<EinvoiceOutcome> generateEinvoice(String invoiceId) async {
+    return EinvoiceOutcome.fromJson(await call('POST', '$_books/einvoice', {'invoiceId': invoiceId}));
+  }
+
+  Future<List<Map<String, dynamic>>> pendingEinvoiceApprovals(String invoiceId) async {
+    final body = _accepted(await call('GET', '$_books/approvals'));
+    final rows = body['approvals'];
+    if (rows is! List) return const [];
+    return [
+      for (final row in rows)
+        if (row is Map && row['operation'] == 'einvoice' && row['status'] == 'pending' && row['params'] is Map && (row['params'] as Map)['invoiceId'] == invoiceId) row.cast<String, dynamic>(),
+    ];
+  }
+
+  Future<Map<String, dynamic>> requestEinvoiceApproval(String invoiceId) async {
+    return call('POST', '$_books/approvals', {'operation': 'einvoice', 'invoiceId': invoiceId});
+  }
+
+  Future<Map<String, dynamic>> approve(String approvalId) async {
+    return call('POST', '$_books/approvals', {'approvalId': approvalId, 'decision': 'approve'});
   }
 
   Future<PlaidLinkToken> plaidLinkToken() async {

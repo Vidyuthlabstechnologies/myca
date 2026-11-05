@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { publicEncrypt, constants, createPublicKey, createHash } from 'node:crypto';
 import { encryptSecret, decryptSecret, vaultBackend } from './credential-vault.mjs';
+import { providerContext } from './provider-context.mjs';
 
 export const GOVT_SITES = {
   gstHome: 'https://www.gst.gov.in/',
@@ -65,7 +66,27 @@ export function govtConfigPath() {
   return join(mycaDir(), 'govt.json');
 }
 
+export function normalizePem(text) {
+  const raw = String(text || '').trim();
+  const body = raw.replace(/-----(BEGIN|END) [A-Z ]+-----/g, '').replace(/\s+/g, '');
+  if (!body || !/^[A-Za-z0-9+/=]+$/.test(body)) return raw;
+  const label = /BEGIN CERTIFICATE/.test(raw) ? 'CERTIFICATE' : 'PUBLIC KEY';
+  return `-----BEGIN ${label}-----\n${body.match(/.{1,64}/g).join('\n')}\n-----END ${label}-----\n`;
+}
+
 export function loadGovtConfig() {
+  const given = providerContext()?.govt;
+  if (given) {
+    return {
+      env: given.env === 'production' ? 'production' : 'sandbox',
+      clientId: String(given.clientId || ''),
+      clientSecret: String(given.clientSecret || ''),
+      username: String(given.username || ''),
+      password: String(given.password || ''),
+      gstin: String(given.gstin || ''),
+      publicKeyPem: normalizePem(given.publicKeyPem),
+    };
+  }
   const p = govtConfigPath();
   if (!existsSync(p)) {
     return { env: 'sandbox', clientId: '', clientSecret: '', username: '', password: '', gstin: '', publicKeyPem: '' };

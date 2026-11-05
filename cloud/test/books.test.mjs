@@ -142,31 +142,20 @@ test('logs carry no amounts, names, phone numbers or business ids', async () => 
   assert.match(text, /"path":"\/v1\/businesses\/:id\/confirm"/);
 });
 
-test('the service starts in test mode and says so, and refuses live mode', async () => {
+test('the service starts in any mode and reports it, and a request outside a business action makes no provider call', async () => {
   const saved = { env: process.env.MYCA_PROVIDER_ENV, mock: process.env.MYCA_MOCK_MODE };
   process.env.MYCA_MOCK_MODE = '0';
   try {
-    process.env.MYCA_PROVIDER_ENV = 'live';
-    assert.throws(() => createApi({ db: api.db, secret: SECRET, otpSender: api.sender }), /live provider calls/);
-    process.env.MYCA_PROVIDER_ENV = 'test';
-    const testApi = createApi({ db: api.db, secret: SECRET, otpSender: api.sender });
-    assert.ok(testApi);
+    for (const mode of ['off', 'test', 'live']) {
+      process.env.MYCA_PROVIDER_ENV = mode;
+      assert.ok(createApi({ db: api.db, secret: SECRET, otpSender: api.sender }));
+      assert.equal((await api.call('GET', '/v1/health')).body.providerMode, mode);
+    }
   } finally {
     for (const [key, value] of [['MYCA_PROVIDER_ENV', saved.env], ['MYCA_MOCK_MODE', saved.mock]]) {
       if (value === undefined) delete process.env[key];
       else process.env[key] = value;
     }
-  }
-});
-
-test('the service refuses to start with live provider calls switched on', () => {
-  const previous = process.env.MYCA_ENABLE_LIVE_CALLS;
-  process.env.MYCA_ENABLE_LIVE_CALLS = '1';
-  try {
-    assert.throws(() => createApi({ db: api.db, secret: SECRET, otpSender: api.sender }), /live provider calls/);
-  } finally {
-    if (previous === undefined) delete process.env.MYCA_ENABLE_LIVE_CALLS;
-    else process.env.MYCA_ENABLE_LIVE_CALLS = previous;
   }
 });
 

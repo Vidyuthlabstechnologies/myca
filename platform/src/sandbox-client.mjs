@@ -1,4 +1,5 @@
 import { loadEnvFile, testModeEnabled } from './runtime-config.mjs';
+import { providerContext } from './provider-context.mjs';
 import { loadSandboxKeys, SANDBOX_HOSTS } from './sandbox-keys.mjs';
 
 function detectEnvironment(baseUrl) {
@@ -20,8 +21,16 @@ function deadline(options, ms = DEFAULT_TIMEOUT_MS) {
   return options?.signal ? AbortSignal.any([options.signal, timeout]) : timeout;
 }
 
+function withBusinessKeys(options) {
+  const given = providerContext()?.sandbox;
+  if (!given?.apiKey || options.apiKey != null) return options;
+  const environment = given.environment === 'production' || given.environment === 'live' ? 'live' : 'test';
+  return { ...options, apiKey: given.apiKey, apiSecret: given.apiSecret || '', environment, baseUrl: SANDBOX_HOSTS[environment], saved: null };
+}
+
 export class SandboxClient {
-  constructor(options = {}) {
+  constructor(given = {}) {
+    const options = withBusinessKeys(given);
     const fileEnv = loadEnvFile();
     const read = (name) => {
       const value = process.env[name] ?? fileEnv[name] ?? '';
@@ -324,6 +333,7 @@ export class SandboxClient {
 
 let defaultClient = null;
 export function getSandboxClient() {
+  if (providerContext()?.sandbox) return new SandboxClient();
   if (!defaultClient) defaultClient = new SandboxClient();
   return defaultClient;
 }

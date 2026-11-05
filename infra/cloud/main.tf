@@ -413,7 +413,7 @@ resource "google_cloud_run_v2_service" "api" {
       }
       env {
         name  = "MYCA_PROVIDER_ENV"
-        value = var.provider_mode == "test" ? "test" : "off"
+        value = contains(["live", "test"], var.provider_mode) ? var.provider_mode : "off"
       }
       env {
         name = "MYCA_GSP_TEST_API_KEY"

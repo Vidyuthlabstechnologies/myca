@@ -135,13 +135,13 @@ variable "whatsapp_phone_number_id" {
 }
 
 variable "provider_mode" {
-  description = "Test or dry-run for government and provider actions. \"test\" makes real calls to the Quicko and NIC sandbox hosts only (MYCA_PROVIDER_ENV=test). \"simulated\" answers with labelled sandbox-style results and no network. \"dry-run\" keeps the prepared payload and sends nothing. Live mode is refused by the hosted API."
+  description = "Highest mode any business may use. \"live\" lets each business switch itself between test and live in the app with its own Quicko and NIC keys (live writes need a second person's approval). \"test\" keeps every business on the sandbox hosts. \"simulated\" answers with labelled results and no network. \"dry-run\" sends nothing."
   type        = string
   default     = "test"
 
   validation {
-    condition     = contains(["test", "simulated", "dry-run"], var.provider_mode)
-    error_message = "provider_mode is test, simulated or dry-run; the hosted API refuses live mode."
+    condition     = contains(["live", "test", "simulated", "dry-run"], var.provider_mode)
+    error_message = "provider_mode is live, test, simulated or dry-run."
   }
 }
 

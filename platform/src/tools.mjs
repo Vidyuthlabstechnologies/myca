@@ -2192,8 +2192,8 @@ export const TOOLS = [
           ...local,
           liveVerified: false,
           liveReason: !sandbox.isConfigured()
-            ? 'Sandbox credentials not configured in .env'
-            : 'Live provider calls are disabled (set MYCA_ENABLE_LIVE_CALLS=1 to enable).',
+            ? 'No Quicko key is set: add one under Connections (or MYCA_GSP_TEST_API_KEY in .env).'
+            : 'Provider calls are off here (MYCA_PROVIDER_ENV is off).',
         });
       }
       try {

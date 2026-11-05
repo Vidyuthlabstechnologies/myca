@@ -302,18 +302,21 @@ export async function nicGenerateIrn(state, invoiceId, fetchFn = fetch, options 
     return { ok: false, error: res.error || 'IRN_FAILED', status: res.status, payload, nic: res.nic, authOk: true };
   }
   const d = res.data || {};
-  inv.irn = d.Irn || inv.irn;
-  inv.ackNo = d.AckNo || inv.ackNo;
-  inv.ackDate = d.AckDt || inv.ackDate;
-  inv.signedQrCode = d.SignedQRCode || inv.signedQrCode;
-  if (d.EwbNo) inv.ewbNo = d.EwbNo;
-  return { ok: true, status: res.status, env: cfg.env, payload, irn: d.Irn, ackNo: d.AckNo, ackDate: d.AckDt, signedQrCode: d.SignedQRCode, status_: d.Status, data: d, nic: res.nic, authOk: true };
+  const sandbox = nicEnvironment(cfg) === 'sandbox';
+  const prefix = sandbox ? 'sandbox' : '';
+  const field = (name) => (prefix ? `${prefix}${name[0].toUpperCase()}${name.slice(1)}` : name);
+  inv[field('irn')] = d.Irn || inv[field('irn')];
+  inv[field('ackNo')] = d.AckNo || inv[field('ackNo')];
+  inv[field('ackDate')] = d.AckDt || inv[field('ackDate')];
+  inv[field('signedQrCode')] = d.SignedQRCode || inv[field('signedQrCode')];
+  if (d.EwbNo) inv[field('ewbNo')] = d.EwbNo;
+  return { ok: true, sandbox, status: res.status, env: nicEnvironment(cfg), payload, irn: d.Irn, ackNo: d.AckNo, ackDate: d.AckDt, signedQrCode: d.SignedQRCode, status_: d.Status, data: d, nic: res.nic, authOk: true };
 }
 
 export async function nicCancelIrn(state, { invoiceId, irn, reason = '1', remark = '' } = {}, fetchFn = fetch, options = {}) {
   const cfg = loadGovtConfig();
   const inv = invoiceId ? (state.invoices || []).find((i) => i.id === invoiceId) : null;
-  const targetIrn = irn || inv?.irn;
+  const targetIrn = irn || inv?.irn || (nicEnvironment(cfg) === 'sandbox' ? inv?.sandboxIrn : '');
   if (!targetIrn) return { ok: false, error: 'IRN_REQUIRED' };
   if (String(reason) < '1' || String(reason) > '4') return { ok: false, error: 'INVALID_CANCEL_REASON', hint: 'CnlRsn must be 1-4.' };
   const res = await call(cfg, fetchFn, options, { path: IRP_PATHS.cancelIrn, body: { Irn: targetIrn, CnlRsn: String(reason), CnlRem: String(remark || '').slice(0, 100) } });
