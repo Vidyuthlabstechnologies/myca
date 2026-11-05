@@ -29,3 +29,13 @@ output "whatsapp_verify_token" {
   value       = random_password.whatsapp_verify_token.result
   sensitive   = true
 }
+
+output "play_notifications_topic" {
+  description = "Paste this in Play Console > Monetize > Monetization setup > Real-time developer notifications."
+  value       = google_pubsub_topic.play_notifications.id
+}
+
+output "api_service_account" {
+  description = "Invite this email in Play Console > Users and permissions with View financial data and Manage orders and subscriptions, so the API can check purchases."
+  value       = google_service_account.api.email
+}

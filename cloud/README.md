@@ -146,24 +146,47 @@ Filing a return stays a CA's step on the portal by design. `infra/cloud` inputs:
 
 ## Plans and billing
 
-Every business gets Pro free for 14 days from the day it is created, then Free (30 invoices a
-month, the owner only) unless it pays for Pro or CA firm. E-invoicing, connectors and inviting
-people need a paid plan. Nothing is gated until Razorpay is configured.
+Subscriptions are sold through Google Play Billing in the Android app. Every business gets Pro
+free for 14 days from the day it is created, then Free (30 invoices a month, the owner only)
+unless it pays for Pro or CA firm. E-invoicing, connectors and inviting people need a paid plan.
+Nothing is gated until the Play products are configured.
 
 | Route | Who | What |
 |---|---|---|
-| `GET /v1/plans` | anyone | plans, prices (`MYCA_PLAN_PRICES`), which can be bought, trial days |
-| `GET /v1/businesses/:id/subscription` | members | current plan, trial days left, status, paid-until |
-| `POST /v1/businesses/:id/subscription {plan}` | owner | creates a Razorpay subscription and returns its hosted checkout link |
-| `POST /v1/businesses/:id/subscription-cancel` | owner | cancels at the end of the paid period |
-| `POST /v1/billing/razorpay/webhook` | Razorpay | `X-Razorpay-Signature` HMAC checked, each event id applied once |
+| `GET /v1/plans` | anyone | plans, the Play product id for each paid plan, fallback prices (`MYCA_PLAN_PRICES`), trial days |
+| `GET /v1/businesses/:id/subscription` | members | current plan, trial days left, status, paid-until, Google Play manage link |
+| `POST /v1/businesses/:id/subscription {productId, purchaseToken}` | owner | checks the purchase with the Play Developer API, acknowledges it and turns the plan on |
+| `POST /v1/billing/play/notify?token=` | Pub/Sub push | Play real-time developer notifications; the token must match `MYCA_PLAY_NOTIFY_TOKEN` |
 
-Razorpay setup: create the Pro and CA firm plans (monthly) in the dashboard, add a webhook to
-`<api_url>/v1/billing/razorpay/webhook` with the `subscription.*` events and a secret, then set
-`razorpay_key_id`, `razorpay_key_secret`, `razorpay_webhook_secret`, `razorpay_plan_pro`,
-`razorpay_plan_firm` and `plan_prices` in `infra/cloud`. Use `rzp_test_` keys first: the app says
-billing is in test mode and no money moves. A payment that fails moves the subscription to
-`halted` and the business to Free after three grace days past the paid period.
+How it holds together:
+
+- The app buys with the business id as the obfuscated account id. The API refuses a purchase
+  whose account id names another business, and a purchase token can pay for one business only.
+- Every renewal, cancellation, hold or expiry arrives as a Play notification. The API re-reads
+  the purchase from Google rather than trusting the message, so a replayed message changes
+  nothing. A purchase the app never reported (the app closed mid-payment) is picked up from the
+  notification through its account id.
+- A cancelled subscription keeps its plan until the paid period ends; `on_hold` and `paused`
+  drop to Free at once; three grace days follow the paid period otherwise.
+- Customers cancel or change payment method in Google Play. Switching plans means cancelling
+  and subscribing to the other one.
+- The API calls Google as its Cloud Run service account through the metadata server, so no key
+  file is needed. `MYCA_PLAY_SERVICE_ACCOUNT_JSON` is there for running elsewhere.
+
+Play setup (after `terraform apply`):
+
+1. Play Console > Monetize > Subscriptions: create two subscriptions, for example
+   `myca_pro_monthly` and `myca_firm_monthly`, each with a monthly auto-renewing base plan and
+   a price. Set `play_product_pro` and `play_product_firm` to their product ids.
+2. Play Console > Users and permissions: invite the `api_service_account` output with "View
+   financial data" and "Manage orders and subscriptions".
+3. Play Console > Monetize > Monetization setup: paste the `play_notifications_topic` output as
+   the real-time developer notifications topic and send a test notification.
+4. Add license testers (Settings > License testing) so test purchases renew every few minutes
+   and no money moves. The app shows when a purchase is a test purchase.
+
+The iOS app shows the plan but sells nothing, since Apple only allows its own in-app purchase.
+The Windows app shows the plan and says it is bought in the Android app.
 
 ## Not built yet
 

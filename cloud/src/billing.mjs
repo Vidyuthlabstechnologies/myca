@@ -1,10 +1,13 @@
-import { createHmac, timingSafeEqual } from 'node:crypto';
+import { createSign, timingSafeEqual } from 'node:crypto';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 export const TRIAL_DAYS = 14;
 export const GRACE_DAYS = 3;
-const LIVE_STATUSES = new Set(['authenticated', 'active', 'pending']);
-const RAZORPAY_API = 'https://api.razorpay.com/v1';
+const LIVE_STATUSES = new Set(['active', 'in_grace_period', 'canceled']);
+const PLAY_API = 'https://androidpublisher.googleapis.com/androidpublisher/v3/applications';
+const PLAY_SCOPE = 'https://www.googleapis.com/auth/androidpublisher';
+const METADATA_TOKEN_URL = 'http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token';
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export const PLANS = Object.freeze({
   free: Object.freeze({ id: 'free', title: 'Free', monthlyRupees: 0, limits: { invoicesPerMonth: 30, members: 1 }, features: ['books', 'gst-returns', 'chat'] }),
@@ -19,26 +22,40 @@ function unset(value) {
   return text === 'unset' ? '' : text;
 }
 
+function parseServiceAccount(text) {
+  if (!text) return null;
+  try {
+    const parsed = JSON.parse(text);
+    return parsed.client_email && parsed.private_key ? { clientEmail: parsed.client_email, privateKey: parsed.private_key, tokenUri: parsed.token_uri || 'https://oauth2.googleapis.com/token' } : null;
+  } catch {
+    return null;
+  }
+}
+
 export function billingConfigFromEnv(env = process.env) {
   const prices = Object.fromEntries(String(env.MYCA_PLAN_PRICES || '').split(',').map((pair) => pair.split('=').map((part) => part.trim())).filter(([plan, price]) => PAID.includes(plan) && /^[0-9]{1,6}$/.test(price || '')).map(([plan, price]) => [plan, Number(price)]));
   return {
-    keyId: unset(env.MYCA_RAZORPAY_KEY_ID),
-    keySecret: unset(env.MYCA_RAZORPAY_KEY_SECRET),
-    webhookSecret: unset(env.MYCA_RAZORPAY_WEBHOOK_SECRET),
-    planIds: { pro: unset(env.MYCA_RAZORPAY_PLAN_PRO), firm: unset(env.MYCA_RAZORPAY_PLAN_FIRM) },
+    packageName: unset(env.MYCA_PLAY_PACKAGE),
+    productIds: { pro: unset(env.MYCA_PLAY_PRODUCT_PRO), firm: unset(env.MYCA_PLAY_PRODUCT_FIRM) },
+    notifyToken: unset(env.MYCA_PLAY_NOTIFY_TOKEN),
+    serviceAccount: parseServiceAccount(unset(env.MYCA_PLAY_SERVICE_ACCOUNT_JSON)),
     prices,
-    manageUrl: unset(env.MYCA_BILLING_MANAGE_URL),
   };
 }
 
-export function razorpaySignatureMatches(secret, rawBody, header) {
-  if (!secret || typeof header !== 'string' || !/^[0-9a-f]{64}$/.test(header)) return false;
-  const expected = createHmac('sha256', secret).update(rawBody).digest();
-  return timingSafeEqual(expected, Buffer.from(header, 'hex'));
+export function notifyTokenMatches(expected, given) {
+  if (!expected || typeof given !== 'string' || !given) return false;
+  const a = Buffer.from(expected);
+  const b = Buffer.from(given);
+  return a.length === b.length && timingSafeEqual(a, b);
 }
 
-function planList(config) {
-  return Object.values(PLANS).map((plan) => ({ ...plan, monthlyRupees: config.prices[plan.id] ?? plan.monthlyRupees, buyable: plan.id !== 'free' && Boolean(config.planIds[plan.id]) }));
+function base64url(value) {
+  return Buffer.from(value).toString('base64url');
+}
+
+function stateWord(value) {
+  return String(value || '').replace(/^SUBSCRIPTION_STATE_/, '').toLowerCase() || 'unknown';
 }
 
 function fail(error, extra = {}) {
@@ -46,15 +63,38 @@ function fail(error, extra = {}) {
 }
 
 export function createBilling({ db, config = {}, now = () => Date.now(), fetchImpl = (...args) => globalThis.fetch(...args), log = () => {} }) {
-  const cfg = { keyId: '', keySecret: '', webhookSecret: '', planIds: {}, prices: {}, manageUrl: '', ...config };
-  const enabled = Boolean(cfg.keyId && cfg.keySecret && cfg.webhookSecret && (cfg.planIds.pro || cfg.planIds.firm));
-  const testMode = cfg.keyId.startsWith('rzp_test_');
+  const cfg = { packageName: '', productIds: {}, notifyToken: '', serviceAccount: null, prices: {}, ...config };
+  const enabled = Boolean(cfg.packageName && cfg.notifyToken && (cfg.productIds.pro || cfg.productIds.firm));
+  const planOfProduct = (productId) => PAID.find((plan) => cfg.productIds[plan] && cfg.productIds[plan] === productId) || null;
+  let cachedToken = { value: '', until: 0 };
 
-  async function razorpay(method, path, body) {
-    const res = await fetchImpl(`${RAZORPAY_API}${path}`, {
+  async function accessToken() {
+    if (cachedToken.value && cachedToken.until > now()) return cachedToken.value;
+    let res;
+    if (cfg.serviceAccount) {
+      const iat = Math.floor(now() / 1000);
+      const unsigned = `${base64url(JSON.stringify({ alg: 'RS256', typ: 'JWT' }))}.${base64url(JSON.stringify({ iss: cfg.serviceAccount.clientEmail, scope: PLAY_SCOPE, aud: cfg.serviceAccount.tokenUri, iat, exp: iat + 3600 }))}`;
+      const signature = createSign('RSA-SHA256').update(unsigned).sign(cfg.serviceAccount.privateKey).toString('base64url');
+      res = await fetchImpl(cfg.serviceAccount.tokenUri, {
+        method: 'POST',
+        headers: { 'content-type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({ grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer', assertion: `${unsigned}.${signature}` }).toString(),
+        signal: AbortSignal.timeout(15000),
+      });
+    } else {
+      res = await fetchImpl(`${METADATA_TOKEN_URL}?scopes=${encodeURIComponent(PLAY_SCOPE)}`, { headers: { 'metadata-flavor': 'Google' }, signal: AbortSignal.timeout(5000) });
+    }
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.access_token) throw Object.assign(new Error('PLAY_AUTH_FAILED'), { status: res.status });
+    cachedToken = { value: data.access_token, until: now() + Math.max(60, Number(data.expires_in) || 3600) * 1000 - 60000 };
+    return cachedToken.value;
+  }
+
+  async function play(method, path) {
+    const res = await fetchImpl(`${PLAY_API}/${encodeURIComponent(cfg.packageName)}/purchases/${path}`, {
       method,
-      headers: { authorization: `Basic ${Buffer.from(`${cfg.keyId}:${cfg.keySecret}`).toString('base64')}`, 'content-type': 'application/json' },
-      body: body === undefined ? undefined : JSON.stringify(body),
+      headers: { authorization: `Bearer ${await accessToken()}`, 'content-type': 'application/json' },
+      body: method === 'POST' ? '{}' : undefined,
       signal: AbortSignal.timeout(15000),
     });
     const text = await res.text();
@@ -67,9 +107,55 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
     return { ok: res.ok, status: res.status, data };
   }
 
+  async function lookup(purchaseToken) {
+    const out = await play('GET', `subscriptionsv2/tokens/${encodeURIComponent(purchaseToken)}`);
+    if (!out.ok) return { ok: false, status: out.status };
+    const items = Array.isArray(out.data.lineItems) ? out.data.lineItems : [];
+    const item = items.find((line) => planOfProduct(line.productId)) || items[0] || {};
+    const expiry = items.map((line) => Date.parse(line.expiryTime || '')).filter(Number.isFinite);
+    return {
+      ok: true,
+      productId: String(item.productId || ''),
+      plan: planOfProduct(item.productId),
+      status: stateWord(out.data.subscriptionState),
+      currentEnd: expiry.length ? new Date(Math.max(...expiry)) : null,
+      accountId: String(out.data.externalAccountIdentifiers?.obfuscatedExternalAccountId || ''),
+      linkedPurchaseToken: String(out.data.linkedPurchaseToken || ''),
+      needsAck: out.data.acknowledgementState === 'ACKNOWLEDGEMENT_STATE_PENDING',
+      testPurchase: Boolean(out.data.testPurchase),
+    };
+  }
+
+  async function acknowledge(found, purchaseToken) {
+    if (!found.needsAck || !LIVE_STATUSES.has(found.status) || !found.productId) return;
+    const out = await play('POST', `subscriptions/${encodeURIComponent(found.productId)}/tokens/${encodeURIComponent(purchaseToken)}:acknowledge`);
+    if (!out.ok) log({ billing: 'acknowledge_failed', status: out.status });
+  }
+
+  async function save(businessId, userId, purchaseToken, found) {
+    await db.query(
+      `insert into subscriptions (business_id, provider, provider_subscription_id, product_id, plan, status, current_end, test_purchase, created_by, updated_at)
+       values ($1, 'play', $2, $3, $4, $5, $6, $7, $8, now())
+       on conflict (business_id) do update set provider = excluded.provider, provider_subscription_id = excluded.provider_subscription_id, product_id = excluded.product_id, plan = excluded.plan, status = excluded.status, current_end = excluded.current_end, test_purchase = excluded.test_purchase, created_by = coalesce(excluded.created_by, subscriptions.created_by), updated_at = now()`,
+      [businessId, purchaseToken, found.productId, found.plan, found.status, found.currentEnd, found.testPurchase, userId],
+    );
+  }
+
   async function row(businessId) {
-    const found = await db.query('select provider, provider_subscription_id as "subscriptionId", plan, status, current_end as "currentEnd", checkout_url as "checkoutUrl" from subscriptions where business_id = $1', [businessId]);
+    const found = await db.query('select provider, provider_subscription_id as "token", product_id as "productId", plan, status, current_end as "currentEnd", test_purchase as "testPurchase" from subscriptions where business_id = $1', [businessId]);
     return found.rows[0] || null;
+  }
+
+  async function ownerOfToken(purchaseToken) {
+    if (!purchaseToken) return null;
+    const found = await db.query("select business_id as \"businessId\" from subscriptions where provider = 'play' and provider_subscription_id = $1", [purchaseToken]);
+    return found.rows[0]?.businessId || null;
+  }
+
+  function manageUrl(productId) {
+    if (!cfg.packageName) return '';
+    const sku = productId ? `sku=${encodeURIComponent(productId)}&` : '';
+    return `https://play.google.com/store/account/subscriptions?${sku}package=${encodeURIComponent(cfg.packageName)}`;
   }
 
   async function entitlement(businessId) {
@@ -79,20 +165,19 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
     const trialEndsAt = createdAt + TRIAL_DAYS * DAY_MS;
     const sub = await row(businessId);
     const paidUntil = sub?.currentEnd ? new Date(sub.currentEnd).getTime() + GRACE_DAYS * DAY_MS : 0;
-    const paying = Boolean(sub && LIVE_STATUSES.has(sub.status) && PAID.includes(sub.plan) && (paidUntil === 0 ? sub.status !== 'pending' : paidUntil > at));
+    const paying = Boolean(sub && LIVE_STATUSES.has(sub.status) && PAID.includes(sub.plan) && paidUntil > at);
     const inTrial = !paying && at < trialEndsAt;
     const plan = paying ? sub.plan : inTrial ? 'pro' : 'free';
     return {
       ok: true,
       enforced: enabled,
-      testMode,
       plan,
       planTitle: PLANS[plan].title,
       limits: PLANS[plan].limits,
       features: PLANS[plan].features,
       trial: inTrial ? { endsAt: new Date(trialEndsAt).toISOString(), daysLeft: Math.max(0, Math.ceil((trialEndsAt - at) / DAY_MS)) } : null,
-      subscription: sub ? { provider: sub.provider, plan: sub.plan, status: sub.status, currentEnd: sub.currentEnd ? new Date(sub.currentEnd).toISOString() : null, checkoutUrl: sub.status === 'created' ? sub.checkoutUrl : '' } : null,
-      manageUrl: cfg.manageUrl,
+      subscription: sub ? { provider: sub.provider, plan: sub.plan, productId: sub.productId, status: sub.status, renews: sub.status === 'active' || sub.status === 'in_grace_period', currentEnd: sub.currentEnd ? new Date(sub.currentEnd).toISOString() : null, testPurchase: sub.testPurchase } : null,
+      manageUrl: sub?.provider === 'play' ? manageUrl(sub.productId) : '',
     };
   }
 
@@ -111,72 +196,84 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
     return fail('PLAN_LIMIT_REACHED', { limit, cap, plan: got.plan, hint: `The ${got.planTitle} plan allows ${cap}. The owner can upgrade under Plan and billing.` });
   }
 
+  async function audit(businessId, userId, action, metadata) {
+    await db.query(`insert into audit_log (business_id, user_id, request_id, action, metadata) values ($1, $2, '', $3, $4::jsonb)`, [businessId, userId, action, JSON.stringify(metadata)]);
+  }
+
   return {
     enabled,
-    testMode,
-    plans: () => ({ ok: true, enabled, testMode, trialDays: TRIAL_DAYS, currency: 'INR', plans: planList(cfg) }),
+    plans: () => ({
+      ok: true,
+      enabled,
+      store: 'play',
+      packageName: cfg.packageName,
+      trialDays: TRIAL_DAYS,
+      currency: 'INR',
+      plans: Object.values(PLANS).map((plan) => ({ ...plan, monthlyRupees: cfg.prices[plan.id] ?? plan.monthlyRupees, productId: plan.id === 'free' ? '' : cfg.productIds[plan.id] || '', buyable: enabled && plan.id !== 'free' && Boolean(cfg.productIds[plan.id]) })),
+    }),
     entitlement,
     allows,
     withinLimit,
 
-    async subscribe(businessId, userId, { plan } = {}) {
-      if (!enabled) return fail('BILLING_NOT_CONFIGURED', { hint: 'The operator has not set up Razorpay yet.' });
-      const planId = cfg.planIds[plan];
-      if (!PAID.includes(plan) || !planId) return fail('UNKNOWN_PLAN', { plans: PAID.filter((p) => cfg.planIds[p]) });
-      const existing = await row(businessId);
-      if (existing && existing.provider === 'razorpay' && LIVE_STATUSES.has(existing.status)) return fail('ALREADY_SUBSCRIBED', { plan: existing.plan, hint: 'Cancel the current plan first, or change it from the Razorpay link in your email.' });
-      const out = await razorpay('POST', '/subscriptions', { plan_id: planId, total_count: 120, customer_notify: 1, notes: { businessId, plan } });
-      if (!out.ok || !out.data.id) {
-        log({ billing: 'subscribe_failed', status: out.status });
-        return fail('PROVIDER_REFUSED', { status: out.status, hint: out.data?.error?.description || 'Razorpay did not create the subscription.' });
+    async verify(businessId, userId, { productId, purchaseToken } = {}) {
+      if (!enabled) return fail('BILLING_NOT_CONFIGURED', { hint: 'The operator has not set up Google Play subscriptions yet.' });
+      const token = String(purchaseToken || '');
+      if (!planOfProduct(productId) || !token || token.length > 2000) return fail('UNKNOWN_PLAN', { products: PAID.map((p) => cfg.productIds[p]).filter(Boolean) });
+      const holder = await ownerOfToken(token);
+      if (holder && holder !== businessId) return fail('PURCHASE_BELONGS_TO_ANOTHER_BUSINESS', { hint: 'This Google Play subscription already pays for another business.' });
+      let found;
+      try {
+        found = await lookup(token);
+      } catch (error) {
+        log({ billing: 'play_auth_failed', status: error.status || 0 });
+        return fail('PROVIDER_UNAVAILABLE', { hint: 'Google Play could not be reached. Your purchase is safe; open Plan and billing again in a minute.' });
       }
-      await db.query(
-        `insert into subscriptions (business_id, provider, provider_subscription_id, plan, status, current_end, checkout_url, created_by, updated_at)
-         values ($1, 'razorpay', $2, $3, $4, null, $5, $6, now())
-         on conflict (business_id) do update set provider = excluded.provider, provider_subscription_id = excluded.provider_subscription_id, plan = excluded.plan, status = excluded.status, current_end = null, checkout_url = excluded.checkout_url, created_by = excluded.created_by, updated_at = now()`,
-        [businessId, out.data.id, plan, String(out.data.status || 'created'), String(out.data.short_url || ''), userId],
-      );
-      await db.query(`insert into audit_log (business_id, user_id, request_id, action, metadata) values ($1, $2, '', 'billing.subscribe', $3::jsonb)`, [businessId, userId, JSON.stringify({ plan, provider: 'razorpay' })]);
-      return { ok: true, plan, checkoutUrl: String(out.data.short_url || ''), status: String(out.data.status || 'created'), testMode };
+      if (!found.ok) return fail('PURCHASE_NOT_FOUND', { status: found.status, hint: 'Google Play does not know this purchase.' });
+      if (!found.plan || found.productId !== productId) return fail('PURCHASE_PRODUCT_MISMATCH');
+      if (found.accountId && found.accountId !== businessId) return fail('PURCHASE_BELONGS_TO_ANOTHER_BUSINESS', { hint: 'This Google Play subscription was bought for another business.' });
+      await save(businessId, userId, token, found);
+      await acknowledge(found, token);
+      await audit(businessId, userId, 'billing.subscribe', { provider: 'play', plan: found.plan, status: found.status, testPurchase: found.testPurchase });
+      return { ok: true, plan: found.plan, status: found.status, testPurchase: found.testPurchase, entitlement: await entitlement(businessId) };
     },
 
-    async cancel(businessId, userId) {
-      if (!enabled) return fail('BILLING_NOT_CONFIGURED');
-      const existing = await row(businessId);
-      if (!existing || existing.provider !== 'razorpay' || !LIVE_STATUSES.has(existing.status) && existing.status !== 'created') return fail('NO_SUBSCRIPTION');
-      const out = await razorpay('POST', `/subscriptions/${encodeURIComponent(existing.subscriptionId)}/cancel`, { cancel_at_cycle_end: existing.status === 'active' ? 1 : 0 });
-      if (!out.ok) return fail('PROVIDER_REFUSED', { status: out.status, hint: out.data?.error?.description || 'Razorpay did not cancel it.' });
-      const status = String(out.data.status || 'cancelled');
-      await db.query('update subscriptions set status = $2, updated_at = now() where business_id = $1', [businessId, status === 'active' ? 'active' : status]);
-      await db.query(`insert into audit_log (business_id, user_id, request_id, action, metadata) values ($1, $2, '', 'billing.cancel', $3::jsonb)`, [businessId, userId, JSON.stringify({ plan: existing.plan, endsAtCycleEnd: status === 'active' })]);
-      return { ok: true, status, endsAtCycleEnd: status === 'active' };
-    },
-
-    async webhook(rawBody, signature, eventId) {
+    async notify(rawBody, givenToken) {
       if (!enabled) return { ok: false, statusCode: 404, error: 'NOT_FOUND' };
-      if (!razorpaySignatureMatches(cfg.webhookSecret, rawBody, signature)) return { ok: false, statusCode: 401, error: 'BAD_SIGNATURE' };
+      if (!notifyTokenMatches(cfg.notifyToken, givenToken)) return { ok: false, statusCode: 401, error: 'BAD_TOKEN' };
+      let message;
       let event;
       try {
-        event = JSON.parse(rawBody.toString('utf8'));
+        message = JSON.parse(rawBody.toString('utf8')).message || {};
+        event = JSON.parse(Buffer.from(String(message.data || ''), 'base64').toString('utf8'));
       } catch {
-        return { ok: false, statusCode: 400, error: 'BAD_JSON' };
+        return { ok: true, ignored: true };
       }
-      const entity = event?.payload?.subscription?.entity;
-      if (!String(event?.event || '').startsWith('subscription.') || !entity?.id) return { ok: true, ignored: true };
-      const id = String(eventId || `${event.event}:${entity.id}:${event.created_at || ''}`).slice(0, 200);
-      const fresh = await db.query("insert into billing_events (provider, event_id) values ('razorpay', $1) on conflict do nothing returning event_id", [id]);
-      if (!fresh.rows.length) return { ok: true, duplicate: true };
-      const currentEnd = Number(entity.current_end) > 0 ? new Date(Number(entity.current_end) * 1000) : null;
-      const updated = await db.query(
-        'update subscriptions set status = $2, current_end = coalesce($3, current_end), updated_at = now() where provider = $4 and provider_subscription_id = $1 returning business_id as "businessId", plan',
-        [String(entity.id), String(entity.status || ''), currentEnd, 'razorpay'],
-      );
-      if (!updated.rows.length) {
-        log({ billing: 'webhook_unknown_subscription' });
+      if (event.packageName !== cfg.packageName || !event.subscriptionNotification?.purchaseToken) return { ok: true, ignored: true };
+      const token = String(event.subscriptionNotification.purchaseToken);
+      let found;
+      try {
+        found = await lookup(token);
+      } catch (error) {
+        log({ billing: 'play_auth_failed', status: error.status || 0 });
+        return { ok: false, statusCode: 503, error: 'PROVIDER_UNAVAILABLE' };
+      }
+      if (!found.ok) {
+        log({ billing: 'notify_lookup_failed', status: found.status });
+        return found.status >= 500 ? { ok: false, statusCode: 503, error: 'PROVIDER_UNAVAILABLE' } : { ok: true, unknown: true };
+      }
+      let businessId = (await ownerOfToken(token)) || (await ownerOfToken(found.linkedPurchaseToken));
+      if (!businessId && UUID.test(found.accountId)) {
+        const exists = await db.query('select id from businesses where id = $1', [found.accountId]);
+        if (exists.rows.length) businessId = found.accountId;
+      }
+      if (!businessId || !found.plan) {
+        log({ billing: 'notify_unknown_purchase' });
         return { ok: true, unknown: true };
       }
-      const { businessId, plan } = updated.rows[0];
-      await db.query(`insert into audit_log (business_id, request_id, action, metadata) values ($1, '', 'billing.event', $2::jsonb)`, [businessId, JSON.stringify({ event: String(event.event), status: String(entity.status || ''), plan })]);
+      await save(businessId, null, token, found);
+      await acknowledge(found, token);
+      await db.query("insert into billing_events (provider, event_id) values ('play', $1) on conflict do nothing", [String(message.messageId || message.message_id || `${token.slice(0, 40)}:${event.eventTimeMillis || ''}`).slice(0, 200)]);
+      await audit(businessId, null, 'billing.event', { provider: 'play', notificationType: Number(event.subscriptionNotification.notificationType) || 0, status: found.status, plan: found.plan });
       return { ok: true };
     },
   };

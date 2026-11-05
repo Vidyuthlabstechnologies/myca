@@ -223,9 +223,9 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
     if (parts[1] === 'health' && method === 'GET') return { ok: true, providerMode: providerMode() };
     if (parts[1] === 'privacy-notice' && parts.length === 2 && method === 'GET') return { ok: true, notice: PRIVACY_NOTICE };
     if (parts[1] === 'plans' && parts.length === 2 && method === 'GET') return billing.plans();
-    if (parts[1] === 'billing' && parts[2] === 'razorpay' && parts[3] === 'webhook' && parts.length === 4 && method === 'POST') {
+    if (parts[1] === 'billing' && parts[2] === 'play' && parts[3] === 'notify' && parts.length === 4 && method === 'POST') {
       const raw = await readRaw(req, MAX_BODY_BYTES);
-      const received = await billing.webhook(raw, req.headers['x-razorpay-signature'], req.headers['x-razorpay-event-id']);
+      const received = await billing.notify(raw, url.searchParams.get('token') || '');
       if (!received.ok) throw httpError(received.statusCode, received.error);
       return received;
     }
@@ -500,9 +500,9 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
         }
         throw httpError(403, 'SHARED_VIEW_READ_ONLY', { sharedAsOf: sync.asOf });
       }
-      if (action === 'subscription' || action === 'subscription-cancel') {
+      if (action === 'subscription') {
         if (role !== 'owner') throw httpError(403, 'OWNER_ONLY');
-        return action === 'subscription' ? billing.subscribe(businessId, user.userId, body) : billing.cancel(businessId, user.userId);
+        return billing.verify(businessId, user.userId, body);
       }
       if (action === 'invitations') {
         if (role !== 'owner') throw httpError(403, 'OWNER_ONLY');

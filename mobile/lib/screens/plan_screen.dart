@@ -3,10 +3,11 @@ import 'package:flutter/material.dart';
 
 import '../api/myca_api.dart';
 import '../app_state.dart';
+import '../billing/store_billing.dart';
 import '../cloud/cloud_session.dart';
 import '../theme.dart';
 
-bool get buyInApp => defaultTargetPlatform != TargetPlatform.iOS;
+bool get buyInApp => !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
 
 const featureWords = {
   'books': 'Books, invoices and bills',
@@ -25,16 +26,26 @@ String planLimits(PlanOffer plan) {
   return '$invoices, $people';
 }
 
+String planPrice(PlanOffer plan, StoreProduct? product) {
+  if (plan.monthlyRupees == 0) return 'Free';
+  if (product != null && product.price.isNotEmpty) return '${product.price} a month on Google Play';
+  return '₹${plan.monthlyRupees} a month';
+}
+
 String entitlementLine(Entitlement e) {
+  final until = e.currentEnd.length >= 10 ? e.currentEnd.substring(0, 10) : '';
   if (e.trialDaysLeft != null) return 'Free trial of ${e.planTitle}: ${e.trialDaysLeft} ${e.trialDaysLeft == 1 ? 'day' : 'days'} left.';
-  if (e.status == 'created') return 'Checkout started for ${e.planTitle}. Finish paying on the Razorpay page to start the plan.';
-  if (e.status == 'halted') return 'The last payment failed, so this business is on Free until it is paid.';
-  if (e.paying) return 'You are on ${e.planTitle}${e.currentEnd.length >= 10 ? ', paid to ${e.currentEnd.substring(0, 10)}' : ''}.';
+  if (e.status == 'pending') return 'Google Play is still processing the payment. The plan starts as soon as it clears.';
+  if (e.status == 'on_hold' || e.status == 'paused') return 'Google Play could not take the last payment, so this business is on Free. Fix the payment method in Google Play to get the plan back.';
+  if (e.paying && !e.renews) return 'You are on ${e.planTitle}${until.isEmpty ? '' : ' until $until'}. It will not renew.';
+  if (e.paying) return 'You are on ${e.planTitle}${until.isEmpty ? '' : ', renews $until'}.';
   return 'You are on ${e.planTitle}.';
 }
 
 class PlanScreen extends StatefulWidget {
-  const PlanScreen({super.key});
+  const PlanScreen({super.key, this.store});
+
+  final StoreBilling? store;
 
   @override
   State<PlanScreen> createState() => _PlanScreenState();
@@ -43,6 +54,11 @@ class PlanScreen extends StatefulWidget {
 class _PlanScreenState extends State<PlanScreen> {
   List<PlanOffer>? _plans;
   Entitlement? _entitlement;
+  Map<String, StoreProduct> _products = const {};
+  StoreBilling? _store;
+  PurchaseRecorder? _recorder;
+  bool _storeReady = false;
+  bool _buying = false;
   String _error = '';
   String _note = '';
   bool _busy = false;
@@ -51,6 +67,49 @@ class _PlanScreenState extends State<PlanScreen> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (_plans == null && !_busy && _error.isEmpty) _reload();
+  }
+
+  @override
+  void dispose() {
+    _recorder?.stop();
+    super.dispose();
+  }
+
+  Future<void> _startStore(CloudSession cloud, List<PlanOffer> plans) async {
+    final store = widget.store ?? (buyInApp ? PlayBilling() : null);
+    final accountId = cloud.businessId;
+    if (store == null || accountId == null || _store != null) return;
+    _store = store;
+    try {
+      if (!await store.available()) return;
+      final ids = {for (final p in plans) if (p.buyable && p.productId.isNotEmpty) p.productId};
+      final products = ids.isEmpty ? const <String, StoreProduct>{} : await store.products(ids);
+      _recorder = PurchaseRecorder(store: store, record: (productId, token) async => _entitlement = await cloud.recordPurchase(productId, token), onResult: _onPurchase)..start();
+      await store.restore(accountId);
+      if (mounted) {
+        setState(() {
+          _products = products;
+          _storeReady = true;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _storeReady = false);
+    }
+  }
+
+  void _onPurchase(StorePurchase purchase, Object? error) {
+    if (!mounted) return;
+    final shown = _buying;
+    setState(() {
+      if (purchase.state != StorePurchaseState.pending) _buying = false;
+      if (!shown && error != null) return;
+      _note = switch (purchase.state) {
+        StorePurchaseState.pending => 'Google Play is processing the payment. The plan starts as soon as it clears.',
+        StorePurchaseState.canceled => '',
+        StorePurchaseState.failed => 'Google Play did not complete the payment. Nothing was charged.',
+        StorePurchaseState.purchased => error == null ? 'Thank you. ${_entitlement?.planTitle ?? 'The plan'} is on for this business.' : error is MycaApiException ? error.message : 'The payment went through but MyCA could not confirm it yet. It will be picked up automatically.',
+      };
+    });
   }
 
   Future<void> _reload() async {
@@ -68,6 +127,7 @@ class _PlanScreenState extends State<PlanScreen> {
           _entitlement = entitlement;
         });
       }
+      await _startStore(cloud, plans);
     } on MycaApiException catch (err) {
       if (mounted) setState(() => _error = err.message);
     } finally {
@@ -75,56 +135,31 @@ class _PlanScreenState extends State<PlanScreen> {
     }
   }
 
-  Future<void> _subscribe(PlanOffer plan) async {
-    final state = AppScope.of(context);
+  Future<void> _buy(PlanOffer plan) async {
+    final store = _store;
+    final accountId = AppScope.of(context).cloud?.businessId;
+    if (store == null || accountId == null) return;
     setState(() {
-      _busy = true;
+      _buying = true;
       _note = '';
     });
-    try {
-      final url = await state.cloud!.subscribe(plan.id);
-      final opened = url.isNotEmpty && await state.openLink(Uri.parse(url));
-      if (mounted) setState(() => _note = opened ? 'Finish paying on the Razorpay page. Your plan starts as soon as Razorpay confirms it.' : 'Open this link to pay: $url');
-      await _reload();
-    } on MycaApiException catch (err) {
-      if (mounted) setState(() => _note = err.message);
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
-  Future<void> _cancel() async {
-    final cloud = AppScope.of(context).cloud!;
-    final sure = await showDialog<bool>(
-      context: context,
-      builder: (dialog) => AlertDialog(
-        title: const Text('Cancel the plan?'),
-        content: const Text('The plan stays until the end of the period you paid for, then this business moves to Free. Your books stay as they are.'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(dialog, false), child: const Text('Keep it')),
-          TextButton(onPressed: () => Navigator.pop(dialog, true), child: const Text('Cancel plan')),
-        ],
-      ),
-    );
-    if (sure != true || !mounted) return;
-    setState(() => _busy = true);
-    try {
-      final atEnd = await cloud.cancelSubscription();
-      if (mounted) setState(() => _note = atEnd ? 'Cancelled. The plan runs to the end of this period.' : 'Cancelled.');
-      await _reload();
-    } on MycaApiException catch (err) {
-      if (mounted) setState(() => _note = err.message);
-    } finally {
-      if (mounted) setState(() => _busy = false);
+    final started = await store.buy(plan.productId, accountId).catchError((_) => false);
+    if (!started && mounted) {
+      setState(() {
+        _buying = false;
+        _note = 'Google Play could not open the payment. Check that you are signed in to the Play Store and try again.';
+      });
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
-    final owner = AppScope.of(context).snapshot?.activeUser?.role == 'owner';
+    final state = AppScope.of(context);
+    final owner = state.snapshot?.activeUser?.role == 'owner';
     final plans = _plans;
     final e = _entitlement;
+    final canBuy = owner && buyInApp && _storeReady;
     return Scaffold(
       appBar: AppBar(title: const Text('Plan and billing')),
       body: plans == null || e == null
@@ -137,9 +172,9 @@ class _PlanScreenState extends State<PlanScreen> {
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
               children: [
                 Text(entitlementLine(e), style: text.titleMedium),
-                if (e.testMode) ...[
+                if (e.testPurchase) ...[
                   const SizedBox(height: 6),
-                  Text('Billing is in test mode: no real money is taken.', style: text.bodyMedium?.copyWith(color: Palette.warn)),
+                  Text('This is a Google Play test purchase: no real money is taken.', style: text.bodyMedium?.copyWith(color: Palette.warn)),
                 ],
                 if (_note.isNotEmpty) ...[
                   const SizedBox(height: 8),
@@ -155,31 +190,33 @@ class _PlanScreenState extends State<PlanScreen> {
                         children: [
                           Text(plan.id == e.plan ? '${plan.title} (current)' : plan.title, style: text.titleMedium),
                           const SizedBox(height: 4),
-                          Text(plan.monthlyRupees == 0 ? 'Free' : '₹${plan.monthlyRupees} a month, GST extra', style: text.bodyLarge),
+                          Text(planPrice(plan, _products[plan.productId]), style: text.bodyLarge),
                           const SizedBox(height: 4),
                           Text(planLimits(plan), style: text.bodyMedium),
                           const SizedBox(height: 8),
                           for (final feature in plan.features) Text('• ${featureWords[feature] ?? feature}', style: text.bodyMedium),
-                          if (owner && buyInApp && plan.buyable && plan.id != e.plan && !e.paying) ...[
+                          if (canBuy && plan.buyable && _products.containsKey(plan.productId) && !e.paying) ...[
                             const SizedBox(height: 12),
-                            FilledButton(onPressed: _busy ? null : () => _subscribe(plan), child: Text('Choose ${plan.title}')),
+                            FilledButton(key: ValueKey('buy.${plan.id}'), onPressed: _busy || _buying ? null : () => _buy(plan), child: Text('Subscribe to ${plan.title}')),
                           ],
                         ],
                       ),
                     ),
                   ),
                 ],
-                if (owner && e.paying && e.status != 'cancelled') ...[
+                if (owner && e.paying && e.manageUrl.isNotEmpty && buyInApp) ...[
                   const SizedBox(height: 16),
-                  OutlinedButton(onPressed: _busy ? null : _cancel, child: const Text('Cancel plan')),
+                  OutlinedButton(onPressed: () => state.openLink(Uri.parse(e.manageUrl)), child: const Text('Manage or cancel in Google Play')),
+                  const SizedBox(height: 6),
+                  Text('To switch plans, cancel in Google Play and subscribe to the other plan when this one ends.', style: text.bodySmall),
                 ],
                 if (!owner) ...[
                   const SizedBox(height: 16),
                   Text('Only the owner can change the plan.', style: text.bodyMedium),
                 ],
-                if (owner && !buyInApp) ...[
+                if (owner && !buyInApp && defaultTargetPlatform != TargetPlatform.iOS) ...[
                   const SizedBox(height: 16),
-                  Text('Plans are managed from your MyCA account outside this app.', style: text.bodyMedium),
+                  Text('Plans are bought from Google Play in the MyCA Android app. A plan bought there works here too.', style: text.bodyMedium),
                 ],
               ],
             ),

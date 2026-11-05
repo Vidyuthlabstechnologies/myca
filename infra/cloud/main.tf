@@ -19,6 +19,8 @@ locals {
     "logging.googleapis.com",
     "iam.googleapis.com",
     "cloudscheduler.googleapis.com",
+    "pubsub.googleapis.com",
+    "androidpublisher.googleapis.com",
   ]
 }
 
@@ -168,6 +170,11 @@ resource "random_password" "token_secret" {
   special = false
 }
 
+resource "random_password" "play_notify_token" {
+  length  = 48
+  special = false
+}
+
 resource "random_password" "job_token" {
   length  = 64
   special = false
@@ -209,8 +216,7 @@ locals {
     "myca-model-api-key"         = var.model_api_key
     "myca-gsp-test-api-key"      = var.gsp_test_api_key
     "myca-gsp-test-api-secret"   = var.gsp_test_api_secret
-    "myca-razorpay-key-secret"   = var.razorpay_key_secret
-    "myca-razorpay-webhook"      = var.razorpay_webhook_secret
+    "myca-play-notify-token"     = random_password.play_notify_token.result
   }
 }
 
@@ -492,34 +498,25 @@ resource "google_cloud_run_v2_service" "api" {
       }
 
       env {
-        name  = "MYCA_RAZORPAY_KEY_ID"
-        value = var.razorpay_key_id
+        name  = "MYCA_PLAY_PACKAGE"
+        value = var.play_package_name
       }
       env {
-        name = "MYCA_RAZORPAY_KEY_SECRET"
+        name  = "MYCA_PLAY_PRODUCT_PRO"
+        value = var.play_product_pro
+      }
+      env {
+        name  = "MYCA_PLAY_PRODUCT_FIRM"
+        value = var.play_product_firm
+      }
+      env {
+        name = "MYCA_PLAY_NOTIFY_TOKEN"
         value_source {
           secret_key_ref {
-            secret  = google_secret_manager_secret.api["myca-razorpay-key-secret"].secret_id
+            secret  = google_secret_manager_secret.api["myca-play-notify-token"].secret_id
             version = "latest"
           }
         }
-      }
-      env {
-        name = "MYCA_RAZORPAY_WEBHOOK_SECRET"
-        value_source {
-          secret_key_ref {
-            secret  = google_secret_manager_secret.api["myca-razorpay-webhook"].secret_id
-            version = "latest"
-          }
-        }
-      }
-      env {
-        name  = "MYCA_RAZORPAY_PLAN_PRO"
-        value = var.razorpay_plan_pro
-      }
-      env {
-        name  = "MYCA_RAZORPAY_PLAN_FIRM"
-        value = var.razorpay_plan_firm
       }
       env {
         name  = "MYCA_PLAN_PRICES"
@@ -748,4 +745,35 @@ resource "google_logging_project_bucket_config" "default" {
   bucket_id      = "_Default"
   retention_days = var.log_retention_days
   description    = "Request, job and database audit logs kept for the CERT-In period"
+}
+
+resource "google_pubsub_topic" "play_notifications" {
+  name   = "${local.name}-play-notifications"
+  labels = local.labels
+
+  depends_on = [google_project_service.apis]
+}
+
+resource "google_pubsub_topic_iam_member" "play_publisher" {
+  topic  = google_pubsub_topic.play_notifications.name
+  role   = "roles/pubsub.publisher"
+  member = "serviceAccount:google-play-developer-notifications@system.gserviceaccount.com"
+}
+
+resource "google_pubsub_subscription" "play_notifications" {
+  name   = "${local.name}-play-notifications-push"
+  topic  = google_pubsub_topic.play_notifications.id
+  labels = local.labels
+
+  ack_deadline_seconds       = 30
+  message_retention_duration = "604800s"
+
+  push_config {
+    push_endpoint = "${google_cloud_run_v2_service.api.uri}/v1/billing/play/notify?token=${random_password.play_notify_token.result}"
+  }
+
+  retry_policy {
+    minimum_backoff = "10s"
+    maximum_backoff = "600s"
+  }
 }
