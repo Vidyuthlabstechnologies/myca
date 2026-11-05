@@ -33,7 +33,7 @@ import { isReturnPeriod } from './return-period.mjs';
 import { gstSplit, partyStateOf } from './chart.mjs';
 import { postingDate, localToday } from './dates.mjs';
 import { isPeriodLocked } from './period-lock.mjs';
-import { lastGstRateFor, planPayment } from './invoice.mjs';
+import { lastGstRateFor, lastHsnFor, planPayment } from './invoice.mjs';
 import { planFiling } from './filings.mjs';
 import { planSupplierReminder } from './supplier-reminders.mjs';
 import { planEmployee, planSalaryChange, planLeaving } from './employees.mjs';
@@ -352,10 +352,16 @@ function documentPreview(state, args, kind) {
       ? `${exportWords} ${party}${args.partyGstin ? ` (${args.partyGstin})` : ''} dated ${date || '?'}: taxable ${money(taxable)}, ${heads}, total ${money(taxable + tax)}. Place of supply ${exportSale ? 'outside India (96)' : gstinRules.STATE_CODES?.[pos] || pos || '?'}.${due}`
       : `Purchase bill from ${party}${args.partyGstin ? ` (${args.partyGstin})` : ''} dated ${date || '?'}: taxable ${money(taxable)}, ${heads}, total ${money(taxable + tax)}. Input credit ${args.itcEligible === false ? 'blocked (s.17(5)) and added to cost' : money(tax)}.`,
     effects: sale
-      ? [`${party} owes you ${money(taxable + tax)} more.`, exportSale ? `It goes into GSTR-1 table 6A${date ? ` for ${date.slice(0, 7)}` : ''} as ${exportSale.withTax ? 'WPAY' : 'WOPAY'}.` : args.partyGstin && (args.lines || []).some((l) => Number(l.gstRate) > 0 && !/^\d{4,8}$/.test(String(l.hsn ?? '').trim())) ? `It has no HSN code, so GSTR-1 leaves it out until one is added; its tax still counts in GSTR-3B. Say "HSN 5208" (your code) in the message to include it.` : `It goes into your GSTR-1${date ? ` for ${date.slice(0, 7)}` : ''}.`]
+      ? [`${party} owes you ${money(taxable + tax)} more.`, exportSale ? `It goes into GSTR-1 table 6A${date ? ` for ${date.slice(0, 7)}` : ''} as ${exportSale.withTax ? 'WPAY' : 'WOPAY'}.` : args.partyGstin && (args.lines || []).some((l) => Number(l.gstRate) > 0 && !/^\d{4,8}$/.test(String(l.hsn ?? '').trim())) ? missingHsnWords(state, args) : `It goes into your GSTR-1${date ? ` for ${date.slice(0, 7)}` : ''}.`]
       : [`You owe ${party} ${money(taxable + tax - (tds?.tds || 0))} more.`, args.itcEligible === false ? 'The GST on it cannot be claimed, so it is part of the cost.' : 'It is checked against your GSTR-2B when you add one.', ...(tds ? [tdsWords(tds, taxable + tax - tds.tds, `you owe ${party}`)] : [])],
     figures: { date, taxable, tax, total: Math.round((taxable + tax) * 100) / 100, placeOfSupply: pos, ...(tds ? { tds: tds.tds, tdsSection: tds.section, tdsRate: tds.rate } : {}) },
   };
+}
+
+function missingHsnWords(state, args) {
+  const last = lastHsnFor(state, { name: args.partyName, gstin: args.partyGstin });
+  const hint = last ? ` ${last.from} on ${last.date} to this buyer used HSN ${last.hsn}; say "HSN ${last.hsn}" if it is the same goods.` : ' Say the code, for example "HSN 5208", in the message to include it.';
+  return `It has no HSN code, so GSTR-1 leaves it out until one is added; its tax still counts in GSTR-3B.${hint}`;
 }
 
 function receiptPreview(state, args) {

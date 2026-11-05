@@ -126,11 +126,11 @@ function addPreviewCard(preview) {
 
 function resultLine(name, result) {
   if (!result) return 'No reply from books.';
-  if (result.ok === false || (result.error && !result.invoice)) return result.error || JSON.stringify(result);
+  if (result.ok === false || (result.error && !result.invoice)) return result.error ? `${result.error}${result.hint ? `: ${result.hint}` : ''}` : JSON.stringify(result);
   const inv = result.invoice;
   if (inv) return `${inv.id} · ${inv.partyName} · ₹${inr(inv.total)} (${inv.kind || name})`;
-  if (name === 'approval_decide' && result.approval) {
-    const a = result.approval;
+  if (name === 'approval_decide' && (result.approval || result.data?.approval)) {
+    const a = result.approval || result.data.approval;
     return `${a.approvalId} ${a.status} by ${a.decidedBy} (${a.decidedRole}) for ${a.operationId}.`;
   }
   if (name === 'integration_connect') {
@@ -344,6 +344,15 @@ document.getElementById('userForm')?.addEventListener('submit', async (e) => {
   addBubble('bot', out.ok ? `Added ${out.data.userId} as ${out.data.role}.` : `User not added: ${out.error}${out.hint ? `. ${out.hint}` : ''}`, 'add_user');
   if (out.ok) for (const id of ['uId', 'uName']) document.getElementById(id).value = '';
   await renderUsers();
+});
+
+document.getElementById('pinForm')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const field = (id) => document.getElementById(id);
+  const r = await fetch('/api/session/pin', { method: 'POST', headers: apiHeaders, body: JSON.stringify({ userId: field('pId').value.trim(), oldPin: field('pOld').value, newPin: field('pNew').value }) });
+  const out = await r.json();
+  for (const id of ['pOld', 'pNew']) field(id).value = '';
+  addBubble('bot', out.ok ? `PIN changed for ${out.userId}.` : `PIN not changed: ${out.error}${out.hint ? `. ${out.hint}` : ''}`, 'change_pin');
 });
 
 async function decideApproval(approvalId, decision) {

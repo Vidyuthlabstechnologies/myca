@@ -226,6 +226,10 @@ function handler(req, res) {
       const { userId, pin } = JSON.parse(await readBody(req) || '{}');
       return send(req, res, 200, await session.signIn(userId, pin));
     }
+    if (req.method === 'POST' && url.pathname === '/api/session/pin') {
+      const { userId, oldPin, newPin } = JSON.parse(await readBody(req) || '{}');
+      return send(req, res, 200, await session.changePin(userId, oldPin, newPin));
+    }
     if (req.method === 'POST' && url.pathname === '/api/session/logout') {
       return send(req, res, 200, await session.signOut());
     }

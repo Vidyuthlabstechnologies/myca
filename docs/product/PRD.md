@@ -89,7 +89,7 @@ Percentages are engineering estimates and are tracked in
 | FR-INV-3 | Send the invoice by email or WhatsApp after the owner checks it. | Built in the app through the phone's share sheet, with each share or print recorded in the audit log; not yet tried on a phone |
 | FR-INV-4 | Create and send a quote, and turn an accepted quote into an invoice. | Built: quotes priced like invoices, sent as a PDF, marked accepted or declined, and turned into a linked invoice |
 | FR-INV-5 | Generate an e-way bill with the invoice when goods move. | Mostly: the need is decided from the dated threshold rule, transport details are taken on the invoice, and the request goes through the action gate from the IRN; live generation waits on NIC credentials and the e-invoice |
-| FR-INV-6 | An invoice the owner can save or print as a PDF. | Built in the app, with the buyer's address once recorded; HSN codes are blank unless entered |
+| FR-INV-6 | An invoice the owner can save or print as a PDF. | Built in the app, with the buyer's address once recorded; HSN codes are blank unless entered (chat reads "HSN 5208", and a sale without one is flagged before posting with the code last used for that buyer) |
 
 ### 5.4 GST returns ([feature spec](features/03-gst-returns.md))
 
@@ -116,7 +116,7 @@ Percentages are engineering estimates and are tracked in
 |---|---|---|
 | FR-PAY-1 | Keep employees and their salary structures. | Built: employees, dated salary history in parts, fund memberships, state, regime, sex, leaving; owner only |
 | FR-PAY-2 | Run payroll for a month: gross, statutory deductions, net. | Built: a monthly run with PF, ESI, professional tax for fourteen states and salary TDS from dated rules, prorated for joiners and leavers, approved after a preview; payslips; labelled unreviewed until the CA attests the rules |
-| FR-PAY-3 | Pay salaries from the same product. | Not built; needs a payout partner (Q5) |
+| FR-PAY-3 | Pay salaries from the same product. | Partly: the bank payout file is built and the payment is recorded; paying from the product needs a payout partner (Q5) |
 | FR-PAY-4 | Post payroll to the books and feed TDS on salary into the TDS return. | Built: approval posts salaries, each payable and the employer contributions; salary TDS feeds the Form 138 statement, drafted and reviewed like the other; the PF ECR and ESI files are produced for each approved month |
 
 ### 5.7 GSTR-2B matching and supplier reminders ([feature spec](features/06-gstr2b-matching-and-reminders.md))
@@ -151,8 +151,8 @@ Percentages are engineering estimates and are tracked in
 
 | ID | Requirement | Status |
 |---|---|---|
-| FR-CAP-1 | A forwarded or photographed supplier invoice is read automatically and becomes a purchase entry after the owner confirms. | Not built |
-| FR-CAP-2 | Every POS sale creates an entry in the sales register. | Not built |
+| FR-CAP-1 | A forwarded or photographed supplier invoice is read automatically and becomes a purchase entry after the owner confirms. | Partly: a photo, PDF or forwarded file is read by the model into a previewed bill when a model key is set (off by default, ADR-0004); the inbound mail domain is not set up |
+| FR-CAP-2 | Every POS sale creates an entry in the sales register. | Partly: a billing app's daily sales file imports as one walk-in invoice per day by rate; there is no live POS feed |
 | FR-CAP-3 | Anything the product cannot read with confidence is shown to the owner as a question, not guessed. | Built for file imports |
 
 ## 6. Non-functional requirements

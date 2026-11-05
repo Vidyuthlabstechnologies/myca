@@ -52,3 +52,11 @@ test('an HSN code said in the chat lands on the line and the sale goes into GSTR
   assert.equal(r1.data.gstr1.totalTaxable, 500000);
   assert.equal(r1.data.gstr1.errors.length, 0);
 });
+
+test('a sale without an HSN code points to the code used on the last invoice to the same buyer, without filling it in', async () => {
+  const state = books();
+  await post(state, sale('5208'));
+  const held = propose(state, 'create_invoice', sale());
+  assert.match(held.reply, /INV-0001 on 5 November 2026 to this buyer used HSN 5208; say "HSN 5208" if it is the same goods/);
+  assert.equal(held.preview.args?.lines?.[0]?.hsn ?? '', '');
+});

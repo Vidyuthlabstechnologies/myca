@@ -119,6 +119,18 @@ function placeOfSupply(input, party, company) {
   return stateCodeOf(input.partyState) || partyStateOf(party.gstin) || company.state;
 }
 
+export function lastHsnFor(state, { name, gstin }) {
+  const gstinKey = normGstin(gstin);
+  const nameKey = String(name || '').trim().toLowerCase();
+  if (!gstinKey && !nameKey) return null;
+  const same = (doc) => (gstinKey ? normGstin(doc.partyGstin) === gstinKey : String(doc.partyName || '').trim().toLowerCase() === nameKey);
+  const earlier = (state.invoices || []).filter((doc) => doc.status !== 'cancelled' && same(doc) && (doc.lines || []).some((line) => /^\d{4,8}$/.test(String(line.hsn ?? '').trim())));
+  if (!earlier.length) return null;
+  const latest = earlier.reduce((a, b) => (String(b.date) >= String(a.date) ? b : a));
+  const line = [...latest.lines].reverse().find((l) => /^\d{4,8}$/.test(String(l.hsn ?? '').trim()));
+  return { hsn: String(line.hsn).trim(), from: latest.id, date: latest.date };
+}
+
 export function lastGstRateFor(state, { name, gstin }, kind = 'sale') {
   const list = kind === 'sale' ? state.invoices : state.purchases;
   const gstinKey = normGstin(gstin);

@@ -18,7 +18,12 @@ test('on the desktop an approval needs a signed-in user, and who asked and who d
   const sess = freshSession();
   const anonymous = await sess.tool('approval_request', { operationId: 'gst_file_gstr1_evc', requestedBy: 'anyone' });
   assert.equal(anonymous.error, 'SIGN_IN_REQUIRED');
-  assert.equal((await sess.signIn('USR-ADMIN', '1234')).ok, true);
+  const first = await sess.signIn('USR-ADMIN', '1234');
+  assert.equal(first.ok, true);
+  assert.equal(first.mustChangePin, true);
+  assert.equal((await sess.tool('approval_request', { operationId: 'gst_file_gstr1_evc' })).error, 'PIN_CHANGE_REQUIRED');
+  assert.equal((await sess.changePin('USR-ADMIN', '1234', '1234')).error, 'PIN_TOO_EASY');
+  assert.equal((await sess.changePin('USR-ADMIN', '1234', '8642')).ok, true);
   const asked = await sess.tool('approval_request', { operationId: 'gst_file_gstr1_evc', requestedBy: 'someone-else' });
   assert.equal(asked.ok, true);
   assert.equal(asked.data.approval.requestedBy, 'usr-admin');
@@ -51,4 +56,11 @@ test('a wrong PIN is remembered across a restart, so the lockout cannot be reset
   const reopened = openSession(path);
   const user = reopened.state.firmUsers.find((u) => u.userId === 'USR-ADMIN');
   assert.equal(user.failedAttempts, 1);
+});
+
+test('the starting PIN cannot add users until it is changed', async () => {
+  const sess = freshSession();
+  await sess.signIn('USR-ADMIN', '1234');
+  const out = await sess.caApi('POST', '/api/ca/users', { userId: 'USR-X', name: 'X', role: 'partner', pin: '9999' });
+  assert.equal(out.error, 'PIN_CHANGE_REQUIRED');
 });

@@ -15,7 +15,7 @@ import { getBook } from './books.mjs';
 import { approvalStatus } from './approvals.mjs';
 import { bookView } from './book-view.mjs';
 import { liveCallsEnabled, mockModeEnabled } from './runtime-config.mjs';
-import { findUser, verifyUserPin, listUsers, withoutPin, pinRecords, applyPinRecords } from './identity.mjs';
+import { findUser, verifyUserPin, listUsers, withoutPin, pinRecords, applyPinRecords, changePin } from './identity.mjs';
 
 function hydrateAttachments(book, documents) {
   book.attachments = book.attachments && typeof book.attachments === 'object' ? book.attachments : {};
@@ -72,6 +72,8 @@ function recoveredDocumentContent(state, legacy, doc) {
 
 const SIGNED_IN_TOOLS = new Set(['approval_request', 'approval_decide']);
 const USER_ADMIN_ROLES = new Set(['admin', 'partner']);
+const DEFAULT_PIN = '1234';
+const PIN_CHANGE_HINT = 'This user still has the starting PIN 1234. Change it first, then try again.';
 
 function toolState(state, actor = null) {
   const id = String(state.activeClientId || 'SELF');
@@ -105,6 +107,7 @@ export function openSession(target = defaultDataPath(), { seed = false } = {}) {
   hydrateDocuments(state);
   saveBooks();
   let activeUser = null;
+  let activeOnDefaultPin = false;
   let sessionExpiresAt = 0;
   const currentActor = () => {
     if (activeUser && sessionExpiresAt > Date.now()) {
@@ -135,6 +138,7 @@ export function openSession(target = defaultDataPath(), { seed = false } = {}) {
           return verified;
         }
         activeUser = verified.user;
+        activeOnDefaultPin = String(pin ?? '').trim() === DEFAULT_PIN;
         sessionExpiresAt = Date.now() + 30 * 60 * 1000;
         appendAuditEvent(state, {
           actorId: activeUser.userId,
@@ -145,13 +149,14 @@ export function openSession(target = defaultDataPath(), { seed = false } = {}) {
           metadata: { userId: activeUser.userId, role: activeUser.role },
         });
         saveBooks();
-        return { ok: true, user: activeUser };
+        return { ok: true, user: activeUser, ...(activeOnDefaultPin ? { mustChangePin: true } : {}) };
       });
     },
     signOut() {
       return exclusive(async () => {
         const prev = activeUser?.userId || 'none';
         activeUser = null;
+        activeOnDefaultPin = false;
         sessionExpiresAt = 0;
         appendAuditEvent(state, {
           actorId: prev,
@@ -167,6 +172,29 @@ export function openSession(target = defaultDataPath(), { seed = false } = {}) {
     },
     activeUser() {
       return currentActor();
+    },
+    changePin(userId, oldPin, newPin) {
+      return exclusive(async () => {
+        const beforeHash = stateDigest(state);
+        const user = findUser(state, userId);
+        if (user && String(newPin ?? '').trim() === DEFAULT_PIN) return { ok: false, error: 'PIN_TOO_EASY', hint: 'Choose a PIN other than 1234.' };
+        const out = changePin(state, userId, oldPin, newPin);
+        if (user) {
+          if (out.ok) {
+            appendAuditEvent(state, {
+              actorId: user.userId,
+              clientId: String(state.activeClientId || 'SELF'),
+              action: 'session.pin_changed',
+              beforeHash,
+              afterHash: stateDigest(state),
+              metadata: { userId: user.userId },
+            });
+            if (activeUser && activeUser.userId === user.userId) activeOnDefaultPin = false;
+          }
+          saveBooks();
+        }
+        return out;
+      });
     },
     chat(message, options) {
       return exclusive(async () => {
@@ -265,6 +293,7 @@ export function openSession(target = defaultDataPath(), { seed = false } = {}) {
       return exclusive(async () => {
         const actor = actorOf(options);
         if (SIGNED_IN_TOOLS.has(name) && !actor) return { ok: false, error: 'SIGN_IN_REQUIRED', hint: 'Sign in with your user id and PIN first: approvals record who asked and who decided, and the two must be different people.' };
+        if (SIGNED_IN_TOOLS.has(name) && !trustedActor(options) && activeOnDefaultPin) return { ok: false, error: 'PIN_CHANGE_REQUIRED', hint: PIN_CHANGE_HINT };
         const beforeHash = stateDigest(state);
         const view = toolState(state, actorOf(options));
         const out = await runTool(view, name, args);
@@ -289,6 +318,7 @@ export function openSession(target = defaultDataPath(), { seed = false } = {}) {
         if (method === 'POST' && String(pathname || '').replace(/\/+$/, '').endsWith('/api/ca/users')) {
           const actor = currentActor();
           if (!actor || !USER_ADMIN_ROLES.has(String(actor.role || '').toLowerCase())) return { ok: false, error: 'ADMIN_SIGN_IN_REQUIRED', hint: 'Only a signed-in admin or partner can add a user.' };
+          if (activeOnDefaultPin) return { ok: false, error: 'PIN_CHANGE_REQUIRED', hint: PIN_CHANGE_HINT };
           request = { ...body, actorId: actor.userId };
         }
         const out = handleCaApi(state, method, pathname, request);
