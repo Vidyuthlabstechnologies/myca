@@ -9,6 +9,7 @@ submitted; nothing here is published by the repository.
 | Field | Draft |
 |---|---|
 | App name | MyCA |
+| Package name | `com.mldynamic.myca` (decided 2026-11-05; Play never lets it change) |
 | Short description (80) | Your books, GST, TDS and payroll from your phone. Every entry previewed before it posts. |
 | Full description | MyCA keeps a small business's books the way a careful accountant would, from your phone. Record sales, bills and expenses by typing a sentence or filling a short form; see what you are owed and what you owe; let MyCA draft your GSTR-1, GSTR-3B, TDS statements and payroll from dated statutory rules; and hand your CA one file a month. Nothing posts until you see a preview and confirm it. MyCA never files a return or signs anything for you; filing stays with you and your CA. Runs for Indian businesses (GST, TDS, PF, ESI, professional tax) and for US sole proprietors (sales tax, 941, W-2, 1099-NEC, Schedule C). |
 | Category | Business |
@@ -69,4 +70,3 @@ open the camera itself.
 - Run the app on a real device once before internal testing; the release build has only run in CI.
 - Set the repository variables `MYCA_CLOUD_URL` (the https address of the deployed hosted API) and, for Google sign-in, `MYCA_GOOGLE_SERVER_CLIENT_ID`. A `v*` tag build now refuses to run without the upload key and an https `MYCA_CLOUD_URL`, and takes its version name from the tag and its version code from the run number.
 - Publish `delete-account.html` with the site and paste its URL into the Data deletion field.
-- Decide the package name before the first upload: it is `com.mldynamic.myca` today, and Play never lets it change.
