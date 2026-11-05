@@ -70,6 +70,9 @@ function recoveredDocumentContent(state, legacy, doc) {
   return candidates.find((content) => typeof content === 'string' && (!doc.sha256 || doc.sha256 === legacyDocumentHash(content)));
 }
 
+const SIGNED_IN_TOOLS = new Set(['approval_request', 'approval_decide']);
+const USER_ADMIN_ROLES = new Set(['admin', 'partner']);
+
 function toolState(state, actor = null) {
   const id = String(state.activeClientId || 'SELF');
   return bookView(state, id === 'SELF' ? state : getBook(state, id), { actor });
@@ -127,7 +130,10 @@ export function openSession(target = defaultDataPath(), { seed = false } = {}) {
       return exclusive(async () => {
         const user = findUser(state, userId);
         const verified = verifyUserPin(user, pin);
-        if (!verified.ok) return verified;
+        if (!verified.ok) {
+          if (user) saveBooks();
+          return verified;
+        }
         activeUser = verified.user;
         sessionExpiresAt = Date.now() + 30 * 60 * 1000;
         appendAuditEvent(state, {
@@ -166,7 +172,7 @@ export function openSession(target = defaultDataPath(), { seed = false } = {}) {
       return exclusive(async () => {
         const actor = actorOf(options);
         const beforeHash = stateDigest(state);
-        const view = toolState(state, trustedActor(options));
+        const view = toolState(state, actorOf(options));
         const out = await chat(view, message);
         appendAuditEvent(state, {
           actorId: actor?.userId || 'renderer',
@@ -191,7 +197,7 @@ export function openSession(target = defaultDataPath(), { seed = false } = {}) {
       return exclusive(async () => {
         const actor = actorOf(options);
         const beforeHash = stateDigest(state);
-        const out = propose(toolState(state, trustedActor(options)), name, args);
+        const out = propose(toolState(state, actorOf(options)), name, args);
         appendAuditEvent(state, {
           actorId: actor?.userId || 'renderer',
           clientId: String(state.activeClientId || 'SELF'),
@@ -213,7 +219,7 @@ export function openSession(target = defaultDataPath(), { seed = false } = {}) {
       return exclusive(async () => {
         const actor = actorOf(options);
         const beforeHash = stateDigest(state);
-        const out = await confirmPending(toolState(state, trustedActor(options)), token);
+        const out = await confirmPending(toolState(state, actorOf(options)), token);
         appendAuditEvent(state, {
           actorId: actor?.userId || 'renderer',
           clientId: String(state.activeClientId || 'SELF'),
@@ -235,7 +241,7 @@ export function openSession(target = defaultDataPath(), { seed = false } = {}) {
       return exclusive(async () => {
         const actor = actorOf(options);
         const beforeHash = stateDigest(state);
-        const out = discardPending(toolState(state, trustedActor(options)));
+        const out = discardPending(toolState(state, actorOf(options)));
         appendAuditEvent(state, {
           actorId: actor?.userId || 'renderer',
           clientId: String(state.activeClientId || 'SELF'),
@@ -258,8 +264,9 @@ export function openSession(target = defaultDataPath(), { seed = false } = {}) {
     tool(name, args, options) {
       return exclusive(async () => {
         const actor = actorOf(options);
+        if (SIGNED_IN_TOOLS.has(name) && !actor) return { ok: false, error: 'SIGN_IN_REQUIRED', hint: 'Sign in with your user id and PIN first: approvals record who asked and who decided, and the two must be different people.' };
         const beforeHash = stateDigest(state);
-        const view = toolState(state, trustedActor(options));
+        const view = toolState(state, actorOf(options));
         const out = await runTool(view, name, args);
         appendAuditEvent(state, {
           actorId: actor?.userId || 'renderer',
@@ -278,7 +285,13 @@ export function openSession(target = defaultDataPath(), { seed = false } = {}) {
     },
     caApi(method, pathname, body = {}) {
       return exclusive(async () => {
-        const out = handleCaApi(state, method, pathname, body);
+        let request = body;
+        if (method === 'POST' && String(pathname || '').replace(/\/+$/, '').endsWith('/api/ca/users')) {
+          const actor = currentActor();
+          if (!actor || !USER_ADMIN_ROLES.has(String(actor.role || '').toLowerCase())) return { ok: false, error: 'ADMIN_SIGN_IN_REQUIRED', hint: 'Only a signed-in admin or partner can add a user.' };
+          request = { ...body, actorId: actor.userId };
+        }
+        const out = handleCaApi(state, method, pathname, request);
         saveBooks();
         return out;
       });

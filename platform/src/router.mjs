@@ -59,6 +59,29 @@ import { track1099Words } from './track1099.mjs';
 import { payrollImportWords } from './us-payroll-import.mjs';
 import { suggestExpenseHead } from './expense-head-model.mjs';
 
+
+const GSTR1_HELD_REASONS = {
+  INVALID_HSN: 'no HSN code (4 to 8 digits)',
+  INVALID_GSTIN: 'a buyer GSTIN that does not check out',
+  STATE_MISMATCH: 'a buyer state that does not match its GSTIN',
+  RATE_UNKNOWN: 'a GST rate that is not in force on its date',
+  TAX_MISMATCH: 'tax that does not match the rate',
+  NEGATIVE_VALUE: 'a negative value',
+};
+
+function gstr1HeldWords(errors) {
+  const byInvoice = new Map();
+  for (const e of errors || []) {
+    if (!e.invoiceNo) continue;
+    const list = byInvoice.get(e.invoiceNo) || [];
+    list.push(GSTR1_HELD_REASONS[e.code] || e.message || e.code);
+    byInvoice.set(e.invoiceNo, list);
+  }
+  if (!byInvoice.size) return '';
+  const rows = [...byInvoice].map(([id, why]) => `· ${id}: ${why.join('; ')}`);
+  return `\nLeft out of these tables until fixed (amend the invoice):\n${rows.join('\n')}`;
+}
+
 function money(n) {
   return formatMoneyCurrent(Number(n) || 0);
 }
@@ -676,7 +699,8 @@ function fmtToolResult(name, result) {
   if (name === 'prepare_gstr1') {
     const g = d.gstr1;
     if (!g) return JSON.stringify(d);
-    return `GSTR-1 ${g.period || ''} taxable ${money(g.totalTaxable)}. B2B ${g.tables.b2b.length}, B2CL ${g.tables.b2cl.length}, B2CS ${g.tables.b2cs.length}. E-invoice issues: ${g.errors.length}.`;
+    const held = gstr1HeldWords(g.errors);
+    return `GSTR-1 ${g.period || ''} taxable ${money(g.totalTaxable)}. B2B ${g.tables.b2b.length}, B2CL ${g.tables.b2cl.length}, B2CS ${g.tables.b2cs.length}. E-invoice issues: ${g.errors.length}.${held}`;
   }
   if (name === 'deadlines') {
     const next = (d.deadlines || []).slice().sort((a, b) => String(a.dueDate).localeCompare(String(b.dueDate))).slice(0, 8);
@@ -694,7 +718,7 @@ function fmtToolResult(name, result) {
     const itc = d.itc || {};
     const lines = (o.rows3a || []).map((r) => `· ${r.rate}% ${r.interState ? 'inter-state' : 'within the state'}: taxable ${money(r.taxable)}, ${r.interState ? `IGST ${money(r.igst)}` : `CGST ${money(r.cgst)} + SGST ${money(r.sgst)}`}`);
     const notes = o.creditNotes?.count ? `\nCredit notes netted: ${o.creditNotes.count} for ${money(o.creditNotes.taxable)} taxable.` : '';
-    return `GSTR-3B ${d.period}${d.gstin ? ` (${d.gstin})` : ''}\nOutward (3.1): taxable ${money((t.interTaxable || 0) + (t.intraTaxable || 0))}; IGST ${money(t.interIgst)}, CGST ${money(t.intraCgst)}, SGST ${money(t.intraSgst)}.${lines.length ? `\n${lines.join('\n')}` : ''}${notes}\nITC (4A): IGST ${money(itc.available?.igst)}, CGST ${money(itc.available?.cgst)}, SGST ${money(itc.available?.sgst)}; ineligible ${money((itc.ineligible?.igst || 0) + (itc.ineligible?.cgst || 0) + (itc.ineligible?.sgst || 0))}; net ${money(itc.netItc)}.\nSay "gst payable for ${d.periods?.[0] || ''}" for the cash and credit split.`;
+    return `GSTR-3B ${d.period}${d.gstin ? ` (${d.gstin})` : ''}\nOutward (3.1): taxable ${money((t.interTaxable || 0) + (t.intraTaxable || 0))}; IGST ${money(t.interIgst)}, CGST ${money(t.intraCgst)}, SGST ${money(t.intraSgst)}.${lines.length ? `\n${lines.join('\n')}` : ''}${notes}\nITC (4A): IGST ${money(itc.available?.igst)}, CGST ${money(itc.available?.cgst)}, SGST ${money(itc.available?.sgst)}; ineligible ${money((itc.ineligible?.igst || 0) + (itc.ineligible?.cgst || 0) + (itc.ineligible?.sgst || 0))}; net ${money(itc.netItc)}.\nSay "gst payable for ${d.periods?.[0] || ''}" for the cash and credit split.${(d.missingHsn || []).length ? `\n${d.missingHsn.join(', ')} ${d.missingHsn.length === 1 ? 'has' : 'have'} no HSN code: the tax is counted here, but GSTR-1 leaves ${d.missingHsn.length === 1 ? 'it' : 'them'} out until the code is added.` : ''}`;
   }
   if (name === 'monitor_tds') {
     const rows = Array.isArray(d) ? d : d.flags || d.rows || [];

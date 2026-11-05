@@ -118,8 +118,15 @@ test('chat: set up as a deductor, a bill and rent with TDS, the summary and a de
   assert.equal(fees.preview?.figures?.tds, 6000, fees.reply);
   await said('yes');
   assert.match(await said('bill from Ravi 35000 painting GST 0% with tds'), /^Say which TDS section applies/);
-  assert.match(await said('my tds'), /^TDS deducted ₹12,000\.00, deposited ₹0\.00, still to deposit ₹12,000\.00\.\n· October 2026: deducted ₹12,000\.00, deposit by 7 November 2026$/);
-  assert.match(await said('deposited TDS, challan 0510308 05112026 12345'), /^TDS deposit of ₹12,000\.00/);
+  const today = localToday();
+  const [y, m] = today.split('-').map(Number);
+  const monthName = (year, month) => new Date(Date.UTC(year, month - 1, 1)).toLocaleString('en-GB', { month: 'long', timeZone: 'UTC' });
+  const depositBy = m === 3 ? `30 April ${y}` : `7 ${monthName(m === 12 ? y + 1 : y, m === 12 ? 1 : m + 1)} ${m === 12 ? y + 1 : y}`;
+  const summary = await said('my tds');
+  assert.ok(summary.startsWith('TDS deducted ₹12,000.00, deposited ₹0.00, still to deposit ₹12,000.00.\n'), summary);
+  assert.ok(summary.endsWith(`· ${monthName(y, m)} ${y}: deducted ₹12,000.00, deposit by ${depositBy}`), summary);
+  const challanDate = `${today.slice(8, 10)}${today.slice(5, 7)}${today.slice(0, 4)}`;
+  assert.match(await said(`deposited TDS, challan 0510308 ${challanDate} 12345`), /^TDS deposit of ₹12,000\.00/);
   assert.match(await said('yes'), /Nothing is left to deposit\.$/);
 });
 

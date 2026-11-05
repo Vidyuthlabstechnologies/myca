@@ -75,8 +75,10 @@ export function apiClientToken() {
   return apiToken;
 }
 
-// The token is minted per launch, so another local process cannot reach the API
-// with a constant header, and it never leaves this machine.
+// The token is minted per launch and never leaves this machine. In the Electron app
+// it reaches the page only through the preload bridge, so another local process
+// cannot read it. With MYCA_TOKEN_IN_PAGE left on (npm run dev) it is written into
+// the HTML, which stops other sites but not other programs on the same machine.
 // A launcher (the Electron shell, or a test harness that spawns the server) may
 // supply the token so it can call the API; anything shorter than 32 characters is
 // ignored and a random one is used instead.
@@ -133,6 +135,10 @@ function corsHeaders(req) {
     'access-control-allow-origin': origin,
     vary: 'Origin',
   };
+}
+
+export function escapeHtml(text) {
+  return String(text ?? '').replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
 }
 
 function send(req, res, code, body, type = 'application/json') {
@@ -209,7 +215,7 @@ function handler(req, res) {
     if (req.method === 'GET' && url.pathname === '/api/oauth/gusto/callback') {
       if (!session) return send(req, res, 503, { error: openError || 'books not open yet' });
       const out = await session.tool('gusto_callback', { code: url.searchParams.get('code') || '', state: url.searchParams.get('state') || '' });
-      const page = `<!doctype html><meta charset="utf-8"><title>MyCA</title><body style="font:16px system-ui;background:#0c1220;color:#e8edf6;padding:40px"><h1>${out.ok ? 'Gusto is connected' : 'Gusto was not connected'}</h1><p>${out.ok ? 'MyCA keeps the tokens in its vault. You can close this tab and go back to MyCA.' : `${String(out.error || '')}${out.hint ? `: ${out.hint}` : ''}`}</p><p><a style="color:#4f8cff" href="/keys.html">Back to the keys page</a></p></body>`;
+      const page = `<!doctype html><meta charset="utf-8"><title>MyCA</title><body style="font:16px system-ui;background:#0c1220;color:#e8edf6;padding:40px"><h1>${out.ok ? 'Gusto is connected' : 'Gusto was not connected'}</h1><p>${out.ok ? 'MyCA keeps the tokens in its vault. You can close this tab and go back to MyCA.' : escapeHtml(`${String(out.error || '')}${out.hint ? `: ${out.hint}` : ''}`)}</p><p><a style="color:#4f8cff" href="/keys.html">Back to the keys page</a></p></body>`;
       return send(req, res, out.ok ? 200 : 400, page, types['.html']);
     }
     if (url.pathname.startsWith('/api/')) assertApiRequest(req);

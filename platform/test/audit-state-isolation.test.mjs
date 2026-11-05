@@ -22,6 +22,7 @@ async function activateClient(sess, clientId) {
 
 test('H7: approval ids stay unique while a client book is active', async () => {
   const { sess } = freshSession();
+  assert.equal((await sess.signIn('USR-ADMIN', '1234')).ok, true);
   await sess.tool('approval_request', { operationId: 'gst_file_gstr1_evc' });
   await activateClient(sess, 'CL-2');
   const a = await sess.tool('approval_request', { operationId: 'gst_file_gstr1_evc' });

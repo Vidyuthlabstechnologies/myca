@@ -17,11 +17,11 @@ Taxmeow or MyCA is an open decision.
 | Against the product PRD | **About 60% built** ([requirement by requirement](docs/product/PRD.md), [how it is computed](docs/superpowers/PROGRESS.md)) |
 | To a Play Store launch | About 44% (estimate) |
 | Engine hardening (Phase 0) | 67%; every Critical and High audit finding closed ([audit](docs/audit/2026-09-21-codebase-audit.md)) |
-| Tests | **1,128**: platform 591, engines and statutory rules 329, hosted API 77, Android app 131 |
+| Tests | **1,390**: platform 798, engines and statutory rules 331, hosted API 131, Android app 131 (the Android count was last checked before 5 November 2026) |
 | Tools | 116 named, schema-validated tools |
 | Deployed | **Nothing.** The hosted API has run only against a local Postgres; the app has not run on a phone |
 | Live portal calls | Off by default (`MYCA_ENABLE_LIVE_CALLS=0`); no return has been filed through the product |
-| Automated checks | `node scripts/check-all.mjs`. CI is defined but GitHub Actions is not running on the account |
+| Automated checks | `node scripts/check-all.mjs` locally; GitHub Actions runs CI on pushes and pull requests, plus a nightly run |
 
 ## The product in the owner's words
 
@@ -165,7 +165,7 @@ The engine and the desktop server:
 
 ```bash
 cd platform
-npm test                 # 591 tests
+npm test                 # 798 tests
 npm run dev              # http://127.0.0.1:4780 (plain node)
 npm start                # Electron window (after: npm i)
 ```
@@ -175,7 +175,7 @@ The hosted API, against a local Postgres (see [`cloud/README.md`](cloud/README.m
 ```bash
 cd cloud
 npm install
-npm test                 # 77 tests; needs MYCA_TEST_DATABASE_URL
+npm test                 # 131 tests; needs MYCA_TEST_DATABASE_URL
 ```
 
 The Android app (see [`mobile/README.md`](mobile/README.md)):

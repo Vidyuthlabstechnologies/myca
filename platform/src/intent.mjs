@@ -38,6 +38,7 @@ const MULTIPLIER = '(k|lakhs?|lacs?|cr|crores?)';
 const CURRENCY = '(?:₹|rs\\.?|inr)';
 const UNIT_WORDS = 'rolls?|pcs|pieces|units?|kgs?|nos?|boxes|bags|items?|bundles?|metres?|meters?|litres?|liters?|dozens?';
 
+const HSN_SAID = /\b(?:hsn|sac)(?:\s*code)?\s*[:#-]?\s*(\d{4,8})\b/i;
 const GST_RATE_PATTERNS = [
   /\bgst\s*(?:@|at|of|rate|is)?\s*(\d{1,2}(?:\.\d+)?)(?![\d,])\s*(?:%|percent|pct)?/i,
   /(?<![\d,.])(\d{1,2}(?:\.\d+)?)\s*(?:%|percent|pct)\s*(?:gst|tax)?/i,
@@ -102,7 +103,10 @@ export function parseDocument(text) {
   const raw = normalizeChat(text).replace(LONE_PLUS, ' ');
   const gstinMatch = raw.match(GSTIN_RE);
   const gstin = gstinMatch ? gstinMatch[1].toUpperCase() : '';
-  const withoutGstin = gstin ? raw.replace(gstinMatch[0], ' ') : raw;
+  const withGstinOut = gstin ? raw.replace(gstinMatch[0], ' ') : raw;
+  const hsnMatch = withGstinOut.match(HSN_SAID);
+  const hsn = hsnMatch ? hsnMatch[1] : '';
+  const withoutGstin = hsnMatch ? withGstinOut.replace(hsnMatch[0], ' ') : withGstinOut;
   const { gstRate, rest } = takeGstRate(withoutGstin);
 
   let line = null;
@@ -125,6 +129,7 @@ export function parseDocument(text) {
   if (NEGATIVE_NUMBER.test(raw)) return { problem: 'NEGATIVE_NUMBER' };
   if (line.rate * line.qty > MAX_CHAT_AMOUNT) return { problem: 'AMOUNT_TOO_LARGE' };
   if (gstRate != null) line.gstRate = gstRate;
+  if (hsn) line.hsn = hsn;
   const said = withoutGstin.match(SAID_DATE);
   const date = said ? isoDate(said[1]) : '';
   if (said && !date) return { problem: 'INVALID_DATE', said: said[1] };

@@ -41,12 +41,27 @@ function lessPurchaseNotes(itc, notes) {
   };
 }
 
+const HSN_CODE = /^\d{4,8}$/;
+const LIABILITY_ONLY_HSN = '0000';
+
+export function invoicesMissingHsn(invoices) {
+  return (invoices || []).filter((inv) => (inv.lines || []).some((line) => !HSN_CODE.test(String(line.hsn ?? '').trim()))).map((inv) => inv.id);
+}
+
+function withLiabilityHsn(invoices) {
+  return (invoices || []).map((inv) => {
+    const lines = inv.lines || [];
+    if (lines.every((line) => HSN_CODE.test(String(line.hsn ?? '').trim()))) return inv;
+    return { ...inv, lines: lines.map((line) => (HSN_CODE.test(String(line.hsn ?? '').trim()) ? line : { ...line, hsn: LIABILITY_ONLY_HSN })) };
+  });
+}
+
 export function gstr3bFor(state, docs, inwardOverride) {
-  const salesText = invoicesToSalesCsv(docs.invoices);
+  const salesText = invoicesToSalesCsv(withLiabilityHsn(docs.invoices));
   const inwardText = inwardOverride || purchasesToInwardCsv(docs.purchases);
   const result = filingPrep({ salesText, inwardText, supplierState: docs.gstin !== undefined ? companyAs(state, docs.gstin).state : state.company.state, fy: state.company.fy });
   const draft = result.gstr3b || {};
-  return { ...draft, outward: netOfNotes(draft.outward, docs.creditNotes || [], docs.debitNotes || []), itc: lessPurchaseNotes(draft.itc, docs.purchaseNotes || []), period: docs.period };
+  return { ...draft, outward: netOfNotes(draft.outward, docs.creditNotes || [], docs.debitNotes || []), itc: lessPurchaseNotes(draft.itc, docs.purchaseNotes || []), period: docs.period, missingHsn: invoicesMissingHsn(docs.invoices) };
 }
 
 export function periodSummary(state, period, gstin) {
