@@ -41,17 +41,22 @@ submitted; nothing here is published by the repository.
 | USE_BIOMETRIC | App lock with fingerprint or face |
 | POST_NOTIFICATIONS | A reminder on the morning something falls due (filing, payroll approval, an instalment); the owner is asked once and can refuse |
 | RECEIVE_BOOT_COMPLETED | Reschedules those reminders after a restart |
+| com.android.vending.BILLING | Google Play Billing for the Pro and CA firm subscriptions (added by the in_app_purchase plugin) |
 | File access | Through the system picker only, for bills to read and files to save; no broad storage permission |
 
 No camera permission is requested: photos come through the system picker, which may
 open the camera itself.
+
+Plugins merge more permissions into the built app (for example FOREGROUND_SERVICE and
+WAKE_LOCK). Before filling in Play's forms, list what the release bundle really asks for with
+`bundletool dump manifest --bundle app-release.aab` and justify each one here.
 
 ## 4. Declarations
 
 - Not a financial services app: MyCA holds no money, moves no money and is not a merchant of record (ADR-0010).
 - No government ID collection beyond what the owner types into their own invoices (GSTIN, PAN); never a password for a government portal.
 - Content rating: everyone.
-- Ads: none. In-app purchases: none at launch.
+- Ads: none. In-app purchases: yes, auto-renewing subscriptions (Pro and CA firm) through Google Play Billing, with a 14-day free trial counted by MyCA itself.
 - Target audience: business owners, 18 and over.
 
 ## 5. Testing track before production
