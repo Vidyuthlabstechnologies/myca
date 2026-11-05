@@ -9,6 +9,7 @@ import { connectorKeyFromEnv } from './connectors.mjs';
 import { booksKeyFromEnv } from './books-seal.mjs';
 import { smsSenderFromEnv } from './sms-sender.mjs';
 import { whatsAppConfigFromEnv, createWhatsAppSender } from './whatsapp.mjs';
+import { createBilling, billingConfigFromEnv } from './billing.mjs';
 
 const STARTUP_ATTEMPTS = 10;
 const STARTUP_WAIT_MS = 3000;
@@ -49,6 +50,7 @@ const db = createDb(required('MYCA_DATABASE_URL'));
 await migrateWithRetry(db);
 const handler = createApi({
   db,
+  billing: createBilling({ db, config: billingConfigFromEnv(process.env), log }),
   secret: required('MYCA_TOKEN_SECRET'),
   otpSender: otpSender(),
   googleClientIds: clientIdsFrom(process.env.MYCA_GOOGLE_CLIENT_IDS),

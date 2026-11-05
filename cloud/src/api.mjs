@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { mockModeEnabled, serviceProviderEnvironment } from '../../platform/src/runtime-config.mjs';
 import { withProviderContext } from '../../platform/src/provider-context.mjs';
 import { createGovtActions } from './govt-actions.mjs';
+import { createBilling, PLANS } from './billing.mjs';
 import { gstin } from '../../platform/src/sprint-load.mjs';
 import { rule } from '../../sprints/statutory-rules/src/index.mjs';
 import { createAuth, isUuid } from './auth.mjs';
@@ -168,7 +169,7 @@ export function clientAddress(req, hops = trustedProxyHops()) {
   return String(parts[parts.length - hops] || '').slice(0, 64);
 }
 
-export function createApi({ db, secret, booksKey = '', otpSender = null, googleClientIds = [], googleKeys, oidc = {}, oidcKeys = null, documentVault = null, connectorKey = '', now = () => Date.now(), log = () => {}, version = 'dev', jobToken = '', inboundEmail = {}, whatsapp = {}, whatsappSender = null }) {
+export function createApi({ billing: billingGiven = null, db, secret, booksKey = '', otpSender = null, googleClientIds = [], googleKeys, oidc = {}, oidcKeys = null, documentVault = null, connectorKey = '', now = () => Date.now(), log = () => {}, version = 'dev', jobToken = '', inboundEmail = {}, whatsapp = {}, whatsappSender = null }) {
   process.env.MYCA_HOSTED = '1';
   assertSecret(secret);
   const providerMode = () => (mockModeEnabled() ? 'simulated' : serviceProviderEnvironment());
@@ -178,6 +179,7 @@ export function createApi({ db, secret, booksKey = '', otpSender = null, googleC
   const runner = createBooksRunner({ db, now, vault, booksKey });
   const connectors = createConnectorStore({ db, key: connectorKey });
   const withBooks = runner.withBooks;
+  const billing = billingGiven || createBilling({ db, now, log });
   const govt = createGovtActions({ connectors, withBooks: (...args) => runner.withBooks(...args) });
   const publicOrigin = (req) => {
     const configured = String(process.env.MYCA_PUBLIC_URL || '').trim().replace(/\/+$/, '');
@@ -220,6 +222,13 @@ export function createApi({ db, secret, booksKey = '', otpSender = null, googleC
 
     if (parts[1] === 'health' && method === 'GET') return { ok: true, providerMode: providerMode() };
     if (parts[1] === 'privacy-notice' && parts.length === 2 && method === 'GET') return { ok: true, notice: PRIVACY_NOTICE };
+    if (parts[1] === 'plans' && parts.length === 2 && method === 'GET') return billing.plans();
+    if (parts[1] === 'billing' && parts[2] === 'razorpay' && parts[3] === 'webhook' && parts.length === 4 && method === 'POST') {
+      const raw = await readRaw(req, MAX_BODY_BYTES);
+      const received = await billing.webhook(raw, req.headers['x-razorpay-signature'], req.headers['x-razorpay-event-id']);
+      if (!received.ok) throw httpError(received.statusCode, received.error);
+      return received;
+    }
     if (parts[1] === 'auth' && parts[2] === 'methods' && parts.length === 3 && method === 'GET') {
       return { ok: true, phone: auth.phoneEnabled, google: google.enabled, oidc: openId.enabled, ...(openId.enabled ? { oidcIssuer: openId.issuer } : {}) };
     }
@@ -448,6 +457,7 @@ export function createApi({ db, secret, booksKey = '', otpSender = null, googleC
         };
       }
       if (method === 'GET' && action === 'approvals') return govt.approvals(businessId, context, actor, 'GET');
+      if (method === 'GET' && action === 'subscription') return billing.entitlement(businessId);
       if (method !== 'POST') throw httpError(404, 'NOT_FOUND');
 
       const body = await readJson(req, action === 'uploads' ? MAX_UPLOAD_BYTES : action === 'replace' ? MAX_BUSINESS_BYTES : MAX_BODY_BYTES);
@@ -473,6 +483,8 @@ export function createApi({ db, secret, booksKey = '', otpSender = null, googleC
       if (action === 'gstin-check') return govt.gstinCheck(businessId, context, actor, body);
       if (action === 'einvoice' || action === 'approvals') {
         if (sharedView) throw httpError(403, 'SHARED_VIEW_READ_ONLY');
+        const allowed = action === 'einvoice' ? await billing.allows(businessId, 'einvoice') : { ok: true };
+        if (!allowed.ok) return allowed;
         return action === 'einvoice' ? govt.einvoice(businessId, context, actor, body) : govt.approvals(businessId, context, actor, 'POST', body);
       }
       if (sharedView) {
@@ -488,8 +500,16 @@ export function createApi({ db, secret, booksKey = '', otpSender = null, googleC
         }
         throw httpError(403, 'SHARED_VIEW_READ_ONLY', { sharedAsOf: sync.asOf });
       }
+      if (action === 'subscription' || action === 'subscription-cancel') {
+        if (role !== 'owner') throw httpError(403, 'OWNER_ONLY');
+        return action === 'subscription' ? billing.subscribe(businessId, user.userId, body) : billing.cancel(businessId, user.userId);
+      }
       if (action === 'invitations') {
         if (role !== 'owner') throw httpError(403, 'OWNER_ONLY');
+        const team = await billing.allows(businessId, 'team');
+        if (!team.ok) return team;
+        const seats = await billing.withinLimit(businessId, 'members', (await businesses.members(businessId)).length);
+        if (!seats.ok) return seats;
         return members.invite(businessId, context, body);
       }
       if (action === 'inbound') {
@@ -498,6 +518,8 @@ export function createApi({ db, secret, booksKey = '', otpSender = null, googleC
       }
       if (action === 'connectors') {
         if (role !== 'owner') throw httpError(403, 'OWNER_ONLY');
+        const allowed = await billing.allows(businessId, 'connectors');
+        if (!allowed.ok) return allowed;
         return connectors.save(businessId, context, body);
       }
       if (action === 'plaid-link-token' || action === 'plaid-exchange' || action === 'gusto-connect' || action === 'taxjar-rate') {
@@ -547,7 +569,15 @@ export function createApi({ db, secret, booksKey = '', otpSender = null, googleC
           return withBooks(businessId, context, (session) => session.propose(name, args, actor), { hashes: [args.documentSha256] });
         }
         if (!PROPOSABLE.has(name)) throw httpError(400, 'NOT_PROPOSABLE', { tool: name });
-        return withBooks(businessId, context, (session) => session.propose(name, args, actor));
+        const cap = name === 'create_invoice' && billing.enabled ? (await billing.entitlement(businessId)).limits.invoicesPerMonth : null;
+        return withBooks(businessId, context, (session) => {
+          if (cap != null) {
+            const month = indiaDate(now()).slice(0, 7);
+            const used = (session.state.invoices || []).filter((inv) => String(inv.date || '').startsWith(month)).length;
+            if (used >= cap) return { ok: false, error: 'PLAN_LIMIT_REACHED', limit: 'invoicesPerMonth', cap, hint: `The ${PLANS.free.title} plan allows ${cap} invoices a month. The owner can upgrade under Plan and billing.` };
+          }
+          return session.propose(name, args, actor);
+        });
       }
       if (action === 'confirm') return withBooks(businessId, context, (session) => session.confirm(body.token, actor));
       if (action === 'discard') return withBooks(businessId, context, (session) => session.discard(actor));
