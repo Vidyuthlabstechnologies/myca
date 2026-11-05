@@ -50,7 +50,7 @@ MYCA_TEST_DATABASE_URL=postgres://myca@127.0.0.1:54329/postgres npm test
 Each test file creates and drops its own database.
 
 ```bash
-MYCA_DATABASE_URL=postgres://myca@127.0.0.1:54329/myca_dev MYCA_TOKEN_SECRET=<32+ random characters> MYCA_BOOKS_KEY=<32+ random characters> MYCA_DEV_OTP=1 PORT=8080 npm run dev
+MYCA_LISTEN_HOST=127.0.0.1 MYCA_DATABASE_URL=postgres://myca@127.0.0.1:54329/myca_dev MYCA_TOKEN_SECRET=<32+ random characters> MYCA_BOOKS_KEY=<32+ random characters> MYCA_DEV_OTP=1 PORT=8080 npm run dev
 ```
 
 `MYCA_GOOGLE_CLIENT_IDS` lists the OAuth client ids (comma-separated) whose Google ID

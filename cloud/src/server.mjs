@@ -68,7 +68,8 @@ const handler = createApi({
 const port = Number(process.env.PORT || 8080);
 const server = createServer(handler);
 server.keepAliveTimeout = 65000;
-server.listen(port, () => log({ listening: port }));
+const host = String(process.env.MYCA_LISTEN_HOST || '').trim() || undefined;
+server.listen(port, host, () => log({ listening: port, host: host || 'all' }));
 
 let stopping = false;
 function shutdown(signal) {
