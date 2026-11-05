@@ -15,8 +15,8 @@ export function setModelTransport(transport) {
 
 function setting(name) {
   const fromProcess = String(process.env[name] || '').trim();
-  if (fromProcess) return fromProcess;
-  return String(loadEnvFile()[name] || '').trim();
+  const value = fromProcess || String(loadEnvFile()[name] || '').trim();
+  return value === 'unset' ? '' : value;
 }
 
 export function modelConfig() {

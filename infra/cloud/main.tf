@@ -205,6 +205,8 @@ locals {
     "myca-books-key"             = random_password.books_key.result
     "myca-whatsapp-app-secret"   = var.whatsapp_app_secret
     "myca-whatsapp-access-token" = var.whatsapp_access_token
+    "myca-sms-secret"            = var.sms_secret
+    "myca-model-api-key"         = var.model_api_key
   }
 }
 
@@ -401,6 +403,66 @@ resource "google_cloud_run_v2_service" "api" {
             version = "latest"
           }
         }
+      }
+
+      env {
+        name  = "MYCA_MOCK_MODE"
+        value = var.provider_mode == "simulated" ? "1" : "0"
+      }
+      env {
+        name  = "MYCA_PUBLIC_URL"
+        value = var.public_url
+      }
+      env {
+        name  = "MYCA_SMS_PROVIDER"
+        value = var.sms_provider
+      }
+      env {
+        name  = "MYCA_SMS_TWILIO_SID"
+        value = var.sms_twilio_sid
+      }
+      env {
+        name  = "MYCA_SMS_TWILIO_FROM"
+        value = var.sms_twilio_from
+      }
+      env {
+        name  = "MYCA_SMS_MSG91_TEMPLATE_ID"
+        value = var.sms_msg91_template_id
+      }
+      env {
+        name = "MYCA_SMS_TWILIO_TOKEN"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.api["myca-sms-secret"].secret_id
+            version = "latest"
+          }
+        }
+      }
+      env {
+        name = "MYCA_SMS_MSG91_AUTHKEY"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.api["myca-sms-secret"].secret_id
+            version = "latest"
+          }
+        }
+      }
+      env {
+        name = "MYCA_MODEL_API_KEY"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.api["myca-model-api-key"].secret_id
+            version = "latest"
+          }
+        }
+      }
+      env {
+        name  = "MYCA_MODEL"
+        value = var.model_name
+      }
+      env {
+        name  = "MYCA_MODEL_BASE_URL"
+        value = var.model_base_url
       }
 
       volume_mounts {

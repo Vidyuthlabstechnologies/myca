@@ -54,7 +54,8 @@ export function createMsg91Sender({ authKey, templateId, fetchImpl = fetch, log 
   };
 }
 
-export function smsSenderFromEnv(env = process.env, { fetchImpl = fetch, log = () => {} } = {}) {
+export function smsSenderFromEnv(rawEnv = process.env, { fetchImpl = fetch, log = () => {} } = {}) {
+  const env = Object.fromEntries(Object.entries(rawEnv).map(([key, value]) => [key, value === 'unset' ? '' : value]));
   const provider = String(env.MYCA_SMS_PROVIDER || '').trim().toLowerCase();
   if (!provider) return null;
   if (provider === 'twilio') return createTwilioSender({ accountSid: env.MYCA_SMS_TWILIO_SID, authToken: env.MYCA_SMS_TWILIO_TOKEN, from: env.MYCA_SMS_TWILIO_FROM, fetchImpl, log });

@@ -133,3 +133,75 @@ variable "whatsapp_phone_number_id" {
   type        = string
   default     = "unset"
 }
+
+variable "provider_mode" {
+  description = "How government and provider actions behave for customers. \"dry-run\" keeps the prepared payload and sends nothing. \"simulated\" also returns sandbox-style results (simulated IRN, simulated filing) tagged as simulated, written only to mock fields. Live calls stay off on the hosted API either way."
+  type        = string
+  default     = "dry-run"
+
+  validation {
+    condition     = contains(["dry-run", "simulated"], var.provider_mode)
+    error_message = "provider_mode is dry-run or simulated; the hosted API never makes live government calls."
+  }
+}
+
+variable "public_url" {
+  description = "Public https address of the API (a custom domain in front of Cloud Run). Used for OAuth redirect URIs. Empty uses the request host."
+  type        = string
+  default     = ""
+}
+
+variable "sms_provider" {
+  description = "SMS sender for phone sign-in codes: \"twilio\", \"msg91\" or empty for none (then Google or OIDC sign-in must be set)."
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = contains(["", "twilio", "msg91"], var.sms_provider)
+    error_message = "sms_provider is twilio, msg91 or empty."
+  }
+}
+
+variable "sms_secret" {
+  description = "The SMS provider's secret: the Twilio auth token or the MSG91 auth key. Leave \"unset\" until the account exists."
+  type        = string
+  default     = "unset"
+  sensitive   = true
+}
+
+variable "sms_twilio_sid" {
+  description = "Twilio account SID (sms_provider = twilio)."
+  type        = string
+  default     = ""
+}
+
+variable "sms_twilio_from" {
+  description = "Twilio sender number or messaging service id (sms_provider = twilio)."
+  type        = string
+  default     = ""
+}
+
+variable "sms_msg91_template_id" {
+  description = "MSG91 OTP template id, DLT-approved (sms_provider = msg91)."
+  type        = string
+  default     = ""
+}
+
+variable "model_api_key" {
+  description = "API key for the language model that reads bills and answers in Hindi and Telugu. Leave \"unset\" to run without a model (English rules only)."
+  type        = string
+  default     = "unset"
+  sensitive   = true
+}
+
+variable "model_name" {
+  description = "Model id sent to the model provider. Empty uses the engine default."
+  type        = string
+  default     = ""
+}
+
+variable "model_base_url" {
+  description = "OpenAI-compatible base URL of the model provider. Empty uses the engine default."
+  type        = string
+  default     = ""
+}

@@ -124,11 +124,26 @@ malformed and oversize input stops before any engine runs, a connection key is n
 token and the reverse, old tokens die on sign-out, revocation and account deletion, and
 no response carries a secret, a hash or a phone number.
 
+## Real customers, providers in sandbox
+
+The hosted API refuses to start with `MYCA_ENABLE_LIVE_CALLS` on, so customers' books, invoices,
+GST figures, uploads and chat are real while nothing reaches a government portal or a paid
+provider. Filing itself stays a CA's step on the portal by design. `infra/cloud` inputs for this:
+
+| Input | Sets | Notes |
+|---|---|---|
+| `provider_mode` | `MYCA_MOCK_MODE` | `dry-run` (default): the prepared payload is kept and the customer is told nothing was sent. `simulated`: sandbox-style results (a simulated IRN, a simulated return status), written only to `mock*` fields and labelled "Simulated" in the app and chat |
+| `google_client_ids`, `oidc_issuer`, `sms_provider` | sign-in | at least one is required or the API will not start |
+| `sms_provider`, `sms_secret`, `sms_twilio_sid`, `sms_twilio_from`, `sms_msg91_template_id` | `MYCA_SMS_*` | `sms_secret` is the Twilio auth token or the MSG91 auth key, kept in Secret Manager; MSG91 in India needs a DLT-registered template |
+| `model_api_key`, `model_name`, `model_base_url` | `MYCA_MODEL_*` | optional: reading bills and Hindi or Telugu chat; "unset" runs the English rules only |
+| `public_url` | `MYCA_PUBLIC_URL` | the https custom domain, used for OAuth redirect URIs |
+| `enable_channel_pulls` | `MYCA_ENABLE_CHANNEL_PULLS` | read-only Amazon, Shopify and Razorpay report pulls with each business's own keys |
+
 ## Not built yet
 
 - The Google Cloud project itself, and the first `terraform apply` of `infra/cloud`.
 - A WhatsApp Business account on the Meta Cloud API: the webhook (`GET`/`POST /v1/whatsapp/webhook`, `src/whatsapp.mjs`) verifies with `MYCA_WHATSAPP_VERIFY_TOKEN`, checks the `X-Hub-Signature-256` with `MYCA_WHATSAPP_APP_SECRET`, maps the sender's number to a member and runs the same chat as the app (preview, then "yes"), replying through `MYCA_WHATSAPP_PHONE_NUMBER_ID` and `MYCA_WHATSAPP_ACCESS_TOKEN`. Without those four the route answers 404. A member of several businesses is asked which and "use 2" is remembered.
-- An SMS provider account: the Twilio and MSG91 senders exist (`src/sms-sender.mjs`, chosen by `MYCA_SMS_PROVIDER`); without one Google Sign-In is the only sign-in.
+- An SMS provider account: the Twilio and MSG91 senders exist (`src/sms-sender.mjs`, chosen by `MYCA_SMS_PROVIDER`, Terraform `sms_provider` and `sms_secret`); without one Google Sign-In is the only sign-in.
 - Telling an invited person. An invitation is only visible to them after they sign in
   with that number; no SMS is sent because there is no sender yet.
 - Per-business government credentials, so e-invoice and filing actions cannot be proposed. Channel credentials (Amazon, Shopify, Razorpay, Zoho, and for a US business Plaid, TaxJar, Gusto and Track1099) are per business: `GET`/`POST /v1/businesses/:id/connectors` list and save them (owner only), sealed with AES-256-GCM under a key derived per business from `MYCA_CONNECTOR_KEY`, and secrets are never returned. `POST .../plaid-link-token` and `.../plaid-exchange` run Plaid Link from the app, `POST .../gusto-connect` returns the Gusto consent link whose state names the business and `GET /v1/oauth/gusto/callback` (no token; the state is checked once) finishes it on the API host (`MYCA_PUBLIC_URL`, else the request host, forms the redirect URI), and `POST .../taxjar-rate` records a sales tax rate in that business's books (2026-10-22). `POST .../connector-sync` and the nightly job pull reports through the action gate only when `MYCA_ENABLE_CHANNEL_PULLS=1` (Terraform `enable_channel_pulls`, off by default): that switch opens read-only channel pulls alone; government, model and write actions stay behind `MYCA_ENABLE_LIVE_CALLS`, which the hosted API still refuses.

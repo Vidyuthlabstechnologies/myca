@@ -87,6 +87,7 @@ function money(n) {
 }
 
 const FAILURES = {
+  LIVE_CALLS_DISABLED: (r) => r.hint || 'Nothing was sent: government and provider calls are switched off here.',
   INVOICES_HELD: (r) => `${(r.held || []).length === 1 ? '1 invoice is' : `${(r.held || []).length} invoices are`} held back (${(r.held || []).slice(0, 5).join(', ')}); fix them before saving to the portal.`,
   NOT_SAVED: () => 'Save the GSTR-1 to the portal first, then file it.',
   DRAFT_CHANGED: () => 'The invoices changed since the save; save to the portal again, then file.',
@@ -221,7 +222,15 @@ function outline(d, depth = 0) {
   return lines.join('\n');
 }
 
+const SIMULATED_NOTE = 'Simulated in sandbox: nothing was sent to the government portal or any provider.';
+
 function fmtToolResult(name, result) {
+  const text = fmtToolResultCore(name, result);
+  if (!result?.mock || /simulated|mock/i.test(text)) return text;
+  return `${text}\n[${SIMULATED_NOTE}]`;
+}
+
+function fmtToolResultCore(name, result) {
   if (result?.error === 'SALARIES_PRIVATE') return 'Only the owner can see or change employees and salaries.';
   if (result?.error === 'OWNER_ONLY') return result.hint || 'Only the owner can do that.';
   if (!result || result.ok === false) return failedInWords(result?.error, result);

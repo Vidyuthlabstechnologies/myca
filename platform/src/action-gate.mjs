@@ -311,7 +311,9 @@ function recordDryRun(action, payload) {
   });
   const result = refusal(action, 'LIVE_CALLS_DISABLED', {
     dryRunId: stored.dryRunId,
-    hint: 'Set MYCA_ENABLE_LIVE_CALLS=1 in platform/.env to allow outbound calls. Nothing was sent; the payload was kept as a dry run.',
+    hint: String(process.env.MYCA_HOSTED || '').trim() === '1'
+      ? 'Nothing was sent: this MyCA account runs in sandbox, so government and provider calls are switched off. The prepared payload was kept as a dry run.'
+      : 'Set MYCA_ENABLE_LIVE_CALLS=1 in platform/.env to allow outbound calls. Nothing was sent; the payload was kept as a dry run.',
   });
   recordAudit(action, { beforeHash, result, extra: { dryRunId: stored.dryRunId, payloadHash: payloadHash(stored.payload) } });
   return result;
