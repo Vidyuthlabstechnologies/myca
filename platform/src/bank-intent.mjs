@@ -17,6 +17,9 @@ const GSTIN_LIKE = /^\d{2}[A-Z0-9]{13}$/i;
 const PURPOSE_TAIL = /\b(?:for|towards)\s+\S|^(?:pay|buy|settle|clear|cover|give|fund|repay|purchase|meet)\b/i;
 const ITEM_BEFORE_FROM = /\b\d[\d,]*(?:\.\d+)?\s+(?:of\s+)?(?!(?:rupees?|rs\.?|inr|cash|lakhs?|lacs?|crores?|cr|k|only)\b)[A-Za-z][\w./-]*\s+from\b/i;
 const RELATIVE_DAY = /\b(?:yesterday|tomorrow|day\s+before\s+yesterday|last\s+(?:week|month|year|mon|tue|wed|thu|fri|sat|sun)\w*|next\s+(?:week|month))\b/i;
+const PAY_VERBS = /\b(?:paid|pay|payment)\b/i;
+const GST_RECON = /\bgst\w*\b|\b2b\b|\btds\b|\b26as\b|\bitc\b/i;
+const RECONCILE_LABEL = /^reconcile\s+(?:the\s+|my\s+|our\s+)?(.+?)(?:\s+(?:account|a\/c|book))?\s*[.!]?$/i;
 const KIND_WORDS = [
   [/\bbank\s+charges?\b|\bcharges?\b|\bfees?\b/i, 'charge'],
   [/\binterest\b/i, 'interest'],
@@ -164,8 +167,14 @@ function sidesOf(state, body) {
   return null;
 }
 
+function customerWords(state, customer, amount) {
+  const invoice = (state.invoices || []).filter((item) => item.partyName === customer.name).at(-1);
+  return `${customer.name} is a customer, not one of your own accounts, so I have recorded nothing. If you returned money against an invoice, say "credit note ${invoice ? invoice.id : 'INV-0001'} ${amount} refund". If you bought something from them, book their bill first, for example "bill from ${customer.name} ${amount} GST 18%", then say "paid ${amount} to ${customer.name}".`;
+}
+
 function planTransfer(state, text) {
-  if (asked(text) || isNegated(text) || !MOVE_VERBS.test(text) || LINE_ID.test(text)) return null;
+  const paying = !MOVE_VERBS.test(text) && PAY_VERBS.test(text);
+  if (asked(text) || isNegated(text) || !(MOVE_VERBS.test(text) || paying) || LINE_ID.test(text)) return null;
   const when = spokenDate(text);
   const relative = text.match(RELATIVE_DAY);
   const body = [when.words, relative ? relative[0] : ''].filter(Boolean).reduce((rest, words) => rest.replace(words, ' '), text).replace(/\s+/g, ' ').trim();
@@ -183,8 +192,11 @@ function planTransfer(state, text) {
     if (relative) return blocked(`I cannot turn "${relative[0]}" into a date. Say the date in words, like "3 November" or "2026-11-03", so the transfer is not dated today; nothing was recorded.`);
     return tool('record_transfer', { fromAccount: from.id, toAccount: to.id, amount, ...(when.iso ? { date: when.iso } : {}) });
   }
+  if (paying) return null;
   const unknown = [from ? '' : names.from, to ? '' : names.to].filter(Boolean);
-  if (!unknown.length || unknown.some((name) => findCustomer(state, name) || findSupplier(state, name))) return null;
+  if (!unknown.length || unknown.some((name) => findSupplier(state, name))) return null;
+  const customer = unknown.map((name) => findCustomer(state, name)).find(Boolean);
+  if (customer) return reply(customerWords(state, customer, amount));
   return reply(`I do not know an own account called ${unknown.map((name) => `"${name}"`).join(' or ')}. Say "add bank account ${unknown[0]}" (or "add cash box ${unknown[0]}") first, then say this again.`);
 }
 
@@ -213,12 +225,18 @@ function planLists(state, text) {
   return null;
 }
 
+function accountToReconcile(state, text) {
+  const labelled = text.match(RECONCILE_LABEL);
+  return labelled ? findOwnAccount(state, cleanName(labelled[1])) : null;
+}
+
 function planReconciliation(state, text) {
-  if (isNegated(text) || !RECON.test(text) || LINE_ID.test(text)) return null;
-  if (/\bgst\w*\b|\b2b\b|\btds\b|\b26as\b/i.test(text)) return null;
+  if (isNegated(text) || LINE_ID.test(text) || GST_RECON.test(text)) return null;
+  const named = RECON.test(text) ? null : accountToReconcile(state, text);
+  if (!named && !RECON.test(text)) return null;
   const open = OPEN_WORDS.test(text);
   if (!open && (isQuestion(text) || /\b(?:how|why|explain|mean)\b/i.test(text))) return null;
-  const account = accountSaid(state, text);
+  const account = named || accountSaid(state, text);
   return tool('bank_reconciliation', { ...(account && account.id !== '1002' ? { account: account.id } : {}), ...(open ? { status: 'unmatched' } : {}) });
 }
 

@@ -4,6 +4,8 @@ import { EXPENSE_HEADS, headByWords } from './expenses.mjs';
 
 const STARTS_AS_EXPENSE = /^(?:i\s+)?(?:paid|spent|expense|expenses|bought)\b/i;
 const EXPENSE_WORDS = /\b(?:paid|spent|expense|expenses)\b/i;
+const WITHDRAWN = /\b(?:withdrew|withdrawn|withdraw|took\s+out)\b/i;
+const PURPOSE = /\b(?:for|towards)\s+\S|\bto\s+(?:pay|buy|settle|clear|cover|give|fund|repay|purchase|meet)\b/i;
 const MONEY_IN = /\b(?:received|receipt|collected|got|from\s+(?!bank\b|cash\b|upi\b|account\b))/i;
 const GSTIN = /\b(\d{2}[A-Z]{5}\d{4}[A-Z][0-9A-Z]Z[0-9A-Z])\b/i;
 const RATE = /\b(?:with|incl(?:uding|usive)?(?:\s+of)?|at|@|gst|plus)?\s*(\d{1,2}(?:\.\d+)?)\s*%\s*(?:gst)?/i;
@@ -11,8 +13,8 @@ const RATE_WORD = /\bgst\s*(?:@|at|of|rate|is)?\s*(\d{1,2}(?:\.\d+)?)(?![\d,])\s
 const AMOUNT = /(?:₹|rs\.?|inr)?\s*(?<![\w.,-])(\d[\d,]*(?:\.\d+)?)\s*(k|lakhs?|lacs?|cr|crores?)?(?![\w%])/gi;
 const NOT_AMOUNTS = /\b[a-z]{2,6}-\d+\b|\b\d{1,4}[-/]\d{1,2}[-/]\d{1,4}\b/gi;
 const PAYEE = /\bto\s+([A-Za-z][A-Za-z0-9 .&'-]{1,40}?)(?=\s+(?:for|on|towards|by|via|from|in|₹|rs\b|inr\b|\d)|\s*,|\s*$)/i;
-const MODE = /\b(?:by|from|via|through|in)\s+(cash|bank|upi|card|neft|imps|rtgs|cheque|account)\b|\b(cash)\b/i;
-const FILLER = /\b(?:i|we|paid|spent|expense|expenses|bought|for|on|towards|of|the|a|an|today|yesterday|rs|inr|and|gstin)\b/gi;
+const MODE = /\b(?:by|from|via|through|in)\s+(?:the\s+|my\s+|our\s+)?(cash|bank|upi|card|neft|imps|rtgs|cheque|account)\b|\b(cash)\b/i;
+const FILLER = /\b(?:i|we|paid|spent|expense|expenses|bought|withdrew|withdrawn|withdraw|took\s+out|for|on|towards|of|the|a|an|today|yesterday|rs|inr|and|gstin)\b/gi;
 
 function amountValue(digits, multiplier = '') {
   const base = Number(String(digits).replace(/,/g, ''));
@@ -38,7 +40,7 @@ function knownCustomerIn(state, text) {
 
 export function isExpenseIntent(text) {
   const raw = normalizeChat(text);
-  return STARTS_AS_EXPENSE.test(raw) || (EXPENSE_WORDS.test(raw) && !MONEY_IN.test(raw));
+  return STARTS_AS_EXPENSE.test(raw) || (EXPENSE_WORDS.test(raw) && !MONEY_IN.test(raw)) || (WITHDRAWN.test(raw) && PURPOSE.test(raw));
 }
 
 export function parseExpense(text, today = localToday()) {

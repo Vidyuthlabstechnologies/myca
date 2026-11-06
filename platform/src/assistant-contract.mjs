@@ -2307,17 +2307,16 @@ function salesDocumentKindSaid(text) {
 
 const EXCEL_SAID = /\b(?:excel|xlsx|spreadsheet)\b/i;
 const EXCEL_THEN_WORD = /\b(?:excel|xlsx|spreadsheet)\s+([a-z0-9&.'-]+)/gi;
-const EXCEL_VERBS = /\b(?:export|save|download|make|send|put|give|get|want|need|prepare|generate)\b/i;
+const EXCEL_VERBS = /\b(?:export|save|download|prepare|generate|make|send|give|get|want|need|put|print)\b/i;
 const EXCEL_AFTER_PREPOSITION = /\b(?:to|as|in|into)\s+(?:an?\s+|the\s+)?(?:excel|xlsx|spreadsheet)\b/i;
 const EXCEL_OF = /\b(?:excel|xlsx|spreadsheet)\s+(?:file\s+|sheet\s+|workbook\s+)?(?:of|with)\b/i;
 const NOT_AN_EXPORT = /\b(?:import|upload|attach|bring\s+in|read)\b/i;
-const AMOUNT_SAID = /(?<![\w.,-])\d[\d,]*(?:\.\d+)?(?![\w%-])/;
-const DATES_AND_PERIODS = /\b\d{4}-\d{2}(?:-\d{2})?\b|\b\d{1,2}[-/.]\d{1,2}[-/.]\d{2,4}\b|\b(?:for|in|of|fy|year)\s+(?:19|20)\d{2}\b/gi;
+const POSTING_VERBS = /\b(?:sold|sell|selling|invoice|invoiced|billed|bought|buy|purchased|received|receipt|collected|paid|pay|spent|spend|expense)\b/i;
 const SAVED_REPORT_TO_EXCEL = /\breport\s+(?:called\s+|named\s+)?["“]?([^"”]+?)["”]?\s+(?:to|as|in|into)\s+(?:an?\s+|the\s+)?(?:excel|xlsx|spreadsheet)\b/i;
 const EXCEL_PERIOD_WORDS = /\b(this\s+month|last\s+month|this\s+quarter|this\s+year|last\s+year)\b/i;
 const EXCEL_REPORTS = [
   { key: 'trial_balance', words: /\btrial\s*balance\b/i },
-  { key: 'bank_reconciliation', words: /\bbank\b|\breconcil/i },
+  { key: 'bank_reconciliation', words: /\bbank\b|^(?![\s\S]*\b(?:gst\w*|2b|tds|26as|itc)\b)[\s\S]*\breconcil/i },
   { key: 'day_book', words: /\bday\s*book\b|\bjournal\b|\bledger\b/i },
   { key: 'entries', words: /\bentries\b|\bvouchers?\b/i },
   { key: 'credit_notes', words: /\bcredit\s*notes?\b/i },
@@ -2361,8 +2360,9 @@ function namesAnExcelParty(text, partyNames) {
   return false;
 }
 
-function amountSaid(text) {
-  return AMOUNT_SAID.test(text.replace(DATES_AND_PERIODS, ' '));
+function excelPlanWaits(text) {
+  if (EXCEL_VERBS.test(text)) return false;
+  return POSTING_VERBS.test(text.slice(0, text.search(EXCEL_SAID)));
 }
 
 function planExcelFromChat(state, text) {
@@ -2431,7 +2431,7 @@ export function planLocalToolCall(state, message) {
     };
   }
   const excel = planExcelFromChat(state, text);
-  if (excel && !amountSaid(text)) return excel;
+  if (excel && !excelPlanWaits(text)) return excel;
 
   const quoteRef = text.match(/\b((?:QT|PI|SO|DC)-\d{4,})\b/i);
   if (quoteRef && !isQuestion(text) && !isNegated(text)) {
