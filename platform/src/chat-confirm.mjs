@@ -1005,11 +1005,17 @@ function gstr2bPreview(state, args) {
   };
 }
 
+function imsNoRowsWords(plan) {
+  const examples = [`"accept all matched in IMS for ${plan.period}"`];
+  if (plan.supplier) examples.push(`"reject ${plan.supplier} in IMS for ${plan.period}"`);
+  return `Say which invoices, for example ${examples.join(' or ')}.`;
+}
+
 const IMS_REASONS = {
   INVALID_PERIOD: 'Say the month as YYYY-MM, for example 2026-10.',
   NO_STATEMENT: 'Add the GSTR-2B for that month first.',
   BAD_DECISION: 'Say accept, reject or pending.',
-  NO_ROWS: 'Say which invoices: pick rows, or say all matched, all suggested or all not decided.',
+  NO_ROWS: imsNoRowsWords,
   NO_MATCH: (plan) => plan.hint || 'No invoice matches what you asked for, so nothing was marked.',
   ROW_NOT_FOUND: 'One of those invoices is not in the GSTR-2B for that month.',
   TOO_MANY_ROWS: 'IMS takes up to 500 invoices in one go; pick fewer, or decide in parts.',
@@ -1023,7 +1029,7 @@ function imsPreview(state, args) {
     const reason = IMS_REASONS[plan.error];
     return { blockers: [typeof reason === 'function' ? reason(plan) : reason || plan.error], summary: '', effects: [], figures: {} };
   }
-  pinImsRows(args, plan);
+  const pinned = pinImsRows(args, plan);
   const word = IMS_DECISION_WORDS[plan.decision];
   const count = plan.rows.length;
   const one = [plan.rows[0].supplierName, plan.rows[0].invoiceNo].filter(Boolean).join(' ') || 'this invoice';
@@ -1038,6 +1044,7 @@ function imsPreview(state, args) {
     summary: count === 1 ? `Mark ${one} as ${word} in IMS for ${plan.period}.` : `Mark ${count} invoices in IMS for ${plan.period} as ${word} (credit ${money(plan.credit)}).`,
     effects,
     figures: { count, credit: plan.credit },
+    pinned,
   };
 }
 
@@ -1964,7 +1971,7 @@ export function openPending(state, plan, preview, now = Date.now()) {
   const pending = {
     token: randomBytes(6).toString('hex'),
     name: plan.name,
-    args: plan.args,
+    args: preview.pinned || plan.args,
     clearsPendingFile: Boolean(plan.clearsPendingFile),
     summary: preview.summary,
     createdAt: new Date(now).toISOString(),

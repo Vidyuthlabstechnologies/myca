@@ -77,7 +77,7 @@ test('each 2B row says whether the books have the bill, what to do with it, and 
     {
       key: KEYS.fabric, section: 'B2B', supplierGstin: '27AABCT1332L1ZE', supplierName: 'FABRIC CO', invoiceNo: 'F-101', invoiceDate: '2026-09-05',
       taxableValue: 10000, cgst: 250, sgst: 250, igst: 0, cess: 0, totalValue: 10500, credit: 500, itcAvailability: 'Y', billId: 'BILL-0001',
-      match: 'matched', why: undefined, suggested: 'accept', decision: '', note: '', decidedBy: '', decidedOn: '',
+      match: 'matched', why: undefined, suggested: 'accept', decision: '', note: '', decidedBy: '', decidedOn: '', lines: 1,
     },
   );
   assert.match(fabric.why, /BILL-0001/);
@@ -111,7 +111,7 @@ test('a credit note row is matched to the debit note on the bill by supplier and
   const state = await booksWith2b();
   const made = await runTool(state, 'create_purchase_note', { billId: 'BILL-0001', amount: 1050, date: '2026-09-18', reason: 'Two rolls returned' });
   assert.equal(made.ok, true, JSON.stringify(made));
-  await runTool(state, 'import_gstr2b', { period: PERIOD, csv: [HEADER, 'CDNR,27AABCT1332L1ZE,FABRIC CO,F-101,20-09-2026,-1000,-25,-25,0,0,-1050,Y', 'CDNR,29AABCL1234J1ZL,PACK HOUSE,F-101,20-09-2026,1000,0,0,120,0,1120,Y', 'CDNR,27AABCT1332L1ZE,FABRIC CO,F-101,21-09-2026,900,0,0,0,0,900,Y'].join('\n') });
+  await runTool(state, 'import_gstr2b', { period: PERIOD, csv: [HEADER, 'CDNR,27AABCT1332L1ZE,FABRIC CO,F-101,20-09-2026,-1000,-25,-25,0,0,-1050,Y', 'CDNR,29AABCL1234J1ZL,PACK HOUSE,F-101,20-09-2026,1000,0,0,120,0,1120,Y'].join('\n') });
   const data = review(state);
   const rows = data.rows.filter((row) => row.section === 'CDNR');
   const matched = rows.find((row) => row.supplierName === 'FABRIC CO' && row.taxableValue === -1000);
@@ -121,7 +121,8 @@ test('a credit note row is matched to the debit note on the bill by supplier and
   assert.equal(matched.credit, -50);
   const otherSupplier = rows.find((row) => row.supplierName === 'PACK HOUSE');
   assert.equal(otherSupplier.match, 'not in books', 'another supplier\'s note with the same number is not this one');
-  const differs = rows.find((row) => row.taxableValue === 900);
+  await runTool(state, 'import_gstr2b', { period: PERIOD, csv: [HEADER, 'CDNR,27AABCT1332L1ZE,FABRIC CO,F-101,21-09-2026,900,0,0,0,0,900,Y'].join('\n') });
+  const differs = review(state).rows.find((row) => row.section === 'CDNR');
   assert.equal(differs.match, 'amount differs');
   assert.equal(differs.suggested, 'pending');
   assert.match(differs.why, /taxable value 1000 in your books, 900 in 2B/);
@@ -259,7 +260,7 @@ test('every refusal reaches the user as a sentence in the preview, never as a co
   const blocked = (args) => previewOf(state, 'ims_decide', args).blockers;
   assert.deepEqual(blocked({ period: '2026-08', select: 'all', decision: 'accept' }), ['Add the GSTR-2B for that month first.']);
   assert.deepEqual(blocked({ period: PERIOD, select: 'all', decision: 'maybe' }), ['Say accept, reject or pending.']);
-  assert.deepEqual(blocked({ period: PERIOD, decision: 'accept' }), ['Say which invoices: pick rows, or say all matched, all suggested or all not decided.']);
+  assert.deepEqual(blocked({ period: PERIOD, decision: 'accept' }), ['Say which invoices, for example "accept all matched in IMS for 2026-09" or "reject DYE WORKS in IMS for 2026-09".']);
   assert.deepEqual(blocked({ period: PERIOD, keys: [`${PERIOD}|NOPE|X|B2B`], decision: 'accept' }), ['One of those invoices is not in the GSTR-2B for that month.']);
   assert.deepEqual(blocked({ period: PERIOD, keys: [KEYS.pack], decision: 'accept', note: 'x'.repeat(201) }), ['Keep the note to 200 characters or fewer.']);
   assert.deepEqual(blocked({ period: 'soon', select: 'all', decision: 'accept' }), ['Say the month as YYYY-MM, for example 2026-10.']);
@@ -481,15 +482,16 @@ test('two rows with the same month, supplier, number and section share one decis
   const csv = [HEADER, 'B2B,27AABCT1332L1ZE,FABRIC CO,F-101,05-09-2026,10000,250,250,0,0,10500,Y', 'B2B,27AABCT1332L1ZE,FABRIC CO,F-101,06-09-2026,10000,250,250,0,0,10500,Y', 'B2B,,UNKNOWN SELLER,F-101,05-09-2026,10000,250,250,0,0,10500,Y'].join('\n');
   await runTool(state, 'import_gstr2b', { period: PERIOD, csv });
   const data = review(state);
-  assert.equal(data.rows.length, 3);
+  assert.equal(data.rows.length, 2, 'the twin rows come back as one row');
   const twins = data.rows.filter((row) => row.supplierName === 'FABRIC CO');
-  assert.equal(twins[0].key, twins[1].key);
+  assert.equal(twins.length, 1);
+  assert.equal(twins[0].lines, 2);
   const plan = planImsDecision(state, { period: PERIOD, select: 'all', decision: 'accept' });
   assert.equal(plan.rows.length, 2, 'the twin rows are one decision');
   const done = await runTool(state, 'ims_decide', { period: PERIOD, select: 'all', decision: 'accept' });
   assert.equal(done.count, 2);
   const after = review(state);
-  assert.deepEqual(after.rows.map((row) => row.decision), ['accept', 'accept', 'accept']);
+  assert.deepEqual(after.rows.map((row) => row.decision), ['accept', 'accept']);
   const blank = after.rows.find((row) => row.supplierName === 'UNKNOWN SELLER');
   assert.equal(blank.match, 'not in books');
   assert.equal(blank.billId, '');

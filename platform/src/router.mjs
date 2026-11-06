@@ -499,8 +499,11 @@ function fmtToolResultCore(name, result) {
   }
   if (name === 'set_supplier_terms' && result.ok !== false) {
     const d = result;
+    const head = `${d.supplier}${d.msme ? ` is recorded as an MSME${d.category ? ` (${d.category})` : ''}${d.udyam ? `, ${d.udyam}` : ''}` : ' is not an MSME'}${d.days != null ? `; agreed terms ${d.days === 0 ? 'on receipt' : `${d.days} days`}` : ''}`;
+    const booked = 'bills already booked from them are checked against the new terms too.';
+    if (!d.covered && d.days == null) return `${head}. No pay-by date is set until you give the agreed days${d.msme ? ', as the 45-day rule covers micro and small suppliers only' : ''}; ${booked}`;
     const basis = !d.msme ? '' : d.covered === false ? ' from the agreed days, as the 45-day rule covers micro and small suppliers only' : ' from the MSMED Act';
-    return `${d.supplier}${d.msme ? ` is recorded as an MSME${d.category ? ` (${d.category})` : ''}${d.udyam ? `, ${d.udyam}` : ''}` : ' is not an MSME'}${d.days != null ? `; agreed terms ${d.days === 0 ? 'on receipt' : `${d.days} days`}` : ''}. New bills from them carry the pay-by date${basis}; bills already booked from them are checked against the new terms too.`;
+    return `${head}. New bills from them carry the pay-by date${basis}; ${booked}`;
   }
   if (name === 'supplier_dues' && result.data) {
     const d = result.data;
