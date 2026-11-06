@@ -5,7 +5,7 @@ import { planOweQuestion } from './owe-intent.mjs';
 import { planFilingFromChat, saidPeriod } from './filing-intent.mjs';
 import { REPORT_KEYS } from './report-sheets.mjs';
 import { planEmployeeFromChat } from './employee-intent.mjs';
-import { planTdsFromChat } from './tds-intent.mjs';
+import { planTdsChat, planTdsFromChat } from './tds-intent.mjs';
 import { planGstPayFromChat } from './gst-pay-intent.mjs';
 import { planTransportFromChat, planAddressFromChat } from './eway-intent.mjs';
 import { planPayrollFromChat } from './payroll-intent.mjs';
@@ -2591,6 +2591,8 @@ export function planLocalToolCall(state, message) {
   }
   const closeYearAsk = text.match(/\bclose\s+(?:the\s+)?(?:year|books?\s+for|financial\s+year|fy)\s*(\d{4}(?:-\d{2})?)?\b/i);
   if (closeYearAsk && !isQuestion(text) && !isNegated(text)) return { kind: 'tool', name: 'close_year', args: closeYearAsk[1] ? { year: closeYearAsk[1] } : {} };
+  const tdsChat = planTdsChat(state, text);
+  if (tdsChat) return tdsChat;
   const tdsAsk = planTdsFromChat(text);
   if (tdsAsk) return tdsAsk;
   const gstPay = planGstPayFromChat(text);
@@ -2954,18 +2956,6 @@ export function planLocalToolCall(state, message) {
       const csv = pendingFileContent(state);
       if (!csv) return { kind: 'reply', reply: 'Attach the "TDS and TCS credit received" statement from the GST portal (operator GSTIN, period, integrated, central and state tax), then say "import tcs statement".', tools: [] };
       return { kind: 'tool', name: 'import_tcs_statement', args: { csv }, clearsPendingFile: true };
-    }
-    if (!isNegated(text) && !/\bimport(?:ed|ing)?\b/i.test(text) && /\b(?:check|compare|verify|reconcile)\b[\s\S]*\b26\s*as\b|\b26\s*as\s+(?:check|vs|against|reconcil)|\btds\s+credit\s+check\b|\b26\s*as\b[\s\S]*\b(?:match(?:es|ing)?|agree|tallies|tally|mismatch(?:es)?|differ(?:s|ence)?)\b/i.test(text)) {
-      const said = /\bfy\s*(\d{4})-?(\d{2,4})\b/i.exec(text);
-      return { kind: 'tool', name: 'tds_credit_check', args: said ? { fy: `${said[1]}-${said[2].slice(-2)}` } : {} };
-    }
-    if (!isNegated(text) && !isQuestion(text) && /\b(?:tds\s+(?:withheld|deducted)|(?:withheld|deducted)\s+(?:the\s+)?tds)\b[\s\S]*\bINV-\d{4,}\b/i.test(text)) {
-      const amount = receiptAmount(text);
-      if (amount == null) return { kind: 'reply', reply: 'Say how much TDS was withheld, for example "record tds withheld 2000 on INV-0001 under 194J". I have recorded nothing.', tools: [] };
-      const section = /\b(?:section|sec\.?|u\/s|under)\s*(19[2-9]-?[A-Z]{0,2}|206-?[A-Z]{1,2})\b/i.exec(text) || /\b(19[2-9]-?[A-Z]{1,2}|206-?[A-Z]{1,2})\b/i.exec(text);
-      const tan = /\btan\s*[:#-]?\s*([A-Z]{4}\s?[0-9]{5}\s?[A-Z])\b/i.exec(text);
-      const dated = /\b(\d{4}-\d{2}-\d{2})\b/.exec(text);
-      return { kind: 'tool', name: 'record_tds_withheld', args: { invoiceId: /\b(INV-\d{4,})\b/i.exec(text)[1].toUpperCase(), amount, ...(section ? { section: section[1].replace(/-/g, '').toUpperCase() } : {}), ...(dated ? { date: dated[1] } : {}), ...(tan ? { tan: tan[1].replace(/\s+/g, '').toUpperCase() } : {}) } };
     }
     if (/\bimport\s+(?:form\s+)?26\s*as\b|\b26\s*as\s+(?:credits?|194-?o)\b/i.test(text) && !isQuestion(text)) {
       const csv = pendingFileContent(state);
