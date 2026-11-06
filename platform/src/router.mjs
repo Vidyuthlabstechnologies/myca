@@ -60,6 +60,8 @@ import { payrollImportWords } from './us-payroll-import.mjs';
 import { suggestExpenseHead } from './expense-head-model.mjs';
 import { kindTitle } from './quotes.mjs';
 import { everyWords, recurringWords, runRecurringWords } from './recurring.mjs';
+import { reconciliationWords, matchWords, unmatchWords, chargesWords, accountWords, accountsWords, transferWords } from './bank-recon.mjs';
+import { addRuleWords, rulesWords, runRulesWords, removeRuleWords } from './bank-rules.mjs';
 
 
 const GSTR1_HELD_REASONS = {
@@ -175,6 +177,28 @@ const FAILURES = {
   UNKNOWN_REQUIREMENT: () => 'That is not an integration I know; say "integration readiness" for the list.',
   amount_must_be_positive: () => 'The amount has to be more than zero, so nothing was changed.',
   INSUFFICIENT_CASH: (r) => `There is not that much cash in hand${r.inHand != null ? ` (${money(r.inHand)})` : ''}. Nothing was changed.`,
+  LINE_NOT_FOUND: (r) => `There is no statement line ${r.lineId || 'by that id'} in these books.`,
+  LINE_NOT_OPEN: (r) => `${r.lineId || 'That line'} is already ${r.status || 'settled'}; open it again first if that is wrong.`,
+  LINE_NOT_LINKED: (r) => `${r.lineId || 'That line'} is not matched to anything yet.`,
+  BOOKED_LINE: (r) => `${r.lineId || 'That line'} was booked (${(r.ids || []).join(', ') || 'entries posted'}); the entries stay in the books, so reverse them first.`,
+  TRANSFER_NOT_FOUND: (r) => r.hint || 'No entry in the books matches that, so nothing was changed.',
+  SIDE_MISMATCH: (r) => `That reads as money ${r.side === 'in' ? 'coming in' : 'going out'}, which does not fit this line.`,
+  AMOUNT_MISMATCH: (r) => `The line is ${money(r.lineAmount)} but the entry is ${money(r.bookAmount)}; they do not match.`,
+  RECEIPT_UNALLOCATED: (r) => `${r.partyName || 'That customer'} has ${money(r.remainder)} less open on invoices than this line, so nothing was posted. Raise the invoice first, or record the receipt by hand.`,
+  PAYMENT_UNALLOCATED: (r) => `${r.partyName || 'That supplier'} has ${money(r.remainder)} less open on bills than this line, so nothing was posted. Enter the bill first, or record the payment by hand.`,
+  HEAD_REQUIRED: (r) => `Say which expense head${r.suggested ? ` (${r.suggested} was the nearest guess)` : ''}; nothing is guessed.`,
+  OTHER_ACCOUNT_REQUIRED: () => 'Say which of your own accounts the other side is.',
+  ACCOUNT_NOT_FOUND: (r) => `${r.account ? `"${r.account}"` : 'That'} is not one of your own accounts. Add it first.`,
+  SAME_ACCOUNT: () => 'Both sides are the same account, so there is nothing to move.',
+  NOT_A_CHARGE: () => 'That line does not read as a bank charge or interest.',
+  PARTY_NOT_FOUND: (r) => `I do not know a customer or supplier${r.partyName ? ` called ${r.partyName}` : ' by that name'}.`,
+  RULE_NOT_FOUND: (r) => `There is no bank rule ${r.id || 'by that id'}.`,
+  MATCH_REQUIRED: () => 'Say what the narration must contain for the rule to apply.',
+  BAD_PATTERN: () => 'That pattern is not a regular expression I can run.',
+  LABEL_TAKEN: (r) => `An account called ${r.label || 'that'} already exists (${r.id}).`,
+  BUILT_IN_ACCOUNT: () => 'Cash (1001) and Bank (1002) are built in and cannot be changed.',
+  KIND_FIXED: (r) => `That account stays a ${r.kind} account; add a new one for a different kind.`,
+  NO_FREE_ACCOUNT: () => 'All own-account ids from 1003 to 1099 are taken.',
 };
 
 function notAccepted(error) {
@@ -233,6 +257,19 @@ function fmtToolResult(name, result) {
   const text = fmtToolResultCore(name, result);
   if (!result?.mock || /simulated|mock/i.test(text)) return text;
   return `${text}\n[${SIMULATED_NOTE}]`;
+}
+
+function bankLinesWords(lines) {
+  if (!lines) return '';
+  const parts = [];
+  if (lines.matched) parts.push(`${lines.matched} ${lines.matched === 1 ? 'line was' : 'lines were'} already in the books and ${lines.matched === 1 ? 'is' : 'are'} linked`);
+  if (lines.byRules) parts.push(`${lines.byRules} booked by your rules`);
+  if (lines.transfersGuessed) parts.push(`${lines.transfersGuessed} ${lines.transfersGuessed === 1 ? 'looks' : 'look'} like a move between your own accounts but went to a guessed head`);
+  if (lines.unmatched) parts.push(`${lines.unmatched} ${lines.unmatched === 1 ? 'waits' : 'wait'} for you to match`);
+  if (lines.existing) parts.push(`${lines.existing} seen before and skipped`);
+  if (!parts.length) return '';
+  const first = parts[0][0].toUpperCase() + parts[0].slice(1);
+  return ` ${[first, ...parts.slice(1)].join(', ')}.${lines.unmatched ? ' Say "match bank" to go through them.' : ''}`;
 }
 
 function fmtToolResultCore(name, result) {
@@ -295,6 +332,17 @@ function fmtToolResultCore(name, result) {
   if (name === 'stop_recurring' && result.schedule) return `Stopped ${result.schedule.id}. Entries already posted stay.`;
   if (name === 'list_recurring' && result.data) return recurringWords(result.data, money);
   if (name === 'run_recurring' && result.data) return runRecurringWords(result.data, money);
+  if (name === 'bank_reconciliation' && result.data) return reconciliationWords(result.data, money);
+  if (name === 'match_bank_line' && result.line) return matchWords(result, money);
+  if (name === 'unmatch_bank_line' && result.line) return unmatchWords(result);
+  if (name === 'book_bank_charges' && result.booked) return chargesWords(result, money);
+  if (name === 'add_bank_rule' && result.rule) return addRuleWords(result, money);
+  if (name === 'remove_bank_rule' && result.rule) return removeRuleWords(result);
+  if (name === 'list_bank_rules' && result.data) return rulesWords(result.data, money);
+  if (name === 'run_bank_rules' && result.made) return runRulesWords(result);
+  if (name === 'set_bank_account' && result.account) return accountWords(result);
+  if (name === 'list_bank_accounts' && result.data) return accountsWords(result.data, money);
+  if (name === 'record_transfer' && result.transfer) return transferWords(result, money);
   if (name === 'mark_quote' && result.quote) {
     return `${result.quote.id} marked ${result.quote.status}.`;
   }
@@ -754,7 +802,7 @@ function fmtToolResultCore(name, result) {
     return `Account Aggregator data brought in${accounts ? ` for ${accounts}` : ''}: ${d.rows?.length ?? 0} ${(d.rows?.length ?? 0) === 1 ? 'transaction' : 'transactions'} read, ${d.ledger?.posted ?? 0} posted to your books${d.aa.skipped ? `, ${d.aa.skipped} without a date or amount skipped` : ''}.`;
   }
   if (name === 'import_tally' || name === 'import_bank') {
-    return `${name === 'import_bank' ? 'Bank statement' : name === 'import_tally' ? 'Tally data' : 'File'} brought in: ${d.rows?.length ?? 0} ${(d.rows?.length ?? 0) === 1 ? 'row' : 'rows'} read, ${d.ledger?.posted ?? 0} posted to your books.`;
+    return `${name === 'import_bank' ? 'Bank statement' : name === 'import_tally' ? 'Tally data' : 'File'} brought in: ${d.rows?.length ?? 0} ${(d.rows?.length ?? 0) === 1 ? 'row' : 'rows'} read, ${d.ledger?.posted ?? 0} posted to your books.${name === 'import_bank' ? bankLinesWords(d.lines) : ''}`;
   }
   if (name === 'govt_probe') {
     if (d.ok === false) return `Govt probe not run: ${d.error}${d.hint ? `

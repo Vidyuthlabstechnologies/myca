@@ -43,11 +43,15 @@ export function dailyClose(state, { asOf, clientId = 'SELF', chain = null } = {}
   const marketplaceMonth = (state.invoices || []).filter((inv) => inv.source === 'marketplace').map((inv) => inv.date.slice(0, 7)).sort().at(-1) || '';
   const margins = marketplaceMonth ? skuMargins(state, { period: marketplaceMonth }).data : null;
   const inventory = (state.stockMoves || []).length ? listInventoryValuations(state).data : null;
+  const bankLines = state.bankLines || [];
+  const openLines = bankLines.filter((line) => line.status === 'unmatched');
+  const staleLines = openLines.filter((line) => /^\d{4}-\d{2}-\d{2}$/.test(String(line.date || '')) && dayNumber(day) - dayNumber(line.date) > BANK_FRESH_DAYS);
   const checklist = [
     { item: 'Sales posted', ok: true, detail: `${sales.today} today, ${sales.month} this month` },
     { item: 'Purchases and expenses posted', ok: true, detail: `${purchases.today + expenses.today} today, ${purchases.month + expenses.month} this month` },
     { item: 'Bank statement current', ok: bankAge != null && bankAge <= BANK_FRESH_DAYS, detail: reading ? `last balance ${reading.on}, ${bankAge === 0 ? 'today' : `${bankAge} ${bankAge === 1 ? 'day' : 'days'} ago`}` : 'no bank balance recorded yet' },
     { item: 'Settlements matched to the bank', ok: !unmatched.length && !short.length, detail: settlements.length ? `${settlements.length} imported${unmatched.length ? `, ${unmatched.length} not in the bank` : ''}${short.length ? `, ${short.length} short` : ''}` : 'none imported' },
+    { item: 'Bank lines matched', ok: staleLines.length === 0, detail: openLines.length ? `${openLines.length} not matched yet${staleLines.length ? `, ${staleLines.length} older than ${BANK_FRESH_DAYS} days` : ''}` : bankLines.length ? 'all matched' : 'no statement lines yet' },
     { item: 'TCS and TDS 194-O confirmed', ok: creditGaps === 0, detail: creditGaps ? `${creditGaps} ${creditGaps === 1 ? 'gap' : 'gaps'} against the statements` : credits.tcs.length || credits.tds.length ? 'no gaps' : 'nothing deducted yet' },
     { item: 'Margins positive', ok: !margins || margins.negative.length === 0, detail: margins ? `${margins.negative.length} ${margins.negative.length === 1 ? 'SKU' : 'SKUs'} losing money in ${marketplaceMonth}` : 'no marketplace orders' },
     ...(inventory ? [{ item: 'Inventory valued', ok: Boolean(inventory.latest) && inventory.latest.asOf.slice(0, 7) >= day.slice(0, 7), detail: inventory.latest ? `last valued ${inventory.latest.asOf} at ${inventory.latest.value}${Math.abs(inventory.unposted) >= 0.005 ? `, ${Math.abs(inventory.unposted)} ${inventory.unposted > 0 ? 'more' : 'less'} on hand now` : ''}` : 'never valued; say "value inventory"' }] : []),

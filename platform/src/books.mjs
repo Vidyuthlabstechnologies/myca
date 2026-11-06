@@ -78,6 +78,13 @@ export function newBook(company = {}) {
     caRequestSeq: 0,
     quotes: [],
     recurring: [],
+    bankLines: [],
+    bankLineSeq: 0,
+    bankRules: [],
+    bankRuleSeq: 0,
+    bankAccounts: [],
+    bankTransfers: [],
+    bankTransferSeq: 0,
     quoteSeq: 0,
     filings: [],
     supplierReminders: [],
@@ -162,6 +169,13 @@ export function serializeBook(book) {
     caRequestSeq: book.caRequestSeq || 0,
     quotes: book.quotes || [],
     recurring: book.recurring || [],
+    bankLines: book.bankLines || [],
+    bankLineSeq: book.bankLineSeq || 0,
+    bankRules: book.bankRules || [],
+    bankRuleSeq: book.bankRuleSeq || 0,
+    bankAccounts: book.bankAccounts || [],
+    bankTransfers: book.bankTransfers || [],
+    bankTransferSeq: book.bankTransferSeq || 0,
     filings: book.filings || [],
     supplierReminders: book.supplierReminders || [],
     collectionReminders: book.collectionReminders || [],
@@ -242,6 +256,13 @@ export function deserializeBook(raw) {
   book.caRequestSeq = raw.caRequestSeq || 0;
   book.quotes = Array.isArray(raw.quotes) ? raw.quotes : [];
   book.recurring = Array.isArray(raw.recurring) ? raw.recurring : [];
+  book.bankLines = Array.isArray(raw.bankLines) ? raw.bankLines : [];
+  book.bankLineSeq = Number(raw.bankLineSeq || 0);
+  book.bankRules = Array.isArray(raw.bankRules) ? raw.bankRules : [];
+  book.bankRuleSeq = Number(raw.bankRuleSeq || 0);
+  book.bankAccounts = Array.isArray(raw.bankAccounts) ? raw.bankAccounts : [];
+  book.bankTransfers = Array.isArray(raw.bankTransfers) ? raw.bankTransfers : [];
+  book.bankTransferSeq = Number(raw.bankTransferSeq || 0);
   book.filings = Array.isArray(raw.filings) ? raw.filings : [];
   book.supplierReminders = Array.isArray(raw.supplierReminders) ? raw.supplierReminders : [];
   book.collectionReminders = Array.isArray(raw.collectionReminders) ? raw.collectionReminders : [];

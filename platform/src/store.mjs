@@ -67,6 +67,13 @@ export function createState() {
     caRequestSeq: 0,
     quotes: [],
     recurring: [],
+    bankLines: [],
+    bankLineSeq: 0,
+    bankRules: [],
+    bankRuleSeq: 0,
+    bankAccounts: [],
+    bankTransfers: [],
+    bankTransferSeq: 0,
     quoteSeq: 0,
     filings: [],
     supplierReminders: [],
@@ -170,6 +177,13 @@ export function serialize(state) {
     caRequestSeq: state.caRequestSeq || 0,
     quotes: state.quotes || [],
     recurring: state.recurring || [],
+    bankLines: state.bankLines || [],
+    bankLineSeq: state.bankLineSeq || 0,
+    bankRules: state.bankRules || [],
+    bankRuleSeq: state.bankRuleSeq || 0,
+    bankAccounts: state.bankAccounts || [],
+    bankTransfers: state.bankTransfers || [],
+    bankTransferSeq: state.bankTransferSeq || 0,
     filings: state.filings || [],
     supplierReminders: state.supplierReminders || [],
     collectionReminders: state.collectionReminders || [],
@@ -353,6 +367,13 @@ export function deserialize(raw) {
   state.caRequestSeq = raw.caRequestSeq || 0;
   state.quotes = Array.isArray(raw.quotes) ? raw.quotes : [];
   state.recurring = Array.isArray(raw.recurring) ? raw.recurring : [];
+  state.bankLines = Array.isArray(raw.bankLines) ? raw.bankLines : [];
+  state.bankLineSeq = Number(raw.bankLineSeq || 0);
+  state.bankRules = Array.isArray(raw.bankRules) ? raw.bankRules : [];
+  state.bankRuleSeq = Number(raw.bankRuleSeq || 0);
+  state.bankAccounts = Array.isArray(raw.bankAccounts) ? raw.bankAccounts : [];
+  state.bankTransfers = Array.isArray(raw.bankTransfers) ? raw.bankTransfers : [];
+  state.bankTransferSeq = Number(raw.bankTransferSeq || 0);
   state.filings = Array.isArray(raw.filings) ? raw.filings : [];
   state.supplierReminders = Array.isArray(raw.supplierReminders) ? raw.supplierReminders : [];
   state.collectionReminders = Array.isArray(raw.collectionReminders) ? raw.collectionReminders : [];

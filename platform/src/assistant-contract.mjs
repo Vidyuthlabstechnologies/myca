@@ -41,6 +41,7 @@ export function pendingFileContent(state) {
 }
 import { normalizeChat, parseDocument, documentProblemReply, saidNonPositiveAmount, receiptAmount, receiptDate, isPurchaseIntent, isSaleIntent, isQuestion, isNegated, ROUTES } from './intent.mjs';
 import { confirmationIntent } from './chat-confirm.mjs';
+import { planBankFromChat } from './bank-intent.mjs';
 
 const noArgs = {
   type: 'object',
@@ -513,6 +514,105 @@ export const TOOL_ARG_SCHEMAS = {
     type: 'object',
     additionalProperties: false,
     properties: { asOf: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' } },
+  },
+  bank_reconciliation: {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      account: { type: 'string', maxLength: 60 },
+      from: { type: 'string' },
+      to: { type: 'string' },
+      status: { type: 'string', enum: ['all', 'unmatched', 'matched', 'booked', 'ignored'] },
+      limit: { type: 'integer', minimum: 1, maximum: 2000 },
+    },
+  },
+  match_bank_line: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['lineId', 'kind'],
+    properties: {
+      lineId: { type: 'string', pattern: '^BL-[0-9]{6,}$' },
+      kind: { type: 'string', enum: ['books', 'receipt', 'payment', 'expense', 'charge', 'interest', 'transfer', 'ignore'] },
+      transferId: { type: 'string', maxLength: 40 },
+      invoiceId: { type: 'string', maxLength: 40 },
+      billId: { type: 'string', maxLength: 40 },
+      partyName: { type: 'string', maxLength: 80 },
+      head: { type: 'string', maxLength: 8 },
+      otherAccount: { type: 'string', maxLength: 60 },
+      note: { type: 'string', maxLength: 200 },
+      remember: { type: 'boolean' },
+    },
+  },
+  unmatch_bank_line: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['lineId'],
+    properties: { lineId: { type: 'string', pattern: '^BL-[0-9]{6,}$' } },
+  },
+  book_bank_charges: {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      account: { type: 'string', maxLength: 60 },
+      lineIds: { type: 'array', minItems: 1, maxItems: 500, items: { type: 'string', pattern: '^BL-[0-9]{6,}$' } },
+      from: { type: 'string' },
+      to: { type: 'string' },
+    },
+  },
+  add_bank_rule: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['kind'],
+    properties: {
+      side: { type: 'string', enum: ['in', 'out', 'any'] },
+      contains: { type: 'string', minLength: 1, maxLength: 80 },
+      pattern: { type: 'string', minLength: 1, maxLength: 120 },
+      minAmount: { type: 'number', minimum: 0 },
+      maxAmount: { type: 'number', minimum: 0 },
+      kind: { type: 'string', enum: ['receipt', 'payment', 'expense', 'charge', 'interest', 'transfer', 'ignore'] },
+      partyName: { type: 'string', maxLength: 80 },
+      head: { type: 'string', maxLength: 8 },
+      otherAccount: { type: 'string', maxLength: 60 },
+      note: { type: 'string', maxLength: 120 },
+      applyNow: { type: 'boolean' },
+    },
+  },
+  remove_bank_rule: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['id'],
+    properties: { id: { type: 'string', pattern: '^BR-[0-9]{4,}$' } },
+  },
+  list_bank_rules: { type: 'object', additionalProperties: false, properties: {} },
+  run_bank_rules: {
+    type: 'object',
+    additionalProperties: false,
+    properties: { account: { type: 'string', maxLength: 60 }, dryRun: { type: 'boolean' } },
+  },
+  set_bank_account: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['label'],
+    properties: {
+      id: { type: 'string', pattern: '^10[0-9]{2}$' },
+      label: { type: 'string', minLength: 1, maxLength: 60 },
+      kind: { type: 'string', enum: ['bank', 'cash', 'wallet'] },
+      maskedNumber: { type: 'string', maxLength: 24 },
+      ifsc: { type: 'string', maxLength: 11 },
+    },
+  },
+  list_bank_accounts: { type: 'object', additionalProperties: false, properties: {} },
+  record_transfer: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['fromAccount', 'toAccount', 'amount'],
+    properties: {
+      fromAccount: { type: 'string', minLength: 1, maxLength: 60 },
+      toAccount: { type: 'string', minLength: 1, maxLength: 60 },
+      amount: { type: 'number', exclusiveMinimum: 0 },
+      date: { type: 'string' },
+      reference: { type: 'string', maxLength: 120 },
+    },
   },
   list_quotes: {
     type: 'object',
@@ -1823,6 +1923,8 @@ export const TOOL_ARG_SCHEMAS = {
       type: { type: 'string', enum: ['csv', 'text', 'aa'] },
       fileName: { type: 'string' },
       asOfDate: { type: 'string' },
+      post: { type: 'string', enum: ['auto', 'hold'] },
+      account: { type: 'string', maxLength: 60 },
     },
   },
   gst_reconcile: {
@@ -2049,6 +2151,17 @@ const TOOL_RISK = {
   stop_recurring: 'writes_books',
   list_recurring: 'read_only',
   run_recurring: 'writes_books',
+  bank_reconciliation: 'read_only',
+  match_bank_line: 'writes_books',
+  unmatch_bank_line: 'writes_books',
+  book_bank_charges: 'writes_books',
+  add_bank_rule: 'writes_books',
+  remove_bank_rule: 'writes_books',
+  list_bank_rules: 'read_only',
+  run_bank_rules: 'writes_books',
+  set_bank_account: 'writes_books',
+  list_bank_accounts: 'read_only',
+  record_transfer: 'writes_books',
   reply_ca: 'writes_books',
   close_ca: 'writes_books',
   govt_nic_auth: 'external_auth_probe',
@@ -2311,6 +2424,8 @@ export function planLocalToolCall(state, message) {
       }
     }
   }
+  const bankPlan = planBankFromChat(state, text);
+  if (bankPlan) return bankPlan;
   const salesKind = salesDocumentKindSaid(text);
   if (salesKind && !quoteRef && !isQuestion(text) && !isNegated(text)) {
     const validity = text.match(/\s*,?\s*\bvalid\s+(?:for\s+)?(\d{1,3})\s*days?\b/i);

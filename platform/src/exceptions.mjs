@@ -4,6 +4,7 @@ import { inWords } from './words.mjs';
 import { marketplaceCredits } from './marketplace-credits.mjs';
 import { skuMargins, stockPosition } from './sku-margins.mjs';
 import { appendAuditEvent } from './ca-api.mjs';
+import { localToday } from './dates.mjs';
 
 export const SEVERITIES = ['critical', 'high', 'medium', 'low'];
 export const OPEN_STATUSES = new Set(['open', 'in_review']);
@@ -264,6 +265,38 @@ function reconcileCandidates(recon) {
   return out;
 }
 
+const BANK_STALE_DAYS = 7;
+const BANK_HIGH_AMOUNT = 50000;
+
+function daysBetween(from, to) {
+  const [fy, fm, fd] = String(from).split('-').map(Number);
+  const [ty, tm, td] = String(to).split('-').map(Number);
+  return Math.round((Date.UTC(ty, tm - 1, td) - Date.UTC(fy, fm - 1, fd)) / 86400000);
+}
+
+function bankCandidates(book, asOfDate) {
+  const today = /^\d{4}-\d{2}-\d{2}$/.test(String(asOfDate || '')) ? asOfDate : localToday();
+  const out = [];
+  for (const line of book.bankLines || []) {
+    if (line.status !== 'unmatched' || !/^\d{4}-\d{2}-\d{2}$/.test(String(line.date || ''))) continue;
+    const age = daysBetween(line.date, today);
+    if (age <= BANK_STALE_DAYS) continue;
+    const inbound = Number(line.in || 0) > 0;
+    const amount = rupees(inbound ? line.in : line.out);
+    out.push({
+      key: `bank:unmatched:${line.id}`,
+      source: 'bank',
+      code: 'BANK_LINE_UNMATCHED',
+      severity: amount >= BANK_HIGH_AMOUNT ? 'high' : 'medium',
+      title: `Statement line ${line.id} of ${inr(amount)} ${inbound ? 'in' : 'out'} on ${line.date} is not matched`,
+      why: `"${line.narration}" has been on the bank statement for ${age} days with nothing in the books to explain it. Match it to an entry, book it, or ignore it with a note.`,
+      moneyAtRisk: amount,
+      evidence: { lineId: line.id, account: line.account, date: line.date, narration: line.narration, amount },
+    });
+  }
+  return out;
+}
+
 function importCandidates(book) {
   const out = [];
   for (const record of book.imports || []) {
@@ -402,6 +435,7 @@ export function detectExceptions(book, inputs = {}) {
     ...deadlineCandidates(inputs.deadlines),
     ...reconcileCandidates(inputs.reconcile),
     ...importCandidates(book),
+    ...bankCandidates(book, inputs.asOfDate),
   ].map((item) => ({ ...item, title: inWords(item.title), why: inWords(item.why) }));
 }
 
@@ -416,7 +450,7 @@ export function refreshExceptions(book, inputs = {}, options = {}) {
   const at = now.toISOString();
   const clientId = String(options.clientId || 'SELF');
   const queue = ensureQueue(book);
-  const candidates = detectExceptions(book, inputs);
+  const candidates = detectExceptions(book, { ...inputs, asOfDate: inputs.asOfDate || options.asOfDate || '' });
   const seen = new Set();
   let added = 0;
   let reopened = 0;

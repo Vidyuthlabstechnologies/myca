@@ -11,6 +11,7 @@ export const BOOK_KEYS = new Set([
   'cashReadings', 'customerTerms', 'supplierTerms',
   'caRequests', 'caRequestSeq',
   'quotes', 'quoteSeq', 'recurring',
+  'bankLines', 'bankLineSeq', 'bankRules', 'bankRuleSeq', 'bankAccounts', 'bankTransfers', 'bankTransferSeq',
   'filings',
   'supplierReminders', 'supplierReminderSeq', 'collectionReminders', 'collectionReminderSeq',
   'employees', 'employeeSeq',

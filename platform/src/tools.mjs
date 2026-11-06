@@ -93,6 +93,8 @@ import { setSupplierTerms, supplierDues } from './supplier-dues.mjs';
 import { requestDocuments, recordDocumentReceived, documentRequests, correctEval, evalEvents, searchFirmNotes } from './practice.mjs';
 import { askCa, replyCa, closeCa, listCaRequests } from './ca-requests.mjs';
 import { postTallyRows, postBankRows, purchaseRegisterCsv } from './post-import.mjs';
+import { recordStatementLines, bankReconciliation, matchBankLine, unmatchBankLine, bookBankCharges, setBankAccount, listBankAccounts, recordTransfer, accountFor } from './bank-recon.mjs';
+import { addBankRule, removeBankRule, listBankRules, runBankRules } from './bank-rules.mjs';
 import { parseZohoBooksCsv } from './import-zoho.mjs';
 import { invoicesToGstr1Json } from './gstr1-json.mjs';
 import { tallyXmlToDayBookCsv } from './tally-xml.mjs';
@@ -1109,6 +1111,83 @@ export const TOOLS = [
     description: 'Post every repeating entry that is due on or before today (or asOf). The daily run does this on its own; this is for catching up at once.',
     args: ['asOf'],
     run: (state, args = {}) => runRecurring(state, args),
+  },
+  {
+    name: 'bank_reconciliation',
+    title: 'Bank reconciliation',
+    description: 'Statement lines of one own account with their state (not matched yet, matched to the books, booked, ignored), a few suggestions for each open line, entries in the books that are not on the statement, and the statement balance against the books. Read-only.',
+    args: ['account', 'from', 'to', 'status', 'limit'],
+    run: (state, args = {}) => bankReconciliation(state, args),
+  },
+  {
+    name: 'match_bank_line',
+    title: 'Match a statement line',
+    description: 'Settle one open statement line (BL-000012): link it to an entry already in the books (kind books, transferId), book it as a receipt from a customer (kind receipt, partyName or invoiceId, oldest open invoices first), a payment to a supplier (kind payment, partyName or billId), an expense (kind expense, head), bank charges (kind charge), interest from the bank (kind interest), a move between your own accounts (kind transfer, otherAccount) or ignore it (kind ignore). remember true saves a rule so lines like it book on their own.',
+    args: ['lineId', 'kind', 'transferId', 'invoiceId', 'billId', 'partyName', 'head', 'otherAccount', 'note', 'remember'],
+    run: (state, args = {}) => matchBankLine(state, args),
+  },
+  {
+    name: 'unmatch_bank_line',
+    title: 'Open a statement line again',
+    description: 'Remove the link on a matched or ignored statement line so it can be matched again. A booked line cannot be opened this way because its entries are in the books.',
+    args: ['lineId'],
+    run: (state, args = {}) => unmatchBankLine(state, args),
+  },
+  {
+    name: 'book_bank_charges',
+    title: 'Book bank charges and interest',
+    description: 'Book every open statement line that reads as a bank charge (to 5180 Bank charges) or as interest credited by the bank (to 4100 Interest income), for one account, a date range or named lines.',
+    args: ['account', 'lineIds', 'from', 'to'],
+    run: (state, args = {}) => bookBankCharges(state, args),
+  },
+  {
+    name: 'add_bank_rule',
+    title: 'Add a bank rule',
+    description: 'Save a rule that books statement lines on its own: when the narration contains a text (or matches a pattern), optionally only for money in or out and within an amount range, book the line as a receipt from a customer, a payment to a supplier, an expense under a head, bank charges, interest, a transfer with another own account, or ignore it. It applies to open lines now unless applyNow is false, and to every later import.',
+    args: ['side', 'contains', 'pattern', 'minAmount', 'maxAmount', 'kind', 'partyName', 'head', 'otherAccount', 'note', 'applyNow'],
+    run: (state, args = {}) => addBankRule(state, args),
+  },
+  {
+    name: 'remove_bank_rule',
+    title: 'Remove a bank rule',
+    description: 'Remove a bank rule (BR-0001). Lines it already booked stay.',
+    args: ['id'],
+    run: (state, args = {}) => removeBankRule(state, args),
+  },
+  {
+    name: 'list_bank_rules',
+    title: 'Bank rules',
+    description: 'The bank rules in the order they apply, with how often each one has been used. Read-only.',
+    args: [],
+    run: (state) => listBankRules(state),
+  },
+  {
+    name: 'run_bank_rules',
+    title: 'Apply bank rules now',
+    description: 'Apply the bank rules to every open statement line, or only to those of one account. dryRun true shows what would be booked without booking it.',
+    args: ['account', 'dryRun'],
+    run: (state, args = {}) => runBankRules(state, args),
+  },
+  {
+    name: 'set_bank_account',
+    title: 'Add or rename an own account',
+    description: 'Add a bank account, cash box or wallet of your own (label, kind bank, cash or wallet, masked account number, IFSC), or rename one by id. Cash (1001) and Bank (1002) are built in. Owner only.',
+    args: ['id', 'label', 'kind', 'maskedNumber', 'ifsc'],
+    run: (state, args = {}) => setBankAccount(state, args),
+  },
+  {
+    name: 'list_bank_accounts',
+    title: 'Own accounts',
+    description: 'Your cash, bank and wallet accounts with their balances in the books. Read-only.',
+    args: [],
+    run: (state) => listBankAccounts(state),
+  },
+  {
+    name: 'record_transfer',
+    title: 'Move money between own accounts',
+    description: 'Record a move between two of your own accounts (bank to cash, one bank to another) by id or label, with an amount, a date and a reference. One contra entry is posted and statement lines on both sides link to it.',
+    args: ['fromAccount', 'toAccount', 'amount', 'date', 'reference'],
+    run: (state, args = {}) => recordTransfer(state, args),
   },
   {
     name: 'quote_document',
@@ -2128,8 +2207,8 @@ export const TOOLS = [
   {
     name: 'import_bank',
     title: 'Import bank statement',
-    description: 'Ingest HDFC-style CSV, fixed-width TXT, or matrix bank statement with running-balance tie-out.',
-    args: ['content', 'type'],
+    description: 'Ingest HDFC-style CSV, fixed-width TXT, or matrix bank statement with running-balance tie-out. Every row becomes a statement line: lines already in the books are linked, your bank rules book what they cover, and the rest is posted to guessed heads (post auto, the default) or waits for you to match (post hold). account names the own account the statement belongs to (default 1002 Bank).',
+    args: ['content', 'type', 'fileName', 'asOfDate', 'post', 'account'],
     run: (state, args) => {
       const type = args.type || 'csv';
       let feed = { type, content: args.content };
@@ -2145,17 +2224,47 @@ export const TOOLS = [
       }
       const result = ingestBank(feed, { asOfDate: args.asOfDate, fileLabel: args.fileName || 'bank' });
       if (usHeld.length) result.usHeld = usHeld;
+      const account = accountFor(state, args.account);
+      if (!account) return fail('ACCOUNT_NOT_FOUND', { account: args.account });
+      const hold = args.post === 'hold';
       const good = (result.rows || []).filter((r) => !r._blocking);
-      const ledger = postBankRows(state, good);
+      const taken = recordStatementLines(state, good, { account: account.id, fileLabel: args.fileName || 'bank', issues: result.issues || [] });
+      const openIds = taken.newLines.filter((line) => line.status === 'unmatched').map((line) => line.id);
+      const ruled = openIds.length ? runBankRules(state, { account: account.id, lineIds: openIds }) : { made: [], failed: [] };
+      const open = taken.newLines.filter((line) => line.status === 'unmatched');
+      let ledger = { posted: 0, skipped: taken.skipped };
+      if (!hold && open.length) {
+        const auto = postBankRows(state, open.map((line) => taken.rowByLine.get(line.id)), { account: account.id });
+        for (const made of auto.made) {
+          const line = open.find((item) => item.fingerprint === made.fingerprint);
+          if (line) {
+            line.status = 'booked';
+            line.match = { kind: 'auto', id: made.fingerprint, transferIds: [String(made.transferId)], ruleId: null, note: 'Posted to a guessed head.' };
+          }
+        }
+        ledger = { posted: auto.posted, skipped: [...taken.skipped, ...auto.skipped] };
+      }
+      const lines = {
+        added: taken.added.length,
+        existing: taken.existing.length,
+        matched: taken.matched.length,
+        byRules: (ruled.made || []).length,
+        ruleFailures: ruled.failed || [],
+        posted: ledger.posted,
+        unmatched: taken.newLines.filter((line) => line.status === 'unmatched').length,
+        transfersGuessed: open.filter((line) => line.status === 'booked' && line.category === 'transfer').length,
+        account: account.id,
+        mode: hold ? 'hold' : 'auto',
+      };
       state.imports.push({ source: 'bank', at: new Date().toISOString(), ok: result.ok, rows: result.rows?.length || 0, posted: ledger.posted, heldBack: heldBackFrom(ledger.skipped) });
       const withBalance = good.filter((r) => r.date && r.balance != null && Number.isFinite(Number(r.balance))).sort((a, b) => a.date.localeCompare(b.date) || (a.sourceRow || 0) - (b.sourceRow || 0));
       const last = withBalance.at(-1);
       let bankBalance = null;
-      if (last) {
+      if (last && account.id === '1002') {
         const reading = setCashBalance(state, { on: last.date, bank: Number(last.balance) });
         bankBalance = reading.ok ? { on: last.date, balance: Number(last.balance), source: 'bank statement' } : { on: last.date, balance: Number(last.balance), notRecorded: reading.error };
       }
-      return ok({ ...result, ledger, ...(bankBalance ? { bankBalance } : {}), ...(aa ? { aa: { accounts: aa.accounts, skipped: aa.skipped } } : {}) });
+      return ok({ ...result, ledger, lines, ...(bankBalance ? { bankBalance } : {}), ...(aa ? { aa: { accounts: aa.accounts, skipped: aa.skipped } } : {}) });
     },
   },
   {

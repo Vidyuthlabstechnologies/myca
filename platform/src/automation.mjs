@@ -11,6 +11,7 @@ import { dailyClose } from './daily-close.mjs';
 import { registrationsOf } from './registrations.mjs';
 import { filingFor } from './filings.mjs';
 import { runRecurring } from './recurring.mjs';
+import { runBankRules } from './bank-rules.mjs';
 
 const LOOK_AHEAD_DAYS = 14;
 const LOG_LIMIT = 60;
@@ -97,6 +98,7 @@ function warningsOf(run) {
   if (!run.chain.ok) warnings.push(`The ledger chain is broken at ${run.chain.at || 'an unknown row'} (${run.chain.error}). Restore from the last good backup.`);
   if (run.rules.integrity > 0) warnings.push(`${run.rules.integrity} statutory rule records fail their integrity check.`);
   for (const row of run.recurring?.failed || []) warnings.push(`Repeating entry ${row.id} for ${row.date} was not made (${row.error}). Fix it or stop it.`);
+  for (const row of run.bankRules?.failed || []) warnings.push(`Statement line ${row.lineId} was not booked by bank rule ${row.ruleId} (${row.error}). Match it by hand.`);
   for (const family of run.rules.attention) {
     if (family.gaps.length) warnings.push(`No rule in force today for ${family.title}: ${family.gaps.join(', ')}.`);
     if (family.ending.length) warnings.push(`${family.title}: ${family.ending.map((item) => `${item.id} ends ${item.effectiveTo}`).join(', ')} with no successor recorded.`);
@@ -112,6 +114,7 @@ export function runDailyAutomation(state, args = {}) {
   }
   const until = plusDays(today, LOOK_AHEAD_DAYS);
   const recurring = runRecurring(state, { asOf: today }).data;
+  const bankRules = runBankRules(state, {});
   const chain = verifyChain(state.ledger);
   const run = {
     ranOn: today,
@@ -120,6 +123,7 @@ export function runDailyAutomation(state, args = {}) {
     chain: chain.ok ? { ok: true, rows: state.ledger.transfers.length } : { ok: false, error: chain.error, at: chain.at },
     rules: rulesCheck(state, today),
     recurring: { made: recurring.made, failed: recurring.failed },
+    bankRules: { made: bankRules.made || [], failed: bankRules.failed || [] },
   };
   run.close = dailyClose(state, { asOf: today, clientId: normalizeClientId(state.activeClientId), chain }).data;
   run.warnings = warningsOf(run);

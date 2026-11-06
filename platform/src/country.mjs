@@ -49,6 +49,7 @@ const SHARED_TOOLS = new Set([
   'list_clients', 'register_client', 'set_active_client', 'list_documents', 'upload_document', 'get_document',
   'list_debit_notes', 'list_credit_notes', 'list_payroll', 'payroll_run', 'approve_payroll', 'record_salary_payment', 'payslip', 'list_filings', 'list_outbox',
   'set_channel_connector', 'channel_connectors', 'fetch_channel_report', 'sync_channels', 'provider_doctor',
+  'bank_reconciliation', 'match_bank_line', 'unmatch_bank_line', 'book_bank_charges', 'add_bank_rule', 'remove_bank_rule', 'list_bank_rules', 'run_bank_rules', 'set_bank_account', 'list_bank_accounts', 'record_transfer',
 ]);
 
 let currentCountry = DEFAULT_COUNTRY;
