@@ -516,6 +516,97 @@ class FakeMycaApi implements MycaApi {
     };
   }
 
+  final imsDecisions = <String, Map<String, Object?>>{};
+  int imsOrphaned = 0;
+  final imsRows = <Map<String, Object?>>[
+    {
+      'key': '2026-10|27AAACB2222B1Z5|BM12|B2B',
+      'section': 'B2B',
+      'supplierGstin': '27AAACB2222B1Z5',
+      'supplierName': 'BOX MART',
+      'invoiceNo': 'BM-12',
+      'invoiceDate': '2026-10-16',
+      'taxableValue': 6000,
+      'cgst': 0,
+      'sgst': 0,
+      'igst': 300,
+      'cess': 0,
+      'totalValue': 6300,
+      'credit': 300,
+      'itcAvailability': 'Y',
+      'billId': 'BILL-0003',
+      'match': 'amount differs',
+      'why': 'The amounts differ: taxable value 5000 in your books, 6000 in 2B; IGST 250 in your books, 300 in 2B.',
+      'suggested': 'pending',
+      'decision': '',
+      'note': '',
+      'decidedBy': '',
+      'decidedOn': '',
+    },
+    {
+      'key': '2026-10|24AAACF7856R1ZY|GM77|B2B',
+      'section': 'B2B',
+      'supplierGstin': '24AAACF7856R1ZY',
+      'supplierName': 'GUJARAT MILLS',
+      'invoiceNo': 'GM/77',
+      'invoiceDate': '2026-10-08',
+      'taxableValue': 20000,
+      'cgst': 0,
+      'sgst': 0,
+      'igst': 3600,
+      'cess': 0,
+      'totalValue': 23600,
+      'credit': 3600,
+      'itcAvailability': 'N',
+      'billId': 'BILL-0002',
+      'match': 'matched',
+      'why': 'Matches BILL-0002 in your books.',
+      'suggested': 'accept',
+      'decision': '',
+      'note': '',
+      'decidedBy': '',
+      'decidedOn': '',
+    },
+    {
+      'key': '2026-10|27AAACH7409R1Z1|RS1|B2B',
+      'section': 'B2B',
+      'supplierGstin': '27AAACH7409R1Z1',
+      'supplierName': 'RETAIL SUPPLY',
+      'invoiceNo': 'RS-1',
+      'invoiceDate': '2026-10-15',
+      'taxableValue': 1000,
+      'cgst': 0,
+      'sgst': 0,
+      'igst': 180,
+      'cess': 0,
+      'totalValue': 1180,
+      'credit': 180,
+      'itcAvailability': 'Y',
+      'billId': '',
+      'match': 'not in books',
+      'why': 'No purchase bill with this number from this supplier.',
+      'suggested': 'pending',
+      'decision': '',
+      'note': '',
+      'decidedBy': '',
+      'decidedOn': '',
+    },
+  ];
+
+  List<Map<String, Object?>> _imsPicked(Map<String, Object?> args) {
+    final keys = (args['keys'] as List?)?.cast<String>() ?? const <String>[];
+    if (keys.isNotEmpty) return imsRows.where((r) => keys.contains(r['key'])).toList();
+    return switch (args['select']) {
+      'matched' => imsRows.where((r) => r['match'] == 'matched' || r['match'] == 'date differs').toList(),
+      'suggested' => imsRows.where((r) => r['suggested'] == args['decision']).toList(),
+      'undecided' => imsRows.where((r) => r['decision'] == '').toList(),
+      'all' => List.of(imsRows),
+      _ => const <Map<String, Object?>>[],
+    };
+  }
+
+  static const _imsWords = {'accept': 'accepted', 'reject': 'rejected', 'pending': 'pending', 'clear': 'not decided'};
+
   final purchases = <Map<String, Object?>>[
     {
       'id': 'BILL-0001',
@@ -724,6 +815,17 @@ class FakeMycaApi implements MycaApi {
     if (name == 'import_gstr2b') {
       return _preview(
         'GSTR-2B for ${args['period']}: 4 entries from 4 suppliers.',
+      );
+    }
+    if (name == 'ims_decide') {
+      final picked = _imsPicked(args);
+      final credit = picked.fold<num>(0, (sum, r) => sum + (r['credit'] as num));
+      final word = _imsWords[args['decision']];
+      return _preview(
+        picked.length == 1
+            ? 'Mark ${picked.single['supplierName']} ${picked.single['invoiceNo']} as $word in IMS for ${args['period']}.'
+            : 'Mark ${picked.length} invoices in IMS for ${args['period']} as $word (credit ₹$credit).',
+        {'count': picked.length, 'credit': credit},
       );
     }
     if (name == 'gst_review_answer') {
@@ -1126,6 +1228,25 @@ class FakeMycaApi implements MycaApi {
         has2b = true;
         return ChatReply.fromJson({
           'reply': 'Added.',
+          'posted': true,
+          'confirmed': true,
+        });
+      }
+      if (held.tool == 'ims_decide') {
+        final picked = _imsPicked(held.args);
+        final decision = held.args['decision'] as String;
+        final note = decision == 'clear' ? '' : '${held.args['note'] ?? ''}';
+        for (final row in picked) {
+          row['decision'] = decision == 'clear' ? '' : decision;
+          row['note'] = note;
+          if (decision == 'clear') {
+            imsDecisions.remove(row['key']);
+          } else {
+            imsDecisions['${row['key']}'] = {'decision': decision, 'note': note, 'by': 'USR-ADMIN', 'on': '2026-10-05'};
+          }
+        }
+        return ChatReply.fromJson({
+          'reply': 'Marked ${picked.length} ${picked.length == 1 ? 'row' : 'rows'} ${_imsWords[decision]} in IMS for ${held.args['period']}.',
           'posted': true,
           'confirmed': true,
         });
@@ -2368,6 +2489,32 @@ class FakeMycaApi implements MycaApi {
                     },
                   ]
                 : const <Object?>[],
+          },
+        };
+      case 'ims_review':
+        final listed = has2b ? imsRows : const <Map<String, Object?>>[];
+        num creditOf(String decision) => listed.where((r) => r['decision'] == decision).fold<num>(0, (sum, r) => sum + (r['credit'] as num));
+        return {
+          'ok': true,
+          'data': {
+            'period': args['period'],
+            'statement': has2b ? {'fileName': 'GSTR2B_102026.csv', 'importedOn': '2026-10-05', 'rows': imsRows.length} : null,
+            'rows': listed,
+            'counts': {
+              'total': listed.length,
+              'accept': listed.where((r) => r['decision'] == 'accept').length,
+              'reject': listed.where((r) => r['decision'] == 'reject').length,
+              'pending': listed.where((r) => r['decision'] == 'pending').length,
+              'undecided': listed.where((r) => r['decision'] == '').length,
+            },
+            'credit': {
+              'accepted': creditOf('accept'),
+              'rejected': creditOf('reject'),
+              'pending': creditOf('pending'),
+              'undecided': creditOf(''),
+            },
+            'orphaned': imsOrphaned,
+            'note': "MyCA keeps these decisions for you but does not send them to the GST portal. Take the same decisions on the portal's IMS; the Excel sheet lists every row with its suggestion.",
           },
         };
       case 'gst_payable':

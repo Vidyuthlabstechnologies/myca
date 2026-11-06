@@ -69,6 +69,7 @@ export function newBook(company = {}) {
     form1099Jobs: [],
     payrollImports: [],
     gstr2b: {},
+    imsDecisions: {},
     reminders: [],
     reminderSeq: 0,
     cashReadings: [],
@@ -160,6 +161,7 @@ export function serializeBook(book) {
     payrollImports: book.payrollImports || [],
     purchaseOrderSeq: book.purchaseOrderSeq || 0,
     gstr2b: book.gstr2b || {},
+    imsDecisions: book.imsDecisions || {},
     reminders: book.reminders || [],
     reminderSeq: book.reminderSeq || 0,
     cashReadings: book.cashReadings || [],
@@ -247,6 +249,7 @@ export function deserializeBook(raw) {
   book.payrollImports = Array.isArray(raw.payrollImports) ? raw.payrollImports : [];
   book.purchaseOrderSeq = Number(raw.purchaseOrderSeq || 0);
   book.gstr2b = raw.gstr2b && typeof raw.gstr2b === 'object' ? raw.gstr2b : {};
+  book.imsDecisions = raw.imsDecisions && typeof raw.imsDecisions === 'object' && !Array.isArray(raw.imsDecisions) ? raw.imsDecisions : {};
   book.reminders = Array.isArray(raw.reminders) ? raw.reminders : [];
   book.reminderSeq = raw.reminderSeq || 0;
   book.cashReadings = Array.isArray(raw.cashReadings) ? raw.cashReadings : [];

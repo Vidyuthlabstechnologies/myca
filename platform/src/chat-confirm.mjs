@@ -24,6 +24,7 @@ import { planCreditNote, creditedAgainst, outstandingOf } from './credit-notes.m
 import { planDebitNote, planPurchaseNote } from './debit-notes.mjs';
 import { checkAnswer, reviewOf, stepText } from './gst-review.mjs';
 import { parse2bFile } from './gstr2b-check.mjs';
+import { planImsDecision, IMS_DECISION_WORDS } from './ims.mjs';
 import { planReminder, findReminder, whenWords } from './reminders.mjs';
 import { planCashReading } from './cash-forecast.mjs';
 import { planTerms, termsLabel, invoiceTerms, dueDateOf } from './payment-terms.mjs';
@@ -71,7 +72,7 @@ import { findBankLine, planMatch, planBankCharges, planBankRule, planBankAccount
 import { runBankRules, ruleWords } from './bank-rules.mjs';
 
 export const CONFIRM_TOOLS = new Set([
-  'create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'record_filing', 'record_supplier_reminder', 'record_collection_reminder', 'record_payment_run', 'month_close_approve', 'set_sku_supply', 'record_purchase_order', 'record_advance_tax', 'set_supplier_bank', 'attach_document', 'push_tally', 'import_payroll_summary', 'add_employee', 'change_salary', 'end_employment', 'approve_payroll', 'record_salary_payment', 'set_tds_deductor', 'record_tds_deposit', 'tds_review_answer', 'set_gst_credit_opening', 'record_gst_payment', 'close_year', 'post_expense', 'set_expense_head', 'create_credit_note', 'create_debit_note', 'create_purchase_note', 'record_supplier_debit_note', 'cancel_invoice', 'gst_review_answer', 'import_gstr2b', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'set_party_address', 'set_transport', 'set_sales_tax_rate', 'set_contractor', 'set_sales_tax_nexus', 'sales_tax_review_answer', 'record_sales_tax_payment', 'record_sales_tax_filing', 'set_withholding', 'set_suta_rate', 'import_us_invoices', 'import_pos_sales', 'import_settlement', 'import_marketplace_orders', 'import_tcs_statement', 'import_26as_credits', 'record_tds_withheld', 'record_stock', 'record_stock_transfer', 'set_sku_cost', 'import_sku_costs', 'value_inventory', 'set_registration', 'retire_registration', 'set_channel_identity', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote', 'add_recurring', 'stop_recurring', 'amend_invoice', 'match_bank_line', 'unmatch_bank_line', 'book_bank_charges', 'add_bank_rule', 'remove_bank_rule', 'run_bank_rules', 'set_bank_account', 'record_transfer',
+  'create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'record_filing', 'record_supplier_reminder', 'record_collection_reminder', 'record_payment_run', 'month_close_approve', 'set_sku_supply', 'record_purchase_order', 'record_advance_tax', 'set_supplier_bank', 'attach_document', 'push_tally', 'import_payroll_summary', 'add_employee', 'change_salary', 'end_employment', 'approve_payroll', 'record_salary_payment', 'set_tds_deductor', 'record_tds_deposit', 'tds_review_answer', 'set_gst_credit_opening', 'record_gst_payment', 'close_year', 'post_expense', 'set_expense_head', 'create_credit_note', 'create_debit_note', 'create_purchase_note', 'record_supplier_debit_note', 'cancel_invoice', 'gst_review_answer', 'import_gstr2b', 'ims_decide', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'set_party_address', 'set_transport', 'set_sales_tax_rate', 'set_contractor', 'set_sales_tax_nexus', 'sales_tax_review_answer', 'record_sales_tax_payment', 'record_sales_tax_filing', 'set_withholding', 'set_suta_rate', 'import_us_invoices', 'import_pos_sales', 'import_settlement', 'import_marketplace_orders', 'import_tcs_statement', 'import_26as_credits', 'record_tds_withheld', 'record_stock', 'record_stock_transfer', 'set_sku_cost', 'import_sku_costs', 'value_inventory', 'set_registration', 'retire_registration', 'set_channel_identity', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote', 'add_recurring', 'stop_recurring', 'amend_invoice', 'match_bank_line', 'unmatch_bank_line', 'book_bank_charges', 'add_bank_rule', 'remove_bank_rule', 'run_bank_rules', 'set_bank_account', 'record_transfer',
   'set_invoice_template', 'set_invoice_numbering', 'set_supplier_terms',
   'import_tally', 'import_tally_xml', 'import_zoho', 'import_bank',
   'govt_generate_irn', 'govt_nic_cancel_irn',
@@ -1004,6 +1005,37 @@ function gstr2bPreview(state, args) {
   };
 }
 
+const IMS_REASONS = {
+  INVALID_PERIOD: 'Say the month as YYYY-MM, for example 2026-10.',
+  NO_STATEMENT: 'Add the GSTR-2B for that month first.',
+  BAD_DECISION: 'Say accept, reject or pending.',
+  NO_ROWS: 'Say which invoices: pick rows, or say all matched, all suggested or all not decided.',
+  ROW_NOT_FOUND: 'One of those invoices is not in the GSTR-2B for that month.',
+  TOO_MANY_ROWS: 'IMS takes up to 500 invoices in one go; pick fewer, or decide in parts.',
+  NOTE_TOO_LONG: 'Keep the note to 200 characters or fewer.',
+};
+
+function imsPreview(state, args) {
+  if (countryOf(state) !== 'IN') return { blockers: ['IMS is part of the GST portal, so it is for businesses in India.'], summary: '', effects: [], figures: {} };
+  const plan = planImsDecision(state, args);
+  if (!plan.ok) return { blockers: [IMS_REASONS[plan.error] || plan.error], summary: '', effects: [], figures: {} };
+  const word = IMS_DECISION_WORDS[plan.decision];
+  const count = plan.rows.length;
+  const one = [plan.rows[0].supplierName, plan.rows[0].invoiceNo].filter(Boolean).join(' ') || 'this invoice';
+  const replaced = plan.decision === 'clear' ? 0 : plan.rows.filter((row) => {
+    const held = state.imsDecisions?.[row.key]?.decision;
+    return held && held !== plan.decision;
+  }).length;
+  const effects = ['Nothing is posted. Take the same decisions on the GST portal\'s IMS; the Excel sheet lists them.'];
+  if (replaced) effects.push(count === 1 ? 'It already has a different decision, which this replaces.' : `${replaced} of them already ${replaced === 1 ? 'has' : 'have'} a different decision, which this replaces.`);
+  return {
+    blockers: [],
+    summary: count === 1 ? `Mark ${one} as ${word} in IMS for ${plan.period}.` : `Mark ${count} invoices in IMS for ${plan.period} as ${word} (credit ${money(plan.credit)}).`,
+    effects,
+    figures: { count, credit: plan.credit },
+  };
+}
+
 const REMINDER_REASONS = {
   TEXT_REQUIRED: () => 'Say what to remind you about.',
   TEXT_TOO_LONG: () => 'Keep the reminder under 200 characters.',
@@ -1817,6 +1849,7 @@ const PREVIEWERS = {
   gst_review_answer: reviewAnswerPreview,
   tds_review_answer: tdsReviewAnswerPreview,
   import_gstr2b: gstr2bPreview,
+  ims_decide: imsPreview,
   add_reminder: reminderPreview,
   complete_reminder: completeReminderPreview,
   set_cash_balance: cashReadingPreview,

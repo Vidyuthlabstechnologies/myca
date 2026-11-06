@@ -5,6 +5,7 @@ import '../api/myca_api.dart';
 import '../app_state.dart';
 import '../format.dart';
 import '../theme.dart';
+import 'ims_screen.dart';
 import 'remind_supplier_screen.dart';
 
 class CreditCard extends StatefulWidget {
@@ -337,7 +338,20 @@ class _CreditCardState extends State<CreditCard> {
                   ),
                 ),
               ),
-              if (check?.hasStatement == true)
+              if (check?.hasStatement == true) ...[
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton(
+                    key: const ValueKey('credit.ims'),
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => ImsScreen(period: widget.period),
+                      ),
+                    ),
+                    child: const Text('Review in IMS'),
+                  ),
+                ),
                 Padding(
                   padding: const EdgeInsets.only(top: 6),
                   child: Text(
@@ -345,6 +359,7 @@ class _CreditCardState extends State<CreditCard> {
                     style: text.bodySmall,
                   ),
                 ),
+              ],
               if (_note.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.only(top: 6),

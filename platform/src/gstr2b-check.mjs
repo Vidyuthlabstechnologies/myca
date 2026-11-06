@@ -7,11 +7,11 @@ const { parseGstr2B, match2B, itcOf } = gst;
 const round2 = (value) => Math.round(Number(value || 0) * 100) / 100;
 const OWN_NUMBER = /^BILL-\d+$/;
 
-function normNumber(value) {
+export function normNumber(value) {
   return String(value ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '');
 }
 
-function normGstin(value) {
+export function normGstin(value) {
   return String(value ?? '').trim().toUpperCase();
 }
 
@@ -42,7 +42,7 @@ export function import2b(state, args = {}) {
   return { ok: true, period, rows: rows.length, skipped: errors.length, replaced };
 }
 
-function allRows(state) {
+export function allRows(state) {
   const stored = state.gstr2b && typeof state.gstr2b === 'object' ? state.gstr2b : {};
   return Object.entries(stored).flatMap(([period, entry]) => (entry.rows || []).map((row) => ({ ...row, statementPeriod: period })));
 }
