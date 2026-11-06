@@ -1164,7 +1164,7 @@ export const TOOL_ARG_SCHEMAS = {
     type: 'object',
     additionalProperties: false,
     properties: {
-      partyName: { type: 'string', maxLength: 80 },
+      partyName: { type: 'string' },
       partyGstin: { type: 'string', pattern: '^([0-9]{2}[A-Z0-9]{13})?$' },
       msme: { type: 'boolean' },
       udyam: { type: 'string', maxLength: 19 },
@@ -1182,7 +1182,7 @@ export const TOOL_ARG_SCHEMAS = {
     additionalProperties: false,
     required: ['days'],
     properties: {
-      partyName: { type: 'string', maxLength: 80 },
+      partyName: { type: 'string' },
       partyGstin: { type: 'string', pattern: '^([0-9]{2}[A-Z0-9]{13})?$' },
       days: { type: 'integer', minimum: 0, maximum: 365 },
     },

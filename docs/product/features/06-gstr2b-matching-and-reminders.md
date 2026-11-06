@@ -74,6 +74,19 @@ reminder goes only when the owner says so.
   from my phone", the preview, "Yes, send it", then the share sheet and a "Copy
   message" fallback.
 
+### Decide in IMS (built, batch 4)
+
+- `ims_review` lists the month's 2B rows with whether the books hold the bill, a
+  suggestion (accept when it matches, pending otherwise) and the credit the row carries.
+  `ims_decide` records accept, reject, pending or clear on chosen rows or on a word (all
+  matched, all suggested, all not decided), previewed first. MyCA keeps the decisions
+  and sends nothing to the portal; the owner takes the same decisions there.
+- A yes applies exactly the rows the preview listed. If one of them has left the
+  statement since, the yes is refused with a sentence and nothing is changed. A word
+  that picks no row says which word found nothing.
+- Credit notes carry negative credit, so the totals for accepted, rejected, pending and
+  not decided are net of them.
+
 ## Acceptance criteria
 
 - For the engine's fixtures, each mismatch class is raised once with the right reason.

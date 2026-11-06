@@ -8,6 +8,7 @@ const { itcOf } = gst;
 export const IMS_DECISIONS = ['accept', 'reject', 'pending'];
 export const IMS_SELECTS = ['matched', 'suggested', 'undecided', 'all'];
 export const IMS_MAX_ROWS = 500;
+export const IMS_MAX_KEY = 120;
 export const IMS_MAX_NOTE = 200;
 export const IMS_DECISION_WORDS = { accept: 'accepted', reject: 'rejected', pending: 'pending', clear: 'not decided' };
 export const IMS_NOTE = 'MyCA keeps these decisions for you but does not send them to the GST portal. Take the same decisions on the portal\'s IMS; the Excel sheet lists every row with its suggestion.';
@@ -19,6 +20,11 @@ const NOTE_SECTIONS = new Set(['CDNR', 'CDNRA']);
 const CREDIT_BUCKET = { accept: 'accepted', reject: 'rejected', pending: 'pending', '': 'undecided' };
 const NO_BILL = 'No purchase bill with this number from this supplier.';
 const NO_NOTE = 'No debit note to this supplier with this bill number.';
+const NO_MATCH_WORDS = {
+  matched: 'No invoice in that month is matched to a bill in your books, so nothing was marked.',
+  undecided: 'No invoice in that month is undecided, so nothing was marked.',
+  all: 'There is no invoice in that month, so nothing was marked.',
+};
 const WORDS_LISTED = 8;
 
 const round2 = (value) => Math.round(Number(value || 0) * 100) / 100;
@@ -179,6 +185,19 @@ function pickRows(rows, select, decision) {
   return [];
 }
 
+function noMatchWords(select, decision) {
+  if (select === 'suggested') return `No invoice in that month has "${decision}" as its suggestion, so nothing was marked.`;
+  return NO_MATCH_WORDS[select] || 'No invoice matches what you asked for, so nothing was marked.';
+}
+
+export function pinImsRows(args, plan) {
+  const keys = plan.rows.map((row) => row.key);
+  if (keys.some((key) => key.length > IMS_MAX_KEY)) return args;
+  args.keys = keys;
+  delete args.select;
+  return args;
+}
+
 export function planImsDecision(state, args = {}) {
   const period = text(args.period).trim();
   if (!isReturnPeriod(period)) return failure('INVALID_PERIOD', { hint: 'Use YYYY-MM, for example 2026-09.' });
@@ -201,8 +220,9 @@ export function planImsDecision(state, args = {}) {
     }
   } else {
     const seen = new Set();
-    picked = pickRows(review.rows, text(args.select).trim(), decision).filter((row) => !seen.has(row.key) && seen.add(row.key));
-    if (!picked.length) return failure('NO_ROWS');
+    const select = text(args.select).trim();
+    picked = pickRows(review.rows, select, decision).filter((row) => !seen.has(row.key) && seen.add(row.key));
+    if (!picked.length) return IMS_SELECTS.includes(select) ? failure('NO_MATCH', { hint: noMatchWords(select, decision) }) : failure('NO_ROWS');
     if (picked.length > IMS_MAX_ROWS) return failure('TOO_MANY_ROWS', { limit: IMS_MAX_ROWS });
   }
   return {

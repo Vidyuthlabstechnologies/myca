@@ -182,6 +182,8 @@ const FAILURES = {
   NO_ENTRIES: () => 'There is nothing in the books to audit yet.',
   NO_STATEMENT: () => 'Add the GSTR-2B for that month first.',
   BAD_DECISION: () => 'Say accept, reject or pending.',
+  NO_MATCH: (r) => r.hint || 'No invoice matches what you asked for, so nothing was marked.',
+  OWNER_ONLY: (r) => r.hint || 'Only the owner can do that.',
   ROW_NOT_FOUND: () => 'One of those invoices is not in the GSTR-2B for that month.',
   TOO_MANY_ROWS: () => 'IMS takes up to 500 invoices in one go; pick fewer, or decide in parts.',
   NOTE_TOO_LONG: () => 'Keep the note to 200 characters or fewer.',
@@ -495,7 +497,8 @@ function fmtToolResultCore(name, result) {
   }
   if (name === 'set_supplier_terms' && result.ok !== false) {
     const d = result;
-    return `${d.supplier}${d.msme ? ` is recorded as an MSME${d.category ? ` (${d.category})` : ''}${d.udyam ? `, ${d.udyam}` : ''}` : ' is not an MSME'}${d.days != null ? `; agreed terms ${d.days === 0 ? 'on receipt' : `${d.days} days`}` : ''}. New bills from them carry the pay-by date${d.msme ? ' from the MSMED Act' : ''}; old bills keep theirs.`;
+    const basis = !d.msme ? '' : d.covered === false ? ' from the agreed days, as the 45-day rule covers micro and small suppliers only' : ' from the MSMED Act';
+    return `${d.supplier}${d.msme ? ` is recorded as an MSME${d.category ? ` (${d.category})` : ''}${d.udyam ? `, ${d.udyam}` : ''}` : ' is not an MSME'}${d.days != null ? `; agreed terms ${d.days === 0 ? 'on receipt' : `${d.days} days`}` : ''}. New bills from them carry the pay-by date${basis}; bills already booked from them are checked against the new terms too.`;
   }
   if (name === 'supplier_dues' && result.data) {
     const d = result.data;

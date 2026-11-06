@@ -1,8 +1,10 @@
 import { localToday, postingDate } from './dates.mjs';
 import { customerKey, validTerms } from './payment-terms.mjs';
+import { salaryPrivate } from './employees.mjs';
 import { rule } from '../../sprints/statutory-rules/src/index.mjs';
 
 const UDYAM = /^UDYAM-[A-Z]{2}-[0-9]{2}-[0-9]{7}$/;
+const REGIME_RULES = ['msme.payment-days', 'msme.deduction-on-payment'];
 const round2 = (value) => Math.round(Number(value || 0) * 100) / 100;
 
 function addDays(iso, days) {
@@ -46,7 +48,18 @@ export function msmeDays(onDate, { agreedDays = null } = {}) {
   return { days, max, rulesUsed: [`msme.payment-days@${onDate}`], attested: (found.record.attestations || []).length > 0 };
 }
 
+export function msmeCovered(category, onDate) {
+  const kind = String(category || '').trim().toLowerCase();
+  if (!kind) return true;
+  return REGIME_RULES.every((id) => {
+    const found = rule(id, onDate);
+    const covers = found.ok && Array.isArray(found.value.appliesTo) ? found.value.appliesTo : null;
+    return !covers || covers.includes(kind);
+  });
+}
+
 export function planSupplierTerms(state, args = {}) {
+  if (salaryPrivate(state)) return fail('OWNER_ONLY', { hint: 'Only the owner can mark a supplier as an MSME.' });
   const name = String(args.partyName || '').trim();
   const gstin = String(args.partyGstin || '').trim().toUpperCase();
   if (!name && !gstin) return fail('SUPPLIER_REQUIRED');
@@ -63,13 +76,14 @@ export function planSupplierTerms(state, args = {}) {
   const categoryGiven = args.category == null || args.category === '' ? '' : String(args.category).toLowerCase();
   if (categoryGiven && !['micro', 'small', 'medium'].includes(categoryGiven)) return fail('BAD_CATEGORY', { category: categoryGiven });
   const category = categoryGiven || (msme ? String(before?.category || '') : '');
-  if (msme && days != null) {
+  const covered = msme && msmeCovered(category, localToday());
+  if (covered && days != null) {
     const limit = msmeDays(localToday(), { agreedDays: days });
     if (limit && days > limit.max) return fail('TERMS_EXCEED_MSMED', { days, max: limit.max, hint: `An MSME supplier must be paid within ${limit.max} days even with a written agreement.` });
   }
   const key = customerKey({ name: display, gstin: gstin || known?.partyGstin || '' });
   if (!key) return fail('SUPPLIER_REQUIRED');
-  return { ok: true, plan: { key, name: display, gstin: gstin || String(known?.partyGstin || '').toUpperCase(), msme, udyam, category, days, before, known: Boolean(known) } };
+  return { ok: true, plan: { key, name: display, gstin: gstin || String(known?.partyGstin || '').toUpperCase(), msme, covered, udyam, category, days, before, known: Boolean(known) } };
 }
 
 export function setSupplierTerms(state, args = {}) {
@@ -78,7 +92,7 @@ export function setSupplierTerms(state, args = {}) {
   const { plan } = planned;
   state.supplierTerms = state.supplierTerms && typeof state.supplierTerms === 'object' ? state.supplierTerms : {};
   state.supplierTerms[plan.key] = { msme: plan.msme, udyam: plan.udyam, category: plan.category, days: plan.days };
-  return { ok: true, supplier: plan.name, gstin: plan.gstin, msme: plan.msme, udyam: plan.udyam, category: plan.category, days: plan.days, before: plan.before };
+  return { ok: true, supplier: plan.name, gstin: plan.gstin, msme: plan.msme, covered: plan.covered, udyam: plan.udyam, category: plan.category, days: plan.days, before: plan.before };
 }
 
 export function billPayBy(state, bill) {
@@ -86,7 +100,7 @@ export function billPayBy(state, bill) {
   if (!terms) return null;
   const date = postingDate(bill.date);
   if (!date) return null;
-  if (terms.msme) {
+  if (terms.msme && msmeCovered(terms.category, date)) {
     const limit = msmeDays(date, { agreedDays: terms.days });
     if (!limit) return null;
     return { payBy: addDays(date, limit.days), days: limit.days, msme: true, statutory: true, rulesUsed: limit.rulesUsed, unreviewed: !limit.attested };
