@@ -1,4 +1,5 @@
 import { csvRows } from './text-safe.mjs';
+import { isTdsReceipt } from './tds-credits.mjs';
 
 const HEADER = ['clientId', 'date', 'narration', 'debit', 'credit', 'party', 'category', 'tdsSection'];
 const HEAD_CATEGORY = { 5110: 'rent', 5120: 'salary', 5150: 'travel', 5160: 'repairs', 5170: 'fees', 5180: 'bank_charges' };
@@ -15,7 +16,7 @@ export function booksAuditRows(state) {
   for (const inv of state.invoices || []) {
     if (inv.status === 'cancelled' || inv.cancelledOn) continue;
     rows.push(row(clientId, inv.date, `${inv.id} sale`, null, inv.total, inv.partyName, 'sales'));
-    for (const receipt of inv.receipts || []) rows.push(row(clientId, receipt.date, `${inv.id} received`, receipt.amount, null, inv.partyName, 'receipt'));
+    for (const receipt of inv.receipts || []) rows.push(row(clientId, receipt.date, `${inv.id} ${isTdsReceipt(receipt) ? 'TDS withheld' : 'received'}`, receipt.amount, null, inv.partyName, 'receipt'));
   }
   for (const note of state.creditNotes || []) rows.push(row(clientId, note.date, `${note.id} credit note`, note.total, null, note.partyName, 'sales'));
   for (const bill of state.purchases || []) {

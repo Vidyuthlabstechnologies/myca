@@ -19,6 +19,8 @@ function digestBook(b) {
     invoices: b.invoices || [],
     purchases: b.purchases || [],
     imports: b.imports || [],
+    imsDecisions: b.imsDecisions || {},
+    supplierTerms: b.supplierTerms || {},
     ledgerClock: b.ledger?.clock?.toString?.() || '0',
     ledgerChecksum: b.ledger?.lastChecksum || 0,
   };

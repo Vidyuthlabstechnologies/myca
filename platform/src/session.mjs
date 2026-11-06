@@ -210,7 +210,9 @@ export function openSession(target = defaultDataPath(), { seed = false } = {}) {
         const actor = actorOf(options);
         const beforeHash = stateDigest(state);
         const view = toolState(state, actorOf(options));
+        const clockBefore = clockOf(view);
         const out = await chat(view, message);
+        const posted = out.posted === true;
         appendAuditEvent(state, {
           actorId: actor?.userId || 'renderer',
           actorName: actor?.name || '',
@@ -224,7 +226,8 @@ export function openSession(target = defaultDataPath(), { seed = false } = {}) {
             blocked: Boolean(out.blocked),
             awaitingConfirmation: Boolean(out.awaitingConfirmation),
             confirmed: Boolean(out.confirmed),
-            posted: out.posted === true,
+            posted,
+            ...(posted ? { ledgerClock: { before: clockBefore, after: clockOf(view) }, details: (out.tools || []).map((tool) => auditDetails(tool.name, tool.result)) } : {}),
           },
         });
         saveBooks();

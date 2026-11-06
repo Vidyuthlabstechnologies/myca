@@ -20,6 +20,7 @@ const CONFIRM_FAILURES = {
   TOKEN_MISMATCH: 'the code did not match the preview',
   TOKEN_REQUIRED: 'no confirmation code was given',
 };
+const ACRONYMS = new Map([['ims', 'IMS'], ['tds', 'TDS'], ['gst', 'GST'], ['itc', 'ITC'], ['msme', 'MSME'], ['26as', '26AS'], ['gstr1', 'GSTR-1'], ['gstr2b', 'GSTR-2B'], ['gstr3b', 'GSTR-3B'], ['gstin', 'GSTIN'], ['hsn', 'HSN'], ['tcs', 'TCS']]);
 const NOTE = 'Every change made through MyCA is listed with who made it and when. Hashes chain each event to the one before, so an edited or removed event shows as a broken chain.';
 const HOSTED_NOTE = ' Reads are kept in the hosted audit log, not here.';
 
@@ -35,7 +36,7 @@ function isRecord(value) {
 }
 
 function human(name) {
-  const spaced = String(name == null ? '' : name).replace(/_/g, ' ').trim();
+  const spaced = String(name == null ? '' : name).replace(/_/g, ' ').trim().replace(/\S+/g, (token) => ACRONYMS.get(token.toLowerCase()) || token);
   return spaced ? spaced[0].toUpperCase() + spaced.slice(1) : '';
 }
 
@@ -100,6 +101,7 @@ export function auditDetails(name, result) {
 function kindOf(event) {
   const action = String(event.action || '');
   if (event.beforeHash !== event.afterHash || CHANGE_ACTION.test(action)) return 'change';
+  if (action === 'chat.run' && isRecord(event.metadata) && event.metadata.posted === true) return 'change';
   if (action.startsWith('tool.')) {
     const name = action.slice(5);
     if (CONFIRM_TOOLS.has(name) || CHANGE_TOOLS.has(name)) return 'change';
