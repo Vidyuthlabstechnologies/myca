@@ -8,7 +8,6 @@ import { salaryPrivate } from './employees.mjs';
 import { ensureInterestIncomeAccount } from './chart.mjs';
 import { bankFingerprint } from './post-import.mjs';
 import { bank } from './sprint-load.mjs';
-import { safePatternProblem } from './bank-pattern.mjs';
 
 export const DEFAULT_ACCOUNT = '1002';
 export const CHARGES_HEAD = '5180';
@@ -21,6 +20,9 @@ export const BUILT_IN_ACCOUNTS = [
   { id: '1001', label: 'Cash', kind: 'cash' },
   { id: '1002', label: 'Bank', kind: 'bank' },
 ];
+export const MAX_PATTERN = 120;
+export const MAX_QUANTIFIERS = 8;
+export const MAX_OPEN_REPEATS = 3;
 const FIRST_OWN_ACCOUNT = 1003;
 const LAST_OWN_ACCOUNT = 1099;
 const AMOUNT_TOLERANCE = 1;
@@ -31,6 +33,8 @@ const DEFAULT_WINDOW_DAYS = 90;
 const DEFAULT_LIMIT = 300;
 const MAX_LIMIT = 2000;
 const IFSC = /^[A-Z]{4}0[A-Z0-9]{6}$/;
+const LOOKAROUND = new Set(['(?=', '(?!', '(?<=', '(?<!']);
+const BRACES = /^\{(\d+)(?:,(\d*))?\}/;
 const NAME_FILLERS = new Set(['PRIVATE', 'LIMITED', 'COMPANY', 'INDIA']);
 const KIND_SIDE = { receipt: 'in', interest: 'in', payment: 'out', expense: 'out', charge: 'out' };
 const RELOCATED = new Set(['receipt', 'payment', 'expense', 'charge']);
@@ -594,6 +598,99 @@ export function previewStatementLines(state, rows, { account = DEFAULT_ACCOUNT }
     if (line.category === 'transfer') counts.transfers += 1;
   }
   return counts;
+}
+
+function quantifierAt(text, at) {
+  const ch = text[at];
+  if (ch === '*' || ch === '+' || ch === '?') return { length: 1, open: ch !== '?' };
+  if (ch !== '{') return null;
+  const found = BRACES.exec(text.slice(at, at + 24));
+  if (!found) return null;
+  const min = Number(found[1]);
+  const max = found[2] === undefined ? min : found[2] === '' ? Infinity : Number(found[2]);
+  return { length: found[0].length, open: max > min + 1 };
+}
+
+function classEnd(text, at) {
+  let i = at + 1;
+  if (text[i] === '^') i += 1;
+  if (text[i] === ']') i += 1;
+  while (i < text.length && text[i] !== ']') i += text[i] === '\\' ? 2 : 1;
+  return i < text.length ? i : -1;
+}
+
+export function safePatternProblem(source) {
+  const text = String(source == null ? '' : source);
+  if (!text.trim()) return 'The pattern is empty.';
+  if (text.length > MAX_PATTERN) return `The pattern is longer than ${MAX_PATTERN} characters.`;
+  let depth = 0;
+  let quantifiers = 0;
+  let openRepeats = 0;
+  let last = 'start';
+  let i = 0;
+  while (i < text.length) {
+    const ch = text[i];
+    if (ch === '\\') {
+      const next = text[i + 1];
+      if (next === undefined) return 'The pattern ends with a lone backslash.';
+      if (/[1-9]/.test(next) || (next === 'k' && text[i + 2] === '<')) return 'Backreferences like \\1 are not allowed.';
+      last = next === 'b' || next === 'B' ? 'anchor' : 'atom';
+      i += 2;
+      continue;
+    }
+    if (ch === '[') {
+      const end = classEnd(text, i);
+      if (end < 0) return 'A [ is not closed.';
+      i = end + 1;
+      last = 'atom';
+      continue;
+    }
+    if (ch === '(') {
+      if (LOOKAROUND.has(text.slice(i, i + 3)) || LOOKAROUND.has(text.slice(i, i + 4))) return 'Lookahead and lookbehind, like (?=...) or (?<!...), are not allowed.';
+      if (text[i + 1] === '?' && text[i + 2] !== ':') return 'Only plain groups like (NEFT|IMPS) are allowed.';
+      depth += 1;
+      if (depth > 1) return 'A group inside a group is not allowed.';
+      i += text[i + 1] === '?' ? 3 : 1;
+      last = 'open';
+      continue;
+    }
+    if (ch === ')') {
+      if (depth === 0) return 'A ) has no matching (.';
+      depth -= 1;
+      i += 1;
+      last = 'group';
+      continue;
+    }
+    if (ch === '|') {
+      i += 1;
+      last = 'alt';
+      continue;
+    }
+    if (ch === '^' || ch === '$') {
+      i += 1;
+      last = 'anchor';
+      continue;
+    }
+    const quantifier = quantifierAt(text, i);
+    if (quantifier) {
+      if (last === 'group') return 'A repeat on a group, like (a+)+ or (ab)*, is not allowed; repeat one character or a class like [A-Z] instead.';
+      if (last === 'quantifier') return 'Two repeats in a row, like a++ or a+?, are not allowed.';
+      if (last !== 'atom') return 'A repeat like + or * needs a character before it.';
+      quantifiers += 1;
+      if (quantifiers > MAX_QUANTIFIERS) return `More than ${MAX_QUANTIFIERS} repeats; use contains for a plain text match instead.`;
+      if (quantifier.open) {
+        openRepeats += 1;
+        if (openRepeats > MAX_OPEN_REPEATS) return `More than ${MAX_OPEN_REPEATS} open-ended repeats like .* or \\d+; keep the pattern short or use contains.`;
+      }
+      i += quantifier.length;
+      last = 'quantifier';
+      continue;
+    }
+    i += 1;
+    last = 'atom';
+  }
+  if (depth > 0) return 'A ( is not closed.';
+  return '';
 }
 
 const compiledPatterns = new Map();

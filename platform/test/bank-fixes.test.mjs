@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { performance } from 'node:perf_hooks';
+import { existsSync, readdirSync } from 'node:fs';
 import { createState } from '../src/store.mjs';
 import { runTool } from '../src/tools.mjs';
 import { previewOf } from '../src/chat-confirm.mjs';
@@ -10,8 +11,7 @@ import { createInvoice, recordReceipt, createPurchase, recordPayment } from '../
 import { postExpense } from '../src/expenses.mjs';
 import { listAccounts } from '../src/ledger.mjs';
 import { runDailyAutomation } from '../src/automation.mjs';
-import { safePatternProblem, MAX_PATTERN } from '../src/bank-pattern.mjs';
-import { ruleMatches, planMatch, applyMatch, findBankLine, bookMovements, matchWords, ruleFromMatch, chargesWords } from '../src/bank-recon.mjs';
+import { safePatternProblem, MAX_PATTERN, rulePatternProblem, ruleMatches, planMatch, applyMatch, findBankLine, bookMovements, matchWords, ruleFromMatch, chargesWords } from '../src/bank-recon.mjs';
 import { runRulesWords, rulesWords } from '../src/bank-rules.mjs';
 
 function statement(rows) {
@@ -403,4 +403,18 @@ test('a statement of 20,000 rows imports in linear time and the line counter cat
   await heldImport(behind, statement([['07-09-2026', 'NEFT CR THREE', 0, 300]]), { fileName: 'next.csv' });
   assert.deepEqual(behind.bankLines.map((line) => line.id), ['BL-000001', 'BL-000002', 'BL-000003']);
   assert.equal(behind.bankLineSeq, 3);
+});
+
+test('the safe pattern check is part of bank-recon.mjs: an unsafe stored pattern and one the engine cannot compile are both named, and the bank engine is three modules', () => {
+  assert.match(rulePatternProblem({ pattern: '(a+)+$' }), /group/);
+  assert.equal(rulePatternProblem({ pattern: '[z-a]' }), 'It is not a regular expression I can run.');
+  assert.equal(rulePatternProblem({ pattern: 'NEFT.*SHARMA' }), '');
+  assert.equal(rulePatternProblem({ pattern: '' }), '');
+  assert.equal(rulePatternProblem({}), '');
+  const line = { id: 'BL-000001', account: '1002', date: '2026-09-01', narration: 'z', in: 0, out: 10, status: 'unmatched', match: null };
+  assert.equal(ruleMatches({ pattern: '[z-a]' }, line), false, 'a pattern that does not compile never matches');
+  assert.equal(ruleMatches({ pattern: '[a-z]' }, line), true);
+  const src = new URL('../src/', import.meta.url);
+  assert.equal(existsSync(new URL('bank-pattern.mjs', src)), false);
+  assert.deepEqual(readdirSync(src).filter((name) => name.startsWith('bank-')).sort(), ['bank-intent.mjs', 'bank-recon.mjs', 'bank-rules.mjs']);
 });
