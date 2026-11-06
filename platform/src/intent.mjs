@@ -88,6 +88,7 @@ function partyOf(text) {
   const stop = `(?=\\s*,|\\s+(?:gstin|at|@|rate|gst|qty|each|for|${CURRENCY}|\\d)|\\s*$)`;
   const name = "([A-Za-z][A-Za-z0-9 .&'-]{1,50}?)";
   const found = text.match(new RegExp(`\\b(?:${DOCUMENT_VERBS})\\s+(?:from|for|to)\\s+${name}${stop}`, 'i'))
+    || text.match(new RegExp(`\\b(?:sold|sell|selling)\\b[^,]*?\\bto\\s+${name}${stop}`, 'i'))
     || text.match(new RegExp(`\\bfrom\\s+${name}${stop}`, 'i'))
     || text.match(new RegExp(`\\b(?:${DOCUMENT_VERBS})\\s+${name}${stop}`, 'i'));
   return cleanPartyName(found ? found[1] : '') || 'Walk-in';
