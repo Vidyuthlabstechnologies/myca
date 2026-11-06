@@ -20,7 +20,6 @@ locals {
   production   = !var.pilot_sign_in_codes_in_logs
   environment = merge(
     {
-      PORT                      = "8080"
       MYCA_TRUSTED_PROXY_HOPS   = "1"
       MYCA_MOCK_MODE            = var.provider_mode == "simulated" ? "1" : "0"
       MYCA_PROVIDER_ENV         = contains(["live", "test"], var.provider_mode) ? var.provider_mode : "off"
@@ -205,6 +204,13 @@ resource "aws_apprunner_service" "api" {
     timeout             = 5
     healthy_threshold   = 1
     unhealthy_threshold = 5
+  }
+
+  lifecycle {
+    precondition {
+      condition     = var.pilot_sign_in_codes_in_logs || length(var.google_client_ids) > 0
+      error_message = "The API refuses to start with no sign-in method. Set google_client_ids (Google Sign-In), or pilot_sign_in_codes_in_logs = true for a closed pilot."
+    }
   }
 
   depends_on = [aws_iam_role_policy.api_secrets, aws_iam_role_policy_attachment.apprunner_access, aws_instance.nat]

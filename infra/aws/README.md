@@ -45,6 +45,10 @@ Production needs a real sign-in method. Either:
   can let a person in. The production switch is off in this mode. Do not open the app to the
   public like this.
 
+With neither set, `terraform plan` stops: the API refuses to start when it has no sign-in
+method, and App Runner would otherwise fail health checks for ten minutes before giving up.
+App Runner sets `PORT` itself (it is a reserved name), so the service does not set it.
+
 ## First deploy (three steps)
 
 Sign in as a non-root user first (`aws configure sso`, profile `myca`), then:
