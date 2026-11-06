@@ -114,7 +114,7 @@ void main() {
     await tapRow(tester, 'Sales');
     await tester.tap(find.text('Gujarat Weaves'));
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(ActionChip, 'Quote'));
+    await tester.tap(find.widgetWithText(ActionChip, 'Quote, order or challan'));
     await tester.pumpAndSettle();
     await tester.enterText(find.widgetWithText(TextField, 'Amount before sales tax'), '500');
     await tester.enterText(find.widgetWithText(TextField, 'Sales tax jurisdiction'), 'tx');

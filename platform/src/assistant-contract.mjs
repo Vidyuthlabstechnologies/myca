@@ -451,6 +451,8 @@ export const TOOL_ARG_SCHEMAS = {
       date: { type: 'string' },
       validDays: { type: 'integer', minimum: 1, maximum: 365 },
       lines: { type: 'array', minItems: 1, items: lineSchema },
+      kind: { type: 'string', enum: ['quote', 'proforma', 'order', 'challan'] },
+      reason: { type: 'string', enum: ['job-work', 'approval', 'line-sale', 'exhibition', 'own-use', 'other'] },
     },
   },
   mark_quote: {
@@ -458,8 +460,8 @@ export const TOOL_ARG_SCHEMAS = {
     additionalProperties: false,
     required: ['id', 'outcome'],
     properties: {
-      id: { type: 'string', pattern: '^QT-[0-9]{4,}$' },
-      outcome: { type: 'string', enum: ['accepted', 'declined'] },
+      id: { type: 'string', pattern: '^(QT|PI|SO|DC)-[0-9]{4,}$' },
+      outcome: { type: 'string', enum: ['accepted', 'declined', 'cancelled', 'returned'] },
     },
   },
   convert_quote: {
@@ -467,20 +469,60 @@ export const TOOL_ARG_SCHEMAS = {
     additionalProperties: false,
     required: ['id'],
     properties: {
-      id: { type: 'string', pattern: '^QT-[0-9]{4,}$' },
+      id: { type: 'string', pattern: '^(QT|PI|SO|DC)-[0-9]{4,}$' },
       date: { type: 'string' },
     },
+  },
+  add_recurring: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['kind', 'every'],
+    properties: {
+      kind: { type: 'string', enum: ['invoice', 'bill', 'expense'] },
+      every: { type: 'string', enum: ['week', 'month', 'quarter', 'half-year', 'year'] },
+      startDate: { type: 'string' },
+      endDate: { type: 'string' },
+      partyName: { type: 'string', minLength: 1, maxLength: 80 },
+      partyGstin: { type: 'string' },
+      lines: { type: 'array', minItems: 1, items: lineSchema },
+      paymentTermsDays: { type: 'integer', minimum: 0, maximum: 365 },
+      taxJurisdiction: { type: 'string', maxLength: 24 },
+      taxExempt: { type: 'boolean' },
+      exemptionReason: { type: 'string', maxLength: 120 },
+      narration: { type: 'string', maxLength: 160 },
+      amount: { type: 'number', exclusiveMinimum: 0 },
+      gstRate: { type: 'number', minimum: 0, maximum: 28 },
+      payee: { type: 'string', maxLength: 80 },
+      supplierGstin: { type: 'string' },
+      head: { type: 'string', maxLength: 8 },
+    },
+  },
+  stop_recurring: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['id'],
+    properties: { id: { type: 'string', pattern: '^RP-[0-9]{4,}$' } },
+  },
+  list_recurring: {
+    type: 'object',
+    additionalProperties: false,
+    properties: { status: { type: 'string', enum: ['all', 'active', 'stopped', 'ended'] } },
+  },
+  run_recurring: {
+    type: 'object',
+    additionalProperties: false,
+    properties: { asOf: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' } },
   },
   list_quotes: {
     type: 'object',
     additionalProperties: false,
-    properties: { status: { type: 'string', enum: ['all', 'open', 'accepted', 'declined', 'expired', 'invoiced'] } },
+    properties: { status: { type: 'string', enum: ['all', 'open', 'accepted', 'declined', 'expired', 'invoiced', 'cancelled', 'returned'] }, kind: { type: 'string', enum: ['all', 'quote', 'proforma', 'order', 'challan'] } },
   },
   quote_document: {
     type: 'object',
     additionalProperties: false,
     required: ['id'],
-    properties: { id: { type: 'string', pattern: '^QT-[0-9]{4,}$' } },
+    properties: { id: { type: 'string', pattern: '^(QT|PI|SO|DC)-[0-9]{4,}$' } },
   },
   ask_ca: {
     type: 'object',
@@ -1990,6 +2032,10 @@ const TOOL_RISK = {
   create_quote: 'writes_books',
   mark_quote: 'writes_books',
   convert_quote: 'writes_books',
+  add_recurring: 'writes_books',
+  stop_recurring: 'writes_books',
+  list_recurring: 'read_only',
+  run_recurring: 'writes_books',
   reply_ca: 'writes_books',
   close_ca: 'writes_books',
   govt_nic_auth: 'external_auth_probe',
@@ -2110,6 +2156,36 @@ function planInvoiceDesignFromChat(text) {
   return null;
 }
 
+const SALES_KIND_WORDS = [
+  { kind: 'proforma', words: /\b(?:make\s+(?:a|an)\s+|send\s+(?:a|an)\s+)?(?:pro\s*-?\s*forma(?:\s+invoice)?|pi)\b/i, label: 'proforma invoice', example: 'proforma ABC Ltd 50000 for consulting GST 18%' },
+  { kind: 'order', words: /\b(?:make\s+(?:a|an)\s+|book\s+(?:a|an)\s+)?(?:sales\s+order|sale\s+order)\b/i, label: 'sales order', example: 'sales order ABC Ltd 50000 for chairs GST 18%' },
+  { kind: 'challan', words: /\b(?:make\s+(?:a|an)\s+|send\s+(?:a|an)\s+)?(?:delivery\s+challan|challan)\b/i, label: 'delivery challan', example: 'delivery challan ABC Ltd 50000 for fabric GST 5% for job work' },
+  { kind: 'quote', words: /\b(?:make\s+(?:a|an)\s+|send\s+(?:a|an)\s+)?(?:quotation|quote|estimate)\b/i, label: 'quote', example: 'quote ABC Ltd 50000 for consulting GST 18%' },
+];
+
+function repeatSaid(text) {
+  const named = /\b(?:repeat(?:ing)?|recurring)\b/i.test(text);
+  const found = text.match(/\s*,?\s*\bevery\s+(week|month|quarter|six\s+months|half[\s-]?year|year)\b|\s*,?\s*\b(weekly|monthly|quarterly|half[\s-]?yearly|yearly|annually)\b/i);
+  if (!named && !found) return null;
+  if (!named && !/\binvoice\b/i.test(text)) return null;
+  const word = String(found ? found[1] || found[2] : 'month').toLowerCase().replace(/\s+/g, ' ');
+  const every = /^week/.test(word) ? 'week' : /^quarter/.test(word) ? 'quarter' : /six|half/.test(word) ? 'half-year' : /^(?:year|annual)/.test(word) ? 'year' : 'month';
+  return { every, words: found ? found[0] : /$^/ };
+}
+
+function salesDocumentKindSaid(text) {
+  if (/\b(?:gst|tds|tax|cpin)\s+challan\b|\bchallan\s+(?:no|number|for\s+(?:gst|tds))\b/i.test(text)) return null;
+  return SALES_KIND_WORDS.find((entry) => entry.words.test(text)) || null;
+}
+
+function challanReasonSaid(text) {
+  if (/\bjob\s*work/i.test(text)) return 'job-work';
+  if (/\bapproval\b/i.test(text)) return 'approval';
+  if (/\bexhibition\b/i.test(text)) return 'exhibition';
+  if (/\bown\s+use\b/i.test(text)) return 'own-use';
+  return '';
+}
+
 export function planLocalToolCall(state, message) {
   const raw = String(message == null ? '' : message);
   if (raw.length > MAX_CHAT_CHARS) {
@@ -2152,23 +2228,47 @@ export function planLocalToolCall(state, message) {
     };
   }
 
-  const quoteRef = text.match(/\b(QT-\d{4,})\b/i);
+  const quoteRef = text.match(/\b((?:QT|PI|SO|DC)-\d{4,})\b/i);
   if (quoteRef && !isQuestion(text) && !isNegated(text)) {
     const id = quoteRef[1].toUpperCase();
-    if (/\b(?:convert|make|turn|raise)\b.*\binvoice\b|\binvoice\s+(?:it|for|from)?\s*QT-/i.test(text)) return { kind: 'tool', name: 'convert_quote', args: { id } };
+    if (/\b(?:convert|make|turn|raise)\b.*\binvoice\b|\binvoice\s+(?:it|for|from)?\s*(?:QT|PI|SO|DC)-/i.test(text)) return { kind: 'tool', name: 'convert_quote', args: { id } };
     if (/\baccepted\b|\bapproved\b|\bconfirmed\b/i.test(text)) return { kind: 'tool', name: 'mark_quote', args: { id, outcome: 'accepted' } };
     if (/\bdeclined\b|\brejected\b|\bnot\s+going\s+ahead\b/i.test(text)) return { kind: 'tool', name: 'mark_quote', args: { id, outcome: 'declined' } };
+    if (/\bcancel(?:led|ed)?\b/i.test(text)) return { kind: 'tool', name: 'mark_quote', args: { id, outcome: 'cancelled' } };
+    if (/\b(?:returned|came\s+back|received\s+back)\b/i.test(text)) return { kind: 'tool', name: 'mark_quote', args: { id, outcome: 'returned' } };
   }
-  if (/\b(?:quote|quotation|estimate)\b/i.test(text) && !quoteRef && !isQuestion(text) && !isNegated(text)) {
+  const stopRepeat = text.match(/\b(?:stop|end|cancel)\b.*\b(RP-\d{4,})\b/i);
+  if (stopRepeat && !isQuestion(text)) return { kind: 'tool', name: 'stop_recurring', args: { id: stopRepeat[1].toUpperCase() } };
+  const repeatAsk = repeatSaid(text);
+  if (repeatAsk && !isNegated(text)) {
+    if (!/\d/.test(text)) return { kind: 'tool', name: 'list_recurring', args: {} };
+    if (/\binvoice\b/i.test(text) && !isQuestion(text)) {
+      const from = text.match(/\s*,?\s*\b(?:from|starting|start(?:ing)?\s+on|beginning)\s+(\d{4}-\d{1,2}-\d{1,2}|\d{1,2}[/.-]\d{1,2}[/.-]\d{4})\b/i);
+      const until = text.match(/\s*,?\s*\b(?:until|till|upto|up\s+to|to\s+end\s+on)\s+(\d{4}-\d{1,2}-\d{1,2}|\d{1,2}[/.-]\d{1,2}[/.-]\d{4})\b/i);
+      let rest = text.replace(repeatAsk.words, ' ');
+      for (const part of [from, until]) if (part) rest = rest.replace(part[0], ' ');
+      rest = rest.replace(/\b(?:repeat(?:ing)?|recurring|set\s+up(?:\s+a)?)\b/gi, ' ').replace(/\s+/g, ' ').trim();
+      const parsed = parseDocument(rest);
+      if (parsed && parsed.problem) return documentProblemReply(parsed);
+      if (parsed) {
+        if (parsed.lines[0].gstRate == null) return { kind: 'reply', reply: 'I have not set it up, because I will not guess the GST rate. Say it again with the rate, for example "repeat invoice to ABC Ltd 25000 for rent GST 18% every month from 2026-12-01".', tools: [] };
+        return { kind: 'tool', name: 'add_recurring', args: { kind: 'invoice', every: repeatAsk.every, partyName: parsed.partyName, ...(parsed.partyGstin ? { partyGstin: parsed.partyGstin } : {}), lines: parsed.lines, ...(from ? { startDate: from[1] } : {}), ...(until ? { endDate: until[1] } : {}) } };
+      }
+    }
+  }
+  const salesKind = salesDocumentKindSaid(text);
+  if (salesKind && !quoteRef && !isQuestion(text) && !isNegated(text)) {
     const validity = text.match(/\s*,?\s*\bvalid\s+(?:for\s+)?(\d{1,3})\s*days?\b/i);
-    const asInvoice = (validity ? text.replace(validity[0], ' ') : text).replace(/\b(?:make\s+(?:a|an)\s+|send\s+(?:a|an)\s+)?(?:quotation|quote|estimate)\b/i, 'invoice');
+    const reason = salesKind.kind === 'challan' ? challanReasonSaid(text) : '';
+    const cleaned = (validity ? text.replace(validity[0], ' ') : text).replace(/\s*,?\s*\bfor\s+(?:job\s*work|approval|exhibition|own\s+use)\b/i, ' ');
+    const asInvoice = cleaned.replace(salesKind.words, 'invoice');
     const quoted = parseDocument(asInvoice);
     if (quoted && quoted.problem) return documentProblemReply(quoted);
     if (quoted) {
       if (quoted.lines[0].gstRate == null) {
-        return { kind: 'reply', reply: 'I have not made the quote, because I will not guess the GST rate. Say it again with the rate, for example "quote ABC Ltd 50000 for consulting GST 18%".', tools: [] };
+        return { kind: 'reply', reply: `I have not made the ${salesKind.label}, because I will not guess the GST rate. Say it again with the rate, for example "${salesKind.example}".`, tools: [] };
       }
-      return { kind: 'tool', name: 'create_quote', args: { partyName: quoted.partyName, ...(quoted.partyGstin ? { partyGstin: quoted.partyGstin } : {}), lines: quoted.lines, ...(validity ? { validDays: Number(validity[1]) } : {}) } };
+      return { kind: 'tool', name: 'create_quote', args: { partyName: quoted.partyName, ...(quoted.partyGstin ? { partyGstin: quoted.partyGstin } : {}), lines: quoted.lines, ...(validity ? { validDays: Number(validity[1]) } : {}), ...(salesKind.kind === 'quote' ? {} : { kind: salesKind.kind }), ...(reason ? { reason } : {}) } };
     }
   }
   const closeYearAsk = text.match(/\bclose\s+(?:the\s+)?(?:year|books?\s+for|financial\s+year|fy)\s*(\d{4}(?:-\d{2})?)?\b/i);

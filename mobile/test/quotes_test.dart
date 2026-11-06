@@ -69,7 +69,7 @@ void main() {
     (tester) async {
       final api = FakeMycaApi(signedIn: true);
       await openCustomer(tester, api);
-      await tester.tap(find.widgetWithText(ActionChip, 'Quote'));
+      await tester.tap(find.widgetWithText(ActionChip, 'Quote, order or challan'));
       await tester.pumpAndSettle();
       expect(find.text('New quote'), findsOneWidget);
       await tester.enterText(

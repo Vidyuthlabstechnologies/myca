@@ -16,6 +16,7 @@ import '../widgets.dart';
 import 'ask_screen.dart';
 import 'books_check_screen.dart';
 import 'marketplace_screen.dart';
+import 'recurring_screen.dart';
 import 'reports_screen.dart';
 import 'employees_screen.dart';
 import 'ca_screen.dart';
@@ -350,6 +351,13 @@ class _HomeScreenState extends State<HomeScreen> {
                   subtitle: 'Payouts, TCS and TDS, margins by SKU, stock, GST registrations',
                   trailing: const Chevron(),
                   onTap: () => _open(const MarketplaceScreen()),
+                ),
+                RowCard(
+                  leading: const TintTile(tint: Tint.ask, mark: Mark.comingUp),
+                  title: 'Repeating entries',
+                  subtitle: 'Invoices, bills and expenses posted on their dates',
+                  trailing: const Chevron(),
+                  onTap: () => _open(const RecurringScreen()),
                 ),
                 RowCard(
                   leading: const TintTile(tint: Tint.taxes, mark: Mark.sales),

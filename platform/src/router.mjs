@@ -58,6 +58,8 @@ import { dscWords } from './dsc.mjs';
 import { track1099Words } from './track1099.mjs';
 import { payrollImportWords } from './us-payroll-import.mjs';
 import { suggestExpenseHead } from './expense-head-model.mjs';
+import { kindTitle } from './quotes.mjs';
+import { everyWords, recurringWords, runRecurringWords } from './recurring.mjs';
 
 
 const GSTR1_HELD_REASONS = {
@@ -280,13 +282,22 @@ function fmtToolResultCore(name, result) {
     ].filter(Boolean).join('\n');
   }
   if (name === 'create_quote' && result.quote) {
-    return `Quote ${result.quote.id} to ${result.quote.partyName} for ${money(result.quote.total)}, valid until ${result.quote.validUntil}. Nothing was posted to your books.`;
+    const kind = result.quote.kind || 'quote';
+    const until = kind === 'quote' || kind === 'proforma' ? `, valid until ${result.quote.validUntil}` : '';
+    return `${kindTitle(result.quote)} ${result.quote.id} to ${result.quote.partyName} for ${money(result.quote.total)}${until}. Nothing was posted to your books.`;
   }
+  if (name === 'add_recurring' && result.schedule) {
+    const s = result.schedule;
+    return `${s.id}: ${s.kind === 'invoice' ? `invoice to ${s.party}` : s.kind === 'bill' ? `bill from ${s.party}` : `expense ${s.party}`.trim()} for ${money(s.amount)} ${everyWords(s.every)} from ${s.startDate}${s.endDate ? ` until ${s.endDate}` : ''}. Next: ${result.next.join(', ')}. The daily run posts each one on its date.`;
+  }
+  if (name === 'stop_recurring' && result.schedule) return `Stopped ${result.schedule.id}. Entries already posted stay.`;
+  if (name === 'list_recurring' && result.data) return recurringWords(result.data, money);
+  if (name === 'run_recurring' && result.data) return runRecurringWords(result.data, money);
   if (name === 'mark_quote' && result.quote) {
     return `${result.quote.id} marked ${result.quote.status}.`;
   }
   if (name === 'convert_quote' && result.invoice) {
-    return `Posted ${result.invoice.id} to ${result.invoice.partyName} for ${money(result.invoice.total)} from quote ${result.quote.id}.`;
+    return `Posted ${result.invoice.id} to ${result.invoice.partyName} for ${money(result.invoice.total)} from ${kindTitle(result.quote).toLowerCase()} ${result.quote.id}.`;
   }
   if (name === 'ask_ca' && result.request) {
     return `Sent to your CA in MyCA (${result.request.id}). You will see the reply under Your CA.`;

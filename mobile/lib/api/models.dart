@@ -1880,6 +1880,33 @@ class CaRequest {
 List<CaRequest> caRequestsFrom(Object? json) =>
     _maps(toolData(json)['requests']).map(CaRequest.fromJson).toList();
 
+const salesDocumentKinds = ['quote', 'proforma', 'order', 'challan'];
+
+const salesDocumentLabels = {
+  'quote': 'Quote',
+  'proforma': 'Proforma invoice',
+  'order': 'Sales order',
+  'challan': 'Delivery challan',
+};
+
+const challanReasonLabels = {
+  'job-work': 'Sent for job work',
+  'approval': 'Supply on approval',
+  'line-sale': 'Line sale',
+  'exhibition': 'For an exhibition',
+  'own-use': 'Own use',
+  'other': 'Other',
+};
+
+String salesDocumentLabel(String kind) => salesDocumentLabels[kind] ?? 'Quote';
+
+String salesKindOfId(String id) => switch (id.split('-').first.toUpperCase()) {
+      'PI' => 'proforma',
+      'SO' => 'order',
+      'DC' => 'challan',
+      _ => 'quote',
+    };
+
 class Quote {
   const Quote({
     required this.id,
@@ -1890,10 +1917,13 @@ class Quote {
     required this.validUntil,
     required this.status,
     required this.invoiceId,
+    this.kind = 'quote',
+    this.reason = '',
   });
 
   factory Quote.fromJson(Object? json) {
     final map = _map(json);
+    final kind = _text(map['kind']);
     return Quote(
       id: _text(map['id']),
       date: _text(map['date']),
@@ -1903,6 +1933,8 @@ class Quote {
       validUntil: _text(map['validUntil']),
       status: _text(map['status']),
       invoiceId: _text(map['invoiceId']),
+      kind: salesDocumentKinds.contains(kind) ? kind : 'quote',
+      reason: _text(map['reason']),
     );
   }
 
@@ -1914,9 +1946,85 @@ class Quote {
   final String validUntil;
   final String status;
   final String invoiceId;
+  final String kind;
+  final String reason;
 
-  String stateOn(String today) => status == 'open' && validUntil.compareTo(today) < 0 ? 'expired' : status;
+  String get label => salesDocumentLabel(kind);
+  bool get expires => kind == 'quote' || kind == 'proforma';
+
+  String stateOn(String today) => status == 'open' && expires && validUntil.compareTo(today) < 0 ? 'expired' : status;
 }
+
+class RecurringEntry {
+  const RecurringEntry({
+    required this.id,
+    required this.kind,
+    required this.every,
+    required this.party,
+    required this.amount,
+    required this.startDate,
+    required this.endDate,
+    required this.nextDate,
+    required this.status,
+    required this.count,
+    required this.lastError,
+    required this.lastDate,
+    required this.lastId,
+  });
+
+  factory RecurringEntry.fromJson(Object? json) {
+    final map = _map(json);
+    final last = _map(map['last']);
+    return RecurringEntry(
+      id: _text(map['id']),
+      kind: _text(map['kind']),
+      every: _text(map['every']),
+      party: _text(map['party']),
+      amount: _num(map['amount']),
+      startDate: _text(map['startDate']),
+      endDate: _text(map['endDate']),
+      nextDate: _text(map['nextDate']),
+      status: _text(map['status']),
+      count: _num(map['count']).toInt(),
+      lastError: _text(map['lastError']),
+      lastDate: _text(last['date']),
+      lastId: _text(last['id']),
+    );
+  }
+
+  final String id;
+  final String kind;
+  final String every;
+  final String party;
+  final num amount;
+  final String startDate;
+  final String endDate;
+  final String nextDate;
+  final String status;
+  final int count;
+  final String lastError;
+  final String lastDate;
+  final String lastId;
+
+  bool get active => status == 'active';
+
+  String get kindWords => switch (kind) {
+        'invoice' => 'Invoice to',
+        'bill' => 'Bill from',
+        _ => 'Expense',
+      };
+}
+
+const repeatEveryLabels = {
+  'week': 'Every week',
+  'month': 'Every month',
+  'quarter': 'Every quarter',
+  'half-year': 'Every six months',
+  'year': 'Every year',
+};
+
+List<RecurringEntry> recurringFrom(Object? json) =>
+    _maps(toolData(json)['schedules']).map(RecurringEntry.fromJson).toList();
 
 class Today {
   const Today({
@@ -2070,6 +2178,8 @@ class InvoiceDocument {
     this.termsDays,
     this.kind = 'invoice',
     this.validUntil = '',
+    this.documentKind = '',
+    this.reason = '',
     this.linkedId = '',
     this.country = 'IN',
     this.subtotal = 0,
@@ -2124,6 +2234,8 @@ class InvoiceDocument {
           ? (map['paymentTermsDays'] as num).toInt()
           : null,
       kind: _text(map['kind']).isEmpty ? 'invoice' : _text(map['kind']),
+      documentKind: _text(map['documentKind']).isEmpty ? (_text(map['kind']) == 'quote' ? 'quote' : '') : _text(map['documentKind']),
+      reason: _text(map['reason']),
       validUntil: _text(map['validUntil']),
       linkedId: _text(map['kind']) == 'quote' ? _text(map['invoiceId']) : _text(map['quoteId']),
       country: _text(map['country']).isEmpty ? 'IN' : _text(map['country']).toUpperCase(),
@@ -2185,11 +2297,19 @@ class InvoiceDocument {
   final String exemptionReason;
   final InvoiceTemplate template;
 
+  final String documentKind;
+  final String reason;
+
   bool get isQuote => kind == 'quote';
+  bool get isChallan => documentKind == 'challan';
+  bool get canAccept => isQuote && (documentKind == 'quote' || documentKind == 'proforma');
+  bool get canCancelOrder => isQuote && (documentKind == 'order' || documentKind == 'challan');
+  bool get canReturn => isChallan;
+  bool get canInvoice => isQuote && !(isChallan && reason == 'job-work');
 
   bool get isUs => country == 'US';
 
-  String get title => isQuote ? 'Quotation' : (sellerGstin.isEmpty ? 'Invoice' : 'Tax invoice');
+  String get title => isQuote ? (documentKind == 'quote' || documentKind.isEmpty ? 'Quotation' : salesDocumentLabel(documentKind)) : (sellerGstin.isEmpty ? 'Invoice' : 'Tax invoice');
 
   String get subtotalLabel => isUs ? 'Subtotal' : 'Taxable value';
 

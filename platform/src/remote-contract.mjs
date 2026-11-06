@@ -63,6 +63,7 @@ export const REMOTE_QUERY_TOOLS = new Set([
   'can_afford',
   'list_ca_requests',
   'list_quotes',
+  'list_recurring',
   'quote_document',
   'expense_heads',
   'gst_payable',

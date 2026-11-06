@@ -10,7 +10,7 @@ export const BOOK_KEYS = new Set([
   'reminders', 'reminderSeq',
   'cashReadings', 'customerTerms', 'supplierTerms',
   'caRequests', 'caRequestSeq',
-  'quotes', 'quoteSeq',
+  'quotes', 'quoteSeq', 'recurring',
   'filings',
   'supplierReminders', 'supplierReminderSeq', 'collectionReminders', 'collectionReminderSeq',
   'employees', 'employeeSeq',

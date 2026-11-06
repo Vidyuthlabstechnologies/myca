@@ -37,6 +37,7 @@ import { listAccounts, journal, trialBalance, verifyChain, createTransfers, pais
 import { createInvoice, recordReceipt, recordPayment, invoicesToSalesCsv, createPurchase, purchasesToInwardCsv, printInvoice } from './invoice.mjs';
 import { invoiceDocument, quoteDocument } from './invoice-document.mjs';
 import { createQuote, markQuote, convertQuote, listQuotes } from './quotes.mjs';
+import { addRecurring, stopRecurring, listRecurring, runRecurring } from './recurring.mjs';
 import { postExpense, retagExpense, listExpenses, expenseHeads } from './expenses.mjs';
 import { businessSummary } from './business-summary.mjs';
 import { gstr3bFor, periodSummary } from './period-summary.mjs';
@@ -1054,36 +1055,64 @@ export const TOOLS = [
   },
   {
     name: 'create_quote',
-    title: 'Quote',
-    description: 'Make a quotation for a customer with GST worked out as on an invoice, valid for a number of days (30 unless given). It posts nothing to the books and is not in any return.',
-    args: ['partyName', 'partyGstin', 'lines', 'date', 'validDays', 'taxJurisdiction', 'taxExempt', 'exemptionReason'],
+    title: 'Quote, proforma, sales order or delivery challan',
+    description: 'Make a sales document for a customer with GST worked out as on an invoice: a quotation (kind quote, the default, QT-), a proforma invoice (proforma, PI-), a sales order (order, SO-) or a delivery challan for goods moved without a sale (challan, DC-, with the reason: job-work, approval, line-sale, exhibition, own-use or other). Quotes and proformas are valid for a number of days (30 unless given). It posts nothing to the books and is not in any return until it becomes an invoice.',
+    args: ['partyName', 'partyGstin', 'lines', 'date', 'validDays', 'taxJurisdiction', 'taxExempt', 'exemptionReason', 'kind', 'reason'],
     run: (state, args = {}) => createQuote(state, args),
   },
   {
     name: 'mark_quote',
-    title: 'Quote accepted or declined',
-    description: 'Record that the customer accepted or declined a quote.',
+    title: 'Quote, order or challan outcome',
+    description: 'Record what happened to a sales document: a quote or proforma accepted or declined, a sales order cancelled, a delivery challan returned (goods back from job work or approval) or cancelled.',
     args: ['id', 'outcome'],
     run: (state, args = {}) => markQuote(state, args),
   },
   {
     name: 'convert_quote',
-    title: 'Invoice from quote',
-    description: 'Raise the tax invoice for a quote with the same lines, linked both ways. A declined or already-invoiced quote is refused.',
+    title: 'Invoice from quote, proforma, order or challan',
+    description: 'Raise the tax invoice for a quote, proforma, sales order or delivery challan with the same lines, linked both ways. A declined, cancelled, returned or already-invoiced document is refused, and so is a job-work challan, which is not a sale.',
     args: ['id', 'date'],
     run: (state, args = {}) => convertQuote(state, args),
   },
   {
     name: 'list_quotes',
-    title: 'Quotes',
-    description: 'Quotes with their state (open, accepted, declined, expired, invoiced). Read-only.',
-    args: ['status'],
+    title: 'Quotes, proformas, orders and challans',
+    description: 'Sales documents with their kind and state (open, accepted, declined, expired, invoiced, cancelled, returned), optionally one kind. Read-only.',
+    args: ['status', 'kind'],
     run: (state, args = {}) => listQuotes(state, args),
   },
   {
+    name: 'add_recurring',
+    title: 'Repeat an invoice, bill or expense',
+    description: 'Set an invoice (kind invoice: partyName, partyGstin, lines), a supplier bill (kind bill: partyName, partyGstin, lines) or an expense paid from the bank (kind expense: amount, narration, payee, head, gstRate, supplierGstin) to repeat every week, month, quarter, half-year or year from a start date, optionally until an end date. The daily run posts each one on its date exactly as if it was entered by hand. Owner only.',
+    args: ['kind', 'every', 'startDate', 'endDate', 'partyName', 'partyGstin', 'lines', 'paymentTermsDays', 'taxJurisdiction', 'taxExempt', 'exemptionReason', 'narration', 'amount', 'gstRate', 'payee', 'supplierGstin', 'head'],
+    run: (state, args = {}) => addRecurring(state, args),
+  },
+  {
+    name: 'stop_recurring',
+    title: 'Stop a repeating entry',
+    description: 'Stop a repeating invoice, bill or expense (RP-0001). Entries already posted stay.',
+    args: ['id'],
+    run: (state, args = {}) => stopRecurring(state, args),
+  },
+  {
+    name: 'list_recurring',
+    title: 'Repeating invoices, bills and expenses',
+    description: 'The repeating entries with what repeats, how often, the next date and the last one made. Read-only.',
+    args: ['status'],
+    run: (state, args = {}) => listRecurring(state, args),
+  },
+  {
+    name: 'run_recurring',
+    title: 'Post repeating entries now',
+    description: 'Post every repeating entry that is due on or before today (or asOf). The daily run does this on its own; this is for catching up at once.',
+    args: ['asOf'],
+    run: (state, args = {}) => runRecurring(state, args),
+  },
+  {
     name: 'quote_document',
-    title: 'Quote to show or send',
-    description: 'One quote laid out like an invoice, for display or a PDF. Read-only.',
+    title: 'Quote, proforma, order or challan to show or send',
+    description: 'One quote, proforma, sales order or delivery challan laid out like an invoice, for display or a PDF. Read-only.',
     args: ['id'],
     run: (state, args = {}) => quoteDocument(state, args.id),
   },

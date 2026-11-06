@@ -28,7 +28,8 @@ import { planReminder, findReminder, whenWords } from './reminders.mjs';
 import { planCashReading } from './cash-forecast.mjs';
 import { planTerms, termsLabel, invoiceTerms, dueDateOf } from './payment-terms.mjs';
 import { planAsk, planReply } from './ca-requests.mjs';
-import { planQuote, findQuote, checkConvert, invoiceArgsFromQuote } from './quotes.mjs';
+import { planRecurring, findRecurring, everyWords } from './recurring.mjs';
+import { planQuote, findQuote, checkConvert, invoiceArgsFromQuote, kindTitle, kindOf, SALES_DOCUMENT_KINDS } from './quotes.mjs';
 import { isReturnPeriod } from './return-period.mjs';
 import { gstSplit, partyStateOf } from './chart.mjs';
 import { postingDate, localToday } from './dates.mjs';
@@ -66,7 +67,7 @@ import { planAmendment } from './invoice-amendments.mjs';
 import { tallyXmlToDayBookCsv } from './tally-xml.mjs';
 
 export const CONFIRM_TOOLS = new Set([
-  'create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'record_filing', 'record_supplier_reminder', 'record_collection_reminder', 'record_payment_run', 'month_close_approve', 'set_sku_supply', 'record_purchase_order', 'record_advance_tax', 'set_supplier_bank', 'attach_document', 'push_tally', 'import_payroll_summary', 'add_employee', 'change_salary', 'end_employment', 'approve_payroll', 'record_salary_payment', 'set_tds_deductor', 'record_tds_deposit', 'tds_review_answer', 'set_gst_credit_opening', 'record_gst_payment', 'close_year', 'post_expense', 'set_expense_head', 'create_credit_note', 'create_debit_note', 'create_purchase_note', 'record_supplier_debit_note', 'cancel_invoice', 'gst_review_answer', 'import_gstr2b', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'set_party_address', 'set_transport', 'set_sales_tax_rate', 'set_contractor', 'set_sales_tax_nexus', 'sales_tax_review_answer', 'record_sales_tax_payment', 'record_sales_tax_filing', 'set_withholding', 'set_suta_rate', 'import_us_invoices', 'import_pos_sales', 'import_settlement', 'import_marketplace_orders', 'import_tcs_statement', 'import_26as_credits', 'record_stock', 'record_stock_transfer', 'set_sku_cost', 'import_sku_costs', 'value_inventory', 'set_registration', 'retire_registration', 'set_channel_identity', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote', 'amend_invoice',
+  'create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'record_filing', 'record_supplier_reminder', 'record_collection_reminder', 'record_payment_run', 'month_close_approve', 'set_sku_supply', 'record_purchase_order', 'record_advance_tax', 'set_supplier_bank', 'attach_document', 'push_tally', 'import_payroll_summary', 'add_employee', 'change_salary', 'end_employment', 'approve_payroll', 'record_salary_payment', 'set_tds_deductor', 'record_tds_deposit', 'tds_review_answer', 'set_gst_credit_opening', 'record_gst_payment', 'close_year', 'post_expense', 'set_expense_head', 'create_credit_note', 'create_debit_note', 'create_purchase_note', 'record_supplier_debit_note', 'cancel_invoice', 'gst_review_answer', 'import_gstr2b', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'set_party_address', 'set_transport', 'set_sales_tax_rate', 'set_contractor', 'set_sales_tax_nexus', 'sales_tax_review_answer', 'record_sales_tax_payment', 'record_sales_tax_filing', 'set_withholding', 'set_suta_rate', 'import_us_invoices', 'import_pos_sales', 'import_settlement', 'import_marketplace_orders', 'import_tcs_statement', 'import_26as_credits', 'record_stock', 'record_stock_transfer', 'set_sku_cost', 'import_sku_costs', 'value_inventory', 'set_registration', 'retire_registration', 'set_channel_identity', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote', 'add_recurring', 'stop_recurring', 'amend_invoice',
   'set_invoice_template', 'set_invoice_numbering',
   'import_tally', 'import_tally_xml', 'import_zoho', 'import_bank',
   'govt_generate_irn', 'govt_nic_cancel_irn',
@@ -1182,8 +1183,51 @@ const QUOTE_REASONS = {
   QUOTE_NOT_FOUND: 'That quote is not in these books.',
   ALREADY_INVOICED: 'That quote has already been invoiced.',
   QUOTE_DECLINED: 'That quote was declined. Make a new quote or an invoice instead.',
-  BAD_OUTCOME: 'A quote is accepted or declined.',
+  BAD_OUTCOME: 'A quote or proforma is accepted or declined, a sales order is cancelled, and a delivery challan is returned or cancelled.',
+  BAD_KIND: 'MyCA makes quotes, proforma invoices, sales orders and delivery challans.',
+  BAD_CHALLAN_REASON: 'A delivery challan is for job work, supply on approval, line sales, an exhibition, own use or other.',
+  ALREADY_CLOSED: 'That document is already closed.',
+  CHALLAN_NOT_A_SALE: 'Goods sent for job work are not a sale, so this challan does not become an invoice. Mark it returned when the goods come back.',
 };
+
+const RECURRING_REASONS = {
+  BAD_KIND: 'An invoice, a bill or an expense can repeat.',
+  BAD_EVERY: 'It can repeat every week, month, quarter, six months or year.',
+  INVALID_DATE: 'That is not a date I can read.',
+  END_BEFORE_START: 'The last date is before the first one.',
+  SUPPLIER_REQUIRED: 'Say who the bill is from.',
+  CUSTOMER_REQUIRED: 'Say who the invoice is for.',
+  NO_LINES: 'Add what is being billed.',
+  RATE_REQUIRED: 'Give the GST rate; MyCA does not assume one.',
+  BAD_LINE: 'Each item needs a quantity above zero and a price.',
+  RATE_NOT_IN_FORCE: 'That GST rate is not one in force on the first date.',
+  ZERO_AMOUNT: 'It comes to nothing.',
+  BAD_AMOUNT: 'Give the amount.',
+  RECURRING_NOT_FOUND: 'That repeating entry is not in these books.',
+  ALREADY_STOPPED: 'That repeating entry has already stopped.',
+};
+
+function recurringPreview(state, args) {
+  const planned = planRecurring(state, args);
+  if (!planned.ok) return { blockers: [RECURRING_REASONS[planned.error] || QUOTE_REASONS[planned.error] || planned.error], summary: '', effects: [], figures: {} };
+  const { plan } = planned;
+  const what = { invoice: `Invoice to ${plan.party}`, bill: `Bill from ${plan.party}`, expense: `Expense${plan.party ? ` ${plan.party}` : ''}` }[plan.kind];
+  return {
+    blockers: [],
+    summary: `${what} for ${money(plan.amount)}, ${everyWords(plan.every)} from ${plan.startDate}${plan.endDate ? ` until ${plan.endDate}` : ''}. Next dates: ${plan.next.join(', ')}.`,
+    effects: ['Each one is posted to your books on its date by the daily run, exactly like one entered by hand. Stop it at any time; what was already posted stays.'],
+    figures: { amount: plan.amount, startDate: plan.startDate },
+  };
+}
+
+function stopRecurringPreview(state, args) {
+  const schedule = findRecurring(state, args.id);
+  if (!schedule) return { blockers: [RECURRING_REASONS.RECURRING_NOT_FOUND], summary: '', effects: [], figures: {} };
+  if (schedule.status !== 'active') return { blockers: [RECURRING_REASONS.ALREADY_STOPPED], summary: '', effects: [], figures: {} };
+  return { blockers: [], summary: `Stop ${schedule.id} (${schedule.party}, ${everyWords(schedule.every)}).`, effects: ['Nothing more is made from it. Entries already posted stay.'], figures: {} };
+}
+
+const CHALLAN_REASON_WORDS = { 'job-work': 'goods sent for job work', approval: 'supply on approval', 'line-sale': 'line sale', exhibition: 'for an exhibition', 'own-use': 'own use', other: 'other' };
 
 function quotePreview(state, args) {
   const planned = planQuote(state, args);
@@ -1192,7 +1236,7 @@ function quotePreview(state, args) {
   const heads = plan.igst > 0 ? `IGST ${money(plan.igst)}` : `CGST ${money(plan.cgst)} + SGST ${money(plan.sgst)}`;
   return {
     blockers: [],
-    summary: `Quote to ${plan.partyName}${plan.partyGstin ? ` (${plan.partyGstin})` : ''} dated ${plan.date}: taxable ${money(plan.taxable)}, ${heads}, total ${money(plan.total)}. Valid until ${plan.validUntil}.`,
+    summary: `${kindTitle(plan)} to ${plan.partyName}${plan.partyGstin ? ` (${plan.partyGstin})` : ''} dated ${plan.date}${plan.reason ? ` (${CHALLAN_REASON_WORDS[plan.reason]})` : ''}: taxable ${money(plan.taxable)}, ${heads}, total ${money(plan.total)}.${plan.kind === 'quote' || plan.kind === 'proforma' ? ` Valid until ${plan.validUntil}.` : ''}`,
     effects: ['Nothing is posted to your books and it is in no return until it becomes an invoice.'],
     figures: { total: plan.total, validUntil: plan.validUntil },
   };
@@ -1202,6 +1246,8 @@ function markQuotePreview(state, args) {
   const quote = findQuote(state, args.id);
   if (!quote) return { blockers: [QUOTE_REASONS.QUOTE_NOT_FOUND], summary: '', effects: [], figures: {} };
   if (quote.status === 'invoiced') return { blockers: [QUOTE_REASONS.ALREADY_INVOICED], summary: '', effects: [], figures: {} };
+  if (['cancelled', 'returned'].includes(quote.status)) return { blockers: [QUOTE_REASONS.ALREADY_CLOSED], summary: '', effects: [], figures: {} };
+  if (!SALES_DOCUMENT_KINDS[kindOf(quote)].outcomes.includes(String(args.outcome || ''))) return { blockers: [QUOTE_REASONS.BAD_OUTCOME], summary: '', effects: [], figures: {} };
   return { blockers: [], summary: `${quote.id} to ${quote.partyName}: ${args.outcome}.`, effects: [], figures: {} };
 }
 
@@ -1210,7 +1256,7 @@ function convertPreview(state, args) {
   if (!checked.ok) return { blockers: [QUOTE_REASONS[checked.error] || checked.error], summary: '', effects: [], figures: {} };
   const invoice = documentPreview(state, invoiceArgsFromQuote(checked.quote, args), 'sale');
   const note = checked.expired ? ` The quote expired on ${checked.quote.validUntil}.` : '';
-  return { ...invoice, summary: `From quote ${checked.quote.id}: ${invoice.summary}${note}` };
+  return { ...invoice, summary: `From ${kindTitle(checked.quote).toLowerCase()} ${checked.quote.id}: ${invoice.summary}${note}` };
 }
 
 function countSkips(skipped = []) {
@@ -1566,6 +1612,8 @@ const PREVIEWERS = {
   create_quote: quotePreview,
   mark_quote: markQuotePreview,
   convert_quote: convertPreview,
+  add_recurring: recurringPreview,
+  stop_recurring: stopRecurringPreview,
   reply_ca: replyPreview,
   close_ca: closePreview,
   import_tally: (state, args) => tallyPreview(state, args, args.csv, args.fileName || 'Tally Day Book'),

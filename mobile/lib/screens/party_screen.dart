@@ -45,6 +45,9 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
   final _taxPaid = TextEditingController();
   final _tds = TdsChoice();
   bool _exempt = false;
+  String _docKind = 'quote';
+  String _challanReason = 'job-work';
+  String _repeat = '';
   List<SalesTaxRate> _salesTaxRates = const [];
   late _Composer _composer = widget.openComposer
       ? _Composer.document
@@ -141,6 +144,8 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
       _invoiceId = party.unpaid.first.id;
       _amount.text = plainNumber(party.unpaid.first.owed);
     }
+    if (composer == _Composer.document) _repeat = '';
+    if (composer == _Composer.quote) _docKind = 'quote';
     if (composer == _Composer.document || composer == _Composer.quote) {
       final before = ratesUsedBefore(party.documents);
       if (_rate.text.trim().isEmpty && before.isNotEmpty) _rate.text = rateLabel(before.first);
@@ -258,6 +263,30 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
     if (tdsProblem != null) return setState(() => _formError = tdsProblem);
     setState(() => _composer = _Composer.none);
     final what = _sales ? 'Sale' : 'Bill';
+    if (_repeat.isNotEmpty) {
+      final args = documentArgs(
+        partyName: widget.partyName,
+        partyGstin: widget.partyGstin,
+        description: _what.text,
+        amount: amount,
+        gstRate: rate,
+      );
+      if ((args['partyGstin'] as String).isEmpty) args.remove('partyGstin');
+      args.remove('supplierInvoiceNo');
+      await propose(
+        '$what: ${rupees(amount)} + GST at ${rateLabel(rate)}%, ${(repeatEveryLabels[_repeat] ?? _repeat).toLowerCase()}',
+        'add_recurring',
+        {
+          ...args,
+          'kind': _sales ? 'invoice' : 'bill',
+          'every': _repeat,
+          'startDate': isoDate(AppScope.of(context).now()),
+        },
+      );
+      setState(() => _repeat = '');
+      _billNo.clear();
+      return;
+    }
     await propose(
       '$what: ${rupees(amount)} + GST at ${rateLabel(rate)}%${!_sales && _tds.chosen ? ', TDS ${_tds.option.section}' : ''}',
       _sales ? 'create_invoice' : 'create_purchase',
@@ -292,7 +321,10 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
       setState(() => _composer = _Composer.none);
       final args = usSaleArgs(partyName: widget.partyName, description: _what.text, amount: amount, taxJurisdiction: _jurisdiction.text, taxExempt: _exempt, exemptionReason: _exemptionReason.text);
       args.remove('partyGstin');
-      await propose(_exempt ? 'Quote: ${rupees(amount)}, exempt from sales tax' : 'Quote: ${rupees(amount)} + sales tax (${_jurisdiction.text.trim().toUpperCase()})', 'create_quote', args);
+      if (_docKind != 'quote') args['kind'] = _docKind;
+      if (_docKind == 'challan') args['reason'] = _challanReason;
+      final label = salesDocumentLabel(_docKind);
+      await propose(_exempt ? '$label: ${rupees(amount)}, exempt from sales tax' : '$label: ${rupees(amount)} + sales tax (${_jurisdiction.text.trim().toUpperCase()})', 'create_quote', args);
       setState(() => _exempt = false);
       return;
     }
@@ -315,8 +347,10 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
       gstRate: rate,
     );
     if ((args['partyGstin'] as String).isEmpty) args.remove('partyGstin');
+    if (_docKind != 'quote') args['kind'] = _docKind;
+    if (_docKind == 'challan') args['reason'] = _challanReason;
     await propose(
-      'Quote: ${rupees(amount)} + GST at ${rateLabel(rate)}%',
+      '${salesDocumentLabel(_docKind)}: ${rupees(amount)} + GST at ${rateLabel(rate)}%${_docKind == 'challan' ? ' (${(challanReasonLabels[_challanReason] ?? _challanReason).toLowerCase()})' : ''}',
       'create_quote',
       args,
     );
@@ -432,7 +466,7 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
           quote.date,
           [
             Bubble(
-              text: 'Quote ${quote.id}',
+              text: '${quote.label} ${quote.id}',
               amount: rupees(quote.total),
               tone: BubbleTone.plain,
               label: quote.date,
@@ -441,11 +475,15 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
                 'declined' => 'Declined',
                 'invoiced' => 'Invoiced',
                 'expired' => 'Expired',
+                'cancelled' => 'Cancelled',
+                'returned' => 'Came back',
                 _ => 'Open',
               },
               footnotes: [
-                if (quote.stateOn(today) == 'open')
+                if (quote.stateOn(today) == 'open' && quote.expires)
                   'Valid until ${longDate(quote.validUntil)}',
+                if (quote.kind == 'challan' && quote.reason.isNotEmpty)
+                  challanReasonLabels[quote.reason] ?? quote.reason,
                 if (quote.invoiceId.isNotEmpty) 'Became ${quote.invoiceId}',
                 'Tap to view or send',
               ],
@@ -636,7 +674,7 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
               title: _composer == _Composer.payment
                   ? (_sales ? 'Payment received' : 'Payment made')
                   : _composer == _Composer.quote
-                  ? 'New quote'
+                  ? 'New ${salesDocumentLabel(_docKind).toLowerCase()}'
                   : _composer == _Composer.purchaseNote
                   ? 'Debit note to supplier'
                   : (_sales ? 'New sale' : 'New bill'),
@@ -653,14 +691,65 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
                   ? _paymentFields(party)
                   : _composer == _Composer.purchaseNote
                   ? _purchaseNoteFields(party)
-                  : _composer == _Composer.quote && _us
-                  ? _usDocumentFields()
-                  : _documentFields(rates),
+                  : _composer == _Composer.quote
+                  ? [..._salesKindFields(), ...(_us ? _usDocumentFields() : _documentFields(rates))]
+                  : [..._documentFields(rates), if (!_us) ..._repeatFields()],
             ),
         ],
       ),
     );
   }
+
+  List<Widget> _salesKindFields() => [
+    Wrap(
+      spacing: 8,
+      runSpacing: 4,
+      children: [
+        for (final kind in salesDocumentKinds)
+          ChoiceChip(
+            key: ValueKey('kind.$kind'),
+            label: Text(salesDocumentLabel(kind)),
+            selected: _docKind == kind,
+            onSelected: (_) => setState(() => _docKind = kind),
+          ),
+      ],
+    ),
+    if (_docKind == 'challan') ...[
+      const SizedBox(height: 10),
+      DropdownButtonFormField<String>(
+        key: const ValueKey('challan.reason'),
+        isExpanded: true,
+        initialValue: _challanReason,
+        decoration: const InputDecoration(labelText: 'Why the goods are moving'),
+        items: [
+          for (final entry in challanReasonLabels.entries)
+            DropdownMenuItem(value: entry.key, child: Text(entry.value)),
+        ],
+        onChanged: (value) => setState(() => _challanReason = value ?? 'other'),
+      ),
+    ],
+    const SizedBox(height: 10),
+  ];
+
+  List<Widget> _repeatFields() => [
+    const SizedBox(height: 10),
+    DropdownButtonFormField<String>(
+      key: const ValueKey('repeat.every'),
+      isExpanded: true,
+      initialValue: _repeat,
+      decoration: const InputDecoration(
+        labelText: 'Repeat',
+        helperText: 'From today, posted on each date',
+        helperMaxLines: 2,
+      ),
+      items: [
+        const DropdownMenuItem(value: '', child: Text('Does not repeat')),
+        for (final entry in repeatEveryLabels.entries)
+          DropdownMenuItem(value: entry.key, child: Text(entry.value)),
+      ],
+      onChanged: (value) => setState(() => _repeat = value ?? ''),
+    ),
+  ];
 
   List<Widget> _usDocumentFields() => [
     if (!_sales) ...[
@@ -944,7 +1033,7 @@ class _ActionChips extends StatelessWidget {
                 ),
               if (onQuote != null)
                 ActionChip(
-                  label: const Text('Quote'),
+                  label: const Text('Quote, order or challan'),
                   onPressed: busy ? null : onQuote,
                 ),
               if (onDebitNote != null)

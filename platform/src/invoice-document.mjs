@@ -1,6 +1,6 @@
 import { gstin } from './sprint-load.mjs';
 import { creditedAgainst, debitedAgainst } from './credit-notes.mjs';
-import { quoteState } from './quotes.mjs';
+import { quoteState, kindOf, kindTitle } from './quotes.mjs';
 import { ewayBillStatus, transportWords } from './eway-bill.mjs';
 import { countryOf } from './country.mjs';
 import { invoiceTemplateOf, bankWords } from './invoice-template.mjs';
@@ -139,6 +139,9 @@ export function quoteDocument(state, id) {
     data: {
       ...common(state, quote),
       kind: 'quote',
+      documentKind: kindOf(quote),
+      documentTitle: kindTitle(quote),
+      reason: quote.reason || '',
       validUntil: quote.validUntil,
       status: quoteState(quote),
       invoiceId: quote.invoiceId || '',

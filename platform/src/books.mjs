@@ -77,6 +77,7 @@ export function newBook(company = {}) {
     caRequests: [],
     caRequestSeq: 0,
     quotes: [],
+    recurring: [],
     quoteSeq: 0,
     filings: [],
     supplierReminders: [],
@@ -160,6 +161,7 @@ export function serializeBook(book) {
     caRequests: book.caRequests || [],
     caRequestSeq: book.caRequestSeq || 0,
     quotes: book.quotes || [],
+    recurring: book.recurring || [],
     filings: book.filings || [],
     supplierReminders: book.supplierReminders || [],
     collectionReminders: book.collectionReminders || [],
@@ -239,6 +241,7 @@ export function deserializeBook(raw) {
   book.caRequests = Array.isArray(raw.caRequests) ? raw.caRequests : [];
   book.caRequestSeq = raw.caRequestSeq || 0;
   book.quotes = Array.isArray(raw.quotes) ? raw.quotes : [];
+  book.recurring = Array.isArray(raw.recurring) ? raw.recurring : [];
   book.filings = Array.isArray(raw.filings) ? raw.filings : [];
   book.supplierReminders = Array.isArray(raw.supplierReminders) ? raw.supplierReminders : [];
   book.collectionReminders = Array.isArray(raw.collectionReminders) ? raw.collectionReminders : [];

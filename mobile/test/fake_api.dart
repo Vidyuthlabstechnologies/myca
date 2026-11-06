@@ -159,6 +159,7 @@ class FakeMycaApi implements MycaApi {
   bool has2b = false;
   bool hasBalance = false;
   final customerTerms = <String, Object?>{'gstin:24AAACG1234F1Z5': 30};
+  final recurring = <Map<String, Object?>>[];
   final quotes = <Map<String, Object?>>[
     {
       'id': 'QT-0001',
@@ -450,9 +451,19 @@ class FakeMycaApi implements MycaApi {
       );
     }
     if (name == 'create_quote') {
+      final kind = (args['kind'] as String?) ?? 'quote';
+      if (kind != 'quote') {
+        return _preview('${salesDocumentLabel(kind)} to ${args['partyName']}: total ₹59,000.00.');
+      }
       return _preview(
         'Quote to ${args['partyName']}: total ₹59,000.00. Valid until 2026-11-04.',
       );
+    }
+    if (name == 'add_recurring') {
+      return _preview('Repeats ${args['every']} from ${args['startDate']}.');
+    }
+    if (name == 'stop_recurring') {
+      return _preview('Stop ${args['id']}.');
     }
     if (name == 'mark_quote') {
       return _preview('${args['id']}: ${args['outcome']}.');
@@ -647,6 +658,44 @@ class FakeMycaApi implements MycaApi {
           'posted': true,
           'confirmed': true,
         });
+      }
+      if (held.tool == 'add_recurring') {
+        recurring.add({
+          'id': 'RP-${(recurring.length + 1).toString().padLeft(4, '0')}',
+          'kind': held.args['kind'],
+          'every': held.args['every'],
+          'party': held.args['partyName'] ?? held.args['payee'] ?? held.args['narration'] ?? '',
+          'amount': held.args['amount'] ?? 29500,
+          'startDate': held.args['startDate'],
+          'endDate': '',
+          'nextDate': held.args['startDate'],
+          'status': 'active',
+          'count': 0,
+          'lastError': '',
+          'last': null,
+        });
+        return ChatReply.fromJson({'reply': 'Set up.', 'posted': true, 'confirmed': true});
+      }
+      if (held.tool == 'stop_recurring') {
+        recurring.firstWhere((r) => r['id'] == held.args['id'])['status'] = 'stopped';
+        return ChatReply.fromJson({'reply': 'Stopped.', 'posted': true, 'confirmed': true});
+      }
+      if (held.tool == 'create_quote' && (held.args['kind'] ?? 'quote') != 'quote') {
+        final kind = held.args['kind'] as String;
+        final prefix = {'proforma': 'PI', 'order': 'SO', 'challan': 'DC'}[kind];
+        quotes.add({
+          'id': '$prefix-0001',
+          'kind': kind,
+          'reason': held.args['reason'] ?? '',
+          'date': '2026-10-05',
+          'partyName': held.args['partyName'],
+          'partyGstin': held.args['partyGstin'] ?? '',
+          'total': 59000,
+          'validUntil': '2026-11-04',
+          'status': 'open',
+          'invoiceId': '',
+        });
+        return ChatReply.fromJson({'reply': '${salesDocumentLabel(kind)} $prefix-0001 made.', 'posted': true, 'confirmed': true});
       }
       if (held.tool == 'create_quote') {
         quotes.add({
@@ -1192,6 +1241,8 @@ class FakeMycaApi implements MycaApi {
         };
       case 'list_reports':
         return {'ok': true, 'reports': savedReports};
+      case 'list_recurring':
+        return {'ok': true, 'data': {'schedules': recurring}};
       case 'run_report':
         final report = savedReports.where((r) => r['name'] == args['name']).firstOrNull;
         if (report == null) return {'ok': false, 'error': 'REPORT_NOT_FOUND'};
@@ -1569,6 +1620,8 @@ class FakeMycaApi implements MycaApi {
             'id': quote['id'],
             'date': quote['date'],
             'kind': 'quote',
+            'documentKind': quote['kind'] ?? 'quote',
+            'reason': quote['reason'] ?? '',
             'validUntil': quote['validUntil'],
             'status': quote['status'],
             'invoiceId': quote['invoiceId'],

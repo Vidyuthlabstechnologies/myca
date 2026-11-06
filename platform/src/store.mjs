@@ -66,6 +66,7 @@ export function createState() {
     caRequests: [],
     caRequestSeq: 0,
     quotes: [],
+    recurring: [],
     quoteSeq: 0,
     filings: [],
     supplierReminders: [],
@@ -168,6 +169,7 @@ export function serialize(state) {
     caRequests: state.caRequests || [],
     caRequestSeq: state.caRequestSeq || 0,
     quotes: state.quotes || [],
+    recurring: state.recurring || [],
     filings: state.filings || [],
     supplierReminders: state.supplierReminders || [],
     collectionReminders: state.collectionReminders || [],
@@ -350,6 +352,7 @@ export function deserialize(raw) {
   state.caRequests = Array.isArray(raw.caRequests) ? raw.caRequests : [];
   state.caRequestSeq = raw.caRequestSeq || 0;
   state.quotes = Array.isArray(raw.quotes) ? raw.quotes : [];
+  state.recurring = Array.isArray(raw.recurring) ? raw.recurring : [];
   state.filings = Array.isArray(raw.filings) ? raw.filings : [];
   state.supplierReminders = Array.isArray(raw.supplierReminders) ? raw.supplierReminders : [];
   state.collectionReminders = Array.isArray(raw.collectionReminders) ? raw.collectionReminders : [];
