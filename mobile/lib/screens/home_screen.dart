@@ -27,6 +27,7 @@ import 'expenses_screen.dart';
 import 'business_sheet.dart';
 import 'new_entry_sheet.dart';
 import 'party_picker.dart';
+import 'pay_bills_screen.dart';
 import 'register_screen.dart';
 import 'sales_tax_screen.dart';
 import 'us_taxes_screen.dart';
@@ -46,6 +47,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<SalesTaxOverview?>? _salesTax;
   Future<Map<String, dynamic>>? _week;
   Future<Map<String, dynamic>>? _close;
+  Future<SupplierDues>? _dues;
 
   bool get _us => widget.snapshot.company.country == 'US';
 
@@ -55,7 +57,18 @@ class _HomeScreenState extends State<HomeScreen> {
     _today ??= _loadToday();
     _week ??= _loadWeek();
     _close ??= _loadClose();
+    _dues ??= _loadDues();
     if (_us) _salesTax ??= loadSalesTax(AppScope.of(context).api);
+  }
+
+  Future<SupplierDues> _loadDues() async {
+    if (_us) return SupplierDues.fromTool(null);
+    final state = AppScope.of(context);
+    try {
+      return SupplierDues.fromTool(await state.api.query('supplier_dues'));
+    } on MycaApiException {
+      return SupplierDues.fromTool(null);
+    }
   }
 
   Future<Map<String, dynamic>> _loadClose() async {
@@ -86,6 +99,7 @@ class _HomeScreenState extends State<HomeScreen> {
       _today = _loadToday();
       _week = _loadWeek();
       _close = _loadClose();
+      _dues = _loadDues();
       if (_us) _salesTax = loadSalesTax(AppScope.of(context).api);
     }
   }
@@ -220,6 +234,17 @@ class _HomeScreenState extends State<HomeScreen> {
                 return Padding(
                   padding: const EdgeInsets.only(top: 12),
                   child: _ClosePanel(data: data, checklist: checklist),
+                );
+              },
+            ),
+            FutureBuilder<SupplierDues>(
+              future: _dues,
+              builder: (context, snap) {
+                final dues = snap.data;
+                if (_us || dues == null || dues.msme.count == 0) return const SizedBox.shrink();
+                return Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: _MsmePanel(dues: dues, onTap: () => _open(const PayBillsScreen())),
                 );
               },
             ),
@@ -940,6 +965,48 @@ class _ClosePanel extends StatelessWidget {
               leading: const TintTile(tint: Tint.taxes, mark: Mark.sales),
               title: 'Bank ${rupees(cash['bank'] as num? ?? 0)} · customers owe ${rupees(data['receivable'] as num? ?? 0)}',
               subtitle: cash['source'] == 'recorded' ? 'As recorded; give today\'s bank balance for the real figure' : 'From the balance on ${cash['readingOn'] ?? ''} plus what was recorded since',
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _MsmePanel extends StatelessWidget {
+  const _MsmePanel({required this.dues, required this.onTap});
+
+  final SupplierDues dues;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final position = dues.msme;
+    final count = position.count;
+    final overdue = position.overdue;
+    final bills = count == 1 ? 'bill' : 'bills';
+    final next = dues.bills.where((bill) => bill.msme).firstOrNull;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SectionLabel('MSME suppliers'),
+        Panel(
+          children: [
+            RowCard(
+              key: const ValueKey('home.msme'),
+              leading: overdue > 0
+                  ? const TintTile(tint: Tint.urgent, mark: Mark.urgent)
+                  : const TintTile(tint: Tint.taxes, mark: Mark.comingUp),
+              title: overdue > 0
+                  ? '$overdue ${overdue == 1 ? 'bill' : 'bills'} past the MSMED limit'
+                  : '$count MSME $bills to pay inside the limit',
+              subtitle: overdue > 0
+                  ? '${rupees(position.overdueOutstanding)} not deductible until paid · $count MSME $bills open'
+                  : (next == null
+                        ? '${rupees(position.outstanding)} open'
+                        : 'Next: ${next.supplier} by ${longDate(next.payBy)} · ${rupees(position.outstanding)} open'),
+              trailing: const Chevron(),
+              onTap: onTap,
             ),
           ],
         ),

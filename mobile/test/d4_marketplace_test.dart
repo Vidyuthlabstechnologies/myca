@@ -69,6 +69,7 @@ void main() {
     await tester.pumpAndSettle();
     final today = find.text('3 things need you');
     await tester.scrollUntilVisible(today, -200, scrollable: find.byType(Scrollable).first);
+    await tester.pumpAndSettle();
     await tester.ensureVisible(today);
     await tester.pumpAndSettle();
     await tester.tap(today, warnIfMissed: false);

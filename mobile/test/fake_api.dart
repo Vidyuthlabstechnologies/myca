@@ -521,6 +521,18 @@ class FakeMycaApi implements MycaApi {
     },
   ];
 
+  final supplierTermsSet = <Map<String, Object?>>[];
+
+  final supplierDues = <String, Object?>{
+    'asOf': '2026-10-05',
+    'bills': [
+      {'billId': 'BILL-0001', 'supplier': 'Fabric Co', 'gstin': '27AABCT1332L1ZE', 'date': '2026-08-06', 'total': 42000, 'outstanding': 42000, 'payBy': '2026-08-21', 'daysLeft': -45, 'overdue': true, 'msme': true},
+      {'billId': 'BILL-0002', 'supplier': 'Micro Dyes', 'gstin': '24AAACM1234D1Z2', 'date': '2026-10-01', 'total': 11800, 'outstanding': 11800, 'payBy': '2026-10-16', 'daysLeft': 11, 'overdue': false, 'msme': true},
+    ],
+    'msme': {'count': 2, 'outstanding': 53800, 'overdue': 1, 'overdueOutstanding': 42000, 'rule': 'IT-2025 s.Deductions allowed only on actual payment (successor to s.43B(h))'},
+    'note': 'A bill to a micro or small enterprise paid after its MSMED time limit is not deductible this year; it is deducted in the year it is paid. The limit is counted from the day the goods or services were accepted.',
+  };
+
   static const _user = {
     'userId': 'USR-ADMIN',
     'name': 'Firm Admin',
@@ -682,6 +694,15 @@ class FakeMycaApi implements MycaApi {
     }
     if (name == 'set_payment_terms') {
       return _preview('${args['partyName']}: Net ${args['days']}.');
+    }
+    if (name == 'set_supplier_terms') {
+      final days = args['days'];
+      return _preview(
+        args['msme'] == true
+            ? 'Mark ${args['partyName']} as an MSME supplier (${args['category'] ?? 'category not given'}, Udyam ${args['udyam'] ?? 'not given'}) to be paid within ${days ?? 15} days'
+            : "Set ${args['partyName']}'s terms to $days days",
+        {'days': days ?? 15},
+      );
     }
     if (name == 'set_cash_balance') {
       return _preview(
@@ -1038,6 +1059,14 @@ class FakeMycaApi implements MycaApi {
             held.args['days'];
         return ChatReply.fromJson({
           'reply': 'Noted.',
+          'posted': true,
+          'confirmed': true,
+        });
+      }
+      if (held.tool == 'set_supplier_terms') {
+        supplierTermsSet.add(held.args);
+        return ChatReply.fromJson({
+          'reply': '${held.args['partyName']} is recorded as an MSME. New bills from them carry the pay-by date from the MSMED Act; old bills keep theirs.',
           'posted': true,
           'confirmed': true,
         });
@@ -1830,6 +1859,8 @@ class FakeMycaApi implements MycaApi {
             'count': 2,
           },
         };
+      case 'supplier_dues':
+        return {'ok': true, 'data': supplierDues};
       case 'list_suta_rates':
         return {'ok': true, 'data': {'rates': sutaRates}};
       case 'list_year_closings':
