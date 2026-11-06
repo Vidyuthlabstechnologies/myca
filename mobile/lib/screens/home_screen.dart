@@ -196,6 +196,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 ],
               ),
             ),
+            if (state.recoveryNote.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 14),
+                child: _RecoveryNote(words: state.recoveryNote, onDismiss: state.dismissRecoveryNote),
+              ),
             _AskBar(onSubmit: (text) => _open(AskScreen(first: text))),
             const SizedBox(height: 18),
             if (company.country == 'IN')
@@ -424,6 +429,38 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _RecoveryNote extends StatelessWidget {
+  const _RecoveryNote({required this.words, required this.onDismiss});
+
+  final String words;
+  final VoidCallback onDismiss;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    return Container(
+      key: const ValueKey('home.recovery'),
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(16, 14, 8, 6),
+      decoration: BoxDecoration(
+        color: Palette.warnSoft,
+        borderRadius: BorderRadius.circular(radiusCard),
+        border: Border.all(color: Palette.line),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(words, style: text.bodyLarge),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(onPressed: onDismiss, child: const Text('Got it')),
+          ),
+        ],
       ),
     );
   }
@@ -1020,6 +1057,18 @@ class _WeekPanel extends StatelessWidget {
 
   final List<Map<String, dynamic>> items;
 
+  static String _title(Map<String, dynamic> item) {
+    final title = '${item['title']}';
+    final amount = item['amount'];
+    if (item['kind'] == 'receivable') {
+      return '${title.split(' owes ').first} owes ${rupees(amount as num? ?? 0)} on ${item['invoiceId'] ?? ''}';
+    }
+    if (item['kind'] != 'payable' || amount is! num) return title;
+    final supplier = RegExp(r'^Pay (.+) \S+ on \S+?(?: \(MSME\))?$').firstMatch(title)?.group(1);
+    if (supplier == null) return title;
+    return 'Pay $supplier ${rupees(amount)} on ${item['billId'] ?? ''}${item['msme'] == true ? ' (MSME)' : ''}';
+  }
+
   @override
   Widget build(BuildContext context) {
     final overdue = items.where((item) => item['overdue'] == true).length;
@@ -1032,7 +1081,7 @@ class _WeekPanel extends StatelessWidget {
             for (final item in items.take(6))
               RowCard(
                 leading: TintTile(tint: item['overdue'] == true ? Tint.urgent : Tint.taxes, mark: item['overdue'] == true ? Mark.urgent : Mark.comingUp),
-                title: item['kind'] == 'receivable' ? '${'${item['title']}'.split(' owes ').first} owes ${rupees(item['amount'] as num? ?? 0)} on ${item['invoiceId'] ?? ''}' : '${item['title']}',
+                title: _title(item),
                 subtitle: '${item['detail'] ?? ''}',
               ),
           ],

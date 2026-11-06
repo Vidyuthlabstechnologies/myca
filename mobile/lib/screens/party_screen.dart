@@ -59,10 +59,19 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
   String _proposedTool = '';
   Map<String, String> _riskByBill = const {};
   bool _risksLoaded = false;
+  Map<String, SupplierDueBill>? _dues;
+  bool _duesAnswered = false;
+  bool _duesAsked = false;
+  Snapshot? _duesFor;
 
   bool get _sales => widget.kind == RegisterKind.sales;
 
   bool get _us => (AppScope.of(context).snapshot?.company.country ?? 'IN') == 'US';
+
+  bool get _ownsBooks {
+    final role = AppScope.of(context).snapshot?.activeUser?.role;
+    return role == 'owner' || role == 'admin';
+  }
 
   @override
   MycaApi get api => AppScope.of(context).api;
@@ -72,6 +81,38 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
     super.didChangeDependencies();
     if (_us && _sales && _salesTaxRates.isEmpty) _loadSalesTaxRates();
     if (!_sales && !_us && !_risksLoaded) _loadRisks();
+    final snapshot = AppScope.of(context).snapshot;
+    if (!_sales && !_us && (!_duesAsked || !identical(snapshot, _duesFor))) _loadDues(snapshot);
+  }
+
+  Future<void> _loadDues(Snapshot? snapshot) async {
+    _duesAsked = true;
+    _duesFor = snapshot;
+    Map<String, SupplierDueBill>? found;
+    try {
+      final answer = await api.query('supplier_dues');
+      if (toolData(answer)['bills'] is List) {
+        found = {for (final bill in SupplierDues.fromTool(answer).bills) bill.billId: bill};
+      }
+    } on MycaApiException {
+      found = null;
+    }
+    if (!mounted || !identical(snapshot, _duesFor)) return;
+    setState(() {
+      _dues = found;
+      _duesAnswered = true;
+    });
+  }
+
+  ({String date, bool msme})? _payBy(Invoice doc) {
+    if (_sales || doc.paid || doc.cancelled) return null;
+    final dues = _dues;
+    if (dues != null) {
+      final row = dues[doc.id];
+      return row == null ? null : (date: row.payBy, msme: row.msme);
+    }
+    if (!_us && !_duesAnswered) return null;
+    return doc.dueDate.isEmpty ? null : (date: doc.dueDate, msme: doc.msme);
   }
 
   Future<void> _loadRisks() async {
@@ -566,6 +607,7 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
     String what,
     List<CreditNote> Function(String) notesFor,
   ) {
+    final payBy = _payBy(doc);
     return [
       ...[
         Bubble(
@@ -596,7 +638,7 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
                 ]
               : [
                   if (doc.partial) '${rupees(doc.owed)} still owed',
-                  if (!doc.paid && !doc.cancelled && doc.dueDate.isNotEmpty) 'Pay by ${longDate(doc.dueDate)}${doc.msme ? ' (MSME)' : ''}',
+                  if (payBy != null) 'Pay by ${longDate(payBy.date)}${payBy.msme ? ' (MSME)' : ''}',
                   if (_riskByBill.containsKey(doc.id)) 'Credit at risk: ${_riskByBill[doc.id]}',
                 ],
           onTap: _sales
@@ -736,7 +778,7 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
               onQuote: _sales ? () => _open(_Composer.quote, party) : null,
               onDebitNote: !_sales && party.documents.any((d) => !d.cancelled) ? () => _open(_Composer.purchaseNote, party) : null,
               onTerms: _sales ? () => _setTerms(party) : null,
-              onSupplierTerms: !_sales && !_us ? () => _setSupplierTerms(party) : null,
+              onSupplierTerms: !_sales && !_us && _ownsBooks ? () => _setSupplierTerms(party) : null,
             )
           else
             _ComposerCard(
@@ -1321,6 +1363,8 @@ class _SupplierTermsSheetState extends State<_SupplierTermsSheet> {
                     ),
                 ],
               ),
+              const SizedBox(height: 8),
+              Text('The 45-day rule covers micro and small suppliers only.', style: text.bodySmall),
               const SizedBox(height: 12),
             ],
             TextField(

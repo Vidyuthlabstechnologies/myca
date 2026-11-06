@@ -60,7 +60,7 @@ class _CreditCardState extends State<CreditCard> {
       final held = await state.api.propose('import_gstr2b', {
         'documentSha256': sha,
         'period': widget.period,
-        'fileName': picked.name,
+        'fileName': shortFileName(picked.name),
       });
       final preview = held.preview;
       if (preview == null) {

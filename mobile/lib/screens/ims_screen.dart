@@ -225,26 +225,50 @@ class _ImsScreenState extends State<ImsScreen> with ProposalFlow {
     onTap: busy ? null : () => _openRow(row),
   );
 
-  List<Widget> _content(ImsReview review, TextTheme text) {
-    final rows = review.rows.where((row) => _shown(row, _filter)).toList();
-    return [
-      _summary(review, text),
-      const SizedBox(height: 12),
-      _actions(review),
-      if (_note.isNotEmpty) ...[
-        const SizedBox(height: 8),
-        Text(_note, style: text.bodyMedium),
-      ],
-      const SizedBox(height: 16),
-      _filterChips(),
-      const SizedBox(height: 12),
-      if (rows.isEmpty) Text(_emptyWords[_filter]!, style: text.bodyMedium) else Panel(children: [for (final row in rows) _row(row)]),
-      if (review.note.isNotEmpty) ...[
-        const SizedBox(height: 16),
-        Text(review.note, style: text.bodySmall),
-      ],
-    ];
+  List<Widget> _head(ImsReview review, bool noRows, TextTheme text) => [
+    _summary(review, text),
+    const SizedBox(height: 12),
+    _actions(review),
+    if (_note.isNotEmpty) ...[
+      const SizedBox(height: 8),
+      Text(_note, style: text.bodyMedium),
+    ],
+    const SizedBox(height: 16),
+    _filterChips(),
+    const SizedBox(height: 12),
+    if (noRows) Text(_emptyWords[_filter]!, style: text.bodyMedium),
+  ];
+
+  Widget _edged(int index, int count, Widget row) {
+    if (index > 0 && index < count - 1) return row;
+    const corner = Radius.circular(radiusCard - 1);
+    return ClipRRect(
+      borderRadius: BorderRadius.vertical(
+        top: index == 0 ? corner : Radius.zero,
+        bottom: index == count - 1 ? corner : Radius.zero,
+      ),
+      child: row,
+    );
   }
+
+  Widget _rowsSliver(List<ImsRow> rows) => SliverPadding(
+    padding: const EdgeInsets.symmetric(horizontal: 16),
+    sliver: DecoratedSliver(
+      decoration: BoxDecoration(
+        color: Palette.surface,
+        borderRadius: BorderRadius.circular(radiusCard),
+        border: Border.all(color: Palette.line),
+      ),
+      sliver: SliverPadding(
+        padding: const EdgeInsets.all(1),
+        sliver: SliverList.separated(
+          itemCount: rows.length,
+          itemBuilder: (context, index) => _edged(index, rows.length, _row(rows[index])),
+          separatorBuilder: (context, index) => const Divider(indent: 68),
+        ),
+      ),
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -256,22 +280,41 @@ class _ImsScreenState extends State<ImsScreen> with ProposalFlow {
         builder: (context, snap) {
           final review = snap.data;
           final loading = review == null && snap.connectionState != ConnectionState.done;
+          final rows = review != null && review.hasStatement ? review.rows.where((row) => _shown(row, _filter)).toList() : const <ImsRow>[];
           return Column(
             children: [
               Expanded(
-                child: ListView(
+                child: CustomScrollView(
                   controller: _scroll,
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                  children: [
-                    if (loading)
-                      const Center(child: CircularProgressIndicator())
-                    else if (review == null)
-                      const EmptyNote(text: 'Could not load the IMS decisions. Try again in a moment.')
-                    else if (!review.hasStatement)
-                      const EmptyNote(text: 'Add the GSTR-2B for this month first (Taxes → GST → Add 2B).')
-                    else
-                      ..._content(review, text),
-                    for (final entry in entries) entry.toBubble(),
+                  slivers: [
+                    SliverPadding(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                      sliver: SliverList.list(
+                        children: [
+                          if (loading)
+                            const Center(child: CircularProgressIndicator())
+                          else if (review == null)
+                            const EmptyNote(text: 'Could not load the IMS decisions. Try again in a moment.')
+                          else if (!review.hasStatement)
+                            const EmptyNote(text: 'Add the GSTR-2B for this month first (Taxes → GST → Add 2B).')
+                          else
+                            ..._head(review, rows.isEmpty, text),
+                        ],
+                      ),
+                    ),
+                    if (rows.isNotEmpty) _rowsSliver(rows),
+                    SliverPadding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                      sliver: SliverList.list(
+                        children: [
+                          if (review != null && review.hasStatement && review.note.isNotEmpty) ...[
+                            const SizedBox(height: 16),
+                            Text(review.note, style: text.bodySmall),
+                          ],
+                          for (final entry in entries) entry.toBubble(),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
               ),

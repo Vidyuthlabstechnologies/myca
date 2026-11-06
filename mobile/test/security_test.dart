@@ -239,11 +239,11 @@ void main() {
     await session.verifyCode(FakeCloud.code);
     Matcher says(String sentence) => throwsA(isA<MycaApiException>().having((e) => e.message, 'message', sentence));
     cloud.secondStepError = 'CODE_EXPIRED';
-    await expectLater(session.completeSecondStep('246810'), says('That code has expired. Ask for a new one.'));
+    await expectLater(session.completeSecondStep('246810'), says('This sign-in attempt is over. Tap Start over and sign in again.'));
     cloud.secondStepError = 'CODE_USED';
-    await expectLater(session.completeSecondStep('246810'), says('That code was already used. Ask for a new one.'));
+    await expectLater(session.completeSecondStep('246810'), says('That code was already used. Wait for the next one on your authenticator and try again.'));
     cloud.secondStepError = 'TOO_MANY_ATTEMPTS';
-    await expectLater(session.completeSecondStep('246810'), says('Too many wrong tries. Ask for a new code.'));
+    await expectLater(session.completeSecondStep('246810'), says('This sign-in attempt is over. Tap Start over and sign in again.'));
     expect(session.secondStepPending, isTrue);
     expect(session.signedIn, isFalse);
   });
@@ -270,7 +270,7 @@ void main() {
 
     await tester.enterText(find.byType(TextField), '000000');
     await press(tester, find.text('Sign in'));
-    expect(find.text(wrongCode), findsOneWidget);
+    expect(find.text('That code is not right. 4 tries left.'), findsOneWidget);
     expect(find.text('Enter your authenticator code'), findsOneWidget);
     expect(tokens.values, isEmpty);
 
@@ -311,17 +311,16 @@ void main() {
     cloud.secondStepError = 'CODE_EXPIRED';
     await tester.enterText(find.byType(TextField), cloud.totpCode);
     await press(tester, find.text('Sign in'));
-    expect(find.text('That code has expired. Ask for a new one.'), findsOneWidget);
+    expect(find.text('This sign-in attempt is over. Tap Start over and sign in again.'), findsOneWidget);
     expect(find.text('Enter your authenticator code'), findsOneWidget);
 
     cloud.secondStepError = 'TOO_MANY_ATTEMPTS';
     await press(tester, find.text('Sign in'));
-    expect(find.text('Too many wrong tries. Ask for a new code.'), findsOneWidget);
-    expect(find.text('That code has expired. Ask for a new one.'), findsNothing);
+    expect(find.text('This sign-in attempt is over. Tap Start over and sign in again.'), findsOneWidget);
 
     await press(tester, find.text('Start over'));
     expect(find.text('Your mobile number'), findsOneWidget);
-    expect(find.text('Too many wrong tries. Ask for a new code.'), findsNothing);
+    expect(find.text('This sign-in attempt is over. Tap Start over and sign in again.'), findsNothing);
 
     cloud.secondStepError = '';
     await phoneCodeSignIn(tester);

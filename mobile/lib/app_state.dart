@@ -78,6 +78,7 @@ class AppState extends ChangeNotifier {
   bool locked = false;
   bool showBooksCheck = false;
   bool crashReportsOn = false;
+  String recoveryNote = '';
   DateTime? _leftAt;
 
   bool get _guards => cloud != null && cloud!.signedIn && lockAvailable && lockEnabled;
@@ -113,6 +114,7 @@ class AppState extends ChangeNotifier {
     final hosted = cloud;
     if (hosted != null && !hosted.ready) {
       snapshot = null;
+      if (!hosted.signedIn) recoveryNote = '';
       loading = false;
       error = '';
       notifyListeners();
@@ -132,6 +134,7 @@ class AppState extends ChangeNotifier {
       _sendCrashReports();
     } on SignedOutException {
       snapshot = null;
+      recoveryNote = '';
     } on MycaApiException catch (err) {
       error = err.message;
     }
@@ -182,6 +185,14 @@ class AppState extends ChangeNotifier {
     await store.setLockEnabled(enabled);
     notifyListeners();
     return true;
+  }
+
+  void noteSecondStep(SecondStepResult result) => recoveryNote = result.recoveryNote;
+
+  void dismissRecoveryNote() {
+    if (recoveryNote.isEmpty) return;
+    recoveryNote = '';
+    notifyListeners();
   }
 
   Future<void> finishWelcome() async {

@@ -95,7 +95,8 @@ class _PhoneSignInScreenState extends State<PhoneSignInScreen> {
   Future<void> _secondStep() {
     final state = AppScope.of(context);
     return _run(() async {
-      await state.cloud!.completeSecondStep(_authCode.text.trim());
+      final result = await state.cloud!.completeSecondStep(_authCode.text.trim());
+      state.noteSecondStep(result);
       await state.refresh();
     });
   }
