@@ -218,6 +218,22 @@ Future<Uint8List> buildInvoicePdf(
           pw.Text('PAY TO', style: label),
           pw.SizedBox(height: 3),
           pw.Text(design.bankWords, style: body),
+          if (doc.upiLink.isNotEmpty) ...[
+            pw.SizedBox(height: 8),
+            pw.Row(
+              crossAxisAlignment: pw.CrossAxisAlignment.center,
+              children: [
+                pw.BarcodeWidget(
+                  barcode: pw.Barcode.qrCode(),
+                  data: doc.upiLink,
+                  width: 84,
+                  height: 84,
+                ),
+                pw.SizedBox(width: 10),
+                pw.Text('Scan to pay ${rupees(doc.balance)}\nwith any UPI app', style: small),
+              ],
+            ),
+          ],
         ],
         if (design.terms.isNotEmpty) ...[
           pw.SizedBox(height: 14),

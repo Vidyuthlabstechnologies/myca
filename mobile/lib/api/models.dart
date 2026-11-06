@@ -2079,6 +2079,7 @@ class InvoiceDocument {
     this.taxExempt = false,
     this.exemptionReason = '',
     this.template = const InvoiceTemplate(),
+    this.upiLink = '',
   });
 
   static InvoiceDocument? fromTool(Object? json) {
@@ -2134,12 +2135,14 @@ class InvoiceDocument {
       taxExempt: map['taxExempt'] == true,
       exemptionReason: _text(map['exemptionReason']),
       template: InvoiceTemplate.fromJson(map['template']),
+      upiLink: _text(_map(map['upiPayment'])['link']),
       missing: [
         for (final code in (map['missing'] as List? ?? const [])) _text(code),
       ],
     );
   }
 
+  final String upiLink;
   final String id;
   final String date;
   final String sellerName;

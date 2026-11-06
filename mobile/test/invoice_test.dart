@@ -99,6 +99,23 @@ void main() {
     expect(invoiceFileName(doc), 'INV-0002.pdf');
   });
 
+  test('an invoice with a UPI payment link reads it and draws a payable PDF with the QR code', () async {
+    final api = FakeMycaApi(signedIn: true);
+    final json = await api.query('invoice_document', {'id': 'INV-0002'}) as Map<String, dynamic>;
+    final data = Map<String, dynamic>.from(json['data'] as Map);
+    data['template'] = {'bankWords': 'HDFC Bank, UPI asha.traders@okhdfcbank'};
+    data['upiPayment'] = {'upi': 'asha.traders@okhdfcbank', 'amount': 277600, 'link': 'upi://pay?pa=asha.traders%40okhdfcbank&pn=Nalanda&am=277600.00&cu=INR&tn=INV-0002'};
+    final doc = InvoiceDocument.fromTool({'ok': true, 'data': data})!;
+    expect(doc.upiLink, startsWith('upi://pay?pa=asha.traders%40okhdfcbank'));
+    final withQr = await buildInvoicePdf(doc, regular: fontBytes(invoiceFontRegular), bold: fontBytes(invoiceFontBold));
+    expect(latin1.decode(withQr.sublist(0, 5)), '%PDF-');
+    data.remove('upiPayment');
+    final plainDoc = InvoiceDocument.fromTool({'ok': true, 'data': data})!;
+    expect(plainDoc.upiLink, isEmpty);
+    final plain = await buildInvoicePdf(plainDoc, regular: fontBytes(invoiceFontRegular), bold: fontBytes(invoiceFontBold));
+    expect(withQr.length, greaterThan(plain.length));
+  });
+
   test('the invoice design from the server is read, with the standard design when none is set', () {
     final design = InvoiceTemplate.fromJson({'accent': '#1d4ed8', 'layout': 'minimal', 'signatory': 'Asha Rao', 'footer': 'Thank you', 'terms': 'Net 30', 'bankWords': 'HDFC Bank, A/c 50100123456789, IFSC HDFC0001234', 'showHsn': false});
     expect(design.accent, 0xFF1D4ED8);

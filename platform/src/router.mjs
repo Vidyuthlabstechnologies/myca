@@ -518,6 +518,7 @@ function fmtToolResultCore(name, result) {
   if (name === 'settlement_status' && result.data) return settlementStatusWords(result.data, money);
   if (name === 'contractor_1099_file' && result.data) return file1099Words(result.data, money);
   if (name === 'export_trial_balance' && result.data) return `Trial balance as of ${result.data.asOf}: ${result.data.accounts === 1 ? '1 account' : `${result.data.accounts} accounts`}, debits ${money(result.data.debit)}, credits ${money(result.data.credit)}${result.data.balanced ? ', ties' : ', does not tie'}. Saved as ${result.data.fileName} from the Taxes screen.`;
+  if ((name === 'profit_and_loss' || name === 'balance_sheet' || name === 'cash_flow_statement' || name === 'customer_statement') && result.data?.text) return result.data.text;
   if (name === 'import_us_invoices' && result.data?.created) return usImportWords(result.data, money);
   if ((name === 'schedule_c_summary' || name === 'estimated_tax_dates') && result.data) return ownerTaxWords(name, result.data, money);
   if (name === 'set_suta_rate' && result.rate) {
