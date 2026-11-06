@@ -11,6 +11,8 @@ import { cashForecast } from './cash-forecast.mjs';
 import { deadlineRun } from './deadline-run.mjs';
 import { creditAtRisk } from './gstr2b-check.mjs';
 import { tdsSummary } from './tds-deduction.mjs';
+import { tdsCreditCheck, tdsWithheldOn } from './tds-credits.mjs';
+import { fyOfPeriod } from './marketplace-credits.mjs';
 import { skuMargins, stockPosition } from './sku-margins.mjs';
 import { businessSummary } from './business-summary.mjs';
 import { periodSummary } from './period-summary.mjs';
@@ -204,16 +206,18 @@ function sales(state, args, today) {
   if (!range.ok) return range;
   const us = countryOf(state) === 'US';
   const invoices = (state.invoices || []).filter(inRange(range)).sort(byDateThenId);
+  const withheld = !us && invoices.some((inv) => tdsWithheldOn(inv) > 0);
   const rows = invoices.map((inv) => {
-    const received = receivedAgainst(inv);
+    const tds = tdsWithheldOn(inv);
+    const received = round2(receivedAgainst(inv) - tds);
     const outstanding = inv.status === 'cancelled' ? 0 : outstandingOf(state, inv);
     return us
       ? [inv.date, inv.id, inv.partyName, money(inv.subtotal ?? inv.taxable), money(inv.salesTax), money(inv.total), received, outstanding, text(inv.status)]
-      : [inv.date, inv.id, inv.partyName, text(inv.partyGstin), money(inv.taxable), money(inv.cgst), money(inv.sgst), money(inv.igst), money(inv.total), received, outstanding, text(inv.status)];
+      : [inv.date, inv.id, inv.partyName, text(inv.partyGstin), money(inv.taxable), money(inv.cgst), money(inv.sgst), money(inv.igst), money(inv.total), received, ...(withheld ? [tds] : []), outstanding, text(inv.status)];
   });
   const header = us
     ? ['Date', 'Number', 'Customer', 'Subtotal', 'Sales tax', 'Total', 'Received', 'Outstanding', 'Status']
-    : ['Date', 'Number', 'Customer', 'GSTIN', 'Taxable', 'CGST', 'SGST', 'IGST', 'Total', 'Received', 'Outstanding', 'Status'];
+    : ['Date', 'Number', 'Customer', 'GSTIN', 'Taxable', 'CGST', 'SGST', 'IGST', 'Total', 'Received', ...(withheld ? ['TDS withheld'] : []), 'Outstanding', 'Status'];
   return done([sheet('Sales', header, rows, us ? [12, 12, 32] : [12, 12, 32, 18])], range.tag, range.label);
 }
 
@@ -278,11 +282,13 @@ function debitNotes(state, args, today) {
 function customerDues(state, args, today) {
   const open = (state.invoices || []).filter((inv) => inv.status !== 'cancelled').map((inv) => ({ inv, due: outstandingOf(state, inv) })).filter((item) => item.due > 0.005);
   open.sort((a, b) => String(a.inv.dueDate || a.inv.date).localeCompare(String(b.inv.dueDate || b.inv.date)) || a.inv.id.localeCompare(b.inv.id));
+  const withheld = open.some(({ inv }) => tdsWithheldOn(inv) > 0);
   const rows = open.map(({ inv, due }) => {
     const late = overdueBy(inv, today);
-    return [inv.partyName, text(inv.partyGstin), inv.id, inv.date, text(inv.dueDate), money(inv.total), receivedAgainst(inv), due, late == null ? '' : late];
+    const tds = tdsWithheldOn(inv);
+    return [inv.partyName, text(inv.partyGstin), inv.id, inv.date, text(inv.dueDate), money(inv.total), round2(receivedAgainst(inv) - tds), ...(withheld ? [tds] : []), due, late == null ? '' : late];
   });
-  return done([sheet('Customer dues', ['Customer', 'GSTIN', 'Invoice', 'Date', 'Due date', 'Total', 'Received', 'Outstanding', 'Days overdue'], rows, [32, 18])], today, `as of ${today}`);
+  return done([sheet('Customer dues', ['Customer', 'GSTIN', 'Invoice', 'Date', 'Due date', 'Total', 'Received', ...(withheld ? ['TDS withheld'] : []), 'Outstanding', 'Days overdue'], rows, [32, 18])], today, `as of ${today}`);
 }
 
 function supplierDuesSheet(state, args, today) {
@@ -345,6 +351,27 @@ function tdsSheets(state, args, today) {
     sheet('Entries', ['Date', 'Document', 'Payee', 'PAN', 'Section', 'Basis', 'Rate %', 'TDS'], (d.entries || []).map((row) => [text(row.date), text(row.source), text(row.payee), text(row.pan), text(row.section), money(row.basis), row.rate == null ? '' : row.rate, money(row.tds)]), [12, 12, 32, 14]),
     sheet('Deposits', ['Deposit', 'Date', 'Amount', 'Challan', 'Paid by'], (d.deposits || []).map((row) => [text(row.id), text(row.date), money(row.amount), text(row.challan), text(row.mode)])),
   ], today, `as of ${today}`);
+}
+
+function tdsCreditSheets(state, args, today) {
+  const range = periodRange(args, today);
+  if (!range.ok) return range;
+  const d = tdsCreditCheck(state, { fy: fyOfPeriod(range.to.slice(0, 7)) }).data;
+  const rows = d.rows.map((row) => [row.section, text(row.tan), row.deductor, text(row.customer), row.quarter, money(row.in26as), money(row.inBooks), money(row.gap), row.status]);
+  const summary = [
+    ['Financial year', d.fy],
+    ['Source', d.source],
+    ['In 26AS', money(d.totals.in26as)],
+    ['In books', money(d.totals.inBooks)],
+    ['Gap (books minus 26AS)', money(d.totals.gap)],
+    ['In 26AS but not in books', money(d.totals.notInBooks)],
+    ['In books but not in 26AS', money(d.totals.notIn26as)],
+    ['Note', d.note],
+  ];
+  return done([
+    sheet('26AS vs books', ['Section', 'TAN', 'Deductor', 'Customer', 'Quarter', 'In 26AS', 'In books', 'Gap', 'Status'], rows, [10, 14, 34, 28, 12]),
+    sheet('Summary', ['Item', 'Value'], summary, [36, 60]),
+  ], today.slice(0, 7), `FY ${d.fy}`);
 }
 
 function marginsSheets(state, args, today) {
@@ -469,6 +496,7 @@ export const REPORT_SHEETS = {
   cash_forecast: { title: 'Cash forecast', build: cashForecastSheets },
   credit_at_risk: { title: 'Credit at risk', country: 'IN', build: creditAtRiskSheets },
   tds_summary: { title: 'TDS', country: 'IN', build: tdsSheets },
+  tds_credit_check: { title: 'Form 26AS check', country: 'IN', build: tdsCreditSheets },
   sku_margins: { title: 'Margins by SKU', build: marginsSheets },
   stock_position: { title: 'Stock on hand', build: stockSheets },
   saved_report: { title: 'Saved report', build: savedReport },

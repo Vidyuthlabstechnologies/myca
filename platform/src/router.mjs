@@ -2,7 +2,8 @@ import { TOOLS, runTool } from './tools.mjs';
 import { templateWords } from './invoice-template.mjs';
 import { settlementWords, settlementStatusWords } from './settlements.mjs';
 import { orderImportWords } from './marketplace-orders.mjs';
-import { creditsWords } from './marketplace-credits.mjs';
+import { creditsWords, sectionWords } from './marketplace-credits.mjs';
+import { tdsCreditWords, isTdsReceipt } from './tds-credits.mjs';
 import { marginsWords, stockWords, stockMovesWords } from './sku-margins.mjs';
 import { valuationWords, valuationsWords } from './inventory.mjs';
 import { connectorsWords, fetchWords } from './channel-connectors.mjs';
@@ -123,6 +124,9 @@ const FAILURES = {
   BILL_NOT_FOUND: () => 'That bill is not in these books, so nothing was changed.',
   BAD_AMOUNT: () => 'That amount does not work here, so nothing was changed.',
   OVERPAYMENT: (r) => `That is more than is owed${r.due != null ? ` (${money(r.due)})` : ''}, so nothing was changed.`,
+  INVOICE_CANCELLED: () => 'That invoice is cancelled, so nothing was changed.',
+  BAD_SECTION: () => 'Say which TDS section the customer deducted under, like 194C or 194J.',
+  BAD_TAN: () => 'A TAN looks like MUMA12345B.',
   RATE_REQUIRED: () => 'A GST rate is needed for each item; MyCA does not assume one. Nothing was changed.',
   NO_LINES: () => 'There is nothing to put on it, so nothing was changed.',
   ZERO_AMOUNT: () => 'It comes to nothing, so nothing was changed.',
@@ -398,9 +402,11 @@ function fmtToolResultCore(name, result) {
   if (name === 'record_receipt' && result.invoice) {
     const i = result.invoice;
     const last = (i.receipts || []).at(-1) || {};
-    const received = (i.receipts || []).reduce((sum, receipt) => sum + Number(receipt.amount || 0), 0);
-    return `Recorded ${money(last.amount)} received from ${i.partyName} by ${last.mode || 'bank'} on ${last.date} against ${i.id}. ${i.status === 'paid' ? `${i.id} is paid in full.` : `${money(received)} of ${money(i.total)} received so far.`}`;
+    const received = (i.receipts || []).filter((receipt) => !isTdsReceipt(receipt)).reduce((sum, receipt) => sum + Number(receipt.amount || 0), 0);
+    const withheld = (i.receipts || []).filter(isTdsReceipt).reduce((sum, receipt) => sum + Number(receipt.amount || 0), 0);
+    return `Recorded ${money(last.amount)} received from ${i.partyName} by ${last.mode || 'bank'} on ${last.date} against ${i.id}. ${i.status === 'paid' ? `${i.id} is paid in full.` : `${money(received)} of ${money(i.total)} received so far${withheld ? ` (plus ${money(withheld)} TDS withheld)` : ''}.`}`;
   }
+  if (name === 'record_tds_withheld' && result.receipt) return `Recorded TDS of ${money(result.receipt.amount)} withheld on ${result.invoice.id}; ${money(result.remaining)} still owed.`;
   if (name === 'post_expense' && result.expense) {
     const e = result.expense;
     return `Posted ${e.id}: ${money(e.amount)} ${e.description ? `for ${e.description} ` : ''}from ${e.mode === 'cash' ? 'cash' : 'the bank'} on ${e.date}, under ${e.headName}.${e.inputCredit ? ` Input credit ${money((e.cgst || 0) + (e.sgst || 0) + (e.igst || 0))}.` : ''}${e.tds?.amount ? ` ${money(e.tds.amount)} TDS under ${e.tds.section} held back; ${money(e.amount - e.tds.amount)} paid.` : ''}`;
@@ -560,7 +566,8 @@ function fmtToolResultCore(name, result) {
   if (name === 'import_marketplace_orders' && result.data?.created) return orderImportWords(result.data, money);
   if (name === 'set_channel_identity' && result.identity) return `${result.channel[0].toUpperCase()}${result.channel.slice(1)}: ${[result.identity.gstin ? `GSTIN ${result.identity.gstin}` : '', result.identity.tan ? `TAN ${result.identity.tan}` : '', result.identity.name || ''].filter(Boolean).join(', ')}. Statements now match this channel by number.`;
   if (name === 'import_tcs_statement' && result.data) return `Recorded ${result.data.imported === 1 ? '1 operator-month' : `${result.data.imported} operator-months`} of TCS totalling ${money(result.data.total)}.${result.data.unknownOperators.length ? ` ${result.data.unknownOperators.length === 1 ? 'One operator GSTIN is' : `${result.data.unknownOperators.length} operator GSTINs are`} not tied to a channel yet: ${result.data.unknownOperators.join(', ')}.` : ''} The next GST payment uses the confirmed TCS before new cash.`;
-  if (name === 'import_26as_credits' && result.data) return `Recorded ${result.data.imported === 1 ? '1 entry' : `${result.data.imported} entries`} of TDS under 194-O totalling ${money(result.data.total)}${result.data.otherSections ? ` (${result.data.otherSections} rows under other sections ignored)` : ''}.`;
+  if (name === 'import_26as_credits' && result.data) return `Recorded ${result.data.imported === 1 ? '1 entry' : `${result.data.imported} entries`} of TDS from Form 26AS totalling ${money(result.data.total)}${result.data.imported ? ` (${sectionWords(result.data.bySection)})` : ''}${result.data.otherSections ? `; ${result.data.otherSections} rows with no readable section left out` : ''}.`;
+  if (name === 'tds_credit_check' && result.data) return tdsCreditWords(result.data, money);
   if (name === 'marketplace_credits' && result.data) return creditsWords(result.data, money);
   if (name === 'set_sku_cost' && result.sku) return `${result.sku}${result.name ? ` (${result.name})` : ''}: cost ${money(result.cost)} per unit${result.before?.cost != null && result.before.cost !== result.cost ? ` (was ${money(result.before.cost)})` : ''}. Margins use it from now.`;
   if (name === 'import_sku_costs' && result.data) return `Recorded costs for ${result.data.updated === 1 ? '1 SKU' : `${result.data.updated} SKUs`}${result.data.held.length ? `; ${result.data.held.length} rows held back` : ''}.`;

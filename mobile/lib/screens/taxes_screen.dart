@@ -16,6 +16,7 @@ import 'credit_card.dart';
 import 'filing_screen.dart';
 import 'gst_payment_screen.dart';
 import 'year_close_screen.dart';
+import 'tds_credit_screen.dart';
 import 'tds_screen.dart';
 import 'review_screen.dart';
 
@@ -745,6 +746,15 @@ class _TaxesScreenState extends State<TaxesScreen> {
                                     onTap: () => _saveForm16A(tds.quarters.lastWhere((q) => q.kind != 'salary')),
                                   ),
                               ],
+                              RowCard(
+                                leading: const TintTile(tint: Tint.taxes, mark: Mark.taxes),
+                                title: 'Form 26AS check',
+                                subtitle: 'TDS your customers deducted, compared with 26AS',
+                                trailing: const Chevron(),
+                                onTap: () => Navigator.of(context).push(
+                                  MaterialPageRoute<void>(builder: (_) => const TdsCreditScreen()),
+                                ),
+                              ),
                             ],
                           ),
                           if (_tdsNote.isNotEmpty && tds.deductor)

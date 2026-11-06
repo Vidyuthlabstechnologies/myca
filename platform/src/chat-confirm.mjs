@@ -55,7 +55,8 @@ import { planSupplierNote } from './supplier-notes.mjs';
 import { planPosImport } from './import-pos.mjs';
 import { planSettlement, settlementWords } from './settlements.mjs';
 import { planOrderImport, settlementInvoices } from './marketplace-orders.mjs';
-import { planTcsStatement, plan26asCredits } from './marketplace-credits.mjs';
+import { planTcsStatement, plan26asCredits, sectionWords } from './marketplace-credits.mjs';
+import { planTdsWithheld } from './tds-credits.mjs';
 import { regArg, planRegistration, openDocumentsFor, registrationByGstin } from './registrations.mjs';
 import { planSkuCost, parseSkuCostsCsv } from './sku-margins.mjs';
 import { planInventoryValuation } from './inventory.mjs';
@@ -70,7 +71,7 @@ import { findBankLine, planMatch, planBankCharges, planBankRule, planBankAccount
 import { runBankRules, ruleWords } from './bank-rules.mjs';
 
 export const CONFIRM_TOOLS = new Set([
-  'create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'record_filing', 'record_supplier_reminder', 'record_collection_reminder', 'record_payment_run', 'month_close_approve', 'set_sku_supply', 'record_purchase_order', 'record_advance_tax', 'set_supplier_bank', 'attach_document', 'push_tally', 'import_payroll_summary', 'add_employee', 'change_salary', 'end_employment', 'approve_payroll', 'record_salary_payment', 'set_tds_deductor', 'record_tds_deposit', 'tds_review_answer', 'set_gst_credit_opening', 'record_gst_payment', 'close_year', 'post_expense', 'set_expense_head', 'create_credit_note', 'create_debit_note', 'create_purchase_note', 'record_supplier_debit_note', 'cancel_invoice', 'gst_review_answer', 'import_gstr2b', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'set_party_address', 'set_transport', 'set_sales_tax_rate', 'set_contractor', 'set_sales_tax_nexus', 'sales_tax_review_answer', 'record_sales_tax_payment', 'record_sales_tax_filing', 'set_withholding', 'set_suta_rate', 'import_us_invoices', 'import_pos_sales', 'import_settlement', 'import_marketplace_orders', 'import_tcs_statement', 'import_26as_credits', 'record_stock', 'record_stock_transfer', 'set_sku_cost', 'import_sku_costs', 'value_inventory', 'set_registration', 'retire_registration', 'set_channel_identity', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote', 'add_recurring', 'stop_recurring', 'amend_invoice', 'match_bank_line', 'unmatch_bank_line', 'book_bank_charges', 'add_bank_rule', 'remove_bank_rule', 'run_bank_rules', 'set_bank_account', 'record_transfer',
+  'create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'record_filing', 'record_supplier_reminder', 'record_collection_reminder', 'record_payment_run', 'month_close_approve', 'set_sku_supply', 'record_purchase_order', 'record_advance_tax', 'set_supplier_bank', 'attach_document', 'push_tally', 'import_payroll_summary', 'add_employee', 'change_salary', 'end_employment', 'approve_payroll', 'record_salary_payment', 'set_tds_deductor', 'record_tds_deposit', 'tds_review_answer', 'set_gst_credit_opening', 'record_gst_payment', 'close_year', 'post_expense', 'set_expense_head', 'create_credit_note', 'create_debit_note', 'create_purchase_note', 'record_supplier_debit_note', 'cancel_invoice', 'gst_review_answer', 'import_gstr2b', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'set_party_address', 'set_transport', 'set_sales_tax_rate', 'set_contractor', 'set_sales_tax_nexus', 'sales_tax_review_answer', 'record_sales_tax_payment', 'record_sales_tax_filing', 'set_withholding', 'set_suta_rate', 'import_us_invoices', 'import_pos_sales', 'import_settlement', 'import_marketplace_orders', 'import_tcs_statement', 'import_26as_credits', 'record_tds_withheld', 'record_stock', 'record_stock_transfer', 'set_sku_cost', 'import_sku_costs', 'value_inventory', 'set_registration', 'retire_registration', 'set_channel_identity', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote', 'add_recurring', 'stop_recurring', 'amend_invoice', 'match_bank_line', 'unmatch_bank_line', 'book_bank_charges', 'add_bank_rule', 'remove_bank_rule', 'run_bank_rules', 'set_bank_account', 'record_transfer',
   'set_invoice_template', 'set_invoice_numbering', 'set_supplier_terms',
   'import_tally', 'import_tally_xml', 'import_zoho', 'import_bank',
   'govt_generate_irn', 'govt_nic_cancel_irn',
@@ -1636,13 +1637,41 @@ function tcsStatementPreview(state, args) {
 
 function credits26asPreview(state, args) {
   const planned = plan26asCredits(state, args);
-  if (!planned.ok) return { blockers: [planned.error === 'NO_HEADER' ? `The file needs ${planned.parsed.need}.` : `No section 194-O row could be read${planned.parsed?.otherSections ? ` (${planned.parsed.otherSections} rows under other sections were ignored)` : ''}.`], summary: '', effects: [], figures: {} };
+  if (!planned.ok) return { blockers: [planned.error === 'NO_HEADER' ? `The file needs ${planned.parsed.need}.` : `No row with a readable section could be read${planned.parsed?.otherSections ? ` (${planned.parsed.otherSections} rows had no section I can read)` : ''}.`], summary: '', effects: [], figures: {} };
   const dup = planned.skipped.filter((row) => row.reason === 'exists').length;
   return {
     blockers: planned.ready.length ? [] : [dup ? 'Every row is already recorded.' : 'No row could be read.'],
-    summary: `Form 26AS: ${planned.ready.length === 1 ? '1 entry' : `${planned.ready.length} entries`} under section 194-O totalling ${money(planned.total)}${planned.otherSections ? ` (${planned.otherSections} rows under other sections ignored here)` : ''}${dup ? `; ${dup} already recorded` : ''}.`,
-    effects: ['The TDS is credit against your income tax for the year; quarters where a marketplace deducted more in settlements than 26AS shows become exceptions.'],
+    summary: `Form 26AS: ${planned.ready.length === 1 ? '1 entry' : `${planned.ready.length} entries`} totalling ${money(planned.total)}${planned.ready.length ? ` (${sectionWords(planned.bySection)})` : ''}${planned.otherSections ? `; ${planned.otherSections} rows with no readable section left out` : ''}${dup ? `; ${dup} already recorded` : ''}.`,
+    effects: ['The TDS is credit against your income tax for the year. Say "check 26AS against the books" to see what is missing from your books; quarters where a marketplace deducted more under 194-O in settlements than 26AS shows become exceptions.'],
     figures: { rows: planned.ready.length, total: planned.total },
+  };
+}
+
+const TDS_WITHHELD_REASONS = {
+  INVOICE_NOT_FOUND: 'That invoice is not in these books.',
+  INVOICE_CANCELLED: 'That invoice is cancelled, so no TDS can be recorded against it.',
+  INVALID_DATE: 'That is not a date I can read.',
+  PERIOD_LOCKED: 'That date is inside the locked period.',
+  BAD_AMOUNT: 'TDS has to be a positive amount.',
+  BAD_SECTION: 'Say which TDS section the customer deducted under, like 194C or 194J.',
+  BAD_TAN: 'A TAN looks like MUMA12345B.',
+  OVERPAYMENT: 'That is more than is still owed on the invoice.',
+  PARTY_NOT_FOUND: 'The customer on that invoice is missing from these books.',
+};
+
+function tdsWithheldPreview(state, args) {
+  const plan = planTdsWithheld(state, args);
+  if (!plan.ok) {
+    const invoice = (state.invoices || []).find((item) => item.id === String(args.invoiceId || '').trim().toUpperCase());
+    const detail = plan.error === 'OVERPAYMENT' ? ` ${money(plan.due)} is owed on ${plan.invoiceId}.` : '';
+    return { blockers: [`${TDS_WITHHELD_REASONS[plan.error] || plan.error}${detail}`], summary: invoice ? `TDS withheld by ${invoice.partyName} on ${invoice.id}.` : `No invoice ${args.invoiceId}.`, effects: [], figures: {} };
+  }
+  const { invoice, amount, section, remaining } = plan;
+  return {
+    blockers: [],
+    summary: `TDS of ${money(amount)} withheld by ${invoice.partyName} on ${invoice.id} (section ${section})`,
+    effects: ['The invoice settles by that amount; the credit sits in TDS receivable (1160) until Form 26AS confirms it.'],
+    figures: { amount, remaining },
   };
 }
 
@@ -1838,6 +1867,7 @@ const PREVIEWERS = {
   retire_registration: retireRegistrationPreview,
   set_channel_identity: channelIdentityPreview,
   import_26as_credits: credits26asPreview,
+  record_tds_withheld: tdsWithheldPreview,
   import_bank: bankPreview,
   govt_generate_irn: (state, args) => irnPreview(state, args, false),
   govt_nic_cancel_irn: (state, args) => irnPreview(state, args, true),

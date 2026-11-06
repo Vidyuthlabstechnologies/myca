@@ -117,6 +117,7 @@ class RowCard extends StatelessWidget {
     required this.title,
     required this.subtitle,
     this.trailing,
+    this.badge,
     this.onTap,
   });
 
@@ -124,6 +125,7 @@ class RowCard extends StatelessWidget {
   final String title;
   final String subtitle;
   final Widget? trailing;
+  final Widget? badge;
   final VoidCallback? onTap;
 
   @override
@@ -156,6 +158,7 @@ class RowCard extends StatelessWidget {
                       maxLines: 3,
                       overflow: TextOverflow.ellipsis,
                     ),
+                    if (badge != null) ...[const SizedBox(height: 6), badge!],
                   ],
                 ),
               ),
