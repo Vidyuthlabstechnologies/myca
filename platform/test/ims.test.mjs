@@ -412,8 +412,10 @@ test('chat: a review, a bulk decision and an Excel request each reach their own 
   assert.deepEqual(plan('accept all matched invoices in ims for 2026-10'), { kind: 'tool', name: 'ims_decide', args: { period: '2026-10', select: 'matched', decision: 'accept' } });
   assert.deepEqual(plan('reject every undecided invoice in IMS for 2026-10'), { kind: 'tool', name: 'ims_decide', args: { period: '2026-10', select: 'undecided', decision: 'reject' } });
   assert.deepEqual(plan('keep all suggested ims rows pending for 2026-10'), { kind: 'tool', name: 'ims_decide', args: { period: '2026-10', select: 'suggested', decision: 'pending' } });
-  assert.deepEqual(plan('ims in excel'), { kind: 'tool', name: 'export_xlsx', args: { report: 'ims_review' } });
-  assert.deepEqual(plan('save ims for 2026-10 as an excel sheet'), { kind: 'tool', name: 'export_xlsx', args: { report: 'ims_review', period: '2026-10' } });
+  const filed = createState();
+  await runTool(filed, 'import_gstr2b', { period: '2026-10', csv: TWO_B });
+  assert.deepEqual(planLocalToolCall(filed, 'ims in excel'), { kind: 'tool', name: 'export_xlsx', args: { report: 'ims_review', period: '2026-10' } });
+  assert.deepEqual(planLocalToolCall(filed, 'save ims for 2026-10 as an excel sheet'), { kind: 'tool', name: 'export_xlsx', args: { report: 'ims_review', period: '2026-10' } });
   assert.equal(plan('2b in excel').args.report, 'credit_at_risk', 'the older 2B sheet keeps its words');
   const noPeriod = plan('accept all matched 2B rows in IMS');
   assert.equal(noPeriod.name, 'ims_decide', 'not the 2B reconciliation');

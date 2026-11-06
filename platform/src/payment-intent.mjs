@@ -6,6 +6,7 @@ const PAID_WORDS = /\b(paid|pay|paying|payment|settled|settle|cleared|clear)\b/i
 const MOVED_WORDS = /\b(transferred|transfer|transferring)\b/i;
 const MONEY_IN = /\b(received|receive|receipt|got|collected)\b/i;
 const NEW_DOCUMENT = /\b(bought|buy|purchased?|bill\s+from|invoice|gst\s*@?\s*\d)/i;
+const DAYS_SAID = /\b\d[\d,]*(?:\.\d+)?\s*(?:-\s*)?days?\b/gi;
 const EPSILON = 0.005;
 
 function inr(amount) {
@@ -58,9 +59,10 @@ function paymentCall(raw, billId, amount) {
 export function planPaymentFromChat(state, text) {
   const raw = normalizeChat(text);
   if (MONEY_IN.test(raw)) return null;
-  const amount = receiptAmount(raw);
+  const counted = raw.replace(DAYS_SAID, ' ');
+  const amount = receiptAmount(counted);
   if (!PAID_WORDS.test(raw) && !(amount != null && MOVED_WORDS.test(raw))) return null;
-  if (amount == null && saidNonPositiveAmount(raw)) return reply('An amount of zero or less cannot be paid. Say the amount paid, or leave it out to settle the whole bill. I have recorded nothing.');
+  if (amount == null && saidNonPositiveAmount(counted)) return reply('An amount of zero or less cannot be paid. Say the amount paid, or leave it out to settle the whole bill. I have recorded nothing.');
   const named = billNamed(state, raw);
   if (named) {
     if (isQuestion(raw) || isNegated(raw)) {

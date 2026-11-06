@@ -25,8 +25,10 @@ import { planReportFromChat } from './reports-intent.mjs';
 import { planIntegrationFromChat } from './integrations-intent.mjs';
 import { planCashFromChat } from './cash-intent.mjs';
 import { planTermsFromChat, takeInvoiceTerms } from './terms-intent.mjs';
-import { localToday } from './dates.mjs';
+import { isoDate, localToday } from './dates.mjs';
 import { documentsOf } from './document-store.mjs';
+import { inWords } from './words.mjs';
+import { isReturnPeriod } from './return-period.mjs';
 
 const PERIOD_TOOLS = new Set(['gst_payable', 'export_tally', 'export_gstr1_json', 'prepare_gstr1', 'filing_pack', 'prepare_gstr3b']);
 
@@ -2420,37 +2422,168 @@ function excelPlanWaits(text) {
   return POSTING_VERBS.test(text.slice(0, text.search(EXCEL_SAID)));
 }
 
+const CHAT_MONTH_WORDS = 'jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?';
+const FINANCIAL_YEAR_UNREAD = 'I could not read that financial year. Say it like "FY 2025-26", which runs from 1 April 2025 to 31 March 2026.';
+const FINANCIAL_YEAR_LABELLED = /\b(?:fy\.?|f\.\s?y\.?|financial\s+year)\s*[:#-]?\s*(\d{2,4})(?:\s*[-/]\s*(\d{2,4}))?(?![\d/-])/i;
+const FINANCIAL_YEAR_BARE = /(?<![\w/.-])(20\d{2})\s*-\s*(\d{2}|20\d{2})(?![\w/-])/;
+
+function financialYearSaid(text) {
+  const labelled = FINANCIAL_YEAR_LABELLED.exec(text);
+  const bare = labelled ? null : FINANCIAL_YEAR_BARE.exec(text);
+  if (!labelled && (!bare || isReturnPeriod(`${bare[1]}-${bare[2]}`))) return null;
+  const startText = labelled ? labelled[1] : bare[1];
+  const endText = labelled ? labelled[2] : bare[2];
+  const start = startText.length === 2 ? 2000 + Number(startText) : startText.length === 4 ? Number(startText) : 0;
+  if (!endText || start < 2000 || start > 2099) return { unreadable: true };
+  const consistent = endText.length === 2 ? Number(endText) === (start + 1) % 100 : endText.length === 4 && Number(endText) === start + 1;
+  return consistent ? { from: `${start}-04-01`, to: `${start + 1}-03-31` } : { unreadable: true };
+}
+
 function planExcelFromChat(state, text) {
   if (!EXCEL_SAID.test(text) || isNegated(text) || NOT_AN_EXPORT.test(text)) return null;
   if (namesAnExcelParty(text, excelPartyNames(state))) return null;
   if (!EXCEL_VERBS.test(text) && !EXCEL_AFTER_PREPOSITION.test(text) && !EXCEL_OF.test(text)) return null;
   const saved = SAVED_REPORT_TO_EXCEL.exec(text);
   if (saved) return { kind: 'tool', name: 'export_xlsx', args: { report: 'saved_report', name: saved[1].trim() } };
-  const found = EXCEL_REPORTS.find((entry) => entry.words.test(text));
+  const imsParty = namesAnImsParty(state, text);
+  const found = EXCEL_REPORTS.find((entry) => !(imsParty && entry.key === 'ims_review') && entry.words.test(text));
   const report = found ? found.key : 'trial_balance';
+  const named = EXCEL_PERIOD_WORDS.exec(text);
+  const period = named ? named[1].toLowerCase().replace(/\s+/g, '-') : saidPeriod(text);
+  if (report === 'ims_review' && countryOf(state) === 'IN') return planImsSheetFromChat(state, text, period);
   const from = /\b(?:from|since|starting)\s+(\d{4}-\d{2}-\d{2})\b/i.exec(text);
   const to = /\b(?:to|till|until|up\s+to)\s+(\d{4}-\d{2}-\d{2})\b/i.exec(text);
   if (from || to) return { kind: 'tool', name: 'export_xlsx', args: { report, ...(from ? { from: from[1] } : {}), ...(to ? { to: to[1] } : {}) } };
-  const named = EXCEL_PERIOD_WORDS.exec(text);
-  const period = named ? named[1].toLowerCase().replace(/\s+/g, '-') : saidPeriod(text);
+  if (report === 'tds_credit_check') {
+    const year = financialYearSaid(text);
+    if (year && year.unreadable) return { kind: 'reply', reply: FINANCIAL_YEAR_UNREAD, tools: [] };
+    if (year) return { kind: 'tool', name: 'export_xlsx', args: { report, from: year.from, to: year.to } };
+  }
   return { kind: 'tool', name: 'export_xlsx', args: { report, ...(period ? { period } : {}) } };
+}
+
+function planImsSheetFromChat(state, text, period) {
+  const asMonth = !period || isReturnPeriod(period) || period === 'this-month' || period === 'last-month';
+  if (!asMonth) return { kind: 'tool', name: 'export_xlsx', args: { report: 'ims_review', period } };
+  const month = imsPeriodSaid(text) || latestTwobMonth(state) || localToday().slice(0, 7);
+  if (!hasTwobFor(state, month)) return { kind: 'reply', reply: inWords(`Add the GSTR-2B for ${month} first.`), tools: [] };
+  return { kind: 'tool', name: 'export_xlsx', args: { report: 'ims_review', period: month } };
 }
 
 const AUDIT_TRAIL_ASKED = /\baudit\s*trail\b|\bedit\s*log\b|\baudit\s*log\b|\bchange\s*log\b|\bwho\s+changed\b|\bwhat\s+changed\s+in\s+(?:the\s+)?books\b/i;
 const AUDIT_TRAIL_EVERYTHING = /\b(?:everything|all events|including reads)\b/i;
 
-function planAuditTrailFromChat(text) {
-  if (!AUDIT_TRAIL_ASKED.test(text) || isNegated(text)) return null;
-  const named = EXCEL_PERIOD_WORDS.exec(text);
-  const period = named ? named[1].toLowerCase().replace(/\s+/g, '-') : saidPeriod(text);
-  return { kind: 'tool', name: 'audit_trail', args: { ...(period ? { period } : {}), ...(AUDIT_TRAIL_EVERYTHING.test(text) ? { view: 'all' } : {}) } };
+const AUDIT_RANGE_UNREAD = 'I could not read that date range, so I have not looked anything up. Say it like "audit trail from 2026-10-01 to 2026-10-31", "audit trail for October" or "audit trail for FY 2025-26".';
+const AUDIT_NUMERIC_DAY = /(?<![\w./-])(?:\d{4}[-/.]\d{1,2}[-/.]\d{1,2}|\d{1,2}[-/.]\d{1,2}[-/.]\d{4})(?![\w/-])/g;
+const AUDIT_WORDED_DAY = new RegExp(`(?<![\\w-])(?:(\\d{1,2})(?:st|nd|rd|th)?\\s+(?:of\\s+)?(${CHAT_MONTH_WORDS})\\.?,?\\s+(\\d{4})|(${CHAT_MONTH_WORDS})\\.?\\s+(\\d{1,2})(?:st|nd|rd|th)?,?\\s+(\\d{4}))(?![\\w-])`, 'gi');
+const AUDIT_YEARLESS_DAY = new RegExp(`(?<![\\w-])\\d{1,2}(?:st|nd|rd|th)?\\s+(?:of\\s+)?(?:${CHAT_MONTH_WORDS})\\b(?!\\.?,?\\s*\\d{4})|\\b(?:${CHAT_MONTH_WORDS})\\.?\\s+\\d{1,2}(?:st|nd|rd|th)?\\b(?!\\s*,?\\s*\\d{4})`, 'i');
+const AUDIT_THIS_WEEK = /\bthis\s+week\b/i;
+const AUDIT_LAST_DAYS = /\b(?:last|past|previous)\s+(\d{1,4})\s+days?\b/i;
+const AUDIT_RANGE_WORDS = /\b(?:last|past|previous|next)\s+(?:week|quarter|\d+\s+(?:days?|weeks?|months?|years?))\b|\bnext\s+month\b|\b\d+\s+(?:days?|weeks?|months?)\s+ago\b|\b(?:fy\.?|f\.\s?y\.?|financial\s+year)\s*\d|\bq[1-4]\b|\b(?:first|second|third|fourth)\s+quarter\b|\b(?:mon|tues|wednes|thurs|fri|satur|sun)day\b|(?<![\w/.-])(?:20\d{2}|\d{4}\s*-\s*\d{2,4})(?![\w/-])/i;
+const AUDIT_MONTH_WORD = new RegExp(`\\b(?:${CHAT_MONTH_WORDS})\\b`, 'gi');
+
+function shiftIsoDay(iso, days) {
+  const [year, month, day] = iso.split('-').map(Number);
+  return new Date(Date.UTC(year, month - 1, day + days)).toISOString().slice(0, 10);
+}
+
+function mondayOfWeek(iso) {
+  const [year, month, day] = iso.split('-').map(Number);
+  return shiftIsoDay(iso, -((new Date(Date.UTC(year, month - 1, day)).getUTCDay() + 6) % 7));
+}
+
+function auditDaysSaid(text, today) {
+  const days = [];
+  for (const hit of text.matchAll(AUDIT_NUMERIC_DAY)) days.push({ at: hit.index, end: hit.index + hit[0].length, iso: isoDate(hit[0]) });
+  for (const hit of text.matchAll(AUDIT_WORDED_DAY)) {
+    const [day, month, year] = hit[1] ? [hit[1], hit[2], hit[3]] : [hit[5], hit[4], hit[6]];
+    const number = MONTH_NAMES.findIndex((name) => name.startsWith(month.slice(0, 3).toLowerCase())) + 1;
+    days.push({ at: hit.index, end: hit.index + hit[0].length, iso: isoDate(`${year}-${number}-${day}`) });
+  }
+  for (const hit of text.matchAll(/\b(today|yesterday)\b/gi)) days.push({ at: hit.index, end: hit.index + hit[0].length, iso: hit[1].toLowerCase() === 'today' ? today : shiftIsoDay(today, -1) });
+  return days.sort((a, b) => a.at - b.at);
+}
+
+function auditDaysRange(text, days) {
+  const [first, second] = days;
+  if (second) return first.iso <= second.iso ? { from: first.iso, to: second.iso } : null;
+  const before = text.slice(0, first.at);
+  if (/\b(?:since|from|starting(?:\s+(?:from|on))?|beginning(?:\s+(?:from|on))?|on\s+or\s+after)\s*$/i.test(before)) return { from: first.iso };
+  if (/\bafter\s*$/i.test(before)) return { from: shiftIsoDay(first.iso, 1) };
+  if (/\b(?:until|till|upto|up\s+to|through|to|ending(?:\s+on)?|on\s+or\s+before)\s*$/i.test(before)) return { to: first.iso };
+  if (/\bbefore\s*$/i.test(before)) return { to: shiftIsoDay(first.iso, -1) };
+  return { from: first.iso, to: first.iso };
+}
+
+function auditRangeSaid(text) {
+  const today = localToday();
+  const days = auditDaysSaid(text, today);
+  if (days.length > 2 || days.some((day) => !day.iso)) return null;
+  const left = days.reduceRight((rest, day) => `${rest.slice(0, day.at)} ${rest.slice(day.end)}`, text);
+  const readings = [];
+  if (days.length) {
+    const range = auditDaysRange(text, days);
+    if (!range) return null;
+    readings.push(range);
+  }
+  if (AUDIT_THIS_WEEK.test(left)) readings.push({ from: mondayOfWeek(today), to: today });
+  const lastDays = AUDIT_LAST_DAYS.exec(left);
+  if (lastDays) {
+    if (Number(lastDays[1]) < 1) return null;
+    readings.push({ from: shiftIsoDay(today, -Number(lastDays[1])), to: today });
+  }
+  const year = financialYearSaid(left);
+  if (year) {
+    if (year.unreadable) return null;
+    readings.push({ from: year.from, to: year.to });
+  }
+  const named = EXCEL_PERIOD_WORDS.exec(left);
+  const period = named ? named[1].toLowerCase().replace(/\s+/g, '-') : saidPeriod(left);
+  if (period) readings.push({ period });
+  const monthWords = new Set([...left.matchAll(AUDIT_MONTH_WORD)].map((hit) => hit[0].slice(0, 3).toLowerCase()));
+  if (readings.length > 1 || monthWords.size > 1 || AUDIT_YEARLESS_DAY.test(left)) return null;
+  if (!readings.length && AUDIT_RANGE_WORDS.test(left)) return null;
+  return readings[0] || {};
+}
+
+function auditWordsAreNames(state, text) {
+  const known = [...new Set([
+    ...(state.parties || []).map((party) => party?.name),
+    ...(state.vendors || []).map((vendor) => vendor?.name),
+    ...(state.invoices || []).map((invoice) => invoice?.partyName),
+    ...(state.purchases || []).map((bill) => bill?.partyName),
+    ...(state.expenses || []).map((expense) => expense?.payee),
+  ].map(nameKey))].filter((name) => name && AUDIT_TRAIL_ASKED.test(name));
+  const left = known.reduce((rest, name) => rest.replace(new RegExp(`(?<![a-z0-9])${name.split(' ').map((word) => word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('[^a-z0-9]+')}(?![a-z0-9])`, 'gi'), ' '), text);
+  const phrases = [...left.matchAll(new RegExp(AUDIT_TRAIL_ASKED.source, 'gi'))].map((hit) => nameKey(hit[0]));
+  if (!phrases.length) return true;
+  const kind = salesDocumentKindSaid(text);
+  const doc = /\b(?:debit|credit)\s+note\b/i.test(text) ? null : parseDocument(takeInvoiceTerms(kind ? text.replace(kind.words, 'invoice') : text).text);
+  const posted = [planExpenseFromChat(state, text), planPaymentFromChat(state, text), planReceiptWithoutInvoice(state, text)]
+    .filter(Boolean)
+    .map((plan) => (plan.kind === 'tool' ? JSON.stringify(plan.args) : plan.reply));
+  if (doc && !doc.problem) posted.push(doc.partyName);
+  return phrases.every((phrase) => posted.some((value) => ` ${nameKey(value)} `.includes(` ${phrase} `)));
+}
+
+function planAuditTrailFromChat(state, text) {
+  if (!AUDIT_TRAIL_ASKED.test(text) || isNegated(text) || auditWordsAreNames(state, text)) return null;
+  const range = auditRangeSaid(text);
+  if (!range) return { kind: 'reply', reply: AUDIT_RANGE_UNREAD, tools: [] };
+  return { kind: 'tool', name: 'audit_trail', args: { ...range, ...(AUDIT_TRAIL_EVERYTHING.test(text) ? { view: 'all' } : {}) } };
 }
 
 const IMS_SAID = /\bims\b|\binvoice\s+management\b/i;
 const IMS_DECISION_SAID = /\b(accept|reject|pending)(?:ed)?\b/gi;
 const IMS_SELECT_SAID = /\b(?:(?:all|every)\s+(?:the\s+)?(matched|suggested|undecided|not\s+decided)|(matched))\b/i;
-const IMS_UNMATCHED_SAID = /\bnot\s+(?:yet\s+)?matched\b|\bunmatched\b|\bmismatch/i;
-const IMS_PERIOD_FIGURES = /\b(?:gstr-?)?2b\b|\b20\d{2}(?:-\d{2}(?:-\d{2})?)?\b/gi;
+const IMS_UNMATCHED_SAID = /\b(?:not|non|no|[a-z]+n['\u2019]t|isnt|arent|wasnt|werent|didnt|doesnt)\b[\s-]*(?:[a-z]+\s+){0,2}match|\bunmatched\b|\bmismatch/i;
+const IMS_PERIOD_FIGURES = new RegExp([
+  '\\b(?:gstr-?)?2b\\b',
+  '\\b20\\d{2}(?:-\\d{2}(?:-\\d{2})?)?\\b',
+  '\\b(?:fy\\.?|f\\.\\s?y\\.?|financial\\s+year)\\s*(?:20)?\\d{2}(?:\\s*[-/]\\s*(?:20)?\\d{2})?\\b',
+  `\\b\\d{1,2}(?:st|nd|rd|th)?\\s+(?:of\\s+)?(?:${CHAT_MONTH_WORDS})\\b`,
+  `\\b(?:${CHAT_MONTH_WORDS})\\.?\\s+\\d{1,2}(?:st|nd|rd|th)?\\b`,
+].join('|'), 'gi');
 const IMS_ONE_AT_A_TIME = 'IMS takes one decision at a time. Say, for example, "accept all matched invoices in IMS" first, then "reject all undecided invoices in IMS".';
 
 function latestTwobMonth(state) {
@@ -2458,9 +2591,12 @@ function latestTwobMonth(state) {
   return stored.filter((key) => /^\d{4}-(0[1-9]|1[0-2])$/.test(key)).sort().pop() || '';
 }
 
+function hasTwobFor(state, month) {
+  return Boolean(state.gstr2b && typeof state.gstr2b === 'object' && Object.hasOwn(state.gstr2b, month) && state.gstr2b[month]);
+}
+
 function imsPeriodSaid(text) {
-  const iso = /\b(\d{4})-(\d{2})\b/.exec(text);
-  if (iso) return `${iso[1]}-${iso[2]}`;
+  for (const hit of text.matchAll(/\b(\d{4})-(\d{2})\b/g)) if (isReturnPeriod(`${hit[1]}-${hit[2]}`)) return `${hit[1]}-${hit[2]}`;
   const [year, month] = localToday().split('-').map(Number);
   if (/\bthis\s+month\b/i.test(text)) return `${year}-${String(month).padStart(2, '0')}`;
   if (/\blast\s+month\b/i.test(text)) return month === 1 ? `${year - 1}-12` : `${year}-${String(month - 1).padStart(2, '0')}`;
@@ -2486,6 +2622,121 @@ function planImsFromChat(state, text) {
   if (said.size !== 1 || !pick || IMS_UNMATCHED_SAID.test(text)) return review;
   const word = (pick[1] || pick[2]).toLowerCase().replace(/\s+/g, ' ');
   return { kind: 'tool', name: 'ims_decide', args: { period: period || localToday().slice(0, 7), select: word === 'not decided' ? 'undecided' : word, decision: [...said][0] } };
+}
+
+const SUPPLIER_DUES_SAID = /\b(?:msme|udyam|micro|small\s+enterprise)\b.*\b(?:dues?|owe|owed|payable|bills?|pay)\b|\b(?:supplier|vendor)\s+dues\b|\bwhat\s+do\s+i\s+owe\s+(?:my\s+)?(?:msme|suppliers)\b/i;
+const MSME_STATED = /\bis\s+(?:an?\s+)?msme\b/i;
+const MSME_KEYWORD = '(?:msme|micro\\s+enterprise|small\\s+enterprise|medium\\s+enterprise)';
+const MSME_ARTICLE = '(?:(?:an?|the)\\s+|a\\s+registered\\s+)?';
+const MSME_MARKED = new RegExp(`^(?:please\\s+)?mark\\s+(.+?)\\s+as\\s+${MSME_ARTICLE}(${MSME_KEYWORD})\\b(.*)$`, 'i');
+const MSME_IS = new RegExp(`^(.+?)\\s+is\\s+${MSME_ARTICLE}(${MSME_KEYWORD})\\b(.*)$`, 'i');
+const MSME_WORD = new RegExp(`\\b${MSME_KEYWORD}`, 'i');
+const MSME_CATEGORY = /\b(micro|small|medium)\s+(?:category|enterprise|unit)\b|\bcategory\s*[:=-]?\s*(micro|small|medium)\b/i;
+const SUPPLIER_DAYS = /\bnet\s*(\d{1,9})\b|\b(\d{1,9})\s*-?\s*days?\b/i;
+const SUPPLIER_TERMS_FOR = /^(?:please\s+)?(?:(?:set|update|change|record|save)\s+)?(?:the\s+)?(?:supplier|vendor)\s+terms\s+(?:for|of|with)\s+(.+)$/i;
+const TERMS_DETAILS_START = /\s*[:,;]\s*|\s+(?:to|are|is|as|at|net)\b|\s+(?=\d)/i;
+const TERMS_NEXT = /^(?:\s*[:,;]|\s+(?:\d|(?:to|are|is|as|at|net|msme|micro|small|medium|udyam|payable|pay|in|within|after)\b)|\s*$)/i;
+const TERMS_TRAILING = /\b(?:msme|micro|small|medium|enterprise|udyam|payable|pay|paid|in|within|after|of|for|on)\s*$/i;
+const NOT_SAID = /\b(?:not|non|no|never)\b|n['’]t\b/i;
+const NOT_A_NAME = /[%₹]|\b(?:gst|gstin|rs|inr)\b|\d{4,}/i;
+const UDYAM_NUMBER_SAID = /(?:\b(?:with|having|under|on)\s+)?(?:\budyam\s*(?:registration\s*)?(?:no\.?|number)?\s*(?:is\s*)?[:#]?\s*)?\b(UDYAM-[A-Z]{2}-\d{2}-\d{7})\b/i;
+const UDYAM_MALFORMED = /\budyam\b\s*(?:registration\s*)?(?:no\.?|number)?\s*(?:is\s*)?[:#]?\s*(?:UDYAM\b|[A-Za-z0-9-]*\d)/i;
+const UDYAM_ONLY = /^(.+?)(?:['’]s|\s+(?:has|have|had|holds?|got))?\s+udyam\s*(?:registration\s*)?(?:no\.?|number)?\s*(?:is\s*)?[:#]?\s*(UDYAM-[A-Z]{2}-\d{2}-\d{7})\b(.*)/i;
+const UDYAM_ONLY_MALFORMED = /^(.+?)(?:['’]s)?\s+udyam\s*(?:registration\s*)?(?:no\.?|number)\s*(?:is\s*)?[:#]?\s*\S*\d/i;
+const UDYAM_FORM = 'A Udyam number looks like UDYAM-XX-00-0000000.';
+const PAYS_WITHIN_DAYS = /^(?:(?:we|i)\s+(?:will\s+|shall\s+|usually\s+|normally\s+|always\s+)?)?pay\s+(.+?)\s+(?:in|within|after)\s+(\d{1,9})\s*-?\s*days?\b(.*)$/i;
+const SUPPLIER_NAME_NOISE = new Set(['my', 'our', 'the', 'a', 'an', 'supplier', 'vendor', 'suppliers', 'vendors', 'please', 'mark', 'that', 's', 'since', 'as', 'because', 'so', 'also', 'but', 'all', 'every', 'each', 'both', 'set', 'add', 'save', 'record', 'update', 'register', 'tag', 'msme']);
+const MSME_ALSO = /\band\b.+\b(?:as|is|are)\s+(?:(?:an?|the)\s+)?(?:msme|micro|small|medium)\b/i;
+const TERMS_TALK_SAID = /\b(?:msme|udyam|(?:supplier|vendor)\s+terms)\b/i;
+const POSTING_SAID = /\b(?:invoice|bill\s+from|buy\s+from|bought|purchased?|sold|sell|raise\s+bill|create\s+bill|sales?\s+to)\b/i;
+
+function knownSupplierNames(state, { suppliersOnly = false } = {}) {
+  const names = new Map();
+  const add = (name) => {
+    const key = nameKey(name);
+    if (key && !names.has(key)) names.set(key, String(name).trim());
+  };
+  for (const bill of state.purchases || []) add(bill?.partyName);
+  for (const vendor of state.vendors || []) add(vendor?.name);
+  if (!suppliersOnly) for (const party of state.parties || []) add(party?.name);
+  return names;
+}
+
+function knownSupplierIn(names, part) {
+  const padded = ` ${nameKey(part)} `;
+  const hits = [...names.entries()].filter(([key]) => padded.includes(` ${key} `)).sort((a, b) => b[0].length - a[0].length);
+  for (const [key, display] of hits) {
+    const left = padded.replace(` ${key} `, ' ').trim().split(/\s+/).filter((word) => word && !SUPPLIER_NAME_NOISE.has(word));
+    if (!left.length) return display;
+  }
+  return '';
+}
+
+function supplierNameSaid(state, part, loose) {
+  const known = knownSupplierIn(knownSupplierNames(state), part);
+  if (known) return known;
+  const lead = loose ? /^(?:please\s+)?(?:(?:my|our|the)\s+)?(?:supplier|vendor)\s+/i : /^(?:please\s+)?(?:my|our|the)\s+(?:supplier|vendor)\s+/i;
+  const name = String(part || '').trim().replace(/^(?:(?:since|as|because|so|also|but)\s+)+/i, '').replace(lead, '').replace(/\s+(?:supplier|vendor|msme)$/i, '').trim();
+  return !name || name.toLowerCase().split(/\s+/).every((word) => SUPPLIER_NAME_NOISE.has(word)) || NOT_A_NAME.test(name) ? '' : name;
+}
+
+function supplierTermsTail(state, tail) {
+  const known = [...knownSupplierNames(state).values()]
+    .sort((a, b) => b.length - a.length)
+    .find((name) => tail.slice(0, name.length).toLowerCase() === name.toLowerCase() && TERMS_NEXT.test(tail.slice(name.length)));
+  if (known) return { part: known, rest: tail.slice(known.length), known: true };
+  const cut = TERMS_DETAILS_START.exec(tail);
+  return { part: cut ? tail.slice(0, cut.index) : tail, rest: cut ? tail.slice(cut.index) : '', known: false };
+}
+
+function supplierTermsDeclined() {
+  return { kind: 'tool', name: 'company_profile', args: {}, fallback: true };
+}
+
+function supplierTermsDetails(udyam, keyword, rest) {
+  const days = SUPPLIER_DAYS.exec(rest);
+  const worded = /^(micro|small|medium)\b/i.exec(keyword) || MSME_CATEGORY.exec(rest);
+  const category = worded ? (worded[1] || worded[2]).toLowerCase() : '';
+  return { ...(udyam ? { udyam } : {}), ...(category ? { category } : {}), ...(days ? { days: Number(days[1] || days[2]) } : {}) };
+}
+
+function supplierPayingDays(state, body) {
+  const paying = PAYS_WITHIN_DAYS.exec(body);
+  if (!paying || /\d/.test(`${paying[1]} ${paying[3]}`)) return null;
+  const supplier = knownSupplierIn(knownSupplierNames(state, { suppliersOnly: true }), paying[1]);
+  return supplier ? { kind: 'tool', name: 'set_supplier_terms', args: { partyName: supplier, days: Number(paying[2]) } } : null;
+}
+
+function planSupplierTermsFromChat(state, text) {
+  if (isNegated(text) || isQuestion(text)) return null;
+  const body = text.trim();
+  if (POSTING_SAID.test(text)) return supplierPayingDays(state, body);
+  const udyamFound = UDYAM_NUMBER_SAID.exec(body);
+  const udyam = udyamFound ? udyamFound[1].toUpperCase() : '';
+  const bare = udyamFound ? body.replace(udyamFound[0], ' ').replace(/\s+/g, ' ').trim() : body;
+  const marked = MSME_MARKED.exec(bare);
+  const stated = marked || MSME_IS.exec(bare);
+  const termsFor = stated ? null : SUPPLIER_TERMS_FOR.exec(bare);
+  if (stated || termsFor) {
+    const tail = termsFor ? supplierTermsTail(state, termsFor[1]) : null;
+    const part = stated ? stated[1] : tail.part;
+    const rest = stated ? stated[3] : tail.rest;
+    if (UDYAM_MALFORMED.test(`${part} ${rest}`)) return { kind: 'reply', reply: UDYAM_FORM, tools: [] };
+    if (tail && (NOT_SAID.test(rest) || (!tail.known && (NOT_SAID.test(part) || TERMS_TRAILING.test(part))))) return supplierTermsDeclined();
+    if (MSME_ALSO.test(rest)) return null;
+    const partyName = tail?.known ? part : supplierNameSaid(state, part, Boolean(marked || termsFor));
+    const details = supplierTermsDetails(udyam, stated ? stated[2] : '', rest);
+    const msme = Boolean(stated) || MSME_WORD.test(rest);
+    if (!partyName || (termsFor && !msme && !Object.keys(details).length)) return termsFor ? supplierTermsDeclined() : null;
+    return { kind: 'tool', name: 'set_supplier_terms', args: { partyName, ...(msme ? { msme: true } : {}), ...details } };
+  }
+  const udyamOnly = UDYAM_ONLY.exec(body);
+  if (udyamOnly) {
+    const partyName = supplierNameSaid(state, udyamOnly[1], true);
+    return partyName ? { kind: 'tool', name: 'set_supplier_terms', args: { partyName, msme: true, ...supplierTermsDetails(udyamOnly[2].toUpperCase(), '', udyamOnly[3]) } } : null;
+  }
+  if (UDYAM_ONLY_MALFORMED.test(body)) return { kind: 'reply', reply: UDYAM_FORM, tools: [] };
+  return supplierPayingDays(state, body);
 }
 
 function challanReasonSaid(text) {
@@ -2539,6 +2790,8 @@ export function planLocalToolCall(state, message) {
   }
   const excel = planExcelFromChat(state, text);
   if (excel && !excelPlanWaits(text)) return excel;
+  const imsAudit = IMS_SAID.test(text) ? planAuditTrailFromChat(state, text) : null;
+  if (imsAudit) return imsAudit;
   const ims = planImsFromChat(state, text);
   if (ims) return ims;
 
@@ -2572,7 +2825,7 @@ export function planLocalToolCall(state, message) {
   }
   const bankPlan = planBankFromChat(state, text);
   if (bankPlan) return bankPlan;
-  const auditPlan = planAuditTrailFromChat(text);
+  const auditPlan = planAuditTrailFromChat(state, text);
   if (auditPlan) return auditPlan;
   const salesKind = salesDocumentKindSaid(text);
   if (salesKind && !quoteRef && !isQuestion(text) && !isNegated(text)) {
@@ -2621,6 +2874,8 @@ export function planLocalToolCall(state, message) {
   if (closing) return closing;
   const run = planPaymentRunFromChat(state, text);
   if (run) return run;
+  const agreedTerms = planSupplierTermsFromChat(state, text);
+  if (agreedTerms) return agreedTerms;
   const payment = planPaymentFromChat(state, text);
   if (payment) return payment;
   if (countryOf(state) === 'US') {
@@ -2638,7 +2893,8 @@ export function planLocalToolCall(state, message) {
     }
   }
   const saidTerms = takeInvoiceTerms(text);
-  const doc = /\b(?:debit|credit)\s+note\b/i.test(text) ? null : parseDocument(saidTerms.text);
+  const parsed = /\b(?:debit|credit)\s+note\b/i.test(text) ? null : parseDocument(saidTerms.text);
+  const doc = parsed && !parsed.problem && parsed.lines[0].gstRate == null && TERMS_TALK_SAID.test(text) && !POSTING_SAID.test(text) ? null : parsed;
   const asking = isQuestion(text) || isNegated(text);
   if (doc && doc.problem && !asking && (isPurchaseIntent(text) || isSaleIntent(text))) return documentProblemReply(doc);
   if (doc && doc.problem) return { kind: 'tool', name: 'company_profile', args: {}, fallback: true };
@@ -2753,17 +3009,8 @@ export function planLocalToolCall(state, message) {
   if (/\b(?:continuous|single|one)\s+(?:invoice\s+)?(?:series|numbering|sequence)\b|\bnumber\s+invoices\s+continuously\b/i.test(text) && !isNegated(text) && !isQuestion(text)) {
     return { kind: 'tool', name: 'set_invoice_numbering', args: { mode: 'continuous' } };
   }
-  if (/\b(?:msme|udyam|micro|small\s+enterprise)\b.*\b(?:dues?|owe|owed|payable|bills?|pay)\b|\b(?:supplier|vendor)\s+dues\b|\bwhat\s+do\s+i\s+owe\s+(?:my\s+)?(?:msme|suppliers)\b/i.test(text) && !/\bis\s+(?:an?\s+)?msme\b/i.test(text)) {
+  if (SUPPLIER_DUES_SAID.test(text) && !MSME_STATED.test(text)) {
     return { kind: 'tool', name: 'supplier_dues', args: {} };
-  }
-  {
-    const msmeSaid = /^(.+?)\s+is\s+(?:an?\s+|a\s+registered\s+)?(?:msme|micro\s+enterprise|small\s+enterprise)\b(?:[,;\s]+(?:udyam\s*(?:no\.?|number)?\s*[:#]?\s*)?(UDYAM-[A-Z]{2}-\d{2}-\d{7}))?(?:.*?\bnet\s+(\d{1,3})\b|.*?\b(\d{1,3})\s+days\b)?/i.exec(text.trim());
-    if (msmeSaid && !isNegated(text) && !isQuestion(text)) {
-      const days = msmeSaid[3] || msmeSaid[4];
-      return { kind: 'tool', name: 'set_supplier_terms', args: { partyName: msmeSaid[1].trim(), msme: true, ...(msmeSaid[2] ? { udyam: msmeSaid[2].toUpperCase() } : {}), ...(days ? { days: Number(days) } : {}) } };
-    }
-    const udyamOnly = /^(.+?)(?:'s)?\s+udyam\s*(?:no\.?|number)?\s*(?:is\s*)?[:#]?\s*(UDYAM-[A-Z]{2}-\d{2}-\d{7})\b/i.exec(text.trim());
-    if (udyamOnly && !isNegated(text)) return { kind: 'tool', name: 'set_supplier_terms', args: { partyName: udyamOnly[1].trim(), msme: true, udyam: udyamOnly[2].toUpperCase() } };
   }
   if (/\b(?:salary|payroll)\b.*\b(?:payout|bank)\b.*\bfile\b|\bpayout\s+file\b/i.test(text) && !isNegated(text) && !isQuestion(text)) {
     return { kind: 'tool', name: 'payroll_payout_file', args: { period: monthSaid(text) } };
