@@ -413,7 +413,7 @@ test('export_xlsx is a remote read for both countries with a strict schema, and 
     'excel of supplier dues': { report: 'supplier_dues' },
     'export report Top customers to excel': { report: 'saved_report', name: 'Top customers' },
     'bank reconciliation in excel': { report: 'bank_reconciliation' },
-    'excel please': { report: 'trial_balance' },
+    'make me an excel please': { report: 'trial_balance' },
   };
   for (const [sentence, args] of Object.entries(plans)) {
     const plan = planLocalToolCall(state, sentence);
@@ -421,6 +421,7 @@ test('export_xlsx is a remote read for both countries with a strict schema, and 
     assert.equal(plan.name, 'export_xlsx', sentence);
     assert.deepEqual(plan.args, args, sentence);
   }
+  assert.equal(planLocalToolCall(state, 'excel please').fallback, true, 'a lone "excel" is not an export');
   assert.equal(planLocalToolCall(state, 'export the trial balance for my CA').name, 'export_trial_balance', 'the CSV route still answers without an Excel word');
   assert.notEqual(planLocalToolCall(state, 'upload the excel statement').name, 'export_xlsx', 'an upload is not an export');
   assert.equal(planLocalToolCall(state, 'import bank statement from excel').kind, 'reply', 'an import keeps its own route');
@@ -428,4 +429,96 @@ test('export_xlsx is a remote read for both countries with a strict schema, and 
   assert.match(asked.reply, /^Saved myca-trial-balance-\d{4}-\d{2}-\d{2}\.xlsx with \d+ rows\. Open it in Excel or send it to your CA\.$/, asked.reply);
   const unknown = await chat(state, 'export the margins to excel for this quarter');
   assert.match(unknown.reply, /covers one month at a time/, unknown.reply);
+});
+
+async function entryRowsOf(state, args) {
+  const out = await runTool(state, 'export_xlsx', { report: 'entries', ...args });
+  assert.equal(out.ok, true, JSON.stringify(out));
+  return { rows: values(checkPackage(Buffer.from(out.data.xlsxBase64, 'base64')).get('xl/worksheets/sheet1.xml')), data: out.data };
+}
+
+test('entries take their months from the books: "to" alone, a "from" 26 years back and the month itself give the same rows, in date order across a gap', async () => {
+  const state = createState();
+  state.company = { ...state.company, gstin: '27AABCU9603R1ZN' };
+  assert.equal(createInvoice(state, { date: '2026-10-05', partyName: 'Kiran Stores', lines: [{ description: 'Goods', qty: 1, rate: 1000, gstRate: 18 }] }).ok, true);
+  assert.equal(recordReceipt(state, { invoiceId: 'INV-0001', amount: 500, date: '2026-10-20', mode: 'bank' }).ok, true);
+  assert.equal(createPurchase(state, { date: '2026-10-06', partyName: 'Fabric Co', partyGstin: '27AABCT1332L1ZE', lines: [{ description: 'Cloth', qty: 1, rate: 400, gstRate: 5 }] }).ok, true);
+  const expense = await runTool(state, 'post_expense', { narration: 'Printer repair', amount: 1180, gstRate: 18, date: '2026-10-07', supplierGstin: '27AABCT1332L1ZE' });
+  assert.equal(expense.ok, true, JSON.stringify(expense));
+
+  const month = await entryRowsOf(state, { period: '2026-10' });
+  assert.equal(month.rows.length, 5, 'header, a sale, a bill, an expense and a receipt');
+  assert.deepEqual(month.rows.slice(1).map((row) => row[1]), ['Sale', 'Purchase', 'Expense', 'Receipt']);
+  const toOnly = await entryRowsOf(state, { to: '2026-10-31' });
+  assert.deepEqual(toOnly.rows, month.rows, 'no "from" means no lower bound');
+  assert.equal(toOnly.data.rows, 4);
+  assert.equal(toOnly.data.fileName, 'myca-entries-start-to-2026-10-31.xlsx');
+  assert.equal(toOnly.data.period, 'the start to 2026-10-31');
+  const farBack = await entryRowsOf(state, { from: '2000-01-01', to: '2026-10-31' });
+  assert.deepEqual(farBack.rows, month.rows, 'a "from" more than 20 years back still reaches the real months');
+  assert.equal(farBack.data.fileName, 'myca-entries-2000-01-01-to-2026-10-31.xlsx');
+  const window = await entryRowsOf(state, { from: '2026-10-06', to: '2026-10-07' });
+  assert.deepEqual(window.rows.slice(1).map((row) => row[1]), ['Purchase', 'Expense'], 'days inside the month still cut the rows');
+
+  assert.equal(createInvoice(state, { date: '2024-03-15', partyName: 'Old Buyer', lines: [{ description: 'Old goods', qty: 1, rate: 700, gstRate: 5 }] }).ok, true);
+  const all = await entryRowsOf(state, { to: '2026-10-31' });
+  assert.deepEqual(all.rows.slice(1).map((row) => row[0]), ['2024-03-15', '2026-10-05', '2026-10-06', '2026-10-07', '2026-10-20'], 'months come out ascending with the empty months skipped');
+  const beforeGap = await entryRowsOf(state, { to: '2024-12-31' });
+  assert.deepEqual(beforeGap.rows.slice(1).map((row) => row[2]), ['INV-0002']);
+  const nothing = await entryRowsOf(state, { from: '2025-01-01', to: '2025-12-31' });
+  assert.equal(nothing.rows.length, 1, 'a window with no documents has only the header');
+  const sales = await runTool(state, 'export_xlsx', { report: 'sales', to: '2026-10-31' });
+  assert.equal(sales.data.rows, 2, 'the other dated sheets also take "to" alone as everything up to that day');
+});
+
+test('the expenses sheet says whether input credit was claimed and how much, instead of showing the flag as one rupee', async () => {
+  const state = createState();
+  state.company = { ...state.company, gstin: '27AABCU9603R1ZN' };
+  const claimed = await runTool(state, 'post_expense', { narration: 'Printer repair', amount: 1180, gstRate: 18, date: '2026-10-03', supplierGstin: '27AABCT1332L1ZE' });
+  assert.equal(claimed.ok, true, JSON.stringify(claimed));
+  assert.equal(claimed.expense.inputCredit, true);
+  const plain = await runTool(state, 'post_expense', { narration: 'Office rent', amount: 11800, date: '2026-10-05' });
+  assert.equal(plain.ok, true, JSON.stringify(plain));
+  assert.equal(plain.expense.inputCredit, false);
+  const out = await runTool(state, 'export_xlsx', { report: 'expenses', period: '2026-10' });
+  assert.equal(out.ok, true, JSON.stringify(out));
+  const rows = values(checkPackage(Buffer.from(out.data.xlsxBase64, 'base64')).get('xl/worksheets/sheet1.xml'));
+  assert.deepEqual(rows[0], ['Date', 'Number', 'Head', 'Description', 'Payee', 'GSTIN', 'Paid by', 'Taxable', 'CGST', 'SGST', 'IGST', 'Input credit', 'Input credit amount', 'Amount']);
+  assert.deepEqual(rows[1], ['2026-10-03', claimed.expense.id, claimed.expense.headName, 'Printer repair', '27AABCT1332L1ZE', 'bank', 1000, 90, 90, 0, 'Yes', 180, 1180]);
+  assert.deepEqual(rows[2], ['2026-10-05', plain.expense.id, plain.expense.headName, 'Office rent', 'bank', 11800, 0, 0, 0, 'No', 0, 11800]);
+  const sheet = unzip(Buffer.from(out.data.xlsxBase64, 'base64')).get('xl/worksheets/sheet1.xml');
+  assert.match(sheet, /<c r="L2" t="inlineStr"><is><t>Yes<\/t><\/is><\/c><c r="M2" s="2"><v>180<\/v><\/c>/);
+  assert.match(sheet, /<c r="L3" t="inlineStr"><is><t>No<\/t><\/is><\/c><c r="M3" s="2"><v>0<\/v><\/c>/);
+});
+
+test('xmlText drops what XML 1.0 forbids: U+FFFE, U+FFFF and unpaired surrogates go, a real surrogate pair stays', () => {
+  assert.equal(xmlText('NEFT\uFFFF SHARMA\uFFFE TRADERS'), 'NEFT SHARMA TRADERS');
+  assert.equal(xmlText('lone\uD83D high'), 'lone high');
+  assert.equal(xmlText('\uDE00lone low'), 'lone low');
+  assert.equal(xmlText('pair 😀 kept'), 'pair 😀 kept');
+  assert.equal(xmlText('😀\uD83D'), '😀');
+  assert.equal(xmlText('\uDE00😀'), '😀');
+  assert.equal(xmlText('� and  and é stay'), '� and  and é stay');
+  assert.equal(xmlText('a & b <c>\t\n\r'), 'a &amp; b &lt;c&gt;\t\n\r');
+});
+
+test('a narration with U+FFFF makes a well-formed sheet, and a 200,000-row sheet builds in under ten seconds', () => {
+  const bad = xlsxWorkbook([{ name: 'Bank\uFFFF lines', header: ['Narration', 'Amount'], rows: [['NEFT\uFFFF SHARMA\uFFFE TRADERS', 20000], ['lone\uD83D high', 1], ['pair 😀 kept', 2]] }]);
+  const parts = unzip(bad);
+  for (const [name, xml] of parts) assertWellFormed(xml, name);
+  const sheet = parts.get('xl/worksheets/sheet1.xml');
+  assert.doesNotMatch(sheet, /[\uFFFE\uFFFF�]/, 'the forbidden characters are gone, not replaced');
+  assert.deepEqual(values(sheet).slice(1), [['NEFT SHARMA TRADERS', 20000], ['lone high', 1], ['pair 😀 kept', 2]]);
+  assert.match(parts.get('xl/workbook.xml'), /<sheet name="Bank lines"/);
+
+  const rows = [];
+  for (let i = 0; i < 200000; i += 1) rows.push([`2026-${String((i % 12) + 1).padStart(2, '0')}-01`, `Line ${i} NEFT SHARMA TRADERS`, i % 7 === 0 ? '' : Math.round(i * 150) / 100, i]);
+  const started = performance.now();
+  const buffer = xlsxWorkbook([{ name: 'Big', header: ['Date', 'Narration', 'In', 'Out'], rows }]);
+  const took = performance.now() - started;
+  assert.ok(took < 10000, `200,000 rows took ${Math.round(took)} ms`);
+  const big = unzip(buffer).get('xl/worksheets/sheet1.xml');
+  assert.match(big, /<dimension ref="A1:D200001"\/>/);
+  assert.match(big, /<row r="200001"><c r="A200001" t="inlineStr"><is><t>2026-08-01<\/t><\/is><\/c><c r="B200001" t="inlineStr"><is><t>Line 199999 NEFT SHARMA TRADERS<\/t><\/is><\/c><c r="C200001" s="2"><v>299998.5<\/v><\/c><c r="D200001" s="2"><v>199999<\/v><\/c><\/row>/);
+  assert.equal((big.match(/<row r="/g) || []).length, 200001);
 });

@@ -54,18 +54,6 @@ function headerWords(keys) {
   return keys.map(words);
 }
 
-function monthShift(month, delta) {
-  const [y, m] = month.split('-').map(Number);
-  const d = new Date(Date.UTC(y, m - 1 + delta, 1));
-  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
-}
-
-function monthsBetween(from, to) {
-  const months = [];
-  for (let month = from.slice(0, 7); month <= to.slice(0, 7) && months.length < 240; month = monthShift(month, 1)) months.push(month);
-  return months;
-}
-
 export function periodRange(args = {}, today = localToday()) {
   const period = String(args.period || '').trim();
   const from = args.from == null || args.from === '' ? '' : isoDate(args.from);
@@ -73,9 +61,8 @@ export function periodRange(args = {}, today = localToday()) {
   if (from === null || to === null || (from && to && from > to)) return fail('INVALID_DATE');
   if (from || to) {
     const end = to || today;
-    const start = from || '0001-01-01';
     const month = from && to && from.slice(0, 7) === to.slice(0, 7) && from.endsWith('-01') && rangeOf(from.slice(0, 7), today).to === to ? from.slice(0, 7) : '';
-    return { ok: true, from: start, to: end, label: `${from || 'the start'} to ${end}`, tag: month || `${from || 'start'}-to-${end}`, month };
+    return { ok: true, from, to: end, label: `${from || 'the start'} to ${end}`, tag: month || `${from || 'start'}-to-${end}`, month };
   }
   if (period && !MONTH.test(period) && !REPORT_PERIODS.includes(period)) return fail('BAD_PERIOD', { hint: REPORT_PERIODS.join(', ') });
   const range = rangeOf(period, today);
@@ -92,6 +79,24 @@ function monthOnly(args, today) {
 
 function inRange(range) {
   return (doc) => DAY.test(String(doc?.date || '')) && doc.date >= range.from && doc.date <= range.to;
+}
+
+function monthsWithEntries(state, range) {
+  const within = inRange(range);
+  const months = new Set();
+  const add = (doc) => {
+    if (within(doc)) months.add(doc.date.slice(0, 7));
+  };
+  for (const inv of state.invoices || []) {
+    add(inv);
+    for (const receipt of inv.receipts || []) add(receipt);
+  }
+  for (const bill of state.purchases || []) {
+    add(bill);
+    for (const payment of bill.payments || []) add(payment);
+  }
+  for (const list of [state.creditNotes, state.debitNotes, state.purchaseNotes, state.expenses]) for (const doc of list || []) add(doc);
+  return [...months].sort();
 }
 
 function byDateThenId(a, b) {
@@ -153,7 +158,7 @@ function entries(state, args, today) {
   const range = periodRange(args, today);
   if (!range.ok) return range;
   const us = countryOf(state) === 'US';
-  const rows = monthsBetween(range.from, range.to).flatMap((month) => entryRows(state, month)).filter((row) => row[0] >= range.from && row[0] <= range.to);
+  const rows = monthsWithEntries(state, range).flatMap((month) => entryRows(state, month)).filter((row) => row[0] >= range.from && row[0] <= range.to);
   const header = headerWords(us ? ENTRIES_HEADER_US : ENTRIES_HEADER);
   const widths = us ? [12, 14, 12, 28, 18, 32] : [12, 14, 12, 28, 18, 16, 32];
   return done([sheet('Entries', header, us ? rows.map(usRow) : rows, widths)], range.tag, range.label);
@@ -203,6 +208,10 @@ function sales(state, args, today) {
   return done([sheet('Sales', header, rows, us ? [12, 12, 32] : [12, 12, 32, 18])], range.tag, range.label);
 }
 
+function inputCreditAmount(item) {
+  return item.inputCredit ? round2(Number(item.cgst || 0) + Number(item.sgst || 0) + Number(item.igst || 0)) : 0;
+}
+
 function paidAgainst(bill) {
   return round2((bill.payments || []).reduce((sum, payment) => sum + Number(payment.amount || 0), 0));
 }
@@ -231,10 +240,10 @@ function expenses(state, args, today) {
   const list = (state.expenses || []).filter(inRange(range)).sort(byDateThenId);
   const rows = list.map((item) => (us
     ? [item.date, item.id, text(item.headName), text(item.description), text(item.payee), text(item.mode), money(item.amount)]
-    : [item.date, item.id, text(item.headName), text(item.description), text(item.payee), text(item.supplierGstin), text(item.mode), money(item.taxable), money(item.cgst), money(item.sgst), money(item.igst), money(item.inputCredit), money(item.amount)]));
+    : [item.date, item.id, text(item.headName), text(item.description), text(item.payee), text(item.supplierGstin), text(item.mode), money(item.taxable), money(item.cgst), money(item.sgst), money(item.igst), yesNo(item.inputCredit), inputCreditAmount(item), money(item.amount)]));
   const header = us
     ? ['Date', 'Number', 'Head', 'Description', 'Payee', 'Paid by', 'Amount']
-    : ['Date', 'Number', 'Head', 'Description', 'Payee', 'GSTIN', 'Paid by', 'Taxable', 'CGST', 'SGST', 'IGST', 'Input credit', 'Amount'];
+    : ['Date', 'Number', 'Head', 'Description', 'Payee', 'GSTIN', 'Paid by', 'Taxable', 'CGST', 'SGST', 'IGST', 'Input credit', 'Input credit amount', 'Amount'];
   return done([sheet('Expenses', header, rows, [12, 12, 18, 36, 24])], range.tag, range.label);
 }
 

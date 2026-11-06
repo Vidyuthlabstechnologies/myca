@@ -2306,6 +2306,13 @@ function salesDocumentKindSaid(text) {
 }
 
 const EXCEL_SAID = /\b(?:excel|xlsx|spreadsheet)\b/i;
+const EXCEL_THEN_WORD = /\b(?:excel|xlsx|spreadsheet)\s+([a-z0-9&.'-]+)/gi;
+const EXCEL_VERBS = /\b(?:export|save|download|make|send|put|give|get|want|need|prepare|generate)\b/i;
+const EXCEL_AFTER_PREPOSITION = /\b(?:to|as|in|into)\s+(?:an?\s+|the\s+)?(?:excel|xlsx|spreadsheet)\b/i;
+const EXCEL_OF = /\b(?:excel|xlsx|spreadsheet)\s+(?:file\s+|sheet\s+|workbook\s+)?(?:of|with)\b/i;
+const NOT_AN_EXPORT = /\b(?:import|upload|attach|bring\s+in|read)\b/i;
+const AMOUNT_SAID = /(?<![\w.,-])\d[\d,]*(?:\.\d+)?(?![\w%-])/;
+const DATES_AND_PERIODS = /\b\d{4}-\d{2}(?:-\d{2})?\b|\b\d{1,2}[-/.]\d{1,2}[-/.]\d{2,4}\b|\b(?:for|in|of|fy|year)\s+(?:19|20)\d{2}\b/gi;
 const SAVED_REPORT_TO_EXCEL = /\breport\s+(?:called\s+|named\s+)?["“]?([^"”]+?)["”]?\s+(?:to|as|in|into)\s+(?:an?\s+|the\s+)?(?:excel|xlsx|spreadsheet)\b/i;
 const EXCEL_PERIOD_WORDS = /\b(this\s+month|last\s+month|this\s+quarter|this\s+year|last\s+year)\b/i;
 const EXCEL_REPORTS = [
@@ -2330,8 +2337,38 @@ const EXCEL_REPORTS = [
   { key: 'expenses', words: /\bexpenses?\b|\bspending\b/i },
 ];
 
-function planExcelFromChat(text) {
-  if (!EXCEL_SAID.test(text) || isNegated(text) || /\b(?:import|upload|attach|bring\s+in|read)\b/i.test(text)) return null;
+function nameKey(name) {
+  return String(name || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+}
+
+function excelPartyNames(state) {
+  const names = new Set();
+  const add = (name) => {
+    if (name && EXCEL_SAID.test(name)) names.add(nameKey(name));
+  };
+  for (const party of state.parties || []) add(party?.name);
+  for (const inv of state.invoices || []) add(inv?.partyName);
+  for (const bill of state.purchases || []) add(bill?.partyName);
+  for (const expense of state.expenses || []) add(expense?.payee);
+  return [...names].filter(Boolean);
+}
+
+function namesAnExcelParty(text, partyNames) {
+  const haystack = ` ${nameKey(text)} `;
+  if (partyNames.some((name) => haystack.includes(` ${name} `))) return true;
+  const partyWords = new Set(partyNames.flatMap((name) => name.split(' ')).filter((word) => word.length >= 3 && !EXCEL_SAID.test(word)));
+  for (const found of text.matchAll(EXCEL_THEN_WORD)) if (partyWords.has(nameKey(found[1]))) return true;
+  return false;
+}
+
+function amountSaid(text) {
+  return AMOUNT_SAID.test(text.replace(DATES_AND_PERIODS, ' '));
+}
+
+function planExcelFromChat(state, text) {
+  if (!EXCEL_SAID.test(text) || isNegated(text) || NOT_AN_EXPORT.test(text)) return null;
+  if (namesAnExcelParty(text, excelPartyNames(state))) return null;
+  if (!EXCEL_VERBS.test(text) && !EXCEL_AFTER_PREPOSITION.test(text) && !EXCEL_OF.test(text)) return null;
   const saved = SAVED_REPORT_TO_EXCEL.exec(text);
   if (saved) return { kind: 'tool', name: 'export_xlsx', args: { report: 'saved_report', name: saved[1].trim() } };
   const found = EXCEL_REPORTS.find((entry) => entry.words.test(text));
@@ -2393,8 +2430,8 @@ export function planLocalToolCall(state, message) {
       blocked: true,
     };
   }
-  const excel = planExcelFromChat(text);
-  if (excel) return excel;
+  const excel = planExcelFromChat(state, text);
+  if (excel && !amountSaid(text)) return excel;
 
   const quoteRef = text.match(/\b((?:QT|PI|SO|DC)-\d{4,})\b/i);
   if (quoteRef && !isQuestion(text) && !isNegated(text)) {
@@ -2874,6 +2911,7 @@ export function planLocalToolCall(state, message) {
     const name = state.pendingFile?.name || '';
     return { kind: 'tool', name: 'import_bank', args: { content, type: /\.json$/i.test(name) || /account\s+aggregator|\baa\b/i.test(text) ? 'aa' : /\.txt$/i.test(name) ? 'text' : 'csv' }, clearsPendingFile: true };
   }
+  if (excel) return excel;
 
   for (const route of ROUTES) {
     if (!route.re.test(text)) continue;

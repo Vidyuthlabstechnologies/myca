@@ -91,17 +91,19 @@ function rowXml(values, rowNumber, header) {
 function worksheetXml(sheet) {
   const header = Array.isArray(sheet.header) ? sheet.header : [];
   const rows = Array.isArray(sheet.rows) ? sheet.rows : [];
-  const columns = Math.max(1, header.length, ...rows.map((row) => row.length));
+  let columns = Math.max(1, header.length);
+  for (const row of rows) if (row.length > columns) columns = row.length;
   const lastRow = rows.length + 1;
   const widths = widthsFor({ rows, widths: sheet.widths }, columns);
   const cols = widths.map((width, column) => `<col min="${column + 1}" max="${column + 1}" width="${width}" customWidth="1"/>`).join('');
-  const body = [rowXml(header, 1, true), ...rows.map((row, index) => rowXml(row, index + 2, false))].join('\n');
+  const body = [rowXml(header, 1, true)];
+  for (let index = 0; index < rows.length; index += 1) body.push(rowXml(rows[index], index + 2, false));
   return `${XML_HEAD}<worksheet xmlns="${MAIN_NS}" xmlns:r="${REL_NS}">
 <dimension ref="A1:${columnName(columns - 1)}${lastRow}"/>
 <sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>
 <cols>${cols}</cols>
 <sheetData>
-${body}
+${body.join('\n')}
 </sheetData>
 </worksheet>`;
 }
