@@ -21,7 +21,7 @@ const OWNER = { userId: 'USR-OWNER', role: 'admin', name: 'Asha' };
 const STAFF = { userId: 'USR-STAFF', role: 'staff', name: 'Ravi' };
 const SALE = { partyName: 'Kiran Stores', partyGstin: '', lines: [{ description: 'Supply', qty: 1, rate: 8000, gstRate: 18 }] };
 const EVERYTHING = { from: '2000-01-01', to: '2100-12-31' };
-const NOTE = 'Every change made through MyCA is listed with who made it and when. Hashes chain each event to the one before, so an edited or removed event shows as a broken chain.';
+const NOTE = 'Every change made through MyCA is listed with who made it and when. Hashes chain each event to the one before, so an edited or removed event shows as a broken chain. The seal covers who, what and when, but not which client an event is filed under. It cannot show events cut off the end of the log, or a log re-sealed by someone who can write the books.';
 
 function open() {
   return openSession(createMemoryStores(), { seed: false });
@@ -143,7 +143,7 @@ test('every event names who made it and is chained to the one before; the chain 
 test('the hash covers the event but not the client id, which a client rename remaps', () => {
   const state = createState();
   const first = appendAuditEvent(state, { actorId: 'USR-OWNER', actorName: 'Asha', action: 'tool.set_company', at: '2026-10-05T09:00:00.000Z', beforeHash: 'a', afterHash: 'b', metadata: { ok: true, args: ['name'] } });
-  const expected = createHash('sha256').update([first.eventId, first.actorId, first.action, first.at, first.beforeHash, first.afterHash, JSON.stringify(first.metadata), ''].join('\n')).digest('hex');
+  const expected = createHash('sha256').update([first.eventId, first.actorId, first.actorName, first.action, first.at, first.beforeHash, first.afterHash, '{"args":["name"],"ok":true}', ''].join('\n')).digest('hex');
   assert.equal(first.hash, expected);
   assert.equal(first.prevHash, '');
   assert.equal(first.actorName, 'Asha');

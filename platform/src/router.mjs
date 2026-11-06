@@ -183,6 +183,7 @@ const FAILURES = {
   NO_STATEMENT: () => 'Add the GSTR-2B for that month first.',
   INVALID_PERIOD: () => 'Say the month as YYYY-MM, for example 2026-09.',
   NO_ROWS: () => 'There were no rows to work on.',
+  SIGN_IN_REQUIRED: (r) => r.hint || 'Sign in with your user id and PIN first.',
   BAD_DECISION: () => 'Say accept, reject or pending.',
   NO_MATCH: (r) => r.hint || 'No invoice matches what you asked for, so nothing was marked.',
   OWNER_ONLY: (r) => r.hint || 'Only the owner can do that.',
