@@ -1,6 +1,7 @@
 import { localToday, postingDate } from './dates.mjs';
 import { daysBetween } from './reminders.mjs';
 import { outstandingOf } from './credit-notes.mjs';
+import { isTdsReceipt } from './tds-credits.mjs';
 import { periodOf } from './return-period.mjs';
 import { paymentFor } from './gst-payment.mjs';
 import { billOutstanding } from './invoice.mjs';
@@ -123,7 +124,7 @@ export function payingStats(state) {
   const byCustomer = new Map();
   for (const invoice of state.invoices || []) {
     if (invoice.status !== 'paid' || !(invoice.receipts || []).length) continue;
-    const last = invoice.receipts.map((r) => r.date).filter(Boolean).sort().at(-1);
+    const last = invoice.receipts.filter((receipt) => !isTdsReceipt(receipt)).map((r) => r.date).filter(Boolean).sort().at(-1);
     if (!last) continue;
     const key = String(invoice.partyName || '').toLowerCase();
     const list = byCustomer.get(key) || [];

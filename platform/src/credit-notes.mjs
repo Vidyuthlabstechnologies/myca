@@ -115,11 +115,11 @@ export function planCreditNote(state, args = {}) {
   const sgst = round2(lines.reduce((sum, line) => sum + line.sgst, 0));
   const igst = round2(lines.reduce((sum, line) => sum + line.igst, 0));
   const total = round2(taxable + cgst + sgst + igst + salesTax);
-  const received = receivedAgainst(invoice);
-  const refundDue = round2(Math.max(0, received + alreadyCredited + total - Number(invoice.total)));
+  const cashReceived = round2((invoice.receipts || []).filter((receipt) => receipt.mode !== 'tds').reduce((sum, receipt) => sum + Number(receipt.amount || 0), 0));
+  const refundDue = round2(Math.min(cashReceived, Math.max(0, receivedAgainst(invoice) + alreadyCredited + total - Number(invoice.total))));
   return {
     ok: true,
-    plan: { invoice, date, reason, full: fraction === 1, lines, taxable, cgst, sgst, igst, salesTax, country: invoice.country || 'IN', total, alreadyCredited, received, refundDue },
+    plan: { invoice, date, reason, full: fraction === 1, lines, taxable, cgst, sgst, igst, salesTax, country: invoice.country || 'IN', total, alreadyCredited, received: cashReceived, refundDue },
   };
 }
 

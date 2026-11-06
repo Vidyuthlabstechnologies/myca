@@ -9,6 +9,7 @@ const round2 = (value) => Math.round(Number(value || 0) * 100) / 100;
 const TAN = /^[A-Z]{4}[0-9]{5}[A-Z]$/;
 const MATCH_TOLERANCE = 1;
 const MAX_WORDED_ROWS = 8;
+const NAME_MIN = 4;
 
 export const TDS_RECEIVABLE_ACCOUNT = { id: 1160, code: '1160', name: 'TDS receivable (customers)', type: 'asset' };
 export const CUSTOMER_TDS_SECTIONS = ['194A', '194C', '194H', '194I', '194J', '194Q', '194O', '192', '194D', '194G', '194LA', '206AB'];
@@ -98,10 +99,108 @@ function nameKey(value) {
   return String(value || '').toLowerCase().replace(/[^a-z0-9]/g, '');
 }
 
-function namesAgree(a, b) {
-  const x = nameKey(a);
-  const y = nameKey(b);
-  return x.length >= 4 && y.length >= 4 && (x.includes(y) || y.includes(x));
+function gramsOf(key) {
+  const grams = new Set();
+  for (let at = 0; at + NAME_MIN <= key.length; at += 1) grams.add(key.slice(at, at + NAME_MIN));
+  return grams;
+}
+
+function nextOpen(list) {
+  while (list.at < list.rows.length && list.rows[list.at].claimed) list.at += 1;
+  return list.rows[list.at];
+}
+
+function listFor(map, key) {
+  if (!map.has(key)) map.set(key, { rows: [], at: 0 });
+  return map.get(key);
+}
+
+function unclaimedIndex(rows) {
+  const order = new Map(rows.map((row, at) => [row, at]));
+  const quarters = new Map();
+  const keyOf = new Map();
+  const quarterIndex = (quarter) => {
+    if (!quarters.has(quarter)) quarters.set(quarter, { tans: new Map(), exact: new Map(), grams: new Map(), lengths: new Map() });
+    return quarters.get(quarter);
+  };
+
+  for (const row of rows) {
+    if (row.claimed || row.section === '194O' || !(row.in26as > 0)) continue;
+    const here = quarterIndex(row.quarter);
+    if (row.tan) listFor(here.tans, row.tan).rows.push(row);
+    const key = nameKey(row.deductor);
+    if (key.length < NAME_MIN) continue;
+    if (!here.exact.has(key)) {
+      here.exact.set(key, { all: { rows: [], at: 0 }, sections: new Map() });
+      for (const gram of gramsOf(key)) {
+        if (!here.grams.has(gram)) here.grams.set(gram, new Set());
+        here.grams.get(gram).add(key);
+      }
+      here.lengths.set(key.length, (here.lengths.get(key.length) || 0) + 1);
+    }
+    const bucket = here.exact.get(key);
+    bucket.all.rows.push(row);
+    listFor(bucket.sections, row.section).rows.push(row);
+    keyOf.set(row, key);
+  }
+
+  const retire = (here, key) => {
+    here.exact.delete(key);
+    for (const gram of gramsOf(key)) {
+      const keys = here.grams.get(gram);
+      keys.delete(key);
+      if (!keys.size) here.grams.delete(gram);
+    }
+    const left = here.lengths.get(key.length) - 1;
+    if (left) here.lengths.set(key.length, left);
+    else here.lengths.delete(key.length);
+  };
+
+  const agreeingBuckets = (here, wanted) => {
+    const found = new Set();
+    for (let length = NAME_MIN; length <= wanted.length; length += 1) {
+      if (!here.lengths.has(length)) continue;
+      for (let at = 0; at + length <= wanted.length; at += 1) {
+        const bucket = here.exact.get(wanted.slice(at, at + length));
+        if (bucket) found.add(bucket);
+      }
+    }
+    const postings = [...gramsOf(wanted)].map((gram) => here.grams.get(gram));
+    if (!postings.includes(undefined)) {
+      const rarest = postings.reduce((least, next) => (next.size < least.size ? next : least));
+      for (const key of rarest) if (key.includes(wanted)) found.add(here.exact.get(key));
+    }
+    return found;
+  };
+
+  return {
+    byTan(quarter, tan) {
+      const list = quarters.get(quarter)?.tans.get(tan);
+      return list ? nextOpen(list) : undefined;
+    },
+    byName(quarter, section, customer) {
+      const wanted = nameKey(customer);
+      const here = quarters.get(quarter);
+      if (!here || wanted.length < NAME_MIN) return undefined;
+      const buckets = agreeingBuckets(here, wanted);
+      let best;
+      const consider = (list) => {
+        const row = list ? nextOpen(list) : undefined;
+        if (row && (!best || order.get(row) < order.get(best))) best = row;
+      };
+      for (const bucket of buckets) consider(bucket.sections.get(section));
+      if (!best) for (const bucket of buckets) consider(bucket.all);
+      return best;
+    },
+    claim(row) {
+      row.claimed = true;
+      const key = keyOf.get(row);
+      if (key === undefined) return;
+      const here = quarters.get(row.quarter);
+      const bucket = here.exact.get(key);
+      if (bucket && !nextOpen(bucket.all)) retire(here, key);
+    },
+  };
 }
 
 function quarterOf(row) {
@@ -152,21 +251,18 @@ export function tdsCreditCheck(state, { fy } = {}) {
   }
 
   const resolved = new Map();
+  const unclaimed = unclaimedIndex([...table.values()]);
   const place = (section, tan, customer, quarter) => {
     if (section === '194O') {
       const row = marketplaceRow(channelOfDeductor(state, { tan, name: customer }) || 'marketplace', quarter);
       row.claimed = true;
       return row;
     }
-    const open = [...table.values()].filter((row) => !row.claimed && row.section !== '194O' && row.quarter === quarter && row.in26as > 0);
     const exactKey = tan ? `${section}|tan:${tan}|${quarter}` : `${section}|name:${nameKey(customer)}|${quarter}`;
-    const found = table.get(exactKey)
-      || (tan ? open.find((row) => row.tan === tan) : (() => {
-        const agreeing = open.filter((row) => namesAgree(row.deductor, customer));
-        return agreeing.find((row) => row.section === section) || agreeing[0];
-      })());
-    const row = found || rowFor(exactKey, { section, quarter, tan, deductor: customer });
-    row.claimed = true;
+    const row = table.get(exactKey)
+      || (tan ? unclaimed.byTan(quarter, tan) : unclaimed.byName(quarter, section, customer))
+      || rowFor(exactKey, { section, quarter, tan, deductor: customer });
+    unclaimed.claim(row);
     return row;
   };
 
