@@ -322,4 +322,106 @@ void main() {
     expect(find.text('Bring in a bank statement and MyCA shows it next to your books.'), findsOneWidget);
     expect(find.widgetWithText(ActionChip, 'Bring in a statement'), findsOneWidget);
   });
+
+  test('totals without a running balance read as no statement yet, and the line words follow the counts', () {
+    final recon = BankReconciliation.fromTool({
+      'ok': true,
+      'data': {
+        'account': {'id': '1002', 'label': 'Bank', 'kind': 'bank'},
+        'from': '2026-07-07',
+        'to': '2026-10-05',
+        'lines': <Object?>[],
+        'books': [
+          {'transferId': '100012', 'date': '2026-10-04', 'docKind': 'expense', 'docId': 'EXP-0002', 'party': 'Airtel', 'in': 0, 'out': 1180},
+        ],
+        'totals': {'statementBalance': null, 'statementOn': null, 'booksBalance': 190420, 'difference': null, 'lines': {'unmatched': 0, 'matched': 0, 'booked': 0, 'ignored': 0}, 'unmatchedIn': 0, 'unmatchedOut': 0},
+        'reconciledThrough': '',
+        'rules': <Object?>[],
+        'accounts': <Object?>[],
+      },
+    })!;
+    expect(recon.totals.statementBalance, isNull);
+    expect(recon.totals.statementOn, '');
+    expect(recon.totals.difference, isNull);
+    expect(recon.totals.booksBalance, 190420);
+    expect(recon.totals.lines, 0);
+    expect(recon.totals.statementBalanceWords, 'No statement yet');
+    expect(recon.totals.differenceWords, '–');
+    expect(recon.totals.unmatchedWords, 'Nothing to match yet');
+    expect(recon.empty, isFalse);
+    final tied = BankTotals.fromJson({'statementBalance': 49475, 'statementOn': '2026-11-04', 'booksBalance': 49475, 'difference': 0, 'lines': {'unmatched': 0, 'matched': 2, 'booked': 1, 'ignored': 0}, 'unmatchedIn': 0, 'unmatchedOut': 0});
+    expect(tied.lines, 3);
+    expect(tied.statementBalanceWords, '₹49,475.00');
+    expect(tied.differenceWords, '₹0.00');
+    expect(tied.unmatchedWords, 'All matched');
+  });
+
+  testWidgets('with entries in the books but no statement yet, the totals say so and the books wait under their own heading', (tester) async {
+    final api = FakeMycaApi(signedIn: true)..bankLines.clear();
+    await openBank(tester, testState(api));
+    expect(find.text('Bring in a bank statement and MyCA shows it next to your books.'), findsNothing);
+    expect(find.text('Statement balance'), findsOneWidget);
+    expect(find.text('No statement yet'), findsOneWidget);
+    expect(find.text('₹0.00'), findsNothing);
+    expect(find.text('All matched'), findsNothing);
+    expect(find.text('In the books'), findsOneWidget);
+    expect(find.text('₹1,90,420.00'), findsOneWidget);
+    expect(find.text('Difference'), findsOneWidget);
+    expect(find.text('–'), findsOneWidget);
+    expect(find.text('Nothing to match yet'), findsOneWidget);
+    expect(find.text('No statement lines yet.'), findsOneWidget);
+    expect(find.text('IN THE BOOKS, NOT ON A STATEMENT YET'), findsOneWidget);
+    expect(find.text('Expense EXP-0002 · Airtel'), findsOneWidget);
+    expect(find.widgetWithText(ActionChip, 'Bring in a statement'), findsOneWidget);
+    for (final (chip, words) in [
+      ('Not matched yet', 'Nothing waiting to be matched.'),
+      ('Matched', 'No matched lines yet.'),
+      ('Booked', 'No booked lines yet.'),
+      ('Ignored', 'No ignored lines.'),
+    ]) {
+      await tester.tap(find.widgetWithText(ChoiceChip, chip));
+      await tester.pumpAndSettle();
+      expect(find.text(words), findsOneWidget);
+    }
+  });
+
+  testWidgets('the filter sentence names the filter when the statement has no such lines', (tester) async {
+    final api = FakeMycaApi(signedIn: true);
+    await openBank(tester, testState(api));
+    expect(find.text('IN THE BOOKS, NOT ON THE STATEMENT'), findsOneWidget);
+    await tester.tap(find.widgetWithText(ChoiceChip, 'Ignored'));
+    await tester.pumpAndSettle();
+    expect(find.text('No ignored lines.'), findsOneWidget);
+    expect(find.text('No lines ignored in this statement.'), findsNothing);
+  });
+
+  testWidgets('Show older reloads two years of lines with a from date and Show recent goes back to the last 90 days', (tester) async {
+    final api = FakeMycaApi(signedIn: true);
+    await openBank(tester, testState(api));
+    Iterable<QueryCall> reconCalls() => api.queryArgs.where((q) => q.name == 'bank_reconciliation');
+    expect(reconCalls().last.args, {'account': '1002'});
+    expect(find.text('Showing the last 90 days'), findsOneWidget);
+    expect(find.text('SMS CHARGES JUN'), findsNothing);
+    expect(find.text('SMS CHARGES SEP'), findsOneWidget);
+    final older = find.widgetWithText(TextButton, 'Show older');
+    await tester.scrollUntilVisible(older, 200, scrollable: find.byType(Scrollable).last);
+    await tester.tap(older);
+    await tester.pumpAndSettle();
+    expect(reconCalls().last.args, {'account': '1002', 'from': '2024-10-05'});
+    expect(find.text('Showing two years'), findsOneWidget);
+    expect(find.text('Showing the last 90 days'), findsNothing);
+    expect(find.text('SMS CHARGES JUN'), findsOneWidget);
+    expect(find.text('18 June 2026 · out ₹25.00 · Booked'), findsOneWidget);
+    expect(find.text('3 not matched yet'), findsOneWidget);
+    expect(find.widgetWithText(TextButton, 'Show older'), findsNothing);
+    final recent = find.widgetWithText(TextButton, 'Show recent');
+    await tester.scrollUntilVisible(recent, 200, scrollable: find.byType(Scrollable).last);
+    await tester.tap(recent);
+    await tester.pumpAndSettle();
+    expect(reconCalls().last.args, {'account': '1002'});
+    expect(reconCalls().length, 3);
+    expect(find.text('Showing the last 90 days'), findsOneWidget);
+    expect(find.text('SMS CHARGES JUN'), findsNothing);
+    expect(find.text('SMS CHARGES SEP'), findsOneWidget);
+  });
 }

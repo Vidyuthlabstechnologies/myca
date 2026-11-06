@@ -6,6 +6,7 @@ import 'package:myca/api/models.dart';
 import 'package:myca/api/myca_api.dart';
 import 'package:myca/app_services.dart';
 import 'package:myca/app_state.dart';
+import 'package:myca/format.dart' show isoDate;
 
 class MemoryOnboardingStore implements OnboardingStore {
   MemoryOnboardingStore({
@@ -257,6 +258,24 @@ class FakeMycaApi implements MycaApi {
       'match': {'kind': 'books', 'id': 'BILL-0001', 'transferIds': ['100009'], 'ruleId': '', 'note': ''},
       'importedOn': '2026-10-05',
       'fileLabel': 'hdfc-oct.csv',
+      'tieBreak': false,
+      'suggestions': <Object?>[],
+    },
+    {
+      'id': 'BL-000005',
+      'account': '1002',
+      'date': '2026-06-18',
+      'narration': 'SMS CHARGES JUN',
+      'refNo': '',
+      'in': 0,
+      'out': 25,
+      'balance': 199975,
+      'fingerprint': 'BANK-5555555555555555-1',
+      'category': 'finance_cost',
+      'status': 'booked',
+      'match': {'kind': 'charge', 'id': 'EXP-0005', 'transferIds': ['100005'], 'ruleId': 'BR-0001', 'note': ''},
+      'importedOn': '2026-10-05',
+      'fileLabel': 'hdfc-jun.csv',
       'tieBreak': false,
       'suggestions': <Object?>[],
     },
@@ -1533,35 +1552,41 @@ class FakeMycaApi implements MycaApi {
         final account = (args['account'] as String?) ?? '1002';
         final status = (args['status'] as String?) ?? 'all';
         final all = bankLines.where((l) => l['account'] == account).toList();
-        final shown = all.where((l) => status == 'all' || l['status'] == status).toList();
+        String dateOf(Map<String, Object?> line) => line['date'] as String;
+        Map<String, Object?> latest(List<Map<String, Object?>> lines) => lines.reduce((a, b) => dateOf(b).compareTo(dateOf(a)) >= 0 ? b : a);
+        final to = all.isEmpty ? '2026-10-05' : dateOf(latest(all));
+        final toDate = DateTime.parse(to);
+        final from = (args['from'] as String?) ?? isoDate(DateTime(toDate.year, toDate.month, toDate.day - 90));
+        final shown = all.where((l) => dateOf(l).compareTo(from) >= 0 && (status == 'all' || l['status'] == status)).toList();
         num sum(String key, bool Function(Map<String, Object?> line) test) => all.where(test).fold<num>(0, (total, l) => total + (l[key] as num));
         int count(String s) => all.where((l) => l['status'] == s).length;
         final unmatchedIn = sum('in', (l) => l['status'] == 'unmatched');
         final unmatchedOut = sum('out', (l) => l['status'] == 'unmatched');
         final books = account == '1002' ? bankBooks : const <Map<String, Object?>>[];
         final booksOnly = books.fold<num>(0, (total, b) => total + (b['in'] as num) - (b['out'] as num));
-        final last = all.isEmpty ? null : all.last;
-        final statementBalance = last == null ? 0 : (last['balance'] as num?) ?? 0;
-        final booksBalance = statementBalance - unmatchedIn + unmatchedOut + booksOnly;
+        final balanced = all.where((l) => l['balance'] != null).toList();
+        final last = balanced.isEmpty ? null : latest(balanced);
+        final statementBalance = last == null ? null : last['balance'] as num;
+        final own = bankAccounts.firstWhere((a) => a['id'] == account, orElse: () => bankAccounts[1]);
+        final booksBalance = statementBalance == null ? own['balance'] as num : statementBalance - unmatchedIn + unmatchedOut + booksOnly;
         var reconciledThrough = '';
         for (final l in all) {
           if (l['status'] == 'unmatched') break;
-          reconciledThrough = l['date'] as String;
+          reconciledThrough = dateOf(l);
         }
-        final own = bankAccounts.firstWhere((a) => a['id'] == account, orElse: () => bankAccounts[1]);
         return {
           'ok': true,
           'data': {
             'account': {'id': own['id'], 'label': own['label'], 'kind': own['kind']},
-            'from': '2026-07-07',
-            'to': last == null ? '2026-10-05' : last['date'],
+            'from': from,
+            'to': to,
             'lines': shown,
             'books': books,
             'totals': {
               'statementBalance': statementBalance,
-              'statementOn': last == null ? '' : last['date'],
+              'statementOn': last == null ? null : last['date'],
               'booksBalance': booksBalance,
-              'difference': statementBalance - booksBalance,
+              'difference': statementBalance == null ? null : statementBalance - booksBalance,
               'lines': {'unmatched': count('unmatched'), 'matched': count('matched'), 'booked': count('booked'), 'ignored': count('ignored')},
               'unmatchedIn': unmatchedIn,
               'unmatchedOut': unmatchedOut,

@@ -2592,6 +2592,8 @@ List<String> _texts(Object? value) => value is List ? value.map(_text).toList() 
 
 num? _numOrNull(Object? value) => value is num ? value : null;
 
+String _rupeesOr(num? amount, String none) => amount == null ? none : rupees(amount);
+
 String bankDocKindWords(String docKind) => switch (docKind) {
   'receipt' => 'receipt',
   'payment' => 'payment',
@@ -2883,10 +2885,10 @@ class BankTotals {
     final map = _map(json);
     final lines = _map(map['lines']);
     return BankTotals(
-      statementBalance: _num(map['statementBalance']),
+      statementBalance: _numOrNull(map['statementBalance']),
       statementOn: _text(map['statementOn']),
       booksBalance: _num(map['booksBalance']),
-      difference: _num(map['difference']),
+      difference: _numOrNull(map['difference']),
       unmatched: _num(lines['unmatched']).toInt(),
       matched: _num(lines['matched']).toInt(),
       booked: _num(lines['booked']).toInt(),
@@ -2896,10 +2898,10 @@ class BankTotals {
     );
   }
 
-  final num statementBalance;
+  final num? statementBalance;
   final String statementOn;
   final num booksBalance;
-  final num difference;
+  final num? difference;
   final int unmatched;
   final int matched;
   final int booked;
@@ -2907,7 +2909,13 @@ class BankTotals {
   final num unmatchedIn;
   final num unmatchedOut;
 
-  String get unmatchedWords => unmatched == 0 ? 'All matched' : '$unmatched not matched yet';
+  int get lines => unmatched + matched + booked + ignored;
+
+  String get statementBalanceWords => _rupeesOr(statementBalance, 'No statement yet');
+
+  String get differenceWords => _rupeesOr(difference, '–');
+
+  String get unmatchedWords => unmatched > 0 ? '$unmatched not matched yet' : lines == 0 ? 'Nothing to match yet' : 'All matched';
 }
 
 const bankRuleSides = {'any': 'Money in or out', 'in': 'Money in', 'out': 'Money out'};

@@ -16,6 +16,14 @@ import 'party_picker.dart';
 
 const _filters = {'all': 'All', 'unmatched': 'Not matched yet', 'matched': 'Matched', 'booked': 'Booked', 'ignored': 'Ignored'};
 
+const _emptyWords = {
+  'all': 'No statement lines yet.',
+  'unmatched': 'Nothing waiting to be matched.',
+  'matched': 'No matched lines yet.',
+  'booked': 'No booked lines yet.',
+  'ignored': 'No ignored lines.',
+};
+
 const _builtInAccounts = [
   OwnAccount(id: '1001', label: 'Cash', kind: 'cash', maskedNumber: '', ifsc: '', balance: 0, builtIn: true),
   OwnAccount(id: '1002', label: 'Bank', kind: 'bank', maskedNumber: '', ifsc: '', balance: 0, builtIn: true),
@@ -38,6 +46,7 @@ class _BankScreenState extends State<BankScreen> with ProposalFlow {
   Future<BankReconciliation?>? _recon;
   String _account = '1002';
   String _filter = 'all';
+  bool _older = false;
   String _note = '';
   bool _saving = false;
 
@@ -50,13 +59,26 @@ class _BankScreenState extends State<BankScreen> with ProposalFlow {
     _recon ??= _load();
   }
 
+  String _twoYearsBack() {
+    final today = AppScope.of(context).now();
+    return isoDate(DateTime(today.year - 2, today.month, today.day));
+  }
+
   Future<BankReconciliation?> _load() async {
+    final args = <String, Object?>{'account': _account, if (_older) 'from': _twoYearsBack()};
     try {
-      return BankReconciliation.fromTool(await api.query('bank_reconciliation', {'account': _account}));
+      return BankReconciliation.fromTool(await api.query('bank_reconciliation', args));
     } on MycaApiException {
       return null;
     }
   }
+
+  void _toggleWindow() => setState(() {
+    _older = !_older;
+    _recon = _load();
+  });
+
+  String get _windowWords => _older ? 'Showing two years' : 'Showing the last 90 days';
 
   @override
   Future<void> onPosted() async {
@@ -280,6 +302,8 @@ class _BankScreenState extends State<BankScreen> with ProposalFlow {
                       Text('Bring in a bank statement and MyCA shows it next to your books.', style: text.bodyMedium)
                     else ...[
                       _Totals(totals: recon.totals),
+                      const SizedBox(height: 6),
+                      Text(_windowWords, style: text.bodySmall),
                       const SizedBox(height: 12),
                       Wrap(
                         spacing: 8,
@@ -297,7 +321,7 @@ class _BankScreenState extends State<BankScreen> with ProposalFlow {
                       ),
                       const SizedBox(height: 12),
                       if (lines.isEmpty)
-                        Text('No lines ${_filters[_filter]!.toLowerCase()} in this statement.', style: text.bodyMedium)
+                        Text(_emptyWords[_filter]!, style: text.bodyMedium)
                       else
                         Panel(
                           children: [
@@ -322,9 +346,14 @@ class _BankScreenState extends State<BankScreen> with ProposalFlow {
                               ),
                           ],
                         ),
+                      const SizedBox(height: 4),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: TextButton(onPressed: busy ? null : _toggleWindow, child: Text(_older ? 'Show recent' : 'Show older')),
+                      ),
                       if (recon.books.isNotEmpty) ...[
-                        const SizedBox(height: 20),
-                        const SectionLabel('In the books, not on the statement'),
+                        const SizedBox(height: 16),
+                        SectionLabel(recon.lines.isEmpty ? 'In the books, not on a statement yet' : 'In the books, not on the statement'),
                         Panel(
                           children: [
                             for (final row in recon.books)
@@ -369,10 +398,10 @@ class _Totals extends StatelessWidget {
       children: [
         _Figure(
           label: totals.statementOn.isEmpty ? 'Statement balance' : 'Statement balance on ${longDate(totals.statementOn)}',
-          value: rupees(totals.statementBalance),
+          value: totals.statementBalanceWords,
         ),
         _Figure(label: 'In the books', value: rupees(totals.booksBalance)),
-        _Figure(label: 'Difference', value: rupees(totals.difference)),
+        _Figure(label: 'Difference', value: totals.differenceWords),
         _Figure(label: 'Lines', value: totals.unmatchedWords),
       ],
     );

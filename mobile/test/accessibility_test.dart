@@ -102,6 +102,18 @@ final Map<String, Walk> screens = {
     await t.tap(chip);
     await t.pumpAndSettle();
   },
+  'bank, two years of lines': (t) async {
+    await tapRow(t, 'Bank');
+    final older = find.text('Show older');
+    await scrollTo(t, older);
+    await t.tap(older);
+    await t.pumpAndSettle();
+  },
+  'bank, no statement yet': (t) async {
+    await t.pumpWidget(MycaApp(key: UniqueKey(), state: testState(FakeMycaApi(signedIn: true)..bankLines.clear())));
+    await t.pumpAndSettle();
+    await tapRow(t, 'Bank');
+  },
   'ask': (t) async {
     await t.tap(find.byTooltip('Send'));
     await t.pumpAndSettle();
