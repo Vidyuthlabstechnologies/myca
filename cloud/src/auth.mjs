@@ -201,11 +201,11 @@ export function createAuth({ db, secret, otpSender, now = () => Date.now(), seco
 
     async deleteAccount(userId) {
       return db.tx(async (q) => {
-        await q('update users set deleted_at = $2 where id = $1', [userId, at()]);
-        await q('update devices set revoked_at = $2 where user_id = $1 and revoked_at is null', [userId, at()]);
+        await q('delete from second_step_challenges where user_id = $1', [userId]);
         await q('delete from user_totp where user_id = $1', [userId]);
         await q('delete from recovery_codes where user_id = $1', [userId]);
-        await q('delete from second_step_challenges where user_id = $1', [userId]);
+        await q('update users set deleted_at = $2 where id = $1', [userId, at()]);
+        await q('update devices set revoked_at = $2 where user_id = $1 and revoked_at is null', [userId, at()]);
         await q(
           `update businesses set deletion_requested_at = $2
             where deletion_requested_at is null

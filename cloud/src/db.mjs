@@ -7,8 +7,9 @@ const MIGRATIONS_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', 'migr
 
 pg.types.setTypeParser(20, (value) => Number(value));
 
-export function createDb(connectionString, { max = 10 } = {}) {
+export function createDb(connectionString, { max = 10, onError = () => {} } = {}) {
   const pool = new pg.Pool({ connectionString, max });
+  pool.on('error', onError);
   const query = (text, params) => pool.query(text, params);
   return {
     query,

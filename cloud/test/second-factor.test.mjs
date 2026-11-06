@@ -1,6 +1,6 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { createSign, generateKeyPairSync } from 'node:crypto';
+import { createDecipheriv, createHmac, createSign, generateKeyPairSync, hkdfSync } from 'node:crypto';
 import { base32Decode, totpCode } from '../src/totp.mjs';
 import { ENROL_MAX_ATTEMPTS, RECOVERY_CODES, SECOND_STEP_MAX_ATTEMPTS, SECOND_STEP_TTL_SECONDS, createSecondFactor } from '../src/second-factor.mjs';
 import { ACCESS_TTL_SECONDS, keyedHash } from '../src/tokens.mjs';
@@ -463,4 +463,183 @@ test('the second-step settings sit behind the privacy notice like every other ac
     assert.equal(out.body.error, 'CONSENT_REQUIRED');
   }
   assert.equal((await api.call('GET', '/v1/me/second-step/nothing', { token: silent.accessToken })).status, 403);
+});
+
+test('a challenge lasts exactly five minutes and allows exactly five attempts, and eight recovery codes are issued', async () => {
+  const phone = freshPhone();
+  const { session, secret, token } = await enrol(phone);
+  assert.equal((await status(token)).body.recoveryCodesLeft, 8);
+  const stored = await api.db.query('select count(*)::int as n from recovery_codes where user_id = $1', [session.user.id]);
+  assert.equal(stored.rows[0].n, 8);
+  const renewed = await regenerate(token, current(secret));
+  assert.equal(renewed.body.recoveryCodes.length, 8);
+  const renewedStored = await api.db.query('select count(*)::int as n from recovery_codes where user_id = $1', [session.user.id]);
+  assert.equal(renewedStored.rows[0].n, 8);
+
+  const first = await firstStep(phone);
+  assert.equal(first.body.expiresInSeconds, 300);
+  const row = (await api.db.query('select created_at, expires_at from second_step_challenges where id = $1', [first.body.challengeId])).rows[0];
+  assert.equal(row.expires_at.getTime() - row.created_at.getTime(), 300_000);
+  for (let tried = 1; tried <= 5; tried++) {
+    const out = await secondStep(first.body.challengeId, wrongCode(secret));
+    assert.equal(out.status, 400, `try ${tried}`);
+    assert.equal(out.body.error, 'INVALID_CODE', `try ${tried}`);
+    assert.equal(out.body.attemptsRemaining, 5 - tried, `try ${tried}`);
+  }
+  const sixth = await secondStep(first.body.challengeId, current(secret));
+  assert.equal(sixth.status, 429);
+  assert.equal(sixth.body.error, 'TOO_MANY_ATTEMPTS');
+
+  const early = await firstStep(phone);
+  const late = await firstStep(phone);
+  api.clock.advance(299_999);
+  const inTime = await secondStep(early.body.challengeId, current(secret));
+  assert.equal(inTime.status, 200, 'a challenge is still good one millisecond before five minutes are up');
+  api.clock.advance(1);
+  const tooLate = await secondStep(late.body.challengeId, current(secret));
+  assert.equal(tooLate.body.error, 'CODE_EXPIRED', 'and ended at five minutes');
+});
+
+test('setup gives up on the fifth wrong code, not the sixth, and a right code on the fifth try still turns it on', async () => {
+  const giveUp = (await api.signIn(freshPhone())).accessToken;
+  const started = await begin(giveUp);
+  for (let tried = 1; tried <= 4; tried++) {
+    const out = await confirm(giveUp, wrongCode(started.body.secret));
+    assert.equal(out.status, 400, `try ${tried}`);
+    assert.equal(out.body.error, 'INVALID_CODE', `try ${tried}`);
+    assert.equal(out.body.attemptsRemaining, 5 - tried, `try ${tried}`);
+  }
+  const fifth = await confirm(giveUp, wrongCode(started.body.secret));
+  assert.equal(fifth.status, 400);
+  assert.equal(fifth.body.error, 'ENROLMENT_RESTART');
+  assert.equal((await confirm(giveUp, current(started.body.secret))).body.error, 'NOT_ENROLLING');
+
+  const lastChance = (await api.signIn(freshPhone())).accessToken;
+  const second = await begin(lastChance);
+  for (let tried = 1; tried <= 4; tried++) assert.equal((await confirm(lastChance, wrongCode(second.body.secret))).body.error, 'INVALID_CODE');
+  const done = await confirm(lastChance, current(second.body.secret));
+  assert.equal(done.status, 200, done.text);
+  assert.equal(done.body.recoveryCodes.length, 8);
+  assert.equal((await status(lastChance)).body.enabled, true);
+});
+
+test('the stored key opens with an AES-256-GCM and HKDF written separately from the module, and recovery codes are HMAC-SHA256 under the service secret', async () => {
+  const { session, secret, recoveryCodes } = await enrol(freshPhone());
+  const stored = (await api.db.query('select secret_sealed from user_totp where user_id = $1', [session.user.id])).rows[0].secret_sealed;
+  const [version, iv, tag, body, extra] = stored.split('.');
+  assert.equal(version, 'v1');
+  assert.equal(extra, undefined);
+  assert.equal(Buffer.from(iv, 'base64url').length, 12);
+  assert.equal(Buffer.from(tag, 'base64url').length, 16);
+  const key = Buffer.from(hkdfSync('sha256', BOOKS_KEY, session.user.id, 'myca-user-totp', 32));
+  const decipher = createDecipheriv('aes-256-gcm', key, Buffer.from(iv, 'base64url'));
+  decipher.setAuthTag(Buffer.from(tag, 'base64url'));
+  const opened = Buffer.concat([decipher.update(Buffer.from(body, 'base64url')), decipher.final()]).toString('utf8');
+  assert.equal(opened, secret);
+
+  const hashes = await api.db.query('select code_hash from recovery_codes where user_id = $1', [session.user.id]);
+  assert.deepEqual(
+    hashes.rows.map((row) => row.code_hash).sort(),
+    recoveryCodes.map((code) => createHmac('sha256', SECRET).update(code.replace('-', ''), 'utf8').digest('hex')).sort(),
+  );
+});
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+async function until(done, what) {
+  for (let waited = 0; waited < 10_000; waited += 10) {
+    if (await done()) return;
+    await sleep(10);
+  }
+  assert.fail(`timed out waiting for ${what}`);
+}
+
+const lockWaiters = async () => (await api.db.query("select count(*)::int as n from pg_stat_activity where datname = current_database() and wait_event_type = 'Lock'")).rows[0].n;
+
+async function holdAuthenticatorRow(userId) {
+  let release;
+  const held = new Promise((resolve) => { release = resolve; });
+  let locked;
+  const ready = new Promise((resolve) => { locked = resolve; });
+  const done = api.db.tx(async (q) => {
+    await q('select 1 from user_totp where user_id = $1 for update', [userId]);
+    locked();
+    await held;
+  });
+  await Promise.race([ready, done]);
+  return { release, done };
+}
+
+test('an account deletion and a second-step sign-in queued on the same authenticator row finish without a deadlock, and the sign-in is refused', async () => {
+  const { session, token, secret } = await enrol(freshPhone());
+  const [challengeId] = await openChallenges(session.user.id, 1);
+  const hold = await holdAuthenticatorRow(session.user.id);
+  let deleting;
+  let signing;
+  try {
+    deleting = api.call('DELETE', '/v1/me', { token });
+    await until(async () => (await lockWaiters()) >= 1, 'the deletion to wait for the held row');
+    signing = secondStep(challengeId, current(secret));
+    await until(async () => (await lockWaiters()) >= 2, 'the sign-in to wait as well');
+  } finally {
+    hold.release();
+    await hold.done;
+  }
+  const deleted = await deleting;
+  const signedIn = await signing;
+  assert.equal(deleted.status, 200, deleted.text);
+  assert.equal(signedIn.status, 400, signedIn.text);
+  assert.equal(signedIn.body.error, 'INVALID_CODE');
+  const left = await api.db.query(
+    `select (select count(*)::int from user_totp where user_id = $1) as totp,
+            (select count(*)::int from second_step_challenges where user_id = $1) as challenges,
+            (select count(*)::int from devices where user_id = $1 and revoked_at is null) as live`,
+    [session.user.id],
+  );
+  assert.deepEqual(left.rows[0], { totp: 0, challenges: 0, live: 0 });
+});
+
+test('a second-step sign-in that reaches the authenticator row before an account deletion is ended by it, the device it just opened included', async () => {
+  const phone = freshPhone();
+  const { session, token, secret } = await enrol(phone);
+  const [challengeId] = await openChallenges(session.user.id, 1);
+  const hold = await holdAuthenticatorRow(session.user.id);
+  let signing;
+  let deleting;
+  try {
+    signing = secondStep(challengeId, current(secret));
+    await until(async () => (await lockWaiters()) >= 1, 'the sign-in to wait for the held row');
+    deleting = api.call('DELETE', '/v1/me', { token });
+    await until(async () => (await lockWaiters()) >= 2, 'the deletion to wait as well');
+  } finally {
+    hold.release();
+    await hold.done;
+  }
+  const signedIn = await signing;
+  const deleted = await deleting;
+  assert.equal(signedIn.status, 200, signedIn.text);
+  assert.equal(deleted.status, 200, deleted.text);
+  const live = await api.db.query('select count(*)::int as n from devices where user_id = $1 and revoked_at is null', [session.user.id]);
+  assert.equal(live.rows[0].n, 0, 'the device the racing sign-in opened is ended with the rest');
+  const again = await firstStep(phone);
+  assert.ok(again.body.accessToken, 'the number signs in afresh, in one step');
+  const stale = await api.call('GET', '/v1/me', { token: signedIn.body.accessToken });
+  assert.equal(stale.status, 401);
+  assert.equal(stale.body.reason, 'DEVICE_REVOKED');
+});
+
+test('deleting the account while second-step sign-ins are in flight never answers a server error, however the requests interleave', async () => {
+  for (let round = 1; round <= 8; round++) {
+    const { session, token, secret } = await enrol(freshPhone());
+    const ids = await openChallenges(session.user.id, 3);
+    const code = current(secret);
+    const [deleted, ...signIns] = await Promise.all([api.call('DELETE', '/v1/me', { token }), ...ids.map((id) => secondStep(id, code))]);
+    assert.equal(deleted.status, 200, `round ${round}: ${deleted.text}`);
+    for (const out of signIns) {
+      assert.ok(out.status === 200 || (out.status === 400 && out.body.error === 'INVALID_CODE'), `round ${round}: ${out.status} ${out.text}`);
+    }
+    assert.ok(signIns.filter((out) => out.status === 200).length <= 1, `round ${round}: one code, one sign-in`);
+    const live = await api.db.query('select count(*)::int as n from devices where user_id = $1 and revoked_at is null', [session.user.id]);
+    assert.equal(live.rows[0].n, 0, `round ${round}: every device is ended`);
+  }
 });
