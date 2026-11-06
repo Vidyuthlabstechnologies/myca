@@ -33,22 +33,36 @@ function fail(error, extra = {}) {
   return { ok: false, error, ...extra };
 }
 
-export function createAuth({ db, secret, otpSender, now = () => Date.now() }) {
+export async function issueTokens(q, userId, deviceId, secret, now = () => Date.now()) {
+  const refreshToken = newRefreshToken();
+  await q('insert into refresh_tokens (token_hash, device_id, created_at, expires_at) values ($1, $2, $3, $4)', [
+    hashToken(refreshToken),
+    deviceId,
+    new Date(now()),
+    new Date(now() + REFRESH_TTL_SECONDS * 1000),
+  ]);
+  return {
+    accessToken: signAccessToken({ userId, deviceId }, secret, now()),
+    refreshToken,
+    expiresInSeconds: ACCESS_TTL_SECONDS,
+  };
+}
+
+export function createAuth({ db, secret, otpSender, now = () => Date.now(), secondFactor = null }) {
   const at = () => new Date(now());
 
-  async function issueTokens(q, userId, deviceId) {
-    const refreshToken = newRefreshToken();
-    await q('insert into refresh_tokens (token_hash, device_id, created_at, expires_at) values ($1, $2, $3, $4)', [
-      hashToken(refreshToken),
-      deviceId,
+  async function session(q, user, deviceLabel) {
+    const userId = user.id;
+    if (secondFactor && await secondFactor.enabledFor(q, userId)) {
+      return { ...(await secondFactor.challenge(q, userId, deviceLabel)), user: { id: userId, name: user.name, isNew: false } };
+    }
+    const device = await q('insert into devices (user_id, label, created_at, last_seen_at) values ($1, $2, $3, $3) returning id', [
+      userId,
+      String(deviceLabel).slice(0, 80),
       at(),
-      new Date(now() + REFRESH_TTL_SECONDS * 1000),
     ]);
-    return {
-      accessToken: signAccessToken({ userId, deviceId }, secret, now()),
-      refreshToken,
-      expiresInSeconds: ACCESS_TTL_SECONDS,
-    };
+    const tokens = await issueTokens(q, userId, device.rows[0].id, secret, now);
+    return { ok: true, ...tokens, user: { id: userId, name: user.name, isNew: user.created } };
   }
 
   return {
@@ -107,14 +121,7 @@ export function createAuth({ db, secret, otpSender, now = () => Date.now() }) {
            returning id, name, (xmax = 0) as created`,
           [phone, at()],
         );
-        const userId = user.rows[0].id;
-        const device = await q('insert into devices (user_id, label, created_at, last_seen_at) values ($1, $2, $3, $3) returning id', [
-          userId,
-          String(deviceLabel).slice(0, 80),
-          at(),
-        ]);
-        const tokens = await issueTokens(q, userId, device.rows[0].id);
-        return { ok: true, ...tokens, user: { id: userId, name: user.rows[0].name, isNew: user.rows[0].created } };
+        return session(q, user.rows[0], deviceLabel);
       });
     },
 
@@ -127,14 +134,7 @@ export function createAuth({ db, secret, otpSender, now = () => Date.now() }) {
            returning id, name, (xmax = 0) as created`,
           [sub, email, name, at()],
         );
-        const userId = user.rows[0].id;
-        const device = await q('insert into devices (user_id, label, created_at, last_seen_at) values ($1, $2, $3, $3) returning id', [
-          userId,
-          String(deviceLabel).slice(0, 80),
-          at(),
-        ]);
-        const tokens = await issueTokens(q, userId, device.rows[0].id);
-        return { ok: true, ...tokens, user: { id: userId, name: user.rows[0].name, isNew: user.rows[0].created } };
+        return session(q, user.rows[0], deviceLabel);
       });
     },
 
@@ -147,14 +147,7 @@ export function createAuth({ db, secret, otpSender, now = () => Date.now() }) {
            returning id, name, (xmax = 0) as created`,
           [issuer, sub, email, name, at()],
         );
-        const userId = user.rows[0].id;
-        const device = await q('insert into devices (user_id, label, created_at, last_seen_at) values ($1, $2, $3, $3) returning id', [
-          userId,
-          String(deviceLabel).slice(0, 80),
-          at(),
-        ]);
-        const tokens = await issueTokens(q, userId, device.rows[0].id);
-        return { ok: true, ...tokens, user: { id: userId, name: user.rows[0].name, isNew: user.rows[0].created } };
+        return session(q, user.rows[0], deviceLabel);
       });
     },
 
@@ -177,7 +170,7 @@ export function createAuth({ db, secret, otpSender, now = () => Date.now() }) {
         if (row.expires_at.getTime() <= now()) return fail('REFRESH_TOKEN_EXPIRED');
         await q('update refresh_tokens set used_at = $2 where token_hash = $1', [row.token_hash, at()]);
         await q('update devices set last_seen_at = $2 where id = $1', [row.device_id, at()]);
-        return { ok: true, ...(await issueTokens(q, row.user_id, row.device_id)) };
+        return { ok: true, ...(await issueTokens(q, row.user_id, row.device_id, secret, now)) };
       });
     },
 
@@ -210,6 +203,9 @@ export function createAuth({ db, secret, otpSender, now = () => Date.now() }) {
       return db.tx(async (q) => {
         await q('update users set deleted_at = $2 where id = $1', [userId, at()]);
         await q('update devices set revoked_at = $2 where user_id = $1 and revoked_at is null', [userId, at()]);
+        await q('delete from user_totp where user_id = $1', [userId]);
+        await q('delete from recovery_codes where user_id = $1', [userId]);
+        await q('delete from second_step_challenges where user_id = $1', [userId]);
         await q(
           `update businesses set deletion_requested_at = $2
             where deletion_requested_at is null

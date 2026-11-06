@@ -74,14 +74,24 @@ Auth Proxy (`database_connection_name` output), run `npm test` style smoke calls
 
 **A suspected data breach** (a lost phone with the app signed in, a leaked token, an
 unexpected member in a business, a provider key seen in a log). Within the hour: revoke
-the device from the database (`update devices set revoked_at = now() where id = ...`;
-every refresh from it fails at once), rotate the secret involved in Secret Manager and
-redeploy, and export the `audit_log` rows for the business from the suspected time. Within
-seventy-two hours, as the Digital Personal Data Protection Act requires: tell each
-affected business owner in the app's own words what was seen, when, and what they
+the device, either from the app (Your business, then Security, lists the signed-in devices,
+each with Sign out) or from the database (`update devices set revoked_at = now() where
+id = ...`; every request from it fails at once), rotate the secret involved in Secret
+Manager and redeploy, and export the `audit_log` rows for the business from the suspected
+time. Within seventy-two hours, as the Digital Personal Data Protection Act requires: tell
+each affected business owner in the app's own words what was seen, when, and what they
 should change, and write the same to the Data Protection Board of India once it is
 constituted; keep the audit export with the notice. Afterwards: add the gap to
 `docs/architecture/SECURITY-AND-PRIVACY.md` section 4 and the fix to the next release.
+
+**A user lost their authenticator and recovery codes.** They cannot finish signing in and
+nothing in the app can help them. Confirm who they are the way you would for a lost phone
+number (the owner of the business vouches for a member; an owner answers questions only
+their books can answer), then turn two-step off for them in the database:
+`delete from user_totp where user_id = ...;` and
+`delete from recovery_codes where user_id = ...;`. Their next sign-in is one step again;
+tell them to turn two-step back on from Security in the app. Their signed-in devices are
+untouched; if the authenticator was on a lost phone, end that device as well (above).
 
 ## 4. Redundancy choices and their cost
 

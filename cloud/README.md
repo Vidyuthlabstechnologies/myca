@@ -27,6 +27,9 @@ not created yet (`infra/cloud` is written and validated, applied by hand).
 | `migrations/` | Schema, applied in name order by `src/db.mjs` |
 | `src/tokens.mjs` | Access tokens (HMAC, 15 minutes) and refresh token hashing |
 | `src/auth.mjs` | Phone codes, sessions, refresh rotation with reuse detection, account deletion |
+| `src/totp.mjs` | Base32, HOTP and TOTP (RFC 4648, 4226, 6238) and the otpauth URI, with no dependency |
+| `src/second-factor.mjs` | Optional two-step sign-in: enrolment, the sealed authenticator key, recovery codes, the second-step challenge |
+| `src/devices.mjs` | The signed-in device list and remote sign-out |
 | `src/businesses.mjs` | Creating a business with empty books; memberships and roles |
 | `src/members.mjs` | Invitations by phone number, joining, leaving and removing members |
 | `src/books-runner.mjs` | The per-request transaction around the engine |
@@ -86,6 +89,29 @@ flutter run --dart-define=MYCA_CLOUD_URL=http://127.0.0.1:8080
   their own, for a restore drill.
 - `.github/workflows/deploy-cloud.yml` builds the image and rolls it out on merge to
   `main` once `GCP_API_REGION` is set. `docs/operations/RUNBOOK.md` has the rest.
+
+## Sign-in, two-step and devices
+
+Sign-in is one step by default: `POST /v1/auth/otp` then `POST /v1/auth/verify`, or
+`POST /v1/auth/google` / `POST /v1/auth/oidc` with an ID token, each answering an access
+token (15 minutes) and a refresh token (60 days, rotated by `POST /v1/auth/refresh`). A
+user can turn on two-step sign-in with an authenticator app from Security in the app:
+
+| Route | What |
+|---|---|
+| `GET /v1/me/second-step` | `{ enabled, enabledAt, recoveryCodesLeft }` |
+| `POST /v1/me/second-step/begin` | starts enrolment: the base32 key, the `otpauth://` uri and the account name, shown once |
+| `POST /v1/me/second-step/confirm {code}` | the first code from the app turns two-step on and returns eight recovery codes, shown once; five wrong codes throw the setup away (`ENROLMENT_RESTART`) |
+| `POST /v1/me/second-step/disable {code}` | turns it off; an authenticator code or an unused recovery code |
+| `POST /v1/me/second-step/recovery-codes {code}` | replaces the recovery codes |
+| `POST /v1/auth/second-step {challengeId, code, deviceLabel}` | finishes a sign-in. With two-step on, verify, google and oidc answer `{ secondStep: true, challengeId, expiresInSeconds: 300, user }` and no tokens; this route takes the authenticator code, or a recovery code once, and issues the tokens with `usedRecoveryCode` and `recoveryCodesLeft`. Five minutes and five attempts per challenge (`CODE_EXPIRED`, `TOO_MANY_ATTEMPTS`); a code that was used, or an older one, is refused |
+| `GET /v1/me/devices` | the devices signed in to the account with a live refresh token, this one first: `{ id, label, signedInOn, lastActive, current }` |
+| `POST /v1/me/devices/:id/sign-out` | ends that device at once; `409 CURRENT_DEVICE` for this one, which uses `POST /v1/auth/logout`; `404 DEVICE_NOT_FOUND` for a device that is not the caller's or is already signed out |
+| `POST /v1/me/devices/sign-out-others` | ends every other device; `revoked` counts the ones that were listed |
+
+The authenticator key is sealed per user under `MYCA_BOOKS_KEY`, recovery codes are stored
+hashed, and neither appears in a response after enrolment or in a log. Deleting the account
+removes both, and the nightly job deletes second-step challenges older than a day.
 
 ## Inbound keys
 
@@ -220,4 +246,4 @@ The Windows app shows the plan and says it is bought in the Android app.
   direct-to-storage uploads.
 - A business may hold 200 MB of documents in total (\`MAX_BUSINESS_BYTES\`); beyond that an upload answers 413 STORAGE_FULL.
 
-`MYCA_BOOKS_KEY` seals every business's books row (AES-256-GCM, a key derived per business). It is optional locally and required on Cloud Run; Terraform generates it into Secret Manager. Rotating it means re-sealing every row, so keep it where the database password is kept.
+`MYCA_BOOKS_KEY` seals every business's books row (AES-256-GCM, a key derived per business) and every user's authenticator key (`user_totp`, a key derived per user). It is optional locally and required on Cloud Run; Terraform generates it into Secret Manager. Rotating it means re-sealing every row of both, so keep it where the database password is kept.
