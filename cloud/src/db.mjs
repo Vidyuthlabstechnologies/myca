@@ -2,13 +2,15 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
+import { databaseSsl } from './runtime.mjs';
 
 const MIGRATIONS_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', 'migrations');
 
 pg.types.setTypeParser(20, (value) => Number(value));
 
 export function createDb(connectionString, { max = 10 } = {}) {
-  const pool = new pg.Pool({ connectionString, max });
+  const ssl = databaseSsl();
+  const pool = new pg.Pool({ connectionString, max, ...(ssl ? { ssl } : {}) });
   const query = (text, params) => pool.query(text, params);
   return {
     query,

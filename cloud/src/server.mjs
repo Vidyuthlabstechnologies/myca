@@ -10,6 +10,7 @@ import { booksKeyFromEnv } from './books-seal.mjs';
 import { smsSenderFromEnv } from './sms-sender.mjs';
 import { whatsAppConfigFromEnv, createWhatsAppSender } from './whatsapp.mjs';
 import { createBilling, billingConfigFromEnv } from './billing.mjs';
+import { isProduction, hostingName, serviceRevision, databaseTlsProblem } from './runtime.mjs';
 
 const STARTUP_ATTEMPTS = 10;
 const STARTUP_WAIT_MS = 3000;
@@ -23,7 +24,7 @@ function required(name) {
 
 function otpSender() {
   if (process.env.MYCA_DEV_OTP === '1') {
-    if (process.env.K_SERVICE) throw new Error('MYCA_DEV_OTP prints sign-in codes to the log and must not be set on Cloud Run');
+    if (isProduction()) throw new Error(`MYCA_DEV_OTP prints sign-in codes to the log and must not be set in ${hostingName()}`);
     return createConsoleSender();
   }
   return smsSenderFromEnv(process.env, { log });
@@ -46,6 +47,8 @@ async function migrateWithRetry(db) {
   }
 }
 
+const tlsProblem = databaseTlsProblem();
+if (tlsProblem) throw new Error(tlsProblem);
 const db = createDb(required('MYCA_DATABASE_URL'));
 await migrateWithRetry(db);
 const handler = createApi({
@@ -57,13 +60,13 @@ const handler = createApi({
   oidc: oidcConfigFromEnv(process.env),
   documentVault: createDocumentVault({ ...documentVaultConfigFromEnv(process.env), log }),
   connectorKey: connectorKeyFromEnv(process.env),
-  booksKey: (() => { const key = booksKeyFromEnv(process.env); if (!key && process.env.K_SERVICE) throw new Error('MYCA_BOOKS_KEY is required on Cloud Run: the books column is sealed with it'); return key; })(),
+  booksKey: (() => { const key = booksKeyFromEnv(process.env); if (!key && isProduction()) throw new Error(`MYCA_BOOKS_KEY is required in ${hostingName()}: the books column is sealed with it`); return key; })(),
   jobToken: String(process.env.MYCA_JOB_TOKEN || '').trim(),
   inboundEmail: { domain: String(process.env.MYCA_INBOUND_EMAIL_DOMAIN || '').trim(), relayToken: String(process.env.MYCA_INBOUND_RELAY_TOKEN || '').trim() },
   whatsapp: whatsAppConfigFromEnv(process.env),
   whatsappSender: (() => { const cfg = whatsAppConfigFromEnv(process.env); return cfg.phoneNumberId && cfg.accessToken ? createWhatsAppSender({ phoneNumberId: cfg.phoneNumberId, accessToken: cfg.accessToken, log }) : null; })(),
   log,
-  version: process.env.K_REVISION || 'dev',
+  version: serviceRevision(),
 });
 const port = Number(process.env.PORT || 8080);
 const server = createServer(handler);
