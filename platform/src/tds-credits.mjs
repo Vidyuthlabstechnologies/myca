@@ -220,10 +220,15 @@ export function tdsCreditCheck(state, { fy } = {}) {
 }
 
 export function tdsCreditWords(data, money) {
-  if (!data.rows.length) return `No TDS credit is on record for FY ${data.fy} yet. Import Form 26AS (CSV or text from the income-tax portal) or record TDS a customer withheld on an invoice.\n${data.source}`;
+  const waiting = data.pendingFile ? `The Form 26AS file you attached (${data.pendingFile}) has not been imported` : '';
+  if (!data.rows.length) {
+    if (waiting) return `No TDS credit is on record for FY ${data.fy} yet. ${waiting}: say "import 26AS" to read it, or record TDS a customer withheld on an invoice.\n${data.source}`;
+    return `No TDS credit is on record for FY ${data.fy} yet. Import Form 26AS (CSV or text from the income-tax portal) or record TDS a customer withheld on an invoice.\n${data.source}`;
+  }
   const lines = [`26AS vs books for FY ${data.fy}: ${money(data.totals.in26as)} in 26AS, ${money(data.totals.inBooks)} in your books, gap ${money(data.totals.gap)}.`];
   for (const row of data.rows.slice(0, MAX_WORDED_ROWS)) lines.push(`· ${row.deductor} ${row.quarter} (${row.section}): ${row.status}, 26AS ${money(row.in26as)}, books ${money(row.inBooks)}`);
   if (data.rows.length > MAX_WORDED_ROWS) lines.push(`… and ${data.rows.length - MAX_WORDED_ROWS} more`);
   lines.push(data.source);
+  if (waiting) lines.push(`${waiting}, so it is not in this comparison; say "import 26AS" to read it.`);
   return lines.join('\n');
 }

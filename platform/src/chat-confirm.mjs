@@ -1692,6 +1692,7 @@ const TDS_WITHHELD_REASONS = {
 };
 
 function tdsWithheldPreview(state, args) {
+  if (countryOf(state) !== 'IN') return { blockers: ['TDS withheld by customers is for India books.'], summary: '', effects: [], figures: {} };
   const plan = planTdsWithheld(state, args);
   if (!plan.ok) {
     const invoice = (state.invoices || []).find((item) => item.id === String(args.invoiceId || '').trim().toUpperCase());
