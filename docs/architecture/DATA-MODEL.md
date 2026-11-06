@@ -64,8 +64,9 @@ erDiagram
 | Table | Notes |
 |---|---|
 | `users` | One per phone number or Google account (`google_sub`, the account's stable id); every user has at least one. The phone number is stored as given, because it is the sign-in identifier. `email` is kept only when Google says it is verified. |
-| `devices`, `refresh_tokens` | A session belongs to a device. Only a hash of the refresh token is stored. Reuse of a spent token revokes the device. |
+| `devices`, `refresh_tokens` | A session belongs to a device. Only a hash of the refresh token is stored. Reuse of a spent token revokes the device. The user sees every device of theirs with a live refresh token in the app and can end any of them. |
 | `otp_challenges` | Salted hash of the code and a hash of the phone number; attempts are counted. |
+| `user_totp`, `recovery_codes`, `second_step_challenges` | Optional two-step sign-in. `user_totp` holds one authenticator key per user, sealed with AES-256-GCM under a key derived from the service key and the user id, the enrolment attempt count, and the last accepted step so a code works once. `recovery_codes` holds a keyed hash per code, marked when used. `second_step_challenges` is the pending sign-in between the first factor and the authenticator code: five minutes, five attempts, consumed on success, deleted by the nightly job after a day. The first two are deleted when two-step is turned off or the account is deleted. |
 | `businesses`, `memberships` | Role is `owner`, `staff` or `accountant`. A business keeps at least one owner. |
 | `invitations` | Stored against a hash of the invited number plus a three-digit hint. One open invitation per business and number. |
 | `books` | The engine's state for one business and a version that increases on every write. Deleting a business with books is restricted. |

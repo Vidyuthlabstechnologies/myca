@@ -46,7 +46,7 @@ async function migrateWithRetry(db) {
   }
 }
 
-const db = createDb(required('MYCA_DATABASE_URL'));
+const db = createDb(required('MYCA_DATABASE_URL'), { onError: (err) => log({ db: 'idle connection lost', error: String(err && err.message ? err.message : err) }) });
 await migrateWithRetry(db);
 const handler = createApi({
   db,

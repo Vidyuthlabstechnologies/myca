@@ -1,6 +1,7 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { INBOUND_HEADER } from '../src/inbound.mjs';
+import { base32Decode, totpCode } from '../src/totp.mjs';
 import { startApi, SALE } from './helpers.mjs';
 
 let api;
@@ -116,4 +117,22 @@ test('responses never carry secrets: no key hash, no token secret, no code, no p
   const exported = await api.call('GET', biz(asha, 'export'), { token: asha.token });
   assert.ok(!exported.text.includes(key.secret));
   assert.ok(!/pinHash|pinSalt|key_hash/.test(exported.text));
+
+  const person = await api.signIn('+919100000020');
+  const started = await api.call('POST', '/v1/me/second-step/begin', { token: person.accessToken });
+  assert.equal(started.status, 200, started.text);
+  const enabled = await api.call('POST', '/v1/me/second-step/confirm', { token: person.accessToken, body: { code: totpCode(base32Decode(started.body.secret), api.clock.now) } });
+  assert.equal(enabled.status, 200, enabled.text);
+  const secondStep = await api.call('GET', '/v1/me/second-step', { token: person.accessToken });
+  assert.ok(!secondStep.text.includes(started.body.secret), 'the authenticator key is shown once, at begin');
+  assert.ok(!/secret|code_hash|codeHash|recoveryCodes"/.test(secondStep.text));
+  const devices = await api.call('GET', '/v1/me/devices', { token: person.accessToken });
+  assert.equal(devices.status, 200, devices.text);
+  assert.ok(!/token_hash|tokenHash|refreshToken|accessToken|secret/.test(devices.text));
+  for (const code of enabled.body.recoveryCodes) {
+    assert.ok(!secondStep.text.includes(code) && !devices.text.includes(code), 'recovery codes are shown once');
+  }
+  const atRest = JSON.stringify((await api.db.query('select * from user_totp, recovery_codes where user_totp.user_id = recovery_codes.user_id')).rows);
+  assert.ok(!atRest.includes(started.body.secret), 'the key is sealed in the database');
+  for (const code of enabled.body.recoveryCodes) assert.ok(!atRest.includes(code.replace('-', '')), 'recovery codes are hashed in the database');
 });

@@ -43,6 +43,20 @@ async function admin(sql) {
   }
 }
 
+async function sessionsGone(name) {
+  const client = new pg.Client({ connectionString: ADMIN_URL });
+  await client.connect();
+  try {
+    for (let waited = 0; waited < 5000; waited += 10) {
+      const open = await client.query('select count(*)::int as n from pg_stat_activity where datname = $1', [name]);
+      if (open.rows[0].n === 0) return;
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+  } finally {
+    await client.end();
+  }
+}
+
 export const BOOKS_KEY = 'test-books-key-0123456789abcdef0123456789abcdef';
 
 export async function startApi(options = {}) {
@@ -113,6 +127,7 @@ export async function startApi(options = {}) {
     async close() {
       await new Promise((resolve) => server.close(resolve));
       await db.close();
+      await sessionsGone(name);
       await admin(`drop database if exists ${name} with (force)`);
     },
   };

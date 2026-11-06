@@ -17,7 +17,7 @@ export const OTP_CHALLENGE_DAYS = 1;
 
 export function createJobs({ db, withBooks, connectors = null, syncChannels = null, pullsEnabled = () => false, sender = null, vault = null, now = () => Date.now(), log = () => {} }) {
   async function purge(requestId) {
-    const summary = { businesses: 0, documents: 0, objects: 0, accessRows: 0, crashRows: 0, otpRows: 0, failed: [] };
+    const summary = { businesses: 0, documents: 0, objects: 0, accessRows: 0, crashRows: 0, otpRows: 0, secondStepRows: 0, failed: [] };
     const cutoff = new Date(now() - DELETION_GRACE_DAYS * 24 * 60 * 60 * 1000);
     const due = await db.query('select id, name from businesses where deletion_requested_at is not null and deletion_requested_at < $1 order by deletion_requested_at', [cutoff]);
     for (const row of due.rows) {
@@ -47,6 +47,7 @@ export function createJobs({ db, withBooks, connectors = null, syncChannels = nu
     summary.accessRows = (await db.query('delete from access_log where at < $1', [new Date(now() - ACCESS_LOG_DAYS * 24 * 60 * 60 * 1000)])).rowCount;
     summary.crashRows = (await db.query('delete from crash_reports where last_seen < $1', [new Date(now() - CRASH_REPORT_DAYS * 24 * 60 * 60 * 1000)])).rowCount;
     summary.otpRows = (await db.query('delete from otp_challenges where created_at < $1', [new Date(now() - OTP_CHALLENGE_DAYS * 24 * 60 * 60 * 1000)])).rowCount;
+    summary.secondStepRows = (await db.query('delete from second_step_challenges where created_at < $1', [new Date(now() - OTP_CHALLENGE_DAYS * 24 * 60 * 60 * 1000)])).rowCount;
     return summary;
   }
 

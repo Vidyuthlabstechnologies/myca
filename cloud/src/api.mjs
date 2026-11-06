@@ -6,6 +6,8 @@ import { createBilling, PLANS } from './billing.mjs';
 import { gstin } from '../../platform/src/sprint-load.mjs';
 import { rule } from '../../sprints/statutory-rules/src/index.mjs';
 import { createAuth, isUuid } from './auth.mjs';
+import { createSecondFactor } from './second-factor.mjs';
+import { createDevices } from './devices.mjs';
 import { createBusinesses, engineRole } from './businesses.mjs';
 import { createBooksRunner } from './books-runner.mjs';
 import { createMembers } from './members.mjs';
@@ -130,7 +132,8 @@ function statusOf(result) {
   if (result.error === 'OWNER_ONLY') return 403;
   if (result.error === 'PHONE_SIGN_IN_UNAVAILABLE' || result.error === 'GOOGLE_SIGN_IN_UNAVAILABLE') return 503;
   if (result.error === 'GOOGLE_UNREACHABLE') return 502;
-  if (result.error === 'INVITATION_NOT_FOUND' || result.error === 'MEMBER_NOT_FOUND' || result.error === 'BUSINESS_NOT_FOUND') return 404;
+  if (result.error === 'INVITATION_NOT_FOUND' || result.error === 'MEMBER_NOT_FOUND' || result.error === 'BUSINESS_NOT_FOUND' || result.error === 'DEVICE_NOT_FOUND') return 404;
+  if (result.error === 'ALREADY_ENABLED' || result.error === 'CURRENT_DEVICE') return 409;
   if (result.error === 'STORAGE_FULL') return 413;
   if (result.error === 'KEY_NOT_FOUND' || result.error === 'ADDRESS_NOT_FOUND') return 404;
   return 400;
@@ -173,7 +176,9 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
   process.env.MYCA_HOSTED = '1';
   assertSecret(secret);
   const providerMode = () => (mockModeEnabled() ? 'simulated' : serviceProviderEnvironment());
-  const auth = createAuth({ db, secret, otpSender, now });
+  const secondFactor = createSecondFactor({ db, secret, booksKey, now });
+  const auth = createAuth({ db, secret, otpSender, now, secondFactor });
+  const devices = createDevices({ db, now });
   const businesses = createBusinesses({ db, now, booksKey });
   const vault = documentVault || createDocumentVault({ now, log });
   const runner = createBooksRunner({ db, now, vault, booksKey });
@@ -264,6 +269,7 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
         return withConsent(await auth.signInWithOidc(identity, body.deviceLabel));
       }
       if (parts[2] === 'refresh') return auth.refresh(body.refreshToken);
+      if (parts[2] === 'second-step') return withConsent(await secondFactor.complete(body));
       if (parts[2] === 'logout') return auth.logout((await signedIn(req)).deviceId);
       throw httpError(404, 'NOT_FOUND');
     }
@@ -313,6 +319,28 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
 
     if (parts[1] === 'me' && parts[2] === 'consent' && parts.length === 3 && method === 'POST') {
       return consent.accept(user.userId, user.deviceId, await readJson(req));
+    }
+
+    if (parts[1] === 'me' && parts[2] === 'second-step') {
+      if (parts.length === 3 && method === 'GET') return secondFactor.status(user.userId);
+      if (parts.length === 4 && method === 'POST') {
+        if (parts[3] === 'begin') return secondFactor.begin(user.userId);
+        const body = await readJson(req);
+        if (parts[3] === 'confirm') return secondFactor.confirm(user.userId, body.code);
+        if (parts[3] === 'disable') return secondFactor.disable(user.userId, body.code);
+        if (parts[3] === 'recovery-codes') return secondFactor.regenerateRecoveryCodes(user.userId, body.code);
+      }
+      throw httpError(404, 'NOT_FOUND');
+    }
+
+    if (parts[1] === 'me' && parts[2] === 'devices') {
+      if (parts.length === 3 && method === 'GET') return devices.list(user.userId, user.deviceId);
+      if (parts.length === 4 && parts[3] === 'sign-out-others' && method === 'POST') return devices.revokeOthers(user.userId, user.deviceId);
+      if (parts.length === 5 && parts[4] === 'sign-out' && method === 'POST') {
+        if (!isUuid(parts[3])) throw httpError(404, 'DEVICE_NOT_FOUND');
+        return devices.revoke(user.userId, parts[3], user.deviceId);
+      }
+      throw httpError(404, 'NOT_FOUND');
     }
 
     if (parts[1] === 'crash-reports' && parts.length === 2 && method === 'POST') {
