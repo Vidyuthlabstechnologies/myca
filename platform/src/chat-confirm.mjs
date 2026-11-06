@@ -65,7 +65,7 @@ import { tally, bank, gstin as gstinRules } from './sprint-load.mjs';
 import { parseZohoBooksCsv } from './import-zoho.mjs';
 import { planAmendment } from './invoice-amendments.mjs';
 import { tallyXmlToDayBookCsv } from './tally-xml.mjs';
-import { findBankLine, planMatch, planBankCharges, planBankRule, planBankAccount, planTransfer, previewStatementLines, rulesOf, linesOf, accountFor, amountOf, sideOf, ruleMatches, docWords } from './bank-recon.mjs';
+import { findBankLine, planMatch, planBankCharges, planBankRule, planBankAccount, planTransfer, previewStatementLines, rulesOf, linesOf, accountFor, amountOf, sideOf, ruleMatches, docWords, ruleFromMatch } from './bank-recon.mjs';
 import { runBankRules, ruleWords } from './bank-rules.mjs';
 
 export const CONFIRM_TOOLS = new Set([
@@ -1325,8 +1325,8 @@ const BANK_REASONS = {
   LEDGER_REJECT: 'The ledger refused the entry, so nothing was changed.',
 };
 
-function bankBlocked(error) {
-  return { blockers: [BANK_REASONS[error] || String(error)], summary: '', effects: [], figures: {} };
+function bankBlocked(error, hint = '') {
+  return { blockers: [[BANK_REASONS[error] || String(error), hint].filter(Boolean).join(' ')], summary: '', effects: [], figures: {} };
 }
 
 function lineAmountWords(line) {
@@ -1348,9 +1348,9 @@ function matchPreview(state, args) {
   const line = findBankLine(state, args.lineId);
   if (!line) return bankBlocked('LINE_NOT_FOUND');
   const planned = planMatch(state, line, args);
-  if (!planned.ok) return bankBlocked(planned.error);
+  if (!planned.ok) return bankBlocked(planned.error, planned.hint);
   const effects = ['The statement line is settled and is not suggested again.'];
-  if (args.remember === true) effects.push('A rule is saved so lines like it book on their own.');
+  if (args.remember === true) effects.push(ruleFromMatch(line, planned.plan, args).words);
   return { blockers: [], summary: matchSummary(line, planned.plan), effects, figures: { lineId: line.id, amount: amountOf(line), kind: planned.plan.kind } };
 }
 
@@ -1384,7 +1384,7 @@ function chargesPreview(state, args) {
 
 function addRulePreview(state, args) {
   const planned = planBankRule(state, args);
-  if (!planned.ok) return bankBlocked(planned.error);
+  if (!planned.ok) return bankBlocked(planned.error, planned.hint);
   const rule = { id: 'A new rule', ...planned.plan, hits: 0 };
   const open = linesOf(state).filter((line) => line.status === 'unmatched' && ruleMatches(rule, line));
   const now = args.applyNow === false ? 'It is not applied to open lines now.' : open.length ? `It fits ${open.length} open ${open.length === 1 ? 'line' : 'lines'} now, which will be booked.` : 'No open line fits it now.';

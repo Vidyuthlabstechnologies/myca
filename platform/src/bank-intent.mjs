@@ -13,6 +13,10 @@ const CHARGES = /\b(?:book|post|record)\s+(?:the\s+|all\s+|my\s+|our\s+)?(?:bank
 const MOVE_VERBS = /\b(?:transferr?ed|transfer|moved|move|shifted|shift|withdrew|withdraw|withdrawn|deposited|deposit)\b/i;
 const REMEMBER = /\b(?:always|remember|from\s+now\s+on|every\s+time|in\s+future|going\s+forward)\b/i;
 const PARTY_WORDS = /\b(?:supplier|vendor|employee|customer|party|staff|for)\b/i;
+const GSTIN_LIKE = /^\d{2}[A-Z0-9]{13}$/i;
+const PURPOSE_TAIL = /\b(?:for|towards)\s+\S|^(?:pay|buy|settle|clear|cover|give|fund|repay|purchase|meet)\b/i;
+const ITEM_BEFORE_FROM = /\b\d[\d,]*(?:\.\d+)?\s+(?:of\s+)?(?!(?:rupees?|rs\.?|inr|cash|lakhs?|lacs?|crores?|cr|k|only)\b)[A-Za-z][\w./-]*\s+from\b/i;
+const RELATIVE_DAY = /\b(?:yesterday|tomorrow|day\s+before\s+yesterday|last\s+(?:week|month|year|mon|tue|wed|thu|fri|sat|sun)\w*|next\s+(?:week|month))\b/i;
 const KIND_WORDS = [
   [/\bbank\s+charges?\b|\bcharges?\b|\bfees?\b/i, 'charge'],
   [/\binterest\b/i, 'interest'],
@@ -29,6 +33,10 @@ function tool(name, args) {
 
 function reply(text) {
   return { kind: 'reply', reply: text, tools: [] };
+}
+
+function blocked(text) {
+  return { kind: 'reply', reply: text, tools: [], blocked: true };
 }
 
 function asked(text) {
@@ -159,15 +167,23 @@ function sidesOf(state, body) {
 function planTransfer(state, text) {
   if (asked(text) || isNegated(text) || !MOVE_VERBS.test(text) || LINE_ID.test(text)) return null;
   const when = spokenDate(text);
-  const body = (when.words ? text.replace(when.words, ' ') : text).replace(/\s+/g, ' ').trim();
+  const relative = text.match(RELATIVE_DAY);
+  const body = [when.words, relative ? relative[0] : ''].filter(Boolean).reduce((rest, words) => rest.replace(words, ' '), text).replace(/\s+/g, ' ').trim();
+  if (ITEM_BEFORE_FROM.test(body)) return null;
   const sides = sidesOf(state, body);
   if (!sides) return null;
+  const names = { from: cleanName(sides.from), to: cleanName(sides.to) };
+  if ([names.from, names.to].some((name) => GSTIN_LIKE.test(name) || PURPOSE_TAIL.test(name))) return null;
   const amount = receiptAmount(body);
   if (!amount) return null;
-  const from = findOwnAccount(state, cleanName(sides.from));
-  const to = findOwnAccount(state, cleanName(sides.to));
-  if (from && to) return tool('record_transfer', { fromAccount: from.id, toAccount: to.id, amount, ...(when.iso ? { date: when.iso } : {}) });
-  const unknown = [from ? '' : cleanName(sides.from), to ? '' : cleanName(sides.to)].filter(Boolean);
+  const from = findOwnAccount(state, names.from);
+  const to = findOwnAccount(state, names.to);
+  if (from && to) {
+    if (when.words && !when.iso) return blocked(`I could not read the date "${when.words.replace(/^on\s+/i, '')}", so nothing was recorded. Say it as "3 November" or "2026-11-03".`);
+    if (relative) return blocked(`I cannot turn "${relative[0]}" into a date. Say the date in words, like "3 November" or "2026-11-03", so the transfer is not dated today; nothing was recorded.`);
+    return tool('record_transfer', { fromAccount: from.id, toAccount: to.id, amount, ...(when.iso ? { date: when.iso } : {}) });
+  }
+  const unknown = [from ? '' : names.from, to ? '' : names.to].filter(Boolean);
   if (!unknown.length || unknown.some((name) => findCustomer(state, name) || findSupplier(state, name))) return null;
   return reply(`I do not know an own account called ${unknown.map((name) => `"${name}"`).join(' or ')}. Say "add bank account ${unknown[0]}" (or "add cash box ${unknown[0]}") first, then say this again.`);
 }

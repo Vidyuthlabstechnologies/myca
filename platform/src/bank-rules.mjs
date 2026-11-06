@@ -1,5 +1,5 @@
 import { appendAuditEvent } from './ca-api.mjs';
-import { linesOf, rulesOf, ruleFor, intentOfRule, planMatch, applyMatch, createBankRule, accountFor } from './bank-recon.mjs';
+import { linesOf, rulesOf, ruleFor, intentOfRule, planMatch, applyMatch, createBankRule, accountFor, rulePatternProblem } from './bank-recon.mjs';
 
 function fail(error, extra = {}) {
   return { ok: false, error, ...extra };
@@ -27,6 +27,13 @@ function scopedLines(state, { account, lineIds } = {}) {
     lines = lines.filter((line) => wanted.has(line.id));
   }
   return { ok: true, lines };
+}
+
+function skippedRuleWarnings(state) {
+  return rulesOf(state).slice().sort(byId).map((rule) => {
+    const problem = rulePatternProblem(rule);
+    return problem ? `${rule.id} is skipped: ${problem}` : '';
+  }).filter(Boolean);
 }
 
 export function runBankRules(state, { account, dryRun = false, lineIds, ruleIds } = {}) {
@@ -61,9 +68,9 @@ export function runBankRules(state, { account, dryRun = false, lineIds, ruleIds 
     rule.hits = Number(rule.hits || 0) + 1;
     const ids = idsOf(applied);
     appendAuditEvent(state, { actorId: state.__actor?.userId || 'automation', action: 'bank_rule_applied', metadata: { lineId: line.id, ruleId: rule.id, kind: planned.plan.kind, ids } });
-    made.push({ lineId: line.id, ruleId: rule.id, kind: planned.plan.kind, ids });
+    made.push({ lineId: line.id, ruleId: rule.id, kind: planned.plan.kind, ids, ...(applied.warning ? { warning: applied.warning } : {}) });
   }
-  return { ok: true, made, failed, left, dryRun: Boolean(dryRun) };
+  return { ok: true, made, failed, left, dryRun: Boolean(dryRun), warnings: skippedRuleWarnings(state) };
 }
 
 export function addBankRule(state, args = {}) {
@@ -125,14 +132,18 @@ export function addRuleWords(result, money) {
 
 export function rulesWords(data, money) {
   if (!data.rules.length) return 'No bank rules yet. Say "anything from Sharma Traders is a receipt" or "always book SMS CHARGES as bank charges" to make one.';
-  return ['Bank rules, applied in this order:', ...data.rules.map((rule) => `· ${ruleWords(rule, money)}`)].join('\n');
+  return ['Bank rules, applied in this order:', ...data.rules.map((rule) => {
+    const problem = rulePatternProblem(rule);
+    return `· ${ruleWords(rule, money)}${problem ? ` (not applied: ${problem})` : ''}`;
+  })].join('\n');
 }
 
 export function runRulesWords(data) {
   const made = data.made.length;
   const head = data.dryRun ? `${made} open ${made === 1 ? 'line' : 'lines'} would be booked by your rules` : `${made} open ${made === 1 ? 'line' : 'lines'} booked by your rules`;
   const failed = data.failed.length ? `, ${data.failed.length} could not be (${failureWords(data.failed)})` : '';
-  return `${head}${failed}, ${data.left} still open.`;
+  const warnings = data.warnings?.length ? ` ${data.warnings.join(' ')}` : '';
+  return `${head}${failed}, ${data.left} still open.${warnings}`;
 }
 
 export function removeRuleWords(result) {

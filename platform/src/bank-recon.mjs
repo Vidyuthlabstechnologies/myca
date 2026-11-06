@@ -8,6 +8,7 @@ import { salaryPrivate } from './employees.mjs';
 import { ensureInterestIncomeAccount } from './chart.mjs';
 import { bankFingerprint } from './post-import.mjs';
 import { bank } from './sprint-load.mjs';
+import { safePatternProblem } from './bank-pattern.mjs';
 
 export const DEFAULT_ACCOUNT = '1002';
 export const CHARGES_HEAD = '5180';
@@ -29,12 +30,13 @@ const MAX_SUGGESTIONS = 5;
 const DEFAULT_WINDOW_DAYS = 90;
 const DEFAULT_LIMIT = 300;
 const MAX_LIMIT = 2000;
-const MAX_PATTERN = 120;
 const IFSC = /^[A-Z]{4}0[A-Z0-9]{6}$/;
 const NAME_FILLERS = new Set(['PRIVATE', 'LIMITED', 'COMPANY', 'INDIA']);
 const KIND_SIDE = { receipt: 'in', interest: 'in', payment: 'out', expense: 'out', charge: 'out' };
 const RELOCATED = new Set(['receipt', 'payment', 'expense', 'charge']);
+const PAID_KINDS = new Set(['receipt', 'payment']);
 const DOC_NAMES = { receipt: 'Receipt', payment: 'Payment', expense: 'Expense', settlement: 'Settlement', transfer: 'Transfer', salary: 'Salary', gst: 'Tax payment', other: 'Entry' };
+const LEDGER_WORDS = { exceeds_debits: 'the account would go below zero', exceeds_credits: 'the account cannot be debited past its credits', account_not_found: 'the account is not in the ledger' };
 
 const round2 = (value) => Math.round(Number(value || 0) * 100) / 100;
 
@@ -128,14 +130,21 @@ function docIdsOf(line) {
   return id ? String(id).split(/,\s*/) : [];
 }
 
+function numberOfId(id) {
+  const digits = String(id || '').replace(/\D/g, '');
+  return digits ? Number(digits) : 0;
+}
+
 function nextLineId(state) {
-  const taken = new Set(linesOf(state).map((line) => line.id));
-  let id;
-  do {
-    state.bankLineSeq = Number(state.bankLineSeq || 0) + 1;
-    id = `BL-${String(state.bankLineSeq).padStart(6, '0')}`;
-  } while (taken.has(id));
-  return id;
+  const lines = linesOf(state);
+  let seq = Number(state.bankLineSeq || 0);
+  const last = lines.length ? numberOfId(lines[lines.length - 1].id) : 0;
+  if (seq < last) {
+    seq = last;
+    for (const line of lines) seq = Math.max(seq, numberOfId(line.id));
+  }
+  state.bankLineSeq = seq + 1;
+  return `BL-${String(state.bankLineSeq).padStart(6, '0')}`;
 }
 
 function nextRuleId(state) {
@@ -369,11 +378,35 @@ function finishMovement(state, group) {
   };
 }
 
+function isRelocation(row) {
+  return row.code === 'CONTRA' && Boolean(row.invoiceId) && !String(row.invoiceId).startsWith('CTR-');
+}
+
+function startGroup(list, groups, key, shape) {
+  const group = { ...shape, transferId: shape.id, transferIds: [], inPaise: 0n, outPaise: 0n, linked: false, relocated: false };
+  groups.set(key, group);
+  list.push(group);
+  return group;
+}
+
+function addToGroup(group, row, id, isDebit, taken) {
+  group.transferIds.push(id);
+  if (taken.has(id)) group.linked = true;
+  if (isDebit) group.inPaise += row.amount;
+  else group.outPaise += row.amount;
+}
+
+function relocationTarget(list, item) {
+  const same = list.filter((group) => !group.relocated && group.docId === item.docId && group.date === item.date);
+  return same.find((group) => (item.isDebit ? group.outPaise : group.inPaise) === item.row.amount) || same[0] || null;
+}
+
 export function bookMovements(state, account, { from = '', to = '', linked = null } = {}) {
   const acct = BigInt(account);
   const taken = takenTransferIds(state, account);
   const groups = new Map();
   const list = [];
+  const relocations = [];
   for (const row of state.ledger.transfers) {
     if (!row.posted || row.voided || row.code === 'BANK') continue;
     const isDebit = row.debitAccountId === acct;
@@ -381,17 +414,19 @@ export function bookMovements(state, account, { from = '', to = '', linked = nul
     const date = transferDate(row);
     if ((from && date && date < from) || (to && date && date > to)) continue;
     const id = row.id.toString();
-    const key = row.invoiceId ? `${row.invoiceId}|${date}` : id;
-    let group = groups.get(key);
-    if (!group) {
-      group = { transferId: id, transferIds: [], date, code: row.code || '', docId: row.invoiceId ? String(row.invoiceId) : '', inPaise: 0n, outPaise: 0n, linked: false, otherAccount: (isDebit ? row.creditAccountId : row.debitAccountId).toString() };
-      groups.set(key, group);
-      list.push(group);
+    const docId = row.invoiceId ? String(row.invoiceId) : '';
+    const shape = { id, date, code: row.code || '', docId, otherAccount: (isDebit ? row.creditAccountId : row.debitAccountId).toString() };
+    if (isRelocation(row)) {
+      relocations.push({ row, id, date, docId, isDebit, shape });
+      continue;
     }
-    group.transferIds.push(id);
-    if (taken.has(id)) group.linked = true;
-    if (isDebit) group.inPaise += row.amount;
-    else group.outPaise += row.amount;
+    const key = !docId || PAID_KINDS.has(docKindOf(shape.code)) ? id : `${docId}|${date}`;
+    addToGroup(groups.get(key) || startGroup(list, groups, key, shape), row, id, isDebit, taken);
+  }
+  for (const item of relocations) {
+    const target = relocationTarget(list, item);
+    if (target) target.relocated = true;
+    addToGroup(target || startGroup(list, groups, item.id, item.shape), item.row, item.id, item.isDebit, taken);
   }
   return list.map((group) => finishMovement(state, group)).filter((movement) => movement.amount > 0.005 && (linked == null || movement.linked === linked));
 }
@@ -561,12 +596,28 @@ export function previewStatementLines(state, rows, { account = DEFAULT_ACCOUNT }
   return counts;
 }
 
+const compiledPatterns = new Map();
+
 function regexOf(source) {
-  try {
-    return new RegExp(source, 'i');
-  } catch {
-    return null;
+  const key = String(source == null ? '' : source);
+  if (compiledPatterns.has(key)) return compiledPatterns.get(key);
+  let re = null;
+  if (!safePatternProblem(key)) {
+    try {
+      re = new RegExp(key, 'i');
+    } catch {
+      re = null;
+    }
   }
+  if (compiledPatterns.size >= 500) compiledPatterns.clear();
+  compiledPatterns.set(key, re);
+  return re;
+}
+
+export function rulePatternProblem(rule) {
+  const pattern = String(rule?.pattern || '');
+  if (!pattern) return '';
+  return safePatternProblem(pattern) || (regexOf(pattern) ? '' : 'It is not a regular expression I can run.');
 }
 
 export function ruleMatches(rule, line) {
@@ -608,9 +659,12 @@ export function planBankRule(state, args = {}) {
   const side = String(args.side || 'any').trim().toLowerCase();
   if (!['in', 'out', 'any'].includes(side)) return fail('BAD_SIDE');
   const contains = String(args.contains || '').trim().slice(0, 80);
-  const pattern = String(args.pattern || '').trim().slice(0, MAX_PATTERN);
+  const pattern = String(args.pattern || '').trim();
   if (!contains && !pattern) return fail('MATCH_REQUIRED');
-  if (pattern && !regexOf(pattern)) return fail('BAD_PATTERN', { pattern });
+  if (pattern) {
+    const problem = rulePatternProblem({ pattern });
+    if (problem) return fail('BAD_PATTERN', { pattern, hint: problem });
+  }
   const minAmount = amountArg(args.minAmount);
   const maxAmount = amountArg(args.maxAmount);
   if (minAmount === null || maxAmount === null) return fail('BAD_AMOUNT');
@@ -679,9 +733,19 @@ export function openBillsOf(state, partyName) {
     .sort(byDateThenId);
 }
 
-function existingMovementFor(state, line, docId) {
-  const open = bookMovements(state, line.account, { linked: false });
-  return open.find((movement) => movement.docId === docId && movement.side === sideOf(line) && Math.abs(movement.amount - amountOf(line)) <= AMOUNT_TOLERANCE && movement.date && daysApart(movement.date, line.date) <= SUGGEST_DAYS) || null;
+function existingMovementFor(state, line, docIds) {
+  const wanted = new Set(docIds);
+  if (!wanted.size) return null;
+  const side = sideOf(line);
+  const amount = amountOf(line);
+  return bookMovements(state, line.account, { linked: false })
+    .filter((movement) => wanted.has(movement.docId) && movement.side === side && movement.date && Math.abs(movement.amount - amount) <= AMOUNT_TOLERANCE && daysApart(movement.date, line.date) <= SUGGEST_DAYS)
+    .sort((a, b) => daysApart(a.date, line.date) - daysApart(b.date, line.date))[0] || null;
+}
+
+function partyDocIds(list, partyName) {
+  const key = nameKey(partyName);
+  return (list || []).filter((doc) => doc.status !== 'cancelled' && nameKey(doc.partyName) === key).map((doc) => doc.id);
 }
 
 function planReceiptMatch(state, line, intent) {
@@ -691,13 +755,17 @@ function planReceiptMatch(state, line, intent) {
     first = findById(state.invoices, intent.invoiceId);
     if (!first) return fail('INVOICE_NOT_FOUND', { invoiceId: intent.invoiceId });
     if (first.status === 'cancelled') return fail('INVOICE_CANCELLED', { invoiceId: first.id });
-    const already = existingMovementFor(state, line, first.id);
+    const already = existingMovementFor(state, line, [first.id]);
     if (already) return { ok: true, plan: { kind: 'books', movement: already } };
   }
   const partyName = first ? first.partyName : String(intent.partyName || '').trim();
   if (!partyName) return fail('PARTY_REQUIRED', { kind: 'receipt' });
   const party = findCustomer(state, partyName);
   if (!party) return fail('PARTY_NOT_FOUND', { partyName });
+  if (!first) {
+    const recorded = existingMovementFor(state, line, partyDocIds(state.invoices, party.name));
+    if (recorded) return { ok: true, plan: { kind: 'books', movement: recorded } };
+  }
   const queue = [...(first ? [first] : []), ...openInvoicesOf(state, party.name).filter((inv) => !first || inv.id !== first.id)];
   const split = allocate(queue.map((inv) => ({ id: inv.id, due: outstandingOf(state, inv) })), amountOf(line));
   if (split.remainder > 0.005) return fail('RECEIPT_UNALLOCATED', { partyName: party.name, remainder: split.remainder, invoiceIds: split.parts.map((part) => part.id) });
@@ -710,13 +778,17 @@ function planPaymentMatch(state, line, intent) {
   if (intent.billId) {
     first = findById(state.purchases, intent.billId);
     if (!first) return fail('BILL_NOT_FOUND', { billId: intent.billId });
-    const already = existingMovementFor(state, line, first.id);
+    const already = existingMovementFor(state, line, [first.id]);
     if (already) return { ok: true, plan: { kind: 'books', movement: already } };
   }
   const partyName = first ? first.partyName : String(intent.partyName || '').trim();
   if (!partyName) return fail('PARTY_REQUIRED', { kind: 'payment' });
   const party = findSupplier(state, partyName);
   if (!party) return fail('PARTY_NOT_FOUND', { partyName });
+  if (!first) {
+    const recorded = existingMovementFor(state, line, partyDocIds(state.purchases, party.name));
+    if (recorded) return { ok: true, plan: { kind: 'books', movement: recorded } };
+  }
   const queue = [...(first ? [first] : []), ...openBillsOf(state, party.name).filter((bill) => !first || bill.id !== first.id)];
   const split = allocate(queue.map((bill) => ({ id: bill.id, due: billOutstanding(bill) })), amountOf(line));
   if (split.remainder > 0.005) return fail('PAYMENT_UNALLOCATED', { partyName: party.name, remainder: split.remainder, billIds: split.parts.map((part) => part.id) });
@@ -797,10 +869,36 @@ export function planMatch(state, line, intent = {}) {
   if (kind === 'books') return planBooksLink(state, line, intent);
   if (kind === 'transfer') return planTransferLink(state, line, intent);
   if (isPeriodLocked(state, line.date)) return fail('PERIOD_LOCKED', { date: line.date, lockThrough: state.lockThrough });
+  const planned = planPosting(state, line, intent, kind);
+  if (!planned.ok) return planned;
+  return relocationProblem(state, line, planned.plan) || planned;
+}
+
+function planPosting(state, line, intent, kind) {
   if (kind === 'receipt') return planReceiptMatch(state, line, intent);
   if (kind === 'payment') return planPaymentMatch(state, line, intent);
   if (kind === 'interest') return planInterestMatch(state, line);
   return planExpenseMatch(state, line, intent, kind);
+}
+
+function ledgerHasAccount(state, id) {
+  return /^\d+$/.test(String(id)) && state.ledger.accounts.has(BigInt(id));
+}
+
+function relocationProblem(state, line, plan) {
+  if (line.account === DEFAULT_ACCOUNT || !(RELOCATED.has(plan.kind) || plan.kind === 'interest')) return null;
+  const own = findOwnAccount(state, line.account);
+  if (!own || !ledgerHasAccount(state, line.account)) return fail('ACCOUNT_NOT_FOUND', { account: line.account, hint: `The line sits on account ${line.account}, which is not in the ledger. Add the account first.` });
+  if (sideOf(line) !== 'out' || own.kind !== 'cash') return null;
+  const balance = accountBalance(state, own.id);
+  const amount = amountOf(line);
+  if (balance + 0.005 >= amount) return null;
+  return fail('INSUFFICIENT_CASH', { account: own.id, balance, inHand: balance, amount, hint: `${own.label} has ${plainMoney(balance)} and this line is ${plainMoney(amount)}.` });
+}
+
+function relocationWords(relocation) {
+  const why = LEDGER_WORDS[relocation.error] || 'the ledger refused the move';
+  return `could not be moved to ${relocation.label} (${relocation.account}): ${why} (${relocation.error}). The entry sits against Bank (${DEFAULT_ACCOUNT}) until you move it.`;
 }
 
 function relocate(state, line, docId, amount) {
@@ -814,44 +912,45 @@ function relocate(state, line, docId, amount) {
     invoiceId: docId,
     userData: line.date,
   }]);
-  if (!made[0].ok) return fail('LEDGER_REJECT', { posted: made });
+  if (!made[0].ok) return fail('LEDGER_REJECT', { posted: made, ledgerError: String(made[0].error || 'refused') });
   return { ok: true, transferId: made[0].id };
 }
 
-function postAllocations(state, line, plan, posted, transferIds) {
+function moveToAccount(state, line, docId, amount, booking) {
+  if (line.account === DEFAULT_ACCOUNT) return;
+  const moved = relocate(state, line, docId, amount);
+  if (!moved.ok) {
+    booking.failures.push(moved.ledgerError);
+    return;
+  }
+  booking.transferIds.push(moved.transferId);
+  booking.posted.push({ transferId: moved.transferId, kind: 'transfer', id: docId });
+}
+
+function postAllocations(state, line, plan, booking) {
   for (const part of plan.allocations) {
     const docId = part.invoiceId || part.billId;
     const made = part.invoiceId
       ? recordReceipt(state, { invoiceId: part.invoiceId, amount: part.amount, date: plan.date, mode: 'bank' })
       : recordPayment(state, { billId: part.billId, amount: part.amount, date: plan.date, mode: 'bank' });
     if (!made.ok) return made;
-    transferIds.push(made.posted[0].id);
-    posted.push({ transferId: made.posted[0].id, kind: plan.kind, id: docId });
-    if (line.account !== DEFAULT_ACCOUNT) {
-      const moved = relocate(state, line, docId, part.amount);
-      if (!moved.ok) return moved;
-      transferIds.push(moved.transferId);
-      posted.push({ transferId: moved.transferId, kind: 'transfer', id: docId });
-    }
+    booking.transferIds.push(made.posted[0].id);
+    booking.posted.push({ transferId: made.posted[0].id, kind: plan.kind, id: docId });
+    moveToAccount(state, line, docId, part.amount, booking);
   }
   return { ok: true };
 }
 
-function postExpenseLine(state, line, plan, posted, transferIds) {
+function postExpenseLine(state, line, plan, booking) {
   const made = postExpense(state, plan.expense);
   if (!made.ok) return made;
-  transferIds.push(...made.expense.transferIds.map(String));
-  posted.push({ transferId: made.expense.transferIds[0], kind: plan.kind, id: made.expense.id });
-  if (line.account !== DEFAULT_ACCOUNT) {
-    const moved = relocate(state, line, made.expense.id, plan.expense.amount);
-    if (!moved.ok) return moved;
-    transferIds.push(moved.transferId);
-    posted.push({ transferId: moved.transferId, kind: 'transfer', id: made.expense.id });
-  }
+  booking.transferIds.push(...made.expense.transferIds.map(String));
+  booking.posted.push({ transferId: made.expense.transferIds[0], kind: plan.kind, id: made.expense.id });
+  moveToAccount(state, line, made.expense.id, plan.expense.amount, booking);
   return { ok: true, id: made.expense.id };
 }
 
-function postInterest(state, line, plan, posted, transferIds) {
+function postInterest(state, line, plan, booking) {
   ensureInterestIncomeAccount(state);
   const made = createTransfers(state.ledger, [{
     id: nextTransferId(state),
@@ -863,8 +962,8 @@ function postInterest(state, line, plan, posted, transferIds) {
     userData: plan.date,
   }]);
   if (!made[0].ok) return fail('LEDGER_REJECT', { posted: made });
-  transferIds.push(made[0].id);
-  posted.push({ transferId: made[0].id, kind: 'interest', id: line.id });
+  booking.transferIds.push(made[0].id);
+  booking.posted.push({ transferId: made[0].id, kind: 'interest', id: line.id });
   return { ok: true, id: line.id };
 }
 
@@ -880,30 +979,33 @@ export function applyMatch(state, line, plan, { ruleId = null, note = '' } = {})
     linkMovement(line, plan.movement, plan.kind, { ruleId, note: said });
     return { ok: true, line, posted };
   }
-  const transferIds = [];
+  const booking = { posted, transferIds: [], failures: [] };
   let id = null;
   if (plan.kind === 'transfer') {
     const made = recordTransfer(state, plan.transfer);
     if (!made.ok) return made;
     id = made.transfer.id;
-    transferIds.push(made.transfer.transferId);
+    booking.transferIds.push(made.transfer.transferId);
     posted.push({ transferId: made.transfer.transferId, kind: 'transfer', id });
   } else if (plan.kind === 'receipt' || plan.kind === 'payment') {
-    const made = postAllocations(state, line, plan, posted, transferIds);
+    const made = postAllocations(state, line, plan, booking);
     if (!made.ok) return made;
     id = plan.allocations.map((part) => part.invoiceId || part.billId).join(', ');
   } else if (plan.kind === 'interest') {
-    const made = postInterest(state, line, plan, posted, transferIds);
+    const made = postInterest(state, line, plan, booking);
     if (!made.ok) return made;
     id = made.id;
   } else {
-    const made = postExpenseLine(state, line, plan, posted, transferIds);
+    const made = postExpenseLine(state, line, plan, booking);
     if (!made.ok) return made;
     id = made.id;
   }
   line.status = 'booked';
-  line.match = { kind: plan.kind, id, transferIds, ruleId, note: said };
-  return { ok: true, line, posted };
+  const failed = [...new Set(booking.failures)].join(', ');
+  line.match = { kind: plan.kind, id, transferIds: booking.transferIds, ruleId, note: failed ? [said, `relocationFailed: ${failed}`].filter(Boolean).join(' ') : said };
+  if (!failed) return { ok: true, line, posted };
+  const relocation = { account: line.account, label: findOwnAccount(state, line.account)?.label || line.account, error: failed };
+  return { ok: true, line, posted, relocation, warning: `booked, but ${relocationWords(relocation)}` };
 }
 
 function longestRun(text) {
@@ -911,13 +1013,28 @@ function longestRun(text) {
   return runs.sort((a, b) => b.length - a.length)[0] || '';
 }
 
-function rememberedRule(line, plan, args) {
-  if (!RULE_KINDS.includes(plan.kind)) return null;
+function ruleTail(then, otherLabel) {
+  switch (then.kind) {
+    case 'receipt': return `are receipts from ${then.partyName}`;
+    case 'payment': return `are payments to ${then.partyName}`;
+    case 'expense': return `are expenses under ${then.head} ${headNamed(then.head)?.name || ''}`.trim();
+    case 'charge': return 'are bank charges';
+    case 'interest': return 'are interest income';
+    default: return `are transfers with ${otherLabel || then.otherAccount}`;
+  }
+}
+
+export function ruleFromMatch(line, plan, intent = {}) {
+  if (plan.kind === 'ignore' || plan.link || !RULE_KINDS.includes(plan.kind)) {
+    return { spec: null, contains: '', tail: '', words: `No rule is saved: ${plan.kind === 'ignore' ? 'an ignored line' : 'a line matched to the books'} is not remembered as a rule` };
+  }
   const partyName = plan.partyName || '';
   const narration = String(line.narration || '').toUpperCase();
-  const contains = partyName && narration.includes(partyName.toUpperCase()) ? partyName : longestRun(line.narration);
-  if (!contains) return null;
-  return { side: sideOf(line), contains, then: { kind: plan.kind, partyName, head: plan.head || '', otherAccount: plan.other?.id || '', note: String(args.note || '').trim() } };
+  const contains = partyName && narration.includes(partyName.toUpperCase()) ? partyName.toUpperCase() : longestRun(line.narration);
+  if (!contains) return { spec: null, contains: '', tail: '', words: 'No rule is saved: there is nothing in this narration to recognise it by' };
+  const then = { kind: plan.kind, partyName, head: plan.head || '', otherAccount: plan.other?.id || '', note: String(intent.note || '').trim() };
+  const tail = ruleTail(then, plan.other?.label);
+  return { spec: { side: sideOf(line), contains, then }, contains, tail, words: `A rule is saved: lines containing '${contains}' ${tail}` };
 }
 
 export function matchBankLine(state, args = {}) {
@@ -928,9 +1045,14 @@ export function matchBankLine(state, args = {}) {
   const result = applyMatch(state, line, planned.plan, { note: args.note });
   if (!result.ok) return result;
   if (args.remember === true) {
-    const spec = rememberedRule(line, planned.plan, args);
-    const made = spec ? createBankRule(state, spec) : null;
-    if (made?.ok) result.rule = made.rule;
+    const remembered = ruleFromMatch(line, planned.plan, args);
+    const made = remembered.spec ? createBankRule(state, remembered.spec) : null;
+    if (made?.ok) {
+      result.rule = made.rule;
+      result.ruleWords = `Saved ${made.rule.id}: lines containing '${remembered.contains}' ${remembered.tail}.`;
+    } else {
+      result.ruleWords = made ? `No rule is saved: the rule could not be made (${made.error}).` : `${remembered.words}.`;
+    }
   }
   return result;
 }
@@ -1004,7 +1126,7 @@ export function bookBankCharges(state, args = {}) {
       continue;
     }
     const amount = amountOf(line);
-    booked.push({ lineId: line.id, kind: plan.kind, id: line.match.id, amount });
+    booked.push({ lineId: line.id, kind: plan.kind, id: line.match.id, amount, ...(applied.warning ? { warning: applied.warning } : {}) });
     if (plan.kind === 'charge') total.charges = round2(total.charges + amount);
     else total.interest = round2(total.interest + amount);
   }
@@ -1214,8 +1336,8 @@ export function matchWords(result, money = plainMoney) {
   let text;
   if (line.status === 'ignored') text = `${line.id} (${amount}) ignored${line.match.note ? `: ${line.match.note}` : ''}.`;
   else if (line.status === 'matched') text = `${line.id} (${amount}) matched to ${line.match.id} already in the books. Nothing new was posted.`;
-  else text = `${line.id} (${amount}) booked as ${kindWords(line, result.posted)}.`;
-  if (result.rule) text += ` Saved ${result.rule.id} so lines like this book on their own.`;
+  else text = `${line.id} (${amount}) booked as ${kindWords(line, result.posted)}${result.relocation ? `, but ${relocationWords(result.relocation)}` : '.'}`;
+  if (result.ruleWords) text += ` ${result.ruleWords}`;
   return text;
 }
 
@@ -1228,7 +1350,8 @@ export function chargesWords(result, money = plainMoney) {
   const parts = [];
   if (result.total.charges) parts.push(`${money(result.total.charges)} bank charges`);
   if (result.total.interest) parts.push(`${money(result.total.interest)} interest`);
-  return `Booked ${result.booked.length} ${result.booked.length === 1 ? 'line' : 'lines'}: ${parts.join(' and ')}.${result.skipped.length ? ` ${result.skipped.length} skipped.` : ''}`;
+  const warned = result.booked.filter((row) => row.warning).map((row) => `${row.lineId} ${row.warning}`);
+  return `Booked ${result.booked.length} ${result.booked.length === 1 ? 'line' : 'lines'}: ${parts.join(' and ')}.${result.skipped.length ? ` ${result.skipped.length} skipped.` : ''}${warned.length ? ` ${warned.join(' ')}` : ''}`;
 }
 
 export function accountWords(result) {
