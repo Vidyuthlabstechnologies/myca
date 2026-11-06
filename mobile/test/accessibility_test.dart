@@ -85,6 +85,23 @@ final Map<String, Walk> screens = {
     await t.tap(find.text('Who to pay'));
     await t.pumpAndSettle();
   },
+  'bank': (t) async {
+    await tapRow(t, 'Bank');
+  },
+  'bank line sheet': (t) async {
+    await tapRow(t, 'Bank');
+    final line = find.text('NEFT CR GUJARAT WEAVES INV0002');
+    await scrollTo(t, line);
+    await t.tap(line);
+    await t.pumpAndSettle();
+  },
+  'record a transfer': (t) async {
+    await tapRow(t, 'Bank');
+    final chip = find.text('Record a transfer');
+    await scrollTo(t, chip);
+    await t.tap(chip);
+    await t.pumpAndSettle();
+  },
   'ask': (t) async {
     await t.tap(find.byTooltip('Send'));
     await t.pumpAndSettle();

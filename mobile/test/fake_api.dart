@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:myca/api/models.dart';
@@ -160,6 +162,109 @@ class FakeMycaApi implements MycaApi {
   bool hasBalance = false;
   final customerTerms = <String, Object?>{'gstin:24AAACG1234F1Z5': 30};
   final recurring = <Map<String, Object?>>[];
+  final bankAccounts = <Map<String, Object?>>[
+    {'id': '1001', 'label': 'Cash', 'kind': 'cash', 'maskedNumber': '', 'ifsc': '', 'balance': 25000, 'builtIn': true},
+    {'id': '1002', 'label': 'Bank', 'kind': 'bank', 'maskedNumber': '', 'ifsc': '', 'balance': 190420, 'builtIn': true},
+  ];
+  final bankRules = <Map<String, Object?>>[
+    {
+      'id': 'BR-0001',
+      'side': 'out',
+      'contains': 'sms charges',
+      'pattern': '',
+      'minAmount': null,
+      'maxAmount': null,
+      'then': {'kind': 'charge', 'partyName': '', 'head': '5180', 'otherAccount': '', 'note': ''},
+      'hits': 2,
+      'createdOn': '2026-09-01',
+      'by': 'owner',
+    },
+  ];
+  final bankLines = <Map<String, Object?>>[
+    {
+      'id': 'BL-000001',
+      'account': '1002',
+      'date': '2026-10-01',
+      'narration': 'NEFT CR GUJARAT WEAVES INV0002',
+      'refNo': 'N275261',
+      'in': 377600,
+      'out': 0,
+      'balance': 577600,
+      'fingerprint': 'BANK-1111111111111111-1',
+      'category': 'unclassified',
+      'status': 'unmatched',
+      'match': null,
+      'importedOn': '2026-10-05',
+      'fileLabel': 'hdfc-oct.csv',
+      'tieBreak': false,
+      'suggestions': [
+        {'kind': 'books', 'transferId': '100007', 'docId': 'INV-0002', 'docKind': 'receipt', 'party': 'Gujarat Weaves', 'amount': 377600, 'date': '2026-10-01', 'why': 'Same amount on the same day'},
+        {'kind': 'receipt', 'partyName': 'Gujarat Weaves', 'invoiceIds': ['INV-0002'], 'amount': 377600, 'why': 'Gujarat Weaves is in the narration'},
+      ],
+    },
+    {
+      'id': 'BL-000002',
+      'account': '1002',
+      'date': '2026-10-02',
+      'narration': 'SMS CHARGES SEP',
+      'refNo': '',
+      'in': 0,
+      'out': 25,
+      'balance': 577575,
+      'fingerprint': 'BANK-2222222222222222-1',
+      'category': 'finance_cost',
+      'status': 'unmatched',
+      'match': null,
+      'importedOn': '2026-10-05',
+      'fileLabel': 'hdfc-oct.csv',
+      'tieBreak': false,
+      'suggestions': [
+        {'kind': 'charge', 'head': '5180', 'why': 'Looks like a bank charge'},
+      ],
+    },
+    {
+      'id': 'BL-000003',
+      'account': '1002',
+      'date': '2026-10-03',
+      'narration': 'INT PD FOR THE QTR',
+      'refNo': '',
+      'in': 1200,
+      'out': 0,
+      'balance': 578775,
+      'fingerprint': 'BANK-3333333333333333-1',
+      'category': 'interest_income',
+      'status': 'unmatched',
+      'match': null,
+      'importedOn': '2026-10-05',
+      'fileLabel': 'hdfc-oct.csv',
+      'tieBreak': false,
+      'suggestions': [
+        {'kind': 'interest', 'why': 'Looks like interest the bank paid you'},
+      ],
+    },
+    {
+      'id': 'BL-000004',
+      'account': '1002',
+      'date': '2026-10-03',
+      'narration': 'UPI FABRIC CO BILL 0001',
+      'refNo': 'UPI-4411',
+      'in': 0,
+      'out': 8400,
+      'balance': 570375,
+      'fingerprint': 'BANK-4444444444444444-1',
+      'category': 'purchases',
+      'status': 'matched',
+      'match': {'kind': 'books', 'id': 'BILL-0001', 'transferIds': ['100009'], 'ruleId': '', 'note': ''},
+      'importedOn': '2026-10-05',
+      'fileLabel': 'hdfc-oct.csv',
+      'tieBreak': false,
+      'suggestions': <Object?>[],
+    },
+  ];
+  final bankBooks = <Map<String, Object?>>[
+    {'transferId': '100012', 'date': '2026-10-04', 'docKind': 'expense', 'docId': 'EXP-0002', 'party': 'Airtel', 'in': 0, 'out': 1180},
+  ];
+  final bankTransfers = <Map<String, Object?>>[];
   final quotes = <Map<String, Object?>>[
     {
       'id': 'QT-0001',
@@ -594,6 +699,25 @@ class FakeMycaApi implements MycaApi {
         {'head': args['head'], 'headName': 'Advertising and marketing'},
       );
     }
+    if (name == 'match_bank_line') {
+      final line = bankLines.where((l) => l['id'] == args['lineId']).firstOrNull;
+      final amount = line == null ? 0 : ((line['in'] as num) > 0 ? line['in'] as num : line['out'] as num);
+      final who = args['partyName'] ?? args['invoiceId'] ?? args['billId'] ?? args['transferId'] ?? args['head'] ?? args['otherAccount'];
+      return _preview('${args['lineId']}: ${args['kind']} of ₹$amount${who == null ? '' : ' ($who)'}${args['remember'] == true ? ', and a rule for next time' : ''}.');
+    }
+    if (name == 'unmatch_bank_line') return _preview('Unlink ${args['lineId']}. Nothing is posted or reversed.');
+    if (name == 'book_bank_charges') {
+      final open = bankLines.where((l) => l['status'] == 'unmatched' && (l['category'] == 'finance_cost' || l['category'] == 'interest_income')).length;
+      return _preview('Book $open ${open == 1 ? 'line' : 'lines'} as bank charges and interest.');
+    }
+    if (name == 'add_bank_rule') return _preview('Rule: ${args['side']} lines containing “${args['contains']}” are booked as ${args['kind']}.');
+    if (name == 'remove_bank_rule') return _preview('Remove the rule ${args['id']}.');
+    if (name == 'run_bank_rules') return _preview('Run your bank rules over the lines not matched yet.');
+    if (name == 'set_bank_account') return _preview('Add the account ${args['label']} (${args['kind']}).');
+    if (name == 'record_transfer') {
+      return _preview('Transfer ₹${args['amount']} from ${args['fromAccount']} to ${args['toAccount']} on ${args['date']}. Recorded once, between your own accounts.');
+    }
+    if (name == 'import_bank' && args['post'] == 'hold') return _preview('Bank statement: the lines are read and wait for you to match them.');
     return _preview(switch (name) {
       'create_invoice' => 'Invoice to ${args['partyName']}: total ₹9,440.00.',
       'record_receipt' => 'Receipt of ₹1,000.00 against ${args['invoiceId']}.',
@@ -1041,6 +1165,150 @@ class FakeMycaApi implements MycaApi {
           'confirmed': true,
         });
       }
+      if (held.tool == 'match_bank_line') {
+        final line = bankLines.firstWhere((l) => l['id'] == held.args['lineId']);
+        final kind = held.args['kind'] as String;
+        final suggestions = (line['suggestions'] as List<Object?>? ?? const <Object?>[]).cast<Map<String, Object?>>();
+        final books = suggestions.where((s) => s['transferId'] == held.args['transferId']).firstOrNull;
+        final id = kind == 'books'
+            ? '${books?['docId'] ?? held.args['transferId']}'
+            : '${held.args['invoiceId'] ?? held.args['billId'] ?? (kind == 'transfer' ? 'CTR-0001' : kind == 'ignore' || kind == 'interest' ? '' : 'EXP-0003')}';
+        line['status'] = kind == 'books' ? 'matched' : kind == 'ignore' ? 'ignored' : 'booked';
+        line['match'] = {
+          'kind': kind,
+          'id': id,
+          'transferIds': [kind == 'books' ? '${held.args['transferId']}' : '1000${20 + bankLines.indexOf(line)}'],
+          'ruleId': '',
+          'note': held.args['note'] ?? '',
+        };
+        line['suggestions'] = const <Object?>[];
+        if (held.args['remember'] == true) {
+          bankRules.add({
+            'id': 'BR-${(bankRules.length + 1).toString().padLeft(4, '0')}',
+            'side': (line['in'] as num) > 0 ? 'in' : 'out',
+            'contains': held.args['partyName'] ?? line['narration'],
+            'pattern': '',
+            'minAmount': null,
+            'maxAmount': null,
+            'then': {'kind': kind, 'partyName': held.args['partyName'] ?? '', 'head': held.args['head'] ?? '', 'otherAccount': held.args['otherAccount'] ?? '', 'note': held.args['note'] ?? ''},
+            'hits': 1,
+            'createdOn': '2026-10-05',
+            'by': 'owner',
+          });
+        }
+        return ChatReply.fromJson({'reply': 'Matched ${line['id']}.', 'posted': true, 'confirmed': true});
+      }
+      if (held.tool == 'unmatch_bank_line') {
+        final line = bankLines.firstWhere((l) => l['id'] == held.args['lineId']);
+        line['status'] = 'unmatched';
+        line['match'] = null;
+        return ChatReply.fromJson({'reply': 'Unlinked ${line['id']}.', 'posted': true, 'confirmed': true});
+      }
+      if (held.tool == 'book_bank_charges') {
+        var n = 0;
+        for (final line in bankLines) {
+          if (line['status'] != 'unmatched' || (held.args['account'] != null && line['account'] != held.args['account'])) continue;
+          final charge = line['category'] == 'finance_cost' && (line['out'] as num) > 0;
+          final interest = line['category'] == 'interest_income' && (line['in'] as num) > 0;
+          if (!charge && !interest) continue;
+          n += 1;
+          line['status'] = 'booked';
+          line['match'] = {'kind': charge ? 'charge' : 'interest', 'id': charge ? 'EXP-000$n' : '', 'transferIds': ['10003$n'], 'ruleId': '', 'note': ''};
+          line['suggestions'] = const <Object?>[];
+        }
+        return ChatReply.fromJson({'reply': 'Booked $n ${n == 1 ? 'line' : 'lines'}.', 'posted': true, 'confirmed': true});
+      }
+      if (held.tool == 'add_bank_rule') {
+        final rule = <String, Object?>{
+          'id': 'BR-${(bankRules.length + 1).toString().padLeft(4, '0')}',
+          'side': held.args['side'] ?? 'any',
+          'contains': held.args['contains'] ?? '',
+          'pattern': held.args['pattern'] ?? '',
+          'minAmount': held.args['minAmount'],
+          'maxAmount': held.args['maxAmount'],
+          'then': {'kind': held.args['kind'], 'partyName': held.args['partyName'] ?? '', 'head': held.args['head'] ?? '', 'otherAccount': held.args['otherAccount'] ?? '', 'note': held.args['note'] ?? ''},
+          'hits': 0,
+          'createdOn': '2026-10-05',
+          'by': 'owner',
+        };
+        bankRules.add(rule);
+        if (held.args['applyNow'] != false) _applyBankRule(rule);
+        return ChatReply.fromJson({'reply': 'Rule ${rule['id']} added.', 'posted': true, 'confirmed': true});
+      }
+      if (held.tool == 'remove_bank_rule') {
+        bankRules.removeWhere((r) => r['id'] == held.args['id']);
+        return ChatReply.fromJson({'reply': 'Rule ${held.args['id']} removed.', 'posted': true, 'confirmed': true});
+      }
+      if (held.tool == 'run_bank_rules') {
+        for (final rule in bankRules) {
+          _applyBankRule(rule);
+        }
+        return ChatReply.fromJson({'reply': 'Rules run.', 'posted': true, 'confirmed': true});
+      }
+      if (held.tool == 'set_bank_account') {
+        bankAccounts.add({
+          'id': '${1001 + bankAccounts.length}',
+          'label': held.args['label'],
+          'kind': held.args['kind'],
+          'maskedNumber': held.args['maskedNumber'] ?? '',
+          'ifsc': held.args['ifsc'] ?? '',
+          'balance': 0,
+          'builtIn': false,
+        });
+        return ChatReply.fromJson({'reply': 'Account ${held.args['label']} added.', 'posted': true, 'confirmed': true});
+      }
+      if (held.tool == 'record_transfer') {
+        final id = 'CTR-${(bankTransfers.length + 1).toString().padLeft(4, '0')}';
+        final transferId = '${100124 + bankTransfers.length}';
+        bankTransfers.add({
+          'id': id,
+          'date': held.args['date'],
+          'fromAccount': held.args['fromAccount'],
+          'toAccount': held.args['toAccount'],
+          'amount': held.args['amount'],
+          'reference': held.args['reference'] ?? '',
+          'transferId': transferId,
+          'by': 'owner',
+        });
+        if (held.args['fromAccount'] == '1002' || held.args['toAccount'] == '1002') {
+          bankBooks.add({
+            'transferId': transferId,
+            'date': held.args['date'],
+            'docKind': 'transfer',
+            'docId': id,
+            'party': '',
+            'in': held.args['toAccount'] == '1002' ? held.args['amount'] : 0,
+            'out': held.args['fromAccount'] == '1002' ? held.args['amount'] : 0,
+          });
+        }
+        return ChatReply.fromJson({'reply': 'Transfer $id recorded.', 'posted': true, 'confirmed': true});
+      }
+      if (held.tool == 'import_bank' && held.args['post'] == 'hold') {
+        final content = uploads[held.args['documentSha256']] ?? '';
+        final rows = content.split('\n').skip(1).where((row) => row.trim().isNotEmpty).toList();
+        for (final row in rows) {
+          final cols = row.split(',');
+          bankLines.add({
+            'id': 'BL-${(bankLines.length + 1).toString().padLeft(6, '0')}',
+            'account': held.args['account'] ?? '1002',
+            'date': cols.first.trim(),
+            'narration': cols.length > 1 ? cols[1].trim() : 'Statement line',
+            'refNo': '',
+            'in': cols.length > 3 ? num.tryParse(cols[3].trim()) ?? 0 : 0,
+            'out': cols.length > 2 ? num.tryParse(cols[2].trim()) ?? 0 : 0,
+            'balance': cols.length > 4 ? num.tryParse(cols[4].trim()) : null,
+            'fingerprint': 'BANK-${bankLines.length}',
+            'category': 'unclassified',
+            'status': 'unmatched',
+            'match': null,
+            'importedOn': '2026-10-05',
+            'fileLabel': 'statement',
+            'tieBreak': false,
+            'suggestions': <Object?>[],
+          });
+        }
+        return ChatReply.fromJson({'reply': 'Bank statement: ${rows.length} lines wait for you to match.', 'posted': true, 'confirmed': true});
+      }
       return ChatReply.fromJson({
         'reply': 'Done: ${held.tool}.',
         'posted': true,
@@ -1051,6 +1319,28 @@ class FakeMycaApi implements MycaApi {
       'reply': 'There is nothing waiting to be posted.',
       'posted': false,
     });
+  }
+
+  void _applyBankRule(Map<String, Object?> rule) {
+    final then = rule['then'] as Map<String, Object?>;
+    final contains = '${rule['contains'] ?? ''}'.toLowerCase();
+    for (final line in bankLines) {
+      if (line['status'] != 'unmatched') continue;
+      if (rule['side'] == 'in' && (line['in'] as num) <= 0) continue;
+      if (rule['side'] == 'out' && (line['out'] as num) <= 0) continue;
+      if (contains.isEmpty || !'${line['narration']}'.toLowerCase().contains(contains)) continue;
+      final kind = then['kind'];
+      line['status'] = kind == 'ignore' ? 'ignored' : 'booked';
+      line['match'] = {
+        'kind': kind,
+        'id': kind == 'receipt' ? 'INV-0002' : kind == 'ignore' || kind == 'interest' ? '' : 'EXP-0004',
+        'transferIds': ['100041'],
+        'ruleId': rule['id'],
+        'note': then['note'] ?? '',
+      };
+      line['suggestions'] = const <Object?>[];
+      rule['hits'] = (rule['hits'] as int) + 1;
+    }
   }
 
   @override
@@ -1239,6 +1529,69 @@ class FakeMycaApi implements MycaApi {
             'matches': documentMatches,
           },
         };
+      case 'bank_reconciliation':
+        final account = (args['account'] as String?) ?? '1002';
+        final status = (args['status'] as String?) ?? 'all';
+        final all = bankLines.where((l) => l['account'] == account).toList();
+        final shown = all.where((l) => status == 'all' || l['status'] == status).toList();
+        num sum(String key, bool Function(Map<String, Object?> line) test) => all.where(test).fold<num>(0, (total, l) => total + (l[key] as num));
+        int count(String s) => all.where((l) => l['status'] == s).length;
+        final unmatchedIn = sum('in', (l) => l['status'] == 'unmatched');
+        final unmatchedOut = sum('out', (l) => l['status'] == 'unmatched');
+        final books = account == '1002' ? bankBooks : const <Map<String, Object?>>[];
+        final booksOnly = books.fold<num>(0, (total, b) => total + (b['in'] as num) - (b['out'] as num));
+        final last = all.isEmpty ? null : all.last;
+        final statementBalance = last == null ? 0 : (last['balance'] as num?) ?? 0;
+        final booksBalance = statementBalance - unmatchedIn + unmatchedOut + booksOnly;
+        var reconciledThrough = '';
+        for (final l in all) {
+          if (l['status'] == 'unmatched') break;
+          reconciledThrough = l['date'] as String;
+        }
+        final own = bankAccounts.firstWhere((a) => a['id'] == account, orElse: () => bankAccounts[1]);
+        return {
+          'ok': true,
+          'data': {
+            'account': {'id': own['id'], 'label': own['label'], 'kind': own['kind']},
+            'from': '2026-07-07',
+            'to': last == null ? '2026-10-05' : last['date'],
+            'lines': shown,
+            'books': books,
+            'totals': {
+              'statementBalance': statementBalance,
+              'statementOn': last == null ? '' : last['date'],
+              'booksBalance': booksBalance,
+              'difference': statementBalance - booksBalance,
+              'lines': {'unmatched': count('unmatched'), 'matched': count('matched'), 'booked': count('booked'), 'ignored': count('ignored')},
+              'unmatchedIn': unmatchedIn,
+              'unmatchedOut': unmatchedOut,
+            },
+            'reconciledThrough': reconciledThrough,
+            'rules': bankRules,
+            'accounts': [
+              for (final a in bankAccounts) {'id': a['id'], 'label': a['label'], 'kind': a['kind'], 'balance': a['balance']},
+            ],
+          },
+        };
+      case 'list_bank_rules':
+        return {'ok': true, 'data': {'rules': bankRules}};
+      case 'list_bank_accounts':
+        return {'ok': true, 'data': {'accounts': bankAccounts}};
+      case 'export_xlsx':
+        final report = '${args['report'] ?? 'trial_balance'}'.replaceAll('_', '-');
+        final when = '${args['period'] ?? args['name'] ?? '2026-10-05'}'.toLowerCase().replaceAll(RegExp(r'[^a-z0-9-]+'), '-');
+        return {
+          'ok': true,
+          'data': {
+            'fileName': 'myca-$report-$when.xlsx',
+            'contentType': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'xlsxBase64': base64Encode(utf8.encode('PK\u0003\u0004test')),
+            'sheets': [
+              {'name': report, 'rows': 2},
+            ],
+            'rows': 2,
+          },
+        };
       case 'list_reports':
         return {'ok': true, 'reports': savedReports};
       case 'list_recurring':
@@ -1259,7 +1612,7 @@ class FakeMycaApi implements MycaApi {
               {'label': 'Retail Mart', 'amount': 525000},
               {'label': 'Gujarat Weaves', 'amount': 63000},
             ],
-            'more': 0,
+            'more': report['name'] == 'Expenses this quarter' ? 3 : 0,
             'total': 588000,
             'compare': compared
                 ? {

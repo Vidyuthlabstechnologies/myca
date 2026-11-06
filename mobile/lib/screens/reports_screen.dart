@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../api/models.dart';
 import '../api/myca_api.dart';
 import '../app_state.dart';
+import '../excel.dart';
 import '../format.dart';
 import '../marks.dart';
 import '../proposal_flow.dart';
@@ -22,6 +23,7 @@ class _ReportsScreenState extends State<ReportsScreen> with ProposalFlow {
   ReportResult? _result;
   bool _running = false;
   String _note = '';
+  String _excelNote = '';
 
   @override
   MycaApi get api => AppScope.of(context).api;
@@ -58,6 +60,7 @@ class _ReportsScreenState extends State<ReportsScreen> with ProposalFlow {
       _result = null;
       _running = true;
       _note = '';
+      _excelNote = '';
     });
     ReportResult? result;
     var note = '';
@@ -76,6 +79,19 @@ class _ReportsScreenState extends State<ReportsScreen> with ProposalFlow {
   }
 
   Future<void> _delete(SavedReport report) => propose('Delete the report ${report.name}', 'delete_report', {'name': report.name});
+
+  Future<void> _saveExcel(SavedReport report) async {
+    final state = AppScope.of(context);
+    setState(() => _excelNote = '');
+    var note = '';
+    try {
+      note = await saveXlsx(state, toolData(await state.api.query('export_xlsx', {'report': 'saved_report', 'name': report.name})));
+    } on MycaApiException catch (err) {
+      note = err.message;
+    }
+    if (!mounted) return;
+    setState(() => _excelNote = note);
+  }
 
   Future<void> _add() async {
     final draft = await showModalBottomSheet<_ReportDraft>(
@@ -112,7 +128,7 @@ class _ReportsScreenState extends State<ReportsScreen> with ProposalFlow {
           RowCard(
             leading: const TintTile(tint: Tint.taxes, mark: Mark.comingUp),
             title: '${result.more} more',
-            subtitle: 'Run it on the desktop for the full list',
+            subtitle: 'Save as Excel for the full list',
           ),
       ],
     );
@@ -166,7 +182,23 @@ class _ReportsScreenState extends State<ReportsScreen> with ProposalFlow {
                               const Padding(padding: EdgeInsets.all(12), child: Center(child: CircularProgressIndicator())),
                             if (_openName == report.name && _note.isNotEmpty)
                               Padding(padding: const EdgeInsets.all(12), child: Text(_note, style: text.bodyMedium?.copyWith(color: Palette.warn))),
-                            if (_openName == report.name && _result != null) _resultPanel(_result!, text),
+                            if (_openName == report.name && _result != null) ...[
+                              _resultPanel(_result!, text),
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  children: [
+                                    OutlinedButton(
+                                      onPressed: busy ? null : () => _saveExcel(report),
+                                      child: const Text('Save as Excel'),
+                                    ),
+                                    if (_excelNote.isNotEmpty)
+                                      Padding(padding: const EdgeInsets.only(top: 8), child: Text(_excelNote, style: text.bodyMedium)),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ],
                         ],
                       ),

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 import 'format.dart';
 
 import 'package:flutter/widgets.dart';
@@ -17,6 +18,8 @@ import 'notifications.dart';
 
 Future<bool> _cannotSave(String name, String content) async => false;
 
+Future<bool> _cannotSaveBytes(String name, Uint8List bytes, String mime) async => false;
+
 Future<bool> _cannotShare(String text) async => false;
 
 Future<bool> _cannotOpen(Uri url) async => false;
@@ -33,6 +36,7 @@ class AppState extends ChangeNotifier {
     this.takeSharedFile = noSharedFile,
     this.notifications = const NoNotifications(),
     this.saveTextFile = _cannotSave,
+    this.saveBytesFile = _cannotSaveBytes,
     this.shareText = _cannotShare,
     this.pdf = const PdfActions(),
     this.lock = const NoAppLock(),
@@ -53,6 +57,7 @@ class AppState extends ChangeNotifier {
   PickedFile? sharedFile;
   final NotificationPlanner notifications;
   final SaveTextFile saveTextFile;
+  final SaveBytesFile saveBytesFile;
   final ShareText shareText;
   final PdfActions pdf;
   final AppLock lock;

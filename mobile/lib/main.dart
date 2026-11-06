@@ -71,6 +71,7 @@ void main() {
         takeSharedFile: takeSharedFileFromDevice,
         notifications: DeviceNotifications(),
         saveTextFile: saveTextFileOnDevice,
+        saveBytesFile: saveBytesFileOnDevice,
         shareText: shareTextFromDevice,
         pdf: const PdfActions(share: sharePdfFromDevice, print: printPdfFromDevice),
         crashes: crashes,

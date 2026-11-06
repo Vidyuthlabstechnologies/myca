@@ -6,6 +6,7 @@ import '../api/models.dart';
 import '../api/myca_api.dart';
 import '../app_state.dart';
 import '../attention.dart';
+import '../excel.dart';
 import '../format.dart';
 import '../marks.dart';
 import '../theme.dart';
@@ -373,6 +374,19 @@ class _TaxesScreenState extends State<TaxesScreen> {
     setState(() => _entriesNote = note);
   }
 
+  Future<void> _saveExcel(String report, [Map<String, Object?> args = const {}]) async {
+    final state = AppScope.of(context);
+    setState(() => _entriesNote = '');
+    var note = '';
+    try {
+      note = await saveXlsx(state, toolData(await state.api.query('export_xlsx', {'report': report, ...args})));
+    } on MycaApiException catch (err) {
+      note = err.message;
+    }
+    if (!mounted) return;
+    setState(() => _entriesNote = note);
+  }
+
   void _explain(ExceptionItem item) {
     showModalBottomSheet<void>(
       context: context,
@@ -592,6 +606,14 @@ class _TaxesScreenState extends State<TaxesScreen> {
                   SizedBox(
                     width: double.infinity,
                     child: OutlinedButton(
+                      onPressed: () => _saveExcel('entries', {'period': gst.period}),
+                      child: const Text('Save entries as Excel'),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton(
                       onPressed: _saveGstr9,
                       child: const Text('Save the GSTR-9 draft'),
                     ),
@@ -646,6 +668,14 @@ class _TaxesScreenState extends State<TaxesScreen> {
                       child: const Text('Save the trial balance'),
                     ),
                   ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton(
+                      onPressed: () => _saveExcel('trial_balance'),
+                      child: const Text('Save as Excel'),
+                    ),
+                  ),
                   if (_entriesNote.isNotEmpty)
                     Padding(
                       padding: const EdgeInsets.only(top: 8),
@@ -653,7 +683,9 @@ class _TaxesScreenState extends State<TaxesScreen> {
                         _entriesNote,
                         style: Theme.of(context).textTheme.bodyMedium,
                       ),
-                    ),
+                    )
+                  else
+                    const SizedBox.shrink(),
                 ],
                 FutureBuilder<TdsSummary?>(
                   future: _tds,
