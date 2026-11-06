@@ -66,6 +66,38 @@ const _messages = {
 String cloudMessage(String code, [String hint = '']) =>
     _messages[code] ?? (hint.trim().isNotEmpty ? hint.trim() : 'Something went wrong ($code).');
 
+const _secondStepOver = 'This sign-in attempt is over. Tap Start over and sign in again.';
+
+const _secondStepMessages = {
+  'CODE_EXPIRED': _secondStepOver,
+  'TOO_MANY_ATTEMPTS': _secondStepOver,
+  'CODE_USED': 'That code was already used. Wait for the next one on your authenticator and try again.',
+};
+
+String secondStepMessage(String code, Object? attemptsRemaining) {
+  if (code == 'INVALID_CODE' && attemptsRemaining is num) {
+    final left = attemptsRemaining.toInt();
+    if (left <= 0) return _secondStepOver;
+    return 'That code is not right. $left ${left == 1 ? 'try' : 'tries'} left.';
+  }
+  return _secondStepMessages[code] ?? cloudMessage(code);
+}
+
+class SecondStepResult {
+  const SecondStepResult({required this.usedRecoveryCode, required this.recoveryCodesLeft});
+
+  final bool usedRecoveryCode;
+  final int? recoveryCodesLeft;
+
+  String get recoveryNote {
+    if (!usedRecoveryCode) return '';
+    final left = recoveryCodesLeft;
+    return left == null
+        ? 'You used a recovery code. Make new ones in Security.'
+        : 'You used a recovery code. $left left. Make new ones in Security.';
+  }
+}
+
 const connectorOrder = ['nic', 'quicko', 'plaid', 'taxjar', 'gusto', 'track1099', 'amazon', 'shopify', 'razorpay', 'zoho'];
 
 class ConnectorView {
@@ -748,19 +780,23 @@ class CloudSession {
     return true;
   }
 
-  Future<void> completeSecondStep(String code) async {
+  Future<SecondStepResult> completeSecondStep(String code) async {
     final (_, body) = await _send('POST', '/v1/auth/second-step', {
       'challengeId': _secondStepChallenge,
       'code': code,
       'deviceLabel': deviceLabel,
     }, authed: false);
     if (body['ok'] != true) {
-      throw MycaApiException(cloudMessage('${body['error'] ?? 'UNKNOWN'}'));
+      throw MycaApiException(secondStepMessage('${body['error'] ?? 'UNKNOWN'}', body['attemptsRemaining']));
     }
     await _keep(body);
     _secondStepChallenge = null;
     _challengeId = null;
     await _signedIn(body);
+    return SecondStepResult(
+      usedRecoveryCode: body['usedRecoveryCode'] == true,
+      recoveryCodesLeft: (body['recoveryCodesLeft'] as num?)?.toInt(),
+    );
   }
 
   void cancelSecondStep() {
@@ -891,11 +927,12 @@ class CloudSession {
 
   Future<void> signOut() async {
     try {
-      if (signedIn) await _send('POST', '/v1/auth/logout', const {});
+      if (signedIn) await call('POST', '/v1/auth/logout', const {});
     } on MycaApiException {
-      // Signing out must always work on the phone, even with no connection.
+      return;
+    } finally {
+      await _forget();
     }
-    await _forget();
   }
 
   Future<Me> me() async {
