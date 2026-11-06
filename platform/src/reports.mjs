@@ -69,7 +69,7 @@ function grouped(rows, groupBy) {
   return [...by.entries()].map(([label, amount]) => ({ label, amount })).sort((a, b) => (groupBy === 'month' ? a.label.localeCompare(b.label) : b.amount - a.amount));
 }
 
-export function runReportSpec(state, spec, today = localToday()) {
+export function runReportSpec(state, spec, today = localToday(), { maxRows = MAX_ROWS } = {}) {
   const metric = REPORT_METRICS.includes(spec.metric) ? spec.metric : 'sales';
   const groupBy = REPORT_GROUPS.includes(spec.groupBy) ? spec.groupBy : 'none';
   const period = /^\d{4}-\d{2}$/.test(String(spec.period || '')) || REPORT_PERIODS.includes(spec.period) ? spec.period : 'this-month';
@@ -85,7 +85,7 @@ export function runReportSpec(state, spec, today = localToday()) {
     const byLabel = new Map(beforeRows.map((r) => [r.label, r.amount]));
     compare = { label: before.label, total: beforeTotal, changePct: beforeTotal > 0 ? Math.round(((total - beforeTotal) / beforeTotal) * 100) : null, rows: rows.map((r) => ({ label: r.label, before: byLabel.get(r.label) || 0 })) };
   }
-  return { metric, groupBy, period, range: balance ? { label: `as of ${today}`, from: '', to: today } : range, rows: rows.slice(0, MAX_ROWS), more: Math.max(0, rows.length - MAX_ROWS), total, compare };
+  return { metric, groupBy, period, range: balance ? { label: `as of ${today}`, from: '', to: today } : range, rows: rows.slice(0, maxRows), more: Math.max(0, rows.length - maxRows), total, compare };
 }
 
 function nameKey(name) {
@@ -115,12 +115,17 @@ export function saveReport(state, args = {}) {
   return { ok: true, report: state.reports[plan.key], replaced: plan.replaces, result: runReportSpec(state, plan.spec) };
 }
 
-export function runReport(state, args = {}) {
+export function savedReportSpec(state, name) {
   const reports = state.reports && typeof state.reports === 'object' ? state.reports : {};
-  const key = nameKey(args.name);
-  if (!key || !Object.hasOwn(reports, key)) return { ok: false, error: 'REPORT_NOT_FOUND', name: args.name, known: Object.values(reports).map((r) => r.name) };
-  const saved = reports[key];
-  return { ok: true, name: saved.name, result: runReportSpec(state, saved) };
+  const key = nameKey(name);
+  if (!key || !Object.hasOwn(reports, key)) return { ok: false, error: 'REPORT_NOT_FOUND', name, known: Object.values(reports).map((r) => r.name) };
+  return { ok: true, name: reports[key].name, spec: reports[key] };
+}
+
+export function runReport(state, args = {}) {
+  const saved = savedReportSpec(state, args.name);
+  if (!saved.ok) return saved;
+  return { ok: true, name: saved.name, result: runReportSpec(state, saved.spec) };
 }
 
 export function listReports(state) {

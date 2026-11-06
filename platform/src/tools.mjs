@@ -46,6 +46,7 @@ import { createDebitNote, createPurchaseNote, debitNotesForPeriod, purchaseNotes
 import { reviewOf, answerReview } from './gst-review.mjs';
 import { exportEntries } from './entries-export.mjs';
 import { exportTallyXml } from './tally-export.mjs';
+import { reportSheet } from './report-sheets.mjs';
 import { import2b, creditAtRisk } from './gstr2b-check.mjs';
 import { booksCheck } from './books-check.mjs';
 import { deadlineRun, filingRows } from './deadline-run.mjs';
@@ -1267,6 +1268,13 @@ export const TOOLS = [
     description: 'One Tally import file (XML) of the month: ledger masters, then every sale, receipt, credit and debit note, purchase, payment, expense and TDS deposit as a voucher. Read-only.',
     args: ['period'],
     run: (state, args = {}) => exportTallyXml(state, args),
+  },
+  {
+    name: 'export_xlsx',
+    title: 'Excel file of a report',
+    description: 'One Excel workbook (.xlsx) of a report: the trial balance, entries, day book, sales, purchases, expenses, credit or debit notes, customer or supplier dues, cash forecast, credit at risk, TDS, margins, stock, a saved report by name, the business or GST summary, or the bank reconciliation, for a month, a period (this-month, last-month, this-quarter, this-year, last-year) or from and to dates. Money is numbers, so it adds up in Excel; a saved report is complete, not cut at 20 rows. Read-only.',
+    args: ['report', 'period', 'from', 'to', 'name', 'account'],
+    run: (state, args = {}) => reportSheet(state, args.report, args),
   },
   {
     name: 'gst_review',

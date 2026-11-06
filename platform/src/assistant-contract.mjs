@@ -3,6 +3,7 @@ import { planExpenseFromChat, planRetagFromChat } from './expense-intent.mjs';
 import { planPaymentFromChat } from './payment-intent.mjs';
 import { planOweQuestion } from './owe-intent.mjs';
 import { planFilingFromChat, saidPeriod } from './filing-intent.mjs';
+import { REPORT_KEYS } from './report-sheets.mjs';
 import { planEmployeeFromChat } from './employee-intent.mjs';
 import { planTdsFromChat } from './tds-intent.mjs';
 import { planGstPayFromChat } from './gst-pay-intent.mjs';
@@ -1499,6 +1500,18 @@ export const TOOL_ARG_SCHEMAS = {
     additionalProperties: false,
     properties: { period: { type: 'string', pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' } },
   },
+  export_xlsx: {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      report: { type: 'string', enum: REPORT_KEYS },
+      period: { type: 'string', pattern: '^(?:[0-9]{4}-(0[1-9]|1[0-2])|this-month|last-month|this-quarter|this-year|last-year)$' },
+      from: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' },
+      to: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' },
+      name: { type: 'string', maxLength: 60 },
+      account: { type: 'string', maxLength: 24 },
+    },
+  },
   gst_review: {
     type: 'object',
     additionalProperties: false,
@@ -2045,6 +2058,7 @@ const TOOL_RISK = {
   exception_decide: 'internal_workflow',
   track_gst_returns: 'read_or_prepare',
   search_gstin: 'read_or_prepare',
+  export_xlsx: 'read_only',
 };
 
 export function assistantTools(tools) {
@@ -2178,6 +2192,45 @@ function salesDocumentKindSaid(text) {
   return SALES_KIND_WORDS.find((entry) => entry.words.test(text)) || null;
 }
 
+const EXCEL_SAID = /\b(?:excel|xlsx|spreadsheet)\b/i;
+const SAVED_REPORT_TO_EXCEL = /\breport\s+(?:called\s+|named\s+)?["“]?([^"”]+?)["”]?\s+(?:to|as|in|into)\s+(?:an?\s+|the\s+)?(?:excel|xlsx|spreadsheet)\b/i;
+const EXCEL_PERIOD_WORDS = /\b(this\s+month|last\s+month|this\s+quarter|this\s+year|last\s+year)\b/i;
+const EXCEL_REPORTS = [
+  { key: 'trial_balance', words: /\btrial\s*balance\b/i },
+  { key: 'bank_reconciliation', words: /\bbank\b|\breconcil/i },
+  { key: 'day_book', words: /\bday\s*book\b|\bjournal\b|\bledger\b/i },
+  { key: 'entries', words: /\bentries\b|\bvouchers?\b/i },
+  { key: 'credit_notes', words: /\bcredit\s*notes?\b/i },
+  { key: 'debit_notes', words: /\bdebit\s*notes?\b/i },
+  { key: 'credit_at_risk', words: /\bcredit\s+at\s+risk\b|\bgstr-?2b\b|\b2b\b/i },
+  { key: 'supplier_dues', words: /\b(?:supplier|vendor|creditor)s?\b.*\b(?:dues?|owe|owed|owing|outstanding|unpaid|bills?)\b|\bpayables?\b|\b(?:i|we)\s+owe\b/i },
+  { key: 'customer_dues', words: /\bdues?\b|\bowed?\b|\bowes\b|\breceivables?\b|\bdebtors?\b|\boutstanding\b|\bunpaid\b|\boverdue\b/i },
+  { key: 'saved_report', words: /\bsaved\s+report\b/i },
+  { key: 'cash_forecast', words: /\bcash\s*forecast\b|\bforecast\b|\bcash\s*flow\b/i },
+  { key: 'tds_summary', words: /\btds\b/i },
+  { key: 'sku_margins', words: /\bmargins?\b/i },
+  { key: 'stock_position', words: /\bstock\b|\binventory\b/i },
+  { key: 'gst_period_summary', words: /\bgst\b|\bgstr/i },
+  { key: 'business_summary', words: /\bbusiness\s+summary\b|\bat\s+a\s+glance\b|\bsummary\b/i },
+  { key: 'sales', words: /\bsales?\b|\binvoices?\b|\bsold\b/i },
+  { key: 'purchases', words: /\bpurchases?\b|\bbills?\b|\bbought\b/i },
+  { key: 'expenses', words: /\bexpenses?\b|\bspending\b/i },
+];
+
+function planExcelFromChat(text) {
+  if (!EXCEL_SAID.test(text) || isNegated(text) || /\b(?:import|upload|attach|bring\s+in|read)\b/i.test(text)) return null;
+  const saved = SAVED_REPORT_TO_EXCEL.exec(text);
+  if (saved) return { kind: 'tool', name: 'export_xlsx', args: { report: 'saved_report', name: saved[1].trim() } };
+  const found = EXCEL_REPORTS.find((entry) => entry.words.test(text));
+  const report = found ? found.key : 'trial_balance';
+  const from = /\b(?:from|since|starting)\s+(\d{4}-\d{2}-\d{2})\b/i.exec(text);
+  const to = /\b(?:to|till|until|up\s+to)\s+(\d{4}-\d{2}-\d{2})\b/i.exec(text);
+  if (from || to) return { kind: 'tool', name: 'export_xlsx', args: { report, ...(from ? { from: from[1] } : {}), ...(to ? { to: to[1] } : {}) } };
+  const named = EXCEL_PERIOD_WORDS.exec(text);
+  const period = named ? named[1].toLowerCase().replace(/\s+/g, '-') : saidPeriod(text);
+  return { kind: 'tool', name: 'export_xlsx', args: { report, ...(period ? { period } : {}) } };
+}
+
 function challanReasonSaid(text) {
   if (/\bjob\s*work/i.test(text)) return 'job-work';
   if (/\bapproval\b/i.test(text)) return 'approval';
@@ -2227,6 +2280,8 @@ export function planLocalToolCall(state, message) {
       blocked: true,
     };
   }
+  const excel = planExcelFromChat(text);
+  if (excel) return excel;
 
   const quoteRef = text.match(/\b((?:QT|PI|SO|DC)-\d{4,})\b/i);
   if (quoteRef && !isQuestion(text) && !isNegated(text)) {

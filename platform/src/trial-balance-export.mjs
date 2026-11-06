@@ -5,7 +5,9 @@ import { countryOf } from './country.mjs';
 
 const round2 = (value) => Math.round(Number(value || 0) * 100) / 100;
 
-export function exportTrialBalance(state) {
+export const TRIAL_BALANCE_HEADER = ['code', 'account', 'type', 'debits_posted', 'credits_posted', 'closing_debit', 'closing_credit'];
+
+export function trialBalanceRows(state) {
   const accounts = listAccounts(state.ledger).filter((account) => account.debitsPosted || account.creditsPosted);
   const rows = accounts.map((account) => {
     const net = round2(account.debitsPosted - account.creditsPosted);
@@ -15,6 +17,18 @@ export function exportTrialBalance(state) {
   const credit = round2(rows.reduce((sum, row) => sum + row[4], 0));
   const closingDebit = round2(rows.reduce((sum, row) => sum + row[5], 0));
   const closingCredit = round2(rows.reduce((sum, row) => sum + row[6], 0));
+  return {
+    header: TRIAL_BALANCE_HEADER,
+    rows,
+    total: ['', 'Total', '', debit, credit, closingDebit, closingCredit],
+    debit,
+    credit,
+    balanced: Math.abs(debit - credit) < 0.001,
+  };
+}
+
+export function exportTrialBalance(state) {
+  const { header, rows, total, debit, credit, balanced } = trialBalanceRows(state);
   const asOf = localToday();
   const tag = String(state.company?.gstin || state.company?.ein || 'books').replace(/[^A-Za-z0-9-]/g, '');
   const currency = countryOf(state) === 'US' ? 'USD' : 'INR';
@@ -26,13 +40,9 @@ export function exportTrialBalance(state) {
       accounts: rows.length,
       debit,
       credit,
-      balanced: Math.abs(debit - credit) < 0.001,
+      balanced,
       fileName: `trial_balance_${tag}_${asOf}.csv`,
-      csv: csvRows([
-        ['code', 'account', 'type', 'debits_posted', 'credits_posted', 'closing_debit', 'closing_credit'],
-        ...rows,
-        ['', 'Total', '', debit, credit, closingDebit, closingCredit],
-      ]),
+      csv: csvRows([header, ...rows, total]),
     },
   };
 }
