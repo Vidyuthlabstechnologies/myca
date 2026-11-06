@@ -13,6 +13,7 @@ import { closeWords } from './daily-close.mjs';
 import { registrationsWords } from './registrations.mjs';
 import { stockTransferWords } from './stock-transfers.mjs';
 import { planLocalToolCall, validateAssistantToolCall } from './assistant-contract.mjs';
+import { imsWords, imsDecidedWords } from './ims.mjs';
 import { needsConfirmation, previewOf, openPending, takePending, clearPending, previewReply, blockedReply } from './chat-confirm.mjs';
 import { liveCallsEnabled, mockModeEnabled } from './runtime-config.mjs';
 import { referenceImportContent, resolveImportContent } from './import-documents.mjs';
@@ -168,6 +169,11 @@ const FAILURES = {
   POSSIBLY_PAID: (r) => `${r.customer || 'That customer'} paid something in the last two weeks; match your bank statement before chasing.`,
   INVALID_GSTIN: (r) => `${r.gstin || 'That GSTIN'} is not a valid GSTIN, so nothing was changed. Check it with the other party.`,
   NO_ENTRIES: () => 'There is nothing in the books to audit yet.',
+  NO_STATEMENT: () => 'Add the GSTR-2B for that month first.',
+  BAD_DECISION: () => 'Say accept, reject or pending.',
+  ROW_NOT_FOUND: () => 'One of those invoices is not in the GSTR-2B for that month.',
+  TOO_MANY_ROWS: () => 'IMS takes up to 500 invoices in one go; pick fewer, or decide in parts.',
+  NOTE_TOO_LONG: () => 'Keep the note to 200 characters or fewer.',
   NOT_FOR_COUNTRY: () => 'That is for a different country edition, so nothing was changed.',
   NOT_APPROVED: () => 'That month\'s payroll is not approved yet; approve it first.',
   NOT_FOUND: () => 'I could not find that in these books, so nothing was changed.',
@@ -381,6 +387,8 @@ function fmtToolResultCore(name, result) {
     const lines = result.data.findings.map((item) => `· ${mark[item.severity]}: ${item.title}. ${item.detail}`);
     return [result.data.headline + '.', ...lines].join('\n');
   }
+  if (name === 'ims_review' && result.data) return imsWords(result.data, money);
+  if (name === 'ims_decide' && result.ok !== false) return imsDecidedWords(result);
   if (name === 'gst_review_answer' && result.review) {
     const review = result.review;
     if (result.approved) return `Approved the ${review.month} figures. Nothing has been filed. Save the GSTR-1 file from Taxes, or send it to your CA.`;

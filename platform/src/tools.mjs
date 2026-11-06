@@ -48,6 +48,7 @@ import { exportEntries } from './entries-export.mjs';
 import { exportTallyXml } from './tally-export.mjs';
 import { reportSheet } from './report-sheets.mjs';
 import { import2b, creditAtRisk } from './gstr2b-check.mjs';
+import { imsReview, decideIms } from './ims.mjs';
 import { booksCheck } from './books-check.mjs';
 import { deadlineRun, filingRows } from './deadline-run.mjs';
 import { listFilings, recordFiling } from './filings.mjs';
@@ -1327,6 +1328,20 @@ export const TOOLS = [
     description: 'For one month: the input credit on purchase bills that GSTR-2B does not support (not reported, not available, different amounts or date, or no supplier bill number), by supplier, and 2B entries not in your books. Read-only.',
     args: ['period'],
     run: (state, args = {}) => creditAtRisk(state, args),
+  },
+  {
+    name: 'ims_review',
+    title: 'IMS decisions',
+    description: 'For one month: every GSTR-2B row with whether your books have the bill, the suggestion (accept or pending) and the decision recorded so far (accept, reject, pending or not decided), with counts and the credit by decision. Read-only.',
+    args: ['period'],
+    run: (state, args = {}) => imsReview(state, args),
+  },
+  {
+    name: 'ims_decide',
+    title: 'Decide IMS invoices',
+    description: 'Record the IMS decision (accept, reject, pending, or clear) for chosen GSTR-2B rows of one month, by row key or by a word: matched, suggested, undecided or all. Posts nothing to the ledger and sends nothing to the GST portal; take the same decisions on the portal\'s IMS.',
+    args: ['period', 'keys', 'select', 'decision', 'note'],
+    run: (state, args = {}) => decideIms(state, args),
   },
   {
     name: 'export_trial_balance',

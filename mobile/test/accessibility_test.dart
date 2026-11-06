@@ -114,6 +114,30 @@ final Map<String, Walk> screens = {
     await t.pumpAndSettle();
     await tapRow(t, 'Bank');
   },
+  'ims': (t) async {
+    await t.pumpWidget(MycaApp(key: UniqueKey(), state: testState(FakeMycaApi(signedIn: true)..has2b = true)));
+    await t.pumpAndSettle();
+    await t.tap(find.text('3 things need you'));
+    await t.pumpAndSettle();
+    final review = find.text('Review in IMS');
+    await scrollTo(t, review);
+    await t.tap(review);
+    await t.pumpAndSettle();
+  },
+  'ims row sheet': (t) async {
+    await t.pumpWidget(MycaApp(key: UniqueKey(), state: testState(FakeMycaApi(signedIn: true)..has2b = true)));
+    await t.pumpAndSettle();
+    await t.tap(find.text('3 things need you'));
+    await t.pumpAndSettle();
+    final review = find.text('Review in IMS');
+    await scrollTo(t, review);
+    await t.tap(review);
+    await t.pumpAndSettle();
+    final row = find.text('GUJARAT MILLS · GM/77');
+    await scrollTo(t, row);
+    await t.tap(row);
+    await t.pumpAndSettle();
+  },
   'ask': (t) async {
     await t.tap(find.byTooltip('Send'));
     await t.pumpAndSettle();

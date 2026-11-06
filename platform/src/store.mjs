@@ -58,6 +58,7 @@ export function createState() {
     form1099Jobs: [],
     payrollImports: [],
     gstr2b: {},
+    imsDecisions: {},
     reminders: [],
     reminderSeq: 0,
     cashReadings: [],
@@ -168,6 +169,7 @@ export function serialize(state) {
     payrollImports: state.payrollImports || [],
     purchaseOrderSeq: state.purchaseOrderSeq || 0,
     gstr2b: state.gstr2b || {},
+    imsDecisions: state.imsDecisions || {},
     reminders: state.reminders || [],
     reminderSeq: state.reminderSeq || 0,
     cashReadings: state.cashReadings || [],
@@ -358,6 +360,7 @@ export function deserialize(raw) {
   state.payrollImports = Array.isArray(raw.payrollImports) ? raw.payrollImports : [];
   state.purchaseOrderSeq = Number(raw.purchaseOrderSeq || 0);
   state.gstr2b = raw.gstr2b && typeof raw.gstr2b === 'object' ? raw.gstr2b : {};
+  state.imsDecisions = raw.imsDecisions && typeof raw.imsDecisions === 'object' && !Array.isArray(raw.imsDecisions) ? raw.imsDecisions : {};
   state.reminders = Array.isArray(raw.reminders) ? raw.reminders : [];
   state.reminderSeq = raw.reminderSeq || 0;
   state.cashReadings = Array.isArray(raw.cashReadings) ? raw.cashReadings : [];

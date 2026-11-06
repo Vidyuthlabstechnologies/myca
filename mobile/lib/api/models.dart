@@ -1060,6 +1060,163 @@ class CreditRisk {
   final String why;
 }
 
+class ImsRow {
+  const ImsRow({
+    required this.key,
+    required this.section,
+    required this.supplierGstin,
+    required this.supplierName,
+    required this.invoiceNo,
+    required this.invoiceDate,
+    required this.taxableValue,
+    required this.credit,
+    required this.totalValue,
+    required this.itcAvailability,
+    required this.billId,
+    required this.match,
+    required this.why,
+    required this.suggested,
+    required this.decision,
+    required this.note,
+  });
+
+  factory ImsRow.fromJson(Object? json) {
+    final map = _map(json);
+    final decision = _text(map['decision']);
+    return ImsRow(
+      key: _text(map['key']),
+      section: _text(map['section']),
+      supplierGstin: _text(map['supplierGstin']),
+      supplierName: _text(map['supplierName']),
+      invoiceNo: _text(map['invoiceNo']),
+      invoiceDate: _text(map['invoiceDate']),
+      taxableValue: _num(map['taxableValue']),
+      credit: _num(map['credit']),
+      totalValue: _num(map['totalValue']),
+      itcAvailability: _text(map['itcAvailability']),
+      billId: _text(map['billId']),
+      match: _text(map['match']),
+      why: _text(map['why']),
+      suggested: _text(map['suggested']) == 'accept' ? 'accept' : 'pending',
+      decision: const {'accept', 'reject', 'pending'}.contains(decision) ? decision : '',
+      note: _text(map['note']),
+    );
+  }
+
+  final String key;
+  final String section;
+  final String supplierGstin;
+  final String supplierName;
+  final String invoiceNo;
+  final String invoiceDate;
+  final num taxableValue;
+  final num credit;
+  final num totalValue;
+  final String itcAvailability;
+  final String billId;
+  final String match;
+  final String why;
+  final String suggested;
+  final String decision;
+  final String note;
+
+  bool get decided => decision.isNotEmpty;
+
+  bool get inBooks => billId.isNotEmpty;
+
+  String get title => [supplierName, invoiceNo].where((part) => part.isNotEmpty).join(' · ');
+
+  String get creditWords => credit < 0 ? '${rupees(-credit)} less credit' : '${rupees(credit)} credit';
+
+  String get subtitle => [if (invoiceDate.isNotEmpty) longDate(invoiceDate), creditWords, match].where((part) => part.isNotEmpty).join(' · ');
+
+  String get decisionWords => switch (decision) {
+    'accept' => 'Accepted',
+    'reject' => 'Rejected',
+    'pending' => 'Pending',
+    _ => '',
+  };
+
+  String get statusWords => decided ? decisionWords : 'Suggest $suggested';
+
+  String get itcWords => switch (itcAvailability) {
+    'Y' => 'Credit available in 2B',
+    'N' => 'Credit not available in 2B',
+    _ => '',
+  };
+}
+
+class ImsCounts {
+  const ImsCounts({
+    required this.total,
+    required this.accept,
+    required this.reject,
+    required this.pending,
+    required this.undecided,
+  });
+
+  factory ImsCounts.fromJson(Object? json) {
+    final map = _map(json);
+    return ImsCounts(
+      total: _num(map['total']).toInt(),
+      accept: _num(map['accept']).toInt(),
+      reject: _num(map['reject']).toInt(),
+      pending: _num(map['pending']).toInt(),
+      undecided: _num(map['undecided']).toInt(),
+    );
+  }
+
+  final int total;
+  final int accept;
+  final int reject;
+  final int pending;
+  final int undecided;
+}
+
+class ImsReview {
+  const ImsReview({
+    required this.period,
+    required this.statementRows,
+    required this.hasStatement,
+    required this.rows,
+    required this.counts,
+    required this.creditUndecided,
+    required this.creditAccepted,
+    required this.orphaned,
+    required this.note,
+  });
+
+  static ImsReview? fromTool(Object? json) {
+    final map = toolData(json);
+    if (_text(map['period']).isEmpty) return null;
+    final statement = map['statement'];
+    final credit = _map(map['credit']);
+    return ImsReview(
+      period: _text(map['period']),
+      statementRows: _num(_map(statement)['rows']).toInt(),
+      hasStatement: statement is Map,
+      rows: _maps(map['rows']).map(ImsRow.fromJson).toList(),
+      counts: ImsCounts.fromJson(map['counts']),
+      creditUndecided: _num(credit['undecided']),
+      creditAccepted: _num(credit['accepted']),
+      orphaned: _num(map['orphaned']).toInt(),
+      note: _text(map['note']),
+    );
+  }
+
+  final String period;
+  final int statementRows;
+  final bool hasStatement;
+  final List<ImsRow> rows;
+  final ImsCounts counts;
+  final num creditUndecided;
+  final num creditAccepted;
+  final int orphaned;
+  final String note;
+
+  int get matchedRows => rows.where((row) => row.match == 'matched' || row.match == 'date differs').length;
+}
+
 class SupplierRisk {
   const SupplierRisk({
     required this.supplier,

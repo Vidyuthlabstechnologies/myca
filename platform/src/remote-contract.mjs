@@ -13,6 +13,7 @@ export const REMOTE_QUERY_TOOLS = new Set([
   'export_xlsx',
   'export_tally',
   'credit_at_risk',
+  'ims_review',
   'books_check',
   'list_reminders',
   'list_filings',

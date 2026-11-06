@@ -1590,6 +1590,23 @@ export const TOOL_ARG_SCHEMAS = {
     additionalProperties: false,
     properties: { period: { type: 'string', pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' } },
   },
+  ims_review: {
+    type: 'object',
+    additionalProperties: false,
+    properties: { period: { type: 'string', pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' } },
+  },
+  ims_decide: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['period', 'decision'],
+    properties: {
+      period: { type: 'string', pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' },
+      keys: { type: 'array', maxItems: 500, items: { type: 'string', maxLength: 120 } },
+      select: { type: 'string', enum: ['matched', 'suggested', 'undecided', 'all'] },
+      decision: { type: 'string', enum: ['accept', 'reject', 'pending', 'clear'] },
+      note: { type: 'string', maxLength: 200 },
+    },
+  },
   export_entries: {
     type: 'object',
     additionalProperties: false,
@@ -2048,6 +2065,9 @@ const TOOL_RISK = {
   cancel_invoice: 'writes_books',
   gst_review_answer: 'writes_books',
   import_gstr2b: 'writes_books',
+  credit_at_risk: 'read_only',
+  ims_review: 'read_only',
+  ims_decide: 'writes_books',
   add_reminder: 'writes_books',
   complete_reminder: 'writes_books',
   set_cash_balance: 'writes_books',
@@ -2321,6 +2341,7 @@ const EXCEL_REPORTS = [
   { key: 'entries', words: /\bentries\b|\bvouchers?\b/i },
   { key: 'credit_notes', words: /\bcredit\s*notes?\b/i },
   { key: 'debit_notes', words: /\bdebit\s*notes?\b/i },
+  { key: 'ims_review', words: /\bims\b|\binvoice\s+management\b/i },
   { key: 'credit_at_risk', words: /\bcredit\s+at\s+risk\b|\bgstr-?2b\b|\b2b\b/i },
   { key: 'supplier_dues', words: /\b(?:supplier|vendor|creditor)s?\b.*\b(?:dues?|owe|owed|owing|outstanding|unpaid|bills?)\b|\bpayables?\b|\b(?:i|we)\s+owe\b/i },
   { key: 'customer_dues', words: /\bdues?\b|\bowed?\b|\bowes\b|\breceivables?\b|\bdebtors?\b|\boutstanding\b|\bunpaid\b|\boverdue\b/i },
@@ -2381,6 +2402,48 @@ function planExcelFromChat(state, text) {
   return { kind: 'tool', name: 'export_xlsx', args: { report, ...(period ? { period } : {}) } };
 }
 
+const IMS_SAID = /\bims\b|\binvoice\s+management\b/i;
+const IMS_DECISION_SAID = /\b(accept|reject|pending)(?:ed)?\b/gi;
+const IMS_SELECT_SAID = /\b(?:(?:all|every)\s+(?:the\s+)?(matched|suggested|undecided|not\s+decided)|(matched))\b/i;
+const IMS_UNMATCHED_SAID = /\bnot\s+(?:yet\s+)?matched\b|\bunmatched\b|\bmismatch/i;
+const IMS_PERIOD_FIGURES = /\b(?:gstr-?)?2b\b|\b20\d{2}(?:-\d{2}(?:-\d{2})?)?\b/gi;
+const IMS_ONE_AT_A_TIME = 'IMS takes one decision at a time. Say, for example, "accept all matched invoices in IMS" first, then "reject all undecided invoices in IMS".';
+
+function latestTwobMonth(state) {
+  const stored = state.gstr2b && typeof state.gstr2b === 'object' ? Object.keys(state.gstr2b) : [];
+  return stored.filter((key) => /^\d{4}-(0[1-9]|1[0-2])$/.test(key)).sort().pop() || '';
+}
+
+function imsPeriodSaid(text) {
+  const iso = /\b(\d{4})-(\d{2})\b/.exec(text);
+  if (iso) return `${iso[1]}-${iso[2]}`;
+  const [year, month] = localToday().split('-').map(Number);
+  if (/\bthis\s+month\b/i.test(text)) return `${year}-${String(month).padStart(2, '0')}`;
+  if (/\blast\s+month\b/i.test(text)) return month === 1 ? `${year - 1}-12` : `${year}-${String(month - 1).padStart(2, '0')}`;
+  return saidPeriod(text);
+}
+
+function namesAnImsParty(state, text) {
+  const haystack = ` ${nameKey(text)} `;
+  return [...(state.parties || []), ...(state.vendors || [])].some((party) => {
+    const name = nameKey(party?.name);
+    return name && IMS_SAID.test(name) && haystack.includes(` ${name} `);
+  });
+}
+
+function planImsFromChat(state, text) {
+  if (countryOf(state) !== 'IN' || !IMS_SAID.test(text) || isNegated(text) || /\d/.test(text.replace(IMS_PERIOD_FIGURES, ' ')) || namesAnImsParty(state, text)) return null;
+  const period = imsPeriodSaid(text) || latestTwobMonth(state);
+  const review = { kind: 'tool', name: 'ims_review', args: period ? { period } : {} };
+  if (isQuestion(text)) return review;
+  const said = new Set([...text.matchAll(IMS_DECISION_SAID)].map((hit) => hit[1].toLowerCase()));
+  if (said.size > 1) return { kind: 'reply', reply: IMS_ONE_AT_A_TIME, tools: [] };
+  const pick = IMS_SELECT_SAID.exec(text);
+  if (said.size !== 1 || !pick || IMS_UNMATCHED_SAID.test(text)) return review;
+  const word = (pick[1] || pick[2]).toLowerCase().replace(/\s+/g, ' ');
+  return { kind: 'tool', name: 'ims_decide', args: { period: period || localToday().slice(0, 7), select: word === 'not decided' ? 'undecided' : word, decision: [...said][0] } };
+}
+
 function challanReasonSaid(text) {
   if (/\bjob\s*work/i.test(text)) return 'job-work';
   if (/\bapproval\b/i.test(text)) return 'approval';
@@ -2432,6 +2495,8 @@ export function planLocalToolCall(state, message) {
   }
   const excel = planExcelFromChat(state, text);
   if (excel && !excelPlanWaits(text)) return excel;
+  const ims = planImsFromChat(state, text);
+  if (ims) return ims;
 
   const quoteRef = text.match(/\b((?:QT|PI|SO|DC)-\d{4,})\b/i);
   if (quoteRef && !isQuestion(text) && !isNegated(text)) {

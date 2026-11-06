@@ -9,6 +9,7 @@ import { supplierDues } from './supplier-dues.mjs';
 import { cashForecast } from './cash-forecast.mjs';
 import { deadlineRun } from './deadline-run.mjs';
 import { creditAtRisk } from './gstr2b-check.mjs';
+import { imsReview } from './ims.mjs';
 import { tdsSummary } from './tds-deduction.mjs';
 import { skuMargins, stockPosition } from './sku-margins.mjs';
 import { businessSummary } from './business-summary.mjs';
@@ -325,6 +326,19 @@ function creditAtRiskSheets(state, args, today) {
   ], range.tag, range.label);
 }
 
+const IMS_HEADER = ['Section', 'Supplier GSTIN', 'Supplier', 'Invoice no', 'Invoice date', 'Taxable value', 'CGST', 'SGST', 'IGST', 'Cess', 'Total', 'ITC', 'In books', 'Match', 'Suggested', 'Decision', 'Note', 'Decided by', 'Decided on'];
+const IMS_MATCH_LABELS = { matched: 'Matched', 'amount differs': 'Amount differs', 'date differs': 'Date differs', 'not in books': 'Not in books' };
+const IMS_DECISION_LABELS = { accept: 'Accept', reject: 'Reject', pending: 'Pending' };
+
+function imsSheets(state, args, today) {
+  const range = monthOnly(args, today);
+  if (!range.ok) return range;
+  const out = imsReview(state, { period: range.month });
+  if (!out.ok) return out;
+  const rows = out.data.rows.map((row) => [row.section, row.supplierGstin, row.supplierName, row.invoiceNo, row.invoiceDate, money(row.taxableValue), money(row.cgst), money(row.sgst), money(row.igst), money(row.cess), money(row.totalValue), money(row.credit), row.billId, IMS_MATCH_LABELS[row.match] || row.match, IMS_DECISION_LABELS[row.suggested] || '', IMS_DECISION_LABELS[row.decision] || '', row.note, row.decidedBy, row.decidedOn]);
+  return done([sheet('IMS', IMS_HEADER, rows, [10, 18, 32, 16, 12])], range.tag, range.label);
+}
+
 function tdsSheets(state, args, today) {
   const out = tdsSummary(state);
   if (!out.ok) return out;
@@ -435,6 +449,7 @@ export const REPORT_SHEETS = {
   supplier_dues: { title: 'Supplier dues', build: supplierDuesSheet },
   cash_forecast: { title: 'Cash forecast', build: cashForecastSheets },
   credit_at_risk: { title: 'Credit at risk', country: 'IN', build: creditAtRiskSheets },
+  ims_review: { title: 'IMS decisions', country: 'IN', build: imsSheets },
   tds_summary: { title: 'TDS', country: 'IN', build: tdsSheets },
   sku_margins: { title: 'Margins by SKU', build: marginsSheets },
   stock_position: { title: 'Stock on hand', build: stockSheets },
