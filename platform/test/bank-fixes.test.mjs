@@ -11,7 +11,7 @@ import { createInvoice, recordReceipt, createPurchase, recordPayment } from '../
 import { postExpense } from '../src/expenses.mjs';
 import { listAccounts } from '../src/ledger.mjs';
 import { runDailyAutomation } from '../src/automation.mjs';
-import { safePatternProblem, MAX_PATTERN, rulePatternProblem, ruleMatches, planMatch, applyMatch, findBankLine, bookMovements, matchWords, ruleFromMatch, chargesWords } from '../src/bank-recon.mjs';
+import { safePattern, safePatternProblem, MAX_PATTERN, rulePatternProblem, ruleMatches, planMatch, applyMatch, findBankLine, bookMovements, matchWords, ruleFromMatch, chargesWords } from '../src/bank-recon.mjs';
 import { runRulesWords, rulesWords, addRuleWords, ruleWarningWords } from '../src/bank-rules.mjs';
 
 function statement(rows) {
@@ -58,6 +58,12 @@ test('rule patterns are limited to a safe subset, a stored unsafe rule is skippe
   for (const pattern of refused) assert.notEqual(safePatternProblem(pattern), '', pattern);
   const accepted = ['NEFT.*SHARMA', '^UPI/\\d+/SWIGGY', 'IMPS\\s+\\d{6,}', 'SMS\\s+ALERT', '(NEFT|IMPS) CR SHARMA', '^[A-Z]{3,5}-\\d+$', 'UPI/\\d{6,12}/[A-Z]+', 'INT\\.PD\\b', 'a?b?c?d?e?f?g?h?'];
   for (const pattern of accepted) assert.equal(safePatternProblem(pattern), '', pattern);
+  for (const pattern of accepted) assert.equal(safePattern(pattern).source, pattern, 'the engine compiles a source it rebuilt from the tokens, and for these it is the same text');
+  assert.equal(safePattern('[\\d.-]+').source, '[\\d\\.\\-]+');
+  assert.equal(safePattern('\\/x\\-y').source, '/x\\-y');
+  assert.match(safePatternProblem('\\x41'), /Escapes like \\x are not allowed/);
+  assert.match(safePatternProblem('[a-\\d]'), /write the characters out/);
+  assert.match(safePatternProblem('abc\\'), /lone backslash/);
   assert.match(safePatternProblem('(a+)+$'), /group/);
   assert.match(safePatternProblem('A'.repeat(MAX_PATTERN + 1)), /120 characters/);
 

@@ -8,6 +8,7 @@ const KEY = 'connector-key-for-tests-0123456789abcdef0123456789';
 const SEK = randomBytes(32).toString('base64');
 const PEM = generateKeyPairSync('rsa', { modulusLength: 2048, publicKeyEncoding: { type: 'spki', format: 'pem' }, privateKeyEncoding: { type: 'pkcs8', format: 'pem' } }).publicKey;
 const calls = [];
+const hostOf = (url) => new URL(url).host;
 const realFetch = globalThis.fetch;
 
 function aesEcb(obj) {
@@ -90,7 +91,7 @@ test('test mode: the business\'s own NIC sandbox keys issue a sandbox IRN with n
     assert.equal(out.body.mode, 'test');
     assert.equal(out.body.chosenMode, 'live');
     assert.equal(out.body.sandbox, true);
-    assert.ok(calls.length > 0 && calls.every((url) => url.includes('gstsandbox.nic.in')), calls.join(' '));
+    assert.ok(calls.length > 0 && calls.every((url) => hostOf(url) === 'einv1api.gstsandbox.nic.in'), calls.join(' '));
     const inv = (await api.books(owner.businessId)).invoices.find((i) => i.id === invoiceId);
     assert.equal(inv.sandboxIrn, 'SANDBOXIRN'.padEnd(64, '0'));
     assert.equal(inv.irn, undefined);
@@ -119,7 +120,7 @@ test('live mode: the owner\'s switch sends it to the production IRP only after s
     const issued = await post(owner, 'einvoice', { invoiceId });
     assert.equal(issued.body.ok, true, issued.text);
     assert.equal(issued.body.mode, 'live');
-    assert.ok(calls.some((url) => url.startsWith('https://einvoice1.gst.gov.in')), calls.join(' '));
+    assert.ok(calls.some((url) => hostOf(url) === 'einvoice1.gst.gov.in'), calls.join(' '));
     const inv = (await api.books(owner.businessId)).invoices.find((i) => i.id === invoiceId);
     assert.equal(inv.irn, 'LIVEIRN'.padEnd(64, '0'));
 
@@ -130,7 +131,7 @@ test('live mode: the owner\'s switch sends it to the production IRP only after s
     const sandbox = await post(owner, 'einvoice', { invoiceId: next });
     assert.equal(sandbox.body.ok, true, sandbox.text);
     assert.equal(sandbox.body.mode, 'test');
-    assert.ok(calls.every((url) => url.includes('gstsandbox.nic.in')), calls.join(' '));
+    assert.ok(calls.every((url) => hostOf(url) === 'einv1api.gstsandbox.nic.in'), calls.join(' '));
   });
 });
 
@@ -141,7 +142,7 @@ test('the GSTIN check uses the business\'s Quicko key on the test host in test m
     const out = await post(owner, 'gstin-check', { gstin: '27AAACH7409R1Z1' });
     assert.equal(out.status, 200, out.text);
     assert.equal(out.body.mode, 'test');
-    assert.ok(calls.length > 0 && calls.every((url) => url.startsWith('https://test-api.sandbox.co.in')), calls.join(' '));
+    assert.ok(calls.length > 0 && calls.every((url) => hostOf(url) === 'test-api.sandbox.co.in'), calls.join(' '));
     assert.equal((await api.call('GET', '/v1/health')).body.providerMode, 'live');
     calls.length = 0;
     const chat = await post(owner, 'ask', { message: 'check sandbox status' });
