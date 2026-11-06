@@ -280,6 +280,8 @@ test('routing-13: a party whose name holds audit words is posted to, not looked 
     'bill from Audit Log Systems 10000 GST 18%': 'create_purchase',
     'invoice Change Log Technologies 20000 GST 18%': 'create_invoice',
     'paid 2000 to Who Changed It Ltd': 'post_expense',
+    'invoice Kiran Stores 5000 for audit trail work GST 18%': 'create_invoice',
+    'bill from Fabric Co 5000 audit log GST 18%': 'create_purchase',
   };
   for (const [sentence, tool] of Object.entries(posted)) assert.equal(plan(state, sentence).name, tool, sentence);
   const received = plan(state, 'received 5000 from Edit Log Media');
@@ -452,4 +454,359 @@ test('IMS chat: only a real return period is taken as the month, and a date or a
   assert.deepEqual(toolArgs(state, 'ims for FY 2026-27', 'ims_review'), { period: '2026-10' });
   assert.equal(plan(state, 'invoice IMS Traders 5000 GST 18%').name, 'create_invoice', 'an amount still means a posting');
   assert.equal(plan(state, 'paid 3000 to IMS Traders').name !== 'ims_review', true);
+});
+
+function fyStartYear(iso) {
+  const [year, month] = iso.split('-').map(Number);
+  return month >= 4 ? year : year - 1;
+}
+
+const THIS_FY = { from: `${fyStartYear(TODAY)}-04-01`, to: `${fyStartYear(TODAY) + 1}-03-31` };
+const LAST_FY = { from: `${fyStartYear(TODAY) - 1}-04-01`, to: `${fyStartYear(TODAY)}-03-31` };
+const FY_2025_26 = { from: '2025-04-01', to: '2026-03-31' };
+const FY_2024_25 = { from: '2024-04-01', to: '2025-03-31' };
+
+test('routing-7 (repair): a name that is a list, a pronoun or a determiner is never saved as a supplier', async () => {
+  const state = await books();
+  bill(state, 'Sharma & Sons', '27AAACS1234D1Z8', 'SS-1', '2026-10-11', 3000, 18);
+  bill(state, 'Rao and Sons', '27AAACR1234E1Z7', 'RS-1', '2026-10-12', 4000, 18);
+  bill(state, 'Last Mile Logistics', '27AAACL7777M1Z1', 'LM-1', '2026-10-13', 2000, 18);
+  const unread = [
+    'mark Fabric Co and Acme Steel as MSME',
+    'mark Fabric Co & Acme Steel as MSME',
+    'mark Fabric Co, Acme Steel as MSME',
+    'mark Fabric Co/Acme Steel as MSME',
+    'mark Fabric Co or Acme Steel as MSME',
+    'mark both Fabric Co and Acme Steel as MSME',
+    'mark suppliers Fabric Co and Acme Steel as MSME',
+    'mark Fabric Co Acme Steel as MSME',
+    'mark Rao and Sons and Fabric Co as MSME',
+    'mark them as MSME',
+    'mark him as MSME',
+    'mark her as MSME',
+    'mark it as MSME',
+    'mark everyone as MSME',
+    'mark everybody as MSME',
+    'mark these as MSME',
+    'mark those suppliers as MSME',
+    'mark this supplier as MSME',
+    'mark the last supplier as MSME',
+    'mark the same supplier as MSME',
+    'mark the other vendor as MSME',
+    'mark one of them as MSME',
+    'mark 5 as MSME',
+    'mark his supplier as MSME',
+    'mark their vendor as MSME',
+    'mark nobody as MSME',
+    'this vendor is an MSME, 30 days',
+    'he is MSME',
+    'that one is MSME',
+    'Fabric Co and Acme Steel is MSME',
+    'Fabric Co, Acme Steel is MSME',
+    'I think Fabric Co is MSME',
+    'supplier terms for Fabric Co and Acme Steel: MSME, 30 days',
+    `Fabric Co and Acme Steel have udyam ${UDYAM}`,
+  ];
+  for (const sentence of unread) {
+    const out = plan(state, sentence);
+    assert.notEqual(out.name, 'set_supplier_terms', `${sentence} -> ${JSON.stringify(out)}`);
+  }
+  const asked = await books();
+  for (const sentence of ['mark Fabric Co and Acme Steel as MSME', 'mark them as MSME', 'mark this supplier as MSME', 'Fabric Co and Acme Steel is MSME', 'he is MSME']) {
+    const out = await chat(asked, sentence);
+    assert.equal(out.awaitingConfirmation, undefined, `${sentence}: ${out.reply}`);
+    assert.match(out.reply, /did not match that to anything I can do, so nothing was recorded/, sentence);
+  }
+  assert.ok(!asked.pendingChatAction, 'nothing is waiting for a yes');
+  assert.deepEqual(asked.supplierTerms || {}, {}, 'no key was written for a list or a pronoun');
+
+  const terms = (sentence) => toolArgs(state, sentence, 'set_supplier_terms');
+  assert.deepEqual(terms('mark Acme Steel too as MSME'), { partyName: 'Acme Steel', msme: true }, 'a filler word is not part of the name');
+  assert.deepEqual(terms('mark the vendor called Fabric Co as MSME'), { partyName: 'Fabric Co', msme: true });
+  assert.deepEqual(terms('mark M/s Zenith Dyes as MSME'), { partyName: 'M/s Zenith Dyes', msme: true }, 'M/s is a prefix, not a list');
+  assert.deepEqual(terms('mark Sharma & Sons as MSME'), { partyName: 'Sharma & Sons', msme: true }, 'a known name with an ampersand is still one supplier');
+  assert.deepEqual(terms('Rao and Sons is MSME, 30 days'), { partyName: 'Rao and Sons', msme: true, days: 30 }, 'a known name with "and" is still one supplier');
+  assert.deepEqual(terms('supplier terms for Rao and Sons: MSME, 30 days'), { partyName: 'Rao and Sons', msme: true, days: 30 });
+  assert.deepEqual(terms('mark Last Mile Logistics as MSME'), { partyName: 'Last Mile Logistics', msme: true }, 'a supplier already in the books is matched by its own name, whatever words it holds');
+  assert.notEqual(plan(await books(), 'mark Last Mile Logistics as MSME').name, 'set_supplier_terms', 'a new name that holds a pronoun is not guessed');
+  assert.deepEqual(terms('mark Zenith Dyes as MSME'), { partyName: 'Zenith Dyes', msme: true }, 'a new supplier with a plain name is still taken');
+  assert.deepEqual(terms('mark Fabric Co as MSME'), { partyName: 'Fabric Co', msme: true });
+});
+
+test('routing-8 and routing-10 (repair): last, previous and this financial year and the assessment year are read the way the TDS check reads them', async () => {
+  const state = await books();
+  const audit = (sentence) => {
+    const args = toolArgs(state, sentence, 'audit_trail');
+    assert.equal(validateAssistantToolCall('audit_trail', args).ok, true, sentence);
+    return args;
+  };
+  for (const sentence of ['audit trail for last financial year', 'audit trail for the previous financial year', 'audit trail for prior financial year', 'audit trail for the preceding financial year', 'audit trail for last fy', 'audit trail for last f.y.', 'who changed what in the previous fy']) {
+    assert.deepEqual(audit(sentence), LAST_FY, sentence);
+  }
+  for (const sentence of ['audit trail for this financial year', 'audit trail for the current financial year', 'audit trail for this fy', 'audit trail for current f.y.']) {
+    assert.deepEqual(audit(sentence), THIS_FY, sentence);
+  }
+  for (const sentence of ['audit trail for AY 2026-27', 'audit trail for assessment year 2026-27', 'audit trail for A.Y. 2026-27', 'audit trail for ay 26-27', 'audit trail for AY2026-27', 'audit trail for the assessment year 2026-2027']) {
+    assert.deepEqual(audit(sentence), FY_2025_26, sentence);
+  }
+  assert.deepEqual(audit('audit trail for AY 2025-26'), FY_2024_25);
+  assert.deepEqual(audit('audit trail for last year'), { period: 'last-year' });
+  assert.deepEqual(audit('audit trail for the previous year'), { period: 'last-year' });
+  assert.deepEqual(audit('audit trail for the prior year'), { period: 'last-year' });
+  assert.deepEqual(audit('audit trail for FY 2025-26'), FY_2025_26, 'the labelled form is unchanged');
+  for (const sentence of ['audit trail for AY 2026', 'audit trail for AY 2026-28', 'audit trail for assessment year 26', 'audit trail for last financial year and this financial year', 'audit trail for FY 2025-26 and AY 2026-27']) {
+    const out = plan(state, sentence);
+    assert.equal(out.kind, 'reply', `${sentence} -> ${JSON.stringify(out)}`);
+    assert.match(out.reply, /could not read that date range/, sentence);
+  }
+
+  const excel = (sentence) => toolArgs(state, sentence, 'export_xlsx');
+  for (const sentence of ['26AS check in excel for last financial year', 'excel of 26as for the previous financial year', 'excel of 26as for prior fy', 'excel of 26as for last f.y.']) {
+    assert.deepEqual(excel(sentence), { report: 'tds_credit_check', ...LAST_FY }, sentence);
+  }
+  for (const sentence of ['26AS check in excel for this financial year', 'excel of 26as for the current fy']) {
+    assert.deepEqual(excel(sentence), { report: 'tds_credit_check', ...THIS_FY }, sentence);
+  }
+  for (const sentence of ['26AS check in excel for AY 2026-27', 'excel of 26as for assessment year 2026-27', 'excel of 26as for A.Y. 2026-27']) {
+    assert.deepEqual(excel(sentence), { report: 'tds_credit_check', ...FY_2025_26 }, sentence);
+  }
+  assert.deepEqual(excel('excel of 26as for last year'), { report: 'tds_credit_check', period: 'last-year' }, 'last year is still the report period');
+  for (const sentence of ['excel of 26as for AY 2026', 'excel of 26as for AY 2026-28']) {
+    const out = plan(state, sentence);
+    assert.equal(out.kind, 'reply', `${sentence} -> ${JSON.stringify(out)}`);
+    assert.match(out.reply, /could not read that financial year/, sentence);
+  }
+  const built = await runTool(state, 'export_xlsx', excel('excel of 26as for last financial year'));
+  assert.equal(built.ok, true, JSON.stringify(built));
+  assert.equal(built.data.period, `FY ${LAST_FY.from.slice(0, 4)}-${LAST_FY.to.slice(2, 4)}`);
+  const assessed = await runTool(state, 'export_xlsx', excel('excel of 26as for AY 2026-27'));
+  assert.equal(assessed.data.period, 'FY 2025-26');
+});
+
+test('routing-8 (repair): an audit range that is said in a way that cannot be read is answered, never looked up for this month or for a wrong part of it', async () => {
+  const state = await books();
+  const unreadable = [
+    'audit trail from 5th to 20th october 2026',
+    'audit trail from the 5th to the 20th',
+    'audit trail for the week of 2026-10-05',
+    'audit trail for the week ending 2026-10-11',
+    'audit trail not today',
+    'audit trail except yesterday',
+    'audit trail excluding 2026-10-15',
+    'audit trail year to date',
+    'audit trail ytd',
+    'audit trail month to date',
+    'audit trail of the last two weeks',
+    'audit trail for the last three days',
+    'audit trail for the last few days',
+    'audit trail for the past 3 weeks',
+    'audit trail for the next 7 days',
+    'audit trail on 15-10-26',
+    'audit trail on 15/10',
+    'audit trail for 10/2026',
+    'audit trail for H1',
+    'audit trail for the first half',
+    'audit trail fortnight',
+    'audit trail since april 2026',
+    'audit trail from october',
+    'audit trail before november',
+    'audit trail since last month',
+    'audit trail from last month',
+    'audit trail tomorrow',
+    'audit trail for the 1st',
+  ];
+  unreadable.push('audit trail for the previous quarter', 'audit trail for october of last year', 'audit trail two months ago', 'audit trail for the month before last', 'audit trail for sept', 'audit trail for last month and this month', 'audit trail for the financial year ending 31 march 2026', 'audit trail for the financial year', 'audit trail for the calendar year', 'audit trail for assessment year', 'audit trail from 5 to 20 october 2026', 'audit trail between 5 and 20 october 2026', 'audit trail for two weeks', 'audit trail for the three days', 'audit trail for a few days', 'audit trail for a couple of months');
+  for (const sentence of unreadable) {
+    const out = plan(state, sentence);
+    assert.equal(out.kind, 'reply', `${sentence} -> ${JSON.stringify(out)}`);
+    assert.deepEqual(out.tools, []);
+    assert.match(out.reply, /could not read that date range/, sentence);
+  }
+  const audit = (sentence) => toolArgs(state, sentence, 'audit_trail');
+  assert.deepEqual(audit('audit trail for fiscal year 2025-26'), FY_2025_26, 'the label of a year that was read is harmless');
+  assert.deepEqual(audit('audit trail for the current month'), { period: 'this-month' });
+  assert.deepEqual(audit('audit trail for the previous month'), { period: 'last-month' });
+  assert.deepEqual(audit('audit trail for prior month'), { period: 'last-month' });
+  assert.deepEqual(audit('audit trail for the current year'), { period: 'this-year' });
+  assert.deepEqual(audit('audit trail for the current quarter'), { period: 'this-quarter' });
+  assert.deepEqual(audit('audit trail for this quarter'), { period: 'this-quarter' });
+  assert.deepEqual(audit('audit trail for October 2026'), { period: '2026-10' });
+  assert.deepEqual(audit('who changed what last month'), { period: 'last-month' });
+  assert.deepEqual(audit('audit trail for the last 30 days'), { from: shiftDay(TODAY, -30), to: TODAY });
+  assert.deepEqual(audit('audit trail from 1 October 2026 to 31 October 2026'), { from: '2026-10-01', to: '2026-10-31' });
+  assert.deepEqual(audit('audit trail since 2026-10-01'), { from: '2026-10-01' });
+  assert.deepEqual(audit('audit trail for receipts from Kiran Stores'), {});
+  assert.deepEqual(audit('who changed the last invoice'), {});
+  assert.deepEqual(audit('audit trail for the invoice INV-0001'), {});
+  assert.deepEqual(audit('May I see the audit trail?'), {}, 'a modal "may" is not the month');
+  assert.deepEqual(audit('we may want the audit trail'), {});
+  assert.deepEqual(audit('who changed what, may I ask?'), {});
+  assert.deepEqual(audit('audit trail for may'), { period: saidPeriod('may') }, 'the month is still the month');
+  assert.deepEqual(audit('audit trail for May 2026'), { period: '2026-05' });
+});
+
+test('routing-13 (repair): a posting that names a party and carries audit words in its narration is posted, and a question about the audit trail is still answered', async () => {
+  const state = await books();
+  const posted = {
+    'invoice Kiran Stores 5000 for audit trail work GST 18%': 'create_invoice',
+    'invoice Kiran Stores 5000 audit trail GST 18%': 'create_invoice',
+    'bill from Fabric Co 5000 audit log GST 18%': 'create_purchase',
+    'sold audit trail software to Kiran Stores 5000 GST 18%': 'create_invoice',
+    'paid 1000 to Audit Associates for the audit log': 'post_expense',
+  };
+  for (const [sentence, tool] of Object.entries(posted)) {
+    const out = plan(state, sentence);
+    assert.equal(out.name, tool, `${sentence} -> ${JSON.stringify(out)}`);
+  }
+  bill(state, 'Audit Associates', '27AAACA9999A1Z1', 'AA-1', '2026-10-04', 2000, 18);
+  assert.equal(plan(state, 'paid 1000 to Audit Associates for the audit log').name, 'record_payment', 'a supplier with an open bill is paid');
+  const received = plan(state, 'received 5000 from Kiran Stores for audit trail work');
+  assert.notEqual(received.name, 'audit_trail', JSON.stringify(received));
+  assert.match(received.reply || received.name, /Kiran Stores|record_receipt/);
+  const held = await chat(state, 'invoice Kiran Stores 5000 audit trail GST 18%');
+  assert.equal(held.awaitingConfirmation, true, held.reply);
+  assert.equal(held.preview.tool, 'create_invoice');
+  await chat(state, 'no');
+
+  const asked = [
+    'audit trail for Kiran Stores',
+    'show me the audit trail for Kiran Stores',
+    'can you show the audit trail for payments to Fabric Co',
+    'please show who changed the invoice INV-0001',
+    'I want the audit log of receipts from Kiran Stores',
+    'who changed what after I paid Fabric Co 4000?',
+    'tell me who changed the payment to Fabric Co 4000',
+    'audit trail for the invoice Kiran Stores 5000 GST 18%',
+    'edit log for the bill from Fabric Co 5000',
+    'what changed in the books when we paid Fabric Co 4000',
+    'who changed Audit Associates',
+    'pull up the audit trail for the payment to Fabric Co 4000',
+  ];
+  for (const sentence of asked) assert.equal(plan(state, sentence).name, 'audit_trail', sentence);
+});
+
+test('routing-16 (repair): payment terms are terms, however they are said, and never a payment of the whole bill', async () => {
+  const state = await books();
+  const terms = (sentence) => toolArgs(state, sentence, 'set_supplier_terms');
+  for (const sentence of [
+    'set Fabric Co payment terms to 30 days',
+    'payment terms for Fabric Co 30 days',
+    'Fabric Co payment terms 30 days',
+    "Fabric Co's payment terms are net 30",
+    'update the payment terms of Fabric Co: net 30',
+    "we'll pay Fabric Co within 30 days",
+    'please pay Fabric Co within 30 days',
+    "we'd pay Fabric Co in 30 days",
+    'we pay Fabric Co net 30',
+    'we have agreed to pay Fabric Co within 30 days',
+    'we must pay Fabric Co within 30 days',
+    'we will pay Fabric Co after 30 days',
+  ]) {
+    assert.deepEqual(terms(sentence), { partyName: 'Fabric Co', days: 30 }, sentence);
+  }
+  assert.deepEqual(terms('Fabric Co payment terms 45 days'), { partyName: 'Fabric Co', days: 45 });
+  assert.deepEqual(terms('payment terms for Acme Steel: net 60'), { partyName: 'Acme Steel', days: 60 });
+
+  const held = await chat(state, 'set Fabric Co payment terms to 30 days');
+  assert.equal(held.awaitingConfirmation, true, held.reply);
+  assert.equal(held.preview.tool, 'set_supplier_terms');
+  assert.match(held.reply, /Set Fabric Co's terms to 30 days/);
+  assert.doesNotMatch(held.reply, /becomes paid/);
+  await chat(state, 'no');
+  const fabric = state.purchases.find((item) => item.partyName === 'Fabric Co');
+  assert.equal(billOutstanding(fabric), fabric.total, 'no payment was made');
+
+  assert.equal(plan(state, 'payment terms for Kiran Stores 30 days').name, 'set_payment_terms', 'a customer keeps the customer terms');
+  assert.equal(plan(state, 'Kiran Stores pays in 30 days').name, 'set_payment_terms');
+  for (const sentence of ['payment terms for Audit Associates 30 days', 'pay Fabric Co and Acme Steel within 30 days', 'pay BILL-0001 within 30 days', 'pay Fabric Co as per our 30 days terms', 'pay the Fabric Co bill net 30', 'Fabric Co payment terms: 30 days, MSME is not said']) {
+    const out = plan(state, sentence);
+    assert.notEqual(out.name, 'record_payment', `${sentence} -> ${JSON.stringify(out)}`);
+  }
+  const money = (sentence) => {
+    const out = planPaymentFromChat(state, sentence);
+    assert.equal(out.kind, 'tool', `${sentence} -> ${JSON.stringify(out)}`);
+    return out.args.amount;
+  };
+  assert.equal(money('paid Fabric Co 5000 net 30'), 5000);
+  assert.equal(money('paid Fabric Co 5000 within 30 days'), 5000);
+  for (const sentence of ['pay Fabric Co within 30 days', 'paid Fabric Co within 30 days', 'paid Fabric Co net 30', 'pay BILL-0001 net 45', 'pay Fabric Co as per our 30 days terms']) {
+    const out = planPaymentFromChat(state, sentence);
+    assert.equal(out.kind, 'reply', `${sentence} -> ${JSON.stringify(out)}`);
+    assert.match(out.reply, /cannot tell whether that is a payment or an agreed payment term/, sentence);
+    assert.match(out.reply, /I have recorded nothing/, sentence);
+  }
+  for (const sentence of ['paid Fabric Co within 30 days', 'paid Fabric Co net 30', 'paid Acme Steel in 45 days']) {
+    assert.notEqual(plan(state, sentence).name, 'post_expense', `${sentence}: the days are never an amount`);
+    assert.notEqual(plan(state, sentence).name, 'record_receipt', sentence);
+  }
+  const unsure = await chat(await books(), 'paid Fabric Co within 30 days');
+  assert.equal(unsure.awaitingConfirmation, undefined, unsure.reply);
+  assert.match(unsure.reply, /cannot tell whether that is a payment or an agreed payment term/);
+  assert.deepEqual(unsure.tools, []);
+  const dual = await books();
+  sale(dual, 'Audit Associates', 20000, '2026-10-06');
+  bill(dual, 'Audit Associates', '27AAACP1234C1Z4', 'AA-1', '2026-10-09', 5000, 18);
+  assert.deepEqual(toolArgs(dual, 'supplier terms for Audit Associates 30 days', 'set_supplier_terms'), { partyName: 'Audit Associates', days: 30 }, 'a name that is both a customer and a supplier takes the explicit supplier form');
+  for (const sentence of ['payment terms for Audit Associates 30 days', 'Audit Associates payment terms 30 days', 'pay Audit Associates within 30 days']) {
+    const out = plan(dual, sentence);
+    assert.equal(out.kind === 'tool' && ['record_payment', 'record_receipt', 'post_expense'].includes(out.name), false, `${sentence} -> ${JSON.stringify(out)}`);
+  }
+  assert.equal(plan(state, 'should we pay Fabric Co within 30 days?').kind, 'reply', 'a question is still only answered');
+  assert.match(plan(state, 'should we pay Fabric Co within 30 days?').reply, /You owe Fabric Co/);
+  assert.equal(planPaymentFromChat(state, 'paid Fabric Co').args.billId, 'BILL-0001', 'a payment with no number still settles the bill');
+});
+
+test('routing-7 (repair): a long run of spaces costs the new planners nothing', async () => {
+  const state = await books();
+  const run = ' '.repeat(1000);
+  const timed = (sentence) => {
+    const start = performance.now();
+    planLocalToolCall(state, sentence);
+    return performance.now() - start;
+  };
+  const extra = (withWord, without) => Math.min(...[0, 1, 2].map(() => timed(withWord) - timed(without)));
+  const fastest = (sentence) => Math.min(...[0, 1, 2].map(() => timed(sentence)));
+  assert.ok(extra(`Fabric Co is MSME udyam${run}!`, `Fabric Co is MSME xyzzy${run}!`) < 200, 'Udyam wording');
+  assert.ok(extra(`Fabric Co is MSME udyam number${run}12`, `Fabric Co is MSME xyzzy number${run}12`) < 200, 'Udyam number wording');
+  assert.ok(extra(`Fabric Co udyam${run}!`, `Fabric Co xyzzy${run}!`) < 200, 'Udyam alone');
+  assert.ok(fastest(`ims audit trail fy${run}!`) < 150, 'financial year in an audit sentence');
+  assert.ok(fastest(`excel of 26as fy${run}!`) < 150, 'financial year in an Excel sentence');
+  const spaced = await chat(await books(), `mark${' '.repeat(50)}Fabric Co${' '.repeat(50)}as${' '.repeat(50)}MSME${' '.repeat(50)},${' '.repeat(50)}30${' '.repeat(50)}days`);
+  assert.equal(spaced.awaitingConfirmation, true, spaced.reply);
+  assert.match(spaced.reply, /^Mark Fabric Co as an MSME supplier/);
+});
+
+test('routing-7 (repair): a malformed Udyam number is answered wherever it is written, silly days are refused, and "udyam of X is ..." is read', async () => {
+  const state = await books();
+  const BAD_UDYAM = 'A Udyam number looks like UDYAM-XX-00-0000000.';
+  for (const sentence of ['Fabric Co udyam UDYAM-MH-12-123', 'Fabric Co udyam MH-12-1234567', "Fabric Co's udyam is UDYAM-MH-12-12345678", 'udyam of Fabric Co is UDYAM-MH-12-123', 'the udyam number for Acme Steel is UDYAM-MH-12-12']) {
+    const out = plan(state, sentence);
+    assert.equal(out.kind, 'reply', `${sentence} -> ${JSON.stringify(out)}`);
+    assert.equal(out.reply, BAD_UDYAM, sentence);
+    assert.deepEqual(out.tools, []);
+  }
+  assert.equal(plan(state, 'Fabric Co udyam abc').fallback, true, 'a word after udyam is not a number, and udyam may be part of a name');
+  assert.equal(plan(state, 'paid Shree Udyam Industries 5000').reply === BAD_UDYAM, false);
+  assert.deepEqual(toolArgs(state, 'Shree Udyam Industries is MSME, 30 days', 'set_supplier_terms'), { partyName: 'Shree Udyam Industries', msme: true, days: 30 });
+
+  const terms = (sentence) => toolArgs(state, sentence, 'set_supplier_terms');
+  assert.deepEqual(terms(`udyam of Fabric Co is ${UDYAM}`), { partyName: 'Fabric Co', msme: true, udyam: UDYAM });
+  assert.deepEqual(terms(`the udyam number for Acme Steel is ${UDYAM}, 30 days`), { partyName: 'Acme Steel', msme: true, udyam: UDYAM, days: 30 });
+  assert.deepEqual(terms(`udyam number of Fabric Co: ${UDYAM}`), { partyName: 'Fabric Co', msme: true, udyam: UDYAM });
+  assert.notEqual(plan(state, `udyam of Fabric Co and Acme Steel is ${UDYAM}`).name, 'set_supplier_terms');
+  assert.notEqual(plan(state, `Fabric Co udyam ${UDYAM}, Acme Steel udyam UDYAM-GJ-01-0000001`).name, 'set_supplier_terms', 'two numbers are two suppliers');
+
+  const DAYS_FORM = 'Agreed days must be a whole number from 0 to 365.';
+  for (const sentence of ['Fabric Co is MSME, 12345678901 days', 'Fabric Co is MSME, net 99999', 'we pay Fabric Co in 99999 days', 'supplier terms for Fabric Co 123456 days', `Fabric Co udyam ${UDYAM}, 100000 days`]) {
+    const out = plan(state, sentence);
+    assert.equal(out.kind, 'reply', `${sentence} -> ${JSON.stringify(out)}`);
+    assert.equal(out.reply, DAYS_FORM, sentence);
+    assert.equal(out.blocked, true);
+    assert.deepEqual(out.tools, []);
+  }
+  const refused = await chat(await books(), 'Fabric Co is MSME, 12345678901 days');
+  assert.equal(refused.awaitingConfirmation, undefined);
+  assert.equal(refused.blocked, true);
+  assert.equal(refused.reply, DAYS_FORM);
+  assert.deepEqual(terms('Fabric Co is MSME, 1000 days'), { partyName: 'Fabric Co', msme: true, days: 1000 }, 'four digits go on to the engine, which refuses them in its own words');
 });
