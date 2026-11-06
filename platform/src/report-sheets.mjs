@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { localToday, isoDate } from './dates.mjs';
 import { rangeOf, runReportSpec, savedReportSpec, REPORT_PERIODS } from './reports.mjs';
 import { rowsFor as entryRows, usRow, HEADER as ENTRIES_HEADER, HEADER_US as ENTRIES_HEADER_US } from './entries-export.mjs';
@@ -18,6 +19,7 @@ import { regArg } from './registrations.mjs';
 import { countryOf } from './country.mjs';
 import { rupees } from './ledger.mjs';
 import { xlsxWorkbook, sheetNames, XLSX_CONTENT_TYPE } from './xlsx.mjs';
+import { auditEventsIn, auditSheetRows, verifyAuditChain, ledgerVerdict, AUDIT_SHEET_HEADER, AUDIT_SHEET_WIDTHS } from './audit-trail.mjs';
 
 const MONTH = /^\d{4}-(0[1-9]|1[0-2])$/;
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
@@ -172,9 +174,10 @@ function documentDates(state) {
   return dates;
 }
 
-function dayBook(state, args, today) {
-  const range = periodRange(args, today);
-  if (!range.ok) return range;
+const DAY_BOOK_HEADER = ['Date', 'Transfer', 'Debit account', 'Credit account', 'Amount', 'Code', 'Document'];
+const DAY_BOOK_WIDTHS = [12, 12, 30, 30, 14, 14, 14];
+
+function dayBookRows(state, range) {
   const names = new Map([...state.ledger.accounts.values()].map((account) => [account.id.toString(), `${account.code} ${account.name}`]));
   const dates = documentDates(state);
   const rows = [];
@@ -187,7 +190,13 @@ function dayBook(state, args, today) {
     rows.push([date, transfer.id.toString(), names.get(debit) || debit, names.get(credit) || credit, rupees(transfer.amount), text(transfer.code), text(transfer.invoiceId)]);
   }
   rows.sort((a, b) => a[0].localeCompare(b[0]));
-  return done([sheet('Day book', ['Date', 'Transfer', 'Debit account', 'Credit account', 'Amount', 'Code', 'Document'], rows, [12, 12, 30, 30, 14, 14, 14])], range.tag, range.label);
+  return rows;
+}
+
+function dayBook(state, args, today) {
+  const range = periodRange(args, today);
+  if (!range.ok) return range;
+  return done([sheet('Day book', DAY_BOOK_HEADER, dayBookRows(state, range), DAY_BOOK_WIDTHS)], range.tag, range.label);
 }
 
 function sales(state, args, today) {
@@ -422,6 +431,30 @@ function bankReconciliation(state, args, today) {
   return done([sheet('Bank reconciliation', ['Date', 'Narration', 'Reference', 'In', 'Out', 'Balance', 'Status', 'Matched to'], rows, [12, 48, 16, 14, 14, 14, 16, 22])], range ? range.tag : today, range ? range.label : `as of ${today}`);
 }
 
+function auditTrailSheets(state, args, today) {
+  const range = periodRange(args, today);
+  if (!range.ok) return range;
+  const events = auditEventsIn(state, range, { view: 'all' }).events;
+  const rows = auditSheetRows(events);
+  const chain = verifyAuditChain(state.__root || state);
+  const ledger = ledgerVerdict(state);
+  const summary = [
+    ['Period', range.label],
+    ['Events', events.length],
+    ['Changes', events.filter((event) => event.kind === 'change').length],
+    ['Log chain', chain.ok ? `verified ${chain.chained} ${chain.chained === 1 ? 'event' : 'events'}` : `broken at ${chain.at}`],
+    ['Ledger chain', ledger.ok ? 'ok' : `broken at ${ledger.at ?? 'an entry'}`],
+    ['Ledger last checksum', ledger.ok ? String(ledger.last) : ''],
+    ['Exported at (UTC ISO)', new Date().toISOString()],
+    ['Audit sheet sha256', createHash('sha256').update(JSON.stringify(rows)).digest('hex')],
+  ];
+  return done([
+    sheet('Audit trail', AUDIT_SHEET_HEADER, rows, AUDIT_SHEET_WIDTHS),
+    sheet('Entries', DAY_BOOK_HEADER, dayBookRows(state, range), DAY_BOOK_WIDTHS),
+    sheet('Summary', ['Item', 'Value'], summary, [28, 70]),
+  ], range.tag, range.label);
+}
+
 export const REPORT_SHEETS = {
   trial_balance: { title: 'Trial balance', build: trialBalance },
   entries: { title: 'Entries', build: entries },
@@ -442,6 +475,7 @@ export const REPORT_SHEETS = {
   business_summary: { title: 'Business summary', build: businessSummarySheets },
   gst_period_summary: { title: 'GST for one period', country: 'IN', build: gstPeriodSheets },
   bank_reconciliation: { title: 'Bank reconciliation', build: bankReconciliation },
+  audit_trail: { title: 'Audit trail', build: auditTrailSheets },
 };
 
 export const REPORT_KEYS = Object.keys(REPORT_SHEETS);
