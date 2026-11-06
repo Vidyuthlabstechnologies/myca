@@ -58,6 +58,21 @@ final Map<String, Walk> screens = {
     await t.tap(find.text('3 things need you'));
     await t.pumpAndSettle();
   },
+  'form 26as check': (t) async {
+    await t.tap(find.text('3 things need you'));
+    await t.pumpAndSettle();
+    final row = find.text('Form 26AS check');
+    await scrollTo(t, row);
+    await t.tap(row);
+    await t.pumpAndSettle();
+  },
+  'tds withheld sheet': (t) async {
+    await tapRow(t, 'Sales');
+    await t.tap(find.text('Gujarat Weaves'));
+    await t.pumpAndSettle();
+    await t.tap(find.widgetWithText(ActionChip, 'TDS withheld'));
+    await t.pumpAndSettle();
+  },
   'review the return': (t) async {
     await t.tap(find.text('3 things need you'));
     await t.pumpAndSettle();

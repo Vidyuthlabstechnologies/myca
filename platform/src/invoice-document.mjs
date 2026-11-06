@@ -4,6 +4,7 @@ import { quoteState, kindOf, kindTitle } from './quotes.mjs';
 import { ewayBillStatus, transportWords } from './eway-bill.mjs';
 import { countryOf } from './country.mjs';
 import { invoiceTemplateOf, bankWords } from './invoice-template.mjs';
+import { isTdsReceipt, tdsReceiptLabel, tdsWithheldOn } from './tds-credits.mjs';
 
 const round2 = (value) => Math.round(Number(value || 0) * 100) / 100;
 const text = (value) => String(value ?? '').trim();
@@ -71,6 +72,7 @@ export function invoiceDocument(state, id) {
     date: text(receipt.date),
     mode: text(receipt.mode),
     amount: round2(receipt.amount),
+    ...(isTdsReceipt(receipt) ? { label: tdsReceiptLabel(state, receipt), section: text(receipt.section), ...(receipt.tan ? { tan: text(receipt.tan) } : {}) } : {}),
   }));
   const received = round2(receipts.reduce((sum, receipt) => sum + receipt.amount, 0));
   const credited = creditedAgainst(state, invoice.id);
@@ -84,6 +86,7 @@ export function invoiceDocument(state, id) {
       kind: 'invoice',
       receipts,
       received,
+      tdsWithheld: tdsWithheldOn(invoice),
       credited,
       creditNotes,
       debited,

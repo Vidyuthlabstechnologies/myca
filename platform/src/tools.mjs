@@ -3,6 +3,7 @@ import { invoiceTemplate, setInvoiceTemplate } from './invoice-template.mjs';
 import { importSettlement, settlementStatus } from './settlements.mjs';
 import { importMarketplaceOrders, postSettlement } from './marketplace-orders.mjs';
 import { setChannelIdentity, importTcsStatement, import26asCredits, marketplaceCredits } from './marketplace-credits.mjs';
+import { recordTdsWithheld, tdsCreditCheck } from './tds-credits.mjs';
 import { setSkuCost, importSkuCosts, recordStock, stockPosition, skuMargins, stockMoves } from './sku-margins.mjs';
 import { dailyClose } from './daily-close.mjs';
 import { regArg, companyAs, forRegistration, setRegistration, retireRegistration, listRegistrations } from './registrations.mjs';
@@ -1907,16 +1908,30 @@ export const TOOLS = [
   },
   {
     name: 'import_26as_credits',
-    title: 'Import 194-O credits from Form 26AS',
-    description: 'Read Form 26AS (CSV or text table: section, TAN of deductor, tax deducted, date) and record the TDS under section 194-O each marketplace deposited against your PAN, quarter by quarter. Other sections are ignored here. Rows already recorded are skipped.',
+    title: 'Import Form 26AS',
+    description: 'Read Form 26AS (CSV or text table: section, TAN of deductor, tax deducted, date) and record every row, whatever its section, against your PAN, quarter by quarter. Rows under section 194-O are the marketplace credits; the rest are what customers deducted, to be compared with the books. Rows already recorded are skipped.',
     args: ['csv'],
     run: (state, args = {}) => {
       if (!args.csv) return fail('csv required');
       const result = import26asCredits(state, args);
       if (!result.ok) return fail(result.error, { parsed: result.parsed });
-      state.imports.push({ source: '26as-194o', at: new Date().toISOString(), count: result.imported, skipped: result.skipped.length, heldBack: heldBackFrom(result.skipped.filter((s) => s.reason !== 'exists').map((s) => ({ voucherNo: s.id, reason: s.reason }))) });
+      state.imports.push({ source: '26as', at: new Date().toISOString(), count: result.imported, skipped: result.skipped.length, heldBack: heldBackFrom(result.skipped.filter((s) => s.reason !== 'exists').map((s) => ({ voucherNo: s.id, reason: s.reason }))) });
       return ok(result);
     },
+  },
+  {
+    name: 'record_tds_withheld',
+    title: 'TDS withheld by a customer',
+    description: 'Record TDS a customer deducted from an invoice: the invoice settles by that amount and the credit sits in TDS receivable until 26AS confirms it.',
+    args: ['invoiceId', 'amount', 'date', 'section', 'tan'],
+    run: (state, args = {}) => recordTdsWithheld(state, args),
+  },
+  {
+    name: 'tds_credit_check',
+    title: 'Form 26AS check',
+    description: 'Compare Form 26AS with the TDS recorded in the books, per deductor and quarter: what 26AS shows, what the books show, the gap, and which side is missing. Read-only.',
+    args: ['fy'],
+    run: (state, args = {}) => tdsCreditCheck(state, args),
   },
   {
     name: 'marketplace_credits',

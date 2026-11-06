@@ -57,6 +57,7 @@ export function withTdsFromText(plan, text) {
 export function planTdsFromChat(text) {
   const raw = normalizeChat(text);
   if (!/\btds\b/i.test(raw) || isNegated(raw)) return null;
+  if (/\b(?:tds\s+(?:withheld|deducted)|(?:withheld|deducted)\s+(?:the\s+)?tds)\b[\s\S]*\bINV-\d{4,}\b|\btds\s+credit\s+check\b/i.test(raw)) return null;
   if (/\b(?:we|i)\s+(?:also\s+)?deduct\s+tds\b|\btds\s+deductor\b|\bour\s+tan\b|\btan\s+is\b/i.test(raw)) {
     const tan = (raw.match(TAN) || [])[1];
     if (!tan) return { kind: 'reply', reply: 'Say the TAN as well, for example "we deduct TDS, TAN MUMA12345B". I have recorded nothing.', tools: [] };

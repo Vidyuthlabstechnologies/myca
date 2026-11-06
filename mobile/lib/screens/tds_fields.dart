@@ -47,6 +47,21 @@ const tdsOptions = [
   TdsOption('194A', 'Interest (194A)', '194A'),
 ];
 
+const customerTdsSections = [
+  '194A',
+  '194C',
+  '194H',
+  '194I',
+  '194J',
+  '194Q',
+  '194O',
+  '192',
+  '194D',
+  '194G',
+  '194LA',
+  '206AB',
+];
+
 class TdsChoice {
   TdsOption option = tdsOptions.first;
   final pan = TextEditingController();

@@ -6,7 +6,7 @@ import 'package:myca/api/models.dart';
 import 'package:myca/api/myca_api.dart';
 import 'package:myca/app_services.dart';
 import 'package:myca/app_state.dart';
-import 'package:myca/format.dart' show isoDate;
+import 'package:myca/format.dart' show isoDate, rupees;
 
 class MemoryOnboardingStore implements OnboardingStore {
   MemoryOnboardingStore({
@@ -328,6 +328,12 @@ class FakeMycaApi implements MycaApi {
   num tdsDue = 6000;
   final bankDetails = <Map<String, Object?>>[];
   final tdsDeposits = <Map<String, Object?>>[];
+  final tdsCreditRows = <Map<String, Object?>>[
+    {'section': '194J', 'tan': 'MUMD12345B', 'deductor': 'Delta Projects', 'customer': 'Delta Projects', 'quarter': 'Q2 2026-27', 'in26as': 2000, 'inBooks': 2000, 'gap': 0, 'status': 'matched'},
+    {'section': '194C', 'tan': 'BLRN12345C', 'deductor': 'Northwind Traders', 'customer': '', 'quarter': 'Q2 2026-27', 'in26as': 1500, 'inBooks': 0, 'gap': -1500, 'status': 'not in books'},
+    {'section': '194O', 'tan': '', 'deductor': 'amazon', 'customer': '', 'quarter': 'Q3 2026-27', 'in26as': 800, 'inBooks': 920, 'gap': 120, 'status': 'short in 26AS'},
+    {'section': '194C', 'tan': '', 'deductor': 'Kappa Retail', 'customer': 'Kappa Retail', 'quarter': 'Q3 2026-27', 'in26as': 0, 'inBooks': 600, 'gap': 600, 'status': 'not in 26AS'},
+  ];
   final employees = <Map<String, Object?>>[
     {
       'id': 'EMP-0001',
@@ -735,6 +741,14 @@ class FakeMycaApi implements MycaApi {
     if (name == 'set_bank_account') return _preview('Add the account ${args['label']} (${args['kind']}).');
     if (name == 'record_transfer') {
       return _preview('Transfer ₹${args['amount']} from ${args['fromAccount']} to ${args['toAccount']} on ${args['date']}. Recorded once, between your own accounts.');
+    }
+    if (name == 'record_tds_withheld') {
+      final invoice = invoices.where((i) => i['id'] == args['invoiceId']).firstOrNull;
+      final amount = args['amount'] as num;
+      return _preview(
+        'TDS of ${rupees(amount)} withheld by ${invoice?['partyName'] ?? 'the customer'} on ${args['invoiceId']} (section ${args['section']})',
+        {'amount': amount, 'remaining': invoice == null ? 0 : (invoice['total'] as num) - _receivedOn(invoice) - amount},
+      );
     }
     if (name == 'import_bank' && args['post'] == 'hold') return _preview('Bank statement: the lines are read and wait for you to match them.');
     return _preview(switch (name) {
@@ -1167,6 +1181,32 @@ class FakeMycaApi implements MycaApi {
         salesTaxApproved = true;
         return ChatReply.fromJson({'reply': 'Confirmed.', 'posted': true});
       }
+      if (held.tool == 'record_tds_withheld') {
+        final invoice = invoices.firstWhere((i) => i['id'] == held.args['invoiceId']);
+        final amount = held.args['amount'] as num;
+        invoice['receipts'] = <Object?>[
+          ...(invoice['receipts'] as List<Object?>? ?? const <Object?>[]),
+          {
+            'amount': amount,
+            'date': held.args['date'],
+            'mode': 'tds',
+            'section': held.args['section'],
+            if (held.args['tan'] != null) 'tan': held.args['tan'],
+          },
+        ];
+        final left = (invoice['total'] as num) - _receivedOn(invoice);
+        invoice['owed'] = left;
+        invoice['status'] = left <= 0.01 ? 'paid' : 'partial';
+        return ChatReply.fromJson({
+          'reply': 'Recorded TDS of ${rupees(amount)} withheld on ${held.args['invoiceId']}; ${rupees(left)} still owed.',
+          'posted': true,
+          'confirmed': true,
+        });
+      }
+      if (held.tool == 'import_26as_credits') {
+        tdsCreditRows.add({'section': '194J', 'tan': 'MUMD12345B', 'deductor': 'Delta Projects', 'customer': '', 'quarter': 'Q2 2026-27', 'in26as': 2000, 'inBooks': 0, 'gap': -2000, 'status': 'not in books'});
+        return ChatReply.fromJson({'reply': 'Recorded 1 entry of TDS from Form 26AS totalling ₹2,000.00 (194J 1).', 'posted': true, 'confirmed': true});
+      }
       if (held.tool == 'create_invoice') {
         invoices.add({
           'id': 'INV-0003',
@@ -1339,6 +1379,8 @@ class FakeMycaApi implements MycaApi {
       'posted': false,
     });
   }
+
+  num _receivedOn(Map<String, Object?> invoice) => (invoice['receipts'] as List<Object?>? ?? const <Object?>[]).fold<num>(0, (sum, receipt) => sum + ((receipt as Map)['amount'] as num));
 
   void _applyBankRule(Map<String, Object?> rule) {
     final then = rule['then'] as Map<String, Object?>;
@@ -2380,6 +2422,25 @@ class FakeMycaApi implements MycaApi {
                     {'quarter': 'Q3 2026-27', 'deducted': 6000, 'deposited': 6000 - tdsDue, 'shortfall': tdsDue, 'dueDate': '2027-01-31', 'form': '140', 'approved': false, 'filed': null},
                   ]
                 : const <Object?>[],
+          },
+        };
+      case 'tds_credit_check':
+        num sumOf(bool Function(Map<String, Object?> row) wanted, String key) => tdsCreditRows.where(wanted).fold<num>(0, (total, row) => total + (row[key] as num));
+        return {
+          'ok': true,
+          'data': {
+            'fy': '2026-27',
+            'source': tdsCreditRows.isEmpty ? 'no 26AS imported yet' : '26AS imported 2026-10-02',
+            'rows': tdsCreditRows,
+            'totals': {
+              'in26as': sumOf((row) => true, 'in26as'),
+              'inBooks': sumOf((row) => true, 'inBooks'),
+              'gap': sumOf((row) => true, 'gap'),
+              'notInBooks': sumOf((row) => row['status'] == 'not in books', 'in26as'),
+              'notIn26as': sumOf((row) => row['status'] == 'not in 26AS', 'inBooks'),
+            },
+            'bySection': const <Object?>[],
+            'note': 'Form 26AS lists the TDS deductors reported against your PAN. Rows not in your books usually mean a customer paid you short by TDS and the shortfall was never recorded: record it with "TDS withheld" on that invoice. AIS is not read yet.',
           },
         };
       case 'tds_review':

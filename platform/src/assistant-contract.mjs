@@ -792,6 +792,23 @@ export const TOOL_ARG_SCHEMAS = {
     additionalProperties: false,
     properties: { csv: { type: 'string' }, documentSha256: { type: 'string', pattern: '^[0-9a-f]{64}$' } },
   },
+  record_tds_withheld: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['invoiceId', 'amount'],
+    properties: {
+      invoiceId: { type: 'string', pattern: '^INV-[0-9]{4,}$' },
+      amount: { type: 'number', exclusiveMinimum: 0 },
+      date: { type: 'string', minLength: 10, maxLength: 10 },
+      section: { type: 'string', maxLength: 6 },
+      tan: { type: 'string', maxLength: 10 },
+    },
+  },
+  tds_credit_check: {
+    type: 'object',
+    additionalProperties: false,
+    properties: { fy: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}$' } },
+  },
   marketplace_credits: {
     type: 'object',
     additionalProperties: false,
@@ -2112,6 +2129,8 @@ const TOOL_RISK = {
   set_channel_identity: 'writes_books',
   import_tcs_statement: 'writes_books',
   import_26as_credits: 'writes_books',
+  record_tds_withheld: 'writes_books',
+  tds_credit_check: 'read_only',
   marketplace_credits: 'read_only',
   set_sku_cost: 'writes_books',
   import_sku_costs: 'writes_books',
@@ -2326,6 +2345,7 @@ const EXCEL_REPORTS = [
   { key: 'customer_dues', words: /\bdues?\b|\bowed?\b|\bowes\b|\breceivables?\b|\bdebtors?\b|\boutstanding\b|\bunpaid\b|\boverdue\b/i },
   { key: 'saved_report', words: /\bsaved\s+report\b/i },
   { key: 'cash_forecast', words: /\bcash\s*forecast\b|\bforecast\b|\bcash\s*flow\b/i },
+  { key: 'tds_credit_check', words: /\b26\s*as\b|\btds\s+credits?\b/i },
   { key: 'tds_summary', words: /\btds\b/i },
   { key: 'sku_margins', words: /\bmargins?\b/i },
   { key: 'stock_position', words: /\bstock\b|\binventory\b/i },
@@ -2844,9 +2864,21 @@ export function planLocalToolCall(state, message) {
       if (!csv) return { kind: 'reply', reply: 'Attach the "TDS and TCS credit received" statement from the GST portal (operator GSTIN, period, integrated, central and state tax), then say "import tcs statement".', tools: [] };
       return { kind: 'tool', name: 'import_tcs_statement', args: { csv }, clearsPendingFile: true };
     }
+    if (!isNegated(text) && !/\bimport(?:ed|ing)?\b/i.test(text) && /\b(?:check|compare|verify|reconcile)\b[\s\S]*\b26\s*as\b|\b26\s*as\s+(?:check|vs|against|reconcil)|\btds\s+credit\s+check\b|\b26\s*as\b[\s\S]*\b(?:match(?:es|ing)?|agree|tallies|tally|mismatch(?:es)?|differ(?:s|ence)?)\b/i.test(text)) {
+      const said = /\bfy\s*(\d{4})-?(\d{2,4})\b/i.exec(text);
+      return { kind: 'tool', name: 'tds_credit_check', args: said ? { fy: `${said[1]}-${said[2].slice(-2)}` } : {} };
+    }
+    if (!isNegated(text) && !isQuestion(text) && /\b(?:tds\s+(?:withheld|deducted)|(?:withheld|deducted)\s+(?:the\s+)?tds)\b[\s\S]*\bINV-\d{4,}\b/i.test(text)) {
+      const amount = receiptAmount(text);
+      if (amount == null) return { kind: 'reply', reply: 'Say how much TDS was withheld, for example "record tds withheld 2000 on INV-0001 under 194J". I have recorded nothing.', tools: [] };
+      const section = /\b(?:section|sec\.?|u\/s|under)\s*(19[2-9]-?[A-Z]{0,2}|206-?[A-Z]{1,2})\b/i.exec(text) || /\b(19[2-9]-?[A-Z]{1,2}|206-?[A-Z]{1,2})\b/i.exec(text);
+      const tan = /\btan\s*[:#-]?\s*([A-Z]{4}\s?[0-9]{5}\s?[A-Z])\b/i.exec(text);
+      const dated = /\b(\d{4}-\d{2}-\d{2})\b/.exec(text);
+      return { kind: 'tool', name: 'record_tds_withheld', args: { invoiceId: /\b(INV-\d{4,})\b/i.exec(text)[1].toUpperCase(), amount, ...(section ? { section: section[1].replace(/-/g, '').toUpperCase() } : {}), ...(dated ? { date: dated[1] } : {}), ...(tan ? { tan: tan[1].replace(/\s+/g, '').toUpperCase() } : {}) } };
+    }
     if (/\bimport\s+(?:form\s+)?26\s*as\b|\b26\s*as\s+(?:credits?|194-?o)\b/i.test(text) && !isQuestion(text)) {
       const csv = pendingFileContent(state);
-      if (!csv) return { kind: 'reply', reply: 'Attach Form 26AS as a CSV or text table (section, TAN of deductor, tax deducted, date), then say "import 26AS". Only section 194-O rows are read here.', tools: [] };
+      if (!csv) return { kind: 'reply', reply: 'Attach Form 26AS as a CSV or text table (section, TAN of deductor, tax deducted, date), then say "import 26AS". Every section is read: the 194-O credits marketplaces deposited and the TDS your customers deducted.', tools: [] };
       return { kind: 'tool', name: 'import_26as_credits', args: { csv }, clearsPendingFile: true };
     }
     if (/\b(?:tcs|194-?o|tds\s+194)\b.*\b(?:credits?|claim|status|available|deducted)\b|\b(?:marketplace|amazon|flipkart)\s+(?:tcs|tds)\b|\btcs\s+and\s+tds\b/i.test(text)) {

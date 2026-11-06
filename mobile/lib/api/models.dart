@@ -119,6 +119,83 @@ class TdsSummary {
   final List<TdsQuarter> quarters;
 }
 
+class TdsCreditRow {
+  const TdsCreditRow({
+    required this.section,
+    required this.tan,
+    required this.deductor,
+    required this.customer,
+    required this.quarter,
+    required this.in26as,
+    required this.inBooks,
+    required this.gap,
+    required this.status,
+  });
+
+  factory TdsCreditRow.fromJson(Object? json) {
+    final map = _map(json);
+    return TdsCreditRow(
+      section: _text(map['section']),
+      tan: _text(map['tan']),
+      deductor: _text(map['deductor']),
+      customer: _text(map['customer']),
+      quarter: _text(map['quarter']),
+      in26as: _num(map['in26as']),
+      inBooks: _num(map['inBooks']),
+      gap: _num(map['gap']),
+      status: _text(map['status']),
+    );
+  }
+
+  final String section;
+  final String tan;
+  final String deductor;
+  final String customer;
+  final String quarter;
+  final num in26as;
+  final num inBooks;
+  final num gap;
+  final String status;
+
+  String get who => deductor.isNotEmpty ? deductor : customer;
+}
+
+class TdsCreditCheck {
+  const TdsCreditCheck({
+    required this.fy,
+    required this.source,
+    required this.rows,
+    required this.in26as,
+    required this.inBooks,
+    required this.gap,
+    required this.note,
+  });
+
+  static TdsCreditCheck? fromTool(Object? json) {
+    final map = _map(json);
+    if (map['ok'] == false) return null;
+    final data = toolData(json);
+    final totals = _map(data['totals']);
+    return TdsCreditCheck(
+      fy: _text(data['fy']),
+      source: _text(data['source']),
+      rows: _maps(data['rows']).map(TdsCreditRow.fromJson).toList(),
+      in26as: _num(totals['in26as']),
+      inBooks: _num(totals['inBooks']),
+      gap: _num(totals['gap']),
+      note: _text(data['note']),
+    );
+  }
+
+  final String fy;
+  final String source;
+  final List<TdsCreditRow> rows;
+  final num in26as;
+  final num inBooks;
+  final num gap;
+  final String note;
+}
+
 class FirmUser {
   const FirmUser({
     required this.userId,
@@ -144,7 +221,13 @@ class FirmUser {
 }
 
 class Receipt {
-  const Receipt({required this.amount, required this.date, required this.mode});
+  const Receipt({
+    required this.amount,
+    required this.date,
+    required this.mode,
+    this.section = '',
+    this.tan = '',
+  });
 
   factory Receipt.fromJson(Object? json) {
     final map = _map(json);
@@ -152,12 +235,18 @@ class Receipt {
       amount: _num(map['amount']),
       date: _text(map['date']),
       mode: _text(map['mode']),
+      section: _text(map['section']),
+      tan: _text(map['tan']),
     );
   }
 
   final num amount;
   final String date;
   final String mode;
+  final String section;
+  final String tan;
+
+  bool get tds => mode == 'tds';
 }
 
 class CreditNote {

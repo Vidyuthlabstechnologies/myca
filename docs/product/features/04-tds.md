@@ -127,7 +127,8 @@ notes, purchases, expenses and approved payroll, before depreciation and the CA'
 adjustments) scaled to twelve months, with both figures shown and the warning that a
 seasonal business should say its expected year instead; the tax under the new regime (or
 the old, when asked) from the dated slab, rebate, surcharge and cess rules; less the TDS
-credit on record (Form 26AS as imported, else TDS 194-O seen in marketplace settlements);
+credit on record (Form 26AS as imported, else the TDS customers withheld on invoices and
+the TDS 194-O seen in marketplace settlements);
 split into the instalments the dated rule gives (15, 45, 75 and 100 percent by 15 June,
 15 September, 15 December and 15 March, or the whole by 15 March under presumptive
 income), each marked met, missed or next with the amount to pay. Interest under sections
@@ -139,3 +140,40 @@ rate and should ask its CA.
 "Paid advance tax 48,000 challan 0510001234567" is previewed and, on yes, posts bank to
 the advance tax paid asset and reduces what the next instalment asks for.
 
+## Form 26AS check against the books (built 2026-11-06)
+
+Form 26AS lists the tax that deductors reported against the business's PAN. The check puts
+it beside what the books claim, so a customer who paid short by TDS and a shortfall nobody
+recorded show up before the return is filed.
+
+- `import_26as_credits` reads every section of Form 26AS (CSV or text table: section, TAN of
+  deductor, tax deducted, date; the amount paid is optional). Each row keeps its section
+  (194C, 194J, 194O, 192, 206CQ and so on) and the quarter of its date. Rows under 194-O
+  are matched to the marketplace by TAN or name and remain the marketplace credits of
+  `marketplace_credits`; other sections are customers. A row with no readable section is
+  the only kind left out, and the answer says how many. Rows already recorded (same section,
+  TAN, date and amounts) are skipped, including 194-O rows imported before sections were kept.
+- `record_tds_withheld` ("record tds withheld 2000 on INV-0001 under 194J") records TDS a
+  customer deducted from a sales invoice. The invoice settles by that amount (paid when
+  nothing else is owed, otherwise partly paid), and the credit is posted from the customer
+  to TDS receivable (1160, created when first used). It needs the section; the deductor's
+  TAN is optional and lets the check match exactly. It is previewed and posts after yes. The
+  amount cannot be more than the invoice still owes, the date cannot be in a closed period,
+  and a cancelled invoice cannot take it. The receipt is listed on the invoice as "TDS
+  withheld ₹x (section)", exported to Tally as a Journal voucher (TDS Receivable to the
+  customer, never a receipt into the bank), shown beside cash received in the Sales and
+  Customer dues sheets, and counted as a credit in advance tax when no Form 26AS is imported.
+- `tds_credit_check` ("check 26AS against the books", "reconcile TDS against 26AS", also in
+  Excel as the Form 26AS check) reads the financial year, defaulting to the current one, one
+  row per deductor, section and quarter: what 26AS shows, what the books show, the gap and
+  one of matched, not in books, not in 26AS, short in 26AS or more in 26AS. Books and 26AS
+  are matched by TAN when the books row has one, else by the customer's name against the
+  deductor's name. 194-O is read from marketplace settlements. Totals, a count by section and
+  the source of the 26AS (when it was imported, or that none was) come with it.
+- Rows not in the books usually mean a customer paid short by TDS and the shortfall was never
+  recorded: record it with "TDS withheld" on that invoice. The check never posts anything.
+- The check works from Form 26AS as imported. AIS (the Annual Information Statement) is not
+  read: its layout is not specified in this repository, so it is out of scope until a sample
+  of the portal's export is available. Say so to anyone who asks whether MyCA compares AIS.
+- App: Taxes has a "Form 26AS check" row under TDS that opens the totals, the rows, Import
+  26AS and Save as Excel; a sales invoice or customer thread offers "TDS withheld".
