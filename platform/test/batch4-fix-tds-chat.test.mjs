@@ -154,7 +154,7 @@ test('routing-1: those sentences never get the GST-rate demand or the TDS thresh
   assert.deepEqual(receiptsOf(state, 'INV-0001'), []);
   const done = await chat(state, 'yes');
   assert.equal(done.posted, true, done.reply);
-  assert.equal(done.reply, 'Recorded TDS of ₹1,000.00 withheld on INV-0001; ₹99,000.00 still owed.');
+  assert.equal(done.reply, 'Recorded TDS of ₹1,000.00 withheld on INV-0001, dated 1 Oct 2026; ₹99,000.00 still owed.');
   assert.deepEqual(receiptsOf(state, 'INV-0001').map((receipt) => [receipt.mode, receipt.amount, receipt.section]), [['tds', 1000, '194C']]);
 
   const dated = await chat(state, 'INV-0002 tds withheld 500 dated 2026-10-15 under 194C');
@@ -538,5 +538,5 @@ test('routing-12: TDS withheld on US books is turned down when it is previewed, 
   const india = books();
   const fine = previewOf(india, 'record_tds_withheld', { invoiceId: 'INV-0001', amount: 2000, section: '194J' });
   assert.deepEqual(fine.blockers, []);
-  assert.equal(fine.summary, 'TDS of ₹2,000.00 withheld by Kiran Stores on INV-0001 (section 194J)');
+  assert.equal(fine.summary, 'TDS of ₹2,000.00 withheld by Kiran Stores on INV-0001 (section 194J), dated 1 Oct 2026');
 });

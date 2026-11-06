@@ -293,7 +293,7 @@ test('the check lines up 26AS with the books by TAN or by name, per quarter, and
     { section: '194H', rows: 1, in26as: 0, inBooks: 500 },
     { section: '194J', rows: 2, in26as: 4000, inBooks: 3500 },
   ]);
-  assert.equal(d.note, 'Form 26AS lists the TDS deductors reported against your PAN. Rows not in your books usually mean a customer paid you short by TDS and the shortfall was never recorded: record it with "TDS withheld" on that invoice. AIS is not read yet.');
+  assert.equal(d.note, 'Form 26AS lists the TDS deductors reported against your PAN. Rows not in your books usually mean a customer paid you short by TDS and the shortfall was never recorded: record it with "TDS withheld" on that invoice, using the date 26AS shows. AIS is not read yet.');
 
   const copy = deserialize(JSON.parse(JSON.stringify(serialize(state))));
   assert.deepEqual(tdsCreditCheck(copy, { fy: '2026-27' }).data, d, 'the check reads the same after the books are saved and loaded');
@@ -438,7 +438,7 @@ test('the preview says what will happen, and every reason it cannot is a sentenc
   await sale(state, 'Delta Projects', 100000, '2026-08-05');
   const preview = previewOf(state, 'record_tds_withheld', { invoiceId: 'INV-0001', amount: 2000, section: '194J' });
   assert.deepEqual(preview.blockers, []);
-  assert.equal(preview.summary, 'TDS of ₹2,000.00 withheld by Delta Projects on INV-0001 (section 194J)');
+  assert.equal(preview.summary, 'TDS of ₹2,000.00 withheld by Delta Projects on INV-0001 (section 194J), dated 5 Aug 2026');
   assert.deepEqual(preview.effects, ['The invoice settles by that amount; the credit sits in TDS receivable (1160) until Form 26AS confirms it.']);
   assert.deepEqual(preview.figures, { amount: 2000, remaining: 98000 });
 
@@ -513,7 +513,9 @@ test('chat: recording TDS withheld shows a preview, posts after yes, and the che
   assert.equal(state.invoices[0].receipts?.length || 0, 0, 'nothing is posted before yes');
   const done = await chat(state, 'yes');
   assert.equal(done.posted, true, done.reply);
-  assert.equal(done.reply, 'Recorded TDS of ₹2,000.00 withheld on INV-0001; ₹98,000.00 still owed.');
+  const [year, month, day] = localToday().split('-').map(Number);
+  const dated = `${day} ${['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][month - 1]} ${year}`;
+  assert.equal(done.reply, `Recorded TDS of ₹2,000.00 withheld on INV-0001, dated ${dated}; ₹98,000.00 still owed.`);
   assert.equal(state.invoices[0].status, 'partial');
 
   const missing = await chat(state, 'record tds withheld 100 on INV-0001');
