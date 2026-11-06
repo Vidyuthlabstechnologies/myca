@@ -30,6 +30,22 @@ final Map<String, Walk> screens = {
   'home, first day': (t) async {
     await open(t, empty: true);
   },
+  'home with MSME card': (t) async {
+    final card = find.byKey(const ValueKey('home.msme'));
+    await t.scrollUntilVisible(card, 200, scrollable: find.byType(Scrollable).first);
+    await t.pumpAndSettle();
+    await t.ensureVisible(card);
+    await t.pumpAndSettle();
+  },
+  'supplier terms sheet': (t) async {
+    await tapRow(t, 'Purchases');
+    await t.tap(find.text('Fabric Co'));
+    await t.pumpAndSettle();
+    await t.tap(find.widgetWithText(ActionChip, 'Supplier terms'));
+    await t.pumpAndSettle();
+    await t.tap(find.widgetWithText(SwitchListTile, 'MSME supplier'));
+    await t.pumpAndSettle();
+  },
   'business menu': (t) async {
     await t.tap(find.byTooltip('Your business'));
     await t.pumpAndSettle();

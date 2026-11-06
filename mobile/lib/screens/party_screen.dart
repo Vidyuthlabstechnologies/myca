@@ -56,6 +56,7 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
   String _mode = 'bank';
   String _formError = '';
   bool _postedHere = false;
+  String _proposedTool = '';
   Map<String, String> _riskByBill = const {};
   bool _risksLoaded = false;
 
@@ -101,6 +102,12 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
   }
 
   @override
+  Future<void> propose(String said, String tool, Map<String, Object?> args) {
+    _proposedTool = tool;
+    return super.propose(said, tool, args);
+  }
+
+  @override
   Future<void> onPosted() async {
     HapticFeedback.mediumImpact();
     final messenger = ScaffoldMessenger.of(context);
@@ -109,7 +116,7 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
     if (!mounted) return;
     setState(() {
       entries.clear();
-      _postedHere = true;
+      if (_proposedTool != 'set_supplier_terms') _postedHere = true;
     });
     messenger.showSnackBar(SnackBar(content: Text(confirmation)));
   }
@@ -446,6 +453,33 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
     });
   }
 
+  Future<void> _setSupplierTerms(Party party) async {
+    final draft = await showModalBottomSheet<_SupplierTermsDraft>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => _SupplierTermsSheet(name: party.name),
+    );
+    if (draft == null || !mounted) return;
+    final days = draft.days;
+    final said = [
+      draft.msme ? 'MSME supplier' : 'Not MSME',
+      if (draft.category.isNotEmpty) draft.category,
+      if (days != null) termsLabel(days),
+    ].join(', ');
+    await propose(
+      '${party.name}: $said',
+      'set_supplier_terms',
+      {
+        'partyName': party.name,
+        if (party.gstin.isNotEmpty) 'partyGstin': party.gstin,
+        'msme': draft.msme,
+        if (draft.udyam.isNotEmpty) 'udyam': draft.udyam,
+        if (draft.category.isNotEmpty) 'category': draft.category,
+        'days': ?days,
+      },
+    );
+  }
+
   List<Widget> _history(Party party) {
     final what = _sales ? 'Invoice' : 'Bill';
     final notes =
@@ -653,6 +687,7 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
               busy: busy,
               onPost: postPending,
               onDiscard: discardPending,
+              postLabel: _proposedTool == 'set_supplier_terms' ? 'Yes' : 'Post it',
             )
           else if (_composer == _Composer.none)
             _ActionChips(
@@ -668,6 +703,7 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
               onQuote: _sales ? () => _open(_Composer.quote, party) : null,
               onDebitNote: !_sales && party.documents.any((d) => !d.cancelled) ? () => _open(_Composer.purchaseNote, party) : null,
               onTerms: _sales ? () => _setTerms(party) : null,
+              onSupplierTerms: !_sales && !_us ? () => _setSupplierTerms(party) : null,
             )
           else
             _ComposerCard(
@@ -987,6 +1023,7 @@ class _ActionChips extends StatelessWidget {
     required this.onPayment,
     this.terms,
     this.onTerms,
+    this.onSupplierTerms,
     this.onQuote,
     this.onDebitNote,
   });
@@ -999,6 +1036,7 @@ class _ActionChips extends StatelessWidget {
   final VoidCallback onPayment;
   final int? terms;
   final VoidCallback? onTerms;
+  final VoidCallback? onSupplierTerms;
   final VoidCallback? onQuote;
   final VoidCallback? onDebitNote;
 
@@ -1047,6 +1085,11 @@ class _ActionChips extends StatelessWidget {
                     terms == null ? 'Set terms' : 'Terms: ${termsLabel(terms)}',
                   ),
                   onPressed: busy ? null : onTerms,
+                ),
+              if (onSupplierTerms != null)
+                ActionChip(
+                  label: const Text('Supplier terms'),
+                  onPressed: busy ? null : onSupplierTerms,
                 ),
             ],
           ),
@@ -1125,6 +1168,140 @@ class _ComposerCard extends StatelessWidget {
               FilledButton(onPressed: onSubmit, child: const Text('Preview')),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SupplierTermsDraft {
+  const _SupplierTermsDraft({
+    required this.msme,
+    required this.udyam,
+    required this.category,
+    required this.days,
+  });
+
+  final bool msme;
+  final String udyam;
+  final String category;
+  final int? days;
+}
+
+class _SupplierTermsSheet extends StatefulWidget {
+  const _SupplierTermsSheet({required this.name});
+
+  final String name;
+
+  @override
+  State<_SupplierTermsSheet> createState() => _SupplierTermsSheetState();
+}
+
+class _SupplierTermsSheetState extends State<_SupplierTermsSheet> {
+  final _udyam = TextEditingController();
+  final _days = TextEditingController();
+  bool _msme = false;
+  String _category = '';
+  String _error = '';
+
+  @override
+  void dispose() {
+    _udyam.dispose();
+    _days.dispose();
+    super.dispose();
+  }
+
+  void _save() {
+    final udyam = _udyam.text.replaceAll(RegExp(r'\s+'), '').toUpperCase();
+    final daysText = _days.text.trim();
+    final days = daysText.isEmpty ? null : int.tryParse(daysText);
+    if (_msme && udyam.isNotEmpty && !RegExp(r'^UDYAM-[A-Z]{2}-[0-9]{2}-[0-9]{7}$').hasMatch(udyam)) {
+      return setState(() => _error = 'A Udyam number looks like UDYAM-XX-00-0000000.');
+    }
+    if (daysText.isNotEmpty && (days == null || days > 365)) {
+      return setState(() => _error = 'Agreed days must be a whole number from 0 to 365.');
+    }
+    if (_msme && days != null && days > 45) {
+      return setState(() => _error = 'An MSME supplier must be paid within 45 days, so the agreed days cannot be more than 45.');
+    }
+    if (!_msme && days == null) {
+      return setState(() => _error = 'Switch on MSME supplier, or give the agreed days.');
+    }
+    Navigator.of(context).pop(
+      _SupplierTermsDraft(
+        msme: _msme,
+        udyam: _msme ? udyam : '',
+        category: _msme ? _category : '',
+        days: days,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: EdgeInsets.fromLTRB(22, 4, 22, 22 + MediaQuery.viewInsetsOf(context).bottom),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text('Terms for ${widget.name}', style: text.headlineSmall),
+            const SizedBox(height: 6),
+            Text(
+              'A micro or small supplier has to be paid within 45 days of the bill. MyCA reminds you a week before.',
+              style: text.bodySmall,
+            ),
+            const SizedBox(height: 6),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('MSME supplier'),
+              value: _msme,
+              onChanged: (value) => setState(() => _msme = value),
+            ),
+            if (_msme) ...[
+              TextField(
+                controller: _udyam,
+                textCapitalization: TextCapitalization.characters,
+                decoration: const InputDecoration(labelText: 'Udyam number', hintText: 'UDYAM-XX-00-0000000'),
+              ),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final choice in const ['micro', 'small', 'medium'])
+                    ChoiceChip(
+                      label: Text('${choice[0].toUpperCase()}${choice.substring(1)}'),
+                      selected: _category == choice,
+                      selectedColor: Palette.sunken,
+                      showCheckmark: false,
+                      onSelected: (_) => setState(() => _category = _category == choice ? '' : choice),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 12),
+            ],
+            TextField(
+              controller: _days,
+              keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              maxLength: 3,
+              decoration: InputDecoration(
+                labelText: 'Agreed days',
+                counterText: '',
+                helperText: _msme ? 'Up to 45. Leave it empty for the 15 days the law gives without a written agreement.' : 'How many days you have to pay their bills.',
+                helperMaxLines: 3,
+              ),
+            ),
+            if (_error.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(_error, style: const TextStyle(color: Palette.danger, fontWeight: FontWeight.w600)),
+            ],
+            const SizedBox(height: 14),
+            FilledButton(onPressed: _save, child: const Text('Save')),
+          ],
         ),
       ),
     );

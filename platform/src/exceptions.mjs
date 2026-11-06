@@ -5,6 +5,8 @@ import { marketplaceCredits } from './marketplace-credits.mjs';
 import { skuMargins, stockPosition } from './sku-margins.mjs';
 import { appendAuditEvent } from './ca-api.mjs';
 import { localToday } from './dates.mjs';
+import { countryOf } from './country.mjs';
+import { supplierDues } from './supplier-dues.mjs';
 
 export const SEVERITIES = ['critical', 'high', 'medium', 'low'];
 export const OPEN_STATUSES = new Set(['open', 'in_review']);
@@ -297,6 +299,26 @@ function bankCandidates(book, asOfDate) {
   return out;
 }
 
+function msmeCandidates(book, asOfDate) {
+  if (countryOf(book) !== 'IN') return [];
+  const out = [];
+  for (const row of supplierDues(book, { asOf: asOfDate }).data.bills) {
+    if (!row.msme || !row.overdue) continue;
+    out.push({
+      key: `msme:past-limit:${row.billId}`,
+      source: 'msme',
+      code: 'MSME_PAST_LIMIT',
+      severity: 'high',
+      title: `${row.supplier} ${row.billId} is past the MSMED pay-by date`,
+      why: `It was due by ${row.payBy}. ${inr(row.outstanding)} is still outstanding and is not deductible until it is paid (Section 43B(h)).`,
+      ruleIds: row.rulesUsed || [],
+      moneyAtRisk: row.outstanding,
+      evidence: { billId: row.billId, payBy: row.payBy, supplier: row.supplier, gstin: row.gstin },
+    });
+  }
+  return out;
+}
+
 function importCandidates(book) {
   const out = [];
   for (const record of book.imports || []) {
@@ -436,6 +458,7 @@ export function detectExceptions(book, inputs = {}) {
     ...reconcileCandidates(inputs.reconcile),
     ...importCandidates(book),
     ...bankCandidates(book, inputs.asOfDate),
+    ...msmeCandidates(book, inputs.asOfDate),
   ].map((item) => ({ ...item, title: inWords(item.title), why: inWords(item.why) }));
 }
 

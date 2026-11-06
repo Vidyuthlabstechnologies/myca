@@ -1,5 +1,5 @@
 import { localToday } from './dates.mjs';
-import { countryOf } from './country.mjs';
+import { countryOf, formatMoney } from './country.mjs';
 import { deadlineRun } from './deadline-run.mjs';
 import { salesTaxOverview } from './us-sales-tax.mjs';
 import { estimatedTaxDates } from './us-owner-tax.mjs';
@@ -12,8 +12,11 @@ import { registrationsOf } from './registrations.mjs';
 import { filingFor } from './filings.mjs';
 import { runRecurring } from './recurring.mjs';
 import { runBankRules, ruleWarningWords } from './bank-rules.mjs';
+import { supplierDues } from './supplier-dues.mjs';
 
 const LOOK_AHEAD_DAYS = 14;
+const MSME_ALERT_DAYS = 7;
+const MSME_NAME_CLIP = 60;
 const LOG_LIMIT = 60;
 
 function plusDays(date, days) {
@@ -47,6 +50,14 @@ function dueSoon(state, today, until) {
         items.push({ key: `filing:${row.returnType}:${row.period}:${reg.gstin}`, due: row.dueDate, text: `${row.returnLabel || row.returnType} for ${row.period} is due for ${reg.label} (${reg.gstin})` });
       }
     }
+    for (const row of supplierDues(state, { asOf: today }).data.bills) {
+      if (!row.msme || row.payBy < today) continue;
+      const alertOn = plusDays(row.payBy, -MSME_ALERT_DAYS);
+      const due = alertOn > today ? alertOn : today;
+      if (due > until) continue;
+      const supplier = String(row.supplier || '').slice(0, MSME_NAME_CLIP);
+      items.push({ key: `msme:${row.billId}:${row.payBy}`, due, text: `Pay ${supplier} ${formatMoney(state, row.outstanding)} on ${row.billId} by ${row.payBy} (MSME limit)`, billId: row.billId });
+    }
   } else {
     const overview = salesTaxOverview(state);
     for (const row of overview.data.states) {
@@ -78,7 +89,7 @@ function remindersFor(state, today, until) {
   const added = [];
   for (const item of dueSoon(state, today, until)) {
     if (existing.has(item.key)) continue;
-    const made = addReminder(state, { text: item.text, due: item.due, actorId: 'automation', today });
+    const made = addReminder(state, { text: item.text, due: item.due, actorId: 'automation', today, ...(item.billId ? { billId: item.billId } : {}) });
     if (!made.ok) continue;
     made.reminder.source = item.key;
     existing.add(item.key);
