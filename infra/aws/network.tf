@@ -148,7 +148,7 @@ resource "aws_route_table_association" "private" {
 
 resource "aws_security_group" "api" {
   name        = "${local.name}-connector"
-  description = "App Runner VPC connector: the API's outbound traffic"
+  description = "App Runner VPC connector - outbound traffic from the API"
   vpc_id      = aws_vpc.main.id
 
   egress {
