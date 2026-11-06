@@ -472,6 +472,7 @@ class CloudSession {
   }) async {
     final request = http.Request(method, Uri.parse('$baseUrl$path'));
     request.headers['content-type'] = 'application/json';
+    if (request.url.host.contains('ngrok')) request.headers['ngrok-skip-browser-warning'] = '1';
     if (authed && _access != null) {
       request.headers['authorization'] = 'Bearer $_access';
     }
