@@ -95,8 +95,41 @@ class FakeCloud {
   bool refreshFails = false;
   int refreshes = 0;
   int logouts = 0;
+  bool secondStepOn = false;
+  String totpCode = '246810';
+  String recoveryCode = 'abcde-fghjk';
+  bool twoStepEnabled = false;
+  bool enrolling = false;
+  int enrolAttempts = 0;
+  String secondStepError = '';
+  int recoveryLeft = 8;
+  static const secondStepChallenge = 'ss-1';
+  static const totpSecret = 'JBSWY3DPEHPK3PXP';
+  static const totpUri = 'otpauth://totp/MyCA:%2B919876543210?secret=JBSWY3DPEHPK3PXP&issuer=MyCA&algorithm=SHA1&digits=6&period=30';
+  static const freshRecoveryCodes = ['abcde-fghjk', 'mnpqr-stuvw', 'xyz23-45678', '9abcd-efghj', 'kmnpq-rstuv', 'wxyz2-34567', '89abc-defgh', 'jkmnp-qrstu'];
+  final devices = <Map<String, Object?>>[
+    {'id': 'dev-1', 'label': 'Android', 'signedInOn': '2026-10-01T04:30:00.000Z', 'lastActive': '2026-10-06T04:25:00.000Z', 'current': true},
+    {'id': 'dev-2', 'label': 'iPhone', 'signedInOn': '2026-09-20T12:00:00.000Z', 'lastActive': '2026-10-05T15:40:00.000Z', 'current': false},
+  ];
+  final secondSteps = <String>[];
+  final secondStepBodies = <Map<String, dynamic>>[];
+  final revoked = <String>[];
+  int signedOutOthers = 0;
 
   late final http.Client client = MockClient(_handle);
+
+  Map<String, Object?> _secondStep() => {
+        'ok': true,
+        'secondStep': true,
+        'challengeId': secondStepChallenge,
+        'expiresInSeconds': 300,
+        'user': {'id': 'u1', 'name': userName, 'isNew': false},
+        'consent': {'document': 'privacy', 'version': 'v-test', 'accepted': noticeAccepted},
+      };
+
+  String _plainCode(Object? code) => '$code'.replaceAll(RegExp(r'[\s-]'), '').toLowerCase();
+
+  bool _codeOk(Object? code) => '$code' == totpCode || _plainCode(code) == _plainCode(recoveryCode);
 
   http.Response _json(int status, Map<String, Object?> body) =>
       http.Response(jsonEncode(body), status, headers: {'content-type': 'application/json; charset=utf-8'});
@@ -136,6 +169,7 @@ class FakeCloud {
       if (!oidcOn) return _json(503, {'ok': false, 'error': 'OIDC_SIGN_IN_UNAVAILABLE'});
       if (body['idToken'] != oidcToken) return _json(400, {'ok': false, 'error': 'INVALID_OIDC_TOKEN'});
       if (userName.isEmpty) userName = 'Asha Rao';
+      if (secondStepOn) return _json(200, _secondStep());
       return _json(200, {
         ..._issue(),
         'user': {'id': 'u1', 'name': userName, 'isNew': businesses.isEmpty},
@@ -146,6 +180,7 @@ class FakeCloud {
       deviceLabels.add('${body['deviceLabel']}');
       if (body['idToken'] != 'google-id-token') return _json(400, {'ok': false, 'error': 'INVALID_GOOGLE_TOKEN'});
       if (userName.isEmpty) userName = 'Asha Rao';
+      if (secondStepOn) return _json(200, _secondStep());
       return _json(200, {
         ..._issue(),
         'user': {'id': 'u1', 'name': userName, 'isNew': businesses.isEmpty},
@@ -160,9 +195,26 @@ class FakeCloud {
     }
     if (path == '/v1/auth/verify') {
       if (body['code'] != code) return _json(400, {'ok': false, 'error': 'INVALID_CODE', 'attemptsRemaining': 4});
+      if (secondStepOn) return _json(200, _secondStep());
       return _json(200, {
         ..._issue(),
         'user': {'id': 'u1', 'name': userName, 'isNew': businesses.isEmpty},
+        'consent': {'document': 'privacy', 'version': 'v-test', 'accepted': noticeAccepted},
+      });
+    }
+    if (path == '/v1/auth/second-step') {
+      secondSteps.add('${body['code']}');
+      secondStepBodies.add(body);
+      if (secondStepError.isNotEmpty) return _json(secondStepError == 'TOO_MANY_ATTEMPTS' ? 429 : 400, {'ok': false, 'error': secondStepError});
+      if (body['challengeId'] != secondStepChallenge) return _json(400, {'ok': false, 'error': 'INVALID_CODE'});
+      if (!_codeOk(body['code'])) return _json(400, {'ok': false, 'error': 'INVALID_CODE', 'attemptsRemaining': 4});
+      final usedRecoveryCode = '${body['code']}' != totpCode;
+      if (usedRecoveryCode) recoveryLeft -= 1;
+      return _json(200, {
+        ..._issue(),
+        'user': {'id': 'u1', 'name': userName, 'isNew': false},
+        'usedRecoveryCode': usedRecoveryCode,
+        'recoveryCodesLeft': recoveryLeft,
         'consent': {'document': 'privacy', 'version': 'v-test', 'accepted': noticeAccepted},
       });
     }
@@ -212,6 +264,63 @@ class FakeCloud {
     if (path == '/v1/me' && request.method == 'PATCH') {
       userName = '${body['name']}'.trim();
       return _json(200, {'ok': true, 'name': userName});
+    }
+    if (path == '/v1/me/second-step' && request.method == 'GET') {
+      return _json(200, {'ok': true, 'enabled': twoStepEnabled, 'enabledAt': twoStepEnabled ? '2026-10-01T09:00:00.000Z' : null, 'recoveryCodesLeft': twoStepEnabled ? recoveryLeft : 0});
+    }
+    if (path == '/v1/me/second-step/begin' && request.method == 'POST') {
+      if (twoStepEnabled) return _json(409, {'ok': false, 'error': 'ALREADY_ENABLED'});
+      enrolling = true;
+      enrolAttempts = 0;
+      return _json(200, {'ok': true, 'secret': totpSecret, 'uri': totpUri, 'account': '+919876543210'});
+    }
+    if (path == '/v1/me/second-step/confirm' && request.method == 'POST') {
+      if (!enrolling || twoStepEnabled) return _json(400, {'ok': false, 'error': 'NOT_ENROLLING'});
+      enrolAttempts += 1;
+      if (body['code'] != totpCode) {
+        if (enrolAttempts < 5) return _json(400, {'ok': false, 'error': 'INVALID_CODE'});
+        enrolling = false;
+        return _json(400, {'ok': false, 'error': 'ENROLMENT_RESTART'});
+      }
+      enrolling = false;
+      twoStepEnabled = true;
+      recoveryLeft = freshRecoveryCodes.length;
+      return _json(200, {'ok': true, 'recoveryCodes': freshRecoveryCodes});
+    }
+    if (path == '/v1/me/second-step/disable' && request.method == 'POST') {
+      if (!twoStepEnabled) return _json(400, {'ok': false, 'error': 'NOT_ENABLED'});
+      if (!_codeOk(body['code'])) return _json(400, {'ok': false, 'error': 'INVALID_CODE'});
+      twoStepEnabled = false;
+      recoveryLeft = 0;
+      return _json(200, {'ok': true});
+    }
+    if (path == '/v1/me/second-step/recovery-codes' && request.method == 'POST') {
+      if (!twoStepEnabled) return _json(400, {'ok': false, 'error': 'NOT_ENABLED'});
+      if (!_codeOk(body['code'])) return _json(400, {'ok': false, 'error': 'INVALID_CODE'});
+      recoveryLeft = freshRecoveryCodes.length;
+      return _json(200, {'ok': true, 'recoveryCodes': freshRecoveryCodes});
+    }
+    if (path == '/v1/me/devices' && request.method == 'GET') {
+      return _json(200, {'ok': true, 'devices': devices});
+    }
+    if (path == '/v1/me/devices/sign-out-others' && request.method == 'POST') {
+      signedOutOthers += 1;
+      final others = devices.where((d) => d['current'] != true).toList();
+      for (final device in others) {
+        revoked.add('${device['id']}');
+      }
+      devices.removeWhere((d) => d['current'] != true);
+      return _json(200, {'ok': true, 'revoked': others.length});
+    }
+    final signOut = RegExp(r'^/v1/me/devices/([^/]+)/sign-out$').firstMatch(path);
+    if (signOut != null && request.method == 'POST') {
+      final id = signOut.group(1);
+      final found = devices.where((d) => d['id'] == id).toList();
+      if (found.isEmpty) return _json(404, {'ok': false, 'error': 'DEVICE_NOT_FOUND'});
+      if (found.single['current'] == true) return _json(409, {'ok': false, 'error': 'CURRENT_DEVICE'});
+      devices.remove(found.single);
+      revoked.add('$id');
+      return _json(200, {'ok': true});
     }
     final answer = RegExp(r'^/v1/invitations/([^/]+)/(accept|decline)$').firstMatch(path);
     if (answer != null) {
