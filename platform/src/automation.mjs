@@ -11,7 +11,7 @@ import { dailyClose } from './daily-close.mjs';
 import { registrationsOf } from './registrations.mjs';
 import { filingFor } from './filings.mjs';
 import { runRecurring } from './recurring.mjs';
-import { runBankRules } from './bank-rules.mjs';
+import { runBankRules, ruleWarningWords } from './bank-rules.mjs';
 
 const LOOK_AHEAD_DAYS = 14;
 const LOG_LIMIT = 60;
@@ -99,6 +99,7 @@ function warningsOf(run) {
   if (run.rules.integrity > 0) warnings.push(`${run.rules.integrity} statutory rule records fail their integrity check.`);
   for (const row of run.recurring?.failed || []) warnings.push(`Repeating entry ${row.id} for ${row.date} was not made (${row.error}). Fix it or stop it.`);
   for (const row of run.bankRules?.failed || []) warnings.push(`Statement line ${row.lineId} was not booked by bank rule ${row.ruleId} (${row.error}). Match it by hand.`);
+  for (const row of run.bankRules?.made || []) if (row.warning) warnings.push(ruleWarningWords(row));
   for (const family of run.rules.attention) {
     if (family.gaps.length) warnings.push(`No rule in force today for ${family.title}: ${family.gaps.join(', ')}.`);
     if (family.ending.length) warnings.push(`${family.title}: ${family.ending.map((item) => `${item.id} ends ${item.effectiveTo}`).join(', ')} with no successor recorded.`);

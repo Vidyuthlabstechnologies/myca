@@ -12,7 +12,7 @@ import { postExpense } from '../src/expenses.mjs';
 import { listAccounts } from '../src/ledger.mjs';
 import { runDailyAutomation } from '../src/automation.mjs';
 import { safePatternProblem, MAX_PATTERN, rulePatternProblem, ruleMatches, planMatch, applyMatch, findBankLine, bookMovements, matchWords, ruleFromMatch, chargesWords } from '../src/bank-recon.mjs';
-import { runRulesWords, rulesWords } from '../src/bank-rules.mjs';
+import { runRulesWords, rulesWords, addRuleWords, ruleWarningWords } from '../src/bank-rules.mjs';
 
 function statement(rows) {
   let balance = 0;
@@ -184,6 +184,25 @@ test('when the ledger refuses the move after the document posted, the line is bo
   assert.equal(chargeApplied.ok, true);
   assert.match(chargeApplied.warning, /^booked, but could not be moved to Petty cash \(1003\)/);
   assert.match(chargesWords({ booked: [{ lineId: 'BL-000002', kind: 'charge', id: 'EXP-0001', amount: 25, warning: chargeApplied.warning }], skipped: [], total: { charges: 25, interest: 0 } }), /BL-000002 booked, but could not be moved to Petty cash \(1003\)/);
+});
+
+test('a rule run and the daily run say when a line was booked but could not be moved to its account', async () => {
+  const state = await pettyCashBook(5000);
+  const line = findBankLine(state, 'BL-000001');
+  const planned = planMatch(state, line, { kind: 'expense', head: '5100' });
+  assert.equal(planned.ok, true, JSON.stringify(planned));
+  await runTool(state, 'record_transfer', { fromAccount: 'Petty cash', toAccount: 'Bank', amount: 3000, date: '2026-09-02' });
+  const applied = applyMatch(state, line, planned.plan);
+  assert.equal(applied.ok, true, JSON.stringify(applied));
+  const saved = await runTool(state, 'add_bank_rule', { side: 'out', contains: 'TEA', then: { kind: 'expense', head: '5100' }, applyNow: false });
+  assert.equal(saved.ok, true, JSON.stringify(saved));
+  const row = { lineId: line.id, ruleId: saved.rule.id, kind: 'expense', ids: [line.match.id], warning: applied.warning };
+  const run = { ok: true, made: [row], failed: [], left: 0, dryRun: false, warnings: [] };
+  assert.equal(runRulesWords(run), `1 open line booked by your rules, 0 still open. BL-000001 ${applied.warning}`);
+  assert.equal(runRulesWords({ ...run, made: [{ ...row, warning: undefined }] }), '1 open line booked by your rules, 0 still open.');
+  assert.match(addRuleWords({ rule: saved.rule, applied: { made: [row], failed: [], left: 0 } }, (n) => `₹${n}`), /1 open line booked now\. BL-000001 booked, but could not be moved to Petty cash \(1003\)/);
+  assert.equal(ruleWarningWords(row), `Statement line BL-000001 (bank rule ${saved.rule.id}) was ${applied.warning}`);
+  assert.match(ruleWarningWords(row), /^Statement line BL-000001 \(bank rule BR-\d{4}\) was booked, but could not be moved to Petty cash \(1003\): the account would go below zero \(exceeds_debits\)\./);
 });
 
 test('two same-day receipts against one invoice are two movements, a GST expense stays one movement, and a relocated receipt nets out of the bank view', async () => {

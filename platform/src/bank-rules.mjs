@@ -127,7 +127,16 @@ export function addRuleWords(result, money) {
   if (applied.made.length) parts.push(`${applied.made.length} open ${applied.made.length === 1 ? 'line' : 'lines'} booked now.`);
   if (applied.failed.length) parts.push(`${applied.failed.length} could not be: ${failureWords(applied.failed)}.`);
   if (!applied.made.length && !applied.failed.length) parts.push('No open line matches it yet; it will apply to the next import.');
+  parts.push(...warnedRowWords(applied.made));
   return parts.join(' ');
+}
+
+function warnedRowWords(made = []) {
+  return made.filter((row) => row.warning).map((row) => `${row.lineId} ${row.warning}`);
+}
+
+export function ruleWarningWords(row) {
+  return `Statement line ${row.lineId} (bank rule ${row.ruleId}) was ${row.warning}`;
 }
 
 export function rulesWords(data, money) {
@@ -142,8 +151,8 @@ export function runRulesWords(data) {
   const made = data.made.length;
   const head = data.dryRun ? `${made} open ${made === 1 ? 'line' : 'lines'} would be booked by your rules` : `${made} open ${made === 1 ? 'line' : 'lines'} booked by your rules`;
   const failed = data.failed.length ? `, ${data.failed.length} could not be (${failureWords(data.failed)})` : '';
-  const warnings = data.warnings?.length ? ` ${data.warnings.join(' ')}` : '';
-  return `${head}${failed}, ${data.left} still open.${warnings}`;
+  const warnings = [...warnedRowWords(data.made), ...(data.warnings || [])];
+  return `${head}${failed}, ${data.left} still open.${warnings.length ? ` ${warnings.join(' ')}` : ''}`;
 }
 
 export function removeRuleWords(result) {
