@@ -2508,6 +2508,104 @@ List<SavedReport> savedReportsFrom(Object? json) {
   return _maps(map['reports']).map(SavedReport.fromJson).toList();
 }
 
+class AuditEvent {
+  const AuditEvent({
+    required this.eventId,
+    required this.at,
+    required this.actor,
+    required this.action,
+    required this.kind,
+    required this.summary,
+    required this.ids,
+    required this.transfers,
+    required this.chained,
+  });
+
+  factory AuditEvent.fromJson(Object? json) {
+    final map = _map(json);
+    final name = _text(map['actorName']);
+    return AuditEvent(
+      eventId: _text(map['eventId']),
+      at: DateTime.tryParse(_text(map['at'])),
+      actor: name.isNotEmpty ? name : _text(map['actorId']),
+      action: _text(map['action']),
+      kind: _text(map['kind']),
+      summary: _text(map['summary']),
+      ids: _texts(map['ids']),
+      transfers: _texts(map['transfers']),
+      chained: map['chained'] == true,
+    );
+  }
+
+  final String eventId;
+  final DateTime? at;
+  final String actor;
+  final String action;
+  final String kind;
+  final String summary;
+  final List<String> ids;
+  final List<String> transfers;
+  final bool chained;
+
+  String get when {
+    final utc = at?.toUtc();
+    if (utc == null) return '';
+    String two(int n) => n.toString().padLeft(2, '0');
+    return '${isoDate(utc)} ${two(utc.hour)}:${two(utc.minute)} UTC';
+  }
+
+  String get subtitle => [when, actor, if (ids.isNotEmpty) ids.join(', ')].where((part) => part.isNotEmpty).join(' · ');
+}
+
+class AuditTrail {
+  const AuditTrail({
+    required this.from,
+    required this.to,
+    required this.label,
+    required this.view,
+    required this.events,
+    required this.count,
+    required this.total,
+    required this.more,
+    required this.chainOk,
+    required this.chainWords,
+    required this.ledgerOk,
+  });
+
+  static AuditTrail? fromTool(Object? json) {
+    final data = toolData(json);
+    if (data.isEmpty) return null;
+    final chain = _map(data['chain']);
+    final chainOk = chain['ok'] == true;
+    final chained = _num(chain['chained']).toInt();
+    return AuditTrail(
+      from: _text(data['from']),
+      to: _text(data['to']),
+      label: _text(data['label']),
+      view: _text(data['view']),
+      events: _maps(data['events']).map(AuditEvent.fromJson).toList(),
+      count: _num(data['count']).toInt(),
+      total: _num(data['total']).toInt(),
+      more: data['more'] == true,
+      chainOk: chainOk,
+      chainWords: chainOk ? 'Log chain verified ($chained ${chained == 1 ? 'event' : 'events'})' : 'Log chain broken at ${_text(chain['at'])}',
+      ledgerOk: _map(data['ledger'])['ok'] != false,
+    );
+  }
+
+  final String from;
+  final String to;
+  final String label;
+  final String view;
+  final List<AuditEvent> events;
+  final int count;
+  final int total;
+  final bool more;
+  final bool chainOk;
+  final String chainWords;
+  final bool ledgerOk;
+}
+
 class ReportRow {
   const ReportRow({required this.label, required this.amount, this.before});
 

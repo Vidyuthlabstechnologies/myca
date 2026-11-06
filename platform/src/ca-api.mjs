@@ -164,19 +164,28 @@ export function setActiveClient(state, clientId) {
   return { ok: true, activeClientId: id };
 }
 
+export function auditEventHash(record) {
+  const metadata = JSON.stringify(record.metadata, (_key, item) => (typeof item === 'bigint' ? item.toString() : item));
+  return createHash('sha256').update([record.eventId, record.actorId, record.action, record.at, record.beforeHash, record.afterHash, metadata, record.prevHash].join('\n')).digest('hex');
+}
+
 export function appendAuditEvent(state, event) {
   ensureCaApiState(state);
   const beforeHash = event.beforeHash || stateDigest(state);
+  const previous = state.auditEvents[state.auditEvents.length - 1];
   const record = {
     eventId: event.eventId || `AUD-${String(++state.auditSeq).padStart(6, '0')}`,
     actorId: event.actorId || 'system',
+    actorName: String(event.actorName || ''),
     clientId: event.clientId || 'SELF',
     action: event.action || 'api_event',
     at: event.at || new Date().toISOString(),
     beforeHash,
     afterHash: event.afterHash || beforeHash,
     metadata: event.metadata || {},
+    prevHash: previous && previous.hash ? previous.hash : '',
   };
+  record.hash = auditEventHash(record);
   state.auditEvents.push(record);
   return record;
 }

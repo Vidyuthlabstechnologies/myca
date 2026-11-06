@@ -10,6 +10,7 @@ import { OSS_CATALOG } from './oss-catalog.mjs';
 import { publicGovtConfig } from './govt.mjs';
 import { integrationReadiness } from './integration-contract.mjs';
 import { appendAuditEvent, handleCaApi, stateDigest, listClients, listDocuments } from './ca-api.mjs';
+import { auditDetails } from './audit-trail.mjs';
 import { providerCatalog, providerRequirementMap } from './provider-catalog.mjs';
 import { getBook } from './books.mjs';
 import { approvalStatus } from './approvals.mjs';
@@ -80,6 +81,10 @@ function toolState(state, actor = null) {
   return bookView(state, id === 'SELF' ? state : getBook(state, id), { actor });
 }
 
+function clockOf(view) {
+  return String(view.ledger && view.ledger.clock != null ? view.ledger.clock : 0);
+}
+
 function trustedActor(options) {
   const actor = options && options.actor;
   if (!actor || typeof actor !== 'object' || !actor.userId) return null;
@@ -142,6 +147,7 @@ export function openSession(target = defaultDataPath(), { seed = false } = {}) {
         sessionExpiresAt = Date.now() + 30 * 60 * 1000;
         appendAuditEvent(state, {
           actorId: activeUser.userId,
+          actorName: activeUser.name || '',
           clientId: String(state.activeClientId || 'SELF'),
           action: 'session.login',
           beforeHash: stateDigest(state),
@@ -155,11 +161,13 @@ export function openSession(target = defaultDataPath(), { seed = false } = {}) {
     signOut() {
       return exclusive(async () => {
         const prev = activeUser?.userId || 'none';
+        const prevName = activeUser?.name || '';
         activeUser = null;
         activeOnDefaultPin = false;
         sessionExpiresAt = 0;
         appendAuditEvent(state, {
           actorId: prev,
+          actorName: prevName,
           clientId: String(state.activeClientId || 'SELF'),
           action: 'session.logout',
           beforeHash: stateDigest(state),
@@ -183,6 +191,7 @@ export function openSession(target = defaultDataPath(), { seed = false } = {}) {
           if (out.ok) {
             appendAuditEvent(state, {
               actorId: user.userId,
+              actorName: user.name || '',
               clientId: String(state.activeClientId || 'SELF'),
               action: 'session.pin_changed',
               beforeHash,
@@ -204,6 +213,7 @@ export function openSession(target = defaultDataPath(), { seed = false } = {}) {
         const out = await chat(view, message);
         appendAuditEvent(state, {
           actorId: actor?.userId || 'renderer',
+          actorName: actor?.name || '',
           clientId: String(state.activeClientId || 'SELF'),
           action: 'chat.run',
           beforeHash,
@@ -228,6 +238,7 @@ export function openSession(target = defaultDataPath(), { seed = false } = {}) {
         const out = propose(toolState(state, actorOf(options)), name, args);
         appendAuditEvent(state, {
           actorId: actor?.userId || 'renderer',
+          actorName: actor?.name || '',
           clientId: String(state.activeClientId || 'SELF'),
           action: 'chat.propose',
           beforeHash,
@@ -247,9 +258,12 @@ export function openSession(target = defaultDataPath(), { seed = false } = {}) {
       return exclusive(async () => {
         const actor = actorOf(options);
         const beforeHash = stateDigest(state);
-        const out = await confirmPending(toolState(state, actorOf(options)), token);
+        const view = toolState(state, actorOf(options));
+        const clockBefore = clockOf(view);
+        const out = await confirmPending(view, token);
         appendAuditEvent(state, {
           actorId: actor?.userId || 'renderer',
+          actorName: actor?.name || '',
           clientId: String(state.activeClientId || 'SELF'),
           action: 'chat.confirm',
           beforeHash,
@@ -259,6 +273,8 @@ export function openSession(target = defaultDataPath(), { seed = false } = {}) {
             posted: out.posted === true,
             replayed: out.replayed === true,
             error: out.error || '',
+            ledgerClock: { before: clockBefore, after: clockOf(view) },
+            details: (out.tools || []).map((tool) => auditDetails(tool.name, tool.result)),
           },
         });
         saveBooks();
@@ -272,6 +288,7 @@ export function openSession(target = defaultDataPath(), { seed = false } = {}) {
         const out = discardPending(toolState(state, actorOf(options)));
         appendAuditEvent(state, {
           actorId: actor?.userId || 'renderer',
+          actorName: actor?.name || '',
           clientId: String(state.activeClientId || 'SELF'),
           action: 'chat.discard',
           beforeHash,
@@ -296,9 +313,11 @@ export function openSession(target = defaultDataPath(), { seed = false } = {}) {
         if (SIGNED_IN_TOOLS.has(name) && !trustedActor(options) && activeOnDefaultPin) return { ok: false, error: 'PIN_CHANGE_REQUIRED', hint: PIN_CHANGE_HINT };
         const beforeHash = stateDigest(state);
         const view = toolState(state, actorOf(options));
+        const clockBefore = clockOf(view);
         const out = await runTool(view, name, args);
         appendAuditEvent(state, {
           actorId: actor?.userId || 'renderer',
+          actorName: actor?.name || '',
           clientId: String(state.activeClientId || 'SELF'),
           action: `tool.${name}`,
           beforeHash,
@@ -306,6 +325,8 @@ export function openSession(target = defaultDataPath(), { seed = false } = {}) {
           metadata: {
             ok: out.ok !== false,
             args: Object.keys(args || {}),
+            ledgerClock: { before: clockBefore, after: clockOf(view) },
+            details: auditDetails(name, out),
           },
         });
         saveBooks();
@@ -438,6 +459,7 @@ export function openSession(target = defaultDataPath(), { seed = false } = {}) {
         const stored = stores.documents.put(text);
         appendAuditEvent(state, {
           actorId: actor?.userId || 'renderer',
+          actorName: actor?.name || '',
           clientId: String(state.activeClientId || 'SELF'),
           action: 'file.upload',
           beforeHash,
@@ -466,6 +488,7 @@ export function openSession(target = defaultDataPath(), { seed = false } = {}) {
         book.pendingFile = { kind, name, sha256: stored.sha256 };
         appendAuditEvent(state, {
           actorId: actor?.userId || 'renderer',
+          actorName: actor?.name || '',
           clientId,
           action: 'file.attach',
           beforeHash,

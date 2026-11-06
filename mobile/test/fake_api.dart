@@ -321,6 +321,39 @@ class FakeMycaApi implements MycaApi {
     {'name': 'Sales by customer', 'metric': 'sales', 'groupBy': 'customer', 'period': 'this-month', 'compare': true, 'savedOn': '2026-10-01'},
     {'name': 'Expenses this quarter', 'metric': 'expenses', 'groupBy': 'head', 'period': 'this-quarter', 'compare': false, 'savedOn': '2026-10-02'},
   ];
+  final auditEvents = <Map<String, Object?>>[
+    {
+      'eventId': 'AUD-000001',
+      'at': '2026-10-05T10:30:00.000Z',
+      'actorId': 'USR-OWNER',
+      'actorName': 'Asha',
+      'action': 'chat.confirm',
+      'kind': 'change',
+      'summary': 'Posted Create invoice (INV-0001)',
+      'ids': ['INV-0001'],
+      'transfers': ['1'],
+      'beforeHash': 'a1',
+      'afterHash': 'b2',
+      'chained': true,
+    },
+    {
+      'eventId': 'AUD-000002',
+      'at': '2026-10-05T11:15:00.000Z',
+      'actorId': 'USR-OWNER',
+      'actorName': 'Asha',
+      'action': 'tool.lock_period',
+      'kind': 'change',
+      'summary': 'Locked the books through 2026-09-30: September closed',
+      'ids': <String>[],
+      'transfers': <String>[],
+      'beforeHash': 'b2',
+      'afterHash': 'c3',
+      'chained': true,
+    },
+  ];
+  Map<String, Object?> auditChain = {'ok': true, 'chained': 2, 'unchained': 0};
+  bool auditLedgerOk = true;
+  bool auditMore = false;
   final amendments = <Map<String, Object?>>[];
   bool yearClosed = false;
   bool quarterlyGst = false;
@@ -1619,6 +1652,24 @@ class FakeMycaApi implements MycaApi {
         };
       case 'list_reports':
         return {'ok': true, 'reports': savedReports};
+      case 'audit_trail':
+        final cut = auditMore && args['limit'] == null;
+        return {
+          'ok': true,
+          'data': {
+            'from': '2026-10-01',
+            'to': '2026-10-31',
+            'label': 'October 2026',
+            'view': args['view'] ?? 'changes',
+            'events': auditEvents,
+            'count': auditEvents.length,
+            'total': cut ? auditEvents.length + 3 : auditEvents.length,
+            'more': cut,
+            'chain': auditChain,
+            'ledger': auditLedgerOk ? {'ok': true, 'last': 1234} : {'ok': false, 'error': 'checksum_mismatch', 'at': '7'},
+            'note': 'Every change made through MyCA is listed with who made it and when.',
+          },
+        };
       case 'list_recurring':
         return {'ok': true, 'data': {'schedules': recurring}};
       case 'run_report':

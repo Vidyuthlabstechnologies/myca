@@ -47,6 +47,7 @@ import { reviewOf, answerReview } from './gst-review.mjs';
 import { exportEntries } from './entries-export.mjs';
 import { exportTallyXml } from './tally-export.mjs';
 import { reportSheet } from './report-sheets.mjs';
+import { auditTrail } from './audit-trail.mjs';
 import { import2b, creditAtRisk } from './gstr2b-check.mjs';
 import { booksCheck } from './books-check.mjs';
 import { deadlineRun, filingRows } from './deadline-run.mjs';
@@ -1351,9 +1352,16 @@ export const TOOLS = [
   {
     name: 'export_xlsx',
     title: 'Excel file of a report',
-    description: 'One Excel workbook (.xlsx) of a report: the trial balance, entries, day book, sales, purchases, expenses, credit or debit notes, customer or supplier dues, cash forecast, credit at risk, TDS, margins, stock, a saved report by name, the business or GST summary, or the bank reconciliation, for a month, a period (this-month, last-month, this-quarter, this-year, last-year) or from and to dates. Money is numbers, so it adds up in Excel; a saved report is complete, not cut at 20 rows. Read-only.',
+    description: 'One Excel workbook (.xlsx) of a report: the trial balance, entries, day book, sales, purchases, expenses, credit or debit notes, customer or supplier dues, cash forecast, credit at risk, TDS, margins, stock, a saved report by name, the business or GST summary, the bank reconciliation, or the audit trail, for a month, a period (this-month, last-month, this-quarter, this-year, last-year) or from and to dates. Money is numbers, so it adds up in Excel; a saved report is complete, not cut at 20 rows. Read-only.',
     args: ['report', 'period', 'from', 'to', 'name', 'account'],
     run: (state, args = {}) => reportSheet(state, args.report, args),
+  },
+  {
+    name: 'audit_trail',
+    title: 'Audit trail',
+    description: 'Who changed what and when: every change made through MyCA in a month, a period or between two dates, with the record ids, the money entries it posted, and a hash chain that shows if the log was edited or an event removed. Changes by default; view all adds reads, proposals and sign-ins. Read-only.',
+    args: ['period', 'from', 'to', 'view', 'actor', 'limit'],
+    run: (state, args = {}) => auditTrail(state, args),
   },
   {
     name: 'gst_review',

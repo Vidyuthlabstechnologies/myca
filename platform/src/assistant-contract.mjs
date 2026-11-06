@@ -1612,6 +1612,18 @@ export const TOOL_ARG_SCHEMAS = {
       account: { type: 'string', maxLength: 24 },
     },
   },
+  audit_trail: {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      period: { type: 'string', pattern: '^(?:[0-9]{4}-(0[1-9]|1[0-2])|this-month|last-month|this-quarter|this-year|last-year)$' },
+      from: { type: 'string', minLength: 10, maxLength: 10, pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' },
+      to: { type: 'string', minLength: 10, maxLength: 10, pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' },
+      view: { type: 'string', enum: ['changes', 'all'] },
+      actor: { type: 'string', maxLength: 80 },
+      limit: { type: 'integer', minimum: 1, maximum: 2000 },
+    },
+  },
   gst_review: {
     type: 'object',
     additionalProperties: false,
@@ -2172,6 +2184,7 @@ const TOOL_RISK = {
   track_gst_returns: 'read_or_prepare',
   search_gstin: 'read_or_prepare',
   export_xlsx: 'read_only',
+  audit_trail: 'read_only',
 };
 
 export function assistantTools(tools) {
@@ -2315,6 +2328,7 @@ const POSTING_VERBS = /\b(?:sold|sell|selling|invoice|invoiced|billed|bought|buy
 const SAVED_REPORT_TO_EXCEL = /\breport\s+(?:called\s+|named\s+)?["“]?([^"”]+?)["”]?\s+(?:to|as|in|into)\s+(?:an?\s+|the\s+)?(?:excel|xlsx|spreadsheet)\b/i;
 const EXCEL_PERIOD_WORDS = /\b(this\s+month|last\s+month|this\s+quarter|this\s+year|last\s+year)\b/i;
 const EXCEL_REPORTS = [
+  { key: 'audit_trail', words: /\baudit\s*trail\b|\bedit\s*log\b|\baudit\s*log\b|\bchange\s*log\b|\bwho\s+changed\b/i },
   { key: 'trial_balance', words: /\btrial\s*balance\b/i },
   { key: 'bank_reconciliation', words: /\bbank\b|^(?![\s\S]*\b(?:gst\w*|2b|tds|26as|itc)\b)[\s\S]*\breconcil/i },
   { key: 'day_book', words: /\bday\s*book\b|\bjournal\b|\bledger\b/i },
@@ -2379,6 +2393,16 @@ function planExcelFromChat(state, text) {
   const named = EXCEL_PERIOD_WORDS.exec(text);
   const period = named ? named[1].toLowerCase().replace(/\s+/g, '-') : saidPeriod(text);
   return { kind: 'tool', name: 'export_xlsx', args: { report, ...(period ? { period } : {}) } };
+}
+
+const AUDIT_TRAIL_ASKED = /\baudit\s*trail\b|\bedit\s*log\b|\baudit\s*log\b|\bchange\s*log\b|\bwho\s+changed\b|\bwhat\s+changed\s+in\s+(?:the\s+)?books\b/i;
+const AUDIT_TRAIL_EVERYTHING = /\b(?:everything|all events|including reads)\b/i;
+
+function planAuditTrailFromChat(text) {
+  if (!AUDIT_TRAIL_ASKED.test(text) || isNegated(text)) return null;
+  const named = EXCEL_PERIOD_WORDS.exec(text);
+  const period = named ? named[1].toLowerCase().replace(/\s+/g, '-') : saidPeriod(text);
+  return { kind: 'tool', name: 'audit_trail', args: { ...(period ? { period } : {}), ...(AUDIT_TRAIL_EVERYTHING.test(text) ? { view: 'all' } : {}) } };
 }
 
 function challanReasonSaid(text) {
@@ -2463,6 +2487,8 @@ export function planLocalToolCall(state, message) {
   }
   const bankPlan = planBankFromChat(state, text);
   if (bankPlan) return bankPlan;
+  const auditPlan = planAuditTrailFromChat(text);
+  if (auditPlan) return auditPlan;
   const salesKind = salesDocumentKindSaid(text);
   if (salesKind && !quoteRef && !isQuestion(text) && !isNegated(text)) {
     const validity = text.match(/\s*,?\s*\bvalid\s+(?:for\s+)?(\d{1,3})\s*days?\b/i);

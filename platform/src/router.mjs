@@ -51,6 +51,7 @@ import { restockWords } from './restock.mjs';
 import { advanceTaxWords } from './advance-tax.mjs';
 import { supplierPayoutWords } from './supplier-bank.mjs';
 import { reportWords } from './reports.mjs';
+import { auditTrailWords } from './audit-trail.mjs';
 import { tallyPushWords } from './tally-push.mjs';
 import { throughLanguage } from './chat-language.mjs';
 import { tagExpense } from './expenses.mjs';
@@ -144,6 +145,8 @@ const FAILURES = {
   BAD_PERIOD: (r) => `The period is ${r.hint}, or a month like 2026-09.`,
   MONTH_REQUIRED: () => 'That report covers one month at a time; say which month, for example 2026-10.',
   UNKNOWN_REPORT: (r) => `That is not a report I can put in Excel. Choose one of ${(r.known || []).join(', ')}.`,
+  HASH_MISMATCH: () => 'An entry in the audit log was changed after it was written, so the log cannot be trusted from there.',
+  LINK_BROKEN: () => 'An entry in the audit log is missing or out of order, so the log cannot be trusted from there.',
   ENTRY_NOT_FOUND: (r) => `There is no entry ${r.id || 'by that id'}.`,
   DOCUMENT_NOT_FOUND: () => 'That document is not in these books; upload it first.',
   BANK_DETAILS_REQUIRED: () => 'Give an account number with its IFSC, or a UPI id.',
@@ -580,6 +583,7 @@ function fmtToolResultCore(name, result) {
   if (name === 'contractor_1099_file' && result.data) return file1099Words(result.data, money);
   if (name === 'export_trial_balance' && result.data) return `Trial balance as of ${result.data.asOf}: ${result.data.accounts === 1 ? '1 account' : `${result.data.accounts} accounts`}, debits ${money(result.data.debit)}, credits ${money(result.data.credit)}${result.data.balanced ? ', ties' : ', does not tie'}. Saved as ${result.data.fileName} from the Taxes screen.`;
   if (name === 'export_xlsx' && result.data) return `Saved ${result.data.fileName} with ${result.data.rows === 1 ? '1 row' : `${result.data.rows} rows`}${result.data.sheets.length > 1 ? ` on ${result.data.sheets.length} sheets` : ''}. Open it in Excel or send it to your CA.`;
+  if (name === 'audit_trail' && result.data) return auditTrailWords(result.data);
   if (name === 'import_us_invoices' && result.data?.created) return usImportWords(result.data, money);
   if ((name === 'schedule_c_summary' || name === 'estimated_tax_dates') && result.data) return ownerTaxWords(name, result.data, money);
   if (name === 'set_suta_rate' && result.rate) {

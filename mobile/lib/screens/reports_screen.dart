@@ -9,6 +9,7 @@ import '../marks.dart';
 import '../proposal_flow.dart';
 import '../theme.dart';
 import '../widgets.dart';
+import 'audit_trail_screen.dart';
 
 class ReportsScreen extends StatefulWidget {
   const ReportsScreen({super.key});
@@ -161,9 +162,24 @@ class _ReportsScreenState extends State<ReportsScreen> with ProposalFlow {
                 child: ListView(
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
                   children: [
+                    const SectionLabel('Built-in'),
+                    Panel(
+                      children: [
+                        RowCard(
+                          key: const ValueKey('reports.audit'),
+                          leading: const TintTile(tint: Tint.taxes, mark: Mark.paper),
+                          title: 'Audit trail',
+                          subtitle: 'Who changed what and when, with proof the log was not edited',
+                          trailing: const Chevron(),
+                          onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const AuditTrailScreen())),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
                     if (reports.isEmpty)
                       const EmptyNote(text: 'No saved reports yet. Tap + to save one: sales by customer this month, expenses by head this quarter, and so on.')
-                    else
+                    else ...[
+                      const SectionLabel('Your reports'),
                       Panel(
                         children: [
                           for (final report in reports) ...[
@@ -202,6 +218,7 @@ class _ReportsScreenState extends State<ReportsScreen> with ProposalFlow {
                           ],
                         ],
                       ),
+                    ],
                     const SizedBox(height: 12),
                     for (final entry in entries) entry.toBubble(),
                   ],

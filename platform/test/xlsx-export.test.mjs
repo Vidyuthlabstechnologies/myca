@@ -413,6 +413,8 @@ test('export_xlsx is a remote read for both countries with a strict schema, and 
     'excel of supplier dues': { report: 'supplier_dues' },
     'export report Top customers to excel': { report: 'saved_report', name: 'Top customers' },
     'bank reconciliation in excel': { report: 'bank_reconciliation' },
+    'audit trail in excel': { report: 'audit_trail' },
+    'export the edit log to excel for last month': { report: 'audit_trail', period: 'last-month' },
     'make me an excel please': { report: 'trial_balance' },
   };
   for (const [sentence, args] of Object.entries(plans)) {

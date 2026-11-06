@@ -83,6 +83,7 @@ export const REMOTE_QUERY_TOOLS = new Set([
   'period_status',
   'validate_gstin',
   'bank_reconciliation', 'list_bank_rules', 'list_bank_accounts',
+  'audit_trail',
 ]);
 
 export const COMPANY_PROFILE_FIELDS = ['name', 'gstin', 'pan', 'state', 'address', 'city', 'pin', 'entityType', 'invoiceNumbering', 'invoiceTemplate'];

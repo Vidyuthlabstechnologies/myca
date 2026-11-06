@@ -54,6 +54,11 @@ final Map<String, Walk> screens = {
   'sales register': (t) async {
     await tapRow(t, 'Sales');
   },
+  'audit trail': (t) async {
+    await tapRow(t, 'Reports');
+    await t.tap(find.text('Audit trail'));
+    await t.pumpAndSettle();
+  },
   'taxes': (t) async {
     await t.tap(find.text('3 things need you'));
     await t.pumpAndSettle();
