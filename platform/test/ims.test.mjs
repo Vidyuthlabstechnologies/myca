@@ -216,7 +216,7 @@ test('rows are picked by key or by a word: matched, suggested, undecided, all; k
   assert.deepEqual(pick({ select: 'matched' }).rows.map((row) => row.key), [KEYS.dye, KEYS.fabric]);
   assert.deepEqual(pick({ select: 'suggested' }).rows.map((row) => row.key), [KEYS.dye, KEYS.fabric], 'suggested means the suggestion is the decision being made');
   assert.deepEqual(planImsDecision(state, { period: PERIOD, decision: 'pending', select: 'suggested' }).rows.map((row) => row.key), [KEYS.note, KEYS.pack, KEYS.thread]);
-  assert.equal(planImsDecision(state, { period: PERIOD, decision: 'reject', select: 'suggested' }).error, 'NO_ROWS');
+  assert.equal(planImsDecision(state, { period: PERIOD, decision: 'reject', select: 'suggested' }).error, 'NO_MATCH');
   assert.equal(pick({ select: 'all' }).rows.length, 5);
   await runTool(state, 'ims_decide', { period: PERIOD, keys: [KEYS.thread, KEYS.pack], decision: 'pending' });
   assert.deepEqual(pick({ select: 'undecided' }).rows.map((row) => row.key), [KEYS.dye, KEYS.fabric, KEYS.note]);

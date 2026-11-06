@@ -185,14 +185,14 @@ test('marking a supplier MSME is confirmed first: the preview says what changes,
   const msme = previewOf(state, 'set_supplier_terms', { partyName: 'Fabric Co', msme: true, udyam: 'UDYAM-MH-12-1234567', category: 'small', days: 30 });
   assert.deepEqual(msme.blockers, []);
   assert.equal(msme.summary, 'Mark Fabric Co as an MSME supplier (small, Udyam UDYAM-MH-12-1234567) to be paid within 30 days');
-  assert.deepEqual(msme.effects, ['New bills from them get a pay-by date 30 days from the bill date; MyCA reminds you a week before it. Nothing is posted.']);
+  assert.deepEqual(msme.effects, ['New bills from them get a pay-by date 30 days from the bill date; MyCA reminds you a week before it. Nothing is posted.', 'Bills already booked from them are checked against the new terms too.']);
   assert.deepEqual(msme.figures, { days: 30 });
   const statutory = previewOf(state, 'set_supplier_terms', { partyName: 'Fabric Co', msme: true });
   assert.equal(statutory.summary, 'Mark Fabric Co as an MSME supplier (category not given, Udyam not given) to be paid within 15 days');
   assert.deepEqual(statutory.figures, { days: 15 });
   const plain = previewOf(state, 'set_supplier_terms', { partyName: 'Steel Co', days: 60 });
   assert.equal(plain.summary, "Set Steel Co's terms to 60 days");
-  assert.deepEqual(plain.effects, ['New bills from them get a pay-by date 60 days from the bill date. Nothing is posted.']);
+  assert.deepEqual(plain.effects, ['New bills from them get a pay-by date 60 days from the bill date. Nothing is posted.', 'Bills already booked from them are checked against the new terms too.']);
   assert.deepEqual(plain.figures, { days: 60 });
   assert.deepEqual(previewOf(state, 'set_supplier_terms', { partyName: 'Fabric Co', udyam: 'UDYAM-12' }).blockers, ['A Udyam number looks like UDYAM-XX-00-0000000.']);
   assert.deepEqual(previewOf(state, 'set_supplier_terms', { partyName: 'Fabric Co', msme: true, days: 60 }).blockers, ['An MSME supplier must be paid within 45 days, so the agreed days cannot be more than 45.']);
@@ -221,7 +221,7 @@ test('marking a supplier MSME is confirmed first: the preview says what changes,
   const unmarked = previewOf(state, 'set_supplier_terms', { partyName: 'Fabric Co', msme: false });
   assert.equal(unmarked.summary, 'Fabric Co is no longer marked MSME');
   assert.deepEqual(unmarked.figures, { days: 30 });
-  assert.deepEqual(unmarked.effects, ['New bills from them get a pay-by date 30 days from the bill date, without the MSME limit or its reminder. Nothing is posted.']);
+  assert.deepEqual(unmarked.effects, ['New bills from them get a pay-by date 30 days from the bill date, without the MSME limit or its reminder. Nothing is posted.', 'Bills already booked from them are checked against the new terms too.']);
 
   const udyam = await chat(state, "Steel Co's udyam number is UDYAM-GJ-01-0000001");
   assert.equal(udyam.awaitingConfirmation, true, JSON.stringify(udyam));

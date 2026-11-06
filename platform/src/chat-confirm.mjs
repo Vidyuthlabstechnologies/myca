@@ -24,7 +24,7 @@ import { planCreditNote, creditedAgainst, outstandingOf } from './credit-notes.m
 import { planDebitNote, planPurchaseNote } from './debit-notes.mjs';
 import { checkAnswer, reviewOf, stepText } from './gst-review.mjs';
 import { parse2bFile } from './gstr2b-check.mjs';
-import { planImsDecision, IMS_DECISION_WORDS } from './ims.mjs';
+import { planImsDecision, pinImsRows, IMS_DECISION_WORDS } from './ims.mjs';
 import { planReminder, findReminder, whenWords } from './reminders.mjs';
 import { planCashReading } from './cash-forecast.mjs';
 import { planTerms, termsLabel, invoiceTerms, dueDateOf } from './payment-terms.mjs';
@@ -1010,6 +1010,7 @@ const IMS_REASONS = {
   NO_STATEMENT: 'Add the GSTR-2B for that month first.',
   BAD_DECISION: 'Say accept, reject or pending.',
   NO_ROWS: 'Say which invoices: pick rows, or say all matched, all suggested or all not decided.',
+  NO_MATCH: (plan) => plan.hint || 'No invoice matches what you asked for, so nothing was marked.',
   ROW_NOT_FOUND: 'One of those invoices is not in the GSTR-2B for that month.',
   TOO_MANY_ROWS: 'IMS takes up to 500 invoices in one go; pick fewer, or decide in parts.',
   NOTE_TOO_LONG: 'Keep the note to 200 characters or fewer.',
@@ -1018,7 +1019,11 @@ const IMS_REASONS = {
 function imsPreview(state, args) {
   if (countryOf(state) !== 'IN') return { blockers: ['IMS is part of the GST portal, so it is for businesses in India.'], summary: '', effects: [], figures: {} };
   const plan = planImsDecision(state, args);
-  if (!plan.ok) return { blockers: [IMS_REASONS[plan.error] || plan.error], summary: '', effects: [], figures: {} };
+  if (!plan.ok) {
+    const reason = IMS_REASONS[plan.error];
+    return { blockers: [typeof reason === 'function' ? reason(plan) : reason || plan.error], summary: '', effects: [], figures: {} };
+  }
+  pinImsRows(args, plan);
   const word = IMS_DECISION_WORDS[plan.decision];
   const count = plan.rows.length;
   const one = [plan.rows[0].supplierName, plan.rows[0].invoiceNo].filter(Boolean).join(' ') || 'this invoice';
@@ -1174,20 +1179,32 @@ const SUPPLIER_TERMS_REASONS = {
   BAD_TERMS: 'Agreed days must be a whole number from 0 to 365.',
   BAD_CATEGORY: 'The category is micro, small or medium.',
   TERMS_EXCEED_MSMED: 'An MSME supplier must be paid within 45 days, so the agreed days cannot be more than 45.',
+  OWNER_ONLY: 'Only the owner can mark a supplier as an MSME.',
 };
+
+const BOOKED_BILLS_CHECKED = 'Bills already booked from them are checked against the new terms too.';
+const MEDIUM_NOT_COVERED = 'The 45-day rule covers micro and small suppliers only, so a medium supplier gets no MSME limit or reminder.';
 
 function supplierTermsPreview(state, args) {
   const planned = planSupplierTerms(state, args);
   if (!planned.ok) return { blockers: [SUPPLIER_TERMS_REASONS[planned.error] || planned.error], summary: '', effects: [], figures: {} };
   const { plan } = planned;
-  const limit = plan.msme ? msmeDays(localToday(), { agreedDays: plan.days }) : null;
+  const limit = plan.covered ? msmeDays(localToday(), { agreedDays: plan.days }) : null;
   const days = limit ? limit.days : plan.days;
   const inDays = days === 1 ? '1 day' : `${days} days`;
-  if (plan.msme) {
+  if (plan.covered) {
     return {
       blockers: [],
       summary: `Mark ${plan.name} as an MSME supplier (${plan.category || 'category not given'}, Udyam ${plan.udyam || 'not given'}) to be paid within ${inDays}`,
-      effects: [`New bills from them get a pay-by date ${inDays} from the bill date; MyCA reminds you a week before it. Nothing is posted.`],
+      effects: [`New bills from them get a pay-by date ${inDays} from the bill date; MyCA reminds you a week before it. Nothing is posted.`, BOOKED_BILLS_CHECKED],
+      figures: { days },
+    };
+  }
+  if (plan.msme) {
+    return {
+      blockers: [],
+      summary: `Mark ${plan.name} as an MSME supplier (${plan.category}, Udyam ${plan.udyam || 'not given'})${days == null ? '' : ` to be paid within ${inDays}`}`,
+      effects: [days == null ? 'No pay-by date is set until you give the agreed days. Nothing is posted.' : `New bills from them get a pay-by date ${inDays} from the bill date. Nothing is posted.`, MEDIUM_NOT_COVERED, BOOKED_BILLS_CHECKED],
       figures: { days },
     };
   }
@@ -1195,7 +1212,7 @@ function supplierTermsPreview(state, args) {
     return {
       blockers: [],
       summary: `${plan.name} is no longer marked MSME`,
-      effects: [days == null ? 'New bills from them get no MSME pay-by date and no reminder. Nothing is posted.' : `New bills from them get a pay-by date ${inDays} from the bill date, without the MSME limit or its reminder. Nothing is posted.`],
+      effects: [days == null ? 'New bills from them get no MSME pay-by date and no reminder. Nothing is posted.' : `New bills from them get a pay-by date ${inDays} from the bill date, without the MSME limit or its reminder. Nothing is posted.`, BOOKED_BILLS_CHECKED],
       figures: { days },
     };
   }
@@ -1203,7 +1220,7 @@ function supplierTermsPreview(state, args) {
   return {
     blockers: [],
     summary: `Set ${plan.name}'s terms to ${inDays}`,
-    effects: [`New bills from them get a pay-by date ${inDays} from the bill date. Nothing is posted.`],
+    effects: [`New bills from them get a pay-by date ${inDays} from the bill date. Nothing is posted.`, BOOKED_BILLS_CHECKED],
     figures: { days },
   };
 }
