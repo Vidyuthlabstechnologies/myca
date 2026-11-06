@@ -25,10 +25,16 @@ const _messages = {
   'NOTICE_CHANGED': 'The privacy notice has changed. Read the new one and accept it.',
   'INVALID_PHONE': 'Enter a 10-digit Indian mobile number.',
   'TOO_MANY_REQUESTS': 'Too many codes requested. Try again in an hour.',
-  'INVALID_CODE': 'That code is not right. Check the SMS and try again.',
+  'INVALID_CODE': 'That code is not right. Check it and try again.',
   'CODE_EXPIRED': 'That code has expired. Ask for a new one.',
   'CODE_USED': 'That code was already used. Ask for a new one.',
   'TOO_MANY_ATTEMPTS': 'Too many wrong tries. Ask for a new code.',
+  'ALREADY_ENABLED': 'Two-step sign-in is already on.',
+  'NOT_ENABLED': 'Two-step sign-in is off.',
+  'NOT_ENROLLING': 'Start the two-step setup again.',
+  'ENROLMENT_RESTART': 'Too many wrong codes. Start the setup again.',
+  'DEVICE_NOT_FOUND': 'That device is already signed out.',
+  'CURRENT_DEVICE': 'Use Sign out to leave this phone.',
   'COMPANY_NAME_REQUIRED': 'Enter your business name.',
   'INVALID_GSTIN':
       'That GSTIN is not valid. Check it against your registration certificate.',
@@ -390,6 +396,50 @@ class SignInMethods {
   String get oidcIssuerHost => Uri.tryParse(oidcIssuer)?.host ?? '';
 }
 
+class SecondStepStatus {
+  const SecondStepStatus({required this.enabled, required this.enabledAt, required this.recoveryCodesLeft});
+
+  factory SecondStepStatus.fromJson(Map<String, dynamic> map) => SecondStepStatus(
+        enabled: map['enabled'] == true,
+        enabledAt: '${map['enabledAt'] ?? ''}',
+        recoveryCodesLeft: (map['recoveryCodesLeft'] as num?)?.toInt() ?? 0,
+      );
+
+  final bool enabled;
+  final String enabledAt;
+  final int recoveryCodesLeft;
+}
+
+class SecondStepSetup {
+  const SecondStepSetup({required this.secret, required this.uri, required this.account});
+
+  final String secret;
+  final String uri;
+  final String account;
+
+  String get groupedSecret => [
+        for (var i = 0; i < secret.length; i += 4) secret.substring(i, i + 4 > secret.length ? secret.length : i + 4),
+      ].join(' ');
+}
+
+class SignedInDevice {
+  const SignedInDevice({required this.id, required this.label, required this.signedInOn, required this.lastActive, required this.current});
+
+  factory SignedInDevice.fromJson(Map<String, dynamic> map) => SignedInDevice(
+        id: '${map['id'] ?? ''}',
+        label: '${map['label'] ?? ''}',
+        signedInOn: '${map['signedInOn'] ?? ''}',
+        lastActive: '${map['lastActive'] ?? ''}',
+        current: map['current'] == true,
+      );
+
+  final String id;
+  final String label;
+  final String signedInOn;
+  final String lastActive;
+  final bool current;
+}
+
 String get deviceLabel => defaultTargetPlatform == TargetPlatform.iOS ? 'iPhone' : 'Android';
 
 class CaSync {
@@ -430,12 +480,14 @@ class CloudSession {
   String? _refresh;
   String? _businessId;
   String? _challengeId;
+  String? _secondStepChallenge;
   String? _phone;
   Future<bool>? _refreshing;
 
   bool get signedIn => _refresh != null;
   bool get ready => signedIn && _businessId != null;
   bool get awaitingCode => _challengeId != null;
+  bool get secondStepPending => _secondStepChallenge != null;
   bool needsName = false;
   bool needsConsent = false;
   String? get businessId => _businessId;
@@ -452,6 +504,7 @@ class CloudSession {
     _refresh = null;
     _businessId = null;
     _challengeId = null;
+    _secondStepChallenge = null;
     await tokens.delete(_accessKey);
     await tokens.delete(_refreshKey);
     await tokens.delete(_businessKey);
@@ -681,9 +734,38 @@ class CloudSession {
     if (body['ok'] != true) {
       throw MycaApiException(cloudMessage('${body['error'] ?? 'UNKNOWN'}'));
     }
+    if (_challenged(body)) return;
     await _keep(body);
     _challengeId = null;
     await _signedIn(body);
+  }
+
+  bool _challenged(Map<String, dynamic> body) {
+    if (body['secondStep'] != true) return false;
+    final challenge = body['challengeId'];
+    if (challenge is! String || challenge.isEmpty) throw MycaApiException(cloudMessage('UNKNOWN'));
+    _secondStepChallenge = challenge;
+    return true;
+  }
+
+  Future<void> completeSecondStep(String code) async {
+    final (_, body) = await _send('POST', '/v1/auth/second-step', {
+      'challengeId': _secondStepChallenge,
+      'code': code,
+      'deviceLabel': deviceLabel,
+    }, authed: false);
+    if (body['ok'] != true) {
+      throw MycaApiException(cloudMessage('${body['error'] ?? 'UNKNOWN'}'));
+    }
+    await _keep(body);
+    _secondStepChallenge = null;
+    _challengeId = null;
+    await _signedIn(body);
+  }
+
+  void cancelSecondStep() {
+    _secondStepChallenge = null;
+    _challengeId = null;
   }
 
   Future<SignInMethods> methods() async {
@@ -715,6 +797,7 @@ class CloudSession {
     if (body['ok'] != true) {
       throw MycaApiException(cloudMessage('${body['error'] ?? 'UNKNOWN'}'));
     }
+    if (_challenged(body)) return;
     await _keep(body);
     _challengeId = null;
     await _signedIn(body);
@@ -946,6 +1029,37 @@ class CloudSession {
     final body = await call('DELETE', '/v1/me');
     if (body['ok'] == false) throw MycaApiException(cloudMessage('${body['error']}'));
     await _forget();
+  }
+
+  Future<SecondStepStatus> secondStepStatus() async => SecondStepStatus.fromJson(_accepted(await call('GET', '/v1/me/second-step')));
+
+  Future<SecondStepSetup> beginSecondStep() async {
+    final body = _accepted(await call('POST', '/v1/me/second-step/begin', const {}));
+    return SecondStepSetup(secret: '${body['secret'] ?? ''}', uri: '${body['uri'] ?? ''}', account: '${body['account'] ?? ''}');
+  }
+
+  Future<List<String>> confirmSecondStep(String code) async =>
+      _strings(_accepted(await call('POST', '/v1/me/second-step/confirm', {'code': code}))['recoveryCodes']);
+
+  Future<void> disableSecondStep(String code) async {
+    _accepted(await call('POST', '/v1/me/second-step/disable', {'code': code}));
+  }
+
+  Future<List<String>> newRecoveryCodes(String code) async =>
+      _strings(_accepted(await call('POST', '/v1/me/second-step/recovery-codes', {'code': code}))['recoveryCodes']);
+
+  Future<List<SignedInDevice>> devices() async {
+    final body = _accepted(await call('GET', '/v1/me/devices'));
+    return [for (final row in _rows(body['devices'])) SignedInDevice.fromJson(row)];
+  }
+
+  Future<void> signOutDevice(String id) async {
+    _accepted(await call('POST', '/v1/me/devices/$id/sign-out', const {}));
+  }
+
+  Future<int> signOutOtherDevices() async {
+    final body = _accepted(await call('POST', '/v1/me/devices/sign-out-others', const {}));
+    return (body['revoked'] as num?)?.toInt() ?? 0;
   }
 
   Future<void> leaveBusiness(String userId) async {
