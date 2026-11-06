@@ -10,7 +10,7 @@ import { booksKeyFromEnv } from './books-seal.mjs';
 import { smsSenderFromEnv } from './sms-sender.mjs';
 import { whatsAppConfigFromEnv, createWhatsAppSender } from './whatsapp.mjs';
 import { createBilling, billingConfigFromEnv } from './billing.mjs';
-import { isProduction, hostingName, serviceRevision, databaseTlsProblem } from './runtime.mjs';
+import { isProduction, hostingName, serviceRevision, databaseTlsProblem, proxyHopsProblem } from './runtime.mjs';
 
 const STARTUP_ATTEMPTS = 10;
 const STARTUP_WAIT_MS = 3000;
@@ -49,6 +49,8 @@ async function migrateWithRetry(db) {
 
 const tlsProblem = databaseTlsProblem();
 if (tlsProblem) throw new Error(tlsProblem);
+const hopsProblem = proxyHopsProblem();
+if (hopsProblem) throw new Error(hopsProblem);
 const db = createDb(required('MYCA_DATABASE_URL'));
 await migrateWithRetry(db);
 const handler = createApi({

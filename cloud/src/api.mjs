@@ -1,5 +1,4 @@
 import { randomUUID } from 'node:crypto';
-import { isProduction } from './runtime.mjs';
 import { mockModeEnabled, serviceProviderEnvironment } from '../../platform/src/runtime-config.mjs';
 import { withProviderContext } from '../../platform/src/provider-context.mjs';
 import { createGovtActions } from './govt-actions.mjs';
@@ -151,7 +150,7 @@ function appSnapshot(snapshot, user, role) {
 export function trustedProxyHops(env = process.env) {
   const given = Number(env.MYCA_TRUSTED_PROXY_HOPS);
   if (Number.isInteger(given) && given >= 0) return given;
-  return isProduction(env) ? 1 : 0;
+  return env.K_SERVICE ? 1 : 0;
 }
 
 function createAccessLog(db) {

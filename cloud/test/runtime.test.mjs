@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { isProduction, hostingName, serviceRevision, databaseSsl, databaseTlsProblem } from '../src/runtime.mjs';
+import { isProduction, hostingName, serviceRevision, databaseSsl, databaseTlsProblem, proxyHopsProblem } from '../src/runtime.mjs';
 import { trustedProxyHops } from '../src/api.mjs';
 
 test('production is Cloud Run or an explicit MYCA_PRODUCTION switch, on any host', () => {
@@ -19,11 +19,18 @@ test('the revision comes from Cloud Run, then MYCA_REVISION, then dev', () => {
   assert.equal(serviceRevision({}), 'dev');
 });
 
-test('one proxy hop is trusted in production on any host, none in development, and an explicit count wins', () => {
+test('a proxy hop is trusted only on Cloud Run or when stated, and production elsewhere must state it', () => {
   assert.equal(trustedProxyHops({}), 0);
-  assert.equal(trustedProxyHops({ MYCA_PRODUCTION: '1' }), 1);
+  assert.equal(trustedProxyHops({ MYCA_PRODUCTION: '1' }), 0, 'the production switch alone trusts no forwarded address');
   assert.equal(trustedProxyHops({ K_SERVICE: 'x' }), 1);
+  assert.equal(trustedProxyHops({ MYCA_PRODUCTION: '1', MYCA_TRUSTED_PROXY_HOPS: '1' }), 1);
   assert.equal(trustedProxyHops({ MYCA_PRODUCTION: '1', MYCA_TRUSTED_PROXY_HOPS: '2' }), 2);
+  assert.match(proxyHopsProblem({ MYCA_PRODUCTION: '1' }), /MYCA_TRUSTED_PROXY_HOPS/);
+  assert.match(proxyHopsProblem({ MYCA_PRODUCTION: '1', MYCA_TRUSTED_PROXY_HOPS: 'one' }), /MYCA_TRUSTED_PROXY_HOPS/);
+  assert.equal(proxyHopsProblem({ MYCA_PRODUCTION: '1', MYCA_TRUSTED_PROXY_HOPS: '0' }), '');
+  assert.equal(proxyHopsProblem({ MYCA_PRODUCTION: '1', MYCA_TRUSTED_PROXY_HOPS: '1' }), '');
+  assert.equal(proxyHopsProblem({ K_SERVICE: 'x' }), '');
+  assert.equal(proxyHopsProblem({}), '');
 });
 
 test('in production a remote database must use TLS that verifies the server; local sockets and development are exempt', () => {

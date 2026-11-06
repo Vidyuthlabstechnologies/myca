@@ -26,6 +26,13 @@ function databaseHost(connectionString) {
   }
 }
 
+export function proxyHopsProblem(env = process.env) {
+  if (!isProduction(env) || env.K_SERVICE) return '';
+  const given = String(env.MYCA_TRUSTED_PROXY_HOPS ?? '').trim();
+  if (/^\d+$/.test(given)) return '';
+  return 'In production outside Cloud Run, set MYCA_TRUSTED_PROXY_HOPS to the number of proxies in front of the API that append X-Forwarded-For (1 behind App Runner or a load balancer, 0 when clients connect directly), so client addresses cannot be forged.';
+}
+
 export function databaseSsl(env = process.env) {
   const ca = String(env.MYCA_DATABASE_CA || '').trim();
   return ca ? { ca, rejectUnauthorized: true } : undefined;
