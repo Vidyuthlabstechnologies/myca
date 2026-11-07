@@ -172,7 +172,7 @@ test('with two-step on, the phone code gives a challenge and the authenticator c
   const second = await firstStep(phone);
   const reused = await secondStep(second.body.challengeId, code);
   assert.equal(reused.status, 400);
-  assert.equal(reused.body.error, 'INVALID_CODE', 'the same authenticator code is not accepted twice');
+  assert.equal(reused.body.error, 'CODE_USED', 'the same authenticator code is not accepted twice');
   api.clock.advance(STEP_MS);
   const fresh = await secondStep(second.body.challengeId, current(secret));
   assert.equal(fresh.status, 200, fresh.text);
@@ -238,7 +238,7 @@ test('eight sign-ins racing with the same authenticator code let exactly one in'
   assert.equal(results.filter((result) => result.status === 200).length, 1, results.map((result) => result.status).join(','));
   for (const result of results.filter((item) => item.status !== 200)) {
     assert.equal(result.status, 400);
-    assert.equal(result.body.error, 'INVALID_CODE');
+    assert.equal(result.body.error, 'CODE_USED');
   }
 });
 
@@ -635,10 +635,12 @@ test('deleting the account while second-step sign-ins are in flight never answer
     const code = current(secret);
     const [deleted, ...signIns] = await Promise.all([api.call('DELETE', '/v1/me', { token }), ...ids.map((id) => secondStep(id, code))]);
     assert.equal(deleted.status, 200, `round ${round}: ${deleted.text}`);
+    const won = signIns.filter((out) => out.status === 200).length;
     for (const out of signIns) {
-      assert.ok(out.status === 200 || (out.status === 400 && out.body.error === 'INVALID_CODE'), `round ${round}: ${out.status} ${out.text}`);
+      const refused = out.status === 400 && (out.body.error === 'INVALID_CODE' || (out.body.error === 'CODE_USED' && won === 1));
+      assert.ok(out.status === 200 || refused, `round ${round}: ${out.status} ${out.text}`);
     }
-    assert.ok(signIns.filter((out) => out.status === 200).length <= 1, `round ${round}: one code, one sign-in`);
+    assert.ok(won <= 1, `round ${round}: one code, one sign-in`);
     const live = await api.db.query('select count(*)::int as n from devices where user_id = $1 and revoked_at is null', [session.user.id]);
     assert.equal(live.rows[0].n, 0, `round ${round}: every device is ended`);
   }

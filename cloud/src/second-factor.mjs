@@ -6,6 +6,8 @@ import { base32Decode, base32Encode, otpauthUri, verifyTotp } from './totp.mjs';
 export const SECOND_STEP_TTL_SECONDS = 300;
 export const SECOND_STEP_MAX_ATTEMPTS = 5;
 export const ENROL_MAX_ATTEMPTS = 5;
+export const CHANGE_MAX_ATTEMPTS = 5;
+export const CHANGE_COOL_DOWN_SECONDS = 15 * 60;
 export const RECOVERY_CODES = 8;
 export const RECOVERY_CODE_ALPHABET = 'abcdefghjkmnpqrstuvwxyz23456789';
 export const RECOVERY_CODE_LENGTH = 10;
@@ -90,8 +92,10 @@ export function createSecondFactor({ db, secret, booksKey = '', now = () => Date
     const row = found.rows[0];
     if (!row || !row.enabled_at) return fail('NOT_ENABLED');
     if (TOTP_SHAPE.test(code)) {
-      const verified = verifyTotp(secretOf(userId, row), code, now(), { lastStep: Number(row.last_step) });
-      if (!verified.ok) return fail('INVALID_CODE');
+      const key = secretOf(userId, row);
+      const lastStep = Number(row.last_step);
+      const verified = verifyTotp(key, code, now(), { lastStep });
+      if (!verified.ok) return fail(verifyTotp(key, code, now(), { lastStep: lastStep - 1 }).ok ? 'CODE_USED' : 'INVALID_CODE');
       await q('update user_totp set last_step = $2 where user_id = $1', [userId, verified.step]);
       return { ok: true, usedRecoveryCode: false };
     }
@@ -100,6 +104,26 @@ export function createSecondFactor({ db, secret, booksKey = '', now = () => Date
       if (used.rowCount) return { ok: true, usedRecoveryCode: true };
     }
     return fail('INVALID_CODE');
+  }
+
+  async function clearTries(q, userId) {
+    await q('update user_totp set attempts = 0, failed_at = null where user_id = $1', [userId]);
+  }
+
+  async function checkForChange(q, userId, input) {
+    const found = await q('select enabled_at, attempts, failed_at from user_totp where user_id = $1 for update', [userId]);
+    const row = found.rows[0];
+    if (!row || !row.enabled_at) return fail('NOT_ENABLED');
+    const spent = row.attempts >= CHANGE_MAX_ATTEMPTS;
+    if (spent && row.failed_at && row.failed_at.getTime() + CHANGE_COOL_DOWN_SECONDS * 1000 > now()) return fail('TOO_MANY_ATTEMPTS');
+    const tried = spent ? 0 : row.attempts;
+    const checked = await check(q, userId, input);
+    if (checked.ok) {
+      await clearTries(q, userId);
+      return checked;
+    }
+    await q('update user_totp set attempts = $2, failed_at = $3 where user_id = $1', [userId, tried + 1, at()]);
+    return { ...checked, attemptsRemaining: CHANGE_MAX_ATTEMPTS - tried - 1 };
   }
 
   return {
@@ -161,7 +185,7 @@ export function createSecondFactor({ db, secret, booksKey = '', now = () => Date
 
     async disable(userId, code) {
       return db.tx(async (q) => {
-        const checked = await check(q, userId, code);
+        const checked = await checkForChange(q, userId, code);
         if (!checked.ok) return checked;
         await q('delete from user_totp where user_id = $1', [userId]);
         await q('delete from recovery_codes where user_id = $1', [userId]);
@@ -171,7 +195,7 @@ export function createSecondFactor({ db, secret, booksKey = '', now = () => Date
 
     async regenerateRecoveryCodes(userId, code) {
       return db.tx(async (q) => {
-        const checked = await check(q, userId, code);
+        const checked = await checkForChange(q, userId, code);
         if (!checked.ok) return checked;
         return { ok: true, recoveryCodes: await replaceRecoveryCodes(q, userId) };
       });
@@ -197,7 +221,10 @@ export function createSecondFactor({ db, secret, booksKey = '', now = () => Date
         if (challenge.attempts >= SECOND_STEP_MAX_ATTEMPTS) return fail('TOO_MANY_ATTEMPTS');
         await q('update second_step_challenges set attempts = attempts + 1 where id = $1', [challengeId]);
         const checked = await check(q, challenge.user_id, code);
-        if (!checked.ok) return fail('INVALID_CODE', { attemptsRemaining: SECOND_STEP_MAX_ATTEMPTS - challenge.attempts - 1 });
+        if (!checked.ok) {
+          return fail(checked.error === 'CODE_USED' ? 'CODE_USED' : 'INVALID_CODE', { attemptsRemaining: SECOND_STEP_MAX_ATTEMPTS - challenge.attempts - 1 });
+        }
+        await clearTries(q, challenge.user_id);
         await q('update second_step_challenges set consumed_at = $2 where id = $1', [challengeId, at()]);
         const user = (await q('select id, name from users where id = $1 and deleted_at is null', [challenge.user_id])).rows[0];
         if (!user) return fail('INVALID_CODE');
