@@ -26,6 +26,9 @@ const NO_MATCH_WORDS = {
   all: 'There is no invoice in that month, so nothing was marked.',
 };
 const WORDS_LISTED = 8;
+const SUMMED = [...HEADS, 'totalValue'];
+const LESS_AVAILABLE = ['N', 'A'];
+const EXAMPLE_NAME_MAX = 40;
 
 const round2 = (value) => Math.round(Number(value || 0) * 100) / 100;
 const compare = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
@@ -33,7 +36,26 @@ const failure = (error, extra = {}) => ({ ok: false, error, ...extra });
 const text = (value) => String(value ?? '');
 
 export function imsKey(period, row) {
-  return `${period}|${normGstin(row.supplierGstin)}|${normNumber(row.invoiceNo)}|${String(row.section || '').toUpperCase()}`;
+  const supplier = normGstin(row.supplierGstin) || normNumber(row.supplierName);
+  return `${period}|${supplier}|${normNumber(row.invoiceNo)}|${String(row.section || '').toUpperCase()}`;
+}
+
+function oneDocument(lines) {
+  if (lines.length === 1) return lines[0];
+  const added = Object.fromEntries(SUMMED.map((head) => [head, round2(lines.reduce((total, line) => total + (Number(line[head]) || 0), 0))]));
+  const lesser = LESS_AVAILABLE.find((code) => lines.some((line) => line.itcAvailability === code));
+  return { ...lines[0], ...added, itcAvailability: lesser || lines[0].itcAvailability };
+}
+
+function statementDocuments(state, period) {
+  const groups = new Map();
+  for (const raw of allRows(state)) {
+    if (raw.statementPeriod !== period) continue;
+    const key = imsKey(period, raw);
+    if (groups.has(key)) groups.get(key).push(raw);
+    else groups.set(key, [raw]);
+  }
+  return [...groups].map(([key, lines]) => ({ key, raw: oneDocument(lines), lines: lines.length }));
 }
 
 function creditOf(row) {
@@ -119,10 +141,8 @@ export function imsReview(state, args = {}) {
   const decisions = state.imsDecisions && typeof state.imsDecisions === 'object' ? state.imsDecisions : {};
   const books = indexBooks(state);
   const rows = stored
-    ? allRows(state)
-      .filter((raw) => raw.statementPeriod === period)
-      .map((raw) => {
-        const key = imsKey(period, raw);
+    ? statementDocuments(state, period)
+      .map(({ key, raw, lines }) => {
         const found = matchOf(raw, books);
         const record = decisions[key] && typeof decisions[key] === 'object' ? decisions[key] : null;
         const decision = record && IMS_DECISIONS.includes(record.decision) ? record.decision : '';
@@ -149,6 +169,7 @@ export function imsReview(state, args = {}) {
           note: decision ? text(record.note) : '',
           decidedBy: decision ? text(record.by) : '',
           decidedOn: decision ? text(record.on) : '',
+          lines,
         };
       })
       .sort(byRow)
@@ -193,9 +214,14 @@ function noMatchWords(select, decision) {
 export function pinImsRows(args, plan) {
   const keys = plan.rows.map((row) => row.key);
   if (keys.some((key) => key.length > IMS_MAX_KEY)) return args;
-  args.keys = keys;
-  delete args.select;
-  return args;
+  const pinned = { ...args, keys };
+  delete pinned.select;
+  return pinned;
+}
+
+function exampleSupplier(rows) {
+  const row = rows.find((item) => item.supplierName && item.supplierName.length <= EXAMPLE_NAME_MAX);
+  return row ? row.supplierName : '';
 }
 
 export function planImsDecision(state, args = {}) {
@@ -222,7 +248,7 @@ export function planImsDecision(state, args = {}) {
     const seen = new Set();
     const select = text(args.select).trim();
     picked = pickRows(review.rows, select, decision).filter((row) => !seen.has(row.key) && seen.add(row.key));
-    if (!picked.length) return IMS_SELECTS.includes(select) ? failure('NO_MATCH', { hint: noMatchWords(select, decision) }) : failure('NO_ROWS');
+    if (!picked.length) return IMS_SELECTS.includes(select) ? failure('NO_MATCH', { hint: noMatchWords(select, decision) }) : failure('NO_ROWS', { period, supplier: exampleSupplier(review.rows) });
     if (picked.length > IMS_MAX_ROWS) return failure('TOO_MANY_ROWS', { limit: IMS_MAX_ROWS });
   }
   return {

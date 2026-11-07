@@ -1,7 +1,7 @@
 import { localToday, postingDate } from './dates.mjs';
 import { customerKey, validTerms } from './payment-terms.mjs';
 import { salaryPrivate } from './employees.mjs';
-import { rule } from '../../sprints/statutory-rules/src/index.mjs';
+import { rule, RULES } from '../../sprints/statutory-rules/src/index.mjs';
 
 const UDYAM = /^UDYAM-[A-Z]{2}-[0-9]{2}-[0-9]{7}$/;
 const REGIME_RULES = ['msme.payment-days', 'msme.deduction-on-payment'];
@@ -48,14 +48,15 @@ export function msmeDays(onDate, { agreedDays = null } = {}) {
   return { days, max, rulesUsed: [`msme.payment-days@${onDate}`], attested: (found.record.attestations || []).length > 0 };
 }
 
+function scopesOf(id, onDate) {
+  const found = rule(id, onDate);
+  return found.ok ? [found.value] : RULES.filter((record) => record.id === id).map((record) => record.value);
+}
+
 export function msmeCovered(category, onDate) {
   const kind = String(category || '').trim().toLowerCase();
   if (!kind) return true;
-  return REGIME_RULES.every((id) => {
-    const found = rule(id, onDate);
-    const covers = found.ok && Array.isArray(found.value.appliesTo) ? found.value.appliesTo : null;
-    return !covers || covers.includes(kind);
-  });
+  return REGIME_RULES.every((id) => scopesOf(id, onDate).every((scope) => !Array.isArray(scope.appliesTo) || scope.appliesTo.includes(kind)));
 }
 
 export function planSupplierTerms(state, args = {}) {
