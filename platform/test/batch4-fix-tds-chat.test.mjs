@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createState } from '../src/store.mjs';
-import { createInvoice } from '../src/invoice.mjs';
+import { createInvoice, createPurchase } from '../src/invoice.mjs';
 import { chat } from '../src/router.mjs';
 import { planLocalToolCall } from '../src/assistant-contract.mjs';
 import { planEntryWithTds } from '../src/tds-intent.mjs';
@@ -9,11 +9,19 @@ import { previewOf } from '../src/chat-confirm.mjs';
 import { tdsCreditCheck, tdsCreditWords } from '../src/tds-credits.mjs';
 import { localToday } from '../src/dates.mjs';
 
-const CSV_26AS = [
-  'Section,Name of Deductor,TAN of Deductor,Amount Paid/Credited,Tax Deducted,Date of Booking',
-  '194C,KIRAN STORES,MUMK12345B,50000,500,2026-10-20',
-  '194J,EASTERN CONSULTANTS LLP,EAST12345B,75000,1500,2026-09-15',
-].join('\n');
+function currentFinancialYearStart() {
+  const [year, month] = localToday().split('-').map(Number);
+  return month >= 4 ? year : year - 1;
+}
+
+function csv26as() {
+  const start = currentFinancialYearStart();
+  return [
+    'Section,Name of Deductor,TAN of Deductor,Amount Paid/Credited,Tax Deducted,Date of Booking',
+    `194C,KIRAN STORES,MUMK12345B,50000,500,${start}-10-20`,
+    `194J,EASTERN CONSULTANTS LLP,EAST12345B,75000,1500,${start}-09-15`,
+  ].join('\n');
+}
 
 function books() {
   const state = createState();
@@ -415,7 +423,7 @@ test('routing-9: natural ways of asking for the Form 26AS check reach it, and on
 
 test('routing-9: a 26AS file that is attached but not imported is said in the answer, with what to say next', async () => {
   const state = books();
-  state.pendingFile = { kind: '26as', name: 'Form26AS.csv', content: CSV_26AS };
+  state.pendingFile = { kind: '26as', name: 'Form26AS.csv', content: csv26as() };
   const out = await chat(state, 'check the 26AS file I attached');
   assert.equal(out.tools[0].name, 'tds_credit_check', out.reply);
   assert.match(out.reply, /^No TDS credit is on record for FY \d{4}-\d{2} yet\./, out.reply);
@@ -539,4 +547,480 @@ test('routing-12: TDS withheld on US books is turned down when it is previewed, 
   const fine = previewOf(india, 'record_tds_withheld', { invoiceId: 'INV-0001', amount: 2000, section: '194J' });
   assert.deepEqual(fine.blockers, []);
   assert.equal(fine.summary, 'TDS of ₹2,000.00 withheld by Kiran Stores on INV-0001 (section 194J)');
+});
+
+function booksWithSuppliers() {
+  const state = books();
+  state.company = { ...state.company, tan: 'MUMA12345B', tdsDeductor: true };
+  for (const [partyName, partyGstin, supplierInvoiceNo, date, rate, gstRate] of [
+    ['Fabric Co', '27AABCT1332L1ZE', 'F-101', '2026-10-05', 10000, 5],
+    ['Acme Steel', '27AAACA1234B1Z9', 'A-1', '2026-10-08', 20000, 18],
+    ['IMS Logistics', '29AABCI1234J1ZL', 'IL-1', '2026-10-10', 7000, 18],
+  ]) {
+    const out = createPurchase(state, { date, partyName, partyGstin, supplierInvoiceNo, lines: [{ description: 'Goods', hsn: '5208', qty: 1, rate, gstRate }] });
+    assert.equal(out.ok, true, JSON.stringify(out));
+  }
+  return state;
+}
+
+function stepsOf(reply) {
+  const first = /first say "record tds withheld (\S+) on (\S+) under (\S+)"/.exec(String(reply || ''));
+  const then = /then say "received (\S+) against (\S+)"/.exec(String(reply || ''));
+  return first && then ? { tds: first[1], invoice: first[2], section: first[3], cash: then[1], cashInvoice: then[2] } : null;
+}
+
+const TWO_STEP_OR_ASK = /first say "record tds withheld|Say the invoice number|Say how much TDS was withheld|Say one invoice at a time|Say the date as/;
+
+function assertSteps(plan, sentence, { tds, cash, invoice }) {
+  assert.equal(plan.kind, 'reply', `${sentence}: ${JSON.stringify(plan)}`);
+  const steps = stepsOf(plan.reply);
+  assert.ok(steps, `${sentence}: ${plan.reply}`);
+  assert.equal(steps.tds, String(tds), `${sentence}: the TDS amount in the example is ${steps.tds}`);
+  assert.equal(steps.cash, String(cash), `${sentence}: the cash amount in the example is ${steps.cash}`);
+  if (invoice) {
+    assert.equal(steps.invoice, invoice, sentence);
+    assert.equal(steps.cashInvoice, invoice, sentence);
+  }
+  assert.match(plan.reply, /recorded nothing/, sentence);
+}
+
+test('gap 1 (routing-11): the numbers in the printed example are the ones that were said, with a comma after the cash amount, a rupee sign or a percentage', async () => {
+  const state = books();
+  const cases = [
+    ['received 98000, tds 2000 on INV-0001', 2000, 98000, 'INV-0001'],
+    ['received ₹98,000, tds ₹2,000 on INV-0001', 2000, 98000, 'INV-0001'],
+    ['INV-0001 received 98000, tds 2000 deducted', 2000, 98000, 'INV-0001'],
+    ['INV-0001 paid 98000, tds deducted 2000', 2000, 98000, 'INV-0001'],
+    ['received 98,000, tds 2,000 against INV-0001', 2000, 98000, 'INV-0001'],
+    ['Kiran Stores paid 98000, tds 2000 withheld, INV-0001', 2000, 98000, 'INV-0001'],
+    ['received 98000 tds 2000 on INV-0001', 2000, 98000, 'INV-0001'],
+    ['received from Kiran Stores 98000, tds deducted 2000', 2000, 98000, 'INV-0001'],
+    ['received rent from tenant 50000, tds deducted 5000', 5000, 50000, 'INV-0001'],
+    ['received 98000; tds 2000 on INV-0001', 2000, 98000, 'INV-0001'],
+    ['received 9,80,000, tds 20,000 on INV-0001', 20000, 980000, 'INV-0001'],
+  ];
+  for (const [sentence, tds, cash, invoice] of cases) {
+    for (const plan of [direct(state, sentence), viaChatPlanner(state, sentence)]) assertSteps(plan, sentence, { tds, cash, invoice });
+    const out = await chat(state, sentence);
+    assert.equal(out.awaitingConfirmation, undefined, `${sentence}: ${out.reply}`);
+    assert.deepEqual(out.tools, [], sentence);
+  }
+  for (const sentence of [
+    'received 98000 and tds 2% deducted on INV-0001',
+    'received 98000, tds 2% on INV-0001',
+    'received 98000 on INV-0001 after 2 percent tds',
+    'received 98000 on INV-0001 after 2% tds',
+    'received 98000 for INV-0001 tds @2%',
+    'received 98000 for INV-0001, tds 2% deducted',
+    'received 98000 for INV-0001 (net of 2% tds)',
+  ]) {
+    const plan = direct(state, sentence);
+    assertSteps(plan, sentence, { tds: 2000, cash: 98000, invoice: 'INV-0001' });
+    assert.match(plan.reply, /\(use [^)]*the TDS amount/, `${sentence}: a percentage is not an amount, so the TDS amount is asked for`);
+  }
+});
+
+test('gap 2 (neighbour paths): supplier bills, expenses and notes that mention TDS keep create_purchase, post_expense and their own replies', async () => {
+  const state = booksWithSuppliers();
+  const purchases = [
+    ['received a bill from Fabric Co for 10000 GST 18%, tds deducted under 194J', '194J', 18],
+    ['got a bill from Fabric Co for 10000 GST 18%, tds deducted under 194J', '194J', 18],
+    ['received bill from Fabric Co 10000 GST 18% tds cut 194C', '194C', 18],
+    ['received a bill from Fabric Co for 10000 GST 18%, tds cut under 194C', '194C', 18],
+    ['got bill from Fabric Co 10000 GST 18% tds deducted 194C', '194C', 18],
+    ['got a purchase invoice from Fabric Co 10000 GST 18%, they cut tds under 194C', '194C', 18],
+    ['bill from Fabric Co 10000 GST 18% tds deducted under 194C received today', '194C', 18],
+    ['purchase from Fabric Co 10000 GST 18% receipt attached, tds cut under 194C', '194C', 18],
+    ['bought cloth from Fabric Co 10000 GST 5%, got receipt, tds deducted 194C', '194C', 5],
+    ['bill from Fabric Co 10000 GST 18% their invoice INV-2045, tds deducted under 194C', '194C', 18],
+    ['purchase from Fabric Co 10000 GST 18% supplier invoice INV-2045 tds deducted 194C', '194C', 18],
+    ['bill from Fabric Co INV-2045 10000 GST 18% tds deducted under 194C', '194C', 18],
+  ];
+  for (const [sentence, section, gstRate] of purchases) {
+    const plan = viaChatPlanner(state, sentence);
+    assert.equal(plan.name, 'create_purchase', `${sentence}: ${JSON.stringify(plan)}`);
+    assert.equal(plan.args.tdsSection, section, sentence);
+    assert.equal(plan.args.lines[0].rate, 10000, sentence);
+    assert.equal(plan.args.lines[0].gstRate, gstRate, sentence);
+  }
+  const expenses = [
+    ['paid 5000 for audit, receipt attached, tds deducted under 194J', '194J'],
+    ['paid 5000 for audit fees, got receipt, tds cut under 194J', '194J'],
+    ['spent 5000 on audit fees, tds deducted under 194J, receipt in drawer', '194J'],
+  ];
+  for (const [sentence, section] of expenses) {
+    const plan = viaChatPlanner(state, sentence);
+    assert.equal(plan.name, 'post_expense', `${sentence}: ${JSON.stringify(plan)}`);
+    assert.equal(plan.args.amount, 5000, sentence);
+    assert.equal(plan.args.tdsSection, section, sentence);
+  }
+  const noSection = viaChatPlanner(state, 'got a bill from IMS Logistics 7000 GST 18%, they cut tds');
+  assert.equal(noSection.kind, 'reply', JSON.stringify(noSection));
+  assert.match(noSection.reply, /Say which TDS section applies/);
+  assert.match(noSection.reply, /recorded nothing/);
+
+  const note = viaChatPlanner(state, 'credit note INV-0001 5000 damaged goods, customer deducted tds');
+  assert.equal(note.kind, 'reply', JSON.stringify(note));
+  assert.match(note.reply, /credit note for INV-0001/);
+  const debit = viaChatPlanner(state, 'debit note to Fabric Co 5000 GST 18% invoice INV-2045 tds deducted');
+  assert.equal(debit.kind, 'reply', JSON.stringify(debit));
+  assert.match(debit.reply, /debit note/);
+
+  for (const sentence of [
+    'paid Fabric Co for invoice INV-0001, tds deducted 100 under 194C',
+    'paid Fabric Co for invoice 55, tds deducted 100 under 194C',
+    'paid Fabric Co 9900 on invoice 55, tds cut',
+    'paid Acme Steel 20000 for invoice 12 and deducted tds 400',
+    'paid Fabric Co 10000 against their invoice INV-2045, deducted tds 100',
+    'paid Fabric Co 9000, deducted tds 1000',
+    'got rent receipt for 50000, tds deducted 5000 under 194I',
+    'rent paid 50000, got receipt, deducted tds 5000 under 194I',
+    'purchase from Fabric Co 10000 GST 5% receipt no 55 tds deducted 194C',
+    'received invoice from Fabric Co 10000 GST 18% tds cut under 194C',
+    'got invoice from Acme Steel 20000 GST 18% tds deducted 194C',
+    'received audit fee bill 60000 GST 18% from Audit Associates tds 194J deducted',
+    'paid Kiran Stores 5000, tds deducted',
+    'received tds certificate from Kiran Stores',
+    'got tds certificate for INV-0001',
+    'received 5000 tds refund from income tax',
+    'received tds return acknowledgement',
+    'we deducted TDS 1000 from Fabric Co payment',
+    'we deducted tds 1000 from INV-0001',
+    'tds withheld by us 5000 on BILL-0001 under 194C',
+    'run payroll, deducted tds 2000 on salary',
+  ]) {
+    for (const plan of [direct(state, sentence), viaChatPlanner(state, sentence)]) {
+      assert.notEqual(plan.name, 'record_tds_withheld', `${sentence}: ${JSON.stringify(plan)}`);
+      assert.doesNotMatch(String(plan.reply || ''), TWO_STEP_OR_ASK, `${sentence}: ${plan.reply}`);
+    }
+  }
+
+  const held = await chat(state, 'received a bill from Fabric Co for 10000 GST 18%, tds cut under 194C');
+  assert.equal(held.awaitingConfirmation, true, held.reply);
+  assert.equal(held.preview.tool, 'create_purchase', held.reply);
+  assert.equal(state.pendingChatAction?.args?.tdsSection, '194C');
+  await chat(state, 'no');
+  const spent = await chat(state, 'paid 5000 for audit, receipt attached, tds deducted under 194C');
+  assert.equal(spent.awaitingConfirmation, true, spent.reply);
+  assert.equal(spent.preview.tool, 'post_expense', spent.reply);
+  assert.equal(state.pendingChatAction?.args?.tdsSection, '194C');
+  await chat(state, 'no');
+});
+
+test('gap 3 (routing-1): a decimal amount between the words or after them is still the amount', () => {
+  const state = books();
+  const cases = [
+    ['customer deducted ₹2,000.00 tds on INV-0001 under 194J', 2000, '194J'],
+    ['customer deducted Rs. 2,000.00 tds on INV-0001 under 194J', 2000, '194J'],
+    ['customer deducted 1500.50 tds on INV-0001 under 194J', 1500.5, '194J'],
+    ['customer deducted 2000.00 tds on INV-0001 under 194J', 2000, '194J'],
+    ['Kiran Stores withheld 1234.5 tds from INV-0001 under 194C', 1234.5, '194C'],
+    ['they cut 99.99 tds on INV-0001 under 194C', 99.99, '194C'],
+    ['tds of 2000.00 withheld on INV-0001 under 194J', 2000, '194J'],
+    ['tds of ₹2,000.00 withheld by Kiran Stores on INV-0001 under 194J', 2000, '194J'],
+    ['customer deducted 1.5k tds on INV-0001 under 194C', 1500, '194C'],
+    ['customer deducted 1.5 lakhs tds on INV-0001 under 194J', 150000, '194J'],
+    ['customer deducted 0.5 lakh tds on INV-0001 under 194J', 50000, '194J'],
+    ['1500.50 tds deducted by customer on INV-0001 under 194J', 1500.5, '194J'],
+    ['tds withheld 1500.50 on INV-0001 under 194J', 1500.5, '194J'],
+    ['INV-0001: 1,250.75 tds cut by the customer', 1250.75, undefined],
+  ];
+  for (const [sentence, amount, section] of cases) {
+    for (const plan of [direct(state, sentence), viaChatPlanner(state, sentence)]) {
+      assert.equal(plan.name, 'record_tds_withheld', `${sentence}: ${JSON.stringify(plan)}`);
+      assert.deepEqual(plan.args, { invoiceId: 'INV-0001', amount, ...(section ? { section } : {}) }, sentence);
+    }
+  }
+  for (const sentence of ['customer deducted 1000 tds on INV-0001 which has gst 18%', 'customer deducted tds 1000 on invoice INV-0001 with 18% gst', 'tds withheld 1000 on INV-0001, the invoice carries IGST 18%']) {
+    for (const plan of [direct(state, sentence), viaChatPlanner(state, sentence)]) {
+      assert.equal(plan.name, 'record_tds_withheld', `${sentence}: ${JSON.stringify(plan)}`);
+      assert.deepEqual(plan.args, { invoiceId: 'INV-0001', amount: 1000 }, sentence);
+    }
+  }
+  for (const sentence of [
+    'undo the tds of 1500.50 withheld on INV-0001',
+    'the tds of 1500.50 on INV-0001 was wrong',
+    'reverse the tds of ₹2,000.00 deducted on INV-0001',
+    'delete the tds 2000.00 withheld on INV-0001',
+  ]) {
+    const plan = direct(state, sentence);
+    assert.equal(plan.kind, 'reply', `${sentence}: ${JSON.stringify(plan)}`);
+    assert.match(plan.reply, /cannot be reversed from chat/, sentence);
+  }
+  for (const sentence of ['received 97999.50 on INV-0001 after tds of 2000.50', 'received 97,999.50 against INV-0001, 2,000.50 tds cut']) {
+    assertSteps(direct(state, sentence), sentence, { tds: 2000.5, cash: 97999.5, invoice: 'INV-0001' });
+  }
+});
+
+test('gap 4 (routing-11): a receipt with two amounts and a TDS word never plans a silent full-invoice receipt', async () => {
+  const state = books();
+  const cases = [
+    ['received 98000 for INV-0001 and 2000 towards tds', 2000, 98000],
+    ['received 98000 for INV-0001, balance 2000 is tds', 2000, 98000],
+    ['received 98000 on INV-0001 plus 2000 for tds', 2000, 98000],
+    ['received 98000 on INV-0001, the remaining 2000 is tds', 2000, 98000],
+    ['received 98000 on INV-0001 2000 short due to tds', 2000, 98000],
+    ['received 98000 on INV-0001, 2000 deducted as tds', 2000, 98000],
+    ['received 98000 for INV-0001, short by 2000 tds', 2000, 98000],
+    ['received 98000 for INV-0001 and 2000 as tds', 2000, 98000],
+    ['received 98000 on INV-0001 + 2000 tds', 2000, 98000],
+    ['received 98000 on INV-0001 with 2000 tds', 2000, 98000],
+    ['received 98000 on INV-0001, tds taken 2000', 2000, 98000],
+    ['received 98000 on INV-0001 including tds 2000', 2000, 98000],
+    ['received 98000 on INV-0001 excluding tds of 2000', 2000, 98000],
+    ['received 98000 on INV-0001 tds 2000', 2000, 98000],
+    ['received 98000 for INV-0001 (net of TDS 2000)', 2000, 98000],
+    ['after tds of 2000 received 98000 against INV-0001', 2000, 98000],
+  ];
+  for (const [sentence, tds, cash] of cases) {
+    for (const plan of [direct(state, sentence), viaChatPlanner(state, sentence)]) assertSteps(plan, sentence, { tds, cash, invoice: 'INV-0001' });
+    const out = await chat(state, sentence);
+    assert.equal(out.awaitingConfirmation, undefined, `${sentence}: ${out.reply}`);
+    assert.deepEqual(out.tools, [], sentence);
+  }
+  const asked = [
+    'received 98000 on INV-0001 and the rest is tds',
+    'received 98000 on INV-0001 and the balance as tds',
+    'received 98000 on INV-0001, tds taken by them',
+    'received 98000 for INV-0001, short paid due to tds',
+    'received 98000 for INV-0001, rest tds',
+    'received 98000 for INV-0001, balance is tds',
+    'received 100000 for INV-0001 gross of tds',
+    'received 98000 on INV-0001 and they deducted tds',
+    'received 98000 on INV-0001 less tds',
+  ];
+  for (const sentence of asked) {
+    const plan = direct(state, sentence);
+    assert.equal(plan.kind, 'reply', `${sentence}: ${JSON.stringify(plan)}`);
+    const steps = stepsOf(plan.reply);
+    assert.ok(steps, `${sentence}: ${plan.reply}`);
+    assert.match(plan.reply, /\(use [^)]*the TDS amount/, sentence);
+    assert.equal(steps.invoice, 'INV-0001', sentence);
+  }
+  const gross = direct(state, 'received 100000 for INV-0001 gross, tds 2000 deducted, net 98000');
+  assert.equal(gross.kind, 'reply', JSON.stringify(gross));
+  assert.equal(stepsOf(gross.reply)?.tds, '2000', gross.reply);
+  assert.doesNotMatch(gross.reply, /Say how much TDS was withheld/);
+  for (const sentence of [
+    'received 100000 against INV-0001 with tds already recorded',
+    'received 98000 on INV-0001 (tds 2000 recorded earlier)',
+    'received 98000 against INV-0001, tds of 2000 is already in the books',
+    'received 98000 on INV-0001, tds recorded separately',
+    'received 98000 against INV-0001, tds certificate awaited',
+    'received 98000 on INV-0001, tds 2000, already recorded',
+    'received 98000 on INV-0001, tds 2000 has been recorded',
+    'received 98000 on INV-0001, tds 2000 was already recorded',
+    'received 98000 on INV-0001, I already recorded the tds of 2000',
+  ]) {
+    const plan = direct(state, sentence);
+    assert.equal(plan.name, 'record_receipt', `${sentence}: ${JSON.stringify(plan)}`);
+    assert.equal(plan.args.invoiceId, 'INV-0001', sentence);
+  }
+  for (const sentence of [
+    'received 98000 against INV-0001 after tds 2000, gst already paid',
+    'received 98000 on INV-0001 after tds 2000, customer already paid the rest',
+    'received 98000 on INV-0001 after tds 2000 and gst already paid',
+    'received 98000 on INV-0001, tds 2000 already deducted by customer',
+    'received 98000 on INV-0001, tds 2000 already deducted',
+    'received 98000 on INV-0001 with 2000 tds, invoice already booked',
+    'received 98000 on INV-0001, 2000 tds cut, already told the customer',
+    'received 98000 against INV-0001, tds of 2000 is already in',
+    'received 98000 against INV-0001, tds 2000 pending certificate',
+    'received 98000 on INV-0001, tds 2000 deducted, certificate awaited',
+    'received 98000 on INV-0001, tds 2000 deducted, cert pending',
+    'INV-0001 paid 98000, tds 2000, cert pending',
+  ]) {
+    for (const plan of [direct(state, sentence), viaChatPlanner(state, sentence)]) assertSteps(plan, sentence, { tds: 2000, cash: 98000, invoice: 'INV-0001' });
+  }
+  for (const [sentence, tds, cash] of [
+    ['received 118000 on INV-0001 incl 18% gst, tds 2000', 2000, 118000],
+    ['received 98000 on INV-0001 (gst 18% included), tds 2000 cut', 2000, 98000],
+    ['INV-0001: received 116000 including gst @18%, tds 2000 deducted', 2000, 116000],
+    ['received 98000 against INV-0001 after tds 2000 (invoice has GST 18%)', 2000, 98000],
+    ['received 98000 on INV-0001, tds 2000 on the base amount excluding gst 18%', 2000, 98000],
+    ['Kiran Stores paid 98000 on INV-0001 net of tds 2000, gst 18% included', 2000, 98000],
+  ]) {
+    for (const plan of [direct(state, sentence), viaChatPlanner(state, sentence)]) assertSteps(plan, sentence, { tds, cash, invoice: 'INV-0001' });
+    const out = await chat(state, sentence);
+    assert.equal(out.awaitingConfirmation, undefined, `${sentence}: ${out.reply}`);
+    assert.deepEqual(out.tools, [], sentence);
+  }
+  assert.deepEqual(receiptsOf(state, 'INV-0001'), []);
+});
+
+test('gap 5 (routing-1, routing-11): payment-style wording from a customer reaches the same two steps, and a TDS amount with a customer but no invoice asks for the invoice', async () => {
+  const state = books();
+  const cases = [
+    ['Kiran Stores sent 98000, tds 2000 cut', 2000, 98000],
+    ['neft 98000 from Kiran Stores for INV-0001, tds 2000', 2000, 98000, 'INV-0001'],
+    ['cheque 98000 from Kiran Stores for INV-0001 after tds 2000', 2000, 98000, 'INV-0001'],
+    ['98000 credited in bank from Kiran Stores after 2000 tds', 2000, 98000],
+    ['Kiran Stores credited 98000 to my account after deducting 2000 tds', 2000, 98000],
+    ['settled INV-0001: 98000 cash and 2000 TDS', 2000, 98000, 'INV-0001'],
+    ['INV-0001 settled 98000 + 2000 tds', 2000, 98000, 'INV-0001'],
+    ['INV-0001 cleared with 2000 tds and 98000 cash', 2000, 98000, 'INV-0001'],
+    ['payment from Kiran Stores 98000 less tds 2000', 2000, 98000],
+    ['payment of 98000 from Kiran Stores after tds of 2000', 2000, 98000],
+    ['Kiran Stores payment 98000 after 2000 tds', 2000, 98000],
+    ['upi 98000 from Kiran Stores, tds 2000 cut', 2000, 98000],
+    ['rtgs 98000 from Kiran Stores for INV-0001 net of tds 2000', 2000, 98000, 'INV-0001'],
+    ['paid 98000 against INV-0001, tds 2000 cut', 2000, 98000, 'INV-0001'],
+    ['paid 98000 on INV-0001 after tds 2000', 2000, 98000, 'INV-0001'],
+    ['paid 98000 for INV-0001 less 2000 tds', 2000, 98000, 'INV-0001'],
+    ['paid by Kiran Stores 98000, tds 2000', 2000, 98000],
+    ['paid by customer 98000, 2000 tds cut', 2000, 98000],
+    ['paid 5000 for audit by Kiran Stores, tds 100 deducted under 194C', 100, 5000],
+  ];
+  for (const [sentence, tds, cash, invoice] of cases) {
+    for (const plan of [direct(state, sentence), viaChatPlanner(state, sentence)]) assertSteps(plan, sentence, { tds, cash, invoice });
+    const out = await chat(state, sentence);
+    assert.equal(out.awaitingConfirmation, undefined, `${sentence}: ${out.reply}`);
+    assert.doesNotMatch(out.reply, /payments file|unpaid invoices/, sentence);
+  }
+  for (const sentence of ['Kiran Stores withheld tds 1000', 'tds deducted by Kiran Stores 2000', 'Delta Projects cut 500 tds', 'Kiran Stores deducted 1.5k tds']) {
+    for (const plan of [direct(state, sentence), viaChatPlanner(state, sentence)]) {
+      assert.equal(plan.kind, 'reply', `${sentence}: ${JSON.stringify(plan)}`);
+      assert.match(plan.reply, /Say the invoice number, like INV-0001/, sentence);
+      assert.match(plan.reply, /recorded nothing/, sentence);
+    }
+  }
+  assert.notEqual(direct(state, 'customer deducted tds').kind, 'reply');
+  assert.equal(direct(state, 'tds summary').name, 'tds_summary');
+  assert.notEqual(direct(state, 'Fabric Co withheld tds 1000').name, 'record_tds_withheld');
+  assert.doesNotMatch(String(direct(state, 'Fabric Co withheld tds 1000').reply || ''), /Say the invoice number/);
+});
+
+test('gap 6 (routing-1): a section written with a space before its letters or glued to the word section is read in full, and never cut to a shorter section', () => {
+  const state = books();
+  const cases = [
+    ['customer deducted 1000 tds on INV-0001 under 194 IB', '194IB'],
+    ['customer deducted 1000 tds on INV-0001 under 194 ib', '194IB'],
+    ['customer deducted 1000 tds on INV-0001 section 194 IA', '194IA'],
+    ['customer deducted 1000 tds on INV-0001 section194C', '194C'],
+    ['customer deducted 1000 tds on INV-0001 under194J', '194J'],
+    ['customer deducted 1000 tds on INV-0001 sec.194C', '194C'],
+    ['customer deducted 1000 tds on INV-0001 under 194IB', '194IB'],
+    ['customer deducted 1000 tds on INV-0001 under 194-IB', '194IB'],
+    ['customer deducted 1000 tds on INV-0001 under 194 C', '194C'],
+    ['customer deducted 1000 tds on INV-0001 u/s 194C', '194C'],
+    ['customer deducted 1000 tds on INV-0001 under 206AA', '206AA'],
+    ['customer deducted 1000 tds on INV-0001 under 192', '192'],
+  ];
+  for (const [sentence, section] of cases) {
+    const plan = direct(state, sentence);
+    assert.equal(plan.name, 'record_tds_withheld', `${sentence}: ${JSON.stringify(plan)}`);
+    assert.deepEqual(plan.args, { invoiceId: 'INV-0001', amount: 1000, section }, sentence);
+  }
+  for (const sentence of ['customer deducted 1000 tds on INV-0001 under 194 in October', 'customer deducted 1000 tds on INV-0001 under 194 x']) {
+    const plan = direct(state, sentence);
+    assert.equal(plan.name, 'record_tds_withheld', `${sentence}: ${JSON.stringify(plan)}`);
+    assert.notEqual(plan.args.section, '194IN', sentence);
+  }
+});
+
+test('gap 7 (routing-2): an invoice cancel with a TDS reason stays a cancel, a supplier payment cancel is not a TDS reversal, and a held TDS preview is discarded by an undo', async () => {
+  const state = booksWithSuppliers();
+  for (const sentence of ['cancel invoice INV-0003 because tds was wrong', 'cancel INV-0003 because the tds was wrong', 'cancel INV-0003 since tds is incorrect', 'cancel INV-0003: wrong tds', 'cancel INV-0003 - customer cut tds by mistake']) {
+    for (const plan of [direct(state, sentence), viaChatPlanner(state, sentence)]) {
+      assert.equal(plan.name, 'cancel_invoice', `${sentence}: ${JSON.stringify(plan)}`);
+      assert.equal(plan.args.invoiceId, 'INV-0003', sentence);
+    }
+  }
+  assert.equal(direct(state, 'cancel invoice INV-0003 because tds was wrong').args.reason, 'tds was wrong');
+  for (const sentence of ['cancel INV-0001 tds withheld 500 dated 2026-10-15', "cancel INV-0001's tds", 'cancel INV-0003 tds was wrong']) {
+    const plan = viaChatPlanner(state, sentence);
+    assert.equal(plan.kind, 'reply', `${sentence}: ${JSON.stringify(plan)}`);
+    assert.match(plan.reply, /cannot be reversed from chat/, sentence);
+  }
+  for (const [sentence, supplier] of [['cancel the payment to Fabric Co, tds deducted', 'Fabric Co'], ['cancel payment to Acme Steel with tds cut', 'Acme Steel'], ['remove the bill from Fabric Co, tds deducted']]) {
+    const plan = viaChatPlanner(state, sentence);
+    assert.doesNotMatch(String(plan.reply || ''), /cannot be reversed from chat/, `${sentence}: ${JSON.stringify(plan)}`);
+    if (supplier) assert.match(String(plan.reply || ''), new RegExp(`You owe ${supplier}`), sentence);
+  }
+
+  const followers = ['cancel the tds entry', 'cancel the tds', 'undo that tds', 'no, that tds is wrong', 'never mind, remove the tds', 'that tds is wrong', 'delete the tds', 'wrong tds', 'undo the tds withheld'];
+  for (const follow of followers) {
+    const held = books();
+    const preview = await chat(held, 'record tds withheld 1000 on INV-0001 under 194J');
+    assert.equal(preview.awaitingConfirmation, true, preview.reply);
+    const out = await chat(held, follow);
+    assert.match(out.reply, /^Not posted: TDS of ₹1,000\.00 withheld by Kiran Stores on INV-0001/, `${follow}: ${out.reply}`);
+    assert.equal(held.pendingChatAction ?? null, null, follow);
+    assert.equal((await chat(held, 'yes')).reply, 'There is nothing waiting to be posted.', follow);
+    assert.deepEqual(receiptsOf(held, 'INV-0001'), [], follow);
+    const alone = await chat(books(), follow);
+    assert.match(alone.reply, /cannot be reversed from chat/, `${follow}: ${alone.reply}`);
+  }
+  const other = books();
+  const held = await chat(other, 'invoice Kiran Stores 8000 GST 18%');
+  assert.equal(held.awaitingConfirmation, true, held.reply);
+  const undo = await chat(other, 'undo that tds');
+  assert.match(undo.reply, /cannot be reversed from chat/);
+  assert.equal(other.pendingChatAction?.name, 'create_invoice', 'a preview for another tool is not discarded by a TDS undo');
+});
+
+test('gap 8 (calendar): the attached 26AS flow holds on any day of the year, not only on the day the test was written', async () => {
+  const RealDate = globalThis.Date;
+  const startedAt = RealDate.now();
+  try {
+    for (const fixed of ['2026-04-01', '2026-11-06', '2027-03-31', '2027-04-01', '2028-01-15']) {
+      const base = new RealDate(`${fixed}T12:00:00`).getTime();
+      globalThis.Date = class extends RealDate {
+        constructor(...args) {
+          if (args.length === 0) super(base + (RealDate.now() - startedAt));
+          else super(...args);
+        }
+
+        static now() {
+          return base + (RealDate.now() - startedAt);
+        }
+      };
+      assert.equal(localToday(), fixed);
+      const state = books();
+      state.pendingFile = { kind: '26as', name: 'Form26AS.csv', content: csv26as() };
+      const waiting = await chat(state, 'check the 26AS file I attached');
+      assert.match(waiting.reply, /^No TDS credit is on record for FY \d{4}-\d{2} yet\./, `${fixed}: ${waiting.reply}`);
+      assert.match(waiting.reply, /Form26AS\.csv/, fixed);
+      assert.match(waiting.reply, /say "import 26AS"/, fixed);
+      const held = await chat(state, 'import 26AS');
+      assert.equal(held.awaitingConfirmation, true, `${fixed}: ${held.reply}`);
+      assert.equal((await chat(state, 'yes')).posted, true, fixed);
+      const after = await chat(state, 'check 26AS against the books');
+      assert.match(after.reply, /^26AS vs books for FY \d{4}-\d{2}: ₹2,000\.00 in 26AS/, `${fixed}: ${after.reply}`);
+      const year = currentFinancialYearStart();
+      assert.match(after.reply, new RegExp(`FY ${year}-${String((year + 1) % 100).padStart(2, '0')}`), fixed);
+    }
+  } finally {
+    globalThis.Date = RealDate;
+  }
+});
+
+test('gap 9 (routing-12, routing-11): on US books a customer TDS sentence is answered as India-only and never planned as a two-step', async () => {
+  const state = usBooks();
+  const india = /TDS withheld by customers is for India books/;
+  for (const sentence of [
+    'received 8000 on INV-0001 after tds of 200',
+    'received 8000, tds 200 on INV-0001',
+    'Kiran Stores paid 7800 on INV-0001, they cut 200 tds',
+    'got 7800 after 200 tds',
+    'received 7800 on INV-0001 and the rest is tds',
+    'customer deducted tds on invoice 5',
+    'customer deducted 200 tds on INV-0001',
+    'Kiran Stores withheld tds 200',
+  ]) {
+    for (const plan of [direct(state, sentence), viaChatPlanner(state, sentence)]) {
+      assert.equal(plan.kind === 'reply' || plan.name === 'record_tds_withheld', true, `${sentence}: ${JSON.stringify(plan)}`);
+      if (plan.kind === 'reply') {
+        assert.match(plan.reply, india, sentence);
+        assert.doesNotMatch(plan.reply, /first say "record tds withheld|Say the invoice number|Say how much TDS/, sentence);
+      }
+    }
+    const out = await chat(state, sentence);
+    assert.equal(out.awaitingConfirmation, undefined, `${sentence}: ${out.reply}`);
+    assert.match(out.reply, india, `${sentence}: ${out.reply}`);
+    assert.equal(out.tools.length, 0, sentence);
+  }
+  assert.equal(direct(state, 'received 8000 against INV-0001').name, 'record_receipt');
+  assert.equal(direct(state, 'received 8000 on INV-0001, no tds').name, 'record_receipt');
+  assert.deepEqual(receiptsOf(state, 'INV-0001'), []);
 });
