@@ -11,14 +11,14 @@ import 'package:myca/app_state.dart';
 import 'package:myca/cloud/cloud_session.dart';
 import 'package:myca/cloud/token_store.dart';
 import 'package:myca/main.dart';
-import 'package:myca/widgets.dart' show RowCard;
+import 'package:myca/widgets.dart' show Bubble, RowCard;
 
 import 'accessibility_test.dart' show phone;
 import 'cloud_test.dart' show sessionOn, signedIn;
 import 'fake_api.dart';
 import 'fake_cloud.dart';
 import 'gstr2b_test.dart' show scrollTo;
-import 'ims_test.dart' show openIms, rowOf;
+import 'ims_test.dart' show decideInSheet, openIms, rowOf;
 import 'security_test.dart' show expectTooltips, hosted, ownerWithBusiness, phoneCodeSignIn, press;
 import 'supplier_terms_test.dart' show enter, openSheet, save;
 
@@ -228,6 +228,34 @@ FakeMycaApi withManyRows(int count) {
     ..clear()
     ..addAll([for (var i = 0; i < count; i++) imsRow(i)]);
   return api;
+}
+
+Finder previewCard() => find.byWidgetPredicate((widget) => widget is Bubble && widget.label == 'Not posted yet');
+
+Future<void> decideInTallSheet(WidgetTester tester, String key, String choice) async {
+  await scrollTo(tester, rowOf(key));
+  await tester.tap(rowOf(key));
+  await tester.pumpAndSettle();
+  final sheet = find.byType(BottomSheet);
+  final chip = find.descendant(of: sheet, matching: find.widgetWithText(ChoiceChip, choice));
+  await tester.scrollUntilVisible(chip, 100, scrollable: find.descendant(of: sheet, matching: find.byType(Scrollable)));
+  await tester.ensureVisible(chip);
+  await tester.pumpAndSettle();
+  await tester.tap(chip);
+  await tester.pumpAndSettle();
+  await tester.tap(find.descendant(of: sheet, matching: find.text('Save')));
+  await tester.pumpAndSettle();
+}
+
+void expectPreviewInView(WidgetTester tester, String reason) {
+  expect(find.text('Post it'), findsOneWidget, reason: '$reason: the bar is showing');
+  expect(previewCard(), findsOneWidget, reason: '$reason: the preview is built');
+  final screen = tester.getRect(find.byType(Scrollable).last);
+  final card = tester.getRect(previewCard());
+  expect(card.bottom, lessThanOrEqualTo(screen.bottom), reason: '$reason: the card $card against the list $screen');
+  if (card.height <= screen.height - 16) {
+    expect(card.top, greaterThanOrEqualTo(screen.top), reason: '$reason: the card $card against the list $screen');
+  }
 }
 
 void main() {
@@ -697,6 +725,65 @@ void main() {
       final screen = tester.getRect(find.byType(Scrollable).last);
       expect(screen.contains(tester.getCenter(preview)), isTrue);
       expect(find.byType(RowCard).evaluate().length, lessThan(60));
+    });
+  });
+
+  group('extra (d), again: the decision preview is scrolled fully into view whatever the number of rows', () {
+    for (final count in [1, 3, 4, 6, 12, 20, 25, 30, 60]) {
+      testWidgets('$count rows: Accept all matched shows the preview above the bar', (tester) async {
+        await phone(tester);
+        await openIms(tester, testState(withManyRows(count)));
+        await tester.tap(find.widgetWithText(ActionChip, 'Accept all matched'));
+        await tester.pumpAndSettle();
+        expectPreviewInView(tester, '$count rows, bulk');
+      });
+    }
+
+    for (final count in [3, 6, 12, 20, 30]) {
+      testWidgets('$count rows: one decision from the sheet shows the preview above the bar', (tester) async {
+        await phone(tester);
+        await openIms(tester, testState(withManyRows(count)));
+        await decideInSheet(tester, imsRow(0)['key'] as String, 'Accept');
+        expectPreviewInView(tester, '$count rows, one row');
+      });
+    }
+
+    for (final scale in [1.5, 2.0]) {
+      for (final count in [4, 12]) {
+        testWidgets('$count rows at $scale times type: Accept all matched shows the preview', (tester) async {
+          await phone(tester, textScale: scale);
+          await openIms(tester, testState(withManyRows(count)));
+          await tester.tap(find.widgetWithText(ActionChip, 'Accept all matched'));
+          await tester.pumpAndSettle();
+          expectPreviewInView(tester, '$count rows, bulk, $scale times');
+        });
+
+        testWidgets('$count rows at $scale times type: one decision from the sheet shows the preview', (tester) async {
+          await phone(tester, textScale: scale);
+          await openIms(tester, testState(withManyRows(count)));
+          await decideInTallSheet(tester, imsRow(0)['key'] as String, 'Reject');
+          expectPreviewInView(tester, '$count rows, one row, $scale times');
+        });
+      }
+    }
+
+    testWidgets('a second proposal after the first is discarded is also brought into view', (tester) async {
+      await phone(tester);
+      await openIms(tester, testState(withManyRows(12)));
+      await tester.tap(find.widgetWithText(ActionChip, 'Accept all matched'));
+      await tester.pumpAndSettle();
+      expectPreviewInView(tester, 'first');
+      await tester.tap(find.text('Discard'));
+      await tester.pumpAndSettle();
+      tester.state<ScrollableState>(find.byType(Scrollable).last).position.jumpTo(0);
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(ActionChip, 'Accept all matched'));
+      await tester.pumpAndSettle();
+      expect(find.text('Post it'), findsOneWidget);
+      final screen = tester.getRect(find.byType(Scrollable).last);
+      final card = tester.getRect(previewCard().last);
+      expect(card.top, greaterThanOrEqualTo(screen.top));
+      expect(card.bottom, lessThanOrEqualTo(screen.bottom));
     });
   });
 }

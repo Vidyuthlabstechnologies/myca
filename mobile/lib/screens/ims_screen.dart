@@ -101,12 +101,19 @@ class _ImsScreenState extends State<ImsScreen> with ProposalFlow {
     });
   }
 
+  void _toEnd(int tries) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scroll.hasClients) return;
+      final position = _scroll.position;
+      final before = position.pixels;
+      position.jumpTo(position.maxScrollExtent);
+      if (tries > 0 && position.pixels != before) _toEnd(tries - 1);
+    });
+  }
+
   @override
   void onThreadChanged() {
-    if (pending == null) return;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scroll.hasClients) _scroll.jumpTo(_scroll.position.maxScrollExtent);
-    });
+    if (pending != null) _toEnd(8);
   }
 
   Future<void> _acceptMatched() => propose('Accept all matched invoices', 'ims_decide', {
