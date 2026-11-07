@@ -6,7 +6,9 @@ const PAID_WORDS = /\b(paid|pay|paying|payment|settled|settle|cleared|clear)\b/i
 const MOVED_WORDS = /\b(transferred|transfer|transferring)\b/i;
 const MONEY_IN = /\b(received|receive|receipt|got|collected)\b/i;
 const NEW_DOCUMENT = /\b(bought|buy|purchased?|bill\s+from|invoice|gst\s*@?\s*\d)/i;
-const DAYS_SAID = /\b\d[\d,]*(?:\.\d+)?\s*(?:-\s*)?days?\b/gi;
+const DAYS_SAID = /\b\d[\d,]*(?:\.\d+)?\s*(?:-\s*)?days?\b|\bnet\s*\d{1,3}\b/gi;
+const TERMS_SAID = /\b(?:in|within|after)\s+\d[\d,]*(?:\.\d+)?\s*(?:-\s*)?days?\b|\bnet\s*\d{1,3}\b|\bterms?\b/i;
+const TERMS_OR_PAYMENT = `I cannot tell whether that is a payment or an agreed payment term, so I have recorded nothing. To set a supplier's term, say for example "supplier terms for ABC Ltd 30 days". To record a payment, say the amount, for example "paid ABC Ltd 5000".`;
 const EPSILON = 0.005;
 
 function inr(amount) {
@@ -63,12 +65,14 @@ export function planPaymentFromChat(state, text) {
   const amount = receiptAmount(counted);
   if (!PAID_WORDS.test(raw) && !(amount != null && MOVED_WORDS.test(raw))) return null;
   if (amount == null && saidNonPositiveAmount(counted)) return reply('An amount of zero or less cannot be paid. Say the amount paid, or leave it out to settle the whole bill. I have recorded nothing.');
+  const termsNotPayment = amount == null && counted !== raw && TERMS_SAID.test(raw) && !isQuestion(raw) && !isNegated(raw);
   const named = billNamed(state, raw);
   if (named) {
     if (isQuestion(raw) || isNegated(raw)) {
       const owed = billOutstanding(named);
       return reply(`${owed > EPSILON ? `${inr(owed)} is owed on ${named.id} to ${named.partyName}.` : `${named.id} is paid.`} I have recorded nothing.`);
     }
+    if (termsNotPayment) return reply(TERMS_OR_PAYMENT);
     return paymentCall(raw, named.id, amount);
   }
   if (NEW_DOCUMENT.test(raw)) return null;
@@ -77,6 +81,7 @@ export function planPaymentFromChat(state, text) {
   if (suppliers.length > 1) return reply(`That could be ${suppliers.map((s) => s.name).join(' or ')}. Say which supplier, or the bill number. I have recorded nothing.`);
   const supplier = suppliers[0];
   if (new RegExp(`^${supplier.key}\\s+(?:has\\s+|have\\s+)?(?:paid|settled|cleared)\\b`).test(key(raw))) return null;
+  if (termsNotPayment) return reply(TERMS_OR_PAYMENT);
   const unpaid = (state.purchases || []).filter((bill) => key(bill.partyName) === supplier.key && billOutstanding(bill) > EPSILON);
   if (isQuestion(raw) || isNegated(raw)) {
     return reply(unpaid.length
