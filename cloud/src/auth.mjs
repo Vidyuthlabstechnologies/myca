@@ -15,12 +15,17 @@ export const OTP_MAX_PER_HOUR = 5;
 export const OTP_MAX_PER_ADDRESS_PER_HOUR = 30;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+export function plainText(value) {
+  if (typeof value === 'string') return value;
+  return typeof value === 'number' && Number.isFinite(value) ? String(value) : '';
+}
+
 export function isUuid(value) {
-  return UUID.test(String(value ?? ''));
+  return typeof value === 'string' && UUID.test(value);
 }
 
 export function normalizePhone(input) {
-  const digits = String(input ?? '').replace(/[\s()-]/g, '');
+  const digits = plainText(input).replace(/[\s()-]/g, '');
   const match = /^(?:\+?91|0)?([6-9]\d{9})$/.exec(digits);
   return match ? `+91${match[1]}` : '';
 }
@@ -100,7 +105,7 @@ export function createAuth({ db, secret, otpSender, now = () => Date.now(), seco
 
     async verifyOtp({ challengeId, phone: phoneInput, code, deviceLabel = '' } = {}) {
       const phone = normalizePhone(phoneInput);
-      if (!phone || !isUuid(challengeId) || !/^\d{6}$/.test(String(code ?? ''))) return fail('INVALID_CODE');
+      if (!phone || !isUuid(challengeId) || !/^\d{6}$/.test(plainText(code))) return fail('INVALID_CODE');
       return db.tx(async (q) => {
         const found = await q('select * from otp_challenges where id = $1 for update', [challengeId]);
         const challenge = found.rows[0];

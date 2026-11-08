@@ -27,6 +27,7 @@ import { CA_SYNC_MODES, syncOf } from './ca-sync.mjs';
 import { inWords } from '../../platform/src/words.mjs';
 import { createInbound, INBOUND_HEADER, relayTokenMatches } from './inbound.mjs';
 import { createWhatsApp } from './whatsapp.mjs';
+import { chatText } from './chat-text.mjs';
 
 const INDIA_OFFSET_MS = 330 * 60 * 1000;
 
@@ -126,6 +127,14 @@ function bearer(req) {
   return match ? match[1] : '';
 }
 
+function parseTarget(target) {
+  try {
+    return new URL(target, 'http://localhost');
+  } catch {
+    return null;
+  }
+}
+
 function statusOf(result) {
   if (!result || result.ok !== false) return 200;
   if (result.error === 'TOO_MANY_REQUESTS' || result.error === 'TOO_MANY_ATTEMPTS') return 429;
@@ -223,8 +232,8 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
     return membership.role;
   }
 
-  async function route(req, requestId) {
-    const url = new URL(req.url, 'http://localhost');
+  async function route(req, requestId, url) {
+    if (!url) throw httpError(404, 'NOT_FOUND');
     const parts = url.pathname.split('/').filter(Boolean);
     const method = req.method;
     if (parts[0] !== 'v1') throw httpError(404, 'NOT_FOUND');
@@ -522,7 +531,7 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
       if (sharedView) {
         if (action === 'query') return runner.withSharedBooks(businessId, context, (session) => session.query(body.name, body.args || {}, actor));
         if (action === 'ask') {
-          const message = String(body.message ?? '').slice(0, 2000);
+          const message = chatText(body.message);
           if (!message.trim()) throw httpError(400, 'MESSAGE_REQUIRED');
           return runner.withSharedBooks(businessId, context, async (session, { asOf }) => {
             const out = await session.chat(message, actor);
@@ -615,7 +624,7 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
       if (action === 'discard') return withBooks(businessId, context, (session) => session.discard(actor));
       if (action === 'query') return runner.withReadOnlyBooks(businessId, context, (session) => session.query(body.name, body.args || {}, actor));
       if (action === 'ask') {
-        const message = String(body.message ?? '').slice(0, 2000);
+        const message = chatText(body.message);
         if (!message.trim()) throw httpError(400, 'MESSAGE_REQUIRED');
         return withBooks(businessId, context, (session) => session.chat(message, actor));
       }
@@ -631,12 +640,13 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
     throw httpError(404, 'NOT_FOUND');
   }
 
-  return async function handler(req, res) {
+  async function serve(req, res) {
     const requestId = randomUUID();
+    const url = parseTarget(req.url);
     let status = 200;
     let body;
     try {
-      body = await withProviderContext({ environment: 'off' }, () => route(req, requestId));
+      body = await withProviderContext({ environment: 'off' }, () => route(req, requestId, url));
       status = statusOf(body);
     } catch (err) {
       status = err.statusCode || 500;
@@ -646,7 +656,7 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
         await crashes.recordServer(err, version).catch(() => {});
       }
     }
-    log({ requestId, method: req.method, path: new URL(req.url, 'http://localhost').pathname.replace(/[0-9a-f-]{36}/gi, ':id'), status });
+    log({ requestId, method: req.method, path: url ? url.pathname.replace(/[0-9a-f-]{36}/gi, ':id') : '(unreadable)', status });
     if (body && typeof body === 'object' && typeof body.__html === 'string') {
       res.writeHead(status, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'x-request-id': requestId });
       res.end(body.__html);
@@ -657,7 +667,21 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
       res.end(body.__text);
       return;
     }
+    const payload = JSON.stringify(body, (_key, value) => (typeof value === 'bigint' ? Number(value) : value));
     res.writeHead(status, { 'content-type': 'application/json', 'cache-control': 'no-store', 'x-request-id': requestId });
-    res.end(JSON.stringify(body, (_key, value) => (typeof value === 'bigint' ? Number(value) : value)));
+    res.end(payload);
+  }
+
+  return async function handler(req, res) {
+    try {
+      await serve(req, res);
+    } catch {
+      if (res.headersSent) {
+        res.destroy();
+      } else {
+        res.writeHead(500, { 'content-type': 'application/json', 'cache-control': 'no-store' });
+        res.end('{"ok":false,"error":"INTERNAL_ERROR"}');
+      }
+    }
   };
 }

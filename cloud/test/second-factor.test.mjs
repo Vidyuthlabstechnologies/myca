@@ -207,13 +207,15 @@ test('wrong second-step codes are counted, the sixth try is refused even when ri
     { challengeId: 'x', code: '123456' },
     { challengeId: second.body.challengeId, code: '1234' },
     { challengeId: second.body.challengeId, code: 'abcde-fghjk-m' },
-    { challengeId: '11111111-1111-4111-8111-111111111111', code: '123456' },
   ];
   for (const body of bodies) {
     const out = await api.call('POST', '/v1/auth/second-step', { body });
     assert.equal(out.status, 400, JSON.stringify(body));
     assert.equal(out.body.error, 'INVALID_CODE', JSON.stringify(body));
   }
+  const unknown = await api.call('POST', '/v1/auth/second-step', { body: { challengeId: '11111111-1111-4111-8111-111111111111', code: '123456' } });
+  assert.equal(unknown.status, 400);
+  assert.equal(unknown.body.error, 'CODE_EXPIRED', 'a well-formed id with no challenge behind it is an expired one');
   const attempts = await api.db.query('select attempts from second_step_challenges where id = $1', [second.body.challengeId]);
   assert.equal(attempts.rows[0].attempts, 0, 'malformed and late codes are refused before they count');
 });
@@ -403,7 +405,7 @@ test('deleting the account removes the authenticator key, the recovery codes and
   );
   assert.deepEqual(left.rows[0], { totp: 0, codes: 0, challenges: 0 });
   const stale = await secondStep(pending.body.challengeId, current(secret));
-  assert.equal(stale.body.error, 'INVALID_CODE');
+  assert.equal(stale.body.error, 'CODE_EXPIRED');
   const again = await firstStep(phone);
   assert.equal(again.status, 200, again.text);
   assert.ok(again.body.accessToken, 'the number is not asked for an authenticator it no longer has');
@@ -589,7 +591,7 @@ test('an account deletion and a second-step sign-in queued on the same authentic
   const signedIn = await signing;
   assert.equal(deleted.status, 200, deleted.text);
   assert.equal(signedIn.status, 400, signedIn.text);
-  assert.equal(signedIn.body.error, 'INVALID_CODE');
+  assert.equal(signedIn.body.error, 'CODE_EXPIRED');
   const left = await api.db.query(
     `select (select count(*)::int from user_totp where user_id = $1) as totp,
             (select count(*)::int from second_step_challenges where user_id = $1) as challenges,
@@ -637,7 +639,7 @@ test('deleting the account while second-step sign-ins are in flight never answer
     assert.equal(deleted.status, 200, `round ${round}: ${deleted.text}`);
     const won = signIns.filter((out) => out.status === 200).length;
     for (const out of signIns) {
-      const refused = out.status === 400 && (out.body.error === 'INVALID_CODE' || (out.body.error === 'CODE_USED' && won === 1));
+      const refused = out.status === 400 && (out.body.error === 'CODE_EXPIRED' || (out.body.error === 'CODE_USED' && won === 1));
       assert.ok(out.status === 200 || refused, `round ${round}: ${out.status} ${out.text}`);
     }
     assert.ok(won <= 1, `round ${round}: one code, one sign-in`);
