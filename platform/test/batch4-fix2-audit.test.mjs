@@ -460,7 +460,9 @@ test('R1-11: the words say it only where there is a seal to speak of, not on a b
   assert.equal(auditTrailWords({ ...base, chain: { ok: true, chained: 3, unchained: 0 } }), `${head}log chain verified (3 events; ${NOT_SEALED})`);
   assert.equal(auditTrailWords({ ...base, chain: { ok: true, chained: 1, unchained: 0 } }), `${head}log chain verified (1 event; ${NOT_SEALED})`);
   assert.equal(auditTrailWords({ ...base, view: 'all', chain: { ok: true, chained: 2 } }), `0 events, log chain verified (2 events; ${NOT_SEALED})`);
-  assert.equal(auditTrailWords({ ...base, chain: { ok: true, chained: 0, unchained: 4 } }), `${head}log chain verified (0 events)`);
+  const nothingSealed = auditTrailWords({ ...base, chain: { ok: true, chained: 0, unchained: 4 } });
+  assert.equal(nothingSealed, `${head}log chain verified (0 events; 4 earlier events were recorded before sealing and are not covered)`);
+  assert.ok(!nothingSealed.includes(NOT_SEALED));
   assert.equal(auditTrailWords({ ...base }), `${head}log chain verified (0 events)`);
   const broken = auditTrailWords({ ...base, chain: { ok: false, error: 'HASH_MISMATCH', at: 'AUD-000007', chained: 6, unchained: 0 } });
   assert.equal(broken, `${head}LOG CHAIN BROKEN at AUD-000007`);

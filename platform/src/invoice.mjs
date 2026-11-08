@@ -4,7 +4,7 @@ import { csvRows, htmlEscape } from './text-safe.mjs';
 import { isPeriodLocked } from './period-lock.mjs';
 import { postingDate } from './dates.mjs';
 import { invoiceTerms, dueDateOf } from './payment-terms.mjs';
-import { billPayBy } from './supplier-dues.mjs';
+import { billPayBy, completeMsmeReminders } from './supplier-dues.mjs';
 import { invoiceTemplateOf, bankWords } from './invoice-template.mjs';
 import { regArg, docFieldsFor } from './registrations.mjs';
 import { planTds, recordTdsEntry, tdsPayableAccountId, wantsTds } from './tds-deduction.mjs';
@@ -515,6 +515,7 @@ export function recordPayment(state, args = {}) {
   bill.payments = bill.payments || [];
   bill.payments.push({ amount, date, mode });
   bill.status = billOutstanding(bill) <= 0.005 ? 'paid' : 'partial';
+  if (bill.status === 'paid') completeMsmeReminders(state, { billId: bill.id });
   return { ok: true, bill, payment: { amount, date, mode }, remaining: billOutstanding(bill), posted };
 }
 

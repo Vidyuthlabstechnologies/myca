@@ -91,9 +91,29 @@ export function setSupplierTerms(state, args = {}) {
   const planned = planSupplierTerms(state, args);
   if (!planned.ok) return planned;
   const { plan } = planned;
+  const kept = plan.before && typeof plan.before === 'object' && !Array.isArray(plan.before) ? plan.before : {};
   state.supplierTerms = state.supplierTerms && typeof state.supplierTerms === 'object' ? state.supplierTerms : {};
-  state.supplierTerms[plan.key] = { msme: plan.msme, udyam: plan.udyam, category: plan.category, days: plan.days };
+  state.supplierTerms[plan.key] = { ...kept, msme: plan.msme, udyam: plan.udyam, category: plan.category, days: plan.days };
   return { ok: true, supplier: plan.name, gstin: plan.gstin, msme: plan.msme, covered: plan.covered, udyam: plan.udyam, category: plan.category, days: plan.days, before: plan.before };
+}
+
+const MSME_REMINDER_SOURCE = /^msme:(.+):\d{4}-\d{2}-\d{2}$/;
+
+export function completeMsmeReminders(state, { billId = '', today = localToday() } = {}) {
+  const wanted = String(billId || '');
+  const completed = [];
+  let bills = null;
+  for (const reminder of state.reminders || []) {
+    if (!reminder || typeof reminder !== 'object' || reminder.done) continue;
+    const found = MSME_REMINDER_SOURCE.exec(String(reminder.source || ''));
+    if (!found || (wanted && found[1] !== wanted)) continue;
+    bills = bills || new Map((state.purchases || []).map((bill) => [bill.id, bill]));
+    const bill = bills.get(found[1]);
+    if (bill && bill.status !== 'cancelled' && round2(billOutstanding(bill)) > 0.005) continue;
+    reminder.done = { on: today, by: 'automation' };
+    completed.push(reminder.id);
+  }
+  return completed;
 }
 
 export function billPayBy(state, bill) {
