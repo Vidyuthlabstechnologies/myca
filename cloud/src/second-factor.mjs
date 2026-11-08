@@ -1,5 +1,5 @@
 import { createCipheriv, createDecipheriv, hkdfSync, randomBytes, randomInt } from 'node:crypto';
-import { isUuid, issueTokens } from './auth.mjs';
+import { isUuid, issueTokens, plainText } from './auth.mjs';
 import { keyedHash } from './tokens.mjs';
 import { base32Decode, base32Encode, otpauthUri, verifyTotp } from './totp.mjs';
 
@@ -23,7 +23,7 @@ function fail(error, extra = {}) {
 }
 
 export function normaliseCode(input) {
-  return String(input ?? '').replace(/[\s-]/g, '').toLowerCase();
+  return plainText(input).replace(/[\s-]/g, '').toLowerCase();
 }
 
 export function formatRecoveryCode(code) {
@@ -215,7 +215,7 @@ export function createSecondFactor({ db, secret, booksKey = '', now = () => Date
       return db.tx(async (q) => {
         const found = await q('select * from second_step_challenges where id = $1 for update', [challengeId]);
         const challenge = found.rows[0];
-        if (!challenge) return fail('INVALID_CODE');
+        if (!challenge) return fail('CODE_EXPIRED');
         if (challenge.consumed_at) return fail('CODE_USED');
         if (challenge.expires_at.getTime() <= now()) return fail('CODE_EXPIRED');
         if (challenge.attempts >= SECOND_STEP_MAX_ATTEMPTS) return fail('TOO_MANY_ATTEMPTS');
