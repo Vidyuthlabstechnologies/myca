@@ -152,6 +152,14 @@ Future<void> openPaymentReceived(WidgetTester tester, FakeMycaApi api) async {
 
 String amountIn(WidgetTester tester, String label) => tester.widget<TextField>(find.widgetWithText(TextField, label)).controller!.text;
 
+Future<void> narrowPhone(WidgetTester tester, double textScale) async {
+  tester.view.physicalSize = const Size(1080, 2400);
+  tester.view.devicePixelRatio = 3;
+  tester.platformDispatcher.textScaleFactorTestValue = textScale;
+  addTearDown(tester.view.reset);
+  addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+}
+
 Future<void> askForCode(WidgetTester tester, String row, String action, String code) async {
   await tester.tap(find.text(row));
   await tester.pumpAndSettle();
@@ -345,6 +353,8 @@ void main() {
       expect(sale(const []).owed, 100000);
       expect(Invoice.fromJson({'id': 'BILL-1', 'total': 42000, 'payments': [{'amount': 12000, 'mode': 'bank'}]}).owed, 30000);
       expect(Invoice.fromJson({'id': 'INV-2', 'total': 11800.5, 'receipts': [{'amount': 1000.1, 'mode': 'bank'}]}).owed, 10800.4);
+      expect(Invoice.fromJson({'id': 'INV-3', 'total': 100000, 'receipts': [{'amount': 33333.33, 'mode': 'bank'}, {'amount': 33333.33, 'mode': 'bank'}, {'amount': 33333.33, 'mode': 'bank'}]}).owed, 0.01);
+      expect(Invoice.fromJson({'id': 'INV-4', 'total': 0.3, 'receipts': [{'amount': 0.1, 'mode': 'bank'}, {'amount': 0.1, 'mode': 'bank'}]}).owed, 0.1);
     });
 
     testWidgets('an invoice of 1,00,000 with TDS of 2,000 opens the composer with 98,000 and the list says 98,000', (tester) async {
@@ -430,6 +440,98 @@ void main() {
       await tester.pumpAndSettle();
       expect(amountIn(tester, 'Amount paid'), '30000');
       expect(find.text('BILL-0001 · ₹30,000.00 owed'), findsOneWidget);
+    });
+
+    final surfaces = <String, Future<void> Function(WidgetTester)>{
+      '360 dp phone at 1.0x text size': (tester) => narrowPhone(tester, 1.0),
+      '360 dp phone at 1.15x text size': (tester) => narrowPhone(tester, 1.15),
+      '360 dp phone at 1.3x text size': (tester) => narrowPhone(tester, 1.3),
+      'phone at 2.0x text size': (tester) => phone(tester, textScale: 2.0),
+    };
+    for (final surface in surfaces.entries) {
+      testWidgets('the Against invoice list stays inside its field on a ${surface.key}, closed and open', (tester) async {
+        await surface.value(tester);
+        final api = gujaratOwing(total: 100000, receipts: [receipt(2000, 'tds', section: '194C')]);
+        api.invoices.add({
+          'id': 'INV-0003',
+          'date': '2026-09-02',
+          'partyName': 'Gujarat Weaves',
+          'partyGstin': '24AAACG1234F1Z5',
+          'total': 1234567.89,
+          'status': 'posted',
+          'lines': [
+            {'gstRate': 5},
+          ],
+          'receipts': <Object?>[],
+        });
+        await openPaymentReceived(tester, api);
+        expect(tester.takeException(), isNull);
+        final list = find.byType(DropdownButtonFormField<String>);
+        final label = find.descendant(of: list, matching: find.text('INV-0002 · ₹98,000.00 owed'));
+        final arrow = find.descendant(of: list, matching: find.byIcon(Icons.arrow_drop_down));
+        expect(label, findsOneWidget);
+        expect(tester.getRect(label).right, lessThanOrEqualTo(tester.getRect(arrow).left));
+        expect(tester.getRect(arrow).right, lessThanOrEqualTo(tester.getRect(list).right));
+        expect(amountIn(tester, 'Amount received'), '98000');
+
+        await tester.tap(list);
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+        await tester.tap(find.text('INV-0003 · ₹12,34,567.89 owed').last);
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+        expect(amountIn(tester, 'Amount received'), '1234567.89');
+        expect(find.descendant(of: list, matching: find.text('INV-0003 · ₹12,34,567.89 owed')), findsOneWidget);
+      });
+
+      testWidgets('the Payment received form meets the tap target, label and contrast guidelines on a ${surface.key}', (tester) async {
+        await surface.value(tester);
+        await openPaymentReceived(tester, gujaratOwing(total: 100000, receipts: [receipt(2000, 'tds', section: '194C')]));
+        final handle = tester.ensureSemantics();
+        await expectLater(tester, meetsGuideline(androidTapTargetGuideline));
+        await expectLater(tester, meetsGuideline(labeledTapTargetGuideline));
+        await expectLater(tester, meetsGuideline(textContrastGuideline));
+        handle.dispose();
+        expect(tester.takeException(), isNull);
+      });
+    }
+
+    test('the open amount is never below nothing', () {
+      final overpaid = Invoice.fromJson({'id': 'INV-1', 'total': 1000, 'status': 'partial', 'receipts': [{'amount': 1200, 'mode': 'bank'}]});
+      final credited = Invoice.fromJson({'id': 'INV-2', 'total': 100000, 'status': 'partial', 'receipts': [{'amount': 78000, 'mode': 'bank'}]});
+      final note = CreditNote.fromJson({'id': 'CN-1', 'invoiceId': 'INV-2', 'total': 44000});
+      expect(overpaid.owed, 0);
+      expect(overpaid.owedAfter(const []), 0);
+      expect(credited.owed, 22000);
+      expect(credited.owedAfter([note]), 0);
+      expect(credited.owedAfter(const []), 22000);
+      expect(Invoice.fromJson({'id': 'BILL-1', 'total': 500, 'payments': [{'amount': 700, 'mode': 'bank'}]}).owed, 0);
+    });
+
+    testWidgets('receipts and credit notes that take more than the invoice show nothing owed, never a negative amount', (tester) async {
+      final api = gujaratOwing(total: 100000, receipts: [receipt(78000, 'bank')]);
+      api.creditNotes.add({'id': 'CN-0001', 'date': '2026-10-02', 'invoiceId': 'INV-0002', 'partyName': 'Gujarat Weaves', 'reason': 'Price reduced', 'total': 44000, 'cancels': false});
+      await openPaymentReceived(tester, api);
+      expect(amountIn(tester, 'Amount received'), '0');
+      expect(find.text('INV-0002 · ₹0.00 owed'), findsOneWidget);
+      expect(find.textContaining('-₹'), findsNothing);
+      await tester.tap(find.text('Preview'));
+      await tester.pumpAndSettle();
+      expect(find.text('Enter the amount received.'), findsOneWidget);
+      expect(api.proposals, isEmpty);
+    });
+
+    testWidgets('the TDS withheld sheet keeps listing the invoice total, because its 2% suggestion is on the invoice', (tester) async {
+      final api = gujaratOwing(total: 100000, receipts: [receipt(30000, 'bank')]);
+      await openGujarat(tester, api);
+      await tester.tap(find.widgetWithText(ActionChip, 'TDS withheld'));
+      await tester.pumpAndSettle();
+      expect(find.text('INV-0002 · ₹1,00,000.00'), findsOneWidget);
+      expect(find.text('INV-0002 · ₹70,000.00 owed'), findsNothing);
+      expect(amountIn(tester, 'TDS withheld'), '2000');
+      final label = tester.widget<Text>(find.text('INV-0002 · ₹1,00,000.00'));
+      expect(label.maxLines, 1);
+      expect(label.overflow, TextOverflow.ellipsis);
     });
   });
 
