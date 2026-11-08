@@ -229,12 +229,17 @@ export function saidNonPositiveAmount(text) {
   return nonPositive && list.length !== 1;
 }
 
-export function documentProblemReply(doc) {
+export function documentProblemReply(doc, country = 'IN') {
   if (!doc || !doc.problem) return null;
+  const abroad = country !== 'IN';
   const words = {
     NEGATIVE_NUMBER: 'A negative number cannot be part of an invoice or bill; use a credit note or a debit note for a reduction.',
-    AMOUNT_TOO_LARGE: 'That amount is larger than I will take from a chat message (the limit is ₹100 crore); enter it as a form if it is right.',
-    INVALID_DATE: `${doc.said} is not a date I can read; say it as 2026-08-15 or 15/08/2026.`,
+    AMOUNT_TOO_LARGE: abroad
+      ? 'That amount is larger than I will take from a chat message; enter it as a form if it is right.'
+      : 'That amount is larger than I will take from a chat message (the limit is ₹100 crore); enter it as a form if it is right.',
+    INVALID_DATE: abroad
+      ? `${doc.said} is not a date I can read; say it as YYYY-MM-DD, or day first as DD/MM/YYYY, for example 15/03/2026.`
+      : `${doc.said} is not a date I can read; say it as 2026-08-15 or 15/08/2026.`,
   }[doc.problem] || 'I could not read that.';
   return { kind: 'reply', reply: `${words} I have recorded nothing.`, tools: [] };
 }
