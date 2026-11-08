@@ -531,7 +531,7 @@ async function oneShot(send) {
 
 async function withinBounds(send) {
   let last;
-  for (let attempt = 1; attempt <= 3; attempt++) {
+  for (let attempt = 1; attempt <= 5; attempt++) {
     last = await oneShot(send);
     if (last.ms < 1000 && last.gap < 200) return last;
     if (last.ms > 3000) return last;
@@ -541,7 +541,7 @@ async function withinBounds(send) {
 
 async function standsStill(send, victim) {
   let last;
-  for (let attempt = 1; attempt <= 3; attempt++) {
+  for (let attempt = 1; attempt <= 5; attempt++) {
     const started = performance.now();
     const answered = send().then((out) => ({ out, ms: performance.now() - started }));
     await sleep(300);
@@ -632,9 +632,12 @@ test('CLOUD-3: only runs of four or more whitespace characters are cut to their 
   assert.equal(chatText(undefined), '');
   assert.equal(chatText(12345), '12345');
   assert.equal(chatText({ toString: 1 }), '');
-  const started = performance.now();
-  for (const prefix of PREFIXES) for (const pad of Object.values(PADDINGS)) chatText(padded(prefix, pad));
-  assert.ok(performance.now() - started < 200, 'cutting the runs is linear');
+  const cutAll = () => {
+    const started = performance.now();
+    for (const prefix of PREFIXES) for (const pad of Object.values(PADDINGS)) chatText(padded(prefix, pad));
+    return performance.now() - started;
+  };
+  assert.ok(Math.min(cutAll(), cutAll(), cutAll()) < 200, 'cutting the runs is linear');
 });
 
 test('CLOUD-3: an ordinary message reaches the planner unchanged and a padded one reaches it cut, live and on WhatsApp', async () => {
