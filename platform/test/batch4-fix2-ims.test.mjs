@@ -232,7 +232,7 @@ test('R1-19: when no invoice is named, the blocker offers the month and two thin
   assert.match(offered.reply, /^Mark DYE WORKS DW-3 as accepted in IMS for September 2026\./);
 });
 
-test('R1-19: the month in the blocker is the month asked for, the supplier is one in that statement, and a supplier with a very long name is left out', async () => {
+test('R1-19: the month in the blocker is the month asked for and the blocker names no supplier, even for a statement with a very long supplier name', async () => {
   const state = await withStatement(MIXED_2B);
   await runTool(state, 'import_gstr2b', { period: '2026-08', csv: [HEADER, 'B2B,27AABCT1332L1ZE,FABRIC CO,F-1,05-08-2026,1000,25,25,0,0,1050,Y'].join('\n') });
   assert.deepEqual(previewOf(state, 'ims_decide', { period: '2026-08', decision: 'pending' }).blockers, ['Say which invoices, for example "accept all matched in IMS for 2026-08" or "reject all undecided in IMS for 2026-08".']);

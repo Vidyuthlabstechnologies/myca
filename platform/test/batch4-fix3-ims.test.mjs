@@ -133,6 +133,10 @@ test('G1: a single-line invoice and a file with no repeated invoice are answered
   assert.deepEqual(out.data, direct);
   const own = await reconcileWith(state, sheet(FIRST_RATE));
   assert.deepEqual(own, sprintReconcile(state, sheet(FIRST_RATE)));
+  const unreadable = sheet('B2B,27AABCT1332L1ZE,FABRIC CO,F-103,05-09-2026,,,,,,,Y', FIRST_RATE, `B2B,${PACK_GSTIN},PACK HOUSE,PH-9,10-09-2026,5000,0,0,600,0,5600,Y`);
+  const flawed = await reconcileWith(state, unreadable);
+  assert.ok(flawed.parserErrors.length > 0, 'the file really has a row that cannot be read');
+  assert.deepEqual(flawed, sprintReconcile(state, unreadable));
 });
 
 test('G1: a repeated invoice does not hide a row of the file that could not be read', async () => {
