@@ -10,7 +10,7 @@ const MONEY_IN = /\b(?:received|receipt|collected|got|from\s+(?!bank\b|cash\b|up
 const GSTIN = /\b(\d{2}[A-Z]{5}\d{4}[A-Z][0-9A-Z]Z[0-9A-Z])\b/i;
 const RATE = /\b(?:with|incl(?:uding|usive)?(?:\s+of)?|at|@|gst|plus)?\s*(\d{1,2}(?:\.\d+)?)\s*%\s*(?:gst)?/i;
 const RATE_WORD = /\bgst\s*(?:@|at|of|rate|is)?\s*(\d{1,2}(?:\.\d+)?)(?![\d,])\s*(?:%|percent)?/i;
-const AMOUNT = /(?:₹|rs\.?|inr)?\s*(?<![\w.,-])(\d[\d,]*(?:\.\d+)?)\s*(k|lakhs?|lacs?|cr|crores?)?(?![\w%])/gi;
+const AMOUNT = /(?:₹|rs\.?|inr)?\s*(?:(?<![\w.,-])|(?<=(?<!\w)(?:rs\.?|inr)))(\d[\d,]*(?:\.\d+)?)\s*(k|lakhs?|lacs?|cr|crores?)?(?![\w%])/gi;
 const NOT_AMOUNTS = /\b[a-z]{2,6}-\d+\b|\b\d{1,4}[-/]\d{1,2}[-/]\d{1,4}\b/gi;
 const PAYEE = /\bto\s+([A-Za-z][A-Za-z0-9 .&'-]{1,40}?)(?=\s+(?:for|on|towards|by|via|from|in|₹|rs\b|inr\b|\d)|\s*,|\s*$)/i;
 const MODE = /\b(?:by|from|via|through|in)\s+(?:the\s+|my\s+|our\s+)?(cash|bank|upi|card|neft|imps|rtgs|cheque|account)\b|\b(cash)\b/i;

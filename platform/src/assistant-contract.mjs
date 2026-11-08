@@ -2345,9 +2345,13 @@ const SALES_KIND_WORDS = [
   { kind: 'quote', words: /\b(?:make\s+(?:a|an)\s+|send\s+(?:a|an)\s+)?(?:quotation|quote|estimate)\b/i, label: 'quote', example: 'quote ABC Ltd 50000 for consulting GST 18%' },
 ];
 
+function otherEditionReply() {
+  return { kind: 'reply', reply: 'That is for a different country edition, so nothing was changed.', tools: [] };
+}
+
 function repeatSaid(text) {
   const named = /\b(?:repeat(?:ing)?|recurring)\b/i.test(text);
-  const found = text.match(/\s*,?\s*\bevery\s+(week|month|quarter|six\s+months|half[\s-]?year|year)\b|\s*,?\s*\b(weekly|monthly|quarterly|half[\s-]?yearly|yearly|annually)\b/i);
+  const found = text.match(/(?<!\s)\s*,?\s*\bevery\s+(week|month|quarter|six\s+months|half[\s-]?year|year)\b|(?<!\s)\s*,?\s*\b(weekly|monthly|quarterly|half[\s-]?yearly|yearly|annually)\b/i);
   if (!named && !found) return null;
   if (!named && !/\binvoice\b/i.test(text)) return null;
   const word = String(found ? found[1] || found[2] : 'month').toLowerCase().replace(/\s+/g, ' ');
@@ -3299,7 +3303,7 @@ export function planLocalToolCall(state, message) {
       for (const part of [from, until]) if (part) rest = rest.replace(part[0], ' ');
       rest = rest.replace(/\b(?:repeat(?:ing)?|recurring|set\s+up(?:\s+a)?)\b/gi, ' ').replace(/\s+/g, ' ').trim();
       const parsed = parseDocument(rest);
-      if (parsed && parsed.problem) return documentProblemReply(parsed);
+      if (parsed && parsed.problem) return documentProblemReply(parsed, countryOf(state));
       if (parsed) {
         if (parsed.lines[0].gstRate == null) return { kind: 'reply', reply: 'I have not set it up, because I will not guess the GST rate. Say it again with the rate, for example "repeat invoice to ABC Ltd 25000 for rent GST 18% every month from 2026-12-01".', tools: [] };
         return { kind: 'tool', name: 'add_recurring', args: { kind: 'invoice', every: repeatAsk.every, partyName: parsed.partyName, ...(parsed.partyGstin ? { partyGstin: parsed.partyGstin } : {}), lines: parsed.lines, ...(from ? { startDate: from[1] } : {}), ...(until ? { endDate: until[1] } : {}) } };
@@ -3317,7 +3321,7 @@ export function planLocalToolCall(state, message) {
     const cleaned = (validity ? text.replace(validity[0], ' ') : text).replace(/\s*,?\s*\bfor\s+(?:job\s*work|approval|exhibition|own\s+use)\b/i, ' ');
     const asInvoice = cleaned.replace(salesKind.words, 'invoice');
     const quoted = parseDocument(asInvoice);
-    if (quoted && quoted.problem) return documentProblemReply(quoted);
+    if (quoted && quoted.problem) return documentProblemReply(quoted, countryOf(state));
     if (quoted) {
       if (quoted.lines[0].gstRate == null) {
         return { kind: 'reply', reply: `I have not made the ${salesKind.label}, because I will not guess the GST rate. Say it again with the rate, for example "${salesKind.example}".`, tools: [] };
@@ -3332,7 +3336,7 @@ export function planLocalToolCall(state, message) {
   const tdsAsk = planTdsFromChat(text);
   if (tdsAsk) return tdsAsk;
   const gstPay = planGstPayFromChat(text);
-  if (gstPay) return gstPay;
+  if (gstPay) return countryOf(state) === 'IN' ? gstPay : otherEditionReply();
   const transport = planTransportFromChat(text);
   if (transport) return transport;
   const address = planAddressFromChat(state, text);
@@ -3379,7 +3383,7 @@ export function planLocalToolCall(state, message) {
   const parsed = /\b(?:debit|credit)\s+note\b/i.test(text) ? null : parseDocument(saidTerms.text);
   const doc = parsed && !parsed.problem && parsed.lines[0].gstRate == null && TERMS_TALK_SAID.test(text) && !POSTING_SAID.test(text) ? null : parsed;
   const asking = isQuestion(text) || isNegated(text);
-  if (doc && doc.problem && !asking && (isPurchaseIntent(text) || isSaleIntent(text))) return documentProblemReply(doc);
+  if (doc && doc.problem && !asking && (isPurchaseIntent(text) || isSaleIntent(text))) return documentProblemReply(doc, countryOf(state));
   if (doc && doc.problem) return { kind: 'tool', name: 'company_profile', args: {}, fallback: true };
   if (doc && !asking && doc.lines[0].gstRate == null && (isPurchaseIntent(text) || isSaleIntent(text))) {
     return {
@@ -3505,7 +3509,8 @@ export function planLocalToolCall(state, message) {
     return { kind: 'tool', name: 'esi_return', args: { period: monthSaid(text) } };
   }
   if (/\breview\b.*\b(?:gst|gstr|return)\b|\b(?:gst|gstr-?[13]b?|return)\b.*\breview\b/i.test(text) && !isNegated(text)) {
-    return planReview(state, text);
+    if (countryOf(state) === 'IN') return planReview(state, text);
+    if (/\bgst/i.test(text)) return otherEditionReply();
   }
 
   const cancelMatch = text.match(/\bcancel\s+(?:invoice\s+)?(INV-\d{4,})\b(?:\s*(?:because|reason|:|-)?\s*(.+))?$/i);
