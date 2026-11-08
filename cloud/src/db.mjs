@@ -5,7 +5,7 @@ import pg from 'pg';
 
 const MIGRATIONS_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', 'migrations');
 
-const POOL_WAIT_TIMEOUT = 'timeout exceeded when trying to connect';
+const NO_CONNECTION_IN_TIME = new Set(['timeout exceeded when trying to connect', 'Connection terminated due to connection timeout']);
 
 pg.types.setTypeParser(20, (value) => Number(value));
 
@@ -17,7 +17,7 @@ function serverBusy(cause) {
 }
 
 function translated(err) {
-  return err && !err.code && err.message === POOL_WAIT_TIMEOUT ? serverBusy(err) : err;
+  return err && !err.code && NO_CONNECTION_IN_TIME.has(err.message) ? serverBusy(err) : err;
 }
 
 export function createDb(connectionString, { max = 10, connectionTimeoutMillis = 5000, onError = () => {} } = {}) {

@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { createServer } from 'node:http';
+import net from 'node:net';
 import { randomBytes } from 'node:crypto';
 import pg from 'pg';
 import { createApi } from '../src/api.mjs';
@@ -642,6 +643,30 @@ test('P4: createDb waits five seconds for a pooled connection unless told otherw
   await assert.rejects(db.query('select * from a_table_that_is_not_there'), (error) => error.code === '42P01' && error.statusCode === undefined);
   assert.equal((await db.query('select 1 as one')).rows[0].one, 1);
   await db.close();
+});
+
+test('P4: a database that takes the connection and never answers also ends in SERVER_BUSY once the connection timeout has passed', async () => {
+  const taken = new Set();
+  const silent = net.createServer((socket) => {
+    taken.add(socket);
+    socket.on('error', () => {});
+  });
+  await new Promise((resolve) => silent.listen(0, '127.0.0.1', resolve));
+  const db = createDb(`postgres://myca@127.0.0.1:${silent.address().port}/silent`, { max: 2, connectionTimeoutMillis: 200 });
+  try {
+    for (const attempt of [() => db.query('select 1'), () => db.tx(async (q) => q('select 1'))]) {
+      const started = Date.now();
+      const error = await within(3000, attempt().then(() => null, (failure) => failure), 'the connection that never opened');
+      assert.ok(error, 'the wait ended in an error');
+      assert.equal(error.statusCode, 503);
+      assert.deepEqual(error.body, { ok: false, error: 'SERVER_BUSY' });
+      assert.ok(Date.now() - started < 2500, 'and it did not take longer than the timeout asked for');
+    }
+  } finally {
+    for (const socket of taken) socket.destroy();
+    await Promise.race([db.close().catch(() => {}), sleep(2000)]);
+    silent.close();
+  }
 });
 
 test('P1 and P2 and P3: across the routes that open the books no pooled connection is asked for while a books transaction holds one', async () => {
