@@ -172,6 +172,25 @@ function summarize(event, ids) {
   return tidy(action.replace(/\./g, ' '));
 }
 
+function readMoment(text) {
+  const moment = new Date(text);
+  return Number.isNaN(moment.getTime()) ? null : moment;
+}
+
+function dayOf(at) {
+  const text = String(at || '');
+  const moment = readMoment(text);
+  return moment ? localToday(moment) : text.slice(0, 10);
+}
+
+function whenWords(at) {
+  const text = String(at || '');
+  const moment = readMoment(text);
+  if (!moment) return `${text.slice(0, 10)} ${text.slice(11, 16)}`;
+  const two = (value) => String(value).padStart(2, '0');
+  return `${localToday(moment)} ${two(moment.getHours())}:${two(moment.getMinutes())}`;
+}
+
 function clockValue(value) {
   if (value == null || typeof value === 'object') return null;
   const text = String(value);
@@ -225,7 +244,7 @@ export function auditEventsIn(state, range, { view = 'changes', actor = '', limi
   const kept = [];
   for (const event of Array.isArray(root.auditEvents) ? root.auditEvents : []) {
     if (!isRecord(event) || String(event.clientId || 'SELF') !== client) continue;
-    const day = String(event.at || '').slice(0, 10);
+    const day = dayOf(event.at);
     if (day < range.from || day > range.to) continue;
     if (needle && !String(event.actorId || '').toLowerCase().includes(needle) && !String(event.actorName || '').toLowerCase().includes(needle)) continue;
     if (view !== 'all' && kindOf(event) !== 'change') continue;
@@ -275,10 +294,7 @@ export function auditTrailWords(data) {
   const verdict = chain.ok === false ? `LOG CHAIN BROKEN at ${chain.at}` : `log chain verified (${chain.chained || 0} ${plural(chain.chained, 'event', 'events')}${caveat})`;
   const lines = [`${head}, ${verdict}`];
   const shown = events.slice().reverse().slice(0, 10);
-  for (const event of shown) {
-    const at = String(event.at || '');
-    lines.push(`· ${at.slice(0, 10)} ${at.slice(11, 16)} ${event.actorName || event.actorId}: ${event.summary}`);
-  }
+  for (const event of shown) lines.push(`· ${whenWords(event.at)} ${event.actorName || event.actorId}: ${event.summary}`);
   if (total > shown.length) lines.push(`… and ${total - shown.length} more`);
   return lines.join('\n');
 }

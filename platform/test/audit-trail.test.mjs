@@ -336,7 +336,7 @@ test('a clock that is missing, unreadable or empty gives no transfers', () => {
   assert.equal(createInvoice(state, { date: '2026-10-05', partyName: 'Kiran Stores', lines: [{ description: 'Goods', qty: 1, rate: 1000, gstRate: 18 }] }).ok, true);
   const all = state.ledger.transfers.map((transfer) => transfer.id.toString());
   const clock = String(state.ledger.clock);
-  const at = (n) => `2026-10-0${n}T10:00:00.000Z`;
+  const at = (n) => new Date(2026, 9, n, 10, 0, 0).toISOString();
   appendAuditEvent(state, { actorId: 'a', action: 'tool.create_invoice', at: at(1), beforeHash: 'a', afterHash: 'b', metadata: { ledgerClock: { before: '0', after: clock } } });
   appendAuditEvent(state, { actorId: 'a', action: 'tool.create_invoice', at: at(2), beforeHash: 'a', afterHash: 'b', metadata: { ledgerClock: { before: clock, after: clock } } });
   appendAuditEvent(state, { actorId: 'a', action: 'tool.create_invoice', at: at(3), beforeHash: 'a', afterHash: 'b', metadata: { ledgerClock: { before: 'abc', after: 'def' } } });
@@ -351,13 +351,14 @@ test('a clock that is missing, unreadable or empty gives no transfers', () => {
 test('the range, the actor, the view and the limit cut the list, and another client is never mixed in', async () => {
   const state = createState();
   const add = (at, actorId, actorName, action, changed = false, extra = {}) => appendAuditEvent(state, { actorId, actorName, action, at, beforeHash: 'a', afterHash: changed ? 'b' : 'a', metadata: {}, ...extra });
-  const july = add('2026-07-31T23:59:59.000Z', 'USR-OWNER', 'Asha', 'tool.create_invoice', true);
-  const first = add('2026-08-01T00:00:00.000Z', 'USR-OWNER', 'Asha', 'tool.create_invoice', true);
-  const second = add('2026-08-15T09:00:00.000Z', 'USR-STAFF', 'Ravi', 'chat.confirm', true);
-  const read = add('2026-08-15T10:00:00.000Z', 'USR-STAFF', 'Ravi', 'tool.list_invoices');
-  const login = add('2026-08-31T23:59:59.000Z', 'USR-OWNER', 'Asha', 'session.login');
-  const september = add('2026-09-01T00:00:00.000Z', 'USR-OWNER', 'Asha', 'tool.create_invoice', true);
-  const other = add('2026-08-20T10:00:00.000Z', 'USR-OWNER', 'Asha', 'tool.create_invoice', true, { clientId: 'CL-9' });
+  const local = (month, day, hour, minute, second) => new Date(2026, month - 1, day, hour, minute, second).toISOString();
+  const july = add(local(7, 31, 23, 59, 59), 'USR-OWNER', 'Asha', 'tool.create_invoice', true);
+  const first = add(local(8, 1, 0, 0, 0), 'USR-OWNER', 'Asha', 'tool.create_invoice', true);
+  const second = add(local(8, 15, 9, 0, 0), 'USR-STAFF', 'Ravi', 'chat.confirm', true);
+  const read = add(local(8, 15, 10, 0, 0), 'USR-STAFF', 'Ravi', 'tool.list_invoices');
+  const login = add(local(8, 31, 23, 59, 59), 'USR-OWNER', 'Asha', 'session.login');
+  const september = add(local(9, 1, 0, 0, 0), 'USR-OWNER', 'Asha', 'tool.create_invoice', true);
+  const other = add(local(8, 20, 10, 0, 0), 'USR-OWNER', 'Asha', 'tool.create_invoice', true, { clientId: 'CL-9' });
   const ids = (data) => data.events.map((event) => event.eventId);
   const ask = async (args) => {
     const out = await runTool(state, 'audit_trail', args);
@@ -579,7 +580,7 @@ test('chat finds the audit trail, keeps Excel and the audit books where they wer
 });
 
 test('in words: the count, the chain verdict, the newest ten lines and what was left out', () => {
-  const event = (n, extra = {}) => ({ at: `2026-10-${String(n).padStart(2, '0')}T${String(n).padStart(2, '0')}:05:30.000Z`, actorId: `USR-${n}`, actorName: '', summary: `Change ${n}`, ...extra });
+  const event = (n, extra = {}) => ({ at: new Date(2026, 9, n, n, 5, 30).toISOString(), actorId: `USR-${n}`, actorName: '', summary: `Change ${n}`, ...extra });
   const base = { from: '2026-10-01', to: '2026-10-31', view: 'changes', chain: { ok: true, chained: 12, unchained: 0 }, more: false };
   assert.equal(auditTrailWords({ ...base, count: 2, total: 2, events: [event(5, { actorName: 'Asha' }), event(6)] }), [
     '2 changes between 2026-10-01 and 2026-10-31, log chain verified (12 events; the client an event is filed under is not sealed)',
