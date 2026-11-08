@@ -47,6 +47,7 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
+          cache: gradle
 
       - name: Install Flutter at the pinned version
         shell: bash
