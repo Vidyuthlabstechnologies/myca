@@ -92,11 +92,18 @@ reminder goes only when the owner says so.
   example after the month's 2B was replaced, is counted (`orphaned`) and left alone.
 - `ims_decide` records accept, reject, pending or clear on chosen rows or on a word
   (matched, suggested, undecided, all), with an optional note of up to 200 characters, up
-  to 500 rows at a time, previewed first. A decision is kept in `imsDecisions` under the
-  row key `month|supplier|number|section`, so it survives a re-added statement that still
-  holds the document. MyCA keeps the decisions and sends nothing to the portal; the owner
-  takes the same decisions there, and the Excel sheet lists every row with its
-  suggestion. Nothing is posted to the ledger.
+  to 500 rows at a time, previewed first. Rows named by key are refused above 500. A word
+  that picks more than 500 rows is done in rounds: the rows that already have the decision
+  are left out (for clear, the rows that have none), the first 500 of the rest in the
+  order of the list are planned, and the preview says how many are left ("120 more matched
+  invoices are left; ask again after this to do them."). Asking again, with the same
+  sentence or the app's Accept all matched, plans the next round, and when nothing is left
+  the answer says every invoice asked for already has that decision and nothing was
+  marked. A word that picks 500 rows or fewer is unchanged. A decision is kept in
+  `imsDecisions` under the row key `month|supplier|number|section`, so it survives a
+  re-added statement that still holds the document. MyCA keeps the decisions and sends
+  nothing to the portal; the owner takes the same decisions there, and the Excel sheet
+  lists every row with its suggestion. Nothing is posted to the ledger.
 - The preview turns a word into the exact rows it will change, and a yes applies those rows
   and no others. If one of them has left the statement since, the yes is refused with a
   sentence and nothing is changed. A word that picks no row says which word found
@@ -116,10 +123,11 @@ reminder goes only when the owner says so.
   when. A month with no 2B added is answered with a request to add it.
 - App: after a 2B is added for a month, the credit card on Taxes offers "Review in IMS".
   The screen shows the counts and the credit not decided and accepted, filters (all, not
-  decided, accept, reject, pending, not in books), "Accept all matched" and "Save as
-  Excel". A row shows "N lines" when it was added from more than one, and opens a sheet
-  with its facts and Accept, Reject, Pending or Clear and a note. Every decision goes
-  through the preview bar and a yes.
+  decided, accept, reject, pending, not in books), "Accept all matched" (a month with more
+  than 500 matched invoices is done in rounds, each one previewed, and the preview says
+  how many are left) and "Save as Excel". A row shows "N lines" when it was added from
+  more than one, and opens a sheet with its facts and Accept, Reject, Pending or Clear and
+  a note. Every decision goes through the preview bar and a yes.
 
 ## Acceptance criteria
 
