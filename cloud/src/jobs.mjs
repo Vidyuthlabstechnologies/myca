@@ -15,7 +15,7 @@ export const ACCESS_LOG_DAYS = 365;
 export const CRASH_REPORT_DAYS = 90;
 export const OTP_CHALLENGE_DAYS = 1;
 
-export function createJobs({ db, withBooks, connectors = null, syncChannels = null, pullsEnabled = () => false, sender = null, vault = null, now = () => Date.now(), log = () => {} }) {
+export function createJobs({ db, withBooks, connectors = null, syncChannels = null, pullsEnabled = () => false, sender = null, vault = null, billing = null, now = () => Date.now(), log = () => {} }) {
   async function purge(requestId) {
     const summary = { businesses: 0, documents: 0, objects: 0, accessRows: 0, crashRows: 0, otpRows: 0, secondStepRows: 0, failed: [] };
     const cutoff = new Date(now() - DELETION_GRACE_DAYS * 24 * 60 * 60 * 1000);
@@ -86,6 +86,12 @@ export function createJobs({ db, withBooks, connectors = null, syncChannels = nu
         summary.failed.push({ businessId, error: String(err && err.message ? err.message : err) });
         log({ requestId, job: 'daily', businessId, error: String(err && err.stack ? err.stack : err) });
       }
+    }
+    try {
+      summary.billing = billing && billing.refreshDue ? await billing.refreshDue() : { checked: 0, changed: 0, failed: 0 };
+    } catch (err) {
+      summary.billing = { checked: 0, changed: 0, failed: 1 };
+      log({ requestId, job: 'daily', billing: String(err && err.stack ? err.stack : err) });
     }
     summary.purge = await purge(requestId);
     log({ requestId, job: 'daily', ...summary, failed: summary.failed.length });

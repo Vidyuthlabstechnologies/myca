@@ -61,7 +61,7 @@ void main() {
         cloud: config.hosted
             ? CloudSession(
                 baseUrl: config.cloudUrl,
-                tokens: const KeystoreTokenStore(),
+                tokens: KeystoreTokenStore.recovering(),
               )
             : null,
         store: DeviceOnboardingStore(),

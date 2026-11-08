@@ -9,7 +9,7 @@ import { connectorKeyFromEnv } from './connectors.mjs';
 import { booksKeyFromEnv } from './books-seal.mjs';
 import { smsSenderFromEnv } from './sms-sender.mjs';
 import { whatsAppConfigFromEnv, createWhatsAppSender } from './whatsapp.mjs';
-import { createBilling, billingConfigFromEnv } from './billing.mjs';
+import { createBilling, billingConfigFromEnv, billingConfigProblem } from './billing.mjs';
 
 const STARTUP_ATTEMPTS = 10;
 const STARTUP_WAIT_MS = 3000;
@@ -46,6 +46,8 @@ async function migrateWithRetry(db) {
   }
 }
 
+const billingProblem = billingConfigProblem(process.env);
+if (billingProblem) throw new Error(billingProblem);
 const db = createDb(required('MYCA_DATABASE_URL'), { onError: (err) => log({ db: 'idle connection lost', error: String(err && err.message ? err.message : err) }) });
 await migrateWithRetry(db);
 const handler = createApi({

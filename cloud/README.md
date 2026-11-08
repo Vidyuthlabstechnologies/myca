@@ -221,7 +221,7 @@ Nothing is gated until the Play products are configured.
 | `GET /v1/plans` | anyone | plans, the Play product id for each paid plan, fallback prices (`MYCA_PLAN_PRICES`), trial days |
 | `GET /v1/businesses/:id/subscription` | members | current plan, trial days left, status, paid-until, Google Play manage link |
 | `POST /v1/businesses/:id/subscription {productId, purchaseToken}` | owner | checks the purchase with the Play Developer API, acknowledges it and turns the plan on |
-| `POST /v1/billing/play/notify?token=` | Pub/Sub push | Play real-time developer notifications; the token must match `MYCA_PLAY_NOTIFY_TOKEN` |
+| `POST /v1/billing/play/notify?token=` | Pub/Sub push | Play real-time developer notifications; the token must match `MYCA_PLAY_NOTIFY_TOKEN`. Without that token the route does not exist and the daily job keeps plans current instead |
 
 How it holds together:
 
@@ -231,6 +231,17 @@ How it holds together:
   the purchase from Google rather than trusting the message, so a replayed message changes
   nothing. A purchase the app never reported (the app closed mid-payment) is picked up from the
   notification through its account id.
+- Notifications need a Pub/Sub topic, and Pub/Sub needs a Google Cloud project with billing.
+  Without them, subscriptions still work: `MYCA_PLAY_PACKAGE` and at least one
+  `MYCA_PLAY_PRODUCT_*` turn billing on, and the daily job (`POST /v1/jobs/daily`) re-reads
+  from Google every Play subscription that is active, in grace or cancelled and whose paid
+  period ends within two days or ended in the last thirty, up to 500 a run. A renewal moves the
+  paid-until date forward, an expiry or a hold drops the business to Free, and each change is
+  audited as `billing.renewal_check`. The run's answer has `billing: { checked, changed, failed }`;
+  a Play outage keeps the stored plan and counts as `failed`, and the next run asks again. A
+  renewal is seen up to a day late, inside the three grace days.
+- Outside Cloud Run there is no metadata server, so with Play products set the API refuses to
+  start until `MYCA_PLAY_SERVICE_ACCOUNT_JSON` holds the Play service account's JSON key.
 - A cancelled subscription keeps its plan until the paid period ends; `on_hold` and `paused`
   drop to Free at once; three grace days follow the paid period otherwise.
 - Customers cancel or change payment method in Google Play. Switching plans means cancelling
