@@ -181,7 +181,9 @@ recorded show up before the return is filed.
   the money. A date can be said as 2026-10-05, 05/10/2026, "5 October 2026" or "20
   October" (a day and month with no year is the latest such date that is not in the
   future), and "today" is read as today; a date it cannot read ("yesterday") or two dates
-  are asked for as YYYY-MM-DD and nothing is recorded.
+  are asked for with a worked example in the same form as the instruction ("Say the date,
+  for example "record tds withheld 2000 on INV-0001 under 194J dated 15 October 2026""),
+  and nothing is recorded.
 - A sentence that carries a receipt and TDS together ("received 98000 against INV-0001,
   TDS 2000 under 194J") records nothing. MyCA answers with the two sentences to say, the
   receipt first and then "record tds withheld 2000 on INV-0001 under 194J", and the TDS

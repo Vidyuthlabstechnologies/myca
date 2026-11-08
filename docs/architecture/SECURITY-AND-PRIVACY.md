@@ -107,7 +107,13 @@
   of read tools. The rest of the tool catalogue is not reachable.
 - Every tool has a strict schema with no additional properties.
 - Imports refer to an uploaded document by hash; inline content is refused.
-- Request bodies are capped (uploads at 8 MB).
+- Request bodies are capped (uploads at 8 MB), and the bytes of bodies being read at one
+  time are counted against one budget (a sixteenth of the memory the instance may use). A
+  body larger than the budget or the route's limit is refused with 413, one that does not
+  fit right now with 503 `SERVER_BUSY` and `Retry-After: 2`, before it is held in memory;
+  owner-only actions refuse everyone else before their body is read; and a client that
+  drops mid-upload is answered 400 and is not recorded as a crash. A dropped or refused
+  database connection also answers 503 `SERVER_BUSY`, and the API process stays up.
 
 ### Actions that leave the system
 

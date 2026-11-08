@@ -118,7 +118,11 @@ reminder goes only when the owner says so.
 - Chat: "show IMS for 2026-09" or "what is pending in IMS" lists the month; "accept all
   matched invoices in IMS", "reject all undecided invoices in IMS" and "mark all suggested
   as accepted in IMS" decide a set. The month is the one said, else the latest month with
-  a 2B added. One decision is made at a time: a message that asks for two is answered with
+  a 2B added. A bare month name is that month of this year when it is the current month
+  and of last year when it is later; "may" as a verb is not the month. A period that is
+  not exactly one month (a financial year such as FY2026, a quarter, "the past month",
+  "all months", "09/2026") is answered with "Say the month" and nothing changes. One
+  decision is made at a time: a message that asks for two is answered with
   a sentence and nothing changes, and so is a set narrowed to one supplier or to a place
   ("from Pack House", "from all suppliers in Pune"), to some of its rows ("the first three
   matched invoices", "the matched invoice dated 5 September", credit notes only) or with
