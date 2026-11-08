@@ -206,15 +206,17 @@ test('R1-16: two amounts in a receipt or payment sentence are asked about, never
   assert.deepEqual(toolArgs(state, 'paid INV-0001', 'record_receipt'), { invoiceId: 'INV-0001', mode: 'bank', date: TODAY });
 
   const payments = [
-    'paid Fabric Co 4000 and 2000',
-    'paid Pack House 3000 less 500',
-    'paid BILL-0001 4000 and 2000',
+    ['paid Fabric Co 4000 and 2000', 4000],
+    ['paid Pack House 3000 less 500', 3000],
+    ['paid BILL-0001 4000 and 2000', 4000],
+    ['paid Fabric Co 9000, deducted tds 1000', 9000],
   ];
-  for (const sentence of payments) {
+  for (const [sentence, first] of payments) {
     const out = plan(state, sentence);
     assert.equal(out.kind, 'reply', `${sentence} -> ${words(out)}`);
     assert.match(out.reply, /more than one amount/, sentence);
     assert.match(out.reply, /recorded nothing/, sentence);
+    assert.match(out.reply, new RegExp(`"paid BILL-\\d{4} ${first}"`), `${sentence}: the example quotes an amount the user said`);
   }
   assert.equal(toolArgs(state, 'paid Fabric Co 4000', 'record_payment').amount, 4000);
   assert.equal(toolArgs(state, 'paid Fabric Co 4000 in 30 days', 'record_payment').amount, 4000, 'a number of days is not a second amount');

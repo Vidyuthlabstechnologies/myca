@@ -46,8 +46,9 @@ function listOf(unpaid) {
 }
 
 function paymentCall(raw, counted, billId, amount) {
-  if (amount == null && amountsSaid(counted).length > 1) {
-    return reply(`I read more than one amount in that, so I have recorded nothing. Say the one amount you paid, for example "paid ${billId} 4000", or leave the amounts out to settle the whole bill.`);
+  const said = amount == null ? amountsSaid(counted) : [];
+  if (said.length > 1) {
+    return reply(`I read more than one amount in that, so I have recorded nothing. Say the one amount you paid, for example "paid ${billId} ${said[0]}", or leave the amounts out to settle the whole bill.`);
   }
   return {
     kind: 'tool',
