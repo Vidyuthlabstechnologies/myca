@@ -7,7 +7,7 @@ before(async () => { api = await startApi(); });
 after(async () => { await api.close(); });
 
 const APP_KEYS = ['ok', 'company', 'invoices', 'purchases', 'expenses', 'creditNotes', 'quotes', 'customerTerms', 'role', 'user'];
-const GUJARAT_MILLS = '24AAACG1234F1Z5';
+const GUJARAT_MILLS = '24AAACG1234F1ZA';
 
 const RENT = { id: 'EXP-0001', date: '2026-10-03', head: '5110', headName: 'Rent', description: 'Shop rent for October', payee: 'Mehta Estates', amount: 12000, gstRate: 0, inputCredit: false, mode: 'bank', tag: { source: 'chosen', why: 'You chose Rent.' } };
 const CARTRIDGES = { id: 'EXP-0002', date: '2026-10-04', head: '5190', headName: 'Office and stationery', description: 'Printer cartridges', payee: 'Ink House', amount: 1180, gstRate: 18, inputCredit: true, mode: 'bank', tag: { source: 'chosen', why: 'You chose Office and stationery.' } };
