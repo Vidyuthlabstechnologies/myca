@@ -1315,9 +1315,9 @@ test('skeptic gap 6 (R1-16): the several-amounts TDS reply gives the receipt fir
   await chat(state, 'no');
 });
 
-test('skeptic gap E (R1-20): an audit trail Excel export that names a person or a count says in words that the file covers every person and the whole period', async () => {
+test('skeptic gap E (R1-20): an audit trail Excel export that names a person or a count says in words that the file lists every change in its period, for every person', async () => {
   const state = await books();
-  const whole = /\nThe Excel file covers every person and the whole period\. It is not narrowed by name or count, so (.+) (?:is|are) not applied\.$/;
+  const whole = /\nThe Excel file lists every change in its period, for every person\. It is not narrowed by name or count, so (.+) (?:is|are) not applied\.$/;
   for (const [sentence, applied, args] of [
     ['export the audit trail by Priya to excel', '"Priya"', { report: 'audit_trail' }],
     ['audit trail by Priya in excel', '"Priya"', { report: 'audit_trail' }],
@@ -1344,8 +1344,8 @@ test('skeptic gap E (R1-20): an audit trail Excel export that names a person or 
     assert.equal(found[1], applied, sentence);
     assert.doesNotMatch(said.reply, RAW_CODE, sentence);
   }
-  assert.equal((await chat(state, 'export the audit trail by Priya to excel')).reply.split('\n')[1], 'The Excel file covers every person and the whole period. It is not narrowed by name or count, so "Priya" is not applied.');
-  assert.equal((await chat(state, 'export the audit trail by Priya limit 5 to excel')).reply.split('\n')[1], 'The Excel file covers every person and the whole period. It is not narrowed by name or count, so "Priya" and the latest 5 are not applied.');
+  assert.equal((await chat(state, 'export the audit trail by Priya to excel')).reply.split('\n')[1], 'The Excel file lists every change in its period, for every person. It is not narrowed by name or count, so "Priya" is not applied.');
+  assert.equal((await chat(state, 'export the audit trail by Priya limit 5 to excel')).reply.split('\n')[1], 'The Excel file lists every change in its period, for every person. It is not narrowed by name or count, so "Priya" and the latest 5 are not applied.');
   for (const sentence of ['export the audit trail to excel', 'audit trail in excel for last month', 'export the audit logs to excel', 'audit trail in excel for last 7 days', 'audit trail everything in excel', 'audit trail for October in excel', 'export the audit trail by newest first to excel', 'audit trail from 2026-09-01 to 2026-09-30 in excel', 'export the audit trail by everyone to excel', 'export the audit trail by email to excel']) {
     const said = await chat(state, sentence);
     assert.equal(said.tools[0].name, 'export_xlsx', `${sentence}: ${said.reply}`);

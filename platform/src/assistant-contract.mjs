@@ -2751,7 +2751,7 @@ function auditExportNote(text) {
   if (limit.count) ignored.push(`the latest ${limit.count}`);
   else if (limit.unreadable) ignored.push('the count you gave');
   if (!ignored.length) return '';
-  return `The Excel file covers every person and the whole period. It is not narrowed by name or count, so ${ignored.join(' and ')} ${ignored.length > 1 ? 'are' : 'is'} not applied.`;
+  return `The Excel file lists every change in its period, for every person. It is not narrowed by name or count, so ${ignored.join(' and ')} ${ignored.length > 1 ? 'are' : 'is'} not applied.`;
 }
 
 function auditPhraseFollowsPosting(text) {
