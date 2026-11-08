@@ -1,4 +1,4 @@
-import { isoDate } from './dates.mjs';
+import { isoDate, localToday } from './dates.mjs';
 const GSTIN_RE = /\b(\d{2}[A-Z]{5}\d{4}[A-Z][0-9A-Z]Z[0-9A-Z])\b/i;
 
 export function normalizeChat(text) {
@@ -88,8 +88,77 @@ function loneAmount(text) {
   return amounts.length === 1 ? amounts[0] : null;
 }
 
+const WORDED_MONTHS = 'jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?';
+const MONTH_ORDER = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+const WORDED_DAY = new RegExp(`(?<![\\w-])(?:(\\d{1,2})(?:st|nd|rd|th)?\\s+(?:of\\s+)?(${WORDED_MONTHS})\\b\\.?(?:,?\\s+((?:19|20)\\d{2})\\b)?|(${WORDED_MONTHS})\\b\\.?\\s+(\\d{1,2})(?:st|nd|rd|th)?\\b(?:,?\\s+((?:19|20)\\d{2})\\b)?)(?![\\w-])`, 'gi');
+const REFERENCE_WORDS = 'cheque|check|chq|cheq|dd|draft|ref|reference|utr|rrn|txn|trn|transaction|voucher|receipt|invoice|inv|bill|challan|order|po|payment|neft|rtgs|imps|upi';
+const NOT_MONEY = new RegExp([
+  `\\b(?:${REFERENCE_WORDS})[\\s.]{0,3}(?:no\\.?|number|num|#|id)[\\s:#.-]{0,4}[a-z]{0,6}\\d[\\w-]*`,
+  '\\b(?:ref|reference|utr|rrn|txn|trn)[\\s:#.-]{0,4}[a-z]{0,6}\\d[\\w-]*',
+  '\\b(?:cheque|chq|cheq)\\s{0,3}0\\d+\\b',
+  '#\\s{0,2}[a-z]{0,6}\\d[\\w-]*',
+  '\\binstal+ments?\\s{0,3}(?:(?:no\\.?|number|#)\\s{0,3})?(?:of\\s+)?\\d{1,2}(?!\\d|[,.]\\d)(?:\\s{0,3}(?:of|/|out\\s+of)\\s{0,3}\\d{1,2}(?!\\d|[,.]\\d))?',
+  '\\b(?:of|out\\s+of)\\s+\\d{1,2}(?!\\d|[,.]\\d)\\s+(?:instal+ments?|parts?|tranches?|payments?)\\b',
+  '\\b\\d[\\d,]*(?:\\.\\d+)?\\s*(?:-\\s*)?(?:days?|weeks?|months?)\\b',
+  '\\b\\d{1,2}(?!\\d|[,.]\\d)\\s{0,3}(?:invoices?|bills?|cheques?|checks?|receipts?|payments?|instal+ments?|tranches?|parts?)\\b',
+  '\\bnet\\s*\\d{1,3}(?!\\d|[,.]\\d)',
+].join('|'), 'gi');
+
+function wordedIso(day, monthWord, year, today) {
+  const month = MONTH_ORDER.indexOf(monthWord.slice(0, 3).toLowerCase()) + 1;
+  if (!month) return null;
+  if (year) return isoDate(`${year}-${month}-${day}`);
+  const thisYear = Number(today.slice(0, 4));
+  const here = isoDate(`${thisYear}-${month}-${day}`);
+  return here && here <= today ? here : isoDate(`${thisYear - 1}-${month}-${day}`);
+}
+
+function takeSaidDays(text, today) {
+  const found = [];
+  for (const hit of text.matchAll(WORDED_DAY)) {
+    const [day, month, year] = hit[1] ? [hit[1], hit[2], hit[3]] : [hit[5], hit[4], hit[6]];
+    const iso = wordedIso(Number(day), month, year, today);
+    if (iso) found.push({ at: hit.index, end: hit.index + hit[0].length, iso });
+  }
+  if (found.length !== 1) return { rest: text, days: [] };
+  return { rest: `${text.slice(0, found[0].at)} ${text.slice(found[0].end)}`, days: [found[0].iso] };
+}
+
+const FIGURE_OR_CHEQUE = /(\b(?:cheque|chq|cheq)\s{0,3}\d{6,}\b)|(?<![\w.,-])\d|(?<![\w.,])-\s?\d/gi;
+
+function takeReferences(text) {
+  let seen = false;
+  return text.replace(NOT_AMOUNTS, ' ').replace(NOT_MONEY, ' ').replace(FIGURE_OR_CHEQUE, (hit, cheque) => {
+    if (!cheque) {
+      seen = true;
+      return hit;
+    }
+    return seen ? ' ' : hit;
+  });
+}
+
+function hasNonPositive(text) {
+  return NON_POSITIVE_AMOUNT.test(text.replace(NOT_AMOUNTS, ' '));
+}
+
+function moneyReading(text) {
+  const { rest } = takeSaidDays(text, localToday());
+  const all = amountList(rest);
+  const zero = hasNonPositive(rest);
+  if (all.length + (zero ? 1 : 0) < 2) return { list: all, nonPositive: zero };
+  const firm = takeReferences(rest);
+  const list = amountList(firm);
+  const nonPositive = hasNonPositive(firm);
+  return list.length || nonPositive ? { list, nonPositive } : { list: all, nonPositive };
+}
+
 export function amountsSaid(text) {
-  return amountList(normalizeChat(text));
+  return moneyReading(normalizeChat(text)).list;
+}
+
+export function soleAmountSaid(text) {
+  const { list } = moneyReading(normalizeChat(text));
+  return list.length === 1 ? list[0] : null;
 }
 
 function partyOf(text) {
@@ -156,8 +225,8 @@ export function receiptAmount(text) {
 }
 
 export function saidNonPositiveAmount(text) {
-  const t = normalizeChat(text).replace(NOT_AMOUNTS, ' ');
-  return NON_POSITIVE_AMOUNT.test(t) && loneAmount(t) == null;
+  const { list, nonPositive } = moneyReading(normalizeChat(text));
+  return nonPositive && list.length !== 1;
 }
 
 export function documentProblemReply(doc) {
@@ -176,6 +245,14 @@ export function documentProblemReply(doc) {
 export function receiptDate(text, today) {
   const said = normalizeChat(text).match(SAID_DATE);
   return said ? said[1] : today;
+}
+
+export function moneyDate(text, today) {
+  const raw = normalizeChat(text);
+  const said = raw.match(SAID_DATE);
+  if (said) return said[1];
+  const { days } = takeSaidDays(raw, today);
+  return days.length === 1 ? days[0] : today;
 }
 
 export function isPurchaseIntent(text) {
