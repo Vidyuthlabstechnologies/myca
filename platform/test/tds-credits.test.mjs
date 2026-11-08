@@ -523,7 +523,7 @@ test('chat: recording TDS withheld shows a preview, posts after yes, and the che
   const check = await chat(state, 'check 26AS against the books');
   assert.match(check.reply, /^26AS vs books for FY \d{4}-\d{2}: ₹0\.00 in 26AS, ₹2,000\.00 in your books, gap ₹2,000\.00\./, check.reply);
   assert.match(check.reply, /· Delta Projects Q\d \d{4}-\d{2} \(194J\): not in 26AS, 26AS ₹0\.00, books ₹2,000\.00/, check.reply);
-  assert.match(check.reply, /no 26AS imported yet$/, check.reply);
+  assert.match(check.reply, /\nNo 26AS imported yet\.$/, check.reply);
 
   const later = await chat(state, 'received 98000 from Delta Projects');
   assert.equal(later.awaitingConfirmation, true, later.reply);

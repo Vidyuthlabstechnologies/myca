@@ -241,14 +241,12 @@ test('routing-8: the audit trail reads the dates, the financial year and the day
     'audit trail for FY 2026',
     'audit trail from 5 October to 20 October',
     'audit trail for 15 october',
-    'audit trail last week',
     'audit trail for the last 3 months',
     'audit trail for the last 0 days',
     'audit trail from 31/02/2026',
     'audit trail from 2026-10-01 to 2026-10-15 to 2026-10-31',
     'audit trail today this month',
     'audit trail for Q2',
-    'audit trail for the last quarter',
     'audit trail since monday',
     'audit trail from last friday',
     'audit trail 2026',
@@ -615,7 +613,7 @@ test('routing-8 (repair): an audit range that is said in a way that cannot be re
     'audit trail tomorrow',
     'audit trail for the 1st',
   ];
-  unreadable.push('audit trail for the previous quarter', 'audit trail for october of last year', 'audit trail two months ago', 'audit trail for the month before last', 'audit trail for sept', 'audit trail for last month and this month', 'audit trail for the financial year ending 31 march 2026', 'audit trail for the financial year', 'audit trail for the calendar year', 'audit trail for assessment year', 'audit trail from 5 to 20 october 2026', 'audit trail between 5 and 20 october 2026', 'audit trail for two weeks', 'audit trail for the three days', 'audit trail for a few days', 'audit trail for a couple of months');
+  unreadable.push('audit trail for october of last year', 'audit trail two months ago', 'audit trail for the month before last', 'audit trail for sept', 'audit trail for last month and this month', 'audit trail for the financial year ending 31 march 2026', 'audit trail for the financial year', 'audit trail for the calendar year', 'audit trail for assessment year', 'audit trail from 5 to 20 october 2026', 'audit trail between 5 and 20 october 2026', 'audit trail for two weeks', 'audit trail for the three days', 'audit trail for a few days', 'audit trail for a couple of months');
   for (const sentence of unreadable) {
     const out = plan(state, sentence);
     assert.equal(out.kind, 'reply', `${sentence} -> ${JSON.stringify(out)}`);

@@ -79,9 +79,17 @@ function takeQuantity(text) {
   return { qty: amountValue(found[1]), unit: String(found[2] || 'units').toLowerCase(), rest: text.replace(found[0], ' ') };
 }
 
+function amountList(text) {
+  return [...text.replace(NOT_AMOUNTS, ' ').matchAll(AMOUNT)].map((m) => amountValue(m[1], m[2])).filter((n) => n > 0);
+}
+
 function loneAmount(text) {
-  const amounts = [...text.replace(NOT_AMOUNTS, ' ').matchAll(AMOUNT)].map((m) => amountValue(m[1], m[2])).filter((n) => n > 0);
+  const amounts = amountList(text);
   return amounts.length === 1 ? amounts[0] : null;
+}
+
+export function amountsSaid(text) {
+  return amountList(normalizeChat(text));
 }
 
 function partyOf(text) {

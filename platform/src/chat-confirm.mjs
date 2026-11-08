@@ -1203,7 +1203,7 @@ function supplierTermsPreview(state, args) {
     return {
       blockers: [],
       summary: `Mark ${plan.name} as an MSME supplier (${plan.category || 'category not given'}, Udyam ${plan.udyam || 'not given'}) to be paid within ${inDays}`,
-      effects: [`New bills from them get a pay-by date ${inDays} from the bill date; MyCA reminds you a week before it. Nothing is posted.`, BOOKED_BILLS_CHECKED],
+      effects: [`New bills from them get a pay-by date ${inDays} from the bill date${countryOf(state) === 'IN' ? '; MyCA reminds you a week before it' : ''}. Nothing is posted.`, BOOKED_BILLS_CHECKED],
       figures: { days },
     };
   }
@@ -1691,13 +1691,17 @@ function tcsStatementPreview(state, args) {
   };
 }
 
+export function rowsCounted(count) {
+  return count === 1 ? '1 row' : `${count} rows`;
+}
+
 function credits26asPreview(state, args) {
   const planned = plan26asCredits(state, args);
-  if (!planned.ok) return { blockers: [planned.error === 'NO_HEADER' ? `The file needs ${planned.parsed.need}.` : `No row with a readable section could be read${planned.parsed?.otherSections ? ` (${planned.parsed.otherSections} rows had no section I can read)` : ''}.`], summary: '', effects: [], figures: {} };
+  if (!planned.ok) return { blockers: [planned.error === 'NO_HEADER' ? `The file needs ${planned.parsed.need}.` : `No row with a readable section could be read${planned.parsed?.otherSections ? ` (${rowsCounted(planned.parsed.otherSections)} had no section I can read)` : ''}.`], summary: '', effects: [], figures: {} };
   const dup = planned.skipped.filter((row) => row.reason === 'exists').length;
   return {
     blockers: planned.ready.length ? [] : [dup ? 'Every row is already recorded.' : 'No row could be read.'],
-    summary: `Form 26AS: ${planned.ready.length === 1 ? '1 entry' : `${planned.ready.length} entries`} totalling ${money(planned.total)}${planned.ready.length ? ` (${sectionWords(planned.bySection)})` : ''}${planned.otherSections ? `; ${planned.otherSections} rows with no readable section left out` : ''}${dup ? `; ${dup} already recorded` : ''}.`,
+    summary: `Form 26AS: ${planned.ready.length === 1 ? '1 entry' : `${planned.ready.length} entries`} totalling ${money(planned.total)}${planned.ready.length ? ` (${sectionWords(planned.bySection)})` : ''}${planned.otherSections ? `; ${rowsCounted(planned.otherSections)} with no readable section left out` : ''}${dup ? `; ${dup} already recorded` : ''}.`,
     effects: ['The TDS is credit against your income tax for the year. Say "check 26AS against the books" to see what is missing from your books; quarters where a marketplace deducted more under 194-O in settlements than 26AS shows become exceptions.'],
     figures: { rows: planned.ready.length, total: planned.total },
   };
