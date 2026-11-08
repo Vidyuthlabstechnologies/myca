@@ -19,6 +19,16 @@ function shiftDay(iso, days) {
   return new Date(Date.UTC(year, month - 1, day + days)).toISOString().slice(0, 10);
 }
 
+function mulberry32(seed) {
+  let state = seed | 0;
+  return () => {
+    state = (state + 0x6d2b79f5) | 0;
+    let t = Math.imul(state ^ (state >>> 15), 1 | state);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
 function books() {
   const state = createState();
   state.company = { ...state.company, name: 'Nalanda Textiles', gstin: '27AABCU9603R1ZN', state: '27' };
@@ -144,11 +154,13 @@ test('R1: no planned sentence throws on a US book or an India book', () => {
   const taxes = ['', ', tax TX', 'tax TX-AUSTIN', 'plus tax 240', 'no tax', 'tax-exempt (resale certificate)', 'GST 18%', 'for services'];
   const dates = ['', 'dated 03/15/2026', 'on 2026-02-30', 'dated 31/02/2026', 'dated 15/08/2026', 'dated 2026-13-01', 'dated 2026-10-01', 'dated March 15 2026', 'yesterday'];
   const words = ['invoice', 'bill', 'tds', '26AS', 'remind', 'me', 'check', 'received', 'paid', 'receipt', 'payment', 'sent', 'form', '16A', 'tds-free', 'exempt', 'INV-0001', 'BILL-0001', 'Kiran', 'Stores', 'TDS', 'Experts', 'Maple', 'Cafe', '2000', '9000', '1000', '0', '-5', '₹2,000', '$500', '12.5%', '2026-10', '2026-02-30', '03/15/2026', 'tax', 'TX', 'dated', 'on', 'and', 'then', 'or', 'no', 'not', '?', ',', '.', ';', ':', '(', ')', '-', '/', 'GST', '18%'];
-  let seed = 4242;
-  const next = () => (seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
+  const next = mulberry32(4242);
   const pickFrom = (list) => list[Math.floor(next() * list.length)];
+  const seen = new Set();
   const thrown = [];
   const probe = (sentence) => {
+    if (seen.has(sentence)) return false;
+    seen.add(sentence);
     for (const [label, state] of [['IN', india], ['US', us]]) {
       try {
         const out = planLocalToolCall(state, sentence);
@@ -157,16 +169,20 @@ test('R1: no planned sentence throws on a US book or an India book', () => {
         thrown.push(`${label} ${JSON.stringify(sentence)} ${error.message}`);
       }
     }
+    return true;
   };
-  for (let i = 0; i < 2500; i += 1) {
+  let templates = 0;
+  for (let i = 0; i < 40000 && templates < 3000; i += 1) {
     const parts = [pickFrom(leads), pickFrom(parties), pickFrom(amounts), pickFrom(taxes), pickFrom(dates)];
     if (next() < 0.3) parts.reverse();
-    probe(parts.filter(Boolean).join(next() < 0.1 ? ', ' : ' '));
+    if (probe(parts.filter(Boolean).join(next() < 0.1 ? ', ' : ' '))) templates += 1;
   }
-  for (let i = 0; i < 2500; i += 1) {
+  let salads = 0;
+  for (let i = 0; i < 40000 && salads < 3000; i += 1) {
     const length = 1 + Math.floor(next() * 12);
-    probe(Array.from({ length }, () => pickFrom(words)).join(next() < 0.15 ? '' : ' '));
+    if (probe(Array.from({ length }, () => pickFrom(words)).join(next() < 0.15 ? '' : ' '))) salads += 1;
   }
+  assert.ok(templates >= 3000 && salads >= 3000 && seen.size >= 6000, `distinct sentences planned: ${templates} template, ${salads} word-salad, ${seen.size} in all`);
   assert.deepEqual(thrown.slice(0, 5), []);
 });
 
@@ -245,6 +261,161 @@ test('R2: a posting followed by a 26AS check, or by a reminder about TDS, keeps 
   }
 });
 
+const CHECK_NOT_RUN = /I have not run the 26AS check; ask for it on its own\.$/;
+
+test('R2: a receipt that carries TDS and then asks for a 26AS check gets the answer it gets alone, says the check was not run, and records nothing', async () => {
+  const cases = [
+    ['received 8500 against INV-0001, tds 1500 and check 26AS', 'received 8500 against INV-0001, tds 1500', 8500, 1500],
+    ['received 88500 less 1500 tds against INV-0001 and check 26AS', 'received 88500 less 1500 tds against INV-0001', 88500, 1500],
+    ['received 88500 against INV-0001 with tds withheld 1500 and check 26AS', 'received 88500 against INV-0001 with tds withheld 1500', 88500, 1500],
+    ['received 88500 after 1500 tds against INV-0001, then check 26AS', 'received 88500 after 1500 tds against INV-0001', 88500, 1500],
+    ['received 88500 against INV-0001, tds 1500, and compare with 26AS', 'received 88500 against INV-0001, tds 1500', 88500, 1500],
+    ['record receipt 8500 tds 1500 INV-0001 and verify 26AS', 'record receipt 8500 tds 1500 INV-0001', 8500, 1500],
+    ['Kiran Stores paid 8500, tds 1500 withheld, and then reconcile with 26AS', 'Kiran Stores paid 8500, tds 1500 withheld', 8500, 1500],
+    ['collected 88500 net of 1500 tds from Kiran Stores so check 26AS', 'collected 88500 net of 1500 tds from Kiran Stores', 88500, 1500],
+  ];
+  const state = books();
+  for (const [sentence, alone, cash, tds] of cases) {
+    const planned = plan(state, sentence);
+    assert.equal(planned.kind, 'reply', `${sentence}: ${JSON.stringify(planned)}`);
+    assert.deepEqual(planned.tools, [], sentence);
+    assertSteps(planned.reply, sentence, { cash, tds, invoice: 'INV-0001' });
+    assert.match(planned.reply, CHECK_NOT_RUN, sentence);
+    assert.doesNotMatch(planned.reply, /No TDS credit is on record/, sentence);
+    const answer = plan(state, alone);
+    assert.equal(answer.kind, 'reply', `${alone}: ${JSON.stringify(answer)}`);
+    assert.equal(planned.reply, `${answer.reply} I have not run the 26AS check; ask for it on its own.`, `${sentence}: the answer is the one ${alone} gets`);
+  }
+  for (const [sentence, , cash, tds] of cases.slice(0, 4)) {
+    const fresh = books();
+    const said = await chat(fresh, sentence);
+    assert.equal(said.awaitingConfirmation, undefined, `${sentence}: ${said.reply}`);
+    assertSteps(said.reply, sentence, { cash, tds, invoice: 'INV-0001' });
+    assert.match(said.reply, CHECK_NOT_RUN, sentence);
+    assert.equal(fresh.pendingChatAction ?? null, null, sentence);
+    assert.deepEqual(receiptsOf(fresh, 'INV-0001'), [], `${sentence}: nothing is recorded`);
+  }
+});
+
+test('R2: a payment, a TDS statement or a certificate that carries TDS and then asks for a check keeps the route it has alone', async () => {
+  const state = books();
+  const paid = plan(state, 'paid Acme Steel 4000 with tds withheld 400 and check 26AS');
+  assert.notEqual(paid.name, 'tds_credit_check', JSON.stringify(paid));
+  assert.deepEqual(paid, plan(state, 'paid Acme Steel 4000 with tds withheld 400'), 'the check clause changes nothing');
+  assert.equal(paid.kind, 'reply');
+  assert.match(paid.reply, /more than one amount/);
+
+  const statement = plan(state, 'customer deducted 1500 tds on invoice INV-0001 under 194J and check 26AS');
+  assert.equal(statement.kind, 'tool', JSON.stringify(statement));
+  assert.equal(statement.name, 'record_tds_withheld', JSON.stringify(statement));
+  assert.deepEqual(statement.args, { invoiceId: 'INV-0001', amount: 1500, section: '194J' });
+  assert.deepEqual(statement, plan(state, 'customer deducted 1500 tds on invoice INV-0001 under 194J'), 'the check clause changes nothing');
+  const fresh = books();
+  const held = await chat(fresh, 'customer deducted 1500 tds on invoice INV-0001 under 194J and check 26AS');
+  assert.equal(held.awaitingConfirmation, true, held.reply);
+  assert.equal(fresh.pendingChatAction.name, 'record_tds_withheld');
+  await chat(fresh, 'no');
+  assert.equal(fresh.pendingChatAction ?? null, null);
+
+  for (const sentence of ['received 9440 from TDS Experts and check 26AS', 'received 9440 against INV-0002 from TDS Experts and then check 26AS']) {
+    const planned = plan(state, sentence);
+    assert.equal(planned.kind, 'tool', `${sentence}: ${JSON.stringify(planned)}`);
+    assert.equal(planned.name, 'record_receipt', `${sentence}: ${JSON.stringify(planned)}`);
+    assert.equal(planned.args.invoiceId, 'INV-0002', sentence);
+    assert.equal(planned.args.amount, 9440, sentence);
+  }
+});
+
+test('R2: a posting that carries TDS keeps its own answer when the TDS is a TDS undo, a party name or a book that is not India', async () => {
+  const state = books();
+  const undone = plan(state, 'undo the 1500 tds on invoice INV-0001 and check 26AS');
+  assert.equal(undone.kind, 'reply', JSON.stringify(undone));
+  assert.equal(undone.reply, 'A TDS entry cannot be reversed from chat yet, so nothing was changed; your CA can correct it. I have not run the 26AS check; ask for it on its own.');
+  assert.deepEqual(undone.tools, []);
+  for (const sentence of ['remove TDS Experts invoice INV-0006 for 9440 and check 26AS', 'delete the TDS Experts invoice INV-0006 of 9440 and check 26AS', 'undo TDS Experts invoice 9440 INV-0006 and check 26AS']) {
+    const planned = plan(state, sentence);
+    assert.doesNotMatch(String(planned.reply || ''), /TDS entry cannot be reversed/, `${sentence}: a party named TDS is not a TDS entry`);
+    assert.notEqual(planned.name, 'tds_credit_check', sentence);
+  }
+  const us = usBooks();
+  const abroad = plan(us, 'received 8500 against INV-0001, tds 1500 and check 26AS');
+  assert.equal(abroad.kind, 'reply', JSON.stringify(abroad));
+  assert.equal(abroad.reply, 'TDS withheld by customers is for India books, so I have recorded nothing.');
+  assert.equal(abroad.blocked, true);
+  const session = await usSession();
+  const said = await session.chat('received 8500 against INV-0001, tds 1500 and check 26AS');
+  assert.equal(said.reply, 'TDS withheld by customers is for India books, so I have recorded nothing.');
+});
+
+test('R2: a statement about TDS credit in 26AS, a TDS figure in the check clause, a question, or a check with no posting before it is still the 26AS check', () => {
+  const state = books();
+  for (const sentence of [
+    'have I received 5000 against INV-0001, and can you check 26AS?',
+    'did I receive 88500 less 1500 tds against INV-0001 and check 26AS?',
+    'received 5000 against INV-0001 and check 26AS for the tds withheld by customers',
+    'I got 50000 tds credit, compare with 26AS',
+    'received 50000 tds credit and check 26AS',
+    'received 5000 against INV-0001 and check the 2000 tds in 26AS',
+    'received 5000 against INV-0001 and check 26AS, tds withheld 2000 is missing',
+    'received 5000 against INV-0001 and check 26AS for tds of 2000',
+    'received 5000 as per 26AS, then check the books',
+    'check 26AS and then record receipt 8500 tds 1500 INV-0001',
+  ]) {
+    assert.equal(plan(state, sentence).name, 'tds_credit_check', `${sentence}: ${JSON.stringify(plan(state, sentence))}`);
+  }
+});
+
+test('R2: a TDS figure that no TDS planner claims keeps the check, and a posting that says no TDS keeps its posting route', () => {
+  const state = books();
+  for (const sentence of ['tds on invoice INV-0001 is 2000, check 26AS', 'invoice INV-0001 tds 2000 check 26AS', 'received the tds certificate for 88500 and check 26AS']) {
+    const planned = plan(state, sentence);
+    assert.equal(planned.name, 'tds_credit_check', `${sentence}: ${JSON.stringify(planned)}`);
+    assert.deepEqual(planned.args, {}, sentence);
+  }
+  for (const sentence of [
+    'received 5000 against INV-0001, tds 0 and check 26AS',
+    'received 5000 against INV-0001, no tds and check 26AS',
+    'received 5000 against INV-0001, tds exempt and check 26AS',
+    'received 5000 against INV-0001, tds: nil and check 26AS',
+    'received 5000 against INV-0001, 0 tds then check 26AS',
+    'received 5000 against INV-0001 with no tds, check 26AS',
+  ]) {
+    const planned = plan(state, sentence);
+    assert.equal(planned.name, 'record_receipt', `${sentence}: ${JSON.stringify(planned)}`);
+    assert.equal(planned.args.invoiceId, 'INV-0001', sentence);
+    assert.equal(planned.args.amount, 5000, sentence);
+  }
+  const named = plan(state, 'invoice TDS Experts 8000 GST 18% and check 26AS');
+  assert.equal(named.name, 'create_invoice', JSON.stringify(named));
+  assert.equal(named.args.partyName, 'TDS Experts');
+  assert.deepEqual(named, plan(state, 'invoice TDS Experts 8000 GST 18%'), 'the check clause changes nothing');
+  for (const [sentence, alone] of [['bill from Acme Steel 4000 tds 400, check 26AS', 'bill from Acme Steel 4000 tds 400'], ['paid Acme Steel 4000 tds 400, check 26AS', 'paid Acme Steel 4000 tds 400']]) {
+    const planned = plan(state, sentence);
+    assert.notEqual(planned.name, 'tds_credit_check', `${sentence}: ${JSON.stringify(planned)}`);
+    assert.deepEqual(planned, plan(state, alone), `${sentence}: the check clause changes nothing`);
+  }
+});
+
+test('R2: a check request with no posting before it stays the 26AS check, and a cheque called a check is not a 26AS check', () => {
+  const state = books();
+  for (const sentence of [
+    'the books show 50000, please check 26AS',
+    'sales were 50000 this month, check 26AS',
+    'my balance is 50000 and check 26AS',
+    '50000 and check 26AS',
+    'received the money and check 26AS',
+    'my invoice was paid, check 26AS',
+  ]) {
+    const planned = plan(state, sentence);
+    assert.equal(planned.name, 'tds_credit_check', `${sentence}: ${JSON.stringify(planned)}`);
+    assert.deepEqual(planned.args, {}, sentence);
+  }
+  const cheque = plan(state, 'received 8500 against INV-0001, tds 1500 by check');
+  assert.equal(cheque.kind, 'reply', JSON.stringify(cheque));
+  assertSteps(cheque.reply, 'received 8500 against INV-0001, tds 1500 by check', { cash: 8500, tds: 1500, invoice: 'INV-0001' });
+  assert.doesNotMatch(cheque.reply, /26AS/, 'no 26AS check was asked, so none is said to be left out');
+});
+
 test('R2: a check request that carries an amount, a question or a 26AS figure is still the 26AS check', () => {
   const state = books();
   for (const sentence of [
@@ -319,13 +490,91 @@ test('R4: the verb forms, the comma forms and the forms that put the TDS first k
     'received 9000 against INV-0001, 1000 tds cut',
     'INV-0001 paid 9000 tds 1000',
     'Kiran Stores paid 9000, tds 1000 withheld, INV-0001',
+    'receipt after lunch 9000 tds 1000 INV-0001',
+    'record receipt, less discount, 9000 tds 1000 INV-0001',
   ]) {
     assertSteps(plan(state, sentence).reply, sentence, { cash: 9000, tds: 1000, invoice: 'INV-0001' });
   }
 });
 
+test('R4: a deduction word before the first amount keeps the TDS first and the cash second', async () => {
+  const state = books();
+  const rows = [
+    ['customer cut 2000 tds 98000 received INV-0001', 98000, 2000],
+    ['customer cut 1500 tds 88500 received INV-0001', 88500, 1500],
+    ['customer deducted 1500 tds 88500 payment INV-0001', 88500, 1500],
+    ['customer withheld 1500 tds 88500 received INV-0001', 88500, 1500],
+    ['Kiran Stores cut 1500 tds 88500 receipt INV-0001', 88500, 1500],
+    ['cutting 1500 tds 88500 received INV-0001', 88500, 1500],
+    ['Kiran Stores deducting 1500 tds 88500 paid INV-0001', 88500, 1500],
+    ['customer cut ₹1,500 tds ₹88,500 received INV-0001', 88500, 1500],
+    ['customer cut Rs. 1500 tds Rs. 88500 received INV-0001', 88500, 1500],
+    ['customer cut 1500 tds: 88500 received INV-0001', 88500, 1500],
+    ['customer cut 1500 tds of 88500 received INV-0001', 88500, 1500],
+    ['customer deducted 1500 as tds 88500 received INV-0001', 88500, 1500],
+    ['customer withheld 1500 tds 88500 received INV-0001 on 2026-10-20', 88500, 1500],
+  ];
+  for (const [sentence, cash, tds] of rows) {
+    const planned = plan(state, sentence);
+    assert.equal(planned.kind, 'reply', `${sentence}: ${JSON.stringify(planned)}`);
+    assertSteps(planned.reply, sentence, { cash, tds, invoice: 'INV-0001' });
+    assert.doesNotMatch(planned.reply, /the amount that reached your bank|the TDS amount/, `${sentence}: both figures were read`);
+    const said = await chat(state, sentence);
+    assert.equal(said.awaitingConfirmation, undefined, `${sentence}: ${said.reply}`);
+    assertSteps(said.reply, sentence, { cash, tds, invoice: 'INV-0001' });
+  }
+  assert.deepEqual(receiptsOf(state, 'INV-0001'), []);
+});
+
+test('R4: a gross less the TDS, an amount net of it, or a period after the second amount is not read as the TDS', () => {
+  const state = books();
+  const netted = [
+    ['received 100000 less 2000 tds = 98000 INV-0001', 2000],
+    ['received 90000 less 1500 tds = 88500 INV-0001', 1500],
+    ['received 90000 minus 1500 tds 88500 INV-0001', 1500],
+    ['record receipt 100000 - 1500 tds 88500 INV-0001', 1500],
+    ['received 90000 \u2212 1500 tds 88500 INV-0001', 1500],
+    ['received 88500 after deducting 1500 tds 88500 INV-0001', 1500],
+    ['received 90000 including 1500 tds 88500 INV-0001', 1500],
+    ['payment 90000 excluding 1500 tds 88500 INV-0001', 1500],
+    ['received 90000 of which 1500 tds 88500 INV-0001', 1500],
+    ['received 90000 after 1500 tds 88500 INV-0001', 1500],
+    ['received 90000 net of 1500 tds 88500 INV-0001', 1500],
+  ];
+  for (const [sentence, tds] of netted) {
+    const planned = plan(state, sentence);
+    assert.equal(planned.kind, 'reply', `${sentence}: ${JSON.stringify(planned)}`);
+    const steps = stepsOf(planned.reply);
+    assert.ok(steps, `${sentence}: ${planned.reply}`);
+    assert.equal(steps.tds, String(tds), `${sentence}: ${planned.reply}`);
+    assert.doesNotMatch(planned.reply, /\(use [^)]*the TDS amount/, `${sentence}: the TDS amount was read`);
+    assert.equal(steps.invoice, 'INV-0001', sentence);
+    assert.match(planned.reply, /recorded nothing/, sentence);
+  }
+  const periods = [
+    'received 88500, 1500 tds 30 days INV-0001',
+    'received 88500 against INV-0001, 1500 tds 45 days',
+    'receipt 88500, 1500 tds 2 months INV-0001',
+    'receipt 88500, 1500 tds 1 week INV-0001',
+    'receipt 88500, 1500 tds 2 years INV-0001',
+    'received 88500 after 1500 tds 30 days INV-0001',
+    'received 88500 net of 1500 tds 30 days INV-0001',
+    'received 88500 less 1500 tds 30-day terms INV-0001',
+    'record receipt 88500, 1500 tds, payment in 30 days INV-0001',
+  ];
+  for (const sentence of periods) {
+    const planned = plan(state, sentence);
+    assert.equal(planned.kind, 'reply', `${sentence}: ${JSON.stringify(planned)}`);
+    assertSteps(planned.reply, sentence, { cash: 88500, tds: 1500, invoice: 'INV-0001' });
+    assert.doesNotMatch(planned.reply, /the amount that reached your bank|the TDS amount/, `${sentence}: both figures were read`);
+  }
+  const reported = plan(state, 'received 98000 after 2000 tds 30 days INV-0001');
+  assertSteps(reported.reply, 'received 98000 after 2000 tds 30 days INV-0001', { cash: 98000, tds: 2000, invoice: 'INV-0001' });
+  assert.doesNotMatch(reported.reply, /the amount that reached your bank|the TDS amount/, 'both figures were read, and 30 is neither');
+});
+
 test('R6: a receipt that says tds 0, 0 tds, tds exempt or tds-free is a plain receipt, like no tds, tds nil and tds free', async () => {
-  const tails = ['no tds', 'tds nil', 'tds free', 'tds 0', 'tds: 0', 'tds = 0', 'tds 0.00', 'tds Rs 0', 'tds ₹0', '0 tds', '0.00 tds', '₹0 tds', 'tds 0%', '0% tds', 'tds exempt', 'tds exempted', 'tds is exempt', 'tds-free', 'tds-exempt'];
+  const tails = ['no tds', 'tds nil', 'tds free', 'tds 0', 'tds: 0', 'tds = 0', 'tds 0.00', 'tds Rs 0', 'tds ₹0', '0 tds', '0.00 tds', '₹0 tds', 'tds 0%', '0% tds', 'tds exempt', 'tds exempted', 'tds is exempt', 'tds-free', 'tds-exempt', 'tds none', 'tds: none', 'tds: exempt', 'tds: exempted', 'tds: free', 'tds: nil', 'tds = nil', 'tds = free', 'tds = exempt', 'tds=none', 'tds - nil', 'tds: zero', 'tds is none', 'tds-none', 'TDS: NIL'];
   const state = books();
   for (const tail of tails) {
     const sentence = `received 5000 against INV-0001, ${tail}`;
@@ -342,6 +591,10 @@ test('R6: a receipt that says tds 0, 0 tds, tds exempt or tds-free is a plain re
     'Kiran Stores paid 5000 on INV-0001, 0 tds cut',
     'received 5000 against INV-0001, tds 0. thanks',
     'received 5000 against INV-0001, tds 0, no gst',
+    'received 5000 against INV-0001 tds: exempt',
+    'received 5000 from Kiran Stores against INV-0004, tds = nil',
+    'INV-0001 paid 5000 tds: none',
+    'Kiran Stores paid 5000 on INV-0001, tds none, thanks',
   ]) {
     const planned = plan(state, sentence);
     assert.equal(planned.name, 'record_receipt', `${sentence}: ${JSON.stringify(planned)}`);

@@ -58,6 +58,7 @@ const ASK_ONE_INVOICE = 'Say one invoice at a time, for example "record tds with
 const ASK_AMOUNT = 'Say how much TDS was withheld, for example "record tds withheld 2000 on INV-0001 under 194J". I have recorded nothing.';
 const ASK_DATE = 'Say the date, for example "record tds withheld 2000 on INV-0001 under 194J dated 15 October 2026". I have recorded nothing.';
 const ASK_YEAR = 'Say the financial year as two years in a row, like FY 2025-26. I have checked nothing.';
+const CHECK_NOT_RUN = 'I have not run the 26AS check; ask for it on its own.';
 const UNDO_REPLY = 'A TDS entry cannot be reversed from chat yet, so nothing was changed; your CA can correct it.';
 const INDIA_ONLY = 'TDS withheld by customers is for India books, so I have recorded nothing.';
 
@@ -78,7 +79,10 @@ const TDS_AMOUNT_AFTER = new RegExp(`\\btds\\b\\s*(?:(?:of|was|is|worth|at|amoun
 const CASH_VERB_BEFORE = /\b(?:received|receive|got|collected|recd|rcvd|paid|pays|sent|credited|settled|cleared|payment\s+of|neft|upi|rtgs|imps|cheque|check)\s*(?:of\s+)?$/i;
 const NO_TDS = /\b(?:no|nil|zero|without|never)\s+(?:(?:any|customer|client|their|the)\s+)?tds\b|\btds\s+(?:[\d,.₹]+\s+)?(?:(?:was|were|is|has|have|had)\s+)?(?:free|nil|zero|(?:not|never)\s+(?:applicable|deducted|cut|withheld|been\s+(?:deducted|cut|withheld))|(?:wasn|isn|hasn|haven|hadn)'?t\s+(?:been\s+)?(?:deducted|cut|withheld))\b|\b(?:did\s+not|didn'?t|not)\s+(?:cut|deduct|withhold)\s+(?:any\s+)?tds\b/gi;
 const ZERO_AMOUNT = '(?:(?:₹|rs\\.?|inr)\\s*)?0+(?:\\.0+)?';
-const ZERO_TDS = new RegExp(`\\btds\\s*(?:(?:of|is|was|at|amount|amt|withheld|deducted|cut|=|:|-)\\s*)*${ZERO_AMOUNT}\\s*%?(?![\\d.,]*[1-9])|(?<![\\d.,])${ZERO_AMOUNT}\\s*%?\\s*(?:customer\\s+|client\\s+)?tds\\b|\\btds[-\\s]+(?:is\\s+)?(?:exempt(?:ed)?|free|nil|zero)\\b`, 'gi');
+const ZERO_TDS = new RegExp(`\\btds\\s*(?:(?:of|is|was|at|amount|amt|withheld|deducted|cut|=|:|-)\\s*)*${ZERO_AMOUNT}\\s*%?(?![\\d.,]*[1-9])|(?<![\\d.,])${ZERO_AMOUNT}\\s*%?\\s*(?:customer\\s+|client\\s+)?tds\\b|\\btds(?:\\s*[-:=]\\s*|\\s+)(?:(?:is|was)\\s+)?(?:exempt(?:ed)?|free|nil|zero|none)\\b`, 'gi');
+const DEDUCTION_WORDS = '(?:cut(?:ting)?|less|minus|after|net\\s+of|deduct\\w*|withh\\w*|excl\\w*|incl\\w*|of\\s+which)';
+const DEDUCTION_BEFORE = new RegExp(`(?:\\b${DEDUCTION_WORDS}\\b|(?<!\\w)[-\\u2212])[\\s:,(]*$`, 'i');
+const DURATION = /\d[\d,]*(?:\.\d+)?\s*(?:-\s*)?(?:days?|weeks?|months?|years?)\b/gi;
 const BOOKED = '(?:recorded|booked|entered|posted|noted|accounted|adjusted)';
 const EARLY = '(?:already|earlier|previously|separately)';
 const SAME_CLAUSE = '(?:(?!\\b(?:and|but|while|whereas|though|although|so|then|gst|igst|cgst|sgst|customer|client|they|them|he|she|we|you|i|rest|balance|remaining)\\b)[^,;.?!()]|(?<=\\d)\\.(?=\\d))';
@@ -406,10 +410,11 @@ export function planCustomerTdsFromChat(state, text) {
 
 const TDS_WORD_LENGTH = 'tds'.length;
 
-function splitTds(body) {
+function splitTds(text) {
+  const body = text.replace(DURATION, ' ');
   const before = TDS_AMOUNT_BEFORE.exec(body);
   const after = TDS_AMOUNT_AFTER.exec(body);
-  const sharedWord = before != null && after != null && before.index + before[0].length === after.index + TDS_WORD_LENGTH;
+  const sharedWord = before != null && after != null && before.index + before[0].length === after.index + TDS_WORD_LENGTH && !DEDUCTION_BEFORE.test(body.slice(0, before.index));
   const cashFirst = before != null && (sharedWord || CASH_VERB_BEFORE.test(body.slice(0, before.index)));
   for (const hit of [cashFirst ? null : before, after]) {
     if (!hit) continue;
@@ -515,11 +520,21 @@ function checkAsked(raw) {
   return has26 || !MARKETPLACE.test(raw);
 }
 
-function checkFollowsPosting(raw) {
+function postingBeforeCheck(raw) {
   const at = raw.search(CHECK_VERB);
-  if (at < 0 || !checkAsked(raw) || isQuestion(raw) || TDS_WITHHELD.test(raw) || tdsAmountSaid(raw)) return false;
+  if (at < 0 || !checkAsked(raw) || isQuestion(raw)) return '';
   const before = raw.slice(0, at);
-  return !TDS_OR_26AS.test(before) && POSTING_WORDS.test(before) && amountsSaid(before).length > 0;
+  const after = raw.slice(at);
+  if (TDS_WITHHELD.test(after) || tdsAmountSaid(after) || AS_26.test(before) || TDS_CREDITS.test(before)) return '';
+  return POSTING_WORDS.test(before) && amountsSaid(before).length > 0 ? before : '';
+}
+
+function postingAnswer(state, posting) {
+  const said = plain(posting);
+  if (!/\btds\b/i.test(withoutTdsNames(state, said).replace(ZERO_TDS, ' '))) return { plan: null };
+  const own = planTdsUndoFromChat(state, posting) || planReceiptWithTds(state, posting) || planCustomerTdsFromChat(state, posting);
+  if (own) return { plan: own.kind === 'reply' && !own.blocked ? say(`${own.reply} ${CHECK_NOT_RUN}`) : own };
+  return businessSide(state, said) ? { plan: null } : null;
 }
 
 export function plan26asCheckFromChat(state, text) {
@@ -539,7 +554,10 @@ export function planTdsChat(state, text) {
   const said = normalizeChat(text);
   const reminder = REMINDER_WORDS.exec(said);
   const raw = reminder ? said.slice(0, reminder.index) : said;
-  if (!TDS_OR_26AS.test(withoutTdsNames(state, raw)) || checkFollowsPosting(raw)) return null;
+  if (!TDS_OR_26AS.test(withoutTdsNames(state, raw))) return null;
+  const posting = postingBeforeCheck(raw);
+  const answer = posting ? postingAnswer(state, posting) : null;
+  if (answer) return answer.plan;
   return plan26asCheckFromChat(state, raw)
     || planTdsUndoFromChat(state, raw)
     || planReceiptWithTds(state, raw)
