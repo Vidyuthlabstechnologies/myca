@@ -101,52 +101,77 @@ class _AuditTrailScreenState extends State<AuditTrailScreen> {
     ],
   );
 
-  List<Widget> _trailBody(AuditTrail trail, TextTheme text) {
-    final newestFirst = trail.events.reversed.toList();
-    return [
+  List<Widget> _trailHead(AuditTrail trail, TextTheme text) => [
+    Text(
+      trail.chainWords,
+      key: const ValueKey('audit.chain'),
+      style: text.bodyMedium?.copyWith(color: trail.chainOk ? null : Palette.danger, fontWeight: trail.chainOk ? null : FontWeight.w600),
+    ),
+    if (!trail.ledgerOk) ...[
+      const SizedBox(height: 4),
       Text(
-        trail.chainWords,
-        key: const ValueKey('audit.chain'),
-        style: text.bodyMedium?.copyWith(color: trail.chainOk ? null : Palette.danger, fontWeight: trail.chainOk ? null : FontWeight.w600),
+        'The record of entries fails its integrity check. Ask your CA before recording more.',
+        style: text.bodyMedium?.copyWith(color: Palette.danger, fontWeight: FontWeight.w600),
       ),
-      if (!trail.ledgerOk) ...[
-        const SizedBox(height: 4),
-        Text(
-          'The record of entries fails its integrity check. Ask your CA before recording more.',
-          style: text.bodyMedium?.copyWith(color: Palette.danger, fontWeight: FontWeight.w600),
+    ],
+    const SizedBox(height: 12),
+    if (trail.events.isEmpty) const EmptyNote(text: 'Nothing changed in this period.'),
+  ];
+
+  List<Widget> _trailFoot(AuditTrail trail, TextTheme text) => [
+    if (trail.more && !_longest)
+      Padding(
+        padding: const EdgeInsets.only(top: 8),
+        child: TextButton(
+          key: const ValueKey('audit.more'),
+          onPressed: () => _reload(longest: true),
+          child: const Text('Show more'),
         ),
-      ],
-      const SizedBox(height: 12),
-      if (newestFirst.isEmpty)
-        const EmptyNote(text: 'Nothing changed in this period.')
-      else
-        Panel(
-          children: [
-            for (final event in newestFirst)
-              RowCard(
-                key: ValueKey('audit.${event.eventId}'),
-                leading: TintTile(tint: event.kind == 'change' ? Tint.taxes : Tint.ask, mark: Mark.paper),
-                title: event.summary,
-                subtitle: event.subtitle,
-              ),
-          ],
-        ),
-      if (trail.more && !_longest)
-        Padding(
-          padding: const EdgeInsets.only(top: 8),
-          child: TextButton(
-            key: const ValueKey('audit.more'),
-            onPressed: () => _reload(longest: true),
-            child: const Text('Show more'),
-          ),
-        ),
-      if (trail.more && _longest)
-        Padding(
-          padding: const EdgeInsets.only(top: 8),
-          child: Text('The latest $_longestList are shown. Save as Excel for the full list.', style: text.bodySmall),
-        ),
-    ];
+      ),
+    if (trail.more && _longest)
+      Padding(
+        padding: const EdgeInsets.only(top: 8),
+        child: Text('The latest $_longestList are shown. Save as Excel for the full list.', style: text.bodySmall),
+      ),
+  ];
+
+  Widget _row(AuditEvent event) => RowCard(
+    key: ValueKey('audit.${event.eventId}'),
+    leading: TintTile(tint: event.kind == 'change' ? Tint.taxes : Tint.ask, mark: Mark.paper),
+    title: event.summary,
+    subtitle: event.subtitle,
+  );
+
+  Widget _edged(int index, int count, Widget row) {
+    if (index > 0 && index < count - 1) return row;
+    const corner = Radius.circular(radiusCard - 1);
+    return ClipRRect(
+      borderRadius: BorderRadius.vertical(
+        top: index == 0 ? corner : Radius.zero,
+        bottom: index == count - 1 ? corner : Radius.zero,
+      ),
+      child: row,
+    );
   }
+
+  Widget _rowsSliver(List<AuditEvent> events) => SliverPadding(
+    padding: const EdgeInsets.symmetric(horizontal: 16),
+    sliver: DecoratedSliver(
+      decoration: BoxDecoration(
+        color: Palette.surface,
+        borderRadius: BorderRadius.circular(radiusCard),
+        border: Border.all(color: Palette.line),
+      ),
+      sliver: SliverPadding(
+        padding: const EdgeInsets.all(1),
+        sliver: SliverList.separated(
+          itemCount: events.length,
+          itemBuilder: (context, index) => _edged(index, events.length, _row(events[events.length - 1 - index])),
+          separatorBuilder: (context, index) => const Divider(indent: 68),
+        ),
+      ),
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -157,35 +182,50 @@ class _AuditTrailScreenState extends State<AuditTrailScreen> {
         future: _trail,
         builder: (context, snap) {
           final loading = snap.connectionState != ConnectionState.done;
-          final trail = snap.data;
-          return ListView(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-            children: [
-              Text('Who changed what and when. Every change made through MyCA is listed, with proof the log was not edited.', style: text.bodyMedium),
-              const SizedBox(height: 12),
-              _chips('audit.period', _periods, _period, (key) => _reload(period: key)),
-              const SizedBox(height: 8),
-              _chips('audit.view', _views, _view, (key) => _reload(view: key)),
-              const SizedBox(height: 12),
-              if (loading)
-                const Center(child: CircularProgressIndicator())
-              else if (trail == null)
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
+          final trail = loading ? null : snap.data;
+          return CustomScrollView(
+            slivers: [
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                sliver: SliverList.list(
                   children: [
-                    Text('The audit trail could not be loaded.', style: text.bodyMedium),
+                    Text('Who changed what and when. Every change made through MyCA is listed, with proof the log was not edited.', style: text.bodyMedium),
+                    const SizedBox(height: 12),
+                    _chips('audit.period', _periods, _period, (key) => _reload(period: key)),
                     const SizedBox(height: 8),
-                    TextButton(onPressed: _reload, child: const Text('Try again')),
+                    _chips('audit.view', _views, _view, (key) => _reload(view: key)),
+                    const SizedBox(height: 12),
+                    if (loading)
+                      const Center(child: CircularProgressIndicator())
+                    else if (trail == null)
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Text('The audit trail could not be loaded.', style: text.bodyMedium),
+                          const SizedBox(height: 8),
+                          TextButton(onPressed: _reload, child: const Text('Try again')),
+                        ],
+                      )
+                    else
+                      ..._trailHead(trail, text),
                   ],
-                )
-              else
-                ..._trailBody(trail, text),
-              const SizedBox(height: 16),
-              OutlinedButton(
-                onPressed: _saving ? null : _saveExcel,
-                child: const Text('Save as Excel'),
+                ),
               ),
-              if (_excelNote.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 8), child: Text(_excelNote, style: text.bodyMedium)),
+              if (trail != null && trail.events.isNotEmpty) _rowsSliver(trail.events),
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                sliver: SliverList.list(
+                  children: [
+                    if (trail != null) ..._trailFoot(trail, text),
+                    const SizedBox(height: 16),
+                    OutlinedButton(
+                      onPressed: _saving ? null : _saveExcel,
+                      child: const Text('Save as Excel'),
+                    ),
+                    if (_excelNote.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 8), child: Text(_excelNote, style: text.bodyMedium)),
+                  ],
+                ),
+              ),
             ],
           );
         },

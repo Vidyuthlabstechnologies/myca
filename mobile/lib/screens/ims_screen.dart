@@ -54,6 +54,19 @@ TintTile _tile(ImsRow row) => switch (row.decision) {
 
 String _countWords(int count, String one, String many) => '$count ${count == 1 ? one : many}';
 
+typedef _Numbered = ({ImsRow row, String id});
+
+List<_Numbered> _numbered(List<ImsRow> rows) {
+  final seen = <String, int>{};
+  return [
+    for (final row in rows)
+      (row: row, id: switch (seen.update(row.key, (count) => count + 1, ifAbsent: () => 1)) {
+        1 => row.key,
+        final count => '${row.key}#$count',
+      }),
+  ];
+}
+
 class ImsScreen extends StatefulWidget {
   const ImsScreen({super.key, required this.period});
 
@@ -216,20 +229,20 @@ class _ImsScreenState extends State<ImsScreen> with ProposalFlow {
     ],
   );
 
-  Widget _row(ImsRow row) => RowCard(
-    key: ValueKey('ims.${row.key}'),
-    leading: _tile(row),
-    title: row.title,
-    subtitle: row.subtitle,
+  Widget _row(_Numbered item) => RowCard(
+    key: ValueKey('ims.${item.id}'),
+    leading: _tile(item.row),
+    title: item.row.title,
+    subtitle: item.row.subtitle,
     trailing: ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 124),
       child: FittedBox(
         fit: BoxFit.scaleDown,
         alignment: Alignment.centerRight,
-        child: StatusTag(key: ValueKey('ims.status.${row.key}'), text: row.statusWords, color: _decisionColor(row)),
+        child: StatusTag(key: ValueKey('ims.status.${item.id}'), text: item.row.statusWords, color: _decisionColor(item.row)),
       ),
     ),
-    onTap: busy ? null : () => _openRow(row),
+    onTap: busy ? null : () => _openRow(item.row),
   );
 
   List<Widget> _head(ImsReview review, bool noRows, TextTheme text) => [
@@ -258,7 +271,7 @@ class _ImsScreenState extends State<ImsScreen> with ProposalFlow {
     );
   }
 
-  Widget _rowsSliver(List<ImsRow> rows) => SliverPadding(
+  Widget _rowsSliver(List<_Numbered> rows) => SliverPadding(
     padding: const EdgeInsets.symmetric(horizontal: 16),
     sliver: DecoratedSliver(
       decoration: BoxDecoration(
@@ -287,7 +300,7 @@ class _ImsScreenState extends State<ImsScreen> with ProposalFlow {
         builder: (context, snap) {
           final review = snap.data;
           final loading = review == null && snap.connectionState != ConnectionState.done;
-          final rows = review != null && review.hasStatement ? review.rows.where((row) => _shown(row, _filter)).toList() : const <ImsRow>[];
+          final rows = review != null && review.hasStatement ? _numbered(review.rows).where((item) => _shown(item.row, _filter)).toList() : const <_Numbered>[];
           return Column(
             children: [
               Expanded(

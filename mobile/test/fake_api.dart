@@ -542,6 +542,7 @@ class FakeMycaApi implements MycaApi {
       'note': '',
       'decidedBy': '',
       'decidedOn': '',
+      'lines': 1,
     },
     {
       'key': '2026-10|24AAACF7856R1ZY|GM77|B2B',
@@ -566,6 +567,7 @@ class FakeMycaApi implements MycaApi {
       'note': '',
       'decidedBy': '',
       'decidedOn': '',
+      'lines': 1,
     },
     {
       'key': '2026-10|27AAACH7409R1Z1|RS1|B2B',
@@ -590,6 +592,7 @@ class FakeMycaApi implements MycaApi {
       'note': '',
       'decidedBy': '',
       'decidedOn': '',
+      'lines': 1,
     },
   ];
 
@@ -1378,7 +1381,6 @@ class FakeMycaApi implements MycaApi {
           },
         ];
         final left = (invoice['total'] as num) - _receivedOn(invoice);
-        invoice['owed'] = left;
         invoice['status'] = left <= 0.01 ? 'paid' : 'partial';
         return ChatReply.fromJson({
           'reply': 'Recorded TDS of ${rupees(amount)} withheld on ${held.args['invoiceId']}; ${rupees(left)} still owed.',
