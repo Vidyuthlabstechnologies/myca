@@ -7,6 +7,8 @@ class KeystoreTokenStore implements TokenStore {
 
   static const _storage = FlutterSecureStorage();
 
+  static TokenStore recovering() => RecoveringTokenStore(const KeystoreTokenStore(), clear: _storage.deleteAll);
+
   @override
   Future<String?> read(String key) => _storage.read(key: key);
 

@@ -9,7 +9,7 @@ import { connectorKeyFromEnv } from './connectors.mjs';
 import { booksKeyFromEnv } from './books-seal.mjs';
 import { smsSenderFromEnv } from './sms-sender.mjs';
 import { whatsAppConfigFromEnv, createWhatsAppSender } from './whatsapp.mjs';
-import { createBilling, billingConfigFromEnv } from './billing.mjs';
+import { createBilling, billingConfigFromEnv, billingConfigProblem } from './billing.mjs';
 import { isProduction, hostingName, serviceRevision, databaseTlsProblem, proxyHopsProblem } from './runtime.mjs';
 
 const STARTUP_ATTEMPTS = 10;
@@ -51,7 +51,9 @@ const tlsProblem = databaseTlsProblem();
 if (tlsProblem) throw new Error(tlsProblem);
 const hopsProblem = proxyHopsProblem();
 if (hopsProblem) throw new Error(hopsProblem);
-const db = createDb(required('MYCA_DATABASE_URL'));
+const billingProblem = billingConfigProblem(process.env);
+if (billingProblem) throw new Error(billingProblem);
+const db = createDb(required('MYCA_DATABASE_URL'), { onError: (err) => log({ db: 'idle connection lost', error: String(err && err.message ? err.message : err) }) });
 await migrateWithRetry(db);
 const handler = createApi({
   db,

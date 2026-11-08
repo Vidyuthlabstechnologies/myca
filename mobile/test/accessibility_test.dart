@@ -30,6 +30,22 @@ final Map<String, Walk> screens = {
   'home, first day': (t) async {
     await open(t, empty: true);
   },
+  'home with MSME card': (t) async {
+    final card = find.byKey(const ValueKey('home.msme'));
+    await t.scrollUntilVisible(card, 200, scrollable: find.byType(Scrollable).first);
+    await t.pumpAndSettle();
+    await t.ensureVisible(card);
+    await t.pumpAndSettle();
+  },
+  'supplier terms sheet': (t) async {
+    await tapRow(t, 'Purchases');
+    await t.tap(find.text('Fabric Co'));
+    await t.pumpAndSettle();
+    await t.tap(find.widgetWithText(ActionChip, 'Supplier terms'));
+    await t.pumpAndSettle();
+    await t.tap(find.widgetWithText(SwitchListTile, 'MSME supplier'));
+    await t.pumpAndSettle();
+  },
   'business menu': (t) async {
     await t.tap(find.byTooltip('Your business'));
     await t.pumpAndSettle();
@@ -54,8 +70,28 @@ final Map<String, Walk> screens = {
   'sales register': (t) async {
     await tapRow(t, 'Sales');
   },
+  'audit trail': (t) async {
+    await tapRow(t, 'Reports');
+    await t.tap(find.text('Audit trail'));
+    await t.pumpAndSettle();
+  },
   'taxes': (t) async {
     await t.tap(find.text('3 things need you'));
+    await t.pumpAndSettle();
+  },
+  'form 26as check': (t) async {
+    await t.tap(find.text('3 things need you'));
+    await t.pumpAndSettle();
+    final row = find.text('Form 26AS check');
+    await scrollTo(t, row);
+    await t.tap(row);
+    await t.pumpAndSettle();
+  },
+  'tds withheld sheet': (t) async {
+    await tapRow(t, 'Sales');
+    await t.tap(find.text('Gujarat Weaves'));
+    await t.pumpAndSettle();
+    await t.tap(find.widgetWithText(ActionChip, 'TDS withheld'));
     await t.pumpAndSettle();
   },
   'review the return': (t) async {
@@ -83,6 +119,59 @@ final Map<String, Walk> screens = {
     await tapRow(t, 'Cash');
     await scrollTo(t, find.text('Who to pay'));
     await t.tap(find.text('Who to pay'));
+    await t.pumpAndSettle();
+  },
+  'bank': (t) async {
+    await tapRow(t, 'Bank');
+  },
+  'bank line sheet': (t) async {
+    await tapRow(t, 'Bank');
+    final line = find.text('NEFT CR GUJARAT WEAVES INV0002');
+    await scrollTo(t, line);
+    await t.tap(line);
+    await t.pumpAndSettle();
+  },
+  'record a transfer': (t) async {
+    await tapRow(t, 'Bank');
+    final chip = find.text('Record a transfer');
+    await scrollTo(t, chip);
+    await t.tap(chip);
+    await t.pumpAndSettle();
+  },
+  'bank, two years of lines': (t) async {
+    await tapRow(t, 'Bank');
+    final older = find.text('Show older');
+    await scrollTo(t, older);
+    await t.tap(older);
+    await t.pumpAndSettle();
+  },
+  'bank, no statement yet': (t) async {
+    await t.pumpWidget(MycaApp(key: UniqueKey(), state: testState(FakeMycaApi(signedIn: true)..bankLines.clear())));
+    await t.pumpAndSettle();
+    await tapRow(t, 'Bank');
+  },
+  'ims': (t) async {
+    await t.pumpWidget(MycaApp(key: UniqueKey(), state: testState(FakeMycaApi(signedIn: true)..has2b = true)));
+    await t.pumpAndSettle();
+    await t.tap(find.text('3 things need you'));
+    await t.pumpAndSettle();
+    final review = find.text('Review in IMS');
+    await scrollTo(t, review);
+    await t.tap(review);
+    await t.pumpAndSettle();
+  },
+  'ims row sheet': (t) async {
+    await t.pumpWidget(MycaApp(key: UniqueKey(), state: testState(FakeMycaApi(signedIn: true)..has2b = true)));
+    await t.pumpAndSettle();
+    await t.tap(find.text('3 things need you'));
+    await t.pumpAndSettle();
+    final review = find.text('Review in IMS');
+    await scrollTo(t, review);
+    await t.tap(review);
+    await t.pumpAndSettle();
+    final row = find.text('GUJARAT MILLS · GM/77');
+    await scrollTo(t, row);
+    await t.tap(row);
     await t.pumpAndSettle();
   },
   'ask': (t) async {

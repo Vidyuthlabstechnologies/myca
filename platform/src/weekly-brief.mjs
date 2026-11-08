@@ -7,6 +7,7 @@ import { weekAhead } from './week-ahead.mjs';
 import { cashStart, cashForecast, latestReading } from './cash-forecast.mjs';
 import { listExceptions, summarise } from './exceptions.mjs';
 import { supplierDues } from './supplier-dues.mjs';
+import { formatMoney } from './country.mjs';
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
@@ -86,10 +87,10 @@ function runwayStatus(months) {
 }
 
 function theOneThing(parts) {
-  const { exceptions, dues, ahead, aging, cash } = parts;
+  const { state, exceptions, dues, ahead, aging, cash } = parts;
   if (exceptions.bySeverity.critical) return `Fix the ${exceptions.bySeverity.critical === 1 ? 'critical item' : `${exceptions.bySeverity.critical} critical items`} in Needs you before recording more.`;
   const msmeLate = dues.find((b) => b.msme && b.overdue);
-  if (msmeLate) return `Pay ${msmeLate.supplier} ${msmeLate.outstanding} on ${msmeLate.billId}: it is past the MSMED date, so the expense is disallowed until it is paid.`;
+  if (msmeLate) return `Pay ${msmeLate.supplier} ${formatMoney(state, msmeLate.outstanding)} on ${msmeLate.billId}: it is past the MSMED date, so the expense is disallowed until it is paid.`;
   const filing = ahead.find((i) => i.kind === 'filing');
   if (filing) return `${filing.title}: ${filing.overdue ? 'overdue' : `due ${longDate(filing.when)}`}.`;
   if (aging.late.length) return `Chase ${aging.late[0].customer}: ${aging.late[0].daysLate} days late on ${aging.late[0].invoiceId}. Say "send reminder to ${aging.late[0].customer}".`;
@@ -157,7 +158,7 @@ export function weeklyBrief(state, args = {}) {
     exceptions,
     oneThing: '',
   };
-  data.oneThing = theOneThing({ exceptions, dues, ahead, aging, cash });
+  data.oneThing = theOneThing({ state, exceptions, dues, ahead, aging, cash });
   return { ok: true, data };
 }
 

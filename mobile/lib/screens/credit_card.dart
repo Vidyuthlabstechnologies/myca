@@ -5,6 +5,8 @@ import '../api/myca_api.dart';
 import '../app_state.dart';
 import '../format.dart';
 import '../theme.dart';
+import '../widgets.dart';
+import 'ims_screen.dart';
 import 'remind_supplier_screen.dart';
 
 class CreditCard extends StatefulWidget {
@@ -59,7 +61,7 @@ class _CreditCardState extends State<CreditCard> {
       final held = await state.api.propose('import_gstr2b', {
         'documentSha256': sha,
         'period': widget.period,
-        'fileName': picked.name,
+        'fileName': shortFileName(picked.name),
       });
       final preview = held.preview;
       if (preview == null) {
@@ -279,38 +281,34 @@ class _CreditCardState extends State<CreditCard> {
                       onTap: () => _showSupplier(check, supplier),
                       child: Padding(
                         padding: const EdgeInsets.symmetric(vertical: 8),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    supplier.supplier,
-                                    style: text.titleMedium,
-                                  ),
-                                  Text(
-                                    supplier.bills == 1
-                                        ? '1 bill'
-                                        : '${supplier.bills} bills',
-                                    style: text.bodySmall,
-                                  ),
-                                ],
+                        child: AmountRow(
+                          start: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                supplier.supplier,
+                                style: text.titleMedium,
                               ),
-                            ),
-                            Text(
-                              rupees(supplier.credit),
-                              style: text.titleMedium?.copyWith(
-                                fontFeatures: moneyFigures,
+                              Text(
+                                supplier.bills == 1
+                                    ? '1 bill'
+                                    : '${supplier.bills} bills',
+                                style: text.bodySmall,
                               ),
-                            ),
-                            const SizedBox(width: 6),
-                            const Icon(
+                            ],
+                          ),
+                          amount: rupees(supplier.credit),
+                          style: text.titleMedium?.copyWith(
+                            fontFeatures: moneyFigures,
+                          ),
+                          after: const Padding(
+                            padding: EdgeInsets.only(left: 6),
+                            child: Icon(
                               Icons.chevron_right,
                               size: 18,
                               color: Palette.muted,
                             ),
-                          ],
+                          ),
                         ),
                       ),
                     ),
@@ -337,7 +335,20 @@ class _CreditCardState extends State<CreditCard> {
                   ),
                 ),
               ),
-              if (check?.hasStatement == true)
+              if (check?.hasStatement == true) ...[
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton(
+                    key: const ValueKey('credit.ims'),
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => ImsScreen(period: widget.period),
+                      ),
+                    ),
+                    child: const Text('Review in IMS'),
+                  ),
+                ),
                 Padding(
                   padding: const EdgeInsets.only(top: 6),
                   child: Text(
@@ -345,6 +356,7 @@ class _CreditCardState extends State<CreditCard> {
                     style: text.bodySmall,
                   ),
                 ),
+              ],
               if (_note.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.only(top: 6),

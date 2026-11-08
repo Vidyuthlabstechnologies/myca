@@ -117,6 +117,7 @@ class RowCard extends StatelessWidget {
     required this.title,
     required this.subtitle,
     this.trailing,
+    this.badge,
     this.onTap,
   });
 
@@ -124,6 +125,7 @@ class RowCard extends StatelessWidget {
   final String title;
   final String subtitle;
   final Widget? trailing;
+  final Widget? badge;
   final VoidCallback? onTap;
 
   @override
@@ -135,34 +137,86 @@ class RowCard extends StatelessWidget {
         onTap: onTap,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
-          child: Row(
-            children: [
-              leading,
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: text.titleMedium,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 1),
-                    Text(
-                      subtitle,
-                      style: text.bodyMedium,
-                      maxLines: 3,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
+          child: LayoutBuilder(
+            builder: (context, box) => Row(
+              children: [
+                leading,
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: text.titleMedium,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 1),
+                      Text(
+                        subtitle,
+                        style: text.bodyMedium,
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      if (badge != null) ...[const SizedBox(height: 6), badge!],
+                    ],
+                  ),
                 ),
-              ),
-              if (trailing != null) ...[const SizedBox(width: 10), trailing!],
-            ],
+                if (trailing != null) ...[
+                  const SizedBox(width: 10),
+                  _capped(context, box.maxWidth, trailing!),
+                ],
+              ],
+            ),
           ),
         ),
+      ),
+    );
+  }
+
+  static Widget _capped(BuildContext context, double width, Widget child) {
+    final big = MediaQuery.textScalerOf(context).scale(14) / 14 > 1.3;
+    if (!big || !width.isFinite) return child;
+    return ConstrainedBox(constraints: BoxConstraints(maxWidth: width * 0.45), child: child);
+  }
+}
+
+class AmountRow extends StatelessWidget {
+  const AmountRow({
+    super.key,
+    required this.start,
+    required this.amount,
+    this.style,
+    this.after,
+    this.align = CrossAxisAlignment.center,
+  });
+
+  final Widget start;
+  final String amount;
+  final TextStyle? style;
+  final Widget? after;
+  final CrossAxisAlignment align;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, box) => Row(
+        crossAxisAlignment: align,
+        children: [
+          Expanded(child: start),
+          ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: box.maxWidth.isFinite ? box.maxWidth * 0.6 : double.infinity,
+            ),
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerRight,
+              child: Text(amount, style: style),
+            ),
+          ),
+          ?after,
+        ],
       ),
     );
   }
@@ -225,12 +279,14 @@ class StatusTag extends StatelessWidget {
           decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
         const SizedBox(width: 6),
-        Text(
-          text,
-          style: TextStyle(
-            color: color,
-            fontSize: 12.5,
-            fontWeight: FontWeight.w600,
+        Flexible(
+          child: Text(
+            text,
+            style: TextStyle(
+              color: color,
+              fontSize: 12.5,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ),
       ],

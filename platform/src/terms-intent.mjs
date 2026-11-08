@@ -1,7 +1,7 @@
 import { normalizeChat, isNegated, isQuestion } from './intent.mjs';
 
 const DAYS = '(?:net\\s*(\\d{1,3})|(\\d{1,3})\\s*days?|(?:on|upon)\\s+receipt|immediately)';
-const ON_INVOICE = /\s*,?\s*\b(?:net\s*(\d{1,3})|(?:due|payable)\s+(?:in|within)\s+(\d{1,3})\s*days?|(?:due|payable)\s+on\s+receipt)\b/i;
+const ON_INVOICE = /(?<!\s)\s*,?\s*\b(?:net\s*(\d{1,3})|(?:due|payable)\s+(?:in|within)\s+(\d{1,3})\s*days?|(?:due|payable)\s+on\s+receipt)\b/i;
 
 function daysFrom(match, first) {
   const net = match[first];

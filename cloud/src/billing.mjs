@@ -7,6 +7,9 @@ const LIVE_STATUSES = new Set(['active', 'in_grace_period', 'canceled']);
 const PLAY_API = 'https://androidpublisher.googleapis.com/androidpublisher/v3/applications';
 const PLAY_SCOPE = 'https://www.googleapis.com/auth/androidpublisher';
 const METADATA_TOKEN_URL = 'http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token';
+const RENEW_AHEAD_DAYS = 2;
+const RENEW_LOOKBACK_DAYS = 30;
+const RENEW_BATCH = 500;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export const PLANS = Object.freeze({
@@ -43,6 +46,15 @@ export function billingConfigFromEnv(env = process.env) {
   };
 }
 
+export function billingConfigProblem(env = process.env) {
+  const cfg = billingConfigFromEnv(env);
+  if (!cfg.packageName || !(cfg.productIds.pro || cfg.productIds.firm)) return '';
+  const given = unset(env.MYCA_PLAY_SERVICE_ACCOUNT_JSON);
+  if (given && !cfg.serviceAccount) return 'MYCA_PLAY_SERVICE_ACCOUNT_JSON is not a service account key: paste the whole JSON file Google Cloud gave for the Play service account.';
+  if (!given && !env.K_SERVICE) return 'Google Play subscriptions are on but MYCA_PLAY_SERVICE_ACCOUNT_JSON is empty: outside Cloud Run the API has no other way to reach the Play Developer API.';
+  return '';
+}
+
 export function notifyTokenMatches(expected, given) {
   if (!expected || typeof given !== 'string' || !given) return false;
   const a = Buffer.from(expected);
@@ -64,7 +76,7 @@ function fail(error, extra = {}) {
 
 export function createBilling({ db, config = {}, now = () => Date.now(), fetchImpl = (...args) => globalThis.fetch(...args), log = () => {} }) {
   const cfg = { packageName: '', productIds: {}, notifyToken: '', serviceAccount: null, prices: {}, ...config };
-  const enabled = Boolean(cfg.packageName && cfg.notifyToken && (cfg.productIds.pro || cfg.productIds.firm));
+  const enabled = Boolean(cfg.packageName && (cfg.productIds.pro || cfg.productIds.firm));
   const planOfProduct = (productId) => PAID.find((plan) => cfg.productIds[plan] && cfg.productIds[plan] === productId) || null;
   let cachedToken = { value: '', until: 0 };
 
@@ -237,8 +249,46 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
       return { ok: true, plan: found.plan, status: found.status, testPurchase: found.testPurchase, entitlement: await entitlement(businessId) };
     },
 
+    async refreshDue() {
+      const summary = { checked: 0, changed: 0, failed: 0 };
+      if (!enabled) return summary;
+      const at = now();
+      const due = await db.query(
+        `select business_id as "businessId", provider_subscription_id as "token", status, current_end as "currentEnd"
+           from subscriptions
+          where provider = 'play' and status = any($1::text[]) and current_end is not null and current_end < $2 and current_end > $3
+          order by current_end limit $4`,
+        [[...LIVE_STATUSES], new Date(at + RENEW_AHEAD_DAYS * DAY_MS), new Date(at - RENEW_LOOKBACK_DAYS * DAY_MS), RENEW_BATCH],
+      );
+      for (const sub of due.rows) {
+        summary.checked += 1;
+        let found;
+        try {
+          found = await lookup(sub.token);
+        } catch (error) {
+          summary.failed += 1;
+          log({ billing: 'renewal_check_failed', businessId: sub.businessId, status: error.status || 0 });
+          continue;
+        }
+        if (!found.ok || !found.plan) {
+          summary.failed += 1;
+          log({ billing: 'renewal_lookup_failed', businessId: sub.businessId, status: found.status || 0 });
+          continue;
+        }
+        const before = `${sub.status}|${sub.currentEnd ? new Date(sub.currentEnd).getTime() : 0}`;
+        const after = `${found.status}|${found.currentEnd ? found.currentEnd.getTime() : 0}`;
+        await save(sub.businessId, null, sub.token, found);
+        await acknowledge(found, sub.token);
+        if (before !== after) {
+          summary.changed += 1;
+          await audit(sub.businessId, null, 'billing.renewal_check', { provider: 'play', status: found.status, plan: found.plan });
+        }
+      }
+      return summary;
+    },
+
     async notify(rawBody, givenToken) {
-      if (!enabled) return { ok: false, statusCode: 404, error: 'NOT_FOUND' };
+      if (!enabled || !cfg.notifyToken) return { ok: false, statusCode: 404, error: 'NOT_FOUND' };
       if (!notifyTokenMatches(cfg.notifyToken, givenToken)) return { ok: false, statusCode: 401, error: 'BAD_TOKEN' };
       let message;
       let event;

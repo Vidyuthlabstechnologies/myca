@@ -14,6 +14,7 @@ import '../registers.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import 'ask_screen.dart';
+import 'bank_screen.dart';
 import 'books_check_screen.dart';
 import 'marketplace_screen.dart';
 import 'recurring_screen.dart';
@@ -26,6 +27,7 @@ import 'expenses_screen.dart';
 import 'business_sheet.dart';
 import 'new_entry_sheet.dart';
 import 'party_picker.dart';
+import 'pay_bills_screen.dart';
 import 'register_screen.dart';
 import 'sales_tax_screen.dart';
 import 'us_taxes_screen.dart';
@@ -45,6 +47,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<SalesTaxOverview?>? _salesTax;
   Future<Map<String, dynamic>>? _week;
   Future<Map<String, dynamic>>? _close;
+  Future<SupplierDues>? _dues;
 
   bool get _us => widget.snapshot.company.country == 'US';
 
@@ -54,7 +57,18 @@ class _HomeScreenState extends State<HomeScreen> {
     _today ??= _loadToday();
     _week ??= _loadWeek();
     _close ??= _loadClose();
+    _dues ??= _loadDues();
     if (_us) _salesTax ??= loadSalesTax(AppScope.of(context).api);
+  }
+
+  Future<SupplierDues> _loadDues() async {
+    if (_us) return SupplierDues.fromTool(null);
+    final state = AppScope.of(context);
+    try {
+      return SupplierDues.fromTool(await state.api.query('supplier_dues'));
+    } on MycaApiException {
+      return SupplierDues.fromTool(null);
+    }
   }
 
   Future<Map<String, dynamic>> _loadClose() async {
@@ -85,6 +99,7 @@ class _HomeScreenState extends State<HomeScreen> {
       _today = _loadToday();
       _week = _loadWeek();
       _close = _loadClose();
+      _dues = _loadDues();
       if (_us) _salesTax = loadSalesTax(AppScope.of(context).api);
     }
   }
@@ -181,6 +196,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 ],
               ),
             ),
+            if (state.recoveryNote.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 14),
+                child: _RecoveryNote(words: state.recoveryNote, onDismiss: state.dismissRecoveryNote),
+              ),
             _AskBar(onSubmit: (text) => _open(AskScreen(first: text))),
             const SizedBox(height: 18),
             if (company.country == 'IN')
@@ -219,6 +239,17 @@ class _HomeScreenState extends State<HomeScreen> {
                 return Padding(
                   padding: const EdgeInsets.only(top: 12),
                   child: _ClosePanel(data: data, checklist: checklist),
+                );
+              },
+            ),
+            FutureBuilder<SupplierDues>(
+              future: _dues,
+              builder: (context, snap) {
+                final dues = snap.data;
+                if (_us || dues == null || dues.msme.count == 0) return const SizedBox.shrink();
+                return Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: _MsmePanel(dues: dues, onTap: () => _open(const PayBillsScreen())),
                 );
               },
             ),
@@ -353,6 +384,13 @@ class _HomeScreenState extends State<HomeScreen> {
                   onTap: () => _open(const MarketplaceScreen()),
                 ),
                 RowCard(
+                  leading: const TintTile(tint: Tint.ask, mark: Mark.switchBooks),
+                  title: 'Bank',
+                  subtitle: 'Your statement next to your books, matched and not matched',
+                  trailing: const Chevron(),
+                  onTap: () => _open(const BankScreen()),
+                ),
+                RowCard(
                   leading: const TintTile(tint: Tint.ask, mark: Mark.comingUp),
                   title: 'Repeating entries',
                   subtitle: 'Invoices, bills and expenses posted on their dates',
@@ -391,6 +429,38 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _RecoveryNote extends StatelessWidget {
+  const _RecoveryNote({required this.words, required this.onDismiss});
+
+  final String words;
+  final VoidCallback onDismiss;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    return Container(
+      key: const ValueKey('home.recovery'),
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(16, 14, 8, 6),
+      decoration: BoxDecoration(
+        color: Palette.warnSoft,
+        borderRadius: BorderRadius.circular(radiusCard),
+        border: Border.all(color: Palette.line),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(words, style: text.bodyLarge),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(onPressed: onDismiss, child: const Text('Got it')),
+          ),
+        ],
       ),
     );
   }
@@ -940,10 +1010,64 @@ class _ClosePanel extends StatelessWidget {
   }
 }
 
+class _MsmePanel extends StatelessWidget {
+  const _MsmePanel({required this.dues, required this.onTap});
+
+  final SupplierDues dues;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final position = dues.msme;
+    final count = position.count;
+    final overdue = position.overdue;
+    final bills = count == 1 ? 'bill' : 'bills';
+    final next = dues.bills.where((bill) => bill.msme).firstOrNull;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SectionLabel('MSME suppliers'),
+        Panel(
+          children: [
+            RowCard(
+              key: const ValueKey('home.msme'),
+              leading: overdue > 0
+                  ? const TintTile(tint: Tint.urgent, mark: Mark.urgent)
+                  : const TintTile(tint: Tint.taxes, mark: Mark.comingUp),
+              title: overdue > 0
+                  ? '$overdue ${overdue == 1 ? 'bill' : 'bills'} past the MSMED limit'
+                  : '$count MSME $bills to pay inside the limit',
+              subtitle: overdue > 0
+                  ? '${rupees(position.overdueOutstanding)} not deductible until paid · $count MSME $bills open'
+                  : (next == null
+                        ? '${rupees(position.outstanding)} open'
+                        : 'Next: ${next.supplier} by ${longDate(next.payBy)} · ${rupees(position.outstanding)} open'),
+              trailing: const Chevron(),
+              onTap: onTap,
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
 class _WeekPanel extends StatelessWidget {
   const _WeekPanel({required this.items});
 
   final List<Map<String, dynamic>> items;
+
+  static String _title(Map<String, dynamic> item) {
+    final title = '${item['title']}';
+    final amount = item['amount'];
+    if (item['kind'] == 'receivable') {
+      return '${title.split(' owes ').first} owes ${rupees(amount as num? ?? 0)} on ${item['invoiceId'] ?? ''}';
+    }
+    if (item['kind'] != 'payable' || amount is! num) return title;
+    final supplier = RegExp(r'^Pay (.+) \S+ on \S+?(?: \(MSME\))?$').firstMatch(title)?.group(1);
+    if (supplier == null) return title;
+    return 'Pay $supplier ${rupees(amount)} on ${item['billId'] ?? ''}${item['msme'] == true ? ' (MSME)' : ''}';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -957,7 +1081,7 @@ class _WeekPanel extends StatelessWidget {
             for (final item in items.take(6))
               RowCard(
                 leading: TintTile(tint: item['overdue'] == true ? Tint.urgent : Tint.taxes, mark: item['overdue'] == true ? Mark.urgent : Mark.comingUp),
-                title: item['kind'] == 'receivable' ? '${'${item['title']}'.split(' owes ').first} owes ${rupees(item['amount'] as num? ?? 0)} on ${item['invoiceId'] ?? ''}' : '${item['title']}',
+                title: _title(item),
                 subtitle: '${item['detail'] ?? ''}',
               ),
           ],

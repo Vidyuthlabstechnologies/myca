@@ -10,6 +10,7 @@ import '../proposal_flow.dart';
 import '../registers.dart';
 import '../theme.dart';
 import '../widgets.dart';
+import '../widgets/utf16_limit.dart';
 import 'invoice_screen.dart';
 import 'remind_customer_screen.dart';
 
@@ -56,12 +57,22 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
   String _mode = 'bank';
   String _formError = '';
   bool _postedHere = false;
+  String _proposedTool = '';
   Map<String, String> _riskByBill = const {};
   bool _risksLoaded = false;
+  Map<String, SupplierDueBill>? _dues;
+  bool _duesAnswered = false;
+  bool _duesAsked = false;
+  Snapshot? _duesFor;
 
   bool get _sales => widget.kind == RegisterKind.sales;
 
   bool get _us => (AppScope.of(context).snapshot?.company.country ?? 'IN') == 'US';
+
+  bool get _ownsBooks {
+    final role = AppScope.of(context).snapshot?.activeUser?.role;
+    return role == 'owner' || role == 'admin';
+  }
 
   @override
   MycaApi get api => AppScope.of(context).api;
@@ -71,6 +82,38 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
     super.didChangeDependencies();
     if (_us && _sales && _salesTaxRates.isEmpty) _loadSalesTaxRates();
     if (!_sales && !_us && !_risksLoaded) _loadRisks();
+    final snapshot = AppScope.of(context).snapshot;
+    if (!_sales && !_us && (!_duesAsked || !identical(snapshot, _duesFor))) _loadDues(snapshot);
+  }
+
+  Future<void> _loadDues(Snapshot? snapshot) async {
+    _duesAsked = true;
+    _duesFor = snapshot;
+    Map<String, SupplierDueBill>? found;
+    try {
+      final answer = await api.query('supplier_dues');
+      if (toolData(answer)['bills'] is List) {
+        found = {for (final bill in SupplierDues.fromTool(answer).bills) bill.billId: bill};
+      }
+    } on MycaApiException {
+      found = null;
+    }
+    if (!mounted || !identical(snapshot, _duesFor)) return;
+    setState(() {
+      _dues = found;
+      _duesAnswered = true;
+    });
+  }
+
+  ({String date, bool msme})? _payBy(Invoice doc) {
+    if (_sales || doc.paid || doc.cancelled) return null;
+    final dues = _dues;
+    if (dues != null) {
+      final row = dues[doc.id];
+      return row == null ? null : (date: row.payBy, msme: row.msme);
+    }
+    if (!_us && !_duesAnswered) return null;
+    return doc.dueDate.isEmpty ? null : (date: doc.dueDate, msme: doc.msme);
   }
 
   Future<void> _loadRisks() async {
@@ -101,6 +144,12 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
   }
 
   @override
+  Future<void> propose(String said, String tool, Map<String, Object?> args) {
+    _proposedTool = tool;
+    return super.propose(said, tool, args);
+  }
+
+  @override
   Future<void> onPosted() async {
     HapticFeedback.mediumImpact();
     final messenger = ScaffoldMessenger.of(context);
@@ -109,7 +158,7 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
     if (!mounted) return;
     setState(() {
       entries.clear();
-      _postedHere = true;
+      if (_proposedTool != 'set_supplier_terms') _postedHere = true;
     });
     messenger.showSnackBar(SnackBar(content: Text(confirmation)));
   }
@@ -136,13 +185,17 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
     super.dispose();
   }
 
+  num _stillOwed(Invoice doc) => _sales
+      ? doc.owedAfter(AppScope.of(context).snapshot?.creditNotes ?? const <CreditNote>[])
+      : doc.owed;
+
   void _open(_Composer composer, Party party) => setState(() {
     _composer = composer;
     _formError = '';
     _amount.clear();
     if (composer == _Composer.payment) {
       _invoiceId = party.unpaid.first.id;
-      _amount.text = plainNumber(party.unpaid.first.owed);
+      _amount.text = plainNumber(_stillOwed(party.unpaid.first));
     }
     if (composer == _Composer.document) _repeat = '';
     if (composer == _Composer.quote) _docKind = 'quote';
@@ -393,6 +446,31 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
     );
   }
 
+  Future<void> _tdsWithheld(Party party) async {
+    final today = AppScope.of(context).now();
+    final draft = await showModalBottomSheet<_TdsWithheldDraft>(
+      context: context,
+      isScrollControlled: true,
+      builder: (sheet) => _TdsWithheldSheet(
+        partyName: party.name,
+        invoices: party.unpaid,
+        today: today,
+      ),
+    );
+    if (draft == null || !mounted) return;
+    await propose(
+      'TDS withheld ${rupees(draft.amount)} against ${draft.invoiceId} (section ${draft.section})',
+      'record_tds_withheld',
+      {
+        'invoiceId': draft.invoiceId,
+        'amount': draft.amount,
+        'date': draft.date,
+        'section': draft.section,
+        if (draft.tan.isNotEmpty) 'tan': draft.tan,
+      },
+    );
+  }
+
   Future<void> _setTerms(Party party) async {
     final current = AppScope.of(
       context,
@@ -444,6 +522,33 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
       if (party.gstin.isNotEmpty) 'partyGstin': party.gstin,
       'days': days,
     });
+  }
+
+  Future<void> _setSupplierTerms(Party party) async {
+    final draft = await showModalBottomSheet<_SupplierTermsDraft>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => _SupplierTermsSheet(name: party.name),
+    );
+    if (draft == null || !mounted) return;
+    final days = draft.days;
+    final said = [
+      draft.msme ? 'MSME supplier' : 'Not MSME',
+      if (draft.category.isNotEmpty) draft.category,
+      if (days != null) termsLabel(days),
+    ].join(', ');
+    await propose(
+      '${party.name}: $said',
+      'set_supplier_terms',
+      {
+        'partyName': party.name,
+        if (party.gstin.isNotEmpty) 'partyGstin': party.gstin,
+        'msme': draft.msme,
+        if (draft.udyam.isNotEmpty) 'udyam': draft.udyam,
+        if (draft.category.isNotEmpty) 'category': draft.category,
+        'days': ?days,
+      },
+    );
   }
 
   List<Widget> _history(Party party) {
@@ -507,6 +612,7 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
     String what,
     List<CreditNote> Function(String) notesFor,
   ) {
+    final payBy = _payBy(doc);
     return [
       ...[
         Bubble(
@@ -537,7 +643,7 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
                 ]
               : [
                   if (doc.partial) '${rupees(doc.owed)} still owed',
-                  if (!doc.paid && !doc.cancelled && doc.dueDate.isNotEmpty) 'Pay by ${longDate(doc.dueDate)}${doc.msme ? ' (MSME)' : ''}',
+                  if (payBy != null) 'Pay by ${longDate(payBy.date)}${payBy.msme ? ' (MSME)' : ''}',
                   if (_riskByBill.containsKey(doc.id)) 'Credit at risk: ${_riskByBill[doc.id]}',
                 ],
           onTap: _sales
@@ -559,10 +665,15 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
           ),
         for (final receipt in doc.receipts)
           Bubble(
-            text: 'Received by ${receipt.mode} against ${doc.id}',
+            text: receipt.tds
+                ? 'TDS withheld${receipt.section.isEmpty ? '' : ' (${receipt.section})'} against ${doc.id}'
+                : 'Received by ${receipt.mode} against ${doc.id}',
             amount: rupees(receipt.amount),
             tone: BubbleTone.plain,
             label: receipt.date,
+            footnotes: [
+              if (receipt.tds && receipt.tan.isNotEmpty) 'TAN ${receipt.tan}',
+            ],
           ),
         for (final payment in doc.payments)
           Bubble(
@@ -653,6 +764,7 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
               busy: busy,
               onPost: postPending,
               onDiscard: discardPending,
+              postLabel: _proposedTool == 'set_supplier_terms' ? 'Yes' : 'Post it',
             )
           else if (_composer == _Composer.none)
             _ActionChips(
@@ -665,9 +777,13 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
                   : null,
               onDocument: () => _open(_Composer.document, party),
               onPayment: () => _open(_Composer.payment, party),
+              onTdsWithheld: _sales && !_us && party.unpaid.isNotEmpty
+                  ? () => _tdsWithheld(party)
+                  : null,
               onQuote: _sales ? () => _open(_Composer.quote, party) : null,
               onDebitNote: !_sales && party.documents.any((d) => !d.cancelled) ? () => _open(_Composer.purchaseNote, party) : null,
               onTerms: _sales ? () => _setTerms(party) : null,
+              onSupplierTerms: !_sales && !_us && _ownsBooks ? () => _setSupplierTerms(party) : null,
             )
           else
             _ComposerCard(
@@ -756,7 +872,7 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
       TextField(
         controller: _billNo,
         textCapitalization: TextCapitalization.characters,
-        maxLength: 16,
+        inputFormatters: const [Utf16LengthLimit(16)],
         decoration: const InputDecoration(
           labelText: 'Supplier\'s bill number',
           helperText: 'As printed on the bill.',
@@ -854,7 +970,7 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
       TextField(
         controller: _billNo,
         textCapitalization: TextCapitalization.characters,
-        maxLength: 16,
+        inputFormatters: const [Utf16LengthLimit(16)],
         decoration: const InputDecoration(
           labelText: 'Supplier\'s bill number',
           helperText:
@@ -929,6 +1045,7 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
   List<Widget> _paymentFields(Party party) => [
     DropdownButtonFormField<String>(
       initialValue: _invoiceId,
+      isExpanded: true,
       decoration: InputDecoration(
         labelText: _sales ? 'Against invoice' : 'Against bill',
       ),
@@ -937,17 +1054,16 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
           DropdownMenuItem(
             value: doc.id,
             child: Text(
-              _sales
-                  ? '${doc.id} · ${rupees(doc.total)}'
-                  : '${doc.id} · ${rupees(doc.owed)} owed',
+              '${doc.id} · ${rupees(_stillOwed(doc))} owed',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
       ],
       onChanged: (value) => setState(() {
         _invoiceId = value;
-        if (_sales) return;
-        final bill = party.unpaid.where((doc) => doc.id == value);
-        if (bill.isNotEmpty) _amount.text = plainNumber(bill.first.owed);
+        final chosen = party.unpaid.where((doc) => doc.id == value);
+        if (chosen.isNotEmpty) _amount.text = plainNumber(_stillOwed(chosen.first));
       }),
     ),
     const SizedBox(height: 10),
@@ -985,8 +1101,10 @@ class _ActionChips extends StatelessWidget {
     required this.canReceive,
     required this.onDocument,
     required this.onPayment,
+    this.onTdsWithheld,
     this.terms,
     this.onTerms,
+    this.onSupplierTerms,
     this.onQuote,
     this.onDebitNote,
   });
@@ -997,8 +1115,10 @@ class _ActionChips extends StatelessWidget {
   final bool canReceive;
   final VoidCallback onDocument;
   final VoidCallback onPayment;
+  final VoidCallback? onTdsWithheld;
   final int? terms;
   final VoidCallback? onTerms;
+  final VoidCallback? onSupplierTerms;
   final VoidCallback? onQuote;
   final VoidCallback? onDebitNote;
 
@@ -1031,6 +1151,11 @@ class _ActionChips extends StatelessWidget {
                   label: Text(sales ? 'Payment received' : 'Paid'),
                   onPressed: busy ? null : onPayment,
                 ),
+              if (onTdsWithheld != null)
+                ActionChip(
+                  label: const Text('TDS withheld'),
+                  onPressed: busy ? null : onTdsWithheld,
+                ),
               if (onQuote != null)
                 ActionChip(
                   label: const Text('Quote, order or challan'),
@@ -1047,6 +1172,11 @@ class _ActionChips extends StatelessWidget {
                     terms == null ? 'Set terms' : 'Terms: ${termsLabel(terms)}',
                   ),
                   onPressed: busy ? null : onTerms,
+                ),
+              if (onSupplierTerms != null)
+                ActionChip(
+                  label: const Text('Supplier terms'),
+                  onPressed: busy ? null : onSupplierTerms,
                 ),
             ],
           ),
@@ -1125,6 +1255,344 @@ class _ComposerCard extends StatelessWidget {
               FilledButton(onPressed: onSubmit, child: const Text('Preview')),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SupplierTermsDraft {
+  const _SupplierTermsDraft({
+    required this.msme,
+    required this.udyam,
+    required this.category,
+    required this.days,
+  });
+
+  final bool msme;
+  final String udyam;
+  final String category;
+  final int? days;
+}
+
+class _SupplierTermsSheet extends StatefulWidget {
+  const _SupplierTermsSheet({required this.name});
+
+  final String name;
+
+  @override
+  State<_SupplierTermsSheet> createState() => _SupplierTermsSheetState();
+}
+
+class _SupplierTermsSheetState extends State<_SupplierTermsSheet> {
+  final _udyam = TextEditingController();
+  final _days = TextEditingController();
+  bool _msme = false;
+  String _category = '';
+  String _error = '';
+
+  @override
+  void dispose() {
+    _udyam.dispose();
+    _days.dispose();
+    super.dispose();
+  }
+
+  void _save() {
+    final udyam = _udyam.text.replaceAll(RegExp(r'\s+'), '').toUpperCase();
+    final daysText = _days.text.trim();
+    final days = daysText.isEmpty ? null : int.tryParse(daysText);
+    if (_msme && udyam.isNotEmpty && !RegExp(r'^UDYAM-[A-Z]{2}-[0-9]{2}-[0-9]{7}$').hasMatch(udyam)) {
+      return setState(() => _error = 'A Udyam number looks like UDYAM-XX-00-0000000.');
+    }
+    if (daysText.isNotEmpty && (days == null || days > 365)) {
+      return setState(() => _error = 'Agreed days must be a whole number from 0 to 365.');
+    }
+    if (_msme && days != null && days > 45) {
+      return setState(() => _error = 'An MSME supplier must be paid within 45 days, so the agreed days cannot be more than 45.');
+    }
+    if (!_msme && days == null) {
+      return setState(() => _error = 'Switch on MSME supplier, or give the agreed days.');
+    }
+    Navigator.of(context).pop(
+      _SupplierTermsDraft(
+        msme: _msme,
+        udyam: _msme ? udyam : '',
+        category: _msme ? _category : '',
+        days: days,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: EdgeInsets.fromLTRB(22, 4, 22, 22 + MediaQuery.viewInsetsOf(context).bottom),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text('Terms for ${widget.name}', style: text.headlineSmall),
+            const SizedBox(height: 6),
+            Text(
+              'A micro or small supplier has to be paid within 45 days of the bill. MyCA reminds you a week before.',
+              style: text.bodySmall,
+            ),
+            const SizedBox(height: 6),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('MSME supplier'),
+              value: _msme,
+              onChanged: (value) => setState(() => _msme = value),
+            ),
+            if (_msme) ...[
+              TextField(
+                controller: _udyam,
+                textCapitalization: TextCapitalization.characters,
+                decoration: const InputDecoration(labelText: 'Udyam number', hintText: 'UDYAM-XX-00-0000000'),
+              ),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final choice in const ['micro', 'small', 'medium'])
+                    ChoiceChip(
+                      label: Text('${choice[0].toUpperCase()}${choice.substring(1)}'),
+                      selected: _category == choice,
+                      selectedColor: Palette.sunken,
+                      showCheckmark: false,
+                      onSelected: (_) => setState(() => _category = _category == choice ? '' : choice),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text('The 45-day rule covers micro and small suppliers only.', style: text.bodySmall),
+              const SizedBox(height: 12),
+            ],
+            TextField(
+              controller: _days,
+              keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              maxLength: 3,
+              decoration: InputDecoration(
+                labelText: 'Agreed days',
+                counterText: '',
+                helperText: _msme ? 'Up to 45. Leave it empty for the 15 days the law gives without a written agreement.' : 'How many days you have to pay their bills.',
+                helperMaxLines: 3,
+              ),
+            ),
+            if (_error.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(_error, style: const TextStyle(color: Palette.danger, fontWeight: FontWeight.w600)),
+            ],
+            const SizedBox(height: 14),
+            FilledButton(onPressed: _save, child: const Text('Save')),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TdsWithheldDraft {
+  const _TdsWithheldDraft({
+    required this.invoiceId,
+    required this.amount,
+    required this.section,
+    required this.date,
+    required this.tan,
+  });
+
+  final String invoiceId;
+  final num amount;
+  final String section;
+  final String date;
+  final String tan;
+}
+
+class _TdsWithheldSheet extends StatefulWidget {
+  const _TdsWithheldSheet({
+    required this.partyName,
+    required this.invoices,
+    required this.today,
+  });
+
+  final String partyName;
+  final List<Invoice> invoices;
+  final DateTime today;
+
+  @override
+  State<_TdsWithheldSheet> createState() => _TdsWithheldSheetState();
+}
+
+class _TdsWithheldSheetState extends State<_TdsWithheldSheet> {
+  final _amount = TextEditingController();
+  final _tan = TextEditingController();
+  late String _invoiceId = widget.invoices.first.id;
+  late DateTime _date = widget.today;
+  String _section = '194C';
+  String _error = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _amount.text = _suggested(widget.invoices.first);
+  }
+
+  @override
+  void dispose() {
+    _amount.dispose();
+    _tan.dispose();
+    super.dispose();
+  }
+
+  String _suggested(Invoice doc) =>
+      plainNumber((doc.total * 0.02 * 100).round() / 100);
+
+  Future<void> _pickDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _date,
+      firstDate: DateTime(widget.today.year - 2),
+      lastDate: widget.today,
+    );
+    if (picked != null) setState(() => _date = picked);
+  }
+
+  void _done() {
+    final amount = parseAmount(_amount.text);
+    if (amount == null) {
+      return setState(() => _error = 'Enter how much TDS the customer withheld.');
+    }
+    final tan = _tan.text.replaceAll(RegExp(r'\s+'), '').toUpperCase();
+    if (tan.isNotEmpty && !RegExp(r'^[A-Z]{4}[0-9]{5}[A-Z]$').hasMatch(tan)) {
+      return setState(() => _error = 'A TAN looks like MUMA12345B.');
+    }
+    Navigator.of(context).pop(
+      _TdsWithheldDraft(
+        invoiceId: _invoiceId,
+        amount: amount,
+        section: _section,
+        date: isoDate(_date),
+        tan: tan,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        22,
+        4,
+        22,
+        22 + MediaQuery.viewInsetsOf(context).bottom,
+      ),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('TDS withheld by ${widget.partyName}', style: text.headlineSmall),
+            const SizedBox(height: 6),
+            Text(
+              'The customer paid you less because they deducted TDS. The invoice settles by this amount, and the credit waits in TDS receivable until Form 26AS confirms it.',
+              style: text.bodySmall,
+            ),
+            const SizedBox(height: 14),
+            DropdownButtonFormField<String>(
+              initialValue: _invoiceId,
+              isExpanded: true,
+              decoration: const InputDecoration(labelText: 'Against invoice'),
+              items: [
+                for (final doc in widget.invoices)
+                  DropdownMenuItem(
+                    value: doc.id,
+                    child: Text(
+                      '${doc.id} · ${rupees(doc.total)}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+              ],
+              onChanged: (value) => setState(() {
+                final doc = widget.invoices.where((d) => d.id == value);
+                if (doc.isEmpty) return;
+                _invoiceId = doc.first.id;
+                _amount.text = _suggested(doc.first);
+              }),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: _amount,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(
+                labelText: 'TDS withheld',
+                prefixText: '₹ ',
+                helperText: 'Filled in at 2% of the invoice. Change it to what the customer deducted.',
+                helperMaxLines: 2,
+              ),
+            ),
+            const SizedBox(height: 14),
+            Text('Section', style: text.bodyMedium),
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              children: [
+                for (final section in customerTdsSections)
+                  ChoiceChip(
+                    key: ValueKey('tds.section.$section'),
+                    label: Text(section),
+                    selected: _section == section,
+                    selectedColor: Palette.sunken,
+                    showCheckmark: false,
+                    onSelected: (_) => setState(() => _section = section),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Text('Withheld on', style: text.bodyMedium),
+                ActionChip(
+                  label: Text(longDate(isoDate(_date))),
+                  onPressed: _pickDate,
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: _tan,
+              textCapitalization: TextCapitalization.characters,
+              decoration: const InputDecoration(
+                labelText: 'Customer\'s TAN (optional)',
+                helperText: 'On the TDS certificate, like MUMA12345B. It lets Form 26AS match this row.',
+                helperMaxLines: 2,
+              ),
+            ),
+            if (_error.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              Text(
+                _error,
+                style: const TextStyle(
+                  color: Palette.danger,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(onPressed: _done, child: const Text('Preview')),
+            ),
+          ],
         ),
       ),
     );

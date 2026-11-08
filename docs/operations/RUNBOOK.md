@@ -14,7 +14,7 @@ Cloud project are written and validated but not yet applied (see the last sectio
 | Hosted API (`cloud/src/jobs.mjs`) | Cloud Scheduler, 02:30 IST daily (`daily_job_schedule`) | `POST /v1/jobs/daily` runs the same daily checks for every business, one transaction each, audited as `tool.run_automation`. Retried three times by the scheduler. | Cloud Logging: `job: "daily"` |
 | Hosted API (`cloud/src/jobs.mjs`) | Inside the daily job | `purge`: erases businesses deleted more than thirty days ago (documents, audit trail, access log, members, books, then the row), access-log rows older than a year, crash reports older than ninety days, sign-in codes older than a day. `docs/operations/RETENTION.md`. | Cloud Logging: `job: "purge"` |
 | Hosted API (`cloud/src/jobs.mjs`) | Cloud Scheduler, Monday 07:00 IST (`weekly_job_schedule`) | `POST /v1/jobs/weekly` composes the weekly brief for every business with a member who switched it on and sends it as a WhatsApp text through the configured sender; accountants never receive it. | Cloud Logging: `job: "weekly"` |
-| Hosted API (`cloud/src/server.mjs`) | On start and on stop | Waits up to thirty seconds for the database before giving up; on `SIGTERM` stops taking requests, finishes the ones in flight, closes the pool. | Cloud Logging: `startup`, `shutdown` |
+| Hosted API (`cloud/src/server.mjs`) | On start and on stop | Waits up to thirty seconds for the database before giving up; on `SIGTERM` stops taking requests, finishes the ones in flight, closes the pool. A pooled connection that the database ends while it is idle (a restart or a failover) is dropped and logged, and the next request opens a new one; the process keeps running. | Cloud Logging: `startup`, `shutdown`, `db` |
 | Cloud SQL (`infra/cloud`) | 20:30 UTC daily | Automated backups, fourteen kept, point-in-time recovery with seven days of logs. | Cloud Console → SQL → Backups |
 | GitHub Actions `Nightly checks` | 03:00 IST daily | Every Node suite (platform, sprints, hosted API against Postgres) and `scripts/rules-watch.mjs`. On any failure an issue "Nightly checks need attention" is opened or updated; it closes itself on the first green night. | Actions → Nightly checks; Issues |
 | GitHub Actions `CI` | Every push and pull request | All four suites. | Actions |
@@ -74,14 +74,30 @@ Auth Proxy (`database_connection_name` output), run `npm test` style smoke calls
 
 **A suspected data breach** (a lost phone with the app signed in, a leaked token, an
 unexpected member in a business, a provider key seen in a log). Within the hour: revoke
-the device from the database (`update devices set revoked_at = now() where id = ...`;
-every refresh from it fails at once), rotate the secret involved in Secret Manager and
-redeploy, and export the `audit_log` rows for the business from the suspected time. Within
-seventy-two hours, as the Digital Personal Data Protection Act requires: tell each
-affected business owner in the app's own words what was seen, when, and what they
+the device, either from the app (Your business, then Security, lists the signed-in devices,
+each with Sign out) or from the database (`update devices set revoked_at = now() where
+id = ...`; every request from it fails at once), rotate the secret involved in Secret
+Manager and redeploy, and export the `audit_log` rows for the business from the suspected
+time. Within seventy-two hours, as the Digital Personal Data Protection Act requires: tell
+each affected business owner in the app's own words what was seen, when, and what they
 should change, and write the same to the Data Protection Board of India once it is
 constituted; keep the audit export with the notice. Afterwards: add the gap to
 `docs/architecture/SECURITY-AND-PRIVACY.md` section 4 and the fix to the next release.
+
+**A user lost their authenticator and recovery codes.** They cannot finish signing in and
+nothing in the app can help them. Confirm who they are the way you would for a lost phone
+number (the owner of the business vouches for a member; an owner answers questions only
+their books can answer), then turn two-step off for them in the database:
+`delete from user_totp where user_id = ...;` and
+`delete from recovery_codes where user_id = ...;`. Their next sign-in is one step again;
+tell them to turn two-step back on from Security in the app. Their signed-in devices are
+untouched by those two statements. If the authenticator was on a lost phone, end that
+device as well (above). If the user did not switch two-step on themselves, or you cannot
+tell, end every device of theirs in the same sitting with
+`update devices set revoked_at = now() where user_id = ... and revoked_at is null;`,
+because a session that stays signed in can enrol an authenticator of its own again (the
+app asks for no fresh code to do that; see section 4 of
+`docs/architecture/SECURITY-AND-PRIVACY.md`).
 
 ## 4. Redundancy choices and their cost
 

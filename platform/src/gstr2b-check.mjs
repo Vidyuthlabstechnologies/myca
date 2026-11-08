@@ -1,17 +1,42 @@
+import { createHash } from 'node:crypto';
 import { gst } from './sprint-load.mjs';
 import { isReturnPeriod, periodOf } from './return-period.mjs';
 import { localToday } from './dates.mjs';
+import { csvRawRows } from './text-safe.mjs';
 
-const { parseGstr2B, match2B, itcOf } = gst;
+const { parseGstr2B, match2B, itcOf, reconcile } = gst;
 
 const round2 = (value) => Math.round(Number(value || 0) * 100) / 100;
 const OWN_NUMBER = /^BILL-\d+$/;
+const SUMMED = ['taxableValue', 'cgst', 'sgst', 'igst', 'cess', 'totalValue'];
+const LESS_AVAILABLE = ['N', 'A'];
+const NAME_KEY_MAX = 40;
+const NAME_HASH_LENGTH = 8;
+export const DOCUMENT_KEY_MAX = 400;
+export const KEY_TOO_LONG = 'KEY_TOO_LONG';
+const KEY_SCOPE = '0000-00';
+const NUMBER_SHOWN = 30;
+const ERRORS_SHOWN = 5;
+const STATEMENT_COLUMNS = [
+  ['SECTION', 'section'],
+  ['SUPPLIER GSTIN', 'supplierGstin'],
+  ['SUPPLIER NAME', 'supplierName'],
+  ['INVOICE NO', 'invoiceNo'],
+  ['INVOICE DATE', 'invoiceDate'],
+  ['TAXABLE VALUE', 'taxableValue'],
+  ['CGST', 'cgst'],
+  ['SGST', 'sgst'],
+  ['IGST', 'igst'],
+  ['CESS', 'cess'],
+  ['TOTAL VALUE', 'totalValue'],
+  ['ITC AVAILABILITY', 'itcAvailability'],
+];
 
-function normNumber(value) {
+export function normNumber(value) {
   return String(value ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '');
 }
 
-function normGstin(value) {
+export function normGstin(value) {
   return String(value ?? '').trim().toUpperCase();
 }
 
@@ -21,9 +46,29 @@ export function supplierNumberOf(bill) {
   return OWN_NUMBER.test(String(bill.id)) ? '' : String(bill.id);
 }
 
+function tooLongError(row) {
+  const shown = Array.from(String(row.invoiceNo ?? '')).slice(0, NUMBER_SHOWN).join('');
+  return {
+    code: KEY_TOO_LONG,
+    row: row.sourceRow,
+    field: 'invoiceNo',
+    message: `Row ${row.sourceRow}: the invoice number "${shown}…" is too long to track, so this row was left out.`,
+  };
+}
+
 export function parse2bFile(csv) {
   const parsed = parseGstr2B(String(csv ?? ''));
-  return { rows: parsed.rows || [], errors: parsed.errors || [] };
+  const rows = [];
+  const errors = [...(parsed.errors || [])];
+  for (const row of parsed.rows || []) {
+    if (documentKey(KEY_SCOPE, row).length <= DOCUMENT_KEY_MAX) rows.push(row);
+    else errors.push(tooLongError(row));
+  }
+  return { rows, errors };
+}
+
+export function keyTooLongErrors(errors) {
+  return errors.filter((error) => error.code === KEY_TOO_LONG).slice(0, ERRORS_SHOWN);
 }
 
 export function import2b(state, args = {}) {
@@ -39,12 +84,64 @@ export function import2b(state, args = {}) {
     rows,
     skipped: errors.length,
   };
-  return { ok: true, period, rows: rows.length, skipped: errors.length, replaced };
+  const left = keyTooLongErrors(errors);
+  return { ok: true, period, rows: rows.length, skipped: errors.length, replaced, ...(left.length ? { errors: left } : {}) };
 }
 
-function allRows(state) {
+export function allRows(state) {
   const stored = state.gstr2b && typeof state.gstr2b === 'object' ? state.gstr2b : {};
   return Object.entries(stored).flatMap(([period, entry]) => (entry.rows || []).map((row) => ({ ...row, statementPeriod: period })));
+}
+
+function supplierKey(row) {
+  const gstin = normGstin(row.supplierGstin);
+  if (gstin) return gstin;
+  const name = normNumber(row.supplierName);
+  if (name.length <= NAME_KEY_MAX) return name;
+  return name.slice(0, NAME_KEY_MAX) + createHash('sha256').update(name).digest('hex').slice(0, NAME_HASH_LENGTH).toUpperCase();
+}
+
+export function documentKey(scope, row) {
+  return `${scope}|${supplierKey(row)}|${normNumber(row.invoiceNo)}|${String(row.section || '').toUpperCase()}`;
+}
+
+function oneDocument(lines) {
+  if (lines.length === 1) return lines[0];
+  const added = Object.fromEntries(SUMMED.map((head) => [head, round2(lines.reduce((total, line) => total + (Number(line[head]) || 0), 0))]));
+  const lesser = LESS_AVAILABLE.find((code) => lines.some((line) => line.itcAvailability === code));
+  return { ...lines[0], ...added, itcAvailability: lesser || lines[0].itcAvailability };
+}
+
+export function documentsOf(rows, { byDate = false } = {}) {
+  const groups = new Map();
+  for (const row of rows) {
+    const key = byDate ? `${documentKey(row.statementPeriod ?? '', row)}|${row.invoiceDate ?? ''}` : documentKey(row.statementPeriod ?? '', row);
+    if (groups.has(key)) groups.get(key).push(row);
+    else groups.set(key, [row]);
+  }
+  return [...groups].map(([key, lines]) => ({ key, raw: oneDocument(lines), lines: lines.length }));
+}
+
+function dayMonthYear(iso) {
+  const [year, month, day] = String(iso || '').split('-');
+  return year && month && day ? `${day}-${month}-${year}` : '';
+}
+
+export function statementText(rows) {
+  const header = STATEMENT_COLUMNS.map(([name]) => name);
+  const body = rows.map((row) => STATEMENT_COLUMNS.map(([, field]) => (field === 'invoiceDate' ? dayMonthYear(row.invoiceDate) : row[field])));
+  return csvRawRows([header, ...body]);
+}
+
+export function reconcileDocuments(inputs, options) {
+  if (typeof inputs?.gstr2bText !== 'string') return reconcile(inputs, options);
+  const parsed = parseGstr2B(inputs.gstr2bText);
+  const documents = documentsOf(parsed.rows, { byDate: true });
+  if (documents.every((document) => document.lines === 1)) return reconcile(inputs, options);
+  const merged = reconcile({ ...inputs, gstr2bText: statementText(documents.map((document) => document.raw)) }, options);
+  if (!parsed.errors.length) return merged;
+  const { parserErrors } = reconcile(inputs, options);
+  return { ...merged, ok: false, parserErrors, summary: { ...merged.summary, ok: false } };
 }
 
 function billRow(bill) {
@@ -66,7 +163,7 @@ export function creditAtRisk(state, { period } = {}) {
   const wanted = String(period || '').trim() || localToday().slice(0, 7);
   if (!isReturnPeriod(wanted)) return { ok: false, error: 'INVALID_PERIOD', hint: 'Use YYYY-MM, for example 2026-09.' };
   const stored = state.gstr2b && typeof state.gstr2b === 'object' && Object.hasOwn(state.gstr2b, wanted) ? state.gstr2b[wanted] : null;
-  const twob = allRows(state);
+  const twob = documentsOf(allRows(state), { byDate: true }).map((document) => document.raw);
   const bills = (state.purchases || []).filter((bill) => periodOf(bill.date) === wanted && itcOf(billRow(bill)) > 0);
   const risks = [];
   const numbered = [];

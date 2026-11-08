@@ -3,6 +3,7 @@ import { rule } from '../../sprints/statutory-rules/src/index.mjs';
 import { incomeTax } from './sprint-load.mjs';
 import { createAccounts, createTransfers } from './ledger.mjs';
 import { marketplaceCredits } from './marketplace-credits.mjs';
+import { tdsWithheldInFy } from './tds-credits.mjs';
 import { salaryPrivate } from './employees.mjs';
 import { isPeriodLocked } from './period-lock.mjs';
 
@@ -57,8 +58,13 @@ function creditsToDate(state, fy, today) {
   const tds26as = sum(statements, (row) => row.taxDeducted);
   const marketplace = marketplaceCredits(state, { fy: fy.label }).data;
   const tds194o = round2(Number(marketplace?.totals?.tdsRecorded || 0));
-  const known = tds26as > 0 ? tds26as : tds194o;
-  return { tds26as, tds194o, credits: known, source: tds26as > 0 ? 'Form 26AS as imported' : tds194o > 0 ? 'TDS 194-O seen in marketplace settlements (26AS not imported)' : 'no TDS credit on record' };
+  const tdsWithheld = tdsWithheldInFy(state, fy, today);
+  const known = tds26as > 0 ? tds26as : round2(tds194o + tdsWithheld);
+  const source = tds26as > 0 ? 'Form 26AS as imported'
+    : tds194o > 0 && tdsWithheld > 0 ? 'TDS withheld by customers and 194-O seen in settlements (26AS not imported)'
+      : tdsWithheld > 0 ? 'TDS withheld by customers (26AS not imported)'
+        : tds194o > 0 ? 'TDS 194-O seen in marketplace settlements (26AS not imported)' : 'no TDS credit on record';
+  return { tds26as, tds194o, tdsWithheld, credits: known, source };
 }
 
 function instalmentsFor(fy, presumptive) {

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 import 'format.dart';
 
 import 'package:flutter/widgets.dart';
@@ -17,6 +18,8 @@ import 'notifications.dart';
 
 Future<bool> _cannotSave(String name, String content) async => false;
 
+Future<bool> _cannotSaveBytes(String name, Uint8List bytes, String mime) async => false;
+
 Future<bool> _cannotShare(String text) async => false;
 
 Future<bool> _cannotOpen(Uri url) async => false;
@@ -33,6 +36,7 @@ class AppState extends ChangeNotifier {
     this.takeSharedFile = noSharedFile,
     this.notifications = const NoNotifications(),
     this.saveTextFile = _cannotSave,
+    this.saveBytesFile = _cannotSaveBytes,
     this.shareText = _cannotShare,
     this.pdf = const PdfActions(),
     this.lock = const NoAppLock(),
@@ -53,6 +57,7 @@ class AppState extends ChangeNotifier {
   PickedFile? sharedFile;
   final NotificationPlanner notifications;
   final SaveTextFile saveTextFile;
+  final SaveBytesFile saveBytesFile;
   final ShareText shareText;
   final PdfActions pdf;
   final AppLock lock;
@@ -73,6 +78,7 @@ class AppState extends ChangeNotifier {
   bool locked = false;
   bool showBooksCheck = false;
   bool crashReportsOn = false;
+  String recoveryNote = '';
   DateTime? _leftAt;
 
   bool get _guards => cloud != null && cloud!.signedIn && lockAvailable && lockEnabled;
@@ -108,6 +114,7 @@ class AppState extends ChangeNotifier {
     final hosted = cloud;
     if (hosted != null && !hosted.ready) {
       snapshot = null;
+      if (!hosted.signedIn) recoveryNote = '';
       loading = false;
       error = '';
       notifyListeners();
@@ -124,14 +131,25 @@ class AppState extends ChangeNotifier {
     try {
       snapshot = await api.snapshot();
       moneyCountry = snapshot?.company.country ?? 'IN';
+      await _skipMigrationForKeptBooks();
       _sendCrashReports();
     } on SignedOutException {
       snapshot = null;
+      recoveryNote = '';
     } on MycaApiException catch (err) {
       error = err.message;
     }
     loading = false;
     notifyListeners();
+  }
+
+  Future<void> _skipMigrationForKeptBooks() async {
+    final books = snapshot;
+    if (cloud == null || migrated || books == null) return;
+    final kept = books.invoices.isNotEmpty || books.purchases.isNotEmpty || books.expenses.isNotEmpty || books.creditNotes.isNotEmpty || books.quotes.isNotEmpty;
+    if (!kept) return;
+    await store.markMigrated();
+    migrated = true;
   }
 
   void _sendCrashReports() {
@@ -177,6 +195,14 @@ class AppState extends ChangeNotifier {
     await store.setLockEnabled(enabled);
     notifyListeners();
     return true;
+  }
+
+  void noteSecondStep(SecondStepResult result) => recoveryNote = result.recoveryNote;
+
+  void dismissRecoveryNote() {
+    if (recoveryNote.isEmpty) return;
+    recoveryNote = '';
+    notifyListeners();
   }
 
   Future<void> finishWelcome() async {

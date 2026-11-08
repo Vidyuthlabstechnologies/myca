@@ -1,8 +1,9 @@
-import { tally, bank, gst, gstin, filing, audit } from './sprint-load.mjs';
+import { tally, bank, gstin, filing, audit } from './sprint-load.mjs';
 import { invoiceTemplate, setInvoiceTemplate } from './invoice-template.mjs';
 import { importSettlement, settlementStatus } from './settlements.mjs';
 import { importMarketplaceOrders, postSettlement } from './marketplace-orders.mjs';
 import { setChannelIdentity, importTcsStatement, import26asCredits, marketplaceCredits } from './marketplace-credits.mjs';
+import { recordTdsWithheld, tdsCreditCheck } from './tds-credits.mjs';
 import { setSkuCost, importSkuCosts, recordStock, stockPosition, skuMargins, stockMoves } from './sku-margins.mjs';
 import { dailyClose } from './daily-close.mjs';
 import { regArg, companyAs, forRegistration, setRegistration, retireRegistration, listRegistrations } from './registrations.mjs';
@@ -29,7 +30,6 @@ import { listDscCertificates, signWithDsc } from './dsc.mjs';
 import { suggestExpenseHead } from './expense-head-model.mjs';
 const ingestTally = tally.ingest;
 const ingestBank = bank.ingest;
-const { reconcile } = gst;
 const { validateGstin } = gstin;
 const { filingPrep } = filing;
 const { auditRun } = audit;
@@ -46,7 +46,10 @@ import { createDebitNote, createPurchaseNote, debitNotesForPeriod, purchaseNotes
 import { reviewOf, answerReview } from './gst-review.mjs';
 import { exportEntries } from './entries-export.mjs';
 import { exportTallyXml } from './tally-export.mjs';
-import { import2b, creditAtRisk } from './gstr2b-check.mjs';
+import { reportSheet } from './report-sheets.mjs';
+import { auditTrail } from './audit-trail.mjs';
+import { import2b, creditAtRisk, reconcileDocuments } from './gstr2b-check.mjs';
+import { imsReview, decideIms } from './ims.mjs';
 import { booksCheck } from './books-check.mjs';
 import { deadlineRun, filingRows } from './deadline-run.mjs';
 import { listFilings, recordFiling } from './filings.mjs';
@@ -92,6 +95,8 @@ import { setSupplierTerms, supplierDues } from './supplier-dues.mjs';
 import { requestDocuments, recordDocumentReceived, documentRequests, correctEval, evalEvents, searchFirmNotes } from './practice.mjs';
 import { askCa, replyCa, closeCa, listCaRequests } from './ca-requests.mjs';
 import { postTallyRows, postBankRows, purchaseRegisterCsv } from './post-import.mjs';
+import { recordStatementLines, bankReconciliation, matchBankLine, unmatchBankLine, bookBankCharges, setBankAccount, listBankAccounts, recordTransfer, accountFor } from './bank-recon.mjs';
+import { addBankRule, removeBankRule, listBankRules, runBankRules } from './bank-rules.mjs';
 import { parseZohoBooksCsv } from './import-zoho.mjs';
 import { invoicesToGstr1Json } from './gstr1-json.mjs';
 import { tallyXmlToDayBookCsv } from './tally-xml.mjs';
@@ -149,7 +154,7 @@ function reconcileFor(state, asOfDate) {
   const purchaseRegister = state.files.purchaseRegister || purchaseRegisterCsv(state.purchases || []);
   const gstr1 = state.files.gstr1 || invoicesToSalesCsv(state.invoices || []);
   if (!state.files.gstr2b || !state.files.gstr3b) return null;
-  return reconcile(
+  return reconcileDocuments(
     { purchaseRegisterText: purchaseRegister, gstr2bText: state.files.gstr2b, gstr1Text: gstr1, gstr3bText: state.files.gstr3b },
     { clientGstin: state.company.gstin, asOfDate, supplierFilings: undefined },
   );
@@ -1110,6 +1115,83 @@ export const TOOLS = [
     run: (state, args = {}) => runRecurring(state, args),
   },
   {
+    name: 'bank_reconciliation',
+    title: 'Bank reconciliation',
+    description: 'Statement lines of one own account with their state (not matched yet, matched to the books, booked, ignored), a few suggestions for each open line, entries in the books that are not on the statement, and the statement balance against the books. Read-only.',
+    args: ['account', 'from', 'to', 'status', 'limit'],
+    run: (state, args = {}) => bankReconciliation(state, args),
+  },
+  {
+    name: 'match_bank_line',
+    title: 'Match a statement line',
+    description: 'Settle one open statement line (BL-000012): link it to an entry already in the books (kind books, transferId), book it as a receipt from a customer (kind receipt, partyName or invoiceId, oldest open invoices first), a payment to a supplier (kind payment, partyName or billId), an expense (kind expense, head), bank charges (kind charge), interest from the bank (kind interest), a move between your own accounts (kind transfer, otherAccount) or ignore it (kind ignore). remember true saves a rule so lines like it book on their own.',
+    args: ['lineId', 'kind', 'transferId', 'invoiceId', 'billId', 'partyName', 'head', 'otherAccount', 'note', 'remember'],
+    run: (state, args = {}) => matchBankLine(state, args),
+  },
+  {
+    name: 'unmatch_bank_line',
+    title: 'Open a statement line again',
+    description: 'Remove the link on a matched or ignored statement line so it can be matched again. A booked line cannot be opened this way because its entries are in the books.',
+    args: ['lineId'],
+    run: (state, args = {}) => unmatchBankLine(state, args),
+  },
+  {
+    name: 'book_bank_charges',
+    title: 'Book bank charges and interest',
+    description: 'Book every open statement line that reads as a bank charge (to 5180 Bank charges) or as interest credited by the bank (to 4100 Interest income), for one account, a date range or named lines.',
+    args: ['account', 'lineIds', 'from', 'to'],
+    run: (state, args = {}) => bookBankCharges(state, args),
+  },
+  {
+    name: 'add_bank_rule',
+    title: 'Add a bank rule',
+    description: 'Save a rule that books statement lines on its own: when the narration contains a text (or matches a pattern), optionally only for money in or out and within an amount range, book the line as a receipt from a customer, a payment to a supplier, an expense under a head, bank charges, interest, a transfer with another own account, or ignore it. It applies to open lines now unless applyNow is false, and to every later import.',
+    args: ['side', 'contains', 'pattern', 'minAmount', 'maxAmount', 'kind', 'partyName', 'head', 'otherAccount', 'note', 'applyNow'],
+    run: (state, args = {}) => addBankRule(state, args),
+  },
+  {
+    name: 'remove_bank_rule',
+    title: 'Remove a bank rule',
+    description: 'Remove a bank rule (BR-0001). Lines it already booked stay.',
+    args: ['id'],
+    run: (state, args = {}) => removeBankRule(state, args),
+  },
+  {
+    name: 'list_bank_rules',
+    title: 'Bank rules',
+    description: 'The bank rules in the order they apply, with how often each one has been used. Read-only.',
+    args: [],
+    run: (state) => listBankRules(state),
+  },
+  {
+    name: 'run_bank_rules',
+    title: 'Apply bank rules now',
+    description: 'Apply the bank rules to every open statement line, or only to those of one account. dryRun true shows what would be booked without booking it.',
+    args: ['account', 'dryRun'],
+    run: (state, args = {}) => runBankRules(state, args),
+  },
+  {
+    name: 'set_bank_account',
+    title: 'Add or rename an own account',
+    description: 'Add a bank account, cash box or wallet of your own (label, kind bank, cash or wallet, masked account number, IFSC), or rename one by id. Cash (1001) and Bank (1002) are built in. Owner only.',
+    args: ['id', 'label', 'kind', 'maskedNumber', 'ifsc'],
+    run: (state, args = {}) => setBankAccount(state, args),
+  },
+  {
+    name: 'list_bank_accounts',
+    title: 'Own accounts',
+    description: 'Your cash, bank and wallet accounts with their balances in the books. Read-only.',
+    args: [],
+    run: (state) => listBankAccounts(state),
+  },
+  {
+    name: 'record_transfer',
+    title: 'Move money between own accounts',
+    description: 'Record a move between two of your own accounts (bank to cash, one bank to another) by id or label, with an amount, a date and a reference. One contra entry is posted and statement lines on both sides link to it.',
+    args: ['fromAccount', 'toAccount', 'amount', 'date', 'reference'],
+    run: (state, args = {}) => recordTransfer(state, args),
+  },
+  {
     name: 'quote_document',
     title: 'Quote, proforma, order or challan to show or send',
     description: 'One quote, proforma, sales order or delivery challan laid out like an invoice, for display or a PDF. Read-only.',
@@ -1249,6 +1331,20 @@ export const TOOLS = [
     run: (state, args = {}) => creditAtRisk(state, args),
   },
   {
+    name: 'ims_review',
+    title: 'IMS decisions',
+    description: 'For one month: every GSTR-2B row with whether your books have the bill, the suggestion (accept or pending) and the decision recorded so far (accept, reject, pending or not decided), with counts and the credit by decision. Read-only.',
+    args: ['period'],
+    run: (state, args = {}) => imsReview(state, args),
+  },
+  {
+    name: 'ims_decide',
+    title: 'Decide IMS invoices',
+    description: 'Record the IMS decision (accept, reject, pending, or clear) for chosen GSTR-2B rows of one month, by row key or by a word: matched, suggested, undecided or all. Posts nothing to the ledger and sends nothing to the GST portal; take the same decisions on the portal\'s IMS.',
+    args: ['period', 'keys', 'select', 'decision', 'note'],
+    run: (state, args = {}) => decideIms(state, args),
+  },
+  {
     name: 'export_trial_balance',
     title: 'Trial balance for your CA',
     description: 'The posted trial balance as one CSV: every account with debits, credits and the closing balance on each side, and the totals, which always tie. For a CA or another accounting package. Read-only.',
@@ -1267,6 +1363,20 @@ export const TOOLS = [
     description: 'One Tally import file (XML) of the month: ledger masters, then every sale, receipt, credit and debit note, purchase, payment, expense and TDS deposit as a voucher. Read-only.',
     args: ['period'],
     run: (state, args = {}) => exportTallyXml(state, args),
+  },
+  {
+    name: 'export_xlsx',
+    title: 'Excel file of a report',
+    description: 'One Excel workbook (.xlsx) of a report: the trial balance, entries, day book, sales, purchases, expenses, credit or debit notes, customer or supplier dues, cash forecast, credit at risk, TDS, margins, stock, a saved report by name, the business or GST summary, the bank reconciliation, or the audit trail, for a month, a period (this-month, last-month, this-quarter, this-year, last-year) or from and to dates. Money is numbers, so it adds up in Excel; a saved report is complete, not cut at 20 rows. Read-only.',
+    args: ['report', 'period', 'from', 'to', 'name', 'account'],
+    run: (state, args = {}) => reportSheet(state, args.report, args),
+  },
+  {
+    name: 'audit_trail',
+    title: 'Audit trail',
+    description: 'Who changed what and when: every change made through MyCA in a month, a period or between two dates, with the record ids, the money entries it posted, and a hash chain that flags most edits to who, what and when. Changes by default; view all adds reads, proposals and sign-ins. Read-only.',
+    args: ['period', 'from', 'to', 'view', 'actor', 'limit'],
+    run: (state, args = {}) => auditTrail(state, args),
   },
   {
     name: 'gst_review',
@@ -1820,16 +1930,30 @@ export const TOOLS = [
   },
   {
     name: 'import_26as_credits',
-    title: 'Import 194-O credits from Form 26AS',
-    description: 'Read Form 26AS (CSV or text table: section, TAN of deductor, tax deducted, date) and record the TDS under section 194-O each marketplace deposited against your PAN, quarter by quarter. Other sections are ignored here. Rows already recorded are skipped.',
+    title: 'Import Form 26AS',
+    description: 'Read Form 26AS (CSV or text table: section, TAN of deductor, tax deducted, date) and record every row, whatever its section, against your PAN, quarter by quarter. Rows under section 194-O are the marketplace credits; the rest are what customers deducted, to be compared with the books. Rows already recorded are skipped.',
     args: ['csv'],
     run: (state, args = {}) => {
       if (!args.csv) return fail('csv required');
       const result = import26asCredits(state, args);
       if (!result.ok) return fail(result.error, { parsed: result.parsed });
-      state.imports.push({ source: '26as-194o', at: new Date().toISOString(), count: result.imported, skipped: result.skipped.length, heldBack: heldBackFrom(result.skipped.filter((s) => s.reason !== 'exists').map((s) => ({ voucherNo: s.id, reason: s.reason }))) });
+      state.imports.push({ source: '26as', at: new Date().toISOString(), count: result.imported, skipped: result.skipped.length, heldBack: heldBackFrom(result.skipped.filter((s) => s.reason !== 'exists').map((s) => ({ voucherNo: s.id, reason: s.reason }))) });
       return ok(result);
     },
+  },
+  {
+    name: 'record_tds_withheld',
+    title: 'TDS withheld by a customer',
+    description: 'Record TDS a customer deducted from an invoice: the invoice settles by that amount and the credit sits in TDS receivable until 26AS confirms it.',
+    args: ['invoiceId', 'amount', 'date', 'section', 'tan'],
+    run: (state, args = {}) => recordTdsWithheld(state, args),
+  },
+  {
+    name: 'tds_credit_check',
+    title: 'Form 26AS check',
+    description: 'Compare Form 26AS with the TDS recorded in the books, per deductor and quarter: what 26AS shows, what the books show, the gap, and which side is missing. Read-only.',
+    args: ['fy'],
+    run: (state, args = {}) => tdsCreditCheck(state, args),
   },
   {
     name: 'marketplace_credits',
@@ -2120,8 +2244,8 @@ export const TOOLS = [
   {
     name: 'import_bank',
     title: 'Import bank statement',
-    description: 'Ingest HDFC-style CSV, fixed-width TXT, or matrix bank statement with running-balance tie-out.',
-    args: ['content', 'type'],
+    description: 'Ingest HDFC-style CSV, fixed-width TXT, or matrix bank statement with running-balance tie-out. Every row becomes a statement line: lines already in the books are linked, your bank rules book what they cover, and the rest is posted to guessed heads (post auto, the default) or waits for you to match (post hold). account names the own account the statement belongs to (default 1002 Bank).',
+    args: ['content', 'type', 'fileName', 'asOfDate', 'post', 'account'],
     run: (state, args) => {
       const type = args.type || 'csv';
       let feed = { type, content: args.content };
@@ -2137,17 +2261,47 @@ export const TOOLS = [
       }
       const result = ingestBank(feed, { asOfDate: args.asOfDate, fileLabel: args.fileName || 'bank' });
       if (usHeld.length) result.usHeld = usHeld;
+      const account = accountFor(state, args.account);
+      if (!account) return fail('ACCOUNT_NOT_FOUND', { account: args.account });
+      const hold = args.post === 'hold';
       const good = (result.rows || []).filter((r) => !r._blocking);
-      const ledger = postBankRows(state, good);
+      const taken = recordStatementLines(state, good, { account: account.id, fileLabel: args.fileName || 'bank', issues: result.issues || [] });
+      const openIds = taken.newLines.filter((line) => line.status === 'unmatched').map((line) => line.id);
+      const ruled = openIds.length ? runBankRules(state, { account: account.id, lineIds: openIds }) : { made: [], failed: [] };
+      const open = taken.newLines.filter((line) => line.status === 'unmatched');
+      let ledger = { posted: 0, skipped: taken.skipped };
+      if (!hold && open.length) {
+        const auto = postBankRows(state, open.map((line) => taken.rowByLine.get(line.id)), { account: account.id });
+        for (const made of auto.made) {
+          const line = open.find((item) => item.fingerprint === made.fingerprint);
+          if (line) {
+            line.status = 'booked';
+            line.match = { kind: 'auto', id: made.fingerprint, transferIds: [String(made.transferId)], ruleId: null, note: 'Posted to a guessed head.' };
+          }
+        }
+        ledger = { posted: auto.posted, skipped: [...taken.skipped, ...auto.skipped] };
+      }
+      const lines = {
+        added: taken.added.length,
+        existing: taken.existing.length,
+        matched: taken.matched.length,
+        byRules: (ruled.made || []).length,
+        ruleFailures: ruled.failed || [],
+        posted: ledger.posted,
+        unmatched: taken.newLines.filter((line) => line.status === 'unmatched').length,
+        transfersGuessed: open.filter((line) => line.status === 'booked' && line.category === 'transfer').length,
+        account: account.id,
+        mode: hold ? 'hold' : 'auto',
+      };
       state.imports.push({ source: 'bank', at: new Date().toISOString(), ok: result.ok, rows: result.rows?.length || 0, posted: ledger.posted, heldBack: heldBackFrom(ledger.skipped) });
       const withBalance = good.filter((r) => r.date && r.balance != null && Number.isFinite(Number(r.balance))).sort((a, b) => a.date.localeCompare(b.date) || (a.sourceRow || 0) - (b.sourceRow || 0));
       const last = withBalance.at(-1);
       let bankBalance = null;
-      if (last) {
+      if (last && account.id === '1002') {
         const reading = setCashBalance(state, { on: last.date, bank: Number(last.balance) });
         bankBalance = reading.ok ? { on: last.date, balance: Number(last.balance), source: 'bank statement' } : { on: last.date, balance: Number(last.balance), notRecorded: reading.error };
       }
-      return ok({ ...result, ledger, ...(bankBalance ? { bankBalance } : {}), ...(aa ? { aa: { accounts: aa.accounts, skipped: aa.skipped } } : {}) });
+      return ok({ ...result, ledger, lines, ...(bankBalance ? { bankBalance } : {}), ...(aa ? { aa: { accounts: aa.accounts, skipped: aa.skipped } } : {}) });
     },
   },
   {
@@ -2180,7 +2334,7 @@ export const TOOLS = [
       }
       if (!files.gstr2b) return fail('Attach a GSTR-2B CSV (dropdown can be unused; attach as gstr2b).');
       if (!files.gstr3b) return fail('Attach GSTR-3B CSV, or ask to prepare GSTR-3B first and export.');
-      return ok(reconcile(
+      return ok(reconcileDocuments(
         {
           purchaseRegisterText: purchaseRegister,
           gstr2bText: files.gstr2b,

@@ -2,36 +2,38 @@ import { csvRows } from './text-safe.mjs';
 import { isReturnPeriod, periodOf } from './return-period.mjs';
 import { localToday } from './dates.mjs';
 import { countryOf } from './country.mjs';
+import { isTdsReceipt } from './tds-credits.mjs';
 
-const HEADER = ['date', 'type', 'number', 'party', 'party_gstin', 'head', 'description', 'taxable', 'cgst', 'sgst', 'igst', 'total', 'paid_by', 'refers_to'];
-const HEADER_US = ['date', 'type', 'number', 'party', 'account', 'description', 'subtotal', 'sales_tax', 'total', 'paid_by', 'refers_to'];
+export const HEADER = ['date', 'type', 'number', 'party', 'party_gstin', 'head', 'description', 'taxable', 'cgst', 'sgst', 'igst', 'total', 'paid_by', 'refers_to'];
+export const HEADER_US = ['date', 'type', 'number', 'party', 'account', 'description', 'subtotal', 'sales_tax', 'total', 'paid_by', 'refers_to'];
 
-function usRow(row) {
+export function usRow(row) {
   const tax = Math.round(((Number(row[8]) || 0) + (Number(row[9]) || 0) + (Number(row[10]) || 0)) * 100) / 100;
   return [row[0], row[1], row[2], row[3], row[5], row[6], row[7], tax, row[11], row[12], row[13]];
 }
 
 const round2 = (value) => Math.round(Number(value || 0) * 100) / 100;
+const paidBy = (receipt) => (isTdsReceipt(receipt) ? 'TDS withheld' : receipt.mode || 'bank');
 
 function describe(lines = []) {
   return lines.map((line) => line.description).filter(Boolean).join('; ');
 }
 
-function rowsFor(state, period) {
+export function rowsFor(state, period) {
   const inPeriod = (doc) => periodOf(doc?.date) === period;
   const rows = [];
   for (const inv of (state.invoices || []).filter(inPeriod)) {
     rows.push([inv.date, inv.status === 'cancelled' ? 'Sale (cancelled)' : 'Sale', inv.id, inv.partyName, inv.partyGstin || '', 'Sales', describe(inv.lines), round2(inv.taxable), round2(inv.cgst), round2(inv.sgst), round2(inv.igst), round2(inv.total), '', '']);
     for (const receipt of inv.receipts || []) {
       if (periodOf(receipt.date) !== period) continue;
-      rows.push([receipt.date, 'Receipt', '', inv.partyName, inv.partyGstin || '', '', '', '', '', '', '', round2(receipt.amount), receipt.mode || 'bank', inv.id]);
+      rows.push([receipt.date, 'Receipt', '', inv.partyName, inv.partyGstin || '', '', '', '', '', '', '', round2(receipt.amount), paidBy(receipt), inv.id]);
     }
   }
   for (const inv of state.invoices || []) {
     if (inPeriod(inv)) continue;
     for (const receipt of inv.receipts || []) {
       if (periodOf(receipt.date) !== period) continue;
-      rows.push([receipt.date, 'Receipt', '', inv.partyName, inv.partyGstin || '', '', '', '', '', '', '', round2(receipt.amount), receipt.mode || 'bank', inv.id]);
+      rows.push([receipt.date, 'Receipt', '', inv.partyName, inv.partyGstin || '', '', '', '', '', '', '', round2(receipt.amount), paidBy(receipt), inv.id]);
     }
   }
   for (const note of (state.creditNotes || []).filter(inPeriod)) {

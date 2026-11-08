@@ -143,8 +143,9 @@ is not generated yet.
 A marketplace deducts GST TCS under section 52 and income-tax TDS under section 194-O from
 every settlement; D1 records both. `set_channel_identity` ties each channel to the
 operator's GSTIN and TAN. `import_tcs_statement` reads the GST portal's "TDS and TCS credit
-received" statement and `import_26as_credits` reads Form 26AS (194-O rows only); both are
-matched to the channel by number, or by name until the number is set. `marketplace_credits`
+received" statement and `import_26as_credits` reads Form 26AS (every section is kept; only
+the 194-O rows count as marketplace credits, the rest feed the [Form 26AS check](04-tds.md));
+both are matched to the channel by number, or by name until the number is set. `marketplace_credits`
 shows, by month and quarter, what was deducted against what was confirmed; a month or
 quarter where the marketplace deducted more than it reported is an exception. TCS confirmed
 by the statement is used from the electronic cash ledger in the next GST payment before new

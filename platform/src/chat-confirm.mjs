@@ -23,10 +23,12 @@ import { aaBankFeed } from './aa-import.mjs';
 import { planCreditNote, creditedAgainst, outstandingOf } from './credit-notes.mjs';
 import { planDebitNote, planPurchaseNote } from './debit-notes.mjs';
 import { checkAnswer, reviewOf, stepText } from './gst-review.mjs';
-import { parse2bFile } from './gstr2b-check.mjs';
+import { keyTooLongErrors, parse2bFile } from './gstr2b-check.mjs';
+import { planImsDecision, pinImsRows, IMS_DECISION_WORDS, IMS_SELECTS } from './ims.mjs';
 import { planReminder, findReminder, whenWords } from './reminders.mjs';
 import { planCashReading } from './cash-forecast.mjs';
 import { planTerms, termsLabel, invoiceTerms, dueDateOf } from './payment-terms.mjs';
+import { planSupplierTerms, msmeDays } from './supplier-dues.mjs';
 import { planAsk, planReply } from './ca-requests.mjs';
 import { planRecurring, findRecurring, everyWords } from './recurring.mjs';
 import { planQuote, findQuote, checkConvert, invoiceArgsFromQuote, kindTitle, kindOf, SALES_DOCUMENT_KINDS } from './quotes.mjs';
@@ -54,7 +56,8 @@ import { planSupplierNote } from './supplier-notes.mjs';
 import { planPosImport } from './import-pos.mjs';
 import { planSettlement, settlementWords } from './settlements.mjs';
 import { planOrderImport, settlementInvoices } from './marketplace-orders.mjs';
-import { planTcsStatement, plan26asCredits } from './marketplace-credits.mjs';
+import { planTcsStatement, plan26asCredits, sectionWords } from './marketplace-credits.mjs';
+import { planTdsWithheld } from './tds-credits.mjs';
 import { regArg, planRegistration, openDocumentsFor, registrationByGstin } from './registrations.mjs';
 import { planSkuCost, parseSkuCostsCsv } from './sku-margins.mjs';
 import { planInventoryValuation } from './inventory.mjs';
@@ -65,10 +68,12 @@ import { tally, bank, gstin as gstinRules } from './sprint-load.mjs';
 import { parseZohoBooksCsv } from './import-zoho.mjs';
 import { planAmendment } from './invoice-amendments.mjs';
 import { tallyXmlToDayBookCsv } from './tally-xml.mjs';
+import { findBankLine, planMatch, planBankCharges, planBankRule, planBankAccount, planTransfer, previewStatementLines, rulesOf, linesOf, accountFor, amountOf, sideOf, ruleMatches, docWords, ruleFromMatch } from './bank-recon.mjs';
+import { runBankRules, ruleWords } from './bank-rules.mjs';
 
 export const CONFIRM_TOOLS = new Set([
-  'create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'record_filing', 'record_supplier_reminder', 'record_collection_reminder', 'record_payment_run', 'month_close_approve', 'set_sku_supply', 'record_purchase_order', 'record_advance_tax', 'set_supplier_bank', 'attach_document', 'push_tally', 'import_payroll_summary', 'add_employee', 'change_salary', 'end_employment', 'approve_payroll', 'record_salary_payment', 'set_tds_deductor', 'record_tds_deposit', 'tds_review_answer', 'set_gst_credit_opening', 'record_gst_payment', 'close_year', 'post_expense', 'set_expense_head', 'create_credit_note', 'create_debit_note', 'create_purchase_note', 'record_supplier_debit_note', 'cancel_invoice', 'gst_review_answer', 'import_gstr2b', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'set_party_address', 'set_transport', 'set_sales_tax_rate', 'set_contractor', 'set_sales_tax_nexus', 'sales_tax_review_answer', 'record_sales_tax_payment', 'record_sales_tax_filing', 'set_withholding', 'set_suta_rate', 'import_us_invoices', 'import_pos_sales', 'import_settlement', 'import_marketplace_orders', 'import_tcs_statement', 'import_26as_credits', 'record_stock', 'record_stock_transfer', 'set_sku_cost', 'import_sku_costs', 'value_inventory', 'set_registration', 'retire_registration', 'set_channel_identity', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote', 'add_recurring', 'stop_recurring', 'amend_invoice',
-  'set_invoice_template', 'set_invoice_numbering',
+  'create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'record_filing', 'record_supplier_reminder', 'record_collection_reminder', 'record_payment_run', 'month_close_approve', 'set_sku_supply', 'record_purchase_order', 'record_advance_tax', 'set_supplier_bank', 'attach_document', 'push_tally', 'import_payroll_summary', 'add_employee', 'change_salary', 'end_employment', 'approve_payroll', 'record_salary_payment', 'set_tds_deductor', 'record_tds_deposit', 'tds_review_answer', 'set_gst_credit_opening', 'record_gst_payment', 'close_year', 'post_expense', 'set_expense_head', 'create_credit_note', 'create_debit_note', 'create_purchase_note', 'record_supplier_debit_note', 'cancel_invoice', 'gst_review_answer', 'import_gstr2b', 'ims_decide', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'set_party_address', 'set_transport', 'set_sales_tax_rate', 'set_contractor', 'set_sales_tax_nexus', 'sales_tax_review_answer', 'record_sales_tax_payment', 'record_sales_tax_filing', 'set_withholding', 'set_suta_rate', 'import_us_invoices', 'import_pos_sales', 'import_settlement', 'import_marketplace_orders', 'import_tcs_statement', 'import_26as_credits', 'record_tds_withheld', 'record_stock', 'record_stock_transfer', 'set_sku_cost', 'import_sku_costs', 'value_inventory', 'set_registration', 'retire_registration', 'set_channel_identity', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote', 'add_recurring', 'stop_recurring', 'amend_invoice', 'match_bank_line', 'unmatch_bank_line', 'book_bank_charges', 'add_bank_rule', 'remove_bank_rule', 'run_bank_rules', 'set_bank_account', 'record_transfer',
+  'set_invoice_template', 'set_invoice_numbering', 'set_supplier_terms',
   'import_tally', 'import_tally_xml', 'import_zoho', 'import_bank',
   'govt_generate_irn', 'govt_nic_cancel_irn',
   'exception_decide',
@@ -995,8 +1000,56 @@ function gstr2bPreview(state, args) {
   return {
     blockers: [],
     summary: `GSTR-2B for ${args.period}: ${rows.length} ${rows.length === 1 ? 'entry' : 'entries'} from ${suppliers} ${suppliers === 1 ? 'supplier' : 'suppliers'}${errors.length ? `; ${errors.length} ${errors.length === 1 ? 'row' : 'rows'} could not be read and will be left out` : ''}.${replaces ? ' This replaces the 2B already added for that month.' : ''}`,
-    effects: ['Nothing is posted to your books. Your purchase bills are checked against it.'],
+    effects: ['Nothing is posted to your books. Your purchase bills are checked against it.', ...keyTooLongErrors(errors).map((error) => error.message)],
     figures: { period: args.period, rows: rows.length, suppliers, skipped: errors.length },
+  };
+}
+
+function imsNoRowsWords(plan) {
+  return `Say which invoices, for example "accept all matched in IMS for ${plan.period}" or "reject all undecided in IMS for ${plan.period}".`;
+}
+
+function imsLeftWords(left, args) {
+  const select = String(args.select ?? '').trim();
+  const noun = IMS_SELECTS.includes(select) && select !== 'all' ? `${select} invoice` : 'invoice';
+  return left === 1 ? `1 more ${noun} is left; ask again after this to do it.` : `${left} more ${noun}s are left; ask again after this to do them.`;
+}
+
+const IMS_REASONS = {
+  INVALID_PERIOD: 'Say the month as YYYY-MM, for example 2026-10.',
+  NO_STATEMENT: 'Add the GSTR-2B for that month first.',
+  BAD_DECISION: 'Say accept, reject or pending.',
+  NO_ROWS: imsNoRowsWords,
+  NO_MATCH: (plan) => plan.hint || 'No invoice matches what you asked for, so nothing was marked.',
+  ROW_NOT_FOUND: 'One of those invoices is not in the GSTR-2B for that month.',
+  TOO_MANY_ROWS: 'IMS takes up to 500 invoices in one go; pick fewer, or decide in parts.',
+  NOTE_TOO_LONG: 'Keep the note to 200 characters or fewer.',
+};
+
+function imsPreview(state, args) {
+  if (countryOf(state) !== 'IN') return { blockers: ['IMS is part of the GST portal, so it is for businesses in India.'], summary: '', effects: [], figures: {} };
+  const plan = planImsDecision(state, args);
+  if (!plan.ok) {
+    const reason = IMS_REASONS[plan.error];
+    return { blockers: [typeof reason === 'function' ? reason(plan) : reason || plan.error], summary: '', effects: [], figures: {} };
+  }
+  const pinned = pinImsRows(args, plan);
+  const word = IMS_DECISION_WORDS[plan.decision];
+  const count = plan.rows.length;
+  const one = [plan.rows[0].supplierName, plan.rows[0].invoiceNo].filter(Boolean).join(' ') || 'this invoice';
+  const replaced = plan.decision === 'clear' ? 0 : plan.rows.filter((row) => {
+    const held = state.imsDecisions?.[row.key]?.decision;
+    return held && held !== plan.decision;
+  }).length;
+  const effects = ['Nothing is posted. Take the same decisions on the GST portal\'s IMS; the Excel sheet lists them.'];
+  if (replaced) effects.push(count === 1 ? 'It already has a different decision, which this replaces.' : `${replaced} of them already ${replaced === 1 ? 'has' : 'have'} a different decision, which this replaces.`);
+  if (plan.left) effects.push(imsLeftWords(plan.left, args));
+  return {
+    blockers: [],
+    summary: count === 1 ? `Mark ${one} as ${word} in IMS for ${plan.period}.` : `Mark ${count} invoices in IMS for ${plan.period} as ${word} (credit ${money(plan.credit)}).`,
+    effects,
+    figures: { count, credit: plan.credit },
+    pinned,
   };
 }
 
@@ -1132,6 +1185,58 @@ function termsPreview(state, args) {
   };
 }
 
+const SUPPLIER_TERMS_REASONS = {
+  SUPPLIER_REQUIRED: 'Say which supplier.',
+  BAD_UDYAM: 'A Udyam number looks like UDYAM-XX-00-0000000.',
+  BAD_TERMS: 'Agreed days must be a whole number from 0 to 365.',
+  BAD_CATEGORY: 'The category is micro, small or medium.',
+  TERMS_EXCEED_MSMED: 'An MSME supplier must be paid within 45 days, so the agreed days cannot be more than 45.',
+  OWNER_ONLY: 'Only the owner can mark a supplier as an MSME.',
+};
+
+const BOOKED_BILLS_CHECKED = 'Bills already booked from them are checked against the new terms too.';
+const MEDIUM_NOT_COVERED = 'The 45-day rule covers micro and small suppliers only, so a medium supplier gets no MSME limit or reminder.';
+
+function supplierTermsPreview(state, args) {
+  const planned = planSupplierTerms(state, args);
+  if (!planned.ok) return { blockers: [SUPPLIER_TERMS_REASONS[planned.error] || planned.error], summary: '', effects: [], figures: {} };
+  const { plan } = planned;
+  const limit = plan.covered ? msmeDays(localToday(), { agreedDays: plan.days }) : null;
+  const days = limit ? limit.days : plan.days;
+  const inDays = days === 1 ? '1 day' : `${days} days`;
+  if (plan.covered) {
+    return {
+      blockers: [],
+      summary: `Mark ${plan.name} as an MSME supplier (${plan.category || 'category not given'}, Udyam ${plan.udyam || 'not given'}) to be paid within ${inDays}`,
+      effects: [`New bills from them get a pay-by date ${inDays} from the bill date${countryOf(state) === 'IN' ? '; MyCA reminds you a week before it' : ''}. Nothing is posted.`, BOOKED_BILLS_CHECKED],
+      figures: { days },
+    };
+  }
+  if (plan.msme) {
+    return {
+      blockers: [],
+      summary: `Mark ${plan.name} as an MSME supplier (${plan.category}, Udyam ${plan.udyam || 'not given'})${days == null ? '' : ` to be paid within ${inDays}`}`,
+      effects: [days == null ? 'No pay-by date is set until you give the agreed days. Nothing is posted.' : `New bills from them get a pay-by date ${inDays} from the bill date. Nothing is posted.`, MEDIUM_NOT_COVERED, BOOKED_BILLS_CHECKED],
+      figures: { days },
+    };
+  }
+  if (plan.before?.msme) {
+    return {
+      blockers: [],
+      summary: `${plan.name} is no longer marked MSME`,
+      effects: [days == null ? 'New bills from them get no MSME pay-by date and no reminder. Nothing is posted.' : `New bills from them get a pay-by date ${inDays} from the bill date, without the MSME limit or its reminder. Nothing is posted.`, BOOKED_BILLS_CHECKED],
+      figures: { days },
+    };
+  }
+  if (days == null) return { blockers: ['Give the agreed days, or mark the supplier as MSME.'], summary: '', effects: [], figures: {} };
+  return {
+    blockers: [],
+    summary: `Set ${plan.name}'s terms to ${inDays}`,
+    effects: [`New bills from them get a pay-by date ${inDays} from the bill date. Nothing is posted.`, BOOKED_BILLS_CHECKED],
+    figures: { days },
+  };
+}
+
 const CA_REASONS = {
   NOTE_REQUIRED: 'Write what you want to ask.',
   NOTE_TOO_LONG: 'Keep it under 1,000 characters.',
@@ -1188,6 +1293,9 @@ const QUOTE_REASONS = {
   BAD_CHALLAN_REASON: 'A delivery challan is for job work, supply on approval, line sales, an exhibition, own use or other.',
   ALREADY_CLOSED: 'That document is already closed.',
   CHALLAN_NOT_A_SALE: 'Goods sent for job work are not a sale, so this challan does not become an invoice. Mark it returned when the goods come back.',
+  JURISDICTION_REQUIRED: 'Say which sales tax applies (the jurisdiction code, for example TX or TX-AUSTIN), or that the sale is exempt and why. I will not guess a rate.',
+  EXEMPTION_REASON_REQUIRED: 'Say why this sale is exempt from sales tax (for example a resale certificate on file).',
+  RATE_UNKNOWN: 'There is no sales tax rate recorded for that jurisdiction on the quote date. Record it first, for example "sales tax rate TX 8.25%"; I will not guess one.',
 };
 
 const RECURRING_REASONS = {
@@ -1278,16 +1386,169 @@ function tallyPreview(state, args, csv, label) {
   };
 }
 
+const BANK_REASONS = {
+  LINE_NOT_FOUND: 'That statement line is not in these books.',
+  LINE_NOT_OPEN: 'That line is already matched, booked or ignored. Open it again first if that is wrong.',
+  LINE_NOT_LINKED: 'That line is not matched to anything yet.',
+  BOOKED_LINE: 'That line was booked and its entries are in the books; reverse them first.',
+  BAD_KIND: 'A line can be matched to the books, booked as a receipt, payment, expense, bank charge, interest or transfer, or ignored.',
+  TRANSFER_NOT_FOUND: 'No entry in the books matches that line.',
+  SIDE_MISMATCH: 'That does not fit the way the money moved on this line.',
+  AMOUNT_MISMATCH: 'The entry in the books is for a different amount.',
+  RECEIPT_UNALLOCATED: 'The customer has less open on invoices than this line; raise the invoice first or record the receipt by hand.',
+  PAYMENT_UNALLOCATED: 'The supplier has less open on bills than this line; enter the bill first or record the payment by hand.',
+  PARTY_NOT_FOUND: 'I do not know a customer or supplier by that name.',
+  PARTY_REQUIRED: 'Say who the money is from or to.',
+  INVOICE_NOT_FOUND: 'There is no invoice by that id.',
+  INVOICE_CANCELLED: 'That invoice is cancelled.',
+  BILL_NOT_FOUND: 'There is no bill by that id.',
+  BILL_PAID: 'That bill is already paid.',
+  BEFORE_BILL: 'The line is dated before the bill.',
+  OVERPAYMENT: 'That is more than is owed.',
+  HEAD_REQUIRED: 'Say which expense head; nothing is guessed.',
+  UNKNOWN_HEAD: 'That is not an expense head I know.',
+  OTHER_ACCOUNT_REQUIRED: 'Say which of your own accounts the other side is.',
+  ACCOUNT_NOT_FOUND: 'That is not one of your own accounts. Add it first.',
+  SAME_ACCOUNT: 'Both sides are the same account.',
+  BAD_AMOUNT: 'The amount has to be more than zero.',
+  INVALID_DATE: 'That is not a date I can read.',
+  PERIOD_LOCKED: 'That date is inside the locked period.',
+  INSUFFICIENT_CASH: 'There is not that much cash in hand.',
+  RULE_NOT_FOUND: 'There is no bank rule by that id.',
+  BAD_SIDE: 'A rule applies to money in, money out or any.',
+  MATCH_REQUIRED: 'Say what the narration must contain for the rule to apply.',
+  BAD_PATTERN: 'That pattern is not a regular expression I can run.',
+  BAD_RANGE: 'The smallest amount is more than the largest.',
+  LABEL_REQUIRED: 'Give the account a name.',
+  LABEL_TAKEN: 'An account by that name already exists.',
+  BUILT_IN_ACCOUNT: 'Cash (1001) and Bank (1002) are built in and cannot be changed.',
+  KIND_FIXED: 'An account keeps its kind; add a new one for a different kind.',
+  BAD_ACCOUNT_NUMBER: 'An account number is 4 to 18 digits; only the last four are kept.',
+  BAD_IFSC: 'An IFSC is four letters, a zero and six characters, for example HDFC0001234.',
+  NO_FREE_ACCOUNT: 'All own-account ids from 1003 to 1099 are taken.',
+  OWNER_ONLY: 'Only the owner can add or change own accounts.',
+  NOT_A_CHARGE: 'That line does not read as a bank charge or interest.',
+  LEDGER_REJECT: 'The ledger refused the entry, so nothing was changed.',
+};
+
+function bankBlocked(error, hint = '') {
+  return { blockers: [[BANK_REASONS[error] || String(error), hint].filter(Boolean).join(' ')], summary: '', effects: [], figures: {} };
+}
+
+function lineAmountWords(line) {
+  return line.in ? `${money(line.in)} in` : `${money(line.out)} out`;
+}
+
+function matchSummary(line, plan) {
+  const amount = lineAmountWords(line);
+  if (plan.kind === 'ignore') return `Ignore ${line.id} (${amount}); it stays on the statement with no entry in the books.`;
+  if (plan.kind === 'books' || (plan.kind === 'transfer' && plan.link)) return `Link ${line.id} (${amount}) to ${docWords(plan.movement).toLowerCase()} of ${money(plan.movement.amount)} dated ${plan.movement.date}; nothing new is posted.`;
+  if (plan.kind === 'receipt') return `Book ${line.id}: ${money(amountOf(line))} received from ${plan.partyName} against ${plan.allocations.map((part) => `${part.invoiceId} (${money(part.amount)})`).join(', ')}.`;
+  if (plan.kind === 'payment') return `Book ${line.id}: ${money(amountOf(line))} paid to ${plan.partyName} against ${plan.allocations.map((part) => `${part.billId} (${money(part.amount)})`).join(', ')}.`;
+  if (plan.kind === 'interest') return `Book ${line.id}: ${money(plan.amount)} as interest income (4100).`;
+  if (plan.kind === 'transfer') return `Post a transfer of ${money(plan.transfer.amount)} ${sideOf(line) === 'in' ? `from ${plan.other.label} into this account` : `from this account to ${plan.other.label}`} for ${line.id}.`;
+  return `Book ${line.id}: ${money(plan.expense.amount)} as ${plan.headName} (${plan.head}) paid from the bank.`;
+}
+
+function matchPreview(state, args) {
+  const line = findBankLine(state, args.lineId);
+  if (!line) return bankBlocked('LINE_NOT_FOUND');
+  const planned = planMatch(state, line, args);
+  if (!planned.ok) return bankBlocked(planned.error, planned.hint);
+  const effects = ['The statement line is settled and is not suggested again.'];
+  if (args.remember === true) effects.push(ruleFromMatch(line, planned.plan, args).words);
+  return { blockers: [], summary: matchSummary(line, planned.plan), effects, figures: { lineId: line.id, amount: amountOf(line), kind: planned.plan.kind } };
+}
+
+function unmatchPreview(state, args) {
+  const line = findBankLine(state, args.lineId);
+  if (!line) return bankBlocked('LINE_NOT_FOUND');
+  if (line.status === 'unmatched') return bankBlocked('LINE_NOT_LINKED');
+  if (line.status === 'booked') return bankBlocked('BOOKED_LINE');
+  return { blockers: [], summary: `Open ${line.id} (${lineAmountWords(line)}) again; its link to ${line.match?.id || 'the books'} is removed and nothing in the books changes.`, effects: ['The line goes back to the open list with fresh suggestions.'], figures: { lineId: line.id } };
+}
+
+function chargesPreview(state, args) {
+  const planned = planBankCharges(state, args);
+  if (!planned.ok) return bankBlocked(planned.error);
+  const { items, skipped } = planned.plan;
+  if (!items.length) return { blockers: ['No open statement line reads as a bank charge or as interest.'], summary: '', effects: [], figures: { skipped: skipped.length } };
+  const charges = items.filter((item) => item.plan.kind === 'charge');
+  const interest = items.filter((item) => item.plan.kind === 'interest');
+  const sum = (list) => list.reduce((total, item) => total + amountOf(item.line), 0);
+  const parts = [];
+  if (charges.length) parts.push(`${charges.length} ${charges.length === 1 ? 'line' : 'lines'} of bank charges, ${money(sum(charges))}, to 5180 Bank charges`);
+  if (interest.length) parts.push(`${interest.length} ${interest.length === 1 ? 'line' : 'lines'} of interest, ${money(sum(interest))}, to 4100 Interest income`);
+  const left = skipped.filter((item) => item.reason === 'NOT_A_CHARGE').length;
+  return {
+    blockers: [],
+    summary: `Book ${parts.join(' and ')}.`,
+    effects: ['Each line posts on its own statement date against the bank.', ...(left ? [`${left} other open ${left === 1 ? 'line is' : 'lines are'} left alone because ${left === 1 ? 'it does' : 'they do'} not read as a charge or interest.`] : [])],
+    figures: { charges: sum(charges), interest: sum(interest), lines: items.length },
+  };
+}
+
+function addRulePreview(state, args) {
+  const planned = planBankRule(state, args);
+  if (!planned.ok) return bankBlocked(planned.error, planned.hint);
+  const rule = { id: 'A new rule', ...planned.plan, hits: 0 };
+  const open = linesOf(state).filter((line) => line.status === 'unmatched' && ruleMatches(rule, line));
+  const now = args.applyNow === false ? 'It is not applied to open lines now.' : open.length ? `It fits ${open.length} open ${open.length === 1 ? 'line' : 'lines'} now, which will be booked.` : 'No open line fits it now.';
+  return { blockers: [], summary: `Save ${ruleWords(rule, money).replace(/^A new rule: /, 'a rule: ')}. ${now}`, effects: ['Every later import applies it before anything is guessed.', 'Rules apply in id order; the first one that fits wins.'], figures: { matches: open.length } };
+}
+
+function removeRulePreview(state, args) {
+  const rule = rulesOf(state).find((item) => item.id === String(args.id || '').trim().toUpperCase());
+  if (!rule) return bankBlocked('RULE_NOT_FOUND');
+  return { blockers: [], summary: `Remove ${ruleWords(rule, money)}. Lines it already booked stay as they are.`, effects: ['Later imports no longer apply it.'], figures: { hits: Number(rule.hits || 0) } };
+}
+
+function runRulesPreview(state, args) {
+  if (!rulesOf(state).length) return { blockers: ['There are no bank rules yet.'], summary: '', effects: [], figures: {} };
+  const dry = runBankRules(state, { account: args.account, dryRun: true });
+  if (!dry.ok) return bankBlocked(dry.error);
+  return {
+    blockers: [],
+    summary: `${dry.made.length} open ${dry.made.length === 1 ? 'line' : 'lines'} will be booked by your rules${dry.failed.length ? `, ${dry.failed.length} cannot be` : ''}, ${dry.left} ${dry.left === 1 ? 'stays' : 'stay'} open.`,
+    effects: args.dryRun ? ['Dry run: nothing is booked.'] : ['Each booked line posts on its statement date.'],
+    figures: { made: dry.made.length, failed: dry.failed.length, left: dry.left },
+  };
+}
+
+function setAccountPreview(state, args) {
+  const planned = planBankAccount(state, args);
+  if (!planned.ok) return bankBlocked(planned.error);
+  const { plan } = planned;
+  const extra = [plan.kind, plan.maskedNumber, plan.ifsc].filter(Boolean).join(', ');
+  return {
+    blockers: [],
+    summary: plan.existing ? `Rename ${plan.existing.label} (${plan.id}) to ${plan.label}.` : `Add ${plan.label} (${plan.id}${extra ? `, ${extra}` : ''}).`,
+    effects: plan.existing ? ['The balance and every entry stay as they are.'] : ['A ledger account is opened; its statements import with account set to its id or name.'],
+    figures: { id: plan.id },
+  };
+}
+
+function transferPreview(state, args) {
+  const planned = planTransfer(state, args);
+  if (!planned.ok) return bankBlocked(planned.error);
+  const { plan } = planned;
+  return { blockers: [], summary: `Move ${money(plan.amount)} from ${plan.from.label} to ${plan.to.label} on ${plan.date}${plan.reference ? ` (${plan.reference})` : ''}.`, effects: ['One contra entry is posted; statement lines on both sides link to it.'], figures: { amount: plan.amount } };
+}
+
 function bankPreview(state, args) {
   const aa = aaBankFeed(args);
   if (aa && !aa.ok) return { blockers: [`${aa.error}: ${aa.hint || 'the Account Aggregator file could not be read'}`], summary: 'Account Aggregator data could not be read.', effects: [], figures: {} };
   const parsed = bank.ingest(aa ? aa.feed : { type: args.type || 'csv', content: args.content }, { fileLabel: args.fileName || 'bank' });
   const rows = (parsed.rows || []).filter((r) => !r._blocking && r.type !== 'balance-only');
+  const account = accountFor(state, args.account);
+  const counts = account ? previewStatementLines(state, rows, { account: account.id }) : { existing: 0, toLink: 0, byRules: 0, rest: 0, transfers: 0 };
+  const hold = args.post === 'hold';
+  const plan = `${counts.toLink} ${counts.toLink === 1 ? 'line is' : 'lines are'} already in the books and will be linked, ${counts.byRules} ${counts.byRules === 1 ? 'is' : 'are'} covered by your rules, ${counts.rest} will ${hold ? 'wait for you to match' : 'be posted to guessed heads'}${counts.existing ? `, ${counts.existing} ${counts.existing === 1 ? 'was' : 'were'} imported before` : ''}.`;
   return {
-    blockers: [],
-    summary: `${aa ? `Account Aggregator data (${aa.accounts.map((a) => a.maskedAccNumber || 'account').join(', ')})` : 'Bank statement'}: ${(parsed.rows || []).length} rows parsed, ${rows.length} postable${parsed.ok === false ? ' (the running balance does not tie — check the statement)' : ''}.`,
-    effects: ['Each row posts against bank with the classified account.', 'Rows already imported are recognised and skipped.'],
-    figures: { rows: (parsed.rows || []).length, postable: rows.length, tied: parsed.ok !== false },
+    blockers: account ? [] : [`There is no own account called "${args.account}". Add it first.`],
+    summary: `${aa ? `Account Aggregator data (${aa.accounts.map((a) => a.maskedAccNumber || 'account').join(', ')})` : 'Bank statement'}: ${(parsed.rows || []).length} rows parsed, ${rows.length} postable${parsed.ok === false ? ' (the running balance does not tie — check the statement)' : ''}. ${plan}`,
+    effects: [hold ? 'Nothing is posted to a guessed head; every open line waits on the bank reconciliation.' : 'Lines nothing else explains post against bank with the classified account.', 'Rows already imported are recognised and skipped.'],
+    figures: { rows: (parsed.rows || []).length, postable: rows.length, tied: parsed.ok !== false, ...counts },
   };
 }
 
@@ -1438,15 +1699,48 @@ function tcsStatementPreview(state, args) {
   };
 }
 
+export function rowsCounted(count) {
+  return count === 1 ? '1 row' : `${count} rows`;
+}
+
 function credits26asPreview(state, args) {
   const planned = plan26asCredits(state, args);
-  if (!planned.ok) return { blockers: [planned.error === 'NO_HEADER' ? `The file needs ${planned.parsed.need}.` : `No section 194-O row could be read${planned.parsed?.otherSections ? ` (${planned.parsed.otherSections} rows under other sections were ignored)` : ''}.`], summary: '', effects: [], figures: {} };
+  if (!planned.ok) return { blockers: [planned.error === 'NO_HEADER' ? `The file needs ${planned.parsed.need}.` : `No row with a readable section could be read${planned.parsed?.otherSections ? ` (${rowsCounted(planned.parsed.otherSections)} had no section I can read)` : ''}.`], summary: '', effects: [], figures: {} };
   const dup = planned.skipped.filter((row) => row.reason === 'exists').length;
   return {
     blockers: planned.ready.length ? [] : [dup ? 'Every row is already recorded.' : 'No row could be read.'],
-    summary: `Form 26AS: ${planned.ready.length === 1 ? '1 entry' : `${planned.ready.length} entries`} under section 194-O totalling ${money(planned.total)}${planned.otherSections ? ` (${planned.otherSections} rows under other sections ignored here)` : ''}${dup ? `; ${dup} already recorded` : ''}.`,
-    effects: ['The TDS is credit against your income tax for the year; quarters where a marketplace deducted more in settlements than 26AS shows become exceptions.'],
+    summary: `Form 26AS: ${planned.ready.length === 1 ? '1 entry' : `${planned.ready.length} entries`} totalling ${money(planned.total)}${planned.ready.length ? ` (${sectionWords(planned.bySection)})` : ''}${planned.otherSections ? `; ${rowsCounted(planned.otherSections)} with no readable section left out` : ''}${dup ? `; ${dup} already recorded` : ''}.`,
+    effects: ['The TDS is credit against your income tax for the year. Say "check 26AS against the books" to see what is missing from your books; quarters where a marketplace deducted more under 194-O in settlements than 26AS shows become exceptions.'],
     figures: { rows: planned.ready.length, total: planned.total },
+  };
+}
+
+const TDS_WITHHELD_REASONS = {
+  INVOICE_NOT_FOUND: 'That invoice is not in these books.',
+  INVOICE_CANCELLED: 'That invoice is cancelled, so no TDS can be recorded against it.',
+  INVALID_DATE: 'That is not a date I can read.',
+  PERIOD_LOCKED: 'That date is inside the locked period.',
+  BAD_AMOUNT: 'TDS has to be a positive amount.',
+  BAD_SECTION: 'Say which TDS section the customer deducted under, like 194C or 194J.',
+  BAD_TAN: 'A TAN looks like MUMA12345B.',
+  OVERPAYMENT: 'That is more than is still owed on the invoice.',
+  PARTY_NOT_FOUND: 'The customer on that invoice is missing from these books.',
+};
+
+function tdsWithheldPreview(state, args) {
+  if (countryOf(state) !== 'IN') return { blockers: ['TDS withheld by customers is for India books.'], summary: '', effects: [], figures: {} };
+  const plan = planTdsWithheld(state, args);
+  if (!plan.ok) {
+    const invoice = (state.invoices || []).find((item) => item.id === String(args.invoiceId || '').trim().toUpperCase());
+    const detail = plan.error === 'OVERPAYMENT' ? ` ${money(plan.due)} is owed on ${plan.invoiceId}.` : plan.error === 'PERIOD_LOCKED' ? ` It would be dated ${plan.dateWords}.` : '';
+    return { blockers: [`${TDS_WITHHELD_REASONS[plan.error] || plan.error}${detail}`], summary: invoice ? `TDS withheld by ${invoice.partyName} on ${invoice.id}.` : `No invoice ${args.invoiceId}.`, effects: [], figures: {} };
+  }
+  const { invoice, amount, section, remaining, dateWords } = plan;
+  return {
+    blockers: [],
+    summary: `TDS of ${money(amount)} withheld by ${invoice.partyName} on ${invoice.id} (section ${section}), dated ${dateWords}`,
+    effects: ['The invoice settles by that amount; the credit sits in TDS receivable (1160) until Form 26AS confirms it.'],
+    figures: { amount, remaining },
   };
 }
 
@@ -1592,12 +1886,14 @@ const PREVIEWERS = {
   gst_review_answer: reviewAnswerPreview,
   tds_review_answer: tdsReviewAnswerPreview,
   import_gstr2b: gstr2bPreview,
+  ims_decide: imsPreview,
   add_reminder: reminderPreview,
   complete_reminder: completeReminderPreview,
   set_cash_balance: cashReadingPreview,
   set_invoice_template: invoiceTemplatePreview,
   set_invoice_numbering: invoiceNumberingPreview,
   set_payment_terms: termsPreview,
+  set_supplier_terms: supplierTermsPreview,
   set_party_address: addressPreview,
   set_sales_tax_rate: salesTaxRatePreview,
   set_contractor: contractorPreview,
@@ -1613,6 +1909,14 @@ const PREVIEWERS = {
   mark_quote: markQuotePreview,
   convert_quote: convertPreview,
   add_recurring: recurringPreview,
+  match_bank_line: matchPreview,
+  unmatch_bank_line: unmatchPreview,
+  book_bank_charges: chargesPreview,
+  add_bank_rule: addRulePreview,
+  remove_bank_rule: removeRulePreview,
+  run_bank_rules: runRulesPreview,
+  set_bank_account: setAccountPreview,
+  record_transfer: transferPreview,
   stop_recurring: stopRecurringPreview,
   reply_ca: replyPreview,
   close_ca: closePreview,
@@ -1633,6 +1937,7 @@ const PREVIEWERS = {
   retire_registration: retireRegistrationPreview,
   set_channel_identity: channelIdentityPreview,
   import_26as_credits: credits26asPreview,
+  record_tds_withheld: tdsWithheldPreview,
   import_bank: bankPreview,
   govt_generate_irn: (state, args) => irnPreview(state, args, false),
   govt_nic_cancel_irn: (state, args) => irnPreview(state, args, true),
@@ -1670,7 +1975,9 @@ export function previewOf(state, name, args = {}) {
   try {
     return build(state, args);
   } catch (err) {
-    return { blockers: [`I could not work out what this would do: ${String(err.message || err)}`], summary: `Run ${name}.`, effects: [], figures: {} };
+    const faults = [TypeError, ReferenceError, RangeError, SyntaxError, EvalError, URIError];
+    const said = faults.some((kind) => err instanceof kind) ? '' : String((err && err.message) || err || '');
+    return { blockers: [said ? `I could not work out what this would do: ${said}` : 'I could not work out what this would do, so nothing was posted.'], summary: `Run ${name}.`, effects: [], figures: {} };
   }
 }
 
@@ -1678,7 +1985,7 @@ export function openPending(state, plan, preview, now = Date.now()) {
   const pending = {
     token: randomBytes(6).toString('hex'),
     name: plan.name,
-    args: plan.args,
+    args: preview.pinned || plan.args,
     clearsPendingFile: Boolean(plan.clearsPendingFile),
     summary: preview.summary,
     createdAt: new Date(now).toISOString(),

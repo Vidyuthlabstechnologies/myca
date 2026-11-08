@@ -15,9 +15,11 @@ locals {
   secrets = merge(local.generated, {
     MYCA_DATABASE_URL = "postgres://${aws_db_instance.main.username}:${random_password.db.result}@${aws_db_instance.main.address}:${aws_db_instance.main.port}/${aws_db_instance.main.db_name}"
     MYCA_DATABASE_CA  = data.http.rds_ca.response_body
-  })
-  secret_names = ["MYCA_TOKEN_SECRET", "MYCA_BOOKS_KEY", "MYCA_CONNECTOR_KEY", "MYCA_JOB_TOKEN", "MYCA_INBOUND_RELAY_TOKEN", "MYCA_WHATSAPP_VERIFY_TOKEN", "MYCA_PLAY_NOTIFY_TOKEN", "MYCA_DATABASE_URL", "MYCA_DATABASE_CA"]
-  production   = !var.pilot_sign_in_codes_in_logs
+  }, local.play_key_given ? { MYCA_PLAY_SERVICE_ACCOUNT_JSON = var.play_service_account_json } : {})
+  play_key_given = nonsensitive(trimspace(var.play_service_account_json) != "")
+  play_products  = { for name, id in { MYCA_PLAY_PRODUCT_PRO = var.play_product_pro, MYCA_PLAY_PRODUCT_FIRM = var.play_product_firm } : name => id if id != "" }
+  secret_names   = concat(["MYCA_TOKEN_SECRET", "MYCA_BOOKS_KEY", "MYCA_CONNECTOR_KEY", "MYCA_JOB_TOKEN", "MYCA_INBOUND_RELAY_TOKEN", "MYCA_WHATSAPP_VERIFY_TOKEN", "MYCA_PLAY_NOTIFY_TOKEN", "MYCA_DATABASE_URL", "MYCA_DATABASE_CA"], local.play_key_given ? ["MYCA_PLAY_SERVICE_ACCOUNT_JSON"] : [])
+  production     = !var.pilot_sign_in_codes_in_logs
   environment = merge(
     {
       MYCA_TRUSTED_PROXY_HOPS   = "1"
@@ -26,7 +28,9 @@ locals {
       MYCA_GOOGLE_CLIENT_IDS    = join(",", var.google_client_ids)
       MYCA_PLAY_PACKAGE         = var.play_package_name
       MYCA_ENABLE_CHANNEL_PULLS = "0"
+      TZ                        = "Asia/Kolkata"
     },
+    local.play_products,
     local.production ? { MYCA_PRODUCTION = "1" } : { MYCA_DEV_OTP = "1" },
   )
 }
@@ -210,6 +214,10 @@ resource "aws_apprunner_service" "api" {
     precondition {
       condition     = var.pilot_sign_in_codes_in_logs || length(var.google_client_ids) > 0
       error_message = "The API refuses to start with no sign-in method. Set google_client_ids (Google Sign-In), or pilot_sign_in_codes_in_logs = true for a closed pilot."
+    }
+    precondition {
+      condition     = length(local.play_products) == 0 || local.play_key_given
+      error_message = "The API refuses to start with Play products but no Play service account key. Set play_service_account_json to the JSON key of the service account invited in Play Console, or leave play_product_pro and play_product_firm empty."
     }
   }
 

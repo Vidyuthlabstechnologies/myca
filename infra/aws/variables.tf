@@ -109,3 +109,22 @@ variable "play_package_name" {
   type        = string
   default     = "com.mldynamic.myca"
 }
+
+variable "play_product_pro" {
+  description = "Play Console product id of the Pro subscription, for example myca_pro_monthly. Empty leaves subscriptions off."
+  type        = string
+  default     = ""
+}
+
+variable "play_product_firm" {
+  description = "Play Console product id of the CA firm subscription, for example myca_firm_monthly. Empty leaves that plan unsold."
+  type        = string
+  default     = ""
+}
+
+variable "play_service_account_json" {
+  description = "The whole JSON key of the Google Cloud service account invited in Play Console (View financial data, Manage orders and subscriptions). Needed when a Play product is set; kept in SSM."
+  type        = string
+  default     = ""
+  sensitive   = true
+}

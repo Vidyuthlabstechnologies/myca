@@ -1,5 +1,7 @@
 import { ACCOUNT_FLAGS, createAccounts, paise } from './ledger.mjs';
 
+export const INTEREST_INCOME_ACCOUNT = { id: 4100, code: '4100', name: 'Interest income', type: 'income', flags: 0 };
+
 export const COA = [
   { id: 1001, code: '1001', name: 'Cash', type: 'asset', flags: ACCOUNT_FLAGS.CREDITS_MUST_NOT_EXCEED_DEBITS },
   { id: 1002, code: '1002', name: 'Bank', type: 'asset', flags: 0 },
@@ -14,6 +16,7 @@ export const COA = [
   { id: 2200, code: '2200', name: 'TDS payable', type: 'liability', flags: 0 },
   { id: 3000, code: '3000', name: 'Capital', type: 'equity', flags: ACCOUNT_FLAGS.DEBITS_MUST_NOT_EXCEED_CREDITS },
   { id: 4000, code: '4000', name: 'Sales', type: 'income', flags: ACCOUNT_FLAGS.DEBITS_MUST_NOT_EXCEED_CREDITS },
+  INTEREST_INCOME_ACCOUNT,
   { id: 5000, code: '5000', name: 'Purchases', type: 'expense', flags: 0 },
   { id: 5100, code: '5100', name: 'Operating expenses', type: 'expense', flags: 0 },
 ];
@@ -29,6 +32,11 @@ export const DEFAULT_COMPANY = {
 
 export function installChart(ledger) {
   createAccounts(ledger, COA);
+}
+
+export function ensureInterestIncomeAccount(state) {
+  createAccounts(state.ledger, [INTEREST_INCOME_ACCOUNT]);
+  return INTEREST_INCOME_ACCOUNT.id;
 }
 
 export function nextPartyId(state) {

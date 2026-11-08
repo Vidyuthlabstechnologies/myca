@@ -1,6 +1,7 @@
 import { htmlEscape } from './text-safe.mjs';
 import { isReturnPeriod, periodOf } from './return-period.mjs';
 import { localToday } from './dates.mjs';
+import { isTdsReceipt } from './tds-credits.mjs';
 
 const round2 = (value) => Math.round(Number(value || 0) * 100) / 100;
 const text = (value) => htmlEscape(String(value ?? '').trim());
@@ -14,6 +15,7 @@ const GROUPS = {
   expense: 'Indirect Expenses',
   bank: 'Bank Accounts',
   cash: 'Cash-in-Hand',
+  asset: 'Current Assets',
 };
 
 const LEDGERS = {
@@ -28,6 +30,7 @@ const LEDGERS = {
   tdsPayable: 'TDS Payable',
   bank: 'Bank',
   cash: 'Cash',
+  tdsReceivable: 'TDS Receivable',
 };
 
 function tallyDate(iso) {
@@ -112,6 +115,14 @@ export function tallyVouchers(state, period) {
   for (const inv of state.invoices || []) {
     use(inv.partyName, GROUPS.customer, inv.partyGstin || '');
     for (const receipt of (inv.receipts || []).filter((r) => periodOf(r.date) === period)) {
+      if (isTdsReceipt(receipt)) {
+        use(LEDGERS.tdsReceivable, GROUPS.asset);
+        push(voucher({ type: 'Journal', date: receipt.date, number: `${inv.id}-R${(inv.receipts || []).indexOf(receipt) + 1}`, party: inv.partyName, narration: `TDS withheld against ${inv.id}${receipt.section ? ` (${receipt.section})` : ''}`, reference: inv.id, entries: [
+          entry(LEDGERS.tdsReceivable, receipt.amount, true),
+          entry(inv.partyName, receipt.amount, false),
+        ] }));
+        continue;
+      }
       push(voucher({ type: 'Receipt', date: receipt.date, number: `${inv.id}-R${(inv.receipts || []).indexOf(receipt) + 1}`, party: inv.partyName, narration: `Against ${inv.id}`, reference: inv.id, entries: [
         entry(paidFrom(receipt.mode), receipt.amount, true),
         entry(inv.partyName, receipt.amount, false),

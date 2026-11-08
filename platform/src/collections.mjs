@@ -1,6 +1,7 @@
 import { localToday } from './dates.mjs';
 import { daysBetween } from './reminders.mjs';
 import { outstandingOf } from './credit-notes.mjs';
+import { isTdsReceipt } from './tds-credits.mjs';
 import { invoiceTemplateOf, bankWords } from './invoice-template.mjs';
 import { addReminder } from './reminders.mjs';
 
@@ -34,8 +35,12 @@ function dueOf(invoice) {
   return invoice.dueDate || addDays(invoice.date, DEFAULT_TERMS_DAYS);
 }
 
+function paymentsOf(invoice) {
+  return (invoice.receipts || []).filter((receipt) => !isTdsReceipt(receipt));
+}
+
 function lastReceiptDate(invoice) {
-  return (invoice.receipts || []).map((r) => r.date).filter(Boolean).sort().at(-1) || '';
+  return paymentsOf(invoice).map((r) => r.date).filter(Boolean).sort().at(-1) || '';
 }
 
 function nextId(state) {
@@ -63,7 +68,7 @@ export function remindersSentTo(state, customer) {
 
 function possiblyPaidSince(state, customer, today) {
   const since = addDays(today, -POSSIBLY_PAID_DAYS);
-  return (state.invoices || []).some((inv) => key(inv.partyName) === key(customer) && (inv.receipts || []).some((r) => r.date && r.date >= since));
+  return (state.invoices || []).some((inv) => key(inv.partyName) === key(customer) && paymentsOf(inv).some((r) => r.date && r.date >= since));
 }
 
 function messageFor(state, customer, rows, total, tone, today) {
