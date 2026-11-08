@@ -110,13 +110,17 @@ reminder goes only when the owner says so.
   nothing. (A row whose key is longer than 120 characters is not pinned; the word is read
   again at yes.)
 - Chat: "show IMS for 2026-09" or "what is pending in IMS" lists the month; "accept all
-  matched invoices in IMS", "reject all undecided invoices in IMS" and "mark all
-  suggested as accepted in IMS" decide a set. The month is the one said, else the latest
-  month with a 2B added. One decision is made at a time: a message that asks for two is
-  answered with a sentence and nothing changes, and so is a set narrowed to one supplier,
-  to some of its rows ("the first three matched invoices") or with an exception left out.
-  "From the IMS screen" and "from every supplier" do not narrow it. "Clear" is in the app
-  and the tool, not in chat.
+  matched invoices in IMS", "reject all undecided invoices in IMS" and "mark all suggested
+  as accepted in IMS" decide a set. The month is the one said, else the latest month with
+  a 2B added. One decision is made at a time: a message that asks for two is answered with
+  a sentence and nothing changes, and so is a set narrowed to one supplier or to a place
+  ("from Pack House", "from all suppliers in Pune"), to some of its rows ("the first three
+  matched invoices", "the matched invoice dated 5 September", credit notes only) or with
+  an exception left out ("except Dye Works"). "From the IMS screen" and "from every
+  supplier" do not narrow it. A state or a tax type said after the words "in IMS" ("accept
+  all matched invoices in IMS in Maharashtra") is not read as a narrowing: the preview
+  shows the count and the credit of the whole set, and nothing changes until you say yes.
+  "Clear" is in the app and the tool, not in chat.
 - Excel: `ims_review` ("excel of IMS for 2026-09"), one sheet with a row per document:
   section, supplier GSTIN and name, invoice number and date, the amounts, the credit, the
   bill in the books, the match, the suggestion, the decision, its note, who decided and

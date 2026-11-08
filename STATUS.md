@@ -341,14 +341,17 @@ no live switch, no CA approvals, and no bytes leaving the PC.
 - The marketing site under `deploy/` is research/status content, not the product.
 - `vendor/` reference clones are never imported (licence reasons — see `vendor/README.md`).
 - A receipt or payment said in chat is read for one amount. A date in words ("on 20
-  October"), a reference said as "cheque no 123456" or "UTR 4567891234", "net 30" and "30
-  days" are not counted as amounts. Two real amounts, or a bare number such as "cheque 123",
-  make MyCA say it read more than one amount, record nothing and ask for the one amount.
-  "Yesterday" is not read: the entry is dated today, and the preview shows the date before
-  anything posts ([`04-tds.md`](docs/product/features/04-tds.md)).
+  October"), a reference said as "cheque no 123456" or "UTR 4567891234", a six-digit
+  cheque number said after the amount, "net 30" and "30 days" are not counted as amounts.
+  Two real amounts, or a short bare number such as "cheque 123", make MyCA say it read
+  more than one amount, record nothing and ask for the one amount. An amount of zero or
+  less is refused in words and nothing is recorded. "Yesterday" is not read: the entry is
+  dated today, and the preview shows the date before anything posts
+  ([`04-tds.md`](docs/product/features/04-tds.md)).
 - The Excel export of the audit trail lists every event of the period for every user. "By
-  <name>" and "last N" narrow the list in chat only, and the file does not say they were left
-  out ([`10-audit-trail.md`](docs/product/features/10-audit-trail.md)).
+  <name>" and "last N" narrow the list in chat only; an Excel request that carries them gets
+  the whole period, the chat reply says in words that the name or count was not applied, and
+  the file does not say it ([`10-audit-trail.md`](docs/product/features/10-audit-trail.md)).
 - The audit trail's hash chain has no key. Once a newer event follows, it shows an event that
   was edited or taken out of the log. It does not show events cut off the end of the log, a
   log re-sealed by someone able to write the books, a changed client label (the client an

@@ -115,19 +115,21 @@ workbook.
   first, with how many were found and whether more exist, the result of the log chain, the
   result of the ledger's own checksum chain, and a note.
 - Chat: "audit trail", "audit log", "edit log", "change log", "who changed" and "what
-  changed in the books" ask for it. Add a period in the same sentence ("audit trail for
-  October", "audit trail from 2026-10-01 to 2026-10-31", "audit trail for FY 2025-26",
-  "who changed the books last week"), a person ("audit trail by Priya"), a count ("audit
-  trail limit 50", "last 20 changes in the audit log"), and "everything", "all events" or
-  "including reads" for the all view. A period, a person or a count it recognises but cannot
-  use (a day that is not on the calendar, a limit of 0) gets a sentence that says so and
-  nothing is looked up; words it does not recognise at all are left out and the current month
-  is used. "by me" is not read as a name, and an ordering word after "by" ("by date", "by
-  newest") is not read as one either. The reply
-  gives the count, the result of the log chain and the newest ten events with date, time,
-  user and what was done. When a person or a count was given, a line under the first one
-  says that only that person's events are counted or that the list is limited to the latest
-  N, so a short list is not taken for a quiet period.
+  changed in the books" ask for it, also in the plural and with a hyphen ("audit logs",
+  "audit-trail"). Add a period in the same sentence ("audit trail for October", "audit
+  trail from 2026-10-01 to 2026-10-31", "audit trail for FY 2025-26", "who changed the
+  books last week"), a person ("audit trail by Priya"), a count ("audit trail limit 50",
+  "last 20 changes in the audit log"), and "everything", "all events" or "including reads"
+  for the all view. A period, a person or a count it recognises but cannot use (a day that
+  is not on the calendar, a limit of 0) gets a sentence that says so and nothing is looked
+  up; words it does not recognise at all are left out and the current month is used. "by
+  me" is not read as a name, and an ordering word after "by" ("by date", "by newest") is
+  not read as one either. The reply gives the count, the result of the log chain and the
+  newest ten events with date, time, user and what was done. When a person or a count was
+  given, a line under the first one says that only that person's events are counted or
+  that the list is limited to the latest N, so a short list is not taken for a quiet
+  period. A sentence that posts something and only mentions the words ("invoice Kiran
+  Stores 25000 for audit trail review") is still a posting.
 - App: Reports has an Audit trail row. The screen has chips for the period (this month,
   last month, this quarter, this year; the year is the financial year, 1 April to 31 March)
   and the view (changes, everything), a line with the
@@ -163,7 +165,8 @@ workbook.
 
 - The Excel workbook lists every event of the period for every user. "By <name>" and "last
   N" narrow the list in chat only; an Excel request that carries them still gets the whole
-  period, and the file does not say that they were left out.
+  period. The chat reply says in words that the name or the count was not applied; the
+  file does not.
 - The limits of the chain are in the section above: events cut off the end, a re-sealed
   log, the client label and the author of an event are not covered.
 - Reads are not in the list on the hosted service (see above).

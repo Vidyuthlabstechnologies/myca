@@ -227,15 +227,19 @@ recorded show up before the return is filed.
 
 Limits of what can be said and recorded from chat:
 
-- A receipt or payment sentence is read for one amount. A date in words is read and is
-  not an amount ("on 20 October", "20th October", "October 20, 2026"; a day and month with
-  no year is the latest such date that is not in the future). Nor is a reference number
-  said as "cheque no 123456", "ref 998877", "UTR 4567891234", "txn id 998877" or "#4521",
-  a term such as "30 days" or "net 30", or an instalment number ("instalment 2 of 3").
-  When the sentence still holds two amounts ("received 98000 and 2000 against INV-0001"),
-  or a bare number such as "cheque 123", MyCA says it read more than one amount, records
-  nothing and asks for the one amount. "Yesterday" is not read: the entry is dated today
-  and the preview shows the date before anything posts.
+- A receipt or payment sentence is read for one amount. A date in words is read and is not
+  an amount ("on 20 October", "20th October", "October 20, 2026"; a day and month with no
+  year is the latest such date that is not in the future). Nor is a reference number said
+  as "cheque no 123456", "ref 998877", "UTR 4567891234", "txn id 998877" or "#4521", a
+  six-digit cheque number said after the amount ("received 5000 against INV-0001 cheque
+  123456"), a term such as "30 days" or "net 30", or an instalment number ("instalment 2
+  of 3"). A six-digit figure straight after the verb is the amount ("received cheque
+  200000 against INV-0001"). When the sentence still holds two amounts ("received 98000
+  and 2000 against INV-0001"), or a short bare number such as "cheque 123", MyCA says it
+  read more than one amount, records nothing and asks for the one amount. An amount of
+  zero or less ("received 0 against INV-0001", "paid Fabric Co -4000") is refused in words
+  and nothing is recorded. "Yesterday" is not read: the entry is dated today and the
+  preview shows the date before anything posts.
 - TDS the business deducts from a supplier is taken when the bill or expense is posted
   ("bill from Fabric Co 10000 GST 5% with TDS 194C", after "we deduct TDS, TAN ..."). No
   sentence adds TDS to a bill already posted, and `record_tds_withheld` is for sales
