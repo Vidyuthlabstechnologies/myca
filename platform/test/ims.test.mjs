@@ -260,7 +260,7 @@ test('every refusal reaches the user as a sentence in the preview, never as a co
   const blocked = (args) => previewOf(state, 'ims_decide', args).blockers;
   assert.deepEqual(blocked({ period: '2026-08', select: 'all', decision: 'accept' }), ['Add the GSTR-2B for that month first.']);
   assert.deepEqual(blocked({ period: PERIOD, select: 'all', decision: 'maybe' }), ['Say accept, reject or pending.']);
-  assert.deepEqual(blocked({ period: PERIOD, decision: 'accept' }), ['Say which invoices, for example "accept all matched in IMS for 2026-09" or "reject DYE WORKS in IMS for 2026-09".']);
+  assert.deepEqual(blocked({ period: PERIOD, decision: 'accept' }), ['Say which invoices, for example "accept all matched in IMS for 2026-09" or "reject all undecided in IMS for 2026-09".']);
   assert.deepEqual(blocked({ period: PERIOD, keys: [`${PERIOD}|NOPE|X|B2B`], decision: 'accept' }), ['One of those invoices is not in the GSTR-2B for that month.']);
   assert.deepEqual(blocked({ period: PERIOD, keys: [KEYS.pack], decision: 'accept', note: 'x'.repeat(201) }), ['Keep the note to 200 characters or fewer.']);
   assert.deepEqual(blocked({ period: 'soon', select: 'all', decision: 'accept' }), ['Say the month as YYYY-MM, for example 2026-10.']);

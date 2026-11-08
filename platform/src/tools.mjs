@@ -1,4 +1,4 @@
-import { tally, bank, gst, gstin, filing, audit } from './sprint-load.mjs';
+import { tally, bank, gstin, filing, audit } from './sprint-load.mjs';
 import { invoiceTemplate, setInvoiceTemplate } from './invoice-template.mjs';
 import { importSettlement, settlementStatus } from './settlements.mjs';
 import { importMarketplaceOrders, postSettlement } from './marketplace-orders.mjs';
@@ -30,7 +30,6 @@ import { listDscCertificates, signWithDsc } from './dsc.mjs';
 import { suggestExpenseHead } from './expense-head-model.mjs';
 const ingestTally = tally.ingest;
 const ingestBank = bank.ingest;
-const { reconcile } = gst;
 const { validateGstin } = gstin;
 const { filingPrep } = filing;
 const { auditRun } = audit;
@@ -49,7 +48,7 @@ import { exportEntries } from './entries-export.mjs';
 import { exportTallyXml } from './tally-export.mjs';
 import { reportSheet } from './report-sheets.mjs';
 import { auditTrail } from './audit-trail.mjs';
-import { import2b, creditAtRisk } from './gstr2b-check.mjs';
+import { import2b, creditAtRisk, reconcileDocuments } from './gstr2b-check.mjs';
 import { imsReview, decideIms } from './ims.mjs';
 import { booksCheck } from './books-check.mjs';
 import { deadlineRun, filingRows } from './deadline-run.mjs';
@@ -155,7 +154,7 @@ function reconcileFor(state, asOfDate) {
   const purchaseRegister = state.files.purchaseRegister || purchaseRegisterCsv(state.purchases || []);
   const gstr1 = state.files.gstr1 || invoicesToSalesCsv(state.invoices || []);
   if (!state.files.gstr2b || !state.files.gstr3b) return null;
-  return reconcile(
+  return reconcileDocuments(
     { purchaseRegisterText: purchaseRegister, gstr2bText: state.files.gstr2b, gstr1Text: gstr1, gstr3bText: state.files.gstr3b },
     { clientGstin: state.company.gstin, asOfDate, supplierFilings: undefined },
   );
@@ -2335,7 +2334,7 @@ export const TOOLS = [
       }
       if (!files.gstr2b) return fail('Attach a GSTR-2B CSV (dropdown can be unused; attach as gstr2b).');
       if (!files.gstr3b) return fail('Attach GSTR-3B CSV, or ask to prepare GSTR-3B first and export.');
-      return ok(reconcile(
+      return ok(reconcileDocuments(
         {
           purchaseRegisterText: purchaseRegister,
           gstr2bText: files.gstr2b,

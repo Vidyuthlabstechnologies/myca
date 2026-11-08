@@ -136,7 +136,7 @@ test('routing-14: a word that picks no invoice says which word found nothing; a 
   await runTool(decided, 'ims_decide', { period: PERIOD, select: 'all', decision: 'accept' });
   assert.equal(planImsDecision(decided, { period: PERIOD, decision: 'reject', select: 'undecided' }).error, 'NO_MATCH');
   assert.deepEqual(blocked(decided, { select: 'undecided', decision: 'reject' }), ['No invoice in that month is undecided, so nothing was marked.']);
-  const asking = ['Say which invoices, for example "accept all matched in IMS for 2026-09" or "reject DYE WORKS in IMS for 2026-09".'];
+  const asking = ['Say which invoices, for example "accept all matched in IMS for 2026-09" or "reject all undecided in IMS for 2026-09".'];
   assert.equal(planImsDecision(decided, { period: PERIOD, decision: 'accept' }).error, 'NO_ROWS');
   assert.deepEqual(blocked(decided, {}), asking);
   assert.deepEqual(blocked(decided, { keys: [] }), asking);

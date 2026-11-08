@@ -1,7 +1,7 @@
 import { gst } from './sprint-load.mjs';
 import { isReturnPeriod } from './return-period.mjs';
 import { localToday } from './dates.mjs';
-import { allRows, normGstin, normNumber, supplierNumberOf } from './gstr2b-check.mjs';
+import { allRows, documentKey, documentsOf, normGstin, normNumber, supplierNumberOf } from './gstr2b-check.mjs';
 
 const { itcOf } = gst;
 
@@ -26,9 +26,6 @@ const NO_MATCH_WORDS = {
   all: 'There is no invoice in that month, so nothing was marked.',
 };
 const WORDS_LISTED = 8;
-const SUMMED = [...HEADS, 'totalValue'];
-const LESS_AVAILABLE = ['N', 'A'];
-const EXAMPLE_NAME_MAX = 40;
 
 const round2 = (value) => Math.round(Number(value || 0) * 100) / 100;
 const compare = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
@@ -36,26 +33,11 @@ const failure = (error, extra = {}) => ({ ok: false, error, ...extra });
 const text = (value) => String(value ?? '');
 
 export function imsKey(period, row) {
-  const supplier = normGstin(row.supplierGstin) || normNumber(row.supplierName);
-  return `${period}|${supplier}|${normNumber(row.invoiceNo)}|${String(row.section || '').toUpperCase()}`;
-}
-
-function oneDocument(lines) {
-  if (lines.length === 1) return lines[0];
-  const added = Object.fromEntries(SUMMED.map((head) => [head, round2(lines.reduce((total, line) => total + (Number(line[head]) || 0), 0))]));
-  const lesser = LESS_AVAILABLE.find((code) => lines.some((line) => line.itcAvailability === code));
-  return { ...lines[0], ...added, itcAvailability: lesser || lines[0].itcAvailability };
+  return documentKey(period, row);
 }
 
 function statementDocuments(state, period) {
-  const groups = new Map();
-  for (const raw of allRows(state)) {
-    if (raw.statementPeriod !== period) continue;
-    const key = imsKey(period, raw);
-    if (groups.has(key)) groups.get(key).push(raw);
-    else groups.set(key, [raw]);
-  }
-  return [...groups].map(([key, lines]) => ({ key, raw: oneDocument(lines), lines: lines.length }));
+  return documentsOf(allRows(state).filter((row) => row.statementPeriod === period));
 }
 
 function creditOf(row) {
@@ -219,11 +201,6 @@ export function pinImsRows(args, plan) {
   return pinned;
 }
 
-function exampleSupplier(rows) {
-  const row = rows.find((item) => item.supplierName && item.supplierName.length <= EXAMPLE_NAME_MAX);
-  return row ? row.supplierName : '';
-}
-
 export function planImsDecision(state, args = {}) {
   const period = text(args.period).trim();
   if (!isReturnPeriod(period)) return failure('INVALID_PERIOD', { hint: 'Use YYYY-MM, for example 2026-09.' });
@@ -248,7 +225,7 @@ export function planImsDecision(state, args = {}) {
     const seen = new Set();
     const select = text(args.select).trim();
     picked = pickRows(review.rows, select, decision).filter((row) => !seen.has(row.key) && seen.add(row.key));
-    if (!picked.length) return IMS_SELECTS.includes(select) ? failure('NO_MATCH', { hint: noMatchWords(select, decision) }) : failure('NO_ROWS', { period, supplier: exampleSupplier(review.rows) });
+    if (!picked.length) return IMS_SELECTS.includes(select) ? failure('NO_MATCH', { hint: noMatchWords(select, decision) }) : failure('NO_ROWS', { period });
     if (picked.length > IMS_MAX_ROWS) return failure('TOO_MANY_ROWS', { limit: IMS_MAX_ROWS });
   }
   return {
