@@ -341,7 +341,7 @@ void main() {
       final session = await waitingForSecondStep(
         cloud,
         scriptedSession(cloud, {
-          '/v1/auth/second-step': [refused(400, 'CODE_EXPIRED'), refused(400, 'CODE_USED'), refused(429, 'TOO_MANY_ATTEMPTS')],
+          '/v1/auth/second-step': [refused(400, 'CODE_EXPIRED'), (400, {'ok': false, 'error': 'CODE_USED', 'attemptsRemaining': 2}), refused(429, 'TOO_MANY_ATTEMPTS')],
         }),
       );
       await expectLater(session.completeSecondStep('246810'), says(over));
@@ -412,7 +412,9 @@ void main() {
       await tester.pumpWidget(MycaApp(state: hosted(cloud, MemoryTokenStore())));
       await tester.pumpAndSettle();
       await phoneCodeSignIn(tester);
-      cloud.secondStepError = 'CODE_USED';
+      cloud
+        ..secondStepError = 'CODE_USED'
+        ..secondStepLeft = 2;
       await typeSecondStep(tester, cloud.totpCode);
       expect(find.text(usedAlready), findsOneWidget);
       expect(find.text('Enter your authenticator code'), findsOneWidget);
