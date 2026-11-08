@@ -91,7 +91,13 @@ their books can answer), then turn two-step off for them in the database:
 `delete from user_totp where user_id = ...;` and
 `delete from recovery_codes where user_id = ...;`. Their next sign-in is one step again;
 tell them to turn two-step back on from Security in the app. Their signed-in devices are
-untouched; if the authenticator was on a lost phone, end that device as well (above).
+untouched by those two statements. If the authenticator was on a lost phone, end that
+device as well (above). If the user did not switch two-step on themselves, or you cannot
+tell, end every device of theirs in the same sitting with
+`update devices set revoked_at = now() where user_id = ... and revoked_at is null;`,
+because a session that stays signed in can enrol an authenticator of its own again (the
+app asks for no fresh code to do that; see section 4 of
+`docs/architecture/SECURITY-AND-PRIVACY.md`).
 
 ## 4. Redundancy choices and their cost
 

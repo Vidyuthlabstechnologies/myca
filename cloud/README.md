@@ -20,6 +20,14 @@ not created yet (`infra/cloud` is written and validated, applied by hand).
    opens a platform session on them, runs the engine with the caller as the actor,
    writes the row back, and appends to `audit_log`.
 
+A read-only request (a query, or the snapshot) takes the row for share, writes nothing
+back and sends its audit events to `audit_log` alone, so the books do not hold the
+events of those reads. `GET /v1/businesses/:id/snapshot` is the summary the app builds
+its lists from: `company`, `invoices`, `purchases`, `expenses`, `creditNotes`, `quotes`
+and `customerTerms`, with the caller's `role` and `user`, and nothing else (no employees,
+documents, users or provider data). An accountant who is set to see a shared copy gets
+the copy, with `sharedAsOf`.
+
 ## Layout
 
 | Path | Purpose |
@@ -102,9 +110,9 @@ user can turn on two-step sign-in with an authenticator app from Security in the
 | `GET /v1/me/second-step` | `{ enabled, enabledAt, recoveryCodesLeft }` |
 | `POST /v1/me/second-step/begin` | starts enrolment: the base32 key, the `otpauth://` uri and the account name, shown once |
 | `POST /v1/me/second-step/confirm {code}` | the first code from the app turns two-step on and returns eight recovery codes, shown once; five wrong codes throw the setup away (`ENROLMENT_RESTART`) |
-| `POST /v1/me/second-step/disable {code}` | turns it off; an authenticator code or an unused recovery code |
-| `POST /v1/me/second-step/recovery-codes {code}` | replaces the recovery codes |
-| `POST /v1/auth/second-step {challengeId, code, deviceLabel}` | finishes a sign-in. With two-step on, verify, google and oidc answer `{ secondStep: true, challengeId, expiresInSeconds: 300, user }` and no tokens; this route takes the authenticator code, or a recovery code once, and issues the tokens with `usedRecoveryCode` and `recoveryCodesLeft`. Five minutes and five attempts per challenge (`CODE_EXPIRED`, `TOO_MANY_ATTEMPTS`); a code that was used, or an older one, is refused |
+| `POST /v1/me/second-step/disable {code}` | turns it off; an authenticator code or an unused recovery code. A wrong code answers `INVALID_CODE` with `attemptsRemaining`; the code that was just accepted answers `CODE_USED` (one older than that answers `INVALID_CODE`), and both count as a wrong try, as does anything not shaped like a code. Five wrong tries without a right code between them lock the route: every code, a right one too, is then refused with `429 TOO_MANY_ATTEMPTS` until 15 minutes after the fifth. A right code clears the count |
+| `POST /v1/me/second-step/recovery-codes {code}` | replaces the recovery codes; the same check, the same `CODE_USED` answer and the same lock as `disable`, and the two routes share one count (`user_totp.attempts` and `failed_at`, migration 017) |
+| `POST /v1/auth/second-step {challengeId, code, deviceLabel}` | finishes a sign-in. With two-step on, verify, google and oidc answer `{ secondStep: true, challengeId, expiresInSeconds: 300, user }` and no tokens; this route takes the authenticator code, or a recovery code once, and issues the tokens with `usedRecoveryCode` and `recoveryCodesLeft`. Five minutes and five attempts per challenge (`CODE_EXPIRED`, `TOO_MANY_ATTEMPTS`); a code that was just used answers `CODE_USED` and an older one `INVALID_CODE`. A wrong code here is counted on the challenge and is not added to the count above; a good sign-in clears that count |
 | `GET /v1/me/devices` | the devices signed in to the account with a live refresh token, this one first: `{ id, label, signedInOn, lastActive, current }` |
 | `POST /v1/me/devices/:id/sign-out` | ends that device at once; `409 CURRENT_DEVICE` for this one, which uses `POST /v1/auth/logout`; `404 DEVICE_NOT_FOUND` for a device that is not the caller's or is already signed out |
 | `POST /v1/me/devices/sign-out-others` | ends every other device; `revoked` counts the ones that were listed |

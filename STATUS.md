@@ -36,6 +36,54 @@ and [`README.md`](README.md) for what is left and how it is being done.
 - Deadline engine (GSTR-1/3B/7/9, TDS quarterly, PF, advance tax, ITR) with
   weekend/gazetted-holiday rollover and escalation levels
 - ITR regime comparison (AIS/26AS, old vs new); TDS 194A/C/I/J threshold monitor
+- Audit trail (2026-11-06): who changed the books, when, and which invoices, bills and ledger
+  entries were involved, for a month, a period or two dates; asked in chat ("audit trail for
+  October"), on a screen of the app opened from Reports, and as an Excel workbook
+  (`export_xlsx`, report `audit_trail`, which the app also saves) of the events, the day book
+  and a summary. Each event holds a SHA-256 hash that takes in the hash of the event before
+  it, and the trail says the log is verified or names the first event where the chain breaks.
+  The chain has no key (see Known limitations). An event falls on the day of its time on the
+  computer MyCA runs on. On the hosted service every write is also copied into the
+  append-only `audit_log` table
+  ([`10-audit-trail.md`](docs/product/features/10-audit-trail.md))
+- MSME payment dates (2026-11-06): the supplier terms sheet in the app and `set_supplier_terms`
+  record whether a supplier is an MSME, its category, an Udyam number and its agreed days; the
+  pay-by date of a bill is worked out each time from those terms (the agreed days, never more
+  than 45, or 15 when none are agreed). The daily run adds a reminder to Home for each unpaid
+  bill seven days before its date (today when that day has passed), once that day is within
+  the next 14 days; MyCA sends it to nobody, though the weekly brief, where it is switched on,
+  names MSME bills already past their date. A bill past its date raises a high
+  `MSME_PAST_LIMIT` exception that closes when the bill is paid, a row in the daily close, a
+  place at the top of the payment run (past its date or due within three days) and a panel on
+  Home. A supplier marked medium is not covered and follows its agreed days. The two rules
+  behind it carry no CA sign-off yet, so `supplier_dues` marks its rows `unreviewed`
+  ([`02`](docs/product/features/02-invoices-quotes-eway-bills.md))
+- Form 26AS check and TDS withheld (2026-11-06): `import_26as_credits` keeps every section of a
+  Form 26AS file and skips rows already on file; `tds_credit_check` sets each deductor, section
+  and quarter against the TDS recorded on sales invoices (for 194-O, the marketplace
+  settlements), by TAN and then by name, as matched, not in books, not in 26AS, short in 26AS
+  or more in 26AS, and pairs the same deduction across quarters when the amounts agree
+  within ₹1; `record_tds_withheld` records TDS a customer deducted from an invoice,
+  previewed first, to TDS receivable (1160), and settles the invoice by that amount. The
+  check posts nothing and does not read AIS
+  ([`04`](docs/product/features/04-tds.md))
+- GST IMS decisions (2026-11-06): `ims_review` lists a month's GSTR-2B as one row for each
+  document, with whether the books hold it and a suggestion; `ims_decide` records accept,
+  reject, pending or clear on chosen rows or on a word, previewed first, and keeps them in
+  `imsDecisions`. In chat, as an Excel sheet (`ims_review`) and on the phone as "Review in
+  IMS". MyCA sends nothing to the portal; the owner takes the same decisions there
+  ([`06`](docs/product/features/06-gstr2b-matching-and-reminders.md))
+- Two-step sign-in (2026-11-06): optional per user on the hosted service. The Security screen
+  in the app enrols an authenticator and shows eight recovery codes once. With it on, signing
+  in by phone code, Google or OpenID Connect returns a five-minute challenge instead of
+  tokens, finished by an authenticator code or a recovery code; five wrong codes end the
+  challenge and a code already accepted is refused. Turning two-step off or renewing the
+  recovery codes needs a code, and five wrong ones in a row refuse every code for 15 minutes
+  ([`SECURITY-AND-PRIVACY.md`](docs/architecture/SECURITY-AND-PRIVACY.md))
+- Signed-in devices (2026-11-06): the Security screen lists the devices signed in to the
+  account with when each signed in and was last active, marks this phone, and ends any other
+  device or all the others; an ended device stops working at once. The server asks for no
+  code to do it; the app asks the phone's screen lock when the phone has one
 - Supplier bank details and a payout file (2026-10-19): the owner records where a supplier is
   paid (account and IFSC, or UPI); a change is shown old against new with the warning to
   confirm it on the number already on file; a bulk NEFT file for the bills the payment run
@@ -276,6 +324,7 @@ no live switch, no CA approvals, and no bytes leaving the PC.
 | D2C and marketplace brands (decided 2026-10-16, `docs/superpowers/specs/2026-10-16-d2c-programme.md`) | Built 2026-10-16: D1 settlement reconciliation, D2 orders and returns with settlements posting, D3 TCS and 194-O credits against the portal statement and 26AS, D4 several GSTINs under one business with stock transfers, D5 SKU costs, stock and margins, D7 the daily close; on the phone as the Marketplace screen, the close on Home and registration-scoped Taxes. D6 connectors built to the credential boundary 2026-10-16 (`set_channel_connector`, `fetch_channel_report`, `sync_channels` for Amazon SP-API, Shopify and Razorpay through the action gate with mock fixtures; the desktop fetches daily; Flipkart, Myntra, Nykaa, Meesho and Unicommerce stay file imports). Hosted pulls built 2026-10-16: each business saves its connector credentials on the hosted API (`POST /v1/businesses/:id/connectors`, sealed per business with `MYCA_CONNECTOR_KEY`, never shown back), the nightly job and `POST .../connector-sync` pull through the gate behind the separate read-only switch `MYCA_ENABLE_CHANNEL_PULLS` (government and model calls stay behind the live switch, which the hosted API still refuses). Left to go live: seller credentials and the owner turning the pull switch on; and D8: the WhatsApp webhook is built on the hosted API (Meta Cloud API, signature-checked, members matched by number, the same preview-and-confirm chat; 2026-10-16) and waits on a WhatsApp Business account; Hindi and Telugu wait on the model decision |
 | UI polish | Invoice design built 2026-10-16 (colour, layout, bank details, terms, footer, signatory, HSN column; desktop print and app PDF). Export invoices in a foreign currency (2026-10-15) cover the multi-currency need for Indian businesses; the desktop has keyboard shortcuts (Ctrl+K or / for chat, Ctrl+1 to 8 for the tabs, Esc clears) |
 | Ops | Custom domain + TLS active, GitHub Pro branch protection, code-signing certificate. The packaged app checks the project's GitHub release page on launch; once the installer is signed by the publisher it downloads, verifies and installs it quietly (2026-10-21), until then it offers the download |
+| Batch 4 leftovers (2026-11-06) | AIS in the Form 26AS check (the check and `import_26as_credits` read Form 26AS only; `prepare_itr` already takes an AIS file for the regime comparison). The file the GSTN IMS portal takes for decisions (MyCA keeps the decisions and sends nothing to the portal). A server-side step-up before another device is ended (the server asks for no code; the app asks the phone's own screen lock). A line in the privacy notice for the authenticator key (the notice in force, `draft-2026-10-07`, does not name it). A daily WhatsApp message for MSME dates (the reminder is on Home and goes to nobody; the weekly brief, where switched on, already names MSME bills past their date) |
 
 ## Known limitations (stated honestly, not hidden)
 
@@ -291,3 +340,26 @@ no live switch, no CA approvals, and no bytes leaving the PC.
 - The local CA API is a contract/test harness, not a production connector layer.
 - The marketing site under `deploy/` is research/status content, not the product.
 - `vendor/` reference clones are never imported (licence reasons — see `vendor/README.md`).
+- A receipt or payment said in chat is read for one amount. A date in words ("on 20
+  October"), a reference said as "cheque no 123456" or "UTR 4567891234", "net 30" and "30
+  days" are not counted as amounts. Two real amounts, or a bare number such as "cheque 123",
+  make MyCA say it read more than one amount, record nothing and ask for the one amount.
+  "Yesterday" is not read: the entry is dated today, and the preview shows the date before
+  anything posts ([`04-tds.md`](docs/product/features/04-tds.md)).
+- The Excel export of the audit trail lists every event of the period for every user. "By
+  <name>" and "last N" narrow the list in chat only, and the file does not say they were left
+  out ([`10-audit-trail.md`](docs/product/features/10-audit-trail.md)).
+- The audit trail's hash chain has no key. Once a newer event follows, it shows an event that
+  was edited or taken out of the log. It does not show events cut off the end of the log, a
+  log re-sealed by someone able to write the books, a changed client label (the client an
+  event is filed under is not part of the hash) or who appended an event. The trail says
+  "verified" and never that the log is whole.
+- TDS the business deducts from a supplier is taken when the bill or expense is posted ("bill
+  from Fabric Co 10000 GST 5% with TDS 194C", after "we deduct TDS, TAN ..."). No chat
+  sentence adds TDS to a bill already posted, and `record_tds_withheld` takes sales invoices
+  (INV- numbers) only.
+- Switching two-step on needs only a live session (accepted 2026-11-06): a stolen or unlocked
+  session can enrol its own authenticator and take the recovery codes, and every later
+  sign-in by the owner then stops at a step only the thief can pass until an operator
+  steps in. The planned mitigation is in `docs/architecture/SECURITY-AND-PRIVACY.md`
+  section 4.
