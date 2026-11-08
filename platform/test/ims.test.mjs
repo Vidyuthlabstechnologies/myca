@@ -362,7 +362,7 @@ test('the tools are registered in the places that gate them', () => {
   assert.deepEqual(catalog.ims_decide.parameters.properties.decision.enum, ['accept', 'reject', 'pending', 'clear']);
   assert.deepEqual(catalog.ims_decide.parameters.properties.select.enum, ['matched', 'suggested', 'undecided', 'all']);
   assert.equal(catalog.ims_decide.parameters.properties.keys.maxItems, 500);
-  assert.equal(catalog.ims_decide.parameters.properties.keys.items.maxLength, 120);
+  assert.equal(catalog.ims_decide.parameters.properties.keys.items.maxLength, 400);
   assert.equal(catalog.ims_decide.parameters.properties.note.maxLength, 200);
 
   assert.equal(validateAssistantToolCall('ims_review', {}).ok, true);
@@ -377,7 +377,7 @@ test('the tools are registered in the places that gate them', () => {
   assert.equal(validateAssistantToolCall('ims_decide', { period: '2026-10', select: 'all' }).ok, false);
   assert.equal(validateAssistantToolCall('ims_decide', { period: '2026-10', keys: Array.from({ length: 501 }, () => 'k'), decision: 'accept' }).ok, false);
   assert.equal(validateAssistantToolCall('ims_decide', { period: '2026-10', keys: Array.from({ length: 500 }, () => 'k'), decision: 'accept' }).ok, true);
-  assert.equal(validateAssistantToolCall('ims_decide', { period: '2026-10', keys: ['k'.repeat(121)], decision: 'accept' }).ok, false);
+  assert.equal(validateAssistantToolCall('ims_decide', { period: '2026-10', keys: ['k'.repeat(401)], decision: 'accept' }).ok, false);
   assert.equal(validateAssistantToolCall('ims_decide', { period: '2026-10', keys: [1], decision: 'accept' }).ok, false);
   assert.equal(validateAssistantToolCall('ims_decide', { period: '2026-10', select: 'all', decision: 'accept', note: 'x'.repeat(201) }).ok, false);
 

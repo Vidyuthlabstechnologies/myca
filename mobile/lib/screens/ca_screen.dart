@@ -9,6 +9,7 @@ import '../app_services.dart';
 import '../marks.dart';
 import '../theme.dart';
 import '../widgets.dart';
+import '../widgets/utf16_limit.dart';
 
 Future<String> askMyCa(
   BuildContext context, {
@@ -143,7 +144,7 @@ class _AskSheetState extends State<_AskSheet> {
             autofocus: true,
             minLines: 2,
             maxLines: 5,
-            maxLength: 1000,
+            inputFormatters: const [Utf16LengthLimit(1000)],
             textCapitalization: TextCapitalization.sentences,
             decoration: const InputDecoration(
               labelText: 'Your question',

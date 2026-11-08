@@ -10,6 +10,7 @@ import '../proposal_flow.dart';
 import '../registers.dart';
 import '../theme.dart';
 import '../widgets.dart';
+import '../widgets/utf16_limit.dart';
 import 'invoice_screen.dart';
 import 'remind_customer_screen.dart';
 
@@ -871,7 +872,7 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
       TextField(
         controller: _billNo,
         textCapitalization: TextCapitalization.characters,
-        maxLength: 16,
+        inputFormatters: const [Utf16LengthLimit(16)],
         decoration: const InputDecoration(
           labelText: 'Supplier\'s bill number',
           helperText: 'As printed on the bill.',
@@ -969,7 +970,7 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
       TextField(
         controller: _billNo,
         textCapitalization: TextCapitalization.characters,
-        maxLength: 16,
+        inputFormatters: const [Utf16LengthLimit(16)],
         decoration: const InputDecoration(
           labelText: 'Supplier\'s bill number',
           helperText:

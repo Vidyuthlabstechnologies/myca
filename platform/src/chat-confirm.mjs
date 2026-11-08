@@ -23,7 +23,7 @@ import { aaBankFeed } from './aa-import.mjs';
 import { planCreditNote, creditedAgainst, outstandingOf } from './credit-notes.mjs';
 import { planDebitNote, planPurchaseNote } from './debit-notes.mjs';
 import { checkAnswer, reviewOf, stepText } from './gst-review.mjs';
-import { parse2bFile } from './gstr2b-check.mjs';
+import { keyTooLongErrors, parse2bFile } from './gstr2b-check.mjs';
 import { planImsDecision, pinImsRows, IMS_DECISION_WORDS, IMS_SELECTS } from './ims.mjs';
 import { planReminder, findReminder, whenWords } from './reminders.mjs';
 import { planCashReading } from './cash-forecast.mjs';
@@ -1000,7 +1000,7 @@ function gstr2bPreview(state, args) {
   return {
     blockers: [],
     summary: `GSTR-2B for ${args.period}: ${rows.length} ${rows.length === 1 ? 'entry' : 'entries'} from ${suppliers} ${suppliers === 1 ? 'supplier' : 'suppliers'}${errors.length ? `; ${errors.length} ${errors.length === 1 ? 'row' : 'rows'} could not be read and will be left out` : ''}.${replaces ? ' This replaces the 2B already added for that month.' : ''}`,
-    effects: ['Nothing is posted to your books. Your purchase bills are checked against it.'],
+    effects: ['Nothing is posted to your books. Your purchase bills are checked against it.', ...keyTooLongErrors(errors).map((error) => error.message)],
     figures: { period: args.period, rows: rows.length, suppliers, skipped: errors.length },
   };
 }

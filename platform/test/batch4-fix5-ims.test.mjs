@@ -308,7 +308,8 @@ test('APP-IMS-1: when one key is too long to travel in the call, the word is kep
   const csv = [HEADER, `B2B,${GSTIN},FABRIC CO,${long},05-10-2026,1000,25,25,0,0,1050,Y`, ...range(1, 500).map(rowOf)].join('\n');
   const added = await runTool(state, 'import_gstr2b', { period: PERIOD, csv, fileName: 'long.csv' });
   assert.equal(added.ok, true, JSON.stringify(added));
-  assert.ok(review(state).rows.some((row) => row.key.length > 120));
+  state.gstr2b[PERIOD].rows[0].invoiceNo = 'L'.repeat(400);
+  assert.ok(review(state).rows.some((row) => row.key.length > 400));
   const held = propose(state, 'ims_decide', { period: PERIOD, select: 'all', decision: 'accept' });
   assert.equal(held.awaitingConfirmation, true, held.reply);
   assert.deepEqual(held.preview.effects, [BASE, '1 more invoice is left; ask again after this to do it.']);

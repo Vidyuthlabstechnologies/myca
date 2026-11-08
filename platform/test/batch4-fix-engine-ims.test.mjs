@@ -116,7 +116,8 @@ test('routing-3: a statement of exactly 500 invoices can be previewed and confir
 test('routing-3: an invoice number so long that its key could not travel in the call is left as the word, and the preview and the yes still work', async () => {
   const csv = [HEADER, `B2B,27AABCT1332L1ZE,FABRIC CO,${'L'.repeat(110)},05-09-2026,100,2.5,2.5,0,0,105,Y`].join('\n');
   const state = await statementOnly(csv);
-  assert.ok(rowsOf(state)[0].key.length > 120);
+  state.gstr2b[PERIOD].rows[0].invoiceNo = 'L'.repeat(400);
+  assert.ok(rowsOf(state)[0].key.length > 400);
   const held = propose(state, 'ims_decide', { period: PERIOD, select: 'all', decision: 'accept' });
   assert.equal(held.awaitingConfirmation, true, JSON.stringify(held));
   assert.equal(state.pendingChatAction.args.select, 'all');

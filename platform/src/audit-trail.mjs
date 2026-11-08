@@ -25,6 +25,50 @@ const NOTE = 'Every change made through MyCA is listed with who made it and when
 const HOSTED_NOTE = ' Reads are kept in the hosted audit log, not here.';
 export const NOT_SEALED = 'the client an event is filed under is not sealed';
 
+export const OUTSIDE_SENTENCES = Object.freeze({
+  gst_taxpayer_generate_otp: 'Ask the GST portal for a sign-in code',
+  gst_taxpayer_verify_otp: 'Sign in to the GST portal with a code',
+  gst_gstr2b_recon_submit: 'Start a GSTR-2B check at the GST portal',
+  gst_return_status: 'Check the status of GST returns at the portal',
+  gst_save_gstr1: 'Save GSTR-1 at the GST portal',
+  gst_file_gstr1_evc: 'File GSTR-1 at the GST portal',
+  einvoice_authenticate: 'Sign in to the e-invoice portal',
+  einvoice_generate: 'Generate an e-invoice (IRN)',
+  einvoice_cancel: 'Cancel an e-invoice (IRN)',
+  gstin_verify: 'Look up a GSTIN',
+  income_tax_calculate: 'Work out income tax',
+  tds_analytics_job: 'Start a TDS check at the portal',
+  tds_fvu_generate: 'Generate a TDS return file (FVU)',
+  sandbox_status: 'Check the GST service connection',
+  validate_gstin_lookup: 'Look up a GSTIN',
+  nic_auth: 'Sign in to the e-invoice portal',
+  nic_health: 'Check the e-invoice portal',
+  nic_gstin_master: 'Look up a GSTIN at the e-invoice portal',
+  nic_irn_generate: 'Generate an e-invoice (IRN)',
+  nic_irn_get: 'Fetch an e-invoice by IRN',
+  nic_irn_get_by_doc: 'Fetch an e-invoice by document number',
+  nic_irn_cancel: 'Cancel an e-invoice (IRN)',
+  nic_rejected_irns: 'Fetch rejected e-invoices',
+  nic_ewb_generate: 'Generate an e-way bill',
+  nic_ewb_get: 'Fetch an e-way bill',
+  nic_ewb_cancel: 'Cancel an e-way bill',
+  govt_probe: 'Check that the government portals can be reached',
+  notification_send: 'Send a message',
+  nim_ask: 'Ask the AI assistant',
+  knowledge_answer: 'Answer from the firm notes',
+  nim_status: 'Check the AI assistant connection',
+  dsc_sign: 'Sign with a digital signature (DSC)',
+  tally_push: 'Push to Tally',
+  provider_doctor_ping: 'Check the connections',
+  channel_fetch_report: 'Fetch a sales report from a channel',
+  zoho_push_invoices: 'Send invoices to Zoho',
+  plaid_link: 'Link a bank through Plaid',
+  taxjar_rate: 'Look up a sales tax rate',
+  gusto_token: 'Connect to Gusto',
+  track1099_read: 'Read 1099 forms from Track1099',
+  track1099_import: 'Import 1099 forms from Track1099',
+});
+
 export const AUDIT_SHEET_HEADER = ['Event', 'When (UTC)', 'Who', 'Action', 'What changed', 'Records', 'Transfers', 'Books digest before', 'Books digest after', 'Chained'];
 export const AUDIT_SHEET_WIDTHS = [12, 26, 20, 26, 60, 28, 24, 40, 40, 10];
 
@@ -37,7 +81,7 @@ function isRecord(value) {
 }
 
 function human(name) {
-  const spaced = String(name == null ? '' : name).replace(/_/g, ' ').trim().replace(/\S+/g, (token) => ACRONYMS.get(token.toLowerCase()) || token);
+  const spaced = String(name == null ? '' : name).replace(/[._]+/g, ' ').trim().replace(/\S+/g, (token) => ACRONYMS.get(token.toLowerCase()) || token);
   return spaced ? spaced[0].toUpperCase() + spaced.slice(1) : '';
 }
 
@@ -145,6 +189,19 @@ function withIds(text, ids) {
   return ids.length ? `${text} (${ids.slice(0, SENTENCE_IDS).join(', ')})` : text;
 }
 
+function bracket(parts) {
+  const kept = parts.filter(Boolean);
+  return kept.length ? ` (${kept.join(', ')})` : '';
+}
+
+function outsideSentence(id, meta) {
+  const phrase = Object.hasOwn(OUTSIDE_SENTENCES, id) ? OUTSIDE_SENTENCES[id] : human(id);
+  let sentence = phrase;
+  if (meta.outcomeUnknown === true) sentence = `${phrase}: no answer came back, so it may not have gone through`;
+  else if (meta.ok === false) sentence = `${phrase} did not go through`;
+  return tidy(meta.mock === true ? `${sentence} (simulated)` : sentence);
+}
+
 function summarize(event, ids) {
   const action = String(event.action || '');
   const meta = isRecord(event.metadata) ? event.metadata : {};
@@ -176,7 +233,15 @@ function summarize(event, ids) {
   if (action === 'session.login') return 'Signed in';
   if (action === 'session.logout') return 'Signed out';
   if (action === 'session.pin_changed') return 'Changed PIN';
-  return tidy(action.replace(/\./g, ' '));
+  const outside = /^(?:external|sandbox)\.(.+)$/.exec(action);
+  if (outside) return outsideSentence(outside[1], meta);
+  if (action === 'chat.discard') return 'Discarded a proposal';
+  if (action === 'user.create') return tidy(`Added a user${bracket([field('userId'), field('role')])}`);
+  if (action === 'client.create') return tidy(`Added a client${bracket([field('clientId')])}`);
+  if (action === 'documents.upload') return tidy(`Uploaded a document${bracket([field('documentId')])}`);
+  if (action === 'books_ledger.create_invoice') return tidy(`Posted a sales invoice${bracket([field('voucherId')])}`);
+  if (action === 'books_ledger.create_purchase') return tidy(`Posted a purchase bill${bracket([field('voucherId')])}`);
+  return tidy(human(action));
 }
 
 function readMoment(text) {

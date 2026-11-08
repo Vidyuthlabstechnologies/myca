@@ -8,6 +8,7 @@ import '../format.dart';
 import '../proposal_flow.dart';
 import '../theme.dart';
 import '../widgets.dart';
+import '../widgets/utf16_limit.dart';
 
 class RemindCustomerScreen extends StatefulWidget {
   const RemindCustomerScreen({super.key, required this.customer});
@@ -118,7 +119,11 @@ class _RemindCustomerScreenState extends State<RemindCustomerScreen>
                         controller: _message,
                         minLines: 6,
                         maxLines: 14,
-                        maxLength: 2000,
+                        inputFormatters: const [Utf16LengthLimit(2000)],
+                        buildCounter: (context, {required currentLength, required isFocused, maxLength}) => Text(
+                          '${_message.text.length}/2000',
+                          style: text.bodySmall?.copyWith(color: Palette.muted),
+                        ),
                         decoration: const InputDecoration(
                           labelText: 'Message',
                           helperText:

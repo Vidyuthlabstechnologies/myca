@@ -10,6 +10,7 @@ import '../marks.dart';
 import '../proposal_flow.dart';
 import '../theme.dart';
 import '../widgets.dart';
+import '../widgets/utf16_limit.dart';
 
 const _filters = {
   'all': 'All',
@@ -447,12 +448,13 @@ class _ImsSheetState extends State<_ImsSheet> {
                   const SizedBox(height: 12),
                   TextField(
                     controller: _note,
-                    maxLength: 200,
+                    inputFormatters: const [Utf16LengthLimit(200)],
                     textCapitalization: TextCapitalization.sentences,
                     onChanged: (_) => setState(() {}),
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       labelText: 'Note (optional)',
                       helperText: 'Kept with the decision and listed in the Excel sheet',
+                      counterText: '${_note.text.length}/200',
                     ),
                   ),
                 ],

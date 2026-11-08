@@ -8,6 +8,7 @@ import 'package:myca/app_state.dart';
 import 'package:myca/main.dart';
 import 'package:myca/screens/ims_screen.dart';
 import 'package:myca/widgets.dart';
+import 'package:myca/widgets/utf16_limit.dart';
 
 import 'fake_api.dart';
 
@@ -172,7 +173,7 @@ void main() {
     expect(inSheet(find.text('MyCA suggests leaving it pending until you have checked it.')), findsOneWidget);
     expect(tester.widget<FilledButton>(inSheet(find.byType(FilledButton))).onPressed, isNull);
     expect(tester.widget<ChoiceChip>(inSheet(find.widgetWithText(ChoiceChip, 'Clear'))).onSelected, isNull);
-    expect(tester.widget<TextField>(inSheet(find.byType(TextField))).maxLength, 200);
+    expect(tester.widget<TextField>(inSheet(find.byType(TextField))).inputFormatters!.whereType<Utf16LengthLimit>().single.maxUnits, 200);
 
     await tester.tap(inSheet(find.widgetWithText(ChoiceChip, 'Reject')));
     await tester.pumpAndSettle();

@@ -91,7 +91,9 @@ reminder goes only when the owner says so.
   and not decided are net of them. A decision whose document has left the statement, for
   example after the month's 2B was replaced, is counted (`orphaned`) and left alone.
 - `ims_decide` records accept, reject, pending or clear on chosen rows or on a word
-  (matched, suggested, undecided, all), with an optional note of up to 200 characters, up
+  (matched, suggested, undecided, all), with an optional note of up to 200 characters (the app counts them the way the engine does,
+  in UTF-16 units, so a long Hindi or emoji note is cut at the limit while it is typed
+  instead of being refused), up
   to 500 rows at a time, previewed first. Rows named by key are refused above 500. A word
   that picks more than 500 rows is done in rounds: the rows that already have the decision
   are left out (for clear, the rows that have none), the first 500 of the rest in the
@@ -100,15 +102,19 @@ reminder goes only when the owner says so.
   sentence or the app's Accept all matched, plans the next round, and when nothing is left
   the answer says every invoice asked for already has that decision and nothing was
   marked. A word that picks 500 rows or fewer is unchanged. A decision is kept in
-  `imsDecisions` under the row key `month|supplier|number|section`, so it survives a
+  `imsDecisions` under the row key `month|supplier|number|section` (at most 400
+  characters: the statement import leaves out a row whose invoice number would make it
+  longer, counts it with the rows it could not read and says "Row 3: the invoice number
+  "…" is too long to track, so this row was left out"), so it survives a
   re-added statement that still holds the document. MyCA keeps the decisions and sends
   nothing to the portal; the owner takes the same decisions there, and the Excel sheet
   lists every row with its suggestion. Nothing is posted to the ledger.
 - The preview turns a word into the exact rows it will change, and a yes applies those rows
   and no others. If one of them has left the statement since, the yes is refused with a
   sentence and nothing is changed. A word that picks no row says which word found
-  nothing. (A row whose key is longer than 120 characters is not pinned; the word is read
-  again at yes.)
+  nothing. (A row whose key is longer than 400 characters is not pinned; the word is read
+  again at yes. The statement import leaves out a row whose key would be that long, so only
+  a statement stored by an older version can hold one.)
 - Chat: "show IMS for 2026-09" or "what is pending in IMS" lists the month; "accept all
   matched invoices in IMS", "reject all undecided invoices in IMS" and "mark all suggested
   as accepted in IMS" decide a set. The month is the one said, else the latest month with

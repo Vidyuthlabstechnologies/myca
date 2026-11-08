@@ -1,3 +1,4 @@
+import { IMS_MAX_KEY } from './ims.mjs';
 import { planReceiptWithoutInvoice } from './receipt-intent.mjs';
 import { planExpenseFromChat, planRetagFromChat } from './expense-intent.mjs';
 import { planPaymentFromChat } from './payment-intent.mjs';
@@ -1620,7 +1621,7 @@ export const TOOL_ARG_SCHEMAS = {
     required: ['period', 'decision'],
     properties: {
       period: { type: 'string', pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' },
-      keys: { type: 'array', maxItems: 500, items: { type: 'string', maxLength: 120 } },
+      keys: { type: 'array', maxItems: 500, items: { type: 'string', maxLength: IMS_MAX_KEY } },
       select: { type: 'string', enum: ['matched', 'suggested', 'undecided', 'all'] },
       decision: { type: 'string', enum: ['accept', 'reject', 'pending', 'clear'] },
       note: { type: 'string', maxLength: 200 },

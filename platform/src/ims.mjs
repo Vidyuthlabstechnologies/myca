@@ -1,14 +1,14 @@
 import { gst } from './sprint-load.mjs';
 import { isReturnPeriod } from './return-period.mjs';
 import { localToday } from './dates.mjs';
-import { allRows, documentKey, documentsOf, normGstin, normNumber, supplierNumberOf } from './gstr2b-check.mjs';
+import { DOCUMENT_KEY_MAX, allRows, documentKey, documentsOf, normGstin, normNumber, supplierNumberOf } from './gstr2b-check.mjs';
 
 const { itcOf } = gst;
 
 export const IMS_DECISIONS = ['accept', 'reject', 'pending'];
 export const IMS_SELECTS = ['matched', 'suggested', 'undecided', 'all'];
 export const IMS_MAX_ROWS = 500;
-export const IMS_MAX_KEY = 120;
+export const IMS_MAX_KEY = DOCUMENT_KEY_MAX;
 export const IMS_MAX_NOTE = 200;
 export const IMS_DECISION_WORDS = { accept: 'accepted', reject: 'rejected', pending: 'pending', clear: 'not decided' };
 export const IMS_NOTE = 'MyCA keeps these decisions for you but does not send them to the GST portal. Take the same decisions on the portal\'s IMS; the Excel sheet lists every row with its suggestion.';
