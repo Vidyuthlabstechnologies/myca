@@ -178,13 +178,25 @@ export function auditEventHash(record) {
   return createHash('sha256').update([record.eventId, record.actorId, String(record.actorName || ''), record.action, record.at, record.beforeHash, record.afterHash, sortedKeysJson(record.metadata), record.prevHash].join('\n')).digest('hex');
 }
 
+function auditIdTaken(state, id) {
+  return state.auditEvents.some((row) => row && row.eventId === id);
+}
+
+function nextAuditId(state) {
+  let seq = Number.isSafeInteger(state.auditSeq) && state.auditSeq >= 0 ? state.auditSeq : state.auditEvents.length;
+  let id;
+  do id = `AUD-${String(++seq).padStart(6, '0')}`; while (auditIdTaken(state, id));
+  state.auditSeq = seq;
+  return id;
+}
+
 export function appendAuditEvent(state, event) {
   ensureCaApiState(state);
-  if (event.eventId && state.auditEvents.some((row) => row && row.eventId === event.eventId)) return { ok: false, error: 'DUPLICATE_ID', id: event.eventId };
+  if (event.eventId && auditIdTaken(state, event.eventId)) return { ok: false, error: 'DUPLICATE_ID', id: event.eventId };
   const beforeHash = event.beforeHash || stateDigest(state);
   const previous = state.auditEvents[state.auditEvents.length - 1];
   const record = {
-    eventId: event.eventId || `AUD-${String(++state.auditSeq).padStart(6, '0')}`,
+    eventId: event.eventId || nextAuditId(state),
     actorId: event.actorId || 'system',
     actorName: String(event.actorName || ''),
     clientId: event.clientId || 'SELF',

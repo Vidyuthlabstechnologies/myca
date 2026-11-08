@@ -420,3 +420,108 @@ test('the note says what the seal covers and what it does not', async () => {
   assert.match(note, /cut off the end of the log/);
   assert.match(note, /re-sealed/);
 });
+
+const NOT_SEALED = 'the client an event is filed under is not sealed';
+
+async function firstLine(state, args = EVERYTHING) {
+  const out = await runTool(state, 'audit_trail', args);
+  assert.equal(out.ok, true, JSON.stringify(out));
+  return auditTrailWords(out.data).split('\n')[0];
+}
+
+test('R1-11 / R2-7: the words of a verified chain say the client an event is filed under is not sealed, and a moved event still verifies', async () => {
+  const s = await story();
+  const chained = verifyAuditChain(s.state).chained;
+  assert.ok(chained >= 4, String(chained));
+  const before = await firstLine(s.state);
+  assert.match(before, /^3 changes between 2000-01-01 and 2100-12-31, log chain verified/);
+  assert.ok(before.endsWith(`, log chain verified (${chained} events; ${NOT_SEALED})`), before);
+
+  const moved = s.state.auditEvents.find((event) => event.action === 'chat.confirm');
+  moved.clientId = 'CL-9';
+  const verdict = verifyAuditChain(s.state);
+  assert.deepEqual([verdict.ok, verdict.chained], [true, chained], 'the client an event is filed under is outside the seal, on purpose');
+  const after = await firstLine(s.state);
+  assert.match(after, /^2 changes between /, 'the event left this client\'s trail');
+  assert.ok(after.endsWith(`, log chain verified (${chained} events; ${NOT_SEALED})`), after);
+
+  const asked = await s.chat('audit trail for this month');
+  assert.equal(asked.tools[0].name, 'audit_trail');
+  assert.match(asked.reply.split('\n')[0], new RegExp(`, log chain verified \\(${chained} events; ${NOT_SEALED}\\)$`), asked.reply);
+  const viaTool = await runTool(s.state, 'audit_trail', EVERYTHING);
+  assert.equal(fmtToolResult('audit_trail', viaTool), auditTrailWords(viaTool.data));
+  assert.match(viaTool.data.note, /not which client an event is filed under/, 'the note still says it');
+});
+
+test('R1-11: the words say it only where there is a seal to speak of, not on a broken chain and not on a log with nothing chained', async () => {
+  const base = { from: '2026-10-01', to: '2026-10-31', view: 'changes', count: 0, total: 0, more: false, events: [] };
+  const head = '0 changes between 2026-10-01 and 2026-10-31, ';
+  assert.equal(auditTrailWords({ ...base, chain: { ok: true, chained: 3, unchained: 0 } }), `${head}log chain verified (3 events; ${NOT_SEALED})`);
+  assert.equal(auditTrailWords({ ...base, chain: { ok: true, chained: 1, unchained: 0 } }), `${head}log chain verified (1 event; ${NOT_SEALED})`);
+  assert.equal(auditTrailWords({ ...base, view: 'all', chain: { ok: true, chained: 2 } }), `0 events, log chain verified (2 events; ${NOT_SEALED})`);
+  assert.equal(auditTrailWords({ ...base, chain: { ok: true, chained: 0, unchained: 4 } }), `${head}log chain verified (0 events)`);
+  assert.equal(auditTrailWords({ ...base }), `${head}log chain verified (0 events)`);
+  const broken = auditTrailWords({ ...base, chain: { ok: false, error: 'HASH_MISMATCH', at: 'AUD-000007', chained: 6, unchained: 0 } });
+  assert.equal(broken, `${head}LOG CHAIN BROKEN at AUD-000007`);
+  assert.doesNotMatch(broken, /sealed/);
+
+  const fresh = await runTool(createState(), 'audit_trail', {});
+  assert.equal(auditTrailWords(fresh.data), `0 changes between ${fresh.data.from} and ${fresh.data.to}, log chain verified (0 events)`);
+
+  const s = await story();
+  s.state.auditEvents.at(-1).actorName = 'Mallory';
+  const tampered = await firstLine(s.state);
+  assert.match(tampered, /LOG CHAIN BROKEN at AUD-\d{6}$/);
+  assert.doesNotMatch(tampered, /sealed|verified/);
+});
+
+test('R1-12: the new SIGN_IN_REQUIRED sentence also words a signed-out approval request or decision, in the hint the refusal carries', async () => {
+  const s = open();
+  const asked = await s.tool('approval_request', { operationId: 'gst_file_gstr1_evc' });
+  const decided = await s.tool('approval_decide', { approvalId: 'APR-000001', decision: 'approve' });
+  for (const [name, refused] of [['approval_request', asked], ['approval_decide', decided]]) {
+    assert.equal(refused.error, 'SIGN_IN_REQUIRED', name);
+    const said = fmtToolResult(name, refused);
+    assert.equal(said, 'Sign in with your user id and PIN first: approvals record who asked and who decided, and the two must be different people.', name);
+    assert.doesNotMatch(said, /sign in required|That did not go through|[A-Z]{2,}_[A-Z]{2,}/, name);
+  }
+  assert.equal(s.state.auditEvents.length, 0, 'a refusal before anything ran adds nothing to the log');
+});
+
+test('R1-12: an automatic event id never repeats one that is already in the log, whatever the counter says', () => {
+  const state = createState();
+  appendAuditEvent(state, { eventId: 'AUD-000002', actorId: 'a', action: 'x.y' });
+  appendAuditEvent(state, { actorId: 'a', action: 'x.y' });
+  appendAuditEvent(state, { actorId: 'a', action: 'x.y' });
+  assert.deepEqual(state.auditEvents.map((event) => event.eventId), ['AUD-000002', 'AUD-000003', 'AUD-000004']);
+  assert.equal(state.auditSeq, 4);
+
+  state.auditSeq = 1;
+  assert.equal(appendAuditEvent(state, { actorId: 'a', action: 'x.y' }).eventId, 'AUD-000005', 'a counter that fell behind the log skips every id already used');
+  assert.equal(state.auditSeq, 5);
+
+  for (const lost of [NaN, 'x', -3, 2.5, Infinity]) {
+    state.auditSeq = lost;
+    const used = new Set(state.auditEvents.map((event) => event.eventId));
+    const added = appendAuditEvent(state, { actorId: 'a', action: 'x.y' });
+    assert.match(added.eventId, /^AUD-\d{6}$/, String(lost));
+    assert.equal(used.has(added.eventId), false, `a counter of ${String(lost)} must not hand out a used id`);
+  }
+
+  const reloaded = deserialize(JSON.parse(JSON.stringify(serialize(state))));
+  reloaded.auditSeq = 0;
+  const usedBeforeReload = new Set(reloaded.auditEvents.map((event) => event.eventId));
+  const more = appendAuditEvent(reloaded, { actorId: 'a', action: 'x.y' });
+  assert.equal(usedBeforeReload.has(more.eventId), false, 'a reloaded log whose counter reads zero carries on after its last id');
+
+  for (const book of [state, reloaded]) {
+    const ids = book.auditEvents.map((event) => event.eventId);
+    assert.equal(new Set(ids).size, ids.length, 'every event id is used once');
+    assert.equal(verifyAuditChain(book).ok, true);
+  }
+
+  const fresh = createState();
+  const first = appendAuditEvent(fresh, { actorId: 'a', action: 'x.y' });
+  const second = appendAuditEvent(fresh, { actorId: 'a', action: 'x.y' });
+  assert.deepEqual([first.eventId, second.eventId], ['AUD-000001', 'AUD-000002'], 'the usual numbering is unchanged');
+});
