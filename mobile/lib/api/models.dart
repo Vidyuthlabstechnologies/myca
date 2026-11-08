@@ -132,6 +132,7 @@ class TdsCreditRow {
     required this.inBooks,
     required this.gap,
     required this.status,
+    this.note = '',
   });
 
   factory TdsCreditRow.fromJson(Object? json) {
@@ -146,6 +147,7 @@ class TdsCreditRow {
       inBooks: _num(map['inBooks']),
       gap: _num(map['gap']),
       status: _text(map['status']),
+      note: _text(map['note']).trim(),
     );
   }
 
@@ -158,6 +160,7 @@ class TdsCreditRow {
   final num inBooks;
   final num gap;
   final String status;
+  final String note;
 
   String get who => deductor.isNotEmpty ? deductor : customer;
 }

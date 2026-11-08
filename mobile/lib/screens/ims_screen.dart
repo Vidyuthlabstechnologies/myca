@@ -126,7 +126,7 @@ class _ImsScreenState extends State<ImsScreen> with ProposalFlow {
 
   @override
   void onThreadChanged() {
-    if (pending != null) _toEnd(8);
+    _toEnd(8);
   }
 
   Future<void> _acceptMatched() => propose('Accept all matched invoices', 'ims_decide', {

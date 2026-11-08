@@ -213,6 +213,8 @@ void main() {
       await tester.ensureVisible(find.text('Post it'));
       await tester.tap(find.text('Post it'));
       await tester.pumpAndSettle();
+      tester.state<ScrollableState>(find.byType(Scrollable).last).position.jumpTo(0);
+      await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
       expect(tagWords(tester, _boxMart), 'Rejected');
       expect(tagWords(tester, '$_boxMart#2'), 'Rejected');
@@ -637,7 +639,7 @@ void main() {
       expect(secondStepMessage('CODE_USED', 0), over);
       expect(secondStepMessage('CODE_USED', -1), over);
       expect(secondStepMessage('CODE_USED', 2), usedAlready);
-      expect(secondStepMessage('CODE_USED', null), usedAlready);
+      expect(secondStepMessage('CODE_USED', null), over);
       expect(secondStepMessage('INVALID_CODE', 0), over);
       expect(secondStepMessage('INVALID_CODE', 1), 'That code is not right. 1 try left.');
       expect(secondStepMessage('CODE_EXPIRED', 0), over);

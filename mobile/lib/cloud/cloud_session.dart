@@ -83,6 +83,7 @@ bool _lastTry(String code, int? left) => left != null && left <= 0 && (code == '
 String secondStepMessage(String code, Object? attemptsRemaining) {
   final left = attemptsRemaining is num ? attemptsRemaining.toInt() : null;
   if (_lastTry(code, left)) return _secondStepOver;
+  if (code == 'CODE_USED' && left == null) return _secondStepOver;
   if (code == 'INVALID_CODE' && left != null) return _triesLeft(left);
   return _secondStepMessages[code] ?? cloudMessage(code);
 }

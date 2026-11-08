@@ -240,7 +240,9 @@ void main() {
     Matcher says(String sentence) => throwsA(isA<MycaApiException>().having((e) => e.message, 'message', sentence));
     cloud.secondStepError = 'CODE_EXPIRED';
     await expectLater(session.completeSecondStep('246810'), says('This sign-in attempt is over. Tap Start over and sign in again.'));
-    cloud.secondStepError = 'CODE_USED';
+    cloud
+      ..secondStepError = 'CODE_USED'
+      ..secondStepLeft = 2;
     await expectLater(session.completeSecondStep('246810'), says('That code was already used. Wait for the next one on your authenticator and try again.'));
     cloud.secondStepError = 'TOO_MANY_ATTEMPTS';
     await expectLater(session.completeSecondStep('246810'), says('This sign-in attempt is over. Tap Start over and sign in again.'));

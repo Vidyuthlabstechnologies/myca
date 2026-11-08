@@ -242,6 +242,11 @@ class _Total extends StatelessWidget {
 
 RowCard _rowCard(Key key, TdsCreditRow row) {
   final color = _statusColor(row.status);
+  final tag = FittedBox(
+    fit: BoxFit.scaleDown,
+    alignment: Alignment.centerLeft,
+    child: StatusTag(text: row.status, color: color),
+  );
   return RowCard(
     key: key,
     leading: TintTile(tint: color == Palette.danger ? Tint.urgent : Tint.taxes, mark: Mark.taxes),
@@ -252,10 +257,16 @@ RowCard _rowCard(Key key, TdsCreditRow row) {
       if (row.section.isNotEmpty) 'Section ${row.section}',
       if (row.tan.isNotEmpty) 'TAN ${row.tan}',
     ].join(' · '),
-    badge: FittedBox(
-      fit: BoxFit.scaleDown,
-      alignment: Alignment.centerLeft,
-      child: StatusTag(text: row.status, color: color),
-    ),
+    badge: row.note.isEmpty
+        ? tag
+        : Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              tag,
+              const SizedBox(height: 6),
+              Builder(builder: (context) => Text(row.note, style: Theme.of(context).textTheme.bodySmall)),
+            ],
+          ),
   );
 }
