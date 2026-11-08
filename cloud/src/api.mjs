@@ -13,6 +13,7 @@ import { createBooksRunner } from './books-runner.mjs';
 import { createMembers } from './members.mjs';
 import { IMPORT_CONTENT_ARG, isImport } from '../../platform/src/import-documents.mjs';
 import { assertSecret } from './tokens.mjs';
+import { createBodyBudget, defaultBodyBudgetBytes } from './body-budget.mjs';
 import { createCrashReports } from './crash-reports.mjs';
 import { PRIVACY_NOTICE, consentExempt, createConsent } from './consent.mjs';
 import { createJobs, jobTokenMatches, JOB_HEADER } from './jobs.mjs';
@@ -41,6 +42,24 @@ const MAX_BODY_BYTES = 1024 * 1024;
 export const MAX_UPLOAD_BYTES = 8 * 1024 * 1024;
 export const MAX_BUSINESS_BYTES = 200 * 1024 * 1024;
 const MAX_CRASH_BYTES = 64 * 1024;
+const SMALL_BODY_BYTES = 64 * 1024;
+const MERGE_BYTES = 16 * 1024;
+const MERGE_PIECES = 256;
+
+const OWNER_ONLY_POSTS = new Map([
+  ['ca-sync', 'OWNER_ONLY'],
+  ['ca-share', 'OWNER_ONLY'],
+  ['subscription', 'SHARED_VIEW_READ_ONLY'],
+  ['invitations', 'SHARED_VIEW_READ_ONLY'],
+  ['inbound', 'SHARED_VIEW_READ_ONLY'],
+  ['connectors', 'SHARED_VIEW_READ_ONLY'],
+  ['plaid-link-token', 'SHARED_VIEW_READ_ONLY'],
+  ['plaid-exchange', 'SHARED_VIEW_READ_ONLY'],
+  ['gusto-connect', 'SHARED_VIEW_READ_ONLY'],
+  ['taxjar-rate', 'SHARED_VIEW_READ_ONLY'],
+  ['connector-sync', 'SHARED_VIEW_READ_ONLY'],
+  ['replace', 'SHARED_VIEW_READ_ONLY'],
+]);
 
 export const PROPOSABLE = new Set(['import_payroll_summary', 'create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'record_filing', 'record_supplier_reminder', 'add_employee', 'set_tds_deductor', 'record_tds_deposit', 'change_salary', 'end_employment', 'post_expense', 'set_expense_head', 'create_credit_note', 'cancel_invoice', 'gst_review_answer', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote', 'exception_decide', 'ims_decide', 'create_purchase_note', 'import_settlement', 'import_marketplace_orders', 'import_tcs_statement', 'import_26as_credits', 'record_tds_withheld', 'set_sku_cost', 'import_sku_costs', 'record_stock', 'record_stock_transfer', 'value_inventory', 'set_registration', 'retire_registration', 'set_channel_identity', 'set_invoice_template', 'set_supplier_terms', 'set_employee_bank', 'set_invoice_numbering', 'amend_invoice', 'create_debit_note', 'record_supplier_debit_note', 'record_collection_reminder', 'record_payment_run', 'attach_document', 'approve_payroll', 'record_salary_payment', 'tds_review_answer', 'record_gst_payment', 'close_year', 'set_transport', 'set_sales_tax_nexus', 'sales_tax_review_answer', 'record_sales_tax_payment', 'record_sales_tax_filing', 'set_suta_rate', 'add_recurring', 'stop_recurring', 'match_bank_line', 'unmatch_bank_line', 'book_bank_charges', 'add_bank_rule', 'remove_bank_rule', 'run_bank_rules', 'set_bank_account', 'record_transfer']);
 
@@ -62,64 +81,131 @@ function httpError(statusCode, error, extra = {}) {
   return err;
 }
 
-function readRaw(req, limit = MAX_BODY_BYTES) {
-  return new Promise((resolve, reject) => {
-    const chunks = [];
-    let bytes = 0;
-    let tooLarge = false;
-    req.on('data', (chunk) => {
-      if (tooLarge) return;
-      bytes += chunk.length;
-      if (bytes > limit) {
-        tooLarge = true;
-        chunks.length = 0;
-        reject(httpError(413, 'BODY_TOO_LARGE'));
-        return;
-      }
-      chunks.push(chunk);
-    });
-    req.on('error', reject);
-    req.on('end', () => {
-      if (tooLarge) return;
-      resolve(Buffer.concat(chunks));
-    });
-  });
+function declaredLength(req) {
+  const declared = Number(req.headers['content-length']);
+  return Number.isFinite(declared) && declared > 0 ? declared : 0;
 }
 
-function readJson(req, limit = MAX_BODY_BYTES) {
-  return new Promise((resolve, reject) => {
-    const chunks = [];
-    let bytes = 0;
-    let tooLarge = false;
-    const declared = Number(req.headers['content-length'] || 0);
-    if (declared > limit) {
-      req.resume();
-      reject(httpError(413, 'BODY_TOO_LARGE'));
-      return;
+function connectionDropped(err) {
+  return Boolean(err) && (err.code === 'ECONNRESET' || err.message === 'aborted');
+}
+
+function createBodyReaders(budget) {
+  const accounts = new WeakMap();
+
+  function release(req) {
+    const account = accounts.get(req);
+    if (!account || !account.give) return;
+    account.give();
+    account.give = null;
+  }
+
+  function hold(req, bytes, force) {
+    let account = accounts.get(req);
+    if (!account) {
+      account = { give: null };
+      accounts.set(req, account);
     }
-    req.on('data', (chunk) => {
-      if (tooLarge) return;
-      bytes += chunk.length;
-      if (bytes > limit) {
-        tooLarge = true;
-        chunks.length = 0;
-        reject(httpError(413, 'BODY_TOO_LARGE'));
-        return;
+    if (account.give) account.give();
+    account.give = budget.reserve(bytes, { force });
+    return account.give !== null;
+  }
+
+  function collect(req, routeLimit) {
+    const limit = Math.min(routeLimit, Math.max(budget.limit, SMALL_BODY_BYTES));
+    return new Promise((resolve, reject) => {
+      let pieces = [];
+      let pending = [];
+      let pendingBytes = 0;
+      let received = 0;
+      let reserved = false;
+      let settled = false;
+
+      function flush() {
+        if (!pending.length) return;
+        pieces.push(pending.length === 1 ? pending[0] : Buffer.concat(pending, pendingBytes));
+        pending = [];
+        pendingBytes = 0;
       }
-      chunks.push(chunk);
-    });
-    req.on('error', reject);
-    req.on('end', () => {
-      if (tooLarge) return;
-      if (!chunks.length) return resolve({});
-      try {
-        const parsed = JSON.parse(Buffer.concat(chunks).toString('utf8'));
-        resolve(parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {});
-      } catch {
-        reject(httpError(400, 'INVALID_JSON'));
+
+      function settle(failure) {
+        if (settled) return;
+        settled = true;
+        req.removeListener('data', onData);
+        req.removeListener('end', onEnd);
+        req.removeListener('aborted', onGone);
+        req.removeListener('close', onGone);
+        req.removeListener('error', onError);
+        if (failure) {
+          pieces = [];
+          pending = [];
+          release(req);
+          req.resume();
+          reject(failure);
+          return;
+        }
+        flush();
+        resolve(pieces.length === 1 ? pieces[0] : Buffer.concat(pieces, received));
       }
+
+      function onData(chunk) {
+        received += chunk.length;
+        if (received > limit) return settle(httpError(413, 'BODY_TOO_LARGE'));
+        if (!reserved && !hold(req, received, received <= SMALL_BODY_BYTES)) return settle(httpError(503, 'SERVER_BUSY'));
+        if (chunk.length >= MERGE_BYTES) {
+          flush();
+          pieces.push(chunk);
+          return;
+        }
+        pending.push(chunk);
+        pendingBytes += chunk.length;
+        if (pendingBytes >= MERGE_BYTES || pending.length >= MERGE_PIECES) flush();
+      }
+
+      function onEnd() {
+        settle(null);
+      }
+
+      function onGone() {
+        settle(httpError(400, 'REQUEST_ABORTED'));
+      }
+
+      function onError(err) {
+        settle(connectionDropped(err) ? httpError(400, 'REQUEST_ABORTED') : err);
+      }
+
+      if (req.destroyed) return settle(httpError(400, 'REQUEST_ABORTED'));
+      const declared = declaredLength(req);
+      if (declared > limit) return settle(httpError(413, 'BODY_TOO_LARGE'));
+      if (declared > SMALL_BODY_BYTES) {
+        if (!hold(req, declared, false)) return settle(httpError(503, 'SERVER_BUSY'));
+        reserved = true;
+      }
+      req.on('data', onData);
+      req.on('end', onEnd);
+      req.on('aborted', onGone);
+      req.on('close', onGone);
+      req.on('error', onError);
     });
-  });
+  }
+
+  function readRaw(req, limit = MAX_BODY_BYTES) {
+    return collect(req, limit);
+  }
+
+  async function readJson(req, limit = MAX_BODY_BYTES) {
+    const body = await collect(req, limit);
+    if (!body.length) return {};
+    let parsed;
+    try {
+      parsed = JSON.parse(body.toString('utf8'));
+    } catch {
+      throw httpError(400, 'INVALID_JSON');
+    }
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+  }
+
+  return { readRaw, readJson, release };
 }
 
 function bearer(req) {
@@ -185,9 +271,11 @@ export function clientAddress(req, hops = trustedProxyHops()) {
   return String(parts[parts.length - hops] || '').slice(0, 64);
 }
 
-export function createApi({ billing: billingGiven = null, db, secret, booksKey = '', otpSender = null, googleClientIds = [], googleKeys, oidc = {}, oidcKeys = null, documentVault = null, connectorKey = '', now = () => Date.now(), log = () => {}, version = 'dev', jobToken = '', inboundEmail = {}, whatsapp = {}, whatsappSender = null }) {
+export function createApi({ billing: billingGiven = null, db, secret, booksKey = '', otpSender = null, googleClientIds = [], googleKeys, oidc = {}, oidcKeys = null, documentVault = null, connectorKey = '', now = () => Date.now(), log = () => {}, version = 'dev', jobToken = '', inboundEmail = {}, whatsapp = {}, whatsappSender = null, bodyBudgetBytes = 0 }) {
   process.env.MYCA_HOSTED = '1';
   assertSecret(secret);
+  const budget = createBodyBudget(Number.isSafeInteger(bodyBudgetBytes) && bodyBudgetBytes > 0 ? bodyBudgetBytes : defaultBodyBudgetBytes({ constrainedMemory: process.constrainedMemory(), ceiling: MAX_BUSINESS_BYTES }));
+  const { readRaw, readJson, release: releaseBody } = createBodyReaders(budget);
   const providerMode = () => (mockModeEnabled() ? 'simulated' : serviceProviderEnvironment());
   const secondFactor = createSecondFactor({ db, secret, booksKey, now });
   const auth = createAuth({ db, secret, otpSender, now, secondFactor });
@@ -501,7 +589,13 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
       if (method === 'GET' && action === 'subscription') return billing.entitlement(businessId);
       if (method !== 'POST') throw httpError(404, 'NOT_FOUND');
 
-      const body = await readJson(req, action === 'uploads' ? MAX_UPLOAD_BYTES : action === 'replace' ? MAX_BUSINESS_BYTES : MAX_BODY_BYTES);
+      const ownerRule = OWNER_ONLY_POSTS.get(action);
+      if (ownerRule && role !== 'owner') {
+        if (ownerRule === 'SHARED_VIEW_READ_ONLY' && sharedView) throw httpError(403, 'SHARED_VIEW_READ_ONLY', { sharedAsOf: sync.asOf });
+        throw httpError(403, 'OWNER_ONLY');
+      }
+
+      const body = await readJson(req, action === 'uploads' ? MAX_UPLOAD_BYTES : action === 'replace' ? Math.min(MAX_BUSINESS_BYTES, budget.limit) : MAX_BODY_BYTES);
       if (action === 'brief') {
         if (role === 'accountant') throw httpError(403, 'NOT_FOR_ACCOUNTANTS');
         const weekly = body.weekly === true;
@@ -509,7 +603,6 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
         return { ok: true, weekly, channel: 'whatsapp', when: 'Monday 07:00 IST' };
       }
       if (action === 'ca-sync') {
-        if (role !== 'owner') throw httpError(403, 'OWNER_ONLY');
         const mode = String(body.mode || '');
         if (!CA_SYNC_MODES.includes(mode)) throw httpError(400, 'BAD_SYNC_MODE', { modes: CA_SYNC_MODES });
         await db.query('update businesses set ca_sync = $2 where id = $1', [businessId, mode]);
@@ -517,7 +610,6 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
         return { ok: true, mode, sharedAsOf };
       }
       if (action === 'ca-share') {
-        if (role !== 'owner') throw httpError(403, 'OWNER_ONLY');
         if (sync.mode === 'live') throw httpError(409, 'CA_SEES_LIVE_BOOKS');
         return { ok: true, sharedAsOf: await runner.share(businessId, user.userId) };
       }
@@ -541,30 +633,21 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
         }
         throw httpError(403, 'SHARED_VIEW_READ_ONLY', { sharedAsOf: sync.asOf });
       }
-      if (action === 'subscription') {
-        if (role !== 'owner') throw httpError(403, 'OWNER_ONLY');
-        return billing.verify(businessId, user.userId, body);
-      }
+      if (action === 'subscription') return billing.verify(businessId, user.userId, body);
       if (action === 'invitations') {
-        if (role !== 'owner') throw httpError(403, 'OWNER_ONLY');
         const team = await billing.allows(businessId, 'team');
         if (!team.ok) return team;
         const seats = await billing.withinLimit(businessId, 'members', (await businesses.members(businessId)).length);
         if (!seats.ok) return seats;
         return members.invite(businessId, context, body);
       }
-      if (action === 'inbound') {
-        if (role !== 'owner') throw httpError(403, 'OWNER_ONLY');
-        return inbound.create(businessId, context, body);
-      }
+      if (action === 'inbound') return inbound.create(businessId, context, body);
       if (action === 'connectors') {
-        if (role !== 'owner') throw httpError(403, 'OWNER_ONLY');
         const allowed = await billing.allows(businessId, 'connectors');
         if (!allowed.ok) return allowed;
         return connectors.save(businessId, context, body);
       }
       if (action === 'plaid-link-token' || action === 'plaid-exchange' || action === 'gusto-connect' || action === 'taxjar-rate') {
-        if (role !== 'owner') throw httpError(403, 'OWNER_ONLY');
         const channel = action.startsWith('plaid') ? 'plaid' : action.startsWith('gusto') ? 'gusto' : 'taxjar';
         if (!connectors.enabled) return { ok: false, error: 'CONNECTORS_UNAVAILABLE', hint: 'The service has no connector key; ask the operator to set MYCA_CONNECTOR_KEY.' };
         const config = await connectors.load(businessId, channel);
@@ -579,7 +662,6 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
         });
       }
       if (action === 'connector-sync') {
-        if (role !== 'owner') throw httpError(403, 'OWNER_ONLY');
         const configured = await connectors.configured(businessId);
         if (!configured.length) return { ok: false, error: 'NO_CONNECTORS', hint: 'Connect a channel first.' };
         return withBooks(businessId, context, async (session) => {
@@ -589,7 +671,6 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
         });
       }
       if (action === 'replace') {
-        if (role !== 'owner') throw httpError(403, 'OWNER_ONLY');
         const state = body.books && !body.state ? body.books : body.state;
         if (!state || typeof state !== 'object') return { ok: false, error: 'INVALID_BACKUP', hint: 'Send the file saved by "Download everything" or a backup from the Windows app.' };
         const out = await runner.replaceBooks(businessId, context, { version: 1, state, documents: body.documents || {}, exportedAt: body.exportedAt || '' });
@@ -672,7 +753,7 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
     res.end(payload);
   }
 
-  return async function handler(req, res) {
+  return Object.assign(async function handler(req, res) {
     try {
       await serve(req, res);
     } catch {
@@ -682,6 +763,8 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
         res.writeHead(500, { 'content-type': 'application/json', 'cache-control': 'no-store' });
         res.end('{"ok":false,"error":"INTERNAL_ERROR"}');
       }
+    } finally {
+      releaseBody(req);
     }
-  };
+  }, { bodyBudget: budget });
 }
