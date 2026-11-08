@@ -5,6 +5,7 @@ import { createInvoice, createPurchase } from './invoice.mjs';
 import { getBook, canonicalClientId, normalizeClientId, isValidClientId, ensureBooks } from './books.mjs';
 import { documentsOf } from './document-store.mjs';
 import { ensureDefaultAdmin, listUsers, addUser, findUser, verifyUserPin } from './identity.mjs';
+import { normalizeUserId } from './approvals.mjs';
 
 function jsonHash(value) {
   const json = JSON.stringify(value, (_key, item) => (typeof item === 'bigint' ? item.toString() : item));
@@ -200,6 +201,15 @@ function nextAuditId(state) {
   return id;
 }
 
+function actorNameFor(state, actorId) {
+  const id = normalizeUserId(actorId);
+  if (!id) return '';
+  const signedIn = state.__actor;
+  if (signedIn && signedIn.name && normalizeUserId(signedIn.userId) === id) return String(signedIn.name);
+  const user = findUser(state, id);
+  return user && user.name ? String(user.name) : '';
+}
+
 export function appendAuditEvent(state, event) {
   ensureCaApiState(state);
   if (event.eventId && auditIdTaken(state, event.eventId)) return { ok: false, error: 'DUPLICATE_ID', id: event.eventId };
@@ -208,7 +218,7 @@ export function appendAuditEvent(state, event) {
   const record = {
     eventId: event.eventId || nextAuditId(state),
     actorId: event.actorId || 'system',
-    actorName: String(event.actorName || ''),
+    actorName: String(event.actorName || actorNameFor(state, event.actorId)),
     clientId: event.clientId || 'SELF',
     action: event.action || 'api_event',
     at: event.at || new Date().toISOString(),

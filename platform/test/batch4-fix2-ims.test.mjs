@@ -299,6 +299,7 @@ test('skeptic gap: pinImsRows returns the call to hold and leaves the call it wa
   assert.equal(pinned.keys.length, 4);
   const longCsv = [HEADER, `B2B,27AABCT1332L1ZE,FABRIC CO,${'L'.repeat(110)},05-09-2026,100,2.5,2.5,0,0,105,Y`].join('\n');
   const longState = await withStatement(longCsv);
+  longState.gstr2b[PERIOD].rows[0].invoiceNo = 'L'.repeat(400);
   const longArgs = { period: PERIOD, select: 'all', decision: 'accept' };
   const kept = pinImsRows(longArgs, planImsDecision(longState, longArgs));
   assert.deepEqual(kept, { period: PERIOD, select: 'all', decision: 'accept' }, 'a key too long to travel leaves the word in place');

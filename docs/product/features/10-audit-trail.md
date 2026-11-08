@@ -33,7 +33,11 @@ workbook.
   and purchases added through the CA API (`documents.*`, `client.*`, `user.*`,
   `books_ledger.*`); exception decisions (`exceptions.*`); repeating entries posted
   (`recurring_posted`); bank rules applied (`bank_rule_applied`); and calls to outside
-  systems through the action gate (`external.*`, `sandbox.*`). The local CA API's
+  systems through the action gate (`external.*`, `sandbox.*`). Each reads as a sentence in
+  the list, one per action ("Push to Tally"), followed by "did not go through", "no answer
+  came back, so it may not have gone through" or "(simulated)" when that is what happened,
+  and an event written without a name takes the name of the signed-in user, else of the
+  user with that id; ids such as `automation` stay as they are. The local CA API's
   audit-events route adds an event under the signed-in user's id and name whatever the
   request body says, and refuses when nobody is signed in.
 - An event holds an id (AUD-000001 onward), the time, the user's id and name as signed in,
@@ -104,6 +108,9 @@ workbook.
   none.
 - It does not say who appended an event. The user's id and name are text inside the
   event and nothing signs them.
+- Calls to outside systems that only read (a status check, a GSTIN look-up) sit in the
+  changes view beside the ones that change something, because the view keeps `external.*`
+  and `sandbox.*` events together.
 - For these reasons a passing result is worded as verified and a failing one as broken at a
   named event. It is not worded as a guarantee that the log is whole. The app's list
   header and its Reports row say that the log is checked for edits and claim nothing

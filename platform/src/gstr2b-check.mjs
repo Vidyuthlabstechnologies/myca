@@ -12,6 +12,11 @@ const SUMMED = ['taxableValue', 'cgst', 'sgst', 'igst', 'cess', 'totalValue'];
 const LESS_AVAILABLE = ['N', 'A'];
 const NAME_KEY_MAX = 40;
 const NAME_HASH_LENGTH = 8;
+export const DOCUMENT_KEY_MAX = 400;
+export const KEY_TOO_LONG = 'KEY_TOO_LONG';
+const KEY_SCOPE = '0000-00';
+const NUMBER_SHOWN = 30;
+const ERRORS_SHOWN = 5;
 const STATEMENT_COLUMNS = [
   ['SECTION', 'section'],
   ['SUPPLIER GSTIN', 'supplierGstin'],
@@ -41,9 +46,29 @@ export function supplierNumberOf(bill) {
   return OWN_NUMBER.test(String(bill.id)) ? '' : String(bill.id);
 }
 
+function tooLongError(row) {
+  const shown = Array.from(String(row.invoiceNo ?? '')).slice(0, NUMBER_SHOWN).join('');
+  return {
+    code: KEY_TOO_LONG,
+    row: row.sourceRow,
+    field: 'invoiceNo',
+    message: `Row ${row.sourceRow}: the invoice number "${shown}…" is too long to track, so this row was left out.`,
+  };
+}
+
 export function parse2bFile(csv) {
   const parsed = parseGstr2B(String(csv ?? ''));
-  return { rows: parsed.rows || [], errors: parsed.errors || [] };
+  const rows = [];
+  const errors = [...(parsed.errors || [])];
+  for (const row of parsed.rows || []) {
+    if (documentKey(KEY_SCOPE, row).length <= DOCUMENT_KEY_MAX) rows.push(row);
+    else errors.push(tooLongError(row));
+  }
+  return { rows, errors };
+}
+
+export function keyTooLongErrors(errors) {
+  return errors.filter((error) => error.code === KEY_TOO_LONG).slice(0, ERRORS_SHOWN);
 }
 
 export function import2b(state, args = {}) {
@@ -59,7 +84,8 @@ export function import2b(state, args = {}) {
     rows,
     skipped: errors.length,
   };
-  return { ok: true, period, rows: rows.length, skipped: errors.length, replaced };
+  const left = keyTooLongErrors(errors);
+  return { ok: true, period, rows: rows.length, skipped: errors.length, replaced, ...(left.length ? { errors: left } : {}) };
 }
 
 export function allRows(state) {

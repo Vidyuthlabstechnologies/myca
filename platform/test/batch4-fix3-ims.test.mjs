@@ -311,7 +311,7 @@ test('G3: the blocker names no supplier, whatever the statement holds', async ()
 test('G4: a blank-GSTIN row with a long supplier name gets a key short enough to decide it by key, and long names with one start stay apart', async () => {
   const normal = (name) => normNumber(name);
   assert.equal(normal(EAST).slice(0, 50), normal(WEST).slice(0, 50), 'the two names share a 50-character start');
-  assert.ok(`${PERIOD}|${normal(EAST)}|${normNumber(LONG_NUMBER)}|B2B`.length > IMS_MAX_KEY, 'the key from the whole name would be too long to travel');
+  assert.ok(`${PERIOD}|${normal(EAST)}|${normNumber(LONG_NUMBER)}|B2B`.length > 120, 'the key from the whole name would be longer than the 120 characters a key could once be');
   const state = await statement(createState(), sheet(
     `B2B,,${EAST},${LONG_NUMBER},05-09-2026,1000,25,25,0,0,1050,Y`,
     `B2B,,${WEST},${LONG_NUMBER},05-09-2026,2000,50,50,0,0,2100,Y`,
