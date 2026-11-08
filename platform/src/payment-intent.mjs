@@ -1,4 +1,4 @@
-import { isNegated, isQuestion, normalizeChat, receiptAmount, receiptDate, saidNonPositiveAmount } from './intent.mjs';
+import { amountsSaid, isNegated, isQuestion, normalizeChat, receiptAmount, receiptDate, saidNonPositiveAmount } from './intent.mjs';
 import { billOutstanding } from './invoice.mjs';
 import { localToday } from './dates.mjs';
 
@@ -45,7 +45,11 @@ function listOf(unpaid) {
   return unpaid.map((bill) => `${bill.id}${bill.supplierInvoiceNo ? ` (their ${bill.supplierInvoiceNo})` : ''} of ${bill.date}, ${inr(billOutstanding(bill))} owed`).join('; ');
 }
 
-function paymentCall(raw, billId, amount) {
+function paymentCall(raw, counted, billId, amount) {
+  const said = amount == null ? amountsSaid(counted) : [];
+  if (said.length > 1) {
+    return reply(`I read more than one amount in that, so I have recorded nothing. Say the one amount you paid, for example "paid ${billId} ${said[0]}", or leave the amounts out to settle the whole bill.`);
+  }
   return {
     kind: 'tool',
     name: 'record_payment',
@@ -73,7 +77,7 @@ export function planPaymentFromChat(state, text) {
       return reply(`${owed > EPSILON ? `${inr(owed)} is owed on ${named.id} to ${named.partyName}.` : `${named.id} is paid.`} I have recorded nothing.`);
     }
     if (termsNotPayment) return reply(TERMS_OR_PAYMENT);
-    return paymentCall(raw, named.id, amount);
+    return paymentCall(raw, counted, named.id, amount);
   }
   if (NEW_DOCUMENT.test(raw)) return null;
   const suppliers = suppliersNamedIn(state, raw);
@@ -94,5 +98,5 @@ export function planPaymentFromChat(state, text) {
   if (!chosen) {
     return reply(`${supplier.name} has ${unpaid.length} unpaid bills: ${listOf(unpaid)}. Say which one, for example "paid ${amount == null ? 'the amount' : amount} against ${unpaid[0].id}". I have recorded nothing.`);
   }
-  return paymentCall(raw, chosen.id, amount);
+  return paymentCall(raw, counted, chosen.id, amount);
 }

@@ -5,7 +5,7 @@ import { planOweQuestion } from './owe-intent.mjs';
 import { planFilingFromChat, saidPeriod } from './filing-intent.mjs';
 import { REPORT_KEYS } from './report-sheets.mjs';
 import { planEmployeeFromChat } from './employee-intent.mjs';
-import { planTdsChat, planTdsFromChat } from './tds-intent.mjs';
+import { planTdsChat, planTdsFromChat, withoutSettledTds } from './tds-intent.mjs';
 import { planGstPayFromChat } from './gst-pay-intent.mjs';
 import { planTransportFromChat, planAddressFromChat } from './eway-intent.mjs';
 import { planPayrollFromChat } from './payroll-intent.mjs';
@@ -41,7 +41,7 @@ export function pendingFileContent(state) {
   if (typeof read === 'string') return read;
   return read && read.ok ? String(read.content ?? '') : '';
 }
-import { normalizeChat, parseDocument, documentProblemReply, saidNonPositiveAmount, receiptAmount, receiptDate, isPurchaseIntent, isSaleIntent, isQuestion, isNegated, ROUTES } from './intent.mjs';
+import { normalizeChat, parseDocument, documentProblemReply, saidNonPositiveAmount, receiptAmount, amountsSaid, receiptDate, isPurchaseIntent, isSaleIntent, isQuestion, isNegated, ROUTES } from './intent.mjs';
 import { confirmationIntent } from './chat-confirm.mjs';
 import { planBankFromChat } from './bank-intent.mjs';
 
@@ -1407,7 +1407,7 @@ export const TOOL_ARG_SCHEMAS = {
     type: 'object',
     additionalProperties: false,
     properties: {
-      partyName: { type: 'string', maxLength: 80 },
+      partyName: { type: 'string' },
       partyGstin: { type: 'string', pattern: '^([0-9]{2}[A-Z0-9]{13})?$' },
       account: { type: 'string', maxLength: 24 },
       ifsc: { type: 'string', maxLength: 11 },
@@ -2368,21 +2368,22 @@ const NOT_AN_EXPORT = /\b(?:import|upload|attach|bring\s+in|read)\b/i;
 const POSTING_VERBS = /\b(?:sold|sell|selling|invoice|invoiced|billed|bought|buy|purchased|received|receipt|collected|paid|pay|spent|spend|expense)\b/i;
 const SAVED_REPORT_TO_EXCEL = /\breport\s+(?:called\s+|named\s+)?["“]?([^"”]+?)["”]?\s+(?:to|as|in|into)\s+(?:an?\s+|the\s+)?(?:excel|xlsx|spreadsheet)\b/i;
 const EXCEL_PERIOD_WORDS = /\b(this\s+month|last\s+month|this\s+quarter|this\s+year|last\s+year)\b/i;
+const AUDIT_TRAIL_PHRASES = '\\baudit[\\s-]*(?:trail|log)s?\\b|\\b(?:edit|change)[\\s-]*logs?\\b|\\bwho\\s+changed\\b|\\bwhat\\s+changed\\s+in\\s+(?:the\\s+)?books\\b';
 const EXCEL_REPORTS = [
-  { key: 'audit_trail', words: /\baudit\s*trail\b|\bedit\s*log\b|\baudit\s*log\b|\bchange\s*log\b|\bwho\s+changed\b/i },
+  { key: 'audit_trail', words: new RegExp(AUDIT_TRAIL_PHRASES, 'i') },
   { key: 'trial_balance', words: /\btrial\s*balance\b/i },
-  { key: 'bank_reconciliation', words: /\bbank\b|^(?![\s\S]*\b(?:gst\w*|2b|tds|26as|itc)\b)[\s\S]*\breconcil/i },
+  { key: 'tds_credit_check', words: /\b26\s*as\b|\btds\s+(?:credits?|receivables?)\b/i },
+  { key: 'ims_review', words: /\bims\b|\binvoice\s+management\b/i },
+  { key: 'bank_reconciliation', words: /\bbank\b|^(?![\s\S]*\b(?:gst\w*|2b|tds|26\s*as|itc)\b)[\s\S]*\breconcil/i },
   { key: 'day_book', words: /\bday\s*book\b|\bjournal\b|\bledger\b/i },
   { key: 'entries', words: /\bentries\b|\bvouchers?\b/i },
   { key: 'credit_notes', words: /\bcredit\s*notes?\b/i },
   { key: 'debit_notes', words: /\bdebit\s*notes?\b/i },
-  { key: 'ims_review', words: /\bims\b|\binvoice\s+management\b/i },
   { key: 'credit_at_risk', words: /\bcredit\s+at\s+risk\b|\bgstr-?2b\b|\b2b\b/i },
   { key: 'supplier_dues', words: /\b(?:supplier|vendor|creditor)s?\b.*\b(?:dues?|owe|owed|owing|outstanding|unpaid|bills?)\b|\bpayables?\b|\b(?:i|we)\s+owe\b/i },
   { key: 'customer_dues', words: /\bdues?\b|\bowed?\b|\bowes\b|\breceivables?\b|\bdebtors?\b|\boutstanding\b|\bunpaid\b|\boverdue\b/i },
   { key: 'saved_report', words: /\bsaved\s+report\b/i },
   { key: 'cash_forecast', words: /\bcash\s*forecast\b|\bforecast\b|\bcash\s*flow\b/i },
-  { key: 'tds_credit_check', words: /\b26\s*as\b|\btds\s+credits?\b/i },
   { key: 'tds_summary', words: /\btds\b/i },
   { key: 'sku_margins', words: /\bmargins?\b/i },
   { key: 'stock_position', words: /\bstock\b|\binventory\b/i },
@@ -2486,6 +2487,10 @@ function planExcelFromChat(state, text) {
   const imsParty = namesAnImsParty(state, text);
   const found = EXCEL_REPORTS.find((entry) => !(imsParty && entry.key === 'ims_review') && entry.words.test(text));
   const report = found ? found.key : 'trial_balance';
+  if (report === 'audit_trail') {
+    const range = auditRangeSaid(text);
+    return range ? { kind: 'tool', name: 'export_xlsx', args: { report, ...range } } : { kind: 'reply', reply: AUDIT_RANGE_UNREAD, tools: [] };
+  }
   const named = EXCEL_PERIOD_WORDS.exec(text);
   const period = named ? named[1].toLowerCase().replace(/\s+/g, '-') : saidPeriod(text);
   if (report === 'ims_review' && countryOf(state) === 'IN') return planImsSheetFromChat(state, text, period);
@@ -2508,7 +2513,7 @@ function planImsSheetFromChat(state, text, period) {
   return { kind: 'tool', name: 'export_xlsx', args: { report: 'ims_review', period: month } };
 }
 
-const AUDIT_TRAIL_ASKED = /\baudit\s*trail\b|\bedit\s*log\b|\baudit\s*log\b|\bchange\s*log\b|\bwho\s+changed\b|\bwhat\s+changed\s+in\s+(?:the\s+)?books\b/i;
+const AUDIT_TRAIL_ASKED = new RegExp(AUDIT_TRAIL_PHRASES, 'i');
 const AUDIT_TRAIL_EVERYTHING = /\b(?:everything|all events|including reads)\b/i;
 
 const AUDIT_RANGE_UNREAD = 'I could not read that date range, so I have not looked anything up. Say it like "audit trail from 2026-10-01 to 2026-10-31", "audit trail for October" or "audit trail for FY 2025-26".';
@@ -2516,6 +2521,8 @@ const AUDIT_NUMERIC_DAY = /(?<![\w./-])(?:\d{4}[-/.]\d{1,2}[-/.]\d{1,2}|\d{1,2}[
 const AUDIT_WORDED_DAY = new RegExp(`(?<![\\w-])(?:(\\d{1,2})(?:st|nd|rd|th)?\\s+(?:of\\s+)?(${CHAT_MONTH_WORDS})\\.?,?\\s+(\\d{4})|(${CHAT_MONTH_WORDS})\\.?\\s+(\\d{1,2})(?:st|nd|rd|th)?,?\\s+(\\d{4}))(?![\\w-])`, 'gi');
 const AUDIT_YEARLESS_DAY = new RegExp(`(?<![\\w-])\\d{1,2}(?:st|nd|rd|th)?\\s+(?:of\\s+)?(?:${CHAT_MONTH_WORDS})\\b(?!\\.?,?\\s*\\d{4})|\\b(?:${CHAT_MONTH_WORDS})\\.?\\s+\\d{1,2}(?:st|nd|rd|th)?\\b(?!\\s*,?\\s*\\d{4})`, 'i');
 const AUDIT_THIS_WEEK = /\bthis\s+week\b/i;
+const AUDIT_LAST_WEEK = /\b(?:last|previous|prior|preceding)\s+week\b/i;
+const AUDIT_LAST_QUARTER = /\b(?:last|previous|prior|preceding)\s+quarter\b/i;
 const AUDIT_LAST_DAYS = /\b(?:last|past|previous)\s+(\d{1,4})\s+days?\b/i;
 const AUDIT_RELATIVE_PERIOD = /\b(current|previous|prior|preceding)\s+(month|quarter|year)\b/i;
 const AUDIT_MODAL_MAY = /\b(?:i|we|you|he|she|they|it)\s+may\b|\bmay\s+(?:i|we|you|he|she|they|it|there|someone|anyone|see|have|get|show|check|look|be|not|need|want|know|ask)\b/gi;
@@ -2559,6 +2566,13 @@ function mondayOfWeek(iso) {
   return shiftIsoDay(iso, -((new Date(Date.UTC(year, month - 1, day)).getUTCDay() + 6) % 7));
 }
 
+function quarterBefore(iso) {
+  const [year, month] = iso.split('-').map(Number);
+  const start = Math.floor((month - 1) / 3) * 3 + 1;
+  const from = start > 3 ? `${year}-${String(start - 3).padStart(2, '0')}-01` : `${year - 1}-10-01`;
+  return { from, to: shiftIsoDay(`${year}-${String(start).padStart(2, '0')}-01`, -1) };
+}
+
 function auditDaysSaid(text, today) {
   const days = [];
   for (const hit of text.matchAll(AUDIT_NUMERIC_DAY)) days.push({ at: hit.index, end: hit.index + hit[0].length, iso: isoDate(hit[0]) });
@@ -2599,6 +2613,17 @@ function auditRangeSaid(text) {
   if (week) {
     readings.push({ from: mondayOfWeek(today), to: today });
     left = left.replace(week[0], ' ');
+  }
+  const lastWeek = AUDIT_LAST_WEEK.exec(left);
+  if (lastWeek) {
+    const monday = mondayOfWeek(today);
+    readings.push({ from: shiftIsoDay(monday, -7), to: shiftIsoDay(monday, -1) });
+    left = left.replace(lastWeek[0], ' ');
+  }
+  const lastQuarter = AUDIT_LAST_QUARTER.exec(left);
+  if (lastQuarter) {
+    readings.push(quarterBefore(today));
+    left = left.replace(lastQuarter[0], ' ');
   }
   const lastDays = AUDIT_LAST_DAYS.exec(left);
   if (lastDays) {
@@ -2659,12 +2684,75 @@ function auditWordsAreNames(state, text) {
   return posted.length > 0 && !isQuestion(text) && !auditAskedFirst(text);
 }
 
+const REMINDER_WORDS = /\b(?:remind(?:er|ers|s)?|yaad\s+dila(?:na|o|iye)?)\b/i;
+const AUDIT_NOTE_WORDS = /\b(?:credit|debit)\s+notes?\b/i;
+const AUDIT_ACTOR_STOP = new Set(['the', 'a', 'an', 'this', 'last', 'past', 'previous', 'prior', 'for', 'from', 'since', 'until', 'till', 'in', 'on', 'at', 'to', 'today', 'yesterday', 'tomorrow', 'limit', 'everything', 'including', 'all', 'and', 'or', 'as', 'between', 'during', 'over', 'after', 'before', 'each', 'per', 'with', 'please', 'pls', 'thanks', 'now', 'only', 'just', 'also', 'then', 'week', 'month', 'quarter', 'year', 'fy', 'date', 'day', 'time', 'user', 'users', 'person', 'people', 'actor', 'actors', 'name', 'action', 'type', 'kind', 'excel', 'xlsx', 'spreadsheet', 'invoice', 'invoices', 'bill', 'bills', 'party', 'parties', 'customer', 'customers', 'supplier', 'suppliers', 'client', 'clients', 'tool', 'tools', 'account', 'accounts', 'entry', 'entries', 'change', 'changes', 'event', 'events', 'role', 'roles', 'hand', 'ims', 'gst', 'tds']);
+const AUDIT_ACTOR_LABEL = /^(?:(?:the|a)\s+)?(?:user|actor|person|staff|member|employee|accountant|partner)\s+(?:(?:called|named)\s+)?(?=[a-z])/i;
+const AUDIT_ACTOR_ANYONE = new Set(['everyone', 'everybody', 'anyone', 'anybody']);
+const AUDIT_ACTOR_UNKNOWN = new Set(['me', 'myself', 'i', 'my', 'us', 'we', 'you', 'someone', 'somebody']);
+const AUDIT_ACTOR_UNREAD = 'I cannot tell who you mean, so I have not looked anything up. Say whose changes to show by name, for example "audit trail by Priya".';
+const AUDIT_LIMIT_UNREAD = 'I show between 1 and 2000 changes at a time, so I have not looked anything up. Say it like "audit trail limit 50".';
+const AUDIT_LIMIT_LIST = '(?:changes?|events?|entries|edits?|actions?|records?|items?|rows?|lines?)';
+const AUDIT_LIMIT_FORMS = [
+  /\blimit(?:ed)?(?:\s+(?:to|of))?\s*[:=]?\s*(\d+)(?!\d)/i,
+  new RegExp(`\\b(?:last|latest|recent|most\\s+recent|top)\\s+(\\d+)(?!\\d)\\s+${AUDIT_LIMIT_LIST}\\b`, 'i'),
+  new RegExp(`\\b(\\d+)(?!\\d)\\s+(?:latest|recent|most\\s+recent)\\s+${AUDIT_LIMIT_LIST}\\b`, 'i'),
+  /\b(?:last|latest|recent|most\s+recent|top)\s+(\d+)(?!\d)(?!\s*(?:-\s*)?(?:hours?|hrs?|days?|weeks?|fortnights?|months?|quarters?|years?|st|nd|rd|th)\b)/i,
+];
+const AUDIT_MONTH_ONLY = new RegExp(`^(?:${CHAT_MONTH_WORDS})$`, 'i');
+
+function auditActorSaid(text) {
+  const by = /\bby\s+(?=[a-z])/i.exec(text);
+  if (!by) return { rest: text };
+  const label = AUDIT_ACTOR_LABEL.exec(text.slice(by.index + by[0].length));
+  const from = by.index + by[0].length + (label ? label[0].length : 0);
+  const taken = [];
+  let end = from;
+  for (const hit of text.slice(from).matchAll(/\S+/g)) {
+    const bare = hit[0].replace(/[,;:!?)]+$/, '');
+    if (!bare || /\d/.test(bare) || AUDIT_ACTOR_STOP.has(bare.replace(/\.$/, '').toLowerCase()) || taken.length === 3) break;
+    taken.push(bare);
+    end = from + hit.index + bare.length;
+    if (bare !== hit[0]) break;
+  }
+  if (!taken.length) return { rest: text };
+  const first = taken[0].replace(/\.$/, '').toLowerCase();
+  if (AUDIT_MONTH_ONLY.test(first) || /^[a-z]{3,}ing$/.test(first)) return { rest: text };
+  const rest = `${text.slice(0, by.index)} ${text.slice(end)}`.replace(/\s+/g, ' ');
+  if (AUDIT_ACTOR_ANYONE.has(first)) return { rest };
+  if (AUDIT_ACTOR_UNKNOWN.has(first)) return { unreadable: true, rest };
+  return { name: taken.join(' ').replace(/\.+$/, '').slice(0, 80), rest };
+}
+
+function auditLimitSaid(text) {
+  for (const form of AUDIT_LIMIT_FORMS) {
+    const hit = form.exec(text);
+    if (!hit) continue;
+    const count = Number(hit[1]);
+    const rest = text.replace(hit[0], ' ').replace(/\s+/g, ' ');
+    return count >= 1 && count <= 2000 ? { count, rest } : { unreadable: true, rest };
+  }
+  return { rest: text };
+}
+
+function auditPhraseFollowsPosting(text) {
+  const before = text.slice(0, text.search(AUDIT_TRAIL_ASKED));
+  if (REMINDER_WORDS.test(before)) return true;
+  if (isQuestion(text) || auditAskedFirst(text)) return false;
+  return POSTING_VERBS.test(before) || AUDIT_NOTE_WORDS.test(before) || amountsSaid(before.replace(AUDIT_LAST_DAYS, ' ')).length > 0;
+}
+
 function planAuditTrailFromChat(state, text) {
   const spaced = text.replace(/\s+/g, ' ');
   if (!AUDIT_TRAIL_ASKED.test(spaced) || isNegated(spaced) || auditWordsAreNames(state, spaced)) return null;
-  const range = auditRangeSaid(spaced);
+  const actor = auditActorSaid(spaced);
+  const limit = auditLimitSaid(actor.rest);
+  if (auditPhraseFollowsPosting(limit.rest)) return null;
+  if (actor.unreadable) return { kind: 'reply', reply: AUDIT_ACTOR_UNREAD, tools: [] };
+  if (limit.unreadable) return { kind: 'reply', reply: AUDIT_LIMIT_UNREAD, tools: [] };
+  const range = auditRangeSaid(limit.rest);
   if (!range) return { kind: 'reply', reply: AUDIT_RANGE_UNREAD, tools: [] };
-  return { kind: 'tool', name: 'audit_trail', args: { ...range, ...(AUDIT_TRAIL_EVERYTHING.test(spaced) ? { view: 'all' } : {}) } };
+  return { kind: 'tool', name: 'audit_trail', args: { ...range, ...(actor.name ? { actor: actor.name } : {}), ...(limit.count ? { limit: limit.count } : {}), ...(AUDIT_TRAIL_EVERYTHING.test(spaced) ? { view: 'all' } : {}) } };
 }
 
 const IMS_SAID = /\bims\b|\binvoice\s+management\b/i;
@@ -2679,6 +2767,9 @@ const IMS_PERIOD_FIGURES = new RegExp([
   `\\b(?:${CHAT_MONTH_WORDS})\\.?\\s+\\d{1,2}(?:st|nd|rd|th)?\\b`,
 ].join('|'), 'gi');
 const IMS_ONE_AT_A_TIME = 'IMS takes one decision at a time. Say, for example, "accept all matched invoices in IMS" first, then "reject all undecided invoices in IMS".';
+const IMS_BULK_ONLY = 'I have changed nothing in IMS. A bulk decision applies to every row of that set, so I will not run it for one supplier or with an exception left out. Say it for the whole set, for example "accept all matched invoices in IMS", or pick single rows in the IMS screen.';
+const IMS_NARROWED = /\b(?:except(?:ing)?|exclud(?:e|es|ed|ing)|other\s+than|apart\s+from|aside\s+from|besides|but\s+not|not\s+including|leav(?:e|es|ing)\s+out|skip(?:s|ping)?)\b|\bonly\b(?!\s+(?:the\s+)?(?:matched|suggested|undecided|not\s+decided)\b)(?!\s*(?:$|[.!?]|(?:in|on|for|at|within)\b))/i;
+const IMS_FROM_PERIOD = new RegExp(`\\bfrom\\s+(?:(?:the|my|our)\\s+)?(?:(?:gst\\s+)?portal\\b|gstn\\b|(?:gstr[\\s-]?)?2b\\b|(?:this|last|previous|prior)\\s+(?:month|quarter)\\b|(?:${CHAT_MONTH_WORDS})(?:\\s+(?:in|for|on|to|ims|20\\d{2})\\b|\\s*[,.]|\\s*$)|fy\\b|financial\\s+year\\b|\\d)`, 'gi');
 
 function latestTwobMonth(state) {
   const stored = state.gstr2b && typeof state.gstr2b === 'object' ? Object.keys(state.gstr2b) : [];
@@ -2705,14 +2796,32 @@ function namesAnImsParty(state, text) {
   });
 }
 
+function imsNamesSupplier(state, period, text) {
+  const padded = ` ${nameKey(text)} `;
+  const rows = state.gstr2b && typeof state.gstr2b === 'object' && state.gstr2b[period] ? state.gstr2b[period].rows : [];
+  const names = [
+    ...(Array.isArray(rows) ? rows : []).map((row) => row?.supplierName),
+    ...(state.purchases || []).map((bill) => bill?.partyName),
+    ...(state.vendors || []).map((vendor) => vendor?.name),
+    ...(state.parties || []).map((party) => party?.name),
+  ].map(nameKey);
+  return names.some((name) => name && padded.includes(` ${name} `));
+}
+
+function imsSelectionQualified(state, period, text) {
+  const kept = text.replace(IMS_FROM_PERIOD, ' ');
+  return /\bfrom\b/i.test(kept) || IMS_NARROWED.test(kept) || imsNamesSupplier(state, period, kept);
+}
+
 function planImsFromChat(state, text) {
-  if (countryOf(state) !== 'IN' || !IMS_SAID.test(text) || isNegated(text) || /\d/.test(text.replace(IMS_PERIOD_FIGURES, ' ')) || namesAnImsParty(state, text)) return null;
+  if (countryOf(state) !== 'IN' || !IMS_SAID.test(text) || isNegated(text) || REMINDER_WORDS.test(text) || /\d/.test(text.replace(IMS_PERIOD_FIGURES, ' ')) || namesAnImsParty(state, text)) return null;
   const period = imsPeriodSaid(text) || latestTwobMonth(state);
   const review = { kind: 'tool', name: 'ims_review', args: period ? { period } : {} };
   if (isQuestion(text)) return review;
   const said = new Set([...text.matchAll(IMS_DECISION_SAID)].map((hit) => hit[1].toLowerCase()));
   if (said.size > 1) return { kind: 'reply', reply: IMS_ONE_AT_A_TIME, tools: [] };
   const pick = IMS_SELECT_SAID.exec(text);
+  if (said.size === 1 && (pick || !said.has('pending')) && imsSelectionQualified(state, period, text)) return { kind: 'reply', reply: IMS_BULK_ONLY, tools: [] };
   if (said.size !== 1 || !pick || IMS_UNMATCHED_SAID.test(text)) return review;
   const word = (pick[1] || pick[2]).toLowerCase().replace(/\s+/g, ' ');
   return { kind: 'tool', name: 'ims_decide', args: { period: period || localToday().slice(0, 7), select: word === 'not decided' ? 'undecided' : word, decision: [...said][0] } };
@@ -2726,6 +2835,7 @@ const MSME_MARKED = new RegExp(`^(?:please\\s+)?mark\\s+(.+?)\\s+as\\s+${MSME_AR
 const MSME_IS = new RegExp(`^(.+?)\\s+is\\s+${MSME_ARTICLE}(${MSME_KEYWORD})\\b(.*)$`, 'i');
 const MSME_WORD = new RegExp(`\\b${MSME_KEYWORD}`, 'i');
 const MSME_CATEGORY = /\b(micro|small|medium)\s+(?:category|enterprise|unit)\b|\bcategory\s*[:=-]?\s*(micro|small|medium)\b/i;
+const MSME_CATEGORY_BARE = /(?<![\w-])(micro|small|medium)(?![\w-])(?=\s*(?:$|[,;.)]|\d))/i;
 const SUPPLIER_DAYS = /\bnet\s*(\d{1,4})\b|\b(\d{1,4})\s*-?\s*days?\b/i;
 const SUPPLIER_DAYS_TOO_MANY = /\bnet\s*\d{5,}|\b\d{5,}\s*-?\s*days?\b/i;
 const SUPPLIER_DAYS_FORM = 'Agreed days must be a whole number from 0 to 365.';
@@ -2813,9 +2923,9 @@ function supplierTermsDeclined() {
   return { kind: 'tool', name: 'company_profile', args: {}, fallback: true };
 }
 
-function supplierTermsDetails(udyam, keyword, rest) {
+function supplierTermsDetails(udyam, keyword, rest, msme) {
   const days = SUPPLIER_DAYS.exec(rest);
-  const worded = /^(micro|small|medium)\b/i.exec(keyword) || MSME_CATEGORY.exec(rest);
+  const worded = /^(micro|small|medium)\b/i.exec(keyword) || MSME_CATEGORY.exec(rest) || (msme ? MSME_CATEGORY_BARE.exec(rest) : null);
   const category = worded ? (worded[1] || worded[2]).toLowerCase() : '';
   return { ...(udyam ? { udyam } : {}), ...(category ? { category } : {}), ...(days ? { days: Number(days[1] || days[2]) } : {}) };
 }
@@ -2842,7 +2952,7 @@ function supplierPaymentTerms(state, body) {
   const supplier = part ? supplierOnlyNamed(state, part) : '';
   if (!supplier || NOT_SAID.test(rest)) return null;
   if (SUPPLIER_DAYS_TOO_MANY.test(rest)) return supplierDaysRefused();
-  const details = supplierTermsDetails('', '', rest);
+  const details = supplierTermsDetails('', '', rest, MSME_WORD.test(rest));
   if (details.days == null) return null;
   return { kind: 'tool', name: 'set_supplier_terms', args: { partyName: supplier, ...(MSME_WORD.test(rest) ? { msme: true } : {}), ...details } };
 }
@@ -2852,7 +2962,7 @@ function udyamTermsPlan(state, name, udyam, rest) {
   const partyName = supplierNameSaid(state, name, true);
   if (!partyName) return null;
   if (SUPPLIER_DAYS_TOO_MANY.test(rest)) return supplierDaysRefused();
-  return { kind: 'tool', name: 'set_supplier_terms', args: { partyName, msme: true, ...supplierTermsDetails(udyam.toUpperCase(), '', rest) } };
+  return { kind: 'tool', name: 'set_supplier_terms', args: { partyName, msme: true, ...supplierTermsDetails(udyam.toUpperCase(), '', rest, true) } };
 }
 
 function planSupplierTermsFromChat(state, text) {
@@ -2875,8 +2985,8 @@ function planSupplierTermsFromChat(state, text) {
     const partyName = tail?.known ? part : supplierNameSaid(state, part, Boolean(marked || termsFor));
     if (!partyName) return termsFor ? supplierTermsDeclined() : null;
     if (SUPPLIER_DAYS_TOO_MANY.test(rest)) return supplierDaysRefused();
-    const details = supplierTermsDetails(udyam, stated ? stated[2] : '', rest);
     const msme = Boolean(stated) || MSME_WORD.test(rest);
+    const details = supplierTermsDetails(udyam, stated ? stated[2] : '', rest, msme);
     if (termsFor && !msme && !Object.keys(details).length) return supplierTermsDeclined();
     return { kind: 'tool', name: 'set_supplier_terms', args: { partyName, ...(msme ? { msme: true } : {}), ...details } };
   }
@@ -2894,6 +3004,17 @@ function challanReasonSaid(text) {
   if (/\bexhibition\b/i.test(text)) return 'exhibition';
   if (/\bown\s+use\b/i.test(text)) return 'own-use';
   return '';
+}
+
+const TDS_WORDING = /\btax\s+(?:deducted|withheld)\s+at\s+source\b/i;
+
+function severalReceiptAmounts(text, invoiceId) {
+  const amounts = amountsSaid(text);
+  const asked = 'I read more than one amount in that, so I have recorded nothing.';
+  if (TDS_WORDING.test(text) && amounts.length === 2) {
+    return { kind: 'reply', reply: `${asked} If one of them is TDS your customer withheld, first say "tds withheld ${Math.min(...amounts)} on ${invoiceId} under 194J" (use the section on the TDS certificate), then say "received ${Math.max(...amounts)} against ${invoiceId}".`, tools: [] };
+  }
+  return { kind: 'reply', reply: `${asked} Say the one amount you received, for example "received ${amounts[0]} against ${invoiceId}", or leave the amounts out to settle the whole invoice.`, tools: [] };
 }
 
 export function planLocalToolCall(state, message) {
@@ -3267,8 +3388,12 @@ export function planLocalToolCall(state, message) {
       const status = inv ? `${invoiceId} is marked ${inv.status}.` : `${invoiceId} is not in these books.`;
       return { kind: 'reply', reply: `${status} I have recorded nothing. To record money received, say "record receipt ${invoiceId}" and confirm the preview.`, tools: [] };
     }
-    const amount = receiptAmount(text);
+    let amount = receiptAmount(text);
     if (amount == null && saidNonPositiveAmount(text)) return { kind: 'reply', reply: `An amount of zero or less cannot be received. Say the amount, for example "received 5000 against ${invoiceId}", or leave it out to settle the whole invoice. I have recorded nothing.`, tools: [] };
+    if (amount == null && amountsSaid(text).length > 1 && (state.invoices || []).some((invoice) => invoice.id === invoiceId)) {
+      amount = receiptAmount(withoutSettledTds(text));
+      if (amount == null) return severalReceiptAmounts(text, invoiceId);
+    }
     return {
       kind: 'tool',
       name: 'record_receipt',
@@ -3283,7 +3408,12 @@ export function planLocalToolCall(state, message) {
   const chase = planCollectionFromChat(state, text);
   if (chase) return chase;
   const receipt = planReceiptWithoutInvoice(state, text);
-  if (receipt) return receipt;
+  if (receipt) {
+    const wholeInvoice = receipt.kind === 'tool' && receipt.name === 'record_receipt' && receipt.args.amount == null;
+    if (!wholeInvoice || amountsSaid(text).length < 2) return receipt;
+    const sole = receiptAmount(withoutSettledTds(text));
+    return sole == null ? severalReceiptAmounts(text, receipt.args.invoiceId) : { ...receipt, args: { ...receipt.args, amount: sole } };
+  }
 
   if ((isQuestion(text) || isNegated(text)) && /\b(import|attach|upload|reconcile)\b/i.test(text) && /\b(tally|zoho|bank|statement|xml|csv)\b/i.test(text)) {
     return {
@@ -3353,7 +3483,7 @@ export function planLocalToolCall(state, message) {
       if (!csv) return { kind: 'reply', reply: 'Attach the "TDS and TCS credit received" statement from the GST portal (operator GSTIN, period, integrated, central and state tax), then say "import tcs statement".', tools: [] };
       return { kind: 'tool', name: 'import_tcs_statement', args: { csv }, clearsPendingFile: true };
     }
-    if (/\bimport\s+(?:form\s+)?26\s*as\b|\b26\s*as\s+(?:credits?|194-?o)\b/i.test(text) && !isQuestion(text)) {
+    if (/\b(?:import|upload)\s+(?:(?:the|my)\s+)?(?:form\s+)?26\s*as\b|\b26\s*as\s+(?:credits?|194-?o)\b/i.test(text) && !isQuestion(text)) {
       const csv = pendingFileContent(state);
       if (!csv) return { kind: 'reply', reply: 'Attach Form 26AS as a CSV or text table (section, TAN of deductor, tax deducted, date), then say "import 26AS". Every section is read: the 194-O credits marketplaces deposited and the TDS your customers deducted.', tools: [] };
       return { kind: 'tool', name: 'import_26as_credits', args: { csv }, clearsPendingFile: true };

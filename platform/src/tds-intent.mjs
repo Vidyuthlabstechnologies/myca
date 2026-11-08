@@ -458,6 +458,16 @@ function pending26as(state) {
   return String(file.name || '26AS file').slice(0, 80);
 }
 
+export function withoutSettledTds(text) {
+  return plain(normalizeChat(text));
+}
+
+export function creditCheckWords(data, money) {
+  const source = String(data.source || '');
+  const sentence = source ? `${source[0].toUpperCase()}${source.slice(1)}${/[.!?]$/.test(source) ? '' : '.'}` : source;
+  return tdsCreditWords({ ...data, source: sentence }, money);
+}
+
 export function plan26asCheckFromChat(state, text) {
   const raw = normalizeChat(text);
   const has26 = AS_26.test(raw);
@@ -473,7 +483,7 @@ export function plan26asCheckFromChat(state, text) {
   if (!waiting || !toolServesCountry('tds_credit_check', countryOf(state))) return mine({ kind: 'tool', name: 'tds_credit_check', args });
   const result = tdsCreditCheck(state, args);
   result.data.pendingFile = waiting;
-  return mine({ kind: 'reply', reply: tdsCreditWords(result.data, (amount) => formatMoney(state, amount)), tools: [{ name: 'tds_credit_check', result }] });
+  return mine({ kind: 'reply', reply: creditCheckWords(result.data, (amount) => formatMoney(state, amount)), tools: [{ name: 'tds_credit_check', result }] });
 }
 
 export function planTdsChat(state, text) {
