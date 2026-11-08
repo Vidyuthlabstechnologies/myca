@@ -2843,28 +2843,49 @@ const IMS_UNMATCHED_SAID = /\b(?:not|non|no|[a-z]+n['\u2019]t|isnt|arent|wasnt|w
 const IMS_PERIOD_FIGURES = new RegExp([
   '\\b(?:gstr-?)?2b\\b',
   '\\b20\\d{2}(?:-\\d{1,2}(?:-\\d{1,2})?)?\\b',
-  '\\b(?:fy\\.?|f\\.\\s?y\\.?|financial\\s+year)\\s*(?:20)?\\d{2}(?:\\s*[-/]\\s*(?:20)?\\d{2})?\\b',
+  '\\b(?:fy\\.?|f\\.\\s?y\\.?|financial\\s+year)\\s*[-:\'\\u2019]?\\s*(?:20)?\\d{2}(?:\\s*[-/]\\s*(?:20)?\\d{2})?\\b',
   `\\b\\d{1,2}(?:st|nd|rd|th)?\\s+(?:of\\s+)?(?:${CHAT_MONTH_WORDS})\\b`,
   `\\b(?:${CHAT_MONTH_WORDS})\\.?\\s+\\d{1,2}(?:st|nd|rd|th)?\\b`,
   '\\b[qh][1-4]\\b',
   '\\b\\d{1,2}\\s+(?:months?|quarters?|years?)\\b',
 ].join('|'), 'gi');
 const IMS_PERIOD_UNREAD = new RegExp([
-  '\\b(?:fy|f\\.\\s?y)\\b',
-  '\\b(?:years?|quarters?|months|weeks?|ago)\\b',
+  '\\b(?:fy|f\\.\\s?y)(?![a-z])',
+  '\\b(?:years?|quarters?|months|weeks?|fortnights?|ago)\\b',
   '\\b[qh][1-4]\\b',
   '\\b(?:first|second)\\s+half\\b',
   '\\bbefore\\s+last\\b',
-  '\\b(?:every|each|all|any)\\s+(?:the\\s+)?month\\b',
+  '\\b(?:every|each|all|any)\\s+(?:the\\s+)?(?:month|periods?)\\b',
   '\\b(?:next|coming|following)\\s+month\\b',
+  '\\bpast\\s+month\\b',
+  '\\bmonth\\s+(?:back|earlier)\\b',
+  '\\b(?:annual(?:ly)?|biannual(?:ly)?|monthly|bimonthly|quarterly|yearly|weekly|daily|fortnightly)\\b',
+  '\\b(?:yesterday|ytd|mtd|qtd)\\b',
+  '\\bso\\s+far\\b',
+  '\\bmonth\\s*-?\\s*to\\s*-?\\s*date\\b',
   `\\b(?:since|until|till|before|after|upto|up\\s+to|onwards?)\\s+(?:the\\s+)?(?:(?:${CHAT_MONTH_WORDS})\\b|20\\d{2}-\\d{2}\\b(?!-\\d)|(?:last|this|previous|prior|next)\\s+month\\b)`,
 ].join('|'), 'i');
+const IMS_PERIOD_NUMBERS = new RegExp([
+  '(?<![\\w/.-])\\d{1,2}\\s*[/.-]\\s*20\\d{2}(?![\\w/-]|\\.\\d)',
+  '(?<![\\w/.-])20\\d{2}\\s*[/.]\\s*\\d{1,2}(?![\\w/-]|\\.\\d)',
+  `\\b(?:${CHAT_MONTH_WORDS})\\.?\\s*[-'\\u2019/]\\s*\\d{2}\\b`,
+  '\\b\\d{1,2}(?:st|nd|rd|th)\\s+(?:quarter|half|year)\\b',
+].join('|'), 'gi');
 const IMS_ISO_MONTH = /\b(20\d{2})-(\d{1,2})\b/g;
 const IMS_THIS_MONTH = /\b(?:this|current)\s+month\b/gi;
 const IMS_LAST_MONTH = /\b(?:last|previous|prior|preceding)\s+month\b/gi;
 const IMS_NAMED_MONTH = new RegExp(`\\b(${CHAT_MONTH_WORDS})\\b\\.?(?:(?:\\s+|\\s*,\\s*|\\s+of\\s+|\\s*\\(\\s*)(20\\d{2})\\b\\)?)?`, 'gi');
 const IMS_BARE_YEAR = /(?<![\w-])20\d{2}(?![\w-])/;
+const IMS_MODAL_MAY = /\b(?:i|we|you|he|she|they|it)\s+may\b|(?<!\b(?:for|in|of|during|from|to|till|until|through|thru|and|or|between|by|since|upto|on|at|the|this|last|next|previous|prior|month)\s+)(?<![-\u2013/&]\s*)\bmay\s+(?:i|we|you|he|she|they|it|there|someone|anyone|see|have|get|show|check|look|be|not|need|want|know|ask)\b/gi;
 const IMS_DECISION_VERB = { accept: /\baccept\b/i, reject: /\breject\b/i, pending: /\b(?:mark|put|set|make|move|keep|leave)\b/i };
+const IMS_INFORMATIONAL = new RegExp([
+  '\\b(?:what|who|whom|how|why|whether|should|shall)\\b',
+  '\\bwhich\\s+(?:invoices?|bills?|rows?|entries|entry|ones|items?|notes?|documents?|records?|of|to)\\b',
+  '\\b(?:see|tell|explain|summary|summaries|summari[sz]e|overview|posted|updated|informed)\\b',
+  '\\ba\\s+lists?\\b|\\blists?\\s+(?:of|all|the|every|out)\\b',
+  '\\b(?:invoices?|bills?|rows?|entries|entry|ones|items?|notes?|documents?|records?|steps?|ways?|things?|stuff|those|these)\\s+(?:that\\s+)?(?:(?:i|we)\\s+)?(?:(?:should|shall|must|can|could|may|might|need\\s+to|have\\s+to)\\s+|to\\s+)(?:accept|reject)\\b',
+].join('|'), 'i');
+const IMS_PENDING_NOUN = /\bpending\s+(?:invoices?|bills?|rows?|entries|entry|items?|ones|documents?|notes?|records?)\b/i;
 const IMS_ONE_AT_A_TIME = 'IMS takes one decision at a time. Say, for example, "accept all matched invoices in IMS" first, then "reject all undecided invoices in IMS".';
 const IMS_BULK_ONLY = 'I have changed nothing in IMS. A bulk decision applies to every row of that set, so I will not run it for one supplier, for only some of the rows or with an exception left out. Say it for the whole set, for example "accept all matched invoices in IMS", or pick single rows in the IMS screen.';
 const IMS_NARROWED = /\b(?:except(?:ing)?|exclud(?:e|es|ed|ing)|other\s+than|apart\s+from|aside\s+from|besides|but\s+not|not\s+including|leav(?:e|es|ing)\s+out|skip(?:s|ping)?|where|whose)\b|\bonly\b(?!\s+(?:the\s+)?(?:matched|suggested|undecided|not\s+decided)\b)(?!\s*(?:$|[.!?]|(?:in|on|for|at|within)\b))|(?<!\bevery\s)(?<!\beach\s)(?<!\bany\s)\b(?:supplier|vendor|seller)\b(?!\s+(?:invoices?|bills?|documents?|notes?|rows?|entries|records?|credit|debit)\b)/i;
@@ -2901,9 +2922,10 @@ function chatMonthBefore(today) {
   return month === 1 ? `${year - 1}-12` : `${year}-${String(month - 1).padStart(2, '0')}`;
 }
 
-function imsPeriodReading(text, today = localToday()) {
+function imsPeriodReading(sentence, today = localToday()) {
+  const text = sentence.replace(IMS_MODAL_MAY, ' ');
   const months = new Set();
-  let unread = IMS_PERIOD_UNREAD.test(text);
+  let unread = IMS_PERIOD_UNREAD.test(text) || text.search(IMS_PERIOD_NUMBERS) >= 0;
   const left = text
     .replace(IMS_ISO_MONTH, (_, year, month) => {
       if (isReturnPeriod(`${year}-${month}`)) months.add(`${year}-${month}`);
@@ -2970,14 +2992,18 @@ function imsSelectionQualified(state, period, text) {
 
 function planImsFromChat(state, text) {
   if (countryOf(state) !== 'IN' || !IMS_SAID.test(text) || isNegated(text) || REMINDER_WORDS.test(text) || namesAnImsParty(state, text)) return null;
-  const said = new Set([...text.matchAll(IMS_DECISION_SAID)].map((hit) => hit[1].toLowerCase()));
+  const hits = [...text.matchAll(IMS_DECISION_SAID)];
+  const said = new Set(hits.map((hit) => hit[1].toLowerCase()));
   const bulkOnly = { kind: 'reply', reply: IMS_BULK_ONLY, tools: [] };
-  const commanded = said.size === 1 && IMS_DECISION_VERB[[...said][0]].test(text);
-  if (/\d/.test(text.replace(IMS_PERIOD_FIGURES, ' '))) return commanded && !isQuestion(text) ? bulkOnly : null;
+  const verbed = said.size === 1 && IMS_DECISION_VERB[[...said][0]].test(text);
+  const marker = IMS_INFORMATIONAL.exec(text);
+  const informational = Boolean(marker) && (!hits.length || marker.index < hits[0].index || hits.some((hit) => hit.index >= marker.index && hit.index < marker.index + marker[0].length));
+  const commanded = verbed && !informational && !(said.has('pending') && IMS_PENDING_NOUN.test(text));
+  if (/\d/.test(text.replace(IMS_PERIOD_NUMBERS, ' ').replace(IMS_PERIOD_FIGURES, ' '))) return verbed && !isQuestion(text) ? bulkOnly : null;
   const reading = imsPeriodReading(text);
   const period = reading.period || latestTwobMonth(state);
-  const review = reading.unread ? imsMonthUnread(state, said.size && !isQuestion(text) ? undefined : 'show IMS for') : { kind: 'tool', name: 'ims_review', args: period ? { period } : {} };
-  if (isQuestion(text)) return review;
+  const review = reading.unread ? imsMonthUnread(state, said.size && !isQuestion(text) && !informational ? undefined : 'show IMS for') : { kind: 'tool', name: 'ims_review', args: period ? { period } : {} };
+  if (isQuestion(text) || informational) return review;
   if (said.size > 1) return { kind: 'reply', reply: IMS_ONE_AT_A_TIME, tools: [] };
   const pick = IMS_SELECT_SAID.exec(text);
   if (said.size === 1 && (pick || !said.has('pending')) && imsSelectionQualified(state, period, text)) return bulkOnly;
@@ -2996,8 +3022,10 @@ const MSME_IS = new RegExp(`^(.+?)\\s+is\\s+${MSME_ARTICLE}(${MSME_KEYWORD})\\b(
 const MSME_WORD = new RegExp(`\\b${MSME_KEYWORD}`, 'i');
 const MSME_CATEGORY = /\b(micro|small|medium)\s+(?:category|enterprise|unit)\b|\bcategory\s*[:=-]?\s*(micro|small|medium)\b/i;
 const MSME_CATEGORY_BARE = /(?<![\w-])(micro|small|medium)(?![\w-])(?=\s*(?:$|[,;.)]|\d))/i;
-const SUPPLIER_DAYS = /\bnet\s*(\d{1,4})\b|\b(\d{1,4})\s*-?\s*days?\b/i;
-const SUPPLIER_DAYS_SAID = /\bnet\s*(\d+)|\b(\d+)\s*-?\s*days?\b/gi;
+const SUPPLIER_DAYS_NUMBER = '\\d+(?:[.,]\\d+)*';
+const SUPPLIER_DAYS_PATTERN = `\\bnet\\s*(${SUPPLIER_DAYS_NUMBER})\\b|(?<!\\d)(?<!\\d[.,])(${SUPPLIER_DAYS_NUMBER})\\s*-?\\s*days?\\b`;
+const SUPPLIER_DAYS = new RegExp(SUPPLIER_DAYS_PATTERN, 'i');
+const SUPPLIER_DAYS_SAID = new RegExp(SUPPLIER_DAYS_PATTERN, 'gi');
 const SUPPLIER_DAYS_FORM = 'Agreed days must be a whole number from 0 to 365.';
 const SUPPLIER_TERMS_FOR = /^(?:please\s+)?(?:(?:set|update|change|record|save)\s+)?(?:the\s+)?(?:supplier|vendor)\s+terms\s+(?:for|of|with)\s+(.+)$/i;
 const PAYMENT_TERMS_FOR = /^(?:please\s+)?(?:(?:set|update|change|record|save|put)\s+)?(?:the\s+)?payment\s+terms\s+(?:for|of|with)\s+(.+)$/i;
@@ -3015,10 +3043,16 @@ const UDYAM_OF = /^(?:the\s+)?udyam\s*(?:registration\s*)?(?:no\.?|number)?\s+(?
 const UDYAM_OF_MALFORMED = /^(?:the\s+)?udyam\s*(?:registration\s*)?(?:no\.?|number)?\s+(?:of|for)\s+.+?\s*(?:\b(?:is|are)\b\s*)?[:=]?\s*(?:UDYAM\b|[A-Za-z]{2}-\d{2}-\d)/i;
 const UDYAM_ANOTHER = /UDYAM-[A-Z]{2}-\d{2}-\d{7}/i;
 const UDYAM_FORM = 'A Udyam number looks like UDYAM-XX-00-0000000.';
-const PAYS_WITHIN_DAYS = /^(?:(?:please|pls|kindly)\s+)?(?:(?:we|i)(?:['’](?:ll|d))?\s+(?:(?:will|shall|usually|normally|always|should|must|can|could|would|need\s+to|have\s+to|agreed?\s+to|have\s+agreed\s+to|are\s+to|plan\s+to|want\s+to)\s+)*)?pay\s+(.+?)\s+(?:(?:in|within|after)\s+(\d+)\s*-?\s*days?|net\s*(\d+))\b(.*)$/i;
-const SUPPLIER_NAME_NOISE = new Set(['my', 'our', 'the', 'a', 'an', 'supplier', 'vendor', 'suppliers', 'vendors', 'please', 'mark', 'that', 's', 'since', 'as', 'because', 'so', 'also', 'but', 'note', 'now', 'today', 'hey', 'btw', 'fyi', 'actually', 'remember', 'confirm', 'once', 'after', 'maybe', 'all', 'every', 'each', 'both', 'set', 'add', 'save', 'record', 'update', 'register', 'tag', 'msme', 'too', 'called', 'named', 'yes', 'ok', 'okay', 'again']);
-const SUPPLIER_LEAD_IN = /^(?:(?:since|as|because|so|also|but|note|now|today|hey|btw|fyi|actually|remember|confirm|once|after|maybe|please|that)(?:\s*[:,;]\s*|\s+-\s+|\s+))+/i;
-const SUPPLIER_CONDITIONAL = /^(?:(?:ok(?:ay)?|so|well|and|but|then|hey|btw|fyi|also|please)[\s,]+)*(?:if|when|whenever|suppose|supposing|assuming|unless|in\s+case|provided)\b/i;
+const PAYS_WITHIN_DAYS = /^(?:(?:please|pls|kindly)\s+)?(?:(?:we|i)(?:['’](?:ll|d))?\s+(?:(?:will|shall|usually|normally|always|should|must|can|could|would|need\s+to|have\s+to|agreed?\s+to|have\s+agreed\s+to|are\s+to|plan\s+to|want\s+to)\s+)*)?pay\s+(.+?)\s+(?:(?:in|within|after)\s+(\d+(?:[.,]\d+)*)\s*-?\s*days?|net\s*(\d+(?:[.,]\d+)*))\b(.*)$/i;
+const SUPPLIER_NAME_NOISE = new Set(['my', 'our', 'the', 'a', 'an', 'supplier', 'vendor', 'suppliers', 'vendors', 'please', 'pls', 'kindly', 'mark', 'that', 's', 'since', 'as', 'because', 'so', 'also', 'but', 'note', 'now', 'today', 'hey', 'hi', 'hello', 'oh', 'just', 'well', 'btw', 'fyi', 'actually', 'remember', 'confirm', 'once', 'after', 'maybe', 'all', 'every', 'each', 'both', 'set', 'add', 'save', 'record', 'update', 'register', 'tag', 'msme', 'too', 'called', 'named', 'yes', 'ok', 'okay', 'again']);
+const SUPPLIER_LEAD_PHRASE = '(?:by\\s+the\\s+way|for\\s+the\\s+record|just\\s+so\\s+you\\s+know|for\\s+your\\s+information|note\\s+to\\s+self|(?:(?:please|pls|kindly)\\s+)?note\\s+(?:that|down)|(?:please|pls|kindly)\\s+note|remember\\s+that|confirm\\s+that)';
+const SUPPLIER_LEAD_SURE = '(?:since|as|because|so|also|but|please|pls|kindly|that|hey|btw|fyi|actually|remember|maybe)';
+const SUPPLIER_LEAD_MAYBE = '(?:note|now|today|confirm|once|after|just|well|hi|hello|oh|okay|ok)';
+const SUPPLIER_LEAD_SOFT = '(?:\\s*[:,;]\\s*|\\s+-\\s+|\\s+)';
+const SUPPLIER_LEAD_HARD = '(?:\\s*[:,;]\\s*|\\s+-\\s+)';
+const SUPPLIER_LEAD_IN = new RegExp(`^(?:(?:${SUPPLIER_LEAD_PHRASE}|${SUPPLIER_LEAD_SURE})${SUPPLIER_LEAD_SOFT}|${SUPPLIER_LEAD_MAYBE}${SUPPLIER_LEAD_HARD})+`, 'i');
+const SUPPLIER_ASIDE = /\b(?:by the way|for the record|just so you know|for your information|note to self|note down|note that|remember that|confirm that)\b/g;
+const SUPPLIER_CONDITIONAL = /^(?:(?:ok(?:ay)?|so|well|and|but|then|hey|btw|fyi|also|please)[\s,]+)*(?:(?:even|only|as|what|not\s+sure|unsure|wonder(?:ing)?|check(?:ing)?|see(?:ing)?|ask(?:ing)?|know(?:ing)?|find\s+out)\s+)?(?:if|when|whenever|whether|suppose|supposing|assuming|unless|in\s+case|provided)\b/i;
 const NAME_LIST_SAID = /[,;&+/]|\b(?:and|or|nor|plus|both|either|neither)\b/i;
 const NAME_PRONOUNS = new Set(['i', 'me', 'we', 'us', 'you', 'he', 'him', 'she', 'her', 'it', 'they', 'them', 'who', 'whom', 'whoever', 'which', 'what', 'this', 'that', 'these', 'those', 'one', 'ones', 'everyone', 'everybody', 'everything', 'anyone', 'anybody', 'anything', 'someone', 'somebody', 'something', 'nobody', 'nothing', 'none', 'his', 'hers', 'their', 'theirs', 'its', 'your', 'yours', 'mine', 'ours', 'last', 'same', 'other', 'others', 'another']);
 const MSME_ALSO = /\band\b.+\b(?:as|is|are)\s+(?:(?:an?|the)\s+)?(?:msme|micro|small|medium)\b/i;
@@ -3041,7 +3075,7 @@ function knownSupplierIn(names, part) {
   const padded = ` ${nameKey(part)} `;
   const hits = [...names.entries()].filter(([key]) => padded.includes(` ${key} `)).sort((a, b) => b[0].length - a[0].length);
   for (const [key, display] of hits) {
-    const left = padded.replace(` ${key} `, ' ').trim().split(/\s+/).filter((word) => word && !SUPPLIER_NAME_NOISE.has(word));
+    const left = padded.replace(` ${key} `, ' ').replace(SUPPLIER_ASIDE, ' ').trim().split(/\s+/).filter((word) => word && !SUPPLIER_NAME_NOISE.has(word));
     if (!left.length) return display;
   }
   return '';
@@ -3081,6 +3115,11 @@ function supplierTermsTail(state, tail) {
   return { part: cut ? tail.slice(0, cut.index) : tail, rest: cut ? tail.slice(cut.index) : '', known: false };
 }
 
+function supplierConditional(part) {
+  const body = String(part || '').trim();
+  return SUPPLIER_CONDITIONAL.test(body) || SUPPLIER_CONDITIONAL.test(body.replace(SUPPLIER_LEAD_IN, ''));
+}
+
 function supplierTermsDeclined() {
   return { kind: 'tool', name: 'company_profile', args: {}, fallback: true };
 }
@@ -3092,8 +3131,12 @@ function supplierTermsDetails(udyam, keyword, rest, msme) {
   return { ...(udyam ? { udyam } : {}), ...(category ? { category } : {}), ...(days ? { days: Number(days[1] || days[2]) } : {}) };
 }
 
-function supplierDaysTooMany(text) {
-  for (const hit of text.matchAll(SUPPLIER_DAYS_SAID)) if (Number(hit[1] || hit[2]) > 365) return true;
+function supplierDaysBad(token) {
+  return /[.,]/.test(token) || Number(token) > 365;
+}
+
+function supplierDaysOutOfRange(text) {
+  for (const hit of text.matchAll(SUPPLIER_DAYS_SAID)) if (supplierDaysBad(hit[1] || hit[2])) return true;
   return false;
 }
 
@@ -3107,7 +3150,7 @@ function supplierPayingDays(state, body) {
   const supplier = knownSupplierIn(knownSupplierNames(state, { suppliersOnly: true }), paying[1]);
   if (!supplier) return null;
   const days = paying[2] || paying[3];
-  return Number(days) > 365 ? supplierDaysRefused() : { kind: 'tool', name: 'set_supplier_terms', args: { partyName: supplier, days: Number(days) } };
+  return supplierDaysBad(days) ? supplierDaysRefused() : { kind: 'tool', name: 'set_supplier_terms', args: { partyName: supplier, days: Number(days) } };
 }
 
 function supplierPaymentTerms(state, body) {
@@ -3118,7 +3161,7 @@ function supplierPaymentTerms(state, body) {
   const rest = tail ? tail.rest : termsOf ? termsOf[2] : '';
   const supplier = part ? supplierOnlyNamed(state, part) : '';
   if (!supplier || NOT_SAID.test(rest)) return null;
-  if (supplierDaysTooMany(rest)) return supplierDaysRefused();
+  if (supplierDaysOutOfRange(rest)) return supplierDaysRefused();
   const details = supplierTermsDetails('', '', rest, MSME_WORD.test(rest));
   if (details.days == null) return null;
   return { kind: 'tool', name: 'set_supplier_terms', args: { partyName: supplier, ...(MSME_WORD.test(rest) ? { msme: true } : {}), ...details } };
@@ -3126,10 +3169,10 @@ function supplierPaymentTerms(state, body) {
 
 function udyamTermsPlan(state, name, udyam, rest) {
   if (UDYAM_ANOTHER.test(rest)) return null;
-  if (SUPPLIER_CONDITIONAL.test(name)) return supplierTermsDeclined();
+  if (supplierConditional(name)) return supplierTermsDeclined();
   const partyName = supplierNameSaid(state, name, true);
   if (!partyName) return null;
-  if (supplierDaysTooMany(rest)) return supplierDaysRefused();
+  if (supplierDaysOutOfRange(rest)) return supplierDaysRefused();
   return { kind: 'tool', name: 'set_supplier_terms', args: { partyName, msme: true, ...supplierTermsDetails(udyam.toUpperCase(), '', rest, true) } };
 }
 
@@ -3150,10 +3193,10 @@ function planSupplierTermsFromChat(state, text) {
     if (UDYAM_MALFORMED.test(`${part} ${rest}`)) return { kind: 'reply', reply: UDYAM_FORM, tools: [] };
     if (tail && (NOT_SAID.test(rest) || (!tail.known && (NOT_SAID.test(part) || TERMS_TRAILING.test(part))))) return supplierTermsDeclined();
     if (MSME_ALSO.test(rest) || UDYAM_NUMBER_SAID.test(bare)) return null;
-    if (stated && SUPPLIER_CONDITIONAL.test(part)) return supplierTermsDeclined();
+    if (stated && supplierConditional(part)) return supplierTermsDeclined();
     const partyName = tail?.known ? part : supplierNameSaid(state, part, Boolean(marked || termsFor));
     if (!partyName) return termsFor ? supplierTermsDeclined() : null;
-    if (supplierDaysTooMany(rest)) return supplierDaysRefused();
+    if (supplierDaysOutOfRange(rest)) return supplierDaysRefused();
     const msme = Boolean(stated) || MSME_WORD.test(rest);
     const details = supplierTermsDetails(udyam, stated ? stated[2] : '', rest, msme);
     if (termsFor && !msme && !Object.keys(details).length) return supplierTermsDeclined();

@@ -127,6 +127,7 @@ test('R3: a bare month name that is the current month means this month of this y
     assert.deepEqual(toolArgs(state, `accept all matched invoices in IMS for ${nameLater}`, 'ims_decide').period, keyOf(THIS_YEAR - 1, THIS_MONTH + 1));
   }
 
+  delete state.gstr2b[NOW_KEY];
   const missing = plan(state, `ims review in excel for ${nameNow}`);
   assert.equal(missing.kind, 'reply', words(missing));
   assert.equal(missing.reply, `Add the GSTR-2B for ${inWords(NOW_KEY)} first.`);
@@ -247,12 +248,13 @@ test('R5: the example month in the reply is the latest 2B month, or last month w
 test('R5: sept is September in the audit trail and IMS, and a month, a previous month and a plain sentence are read as before', async () => {
   const state = await books();
   const sept = bareMonth(9);
-  await addTwob(state, sept);
+  const septBooks = await books();
+  if (!septBooks.gstr2b[sept]) await addTwob(septBooks, sept);
   assert.deepEqual(toolArgs(state, 'ims for sept', 'ims_review'), { period: sept });
   assert.deepEqual(toolArgs(state, 'ims for Sept.', 'ims_review'), { period: sept });
   assert.deepEqual(toolArgs(state, 'reject all undecided invoices in IMS for sept', 'ims_decide'), { period: sept, select: 'undecided', decision: 'reject' });
   assert.deepEqual(toolArgs(state, 'reject all undecided invoices in IMS for sept 2026', 'ims_decide'), { period: '2026-09', select: 'undecided', decision: 'reject' });
-  assert.deepEqual(toolArgs(state, 'ims review in excel for sept', 'export_xlsx'), { report: 'ims_review', period: sept });
+  assert.deepEqual(toolArgs(septBooks, 'ims review in excel for sept', 'export_xlsx'), { report: 'ims_review', period: sept });
   assert.deepEqual(toolArgs(state, 'audit trail for sept', 'audit_trail'), { period: sept });
   assert.deepEqual(toolArgs(state, 'who changed what in sept 2026', 'audit_trail'), { period: '2026-09' });
   assert.deepEqual(toolArgs(state, 'export audit trail for sept to excel', 'export_xlsx'), { report: 'audit_trail', period: sept });
@@ -297,7 +299,7 @@ test('R8: lead-in words are never part of the supplier name, and a conditional s
     assert.deepEqual(terms(`${lead} Acme Steel is MSME, 30 days`), { partyName: 'Acme Steel', msme: true, days: 30 }, lead);
   }
   for (const lead of ['since', 'because', 'also', 'update', 'as', 'so']) assert.deepEqual(terms(`${lead} Acme Steel is MSME, 30 days`), { partyName: 'Acme Steel', msme: true, days: 30 }, lead);
-  assert.deepEqual(terms('note Zenith Dyes is MSME, 30 days'), { partyName: 'Zenith Dyes', msme: true, days: 30 }, 'a supplier not in the books yet loses the lead-in word too');
+  assert.deepEqual(terms('note: Zenith Dyes is MSME, 30 days'), { partyName: 'Zenith Dyes', msme: true, days: 30 }, 'a supplier not in the books yet loses the lead-in word too');
   assert.deepEqual(terms('btw Zenith Dyes is MSME'), { partyName: 'Zenith Dyes', msme: true });
   assert.deepEqual(terms('Acme Steel is MSME, 30 days'), { partyName: 'Acme Steel', msme: true, days: 30 });
   assert.deepEqual(terms('mark Acme Steel as MSME'), { partyName: 'Acme Steel', msme: true });
@@ -574,6 +576,358 @@ test('R-regexp: no pattern is built from a stored party, vendor or payee name, a
   assert.equal(plan(state, 'received 5000 from Audit Trail Associates').name === 'audit_trail', false);
 });
 
+const IMS_BULK_REPLY = 'I have changed nothing in IMS. A bulk decision applies to every row of that set, so I will not run it for one supplier, for only some of the rows or with an exception left out. Say it for the whole set, for example "accept all matched invoices in IMS", or pick single rows in the IMS screen.';
+
+function asksForTheMonth(state, sentence, kind) {
+  const out = plan(state, sentence);
+  assert.equal(out.kind, 'reply', `${sentence} -> ${words(out)}`);
+  assert.deepEqual(out.tools, [], sentence);
+  assert.match(out.reply, /^I could not read that period as one month, so I have changed nothing in IMS\./, sentence);
+  sayItExample(state, out, kind, sentence);
+  assert.doesNotMatch(out.reply, RAW_CODE, sentence);
+  assert.doesNotMatch(out.reply, /\d{4}-\d{2}/, `${sentence}: the example month is in words`);
+}
+
+const FY_SPELLINGS = ['FY2026', 'FY26', 'FY25-26', 'fy2025-26', 'FY2025-26', 'fy26', "FY'26", 'FY-2026', 'F.Y.2025-26', 'F.Y.2026', 'FY 2025-26', 'fy 26'];
+
+test('R5: a financial year written without a space is not a month either, for a decision, a read and the Excel report', async () => {
+  const state = await books();
+  for (const fy of FY_SPELLINGS) {
+    asksForTheMonth(state, `accept all matched invoices in ims for ${fy}`, 'decide');
+    asksForTheMonth(state, `reject all undecided invoices in IMS for ${fy}`, 'decide');
+    asksForTheMonth(state, `show IMS for ${fy}`, 'read');
+    asksForTheMonth(state, `ims for ${fy}`, 'read');
+    asksForTheMonth(state, `what is pending in IMS for ${fy}?`, 'read');
+    asksForTheMonth(state, `ims review in excel for ${fy}`, 'excel');
+    asksForTheMonth(state, `export the ims excel for ${fy}`, 'excel');
+  }
+  const held = await chat(state, 'accept all matched invoices in ims for FY2026');
+  assert.equal(held.awaitingConfirmation, undefined, held.reply);
+  assert.match(held.reply, /changed nothing in IMS/);
+  assert.equal(state.pendingChatAction ?? null, null);
+  assert.deepEqual(toolArgs(state, 'accept all matched invoices in ims, fyi', 'ims_decide'), { period: '2026-10', select: 'matched', decision: 'accept' }, 'fyi is not a financial year');
+  assert.deepEqual(toolArgs(state, 'fyi accept all matched invoices in ims', 'ims_decide'), { period: '2026-10', select: 'matched', decision: 'accept' });
+  assert.deepEqual(toolArgs(state, 'ims for fyi', 'ims_review'), { period: '2026-10' });
+});
+
+test('R5: the modal verb may is never read as the month May in an IMS sentence', async () => {
+  const state = await books();
+  const october = bareMonth(10);
+  const may = bareMonth(5);
+  const decide = (period) => ({ period, select: 'matched', decision: 'accept' });
+  assert.deepEqual(toolArgs(state, 'accept all matched invoices in ims for october, you may proceed', 'ims_decide'), decide(october));
+  assert.deepEqual(toolArgs(state, 'accept all matched invoices in ims for october 2026, you may proceed', 'ims_decide'), decide('2026-10'));
+  assert.deepEqual(toolArgs(state, 'you may accept all matched invoices in ims for october', 'ims_decide'), decide(october));
+  assert.deepEqual(toolArgs(state, 'ims for october, you may show me', 'ims_review'), { period: october });
+  assert.deepEqual(toolArgs(state, 'may I accept all matched invoices in ims for october?', 'ims_review'), { period: october });
+  assert.deepEqual(toolArgs(state, 'ims review in excel for october 2026, you may proceed', 'export_xlsx'), { report: 'ims_review', period: '2026-10' });
+  assert.deepEqual(toolArgs(state, 'accept all matched invoices in ims, you may proceed', 'ims_decide'), decide('2026-10'), 'no month said: the latest 2B month, never May');
+  assert.deepEqual(toolArgs(state, 'you may accept all matched invoices in ims', 'ims_decide'), decide('2026-10'));
+  assert.deepEqual(toolArgs(state, 'we may reject all undecided invoices in ims', 'ims_decide'), { period: '2026-10', select: 'undecided', decision: 'reject' });
+  assert.deepEqual(toolArgs(state, 'ims, you may proceed', 'ims_review'), { period: '2026-10' });
+  assert.deepEqual(toolArgs(state, 'ims for may', 'ims_review'), { period: may });
+  assert.deepEqual(toolArgs(state, 'ims for may 2026', 'ims_review'), { period: '2026-05' });
+  assert.deepEqual(toolArgs(state, 'accept all matched invoices in ims for may', 'ims_decide'), decide(may));
+  assert.deepEqual(toolArgs(state, 'ims for may, you may proceed', 'ims_review'), { period: may });
+  asksForTheMonth(state, 'accept all matched invoices in ims for may and october', 'decide');
+  asksForTheMonth(state, 'ims for may or october, you may choose', 'read');
+});
+
+test('R5: the word may right after in, for, of, to, and or a dash is the month May even when a verb or a pronoun follows it', async () => {
+  const state = await books();
+  const may = bareMonth(5);
+  const decide = (period) => ({ period, select: 'matched', decision: 'accept' });
+  asksForTheMonth(state, 'ims for sept and may check', 'read');
+  asksForTheMonth(state, 'ims for march to may show me the totals', 'read');
+  asksForTheMonth(state, 'accept all matched invoices in ims for april and may get it done', 'decide');
+  asksForTheMonth(state, 'ims for april or may we should look', 'read');
+  asksForTheMonth(state, 'ims from march - may see the totals', 'read');
+  assert.deepEqual(toolArgs(state, 'ims for may i want to see what is pending', 'ims_review'), { period: may });
+  assert.deepEqual(toolArgs(state, 'ims in may we have pending invoices', 'ims_review'), { period: may });
+  assert.deepEqual(toolArgs(state, 'ims for the month of may get me the list', 'ims_review'), { period: may });
+  assert.deepEqual(toolArgs(state, 'accept all matched invoices in ims for may i guess', 'ims_decide'), decide(may));
+  assert.deepEqual(toolArgs(state, 'may I see ims for october', 'ims_review'), { period: bareMonth(10) });
+  assert.deepEqual(toolArgs(state, 'ims for october, may i proceed', 'ims_review'), { period: bareMonth(10) });
+  assert.deepEqual(toolArgs(state, 'accept all matched invoices in ims for october. may we proceed', 'ims_decide'), decide(bareMonth(10)));
+});
+
+const UNREAD_PHRASES = [
+  'for last fortnight', 'for the past fortnight', 'for the past month', 'for a month back', 'for one month back', 'for all periods', 'for every period', 'for each period', 'for any period',
+  'annually', 'monthly', 'quarterly', 'yearly', 'weekly', 'daily', 'for yesterday', 'so far', 'ytd', 'mtd', 'month to date', 'month-to-date',
+  'for 09/2026', 'for 9/2026', 'for 9-2026', 'for 09.2026', 'for 2026/09', 'for 2026.09', "for sept'26", "for sep'26", 'for sep-26', 'for sep/26', 'for Sept-26',
+  'for the 2nd quarter', 'for the 1st quarter', 'for the 2nd half', 'for the 3rd quarter',
+];
+
+test('R5: more period words and numeric month shapes that are not exactly one month are asked for, and a month is still read', async () => {
+  const state = await books();
+  for (const phrase of UNREAD_PHRASES) {
+    asksForTheMonth(state, `accept all matched invoices in ims ${phrase}`, 'decide');
+    asksForTheMonth(state, `reject all undecided invoices in IMS ${phrase}`, 'decide');
+    asksForTheMonth(state, `ims ${phrase}`, 'read');
+    asksForTheMonth(state, `show pending invoices in ims ${phrase}`, 'read');
+    asksForTheMonth(state, `ims review in excel ${phrase}`, 'excel');
+  }
+  const held = await chat(state, "accept all matched invoices in ims for sept'26");
+  assert.equal(held.awaitingConfirmation, undefined, held.reply);
+  assert.match(held.reply, /changed nothing in IMS/);
+  assert.match(held.reply, /Say the month/);
+  assert.equal(state.pendingChatAction ?? null, null);
+  assert.deepEqual(state.imsDecisions ?? {}, {}, 'nothing was decided');
+  const read = {
+    'ims for 2026-09': { period: '2026-09' },
+    'ims for september 2026': { period: '2026-09' },
+    'ims for this month': { period: NOW_KEY },
+    'ims for last month': { period: LAST_KEY },
+    'ims for the previous month': { period: LAST_KEY },
+    'ims for the month of september': { period: bareMonth(9) },
+    'ims for sept': { period: bareMonth(9) },
+    'what is pending in ims': { period: '2026-10' },
+  };
+  for (const [sentence, args] of Object.entries(read)) assert.deepEqual(toolArgs(state, sentence, 'ims_review'), args, sentence);
+  assert.deepEqual(toolArgs(state, 'accept all matched invoices in ims for 2026-09', 'ims_decide'), { period: '2026-09', select: 'matched', decision: 'accept' });
+  assert.equal(plan(state, 'accept all matched invoices in ims above 5000 for sept\'26').reply, IMS_BULK_REPLY, 'an amount is still the bulk-only reply');
+  assert.equal(plan(state, 'accept all matched invoices dated 12/09/2026 in ims').reply, IMS_BULK_REPLY, 'a day is still the bulk-only reply');
+  assert.equal(plan(state, 'accept all matched invoices in ims dated 12.09.2026').reply, IMS_BULK_REPLY);
+});
+
+test('R12: a sentence that asks about, lists or talks about what to accept is shown the review, and a decision sentence still hears that nothing was changed', async () => {
+  const state = await books();
+  const informational = [
+    'ims invoices I should accept',
+    'I want to see what to accept in ims',
+    'ims: what do I accept',
+    'review ims and decide what to accept',
+    'make a list of pending invoices in ims',
+    'keep me posted on pending invoices in ims',
+    'ims invoices to accept',
+    'ims invoices to reject',
+    'tell me which invoices to reject in ims',
+    'ims invoices I can accept',
+    'ims rows I need to accept',
+    'things to reject in ims',
+    'help me decide what to reject in ims',
+    'keep me updated on pending invoices in ims',
+    'put together a summary of pending invoices in ims',
+    'ims: how do I reject',
+  ];
+  for (const sentence of informational) {
+    const out = plan(state, sentence);
+    assert.equal(out.kind, 'tool', `${sentence} -> ${words(out)}`);
+    assert.equal(out.name, 'ims_review', `${sentence} -> ${words(out)}`);
+    assert.deepEqual(out.args, { period: '2026-10' }, sentence);
+  }
+  const commanded = [
+    'I want to accept everything in ims',
+    'we need to reject all unmatched invoices in ims',
+    'go ahead and accept the rest in ims',
+    'ok now reject everything in ims',
+    'in ims, accept everything',
+    'ims: accept all invoices',
+    'then mark everything pending in ims',
+    'just accept all in ims',
+    "let's accept everything in ims",
+    'put everything on pending in ims',
+    'leave all invoices pending in ims',
+    'I would like to reject all in ims',
+    'you can accept everything in ims',
+    'please accept the invoices in ims',
+    'accept invoice F-101 in ims',
+    'reject all matched invoices over 5000 in ims',
+  ];
+  for (const sentence of commanded) {
+    const out = plan(state, sentence);
+    assert.equal(out.kind, 'reply', `${sentence} -> ${words(out)}`);
+    assert.equal(out.reply, IMS_BULK_REPLY, sentence);
+    const said = await chat(state, sentence);
+    assert.equal(said.reply, IMS_BULK_REPLY, sentence);
+    assert.equal(state.pendingChatAction ?? null, null, sentence);
+  }
+  assert.deepEqual(state.imsDecisions ?? {}, {});
+});
+
+test('R12: an accept or reject command that has a clause about telling or showing after it still hears that nothing was changed, and the same words in front of it make it a question', async () => {
+  const state = await books();
+  const commanded = [
+    'accept everything in ims and tell me what changed',
+    'reject all in ims and let me see the result',
+    'accept all the invoices in ims so I can see what is left',
+    'please accept everything in ims and explain what you did',
+    'ims: accept everything, tell me when done',
+    'reject everything in ims and keep me posted',
+    'accept all unmatched invoices in ims and summarise what was left',
+    'then reject all invoices in ims, and tell me which invoices were rejected',
+  ];
+  for (const sentence of commanded) {
+    const out = plan(state, sentence);
+    assert.equal(out.kind, 'reply', `${sentence} -> ${words(out)}`);
+    assert.equal(out.reply, IMS_BULK_REPLY, sentence);
+  }
+  const informational = [
+    'tell me what to accept in ims and why',
+    'show me which invoices to reject in ims',
+    'let me see what I should accept in ims',
+    'ims: tell me what to accept',
+    'summarise what to reject in ims',
+  ];
+  for (const sentence of informational) {
+    const out = plan(state, sentence);
+    assert.equal(out.kind, 'tool', `${sentence} -> ${words(out)}`);
+    assert.equal(out.name, 'ims_review', `${sentence} -> ${words(out)}`);
+  }
+});
+
+test('R12: a sentence that asks about or lists what to accept is shown the review even when it names a set, and a command that names a set still decides', async () => {
+  const state = await books();
+  const informational = [
+    'ims matched invoices to accept',
+    'ims matched invoices I can accept',
+    'let me see all matched invoices accepted in ims',
+    'ims: what should I accept among all matched invoices',
+    'ims: pending invoices to accept',
+    'tell me which undecided invoices to reject in ims',
+    'show me the matched invoices I should accept in ims',
+    'which matched invoices should I accept in ims',
+  ];
+  for (const sentence of informational) {
+    const out = plan(state, sentence);
+    assert.equal(out.kind, 'tool', `${sentence} -> ${words(out)}`);
+    assert.equal(out.name, 'ims_review', `${sentence} -> ${words(out)}`);
+    assert.deepEqual(out.args, { period: '2026-10' }, sentence);
+  }
+  asksForTheMonth(state, 'ims matched invoices to accept for FY2026', 'read');
+  asksForTheMonth(state, 'ims: what should I accept among all matched invoices for the past month', 'read');
+  const decided = {
+    'accept all matched invoices in ims and tell me what changed': { period: '2026-10', select: 'matched', decision: 'accept' },
+    'reject all undecided invoices in ims, tell me when done': { period: '2026-10', select: 'undecided', decision: 'reject' },
+    'please accept all matched invoices in ims so I can see the rest': { period: '2026-10', select: 'matched', decision: 'accept' },
+    'set all undecided invoices to pending in ims and tell me what changed': { period: '2026-10', select: 'undecided', decision: 'pending' },
+    'I want to accept all matched invoices in ims': { period: '2026-10', select: 'matched', decision: 'accept' },
+    'ims: accept all matched invoices': { period: '2026-10', select: 'matched', decision: 'accept' },
+  };
+  for (const [sentence, args] of Object.entries(decided)) assert.deepEqual(toolArgs(state, sentence, 'ims_decide'), args, sentence);
+});
+
+test('R12: an IMS sentence with an amount, a rate, a count or an invoice number in it keeps the bulk-only reply, informational or not, and never reaches the invoice, expense or GST review planners', async () => {
+  const state = await books();
+  const sentences = [
+    'I should accept the invoice from Acme Steel for 5000 with GST 18% in ims',
+    'I should accept an invoice of 5000 with GST 18% in ims',
+    'ims invoices I should accept of 5000 GST 18%',
+    'in ims what do I accept 5000 gst 18',
+    'make a list of pending invoices in ims for 5000 gst 18',
+    'review ims and decide what to accept for 5000 gst 18 percent',
+    'I should accept 5 matched invoices on the invoice management system',
+    'I should accept the 5 matched invoices in ims',
+    'ims invoices to accept F-101 for 5000',
+    'invoice 5000 GST 18% ims invoices to accept',
+    'bill 5000 GST 18% ims what to accept',
+    'paid 5000 to Acme Steel ims invoices I should accept',
+    'reject invoice INV09/2026 in ims',
+    'reject invoice INV-09-2026 in ims',
+    'reject invoice INV/09/2026 in ims',
+    'reject invoice 2026.50 in ims',
+  ];
+  for (const sentence of sentences) {
+    const out = plan(state, sentence);
+    assert.equal(out.kind, 'reply', `${sentence} -> ${words(out)}`);
+    assert.equal(out.reply, IMS_BULK_REPLY, sentence);
+    assert.deepEqual(out.tools, [], sentence);
+  }
+  asksForTheMonth(state, 'accept all matched invoices in ims for 2026/09.', 'decide');
+  asksForTheMonth(state, 'ims for 09/2026.', 'read');
+  asksForTheMonth(state, 'ims for 2026.09, thanks', 'read');
+});
+
+test('R8: more lead-in words and phrases are never part of a known supplier name, and more conditionals write nothing', async () => {
+  const state = await books();
+  const terms = (sentence) => toolArgs(state, sentence, 'set_supplier_terms');
+  const marked = { partyName: 'Acme Steel', msme: true, days: 30 };
+  for (const lead of ['kindly note', 'pls note', 'Pls note,', 'by the way', 'By the way,', 'for the record', 'For the record:', 'note down', 'note to self', 'note to self:', 'just', 'well', 'hi', 'hello', 'Hi,', 'oh', 'just so you know', 'for your information', 'kindly note that', 'please note down', 'ok']) {
+    assert.deepEqual(terms(`${lead} Acme Steel is MSME, 30 days`), marked, lead);
+  }
+  assert.deepEqual(terms('Acme Steel, by the way, is MSME, 30 days'), marked, 'an aside after the name');
+  assert.deepEqual(terms('mark Acme Steel as MSME, by the way, 30 days'), marked);
+  assert.deepEqual(terms('kindly note Acme Steel is MSME'), { partyName: 'Acme Steel', msme: true });
+
+  const conditionals = ['even if', 'only if', 'as if', 'not sure if', 'wondering if', 'check if', 'checking if', 'see if', 'ask if', 'whether', 'what if', 'Even if', 'note, even if', 'btw only if', 'ok so if', 'please check whether', 'I wonder if', 'wonder if'];
+  for (const lead of conditionals) {
+    for (const sentence of [`${lead} Acme Steel is MSME, 30 days`, `${lead} Zenith Dyes is MSME, 30 days`, `${lead} Acme Steel is an MSME supplier`]) {
+      const out = plan(state, sentence);
+      assert.equal(out.name === 'set_supplier_terms', false, `${sentence} -> ${words(out)}`);
+      assert.equal(out.kind, 'tool', sentence);
+      assert.equal(out.fallback, true, `${sentence} falls back`);
+    }
+  }
+  const held = await chat(state, 'even if Acme Steel is MSME, 30 days');
+  assert.equal(held.awaitingConfirmation, undefined, held.reply);
+  assert.ok(!state.pendingChatAction, 'nothing is waiting for a yes');
+  assert.deepEqual(state.supplierTerms || {}, {}, 'no terms were written');
+});
+
+test('R8: a word that can start a business name is kept in front of a name that is not in the books, unless a comma, colon or dash follows it', async () => {
+  const state = await books();
+  const terms = (sentence) => toolArgs(state, sentence, 'set_supplier_terms');
+  for (const name of ['Note Books Co', 'Today Traders', 'Now Foods', 'Confirm Tech', 'Just Dial', 'Hello Fresh', 'Hi Tech Industries', 'After Hours Pvt Ltd', 'Once Upon Ltd', 'Well Made Goods', 'OK Packaging', 'Okay Plast', 'Oh My Goods']) {
+    assert.deepEqual(terms(`${name} is MSME, 30 days`), { partyName: name, msme: true, days: 30 }, name);
+    assert.deepEqual(terms(`mark ${name} as MSME`), { partyName: name, msme: true }, name);
+    assert.deepEqual(terms(`${name} is MSME`), { partyName: name, msme: true }, name);
+  }
+  for (const lead of ['btw', 'hey', 'fyi', 'actually', 'please', 'pls', 'kindly', 'since', 'because', 'also', 'maybe', 'by the way', 'for the record', 'please note', 'note that', 'remember that', 'confirm that', 'Hey,']) {
+    assert.deepEqual(terms(`${lead} Zenith Dyes is MSME, 30 days`), { partyName: 'Zenith Dyes', msme: true, days: 30 }, lead);
+  }
+  for (const lead of ['Note:', 'note,', 'Now,', 'today -', 'Hi,', 'well,', 'Hello,', 'just -', 'after:', 'once,', 'confirm:', 'Today;', 'ok,', 'okay:', 'oh,']) {
+    assert.deepEqual(terms(`${lead} Zenith Dyes is MSME, 30 days`), { partyName: 'Zenith Dyes', msme: true, days: 30 }, lead);
+  }
+  assert.deepEqual(terms('note Zenith Dyes is MSME, 30 days'), { partyName: 'note Zenith Dyes', msme: true, days: 30 }, 'the name is shown in the preview and can be said again without the word');
+  const held = await chat(state, 'note Zenith Dyes is MSME, 30 days');
+  assert.equal(held.awaitingConfirmation, true, held.reply);
+  assert.match(held.reply, /^Mark note Zenith Dyes as an MSME supplier/, held.reply);
+  await chat(state, 'no');
+  assert.deepEqual(terms('Zenith Dyes is MSME, 30 days'), { partyName: 'Zenith Dyes', msme: true, days: 30 });
+});
+
+test('R13: a day count with a decimal point or a thousands comma is refused with the days rule, and a zero-padded count is its value', async () => {
+  const state = await books();
+  const rule = 'Agreed days must be a whole number from 0 to 365.';
+  for (const days of ['1,000', '10,000', '1,00,000', '30.5', '1.5', '0.5', '45.0', '3,65', '1,2,3', '99,999', '1000000,5']) {
+    for (const sentence of [`Acme Steel is MSME, ${days} days`, `we pay Acme Steel in ${days} days`, `supplier terms for Acme Steel ${days} days`, `mark Acme Steel as MSME, net ${days}`, `payment terms for Acme Steel net ${days}`, `Acme Steel is MSME, ${days}-days`, `please pay Acme Steel within ${days} days`, `Acme Steel is MSME, small category, net ${days}`]) {
+      const out = plan(state, sentence);
+      assert.equal(out.kind, 'reply', `${sentence} -> ${words(out)}`);
+      assert.equal(out.reply, rule, sentence);
+      assert.equal(out.blocked, true, sentence);
+      assert.deepEqual(out.tools, [], sentence);
+    }
+  }
+  const refused = await chat(state, 'Acme Steel is MSME, 1,000 days');
+  assert.equal(refused.reply, rule);
+  assert.equal(refused.blocked, true);
+  assert.ok(!state.pendingChatAction, 'nothing is waiting for a yes');
+  assert.deepEqual(state.supplierTerms || {}, {}, 'no terms were written');
+
+  for (const [sentence, args] of [
+    ['Acme Steel is MSME, 00030 days', { partyName: 'Acme Steel', msme: true, days: 30 }],
+    ['Acme Steel is MSME, 0030 days', { partyName: 'Acme Steel', msme: true, days: 30 }],
+    ['Acme Steel is MSME, net 00030', { partyName: 'Acme Steel', msme: true, days: 30 }],
+    ['Acme Steel is MSME, 000 days', { partyName: 'Acme Steel', msme: true, days: 0 }],
+    ['Acme Steel is MSME, 000365 days', { partyName: 'Acme Steel', msme: true, days: 365 }],
+    ['supplier terms for Acme Steel 00030 days', { partyName: 'Acme Steel', days: 30 }],
+    ['payment terms for Acme Steel to net 00030', { partyName: 'Acme Steel', days: 30 }],
+    ['we pay Acme Steel in 00030 days', { partyName: 'Acme Steel', days: 30 }],
+    ['we pay Acme Steel net 00045', { partyName: 'Acme Steel', days: 45 }],
+    ['Acme Steel is MSME,45 days', { partyName: 'Acme Steel', msme: true, days: 45 }],
+    ['Acme Steel is MSME, 45 days.', { partyName: 'Acme Steel', msme: true, days: 45 }],
+    ['Acme Steel is MSME, 45-days, small category', { partyName: 'Acme Steel', msme: true, category: 'small', days: 45 }],
+    ['Acme Steel is MSME, net 30, small category', { partyName: 'Acme Steel', msme: true, category: 'small', days: 30 }],
+    ['Acme Steel is MSME, 30 days, 45 days', { partyName: 'Acme Steel', msme: true, days: 30 }],
+  ]) {
+    assert.deepEqual(toolArgs(state, sentence, 'set_supplier_terms'), args, sentence);
+  }
+  for (const sentence of ['Acme Steel is MSME, 000366 days', 'Acme Steel is MSME, net 00366', 'we pay Acme Steel in 0400 days']) {
+    assert.equal(plan(state, sentence).reply, rule, sentence);
+  }
+  assert.notEqual(plan(state, 'paid 1,000 to Acme Steel in 30 days').name, 'set_supplier_terms', 'an amount with a comma is not a day count');
+});
+
 test('the changed planners stay fast on 2,000-character messages', async () => {
   const state = await books();
   const messages = [
@@ -593,6 +947,20 @@ test('the changed planners stay fast on 2,000-character messages', async () => {
     `accept all matched invoices above ${'5000 '.repeat(330)}in ims`,
     `reject all ${'unmatched '.repeat(190)}invoices in ims`,
     `audit trail ${' '.repeat(1980)}`,
+    `ims ${'for may i '.repeat(200)}`,
+    `accept all matched in ims ${'you may '.repeat(250)}`,
+    `accept all matched in ims ${'09/2026 '.repeat(240)}`,
+    `ims ${'2026.09 '.repeat(240)}`,
+    `ims ${"sep'26 ".repeat(300)}`,
+    `ims ${'daily monthly yearly '.repeat(90)}`,
+    `ims ${'what should I accept to see '.repeat(70)}`,
+    `${'by the way '.repeat(170)}Acme Steel is MSME, 30 days`,
+    `${'kindly '.repeat(280)}Acme Steel is MSME, 30 days`,
+    `${'hi, '.repeat(480)}Acme Steel is MSME, 30 days`,
+    `${'even if '.repeat(240)}Acme Steel is MSME, 30 days`,
+    `Acme Steel is MSME ${'1,2,3,4,5,6,7,8,9 '.repeat(100)}days`,
+    `Acme Steel is MSME, ${'9.'.repeat(900)} days`,
+    `Acme Steel is MSME, ${'0'.repeat(1900)} days`,
   ];
   for (const message of messages) {
     const started = process.hrtime.bigint();
