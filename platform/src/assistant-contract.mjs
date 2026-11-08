@@ -993,6 +993,31 @@ export const TOOL_ARG_SCHEMAS = {
     },
   },
   export_trial_balance: noArgs,
+  profit_and_loss: {
+    type: 'object',
+    additionalProperties: false,
+    properties: { from: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' }, to: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' } },
+  },
+  balance_sheet: {
+    type: 'object',
+    additionalProperties: false,
+    properties: { asOf: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' } },
+  },
+  cash_flow_statement: {
+    type: 'object',
+    additionalProperties: false,
+    properties: { from: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' }, to: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' } },
+  },
+  customer_statement: {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      party: { type: 'string', maxLength: 120 },
+      gstin: { type: 'string', maxLength: 15 },
+      from: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' },
+      to: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' },
+    },
+  },
   rules_status: {
     type: 'object',
     additionalProperties: false,

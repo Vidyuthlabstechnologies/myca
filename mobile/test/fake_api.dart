@@ -1625,6 +1625,94 @@ class FakeMycaApi implements MycaApi {
     queries.add(name);
     queryArgs.add(QueryCall(name, args));
     switch (name) {
+      case 'profit_and_loss':
+        return {
+          'ok': true,
+          'data': {
+            'from': args['from'] ?? '2026-04-01',
+            'to': args['to'] ?? '2026-10-14',
+            'income': [
+              {'code': '4000', 'account': 'Sales', 'amount': 150000},
+            ],
+            'totalIncome': 150000,
+            'expenses': [
+              {'code': '5000', 'account': 'Purchases', 'amount': 60000},
+              {'code': '5100', 'account': 'Operating expenses', 'amount': 15000},
+            ],
+            'totalExpenses': 75000,
+            'netProfit': 75000,
+            'undatedEntries': 0,
+            'fileName': 'profit_and_loss_27AABCU9603R1ZN_2026-04-01_2026-10-14.csv',
+            'csv': 'section,code,account,amount\n',
+            'text': 'From 1 April 2026 to 14 October 2026: income ₹1,50,000.00, expenses ₹75,000.00, a profit of ₹75,000.00.',
+          },
+        };
+      case 'balance_sheet':
+        return {
+          'ok': true,
+          'data': {
+            'asOf': args['asOf'] ?? '2026-10-14',
+            'assets': [
+              {'code': '1002', 'account': 'Bank', 'amount': 90000},
+              {'code': '1100', 'account': 'Trade receivables', 'amount': 10000},
+            ],
+            'totalAssets': 100000,
+            'liabilities': [
+              {'code': '2100', 'account': 'GST output CGST', 'amount': 12500},
+            ],
+            'totalLiabilities': 12500,
+            'equity': [
+              {'code': '3000', 'account': 'Capital', 'amount': 12500},
+              {'code': '', 'account': 'Profit to date', 'amount': 75000},
+            ],
+            'totalEquity': 87500,
+            'balanced': true,
+            'fileName': 'balance_sheet_27AABCU9603R1ZN_2026-10-14.csv',
+            'csv': 'section,code,account,amount\n',
+            'text': 'As at 14 October 2026: assets ₹1,00,000.00; liabilities ₹12,500.00 and equity ₹87,500.00. It balances.',
+          },
+        };
+      case 'cash_flow_statement':
+        return {
+          'ok': true,
+          'data': {
+            'opening': 12500,
+            'operating': {
+              'lines': [
+                {'label': 'Received from customers', 'in': 140000, 'out': 0, 'net': 140000},
+                {'label': 'Paid to suppliers', 'in': 0, 'out': 62500, 'net': -62500},
+              ],
+              'net': 77500,
+            },
+            'investing': {'lines': [], 'net': 0},
+            'financing': {'lines': [], 'net': 0},
+            'netChange': 77500,
+            'closing': 90000,
+            'ties': true,
+            'fileName': 'cash_flow_27AABCU9603R1ZN_2026-04-01_2026-10-14.csv',
+            'csv': 'section,line,in,out,net\n',
+            'text': 'From 1 April 2026 to 14 October 2026: cash and bank went from ₹12,500.00 to ₹90,000.00, a change of ₹77,500.00.',
+          },
+        };
+      case 'customer_statement':
+        if ((args['party'] as String? ?? '').toLowerCase() != 'kiran stores') {
+          return {'ok': false, 'error': 'PARTY_NOT_FOUND', 'hint': 'No single customer matches. Customers include: Kiran Stores.'};
+        }
+        return {
+          'ok': true,
+          'data': {
+            'customer': 'Kiran Stores',
+            'opening': 0,
+            'rows': [
+              {'date': '2026-09-01', 'reference': 'INV-0001', 'entry': 'Invoice', 'charged': 11800, 'paid': 0, 'balance': 11800},
+              {'date': '2026-09-20', 'reference': 'INV-0001', 'entry': 'Payment received', 'charged': 0, 'paid': 5000, 'balance': 6800},
+            ],
+            'closing': 6800,
+            'fileName': 'statement_Kiran_Stores_2026-04-01_2026-10-14.csv',
+            'csv': 'date,reference,entry,charged,paid,balance\n',
+            'text': 'Kiran Stores, 1 April 2026 to 14 October 2026: 2 entries; Kiran Stores owes you ₹6,800.00.',
+          },
+        };
       case 'gst_period_summary':
         periodsAsked.add(args['period'] as String?);
         final august = args['period'] == '2026-08';

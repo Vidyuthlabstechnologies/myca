@@ -70,6 +70,7 @@ import { usPayrollFor, approveUsPayroll, listUsPayroll, usPayslip, usPayrollFili
 import { scheduleCSummary, estimatedTaxDates } from './us-owner-tax.mjs';
 import { importUsInvoices } from './import-us-books.mjs';
 import { exportTrialBalance } from './trial-balance-export.mjs';
+import { profitAndLoss, balanceSheet, cashFlow, customerStatement } from './statements.mjs';
 import { salaryAnnexureII } from './salary-annexure.mjs';
 import { recordSupplierNote } from './supplier-notes.mjs';
 import { tdsCertificates } from './tds-certificates.mjs';
@@ -1349,6 +1350,34 @@ export const TOOLS = [
     title: 'Trial balance for your CA',
     description: 'The posted trial balance as one CSV: every account with debits, credits and the closing balance on each side, and the totals, which always tie. For a CA or another accounting package. Read-only.',
     run: (state) => exportTrialBalance(state),
+  },
+  {
+    name: 'profit_and_loss',
+    title: 'Profit and loss',
+    description: 'Income and expenses by account for a period (from and to, YYYY-MM-DD; the financial year to date when not given) and the net profit or loss, from posted entries, with a CSV. Read-only.',
+    args: ['from', 'to'],
+    run: (state, args = {}) => profitAndLoss(state, args),
+  },
+  {
+    name: 'balance_sheet',
+    title: 'Balance sheet',
+    description: 'Assets, liabilities and equity (with the profit to date) as at a date (asOf, YYYY-MM-DD; today when not given), from posted entries, with a CSV. It always balances. Read-only.',
+    args: ['asOf'],
+    run: (state, args = {}) => balanceSheet(state, args),
+  },
+  {
+    name: 'cash_flow_statement',
+    title: 'Cash flow statement',
+    description: 'Cash and bank at the start and end of a period (from and to; the financial year to date when not given) and the money in and out by kind: customers, suppliers, expenses, dues, assets and the owner. Read-only.',
+    args: ['from', 'to'],
+    run: (state, args = {}) => cashFlow(state, args),
+  },
+  {
+    name: 'customer_statement',
+    title: 'Customer statement',
+    description: 'Statement of account for one customer (party name or gstin) for a period: opening balance, every invoice, payment and note with a running balance, and what they owe, with a CSV to send. Read-only.',
+    args: ['party', 'gstin', 'from', 'to'],
+    run: (state, args = {}) => customerStatement(state, args),
   },
   {
     name: 'export_entries',

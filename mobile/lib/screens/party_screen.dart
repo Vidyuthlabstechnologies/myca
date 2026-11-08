@@ -13,6 +13,7 @@ import '../widgets.dart';
 import '../widgets/utf16_limit.dart';
 import 'invoice_screen.dart';
 import 'remind_customer_screen.dart';
+import 'statements_screen.dart';
 
 enum _Composer { none, document, payment, quote, purchaseNote }
 
@@ -729,6 +730,19 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
           ],
         ),
         actions: [
+          if (_sales)
+            IconButton(
+              tooltip: 'Statement of account',
+              icon: const Icon(Icons.receipt_long_outlined),
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => StatementsScreen(
+                    initial: StatementKind.customer,
+                    customer: party.name,
+                  ),
+                ),
+              ),
+            ),
           if (_sales && !_us)
             IconButton(
               tooltip: 'Remind customer',

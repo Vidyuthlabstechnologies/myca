@@ -19,6 +19,7 @@ import 'books_check_screen.dart';
 import 'marketplace_screen.dart';
 import 'recurring_screen.dart';
 import 'reports_screen.dart';
+import 'statements_screen.dart';
 import 'employees_screen.dart';
 import 'ca_screen.dart';
 import 'cash_screen.dart';
@@ -403,6 +404,13 @@ class _HomeScreenState extends State<HomeScreen> {
                   subtitle: 'Saved reports run by name, compared with the period before',
                   trailing: const Chevron(),
                   onTap: () => _open(const ReportsScreen()),
+                ),
+                RowCard(
+                  leading: const TintTile(tint: Tint.taxes, mark: Mark.taxes),
+                  title: 'Statements',
+                  subtitle: 'Profit and loss, balance sheet, cash flow, customer statements',
+                  trailing: const Chevron(),
+                  onTap: () => _open(const StatementsScreen()),
                 ),
                 RowCard(
                   leading: const TintTile(tint: Tint.ask, mark: Mark.people),

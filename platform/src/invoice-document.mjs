@@ -99,8 +99,27 @@ export function invoiceDocument(state, id) {
       dueDate: invoice.dueDate || '',
       quoteId: invoice.quoteId || '',
       balance: round2(invoice.total - received - credited),
+      upiPayment: upiPayment(state, invoice, round2(invoice.total - received - credited)),
     },
   };
+}
+
+const UPI_ID = /^[a-z0-9][a-z0-9._-]{1,63}@[a-z][a-z0-9]{1,31}$/;
+
+export function upiPayment(state, invoice, balance) {
+  if (countryOf(state) !== 'IN') return null;
+  if (invoice.status === 'cancelled' || !(balance > 0)) return null;
+  const upi = invoiceTemplateOf(state).bank.upi;
+  if (!UPI_ID.test(upi)) return null;
+  const payee = text(state.company?.name).slice(0, 50);
+  const query = [
+    ['pa', upi],
+    ['pn', payee],
+    ['am', balance.toFixed(2)],
+    ['cu', 'INR'],
+    ['tn', `${invoice.id} ${payee}`.slice(0, 80)],
+  ].map(([key, value]) => `${key}=${encodeURIComponent(value)}`).join('&');
+  return { upi, amount: balance, link: `upi://pay?${query}` };
 }
 
 function einvoiceWords(state, invoice) {
