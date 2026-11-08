@@ -60,6 +60,22 @@
   user on every request, so revoking a device takes effect at once.
 - Refresh tokens are stored as hashes, rotate on use, and reuse of a spent token
   revokes the device.
+- Two-step sign-in is optional per user (2026-11-06). The app enrols an authenticator
+  (TOTP, RFC 6238: SHA1, six digits, thirty seconds). The first code it shows turns the
+  step on, five wrong codes during setup throw the setup away, and eight recovery codes
+  are shown once. The authenticator key is sealed per user with AES-256-GCM under a key
+  derived from `MYCA_BOOKS_KEY` and the user id; recovery codes are stored as keyed
+  hashes and each works once. With it on, the phone code, Google or OIDC step answers a
+  five-minute challenge instead of tokens; the authenticator code, or a recovery code,
+  finishes it, and five wrong codes end the challenge. The server remembers the last
+  thirty-second step it accepted, so a code that was used, or an older one, is refused
+  and cannot be replayed. Turning it off or renewing the recovery codes needs a code.
+  Deleting the account removes the key and the codes. Neither the key nor a code appears
+  in a response after enrolment or in a log.
+- Every user can see the devices signed in to their account (label, signed in on, last
+  active; a device whose refresh token has run out is not listed) and end any other
+  device, or every other device, from the app. The device stops working on its next
+  request, the same as the operator's revocation.
 - On the phone the refresh token is in the Android keystore, and the app can require
   the fingerprint or screen lock.
 - Desktop: a PIN per firm user with scrypt, a five-strike lockout, and PIN records in
@@ -91,7 +107,13 @@
   of read tools. The rest of the tool catalogue is not reachable.
 - Every tool has a strict schema with no additional properties.
 - Imports refer to an uploaded document by hash; inline content is refused.
-- Request bodies are capped (uploads at 8 MB).
+- Request bodies are capped (uploads at 8 MB), and the bytes of bodies being read at one
+  time are counted against one budget (a sixteenth of the memory the instance may use). A
+  body larger than the budget or the route's limit is refused with 413, one that does not
+  fit right now with 503 `SERVER_BUSY` and `Retry-After: 2`, before it is held in memory;
+  owner-only actions refuse everyone else before their body is read; and a client that
+  drops mid-upload is answered 400 and is not recorded as a crash. A dropped or refused
+  database connection also answers 503 `SERVER_BUSY`, and the API process stays up.
 
 ### Actions that leave the system
 
@@ -183,12 +205,16 @@
 | Gap | Risk | Needed |
 |---|---|---|
 | Not deployed, so no TLS, network policy, backups or monitoring exist | None yet; all of it before the first real user | Deployment design in the cloud backend spec |
-| Books-column encryption is new (2026-10-18) and the service key lives in Secret Manager with the database password | A compromise of both the database and Secret Manager reads every business; rotating the key means re-sealing every row | Rotation procedure and a KMS-held key before the first hundred businesses |
+| Books-column encryption is new (2026-10-18) and the service key lives in Secret Manager with the database password; the authenticator keys are sealed under the same key | A compromise of both the database and Secret Manager reads every business and every authenticator key; rotating the key means re-sealing every books row and every `user_totp` row | Rotation procedure and a KMS-held key before the first hundred businesses |
 | Operator access to the database is logged (pgaudit, 180 days) but not gated | An operator can still read rows; what they read is on record | A break-glass role with a ticket reference before launch |
-| No rate limit beyond sign-in codes | Abuse of the API by a signed-in device | Per-device and per-business limits at the edge |
+| No rate limit beyond sign-in codes and authenticator attempts | Abuse of the API by a signed-in device; the user can now see every signed-in device and end it from the app, which bounds the damage but does not stop the abuse | Per-device and per-business limits at the edge |
+| Second-step guesses are limited per challenge (five), not per user, and the Google and OpenID Connect first steps have no throttle of their own, so a new challenge costs nothing | Someone who already controls a user's Google or firm account can keep asking for challenges and guess the authenticator code five times on each; by phone the same attack is held to five sign-in codes an hour per number, which is 25 guesses an hour | The per-user failed-guess counter that turning two-step off and renewing recovery codes already have on `user_totp`, applied to sign-in challenges too, and a rate limit on `POST /v1/auth/google` and `/v1/auth/oidc` at the edge |
+| Two-step sign-in is optional, ending another device asks for no code beyond the phone's own screen lock, and turning two-step off or renewing recovery codes allows five wrong codes in a row and then refuses every code for 15 minutes (a right code, a good second-step sign-in or the end of the 15 minutes clears the count) | Someone holding an unlocked phone can end the owner's other sessions; a stolen session gets five guesses at the code every 15 minutes, about 480 a day at a code that is right one time in 330 thousand, and can keep the owner from turning two-step off or renewing the codes for 15 minutes at a time; a lost authenticator with no recovery codes is an operator job (`docs/operations/RUNBOOK.md`) | A code to end another device, a longer wait after repeated locks, and a support process before launch |
+| Switching two-step on needs only a live session: starting and confirming it ask for no fresh phone code, Google token or firm token, and nothing is sent to the owner when two-step is switched on, off or renewed. A step-up was left out of the first release on purpose, so the phone's own lock is the only check (accepted 2026-11-06) | A stolen or unlocked session can enrol its own authenticator and take the eight recovery codes. That session gains no sign-in of its own (the authenticator code is asked only after the owner's phone code, Google or firm sign-in), but every later sign-in by the owner stops at a second step only the thief can pass, so the owner is locked out until an operator steps in, and a thief whose session stays live can enrol again after a reset | Planned: a fresh phone code, or a Google or firm token issued in the last few minutes, before starting, confirming, turning off and renewing, and a text to the number on every change (a user who signed in with Google only has no number yet). Until then the operator, once the user is identified, runs `delete from user_totp where user_id = ...` and `delete from recovery_codes where user_id = ...` and, when the user did not switch two-step on themselves, `update devices set revoked_at = now() where user_id = ... and revoked_at is null` in the same sitting, because a session that stays live can enrol again; the user then signs in in one step and turns two-step on again from Security |
+| The WhatsApp channel is keyed on the sender's phone number and is covered neither by two-step sign-in nor by signing a device out: a message from a linked number that Meta has signed still proposes and posts, and the device check is skipped because the channel carries no device (accepted 2026-11-08) | Someone who holds the owner's number, such as a lost phone with WhatsApp still open or a swapped SIM, can post invoices and other entries by WhatsApp after the owner has turned two-step on and ended every device in the app | A decision on whether posting over WhatsApp should need the app once two-step is on (reads would stay), or a channel tied to a signed-in device the owner can end |
 | Uploads, inbound documents and mail are capped at 200 MB per business | Storage per business is bounded; growth is from businesses, not abuse | Watch the bucket size |
 | Phone numbers are stored in clear in `users` | Exposure in a breach | Acceptable as the login identifier; revisit with the assessment |
-| Reads write an audit event into the books row | Not a confidentiality risk; a contention and cost issue | Separate read path |
+| A hosted read (a query or the snapshot) is audited in the `audit_log` table only, not in the books | Not a confidentiality risk; the audit trail the app shows lists changes and not those reads, and the access log is where the owner sees who looked | Read `audit_log` into the trail if owners ask for reads there |
 | Retention policy written and enforced (`docs/operations/RETENTION.md`); the periods await counsel | A period counsel changes means a code change | Counsel's sign-off |
 | The privacy notice is a draft: retention periods and the Grievance Officer are placeholders | Showing it to real users before counsel approves it | Legal review, then a new version id |
 | Staff role has the same permissions as accountant | Over-broad access for a billing clerk | Role review before pilot |

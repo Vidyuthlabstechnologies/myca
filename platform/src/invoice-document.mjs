@@ -1,9 +1,10 @@
 import { gstin } from './sprint-load.mjs';
 import { creditedAgainst, debitedAgainst } from './credit-notes.mjs';
-import { quoteState } from './quotes.mjs';
+import { quoteState, kindOf, kindTitle } from './quotes.mjs';
 import { ewayBillStatus, transportWords } from './eway-bill.mjs';
 import { countryOf } from './country.mjs';
 import { invoiceTemplateOf, bankWords } from './invoice-template.mjs';
+import { isTdsReceipt, tdsReceiptLabel, tdsWithheldOn } from './tds-credits.mjs';
 
 const round2 = (value) => Math.round(Number(value || 0) * 100) / 100;
 const text = (value) => String(value ?? '').trim();
@@ -71,6 +72,7 @@ export function invoiceDocument(state, id) {
     date: text(receipt.date),
     mode: text(receipt.mode),
     amount: round2(receipt.amount),
+    ...(isTdsReceipt(receipt) ? { label: tdsReceiptLabel(state, receipt), section: text(receipt.section), ...(receipt.tan ? { tan: text(receipt.tan) } : {}) } : {}),
   }));
   const received = round2(receipts.reduce((sum, receipt) => sum + receipt.amount, 0));
   const credited = creditedAgainst(state, invoice.id);
@@ -84,6 +86,7 @@ export function invoiceDocument(state, id) {
       kind: 'invoice',
       receipts,
       received,
+      tdsWithheld: tdsWithheldOn(invoice),
       credited,
       creditNotes,
       debited,
@@ -105,6 +108,7 @@ function einvoiceWords(state, invoice) {
   if (invoice.status === 'cancelled') return { status: 'not-applicable', irn: '', why: 'The invoice is cancelled.' };
   if (!invoice.partyGstin) return { status: 'not-applicable', irn: '', why: 'E-invoicing applies to invoices to registered buyers (B2B); this one is to an unregistered buyer.' };
   if (invoice.irn) return { status: 'issued', irn: invoice.irn, ackNo: invoice.ackNo || '', why: 'IRN issued by the IRP.' };
+  if (invoice.sandboxIrn) return { status: 'sandbox', irn: invoice.sandboxIrn, ackNo: invoice.sandboxAckNo || '', why: 'Sandbox IRN from the NIC test IRP. It is not valid for a real supply; switch e-invoicing to live to issue the real one.' };
   if (invoice.mockIrn) return { status: 'mock', irn: invoice.mockIrn, ackNo: invoice.mockAckNo || '', why: 'Simulated IRN; nothing reached the IRP.' };
   return { status: 'ready', irn: '', why: 'If your turnover brings you into e-invoicing, generate the IRN; it goes through the action gate and needs a CA approval before anything reaches the IRP.' };
 }
@@ -138,6 +142,9 @@ export function quoteDocument(state, id) {
     data: {
       ...common(state, quote),
       kind: 'quote',
+      documentKind: kindOf(quote),
+      documentTitle: kindTitle(quote),
+      reason: quote.reason || '',
       validUntil: quote.validUntil,
       status: quoteState(quote),
       invoiceId: quote.invoiceId || '',

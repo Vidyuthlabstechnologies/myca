@@ -10,12 +10,13 @@ import { OSS_CATALOG } from './oss-catalog.mjs';
 import { publicGovtConfig } from './govt.mjs';
 import { integrationReadiness } from './integration-contract.mjs';
 import { appendAuditEvent, handleCaApi, stateDigest, listClients, listDocuments } from './ca-api.mjs';
+import { auditDetails } from './audit-trail.mjs';
 import { providerCatalog, providerRequirementMap } from './provider-catalog.mjs';
 import { getBook } from './books.mjs';
 import { approvalStatus } from './approvals.mjs';
 import { bookView } from './book-view.mjs';
-import { liveCallsEnabled, mockModeEnabled } from './runtime-config.mjs';
-import { findUser, verifyUserPin, listUsers, withoutPin, pinRecords, applyPinRecords } from './identity.mjs';
+import { liveCallsEnabled, mockModeEnabled, providerEnvironment } from './runtime-config.mjs';
+import { findUser, verifyUserPin, listUsers, withoutPin, pinRecords, applyPinRecords, changePin } from './identity.mjs';
 
 function hydrateAttachments(book, documents) {
   book.attachments = book.attachments && typeof book.attachments === 'object' ? book.attachments : {};
@@ -70,9 +71,18 @@ function recoveredDocumentContent(state, legacy, doc) {
   return candidates.find((content) => typeof content === 'string' && (!doc.sha256 || doc.sha256 === legacyDocumentHash(content)));
 }
 
+const SIGNED_IN_TOOLS = new Set(['approval_request', 'approval_decide']);
+const USER_ADMIN_ROLES = new Set(['admin', 'partner']);
+const DEFAULT_PIN = '1234';
+const PIN_CHANGE_HINT = 'This user still has the starting PIN 1234. Change it first, then try again.';
+
 function toolState(state, actor = null) {
   const id = String(state.activeClientId || 'SELF');
   return bookView(state, id === 'SELF' ? state : getBook(state, id), { actor });
+}
+
+function clockOf(view) {
+  return String(view.ledger && view.ledger.clock != null ? view.ledger.clock : 0);
 }
 
 function trustedActor(options) {
@@ -102,6 +112,7 @@ export function openSession(target = defaultDataPath(), { seed = false } = {}) {
   hydrateDocuments(state);
   saveBooks();
   let activeUser = null;
+  let activeOnDefaultPin = false;
   let sessionExpiresAt = 0;
   const currentActor = () => {
     if (activeUser && sessionExpiresAt > Date.now()) {
@@ -127,11 +138,16 @@ export function openSession(target = defaultDataPath(), { seed = false } = {}) {
       return exclusive(async () => {
         const user = findUser(state, userId);
         const verified = verifyUserPin(user, pin);
-        if (!verified.ok) return verified;
+        if (!verified.ok) {
+          if (user) saveBooks();
+          return verified;
+        }
         activeUser = verified.user;
+        activeOnDefaultPin = String(pin ?? '').trim() === DEFAULT_PIN;
         sessionExpiresAt = Date.now() + 30 * 60 * 1000;
         appendAuditEvent(state, {
           actorId: activeUser.userId,
+          actorName: activeUser.name || '',
           clientId: String(state.activeClientId || 'SELF'),
           action: 'session.login',
           beforeHash: stateDigest(state),
@@ -139,16 +155,19 @@ export function openSession(target = defaultDataPath(), { seed = false } = {}) {
           metadata: { userId: activeUser.userId, role: activeUser.role },
         });
         saveBooks();
-        return { ok: true, user: activeUser };
+        return { ok: true, user: activeUser, ...(activeOnDefaultPin ? { mustChangePin: true } : {}) };
       });
     },
     signOut() {
       return exclusive(async () => {
         const prev = activeUser?.userId || 'none';
+        const prevName = activeUser?.name || '';
         activeUser = null;
+        activeOnDefaultPin = false;
         sessionExpiresAt = 0;
         appendAuditEvent(state, {
           actorId: prev,
+          actorName: prevName,
           clientId: String(state.activeClientId || 'SELF'),
           action: 'session.logout',
           beforeHash: stateDigest(state),
@@ -162,14 +181,41 @@ export function openSession(target = defaultDataPath(), { seed = false } = {}) {
     activeUser() {
       return currentActor();
     },
+    changePin(userId, oldPin, newPin) {
+      return exclusive(async () => {
+        const beforeHash = stateDigest(state);
+        const user = findUser(state, userId);
+        if (user && String(newPin ?? '').trim() === DEFAULT_PIN) return { ok: false, error: 'PIN_TOO_EASY', hint: 'Choose a PIN other than 1234.' };
+        const out = changePin(state, userId, oldPin, newPin);
+        if (user) {
+          if (out.ok) {
+            appendAuditEvent(state, {
+              actorId: user.userId,
+              actorName: user.name || '',
+              clientId: String(state.activeClientId || 'SELF'),
+              action: 'session.pin_changed',
+              beforeHash,
+              afterHash: stateDigest(state),
+              metadata: { userId: user.userId },
+            });
+            if (activeUser && activeUser.userId === user.userId) activeOnDefaultPin = false;
+          }
+          saveBooks();
+        }
+        return out;
+      });
+    },
     chat(message, options) {
       return exclusive(async () => {
         const actor = actorOf(options);
         const beforeHash = stateDigest(state);
-        const view = toolState(state, trustedActor(options));
+        const view = toolState(state, actorOf(options));
+        const clockBefore = clockOf(view);
         const out = await chat(view, message);
+        const posted = out.posted === true;
         appendAuditEvent(state, {
           actorId: actor?.userId || 'renderer',
+          actorName: actor?.name || '',
           clientId: String(state.activeClientId || 'SELF'),
           action: 'chat.run',
           beforeHash,
@@ -180,7 +226,8 @@ export function openSession(target = defaultDataPath(), { seed = false } = {}) {
             blocked: Boolean(out.blocked),
             awaitingConfirmation: Boolean(out.awaitingConfirmation),
             confirmed: Boolean(out.confirmed),
-            posted: out.posted === true,
+            posted,
+            ...(posted ? { ledgerClock: { before: clockBefore, after: clockOf(view) }, details: (out.tools || []).map((tool) => auditDetails(tool.name, tool.result)) } : {}),
           },
         });
         saveBooks();
@@ -191,9 +238,10 @@ export function openSession(target = defaultDataPath(), { seed = false } = {}) {
       return exclusive(async () => {
         const actor = actorOf(options);
         const beforeHash = stateDigest(state);
-        const out = propose(toolState(state, trustedActor(options)), name, args);
+        const out = propose(toolState(state, actorOf(options)), name, args);
         appendAuditEvent(state, {
           actorId: actor?.userId || 'renderer',
+          actorName: actor?.name || '',
           clientId: String(state.activeClientId || 'SELF'),
           action: 'chat.propose',
           beforeHash,
@@ -213,9 +261,12 @@ export function openSession(target = defaultDataPath(), { seed = false } = {}) {
       return exclusive(async () => {
         const actor = actorOf(options);
         const beforeHash = stateDigest(state);
-        const out = await confirmPending(toolState(state, trustedActor(options)), token);
+        const view = toolState(state, actorOf(options));
+        const clockBefore = clockOf(view);
+        const out = await confirmPending(view, token);
         appendAuditEvent(state, {
           actorId: actor?.userId || 'renderer',
+          actorName: actor?.name || '',
           clientId: String(state.activeClientId || 'SELF'),
           action: 'chat.confirm',
           beforeHash,
@@ -225,6 +276,8 @@ export function openSession(target = defaultDataPath(), { seed = false } = {}) {
             posted: out.posted === true,
             replayed: out.replayed === true,
             error: out.error || '',
+            ledgerClock: { before: clockBefore, after: clockOf(view) },
+            details: (out.tools || []).map((tool) => auditDetails(tool.name, tool.result)),
           },
         });
         saveBooks();
@@ -235,9 +288,10 @@ export function openSession(target = defaultDataPath(), { seed = false } = {}) {
       return exclusive(async () => {
         const actor = actorOf(options);
         const beforeHash = stateDigest(state);
-        const out = discardPending(toolState(state, trustedActor(options)));
+        const out = discardPending(toolState(state, actorOf(options)));
         appendAuditEvent(state, {
           actorId: actor?.userId || 'renderer',
+          actorName: actor?.name || '',
           clientId: String(state.activeClientId || 'SELF'),
           action: 'chat.discard',
           beforeHash,
@@ -258,11 +312,15 @@ export function openSession(target = defaultDataPath(), { seed = false } = {}) {
     tool(name, args, options) {
       return exclusive(async () => {
         const actor = actorOf(options);
+        if (SIGNED_IN_TOOLS.has(name) && !actor) return { ok: false, error: 'SIGN_IN_REQUIRED', hint: 'Sign in with your user id and PIN first: approvals record who asked and who decided, and the two must be different people.' };
+        if (SIGNED_IN_TOOLS.has(name) && !trustedActor(options) && activeOnDefaultPin) return { ok: false, error: 'PIN_CHANGE_REQUIRED', hint: PIN_CHANGE_HINT };
         const beforeHash = stateDigest(state);
-        const view = toolState(state, trustedActor(options));
+        const view = toolState(state, actorOf(options));
+        const clockBefore = clockOf(view);
         const out = await runTool(view, name, args);
         appendAuditEvent(state, {
           actorId: actor?.userId || 'renderer',
+          actorName: actor?.name || '',
           clientId: String(state.activeClientId || 'SELF'),
           action: `tool.${name}`,
           beforeHash,
@@ -270,6 +328,8 @@ export function openSession(target = defaultDataPath(), { seed = false } = {}) {
           metadata: {
             ok: out.ok !== false,
             args: Object.keys(args || {}),
+            ledgerClock: { before: clockBefore, after: clockOf(view) },
+            details: auditDetails(name, out),
           },
         });
         saveBooks();
@@ -278,7 +338,19 @@ export function openSession(target = defaultDataPath(), { seed = false } = {}) {
     },
     caApi(method, pathname, body = {}) {
       return exclusive(async () => {
-        const out = handleCaApi(state, method, pathname, body);
+        let request = body;
+        if (method === 'POST' && String(pathname || '').replace(/\/+$/, '').endsWith('/api/ca/users')) {
+          const actor = currentActor();
+          if (!actor || !USER_ADMIN_ROLES.has(String(actor.role || '').toLowerCase())) return { ok: false, error: 'ADMIN_SIGN_IN_REQUIRED', hint: 'Only a signed-in admin or partner can add a user.' };
+          if (activeOnDefaultPin) return { ok: false, error: 'PIN_CHANGE_REQUIRED', hint: PIN_CHANGE_HINT };
+          request = { ...body, actorId: actor.userId };
+        }
+        if (method === 'POST' && (String(pathname || '').replace(/^\/api\/ca/, '') || '/') === '/audit-events') {
+          const actor = currentActor();
+          if (!actor) return { ok: false, error: 'SIGN_IN_REQUIRED', hint: 'Sign in with your user id and PIN first, so the entry is recorded under your name.' };
+          request = { ...body, actorId: actor.userId, actorName: actor.name || '' };
+        }
+        const out = handleCaApi(state, method, pathname, request);
         saveBooks();
         return out;
       });
@@ -363,6 +435,7 @@ export function openSession(target = defaultDataPath(), { seed = false } = {}) {
         approvals: (state.approvals || []).map((a) => ({ ...a, status: approvalStatus(a) })),
         dataPath: path,
         liveCallsEnabled: liveCallsEnabled(),
+        providerEnvironment: providerEnvironment(),
         mockMode: mockModeEnabled(),
         tools: toolsForCountry(TOOLS, countryOf(view)).map(({ name, title, description }) => ({ name, title, description })),
         country: countryOf(view),
@@ -394,6 +467,7 @@ export function openSession(target = defaultDataPath(), { seed = false } = {}) {
         const stored = stores.documents.put(text);
         appendAuditEvent(state, {
           actorId: actor?.userId || 'renderer',
+          actorName: actor?.name || '',
           clientId: String(state.activeClientId || 'SELF'),
           action: 'file.upload',
           beforeHash,
@@ -422,6 +496,7 @@ export function openSession(target = defaultDataPath(), { seed = false } = {}) {
         book.pendingFile = { kind, name, sha256: stored.sha256 };
         appendAuditEvent(state, {
           actorId: actor?.userId || 'renderer',
+          actorName: actor?.name || '',
           clientId,
           action: 'file.attach',
           beforeHash,

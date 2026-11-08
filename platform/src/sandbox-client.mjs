@@ -1,4 +1,5 @@
-import { loadEnvFile } from './runtime-config.mjs';
+import { loadEnvFile, testModeEnabled } from './runtime-config.mjs';
+import { providerContext } from './provider-context.mjs';
 import { loadSandboxKeys, SANDBOX_HOSTS } from './sandbox-keys.mjs';
 
 function detectEnvironment(baseUrl) {
@@ -20,17 +21,32 @@ function deadline(options, ms = DEFAULT_TIMEOUT_MS) {
   return options?.signal ? AbortSignal.any([options.signal, timeout]) : timeout;
 }
 
+function withBusinessKeys(options) {
+  const given = providerContext()?.sandbox;
+  if (!given?.apiKey || options.apiKey != null) return options;
+  const environment = given.environment === 'production' || given.environment === 'live' ? 'live' : 'test';
+  return { ...options, apiKey: given.apiKey, apiSecret: given.apiSecret || '', environment, baseUrl: SANDBOX_HOSTS[environment], saved: null };
+}
+
 export class SandboxClient {
-  constructor(options = {}) {
+  constructor(given = {}) {
+    const options = withBusinessKeys(given);
     const fileEnv = loadEnvFile();
-    const read = (name) => process.env[name] ?? fileEnv[name] ?? '';
+    const read = (name) => {
+      const value = process.env[name] ?? fileEnv[name] ?? '';
+      return value === 'unset' ? '' : value;
+    };
     const saved = options.saved === undefined ? loadSandboxKeys() : (options.saved || {});
     const savedUsable = Boolean(saved.apiKey && saved.apiSecret) && !read('MYCA_GSP_API_KEY') && !read('MYCA_GSP_LIVE_API_KEY') && !read('MYCA_GSP_TEST_API_KEY');
     const declared = String(read('MYCA_GSP_ENV')).toLowerCase();
     const savedEnvironment = savedUsable && !declared ? saved.environment : '';
-    this.baseUrl = String(options.baseUrl ?? read('MYCA_GSP_BASE_URL') ?? '').replace(/\/+$/, '') || (savedUsable ? (saved.baseUrl || SANDBOX_HOSTS[saved.environment]) : '') || 'https://api.sandbox.co.in';
-    this.environment = options.environment
-      ?? (declared === 'live' || declared === 'test' ? declared : savedEnvironment || detectEnvironment(this.baseUrl));
+    const forcedTest = testModeEnabled();
+    this.baseUrl = forcedTest
+      ? SANDBOX_HOSTS.test
+      : String(options.baseUrl ?? read('MYCA_GSP_BASE_URL') ?? '').replace(/\/+$/, '') || (savedUsable ? (saved.baseUrl || SANDBOX_HOSTS[saved.environment]) : '') || 'https://api.sandbox.co.in';
+    this.environment = forcedTest
+      ? 'test'
+      : options.environment ?? (declared === 'live' || declared === 'test' ? declared : savedEnvironment || detectEnvironment(this.baseUrl));
     const scoped = this.environment === 'live'
       ? { key: 'MYCA_GSP_LIVE_API_KEY', secret: 'MYCA_GSP_LIVE_API_SECRET' }
       : { key: 'MYCA_GSP_TEST_API_KEY', secret: 'MYCA_GSP_TEST_API_SECRET' };
@@ -317,6 +333,7 @@ export class SandboxClient {
 
 let defaultClient = null;
 export function getSandboxClient() {
+  if (providerContext()?.sandbox) return new SandboxClient();
   if (!defaultClient) defaultClient = new SandboxClient();
   return defaultClient;
 }

@@ -19,6 +19,8 @@ locals {
     "logging.googleapis.com",
     "iam.googleapis.com",
     "cloudscheduler.googleapis.com",
+    "pubsub.googleapis.com",
+    "androidpublisher.googleapis.com",
   ]
 }
 
@@ -56,6 +58,11 @@ resource "google_project_iam_member" "api_sql" {
   project = var.project_id
   role    = "roles/cloudsql.client"
   member  = "serviceAccount:${google_service_account.api.email}"
+
+  condition {
+    title      = "myca-instance-only"
+    expression = "resource.type == \"sqladmin.googleapis.com/Instance\" && resource.name == \"projects/${var.project_id}/instances/myca\""
+  }
 }
 
 # ---------------------------------------------------------------------------
@@ -168,6 +175,11 @@ resource "random_password" "token_secret" {
   special = false
 }
 
+resource "random_password" "play_notify_token" {
+  length  = 48
+  special = false
+}
+
 resource "random_password" "job_token" {
   length  = 64
   special = false
@@ -205,6 +217,11 @@ locals {
     "myca-books-key"             = random_password.books_key.result
     "myca-whatsapp-app-secret"   = var.whatsapp_app_secret
     "myca-whatsapp-access-token" = var.whatsapp_access_token
+    "myca-sms-secret"            = var.sms_secret
+    "myca-model-api-key"         = var.model_api_key
+    "myca-gsp-test-api-key"      = var.gsp_test_api_key
+    "myca-gsp-test-api-secret"   = var.gsp_test_api_secret
+    "myca-play-notify-token"     = random_password.play_notify_token.result
   }
 }
 
@@ -249,6 +266,10 @@ resource "google_cloud_run_v2_service" "api" {
   ingress             = "INGRESS_TRAFFIC_ALL"
   deletion_protection = false
   labels              = local.labels
+
+  lifecycle {
+    ignore_changes = [template[0].containers[0].image]
+  }
 
   template {
     service_account                  = google_service_account.api.email
@@ -401,6 +422,114 @@ resource "google_cloud_run_v2_service" "api" {
             version = "latest"
           }
         }
+      }
+
+      env {
+        name  = "MYCA_MOCK_MODE"
+        value = var.provider_mode == "simulated" ? "1" : "0"
+      }
+      env {
+        name  = "MYCA_PROVIDER_ENV"
+        value = contains(["live", "test"], var.provider_mode) ? var.provider_mode : "off"
+      }
+      env {
+        name = "MYCA_GSP_TEST_API_KEY"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.api["myca-gsp-test-api-key"].secret_id
+            version = "latest"
+          }
+        }
+      }
+      env {
+        name = "MYCA_GSP_TEST_API_SECRET"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.api["myca-gsp-test-api-secret"].secret_id
+            version = "latest"
+          }
+        }
+      }
+      env {
+        name  = "MYCA_PUBLIC_URL"
+        value = var.public_url
+      }
+      env {
+        name  = "MYCA_SMS_PROVIDER"
+        value = var.sms_provider
+      }
+      env {
+        name  = "MYCA_SMS_TWILIO_SID"
+        value = var.sms_twilio_sid
+      }
+      env {
+        name  = "MYCA_SMS_TWILIO_FROM"
+        value = var.sms_twilio_from
+      }
+      env {
+        name  = "MYCA_SMS_MSG91_TEMPLATE_ID"
+        value = var.sms_msg91_template_id
+      }
+      env {
+        name = "MYCA_SMS_TWILIO_TOKEN"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.api["myca-sms-secret"].secret_id
+            version = "latest"
+          }
+        }
+      }
+      env {
+        name = "MYCA_SMS_MSG91_AUTHKEY"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.api["myca-sms-secret"].secret_id
+            version = "latest"
+          }
+        }
+      }
+      env {
+        name = "MYCA_MODEL_API_KEY"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.api["myca-model-api-key"].secret_id
+            version = "latest"
+          }
+        }
+      }
+      env {
+        name  = "MYCA_MODEL"
+        value = var.model_name
+      }
+      env {
+        name  = "MYCA_MODEL_BASE_URL"
+        value = var.model_base_url
+      }
+
+      env {
+        name  = "MYCA_PLAY_PACKAGE"
+        value = var.play_package_name
+      }
+      env {
+        name  = "MYCA_PLAY_PRODUCT_PRO"
+        value = var.play_product_pro
+      }
+      env {
+        name  = "MYCA_PLAY_PRODUCT_FIRM"
+        value = var.play_product_firm
+      }
+      env {
+        name = "MYCA_PLAY_NOTIFY_TOKEN"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.api["myca-play-notify-token"].secret_id
+            version = "latest"
+          }
+        }
+      }
+      env {
+        name  = "MYCA_PLAN_PRICES"
+        value = var.plan_prices
       }
 
       volume_mounts {
@@ -619,10 +748,85 @@ resource "google_monitoring_alert_policy" "latency" {
   notification_channels = local.alert_channels
 }
 
-resource "google_logging_project_bucket_config" "default" {
+resource "google_logging_project_bucket_config" "myca" {
   project        = var.project_id
   location       = "global"
-  bucket_id      = "_Default"
+  bucket_id      = "${local.name}-logs"
   retention_days = var.log_retention_days
-  description    = "Request, job and database audit logs kept for the CERT-In period"
+  description    = "MyCA request, job and database logs kept for the CERT-In period"
+}
+
+resource "google_logging_project_sink" "myca" {
+  name                   = "${local.name}-logs"
+  destination            = "logging.googleapis.com/${google_logging_project_bucket_config.myca.id}"
+  unique_writer_identity = true
+  filter                 = "(resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"${local.name}\") OR (resource.type=\"cloudsql_database\" AND resource.labels.database_id=\"${var.project_id}:myca\") OR (resource.type=\"cloud_scheduler_job\" AND resource.labels.job_id=~\"^${local.name}\")"
+}
+
+resource "google_project_iam_member" "myca_log_writer" {
+  project = var.project_id
+  role    = "roles/logging.bucketWriter"
+  member  = google_logging_project_sink.myca.writer_identity
+
+  condition {
+    title      = "myca-log-bucket-only"
+    expression = "resource.name.endsWith(\"/buckets/${google_logging_project_bucket_config.myca.bucket_id}\")"
+  }
+}
+
+resource "google_artifact_registry_repository_iam_member" "deployer_push" {
+  count = var.deployer_service_account == "" ? 0 : 1
+
+  location   = google_artifact_registry_repository.api.location
+  repository = google_artifact_registry_repository.api.name
+  role       = "roles/artifactregistry.writer"
+  member     = "serviceAccount:${var.deployer_service_account}"
+}
+
+resource "google_cloud_run_v2_service_iam_member" "deployer_rollout" {
+  count = var.deployer_service_account == "" ? 0 : 1
+
+  name     = google_cloud_run_v2_service.api.name
+  location = google_cloud_run_v2_service.api.location
+  role     = "roles/run.developer"
+  member   = "serviceAccount:${var.deployer_service_account}"
+}
+
+resource "google_service_account_iam_member" "deployer_act_as_api" {
+  count = var.deployer_service_account == "" ? 0 : 1
+
+  service_account_id = google_service_account.api.name
+  role               = "roles/iam.serviceAccountUser"
+  member             = "serviceAccount:${var.deployer_service_account}"
+}
+
+resource "google_pubsub_topic" "play_notifications" {
+  name   = "${local.name}-play-notifications"
+  labels = local.labels
+
+  depends_on = [google_project_service.apis]
+}
+
+resource "google_pubsub_topic_iam_member" "play_publisher" {
+  topic  = google_pubsub_topic.play_notifications.name
+  role   = "roles/pubsub.publisher"
+  member = "serviceAccount:google-play-developer-notifications@system.gserviceaccount.com"
+}
+
+resource "google_pubsub_subscription" "play_notifications" {
+  name   = "${local.name}-play-notifications-push"
+  topic  = google_pubsub_topic.play_notifications.id
+  labels = local.labels
+
+  ack_deadline_seconds       = 30
+  message_retention_duration = "604800s"
+
+  push_config {
+    push_endpoint = "${google_cloud_run_v2_service.api.uri}/v1/billing/play/notify?token=${random_password.play_notify_token.result}"
+  }
+
+  retry_policy {
+    minimum_backoff = "10s"
+    maximum_backoff = "600s"
+  }
 }

@@ -67,7 +67,7 @@ variable "weekly_job_schedule" {
 }
 
 variable "log_retention_days" {
-  description = "Days Cloud Logging keeps the _Default bucket (CERT-In directions of April 2022 ask for 180)."
+  description = "Days the MyCA log bucket keeps the API, database and job logs (CERT-In directions of April 2022 ask for 180). The project _Default bucket is left alone."
   type        = number
   default     = 180
 }
@@ -132,4 +132,120 @@ variable "whatsapp_phone_number_id" {
   description = "WhatsApp Cloud API phone number id that receives and sends messages. Leave \"unset\" until the account exists."
   type        = string
   default     = "unset"
+}
+
+variable "provider_mode" {
+  description = "Highest mode any business may use. \"live\" lets each business switch itself between test and live in the app with its own Quicko and NIC keys (live writes need a second person's approval). \"test\" keeps every business on the sandbox hosts. \"simulated\" answers with labelled results and no network. \"dry-run\" sends nothing."
+  type        = string
+  default     = "test"
+
+  validation {
+    condition     = contains(["live", "test", "simulated", "dry-run"], var.provider_mode)
+    error_message = "provider_mode is live, test, simulated or dry-run."
+  }
+}
+
+variable "gsp_test_api_key" {
+  description = "Sandbox by Quicko test-environment API key used in test mode. Leave \"unset\" until you have one."
+  type        = string
+  default     = "unset"
+  sensitive   = true
+}
+
+variable "gsp_test_api_secret" {
+  description = "Sandbox by Quicko test-environment API secret used in test mode."
+  type        = string
+  default     = "unset"
+  sensitive   = true
+}
+
+variable "public_url" {
+  description = "Public https address of the API (a custom domain in front of Cloud Run). Used for OAuth redirect URIs. Empty uses the request host."
+  type        = string
+  default     = ""
+}
+
+variable "sms_provider" {
+  description = "SMS sender for phone sign-in codes: \"twilio\", \"msg91\" or empty for none (then Google or OIDC sign-in must be set)."
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = contains(["", "twilio", "msg91"], var.sms_provider)
+    error_message = "sms_provider is twilio, msg91 or empty."
+  }
+}
+
+variable "sms_secret" {
+  description = "The SMS provider's secret: the Twilio auth token or the MSG91 auth key. Leave \"unset\" until the account exists."
+  type        = string
+  default     = "unset"
+  sensitive   = true
+}
+
+variable "sms_twilio_sid" {
+  description = "Twilio account SID (sms_provider = twilio)."
+  type        = string
+  default     = ""
+}
+
+variable "sms_twilio_from" {
+  description = "Twilio sender number or messaging service id (sms_provider = twilio)."
+  type        = string
+  default     = ""
+}
+
+variable "sms_msg91_template_id" {
+  description = "MSG91 OTP template id, DLT-approved (sms_provider = msg91)."
+  type        = string
+  default     = ""
+}
+
+variable "model_api_key" {
+  description = "API key for the language model that reads bills and answers in Hindi and Telugu. Leave \"unset\" to run without a model (English rules only)."
+  type        = string
+  default     = "unset"
+  sensitive   = true
+}
+
+variable "model_name" {
+  description = "Model id sent to the model provider. Empty uses the engine default."
+  type        = string
+  default     = ""
+}
+
+variable "model_base_url" {
+  description = "OpenAI-compatible base URL of the model provider. Empty uses the engine default."
+  type        = string
+  default     = ""
+}
+
+variable "play_package_name" {
+  description = "Android package name the Google Play subscriptions belong to."
+  type        = string
+  default     = "com.mldynamic.myca"
+}
+
+variable "play_product_pro" {
+  description = "Google Play subscription product id for the Pro plan, as created in Play Console (Monetize > Subscriptions). Empty, with play_product_firm empty too, turns billing off: every business keeps its trial plan and nothing is gated."
+  type        = string
+  default     = ""
+}
+
+variable "play_product_firm" {
+  description = "Google Play subscription product id for the CA firm plan."
+  type        = string
+  default     = ""
+}
+
+variable "plan_prices" {
+  description = "Monthly prices shown in the app, in rupees, used only until the app reads the Play Store price, for example \"pro=499,firm=1499\"."
+  type        = string
+  default     = ""
+}
+
+variable "deployer_service_account" {
+  description = "The bootstrap deploy_service_account output. It gets push on the myca-api registry, run.developer on the myca-api service and actAs on its service account, so CI can roll out the API and nothing else. Empty skips these grants."
+  type        = string
+  default     = ""
 }

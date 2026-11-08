@@ -11,6 +11,8 @@ import 'connections_screen.dart';
 import 'connectors_screen.dart';
 import 'migration_flow.dart';
 import 'people_screen.dart';
+import 'plan_screen.dart';
+import 'security_screen.dart';
 
 Future<void> showBusinessSheet(BuildContext context, Snapshot snapshot) {
   final navigator = Navigator.of(context);
@@ -55,6 +57,26 @@ Future<void> showBusinessSheet(BuildContext context, Snapshot snapshot) {
                       onTap: () {
                         navigator.pop();
                         navigator.push(MaterialPageRoute<void>(builder: (_) => const PeopleScreen()));
+                      },
+                    ),
+                    RowCard(
+                      leading: const TintTile(tint: Tint.ask, mark: Mark.confirm),
+                      title: 'Plan and billing',
+                      subtitle: 'Your plan, trial and what it includes',
+                      trailing: const Chevron(),
+                      onTap: () {
+                        navigator.pop();
+                        navigator.push(MaterialPageRoute<void>(builder: (_) => const PlanScreen()));
+                      },
+                    ),
+                    RowCard(
+                      leading: const TintTile(tint: Tint.ask, mark: Mark.confirm),
+                      title: 'Security',
+                      subtitle: 'Two-step sign-in and where you are signed in',
+                      trailing: const Chevron(),
+                      onTap: () {
+                        navigator.pop();
+                        navigator.push(MaterialPageRoute<void>(builder: (_) => const SecurityScreen()));
                       },
                     ),
                     if (user?.role == 'owner')

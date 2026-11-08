@@ -17,6 +17,7 @@ class PhoneSignInScreen extends StatefulWidget {
 class _PhoneSignInScreenState extends State<PhoneSignInScreen> {
   final _phone = TextEditingController();
   final _code = TextEditingController();
+  final _authCode = TextEditingController();
   String _error = '';
   bool _busy = false;
   SignInMethods? _methods;
@@ -36,6 +37,7 @@ class _PhoneSignInScreenState extends State<PhoneSignInScreen> {
   void dispose() {
     _phone.dispose();
     _code.dispose();
+    _authCode.dispose();
     super.dispose();
   }
 
@@ -90,12 +92,31 @@ class _PhoneSignInScreenState extends State<PhoneSignInScreen> {
     });
   }
 
+  Future<void> _secondStep() {
+    final state = AppScope.of(context);
+    return _run(() async {
+      final result = await state.cloud!.completeSecondStep(_authCode.text.trim());
+      state.noteSecondStep(result);
+      await state.refresh();
+    });
+  }
+
+  void _startOver(CloudSession cloud) {
+    setState(() {
+      cloud.cancelSecondStep();
+      _authCode.clear();
+      _code.clear();
+      _error = '';
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
     final state = AppScope.of(context);
     final cloud = state.cloud!;
-    final awaitingCode = cloud.awaitingCode;
+    final secondStep = cloud.secondStepPending;
+    final awaitingCode = cloud.awaitingCode && !secondStep;
     final googleOn = state.google != null && (_methods?.google ?? true);
     final firmOn = state.oidc != null && (_methods?.oidc ?? false);
     final firmHost = _methods?.oidcIssuerHost ?? '';
@@ -117,22 +138,26 @@ class _PhoneSignInScreenState extends State<PhoneSignInScreen> {
                   ),
                   const SizedBox(height: 24),
                   Text(
-                    awaitingCode
-                        ? 'Enter the code'
-                        : (phoneOnly ? 'Your mobile number' : 'Sign in'),
+                    secondStep
+                        ? 'Enter your authenticator code'
+                        : awaitingCode
+                            ? 'Enter the code'
+                            : (phoneOnly ? 'Your mobile number' : 'Sign in'),
                     style: text.displaySmall,
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    awaitingCode
-                        ? 'We sent a 6-digit code to ${_phone.text.trim()}.'
-                        : (phoneOnly
-                              ? 'We will text you a code to sign in. No password to remember.'
-                              : (googleOn ? 'Use your Google account. No new password to remember.' : 'Use the account your firm gave you. No new password to remember.')),
+                    secondStep
+                        ? 'Open your authenticator app and type the 6-digit code. A recovery code works too.'
+                        : awaitingCode
+                            ? 'We sent a 6-digit code to ${_phone.text.trim()}.'
+                            : (phoneOnly
+                                  ? 'We will text you a code to sign in. No password to remember.'
+                                  : (googleOn ? 'Use your Google account. No new password to remember.' : 'Use the account your firm gave you. No new password to remember.')),
                     style: text.bodyLarge?.copyWith(color: Palette.muted),
                   ),
                   const SizedBox(height: 28),
-                  if (googleOn && !awaitingCode) ...[
+                  if (googleOn && !awaitingCode && !secondStep) ...[
                     FilledButton(
                       onPressed: _busy ? null : _google,
                       child: Text(
@@ -140,14 +165,14 @@ class _PhoneSignInScreenState extends State<PhoneSignInScreen> {
                       ),
                     ),
                   ],
-                  if (firmOn && !awaitingCode) ...[
+                  if (firmOn && !awaitingCode && !secondStep) ...[
                     if (googleOn) const SizedBox(height: 12),
                     OutlinedButton(
                       onPressed: _busy ? null : _firm,
                       child: Text(firmHost.isEmpty ? 'Sign in with your firm\'s account' : 'Sign in with your firm\'s account ($firmHost)'),
                     ),
                   ],
-                  if ((googleOn || firmOn) && phoneOn && !awaitingCode) ...[
+                  if ((googleOn || firmOn) && phoneOn && !awaitingCode && !secondStep) ...[
                     const SizedBox(height: 24),
                     Text(
                       'Or use your mobile number',
@@ -155,7 +180,26 @@ class _PhoneSignInScreenState extends State<PhoneSignInScreen> {
                     ),
                     const SizedBox(height: 8),
                   ],
-                  if (!phoneOn && !googleOn && !firmOn)
+                  if (secondStep)
+                    TextField(
+                      controller: _authCode,
+                      autofocus: true,
+                      maxLength: 11,
+                      autocorrect: false,
+                      enableSuggestions: false,
+                      autofillHints: const [AutofillHints.oneTimeCode],
+                      style: const TextStyle(
+                        fontSize: 22,
+                        letterSpacing: 4,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      decoration: const InputDecoration(
+                        labelText: 'Code',
+                        counterText: '',
+                      ),
+                      onSubmitted: (_) => _secondStep(),
+                    )
+                  else if (!phoneOn && !googleOn && !firmOn)
                     Text(
                       'Sign-in is not available right now. Try again later.',
                       style: text.bodyLarge,
@@ -204,7 +248,18 @@ class _PhoneSignInScreenState extends State<PhoneSignInScreen> {
                       ),
                     ),
                   ],
-                  if (phoneOn) ...[
+                  if (secondStep) ...[
+                    const SizedBox(height: 20),
+                    FilledButton(
+                      onPressed: _busy ? null : _secondStep,
+                      child: Text(_busy ? 'Please wait…' : 'Sign in'),
+                    ),
+                    const SizedBox(height: 8),
+                    TextButton(
+                      onPressed: _busy ? null : () => _startOver(cloud),
+                      child: const Text('Start over'),
+                    ),
+                  ] else if (phoneOn) ...[
                     const SizedBox(height: 20),
                     ((googleOn || firmOn) && !awaitingCode)
                         ? OutlinedButton(

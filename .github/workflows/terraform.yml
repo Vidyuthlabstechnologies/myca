@@ -59,7 +59,7 @@ jobs:
   plan:
     name: Plan (pull request, read-only)
     needs: check
-    if: github.event_name == 'pull_request' && vars.GCP_WIF_PLAN_PROVIDER != ''
+    if: github.event_name == 'pull_request' && vars.GCP_WIF_PLAN_PROVIDER != '' && vars.MYCA_MANAGE_SITE == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -91,7 +91,7 @@ jobs:
   apply:
     name: Apply (main)
     needs: check
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && vars.GCP_WIF_PROVIDER != ''
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && vars.GCP_WIF_PROVIDER != '' && vars.MYCA_MANAGE_SITE == 'true'
     runs-on: ubuntu-latest
     environment: production
     permissions:

@@ -10,6 +10,8 @@ num _num(Object? value) => value is num ? value : 0;
 
 String _text(Object? value) => value == null ? '' : value.toString();
 
+num _stillOpen(num value) => value > 0 ? (value * 100).round() / 100 : 0;
+
 class Company {
   const Company({required this.name, required this.gstin, this.tdsDeductor = false, this.country = 'IN', this.gstFrequency = 'monthly'});
 
@@ -119,6 +121,86 @@ class TdsSummary {
   final List<TdsQuarter> quarters;
 }
 
+class TdsCreditRow {
+  const TdsCreditRow({
+    required this.section,
+    required this.tan,
+    required this.deductor,
+    required this.customer,
+    required this.quarter,
+    required this.in26as,
+    required this.inBooks,
+    required this.gap,
+    required this.status,
+    this.note = '',
+  });
+
+  factory TdsCreditRow.fromJson(Object? json) {
+    final map = _map(json);
+    return TdsCreditRow(
+      section: _text(map['section']),
+      tan: _text(map['tan']),
+      deductor: _text(map['deductor']),
+      customer: _text(map['customer']),
+      quarter: _text(map['quarter']),
+      in26as: _num(map['in26as']),
+      inBooks: _num(map['inBooks']),
+      gap: _num(map['gap']),
+      status: _text(map['status']),
+      note: _text(map['note']).trim(),
+    );
+  }
+
+  final String section;
+  final String tan;
+  final String deductor;
+  final String customer;
+  final String quarter;
+  final num in26as;
+  final num inBooks;
+  final num gap;
+  final String status;
+  final String note;
+
+  String get who => deductor.isNotEmpty ? deductor : customer;
+}
+
+class TdsCreditCheck {
+  const TdsCreditCheck({
+    required this.fy,
+    required this.source,
+    required this.rows,
+    required this.in26as,
+    required this.inBooks,
+    required this.gap,
+    required this.note,
+  });
+
+  static TdsCreditCheck? fromTool(Object? json) {
+    final map = _map(json);
+    if (map['ok'] == false) return null;
+    final data = toolData(json);
+    final totals = _map(data['totals']);
+    return TdsCreditCheck(
+      fy: _text(data['fy']),
+      source: _text(data['source']),
+      rows: _maps(data['rows']).map(TdsCreditRow.fromJson).toList(),
+      in26as: _num(totals['in26as']),
+      inBooks: _num(totals['inBooks']),
+      gap: _num(totals['gap']),
+      note: _text(data['note']),
+    );
+  }
+
+  final String fy;
+  final String source;
+  final List<TdsCreditRow> rows;
+  final num in26as;
+  final num inBooks;
+  final num gap;
+  final String note;
+}
+
 class FirmUser {
   const FirmUser({
     required this.userId,
@@ -144,7 +226,13 @@ class FirmUser {
 }
 
 class Receipt {
-  const Receipt({required this.amount, required this.date, required this.mode});
+  const Receipt({
+    required this.amount,
+    required this.date,
+    required this.mode,
+    this.section = '',
+    this.tan = '',
+  });
 
   factory Receipt.fromJson(Object? json) {
     final map = _map(json);
@@ -152,12 +240,18 @@ class Receipt {
       amount: _num(map['amount']),
       date: _text(map['date']),
       mode: _text(map['mode']),
+      section: _text(map['section']),
+      tan: _text(map['tan']),
     );
   }
 
   final num amount;
   final String date;
   final String mode;
+  final String section;
+  final String tan;
+
+  bool get tds => mode == 'tds';
 }
 
 class CreditNote {
@@ -249,7 +343,9 @@ class Invoice {
 
   bool get partial => status == 'partial';
 
-  num get owed => payments.fold<num>(total, (left, p) => left - p.amount);
+  num get owed => _stillOpen(total - receipts.fold<num>(0, (sum, r) => sum + r.amount) - payments.fold<num>(0, (sum, p) => sum + p.amount));
+
+  num owedAfter(Iterable<CreditNote> notes) => _stillOpen(owed - notes.where((note) => note.invoiceId == id).fold<num>(0, (sum, note) => sum + note.total));
 
   bool get cancelled => status == 'cancelled';
 
@@ -1060,6 +1156,170 @@ class CreditRisk {
   final String why;
 }
 
+class ImsRow {
+  const ImsRow({
+    required this.key,
+    required this.section,
+    required this.supplierGstin,
+    required this.supplierName,
+    required this.invoiceNo,
+    required this.invoiceDate,
+    required this.taxableValue,
+    required this.credit,
+    required this.totalValue,
+    required this.itcAvailability,
+    required this.billId,
+    required this.match,
+    required this.why,
+    required this.suggested,
+    required this.decision,
+    required this.note,
+    this.lines = 1,
+  });
+
+  factory ImsRow.fromJson(Object? json) {
+    final map = _map(json);
+    final decision = _text(map['decision']);
+    return ImsRow(
+      key: _text(map['key']),
+      section: _text(map['section']),
+      supplierGstin: _text(map['supplierGstin']),
+      supplierName: _text(map['supplierName']),
+      invoiceNo: _text(map['invoiceNo']),
+      invoiceDate: _text(map['invoiceDate']),
+      taxableValue: _num(map['taxableValue']),
+      credit: _num(map['credit']),
+      totalValue: _num(map['totalValue']),
+      itcAvailability: _text(map['itcAvailability']),
+      billId: _text(map['billId']),
+      match: _text(map['match']),
+      why: _text(map['why']),
+      suggested: _text(map['suggested']) == 'accept' ? 'accept' : 'pending',
+      decision: const {'accept', 'reject', 'pending'}.contains(decision) ? decision : '',
+      note: _text(map['note']),
+      lines: _num(map['lines']) >= 1 ? _num(map['lines']).toInt() : 1,
+    );
+  }
+
+  final String key;
+  final String section;
+  final String supplierGstin;
+  final String supplierName;
+  final String invoiceNo;
+  final String invoiceDate;
+  final num taxableValue;
+  final num credit;
+  final num totalValue;
+  final String itcAvailability;
+  final String billId;
+  final String match;
+  final String why;
+  final String suggested;
+  final String decision;
+  final String note;
+  final int lines;
+
+  bool get decided => decision.isNotEmpty;
+
+  bool get inBooks => billId.isNotEmpty;
+
+  String get title => [supplierName, invoiceNo].where((part) => part.isNotEmpty).join(' · ');
+
+  String get creditWords => credit < 0 ? '${rupees(-credit)} less credit' : '${rupees(credit)} credit';
+
+  String get linesWords => lines > 1 ? '$lines lines' : '';
+
+  String get subtitle => [if (invoiceDate.isNotEmpty) longDate(invoiceDate), creditWords, match, linesWords].where((part) => part.isNotEmpty).join(' · ');
+
+  String get decisionWords => switch (decision) {
+    'accept' => 'Accepted',
+    'reject' => 'Rejected',
+    'pending' => 'Pending',
+    _ => '',
+  };
+
+  String get statusWords => decided ? decisionWords : 'Suggest $suggested';
+
+  String get itcWords => switch (itcAvailability) {
+    'Y' => 'Credit available in 2B',
+    'N' => 'Credit not available in 2B',
+    _ => '',
+  };
+}
+
+class ImsCounts {
+  const ImsCounts({
+    required this.total,
+    required this.accept,
+    required this.reject,
+    required this.pending,
+    required this.undecided,
+  });
+
+  factory ImsCounts.fromJson(Object? json) {
+    final map = _map(json);
+    return ImsCounts(
+      total: _num(map['total']).toInt(),
+      accept: _num(map['accept']).toInt(),
+      reject: _num(map['reject']).toInt(),
+      pending: _num(map['pending']).toInt(),
+      undecided: _num(map['undecided']).toInt(),
+    );
+  }
+
+  final int total;
+  final int accept;
+  final int reject;
+  final int pending;
+  final int undecided;
+}
+
+class ImsReview {
+  const ImsReview({
+    required this.period,
+    required this.statementRows,
+    required this.hasStatement,
+    required this.rows,
+    required this.counts,
+    required this.creditUndecided,
+    required this.creditAccepted,
+    required this.orphaned,
+    required this.note,
+  });
+
+  static ImsReview? fromTool(Object? json) {
+    final map = toolData(json);
+    if (_text(map['period']).isEmpty) return null;
+    final statement = map['statement'];
+    final credit = _map(map['credit']);
+    return ImsReview(
+      period: _text(map['period']),
+      statementRows: _num(_map(statement)['rows']).toInt(),
+      hasStatement: statement is Map,
+      rows: _maps(map['rows']).map(ImsRow.fromJson).toList(),
+      counts: ImsCounts.fromJson(map['counts']),
+      creditUndecided: _num(credit['undecided']),
+      creditAccepted: _num(credit['accepted']),
+      orphaned: _num(map['orphaned']).toInt(),
+      note: _text(map['note']),
+    );
+  }
+
+  final String period;
+  final int statementRows;
+  final bool hasStatement;
+  final List<ImsRow> rows;
+  final ImsCounts counts;
+  final num creditUndecided;
+  final num creditAccepted;
+  final int orphaned;
+  final String note;
+
+  int get matchedRows => rows.where((row) => row.match == 'matched' || row.match == 'date differs').length;
+
+  int get acceptableRows => rows.where((row) => (row.match == 'matched' || row.match == 'date differs') && row.decision != 'accept').length;
+}
+
 class SupplierRisk {
   const SupplierRisk({
     required this.supplier,
@@ -1385,6 +1645,96 @@ class PaymentRunBill {
         return left == null ? '$age days old' : 'due in $left days';
     }
   }
+}
+
+class SupplierDueBill {
+  const SupplierDueBill({
+    required this.billId,
+    required this.supplier,
+    required this.gstin,
+    required this.date,
+    required this.total,
+    required this.outstanding,
+    required this.payBy,
+    required this.daysLeft,
+    required this.overdue,
+    required this.msme,
+  });
+
+  factory SupplierDueBill.fromJson(Map<String, dynamic> map) => SupplierDueBill(
+    billId: _text(map['billId']),
+    supplier: _text(map['supplier']),
+    gstin: _text(map['gstin']),
+    date: _text(map['date']),
+    total: _num(map['total']),
+    outstanding: _num(map['outstanding']),
+    payBy: _text(map['payBy']),
+    daysLeft: _num(map['daysLeft']).toInt(),
+    overdue: map['overdue'] == true,
+    msme: map['msme'] == true,
+  );
+
+  final String billId;
+  final String supplier;
+  final String gstin;
+  final String date;
+  final num total;
+  final num outstanding;
+  final String payBy;
+  final int daysLeft;
+  final bool overdue;
+  final bool msme;
+}
+
+class MsmePosition {
+  const MsmePosition({
+    required this.count,
+    required this.outstanding,
+    required this.overdue,
+    required this.overdueOutstanding,
+    required this.rule,
+  });
+
+  factory MsmePosition.fromJson(Object? json) {
+    final map = _map(json);
+    return MsmePosition(
+      count: _num(map['count']).toInt(),
+      outstanding: _num(map['outstanding']),
+      overdue: _num(map['overdue']).toInt(),
+      overdueOutstanding: _num(map['overdueOutstanding']),
+      rule: _text(map['rule']),
+    );
+  }
+
+  final int count;
+  final num outstanding;
+  final int overdue;
+  final num overdueOutstanding;
+  final String rule;
+}
+
+class SupplierDues {
+  const SupplierDues({
+    required this.asOf,
+    required this.bills,
+    required this.msme,
+    required this.note,
+  });
+
+  factory SupplierDues.fromTool(Object? json) {
+    final data = toolData(json);
+    return SupplierDues(
+      asOf: _text(data['asOf']),
+      bills: _maps(data['bills']).map(SupplierDueBill.fromJson).toList(),
+      msme: MsmePosition.fromJson(data['msme']),
+      note: _text(data['note']),
+    );
+  }
+
+  final String asOf;
+  final List<SupplierDueBill> bills;
+  final MsmePosition msme;
+  final String note;
 }
 
 class PaymentRun {
@@ -1880,6 +2230,33 @@ class CaRequest {
 List<CaRequest> caRequestsFrom(Object? json) =>
     _maps(toolData(json)['requests']).map(CaRequest.fromJson).toList();
 
+const salesDocumentKinds = ['quote', 'proforma', 'order', 'challan'];
+
+const salesDocumentLabels = {
+  'quote': 'Quote',
+  'proforma': 'Proforma invoice',
+  'order': 'Sales order',
+  'challan': 'Delivery challan',
+};
+
+const challanReasonLabels = {
+  'job-work': 'Sent for job work',
+  'approval': 'Supply on approval',
+  'line-sale': 'Line sale',
+  'exhibition': 'For an exhibition',
+  'own-use': 'Own use',
+  'other': 'Other',
+};
+
+String salesDocumentLabel(String kind) => salesDocumentLabels[kind] ?? 'Quote';
+
+String salesKindOfId(String id) => switch (id.split('-').first.toUpperCase()) {
+      'PI' => 'proforma',
+      'SO' => 'order',
+      'DC' => 'challan',
+      _ => 'quote',
+    };
+
 class Quote {
   const Quote({
     required this.id,
@@ -1890,10 +2267,13 @@ class Quote {
     required this.validUntil,
     required this.status,
     required this.invoiceId,
+    this.kind = 'quote',
+    this.reason = '',
   });
 
   factory Quote.fromJson(Object? json) {
     final map = _map(json);
+    final kind = _text(map['kind']);
     return Quote(
       id: _text(map['id']),
       date: _text(map['date']),
@@ -1903,6 +2283,8 @@ class Quote {
       validUntil: _text(map['validUntil']),
       status: _text(map['status']),
       invoiceId: _text(map['invoiceId']),
+      kind: salesDocumentKinds.contains(kind) ? kind : 'quote',
+      reason: _text(map['reason']),
     );
   }
 
@@ -1914,9 +2296,85 @@ class Quote {
   final String validUntil;
   final String status;
   final String invoiceId;
+  final String kind;
+  final String reason;
 
-  String stateOn(String today) => status == 'open' && validUntil.compareTo(today) < 0 ? 'expired' : status;
+  String get label => salesDocumentLabel(kind);
+  bool get expires => kind == 'quote' || kind == 'proforma';
+
+  String stateOn(String today) => status == 'open' && expires && validUntil.compareTo(today) < 0 ? 'expired' : status;
 }
+
+class RecurringEntry {
+  const RecurringEntry({
+    required this.id,
+    required this.kind,
+    required this.every,
+    required this.party,
+    required this.amount,
+    required this.startDate,
+    required this.endDate,
+    required this.nextDate,
+    required this.status,
+    required this.count,
+    required this.lastError,
+    required this.lastDate,
+    required this.lastId,
+  });
+
+  factory RecurringEntry.fromJson(Object? json) {
+    final map = _map(json);
+    final last = _map(map['last']);
+    return RecurringEntry(
+      id: _text(map['id']),
+      kind: _text(map['kind']),
+      every: _text(map['every']),
+      party: _text(map['party']),
+      amount: _num(map['amount']),
+      startDate: _text(map['startDate']),
+      endDate: _text(map['endDate']),
+      nextDate: _text(map['nextDate']),
+      status: _text(map['status']),
+      count: _num(map['count']).toInt(),
+      lastError: _text(map['lastError']),
+      lastDate: _text(last['date']),
+      lastId: _text(last['id']),
+    );
+  }
+
+  final String id;
+  final String kind;
+  final String every;
+  final String party;
+  final num amount;
+  final String startDate;
+  final String endDate;
+  final String nextDate;
+  final String status;
+  final int count;
+  final String lastError;
+  final String lastDate;
+  final String lastId;
+
+  bool get active => status == 'active';
+
+  String get kindWords => switch (kind) {
+        'invoice' => 'Invoice to',
+        'bill' => 'Bill from',
+        _ => 'Expense',
+      };
+}
+
+const repeatEveryLabels = {
+  'week': 'Every week',
+  'month': 'Every month',
+  'quarter': 'Every quarter',
+  'half-year': 'Every six months',
+  'year': 'Every year',
+};
+
+List<RecurringEntry> recurringFrom(Object? json) =>
+    _maps(toolData(json)['schedules']).map(RecurringEntry.fromJson).toList();
 
 class Today {
   const Today({
@@ -2070,6 +2528,8 @@ class InvoiceDocument {
     this.termsDays,
     this.kind = 'invoice',
     this.validUntil = '',
+    this.documentKind = '',
+    this.reason = '',
     this.linkedId = '',
     this.country = 'IN',
     this.subtotal = 0,
@@ -2124,6 +2584,8 @@ class InvoiceDocument {
           ? (map['paymentTermsDays'] as num).toInt()
           : null,
       kind: _text(map['kind']).isEmpty ? 'invoice' : _text(map['kind']),
+      documentKind: _text(map['documentKind']).isEmpty ? (_text(map['kind']) == 'quote' ? 'quote' : '') : _text(map['documentKind']),
+      reason: _text(map['reason']),
       validUntil: _text(map['validUntil']),
       linkedId: _text(map['kind']) == 'quote' ? _text(map['invoiceId']) : _text(map['quoteId']),
       country: _text(map['country']).isEmpty ? 'IN' : _text(map['country']).toUpperCase(),
@@ -2185,11 +2647,19 @@ class InvoiceDocument {
   final String exemptionReason;
   final InvoiceTemplate template;
 
+  final String documentKind;
+  final String reason;
+
   bool get isQuote => kind == 'quote';
+  bool get isChallan => documentKind == 'challan';
+  bool get canAccept => isQuote && (documentKind == 'quote' || documentKind == 'proforma');
+  bool get canCancelOrder => isQuote && (documentKind == 'order' || documentKind == 'challan');
+  bool get canReturn => isChallan;
+  bool get canInvoice => isQuote && !(isChallan && reason == 'job-work');
 
   bool get isUs => country == 'US';
 
-  String get title => isQuote ? 'Quotation' : (sellerGstin.isEmpty ? 'Invoice' : 'Tax invoice');
+  String get title => isQuote ? (documentKind == 'quote' || documentKind.isEmpty ? 'Quotation' : salesDocumentLabel(documentKind)) : (sellerGstin.isEmpty ? 'Invoice' : 'Tax invoice');
 
   String get subtotalLabel => isUs ? 'Subtotal' : 'Taxable value';
 
@@ -2388,6 +2858,109 @@ List<SavedReport> savedReportsFrom(Object? json) {
   return _maps(map['reports']).map(SavedReport.fromJson).toList();
 }
 
+class AuditEvent {
+  const AuditEvent({
+    required this.eventId,
+    required this.at,
+    required this.actor,
+    required this.action,
+    required this.kind,
+    required this.summary,
+    required this.ids,
+    required this.transfers,
+    required this.chained,
+  });
+
+  factory AuditEvent.fromJson(Object? json) {
+    final map = _map(json);
+    final name = _text(map['actorName']);
+    return AuditEvent(
+      eventId: _text(map['eventId']),
+      at: DateTime.tryParse(_text(map['at'])),
+      actor: name.isNotEmpty ? name : _text(map['actorId']),
+      action: _text(map['action']),
+      kind: _text(map['kind']),
+      summary: _text(map['summary']),
+      ids: _texts(map['ids']),
+      transfers: _texts(map['transfers']),
+      chained: map['chained'] == true,
+    );
+  }
+
+  final String eventId;
+  final DateTime? at;
+  final String actor;
+  final String action;
+  final String kind;
+  final String summary;
+  final List<String> ids;
+  final List<String> transfers;
+  final bool chained;
+
+  String get when {
+    final utc = at?.toUtc();
+    if (utc == null) return '';
+    String two(int n) => n.toString().padLeft(2, '0');
+    return '${isoDate(utc)} ${two(utc.hour)}:${two(utc.minute)} UTC';
+  }
+
+  String get subtitle => [when, actor, if (ids.isNotEmpty) ids.join(', ')].where((part) => part.isNotEmpty).join(' · ');
+}
+
+class AuditTrail {
+  const AuditTrail({
+    required this.from,
+    required this.to,
+    required this.label,
+    required this.view,
+    required this.events,
+    required this.count,
+    required this.total,
+    required this.more,
+    required this.chainOk,
+    required this.chainWords,
+    required this.ledgerOk,
+  });
+
+  static AuditTrail? fromTool(Object? json) {
+    final data = toolData(json);
+    if (data.isEmpty) return null;
+    final chain = _map(data['chain']);
+    final chainOk = chain['ok'] == true;
+    final chained = _num(chain['chained']).toInt();
+    final earlier = _num(chain['unchained']).toInt();
+    final caveats = [
+      if (chained > 0) 'the client an event is filed under is not sealed',
+      if (earlier > 0) '$earlier earlier ${earlier == 1 ? 'event was' : 'events were'} recorded before sealing and ${earlier == 1 ? 'is' : 'are'} not covered',
+    ];
+    return AuditTrail(
+      from: _text(data['from']),
+      to: _text(data['to']),
+      label: _text(data['label']),
+      view: _text(data['view']),
+      events: _maps(data['events']).map(AuditEvent.fromJson).toList(),
+      count: _num(data['count']).toInt(),
+      total: _num(data['total']).toInt(),
+      more: data['more'] == true,
+      chainOk: chainOk,
+      chainWords: chainOk ? 'Log chain verified ($chained ${chained == 1 ? 'event' : 'events'}${caveats.map((said) => '; $said').join()})' : 'Log chain broken at ${_text(chain['at'])}',
+      ledgerOk: _map(data['ledger'])['ok'] != false,
+    );
+  }
+
+  final String from;
+  final String to;
+  final String label;
+  final String view;
+  final List<AuditEvent> events;
+  final int count;
+  final int total;
+  final bool more;
+  final bool chainOk;
+  final String chainWords;
+  final bool ledgerOk;
+}
+
 class ReportRow {
   const ReportRow({required this.label, required this.amount, this.before});
 
@@ -2466,4 +3039,479 @@ String reportComparisonWords(ReportResult result, String Function(num) money) {
   if (pct == null) return 'was ${money(compare.total)} on ${compare.label}';
   final direction = pct == 0 ? 'unchanged' : '${pct > 0 ? 'up' : 'down'} ${pct.abs().toStringAsFixed(pct.abs() == pct.abs().roundToDouble() ? 0 : 1)}%';
   return '$direction on ${compare.label}, ${money(compare.total)}';
+}
+
+List<String> _texts(Object? value) => value is List ? value.map(_text).toList() : const <String>[];
+
+num? _numOrNull(Object? value) => value is num ? value : null;
+
+String _rupeesOr(num? amount, String none) => amount == null ? none : rupees(amount);
+
+String bankDocKindWords(String docKind) => switch (docKind) {
+  'receipt' => 'receipt',
+  'payment' => 'payment',
+  'expense' => 'expense',
+  'settlement' => 'payout',
+  'transfer' => 'transfer',
+  'salary' => 'salary',
+  'gst' => 'GST payment',
+  _ => 'entry',
+};
+
+String _capitalised(String words) => words.isEmpty ? words : '${words[0].toUpperCase()}${words.substring(1)}';
+
+const ownAccountKinds = {'bank': 'Bank account', 'cash': 'Cash', 'wallet': 'Wallet'};
+
+class OwnAccount {
+  const OwnAccount({
+    required this.id,
+    required this.label,
+    required this.kind,
+    required this.maskedNumber,
+    required this.ifsc,
+    required this.balance,
+    required this.builtIn,
+  });
+
+  factory OwnAccount.fromJson(Object? json) {
+    final map = _map(json);
+    return OwnAccount(
+      id: _text(map['id']),
+      label: _text(map['label']),
+      kind: _text(map['kind']),
+      maskedNumber: _text(map['maskedNumber']),
+      ifsc: _text(map['ifsc']),
+      balance: _num(map['balance']),
+      builtIn: map['builtIn'] == true,
+    );
+  }
+
+  final String id;
+  final String label;
+  final String kind;
+  final String maskedNumber;
+  final String ifsc;
+  final num balance;
+  final bool builtIn;
+
+  String get kindWords => ownAccountKinds[kind] ?? 'Bank account';
+
+  String get words => [label, if (maskedNumber.isNotEmpty) '••$maskedNumber'].join(' ');
+}
+
+List<OwnAccount> bankAccountsFrom(Object? json) => _maps(toolData(json)['accounts']).map(OwnAccount.fromJson).toList();
+
+class BankMatch {
+  const BankMatch({required this.kind, required this.id, required this.transferIds, required this.ruleId, required this.note});
+
+  factory BankMatch.fromJson(Object? json) {
+    final map = _map(json);
+    return BankMatch(
+      kind: _text(map['kind']),
+      id: _text(map['id']),
+      transferIds: _texts(map['transferIds']),
+      ruleId: _text(map['ruleId']),
+      note: _text(map['note']),
+    );
+  }
+
+  final String kind;
+  final String id;
+  final List<String> transferIds;
+  final String ruleId;
+  final String note;
+
+  String get words {
+    final by = ruleId.isEmpty ? '' : ' by rule $ruleId';
+    return switch (kind) {
+      'books' => 'Already in the books: $id',
+      'receipt' => 'Receipt against $id$by',
+      'payment' => 'Payment against $id$by',
+      'expense' => 'Expense $id$by',
+      'charge' => 'Bank charge $id$by'.replaceAll('  ', ' ').trim(),
+      'interest' => 'Interest earned$by',
+      'transfer' => 'Transfer $id$by',
+      'auto' => 'Posted to a guessed head',
+      'ignore' => note.isEmpty ? 'Ignored$by' : 'Ignored: $note',
+      _ => kind,
+    };
+  }
+}
+
+class BankSuggestion {
+  const BankSuggestion({
+    required this.kind,
+    required this.transferId,
+    required this.docId,
+    required this.docKind,
+    required this.party,
+    required this.partyName,
+    required this.invoiceIds,
+    required this.billIds,
+    required this.amount,
+    required this.date,
+    required this.head,
+    required this.why,
+  });
+
+  factory BankSuggestion.fromJson(Object? json) {
+    final map = _map(json);
+    return BankSuggestion(
+      kind: _text(map['kind']),
+      transferId: _text(map['transferId']),
+      docId: _text(map['docId']),
+      docKind: _text(map['docKind']),
+      party: _text(map['party']),
+      partyName: _text(map['partyName']),
+      invoiceIds: _texts(map['invoiceIds']),
+      billIds: _texts(map['billIds']),
+      amount: _num(map['amount']),
+      date: _text(map['date']),
+      head: _text(map['head']),
+      why: _text(map['why']),
+    );
+  }
+
+  final String kind;
+  final String transferId;
+  final String docId;
+  final String docKind;
+  final String party;
+  final String partyName;
+  final List<String> invoiceIds;
+  final List<String> billIds;
+  final num amount;
+  final String date;
+  final String head;
+  final String why;
+
+  String get words => switch (kind) {
+    'books' => 'Already in the books: ${bankDocKindWords(docKind)} $docId${date.isEmpty ? '' : ' on ${longDate(date)}'}',
+    'receipt' => 'Receipt${invoiceIds.isEmpty ? '' : ' ${invoiceIds.join(', ')}'} from $partyName',
+    'payment' => 'Payment${billIds.isEmpty ? '' : ' ${billIds.join(', ')}'} to $partyName',
+    'charge' => 'Bank charge',
+    'interest' => 'Interest earned',
+    'transfer' => 'Transfer to another account',
+    _ => why.isEmpty ? kind : why,
+  };
+
+  Map<String, Object?> get matchArgs => {
+    'kind': kind,
+    if (kind == 'books' && transferId.isNotEmpty) 'transferId': transferId,
+    if (kind == 'receipt' && invoiceIds.length == 1) 'invoiceId': invoiceIds.single else if (kind == 'receipt' && partyName.isNotEmpty) 'partyName': partyName,
+    if (kind == 'payment' && billIds.length == 1) 'billId': billIds.single else if (kind == 'payment' && partyName.isNotEmpty) 'partyName': partyName,
+    if (kind == 'charge' && head.isNotEmpty) 'head': head,
+  };
+}
+
+class BankLine {
+  const BankLine({
+    required this.id,
+    required this.account,
+    required this.date,
+    required this.narration,
+    required this.refNo,
+    required this.moneyIn,
+    required this.moneyOut,
+    required this.balance,
+    required this.status,
+    required this.category,
+    required this.tieBreak,
+    required this.match,
+    required this.suggestions,
+  });
+
+  factory BankLine.fromJson(Object? json) {
+    final map = _map(json);
+    return BankLine(
+      id: _text(map['id']),
+      account: _text(map['account']),
+      date: _text(map['date']),
+      narration: _text(map['narration']),
+      refNo: _text(map['refNo']),
+      moneyIn: _num(map['in']),
+      moneyOut: _num(map['out']),
+      balance: _numOrNull(map['balance']),
+      status: _text(map['status']),
+      category: _text(map['category']),
+      tieBreak: map['tieBreak'] == true,
+      match: map['match'] is Map ? BankMatch.fromJson(map['match']) : null,
+      suggestions: _maps(map['suggestions']).map(BankSuggestion.fromJson).toList(),
+    );
+  }
+
+  final String id;
+  final String account;
+  final String date;
+  final String narration;
+  final String refNo;
+  final num moneyIn;
+  final num moneyOut;
+  final num? balance;
+  final String status;
+  final String category;
+  final bool tieBreak;
+  final BankMatch? match;
+  final List<BankSuggestion> suggestions;
+
+  bool get open => status == 'unmatched';
+
+  bool get linked => status == 'matched' || status == 'ignored';
+
+  bool get isIn => moneyIn > 0;
+
+  num get amount => isIn ? moneyIn : moneyOut;
+
+  String get title {
+    final words = narration.replaceAll(RegExp(r'\s+'), ' ').trim();
+    if (words.isNotEmpty) return words;
+    return refNo.isEmpty ? 'Statement line' : refNo;
+  }
+
+  String get sideWords => isIn ? 'in ${rupees(moneyIn)}' : 'out ${rupees(moneyOut)}';
+
+  String get statusWords => switch (status) {
+    'unmatched' => 'Not matched yet',
+    'matched' => 'Matched',
+    'booked' => 'Booked',
+    'ignored' => 'Ignored',
+    _ => status,
+  };
+
+  String get subtitle => '${longDate(date)} · $sideWords · $statusWords';
+
+  String get detailWords => [longDate(date), sideWords, if (refNo.isNotEmpty) 'ref $refNo'].join(' · ');
+}
+
+class BankBooksRow {
+  const BankBooksRow({
+    required this.transferId,
+    required this.date,
+    required this.docKind,
+    required this.docId,
+    required this.party,
+    required this.moneyIn,
+    required this.moneyOut,
+  });
+
+  factory BankBooksRow.fromJson(Object? json) {
+    final map = _map(json);
+    return BankBooksRow(
+      transferId: _text(map['transferId']),
+      date: _text(map['date']),
+      docKind: _text(map['docKind']),
+      docId: _text(map['docId']),
+      party: _text(map['party']),
+      moneyIn: _num(map['in']),
+      moneyOut: _num(map['out']),
+    );
+  }
+
+  final String transferId;
+  final String date;
+  final String docKind;
+  final String docId;
+  final String party;
+  final num moneyIn;
+  final num moneyOut;
+
+  String get title => [_capitalised(bankDocKindWords(docKind)), if (docId.isNotEmpty) docId, if (party.isNotEmpty) '· $party'].join(' ');
+
+  String get subtitle => '${longDate(date)} · ${moneyIn > 0 ? 'in ${rupees(moneyIn)}' : 'out ${rupees(moneyOut)}'}';
+}
+
+class BankTotals {
+  const BankTotals({
+    required this.statementBalance,
+    required this.statementOn,
+    required this.booksBalance,
+    required this.difference,
+    required this.unmatched,
+    required this.matched,
+    required this.booked,
+    required this.ignored,
+    required this.unmatchedIn,
+    required this.unmatchedOut,
+  });
+
+  factory BankTotals.fromJson(Object? json) {
+    final map = _map(json);
+    final lines = _map(map['lines']);
+    return BankTotals(
+      statementBalance: _numOrNull(map['statementBalance']),
+      statementOn: _text(map['statementOn']),
+      booksBalance: _num(map['booksBalance']),
+      difference: _numOrNull(map['difference']),
+      unmatched: _num(lines['unmatched']).toInt(),
+      matched: _num(lines['matched']).toInt(),
+      booked: _num(lines['booked']).toInt(),
+      ignored: _num(lines['ignored']).toInt(),
+      unmatchedIn: _num(map['unmatchedIn']),
+      unmatchedOut: _num(map['unmatchedOut']),
+    );
+  }
+
+  final num? statementBalance;
+  final String statementOn;
+  final num booksBalance;
+  final num? difference;
+  final int unmatched;
+  final int matched;
+  final int booked;
+  final int ignored;
+  final num unmatchedIn;
+  final num unmatchedOut;
+
+  int get lines => unmatched + matched + booked + ignored;
+
+  String get statementBalanceWords => _rupeesOr(statementBalance, 'No statement yet');
+
+  String get differenceWords => _rupeesOr(difference, '–');
+
+  String get unmatchedWords => unmatched > 0 ? '$unmatched not matched yet' : lines == 0 ? 'Nothing to match yet' : 'All matched';
+}
+
+const bankRuleSides = {'any': 'Money in or out', 'in': 'Money in', 'out': 'Money out'};
+
+const bankRuleKinds = {
+  'receipt': 'Receipt from a customer',
+  'payment': 'Payment to a supplier',
+  'expense': 'Expense',
+  'charge': 'Bank charge',
+  'interest': 'Interest earned',
+  'transfer': 'Transfer to another account',
+  'ignore': 'Ignore',
+};
+
+class BankRule {
+  const BankRule({
+    required this.id,
+    required this.side,
+    required this.contains,
+    required this.pattern,
+    required this.minAmount,
+    required this.maxAmount,
+    required this.kind,
+    required this.partyName,
+    required this.head,
+    required this.otherAccount,
+    required this.note,
+    required this.hits,
+    required this.createdOn,
+  });
+
+  factory BankRule.fromJson(Object? json) {
+    final map = _map(json);
+    final then = _map(map['then']);
+    return BankRule(
+      id: _text(map['id']),
+      side: _text(map['side']),
+      contains: _text(map['contains']),
+      pattern: _text(map['pattern']),
+      minAmount: _numOrNull(map['minAmount']),
+      maxAmount: _numOrNull(map['maxAmount']),
+      kind: _text(then['kind']),
+      partyName: _text(then['partyName']),
+      head: _text(then['head']),
+      otherAccount: _text(then['otherAccount']),
+      note: _text(then['note']),
+      hits: _num(map['hits']).toInt(),
+      createdOn: _text(map['createdOn']),
+    );
+  }
+
+  final String id;
+  final String side;
+  final String contains;
+  final String pattern;
+  final num? minAmount;
+  final num? maxAmount;
+  final String kind;
+  final String partyName;
+  final String head;
+  final String otherAccount;
+  final String note;
+  final int hits;
+  final String createdOn;
+
+  String get whenWords {
+    final low = minAmount;
+    final high = maxAmount;
+    return [
+      if (contains.isNotEmpty) 'containing “$contains”' else if (pattern.isNotEmpty) 'matching $pattern',
+      if (low != null && high != null) 'between ${rupees(low)} and ${rupees(high)}' else if (low != null) 'of ${rupees(low)} or more' else if (high != null) 'up to ${rupees(high)}',
+    ].join(' ');
+  }
+
+  String get thenWords => switch (kind) {
+    'receipt' => 'a receipt from $partyName',
+    'payment' => 'a payment to $partyName',
+    'expense' => head.isEmpty ? 'an expense' : 'an expense under head $head',
+    'charge' => 'a bank charge',
+    'interest' => 'interest earned',
+    'transfer' => otherAccount.isEmpty ? 'a transfer' : 'a transfer with account $otherAccount',
+    'ignore' => note.isEmpty ? 'ignored' : 'ignored ($note)',
+    _ => kind,
+  };
+
+  String get words => [bankRuleSides[side] ?? 'Any line', if (whenWords.isNotEmpty) whenWords, 'is $thenWords'].join(' ');
+
+  String get hitsWords => '$hits ${hits == 1 ? 'line' : 'lines'} so far';
+
+  Map<String, Object?> get args => {
+    'side': side,
+    if (contains.isNotEmpty) 'contains': contains,
+    if (pattern.isNotEmpty) 'pattern': pattern,
+    if (minAmount != null) 'minAmount': minAmount,
+    if (maxAmount != null) 'maxAmount': maxAmount,
+    'kind': kind,
+    if (partyName.isNotEmpty) 'partyName': partyName,
+    if (head.isNotEmpty) 'head': head,
+    if (otherAccount.isNotEmpty) 'otherAccount': otherAccount,
+    if (note.isNotEmpty) 'note': note,
+  };
+}
+
+List<BankRule> bankRulesFrom(Object? json) => _maps(toolData(json)['rules']).map(BankRule.fromJson).toList();
+
+class BankReconciliation {
+  const BankReconciliation({
+    required this.account,
+    required this.from,
+    required this.to,
+    required this.lines,
+    required this.books,
+    required this.totals,
+    required this.reconciledThrough,
+    required this.rules,
+    required this.accounts,
+  });
+
+  static BankReconciliation? fromTool(Object? json) {
+    final data = toolData(json);
+    if (data.isEmpty) return null;
+    return BankReconciliation(
+      account: OwnAccount.fromJson(data['account']),
+      from: _text(data['from']),
+      to: _text(data['to']),
+      lines: _maps(data['lines']).map(BankLine.fromJson).toList(),
+      books: _maps(data['books']).map(BankBooksRow.fromJson).toList(),
+      totals: BankTotals.fromJson(data['totals']),
+      reconciledThrough: _text(data['reconciledThrough']),
+      rules: _maps(data['rules']).map(BankRule.fromJson).toList(),
+      accounts: _maps(data['accounts']).map(OwnAccount.fromJson).toList(),
+    );
+  }
+
+  final OwnAccount account;
+  final String from;
+  final String to;
+  final List<BankLine> lines;
+  final List<BankBooksRow> books;
+  final BankTotals totals;
+  final String reconciledThrough;
+  final List<BankRule> rules;
+  final List<OwnAccount> accounts;
+
+  bool get empty => lines.isEmpty && books.isEmpty;
 }

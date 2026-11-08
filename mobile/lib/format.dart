@@ -77,6 +77,15 @@ String plainNumber(num value) => value == value.roundToDouble()
     ? value.round().toString()
     : value.toString();
 
+String shortFileName(String name, [int limit = 120]) {
+  if (name.length <= limit) return name;
+  final dot = name.lastIndexOf('.');
+  final extension = dot > 0 && name.length - dot <= 10 ? name.substring(dot) : '';
+  var keep = limit - extension.length;
+  if ((name.codeUnitAt(keep - 1) & 0xFC00) == 0xD800) keep -= 1;
+  return '${name.substring(0, keep)}$extension';
+}
+
 String dueLabel(int daysUntil) {
   if (daysUntil < 0) return '${-daysUntil} days overdue';
   if (daysUntil == 0) return 'Due today';

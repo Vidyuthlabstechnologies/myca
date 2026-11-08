@@ -9,6 +9,7 @@ import '../marks.dart';
 import '../proposal_flow.dart';
 import '../theme.dart';
 import '../widgets.dart';
+import '../widgets/utf16_limit.dart';
 
 class ReminderDraft {
   const ReminderDraft({required this.text, required this.due});
@@ -108,7 +109,7 @@ class _ReminderSheetState extends State<_ReminderSheet> {
             controller: _text,
             autofocus: widget.text.isEmpty,
             textCapitalization: TextCapitalization.sentences,
-            maxLength: 200,
+            inputFormatters: const [Utf16LengthLimit(200)],
             decoration: const InputDecoration(
               labelText: 'What about',
               counterText: '',

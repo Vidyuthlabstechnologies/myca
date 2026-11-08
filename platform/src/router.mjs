@@ -2,7 +2,8 @@ import { TOOLS, runTool } from './tools.mjs';
 import { templateWords } from './invoice-template.mjs';
 import { settlementWords, settlementStatusWords } from './settlements.mjs';
 import { orderImportWords } from './marketplace-orders.mjs';
-import { creditsWords } from './marketplace-credits.mjs';
+import { creditsWords, sectionWords } from './marketplace-credits.mjs';
+import { isTdsReceipt } from './tds-credits.mjs';
 import { marginsWords, stockWords, stockMovesWords } from './sku-margins.mjs';
 import { valuationWords, valuationsWords } from './inventory.mjs';
 import { connectorsWords, fetchWords } from './channel-connectors.mjs';
@@ -13,11 +14,12 @@ import { closeWords } from './daily-close.mjs';
 import { registrationsWords } from './registrations.mjs';
 import { stockTransferWords } from './stock-transfers.mjs';
 import { planLocalToolCall, validateAssistantToolCall } from './assistant-contract.mjs';
-import { needsConfirmation, previewOf, openPending, takePending, clearPending, previewReply, blockedReply } from './chat-confirm.mjs';
+import { imsWords, imsDecidedWords } from './ims.mjs';
+import { needsConfirmation, previewOf, openPending, takePending, clearPending, previewReply, blockedReply, rowsCounted } from './chat-confirm.mjs';
 import { liveCallsEnabled, mockModeEnabled } from './runtime-config.mjs';
 import { referenceImportContent, resolveImportContent } from './import-documents.mjs';
 import { spoken } from './words.mjs';
-import { planEntryWithTds } from './tds-intent.mjs';
+import { planEntryWithTds, creditCheckWords } from './tds-intent.mjs';
 import { paymentWords } from './gst-payment.mjs';
 import { transportWords } from './eway-bill.mjs';
 import { payrollWords } from './payroll.mjs';
@@ -51,6 +53,7 @@ import { restockWords } from './restock.mjs';
 import { advanceTaxWords } from './advance-tax.mjs';
 import { supplierPayoutWords } from './supplier-bank.mjs';
 import { reportWords } from './reports.mjs';
+import { auditTrailWords } from './audit-trail.mjs';
 import { tallyPushWords } from './tally-push.mjs';
 import { throughLanguage } from './chat-language.mjs';
 import { tagExpense } from './expenses.mjs';
@@ -58,12 +61,41 @@ import { dscWords } from './dsc.mjs';
 import { track1099Words } from './track1099.mjs';
 import { payrollImportWords } from './us-payroll-import.mjs';
 import { suggestExpenseHead } from './expense-head-model.mjs';
+import { kindTitle } from './quotes.mjs';
+import { everyWords, recurringWords, runRecurringWords } from './recurring.mjs';
+import { reconciliationWords, matchWords, unmatchWords, chargesWords, accountWords, accountsWords, transferWords } from './bank-recon.mjs';
+import { addRuleWords, rulesWords, runRulesWords, removeRuleWords } from './bank-rules.mjs';
+
+
+const GSTR1_HELD_REASONS = {
+  INVALID_HSN: 'no HSN code (4 to 8 digits)',
+  INVALID_GSTIN: 'a buyer GSTIN that does not check out',
+  STATE_MISMATCH: 'a buyer state that does not match its GSTIN',
+  RATE_UNKNOWN: 'a GST rate that is not in force on its date',
+  TAX_MISMATCH: 'tax that does not match the rate',
+  NEGATIVE_VALUE: 'a negative value',
+};
+
+function gstr1HeldWords(errors) {
+  const byInvoice = new Map();
+  for (const e of errors || []) {
+    if (!e.invoiceNo) continue;
+    const list = byInvoice.get(e.invoiceNo) || [];
+    list.push(GSTR1_HELD_REASONS[e.code] || e.message || e.code);
+    byInvoice.set(e.invoiceNo, list);
+  }
+  if (!byInvoice.size) return '';
+  const rows = [...byInvoice].map(([id, why]) => `· ${id}: ${why.join('; ')}`);
+  return `\nLeft out of these tables until fixed (amend the invoice):\n${rows.join('\n')}`;
+}
 
 function money(n) {
   return formatMoneyCurrent(Number(n) || 0);
 }
 
 const FAILURES = {
+  LIVE_CALLS_DISABLED: (r) => r.hint || 'Nothing was sent: government and provider calls are switched off here.',
+  TEST_MODE_HELD: (r) => r.hint || 'Test mode: this action has no sandbox, so nothing was sent.',
   INVOICES_HELD: (r) => `${(r.held || []).length === 1 ? '1 invoice is' : `${(r.held || []).length} invoices are`} held back (${(r.held || []).slice(0, 5).join(', ')}); fix them before saving to the portal.`,
   NOT_SAVED: () => 'Save the GSTR-1 to the portal first, then file it.',
   DRAFT_CHANGED: () => 'The invoices changed since the save; save to the portal again, then file.',
@@ -93,6 +125,9 @@ const FAILURES = {
   BILL_NOT_FOUND: () => 'That bill is not in these books, so nothing was changed.',
   BAD_AMOUNT: () => 'That amount does not work here, so nothing was changed.',
   OVERPAYMENT: (r) => `That is more than is owed${r.due != null ? ` (${money(r.due)})` : ''}, so nothing was changed.`,
+  INVOICE_CANCELLED: () => 'That invoice is cancelled, so nothing was changed.',
+  BAD_SECTION: () => 'Say which TDS section the customer deducted under, like 194C or 194J.',
+  BAD_TAN: () => 'A TAN looks like MUMA12345B.',
   RATE_REQUIRED: () => 'A GST rate is needed for each item; MyCA does not assume one. Nothing was changed.',
   NO_LINES: () => 'There is nothing to put on it, so nothing was changed.',
   ZERO_AMOUNT: () => 'It comes to nothing, so nothing was changed.',
@@ -113,6 +148,10 @@ const FAILURES = {
   BAD_METRIC: (r) => `The report can be of ${r.hint}.`,
   BAD_GROUP: (r) => `Group it by ${r.hint}.`,
   BAD_PERIOD: (r) => `The period is ${r.hint}, or a month like 2026-09.`,
+  MONTH_REQUIRED: () => 'That report covers one month at a time; say which month, for example 2026-10.',
+  UNKNOWN_REPORT: (r) => `That is not a report I can put in Excel. Choose one of ${(r.known || []).join(', ')}.`,
+  HASH_MISMATCH: () => 'An entry in the audit log was changed after it was written, so the log cannot be trusted from there.',
+  LINK_BROKEN: () => 'An entry in the audit log is missing or out of order, so the log cannot be trusted from there.',
   ENTRY_NOT_FOUND: (r) => `There is no entry ${r.id || 'by that id'}.`,
   DOCUMENT_NOT_FOUND: () => 'That document is not in these books; upload it first.',
   BANK_DETAILS_REQUIRED: () => 'Give an account number with its IFSC, or a UPI id.',
@@ -123,6 +162,10 @@ const FAILURES = {
   RULE_MISSING: () => 'MyCA has no advance tax schedule in force for this year, so it will not guess.',
   SKU_REQUIRED: () => 'Say which SKU.',
   SUPPLIER_REQUIRED: () => 'Say which supplier.',
+  BAD_UDYAM: () => 'A Udyam number looks like UDYAM-XX-00-0000000.',
+  BAD_TERMS: () => 'Agreed days must be a whole number from 0 to 365.',
+  BAD_CATEGORY: () => 'The category is micro, small or medium.',
+  TERMS_EXCEED_MSMED: (r) => `An MSME supplier must be paid within ${r.max || 45} days, so the agreed days cannot be more than ${r.max || 45}.`,
   LINES_REQUIRED: () => 'Say what to order: a SKU and a quantity.',
   MONTH_NOT_OVER: (r) => `${r.period || 'That month'} is not over yet; close it from ${r.lastDay || 'the first of next month'} onwards.`,
   ALREADY_CLOSED: (r) => `${r.period || 'That month'} was closed on ${r.closedOn || 'an earlier day'}.`,
@@ -137,7 +180,20 @@ const FAILURES = {
   POSSIBLY_PAID: (r) => `${r.customer || 'That customer'} paid something in the last two weeks; match your bank statement before chasing.`,
   INVALID_GSTIN: (r) => `${r.gstin || 'That GSTIN'} is not a valid GSTIN, so nothing was changed. Check it with the other party.`,
   NO_ENTRIES: () => 'There is nothing in the books to audit yet.',
+  NO_STATEMENT: () => 'Add the GSTR-2B for that month first.',
+  INVALID_PERIOD: () => 'Say the month as YYYY-MM, for example 2026-09.',
+  NO_ROWS: () => 'There were no rows to work on.',
+  SIGN_IN_REQUIRED: (r) => r.hint || 'Sign in with your user id and PIN first.',
+  BAD_DECISION: () => 'Say accept, reject or pending.',
+  NO_MATCH: (r) => r.hint || 'No invoice matches what you asked for, so nothing was marked.',
+  OWNER_ONLY: (r) => r.hint || 'Only the owner can do that.',
+  ROW_NOT_FOUND: () => 'One of those invoices is not in the GSTR-2B for that month.',
+  TOO_MANY_ROWS: () => 'IMS takes up to 500 invoices in one go; pick fewer, or decide in parts.',
+  NOTE_TOO_LONG: () => 'Keep the note to 200 characters or fewer.',
   NOT_FOR_COUNTRY: () => 'That is for a different country edition, so nothing was changed.',
+  JURISDICTION_REQUIRED: () => 'Say which sales tax applies (the jurisdiction code, for example TX or TX-AUSTIN), or that the sale is exempt and why. I will not guess a rate.',
+  EXEMPTION_REASON_REQUIRED: () => 'Say why this sale is exempt from sales tax (for example a resale certificate on file).',
+  RATE_UNKNOWN: (r) => `There is no sales tax rate recorded for ${r.code || 'that jurisdiction'} on ${r.date || 'that date'}. Say "sales tax rate ${r.code || 'TX'} 8.25%" first; I will not guess one.`,
   NOT_APPROVED: () => 'That month\'s payroll is not approved yet; approve it first.',
   NOT_FOUND: () => 'I could not find that in these books, so nothing was changed.',
   CLIENT_NOT_FOUND: () => 'There is no client by that id.',
@@ -146,6 +202,28 @@ const FAILURES = {
   UNKNOWN_REQUIREMENT: () => 'That is not an integration I know; say "integration readiness" for the list.',
   amount_must_be_positive: () => 'The amount has to be more than zero, so nothing was changed.',
   INSUFFICIENT_CASH: (r) => `There is not that much cash in hand${r.inHand != null ? ` (${money(r.inHand)})` : ''}. Nothing was changed.`,
+  LINE_NOT_FOUND: (r) => `There is no statement line ${r.lineId || 'by that id'} in these books.`,
+  LINE_NOT_OPEN: (r) => `${r.lineId || 'That line'} is already ${r.status || 'settled'}; open it again first if that is wrong.`,
+  LINE_NOT_LINKED: (r) => `${r.lineId || 'That line'} is not matched to anything yet.`,
+  BOOKED_LINE: (r) => `${r.lineId || 'That line'} was booked (${(r.ids || []).join(', ') || 'entries posted'}); the entries stay in the books, so reverse them first.`,
+  TRANSFER_NOT_FOUND: (r) => r.hint || 'No entry in the books matches that, so nothing was changed.',
+  SIDE_MISMATCH: (r) => `That reads as money ${r.side === 'in' ? 'coming in' : 'going out'}, which does not fit this line.`,
+  AMOUNT_MISMATCH: (r) => `The line is ${money(r.lineAmount)} but the entry is ${money(r.bookAmount)}; they do not match.`,
+  RECEIPT_UNALLOCATED: (r) => `${r.partyName || 'That customer'} has ${money(r.remainder)} less open on invoices than this line, so nothing was posted. Raise the invoice first, or record the receipt by hand.`,
+  PAYMENT_UNALLOCATED: (r) => `${r.partyName || 'That supplier'} has ${money(r.remainder)} less open on bills than this line, so nothing was posted. Enter the bill first, or record the payment by hand.`,
+  HEAD_REQUIRED: (r) => `Say which expense head${r.suggested ? ` (${r.suggested} was the nearest guess)` : ''}; nothing is guessed.`,
+  OTHER_ACCOUNT_REQUIRED: () => 'Say which of your own accounts the other side is.',
+  ACCOUNT_NOT_FOUND: (r) => `${r.account ? `"${r.account}"` : 'That'} is not one of your own accounts. Add it first.`,
+  SAME_ACCOUNT: () => 'Both sides are the same account, so there is nothing to move.',
+  NOT_A_CHARGE: () => 'That line does not read as a bank charge or interest.',
+  PARTY_NOT_FOUND: (r) => `I do not know a customer or supplier${r.partyName ? ` called ${r.partyName}` : ' by that name'}.`,
+  RULE_NOT_FOUND: (r) => `There is no bank rule ${r.id || 'by that id'}.`,
+  MATCH_REQUIRED: () => 'Say what the narration must contain for the rule to apply.',
+  BAD_PATTERN: () => 'That pattern is not a regular expression I can run.',
+  LABEL_TAKEN: (r) => `An account called ${r.label || 'that'} already exists (${r.id}).`,
+  BUILT_IN_ACCOUNT: () => 'Cash (1001) and Bank (1002) are built in and cannot be changed.',
+  KIND_FIXED: (r) => `That account stays a ${r.kind} account; add a new one for a different kind.`,
+  NO_FREE_ACCOUNT: () => 'All own-account ids from 1003 to 1099 are taken.',
 };
 
 function notAccepted(error) {
@@ -156,9 +234,12 @@ function notAccepted(error) {
   return 'Some of the details were missing or not in the right form, so nothing was changed.';
 }
 
+const ENGINE_FAULT = /undefined|TypeError|ReferenceError|RangeError|SyntaxError|cannot (?:read|set|destructure|convert)\b|is not (?:a function|defined|iterable)|\[object /i;
+
 function failedInWords(code, result = {}) {
   const plain = FAILURES[code];
   if (plain) return plain(result || {});
+  if (ENGINE_FAULT.test(String(code || ''))) return 'That did not go through, so nothing was changed.';
   const words = String(code || '').toLowerCase().replace(/_/g, ' ').trim();
   return `That did not go through${words ? ` (${words})` : ''}, so nothing was changed.`;
 }
@@ -198,7 +279,45 @@ function outline(d, depth = 0) {
   return lines.join('\n');
 }
 
-function fmtToolResult(name, result) {
+const SIMULATED_NOTE = 'Simulated in sandbox: nothing was sent to the government portal or any provider.';
+
+function fmtToolResult(name, result, args) {
+  const text = fmtToolResultCore(name, result, args);
+  if (!result?.mock || /simulated|mock/i.test(text)) return text;
+  return `${text}\n[${SIMULATED_NOTE}]`;
+}
+
+function bankLinesWords(lines) {
+  if (!lines) return '';
+  const parts = [];
+  if (lines.matched) parts.push(`${lines.matched} ${lines.matched === 1 ? 'line was' : 'lines were'} already in the books and ${lines.matched === 1 ? 'is' : 'are'} linked`);
+  if (lines.byRules) parts.push(`${lines.byRules} booked by your rules`);
+  if (lines.transfersGuessed) parts.push(`${lines.transfersGuessed} ${lines.transfersGuessed === 1 ? 'looks' : 'look'} like a move between your own accounts but went to a guessed head`);
+  if (lines.unmatched) parts.push(`${lines.unmatched} ${lines.unmatched === 1 ? 'waits' : 'wait'} for you to match`);
+  if (lines.existing) parts.push(`${lines.existing} seen before and skipped`);
+  if (!parts.length) return '';
+  const first = parts[0][0].toUpperCase() + parts[0].slice(1);
+  return ` ${[first, ...parts.slice(1)].join(', ')}.${lines.unmatched ? ' Say "match bank" to go through them.' : ''}`;
+}
+
+function auditFilterWords(data, args) {
+  const actor = typeof args?.actor === 'string' ? args.actor.trim() : '';
+  const limit = Number.isInteger(args?.limit) && args.limit > 0 ? args.limit : 0;
+  const noun = data.view === 'all' ? 'events' : 'changes';
+  const parts = [];
+  if (actor) parts.push(`Only ${noun} by "${actor}" are counted${data.count === 0 ? ', and there are none in this range' : ''}.`);
+  if (limit) parts.push(`Limited to the latest ${limit}.`);
+  return parts.join(' ');
+}
+
+function auditTrailReply(data, args) {
+  const lines = auditTrailWords(data.from === '' ? { ...data, from: 'the start' } : data).split('\n');
+  const filter = auditFilterWords(data, args);
+  if (filter) lines.splice(1, 0, filter);
+  return lines.join('\n');
+}
+
+function fmtToolResultCore(name, result, args) {
   if (result?.error === 'SALARIES_PRIVATE') return 'Only the owner can see or change employees and salaries.';
   if (result?.error === 'OWNER_ONLY') return result.hint || 'Only the owner can do that.';
   if (!result || result.ok === false) return failedInWords(result?.error, result);
@@ -247,13 +366,33 @@ function fmtToolResult(name, result) {
     ].filter(Boolean).join('\n');
   }
   if (name === 'create_quote' && result.quote) {
-    return `Quote ${result.quote.id} to ${result.quote.partyName} for ${money(result.quote.total)}, valid until ${result.quote.validUntil}. Nothing was posted to your books.`;
+    const kind = result.quote.kind || 'quote';
+    const until = kind === 'quote' || kind === 'proforma' ? `, valid until ${result.quote.validUntil}` : '';
+    return `${kindTitle(result.quote)} ${result.quote.id} to ${result.quote.partyName} for ${money(result.quote.total)}${until}. Nothing was posted to your books.`;
   }
+  if (name === 'add_recurring' && result.schedule) {
+    const s = result.schedule;
+    return `${s.id}: ${s.kind === 'invoice' ? `invoice to ${s.party}` : s.kind === 'bill' ? `bill from ${s.party}` : `expense ${s.party}`.trim()} for ${money(s.amount)} ${everyWords(s.every)} from ${s.startDate}${s.endDate ? ` until ${s.endDate}` : ''}. Next: ${result.next.join(', ')}. The daily run posts each one on its date.`;
+  }
+  if (name === 'stop_recurring' && result.schedule) return `Stopped ${result.schedule.id}. Entries already posted stay.`;
+  if (name === 'list_recurring' && result.data) return recurringWords(result.data, money);
+  if (name === 'run_recurring' && result.data) return runRecurringWords(result.data, money);
+  if (name === 'bank_reconciliation' && result.data) return reconciliationWords(result.data, money);
+  if (name === 'match_bank_line' && result.line) return matchWords(result, money);
+  if (name === 'unmatch_bank_line' && result.line) return unmatchWords(result);
+  if (name === 'book_bank_charges' && result.booked) return chargesWords(result, money);
+  if (name === 'add_bank_rule' && result.rule) return addRuleWords(result, money);
+  if (name === 'remove_bank_rule' && result.rule) return removeRuleWords(result);
+  if (name === 'list_bank_rules' && result.data) return rulesWords(result.data, money);
+  if (name === 'run_bank_rules' && result.made) return runRulesWords(result);
+  if (name === 'set_bank_account' && result.account) return accountWords(result);
+  if (name === 'list_bank_accounts' && result.data) return accountsWords(result.data, money);
+  if (name === 'record_transfer' && result.transfer) return transferWords(result, money);
   if (name === 'mark_quote' && result.quote) {
     return `${result.quote.id} marked ${result.quote.status}.`;
   }
   if (name === 'convert_quote' && result.invoice) {
-    return `Posted ${result.invoice.id} to ${result.invoice.partyName} for ${money(result.invoice.total)} from quote ${result.quote.id}.`;
+    return `Posted ${result.invoice.id} to ${result.invoice.partyName} for ${money(result.invoice.total)} from ${kindTitle(result.quote).toLowerCase()} ${result.quote.id}.`;
   }
   if (name === 'ask_ca' && result.request) {
     return `Sent to your CA in MyCA (${result.request.id}). You will see the reply under Your CA.`;
@@ -287,6 +426,8 @@ function fmtToolResult(name, result) {
     const lines = result.data.findings.map((item) => `· ${mark[item.severity]}: ${item.title}. ${item.detail}`);
     return [result.data.headline + '.', ...lines].join('\n');
   }
+  if (name === 'ims_review' && result.data) return imsWords(result.data, money);
+  if (name === 'ims_decide' && result.ok !== false) return imsDecidedWords(result);
   if (name === 'gst_review_answer' && result.review) {
     const review = result.review;
     if (result.approved) return `Approved the ${review.month} figures. Nothing has been filed. Save the GSTR-1 file from Taxes, or send it to your CA.`;
@@ -297,9 +438,11 @@ function fmtToolResult(name, result) {
   if (name === 'record_receipt' && result.invoice) {
     const i = result.invoice;
     const last = (i.receipts || []).at(-1) || {};
-    const received = (i.receipts || []).reduce((sum, receipt) => sum + Number(receipt.amount || 0), 0);
-    return `Recorded ${money(last.amount)} received from ${i.partyName} by ${last.mode || 'bank'} on ${last.date} against ${i.id}. ${i.status === 'paid' ? `${i.id} is paid in full.` : `${money(received)} of ${money(i.total)} received so far.`}`;
+    const received = (i.receipts || []).filter((receipt) => !isTdsReceipt(receipt)).reduce((sum, receipt) => sum + Number(receipt.amount || 0), 0);
+    const withheld = (i.receipts || []).filter(isTdsReceipt).reduce((sum, receipt) => sum + Number(receipt.amount || 0), 0);
+    return `Recorded ${money(last.amount)} received from ${i.partyName} by ${last.mode || 'bank'} on ${last.date} against ${i.id}. ${i.status === 'paid' ? `${i.id} is paid in full.` : `${money(received)} of ${money(i.total)} received so far${withheld ? ` (plus ${money(withheld)} TDS withheld)` : ''}.`}`;
   }
+  if (name === 'record_tds_withheld' && result.receipt) return `Recorded TDS of ${money(result.receipt.amount)} withheld on ${result.invoice.id}${result.dateWords ? `, dated ${result.dateWords}` : ''}; ${money(result.remaining)} still owed.`;
   if (name === 'post_expense' && result.expense) {
     const e = result.expense;
     return `Posted ${e.id}: ${money(e.amount)} ${e.description ? `for ${e.description} ` : ''}from ${e.mode === 'cash' ? 'cash' : 'the bank'} on ${e.date}, under ${e.headName}.${e.inputCredit ? ` Input credit ${money((e.cgst || 0) + (e.sgst || 0) + (e.igst || 0))}.` : ''}${e.tds?.amount ? ` ${money(e.tds.amount)} TDS under ${e.tds.section} held back; ${money(e.amount - e.tds.amount)} paid.` : ''}`;
@@ -380,7 +523,11 @@ function fmtToolResult(name, result) {
   }
   if (name === 'set_supplier_terms' && result.ok !== false) {
     const d = result;
-    return `${d.supplier}${d.msme ? ` is recorded as an MSME${d.category ? ` (${d.category})` : ''}${d.udyam ? `, ${d.udyam}` : ''}` : ' is not an MSME'}${d.days != null ? `; agreed terms ${d.days === 0 ? 'on receipt' : `${d.days} days`}` : ''}. New bills from them carry the pay-by date${d.msme ? ' from the MSMED Act' : ''}; old bills keep theirs.`;
+    const head = `${d.supplier}${d.msme ? ` is recorded as an MSME${d.category ? ` (${d.category})` : ''}${d.udyam ? `, ${d.udyam}` : ''}` : ' is not an MSME'}${d.days != null ? `; agreed terms ${d.days === 0 ? 'on receipt' : `${d.days} days`}` : ''}`;
+    const booked = 'bills already booked from them are checked against the new terms too.';
+    if (!d.covered && d.days == null) return `${head}. No pay-by date is set until you give the agreed days${d.msme ? ', as the 45-day rule covers micro and small suppliers only' : ''}; ${booked}`;
+    const basis = !d.msme ? '' : d.covered === false ? ' from the agreed days, as the 45-day rule covers micro and small suppliers only' : ' from the MSMED Act';
+    return `${head}. New bills from them carry the pay-by date${basis}; ${booked}`;
   }
   if (name === 'supplier_dues' && result.data) {
     const d = result.data;
@@ -459,7 +606,8 @@ function fmtToolResult(name, result) {
   if (name === 'import_marketplace_orders' && result.data?.created) return orderImportWords(result.data, money);
   if (name === 'set_channel_identity' && result.identity) return `${result.channel[0].toUpperCase()}${result.channel.slice(1)}: ${[result.identity.gstin ? `GSTIN ${result.identity.gstin}` : '', result.identity.tan ? `TAN ${result.identity.tan}` : '', result.identity.name || ''].filter(Boolean).join(', ')}. Statements now match this channel by number.`;
   if (name === 'import_tcs_statement' && result.data) return `Recorded ${result.data.imported === 1 ? '1 operator-month' : `${result.data.imported} operator-months`} of TCS totalling ${money(result.data.total)}.${result.data.unknownOperators.length ? ` ${result.data.unknownOperators.length === 1 ? 'One operator GSTIN is' : `${result.data.unknownOperators.length} operator GSTINs are`} not tied to a channel yet: ${result.data.unknownOperators.join(', ')}.` : ''} The next GST payment uses the confirmed TCS before new cash.`;
-  if (name === 'import_26as_credits' && result.data) return `Recorded ${result.data.imported === 1 ? '1 entry' : `${result.data.imported} entries`} of TDS under 194-O totalling ${money(result.data.total)}${result.data.otherSections ? ` (${result.data.otherSections} rows under other sections ignored)` : ''}.`;
+  if (name === 'import_26as_credits' && result.data) return `Recorded ${result.data.imported === 1 ? '1 entry' : `${result.data.imported} entries`} of TDS from Form 26AS totalling ${money(result.data.total)}${result.data.imported ? ` (${sectionWords(result.data.bySection)})` : ''}${result.data.otherSections ? `; ${rowsCounted(result.data.otherSections)} with no readable section left out` : ''}.`;
+  if (name === 'tds_credit_check' && result.data) return creditCheckWords(result.data, money);
   if (name === 'marketplace_credits' && result.data) return creditsWords(result.data, money);
   if (name === 'set_sku_cost' && result.sku) return `${result.sku}${result.name ? ` (${result.name})` : ''}: cost ${money(result.cost)} per unit${result.before?.cost != null && result.before.cost !== result.cost ? ` (was ${money(result.before.cost)})` : ''}. Margins use it from now.`;
   if (name === 'import_sku_costs' && result.data) return `Recorded costs for ${result.data.updated === 1 ? '1 SKU' : `${result.data.updated} SKUs`}${result.data.held.length ? `; ${result.data.held.length} rows held back` : ''}.`;
@@ -485,6 +633,8 @@ function fmtToolResult(name, result) {
   if (name === 'settlement_status' && result.data) return settlementStatusWords(result.data, money);
   if (name === 'contractor_1099_file' && result.data) return file1099Words(result.data, money);
   if (name === 'export_trial_balance' && result.data) return `Trial balance as of ${result.data.asOf}: ${result.data.accounts === 1 ? '1 account' : `${result.data.accounts} accounts`}, debits ${money(result.data.debit)}, credits ${money(result.data.credit)}${result.data.balanced ? ', ties' : ', does not tie'}. Saved as ${result.data.fileName} from the Taxes screen.`;
+  if (name === 'export_xlsx' && result.data) return `Saved ${result.data.fileName} with ${result.data.rows === 1 ? '1 row' : `${result.data.rows} rows`}${result.data.sheets.length > 1 ? ` on ${result.data.sheets.length} sheets` : ''}. Open it in Excel or send it to your CA.`;
+  if (name === 'audit_trail' && result.data) return auditTrailReply(result.data, args);
   if (name === 'import_us_invoices' && result.data?.created) return usImportWords(result.data, money);
   if ((name === 'schedule_c_summary' || name === 'estimated_tax_dates') && result.data) return ownerTaxWords(name, result.data, money);
   if (name === 'set_suta_rate' && result.rate) {
@@ -676,7 +826,8 @@ function fmtToolResult(name, result) {
   if (name === 'prepare_gstr1') {
     const g = d.gstr1;
     if (!g) return JSON.stringify(d);
-    return `GSTR-1 ${g.period || ''} taxable ${money(g.totalTaxable)}. B2B ${g.tables.b2b.length}, B2CL ${g.tables.b2cl.length}, B2CS ${g.tables.b2cs.length}. E-invoice issues: ${g.errors.length}.`;
+    const held = gstr1HeldWords(g.errors);
+    return `GSTR-1 ${g.period || ''} taxable ${money(g.totalTaxable)}. B2B ${g.tables.b2b.length}, B2CL ${g.tables.b2cl.length}, B2CS ${g.tables.b2cs.length}. E-invoice issues: ${g.errors.length}.${held}`;
   }
   if (name === 'deadlines') {
     const next = (d.deadlines || []).slice().sort((a, b) => String(a.dueDate).localeCompare(String(b.dueDate))).slice(0, 8);
@@ -694,7 +845,7 @@ function fmtToolResult(name, result) {
     const itc = d.itc || {};
     const lines = (o.rows3a || []).map((r) => `· ${r.rate}% ${r.interState ? 'inter-state' : 'within the state'}: taxable ${money(r.taxable)}, ${r.interState ? `IGST ${money(r.igst)}` : `CGST ${money(r.cgst)} + SGST ${money(r.sgst)}`}`);
     const notes = o.creditNotes?.count ? `\nCredit notes netted: ${o.creditNotes.count} for ${money(o.creditNotes.taxable)} taxable.` : '';
-    return `GSTR-3B ${d.period}${d.gstin ? ` (${d.gstin})` : ''}\nOutward (3.1): taxable ${money((t.interTaxable || 0) + (t.intraTaxable || 0))}; IGST ${money(t.interIgst)}, CGST ${money(t.intraCgst)}, SGST ${money(t.intraSgst)}.${lines.length ? `\n${lines.join('\n')}` : ''}${notes}\nITC (4A): IGST ${money(itc.available?.igst)}, CGST ${money(itc.available?.cgst)}, SGST ${money(itc.available?.sgst)}; ineligible ${money((itc.ineligible?.igst || 0) + (itc.ineligible?.cgst || 0) + (itc.ineligible?.sgst || 0))}; net ${money(itc.netItc)}.\nSay "gst payable for ${d.periods?.[0] || ''}" for the cash and credit split.`;
+    return `GSTR-3B ${d.period}${d.gstin ? ` (${d.gstin})` : ''}\nOutward (3.1): taxable ${money((t.interTaxable || 0) + (t.intraTaxable || 0))}; IGST ${money(t.interIgst)}, CGST ${money(t.intraCgst)}, SGST ${money(t.intraSgst)}.${lines.length ? `\n${lines.join('\n')}` : ''}${notes}\nITC (4A): IGST ${money(itc.available?.igst)}, CGST ${money(itc.available?.cgst)}, SGST ${money(itc.available?.sgst)}; ineligible ${money((itc.ineligible?.igst || 0) + (itc.ineligible?.cgst || 0) + (itc.ineligible?.sgst || 0))}; net ${money(itc.netItc)}.\nSay "gst payable for ${d.periods?.[0] || ''}" for the cash and credit split.${(d.missingHsn || []).length ? `\n${d.missingHsn.join(', ')} ${d.missingHsn.length === 1 ? 'has' : 'have'} no HSN code: the tax is counted here, but GSTR-1 leaves ${d.missingHsn.length === 1 ? 'it' : 'them'} out until the code is added.` : ''}`;
   }
   if (name === 'monitor_tds') {
     const rows = Array.isArray(d) ? d : d.flags || d.rows || [];
@@ -706,7 +857,7 @@ function fmtToolResult(name, result) {
     return `Account Aggregator data brought in${accounts ? ` for ${accounts}` : ''}: ${d.rows?.length ?? 0} ${(d.rows?.length ?? 0) === 1 ? 'transaction' : 'transactions'} read, ${d.ledger?.posted ?? 0} posted to your books${d.aa.skipped ? `, ${d.aa.skipped} without a date or amount skipped` : ''}.`;
   }
   if (name === 'import_tally' || name === 'import_bank') {
-    return `${name === 'import_bank' ? 'Bank statement' : name === 'import_tally' ? 'Tally data' : 'File'} brought in: ${d.rows?.length ?? 0} ${(d.rows?.length ?? 0) === 1 ? 'row' : 'rows'} read, ${d.ledger?.posted ?? 0} posted to your books.`;
+    return `${name === 'import_bank' ? 'Bank statement' : name === 'import_tally' ? 'Tally data' : 'File'} brought in: ${d.rows?.length ?? 0} ${(d.rows?.length ?? 0) === 1 ? 'row' : 'rows'} read, ${d.ledger?.posted ?? 0} posted to your books.${name === 'import_bank' ? bankLinesWords(d.lines) : ''}`;
   }
   if (name === 'govt_probe') {
     if (d.ok === false) return `Govt probe not run: ${d.error}${d.hint ? `
@@ -994,7 +1145,7 @@ async function chatCore(state, message) {
         const checked = validateAssistantToolCall(modelPlan.name, modelPlan.args);
         if (!checked.ok) return { reply: notAccepted(checked.error), tools: [], blocked: true };
         const chosenResult = await runTool(state, modelPlan.name, { ...modelPlan.args, actorId: 'assistant' });
-        return { reply: fmtToolResult(modelPlan.name, chosenResult), tools: [{ name: modelPlan.name, result: chosenResult }], viaModel: true };
+        return { reply: fmtToolResult(modelPlan.name, chosenResult, modelPlan.args), tools: [{ name: modelPlan.name, result: chosenResult }], viaModel: true };
       }
       if (chosen.error === 'MODEL_NO_MATCH') {
         return { reply: `I did not match that to anything I can do${chosen.reason ? ` (${chosen.reason})` : ''}, so nothing was recorded. Try "invoice Kiran Stores 50000 GST 18%", "paid 12000 rent", "who owes me?", or say "help" for more.`, tools: [{ name: plan.name, result }], viaModel: true };
@@ -1014,7 +1165,8 @@ async function chatCore(state, message) {
       tools: [{ name: plan.name, result }],
     };
   }
-  return { reply: fmtToolResult(plan.name, result), tools: [{ name: plan.name, result }] };
+  const done = fmtToolResult(plan.name, result, plan.args);
+  return { reply: plan.note && result?.ok !== false ? `${done}\n${plan.note}` : done, tools: [{ name: plan.name, result }] };
 }
 
 export function propose(state, name, args = {}) {

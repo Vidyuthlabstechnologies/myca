@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { createState } from '../src/store.mjs';
 import { runTool } from '../src/tools.mjs';
 import { chat } from '../src/router.mjs';
+import { localToday } from '../src/dates.mjs';
 
 test('the GSTR-9 draft adds the year\'s months: outward supplies, credit availed and reversed, tax paid, and the HSN summary', async () => {
   const state = createState();
@@ -18,7 +19,9 @@ test('the GSTR-9 draft adds the year\'s months: outward supplies, credit availed
   assert.equal(out.ok, true, JSON.stringify(out));
   const d = out.data;
   assert.equal(d.fy, '2026-27');
-  assert.equal(d.months.length, 7, 'April to October 2026 so far');
+  const [year, month] = localToday().slice(0, 7).split('-').map(Number);
+  const monthsSoFar = Math.max(0, Math.min(12, (year - 2026) * 12 + month - 3));
+  assert.equal(d.months.length, monthsSoFar, 'April 2026 to this month, at most the twelve months of the year');
   assert.equal(d.table4.b2bInvoices, 1);
   assert.equal(d.table4.b2cInvoices, 1);
   assert.equal(d.table4.outwardTaxable, 110000);

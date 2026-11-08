@@ -24,6 +24,8 @@ that by making the export complete and free, not by keeping data the owner asked
 | Database audit (pgaudit: every read and write of the database by any role, including the operator) | 180 days in Cloud Logging | Expires | The operator, for incident work; never the content, only who touched what |
 | Request and job logs (Cloud Logging) | 180 days | Expires | The operator |
 | Sign-in codes | 1 day | Deleted nightly (they expire in five minutes anyway) | Nobody; only a salted hash is stored |
+| Second-step challenges (the pending sign-in between the phone code and the authenticator code) | 1 day | Deleted nightly (they expire in five minutes anyway) | Nobody; a challenge holds no code |
+| Authenticator key and recovery codes (two-step sign-in) | While the user keeps two-step on | Deleted when the user turns it off or deletes the account | Nobody; the key is sealed per user and the codes are stored as hashes |
 | Crash reports | 90 days from the last occurrence | Deleted nightly | The operator; they carry no names, amounts or numbers |
 | Cloud SQL backups | 14 daily backups, 7 days of transaction logs | Expire | The operator, for recovery only |
 | Account (phone or Google id, name) | The account exists | Deleted on request from the app; a business the user alone owns is deleted with it | The user and the members of their businesses |

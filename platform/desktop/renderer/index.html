@@ -168,7 +168,7 @@
         </section>
 
         <section id="panel-approvals" class="panel" hidden role="tabpanel">
-          <p class="lede">Gated provider operations need a CA approval before they can run. Maker-checker applies: the approver must differ from the requester.</p>
+          <p class="lede">Gated provider operations need a CA approval before they can run. Maker-checker applies: each side signs in with their own user id and PIN, and the approver must be a different user with a partner, reviewer or admin role.</p>
           <form id="approvalForm" class="govt-form">
             <label>Operation
               <select id="aOp">
@@ -181,9 +181,40 @@
                 <option value="gst_taxpayer_verify_otp">gst_taxpayer_verify_otp</option>
               </select>
             </label>
-            <label>Requested by <input id="aBy" value="maker" /></label>
+            <label>Your user id <input id="aBy" placeholder="USR-ADMIN" autocomplete="username" required /></label>
+            <label>PIN <input id="aPin" type="password" inputmode="numeric" maxlength="6" autocomplete="current-password" required /></label>
             <label>Note <input id="aNote" placeholder="INV-0001 to IRP" /></label>
             <div class="form-row"><button type="submit" class="btn">Request approval</button></div>
+          </form>
+          <details class="users-box">
+            <summary>People who can ask and approve (the first user is USR-ADMIN with PIN 1234: change it before the first approval)</summary>
+            <p class="lede" id="userList">—</p>
+            <form id="userForm" class="govt-form">
+              <label>New user id <input id="uId" placeholder="USR-PARTNER" required /></label>
+              <label>Name <input id="uName" required /></label>
+              <label>Role
+                <select id="uRole">
+                  <option value="partner">partner</option>
+                  <option value="reviewer">reviewer</option>
+                  <option value="staff">staff</option>
+                  <option value="admin">admin</option>
+                </select>
+              </label>
+              <label>Their PIN <input id="uPin" type="password" inputmode="numeric" maxlength="6" minlength="4" required /></label>
+              <label>Admin user id <input id="uAdmin" placeholder="USR-ADMIN" required /></label>
+              <label>Admin PIN <input id="uAdminPin" type="password" inputmode="numeric" maxlength="6" required /></label>
+              <div class="form-row"><button type="submit" class="btn ghost">Add user</button></div>
+            </form>
+            <form id="pinForm" class="govt-form">
+              <label>User id <input id="pId" placeholder="USR-ADMIN" required /></label>
+              <label>Current PIN <input id="pOld" type="password" inputmode="numeric" maxlength="6" required /></label>
+              <label>New PIN <input id="pNew" type="password" inputmode="numeric" maxlength="6" minlength="4" required /></label>
+              <div class="form-row"><button type="submit" class="btn ghost">Change PIN</button></div>
+            </form>
+          </details>
+          <form id="reviewerForm" class="govt-form" onsubmit="return false">
+            <label>Reviewer user id <input id="rId" placeholder="USR-PARTNER" autocomplete="off" /></label>
+            <label>Reviewer PIN <input id="rPin" type="password" inputmode="numeric" maxlength="6" autocomplete="off" /></label>
           </form>
           <div class="sheet" style="min-height:0">
           <table class="grid">

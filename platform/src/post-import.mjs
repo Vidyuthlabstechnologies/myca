@@ -5,6 +5,8 @@ import { csvRows } from './text-safe.mjs';
 import { isPeriodLocked } from './period-lock.mjs';
 import { isoDate } from './dates.mjs';
 import { rules } from './sprint-load.mjs';
+import { ensureInterestIncomeAccount } from './chart.mjs';
+import { ensureExpenseAccounts } from './expenses.mjs';
 
 function tid(state) {
   return BigInt(state.transferSeq = (state.transferSeq || 100000) + 1);
@@ -188,13 +190,13 @@ export function postTallyRows(state, rows) {
   return { posted: posted.filter((p) => p.ok !== false).length, failed: posted.filter((p) => p.ok === false).length, skipped };
 }
 
-const BANK_CREDIT = { sales: 4000, rent_income: 4000, interest_income: 4000, loan_capital_in: 3000 };
-const BANK_DEBIT = { purchases: 5000, salary: 5100, rent_expense: 5100, tax_payment: 2100, utilities: 5100, professional_fees: 5100 };
+const BANK_CREDIT = { sales: 4000, rent_income: 4000, interest_income: 4100, loan_capital_in: 3000 };
+const BANK_DEBIT = { purchases: 5000, salary: 5100, rent_expense: 5100, tax_payment: 2100, utilities: 5100, professional_fees: 5100, finance_cost: 5180 };
 
 // A bank row has no id of its own, so it is fingerprinted by what the statement
 // shows. Identical rows inside one file keep their own occurrence number, so a
 // genuine repeat posts once per occurrence but a re-imported file posts nothing.
-function bankFingerprint(row, side, amount, seenInFile) {
+export function bankFingerprint(row, side, amount, seenInFile) {
   const parts = [isoDate(row.date) || String(row.date || ''), side, amount.toFixed(2), String(row.balance ?? ''), String(row.narration || row.description || '')];
   const base = createHash('sha256').update(parts.join('|')).digest('hex').slice(0, 16);
   const nth = (seenInFile.get(base) || 0) + 1;
@@ -202,9 +204,11 @@ function bankFingerprint(row, side, amount, seenInFile) {
   return `BANK-${base}-${nth}`;
 }
 
-export function postBankRows(state, rows) {
+export function postBankRows(state, rows, { account = 1002 } = {}) {
+  const bankAccount = Number(account);
   let posted = 0;
   const skipped = [];
+  const made = [];
   const ledgerKeys = postedVoucherIds(state);
   const seenInFile = new Map();
   for (const row of rows) {
@@ -224,23 +228,26 @@ export function postBankRows(state, rows) {
         skipped.push({ sourceRow: row.sourceRow, reason: 'zero' });
         continue;
       }
-      const fingerprint = bankFingerprint(row, 'in', amt, seenInFile);
+      const fingerprint = row.fingerprint || bankFingerprint(row, 'in', amt, seenInFile);
       if (ledgerKeys.has(`BANK|${fingerprint}`)) {
         skipped.push({ sourceRow: row.sourceRow, reason: 'exists' });
         continue;
       }
       ledgerKeys.add(`BANK|${fingerprint}`);
+      if (creditId === 4100) ensureInterestIncomeAccount(state);
       const t = createTransfers(state.ledger, [{
         id: tid(state),
-        debitAccountId: 1002,
+        debitAccountId: bankAccount,
         creditAccountId: creditId,
         amount: paise(amt),
         code: 'BANK',
         invoiceId: fingerprint,
         userData: isoDate(row.date) || 0,
       }]);
-      if (t[0]?.ok) posted += 1;
-      else skipped.push({ sourceRow: row.sourceRow, reason: t[0]?.error || 'ledger_reject' });
+      if (t[0]?.ok) {
+        posted += 1;
+        made.push({ sourceRow: row.sourceRow, transferId: t[0].id, fingerprint });
+      } else skipped.push({ sourceRow: row.sourceRow, reason: t[0]?.error || 'ledger_reject' });
     } else if (row.type === 'debit' || (row.debit && row.debit > 0)) {
       const debitId = BANK_DEBIT[cat] || 5100;
       const amt = Math.abs(row.debit || row.amount || 0);
@@ -248,28 +255,31 @@ export function postBankRows(state, rows) {
         skipped.push({ sourceRow: row.sourceRow, reason: 'zero' });
         continue;
       }
-      const fingerprint = bankFingerprint(row, 'out', amt, seenInFile);
+      const fingerprint = row.fingerprint || bankFingerprint(row, 'out', amt, seenInFile);
       if (ledgerKeys.has(`BANK|${fingerprint}`)) {
         skipped.push({ sourceRow: row.sourceRow, reason: 'exists' });
         continue;
       }
       ledgerKeys.add(`BANK|${fingerprint}`);
+      if (debitId === 5180) ensureExpenseAccounts(state.ledger);
       const t = createTransfers(state.ledger, [{
         id: tid(state),
         debitAccountId: debitId,
-        creditAccountId: 1002,
+        creditAccountId: bankAccount,
         amount: paise(amt),
         code: 'BANK',
         invoiceId: fingerprint,
         userData: isoDate(row.date) || 0,
       }]);
-      if (t[0]?.ok) posted += 1;
-      else skipped.push({ sourceRow: row.sourceRow, reason: t[0]?.error || 'ledger_reject' });
+      if (t[0]?.ok) {
+        posted += 1;
+        made.push({ sourceRow: row.sourceRow, transferId: t[0].id, fingerprint });
+      } else skipped.push({ sourceRow: row.sourceRow, reason: t[0]?.error || 'ledger_reject' });
     } else {
       skipped.push({ sourceRow: row.sourceRow, reason: 'no-side' });
     }
   }
-  return { posted, skipped };
+  return { posted, skipped, made };
 }
 
 function dmy(iso) {

@@ -11,14 +11,53 @@ not created yet (`infra/cloud` is written and validated, applied by hand).
 ## How a request runs
 
 1. The bearer token is verified, then the device and user are checked in the database,
-   so a revoked device stops working at once.
+   so a revoked device stops working at once. A request that is past this check and is
+   waiting for the books lock when its device is signed out, or its account deleted, is
+   checked again once it holds the lock and once more just before it commits. It then
+   answers `401 UNAUTHENTICATED` with `reason: DEVICE_REVOKED`, and nothing it did is kept.
 2. The business comes from the URL. If the caller is not a member the answer is 404,
    the same as for a business that does not exist.
 3. Files are uploaded first (`POST .../uploads`, text up to 8 MB) and imports refer to
    them by hash; an import with inline content is refused.
 4. One transaction locks that business's `books` row, builds in-memory stores from it,
    opens a platform session on them, runs the engine with the caller as the actor,
-   writes the row back, and appends to `audit_log`.
+   writes the row back, and appends to `audit_log`. No request holds one pooled connection
+   while it waits for another, apart from the date and cursor that a channel pull saves.
+   A request that cannot get a connection in 5 seconds answers `503 SERVER_BUSY` with
+   `Retry-After: 2`. A dropped or refused database connection answers `503 SERVER_BUSY`
+   with `Retry-After: 2` too, and the pool replaces the dead connection; the API process no
+   longer exits when a connection dies.
+
+The two later checks run on every route that works on the books with a device: ask,
+propose, confirm, discard, uploads, query, replace, company, the e-invoice and approval
+calls, the snapshot and the accountant's shared view. Jobs and WhatsApp carry no device and
+are not checked. Two limits are known. A sign-out that lands in the round trip between the
+closing check and the commit itself is not caught. The accountant-sharing routes (`ca-share`,
+`ca-sync`) take their own transaction and carry no device, so a sign-out in flight does not
+stop them. The closing check can also undo a request that has already called an outside
+service, because the e-invoice call to the portal runs inside the books transaction: a number
+the portal issued for it is then not in the books. That is the price of never saving
+changes for a device that was signed out.
+
+Requests that are not what the app sends are answered like any other wrong request. A
+request target that cannot be parsed answers `404 NOT_FOUND` and is logged with the path
+"(unreadable)". A chat message, from the app or from WhatsApp, is cut to 2,000 characters and
+any run of four or more blanks is shortened to its first character, so a padded message
+cannot hold the planner. An object, a list or another value of the wrong type where a phone
+number, a code or an id belongs, on the sign-in and second-step routes, is read as empty, so
+it is a wrong value: the 400 a wrong value gets, with no crash record and no stack in the log.
+An answer is turned into JSON before any header is sent, so one that cannot be written is a
+plain `500 INTERNAL_ERROR` and the connection is kept.
+
+Request bodies are counted before they are kept. One budget of body bytes in flight is shared by every route that reads a body: the JSON routes, uploads, the restore, the Play billing notification and the WhatsApp webhook. A body is in memory several times over while it is read and parsed (the pieces, the joined buffer, the text, the parsed object), so each byte of body is counted as up to six bytes of memory. The budget is a sixteenth of the memory the process may use (`process.constrainedMemory()`), at least 16 MiB and at most the 200 MB stored-bytes cap, or 64 MiB when that memory is not known; `MYCA_BODY_BUDGET_BYTES` replaces it when it is a positive whole number of bytes. On the 512 MiB instance in `infra/cloud` it is 32 MiB, which is at most about 190 MiB of copies on top of the roughly 100 MiB an idle process takes. A request whose `Content-Length` is more than its route allows, or more than the whole budget, answers `413 BODY_TOO_LARGE` before any of its body is read, so a restore (`POST .../replace`) is taken up to the budget and not up to 200 MB, and a larger one is refused with that 413. A request whose declared length fits is reserved at once, and when the rest of the budget has no room for it the answer is `503 SERVER_BUSY` and the body is discarded as it arrives. A body with no declared length is counted piece by piece, and the piece that no longer fits ends it the same way (503, or 413 past the limit). The bytes are given back when the request has been answered, so a request that waits for the books lock still holds its own, and a request that is refused holds nothing. A body of 64 KiB or less is counted but never refused, so ordinary requests are not slowed. A client that drops the connection before its body is complete is ended with `400 REQUEST_ABORTED` (nobody is left to read it) and is logged as a 400, not as a crash. The owner-only actions (`ca-sync`, `ca-share`, `subscription`, `invitations`, `inbound`, `connectors`, the Plaid, Gusto and TaxJar calls, `connector-sync` and `replace`) answer a staff member or an accountant with `403` before their body is read.
+
+A read-only request (a query, or the snapshot) takes the row for share, writes nothing
+back and sends its audit events to `audit_log` alone, so the books do not hold the
+events of those reads. `GET /v1/businesses/:id/snapshot` is the summary the app builds
+its lists from: `company`, `invoices`, `purchases`, `expenses`, `creditNotes`, `quotes`
+and `customerTerms`, with the caller's `role` and `user`, and nothing else (no employees,
+documents, users or provider data). An accountant who is set to see a shared copy gets
+the copy, with `sharedAsOf`.
 
 ## Layout
 
@@ -27,6 +66,9 @@ not created yet (`infra/cloud` is written and validated, applied by hand).
 | `migrations/` | Schema, applied in name order by `src/db.mjs` |
 | `src/tokens.mjs` | Access tokens (HMAC, 15 minutes) and refresh token hashing |
 | `src/auth.mjs` | Phone codes, sessions, refresh rotation with reuse detection, account deletion |
+| `src/totp.mjs` | Base32, HOTP and TOTP (RFC 4648, 4226, 6238) and the otpauth URI, with no dependency |
+| `src/second-factor.mjs` | Optional two-step sign-in: enrolment, the sealed authenticator key, recovery codes, the second-step challenge |
+| `src/devices.mjs` | The signed-in device list and remote sign-out |
 | `src/businesses.mjs` | Creating a business with empty books; memberships and roles |
 | `src/members.mjs` | Invitations by phone number, joining, leaving and removing members |
 | `src/books-runner.mjs` | The per-request transaction around the engine |
@@ -50,7 +92,7 @@ MYCA_TEST_DATABASE_URL=postgres://myca@127.0.0.1:54329/postgres npm test
 Each test file creates and drops its own database.
 
 ```bash
-MYCA_DATABASE_URL=postgres://myca@127.0.0.1:54329/myca_dev MYCA_TOKEN_SECRET=<32+ random characters> MYCA_BOOKS_KEY=<32+ random characters> MYCA_DEV_OTP=1 PORT=8080 npm run dev
+MYCA_LISTEN_HOST=127.0.0.1 MYCA_DATABASE_URL=postgres://myca@127.0.0.1:54329/myca_dev MYCA_TOKEN_SECRET=<32+ random characters> MYCA_BOOKS_KEY=<32+ random characters> MYCA_DEV_OTP=1 PORT=8080 npm run dev
 ```
 
 `MYCA_GOOGLE_CLIENT_IDS` lists the OAuth client ids (comma-separated) whose Google ID
@@ -86,6 +128,29 @@ flutter run --dart-define=MYCA_CLOUD_URL=http://127.0.0.1:8080
   their own, for a restore drill.
 - `.github/workflows/deploy-cloud.yml` builds the image and rolls it out on merge to
   `main` once `GCP_API_REGION` is set. `docs/operations/RUNBOOK.md` has the rest.
+
+## Sign-in, two-step and devices
+
+Sign-in is one step by default: `POST /v1/auth/otp` then `POST /v1/auth/verify`, or
+`POST /v1/auth/google` / `POST /v1/auth/oidc` with an ID token, each answering an access
+token (15 minutes) and a refresh token (60 days, rotated by `POST /v1/auth/refresh`). A
+user can turn on two-step sign-in with an authenticator app from Security in the app:
+
+| Route | What |
+|---|---|
+| `GET /v1/me/second-step` | `{ enabled, enabledAt, recoveryCodesLeft }` |
+| `POST /v1/me/second-step/begin` | starts enrolment: the base32 key, the `otpauth://` uri and the account name, shown once |
+| `POST /v1/me/second-step/confirm {code}` | the first code from the app turns two-step on and returns eight recovery codes, shown once; a wrong code answers `INVALID_CODE` with `attemptsRemaining` (4, 3, 2, 1) and the fifth throws the setup away (`ENROLMENT_RESTART`) |
+| `POST /v1/me/second-step/disable {code}` | turns it off; an authenticator code or an unused recovery code. A wrong code answers `INVALID_CODE` with `attemptsRemaining`; the code that was just accepted answers `CODE_USED` (one older than that answers `INVALID_CODE`), and both count as a wrong try, as does anything not shaped like a code. Five wrong tries without a right code between them lock the route: every code, a right one too, is then refused with `429 TOO_MANY_ATTEMPTS` until 15 minutes after the fifth. A right code clears the count |
+| `POST /v1/me/second-step/recovery-codes {code}` | replaces the recovery codes; the same check, the same `CODE_USED` answer and the same lock as `disable`, and the two routes share one count (`user_totp.attempts` and `failed_at`, migration 017) |
+| `POST /v1/auth/second-step {challengeId, code, deviceLabel}` | finishes a sign-in. With two-step on, verify, google and oidc answer `{ secondStep: true, challengeId, expiresInSeconds: 300, user }` and no tokens; this route takes the authenticator code, or a recovery code once, and issues the tokens with `usedRecoveryCode` and `recoveryCodesLeft`. Five minutes and five attempts per challenge (`CODE_EXPIRED`, `TOO_MANY_ATTEMPTS`); a challenge id that is well formed but not on file, because the nightly job has removed it, answers `CODE_EXPIRED` too. A code that was just used answers `CODE_USED` with `attemptsRemaining` and an older one `INVALID_CODE`; a challenge that has already signed in answers `CODE_USED` with no `attemptsRemaining`, which the app reads as the attempt being over. A wrong code here is counted on the challenge and is not added to the count above; a good sign-in clears that count |
+| `GET /v1/me/devices` | the devices signed in to the account with a live refresh token, this one first: `{ id, label, signedInOn, lastActive, current }` |
+| `POST /v1/me/devices/:id/sign-out` | ends that device at once; `409 CURRENT_DEVICE` for this one, which uses `POST /v1/auth/logout`; `404 DEVICE_NOT_FOUND` for a device that is not the caller's or is already signed out |
+| `POST /v1/me/devices/sign-out-others` | ends every other device; `revoked` counts the ones that were listed |
+
+The authenticator key is sealed per user under `MYCA_BOOKS_KEY`, recovery codes are stored
+hashed, and neither appears in a response after enrolment or in a log. Deleting the account
+removes both, and the nightly job deletes second-step challenges older than a day.
 
 ## Inbound keys
 
@@ -124,11 +189,89 @@ malformed and oversize input stops before any engine runs, a connection key is n
 token and the reverse, old tokens die on sign-out, revocation and account deletion, and
 no response carries a secret, a hash or a phone number.
 
+## Real customers, providers in sandbox
+
+Each business switches itself between test and live. The owner saves the business's own
+Quicko and NIC keys under Connections (`quicko` and `nic` connectors, sealed per business) and
+picks Mode: Test (sandbox) or Live. `MYCA_PROVIDER_ENV` is the service ceiling: a business never
+runs above it, and every request outside the e-invoice and GSTIN routes runs with calls off.
+Routes: `POST .../einvoice {invoiceId}` (a sandbox IRN lands in `sandboxIrn`, never `irn`),
+`POST .../gstin-check {gstin}`, and `GET`/`POST .../approvals` (live writes need an approval
+from an owner or the accountant other than the person who asked; test mode needs none).
+Filing a return stays a CA's step on the portal by design. `infra/cloud` inputs:
+
+| Input | Sets | Notes |
+|---|---|---|
+| `provider_mode` | `MYCA_PROVIDER_ENV`, `MYCA_MOCK_MODE` | the ceiling. `test` (default): every business on the Quicko test host and the NIC sandbox IRP. `live`: each business chooses test or live in the app. `simulated`: labelled results, no network. `dry-run`: nothing sent. `gsp_test_api_key` and `gsp_test_api_secret` are a fallback Quicko test key for businesses that have not added their own |
+| `google_client_ids`, `oidc_issuer`, `sms_provider` | sign-in | at least one is required or the API will not start |
+| `sms_provider`, `sms_secret`, `sms_twilio_sid`, `sms_twilio_from`, `sms_msg91_template_id` | `MYCA_SMS_*` | `sms_secret` is the Twilio auth token or the MSG91 auth key, kept in Secret Manager; MSG91 in India needs a DLT-registered template |
+| `model_api_key`, `model_name`, `model_base_url` | `MYCA_MODEL_*` | optional: reading bills and Hindi or Telugu chat; "unset" runs the English rules only |
+| `public_url` | `MYCA_PUBLIC_URL` | the https custom domain, used for OAuth redirect URIs |
+| `enable_channel_pulls` | `MYCA_ENABLE_CHANNEL_PULLS` | read-only Amazon, Shopify and Razorpay report pulls with each business's own keys |
+
+## Plans and billing
+
+Subscriptions are sold through Google Play Billing in the Android app. Every business gets Pro
+free for 14 days from the day it is created, then Free (30 invoices a month, the owner only)
+unless it pays for Pro or CA firm. E-invoicing, connectors and inviting people need a paid plan.
+Nothing is gated until the Play products are configured.
+
+| Route | Who | What |
+|---|---|---|
+| `GET /v1/plans` | anyone | plans, the Play product id for each paid plan, fallback prices (`MYCA_PLAN_PRICES`), trial days |
+| `GET /v1/businesses/:id/subscription` | members | current plan, trial days left, status, paid-until, Google Play manage link |
+| `POST /v1/businesses/:id/subscription {productId, purchaseToken}` | owner | checks the purchase with the Play Developer API, acknowledges it and turns the plan on |
+| `POST /v1/billing/play/notify?token=` | Pub/Sub push | Play real-time developer notifications; the token must match `MYCA_PLAY_NOTIFY_TOKEN` |
+
+How it holds together:
+
+- The app buys with the business id as the obfuscated account id. The API refuses a purchase
+  whose account id names another business, and a purchase token can pay for one business only.
+- Every renewal, cancellation, hold or expiry arrives as a Play notification. The API re-reads
+  the purchase from Google rather than trusting the message, so a replayed message changes
+  nothing. A purchase the app never reported (the app closed mid-payment) is picked up from the
+  notification through its account id.
+- A cancelled subscription keeps its plan until the paid period ends; `on_hold` and `paused`
+  drop to Free at once; three grace days follow the paid period otherwise.
+- Customers cancel or change payment method in Google Play. Switching plans means cancelling
+  and subscribing to the other one.
+- The API calls Google as its Cloud Run service account through the metadata server, so no key
+  file is needed. `MYCA_PLAY_SERVICE_ACCOUNT_JSON` is there for running elsewhere.
+
+First apply of `infra/cloud` (Cloud Run needs an image from the registry the same apply
+creates, so it goes in three steps; afterwards `deploy-cloud` rolls out new images and
+Terraform leaves the image alone):
+
+```bash
+cd infra/cloud
+terraform init
+terraform apply -target=google_artifact_registry_repository.api -var-file=myca.tfvars
+gcloud builds submit ../.. --project "$PROJECT" --config ../../cloud/cloudbuild.yaml
+terraform apply -var-file=myca.tfvars \
+  -var="image=asia-south1-docker.pkg.dev/$PROJECT/myca-api/myca-api:first" \
+  -var="deployer_service_account=<bootstrap deploy_service_account output>"
+```
+
+Play setup (after `terraform apply`):
+
+1. Play Console > Monetize > Subscriptions: create two subscriptions, for example
+   `myca_pro_monthly` and `myca_firm_monthly`, each with a monthly auto-renewing base plan and
+   a price. Set `play_product_pro` and `play_product_firm` to their product ids.
+2. Play Console > Users and permissions: invite the `api_service_account` output with "View
+   financial data" and "Manage orders and subscriptions".
+3. Play Console > Monetize > Monetization setup: paste the `play_notifications_topic` output as
+   the real-time developer notifications topic and send a test notification.
+4. Add license testers (Settings > License testing) so test purchases renew every few minutes
+   and no money moves. The app shows when a purchase is a test purchase.
+
+The iOS app shows the plan but sells nothing, since Apple only allows its own in-app purchase.
+The Windows app shows the plan and says it is bought in the Android app.
+
 ## Not built yet
 
 - The Google Cloud project itself, and the first `terraform apply` of `infra/cloud`.
 - A WhatsApp Business account on the Meta Cloud API: the webhook (`GET`/`POST /v1/whatsapp/webhook`, `src/whatsapp.mjs`) verifies with `MYCA_WHATSAPP_VERIFY_TOKEN`, checks the `X-Hub-Signature-256` with `MYCA_WHATSAPP_APP_SECRET`, maps the sender's number to a member and runs the same chat as the app (preview, then "yes"), replying through `MYCA_WHATSAPP_PHONE_NUMBER_ID` and `MYCA_WHATSAPP_ACCESS_TOKEN`. Without those four the route answers 404. A member of several businesses is asked which and "use 2" is remembered.
-- An SMS provider account: the Twilio and MSG91 senders exist (`src/sms-sender.mjs`, chosen by `MYCA_SMS_PROVIDER`); without one Google Sign-In is the only sign-in.
+- An SMS provider account: the Twilio and MSG91 senders exist (`src/sms-sender.mjs`, chosen by `MYCA_SMS_PROVIDER`, Terraform `sms_provider` and `sms_secret`); without one Google Sign-In is the only sign-in.
 - Telling an invited person. An invitation is only visible to them after they sign in
   with that number; no SMS is sent because there is no sender yet.
 - Per-business government credentials, so e-invoice and filing actions cannot be proposed. Channel credentials (Amazon, Shopify, Razorpay, Zoho, and for a US business Plaid, TaxJar, Gusto and Track1099) are per business: `GET`/`POST /v1/businesses/:id/connectors` list and save them (owner only), sealed with AES-256-GCM under a key derived per business from `MYCA_CONNECTOR_KEY`, and secrets are never returned. `POST .../plaid-link-token` and `.../plaid-exchange` run Plaid Link from the app, `POST .../gusto-connect` returns the Gusto consent link whose state names the business and `GET /v1/oauth/gusto/callback` (no token; the state is checked once) finishes it on the API host (`MYCA_PUBLIC_URL`, else the request host, forms the redirect URI), and `POST .../taxjar-rate` records a sales tax rate in that business's books (2026-10-22). `POST .../connector-sync` and the nightly job pull reports through the action gate only when `MYCA_ENABLE_CHANNEL_PULLS=1` (Terraform `enable_channel_pulls`, off by default): that switch opens read-only channel pulls alone; government, model and write actions stay behind `MYCA_ENABLE_LIVE_CALLS`, which the hosted API still refuses.
@@ -142,4 +285,4 @@ no response carries a secret, a hash or a phone number.
   direct-to-storage uploads.
 - A business may hold 200 MB of documents in total (\`MAX_BUSINESS_BYTES\`); beyond that an upload answers 413 STORAGE_FULL.
 
-`MYCA_BOOKS_KEY` seals every business's books row (AES-256-GCM, a key derived per business). It is optional locally and required on Cloud Run; Terraform generates it into Secret Manager. Rotating it means re-sealing every row, so keep it where the database password is kept.
+`MYCA_BOOKS_KEY` seals every business's books row (AES-256-GCM, a key derived per business) and every user's authenticator key (`user_totp`, a key derived per user). It is optional locally and required on Cloud Run; Terraform generates it into Secret Manager. Rotating it means re-sealing every row of both, so keep it where the database password is kept.

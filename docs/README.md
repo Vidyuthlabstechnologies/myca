@@ -23,6 +23,7 @@ Start with the product PRD, then the architecture. Everything else is reference.
 | [07](product/features/07-ca-collaboration.md) | CA collaboration | Invite built; export and sync setting not |
 | [08](product/features/08-chat-and-dashboard.md) | Chat and dashboard | Chats built; free text and dashboard partly |
 | [09](product/features/09-document-capture-and-pos.md) | Reading documents and POS sales | File imports built; the rest not |
+| [10](product/features/10-audit-trail.md) | Audit trail | Tool, chat words, Excel and app screen built; the hash chain has no key |
 
 ## Architecture
 

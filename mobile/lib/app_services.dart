@@ -98,6 +98,13 @@ Future<bool> saveTextFileOnDevice(String name, String content) async {
   return saved != null;
 }
 
+typedef SaveBytesFile = Future<bool> Function(String name, Uint8List bytes, String mime);
+
+Future<bool> saveBytesFileOnDevice(String name, Uint8List bytes, String mime) async {
+  final saved = await FilePicker.saveFile(fileName: name, bytes: bytes, mimeType: mime);
+  return saved != null;
+}
+
 Future<PickedText?> pickTextFileFromDevice(List<String> extensions) async {
   final files = await FilePicker.pickFiles(
     type: FileType.custom,

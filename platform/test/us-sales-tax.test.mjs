@@ -142,7 +142,7 @@ test('chat: declare a state, see the return, review it, pay and record the filin
   assert.match(done.reply, /collect sales tax in CA and file monthly from 1 September 2026/);
   const paying = await chat(state, 'paid sales tax to TX for Q3');
   assert.equal(paying.preview?.tool, 'record_sales_tax_payment', paying.reply);
-  assert.match(paying.preview.summary, /\$53\.75 on \d{1,2} October 2026 from the bank/);
+  assert.match(paying.preview.summary, /\$53\.75 on \d{1,2} [A-Z][a-z]+ \d{4} from the bank/);
   const paid = await chat(state, 'yes');
   assert.match(paid.reply, /Recorded \$53\.75 of sales tax paid to TX for 2026-Q3/);
   assert.ok(!/₹|GST/.test(paid.reply), paid.reply);

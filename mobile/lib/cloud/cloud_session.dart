@@ -25,10 +25,16 @@ const _messages = {
   'NOTICE_CHANGED': 'The privacy notice has changed. Read the new one and accept it.',
   'INVALID_PHONE': 'Enter a 10-digit Indian mobile number.',
   'TOO_MANY_REQUESTS': 'Too many codes requested. Try again in an hour.',
-  'INVALID_CODE': 'That code is not right. Check the SMS and try again.',
+  'INVALID_CODE': 'That code is not right. Check it and try again.',
   'CODE_EXPIRED': 'That code has expired. Ask for a new one.',
   'CODE_USED': 'That code was already used. Ask for a new one.',
   'TOO_MANY_ATTEMPTS': 'Too many wrong tries. Ask for a new code.',
+  'ALREADY_ENABLED': 'Two-step sign-in is already on.',
+  'NOT_ENABLED': 'Two-step sign-in is off.',
+  'NOT_ENROLLING': 'Start the two-step setup again.',
+  'ENROLMENT_RESTART': 'Too many wrong codes. Start the setup again.',
+  'DEVICE_NOT_FOUND': 'That device is already signed out.',
+  'CURRENT_DEVICE': 'Use Sign out to leave this phone.',
   'COMPANY_NAME_REQUIRED': 'Enter your business name.',
   'INVALID_GSTIN':
       'That GSTIN is not valid. Check it against your registration certificate.',
@@ -47,12 +53,74 @@ const _messages = {
   'IMPORT_NEEDS_UPLOAD': 'That file has to be uploaded before it can be imported.',
   'BODY_TOO_LARGE': 'That file is larger than 8 MB. Export a shorter period and try again.',
   'EMPTY_FILE': 'That file is empty.',
+  'PLAN_REQUIRED': 'Your plan does not include this. The owner can upgrade under Plan and billing.',
+  'PLAN_LIMIT_REACHED': 'This business has reached its plan limit. The owner can upgrade under Plan and billing.',
+  'PURCHASE_BELONGS_TO_ANOTHER_BUSINESS': 'This Google Play subscription already pays for another business. Each business needs its own plan.',
+  'PURCHASE_NOT_FOUND': 'Google Play does not show this purchase yet. Try again in a minute.',
+  'PURCHASE_PRODUCT_MISMATCH': 'This purchase is for a different plan. Open Plan and billing again.',
+  'PROVIDER_UNAVAILABLE': 'Google Play could not be reached. Your purchase is safe; open Plan and billing again in a minute.',
+  'BILLING_NOT_CONFIGURED': 'Plans cannot be bought yet. Try again later.',
+  'NIC_NOT_CONNECTED': 'Add this business\'s e-invoice keys under Connections to banks and apps first.',
+  'SERVER_BUSY': 'MyCA is busy for a moment. Try again in a minute.',
+  'INTERNAL_ERROR': 'Something went wrong on our side. Try again in a minute.',
 };
 
 String cloudMessage(String code, [String hint = '']) =>
     _messages[code] ?? (hint.trim().isNotEmpty ? hint.trim() : 'Something went wrong ($code).');
 
-const connectorOrder = ['plaid', 'taxjar', 'gusto', 'track1099', 'amazon', 'shopify', 'razorpay', 'zoho'];
+const _secondStepOver = 'This sign-in attempt is over. Tap Start over and sign in again.';
+
+const _secondStepMessages = {
+  'CODE_EXPIRED': _secondStepOver,
+  'TOO_MANY_ATTEMPTS': _secondStepOver,
+  'CODE_USED': 'That code was already used. Wait for the next one on your authenticator and try again.',
+};
+
+const _changeLocked = 'Too many wrong codes. Wait 15 minutes, or sign in again with your authenticator code, then try again.';
+
+String _triesLeft(int left) => 'That code is not right. $left ${left == 1 ? 'try' : 'tries'} left.';
+
+bool _lastTry(String code, int? left) => left != null && left <= 0 && (code == 'INVALID_CODE' || code == 'CODE_USED');
+
+String secondStepMessage(String code, Object? attemptsRemaining) {
+  final left = attemptsRemaining is num ? attemptsRemaining.toInt() : null;
+  if (_lastTry(code, left)) return _secondStepOver;
+  if (code == 'CODE_USED' && left == null) return _secondStepOver;
+  if (code == 'INVALID_CODE' && left != null) return _triesLeft(left);
+  return _secondStepMessages[code] ?? cloudMessage(code);
+}
+
+String? _changeCodeMessage(String code, Object? attemptsRemaining) {
+  final left = attemptsRemaining is num ? attemptsRemaining.toInt() : null;
+  if (code == 'TOO_MANY_ATTEMPTS' || _lastTry(code, left)) return _changeLocked;
+  if (code == 'INVALID_CODE' && left != null) return _triesLeft(left);
+  return code == 'CODE_USED' ? _secondStepMessages[code] : null;
+}
+
+String? _restoreMessage(String code, Object? attemptsRemaining) =>
+    code == 'BODY_TOO_LARGE' ? 'That file is too large to restore from the app. Your books were not changed.' : null;
+
+String? _setupCodeMessage(String code, Object? attemptsRemaining) {
+  final left = attemptsRemaining is num ? attemptsRemaining.toInt() : null;
+  return code == 'INVALID_CODE' && left != null && left > 0 ? _triesLeft(left) : null;
+}
+
+class SecondStepResult {
+  const SecondStepResult({required this.usedRecoveryCode, required this.recoveryCodesLeft});
+
+  final bool usedRecoveryCode;
+  final int? recoveryCodesLeft;
+
+  String get recoveryNote {
+    if (!usedRecoveryCode) return '';
+    final left = recoveryCodesLeft;
+    return left == null
+        ? 'You used a recovery code. Make new ones in Security.'
+        : 'You used a recovery code. $left left. Make new ones in Security.';
+  }
+}
+
+const connectorOrder = ['nic', 'quicko', 'plaid', 'taxjar', 'gusto', 'track1099', 'amazon', 'shopify', 'razorpay', 'zoho'];
 
 class ConnectorView {
   const ConnectorView({
@@ -115,12 +183,93 @@ class ConnectorList {
   }
 }
 
+class PlanOffer {
+  const PlanOffer({required this.id, required this.title, required this.monthlyRupees, required this.buyable, required this.features, required this.invoicesPerMonth, required this.members, this.productId = ''});
+
+  factory PlanOffer.fromJson(Map<String, dynamic> map) {
+    final limits = map['limits'] is Map ? (map['limits'] as Map).cast<String, dynamic>() : const <String, dynamic>{};
+    return PlanOffer(
+      id: '${map['id'] ?? ''}',
+      title: '${map['title'] ?? ''}',
+      monthlyRupees: map['monthlyRupees'] is num ? (map['monthlyRupees'] as num).toInt() : 0,
+      buyable: map['buyable'] == true,
+      features: _strings(map['features']),
+      invoicesPerMonth: limits['invoicesPerMonth'] is num ? (limits['invoicesPerMonth'] as num).toInt() : null,
+      members: limits['members'] is num ? (limits['members'] as num).toInt() : null,
+      productId: '${map['productId'] ?? ''}',
+    );
+  }
+
+  final String id;
+  final String title;
+  final int monthlyRupees;
+  final bool buyable;
+  final List<String> features;
+  final int? invoicesPerMonth;
+  final int? members;
+  final String productId;
+}
+
+class Entitlement {
+  const Entitlement({required this.plan, required this.planTitle, required this.enforced, required this.trialDaysLeft, required this.status, required this.currentEnd, this.subscriptionPlan = '', this.renews = false, this.testPurchase = false, this.manageUrl = ''});
+
+  factory Entitlement.fromJson(Map<String, dynamic> map) {
+    final trial = map['trial'] is Map ? (map['trial'] as Map).cast<String, dynamic>() : null;
+    final sub = map['subscription'] is Map ? (map['subscription'] as Map).cast<String, dynamic>() : null;
+    return Entitlement(
+      plan: '${map['plan'] ?? 'free'}',
+      planTitle: '${map['planTitle'] ?? ''}',
+      enforced: map['enforced'] == true,
+      trialDaysLeft: trial == null ? null : (trial['daysLeft'] is num ? (trial['daysLeft'] as num).toInt() : 0),
+      status: '${sub?['status'] ?? ''}',
+      currentEnd: '${sub?['currentEnd'] ?? ''}',
+      subscriptionPlan: '${sub?['plan'] ?? ''}',
+      renews: sub?['renews'] == true,
+      testPurchase: sub?['testPurchase'] == true,
+      manageUrl: '${map['manageUrl'] ?? ''}',
+    );
+  }
+
+  final String plan;
+  final String planTitle;
+  final bool enforced;
+  final int? trialDaysLeft;
+  final String status;
+  final String currentEnd;
+  final String subscriptionPlan;
+  final bool renews;
+  final bool testPurchase;
+  final String manageUrl;
+
+  bool get paying => const {'active', 'in_grace_period', 'canceled'}.contains(status) && subscriptionPlan == plan && plan != 'free';
+}
+
 class PlaidLinkToken {
   const PlaidLinkToken({required this.linkToken, required this.environment, required this.mock});
 
   final String linkToken;
   final String environment;
   final bool mock;
+}
+
+class EinvoiceOutcome {
+  const EinvoiceOutcome({required this.ok, required this.error, required this.hint, required this.irn, required this.mode, required this.sandbox});
+
+  factory EinvoiceOutcome.fromJson(Map<String, dynamic> map) => EinvoiceOutcome(
+        ok: map['ok'] == true,
+        error: '${map['error'] ?? ''}',
+        hint: '${map['hint'] ?? ''}',
+        irn: '${map['irn'] ?? ''}',
+        mode: '${map['mode'] ?? ''}',
+        sandbox: map['sandbox'] == true,
+      );
+
+  final bool ok;
+  final String error;
+  final String hint;
+  final String irn;
+  final String mode;
+  final bool sandbox;
 }
 
 class PlaidItem {
@@ -301,6 +450,50 @@ class SignInMethods {
   String get oidcIssuerHost => Uri.tryParse(oidcIssuer)?.host ?? '';
 }
 
+class SecondStepStatus {
+  const SecondStepStatus({required this.enabled, required this.enabledAt, required this.recoveryCodesLeft});
+
+  factory SecondStepStatus.fromJson(Map<String, dynamic> map) => SecondStepStatus(
+        enabled: map['enabled'] == true,
+        enabledAt: '${map['enabledAt'] ?? ''}',
+        recoveryCodesLeft: (map['recoveryCodesLeft'] as num?)?.toInt() ?? 0,
+      );
+
+  final bool enabled;
+  final String enabledAt;
+  final int recoveryCodesLeft;
+}
+
+class SecondStepSetup {
+  const SecondStepSetup({required this.secret, required this.uri, required this.account});
+
+  final String secret;
+  final String uri;
+  final String account;
+
+  String get groupedSecret => [
+        for (var i = 0; i < secret.length; i += 4) secret.substring(i, i + 4 > secret.length ? secret.length : i + 4),
+      ].join(' ');
+}
+
+class SignedInDevice {
+  const SignedInDevice({required this.id, required this.label, required this.signedInOn, required this.lastActive, required this.current});
+
+  factory SignedInDevice.fromJson(Map<String, dynamic> map) => SignedInDevice(
+        id: '${map['id'] ?? ''}',
+        label: '${map['label'] ?? ''}',
+        signedInOn: '${map['signedInOn'] ?? ''}',
+        lastActive: '${map['lastActive'] ?? ''}',
+        current: map['current'] == true,
+      );
+
+  final String id;
+  final String label;
+  final String signedInOn;
+  final String lastActive;
+  final bool current;
+}
+
 String get deviceLabel => defaultTargetPlatform == TargetPlatform.iOS ? 'iPhone' : 'Android';
 
 class CaSync {
@@ -341,12 +534,14 @@ class CloudSession {
   String? _refresh;
   String? _businessId;
   String? _challengeId;
+  String? _secondStepChallenge;
   String? _phone;
   Future<bool>? _refreshing;
 
   bool get signedIn => _refresh != null;
   bool get ready => signedIn && _businessId != null;
   bool get awaitingCode => _challengeId != null;
+  bool get secondStepPending => _secondStepChallenge != null;
   bool needsName = false;
   bool needsConsent = false;
   String? get businessId => _businessId;
@@ -363,6 +558,7 @@ class CloudSession {
     _refresh = null;
     _businessId = null;
     _challengeId = null;
+    _secondStepChallenge = null;
     await tokens.delete(_accessKey);
     await tokens.delete(_refreshKey);
     await tokens.delete(_businessKey);
@@ -383,6 +579,7 @@ class CloudSession {
   }) async {
     final request = http.Request(method, Uri.parse('$baseUrl$path'));
     request.headers['content-type'] = 'application/json';
+    if (request.url.host.contains('ngrok')) request.headers['ngrok-skip-browser-warning'] = '1';
     if (authed && _access != null) {
       request.headers['authorization'] = 'Bearer $_access';
     }
@@ -403,10 +600,11 @@ class CloudSession {
     } on FormatException {
       decoded = null;
     }
-    return (
-      response.statusCode,
-      decoded is Map ? decoded.cast<String, dynamic>() : <String, dynamic>{},
-    );
+    final map = decoded is Map ? decoded.cast<String, dynamic>() : <String, dynamic>{};
+    if (response.statusCode >= 500 && map['error'] is! String && !map.containsKey('reply')) {
+      return (response.statusCode, {'ok': false, 'error': 'SERVER_BUSY'});
+    }
+    return (response.statusCode, map);
   }
 
   Future<bool> _rotate() {
@@ -417,6 +615,7 @@ class CloudSession {
         final (status, body) = await _send('POST', '/v1/auth/refresh', {
           'refreshToken': refresh,
         }, authed: false);
+        if (status >= 500 || status == 429) throw MycaApiException(cloudMessage('SERVER_BUSY'));
         if (status != 200 || body['ok'] == false) return false;
         await _keep(body);
         return true;
@@ -430,6 +629,7 @@ class CloudSession {
     String method,
     String path, [
     Map<String, Object?>? body,
+    String? Function(String code, Object? attemptsRemaining)? explain,
   ]) async {
     if (!signedIn) throw const SignedOutException();
     var (status, reply) = await _send(method, path, body);
@@ -450,7 +650,8 @@ class CloudSession {
     if (status >= 400 &&
         reply['error'] is String &&
         !reply.containsKey('reply')) {
-      throw MycaApiException(cloudMessage(reply['error'] as String, '${reply['hint'] ?? ''}'));
+      final code = reply['error'] as String;
+      throw MycaApiException(explain?.call(code, reply['attemptsRemaining']) ?? cloudMessage(code, '${reply['hint'] ?? ''}'));
     }
     return reply;
   }
@@ -476,6 +677,42 @@ class CloudSession {
   Future<ConnectorView> saveConnector(String channel, Map<String, Object?> fields) async {
     final body = _accepted(await call('POST', '$_books/connectors', {'channel': channel, ...fields}));
     return ConnectorView.fromJson(body);
+  }
+
+  Future<List<PlanOffer>> plans() async {
+    final body = _accepted(await call('GET', '/v1/plans'));
+    final rows = body['plans'];
+    return [if (rows is List) for (final row in rows) if (row is Map) PlanOffer.fromJson(row.cast<String, dynamic>())];
+  }
+
+  Future<Entitlement> entitlement() async => Entitlement.fromJson(_accepted(await call('GET', '$_books/subscription')));
+
+  Future<Entitlement> recordPurchase(String productId, String purchaseToken) async {
+    final body = _accepted(await call('POST', '$_books/subscription', {'productId': productId, 'purchaseToken': purchaseToken}));
+    final entitlement = body['entitlement'];
+    return entitlement is Map ? Entitlement.fromJson(entitlement.cast<String, dynamic>()) : await this.entitlement();
+  }
+
+  Future<EinvoiceOutcome> generateEinvoice(String invoiceId) async {
+    return EinvoiceOutcome.fromJson(await call('POST', '$_books/einvoice', {'invoiceId': invoiceId}));
+  }
+
+  Future<List<Map<String, dynamic>>> pendingEinvoiceApprovals(String invoiceId) async {
+    final body = _accepted(await call('GET', '$_books/approvals'));
+    final rows = body['approvals'];
+    if (rows is! List) return const [];
+    return [
+      for (final row in rows)
+        if (row is Map && row['operation'] == 'einvoice' && row['status'] == 'pending' && row['params'] is Map && (row['params'] as Map)['invoiceId'] == invoiceId) row.cast<String, dynamic>(),
+    ];
+  }
+
+  Future<Map<String, dynamic>> requestEinvoiceApproval(String invoiceId) async {
+    return call('POST', '$_books/approvals', {'operation': 'einvoice', 'invoiceId': invoiceId});
+  }
+
+  Future<Map<String, dynamic>> approve(String approvalId) async {
+    return call('POST', '$_books/approvals', {'approvalId': approvalId, 'decision': 'approve'});
   }
 
   Future<PlaidLinkToken> plaidLinkToken() async {
@@ -555,9 +792,42 @@ class CloudSession {
     if (body['ok'] != true) {
       throw MycaApiException(cloudMessage('${body['error'] ?? 'UNKNOWN'}'));
     }
+    if (_challenged(body)) return;
     await _keep(body);
     _challengeId = null;
     await _signedIn(body);
+  }
+
+  bool _challenged(Map<String, dynamic> body) {
+    if (body['secondStep'] != true) return false;
+    final challenge = body['challengeId'];
+    if (challenge is! String || challenge.isEmpty) throw MycaApiException(cloudMessage('UNKNOWN'));
+    _secondStepChallenge = challenge;
+    return true;
+  }
+
+  Future<SecondStepResult> completeSecondStep(String code) async {
+    final (_, body) = await _send('POST', '/v1/auth/second-step', {
+      'challengeId': _secondStepChallenge,
+      'code': code,
+      'deviceLabel': deviceLabel,
+    }, authed: false);
+    if (body['ok'] != true) {
+      throw MycaApiException(secondStepMessage('${body['error'] ?? 'UNKNOWN'}', body['attemptsRemaining']));
+    }
+    await _keep(body);
+    _secondStepChallenge = null;
+    _challengeId = null;
+    await _signedIn(body);
+    return SecondStepResult(
+      usedRecoveryCode: body['usedRecoveryCode'] == true,
+      recoveryCodesLeft: (body['recoveryCodesLeft'] as num?)?.toInt(),
+    );
+  }
+
+  void cancelSecondStep() {
+    _secondStepChallenge = null;
+    _challengeId = null;
   }
 
   Future<SignInMethods> methods() async {
@@ -589,6 +859,7 @@ class CloudSession {
     if (body['ok'] != true) {
       throw MycaApiException(cloudMessage('${body['error'] ?? 'UNKNOWN'}'));
     }
+    if (_challenged(body)) return;
     await _keep(body);
     _challengeId = null;
     await _signedIn(body);
@@ -682,11 +953,12 @@ class CloudSession {
 
   Future<void> signOut() async {
     try {
-      if (signedIn) await _send('POST', '/v1/auth/logout', const {});
+      if (signedIn) await call('POST', '/v1/auth/logout', const {});
     } on MycaApiException {
-      // Signing out must always work on the phone, even with no connection.
+      return;
+    } finally {
+      await _forget();
     }
-    await _forget();
   }
 
   Future<Me> me() async {
@@ -800,7 +1072,7 @@ class CloudSession {
   Future<Map<String, dynamic>> exportBusiness() => call('GET', '$_books/export');
 
   Future<Map<String, dynamic>> replaceBooks(Map<String, Object?> payload) async {
-    final body = await call('POST', '$_books/replace', payload);
+    final body = await call('POST', '$_books/replace', payload, _restoreMessage);
     if (body['ok'] == false) throw MycaApiException(cloudMessage('${body['error']}'));
     return body;
   }
@@ -820,6 +1092,37 @@ class CloudSession {
     final body = await call('DELETE', '/v1/me');
     if (body['ok'] == false) throw MycaApiException(cloudMessage('${body['error']}'));
     await _forget();
+  }
+
+  Future<SecondStepStatus> secondStepStatus() async => SecondStepStatus.fromJson(_accepted(await call('GET', '/v1/me/second-step')));
+
+  Future<SecondStepSetup> beginSecondStep() async {
+    final body = _accepted(await call('POST', '/v1/me/second-step/begin', const {}));
+    return SecondStepSetup(secret: '${body['secret'] ?? ''}', uri: '${body['uri'] ?? ''}', account: '${body['account'] ?? ''}');
+  }
+
+  Future<List<String>> confirmSecondStep(String code) async =>
+      _strings(_accepted(await call('POST', '/v1/me/second-step/confirm', {'code': code}, _setupCodeMessage))['recoveryCodes']);
+
+  Future<void> disableSecondStep(String code) async {
+    _accepted(await call('POST', '/v1/me/second-step/disable', {'code': code}, _changeCodeMessage));
+  }
+
+  Future<List<String>> newRecoveryCodes(String code) async =>
+      _strings(_accepted(await call('POST', '/v1/me/second-step/recovery-codes', {'code': code}, _changeCodeMessage))['recoveryCodes']);
+
+  Future<List<SignedInDevice>> devices() async {
+    final body = _accepted(await call('GET', '/v1/me/devices'));
+    return [for (final row in _rows(body['devices'])) SignedInDevice.fromJson(row)];
+  }
+
+  Future<void> signOutDevice(String id) async {
+    _accepted(await call('POST', '/v1/me/devices/$id/sign-out', const {}));
+  }
+
+  Future<int> signOutOtherDevices() async {
+    final body = _accepted(await call('POST', '/v1/me/devices/sign-out-others', const {}));
+    return (body['revoked'] as num?)?.toInt() ?? 0;
   }
 
   Future<void> leaveBusiness(String userId) async {

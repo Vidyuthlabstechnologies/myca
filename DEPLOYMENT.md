@@ -23,8 +23,8 @@ GitHub (Vidyuthlabstechnologies/myca, moved from varshinicb1/myca on 2026-10-13;
   └─ every push/PR ────────────────► CI (platform suite + every sprint suite)
 
 Auth: no service-account keys. GitHub OIDC ──► Workload Identity Federation:
-  pool "github"      (repository_id + refs/heads/main or refs/tags/v*) ──► gh-deployer SA
-  pool "github-plan" (repository_id + pull_request events)             ──► gh-planner SA (read-only)
+  pool "myca-github"      (repository_id + refs/heads/main or refs/tags/v*) ──► gh-deployer SA
+  pool "myca-github-plan" (repository_id + pull_request events)             ──► gh-planner SA (read-only)
 Region: asia-south1 (Mumbai). Static origin bucket: ASIA multi-region.
 ```
 
@@ -35,7 +35,7 @@ contributors (push code, open PRs). Nobody needs GCP console access afterwards.
 
 | Identity | Used by | Can |
 |---|---|---|
-| `gh-deployer` | `terraform` apply, `deploy-site`, `build-windows` publish | Manage compute/LB, DNS, monitoring and Artifact Registry; create buckets; administer only the site, artifacts and downloads buckets (IAM conditions per bucket name); read and write only the `root/` prefix of the state bucket. It holds no `iam.serviceAccountUser`, `run.admin`, `secretmanager.admin` or project-wide `storage.admin`. |
+| `gh-deployer` | `deploy-cloud`; with `manage_site` also `terraform` apply, `deploy-site`, `build-windows` publish | Always: push to the `myca-api` registry, `run.developer` on the `myca-api` service and actAs on its service account only (granted by `infra/cloud` through `deployer_service_account`). Only with `manage_site = true`: manage compute/LB, DNS, monitoring and Artifact Registry; create buckets; administer only the site, artifacts and downloads buckets (IAM conditions per bucket name). Reads and writes only the `root/` prefix of the state bucket. It holds no project-wide `iam.serviceAccountUser`, `run.admin`, `secretmanager.admin` or `storage.admin`. |
 | `gh-planner` | `terraform` plan on pull requests | Read-only roles (`browser`, `compute.viewer`, `dns.reader`, `monitoring.viewer`, `artifactregistry.reader`, `storage.bucketViewer`, `iam.securityReviewer`) and read the `root/` prefix of the state bucket. It gets no basic `roles/viewer`, which would also let it read every object in every bucket. It cannot take the state lock, so PR plans run with `-lock=false` and never block an apply. |
 
 Tokens are accepted only from the repository with the configured numeric ID. The deploy pool
@@ -69,6 +69,14 @@ terraform apply \
   -var="github_repository_id=REPO_NUMERIC_ID"
 ```
 
+**Sharing a project with another app.** Every name the bootstrap and `infra/cloud` create starts
+with `myca` (pools, service accounts, secrets, the SQL instance, the log bucket), the project's
+`_Default` log bucket is left alone, and the API's `cloudsql.client` is limited to the `myca`
+instance. The marketing site (root module: load balancer, DNS, site buckets, uptime checks) is
+off unless you pass `-var="manage_site=true"` to the bootstrap and set the GitHub variable
+`MYCA_MANAGE_SITE=true`; until then the `terraform`, `deploy-site` and Windows publish jobs skip,
+and `gh-deployer` holds no project-wide network, DNS, monitoring or registry admin.
+
 If you will override any bucket name in the root module (`site_bucket_name`,
 `artifacts_bucket_name`, `downloads_bucket_name`), pass the same names to the bootstrap:
 the deployer's storage access is granted per bucket name.
@@ -77,9 +85,9 @@ Terraform prints the values you need next:
 
 ```
 tf_state_bucket                  = "YOUR_PROJECT_ID-myca-tfstate"
-workload_identity_provider       = "projects/123456789/locations/global/workloadIdentityPools/github/providers/github"
+workload_identity_provider       = "projects/123456789/locations/global/workloadIdentityPools/myca-github/providers/myca-github"
 deploy_service_account           = "gh-deployer@YOUR_PROJECT_ID.iam.gserviceaccount.com"
-plan_workload_identity_provider  = "projects/123456789/locations/global/workloadIdentityPools/github-plan/providers/github-plan"
+plan_workload_identity_provider  = "projects/123456789/locations/global/workloadIdentityPools/myca-github-plan/providers/myca-github-plan"
 plan_service_account             = "gh-planner@YOUR_PROJECT_ID.iam.gserviceaccount.com"
 ```
 
@@ -116,7 +124,10 @@ source of truth: a value set only on someone's laptop is reverted by the next CI
 | `GCP_CREATE_ARTIFACT_REGISTRY` | `true` or `false` | `create_artifact_registry` (required) |
 | `GCP_ALERT_EMAIL` | an address, or empty to skip alerting | `alert_email` |
 | `GCP_API_REGION` | the region `infra/cloud` was applied in, or empty until it is | hosted API deploys (`deploy-cloud`) |
-| `MYCA_CLOUD_URL` | the `api_url` output of `infra/cloud`, or empty for a local-mode app | Android release builds (`build-android`) |
+| `MYCA_MANAGE_SITE` | `true` to run the root module (site, LB, DNS), empty to leave it off | `terraform`, `deploy-site`, Windows publish |
+| `MYCA_CLOUD_URL` | the `api_url` output of `infra/cloud`, or empty for a local-mode app; a `v*` tag build refuses anything but an https address | Android release builds (`build-android`) |
+| `MYCA_GOOGLE_SERVER_CLIENT_ID` | the web OAuth client id the hosted API accepts for Google sign-in, or empty | Android release builds (`build-android`) |
+| `MYCA_OIDC_CLIENT_ID` | the client id of a firm's own OpenID Connect provider, or empty | Android release builds (`build-android`) |
 
 `GCP_MANAGE_DNS` and `GCP_CREATE_ARTIFACT_REGISTRY` must be `true` or `false`: an empty
 value fails the plan instead of silently falling back to a default. `GCP_PROJECT_ID` and

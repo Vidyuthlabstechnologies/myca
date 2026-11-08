@@ -57,7 +57,10 @@ test('a report is saved by name from a sentence, previewed, run again later, lis
   assert.equal(Object.keys(state.reports).length, 1);
 
   const thisMonth = TODAY.slice(0, 7);
-  const lastMonthSale = shift(-45).slice(0, 7) !== thisMonth ? 25000 : 0;
+  const monthStart = new Date(`${thisMonth}-01T00:00:00Z`);
+  monthStart.setUTCMonth(monthStart.getUTCMonth() - 1);
+  const lastMonth = monthStart.toISOString().slice(0, 7);
+  const lastMonthSale = shift(-45).slice(0, 7) === lastMonth ? 25000 : 0;
   const spec = runReportSpec(state, state.reports['top customers']);
   assert.equal(spec.total, 50000);
   assert.equal(spec.compare.rows.find((r) => r.label === 'Arjun Stores').before, lastMonthSale);

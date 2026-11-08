@@ -38,13 +38,16 @@ locals {
 
   deployer_roles = [
     "roles/browser",
+    "roles/serviceusage.serviceUsageViewer",
+  ]
+
+  site_deployer_roles = var.manage_site ? [
     "roles/compute.networkAdmin",
     "roles/compute.loadBalancerAdmin",
     "roles/artifactregistry.admin",
     "roles/monitoring.admin",
     "roles/dns.admin",
-    "roles/serviceusage.serviceUsageViewer",
-  ]
+  ] : []
 
   planner_roles = [
     "roles/browser",
@@ -94,7 +97,7 @@ resource "google_storage_bucket" "tf_state" {
 # ---------------------------------------------------------------------------
 resource "google_iam_workload_identity_pool" "github" {
   project                   = var.project_id
-  workload_identity_pool_id = "github"
+  workload_identity_pool_id = var.pool_id
   display_name              = "GitHub Actions deploy"
   description               = "OIDC pool for GitHub Actions runs on main and v* tags."
 
@@ -104,7 +107,7 @@ resource "google_iam_workload_identity_pool" "github" {
 resource "google_iam_workload_identity_pool_provider" "github" {
   project                            = var.project_id
   workload_identity_pool_id          = google_iam_workload_identity_pool.github.workload_identity_pool_id
-  workload_identity_pool_provider_id = "github"
+  workload_identity_pool_provider_id = var.pool_id
   display_name                       = "GitHub OIDC (deploy)"
 
   attribute_mapping = {
@@ -124,7 +127,7 @@ resource "google_iam_workload_identity_pool_provider" "github" {
 
 resource "google_iam_workload_identity_pool" "github_plan" {
   project                   = var.project_id
-  workload_identity_pool_id = "github-plan"
+  workload_identity_pool_id = "${var.pool_id}-plan"
   display_name              = "GitHub Actions PR plan"
   description               = "OIDC pool for read-only Terraform plans on pull requests."
 
@@ -134,7 +137,7 @@ resource "google_iam_workload_identity_pool" "github_plan" {
 resource "google_iam_workload_identity_pool_provider" "github_plan" {
   project                            = var.project_id
   workload_identity_pool_id          = google_iam_workload_identity_pool.github_plan.workload_identity_pool_id
-  workload_identity_pool_provider_id = "github-plan"
+  workload_identity_pool_provider_id = "${var.pool_id}-plan"
   display_name                       = "GitHub OIDC (PR plan)"
 
   attribute_mapping = {
@@ -169,7 +172,7 @@ resource "google_service_account_iam_member" "deployer_wif" {
 }
 
 resource "google_project_iam_member" "deployer" {
-  for_each = toset(local.deployer_roles)
+  for_each = toset(concat(local.deployer_roles, local.site_deployer_roles))
 
   project = var.project_id
   role    = each.value
@@ -177,6 +180,8 @@ resource "google_project_iam_member" "deployer" {
 }
 
 resource "google_project_iam_custom_role" "bucket_creator" {
+  count = var.manage_site ? 1 : 0
+
   project     = var.project_id
   role_id     = "mycaBucketCreator"
   title       = "MyCA bucket creator"
@@ -185,13 +190,15 @@ resource "google_project_iam_custom_role" "bucket_creator" {
 }
 
 resource "google_project_iam_member" "deployer_bucket_creator" {
+  count = var.manage_site ? 1 : 0
+
   project = var.project_id
-  role    = google_project_iam_custom_role.bucket_creator.id
+  role    = google_project_iam_custom_role.bucket_creator[0].id
   member  = "serviceAccount:${google_service_account.deployer.email}"
 }
 
 resource "google_project_iam_member" "deployer_bucket_admin" {
-  for_each = local.app_buckets
+  for_each = var.manage_site ? local.app_buckets : {}
 
   project = var.project_id
   role    = "roles/storage.admin"

@@ -125,8 +125,8 @@ section 9.
 
 | Area | Routes under `/v1` |
 |---|---|
-| Sign-in | `auth/methods` (which methods are on), `auth/google`, `auth/otp`, `auth/verify`, `auth/refresh`, `auth/logout` |
-| Account | `me` (read, rename, delete) |
+| Sign-in | `auth/methods` (which methods are on), `auth/google`, `auth/otp`, `auth/verify`, `auth/second-step` (finishes a sign-in that two-step held), `auth/refresh`, `auth/logout` |
+| Account | `me` (read, rename, delete); `me/second-step` (status, `begin`, `confirm`, `disable`, `recovery-codes`); `me/devices` (list, `:id/sign-out`, `sign-out-others`) |
 | Businesses | `businesses` (list, create), `reference/states` |
 | Books | `businesses/:id/snapshot`, `propose`, `confirm`, `discard`, `query`, `ask`, `company`, `uploads` |
 | People | `businesses/:id/members`, `invitations`; `invitations/:id/accept` and `decline`; delete a member or an invitation; `ca-sync` and `ca-share` (what an accountant sees) |
@@ -146,8 +146,11 @@ the catalogue is unreachable from the network.
 
 A six-digit code to the phone, valid five minutes, five tries, five codes an hour. A
 successful verify issues a 15-minute signed access token and a 60-day refresh token
-bound to the device. Refresh rotates the token; presenting an old one revokes the
-device. No SMS sender exists yet: codes print to the console when `MYCA_DEV_OTP=1`, and
+bound to the device, unless the user has switched on two-step sign-in. Then the phone,
+Google and OpenID Connect steps each answer a five-minute challenge instead of tokens, and
+`auth/second-step` issues the tokens once an authenticator code or a recovery code is
+given; five wrong codes end the challenge. Refresh rotates the token; presenting an old
+one revokes the device. No SMS sender exists yet: codes print to the console when `MYCA_DEV_OTP=1`, and
 the server refuses to start without it.
 
 ## 6. The Android app
@@ -196,7 +199,7 @@ account at present, so the local command is the gate of record.
 | Limit | Effect | Plan |
 |---|---|---|
 | Whole books state in one row, rewritten per request | Fine for a small business; slow for a shop with tens of thousands of invoices | Split documents and journal into tables (phase C2 in the cloud design) |
-| Queries append an audit event | Every read is a write | Separate read path that does not persist |
+| Queries append an audit event | A query no longer rewrites the books row (`withReadOnlyBooks`) but inserts a row into `audit_log`; the books do not hold that event, so the audit trail the app shows lists changes and not hosted reads | Read `audit_log` into the trail if owners ask for reads there |
 | One pending proposal per business | Two members previewing at once replace each other's preview | Key proposals by member and device |
 | Document bytes in Postgres, 8 MB per upload | No large scans | Object storage with direct uploads |
 | Chat is rule-based | Free text beyond known phrasings is not understood | Model that selects tools under the existing contract (ADR-0004) |

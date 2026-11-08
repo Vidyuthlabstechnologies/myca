@@ -14,14 +14,14 @@ Taxmeow or MyCA is an open decision.
 
 | | |
 |---|---|
-| Against the product PRD | **About 60% built** ([requirement by requirement](docs/product/PRD.md), [how it is computed](docs/superpowers/PROGRESS.md)) |
-| To a Play Store launch | About 44% (estimate) |
-| Engine hardening (Phase 0) | 67%; every Critical and High audit finding closed ([audit](docs/audit/2026-09-21-codebase-audit.md)) |
-| Tests | **1,128**: platform 591, engines and statutory rules 329, hosted API 77, Android app 131 |
+| Against the product PRD | **About 94% built** in engineering terms; what is left is mostly provider onboarding, credentials and sign-offs ([requirement by requirement](docs/product/PRD.md), [how it is computed](docs/superpowers/PROGRESS.md)) |
+| To a Play Store launch | About 84% (estimate, [progress tracker](docs/superpowers/PROGRESS.md)) |
+| Engine hardening (Phase 0) | About 87%; every Critical and High audit finding closed ([audit](docs/audit/2026-09-21-codebase-audit.md)) |
+| Tests | **1,390**: platform 798, engines and statutory rules 331, hosted API 131, Android app 131 (the Android count was last checked before 5 November 2026) |
 | Tools | 116 named, schema-validated tools |
 | Deployed | **Nothing.** The hosted API has run only against a local Postgres; the app has not run on a phone |
 | Live portal calls | Off by default (`MYCA_ENABLE_LIVE_CALLS=0`); no return has been filed through the product |
-| Automated checks | `node scripts/check-all.mjs`. CI is defined but GitHub Actions is not running on the account |
+| Automated checks | `node scripts/check-all.mjs` locally; GitHub Actions runs CI on pushes and pull requests, plus a nightly run |
 
 ## The product in the owner's words
 
@@ -47,18 +47,18 @@ Taxmeow or MyCA is an open decision.
 
 | Feature | What the PRD asks for | Built | Specification |
 |---|---|---|---|
-| Automatic accounting | Double-entry books in the background, no manual entry | 95% | [01](docs/product/features/01-accounting-and-tagging.md) |
-| Smart tagging | Every entry under the right head | 80% | [01](docs/product/features/01-accounting-and-tagging.md) |
-| Invoices, quotes, e-way bills | Created by message, sent by email or WhatsApp | 75% | [02](docs/product/features/02-invoices-quotes-eway-bills.md) |
-| GST returns | Prepared, reviewed in chat, filed after approval | 50% | [03](docs/product/features/03-gst-returns.md) |
-| TDS | Same review and approval as GST | 15% | [04](docs/product/features/04-tds.md) |
-| Payroll | Run payroll and pay salaries from the same product | 0% | [05](docs/product/features/05-payroll.md) |
-| GSTR-2B matching | Flag late or mismatched suppliers; remind only with permission | 65% | [06](docs/product/features/06-gstr2b-matching-and-reminders.md) |
-| CA collaboration | Export or invite, with a sync setting | 70% | [07](docs/product/features/07-ca-collaboration.md) |
-| Chat and dashboard | Chat for daily work, dashboard for the picture | 80% | [08](docs/product/features/08-chat-and-dashboard.md) |
-| Reading documents | POS sales and forwarded invoices read automatically | 5% | [09](docs/product/features/09-document-capture-and-pos.md) |
+| Automatic accounting | Double-entry books in the background, no manual entry | 100% | [01](docs/product/features/01-accounting-and-tagging.md) |
+| Smart tagging | Every entry under the right head | 100% | [01](docs/product/features/01-accounting-and-tagging.md) |
+| Invoices, quotes, e-way bills | Created by message, sent by email or WhatsApp | 97% | [02](docs/product/features/02-invoices-quotes-eway-bills.md) |
+| GST returns | Prepared, reviewed in chat, filed after approval | 94% | [03](docs/product/features/03-gst-returns.md) |
+| TDS | Same review and approval as GST | 84% | [04](docs/product/features/04-tds.md) |
+| Payroll | Run payroll and pay salaries from the same product | 92% | [05](docs/product/features/05-payroll.md) |
+| GSTR-2B matching | Flag late or mismatched suppliers; remind only with permission | 92% | [06](docs/product/features/06-gstr2b-matching-and-reminders.md) |
+| CA collaboration | Export or invite, with a sync setting | 100% | [07](docs/product/features/07-ca-collaboration.md) |
+| Chat and dashboard | Chat for daily work, dashboard for the picture | 100% | [08](docs/product/features/08-chat-and-dashboard.md) |
+| Reading documents | POS sales and forwarded invoices read automatically | 80% | [09](docs/product/features/09-document-capture-and-pos.md) |
 
-Percentages are engineering estimates. "Built" means implemented and covered by tests,
+Percentages are engineering estimates taken from the [progress tracker](docs/superpowers/PROGRESS.md). "Built" means implemented and covered by tests,
 not deployed and not verified against a live portal.
 
 ### Principles
@@ -165,7 +165,7 @@ The engine and the desktop server:
 
 ```bash
 cd platform
-npm test                 # 591 tests
+npm test                 # 798 tests
 npm run dev              # http://127.0.0.1:4780 (plain node)
 npm start                # Electron window (after: npm i)
 ```
@@ -175,7 +175,7 @@ The hosted API, against a local Postgres (see [`cloud/README.md`](cloud/README.m
 ```bash
 cd cloud
 npm install
-npm test                 # 77 tests; needs MYCA_TEST_DATABASE_URL
+npm test                 # 131 tests; needs MYCA_TEST_DATABASE_URL
 ```
 
 The Android app (see [`mobile/README.md`](mobile/README.md)):
@@ -186,8 +186,12 @@ flutter test             # 131 tests
 flutter run --dart-define=MYCA_CLOUD_URL=http://127.0.0.1:8080
 ```
 
-Configuration is optional for local books. **Outbound calls are opt-in**; set
-`MYCA_ENABLE_LIVE_CALLS=1` only when you intend to reach a real portal.
+Configuration is optional for local books. **Outbound calls are opt-in** through one
+switch, `MYCA_PROVIDER_ENV`: `off` (the default), `test` (real calls to the Quicko and NIC
+sandbox hosts only; anything without a sandbox is held as a dry run) or `live` (real
+portals). `MYCA_ENABLE_LIVE_CALLS=1` still means `live`. On the hosted API that setting is a
+ceiling and each business switches itself between test and live with its own keys
+(see `cloud/README.md`).
 
 ### Try it in 60 seconds
 
@@ -392,7 +396,7 @@ The full index is [`docs/README.md`](docs/README.md).
 | Doc | What it covers |
 |---|---|
 | [`docs/product/PRD.md`](docs/product/PRD.md) | The product as numbered requirements, with status, acceptance and open questions |
-| [`docs/product/features/`](docs/product/features/) | One specification per feature area (nine) |
+| [`docs/product/features/`](docs/product/features/) | One specification per feature area (ten) |
 | [`docs/product/ROADMAP.md`](docs/product/ROADMAP.md) | Milestones and what each waits on |
 | [`docs/architecture/ARCHITECTURE.md`](docs/architecture/ARCHITECTURE.md) | Components, request flow, the action gate, known limits |
 | [`docs/architecture/DATA-MODEL.md`](docs/architecture/DATA-MODEL.md) | Database tables and the books state |

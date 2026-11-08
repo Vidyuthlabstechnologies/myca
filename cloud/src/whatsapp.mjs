@@ -1,6 +1,7 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { normalizePhone } from './auth.mjs';
 import { engineRole } from './businesses.mjs';
+import { chatText } from './chat-text.mjs';
 
 const GRAPH_VERSION = 'v21.0';
 const MAX_TEXT = 2000;
@@ -127,13 +128,14 @@ export function createWhatsApp({ db, withBooks, withSharedBooks = null, syncOf =
       return { ok: true, replied: true };
     }
     const actor = { actor: { userId: answer.user.userId, role: engineRole(answer.user.role), name: answer.user.name || answer.user.userId } };
+    const asked = chatText(text);
     const run = answer.shared && withSharedBooks
       ? withSharedBooks(answer.businessId, { requestId, userId: answer.user.userId, deviceId: null }, async (session) => {
-        const got = await session.chat(text, actor);
+        const got = await session.chat(asked, actor);
         if (!got.preview && !got.awaitingConfirmation) return got;
         return { reply: 'These books are shared with you as they stood when the owner last shared them, so nothing can be posted from here. Ask the owner to make the change.', tools: [] };
       })
-      : withBooks(answer.businessId, { requestId, userId: answer.user.userId, deviceId: null }, (session) => session.chat(text, actor));
+      : withBooks(answer.businessId, { requestId, userId: answer.user.userId, deviceId: null }, (session) => session.chat(asked, actor));
     const out = await run;
     const spoken = String(out?.reply || 'I could not read that.').slice(0, REPLY_LIMIT);
     await reply(phone, spoken);

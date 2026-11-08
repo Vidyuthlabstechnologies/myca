@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { channelPullsEnabled, liveCallsEnabled, loadEnvFile, mockModeEnabled } from './runtime-config.mjs';
+import { channelPullsEnabled, liveCallsEnabled, loadEnvFile, mockModeEnabled, testModeEnabled } from './runtime-config.mjs';
 import { appendAuditEvent, stateDigest } from './ca-api.mjs';
 import { normalizeClientId } from './books.mjs';
 import { BOOK_KEYS } from './book-view.mjs';
@@ -298,7 +298,9 @@ function appendDryRun(state, record) {
   return stored;
 }
 
-function recordDryRun(action, payload) {
+export const TEST_MODE_FAMILIES = Object.freeze(new Set(['sandbox', 'sandbox_operation', 'nic', 'govt', 'provider', 'nim']));
+
+function recordDryRun(action, payload, reason = 'LIVE_CALLS_DISABLED') {
   const beforeHash = stateDigest(action.state);
   const stored = appendDryRun(action.state, {
     actionId: action.actionId,
@@ -309,10 +311,13 @@ function recordDryRun(action, payload) {
     actorId: action.actor.userId,
     at: new Date().toISOString(),
   });
-  const result = refusal(action, 'LIVE_CALLS_DISABLED', {
-    dryRunId: stored.dryRunId,
-    hint: 'Set MYCA_ENABLE_LIVE_CALLS=1 in platform/.env to allow outbound calls. Nothing was sent; the payload was kept as a dry run.',
-  });
+  const hosted = String(process.env.MYCA_HOSTED || '').trim() === '1';
+  const hint = reason === 'TEST_MODE_HELD'
+    ? 'Test mode: this action has no sandbox, so nothing was sent. The prepared payload was kept as a dry run; it runs only in live mode.'
+    : hosted
+      ? 'Nothing was sent: government and provider calls are switched off on this MyCA service. The prepared payload was kept as a dry run.'
+      : 'Set MYCA_PROVIDER_ENV=test (sandbox hosts) or live in platform/.env to allow outbound calls. Nothing was sent; the payload was kept as a dry run.';
+  const result = refusal(action, reason, { dryRunId: stored.dryRunId, hint });
   recordAudit(action, { beforeHash, result, extra: { dryRunId: stored.dryRunId, payloadHash: payloadHash(stored.payload) } });
   return result;
 }
@@ -493,9 +498,10 @@ export async function performExternalAction(state, request = {}, execute) {
 
   const pullAllowed = item.family === 'channel' && item.actionClass === 'read' && channelPullsEnabled();
   if (!liveCallsEnabled() && !pullAllowed && !item.local) return recordDryRun(action, request.payload ?? params);
+  if (testModeEnabled() && !pullAllowed && !item.local && !TEST_MODE_FAMILIES.has(item.family)) return recordDryRun(action, request.payload ?? params, 'TEST_MODE_HELD');
 
   const beforeHash = stateDigest(state);
-  const claim = item.actionClass === 'write' && !item.local ? claimApproval(action, request.approvalId) : { ok: true, approval: null };
+  const claim = item.actionClass === 'write' && !item.local && !testModeEnabled() ? claimApproval(action, request.approvalId) : { ok: true, approval: null };
   if (!claim.ok) return claim;
 
   const result = await runWithDeadline(action, execute, deadlineFor(item, request.timeoutMs));

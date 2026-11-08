@@ -1,6 +1,7 @@
 import { readFileSync, existsSync } from 'node:fs';
 import { resolve, join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { providerContext } from './provider-context.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -34,10 +35,33 @@ const TRUTHY = new Set(['1', 'true', 'yes', 'on']);
 // Live outbound calls to providers (Quicko Sandbox, NVIDIA NIM) are opt-in.
 // Default OFF: the assistant and tools must never reach external portals
 // without an explicit, deliberate operator decision.
-export function liveCallsEnabled() {
+export const PROVIDER_ENVIRONMENTS = Object.freeze(['off', 'test', 'live']);
+
+export function serviceProviderEnvironment() {
   const env = loadEnvFile();
+  const declared = String(process.env.MYCA_PROVIDER_ENV ?? env.MYCA_PROVIDER_ENV ?? '').trim().toLowerCase();
+  if (PROVIDER_ENVIRONMENTS.includes(declared)) return declared;
   const raw = process.env.MYCA_ENABLE_LIVE_CALLS ?? env.MYCA_ENABLE_LIVE_CALLS ?? '';
-  return TRUTHY.has(String(raw).trim().toLowerCase());
+  return TRUTHY.has(String(raw).trim().toLowerCase()) ? 'live' : 'off';
+}
+
+export function providerEnvironment() {
+  const service = serviceProviderEnvironment();
+  const chosen = providerContext()?.environment;
+  if (!PROVIDER_ENVIRONMENTS.includes(chosen)) return service;
+  return PROVIDER_ENVIRONMENTS[Math.min(PROVIDER_ENVIRONMENTS.indexOf(service), PROVIDER_ENVIRONMENTS.indexOf(chosen))];
+}
+
+export function liveCallsEnabled() {
+  return providerEnvironment() !== 'off';
+}
+
+export function testModeEnabled() {
+  return providerEnvironment() === 'test';
+}
+
+export function productionCallsEnabled() {
+  return providerEnvironment() === 'live';
 }
 
 // MYCA_MOCK_MODE=1 makes every provider front door (Sandbox by Quicko, NIC e-invoice,

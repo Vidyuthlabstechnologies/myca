@@ -4,7 +4,7 @@ import { csvRows, htmlEscape } from './text-safe.mjs';
 import { isPeriodLocked } from './period-lock.mjs';
 import { postingDate } from './dates.mjs';
 import { invoiceTerms, dueDateOf } from './payment-terms.mjs';
-import { billPayBy } from './supplier-dues.mjs';
+import { billPayBy, completeMsmeReminders } from './supplier-dues.mjs';
 import { invoiceTemplateOf, bankWords } from './invoice-template.mjs';
 import { regArg, docFieldsFor } from './registrations.mjs';
 import { planTds, recordTdsEntry, tdsPayableAccountId, wantsTds } from './tds-deduction.mjs';
@@ -117,6 +117,18 @@ function idTaken(list, id) {
 // over from an earlier sale to a same-named party.
 function placeOfSupply(input, party, company) {
   return stateCodeOf(input.partyState) || partyStateOf(party.gstin) || company.state;
+}
+
+export function lastHsnFor(state, { name, gstin }) {
+  const gstinKey = normGstin(gstin);
+  const nameKey = String(name || '').trim().toLowerCase();
+  if (!gstinKey && !nameKey) return null;
+  const same = (doc) => (gstinKey ? normGstin(doc.partyGstin) === gstinKey : String(doc.partyName || '').trim().toLowerCase() === nameKey);
+  const earlier = (state.invoices || []).filter((doc) => doc.status !== 'cancelled' && same(doc) && (doc.lines || []).some((line) => /^\d{4,8}$/.test(String(line.hsn ?? '').trim())));
+  if (!earlier.length) return null;
+  const latest = earlier.reduce((a, b) => (String(b.date) >= String(a.date) ? b : a));
+  const line = [...latest.lines].reverse().find((l) => /^\d{4,8}$/.test(String(l.hsn ?? '').trim()));
+  return { hsn: String(line.hsn).trim(), from: latest.id, date: latest.date };
 }
 
 export function lastGstRateFor(state, { name, gstin }, kind = 'sale') {
@@ -503,6 +515,7 @@ export function recordPayment(state, args = {}) {
   bill.payments = bill.payments || [];
   bill.payments.push({ amount, date, mode });
   bill.status = billOutstanding(bill) <= 0.005 ? 'paid' : 'partial';
+  if (bill.status === 'paid') completeMsmeReminders(state, { billId: bill.id });
   return { ok: true, bill, payment: { amount, date, mode }, remaining: billOutstanding(bill), posted };
 }
 

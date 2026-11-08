@@ -54,3 +54,15 @@ variable "plan_service_account_id" {
   type        = string
   default     = "gh-planner"
 }
+
+variable "pool_id" {
+  description = "Workload Identity pool and provider id for deploys; the PR plan pool adds -plan. Prefixed with myca so it cannot collide with another app's pool in a shared project."
+  type        = string
+  default     = "myca-github"
+}
+
+variable "manage_site" {
+  description = "Also let the deployer run the root module (marketing site load balancer, DNS, site buckets, uptime checks). Off by default, so in a shared project the deployer can only touch MyCA's own API, which infra/cloud grants."
+  type        = bool
+  default     = false
+}

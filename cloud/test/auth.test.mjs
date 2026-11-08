@@ -187,11 +187,27 @@ test('deleting the account ends access at once and marks solely-owned businesses
 });
 
 test('every protected route needs a token', async () => {
-  for (const [method, path] of [['GET', '/v1/me'], ['GET', '/v1/businesses'], ['POST', '/v1/businesses'], ['GET', '/v1/businesses/11111111-1111-4111-8111-111111111111/snapshot']]) {
+  const protectedRoutes = [
+    ['GET', '/v1/me'],
+    ['GET', '/v1/businesses'],
+    ['POST', '/v1/businesses'],
+    ['GET', '/v1/businesses/11111111-1111-4111-8111-111111111111/snapshot'],
+    ['GET', '/v1/me/second-step'],
+    ['POST', '/v1/me/second-step/begin'],
+    ['POST', '/v1/me/second-step/confirm'],
+    ['POST', '/v1/me/second-step/disable'],
+    ['POST', '/v1/me/second-step/recovery-codes'],
+    ['GET', '/v1/me/devices'],
+    ['POST', '/v1/me/devices/sign-out-others'],
+    ['POST', '/v1/me/devices/11111111-1111-4111-8111-111111111111/sign-out'],
+  ];
+  for (const [method, path] of protectedRoutes) {
     const out = await api.call(method, path, { body: method === 'POST' ? {} : undefined });
     assert.equal(out.status, 401, `${method} ${path}`);
     assert.equal(out.body.error, 'UNAUTHENTICATED');
   }
-  assert.equal((await api.call('GET', '/v1/health')).status, 200);
+  const health = await api.call('GET', '/v1/health');
+  assert.equal(health.status, 200);
+  assert.equal(health.body.providerMode, 'off');
   assert.equal((await api.call('GET', '/nope')).status, 404);
 });

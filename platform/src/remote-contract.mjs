@@ -1,7 +1,7 @@
 export const REMOTE_QUERY_TOOLS = new Set([
   'company_profile',
   'list_invoices',
-  'invoice_document', 'invoice_template', 'settlement_status', 'marketplace_credits', 'stock_position', 'stock_moves', 'inventory_valuations', 'sku_margins', 'daily_close', 'registrations',
+  'invoice_document', 'invoice_template', 'settlement_status', 'marketplace_credits', 'tds_credit_check', 'stock_position', 'stock_moves', 'inventory_valuations', 'sku_margins', 'daily_close', 'registrations',
   'record_share',
   'eway_bill_status',
   'list_expenses',
@@ -10,8 +10,10 @@ export const REMOTE_QUERY_TOOLS = new Set([
   'gst_review',
   'export_entries',
   'export_trial_balance',
+  'export_xlsx',
   'export_tally',
   'credit_at_risk',
+  'ims_review',
   'books_check',
   'list_reminders',
   'list_filings',
@@ -63,6 +65,7 @@ export const REMOTE_QUERY_TOOLS = new Set([
   'can_afford',
   'list_ca_requests',
   'list_quotes',
+  'list_recurring',
   'quote_document',
   'expense_heads',
   'gst_payable',
@@ -80,6 +83,8 @@ export const REMOTE_QUERY_TOOLS = new Set([
   'trial_balance',
   'period_status',
   'validate_gstin',
+  'bank_reconciliation', 'list_bank_rules', 'list_bank_accounts',
+  'audit_trail',
 ]);
 
 export const COMPANY_PROFILE_FIELDS = ['name', 'gstin', 'pan', 'state', 'address', 'city', 'pin', 'entityType', 'invoiceNumbering', 'invoiceTemplate'];

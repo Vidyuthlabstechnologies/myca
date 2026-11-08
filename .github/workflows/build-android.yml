@@ -15,7 +15,26 @@ jobs:
     env:
       HAS_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
       CLOUD_URL: ${{ vars.MYCA_CLOUD_URL }}
+      GOOGLE_SERVER_CLIENT_ID: ${{ vars.MYCA_GOOGLE_SERVER_CLIENT_ID }}
+      OIDC_CLIENT_ID: ${{ vars.MYCA_OIDC_CLIENT_ID }}
     steps:
+      - name: Refuse a tagged release that Play would reject
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        run: |
+          set -euo pipefail
+          problems=()
+          [ "$HAS_KEYSTORE" = "true" ] || problems+=("no upload key: set ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS and ANDROID_KEY_PASSWORD")
+          case "$CLOUD_URL" in
+            https://*) ;;
+            *) problems+=("MYCA_CLOUD_URL must be the https address of the deployed hosted API (now: '${CLOUD_URL}')") ;;
+          esac
+          [[ "$GITHUB_REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || problems+=("the tag must look like v1.2.3 (now: $GITHUB_REF_NAME)")
+          if [ "${#problems[@]}" -gt 0 ]; then
+            printf '::error::%s\n' "${problems[@]}"
+            exit 1
+          fi
+
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -67,8 +86,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          define=()
-          if [ -n "$CLOUD_URL" ]; then define=(--dart-define="MYCA_CLOUD_URL=$CLOUD_URL"); fi
+          define=(--build-number="$GITHUB_RUN_NUMBER")
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then define+=(--build-name="${GITHUB_REF_NAME#v}"); fi
+          if [ -n "$CLOUD_URL" ]; then define+=(--dart-define="MYCA_CLOUD_URL=$CLOUD_URL"); fi
+          if [ -n "$GOOGLE_SERVER_CLIENT_ID" ]; then define+=(--dart-define="MYCA_GOOGLE_SERVER_CLIENT_ID=$GOOGLE_SERVER_CLIENT_ID"); fi
+          if [ -n "$OIDC_CLIENT_ID" ]; then define+=(--dart-define="MYCA_OIDC_CLIENT_ID=$OIDC_CLIENT_ID"); fi
           flutter build apk --release "${define[@]}"
           flutter build appbundle --release "${define[@]}"
           mkdir -p ../dist

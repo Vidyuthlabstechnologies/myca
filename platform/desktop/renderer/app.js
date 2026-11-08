@@ -10,6 +10,23 @@ const api = {
     const r = await fetch('/api/tool', { method: 'POST', headers: apiHeaders, body: JSON.stringify({ name, args }) });
     return r.json();
   },
+  async signIn(userId, pin) {
+    const r = await fetch('/api/session/login', { method: 'POST', headers: apiHeaders, body: JSON.stringify({ userId, pin }) });
+    return r.json();
+  },
+  async signOut() {
+    const r = await fetch('/api/session/logout', { method: 'POST', headers: apiHeaders });
+    return r.json();
+  },
+  async asUser(userId, pin, run) {
+    const signed = await this.signIn(userId, pin);
+    if (!signed.ok) return signed;
+    try {
+      return await run();
+    } finally {
+      await this.signOut();
+    }
+  },
   async snapshot() {
     const r = await fetch('/api/snapshot', { headers: { 'x-myca-client': apiToken } });
     return r.json();
@@ -109,9 +126,13 @@ function addPreviewCard(preview) {
 
 function resultLine(name, result) {
   if (!result) return 'No reply from books.';
-  if (result.ok === false || (result.error && !result.invoice)) return result.error || JSON.stringify(result);
+  if (result.ok === false || (result.error && !result.invoice)) return result.error ? `${result.error}${result.hint ? `: ${result.hint}` : ''}` : JSON.stringify(result);
   const inv = result.invoice;
   if (inv) return `${inv.id} · ${inv.partyName} · ₹${inr(inv.total)} (${inv.kind || name})`;
+  if (name === 'approval_decide' && (result.approval || result.data?.approval)) {
+    const a = result.approval || result.data.approval;
+    return `${a.approvalId} ${a.status} by ${a.decidedBy} (${a.decidedRole}) for ${a.operationId}.`;
+  }
   if (name === 'integration_connect') {
     const d = result.data || result;
     return `${d.connection?.requirementId || 'Requirement'} connected via ${d.connection?.provider || 'provider'} · ${d.readiness?.available || 0}/${d.readiness?.total || 0}`;
@@ -250,7 +271,7 @@ function renderFirm(snap) {
   document.getElementById('fPin').value = firm.pin || '';
   document.getElementById('fEntity').value = firm.entityType || 'proprietor';
   document.getElementById('firmMeta').textContent = snap.dataPath
-    ? `Data: ${snap.dataPath} · live provider calls ${snap.liveCallsEnabled ? 'ON' : 'off'}`
+    ? `Data: ${snap.dataPath} · provider calls: ${({ live: 'LIVE (real portals)', test: 'TEST (sandbox hosts only)' })[snap.providerEnvironment] || 'off'}${snap.mockMode ? ' · simulated' : ''}`
     : '';
 }
 
@@ -299,12 +320,53 @@ function renderApprovals(snap) {
   }
 }
 
+async function renderUsers() {
+  const target = document.getElementById('userList');
+  if (!target) return;
+  try {
+    const r = await fetch('/api/ca/users', { headers: { 'x-myca-client': apiToken } });
+    const out = await r.json();
+    const users = out.data?.users || [];
+    target.textContent = users.length ? users.map((u) => `${u.userId} (${u.role})`).join(' · ') : 'No users yet.';
+  } catch {
+    target.textContent = 'Could not read the users.';
+  }
+}
+
+document.getElementById('userForm')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const value = (id) => document.getElementById(id).value.trim();
+  const out = await api.asUser(value('uAdmin'), document.getElementById('uAdminPin').value, async () => {
+    const r = await fetch('/api/ca/users', { method: 'POST', headers: apiHeaders, body: JSON.stringify({ userId: value('uId'), name: value('uName'), role: value('uRole'), pin: document.getElementById('uPin').value }) });
+    return r.json();
+  });
+  for (const id of ['uPin', 'uAdminPin']) document.getElementById(id).value = '';
+  addBubble('bot', out.ok ? `Added ${out.data.userId} as ${out.data.role}.` : `User not added: ${out.error}${out.hint ? `. ${out.hint}` : ''}`, 'add_user');
+  if (out.ok) for (const id of ['uId', 'uName']) document.getElementById(id).value = '';
+  await renderUsers();
+});
+
+document.getElementById('pinForm')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const field = (id) => document.getElementById(id);
+  const r = await fetch('/api/session/pin', { method: 'POST', headers: apiHeaders, body: JSON.stringify({ userId: field('pId').value.trim(), oldPin: field('pOld').value, newPin: field('pNew').value }) });
+  const out = await r.json();
+  for (const id of ['pOld', 'pNew']) field(id).value = '';
+  addBubble('bot', out.ok ? `PIN changed for ${out.userId}.` : `PIN not changed: ${out.error}${out.hint ? `. ${out.hint}` : ''}`, 'change_pin');
+});
+
 async function decideApproval(approvalId, decision) {
-  const decidedBy = window.prompt('Reviewer name', 'partner1');
-  if (!decidedBy) return;
-  const role = window.prompt('Reviewer role (partner / reviewer / admin)', 'partner');
-  if (!role) return;
-  const out = await api.tool('approval_decide', { approvalId, decision, decidedBy, role });
+  const idField = document.getElementById('rId');
+  const pinField = document.getElementById('rPin');
+  const userId = idField.value.trim();
+  const pin = pinField.value;
+  if (!userId || !pin) {
+    addBubble('bot', 'Enter the reviewer user id and PIN above the list, then press Approve or Reject again.', 'approval_decide');
+    idField.focus();
+    return;
+  }
+  const out = await api.asUser(userId, pin, () => api.tool('approval_decide', { approvalId, decision }));
+  pinField.value = '';
   addBubble('bot', resultLine('approval_decide', out), 'approval_decide');
   await refresh();
 }
@@ -583,6 +645,7 @@ document.querySelectorAll('.tabs button').forEach((btn) => {
     document.querySelectorAll('.tabs button').forEach((b) => b.classList.remove('on'));
     btn.classList.add('on');
     const panel = document.getElementById(`panel-${btn.dataset.tab}`);
+    if (btn.dataset.tab === 'approvals') renderUsers();
     document.querySelectorAll('.panel').forEach((p) => {
       const on = p === panel;
       p.classList.toggle('on', on);
@@ -664,11 +727,12 @@ document.getElementById('clientForm').addEventListener('submit', async (e) => {
 
 document.getElementById('approvalForm').addEventListener('submit', async (e) => {
   e.preventDefault();
-  const out = await api.tool('approval_request', {
+  const pinField = document.getElementById('aPin');
+  const out = await api.asUser(document.getElementById('aBy').value.trim(), pinField.value, () => api.tool('approval_request', {
     operationId: document.getElementById('aOp').value,
-    requestedBy: document.getElementById('aBy').value.trim() || 'maker',
     note: document.getElementById('aNote').value.trim(),
-  });
+  }));
+  pinField.value = '';
   addBubble('bot', resultLine('approval_request', out), 'approval_request');
   await refresh();
 });

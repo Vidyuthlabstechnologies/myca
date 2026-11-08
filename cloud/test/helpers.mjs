@@ -43,6 +43,20 @@ async function admin(sql) {
   }
 }
 
+async function sessionsGone(name) {
+  const client = new pg.Client({ connectionString: ADMIN_URL });
+  await client.connect();
+  try {
+    for (let waited = 0; waited < 5000; waited += 10) {
+      const open = await client.query('select count(*)::int as n from pg_stat_activity where datname = $1', [name]);
+      if (open.rows[0].n === 0) return;
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+  } finally {
+    await client.end();
+  }
+}
+
 export const BOOKS_KEY = 'test-books-key-0123456789abcdef0123456789abcdef';
 
 export async function startApi(options = {}) {
@@ -55,7 +69,7 @@ export async function startApi(options = {}) {
   const sender = createCaptureSender();
   const clock = { now: Date.now(), advance(ms) { this.now += ms; } };
   const logs = [];
-  const handler = createApi({ db, secret: SECRET, otpSender: options.phone === false ? null : sender, googleClientIds: [GOOGLE_CLIENT], googleKeys: TEST_GOOGLE_KEYS, oidc: options.oidc || {}, oidcKeys: options.oidcKeys || null, documentVault: options.documentVault || null, connectorKey: options.connectorKey || '', booksKey: options.booksKey === undefined ? BOOKS_KEY : options.booksKey, now: () => clock.now, log: (entry) => logs.push(entry), jobToken: options.jobToken || '', inboundEmail: options.inboundEmail || {}, whatsapp: options.whatsapp || {}, whatsappSender: options.whatsappSender || null });
+  const handler = createApi({ billing: options.billing ? options.billing({ db, now: () => clock.now }) : null, db, secret: SECRET, otpSender: options.phone === false ? null : sender, googleClientIds: [GOOGLE_CLIENT], googleKeys: TEST_GOOGLE_KEYS, oidc: options.oidc || {}, oidcKeys: options.oidcKeys || null, documentVault: options.documentVault || null, connectorKey: options.connectorKey || '', booksKey: options.booksKey === undefined ? BOOKS_KEY : options.booksKey, now: () => clock.now, log: (entry) => logs.push(entry), jobToken: options.jobToken || '', inboundEmail: options.inboundEmail || {}, whatsapp: options.whatsapp || {}, whatsappSender: options.whatsappSender || null });
   const server = createServer(handler);
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
   const base = `http://127.0.0.1:${server.address().port}`;
@@ -113,6 +127,7 @@ export async function startApi(options = {}) {
     async close() {
       await new Promise((resolve) => server.close(resolve));
       await db.close();
+      await sessionsGone(name);
       await admin(`drop database if exists ${name} with (force)`);
     },
   };

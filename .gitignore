@@ -43,3 +43,6 @@ override.tf.json
 .DS_Store
 Thumbs.db
 *.tmp
+
+mobile/android/app/google-services.json
+mobile/ios/Runner/GoogleService-Info.plist

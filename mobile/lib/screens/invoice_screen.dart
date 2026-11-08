@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../api/models.dart';
 import '../api/myca_api.dart';
 import '../app_state.dart';
+import '../cloud/cloud_session.dart';
 import '../format.dart';
 import '../invoice_pdf.dart';
 import '../proposal_flow.dart';
@@ -136,9 +137,44 @@ class _InvoiceScreenState extends State<InvoiceScreen> with ProposalFlow {
   }
 
   Future<void> _einvoice(InvoiceDocument doc) async {
-    await propose('Generate the e-invoice (IRN) for ${doc.id}', 'govt_generate_irn', {
-      'invoiceId': doc.id,
-    });
+    final cloud = AppScope.of(context).cloud;
+    if (cloud == null) {
+      await propose('Generate the e-invoice (IRN) for ${doc.id}', 'govt_generate_irn', {
+        'invoiceId': doc.id,
+      });
+      return;
+    }
+    setState(() => _busy = true);
+    try {
+      var out = await cloud.generateEinvoice(doc.id);
+      if (out.error == 'APPROVAL_REQUIRED') {
+        final pending = await cloud.pendingEinvoiceApprovals(doc.id);
+        if (pending.isEmpty) {
+          await cloud.requestEinvoiceApproval(doc.id);
+          if (mounted) setState(() => _note = 'This business is in live mode, so a real IRN needs a second person. Asked for approval: an owner or your accountant opens this invoice and taps Generate e-invoice to approve it.');
+          return;
+        }
+        final decided = await cloud.approve('${pending.first['approvalId']}');
+        if (decided['error'] == 'MAKER_CHECKER_VIOLATION') {
+          if (mounted) setState(() => _note = 'Waiting for an owner or your accountant, other than you, to approve this e-invoice.');
+          return;
+        }
+        if (decided['ok'] != true) {
+          if (mounted) setState(() => _note = cloudMessage('${decided['error'] ?? 'UNKNOWN'}', '${decided['hint'] ?? ''}'));
+          return;
+        }
+        out = await cloud.generateEinvoice(doc.id);
+      }
+      if (!mounted) return;
+      setState(() => _note = out.ok
+          ? (out.sandbox ? 'Sandbox IRN issued on the NIC test IRP. It is not valid for a real supply.' : 'IRN issued: ${out.irn}')
+          : cloudMessage(out.error, out.hint));
+      if (out.ok) _reload();
+    } on MycaApiException catch (error) {
+      if (mounted) setState(() => _note = error.message);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   Future<void> _ewayBill(InvoiceDocument doc) async {
@@ -258,7 +294,7 @@ class _InvoiceScreenState extends State<InvoiceScreen> with ProposalFlow {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          '${widget.quote ? 'Quote' : 'Invoice'} ${widget.invoiceId}',
+          '${widget.quote ? salesDocumentLabel(salesKindOfId(widget.invoiceId)) : 'Invoice'} ${widget.invoiceId}',
         ),
       ),
       body: FutureBuilder<InvoiceDocument?>(
@@ -319,7 +355,7 @@ class _InvoiceScreenState extends State<InvoiceScreen> with ProposalFlow {
                       ? null
                       : () => _transport(doc),
                   onEwayBill: doc.ewayBill?.status == 'ready' ? () => _ewayBill(doc) : null,
-                  onEinvoice: doc.einvoice?.status == 'ready' && AppScope.of(context).cloud == null ? () => _einvoice(doc) : null,
+                  onEinvoice: doc.einvoice?.status == 'ready' || (AppScope.of(context).cloud != null && doc.einvoice?.status == 'sandbox') ? () => _einvoice(doc) : null,
                   onCancel: doc.isQuote || doc.cancelled || doc.credited > 0
                       ? null
                       : () => _cancel(doc),
@@ -328,7 +364,7 @@ class _InvoiceScreenState extends State<InvoiceScreen> with ProposalFlow {
                       ? null
                       : () => _remind(doc),
                   onAccept:
-                      doc.isQuote &&
+                      doc.canAccept &&
                           (doc.status == 'open' || doc.status == 'expired')
                       ? () => propose('${doc.id} accepted', 'mark_quote', {
                           'id': doc.id,
@@ -336,17 +372,31 @@ class _InvoiceScreenState extends State<InvoiceScreen> with ProposalFlow {
                         })
                       : null,
                   onDecline:
-                      doc.isQuote &&
+                      doc.canAccept &&
                           (doc.status == 'open' || doc.status == 'expired')
                       ? () => propose('${doc.id} declined', 'mark_quote', {
                           'id': doc.id,
                           'outcome': 'declined',
                         })
                       : null,
+                  onReturned: doc.canReturn && doc.status == 'open'
+                      ? () => propose('${doc.id} came back', 'mark_quote', {
+                          'id': doc.id,
+                          'outcome': 'returned',
+                        })
+                      : null,
+                  onCancelDocument: doc.canCancelOrder && doc.status == 'open'
+                      ? () => propose('Cancel ${doc.id}', 'mark_quote', {
+                          'id': doc.id,
+                          'outcome': 'cancelled',
+                        })
+                      : null,
                   onMakeInvoice:
-                      doc.isQuote &&
+                      doc.canInvoice &&
                           doc.status != 'declined' &&
-                          doc.status != 'invoiced'
+                          doc.status != 'invoiced' &&
+                          doc.status != 'cancelled' &&
+                          doc.status != 'returned'
                       ? () => propose(
                           'Make ${doc.id} an invoice',
                           'convert_quote',
@@ -393,6 +443,8 @@ class _InvoiceBody extends StatelessWidget {
     this.onAccept,
     this.onDecline,
     this.onMakeInvoice,
+    this.onReturned,
+    this.onCancelDocument,
   });
 
   final InvoiceDocument doc;
@@ -414,6 +466,8 @@ class _InvoiceBody extends StatelessWidget {
   final VoidCallback? onAccept;
   final VoidCallback? onDecline;
   final VoidCallback? onMakeInvoice;
+  final VoidCallback? onReturned;
+  final VoidCallback? onCancelDocument;
 
   @override
   Widget build(BuildContext context) {
@@ -618,6 +672,8 @@ class _InvoiceBody extends StatelessWidget {
                     ? 'IRN ${ei.irn}'
                     : ei.status == 'mock'
                     ? 'Simulated IRN ${ei.irn.length > 12 ? ei.irn.substring(0, 12) : ei.irn}…'
+                    : ei.status == 'sandbox'
+                    ? 'Sandbox IRN ${ei.irn.length > 12 ? ei.irn.substring(0, 12) : ei.irn}…'
                     : 'No IRN yet',
                 style: text.titleMedium,
               ),
@@ -716,7 +772,7 @@ class _InvoiceBody extends StatelessWidget {
             ),
           ),
         ],
-        if (onMakeInvoice != null || onAccept != null || onDecline != null) ...[
+        if (onMakeInvoice != null || onAccept != null || onDecline != null || onReturned != null || onCancelDocument != null) ...[
           const SizedBox(height: 20),
           Wrap(
             spacing: 8,
@@ -737,11 +793,21 @@ class _InvoiceBody extends StatelessWidget {
                   label: const Text('Declined'),
                   onPressed: busy ? null : onDecline,
                 ),
+              if (onReturned != null)
+                ActionChip(
+                  label: const Text('Goods came back'),
+                  onPressed: busy ? null : onReturned,
+                ),
+              if (onCancelDocument != null)
+                ActionChip(
+                  label: const Text('Cancel'),
+                  onPressed: busy ? null : onCancelDocument,
+                ),
             ],
           ),
           const SizedBox(height: 6),
           Text(
-            'A quote posts nothing to your books. Making the invoice posts it, with the same lines.',
+            'This posts nothing to your books. Making the invoice posts it, with the same lines.',
             style: text.bodySmall,
           ),
         ],

@@ -71,10 +71,11 @@ void main() {
         takeSharedFile: takeSharedFileFromDevice,
         notifications: DeviceNotifications(),
         saveTextFile: saveTextFileOnDevice,
+        saveBytesFile: saveBytesFileOnDevice,
         shareText: shareTextFromDevice,
         pdf: const PdfActions(share: sharePdfFromDevice, print: printPdfFromDevice),
         crashes: crashes,
-        google: config.hosted && config.googleServerClientId.isNotEmpty
+        google: config.hosted && config.googleServerClientId.isNotEmpty && defaultTargetPlatform != TargetPlatform.windows
             ? DeviceGoogleAuth(config.googleServerClientId)
             : null,
         oidc: config.hosted && config.oidcClientId.isNotEmpty

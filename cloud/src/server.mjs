@@ -9,6 +9,7 @@ import { connectorKeyFromEnv } from './connectors.mjs';
 import { booksKeyFromEnv } from './books-seal.mjs';
 import { smsSenderFromEnv } from './sms-sender.mjs';
 import { whatsAppConfigFromEnv, createWhatsAppSender } from './whatsapp.mjs';
+import { createBilling, billingConfigFromEnv } from './billing.mjs';
 
 const STARTUP_ATTEMPTS = 10;
 const STARTUP_WAIT_MS = 3000;
@@ -45,10 +46,11 @@ async function migrateWithRetry(db) {
   }
 }
 
-const db = createDb(required('MYCA_DATABASE_URL'));
+const db = createDb(required('MYCA_DATABASE_URL'), { onError: (err) => log({ db: 'idle connection lost', error: String(err && err.message ? err.message : err) }) });
 await migrateWithRetry(db);
 const handler = createApi({
   db,
+  billing: createBilling({ db, config: billingConfigFromEnv(process.env), log }),
   secret: required('MYCA_TOKEN_SECRET'),
   otpSender: otpSender(),
   googleClientIds: clientIdsFrom(process.env.MYCA_GOOGLE_CLIENT_IDS),
@@ -66,7 +68,8 @@ const handler = createApi({
 const port = Number(process.env.PORT || 8080);
 const server = createServer(handler);
 server.keepAliveTimeout = 65000;
-server.listen(port, () => log({ listening: port }));
+const host = String(process.env.MYCA_LISTEN_HOST || '').trim() || undefined;
+server.listen(port, host, () => log({ listening: port, host: host || 'all' }));
 
 let stopping = false;
 function shutdown(signal) {
