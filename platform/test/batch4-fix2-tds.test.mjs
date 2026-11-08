@@ -422,7 +422,7 @@ test('R1-1 today: a sentence that says today, now, aaj or dated today records th
   assert.equal(planLocalToolCall(state, 'record tds withheld 2000 on INV-0001 under 194C on 7 nov 2026 now').args.date, '2026-11-07');
   const both = planLocalToolCall(state, 'record tds withheld 2000 on INV-0001 under 194C yesterday or today');
   assert.equal(both.kind, 'reply', JSON.stringify(both));
-  assert.match(both.reply, /Say the date as YYYY-MM-DD/);
+  assert.match(both.reply, /Say the date, for example "[^"]*dated 15 October 2026"/);
   const known = planLocalToolCall(state, 'record tds withheld 2000 on INV-0001 under 194C and I know the certificate is with the bank');
   assert.deepEqual(known.args, { invoiceId: 'INV-0001', amount: 2000, section: '194C' });
 });
@@ -442,7 +442,7 @@ test('R1-1 today: this week and this month name no single day, so they ask for a
     const state = await acmeBooks();
     const plan = planLocalToolCall(state, sentence);
     assert.equal(plan.kind, 'reply', `${sentence}: ${JSON.stringify(plan)}`);
-    assert.equal(plan.reply, 'Say the date as YYYY-MM-DD, for example "record tds withheld 2000 on INV-0001 under 194J dated 2026-10-15". I have recorded nothing.', sentence);
+    assert.equal(plan.reply, 'Say the date, for example "record tds withheld 2000 on INV-0001 under 194J dated 15 October 2026". I have recorded nothing.', sentence);
     const out = await chat(state, sentence);
     assert.equal(out.awaitingConfirmation, undefined, `${sentence}: ${out.reply}`);
     assert.deepEqual(out.tools, [], sentence);

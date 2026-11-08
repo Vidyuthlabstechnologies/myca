@@ -131,7 +131,7 @@ test('routing-1: a day number or a month name is not the amount, and a date said
   for (const sentence of ['tds withheld 500 on INV-0001 dated 31/02/2026', 'tds withheld 500 on INV-0001 on 15/10/26', 'tds withheld 500 on INV-0001 dated 2026-13-45', 'tds withheld 500 on INV-0001 yesterday', 'tds withheld 500 on INV-0001 on 1 October and 5 October']) {
     const plan = direct(state, sentence);
     assert.equal(plan.kind, 'reply', `${sentence}: ${JSON.stringify(plan)}`);
-    assert.match(plan.reply, /Say the date as YYYY-MM-DD/, sentence);
+    assert.match(plan.reply, /Say the date, for example "[^"]*dated 15 October 2026"/, sentence);
     assert.match(plan.reply, /recorded nothing/, sentence);
   }
 });
@@ -569,7 +569,7 @@ function stepsOf(reply) {
   return first && then ? { tds: then[1], invoice: then[2], section: then[3], cash: first[1], cashInvoice: first[2] } : null;
 }
 
-const TWO_STEP_OR_ASK = /first say "received|Say the invoice number|Say how much TDS was withheld|Say one invoice at a time|Say the date as/;
+const TWO_STEP_OR_ASK = /first say "received|Say the invoice number|Say how much TDS was withheld|Say one invoice at a time|Say the date,/;
 
 function assertSteps(plan, sentence, { tds, cash, invoice }) {
   assert.equal(plan.kind, 'reply', `${sentence}: ${JSON.stringify(plan)}`);

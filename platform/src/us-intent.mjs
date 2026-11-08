@@ -1,4 +1,4 @@
-import { isNegated, isQuestion, normalizeChat, receiptDate, parseDocument, isSaleIntent, isPurchaseIntent } from './intent.mjs';
+import { isNegated, isQuestion, normalizeChat, receiptDate, parseDocument, documentProblemReply, isSaleIntent, isPurchaseIntent } from './intent.mjs';
 import { localToday } from './dates.mjs';
 import { normalizeJurisdiction } from './us-sales.mjs';
 
@@ -124,6 +124,7 @@ export function planUsFromChat(state, text) {
   const exempt = raw.match(EXEMPT);
   const doc = parseDocument(withoutTax(raw).replace(/\$/g, ' '));
   if (!doc) return null;
+  if (doc.problem) return documentProblemReply(doc, 'US');
   const described = raw.match(DESCRIBED);
   const lines = doc.lines.map((line) => ({ description: described ? described[1].trim() : line.description, qty: line.qty, rate: line.rate }));
   const base = { partyName: doc.partyName, lines, date: receiptDate(raw, today) };
