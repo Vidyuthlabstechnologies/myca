@@ -10,7 +10,7 @@ num _num(Object? value) => value is num ? value : 0;
 
 String _text(Object? value) => value == null ? '' : value.toString();
 
-num _paise(num value) => (value * 100).round() / 100;
+num _stillOpen(num value) => value > 0 ? (value * 100).round() / 100 : 0;
 
 class Company {
   const Company({required this.name, required this.gstin, this.tdsDeductor = false, this.country = 'IN', this.gstFrequency = 'monthly'});
@@ -340,9 +340,9 @@ class Invoice {
 
   bool get partial => status == 'partial';
 
-  num get owed => _paise(total - receipts.fold<num>(0, (sum, r) => sum + r.amount) - payments.fold<num>(0, (sum, p) => sum + p.amount));
+  num get owed => _stillOpen(total - receipts.fold<num>(0, (sum, r) => sum + r.amount) - payments.fold<num>(0, (sum, p) => sum + p.amount));
 
-  num owedAfter(Iterable<CreditNote> notes) => _paise(owed - notes.where((note) => note.invoiceId == id).fold<num>(0, (sum, note) => sum + note.total));
+  num owedAfter(Iterable<CreditNote> notes) => _stillOpen(owed - notes.where((note) => note.invoiceId == id).fold<num>(0, (sum, note) => sum + note.total));
 
   bool get cancelled => status == 'cancelled';
 

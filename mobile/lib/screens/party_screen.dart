@@ -1044,6 +1044,7 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
   List<Widget> _paymentFields(Party party) => [
     DropdownButtonFormField<String>(
       initialValue: _invoiceId,
+      isExpanded: true,
       decoration: InputDecoration(
         labelText: _sales ? 'Against invoice' : 'Against bill',
       ),
@@ -1051,7 +1052,11 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
         for (final doc in party.unpaid)
           DropdownMenuItem(
             value: doc.id,
-            child: Text('${doc.id} · ${rupees(_stillOwed(doc))} owed'),
+            child: Text(
+              '${doc.id} · ${rupees(_stillOwed(doc))} owed',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
       ],
       onChanged: (value) => setState(() {
