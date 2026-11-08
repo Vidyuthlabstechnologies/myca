@@ -12,7 +12,7 @@ import { registrationsOf } from './registrations.mjs';
 import { filingFor } from './filings.mjs';
 import { runRecurring } from './recurring.mjs';
 import { runBankRules, ruleWarningWords } from './bank-rules.mjs';
-import { supplierDues } from './supplier-dues.mjs';
+import { supplierDues, completeMsmeReminders } from './supplier-dues.mjs';
 
 const LOOK_AHEAD_DAYS = 14;
 const MSME_ALERT_DAYS = 7;
@@ -85,6 +85,7 @@ function dueSoon(state, today, until) {
 }
 
 function remindersFor(state, today, until) {
+  completeMsmeReminders(state, { today });
   const existing = new Set((state.reminders || []).map((reminder) => reminder.source).filter(Boolean));
   const added = [];
   for (const item of dueSoon(state, today, until)) {

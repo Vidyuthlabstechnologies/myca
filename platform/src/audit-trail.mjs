@@ -12,7 +12,7 @@ const MAX_LIMIT = 2000;
 const SENTENCE_IDS = 20;
 const SHEET_TRANSFERS = 300;
 const CHANGE_ACTION = /^(?:chat\.confirm|recurring_posted|bank_rule_applied|exceptions\.|file\.|books_ledger\.|documents\.|client\.|user\.|external\.|sandbox\.)/;
-const CHANGE_TOOLS = new Set(['lock_period', 'unlock_period', 'set_company', 'set_supplier_terms', 'save_report', 'delete_report', 'set_employee_bank', 'run_automation', 'run_recurring']);
+const CHANGE_TOOLS = new Set(['lock_period', 'unlock_period', 'set_company', 'set_supplier_terms', 'save_report', 'delete_report', 'set_employee_bank', 'run_automation', 'run_recurring', 'request_documents', 'record_document_received', 'correct_eval']);
 const ID_FIELDS = [['invoice', 'id'], ['bill', 'id'], ['expense', 'id'], ['creditNote', 'id'], ['debitNote', 'id'], ['purchaseNote', 'id'], ['note', 'id'], ['amendment', 'id'], ['report', 'name'], ['reminder', 'id'], ['rule', 'id'], ['line', 'id'], ['quote', 'id'], ['schedule', 'id'], ['employee', 'id'], ['settlement', 'id'], ['data', 'id']];
 const CONFIRM_FAILURES = {
   NOTHING_PENDING: 'nothing was waiting',
@@ -91,6 +91,7 @@ export function auditDetails(name, result) {
       add(isRecord(item) ? item.id : undefined);
     }
   }
+  if (name === 'record_share' && source.ok !== false && source.recorded === true) add(source.invoiceId);
   const body = isRecord(source.data) ? source.data : source;
   const text = (value) => (typeof value === 'string' ? value.slice(0, MAX_REASON) : undefined);
   const extra = {};
@@ -104,13 +105,19 @@ export function auditDetails(name, result) {
   return { ids, ...extra };
 }
 
+function ranDirectly(name) {
+  return CHANGE_TOOLS.has(name) && !CONFIRM_TOOLS.has(name);
+}
+
 function kindOf(event) {
   const action = String(event.action || '');
   if (event.beforeHash !== event.afterHash || CHANGE_ACTION.test(action)) return 'change';
-  if (action === 'chat.run' && isRecord(event.metadata) && event.metadata.posted === true) return 'change';
+  const meta = isRecord(event.metadata) ? event.metadata : {};
+  if (action === 'chat.run' && (meta.posted === true || (Array.isArray(meta.tools) && meta.tools.some(ranDirectly)))) return 'change';
   if (action.startsWith('tool.')) {
     const name = action.slice(5);
     if (CONFIRM_TOOLS.has(name) || CHANGE_TOOLS.has(name)) return 'change';
+    if (name === 'record_share' && idsOf(meta).length > 0) return 'change';
   }
   return action.startsWith('session.') ? 'session' : 'read';
 }
@@ -284,14 +291,21 @@ function plural(count, one, many) {
   return count === 1 ? one : many;
 }
 
+export function sealCaveats(chain) {
+  const earlier = Number.isFinite(chain.unchained) ? chain.unchained : 0;
+  const said = [];
+  if (chain.chained > 0) said.push(NOT_SEALED);
+  if (earlier > 0) said.push(`${earlier} earlier ${plural(earlier, 'event was', 'events were')} recorded before sealing and ${plural(earlier, 'is', 'are')} not covered`);
+  return said.map((text) => `; ${text}`).join('');
+}
+
 export function auditTrailWords(data) {
   const events = Array.isArray(data.events) ? data.events : [];
   const count = Number.isFinite(data.count) ? data.count : events.length;
   const total = Math.max(Number.isFinite(data.total) ? data.total : count, count);
   const chain = data.chain || {};
   const head = data.view === 'all' ? `${count} ${plural(count, 'event', 'events')}` : `${count} ${plural(count, 'change', 'changes')} between ${data.from} and ${data.to}`;
-  const caveat = chain.chained > 0 ? `; ${NOT_SEALED}` : '';
-  const verdict = chain.ok === false ? `LOG CHAIN BROKEN at ${chain.at}` : `log chain verified (${chain.chained || 0} ${plural(chain.chained, 'event', 'events')}${caveat})`;
+  const verdict = chain.ok === false ? `LOG CHAIN BROKEN at ${chain.at}` : `log chain verified (${chain.chained || 0} ${plural(chain.chained, 'event', 'events')}${sealCaveats(chain)})`;
   const lines = [`${head}, ${verdict}`];
   const shown = events.slice().reverse().slice(0, 10);
   for (const event of shown) lines.push(`· ${whenWords(event.at)} ${event.actorName || event.actorId}: ${event.summary}`);

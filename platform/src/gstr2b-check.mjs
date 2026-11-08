@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { gst } from './sprint-load.mjs';
 import { isReturnPeriod, periodOf } from './return-period.mjs';
 import { localToday } from './dates.mjs';
+import { csvRawRows } from './text-safe.mjs';
 
 const { parseGstr2B, match2B, itcOf, reconcile } = gst;
 
@@ -100,14 +101,10 @@ function dayMonthYear(iso) {
   return year && month && day ? `${day}-${month}-${year}` : '';
 }
 
-function csvField(value) {
-  const written = String(value ?? '');
-  return written.includes(',') ? `"${written}"` : written;
-}
-
-function statementText(rows) {
-  const lines = rows.map((row) => STATEMENT_COLUMNS.map(([, field]) => csvField(field === 'invoiceDate' ? dayMonthYear(row.invoiceDate) : row[field])).join(','));
-  return [STATEMENT_COLUMNS.map(([name]) => name).join(','), ...lines].join('\n');
+export function statementText(rows) {
+  const header = STATEMENT_COLUMNS.map(([name]) => name);
+  const body = rows.map((row) => STATEMENT_COLUMNS.map(([, field]) => (field === 'invoiceDate' ? dayMonthYear(row.invoiceDate) : row[field])));
+  return csvRawRows([header, ...body]);
 }
 
 export function reconcileDocuments(inputs, options) {
