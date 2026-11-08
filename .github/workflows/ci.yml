@@ -16,7 +16,7 @@ concurrency:
 jobs:
   dependencies:
     name: Dependency scan
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.MYCA_CI_RUNNER || 'ubuntu-latest' }}
     permissions:
       contents: read
       pull-requests: read
@@ -44,7 +44,7 @@ jobs:
 
   platform:
     name: Platform tests
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.MYCA_CI_RUNNER || 'ubuntu-latest' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -58,7 +58,7 @@ jobs:
 
   sprints:
     name: Sprint engine tests
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.MYCA_CI_RUNNER || 'ubuntu-latest' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -80,7 +80,7 @@ jobs:
 
   cloud:
     name: Hosted API tests
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.MYCA_CI_RUNNER || 'ubuntu-latest' }}
     services:
       postgres:
         image: postgres:16
@@ -108,7 +108,7 @@ jobs:
 
   mobile:
     name: Android app analysis and tests
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.MYCA_CI_RUNNER || 'ubuntu-latest' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

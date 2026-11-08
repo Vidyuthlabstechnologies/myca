@@ -11,7 +11,7 @@ permissions:
 jobs:
   build:
     name: Release APK and app bundle
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.MYCA_CI_RUNNER || 'ubuntu-latest' }}
     env:
       HAS_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
       CLOUD_URL: ${{ vars.MYCA_CLOUD_URL }}
@@ -125,7 +125,7 @@ jobs:
     name: Attach to the release
     needs: build
     if: startsWith(github.ref, 'refs/tags/v')
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.MYCA_CI_RUNNER || 'ubuntu-latest' }}
     permissions:
       contents: write
     env:
