@@ -95,6 +95,11 @@ String? _changeCodeMessage(String code, Object? attemptsRemaining) {
   return code == 'CODE_USED' ? _secondStepMessages[code] : null;
 }
 
+String? _setupCodeMessage(String code, Object? attemptsRemaining) {
+  final left = attemptsRemaining is num ? attemptsRemaining.toInt() : null;
+  return code == 'INVALID_CODE' && left != null && left > 0 ? _triesLeft(left) : null;
+}
+
 class SecondStepResult {
   const SecondStepResult({required this.usedRecoveryCode, required this.recoveryCodesLeft});
 
@@ -1090,7 +1095,7 @@ class CloudSession {
   }
 
   Future<List<String>> confirmSecondStep(String code) async =>
-      _strings(_accepted(await call('POST', '/v1/me/second-step/confirm', {'code': code}))['recoveryCodes']);
+      _strings(_accepted(await call('POST', '/v1/me/second-step/confirm', {'code': code}, _setupCodeMessage))['recoveryCodes']);
 
   Future<void> disableSecondStep(String code) async {
     _accepted(await call('POST', '/v1/me/second-step/disable', {'code': code}, _changeCodeMessage));

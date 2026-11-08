@@ -3,7 +3,11 @@ import 'package:myca/api/models.dart';
 import 'package:myca/main.dart';
 
 import 'accessibility_test.dart' show phone;
+import 'batch4_fix2_app_test.dart' show signedInScripted;
+import 'batch4_fix_app_test.dart' show says, wrong;
+import 'cloud_test.dart' show signedIn;
 import 'fake_api.dart';
+import 'fake_cloud.dart';
 
 AuditTrail trailWith(Map<String, Object?> chain) => AuditTrail.fromTool({
   'ok': true,
@@ -66,5 +70,35 @@ void main() {
       findsOneWidget,
     );
     expect(tester.takeException(), isNull);
+  });
+
+  group('turning two-step on counts the wrong codes down', () {
+    test('each wrong code says how many tries are left, the fifth ends the setup, and starting again works', () async {
+      final cloud = FakeCloud();
+      final session = await signedIn(cloud);
+      await session.beginSecondStep();
+      for (final words in ['4 tries left.', '3 tries left.', '2 tries left.', '1 try left.']) {
+        await expectLater(session.confirmSecondStep('000000'), says('That code is not right. $words'));
+      }
+      await expectLater(session.confirmSecondStep('000000'), says('Too many wrong codes. Start the setup again.'));
+      await expectLater(session.confirmSecondStep(cloud.totpCode), says('Start the two-step setup again.'));
+      await session.beginSecondStep();
+      expect(await session.confirmSecondStep(cloud.totpCode), hasLength(8));
+    });
+
+    test('a refusal that comes without a count keeps the plain sentence, and a count of none left never borrows the wait-15-minutes sentence', () async {
+      final session = await signedInScripted({
+        '/v1/me/second-step/confirm': [
+          (400, {'ok': false, 'error': 'INVALID_CODE'}),
+          wrong(2),
+          wrong(0),
+          (400, {'ok': false, 'error': 'INVALID_CODE', 'attemptsRemaining': 'soon'}),
+        ],
+      });
+      await expectLater(session.confirmSecondStep('000000'), says('That code is not right. Check it and try again.'));
+      await expectLater(session.confirmSecondStep('000000'), says('That code is not right. 2 tries left.'));
+      await expectLater(session.confirmSecondStep('000000'), says('That code is not right. Check it and try again.'));
+      await expectLater(session.confirmSecondStep('000000'), says('That code is not right. Check it and try again.'));
+    });
   });
 }

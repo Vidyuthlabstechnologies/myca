@@ -206,7 +206,7 @@ void main() {
     final setup = await session.beginSecondStep();
     expect(setup.account, '+919876543210');
     expect(setup.secret, 'JBSWY3DPEHPK3PXP');
-    await expectLater(session.confirmSecondStep('000000'), says(wrongCode));
+    await expectLater(session.confirmSecondStep('000000'), says('That code is not right. 4 tries left.'));
     expect(await session.confirmSecondStep('246810'), hasLength(8));
     await expectLater(session.beginSecondStep(), says('Two-step sign-in is already on.'));
     final status = await session.secondStepStatus();
@@ -223,8 +223,8 @@ void main() {
     final session = await signedIn(cloud);
     Matcher says(String sentence) => throwsA(isA<MycaApiException>().having((e) => e.message, 'message', sentence));
     await session.beginSecondStep();
-    for (var i = 0; i < 4; i++) {
-      await expectLater(session.confirmSecondStep('000000'), says(wrongCode));
+    for (final words in ['4 tries left.', '3 tries left.', '2 tries left.', '1 try left.']) {
+      await expectLater(session.confirmSecondStep('000000'), says('That code is not right. $words'));
     }
     await expectLater(session.confirmSecondStep('000000'), says('Too many wrong codes. Start the setup again.'));
     await expectLater(session.confirmSecondStep('246810'), says('Start the two-step setup again.'));
@@ -541,7 +541,7 @@ void main() {
 
     await typeIn(tester, find.widgetWithText(TextField, 'Code from the app'), '000000');
     await press(tester, find.widgetWithText(FilledButton, 'Turn on'));
-    expect(find.text(wrongCode), findsOneWidget);
+    expect(find.text('That code is not right. 4 tries left.'), findsOneWidget);
     expect(cloud.twoStepEnabled, isFalse);
     expect(find.text('Turn on two-step sign-in'), findsOneWidget);
 
@@ -592,15 +592,16 @@ void main() {
     await tester.pumpWidget(MycaApp(state: hosted(cloud, tokens)));
     await tester.pumpAndSettle();
     await openSetup(tester);
-    for (var i = 0; i < 4; i++) {
+    for (final words in ['4 tries left.', '3 tries left.', '2 tries left.', '1 try left.']) {
       await typeIn(tester, find.widgetWithText(TextField, 'Code from the app'), '000000');
       await press(tester, find.widgetWithText(FilledButton, 'Turn on'));
-      expect(find.text(wrongCode), findsOneWidget);
+      expect(find.text('That code is not right. $words'), findsOneWidget);
+      expect(find.textContaining('That code is not right'), findsOneWidget);
     }
     await typeIn(tester, find.widgetWithText(TextField, 'Code from the app'), '000000');
     await press(tester, find.widgetWithText(FilledButton, 'Turn on'));
     expect(find.text('Too many wrong codes. Start the setup again.'), findsOneWidget);
-    expect(find.text(wrongCode), findsNothing);
+    expect(find.textContaining('That code is not right'), findsNothing);
 
     await tester.pageBack();
     await tester.pumpAndSettle();

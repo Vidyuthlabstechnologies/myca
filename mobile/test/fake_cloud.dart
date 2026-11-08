@@ -283,7 +283,7 @@ class FakeCloud {
       if (!enrolling || twoStepEnabled) return _json(400, {'ok': false, 'error': 'NOT_ENROLLING'});
       enrolAttempts += 1;
       if (body['code'] != totpCode) {
-        if (enrolAttempts < 5) return _json(400, {'ok': false, 'error': 'INVALID_CODE'});
+        if (enrolAttempts < 5) return _json(400, {'ok': false, 'error': 'INVALID_CODE', 'attemptsRemaining': 5 - enrolAttempts});
         enrolling = false;
         return _json(400, {'ok': false, 'error': 'ENROLMENT_RESTART'});
       }

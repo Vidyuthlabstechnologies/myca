@@ -565,11 +565,11 @@ void main() {
       await expectLater(session.disableSecondStep('000000'), says('Two-step sign-in is off.'));
     });
 
-    test('the sentences of the other routes are not changed', () async {
+    test('the setup route counts its wrong codes down and keeps its own restart sentence, and the other sentences are not changed', () async {
       final session = await signedInScripted({
         '/v1/me/second-step/confirm': [wrong(3), refused(400, 'ENROLMENT_RESTART')],
       });
-      await expectLater(session.confirmSecondStep('000000'), says('That code is not right. Check it and try again.'));
+      await expectLater(session.confirmSecondStep('000000'), says('That code is not right. 3 tries left.'));
       await expectLater(session.confirmSecondStep('000000'), says('Too many wrong codes. Start the setup again.'));
       expect(secondStepMessage('TOO_MANY_ATTEMPTS', null), over);
       expect(cloudMessage('TOO_MANY_ATTEMPTS'), 'Too many wrong tries. Ask for a new code.');
