@@ -193,6 +193,16 @@ function noMatchWords(select, decision) {
   return NO_MATCH_WORDS[select] || 'No invoice matches what you asked for, so nothing was marked.';
 }
 
+function alreadyDecidedWords(decision) {
+  return `Every invoice you asked for is already ${IMS_DECISION_WORDS[decision]}, so nothing was marked.`;
+}
+
+function nextRound(picked, decision) {
+  if (picked.length <= IMS_MAX_ROWS) return { rows: picked, left: 0 };
+  const open = picked.filter((row) => (decision === 'clear' ? row.decision : row.decision !== decision));
+  return { rows: open.slice(0, IMS_MAX_ROWS), left: Math.max(0, open.length - IMS_MAX_ROWS) };
+}
+
 export function pinImsRows(args, plan) {
   const keys = plan.rows.map((row) => row.key);
   if (keys.some((key) => key.length > IMS_MAX_KEY)) return args;
@@ -212,6 +222,7 @@ export function planImsDecision(state, args = {}) {
   if (note.length > IMS_MAX_NOTE) return failure('NOTE_TOO_LONG', { limit: IMS_MAX_NOTE });
   const keys = [...new Set((Array.isArray(args.keys) ? args.keys : []).map((key) => text(key).trim()).filter(Boolean))];
   let picked = [];
+  let left = 0;
   if (keys.length) {
     if (keys.length > IMS_MAX_ROWS) return failure('TOO_MANY_ROWS', { limit: IMS_MAX_ROWS });
     const byKey = new Map();
@@ -226,7 +237,10 @@ export function planImsDecision(state, args = {}) {
     const select = text(args.select).trim();
     picked = pickRows(review.rows, select, decision).filter((row) => !seen.has(row.key) && seen.add(row.key));
     if (!picked.length) return IMS_SELECTS.includes(select) ? failure('NO_MATCH', { hint: noMatchWords(select, decision) }) : failure('NO_ROWS', { period });
-    if (picked.length > IMS_MAX_ROWS) return failure('TOO_MANY_ROWS', { limit: IMS_MAX_ROWS });
+    const round = nextRound(picked, decision);
+    if (!round.rows.length) return failure('NO_MATCH', { hint: alreadyDecidedWords(decision) });
+    picked = round.rows;
+    left = round.left;
   }
   return {
     ok: true,
@@ -235,6 +249,7 @@ export function planImsDecision(state, args = {}) {
     rows: picked.map((row) => ({ key: row.key, supplierName: row.supplierName, invoiceNo: row.invoiceNo, credit: row.credit })),
     credit: round2(picked.reduce((sum, row) => sum + row.credit, 0)),
     note,
+    ...(left ? { left } : {}),
   };
 }
 
