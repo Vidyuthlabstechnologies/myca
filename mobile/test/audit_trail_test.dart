@@ -57,7 +57,7 @@ void main() {
     await tester.pumpAndSettle();
     await tapRow(tester, 'Reports');
     expect(find.text('BUILT-IN'), findsOneWidget);
-    expect(find.text('Who changed what and when, with proof the log was not edited'), findsOneWidget);
+    expect(find.text('Who changed what and when, with a check for edits to the log'), findsOneWidget);
     expect(find.text('Sales by customer'), findsOneWidget);
     expect(find.text('Expenses this quarter'), findsOneWidget);
 
@@ -69,7 +69,7 @@ void main() {
     expect(find.text('Locked the books through 2026-09-30: September closed'), findsOneWidget);
     expect(find.text('2026-10-05 10:30 UTC · Asha · INV-0001'), findsOneWidget);
     expect(find.text('2026-10-05 11:15 UTC · Asha'), findsOneWidget);
-    expect(find.text('Log chain verified (2 events)'), findsOneWidget);
+    expect(find.text('Log chain verified (2 events; the client an event is filed under is not sealed)'), findsOneWidget);
     expect(find.text('Nothing changed in this period.'), findsNothing);
     final lock = tester.getTopLeft(find.byKey(const ValueKey('audit.AUD-000002'))).dy;
     final invoice = tester.getTopLeft(find.byKey(const ValueKey('audit.AUD-000001'))).dy;
@@ -197,7 +197,7 @@ void main() {
     expect(trail.total, 5);
     expect(trail.more, isTrue);
     expect(trail.chainOk, isTrue);
-    expect(trail.chainWords, 'Log chain verified (1 event)');
+    expect(trail.chainWords, 'Log chain verified (1 event; the client an event is filed under is not sealed)');
     expect(trail.ledgerOk, isTrue);
     expect(trail.events.first.actor, 'USR-1');
     expect(trail.events.first.when, '2026-10-05 17:00 UTC');

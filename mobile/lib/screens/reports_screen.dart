@@ -169,7 +169,7 @@ class _ReportsScreenState extends State<ReportsScreen> with ProposalFlow {
                           key: const ValueKey('reports.audit'),
                           leading: const TintTile(tint: Tint.taxes, mark: Mark.paper),
                           title: 'Audit trail',
-                          subtitle: 'Who changed what and when, with proof the log was not edited',
+                          subtitle: 'Who changed what and when, with a check for edits to the log',
                           trailing: const Chevron(),
                           onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const AuditTrailScreen())),
                         ),
