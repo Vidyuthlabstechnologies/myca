@@ -217,7 +217,7 @@ test('R2-1: when the lines of one invoice disagree about the credit, the row sho
 test('R1-19: when no invoice is named, the blocker offers the month and two things to say, not the words the user used', async () => {
   const state = await withStatement(MIXED_2B);
   purchase(state, 'Dye Works', '27AAACD1111A1Z5', 'DW-3', '2026-09-15', [[2000, 18]]);
-  const sentence = 'Say which invoices, for example "accept all matched in IMS for 2026-09" or "reject DYE WORKS in IMS for 2026-09".';
+  const sentence = 'Say which invoices, for example "accept all matched in IMS for 2026-09" or "reject all undecided in IMS for 2026-09".';
   const blocked = (args) => previewOf(state, 'ims_decide', { period: PERIOD, decision: 'accept', ...args }).blockers;
   assert.deepEqual(blocked({}), [sentence]);
   assert.deepEqual(blocked({ keys: [] }), [sentence]);
@@ -225,7 +225,7 @@ test('R1-19: when no invoice is named, the blocker offers the month and two thin
   assert.deepEqual(previewOf(state, 'ims_decide', { period: PERIOD, decision: 'reject' }).blockers, [sentence]);
   const held = propose(state, 'ims_decide', { period: PERIOD, decision: 'accept' });
   assert.equal(held.blocked, true, JSON.stringify(held));
-  assert.equal(held.reply, 'I did not post anything, because:\n· Say which invoices, for example "accept all matched in IMS for September 2026" or "reject DYE WORKS in IMS for September 2026".');
+  assert.equal(held.reply, 'I did not post anything, because:\n· Say which invoices, for example "accept all matched in IMS for September 2026" or "reject all undecided in IMS for September 2026".');
   assert.doesNotMatch(held.reply, /all suggested|all not decided/);
   const offered = await chat(state, 'accept all matched in IMS for September 2026');
   assert.equal(offered.awaitingConfirmation, true, JSON.stringify(offered));
@@ -235,10 +235,10 @@ test('R1-19: when no invoice is named, the blocker offers the month and two thin
 test('R1-19: the month in the blocker is the month asked for, the supplier is one in that statement, and a supplier with a very long name is left out', async () => {
   const state = await withStatement(MIXED_2B);
   await runTool(state, 'import_gstr2b', { period: '2026-08', csv: [HEADER, 'B2B,27AABCT1332L1ZE,FABRIC CO,F-1,05-08-2026,1000,25,25,0,0,1050,Y'].join('\n') });
-  assert.deepEqual(previewOf(state, 'ims_decide', { period: '2026-08', decision: 'pending' }).blockers, ['Say which invoices, for example "accept all matched in IMS for 2026-08" or "reject FABRIC CO in IMS for 2026-08".']);
+  assert.deepEqual(previewOf(state, 'ims_decide', { period: '2026-08', decision: 'pending' }).blockers, ['Say which invoices, for example "accept all matched in IMS for 2026-08" or "reject all undecided in IMS for 2026-08".']);
   const long = 'SRI VENKATA LAKSHMI NARASIMHA TEXTILE MANUFACTURING AND TRADING COMPANY PRIVATE LIMITED';
   await runTool(state, 'import_gstr2b', { period: '2026-07', csv: [HEADER, `B2B,27AABCT1332L1ZE,${long},F-1,05-07-2026,1000,25,25,0,0,1050,Y`].join('\n') });
-  assert.deepEqual(previewOf(state, 'ims_decide', { period: '2026-07', decision: 'accept' }).blockers, ['Say which invoices, for example "accept all matched in IMS for 2026-07".']);
+  assert.deepEqual(previewOf(state, 'ims_decide', { period: '2026-07', decision: 'accept' }).blockers, ['Say which invoices, for example "accept all matched in IMS for 2026-07" or "reject all undecided in IMS for 2026-07".']);
   assert.equal(planImsDecision(state, { period: '2026-07', decision: 'accept' }).error, 'NO_ROWS');
 });
 

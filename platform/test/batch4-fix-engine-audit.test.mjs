@@ -159,11 +159,11 @@ test('a confirmed IMS decision that has nothing left to work on says so in a sen
 
 test('the preview of an IMS decision already explains the same two codes in words', async () => {
   const state = await imsBooks();
-  assert.deepEqual(previewOf(state, 'ims_decide', { period: '2026-09', decision: 'accept' }).blockers, ['Say which invoices, for example "accept all matched in IMS for 2026-09" or "reject FABRIC CO in IMS for 2026-09".']);
+  assert.deepEqual(previewOf(state, 'ims_decide', { period: '2026-09', decision: 'accept' }).blockers, ['Say which invoices, for example "accept all matched in IMS for 2026-09" or "reject all undecided in IMS for 2026-09".']);
   assert.deepEqual(previewOf(state, 'ims_decide', { period: '2026-13', select: 'all', decision: 'accept' }).blockers, ['Say the month as YYYY-MM, for example 2026-10.']);
   const held = await propose(state, 'ims_decide', { period: '2026-09', decision: 'accept' });
   assert.equal(held.blocked, true);
-  assert.equal(held.reply, 'I did not post anything, because:\n· Say which invoices, for example "accept all matched in IMS for September 2026" or "reject FABRIC CO in IMS for September 2026".');
+  assert.equal(held.reply, 'I did not post anything, because:\n· Say which invoices, for example "accept all matched in IMS for September 2026" or "reject all undecided in IMS for September 2026".');
 });
 
 async function creditBooks({ tds = 0, cash = 0 } = {}) {

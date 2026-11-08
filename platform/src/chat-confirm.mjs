@@ -1006,9 +1006,7 @@ function gstr2bPreview(state, args) {
 }
 
 function imsNoRowsWords(plan) {
-  const examples = [`"accept all matched in IMS for ${plan.period}"`];
-  if (plan.supplier) examples.push(`"reject ${plan.supplier} in IMS for ${plan.period}"`);
-  return `Say which invoices, for example ${examples.join(' or ')}.`;
+  return `Say which invoices, for example "accept all matched in IMS for ${plan.period}" or "reject all undecided in IMS for ${plan.period}".`;
 }
 
 const IMS_REASONS = {

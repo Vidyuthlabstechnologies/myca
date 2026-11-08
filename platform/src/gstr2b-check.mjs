@@ -1,11 +1,30 @@
+import { createHash } from 'node:crypto';
 import { gst } from './sprint-load.mjs';
 import { isReturnPeriod, periodOf } from './return-period.mjs';
 import { localToday } from './dates.mjs';
 
-const { parseGstr2B, match2B, itcOf } = gst;
+const { parseGstr2B, match2B, itcOf, reconcile } = gst;
 
 const round2 = (value) => Math.round(Number(value || 0) * 100) / 100;
 const OWN_NUMBER = /^BILL-\d+$/;
+const SUMMED = ['taxableValue', 'cgst', 'sgst', 'igst', 'cess', 'totalValue'];
+const LESS_AVAILABLE = ['N', 'A'];
+const NAME_KEY_MAX = 40;
+const NAME_HASH_LENGTH = 8;
+const STATEMENT_COLUMNS = [
+  ['SECTION', 'section'],
+  ['SUPPLIER GSTIN', 'supplierGstin'],
+  ['SUPPLIER NAME', 'supplierName'],
+  ['INVOICE NO', 'invoiceNo'],
+  ['INVOICE DATE', 'invoiceDate'],
+  ['TAXABLE VALUE', 'taxableValue'],
+  ['CGST', 'cgst'],
+  ['SGST', 'sgst'],
+  ['IGST', 'igst'],
+  ['CESS', 'cess'],
+  ['TOTAL VALUE', 'totalValue'],
+  ['ITC AVAILABILITY', 'itcAvailability'],
+];
 
 export function normNumber(value) {
   return String(value ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '');
@@ -47,6 +66,61 @@ export function allRows(state) {
   return Object.entries(stored).flatMap(([period, entry]) => (entry.rows || []).map((row) => ({ ...row, statementPeriod: period })));
 }
 
+function supplierKey(row) {
+  const gstin = normGstin(row.supplierGstin);
+  if (gstin) return gstin;
+  const name = normNumber(row.supplierName);
+  if (name.length <= NAME_KEY_MAX) return name;
+  return name.slice(0, NAME_KEY_MAX) + createHash('sha256').update(name).digest('hex').slice(0, NAME_HASH_LENGTH).toUpperCase();
+}
+
+export function documentKey(scope, row) {
+  return `${scope}|${supplierKey(row)}|${normNumber(row.invoiceNo)}|${String(row.section || '').toUpperCase()}`;
+}
+
+function oneDocument(lines) {
+  if (lines.length === 1) return lines[0];
+  const added = Object.fromEntries(SUMMED.map((head) => [head, round2(lines.reduce((total, line) => total + (Number(line[head]) || 0), 0))]));
+  const lesser = LESS_AVAILABLE.find((code) => lines.some((line) => line.itcAvailability === code));
+  return { ...lines[0], ...added, itcAvailability: lesser || lines[0].itcAvailability };
+}
+
+export function documentsOf(rows, { byDate = false } = {}) {
+  const groups = new Map();
+  for (const row of rows) {
+    const key = byDate ? `${documentKey(row.statementPeriod ?? '', row)}|${row.invoiceDate ?? ''}` : documentKey(row.statementPeriod ?? '', row);
+    if (groups.has(key)) groups.get(key).push(row);
+    else groups.set(key, [row]);
+  }
+  return [...groups].map(([key, lines]) => ({ key, raw: oneDocument(lines), lines: lines.length }));
+}
+
+function dayMonthYear(iso) {
+  const [year, month, day] = String(iso || '').split('-');
+  return year && month && day ? `${day}-${month}-${year}` : '';
+}
+
+function csvField(value) {
+  const written = String(value ?? '');
+  return written.includes(',') ? `"${written}"` : written;
+}
+
+function statementText(rows) {
+  const lines = rows.map((row) => STATEMENT_COLUMNS.map(([, field]) => csvField(field === 'invoiceDate' ? dayMonthYear(row.invoiceDate) : row[field])).join(','));
+  return [STATEMENT_COLUMNS.map(([name]) => name).join(','), ...lines].join('\n');
+}
+
+export function reconcileDocuments(inputs, options) {
+  if (typeof inputs?.gstr2bText !== 'string') return reconcile(inputs, options);
+  const parsed = parseGstr2B(inputs.gstr2bText);
+  const documents = documentsOf(parsed.rows, { byDate: true });
+  if (documents.every((document) => document.lines === 1)) return reconcile(inputs, options);
+  const merged = reconcile({ ...inputs, gstr2bText: statementText(documents.map((document) => document.raw)) }, options);
+  if (!parsed.errors.length) return merged;
+  const { parserErrors } = reconcile(inputs, options);
+  return { ...merged, ok: false, parserErrors, summary: { ...merged.summary, ok: false } };
+}
+
 function billRow(bill) {
   return {
     gstin: normGstin(bill.partyGstin),
@@ -66,7 +140,7 @@ export function creditAtRisk(state, { period } = {}) {
   const wanted = String(period || '').trim() || localToday().slice(0, 7);
   if (!isReturnPeriod(wanted)) return { ok: false, error: 'INVALID_PERIOD', hint: 'Use YYYY-MM, for example 2026-09.' };
   const stored = state.gstr2b && typeof state.gstr2b === 'object' && Object.hasOwn(state.gstr2b, wanted) ? state.gstr2b[wanted] : null;
-  const twob = allRows(state);
+  const twob = documentsOf(allRows(state), { byDate: true }).map((document) => document.raw);
   const bills = (state.purchases || []).filter((bill) => periodOf(bill.date) === wanted && itcOf(billRow(bill)) > 0);
   const risks = [];
   const numbered = [];
