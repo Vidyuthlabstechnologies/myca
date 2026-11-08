@@ -29,6 +29,10 @@ jobs:
             https://*) ;;
             *) problems+=("MYCA_CLOUD_URL must be the https address of the deployed hosted API (now: '${CLOUD_URL}')") ;;
           esac
+          case "$GOOGLE_SERVER_CLIENT_ID" in
+            *.apps.googleusercontent.com) ;;
+            *) problems+=("MYCA_GOOGLE_SERVER_CLIENT_ID must be the web OAuth client id (ends in .apps.googleusercontent.com), or the Play build has no Google sign-in (now: '${GOOGLE_SERVER_CLIENT_ID}')") ;;
+          esac
           [[ "$GITHUB_REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || problems+=("the tag must look like v1.2.3 (now: $GITHUB_REF_NAME)")
           if [ "${#problems[@]}" -gt 0 ]; then
             printf '::error::%s\n' "${problems[@]}"

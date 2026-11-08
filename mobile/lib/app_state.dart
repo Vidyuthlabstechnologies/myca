@@ -131,6 +131,7 @@ class AppState extends ChangeNotifier {
     try {
       snapshot = await api.snapshot();
       moneyCountry = snapshot?.company.country ?? 'IN';
+      await _skipMigrationForKeptBooks();
       _sendCrashReports();
     } on SignedOutException {
       snapshot = null;
@@ -140,6 +141,15 @@ class AppState extends ChangeNotifier {
     }
     loading = false;
     notifyListeners();
+  }
+
+  Future<void> _skipMigrationForKeptBooks() async {
+    final books = snapshot;
+    if (cloud == null || migrated || books == null) return;
+    final kept = books.invoices.isNotEmpty || books.purchases.isNotEmpty || books.expenses.isNotEmpty || books.creditNotes.isNotEmpty || books.quotes.isNotEmpty;
+    if (!kept) return;
+    await store.markMigrated();
+    migrated = true;
   }
 
   void _sendCrashReports() {

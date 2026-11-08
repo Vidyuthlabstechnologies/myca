@@ -187,3 +187,69 @@ test('without Play settings nothing is gated and the notice route is closed', as
   assert.equal((await bare.notify(Buffer.from('{}'), NOTIFY)).statusCode, 404);
   assert.equal((await bare.verify('x', 'y', { productId: 'a', purchaseToken: 'b' })).error, 'BILLING_NOT_CONFIGURED');
 });
+
+test('without Play notices the daily job renews a paid plan from Google, and a lapsed one drops to Free', async () => {
+  const quiet = createBilling({
+    db: api.db,
+    now: () => api.clock.now,
+    fetchImpl: fakeGoogle,
+    config: { packageName: PACKAGE, productIds: { pro: 'myca_pro_monthly', firm: 'myca_firm_monthly' }, serviceAccount: { clientEmail: 'play@test.iam.gserviceaccount.com', privateKey: privateKey.export({ type: 'pkcs8', format: 'pem' }), tokenUri: 'https://oauth2.googleapis.com/token' } },
+  });
+  assert.equal(quiet.enabled, true, 'Play subscriptions work without the notice token');
+  assert.equal((await quiet.notify(Buffer.from('{}'), NOTIFY)).statusCode, 404, 'the notice route stays closed without its token');
+
+  const owner = await api.ownerWithBusiness('+919400000088', { name: 'Renewing Co', state: '29' });
+  const lapsing = await api.ownerWithBusiness('+919400000089', { name: 'Lapsing Co', state: '29' });
+  const later = await api.ownerWithBusiness('+919400000090', { name: 'Later Co', state: '29' });
+  await age(owner, 40);
+  await age(lapsing, 40);
+  await age(later, 40);
+  purchase('tok-renew', { expires: api.clock.now + DAY, accountId: owner.businessId });
+  purchase('tok-lapse', { expires: api.clock.now + DAY, accountId: lapsing.businessId });
+  purchase('tok-later', { expires: api.clock.now + 25 * DAY, accountId: later.businessId });
+  assert.equal((await quiet.verify(owner.businessId, null, { productId: 'myca_pro_monthly', purchaseToken: 'tok-renew' })).ok, true);
+  assert.equal((await quiet.verify(lapsing.businessId, null, { productId: 'myca_pro_monthly', purchaseToken: 'tok-lapse' })).ok, true);
+  assert.equal((await quiet.verify(later.businessId, null, { productId: 'myca_pro_monthly', purchaseToken: 'tok-later' })).ok, true);
+
+  api.clock.advance(5 * DAY);
+  assert.equal((await quiet.entitlement(owner.businessId)).plan, 'free', 'past the end and the grace days the stored plan has run out');
+  purchase('tok-renew', { expires: api.clock.now + 29 * DAY, accountId: owner.businessId });
+  purchase('tok-lapse', { state: 'EXPIRED', expires: api.clock.now - 4 * DAY, accountId: lapsing.businessId });
+  const asked = calls.length;
+  const out = await quiet.refreshDue();
+  assert.deepEqual({ checked: out.checked, changed: out.changed, failed: out.failed }, { checked: 2, changed: 2, failed: 0 });
+  assert.ok(!calls.slice(asked).some((c) => c.url.includes('tok-later')), 'a plan far from its end is not looked up');
+  assert.equal((await quiet.entitlement(owner.businessId)).plan, 'pro');
+  assert.equal((await quiet.entitlement(lapsing.businessId)).plan, 'free');
+  assert.equal((await quiet.entitlement(lapsing.businessId)).subscription.status, 'expired');
+  assert.equal((await quiet.refreshDue()).checked, 0, 'an expired plan and a renewed one are not asked about again');
+  api.clock.advance(-5 * DAY);
+});
+
+test('a Play outage during the renewal check keeps the stored plan and is counted', async () => {
+  const down = createBilling({
+    db: api.db,
+    now: () => api.clock.now,
+    fetchImpl: async () => { throw new Error('network down'); },
+    config: { packageName: PACKAGE, productIds: { pro: 'myca_pro_monthly' }, serviceAccount: { clientEmail: 'play@test.iam.gserviceaccount.com', privateKey: privateKey.export({ type: 'pkcs8', format: 'pem' }), tokenUri: 'https://oauth2.googleapis.com/token' } },
+  });
+  const owner = await api.ownerWithBusiness('+919400000091', { name: 'Outage Co', state: '29' });
+  await api.db.query(`insert into subscriptions (business_id, provider, provider_subscription_id, product_id, plan, status, current_end, test_purchase, updated_at) values ($1, 'play', 'tok-outage', 'myca_pro_monthly', 'pro', 'active', $2, false, now())`, [owner.businessId, new Date(api.clock.now + DAY)]);
+  const out = await down.refreshDue();
+  assert.ok(out.failed >= 1);
+  const kept = await api.db.query('select status from subscriptions where business_id = $1', [owner.businessId]);
+  assert.equal(kept.rows[0].status, 'active');
+  assert.equal(createBilling({ db: api.db, config: {} }).enabled, false);
+  assert.deepEqual(await createBilling({ db: api.db, config: {} }).refreshDue(), { checked: 0, changed: 0, failed: 0 });
+});
+
+test('the server refuses to start with Play products but no way to reach the Play Developer API', async () => {
+  const { billingConfigProblem } = await import('../src/billing.mjs');
+  const base = { MYCA_PLAY_PACKAGE: PACKAGE, MYCA_PLAY_PRODUCT_PRO: 'myca_pro_monthly' };
+  assert.equal(billingConfigProblem({}), '');
+  assert.match(billingConfigProblem(base), /MYCA_PLAY_SERVICE_ACCOUNT_JSON is empty/);
+  assert.equal(billingConfigProblem({ ...base, K_SERVICE: 'myca-api' }), '');
+  assert.match(billingConfigProblem({ ...base, MYCA_PLAY_SERVICE_ACCOUNT_JSON: '{"client_email":"x"}' }), /not a service account key/);
+  assert.equal(billingConfigProblem({ ...base, MYCA_PLAY_SERVICE_ACCOUNT_JSON: JSON.stringify({ client_email: 'play@x.iam.gserviceaccount.com', private_key: 'k' }) }), '');
+  assert.equal(billingConfigProblem({ ...base, MYCA_PLAY_SERVICE_ACCOUNT_JSON: 'unset', K_SERVICE: 'x' }), '');
+});

@@ -28,6 +28,7 @@ test('the daily job runs the checks for every business once, is idempotent, and 
   assert.equal(first.body.businesses, 1);
   assert.equal(first.body.ran, 1);
   assert.equal(first.body.failed.length, 0);
+  assert.deepEqual(first.body.billing, { checked: 0, changed: 0, failed: 0 }, 'the daily job reports its Play renewal check');
 
   const status = await api.call('POST', `/v1/businesses/${owner.businessId}/query`, { token: owner.token, body: { name: 'automation_status', args: {} } });
   assert.equal(status.status, 200, status.text);
