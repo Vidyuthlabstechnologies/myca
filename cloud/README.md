@@ -11,7 +11,10 @@ not created yet (`infra/cloud` is written and validated, applied by hand).
 ## How a request runs
 
 1. The bearer token is verified, then the device and user are checked in the database,
-   so a revoked device stops working at once.
+   so a revoked device stops working at once. A request that is past this check and is
+   waiting for the books lock when its device is signed out, or its account deleted, is
+   checked again once it holds the lock and once more just before it commits. It then
+   answers `401 UNAUTHENTICATED` with `reason: DEVICE_REVOKED`, and nothing it did is kept.
 2. The business comes from the URL. If the caller is not a member the answer is 404,
    the same as for a business that does not exist.
 3. Files are uploaded first (`POST .../uploads`, text up to 8 MB) and imports refer to
@@ -19,6 +22,27 @@ not created yet (`infra/cloud` is written and validated, applied by hand).
 4. One transaction locks that business's `books` row, builds in-memory stores from it,
    opens a platform session on them, runs the engine with the caller as the actor,
    writes the row back, and appends to `audit_log`.
+
+The two later checks run on every route that works on the books with a device: ask,
+propose, confirm, discard, uploads, query, replace, company, the e-invoice and approval
+calls, the snapshot and the accountant's shared view. Jobs and WhatsApp carry no device and
+are not checked. Two limits are known. A sign-out that lands in the round trip between the
+closing check and the commit itself is not caught. The accountant-sharing routes (`ca-share`,
+`ca-sync`) take their own transaction and carry no device, so a sign-out in flight does not
+stop them. The closing check can also undo a request that has already called an outside
+service, because the e-invoice call to the portal runs inside the books transaction: a number
+the portal issued for it is then not in the books. That is the price of never saving
+changes for a device that was signed out.
+
+Requests that are not what the app sends are answered like any other wrong request. A
+request target that cannot be parsed answers `404 NOT_FOUND` and is logged with the path
+"(unreadable)". A chat message, from the app or from WhatsApp, is cut to 2,000 characters and
+any run of four or more blanks is shortened to its first character, so a padded message
+cannot hold the planner. An object, a list or another value of the wrong type where a phone
+number, a code or an id belongs, on the sign-in and second-step routes, is read as empty, so
+it is a wrong value: the 400 a wrong value gets, with no crash record and no stack in the log.
+An answer is turned into JSON before any header is sent, so one that cannot be written is a
+plain `500 INTERNAL_ERROR` and the connection is kept.
 
 A read-only request (a query, or the snapshot) takes the row for share, writes nothing
 back and sends its audit events to `audit_log` alone, so the books do not hold the
@@ -112,7 +136,7 @@ user can turn on two-step sign-in with an authenticator app from Security in the
 | `POST /v1/me/second-step/confirm {code}` | the first code from the app turns two-step on and returns eight recovery codes, shown once; five wrong codes throw the setup away (`ENROLMENT_RESTART`) |
 | `POST /v1/me/second-step/disable {code}` | turns it off; an authenticator code or an unused recovery code. A wrong code answers `INVALID_CODE` with `attemptsRemaining`; the code that was just accepted answers `CODE_USED` (one older than that answers `INVALID_CODE`), and both count as a wrong try, as does anything not shaped like a code. Five wrong tries without a right code between them lock the route: every code, a right one too, is then refused with `429 TOO_MANY_ATTEMPTS` until 15 minutes after the fifth. A right code clears the count |
 | `POST /v1/me/second-step/recovery-codes {code}` | replaces the recovery codes; the same check, the same `CODE_USED` answer and the same lock as `disable`, and the two routes share one count (`user_totp.attempts` and `failed_at`, migration 017) |
-| `POST /v1/auth/second-step {challengeId, code, deviceLabel}` | finishes a sign-in. With two-step on, verify, google and oidc answer `{ secondStep: true, challengeId, expiresInSeconds: 300, user }` and no tokens; this route takes the authenticator code, or a recovery code once, and issues the tokens with `usedRecoveryCode` and `recoveryCodesLeft`. Five minutes and five attempts per challenge (`CODE_EXPIRED`, `TOO_MANY_ATTEMPTS`); a code that was just used answers `CODE_USED` and an older one `INVALID_CODE`. A wrong code here is counted on the challenge and is not added to the count above; a good sign-in clears that count |
+| `POST /v1/auth/second-step {challengeId, code, deviceLabel}` | finishes a sign-in. With two-step on, verify, google and oidc answer `{ secondStep: true, challengeId, expiresInSeconds: 300, user }` and no tokens; this route takes the authenticator code, or a recovery code once, and issues the tokens with `usedRecoveryCode` and `recoveryCodesLeft`. Five minutes and five attempts per challenge (`CODE_EXPIRED`, `TOO_MANY_ATTEMPTS`); a challenge id that is well formed but not on file, because the nightly job has removed it, answers `CODE_EXPIRED` too. A code that was just used answers `CODE_USED` with `attemptsRemaining` and an older one `INVALID_CODE`; a challenge that has already signed in answers `CODE_USED` with no `attemptsRemaining`, which the app reads as the attempt being over. A wrong code here is counted on the challenge and is not added to the count above; a good sign-in clears that count |
 | `GET /v1/me/devices` | the devices signed in to the account with a live refresh token, this one first: `{ id, label, signedInOn, lastActive, current }` |
 | `POST /v1/me/devices/:id/sign-out` | ends that device at once; `409 CURRENT_DEVICE` for this one, which uses `POST /v1/auth/logout`; `404 DEVICE_NOT_FOUND` for a device that is not the caller's or is already signed out |
 | `POST /v1/me/devices/sign-out-others` | ends every other device; `revoked` counts the ones that were listed |

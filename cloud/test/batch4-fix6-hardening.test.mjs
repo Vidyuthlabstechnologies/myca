@@ -237,6 +237,28 @@ test('CLOUD-1: whatever goes wrong after the route has answered ends in a plain 
   assert.deepEqual(JSON.parse(res.sent.body), { ok: false, error: 'INTERNAL_ERROR' });
 });
 
+test('CLOUD-1: an answer that cannot be written as JSON is a plain 500 with the connection kept, because it is written before the headers go out', async () => {
+  const circular = {};
+  circular.self = circular;
+  const handler = createApi({ billing: { plans: () => circular }, db: api.db, secret: SECRET, otpSender: api.sender, booksKey: BOOKS_KEY, now: () => api.clock.now, log: () => {} });
+  const res = fakeResponse();
+  await assert.doesNotReject(handler(fakeRequest('/v1/plans'), res));
+  assert.equal(res.sent.destroyed, false, 'the connection is not cut');
+  assert.equal(res.sent.ended, true);
+  assert.equal(res.sent.status, 500);
+  assert.equal(res.sent.headers['content-type'], 'application/json');
+  assert.deepEqual(JSON.parse(res.sent.body), { ok: false, error: 'INTERNAL_ERROR' });
+});
+
+test('CLOUD-1: once the headers are out, a failure ends the connection instead of writing a second answer', async () => {
+  const handler = createApi({ billing: { plans: () => ({ ok: true }) }, db: api.db, secret: SECRET, otpSender: api.sender, booksKey: BOOKS_KEY, now: () => api.clock.now, log: () => {} });
+  const res = fakeResponse();
+  res.end = () => { throw new Error('the socket is gone'); };
+  await assert.doesNotReject(handler(fakeRequest('/v1/plans'), res));
+  assert.equal(res.sent.destroyed, true, 'the connection is ended');
+  assert.equal(res.sent.status, 200, 'no second status line is written');
+});
+
 const LIVE_REQUESTS = {
   propose: async () => ({ method: 'POST', action: 'propose', body: { name: 'create_invoice', args: SALE } }),
   confirm: async ({ second, businessId }) => {
