@@ -87,6 +87,12 @@ export function planSupplierTerms(state, args = {}) {
   return { ok: true, plan: { key, name: display, gstin: gstin || String(known?.partyGstin || '').toUpperCase(), msme, covered, udyam, category, days, before, known: Boolean(known) } };
 }
 
+function withAccountMasked(record) {
+  const bank = record && typeof record === 'object' && !Array.isArray(record) && record.bank && typeof record.bank === 'object' ? record.bank : null;
+  const account = bank ? String(bank.account || '') : '';
+  return account ? { ...record, bank: { ...bank, account: `xxxx${account.slice(-4)}` } } : record;
+}
+
 export function setSupplierTerms(state, args = {}) {
   const planned = planSupplierTerms(state, args);
   if (!planned.ok) return planned;
@@ -94,7 +100,7 @@ export function setSupplierTerms(state, args = {}) {
   const kept = plan.before && typeof plan.before === 'object' && !Array.isArray(plan.before) ? plan.before : {};
   state.supplierTerms = state.supplierTerms && typeof state.supplierTerms === 'object' ? state.supplierTerms : {};
   state.supplierTerms[plan.key] = { ...kept, msme: plan.msme, udyam: plan.udyam, category: plan.category, days: plan.days };
-  return { ok: true, supplier: plan.name, gstin: plan.gstin, msme: plan.msme, covered: plan.covered, udyam: plan.udyam, category: plan.category, days: plan.days, before: plan.before };
+  return { ok: true, supplier: plan.name, gstin: plan.gstin, msme: plan.msme, covered: plan.covered, udyam: plan.udyam, category: plan.category, days: plan.days, before: withAccountMasked(plan.before) };
 }
 
 const MSME_REMINDER_SOURCE = /^msme:(.+):\d{4}-\d{2}-\d{2}$/;

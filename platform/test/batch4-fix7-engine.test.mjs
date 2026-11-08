@@ -124,6 +124,37 @@ test('E1: set_supplier_terms keeps the saved bank record and whatever else is st
   assert.deepEqual(state.supplierTerms[KEY], { msme: false, udyam: '', category: '', days: 20, bank, reviewedBy: { by: 'CA', on: '2026-11-01' } });
 });
 
+test('E1: the answer to set_supplier_terms shows the saved bank with the account masked, as set_supplier_bank does, while the books keep the whole number', async () => {
+  const state = books();
+  await bill(state, 'Fabric Co', GSTIN, 'F-1', shift(-12));
+  const saved = await runTool(state, 'set_supplier_bank', BANK_A);
+  assert.equal(saved.ok, true, JSON.stringify(saved));
+  const first = await runTool(state, 'set_supplier_terms', { partyName: 'Fabric Co', partyGstin: GSTIN, msme: true, category: 'small' });
+  const second = await runTool(state, 'set_supplier_terms', { partyName: 'Fabric Co', partyGstin: GSTIN, days: 20 });
+  for (const answer of [first, second]) {
+    assert.equal(answer.ok, true, JSON.stringify(answer));
+    assert.equal(answer.before.bank.account, 'xxxx9012');
+    assert.equal(answer.before.bank.ifsc, 'HDFC0001234');
+    assert.equal(answer.before.bank.holder, 'Fabric Co');
+    assert.equal(JSON.stringify(answer).includes('123456789012'), false, 'the whole account number is not in the answer');
+  }
+  assert.equal(second.before.days, null);
+  assert.equal(second.before.category, 'small');
+  assert.equal(state.supplierTerms[KEY].bank.account, '123456789012', 'the books keep the whole number for the payout file');
+  const swapped = await runTool(state, 'set_supplier_bank', BANK_B);
+  assert.equal(swapped.changed, true);
+  const third = await runTool(state, 'set_supplier_terms', { partyName: 'Fabric Co', partyGstin: GSTIN, days: 25 });
+  assert.equal(third.before.bank.account, 'xxxx7777');
+  assert.equal(third.before.bank.changedFrom.account, 'xxxx9012');
+  assert.equal(JSON.stringify(third).includes('999988887777'), false);
+  assert.equal(JSON.stringify(third).includes('123456789012'), false);
+  const nobank = await runTool(state, 'set_supplier_terms', { partyName: 'Ravi Packaging', msme: true, category: 'micro' });
+  assert.equal(nobank.ok, true, JSON.stringify(nobank));
+  assert.equal(nobank.before, null);
+  const again = await runTool(state, 'set_supplier_terms', { partyName: 'Ravi Packaging', days: 15 });
+  assert.deepEqual(again.before, { msme: true, udyam: '', category: 'micro', days: null });
+});
+
 test('E1: after set_supplier_bank then set_supplier_terms, a later bank change is still caught and the payout file marks it', async () => {
   const state = books();
   await runTool(state, 'set_supplier_terms', { partyName: 'Fabric Co', partyGstin: GSTIN, days: 10 });
