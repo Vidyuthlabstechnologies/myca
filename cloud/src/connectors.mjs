@@ -63,12 +63,12 @@ export function createConnectorStore({ db, key = '' }) {
       return { ok: true, enabled, connectors: Object.keys(CONNECTOR_CHANNELS).map((channel) => publicView(channel, byChannel.get(channel))) };
     },
 
-    async save(businessId, context, body = {}) {
+    async save(businessId, context, body = {}, given = null) {
       if (!enabled) return fail('CONNECTORS_UNAVAILABLE', { hint: 'The service has no connector key; ask the operator to set MYCA_CONNECTOR_KEY.' });
       const channel = String(body.channel || '').trim().toLowerCase();
       const spec = CONNECTOR_CHANNELS[channel];
       if (!spec) return fail('UNKNOWN_CONNECTOR', { channel, known: Object.keys(CONNECTOR_CHANNELS) });
-      return db.tx(async (q) => {
+      const work = async (q) => {
         const existing = (await rowsFor(q, businessId)).find((row) => row.channel === channel);
         const fields = { ...(existing?.fields || {}) };
         const secrets = existing ? openSecrets(key, businessId, existing.sealed) : {};
@@ -94,7 +94,8 @@ export function createConnectorStore({ db, key = '' }) {
         );
         const row = (await rowsFor(q, businessId)).find((item) => item.channel === channel);
         return { ok: true, ...publicView(channel, row) };
-      });
+      };
+      return given ? work(given) : db.tx(work);
     },
 
     async load(businessId, channel) {
@@ -104,8 +105,8 @@ export function createConnectorStore({ db, key = '' }) {
       return { ...row.fields, ...openSecrets(key, businessId, row.sealed), enabled: row.enabled, lastFetchedTo: row.lastFetchedTo };
     },
 
-    async patch(businessId, channel, fields = {}) {
-      return this.save(businessId, { userId: null, deviceId: null, requestId: 'connector-flow' }, { channel, ...fields });
+    async patch(businessId, channel, fields = {}, given = null) {
+      return this.save(businessId, { userId: null, deviceId: null, requestId: 'connector-flow' }, { channel, ...fields }, given);
     },
 
     async configured(businessId) {

@@ -37,6 +37,8 @@ function signedOut() {
 
 import { openState, storedState } from './books-seal.mjs';
 export function createBooksRunner({ db, now = () => Date.now(), vault, booksKey = '' }) {
+  const inside = (given, work) => (given ? work(given) : db.tx(work));
+
   async function open(q, businessId, sealedState, version, wanted = []) {
     const state = openState(booksKey, businessId, sealedState);
     const hashes = [...new Set([...referencedHashes(state), ...wanted.filter((hash) => SHA256.test(String(hash)))])];
@@ -84,12 +86,12 @@ export function createBooksRunner({ db, now = () => Date.now(), vault, booksKey 
     return row;
   }
 
-  async function withBooks(businessId, context, run, { hashes: wanted = [] } = {}) {
-    return db.tx(async (q) => {
+  async function withBooks(businessId, context, run, { hashes: wanted = [], q: given = null } = {}) {
+    return inside(given, async (q) => {
       const row = await lockLive(q, businessId, context);
       const { books, documents, session } = await open(q, businessId, row.state, row.version, wanted);
       const auditedBefore = session.state.auditEvents.length;
-      const out = await run(session);
+      const out = await run(session, q);
       await q('update books set state = $2::jsonb, version = version + 1, updated_at = now() where business_id = $1', [
         businessId,
         storedState(booksKey, businessId, books.stored()),
@@ -101,8 +103,8 @@ export function createBooksRunner({ db, now = () => Date.now(), vault, booksKey 
     });
   }
 
-  async function replaceBooks(businessId, context, payload) {
-    return db.tx(async (q) => {
+  async function replaceBooks(businessId, context, payload, { q: given = null } = {}) {
+    return inside(given, async (q) => {
       const row = await lockLive(q, businessId, context);
       const { books, documents, session } = await open(q, businessId, row.state, row.version);
       const before = { invoices: session.state.invoices.length, version: Number(row.version) };
@@ -123,29 +125,29 @@ export function createBooksRunner({ db, now = () => Date.now(), vault, booksKey 
     });
   }
 
-  async function withReadOnlyBooks(businessId, context, run) {
-    return db.tx(async (q) => {
+  async function withReadOnlyBooks(businessId, context, run, { q: given = null } = {}) {
+    return inside(given, async (q) => {
       const found = await q('select version, state from books where business_id = $1 for share', [businessId]);
       const row = found.rows[0];
       if (!row) throw fail(404, 'BUSINESS_NOT_FOUND');
       await stillSignedIn(q, context);
       const { session } = await open(q, businessId, row.state, row.version);
       const auditedBefore = session.state.auditEvents.length;
-      const out = await run(session);
+      const out = await run(session, q);
       await audit(q, businessId, context, session.state.auditEvents.slice(auditedBefore));
       return out;
     });
   }
 
-  async function withSharedBooks(businessId, context, run) {
-    return db.tx(async (q) => {
+  async function withSharedBooks(businessId, context, run, { q: given = null } = {}) {
+    return inside(given, async (q) => {
       await lockLive(q, businessId, context);
       const found = await q('select version, state, as_of from shared_books where business_id = $1', [businessId]);
       const shared = found.rows[0];
       if (!shared) throw fail(409, 'NOT_SHARED_YET');
       const { session } = await open(q, businessId, shared.state, shared.version);
       const auditedBefore = session.state.auditEvents.length;
-      const out = await run(session, { asOf: shared.as_of });
+      const out = await run(session, { asOf: shared.as_of }, q);
       await audit(q, businessId, context, session.state.auditEvents.slice(auditedBefore));
       return out;
     });

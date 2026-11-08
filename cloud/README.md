@@ -21,7 +21,10 @@ not created yet (`infra/cloud` is written and validated, applied by hand).
    them by hash; an import with inline content is refused.
 4. One transaction locks that business's `books` row, builds in-memory stores from it,
    opens a platform session on them, runs the engine with the caller as the actor,
-   writes the row back, and appends to `audit_log`.
+   writes the row back, and appends to `audit_log`. No request holds one pooled connection
+   while it waits for another, apart from the date and cursor that a channel pull saves.
+   A request that cannot get a connection in 5 seconds answers `503 SERVER_BUSY` with
+   `Retry-After: 2`.
 
 The two later checks run on every route that works on the books with a device: ask,
 propose, confirm, discard, uploads, query, replace, company, the e-invoice and approval

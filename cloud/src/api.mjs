@@ -139,7 +139,7 @@ function statusOf(result) {
   if (!result || result.ok !== false) return 200;
   if (result.error === 'TOO_MANY_REQUESTS' || result.error === 'TOO_MANY_ATTEMPTS') return 429;
   if (result.error === 'OWNER_ONLY') return 403;
-  if (result.error === 'PHONE_SIGN_IN_UNAVAILABLE' || result.error === 'GOOGLE_SIGN_IN_UNAVAILABLE') return 503;
+  if (result.error === 'PHONE_SIGN_IN_UNAVAILABLE' || result.error === 'GOOGLE_SIGN_IN_UNAVAILABLE' || result.error === 'SERVER_BUSY') return 503;
   if (result.error === 'GOOGLE_UNREACHABLE') return 502;
   if (result.error === 'INVITATION_NOT_FOUND' || result.error === 'MEMBER_NOT_FOUND' || result.error === 'BUSINESS_NOT_FOUND' || result.error === 'DEVICE_NOT_FOUND') return 404;
   if (result.error === 'ALREADY_ENABLED' || result.error === 'CURRENT_DEVICE') return 409;
@@ -259,8 +259,8 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
       if (!/^[0-9a-f-]{8,64}$/i.test(businessId)) return page(false, 'The link did not carry a business.');
       const config = await connectors.load(businessId, 'gusto');
       if (!config) return page(false, 'No Gusto application is saved for this business.');
-      const out = await withBooks(businessId, { userId: null, deviceId: null, requestId }, async (session) => {
-        const result = await gustoCallback(session.state, { code, state: givenState }, { userId: 'owner', role: 'owner' }, { config, save: (patch) => connectors.patch(businessId, 'gusto', patch) });
+      const out = await withBooks(businessId, { userId: null, deviceId: null, requestId }, async (session, q) => {
+        const result = await gustoCallback(session.state, { code, state: givenState }, { userId: 'owner', role: 'owner' }, { config, save: (patch) => connectors.patch(businessId, 'gusto', patch, q) });
         session.persist();
         return result;
       });
@@ -568,9 +568,10 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
         const channel = action.startsWith('plaid') ? 'plaid' : action.startsWith('gusto') ? 'gusto' : 'taxjar';
         if (!connectors.enabled) return { ok: false, error: 'CONNECTORS_UNAVAILABLE', hint: 'The service has no connector key; ask the operator to set MYCA_CONNECTOR_KEY.' };
         const config = await connectors.load(businessId, channel);
-        const flow = { config, save: (patch) => connectors.patch(businessId, channel, patch) };
-        if (action === 'gusto-connect') return gustoConnectUrl({ redirectUri: body.redirectUri || `${publicOrigin(req)}/v1/oauth/gusto/callback`, statePrefix: businessId }, flow);
-        return withBooks(businessId, context, async (session) => {
+        const flowIn = (q) => ({ config, save: (patch) => connectors.patch(businessId, channel, patch, q) });
+        if (action === 'gusto-connect') return gustoConnectUrl({ redirectUri: body.redirectUri || `${publicOrigin(req)}/v1/oauth/gusto/callback`, statePrefix: businessId }, flowIn());
+        return withBooks(businessId, context, async (session, q) => {
+          const flow = flowIn(q);
           const out = action === 'plaid-link-token' ? await plaidLinkToken(session.state, { userId: user.userId }, actor.actor, flow)
             : action === 'plaid-exchange' ? await plaidExchange(session.state, { publicToken: body.publicToken }, actor.actor, flow)
             : await taxjarRate(session.state, { zip: body.zip, city: body.city, state: body.state, code: body.code, name: body.name, record: body.record }, actor.actor, flow);
@@ -630,11 +631,14 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
       }
       if (action === 'company') {
         if (role !== 'owner') throw httpError(403, 'OWNER_ONLY');
-        return withBooks(businessId, context, async (session) => {
-          const out = await session.updateCompany(body, actor);
-          if (out.ok !== false) await businesses.rename(businessId, session.state.company);
-          return out;
+        let renamed = null;
+        const out = await withBooks(businessId, context, async (session) => {
+          const result = await session.updateCompany(body, actor);
+          if (result.ok !== false) renamed = { ...session.state.company };
+          return result;
         });
+        if (renamed) await businesses.rename(businessId, renamed);
+        return out;
       }
     }
     throw httpError(404, 'NOT_FOUND');
@@ -656,19 +660,20 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
         await crashes.recordServer(err, version).catch(() => {});
       }
     }
-    log({ requestId, method: req.method, path: url ? url.pathname.replace(/[0-9a-f-]{36}/gi, ':id') : '(unreadable)', status });
+    log({ requestId, method: req.method, path: url ? url.pathname.replace(/[0-9a-f-]{36}/gi, ':id') : '(unreadable)', status, ...(body && body.error === 'SERVER_BUSY' ? { db: 'pool busy' } : {}) });
+    const retry = status === 503 ? { 'retry-after': '2' } : {};
     if (body && typeof body === 'object' && typeof body.__html === 'string') {
-      res.writeHead(status, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'x-request-id': requestId });
+      res.writeHead(status, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'x-request-id': requestId, ...retry });
       res.end(body.__html);
       return;
     }
     if (body && typeof body === 'object' && typeof body.__text === 'string') {
-      res.writeHead(status, { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store', 'x-request-id': requestId });
+      res.writeHead(status, { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store', 'x-request-id': requestId, ...retry });
       res.end(body.__text);
       return;
     }
     const payload = JSON.stringify(body, (_key, value) => (typeof value === 'bigint' ? Number(value) : value));
-    res.writeHead(status, { 'content-type': 'application/json', 'cache-control': 'no-store', 'x-request-id': requestId });
+    res.writeHead(status, { 'content-type': 'application/json', 'cache-control': 'no-store', 'x-request-id': requestId, ...retry });
     res.end(payload);
   }
 
