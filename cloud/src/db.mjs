@@ -2,6 +2,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
+import { databaseSsl } from './runtime.mjs';
 
 const MIGRATIONS_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', 'migrations');
 
@@ -29,7 +30,8 @@ function translated(err) {
 }
 
 export function createDb(connectionString, { max = 10, connectionTimeoutMillis = 5000, onError = () => {} } = {}) {
-  const pool = new pg.Pool({ connectionString, max, connectionTimeoutMillis });
+  const ssl = databaseSsl();
+  const pool = new pg.Pool({ connectionString, max, connectionTimeoutMillis, ...(ssl ? { ssl } : {}) });
   pool.on('error', onError);
   const query = (text, params) => pool.query(text, params).catch((err) => { throw translated(err); });
   const acquire = () => pool.connect().catch((err) => { throw translated(err); });
