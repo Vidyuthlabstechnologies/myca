@@ -1,10 +1,14 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:myca/api/models.dart';
+import 'package:myca/cloud/cloud_session.dart';
+import 'package:myca/cloud/token_store.dart';
 import 'package:myca/main.dart';
 
 import 'accessibility_test.dart' show phone;
 import 'batch4_fix2_app_test.dart' show signedInScripted;
-import 'batch4_fix_app_test.dart' show says, wrong;
+import 'batch4_fix_app_test.dart' show refused, says, scriptedSession, wrong;
 import 'cloud_test.dart' show signedIn;
 import 'fake_api.dart';
 import 'fake_cloud.dart';
@@ -99,6 +103,97 @@ void main() {
       await expectLater(session.confirmSecondStep('000000'), says('That code is not right. 2 tries left.'));
       await expectLater(session.confirmSecondStep('000000'), says('That code is not right. Check it and try again.'));
       await expectLater(session.confirmSecondStep('000000'), says('That code is not right. Check it and try again.'));
+    });
+  });
+
+  group('a busy or failing server is said in words', () {
+    test('SERVER_BUSY and INTERNAL_ERROR have their own sentences on a signed-in call and at sign-in, and an unknown code still shows itself', () async {
+      final session = await signedInScripted({
+        '/v1/me/second-step': [refused(503, 'SERVER_BUSY'), refused(500, 'INTERNAL_ERROR'), refused(500, 'SOMETHING_NEW')],
+      });
+      await expectLater(session.secondStepStatus(), says('MyCA is busy for a moment. Try again in a minute.'));
+      await expectLater(session.secondStepStatus(), says('Something went wrong on our side. Try again in a minute.'));
+      await expectLater(session.secondStepStatus(), says('Something went wrong (SOMETHING_NEW).'));
+
+      final signingIn = scriptedSession(FakeCloud(), {
+        '/v1/auth/otp': [refused(503, 'SERVER_BUSY')],
+      });
+      await expectLater(signingIn.requestCode('9876543210'), says('MyCA is busy for a moment. Try again in a minute.'));
+    });
+
+    test('a busy or failing server on the token refresh keeps the person signed in and says so in words', () async {
+      final cloud = FakeCloud();
+      final tokens = MemoryTokenStore();
+      final session = scriptedSession(cloud, {
+        '/v1/me/second-step': [for (var i = 0; i < 3; i += 1) refused(401, 'UNAUTHENTICATED')],
+        '/v1/auth/refresh': [refused(503, 'SERVER_BUSY'), refused(500, 'INTERNAL_ERROR'), refused(429, 'TOO_MANY_REQUESTS')],
+      }, tokens);
+      await session.requestCode('9876543210');
+      await session.verifyCode(FakeCloud.code);
+      for (var i = 0; i < 3; i += 1) {
+        await expectLater(session.secondStepStatus(), says('MyCA is busy for a moment. Try again in a minute.'));
+        expect(session.signedIn, isTrue);
+        expect(tokens.values, isNotEmpty);
+      }
+      expect((await session.secondStepStatus()).enabled, isFalse);
+      expect(cloud.refreshes, 0);
+    });
+
+    test('a refused refresh still signs the person out', () async {
+      final cloud = FakeCloud();
+      final tokens = MemoryTokenStore();
+      final session = scriptedSession(cloud, {
+        '/v1/me/second-step': [refused(401, 'UNAUTHENTICATED')],
+        '/v1/auth/refresh': [refused(400, 'DEVICE_REVOKED')],
+      }, tokens);
+      await session.requestCode('9876543210');
+      await session.verifyCode(FakeCloud.code);
+      await expectLater(session.secondStepStatus(), throwsA(isA<SignedOutException>()));
+      expect(session.signedIn, isFalse);
+      expect(tokens.values, isEmpty);
+    });
+
+    test('a gateway error page with no JSON in it is said as busy and not read as an empty reply', () async {
+      final cloud = FakeCloud();
+      final pages = {
+        '/v1/auth/otp': [503],
+        '/v1/me/second-step': [502, 503, 504],
+      };
+      final client = MockClient((request) async {
+        final queue = pages[request.url.path];
+        if (queue != null && queue.isNotEmpty) {
+          return http.Response('<html><body>Bad gateway</body></html>', queue.removeAt(0), headers: {'content-type': 'text/html'});
+        }
+        final copy = http.Request(request.method, request.url)
+          ..headers.addAll(request.headers)
+          ..bodyBytes = request.bodyBytes;
+        return http.Response.fromStream(await cloud.client.send(copy));
+      });
+      final session = CloudSession(baseUrl: 'https://api.example.test', tokens: MemoryTokenStore(), client: client);
+      await expectLater(session.requestCode('9876543210'), says('MyCA is busy for a moment. Try again in a minute.'));
+      await session.requestCode('9876543210');
+      await session.verifyCode(FakeCloud.code);
+      for (var i = 0; i < 3; i += 1) {
+        await expectLater(session.secondStepStatus(), says('MyCA is busy for a moment. Try again in a minute.'));
+      }
+      expect((await session.secondStepStatus()).enabled, isFalse);
+    });
+  });
+
+  group('a restore that is too large', () {
+    test('says it is too large to restore and that the books were not changed, while an upload keeps the 8 MB sentence', () async {
+      final books = '/v1/businesses/${FakeCloud.businessId}';
+      final session = scriptedSession(FakeCloud(), {
+        '$books/replace': [refused(413, 'BODY_TOO_LARGE'), refused(503, 'SERVER_BUSY'), refused(400, 'INVALID_BACKUP')],
+        '$books/uploads': [refused(413, 'BODY_TOO_LARGE')],
+      });
+      await session.requestCode('9876543210');
+      await session.verifyCode(FakeCloud.code);
+      await session.createBusiness(name: 'Asha Traders', state: '29');
+      await expectLater(session.replaceBooks({'books': {}}), says('That file is too large to restore from the app. Your books were not changed.'));
+      await expectLater(session.replaceBooks({'books': {}}), says('MyCA is busy for a moment. Try again in a minute.'));
+      await expectLater(session.replaceBooks({'books': {}}), says('Something went wrong (INVALID_BACKUP).'));
+      await expectLater(session.api.upload('bank.csv', 'date,amount'), says('That file is larger than 8 MB. Export a shorter period and try again.'));
     });
   });
 }

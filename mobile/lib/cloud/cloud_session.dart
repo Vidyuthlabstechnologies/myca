@@ -61,6 +61,8 @@ const _messages = {
   'PROVIDER_UNAVAILABLE': 'Google Play could not be reached. Your purchase is safe; open Plan and billing again in a minute.',
   'BILLING_NOT_CONFIGURED': 'Plans cannot be bought yet. Try again later.',
   'NIC_NOT_CONNECTED': 'Add this business\'s e-invoice keys under Connections to banks and apps first.',
+  'SERVER_BUSY': 'MyCA is busy for a moment. Try again in a minute.',
+  'INTERNAL_ERROR': 'Something went wrong on our side. Try again in a minute.',
 };
 
 String cloudMessage(String code, [String hint = '']) =>
@@ -94,6 +96,9 @@ String? _changeCodeMessage(String code, Object? attemptsRemaining) {
   if (code == 'INVALID_CODE' && left != null) return _triesLeft(left);
   return code == 'CODE_USED' ? _secondStepMessages[code] : null;
 }
+
+String? _restoreMessage(String code, Object? attemptsRemaining) =>
+    code == 'BODY_TOO_LARGE' ? 'That file is too large to restore from the app. Your books were not changed.' : null;
 
 String? _setupCodeMessage(String code, Object? attemptsRemaining) {
   final left = attemptsRemaining is num ? attemptsRemaining.toInt() : null;
@@ -595,10 +600,11 @@ class CloudSession {
     } on FormatException {
       decoded = null;
     }
-    return (
-      response.statusCode,
-      decoded is Map ? decoded.cast<String, dynamic>() : <String, dynamic>{},
-    );
+    final map = decoded is Map ? decoded.cast<String, dynamic>() : <String, dynamic>{};
+    if (response.statusCode >= 500 && map['error'] is! String && !map.containsKey('reply')) {
+      return (response.statusCode, {'ok': false, 'error': 'SERVER_BUSY'});
+    }
+    return (response.statusCode, map);
   }
 
   Future<bool> _rotate() {
@@ -609,6 +615,7 @@ class CloudSession {
         final (status, body) = await _send('POST', '/v1/auth/refresh', {
           'refreshToken': refresh,
         }, authed: false);
+        if (status >= 500 || status == 429) throw MycaApiException(cloudMessage('SERVER_BUSY'));
         if (status != 200 || body['ok'] == false) return false;
         await _keep(body);
         return true;
@@ -1065,7 +1072,7 @@ class CloudSession {
   Future<Map<String, dynamic>> exportBusiness() => call('GET', '$_books/export');
 
   Future<Map<String, dynamic>> replaceBooks(Map<String, Object?> payload) async {
-    final body = await call('POST', '$_books/replace', payload);
+    final body = await call('POST', '$_books/replace', payload, _restoreMessage);
     if (body['ok'] == false) throw MycaApiException(cloudMessage('${body['error']}'));
     return body;
   }
