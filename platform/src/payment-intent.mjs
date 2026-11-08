@@ -1,4 +1,4 @@
-import { amountsSaid, isNegated, isQuestion, normalizeChat, receiptAmount, receiptDate, saidNonPositiveAmount } from './intent.mjs';
+import { amountsSaid, isNegated, isQuestion, moneyDate, normalizeChat, saidNonPositiveAmount, soleAmountSaid } from './intent.mjs';
 import { billOutstanding } from './invoice.mjs';
 import { localToday } from './dates.mjs';
 
@@ -56,7 +56,7 @@ function paymentCall(raw, counted, billId, amount) {
     args: {
       billId,
       mode: /\bcash\b/i.test(raw) ? 'cash' : 'bank',
-      date: receiptDate(raw, localToday()),
+      date: moneyDate(raw, localToday()),
       ...(amount == null ? {} : { amount }),
     },
   };
@@ -66,7 +66,7 @@ export function planPaymentFromChat(state, text) {
   const raw = normalizeChat(text);
   if (MONEY_IN.test(raw)) return null;
   const counted = raw.replace(DAYS_SAID, ' ');
-  const amount = receiptAmount(counted);
+  const amount = soleAmountSaid(counted);
   if (!PAID_WORDS.test(raw) && !(amount != null && MOVED_WORDS.test(raw))) return null;
   if (amount == null && saidNonPositiveAmount(counted)) return reply('An amount of zero or less cannot be paid. Say the amount paid, or leave it out to settle the whole bill. I have recorded nothing.');
   const termsNotPayment = amount == null && counted !== raw && TERMS_SAID.test(raw) && !isQuestion(raw) && !isNegated(raw);

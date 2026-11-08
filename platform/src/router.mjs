@@ -275,8 +275,8 @@ function outline(d, depth = 0) {
 
 const SIMULATED_NOTE = 'Simulated in sandbox: nothing was sent to the government portal or any provider.';
 
-function fmtToolResult(name, result) {
-  const text = fmtToolResultCore(name, result);
+function fmtToolResult(name, result, args) {
+  const text = fmtToolResultCore(name, result, args);
   if (!result?.mock || /simulated|mock/i.test(text)) return text;
   return `${text}\n[${SIMULATED_NOTE}]`;
 }
@@ -294,7 +294,24 @@ function bankLinesWords(lines) {
   return ` ${[first, ...parts.slice(1)].join(', ')}.${lines.unmatched ? ' Say "match bank" to go through them.' : ''}`;
 }
 
-function fmtToolResultCore(name, result) {
+function auditFilterWords(data, args) {
+  const actor = typeof args?.actor === 'string' ? args.actor.trim() : '';
+  const limit = Number.isInteger(args?.limit) && args.limit > 0 ? args.limit : 0;
+  const noun = data.view === 'all' ? 'events' : 'changes';
+  const parts = [];
+  if (actor) parts.push(`Only ${noun} by "${actor}" are counted${data.count === 0 ? ', and there are none in this range' : ''}.`);
+  if (limit) parts.push(`Limited to the latest ${limit}.`);
+  return parts.join(' ');
+}
+
+function auditTrailReply(data, args) {
+  const lines = auditTrailWords(data.from === '' ? { ...data, from: 'the start' } : data).split('\n');
+  const filter = auditFilterWords(data, args);
+  if (filter) lines.splice(1, 0, filter);
+  return lines.join('\n');
+}
+
+function fmtToolResultCore(name, result, args) {
   if (result?.error === 'SALARIES_PRIVATE') return 'Only the owner can see or change employees and salaries.';
   if (result?.error === 'OWNER_ONLY') return result.hint || 'Only the owner can do that.';
   if (!result || result.ok === false) return failedInWords(result?.error, result);
@@ -611,7 +628,7 @@ function fmtToolResultCore(name, result) {
   if (name === 'contractor_1099_file' && result.data) return file1099Words(result.data, money);
   if (name === 'export_trial_balance' && result.data) return `Trial balance as of ${result.data.asOf}: ${result.data.accounts === 1 ? '1 account' : `${result.data.accounts} accounts`}, debits ${money(result.data.debit)}, credits ${money(result.data.credit)}${result.data.balanced ? ', ties' : ', does not tie'}. Saved as ${result.data.fileName} from the Taxes screen.`;
   if (name === 'export_xlsx' && result.data) return `Saved ${result.data.fileName} with ${result.data.rows === 1 ? '1 row' : `${result.data.rows} rows`}${result.data.sheets.length > 1 ? ` on ${result.data.sheets.length} sheets` : ''}. Open it in Excel or send it to your CA.`;
-  if (name === 'audit_trail' && result.data) return auditTrailWords(result.data.from === '' ? { ...result.data, from: 'the start' } : result.data);
+  if (name === 'audit_trail' && result.data) return auditTrailReply(result.data, args);
   if (name === 'import_us_invoices' && result.data?.created) return usImportWords(result.data, money);
   if ((name === 'schedule_c_summary' || name === 'estimated_tax_dates') && result.data) return ownerTaxWords(name, result.data, money);
   if (name === 'set_suta_rate' && result.rate) {
@@ -1122,7 +1139,7 @@ async function chatCore(state, message) {
         const checked = validateAssistantToolCall(modelPlan.name, modelPlan.args);
         if (!checked.ok) return { reply: notAccepted(checked.error), tools: [], blocked: true };
         const chosenResult = await runTool(state, modelPlan.name, { ...modelPlan.args, actorId: 'assistant' });
-        return { reply: fmtToolResult(modelPlan.name, chosenResult), tools: [{ name: modelPlan.name, result: chosenResult }], viaModel: true };
+        return { reply: fmtToolResult(modelPlan.name, chosenResult, modelPlan.args), tools: [{ name: modelPlan.name, result: chosenResult }], viaModel: true };
       }
       if (chosen.error === 'MODEL_NO_MATCH') {
         return { reply: `I did not match that to anything I can do${chosen.reason ? ` (${chosen.reason})` : ''}, so nothing was recorded. Try "invoice Kiran Stores 50000 GST 18%", "paid 12000 rent", "who owes me?", or say "help" for more.`, tools: [{ name: plan.name, result }], viaModel: true };
@@ -1142,7 +1159,7 @@ async function chatCore(state, message) {
       tools: [{ name: plan.name, result }],
     };
   }
-  return { reply: fmtToolResult(plan.name, result), tools: [{ name: plan.name, result }] };
+  return { reply: fmtToolResult(plan.name, result, plan.args), tools: [{ name: plan.name, result }] };
 }
 
 export function propose(state, name, args = {}) {
