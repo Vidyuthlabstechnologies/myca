@@ -145,6 +145,10 @@ function appSnapshot(snapshot, user, role) {
     company: snapshot.company,
     invoices: snapshot.invoices,
     purchases: snapshot.purchases,
+    expenses: snapshot.expenses,
+    creditNotes: snapshot.creditNotes,
+    quotes: snapshot.quotes,
+    customerTerms: snapshot.customerTerms,
     role,
     user: { id: user.userId, name: user.name },
   };
