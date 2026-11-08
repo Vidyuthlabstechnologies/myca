@@ -28,7 +28,7 @@ function cut(text, at, length) {
 const MONTH_WORDS = 'jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?';
 const MONTH_ORDER = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
 const NUMERIC_DATE = /(?<![\w.,/-])(\d{4}[-/.]\d{1,2}[-/.]\d{1,2}|\d{1,2}[-/.]\d{1,2}[-/.]\d{2,4})(?![\w/-]|\.\d)/g;
-const DAY_FIRST = new RegExp(`\\b(\\d{1,2})(?:st|nd|rd|th)?(?:\\s+of)?\\s+(${MONTH_WORDS})\\b\\.?(?:,?\\s+((?:19|20)\\d{2})\\b)?`, 'gi');
+const DAY_FIRST = new RegExp(`(?<![\\w.,/-])(\\d{1,2})(?:st|nd|rd|th)?(?:\\s+of)?\\s+(${MONTH_WORDS})\\b\\.?(?:,?\\s+((?:19|20)\\d{2})\\b)?`, 'gi');
 const MONTH_FIRST = new RegExp(`\\b(${MONTH_WORDS})\\b\\.?\\s+(\\d{1,2})(?:st|nd|rd|th)?\\b(?:,?\\s+((?:19|20)\\d{2})\\b)?`, 'gi');
 const RELATIVE_DAY = /\b(?:yesterday|tomorrow|day\s+before\s+yesterday|last\s+(?:week|month|mon|tue|wed|thu|fri|sat|sun)\w*|this\s+(?:week|month)|next\s+(?:week|month)|\d+\s+days?\s+ago)\b/i;
 const TODAY_WORD = /\b(?:today|now|aaj)\b/i;

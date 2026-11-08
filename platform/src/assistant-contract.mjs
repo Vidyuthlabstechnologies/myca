@@ -2520,8 +2520,8 @@ const AUDIT_TRAIL_EVERYTHING = /\b(?:everything|all events|including reads)\b/i;
 
 const AUDIT_RANGE_UNREAD = 'I could not read that date range, so I have not looked anything up. Say it like "audit trail from 2026-10-01 to 2026-10-31", "audit trail for October" or "audit trail for FY 2025-26".';
 const AUDIT_NUMERIC_DAY = /(?<![\w./-])(?:\d{4}[-/.]\d{1,2}[-/.]\d{1,2}|\d{1,2}[-/.]\d{1,2}[-/.]\d{4})(?![\w/-])/g;
-const AUDIT_WORDED_DAY = new RegExp(`(?<![\\w-])(?:(\\d{1,2})(?:st|nd|rd|th)?\\s+(?:of\\s+)?(${CHAT_MONTH_WORDS})\\.?,?\\s+(\\d{4})|(${CHAT_MONTH_WORDS})\\.?\\s+(\\d{1,2})(?:st|nd|rd|th)?,?\\s+(\\d{4}))(?![\\w-])`, 'gi');
-const AUDIT_YEARLESS_DAY = new RegExp(`(?<![\\w-])\\d{1,2}(?:st|nd|rd|th)?\\s+(?:of\\s+)?(?:${CHAT_MONTH_WORDS})\\b(?!\\.?,?\\s*\\d{4})|\\b(?:${CHAT_MONTH_WORDS})\\.?\\s+\\d{1,2}(?:st|nd|rd|th)?\\b(?!\\s*,?\\s*\\d{4})`, 'i');
+const AUDIT_WORDED_DAY = new RegExp(`(?<![\\w.,-])(?:(\\d{1,2})(?:st|nd|rd|th)?\\s+(?:of\\s+)?(${CHAT_MONTH_WORDS})\\.?,?\\s+(\\d{4})|(${CHAT_MONTH_WORDS})\\.?\\s+(\\d{1,2})(?:st|nd|rd|th)?,?\\s+(\\d{4}))(?![\\w-])`, 'gi');
+const AUDIT_YEARLESS_DAY = new RegExp(`(?<![\\w.,-])\\d{1,2}(?:st|nd|rd|th)?\\s+(?:of\\s+)?(?:${CHAT_MONTH_WORDS})\\b(?!\\.?,?\\s*\\d{4})|\\b(?:${CHAT_MONTH_WORDS})\\.?\\s+\\d{1,2}(?:st|nd|rd|th)?\\b(?!\\s*,?\\s*\\d{4})`, 'i');
 const AUDIT_THIS_WEEK = /\bthis\s+week\b/i;
 const AUDIT_LAST_WEEK = /\b(?:last|previous|prior|preceding)\s+week\b/i;
 const AUDIT_LAST_QUARTER = /\b(?:last|previous|prior|preceding)\s+quarter\b/i;
