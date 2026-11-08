@@ -102,6 +102,8 @@ class FakeCloud {
   bool enrolling = false;
   int enrolAttempts = 0;
   String secondStepError = '';
+  int? secondStepLeft;
+  int changeTries = 0;
   int recoveryLeft = 8;
   static const secondStepChallenge = 'ss-1';
   static const totpSecret = 'JBSWY3DPEHPK3PXP';
@@ -205,9 +207,12 @@ class FakeCloud {
     if (path == '/v1/auth/second-step') {
       secondSteps.add('${body['code']}');
       secondStepBodies.add(body);
-      if (secondStepError.isNotEmpty) return _json(secondStepError == 'TOO_MANY_ATTEMPTS' ? 429 : 400, {'ok': false, 'error': secondStepError});
+      if (secondStepError.isNotEmpty) {
+        return _json(secondStepError == 'TOO_MANY_ATTEMPTS' ? 429 : 400, {'ok': false, 'error': secondStepError, if (secondStepLeft != null) 'attemptsRemaining': secondStepLeft});
+      }
       if (body['challengeId'] != secondStepChallenge) return _json(400, {'ok': false, 'error': 'INVALID_CODE'});
       if (!_codeOk(body['code'])) return _json(400, {'ok': false, 'error': 'INVALID_CODE', 'attemptsRemaining': 4});
+      changeTries = 0;
       final usedRecoveryCode = '${body['code']}' != totpCode;
       if (usedRecoveryCode) recoveryLeft -= 1;
       return _json(200, {
@@ -287,16 +292,19 @@ class FakeCloud {
       recoveryLeft = freshRecoveryCodes.length;
       return _json(200, {'ok': true, 'recoveryCodes': freshRecoveryCodes});
     }
-    if (path == '/v1/me/second-step/disable' && request.method == 'POST') {
+    if ((path == '/v1/me/second-step/disable' || path == '/v1/me/second-step/recovery-codes') && request.method == 'POST') {
       if (!twoStepEnabled) return _json(400, {'ok': false, 'error': 'NOT_ENABLED'});
-      if (!_codeOk(body['code'])) return _json(400, {'ok': false, 'error': 'INVALID_CODE'});
-      twoStepEnabled = false;
-      recoveryLeft = 0;
-      return _json(200, {'ok': true});
-    }
-    if (path == '/v1/me/second-step/recovery-codes' && request.method == 'POST') {
-      if (!twoStepEnabled) return _json(400, {'ok': false, 'error': 'NOT_ENABLED'});
-      if (!_codeOk(body['code'])) return _json(400, {'ok': false, 'error': 'INVALID_CODE'});
+      if (changeTries >= 5) return _json(429, {'ok': false, 'error': 'TOO_MANY_ATTEMPTS'});
+      if (!_codeOk(body['code'])) {
+        changeTries += 1;
+        return _json(400, {'ok': false, 'error': 'INVALID_CODE', 'attemptsRemaining': 5 - changeTries});
+      }
+      changeTries = 0;
+      if (path.endsWith('/disable')) {
+        twoStepEnabled = false;
+        recoveryLeft = 0;
+        return _json(200, {'ok': true});
+      }
       recoveryLeft = freshRecoveryCodes.length;
       return _json(200, {'ok': true, 'recoveryCodes': freshRecoveryCodes});
     }

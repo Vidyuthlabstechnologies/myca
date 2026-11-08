@@ -693,7 +693,8 @@ void main() {
     await tester.pump();
     await tester.tap(find.widgetWithText(FilledButton, 'Turn off'));
     await tester.pumpAndSettle();
-    expect(find.text(wrongCode), findsOneWidget);
+    expect(find.text('That code is not right. 4 tries left.'), findsOneWidget);
+    expect(find.text(wrongCode), findsNothing);
     expect(cloud.twoStepEnabled, isTrue);
     expect(find.text('On · 1 recovery code left'), findsOneWidget);
 

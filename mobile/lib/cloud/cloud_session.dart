@@ -74,13 +74,24 @@ const _secondStepMessages = {
   'CODE_USED': 'That code was already used. Wait for the next one on your authenticator and try again.',
 };
 
+const _changeLocked = 'Too many wrong codes. Wait 15 minutes, or sign in again with your authenticator code, then try again.';
+
+String _triesLeft(int left) => 'That code is not right. $left ${left == 1 ? 'try' : 'tries'} left.';
+
+bool _lastTry(String code, int? left) => left != null && left <= 0 && (code == 'INVALID_CODE' || code == 'CODE_USED');
+
 String secondStepMessage(String code, Object? attemptsRemaining) {
-  if (code == 'INVALID_CODE' && attemptsRemaining is num) {
-    final left = attemptsRemaining.toInt();
-    if (left <= 0) return _secondStepOver;
-    return 'That code is not right. $left ${left == 1 ? 'try' : 'tries'} left.';
-  }
+  final left = attemptsRemaining is num ? attemptsRemaining.toInt() : null;
+  if (_lastTry(code, left)) return _secondStepOver;
+  if (code == 'INVALID_CODE' && left != null) return _triesLeft(left);
   return _secondStepMessages[code] ?? cloudMessage(code);
+}
+
+String? _changeCodeMessage(String code, Object? attemptsRemaining) {
+  final left = attemptsRemaining is num ? attemptsRemaining.toInt() : null;
+  if (code == 'TOO_MANY_ATTEMPTS' || _lastTry(code, left)) return _changeLocked;
+  if (code == 'INVALID_CODE' && left != null) return _triesLeft(left);
+  return code == 'CODE_USED' ? _secondStepMessages[code] : null;
 }
 
 class SecondStepResult {
@@ -605,6 +616,7 @@ class CloudSession {
     String method,
     String path, [
     Map<String, Object?>? body,
+    String? Function(String code, Object? attemptsRemaining)? explain,
   ]) async {
     if (!signedIn) throw const SignedOutException();
     var (status, reply) = await _send(method, path, body);
@@ -625,7 +637,8 @@ class CloudSession {
     if (status >= 400 &&
         reply['error'] is String &&
         !reply.containsKey('reply')) {
-      throw MycaApiException(cloudMessage(reply['error'] as String, '${reply['hint'] ?? ''}'));
+      final code = reply['error'] as String;
+      throw MycaApiException(explain?.call(code, reply['attemptsRemaining']) ?? cloudMessage(code, '${reply['hint'] ?? ''}'));
     }
     return reply;
   }
@@ -1079,11 +1092,11 @@ class CloudSession {
       _strings(_accepted(await call('POST', '/v1/me/second-step/confirm', {'code': code}))['recoveryCodes']);
 
   Future<void> disableSecondStep(String code) async {
-    _accepted(await call('POST', '/v1/me/second-step/disable', {'code': code}));
+    _accepted(await call('POST', '/v1/me/second-step/disable', {'code': code}, _changeCodeMessage));
   }
 
   Future<List<String>> newRecoveryCodes(String code) async =>
-      _strings(_accepted(await call('POST', '/v1/me/second-step/recovery-codes', {'code': code}))['recoveryCodes']);
+      _strings(_accepted(await call('POST', '/v1/me/second-step/recovery-codes', {'code': code}, _changeCodeMessage))['recoveryCodes']);
 
   Future<List<SignedInDevice>> devices() async {
     final body = _accepted(await call('GET', '/v1/me/devices'));

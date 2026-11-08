@@ -10,6 +10,8 @@ num _num(Object? value) => value is num ? value : 0;
 
 String _text(Object? value) => value == null ? '' : value.toString();
 
+num _paise(num value) => (value * 100).round() / 100;
+
 class Company {
   const Company({required this.name, required this.gstin, this.tdsDeductor = false, this.country = 'IN', this.gstFrequency = 'monthly'});
 
@@ -338,7 +340,9 @@ class Invoice {
 
   bool get partial => status == 'partial';
 
-  num get owed => payments.fold<num>(total, (left, p) => left - p.amount);
+  num get owed => _paise(total - receipts.fold<num>(0, (sum, r) => sum + r.amount) - payments.fold<num>(0, (sum, p) => sum + p.amount));
+
+  num owedAfter(Iterable<CreditNote> notes) => _paise(owed - notes.where((note) => note.invoiceId == id).fold<num>(0, (sum, note) => sum + note.total));
 
   bool get cancelled => status == 'cancelled';
 
@@ -1167,6 +1171,7 @@ class ImsRow {
     required this.suggested,
     required this.decision,
     required this.note,
+    this.lines = 1,
   });
 
   factory ImsRow.fromJson(Object? json) {
@@ -1189,6 +1194,7 @@ class ImsRow {
       suggested: _text(map['suggested']) == 'accept' ? 'accept' : 'pending',
       decision: const {'accept', 'reject', 'pending'}.contains(decision) ? decision : '',
       note: _text(map['note']),
+      lines: _num(map['lines']) >= 1 ? _num(map['lines']).toInt() : 1,
     );
   }
 
@@ -1208,6 +1214,7 @@ class ImsRow {
   final String suggested;
   final String decision;
   final String note;
+  final int lines;
 
   bool get decided => decision.isNotEmpty;
 
@@ -1217,7 +1224,9 @@ class ImsRow {
 
   String get creditWords => credit < 0 ? '${rupees(-credit)} less credit' : '${rupees(credit)} credit';
 
-  String get subtitle => [if (invoiceDate.isNotEmpty) longDate(invoiceDate), creditWords, match].where((part) => part.isNotEmpty).join(' · ');
+  String get linesWords => lines > 1 ? '$lines lines' : '';
+
+  String get subtitle => [if (invoiceDate.isNotEmpty) longDate(invoiceDate), creditWords, match, linesWords].where((part) => part.isNotEmpty).join(' · ');
 
   String get decisionWords => switch (decision) {
     'accept' => 'Accepted',

@@ -184,13 +184,17 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
     super.dispose();
   }
 
+  num _stillOwed(Invoice doc) => _sales
+      ? doc.owedAfter(AppScope.of(context).snapshot?.creditNotes ?? const <CreditNote>[])
+      : doc.owed;
+
   void _open(_Composer composer, Party party) => setState(() {
     _composer = composer;
     _formError = '';
     _amount.clear();
     if (composer == _Composer.payment) {
       _invoiceId = party.unpaid.first.id;
-      _amount.text = plainNumber(party.unpaid.first.owed);
+      _amount.text = plainNumber(_stillOwed(party.unpaid.first));
     }
     if (composer == _Composer.document) _repeat = '';
     if (composer == _Composer.quote) _docKind = 'quote';
@@ -1047,18 +1051,13 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
         for (final doc in party.unpaid)
           DropdownMenuItem(
             value: doc.id,
-            child: Text(
-              _sales
-                  ? '${doc.id} · ${rupees(doc.total)}'
-                  : '${doc.id} · ${rupees(doc.owed)} owed',
-            ),
+            child: Text('${doc.id} · ${rupees(_stillOwed(doc))} owed'),
           ),
       ],
       onChanged: (value) => setState(() {
         _invoiceId = value;
-        if (_sales) return;
-        final bill = party.unpaid.where((doc) => doc.id == value);
-        if (bill.isNotEmpty) _amount.text = plainNumber(bill.first.owed);
+        final chosen = party.unpaid.where((doc) => doc.id == value);
+        if (chosen.isNotEmpty) _amount.text = plainNumber(_stillOwed(chosen.first));
       }),
     ),
     const SizedBox(height: 10),
