@@ -1511,7 +1511,11 @@ class _TdsWithheldSheetState extends State<_TdsWithheldSheet> {
                 for (final doc in widget.invoices)
                   DropdownMenuItem(
                     value: doc.id,
-                    child: Text('${doc.id} · ${rupees(doc.total)}'),
+                    child: Text(
+                      '${doc.id} · ${rupees(doc.total)}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
               ],
               onChanged: (value) => setState(() {

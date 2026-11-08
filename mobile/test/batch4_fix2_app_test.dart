@@ -353,6 +353,8 @@ void main() {
       expect(sale(const []).owed, 100000);
       expect(Invoice.fromJson({'id': 'BILL-1', 'total': 42000, 'payments': [{'amount': 12000, 'mode': 'bank'}]}).owed, 30000);
       expect(Invoice.fromJson({'id': 'INV-2', 'total': 11800.5, 'receipts': [{'amount': 1000.1, 'mode': 'bank'}]}).owed, 10800.4);
+      expect(Invoice.fromJson({'id': 'INV-3', 'total': 100000, 'receipts': [{'amount': 33333.33, 'mode': 'bank'}, {'amount': 33333.33, 'mode': 'bank'}, {'amount': 33333.33, 'mode': 'bank'}]}).owed, 0.01);
+      expect(Invoice.fromJson({'id': 'INV-4', 'total': 0.3, 'receipts': [{'amount': 0.1, 'mode': 'bank'}, {'amount': 0.1, 'mode': 'bank'}]}).owed, 0.1);
     });
 
     testWidgets('an invoice of 1,00,000 with TDS of 2,000 opens the composer with 98,000 and the list says 98,000', (tester) async {
@@ -527,6 +529,9 @@ void main() {
       expect(find.text('INV-0002 · ₹1,00,000.00'), findsOneWidget);
       expect(find.text('INV-0002 · ₹70,000.00 owed'), findsNothing);
       expect(amountIn(tester, 'TDS withheld'), '2000');
+      final label = tester.widget<Text>(find.text('INV-0002 · ₹1,00,000.00'));
+      expect(label.maxLines, 1);
+      expect(label.overflow, TextOverflow.ellipsis);
     });
   });
 
