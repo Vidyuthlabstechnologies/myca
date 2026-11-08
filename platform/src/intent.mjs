@@ -90,8 +90,12 @@ function loneAmount(text) {
 
 const WORDED_MONTHS = 'jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?';
 const MONTH_ORDER = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
-const WORDED_DAY = new RegExp(`(?<![\\w-])(?:(\\d{1,2})(?:st|nd|rd|th)?\\s+(?:of\\s+)?(${WORDED_MONTHS})\\b\\.?(?:,?\\s+((?:19|20)\\d{2})\\b)?|(${WORDED_MONTHS})\\b\\.?\\s+(\\d{1,2})(?:st|nd|rd|th)?\\b(?:,?\\s+((?:19|20)\\d{2})\\b)?)(?![\\w-])`, 'gi');
+const WORDED_DAY = new RegExp(`(?<![\\w.,-])(?:(\\d{1,2})(?:st|nd|rd|th)?\\s+(?:of\\s+)?(${WORDED_MONTHS})\\b\\.?(?:,?\\s+((?:19|20)\\d{2})\\b)?|(${WORDED_MONTHS})\\b\\.?\\s+(\\d{1,2})(?:st|nd|rd|th)?\\b(?:,?\\s+((?:19|20)\\d{2})\\b)?)(?![\\w-])`, 'gi');
 const REFERENCE_WORDS = 'cheque|check|chq|cheq|dd|draft|ref|reference|utr|rrn|txn|trn|transaction|voucher|receipt|invoice|inv|bill|challan|order|po|payment|neft|rtgs|imps|upi';
+const COUNT_NOUNS = 'invoice|bill|cheque|check|receipt|payment|instal+ment|tranche|part';
+const COUNT_PLURALS = 'invoices|bills|cheques|checks|receipts|payments|instal+ments|tranches|parts';
+const LABEL_AFTER_NOUN = '[\\s.]{0,3}(?:no\\.?|number|num|#|id)[\\s:#.-]{0,4}[a-z]{0,6}\\d';
+const NUMBER_AFTER_NOUN = '\\s{0,3}(?:(?:no\\.?|number|#)\\s{0,3})?(?:of\\s+)?\\d{1,2}(?!\\d|[,.]\\d)';
 const NOT_MONEY = new RegExp([
   `\\b(?:${REFERENCE_WORDS})[\\s.]{0,3}(?:no\\.?|number|num|#|id)[\\s:#.-]{0,4}[a-z]{0,6}\\d[\\w-]*`,
   '\\b(?:ref|reference|utr|rrn|txn|trn)[\\s:#.-]{0,4}[a-z]{0,6}\\d[\\w-]*',
@@ -100,7 +104,7 @@ const NOT_MONEY = new RegExp([
   '\\binstal+ments?\\s{0,3}(?:(?:no\\.?|number|#)\\s{0,3})?(?:of\\s+)?\\d{1,2}(?!\\d|[,.]\\d)(?:\\s{0,3}(?:of|/|out\\s+of)\\s{0,3}\\d{1,2}(?!\\d|[,.]\\d))?',
   '\\b(?:of|out\\s+of)\\s+\\d{1,2}(?!\\d|[,.]\\d)\\s+(?:instal+ments?|parts?|tranches?|payments?)\\b',
   '\\b\\d[\\d,]*(?:\\.\\d+)?\\s*(?:-\\s*)?(?:days?|weeks?|months?)\\b',
-  '\\b\\d{1,2}(?!\\d|[,.]\\d)\\s{0,3}(?:invoices?|bills?|cheques?|checks?|receipts?|payments?|instal+ments?|tranches?|parts?)\\b',
+  `(?<![\\w.,])(?:1(?!\\d|[,.]\\d)\\s{0,3}(?:${COUNT_NOUNS})|\\d{1,2}(?!\\d|[,.]\\d)\\s{0,3}(?:${COUNT_PLURALS}|(?:${COUNT_NOUNS})(?!${LABEL_AFTER_NOUN}|${NUMBER_AFTER_NOUN})))\\b`,
   '\\bnet\\s*\\d{1,3}(?!\\d|[,.]\\d)',
 ].join('|'), 'gi');
 

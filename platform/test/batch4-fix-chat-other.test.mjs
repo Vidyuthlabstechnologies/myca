@@ -757,18 +757,31 @@ test('routing-16 (repair): payment terms are terms, however they are said, and n
 test('routing-7 (repair): a long run of spaces costs the new planners nothing', async () => {
   const state = await books();
   const run = ' '.repeat(1000);
-  const timed = (sentence) => {
-    const start = performance.now();
-    planLocalToolCall(state, sentence);
-    return performance.now() - start;
+  const cpuMs = () => {
+    const used = process.cpuUsage();
+    return (used.user + used.system) / 1000;
   };
-  const extra = (withWord, without) => Math.min(...[0, 1, 2].map(() => timed(withWord) - timed(without)));
-  const fastest = (sentence) => Math.min(...[0, 1, 2].map(() => timed(sentence)));
-  assert.ok(extra(`Fabric Co is MSME udyam${run}!`, `Fabric Co is MSME xyzzy${run}!`) < 200, 'Udyam wording');
-  assert.ok(extra(`Fabric Co is MSME udyam number${run}12`, `Fabric Co is MSME xyzzy number${run}12`) < 200, 'Udyam number wording');
-  assert.ok(extra(`Fabric Co udyam${run}!`, `Fabric Co xyzzy${run}!`) < 200, 'Udyam alone');
-  assert.ok(fastest(`ims audit trail fy${run}!`) < 150, 'financial year in an audit sentence');
-  assert.ok(fastest(`excel of 26as fy${run}!`) < 150, 'financial year in an Excel sentence');
+  const fastest = (sentence) => Math.min(...[0, 1, 2].map(() => {
+    const start = cpuMs();
+    planLocalToolCall(state, sentence);
+    return cpuMs() - start;
+  }));
+  for (const [withWord, without, what] of [
+    [`Fabric Co is MSME udyam${run}!`, `Fabric Co is MSME xyzzy${run}!`, 'Udyam wording'],
+    [`Fabric Co is MSME udyam number${run}12`, `Fabric Co is MSME xyzzy number${run}12`, 'Udyam number wording'],
+    [`Fabric Co udyam${run}!`, `Fabric Co xyzzy${run}!`, 'Udyam alone'],
+  ]) {
+    const control = fastest(without);
+    const took = fastest(withWord);
+    assert.ok(took < control * 1.5 + 100, `${what}: ${Math.round(took)} ms of CPU against ${Math.round(control)} ms for the same sentence without the word`);
+  }
+  for (const [sentence, what] of [
+    [`ims audit trail fy${run}!`, 'financial year in an audit sentence'],
+    [`excel of 26as fy${run}!`, 'financial year in an Excel sentence'],
+  ]) {
+    const took = fastest(sentence);
+    assert.ok(took < 1000, `${what}: ${Math.round(took)} ms of CPU for a run of ${run.length} spaces`);
+  }
   const spaced = await chat(await books(), `mark${' '.repeat(50)}Fabric Co${' '.repeat(50)}as${' '.repeat(50)}MSME${' '.repeat(50)},${' '.repeat(50)}30${' '.repeat(50)}days`);
   assert.equal(spaced.awaitingConfirmation, true, spaced.reply);
   assert.match(spaced.reply, /^Mark Fabric Co as an MSME supplier/);

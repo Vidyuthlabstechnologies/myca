@@ -392,7 +392,8 @@ test('R1-20 and R2-8: the audit trail Excel row takes the plural, the hyphen and
   assert.deepEqual(excel('audit trail for fy 2025-26 in excel'), { report: 'audit_trail', from: '2025-04-01', to: '2026-03-31' });
   assert.deepEqual(excel('audit trail last week in excel'), { report: 'audit_trail', from: shiftDay(mondayOf(TODAY), -7), to: shiftDay(mondayOf(TODAY), -1) });
   assert.deepEqual(excel('audit trail from 2026-09-01 to 2026-09-30 in excel'), { report: 'audit_trail', from: '2026-09-01', to: '2026-09-30' });
-  assert.deepEqual(excel('audit trail for October in excel'), { report: 'audit_trail', period: '2026-10' });
+  const [thisYear, thisMonth] = TODAY.split('-').map(Number);
+  assert.deepEqual(excel('audit trail for October in excel'), { report: 'audit_trail', period: `${10 < thisMonth ? thisYear : thisYear - 1}-10` });
   assert.deepEqual(excel('audit trail in excel'), { report: 'audit_trail' });
   const unread = plan(state, 'audit trail for the last 3 months in excel');
   assert.equal(unread.kind, 'reply', words(unread));
@@ -545,7 +546,9 @@ test('R1-23d: the 26AS check ends with its source as a sentence, not as a bare l
   const none = await chat(state, 'check 26AS against the books');
   assert.equal(none.tools[0].name, 'tds_credit_check');
   assert.equal(none.reply.split('\n').at(-1), 'No 26AS imported yet.', none.reply);
-  state.pendingFile = { kind: '26as', name: 'Form26AS.csv', content: 'Section,Name of Deductor,TAN of Deductor,Amount Paid/Credited,Tax Deducted,Date of Booking\n194C,KIRAN STORES,MUMK12345B,50000,500,2026-10-20' };
+  const [todayYear, todayMonth] = TODAY.split('-').map(Number);
+  const financialYearStart = todayMonth >= 4 ? todayYear : todayYear - 1;
+  state.pendingFile = { kind: '26as', name: 'Form26AS.csv', content: `Section,Name of Deductor,TAN of Deductor,Amount Paid/Credited,Tax Deducted,Date of Booking\n194C,KIRAN STORES,MUMK12345B,50000,500,${financialYearStart}-10-20` };
   const waiting = await chat(state, 'check the 26AS file I attached');
   assert.match(waiting.reply, /not been imported/, waiting.reply);
   assert.equal(waiting.reply.split('\n').at(-1), 'No 26AS imported yet.', waiting.reply);
@@ -740,6 +743,8 @@ test('skeptic gap 2 (R1-20): ordering and grouping words after "by" are not a pe
 test('skeptic gap 3 (R1-15): "from" the IMS screen, the dashboard, here, now or every supplier names no subset and is planned; any other "from" is still declined', async () => {
   const state = await books();
   const whole = { period: '2026-09', select: 'matched', decision: 'accept' };
+  const [thisYear, thisMonth] = TODAY.split('-').map(Number);
+  const septemberSaid = `${9 < thisMonth ? thisYear : thisYear - 1}-09`;
   for (const sentence of [
     'accept all matched invoices from IMS',
     'accept all matched invoices from the IMS screen',
@@ -778,7 +783,7 @@ test('skeptic gap 3 (R1-15): "from" the IMS screen, the dashboard, here, now or 
     'accept all matched invoices in ims from the gst portal for 2026-09',
     'accept all matched invoices in ims from gstr-2b',
     'accept all matched invoices from ims and then confirm',
-  ]) assert.deepEqual(toolArgs(state, sentence, 'ims_decide'), whole, sentence);
+  ]) assert.deepEqual(toolArgs(state, sentence, 'ims_decide'), /\bseptember\b(?!\s+\d{4})/i.test(sentence) ? { ...whole, period: septemberSaid } : whole, sentence);
   const lastMonth = plan(state, 'accept all matched invoices from the dashboard in ims for last month');
   assert.equal(lastMonth.kind, 'tool', words(lastMonth));
   assert.equal(lastMonth.name, 'ims_decide');
