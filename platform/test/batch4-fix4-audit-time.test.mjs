@@ -88,7 +88,7 @@ async function zoneProbe(modules) {
   const stampOf = (year, month, day, hour = 0, minute = 0, second = 0) => new Date(year, month - 1, day, hour, minute, second).toISOString();
   const change = (state, at) => appendAuditEvent(state, { actorId: 'USR-ADMIN', actorName: 'Admin', action: 'tool.create_invoice', at, beforeHash: 'a', afterHash: 'b', metadata: { ok: true, details: { ids: ['INV-0001'] } } });
   const events = async (state, args) => (await runTool(state, 'audit_trail', { ...args, view: 'all' })).data.events;
-  const out = { offsetMinutes: new Date().getTimezoneOffset() };
+  const out = { offsetMinutes: new Date(2026, 10, 7, 12, 0, 0).getTimezoneOffset() };
 
   const story = createState();
   createInvoice(story, { date: '2026-11-07', partyName: 'Kiran Stores', lines: [{ description: 'Goods', qty: 1, rate: 1000, gstRate: 18 }] });
