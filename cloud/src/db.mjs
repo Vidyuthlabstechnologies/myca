@@ -5,16 +5,30 @@ import pg from 'pg';
 
 const MIGRATIONS_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', 'migrations');
 
+const POOL_WAIT_TIMEOUT = 'timeout exceeded when trying to connect';
+
 pg.types.setTypeParser(20, (value) => Number(value));
 
-export function createDb(connectionString, { max = 10, onError = () => {} } = {}) {
-  const pool = new pg.Pool({ connectionString, max });
+function serverBusy(cause) {
+  const err = new Error('SERVER_BUSY', { cause });
+  err.statusCode = 503;
+  err.body = { ok: false, error: 'SERVER_BUSY' };
+  return err;
+}
+
+function translated(err) {
+  return err && !err.code && err.message === POOL_WAIT_TIMEOUT ? serverBusy(err) : err;
+}
+
+export function createDb(connectionString, { max = 10, connectionTimeoutMillis = 5000, onError = () => {} } = {}) {
+  const pool = new pg.Pool({ connectionString, max, connectionTimeoutMillis });
   pool.on('error', onError);
-  const query = (text, params) => pool.query(text, params);
+  const query = (text, params) => pool.query(text, params).catch((err) => { throw translated(err); });
+  const acquire = () => pool.connect().catch((err) => { throw translated(err); });
   return {
     query,
     async tx(run) {
-      const client = await pool.connect();
+      const client = await acquire();
       try {
         await client.query('begin');
         const out = await run((text, params) => client.query(text, params));

@@ -144,7 +144,7 @@ export function createInbound({ db, secret, now = () => Date.now(), withBooks, e
         ...(body.taxJurisdiction ? { taxJurisdiction: String(body.taxJurisdiction) } : {}),
         lines: lines.slice(0, 50),
       };
-      const out = await withBooks(key.businessId, context, (session) => session.tool('create_invoice', args, actor));
+      const out = await withBooks(key.businessId, context, (session) => session.tool('create_invoice', args, actor), { q });
       if (out.ok === false) return out;
       const invoice = out.invoice || {};
       await q(
