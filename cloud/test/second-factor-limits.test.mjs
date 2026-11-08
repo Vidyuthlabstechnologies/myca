@@ -450,3 +450,43 @@ test('the security gaps table records the stolen-session enrolment, what is plan
   assert.match(all, /15 minutes/);
   assert.doesNotMatch(all, /no attempt limit/i);
 });
+
+test('a wrong second-step code at a sign-in does not lift the lock on turning two-step off', async () => {
+  const phone = freshPhone();
+  const { session, secret } = await enrol(phone);
+  await useUpTries(disable, session.accessToken, secret);
+  assert.equal((await disable(session.accessToken, current(secret))).status, 429);
+
+  const challenge = await firstStep(phone);
+  const refused = await secondStep(challenge.body.challengeId, wrongCode(secret));
+  assert.equal(refused.body.error, 'INVALID_CODE');
+
+  const still = await disable(session.accessToken, current(secret));
+  assert.equal(still.status, 429, still.text);
+  assert.equal(still.body.error, 'TOO_MANY_ATTEMPTS');
+});
+
+test('a made-up code shaped like a recovery code counts as a wrong code when turning two-step off or renewing recovery codes', async () => {
+  const { session, secret, recoveryCodes } = await enrol(freshPhone());
+  const madeUp = 'abcdefghjk';
+  assert.equal(recoveryCodes.some((code) => code.replace('-', '') === madeUp), false);
+  const first = await disable(session.accessToken, madeUp);
+  assert.deepEqual(first.body, { ok: false, error: 'INVALID_CODE', attemptsRemaining: CHANGE_TRIES - 1 });
+  const second = await regenerate(session.accessToken, 'abcde-fghjk');
+  assert.deepEqual(second.body, { ok: false, error: 'INVALID_CODE', attemptsRemaining: CHANGE_TRIES - 2 });
+  for (let tried = 3; tried <= CHANGE_TRIES; tried++) await disable(session.accessToken, madeUp);
+  assert.equal((await disable(session.accessToken, current(secret))).status, 429);
+});
+
+for (const [kind, given] of [['a made-up recovery code', () => 'abcdefghjk'], ['a code that was already used', (secret) => totpCode(base32Decode(secret), api.clock.now - STEP_MS)]]) {
+  test(`${kind} at a second-step sign-in leaves the count of wrong codes for turning two-step off alone`, async () => {
+    const phone = freshPhone();
+    const { session, secret } = await enrol(phone);
+    for (let tried = 1; tried <= 3; tried++) await disable(session.accessToken, wrongCode(secret));
+    const challenge = await firstStep(phone);
+    const refused = await secondStep(challenge.body.challengeId, given(secret));
+    assert.equal(refused.status, 400);
+    const next = await disable(session.accessToken, wrongCode(secret));
+    assert.deepEqual(next.body, { ok: false, error: 'INVALID_CODE', attemptsRemaining: CHANGE_TRIES - 4 });
+  });
+}
