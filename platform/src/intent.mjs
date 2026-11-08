@@ -95,7 +95,7 @@ const REFERENCE_WORDS = 'cheque|check|chq|cheq|dd|draft|ref|reference|utr|rrn|tx
 const NOT_MONEY = new RegExp([
   `\\b(?:${REFERENCE_WORDS})[\\s.]{0,3}(?:no\\.?|number|num|#|id)[\\s:#.-]{0,4}[a-z]{0,6}\\d[\\w-]*`,
   '\\b(?:ref|reference|utr|rrn|txn|trn)[\\s:#.-]{0,4}[a-z]{0,6}\\d[\\w-]*',
-  '\\b(?:cheque|chq|cheq)\\s{0,3}(?:0\\d*|\\d{6,})\\b',
+  '\\b(?:cheque|chq|cheq)\\s{0,3}0\\d+\\b',
   '#\\s{0,2}[a-z]{0,6}\\d[\\w-]*',
   '\\binstal+ments?\\s{0,3}(?:(?:no\\.?|number|#)\\s{0,3})?(?:of\\s+)?\\d{1,2}(?!\\d|[,.]\\d)(?:\\s{0,3}(?:of|/|out\\s+of)\\s{0,3}\\d{1,2}(?!\\d|[,.]\\d))?',
   '\\b(?:of|out\\s+of)\\s+\\d{1,2}(?!\\d|[,.]\\d)\\s+(?:instal+ments?|parts?|tranches?|payments?)\\b',
@@ -124,20 +124,40 @@ function takeSaidDays(text, today) {
   return { rest: `${text.slice(0, found[0].at)} ${text.slice(found[0].end)}`, days: [found[0].iso] };
 }
 
-function moneyList(text) {
+const FIGURE_OR_CHEQUE = /(\b(?:cheque|chq|cheq)\s{0,3}\d{6,}\b)|(?<![\w.,-])\d|(?<![\w.,])-\s?\d/gi;
+
+function takeReferences(text) {
+  let seen = false;
+  return text.replace(NOT_AMOUNTS, ' ').replace(NOT_MONEY, ' ').replace(FIGURE_OR_CHEQUE, (hit, cheque) => {
+    if (!cheque) {
+      seen = true;
+      return hit;
+    }
+    return seen ? ' ' : hit;
+  });
+}
+
+function hasNonPositive(text) {
+  return NON_POSITIVE_AMOUNT.test(text.replace(NOT_AMOUNTS, ' '));
+}
+
+function moneyReading(text) {
   const { rest } = takeSaidDays(text, localToday());
   const all = amountList(rest);
-  if (all.length < 2) return all;
-  const trimmed = amountList(rest.replace(NOT_MONEY, ' '));
-  return trimmed.length ? trimmed : all;
+  const zero = hasNonPositive(rest);
+  if (all.length + (zero ? 1 : 0) < 2) return { list: all, nonPositive: zero };
+  const firm = takeReferences(rest);
+  const list = amountList(firm);
+  const nonPositive = hasNonPositive(firm);
+  return list.length || nonPositive ? { list, nonPositive } : { list: all, nonPositive };
 }
 
 export function amountsSaid(text) {
-  return moneyList(normalizeChat(text));
+  return moneyReading(normalizeChat(text)).list;
 }
 
 export function soleAmountSaid(text) {
-  const list = moneyList(normalizeChat(text));
+  const { list } = moneyReading(normalizeChat(text));
   return list.length === 1 ? list[0] : null;
 }
 
@@ -205,8 +225,8 @@ export function receiptAmount(text) {
 }
 
 export function saidNonPositiveAmount(text) {
-  const t = normalizeChat(text).replace(NOT_AMOUNTS, ' ');
-  return NON_POSITIVE_AMOUNT.test(t) && loneAmount(t) == null;
+  const { list, nonPositive } = moneyReading(normalizeChat(text));
+  return nonPositive && list.length !== 1;
 }
 
 export function documentProblemReply(doc) {

@@ -1159,7 +1159,8 @@ async function chatCore(state, message) {
       tools: [{ name: plan.name, result }],
     };
   }
-  return { reply: fmtToolResult(plan.name, result, plan.args), tools: [{ name: plan.name, result }] };
+  const done = fmtToolResult(plan.name, result, plan.args);
+  return { reply: plan.note && result?.ok !== false ? `${done}\n${plan.note}` : done, tools: [{ name: plan.name, result }] };
 }
 
 export function propose(state, name, args = {}) {

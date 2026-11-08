@@ -760,8 +760,32 @@ test('skeptic gap 3 (R1-15): "from" the IMS screen, the dashboard, here, now or 
     'accept all matched invoices from the gst ims screen',
     'accept all matched invoices from the gst ims in 2026-09',
   ]) assert.deepEqual(toolArgs(state, sentence, 'ims_decide'), whole, sentence);
-  assert.deepEqual(toolArgs(state, 'reject all undecided invoices from ims for 2026-09', 'ims_decide'), { period: '2026-09', select: 'undecided', decision: 'reject' });
   for (const sentence of [
+    'accept all matched invoices from ims',
+    'accept all matched invoices from ims, please',
+    'accept all matched invoices from ims. Thanks',
+    'accept all matched invoices from here via the gst ims',
+    'accept all matched invoices from here through ims',
+    'accept all matched invoices from every supplier using the ims',
+    'accept all matched invoices from every supplier on ims',
+    'accept all matched invoices from every supplier in ims for september',
+    'accept all matched invoices from all suppliers in ims for 2026-09',
+    'accept all matched invoices from ims in the month of september',
+    'accept all matched invoices from ims for september 2026 please',
+    'accept all matched invoices from the dashboard in invoice management',
+    'accept all matched invoices in ims from all suppliers',
+    'accept all matched invoices in ims from the gst portal',
+    'accept all matched invoices in ims from the gst portal for 2026-09',
+    'accept all matched invoices in ims from gstr-2b',
+    'accept all matched invoices from ims and then confirm',
+  ]) assert.deepEqual(toolArgs(state, sentence, 'ims_decide'), whole, sentence);
+  const lastMonth = plan(state, 'accept all matched invoices from the dashboard in ims for last month');
+  assert.equal(lastMonth.kind, 'tool', words(lastMonth));
+  assert.equal(lastMonth.name, 'ims_decide');
+  assert.equal(lastMonth.args.select, 'matched');
+  assert.equal(lastMonth.args.decision, 'accept');
+  assert.deepEqual(toolArgs(state, 'reject all undecided invoices from ims for 2026-09', 'ims_decide'), { period: '2026-09', select: 'undecided', decision: 'reject' });
+  const tails = [
     'accept all matched invoices from supplier Acme in ims',
     'accept all matched invoices from all suppliers except Fabric Co in ims',
     'accept all matched invoices from ims supplier Fabric Co',
@@ -769,11 +793,94 @@ test('skeptic gap 3 (R1-15): "from" the IMS screen, the dashboard, here, now or 
     'accept all matched invoices from here and Pack House in ims',
     'accept all matched invoices from all suppliers named Acme in ims',
     'accept all matched invoices from Acme Traders in ims',
-  ]) {
+    'accept all matched invoices in ims from all suppliers in Maharashtra',
+    'reject all undecided invoices in ims from all suppliers in Delhi',
+    'accept all matched invoices in ims from all suppliers in Mumbai',
+    'accept all matched invoices in ims from all suppliers in the textile business',
+    'accept all matched invoices in ims from all suppliers to Nalanda',
+    'accept all matched invoices in ims from all suppliers for Nalanda Textiles',
+    'accept all matched invoices in ims from all suppliers on 5 September',
+    'accept all matched invoices in ims from all suppliers using igst',
+    'accept all matched invoices in ims from all suppliers in Maharashtra only',
+    'accept all matched invoices in ims from registered suppliers in Karnataka',
+    'accept all matched invoices in ims from here in Pune',
+    'accept all matched invoices in ims from the dashboard in Pune',
+    'accept all matched invoices in ims from the gst portal in Maharashtra',
+    'accept all matched invoices in ims from gstr-2b in Maharashtra',
+    'accept all matched invoices in ims from the portal for Nalanda Textiles',
+    'accept all matched invoices from ims in Maharashtra',
+    'accept all matched invoices from ims, in Maharashtra',
+    'accept all matched invoices from ims; Maharashtra only',
+    'accept all matched invoices from ims. Gujarat suppliers only.',
+    'accept all matched invoices from ims for Maharashtra suppliers',
+    'accept all matched invoices from ims only',
+    'accept all matched invoices from ims using igst',
+    'accept all matched invoices from ims on 5 September',
+    'accept all matched invoices from ims to Nalanda',
+    'accept all matched invoices from every supplier in ims in Maharashtra',
+    'accept all matched invoices from all suppliers in ims for Nalanda Textiles',
+    'accept all matched invoices from here in ims, Delhi only',
+    'accept all matched invoices in ims from all suppliers in March Textiles',
+    'accept all matched invoices in ims from here in May Traders',
+    'accept all matched invoices from ims in the textile business',
+    'accept all matched invoices from all suppliers in the state of Gujarat in ims',
+    'accept all matched invoices in ims from the dashboard at the Pune branch',
+    'accept all matched invoices from ims and Pack House',
+    'accept all matched invoices from the ims screen in the Pune office',
+    'accept all matched invoices from ims and those in Maharashtra',
+    'accept all matched invoices from ims and Maharashtra only',
+    'accept all matched invoices from ims and for Maharashtra',
+    'accept all matched invoices from ims and IGST ones',
+    'accept all matched invoices from ims then Maharashtra',
+    'accept all matched invoices from ims and Delhi suppliers',
+    'accept all matched invoices from ims and 5 September',
+    'accept all matched invoices from ims and the textile business',
+    'accept all matched invoices in ims from all suppliers and also those in Maharashtra',
+    'accept all matched invoices from ims and then accept the Pune ones',
+    'accept all matched invoices from ims, please, only for Gujarat',
+    'accept all matched invoices from ims and confirm for Maharashtra',
+    'accept all matched invoices from ims, thanks, Maharashtra only',
+    'accept all matched invoices in ims from 2b in Maharashtra',
+    'accept all matched invoices in ims from here in ims in Pune',
+    'accept all matched invoices from ims for september in Maharashtra',
+    'accept all matched invoices from ims for 2026-09 and those in Delhi',
+    'accept all matched invoices from ims in ims screen only for Pune',
+  ];
+  for (const sentence of tails) {
     const out = plan(state, sentence);
     assert.equal(out.kind, 'reply', `${sentence} -> ${words(out)}`);
+    assert.deepEqual(out.tools, [], sentence);
     assert.match(out.reply, /changed nothing/i, sentence);
+    assert.match(out.reply, /every row of that set/i, sentence);
+    assert.match(out.reply, /IMS screen/, sentence);
+    const said = await chat(state, sentence);
+    assert.notEqual(said.awaitingConfirmation, true, `${sentence}: ${said.reply}`);
+    assert.match(said.reply, /changed nothing/i, sentence);
+    assert.equal(state.pendingChatAction ?? null, null, sentence);
+    assert.deepEqual(state.imsDecisions ?? {}, {}, `${sentence} decided nothing`);
   }
+  const allowed = [];
+  for (const preposition of ['in', 'on', 'at', 'within', 'inside', 'via', 'through', 'thru', 'using']) allowed.push(`accept all matched invoices from here ${preposition} ims`);
+  for (const name of ['the gst ims', 'gst ims', 'the ims', 'invoice management', 'the invoice management system']) allowed.push(`accept all matched invoices from here in ${name}`);
+  for (const noun of ['screen', 'page', 'tab', 'dashboard', 'list', 'view']) allowed.push(`accept all matched invoices from here in ims ${noun}`);
+  for (const word of ['please', 'pls', 'kindly', 'thanks', 'thank you', 'thx', 'ok', 'okay']) allowed.push(`accept all matched invoices from ims, ${word}`, `accept all matched invoices from ims ${word}`);
+  for (const mark of [';', ':', '!', ')', '.']) allowed.push(`accept all matched invoices from ims${mark}`);
+  for (const preposition of ['for', 'in']) {
+    for (const period of ['this month', 'last month', 'previous month', 'prior month', 'september', 'september 2026', '2026-09', 'the month of september']) allowed.push(`accept all matched invoices from ims ${preposition} ${period}`);
+  }
+  for (const tail of ['and confirm', 'and then confirm', 'then confirm', 'also confirm', 'just confirm', 'and approve', 'and proceed', 'and continue', 'and submit', 'and apply', 'and post', 'and save', 'and yes', 'and say yes', 'and sure', 'and go ahead', 'and do it', 'and let me know', 'and then please confirm', 'then please']) allowed.push(`accept all matched invoices from ims ${tail}`);
+  allowed.push('accept all matched invoices in ims from 2b', 'accept all the matched invoice in ims', 'accept all matched invoices from every supplier in ims, please and then confirm', 'accept all matched invoices from ims? please');
+  for (const sentence of allowed) {
+    const out = plan(state, sentence);
+    assert.equal(out.kind, 'tool', `${sentence} -> ${words(out)}`);
+    assert.equal(out.name, 'ims_decide', sentence);
+    assert.equal(out.args.select, 'matched', sentence);
+    assert.equal(out.args.decision, 'accept', sentence);
+  }
+  const held = await chat(state, 'accept all matched invoices from every supplier in ims');
+  assert.equal(held.awaitingConfirmation, true, held.reply);
+  assert.match(held.reply, /Mark 2 invoices/, 'the whole set, as the sentence says');
+  await chat(state, 'no');
 });
 
 test('skeptic gap 4 (R1-15): a supplier word, a condition or a count in front of the set is declined in words and changes nothing', async () => {
@@ -807,6 +914,32 @@ test('skeptic gap 4 (R1-15): a supplier word, a condition or a count in front of
     'accept the smallest suggested invoice in ims',
     'accept all matched invoices in ims where the tax is igst',
     'reject all undecided invoices in ims whose rate is low',
+    'accept the matched invoice in ims',
+    'accept this matched invoice in ims',
+    'accept that matched invoice in ims',
+    'reject the undecided invoice in ims',
+    'reject this undecided invoice in ims',
+    'reject that undecided note in ims',
+    'accept the suggested note in ims',
+    'accept the suggested row in ims',
+    'accept a matched invoice in ims',
+    'accept the matched one in ims',
+    'accept matched invoices dated 5 Sep in ims',
+    'accept matched invoices dated 2026-09-05 in ims',
+    'accept all matched invoices on 5 September in ims',
+    'accept all matched invoices in ims on 2026-09-05',
+    'accept all matched invoices in ims dated 5th September',
+    'accept all matched invoices in ims on September 5',
+    'accept all matched invoices in ims on the 5th of September',
+    'accept matched invoices from 5 September in ims',
+    'accept the matched credit notes in ims',
+    'accept all matched credit notes in ims',
+    'accept all matched debit notes in ims',
+    'reject all undecided credit notes in ims',
+    'reject all undecided debit notes in ims',
+    'accept all the suggested credit note rows in ims',
+    'accept all credit notes that are matched in ims',
+    'accept all debit notes which are matched in ims',
   ]) {
     const out = plan(state, sentence);
     assert.equal(out.kind, 'reply', `${sentence} -> ${words(out)}`);
@@ -818,6 +951,41 @@ test('skeptic gap 4 (R1-15): a supplier word, a condition or a count in front of
     assert.notEqual(said.awaitingConfirmation, true, `${sentence}: ${said.reply}`);
     assert.equal(state.pendingChatAction ?? null, null, sentence);
     assert.deepEqual(state.imsDecisions ?? {}, {}, `${sentence} decided nothing`);
+  }
+  const narrowing = [];
+  for (const keyword of ['dated', 'on', 'from', 'since', 'until', 'till', 'before', 'after', 'between', 'upto', 'up to', 'on the']) {
+    for (const day of ['5 September', '5th of September', 'September 5', 'Sep 5th', 'Sep. 5', '2026-09-05']) narrowing.push(`accept all matched invoices in ims ${keyword} ${day}`);
+  }
+  for (const set of ['matched', 'suggested', 'undecided', 'not decided']) {
+    for (const determiner of ['the', 'this', 'that', 'a', 'an']) {
+      for (const noun of ['invoice', 'bill', 'note', 'row', 'entry', 'record', 'document', 'one']) narrowing.push(`reject ${determiner} ${set} ${noun} in ims`);
+    }
+    narrowing.push(`accept the ${set} credit note in ims`, `accept the ${set} debit note in ims`, `accept all ${set} credit notes in ims`, `reject all ${set} debit notes in ims`);
+  }
+  narrowing.push(
+    'accept all credit notes matched in ims',
+    'accept the credit note that is matched in ims',
+    'accept all debit notes which are suggested in ims',
+    'accept all credit notes which are undecided in ims',
+    'reject all debit notes that are not decided in ims',
+    'accept all matched credit note rows in ims',
+    'accept the last month matched invoice in ims',
+    'accept the previous quarter matched invoice in ims',
+  );
+  for (const sentence of narrowing) {
+    const out = plan(state, sentence);
+    assert.equal(out.kind, 'reply', `${sentence} -> ${words(out)}`);
+    assert.deepEqual(out.tools, [], sentence);
+    assert.match(out.reply, /changed nothing/i, sentence);
+  }
+  for (const sentence of ['accept all the matched invoice in ims', 'accept every matched invoice in ims', 'accept each matched note in ims', 'accept all matched invoices and credit notes in ims', 'accept all matched invoices, credit notes and debit notes in ims']) {
+    assert.equal(plan(state, sentence).name, 'ims_decide', `${sentence}: a plural or an every / each / all form is the whole set`);
+  }
+  for (const sentence of ['reject all undecided invoices in ims dated 12/09/2026', 'accept all matched invoices in ims on 12/09/2026']) {
+    assert.notEqual(plan(state, sentence).name, 'ims_decide', `${sentence}: a numeric date is never read as a whole-set decision`);
+    const said = await chat(state, sentence);
+    assert.notEqual(said.awaitingConfirmation, true, `${sentence}: ${said.reply}`);
+    assert.deepEqual(state.imsDecisions ?? {}, {}, sentence);
   }
   assert.match(plan(state, 'accept some of the matched invoices in ims').reply, /for only some of the rows/);
   const whole = { period: '2026-09', select: 'matched', decision: 'accept' };
@@ -836,6 +1004,16 @@ test('skeptic gap 4 (R1-15): a supplier word, a condition or a count in front of
     'accept every one of the matched invoices in ims',
     'accept each one of the matched invoices in ims',
     'accept all matched invoices in ims first',
+    'accept all matched invoices in IMS',
+    'accept all matched invoices and credit notes in ims',
+    'accept all matched invoices, credit notes and debit notes in ims',
+    'accept all matched invoices in ims for 15 october',
+    'accept all matched invoices in ims dated september',
+    'accept all matched invoices ims',
+    'ims: accept all matched invoices',
+    'in ims accept all matched invoices',
+    'accept all matched invoices (ims)',
+    'accept all the matched invoices in the ims',
   ]) {
     const out = plan(state, sentence);
     assert.equal(out.kind, 'tool', `${sentence} -> ${words(out)}`);
@@ -844,6 +1022,10 @@ test('skeptic gap 4 (R1-15): a supplier word, a condition or a count in front of
   }
   assert.deepEqual(toolArgs(state, 'accept all matched in ims', 'ims_decide'), whole);
   assert.deepEqual(toolArgs(state, 'reject every undecided invoice in ims', 'ims_decide'), { period: '2026-09', select: 'undecided', decision: 'reject' });
+  const rejectAll = { period: '2026-09', select: 'undecided', decision: 'reject' };
+  for (const sentence of ['reject all undecided invoices in ims', 'reject all undecided invoices in IMS', 'reject all undecided invoices in ims for 2026-09', 'reject all undecided invoices and credit notes in ims', 'reject all the undecided invoices in the ims', 'in ims reject all undecided invoices']) {
+    assert.deepEqual(toolArgs(state, sentence, 'ims_decide'), rejectAll, sentence);
+  }
 
   bill(state, 'Right Choice Traders', '27AAACR9999A1Z5', 'RC-1', '2026-09-20', 1000, 5);
   bill(state, 'Today Textiles', '27AAACT9999A1Z5', 'TT-1', '2026-09-21', 1000, 5);
@@ -899,6 +1081,7 @@ test('skeptic gap 5 (R1-16): one amount with a day and month, a cheque or refere
     ['received 5000 against INV-0001, balance 95000', 5000],
     ['received first instalment of 50000 and 5000 against INV-0001', 50000],
     ['received 12,000 against INV-0001, instalment of 12,000 and 3000', 12000],
+    ['received 5000 against INV-0001 by cheque 12345', 5000],
   ]) {
     const out = plan(state, sentence);
     assert.equal(out.kind, 'reply', `${sentence} -> ${words(out)}`);
@@ -912,6 +1095,105 @@ test('skeptic gap 5 (R1-16): one amount with a day and month, a cheque or refere
     assert.match(out.reply, /more than one amount/, sentence);
     assert.match(out.reply, new RegExp(`"paid BILL-0001 ${first}"`), `${sentence}: ${out.reply}`);
   }
+  const refusedSaid = /An amount of zero or less cannot be (?:received|paid)\..*I have recorded nothing\./;
+  for (const sentence of [
+    'received 0 against INV-0001',
+    'received -500 against INV-0001',
+    'received 0 from Kiran Stores',
+    'paid Fabric Co 0',
+    'paid Fabric Co -500',
+    'received 0 against INV-0001 on 12 Oct',
+    'received -500 against INV-0001 on 12 Oct',
+    'received 0 from Kiran Stores on 12 Oct',
+    'paid Fabric Co 0 on 12 Oct',
+    'received 0 against INV-0001 by cheque 004512',
+    'received 0 against INV-0001 after 5 days',
+    'received 0 against INV-0001 by cheque 123456',
+    'paid Fabric Co 0 by cheque 004512',
+    'paid Fabric Co -500 on 12 Oct',
+    'received 0.00 against INV-0001 on 12 Oct',
+    'record receipt INV-0001 0 on 12 Oct',
+    'Kiran Stores paid 0 on 12 Oct',
+    'INV-0001 paid 0 on 12 Oct',
+    'paid BILL-0001 0 on 12 Oct',
+    'received 0 and 5000 and 3000 from Kiran Stores',
+    'received 0 and 5000 and 3000 against INV-0001',
+    'paid Fabric Co 0 and 4000 and 2000',
+    'received cheque 0 against INV-0001',
+    'received cheque 0 against INV-0001 by cheque 004512',
+  ]) {
+    const out = plan(state, sentence);
+    assert.equal(out.kind, 'reply', `${sentence} -> ${words(out)}`);
+    assert.deepEqual(out.tools, [], sentence);
+    assert.match(out.reply, refusedSaid, sentence);
+    assert.doesNotMatch(out.reply, RAW_CODE, sentence);
+    const said = await chat(state, sentence);
+    assert.notEqual(said.awaitingConfirmation, true, `${sentence}: ${said.reply}`);
+    assert.equal(state.pendingChatAction ?? null, null, sentence);
+    assert.match(said.reply, /zero or less/, sentence);
+  }
+  assert.deepEqual(toolArgs(state, 'received 0 and 5000 against INV-0001', 'record_receipt'), { invoiceId: 'INV-0001', mode: 'bank', date: TODAY, amount: 5000 }, 'a zero beside one real amount does not change the amount');
+  assert.deepEqual(toolArgs(state, 'received 0 and 5000 from Kiran Stores', 'record_receipt'), { invoiceId: 'INV-0001', mode: 'bank', date: TODAY, amount: 5000 });
+  assert.deepEqual(toolArgs(state, 'paid Fabric Co 0 and 4000', 'record_payment'), { billId: 'BILL-0001', mode: 'bank', date: TODAY, amount: 4000 });
+  assert.deepEqual(toolArgs(state, 'paid Fabric Co for 2025 - 26', 'record_payment'), { billId: 'BILL-0001', mode: 'bank', date: TODAY }, 'a year range is not a negative amount');
+  assert.deepEqual(toolArgs(state, 'received against INV-0001 for 2025 - 26', 'record_receipt'), { invoiceId: 'INV-0001', mode: 'bank', date: TODAY });
+
+  const twoStep = plan(state, 'received cheque 200000 less tax deducted at source 4000 against INV-0001');
+  assert.equal(twoStep.kind, 'reply', words(twoStep));
+  assert.deepEqual(twoStep.tools, []);
+  assert.match(twoStep.reply, /more than one amount/);
+  assert.match(twoStep.reply, /first say "received 200000 against INV-0001", then say "record tds withheld 4000 on INV-0001 under 194J"/, 'the cheque figure after the verb is the amount, and the smaller figure is the TDS');
+  const askedPay = plan(state, 'paid Fabric Co cheque 150000 less 2000 discount');
+  assert.equal(askedPay.kind, 'reply', words(askedPay));
+  assert.deepEqual(askedPay.tools, []);
+  assert.match(askedPay.reply, /more than one amount/);
+  assert.match(askedPay.reply, /"paid BILL-0001 150000"/, 'the cheque figure is the first amount that was said');
+  for (const sentence of ['received cheque 200000 less tax deducted at source 4000 against INV-0001', 'paid Fabric Co cheque 150000 less 2000 discount', 'received cheque 123456 against INV-0001 for 5000', 'received cheque 123456 5000 against INV-0001', 'received by cheque 200000 and 5000 against INV-0001', 'received chq 200000 less 4000 against INV-0001', 'received cheque 200000 against INV-0001 and 5000 from Kiran Stores']) {
+    const out = plan(state, sentence);
+    assert.equal(out.kind, 'reply', `${sentence} -> ${words(out)}`);
+    assert.match(out.reply, /more than one amount/, sentence);
+    assert.match(out.reply, /recorded nothing/, sentence);
+    const said = await chat(state, sentence);
+    assert.notEqual(said.awaitingConfirmation, true, `${sentence}: ${said.reply}`);
+  }
+  assert.deepEqual(toolArgs(state, 'received 100000 against INV-0001 by cheque 123456', 'record_receipt'), { invoiceId: 'INV-0001', mode: 'bank', date: TODAY, amount: 100000 }, 'a cheque number after the amount is a reference');
+  assert.deepEqual(toolArgs(state, 'received 5000 against INV-0001 by cheque 123456 on 12 Oct', 'record_receipt'), { invoiceId: 'INV-0001', mode: 'bank', date: october12, amount: 5000 });
+  assert.deepEqual(toolArgs(state, 'received 5000 from Kiran Stores, cheque 654321', 'record_receipt'), { invoiceId: 'INV-0001', mode: 'bank', date: TODAY, amount: 5000 });
+  assert.deepEqual(toolArgs(state, 'received cheque 200000 against INV-0001 on 12 Oct', 'record_receipt'), { invoiceId: 'INV-0001', mode: 'bank', date: october12, amount: 200000 }, 'a cheque figure that is the only number is the amount');
+  assert.deepEqual(toolArgs(state, 'paid Fabric Co cheque 150000 on 12 Oct', 'record_payment'), { billId: 'BILL-0001', mode: 'bank', date: october12, amount: 150000 });
+  assert.deepEqual(toolArgs(state, 'received cheque 200000 against INV-0001', 'record_receipt'), { invoiceId: 'INV-0001', mode: 'bank', date: TODAY, amount: 200000 });
+  assert.deepEqual(toolArgs(state, 'received by cheque 200000 from Kiran Stores', 'record_receipt'), { invoiceId: 'INV-0001', mode: 'bank', date: TODAY, amount: 200000 });
+  assert.deepEqual(toolArgs(state, 'paid Fabric Co by cheque 150000', 'record_payment'), { billId: 'BILL-0001', mode: 'bank', date: TODAY, amount: 150000 });
+  assert.deepEqual(toolArgs(state, 'received cheque 200000 against INV-0001 dated 2026-10-12', 'record_receipt'), { invoiceId: 'INV-0001', mode: 'bank', date: '2026-10-12', amount: 200000 });
+  assert.deepEqual(toolArgs(state, 'received cheque 200000 against INV-0001 after 5 days', 'record_receipt'), { invoiceId: 'INV-0001', mode: 'bank', date: TODAY, amount: 200000 });
+  assert.deepEqual(toolArgs(state, 'received cheque 200000 against INV-0001 cheque no 004512', 'record_receipt'), { invoiceId: 'INV-0001', mode: 'bank', date: TODAY, amount: 200000 }, 'a cheque number with a marker or a leading zero is always a reference');
+  assert.deepEqual(toolArgs(state, 'received 5000 against INV-0001 by cheque # 123456', 'record_receipt'), { invoiceId: 'INV-0001', mode: 'bank', date: TODAY, amount: 5000 });
+  assert.deepEqual(toolArgs(state, 'received 5000 against INV-0001 by cheque ref 123456', 'record_receipt'), { invoiceId: 'INV-0001', mode: 'bank', date: TODAY, amount: 5000 });
+  for (const sentence of ['received cheque 004512 5000 against INV-0001', 'received 5000 against INV-0001 by cheque 0123', 'received cheque 0123 5000 against INV-0001', 'received 5000 against INV-0001 by chq 123456', 'received 5000 against INV-0001 by cheq 123456']) {
+    assert.deepEqual(toolArgs(state, sentence, 'record_receipt'), { invoiceId: 'INV-0001', mode: 'bank', date: TODAY, amount: 5000 }, `${sentence}: a cheque number that starts with a zero, or comes after the amount, is a reference`);
+  }
+  for (const sentence of ['paid Fabric Co 4000 by chq 123456', 'paid Fabric Co 4000 by cheq 123456', 'paid Fabric Co cheque 004512 4000']) {
+    assert.deepEqual(toolArgs(state, sentence, 'record_payment'), { billId: 'BILL-0001', mode: 'bank', date: TODAY, amount: 4000 }, sentence);
+  }
+  const onlyReferences = plan(state, 'received cheque no 4512 ref 7788 against INV-0001');
+  assert.equal(onlyReferences.kind, 'reply', words(onlyReferences));
+  assert.match(onlyReferences.reply, /more than one amount/, 'two reference numbers and no amount are asked about, never read as the whole invoice');
+  assert.deepEqual(intent.amountsSaid('received 5000 against INV-0001 on 12 Oct by cheque 123456'), [5000]);
+  assert.deepEqual(intent.amountsSaid('received cheque 200000 less 4000 against INV-0001'), [200000, 4000]);
+  assert.deepEqual(intent.amountsSaid('received 0 against INV-0001 by cheque 004512'), []);
+  assert.deepEqual(intent.amountsSaid('received cheque no 4512 ref 7788'), [4512, 7788]);
+  assert.equal(intent.soleAmountSaid('received 5000 against INV-0001 on 12 Oct'), 5000);
+  assert.equal(intent.soleAmountSaid('received 0 and 5000 against INV-0001'), 5000);
+  assert.equal(intent.soleAmountSaid('received 5000 and 3000 against INV-0001'), null);
+  assert.equal(intent.saidNonPositiveAmount('received 0 against INV-0001 on 12 Oct'), true);
+  assert.equal(intent.saidNonPositiveAmount('received -500 against INV-0001 by cheque 004512'), true);
+  assert.equal(intent.saidNonPositiveAmount('received 0 and 5000 against INV-0001'), false);
+  assert.equal(intent.saidNonPositiveAmount('received 5000 against INV-0001 on 12 Oct'), false);
+  assert.equal(intent.saidNonPositiveAmount('received against INV-0001 for 2025 - 26'), false);
+  assert.deepEqual(toolArgs(state, 'received 5000 against INV-0001 by cheque 123456 and cheque 654321', 'record_receipt'), { invoiceId: 'INV-0001', mode: 'bank', date: TODAY, amount: 5000 });
+  assert.deepEqual(toolArgs(state, 'on 2026-10-12 received cheque 200000 against INV-0001', 'record_receipt'), { invoiceId: 'INV-0001', mode: 'bank', date: '2026-10-12', amount: 200000 }, 'a date in front of the cheque is not an amount');
+  assert.equal(plan(state, 'on 2026-10-12 received cheque 200000 less tax deducted at source 4000 against INV-0001').kind, 'reply', 'a date in front of the cheque does not make the cheque a reference');
+  assert.match(plan(state, 'on 2026-10-12 received cheque 200000 less tax deducted at source 4000 against INV-0001').reply, /first say "received 200000 against INV-0001"/);
   assert.deepEqual(toolArgs(state, 'received 12,000 against INV-0001, instalment of 3', 'record_receipt'), { invoiceId: 'INV-0001', mode: 'bank', date: TODAY, amount: 12000 }, 'the count is not read as part of 12,000');
   assert.deepEqual(toolArgs(state, 'received 5000 against INV-0001', 'record_receipt'), { invoiceId: 'INV-0001', mode: 'bank', date: TODAY, amount: 5000 });
   assert.deepEqual(toolArgs(state, 'received 5000 against INV-0001 on 2026-10-12', 'record_receipt'), { invoiceId: 'INV-0001', mode: 'bank', date: '2026-10-12', amount: 5000 });
@@ -982,6 +1264,28 @@ test('skeptic gap 5 (R1-16): the five receipt forms and the two payment forms re
       assert.match(out.reply, /recorded nothing/, form.make(tail));
     }
   }
+  const zeroForms = [
+    (n, tail) => `received ${n} against INV-0001${tail}`,
+    (n, tail) => `record receipt INV-0001 ${n}${tail}`,
+    (n, tail) => `received ${n} from Kiran Stores${tail}`,
+    (n, tail) => `Kiran Stores paid ${n}${tail}`,
+    (n, tail) => `INV-0001 paid ${n}${tail}`,
+    (n, tail) => `paid Fabric Co ${n}${tail}`,
+    (n, tail) => `paid BILL-0001 ${n}${tail}`,
+  ];
+  const zeroTails = [...tails.map(([tail]) => tail), ' by cheque 123456', ' on 12 Oct by cheque 123456', ' after 5 days', ' for 2 months'];
+  for (const make of zeroForms) {
+    for (const figure of ['0', '-500', '0.00']) {
+      for (const tail of zeroTails) {
+        const sentence = make(figure, tail);
+        const out = plan(state, sentence);
+        assert.equal(out.kind, 'reply', `${sentence} -> ${words(out)}`);
+        assert.deepEqual(out.tools, [], sentence);
+        assert.match(out.reply, /An amount of zero or less cannot be (?:received|paid)\./, sentence);
+        assert.match(out.reply, /I have recorded nothing\./, sentence);
+      }
+    }
+  }
   assert.deepEqual(toolArgs(state, 'received 5000 against INV-0001 for 3 invoices', 'record_receipt'), { invoiceId: 'INV-0001', mode: 'bank', date: TODAY, amount: 5000 }, 'a count of documents is not an amount');
   assert.deepEqual(toolArgs(state, 'record receipt INV-0001 on 12 Oct', 'record_receipt'), { invoiceId: 'INV-0001', mode: 'bank', date: october12 });
   assert.deepEqual(toolArgs(state, 'paid BILL-0001 on 12 Oct', 'record_payment'), { billId: 'BILL-0001', mode: 'bank', date: october12 });
@@ -1009,6 +1313,55 @@ test('skeptic gap 6 (R1-16): the several-amounts TDS reply gives the receipt fir
   assert.equal(second.awaitingConfirmation, true, second.reply);
   assert.equal(second.preview.tool, 'record_tds_withheld');
   await chat(state, 'no');
+});
+
+test('skeptic gap E (R1-20): an audit trail Excel export that names a person or a count says in words that the file covers every person and the whole period', async () => {
+  const state = await books();
+  const whole = /\nThe Excel file covers every person and the whole period\. It is not narrowed by name or count, so (.+) (?:is|are) not applied\.$/;
+  for (const [sentence, applied, args] of [
+    ['export the audit trail by Priya to excel', '"Priya"', { report: 'audit_trail' }],
+    ['audit trail by Priya in excel', '"Priya"', { report: 'audit_trail' }],
+    ['audit trail last 5 in excel', 'the latest 5', { report: 'audit_trail' }],
+    ['export audit trail limit 20 to excel', 'the latest 20', { report: 'audit_trail' }],
+    ['audit trail by Priya limit 5 in excel', '"Priya" and the latest 5', { report: 'audit_trail' }],
+    ['what changed in the books by Priya in excel', '"Priya"', { report: 'audit_trail' }],
+    ['export the audit trail for last month by Priya Sharma to excel', '"Priya Sharma"', { report: 'audit_trail', period: 'last-month' }],
+    ['save the audit log as a spreadsheet, last 10 changes', 'the latest 10', { report: 'audit_trail' }],
+    ['audit trail everything by Priya since 2026-10-01 in excel', '"Priya"', { report: 'audit_trail', from: '2026-10-01' }],
+    ['export the audit trail by me to excel', 'the person you named', { report: 'audit_trail' }],
+    ['export audit trail limit 5000 to excel', 'the count you gave', { report: 'audit_trail' }],
+    ['export the audit trail by Priya limit 5000 to excel', '"Priya" and the count you gave', { report: 'audit_trail' }],
+    ['export the audit trail by anyone limit 10 to excel', 'the latest 10', { report: 'audit_trail' }],
+    ['export the audit trail by Limited 5 to excel', '"Limited"', { report: 'audit_trail' }],
+  ]) {
+    assert.deepEqual(toolArgs(state, sentence, 'export_xlsx'), args, `${sentence}: the file is not asked for a name or a count`);
+    const said = await chat(state, sentence);
+    assert.equal(said.tools[0].name, 'export_xlsx', said.reply);
+    assert.equal(said.tools[0].result.ok, true, said.reply);
+    assert.match(said.reply, /^Saved myca-audit-trail-.* Open it in Excel or send it to your CA\./, said.reply);
+    const found = whole.exec(said.reply);
+    assert.ok(found, `${sentence}: ${said.reply}`);
+    assert.equal(found[1], applied, sentence);
+    assert.doesNotMatch(said.reply, RAW_CODE, sentence);
+  }
+  assert.equal((await chat(state, 'export the audit trail by Priya to excel')).reply.split('\n')[1], 'The Excel file covers every person and the whole period. It is not narrowed by name or count, so "Priya" is not applied.');
+  assert.equal((await chat(state, 'export the audit trail by Priya limit 5 to excel')).reply.split('\n')[1], 'The Excel file covers every person and the whole period. It is not narrowed by name or count, so "Priya" and the latest 5 are not applied.');
+  for (const sentence of ['export the audit trail to excel', 'audit trail in excel for last month', 'export the audit logs to excel', 'audit trail in excel for last 7 days', 'audit trail everything in excel', 'audit trail for October in excel', 'export the audit trail by newest first to excel', 'audit trail from 2026-09-01 to 2026-09-30 in excel', 'export the audit trail by everyone to excel', 'export the audit trail by email to excel']) {
+    const said = await chat(state, sentence);
+    assert.equal(said.tools[0].name, 'export_xlsx', `${sentence}: ${said.reply}`);
+    assert.equal(said.reply.includes('\n'), false, `${sentence}: nothing was narrowed, so nothing is said about it: ${said.reply}`);
+    assert.doesNotMatch(said.reply, /not narrowed/, sentence);
+  }
+  const broken = await books();
+  broken.ledger = null;
+  const failed = await chat(broken, 'export the audit trail by Priya to excel');
+  assert.equal(failed.tools[0].result.ok, false, failed.reply);
+  assert.doesNotMatch(failed.reply, /Excel file/, 'no file was made, so nothing is said about one');
+  const lookup = await chat(state, 'audit trail by Priya limit 5');
+  assert.equal(lookup.tools[0].name, 'audit_trail');
+  assert.doesNotMatch(lookup.reply, /Excel file/);
+  const sheet = await chat(state, 'export the trial balance to excel');
+  assert.equal(sheet.reply.includes('\n'), false, sheet.reply);
 });
 
 test('the new chat readings stay fast on a 2,000-character message of spaces and of repeated words', async () => {
@@ -1058,6 +1411,18 @@ test('the new chat readings stay fast on a 2,000-character message of spaces and
     `invoice audit trail ${'limit 5 '.repeat(250)}`,
     `credit note INV-0001 audit trail ${'1000 '.repeat(390)}`,
     `paid INV-0001 ${'audit trail '.repeat(160)}`,
+    `accept all matched invoices from ims ${', please'.repeat(200)} Maharashtra`,
+    `accept all matched invoices from ims${' and'.repeat(600)} x`,
+    `accept all matched invoices from ims ${'in ims screen '.repeat(130)}Maharashtra`,
+    `accept all matched invoices from ims ${'for september '.repeat(130)}Pune`,
+    `accept all matched invoices in ims ${'dated 5 September '.repeat(110)}`,
+    `accept ${'the matched '.repeat(170)}invoice in ims`,
+    `accept ${'matched credit '.repeat(130)}notes in ims`,
+    `export the audit trail to excel ${'by Priya limit 5 '.repeat(110)}`,
+    `received cheque 200000 ${'less 4000 '.repeat(200)}against INV-0001`,
+    `received ${'cheque 123456 '.repeat(140)}against INV-0001`,
+    `received 0 ${'by cheque 004512 '.repeat(110)}against INV-0001`,
+    `received 0 from Kiran Stores ${'on 12 Oct '.repeat(190)}`,
   ];
   for (const message of messages) {
     const started = process.hrtime.bigint();
@@ -1082,6 +1447,12 @@ test('the new chat readings stay fast on a 2,000-character message of spaces and
     `${'#'.repeat(1990)}5000`,
     `1${' '.repeat(1990)}invoices 5000`,
     `12${' '.repeat(1985)}payments 5000`,
+    `cheque${' '.repeat(1985)}123456 5000`,
+    `${'cheque 123456 '.repeat(140)}5000`,
+    `-${' '.repeat(1990)}5`,
+    `${'0 '.repeat(900)}5000`,
+    `${'-5 '.repeat(650)}`,
+    `${'cheque '.repeat(280)}200000 5000`,
   ];
   for (const message of spaced) {
     for (const read of [(said) => intent.amountsSaid(said), (said) => intent.soleAmountSaid(said), (said) => intent.moneyDate(said, TODAY)]) {

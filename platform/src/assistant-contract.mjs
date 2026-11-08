@@ -2489,7 +2489,9 @@ function planExcelFromChat(state, text) {
   const report = found ? found.key : 'trial_balance';
   if (report === 'audit_trail') {
     const range = auditRangeSaid(text);
-    return range ? { kind: 'tool', name: 'export_xlsx', args: { report, ...range } } : { kind: 'reply', reply: AUDIT_RANGE_UNREAD, tools: [] };
+    if (!range) return { kind: 'reply', reply: AUDIT_RANGE_UNREAD, tools: [] };
+    const note = auditExportNote(text);
+    return { kind: 'tool', name: 'export_xlsx', args: { report, ...range }, ...(note ? { note } : {}) };
   }
   const named = EXCEL_PERIOD_WORDS.exec(text);
   const period = named ? named[1].toLowerCase().replace(/\s+/g, '-') : saidPeriod(text);
@@ -2740,6 +2742,18 @@ function auditLimitSaid(text) {
   return { rest: text };
 }
 
+function auditExportNote(text) {
+  const actor = auditActorSaid(text);
+  const limit = auditLimitSaid(actor.rest);
+  const ignored = [];
+  if (actor.name) ignored.push(`"${actor.name}"`);
+  else if (actor.unreadable) ignored.push('the person you named');
+  if (limit.count) ignored.push(`the latest ${limit.count}`);
+  else if (limit.unreadable) ignored.push('the count you gave');
+  if (!ignored.length) return '';
+  return `The Excel file covers every person and the whole period. It is not narrowed by name or count, so ${ignored.join(' and ')} ${ignored.length > 1 ? 'are' : 'is'} not applied.`;
+}
+
 function auditPhraseFollowsPosting(text) {
   const before = text.slice(0, text.search(AUDIT_TRAIL_ASKED));
   if (REMINDER_WORDS.test(before)) return true;
@@ -2777,12 +2791,22 @@ const IMS_PERIOD_FIGURES = new RegExp([
 const IMS_ONE_AT_A_TIME = 'IMS takes one decision at a time. Say, for example, "accept all matched invoices in IMS" first, then "reject all undecided invoices in IMS".';
 const IMS_BULK_ONLY = 'I have changed nothing in IMS. A bulk decision applies to every row of that set, so I will not run it for one supplier, for only some of the rows or with an exception left out. Say it for the whole set, for example "accept all matched invoices in IMS", or pick single rows in the IMS screen.';
 const IMS_NARROWED = /\b(?:except(?:ing)?|exclud(?:e|es|ed|ing)|other\s+than|apart\s+from|aside\s+from|besides|but\s+not|not\s+including|leav(?:e|es|ing)\s+out|skip(?:s|ping)?|where|whose)\b|\bonly\b(?!\s+(?:the\s+)?(?:matched|suggested|undecided|not\s+decided)\b)(?!\s*(?:$|[.!?]|(?:in|on|for|at|within)\b))|(?<!\bevery\s)(?<!\beach\s)(?<!\bany\s)\b(?:supplier|vendor|seller)\b(?!\s+(?:invoices?|bills?|documents?|notes?|rows?|entries|records?|credit|debit)\b)/i;
-const IMS_FROM_CLOSING = '(?=\\s*(?:$|[,.;!?)]|(?:in|on|for|at|to|within|via|through|using|ims|gst|and|then|please)\\b|\\d))';
-const IMS_FROM_PLACE = `(?:(?:gst\\s+)?ims\\b(?:\\s+(?:screen|page|tab|dashboard|list|view))?|dashboard\\b|here\\b|now\\b|(?:(?:all|every|each|any)\\b(?:\\s+of)?(?:\\s+(?:the|my|our))?\\s+(?:(?:registered|known|gst)\\s+)?(?:suppliers?|vendors?)\\b)|(?:(?:registered|known)\\s+)?(?:suppliers|vendors)\\b)${IMS_FROM_CLOSING}`;
-const IMS_FROM_PERIOD = new RegExp(`\\bfrom\\s+(?:(?:the|my|our)\\s+)?(?:(?:(?:gst|gstn|government|govt)\\s+)?portal\\b|gstn\\b|(?:gstr[\\s-]?)?2b\\b|(?:this|last|previous|prior)\\s+(?:month|quarter)\\b|(?:${CHAT_MONTH_WORDS})(?:\\s+(?:in|for|on|to|ims|20\\d{2})\\b|\\s*[,.]|\\s*$)|fy\\b|financial\\s+year\\b|\\d|${IMS_FROM_PLACE})`, 'gi');
+const IMS_REFERENCE = '(?:in|on|at|within|inside|via|through|thru|using)\\s+(?:the\\s+)?(?:gst\\s+)?(?:ims|invoice\\s+management(?:\\s+system)?)\\b(?:\\s+(?:screen|page|tab|dashboard|list|view))?';
+const IMS_TAIL_PERIOD = `(?:for|in)\\s+(?:the\\s+)?(?:month\\s+of\\s+)?(?:(?:this|last|previous|prior)\\s+month|(?:${CHAT_MONTH_WORDS})(?:\\s+20\\d{2})?|20\\d{2}-(?:0[1-9]|1[0-2]))\\b`;
+const IMS_TAIL_WORDS = '(?:and|then|also|just|please|pls|kindly|thanks|thank\\s+you|thx|ok|okay|confirm|approve|proceed|continue|submit|apply|post|save|yes|say\\s+yes|sure|go\\s+ahead|do\\s+it|let\\s+me\\s+know)\\b';
+const IMS_TAIL_PIECE = `[,;:.!?)]|${IMS_REFERENCE}|${IMS_TAIL_PERIOD}|${IMS_TAIL_WORDS}`;
+const IMS_FROM_CLOSING = `(?=(?:\\s*(?:${IMS_TAIL_PIECE}))*\\s*$)`;
+const IMS_FROM_SOURCE = '(?:(?:gst|gstn|government|govt)\\s+)?portal\\b|gstn\\b|(?:gstr[\\s-]?)?2b\\b';
+const IMS_FROM_PLACE = '(?:gst\\s+)?ims\\b(?:\\s+(?:screen|page|tab|dashboard|list|view))?|dashboard\\b|here\\b|now\\b|(?:(?:all|every|each|any)\\b(?:\\s+of)?(?:\\s+(?:the|my|our))?\\s+(?:(?:registered|known|gst)\\s+)?(?:suppliers?|vendors?)\\b)|(?:(?:registered|known)\\s+)?(?:suppliers|vendors)\\b';
+const IMS_FROM_PERIOD = new RegExp(`\\bfrom\\s+(?:(?:the|my|our)\\s+)?(?:(?:${IMS_FROM_SOURCE}|${IMS_FROM_PLACE})${IMS_FROM_CLOSING}|(?:this|last|previous|prior)\\s+(?:month|quarter)\\b|(?:${CHAT_MONTH_WORDS})(?:\\s+(?:in|for|on|to|ims|20\\d{2})\\b|\\s*[,.]|\\s*$)|fy\\b|financial\\s+year\\b|(?!2b\\b)\\d)`, 'gi');
 const IMS_COUNT_WORDS = '(?:first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|last|top|next|single|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|dozen|some|few|couple|several|both|half|most|other|another|either|latest|newest|oldest|earliest|biggest|largest|smallest|highest|lowest|recent)';
 const IMS_PART_OF_SET = new RegExp(`(?<!\\b(?:every|each)\\s)\\b${IMS_COUNT_WORDS}\\b(?:\\s+(?:${IMS_COUNT_WORDS}|of|a|an|the|these|those|my|our))*\\s+(?:matched|suggested|undecided|not\\s+decided)\\b`, 'i');
 const IMS_RELATIVE_PERIOD = /\b(?:this|last|previous|prior|next)\s+(?:month|quarter|year|week)\b|\b(?:first|second|third|fourth)\s+quarter\b/gi;
+const IMS_SET_WORDS = '(?:matched|suggested|undecided|not\\s+decided)';
+const IMS_DAY_DATE = `(?:\\d{1,2}(?:st|nd|rd|th)?\\s+(?:of\\s+)?(?:${CHAT_MONTH_WORDS})\\b|(?:${CHAT_MONTH_WORDS})\\.?\\s+\\d{1,2}(?!\\d)|20\\d{2}-\\d{2}-\\d{2}\\b)`;
+const IMS_DATE_FILTER = new RegExp(`\\b(?:dated|on|from|since|until|till|before|after|between|upto|up\\s+to)\\s+(?:the\\s+)?${IMS_DAY_DATE}`, 'i');
+const IMS_SINGLE_ROW = new RegExp(`(?<!\\b(?:every|each|any|all)\\s)\\b(?:the|this|that|a|an)\\s+${IMS_SET_WORDS}\\s+(?:invoice|bill|note|row|entry|record|document|one)\\b`, 'i');
+const IMS_ROW_TYPE = new RegExp(`\\b${IMS_SET_WORDS}\\s+(?:credit|debit)\\s+notes?\\b|\\b(?:credit|debit)\\s+notes?\\s+(?:(?:(?:that|which)\\s+)?(?:are|is)\\s+)?${IMS_SET_WORDS}\\b`, 'i');
 const IMS_COMMAND_WORDS = new Set(['accept', 'accepted', 'reject', 'rejected', 'pending', 'all', 'every', 'each', 'any', 'the', 'matched', 'suggested', 'undecided', 'not', 'decided', 'invoice', 'invoices', 'bill', 'bills', 'row', 'rows', 'entry', 'entries', 'ims', 'management', 'gst', 'gstn', 'gstr', 'portal', 'mark', 'make', 'put', 'please', 'pls', 'kindly', 'can', 'could', 'would', 'will', 'you', 'let', 'lets', 'want', 'need', 'like', 'and', 'then', 'now', 'also', 'just', 'this', 'that', 'these', 'those', 'them', 'for', 'from', 'with', 'month', 'quarter', 'year', 'last', 'previous', 'prior', 'current', 'financial', 'period', 'list', 'screen', 'dashboard', 'statement', 'return', 'okay', 'yes', 'hey', 'hello', 'thanks', 'sure', 'one', 'whole', 'only', 'ones', 'supplier', 'suppliers', 'vendor', 'vendors', 'ahead', 'done', 'right', 'today', 'tomorrow', 'yesterday', 'here', 'there', 'once', 'again', 'together', 'everything']);
 const IMS_MONTH_WORD = new RegExp(`^(?:${CHAT_MONTH_WORDS})$`, 'i');
 
@@ -2837,7 +2861,7 @@ function imsNamesSupplierWord(state, period, text) {
 function imsSelectionQualified(state, period, text) {
   const kept = text.replace(IMS_FROM_PERIOD, ' ');
   const counted = kept.replace(IMS_RELATIVE_PERIOD, ' ');
-  return /\bfrom\b/i.test(kept) || IMS_NARROWED.test(kept) || IMS_PART_OF_SET.test(counted) || imsNamesSupplier(state, period, kept) || imsNamesSupplierWord(state, period, counted);
+  return /\bfrom\b/i.test(kept) || IMS_NARROWED.test(kept) || IMS_DATE_FILTER.test(text) || IMS_SINGLE_ROW.test(counted) || IMS_ROW_TYPE.test(counted) || IMS_PART_OF_SET.test(counted) || imsNamesSupplier(state, period, kept) || imsNamesSupplierWord(state, period, counted);
 }
 
 function planImsFromChat(state, text) {
@@ -3437,6 +3461,7 @@ export function planLocalToolCall(state, message) {
   const receipt = planReceiptWithoutInvoice(state, text);
   if (receipt) {
     if (receipt.kind !== 'tool' || receipt.name !== 'record_receipt') return receipt;
+    if (saidNonPositiveAmount(text)) return { kind: 'reply', reply: 'An amount of zero or less cannot be received. Say the amount, or leave it out to settle the whole invoice. I have recorded nothing.', tools: [] };
     const said = amountsSaid(text);
     const sole = said.length > 1 ? soleAmountSaid(withoutSettledTds(text)) : (said[0] ?? null);
     if (said.length > 1 && sole == null) return severalReceiptAmounts(text, receipt.args.invoiceId);
