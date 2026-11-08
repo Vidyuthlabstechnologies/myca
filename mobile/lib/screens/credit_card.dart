@@ -5,6 +5,7 @@ import '../api/myca_api.dart';
 import '../app_state.dart';
 import '../format.dart';
 import '../theme.dart';
+import '../widgets.dart';
 import 'ims_screen.dart';
 import 'remind_supplier_screen.dart';
 
@@ -280,38 +281,34 @@ class _CreditCardState extends State<CreditCard> {
                       onTap: () => _showSupplier(check, supplier),
                       child: Padding(
                         padding: const EdgeInsets.symmetric(vertical: 8),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    supplier.supplier,
-                                    style: text.titleMedium,
-                                  ),
-                                  Text(
-                                    supplier.bills == 1
-                                        ? '1 bill'
-                                        : '${supplier.bills} bills',
-                                    style: text.bodySmall,
-                                  ),
-                                ],
+                        child: AmountRow(
+                          start: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                supplier.supplier,
+                                style: text.titleMedium,
                               ),
-                            ),
-                            Text(
-                              rupees(supplier.credit),
-                              style: text.titleMedium?.copyWith(
-                                fontFeatures: moneyFigures,
+                              Text(
+                                supplier.bills == 1
+                                    ? '1 bill'
+                                    : '${supplier.bills} bills',
+                                style: text.bodySmall,
                               ),
-                            ),
-                            const SizedBox(width: 6),
-                            const Icon(
+                            ],
+                          ),
+                          amount: rupees(supplier.credit),
+                          style: text.titleMedium?.copyWith(
+                            fontFeatures: moneyFigures,
+                          ),
+                          after: const Padding(
+                            padding: EdgeInsets.only(left: 6),
+                            child: Icon(
                               Icons.chevron_right,
                               size: 18,
                               color: Palette.muted,
                             ),
-                          ],
+                          ),
                         ),
                       ),
                     ),

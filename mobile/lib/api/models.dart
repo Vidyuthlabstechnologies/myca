@@ -1316,6 +1316,8 @@ class ImsReview {
   final String note;
 
   int get matchedRows => rows.where((row) => row.match == 'matched' || row.match == 'date differs').length;
+
+  int get acceptableRows => rows.where((row) => (row.match == 'matched' || row.match == 'date differs') && row.decision != 'accept').length;
 }
 
 class SupplierRisk {
