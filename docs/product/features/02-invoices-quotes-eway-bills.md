@@ -93,7 +93,10 @@ WhatsApp or email. For goods on the move, the e-way bill is offered on the same 
   bill's date; it is not stored on the bill, so a change of terms re-dates the bills
   already booked as well. For a supplier the MSMED rule covers it is the agreed days,
   never more than 45 (an agreement of more days is refused), or 15 days when nothing is
-  agreed; for any other supplier it is the agreed days, or there is none.
+  agreed; for any other supplier it is the agreed days, or there is none. Changing the
+  terms keeps what else is on file for the supplier, such as where they are paid. The
+  answer lists the record it replaced, with the bank account masked to its last four
+  digits.
 - Who is covered follows the dated rules. A supplier is covered when both the payment-time
   rule and the deduction rule (s.43B(h), and its successor in the 2025 Act from
   1 April 2026) name its category. With no category given it is covered. A supplier
@@ -113,7 +116,11 @@ WhatsApp or email. For goods on the move, the e-way bill is offered on the same 
   supplier that is not yet past its pay-by date. The reminder is dated seven days before
   the pay-by date, or today when that day has passed, and is added once its day falls
   within the next 14 days. It reads "Pay <supplier> <amount> on <bill> by <date> (MSME
-  limit)" and is added once for each bill and pay-by date. MyCA sends it to nobody; a
+  limit)" and is added once for each bill and pay-by date. It is done at once when the
+  bill is paid in full, whether by recording a payment, the payment run or a matched bank
+  line, and the daily run completes the reminders of bills settled any other way (a
+  purchase note, a contra) or cancelled. A part payment leaves it open, and reminders the
+  owner set and reminders from other sources are not touched. MyCA sends it to nobody; a
   daily WhatsApp message for MSME dates is not built. The weekly brief, where it is switched
   on, does name the MSME bills already past their date.
 - MSME exception (built 2026-11): an unpaid bill of a covered MSME supplier that is past

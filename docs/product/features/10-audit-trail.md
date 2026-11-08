@@ -46,9 +46,12 @@ workbook.
   date and the reason (cut to 500 characters).
 - The trail calls an event a change when the books' digest moved or the action is one that
   changes the books, for example a confirmation, a repeating entry, a bank rule, an
-  exception decision, a file, document, client or user event, a period lock or unlock, or
-  a chat message that posted. Sign-ins, sign-outs and PIN changes are session events.
-  Everything else is a read.
+  exception decision, a file, document, client or user event, a period lock or unlock, a
+  document request, a document marked received, a corrected evaluation, a document share
+  that recorded something, or a chat message that posted or that ran one of the tools
+  that change the books without asking for a yes. A share that was cancelled or failed is
+  not a change. Sign-ins, sign-outs and PIN changes are session events. Everything else
+  is a read.
 
 ### Which day an event falls on (built)
 
@@ -95,6 +98,10 @@ workbook.
 - It does not cover the client an event is filed under, so changing that label leaves the
   check passing. The chat reply, the Excel summary and the app's chain line say so beside a
   passing result.
+- It does not cover events written before the chain started, because they carry no hash.
+  The same three places say how many there were beside a passing result ("4 earlier events
+  were recorded before sealing and are not covered"), and say nothing when there are
+  none.
 - It does not say who appended an event. The user's id and name are text inside the
   event and nothing signs them.
 - For these reasons a passing result is worded as verified and a failing one as broken at a
