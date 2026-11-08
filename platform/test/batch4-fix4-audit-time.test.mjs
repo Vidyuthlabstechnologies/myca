@@ -22,6 +22,9 @@ const MODULES = {
   stores: new URL('../src/store-ports.mjs', import.meta.url).href,
 };
 const ZONES = ['UTC', 'America/Los_Angeles', 'Asia/Kolkata', 'Pacific/Auckland', 'Pacific/Kiritimati', 'Pacific/Pago_Pago', 'Asia/Kathmandu'];
+const JANUARY = '2027-01-15T01:30:00Z';
+const MARCH = '2027-03-20T23:30:00Z';
+const JULY = '2027-07-15T12:00:00Z';
 const LOCAL = 0x04034b50;
 
 function local(year, month, day, hour = 0, minute = 0, second = 0) {
@@ -168,8 +171,12 @@ async function clockProbe(modules) {
   };
 }
 
-function inZone(zone, probe) {
-  const script = `const probe = ${probe.toString()}; process.stdout.write(JSON.stringify(await probe(${JSON.stringify(MODULES)})));`;
+function shiftedClock(now) {
+  return `const RealDate = Date; const shift = RealDate.parse(${JSON.stringify(now)}) - RealDate.now(); globalThis.Date = new Proxy(RealDate, { construct: (target, args, newTarget) => (args.length ? Reflect.construct(target, args, newTarget) : new target(RealDate.now() + shift)), get: (target, name) => (name === 'now' ? () => RealDate.now() + shift : Reflect.get(target, name)) });`;
+}
+
+function inZone(zone, probe, now = '') {
+  const script = `${now ? shiftedClock(now) : ''}const probe = ${probe.toString()}; process.stdout.write(JSON.stringify(await probe(${JSON.stringify(MODULES)})));`;
   const env = { ...process.env, TZ: zone };
   delete env.NODE_TEST_CONTEXT;
   const ran = spawnSync(process.execPath, ['--input-type=module', '-e', script], { encoding: 'utf8', timeout: 60000, env });
@@ -179,9 +186,24 @@ function inZone(zone, probe) {
 
 const probes = new Map();
 
-function probeOf(zone) {
-  if (!probes.has(zone)) probes.set(zone, inZone(zone, zoneProbe));
-  return probes.get(zone);
+function probeOf(zone, now = '') {
+  const key = `${zone} ${now}`;
+  if (!probes.has(key)) probes.set(key, inZone(zone, zoneProbe, now));
+  return probes.get(key);
+}
+
+async function clockReading() {
+  return { day: new Date().toISOString().slice(0, 10), offsetMinutes: new Date().getTimezoneOffset() };
+}
+
+function answersOf(run) {
+  const excel = {};
+  for (const [name, sheet] of Object.entries(run.excel)) {
+    const summary = summaryOf(sheet.xlsxBase64);
+    summary.delete('Exported at (UTC ISO)');
+    excel[name] = { ok: sheet.ok, fileName: sheet.fileName, sheets: sheet.sheets, events: sheet.events, audit: sheetRows(sheet.xlsxBase64, 1), entries: sheetRows(sheet.xlsxBase64, 2), summary: [...summary] };
+  }
+  return { ...run, excel };
 }
 
 function zoneWhereTodayDiffers(now = new Date()) {
@@ -322,6 +344,20 @@ test('TZ-1: the stamp, the hash and the chain do not depend on the zone', () => 
     assert.deepEqual(run.jsonAt, [run.stamps.evening, run.stamps.early], `${zone}: the at field stays the ISO UTC stamp`);
     assert.equal(run.chain.ok, true, zone);
     assert.equal(run.chain.chained, 2, zone);
+  }
+});
+
+test('TZ-1: the shifted clock of the zone proof moves the day and the daylight saving the child sees', () => {
+  assert.deepEqual(inZone('America/Los_Angeles', clockReading, JANUARY), { day: '2027-01-15', offsetMinutes: 480 });
+  assert.deepEqual(inZone('America/Los_Angeles', clockReading, JULY), { day: '2027-07-15', offsetMinutes: 420 });
+  assert.deepEqual(inZone('Pacific/Auckland', clockReading, JANUARY), { day: '2027-01-15', offsetMinutes: -780 });
+  assert.deepEqual(inZone('Pacific/Auckland', clockReading, JULY), { day: '2027-07-15', offsetMinutes: -720 });
+});
+
+test('TZ-1: the zone proof gives the same answers whichever day the suite runs, in the summer and the winter of both hemispheres', () => {
+  for (const zone of ['America/Los_Angeles', 'Pacific/Auckland']) {
+    const usual = answersOf(probeOf(zone));
+    for (const now of [JANUARY, MARCH, JULY]) assert.deepEqual(answersOf(probeOf(zone, now)), usual, `${zone} on ${now}`);
   }
 });
 
