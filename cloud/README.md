@@ -24,7 +24,9 @@ not created yet (`infra/cloud` is written and validated, applied by hand).
    writes the row back, and appends to `audit_log`. No request holds one pooled connection
    while it waits for another, apart from the date and cursor that a channel pull saves.
    A request that cannot get a connection in 5 seconds answers `503 SERVER_BUSY` with
-   `Retry-After: 2`.
+   `Retry-After: 2`. A dropped or refused database connection answers `503 SERVER_BUSY`
+   with `Retry-After: 2` too, and the pool replaces the dead connection; the API process no
+   longer exits when a connection dies.
 
 The two later checks run on every route that works on the books with a device: ask,
 propose, confirm, discard, uploads, query, replace, company, the e-invoice and approval
