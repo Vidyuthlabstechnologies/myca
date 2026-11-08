@@ -114,7 +114,8 @@ WhatsApp or email. For goods on the move, the e-way bill is offered on the same 
   the pay-by date, or today when that day has passed, and is added once its day falls
   within the next 14 days. It reads "Pay <supplier> <amount> on <bill> by <date> (MSME
   limit)" and is added once for each bill and pay-by date. MyCA sends it to nobody; a
-  daily WhatsApp message for MSME dates is not built.
+  daily WhatsApp message for MSME dates is not built. The weekly brief, where it is switched
+  on, does name the MSME bills already past their date.
 - MSME exception (built 2026-11): an unpaid bill of a covered MSME supplier that is past
   its pay-by date raises a high exception, `MSME_PAST_LIMIT`, with the amount outstanding
   as the money at risk. It closes by itself when the bill is paid. The daily close has a

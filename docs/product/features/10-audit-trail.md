@@ -106,8 +106,9 @@ workbook.
 
 - `audit_trail` (read-only, and one of the queries the phone can ask on the hosted
   service) takes `period` (a month as `YYYY-MM`, or `this-month`, `last-month`,
-  `this-quarter`, `this-year`, `last-year`) or `from` and `to` (a `from` alone runs to
-  today, a `to` alone starts at the beginning of the log); `view`, which is `changes` by
+  `this-quarter`, `this-year`, `last-year`; the quarter is the calendar quarter, and the
+  year names are financial years, 1 April to 31 March) or `from` and `to` (a `from` alone runs
+  to today, a `to` alone starts at the beginning of the log); `view`, which is `changes` by
   default and `all` to add reads, proposals and sign-ins; `actor`, a part of a user id or
   name; and `limit`, 1 to 2000, 200 when not given, keeping the latest events. With no
   period it takes the current month. It lists the events of the book that is open, oldest
@@ -118,15 +119,18 @@ workbook.
   October", "audit trail from 2026-10-01 to 2026-10-31", "audit trail for FY 2025-26",
   "who changed the books last week"), a person ("audit trail by Priya"), a count ("audit
   trail limit 50", "last 20 changes in the audit log"), and "everything", "all events" or
-  "including reads" for the all view. A period, a person or a count it cannot read gets a
-  sentence that says so and nothing is looked up; "by me" is not read as a name, and an
-  ordering word after "by" ("by date", "by newest") is not read as one either. The reply
+  "including reads" for the all view. A period, a person or a count it recognises but cannot
+  use (a day that is not on the calendar, a limit of 0) gets a sentence that says so and
+  nothing is looked up; words it does not recognise at all are left out and the current month
+  is used. "by me" is not read as a name, and an ordering word after "by" ("by date", "by
+  newest") is not read as one either. The reply
   gives the count, the result of the log chain and the newest ten events with date, time,
   user and what was done. When a person or a count was given, a line under the first one
   says that only that person's events are counted or that the list is limited to the latest
   N, so a short list is not taken for a quiet period.
 - App: Reports has an Audit trail row. The screen has chips for the period (this month,
-  last month, this quarter, this year) and the view (changes, everything), a line with the
+  last month, this quarter, this year; the year is the financial year, 1 April to 31 March)
+  and the view (changes, everything), a line with the
   result of the log chain, a warning when the ledger fails its own check, and the events,
   newest first, with date and time in UTC, the user and the record ids. "Show more" asks for
   the latest 2,000 and "Save as Excel" saves the workbook for the chosen period. There is no
