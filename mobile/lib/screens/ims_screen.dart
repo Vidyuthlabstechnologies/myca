@@ -206,7 +206,7 @@ class _ImsScreenState extends State<ImsScreen> with ProposalFlow {
     children: [
       ActionChip(
         label: const Text('Accept all matched'),
-        onPressed: busy || review.matchedRows == 0 ? null : _acceptMatched,
+        onPressed: busy || review.acceptableRows == 0 ? null : _acceptMatched,
       ),
       ActionChip(
         label: const Text('Save as Excel'),

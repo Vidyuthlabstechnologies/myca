@@ -6,6 +6,7 @@ import '../app_state.dart';
 import '../format.dart';
 import '../registers.dart';
 import '../theme.dart';
+import '../widgets.dart';
 import 'pay_bills_screen.dart';
 
 class CashScreen extends StatefulWidget {
@@ -247,31 +248,23 @@ class _CashScreenState extends State<CashScreen> {
                   for (final row in forecast.rows)
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 4),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(row.label, style: text.bodyMedium),
-                                Text(
-                                  '${longDate(row.date)} · ${row.basis}',
-                                  style: text.bodySmall,
-                                ),
-                              ],
+                      child: AmountRow(
+                        align: CrossAxisAlignment.start,
+                        start: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(row.label, style: text.bodyMedium),
+                            Text(
+                              '${longDate(row.date)} · ${row.basis}',
+                              style: text.bodySmall,
                             ),
-                          ),
-                          Text(
-                            '${row.incoming ? '+' : '−'}${rupees(row.amount)}',
-                            style: text.bodyMedium?.copyWith(
-                              fontFeatures: moneyFigures,
-                              color: row.incoming
-                                  ? Palette.accent
-                                  : Palette.ink,
-                            ),
-                          ),
-                        ],
+                          ],
+                        ),
+                        amount: '${row.incoming ? '+' : '−'}${rupees(row.amount)}',
+                        style: text.bodyMedium?.copyWith(
+                          fontFeatures: moneyFigures,
+                          color: row.incoming ? Palette.accent : Palette.ink,
+                        ),
                       ),
                     ),
                   if (forecast.overdueTotal > 0) ...[
@@ -371,11 +364,10 @@ class _Line extends StatelessWidget {
     );
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
-      child: Row(
-        children: [
-          Expanded(child: Text(label, style: style)),
-          Text(rupees(amount), style: style),
-        ],
+      child: AmountRow(
+        start: Text(label, style: style),
+        amount: rupees(amount),
+        style: style,
       ),
     );
   }

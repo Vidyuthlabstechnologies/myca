@@ -101,7 +101,7 @@ reminder goes only when the owner says so.
   invoices are left; ask again after this to do them."). Asking again, with the same
   sentence or the app's Accept all matched, plans the next round, and when nothing is left
   the answer says every invoice asked for already has that decision and nothing was
-  marked. A word that picks 500 rows or fewer is unchanged. A decision is kept in
+  marked. The app's Accept all matched turns off once every matched invoice is accepted. A word that picks 500 rows or fewer is unchanged. A decision is kept in
   `imsDecisions` under the row key `month|supplier|number|section` (at most 400
   characters: the statement import leaves out a row whose invoice number would make it
   longer, counts it with the rows it could not read and says "Row 3: the invoice number
