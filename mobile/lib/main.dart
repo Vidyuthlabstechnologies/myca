@@ -61,7 +61,7 @@ void main() {
         cloud: config.hosted
             ? CloudSession(
                 baseUrl: config.cloudUrl,
-                tokens: const KeystoreTokenStore(),
+                tokens: KeystoreTokenStore.recovering(),
               )
             : null,
         store: DeviceOnboardingStore(),
@@ -71,6 +71,7 @@ void main() {
         takeSharedFile: takeSharedFileFromDevice,
         notifications: DeviceNotifications(),
         saveTextFile: saveTextFileOnDevice,
+        saveBytesFile: saveBytesFileOnDevice,
         shareText: shareTextFromDevice,
         pdf: const PdfActions(share: sharePdfFromDevice, print: printPdfFromDevice),
         crashes: crashes,

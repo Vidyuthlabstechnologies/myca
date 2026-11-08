@@ -1,8 +1,8 @@
-import { isoDate } from './dates.mjs';
+import { isoDate, localToday } from './dates.mjs';
 const GSTIN_RE = /\b(\d{2}[A-Z]{5}\d{4}[A-Z][0-9A-Z]Z[0-9A-Z])\b/i;
 
 export function normalizeChat(text) {
-  const capped = String(text || '').slice(0, 4096).replace(/[\u2013\u2014]/g, '-');
+  const capped = String(text || '').slice(0, 4096).replace(/[\u2013\u2014]/g, '-').replace(/\s{3,}/g, (run) => (/[\n\r\u2028\u2029]/.test(run) ? '\n' : ' '));
   return (capped.includes(' - ')
     ? capped.replace(/\s+-\s+(books|itc|ap|gst input|follow).*$/i, '')
     : capped
@@ -36,6 +36,8 @@ export function isNegated(text) {
 const NUM = '(\\d[\\d,]*(?:\\.\\d+)?)';
 const MULTIPLIER = '(k|lakhs?|lacs?|cr|crores?)';
 const CURRENCY = '(?:₹|rs\\.?|inr)';
+const GLUED_CURRENCY = '(?<=(?<!\\w)(?:rs\\.?|inr))';
+const FIGURE_START = `(?:(?<![\\w.,-])|${GLUED_CURRENCY})`;
 const UNIT_WORDS = 'rolls?|pcs|pieces|units?|kgs?|nos?|boxes|bags|items?|bundles?|metres?|meters?|litres?|liters?|dozens?';
 
 const HSN_SAID = /\b(?:hsn|sac)(?:\s*code)?\s*[:#-]?\s*(\d{4,8})\b/i;
@@ -46,11 +48,11 @@ const GST_RATE_PATTERNS = [
 const PER_UNIT = new RegExp(`(?:${NUM}\\s*([a-z]{1,15})?\\s+)?(?:\\bat\\b|@|\\brate\\b|\\beach\\s+at\\b|\\beach\\b)\\s*${CURRENCY}?\\s*${NUM}\\s*${MULTIPLIER}?(?![\\d%])`, 'i');
 const QTY_WITH_UNIT = new RegExp(`${NUM}\\s*(${UNIT_WORDS})\\b`, 'i');
 const QTY_LABEL = new RegExp(`\\b(?:qty|quantity)\\s*:?\\s*${NUM}`, 'i');
-const AMOUNT = new RegExp(`${CURRENCY}?\\s*(?<![\\w.,-])${NUM}\\s*${MULTIPLIER}?(?![\\w%])`, 'gi');
+const AMOUNT = new RegExp(`${CURRENCY}?\\s*${FIGURE_START}${NUM}\\s*${MULTIPLIER}?(?![\\w%])`, 'gi');
 const NOT_AMOUNTS = /\b[a-z]{2,6}-\d+\b|\b\d{1,4}[-/]\d{1,2}[-/]\d{1,4}\b|\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\.?\s+(?:19|20)\d{2}\b|\b(?:diwali|deepavali|holi|pongal|onam|eid|christmas|navratri|dussehra|fy|year|financial\s+year)\s+(?:19|20)\d{2}\b|\b(?:19|20)\d{2}\s*-\s*(?:19|20)?\d{2}\b/gi;
-const NEGATIVE_NUMBER = /(?<![\w.,-])-\s?\d/;
+const NEGATIVE_NUMBER = new RegExp(`${FIGURE_START}-\\s?\\d`, 'i');
 const LONE_PLUS = /(?<![\w])\+(?=\d)/g;
-const NON_POSITIVE_AMOUNT = /(?<![\w.,-])(?:-\s?\d[\d,]*(?:\.\d+)?|0+(?:\.0+)?)(?![\w%.])/;
+const NON_POSITIVE_AMOUNT = new RegExp(`${FIGURE_START}(?:-\\s?\\d[\\d,]*(?:\\.\\d+)?|0+(?:\\.0+)?)(?![\\w%.])`, 'i');
 export const MAX_CHAT_AMOUNT = 1e9;
 const DOCUMENT_VERBS = 'purchase|purchased|invoice|bill|sale|sales|sold|sell|bought';
 
@@ -79,9 +81,90 @@ function takeQuantity(text) {
   return { qty: amountValue(found[1]), unit: String(found[2] || 'units').toLowerCase(), rest: text.replace(found[0], ' ') };
 }
 
+function amountList(text) {
+  return [...text.replace(NOT_AMOUNTS, ' ').matchAll(AMOUNT)].map((m) => amountValue(m[1], m[2])).filter((n) => n > 0);
+}
+
 function loneAmount(text) {
-  const amounts = [...text.replace(NOT_AMOUNTS, ' ').matchAll(AMOUNT)].map((m) => amountValue(m[1], m[2])).filter((n) => n > 0);
+  const amounts = amountList(text);
   return amounts.length === 1 ? amounts[0] : null;
+}
+
+const WORDED_MONTHS = 'jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?';
+const MONTH_ORDER = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+const WORDED_DAY = new RegExp(`(?<![\\w.,-])(?:(\\d{1,2})(?:st|nd|rd|th)?\\s+(?:of\\s+)?(${WORDED_MONTHS})\\b\\.?(?:,?\\s+((?:19|20)\\d{2})\\b)?|(${WORDED_MONTHS})\\b\\.?\\s+(\\d{1,2})(?:st|nd|rd|th)?\\b(?:,?\\s+((?:19|20)\\d{2})\\b)?)(?![\\w-])`, 'gi');
+const REFERENCE_WORDS = 'cheque|check|chq|cheq|dd|draft|ref|reference|utr|rrn|txn|trn|transaction|voucher|receipt|invoice|inv|bill|challan|order|po|payment|neft|rtgs|imps|upi';
+const COUNT_NOUNS = 'invoice|bill|cheque|check|receipt|payment|instal+ment|tranche|part';
+const COUNT_PLURALS = 'invoices|bills|cheques|checks|receipts|payments|instal+ments|tranches|parts';
+const LABEL_AFTER_NOUN = '[\\s.]{0,3}(?:no\\.?|number|num|#|id)[\\s:#.-]{0,4}[a-z]{0,6}\\d';
+const NUMBER_AFTER_NOUN = '\\s{0,3}(?:(?:no\\.?|number|#)\\s{0,3})?(?:of\\s+)?\\d{1,2}(?!\\d|[,.]\\d)';
+const NOT_MONEY = new RegExp([
+  `\\b(?:${REFERENCE_WORDS})[\\s.]{0,3}(?:no\\.?|number|num|#|id)[\\s:#.-]{0,4}[a-z]{0,6}\\d[\\w-]*`,
+  '\\b(?:ref|reference|utr|rrn|txn|trn)[\\s:#.-]{0,4}[a-z]{0,6}\\d[\\w-]*',
+  '\\b(?:cheque|chq|cheq)\\s{0,3}0\\d+\\b',
+  '#\\s{0,2}[a-z]{0,6}\\d[\\w-]*',
+  '\\binstal+ments?\\s{0,3}(?:(?:no\\.?|number|#)\\s{0,3})?(?:of\\s+)?\\d{1,2}(?!\\d|[,.]\\d)(?:\\s{0,3}(?:of|/|out\\s+of)\\s{0,3}\\d{1,2}(?!\\d|[,.]\\d))?',
+  '\\b(?:of|out\\s+of)\\s+\\d{1,2}(?!\\d|[,.]\\d)\\s+(?:instal+ments?|parts?|tranches?|payments?)\\b',
+  '\\b\\d[\\d,]*(?:\\.\\d+)?\\s*(?:-\\s*)?(?:days?|weeks?|months?)\\b',
+  `(?<![\\w.,])(?:1(?!\\d|[,.]\\d)\\s{0,3}(?:${COUNT_NOUNS})|\\d{1,2}(?!\\d|[,.]\\d)\\s{0,3}(?:${COUNT_PLURALS}|(?:${COUNT_NOUNS})(?!${LABEL_AFTER_NOUN}|${NUMBER_AFTER_NOUN})))\\b`,
+  '\\bnet\\s*\\d{1,3}(?!\\d|[,.]\\d)',
+].join('|'), 'gi');
+
+function wordedIso(day, monthWord, year, today) {
+  const month = MONTH_ORDER.indexOf(monthWord.slice(0, 3).toLowerCase()) + 1;
+  if (!month) return null;
+  if (year) return isoDate(`${year}-${month}-${day}`);
+  const thisYear = Number(today.slice(0, 4));
+  const here = isoDate(`${thisYear}-${month}-${day}`);
+  return here && here <= today ? here : isoDate(`${thisYear - 1}-${month}-${day}`);
+}
+
+function takeSaidDays(text, today) {
+  const found = [];
+  for (const hit of text.matchAll(WORDED_DAY)) {
+    const [day, month, year] = hit[1] ? [hit[1], hit[2], hit[3]] : [hit[5], hit[4], hit[6]];
+    const iso = wordedIso(Number(day), month, year, today);
+    if (iso) found.push({ at: hit.index, end: hit.index + hit[0].length, iso });
+  }
+  if (found.length !== 1) return { rest: text, days: [] };
+  return { rest: `${text.slice(0, found[0].at)} ${text.slice(found[0].end)}`, days: [found[0].iso] };
+}
+
+const FIGURE_OR_CHEQUE = new RegExp(`(\\b(?:cheque|chq|cheq)\\s{0,3}\\d{6,}\\b)|${FIGURE_START}\\d|(?:(?<![\\w.,])|${GLUED_CURRENCY})-\\s?\\d`, 'gi');
+
+function takeReferences(text) {
+  let seen = false;
+  return text.replace(NOT_AMOUNTS, ' ').replace(NOT_MONEY, ' ').replace(FIGURE_OR_CHEQUE, (hit, cheque) => {
+    if (!cheque) {
+      seen = true;
+      return hit;
+    }
+    return seen ? ' ' : hit;
+  });
+}
+
+function hasNonPositive(text) {
+  return NON_POSITIVE_AMOUNT.test(text.replace(NOT_AMOUNTS, ' '));
+}
+
+function moneyReading(text) {
+  const { rest } = takeSaidDays(text, localToday());
+  const all = amountList(rest);
+  const zero = hasNonPositive(rest);
+  if (all.length + (zero ? 1 : 0) < 2) return { list: all, nonPositive: zero };
+  const firm = takeReferences(rest);
+  const list = amountList(firm);
+  const nonPositive = hasNonPositive(firm);
+  return list.length || nonPositive ? { list, nonPositive } : { list: all, nonPositive };
+}
+
+export function amountsSaid(text) {
+  return moneyReading(normalizeChat(text)).list;
+}
+
+export function soleAmountSaid(text) {
+  const { list } = moneyReading(normalizeChat(text));
+  return list.length === 1 ? list[0] : null;
 }
 
 function partyOf(text) {
@@ -148,16 +231,21 @@ export function receiptAmount(text) {
 }
 
 export function saidNonPositiveAmount(text) {
-  const t = normalizeChat(text).replace(NOT_AMOUNTS, ' ');
-  return NON_POSITIVE_AMOUNT.test(t) && loneAmount(t) == null;
+  const { list, nonPositive } = moneyReading(normalizeChat(text));
+  return nonPositive && list.length !== 1;
 }
 
-export function documentProblemReply(doc) {
+export function documentProblemReply(doc, country = 'IN') {
   if (!doc || !doc.problem) return null;
+  const abroad = country !== 'IN';
   const words = {
     NEGATIVE_NUMBER: 'A negative number cannot be part of an invoice or bill; use a credit note or a debit note for a reduction.',
-    AMOUNT_TOO_LARGE: 'That amount is larger than I will take from a chat message (the limit is ₹100 crore); enter it as a form if it is right.',
-    INVALID_DATE: `${doc.said} is not a date I can read; say it as 2026-08-15 or 15/08/2026.`,
+    AMOUNT_TOO_LARGE: abroad
+      ? 'That amount is larger than I will take from a chat message; enter it as a form if it is right.'
+      : 'That amount is larger than I will take from a chat message (the limit is ₹100 crore); enter it as a form if it is right.',
+    INVALID_DATE: abroad
+      ? `${doc.said} is not a date I can read; say it as YYYY-MM-DD, or day first as DD/MM/YYYY, for example 15/03/2026.`
+      : `${doc.said} is not a date I can read; say it as 2026-08-15 or 15/08/2026.`,
   }[doc.problem] || 'I could not read that.';
   return { kind: 'reply', reply: `${words} I have recorded nothing.`, tools: [] };
 }
@@ -168,6 +256,14 @@ export function documentProblemReply(doc) {
 export function receiptDate(text, today) {
   const said = normalizeChat(text).match(SAID_DATE);
   return said ? said[1] : today;
+}
+
+export function moneyDate(text, today) {
+  const raw = normalizeChat(text);
+  const said = raw.match(SAID_DATE);
+  if (said) return said[1];
+  const { days } = takeSaidDays(raw, today);
+  return days.length === 1 ? days[0] : today;
 }
 
 export function isPurchaseIntent(text) {
@@ -222,7 +318,8 @@ export const ROUTES = [
   { re: /\bitr\b|\bregime compare\b/i, tool: 'prepare_itr' },
   { re: /\btds\b/i, tool: 'monitor_tds' },
   { re: /\bdeadline|\bdue date\b/i, tool: 'deadlines' },
-  { re: /\breconcil|\bgstr-?2b\b|\brule 37/i, tool: 'gst_reconcile' },
+  { re: /^(?![\s\S]*\b(?:gst\w*|gstr-?2b|2b|tds|26as)\b)[\s\S]*(?:\breconcil\w*\b[\s\S]*\b(?:bank|statement)\b|\b(?:bank|statement)\b[\s\S]*\breconcil\w*|\bbank\s+recon\b|\bmatch(?:ing)?\s+(?:the\s+|my\s+|our\s+)?bank\b)/i, tool: 'bank_reconciliation' },
+  { re: /\bgstr-?2b\b|\b2b\b|\breconcil(?![\s\S]*\b(?:bank|statement)\b)|\brule 37/i, tool: 'gst_reconcile' },
   { re: /\baudit\b|\bworking paper\b|\bcaro\b|\b3cd\b/i, tool: 'audit_books' },
   { re: /\bexceptions?\b|\bneeds? (my )?attention\b|\bwork ?queue\b|\bwhat needs (doing|fixing|attention)\b/i, tool: 'exceptions' },
   { re: /\bapprovals?\b|\bpending approvals?\b/i, tool: 'approval_list' },

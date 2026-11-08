@@ -8,6 +8,22 @@ import { rateFor, normalizeJurisdiction, createUsInvoice } from './us-sales.mjs'
 
 const round2 = (value) => Math.round(Number(value || 0) * 100) / 100;
 export const DEFAULT_VALID_DAYS = 30;
+export const SALES_DOCUMENT_KINDS = {
+  quote: { prefix: 'QT', title: 'Quote', outcomes: ['accepted', 'declined'], expires: true },
+  proforma: { prefix: 'PI', title: 'Proforma invoice', outcomes: ['accepted', 'declined'], expires: true },
+  order: { prefix: 'SO', title: 'Sales order', outcomes: ['cancelled'], expires: false },
+  challan: { prefix: 'DC', title: 'Delivery challan', outcomes: ['returned', 'cancelled'], expires: false },
+};
+export const CHALLAN_REASONS = ['job-work', 'approval', 'line-sale', 'exhibition', 'own-use', 'other'];
+export const SALES_DOCUMENT_ID = /^(QT|PI|SO|DC)-\d{4,}$/;
+
+export function kindOf(document) {
+  return Object.hasOwn(SALES_DOCUMENT_KINDS, String(document?.kind || '')) ? document.kind : 'quote';
+}
+
+export function kindTitle(document) {
+  return SALES_DOCUMENT_KINDS[kindOf(document)].title;
+}
 
 function addDays(iso, days) {
   const [y, m, d] = iso.split('-').map(Number);
@@ -19,7 +35,12 @@ function rateInForce(rate, onDate) {
   return found.ok && found.value.includes(Number(rate));
 }
 
-function nextQuoteId(state) {
+function nextQuoteId(state, kind = 'quote') {
+  if (kind !== 'quote') {
+    const prefix = SALES_DOCUMENT_KINDS[kind].prefix;
+    const used = (state.quotes || []).map((quote) => String(quote.id)).filter((id) => id.startsWith(`${prefix}-`)).map((id) => Number(id.slice(prefix.length + 1)) || 0);
+    return `${prefix}-${String(Math.max(0, ...used) + 1).padStart(4, '0')}`;
+  }
   state.quoteSeq = Number(state.quoteSeq || 0);
   const taken = new Set((state.quotes || []).map((quote) => quote.id));
   let id;
@@ -30,7 +51,24 @@ function nextQuoteId(state) {
   return id;
 }
 
+function kindArgs(args) {
+  const kind = args.kind == null || args.kind === '' ? 'quote' : String(args.kind);
+  if (!Object.hasOwn(SALES_DOCUMENT_KINDS, kind)) return { error: 'BAD_KIND' };
+  if (kind !== 'challan') return { kind, extra: {} };
+  const reason = args.reason == null || args.reason === '' ? 'other' : String(args.reason);
+  if (!CHALLAN_REASONS.includes(reason)) return { error: 'BAD_CHALLAN_REASON' };
+  return { kind, extra: { reason } };
+}
+
 export function planQuote(state, args = {}) {
+  const kinded = kindArgs(args);
+  if (kinded.error) return { ok: false, error: kinded.error };
+  const planned = planQuoteLines(state, args);
+  if (!planned.ok) return planned;
+  return { ok: true, plan: { kind: kinded.kind, ...kinded.extra, ...planned.plan } };
+}
+
+function planQuoteLines(state, args = {}) {
   const date = args.date == null || args.date === '' ? localToday() : postingDate(args.date);
   if (!date) return { ok: false, error: 'INVALID_DATE', date: args.date };
   const partyName = String(args.partyName || '').trim();
@@ -117,7 +155,7 @@ function planUsQuote(state, { date, validDays, partyName, raw, args }) {
 export function createQuote(state, args = {}) {
   const planned = planQuote(state, args);
   if (!planned.ok) return planned;
-  const quote = { id: nextQuoteId(state), ...planned.plan, status: 'open', invoiceId: '' };
+  const quote = { id: nextQuoteId(state, planned.plan.kind), ...planned.plan, status: 'open', invoiceId: '' };
   state.quotes = state.quotes || [];
   state.quotes.push(quote);
   return { ok: true, quote };
@@ -129,15 +167,16 @@ export function findQuote(state, id) {
 
 export function quoteState(quote, today = localToday()) {
   if (quote.status !== 'open') return quote.status;
-  return quote.validUntil < today ? 'expired' : 'open';
+  return SALES_DOCUMENT_KINDS[kindOf(quote)].expires && quote.validUntil < today ? 'expired' : 'open';
 }
 
 export function markQuote(state, args = {}) {
   const quote = findQuote(state, args.id);
   if (!quote) return { ok: false, error: 'QUOTE_NOT_FOUND', id: args.id };
   const outcome = String(args.outcome || '');
-  if (!['accepted', 'declined'].includes(outcome)) return { ok: false, error: 'BAD_OUTCOME' };
+  if (!SALES_DOCUMENT_KINDS[kindOf(quote)].outcomes.includes(outcome)) return { ok: false, error: 'BAD_OUTCOME', allowed: SALES_DOCUMENT_KINDS[kindOf(quote)].outcomes };
   if (quote.status === 'invoiced') return { ok: false, error: 'ALREADY_INVOICED', invoiceId: quote.invoiceId };
+  if (['cancelled', 'returned'].includes(quote.status)) return { ok: false, error: 'ALREADY_CLOSED', status: quote.status };
   quote.status = outcome;
   quote.decidedOn = localToday();
   return { ok: true, quote };
@@ -158,6 +197,8 @@ export function checkConvert(state, args = {}) {
   if (!quote) return { ok: false, error: 'QUOTE_NOT_FOUND', id: args.id };
   if (quote.status === 'invoiced') return { ok: false, error: 'ALREADY_INVOICED', invoiceId: quote.invoiceId };
   if (quote.status === 'declined') return { ok: false, error: 'QUOTE_DECLINED' };
+  if (['cancelled', 'returned'].includes(quote.status)) return { ok: false, error: 'ALREADY_CLOSED', status: quote.status };
+  if (kindOf(quote) === 'challan' && quote.reason === 'job-work') return { ok: false, error: 'CHALLAN_NOT_A_SALE' };
   return { ok: true, quote, expired: quoteState(quote) === 'expired' };
 }
 
@@ -173,11 +214,11 @@ export function convertQuote(state, args = {}) {
   return { ...made, quote };
 }
 
-export function listQuotes(state, { status = 'all' } = {}) {
+export function listQuotes(state, { status = 'all', kind = 'all' } = {}) {
   const today = localToday();
   const rows = (state.quotes || [])
-    .map((quote) => ({ ...quote, state: quoteState(quote, today), expiresIn: daysBetween(today, quote.validUntil) }))
-    .filter((quote) => status === 'all' || quote.state === status)
+    .map((quote) => ({ ...quote, kind: kindOf(quote), title: kindTitle(quote), state: quoteState(quote, today), expiresIn: daysBetween(today, quote.validUntil) }))
+    .filter((quote) => (status === 'all' || quote.state === status) && (kind === 'all' || quote.kind === kind))
     .sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
   return { ok: true, data: { quotes: rows } };
 }

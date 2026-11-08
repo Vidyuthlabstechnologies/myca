@@ -15,9 +15,9 @@ export const ACCESS_LOG_DAYS = 365;
 export const CRASH_REPORT_DAYS = 90;
 export const OTP_CHALLENGE_DAYS = 1;
 
-export function createJobs({ db, withBooks, connectors = null, syncChannels = null, pullsEnabled = () => false, sender = null, vault = null, now = () => Date.now(), log = () => {} }) {
+export function createJobs({ db, withBooks, connectors = null, syncChannels = null, pullsEnabled = () => false, sender = null, vault = null, billing = null, now = () => Date.now(), log = () => {} }) {
   async function purge(requestId) {
-    const summary = { businesses: 0, documents: 0, objects: 0, accessRows: 0, crashRows: 0, otpRows: 0, failed: [] };
+    const summary = { businesses: 0, documents: 0, objects: 0, accessRows: 0, crashRows: 0, otpRows: 0, secondStepRows: 0, failed: [] };
     const cutoff = new Date(now() - DELETION_GRACE_DAYS * 24 * 60 * 60 * 1000);
     const due = await db.query('select id, name from businesses where deletion_requested_at is not null and deletion_requested_at < $1 order by deletion_requested_at', [cutoff]);
     for (const row of due.rows) {
@@ -47,6 +47,7 @@ export function createJobs({ db, withBooks, connectors = null, syncChannels = nu
     summary.accessRows = (await db.query('delete from access_log where at < $1', [new Date(now() - ACCESS_LOG_DAYS * 24 * 60 * 60 * 1000)])).rowCount;
     summary.crashRows = (await db.query('delete from crash_reports where last_seen < $1', [new Date(now() - CRASH_REPORT_DAYS * 24 * 60 * 60 * 1000)])).rowCount;
     summary.otpRows = (await db.query('delete from otp_challenges where created_at < $1', [new Date(now() - OTP_CHALLENGE_DAYS * 24 * 60 * 60 * 1000)])).rowCount;
+    summary.secondStepRows = (await db.query('delete from second_step_challenges where created_at < $1', [new Date(now() - OTP_CHALLENGE_DAYS * 24 * 60 * 60 * 1000)])).rowCount;
     return summary;
   }
 
@@ -85,6 +86,12 @@ export function createJobs({ db, withBooks, connectors = null, syncChannels = nu
         summary.failed.push({ businessId, error: String(err && err.message ? err.message : err) });
         log({ requestId, job: 'daily', businessId, error: String(err && err.stack ? err.stack : err) });
       }
+    }
+    try {
+      summary.billing = billing && billing.refreshDue ? await billing.refreshDue() : { checked: 0, changed: 0, failed: 0 };
+    } catch (err) {
+      summary.billing = { checked: 0, changed: 0, failed: 1 };
+      log({ requestId, job: 'daily', billing: String(err && err.stack ? err.stack : err) });
     }
     summary.purge = await purge(requestId);
     log({ requestId, job: 'daily', ...summary, failed: summary.failed.length });

@@ -6,6 +6,7 @@ import '../api/models.dart';
 import '../api/myca_api.dart';
 import '../app_state.dart';
 import '../attention.dart';
+import '../excel.dart';
 import '../format.dart';
 import '../marks.dart';
 import '../theme.dart';
@@ -15,6 +16,7 @@ import 'credit_card.dart';
 import 'filing_screen.dart';
 import 'gst_payment_screen.dart';
 import 'year_close_screen.dart';
+import 'tds_credit_screen.dart';
 import 'tds_screen.dart';
 import 'review_screen.dart';
 
@@ -373,6 +375,19 @@ class _TaxesScreenState extends State<TaxesScreen> {
     setState(() => _entriesNote = note);
   }
 
+  Future<void> _saveExcel(String report, [Map<String, Object?> args = const {}]) async {
+    final state = AppScope.of(context);
+    setState(() => _entriesNote = '');
+    var note = '';
+    try {
+      note = await saveXlsx(state, toolData(await state.api.query('export_xlsx', {'report': report, ...args})));
+    } on MycaApiException catch (err) {
+      note = err.message;
+    }
+    if (!mounted) return;
+    setState(() => _entriesNote = note);
+  }
+
   void _explain(ExceptionItem item) {
     showModalBottomSheet<void>(
       context: context,
@@ -592,6 +607,14 @@ class _TaxesScreenState extends State<TaxesScreen> {
                   SizedBox(
                     width: double.infinity,
                     child: OutlinedButton(
+                      onPressed: () => _saveExcel('entries', {'period': gst.period}),
+                      child: const Text('Save entries as Excel'),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton(
                       onPressed: _saveGstr9,
                       child: const Text('Save the GSTR-9 draft'),
                     ),
@@ -646,6 +669,14 @@ class _TaxesScreenState extends State<TaxesScreen> {
                       child: const Text('Save the trial balance'),
                     ),
                   ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton(
+                      onPressed: () => _saveExcel('trial_balance'),
+                      child: const Text('Save as Excel'),
+                    ),
+                  ),
                   if (_entriesNote.isNotEmpty)
                     Padding(
                       padding: const EdgeInsets.only(top: 8),
@@ -653,7 +684,9 @@ class _TaxesScreenState extends State<TaxesScreen> {
                         _entriesNote,
                         style: Theme.of(context).textTheme.bodyMedium,
                       ),
-                    ),
+                    )
+                  else
+                    const SizedBox.shrink(),
                 ],
                 FutureBuilder<TdsSummary?>(
                   future: _tds,
@@ -713,6 +746,15 @@ class _TaxesScreenState extends State<TaxesScreen> {
                                     onTap: () => _saveForm16A(tds.quarters.lastWhere((q) => q.kind != 'salary')),
                                   ),
                               ],
+                              RowCard(
+                                leading: const TintTile(tint: Tint.taxes, mark: Mark.taxes),
+                                title: 'Form 26AS check',
+                                subtitle: 'TDS your customers deducted, compared with 26AS',
+                                trailing: const Chevron(),
+                                onTap: () => Navigator.of(context).push(
+                                  MaterialPageRoute<void>(builder: (_) => const TdsCreditScreen()),
+                                ),
+                              ),
                             ],
                           ),
                           if (_tdsNote.isNotEmpty && tds.deductor)

@@ -5,6 +5,7 @@ import { createInvoice, createPurchase } from './invoice.mjs';
 import { getBook, canonicalClientId, normalizeClientId, isValidClientId, ensureBooks } from './books.mjs';
 import { documentsOf } from './document-store.mjs';
 import { ensureDefaultAdmin, listUsers, addUser, findUser, verifyUserPin } from './identity.mjs';
+import { normalizeUserId } from './approvals.mjs';
 
 function jsonHash(value) {
   const json = JSON.stringify(value, (_key, item) => (typeof item === 'bigint' ? item.toString() : item));
@@ -19,6 +20,8 @@ function digestBook(b) {
     invoices: b.invoices || [],
     purchases: b.purchases || [],
     imports: b.imports || [],
+    imsDecisions: b.imsDecisions || {},
+    supplierTerms: b.supplierTerms || {},
     ledgerClock: b.ledger?.clock?.toString?.() || '0',
     ledgerChecksum: b.ledger?.lastChecksum || 0,
   };
@@ -164,19 +167,67 @@ export function setActiveClient(state, clientId) {
   return { ok: true, activeClientId: id };
 }
 
+function sortedKeysJson(value) {
+  return JSON.stringify(value, (_key, item) => {
+    if (typeof item === 'bigint') return item.toString();
+    if (item === null || typeof item !== 'object' || Array.isArray(item)) return item;
+    return Object.fromEntries(Object.keys(item).sort().map((key) => [key, item[key]]));
+  });
+}
+
+export function auditEventHash(record) {
+  return createHash('sha256').update([record.eventId, record.actorId, String(record.actorName || ''), record.action, record.at, record.beforeHash, record.afterHash, sortedKeysJson(record.metadata), record.prevHash].join('\n')).digest('hex');
+}
+
+function auditIdTaken(state, id) {
+  return state.auditEvents.some((row) => row && row.eventId === id);
+}
+
+const AUDIT_SEQ_CAP = 1e12;
+
+function auditIdOf(number) {
+  return `AUD-${String(number).padStart(6, '0')}`;
+}
+
+function nextAuditId(state) {
+  const counter = state.auditSeq;
+  let seq = Number.isSafeInteger(counter) && counter >= 0 && counter < AUDIT_SEQ_CAP ? counter : state.auditEvents.length;
+  let id = auditIdOf(++seq);
+  if (auditIdTaken(state, id)) {
+    const used = new Set(state.auditEvents.map((row) => row && row.eventId));
+    while (used.has(id)) id = auditIdOf(++seq);
+  }
+  state.auditSeq = seq;
+  return id;
+}
+
+function actorNameFor(state, actorId) {
+  const id = normalizeUserId(actorId);
+  if (!id) return '';
+  const signedIn = state.__actor;
+  if (signedIn && signedIn.name && normalizeUserId(signedIn.userId) === id) return String(signedIn.name);
+  const user = findUser(state, id);
+  return user && user.name ? String(user.name) : '';
+}
+
 export function appendAuditEvent(state, event) {
   ensureCaApiState(state);
+  if (event.eventId && auditIdTaken(state, event.eventId)) return { ok: false, error: 'DUPLICATE_ID', id: event.eventId };
   const beforeHash = event.beforeHash || stateDigest(state);
+  const previous = state.auditEvents[state.auditEvents.length - 1];
   const record = {
-    eventId: event.eventId || `AUD-${String(++state.auditSeq).padStart(6, '0')}`,
+    eventId: event.eventId || nextAuditId(state),
     actorId: event.actorId || 'system',
+    actorName: String(event.actorName || actorNameFor(state, event.actorId)),
     clientId: event.clientId || 'SELF',
     action: event.action || 'api_event',
     at: event.at || new Date().toISOString(),
     beforeHash,
     afterHash: event.afterHash || beforeHash,
     metadata: event.metadata || {},
+    prevHash: previous && previous.hash ? previous.hash : '',
   };
+  record.hash = auditEventHash(record);
   state.auditEvents.push(record);
   return record;
 }
@@ -343,7 +394,8 @@ export function handleCaApi(state, method, pathname, body = {}) {
   }
 
   if (method === 'POST' && path === '/audit-events') {
-    return { ok: true, data: appendAuditEvent(state, body) };
+    const input = body && typeof body === 'object' && !Array.isArray(body) ? body : {};
+    return { ok: true, data: appendAuditEvent(state, { actorId: input.actorId, actorName: input.actorName, clientId: input.clientId, action: input.action, metadata: input.metadata }) };
   }
 
   const err = new Error('CA_API_ROUTE_NOT_FOUND');

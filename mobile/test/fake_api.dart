@@ -1,9 +1,12 @@
+import 'dart:convert';
+
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:myca/api/models.dart';
 import 'package:myca/api/myca_api.dart';
 import 'package:myca/app_services.dart';
 import 'package:myca/app_state.dart';
+import 'package:myca/format.dart' show isoDate, rupees;
 
 class MemoryOnboardingStore implements OnboardingStore {
   MemoryOnboardingStore({
@@ -159,6 +162,128 @@ class FakeMycaApi implements MycaApi {
   bool has2b = false;
   bool hasBalance = false;
   final customerTerms = <String, Object?>{'gstin:24AAACG1234F1Z5': 30};
+  final recurring = <Map<String, Object?>>[];
+  final bankAccounts = <Map<String, Object?>>[
+    {'id': '1001', 'label': 'Cash', 'kind': 'cash', 'maskedNumber': '', 'ifsc': '', 'balance': 25000, 'builtIn': true},
+    {'id': '1002', 'label': 'Bank', 'kind': 'bank', 'maskedNumber': '', 'ifsc': '', 'balance': 190420, 'builtIn': true},
+  ];
+  final bankRules = <Map<String, Object?>>[
+    {
+      'id': 'BR-0001',
+      'side': 'out',
+      'contains': 'sms charges',
+      'pattern': '',
+      'minAmount': null,
+      'maxAmount': null,
+      'then': {'kind': 'charge', 'partyName': '', 'head': '5180', 'otherAccount': '', 'note': ''},
+      'hits': 2,
+      'createdOn': '2026-09-01',
+      'by': 'owner',
+    },
+  ];
+  final bankLines = <Map<String, Object?>>[
+    {
+      'id': 'BL-000001',
+      'account': '1002',
+      'date': '2026-10-01',
+      'narration': 'NEFT CR GUJARAT WEAVES INV0002',
+      'refNo': 'N275261',
+      'in': 377600,
+      'out': 0,
+      'balance': 577600,
+      'fingerprint': 'BANK-1111111111111111-1',
+      'category': 'unclassified',
+      'status': 'unmatched',
+      'match': null,
+      'importedOn': '2026-10-05',
+      'fileLabel': 'hdfc-oct.csv',
+      'tieBreak': false,
+      'suggestions': [
+        {'kind': 'books', 'transferId': '100007', 'docId': 'INV-0002', 'docKind': 'receipt', 'party': 'Gujarat Weaves', 'amount': 377600, 'date': '2026-10-01', 'why': 'Same amount on the same day'},
+        {'kind': 'receipt', 'partyName': 'Gujarat Weaves', 'invoiceIds': ['INV-0002'], 'amount': 377600, 'why': 'Gujarat Weaves is in the narration'},
+      ],
+    },
+    {
+      'id': 'BL-000002',
+      'account': '1002',
+      'date': '2026-10-02',
+      'narration': 'SMS CHARGES SEP',
+      'refNo': '',
+      'in': 0,
+      'out': 25,
+      'balance': 577575,
+      'fingerprint': 'BANK-2222222222222222-1',
+      'category': 'finance_cost',
+      'status': 'unmatched',
+      'match': null,
+      'importedOn': '2026-10-05',
+      'fileLabel': 'hdfc-oct.csv',
+      'tieBreak': false,
+      'suggestions': [
+        {'kind': 'charge', 'head': '5180', 'why': 'Looks like a bank charge'},
+      ],
+    },
+    {
+      'id': 'BL-000003',
+      'account': '1002',
+      'date': '2026-10-03',
+      'narration': 'INT PD FOR THE QTR',
+      'refNo': '',
+      'in': 1200,
+      'out': 0,
+      'balance': 578775,
+      'fingerprint': 'BANK-3333333333333333-1',
+      'category': 'interest_income',
+      'status': 'unmatched',
+      'match': null,
+      'importedOn': '2026-10-05',
+      'fileLabel': 'hdfc-oct.csv',
+      'tieBreak': false,
+      'suggestions': [
+        {'kind': 'interest', 'why': 'Looks like interest the bank paid you'},
+      ],
+    },
+    {
+      'id': 'BL-000004',
+      'account': '1002',
+      'date': '2026-10-03',
+      'narration': 'UPI FABRIC CO BILL 0001',
+      'refNo': 'UPI-4411',
+      'in': 0,
+      'out': 8400,
+      'balance': 570375,
+      'fingerprint': 'BANK-4444444444444444-1',
+      'category': 'purchases',
+      'status': 'matched',
+      'match': {'kind': 'books', 'id': 'BILL-0001', 'transferIds': ['100009'], 'ruleId': '', 'note': ''},
+      'importedOn': '2026-10-05',
+      'fileLabel': 'hdfc-oct.csv',
+      'tieBreak': false,
+      'suggestions': <Object?>[],
+    },
+    {
+      'id': 'BL-000005',
+      'account': '1002',
+      'date': '2026-06-18',
+      'narration': 'SMS CHARGES JUN',
+      'refNo': '',
+      'in': 0,
+      'out': 25,
+      'balance': 199975,
+      'fingerprint': 'BANK-5555555555555555-1',
+      'category': 'finance_cost',
+      'status': 'booked',
+      'match': {'kind': 'charge', 'id': 'EXP-0005', 'transferIds': ['100005'], 'ruleId': 'BR-0001', 'note': ''},
+      'importedOn': '2026-10-05',
+      'fileLabel': 'hdfc-jun.csv',
+      'tieBreak': false,
+      'suggestions': <Object?>[],
+    },
+  ];
+  final bankBooks = <Map<String, Object?>>[
+    {'transferId': '100012', 'date': '2026-10-04', 'docKind': 'expense', 'docId': 'EXP-0002', 'party': 'Airtel', 'in': 0, 'out': 1180},
+  ];
+  final bankTransfers = <Map<String, Object?>>[];
   final quotes = <Map<String, Object?>>[
     {
       'id': 'QT-0001',
@@ -196,6 +321,39 @@ class FakeMycaApi implements MycaApi {
     {'name': 'Sales by customer', 'metric': 'sales', 'groupBy': 'customer', 'period': 'this-month', 'compare': true, 'savedOn': '2026-10-01'},
     {'name': 'Expenses this quarter', 'metric': 'expenses', 'groupBy': 'head', 'period': 'this-quarter', 'compare': false, 'savedOn': '2026-10-02'},
   ];
+  final auditEvents = <Map<String, Object?>>[
+    {
+      'eventId': 'AUD-000001',
+      'at': '2026-10-05T10:30:00.000Z',
+      'actorId': 'USR-OWNER',
+      'actorName': 'Asha',
+      'action': 'chat.confirm',
+      'kind': 'change',
+      'summary': 'Posted Create invoice (INV-0001)',
+      'ids': ['INV-0001'],
+      'transfers': ['1'],
+      'beforeHash': 'a1',
+      'afterHash': 'b2',
+      'chained': true,
+    },
+    {
+      'eventId': 'AUD-000002',
+      'at': '2026-10-05T11:15:00.000Z',
+      'actorId': 'USR-OWNER',
+      'actorName': 'Asha',
+      'action': 'tool.lock_period',
+      'kind': 'change',
+      'summary': 'Locked the books through 2026-09-30: September closed',
+      'ids': <String>[],
+      'transfers': <String>[],
+      'beforeHash': 'b2',
+      'afterHash': 'c3',
+      'chained': true,
+    },
+  ];
+  Map<String, Object?> auditChain = {'ok': true, 'chained': 2, 'unchained': 0};
+  bool auditLedgerOk = true;
+  bool auditMore = false;
   final amendments = <Map<String, Object?>>[];
   bool yearClosed = false;
   bool quarterlyGst = false;
@@ -203,6 +361,12 @@ class FakeMycaApi implements MycaApi {
   num tdsDue = 6000;
   final bankDetails = <Map<String, Object?>>[];
   final tdsDeposits = <Map<String, Object?>>[];
+  final tdsCreditRows = <Map<String, Object?>>[
+    {'section': '194J', 'tan': 'MUMD12345B', 'deductor': 'Delta Projects', 'customer': 'Delta Projects', 'quarter': 'Q2 2026-27', 'in26as': 2000, 'inBooks': 2000, 'gap': 0, 'status': 'matched'},
+    {'section': '194C', 'tan': 'BLRN12345C', 'deductor': 'Northwind Traders', 'customer': '', 'quarter': 'Q2 2026-27', 'in26as': 1500, 'inBooks': 0, 'gap': -1500, 'status': 'not in books'},
+    {'section': '194O', 'tan': '', 'deductor': 'amazon', 'customer': '', 'quarter': 'Q3 2026-27', 'in26as': 800, 'inBooks': 920, 'gap': 120, 'status': 'short in 26AS'},
+    {'section': '194C', 'tan': '', 'deductor': 'Kappa Retail', 'customer': 'Kappa Retail', 'quarter': 'Q3 2026-27', 'in26as': 0, 'inBooks': 600, 'gap': 600, 'status': 'not in 26AS'},
+  ];
   final employees = <Map<String, Object?>>[
     {
       'id': 'EMP-0001',
@@ -352,6 +516,100 @@ class FakeMycaApi implements MycaApi {
     };
   }
 
+  final imsDecisions = <String, Map<String, Object?>>{};
+  int imsOrphaned = 0;
+  final imsRows = <Map<String, Object?>>[
+    {
+      'key': '2026-10|27AAACB2222B1Z5|BM12|B2B',
+      'section': 'B2B',
+      'supplierGstin': '27AAACB2222B1Z5',
+      'supplierName': 'BOX MART',
+      'invoiceNo': 'BM-12',
+      'invoiceDate': '2026-10-16',
+      'taxableValue': 6000,
+      'cgst': 0,
+      'sgst': 0,
+      'igst': 300,
+      'cess': 0,
+      'totalValue': 6300,
+      'credit': 300,
+      'itcAvailability': 'Y',
+      'billId': 'BILL-0003',
+      'match': 'amount differs',
+      'why': 'The amounts differ: taxable value 5000 in your books, 6000 in 2B; IGST 250 in your books, 300 in 2B.',
+      'suggested': 'pending',
+      'decision': '',
+      'note': '',
+      'decidedBy': '',
+      'decidedOn': '',
+      'lines': 1,
+    },
+    {
+      'key': '2026-10|24AAACF7856R1ZY|GM77|B2B',
+      'section': 'B2B',
+      'supplierGstin': '24AAACF7856R1ZY',
+      'supplierName': 'GUJARAT MILLS',
+      'invoiceNo': 'GM/77',
+      'invoiceDate': '2026-10-08',
+      'taxableValue': 20000,
+      'cgst': 0,
+      'sgst': 0,
+      'igst': 3600,
+      'cess': 0,
+      'totalValue': 23600,
+      'credit': 3600,
+      'itcAvailability': 'N',
+      'billId': 'BILL-0002',
+      'match': 'matched',
+      'why': 'Matches BILL-0002 in your books.',
+      'suggested': 'accept',
+      'decision': '',
+      'note': '',
+      'decidedBy': '',
+      'decidedOn': '',
+      'lines': 1,
+    },
+    {
+      'key': '2026-10|27AAACH7409R1Z1|RS1|B2B',
+      'section': 'B2B',
+      'supplierGstin': '27AAACH7409R1Z1',
+      'supplierName': 'RETAIL SUPPLY',
+      'invoiceNo': 'RS-1',
+      'invoiceDate': '2026-10-15',
+      'taxableValue': 1000,
+      'cgst': 0,
+      'sgst': 0,
+      'igst': 180,
+      'cess': 0,
+      'totalValue': 1180,
+      'credit': 180,
+      'itcAvailability': 'Y',
+      'billId': '',
+      'match': 'not in books',
+      'why': 'No purchase bill with this number from this supplier.',
+      'suggested': 'pending',
+      'decision': '',
+      'note': '',
+      'decidedBy': '',
+      'decidedOn': '',
+      'lines': 1,
+    },
+  ];
+
+  List<Map<String, Object?>> _imsPicked(Map<String, Object?> args) {
+    final keys = (args['keys'] as List?)?.cast<String>() ?? const <String>[];
+    if (keys.isNotEmpty) return imsRows.where((r) => keys.contains(r['key'])).toList();
+    return switch (args['select']) {
+      'matched' => imsRows.where((r) => r['match'] == 'matched' || r['match'] == 'date differs').toList(),
+      'suggested' => imsRows.where((r) => r['suggested'] == args['decision']).toList(),
+      'undecided' => imsRows.where((r) => r['decision'] == '').toList(),
+      'all' => List.of(imsRows),
+      _ => const <Map<String, Object?>>[],
+    };
+  }
+
+  static const _imsWords = {'accept': 'accepted', 'reject': 'rejected', 'pending': 'pending', 'clear': 'not decided'};
+
   final purchases = <Map<String, Object?>>[
     {
       'id': 'BILL-0001',
@@ -362,6 +620,18 @@ class FakeMycaApi implements MycaApi {
       'status': 'posted',
     },
   ];
+
+  final supplierTermsSet = <Map<String, Object?>>[];
+
+  final supplierDues = <String, Object?>{
+    'asOf': '2026-10-05',
+    'bills': [
+      {'billId': 'BILL-0001', 'supplier': 'Fabric Co', 'gstin': '27AABCT1332L1ZE', 'date': '2026-08-06', 'total': 42000, 'outstanding': 42000, 'payBy': '2026-08-21', 'daysLeft': -45, 'overdue': true, 'msme': true},
+      {'billId': 'BILL-0002', 'supplier': 'Micro Dyes', 'gstin': '24AAACM1234D1Z2', 'date': '2026-10-01', 'total': 11800, 'outstanding': 11800, 'payBy': '2026-10-16', 'daysLeft': 11, 'overdue': false, 'msme': true},
+    ],
+    'msme': {'count': 2, 'outstanding': 53800, 'overdue': 1, 'overdueOutstanding': 42000, 'rule': 'IT-2025 s.Deductions allowed only on actual payment (successor to s.43B(h))'},
+    'note': 'A bill to a micro or small enterprise paid after its MSMED time limit is not deductible this year; it is deducted in the year it is paid. The limit is counted from the day the goods or services were accepted.',
+  };
 
   static const _user = {
     'userId': 'USR-ADMIN',
@@ -450,9 +720,19 @@ class FakeMycaApi implements MycaApi {
       );
     }
     if (name == 'create_quote') {
+      final kind = (args['kind'] as String?) ?? 'quote';
+      if (kind != 'quote') {
+        return _preview('${salesDocumentLabel(kind)} to ${args['partyName']}: total ₹59,000.00.');
+      }
       return _preview(
         'Quote to ${args['partyName']}: total ₹59,000.00. Valid until 2026-11-04.',
       );
+    }
+    if (name == 'add_recurring') {
+      return _preview('Repeats ${args['every']} from ${args['startDate']}.');
+    }
+    if (name == 'stop_recurring') {
+      return _preview('Stop ${args['id']}.');
     }
     if (name == 'mark_quote') {
       return _preview('${args['id']}: ${args['outcome']}.');
@@ -515,6 +795,15 @@ class FakeMycaApi implements MycaApi {
     if (name == 'set_payment_terms') {
       return _preview('${args['partyName']}: Net ${args['days']}.');
     }
+    if (name == 'set_supplier_terms') {
+      final days = args['days'];
+      return _preview(
+        args['msme'] == true
+            ? 'Mark ${args['partyName']} as an MSME supplier (${args['category'] ?? 'category not given'}, Udyam ${args['udyam'] ?? 'not given'}) to be paid within ${days ?? 15} days'
+            : "Set ${args['partyName']}'s terms to $days days",
+        {'days': days ?? 15},
+      );
+    }
     if (name == 'set_cash_balance') {
       return _preview(
         'On 2026-10-05: bank ₹${args['bank']}, cash in hand ₹${args['cash'] ?? 0}.',
@@ -529,6 +818,17 @@ class FakeMycaApi implements MycaApi {
     if (name == 'import_gstr2b') {
       return _preview(
         'GSTR-2B for ${args['period']}: 4 entries from 4 suppliers.',
+      );
+    }
+    if (name == 'ims_decide') {
+      final picked = _imsPicked(args);
+      final credit = picked.fold<num>(0, (sum, r) => sum + (r['credit'] as num));
+      final word = _imsWords[args['decision']];
+      return _preview(
+        picked.length == 1
+            ? 'Mark ${picked.single['supplierName']} ${picked.single['invoiceNo']} as $word in IMS for ${args['period']}.'
+            : 'Mark ${picked.length} invoices in IMS for ${args['period']} as $word (credit ₹$credit).',
+        {'count': picked.length, 'credit': credit},
       );
     }
     if (name == 'gst_review_answer') {
@@ -583,6 +883,33 @@ class FakeMycaApi implements MycaApi {
         {'head': args['head'], 'headName': 'Advertising and marketing'},
       );
     }
+    if (name == 'match_bank_line') {
+      final line = bankLines.where((l) => l['id'] == args['lineId']).firstOrNull;
+      final amount = line == null ? 0 : ((line['in'] as num) > 0 ? line['in'] as num : line['out'] as num);
+      final who = args['partyName'] ?? args['invoiceId'] ?? args['billId'] ?? args['transferId'] ?? args['head'] ?? args['otherAccount'];
+      return _preview('${args['lineId']}: ${args['kind']} of ₹$amount${who == null ? '' : ' ($who)'}${args['remember'] == true ? ', and a rule for next time' : ''}.');
+    }
+    if (name == 'unmatch_bank_line') return _preview('Unlink ${args['lineId']}. Nothing is posted or reversed.');
+    if (name == 'book_bank_charges') {
+      final open = bankLines.where((l) => l['status'] == 'unmatched' && (l['category'] == 'finance_cost' || l['category'] == 'interest_income')).length;
+      return _preview('Book $open ${open == 1 ? 'line' : 'lines'} as bank charges and interest.');
+    }
+    if (name == 'add_bank_rule') return _preview('Rule: ${args['side']} lines containing “${args['contains']}” are booked as ${args['kind']}.');
+    if (name == 'remove_bank_rule') return _preview('Remove the rule ${args['id']}.');
+    if (name == 'run_bank_rules') return _preview('Run your bank rules over the lines not matched yet.');
+    if (name == 'set_bank_account') return _preview('Add the account ${args['label']} (${args['kind']}).');
+    if (name == 'record_transfer') {
+      return _preview('Transfer ₹${args['amount']} from ${args['fromAccount']} to ${args['toAccount']} on ${args['date']}. Recorded once, between your own accounts.');
+    }
+    if (name == 'record_tds_withheld') {
+      final invoice = invoices.where((i) => i['id'] == args['invoiceId']).firstOrNull;
+      final amount = args['amount'] as num;
+      return _preview(
+        'TDS of ${rupees(amount)} withheld by ${invoice?['partyName'] ?? 'the customer'} on ${args['invoiceId']} (section ${args['section']})',
+        {'amount': amount, 'remaining': invoice == null ? 0 : (invoice['total'] as num) - _receivedOn(invoice) - amount},
+      );
+    }
+    if (name == 'import_bank' && args['post'] == 'hold') return _preview('Bank statement: the lines are read and wait for you to match them.');
     return _preview(switch (name) {
       'create_invoice' => 'Invoice to ${args['partyName']}: total ₹9,440.00.',
       'record_receipt' => 'Receipt of ₹1,000.00 against ${args['invoiceId']}.',
@@ -647,6 +974,44 @@ class FakeMycaApi implements MycaApi {
           'posted': true,
           'confirmed': true,
         });
+      }
+      if (held.tool == 'add_recurring') {
+        recurring.add({
+          'id': 'RP-${(recurring.length + 1).toString().padLeft(4, '0')}',
+          'kind': held.args['kind'],
+          'every': held.args['every'],
+          'party': held.args['partyName'] ?? held.args['payee'] ?? held.args['narration'] ?? '',
+          'amount': held.args['amount'] ?? 29500,
+          'startDate': held.args['startDate'],
+          'endDate': '',
+          'nextDate': held.args['startDate'],
+          'status': 'active',
+          'count': 0,
+          'lastError': '',
+          'last': null,
+        });
+        return ChatReply.fromJson({'reply': 'Set up.', 'posted': true, 'confirmed': true});
+      }
+      if (held.tool == 'stop_recurring') {
+        recurring.firstWhere((r) => r['id'] == held.args['id'])['status'] = 'stopped';
+        return ChatReply.fromJson({'reply': 'Stopped.', 'posted': true, 'confirmed': true});
+      }
+      if (held.tool == 'create_quote' && (held.args['kind'] ?? 'quote') != 'quote') {
+        final kind = held.args['kind'] as String;
+        final prefix = {'proforma': 'PI', 'order': 'SO', 'challan': 'DC'}[kind];
+        quotes.add({
+          'id': '$prefix-0001',
+          'kind': kind,
+          'reason': held.args['reason'] ?? '',
+          'date': '2026-10-05',
+          'partyName': held.args['partyName'],
+          'partyGstin': held.args['partyGstin'] ?? '',
+          'total': 59000,
+          'validUntil': '2026-11-04',
+          'status': 'open',
+          'invoiceId': '',
+        });
+        return ChatReply.fromJson({'reply': '${salesDocumentLabel(kind)} $prefix-0001 made.', 'posted': true, 'confirmed': true});
       }
       if (held.tool == 'create_quote') {
         quotes.add({
@@ -817,6 +1182,14 @@ class FakeMycaApi implements MycaApi {
           'confirmed': true,
         });
       }
+      if (held.tool == 'set_supplier_terms') {
+        supplierTermsSet.add(held.args);
+        return ChatReply.fromJson({
+          'reply': '${held.args['partyName']} is recorded as an MSME. New bills from them carry the pay-by date from the MSMED Act; old bills keep theirs.',
+          'posted': true,
+          'confirmed': true,
+        });
+      }
       if (held.tool == 'set_cash_balance') {
         hasBalance = true;
         return ChatReply.fromJson({
@@ -858,6 +1231,25 @@ class FakeMycaApi implements MycaApi {
         has2b = true;
         return ChatReply.fromJson({
           'reply': 'Added.',
+          'posted': true,
+          'confirmed': true,
+        });
+      }
+      if (held.tool == 'ims_decide') {
+        final picked = _imsPicked(held.args);
+        final decision = held.args['decision'] as String;
+        final note = decision == 'clear' ? '' : '${held.args['note'] ?? ''}';
+        for (final row in picked) {
+          row['decision'] = decision == 'clear' ? '' : decision;
+          row['note'] = note;
+          if (decision == 'clear') {
+            imsDecisions.remove(row['key']);
+          } else {
+            imsDecisions['${row['key']}'] = {'decision': decision, 'note': note, 'by': 'USR-ADMIN', 'on': '2026-10-05'};
+          }
+        }
+        return ChatReply.fromJson({
+          'reply': 'Marked ${picked.length} ${picked.length == 1 ? 'row' : 'rows'} ${_imsWords[decision]} in IMS for ${held.args['period']}.',
           'posted': true,
           'confirmed': true,
         });
@@ -975,6 +1367,31 @@ class FakeMycaApi implements MycaApi {
         salesTaxApproved = true;
         return ChatReply.fromJson({'reply': 'Confirmed.', 'posted': true});
       }
+      if (held.tool == 'record_tds_withheld') {
+        final invoice = invoices.firstWhere((i) => i['id'] == held.args['invoiceId']);
+        final amount = held.args['amount'] as num;
+        invoice['receipts'] = <Object?>[
+          ...(invoice['receipts'] as List<Object?>? ?? const <Object?>[]),
+          {
+            'amount': amount,
+            'date': held.args['date'],
+            'mode': 'tds',
+            'section': held.args['section'],
+            if (held.args['tan'] != null) 'tan': held.args['tan'],
+          },
+        ];
+        final left = (invoice['total'] as num) - _receivedOn(invoice);
+        invoice['status'] = left <= 0.01 ? 'paid' : 'partial';
+        return ChatReply.fromJson({
+          'reply': 'Recorded TDS of ${rupees(amount)} withheld on ${held.args['invoiceId']}; ${rupees(left)} still owed.',
+          'posted': true,
+          'confirmed': true,
+        });
+      }
+      if (held.tool == 'import_26as_credits') {
+        tdsCreditRows.add({'section': '194J', 'tan': 'MUMD12345B', 'deductor': 'Delta Projects', 'customer': '', 'quarter': 'Q2 2026-27', 'in26as': 2000, 'inBooks': 0, 'gap': -2000, 'status': 'not in books'});
+        return ChatReply.fromJson({'reply': 'Recorded 1 entry of TDS from Form 26AS totalling ₹2,000.00 (194J 1).', 'posted': true, 'confirmed': true});
+      }
       if (held.tool == 'create_invoice') {
         invoices.add({
           'id': 'INV-0003',
@@ -992,6 +1409,150 @@ class FakeMycaApi implements MycaApi {
           'confirmed': true,
         });
       }
+      if (held.tool == 'match_bank_line') {
+        final line = bankLines.firstWhere((l) => l['id'] == held.args['lineId']);
+        final kind = held.args['kind'] as String;
+        final suggestions = (line['suggestions'] as List<Object?>? ?? const <Object?>[]).cast<Map<String, Object?>>();
+        final books = suggestions.where((s) => s['transferId'] == held.args['transferId']).firstOrNull;
+        final id = kind == 'books'
+            ? '${books?['docId'] ?? held.args['transferId']}'
+            : '${held.args['invoiceId'] ?? held.args['billId'] ?? (kind == 'transfer' ? 'CTR-0001' : kind == 'ignore' || kind == 'interest' ? '' : 'EXP-0003')}';
+        line['status'] = kind == 'books' ? 'matched' : kind == 'ignore' ? 'ignored' : 'booked';
+        line['match'] = {
+          'kind': kind,
+          'id': id,
+          'transferIds': [kind == 'books' ? '${held.args['transferId']}' : '1000${20 + bankLines.indexOf(line)}'],
+          'ruleId': '',
+          'note': held.args['note'] ?? '',
+        };
+        line['suggestions'] = const <Object?>[];
+        if (held.args['remember'] == true) {
+          bankRules.add({
+            'id': 'BR-${(bankRules.length + 1).toString().padLeft(4, '0')}',
+            'side': (line['in'] as num) > 0 ? 'in' : 'out',
+            'contains': held.args['partyName'] ?? line['narration'],
+            'pattern': '',
+            'minAmount': null,
+            'maxAmount': null,
+            'then': {'kind': kind, 'partyName': held.args['partyName'] ?? '', 'head': held.args['head'] ?? '', 'otherAccount': held.args['otherAccount'] ?? '', 'note': held.args['note'] ?? ''},
+            'hits': 1,
+            'createdOn': '2026-10-05',
+            'by': 'owner',
+          });
+        }
+        return ChatReply.fromJson({'reply': 'Matched ${line['id']}.', 'posted': true, 'confirmed': true});
+      }
+      if (held.tool == 'unmatch_bank_line') {
+        final line = bankLines.firstWhere((l) => l['id'] == held.args['lineId']);
+        line['status'] = 'unmatched';
+        line['match'] = null;
+        return ChatReply.fromJson({'reply': 'Unlinked ${line['id']}.', 'posted': true, 'confirmed': true});
+      }
+      if (held.tool == 'book_bank_charges') {
+        var n = 0;
+        for (final line in bankLines) {
+          if (line['status'] != 'unmatched' || (held.args['account'] != null && line['account'] != held.args['account'])) continue;
+          final charge = line['category'] == 'finance_cost' && (line['out'] as num) > 0;
+          final interest = line['category'] == 'interest_income' && (line['in'] as num) > 0;
+          if (!charge && !interest) continue;
+          n += 1;
+          line['status'] = 'booked';
+          line['match'] = {'kind': charge ? 'charge' : 'interest', 'id': charge ? 'EXP-000$n' : '', 'transferIds': ['10003$n'], 'ruleId': '', 'note': ''};
+          line['suggestions'] = const <Object?>[];
+        }
+        return ChatReply.fromJson({'reply': 'Booked $n ${n == 1 ? 'line' : 'lines'}.', 'posted': true, 'confirmed': true});
+      }
+      if (held.tool == 'add_bank_rule') {
+        final rule = <String, Object?>{
+          'id': 'BR-${(bankRules.length + 1).toString().padLeft(4, '0')}',
+          'side': held.args['side'] ?? 'any',
+          'contains': held.args['contains'] ?? '',
+          'pattern': held.args['pattern'] ?? '',
+          'minAmount': held.args['minAmount'],
+          'maxAmount': held.args['maxAmount'],
+          'then': {'kind': held.args['kind'], 'partyName': held.args['partyName'] ?? '', 'head': held.args['head'] ?? '', 'otherAccount': held.args['otherAccount'] ?? '', 'note': held.args['note'] ?? ''},
+          'hits': 0,
+          'createdOn': '2026-10-05',
+          'by': 'owner',
+        };
+        bankRules.add(rule);
+        if (held.args['applyNow'] != false) _applyBankRule(rule);
+        return ChatReply.fromJson({'reply': 'Rule ${rule['id']} added.', 'posted': true, 'confirmed': true});
+      }
+      if (held.tool == 'remove_bank_rule') {
+        bankRules.removeWhere((r) => r['id'] == held.args['id']);
+        return ChatReply.fromJson({'reply': 'Rule ${held.args['id']} removed.', 'posted': true, 'confirmed': true});
+      }
+      if (held.tool == 'run_bank_rules') {
+        for (final rule in bankRules) {
+          _applyBankRule(rule);
+        }
+        return ChatReply.fromJson({'reply': 'Rules run.', 'posted': true, 'confirmed': true});
+      }
+      if (held.tool == 'set_bank_account') {
+        bankAccounts.add({
+          'id': '${1001 + bankAccounts.length}',
+          'label': held.args['label'],
+          'kind': held.args['kind'],
+          'maskedNumber': held.args['maskedNumber'] ?? '',
+          'ifsc': held.args['ifsc'] ?? '',
+          'balance': 0,
+          'builtIn': false,
+        });
+        return ChatReply.fromJson({'reply': 'Account ${held.args['label']} added.', 'posted': true, 'confirmed': true});
+      }
+      if (held.tool == 'record_transfer') {
+        final id = 'CTR-${(bankTransfers.length + 1).toString().padLeft(4, '0')}';
+        final transferId = '${100124 + bankTransfers.length}';
+        bankTransfers.add({
+          'id': id,
+          'date': held.args['date'],
+          'fromAccount': held.args['fromAccount'],
+          'toAccount': held.args['toAccount'],
+          'amount': held.args['amount'],
+          'reference': held.args['reference'] ?? '',
+          'transferId': transferId,
+          'by': 'owner',
+        });
+        if (held.args['fromAccount'] == '1002' || held.args['toAccount'] == '1002') {
+          bankBooks.add({
+            'transferId': transferId,
+            'date': held.args['date'],
+            'docKind': 'transfer',
+            'docId': id,
+            'party': '',
+            'in': held.args['toAccount'] == '1002' ? held.args['amount'] : 0,
+            'out': held.args['fromAccount'] == '1002' ? held.args['amount'] : 0,
+          });
+        }
+        return ChatReply.fromJson({'reply': 'Transfer $id recorded.', 'posted': true, 'confirmed': true});
+      }
+      if (held.tool == 'import_bank' && held.args['post'] == 'hold') {
+        final content = uploads[held.args['documentSha256']] ?? '';
+        final rows = content.split('\n').skip(1).where((row) => row.trim().isNotEmpty).toList();
+        for (final row in rows) {
+          final cols = row.split(',');
+          bankLines.add({
+            'id': 'BL-${(bankLines.length + 1).toString().padLeft(6, '0')}',
+            'account': held.args['account'] ?? '1002',
+            'date': cols.first.trim(),
+            'narration': cols.length > 1 ? cols[1].trim() : 'Statement line',
+            'refNo': '',
+            'in': cols.length > 3 ? num.tryParse(cols[3].trim()) ?? 0 : 0,
+            'out': cols.length > 2 ? num.tryParse(cols[2].trim()) ?? 0 : 0,
+            'balance': cols.length > 4 ? num.tryParse(cols[4].trim()) : null,
+            'fingerprint': 'BANK-${bankLines.length}',
+            'category': 'unclassified',
+            'status': 'unmatched',
+            'match': null,
+            'importedOn': '2026-10-05',
+            'fileLabel': 'statement',
+            'tieBreak': false,
+            'suggestions': <Object?>[],
+          });
+        }
+        return ChatReply.fromJson({'reply': 'Bank statement: ${rows.length} lines wait for you to match.', 'posted': true, 'confirmed': true});
+      }
       return ChatReply.fromJson({
         'reply': 'Done: ${held.tool}.',
         'posted': true,
@@ -1002,6 +1563,30 @@ class FakeMycaApi implements MycaApi {
       'reply': 'There is nothing waiting to be posted.',
       'posted': false,
     });
+  }
+
+  num _receivedOn(Map<String, Object?> invoice) => (invoice['receipts'] as List<Object?>? ?? const <Object?>[]).fold<num>(0, (sum, receipt) => sum + ((receipt as Map)['amount'] as num));
+
+  void _applyBankRule(Map<String, Object?> rule) {
+    final then = rule['then'] as Map<String, Object?>;
+    final contains = '${rule['contains'] ?? ''}'.toLowerCase();
+    for (final line in bankLines) {
+      if (line['status'] != 'unmatched') continue;
+      if (rule['side'] == 'in' && (line['in'] as num) <= 0) continue;
+      if (rule['side'] == 'out' && (line['out'] as num) <= 0) continue;
+      if (contains.isEmpty || !'${line['narration']}'.toLowerCase().contains(contains)) continue;
+      final kind = then['kind'];
+      line['status'] = kind == 'ignore' ? 'ignored' : 'booked';
+      line['match'] = {
+        'kind': kind,
+        'id': kind == 'receipt' ? 'INV-0002' : kind == 'ignore' || kind == 'interest' ? '' : 'EXP-0004',
+        'transferIds': ['100041'],
+        'ruleId': rule['id'],
+        'note': then['note'] ?? '',
+      };
+      line['suggestions'] = const <Object?>[];
+      rule['hits'] = (rule['hits'] as int) + 1;
+    }
   }
 
   @override
@@ -1278,8 +1863,97 @@ class FakeMycaApi implements MycaApi {
             'matches': documentMatches,
           },
         };
+      case 'bank_reconciliation':
+        final account = (args['account'] as String?) ?? '1002';
+        final status = (args['status'] as String?) ?? 'all';
+        final all = bankLines.where((l) => l['account'] == account).toList();
+        String dateOf(Map<String, Object?> line) => line['date'] as String;
+        Map<String, Object?> latest(List<Map<String, Object?>> lines) => lines.reduce((a, b) => dateOf(b).compareTo(dateOf(a)) >= 0 ? b : a);
+        final to = all.isEmpty ? '2026-10-05' : dateOf(latest(all));
+        final toDate = DateTime.parse(to);
+        final from = (args['from'] as String?) ?? isoDate(DateTime(toDate.year, toDate.month, toDate.day - 90));
+        final shown = all.where((l) => dateOf(l).compareTo(from) >= 0 && (status == 'all' || l['status'] == status)).toList();
+        num sum(String key, bool Function(Map<String, Object?> line) test) => all.where(test).fold<num>(0, (total, l) => total + (l[key] as num));
+        int count(String s) => all.where((l) => l['status'] == s).length;
+        final unmatchedIn = sum('in', (l) => l['status'] == 'unmatched');
+        final unmatchedOut = sum('out', (l) => l['status'] == 'unmatched');
+        final books = account == '1002' ? bankBooks : const <Map<String, Object?>>[];
+        final booksOnly = books.fold<num>(0, (total, b) => total + (b['in'] as num) - (b['out'] as num));
+        final balanced = all.where((l) => l['balance'] != null).toList();
+        final last = balanced.isEmpty ? null : latest(balanced);
+        final statementBalance = last == null ? null : last['balance'] as num;
+        final own = bankAccounts.firstWhere((a) => a['id'] == account, orElse: () => bankAccounts[1]);
+        final booksBalance = statementBalance == null ? own['balance'] as num : statementBalance - unmatchedIn + unmatchedOut + booksOnly;
+        var reconciledThrough = '';
+        for (final l in all) {
+          if (l['status'] == 'unmatched') break;
+          reconciledThrough = dateOf(l);
+        }
+        return {
+          'ok': true,
+          'data': {
+            'account': {'id': own['id'], 'label': own['label'], 'kind': own['kind']},
+            'from': from,
+            'to': to,
+            'lines': shown,
+            'books': books,
+            'totals': {
+              'statementBalance': statementBalance,
+              'statementOn': last == null ? null : last['date'],
+              'booksBalance': booksBalance,
+              'difference': statementBalance == null ? null : statementBalance - booksBalance,
+              'lines': {'unmatched': count('unmatched'), 'matched': count('matched'), 'booked': count('booked'), 'ignored': count('ignored')},
+              'unmatchedIn': unmatchedIn,
+              'unmatchedOut': unmatchedOut,
+            },
+            'reconciledThrough': reconciledThrough,
+            'rules': bankRules,
+            'accounts': [
+              for (final a in bankAccounts) {'id': a['id'], 'label': a['label'], 'kind': a['kind'], 'balance': a['balance']},
+            ],
+          },
+        };
+      case 'list_bank_rules':
+        return {'ok': true, 'data': {'rules': bankRules}};
+      case 'list_bank_accounts':
+        return {'ok': true, 'data': {'accounts': bankAccounts}};
+      case 'export_xlsx':
+        final report = '${args['report'] ?? 'trial_balance'}'.replaceAll('_', '-');
+        final when = '${args['period'] ?? args['name'] ?? '2026-10-05'}'.toLowerCase().replaceAll(RegExp(r'[^a-z0-9-]+'), '-');
+        return {
+          'ok': true,
+          'data': {
+            'fileName': 'myca-$report-$when.xlsx',
+            'contentType': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'xlsxBase64': base64Encode(utf8.encode('PK\u0003\u0004test')),
+            'sheets': [
+              {'name': report, 'rows': 2},
+            ],
+            'rows': 2,
+          },
+        };
       case 'list_reports':
         return {'ok': true, 'reports': savedReports};
+      case 'audit_trail':
+        final cut = auditMore && args['limit'] == null;
+        return {
+          'ok': true,
+          'data': {
+            'from': '2026-10-01',
+            'to': '2026-10-31',
+            'label': 'October 2026',
+            'view': args['view'] ?? 'changes',
+            'events': auditEvents,
+            'count': auditEvents.length,
+            'total': cut ? auditEvents.length + 3 : auditEvents.length,
+            'more': cut,
+            'chain': auditChain,
+            'ledger': auditLedgerOk ? {'ok': true, 'last': 1234} : {'ok': false, 'error': 'checksum_mismatch', 'at': '7'},
+            'note': 'Every change made through MyCA is listed with who made it and when.',
+          },
+        };
+      case 'list_recurring':
+        return {'ok': true, 'data': {'schedules': recurring}};
       case 'run_report':
         final report = savedReports.where((r) => r['name'] == args['name']).firstOrNull;
         if (report == null) return {'ok': false, 'error': 'REPORT_NOT_FOUND'};
@@ -1296,7 +1970,7 @@ class FakeMycaApi implements MycaApi {
               {'label': 'Retail Mart', 'amount': 525000},
               {'label': 'Gujarat Weaves', 'amount': 63000},
             ],
-            'more': 0,
+            'more': report['name'] == 'Expenses this quarter' ? 3 : 0,
             'total': 588000,
             'compare': compared
                 ? {
@@ -1438,6 +2112,8 @@ class FakeMycaApi implements MycaApi {
             'count': 2,
           },
         };
+      case 'supplier_dues':
+        return {'ok': true, 'data': supplierDues};
       case 'list_suta_rates':
         return {'ok': true, 'data': {'rates': sutaRates}};
       case 'list_year_closings':
@@ -1657,6 +2333,8 @@ class FakeMycaApi implements MycaApi {
             'id': quote['id'],
             'date': quote['date'],
             'kind': 'quote',
+            'documentKind': quote['kind'] ?? 'quote',
+            'reason': quote['reason'] ?? '',
             'validUntil': quote['validUntil'],
             'status': quote['status'],
             'invoiceId': quote['invoiceId'],
@@ -1903,6 +2581,32 @@ class FakeMycaApi implements MycaApi {
                 : const <Object?>[],
           },
         };
+      case 'ims_review':
+        final listed = has2b ? imsRows : const <Map<String, Object?>>[];
+        num creditOf(String decision) => listed.where((r) => r['decision'] == decision).fold<num>(0, (sum, r) => sum + (r['credit'] as num));
+        return {
+          'ok': true,
+          'data': {
+            'period': args['period'],
+            'statement': has2b ? {'fileName': 'GSTR2B_102026.csv', 'importedOn': '2026-10-05', 'rows': imsRows.length} : null,
+            'rows': listed,
+            'counts': {
+              'total': listed.length,
+              'accept': listed.where((r) => r['decision'] == 'accept').length,
+              'reject': listed.where((r) => r['decision'] == 'reject').length,
+              'pending': listed.where((r) => r['decision'] == 'pending').length,
+              'undecided': listed.where((r) => r['decision'] == '').length,
+            },
+            'credit': {
+              'accepted': creditOf('accept'),
+              'rejected': creditOf('reject'),
+              'pending': creditOf('pending'),
+              'undecided': creditOf(''),
+            },
+            'orphaned': imsOrphaned,
+            'note': "MyCA keeps these decisions for you but does not send them to the GST portal. Take the same decisions on the portal's IMS; the Excel sheet lists every row with its suggestion.",
+          },
+        };
       case 'gst_payable':
         return {'ok': true, 'data': {'period': args['period'], 'toPay': {'igst': 0, 'cgst': 1800, 'sgst': 1800, 'total': 3600}, 'paid': gstPaid ? {'date': '2026-10-05', 'cpin': '26100012345678', 'cashTotal': 3600} : null, 'notes': const <Object?>[]}};
       case 'gstr9_draft':
@@ -2037,6 +2741,25 @@ class FakeMycaApi implements MycaApi {
                     {'quarter': 'Q3 2026-27', 'deducted': 6000, 'deposited': 6000 - tdsDue, 'shortfall': tdsDue, 'dueDate': '2027-01-31', 'form': '140', 'approved': false, 'filed': null},
                   ]
                 : const <Object?>[],
+          },
+        };
+      case 'tds_credit_check':
+        num sumOf(bool Function(Map<String, Object?> row) wanted, String key) => tdsCreditRows.where(wanted).fold<num>(0, (total, row) => total + (row[key] as num));
+        return {
+          'ok': true,
+          'data': {
+            'fy': '2026-27',
+            'source': tdsCreditRows.isEmpty ? 'no 26AS imported yet' : '26AS imported 2026-10-02',
+            'rows': tdsCreditRows,
+            'totals': {
+              'in26as': sumOf((row) => true, 'in26as'),
+              'inBooks': sumOf((row) => true, 'inBooks'),
+              'gap': sumOf((row) => true, 'gap'),
+              'notInBooks': sumOf((row) => row['status'] == 'not in books', 'in26as'),
+              'notIn26as': sumOf((row) => row['status'] == 'not in 26AS', 'inBooks'),
+            },
+            'bySection': const <Object?>[],
+            'note': 'Form 26AS lists the TDS deductors reported against your PAN. Rows not in your books usually mean a customer paid you short by TDS and the shortfall was never recorded: record it with "TDS withheld" on that invoice. AIS is not read yet.',
           },
         };
       case 'tds_review':

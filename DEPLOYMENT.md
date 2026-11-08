@@ -128,6 +128,7 @@ source of truth: a value set only on someone's laptop is reverted by the next CI
 | `MYCA_CLOUD_URL` | the `api_url` output of `infra/cloud`, or empty for a local-mode app; a `v*` tag build refuses anything but an https address | Android release builds (`build-android`) |
 | `MYCA_GOOGLE_SERVER_CLIENT_ID` | the web OAuth client id the hosted API accepts for Google sign-in, or empty | Android release builds (`build-android`) |
 | `MYCA_OIDC_CLIENT_ID` | the client id of a firm's own OpenID Connect provider, or empty | Android release builds (`build-android`) |
+| `MYCA_CI_RUNNER` | the runner label for CI and the Android build, `self-hosted` to use your own runner; empty means `ubuntu-latest` | CI (`ci`), Android builds (`build-android`) |
 
 `GCP_MANAGE_DNS` and `GCP_CREATE_ARTIFACT_REGISTRY` must be `true` or `false`: an empty
 value fails the plan instead of silently falling back to a default. `GCP_PROJECT_ID` and

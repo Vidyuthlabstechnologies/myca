@@ -58,6 +58,7 @@ export function createState() {
     form1099Jobs: [],
     payrollImports: [],
     gstr2b: {},
+    imsDecisions: {},
     reminders: [],
     reminderSeq: 0,
     cashReadings: [],
@@ -66,6 +67,14 @@ export function createState() {
     caRequests: [],
     caRequestSeq: 0,
     quotes: [],
+    recurring: [],
+    bankLines: [],
+    bankLineSeq: 0,
+    bankRules: [],
+    bankRuleSeq: 0,
+    bankAccounts: [],
+    bankTransfers: [],
+    bankTransferSeq: 0,
     quoteSeq: 0,
     filings: [],
     supplierReminders: [],
@@ -160,6 +169,7 @@ export function serialize(state) {
     payrollImports: state.payrollImports || [],
     purchaseOrderSeq: state.purchaseOrderSeq || 0,
     gstr2b: state.gstr2b || {},
+    imsDecisions: state.imsDecisions || {},
     reminders: state.reminders || [],
     reminderSeq: state.reminderSeq || 0,
     cashReadings: state.cashReadings || [],
@@ -168,6 +178,14 @@ export function serialize(state) {
     caRequests: state.caRequests || [],
     caRequestSeq: state.caRequestSeq || 0,
     quotes: state.quotes || [],
+    recurring: state.recurring || [],
+    bankLines: state.bankLines || [],
+    bankLineSeq: state.bankLineSeq || 0,
+    bankRules: state.bankRules || [],
+    bankRuleSeq: state.bankRuleSeq || 0,
+    bankAccounts: state.bankAccounts || [],
+    bankTransfers: state.bankTransfers || [],
+    bankTransferSeq: state.bankTransferSeq || 0,
     filings: state.filings || [],
     supplierReminders: state.supplierReminders || [],
     collectionReminders: state.collectionReminders || [],
@@ -342,6 +360,7 @@ export function deserialize(raw) {
   state.payrollImports = Array.isArray(raw.payrollImports) ? raw.payrollImports : [];
   state.purchaseOrderSeq = Number(raw.purchaseOrderSeq || 0);
   state.gstr2b = raw.gstr2b && typeof raw.gstr2b === 'object' ? raw.gstr2b : {};
+  state.imsDecisions = raw.imsDecisions && typeof raw.imsDecisions === 'object' && !Array.isArray(raw.imsDecisions) ? raw.imsDecisions : {};
   state.reminders = Array.isArray(raw.reminders) ? raw.reminders : [];
   state.reminderSeq = raw.reminderSeq || 0;
   state.cashReadings = Array.isArray(raw.cashReadings) ? raw.cashReadings : [];
@@ -350,6 +369,14 @@ export function deserialize(raw) {
   state.caRequests = Array.isArray(raw.caRequests) ? raw.caRequests : [];
   state.caRequestSeq = raw.caRequestSeq || 0;
   state.quotes = Array.isArray(raw.quotes) ? raw.quotes : [];
+  state.recurring = Array.isArray(raw.recurring) ? raw.recurring : [];
+  state.bankLines = Array.isArray(raw.bankLines) ? raw.bankLines : [];
+  state.bankLineSeq = Number(raw.bankLineSeq || 0);
+  state.bankRules = Array.isArray(raw.bankRules) ? raw.bankRules : [];
+  state.bankRuleSeq = Number(raw.bankRuleSeq || 0);
+  state.bankAccounts = Array.isArray(raw.bankAccounts) ? raw.bankAccounts : [];
+  state.bankTransfers = Array.isArray(raw.bankTransfers) ? raw.bankTransfers : [];
+  state.bankTransferSeq = Number(raw.bankTransferSeq || 0);
   state.filings = Array.isArray(raw.filings) ? raw.filings : [];
   state.supplierReminders = Array.isArray(raw.supplierReminders) ? raw.supplierReminders : [];
   state.collectionReminders = Array.isArray(raw.collectionReminders) ? raw.collectionReminders : [];

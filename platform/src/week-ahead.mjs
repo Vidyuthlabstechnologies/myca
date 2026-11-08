@@ -1,5 +1,5 @@
 import { localToday } from './dates.mjs';
-import { countryOf } from './country.mjs';
+import { countryOf, formatMoney } from './country.mjs';
 import { deadlineRun } from './deadline-run.mjs';
 import { listReminders } from './reminders.mjs';
 import { outstandingOf } from './credit-notes.mjs';
@@ -57,7 +57,7 @@ export function weekAhead(state, args = {}) {
   }
   for (const bill of supplierDues(state, { asOf: today }).data.bills) {
     if (bill.payBy > until) continue;
-    items.push({ kind: 'payable', when: bill.payBy, overdue: bill.overdue, title: `Pay ${bill.supplier} ${bill.outstanding} on ${bill.billId}${bill.msme ? ' (MSME)' : ''}`, detail: bill.overdue ? `${bill.msme ? 'Past the MSMED limit since' : 'Overdue since'} ${bill.payBy}` : `Pay by ${bill.payBy}`, billId: bill.billId, amount: bill.outstanding, msme: bill.msme });
+    items.push({ kind: 'payable', when: bill.payBy, overdue: bill.overdue, title: `Pay ${bill.supplier} ${formatMoney(state, bill.outstanding)} on ${bill.billId}${bill.msme ? ' (MSME)' : ''}`, detail: bill.overdue ? `${bill.msme ? 'Past the MSMED limit since' : 'Overdue since'} ${bill.payBy}` : `Pay by ${bill.payBy}`, billId: bill.billId, amount: bill.outstanding, msme: bill.msme });
   }
   const payrollMonth = plusDays(today, 0).slice(0, 7);
   const lastMonth = plusDays(`${payrollMonth}-01`, -1).slice(0, 7);

@@ -294,7 +294,7 @@ class _InvoiceScreenState extends State<InvoiceScreen> with ProposalFlow {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          '${widget.quote ? 'Quote' : 'Invoice'} ${widget.invoiceId}',
+          '${widget.quote ? salesDocumentLabel(salesKindOfId(widget.invoiceId)) : 'Invoice'} ${widget.invoiceId}',
         ),
       ),
       body: FutureBuilder<InvoiceDocument?>(
@@ -364,7 +364,7 @@ class _InvoiceScreenState extends State<InvoiceScreen> with ProposalFlow {
                       ? null
                       : () => _remind(doc),
                   onAccept:
-                      doc.isQuote &&
+                      doc.canAccept &&
                           (doc.status == 'open' || doc.status == 'expired')
                       ? () => propose('${doc.id} accepted', 'mark_quote', {
                           'id': doc.id,
@@ -372,17 +372,31 @@ class _InvoiceScreenState extends State<InvoiceScreen> with ProposalFlow {
                         })
                       : null,
                   onDecline:
-                      doc.isQuote &&
+                      doc.canAccept &&
                           (doc.status == 'open' || doc.status == 'expired')
                       ? () => propose('${doc.id} declined', 'mark_quote', {
                           'id': doc.id,
                           'outcome': 'declined',
                         })
                       : null,
+                  onReturned: doc.canReturn && doc.status == 'open'
+                      ? () => propose('${doc.id} came back', 'mark_quote', {
+                          'id': doc.id,
+                          'outcome': 'returned',
+                        })
+                      : null,
+                  onCancelDocument: doc.canCancelOrder && doc.status == 'open'
+                      ? () => propose('Cancel ${doc.id}', 'mark_quote', {
+                          'id': doc.id,
+                          'outcome': 'cancelled',
+                        })
+                      : null,
                   onMakeInvoice:
-                      doc.isQuote &&
+                      doc.canInvoice &&
                           doc.status != 'declined' &&
-                          doc.status != 'invoiced'
+                          doc.status != 'invoiced' &&
+                          doc.status != 'cancelled' &&
+                          doc.status != 'returned'
                       ? () => propose(
                           'Make ${doc.id} an invoice',
                           'convert_quote',
@@ -429,6 +443,8 @@ class _InvoiceBody extends StatelessWidget {
     this.onAccept,
     this.onDecline,
     this.onMakeInvoice,
+    this.onReturned,
+    this.onCancelDocument,
   });
 
   final InvoiceDocument doc;
@@ -450,6 +466,8 @@ class _InvoiceBody extends StatelessWidget {
   final VoidCallback? onAccept;
   final VoidCallback? onDecline;
   final VoidCallback? onMakeInvoice;
+  final VoidCallback? onReturned;
+  final VoidCallback? onCancelDocument;
 
   @override
   Widget build(BuildContext context) {
@@ -754,7 +772,7 @@ class _InvoiceBody extends StatelessWidget {
             ),
           ),
         ],
-        if (onMakeInvoice != null || onAccept != null || onDecline != null) ...[
+        if (onMakeInvoice != null || onAccept != null || onDecline != null || onReturned != null || onCancelDocument != null) ...[
           const SizedBox(height: 20),
           Wrap(
             spacing: 8,
@@ -775,11 +793,21 @@ class _InvoiceBody extends StatelessWidget {
                   label: const Text('Declined'),
                   onPressed: busy ? null : onDecline,
                 ),
+              if (onReturned != null)
+                ActionChip(
+                  label: const Text('Goods came back'),
+                  onPressed: busy ? null : onReturned,
+                ),
+              if (onCancelDocument != null)
+                ActionChip(
+                  label: const Text('Cancel'),
+                  onPressed: busy ? null : onCancelDocument,
+                ),
             ],
           ),
           const SizedBox(height: 6),
           Text(
-            'A quote posts nothing to your books. Making the invoice posts it, with the same lines.',
+            'This posts nothing to your books. Making the invoice posts it, with the same lines.',
             style: text.bodySmall,
           ),
         ],

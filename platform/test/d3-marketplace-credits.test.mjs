@@ -93,8 +93,8 @@ test('TCS and TDS 194-O deducted in settlements are matched to the portal statem
   const form26as = 'Section,Name of Deductor,TAN of Deductor,Amount Paid/Credited,Tax Deducted,Date of Booking\n194O,AMAZON SELLER SERVICES PVT LTD,BLRA12345A,20000,150,2026-09-30\n194C,SOME CLIENT,MUMS12345B,50000,1000,2026-09-10';
   const credits = await runTool(state, 'import_26as_credits', { csv: form26as });
   assert.equal(credits.ok, true, JSON.stringify(credits));
-  assert.equal(credits.data.imported, 1);
-  assert.equal(credits.data.otherSections, 1);
+  assert.equal(credits.data.imported, 2);
+  assert.equal(credits.data.otherSections, 0);
   const tds = (await runTool(state, 'marketplace_credits', {})).data.tds[0];
   assert.equal(tds.in26as, 150);
   assert.equal(tds.status, 'short in 26AS');
@@ -105,5 +105,5 @@ test('TCS and TDS 194-O deducted in settlements are matched to the portal statem
   assert.match(words.reply, /TDS 194-O: ₹200\.00 deducted in settlements, ₹150\.00 in Form 26AS\./);
   const copy = deserialize(JSON.parse(JSON.stringify(serialize(state))));
   assert.equal(copy.channels.amazon.tan, 'BLRA12345A');
-  assert.equal(copy.tdsCreditStatements.length, 1);
+  assert.equal(copy.tdsCreditStatements.length, 2);
 });

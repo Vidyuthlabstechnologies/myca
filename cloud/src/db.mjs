@@ -5,25 +5,59 @@ import pg from 'pg';
 
 const MIGRATIONS_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', 'migrations');
 
+const CONNECTION_CODES = new Set(['ECONNREFUSED', 'ECONNRESET', 'ETIMEDOUT', 'EPIPE', '08000', '08001', '08003', '08004', '08006', '57P01', '57P02', '57P03', '53300']);
+const CONNECTION_MESSAGES = new Set([
+  'timeout exceeded when trying to connect',
+  'Connection terminated due to connection timeout',
+  'Connection terminated unexpectedly',
+  'Client has encountered a connection error and is not queryable',
+]);
+
 pg.types.setTypeParser(20, (value) => Number(value));
 
-export function createDb(connectionString, { max = 10 } = {}) {
-  const pool = new pg.Pool({ connectionString, max });
-  const query = (text, params) => pool.query(text, params);
+function serverBusy(cause) {
+  const err = new Error('SERVER_BUSY', { cause });
+  err.statusCode = 503;
+  err.body = { ok: false, error: 'SERVER_BUSY' };
+  return err;
+}
+
+function translated(err) {
+  if (!err) return err;
+  const lost = err.code ? CONNECTION_CODES.has(err.code) : CONNECTION_MESSAGES.has(err.message);
+  return lost ? serverBusy(err) : err;
+}
+
+export function createDb(connectionString, { max = 10, connectionTimeoutMillis = 5000, onError = () => {} } = {}) {
+  const pool = new pg.Pool({ connectionString, max, connectionTimeoutMillis });
+  pool.on('error', onError);
+  const query = (text, params) => pool.query(text, params).catch((err) => { throw translated(err); });
+  const acquire = () => pool.connect().catch((err) => { throw translated(err); });
   return {
     query,
     async tx(run) {
-      const client = await pool.connect();
+      const client = await acquire();
+      let broken = null;
+      const onClientError = (err) => {
+        broken = broken || err;
+      };
+      client.on('error', onClientError);
+      const step = (text, params) => client.query(text, params).catch((err) => { throw translated(err); });
       try {
-        await client.query('begin');
-        const out = await run((text, params) => client.query(text, params));
-        await client.query('commit');
+        await step('begin');
+        const out = await run(step);
+        await step('commit');
         return out;
       } catch (err) {
-        await client.query('rollback').catch(() => {});
-        throw err;
+        const out = translated(err);
+        if (out !== err) broken = broken || err;
+        await client.query('rollback').catch((rollbackErr) => {
+          broken = broken || rollbackErr;
+        });
+        throw out;
       } finally {
-        client.release();
+        client.removeListener('error', onClientError);
+        client.release(broken || undefined);
       }
     },
     close: () => pool.end(),

@@ -5,6 +5,7 @@ const round2 = (value) => Math.round(Number(value || 0) * 100) / 100;
 const GSTIN = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/;
 const TAN = /^[A-Z]{4}[0-9]{5}[A-Z]$/;
 const PERIOD = /^\d{4}-(0[1-9]|1[0-2])$/;
+const SECTION = /^[0-9]{3}[A-Z]{0,3}$/;
 
 const TCS_ALIASES = {
   gstin: ['gstin of e-commerce operator', 'gstin of ecommerce operator', 'e-commerce operator gstin', 'operator gstin', 'gstin of deductor/operator', 'gstin', 'deductor gstin'],
@@ -114,6 +115,15 @@ function channelByName(name) {
   return CHANNELS.find((channel) => channel !== 'marketplace' && words.includes(channel.replace('-', ' '))) || CHANNELS.find((channel) => channel !== 'marketplace' && words.includes(channel)) || '';
 }
 
+export function channelOfDeductor(state, { tan, name } = {}) {
+  return channelByTan(state, tan) || channelByName(name);
+}
+
+export function normalSection(value) {
+  const raw = String(value == null ? '' : value).toUpperCase().replace(/[^0-9A-Z]/g, '').replace(/^SECTION|^SEC(?=[0-9])/, '');
+  return SECTION.test(raw) ? raw : '';
+}
+
 export function planChannelIdentity(state, args = {}) {
   const channel = String(args.channel || '').trim().toLowerCase();
   if (!CHANNELS.includes(channel) || channel === 'marketplace') return { ok: false, error: 'BAD_CHANNEL', hint: CHANNELS.filter((c) => c !== 'marketplace').join(', ') };
@@ -198,34 +208,58 @@ export function parse26asCredits(text) {
   let otherSections = 0;
   for (const [n, cells] of rows.slice(1).entries()) {
     if (cells.every((c) => !String(c || '').trim())) continue;
-    const section = String(cells[idx.section] || '').toUpperCase().replace(/[^0-9A-Z]/g, '');
-    if (section !== '194O') { otherSections += 1; continue; }
+    const section = normalSection(cells[idx.section]);
+    if (!section) { otherSections += 1; continue; }
     const tan = String(cells[idx.tan] || '').replace(/\s+/g, '').toUpperCase();
     const date = idx.date == null ? '' : isoDate(cells[idx.date]) || '';
     const taxDeducted = Math.abs(money(cells[idx.taxDeducted]) || 0);
     if (!TAN.test(tan)) { held.push({ row: n + 2, reason: 'BAD_TAN', value: tan }); continue; }
     if (!date) { held.push({ row: n + 2, reason: 'INVALID_DATE', tan }); continue; }
     if (!(taxDeducted > 0)) { held.push({ row: n + 2, reason: 'BAD_AMOUNT', tan }); continue; }
-    lines.push({ row: n + 2, tan, name: idx.name == null ? '' : String(cells[idx.name] || '').trim(), date, quarter: quarterOfDate(date), amountPaid: idx.amountPaid == null ? null : Math.abs(money(cells[idx.amountPaid]) || 0), taxDeducted: round2(taxDeducted) });
+    lines.push({ row: n + 2, section, tan, name: idx.name == null ? '' : String(cells[idx.name] || '').trim(), date, quarter: quarterOfDate(date), amountPaid: idx.amountPaid == null ? null : Math.abs(money(cells[idx.amountPaid]) || 0), taxDeducted: round2(taxDeducted) });
   }
   if (!lines.length) return { ok: false, error: 'NO_ROWS', held, otherSections };
   return { ok: true, lines, held, otherSections };
 }
 
+const statementKey = (row) => `${row.section || '194O'}|${row.tan}|${row.date}|${row.taxDeducted}|${row.amountPaid}`;
+
+function sectionTotals(lines) {
+  const by = new Map();
+  for (const line of lines) {
+    const item = by.get(line.section) || { section: line.section, rows: 0, total: 0 };
+    item.rows += 1;
+    item.total = round2(item.total + line.taxDeducted);
+    by.set(line.section, item);
+  }
+  return [...by.values()].sort((a, b) => a.section.localeCompare(b.section));
+}
+
+export function sectionWords(bySection) {
+  return (bySection || []).map((row) => `${row.section} ${row.rows}`).join(', ');
+}
+
 export function plan26asCredits(state, args = {}) {
   const parsed = parse26asCredits(args.csv || '');
   if (!parsed.ok) return { ok: false, error: parsed.error, parsed };
-  const existing = new Set((state.tdsCreditStatements || []).map((row) => `${row.tan}|${row.date}|${row.taxDeducted}|${row.amountPaid}`));
+  const stored = new Map();
+  for (const row of state.tdsCreditStatements || []) {
+    const key = statementKey(row);
+    stored.set(key, (stored.get(key) || 0) + 1);
+  }
+  const seen = new Map();
   const ready = [];
   const skipped = parsed.held.map((row) => ({ id: `row ${row.row}`, reason: row.reason }));
   for (const line of parsed.lines) {
-    const key = `${line.tan}|${line.date}|${line.taxDeducted}|${line.amountPaid}`;
-    if (existing.has(key)) { skipped.push({ id: `${line.tan} ${line.date}`, reason: 'exists' }); continue; }
-    existing.add(key);
-    const channel = channelByTan(state, line.tan) || channelByName(line.name);
+    const key = statementKey(line);
+    const nth = (seen.get(key) || 0) + 1;
+    seen.set(key, nth);
+    if (nth <= (stored.get(key) || 0)) { skipped.push({ id: `${line.tan} ${line.date}`, reason: 'exists' }); continue; }
+    if (line.section !== '194O') { ready.push({ ...line, channel: '', unknownDeductor: false }); continue; }
+    const channel = channelOfDeductor(state, line);
     ready.push({ ...line, channel: channel || 'marketplace', unknownDeductor: !channel });
   }
-  return { ok: true, ready, skipped, total: round2(ready.reduce((sum, line) => sum + line.taxDeducted, 0)), otherSections: parsed.otherSections };
+  return { ok: true, ready, skipped, total: round2(ready.reduce((sum, line) => sum + line.taxDeducted, 0)), otherSections: parsed.otherSections, bySection: sectionTotals(ready) };
 }
 
 export function import26asCredits(state, args = {}) {
@@ -233,8 +267,8 @@ export function import26asCredits(state, args = {}) {
   if (!planned.ok) return planned;
   state.tdsCreditStatements = Array.isArray(state.tdsCreditStatements) ? state.tdsCreditStatements : [];
   const importedOn = localToday();
-  for (const line of planned.ready) state.tdsCreditStatements.push({ tan: line.tan, name: line.name, date: line.date, quarter: line.quarter, channel: line.channel, amountPaid: line.amountPaid, taxDeducted: line.taxDeducted, importedOn });
-  return { ok: true, imported: planned.ready.length, total: planned.total, skipped: planned.skipped, otherSections: planned.otherSections, unknownDeductors: planned.ready.filter((line) => line.unknownDeductor).map((line) => line.tan) };
+  for (const line of planned.ready) state.tdsCreditStatements.push({ section: line.section, tan: line.tan, name: line.name, date: line.date, quarter: line.quarter, channel: line.channel, amountPaid: line.amountPaid, taxDeducted: line.taxDeducted, importedOn });
+  return { ok: true, imported: planned.ready.length, total: planned.total, skipped: planned.skipped, otherSections: planned.otherSections, bySection: planned.bySection, unknownDeductors: planned.ready.filter((line) => line.unknownDeductor).map((line) => line.tan) };
 }
 
 function recordedFromSettlements(state) {
@@ -279,8 +313,9 @@ export function marketplaceCredits(state, { fy } = {}) {
     return { ...row, reported, gap, status: !statementSeen ? 'awaiting statement' : gap > 1 ? 'short in statement' : gap < -1 ? 'more in statement' : 'matched' };
   }).filter((row) => !fy || fyOfPeriod(row.period) === fy).sort((a, b) => a.period.localeCompare(b.period) || a.channel.localeCompare(b.channel));
   const tdsRows = { ...recorded.tds };
-  const seenQuarters = new Set((state.tdsCreditStatements || []).map((row) => row.quarter));
-  for (const row of state.tdsCreditStatements || []) {
+  const marketplaceStatements = (state.tdsCreditStatements || []).filter((row) => (row.section || '194O') === '194O');
+  const seenQuarters = new Set(marketplaceStatements.map((row) => row.quarter));
+  for (const row of marketplaceStatements) {
     const key = `${row.channel}|${row.quarter}`;
     tdsRows[key] = tdsRows[key] || { channel: row.channel, quarter: row.quarter, recorded: 0, settlements: [] };
     tdsRows[key].in26as = round2((tdsRows[key].in26as || 0) + row.taxDeducted);

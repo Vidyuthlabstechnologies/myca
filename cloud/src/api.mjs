@@ -6,11 +6,14 @@ import { createBilling, PLANS } from './billing.mjs';
 import { gstin } from '../../platform/src/sprint-load.mjs';
 import { rule } from '../../sprints/statutory-rules/src/index.mjs';
 import { createAuth, isUuid } from './auth.mjs';
+import { createSecondFactor } from './second-factor.mjs';
+import { createDevices } from './devices.mjs';
 import { createBusinesses, engineRole } from './businesses.mjs';
 import { createBooksRunner } from './books-runner.mjs';
 import { createMembers } from './members.mjs';
 import { IMPORT_CONTENT_ARG, isImport } from '../../platform/src/import-documents.mjs';
 import { assertSecret } from './tokens.mjs';
+import { createBodyBudget, defaultBodyBudgetBytes } from './body-budget.mjs';
 import { createCrashReports } from './crash-reports.mjs';
 import { PRIVACY_NOTICE, consentExempt, createConsent } from './consent.mjs';
 import { createJobs, jobTokenMatches, JOB_HEADER } from './jobs.mjs';
@@ -25,6 +28,7 @@ import { CA_SYNC_MODES, syncOf } from './ca-sync.mjs';
 import { inWords } from '../../platform/src/words.mjs';
 import { createInbound, INBOUND_HEADER, relayTokenMatches } from './inbound.mjs';
 import { createWhatsApp } from './whatsapp.mjs';
+import { chatText } from './chat-text.mjs';
 
 const INDIA_OFFSET_MS = 330 * 60 * 1000;
 
@@ -38,8 +42,26 @@ const MAX_BODY_BYTES = 1024 * 1024;
 export const MAX_UPLOAD_BYTES = 8 * 1024 * 1024;
 export const MAX_BUSINESS_BYTES = 200 * 1024 * 1024;
 const MAX_CRASH_BYTES = 64 * 1024;
+const SMALL_BODY_BYTES = 64 * 1024;
+const MERGE_BYTES = 16 * 1024;
+const MERGE_PIECES = 256;
 
-export const PROPOSABLE = new Set(['import_payroll_summary', 'create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'record_filing', 'record_supplier_reminder', 'add_employee', 'set_tds_deductor', 'record_tds_deposit', 'change_salary', 'end_employment', 'post_expense', 'set_expense_head', 'create_credit_note', 'cancel_invoice', 'gst_review_answer', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote', 'exception_decide', 'create_purchase_note', 'import_settlement', 'import_marketplace_orders', 'import_tcs_statement', 'import_26as_credits', 'set_sku_cost', 'import_sku_costs', 'record_stock', 'record_stock_transfer', 'value_inventory', 'set_registration', 'retire_registration', 'set_channel_identity', 'set_invoice_template', 'set_supplier_terms', 'set_employee_bank', 'set_invoice_numbering', 'amend_invoice', 'create_debit_note', 'record_supplier_debit_note']);
+const OWNER_ONLY_POSTS = new Map([
+  ['ca-sync', 'OWNER_ONLY'],
+  ['ca-share', 'OWNER_ONLY'],
+  ['subscription', 'SHARED_VIEW_READ_ONLY'],
+  ['invitations', 'SHARED_VIEW_READ_ONLY'],
+  ['inbound', 'SHARED_VIEW_READ_ONLY'],
+  ['connectors', 'SHARED_VIEW_READ_ONLY'],
+  ['plaid-link-token', 'SHARED_VIEW_READ_ONLY'],
+  ['plaid-exchange', 'SHARED_VIEW_READ_ONLY'],
+  ['gusto-connect', 'SHARED_VIEW_READ_ONLY'],
+  ['taxjar-rate', 'SHARED_VIEW_READ_ONLY'],
+  ['connector-sync', 'SHARED_VIEW_READ_ONLY'],
+  ['replace', 'SHARED_VIEW_READ_ONLY'],
+]);
+
+export const PROPOSABLE = new Set(['import_payroll_summary', 'create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'record_filing', 'record_supplier_reminder', 'add_employee', 'set_tds_deductor', 'record_tds_deposit', 'change_salary', 'end_employment', 'post_expense', 'set_expense_head', 'create_credit_note', 'cancel_invoice', 'gst_review_answer', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote', 'exception_decide', 'ims_decide', 'create_purchase_note', 'import_settlement', 'import_marketplace_orders', 'import_tcs_statement', 'import_26as_credits', 'record_tds_withheld', 'set_sku_cost', 'import_sku_costs', 'record_stock', 'record_stock_transfer', 'value_inventory', 'set_registration', 'retire_registration', 'set_channel_identity', 'set_invoice_template', 'set_supplier_terms', 'set_employee_bank', 'set_invoice_numbering', 'amend_invoice', 'create_debit_note', 'record_supplier_debit_note', 'record_collection_reminder', 'record_payment_run', 'attach_document', 'approve_payroll', 'record_salary_payment', 'tds_review_answer', 'record_gst_payment', 'close_year', 'set_transport', 'set_sales_tax_nexus', 'sales_tax_review_answer', 'record_sales_tax_payment', 'record_sales_tax_filing', 'set_suta_rate', 'add_recurring', 'stop_recurring', 'match_bank_line', 'unmatch_bank_line', 'book_bank_charges', 'add_bank_rule', 'remove_bank_rule', 'run_bank_rules', 'set_bank_account', 'record_transfer']);
 
 const NOT_A_PLACE_OF_BUSINESS = new Set(['97', '99']);
 
@@ -59,64 +81,131 @@ function httpError(statusCode, error, extra = {}) {
   return err;
 }
 
-function readRaw(req, limit = MAX_BODY_BYTES) {
-  return new Promise((resolve, reject) => {
-    const chunks = [];
-    let bytes = 0;
-    let tooLarge = false;
-    req.on('data', (chunk) => {
-      if (tooLarge) return;
-      bytes += chunk.length;
-      if (bytes > limit) {
-        tooLarge = true;
-        chunks.length = 0;
-        reject(httpError(413, 'BODY_TOO_LARGE'));
-        return;
-      }
-      chunks.push(chunk);
-    });
-    req.on('error', reject);
-    req.on('end', () => {
-      if (tooLarge) return;
-      resolve(Buffer.concat(chunks));
-    });
-  });
+function declaredLength(req) {
+  const declared = Number(req.headers['content-length']);
+  return Number.isFinite(declared) && declared > 0 ? declared : 0;
 }
 
-function readJson(req, limit = MAX_BODY_BYTES) {
-  return new Promise((resolve, reject) => {
-    const chunks = [];
-    let bytes = 0;
-    let tooLarge = false;
-    const declared = Number(req.headers['content-length'] || 0);
-    if (declared > limit) {
-      req.resume();
-      reject(httpError(413, 'BODY_TOO_LARGE'));
-      return;
+function connectionDropped(err) {
+  return Boolean(err) && (err.code === 'ECONNRESET' || err.message === 'aborted');
+}
+
+function createBodyReaders(budget) {
+  const accounts = new WeakMap();
+
+  function release(req) {
+    const account = accounts.get(req);
+    if (!account || !account.give) return;
+    account.give();
+    account.give = null;
+  }
+
+  function hold(req, bytes, force) {
+    let account = accounts.get(req);
+    if (!account) {
+      account = { give: null };
+      accounts.set(req, account);
     }
-    req.on('data', (chunk) => {
-      if (tooLarge) return;
-      bytes += chunk.length;
-      if (bytes > limit) {
-        tooLarge = true;
-        chunks.length = 0;
-        reject(httpError(413, 'BODY_TOO_LARGE'));
-        return;
+    if (account.give) account.give();
+    account.give = budget.reserve(bytes, { force });
+    return account.give !== null;
+  }
+
+  function collect(req, routeLimit) {
+    const limit = Math.min(routeLimit, Math.max(budget.limit, SMALL_BODY_BYTES));
+    return new Promise((resolve, reject) => {
+      let pieces = [];
+      let pending = [];
+      let pendingBytes = 0;
+      let received = 0;
+      let reserved = false;
+      let settled = false;
+
+      function flush() {
+        if (!pending.length) return;
+        pieces.push(pending.length === 1 ? pending[0] : Buffer.concat(pending, pendingBytes));
+        pending = [];
+        pendingBytes = 0;
       }
-      chunks.push(chunk);
-    });
-    req.on('error', reject);
-    req.on('end', () => {
-      if (tooLarge) return;
-      if (!chunks.length) return resolve({});
-      try {
-        const parsed = JSON.parse(Buffer.concat(chunks).toString('utf8'));
-        resolve(parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {});
-      } catch {
-        reject(httpError(400, 'INVALID_JSON'));
+
+      function settle(failure) {
+        if (settled) return;
+        settled = true;
+        req.removeListener('data', onData);
+        req.removeListener('end', onEnd);
+        req.removeListener('aborted', onGone);
+        req.removeListener('close', onGone);
+        req.removeListener('error', onError);
+        if (failure) {
+          pieces = [];
+          pending = [];
+          release(req);
+          req.resume();
+          reject(failure);
+          return;
+        }
+        flush();
+        resolve(pieces.length === 1 ? pieces[0] : Buffer.concat(pieces, received));
       }
+
+      function onData(chunk) {
+        received += chunk.length;
+        if (received > limit) return settle(httpError(413, 'BODY_TOO_LARGE'));
+        if (!reserved && !hold(req, received, received <= SMALL_BODY_BYTES)) return settle(httpError(503, 'SERVER_BUSY'));
+        if (chunk.length >= MERGE_BYTES) {
+          flush();
+          pieces.push(chunk);
+          return;
+        }
+        pending.push(chunk);
+        pendingBytes += chunk.length;
+        if (pendingBytes >= MERGE_BYTES || pending.length >= MERGE_PIECES) flush();
+      }
+
+      function onEnd() {
+        settle(null);
+      }
+
+      function onGone() {
+        settle(httpError(400, 'REQUEST_ABORTED'));
+      }
+
+      function onError(err) {
+        settle(connectionDropped(err) ? httpError(400, 'REQUEST_ABORTED') : err);
+      }
+
+      if (req.destroyed) return settle(httpError(400, 'REQUEST_ABORTED'));
+      const declared = declaredLength(req);
+      if (declared > limit) return settle(httpError(413, 'BODY_TOO_LARGE'));
+      if (declared > SMALL_BODY_BYTES) {
+        if (!hold(req, declared, false)) return settle(httpError(503, 'SERVER_BUSY'));
+        reserved = true;
+      }
+      req.on('data', onData);
+      req.on('end', onEnd);
+      req.on('aborted', onGone);
+      req.on('close', onGone);
+      req.on('error', onError);
     });
-  });
+  }
+
+  function readRaw(req, limit = MAX_BODY_BYTES) {
+    return collect(req, limit);
+  }
+
+  async function readJson(req, limit = MAX_BODY_BYTES) {
+    const body = await collect(req, limit);
+    if (!body.length) return {};
+    let parsed;
+    try {
+      parsed = JSON.parse(body.toString('utf8'));
+    } catch {
+      throw httpError(400, 'INVALID_JSON');
+    }
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+  }
+
+  return { readRaw, readJson, release };
 }
 
 function bearer(req) {
@@ -124,13 +213,22 @@ function bearer(req) {
   return match ? match[1] : '';
 }
 
+function parseTarget(target) {
+  try {
+    return new URL(target, 'http://localhost');
+  } catch {
+    return null;
+  }
+}
+
 function statusOf(result) {
   if (!result || result.ok !== false) return 200;
   if (result.error === 'TOO_MANY_REQUESTS' || result.error === 'TOO_MANY_ATTEMPTS') return 429;
   if (result.error === 'OWNER_ONLY') return 403;
-  if (result.error === 'PHONE_SIGN_IN_UNAVAILABLE' || result.error === 'GOOGLE_SIGN_IN_UNAVAILABLE') return 503;
+  if (result.error === 'PHONE_SIGN_IN_UNAVAILABLE' || result.error === 'GOOGLE_SIGN_IN_UNAVAILABLE' || result.error === 'SERVER_BUSY') return 503;
   if (result.error === 'GOOGLE_UNREACHABLE') return 502;
-  if (result.error === 'INVITATION_NOT_FOUND' || result.error === 'MEMBER_NOT_FOUND' || result.error === 'BUSINESS_NOT_FOUND') return 404;
+  if (result.error === 'INVITATION_NOT_FOUND' || result.error === 'MEMBER_NOT_FOUND' || result.error === 'BUSINESS_NOT_FOUND' || result.error === 'DEVICE_NOT_FOUND') return 404;
+  if (result.error === 'ALREADY_ENABLED' || result.error === 'CURRENT_DEVICE') return 409;
   if (result.error === 'STORAGE_FULL') return 413;
   if (result.error === 'KEY_NOT_FOUND' || result.error === 'ADDRESS_NOT_FOUND') return 404;
   return 400;
@@ -142,6 +240,10 @@ function appSnapshot(snapshot, user, role) {
     company: snapshot.company,
     invoices: snapshot.invoices,
     purchases: snapshot.purchases,
+    expenses: snapshot.expenses,
+    creditNotes: snapshot.creditNotes,
+    quotes: snapshot.quotes,
+    customerTerms: snapshot.customerTerms,
     role,
     user: { id: user.userId, name: user.name },
   };
@@ -169,11 +271,15 @@ export function clientAddress(req, hops = trustedProxyHops()) {
   return String(parts[parts.length - hops] || '').slice(0, 64);
 }
 
-export function createApi({ billing: billingGiven = null, db, secret, booksKey = '', otpSender = null, googleClientIds = [], googleKeys, oidc = {}, oidcKeys = null, documentVault = null, connectorKey = '', now = () => Date.now(), log = () => {}, version = 'dev', jobToken = '', inboundEmail = {}, whatsapp = {}, whatsappSender = null }) {
+export function createApi({ billing: billingGiven = null, db, secret, booksKey = '', otpSender = null, googleClientIds = [], googleKeys, oidc = {}, oidcKeys = null, documentVault = null, connectorKey = '', now = () => Date.now(), log = () => {}, version = 'dev', jobToken = '', inboundEmail = {}, whatsapp = {}, whatsappSender = null, bodyBudgetBytes = 0 }) {
   process.env.MYCA_HOSTED = '1';
   assertSecret(secret);
+  const budget = createBodyBudget(Number.isSafeInteger(bodyBudgetBytes) && bodyBudgetBytes > 0 ? bodyBudgetBytes : defaultBodyBudgetBytes({ constrainedMemory: process.constrainedMemory(), ceiling: MAX_BUSINESS_BYTES }));
+  const { readRaw, readJson, release: releaseBody } = createBodyReaders(budget);
   const providerMode = () => (mockModeEnabled() ? 'simulated' : serviceProviderEnvironment());
-  const auth = createAuth({ db, secret, otpSender, now });
+  const secondFactor = createSecondFactor({ db, secret, booksKey, now });
+  const auth = createAuth({ db, secret, otpSender, now, secondFactor });
+  const devices = createDevices({ db, now });
   const businesses = createBusinesses({ db, now, booksKey });
   const vault = documentVault || createDocumentVault({ now, log });
   const runner = createBooksRunner({ db, now, vault, booksKey });
@@ -193,7 +299,7 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
   const whatsApp = createWhatsApp({ db, withBooks, withSharedBooks: runner.withSharedBooks, syncOf, config: whatsapp, sender: whatsappSender, now, log });
   const consent = createConsent({ db, now });
   const recordAccess = createAccessLog(db);
-  const jobs = createJobs({ db, withBooks, connectors, syncChannels, pullsEnabled: channelPullsEnabled, sender: whatsappSender, vault, now, log });
+  const jobs = createJobs({ db, withBooks, connectors, syncChannels, pullsEnabled: channelPullsEnabled, sender: whatsappSender, vault, billing, now, log });
   const google = createGoogleVerifier({ clientIds: googleClientIds, keys: googleKeys || createGoogleKeys({ now }), now });
   const openId = createOidcVerifier({ issuer: oidc.issuer || '', clientIds: oidc.clientIds || [], jwksUrl: oidc.jwksUrl || '', keys: oidcKeys, now });
   if (!otpSender && !google.enabled && !openId.enabled) throw new Error('no sign-in method: configure an SMS sender, MYCA_GOOGLE_CLIENT_IDS or MYCA_OIDC_ISSUER with MYCA_OIDC_CLIENT_IDS');
@@ -214,8 +320,8 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
     return membership.role;
   }
 
-  async function route(req, requestId) {
-    const url = new URL(req.url, 'http://localhost');
+  async function route(req, requestId, url) {
+    if (!url) throw httpError(404, 'NOT_FOUND');
     const parts = url.pathname.split('/').filter(Boolean);
     const method = req.method;
     if (parts[0] !== 'v1') throw httpError(404, 'NOT_FOUND');
@@ -241,8 +347,8 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
       if (!/^[0-9a-f-]{8,64}$/i.test(businessId)) return page(false, 'The link did not carry a business.');
       const config = await connectors.load(businessId, 'gusto');
       if (!config) return page(false, 'No Gusto application is saved for this business.');
-      const out = await withBooks(businessId, { userId: null, deviceId: null, requestId }, async (session) => {
-        const result = await gustoCallback(session.state, { code, state: givenState }, { userId: 'owner', role: 'owner' }, { config, save: (patch) => connectors.patch(businessId, 'gusto', patch) });
+      const out = await withBooks(businessId, { userId: null, deviceId: null, requestId }, async (session, q) => {
+        const result = await gustoCallback(session.state, { code, state: givenState }, { userId: 'owner', role: 'owner' }, { config, save: (patch) => connectors.patch(businessId, 'gusto', patch, q) });
         session.persist();
         return result;
       });
@@ -264,6 +370,7 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
         return withConsent(await auth.signInWithOidc(identity, body.deviceLabel));
       }
       if (parts[2] === 'refresh') return auth.refresh(body.refreshToken);
+      if (parts[2] === 'second-step') return withConsent(await secondFactor.complete(body));
       if (parts[2] === 'logout') return auth.logout((await signedIn(req)).deviceId);
       throw httpError(404, 'NOT_FOUND');
     }
@@ -313,6 +420,28 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
 
     if (parts[1] === 'me' && parts[2] === 'consent' && parts.length === 3 && method === 'POST') {
       return consent.accept(user.userId, user.deviceId, await readJson(req));
+    }
+
+    if (parts[1] === 'me' && parts[2] === 'second-step') {
+      if (parts.length === 3 && method === 'GET') return secondFactor.status(user.userId);
+      if (parts.length === 4 && method === 'POST') {
+        if (parts[3] === 'begin') return secondFactor.begin(user.userId);
+        const body = await readJson(req);
+        if (parts[3] === 'confirm') return secondFactor.confirm(user.userId, body.code);
+        if (parts[3] === 'disable') return secondFactor.disable(user.userId, body.code);
+        if (parts[3] === 'recovery-codes') return secondFactor.regenerateRecoveryCodes(user.userId, body.code);
+      }
+      throw httpError(404, 'NOT_FOUND');
+    }
+
+    if (parts[1] === 'me' && parts[2] === 'devices') {
+      if (parts.length === 3 && method === 'GET') return devices.list(user.userId, user.deviceId);
+      if (parts.length === 4 && parts[3] === 'sign-out-others' && method === 'POST') return devices.revokeOthers(user.userId, user.deviceId);
+      if (parts.length === 5 && parts[4] === 'sign-out' && method === 'POST') {
+        if (!isUuid(parts[3])) throw httpError(404, 'DEVICE_NOT_FOUND');
+        return devices.revoke(user.userId, parts[3], user.deviceId);
+      }
+      throw httpError(404, 'NOT_FOUND');
     }
 
     if (parts[1] === 'crash-reports' && parts.length === 2 && method === 'POST') {
@@ -460,7 +589,13 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
       if (method === 'GET' && action === 'subscription') return billing.entitlement(businessId);
       if (method !== 'POST') throw httpError(404, 'NOT_FOUND');
 
-      const body = await readJson(req, action === 'uploads' ? MAX_UPLOAD_BYTES : action === 'replace' ? MAX_BUSINESS_BYTES : MAX_BODY_BYTES);
+      const ownerRule = OWNER_ONLY_POSTS.get(action);
+      if (ownerRule && role !== 'owner') {
+        if (ownerRule === 'SHARED_VIEW_READ_ONLY' && sharedView) throw httpError(403, 'SHARED_VIEW_READ_ONLY', { sharedAsOf: sync.asOf });
+        throw httpError(403, 'OWNER_ONLY');
+      }
+
+      const body = await readJson(req, action === 'uploads' ? MAX_UPLOAD_BYTES : action === 'replace' ? Math.min(MAX_BUSINESS_BYTES, budget.limit) : MAX_BODY_BYTES);
       if (action === 'brief') {
         if (role === 'accountant') throw httpError(403, 'NOT_FOR_ACCOUNTANTS');
         const weekly = body.weekly === true;
@@ -468,7 +603,6 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
         return { ok: true, weekly, channel: 'whatsapp', when: 'Monday 07:00 IST' };
       }
       if (action === 'ca-sync') {
-        if (role !== 'owner') throw httpError(403, 'OWNER_ONLY');
         const mode = String(body.mode || '');
         if (!CA_SYNC_MODES.includes(mode)) throw httpError(400, 'BAD_SYNC_MODE', { modes: CA_SYNC_MODES });
         await db.query('update businesses set ca_sync = $2 where id = $1', [businessId, mode]);
@@ -476,7 +610,6 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
         return { ok: true, mode, sharedAsOf };
       }
       if (action === 'ca-share') {
-        if (role !== 'owner') throw httpError(403, 'OWNER_ONLY');
         if (sync.mode === 'live') throw httpError(409, 'CA_SEES_LIVE_BOOKS');
         return { ok: true, sharedAsOf: await runner.share(businessId, user.userId) };
       }
@@ -490,7 +623,7 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
       if (sharedView) {
         if (action === 'query') return runner.withSharedBooks(businessId, context, (session) => session.query(body.name, body.args || {}, actor));
         if (action === 'ask') {
-          const message = String(body.message ?? '').slice(0, 2000);
+          const message = chatText(body.message);
           if (!message.trim()) throw httpError(400, 'MESSAGE_REQUIRED');
           return runner.withSharedBooks(businessId, context, async (session, { asOf }) => {
             const out = await session.chat(message, actor);
@@ -500,36 +633,28 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
         }
         throw httpError(403, 'SHARED_VIEW_READ_ONLY', { sharedAsOf: sync.asOf });
       }
-      if (action === 'subscription') {
-        if (role !== 'owner') throw httpError(403, 'OWNER_ONLY');
-        return billing.verify(businessId, user.userId, body);
-      }
+      if (action === 'subscription') return billing.verify(businessId, user.userId, body);
       if (action === 'invitations') {
-        if (role !== 'owner') throw httpError(403, 'OWNER_ONLY');
         const team = await billing.allows(businessId, 'team');
         if (!team.ok) return team;
         const seats = await billing.withinLimit(businessId, 'members', (await businesses.members(businessId)).length);
         if (!seats.ok) return seats;
         return members.invite(businessId, context, body);
       }
-      if (action === 'inbound') {
-        if (role !== 'owner') throw httpError(403, 'OWNER_ONLY');
-        return inbound.create(businessId, context, body);
-      }
+      if (action === 'inbound') return inbound.create(businessId, context, body);
       if (action === 'connectors') {
-        if (role !== 'owner') throw httpError(403, 'OWNER_ONLY');
         const allowed = await billing.allows(businessId, 'connectors');
         if (!allowed.ok) return allowed;
         return connectors.save(businessId, context, body);
       }
       if (action === 'plaid-link-token' || action === 'plaid-exchange' || action === 'gusto-connect' || action === 'taxjar-rate') {
-        if (role !== 'owner') throw httpError(403, 'OWNER_ONLY');
         const channel = action.startsWith('plaid') ? 'plaid' : action.startsWith('gusto') ? 'gusto' : 'taxjar';
         if (!connectors.enabled) return { ok: false, error: 'CONNECTORS_UNAVAILABLE', hint: 'The service has no connector key; ask the operator to set MYCA_CONNECTOR_KEY.' };
         const config = await connectors.load(businessId, channel);
-        const flow = { config, save: (patch) => connectors.patch(businessId, channel, patch) };
-        if (action === 'gusto-connect') return gustoConnectUrl({ redirectUri: body.redirectUri || `${publicOrigin(req)}/v1/oauth/gusto/callback`, statePrefix: businessId }, flow);
-        return withBooks(businessId, context, async (session) => {
+        const flowIn = (q) => ({ config, save: (patch) => connectors.patch(businessId, channel, patch, q) });
+        if (action === 'gusto-connect') return gustoConnectUrl({ redirectUri: body.redirectUri || `${publicOrigin(req)}/v1/oauth/gusto/callback`, statePrefix: businessId }, flowIn());
+        return withBooks(businessId, context, async (session, q) => {
+          const flow = flowIn(q);
           const out = action === 'plaid-link-token' ? await plaidLinkToken(session.state, { userId: user.userId }, actor.actor, flow)
             : action === 'plaid-exchange' ? await plaidExchange(session.state, { publicToken: body.publicToken }, actor.actor, flow)
             : await taxjarRate(session.state, { zip: body.zip, city: body.city, state: body.state, code: body.code, name: body.name, record: body.record }, actor.actor, flow);
@@ -538,7 +663,6 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
         });
       }
       if (action === 'connector-sync') {
-        if (role !== 'owner') throw httpError(403, 'OWNER_ONLY');
         const configured = await connectors.configured(businessId);
         if (!configured.length) return { ok: false, error: 'NO_CONNECTORS', hint: 'Connect a channel first.' };
         return withBooks(businessId, context, async (session) => {
@@ -548,7 +672,6 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
         });
       }
       if (action === 'replace') {
-        if (role !== 'owner') throw httpError(403, 'OWNER_ONLY');
         const state = body.books && !body.state ? body.books : body.state;
         if (!state || typeof state !== 'object') return { ok: false, error: 'INVALID_BACKUP', hint: 'Send the file saved by "Download everything" or a backup from the Windows app.' };
         const out = await runner.replaceBooks(businessId, context, { version: 1, state, documents: body.documents || {}, exportedAt: body.exportedAt || '' });
@@ -583,28 +706,32 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
       if (action === 'discard') return withBooks(businessId, context, (session) => session.discard(actor));
       if (action === 'query') return runner.withReadOnlyBooks(businessId, context, (session) => session.query(body.name, body.args || {}, actor));
       if (action === 'ask') {
-        const message = String(body.message ?? '').slice(0, 2000);
+        const message = chatText(body.message);
         if (!message.trim()) throw httpError(400, 'MESSAGE_REQUIRED');
         return withBooks(businessId, context, (session) => session.chat(message, actor));
       }
       if (action === 'company') {
         if (role !== 'owner') throw httpError(403, 'OWNER_ONLY');
-        return withBooks(businessId, context, async (session) => {
-          const out = await session.updateCompany(body, actor);
-          if (out.ok !== false) await businesses.rename(businessId, session.state.company);
-          return out;
+        let renamed = null;
+        const out = await withBooks(businessId, context, async (session) => {
+          const result = await session.updateCompany(body, actor);
+          if (result.ok !== false) renamed = { ...session.state.company };
+          return result;
         });
+        if (renamed) await businesses.rename(businessId, renamed);
+        return out;
       }
     }
     throw httpError(404, 'NOT_FOUND');
   }
 
-  return async function handler(req, res) {
+  async function serve(req, res) {
     const requestId = randomUUID();
+    const url = parseTarget(req.url);
     let status = 200;
     let body;
     try {
-      body = await withProviderContext({ environment: 'off' }, () => route(req, requestId));
+      body = await withProviderContext({ environment: 'off' }, () => route(req, requestId, url));
       status = statusOf(body);
     } catch (err) {
       status = err.statusCode || 500;
@@ -614,18 +741,35 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
         await crashes.recordServer(err, version).catch(() => {});
       }
     }
-    log({ requestId, method: req.method, path: new URL(req.url, 'http://localhost').pathname.replace(/[0-9a-f-]{36}/gi, ':id'), status });
+    log({ requestId, method: req.method, path: url ? url.pathname.replace(/[0-9a-f-]{36}/gi, ':id') : '(unreadable)', status, ...(body && body.error === 'SERVER_BUSY' ? { db: 'pool busy' } : {}) });
+    const retry = status === 503 ? { 'retry-after': '2' } : {};
     if (body && typeof body === 'object' && typeof body.__html === 'string') {
-      res.writeHead(status, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'x-request-id': requestId });
+      res.writeHead(status, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'x-request-id': requestId, ...retry });
       res.end(body.__html);
       return;
     }
     if (body && typeof body === 'object' && typeof body.__text === 'string') {
-      res.writeHead(status, { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store', 'x-request-id': requestId });
+      res.writeHead(status, { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store', 'x-request-id': requestId, ...retry });
       res.end(body.__text);
       return;
     }
-    res.writeHead(status, { 'content-type': 'application/json', 'cache-control': 'no-store', 'x-request-id': requestId });
-    res.end(JSON.stringify(body, (_key, value) => (typeof value === 'bigint' ? Number(value) : value)));
-  };
+    const payload = JSON.stringify(body, (_key, value) => (typeof value === 'bigint' ? Number(value) : value));
+    res.writeHead(status, { 'content-type': 'application/json', 'cache-control': 'no-store', 'x-request-id': requestId, ...retry });
+    res.end(payload);
+  }
+
+  return Object.assign(async function handler(req, res) {
+    try {
+      await serve(req, res);
+    } catch {
+      if (res.headersSent) {
+        res.destroy();
+      } else {
+        res.writeHead(500, { 'content-type': 'application/json', 'cache-control': 'no-store' });
+        res.end('{"ok":false,"error":"INTERNAL_ERROR"}');
+      }
+    } finally {
+      releaseBody(req);
+    }
+  }, { bodyBudget: budget });
 }

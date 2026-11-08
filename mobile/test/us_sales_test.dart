@@ -73,7 +73,7 @@ void main() {
 
     expect(find.widgetWithText(TextField, 'Amount before sales tax'), findsOneWidget);
     expect(find.widgetWithText(TextField, 'Amount before GST'), findsNothing);
-    expect(find.widgetWithText(ActionChip, 'Quote'), findsNothing);
+    expect(find.widgetWithText(ActionChip, 'Quote, order or challan'), findsNothing);
     await tester.enterText(find.widgetWithText(TextField, 'Amount before sales tax'), '500');
     await tester.tap(find.text('Preview'));
     await tester.pumpAndSettle();
