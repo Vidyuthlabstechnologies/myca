@@ -343,7 +343,7 @@ test('E5: paying the bill completes its MSME reminder at once, so the reminder l
   await runTool(state, 'set_supplier_terms', { partyName: 'Fabric Co', msme: true, category: 'small' });
   await runTool(state, 'create_purchase', MSME_BILL('2026-09-30', 'F-1'));
   await runTool(state, 'create_purchase', MSME_BILL('2026-09-30', 'F-2'));
-  const manual = await runTool(state, 'add_reminder', { text: 'Ask Fabric Co for the GST invoice', due: '2027-01-15', billId: 'BILL-0001' });
+  const manual = await runTool(state, 'add_reminder', { text: 'Ask Fabric Co for the GST invoice', due: shift(60), billId: 'BILL-0001' });
   assert.equal(manual.ok, true, JSON.stringify(manual));
   await runTool(state, 'run_automation', { asOf: AS_OF });
   const made = msmeReminders(state);
