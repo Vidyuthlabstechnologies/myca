@@ -396,7 +396,7 @@ The full index is [`docs/README.md`](docs/README.md).
 | Doc | What it covers |
 |---|---|
 | [`docs/product/PRD.md`](docs/product/PRD.md) | The product as numbered requirements, with status, acceptance and open questions |
-| [`docs/product/features/`](docs/product/features/) | One specification per feature area (nine) |
+| [`docs/product/features/`](docs/product/features/) | One specification per feature area (ten) |
 | [`docs/product/ROADMAP.md`](docs/product/ROADMAP.md) | Milestones and what each waits on |
 | [`docs/architecture/ARCHITECTURE.md`](docs/architecture/ARCHITECTURE.md) | Components, request flow, the action gate, known limits |
 | [`docs/architecture/DATA-MODEL.md`](docs/architecture/DATA-MODEL.md) | Database tables and the books state |

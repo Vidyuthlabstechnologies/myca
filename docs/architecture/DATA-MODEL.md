@@ -66,7 +66,7 @@ erDiagram
 | `users` | One per phone number or Google account (`google_sub`, the account's stable id); every user has at least one. The phone number is stored as given, because it is the sign-in identifier. `email` is kept only when Google says it is verified. |
 | `devices`, `refresh_tokens` | A session belongs to a device. Only a hash of the refresh token is stored. Reuse of a spent token revokes the device. The user sees every device of theirs with a live refresh token in the app and can end any of them. |
 | `otp_challenges` | Salted hash of the code and a hash of the phone number; attempts are counted. |
-| `user_totp`, `recovery_codes`, `second_step_challenges` | Optional two-step sign-in. `user_totp` holds one authenticator key per user, sealed with AES-256-GCM under a key derived from the service key and the user id, the enrolment attempt count, and the last accepted step so a code works once. `recovery_codes` holds a keyed hash per code, marked when used. `second_step_challenges` is the pending sign-in between the first factor and the authenticator code: five minutes, five attempts, consumed on success, deleted by the nightly job after a day. The first two are deleted when two-step is turned off or the account is deleted. |
+| `user_totp`, `recovery_codes`, `second_step_challenges` | Optional two-step sign-in. `user_totp` holds one authenticator key per user, sealed with AES-256-GCM under a key derived from the service key and the user id, the last accepted step so a code works once, and a count of wrong codes (`attempts`) with the time of the latest one (`failed_at`, added by migration 017). While the key is being enrolled the count is the wrong confirmation codes, and five throw the setup away. Once two-step is on it is the wrong codes sent to turn it off or to renew the recovery codes: five in a row refuse every code on those two routes for 15 minutes from `failed_at`, and a right code, a good second-step sign-in or the end of the 15 minutes clears the count. `recovery_codes` holds a keyed hash per code, marked when used. `second_step_challenges` is the pending sign-in between the first factor and the authenticator code: five minutes, five attempts, consumed on success, deleted by the nightly job after a day. The first two are deleted when two-step is turned off or the account is deleted. |
 | `businesses`, `memberships` | Role is `owner`, `staff` or `accountant`. A business keeps at least one owner. |
 | `invitations` | Stored against a hash of the invited number plus a three-digit hint. One open invitation per business and number. |
 | `books` | The engine's state for one business and a version that increases on every write. Deleting a business with books is restricted. |
@@ -115,7 +115,10 @@ key cannot be written through a view.
 `firmUsers`, `clients`, `extraBooks`, `activeClientId`, `approvals`, `auditEvents`,
 `integrationConnections`, `outbox`, `dryRuns` and their sequences. In the hosted
 service, people and roles come from the account layer and are passed in as the actor
-for each request.
+for each request. `auditEvents` and `auditSeq` are kept in the hosted books row too: each
+event holds the SHA-256 `hash` of its content and the `prevHash` of the event before it
+(see [spec 10](../product/features/10-audit-trail.md)), and the events a write request
+made are also copied into `audit_log`.
 
 ### A transfer
 

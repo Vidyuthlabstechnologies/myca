@@ -3,8 +3,8 @@
 | | |
 |---|---|
 | Requirements | FR-TDS-1 to 3 in the [product PRD](../PRD.md) |
-| Status | Threshold monitor built; deduction on bills and expenses and deposits built (2026-10-08); payees without PAN at the higher rate, the quarterly statement draft and its review built (2026-10-12); filing and certificates not built |
-| Code | `sprints/statutory-rules/src/rules` (TDS rules, golden cases in `golden/tds.json`), `sprints/sprint-4-deadlines`, provider adapter for file generation |
+| Status | Threshold monitor built; deduction on bills and expenses and deposits built (2026-10-08); payees without PAN at the higher rate, the quarterly statement draft and its review built (2026-10-12); the Form 26AS check and TDS withheld by customers built (2026-11); filing and certificates not built |
+| Code | `sprints/statutory-rules/src/rules` (TDS rules, golden cases in `golden/tds.json`), `sprints/sprint-4-deadlines`, provider adapter for file generation; for the 26AS check `platform/src/tds-credits.mjs`, `platform/src/marketplace-credits.mjs` (the import) and `platform/src/tds-intent.mjs` (chat) |
 
 ## What the owner experiences
 
@@ -146,34 +146,97 @@ Form 26AS lists the tax that deductors reported against the business's PAN. The 
 it beside what the books claim, so a customer who paid short by TDS and a shortfall nobody
 recorded show up before the return is filed.
 
-- `import_26as_credits` reads every section of Form 26AS (CSV or text table: section, TAN of
-  deductor, tax deducted, date; the amount paid is optional). Each row keeps its section
-  (194C, 194J, 194O, 192, 206CQ and so on) and the quarter of its date. Rows under 194-O
-  are matched to the marketplace by TAN or name and remain the marketplace credits of
-  `marketplace_credits`; other sections are customers. A row with no readable section is
-  the only kind left out, and the answer says how many. Rows already recorded (same section,
-  TAN, date and amounts) are skipped, including 194-O rows imported before sections were kept.
+- `import_26as_credits` reads Form 26AS as a CSV or a text table whose header names the
+  section, the TAN of the deductor, the tax deducted and the date; the deductor's name and
+  the amount paid are optional. Every section is kept (194C, 194J, 194O, 192, 206CQ and so
+  on) with the quarter of its date. Rows under 194-O are matched to the marketplace by
+  TAN or name and remain the marketplace credits of `marketplace_credits`; other sections
+  are customers. The import is previewed, then recorded after yes; it posts nothing to
+  the ledger. Chat: attach the file and say "import 26AS"; without a file MyCA says what
+  to attach.
+- Rows already recorded are skipped by occurrence. A row is the same as one on file when its
+  section, TAN, date, tax deducted and amount paid all agree, and a file that holds the same
+  row twice is read as two rows until the books hold two. Importing a file again records
+  nothing; importing an overlapping file records only the rows beyond what is on file.
+  194-O rows imported before sections were kept count as section 194-O.
+- Some rows are not imported. A row with no readable section is counted and left out, and
+  the preview and the answer say how many. A row whose TAN is not in TAN form, whose date
+  cannot be read or whose tax amount is not above zero is held back and listed with its row
+  number and reason (`BAD_TAN`, `INVALID_DATE`, `BAD_AMOUNT`) in the import result; the
+  preview and the chat answer do not mention held rows, so check the count of entries
+  against the file.
 - `record_tds_withheld` ("record tds withheld 2000 on INV-0001 under 194J") records TDS a
   customer deducted from a sales invoice. The invoice settles by that amount (paid when
   nothing else is owed, otherwise partly paid), and the credit is posted from the customer
   to TDS receivable (1160, created when first used). It needs the section; the deductor's
-  TAN is optional and lets the check match exactly. It is previewed and posts after yes. The
-  amount cannot be more than the invoice still owes, the date cannot be in a closed period,
-  and a cancelled invoice cannot take it. The receipt is listed on the invoice as "TDS
-  withheld ₹x (section)", exported to Tally as a Journal voucher (TDS Receivable to the
-  customer, never a receipt into the bank), shown beside cash received in the Sales and
-  Customer dues sheets, and counted as a credit in advance tax when no Form 26AS is imported.
+  TAN is optional and lets the check match exactly ("... TAN MUMA12345B"). It is
+  previewed and posts after yes. The amount cannot be more than the invoice still owes,
+  the date cannot be in a closed period, and a cancelled invoice cannot take it. The
+  receipt is listed on the invoice as "TDS withheld ₹x (section)", exported to Tally as a
+  Journal voucher (TDS Receivable to the customer, never a receipt into the bank), shown
+  beside cash received in the Sales and Customer dues sheets, and counted as a credit in
+  advance tax when no Form 26AS is imported.
+- Its date, when none is given, is the date of the latest cash receipt on the invoice, or
+  the invoice date when no cash has been received, so that the TDS lands in the quarter of
+  the money. A date can be said as 2026-10-05, 05/10/2026, "5 October 2026" or "20
+  October" (a day and month with no year is the latest such date that is not in the
+  future), and "today" is read as today; a date it cannot read ("yesterday") or two dates
+  are asked for as YYYY-MM-DD and nothing is recorded.
+- A sentence that carries a receipt and TDS together ("received 98000 against INV-0001,
+  TDS 2000 under 194J") records nothing. MyCA answers with the two sentences to say, the
+  receipt first and then "record tds withheld 2000 on INV-0001 under 194J", and the TDS
+  then takes the date of the receipt. A TDS entry cannot be reversed from chat: a held
+  preview can be discarded, and after yes the CA corrects the entry.
 - `tds_credit_check` ("check 26AS against the books", "reconcile TDS against 26AS", also in
-  Excel as the Form 26AS check) reads the financial year, defaulting to the current one, one
-  row per deductor, section and quarter: what 26AS shows, what the books show, the gap and
-  one of matched, not in books, not in 26AS, short in 26AS or more in 26AS. Books and 26AS
-  are matched by TAN when the books row has one, else by the customer's name against the
-  deductor's name. 194-O is read from marketplace settlements. Totals, a count by section and
-  the source of the 26AS (when it was imported, or that none was) come with it.
+  Excel as the Form 26AS check) reads the financial year, defaulting to the current one,
+  one row per deductor, section and quarter: what 26AS shows, what the books show, the gap
+  (books less 26AS) and one of matched, not in books, not in 26AS, short in 26AS (the
+  books show more than 26AS by over ₹1) or more in 26AS (26AS shows more by over ₹1). A
+  year can be said as "FY 2025-26", "FY 25-26", "AY 2026-27" or "last year"; two years
+  that are not in a row ("FY 2025-27") are asked for and nothing is checked. A year said
+  any other way ("for 2025") is not read, and the check covers the current year; the
+  answer names the year it used. Without a year, in chat, in the app and in the Excel
+  file, the check covers the current year; the Excel file takes a year too ("excel of the
+  26AS check for FY 2025-26").
+- Books and 26AS are matched by TAN when the books row has one, else by the customer's name
+  against the deductor's name (four characters or more, one name containing the other),
+  looking in the same quarter first. A books row that finds nothing in its own quarter is
+  paired with a 26AS row of the same section elsewhere in the year when the TAN or name
+  matches and the two amounts agree within ₹1, because the quarter the books date a
+  receipt in is often not the quarter 26AS does; the row then says when the books date it
+  and when Form 26AS does. 194-O is read from marketplace settlements. Totals, a count by
+  section and the source of the 26AS (when it was imported, or that none was) come with
+  it. When a Form 26AS file is attached and not yet imported, the chat answer says the file
+  is not in the comparison.
 - Rows not in the books usually mean a customer paid short by TDS and the shortfall was never
   recorded: record it with "TDS withheld" on that invoice. The check never posts anything.
-- The check works from Form 26AS as imported. AIS (the Annual Information Statement) is not
-  read: its layout is not specified in this repository, so it is out of scope until a sample
-  of the portal's export is available. Say so to anyone who asks whether MyCA compares AIS.
-- App: Taxes has a "Form 26AS check" row under TDS that opens the totals, the rows, Import
-  26AS and Save as Excel; a sales invoice or customer thread offers "TDS withheld".
+- The check works from Form 26AS as imported. It does not read AIS (the Annual
+  Information Statement), and neither does `import_26as_credits`: the layout of the AIS
+  export is not specified in this repository, so it stays out until a sample of the
+  portal's file is available. Say so to anyone who asks whether MyCA compares AIS. The note
+  in the tool's result ends "AIS is not read yet"; the app's check screen shows it and the
+  chat answer does not. `prepare_itr` takes an AIS file as one input to the old-against-new
+  regime comparison, which is separate from this check.
+- App: Taxes has a "Form 26AS check" row under TDS that opens the totals (in 26AS, in your
+  books, the gap) for the current year, the rows with their status, Import 26AS (pick a CSV
+  or text file, then the preview and yes) and Save as Excel. The customer's thread offers
+  "TDS withheld" while the customer has an unpaid invoice, in India books: choose the
+  invoice, the amount (filled in at 2 per cent of the invoice, for you to change), the
+  section (194C until you pick another), the date (today until you pick another) and the
+  TAN if known, then the preview and yes. The invoice screen does not offer it.
+
+Limits of what can be said and recorded from chat:
+
+- A receipt or payment sentence is read for one amount. A date in words is read and is
+  not an amount ("on 20 October", "20th October", "October 20, 2026"; a day and month with
+  no year is the latest such date that is not in the future). Nor is a reference number
+  said as "cheque no 123456", "ref 998877", "UTR 4567891234", "txn id 998877" or "#4521",
+  a term such as "30 days" or "net 30", or an instalment number ("instalment 2 of 3").
+  When the sentence still holds two amounts ("received 98000 and 2000 against INV-0001"),
+  or a bare number such as "cheque 123", MyCA says it read more than one amount, records
+  nothing and asks for the one amount. "Yesterday" is not read: the entry is dated today
+  and the preview shows the date before anything posts.
+- TDS the business deducts from a supplier is taken when the bill or expense is posted
+  ("bill from Fabric Co 10000 GST 5% with TDS 194C", after "we deduct TDS, TAN ..."). No
+  sentence adds TDS to a bill already posted, and `record_tds_withheld` is for sales
+  invoices (INV- numbers) only.

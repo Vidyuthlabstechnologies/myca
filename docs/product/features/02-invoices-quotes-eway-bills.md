@@ -3,8 +3,8 @@
 | | |
 |---|---|
 | Requirements | FR-INV-1 to 6 in the [product PRD](../PRD.md) |
-| Status | Invoices, the invoice screen, PDF, sharing, payment terms and quotes built; buyer address, share audit, transport details and the e-way bill need check built (2026-10-12); generation waits on the IRN and NIC credentials |
-| Code | `platform/src/invoice.mjs`, `intent.mjs`, `nic-client.mjs`, `nic-actions.mjs`; app: `mobile/lib/screens/party_screen.dart` |
+| Status | Invoices, the invoice screen, PDF, sharing, payment terms and quotes built; buyer address, share audit, transport details and the e-way bill need check built (2026-10-12); supplier terms and MSME pay-by dates built (2026-10-15), with the reminder, the exception and the medium rule (2026-11); generation waits on the IRN and NIC credentials |
+| Code | `platform/src/invoice.mjs`, `intent.mjs`, `nic-client.mjs`, `nic-actions.mjs`; app: `mobile/lib/screens/party_screen.dart`; for supplier terms and MSME dates `platform/src/supplier-dues.mjs`, `automation.mjs` (the reminder), `exceptions.mjs`, `daily-close.mjs`, `payment-run.mjs`; app: `mobile/lib/screens/home_screen.dart` |
 
 ## What the owner experiences
 
@@ -85,13 +85,49 @@ WhatsApp or email. For goods on the move, the e-way bill is offered on the same 
   and their terms otherwise, and shows both.
 - Chat: "Retail Mart pays in 45 days", "set Retail Mart's terms to net 30", "terms for
   Kiran Stores: on receipt", and "… net 45" at the end of an invoice message.
-- Supplier terms (built 2026-10-15): `set_supplier_terms` records a supplier's agreed
-  days and whether they are a micro or small enterprise (Udyam number optional). A new
-  bill carries its pay-by date; for an MSME it comes from the dated MSMED rule (the
-  agreed days, at most 45, or 15 with no agreement). `supplier_dues` lists unpaid bills
-  by pay-by date and the MSME position under s.43B(h); the week ahead and the app's
-  supplier chat show them. Chat: "Fabric Co is MSME, UDYAM-MH-12-1234567, net 30",
-  "msme dues".
+- Supplier terms (built 2026-10-15; the reminder, the exception and the medium rule
+  2026-11): `set_supplier_terms` records a supplier's agreed days (0 to 365), whether
+  they are an MSME, their category (micro, small or medium) and an optional Udyam number
+  (UDYAM-XX-00-0000000). Only the owner can set it, and it is previewed first. The pay-by
+  date of a bill is worked out each time from the supplier's current terms and the
+  bill's date; it is not stored on the bill, so a change of terms re-dates the bills
+  already booked as well. For a supplier the MSMED rule covers it is the agreed days,
+  never more than 45 (an agreement of more days is refused), or 15 days when nothing is
+  agreed; for any other supplier it is the agreed days, or there is none.
+- Who is covered follows the dated rules. A supplier is covered when both the payment-time
+  rule and the deduction rule (s.43B(h), and its successor in the 2025 Act from
+  1 April 2026) name its category. With no category given it is covered. A supplier
+  marked medium is not, because the deduction rule names micro and small only: it stays
+  marked on file, its bills follow its agreed days like any supplier's, or have no pay-by
+  date when none is agreed, and it gets no MSME limit, reminder or exception. The
+  preview says so. The two rules carry no sign-off from the advisor CA yet, and
+  `supplier_dues` marks its rows and the MSME position `unreviewed` for that reason; the
+  chat answer does not say so.
+- `supplier_dues` lists unpaid bills by pay-by date with the MSME position: how much is
+  owed to MSME suppliers and how much of it is past the limit and not deductible until
+  paid. The week ahead and the app's supplier chat show the dates; the supplier's chat
+  shows "Pay by <date> (MSME)" on each bill.
+- MSME reminder (built 2026-11): the daily run (the desktop app runs it at launch and
+  every hour and does nothing on a second run the same day; the hosted nightly job runs
+  it for every business) adds a reminder to Home for each unpaid bill of a covered MSME
+  supplier that is not yet past its pay-by date. The reminder is dated seven days before
+  the pay-by date, or today when that day has passed, and is added once its day falls
+  within the next 14 days. It reads "Pay <supplier> <amount> on <bill> by <date> (MSME
+  limit)" and is added once for each bill and pay-by date. MyCA sends it to nobody; a
+  daily WhatsApp message for MSME dates is not built.
+- MSME exception (built 2026-11): an unpaid bill of a covered MSME supplier that is past
+  its pay-by date raises a high exception, `MSME_PAST_LIMIT`, with the amount outstanding
+  as the money at risk. It closes by itself when the bill is paid. The daily close has a
+  row "MSME bills inside their limit" (open and past the limit), the payment run puts a
+  covered MSME bill that is past its date or due within three days first, and Home in the
+  app shows an MSME suppliers panel: the bills past the limit and the amount not
+  deductible until they are paid, or the number still inside the limit. It opens Pay
+  bills.
+- Chat: "Fabric Co is MSME, UDYAM-MH-12-1234567, net 30", "Fabric Co is a medium
+  enterprise net 60", "mark Pack House as a small enterprise", "msme dues". There is no
+  chat sentence that takes the MSME mark off a supplier; the supplier's terms sheet in
+  the app does it. App: the supplier's thread has a terms sheet (MSME switch, Udyam
+  number, category, agreed days) for the owner.
 
 ### Quotes (built 2026-10-06)
 

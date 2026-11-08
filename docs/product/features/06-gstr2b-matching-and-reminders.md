@@ -3,8 +3,8 @@
 | | |
 |---|---|
 | Requirements | FR-2B-1 to 4 in the [product PRD](../PRD.md) |
-| Status | Matching, adding 2B and credit at risk in the app built (2026-10-06); reminders built (2026-10-07); credit-at-risk marks in the supplier chat and Rule 37 from recorded payments (2026-10-15); fetching 2B needs the GSP |
-| Code | `sprints/sprint-3-gst-recon`, exception queue in `platform/src`, `notifications.mjs` |
+| Status | Matching, adding 2B and credit at risk in the app built (2026-10-06); reminders built (2026-10-07); credit-at-risk marks in the supplier chat and Rule 37 from recorded payments (2026-10-15); IMS decisions built (batch 4, 2026-11); fetching 2B needs the GSP |
+| Code | `sprints/sprint-3-gst-recon`, exception queue in `platform/src`, `notifications.mjs`; for IMS `platform/src/ims.mjs` and `mobile/lib/screens/ims_screen.dart` |
 
 ## What the owner experiences
 
@@ -27,6 +27,8 @@ reminder goes only when the owner says so.
 - Purchases are matched to GSTR-2B on each tax head separately, so a CGST and SGST
   entry reported as IGST is flagged, not netted off.
 - Credit notes are reconciled in both directions.
+- A bill that the statement lists on several lines (one for each tax rate, say) is added
+  into one document before it is matched, so its credit is compared as a whole.
 - Three conditions are checked separately and each says so when it lacks data: whether
   the credit appears in 2B (s.16(2)(aa)), whether the supplier has been paid within 180
   days (Rule 37), and whether the supplier has filed GSTR-3B (Rule 37A).
@@ -76,16 +78,48 @@ reminder goes only when the owner says so.
 
 ### Decide in IMS (built, batch 4)
 
-- `ims_review` lists the month's 2B rows with whether the books hold the bill, a
-  suggestion (accept when it matches, pending otherwise) and the credit the row carries.
-  `ims_decide` records accept, reject, pending or clear on chosen rows or on a word (all
-  matched, all suggested, all not decided), previewed first. MyCA keeps the decisions
-  and sends nothing to the portal; the owner takes the same decisions there.
-- A yes applies exactly the rows the preview listed. If one of them has left the
-  statement since, the yes is refused with a sentence and nothing is changed. A word
-  that picks no row says which word found nothing.
-- Credit notes carry negative credit, so the totals for accepted, rejected, pending and
-  not decided are net of them.
+- `ims_review` lists the month's 2B with one row for each document, not for each line of
+  the statement. Lines with the same supplier (GSTIN, else name), invoice or note number
+  and section are added into one row: the taxable value, the taxes, the cess and the
+  total are summed, the credit is shown as not available when any line says so, and the
+  row carries the number of lines it came from (`lines`). Each row shows whether the books
+  hold it (matched, amount differs by more than ₹1 on a tax head, date differs, not in
+  books; a note in the statement is matched to the debit notes recorded to that supplier),
+  a suggestion (accept when it matches or only the date differs, pending otherwise), the
+  credit the row carries and the decision kept so far with its note, who made it and the
+  day. Credit notes carry negative credit, so the totals for accepted, rejected, pending
+  and not decided are net of them. A decision whose document has left the statement, for
+  example after the month's 2B was replaced, is counted (`orphaned`) and left alone.
+- `ims_decide` records accept, reject, pending or clear on chosen rows or on a word
+  (matched, suggested, undecided, all), with an optional note of up to 200 characters, up
+  to 500 rows at a time, previewed first. A decision is kept in `imsDecisions` under the
+  row key `month|supplier|number|section`, so it survives a re-added statement that still
+  holds the document. MyCA keeps the decisions and sends nothing to the portal; the owner
+  takes the same decisions there, and the Excel sheet lists every row with its
+  suggestion. Nothing is posted to the ledger.
+- The preview turns a word into the exact rows it will change, and a yes applies those rows
+  and no others. If one of them has left the statement since, the yes is refused with a
+  sentence and nothing is changed. A word that picks no row says which word found
+  nothing. (A row whose key is longer than 120 characters is not pinned; the word is read
+  again at yes.)
+- Chat: "show IMS for 2026-09" or "what is pending in IMS" lists the month; "accept all
+  matched invoices in IMS", "reject all undecided invoices in IMS" and "mark all
+  suggested as accepted in IMS" decide a set. The month is the one said, else the latest
+  month with a 2B added. One decision is made at a time: a message that asks for two is
+  answered with a sentence and nothing changes, and so is a set narrowed to one supplier,
+  to some of its rows ("the first three matched invoices") or with an exception left out.
+  "From the IMS screen" and "from every supplier" do not narrow it. "Clear" is in the app
+  and the tool, not in chat.
+- Excel: `ims_review` ("excel of IMS for 2026-09"), one sheet with a row per document:
+  section, supplier GSTIN and name, invoice number and date, the amounts, the credit, the
+  bill in the books, the match, the suggestion, the decision, its note, who decided and
+  when. A month with no 2B added is answered with a request to add it.
+- App: after a 2B is added for a month, the credit card on Taxes offers "Review in IMS".
+  The screen shows the counts and the credit not decided and accepted, filters (all, not
+  decided, accept, reject, pending, not in books), "Accept all matched" and "Save as
+  Excel". A row shows "N lines" when it was added from more than one, and opens a sheet
+  with its facts and Accept, Reject, Pending or Clear and a note. Every decision goes
+  through the preview bar and a yes.
 
 ## Acceptance criteria
 
