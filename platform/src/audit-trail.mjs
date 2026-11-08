@@ -23,7 +23,7 @@ const CONFIRM_FAILURES = {
 const ACRONYMS = new Map([['ims', 'IMS'], ['tds', 'TDS'], ['gst', 'GST'], ['itc', 'ITC'], ['msme', 'MSME'], ['26as', '26AS'], ['gstr1', 'GSTR-1'], ['gstr2b', 'GSTR-2B'], ['gstr3b', 'GSTR-3B'], ['gstin', 'GSTIN'], ['hsn', 'HSN'], ['tcs', 'TCS']]);
 const NOTE = 'Every change made through MyCA is listed with who made it and when. Hashes chain each event to the one before, so an edited or removed event shows as a broken chain. The seal covers who, what and when, but not which client an event is filed under. It cannot show events cut off the end of the log, or a log re-sealed by someone who can write the books.';
 const HOSTED_NOTE = ' Reads are kept in the hosted audit log, not here.';
-const NOT_SEALED = 'the client an event is filed under is not sealed';
+export const NOT_SEALED = 'the client an event is filed under is not sealed';
 
 export const AUDIT_SHEET_HEADER = ['Event', 'When (UTC)', 'Who', 'Action', 'What changed', 'Records', 'Transfers', 'Books digest before', 'Books digest after', 'Chained'];
 export const AUDIT_SHEET_WIDTHS = [12, 26, 20, 26, 60, 28, 24, 40, 40, 10];

@@ -1375,7 +1375,7 @@ export const TOOLS = [
   {
     name: 'audit_trail',
     title: 'Audit trail',
-    description: 'Who changed what and when: every change made through MyCA in a month, a period or between two dates, with the record ids, the money entries it posted, and a hash chain that shows if the log was edited or an event removed. Changes by default; view all adds reads, proposals and sign-ins. Read-only.',
+    description: 'Who changed what and when: every change made through MyCA in a month, a period or between two dates, with the record ids, the money entries it posted, and a hash chain that flags most edits to who, what and when. Changes by default; view all adds reads, proposals and sign-ins. Read-only.',
     args: ['period', 'from', 'to', 'view', 'actor', 'limit'],
     run: (state, args = {}) => auditTrail(state, args),
   },

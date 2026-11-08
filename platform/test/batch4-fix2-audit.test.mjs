@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
+import { spawnSync } from 'node:child_process';
 import { inflateRawSync } from 'node:zlib';
 import { createState, serialize, deserialize } from '../src/store.mjs';
 import { openSession } from '../src/session.mjs';
@@ -524,4 +525,56 @@ test('R1-12: an automatic event id never repeats one that is already in the log,
   const first = appendAuditEvent(fresh, { actorId: 'a', action: 'x.y' });
   const second = appendAuditEvent(fresh, { actorId: 'a', action: 'x.y' });
   assert.deepEqual([first.eventId, second.eventId], ['AUD-000001', 'AUD-000002'], 'the usual numbering is unchanged');
+});
+
+test('R1-11: the Summary row of the Excel audit trail carries the same sentence as the words, where something is chained', async () => {
+  const s = await story();
+  const chained = verifyAuditChain(s.state).chained;
+  assert.ok(chained >= 4, String(chained));
+  assert.equal(summaryOf(reportSheet(s.state, 'audit_trail', EVERYTHING)).get('Log chain'), `verified ${chained} events; ${NOT_SEALED}`);
+  assert.ok((await firstLine(s.state)).endsWith(`(${chained} events; ${NOT_SEALED})`));
+  assert.equal(summaryOf(reportSheet(createState(), 'audit_trail', {})).get('Log chain'), 'verified 0 events');
+  s.state.auditEvents[2].actorName = 'Mallory';
+  assert.match(summaryOf(reportSheet(s.state, 'audit_trail', EVERYTHING)).get('Log chain'), /^broken at AUD-000003$/);
+});
+
+test('R1-12: an automatic event id cannot hang or crawl, whatever the counter and the log hold', () => {
+  const store = JSON.stringify(new URL('../src/store.mjs', import.meta.url).href);
+  const api = JSON.stringify(new URL('../src/ca-api.mjs', import.meta.url).href);
+  const script = `
+    import { createState } from ${store};
+    import { appendAuditEvent } from ${api};
+    const out = {};
+    const measure = (name, state) => {
+      const started = process.hrtime.bigint();
+      const id = appendAuditEvent(state, { actorId: 'a', action: 'x.y' }).eventId;
+      const ids = state.auditEvents.map((event) => event.eventId);
+      out[name] = { id, ms: Number(process.hrtime.bigint() - started) / 1e6, unique: new Set(ids).size === ids.length };
+    };
+    const withCounter = (counter, taken) => {
+      const state = createState();
+      for (const eventId of taken) appendAuditEvent(state, { eventId, actorId: 'a', action: 'x.y' });
+      state.auditSeq = counter;
+      return state;
+    };
+    measure('safe limit', withCounter(9007199254740991, ['AUD-9007199254740992']));
+    measure('far above the cap', withCounter(1e15, ['AUD-1000000000000001']));
+    measure('just below the cap', withCounter(999999999999, []));
+    const long = createState();
+    long.auditEvents = Array.from({ length: 40000 }, (_, n) => ({ eventId: 'AUD-' + String(n + 1).padStart(6, '0'), actorId: 'a', action: 'x.y', hash: '', prevHash: '' }));
+    long.auditSeq = '0';
+    measure('text zero over a long log', long);
+    console.log(JSON.stringify(out));
+  `;
+  const ran = spawnSync(process.execPath, ['--input-type=module', '-e', script], { encoding: 'utf8', timeout: 30000 });
+  assert.equal(ran.status, 0, `${ran.signal || ''} ${ran.stderr}`);
+  const out = JSON.parse(ran.stdout);
+  assert.equal(out['safe limit'].id, 'AUD-000002');
+  assert.equal(out['far above the cap'].id, 'AUD-000002');
+  assert.equal(out['just below the cap'].id, 'AUD-1000000000000');
+  assert.equal(out['text zero over a long log'].id, 'AUD-040001');
+  for (const [name, result] of Object.entries(out)) {
+    assert.equal(result.unique, true, name);
+    assert.ok(result.ms < 1500, `${name} took ${result.ms} ms`);
+  }
 });

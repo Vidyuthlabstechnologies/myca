@@ -182,10 +182,20 @@ function auditIdTaken(state, id) {
   return state.auditEvents.some((row) => row && row.eventId === id);
 }
 
+const AUDIT_SEQ_CAP = 1e12;
+
+function auditIdOf(number) {
+  return `AUD-${String(number).padStart(6, '0')}`;
+}
+
 function nextAuditId(state) {
-  let seq = Number.isSafeInteger(state.auditSeq) && state.auditSeq >= 0 ? state.auditSeq : state.auditEvents.length;
-  let id;
-  do id = `AUD-${String(++seq).padStart(6, '0')}`; while (auditIdTaken(state, id));
+  const counter = state.auditSeq;
+  let seq = Number.isSafeInteger(counter) && counter >= 0 && counter < AUDIT_SEQ_CAP ? counter : state.auditEvents.length;
+  let id = auditIdOf(++seq);
+  if (auditIdTaken(state, id)) {
+    const used = new Set(state.auditEvents.map((row) => row && row.eventId));
+    while (used.has(id)) id = auditIdOf(++seq);
+  }
   state.auditSeq = seq;
   return id;
 }

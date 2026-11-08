@@ -641,7 +641,7 @@ test('the Excel report lists every event, the day book entries and a summary tha
   assert.equal(summary.get('Period'), '2000-01-01 to 2100-12-31');
   assert.equal(summary.get('Events'), expectedEvents.length);
   assert.equal(summary.get('Changes'), 4);
-  assert.equal(summary.get('Log chain'), `verified ${expectedEvents.length} events`);
+  assert.equal(summary.get('Log chain'), `verified ${expectedEvents.length} events; the client an event is filed under is not sealed`);
   assert.equal(summary.get('Ledger chain'), 'ok');
   assert.equal(summary.get('Ledger last checksum'), String(s.state.ledger.lastChecksum));
   assert.match(summary.get('Exported at (UTC ISO)'), /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
