@@ -250,8 +250,10 @@ test('refusals: unknown row, no 2B, bad decision, too many rows, long note, bad 
   assert.equal((await runTool(state, 'ims_decide', { period: PERIOD, keys: manyKeys, decision: 'accept' })).error, 'TOO_MANY_ROWS');
   const big = [HEADER, ...Array.from({ length: 501 }, (_, i) => `B2B,27AABCT1332L1ZE,FABRIC CO,X-${i},05-09-2026,100,2.5,2.5,0,0,105,Y`)].join('\n');
   await runTool(state, 'import_gstr2b', { period: '2026-08', csv: big });
-  assert.equal((await runTool(state, 'ims_decide', { period: '2026-08', select: 'all', decision: 'accept' })).error, 'TOO_MANY_ROWS');
-  assert.equal((await runTool(state, 'ims_decide', { period: '2026-08', select: 'undecided', decision: 'accept' })).error, 'TOO_MANY_ROWS');
+  for (const select of ['all', 'undecided']) {
+    const round = planImsDecision(state, { period: '2026-08', select, decision: 'accept' });
+    assert.deepEqual([round.ok, round.rows.length, round.left], [true, 500, 1], `a word that picks 501 invoices plans the first 500 and leaves one: ${select}`);
+  }
   assert.deepEqual(Object.keys(state.imsDecisions), [KEYS.thread], 'a refused decision changes nothing');
 });
 

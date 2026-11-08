@@ -532,7 +532,7 @@ test('extra: two bills with the same number from one supplier are told apart by 
   assert.equal(differs.billId, 'BILL-0001');
 });
 
-test('extra: a statement of exactly 500 invoices is decided in one go with the word all, and 501 is refused', async () => {
+test('extra: a statement of exactly 500 invoices is decided in one go with the word all, and 501 is decided in two rounds', async () => {
   const state = await statementOnly(bigStatement(500));
   const plan = planImsDecision(state, { period: PERIOD, select: 'all', decision: 'accept' });
   assert.equal(plan.ok, true, JSON.stringify(plan).slice(0, 200));
@@ -545,7 +545,11 @@ test('extra: a statement of exactly 500 invoices is decided in one go with the w
   assert.equal(done.count, 500);
   assert.equal(Object.keys(state.imsDecisions).length, 500);
   const over = await statementOnly(bigStatement(501));
-  assert.equal(planImsDecision(over, { period: PERIOD, select: 'all', decision: 'accept' }).error, 'TOO_MANY_ROWS');
-  assert.equal(propose(over, 'ims_decide', { period: PERIOD, select: 'all', decision: 'accept' }).reply, 'I did not post anything, because:\n· IMS takes up to 500 invoices in one go; pick fewer, or decide in parts.');
+  const round = planImsDecision(over, { period: PERIOD, select: 'all', decision: 'accept' });
+  assert.deepEqual([round.ok, round.rows.length, round.left], [true, 500, 1]);
+  assert.equal(planImsDecision(over, { period: PERIOD, keys: rowsOf(over).map((row) => row.key), decision: 'accept' }).error, 'TOO_MANY_ROWS');
+  const held = propose(over, 'ims_decide', { period: PERIOD, select: 'all', decision: 'accept' });
+  assert.equal(held.awaitingConfirmation, true, held.reply);
+  assert.equal(held.preview.figures.count, 500);
   assert.deepEqual(over.imsDecisions, {});
 });

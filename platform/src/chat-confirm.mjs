@@ -24,7 +24,7 @@ import { planCreditNote, creditedAgainst, outstandingOf } from './credit-notes.m
 import { planDebitNote, planPurchaseNote } from './debit-notes.mjs';
 import { checkAnswer, reviewOf, stepText } from './gst-review.mjs';
 import { parse2bFile } from './gstr2b-check.mjs';
-import { planImsDecision, pinImsRows, IMS_DECISION_WORDS } from './ims.mjs';
+import { planImsDecision, pinImsRows, IMS_DECISION_WORDS, IMS_SELECTS } from './ims.mjs';
 import { planReminder, findReminder, whenWords } from './reminders.mjs';
 import { planCashReading } from './cash-forecast.mjs';
 import { planTerms, termsLabel, invoiceTerms, dueDateOf } from './payment-terms.mjs';
@@ -1009,6 +1009,12 @@ function imsNoRowsWords(plan) {
   return `Say which invoices, for example "accept all matched in IMS for ${plan.period}" or "reject all undecided in IMS for ${plan.period}".`;
 }
 
+function imsLeftWords(left, args) {
+  const select = String(args.select ?? '').trim();
+  const noun = IMS_SELECTS.includes(select) && select !== 'all' ? `${select} invoice` : 'invoice';
+  return left === 1 ? `1 more ${noun} is left; ask again after this to do it.` : `${left} more ${noun}s are left; ask again after this to do them.`;
+}
+
 const IMS_REASONS = {
   INVALID_PERIOD: 'Say the month as YYYY-MM, for example 2026-10.',
   NO_STATEMENT: 'Add the GSTR-2B for that month first.',
@@ -1037,6 +1043,7 @@ function imsPreview(state, args) {
   }).length;
   const effects = ['Nothing is posted. Take the same decisions on the GST portal\'s IMS; the Excel sheet lists them.'];
   if (replaced) effects.push(count === 1 ? 'It already has a different decision, which this replaces.' : `${replaced} of them already ${replaced === 1 ? 'has' : 'have'} a different decision, which this replaces.`);
+  if (plan.left) effects.push(imsLeftWords(plan.left, args));
   return {
     blockers: [],
     summary: count === 1 ? `Mark ${one} as ${word} in IMS for ${plan.period}.` : `Mark ${count} invoices in IMS for ${plan.period} as ${word} (credit ${money(plan.credit)}).`,
