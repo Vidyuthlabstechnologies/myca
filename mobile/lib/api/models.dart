@@ -2926,6 +2926,11 @@ class AuditTrail {
     final chain = _map(data['chain']);
     final chainOk = chain['ok'] == true;
     final chained = _num(chain['chained']).toInt();
+    final earlier = _num(chain['unchained']).toInt();
+    final caveats = [
+      if (chained > 0) 'the client an event is filed under is not sealed',
+      if (earlier > 0) '$earlier earlier ${earlier == 1 ? 'event was' : 'events were'} recorded before sealing and ${earlier == 1 ? 'is' : 'are'} not covered',
+    ];
     return AuditTrail(
       from: _text(data['from']),
       to: _text(data['to']),
@@ -2936,7 +2941,7 @@ class AuditTrail {
       total: _num(data['total']).toInt(),
       more: data['more'] == true,
       chainOk: chainOk,
-      chainWords: chainOk ? 'Log chain verified ($chained ${chained == 1 ? 'event' : 'events'}${chained > 0 ? '; the client an event is filed under is not sealed' : ''})' : 'Log chain broken at ${_text(chain['at'])}',
+      chainWords: chainOk ? 'Log chain verified ($chained ${chained == 1 ? 'event' : 'events'}${caveats.map((said) => '; $said').join()})' : 'Log chain broken at ${_text(chain['at'])}',
       ledgerOk: _map(data['ledger'])['ok'] != false,
     );
   }

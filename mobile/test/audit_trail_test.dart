@@ -197,7 +197,7 @@ void main() {
     expect(trail.total, 5);
     expect(trail.more, isTrue);
     expect(trail.chainOk, isTrue);
-    expect(trail.chainWords, 'Log chain verified (1 event; the client an event is filed under is not sealed)');
+    expect(trail.chainWords, 'Log chain verified (1 event; the client an event is filed under is not sealed; 4 earlier events were recorded before sealing and are not covered)');
     expect(trail.ledgerOk, isTrue);
     expect(trail.events.first.actor, 'USR-1');
     expect(trail.events.first.when, '2026-10-05 17:00 UTC');
