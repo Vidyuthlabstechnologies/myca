@@ -5,7 +5,13 @@ import pg from 'pg';
 
 const MIGRATIONS_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', 'migrations');
 
-const NO_CONNECTION_IN_TIME = new Set(['timeout exceeded when trying to connect', 'Connection terminated due to connection timeout']);
+const CONNECTION_CODES = new Set(['ECONNREFUSED', 'ECONNRESET', 'ETIMEDOUT', 'EPIPE', '08000', '08001', '08003', '08004', '08006', '57P01', '57P02', '57P03', '53300']);
+const CONNECTION_MESSAGES = new Set([
+  'timeout exceeded when trying to connect',
+  'Connection terminated due to connection timeout',
+  'Connection terminated unexpectedly',
+  'Client has encountered a connection error and is not queryable',
+]);
 
 pg.types.setTypeParser(20, (value) => Number(value));
 
@@ -17,7 +23,9 @@ function serverBusy(cause) {
 }
 
 function translated(err) {
-  return err && !err.code && NO_CONNECTION_IN_TIME.has(err.message) ? serverBusy(err) : err;
+  if (!err) return err;
+  const lost = err.code ? CONNECTION_CODES.has(err.code) : CONNECTION_MESSAGES.has(err.message);
+  return lost ? serverBusy(err) : err;
 }
 
 export function createDb(connectionString, { max = 10, connectionTimeoutMillis = 5000, onError = () => {} } = {}) {
@@ -29,16 +37,27 @@ export function createDb(connectionString, { max = 10, connectionTimeoutMillis =
     query,
     async tx(run) {
       const client = await acquire();
+      let broken = null;
+      const onClientError = (err) => {
+        broken = broken || err;
+      };
+      client.on('error', onClientError);
+      const step = (text, params) => client.query(text, params).catch((err) => { throw translated(err); });
       try {
-        await client.query('begin');
-        const out = await run((text, params) => client.query(text, params));
-        await client.query('commit');
+        await step('begin');
+        const out = await run(step);
+        await step('commit');
         return out;
       } catch (err) {
-        await client.query('rollback').catch(() => {});
-        throw err;
+        const out = translated(err);
+        if (out !== err) broken = broken || err;
+        await client.query('rollback').catch((rollbackErr) => {
+          broken = broken || rollbackErr;
+        });
+        throw out;
       } finally {
-        client.release();
+        client.removeListener('error', onClientError);
+        client.release(broken || undefined);
       }
     },
     close: () => pool.end(),
