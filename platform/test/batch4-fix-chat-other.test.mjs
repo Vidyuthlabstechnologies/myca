@@ -7,7 +7,6 @@ import { chat } from '../src/router.mjs';
 import { planLocalToolCall, validateAssistantToolCall } from '../src/assistant-contract.mjs';
 import { planPaymentFromChat } from '../src/payment-intent.mjs';
 import { supplierTerms, supplierDues } from '../src/supplier-dues.mjs';
-import { saidPeriod } from '../src/filing-intent.mjs';
 import { inWords } from '../src/words.mjs';
 import { localToday } from '../src/dates.mjs';
 
@@ -34,6 +33,12 @@ function mondayOf(iso) {
 function lastMonthOf(today) {
   const [year, month] = today.split('-').map(Number);
   return month === 1 ? `${year - 1}-12` : `${year}-${String(month - 1).padStart(2, '0')}`;
+}
+
+function namedMonthOf(name, today = TODAY) {
+  const [year, month] = today.split('-').map(Number);
+  const number = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'].indexOf(name.slice(0, 3).toLowerCase()) + 1;
+  return `${number <= month ? year : year - 1}-${String(number).padStart(2, '0')}`;
 }
 
 function sale(state, partyName, rate, date, gstRate = 0) {
@@ -170,7 +175,10 @@ test('routing-7: the terms are saved under the real supplier, and a Udyam number
   assert.notEqual(plan(state, `set udyam ${UDYAM} for Fabric Co`).name, 'set_supplier_terms', 'a verb is not the supplier');
   assert.deepEqual(terms(`my supplier Acme Steel has udyam ${UDYAM} and 30 days`), { partyName: 'Acme Steel', msme: true, udyam: UDYAM, days: 30 });
   assert.deepEqual(terms(`Acme Steel's udyam number is ${UDYAM}, small category, 20 days`), { partyName: 'Acme Steel', msme: true, udyam: UDYAM, category: 'small', days: 20 });
-  assert.deepEqual(terms('Fabric Co is MSME, 1000 days'), { partyName: 'Fabric Co', msme: true, days: 1000 });
+  const silly = plan(state, 'Fabric Co is MSME, 1000 days');
+  assert.equal(silly.kind, 'reply', JSON.stringify(silly));
+  assert.equal(silly.reply, 'Agreed days must be a whole number from 0 to 365.');
+  assert.equal(silly.blocked, true);
   assert.deepEqual(terms('Since Fabric Co is MSME we pay in 30 days'), { partyName: 'Fabric Co', msme: true, days: 30 });
   assert.deepEqual(terms('As Acme Steel is MSME, pay within 30 days'), { partyName: 'Acme Steel', msme: true, days: 30 });
   for (const sentence of ['mark all suppliers as MSME', 'mark Fabric Co as MSME and Acme Steel as MSME', 'all vendors are MSME']) {
@@ -229,7 +237,7 @@ test('routing-8: the audit trail reads the dates, the financial year and the day
   assert.deepEqual(audit('audit trail after 2026-10-15'), { from: '2026-10-16' });
   assert.deepEqual(audit('audit trail everything since 2026-10-01'), { from: '2026-10-01', view: 'all' });
   assert.deepEqual(audit('audit trail for 2026-10'), { period: '2026-10' }, 'a month still goes as a period');
-  assert.deepEqual(audit('audit trail for October'), { period: saidPeriod('October') });
+  assert.deepEqual(audit('audit trail for October'), { period: namedMonthOf('October') });
   assert.deepEqual(audit('audit trail last month'), { period: 'last-month' });
   assert.deepEqual(audit('audit trail for this year'), { period: 'this-year' });
   assert.deepEqual(audit('audit trail'), {});
@@ -429,9 +437,12 @@ test('IMS chat: a sentence about rows that are not matched never selects the mat
   ];
   for (const sentence of negative) {
     const out = plan(state, sentence);
-    assert.equal(out.kind, 'tool', `${sentence} -> ${JSON.stringify(out)}`);
-    assert.equal(out.name, 'ims_review', sentence);
-    assert.deepEqual(out.args, { period: '2026-10' }, sentence);
+    assert.equal(out.kind, 'reply', `${sentence} -> ${JSON.stringify(out)}`);
+    assert.match(out.reply, /^I have changed nothing in IMS\./, sentence);
+    assert.deepEqual(out.tools, [], sentence);
+    const said = await chat(state, sentence);
+    assert.notEqual(said.awaitingConfirmation, true, `${sentence}: ${said.reply}`);
+    assert.deepEqual(state.imsDecisions ?? {}, {}, `${sentence} decided nothing`);
   }
   assert.deepEqual(toolArgs(state, 'reject all matched invoices in ims for 2026-10', 'ims_decide'), { period: '2026-10', select: 'matched', decision: 'reject' });
   assert.deepEqual(toolArgs(state, 'accept all matched invoices in ims for 2026-10', 'ims_decide'), { period: '2026-10', select: 'matched', decision: 'accept' });
@@ -440,16 +451,23 @@ test('IMS chat: a sentence about rows that are not matched never selects the mat
 test('IMS chat: only a real return period is taken as the month, and a date or a financial year is not an amount', async () => {
   const state = await books();
   const decide = (sentence) => toolArgs(state, sentence, 'ims_decide');
-  assert.deepEqual(decide('accept all matched invoices in ims for FY 2026-27'), { period: '2026-10', select: 'matched', decision: 'accept' });
-  assert.deepEqual(decide('accept all matched invoices in ims for 2026-13'), { period: '2026-10', select: 'matched', decision: 'accept' });
-  assert.deepEqual(decide('accept all matched invoices in ims for FY 25-26'), { period: '2026-10', select: 'matched', decision: 'accept' });
+  const asksTheMonth = (sentence) => {
+    const out = plan(state, sentence);
+    assert.equal(out.kind, 'reply', `${sentence} -> ${JSON.stringify(out)}`);
+    assert.match(out.reply, /changed nothing in IMS/, sentence);
+    assert.match(out.reply, /Say the month/, sentence);
+    assert.deepEqual(out.tools, [], sentence);
+  };
+  asksTheMonth('accept all matched invoices in ims for FY 2026-27');
+  asksTheMonth('accept all matched invoices in ims for 2026-13');
+  asksTheMonth('accept all matched invoices in ims for FY 25-26');
   assert.deepEqual(decide('accept all matched invoices in ims for 2026-09'), { period: '2026-09', select: 'matched', decision: 'accept' });
-  const october = saidPeriod('october');
+  const october = namedMonthOf('october');
   assert.deepEqual(decide('accept all matched invoices in ims for 15 october'), { period: october, select: 'matched', decision: 'accept' });
   assert.deepEqual(decide('accept all matched invoices in ims for october 15'), { period: october, select: 'matched', decision: 'accept' });
   assert.deepEqual(decide('accept all matched invoices in ims for 15th of october'), { period: october, select: 'matched', decision: 'accept' });
   assert.deepEqual(toolArgs(state, 'ims for 15 october', 'ims_review'), { period: october });
-  assert.deepEqual(toolArgs(state, 'ims for FY 2026-27', 'ims_review'), { period: '2026-10' });
+  asksTheMonth('ims for FY 2026-27');
   assert.equal(plan(state, 'invoice IMS Traders 5000 GST 18%').name, 'create_invoice', 'an amount still means a posting');
   assert.equal(plan(state, 'paid 3000 to IMS Traders').name !== 'ims_review', true);
 });
@@ -613,7 +631,7 @@ test('routing-8 (repair): an audit range that is said in a way that cannot be re
     'audit trail tomorrow',
     'audit trail for the 1st',
   ];
-  unreadable.push('audit trail for october of last year', 'audit trail two months ago', 'audit trail for the month before last', 'audit trail for sept', 'audit trail for last month and this month', 'audit trail for the financial year ending 31 march 2026', 'audit trail for the financial year', 'audit trail for the calendar year', 'audit trail for assessment year', 'audit trail from 5 to 20 october 2026', 'audit trail between 5 and 20 october 2026', 'audit trail for two weeks', 'audit trail for the three days', 'audit trail for a few days', 'audit trail for a couple of months');
+  unreadable.push('audit trail for october of last year', 'audit trail two months ago', 'audit trail for the month before last', 'audit trail for last month and this month', 'audit trail for the financial year ending 31 march 2026', 'audit trail for the financial year', 'audit trail for the calendar year', 'audit trail for assessment year', 'audit trail from 5 to 20 october 2026', 'audit trail between 5 and 20 october 2026', 'audit trail for two weeks', 'audit trail for the three days', 'audit trail for a few days', 'audit trail for a couple of months');
   for (const sentence of unreadable) {
     const out = plan(state, sentence);
     assert.equal(out.kind, 'reply', `${sentence} -> ${JSON.stringify(out)}`);
@@ -639,7 +657,8 @@ test('routing-8 (repair): an audit range that is said in a way that cannot be re
   assert.deepEqual(audit('May I see the audit trail?'), {}, 'a modal "may" is not the month');
   assert.deepEqual(audit('we may want the audit trail'), {});
   assert.deepEqual(audit('who changed what, may I ask?'), {});
-  assert.deepEqual(audit('audit trail for may'), { period: saidPeriod('may') }, 'the month is still the month');
+  assert.deepEqual(audit('audit trail for may'), { period: namedMonthOf('may') }, 'the month is still the month');
+  assert.deepEqual(audit('audit trail for sept'), { period: namedMonthOf('sept') }, 'sept is September, as it is for the other short names');
   assert.deepEqual(audit('audit trail for May 2026'), { period: '2026-05' });
 });
 
@@ -819,5 +838,11 @@ test('routing-7 (repair): a malformed Udyam number is answered wherever it is wr
   assert.equal(refused.awaitingConfirmation, undefined);
   assert.equal(refused.blocked, true);
   assert.equal(refused.reply, DAYS_FORM);
-  assert.deepEqual(terms('Fabric Co is MSME, 1000 days'), { partyName: 'Fabric Co', msme: true, days: 1000 }, 'four digits go on to the engine, which refuses them in its own words');
+  for (const days of [366, 1000, 9999]) {
+    const out = plan(state, `Fabric Co is MSME, ${days} days`);
+    assert.equal(out.kind, 'reply', `${days} days -> ${JSON.stringify(out)}`);
+    assert.equal(out.reply, DAYS_FORM, `${days} days: any value above 365 gets the days rule`);
+    assert.equal(out.blocked, true);
+    assert.deepEqual(out.tools, []);
+  }
 });
