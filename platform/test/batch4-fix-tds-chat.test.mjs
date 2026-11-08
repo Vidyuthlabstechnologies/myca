@@ -162,7 +162,7 @@ test('routing-1: those sentences never get the GST-rate demand or the TDS thresh
   assert.deepEqual(receiptsOf(state, 'INV-0001'), []);
   const done = await chat(state, 'yes');
   assert.equal(done.posted, true, done.reply);
-  assert.equal(done.reply, 'Recorded TDS of ₹1,000.00 withheld on INV-0001; ₹99,000.00 still owed.');
+  assert.equal(done.reply, 'Recorded TDS of ₹1,000.00 withheld on INV-0001, dated 1 Oct 2026; ₹99,000.00 still owed.');
   assert.deepEqual(receiptsOf(state, 'INV-0001').map((receipt) => [receipt.mode, receipt.amount, receipt.section]), [['tds', 1000, '194C']]);
 
   const dated = await chat(state, 'INV-0002 tds withheld 500 dated 2026-10-15 under 194C');
@@ -219,7 +219,7 @@ test('routing-1: a statement that there was no TDS never plans an entry, an amou
   for (const sentence of ['received 98000 against INV-0001 and no tds was cut', 'no tds withheld on INV-0001', 'customer did not deduct tds on INV-0001 5000', 'tds not deducted on INV-0001 2000', 'INV-0001 paid 100000, tds nil', 'received 98000 against INV-0001, tds 2000 not deducted', 'INV-0001 tds was not withheld 500']) {
     for (const plan of [direct(state, sentence), viaChatPlanner(state, sentence)]) {
       assert.notEqual(plan.name, 'record_tds_withheld', `${sentence}: ${JSON.stringify(plan)}`);
-      assert.doesNotMatch(String(plan.reply || ''), /first say "record tds withheld/, sentence);
+      assert.doesNotMatch(String(plan.reply || ''), /then say "record tds withheld/, sentence);
     }
   }
   assert.deepEqual(direct(state, 'tds withheld 195k on INV-0001 under 194J').args, { invoiceId: 'INV-0001', amount: 195000, section: '194J' });
@@ -320,9 +320,9 @@ test('routing-11: a receipt that also carries TDS plans nothing and says the two
   for (const [sentence, tds, cash, invoice] of cases) {
     for (const plan of [direct(state, sentence), viaChatPlanner(state, sentence)]) {
       assert.equal(plan.kind, 'reply', `${sentence}: ${JSON.stringify(plan)}`);
-      assert.match(plan.reply, new RegExp(`first say "record tds withheld ${tds} on ${invoice} under 194J"`), sentence);
+      assert.match(plan.reply, new RegExp(`then say "record tds withheld ${tds} on ${invoice} under 194J"`), sentence);
       assert.match(plan.reply, /section on the TDS certificate/, sentence);
-      assert.match(plan.reply, new RegExp(`then say "received ${cash} against ${invoice}"`), sentence);
+      assert.match(plan.reply, new RegExp(`first say "received ${cash} against ${invoice}"`), sentence);
       assert.match(plan.reply, /recorded nothing/, sentence);
     }
     const out = await chat(state, sentence);
@@ -339,20 +339,20 @@ test('routing-11: a receipt that says "net of tds" or "after tds" without an amo
   for (const sentence of ['received 98000 against INV-0001 net of tds', 'received 98000 for INV-0001 after tds', 'record receipt for INV-0001 after tds']) {
     const plan = direct(state, sentence);
     assert.equal(plan.kind, 'reply', `${sentence}: ${JSON.stringify(plan)}`);
-    assert.match(plan.reply, /first say "record tds withheld \d+ on INV-0001 under 194J"/, sentence);
-    assert.match(plan.reply, /then say "received /, sentence);
+    assert.match(plan.reply, /then say "record tds withheld \d+ on INV-0001 under 194J"/, sentence);
+    assert.match(plan.reply, /first say "received /, sentence);
     assert.match(plan.reply, /against INV-0001"/, sentence);
   }
-  assert.match(direct(state, 'received 98000 against INV-0001 net of tds').reply, /then say "received 98000 against INV-0001"/);
+  assert.match(direct(state, 'received 98000 against INV-0001 net of tds').reply, /first say "received 98000 against INV-0001"/);
   assert.match(direct(state, 'received 98000 against INV-0001 net of tds').reply, /\(use the TDS amount and the section on the TDS certificate\)/);
   assert.match(direct(state, 'received 98000 against INV-0001 after tds of 2000').reply, /\(use the section on the TDS certificate\)/);
   assert.match(direct(state, 'got 9000 after 1000 tds').reply, /\(use the invoice it belongs to and the section on the TDS certificate\)/);
   assert.match(direct(state, 'got 9000 after tds').reply, /\(use the invoice it belongs to, the TDS amount and the section on the TDS certificate\)/);
-  assert.match(direct(state, 'received 98000 on INV-0001 after tds of 2000 under 194C').reply, /first say "record tds withheld 2000 on INV-0001 under 194C"/);
+  assert.match(direct(state, 'received 98000 on INV-0001 after tds of 2000 under 194C').reply, /then say "record tds withheld 2000 on INV-0001 under 194C"/);
   const single = direct(state, 'received 9000 from Delta Projects after 1000 tds');
   assert.equal(single.kind, 'reply', JSON.stringify(single));
-  assert.match(single.reply, /first say "record tds withheld 1000 on INV-0003 under 194J"/);
-  assert.match(single.reply, /then say "received 9000 against INV-0003"/);
+  assert.match(single.reply, /then say "record tds withheld 1000 on INV-0003 under 194J"/);
+  assert.match(single.reply, /first say "received 9000 against INV-0003"/);
   const several = direct(state, 'Kiran Stores paid 9000 less tds');
   assert.equal(several.kind, 'reply', JSON.stringify(several));
   assert.match(several.reply, /record tds withheld \d+ on INV-0001 under 194J/);
@@ -364,11 +364,11 @@ test('routing-11: receipts without TDS, receipts that say there is none, and pay
   assert.deepEqual([plain.name, plain.args.invoiceId, plain.args.amount], ['record_receipt', 'INV-0001', 98000]);
   const none = direct(state, 'received 98000 against INV-0001, no tds');
   assert.deepEqual([none.name, none.args.invoiceId, none.args.amount], ['record_receipt', 'INV-0001', 98000]);
-  assert.doesNotMatch(String(direct(state, 'received 98000 against INV-0001 without tds').reply || ''), /first say "record tds withheld/);
+  assert.doesNotMatch(String(direct(state, 'received 98000 against INV-0001 without tds').reply || ''), /then say "record tds withheld/);
   assert.equal(direct(state, 'received 5000 from Delta Projects').name, 'record_receipt');
   assert.notEqual(direct(state, 'paid Fabric Co 5000 less tds 194C').kind, 'reply');
   assert.notEqual(direct(state, 'paid 5000 to Acme Steel after tds').kind, 'reply');
-  assert.doesNotMatch(String(direct(state, 'received the tds certificate from Kiran Stores').reply || ''), /first say "record tds withheld/);
+  assert.doesNotMatch(String(direct(state, 'received the tds certificate from Kiran Stores').reply || ''), /then say "record tds withheld/);
 });
 
 test('routing-9: natural ways of asking for the Form 26AS check reach it, and only a sentence that starts with an import command is an import', async () => {
@@ -546,7 +546,7 @@ test('routing-12: TDS withheld on US books is turned down when it is previewed, 
   const india = books();
   const fine = previewOf(india, 'record_tds_withheld', { invoiceId: 'INV-0001', amount: 2000, section: '194J' });
   assert.deepEqual(fine.blockers, []);
-  assert.equal(fine.summary, 'TDS of ₹2,000.00 withheld by Kiran Stores on INV-0001 (section 194J)');
+  assert.equal(fine.summary, 'TDS of ₹2,000.00 withheld by Kiran Stores on INV-0001 (section 194J), dated 1 Oct 2026');
 });
 
 function booksWithSuppliers() {
@@ -564,12 +564,12 @@ function booksWithSuppliers() {
 }
 
 function stepsOf(reply) {
-  const first = /first say "record tds withheld (\S+) on (\S+) under (\S+)"/.exec(String(reply || ''));
-  const then = /then say "received (\S+) against (\S+)"/.exec(String(reply || ''));
-  return first && then ? { tds: first[1], invoice: first[2], section: first[3], cash: then[1], cashInvoice: then[2] } : null;
+  const first = /first say "received (\S+) against (\S+)"/.exec(String(reply || ''));
+  const then = /then say "record tds withheld (\S+) on (\S+) under (\S+)"/.exec(String(reply || ''));
+  return first && then ? { tds: then[1], invoice: then[2], section: then[3], cash: first[1], cashInvoice: first[2] } : null;
 }
 
-const TWO_STEP_OR_ASK = /first say "record tds withheld|Say the invoice number|Say how much TDS was withheld|Say one invoice at a time|Say the date as/;
+const TWO_STEP_OR_ASK = /first say "received|Say the invoice number|Say how much TDS was withheld|Say one invoice at a time|Say the date as/;
 
 function assertSteps(plan, sentence, { tds, cash, invoice }) {
   assert.equal(plan.kind, 'reply', `${sentence}: ${JSON.stringify(plan)}`);
@@ -1012,7 +1012,7 @@ test('gap 9 (routing-12, routing-11): on US books a customer TDS sentence is ans
       assert.equal(plan.kind === 'reply' || plan.name === 'record_tds_withheld', true, `${sentence}: ${JSON.stringify(plan)}`);
       if (plan.kind === 'reply') {
         assert.match(plan.reply, india, sentence);
-        assert.doesNotMatch(plan.reply, /first say "record tds withheld|Say the invoice number|Say how much TDS/, sentence);
+        assert.doesNotMatch(plan.reply, /first say "received|Say the invoice number|Say how much TDS/, sentence);
       }
     }
     const out = await chat(state, sentence);

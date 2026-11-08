@@ -242,13 +242,19 @@ export function sectionWords(bySection) {
 export function plan26asCredits(state, args = {}) {
   const parsed = parse26asCredits(args.csv || '');
   if (!parsed.ok) return { ok: false, error: parsed.error, parsed };
-  const existing = new Set((state.tdsCreditStatements || []).map(statementKey));
+  const stored = new Map();
+  for (const row of state.tdsCreditStatements || []) {
+    const key = statementKey(row);
+    stored.set(key, (stored.get(key) || 0) + 1);
+  }
+  const seen = new Map();
   const ready = [];
   const skipped = parsed.held.map((row) => ({ id: `row ${row.row}`, reason: row.reason }));
   for (const line of parsed.lines) {
     const key = statementKey(line);
-    if (existing.has(key)) { skipped.push({ id: `${line.tan} ${line.date}`, reason: 'exists' }); continue; }
-    existing.add(key);
+    const nth = (seen.get(key) || 0) + 1;
+    seen.set(key, nth);
+    if (nth <= (stored.get(key) || 0)) { skipped.push({ id: `${line.tan} ${line.date}`, reason: 'exists' }); continue; }
     if (line.section !== '194O') { ready.push({ ...line, channel: '', unknownDeductor: false }); continue; }
     const channel = channelOfDeductor(state, line);
     ready.push({ ...line, channel: channel || 'marketplace', unknownDeductor: !channel });

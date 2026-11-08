@@ -418,7 +418,7 @@ function fmtToolResultCore(name, result) {
     const withheld = (i.receipts || []).filter(isTdsReceipt).reduce((sum, receipt) => sum + Number(receipt.amount || 0), 0);
     return `Recorded ${money(last.amount)} received from ${i.partyName} by ${last.mode || 'bank'} on ${last.date} against ${i.id}. ${i.status === 'paid' ? `${i.id} is paid in full.` : `${money(received)} of ${money(i.total)} received so far${withheld ? ` (plus ${money(withheld)} TDS withheld)` : ''}.`}`;
   }
-  if (name === 'record_tds_withheld' && result.receipt) return `Recorded TDS of ${money(result.receipt.amount)} withheld on ${result.invoice.id}; ${money(result.remaining)} still owed.`;
+  if (name === 'record_tds_withheld' && result.receipt) return `Recorded TDS of ${money(result.receipt.amount)} withheld on ${result.invoice.id}${result.dateWords ? `, dated ${result.dateWords}` : ''}; ${money(result.remaining)} still owed.`;
   if (name === 'post_expense' && result.expense) {
     const e = result.expense;
     return `Posted ${e.id}: ${money(e.amount)} ${e.description ? `for ${e.description} ` : ''}from ${e.mode === 'cash' ? 'cash' : 'the bank'} on ${e.date}, under ${e.headName}.${e.inputCredit ? ` Input credit ${money((e.cgst || 0) + (e.sgst || 0) + (e.igst || 0))}.` : ''}${e.tds?.amount ? ` ${money(e.tds.amount)} TDS under ${e.tds.section} held back; ${money(e.amount - e.tds.amount)} paid.` : ''}`;

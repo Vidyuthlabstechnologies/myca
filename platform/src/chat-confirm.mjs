@@ -1720,13 +1720,13 @@ function tdsWithheldPreview(state, args) {
   const plan = planTdsWithheld(state, args);
   if (!plan.ok) {
     const invoice = (state.invoices || []).find((item) => item.id === String(args.invoiceId || '').trim().toUpperCase());
-    const detail = plan.error === 'OVERPAYMENT' ? ` ${money(plan.due)} is owed on ${plan.invoiceId}.` : '';
+    const detail = plan.error === 'OVERPAYMENT' ? ` ${money(plan.due)} is owed on ${plan.invoiceId}.` : plan.error === 'PERIOD_LOCKED' ? ` It would be dated ${plan.dateWords}.` : '';
     return { blockers: [`${TDS_WITHHELD_REASONS[plan.error] || plan.error}${detail}`], summary: invoice ? `TDS withheld by ${invoice.partyName} on ${invoice.id}.` : `No invoice ${args.invoiceId}.`, effects: [], figures: {} };
   }
-  const { invoice, amount, section, remaining } = plan;
+  const { invoice, amount, section, remaining, dateWords } = plan;
   return {
     blockers: [],
-    summary: `TDS of ${money(amount)} withheld by ${invoice.partyName} on ${invoice.id} (section ${section})`,
+    summary: `TDS of ${money(amount)} withheld by ${invoice.partyName} on ${invoice.id} (section ${section}), dated ${dateWords}`,
     effects: ['The invoice settles by that amount; the credit sits in TDS receivable (1160) until Form 26AS confirms it.'],
     figures: { amount, remaining },
   };

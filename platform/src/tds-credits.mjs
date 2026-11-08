@@ -10,11 +10,12 @@ const TAN = /^[A-Z]{4}[0-9]{5}[A-Z]$/;
 const MATCH_TOLERANCE = 1;
 const MAX_WORDED_ROWS = 8;
 const NAME_MIN = 4;
+const MONTH_ABBREVIATIONS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 export const TDS_RECEIVABLE_ACCOUNT = { id: 1160, code: '1160', name: 'TDS receivable (customers)', type: 'asset' };
 export const CUSTOMER_TDS_SECTIONS = ['194A', '194C', '194H', '194I', '194J', '194Q', '194O', '192', '194D', '194G', '194LA', '206AB'];
 
-export const TDS_CHECK_NOTE = 'Form 26AS lists the TDS deductors reported against your PAN. Rows not in your books usually mean a customer paid you short by TDS and the shortfall was never recorded: record it with "TDS withheld" on that invoice. AIS is not read yet.';
+export const TDS_CHECK_NOTE = 'Form 26AS lists the TDS deductors reported against your PAN. Rows not in your books usually mean a customer paid you short by TDS and the shortfall was never recorded: record it with "TDS withheld" on that invoice, using the date 26AS shows. AIS is not read yet.';
 
 export function isTdsReceipt(receipt) {
   return Boolean(receipt) && receipt.mode === 'tds';
@@ -38,6 +39,23 @@ export function tdsWithheldInFy(state, fy, today) {
   return round2(total);
 }
 
+function dateWords(iso) {
+  const [year, month, day] = String(iso).split('-').map(Number);
+  return month >= 1 && month <= 12 && day >= 1 ? `${day} ${MONTH_ABBREVIATIONS[month - 1]} ${year}` : String(iso);
+}
+
+function datesWords(dates) {
+  const days = [...new Set(dates.filter(Boolean))].sort();
+  if (!days.length) return '';
+  return days.length === 1 ? dateWords(days[0]) : `${dateWords(days[0])} to ${dateWords(days.at(-1))}`;
+}
+
+function dateNote(booksDates, statementDates) {
+  const books = datesWords(booksDates);
+  const statement = datesWords(statementDates);
+  return books && statement ? `Books date it ${books}; Form 26AS dates it ${statement}.` : '';
+}
+
 function normGstin(gstin) {
   return String(gstin || '').trim().toUpperCase();
 }
@@ -46,14 +64,20 @@ function partyOf(state, invoice) {
   return (state.parties || []).find((party) => (invoice.partyAccountId ? party.accountId === invoice.partyAccountId : party.name === invoice.partyName && normGstin(party.gstin) === normGstin(invoice.partyGstin)));
 }
 
+function defaultDate(invoice) {
+  const paid = (invoice.receipts || []).filter((receipt) => !isTdsReceipt(receipt) && receipt.date).map((receipt) => String(receipt.date)).sort().at(-1);
+  return paid || invoice.date;
+}
+
 export function planTdsWithheld(state, args = {}) {
   const invoiceId = String(args.invoiceId || '').trim().toUpperCase();
   const invoice = (state.invoices || []).find((item) => item.id === invoiceId);
   if (!invoice) return { ok: false, error: 'INVOICE_NOT_FOUND', invoiceId };
   if (invoice.status === 'cancelled') return { ok: false, error: 'INVOICE_CANCELLED', invoiceId };
-  const date = postingDate(args.date);
+  const blank = args.date == null || String(args.date).trim() === '';
+  const date = blank ? defaultDate(invoice) : postingDate(args.date);
   if (!date) return { ok: false, error: 'INVALID_DATE', date: args.date };
-  if (isPeriodLocked(state, date)) return { ok: false, error: 'PERIOD_LOCKED', date, lockThrough: state.lockThrough };
+  if (isPeriodLocked(state, date)) return { ok: false, error: 'PERIOD_LOCKED', date, dateWords: dateWords(date), lockThrough: state.lockThrough };
   const said = Number(args.amount);
   const amount = round2(said);
   if (!Number.isFinite(said) || !(amount >= 0.01)) return { ok: false, error: 'BAD_AMOUNT', amount: args.amount };
@@ -65,7 +89,7 @@ export function planTdsWithheld(state, args = {}) {
   if (amount > due + 0.01) return { ok: false, error: 'OVERPAYMENT', invoiceId, due };
   const party = partyOf(state, invoice);
   if (!party) return { ok: false, error: 'PARTY_NOT_FOUND', partyName: invoice.partyName };
-  return { ok: true, invoice, party, amount, date, section, tan, remaining: round2(Math.max(0, due - amount)) };
+  return { ok: true, invoice, party, amount, date, dateWords: dateWords(date), section, tan, remaining: round2(Math.max(0, due - amount)) };
 }
 
 function nextTransferId(state) {
@@ -92,7 +116,7 @@ export function recordTdsWithheld(state, args = {}) {
   invoice.receipts.push(receipt);
   const remaining = round2(Math.max(0, outstandingOf(state, invoice)));
   invoice.status = remaining <= 0.01 ? 'paid' : 'partial';
-  return { ok: true, invoice, receipt, remaining, posted };
+  return { ok: true, invoice, receipt, remaining, posted, dateWords: plan.dateWords };
 }
 
 function nameKey(value) {
@@ -105,9 +129,14 @@ function gramsOf(key) {
   return grams;
 }
 
-function nextOpen(list) {
+function nextOpen(list, fits) {
   while (list.at < list.rows.length && list.rows[list.at].claimed) list.at += 1;
-  return list.rows[list.at];
+  if (!fits) return list.rows[list.at];
+  for (let at = list.at; at < list.rows.length; at += 1) {
+    const row = list.rows[at];
+    if (!row.claimed && fits(row)) return row;
+  }
+  return undefined;
 }
 
 function listFor(map, key) {
@@ -115,7 +144,7 @@ function listFor(map, key) {
   return map.get(key);
 }
 
-function unclaimedIndex(rows) {
+function unclaimedIndex(rows, groupOf = (row) => row.quarter) {
   const order = new Map(rows.map((row, at) => [row, at]));
   const quarters = new Map();
   const keyOf = new Map();
@@ -126,7 +155,7 @@ function unclaimedIndex(rows) {
 
   for (const row of rows) {
     if (row.claimed || row.section === '194O' || !(row.in26as > 0)) continue;
-    const here = quarterIndex(row.quarter);
+    const here = quarterIndex(groupOf(row));
     if (row.tan) listFor(here.tans, row.tan).rows.push(row);
     const key = nameKey(row.deductor);
     if (key.length < NAME_MIN) continue;
@@ -174,18 +203,18 @@ function unclaimedIndex(rows) {
   };
 
   return {
-    byTan(quarter, tan) {
+    byTan(quarter, tan, fits) {
       const list = quarters.get(quarter)?.tans.get(tan);
-      return list ? nextOpen(list) : undefined;
+      return list ? nextOpen(list, fits) : undefined;
     },
-    byName(quarter, section, customer) {
+    byName(quarter, section, customer, fits) {
       const wanted = nameKey(customer);
       const here = quarters.get(quarter);
       if (!here || wanted.length < NAME_MIN) return undefined;
       const buckets = agreeingBuckets(here, wanted);
       let best;
       const consider = (list) => {
-        const row = list ? nextOpen(list) : undefined;
+        const row = list ? nextOpen(list, fits) : undefined;
         if (row && (!best || order.get(row) < order.get(best))) best = row;
       };
       for (const bucket of buckets) consider(bucket.sections.get(section));
@@ -196,7 +225,7 @@ function unclaimedIndex(rows) {
       row.claimed = true;
       const key = keyOf.get(row);
       if (key === undefined) return;
-      const here = quarters.get(row.quarter);
+      const here = quarters.get(groupOf(row));
       const bucket = here.exact.get(key);
       if (bucket && !nextOpen(bucket.all)) retire(here, key);
     },
@@ -210,7 +239,7 @@ function quarterOf(row) {
 function statusOf(inBooks, in26as) {
   if (inBooks < 0.005) return 'not in books';
   if (in26as < 0.005) return 'not in 26AS';
-  const gap = inBooks - in26as;
+  const gap = round2(inBooks - in26as);
   if (gap > MATCH_TOLERANCE) return 'short in 26AS';
   if (gap < -MATCH_TOLERANCE) return 'more in 26AS';
   return 'matched';
@@ -221,7 +250,7 @@ export function tdsCreditCheck(state, { fy } = {}) {
   const channels = state.channels && typeof state.channels === 'object' ? state.channels : {};
   const table = new Map();
   const rowFor = (key, seed) => {
-    if (!table.has(key)) table.set(key, { section: '', tan: '', deductor: '', customer: '', quarter: '', in26as: 0, inBooks: 0, claimed: false, ...seed });
+    if (!table.has(key)) table.set(key, { section: '', tan: '', deductor: '', customer: '', quarter: '', in26as: 0, inBooks: 0, claimed: false, asDates: [], bookDates: [], ...seed });
     return table.get(key);
   };
   const marketplaceRow = (channel, quarter) => rowFor(`194O|channel:${channel}|${quarter}`, { section: '194O', quarter, tan: channels[channel]?.tan || '', deductor: channel });
@@ -241,6 +270,7 @@ export function tdsCreditCheck(state, { fy } = {}) {
     const row = rowFor(`${section}|tan:${statement.tan}|${quarter}`, { section, quarter, tan: statement.tan });
     if (!row.deductor && statement.name) row.deductor = statement.name;
     row.in26as = round2(row.in26as + statement.taxDeducted);
+    row.asDates.push(statement.date);
   }
 
   for (const settled of marketplaceCredits(state, { fy: wanted }).data.tds) {
@@ -276,14 +306,31 @@ export function tdsCreditCheck(state, { fy } = {}) {
       if (!resolved.has(bookKey)) resolved.set(bookKey, place(section, tan, invoice.partyName, quarter));
       const row = resolved.get(bookKey);
       row.inBooks = round2(row.inBooks + Number(receipt.amount || 0));
+      row.bookDates.push(receipt.date);
       if (!row.customer && row.section !== '194O') row.customer = invoice.partyName;
+    }
+  }
+
+  const lone = [...table.entries()].filter(([, row]) => row.section !== '194O' && row.in26as < 0.005 && row.inBooks > 0);
+  if (lone.length) {
+    const earlier = (a, b) => a.quarter.localeCompare(b.quarter);
+    const spare = unclaimedIndex([...table.values()].filter((row) => !row.claimed && row.section !== '194O' && row.in26as > 0).sort(earlier), () => wanted);
+    for (const [key, books] of lone.sort(([, a], [, b]) => earlier(a, b))) {
+      const fits = (row) => row.section === books.section && Math.abs(round2(books.inBooks - row.in26as)) <= MATCH_TOLERANCE;
+      const mate = books.tan ? spare.byTan(wanted, books.tan, fits) : spare.byName(wanted, books.section, books.customer || books.deductor, fits);
+      if (!mate) continue;
+      spare.claim(mate);
+      mate.inBooks = books.inBooks;
+      mate.customer = books.customer;
+      mate.note = dateNote(books.bookDates, mate.asDates);
+      table.delete(key);
     }
   }
 
   const rows = [...table.values()].map((row) => {
     const inBooks = round2(row.inBooks);
     const in26as = round2(row.in26as);
-    return { section: row.section, tan: row.tan, deductor: row.deductor || row.customer || row.tan, customer: row.customer, quarter: row.quarter, in26as, inBooks, gap: round2(inBooks - in26as), status: statusOf(inBooks, in26as) };
+    return { section: row.section, tan: row.tan, deductor: row.deductor || row.customer || row.tan, customer: row.customer, quarter: row.quarter, in26as, inBooks, gap: round2(inBooks - in26as), status: statusOf(inBooks, in26as), ...(row.note ? { note: row.note } : {}) };
   }).sort((a, b) => a.quarter.localeCompare(b.quarter) || a.deductor.toLowerCase().localeCompare(b.deductor.toLowerCase()) || a.section.localeCompare(b.section) || a.tan.localeCompare(b.tan));
 
   const sum = (list, pick) => round2(list.reduce((total, row) => total + pick(row), 0));
