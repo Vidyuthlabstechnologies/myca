@@ -166,17 +166,47 @@ export function setActiveClient(state, clientId) {
   return { ok: true, activeClientId: id };
 }
 
+function sortedKeysJson(value) {
+  return JSON.stringify(value, (_key, item) => {
+    if (typeof item === 'bigint') return item.toString();
+    if (item === null || typeof item !== 'object' || Array.isArray(item)) return item;
+    return Object.fromEntries(Object.keys(item).sort().map((key) => [key, item[key]]));
+  });
+}
+
 export function auditEventHash(record) {
-  const metadata = JSON.stringify(record.metadata, (_key, item) => (typeof item === 'bigint' ? item.toString() : item));
-  return createHash('sha256').update([record.eventId, record.actorId, record.action, record.at, record.beforeHash, record.afterHash, metadata, record.prevHash].join('\n')).digest('hex');
+  return createHash('sha256').update([record.eventId, record.actorId, String(record.actorName || ''), record.action, record.at, record.beforeHash, record.afterHash, sortedKeysJson(record.metadata), record.prevHash].join('\n')).digest('hex');
+}
+
+function auditIdTaken(state, id) {
+  return state.auditEvents.some((row) => row && row.eventId === id);
+}
+
+const AUDIT_SEQ_CAP = 1e12;
+
+function auditIdOf(number) {
+  return `AUD-${String(number).padStart(6, '0')}`;
+}
+
+function nextAuditId(state) {
+  const counter = state.auditSeq;
+  let seq = Number.isSafeInteger(counter) && counter >= 0 && counter < AUDIT_SEQ_CAP ? counter : state.auditEvents.length;
+  let id = auditIdOf(++seq);
+  if (auditIdTaken(state, id)) {
+    const used = new Set(state.auditEvents.map((row) => row && row.eventId));
+    while (used.has(id)) id = auditIdOf(++seq);
+  }
+  state.auditSeq = seq;
+  return id;
 }
 
 export function appendAuditEvent(state, event) {
   ensureCaApiState(state);
+  if (event.eventId && auditIdTaken(state, event.eventId)) return { ok: false, error: 'DUPLICATE_ID', id: event.eventId };
   const beforeHash = event.beforeHash || stateDigest(state);
   const previous = state.auditEvents[state.auditEvents.length - 1];
   const record = {
-    eventId: event.eventId || `AUD-${String(++state.auditSeq).padStart(6, '0')}`,
+    eventId: event.eventId || nextAuditId(state),
     actorId: event.actorId || 'system',
     actorName: String(event.actorName || ''),
     clientId: event.clientId || 'SELF',
@@ -354,7 +384,8 @@ export function handleCaApi(state, method, pathname, body = {}) {
   }
 
   if (method === 'POST' && path === '/audit-events') {
-    return { ok: true, data: appendAuditEvent(state, body) };
+    const input = body && typeof body === 'object' && !Array.isArray(body) ? body : {};
+    return { ok: true, data: appendAuditEvent(state, { actorId: input.actorId, actorName: input.actorName, clientId: input.clientId, action: input.action, metadata: input.metadata }) };
   }
 
   const err = new Error('CA_API_ROUTE_NOT_FOUND');

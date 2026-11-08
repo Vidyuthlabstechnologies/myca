@@ -22,7 +22,7 @@ import { regArg } from './registrations.mjs';
 import { countryOf } from './country.mjs';
 import { rupees } from './ledger.mjs';
 import { xlsxWorkbook, sheetNames, XLSX_CONTENT_TYPE } from './xlsx.mjs';
-import { auditEventsIn, auditSheetRows, verifyAuditChain, ledgerVerdict, AUDIT_SHEET_HEADER, AUDIT_SHEET_WIDTHS } from './audit-trail.mjs';
+import { auditEventsIn, auditSheetRows, verifyAuditChain, ledgerVerdict, AUDIT_SHEET_HEADER, AUDIT_SHEET_WIDTHS, NOT_SEALED } from './audit-trail.mjs';
 
 const MONTH = /^\d{4}-(0[1-9]|1[0-2])$/;
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
@@ -483,7 +483,7 @@ function auditTrailSheets(state, args, today) {
     ['Period', range.label],
     ['Events', events.length],
     ['Changes', events.filter((event) => event.kind === 'change').length],
-    ['Log chain', chain.ok ? `verified ${chain.chained} ${chain.chained === 1 ? 'event' : 'events'}` : `broken at ${chain.at}`],
+    ['Log chain', chain.ok ? `verified ${chain.chained} ${chain.chained === 1 ? 'event' : 'events'}${chain.chained > 0 ? `; ${NOT_SEALED}` : ''}` : `broken at ${chain.at}`],
     ['Ledger chain', ledger.ok ? 'ok' : `broken at ${ledger.at ?? 'an entry'}`],
     ['Ledger last checksum', ledger.ok ? String(ledger.last) : ''],
     ['Exported at (UTC ISO)', new Date().toISOString()],

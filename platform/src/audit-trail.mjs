@@ -21,8 +21,9 @@ const CONFIRM_FAILURES = {
   TOKEN_REQUIRED: 'no confirmation code was given',
 };
 const ACRONYMS = new Map([['ims', 'IMS'], ['tds', 'TDS'], ['gst', 'GST'], ['itc', 'ITC'], ['msme', 'MSME'], ['26as', '26AS'], ['gstr1', 'GSTR-1'], ['gstr2b', 'GSTR-2B'], ['gstr3b', 'GSTR-3B'], ['gstin', 'GSTIN'], ['hsn', 'HSN'], ['tcs', 'TCS']]);
-const NOTE = 'Every change made through MyCA is listed with who made it and when. Hashes chain each event to the one before, so an edited or removed event shows as a broken chain.';
+const NOTE = 'Every change made through MyCA is listed with who made it and when. Hashes chain each event to the one before, so an edited or removed event shows as a broken chain. The seal covers who, what and when, but not which client an event is filed under. It cannot show events cut off the end of the log, or a log re-sealed by someone who can write the books.';
 const HOSTED_NOTE = ' Reads are kept in the hosted audit log, not here.';
+export const NOT_SEALED = 'the client an event is filed under is not sealed';
 
 export const AUDIT_SHEET_HEADER = ['Event', 'When (UTC)', 'Who', 'Action', 'What changed', 'Records', 'Transfers', 'Books digest before', 'Books digest after', 'Chained'];
 export const AUDIT_SHEET_WIDTHS = [12, 26, 20, 26, 60, 28, 24, 40, 40, 10];
@@ -44,18 +45,23 @@ function tidy(text) {
   return text.replace(/\s+/g, ' ').trim();
 }
 
+function placeOf(event, index) {
+  return isRecord(event) && event.eventId ? String(event.eventId) : `entry ${index + 1}`;
+}
+
 export function verifyAuditChain(state) {
   const events = Array.isArray(state && state.auditEvents) ? state.auditEvents : [];
   let chained = 0;
   let unchained = 0;
   let expected = '';
-  for (const event of events) {
+  for (let index = 0; index < events.length; index += 1) {
+    const event = events[index];
+    const at = placeOf(event, index);
     if (!isRecord(event) || !event.hash) {
+      if (chained > 0) return { ok: false, error: 'LINK_BROKEN', at, chained, unchained };
       unchained += 1;
-      expected = '';
       continue;
     }
-    const at = String(event.eventId || '');
     if (event.hash !== auditEventHash(event)) return { ok: false, error: 'HASH_MISMATCH', at, chained, unchained };
     if ((event.prevHash || '') !== expected) return { ok: false, error: 'LINK_BROKEN', at, chained, unchained };
     expected = event.hash;
@@ -265,7 +271,8 @@ export function auditTrailWords(data) {
   const total = Math.max(Number.isFinite(data.total) ? data.total : count, count);
   const chain = data.chain || {};
   const head = data.view === 'all' ? `${count} ${plural(count, 'event', 'events')}` : `${count} ${plural(count, 'change', 'changes')} between ${data.from} and ${data.to}`;
-  const verdict = chain.ok === false ? `LOG CHAIN BROKEN at ${chain.at}` : `log chain verified (${chain.chained || 0} ${plural(chain.chained, 'event', 'events')})`;
+  const caveat = chain.chained > 0 ? `; ${NOT_SEALED}` : '';
+  const verdict = chain.ok === false ? `LOG CHAIN BROKEN at ${chain.at}` : `log chain verified (${chain.chained || 0} ${plural(chain.chained, 'event', 'events')}${caveat})`;
   const lines = [`${head}, ${verdict}`];
   const shown = events.slice().reverse().slice(0, 10);
   for (const event of shown) {

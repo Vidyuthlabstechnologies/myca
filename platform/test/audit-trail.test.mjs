@@ -21,7 +21,7 @@ const OWNER = { userId: 'USR-OWNER', role: 'admin', name: 'Asha' };
 const STAFF = { userId: 'USR-STAFF', role: 'staff', name: 'Ravi' };
 const SALE = { partyName: 'Kiran Stores', partyGstin: '', lines: [{ description: 'Supply', qty: 1, rate: 8000, gstRate: 18 }] };
 const EVERYTHING = { from: '2000-01-01', to: '2100-12-31' };
-const NOTE = 'Every change made through MyCA is listed with who made it and when. Hashes chain each event to the one before, so an edited or removed event shows as a broken chain.';
+const NOTE = 'Every change made through MyCA is listed with who made it and when. Hashes chain each event to the one before, so an edited or removed event shows as a broken chain. The seal covers who, what and when, but not which client an event is filed under. It cannot show events cut off the end of the log, or a log re-sealed by someone who can write the books.';
 
 function open() {
   return openSession(createMemoryStores(), { seed: false });
@@ -143,7 +143,7 @@ test('every event names who made it and is chained to the one before; the chain 
 test('the hash covers the event but not the client id, which a client rename remaps', () => {
   const state = createState();
   const first = appendAuditEvent(state, { actorId: 'USR-OWNER', actorName: 'Asha', action: 'tool.set_company', at: '2026-10-05T09:00:00.000Z', beforeHash: 'a', afterHash: 'b', metadata: { ok: true, args: ['name'] } });
-  const expected = createHash('sha256').update([first.eventId, first.actorId, first.action, first.at, first.beforeHash, first.afterHash, JSON.stringify(first.metadata), ''].join('\n')).digest('hex');
+  const expected = createHash('sha256').update([first.eventId, first.actorId, first.actorName, first.action, first.at, first.beforeHash, first.afterHash, '{"args":["name"],"ok":true}', ''].join('\n')).digest('hex');
   assert.equal(first.hash, expected);
   assert.equal(first.prevHash, '');
   assert.equal(first.actorName, 'Asha');
@@ -582,13 +582,13 @@ test('in words: the count, the chain verdict, the newest ten lines and what was 
   const event = (n, extra = {}) => ({ at: `2026-10-${String(n).padStart(2, '0')}T${String(n).padStart(2, '0')}:05:30.000Z`, actorId: `USR-${n}`, actorName: '', summary: `Change ${n}`, ...extra });
   const base = { from: '2026-10-01', to: '2026-10-31', view: 'changes', chain: { ok: true, chained: 12, unchained: 0 }, more: false };
   assert.equal(auditTrailWords({ ...base, count: 2, total: 2, events: [event(5, { actorName: 'Asha' }), event(6)] }), [
-    '2 changes between 2026-10-01 and 2026-10-31, log chain verified (12 events)',
+    '2 changes between 2026-10-01 and 2026-10-31, log chain verified (12 events; the client an event is filed under is not sealed)',
     '· 2026-10-06 06:05 USR-6: Change 6',
     '· 2026-10-05 05:05 Asha: Change 5',
   ].join('\n'));
-  assert.equal(auditTrailWords({ ...base, count: 1, total: 1, chain: { ok: true, chained: 1 }, events: [event(5)] }).split('\n')[0], '1 change between 2026-10-01 and 2026-10-31, log chain verified (1 event)');
-  assert.equal(auditTrailWords({ ...base, view: 'all', count: 0, total: 0, events: [] }), '0 events, log chain verified (12 events)');
-  assert.equal(auditTrailWords({ ...base, view: 'all', count: 1, total: 1, events: [event(5)] }).split('\n')[0], '1 event, log chain verified (12 events)');
+  assert.equal(auditTrailWords({ ...base, count: 1, total: 1, chain: { ok: true, chained: 1 }, events: [event(5)] }).split('\n')[0], '1 change between 2026-10-01 and 2026-10-31, log chain verified (1 event; the client an event is filed under is not sealed)');
+  assert.equal(auditTrailWords({ ...base, view: 'all', count: 0, total: 0, events: [] }), '0 events, log chain verified (12 events; the client an event is filed under is not sealed)');
+  assert.equal(auditTrailWords({ ...base, view: 'all', count: 1, total: 1, events: [event(5)] }).split('\n')[0], '1 event, log chain verified (12 events; the client an event is filed under is not sealed)');
   const many = Array.from({ length: 14 }, (_, n) => event(n + 1));
   const crowded = auditTrailWords({ ...base, count: 14, total: 14, events: many }).split('\n');
   assert.equal(crowded.length, 12);
@@ -641,7 +641,7 @@ test('the Excel report lists every event, the day book entries and a summary tha
   assert.equal(summary.get('Period'), '2000-01-01 to 2100-12-31');
   assert.equal(summary.get('Events'), expectedEvents.length);
   assert.equal(summary.get('Changes'), 4);
-  assert.equal(summary.get('Log chain'), `verified ${expectedEvents.length} events`);
+  assert.equal(summary.get('Log chain'), `verified ${expectedEvents.length} events; the client an event is filed under is not sealed`);
   assert.equal(summary.get('Ledger chain'), 'ok');
   assert.equal(summary.get('Ledger last checksum'), String(s.state.ledger.lastChecksum));
   assert.match(summary.get('Exported at (UTC ISO)'), /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);

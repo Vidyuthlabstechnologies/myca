@@ -345,6 +345,11 @@ export function openSession(target = defaultDataPath(), { seed = false } = {}) {
           if (activeOnDefaultPin) return { ok: false, error: 'PIN_CHANGE_REQUIRED', hint: PIN_CHANGE_HINT };
           request = { ...body, actorId: actor.userId };
         }
+        if (method === 'POST' && (String(pathname || '').replace(/^\/api\/ca/, '') || '/') === '/audit-events') {
+          const actor = currentActor();
+          if (!actor) return { ok: false, error: 'SIGN_IN_REQUIRED', hint: 'Sign in with your user id and PIN first, so the entry is recorded under your name.' };
+          request = { ...body, actorId: actor.userId, actorName: actor.name || '' };
+        }
         const out = handleCaApi(state, method, pathname, request);
         saveBooks();
         return out;
