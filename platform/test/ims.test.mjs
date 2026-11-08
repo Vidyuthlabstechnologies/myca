@@ -439,7 +439,7 @@ test('chat: a review, a bulk decision and an Excel request each reach their own 
   await runTool(state, 'import_gstr2b', { period: '2026-08', csv: TWO_B });
   assert.deepEqual(plan('ims'), { kind: 'tool', name: 'ims_review', args: { period: '2026-08' } }, 'the latest month with a 2B');
   assert.deepEqual(plan('accept all matched invoices in ims').args, { period: '2026-08', select: 'matched', decision: 'accept' });
-  assert.deepEqual(plan('ims for july').args, { period: `${localToday().slice(0, 4) - (localToday().slice(5, 7) > '07' ? 0 : 1)}-07` });
+  assert.deepEqual(plan('ims for july').args, { period: `${localToday().slice(0, 4) - (localToday().slice(5, 7) >= '07' ? 0 : 1)}-07` });
 });
 
 test('chat: the IMS words do not take over a posting sentence, a US business, or a sentence about rows that are not matched', async () => {
@@ -452,11 +452,18 @@ test('chat: the IMS words do not take over a posting sentence, a US business, or
   state.parties.push({ name: 'IMS Traders' });
   assert.equal(ims('paid IMS Traders in full'), false, 'a customer or supplier called IMS is theirs');
   assert.equal(ims('ims in full'), true);
-  assert.deepEqual(plan('reject all not matched invoices in ims for 2026-10'), { kind: 'tool', name: 'ims_review', args: { period: '2026-10' } }, 'never the opposite rows');
-  assert.equal(plan('accept all unmatched invoices in ims').name, 'ims_review');
+  const nothingChanged = (sentence) => {
+    const out = plan(sentence);
+    assert.equal(out.kind, 'reply', `${sentence} -> ${JSON.stringify(out)}`);
+    assert.equal(out.name, undefined, 'no decision is planned');
+    assert.match(out.reply, /^I have changed nothing in IMS\./, sentence);
+    assert.deepEqual(out.tools, [], sentence);
+  };
+  nothingChanged('reject all not matched invoices in ims for 2026-10');
+  nothingChanged('accept all unmatched invoices in ims');
   assert.deepEqual(plan('accept all not decided invoices in ims for 2026-10').args, { period: '2026-10', select: 'undecided', decision: 'accept' });
   assert.deepEqual(plan('mark all matched invoices in ims as accepted for 2026-10').args, { period: '2026-10', select: 'matched', decision: 'accept' });
-  assert.equal(plan('accept the invoices in ims').name, 'ims_review', 'a decision with no rows named only looks');
+  nothingChanged('accept the invoices in ims');
   const today = localToday();
   const [year, month] = today.split('-').map(Number);
   assert.deepEqual(plan('ims for this month').args, { period: today.slice(0, 7) });
