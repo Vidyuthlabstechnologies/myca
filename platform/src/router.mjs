@@ -191,6 +191,9 @@ const FAILURES = {
   TOO_MANY_ROWS: () => 'IMS takes up to 500 invoices in one go; pick fewer, or decide in parts.',
   NOTE_TOO_LONG: () => 'Keep the note to 200 characters or fewer.',
   NOT_FOR_COUNTRY: () => 'That is for a different country edition, so nothing was changed.',
+  JURISDICTION_REQUIRED: () => 'Say which sales tax applies (the jurisdiction code, for example TX or TX-AUSTIN), or that the sale is exempt and why. I will not guess a rate.',
+  EXEMPTION_REASON_REQUIRED: () => 'Say why this sale is exempt from sales tax (for example a resale certificate on file).',
+  RATE_UNKNOWN: (r) => `There is no sales tax rate recorded for ${r.code || 'that jurisdiction'} on ${r.date || 'that date'}. Say "sales tax rate ${r.code || 'TX'} 8.25%" first; I will not guess one.`,
   NOT_APPROVED: () => 'That month\'s payroll is not approved yet; approve it first.',
   NOT_FOUND: () => 'I could not find that in these books, so nothing was changed.',
   CLIENT_NOT_FOUND: () => 'There is no client by that id.',
@@ -231,9 +234,12 @@ function notAccepted(error) {
   return 'Some of the details were missing or not in the right form, so nothing was changed.';
 }
 
+const ENGINE_FAULT = /undefined|TypeError|ReferenceError|RangeError|SyntaxError|cannot (?:read|set|destructure|convert)\b|is not (?:a function|defined|iterable)|\[object /i;
+
 function failedInWords(code, result = {}) {
   const plain = FAILURES[code];
   if (plain) return plain(result || {});
+  if (ENGINE_FAULT.test(String(code || ''))) return 'That did not go through, so nothing was changed.';
   const words = String(code || '').toLowerCase().replace(/_/g, ' ').trim();
   return `That did not go through${words ? ` (${words})` : ''}, so nothing was changed.`;
 }

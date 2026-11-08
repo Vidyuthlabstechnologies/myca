@@ -2,7 +2,7 @@ import { isoDate, localToday } from './dates.mjs';
 const GSTIN_RE = /\b(\d{2}[A-Z]{5}\d{4}[A-Z][0-9A-Z]Z[0-9A-Z])\b/i;
 
 export function normalizeChat(text) {
-  const capped = String(text || '').slice(0, 4096).replace(/[\u2013\u2014]/g, '-');
+  const capped = String(text || '').slice(0, 4096).replace(/[\u2013\u2014]/g, '-').replace(/\s{3,}/g, (run) => (/[\n\r\u2028\u2029]/.test(run) ? '\n' : ' '));
   return (capped.includes(' - ')
     ? capped.replace(/\s+-\s+(books|itc|ap|gst input|follow).*$/i, '')
     : capped
@@ -36,6 +36,8 @@ export function isNegated(text) {
 const NUM = '(\\d[\\d,]*(?:\\.\\d+)?)';
 const MULTIPLIER = '(k|lakhs?|lacs?|cr|crores?)';
 const CURRENCY = '(?:₹|rs\\.?|inr)';
+const GLUED_CURRENCY = '(?<=(?<!\\w)(?:rs\\.?|inr))';
+const FIGURE_START = `(?:(?<![\\w.,-])|${GLUED_CURRENCY})`;
 const UNIT_WORDS = 'rolls?|pcs|pieces|units?|kgs?|nos?|boxes|bags|items?|bundles?|metres?|meters?|litres?|liters?|dozens?';
 
 const HSN_SAID = /\b(?:hsn|sac)(?:\s*code)?\s*[:#-]?\s*(\d{4,8})\b/i;
@@ -46,11 +48,11 @@ const GST_RATE_PATTERNS = [
 const PER_UNIT = new RegExp(`(?:${NUM}\\s*([a-z]{1,15})?\\s+)?(?:\\bat\\b|@|\\brate\\b|\\beach\\s+at\\b|\\beach\\b)\\s*${CURRENCY}?\\s*${NUM}\\s*${MULTIPLIER}?(?![\\d%])`, 'i');
 const QTY_WITH_UNIT = new RegExp(`${NUM}\\s*(${UNIT_WORDS})\\b`, 'i');
 const QTY_LABEL = new RegExp(`\\b(?:qty|quantity)\\s*:?\\s*${NUM}`, 'i');
-const AMOUNT = new RegExp(`${CURRENCY}?\\s*(?<![\\w.,-])${NUM}\\s*${MULTIPLIER}?(?![\\w%])`, 'gi');
+const AMOUNT = new RegExp(`${CURRENCY}?\\s*${FIGURE_START}${NUM}\\s*${MULTIPLIER}?(?![\\w%])`, 'gi');
 const NOT_AMOUNTS = /\b[a-z]{2,6}-\d+\b|\b\d{1,4}[-/]\d{1,2}[-/]\d{1,4}\b|\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\.?\s+(?:19|20)\d{2}\b|\b(?:diwali|deepavali|holi|pongal|onam|eid|christmas|navratri|dussehra|fy|year|financial\s+year)\s+(?:19|20)\d{2}\b|\b(?:19|20)\d{2}\s*-\s*(?:19|20)?\d{2}\b/gi;
-const NEGATIVE_NUMBER = /(?<![\w.,-])-\s?\d/;
+const NEGATIVE_NUMBER = new RegExp(`${FIGURE_START}-\\s?\\d`, 'i');
 const LONE_PLUS = /(?<![\w])\+(?=\d)/g;
-const NON_POSITIVE_AMOUNT = /(?<![\w.,-])(?:-\s?\d[\d,]*(?:\.\d+)?|0+(?:\.0+)?)(?![\w%.])/;
+const NON_POSITIVE_AMOUNT = new RegExp(`${FIGURE_START}(?:-\\s?\\d[\\d,]*(?:\\.\\d+)?|0+(?:\\.0+)?)(?![\\w%.])`, 'i');
 export const MAX_CHAT_AMOUNT = 1e9;
 const DOCUMENT_VERBS = 'purchase|purchased|invoice|bill|sale|sales|sold|sell|bought';
 
@@ -124,7 +126,7 @@ function takeSaidDays(text, today) {
   return { rest: `${text.slice(0, found[0].at)} ${text.slice(found[0].end)}`, days: [found[0].iso] };
 }
 
-const FIGURE_OR_CHEQUE = /(\b(?:cheque|chq|cheq)\s{0,3}\d{6,}\b)|(?<![\w.,-])\d|(?<![\w.,])-\s?\d/gi;
+const FIGURE_OR_CHEQUE = new RegExp(`(\\b(?:cheque|chq|cheq)\\s{0,3}\\d{6,}\\b)|${FIGURE_START}\\d|(?:(?<![\\w.,])|${GLUED_CURRENCY})-\\s?\\d`, 'gi');
 
 function takeReferences(text) {
   let seen = false;
@@ -229,12 +231,17 @@ export function saidNonPositiveAmount(text) {
   return nonPositive && list.length !== 1;
 }
 
-export function documentProblemReply(doc) {
+export function documentProblemReply(doc, country = 'IN') {
   if (!doc || !doc.problem) return null;
+  const abroad = country !== 'IN';
   const words = {
     NEGATIVE_NUMBER: 'A negative number cannot be part of an invoice or bill; use a credit note or a debit note for a reduction.',
-    AMOUNT_TOO_LARGE: 'That amount is larger than I will take from a chat message (the limit is ₹100 crore); enter it as a form if it is right.',
-    INVALID_DATE: `${doc.said} is not a date I can read; say it as 2026-08-15 or 15/08/2026.`,
+    AMOUNT_TOO_LARGE: abroad
+      ? 'That amount is larger than I will take from a chat message; enter it as a form if it is right.'
+      : 'That amount is larger than I will take from a chat message (the limit is ₹100 crore); enter it as a form if it is right.',
+    INVALID_DATE: abroad
+      ? `${doc.said} is not a date I can read; say it as YYYY-MM-DD, or day first as DD/MM/YYYY, for example 15/03/2026.`
+      : `${doc.said} is not a date I can read; say it as 2026-08-15 or 15/08/2026.`,
   }[doc.problem] || 'I could not read that.';
   return { kind: 'reply', reply: `${words} I have recorded nothing.`, tools: [] };
 }

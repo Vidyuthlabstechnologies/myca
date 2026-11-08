@@ -1293,6 +1293,9 @@ const QUOTE_REASONS = {
   BAD_CHALLAN_REASON: 'A delivery challan is for job work, supply on approval, line sales, an exhibition, own use or other.',
   ALREADY_CLOSED: 'That document is already closed.',
   CHALLAN_NOT_A_SALE: 'Goods sent for job work are not a sale, so this challan does not become an invoice. Mark it returned when the goods come back.',
+  JURISDICTION_REQUIRED: 'Say which sales tax applies (the jurisdiction code, for example TX or TX-AUSTIN), or that the sale is exempt and why. I will not guess a rate.',
+  EXEMPTION_REASON_REQUIRED: 'Say why this sale is exempt from sales tax (for example a resale certificate on file).',
+  RATE_UNKNOWN: 'There is no sales tax rate recorded for that jurisdiction on the quote date. Record it first, for example "sales tax rate TX 8.25%"; I will not guess one.',
 };
 
 const RECURRING_REASONS = {
@@ -1972,7 +1975,9 @@ export function previewOf(state, name, args = {}) {
   try {
     return build(state, args);
   } catch (err) {
-    return { blockers: [`I could not work out what this would do: ${String(err.message || err)}`], summary: `Run ${name}.`, effects: [], figures: {} };
+    const faults = [TypeError, ReferenceError, RangeError, SyntaxError, EvalError, URIError];
+    const said = faults.some((kind) => err instanceof kind) ? '' : String((err && err.message) || err || '');
+    return { blockers: [said ? `I could not work out what this would do: ${said}` : 'I could not work out what this would do, so nothing was posted.'], summary: `Run ${name}.`, effects: [], figures: {} };
   }
 }
 
