@@ -189,7 +189,7 @@ class _AuditTrailScreenState extends State<AuditTrailScreen> {
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
                 sliver: SliverList.list(
                   children: [
-                    Text('Who changed what and when. Every change made through MyCA is listed, with proof the log was not edited.', style: text.bodyMedium),
+                    Text('Who changed what and when. Every change made through MyCA is listed, and the log is checked for edits.', style: text.bodyMedium),
                     const SizedBox(height: 12),
                     _chips('audit.period', _periods, _period, (key) => _reload(period: key)),
                     const SizedBox(height: 8),

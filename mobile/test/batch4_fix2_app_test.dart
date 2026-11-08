@@ -322,7 +322,7 @@ void main() {
     testWidgets('the rows keep the panel look: one border around all of them, a divider between neighbours, the status line above', (tester) async {
       await phone(tester);
       await openTrail(tester, FakeMycaApi(signedIn: true));
-      expect(find.text('Log chain verified (2 events)'), findsOneWidget);
+      expect(find.text('Log chain verified (2 events; the client an event is filed under is not sealed)'), findsOneWidget);
       expect(find.byType(Divider), findsOneWidget);
       expect(find.byWidgetPredicate(panelLike), findsOneWidget);
       final first = tester.getRect(find.byKey(const ValueKey('audit.AUD-000002')));

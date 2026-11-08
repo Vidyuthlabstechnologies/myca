@@ -2933,7 +2933,7 @@ class AuditTrail {
       total: _num(data['total']).toInt(),
       more: data['more'] == true,
       chainOk: chainOk,
-      chainWords: chainOk ? 'Log chain verified ($chained ${chained == 1 ? 'event' : 'events'})' : 'Log chain broken at ${_text(chain['at'])}',
+      chainWords: chainOk ? 'Log chain verified ($chained ${chained == 1 ? 'event' : 'events'}${chained > 0 ? '; the client an event is filed under is not sealed' : ''})' : 'Log chain broken at ${_text(chain['at'])}',
       ledgerOk: _map(data['ledger'])['ok'] != false,
     );
   }
