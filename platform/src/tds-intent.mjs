@@ -29,7 +29,8 @@ const MONTH_ORDER = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'se
 const NUMERIC_DATE = /(?<![\w.,/-])(\d{4}[-/.]\d{1,2}[-/.]\d{1,2}|\d{1,2}[-/.]\d{1,2}[-/.]\d{2,4})(?![\w/-]|\.\d)/g;
 const DAY_FIRST = new RegExp(`\\b(\\d{1,2})(?:st|nd|rd|th)?(?:\\s+of)?\\s+(${MONTH_WORDS})\\b\\.?(?:,?\\s+((?:19|20)\\d{2})\\b)?`, 'gi');
 const MONTH_FIRST = new RegExp(`\\b(${MONTH_WORDS})\\b\\.?\\s+(\\d{1,2})(?:st|nd|rd|th)?\\b(?:,?\\s+((?:19|20)\\d{2})\\b)?`, 'gi');
-const RELATIVE_DAY = /\b(?:yesterday|tomorrow|day\s+before\s+yesterday|last\s+(?:week|month|mon|tue|wed|thu|fri|sat|sun)\w*|next\s+(?:week|month)|\d+\s+days?\s+ago)\b/i;
+const RELATIVE_DAY = /\b(?:yesterday|tomorrow|day\s+before\s+yesterday|last\s+(?:week|month|mon|tue|wed|thu|fri|sat|sun)\w*|this\s+(?:week|month)|next\s+(?:week|month)|\d+\s+days?\s+ago)\b/i;
+const TODAY_WORD = /\b(?:today|now|aaj)\b/i;
 
 const SECTION_ATTACHED = /(?:\b(?:u\/s|under|section|sec\.?)\s*)?(?<![\w.,-])(19[2-9]|206)-?([A-Za-z]{1,2})(?![A-Za-z0-9])(?:\([0-9A-Za-z]{1,3}\))?/gi;
 const SECTION_SPACED = /\b(?:u\/s|under|section|sec\.?)\s*(19[2-9]|206)\s+([A-Za-z])(?![A-Za-z0-9])(?:\([0-9A-Za-z]{1,3}\))?/gi;
@@ -189,7 +190,10 @@ function takeDates(text, today) {
     dates.push(namedDate(day, month, year, today));
     return ' ';
   });
-  if (!dates.length && RELATIVE_DAY.test(rest)) dates.push('');
+  if (!dates.length) {
+    if (RELATIVE_DAY.test(rest)) dates.push('');
+    else if (TODAY_WORD.test(rest)) dates.push(today);
+  }
   return { dates, rest };
 }
 
@@ -323,7 +327,7 @@ function listed(parts) {
 
 function twoSteps({ tds, cash, section, invoiceId, named }) {
   const hint = listed([...(named ? [] : ['the invoice it belongs to']), ...(tds == null ? ['the TDS amount'] : []), 'the section on the TDS certificate']);
-  return `I have recorded nothing, because a receipt that carries TDS is two entries: first say "record tds withheld ${tds == null ? 2000 : tds} on ${invoiceId} under ${section || '194J'}" (use ${hint}), then say "received ${cash == null ? 98000 : cash} against ${invoiceId}".`;
+  return `I have recorded nothing, because a receipt that carries TDS is two entries: first say "received ${cash == null ? 98000 : cash} against ${invoiceId}", then say "record tds withheld ${tds == null ? 2000 : tds} on ${invoiceId} under ${section || '194J'}" (use ${hint}). The TDS then takes the date of the receipt.`;
 }
 
 export function planReceiptWithTds(state, text) {

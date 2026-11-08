@@ -214,7 +214,7 @@ test('TDS withheld by a customer settles part of the invoice, sits in TDS receiv
   assert.deepEqual(copy.invoices[0].receipts[0], { amount: 2000, date: '2026-08-20', mode: 'tds', section: '194J', tan: 'DELD12345A' });
 });
 
-test('TDS can settle an invoice on its own, a date left out is today, and a TAN is optional', async () => {
+test('TDS can settle an invoice on its own, a date left out is the invoice date, and a TAN is optional', async () => {
   const state = books();
   await sale(state, 'Delta Projects', 2000, localToday());
   const out = await runTool(state, 'record_tds_withheld', { invoiceId: 'INV-0001', amount: 2000, section: '194C' });

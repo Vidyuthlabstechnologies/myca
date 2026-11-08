@@ -4,6 +4,8 @@ import { createState } from '../src/store.mjs';
 import { runTool } from '../src/tools.mjs';
 import { chat, fmtToolResult } from '../src/router.mjs';
 import { previewOf } from '../src/chat-confirm.mjs';
+import { planLocalToolCall } from '../src/assistant-contract.mjs';
+import { localToday } from '../src/dates.mjs';
 import { tdsCreditCheck, planTdsWithheld, tdsWithheldInFy, TDS_CHECK_NOTE } from '../src/tds-credits.mjs';
 import { advanceTax } from '../src/advance-tax.mjs';
 
@@ -375,4 +377,136 @@ test('R1-7: the examples from the review read matched, and a gap above a rupee i
   }
   const over = pairedState([[2.15, 1.14], [1.14, 2.15]]);
   assert.deepEqual(checkOf(over).rows.map((row) => [row.inBooks, row.in26as, row.status]), [[2.15, 1.14, 'short in 26AS'], [1.14, 2.15, 'more in 26AS']]);
+});
+
+function wordsOf(iso) {
+  const [year, month, day] = iso.split('-').map(Number);
+  return `${day} ${['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][month - 1]} ${year}`;
+}
+
+async function acmeBooks() {
+  const state = books();
+  const invoice = await sale(state, 'Acme Corp', 100000, '2026-08-01');
+  await received(state, { invoiceId: invoice.id, amount: 30000, mode: 'bank', date: '2026-09-10' });
+  return state;
+}
+
+test('R1-1 today: a sentence that says today, now, aaj or dated today records the day of the sentence, not the date of the receipt', async () => {
+  const today = localToday();
+  for (const sentence of [
+    'record tds withheld 2000 on INV-0001 under 194C today',
+    'record tds withheld today 2000 on INV-0001 under 194C',
+    'today the customer withheld tds 2000 on INV-0001 under 194C',
+    'record tds withheld 2000 on INV-0001 under 194C dated today',
+    'record tds withheld 2000 on INV-0001 under 194C now',
+    'now record tds withheld 2000 on INV-0001 under 194C',
+    'record tds withheld 2000 on INV-0001 under 194C aaj',
+    'INV-0001 tds withheld 2000 under 194C Today',
+  ]) {
+    const state = await acmeBooks();
+    const plan = planLocalToolCall(state, sentence);
+    assert.deepEqual([plan.kind, plan.name, plan.args], ['tool', 'record_tds_withheld', { invoiceId: 'INV-0001', amount: 2000, section: '194C', date: today }], sentence);
+    const held = await chat(state, sentence);
+    assert.equal(held.awaitingConfirmation, true, `${sentence}: ${held.reply}`);
+    assert.match(held.reply, new RegExp(`\\(section 194C\\), dated ${wordsOf(today)}`), sentence);
+    const done = await chat(state, 'yes');
+    assert.equal(done.posted, true, `${sentence}: ${done.reply}`);
+    assert.equal(done.reply, `Recorded TDS of ₹2,000.00 withheld on INV-0001, dated ${wordsOf(today)}; ₹68,000.00 still owed.`, sentence);
+    assert.equal(state.invoices[0].receipts.at(-1).date, today, sentence);
+  }
+
+  const state = await acmeBooks();
+  const plain = planLocalToolCall(state, 'record tds withheld 2000 on INV-0001 under 194C');
+  assert.deepEqual(plain.args, { invoiceId: 'INV-0001', amount: 2000, section: '194C' });
+  assert.equal(planLocalToolCall(state, 'record tds withheld 2000 on INV-0001 under 194C dated 2026-10-15 today').args.date, '2026-10-15');
+  assert.equal(planLocalToolCall(state, 'record tds withheld 2000 on INV-0001 under 194C on 7 nov 2026 now').args.date, '2026-11-07');
+  const both = planLocalToolCall(state, 'record tds withheld 2000 on INV-0001 under 194C yesterday or today');
+  assert.equal(both.kind, 'reply', JSON.stringify(both));
+  assert.match(both.reply, /Say the date as YYYY-MM-DD/);
+  const known = planLocalToolCall(state, 'record tds withheld 2000 on INV-0001 under 194C and I know the certificate is with the bank');
+  assert.deepEqual(known.args, { invoiceId: 'INV-0001', amount: 2000, section: '194C' });
+});
+
+test('R1-1 today: this week and this month name no single day, so they ask for a date like yesterday does', async () => {
+  for (const sentence of [
+    'record tds withheld 2000 on INV-0001 under 194C this week',
+    'record tds withheld 2000 on INV-0001 under 194C this month',
+    'tds withheld 500 on INV-0001 this month',
+    'this week the customer withheld tds 2000 on INV-0001 under 194C',
+    'record tds withheld 2000 on INV-0001 under 194C earlier this month',
+    'record tds withheld 2000 on INV-0001 under 194C this month, today',
+    'record tds withheld 2000 on INV-0001 under 194C THIS WEEK',
+    'record tds withheld 2000 on INV-0001 under 194C yesterday',
+    'record tds withheld 2000 on INV-0001 under 194C last month',
+  ]) {
+    const state = await acmeBooks();
+    const plan = planLocalToolCall(state, sentence);
+    assert.equal(plan.kind, 'reply', `${sentence}: ${JSON.stringify(plan)}`);
+    assert.equal(plan.reply, 'Say the date as YYYY-MM-DD, for example "record tds withheld 2000 on INV-0001 under 194J dated 2026-10-15". I have recorded nothing.', sentence);
+    const out = await chat(state, sentence);
+    assert.equal(out.awaitingConfirmation, undefined, `${sentence}: ${out.reply}`);
+    assert.deepEqual(out.tools, [], sentence);
+    assert.equal(state.invoices[0].receipts.length, 1, sentence);
+  }
+  const state = await acmeBooks();
+  assert.equal(planLocalToolCall(state, 'record tds withheld 2000 on INV-0001 under 194C dated 2026-10-15 this month').args.date, '2026-10-15');
+});
+
+test('R1-1 guidance: a receipt that carries TDS is guided as the receipt first and the TDS second, and following it dates the TDS with the receipt', async () => {
+  const today = localToday();
+  const state = books();
+  await sale(state, 'Acme Corp', 100000, '2025-03-20');
+  const ask = await chat(state, 'received 98000 on INV-0001 after tds of 2000');
+  assert.equal(ask.awaitingConfirmation, undefined, ask.reply);
+  assert.equal(ask.reply, 'I have recorded nothing, because a receipt that carries TDS is two entries: first say "received 98000 against INV-0001", then say "record tds withheld 2000 on INV-0001 under 194J" (use the section on the TDS certificate). The TDS then takes the date of the receipt.');
+  const commands = [...ask.reply.matchAll(/say "([^"]+)"/g)].map((hit) => hit[1]);
+  assert.deepEqual(commands, ['received 98000 against INV-0001', 'record tds withheld 2000 on INV-0001 under 194J']);
+  for (const command of commands) {
+    const held = await chat(state, command);
+    assert.equal(held.awaitingConfirmation, true, `${command}: ${held.reply}`);
+    const done = await chat(state, 'yes');
+    assert.equal(done.posted, true, `${command}: ${done.reply}`);
+  }
+  const [cash, tds] = state.invoices[0].receipts;
+  assert.deepEqual([cash.mode, cash.date, tds.mode, tds.date], ['bank', today, 'tds', today]);
+  assert.equal(state.invoices[0].status, 'paid');
+  await importLines(state, `194J,ACME CORP,ACME12345A,100000,2000,${today}`);
+  const d = tdsCreditCheck(state).data;
+  assert.deepEqual(d.rows.map((row) => [row.section, row.in26as, row.inBooks, row.status]), [['194J', 2000, 2000, 'matched']]);
+  assert.deepEqual(d.totals, { in26as: 2000, inBooks: 2000, gap: 0, notInBooks: 0, notIn26as: 0 });
+
+  const bare = planLocalToolCall(books(), 'got 9000 after tds');
+  assert.equal(bare.kind, 'reply', JSON.stringify(bare));
+  assert.equal(bare.reply, 'I have recorded nothing, because a receipt that carries TDS is two entries: first say "received 9000 against INV-0001", then say "record tds withheld 2000 on INV-0001 under 194J" (use the invoice it belongs to, the TDS amount and the section on the TDS certificate). The TDS then takes the date of the receipt.');
+});
+
+test('R1-1 earliest row: with two spare 26AS rows that fit one books group, the earlier quarter is lined up and the later one stays not in books', async () => {
+  for (const dates of [['2026-08-20', '2026-11-05'], ['2026-11-05', '2026-08-20']]) {
+    const state = books();
+    const invoice = await sale(state, 'Acme Corp', 100000, '2026-04-01');
+    await withheld(state, { invoiceId: invoice.id, amount: 1000, date: '2026-05-10', section: '194C', tan: 'ACME12345A' });
+    await importLines(state, ...dates.map((date) => `194C,ACME CORP,ACME12345A,50000,1000,${date}`));
+    const d = checkOf(state);
+    assert.deepEqual(brief(d), [['194C', 'ACME12345A', 'Q2 2026-27', 1000, 1000, 'matched'], ['194C', 'ACME12345A', 'Q3 2026-27', 1000, 0, 'not in books']], dates.join());
+    assert.equal(d.rows[0].note, 'Books date it 10 May 2026; Form 26AS dates it 20 Aug 2026.', dates.join());
+    assert.equal(d.rows[1].note, undefined, dates.join());
+    assert.deepEqual(d.totals, { in26as: 2000, inBooks: 1000, gap: -1000, notInBooks: 1000, notIn26as: 0 }, dates.join());
+  }
+});
+
+test('R1-1 earliest row: with no TAN in the books and two spare rows under different agreeing names, the earlier quarter is lined up', async () => {
+  for (const lines of [
+    ['194C,ACME CORP,ACME12345A,50000,1000,2026-11-05', '194C,ACME CORPORATION,ACMF12345A,50000,1000,2026-08-20'],
+    ['194C,ACME CORPORATION,ACMF12345A,50000,1000,2026-08-20', '194C,ACME CORP,ACME12345A,50000,1000,2026-11-05'],
+  ]) {
+    const state = books();
+    const invoice = await sale(state, 'Acme Corp', 100000, '2026-04-01');
+    await withheld(state, { invoiceId: invoice.id, amount: 1000, date: '2026-05-10', section: '194C' });
+    await importLines(state, ...lines);
+    const d = checkOf(state);
+    assert.deepEqual(brief(d), [['194C', 'ACMF12345A', 'Q2 2026-27', 1000, 1000, 'matched'], ['194C', 'ACME12345A', 'Q3 2026-27', 1000, 0, 'not in books']], lines.join(' | '));
+    assert.equal(d.rows[0].customer, 'Acme Corp');
+    assert.equal(d.rows[0].note, 'Books date it 10 May 2026; Form 26AS dates it 20 Aug 2026.');
+    assert.equal(d.rows[1].note, undefined);
+  }
 });
