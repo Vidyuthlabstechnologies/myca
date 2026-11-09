@@ -40,6 +40,9 @@ class FakeCloud {
   final plaidExchanges = <String>[];
   final taxjarLookups = <Map<String, dynamic>>[];
   int connectorSyncs = 0;
+  bool gstPortalAvailable = true;
+  final gstPortalSessions = <String, Map<String, Object?>>{};
+  final gstr1Steps = <Map<String, dynamic>>[];
   int plaidLinkTokens = 0;
   int gustoConnects = 0;
   bool connectorsUnavailable = false;
@@ -409,6 +412,44 @@ class FakeCloud {
       }
       if (body['enabled'] is bool) connectorEnabled[channel] = body['enabled'] as bool;
       return _json(200, {'ok': true, ..._connectorView(channel)});
+    }
+    if (path == '$books/gst-portal' && request.method == 'GET') {
+      if (role == 'staff') return _json(403, {'ok': false, 'error': 'NOT_FOR_STAFF'});
+      return _json(200, {
+        'ok': true,
+        'available': gstPortalAvailable,
+        if (!gstPortalAvailable) 'reason': 'GSP_KEYS_MISSING',
+        'mode': 'test',
+        'simulated': false,
+        'sessions': [for (final row in gstPortalSessions.values) row],
+      });
+    }
+    if (path == '$books/gst-portal' && request.method == 'POST') {
+      final gstin = '${body['gstin'] ?? '29ABCDE1234F1Z5'}';
+      if (body['step'] == 'otp') {
+        if ('${body['username'] ?? ''}'.isEmpty) return _json(200, {'ok': false, 'error': 'USERNAME_REQUIRED', 'hint': 'Enter the GST portal username of this GSTIN.'});
+        gstPortalSessions[gstin] = {'gstin': gstin, 'username': body['username'], 'connected': false, 'waitingForOtp': true, 'needsReconnect': false, 'lastError': ''};
+        return _json(200, {'ok': true, 'gstin': gstin, 'otpSent': true, 'hint': 'The GST portal sent an OTP to the phone and email registered for this GSTIN.'});
+      }
+      if (body['step'] == 'verify') {
+        if (body['otp'] != '575757') return _json(200, {'ok': false, 'error': 'OTP_REFUSED', 'hint': 'The GST portal did not accept that OTP.'});
+        gstPortalSessions[gstin] = {...gstPortalSessions[gstin]!, 'connected': true, 'waitingForOtp': false, 'expiresAt': '2026-11-09T18:00:00.000Z'};
+        return _json(200, {'ok': true, ...gstPortalSessions[gstin]!});
+      }
+      if (body['step'] == 'disconnect') {
+        gstPortalSessions.remove(gstin);
+        return _json(200, {'ok': true, 'gstin': gstin, 'disconnected': true});
+      }
+    }
+    if (path == '$books/gst-gstr1' && request.method == 'POST') {
+      gstr1Steps.add(body);
+      final step = body['step'];
+      if (step == 'save') return _json(200, {'ok': true, 'save': {'referenceId': 'REF-1'}});
+      if (step == 'check') return _json(200, {'ok': true, 'processing': 'processed'});
+      if (step == 'submit') return _json(200, {'ok': true, 'submittedOn': '2026-11-09'});
+      if (step == 'summary') return _json(200, {'ok': true, 'sections': [{'section': 'B2B', 'records': 2, 'value': 20000, 'tax': 3600}]});
+      if (step == 'otp') return _json(200, {'ok': true, 'sent': true});
+      if (step == 'file') return _json(200, {'ok': true, 'ackNum': 'AA2711260012345'});
     }
     if (path == '$books/plaid-link-token') {
       plaidLinkTokens += 1;

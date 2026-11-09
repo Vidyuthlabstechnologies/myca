@@ -49,6 +49,24 @@ With neither set, `terraform plan` stops: the API refuses to start when it has n
 method, and App Runner would otherwise fail health checks for ten minutes before giving up.
 App Runner sets `PORT` itself (it is a reserved name), so the service does not set it.
 
+## GST portal (Sandbox by Quicko)
+
+MyCA files GST returns as an ASP through Sandbox by Quicko. Put the key pair from the Sandbox
+dashboard in `terraform.tfvars`, never in GitHub:
+
+```hcl
+gsp_api_key     = "key_test_..."
+gsp_api_secret  = "secret_test_..."
+gsp_environment = "test"
+```
+
+Both go to Parameter Store as SecureStrings. `provider_mode` caps it: `test` (the default)
+only reaches `test-api.sandbox.co.in`. Each business connects its own GSTIN in the app with the
+portal OTP; that session lasts 6 hours, and an hourly EventBridge job refreshes it before it
+lapses, for as long as the business keeps API access enabled on gst.gov.in (up to 30 days).
+Switch to a `key_live_` pair, `gsp_environment = "live"` and `provider_mode = "live"` only
+after Quicko approves the ASP onboarding.
+
 ## First deploy (three steps)
 
 Sign in as a non-root user first (`aws configure sso`, profile `myca`), then:

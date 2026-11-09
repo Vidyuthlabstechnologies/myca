@@ -60,6 +60,12 @@ const _messages = {
   'PURCHASE_PRODUCT_MISMATCH': 'This purchase is for a different plan. Open Plan and billing again.',
   'PROVIDER_UNAVAILABLE': 'Google Play could not be reached. Your purchase is safe; open Plan and billing again in a minute.',
   'BILLING_NOT_CONFIGURED': 'Plans cannot be bought yet. Try again later.',
+  'GST_PORTAL_UNAVAILABLE': 'Filing on the GST portal is not set up on this server yet.',
+  'GST_PORTAL_OFF': 'Filing on the GST portal is switched off on this server.',
+  'GSP_KEYS_MISSING': 'The GST portal keys are not set on this server yet.',
+  'GST_PORTAL_NOT_CONNECTED': 'Connect the GST portal for this GSTIN first.',
+  'GST_PORTAL_SESSION_ENDED': 'The GST portal session ended. Ask for a new OTP to reconnect.',
+  'NOT_FOR_STAFF': 'Only the owner or the accountant can do this.',
   'NIC_NOT_CONNECTED': 'Add this business\'s e-invoice keys under Connections to banks and apps first.',
   'SERVER_BUSY': 'MyCA is busy for a moment. Try again in a minute.',
   'INTERNAL_ERROR': 'Something went wrong on our side. Try again in a minute.',
@@ -298,6 +304,53 @@ class TaxRate {
   String get line {
     num part(String key) => parts[key] ?? 0;
     return '$name: $ratePercent% combined (state ${part('state')}%, county ${part('county')}%, city ${part('city')}%, special ${part('special')}%)${recorded ? ', recorded as $code' : ''}.';
+  }
+}
+
+class GstPortalSession {
+  const GstPortalSession({required this.gstin, required this.username, required this.connected, required this.expiresAt, required this.waitingForOtp, required this.needsReconnect, required this.lastError});
+
+  factory GstPortalSession.fromJson(Map<String, dynamic> json) => GstPortalSession(
+        gstin: '${json['gstin'] ?? ''}',
+        username: '${json['username'] ?? ''}',
+        connected: json['connected'] == true,
+        expiresAt: DateTime.tryParse('${json['expiresAt'] ?? ''}'),
+        waitingForOtp: json['waitingForOtp'] == true,
+        needsReconnect: json['needsReconnect'] == true,
+        lastError: '${json['lastError'] ?? ''}',
+      );
+
+  final String gstin;
+  final String username;
+  final bool connected;
+  final DateTime? expiresAt;
+  final bool waitingForOtp;
+  final bool needsReconnect;
+  final String lastError;
+}
+
+class GstPortalStatus {
+  const GstPortalStatus({required this.available, required this.reason, required this.mode, required this.simulated, required this.sessions});
+
+  factory GstPortalStatus.fromJson(Map<String, dynamic> json) => GstPortalStatus(
+        available: json['available'] == true,
+        reason: '${json['reason'] ?? ''}',
+        mode: '${json['mode'] ?? ''}',
+        simulated: json['simulated'] == true,
+        sessions: [for (final row in _rows(json['sessions'])) GstPortalSession.fromJson(row)],
+      );
+
+  final bool available;
+  final String reason;
+  final String mode;
+  final bool simulated;
+  final List<GstPortalSession> sessions;
+
+  GstPortalSession? sessionFor(String gstin) {
+    for (final session in sessions) {
+      if (gstin.isEmpty || session.gstin == gstin) return session;
+    }
+    return null;
   }
 }
 
@@ -763,6 +816,27 @@ class CloudSession {
           ),
       ],
     );
+  }
+
+  Future<GstPortalStatus> gstPortalStatus() async => GstPortalStatus.fromJson(_accepted(await call('GET', '$_books/gst-portal')));
+
+  Future<Map<String, dynamic>> gstPortalConnect(String step, {String gstin = '', String username = '', String otp = ''}) async {
+    return _accepted(await call('POST', '$_books/gst-portal', {
+      'step': step,
+      if (gstin.isNotEmpty) 'gstin': gstin,
+      if (username.isNotEmpty) 'username': username,
+      if (otp.isNotEmpty) 'otp': otp,
+    }));
+  }
+
+  Future<Map<String, dynamic>> gstr1Step(String step, {required String period, String gstin = '', String otp = '', String pan = ''}) async {
+    return _accepted(await call('POST', '$_books/gst-gstr1', {
+      'step': step,
+      'period': period,
+      if (gstin.isNotEmpty) 'gstin': gstin,
+      if (otp.isNotEmpty) 'otp': otp,
+      if (pan.isNotEmpty) 'pan': pan,
+    }));
   }
 
   Future<void> sendCrashReports(List<Map<String, Object?>> reports) async {

@@ -14,7 +14,7 @@ resource "aws_cloudwatch_event_connection" "jobs" {
 }
 
 resource "aws_cloudwatch_event_api_destination" "jobs" {
-  for_each = local.deploy ? { daily = "daily", weekly = "weekly" } : {}
+  for_each = local.deploy ? { daily = "daily", weekly = "weekly", gst = "gst-sessions" } : {}
 
   name                             = "${local.name}-${each.key}"
   invocation_endpoint              = "https://${aws_apprunner_service.api[0].service_url}/v1/jobs/${each.value}"
@@ -43,10 +43,10 @@ resource "aws_iam_role_policy" "jobs" {
 }
 
 resource "aws_cloudwatch_event_rule" "jobs" {
-  for_each = local.deploy ? { daily = var.daily_job_cron, weekly = var.weekly_job_cron } : {}
+  for_each = local.deploy ? { daily = var.daily_job_cron, weekly = var.weekly_job_cron, gst = var.gst_session_job_rate } : {}
 
   name                = "${local.name}-${each.key}"
-  description         = each.key == "daily" ? "MyCA daily checks, reminders and erasure of deleted accounts" : "MyCA Monday brief"
+  description         = { daily = "MyCA daily checks, reminders and erasure of deleted accounts", weekly = "MyCA Monday brief", gst = "MyCA GST portal session refresh, before each 6-hour session lapses" }[each.key]
   schedule_expression = each.value
 }
 

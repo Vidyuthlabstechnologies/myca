@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { mockModeEnabled, serviceProviderEnvironment } from '../../platform/src/runtime-config.mjs';
 import { withProviderContext } from '../../platform/src/provider-context.mjs';
 import { createGovtActions } from './govt-actions.mjs';
+import { createGstPortal } from './gst-portal.mjs';
 import { createBilling, PLANS } from './billing.mjs';
 import { gstin } from '../../platform/src/sprint-load.mjs';
 import { rule } from '../../sprints/statutory-rules/src/index.mjs';
@@ -271,7 +272,7 @@ export function clientAddress(req, hops = trustedProxyHops()) {
   return String(parts[parts.length - hops] || '').slice(0, 64);
 }
 
-export function createApi({ billing: billingGiven = null, db, secret, booksKey = '', otpSender = null, googleClientIds = [], googleKeys, oidc = {}, oidcKeys = null, documentVault = null, connectorKey = '', now = () => Date.now(), log = () => {}, version = 'dev', jobToken = '', inboundEmail = {}, whatsapp = {}, whatsappSender = null, bodyBudgetBytes = 0 }) {
+export function createApi({ billing: billingGiven = null, db, secret, booksKey = '', otpSender = null, googleClientIds = [], googleKeys, oidc = {}, oidcKeys = null, documentVault = null, connectorKey = '', now = () => Date.now(), log = () => {}, version = 'dev', jobToken = '', inboundEmail = {}, whatsapp = {}, whatsappSender = null, bodyBudgetBytes = 0, gspFetch = null }) {
   process.env.MYCA_HOSTED = '1';
   assertSecret(secret);
   const budget = createBodyBudget(Number.isSafeInteger(bodyBudgetBytes) && bodyBudgetBytes > 0 ? bodyBudgetBytes : defaultBodyBudgetBytes({ constrainedMemory: process.constrainedMemory(), ceiling: MAX_BUSINESS_BYTES }));
@@ -287,6 +288,7 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
   const withBooks = runner.withBooks;
   const billing = billingGiven || createBilling({ db, now, log });
   const govt = createGovtActions({ connectors, withBooks: (...args) => runner.withBooks(...args) });
+  const gstPortal = createGstPortal({ db, connectors, withBooks: (...args) => runner.withBooks(...args), billing, key: connectorKey, fetchFn: gspFetch, now });
   const publicOrigin = (req) => {
     const configured = String(process.env.MYCA_PUBLIC_URL || '').trim().replace(/\/+$/, '');
     if (configured) return configured;
@@ -406,6 +408,12 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
     if (parts[1] === 'jobs' && parts[2] === 'weekly' && parts.length === 3 && method === 'POST') {
       if (!jobTokenMatches(jobToken, req.headers[JOB_HEADER])) throw httpError(404, 'NOT_FOUND');
       return jobs.weekly(requestId);
+    }
+    if (parts[1] === 'jobs' && parts[2] === 'gst-sessions' && parts.length === 3 && method === 'POST') {
+      if (!jobTokenMatches(jobToken, req.headers[JOB_HEADER])) throw httpError(404, 'NOT_FOUND');
+      const summary = await gstPortal.refreshDue();
+      log({ requestId, job: 'gst-sessions', ...summary });
+      return { ok: true, job: 'gst-sessions', summary };
     }
     if (parts[1] === 'jobs' && parts[2] === 'daily' && parts.length === 3 && method === 'POST') {
       if (!jobTokenMatches(jobToken, req.headers[JOB_HEADER])) throw httpError(404, 'NOT_FOUND');
@@ -586,6 +594,11 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
         };
       }
       if (method === 'GET' && action === 'approvals') return govt.approvals(businessId, context, actor, 'GET');
+      if (method === 'GET' && (action === 'gst-portal' || action === 'gst-filings')) {
+        if (role === 'staff') throw httpError(403, 'NOT_FOR_STAFF');
+        if (sharedView) throw httpError(403, 'SHARED_VIEW_READ_ONLY', { sharedAsOf: sync.asOf });
+        return action === 'gst-portal' ? gstPortal.status(businessId) : gstPortal.filings(businessId, context);
+      }
       if (method === 'GET' && action === 'subscription') return billing.entitlement(businessId);
       if (method !== 'POST') throw httpError(404, 'NOT_FOUND');
 
@@ -614,6 +627,11 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
         return { ok: true, sharedAsOf: await runner.share(businessId, user.userId) };
       }
       if (action === 'gstin-check') return govt.gstinCheck(businessId, context, actor, body);
+      if (action === 'gst-portal' || action === 'gst-gstr1') {
+        if (role === 'staff') throw httpError(403, 'NOT_FOR_STAFF');
+        if (sharedView) throw httpError(403, 'SHARED_VIEW_READ_ONLY', { sharedAsOf: sync.asOf });
+        return action === 'gst-portal' ? gstPortal.connection(businessId, context, actor, body) : gstPortal.gstr1(businessId, context, actor, body);
+      }
       if (action === 'einvoice' || action === 'approvals') {
         if (sharedView) throw httpError(403, 'SHARED_VIEW_READ_ONLY');
         const allowed = action === 'einvoice' ? await billing.allows(businessId, 'einvoice') : { ok: true };

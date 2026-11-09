@@ -21,11 +21,25 @@ function deadline(options, ms = DEFAULT_TIMEOUT_MS) {
   return options?.signal ? AbortSignal.any([options.signal, timeout]) : timeout;
 }
 
+const platformTokens = new Map();
+
 function withBusinessKeys(options) {
   const given = providerContext()?.sandbox;
-  if (!given?.apiKey || options.apiKey != null) return options;
+  if (!given) return options;
+  const session = {
+    ...(options.taxpayerToken == null && given.taxpayerToken ? { taxpayerToken: given.taxpayerToken, taxpayerExpiresAt: Number(given.taxpayerExpiresAt || 0) } : {}),
+    ...(options.fetchFn == null && typeof given.fetchFn === 'function' ? { fetchFn: given.fetchFn } : {}),
+  };
+  if (!given.apiKey || options.apiKey != null) return { ...options, ...session };
   const environment = given.environment === 'production' || given.environment === 'live' ? 'live' : 'test';
-  return { ...options, apiKey: given.apiKey, apiSecret: given.apiSecret || '', environment, baseUrl: SANDBOX_HOSTS[environment], saved: null };
+  return { ...options, ...session, apiKey: given.apiKey, apiSecret: given.apiSecret || '', environment, baseUrl: SANDBOX_HOSTS[environment], saved: null };
+}
+
+function providerFailure(data) {
+  const inner = data?.data;
+  if (!inner || typeof inner !== 'object' || String(inner.status_cd ?? '') !== '0') return null;
+  const error = inner.error || {};
+  return { code: String(error.error_cd || 'PROVIDER_REFUSED'), message: String(error.message || error.msg || '') };
 }
 
 export class SandboxClient {
@@ -57,10 +71,11 @@ export class SandboxClient {
     this.keySource = options.apiKey != null ? 'explicit' : scopedKey ? scoped.key : read('MYCA_GSP_API_KEY') ? 'MYCA_GSP_API_KEY' : savedUsable ? 'saved' : 'none';
     this.apiVersion = options.apiVersion ?? '1.0.0';
     this.fetchFn = options.fetchFn || ((...args) => globalThis.fetch(...args));
-    this.token = null;
-    this.tokenExpiresAt = 0;
-    this.taxpayerToken = null;
-    this.taxpayerExpiresAt = 0;
+    const cached = platformTokens.get(`${this.baseUrl}|${this.apiKey}`);
+    this.token = cached?.token || null;
+    this.tokenExpiresAt = cached?.expiresAt || 0;
+    this.taxpayerToken = options.taxpayerToken || null;
+    this.taxpayerExpiresAt = Number(options.taxpayerExpiresAt || 0);
     this.einvoiceToken = null;
     this.einvoiceExpiresAt = 0;
   }
@@ -104,11 +119,13 @@ export class SandboxClient {
         signal: deadline(options, 15000),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data.access_token) {
+      const accessToken = data.access_token || data.data?.access_token;
+      if (!res.ok || !accessToken) {
         return { ok: false, status: res.status, error: data.message || data.error || `HTTP ${res.status}` };
       }
-      this.token = data.access_token;
+      this.token = accessToken;
       this.tokenExpiresAt = now + (Number(data.expires_in || 82800) * 1000);
+      platformTokens.set(`${this.baseUrl}|${this.apiKey}`, { token: this.token, expiresAt: this.tokenExpiresAt });
       return { ok: true, expiresIn: Number(data.expires_in || 82800), message: 'Sandbox authentication successful' };
     } catch (err) {
       return { ok: false, error: String(err.message || err) };
@@ -134,11 +151,14 @@ export class SandboxClient {
       let data = await res.json().catch(() => ({}));
       if (res.status === 401 && !options.token) {
         this.token = null;
+        platformTokens.delete(`${this.baseUrl}|${this.apiKey}`);
         const retryAuth = await this.authenticate(true, options);
         if (!retryAuth.ok) return retryAuth;
         res = await send(this.token);
         data = await res.json().catch(() => ({}));
       }
+      const refused = res.ok ? providerFailure(data) : null;
+      if (refused) return { ok: false, status: res.status, error: refused.code, message: refused.message, data };
       return { ok: res.ok, status: res.status, data };
     } catch (err) {
       return { ok: false, error: String(err.message || err) };
@@ -219,6 +239,28 @@ export class SandboxClient {
       this.taxpayerExpiresAt = expires > 0 ? expires : Date.now() + 6 * 3600 * 1000;
     }
     return res;
+  }
+
+  async refreshTaxpayerSession() {
+    if (!this.taxpayerToken) return { ok: false, error: 'GST_PORTAL_NOT_CONNECTED' };
+    const res = await this.request('/gst/compliance/tax-payer/session/refresh', { token: this.taxpayerToken, body: {} });
+    const token = res.data?.data?.access_token;
+    if (res.ok && token) {
+      this.taxpayerToken = token;
+      const expires = Number(res.data?.data?.token_expiry || res.data?.data?.session_expiry || 0);
+      this.taxpayerExpiresAt = expires > 0 ? expires : Date.now() + 6 * 3600 * 1000;
+    }
+    return res;
+  }
+
+  async gstr1Summary(year, month) {
+    const token = this.taxpayerToken || this.token;
+    return this.request(`/gst/compliance/tax-payer/gstrs/gstr-1/${encodeURIComponent(year)}/${encodeURIComponent(month)}`, { method: 'GET', token });
+  }
+
+  async returnProcessingStatus(year, month, referenceId) {
+    const token = this.taxpayerToken || this.token;
+    return this.request(`/gst/compliance/tax-payer/gstrs/${encodeURIComponent(year)}/${encodeURIComponent(month)}/status${qs({ reference_id: referenceId })}`, { method: 'GET', token });
   }
 
   async generateEvcOtp(pan, gstr) {
