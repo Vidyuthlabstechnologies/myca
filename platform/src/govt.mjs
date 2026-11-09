@@ -14,6 +14,8 @@ export {
   normalizeNicPublicKey,
   saveNicPublicKey,
   invoiceToNicPayload,
+  nicSupplyType,
+  nicPayloadProblems,
 } from './nic-config.mjs';
 
 import { mycaDir } from './nic-config.mjs';

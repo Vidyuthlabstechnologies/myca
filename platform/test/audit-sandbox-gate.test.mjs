@@ -133,7 +133,8 @@ test('live switch off: a Sandbox filing leaves a redacted dry run and never call
 
 test('mock mode: a Sandbox e-invoice fixture never touches the real IRN fields', async () => {
   const state = createState();
-  const inv = createInvoice(state, { partyName: 'Retail', partyGstin: '', partyState: '27', lines: [{ description: 'x', qty: 1, rate: 100, gstRate: 5 }] });
+  state.company = { ...state.company, address: 'Plot 4, MIDC, Pune 411019', pin: '411019', city: 'Pune' };
+  const inv = createInvoice(state, { partyName: 'Retail', partyGstin: '27AAACH7409R1Z1', partyState: '27', partyAddress: '12 FC Road, Pune 411004', lines: [{ description: 'x', hsn: '5208', qty: 1, rate: 100, gstRate: 5 }] });
   const out = await withEnv(MOCK, () => runSandboxOperation({ actorId: 'ca', operationId: 'einvoice_generate', params: { invoiceId: inv.invoice.id } }, { state }));
   assert.equal(out.ok, true);
   assert.equal(out.mock, true);
@@ -171,7 +172,8 @@ test('mock mode: the income-tax fixture invents no tax figure and matches the li
 
 test('live switch off: the e-invoice dry run is the NIC payload built from the books', async () => {
   const state = createState();
-  const inv = createInvoice(state, { date: '2026-09-05', partyName: 'Retail', partyGstin: '27AAACH7409R1Z1', partyState: '27', lines: [{ description: 'x', hsn: '5208', qty: 1, rate: 100, gstRate: 5 }] });
+  state.company = { ...state.company, address: 'Plot 4, MIDC, Pune 411019', pin: '411019', city: 'Pune' };
+  const inv = createInvoice(state, { date: '2026-09-05', partyName: 'Retail', partyGstin: '27AAACH7409R1Z1', partyState: '27', partyAddress: '12 FC Road, Pune 411004', lines: [{ description: 'x', hsn: '5208', qty: 1, rate: 100, gstRate: 5 }] });
   const out = await runSandboxOperation({ actorId: 'ca', operationId: 'einvoice_generate', caApprovalId: 'APR-000001', params: { invoiceId: inv.invoice.id } }, { state });
   assert.equal(out.error, 'LIVE_CALLS_DISABLED');
   const record = state.dryRuns.at(-1);

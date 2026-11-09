@@ -19,10 +19,14 @@ function fail(error, extra = {}) {
   return { ok: false, error, ...extra };
 }
 
-async function openingBooks({ name, gstin, state, country }, today) {
+async function openingBooks({ name, gstin, state, country, address, city, pin }, today) {
   const books = createState();
   books.company = { name: '', gstin: '', state: '', pan: '', fy: financialYear(today), address: '' };
   const set = await runTool(books, 'set_company', { name, ...(country ? { country } : {}), gstin, ...(state ? { state } : {}) });
+  if (set.ok && String(address || '').trim()) {
+    const placed = await runTool(books, 'set_business_address', { address, city, pin });
+    if (!placed.ok) return placed;
+  }
   if (set.ok === false) return fail(set.error || 'INVALID_COMPANY', { errors: set.errors });
   if (books.company.country !== 'US' && !books.company.state) return fail('STATE_REQUIRED');
   return { ok: true, state: serialize(books), company: books.company };
@@ -32,8 +36,8 @@ async function openingBooks({ name, gstin, state, country }, today) {
 import { storedState } from './books-seal.mjs';
 export function createBusinesses({ db, now = () => Date.now(), booksKey = '' }) {
   return {
-    async create(userId, { name, gstin = '', state = '', country = '' } = {}) {
-      const opening = await openingBooks({ name: String(name ?? ''), gstin: String(gstin ?? ''), state: String(state ?? ''), country: String(country ?? '') }, new Date(now()));
+    async create(userId, { name, gstin = '', state = '', country = '', address = '', city = '', pin = '' } = {}) {
+      const opening = await openingBooks({ name: String(name ?? ''), gstin: String(gstin ?? ''), state: String(state ?? ''), country: String(country ?? ''), address: String(address ?? ''), city: String(city ?? ''), pin: String(pin ?? '') }, new Date(now()));
       if (!opening.ok) return opening;
       return db.tx(async (q) => {
         const business = await q('insert into businesses (name, gstin, created_by, created_at) values ($1, $2, $3, $4) returning id', [

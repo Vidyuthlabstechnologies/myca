@@ -1,5 +1,5 @@
 import { createCipheriv, createDecipheriv, randomBytes, createHash } from 'node:crypto';
-import { loadGovtConfig, pemFromDisk, rsaEncryptBase64, GOVT_GUIDE, invoiceToNicPayload, generateMockIrnPayload } from './nic-config.mjs';
+import { loadGovtConfig, pemFromDisk, rsaEncryptBase64, GOVT_GUIDE, invoiceToNicPayload, generateMockIrnPayload, nicCancelProblem, nicPartyFor, nicPayloadRefusal } from './nic-config.mjs';
 import { liveCallsEnabled, mockModeEnabled, testModeEnabled } from './runtime-config.mjs';
 
 export { rsaEncryptBase64 };
@@ -290,13 +290,15 @@ export async function nicGenerateIrn(state, invoiceId, fetchFn = fetch, options 
       ackNo: mockData.ackNo,
       ackDate: mockData.ackDate,
       signedQrCode: mockData.signedQrCode,
-      payload: invoiceToNicPayload(state.company, inv),
+      payload: invoiceToNicPayload(state.company, inv, nicPartyFor(state, inv)),
       nic: { Status: 1, Data: { Irn: mockData.irn, AckNo: mockData.ackNo, AckDt: mockData.ackDate, SignedQRCode: mockData.signedQrCode, SignedInvoice: mockData.signedInvoice, Status: 'ACT' } },
       authOk: true,
     };
   }
 
-  const payload = invoiceToNicPayload(state.company, inv);
+  const refused = nicPayloadRefusal(state, inv);
+  if (refused) return refused;
+  const payload = invoiceToNicPayload(state.company, inv, nicPartyFor(state, inv));
   const res = await call(cfg, fetchFn, options, { path: IRP_PATHS.generateIrn, body: payload });
   if (!res.ok) {
     return { ok: false, error: res.error || 'IRN_FAILED', status: res.status, payload, nic: res.nic, authOk: true };
@@ -319,6 +321,8 @@ export async function nicCancelIrn(state, { invoiceId, irn, reason = '1', remark
   const targetIrn = irn || inv?.irn || (nicEnvironment(cfg) === 'sandbox' ? inv?.sandboxIrn : '');
   if (!targetIrn) return { ok: false, error: 'IRN_REQUIRED' };
   if (String(reason) < '1' || String(reason) > '4') return { ok: false, error: 'INVALID_CANCEL_REASON', hint: 'CnlRsn must be 1-4.' };
+  const late = inv ? nicCancelProblem(inv) : null;
+  if (late) return { ok: false, error: late.code, irn: targetIrn, hint: late.words };
   const res = await call(cfg, fetchFn, options, { path: IRP_PATHS.cancelIrn, body: { Irn: targetIrn, CnlRsn: String(reason), CnlRem: String(remark || '').slice(0, 100) } });
   if (res.ok && inv) {
     inv.irnStatus = 'CNL';

@@ -48,7 +48,8 @@ const PARAMS = {
 
 test('every Sandbox adapter calls only the transport functions its action declares, on the configured host', async () => {
   const state = createState();
-  const inv = createInvoice(state, { partyName: 'Retail', partyGstin: '27AAACH7409R1Z1', partyState: '27', lines: [{ description: 'x', hsn: '5208', qty: 1, rate: 100, gstRate: 5 }] });
+  state.company = { ...state.company, address: 'Plot 4, MIDC, Pune 411019', pin: '411019', city: 'Pune' };
+  const inv = createInvoice(state, { partyName: 'Retail', partyGstin: '27AAACH7409R1Z1', partyState: '27', partyAddress: '12 FC Road, Pune 411004', lines: [{ description: 'x', hsn: '5208', qty: 1, rate: 100, gstRate: 5 }] });
   const params = { ...PARAMS, einvoice_generate: { invoiceId: inv.invoice.id } };
   await withEnv({ MYCA_ENABLE_LIVE_CALLS: '1', MYCA_MOCK_MODE: '0', MYCA_GSP_API_KEY: 'k', MYCA_GSP_API_SECRET: 's', MYCA_GSP_BASE_URL: BASE_URL }, async () => {
     for (const operation of SANDBOX_OPERATIONS.filter((op) => adapterSupports(op.operationId))) {

@@ -145,3 +145,28 @@ jobs:
             gh release create "$tag" --repo "$GITHUB_REPOSITORY" --title "$tag" --notes "MyCA $tag" --draft=false
           fi
           gh release upload "$tag" dist/myca-android.apk dist/myca-android.aab dist/SHA256SUMS-android.txt --repo "$GITHUB_REPOSITORY" --clobber
+
+  play:
+    name: Upload the bundle to Google Play
+    needs: build
+    if: ${{ startsWith(github.ref, 'refs/tags/v') && vars.PLAY_TRACK != '' }}
+    runs-on: ${{ vars.MYCA_CI_RUNNER || 'ubuntu-latest' }}
+    environment: production
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: myca-android
+          path: dist
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+      - name: Upload to the chosen track (draft unless PLAY_RELEASE_STATUS says completed)
+        env:
+          PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          PLAY_PACKAGE: ${{ vars.PLAY_PACKAGE || 'com.mldynamic.myca' }}
+          PLAY_TRACK: ${{ vars.PLAY_TRACK }}
+          PLAY_RELEASE_STATUS: ${{ vars.PLAY_RELEASE_STATUS || 'draft' }}
+        run: node scripts/play-upload.mjs dist/myca-android.aab | tee -a "$GITHUB_STEP_SUMMARY"

@@ -293,6 +293,7 @@ export const TOOL_ARG_SCHEMAS = {
           shippingBillNo: { type: 'string', maxLength: 7 },
           shippingBillDate: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' },
           portCode: { type: 'string', maxLength: 6 },
+          countryCode: { type: 'string', pattern: '^[A-Za-z]{2}$' },
         },
       }, ...documentSchema.properties, paymentTermsDays: { type: 'integer', minimum: 0, maximum: 365 } },
   },
@@ -1118,6 +1119,16 @@ export const TOOL_ARG_SCHEMAS = {
     },
   },
   sales_tax_overview: noArgs,
+  set_business_address: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['address', 'pin'],
+    properties: {
+      address: { type: 'string', minLength: 1, maxLength: 200 },
+      city: { type: 'string', maxLength: 50 },
+      pin: { type: 'string', pattern: '^[1-9][0-9]{5}$' },
+    },
+  },
   set_party_address: {
     type: 'object',
     additionalProperties: false,
@@ -2207,6 +2218,7 @@ const TOOL_RISK = {
   set_invoice_template: 'writes_books',
   invoice_template: 'read_only',
   set_party_address: 'writes_books',
+  set_business_address: 'writes_books',
   set_sales_tax_rate: 'writes_books',
   set_contractor: 'writes_books',
   set_sales_tax_nexus: 'writes_books',
@@ -3315,6 +3327,14 @@ export function planLocalToolCall(state, message) {
     };
   }
 
+  const ownAddress = /^(?:(?:my|our)\s+)?(?:business|company|shop|office|firm)(?:'s)?\s+address\s*(?:is\b|:|-)\s*(.{5,200})$/i.exec(text.trim());
+  if (ownAddress && !isQuestion(text)) {
+    const said = ownAddress[1].trim().replace(/[.\s]+$/, '');
+    const pin = /\b([1-9][0-9]{5})\b/.exec(said);
+    if (!pin) return { kind: 'reply', reply: 'Say the address with its 6-digit PIN code, for example "business address: Plot 4, MIDC, Pune 411019". I have recorded nothing.', tools: [] };
+    const city = said.slice(0, pin.index).split(',').map((part) => part.trim()).filter(Boolean).pop() || '';
+    return { kind: 'tool', name: 'set_business_address', args: { address: said, pin: pin[1], ...(city && city !== said ? { city: city.slice(0, 50) } : {}) } };
+  }
   const billTds = planBillTdsFromChat(state, text);
   if (billTds) return billTds;
 

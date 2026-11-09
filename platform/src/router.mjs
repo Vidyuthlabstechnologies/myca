@@ -704,6 +704,9 @@ function fmtToolResultCore(name, result, args) {
   if (name === 'set_transport' && result.transport) {
     return `Recorded transport for ${result.invoiceId}: ${transportWords(result.transport)}.${result.need?.needed ? ` ${result.need.why}` : ''}`;
   }
+  if (name === 'set_business_address' && result.data?.company) {
+    return `Recorded your business address: ${result.data.company.address}, PIN ${result.data.company.pin}. It prints on invoices and goes into e-invoices from now on.`;
+  }
   if (name === 'set_party_address' && result.data?.party) {
     return `Recorded the address of ${result.data.party.name}: ${result.data.party.address}. It prints on their invoices from now on.`;
   }
@@ -886,7 +889,7 @@ ${d.hint}` : ''}`;
     if (d.mock) {
       return `NIC Sandbox Mock: IRN generated for Doc ${d.payload?.DocDtls?.No}.\nIRN: ${d.irn}\nAck No: ${d.ackNo} (${d.ackDate})\n[Simulated NIC Session]`;
     }
-    return d.ok ? `IRN issued for payload Doc ${d.payload?.DocDtls?.No}.` : `IRN not issued: ${d.error || JSON.stringify(d.nic || d.auth).slice(0, 500)}`;
+    return d.ok ? `IRN issued for payload Doc ${d.payload?.DocDtls?.No}.` : `IRN not issued: ${d.error === 'IRN_PAYLOAD_INVALID' || d.error === 'IRN_CANCEL_WINDOW_PASSED' ? d.hint : d.error || JSON.stringify(d.nic || d.auth).slice(0, 500)}`;
   }
   if (name === 'integration_readiness') {
     const topMissing = (d.rows || []).filter((row) => row.status === 'missing').slice(0, 6).map((row) => row.title).join(', ');
