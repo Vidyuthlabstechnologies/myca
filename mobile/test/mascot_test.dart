@@ -7,7 +7,13 @@ import 'package:rive/rive.dart';
 void main() {
   testWidgets('the Bahi file has every mood and a talking switch', (tester) async {
     await tester.runAsync(() async {
-      if (!await RiveNative.init()) {
+      var ready = false;
+      try {
+        ready = await RiveNative.init();
+      } on Object {
+        ready = false;
+      }
+      if (!ready) {
         markTestSkipped('Rive native libraries are not set up: dart run rive_native:setup --platform <yours>');
         return;
       }
