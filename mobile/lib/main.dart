@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui';
 
 import 'package:app_links/app_links.dart';
@@ -32,6 +33,8 @@ import 'screens/sign_in_screen.dart';
 import 'screens/welcome_screen.dart';
 import 'shared_file.dart';
 import 'theme.dart';
+import 'tour/tour.dart';
+import 'tour/tour_coach.dart';
 
 void main() {
   LicenseRegistry.addLicense(() async* {
@@ -103,7 +106,12 @@ class MycaApp extends StatefulWidget {
 
 class _MycaAppState extends State<MycaApp> with WidgetsBindingObserver {
   final _navigator = GlobalKey<NavigatorState>();
+  late final _tour = TourController(navigator: _navigator, onFinished: _tourFinished);
   bool _openingShared = false;
+
+  Future<void> _tourFinished(bool startBooks) async {
+    if (startBooks && !widget.state.welcomed) await widget.state.finishWelcome();
+  }
 
   @override
   void initState() {
@@ -117,12 +125,14 @@ class _MycaAppState extends State<MycaApp> with WidgetsBindingObserver {
   void dispose() {
     widget.state.removeListener(_openSharedFile);
     WidgetsBinding.instance.removeObserver(this);
+    _tour.dispose();
     super.dispose();
   }
 
   void _openSharedFile() {
     final state = widget.state;
     if (state.sharedFile == null || !state.readyForEntries || _openingShared) return;
+    if (_tour.active) unawaited(_tour.finish());
     final navigator = _navigator.currentState;
     if (navigator == null) return;
     _openingShared = true;
@@ -144,23 +154,57 @@ class _MycaAppState extends State<MycaApp> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    return AppScope(
-      state: widget.state,
-      child: MaterialApp(
-        navigatorKey: _navigator,
-        title: 'MyCA',
-        debugShowCheckedModeBanner: false,
-        theme: mycaTheme(),
-        builder: (context, child) => ListenableBuilder(
-          listenable: widget.state,
-          builder: (context, _) => Stack(
-            children: [
-              ?child,
-              if (widget.state.locked) const LockScreen(),
-            ],
+    return TourScope(
+      tour: _tour,
+      child: ListenableBuilder(
+        listenable: _tour,
+        builder: (context, _) => AppScope(
+          state: _tour.sample ?? widget.state,
+          child: MaterialApp(
+            navigatorKey: _navigator,
+            navigatorObservers: [_tour.observer],
+            title: 'MyCA',
+            debugShowCheckedModeBanner: false,
+            theme: mycaTheme(),
+            builder: (context, child) => ListenableBuilder(
+              listenable: widget.state,
+              builder: (context, _) => Stack(
+                children: [
+                  if (child != null) _Readable(child: child),
+                  if (_tour.active && !widget.state.locked) TourCoach(tour: _tour),
+                  if (widget.state.locked) AppScope(state: widget.state, child: const LockScreen()),
+                ],
+              ),
+            ),
+            home: const AppGate(),
           ),
         ),
-        home: const AppGate(),
+      ),
+    );
+  }
+}
+
+class _Readable extends StatelessWidget {
+  const _Readable({required this.child});
+
+  static const widest = 720.0;
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final media = MediaQuery.of(context);
+    if (media.size.width <= widest + 120) return child;
+    return ColoredBox(
+      color: Palette.sunken,
+      child: Center(
+        child: SizedBox(
+          width: widest,
+          child: MediaQuery(
+            data: media.copyWith(size: Size(widest, media.size.height)),
+            child: child,
+          ),
+        ),
       ),
     );
   }

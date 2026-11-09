@@ -50,6 +50,7 @@ dependencies:
   plaid_flutter: ^5.2.1
   in_app_purchase: ^3.3.1
   qr: ^3.0.2
+  rive: ^0.14.11
 
 dev_dependencies:
   flutter_test:
@@ -75,6 +76,7 @@ flutter:
 
   assets:
     - assets/fonts/Inter-LICENSE.txt
+    - assets/mascot/
 
   fonts:
     - family: Inter

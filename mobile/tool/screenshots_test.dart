@@ -4,13 +4,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:myca/main.dart';
+import 'package:myca/mascot/mascot.dart';
 
 import '../test/fake_api.dart';
 
 Future<void> loadFonts() async {
   final flutterRoot = Platform.environment['FLUTTER_ROOT']!;
   final dir = '$flutterRoot/bin/cache/artifacts/material_fonts';
-  Future<ByteData> bytes(String name) async => ByteData.view((await File('$dir/$name').readAsBytes()).buffer);
+  Future<ByteData> bytes(String name) async {
+    final file = Directory(dir).listSync().whereType<File>().firstWhere((f) => f.uri.pathSegments.last.toLowerCase() == name.toLowerCase());
+    return ByteData.view((await file.readAsBytes()).buffer);
+  }
   final roboto = FontLoader('Roboto');
   for (final file in ['roboto-regular.ttf', 'roboto-medium.ttf', 'roboto-bold.ttf', 'roboto-black.ttf']) {
     roboto.addFont(bytes(file));
@@ -31,6 +35,7 @@ Future<void> shot(WidgetTester tester, String name) async {
 }
 
 void main() {
+  Mascot.live = false;
   setUpAll(loadFonts);
 
   Future<void> phone(WidgetTester tester) async {
@@ -190,5 +195,46 @@ void main() {
     await shot(tester, '18_credit_note_sheet');
     await tester.tap(find.text('Preview'));
     await shot(tester, '19_credit_note_preview');
+  });
+  testWidgets('tour with Bahi', (tester) async {
+    await phone(tester);
+    await tester.pumpWidget(MycaApp(state: testState(FakeMycaApi(signedIn: true), onboarded: false)));
+    await shot(tester, '30_welcome_with_bahi');
+    await tester.tap(find.text('Take a 2-minute tour first'));
+    await tester.pump(const Duration(seconds: 4));
+    await shot(tester, '31_tour_hello');
+    await tester.tap(find.text('Show me around'));
+    await tester.pump(const Duration(seconds: 4));
+    await tester.tap(find.text('Next').last);
+    await tester.pump(const Duration(seconds: 4));
+    await shot(tester, '32_tour_log_a_sale');
+    await tester.tap(find.text('Show me'));
+    await tester.pump(const Duration(seconds: 4));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextField, 'Amount before GST'), '8000');
+    await tester.tap(find.widgetWithText(ActionChip, '18%'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Preview'));
+    await tester.pump(const Duration(seconds: 4));
+    await shot(tester, '33_tour_preview');
+    await tester.tap(find.text('Post it'));
+    await tester.pump(const Duration(seconds: 4));
+    await shot(tester, '34_tour_posted');
+    await tester.tap(find.text('Next').last);
+    await tester.pump(const Duration(seconds: 4));
+    await shot(tester, '35_tour_taxes');
+    for (var step = 0; step < 2; step++) {
+      await tester.tap(find.text('Next').last);
+      await tester.pump(const Duration(seconds: 4));
+    }
+    await shot(tester, '36_tour_books_check');
+    for (var step = 0; step < 2; step++) {
+      await tester.tap(find.text('Next').last);
+      await tester.pump(const Duration(seconds: 4));
+    }
+    await shot(tester, '37_tour_done');
+    await tester.tap(find.text('Start my books'));
+    await tester.pump(const Duration(seconds: 4));
+    await tester.pumpAndSettle();
   });
 }
