@@ -51,6 +51,7 @@ import { weeklyBriefWords } from './weekly-brief.mjs';
 import { monthCloseWords } from './month-close.mjs';
 import { restockWords } from './restock.mjs';
 import { advanceTaxWords } from './advance-tax.mjs';
+import { askTaxWords, reviewWords, taxModulesWords, taxPlanWords } from './tax-assistant.mjs';
 import { supplierPayoutWords } from './supplier-bank.mjs';
 import { reportWords } from './reports.mjs';
 import { auditTrailWords } from './audit-trail.mjs';
@@ -619,6 +620,10 @@ function fmtToolResultCore(name, result, args) {
   if (['save_gstr1_portal', 'file_gstr1_portal', 'generate_tds_fvu'].includes(name) && result.data) return portalWords(name, result.data);
   if (name === 'portal_status' && result.data) return portalWords(name, result);
   if (name === 'ask_knowledge') return knowledgeWords(result);
+  if (name === 'ask_tax' && result.ok) return askTaxWords(result);
+  if (name === 'tax_modules' && result.data) return taxModulesWords(result.data);
+  if (name === 'tax_plan' && result.data) return taxPlanWords(result.data, money);
+  if (name === 'review_income_tax' && result.data) return reviewWords(result.data, money);
   if (name === 'fetch_channel_report' && result.data?.channel) return fetchWords(result.data);
   if (name === 'push_zoho_invoices' && result.data?.period) return zohoPushWords(result.data);
   if (name === 'sync_channels' && result.data) return result.data.results.length ? `Fetched ${result.data.fetched} ${result.data.fetched === 1 ? 'report' : 'reports'}: ${result.data.results.map((r) => `${r.channel} ${r.kind} ${r.ok ? (r.empty ? 'empty' : `${r.rows} rows`) : r.error}`).join('; ')}.` : 'No channel is connected yet. Say "channel connectors" to see which can be.';

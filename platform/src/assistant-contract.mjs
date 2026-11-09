@@ -1390,6 +1390,28 @@ export const TOOL_ARG_SCHEMAS = {
     required: ['question'],
     properties: { question: { type: 'string', minLength: 3, maxLength: 400 } },
   },
+  ask_tax: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['question'],
+    properties: { question: { type: 'string', minLength: 3, maxLength: 500 }, asOf: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' }, module: { type: 'string', pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$', maxLength: 64 } },
+  },
+  tax_modules: {
+    type: 'object',
+    additionalProperties: false,
+    properties: { module: { type: 'string', pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$', maxLength: 64 }, asOf: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' } },
+  },
+  tax_plan: {
+    type: 'object',
+    additionalProperties: false,
+    properties: { fy: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}$' }, ageBand: { type: 'string', enum: ['below-60', '60-to-79', '80-plus'] }, salary: { type: 'number', minimum: 0, maximum: 1000000000000 }, businessIncome: { type: 'number', minimum: 0, maximum: 1000000000000 }, otherIncome: { type: 'number', minimum: 0, maximum: 1000000000000 }, section80C: { type: 'number', minimum: 0, maximum: 1000000000000 }, health80DSelf: { type: 'number', minimum: 0, maximum: 1000000000000 }, health80DParents: { type: 'number', minimum: 0, maximum: 1000000000000 }, selfSenior: { type: 'boolean' }, parentsSenior: { type: 'boolean' }, turnover: { type: 'number', minimum: 0, maximum: 1000000000000 }, digitalReceipts: { type: 'number', minimum: 0, maximum: 1000000000000 }, cashReceipts: { type: 'number', minimum: 0, maximum: 1000000000000 }, profession: { type: 'boolean' }, asOf: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' }, actualProfit: { type: 'number', minimum: 0, maximum: 1000000000000 } },
+  },
+  review_income_tax: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['regime'],
+    properties: { regime: { type: 'string', enum: ['old', 'new'] }, fy: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}$' }, ageBand: { type: 'string', enum: ['below-60', '60-to-79', '80-plus'] }, salary: { type: 'number', minimum: 0, maximum: 1000000000000 }, businessIncome: { type: 'number', minimum: 0, maximum: 1000000000000 }, otherIncome: { type: 'number', minimum: 0, maximum: 1000000000000 }, section80C: { type: 'number', minimum: 0, maximum: 1000000000000 }, health80DSelf: { type: 'number', minimum: 0, maximum: 1000000000000 }, health80DParents: { type: 'number', minimum: 0, maximum: 1000000000000 }, selfSenior: { type: 'boolean' }, parentsSenior: { type: 'boolean' }, turnover: { type: 'number', minimum: 0, maximum: 1000000000000 }, digitalReceipts: { type: 'number', minimum: 0, maximum: 1000000000000 }, cashReceipts: { type: 'number', minimum: 0, maximum: 1000000000000 }, profession: { type: 'boolean' }, asOf: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' }, presumptive: { type: 'boolean' }, nonGstReceipts: { type: 'number', minimum: 0, maximum: 1000000000000 }, claimedStandardDeduction: { type: 'number', minimum: 0, maximum: 1000000000000 }, claimedDeductions: { type: 'number', minimum: 0, maximum: 1000000000000 }, claimedTotalIncome: { type: 'number', minimum: 0, maximum: 1000000000000 }, claimedRebate: { type: 'number', minimum: 0, maximum: 1000000000000 }, claimedTaxPayable: { type: 'number', minimum: 0, maximum: 1000000000000 }, claimedTds: { type: 'number', minimum: 0, maximum: 1000000000000 } },
+  },
   can_make_payroll: { type: 'object', additionalProperties: false, properties: {} },
   push_tally: {
     type: 'object',
@@ -2204,6 +2226,10 @@ const TOOL_RISK = {
   generate_tds_fvu: 'external_government_api',
   portal_status: 'read_only',
   ask_knowledge: 'read_only',
+  ask_tax: 'read_only',
+  tax_modules: 'read_only',
+  tax_plan: 'read_only',
+  review_income_tax: 'read_only',
   channel_connectors: 'read_only',
   fetch_channel_report: 'external_government_api',
   sync_channels: 'external_government_api',
@@ -3510,6 +3536,9 @@ export function planLocalToolCall(state, message) {
     if (search) return { kind: 'tool', name: 'search_firm_notes', args: { query: search[1] } };
     const asked = /^\s*(?:what\s+do\s+(?:the|our)\s+notes\s+say\s+about|ask\s+(?:the\s+)?notes?|from\s+(?:the|our)\s+notes[,:]?)\s+(.+?)\s*\??\s*$/i.exec(text);
     if (asked) return { kind: 'tool', name: 'ask_knowledge', args: { question: asked[1] } };
+    const taxAsked = /^\s*(?:tax\s+(?:question|help|query)|(?:gst|tds|itc|income\s+tax)\s+question|ask\s+(?:the\s+)?tax\s+(?:assistant|guide|modules?))\s*[:,-]?\s+(.{3,500}?)\s*$/i.exec(text);
+    if (taxAsked) return { kind: 'tool', name: 'ask_tax', args: { question: taxAsked[1] } };
+    if (/^\s*(?:tax\s+(?:modules|topics|guides?|knowledge)|what\s+tax\s+(?:topics|modules)\s+(?:do\s+you|can\s+you)\s+(?:know|cover|answer))\s*\??\s*$/i.test(text)) return { kind: 'tool', name: 'tax_modules', args: {} };
   }
   {
     const design = planInvoiceDesignFromChat(text);

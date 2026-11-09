@@ -13,6 +13,7 @@ import { saveChannelConfig, listConnectors, fetchChannelReport, syncChannels } f
 import { saveGstr1ToPortal, fileGstr1OnPortal, generateTdsFvu, portalStatus } from './portal-filing.mjs';
 import { aaBankFeed } from './aa-import.mjs';
 import { askKnowledge } from './knowledge.mjs';
+import { askTax, reviewIncomeTaxReturn, taxModules, taxPlan } from './tax-assistant.mjs';
 import { pushZohoInvoices } from './zoho-push.mjs';
 import { booksAuditLedger } from './audit-ledger.mjs';
 import { salaryPrivate } from './employees.mjs';
@@ -2699,6 +2700,34 @@ export const TOOLS = [
     description: "Answer a question from the firm's own notes: finds the notes that mention the question's words, then asks the model to answer from those notes only, citing them. The model never computes a figure. Read-only.",
     args: ['question'],
     run: (state, args = {}, actor) => askKnowledge(state, args, actor),
+  },
+  {
+    name: 'ask_tax',
+    title: 'Ask a tax question',
+    description: "Answer an Indian GST, income tax, TDS or presumptive income question from MyCA's tax modules: finds the topics that fit, fills in the rates, limits and due dates from the dated statutory rules for the date asked about, then asks the model to answer from those topics only, citing them. A figure in the model's answer that is not in the topics is refused and the topics are shown instead. Reference only, not tax advice. Read-only.",
+    args: ['question', 'asOf', 'module'],
+    run: (state, args = {}, actor) => askTax(state, args, actor),
+  },
+  {
+    name: 'tax_modules',
+    title: 'Tax knowledge modules',
+    description: "List MyCA's tax knowledge modules (Agent Skills format: GST returns, input tax credit, income tax for individuals, TDS on business payments, presumptive income), or show one module with every figure filled in from the dated rules for a date. Read-only.",
+    args: ['module', 'asOf'],
+    run: (state, args = {}) => taxModules(state, args),
+  },
+  {
+    name: 'tax_plan',
+    title: 'Plan income tax: old or new regime',
+    description: 'For a resident individual or proprietor: tax for a financial year under both regimes from the dated rules, which is cheaper and by how much, the extra old-regime deductions that would break even, unused 80C and 80D limits, the 87A rebate edge, and presumptive income under 44AD or 44ADA from turnover (6% on digital receipts, 8% on the rest, or 50% for a profession) against actual profit. Amounts in rupees. Headed "for your CA to confirm". Read-only.',
+    args: ['fy', 'ageBand', 'salary', 'businessIncome', 'otherIncome', 'section80C', 'health80DSelf', 'health80DParents', 'selfSenior', 'parentsSenior', 'turnover', 'digitalReceipts', 'cashReceipts', 'profession', 'actualProfit', 'asOf'],
+    run: (state, args = {}) => taxPlan(state, args),
+  },
+  {
+    name: 'review_income_tax',
+    title: 'Review a prepared income tax return',
+    description: "Check the figures of an income tax return someone prepared (regime, income, deductions, and the standard deduction, total income, rebate, tax and TDS the return shows) against MyCA's own computation from the dated rules, and list errors, risks and money left on the table with the rule behind each: deductions not allowed or over the limit, a missed 87A rebate or marginal relief, the other regime being cheaper, TDS in the books or Form 26AS not claimed, profit below the presumptive rate, and turnover that does not match the year's GST sales in the books. Amounts in rupees. Read-only.",
+    args: ['fy', 'regime', 'ageBand', 'salary', 'businessIncome', 'otherIncome', 'section80C', 'health80DSelf', 'health80DParents', 'selfSenior', 'parentsSenior', 'presumptive', 'turnover', 'digitalReceipts', 'cashReceipts', 'profession', 'nonGstReceipts', 'claimedStandardDeduction', 'claimedDeductions', 'claimedTotalIncome', 'claimedRebate', 'claimedTaxPayable', 'claimedTds', 'asOf'],
+    run: (state, args = {}) => reviewIncomeTaxReturn(state, args),
   },
   {
     name: 'supplier_reminder_draft',

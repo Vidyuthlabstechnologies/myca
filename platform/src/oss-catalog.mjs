@@ -45,6 +45,22 @@ export const OSS_CATALOG = [
     why: 'Would pull a second PHP/Laravel app. Invoice origin is already in MyCA.',
   },
   {
+    name: 'india-tax-guru',
+    url: 'https://github.com/anivar/india-tax-guru',
+    license: 'MIT',
+    match: 'Indian income tax engine packaged as an Agent Skill: regime comparison, 87A, surcharge relief, 44AD/44ADA, GST turnover reconciliation for presumptive filers.',
+    decision: 'cross-check',
+    why: 'Python, so not embedded. Its independently derived FY 2025-26 figures are a cross-check in platform/test/tax-assistant.test.mjs (all match), and its 6%/8% split, low-cash limit and GST-inclusive turnover checks shaped tax-assistant.mjs and the presumptive rule records.',
+  },
+  {
+    name: 'Agent Skills format',
+    url: 'https://agentskills.io/specification',
+    license: 'Open standard',
+    match: 'SKILL.md folders with name and description frontmatter, loaded by progressive disclosure.',
+    decision: 'adopt',
+    why: 'MyCA tax knowledge modules are written in this format and validated against its naming and length rules (tax-modules.mjs), so other skills-compatible agents can read them too.',
+  },
+  {
     name: 'Tally XML HTTP interface',
     url: 'https://github.com/TanmaySawankar390/tally-dev',
     license: 'Community SDKs (do not vendor blindly)',

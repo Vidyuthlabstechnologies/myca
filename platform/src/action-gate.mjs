@@ -79,6 +79,7 @@ export const ACTION_CLASSES = Object.freeze(Object.assign(Object.create(null), {
   notification_send: write('notification', ['notifications.send'], IRREVERSIBLE),
   nim_ask: read('nim', ['nim.complete'], MODEL),
   knowledge_answer: read('nim', ['nim.complete'], MODEL),
+  tax_answer: read('nim', ['nim.complete'], MODEL),
   nim_status: read('nim', ['nim.ping']),
   dsc_sign: write('dsc', [], IRREVERSIBLE),
   tally_push: write('tally', ['tally.send'], LOCAL_APP),

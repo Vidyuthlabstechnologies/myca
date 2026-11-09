@@ -56,6 +56,7 @@ export const OUTSIDE_SENTENCES = Object.freeze({
   notification_send: 'Send a message',
   nim_ask: 'Ask the AI assistant',
   knowledge_answer: 'Answer from the firm notes',
+  tax_answer: 'Answer a tax question from the tax modules',
   nim_status: 'Check the AI assistant connection',
   dsc_sign: 'Sign with a digital signature (DSC)',
   tally_push: 'Push to Tally',
