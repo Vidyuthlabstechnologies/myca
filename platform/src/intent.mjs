@@ -253,9 +253,21 @@ export function documentProblemReply(doc, country = 'IN') {
 
 // Money received is dated the day it is recorded unless the sentence gives a date.
 // Without this a receipt would silently take the date of the invoice it settles.
+const RELATIVE_PAST_DAY = /\b(?:(?:the\s+)?day\s+before\s+yesterday|yesterday)\b/i;
+
+function daysBefore(today, count) {
+  const day = new Date(`${today}T00:00:00Z`);
+  day.setUTCDate(day.getUTCDate() - count);
+  return day.toISOString().slice(0, 10);
+}
+
 export function receiptDate(text, today) {
-  const said = normalizeChat(text).match(SAID_DATE);
-  return said ? said[1] : today;
+  const raw = normalizeChat(text);
+  const said = raw.match(SAID_DATE);
+  if (said) return said[1];
+  const relative = raw.match(RELATIVE_PAST_DAY);
+  if (relative && /^\d{4}-\d{2}-\d{2}$/.test(String(today))) return daysBefore(today, /before/i.test(relative[0]) ? 2 : 1);
+  return today;
 }
 
 export function moneyDate(text, today) {
@@ -263,7 +275,7 @@ export function moneyDate(text, today) {
   const said = raw.match(SAID_DATE);
   if (said) return said[1];
   const { days } = takeSaidDays(raw, today);
-  return days.length === 1 ? days[0] : today;
+  return days.length === 1 ? days[0] : receiptDate(raw, today);
 }
 
 export function isPurchaseIntent(text) {

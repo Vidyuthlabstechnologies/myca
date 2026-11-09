@@ -346,22 +346,26 @@ no live switch, no CA approvals, and no bytes leaving the PC.
   cheque number said after the amount, "net 30" and "30 days" are not counted as amounts.
   Two real amounts, or a short bare number such as "cheque 123", make MyCA say it read
   more than one amount, record nothing and ask for the one amount. An amount of zero or
-  less is refused in words and nothing is recorded. "Yesterday" is not read: the entry is
-  dated today, and the preview shows the date before anything posts
-  ([`04-tds.md`](docs/product/features/04-tds.md)).
-- The Excel export of the audit trail lists every event of the period for every user. "By
-  <name>" and "last N" narrow the list in chat only; an Excel request that carries them gets
-  the whole period, the chat reply says in words that the name or count was not applied, and
-  the file does not say it ([`10-audit-trail.md`](docs/product/features/10-audit-trail.md)).
+  less is refused in words and nothing is recorded. "Yesterday" and "the day before
+  yesterday" date the entry one or two days back (2026-11-09); other relative words such as
+  "last Friday" are not read, the entry is dated today, and the preview shows the date before
+  anything posts ([`04-tds.md`](docs/product/features/04-tds.md)).
+- The Excel export of the audit trail follows "by <name>" and "last N" (2026-11-09): the
+  Audit trail sheet keeps that person's events, or the latest N, and the Summary sheet names
+  the filter. The Entries sheet is still the whole period's day book, and a name or count
+  that cannot be read ("by me", "limit 5000") is said in words and not applied
+  ([`10-audit-trail.md`](docs/product/features/10-audit-trail.md)).
 - The audit trail's hash chain has no key. Once a newer event follows, it shows an event that
   was edited or taken out of the log. It does not show events cut off the end of the log, a
   log re-sealed by someone able to write the books, a changed client label (the client an
   event is filed under is not part of the hash) or who appended an event. The trail says
   "verified" and never that the log is whole.
 - TDS the business deducts from a supplier is taken when the bill or expense is posted ("bill
-  from Fabric Co 10000 GST 5% with TDS 194C", after "we deduct TDS, TAN ..."). No chat
-  sentence adds TDS to a bill already posted, and `record_tds_withheld` takes sales invoices
-  (INV- numbers) only.
+  from Fabric Co 10000 GST 5% with TDS 194C", after "we deduct TDS, TAN ..."), or added to a
+  posted bill that has none with `add_bill_tds` ("add TDS 194C to BILL-0001", 2026-11-09). That
+  works the TDS out as of the bill date and refuses a bill paid in full; TDS on an expense
+  already posted, and a payment said with "less TDS", are not split in one step (MyCA asks
+  for the bill TDS first). `record_tds_withheld` takes sales invoices (INV- numbers) only.
 - Switching two-step on needs only a live session (accepted 2026-11-06): a stolen or unlocked
   session can enrol its own authenticator and take the recovery codes, and every later
   sign-in by the owner then stops at a step only the thief can pass until an operator

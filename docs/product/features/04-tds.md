@@ -240,9 +240,12 @@ Limits of what can be said and recorded from chat:
   and 2000 against INV-0001"), or a short bare number such as "cheque 123", MyCA says it
   read more than one amount, records nothing and asks for the one amount. An amount of
   zero or less ("received 0 against INV-0001", "paid Fabric Co -4000") is refused in words
-  and nothing is recorded. "Yesterday" is not read: the entry is dated today and the
+  and nothing is recorded. "Yesterday" and "the day before yesterday" date the entry one or
+  two days back; other relative words are not read, the entry is dated today and the
   preview shows the date before anything posts.
 - TDS the business deducts from a supplier is taken when the bill or expense is posted
-  ("bill from Fabric Co 10000 GST 5% with TDS 194C", after "we deduct TDS, TAN ..."). No
-  sentence adds TDS to a bill already posted, and `record_tds_withheld` is for sales
-  invoices (INV- numbers) only.
+  ("bill from Fabric Co 10000 GST 5% with TDS 194C", after "we deduct TDS, TAN ..."), or
+  added later to a posted bill that has none ("add TDS 194C to BILL-0001"): the TDS is worked
+  out as of the bill date, the preview shows it, and a bill paid in full is refused. A
+  payment said with "less TDS" asks for the bill TDS first. `record_tds_withheld` is for
+  sales invoices (INV- numbers) only.

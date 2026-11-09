@@ -1320,37 +1320,33 @@ test('skeptic gap 6 (R1-16): the several-amounts TDS reply gives the receipt fir
   await chat(state, 'no');
 });
 
-test('skeptic gap E (R1-20): an audit trail Excel export that names a person or a count says in words that the file lists every change in its period, for every person', async () => {
+test('skeptic gap E (R1-20): an audit trail Excel export narrows the file to the person and the count named, and says in words when one could not be read', async () => {
   const state = await books();
-  const whole = /\nThe Excel file lists every change in its period, for every person\. It is not narrowed by name or count, so (.+) (?:is|are) not applied\.$/;
-  for (const [sentence, applied, args] of [
-    ['export the audit trail by Priya to excel', '"Priya"', { report: 'audit_trail' }],
-    ['audit trail by Priya in excel', '"Priya"', { report: 'audit_trail' }],
-    ['audit trail last 5 in excel', 'the latest 5', { report: 'audit_trail' }],
-    ['export audit trail limit 20 to excel', 'the latest 20', { report: 'audit_trail' }],
-    ['audit trail by Priya limit 5 in excel', '"Priya" and the latest 5', { report: 'audit_trail' }],
-    ['what changed in the books by Priya in excel', '"Priya"', { report: 'audit_trail' }],
-    ['export the audit trail for last month by Priya Sharma to excel', '"Priya Sharma"', { report: 'audit_trail', period: 'last-month' }],
-    ['save the audit log as a spreadsheet, last 10 changes', 'the latest 10', { report: 'audit_trail' }],
-    ['audit trail everything by Priya since 2026-10-01 in excel', '"Priya"', { report: 'audit_trail', from: '2026-10-01' }],
-    ['export the audit trail by me to excel', 'the person you named', { report: 'audit_trail' }],
-    ['export audit trail limit 5000 to excel', 'the count you gave', { report: 'audit_trail' }],
-    ['export the audit trail by Priya limit 5000 to excel', '"Priya" and the count you gave', { report: 'audit_trail' }],
-    ['export the audit trail by anyone limit 10 to excel', 'the latest 10', { report: 'audit_trail' }],
-    ['export the audit trail by Limited 5 to excel', '"Limited"', { report: 'audit_trail' }],
+  for (const [sentence, args, note] of [
+    ['export the audit trail by Priya to excel', { report: 'audit_trail', actor: 'Priya' }, ''],
+    ['audit trail by Priya in excel', { report: 'audit_trail', actor: 'Priya' }, ''],
+    ['audit trail last 5 in excel', { report: 'audit_trail', limit: 5 }, ''],
+    ['export audit trail limit 20 to excel', { report: 'audit_trail', limit: 20 }, ''],
+    ['audit trail by Priya limit 5 in excel', { report: 'audit_trail', actor: 'Priya', limit: 5 }, ''],
+    ['what changed in the books by Priya in excel', { report: 'audit_trail', actor: 'Priya' }, ''],
+    ['export the audit trail for last month by Priya Sharma to excel', { report: 'audit_trail', period: 'last-month', actor: 'Priya Sharma' }, ''],
+    ['save the audit log as a spreadsheet, last 10 changes', { report: 'audit_trail', limit: 10 }, ''],
+    ['audit trail everything by Priya since 2026-10-01 in excel', { report: 'audit_trail', from: '2026-10-01', actor: 'Priya' }, ''],
+    ['export the audit trail by me to excel', { report: 'audit_trail' }, 'I could not read the person you named, so the Excel file is not narrowed by it.'],
+    ['export audit trail limit 5000 to excel', { report: 'audit_trail' }, 'I could not read the count you gave, so the Excel file is not narrowed by it.'],
+    ['export the audit trail by Priya limit 5000 to excel', { report: 'audit_trail', actor: 'Priya' }, 'I could not read the count you gave, so the Excel file is not narrowed by it.'],
+    ['export the audit trail by anyone limit 10 to excel', { report: 'audit_trail', limit: 10 }, ''],
+    ['export the audit trail by Limited 5 to excel', { report: 'audit_trail', actor: 'Limited' }, ''],
   ]) {
-    assert.deepEqual(toolArgs(state, sentence, 'export_xlsx'), args, `${sentence}: the file is not asked for a name or a count`);
+    assert.deepEqual(toolArgs(state, sentence, 'export_xlsx'), args, sentence);
     const said = await chat(state, sentence);
     assert.equal(said.tools[0].name, 'export_xlsx', said.reply);
     assert.equal(said.tools[0].result.ok, true, said.reply);
     assert.match(said.reply, /^Saved myca-audit-trail-.* Open it in Excel or send it to your CA\./, said.reply);
-    const found = whole.exec(said.reply);
-    assert.ok(found, `${sentence}: ${said.reply}`);
-    assert.equal(found[1], applied, sentence);
+    assert.equal(said.reply.split('\n')[1] || '', note, `${sentence}: ${said.reply}`);
+    assert.doesNotMatch(said.reply, /not applied/, sentence);
     assert.doesNotMatch(said.reply, RAW_CODE, sentence);
   }
-  assert.equal((await chat(state, 'export the audit trail by Priya to excel')).reply.split('\n')[1], 'The Excel file lists every change in its period, for every person. It is not narrowed by name or count, so "Priya" is not applied.');
-  assert.equal((await chat(state, 'export the audit trail by Priya limit 5 to excel')).reply.split('\n')[1], 'The Excel file lists every change in its period, for every person. It is not narrowed by name or count, so "Priya" and the latest 5 are not applied.');
   for (const sentence of ['export the audit trail to excel', 'audit trail in excel for last month', 'export the audit logs to excel', 'audit trail in excel for last 7 days', 'audit trail everything in excel', 'audit trail for October in excel', 'export the audit trail by newest first to excel', 'audit trail from 2026-09-01 to 2026-09-30 in excel', 'export the audit trail by everyone to excel', 'export the audit trail by email to excel']) {
     const said = await chat(state, sentence);
     assert.equal(said.tools[0].name, 'export_xlsx', `${sentence}: ${said.reply}`);

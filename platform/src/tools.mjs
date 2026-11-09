@@ -35,7 +35,7 @@ const { validateGstin } = gstin;
 const { filingPrep } = filing;
 const { auditRun } = audit;
 import { listAccounts, journal, trialBalance, verifyChain, createTransfers, paise } from './ledger.mjs';
-import { createInvoice, recordReceipt, recordPayment, invoicesToSalesCsv, createPurchase, purchasesToInwardCsv, printInvoice } from './invoice.mjs';
+import { createInvoice, recordReceipt, recordPayment, invoicesToSalesCsv, createPurchase, purchasesToInwardCsv, printInvoice, addBillTds } from './invoice.mjs';
 import { invoiceDocument, quoteDocument } from './invoice-document.mjs';
 import { createQuote, markQuote, convertQuote, listQuotes } from './quotes.mjs';
 import { addRecurring, stopRecurring, listRecurring, runRecurring } from './recurring.mjs';
@@ -1397,8 +1397,8 @@ export const TOOLS = [
   {
     name: 'export_xlsx',
     title: 'Excel file of a report',
-    description: 'One Excel workbook (.xlsx) of a report: the trial balance, entries, day book, sales, purchases, expenses, credit or debit notes, customer or supplier dues, cash forecast, credit at risk, TDS, margins, stock, a saved report by name, the business or GST summary, the bank reconciliation, or the audit trail, for a month, a period (this-month, last-month, this-quarter, this-year, last-year) or from and to dates. Money is numbers, so it adds up in Excel; a saved report is complete, not cut at 20 rows. Read-only.',
-    args: ['report', 'period', 'from', 'to', 'name', 'account'],
+    description: 'One Excel workbook (.xlsx) of a report: the trial balance, entries, day book, sales, purchases, expenses, credit or debit notes, customer or supplier dues, cash forecast, credit at risk, TDS, margins, stock, a saved report by name, the business or GST summary, the bank reconciliation, or the audit trail (optionally by one person, actor, and only the latest limit events), for a month, a period (this-month, last-month, this-quarter, this-year, last-year) or from and to dates. Money is numbers, so it adds up in Excel; a saved report is complete, not cut at 20 rows. Read-only.',
+    args: ['report', 'period', 'from', 'to', 'name', 'account', 'actor', 'limit'],
     run: (state, args = {}) => reportSheet(state, args.report, args),
   },
   {
@@ -2519,6 +2519,13 @@ export const TOOLS = [
     description: 'Record that this business deducts TDS, with its TAN. Bills and expenses can then carry a TDS section.',
     args: ['tan'],
     run: (state, args = {}) => setDeductor(state, args),
+  },
+  {
+    name: 'add_bill_tds',
+    title: 'Add TDS to a posted bill',
+    description: 'Deduct TDS on a supplier bill that is already posted (BILL- number) and has no TDS yet: the section, and for 194J the category or for 194I the asset, with the supplier PAN if known. The TDS is worked out on the bill value before GST from the dated rules, as of the bill date; the supplier is owed that much less and it sits in TDS payable until deposited.',
+    args: ['billId', 'tdsSection', 'tdsCategory', 'tdsAsset', 'payeePan'],
+    run: (state, args = {}) => addBillTds(state, args),
   },
   {
     name: 'record_tds_deposit',

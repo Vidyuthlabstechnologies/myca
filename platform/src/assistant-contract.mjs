@@ -6,7 +6,7 @@ import { planOweQuestion } from './owe-intent.mjs';
 import { planFilingFromChat, saidPeriod } from './filing-intent.mjs';
 import { REPORT_KEYS } from './report-sheets.mjs';
 import { planEmployeeFromChat } from './employee-intent.mjs';
-import { planTdsChat, planTdsFromChat, withoutSettledTds } from './tds-intent.mjs';
+import { planBillTdsFromChat, planTdsChat, planTdsFromChat, withoutSettledTds } from './tds-intent.mjs';
 import { planGstPayFromChat } from './gst-pay-intent.mjs';
 import { planTransportFromChat, planAddressFromChat } from './eway-intent.mjs';
 import { planPayrollFromChat } from './payroll-intent.mjs';
@@ -794,6 +794,12 @@ export const TOOL_ARG_SCHEMAS = {
     type: 'object',
     additionalProperties: false,
     properties: { csv: { type: 'string' }, documentSha256: { type: 'string', pattern: '^[0-9a-f]{64}$' } },
+  },
+  add_bill_tds: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['billId', 'tdsSection'],
+    properties: { billId: { type: 'string', pattern: '^BILL-[0-9]{4,}$' }, ...tdsProperties },
   },
   record_tds_withheld: {
     type: 'object',
@@ -1694,6 +1700,8 @@ export const TOOL_ARG_SCHEMAS = {
       to: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' },
       name: { type: 'string', maxLength: 60 },
       account: { type: 'string', maxLength: 24 },
+      actor: { type: 'string', maxLength: 80 },
+      limit: { type: 'integer', minimum: 1, maximum: 2000 },
     },
   },
   audit_trail: {
@@ -2211,6 +2219,7 @@ const TOOL_RISK = {
   set_channel_identity: 'writes_books',
   import_tcs_statement: 'writes_books',
   import_26as_credits: 'writes_books',
+  add_bill_tds: 'writes_books',
   record_tds_withheld: 'writes_books',
   tds_credit_check: 'read_only',
   marketplace_credits: 'read_only',
@@ -2546,8 +2555,8 @@ function planExcelFromChat(state, text) {
   if (report === 'audit_trail') {
     const range = auditRangeSaid(text);
     if (!range) return { kind: 'reply', reply: AUDIT_RANGE_UNREAD, tools: [] };
-    const note = auditExportNote(text);
-    return { kind: 'tool', name: 'export_xlsx', args: { report, ...range }, ...(note ? { note } : {}) };
+    const narrowed = auditExportNarrowing(text);
+    return { kind: 'tool', name: 'export_xlsx', args: { report, ...range, ...narrowed.args }, ...(narrowed.note ? { note: narrowed.note } : {}) };
   }
   const named = EXCEL_PERIOD_WORDS.exec(text);
   const period = named ? named[1].toLowerCase().replace(/\s+/g, '-') : saidPeriod(text);
@@ -2833,16 +2842,15 @@ function auditLimitSaid(text) {
   return { rest: text };
 }
 
-function auditExportNote(text) {
+function auditExportNarrowing(text) {
   const actor = auditActorSaid(text);
   const limit = auditLimitSaid(actor.rest);
-  const ignored = [];
-  if (actor.name) ignored.push(`"${actor.name}"`);
-  else if (actor.unreadable) ignored.push('the person you named');
-  if (limit.count) ignored.push(`the latest ${limit.count}`);
-  else if (limit.unreadable) ignored.push('the count you gave');
-  if (!ignored.length) return '';
-  return `The Excel file lists every change in its period, for every person. It is not narrowed by name or count, so ${ignored.join(' and ')} ${ignored.length > 1 ? 'are' : 'is'} not applied.`;
+  const args = { ...(actor.name ? { actor: actor.name } : {}), ...(limit.count ? { limit: limit.count } : {}) };
+  const unread = [];
+  if (actor.unreadable) unread.push('the person you named');
+  if (limit.unreadable) unread.push('the count you gave');
+  if (!unread.length) return { args };
+  return { args, note: `I could not read ${unread.join(' or ')}, so the Excel file is not narrowed by ${unread.length > 1 ? 'them' : 'it'}.` };
 }
 
 function auditNarrowing(known, text) {
@@ -3306,6 +3314,9 @@ export function planLocalToolCall(state, message) {
       tools: [],
     };
   }
+
+  const billTds = planBillTdsFromChat(state, text);
+  if (billTds) return billTds;
 
   {
     const saving = /^save\s+gstr-?1\s+(?:for\s+)?(\d{4}-\d{2})(?:\s+(?:for|under)\s+([0-9]{2}[A-Z0-9]{13}))?\s+(?:to|on)\s+(?:the\s+)?portal(?:\s+(?:with\s+)?approval\s+(APR-\d+))?\s*$/i.exec(text.trim());

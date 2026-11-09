@@ -714,6 +714,11 @@ function fmtToolResultCore(name, result, args) {
   if (name === 'set_tds_deductor' && result.tan) {
     return `Done. This business deducts TDS under TAN ${result.tan}.`;
   }
+  if (name === 'add_bill_tds' && result.bill && result.tds) {
+    return result.tds.tds > 0
+      ? `Added TDS of ${money(result.tds.tds)} under ${result.tds.section} to ${result.bill.id}; ${money(result.remaining)} is still owed to ${result.bill.partyName}.${result.tds.depositBy ? ` Deposit it with the government by ${result.tds.depositBy}.` : ''}`
+      : `No TDS is due on ${result.bill.id} under ${result.tds.section} yet: payments to ${result.bill.partyName} this year are within the limit. It is counted towards the limit.`;
+  }
   if (name === 'record_tds_deposit' && result.deposit) {
     const d = result.deposit;
     return `Recorded the TDS deposit of ${money(d.amount)} on ${d.date}, challan ${d.challan}.${result.left > 0.005 ? ` ${money(result.left)} is still to deposit.` : ' Nothing is left to deposit.'}`;

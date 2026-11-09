@@ -713,3 +713,26 @@ test('a broken ledger shows in the ledger verdict with where it broke', async ()
   assert.ok(data.ledger.at !== undefined);
   assert.equal(data.chain.ok, true, 'the log itself is still intact');
 });
+
+test('the audit trail Excel export keeps only the person and the latest count asked for, and says so on the Summary sheet', async () => {
+  const s = open();
+  const { preview } = await s.propose('create_invoice', SALE, { actor: STAFF });
+  await s.confirm(preview.token, { actor: OWNER });
+  await s.query('gst_payable', {}, { actor: STAFF });
+  await s.chat('help', { actor: OWNER });
+  const all = reportSheet(s.state, 'audit_trail', EVERYTHING);
+  const ravi = reportSheet(s.state, 'audit_trail', { ...EVERYTHING, actor: 'ravi' });
+  const latest = reportSheet(s.state, 'audit_trail', { ...EVERYTHING, limit: 1 });
+  const both = reportSheet(s.state, 'audit_trail', { ...EVERYTHING, actor: 'Ravi', limit: 1 });
+  const rows = (out) => out.data.sheets[0].rows;
+  assert.ok(rows(all) >= 4, JSON.stringify(all.data.sheets));
+  assert.equal(rows(ravi), auditEventsIn(s.state, EVERYTHING, { view: 'all', actor: 'ravi' }).events.length);
+  assert.ok(rows(ravi) >= 2 && rows(ravi) < rows(all));
+  assert.equal(rows(latest), 1);
+  assert.equal(rows(both), 1);
+  assert.equal(summaryOf(ravi).get('Person'), 'ravi');
+  assert.equal(summaryOf(ravi).has('Latest events kept'), false);
+  assert.equal(summaryOf(latest).get('Latest events kept'), 1);
+  assert.equal(summaryOf(all).has('Person'), false);
+  assert.equal(summaryOf(reportSheet(s.state, 'audit_trail', { ...EVERYTHING, actor: 'nobody' })).get('Events'), 0);
+});
