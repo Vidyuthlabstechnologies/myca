@@ -366,6 +366,13 @@ no live switch, no CA approvals, and no bytes leaving the PC.
   works the TDS out as of the bill date and refuses a bill paid in full; TDS on an expense
   already posted, and a payment said with "less TDS", are not split in one step (MyCA asks
   for the bill TDS first). `record_tds_withheld` takes sales invoices (INV- numbers) only.
+- E-invoice payloads (2026-11-09, checked against the NIC release notes of 16 October 2026):
+  B2B and exports (EXPWP, EXPWOP with country, currency and shipping bill) are built; a B2C
+  invoice, a line without a 4, 6 or 8 digit HSN or SAC, a missing seller or buyer PIN, and a
+  document before 1 October 2021 are refused before any IRP call, and an IRN older than 24
+  hours is not sent for cancellation. Not built: SEZ (SEZWPA, SEZWPNA, SEZWOP), deemed exports
+  and the new RCM types (RCMDOM, RCMIMP), the 30-day reporting limit for turnover of 10 crore
+  or more (MyCA does not hold the turnover), and the 6-digit HSN rule above 5 crore.
 - Switching two-step on needs only a live session (accepted 2026-11-06): a stolen or unlocked
   session can enrol its own authenticator and take the recovery codes, and every later
   sign-in by the owner then stops at a step only the thief can pass until an operator

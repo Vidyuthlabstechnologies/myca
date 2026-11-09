@@ -510,7 +510,7 @@ test('the new tools are registered for remote queries, both countries, confirmat
   const listed = source.match(/export const PROPOSABLE = new Set\(\[([^\]]*)\]\)/);
   assert.ok(listed, 'PROPOSABLE is a literal set');
   const proposable = new Set([...listed[1].matchAll(/'([^']+)'/g)].map((hit) => hit[1]));
-  const engineOnly = new Set(['month_close_approve', 'set_sku_supply', 'record_purchase_order', 'record_advance_tax', 'set_supplier_bank', 'push_tally', 'set_gst_credit_opening', 'set_party_address', 'set_sales_tax_rate', 'set_contractor', 'set_withholding', 'govt_nic_cancel_irn', 'govt_generate_irn']);
+  const engineOnly = new Set(['month_close_approve', 'set_sku_supply', 'record_purchase_order', 'record_advance_tax', 'set_supplier_bank', 'push_tally', 'set_gst_credit_opening', 'set_sales_tax_rate', 'set_contractor', 'set_withholding', 'govt_nic_cancel_irn', 'govt_generate_irn']);
   for (const name of CONFIRM_TOOLS) {
     if (isImport(name) || engineOnly.has(name)) continue;
     assert.equal(proposable.has(name), true, `${name} can be proposed from the app`);

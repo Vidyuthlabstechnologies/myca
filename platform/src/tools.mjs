@@ -375,6 +375,21 @@ export const TOOLS = [
     },
   },
   {
+    name: 'set_business_address',
+    title: 'Business address',
+    description: 'Record this business\'s own address, city and PIN code. They print on invoices and go into e-invoices and e-way bills. Changes no figure.',
+    args: ['address', 'city', 'pin'],
+    run: (state, args = {}) => {
+      const address = String(args.address || '').trim().slice(0, 200);
+      const pin = String(args.pin || '').trim();
+      const city = String(args.city || '').trim().slice(0, 50);
+      if (!address) return fail('ADDRESS_REQUIRED');
+      if (!/^[1-9][0-9]{5}$/.test(pin)) return fail('BAD_PIN', { pin });
+      state.company = { ...(state.company || {}), address, pin, ...(city ? { city } : {}) };
+      return ok({ company: { address, pin, city: state.company.city || '' } });
+    },
+  },
+  {
     name: 'set_transport',
     title: 'Transport details',
     description: 'Record how the goods on an invoice move (vehicle, distance, transporter, mode) for the e-way bill. Changes no figure.',
