@@ -190,6 +190,7 @@ export const ROUTES = [
   { re: /\bamendments?\b.*\b(?:list|made|this\s+month|for)\b|\blist\s+amendments\b|\bamended\s+invoices\b/i, tool: 'list_amendments' },
   { re: /\bdaily\s+checks?\b|\bautomation\s+status\b|\bwhat\s+(?:did|has)\s+(?:the\s+)?automation\b|\bdid\s+the\s+checks\s+run\b/i, tool: 'automation_status' },
   { re: /\brules?\s+status\b|\bstatutory\s+rules\b|\brules\s+(?:current|up\s*to\s*date|updated)\b|\bare\s+(?:the\s+)?(?:tax\s+)?rules\s+(?:current|up\s*to\s*date)\b/i, tool: 'rules_status' },
+  { re: /\bportal\s+watch\b|\bgovt\s+pages?\b|\bgovernment\s+notifications?\b|\bportal\s+pages?\s+(?:changed|status|check)\b|\bcheck\s+(?:the\s+)?portals?\b/i, tool: 'govt_watch_status' },
   { re: /\b(?:my|open|show|list|what are my)\s+reminders\b|^\s*reminders\s*$/i, tool: 'list_reminders' },
   { re: /\b(?:my|show|list|all)\s+employees\b|^\s*employees\s*$/i, tool: 'list_employees' },
   { re: /\b(?:my|show|list|which)\s+(?:filings|filed\s+returns|returns\s+(?:are\s+|were\s+)?filed)\b|^\s*filings\s*$/i, tool: 'list_filings' },

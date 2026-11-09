@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "541164065875",
+    "project_id": "myca-prod-app",
+    "storage_bucket": "myca-prod-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:541164065875:android:8e32a90e71ead3ca0e62a6",
+        "android_client_info": {
+          "package_name": "com.mldynamic.myca"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCivGtXZ76xDqe2de5TfMYDCQiWtDl_DC0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -22,6 +22,18 @@ android {
         isCoreLibraryDesugaringEnabled = true
     }
 
+    flavorDimensions += "market"
+    productFlavors {
+        // INDIA SHIPS NO PLAID SDK: its source set carries only the stub bridge.
+        create("india") {
+            dimension = "market"
+        }
+        // US BUILD WITH PLAID: its source set carries the real bridge plus sdk-core.
+        create("global") {
+            dimension = "market"
+        }
+    }
+
     defaultConfig {
         applicationId = "com.mldynamic.myca"
         // You can update the following values to match your application needs.
@@ -67,4 +79,7 @@ flutter {
 
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
+    // Plaid Link ships in the global build only; keep this version aligned
+    // with what the connectors screen documents for US bank feeds.
+    "globalImplementation"("com.plaid.link:sdk-core:5.5.3")
 }

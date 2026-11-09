@@ -33,6 +33,7 @@ export const REMOTE_QUERY_TOOLS = new Set([
   'list_sales_tax_nexus',
   'rules_status',
   'automation_status',
+  'govt_watch_status',
   'read_document',
   'list_amendments',
   'schedule_se',

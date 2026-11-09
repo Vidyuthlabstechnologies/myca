@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, existsSync } from 'node:fs';
+import { mkdtempSync, readFileSync, existsSync, renameSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 process.env.APPDATA = mkdtempSync(join(tmpdir(), 'myca-sandbox-keys-'));
@@ -6,7 +6,24 @@ process.env.HOME = process.env.APPDATA;
 process.env.MYCA_MOCK_MODE = '1';
 for (const name of ['MYCA_GSP_API_KEY', 'MYCA_GSP_API_SECRET', 'MYCA_GSP_TEST_API_KEY', 'MYCA_GSP_TEST_API_SECRET', 'MYCA_GSP_LIVE_API_KEY', 'MYCA_GSP_LIVE_API_SECRET', 'MYCA_GSP_ENV', 'MYCA_GSP_BASE_URL']) delete process.env[name];
 
-import { test } from 'node:test';
+import { test, before, after } from 'node:test';
+const HIDDEN_ENV_FILES = [];
+before(() => {
+  for (const name of ['.env', '.env.production', '.env.local']) {
+    const here = new URL(`../${name}`, import.meta.url);
+    try {
+      if (!existsSync(here)) continue;
+      const away = new URL(`../${name}.test-hidden`, import.meta.url);
+      renameSync(here, away);
+      HIDDEN_ENV_FILES.push([away, here]);
+    } catch { /* a file that cannot move stays; its keys are the operator's own */ }
+  }
+});
+after(() => {
+  for (const [away, here] of HIDDEN_ENV_FILES.splice(0)) {
+    try { renameSync(away, here); } catch { /* restore what can be restored */ }
+  }
+});
 import assert from 'node:assert/strict';
 import { createState } from '../src/store.mjs';
 import { runTool } from '../src/tools.mjs';

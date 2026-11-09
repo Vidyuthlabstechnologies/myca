@@ -67,7 +67,7 @@ export function creditAtRisk(state, { period } = {}) {
   if (!isReturnPeriod(wanted)) return { ok: false, error: 'INVALID_PERIOD', hint: 'Use YYYY-MM, for example 2026-09.' };
   const stored = state.gstr2b && typeof state.gstr2b === 'object' && Object.hasOwn(state.gstr2b, wanted) ? state.gstr2b[wanted] : null;
   const twob = allRows(state);
-  const bills = (state.purchases || []).filter((bill) => periodOf(bill.date) === wanted && itcOf(billRow(bill)) > 0);
+  const bills = (state.purchases || []).filter((bill) => periodOf(bill.date) === wanted && !bill.reverseCharge && itcOf(billRow(bill)) > 0);
   const risks = [];
   const numbered = [];
   for (const bill of bills) {

@@ -134,7 +134,7 @@ node scripts/check-all.mjs platform     # or: sprints, cloud, mobile
 
 cd platform && npm test && npm run dev  # local server on http://127.0.0.1:4780
 cd mobile && flutter analyze && flutter test
-cd mobile && flutter run --dart-define=MYCA_CLOUD_URL=http://127.0.0.1:8080
+cd mobile && flutter run --flavor india --dart-define=MYCA_CLOUD_URL=http://127.0.0.1:8080
 ```
 
 **Hosted API tests.** These need a Postgres the tests may create databases in. Point

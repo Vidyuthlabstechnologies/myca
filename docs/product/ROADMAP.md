@@ -110,6 +110,7 @@ export; in M3 the proposals and role changes; quotes.
 | Start GSP/ASP and NIC production onboarding | M5 |
 | Decide who may approve a filing | M5 |
 | Recruit two or three pilot businesses | M3, M4 |
+| Rule on the open CA-review items (GSTR-9 0% vs non-GST, flag-review location, 2027 holidays) | Findings in `docs/review/CA-REVIEW-2026-10-30.md` |
 | Connect a phone | M1 device testing |
 | Restore GitHub Actions, or accept the local gate | Automated checks on every change |
 

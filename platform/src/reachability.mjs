@@ -2,6 +2,7 @@ import { connect } from 'node:net';
 import { GOVT_SITES, publicGovtConfig } from './nic-config.mjs';
 
 const PROBE_TIMEOUT_MS = 10000;
+const PAGE_TIMEOUT_MS = 15000;
 
 function probeSignal(signal) {
   const timeout = AbortSignal.timeout(PROBE_TIMEOUT_MS);
@@ -42,6 +43,24 @@ export async function probeGovt(fetchFn = fetch, { signal } = {}) {
     config: publicGovtConfig(),
     note: 'HTTP to official hosts from this machine. Auth/IRN still need your NIC client-id and API user.',
   };
+}
+
+export async function fetchPublicPage(url, { timeoutMs = PAGE_TIMEOUT_MS, signal } = {}) {
+  const started = Date.now();
+  const timeout = AbortSignal.timeout(timeoutMs);
+  try {
+    const res = await fetch(String(url), {
+      method: 'GET',
+      headers: { accept: 'text/html,application/xhtml+xml', 'user-agent': 'MyCA/0.1 (local books; portal watch)', 'accept-language': 'en-IN,en' },
+      signal: signal ? AbortSignal.any([timeout, signal]) : timeout,
+      redirect: 'follow',
+    });
+    const text = await res.text();
+    if (!res.ok) return { ok: false, error: `HTTP ${res.status}`, status: res.status, ms: Date.now() - started };
+    return { ok: true, status: res.status, text, ms: Date.now() - started };
+  } catch (err) {
+    return { ok: false, error: String(err && err.message ? err.message : err), ms: Date.now() - started };
+  }
 }
 
 export async function probeTcp(host, port, timeoutMs = 1500, { signal } = {}) {

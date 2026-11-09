@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MyCA — Sandbox credentials</title>
+<style>
+:root { color-scheme: light; --ink:#1a1a1a; --muted:#6b6b6b; --line:#e5e0d5; --card:#fff; --bg:#f7f5ef; --danger:#b3261e; --ok:#1a6b2e; }
+* { box-sizing:border-box; }
+body { margin:0; font-family:Inter,system-ui,-apple-system,sans-serif; background:var(--bg); color:var(--ink); }
+header { max-width:980px; margin:0 auto; padding:36px 20px 8px; }
+header h1 { margin:0 0 8px; font-size:30px; letter-spacing:-0.02em; }
+header p { color:var(--muted); line-height:1.6; max-width:72ch; margin:8px 0; }
+main { max-width:980px; margin:0 auto; padding:10px 20px 80px; display:grid; gap:16px; }
+section.card { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:20px 22px; }
+section.card h2 { margin:0 0 4px; font-size:19px; }
+section.card p.hint { margin:6px 0 16px; color:var(--muted); font-size:14px; line-height:1.6; }
+label.field { display:block; margin:12px 0; }
+label.field span.t { display:block; font-size:13px; font-weight:600; margin-bottom:6px; }
+label.field span.d { display:block; font-size:12.5px; color:var(--muted); font-weight:400; margin-top:6px; line-height:1.5; }
+input[type=text], input[type=password] { width:100%; padding:10px 12px; border:1px solid var(--line); border-radius:10px; font-size:14px; font-family:ui-monospace,Menlo,Consolas,monospace; background:#fcfbF7; color:var(--ink); }
+input:focus { outline:2px solid #1a1a1a; outline-offset:1px; }
+.row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+@media (max-width:720px){ .row{grid-template-columns:1fr;} }
+.actions { display:flex; gap:10px; flex-wrap:wrap; margin-top:14px; }
+button { padding:9px 16px; border-radius:999px; border:1px solid #1a1a1a; background:#1a1a1a; color:#fff; font-size:14px; cursor:pointer; }
+button.secondary { background:#fff; color:#1a1a1a; }
+button:disabled { opacity:0.5; cursor:default; }
+pre.out { white-space:pre-wrap; word-break:break-all; background:#111; color:#f2f0e8; border-radius:12px; padding:14px 16px; font-size:13px; line-height:1.6; min-height:120px; }
+.status { font-size:13.5px; margin-top:10px; line-height:1.5; }
+.status.bad { color:var(--danger); font-weight:600; }
+.status.good { color:var(--ok); font-weight:600; }
+.testbox { background:#f3f1ea; border:1px solid var(--line); border-radius:10px; padding:10px 14px; font-size:13.5px; line-height:1.7; color:#333; }
+footer { max-width:980px; margin:0 auto; padding:0 20px 60px; color:var(--muted); font-size:13px; line-height:1.7; }
+code { background:#efede6; padding:1px 6px; border-radius:6px; font-size:12.5px; }
+</style>
+</head>
+<body>
+<header>
+<h1>MyCA — Sandbox credentials</h1>
+<p>Drop the sandbox values once. This page stays on this machine, makes no network calls, and never sends anything anywhere. Paste into the fields, copy the generated <code>cloud/.env</code> and the <code>flutter run</code> line, and start testing.</p>
+<p>Sandbox means phone codes print to the API terminal, channel pulls are a dry run, and filing stays off. Live keys do not belong here.</p>
+</header>
+<main>
+<section class="card">
+<h2>1 · Sandbox API</h2>
+<p class="hint">Runs on <code>127.0.0.1:8080</code> with <code>MYCA_DEV_OTP=1</code>. Secrets stay in <code>cloud/.env</code>, never in the repo.</p>
+<label class="field"><span class="t">MYCA_DATABASE_URL</span><input id="databaseUrl" type="text" value="postgres://myca@127.0.0.1:54329/myca_dev" autocomplete="off" spellcheck="false"><span class="d">Local Postgres for user testing. Tests use a separate database and never touch this one.</span></label>
+<div class="row">
+<label class="field"><span class="t">MYCA_TOKEN_SECRET · 32+ random characters</span><input id="tokenSecret" type="password" autocomplete="off" spellcheck="false" placeholder="paste or Generate"><span class="d">Signs access tokens. Losing it signs everyone out; that is the only recovery needed in sandbox.</span></label>
+<label class="field"><span class="t">MYCA_BOOKS_KEY · 32+ random characters</span><input id="booksKey" type="password" autocomplete="off" spellcheck="false" placeholder="paste or Generate"><span class="d">Seals every business books row. Keep it where the database password is kept.</span></label>
+</div>
+<div class="row">
+<label class="field"><span class="t">MYCA_CONNECTOR_KEY · optional, 32+ characters</span><input id="connectorKey" type="password" autocomplete="off" spellcheck="false" placeholder="leave empty to hide Connections cards"><span class="d">Empty hides the Connections cards with the service hint. Set it to test Amazon, Shopify, Razorpay and Zoho as a dry run.</span></label>
+<label class="field"><span class="t">MYCA_CLOUD_URL · what the app points at</span><input id="cloudUrl" type="text" value="http://127.0.0.1:8080" autocomplete="off" spellcheck="false"><span class="d">Sandbox stays plain HTTP on loopback. Release builds require HTTPS.</span></label>
+</div>
+<div class="actions">
+<button type="button" id="genSecrets">Generate secrets</button>
+<button type="button" class="secondary" id="toggleSecrets">Show secrets</button>
+</div>
+</section>
+<section class="card">
+<h2>2 · Sign-in, production grade</h2>
+<p class="hint">Firebase project <code>myca-prod-app</code> is created and both apps are registered: Android <code>1:541164065875:android:8e32a90e71ead3ca0e62a6</code> and iOS <code>1:541164065875:ios:d95790ff28957c370e62a6</code>, package and bundle id <code>com.mldynamic.myca</code>. The debug SHA-1 <code>86:34:E6:D8:34:0B:0C:03:97:4C:64:7F:BD:06:E1:3F:EE:6C:48:62</code> is registered, and <code>mobile/android/app/google-services.json</code> plus <code>mobile/ios/Runner/GoogleService-Info.plist</code> are in the repo. Console: <a href="https://console.firebase.google.com/project/myca-prod-app/overview">myca-prod-app overview</a>.</p>
+<div class="testbox">Still to click in the Firebase console (owner, one time): 1) Authentication → Sign-in method → enable <b>Google</b> and <b>Phone</b>. 2) Project settings → General → add the <b>upload-key SHA-1</b> and, once Play App Signing is on, the <b>Play app-signing SHA-1</b> — sign-in fails on installed builds without them. 3) Google Cloud Console → APIs &amp; Services → Credentials → create an OAuth client of type <b>Web</b>; its id is the value below. 4) iOS: replace the two <code>REPLACE_WITH_GOOGLE_*</code> placeholders in <code>Info.plist</code> with the iOS client id and its reversed form. Phone sign-in alone is enough for sandbox; fill the fields below only when testing Google or firm SSO.</div>
+<label class="field"><span class="t">MYCA_GOOGLE_SERVER_CLIENT_ID · app side</span><input id="googleServerId" type="text" autocomplete="off" spellcheck="false" placeholder="web OAuth client id"><span class="d">The web client id. The same value goes in the API as MYCA_GOOGLE_CLIENT_IDS.</span></label>
+<div class="row">
+<label class="field"><span class="t">MYCA_OIDC_ISSUER · API side</span><input id="oidcIssuer" type="text" autocomplete="off" spellcheck="false" placeholder="https://login.example.com/realms/firm"><span class="d">Empty hides firm sign-in in the app.</span></label>
+<label class="field"><span class="t">MYCA_OIDC_CLIENT_ID · app side</span><input id="oidcClientId" type="text" autocomplete="off" spellcheck="false" placeholder="client id from the firm provider"><span class="d">Redirect URI registered there: com.mldynamic.myca://oidc.</span></label>
+</div>
+</section>
+<section class="card">
+<h2>3 · Official portals and channel credentials</h2>
+<p class="hint">Where each secret comes from, and where it is pasted. Nothing here goes in the app build; app-side defines carry only the two client ids.</p>
+<div class="testbox">Tax (per business, owner): <b>Sandbox by Quicko GSP</b> — developer.sandbox.co.in → API key + secret (test, then live) → desktop Govt tab or <code>platform/.env</code> as <code>MYCA_GSP_TEST_API_KEY / SECRET</code> and <code>MYCA_GSP_LIVE_API_KEY / SECRET</code>, <code>MYCA_GSP_ENV=test|live</code>. <b>NIC e-invoice / e-way bill IRP</b> — sandbox: einv-apisandbox.nic.in (User Type Tax Payer, GSTIN + trade name + GST-registered mobile, OTP) → Client ID + Client Secret, then a GSTIN username + password, plus the IRP <code>.cer</code> public key → desktop Govt tab (<code>govt.json</code>, sandbox first). Production IRP credentials come from einvoice1.gst.gov.in after on-boarding with static IPs and a test report. GST returns are viewed through the GSP; filing itself stays on gst.gov.in or with the CA and the ARN is recorded back.<br><br>Messaging (cloud <code>.env</code>, fields below): <b>SMS</b> — MSG91 (India): Account → API access → authkey + OTP template id, <code>MYCA_SMS_PROVIDER=msg91</code>; or Twilio: account SID + auth token + from number. <b>WhatsApp Cloud API</b> — Meta developers → WhatsApp app → phone number id + permanent access token + verify token + app secret. <b>Email relay + inbound</b> — relay URL + token + from address, inbound domain for per-key addresses.<br><br>Connectors (per business, Connections screen, dry run until pulls are enabled): <b>Amazon SP-API</b> — Seller Central → Apps and Services → Develop apps → private app → LWA client id + secret + refresh token, marketplace <code>A21TJRUUN4KGV</code>, region <code>IN</code>. <b>Shopify</b> — dev store → Develop apps (<code>read_orders</code>, <code>read_shopify_payments_payouts</code>) → Admin API token, shop host. <b>Razorpay</b> — test key id (<code>rzp_test_…</code>) + secret. <b>Zoho</b> — API console Self Client → code for <code>ZohoBooks.fullaccess.all</code> → refresh token + numeric org id, <code>dc=in</code>. US channels (Plaid, TaxJar, Gusto, Track1099) need the <code>global</code> flavor and are out of scope for India testing.<br><br>Desktop-local only: Tally (<code>MYCA_TALLY_HOST/PORT</code>), model key (<code>MYCA_MODEL_API_KEY</code>) for bill reading and chat.</div>
+<label class="field"><span class="t">MYCA_SMS_PROVIDER · empty for sandbox</span><input id="smsProvider" type="text" autocomplete="off" spellcheck="false" placeholder="empty, or msg91, or twilio"><span class="d">Empty prints codes to the API log. Set msg91 with the two fields below for real SMS in India.</span></label>
+<div class="row">
+<label class="field"><span class="t">MYCA_SMS_MSG91_AUTHKEY</span><input id="msg91Key" type="password" autocomplete="off" spellcheck="false" placeholder="MSG91 authkey"><span class="d">From the MSG91 account → API access.</span></label>
+<label class="field"><span class="t">MYCA_SMS_MSG91_TEMPLATE_ID</span><input id="msg91Template" type="text" autocomplete="off" spellcheck="false" placeholder="OTP template id"><span class="d">The DLT-approved OTP template id.</span></label>
+</div>
+<div class="row">
+<label class="field"><span class="t">MYCA_WHATSAPP_PHONE_NUMBER_ID</span><input id="waPhoneId" type="text" autocomplete="off" spellcheck="false" placeholder="Meta → WhatsApp → phone number id"><span class="d">Empty disables the WhatsApp route with a 404.</span></label>
+<label class="field"><span class="t">MYCA_WHATSAPP_ACCESS_TOKEN</span><input id="waToken" type="password" autocomplete="off" spellcheck="false" placeholder="permanent access token"><span class="d">Use a permanent token, not a 24-hour test token.</span></label>
+</div>
+<div class="row">
+<label class="field"><span class="t">MYCA_WHATSAPP_VERIFY_TOKEN</span><input id="waVerify" type="text" autocomplete="off" spellcheck="false" placeholder="any random string you also set in Meta"><span class="d">Must match the webhook verify token in the Meta app.</span></label>
+<label class="field"><span class="t">MYCA_WHATSAPP_APP_SECRET</span><input id="waSecret" type="password" autocomplete="off" spellcheck="false" placeholder="Meta app secret"><span class="d">Verifies the X-Hub-Signature-256 on incoming webhooks.</span></label>
+</div>
+<div class="row">
+<label class="field"><span class="t">MYCA_EMAIL_FROM</span><input id="emailFrom" type="text" autocomplete="off" spellcheck="false" placeholder="MyCA <noreply@example.in>"><span class="d">Empty disables email notifications.</span></label>
+<label class="field"><span class="t">MYCA_EMAIL_RELAY_URL + MYCA_EMAIL_RELAY_TOKEN</span><input id="emailRelay" type="text" autocomplete="off" spellcheck="false" placeholder="https://relay.example/out | token"><span class="d">Format: url, space, token. The relay posts outbound mail; the token returns as a bearer header.</span></label>
+</div>
+</section>
+<section class="card">
+<h2>4 · Generated files</h2>
+<p class="hint">Copy <code>cloud/.env</code> next to the API, then run the app line. Secrets render masked until revealed.</p>
+<pre class="out" id="envOut">Fill the fields above.</pre>
+<div class="actions">
+<button type="button" id="copyEnv">Copy cloud/.env</button>
+<button type="button" class="secondary" id="downloadEnv">Download cloud.env</button>
+</div>
+<pre class="out" id="runOut">Fill the fields above.</pre>
+<div class="actions">
+<button type="button" id="copyRun">Copy flutter run line</button>
+<button type="button" class="secondary" id="copyBundle">Copy release bundle line</button>
+</div>
+<div class="status" id="statusLine"></div>
+</section>
+<section class="card">
+<h2>5 · Test values that always work</h2>
+<div class="testbox">Phone: any 10-digit Indian number, for example <code>98765 43210</code> — the code prints in the API terminal and expires in five minutes.<br>Business: <code>Nalanda Textiles (sandbox)</code> · GSTIN <code>27AAACH7409R1Z1</code> · also <code>24AAACF7856R1ZY</code>, <code>27AABCT1332L1ZE</code>.<br>Razorpay sandbox: key id starts <code>rzp_test_</code>. Shopify: development store host. Amazon: marketplace <code>A21TJRUUN4KGV</code>, region <code>IN</code>. Zoho: sandbox organisation, <code>dc=in</code>.<br>Full script: <code>mobile/SANDBOX-TESTING.md</code>.</div>
+</section>
+</main>
+<footer>
+<div>Nothing leaves this page. Reloading clears the fields. Keep the generated <code>cloud/.env</code> out of git; the repo already ignores env files, keystores and Terraform state.</div>
+</footer>
+<script>
+const byId = (id) => document.getElementById(id);
+const fields = ["databaseUrl","tokenSecret","booksKey","connectorKey","cloudUrl","googleServerId","oidcIssuer","oidcClientId","smsProvider","msg91Key","msg91Template","waPhoneId","waToken","waVerify","waSecret","emailFrom","emailRelay"].map(byId);
+function randomSecret(len) {
+  const bytes = new Uint8Array(len);
+  crypto.getRandomValues(bytes);
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789-_";
+  let out = "";
+  for (const b of bytes) out += alphabet[b % alphabet.length];
+  return out;
+}
+function validated() {
+  const v = {};
+  for (const el of fields) v[el.id] = el.value.trim();
+  const problems = [];
+  if (!/^postgres:\/\/[^\/\s]+\/\S+$/.test(v.databaseUrl)) problems.push("MYCA_DATABASE_URL must look like postgres://user@127.0.0.1:54329/myca_dev.");
+  if (v.tokenSecret.length < 32) problems.push("MYCA_TOKEN_SECRET needs 32+ characters — use Generate secrets.");
+  if (v.booksKey.length < 32) problems.push("MYCA_BOOKS_KEY needs 32+ characters — use Generate secrets.");
+  if (v.connectorKey && v.connectorKey.length < 32) problems.push("MYCA_CONNECTOR_KEY is optional, but when set it needs 32+ characters.");
+  if (!/^http:\/\/127\.0\.0\.1:8080\/?$/.test(v.cloudUrl) && !/^https:\/\/.+\..+/.test(v.cloudUrl)) problems.push("MYCA_CLOUD_URL is http://127.0.0.1:8080 for sandbox, or an https host for a hosted build.");
+  if ((v.oidcIssuer && !v.oidcClientId) || (!v.oidcIssuer && v.oidcClientId)) problems.push("OIDC needs both issuer and client id, or neither.");
+  if (v.oidcIssuer && !/^https:\/\/.+/.test(v.oidcIssuer)) problems.push("MYCA_OIDC_ISSUER must be an https URL.");
+  if (v.smsProvider && !["msg91","twilio"].includes(v.smsProvider.toLowerCase())) problems.push("MYCA_SMS_PROVIDER must be msg91 or twilio.");
+  if (v.smsProvider.toLowerCase() === "msg91" && (!v.msg91Key || !v.msg91Template)) problems.push("MSG91 needs both the authkey and the OTP template id.");
+  if ((v.waPhoneId && !v.waToken) || (!v.waPhoneId && v.waToken)) problems.push("WhatsApp needs both the phone number id and the access token, or neither.");
+  if (v.emailRelay && v.emailRelay.split(/\s+/).filter(Boolean).length < 2) problems.push("Email relay needs the URL and the token separated by a space.");
+  return { v, problems };
+}
+function buildEnv(v) {
+  const lines = [
+    "MYCA_DATABASE_URL=" + v.databaseUrl,
+    "MYCA_TOKEN_SECRET=" + v.tokenSecret,
+    "MYCA_BOOKS_KEY=" + v.booksKey,
+    "MYCA_DEV_OTP=1",
+    "PORT=8080"
+  ];
+  if (v.connectorKey) lines.push("MYCA_CONNECTOR_KEY=" + v.connectorKey);
+  if (v.googleServerId) lines.push("MYCA_GOOGLE_CLIENT_IDS=" + v.googleServerId);
+  if (v.smsProvider) lines.push("MYCA_SMS_PROVIDER=" + v.smsProvider.toLowerCase());
+  if (v.msg91Key) lines.push("MYCA_SMS_MSG91_AUTHKEY=" + v.msg91Key);
+  if (v.msg91Template) lines.push("MYCA_SMS_MSG91_TEMPLATE_ID=" + v.msg91Template);
+  if (v.waPhoneId) lines.push("MYCA_WHATSAPP_PHONE_NUMBER_ID=" + v.waPhoneId);
+  if (v.waToken) lines.push("MYCA_WHATSAPP_ACCESS_TOKEN=" + v.waToken);
+  if (v.waVerify) lines.push("MYCA_WHATSAPP_VERIFY_TOKEN=" + v.waVerify);
+  if (v.waSecret) lines.push("MYCA_WHATSAPP_APP_SECRET=" + v.waSecret);
+  if (v.emailFrom) lines.push("MYCA_EMAIL_FROM=" + v.emailFrom);
+  if (v.emailRelay) { const parts = v.emailRelay.split(/\s+/).filter(Boolean); lines.push("MYCA_EMAIL_RELAY_URL=" + parts[0]); if (parts[1]) lines.push("MYCA_EMAIL_RELAY_TOKEN=" + parts.slice(1).join(" ")); }
+  if (v.oidcIssuer) {
+    lines.push("MYCA_OIDC_ISSUER=" + v.oidcIssuer);
+    lines.push("MYCA_OIDC_CLIENT_IDS=" + v.oidcClientId);
+  }
+  return lines.join("\n") + "\n";
+}
+function buildRun(v) {
+  let line = "adb reverse tcp:8080 tcp:8080 && flutter run --flavor india --dart-define=MYCA_CLOUD_URL=" + v.cloudUrl;
+  if (v.googleServerId) line += " --dart-define=MYCA_GOOGLE_SERVER_CLIENT_ID=" + v.googleServerId;
+  if (v.oidcClientId) line += " --dart-define=MYCA_OIDC_CLIENT_ID=" + v.oidcClientId;
+  return line;
+}
+function buildBundle(v) {
+  const host = v.cloudUrl.includes("127.0.0.1") ? "https://<api host>" : v.cloudUrl;
+  return "flutter build appbundle --release --flavor india --dart-define=MYCA_CLOUD_URL=" + host;
+}
+function render() {
+  const checked = validated();
+  const status = byId("statusLine");
+  byId("envOut").textContent = buildEnv(checked.v);
+  byId("runOut").textContent = buildRun(checked.v) + "\n\n" + buildBundle(checked.v);
+  if (checked.problems.length) {
+    status.className = "status bad";
+    status.textContent = checked.problems.join(" ");
+  } else {
+    status.className = "status good";
+    status.textContent = "Ready. cloud/.env has " + buildEnv(checked.v).split("\n").filter(Boolean).length + " lines; the app line targets " + checked.v.cloudUrl + ".";
+  }
+  return checked;
+}
+for (const el of fields) el.addEventListener("input", render);
+byId("genSecrets").addEventListener("click", () => {
+  byId("tokenSecret").value = randomSecret(48);
+  byId("booksKey").value = randomSecret(48);
+  if (!byId("connectorKey").value) byId("connectorKey").value = randomSecret(48);
+  render();
+});
+byId("toggleSecrets").addEventListener("click", (e) => {
+  const show = byId("tokenSecret").type === "password";
+  for (const id of ["tokenSecret","booksKey","connectorKey"]) byId(id).type = show ? "text" : "password";
+  e.target.textContent = show ? "Hide secrets" : "Show secrets";
+});
+async function copyText(text, done) {
+  try { await navigator.clipboard.writeText(text); }
+  catch (err) {
+    const area = document.createElement("textarea");
+    area.value = text;
+    document.body.appendChild(area);
+    area.select();
+    document.execCommand("copy");
+    area.remove();
+  }
+  done();
+}
+byId("copyEnv").addEventListener("click", (e) => {
+  const checked = render();
+  if (checked.problems.length) return;
+  copyText(buildEnv(checked.v), () => { e.target.textContent = "Copied"; setTimeout(() => e.target.textContent = "Copy cloud/.env", 1500); });
+});
+byId("copyRun").addEventListener("click", (e) => {
+  const checked = render();
+  if (checked.problems.length) return;
+  copyText(buildRun(checked.v), () => { e.target.textContent = "Copied"; setTimeout(() => e.target.textContent = "Copy flutter run line", 1500); });
+});
+byId("copyBundle").addEventListener("click", (e) => {
+  const checked = render();
+  copyText(buildBundle(checked.v), () => { e.target.textContent = "Copied"; setTimeout(() => e.target.textContent = "Copy release bundle line", 1500); });
+});
+byId("downloadEnv").addEventListener("click", () => {
+  const checked = render();
+  if (checked.problems.length) return;
+  const blob = new Blob([buildEnv(checked.v)], { type: "text/plain" });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = "cloud.env";
+  document.body.appendChild(link);
+  link.click();
+  setTimeout(() => { URL.revokeObjectURL(link.href); link.remove(); }, 500);
+});
+render();
+</script>
+</body>
+</html>

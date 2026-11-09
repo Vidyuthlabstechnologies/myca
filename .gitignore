@@ -43,3 +43,7 @@ override.tf.json
 .DS_Store
 Thumbs.db
 *.tmp
+
+cloud/.api-dev.pid
+
+cloud/.pgdata-test/

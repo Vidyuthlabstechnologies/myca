@@ -34,7 +34,7 @@ business). Attestation is the partner firm's job; adding records is engineering'
 | US federal information reporting (1099-NEC threshold) | `us.federal.*` | IRS General Instructions for Certain Information Returns; the annual inflation adjustment revenue procedure | October or November each year |
 | US state sales tax due dates | `us.salestax.due.<ST>` | Texas Comptroller; California CDTFA; the department of revenue of any new state | Rare; check when a state is added and each January |
 
-## 2a. The pages are watched every night
+## 2a. The pages are watched every hour and every night
 
 `scripts/rules-sources.mjs` reads the official pages listed in `scripts/rules-sources.json`,
 strips them to text, and compares a fingerprint with the last accepted reading in
@@ -48,6 +48,16 @@ automated reads (HTTP 403 or no answer) and the CBIC notification page is render
 script, so for those families the monthly check in section 3 remains the real control;
 the watcher reports them as unreadable without failing the job. The GST portal news page
 and the IRS instructions are read in full.
+
+The desktop app runs the same watch hourly (`platform/src/govt-watch.mjs`, tools
+`govt_watch_status` and `govt_watch_check`, right after the daily checks on launch and
+on the hourly tick) whenever live calls are on (`MYCA_ENABLE_LIVE_CALLS=1`), through
+the action gate like every other outbound call. The first run only records fingerprints;
+a page that changes later raises one reminder naming the page and the rule family, keeps
+the change pending until a person accepts it, and retries unreadable pages on the next
+run. With live calls off the check is skipped and the nightly job below remains the
+control. The watch never changes a figure — a change in law still becomes a new dated
+record added by a person and attested by the partner firm, exactly as section 3 describes.
 
 ## 3. The monthly check
 

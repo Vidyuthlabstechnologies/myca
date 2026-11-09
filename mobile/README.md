@@ -28,15 +28,30 @@ one-use token; nothing posts until that token is confirmed.
 | `test/` | Unit and widget tests against a fake API |
 | `tool/live_check.dart` | Contract check against a running MyCA server |
 | `tool/screenshots_test.dart` | Renders every screen to `tool/screens/*.png` |
+| `../docs/review/ca-pitch-deck/` | CA product-review deck built from those screens (`npx hyperframes present`) |
 
 ## Commands
 
 ```bash
 flutter analyze
 flutter test
-flutter build apk --debug
+flutter build apk --debug --flavor india
 flutter test tool/screenshots_test.dart --update-goldens
 ```
+
+Two Android flavors share the application id. `india` (the default Play build)
+ships no Plaid SDK; `global` adds it for US bank feeds. Every `run` and `build`
+needs one: `--flavor india` or `--flavor global`.
+
+Sign-in is owned by the Firebase project `myca-prod-app` (Android app
+`1:541164065875:android:8e32a90e71ead3ca0e62a6`, iOS app
+`1:541164065875:ios:d95790ff28957c370e62a6`); `android/app/google-services.json`
+and `ios/Runner/GoogleService-Info.plist` are in the repo with the debug SHA-1
+registered. Before Google sign-in works on installed builds, the owner enables
+Google and Phone providers in the Firebase console, creates the web OAuth client
+for `MYCA_GOOGLE_CLIENT_IDS`, adds the upload-key and Play app-signing SHA-1s,
+and fills the two `REPLACE_WITH_GOOGLE_*` placeholders in `Info.plist`. The
+one-page credential helper is `tool/sandbox-setup.html`.
 
 ## Running against the local server
 
@@ -50,7 +65,7 @@ MYCA_API_TOKEN=<any 32+ character string> npm run dev
 
 ```bash
 adb reverse tcp:4780 tcp:4780
-flutter run --dart-define=MYCA_API_TOKEN=<the same string>
+flutter run --flavor india --dart-define=MYCA_API_TOKEN=<the same string>
 ```
 
 Contract check without a phone:
@@ -93,11 +108,11 @@ company:
    app signing key; otherwise sign-in fails on installed builds.
 
 ```bash
-flutter run --dart-define=MYCA_CLOUD_URL=<api url> --dart-define=MYCA_GOOGLE_SERVER_CLIENT_ID=<web client id> --dart-define=MYCA_OIDC_CLIENT_ID=<the firm's client id>
+flutter run --flavor india --dart-define=MYCA_CLOUD_URL=<api url> --dart-define=MYCA_GOOGLE_SERVER_CLIENT_ID=<web client id> --dart-define=MYCA_OIDC_CLIENT_ID=<the firm's client id>
 ```
 
 ```bash
-flutter run --dart-define=MYCA_CLOUD_URL=http://127.0.0.1:8080
+flutter run --flavor india --dart-define=MYCA_CLOUD_URL=http://127.0.0.1:8080
 ```
 
 ```bash
@@ -149,13 +164,18 @@ shows the API's hint instead of the cards. `lib/cloud/cloud_session.dart` holds 
 calls (`listConnectors`, `saveConnector`, `plaidLinkToken`, `plaidExchange`,
 `gustoConnect`, `taxjarRate`, `connectorSync`).
 
-Plaid Link is the `plaid_flutter` package behind `PlaidLinkOpener`
-(`lib/cloud/plaid_link.dart`); `DevicePlaidLink` opens the native SDK and resolves with
-the public token, or null if the owner closes it, and `AppState.plaidLink` takes a fake
-in tests (`test/connectors_test.dart`). Android needs nothing beyond the dependency.
-iOS needs nothing extra either: the project already targets iOS 14 and carries
-`NSCameraUsageDescription`; Plaid's OAuth redirect (a Universal Link registered in the
-Plaid dashboard) is only needed for OAuth banks outside the Sandbox and is not set up.
+Plaid Link is a first-party bridge behind `PlaidLinkOpener`
+(`lib/cloud/plaid_link.dart`): `ChannelPlaidLink` calls one `openLink` method on the
+`in.myca.myca/plaid_link` channel and resolves with the public token, null if the
+owner closes it, or `PlaidUnavailable` when the build has no native bridge (the
+screen then says the global build is needed). `AppState.plaidLink` takes a fake in
+tests. The `india` flavor registers a stub that always reports unavailable, so the
+US SDK never ships in the Indian build; the `global` flavor registers the real
+bridge (`android/app/src/global/.../PlaidBridgePlugin.kt`, linked against
+`com.plaid.link:sdk-core`) and iOS registers `ios/Runner/PlaidBridgePlugin.swift`
+against the `Plaid` pod. Plaid's OAuth redirect (a Universal Link registered in the
+Plaid dashboard) is only needed for OAuth banks outside the Sandbox and is not
+set up.
 
 ## iOS
 
@@ -204,8 +224,13 @@ release build falls back to the debug key, prints a warning, and cannot be uploa
 Play.
 
 ```bash
-flutter build appbundle --release --dart-define=MYCA_CLOUD_URL=https://<api host>
+flutter build appbundle --release --flavor india --dart-define=MYCA_CLOUD_URL=https://<api host>
+flutter build appbundle --release --flavor global --dart-define=MYCA_CLOUD_URL=https://<api host>
 ```
+
+Upload the `india` bundle to Play; it contains no Plaid code (verified by grepping
+the built dex for `com/plaid`). The `global` bundle is for US businesses and carries
+the Plaid SDK.
 
 The application id is `com.mldynamic.myca` (owner decision, 6 October 2026). It cannot
 change after the first upload to Play.

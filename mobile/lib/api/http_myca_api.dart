@@ -22,14 +22,19 @@ class HttpMycaApi implements MycaApi {
 
   Uri _uri(String path) => Uri.parse('${config.baseUrl}$path');
 
+  String _unreachableMessage() {
+    if (config.baseUrl.contains('127.0.0.1') || config.baseUrl.contains('localhost')) {
+      return 'Cannot reach MyCA. Check the desktop app is running and adb reverse tcp:4780 tcp:4780 is set, or use the hosted sign-in.';
+    }
+    return 'Cannot reach MyCA. Check your connection and try again.';
+  }
+
   Future<Object?> _decode(Future<http.Response> pending) async {
     final http.Response response;
     try {
       response = await pending.timeout(_timeout);
     } on Exception {
-      throw const MycaApiException(
-        'Cannot reach MyCA. Check your connection and try again.',
-      );
+      throw MycaApiException(_unreachableMessage());
     }
     Object? body;
     try {
@@ -43,6 +48,11 @@ class HttpMycaApi implements MycaApi {
         error == null
             ? 'MyCA returned ${response.statusCode}.'
             : error.toString(),
+      );
+    }
+    if (body == null) {
+      throw const MycaApiException(
+        'MyCA returned an unreadable reply. Update the desktop app and try again.',
       );
     }
     return body;

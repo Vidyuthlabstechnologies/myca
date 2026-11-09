@@ -45,6 +45,11 @@ async function runDailyChecks(reason) {
       const synced = await session.tool('sync_channels', {});
       if (synced.data?.fetched) console.log(`MyCA fetched ${synced.data.fetched} channel report(s)`);
     }
+    try {
+      const watched = await session.tool('govt_watch_check', {});
+      if (watched.data?.skipped !== true && (watched.data?.changed || []).length) console.log(`MyCA portal watch: ${(watched.data.changed || []).join(', ')}`);
+    } catch {
+    }
     if (lastTick.warnings) console.warn(`MyCA daily checks: ${out.data.run.warnings.join(' | ')}`);
   } catch (err) {
     lastTick = { at: new Date().toISOString(), reason, ok: false, error: String(err?.message || err) };

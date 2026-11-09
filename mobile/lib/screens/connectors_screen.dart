@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../api/myca_api.dart';
 import '../app_state.dart';
 import '../cloud/cloud_session.dart';
+import '../cloud/plaid_link.dart';
 import '../theme.dart';
 import '../widgets.dart';
 
@@ -11,10 +12,10 @@ const connectorHelp = {
   'taxjar': 'Sign up at app.taxjar.com and open Account → API Access. Generate a Sandbox token, or use the live token with environment production. Save it, then look up a rate below; MyCA records the combined rate for that jurisdiction from today.',
   'gusto': 'Create a developer account at dev.gusto.com and add an application. Copy its Client ID and Client Secret, save them here with environment demo, then tap Connect Gusto and allow the app in the browser. Gusto sends the browser back to MyCA; tap Refresh when you return. Processed payrolls land as a CSV with a reminder.',
   'track1099': 'Sign up at track1099.com; test mode needs no payment. Turn on two-factor sign-in, then open the Account page, API tab: copy the API token and the Team API ID shown beneath it. Until the Track1099 API routes are confirmed, MyCA files nothing through it; the 1099-NEC figures come from the 1099 screen as a file you upload to Track1099.',
-  'amazon': 'Seller Central → Apps and Services → Develop apps: create a private SP-API app, note the LWA client id and secret, and authorise it to get the refresh token. Marketplace id is A21TJRUUN4KGV for India; region IN.',
-  'shopify': 'Shopify admin → Settings → Apps and sales channels → Develop apps: create an app with read_orders and read_shopify_payments_payouts, install it, and copy the Admin API access token. Shop domain is the myshopify.com host.',
-  'razorpay': 'Razorpay dashboard → Account & Settings → API Keys: generate the key id and secret (test or live).',
-  'zoho': 'Zoho API console → Self Client: create a client, generate a code for ZohoBooks.fullaccess.all, exchange it for a refresh token; org id from Zoho Books settings; dc is in for India.',
+  'amazon': 'Sandbox: use your SP-API sandbox app. Seller Central → Apps and Services → Develop apps: create a private SP-API app, note the LWA client id and secret, and authorise it to get the refresh token. Marketplace id is A21TJRUUN4KGV for India; region IN. Pulled settlements land as a file with a reminder; in sandbox Pull now runs as a dry run until pulls are enabled on the service.',
+  'shopify': 'Sandbox: use a development store. Shopify admin → Settings → Apps and sales channels → Develop apps: create an app with read_orders and read_shopify_payments_payouts, install it on the dev store, and copy the Admin API access token. Shop domain is the myshopify.com host. In sandbox Pull now runs as a dry run until pulls are enabled on the service.',
+  'razorpay': 'Sandbox: use test keys (key id starts rzp_test_). Razorpay dashboard → Account & Settings → API Keys: generate the test key id and secret. Live keys are not needed for user testing. In sandbox Pull now runs as a dry run until pulls are enabled on the service.',
+  'zoho': 'Sandbox: use a Zoho sandbox organisation. Zoho API console → Self Client: create a client, generate a code for ZohoBooks.fullaccess.all, exchange it for a refresh token; org id from Zoho Books settings; dc is in for India. Pushing invoices stays off until the service enables it for the business.',
 };
 
 const connectorFieldLabels = {
@@ -259,7 +260,14 @@ class _ConnectorCardState extends State<ConnectorCard> {
   Future<void> _connectBank() => _run('Opening Plaid Link…', (cloud) async {
         final token = await cloud.plaidLinkToken();
         if (!mounted) return;
-        final publicToken = await AppScope.of(context).plaidLink.open(token.linkToken);
+        final String? publicToken;
+        try {
+          publicToken = await AppScope.of(context).plaidLink.open(token.linkToken);
+        } on PlaidUnavailable {
+          if (!mounted) return;
+          _say('Bank linking is not included in this build. US businesses need the global build.', problem: true);
+          return;
+        }
         if (publicToken == null || publicToken.isEmpty) {
           _say('Plaid Link was closed before a bank was linked.', problem: true);
           return;

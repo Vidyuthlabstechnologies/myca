@@ -346,15 +346,20 @@ function documentPreview(state, args, kind) {
     if (planned.ok) tds = planned.tds;
     else blockers.push((TDS_REASONS[planned.error] || (() => planned.error))(planned));
   }
+  const reverseCharge = !sale && args.reverseCharge === true;
   return {
     blockers,
     summary: sale
       ? `${exportWords} ${party}${args.partyGstin ? ` (${args.partyGstin})` : ''} dated ${date || '?'}: taxable ${money(taxable)}, ${heads}, total ${money(taxable + tax)}. Place of supply ${exportSale ? 'outside India (96)' : gstinRules.STATE_CODES?.[pos] || pos || '?'}.${due}`
-      : `Purchase bill from ${party}${args.partyGstin ? ` (${args.partyGstin})` : ''} dated ${date || '?'}: taxable ${money(taxable)}, ${heads}, total ${money(taxable + tax)}. Input credit ${args.itcEligible === false ? 'blocked (s.17(5)) and added to cost' : money(tax)}.`,
+      : reverseCharge
+        ? `Purchase bill from ${party}${args.partyGstin ? ` (${args.partyGstin})` : ''} dated ${date || '?'} under reverse charge: taxable ${money(taxable)}, GST ${money(tax)} is paid by you, not the supplier. Input credit ${args.itcEligible === false ? 'blocked (s.17(5)) and added to cost' : money(tax)} on payment of that tax.`
+        : `Purchase bill from ${party}${args.partyGstin ? ` (${args.partyGstin})` : ''} dated ${date || '?'}: taxable ${money(taxable)}, ${heads}, total ${money(taxable + tax)}. Input credit ${args.itcEligible === false ? 'blocked (s.17(5)) and added to cost' : money(tax)}.`,
     effects: sale
       ? [`${party} owes you ${money(taxable + tax)} more.`, exportSale ? `It goes into GSTR-1 table 6A${date ? ` for ${date.slice(0, 7)}` : ''} as ${exportSale.withTax ? 'WPAY' : 'WOPAY'}.` : `It goes into your GSTR-1${date ? ` for ${date.slice(0, 7)}` : ''}.`]
-      : [`You owe ${party} ${money(taxable + tax - (tds?.tds || 0))} more.`, args.itcEligible === false ? 'The GST on it cannot be claimed, so it is part of the cost.' : 'It is checked against your GSTR-2B when you add one.', ...(tds ? [tdsWords(tds, taxable + tax - tds.tds, `you owe ${party}`)] : [])],
-    figures: { date, taxable, tax, total: Math.round((taxable + tax) * 100) / 100, placeOfSupply: pos, ...(tds ? { tds: tds.tds, tdsSection: tds.section, tdsRate: tds.rate } : {}) },
+      : reverseCharge
+        ? [`You owe ${party} ${money(taxable - (tds?.tds || 0))} more; the supplier is not paid the tax.`, `GST ${money(tax)} under reverse charge is paid by you in cash and stays out of the supplier's GSTR-2B; claim its credit only after paying it.`, ...(tds ? [tdsWords(tds, taxable - tds.tds, `you owe ${party}`)] : [])]
+        : [`You owe ${party} ${money(taxable + tax - (tds?.tds || 0))} more.`, args.itcEligible === false ? 'The GST on it cannot be claimed, so it is part of the cost.' : 'It is checked against your GSTR-2B when you add one.', ...(tds ? [tdsWords(tds, taxable + tax - tds.tds, `you owe ${party}`)] : [])],
+    figures: { date, taxable, tax, total: Math.round((reverseCharge ? taxable : taxable + tax) * 100) / 100, placeOfSupply: pos, ...(reverseCharge ? { reverseCharge: true } : {}), ...(tds ? { tds: tds.tds, tdsSection: tds.section, tdsRate: tds.rate } : {}) },
   };
 }
 

@@ -24,6 +24,7 @@ import { payrollWords } from './payroll.mjs';
 import { setCurrentCountry, formatMoneyCurrent } from './country.mjs';
 import { rulesStatusWords } from './rules-status.mjs';
 import { automationWords } from './automation.mjs';
+import { govtWatchWords } from './govt-watch.mjs';
 import { readDocumentWords } from './document-reader.mjs';
 import { amendmentWords } from './invoice-amendments.mjs';
 import { scheduleSeWords } from './us-se-tax.mjs';
@@ -432,6 +433,17 @@ function fmtToolResult(name, result) {
   if (name === 'cpa_pack' && result.data) return cpaPackWords(result.data, money);
   if ((name === 'payroll_941_file' || name === 'payroll_w2_file') && result.data) return payrollFileWords(name, result.data, money);
   if (name === 'run_automation' && result.data) return result.data.skipped ? `The daily checks already ran today (${result.data.ranOn}).` : automationWords({ lastRun: result.data.ranOn, last: result.data.run });
+  if (name === 'govt_watch_status' && result.data) return govtWatchWords(result.data);
+  if (name === 'govt_watch_check' && result.data) {
+    if (result.data.skipped) return `Portal pages already checked today (${result.data.checkedOn}).`;
+    const changed = result.data.changed || [];
+    const reminded = result.data.reminded || [];
+    const unreachable = result.data.unreachable || [];
+    const lines = [`Checked the official pages on ${result.data.checkedOn}: ${changed.length === 0 ? 'nothing changed since last accepted' : `${changed.length} page${changed.length === 1 ? '' : 's'} changed`} (${reminded.length === 0 ? 'no new reminders' : `${reminded.length} reminder${reminded.length === 1 ? '' : 's'} raised`}).`];
+    for (const item of reminded) lines.push(`! ${item.text}`);
+    for (const id of unreachable) lines.push(`· ${id} could not be read; it will be retried on the next run.`);
+    return lines.join('\n');
+  }
   if (name === 'record_gst_payment' && result.payment) {
     const p = result.payment;
     return `Recorded the GST payment for ${p.period}: ${money(p.cash.total)} in cash${p.interest > 0 ? `, interest ${money(p.interest)}` : ''}${p.lateFee > 0 ? `, late fee ${money(p.lateFee)}` : ''}, with ${money(p.creditUsed)} of input credit set off${p.cpin ? ` (CPIN ${p.cpin})` : ''}. Record the GSTR-3B filing with its ARN once filed.`;

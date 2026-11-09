@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1920, height=1080">
+<title>MyCA — CA product review</title>
+<style>
+:root { --bg:#f7f5ef; --ink:#1a1a1a; --muted:#6b6b6b; --line:#e5e0d5; --card:#ffffff; --gold:#8a6100; }
+* { margin:0; padding:0; box-sizing:border-box; }
+html, body { margin:0; width:1920px; height:1080px; overflow:hidden; background:var(--bg); }body { font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif; color: var(--ink); }
+.slide { position:absolute; top:0; left:0; width:1920px; height:1080px; display:flex; flex-direction:column; justify-content:center; padding:72px 96px; }
+.kicker { font-size:32px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); margin-bottom:20px; }
+h1 { font-size:80px; line-height:1.05; letter-spacing:-.02em; max-width:1600px; }
+.sub { font-size:42px; line-height:1.4; color:#333; margin-top:24px; max-width:1500px; }
+.row { display:flex; gap:64px; align-items:center; margin-top:8px; }
+.copy { flex:1 1 0; min-width:0; }
+.copy h1 { font-size:72px; }
+.copy ul { margin-top:28px; padding-left:44px; }
+.copy li { font-size:40px; line-height:1.45; margin-bottom:18px; color:#262626; }
+.copy li b { color:var(--ink); }
+.phones { flex:0 0 auto; display:flex; gap:36px; align-items:center; }
+.phones img { object-fit:contain; display:block; border-radius:28px; box-shadow:0 24px 60px rgba(0,0,0,.18); background:#111; }
+.phones.one img { height:860px; width:406px; }
+.phones.two img { height:800px; width:378px; }
+.phones.three img { height:660px; width:312px; }
+.pill { display:inline-block; font-size:34px; border:1px solid var(--line); background:var(--card); border-radius:999px; padding:10px 26px; margin:0 14px 14px 0; color:#333; }
+.shots { flex:0 0 auto; display:flex; gap:28px; align-items:center; }
+.shots img { object-fit:contain; display:block; border-radius:18px; box-shadow:0 24px 60px rgba(0,0,0,.18); background:#0d1322; height:640px; width:1024px; }
+.shots.one img { height:700px; width:1120px; }
+.arch { display:flex; gap:24px; margin-top:28px; }
+.arch .box { flex:1; background:var(--card); border:1px solid var(--line); border-radius:18px; padding:26px 30px; }
+.arch .box h3 { font-size:36px; margin-bottom:12px; }
+.arch .box p { font-size:32px; line-height:1.45; color:#333; }
+.flow { display:flex; align-items:stretch; gap:0; margin-top:30px; }
+.fnode { flex:1; background:var(--card); border:1px solid var(--line); border-radius:16px; padding:22px 20px; text-align:center; }
+.fnode h3 { font-size:34px; margin-bottom:10px; }
+.fnode p { font-size:28px; line-height:1.4; color:#333; }
+.farr { flex:0 0 54px; display:flex; align-items:center; justify-content:center; font-size:44px; color:var(--muted); }
+.flanes { display:flex; gap:24px; margin-top:22px; }
+.flane { flex:1; border-top:3px solid var(--gold); padding-top:12px; font-size:30px; color:#333; }
+.flane b { display:block; font-size:30px; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); margin-bottom:6px; }
+.warn { display:inline-block; font-size:38px; background:#1a1a1a; color:#ffe9a8; border-radius:14px; padding:12px 26px; margin-top:26px; }
+.foot { position:absolute; left:96px; right:96px; bottom:40px; display:flex; justify-content:space-between; font-size:30px; color:var(--muted); }
+</style>
+</head>
+<body>
+<script type="application/hyperframes-slideshow+json">
+{
+  "slides": [
+    { "sceneId": "s-title", "fragments": [3.0, 6.0], "notes": "60 minutes, two CAs. Goal: show the owner flow end to end, show exactly where a CA stays in control, and hear what would stop you trusting this with a client. Push back at any slide." },
+    { "sceneId": "s-promise", "notes": "Positioning first: this is not accounting software the owner must learn. Messenger metaphor, plain words, approval before anything moves. Ask: does this language survive a real shop counter?" },
+    { "sceneId": "s-arch", "fragments": [23.0, 26.0], "notes": "The one slide a CA should interrogate. The phone computes nothing: structured args to /api/propose, engine preview, one-use token, confirm posts. Figures are reproducible from posted invoices. Ask them to name a figure they want traced." },
+    { "sceneId": "s-flow", "notes": "How the app works end to end: capture on the phone, propose to the engine, preview and confirm into the ledger, review and project returns, file elsewhere. The firm reviews on Windows; outside calls pass four gates." },
+    { "sceneId": "s-onboard", "notes": "Migration honesty matters: each path offers only what the server can actually parse. Direct Vyapar, Khatabook, Busy and Marg import is not built. Ask: is the Tally Day Book + bank statement cover enough for your clients?" },
+    { "sceneId": "s-home", "hotspots": [{ "id": "h-empty", "label": "First-day empty state", "target": "empty-state", "region": { "x": 60, "y": 6, "w": 38, "h": 88 } }], "notes": "Daily operating screen. Everything here is server-computed: daily close, week ahead, month summary with prior-period compare. Tap the phone to branch to the first-day empty state, then Back to return." },
+    { "sceneId": "s-capture", "notes": "Capture is one thumb reach from the FAB. Party picker ranks live threads with balances. The sale form sends date, amount, rate chip, place of supply: the engine does the split, never the thumb." },
+    { "sceneId": "s-confirm", "notes": "The control moment. The gold NOT POSTED YET card is the one-use token made visible. Post it or Discard: no silent posting anywhere in the app. Registers refresh from the server snapshot." },
+    { "sceneId": "s-threads", "notes": "One customer, one thread. Invoice detail carries the HSN warning and the e-way bill card above fifty thousand interstate. Share goes through the owner's own WhatsApp or email: MyCA sends nothing itself." },
+    { "sceneId": "s-expenses", "notes": "Same propose and confirm contract as sales. The Expense versus Asset choice changes posting, and cash versus bank is explicit at entry. Ask: do these heads cover a retail counter?" },
+    { "sceneId": "s-correct", "notes": "Corrections are new entries, never edits: partial or whole with a mandatory reason, capped including GST. The ledger stays append-only, so every correction traces to its invoice." },
+    { "sceneId": "s-taxes", "fragments": [113.0, 116.0], "notes": "Maker-checker review: sales, then purchases, then approve. Figures restated at the gate, reviewer recorded. Filing itself stays on the portal or with the CA and the ARN is recorded back. MyCA does not work out the amount to pay." },
+    { "sceneId": "s-health", "notes": "Books check is the CA's quick view: blocking issues, money states, and the tie-out invariant that every entry has a matching debit and credit. Cash shows stated balance plus movement with a dated 30-day projection. Quotes post nothing." },
+    { "sceneId": "s-firm", "notes": "The firm side: Windows workbench on 127.0.0.1 with the same engine. Vouchers folio, Books tie-out, GST workspace from the same invoices. Approvals, period lock and the audit log live here — ask them to name a voucher to trace." },
+    { "sceneId": "s-backend", "fragments": [143.0, 146.0], "notes": "Backend integrations stay gated: hosted API per-request transaction on one locked books row; Sandbox by Quicko adapter behind secret-redaction, live switch, assistant block, CA approval; NIC IRP full surface with mock and live heartbeat verified. Phone connects via Plaid/Gusto/TaxJar cards without touching the desktop. Production needs GSP onboarding and real keys." },
+    { "sceneId": "s-ask", "fragments": [153.0, 156.0], "notes": "Hand the room the pen. Run the probes: trial balance ties, B2B versus B2CS split by GSTIN presence, dirty-row isolation on a Tally import. Then the gaps: hosted backend undeployed, store listings unsubmitted, iOS unsigned, live filing and DSC stay with the CA." },
+    { "sceneId": "s-close", "notes": "Close on verification, not adjectives: platform 682 of 682, engines 330 of 330, Android 166 widget tests, CI green. What stays manual: attesting, signing, filing. Next: pilot readiness and whatever these two CAs flag today." }
+  ],
+  "slideSequences": [
+    { "id": "empty-state", "label": "First-day empty state", "slides": [{ "sceneId": "s-first-day", "notes": "Cold start handled: log-first-sale card, quiet taxes panel, zeroed month. Back returns to Home." }] }
+  ]
+}
+</script>
+<div id="deck" data-composition-id="root" data-width="1920" data-height="1080">
+<section class="clip slide" id="el-s-title" data-composition-id="s-title" data-label="Title" data-start="0" data-duration="10" data-width="1920" data-height="1080">
+<div class="kicker">Product review &middot; two CAs &middot; October 2026</div>
+<h1>MyCA: books the owner never has to learn.</h1>
+<p class="sub">A Windows workbench for the firm, a phone app for the owner. The tax invoice is the source of truth: GST returns and the trial balance are projections of posted invoices.</p>
+<div id="frag-1" class="clip" data-start="3" data-duration="7"><p class="sub"><b>Today:</b> the owner flow end to end, where a CA stays in control,</p></div>
+<div id="frag-2" class="clip" data-start="6" data-duration="4"><p class="sub">and what we will not claim.</p></div>
+<div class="foot"><span>MyCA &middot; CA product review</span><span>1 / 17</span></div>
+</section>
+<section class="clip slide" id="el-s-promise" data-composition-id="s-promise" data-label="Promise" data-start="10" data-duration="10" data-width="1920" data-height="1080">
+<div class="row"><div class="copy">
+<div class="kicker">Promise</div>
+<h1>Sales, bills and expenses with the taxes handled.</h1>
+<ul>
+<li><b>No accounting software to learn:</b> the owner talks, the app keeps the books.</li>
+<li><b>Nothing moves without approval</b> of exactly what goes out.</li>
+<li><b>Numbers come from engines,</b> never from a model: the model may choose a tool, a deterministic engine computes.</li>
+</ul>
+</div><div class="phones one"><img id="img-01-welcome" src="screens/01_welcome.png" alt="Welcome screen" data-start="10" data-duration="10"></div></div>
+<div class="foot"><span>MyCA &middot; CA product review</span><span>2 / 17</span></div>
+</section>
+<section class="clip slide" id="el-s-arch" data-composition-id="s-arch" data-label="Thin client contract" data-start="20" data-duration="10" data-width="1920" data-height="1080">
+<div class="row"><div class="copy">
+<div class="kicker">Architecture a CA can audit</div>
+<h1>The phone holds no tax logic.</h1>
+<ul>
+<li>Forms send <b>structured arguments</b> to <b>/api/propose</b>; the engine returns the preview plus a <b>one-use token</b>.</li>
+<div id="frag-3" class="clip" data-start="23" data-duration="7"><li>Confirming the token posts; discarding voids it. <b>Nothing posts silently.</b></li></div>
+<div id="frag-4" class="clip" data-start="26" data-duration="4"><li><b>Append-only ledger</b>, integer paise, every transfer debit-equals-credit. Every figure traces to a posted invoice.</li></div>
+</ul>
+</div><div class="phones two"><img id="img-10-not-posted-yet" src="screens/10_not_posted_yet.png" alt="Preview before posting" data-start="20" data-duration="10"><img id="img-11-posted" src="screens/11_posted.png" alt="Posted confirmation" data-start="20" data-duration="10"></div></div>
+<div class="foot"><span>MyCA &middot; CA product review</span><span>3 / 17</span></div>
+</section>
+<section class="clip slide" id="el-s-flow" data-composition-id="s-flow" data-label="How it works" data-start="30" data-duration="10" data-width="1920" data-height="1080">
+<div class="kicker">Flow &middot; capture to filing</div>
+<h1>One entry in, three projections out.</h1>
+<div class="flow">
+<div class="fnode"><h3>1 &middot; Capture</h3><p>Phone thread, Tally / Zoho / bank file, or chat line</p></div><div class="farr">&rarr;</div>
+<div class="fnode"><h3>2 &middot; Propose</h3><p>Structured args to /api/propose; engine preview + one-use token</p></div><div class="farr">&rarr;</div>
+<div class="fnode"><h3>3 &middot; Confirm</h3><p>Post it or Discard; receipts, expenses, credit notes alike</p></div><div class="farr">&rarr;</div>
+<div class="fnode"><h3>4 &middot; Ledger</h3><p>Append-only paise journal; trial balance always ties</p></div><div class="farr">&rarr;</div>
+<div class="fnode"><h3>5 &middot; Review</h3><p>GSTR-1 / 3B, 2B match, deadlines, ITR, TDS, audit</p></div><div class="farr">&rarr;</div>
+<div class="fnode"><h3>6 &middot; File</h3><p>On the portal or with the CA; ARN recorded back</p></div>
+</div>
+<div class="flanes">
+<div class="flane"><b>Owner &middot; phone</b>Threads, registers, Home, cash — previews everything, posts nothing silently.</div>
+<div class="flane"><b>Firm &middot; Windows</b>Vouchers, Books, GST, Documents, Clients, Approvals, period lock, print.</div>
+<div class="flane"><b>Outside &middot; gated</b>Hosted API, Sandbox by Quicko, NIC IRP, Plaid / Gusto / TaxJar — four gates each.</div>
+</div>
+<div class="foot"><span>MyCA &middot; CA product review</span><span>4 / 17</span></div>
+</section>
+<section class="clip slide" id="el-s-onboard" data-composition-id="s-onboard" data-label="Onboarding" data-start="40" data-duration="10" data-width="1920" data-height="1080">
+<div class="row"><div class="copy">
+<div class="kicker">Onboarding</div>
+<h1>Where are your books?</h1>
+<ul>
+<li>Each path offers <b>only what the server can parse</b>: Day Book CSV, TallyPrime XML, Zoho invoice CSV, bank statement.</li>
+<li>Vyapar, Khatabook, Busy and Marg have <b>no direct import</b>: the screen says so before a file is picked.</li>
+<li>Files upload first; imports refer to them <b>by hash</b>, never by pasted contents.</li>
+</ul>
+</div><div class="phones three"><img id="img-02-where-are-your-books" src="screens/02_where_are_your_books.png" alt="Migration paths" data-start="30" data-duration="10"><img id="img-03-business" src="screens/03_business.png" alt="Business capture" data-start="30" data-duration="10"><img id="img-04-bring-books-across" src="screens/04_bring_books_across.png" alt="Bring books across" data-start="30" data-duration="10"></div></div>
+<div class="foot"><span>MyCA &middot; CA product review</span><span>5 / 17</span></div>
+</section>
+<section class="clip slide" id="el-s-home" data-composition-id="s-home" data-label="Home" data-start="50" data-duration="10" data-width="1920" data-height="1080">
+<div class="row"><div class="copy">
+<div class="kicker">Daily &middot; Home</div>
+<h1>What needs you, worked out from your books.</h1>
+<ul>
+<li><b>Taxes and filings panel</b>, books-today counter, week ahead, due-today reminders.</li>
+<li><b>Month summary</b> with prior-period compare, all server-computed.</li>
+<li><b>Tap the phone</b> for the first-day empty state; Back returns here.</li>
+</ul>
+</div><div class="phones one"><img id="img-05-home" src="screens/05_home.png" alt="Home dashboard" data-start="40" data-duration="10"></div></div>
+<div class="foot"><span>MyCA &middot; CA product review</span><span>6 / 17</span></div>
+</section>
+<section class="clip slide" id="el-s-capture" data-composition-id="s-capture" data-label="Capture a sale" data-start="60" data-duration="10" data-width="1920" data-height="1080">
+<div class="row"><div class="copy">
+<div class="kicker">Capture</div>
+<h1>One thumb from thought to invoice.</h1>
+<ul>
+<li><b>Five-way New entry</b> sheet from the home button.</li>
+<li>Party picker ranks <b>live threads with balances</b>; typing filters, new customers inline.</li>
+<li>Sale form sends date, amount, rate chip, place of supply: <b>the engine splits the GST</b>.</li>
+</ul>
+</div><div class="phones three"><img id="img-06-new-entry" src="screens/06_new_entry.png" alt="New entry sheet" data-start="50" data-duration="10"><img id="img-07-who-did-you-sell-to" src="screens/07_who_did_you_sell_to.png" alt="Customer picker" data-start="50" data-duration="10"><img id="img-09-new-sale" src="screens/09_new_sale.png" alt="New sale form" data-start="50" data-duration="10"></div></div>
+<div class="foot"><span>MyCA &middot; CA product review</span><span>7 / 17</span></div>
+</section>
+<section class="clip slide" id="el-s-confirm" data-composition-id="s-confirm" data-label="Preview and post" data-start="70" data-duration="10" data-width="1920" data-height="1080">
+<div class="row"><div class="copy">
+<div class="kicker">Confirm</div>
+<h1>Preview first. Post only on approval.</h1>
+<ul>
+<li>The gold <b>NOT POSTED YET</b> card states the exact entry: nothing hidden, nothing implied.</li>
+<li><b>Post it</b> assigns the invoice id; <b>Discard</b> voids the token.</li>
+<li>Registers refresh from the <b>server snapshot</b>, never from local guesses.</li>
+</ul>
+</div><div class="phones two"><img id="img-10-not-posted-yet-2" src="screens/10_not_posted_yet.png" alt="Not posted yet" data-start="60" data-duration="10"><img id="img-11-posted-2" src="screens/11_posted.png" alt="Posted" data-start="60" data-duration="10"></div></div>
+<div class="foot"><span>MyCA &middot; CA product review</span><span>8 / 17</span></div>
+</section>
+<section class="clip slide" id="el-s-threads" data-composition-id="s-threads" data-label="Threads and invoice" data-start="80" data-duration="10" data-width="1920" data-height="1080">
+<div class="row"><div class="copy">
+<div class="kicker">Threads</div>
+<h1>One customer, one thread.</h1>
+<ul>
+<li>Balance owed, quotes and invoices in <b>one scrollable relationship</b>.</li>
+<li>Invoice detail: HSN warning, <b>e-way bill card</b> above fifty thousand interstate.</li>
+<li>Share goes through the <b>owner's own WhatsApp or email</b>: MyCA sends nothing itself.</li>
+</ul>
+</div><div class="phones two"><img id="img-13-customer-chat" src="screens/13_customer_chat.png" alt="Customer thread" data-start="70" data-duration="10"><img id="img-14-invoice" src="screens/14_invoice.png" alt="Invoice detail" data-start="70" data-duration="10"></div></div>
+<div class="foot"><span>MyCA &middot; CA product review</span><span>9 / 17</span></div>
+</section>
+<section class="clip slide" id="el-s-expenses" data-composition-id="s-expenses" data-label="Expenses" data-start="90" data-duration="10" data-width="1920" data-height="1080">
+<div class="row"><div class="copy">
+<div class="kicker">Registers &middot; Expenses</div>
+<h1>Same contract, smaller amounts.</h1>
+<ul>
+<li>Heads with <b>month spend and bill counts</b>; one-tap New expense.</li>
+<li><b>Expense versus Asset</b> is an explicit choice that changes posting.</li>
+<li>Cash versus bank is explicit at entry; preview and post as usual.</li>
+</ul>
+</div><div class="phones three"><img id="img-15-expenses" src="screens/15_expenses.png" alt="Expenses" data-start="80" data-duration="10"><img id="img-16-expense-head" src="screens/16_expense_head.png" alt="Expense head choice" data-start="80" data-duration="10"><img id="img-17-expense-preview" src="screens/17_expense_preview.png" alt="Expense preview" data-start="80" data-duration="10"></div></div>
+<div class="foot"><span>MyCA &middot; CA product review</span><span>10 / 17</span></div>
+</section>
+<section class="clip slide" id="el-s-correct" data-composition-id="s-correct" data-label="Corrections" data-start="100" data-duration="10" data-width="1920" data-height="1080">
+<div class="row"><div class="copy">
+<div class="kicker">Correct</div>
+<h1>Corrections are new entries, never edits.</h1>
+<ul>
+<li>Partial or whole credit note against the invoice, <b>capped including GST</b>.</li>
+<li><b>Reason is mandatory</b>: design work not done is on the record.</li>
+<li>The invoice is never rewritten; the ledger stays <b>append-only</b>.</li>
+</ul>
+</div><div class="phones two"><img id="img-18-credit-note-sheet" src="screens/18_credit_note_sheet.png" alt="Credit note entry" data-start="90" data-duration="10"><img id="img-19-credit-note-preview" src="screens/19_credit_note_preview.png" alt="Credit note preview" data-start="90" data-duration="10"></div></div>
+<div class="foot"><span>MyCA &middot; CA product review</span><span>11 / 17</span></div>
+</section>
+<section class="clip slide" id="el-s-taxes" data-composition-id="s-taxes" data-label="Taxes and review" data-start="110" data-duration="10" data-width="1920" data-height="1080">
+<div class="row"><div class="copy">
+<div class="kicker">Taxes</div>
+<h1>Review step by step. File elsewhere.</h1>
+<ul>
+<li>Return hub: GSTR-2B import banner, review CTA, exports pack, TDS section.</li>
+<div id="frag-5" class="clip" data-start="113" data-duration="7"><li><b>Maker-checker:</b> sales, then purchases, then Approve; the reviewer is recorded.</li></div>
+<div id="frag-6" class="clip" data-start="116" data-duration="4"><li><b>MyCA does not work out the amount to pay</b> and does not file; the ARN is recorded back.</li></div>
+</ul>
+</div><div class="phones two"><img id="img-12-taxes" src="screens/12_taxes.png" alt="Taxes and filings" data-start="100" data-duration="10"><img id="img-21-review-approve" src="screens/21_review_approve.png" alt="Approve the return" data-start="100" data-duration="10"></div></div>
+<div class="foot"><span>MyCA &middot; CA product review</span><span>12 / 17</span></div>
+</section>
+<section class="clip slide" id="el-s-health" data-composition-id="s-health" data-label="Health and cash" data-start="120" data-duration="10" data-width="1920" data-height="1080">
+<div class="row"><div class="copy">
+<div class="kicker">Health</div>
+<h1>The books check themselves in public.</h1>
+<ul>
+<li><b>Books check:</b> blocking issues, money states, and the invariant that every entry has a matching debit and credit.</li>
+<li><b>Cash:</b> stated balance plus movement, dated 30-day projection, overdue excluded with the reason stated.</li>
+<li><b>Quotes post nothing;</b> making the invoice posts, with the same lines.</li>
+</ul>
+</div><div class="phones three"><img id="img-23-books-check" src="screens/23_books_check.png" alt="Books check" data-start="110" data-duration="10"><img id="img-24-cash" src="screens/24_cash.png" alt="Cash" data-start="110" data-duration="10"><img id="img-25-quote" src="screens/25_quote.png" alt="Quote" data-start="110" data-duration="10"></div></div>
+<div class="foot"><span>MyCA &middot; CA product review</span><span>13 / 17</span></div>
+</section>
+<section class="clip slide" id="el-s-firm" data-composition-id="s-firm" data-label="Windows workbench" data-start="130" data-duration="10" data-width="1920" data-height="1080">
+<div class="row"><div class="copy">
+<div class="kicker">Firm &middot; Windows workbench</div>
+<h1>The firm reviews where the books live.</h1>
+<ul>
+<li><b>Same engine, loopback only:</b> Vouchers folio, Books tie-out, GST workspace from the same posted invoices.</li>
+<li><b>Control tabs:</b> approvals with maker-checker, period lock, audit log, firm outbox, Govt NIC steps.</li>
+<li><b>Print:</b> invoice PDF through a narrow bridge; WhatsApp and email share from this PC.</li>
+</ul>
+</div><div class="shots one"><img id="img-w-vouchers" src="screens/w_vouchers.png" alt="Windows vouchers folio" data-start="120" data-duration="10"></div></div>
+<div class="foot"><span>MyCA &middot; CA product review</span><span>14 / 17</span></div>
+</section>
+<section class="clip slide" id="el-s-backend" data-composition-id="s-backend" data-label="Backend integrations" data-start="140" data-duration="10" data-width="1920" data-height="1080">
+<div class="kicker">Backend &middot; gated integrations</div>
+<h1>Every outside call passes four gates.</h1>
+<div class="arch">
+<div class="box"><h3>Hosted API</h3><p>One transaction per request, one locked books row per business. Google and OIDC sign-in, sealed connector credentials, nightly pulls behind a read-only switch.</p></div>
+<div class="box"><h3>Provider adapters</h3><p>Sandbox by Quicko and NIC IRP translate into MyCA engines. Wired in TEST, verified live in sandbox; production needs onboarding and real keys.</p></div>
+<div class="box"><h3>Connectors</h3><p>Plaid, Gusto, TaxJar, Track1099 plus Amazon, Shopify, Razorpay, Zoho as gated pulls with preview and confirm. Nothing files silently.</p></div>
+</div>
+<div id="frag-9" class="clip" data-start="143" data-duration="7"><div><span class="pill">Secret redaction</span><span class="pill">Live switch off by default</span><span class="pill">Assistant blocked</span><span class="pill">CA approval bound to payload</span></div></div>
+<div id="frag-10" class="clip" data-start="146" data-duration="4"><div><span class="warn">Mock mode demos everything offline with tagged fixtures</span></div></div>
+<div class="foot"><span>MyCA &middot; CA product review</span><span>15 / 17</span></div>
+</section>
+<section class="clip slide" id="el-s-ask" data-composition-id="s-ask" data-label="Questions for the CAs" data-start="150" data-duration="10" data-width="1920" data-height="1080">
+<div class="kicker">Over to you</div>
+<h1>What would stop you trusting this with a client?</h1>
+<div id="frag-7" class="clip" data-start="153" data-duration="7"><div><span class="pill">Trial balance ties?</span><span class="pill">B2B vs B2CS split by GSTIN?</span><span class="pill">Dirty rows isolated on import?</span></div></div>
+<div id="frag-8" class="clip" data-start="156" data-duration="4"><div><span class="warn">Not built: hosted backend undeployed &middot; store listings unsubmitted &middot; iOS unsigned &middot; live filing and DSC stay with you</span></div></div>
+<div class="foot"><span>MyCA &middot; CA product review</span><span>16 / 17</span></div>
+</section>
+<section class="clip slide" id="el-s-close" data-composition-id="s-close" data-label="Close" data-start="160" data-duration="10" data-width="1920" data-height="1080">
+<div class="kicker">Verified, not adjectives</div>
+<h1>Built, tested, green.</h1>
+<ul>
+<li><b>Platform 682 of 682</b>, engines 330 of 330, Android 166 widget tests, CI green.</li>
+<li><b>71 named tools</b> with strict schemas; unsafe ones blocked from the assistant.</li>
+<li>What stays manual: <b>attesting, signing, filing</b>. That is your signature, not ours.</li>
+</ul>
+<div class="foot"><span>MyCA &middot; CA product review</span><span>17 / 17</span></div>
+</section>
+<div class="clip slide" id="el-s-first-day" data-composition-id="s-first-day" data-label="First-day empty state" data-start="180" data-duration="10" data-width="1920" data-height="1080" data-composition-src="compositions/branch.html"></div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+<script>
+(function () {
+  window.__timelines = window.__timelines || {};
+  if (window.gsap) {
+    window.__timelines["s-title"] = window.gsap.timeline({ paused: true }).to({}, { duration: 10 });
+    window.__timelines["s-promise"] = window.gsap.timeline({ paused: true }).to({}, { duration: 10 });
+    window.__timelines["s-arch"] = window.gsap.timeline({ paused: true }).to({}, { duration: 10 });
+    window.__timelines["s-flow"] = window.gsap.timeline({ paused: true }).to({}, { duration: 10 });
+    window.__timelines["s-onboard"] = window.gsap.timeline({ paused: true }).to({}, { duration: 10 });
+    window.__timelines["s-home"] = window.gsap.timeline({ paused: true }).to({}, { duration: 10 });
+    window.__timelines["s-capture"] = window.gsap.timeline({ paused: true }).to({}, { duration: 10 });
+    window.__timelines["s-confirm"] = window.gsap.timeline({ paused: true }).to({}, { duration: 10 });
+    window.__timelines["s-threads"] = window.gsap.timeline({ paused: true }).to({}, { duration: 10 });
+    window.__timelines["s-expenses"] = window.gsap.timeline({ paused: true }).to({}, { duration: 10 });
+    window.__timelines["s-correct"] = window.gsap.timeline({ paused: true }).to({}, { duration: 10 });
+    window.__timelines["s-taxes"] = window.gsap.timeline({ paused: true }).to({}, { duration: 10 });
+    window.__timelines["s-health"] = window.gsap.timeline({ paused: true }).to({}, { duration: 10 });
+    window.__timelines["s-firm"] = window.gsap.timeline({ paused: true }).to({}, { duration: 10 });
+    window.__timelines["s-backend"] = window.gsap.timeline({ paused: true }).to({}, { duration: 10 });
+    window.__timelines["s-ask"] = window.gsap.timeline({ paused: true }).to({}, { duration: 10 });
+    window.__timelines["s-close"] = window.gsap.timeline({ paused: true }).to({}, { duration: 10 });
+    window.__timelines["s-first-day"] = window.gsap.timeline({ paused: true }).to({}, { duration: 10 });
+    window.__timelines["root"] = window.gsap.timeline({ paused: true }).to({}, { duration: 190 });
+    window.__timelines["root"].seek(0);
+  }
+})();
+</script>
+</body>
+</html>

@@ -20,7 +20,7 @@ import { SandboxClient, getSandboxClient } from './sandbox-client.mjs';
 import { NimClient, getNimClient } from './nim-client.mjs';
 import * as nicClient from './nic-client.mjs';
 import { sendNotification } from './notifications.mjs';
-import { probeGovt, probeTcp } from './reachability.mjs';
+import { fetchPublicPage, probeGovt, probeTcp } from './reachability.mjs';
 import { getChannelClient } from './channel-client.mjs';
 import { sendToTally } from './tally-client.mjs';
 
@@ -76,6 +76,7 @@ export const ACTION_CLASSES = Object.freeze(Object.assign(Object.create(null), {
   nic_ewb_get: read('nic', ['nic.getEwayBill']),
   nic_ewb_cancel: write('nic', ['nic.cancelEwayBill'], IRREVERSIBLE),
   govt_probe: read('govt', ['reachability.probeGovt'], PROBE),
+  govt_page_fetch: read('govt', ['reachability.fetchPublicPage'], { timeoutMs: 5 * MINUTE_MS }),
   notification_send: write('notification', ['notifications.send'], IRREVERSIBLE),
   nim_ask: read('nim', ['nim.complete'], MODEL),
   knowledge_answer: read('nim', ['nim.complete'], MODEL),
@@ -120,6 +121,7 @@ const NOTIFICATION_TRANSPORT = Object.freeze({
 
 const REACHABILITY_TRANSPORT = Object.freeze({
   probeGovt: (ctx) => () => probeGovt(undefined, { signal: ctx.signal }),
+  fetchPublicPage: (ctx) => (url) => fetchPublicPage(url, { signal: ctx.signal }),
   probeTally: (ctx) => () => {
     const host = configValue('MYCA_TALLY_HOST');
     const port = Number(configValue('MYCA_TALLY_PORT') || 0);

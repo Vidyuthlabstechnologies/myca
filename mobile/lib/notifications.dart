@@ -68,9 +68,25 @@ class DeviceNotifications implements NotificationPlanner {
   Future<void> plan(List<DueItem> items) async {
     if (!await _init()) return;
     await _plugin.cancelAll();
+    const details = NotificationDetails(
+      android: AndroidNotificationDetails('myca_due', 'What is due', channelDescription: 'Filings, reminders and payroll falling due', importance: Importance.defaultImportance),
+      iOS: DarwinNotificationDetails(threadIdentifier: 'myca_due'),
+    );
     final today = _now();
     var id = 1;
-    for (final item in items.where((item) => !item.overdue).take(_maxScheduled)) {
+    for (final item in items.where((item) => item.overdue).take(_maxScheduled)) {
+      await _plugin.zonedSchedule(
+        id: id++,
+        title: 'Overdue: ${item.title}',
+        body: item.detail.isEmpty ? 'Overdue. Open MyCA to deal with it.' : item.detail,
+        scheduledDate: tz.TZDateTime.now(tz.local).add(Duration(seconds: 5 * id)),
+        notificationDetails: details,
+        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      );
+    }
+    final remaining = _maxScheduled - (id - 1);
+    if (remaining <= 0) return;
+    for (final item in items.where((item) => !item.overdue).take(remaining)) {
       final parts = item.when.split('-').map(int.parse).toList();
       final at = DateTime(parts[0], parts[1], parts[2], _reminderHour);
       if (!at.isAfter(today)) continue;
@@ -79,10 +95,7 @@ class DeviceNotifications implements NotificationPlanner {
         title: item.title,
         body: item.detail.isEmpty ? 'Due today. Open MyCA to deal with it.' : item.detail,
         scheduledDate: tz.TZDateTime.from(at, tz.local),
-        notificationDetails: const NotificationDetails(
-          android: AndroidNotificationDetails('myca_due', 'What is due', channelDescription: 'Filings, reminders and payroll falling due', importance: Importance.defaultImportance),
-          iOS: DarwinNotificationDetails(threadIdentifier: 'myca_due'),
-        ),
+        notificationDetails: details,
         androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
       );
     }

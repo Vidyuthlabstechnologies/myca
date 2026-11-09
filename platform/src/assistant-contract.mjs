@@ -294,7 +294,7 @@ export const TOOL_ARG_SCHEMAS = {
   create_purchase: {
     ...documentSchema,
     properties: {
-      salesTaxPaid: { type: 'number', minimum: 0 }, ...documentSchema.properties, supplierInvoiceNo: { type: 'string', maxLength: 16 }, documentSha256: { type: 'string', pattern: '^[0-9a-f]{64}$' }, ...tdsProperties },
+      salesTaxPaid: { type: 'number', minimum: 0 }, ...documentSchema.properties, supplierInvoiceNo: { type: 'string', maxLength: 16 }, documentSha256: { type: 'string', pattern: '^[0-9a-f]{64}$' }, reverseCharge: { type: 'boolean' }, ...tdsProperties },
   },
   print_invoice: {
     type: 'object',
@@ -841,6 +841,12 @@ export const TOOL_ARG_SCHEMAS = {
     properties: { asOf: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' }, force: { type: 'boolean' } },
   },
   automation_status: { type: 'object', additionalProperties: false, properties: {} },
+  govt_watch_status: { type: 'object', additionalProperties: false, properties: {} },
+  govt_watch_check: {
+    type: 'object',
+    additionalProperties: false,
+    properties: { force: { type: 'boolean' } },
+  },
   read_document: { type: 'object', additionalProperties: false, required: ['documentSha256'], properties: { documentSha256: { type: 'string', pattern: '^[a-f0-9]{64}$' } } },
   amend_invoice: {
     type: 'object',
@@ -1928,6 +1934,8 @@ const TOOL_RISK = {
   record_gst_payment: 'writes_books',
   close_year: 'writes_books',
   run_automation: 'writes_books',
+  govt_watch_check: 'writes_books',
+  govt_watch_status: 'read_only',
   amend_invoice: 'writes_books',
   tds_review_answer: 'writes_books',
   record_tds_deposit: 'writes_books',
@@ -2229,7 +2237,7 @@ export function planLocalToolCall(state, message) {
       tools: [],
     };
   }
-  if (doc && !asking && isPurchaseIntent(text)) return { kind: 'tool', name: 'create_purchase', args: doc };
+  if (doc && !asking && isPurchaseIntent(text)) return { kind: 'tool', name: 'create_purchase', args: /\breverse\s*charge\b/i.test(text) ? { ...doc, reverseCharge: true } : doc };
   if (doc && !asking && isSaleIntent(text)) return { kind: 'tool', name: 'create_invoice', args: saidTerms.days == null ? doc : { ...doc, paymentTermsDays: saidTerms.days } };
   if (doc && asking && (isPurchaseIntent(text) || isSaleIntent(text))) {
     return { kind: 'reply', reply: 'That reads like a question, so I have not posted anything. To post it, say it as an instruction, for example "invoice Retail Mart GSTIN 27AAACH7409R1Z1, 10 rolls at 50000, GST 5%".', tools: [] };

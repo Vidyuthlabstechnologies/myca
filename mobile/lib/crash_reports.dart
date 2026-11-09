@@ -106,7 +106,7 @@ class DeviceCrashStore implements CrashStore {
 
   @override
   Future<bool> enabled() async =>
-      (await SharedPreferences.getInstance()).getBool(_enabled) ?? true;
+      (await SharedPreferences.getInstance()).getBool(_enabled) ?? false;
 
   @override
   Future<void> setEnabled(bool enabled) async =>

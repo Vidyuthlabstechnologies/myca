@@ -399,9 +399,11 @@ export function createPurchase(state, input) {
   const sgst = lines.reduce((s, l) => s + l.sgst, 0);
   const igst = lines.reduce((s, l) => s + l.igst, 0);
   const total = Math.round((taxable + cgst + sgst + igst) * 100) / 100;
+  const reverseCharge = input.reverseCharge === true;
+  const supplierTotal = reverseCharge ? taxable : total;
   let tds = null;
   if (wantsTds(input)) {
-    const planned = planTds(state, input, { date, basis: taxable, payable: total, payee: vendor.name, beforeGst: true });
+    const planned = planTds(state, input, { date, basis: taxable, payable: supplierTotal, payee: vendor.name, beforeGst: true });
     if (!planned.ok) return planned;
     tds = planned.tds;
   }
@@ -418,7 +420,16 @@ export function createPurchase(state, input) {
   const bundle = [
     { id: nextTransferId(state), debitAccountId: 5000, creditAccountId: vendor.accountId, amount: paise(taxable), flags: linked, invoiceId: id, code: 'PURCHASE' },
   ];
-  if (itcEligible) {
+  const rcmHeads = [[cgst, 1200, 2100, 'CGST'], [sgst, 1201, 2101, 'SGST'], [igst, 1202, 2102, 'IGST']];
+  if (reverseCharge) {
+    // Under reverse charge the supplier is paid the taxable value only; the buyer
+    // pays the tax to the government and claims it as credit on that payment.
+    for (const [tax, itcAccount, liabilityAccount, head] of rcmHeads) {
+      if (!(tax > 0)) continue;
+      if (itcEligible) bundle.push({ id: nextTransferId(state), debitAccountId: itcAccount, creditAccountId: liabilityAccount, amount: paise(tax), flags: linked, invoiceId: id, code: `RCM-ITC-${head}`, userData: date });
+      else bundle.push({ id: nextTransferId(state), debitAccountId: 5000, creditAccountId: liabilityAccount, amount: paise(tax), flags: linked, invoiceId: id, code: `RCM-BLOCKED-${head}`, userData: date });
+    }
+  } else if (itcEligible) {
     if (cgst > 0) bundle.push({ id: nextTransferId(state), debitAccountId: 1200, creditAccountId: vendor.accountId, amount: paise(cgst), flags: linked, invoiceId: id, code: 'ITC-CGST' });
     if (sgst > 0) bundle.push({ id: nextTransferId(state), debitAccountId: 1201, creditAccountId: vendor.accountId, amount: paise(sgst), flags: linked, invoiceId: id, code: 'ITC-SGST' });
     if (igst > 0) bundle.push({ id: nextTransferId(state), debitAccountId: 1202, creditAccountId: vendor.accountId, amount: paise(igst), flags: linked, invoiceId: id, code: 'ITC-IGST' });
@@ -436,7 +447,8 @@ export function createPurchase(state, input) {
   const bill = {
     id, ...(supplierInvoiceNo ? { supplierInvoiceNo } : {}), ...(/^[0-9a-f]{64}$/i.test(String(input.documentSha256 || '')) ? { documentSha256: String(input.documentSha256).toLowerCase() } : {}), date, partyName: vendor.name, partyGstin: vendor.gstin, partyState: vendor.state,
     partyAccountId: vendor.accountId,
-    lines, taxable, cgst, sgst, igst, total, status: 'posted', kind: 'purchase',
+    lines, taxable, cgst, sgst, igst, total: supplierTotal, status: 'posted', kind: 'purchase',
+    ...(reverseCharge ? { reverseCharge: true, rcmTax: { cgst, sgst, igst } } : {}),
     ...docFieldsFor(reg),
     itcEligible,
     ...(tds ? { tds: { section: tds.section, rate: tds.rate, basis: tds.basis, amount: tds.tds, pan: tds.pan } } : {}),

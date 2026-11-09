@@ -23,6 +23,13 @@ class FakePlaidLink implements PlaidLinkOpener {
   }
 }
 
+class FakeMissingPlaidLink implements PlaidLinkOpener {
+  const FakeMissingPlaidLink();
+
+  @override
+  Future<String?> open(String linkToken) async => throw const PlaidUnavailable();
+}
+
 Future<AppState> hostedOwner(FakeCloud cloud, {String country = 'IN', PlaidLinkOpener? plaid, List<Uri>? openedLinks}) async {
   cloud.userName = 'Asha';
   final tokens = MemoryTokenStore();
@@ -168,6 +175,21 @@ void main() {
     expect(plaid.opened, hasLength(1));
     expect(cloud.plaidExchanges, isEmpty);
     expect(find.text('Plaid Link was closed before a bank was linked.'), findsOneWidget);
+  });
+
+  testWidgets('a build without bank linking explains itself instead of opening Plaid', (tester) async {
+    final cloud = FakeCloud();
+    cloud.connectorValues['plaid'] = {'clientId': 'client-1', 'secret': 's'};
+    await tester.pumpWidget(
+      MycaApp(state: await hostedOwner(cloud, country: 'US', plaid: const FakeMissingPlaidLink())),
+    );
+    await tester.pumpAndSettle();
+    await openConnectors(tester);
+
+    await tester.tap(find.text('Connect my bank'));
+    await tester.pumpAndSettle();
+    expect(cloud.plaidExchanges, isEmpty);
+    expect(find.text("Bank linking is not included in this build. US businesses need the global build."), findsOneWidget);
   });
 
   testWidgets('Connect Gusto opens the authorisation URL in the browser and tells the owner to refresh', (tester) async {

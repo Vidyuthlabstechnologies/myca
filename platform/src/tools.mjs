@@ -57,6 +57,7 @@ import { countryOf, isCountry, toolServesCountry } from './country.mjs';
 import { createUsInvoice, createUsPurchase, setSalesTaxRate, listSalesTaxRates, setContractor, contractorPayments } from './us-sales.mjs';
 import { rulesStatus } from './rules-status.mjs';
 import { runDailyAutomation, automationStatus } from './automation.mjs';
+import { checkGovtSources, collectGovtReadings, govtWatchStatus } from './govt-watch.mjs';
 import { readDocument } from './document-reader.mjs';
 import { amendInvoice, listAmendments } from './invoice-amendments.mjs';
 import { scheduleSe } from './us-se-tax.mjs';
@@ -156,6 +157,23 @@ function reconcileFor(state, asOfDate) {
 
 function activeClientId(state) {
   return normalizeClientId(state.activeClientId);
+}
+
+async function govtWatchCheck(state, args = {}, { actor } = {}) {
+  const today = localToday();
+  const govt = state.automation && typeof state.automation === 'object' ? state.automation.govt : null;
+  if (govt && govt.lastChecked === today && args.force !== true) {
+    return { ok: true, data: { skipped: true, checkedOn: today, status: govtWatchStatus(state, {}).data } };
+  }
+  let readings;
+  try {
+    readings = await collectGovtReadings(state, actor);
+  } catch {
+    return { ok: true, data: { skipped: true, checkedOn: today, reason: 'OFFLINE', status: govtWatchStatus(state, {}).data } };
+  }
+  if (!readings) return { ok: true, data: { skipped: true, checkedOn: today, reason: 'LIVE_CALLS_DISABLED', status: govtWatchStatus(state, {}).data } };
+  const out = checkGovtSources(state, { readings, today });
+  return { ok: true, data: { skipped: false, checkedOn: today, ...out.data } };
 }
 
 export const TOOLS = [
@@ -584,8 +602,8 @@ export const TOOLS = [
   {
     name: 'create_purchase',
     title: 'Record purchase bill',
-    description: 'Book a supplier invoice: purchases + AP (with GST input credit in India; in the US any sales tax paid is part of the cost).',
-    args: ['partyName', 'partyGstin', 'lines', 'date', 'supplierInvoiceNo', 'salesTaxPaid', 'documentSha256'],
+    description: 'Book a supplier invoice: purchases + AP (with GST input credit in India; in the US any sales tax paid is part of the cost). With reverseCharge, the supplier is owed the taxable value only and the GST is your liability with its credit on payment.',
+    args: ['partyName', 'partyGstin', 'lines', 'date', 'supplierInvoiceNo', 'salesTaxPaid', 'documentSha256', 'reverseCharge'],
     run: (state, args) => (countryOf(state) === 'US' ? createUsPurchase(state, args) : createPurchase(state, args)),
   },
   {
@@ -805,6 +823,20 @@ export const TOOLS = [
     description: 'When the daily checks last ran, what they added, whether the ledger chain was intact, and any warnings. Read-only.',
     args: [],
     run: (state) => automationStatus(state),
+  },
+  {
+    name: 'govt_watch_status',
+    title: 'Portal watch status',
+    description: 'When the official portal pages were last checked, which changed since they were last accepted, and which could not be read. Read-only.',
+    args: [],
+    run: (state, args = {}) => govtWatchStatus(state, args),
+  },
+  {
+    name: 'govt_watch_check',
+    title: 'Check the portal pages now',
+    description: 'Reads the official CBIC, GST portal, CBDT, EPFO, ESIC, DoPT and IRS pages through the action gate, compares each with its last accepted reading, and raises one reminder per changed page so a person reads it and adds any new dated rule. Never changes a figure itself. Needs MYCA_ENABLE_LIVE_CALLS=1; without it the check is skipped and the nightly CI watch remains the control.',
+    args: ['force'],
+    run: (state, args = {}) => govtWatchCheck(state, args, { actor: resolveToolActor(args) }),
   },
   {
     name: 'set_sales_tax_nexus',

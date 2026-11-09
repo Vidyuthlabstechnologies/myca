@@ -84,7 +84,7 @@ void main() {
                 links: AppLinks().uriLinkStream,
               )
             : null,
-        plaidLink: const DevicePlaidLink(),
+        plaidLink: const ChannelPlaidLink(),
         openLink: (url) => launchUrl(url, mode: LaunchMode.externalApplication),
       ),
     ),
