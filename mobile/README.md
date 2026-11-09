@@ -160,7 +160,7 @@ Plaid dashboard) is only needed for OAuth banks outside the Sandbox and is not s
 ## iOS
 
 `ios/` is the Xcode project (`Runner.xcodeproj`, `Runner/Info.plist`,
-`AppDelegate.swift`, `Podfile`), bundle id `com.mldynamic.myca`, display name MyCA,
+`AppDelegate.swift`), bundle id `com.mldynamic.myca`, display name MyCA,
 minimum iOS 14 (what `file_picker` needs; the other plugins need 13). Building and
 signing need a Mac; `Build iOS app` in GitHub Actions builds an unsigned `Runner.app`
 on every `v*` tag. `docs/release/APP-STORE.md` lists the owner's steps.
