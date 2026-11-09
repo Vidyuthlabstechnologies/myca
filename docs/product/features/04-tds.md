@@ -244,6 +244,8 @@ Limits of what can be said and recorded from chat:
   two days back; other relative words are not read, the entry is dated today and the
   preview shows the date before anything posts.
 - TDS the business deducts from a supplier is taken when the bill or expense is posted
-  ("bill from Fabric Co 10000 GST 5% with TDS 194C", after "we deduct TDS, TAN ..."). No
-  sentence adds TDS to a bill already posted, and `record_tds_withheld` is for sales
-  invoices (INV- numbers) only.
+  ("bill from Fabric Co 10000 GST 5% with TDS 194C", after "we deduct TDS, TAN ..."), or
+  added later to a posted bill that has none ("add TDS 194C to BILL-0001"): the TDS is worked
+  out as of the bill date, the preview shows it, and a bill paid in full is refused. A
+  payment said with "less TDS" asks for the bill TDS first. `record_tds_withheld` is for
+  sales invoices (INV- numbers) only.

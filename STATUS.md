@@ -361,9 +361,11 @@ no live switch, no CA approvals, and no bytes leaving the PC.
   event is filed under is not part of the hash) or who appended an event. The trail says
   "verified" and never that the log is whole.
 - TDS the business deducts from a supplier is taken when the bill or expense is posted ("bill
-  from Fabric Co 10000 GST 5% with TDS 194C", after "we deduct TDS, TAN ..."). No chat
-  sentence adds TDS to a bill already posted, and `record_tds_withheld` takes sales invoices
-  (INV- numbers) only.
+  from Fabric Co 10000 GST 5% with TDS 194C", after "we deduct TDS, TAN ..."), or added to a
+  posted bill that has none with `add_bill_tds` ("add TDS 194C to BILL-0001", 2026-11-09). That
+  works the TDS out as of the bill date and refuses a bill paid in full; TDS on an expense
+  already posted, and a payment said with "less TDS", are not split in one step (MyCA asks
+  for the bill TDS first). `record_tds_withheld` takes sales invoices (INV- numbers) only.
 - Switching two-step on needs only a live session (accepted 2026-11-06): a stolen or unlocked
   session can enrol its own authenticator and take the recovery codes, and every later
   sign-in by the owner then stops at a step only the thief can pass until an operator

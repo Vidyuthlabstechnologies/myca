@@ -35,7 +35,7 @@ const { validateGstin } = gstin;
 const { filingPrep } = filing;
 const { auditRun } = audit;
 import { listAccounts, journal, trialBalance, verifyChain, createTransfers, paise } from './ledger.mjs';
-import { createInvoice, recordReceipt, recordPayment, invoicesToSalesCsv, createPurchase, purchasesToInwardCsv, printInvoice } from './invoice.mjs';
+import { createInvoice, recordReceipt, recordPayment, invoicesToSalesCsv, createPurchase, purchasesToInwardCsv, printInvoice, addBillTds } from './invoice.mjs';
 import { invoiceDocument, quoteDocument } from './invoice-document.mjs';
 import { createQuote, markQuote, convertQuote, listQuotes } from './quotes.mjs';
 import { addRecurring, stopRecurring, listRecurring, runRecurring } from './recurring.mjs';
@@ -2519,6 +2519,13 @@ export const TOOLS = [
     description: 'Record that this business deducts TDS, with its TAN. Bills and expenses can then carry a TDS section.',
     args: ['tan'],
     run: (state, args = {}) => setDeductor(state, args),
+  },
+  {
+    name: 'add_bill_tds',
+    title: 'Add TDS to a posted bill',
+    description: 'Deduct TDS on a supplier bill that is already posted (BILL- number) and has no TDS yet: the section, and for 194J the category or for 194I the asset, with the supplier PAN if known. The TDS is worked out on the bill value before GST from the dated rules, as of the bill date; the supplier is owed that much less and it sits in TDS payable until deposited.',
+    args: ['billId', 'tdsSection', 'tdsCategory', 'tdsAsset', 'payeePan'],
+    run: (state, args = {}) => addBillTds(state, args),
   },
   {
     name: 'record_tds_deposit',

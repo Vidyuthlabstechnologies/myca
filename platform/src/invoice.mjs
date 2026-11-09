@@ -465,6 +465,35 @@ export function createPurchase(state, input) {
   return { ok: true, invoice: bill, posted };
 }
 
+export function planBillTds(state, args = {}) {
+  const billId = String(args.billId || '').trim().toUpperCase();
+  const bill = (state.purchases || []).find((item) => String(item.id).toUpperCase() === billId);
+  if (!bill) return { ok: false, error: 'BILL_NOT_FOUND', billId };
+  if (bill.status === 'cancelled') return { ok: false, error: 'BILL_CANCELLED', billId: bill.id };
+  if (bill.tds) return { ok: false, error: 'BILL_HAS_TDS', billId: bill.id, section: bill.tds.section, amount: bill.tds.amount };
+  if (isPeriodLocked(state, bill.date)) return { ok: false, error: 'PERIOD_LOCKED', date: bill.date, lockThrough: state.lockThrough, billId: bill.id };
+  const unpaid = billOutstanding(bill);
+  if (!(unpaid > 0.005)) return { ok: false, error: 'BILL_PAID', billId: bill.id };
+  const planned = planTds(state, args, { date: bill.date, basis: Number(bill.taxable || 0), payable: unpaid, payee: bill.partyName, beforeGst: true });
+  if (!planned.ok) return { ...planned, billId: bill.id };
+  return { ok: true, bill, unpaid, tds: planned.tds };
+}
+
+export function addBillTds(state, args = {}) {
+  const plan = planBillTds(state, args);
+  if (!plan.ok) return plan;
+  const { bill, tds } = plan;
+  let posted = [];
+  if (tds.tds > 0) {
+    posted = createTransfers(state.ledger, [{ id: nextTransferId(state), debitAccountId: bill.partyAccountId, creditAccountId: tdsPayableAccountId(), amount: paise(tds.tds), invoiceId: bill.id, code: `TDS-${tds.section}` }]);
+    if (!posted[0].ok) return { ok: false, error: 'LEDGER_REJECT', posted };
+    bill.transferIds = [...(bill.transferIds || []), posted[0].id];
+  }
+  recordTdsEntry(state, tds, bill.id);
+  bill.tds = { section: tds.section, rate: tds.rate, basis: tds.basis, amount: tds.tds, pan: tds.pan, addedAfterPosting: true };
+  return { ok: true, bill, tds, remaining: billOutstanding(bill), posted };
+}
+
 export function billOutstanding(bill) {
   const paid = (bill.payments || []).reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
   return Math.round((Number(bill.total || 0) - Number(bill.notedTotal || 0) - Number(bill.tds?.amount || 0) - paid) * 100) / 100;

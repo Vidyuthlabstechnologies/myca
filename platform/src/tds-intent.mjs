@@ -259,6 +259,34 @@ function takeSection(text) {
   return { code: first.code, rest: cut(text, first.at, first.length) };
 }
 
+const BILL_IDS = /\bBILL-\d{4,}\b/gi;
+const PAYMENT_SAID = /\b(?:paid|pay|paying|payment|sent|transferred|remitted|settled)\b/i;
+const ADD_SAID = /\b(?:add|adding|deduct|deducting|apply|applying|put|charge|book|record|take|cut|withhold|withheld|deducted)\b/i;
+
+export function planBillTdsFromChat(state, text) {
+  const raw = normalizeChat(text);
+  const ids = [...new Set((raw.match(BILL_IDS) || []).map((id) => id.toUpperCase()))];
+  if (!ids.length || !/\btds\b/i.test(raw) || /\b(?:no|without)\s+tds\b/i.test(raw)) return null;
+  if (countryOf(state) !== 'IN' || isQuestion(raw) || isNegated(raw)) return null;
+  const section = sectionOf(raw);
+  if (!section && !ADD_SAID.test(raw)) return null;
+  if (ids.length > 1) return say(`Say one bill at a time, for example "add TDS 194C to ${ids[0]}". I have recorded nothing.`);
+  const billId = ids[0];
+  if (PAYMENT_SAID.test(raw) && !/\b(?:add|apply|put)\b/i.test(raw)) {
+    return say(`To hold back TDS on ${billId}, first say "add TDS ${section || '194C'} to ${billId}" and confirm it, then record the payment of what is left. I have recorded nothing.`);
+  }
+  if (!section) return say(`Say which TDS section applies to ${billId}: 194C for a contractor, 194J for professional or technical fees, 194I for rent, or 194A for interest. I have recorded nothing.`);
+  const shaped = withTdsFromText({ kind: 'tool', name: 'create_purchase', args: {} }, raw);
+  const args = { billId, ...shaped.args };
+  const said = receiptAmount(raw.replace(BILL_IDS, ' ').replace(SECTION, ' ').replace(PAN, ' '));
+  return {
+    kind: 'tool',
+    name: 'add_bill_tds',
+    args,
+    ...(said == null ? {} : { note: 'I work the TDS out from the dated rules, so the amount you said is not used; the preview shows the figure.' }),
+  };
+}
+
 function readEntry(raw, today) {
   const ids = [];
   let body = raw.replace(/\bINV-(\d{4,})\b/gi, (_hit, digits) => {

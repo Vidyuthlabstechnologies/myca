@@ -6,7 +6,7 @@ import { planOweQuestion } from './owe-intent.mjs';
 import { planFilingFromChat, saidPeriod } from './filing-intent.mjs';
 import { REPORT_KEYS } from './report-sheets.mjs';
 import { planEmployeeFromChat } from './employee-intent.mjs';
-import { planTdsChat, planTdsFromChat, withoutSettledTds } from './tds-intent.mjs';
+import { planBillTdsFromChat, planTdsChat, planTdsFromChat, withoutSettledTds } from './tds-intent.mjs';
 import { planGstPayFromChat } from './gst-pay-intent.mjs';
 import { planTransportFromChat, planAddressFromChat } from './eway-intent.mjs';
 import { planPayrollFromChat } from './payroll-intent.mjs';
@@ -794,6 +794,12 @@ export const TOOL_ARG_SCHEMAS = {
     type: 'object',
     additionalProperties: false,
     properties: { csv: { type: 'string' }, documentSha256: { type: 'string', pattern: '^[0-9a-f]{64}$' } },
+  },
+  add_bill_tds: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['billId', 'tdsSection'],
+    properties: { billId: { type: 'string', pattern: '^BILL-[0-9]{4,}$' }, ...tdsProperties },
   },
   record_tds_withheld: {
     type: 'object',
@@ -2213,6 +2219,7 @@ const TOOL_RISK = {
   set_channel_identity: 'writes_books',
   import_tcs_statement: 'writes_books',
   import_26as_credits: 'writes_books',
+  add_bill_tds: 'writes_books',
   record_tds_withheld: 'writes_books',
   tds_credit_check: 'read_only',
   marketplace_credits: 'read_only',
@@ -3307,6 +3314,9 @@ export function planLocalToolCall(state, message) {
       tools: [],
     };
   }
+
+  const billTds = planBillTdsFromChat(state, text);
+  if (billTds) return billTds;
 
   {
     const saving = /^save\s+gstr-?1\s+(?:for\s+)?(\d{4}-\d{2})(?:\s+(?:for|under)\s+([0-9]{2}[A-Z0-9]{13}))?\s+(?:to|on)\s+(?:the\s+)?portal(?:\s+(?:with\s+)?approval\s+(APR-\d+))?\s*$/i.exec(text.trim());
