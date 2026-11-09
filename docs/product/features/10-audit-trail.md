@@ -177,10 +177,10 @@ workbook.
 
 ## Limits
 
-- The Excel workbook lists every event of the period for every user. "By <name>" and "last
-  N" narrow the list in chat only; an Excel request that carries them still gets the whole
-  period. The chat reply says in words that the name or the count was not applied; the
-  file does not.
+- The Excel workbook follows "by <name>" and "last N": the Audit trail sheet keeps that
+  person's events, or the latest N, and the Summary sheet names the filter. The Entries
+  sheet is still the whole period's day book. A name or count that cannot be read ("by
+  me", "limit 5000") is said in words in the chat reply and not applied.
 - The limits of the chain are in the section above: events cut off the end, a re-sealed
   log, the client label and the author of an event are not covered.
 - Reads are not in the list on the hosted service (see above).

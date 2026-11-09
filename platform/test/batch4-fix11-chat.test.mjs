@@ -6,9 +6,10 @@ import { createInvoice, createPurchase } from '../src/invoice.mjs';
 import { runTool } from '../src/tools.mjs';
 import { chat, propose, fmtToolResult } from '../src/router.mjs';
 import { planLocalToolCall } from '../src/assistant-contract.mjs';
-import { normalizeChat, amountsSaid, soleAmountSaid, receiptAmount, documentProblemReply } from '../src/intent.mjs';
+import { normalizeChat, amountsSaid, soleAmountSaid, receiptAmount, documentProblemReply, receiptDate } from '../src/intent.mjs';
 import { takeInvoiceTerms } from '../src/terms-intent.mjs';
 import { previewOf } from '../src/chat-confirm.mjs';
+import { localToday } from '../src/dates.mjs';
 
 const HEADER = 'SECTION,SUPPLIER GSTIN,SUPPLIER NAME,INVOICE NO,INVOICE DATE,TAXABLE VALUE,CGST,SGST,IGST,CESS,TOTAL VALUE,ITC AVAILABILITY';
 const TWO_B = [
@@ -728,4 +729,25 @@ test('S4: a fuzz of sentences on a US book, an Indian book and an empty book nev
       assert.deepEqual(leaksIn(String(out && out.reply ? out.reply : '')), [], `${book}: reply to ${JSON.stringify(sentence)}`);
     }
   }
+});
+
+test('"yesterday" and "the day before yesterday" date a receipt or a payment one or two days back; a said date still wins', () => {
+  const state = indiaBooks();
+  const today = localToday();
+  const back = (count) => {
+    const day = new Date(`${today}T00:00:00Z`);
+    day.setUTCDate(day.getUTCDate() - count);
+    return day.toISOString().slice(0, 10);
+  };
+  assert.equal(receiptDate('received 5000 yesterday', '2026-03-01'), '2026-02-28');
+  assert.equal(receiptDate('received 5000 the day before yesterday', '2026-01-01'), '2025-12-30');
+  assert.equal(receiptDate('received 5000 day before yesterday', '2024-03-01'), '2024-02-28');
+  assert.equal(receiptDate('received 5000', '2026-11-09'), '2026-11-09');
+  assert.equal(receiptDate('received 5000 yesterday', 'not-a-date'), 'not-a-date');
+  for (const [sentence, count] of [['received 5000 against INV-0001 yesterday', 1], ['Kiran Stores paid 5000 on INV-0001 the day before yesterday', 2], ['paid Fabric Co 4000 yesterday', 1]]) {
+    const plan = planned(state, sentence);
+    assert.equal(plan.kind, 'tool', `${sentence}: ${JSON.stringify(plan)}`);
+    assert.equal(plan.args.date, back(count), sentence);
+  }
+  assert.equal(planned(state, 'received 5000 against INV-0001 yesterday dated 2026-10-12').args.date, '2026-10-12');
 });

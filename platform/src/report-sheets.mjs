@@ -475,12 +475,17 @@ function bankReconciliation(state, args, today) {
 function auditTrailSheets(state, args, today) {
   const range = periodRange(args, today);
   if (!range.ok) return range;
-  const events = auditEventsIn(state, range, { view: 'all' }).events;
+  const actor = typeof args.actor === 'string' ? args.actor.trim().slice(0, 80) : '';
+  const count = Math.floor(Number(args.limit));
+  const limit = count >= 1 ? Math.min(count, 2000) : 0;
+  const events = auditEventsIn(state, range, { view: 'all', actor, limit }).events;
   const rows = auditSheetRows(events);
   const chain = verifyAuditChain(state.__root || state);
   const ledger = ledgerVerdict(state);
   const summary = [
     ['Period', range.label],
+    ...(actor ? [['Person', actor]] : []),
+    ...(limit ? [['Latest events kept', limit]] : []),
     ['Events', events.length],
     ['Changes', events.filter((event) => event.kind === 'change').length],
     ['Log chain', chain.ok ? `verified ${chain.chained} ${chain.chained === 1 ? 'event' : 'events'}${sealCaveats(chain)}` : `broken at ${chain.at}`],

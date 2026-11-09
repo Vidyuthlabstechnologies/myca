@@ -1694,6 +1694,8 @@ export const TOOL_ARG_SCHEMAS = {
       to: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' },
       name: { type: 'string', maxLength: 60 },
       account: { type: 'string', maxLength: 24 },
+      actor: { type: 'string', maxLength: 80 },
+      limit: { type: 'integer', minimum: 1, maximum: 2000 },
     },
   },
   audit_trail: {
@@ -2546,8 +2548,8 @@ function planExcelFromChat(state, text) {
   if (report === 'audit_trail') {
     const range = auditRangeSaid(text);
     if (!range) return { kind: 'reply', reply: AUDIT_RANGE_UNREAD, tools: [] };
-    const note = auditExportNote(text);
-    return { kind: 'tool', name: 'export_xlsx', args: { report, ...range }, ...(note ? { note } : {}) };
+    const narrowed = auditExportNarrowing(text);
+    return { kind: 'tool', name: 'export_xlsx', args: { report, ...range, ...narrowed.args }, ...(narrowed.note ? { note: narrowed.note } : {}) };
   }
   const named = EXCEL_PERIOD_WORDS.exec(text);
   const period = named ? named[1].toLowerCase().replace(/\s+/g, '-') : saidPeriod(text);
@@ -2833,16 +2835,15 @@ function auditLimitSaid(text) {
   return { rest: text };
 }
 
-function auditExportNote(text) {
+function auditExportNarrowing(text) {
   const actor = auditActorSaid(text);
   const limit = auditLimitSaid(actor.rest);
-  const ignored = [];
-  if (actor.name) ignored.push(`"${actor.name}"`);
-  else if (actor.unreadable) ignored.push('the person you named');
-  if (limit.count) ignored.push(`the latest ${limit.count}`);
-  else if (limit.unreadable) ignored.push('the count you gave');
-  if (!ignored.length) return '';
-  return `The Excel file lists every change in its period, for every person. It is not narrowed by name or count, so ${ignored.join(' and ')} ${ignored.length > 1 ? 'are' : 'is'} not applied.`;
+  const args = { ...(actor.name ? { actor: actor.name } : {}), ...(limit.count ? { limit: limit.count } : {}) };
+  const unread = [];
+  if (actor.unreadable) unread.push('the person you named');
+  if (limit.unreadable) unread.push('the count you gave');
+  if (!unread.length) return { args };
+  return { args, note: `I could not read ${unread.join(' or ')}, so the Excel file is not narrowed by ${unread.length > 1 ? 'them' : 'it'}.` };
 }
 
 function auditNarrowing(known, text) {

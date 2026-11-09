@@ -1397,8 +1397,8 @@ export const TOOLS = [
   {
     name: 'export_xlsx',
     title: 'Excel file of a report',
-    description: 'One Excel workbook (.xlsx) of a report: the trial balance, entries, day book, sales, purchases, expenses, credit or debit notes, customer or supplier dues, cash forecast, credit at risk, TDS, margins, stock, a saved report by name, the business or GST summary, the bank reconciliation, or the audit trail, for a month, a period (this-month, last-month, this-quarter, this-year, last-year) or from and to dates. Money is numbers, so it adds up in Excel; a saved report is complete, not cut at 20 rows. Read-only.',
-    args: ['report', 'period', 'from', 'to', 'name', 'account'],
+    description: 'One Excel workbook (.xlsx) of a report: the trial balance, entries, day book, sales, purchases, expenses, credit or debit notes, customer or supplier dues, cash forecast, credit at risk, TDS, margins, stock, a saved report by name, the business or GST summary, the bank reconciliation, or the audit trail (optionally by one person, actor, and only the latest limit events), for a month, a period (this-month, last-month, this-quarter, this-year, last-year) or from and to dates. Money is numbers, so it adds up in Excel; a saved report is complete, not cut at 20 rows. Read-only.',
+    args: ['report', 'period', 'from', 'to', 'name', 'account', 'actor', 'limit'],
     run: (state, args = {}) => reportSheet(state, args.report, args),
   },
   {
