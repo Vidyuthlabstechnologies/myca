@@ -53,7 +53,7 @@ function profitToDate(state, fy, today) {
   return { sales: round2(sales - creditNotes), purchases, expenses, payroll, payrollHidden, profit: round2(sales - creditNotes - purchases - expenses - payroll) };
 }
 
-function creditsToDate(state, fy, today) {
+export function creditsToDate(state, fy, today) {
   const statements = (state.tdsCreditStatements || []).filter((row) => row.date && inFy(row.date, fy) && row.date <= today);
   const tds26as = sum(statements, (row) => row.taxDeducted);
   const marketplace = marketplaceCredits(state, { fy: fy.label }).data;
