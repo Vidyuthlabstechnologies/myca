@@ -153,7 +153,7 @@ Plaid Link is the `plaid_flutter` package behind `PlaidLinkOpener`
 (`lib/cloud/plaid_link.dart`); `DevicePlaidLink` opens the native SDK and resolves with
 the public token, or null if the owner closes it, and `AppState.plaidLink` takes a fake
 in tests (`test/connectors_test.dart`). Android needs nothing beyond the dependency.
-iOS needs nothing extra either: the project already targets iOS 14 and carries
+iOS needs nothing extra either: the project already targets iOS 15 and carries
 `NSCameraUsageDescription`; Plaid's OAuth redirect (a Universal Link registered in the
 Plaid dashboard) is only needed for OAuth banks outside the Sandbox and is not set up.
 
@@ -161,7 +161,7 @@ Plaid dashboard) is only needed for OAuth banks outside the Sandbox and is not s
 
 `ios/` is the Xcode project (`Runner.xcodeproj`, `Runner/Info.plist`,
 `AppDelegate.swift`), bundle id `com.mldynamic.myca`, display name MyCA,
-minimum iOS 14 (what `file_picker` needs; the other plugins need 13). Building and
+minimum iOS 15 (Apple requires it for uploads from April 2027; `file_picker` needs 14). Building and
 signing need a Mac; `Build iOS app` in GitHub Actions builds an unsigned `Runner.app`
 on every `v*` tag. `docs/release/APP-STORE.md` lists the owner's steps.
 

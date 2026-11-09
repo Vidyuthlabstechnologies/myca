@@ -1,7 +1,7 @@
 # App Store release: what the owner must do
 
 The iOS target lives in `mobile/ios` (bundle id `com.mldynamic.myca`, display name
-MyCA, iOS 14 or later). `Build iOS app` (`.github/workflows/build-ios.yml`) analyzes,
+MyCA, iOS 15 or later). `Build iOS app` (`.github/workflows/build-ios.yml`) analyzes,
 tests and builds an unsigned `Runner.app` on every `v*` tag. Signing, TestFlight and
 the listing need an Apple account and a Mac; nothing here is published by the
 repository. The answers below are drafted from what the app does on 2026-10-20 and
