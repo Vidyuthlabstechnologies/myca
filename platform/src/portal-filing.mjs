@@ -56,6 +56,114 @@ export async function saveGstr1ToPortal(state, args = {}, actor) {
   return { ok: true, save: record, rows: invoices, mock: Boolean(out.mock) };
 }
 
+function savedFor(state, args) {
+  const period = String(args.period || '').trim();
+  if (!isReturnPeriod(period)) return fail('INVALID_PERIOD', { hint: 'Use YYYY-MM, for example 2026-09.' });
+  const regd = regArg(state, args.gstin);
+  if (!regd.ok) return regd;
+  const saved = savesOf(state)[scopeKey(state, period, regd.gstin)];
+  if (!saved) return fail('NOT_SAVED', { hint: 'Save the GSTR-1 to the portal first, then check, submit and file it.' });
+  return { ok: true, period, gstin: regd.gstin, saved };
+}
+
+function unchanged(state, found) {
+  const built = gstr1Payload(state, found.period, found.gstin);
+  if (!built.ok) return built;
+  if (built.hash !== found.saved.draftHash) return fail('DRAFT_CHANGED', { hint: 'The invoices changed since the save; save again, then file.' });
+  return { ok: true };
+}
+
+const PROCESSING = { P: 'processed', PE: 'processed_with_errors', ER: 'error', IP: 'in_progress', REC: 'received' };
+
+export async function checkGstr1OnPortal(state, args = {}, actor) {
+  const found = savedFor(state, args);
+  if (!found.ok) return found;
+  if (!found.saved.referenceId) return fail('NO_REFERENCE', { hint: 'The save has no portal reference; save it again.' });
+  const out = await runSandboxOperation({
+    operationId: 'gst_gstr1_processing',
+    actorId: actor?.userId || 'owner',
+    actor,
+    params: { period: found.period, referenceId: found.saved.referenceId },
+    payloadSummary: { period: found.period, gstin: found.gstin },
+    clientId: normalizeClientId(state.activeClientId),
+  }, { state });
+  if (!out.ok) return { ...out, period: found.period, gstin: found.gstin };
+  const status = PROCESSING[out.data?.status] || (out.data?.status ? 'unknown' : 'in_progress');
+  found.saved.processing = status;
+  found.saved.processingErrors = out.data?.errorReport || null;
+  found.saved.checkedOn = localToday();
+  return { ok: true, period: found.period, gstin: found.gstin, processing: status, errorReport: out.data?.errorReport || null, mock: Boolean(out.mock) };
+}
+
+export async function submitGstr1OnPortal(state, args = {}, actor) {
+  const found = savedFor(state, args);
+  if (!found.ok) return found;
+  if (found.saved.filedAck) return fail('ALREADY_FILED', { ackNum: found.saved.filedAck });
+  const same = unchanged(state, found);
+  if (!same.ok) return same;
+  if (found.saved.processing === 'processed_with_errors' || found.saved.processing === 'error') return fail('SAVE_HAS_ERRORS', { errorReport: found.saved.processingErrors, hint: 'The portal refused some invoices; fix them, save again, then submit.' });
+  const out = await runSandboxOperation({
+    operationId: 'gst_gstr1_proceed',
+    actorId: actor?.userId || 'owner',
+    actor,
+    caApprovalId: args.caApprovalId || '',
+    params: { period: found.period },
+    payloadSummary: { period: found.period, gstin: found.gstin, draftHash: found.saved.draftHash },
+    clientId: normalizeClientId(state.activeClientId),
+  }, { state });
+  if (!out.ok) return { ...out, period: found.period, gstin: found.gstin };
+  found.saved.submittedOn = localToday();
+  found.saved.submitReference = String(out.data?.referenceId || '');
+  return { ok: true, period: found.period, gstin: found.gstin, submittedOn: found.saved.submittedOn, mock: Boolean(out.mock) };
+}
+
+async function readGstr1Summary(state, period, gstin, actor, args = {}) {
+  const out = await runSandboxOperation({
+    operationId: 'gst_gstr1_summary',
+    actorId: actor?.userId || 'owner',
+    actor,
+    caApprovalId: args.caApprovalId || '',
+    params: { period },
+    payloadSummary: { period, gstin },
+    clientId: normalizeClientId(state.activeClientId),
+  }, { state });
+  if (!out.ok) return out;
+  return { ok: true, summary: out.data.summary, mock: Boolean(out.mock) };
+}
+
+function summaryTotals(summary) {
+  const rows = (summary?.sec_sum || []).filter((row) => Number(row.ttl_rec || 0) > 0 || Number(row.ttl_val || 0) !== 0);
+  return rows.map((row) => ({ section: String(row.sec_nm || ''), records: Number(row.ttl_rec || 0), value: Number(row.ttl_val || 0), tax: Number(row.ttl_tax || 0), igst: Number(row.ttl_igst || 0), cgst: Number(row.ttl_cgst || 0), sgst: Number(row.ttl_sgst || 0), cess: Number(row.ttl_cess || 0) }));
+}
+
+export async function gstr1PortalSummary(state, args = {}, actor) {
+  const found = savedFor(state, args);
+  if (!found.ok) return found;
+  if (!found.saved.submittedOn) return fail('NOT_SUBMITTED', { hint: 'Submit the GSTR-1 first; the portal builds the summary after that.' });
+  const read = await readGstr1Summary(state, found.period, found.gstin, actor, args);
+  if (!read.ok) return { ...read, period: found.period, gstin: found.gstin };
+  return { ok: true, period: found.period, gstin: found.gstin, sections: summaryTotals(read.summary), mock: read.mock };
+}
+
+export async function requestGstr1Evc(state, args = {}, actor) {
+  const found = savedFor(state, args);
+  if (!found.ok) return found;
+  if (!found.saved.submittedOn) return fail('NOT_SUBMITTED', { hint: 'Submit the GSTR-1 first, then ask for the EVC OTP.' });
+  const pan = String(args.pan || state.company?.pan || '').trim().toUpperCase();
+  if (!/^[A-Z]{5}[0-9]{4}[A-Z]$/.test(pan)) return fail('PAN_REQUIRED', { hint: 'Add the PAN of the authorised signatory to the company details.' });
+  const out = await runSandboxOperation({
+    operationId: 'gst_evc_otp',
+    actorId: actor?.userId || 'owner',
+    actor,
+    caApprovalId: args.caApprovalId || '',
+    params: { pan },
+    payloadSummary: { period: found.period, gstin: found.gstin },
+    clientId: normalizeClientId(state.activeClientId),
+  }, { state });
+  if (!out.ok) return { ...out, period: found.period, gstin: found.gstin };
+  return { ok: true, period: found.period, gstin: found.gstin, sent: true, mock: Boolean(out.mock) };
+}
+
 export async function fileGstr1OnPortal(state, args = {}, actor) {
   const period = String(args.period || '').trim();
   if (!isReturnPeriod(period)) return fail('INVALID_PERIOD', { hint: 'Use YYYY-MM, for example 2026-09.' });
@@ -73,12 +181,22 @@ export async function fileGstr1OnPortal(state, args = {}, actor) {
   if (!pan) return fail('PAN_REQUIRED');
   const otp = String(args.otp || '').trim();
   if (!/^\d{6}$/.test(otp)) return fail('OTP_REQUIRED', { hint: 'Enter the six-digit EVC OTP the portal sent.' });
+  if (!saved.submittedOn) {
+    const submitted = await submitGstr1OnPortal(state, { ...args, period, gstin: regd.gstin }, actor);
+    if (!submitted.ok) return submitted;
+  }
+  let summary = args.summary;
+  if (!summary) {
+    const read = await readGstr1Summary(state, period, regd.gstin, actor, args);
+    if (!read.ok) return { ...read, period, gstin: regd.gstin };
+    summary = read.summary;
+  }
   const out = await runSandboxOperation({
     operationId: 'gst_file_gstr1_evc',
     actorId: actor?.userId || 'owner',
     actor,
     caApprovalId: args.caApprovalId || '',
-    params: { period, pan, otp, summary: args.summary || { newSumFlag: true, reference_id: saved.referenceId } },
+    params: { period, pan, otp, summary },
     payloadSummary: { period, gstin: regd.gstin, draftHash: saved.draftHash },
     clientId: normalizeClientId(state.activeClientId),
   }, { state });

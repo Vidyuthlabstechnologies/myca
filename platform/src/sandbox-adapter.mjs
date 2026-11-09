@@ -4,7 +4,7 @@ import { invoiceToNicPayload } from './nic-config.mjs';
 import { performExternalAction } from './action-gate.mjs';
 
 function fromClient(res, data) {
-  if (res && res.ok === false && res.error) return { ok: false, error: res.error };
+  if (res && res.ok === false && res.error) return { ok: false, error: res.error, ...(res.message ? { hint: res.message } : {}) };
   if (res && res.ok === false) return { ok: false, error: `HTTP_${res.status || 'ERROR'}`, provider: res.data || null };
   return { ok: true, data };
 }
@@ -115,6 +115,34 @@ const ADAPTERS = {
     if (!params.summary) return { ok: false, error: 'SUMMARY_REQUIRED', hint: 'Pass the summary returned by new-proceed (newSumFlag, sec_sum, chksum).' };
     const res = await client.fileGstr1({ year, month, pan: params.pan, otp: params.otp, summary: params.summary });
     return fromClient(res, { filed: true, ackNum: res.data?.data?.data?.ack_num || res.data?.data?.ack_num || null });
+  },
+
+  gst_gstr1_processing: async ({ client, params }) => {
+    const { year, month } = periodParts(params);
+    if (!params.referenceId) return { ok: false, error: 'REFERENCE_REQUIRED' };
+    const res = await client.returnProcessingStatus(year, month, params.referenceId);
+    const inner = res.data?.data?.data || {};
+    return fromClient(res, { action: String(inner.action || ''), status: String(inner.status_cd || ''), errorReport: inner.error_report || null });
+  },
+
+  gst_gstr1_proceed: async ({ client, params }) => {
+    const { year, month } = periodParts(params);
+    const res = await client.newProceedGstr1({ year, month, gstr: 'gstr-1', isNil: params.nil ? 'Y' : undefined });
+    return fromClient(res, { submitted: true, referenceId: res.data?.data?.data?.reference_id || '' });
+  },
+
+  gst_gstr1_summary: async ({ client, params }) => {
+    const { year, month } = periodParts(params);
+    const res = await client.gstr1Summary(year, month);
+    const inner = res.data?.data?.data || {};
+    if (res.ok !== false && !Array.isArray(inner.sec_sum)) return { ok: false, error: 'SUMMARY_NOT_READY', hint: 'The portal has no GSTR-1 summary for the month yet; submit it first, then try again in a minute.' };
+    return fromClient(res, { summary: { newSumFlag: inner.newSumFlag !== false, sec_sum: inner.sec_sum || [], chksum: String(inner.chksum || '') } });
+  },
+
+  gst_evc_otp: async ({ client, params }) => {
+    if (!params.pan) return { ok: false, error: 'PAN_REQUIRED' };
+    const res = await client.generateEvcOtp(params.pan, 'gstr-1');
+    return fromClient(res, { sent: true });
   },
 
   einvoice_authenticate: async ({ client, params }) => {
@@ -267,6 +295,17 @@ const MOCK_ADAPTERS = {
       data: { saved: true, referenceId: `MOCK-GSTR1-${year}-${String(month).padStart(2, '0')}` },
     };
   },
+
+  gst_gstr1_processing: async ({ params }) => (params.referenceId ? { ok: true, ...MOCK_TAG, data: { action: 'SAVE', status: 'P', errorReport: null } } : { ok: false, error: 'REFERENCE_REQUIRED' }),
+
+  gst_gstr1_proceed: async ({ params }) => {
+    const { year, month } = periodParts(params);
+    return { ok: true, ...MOCK_TAG, data: { submitted: true, referenceId: `MOCK-PROCEED-${year}-${String(month).padStart(2, '0')}` } };
+  },
+
+  gst_gstr1_summary: async () => ({ ok: true, ...MOCK_TAG, data: { summary: { newSumFlag: true, sec_sum: [], chksum: 'MOCK-CHKSUM' } } }),
+
+  gst_evc_otp: async ({ params }) => (params.pan ? { ok: true, ...MOCK_TAG, data: { sent: true } } : { ok: false, error: 'PAN_REQUIRED' }),
 
   gst_file_gstr1_evc: async ({ params }) => {
     const { year, month } = periodParts(params);

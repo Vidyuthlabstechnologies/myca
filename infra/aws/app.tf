@@ -15,10 +15,11 @@ locals {
   secrets = merge(local.generated, {
     MYCA_DATABASE_URL = "postgres://${aws_db_instance.main.username}:${random_password.db.result}@${aws_db_instance.main.address}:${aws_db_instance.main.port}/${aws_db_instance.main.db_name}"
     MYCA_DATABASE_CA  = data.http.rds_ca.response_body
-  }, local.play_key_given ? { MYCA_PLAY_SERVICE_ACCOUNT_JSON = var.play_service_account_json } : {})
+  }, local.play_key_given ? { MYCA_PLAY_SERVICE_ACCOUNT_JSON = var.play_service_account_json } : {}, local.gsp_key_given ? { MYCA_GSP_API_KEY = var.gsp_api_key, MYCA_GSP_API_SECRET = var.gsp_api_secret } : {})
   play_key_given = nonsensitive(trimspace(var.play_service_account_json) != "")
+  gsp_key_given  = nonsensitive(trimspace(var.gsp_api_key) != "" && trimspace(var.gsp_api_secret) != "")
   play_products  = { for name, id in { MYCA_PLAY_PRODUCT_PRO = var.play_product_pro, MYCA_PLAY_PRODUCT_FIRM = var.play_product_firm } : name => id if id != "" }
-  secret_names   = concat(["MYCA_TOKEN_SECRET", "MYCA_BOOKS_KEY", "MYCA_CONNECTOR_KEY", "MYCA_JOB_TOKEN", "MYCA_INBOUND_RELAY_TOKEN", "MYCA_WHATSAPP_VERIFY_TOKEN", "MYCA_PLAY_NOTIFY_TOKEN", "MYCA_DATABASE_URL", "MYCA_DATABASE_CA"], local.play_key_given ? ["MYCA_PLAY_SERVICE_ACCOUNT_JSON"] : [])
+  secret_names   = concat(["MYCA_TOKEN_SECRET", "MYCA_BOOKS_KEY", "MYCA_CONNECTOR_KEY", "MYCA_JOB_TOKEN", "MYCA_INBOUND_RELAY_TOKEN", "MYCA_WHATSAPP_VERIFY_TOKEN", "MYCA_PLAY_NOTIFY_TOKEN", "MYCA_DATABASE_URL", "MYCA_DATABASE_CA"], local.play_key_given ? ["MYCA_PLAY_SERVICE_ACCOUNT_JSON"] : [], local.gsp_key_given ? ["MYCA_GSP_API_KEY", "MYCA_GSP_API_SECRET"] : [])
   production     = !var.pilot_sign_in_codes_in_logs
   environment = merge(
     {
@@ -28,6 +29,7 @@ locals {
       MYCA_GOOGLE_CLIENT_IDS    = join(",", var.google_client_ids)
       MYCA_PLAY_PACKAGE         = var.play_package_name
       MYCA_ENABLE_CHANNEL_PULLS = "0"
+      MYCA_GSP_ENV              = var.gsp_environment
       TZ                        = "Asia/Kolkata"
     },
     local.play_products,

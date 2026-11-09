@@ -15,6 +15,7 @@ import 'ca_screen.dart';
 import 'credit_card.dart';
 import 'filing_screen.dart';
 import 'gst_payment_screen.dart';
+import 'gst_portal_screen.dart';
 import 'year_close_screen.dart';
 import 'tds_credit_screen.dart';
 import 'tds_screen.dart';
@@ -67,6 +68,13 @@ class _TaxesScreenState extends State<TaxesScreen> {
     } on MycaApiException {
       return const [];
     }
+  }
+
+  bool get _portalAllowed {
+    final state = AppScope.of(context);
+    final cloud = state.cloud;
+    final role = state.snapshot?.activeUser?.role;
+    return cloud != null && cloud.signedIn && (role == 'owner' || role == 'accountant');
   }
 
   Map<String, Object?> get _regArgs => _gstin.isEmpty ? const {} : {'gstin': _gstin};
@@ -567,6 +575,13 @@ class _TaxesScreenState extends State<TaxesScreen> {
                     saving: _saving,
                     note: _fileNote,
                     onSave: () => _saveFile(gst),
+                    onPortal: _portalAllowed
+                        ? () => Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (_) => GstPortalScreen(period: gst.period, gstin: _gstin),
+                              ),
+                            )
+                        : null,
                   ),
                   const SizedBox(height: 12),
                   CreditCard(period: gst.period),
@@ -958,12 +973,14 @@ class _Gstr1Card extends StatelessWidget {
     required this.saving,
     required this.note,
     required this.onSave,
+    this.onPortal,
   });
 
   final PeriodGst gst;
   final bool saving;
   final String note;
   final VoidCallback onSave;
+  final VoidCallback? onPortal;
 
   @override
   Widget build(BuildContext context) {
@@ -1004,9 +1021,21 @@ class _Gstr1Card extends StatelessWidget {
               ),
             ),
           ),
+          if (onPortal != null) ...[
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton(
+                onPressed: file.empty ? null : onPortal,
+                child: const Text('File on the GST portal'),
+              ),
+            ),
+          ],
           const SizedBox(height: 8),
           Text(
-            'MyCA does not upload or file this. You or your CA do that on the GST portal.',
+            onPortal == null
+                ? 'MyCA does not upload or file this. You or your CA do that on the GST portal.'
+                : 'Save the file to upload it yourself, or file it on the GST portal from here with the portal OTP.',
             style: text.bodySmall,
           ),
         ],

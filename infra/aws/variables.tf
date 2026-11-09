@@ -128,3 +128,34 @@ variable "play_service_account_json" {
   default     = ""
   sensitive   = true
 }
+
+variable "gst_session_job_rate" {
+  description = "EventBridge schedule for refreshing GST portal sessions; each lasts 6 hours, and the job refreshes those ending within 90 minutes."
+  type        = string
+  default     = "rate(1 hour)"
+}
+
+variable "gsp_api_key" {
+  description = "Sandbox by Quicko API key MyCA uses as the ASP (key_test_... or key_live_...). Empty leaves GST portal calls unavailable; kept in SSM."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "gsp_api_secret" {
+  description = "Secret of the Sandbox by Quicko API key; kept in SSM."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "gsp_environment" {
+  description = "Which Sandbox host the key belongs to: test (test-api.sandbox.co.in) or live (api.sandbox.co.in)."
+  type        = string
+  default     = "test"
+
+  validation {
+    condition     = contains(["test", "live"], var.gsp_environment)
+    error_message = "gsp_environment is test or live."
+  }
+}

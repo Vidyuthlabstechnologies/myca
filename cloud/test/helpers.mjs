@@ -69,7 +69,7 @@ export async function startApi(options = {}) {
   const sender = createCaptureSender();
   const clock = { now: Date.now(), advance(ms) { this.now += ms; } };
   const logs = [];
-  const handler = createApi({ billing: options.billing ? options.billing({ db, now: () => clock.now }) : null, db, secret: SECRET, otpSender: options.phone === false ? null : sender, googleClientIds: [GOOGLE_CLIENT], googleKeys: TEST_GOOGLE_KEYS, oidc: options.oidc || {}, oidcKeys: options.oidcKeys || null, documentVault: options.documentVault || null, connectorKey: options.connectorKey || '', booksKey: options.booksKey === undefined ? BOOKS_KEY : options.booksKey, now: () => clock.now, log: (entry) => logs.push(entry), jobToken: options.jobToken || '', inboundEmail: options.inboundEmail || {}, whatsapp: options.whatsapp || {}, whatsappSender: options.whatsappSender || null });
+  const handler = createApi({ billing: options.billing ? options.billing({ db, now: () => clock.now }) : null, db, secret: SECRET, otpSender: options.phone === false ? null : sender, googleClientIds: [GOOGLE_CLIENT], googleKeys: TEST_GOOGLE_KEYS, oidc: options.oidc || {}, oidcKeys: options.oidcKeys || null, documentVault: options.documentVault || null, connectorKey: options.connectorKey || '', booksKey: options.booksKey === undefined ? BOOKS_KEY : options.booksKey, now: () => clock.now, log: (entry) => logs.push(entry), jobToken: options.jobToken || '', inboundEmail: options.inboundEmail || {}, whatsapp: options.whatsapp || {}, whatsappSender: options.whatsappSender || null, gspFetch: options.gspFetch || null });
   const server = createServer(handler);
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
   const base = `http://127.0.0.1:${server.address().port}`;

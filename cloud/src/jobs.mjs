@@ -30,7 +30,7 @@ export function createJobs({ db, withBooks, connectors = null, syncChannels = nu
           } finally {
             await q('alter table audit_log enable trigger audit_log_no_update');
           }
-          for (const table of ['access_log', 'shared_books', 'inbound_sales', 'inbound_keys', 'business_connectors', 'invitations', 'memberships', 'books']) {
+          for (const table of ['access_log', 'shared_books', 'inbound_sales', 'inbound_keys', 'gst_portal_sessions', 'business_connectors', 'invitations', 'memberships', 'books']) {
             await q(`delete from ${table} where business_id = $1`, [row.id]);
           }
           await q('delete from businesses where id = $1', [row.id]);
