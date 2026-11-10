@@ -4,6 +4,12 @@ on:
   push:
     tags: ["v*"]
   workflow_dispatch:
+    inputs:
+      backend:
+        description: "Which backend the app talks to: live (MYCA_CLOUD_URL) or test (MYCA_CLOUD_URL_STAGING, installs beside the live app as MyCA Test)"
+        type: choice
+        options: [live, test]
+        default: live
 
 permissions:
   contents: read
@@ -14,7 +20,8 @@ jobs:
     runs-on: ${{ vars.MYCA_CI_RUNNER || 'ubuntu-latest' }}
     env:
       HAS_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
-      CLOUD_URL: ${{ vars.MYCA_CLOUD_URL }}
+      BACKEND: ${{ inputs.backend || 'live' }}
+      CLOUD_URL: ${{ inputs.backend == 'test' && vars.MYCA_CLOUD_URL_STAGING || vars.MYCA_CLOUD_URL }}
       GOOGLE_SERVER_CLIENT_ID: ${{ vars.MYCA_GOOGLE_SERVER_CLIENT_ID }}
       OIDC_CLIENT_ID: ${{ vars.MYCA_OIDC_CLIENT_ID }}
     steps:
@@ -95,6 +102,10 @@ jobs:
           name="$(sed -n 's/^version: *\([^+]*\).*/\1/p' pubspec.yaml)"
           if [[ "$GITHUB_REF" == refs/tags/v* ]]; then name="${GITHUB_REF_NAME#v}"; define+=(--build-name="$name"); fi
           define+=(--dart-define="MYCA_APP_VERSION=$name+$GITHUB_RUN_NUMBER")
+          if [ "$BACKEND" = "test" ]; then
+            if [ -z "$CLOUD_URL" ]; then echo "::error::A test build needs the MYCA_CLOUD_URL_STAGING repository variable (the staging API address)."; exit 1; fi
+            define+=(-P mycaTest=true)
+          fi
           if [ -n "$CLOUD_URL" ]; then define+=(--dart-define="MYCA_CLOUD_URL=$CLOUD_URL"); fi
           if [ -n "$GOOGLE_SERVER_CLIENT_ID" ]; then define+=(--dart-define="MYCA_GOOGLE_SERVER_CLIENT_ID=$GOOGLE_SERVER_CLIENT_ID"); fi
           if [ -n "$OIDC_CLIENT_ID" ]; then define+=(--dart-define="MYCA_OIDC_CLIENT_ID=$OIDC_CLIENT_ID"); fi
@@ -108,9 +119,11 @@ jobs:
           {
             echo "### Release APK badging"
             echo '```'
-            "$aapt2" dump badging ../dist/myca-android.apk | grep -E "^(package|sdkVersion|targetSdkVersion|uses-permission)"
+            "$aapt2" dump badging ../dist/myca-android.apk | grep -E "^(package|sdkVersion|targetSdkVersion|uses-permission)" | tee /dev/stderr
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+          "$aapt2" dump permissions ../dist/myca-android.apk | sed -n "s/^uses-permission: name='\\([^']*\\)'.*/\\1/p" | sort -u > ../dist/permissions.txt
+          if ! diff -u android/permissions.txt ../dist/permissions.txt; then echo "::error::The release APK asks for a different set of permissions than mobile/android/permissions.txt. Update that file and docs/release/PLAY-LISTING.md section 3 together."; exit 1; fi
 
       - name: Remove the key from the runner
         if: always()
