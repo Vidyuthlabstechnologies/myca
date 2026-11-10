@@ -4,8 +4,10 @@ provider "google" {
 }
 
 provider "google-beta" {
-  project = var.project_id
-  region  = var.region
+  project               = var.project_id
+  region                = var.region
+  user_project_override = true
+  billing_project       = var.project_id
 }
 
 locals {
@@ -606,17 +608,6 @@ resource "google_logging_project_sink" "myca" {
   destination            = "logging.googleapis.com/${google_logging_project_bucket_config.myca.id}"
   unique_writer_identity = true
   filter                 = "(resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"${local.name}\") OR (resource.type=\"cloudsql_database\" AND resource.labels.database_id=\"${var.project_id}:myca\") OR (resource.type=\"cloud_scheduler_job\" AND resource.labels.job_id=~\"^${local.name}\")"
-}
-
-resource "google_project_iam_member" "myca_log_writer" {
-  project = var.project_id
-  role    = "roles/logging.bucketWriter"
-  member  = google_logging_project_sink.myca.writer_identity
-
-  condition {
-    title      = "myca-log-bucket-only"
-    expression = "resource.name.endsWith(\"/buckets/${google_logging_project_bucket_config.myca.bucket_id}\")"
-  }
 }
 
 resource "google_artifact_registry_repository_iam_member" "deployer_push" {
