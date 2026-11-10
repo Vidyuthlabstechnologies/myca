@@ -347,6 +347,3 @@ export function usDocumentPreview(state, args, kind) {
   };
 }
 
-export function isUs(state) {
-  return countryOf(state) === 'US';
-}

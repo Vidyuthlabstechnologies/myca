@@ -59,9 +59,11 @@ if (wants('sprints')) {
   }
 }
 
+if (wants('email-relay')) run('email-relay', 'email-relay', 'npm', ['test']);
+
 if (wants('cloud')) {
   const database = process.env.MYCA_TEST_DATABASE_URL || 'postgres://myca@127.0.0.1:54329/postgres';
-  if (!existsSync(join(root, 'cloud', 'node_modules'))) skip('cloud', 'run "npm install" in cloud/ first');
+  if (!existsSync(join(root, 'cloud', 'node_modules', 'pg'))) skip('cloud', 'setup needed: run "npm ci" in cloud/ first (the pg driver is missing)');
   else if (!(await reachable(database))) skip('cloud', 'no Postgres at MYCA_TEST_DATABASE_URL (see cloud/README.md)');
   else run('cloud', 'cloud', 'npm', ['test'], { MYCA_TEST_DATABASE_URL: database });
 }

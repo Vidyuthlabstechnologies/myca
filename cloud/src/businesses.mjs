@@ -3,8 +3,6 @@ import { runTool } from '../../platform/src/tools.mjs';
 import { isUuid } from './auth.mjs';
 import { DEMO_GSTIN, DEMO_NAME } from './demo.mjs';
 
-export const ROLES = ['owner', 'staff', 'accountant'];
-
 const ENGINE_ROLE = { owner: 'admin', accountant: 'partner', staff: 'staff' };
 
 export function engineRole(role) {
@@ -32,7 +30,6 @@ async function openingBooks({ name, gstin, state, country, address, city, pin },
   if (books.company.country !== 'US' && !books.company.state) return fail('STATE_REQUIRED');
   return { ok: true, state: serialize(books), company: books.company };
 }
-
 
 import { storedState } from './books-seal.mjs';
 export function createBusinesses({ db, now = () => Date.now(), booksKey = '' }) {
