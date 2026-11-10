@@ -165,3 +165,24 @@ filing with its acknowledgement. `generate_tds_fvu` ("generate FVU for Q2 2026-2
 submits the quarter's statement to the provider's FVU job and keeps the job id and links.
 All three are write operations: live calls must be on and a CA approval must name the
 operation; in mock mode they return simulated results and record nothing as filed.
+
+### Filing from the Android app: who approves what
+
+Each portal step that writes (`save`, `submit`, `otp`, `file` for GSTR-1; `save`, `offset`,
+`otp`, `file` for GSTR-3B) needs its own approval when the business is in live mode. The
+hosted route answers `CA_APPROVAL_REQUIRED` without one. The app then, on the GST portal
+screen:
+
+1. Looks for an approved approval for that step and month (`GET /v1/businesses/:id/approvals`,
+   operation `gstr1_save`, `gstr3b_file` and so on) and repeats the step with its
+   `caApprovalId`.
+2. If none is waiting, asks for one (`POST .../approvals` with `operation` and `period`) and
+   tells the person that an owner or the accountant, other than them, must approve it.
+3. If one is waiting and the person is not the one who asked, approves it and repeats the
+   step with its id. The server refuses an approval by the same person
+   (`MAKER_CHECKER_VIOLATION`), and an approval stops counting once the books for that month
+   change, because it is bound to the hash of the draft.
+
+In test and simulated mode no approval is needed: the steps run against the GSP sandbox or
+return simulated results, and the app shows "Filed (simulated)" with the reference marked as
+practice only. Every step is audited as `gst_portal.<form>_<step>` with `simulated`.

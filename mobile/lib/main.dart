@@ -103,6 +103,7 @@ class MycaApp extends StatefulWidget {
 
 class _MycaAppState extends State<MycaApp> with WidgetsBindingObserver {
   final _navigator = GlobalKey<NavigatorState>();
+  final _messenger = GlobalKey<ScaffoldMessengerState>();
   bool _openingShared = false;
 
   @override
@@ -122,6 +123,11 @@ class _MycaAppState extends State<MycaApp> with WidgetsBindingObserver {
 
   void _openSharedFile() {
     final state = widget.state;
+    if (state.sharedNote.isNotEmpty && _messenger.currentState != null) {
+      final note = state.sharedNote;
+      state.sharedNote = '';
+      _messenger.currentState!.showSnackBar(SnackBar(content: Text(note)));
+    }
     if (state.sharedFile == null || !state.readyForEntries || _openingShared) return;
     final navigator = _navigator.currentState;
     if (navigator == null) return;
@@ -148,6 +154,7 @@ class _MycaAppState extends State<MycaApp> with WidgetsBindingObserver {
       state: widget.state,
       child: MaterialApp(
         navigatorKey: _navigator,
+        scaffoldMessengerKey: _messenger,
         title: 'MyCA',
         debugShowCheckedModeBanner: false,
         theme: mycaTheme(),
@@ -155,12 +162,43 @@ class _MycaAppState extends State<MycaApp> with WidgetsBindingObserver {
           listenable: widget.state,
           builder: (context, _) => Stack(
             children: [
-              ?child,
+              if (widget.state.testServer)
+                Column(
+                  children: [
+                    const TestServerBanner(),
+                    Expanded(child: MediaQuery.removePadding(context: context, removeTop: true, child: child ?? const SizedBox.shrink())),
+                  ],
+                )
+              else
+                ?child,
               if (widget.state.locked) const LockScreen(),
             ],
           ),
         ),
         home: const AppGate(),
+      ),
+    );
+  }
+}
+
+class TestServerBanner extends StatelessWidget {
+  const TestServerBanner({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      key: const Key('test-server-banner'),
+      color: Palette.warn,
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          child: Text(
+            'Test environment: nothing is filed, paid or sent',
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.w600),
+          ),
+        ),
       ),
     );
   }

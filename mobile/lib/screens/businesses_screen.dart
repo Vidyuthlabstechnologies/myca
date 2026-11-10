@@ -5,10 +5,16 @@ import 'package:flutter/material.dart';
 import '../api/myca_api.dart';
 import '../app_state.dart';
 import '../cloud/cloud_session.dart';
+import '../crash_reports.dart';
 import '../marks.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import 'invitation_cards.dart';
+
+String aboutLine(ServerInfo? server) {
+  final where = server == null ? 'server not reached' : (server.isTest ? 'test environment (${server.environment})' : 'live service');
+  return 'MyCA $appVersion · $where';
+}
 
 class BusinessesScreen extends StatefulWidget {
   const BusinessesScreen({super.key});
@@ -122,7 +128,7 @@ class _BusinessesScreenState extends State<BusinessesScreen> {
 
   Future<void> _deleteAccount() async {
     final state = AppScope.of(context);
-    if (!await _sure('Delete your account?', 'You are signed out everywhere. A business where you are the only owner is deleted with you; one with another owner stays with them.', 'Delete account')) return;
+    if (!await _sure('Delete your account?', 'You are signed out everywhere. Your name, number, email and Google link are erased after 30 days; signing in again before then cancels it. A business where you are the only owner is deleted with you; one with another owner stays with them.', 'Delete account')) return;
     try {
       await state.cloud!.deleteAccount();
       await state.signOut();
@@ -163,8 +169,8 @@ class _BusinessesScreenState extends State<BusinessesScreen> {
                     RowCard(
                       leading: TintTile(tint: Tint.ask, letter: business.name.isEmpty ? '?' : business.name[0].toUpperCase()),
                       title: business.name,
-                      subtitle: roleLabel(business.role),
-                      trailing: business.id == current ? const StatusTag(text: 'Open', color: Palette.accent) : const Chevron(),
+                      subtitle: business.demo ? '${roleLabel(business.role)} · Demo business, made-up figures' : roleLabel(business.role),
+                      trailing: business.id == current ? const StatusTag(text: 'Open', color: Palette.accent) : (business.demo ? const StatusTag(text: 'Demo', color: Palette.warn) : const Chevron()),
                       onTap: business.id == current ? null : () => _open(business.id),
                     ),
                 ],
@@ -215,6 +221,13 @@ class _BusinessesScreenState extends State<BusinessesScreen> {
                     onTap: _deleteAccount,
                   ),
                 ],
+              ),
+              const SizedBox(height: 26),
+              const SectionLabel('About this app'),
+              Text(
+                aboutLine(AppScope.of(context).server),
+                key: const Key('about.version'),
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Palette.muted),
               ),
             ],
           );

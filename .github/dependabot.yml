@@ -25,6 +25,22 @@ updates:
       cloud:
         patterns: ["*"]
 
+  - package-ecosystem: npm
+    directory: /email-relay
+    schedule:
+      interval: weekly
+    groups:
+      email-relay:
+        patterns: ["*"]
+
+  - package-ecosystem: npm
+    directory: /deploy
+    schedule:
+      interval: weekly
+    groups:
+      site:
+        patterns: ["*"]
+
   - package-ecosystem: pub
     directory: /mobile
     schedule:

@@ -56,6 +56,24 @@ jobs:
         working-directory: platform
         run: npm test
 
+  email-relay:
+    name: Email relay tests
+    runs-on: ${{ vars.MYCA_CI_RUNNER || 'ubuntu-latest' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+      - name: Run email relay test suite
+        working-directory: email-relay
+        run: npm test
+      - name: Report exports nothing else uses
+        run: node scripts/unused-exports.mjs --warn
+      - name: Check the Play listing against Play's limits
+        run: node scripts/check-listing.mjs
+
   sprints:
     name: Sprint engine tests
     runs-on: ${{ vars.MYCA_CI_RUNNER || 'ubuntu-latest' }}

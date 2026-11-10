@@ -53,10 +53,6 @@ export function registrationByState(state, stateCode) {
   return registrationsOf(state, { includeRetired: false }).find((reg) => String(reg.state || '').padStart(2, '0') === code) || null;
 }
 
-export function registrationOf(state, doc) {
-  return registrationByGstin(state, doc?.registrationGstin) || principalOf(state);
-}
-
 export function docGstin(state, doc) {
   return clean(doc?.registrationGstin) || principalOf(state).gstin;
 }

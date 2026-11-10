@@ -5,6 +5,7 @@ import 'package:myca/cloud/cloud_session.dart';
 import 'package:myca/cloud/token_store.dart';
 import 'package:myca/crash_reports.dart';
 import 'package:myca/main.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'fake_api.dart';
 import 'fake_cloud.dart';
@@ -86,7 +87,7 @@ void main() {
   test(
     'the same crash is counted once in the queue, and the queue keeps the latest twenty',
     () async {
-      final store = MemoryCrashStore();
+      final store = MemoryCrashStore(on: true);
       final crashes = CrashReporter(store: store);
       await crashes.capture(StateError('a'), StackTrace.fromString(_stack));
       await crashes.capture(StateError('a'), StackTrace.fromString(_stack));
@@ -105,7 +106,7 @@ void main() {
   test(
     'switched off, nothing is kept and what was queued is dropped',
     () async {
-      final store = MemoryCrashStore();
+      final store = MemoryCrashStore(on: true);
       final crashes = CrashReporter(store: store);
       await crashes.capture(StateError('a'), StackTrace.fromString(_stack));
       await crashes.setEnabled(false);
@@ -119,7 +120,7 @@ void main() {
     'queued reports go to the hosted API once signed in, ten at a time, and stay queued if sending fails',
     () async {
       final cloud = FakeCloud();
-      final store = MemoryCrashStore();
+      final store = MemoryCrashStore(on: true);
       final crashes = CrashReporter(store: store);
       for (var i = 0; i < 12; i++) {
         await crashes.capture(
@@ -150,7 +151,7 @@ void main() {
     tester,
   ) async {
     final cloud = FakeCloud();
-    final store = MemoryCrashStore();
+    final store = MemoryCrashStore(on: true);
     final crashes = CrashReporter(store: store);
     final session = await _ready(cloud);
     final state = _hosted(session, crashes);
@@ -163,6 +164,49 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.widget<SwitchListTile>(toggle).value, isTrue);
     await tester.tap(toggle);
+    await tester.pumpAndSettle();
+    expect(state.crashReportsOn, isFalse);
+    expect(store.on, isFalse);
+  });
+
+  test('crash reports are off on a new install until the owner turns them on', () async {
+    SharedPreferences.setMockInitialValues({});
+    final store = DeviceCrashStore();
+    expect(await store.enabled(), isFalse);
+    await store.setEnabled(true);
+    expect(await store.enabled(), isTrue);
+    expect(MemoryCrashStore().on, isFalse);
+  });
+
+  testWidgets('the privacy notice asks about crash reports with the box unticked, and ticking it turns them on', (tester) async {
+    final cloud = FakeCloud();
+    final store = MemoryCrashStore();
+    final crashes = CrashReporter(store: store);
+    final session = await _ready(cloud);
+    cloud.noticeAccepted = false;
+    final state = _hosted(session, crashes);
+    await tester.pumpWidget(MycaApp(state: state));
+    await tester.pumpAndSettle();
+    final box = find.byKey(const ValueKey('consent.crashReports'));
+    expect(box, findsOneWidget);
+    expect(tester.widget<CheckboxListTile>(box).value, isFalse);
+    await tester.tap(box);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('I agree'));
+    await tester.pumpAndSettle();
+    expect(state.crashReportsOn, isTrue);
+    expect(store.on, isTrue);
+  });
+
+  testWidgets('agreeing without ticking the box leaves crash reports off', (tester) async {
+    final cloud = FakeCloud();
+    final store = MemoryCrashStore();
+    final session = await _ready(cloud);
+    cloud.noticeAccepted = false;
+    final state = _hosted(session, CrashReporter(store: store));
+    await tester.pumpWidget(MycaApp(state: state));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('I agree'));
     await tester.pumpAndSettle();
     expect(state.crashReportsOn, isFalse);
     expect(store.on, isFalse);

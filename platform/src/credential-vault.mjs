@@ -24,10 +24,6 @@ export function vaultBackend() {
   return safeStorage ? 'electron-safeStorage' : 'aes-256-gcm-local';
 }
 
-export function vaultIsHardwareBacked() {
-  return Boolean(safeStorage);
-}
-
 function machineKey(salt) {
   const user = process.env.USERNAME || process.env.USER || process.env.LOGNAME || '';
   return scryptSync(`${hostname()}::${user}::${DOMAIN}`, salt, 32);

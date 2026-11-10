@@ -98,6 +98,22 @@ export function createCrashReports({ db, now = () => Date.now() }) {
       });
       if (out.ok) await store([out.report]);
     },
+    async digest(sinceMs) {
+      const { rows } = await db.query(
+        `select app_version as "appVersion", kind, error_type as "errorType", message, split_part(stack, E'\n', 1) as "topFrame", fingerprint,
+                occurrences, first_seen as "firstSeen", last_seen as "lastSeen"
+           from crash_reports where last_seen >= $1 order by app_version desc, occurrences desc limit 500`,
+        [new Date(sinceMs)],
+      );
+      const byVersion = {};
+      for (const row of rows) {
+        const entry = byVersion[row.appVersion] || (byVersion[row.appVersion] = { appVersion: row.appVersion, crashes: 0, signatures: [] });
+        entry.crashes += row.occurrences;
+        entry.signatures.push(row);
+      }
+      return Object.values(byVersion);
+    },
+
     async recent(limit = 20) {
       const { rows } = await db.query(
         'select app_version, kind, error_type, message, stack, occurrences, first_seen, last_seen from crash_reports order by last_seen desc limit $1',

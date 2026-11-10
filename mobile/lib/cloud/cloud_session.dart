@@ -68,8 +68,17 @@ const _messages = {
   'NOT_FOR_STAFF': 'Only the owner or the accountant can do this.',
   'NIC_NOT_CONNECTED': 'Add this business\'s e-invoice keys under Connections to banks and apps first.',
   'SERVER_BUSY': 'MyCA is busy for a moment. Try again in a minute.',
+  'RATE_LIMITED': 'That was a lot of requests in a short time. Wait a minute and try again.',
   'INTERNAL_ERROR': 'Something went wrong on our side. Try again in a minute.',
 };
+
+String waitMessage(Object? retryAfterSeconds) {
+  final seconds = retryAfterSeconds is num ? retryAfterSeconds.ceil() : 0;
+  if (seconds <= 0) return _messages['RATE_LIMITED']!;
+  final minutes = (seconds / 60).ceil();
+  final wait = seconds < 60 ? '$seconds seconds' : (minutes == 1 ? 'a minute' : '$minutes minutes');
+  return 'That was a lot of requests in a short time. Try again in $wait.';
+}
 
 String cloudMessage(String code, [String hint = '']) =>
     _messages[code] ?? (hint.trim().isNotEmpty ? hint.trim() : 'Something went wrong ($code).');
@@ -390,11 +399,21 @@ List<String> _strings(Object? value) => [
     ];
 
 class BusinessRef {
-  const BusinessRef({required this.id, required this.name, required this.role});
+  const BusinessRef({required this.id, required this.name, required this.role, this.demo = false});
 
   final String id;
   final String name;
   final String role;
+  final bool demo;
+}
+
+class ServerInfo {
+  const ServerInfo({required this.environment, required this.version});
+
+  final String environment;
+  final String version;
+
+  bool get isTest => environment.isNotEmpty && environment != 'production';
 }
 
 class InvitationRef {
@@ -706,6 +725,7 @@ class CloudSession {
         reply['error'] is String &&
         !reply.containsKey('reply')) {
       final code = reply['error'] as String;
+      if (code == 'RATE_LIMITED') throw MycaApiException(waitMessage(reply['retryAfterSeconds']));
       throw MycaApiException(explain?.call(code, reply['attemptsRemaining']) ?? cloudMessage(code, '${reply['hint'] ?? ''}'));
     }
     return reply;
@@ -833,14 +853,31 @@ class CloudSession {
 
   Future<Map<String, dynamic>> gstr1Step(String step, {required String period, String gstin = '', String otp = '', String pan = ''}) => returnStep('gstr1', step, period: period, gstin: gstin, otp: otp, pan: pan);
 
-  Future<Map<String, dynamic>> returnStep(String form, String step, {required String period, String gstin = '', String otp = '', String pan = ''}) async {
-    return _accepted(await call('POST', '$_books/gst-${form == 'gstr3b' ? 'gstr3b' : 'gstr1'}', {
+  Future<Map<String, dynamic>> returnStep(String form, String step, {required String period, String gstin = '', String otp = '', String pan = '', String caApprovalId = ''}) async {
+    final body = await call('POST', '$_books/gst-${form == 'gstr3b' ? 'gstr3b' : 'gstr1'}', {
       'step': step,
       'period': period,
       if (gstin.isNotEmpty) 'gstin': gstin,
       if (otp.isNotEmpty) 'otp': otp,
       if (pan.isNotEmpty) 'pan': pan,
-    }));
+      if (caApprovalId.isNotEmpty) 'caApprovalId': caApprovalId,
+    });
+    if (body['ok'] == false && body['error'] == 'CA_APPROVAL_REQUIRED') return body;
+    return _accepted(body);
+  }
+
+  Future<List<Map<String, dynamic>>> filingApprovals(String operation, String period) async {
+    final body = _accepted(await call('GET', '$_books/approvals'));
+    final rows = body['approvals'];
+    if (rows is! List) return const [];
+    return [
+      for (final row in rows)
+        if (row is Map && row['operation'] == operation && row['params'] is Map && (row['params'] as Map)['period'] == period) row.cast<String, dynamic>(),
+    ];
+  }
+
+  Future<Map<String, dynamic>> requestFilingApproval(String operation, String period, {String gstin = ''}) async {
+    return _accepted(await call('POST', '$_books/approvals', {'operation': operation, 'period': period, if (gstin.isNotEmpty) 'gstin': gstin}));
   }
 
   Future<void> sendCrashReports(List<Map<String, Object?>> reports) async {
@@ -997,6 +1034,7 @@ class CloudSession {
               id: '${row['id']}',
               name: '${row['name']}',
               role: '${row['role']}',
+              demo: row['demo'] == true,
             ),
     ];
   }
@@ -1010,6 +1048,25 @@ class CloudSession {
           if (row is Map)
             StateRef(code: '${row['code']}', name: '${row['name']}'),
     ];
+  }
+
+  Future<ServerInfo?> serverInfo() async {
+    try {
+      final (status, body) = await _send('GET', '/v1/health/live', null, authed: false);
+      if (status != 200 || body['ok'] != true) return null;
+      return ServerInfo(environment: '${body['environment'] ?? ''}', version: '${body['version'] ?? ''}');
+    } on MycaApiException {
+      return null;
+    }
+  }
+
+  Future<void> createDemoBusiness() async {
+    final body = await call('POST', '/v1/businesses', {'name': 'Demo', 'demo': true});
+    final business = body['business'];
+    if (business is! Map) {
+      throw const MycaApiException('The demo business was not created.');
+    }
+    await _choose('${business['id']}');
   }
 
   Future<void> createBusiness({
@@ -1046,7 +1103,7 @@ class CloudSession {
       id: user is Map ? '${user['id']}' : '',
       name: user is Map ? '${user['name'] ?? ''}' : '',
       businesses: [
-        for (final row in _rows(body['businesses'])) BusinessRef(id: '${row['id']}', name: '${row['name']}', role: '${row['role']}'),
+        for (final row in _rows(body['businesses'])) BusinessRef(id: '${row['id']}', name: '${row['name']}', role: '${row['role']}', demo: row['demo'] == true),
       ],
       invitations: [
         for (final row in _rows(body['invitations']))

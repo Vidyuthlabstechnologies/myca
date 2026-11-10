@@ -92,7 +92,9 @@ jobs:
         run: |
           set -euo pipefail
           define=(--build-number="$GITHUB_RUN_NUMBER")
-          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then define+=(--build-name="${GITHUB_REF_NAME#v}"); fi
+          name="$(sed -n 's/^version: *\([^+]*\).*/\1/p' pubspec.yaml)"
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then name="${GITHUB_REF_NAME#v}"; define+=(--build-name="$name"); fi
+          define+=(--dart-define="MYCA_APP_VERSION=$name+$GITHUB_RUN_NUMBER")
           if [ -n "$CLOUD_URL" ]; then define+=(--dart-define="MYCA_CLOUD_URL=$CLOUD_URL"); fi
           if [ -n "$GOOGLE_SERVER_CLIENT_ID" ]; then define+=(--dart-define="MYCA_GOOGLE_SERVER_CLIENT_ID=$GOOGLE_SERVER_CLIENT_ID"); fi
           if [ -n "$OIDC_CLIENT_ID" ]; then define+=(--dart-define="MYCA_OIDC_CLIENT_ID=$OIDC_CLIENT_ID"); fi
@@ -102,6 +104,13 @@ jobs:
           cp build/app/outputs/flutter-apk/app-release.apk ../dist/myca-android.apk
           cp build/app/outputs/bundle/release/app-release.aab ../dist/myca-android.aab
           (cd ../dist && sha256sum myca-android.apk myca-android.aab > SHA256SUMS-android.txt)
+          aapt2="$(ls -d "$ANDROID_HOME"/build-tools/*/aapt2 | sort -V | tail -1)"
+          {
+            echo "### Release APK badging"
+            echo '```'
+            "$aapt2" dump badging ../dist/myca-android.apk | grep -E "^(package|sdkVersion|targetSdkVersion|uses-permission)"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Remove the key from the runner
         if: always()
