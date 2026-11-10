@@ -1,39 +1,57 @@
-# The marketing site, privacy policy and account-deletion page on Firebase Hosting:
-# free at this size, HTTPS and a global CDN included, no load balancer to pay for.
-resource "google_project_service" "firebase" {
-  for_each = toset(["firebase.googleapis.com", "firebasehosting.googleapis.com"])
+# The marketing site, privacy policy (/privacy) and account-deletion page (/delete-account):
+# deploy/public in an nginx container on Cloud Run, scaled to zero when idle, so no load balancer.
+resource "google_cloud_run_v2_service" "site" {
+  name                = "myca-site"
+  location            = var.region
+  ingress             = "INGRESS_TRAFFIC_ALL"
+  deletion_protection = false
+  labels              = merge(local.labels, { component = "site" })
 
-  service            = each.value
-  disable_on_destroy = false
+  lifecycle {
+    ignore_changes = [template[0].containers[0].image]
+  }
+
+  template {
+    max_instance_request_concurrency = 80
+    timeout                          = "10s"
+
+    scaling {
+      min_instance_count = 0
+      max_instance_count = 2
+    }
+
+    containers {
+      image = var.site_image
+
+      ports {
+        container_port = 8080
+      }
+
+      resources {
+        limits = {
+          cpu    = "1"
+          memory = "128Mi"
+        }
+        cpu_idle = true
+      }
+    }
+  }
+
+  depends_on = [google_project_service.apis]
 }
 
-resource "google_firebase_project" "main" {
-  provider = google-beta
-  project  = var.project_id
-
-  depends_on = [google_project_service.firebase]
+resource "google_cloud_run_v2_service_iam_member" "site_public" {
+  name     = google_cloud_run_v2_service.site.name
+  location = var.region
+  role     = "roles/run.invoker"
+  member   = "allUsers"
 }
 
-resource "google_firebase_hosting_site" "main" {
-  provider = google-beta
-  project  = var.project_id
-  site_id  = var.site_id != "" ? var.site_id : var.project_id
-
-  depends_on = [google_firebase_project.main]
-}
-
-resource "google_project_iam_member" "deployer_hosting" {
+resource "google_cloud_run_v2_service_iam_member" "deployer_site_rollout" {
   count = var.deployer_service_account == "" ? 0 : 1
 
-  project = var.project_id
-  role    = "roles/firebasehosting.admin"
-  member  = "serviceAccount:${var.deployer_service_account}"
-}
-
-resource "google_project_iam_member" "deployer_api_keys_viewer" {
-  count = var.deployer_service_account == "" ? 0 : 1
-
-  project = var.project_id
-  role    = "roles/serviceusage.apiKeysViewer"
-  member  = "serviceAccount:${var.deployer_service_account}"
+  name     = google_cloud_run_v2_service.site.name
+  location = var.region
+  role     = "roles/run.developer"
+  member   = "serviceAccount:${var.deployer_service_account}"
 }

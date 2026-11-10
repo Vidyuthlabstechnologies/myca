@@ -338,10 +338,10 @@ variable "email_relay_token" {
   sensitive   = true
 }
 
-variable "site_id" {
-  description = "Firebase Hosting site id; the site is served at https://<site_id>.web.app. Empty uses the project id."
+variable "site_image" {
+  description = "Container image for the site (deploy/site/Dockerfile). Only used when the service is first created; deploy-site rolls out later images."
   type        = string
-  default     = ""
+  default     = "us-docker.pkg.dev/cloudrun/container/hello"
 }
 
 variable "admin_user_ids" {

@@ -3,13 +3,6 @@ provider "google" {
   region  = var.region
 }
 
-provider "google-beta" {
-  project               = var.project_id
-  region                = var.region
-  user_project_override = true
-  billing_project       = var.project_id
-}
-
 locals {
   name = "myca-api"
   labels = {
