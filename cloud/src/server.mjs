@@ -9,6 +9,7 @@ import { connectorKeyFromEnv } from './connectors.mjs';
 import { booksKeyFromEnv } from './books-seal.mjs';
 import { smsSenderFromEnv } from './sms-sender.mjs';
 import { whatsAppConfigFromEnv, createWhatsAppSender } from './whatsapp.mjs';
+import { createWahaSender } from './waha.mjs';
 import { createBilling, billingConfigFromEnv, billingConfigProblem } from './billing.mjs';
 import { isProduction, hostingName, serviceRevision, databaseTlsProblem, proxyHopsProblem } from './runtime.mjs';
 
@@ -68,7 +69,11 @@ const handler = createApi({
   jobToken: String(process.env.MYCA_JOB_TOKEN || '').trim(),
   inboundEmail: { domain: String(process.env.MYCA_INBOUND_EMAIL_DOMAIN || '').trim(), relayToken: String(process.env.MYCA_INBOUND_RELAY_TOKEN || '').trim() },
   whatsapp: whatsAppConfigFromEnv(process.env),
-  whatsappSender: (() => { const cfg = whatsAppConfigFromEnv(process.env); return cfg.phoneNumberId && cfg.accessToken ? createWhatsAppSender({ phoneNumberId: cfg.phoneNumberId, accessToken: cfg.accessToken, log }) : null; })(),
+  whatsappSender: (() => {
+    const cfg = whatsAppConfigFromEnv(process.env);
+    if (cfg.provider === 'waha') return cfg.waha.baseUrl ? createWahaSender({ baseUrl: cfg.waha.baseUrl, apiKey: cfg.waha.apiKey, session: cfg.waha.session, log }) : null;
+    return cfg.phoneNumberId && cfg.accessToken ? createWhatsAppSender({ phoneNumberId: cfg.phoneNumberId, accessToken: cfg.accessToken, log }) : null;
+  })(),
   log,
   version: serviceRevision(),
 });

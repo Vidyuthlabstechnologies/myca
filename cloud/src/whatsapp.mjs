@@ -1,7 +1,9 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { normalizePhone } from './auth.mjs';
 import { engineRole } from './businesses.mjs';
+import { READ_ONLY_REPLY } from './billing.mjs';
 import { chatText } from './chat-text.mjs';
+import { wahaConfigFromEnv, wahaPhone, wahaSignatureMatches } from './waha.mjs';
 
 const GRAPH_VERSION = 'v21.0';
 const MAX_TEXT = 2000;
@@ -45,7 +47,16 @@ export function whatsAppConfigFromEnv(env = process.env) {
     appSecret: unset(value('MYCA_WHATSAPP_APP_SECRET')) ? '' : value('MYCA_WHATSAPP_APP_SECRET'),
     phoneNumberId: unset(value('MYCA_WHATSAPP_PHONE_NUMBER_ID')) ? '' : value('MYCA_WHATSAPP_PHONE_NUMBER_ID'),
     accessToken: unset(value('MYCA_WHATSAPP_ACCESS_TOKEN')) ? '' : value('MYCA_WHATSAPP_ACCESS_TOKEN'),
+    provider: whatsAppProvider(env),
+    waha: wahaConfigFromEnv(env),
   };
+}
+
+export function whatsAppProvider(env = process.env) {
+  const declared = String(env.MYCA_WHATSAPP_PROVIDER || '').trim().toLowerCase();
+  if (declared === 'waha' || declared === 'meta') return declared;
+  if (declared && declared !== 'unset') throw new Error(`unknown MYCA_WHATSAPP_PROVIDER "${declared}": use waha or meta`);
+  return String(env.MYCA_WAHA_URL || '').trim() && String(env.MYCA_WAHA_URL || '').trim() !== 'unset' ? 'waha' : 'meta';
 }
 
 export function signatureMatches(appSecret, rawBody, header) {
@@ -56,8 +67,10 @@ export function signatureMatches(appSecret, rawBody, header) {
   return timingSafeEqual(Buffer.from(expected, 'hex'), Buffer.from(given, 'hex'));
 }
 
-export function createWhatsApp({ db, withBooks, withSharedBooks = null, syncOf = null, config = {}, sender = null, now = () => Date.now(), log = () => {} }) {
-  const enabled = Boolean(config.verifyToken) && Boolean(config.appSecret) && Boolean(sender);
+export function createWhatsApp({ db, withBooks, billing = null, withSharedBooks = null, syncOf = null, config = {}, sender = null, now = () => Date.now(), log = () => {} }) {
+  const metaEnabled = config.provider !== 'waha' && Boolean(config.verifyToken) && Boolean(config.appSecret) && Boolean(sender);
+  const wahaEnabled = config.provider === 'waha' && Boolean(config.waha?.webhookSecret) && Boolean(sender);
+  const enabled = metaEnabled || wahaEnabled;
 
   function verify(query) {
     if (!config.verifyToken) return { ok: false, statusCode: 404, error: 'WHATSAPP_NOT_CONFIGURED' };
@@ -135,15 +148,21 @@ export function createWhatsApp({ db, withBooks, withSharedBooks = null, syncOf =
         if (!got.preview && !got.awaitingConfirmation) return got;
         return { reply: 'These books are shared with you as they stood when the owner last shared them, so nothing can be posted from here. Ask the owner to make the change.', tools: [] };
       })
-      : withBooks(answer.businessId, { requestId, userId: answer.user.userId, deviceId: null }, (session) => session.chat(asked, actor));
-    const out = await run;
+      : null;
+    const allowed = run || !billing ? { ok: true } : await billing.allows(answer.businessId, 'whatsapp');
+    if (!allowed.ok) {
+      const lapsed = allowed.plan === 'lapsed';
+      await reply(phone, lapsed ? READ_ONLY_REPLY : 'Chat on WhatsApp comes with the Pro and CA firm plans. The owner can upgrade under Plan and billing in the app.');
+      return { ok: true, replied: true, planRequired: true };
+    }
+    const out = await (run || withBooks(answer.businessId, { requestId, userId: answer.user.userId, deviceId: null }, (session) => session.chat(asked, actor)));
     const spoken = String(out?.reply || 'I could not read that.').slice(0, REPLY_LIMIT);
     await reply(phone, spoken);
     return { ok: true, replied: true, posted: Boolean(out?.posted), awaitingConfirmation: Boolean(out?.awaitingConfirmation) };
   }
 
   async function receive(requestId, rawBody, signatureHeader) {
-    if (!enabled) return { ok: false, statusCode: 404, error: 'WHATSAPP_NOT_CONFIGURED' };
+    if (!metaEnabled) return { ok: false, statusCode: 404, error: 'WHATSAPP_NOT_CONFIGURED' };
     if (!signatureMatches(config.appSecret, rawBody, signatureHeader)) return { ok: false, statusCode: 401, error: 'BAD_SIGNATURE' };
     let body;
     try { body = JSON.parse(rawBody.toString('utf8')); } catch { return { ok: false, statusCode: 400, error: 'BAD_JSON' }; }
@@ -166,5 +185,41 @@ export function createWhatsApp({ db, withBooks, withSharedBooks = null, syncOf =
     return { ok: true, handled: handled.length, results: handled };
   }
 
-  return { enabled, verify, receive };
+  async function senderPhone(payload) {
+    const direct = wahaPhone(payload?.from);
+    if (direct) return direct;
+    const alt = wahaPhone(payload?._data?.key?.remoteJidAlt || payload?._data?.key?.senderPn || payload?._data?.from || '');
+    if (alt) return alt;
+    if (/@lid$/.test(String(payload?.from || '')) && typeof sender?.phoneOfLid === 'function') return normalizePhone(await sender.phoneOfLid(String(payload.from)));
+    return '';
+  }
+
+  async function receiveWaha(requestId, rawBody, headers = {}) {
+    if (!wahaEnabled) return { ok: false, statusCode: 404, error: 'WHATSAPP_NOT_CONFIGURED' };
+    if (!wahaSignatureMatches(config.waha.webhookSecret, rawBody, headers['x-webhook-hmac'], headers['x-webhook-hmac-algorithm'])) return { ok: false, statusCode: 401, error: 'BAD_SIGNATURE' };
+    let body;
+    try { body = JSON.parse(rawBody.toString('utf8')); } catch { return { ok: false, statusCode: 400, error: 'BAD_JSON' }; }
+    const events = Array.isArray(body) ? body : [body];
+    const handled = [];
+    for (const event of events) {
+      const payload = event?.payload || {};
+      if (event?.event !== 'message') { handled.push({ ignored: String(event?.event || 'unknown') }); continue; }
+      if (config.waha.session && event.session && event.session !== config.waha.session) { handled.push({ ignored: 'other session' }); continue; }
+      if (payload.fromMe === true) { handled.push({ ignored: 'own message' }); continue; }
+      if (/@(?:g\.us|newsletter|broadcast)$/.test(String(payload.from || ''))) { handled.push({ ignored: 'group' }); continue; }
+      const phone = normalizePhone(await senderPhone(payload));
+      const messageId = String(payload.id || '');
+      if (!phone || !messageId) { handled.push({ ignored: 'no sender' }); continue; }
+      const text = typeof payload.body === 'string' ? payload.body.trim() : '';
+      if (!text || payload.hasMedia === true) {
+        await reply(phone, 'Send a text message; photos of bills are read from the app.');
+        handled.push({ ignored: payload.hasMedia ? 'media' : 'empty' });
+        continue;
+      }
+      handled.push(await handleText(requestId, phone, `waha:${messageId}`, text.slice(0, MAX_TEXT)));
+    }
+    return { ok: true, handled: handled.length, results: handled };
+  }
+
+  return { enabled, provider: wahaEnabled ? 'waha' : metaEnabled ? 'meta' : '', verify, receive, receiveWaha };
 }

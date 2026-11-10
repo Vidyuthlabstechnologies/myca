@@ -100,6 +100,7 @@ export function newBook(company = {}) {
     stockMoves: [],
     inventoryValuations: [],
     portalSaves: {},
+    gstr3bPortal: {},
     tdsFvuJobs: [],
     supplierReminderSeq: 0,
     employees: [],
@@ -191,6 +192,7 @@ export function serializeBook(book) {
     stockMoves: book.stockMoves || [],
     inventoryValuations: book.inventoryValuations || [],
     portalSaves: book.portalSaves || {},
+    gstr3bPortal: book.gstr3bPortal || {},
     tdsFvuJobs: book.tdsFvuJobs || [],
     supplierReminderSeq: book.supplierReminderSeq || 0,
     employees: book.employees || [],
@@ -279,6 +281,7 @@ export function deserializeBook(raw) {
   book.stockMoves = Array.isArray(raw.stockMoves) ? raw.stockMoves : [];
   book.inventoryValuations = Array.isArray(raw.inventoryValuations) ? raw.inventoryValuations : [];
   book.portalSaves = raw.portalSaves && typeof raw.portalSaves === 'object' ? raw.portalSaves : {};
+  book.gstr3bPortal = raw.gstr3bPortal && typeof raw.gstr3bPortal === 'object' ? raw.gstr3bPortal : {};
   book.tdsFvuJobs = Array.isArray(raw.tdsFvuJobs) ? raw.tdsFvuJobs : [];
   book.supplierReminderSeq = raw.supplierReminderSeq || 0;
   book.employees = Array.isArray(raw.employees) ? raw.employees : [];

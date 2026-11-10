@@ -3,7 +3,7 @@ import { mockModeEnabled, serviceProviderEnvironment } from '../../platform/src/
 import { withProviderContext } from '../../platform/src/provider-context.mjs';
 import { createGovtActions } from './govt-actions.mjs';
 import { createGstPortal } from './gst-portal.mjs';
-import { createBilling, PLANS } from './billing.mjs';
+import { createBilling, readOnlyChat } from './billing.mjs';
 import { gstin } from '../../platform/src/sprint-load.mjs';
 import { rule } from '../../sprints/statutory-rules/src/index.mjs';
 import { createAuth, isUuid } from './auth.mjs';
@@ -61,6 +61,8 @@ const OWNER_ONLY_POSTS = new Map([
   ['connector-sync', 'SHARED_VIEW_READ_ONLY'],
   ['replace', 'SHARED_VIEW_READ_ONLY'],
 ]);
+
+const WRITES = new Set(['replace', 'uploads', 'propose', 'confirm', 'connector-sync', 'plaid-exchange', 'gusto-connect']);
 
 export const PROPOSABLE = new Set(['import_payroll_summary', 'create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'record_filing', 'record_supplier_reminder', 'add_employee', 'set_tds_deductor', 'record_tds_deposit', 'change_salary', 'end_employment', 'post_expense', 'set_expense_head', 'create_credit_note', 'cancel_invoice', 'gst_review_answer', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote', 'exception_decide', 'ims_decide', 'create_purchase_note', 'import_settlement', 'import_marketplace_orders', 'import_tcs_statement', 'import_26as_credits', 'record_tds_withheld', 'add_bill_tds', 'set_business_address', 'set_party_address', 'set_sku_cost', 'import_sku_costs', 'record_stock', 'record_stock_transfer', 'value_inventory', 'set_registration', 'retire_registration', 'set_channel_identity', 'set_invoice_template', 'set_supplier_terms', 'set_employee_bank', 'set_invoice_numbering', 'amend_invoice', 'create_debit_note', 'record_supplier_debit_note', 'record_collection_reminder', 'record_payment_run', 'attach_document', 'approve_payroll', 'record_salary_payment', 'tds_review_answer', 'record_gst_payment', 'close_year', 'set_transport', 'set_sales_tax_nexus', 'sales_tax_review_answer', 'record_sales_tax_payment', 'record_sales_tax_filing', 'set_suta_rate', 'add_recurring', 'stop_recurring', 'match_bank_line', 'unmatch_bank_line', 'book_bank_charges', 'add_bank_rule', 'remove_bank_rule', 'run_bank_rules', 'set_bank_account', 'record_transfer']);
 
@@ -298,7 +300,7 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
   const members = createMembers({ db, secret, now, notify: otpSender && typeof otpSender.sendText === 'function' ? (phone, text) => otpSender.sendText(phone, text) : null });
   const crashes = createCrashReports({ db, now });
   const inbound = createInbound({ db, secret, now, withBooks, email: { domain: inboundEmail.domain }, storedBytes: (businessId) => businesses.storedBytes(businessId), limitBytes: MAX_BUSINESS_BYTES });
-  const whatsApp = createWhatsApp({ db, withBooks, withSharedBooks: runner.withSharedBooks, syncOf, config: whatsapp, sender: whatsappSender, now, log });
+  const whatsApp = createWhatsApp({ db, withBooks, billing, withSharedBooks: runner.withSharedBooks, syncOf, config: whatsapp, sender: whatsappSender, now, log });
   const consent = createConsent({ db, now });
   const recordAccess = createAccessLog(db);
   const jobs = createJobs({ db, withBooks, connectors, syncChannels, pullsEnabled: channelPullsEnabled, sender: whatsappSender, vault, billing, now, log });
@@ -390,6 +392,14 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
         return received;
       }
       throw httpError(405, 'METHOD_NOT_ALLOWED');
+    }
+
+    if (parts[1] === 'whatsapp' && parts[2] === 'waha' && parts.length === 3) {
+      if (method !== 'POST') throw httpError(405, 'METHOD_NOT_ALLOWED');
+      const raw = await readRaw(req, MAX_BODY_BYTES);
+      const received = await whatsApp.receiveWaha(requestId, raw, req.headers);
+      if (!received.ok) throw httpError(received.statusCode, received.error);
+      return received;
     }
 
     if (parts[1] === 'inbound' && parts[2] === 'email' && parts.length === 3 && method === 'POST') {
@@ -627,10 +637,13 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
         return { ok: true, sharedAsOf: await runner.share(businessId, user.userId) };
       }
       if (action === 'gstin-check') return govt.gstinCheck(businessId, context, actor, body);
-      if (action === 'gst-portal' || action === 'gst-gstr1') {
+      if (action === 'gst-portal' || action === 'gst-gstr1' || action === 'gst-gstr3b' || action === 'tds-fvu') {
         if (role === 'staff') throw httpError(403, 'NOT_FOR_STAFF');
         if (sharedView) throw httpError(403, 'SHARED_VIEW_READ_ONLY', { sharedAsOf: sync.asOf });
-        return action === 'gst-portal' ? gstPortal.connection(businessId, context, actor, body) : gstPortal.gstr1(businessId, context, actor, body);
+        if (action === 'gst-portal') return gstPortal.connection(businessId, context, actor, body);
+        if (action === 'gst-gstr3b') return gstPortal.gstr3b(businessId, context, actor, body);
+        if (action === 'tds-fvu') return gstPortal.tdsFvu(businessId, context, actor, body);
+        return gstPortal.gstr1(businessId, context, actor, body);
       }
       if (action === 'einvoice' || action === 'approvals') {
         if (sharedView) throw httpError(403, 'SHARED_VIEW_READ_ONLY');
@@ -652,6 +665,8 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
         throw httpError(403, 'SHARED_VIEW_READ_ONLY', { sharedAsOf: sync.asOf });
       }
       if (action === 'subscription') return billing.verify(businessId, user.userId, body);
+      const posting = WRITES.has(action) ? await billing.allows(businessId, 'post') : { ok: true };
+      if (!posting.ok) return posting;
       if (action === 'invitations') {
         const team = await billing.allows(businessId, 'team');
         if (!team.ok) return team;
@@ -710,15 +725,7 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
           return withBooks(businessId, context, (session) => session.propose(name, args, actor), { hashes: [args.documentSha256] });
         }
         if (!PROPOSABLE.has(name)) throw httpError(400, 'NOT_PROPOSABLE', { tool: name });
-        const cap = name === 'create_invoice' && billing.enabled ? (await billing.entitlement(businessId)).limits.invoicesPerMonth : null;
-        return withBooks(businessId, context, (session) => {
-          if (cap != null) {
-            const month = indiaDate(now()).slice(0, 7);
-            const used = (session.state.invoices || []).filter((inv) => String(inv.date || '').startsWith(month)).length;
-            if (used >= cap) return { ok: false, error: 'PLAN_LIMIT_REACHED', limit: 'invoicesPerMonth', cap, hint: `The ${PLANS.free.title} plan allows ${cap} invoices a month. The owner can upgrade under Plan and billing.` };
-          }
-          return session.propose(name, args, actor);
-        });
+        return withBooks(businessId, context, (session) => session.propose(name, args, actor));
       }
       if (action === 'confirm') return withBooks(businessId, context, (session) => session.confirm(body.token, actor));
       if (action === 'discard') return withBooks(businessId, context, (session) => session.discard(actor));
@@ -726,7 +733,8 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
       if (action === 'ask') {
         const message = chatText(body.message);
         if (!message.trim()) throw httpError(400, 'MESSAGE_REQUIRED');
-        return withBooks(businessId, context, (session) => session.chat(message, actor));
+        const canPost = await billing.allows(businessId, 'post');
+        return withBooks(businessId, context, (session) => (canPost.ok ? session.chat(message, actor) : readOnlyChat(session, message, actor)));
       }
       if (action === 'company') {
         if (role !== 'owner') throw httpError(403, 'OWNER_ONLY');

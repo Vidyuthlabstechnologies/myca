@@ -195,6 +195,23 @@ The deploy role trusts `token.actions.githubusercontent.com` for
 roles (`iam:PassRole` on those two ARNs only). Both workflows run on GitHub Actions minutes:
 `deploy-cloud` on each merge to `main` that touches the server, `play` on each `v*` tag.
 
+### Optional services on AWS (2026-11-10)
+
+`infra/aws` takes these as variables; an empty one leaves that service off and creates no
+secret for it. Secrets land in SSM under `/myca/api/*`.
+
+| Service | Terraform variables | What it turns on |
+|---|---|---|
+| WhatsApp through a WAHA gateway | `waha_url`, `waha_api_key`, `waha_session` | Chat on WhatsApp. Point WAHA's webhook at `<api>/v1/whatsapp/waha` with HMAC sha512 and the `waha_webhook_secret` output as its key, events `message` only |
+| Sign-in codes | `sms_provider` (`whatsapp`, `twilio` or `msg91`), `sms_twilio_sid`, `sms_twilio_from`, `sms_twilio_token`, `sms_msg91_template_id`, `sms_msg91_authkey` | Phone sign-in beside Google. `whatsapp` needs `waha_url` |
+| The AI model | `model_api_key`, `model_name` | The assistant answers in its own words instead of the built-in patterns |
+| Email | `email_relay_url`, `email_from`, `email_relay_token` | Invoice and reminder emails through the relay in `email-relay/` |
+| Channel pulls | `channel_pulls` (default `true`) | Nightly read-only pulls from Amazon, Shopify and Razorpay for businesses that saved their keys |
+| Play subscriptions | `play_product_essentials`, `play_product_pro`, `play_product_firm`, `play_service_account_json` | Paid plans; there is no free plan, so set these before the trial of the first users ends |
+
+The live ECS Express service was made outside Terraform, so until it is imported these
+values also have to be set on the service's task definition by hand.
+
 ## Phase 2 — day-to-day (no GCP access, no Akhil)
 
 | I want to… | Do this |

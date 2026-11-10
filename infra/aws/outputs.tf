@@ -22,3 +22,9 @@ output "mode" {
   description = "Whether the service runs with the production switch on, or as a closed pilot with sign-in codes in the log."
   value       = local.production ? "production" : "pilot: sign-in codes go to the App Runner application log"
 }
+
+output "waha_webhook_secret" {
+  description = "HMAC key to give the WhatsApp gateway for its webhook to <api_url>/v1/whatsapp/waha (algorithm sha512)."
+  value       = random_password.waha_webhook_secret.result
+  sensitive   = true
+}

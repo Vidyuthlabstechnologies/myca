@@ -110,6 +110,12 @@ variable "play_package_name" {
   default     = "com.mldynamic.myca"
 }
 
+variable "play_product_essentials" {
+  description = "Play Console product id of the Essentials subscription, for example myca_essentials. Empty leaves that plan unsold."
+  type        = string
+  default     = ""
+}
+
 variable "play_product_pro" {
   description = "Play Console product id of the Pro subscription, for example myca_pro_monthly. Empty leaves subscriptions off."
   type        = string
@@ -158,4 +164,109 @@ variable "gsp_environment" {
     condition     = contains(["test", "live"], var.gsp_environment)
     error_message = "gsp_environment is test or live."
   }
+}
+
+variable "channel_pulls" {
+  description = "Let Pull now and the daily job fetch Amazon, Shopify, Razorpay and Plaid reports for businesses that saved their own keys. Off makes every pull a dry run."
+  type        = bool
+  default     = true
+}
+
+variable "model_api_key" {
+  description = "NVIDIA NIM API key (build.nvidia.com) for tax answers, notes answers and Hindi or Telugu chat. Empty leaves those on the plain guidance text; kept in SSM."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "model_name" {
+  description = "NVIDIA NIM model id; empty uses the server's default."
+  type        = string
+  default     = ""
+}
+
+variable "waha_url" {
+  description = "Base URL of the self-hosted WhatsApp gateway (WAHA, github.com/devlikeapro/waha), for example https://wa.example.in. Empty leaves WhatsApp off. Point the gateway's webhook at <api_url>/v1/whatsapp/waha with HMAC sha512 and the waha_webhook_secret output."
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = var.waha_url == "" || can(regex("^https?://", var.waha_url))
+    error_message = "waha_url starts with http:// or https://."
+  }
+}
+
+variable "waha_api_key" {
+  description = "The X-Api-Key the WhatsApp gateway was started with (WAHA_API_KEY); kept in SSM."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "waha_session" {
+  description = "The gateway session that holds the scanned WhatsApp number."
+  type        = string
+  default     = "default"
+}
+
+variable "sms_provider" {
+  description = "How phone sign-in codes are sent: empty (phone sign-in off), whatsapp (through the WhatsApp gateway), msg91 or twilio."
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = contains(["", "whatsapp", "msg91", "twilio"], var.sms_provider)
+    error_message = "sms_provider is empty, whatsapp, msg91 or twilio."
+  }
+}
+
+variable "sms_twilio_sid" {
+  description = "Twilio account SID when sms_provider is twilio."
+  type        = string
+  default     = ""
+}
+
+variable "sms_twilio_from" {
+  description = "Twilio sender number when sms_provider is twilio."
+  type        = string
+  default     = ""
+}
+
+variable "sms_twilio_token" {
+  description = "Twilio auth token; kept in SSM."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "sms_msg91_template_id" {
+  description = "MSG91 DLT-approved OTP template id when sms_provider is msg91."
+  type        = string
+  default     = ""
+}
+
+variable "sms_msg91_authkey" {
+  description = "MSG91 auth key; kept in SSM."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "email_relay_url" {
+  description = "URL of the email relay (email-relay/ in this repo, or any service taking the same JSON). Empty leaves email sending off."
+  type        = string
+  default     = ""
+}
+
+variable "email_from" {
+  description = "From address for emails MyCA sends, on a domain the relay may send for."
+  type        = string
+  default     = ""
+}
+
+variable "email_relay_token" {
+  description = "Bearer token the email relay expects; kept in SSM."
+  type        = string
+  default     = ""
+  sensitive   = true
 }

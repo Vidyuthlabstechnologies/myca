@@ -301,6 +301,27 @@ export class SandboxClient {
     });
   }
 
+  async saveGstr3b({ year, month, payload } = {}) {
+    const token = this.taxpayerToken || this.token;
+    return this.request(`/gst/compliance/tax-payer/gstrs/gstr-3b/${encodeURIComponent(year)}/${encodeURIComponent(month)}`, { token, body: payload });
+  }
+
+  async gstr3bAutoLiability(year, month) {
+    const token = this.taxpayerToken || this.token;
+    return this.request(`/gst/compliance/tax-payer/gstrs/gstr-3b/${encodeURIComponent(year)}/${encodeURIComponent(month)}/auto-liability-calc`, { method: 'GET', token });
+  }
+
+  async offsetGstr3bLiability({ year, month, payload } = {}) {
+    const token = this.taxpayerToken || this.token;
+    return this.request(`/gst/compliance/tax-payer/gstrs/gstr-3b/${encodeURIComponent(year)}/${encodeURIComponent(month)}/offset-liability`, { token, body: payload });
+  }
+
+  async fileGstr3b({ year, month, pan, otp, payload } = {}) {
+    const token = this.taxpayerToken || this.token;
+    const query = qs({ pan: String(pan || '').toUpperCase(), otp });
+    return this.request(`/gst/compliance/tax-payer/gstrs/gstr-3b/${encodeURIComponent(year)}/${encodeURIComponent(month)}/file${query}`, { token, body: payload });
+  }
+
   // ---- GST analytics: GSTR-2B reconciliation (platform token) ----
   async submitGstr2bReconJob({ gstin, year, month, reconciliationCriteria = 'moderate', filingPreference = 'monthly' } = {}) {
     return this.request('/gst/analytics/gstr-2b-reconciliation', {
