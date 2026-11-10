@@ -337,3 +337,9 @@ variable "email_relay_token" {
   default     = ""
   sensitive   = true
 }
+
+variable "site_id" {
+  description = "Firebase Hosting site id; the site is served at https://<site_id>.web.app. Empty uses the project id."
+  type        = string
+  default     = ""
+}

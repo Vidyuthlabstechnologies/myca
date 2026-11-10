@@ -1,10 +1,11 @@
-name: Deploy site (GCP)
+name: Deploy site (Firebase Hosting)
 
 on:
   push:
     branches: [main]
     paths:
       - "deploy/public/**"
+      - "deploy/firebase.json"
       - ".github/workflows/deploy-site.yml"
   workflow_dispatch:
 
@@ -17,17 +18,16 @@ concurrency:
 
 jobs:
   deploy:
-    name: Sync to GCS + purge CDN
-    # Skips cleanly until Akhil's bootstrap + GitHub variables are in place.
-    if: ${{ vars.GCP_WIF_PROVIDER != '' && vars.MYCA_MANAGE_SITE == 'true' && github.ref == 'refs/heads/main' }}
+    name: Publish deploy/public to Firebase Hosting
+    # Skips cleanly until the deploy identity and project are set as GitHub variables.
+    if: ${{ vars.GCP_WIF_PROVIDER != '' && vars.GCP_PROJECT_ID != '' && github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
     environment: production
     permissions:
       contents: read
       id-token: write
     env:
-      SITE_BUCKET: ${{ vars.GCP_SITE_BUCKET }}
-      URL_MAP: ${{ vars.GCP_URL_MAP }}
+      PROJECT: ${{ vars.GCP_PROJECT_ID }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -39,28 +39,13 @@ jobs:
           workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
           service_account: ${{ vars.GCP_DEPLOY_SA }}
 
-      - uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
 
-      - name: Upload site
-        run: |
-          gcloud storage rsync deploy/public "gs://${SITE_BUCKET}" \
-            --recursive \
-            --delete-unmatched-destination-objects
-
-      - name: Set HTML cache headers
-        run: |
-          gcloud storage objects update "gs://${SITE_BUCKET}/**" \
-            --cache-control="public, max-age=300, must-revalidate"
-
-      - name: Purge Cloud CDN cache
-        run: |
-          gcloud compute url-maps invalidate-cdn-cache "${URL_MAP}" \
-            --path "/*" --async
+      - name: Deploy
+        working-directory: deploy
+        run: npx --yes firebase-tools@15.33.0 deploy --only hosting --project "$PROJECT" --non-interactive
 
       - name: Summary
-        run: |
-          {
-            echo "### Site deployed"
-            echo "- Bucket: \`${SITE_BUCKET}\`"
-            echo "- CDN invalidated: \`${URL_MAP}\`"
-          } >> "$GITHUB_STEP_SUMMARY"
+        run: echo "### Site deployed to https://${PROJECT}.web.app" >> "$GITHUB_STEP_SUMMARY"

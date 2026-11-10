@@ -45,3 +45,8 @@ output "waha_webhook_secret" {
   value       = local.secrets["MYCA_WAHA_WEBHOOK_SECRET"]
   sensitive   = true
 }
+
+output "site_url" {
+  description = "Public address of the site, privacy policy (/privacy) and account deletion page (/delete-account)."
+  value       = "https://${google_firebase_hosting_site.main.site_id}.web.app"
+}
