@@ -87,21 +87,34 @@ MyCA is made by ML Dynamic Solutions Private Limited.
 
 ## 3. Permissions and their justification
 
-| Permission | Why |
-|---|---|
-| INTERNET | Talks to the hosted API |
-| USE_BIOMETRIC | App lock with fingerprint or face |
-| POST_NOTIFICATIONS | A reminder on the morning something falls due (filing, payroll approval, an instalment); the owner is asked once and can refuse |
-| RECEIVE_BOOT_COMPLETED | Reschedules those reminders after a restart |
-| com.android.vending.BILLING | Google Play Billing for the Essentials, Pro and CA firm subscriptions (added by the in_app_purchase plugin) |
-| File access | Through the system picker only, for bills to read and files to save; no broad storage permission |
+This is every permission the signed release APK asks for, read from the APK by the Android
+build (`aapt2 dump permissions`). The build fails when the APK and
+`mobile/android/permissions.txt` differ, so this table must change in the same commit as that
+file. Checked 2026-11-10 against the build of `601894e`.
 
-No camera permission is requested: photos come through the system picker, which may
-open the camera itself.
+| Permission | Who adds it | Why |
+|---|---|---|
+| INTERNET | MyCA | Talks to the hosted API |
+| POST_NOTIFICATIONS | MyCA | A reminder on the morning something falls due (filing, payroll approval, an instalment); the owner is asked once and can refuse |
+| RECEIVE_BOOT_COMPLETED | MyCA | Reschedules those reminders after a restart |
+| USE_BIOMETRIC | local_auth | App lock with fingerprint or face |
+| USE_FINGERPRINT | local_auth (androidx.biometric) | The same app lock on Android versions before 9 |
+| VIBRATE | flutter_local_notifications | A reminder may vibrate, following the phone's own notification setting |
+| com.android.vending.BILLING | in_app_purchase | Google Play Billing for the Essentials, Pro and CA firm subscriptions |
+| ACCESS_NETWORK_STATE | merged from a library | Checks whether the phone is online before a call; reads no network details |
+| CHANGE_NETWORK_STATE | merged from a library | Not used by MyCA's own code; a normal permission that Play does not ask about |
+| WAKE_LOCK | merged from a library (background job scheduling) | Lets a scheduled reminder or a library's background job finish; MyCA keeps no screen or CPU awake itself |
+| FOREGROUND_SERVICE | merged from a library (background job scheduling) | MyCA starts no foreground service. No typed foreground service is declared, so Play's foreground service form does not apply; if Play still asks, answer that the app has none |
+| com.mldynamic.myca.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION | AndroidX core, automatically | The app's own signature-level permission that keeps internal broadcast receivers private; no person is asked |
+| File access | (none) | Through the system picker only, for bills to read and files to save; no storage permission is requested |
 
-Plugins merge more permissions into the built app (for example FOREGROUND_SERVICE and
-WAKE_LOCK). Before filling in Play's forms, list what the release bundle really asks for with
-`bundletool dump manifest --bundle app-release.aab` and justify each one here.
+No camera, location, contacts, SMS, phone or storage permission is requested: photos come
+through the system picker, which may open the camera itself.
+
+"Merged from a library" means the permission is not in `mobile/android/app/src/main/AndroidManifest.xml`
+or a plugin's own manifest; it comes from a library manifest that Gradle merges in. To see which
+one, run `./gradlew :app:processReleaseMainManifest` and read
+`app/build/outputs/logs/manifest-merger-release-report.txt`.
 
 ## 4. Declarations
 
@@ -126,4 +139,5 @@ WAKE_LOCK). Before filling in Play's forms, list what the release bundle really 
 - Publish the privacy policy at a public URL and paste it into the listing.
 - Run the app on a real device once before internal testing; the release build has only run in CI.
 - Set the repository variables `MYCA_CLOUD_URL` (the https address of the deployed hosted API) and, for Google sign-in, `MYCA_GOOGLE_SERVER_CLIENT_ID`. A `v*` tag build now refuses to run without the upload key and an https `MYCA_CLOUD_URL`, and takes its version name from the tag and its version code from the run number.
+- For a test build, set `MYCA_CLOUD_URL_STAGING` to the staging API address and run Build Android app by hand with backend `test`. That build installs beside the live app as `com.mldynamic.myca.test`, named MyCA Test, with a `-test` version name, and the app shows a test-server banner because the staging API reports a non-production environment. Google sign-in in it needs its own Android OAuth client for the `.test` package and the CI signing SHA-1. Never upload a test build to Play: the tag build always uses `MYCA_CLOUD_URL`.
 - Publish `delete-account.html` with the site and paste its URL into the Data deletion field.

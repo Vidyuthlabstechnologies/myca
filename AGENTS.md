@@ -42,8 +42,9 @@ It will live in its own `cloud/` package, which may depend on the Postgres drive
 | `platform/desktop/` | Electron `main.cjs` + offline renderer (`index.html`, `app.js`, `styles.css`). `preload.cjs` exposes only `window.myca.saveInvoicePdf` — keep that bridge narrow. |
 | `platform/test/` | `node:test` suite. Add regression tests here. |
 | `sprints/sprint-1..6/` | **Frozen engines.** Treat as read-only unless a task explicitly targets them. |
-| `infra/` | Terraform (GCP site + release pipeline). `infra/bootstrap` is the one-time owner step. |
-| `.github/workflows/` | CI, site deploy, Windows build, Terraform. |
+| `infra/` | Terraform. `infra/bootstrap` is the one-time owner step (state bucket, workload identity for GitHub). `infra/cloud` is production on Google Cloud: Cloud Run API and site, Cloud SQL, Secret Manager, Cloud Scheduler, Pub/Sub for Play. `infra/aws` is the earlier AWS deployment, kept only until it is switched off; do not build on it. |
+| `email-relay/` | Cloudflare Worker that sends the app's email. `node --test`, three tests. |
+| `.github/workflows/` | CI, nightly, the Cloud Run deploy (`deploy-cloud.yml`), site deploy, Terraform, and the Android, Windows and iOS builds. |
 | `deploy/` | Marketing/research static site — not the product. |
 | `vendor/` | Unused reference clones. **Never import from here** (licences). |
 
@@ -65,7 +66,7 @@ and the Android app) and prints a pass/fail table:
 
 ```bash
 node scripts/check-all.mjs            # everything
-node scripts/check-all.mjs platform   # or any of: platform sprints cloud mobile
+node scripts/check-all.mjs platform   # or any of: platform sprints cloud email-relay listing mobile
 node scripts/rules-watch.mjs          # gaps and records ending soon; exit 1 when a person is needed
 ```
 
