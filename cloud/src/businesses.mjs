@@ -1,6 +1,7 @@
 import { createState, serialize } from '../../platform/src/store.mjs';
 import { runTool } from '../../platform/src/tools.mjs';
 import { isUuid } from './auth.mjs';
+import { DEMO_GSTIN, DEMO_NAME } from './demo.mjs';
 
 export const ROLES = ['owner', 'staff', 'accountant'];
 
@@ -36,26 +37,42 @@ async function openingBooks({ name, gstin, state, country, address, city, pin },
 import { storedState } from './books-seal.mjs';
 export function createBusinesses({ db, now = () => Date.now(), booksKey = '' }) {
   return {
-    async create(userId, { name, gstin = '', state = '', country = '', address = '', city = '', pin = '' } = {}) {
+    async create(userId, { name, gstin = '', state = '', country = '', address = '', city = '', pin = '' } = {}, { demo = false } = {}) {
+      if (demo) {
+        name = DEMO_NAME;
+        gstin = DEMO_GSTIN;
+        state = '29';
+        country = '';
+        address = '12, Demo Road, Jayanagar';
+        city = 'Bengaluru';
+        pin = '560041';
+      }
       const opening = await openingBooks({ name: String(name ?? ''), gstin: String(gstin ?? ''), state: String(state ?? ''), country: String(country ?? ''), address: String(address ?? ''), city: String(city ?? ''), pin: String(pin ?? '') }, new Date(now()));
       if (!opening.ok) return opening;
       return db.tx(async (q) => {
-        const business = await q('insert into businesses (name, gstin, created_by, created_at) values ($1, $2, $3, $4) returning id', [
+        const business = await q('insert into businesses (name, gstin, created_by, created_at, demo) values ($1, $2, $3, $4, $5) returning id', [
           opening.company.name,
           opening.company.gstin,
           userId,
           new Date(now()),
+          Boolean(demo),
         ]);
         const id = business.rows[0].id;
         await q("insert into memberships (user_id, business_id, role) values ($1, $2, 'owner')", [userId, id]);
         await q('insert into books (business_id, version, state) values ($1, 0, $2::jsonb)', [id, storedState(booksKey, id, JSON.stringify(opening.state))]);
-        return { ok: true, business: { id, name: opening.company.name, gstin: opening.company.gstin, role: 'owner' } };
+        if (demo) {
+          await q(
+            `insert into audit_log (business_id, user_id, request_id, action, metadata) values ($1, $2, '', 'demo_business_created', $3::jsonb)`,
+            [id, userId, JSON.stringify({ source: 'POST /v1/businesses demo', why: 'A fictional business for trying the app; it cannot use live providers and is purged when unused.' })],
+          );
+        }
+        return { ok: true, business: { id, name: opening.company.name, gstin: opening.company.gstin, role: 'owner', demo: Boolean(demo) } };
       });
     },
 
     async listFor(userId) {
       const found = await db.query(
-        `select b.id, b.name, b.gstin, m.role from memberships m join businesses b on b.id = m.business_id
+        `select b.id, b.name, b.gstin, m.role, b.demo from memberships m join businesses b on b.id = m.business_id
           where m.user_id = $1 and b.deletion_requested_at is null order by b.created_at`,
         [userId],
       );
@@ -65,7 +82,7 @@ export function createBusinesses({ db, now = () => Date.now(), booksKey = '' }) 
     async membership(userId, businessId) {
       if (!isUuid(businessId)) return null;
       const found = await db.query(
-        `select m.role from memberships m join businesses b on b.id = m.business_id
+        `select m.role, b.demo from memberships m join businesses b on b.id = m.business_id
           where m.user_id = $1 and m.business_id = $2 and b.deletion_requested_at is null`,
         [userId, businessId],
       );

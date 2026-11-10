@@ -12,6 +12,8 @@ import { whatsAppConfigFromEnv, createWhatsAppSender } from './whatsapp.mjs';
 import { createWahaSender } from './waha.mjs';
 import { createBilling, billingConfigFromEnv, billingConfigProblem } from './billing.mjs';
 import { isProduction, hostingName, serviceRevision, databaseTlsProblem, proxyHopsProblem } from './runtime.mjs';
+import { deploymentEnvironment, environmentProblem, enabledServices } from './environment.mjs';
+import { testSignInFromEnv } from './test-sign-in.mjs';
 
 const STARTUP_ATTEMPTS = 10;
 const STARTUP_WAIT_MS = 3000;
@@ -48,6 +50,11 @@ async function migrateWithRetry(db) {
   }
 }
 
+const environmentRefusal = environmentProblem();
+if (environmentRefusal) throw new Error(environmentRefusal);
+const testSignIn = testSignInFromEnv(process.env, deploymentEnvironment());
+if (testSignIn.problem) throw new Error(testSignIn.problem);
+const otpGlobalPerHour = Number.parseInt(String(process.env.MYCA_OTP_GLOBAL_PER_HOUR || ''), 10);
 const tlsProblem = databaseTlsProblem();
 if (tlsProblem) throw new Error(tlsProblem);
 const hopsProblem = proxyHopsProblem();
@@ -76,7 +83,11 @@ const handler = createApi({
   })(),
   log,
   version: serviceRevision(),
+  environment: deploymentEnvironment(),
+  testSignIn,
+  ...(Number.isSafeInteger(otpGlobalPerHour) && otpGlobalPerHour > 0 ? { otpGlobalPerHour } : {}),
 });
+log({ startup: 'services', environment: deploymentEnvironment(), revision: serviceRevision(), on: enabledServices() });
 const port = Number(process.env.PORT || 8080);
 const server = createServer(handler);
 server.keepAliveTimeout = 65000;

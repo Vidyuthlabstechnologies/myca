@@ -6,7 +6,7 @@ import { createGstPortal } from './gst-portal.mjs';
 import { createBilling, readOnlyChat } from './billing.mjs';
 import { gstin } from '../../platform/src/sprint-load.mjs';
 import { rule } from '../../sprints/statutory-rules/src/index.mjs';
-import { createAuth, isUuid } from './auth.mjs';
+import { createAuth, isUuid, OTP_MAX_GLOBAL_PER_HOUR } from './auth.mjs';
 import { createSecondFactor } from './second-factor.mjs';
 import { createDevices } from './devices.mjs';
 import { createBusinesses, engineRole } from './businesses.mjs';
@@ -30,6 +30,7 @@ import { inWords } from '../../platform/src/words.mjs';
 import { createInbound, INBOUND_HEADER, relayTokenMatches } from './inbound.mjs';
 import { createWhatsApp } from './whatsapp.mjs';
 import { chatText } from './chat-text.mjs';
+import { DEMO_BLOCKED_ACTIONS, seedDemo } from './demo.mjs';
 
 const INDIA_OFFSET_MS = 330 * 60 * 1000;
 
@@ -274,14 +275,14 @@ export function clientAddress(req, hops = trustedProxyHops()) {
   return String(parts[parts.length - hops] || '').slice(0, 64);
 }
 
-export function createApi({ billing: billingGiven = null, db, secret, booksKey = '', otpSender = null, googleClientIds = [], googleKeys, oidc = {}, oidcKeys = null, documentVault = null, connectorKey = '', now = () => Date.now(), log = () => {}, version = 'dev', jobToken = '', inboundEmail = {}, whatsapp = {}, whatsappSender = null, bodyBudgetBytes = 0, gspFetch = null }) {
+export function createApi({ billing: billingGiven = null, db, secret, booksKey = '', otpSender = null, googleClientIds = [], googleKeys, oidc = {}, oidcKeys = null, documentVault = null, connectorKey = '', now = () => Date.now(), log = () => {}, version = 'dev', environment = 'local', healthTimeoutMs = 2000, testSignIn = null, otpGlobalPerHour = OTP_MAX_GLOBAL_PER_HOUR, jobToken = '', inboundEmail = {}, whatsapp = {}, whatsappSender = null, bodyBudgetBytes = 0, gspFetch = null }) {
   process.env.MYCA_HOSTED = '1';
   assertSecret(secret);
   const budget = createBodyBudget(Number.isSafeInteger(bodyBudgetBytes) && bodyBudgetBytes > 0 ? bodyBudgetBytes : defaultBodyBudgetBytes({ constrainedMemory: process.constrainedMemory(), ceiling: MAX_BUSINESS_BYTES }));
   const { readRaw, readJson, release: releaseBody } = createBodyReaders(budget);
   const providerMode = () => (mockModeEnabled() ? 'simulated' : serviceProviderEnvironment());
   const secondFactor = createSecondFactor({ db, secret, booksKey, now });
-  const auth = createAuth({ db, secret, otpSender, now, secondFactor });
+  const auth = createAuth({ db, secret, otpSender, now, secondFactor, testSignIn, otpGlobalPerHour, log });
   const devices = createDevices({ db, now });
   const businesses = createBusinesses({ db, now, booksKey });
   const vault = documentVault || createDocumentVault({ now, log });
@@ -303,10 +304,25 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
   const whatsApp = createWhatsApp({ db, withBooks, billing, withSharedBooks: runner.withSharedBooks, syncOf, config: whatsapp, sender: whatsappSender, now, log });
   const consent = createConsent({ db, now });
   const recordAccess = createAccessLog(db);
-  const jobs = createJobs({ db, withBooks, connectors, syncChannels, pullsEnabled: channelPullsEnabled, sender: whatsappSender, vault, billing, now, log });
+  const jobs = createJobs({ db, secret, withBooks, connectors, syncChannels, pullsEnabled: channelPullsEnabled, sender: whatsappSender, vault, billing, now, log });
   const google = createGoogleVerifier({ clientIds: googleClientIds, keys: googleKeys || createGoogleKeys({ now }), now });
   const openId = createOidcVerifier({ issuer: oidc.issuer || '', clientIds: oidc.clientIds || [], jwksUrl: oidc.jwksUrl || '', keys: oidcKeys, now });
-  if (!otpSender && !google.enabled && !openId.enabled) throw new Error('no sign-in method: configure an SMS sender, MYCA_GOOGLE_CLIENT_IDS or MYCA_OIDC_ISSUER with MYCA_OIDC_CLIENT_IDS');
+  if (!auth.phoneEnabled && !google.enabled && !openId.enabled) throw new Error('no sign-in method: configure an SMS sender, MYCA_GOOGLE_CLIENT_IDS or MYCA_OIDC_ISSUER with MYCA_OIDC_CLIENT_IDS');
+
+  function reviewer(user) {
+    return Boolean(testSignIn && user && user.phone && testSignIn.isReviewer(user.phone));
+  }
+
+  async function databaseReachable() {
+    let timer;
+    const timeout = new Promise((resolve) => { timer = setTimeout(() => resolve(false), healthTimeoutMs); });
+    const probe = db.query('select 1').then(() => true, () => false);
+    try {
+      return await Promise.race([probe, timeout]);
+    } finally {
+      clearTimeout(timer);
+    }
+  }
 
   async function withConsent(signedIn) {
     return signedIn.ok && signedIn.user ? { ...signedIn, consent: await consent.status(signedIn.user.id) } : signedIn;
@@ -330,7 +346,12 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
     const method = req.method;
     if (parts[0] !== 'v1') throw httpError(404, 'NOT_FOUND');
 
-    if (parts[1] === 'health' && method === 'GET') return { ok: true, providerMode: providerMode() };
+    if (parts[1] === 'health' && parts[2] === 'live' && parts.length === 3 && method === 'GET') return { ok: true, environment, providerMode: providerMode() };
+    if (parts[1] === 'health' && parts.length === 2 && method === 'GET') {
+      const database = await databaseReachable();
+      if (!database) throw httpError(503, 'DATABASE_UNAVAILABLE', { environment, providerMode: providerMode(), database: 'unreachable' });
+      return { ok: true, environment, providerMode: providerMode(), database: 'ok', version };
+    }
     if (parts[1] === 'privacy-notice' && parts.length === 2 && method === 'GET') return { ok: true, notice: PRIVACY_NOTICE };
     if (parts[1] === 'plans' && parts.length === 2 && method === 'GET') return billing.plans();
     if (parts[1] === 'billing' && parts[2] === 'play' && parts[3] === 'notify' && parts.length === 4 && method === 'POST') {
@@ -485,6 +506,7 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
     }
 
     if (parts[1] === 'invitations' && parts.length === 4 && method === 'POST' && (parts[3] === 'accept' || parts[3] === 'decline')) {
+      if (parts[3] === 'accept' && reviewer(user)) throw httpError(403, 'REVIEWER_DEMO_ONLY');
       const context = { userId: user.userId, deviceId: user.deviceId, requestId };
       return members.respond(user, context, parts[2], parts[3] === 'accept');
     }
@@ -525,16 +547,30 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
 
     if (parts[1] === 'businesses' && parts.length === 2) {
       if (method === 'GET') return { ok: true, businesses: await businesses.listFor(user.userId) };
-      if (method === 'POST') return businesses.create(user.userId, await readJson(req));
+      if (method === 'POST') {
+        const body = await readJson(req);
+        const demo = body.demo === true || reviewer(user);
+        const created = await businesses.create(user.userId, body, { demo });
+        if (!created.ok || !demo) return created;
+        const context = { userId: user.userId, deviceId: user.deviceId, requestId };
+        const seeded = await withBooks(created.business.id, context, (session) => seedDemo(session, indiaDate(now()), { actor: { userId: user.userId, role: 'admin', name: user.name || user.userId } }));
+        if (!seeded.ok) log({ requestId, demo: 'seed failed', step: seeded.step, cause: seeded.cause });
+        return { ...created, seeded: seeded.ok ? seeded.steps : 0 };
+      }
     }
 
     if (parts[1] === 'businesses' && parts.length === 4) {
       const businessId = parts[2];
       if (!isUuid(businessId)) throw httpError(404, 'BUSINESS_NOT_FOUND');
-      const role = await member(user, businessId);
+      const membership = await businesses.membership(user.userId, businessId);
+      if (!membership) throw httpError(404, 'BUSINESS_NOT_FOUND');
+      const role = membership.role;
       const context = { userId: user.userId, deviceId: user.deviceId, requestId };
       const actor = { actor: { userId: user.userId, role: engineRole(role), name: user.name || user.userId } };
       const action = parts[3];
+      if (membership.demo && method === 'POST' && DEMO_BLOCKED_ACTIONS.has(action)) {
+        throw httpError(403, 'DEMO_BUSINESS', { hint: 'This is a demo business with fictional data, so it cannot reach the GST portal, the IRP, connected services, billing or other people. Create your own business to do that.' });
+      }
       await recordAccess(businessId, context, method, action, role);
       if (method === 'GET' && action === 'access') {
         if (role !== 'owner') throw httpError(403, 'OWNER_ONLY');

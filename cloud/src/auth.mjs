@@ -13,6 +13,8 @@ export const OTP_TTL_SECONDS = 5 * 60;
 export const OTP_MAX_ATTEMPTS = 5;
 export const OTP_MAX_PER_HOUR = 5;
 export const OTP_MAX_PER_ADDRESS_PER_HOUR = 30;
+export const OTP_MAX_GLOBAL_PER_HOUR = 500;
+export const ACCOUNT_DELETION_GRACE_DAYS = 30;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export function plainText(value) {
@@ -53,7 +55,7 @@ export async function issueTokens(q, userId, deviceId, secret, now = () => Date.
   };
 }
 
-export function createAuth({ db, secret, otpSender, now = () => Date.now(), secondFactor = null }) {
+export function createAuth({ db, secret, otpSender, now = () => Date.now(), secondFactor = null, testSignIn = null, otpGlobalPerHour = OTP_MAX_GLOBAL_PER_HOUR, log = () => {} }) {
   const at = () => new Date(now());
 
   async function session(q, user, deviceLabel) {
@@ -71,14 +73,15 @@ export function createAuth({ db, secret, otpSender, now = () => Date.now(), seco
   }
 
   return {
-    phoneEnabled: Boolean(otpSender),
+    phoneEnabled: Boolean(otpSender) || Boolean(testSignIn && testSignIn.enabled),
 
     async requestOtp(phoneInput, address = '') {
-      if (!otpSender) return fail('PHONE_SIGN_IN_UNAVAILABLE');
       const phone = normalizePhone(phoneInput);
+      const fixed = phone && testSignIn ? testSignIn.fixedFor(phone) : null;
+      if (!otpSender && !fixed) return fail('PHONE_SIGN_IN_UNAVAILABLE');
       if (!phone) return fail('INVALID_PHONE');
       const phoneHash = keyedHash(secret, phone);
-      const code = String(randomInt(0, 1_000_000)).padStart(6, '0');
+      const code = fixed ? fixed.code : String(randomInt(0, 1_000_000)).padStart(6, '0');
       const salt = randomBytes(16).toString('hex');
       const created = await db.tx(async (q) => {
         await q('select pg_advisory_xact_lock(hashtext($1))', [phoneHash]);
@@ -87,6 +90,14 @@ export function createAuth({ db, secret, otpSender, now = () => Date.now(), seco
           new Date(now() - 60 * 60 * 1000),
         ]);
         if (recent.rows[0].n >= OTP_MAX_PER_HOUR) return null;
+        if (!fixed) {
+          const everyone = await q('select count(*)::int as n from otp_challenges where created_at > $1', [new Date(now() - 60 * 60 * 1000)]);
+          if (everyone.rows[0].n >= otpGlobalPerHour) {
+            log({ alarm: 'otp-global-cap', reached: everyone.rows[0].n, cap: otpGlobalPerHour });
+            return null;
+          }
+          if (everyone.rows[0].n + 1 === Math.ceil(otpGlobalPerHour * 0.8)) log({ alarm: 'otp-global-cap-80', reached: everyone.rows[0].n + 1, cap: otpGlobalPerHour });
+        }
         if (address) {
           const fromAddress = await q('select count(*)::int as n from otp_challenges where requester = $1 and created_at > $2', [address, new Date(now() - 60 * 60 * 1000)]);
           if (fromAddress.rows[0].n >= OTP_MAX_PER_ADDRESS_PER_HOUR) return null;
@@ -99,7 +110,8 @@ export function createAuth({ db, secret, otpSender, now = () => Date.now(), seco
         return inserted.rows[0].id;
       });
       if (!created) return fail('TOO_MANY_REQUESTS');
-      await otpSender.send(phone, code);
+      if (fixed) log({ auth: 'fixed-code-challenge', kind: fixed.kind, phone: `xxxxxxx${phone.slice(-3)}` });
+      else await otpSender.send(phone, code);
       return { ok: true, challengeId: created, expiresInSeconds: OTP_TTL_SECONDS };
     },
 
@@ -210,6 +222,11 @@ export function createAuth({ db, secret, otpSender, now = () => Date.now(), seco
         await q('delete from user_totp where user_id = $1', [userId]);
         await q('delete from recovery_codes where user_id = $1', [userId]);
         await q('update users set deleted_at = $2 where id = $1', [userId, at()]);
+        await q(
+          `insert into audit_log (business_id, user_id, request_id, action, metadata)
+           select business_id, $1, '', 'member.account_deletion_requested', $2::jsonb from memberships where user_id = $1`,
+          [userId, JSON.stringify({ graceDays: ACCOUNT_DELETION_GRACE_DAYS, source: 'DELETE /v1/me' })],
+        );
         await q('update devices set revoked_at = $2 where user_id = $1 and revoked_at is null', [userId, at()]);
         await q(
           `update businesses set deletion_requested_at = $2

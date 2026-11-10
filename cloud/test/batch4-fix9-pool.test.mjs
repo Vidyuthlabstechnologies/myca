@@ -544,8 +544,8 @@ test('P4: with every pooled connection busy a request answers 503 SERVER_BUSY wi
     assert.deepEqual(busyStep.body, { ok: false, error: 'SERVER_BUSY' });
     assert.equal(busyStep.retryAfter, '2');
 
-    const health = await within(3000, api.call('GET', '/v1/health'), 'the health check');
-    assert.equal(health.status, 200, 'the health check touches no database');
+    const health = await within(3000, api.call('GET', '/v1/health/live'), 'the liveness check');
+    assert.equal(health.status, 200, 'the liveness check touches no database');
     assert.equal(health.retryAfter, null);
 
     const crashes = await api.watcher.query('select count(*)::int as n from crash_reports');
