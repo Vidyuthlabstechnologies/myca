@@ -28,6 +28,12 @@ android {
         targetSdk = 36
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        manifestPlaceholders["appLabel"] = "MyCA"
+        if (project.hasProperty("mycaTest")) {
+            applicationIdSuffix = ".test"
+            versionNameSuffix = "-test"
+            manifestPlaceholders["appLabel"] = "MyCA Test"
+        }
     }
 
     signingConfigs {

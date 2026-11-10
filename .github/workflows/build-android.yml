@@ -4,6 +4,12 @@ on:
   push:
     tags: ["v*"]
   workflow_dispatch:
+    inputs:
+      backend:
+        description: "Which backend the app talks to: live (MYCA_CLOUD_URL) or test (MYCA_CLOUD_URL_STAGING, installs beside the live app as MyCA Test)"
+        type: choice
+        options: [live, test]
+        default: live
 
 permissions:
   contents: read
@@ -14,7 +20,8 @@ jobs:
     runs-on: ${{ vars.MYCA_CI_RUNNER || 'ubuntu-latest' }}
     env:
       HAS_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
-      CLOUD_URL: ${{ vars.MYCA_CLOUD_URL }}
+      BACKEND: ${{ inputs.backend || 'live' }}
+      CLOUD_URL: ${{ inputs.backend == 'test' && vars.MYCA_CLOUD_URL_STAGING || vars.MYCA_CLOUD_URL }}
       GOOGLE_SERVER_CLIENT_ID: ${{ vars.MYCA_GOOGLE_SERVER_CLIENT_ID }}
       OIDC_CLIENT_ID: ${{ vars.MYCA_OIDC_CLIENT_ID }}
     steps:
@@ -95,6 +102,10 @@ jobs:
           name="$(sed -n 's/^version: *\([^+]*\).*/\1/p' pubspec.yaml)"
           if [[ "$GITHUB_REF" == refs/tags/v* ]]; then name="${GITHUB_REF_NAME#v}"; define+=(--build-name="$name"); fi
           define+=(--dart-define="MYCA_APP_VERSION=$name+$GITHUB_RUN_NUMBER")
+          if [ "$BACKEND" = "test" ]; then
+            if [ -z "$CLOUD_URL" ]; then echo "::error::A test build needs the MYCA_CLOUD_URL_STAGING repository variable (the staging API address)."; exit 1; fi
+            define+=(-P mycaTest=true)
+          fi
           if [ -n "$CLOUD_URL" ]; then define+=(--dart-define="MYCA_CLOUD_URL=$CLOUD_URL"); fi
           if [ -n "$GOOGLE_SERVER_CLIENT_ID" ]; then define+=(--dart-define="MYCA_GOOGLE_SERVER_CLIENT_ID=$GOOGLE_SERVER_CLIENT_ID"); fi
           if [ -n "$OIDC_CLIENT_ID" ]; then define+=(--dart-define="MYCA_OIDC_CLIENT_ID=$OIDC_CLIENT_ID"); fi
