@@ -138,8 +138,39 @@ class _GstPortalScreenState extends State<GstPortalScreen> {
     }
   }
 
+  String _operation(String step) => '${_is3b ? 'gstr3b' : 'gstr1'}_$step';
+
+  Future<Map<String, dynamic>> _withApproval(String step, String otp) async {
+    final operation = _operation(step);
+    final rows = await _cloud.filingApprovals(operation, widget.period);
+    for (final row in rows.where((row) => row['status'] == 'approved')) {
+      final out = await _cloud.returnStep(widget.form, step, period: widget.period, gstin: _gstin, otp: otp, caApprovalId: '${row['approvalId']}');
+      if (out['error'] != 'CA_APPROVAL_REQUIRED') return out;
+    }
+    final pending = rows.where((row) => row['status'] == 'pending').toList();
+    if (pending.isEmpty) {
+      await _cloud.requestFilingApproval(operation, widget.period, gstin: _gstin);
+      return {'ok': false, 'awaitingApproval': 'asked'};
+    }
+    final approvalId = '${pending.first['approvalId']}';
+    final decided = await _cloud.approve(approvalId);
+    if (decided['error'] == 'MAKER_CHECKER_VIOLATION') return {'ok': false, 'awaitingApproval': 'waiting'};
+    if (decided['ok'] != true) throw MycaApiException(cloudMessage('${decided['error'] ?? 'UNKNOWN'}', '${decided['hint'] ?? ''}'));
+    return _cloud.returnStep(widget.form, step, period: widget.period, gstin: _gstin, otp: otp, caApprovalId: approvalId);
+  }
+
   Future<Map<String, dynamic>?> _step(String step, String doing, {String otp = ''}) async {
-    final out = await _run(doing, () => _cloud.returnStep(widget.form, step, period: widget.period, gstin: _gstin, otp: otp));
+    var out = await _run(doing, () => _cloud.returnStep(widget.form, step, period: widget.period, gstin: _gstin, otp: otp));
+    if (out != null && out['error'] == 'CA_APPROVAL_REQUIRED') out = await _run('Checking the approval for this step…', () => _withApproval(step, otp));
+    if (out != null && out['awaitingApproval'] != null) {
+      final asked = out['awaitingApproval'] == 'asked';
+      if (mounted) {
+        setState(() => _note = asked
+            ? 'This business is in live mode, so this step needs a second person. Asked for approval: an owner or your accountant, other than you, opens this return and taps the same step to approve it.'
+            : 'Waiting for an owner or your accountant, other than you, to approve this step.');
+      }
+      return null;
+    }
     if (out == null && _error.contains('session ended')) await _reload();
     return out;
   }
@@ -253,7 +284,7 @@ class _GstPortalScreenState extends State<GstPortalScreen> {
     _evcOtp.clear();
     setState(() {
       _ack = '${out['ackNum'] ?? ''}';
-      _note = 'Filed. Acknowledgement $_ack.';
+      _note = out['simulated'] == true ? 'Filed (simulated). Reference $_ack is practice only: nothing was sent to the GST portal.' : 'Filed. Acknowledgement $_ack.';
     });
   }
 

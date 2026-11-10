@@ -833,14 +833,31 @@ class CloudSession {
 
   Future<Map<String, dynamic>> gstr1Step(String step, {required String period, String gstin = '', String otp = '', String pan = ''}) => returnStep('gstr1', step, period: period, gstin: gstin, otp: otp, pan: pan);
 
-  Future<Map<String, dynamic>> returnStep(String form, String step, {required String period, String gstin = '', String otp = '', String pan = ''}) async {
-    return _accepted(await call('POST', '$_books/gst-${form == 'gstr3b' ? 'gstr3b' : 'gstr1'}', {
+  Future<Map<String, dynamic>> returnStep(String form, String step, {required String period, String gstin = '', String otp = '', String pan = '', String caApprovalId = ''}) async {
+    final body = await call('POST', '$_books/gst-${form == 'gstr3b' ? 'gstr3b' : 'gstr1'}', {
       'step': step,
       'period': period,
       if (gstin.isNotEmpty) 'gstin': gstin,
       if (otp.isNotEmpty) 'otp': otp,
       if (pan.isNotEmpty) 'pan': pan,
-    }));
+      if (caApprovalId.isNotEmpty) 'caApprovalId': caApprovalId,
+    });
+    if (body['ok'] == false && body['error'] == 'CA_APPROVAL_REQUIRED') return body;
+    return _accepted(body);
+  }
+
+  Future<List<Map<String, dynamic>>> filingApprovals(String operation, String period) async {
+    final body = _accepted(await call('GET', '$_books/approvals'));
+    final rows = body['approvals'];
+    if (rows is! List) return const [];
+    return [
+      for (final row in rows)
+        if (row is Map && row['operation'] == operation && row['params'] is Map && (row['params'] as Map)['period'] == period) row.cast<String, dynamic>(),
+    ];
+  }
+
+  Future<Map<String, dynamic>> requestFilingApproval(String operation, String period, {String gstin = ''}) async {
+    return _accepted(await call('POST', '$_books/approvals', {'operation': operation, 'period': period, if (gstin.isNotEmpty) 'gstin': gstin}));
   }
 
   Future<void> sendCrashReports(List<Map<String, Object?>> reports) async {
