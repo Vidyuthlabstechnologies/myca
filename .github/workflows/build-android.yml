@@ -108,9 +108,11 @@ jobs:
           {
             echo "### Release APK badging"
             echo '```'
-            "$aapt2" dump badging ../dist/myca-android.apk | grep -E "^(package|sdkVersion|targetSdkVersion|uses-permission)"
+            "$aapt2" dump badging ../dist/myca-android.apk | grep -E "^(package|sdkVersion|targetSdkVersion|uses-permission)" | tee /dev/stderr
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+          "$aapt2" dump permissions ../dist/myca-android.apk | sed -n "s/^uses-permission: name='\\([^']*\\)'.*/\\1/p" | sort -u > ../dist/permissions.txt
+          if ! diff -u android/permissions.txt ../dist/permissions.txt; then echo "::error::The release APK asks for a different set of permissions than mobile/android/permissions.txt. Update that file and docs/release/PLAY-LISTING.md section 3 together."; exit 1; fi
 
       - name: Remove the key from the runner
         if: always()
