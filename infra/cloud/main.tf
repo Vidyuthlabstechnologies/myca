@@ -248,36 +248,42 @@ locals {
   secrets      = merge(local.generated, local.given, { MYCA_DATABASE_URL = local.database_url }, local.optional_secrets)
   secret_names = sort(nonsensitive(keys(local.secrets)))
   environment = { for name, value in {
-    TZ                            = "Asia/Kolkata"
-    MYCA_GOOGLE_CLIENT_IDS        = join(",", var.google_client_ids)
-    MYCA_OIDC_ISSUER              = var.oidc_issuer
-    MYCA_OIDC_CLIENT_IDS          = join(",", var.oidc_client_ids)
-    MYCA_DOCUMENT_BUCKET          = google_storage_bucket.documents.name
-    MYCA_ENABLE_CHANNEL_PULLS     = var.enable_channel_pulls ? "1" : "0"
-    MYCA_INBOUND_EMAIL_DOMAIN     = var.inbound_email_domain
-    MYCA_WHATSAPP_PROVIDER        = var.waha_url != "" ? "waha" : ""
-    MYCA_WAHA_URL                 = var.waha_url
-    MYCA_WAHA_SESSION             = var.waha_url != "" ? var.waha_session : ""
-    MYCA_WHATSAPP_PHONE_NUMBER_ID = var.whatsapp_phone_number_id == "unset" ? "" : var.whatsapp_phone_number_id
-    MYCA_MOCK_MODE                = var.provider_mode == "simulated" ? "1" : "0"
-    MYCA_PROVIDER_ENV             = contains(["live", "test"], var.provider_mode) ? var.provider_mode : "off"
-    MYCA_GSP_ENV                  = var.gsp_environment
-    MYCA_PUBLIC_URL               = var.public_url
-    MYCA_SMS_PROVIDER             = var.sms_provider
-    MYCA_SMS_TWILIO_SID           = var.sms_twilio_sid
-    MYCA_SMS_TWILIO_FROM          = var.sms_twilio_from
-    MYCA_SMS_MSG91_TEMPLATE_ID    = var.sms_msg91_template_id
-    MYCA_EMAIL_RELAY_URL          = var.email_relay_url
-    MYCA_EMAIL_FROM               = var.email_from
-    MYCA_MODEL                    = var.model_name
-    NVIDIA_NIM_MODEL              = var.model_name
-    MYCA_MODEL_BASE_URL           = var.model_base_url
-    MYCA_PLAY_PACKAGE             = var.play_package_name
-    MYCA_PLAY_PRODUCT_ESSENTIALS  = var.play_product_essentials
-    MYCA_PLAY_PRODUCT_PRO         = var.play_product_pro
-    MYCA_PLAY_PRODUCT_FIRM        = var.play_product_firm
-    MYCA_PLAN_PRICES              = var.plan_prices
+    TZ                             = "Asia/Kolkata"
+    MYCA_GOOGLE_CLIENT_IDS         = join(",", var.google_client_ids)
+    MYCA_OIDC_ISSUER               = var.oidc_issuer
+    MYCA_OIDC_CLIENT_IDS           = join(",", var.oidc_client_ids)
+    MYCA_DOCUMENT_BUCKET           = google_storage_bucket.documents.name
+    MYCA_ENABLE_CHANNEL_PULLS      = var.enable_channel_pulls ? "1" : "0"
+    MYCA_INBOUND_EMAIL_DOMAIN      = var.inbound_email_domain
+    MYCA_WHATSAPP_PROVIDER         = var.waha_url != "" ? "waha" : ""
+    MYCA_WAHA_URL                  = var.waha_url
+    MYCA_WAHA_SESSION              = var.waha_url != "" ? var.waha_session : ""
+    MYCA_WHATSAPP_PHONE_NUMBER_ID  = var.whatsapp_phone_number_id == "unset" ? "" : var.whatsapp_phone_number_id
+    MYCA_MOCK_MODE                 = var.provider_mode == "simulated" ? "1" : "0"
+    MYCA_PROVIDER_ENV              = contains(["live", "test"], var.provider_mode) ? var.provider_mode : "off"
+    MYCA_GSP_ENV                   = var.gsp_environment
+    MYCA_PUBLIC_URL                = var.public_url
+    MYCA_SMS_PROVIDER              = var.sms_provider
+    MYCA_SMS_TWILIO_SID            = var.sms_twilio_sid
+    MYCA_SMS_TWILIO_FROM           = var.sms_twilio_from
+    MYCA_SMS_MSG91_TEMPLATE_ID     = var.sms_msg91_template_id
+    MYCA_EMAIL_RELAY_URL           = var.email_relay_url
+    MYCA_EMAIL_FROM                = var.email_from
+    MYCA_MODEL                     = var.model_name
+    NVIDIA_NIM_MODEL               = var.model_name
+    MYCA_MODEL_BASE_URL            = var.model_base_url
+    MYCA_PLAY_PACKAGE              = var.play_package_name
+    MYCA_PLAY_PRODUCT_ESSENTIALS   = var.play_product_essentials
+    MYCA_PLAY_PRODUCT_PRO          = var.play_product_pro
+    MYCA_PLAY_PRODUCT_FIRM         = var.play_product_firm
+    MYCA_PLAN_PRICES               = var.plan_prices
+    MYCA_ENVIRONMENT               = "production"
+    MYCA_PLAY_PUSH_AUDIENCE        = local.play_push_audience
+    MYCA_PLAY_PUSH_SERVICE_ACCOUNT = google_service_account.play_push.email
+    MYCA_ADMIN_USER_IDS            = join(",", var.admin_user_ids)
+    MYCA_OTP_GLOBAL_PER_HOUR       = var.otp_global_per_hour == null ? "" : tostring(var.otp_global_per_hour)
   } : name => value if value != "" }
+  play_push_audience = "myca-play-notifications"
 }
 
 resource "google_secret_manager_secret" "api" {
@@ -399,7 +405,7 @@ resource "google_cloud_run_v2_service" "api" {
         failure_threshold = 3
         timeout_seconds   = 3
         http_get {
-          path = "/v1/health"
+          path = "/v1/health/live"
         }
       }
     }
@@ -649,6 +655,19 @@ resource "google_pubsub_topic_iam_member" "play_publisher" {
   member = "serviceAccount:google-play-developer-notifications@system.gserviceaccount.com"
 }
 
+resource "google_service_account" "play_push" {
+  account_id   = "myca-play-push"
+  display_name = "Signs Pub/Sub pushes of Play notifications to the MyCA API"
+}
+
+data "google_project" "this" {}
+
+resource "google_service_account_iam_member" "pubsub_signs_play_push" {
+  service_account_id = google_service_account.play_push.name
+  role               = "roles/iam.serviceAccountTokenCreator"
+  member             = "serviceAccount:service-${data.google_project.this.number}@gcp-sa-pubsub.iam.gserviceaccount.com"
+}
+
 resource "google_pubsub_subscription" "play_notifications" {
   name   = "${local.name}-play-notifications-push"
   topic  = google_pubsub_topic.play_notifications.id
@@ -658,8 +677,15 @@ resource "google_pubsub_subscription" "play_notifications" {
   message_retention_duration = "604800s"
 
   push_config {
-    push_endpoint = "${google_cloud_run_v2_service.api.uri}/v1/billing/play/notify?token=${local.secrets["MYCA_PLAY_NOTIFY_TOKEN"]}"
+    push_endpoint = "${google_cloud_run_v2_service.api.uri}/v1/billing/play/notify"
+
+    oidc_token {
+      service_account_email = google_service_account.play_push.email
+      audience              = local.play_push_audience
+    }
   }
+
+  depends_on = [google_service_account_iam_member.pubsub_signs_play_push]
 
   retry_policy {
     minimum_backoff = "10s"

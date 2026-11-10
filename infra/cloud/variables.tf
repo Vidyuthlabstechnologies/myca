@@ -263,8 +263,8 @@ variable "waha_url" {
   default     = ""
 
   validation {
-    condition     = var.waha_url == "" || can(regex("^https?://", var.waha_url))
-    error_message = "waha_url starts with http:// or https://."
+    condition     = var.waha_url == "" || can(regex("^https://", var.waha_url))
+    error_message = "waha_url must be https://: the API refuses a plain-http gateway outside local runs."
   }
 }
 
@@ -342,4 +342,16 @@ variable "site_id" {
   description = "Firebase Hosting site id; the site is served at https://<site_id>.web.app. Empty uses the project id."
   type        = string
   default     = ""
+}
+
+variable "admin_user_ids" {
+  description = "MyCA user ids that receive the crash digest (MYCA_ADMIN_USER_IDS). Empty turns the digest off."
+  type        = list(string)
+  default     = []
+}
+
+variable "otp_global_per_hour" {
+  description = "Cap on sign-in codes sent per hour across all numbers (MYCA_OTP_GLOBAL_PER_HOUR). Null keeps the server default."
+  type        = number
+  default     = null
 }
