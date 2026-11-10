@@ -1,0 +1,14 @@
+name: Chore
+description: Upkeep that changes no behaviour (docs, tooling, dependencies, cleanup)
+labels: ["chore"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What and why
+    validations:
+      required: true
+  - type: textarea
+    id: done
+    attributes:
+      label: Done when

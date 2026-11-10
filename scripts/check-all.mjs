@@ -59,6 +59,8 @@ if (wants('sprints')) {
   }
 }
 
+if (wants('listing')) run('Play listing limits', '.', 'node', ['scripts/check-listing.mjs']);
+
 if (wants('email-relay')) run('email-relay', 'email-relay', 'npm', ['test']);
 
 if (wants('cloud')) {

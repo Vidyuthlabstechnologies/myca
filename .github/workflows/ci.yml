@@ -71,6 +71,8 @@ jobs:
         run: npm test
       - name: Report exports nothing else uses
         run: node scripts/unused-exports.mjs --warn
+      - name: Check the Play listing against Play's limits
+        run: node scripts/check-listing.mjs
 
   sprints:
     name: Sprint engine tests

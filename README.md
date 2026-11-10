@@ -17,9 +17,9 @@ Taxmeow or MyCA is an open decision.
 | Against the product PRD | **About 94% built** in engineering terms; what is left is mostly provider onboarding, credentials and sign-offs ([requirement by requirement](docs/product/PRD.md), [how it is computed](docs/superpowers/PROGRESS.md)) |
 | To a Play Store launch | About 84% (estimate, [progress tracker](docs/superpowers/PROGRESS.md)) |
 | Engine hardening (Phase 0) | About 87%; every Critical and High audit finding closed ([audit](docs/audit/2026-09-21-codebase-audit.md)) |
-| Tests | **1,390**: platform 798, engines and statutory rules 331, hosted API 131, Android app 131 (the Android count was last checked before 5 November 2026) |
+| Tests | Platform 1,351, hosted API 341, email relay 3, every sprint suite, Android app about 590 (counted 2026-11-10; see Local setup) |
 | Tools | 116 named, schema-validated tools |
-| Deployed | **Nothing.** The hosted API has run only against a local Postgres; the app has not run on a phone |
+| Deployed | The hosted API has run on AWS (Mumbai) since 2026-11-08 and is moving to Google Cloud; the signed Android 1.0.0 build is on the GitHub release and not yet on Play. [`DEPLOYMENT.md`](DEPLOYMENT.md) is the source of truth |
 | Live portal calls | Off by default (`MYCA_ENABLE_LIVE_CALLS=0`); no return has been filed through the product |
 | Automated checks | `node scripts/check-all.mjs` locally; GitHub Actions runs CI on pushes and pull requests, plus a nightly run |
 
@@ -155,17 +155,44 @@ it, is in [`docs/architecture/`](docs/architecture/ARCHITECTURE.md).
 
 ## Quickstart
 
-Everything at once (the gate before any commit):
+### Local setup
 
-```bash
-node scripts/check-all.mjs
-```
+From a fresh clone to every suite green. The versions match CI.
+
+| Tool | Version | Used by |
+|---|---|---|
+| Node.js | 22 | `platform/`, `cloud/`, `email-relay/`, `sprints/`, `scripts/` |
+| PostgreSQL | 16 | the hosted API tests |
+| Flutter | 3.44.9 (the app needs Dart `^3.12.2`; older Flutter cannot build it) | `mobile/` |
+| Java | 17 (Temurin) | Android builds |
+| Android SDK | platform 36, build-tools 36 | Android builds (`compileSdk` and `targetSdk` 36, `minSdk` 24) |
+
+1. Install the hosted API's one dependency: `cd cloud && npm ci`. Without it the gate
+   skips the cloud suite and says "setup needed".
+2. Start a throwaway Postgres on port 54329, which the tests use by default:
+
+   ```bash
+   docker run --rm -d --name myca-test-pg -p 54329:5432 \
+     -e POSTGRES_USER=myca -e POSTGRES_HOST_AUTH_METHOD=trust postgres:16
+   ```
+
+   Or with a local install: `initdb -U myca --auth=trust /tmp/myca-pg && pg_ctl -D /tmp/myca-pg -o "-p 54329" start`.
+   Point the tests elsewhere with `MYCA_TEST_DATABASE_URL`.
+3. Fetch the app's packages: `cd mobile && flutter pub get`.
+4. Run everything: `node scripts/check-all.mjs`. Each suite prints PASS, FAIL or SKIP with a
+   reason; pass a name (`platform`, `sprints`, `listing`, `email-relay`, `cloud`, `mobile`) to
+   run only that one.
+
+Baseline on 2026-11-10: platform 1,351 passed (1 skipped), every sprint suite passes, hosted
+API 341, email relay 3, Android app analyze clean and about 590 tests.
+
+### Running the pieces
 
 The engine and the desktop server:
 
 ```bash
 cd platform
-npm test                 # 798 tests
+npm test
 npm run dev              # http://127.0.0.1:4780 (plain node)
 npm start                # Electron window (after: npm i)
 ```
@@ -174,15 +201,15 @@ The hosted API, against a local Postgres (see [`cloud/README.md`](cloud/README.m
 
 ```bash
 cd cloud
-npm install
-npm test                 # 131 tests; needs MYCA_TEST_DATABASE_URL
+npm ci
+npm test                 # needs MYCA_TEST_DATABASE_URL or Postgres on 54329
 ```
 
 The Android app (see [`mobile/README.md`](mobile/README.md)):
 
 ```bash
 cd mobile
-flutter test             # 131 tests
+flutter analyze && flutter test
 flutter run --dart-define=MYCA_CLOUD_URL=http://127.0.0.1:8080
 ```
 
@@ -340,6 +367,14 @@ outbound client, the remaining parser findings, desktop hardening and the final 
 7. **Keep the picture honest.** Update [`STATUS.md`](STATUS.md), this README and the
    [progress tracker](docs/superpowers/PROGRESS.md) whenever the built/not-built picture
    moves.
+
+## How we work
+
+1. Pick an open issue, or open one with a template (bug, feature, tester report, chore).
+2. Branch from `main` as `<issue#>-<short-slug>`.
+3. Make the change with its tests; run `node scripts/check-all.mjs` (and `flutter analyze && flutter test` for the app).
+4. Open a pull request. The template asks for `Closes #<issue>`, what changed, how it was verified and the risk.
+5. A code owner (see `.github/CODEOWNERS`) reviews it and CI goes green; then it is merged.
 
 ## Repository layout
 

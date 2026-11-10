@@ -1,17 +1,69 @@
 # Play Store release: listing, declarations and checklist
 
-Everything the Play Console asks for, drafted from what the app actually does on
-2026-10-14. The owner reviews the wording and the legal entity before anything is
+Everything the Play Console asks for, drafted from what the app actually does
+(first drafted 2026-10-14, listing rewritten 2026-11-10). The owner reviews the wording and the legal entity before anything is
 submitted; nothing here is published by the repository.
 
 ## 1. Listing
 
-| Field | Draft |
+Rewritten 2026-11-10 to match the app as it is: it files GSTR-1 and GSTR-3B once the
+owner confirms with the EVC OTP, it has three paid plans, and it is not a government
+app. The India listing does not mention the US edition. `node scripts/check-listing.mjs`
+checks the three text fields below against Play's limits (title 30, short description 80,
+full description 4,000 characters) and fails the local gate if one is over.
+
+### App name
+
+```listing-title
+MyCA: GST, Books and Payroll
+```
+
+### Short description
+
+```listing-short
+Books, GST returns and payroll by chat. You approve every entry and filing.
+```
+
+### Full description
+
+```listing-full
+MyCA keeps a small business's books the way a careful accountant would, from your phone.
+
+Record sales, purchase bills and expenses by typing a sentence or filling a short form. Photograph or share a bill and MyCA reads it into lines for you to check. Nothing posts until you see a preview and confirm it.
+
+GST returns, prepared and filed with your approval
+MyCA drafts GSTR-1 and GSTR-3B from your entries, using dated GST rules. You review the draft step by step. When you are ready, MyCA files it on the GST portal through a licensed GST Suvidha Provider, and only after you confirm with the EVC OTP sent to your authorised signatory. A business can also require a second person, such as its CA, to approve a filing first.
+
+What else MyCA does
+- Invoices, quotations, credit notes, e-invoices (IRN) and e-way bills
+- GSTR-2B matching, with supplier reminders sent only when you allow them
+- TDS on payments and receipts, with statements prepared for review
+- Payroll with PF, ESI and professional tax
+- Bank statements matched to your books
+- Reports: profit and loss, balance sheet, trial balance, what you are owed and what you owe
+- Invite your CA or staff, each with their own role, and choose how often your CA sees changes
+- Export everything, at any time, in one file
+
+Plans
+Every new business gets a 14-day free trial of Pro. After the trial the books stay readable and exportable, and posting needs a plan:
+- Essentials: Rs 399 a month or Rs 3,999 a year, for 2 people
+- Pro: Rs 799 a month or Rs 7,999 a year, for 5 people, with portal filing, e-invoices, connectors and WhatsApp
+- CA firm: Rs 2,499 a month or Rs 24,999 a year, for 25 people
+Subscriptions are billed through Google Play and renew until you cancel.
+
+Your data
+Your books are sealed per business on our servers and sent only over HTTPS. You can delete a business, or your whole account, from inside the app or from our website.
+
+MyCA is not affiliated with, endorsed by or a part of GSTN, the GST Council, the Income Tax Department or the Government of India. Official sources: GST portal https://www.gst.gov.in, e-invoice portal https://einvoice1.gst.gov.in, e-way bill portal https://ewaybillgst.gov.in, Income Tax portal https://www.incometax.gov.in.
+
+MyCA is made by ML Dynamic Solutions Private Limited.
+```
+
+### Other fields
+
+| Field | Value |
 |---|---|
-| App name | MyCA |
 | Package name | `com.mldynamic.myca` (decided 2026-11-05; Play never lets it change) |
-| Short description (80) | Your books, GST, TDS and payroll from your phone. Every entry previewed before it posts. |
-| Full description | MyCA keeps a small business's books the way a careful accountant would, from your phone. Record sales, bills and expenses by typing a sentence or filling a short form; see what you are owed and what you owe; let MyCA draft your GSTR-1, GSTR-3B, TDS statements and payroll from dated statutory rules; and hand your CA one file a month. Nothing posts until you see a preview and confirm it. MyCA never files a return or signs anything for you; filing stays with you and your CA. Runs for Indian businesses (GST, TDS, PF, ESI, professional tax) and for US sole proprietors (sales tax, 941, W-2, 1099-NEC, Schedule C). |
 | Category | Business |
 | Tags | accounting, GST, invoicing, bookkeeping, payroll |
 | Contact email | the company's support address |
@@ -41,7 +93,7 @@ submitted; nothing here is published by the repository.
 | USE_BIOMETRIC | App lock with fingerprint or face |
 | POST_NOTIFICATIONS | A reminder on the morning something falls due (filing, payroll approval, an instalment); the owner is asked once and can refuse |
 | RECEIVE_BOOT_COMPLETED | Reschedules those reminders after a restart |
-| com.android.vending.BILLING | Google Play Billing for the Pro and CA firm subscriptions (added by the in_app_purchase plugin) |
+| com.android.vending.BILLING | Google Play Billing for the Essentials, Pro and CA firm subscriptions (added by the in_app_purchase plugin) |
 | File access | Through the system picker only, for bills to read and files to save; no broad storage permission |
 
 No camera permission is requested: photos come through the system picker, which may
@@ -56,7 +108,7 @@ WAKE_LOCK). Before filling in Play's forms, list what the release bundle really 
 - Not a financial services app: MyCA holds no money, moves no money and is not a merchant of record (ADR-0010).
 - No government ID collection beyond what the owner types into their own invoices (GSTIN, PAN); never a password for a government portal.
 - Content rating: everyone.
-- Ads: none. In-app purchases: yes, auto-renewing subscriptions (Pro and CA firm) through Google Play Billing, with a 14-day free trial counted by MyCA itself.
+- Ads: none. In-app purchases: yes, auto-renewing subscriptions (Essentials, Pro and CA firm) through Google Play Billing, with a 14-day free trial counted by MyCA itself.
 - Target audience: business owners, 18 and over.
 
 ## 5. Testing track before production
