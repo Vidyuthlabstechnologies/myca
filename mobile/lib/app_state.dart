@@ -57,6 +57,7 @@ class AppState extends ChangeNotifier {
   PickedFile? sharedFile;
   String sharedNote = '';
   ServerInfo? server;
+  bool _serverAsked = false;
 
   bool get testServer => server?.isTest ?? false;
   final NotificationPlanner notifications;
@@ -118,12 +119,15 @@ class AppState extends ChangeNotifier {
     locked = _guards;
     if (!locked) await cloud?.checkConsent();
     crashReportsOn = await crashes?.enabled() ?? false;
-    server = await cloud?.serverInfo();
     await refresh();
   }
 
   Future<void> refresh() async {
     final hosted = cloud;
+    if (hosted != null && !locked && !_serverAsked) {
+      _serverAsked = true;
+      server = await hosted.serverInfo();
+    }
     if (hosted != null && !hosted.ready) {
       snapshot = null;
       if (!hosted.signedIn) recoveryNote = '';
