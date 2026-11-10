@@ -42,10 +42,10 @@ Real businesses, real data, closed testing on the Play Store.
 
 | Item | Requirement | Depends on |
 |---|---|---|
-| Deploy: Terraform, Cloud Run, Cloud SQL, storage, backups, monitoring | NFR-4 | Google Cloud project |
-| Sign-in for real users | ADR-0008 | SMS registration or Google Sign-In (PRD Q4) |
+| Deploy: Terraform, Cloud Run, Cloud SQL, storage, backups, monitoring (**done** 2026-11-10 on Google Cloud, Mumbai; on AWS 2026-11-08 to 2026-11-10) | NFR-4 | Nothing; high availability for Cloud SQL is the owner's cost call (#178) |
+| Sign-in for real users (**done** 2026-11-08, Google Sign-In; firm OIDC with PKCE 2026-11-10) | ADR-0008 | SMS registration for phone sign-in |
 | Privacy notice, consent, retention, staff access log | NFR-9 | DPDP assessment |
-| Release build, signing, store listing, data safety form | NFR-10 | Play Console account; name (PRD Q1) |
+| Release build, signing, store listing, data safety form (signed 1.0.0 build 2026-11-08; listing and Data safety answers 2026-11-10 in `docs/release/`) | NFR-10 | Play Console closed testing |
 | Proposals per member; staff role narrowed | | Nothing |
 
 ### M4. Reading documents
@@ -102,7 +102,7 @@ export; in M3 the proposals and role changes; quotes.
 | Action | Unblocks |
 |---|---|
 | Decide the launch name | Store listing, application id |
-| Create a Google Cloud project with billing | M3 |
+| Create a Google Cloud project with billing (**done** 2026-11-10, `myca-prod-in`) | M3 |
 | Start SMS sender registration, or choose Google Sign-In | M3 |
 | Name the advisor CA | Payroll, and sign-off on every existing rule (set-off and TDS then lose their "not reviewed" label) |
 | Commission the DPDP assessment | M3, and the model decision |

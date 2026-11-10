@@ -19,7 +19,7 @@ Taxmeow or MyCA is an open decision.
 | Engine hardening (Phase 0) | About 87%; every Critical and High audit finding closed ([audit](docs/audit/2026-09-21-codebase-audit.md)) |
 | Tests | Platform 1,351, hosted API 341, email relay 3, every sprint suite, Android app about 590 (counted 2026-11-10; see Local setup) |
 | Tools | 116 named, schema-validated tools |
-| Deployed | The hosted API has run on AWS (Mumbai) since 2026-11-08 and is moving to Google Cloud; the signed Android 1.0.0 build is on the GitHub release and not yet on Play. [`DEPLOYMENT.md`](DEPLOYMENT.md) is the source of truth |
+| Deployed | The hosted API and site run on Google Cloud (Cloud Run, Mumbai) since 2026-11-10, after two days on AWS; the signed Android 1.0.0 build is on the GitHub release and not yet on Play. [`DEPLOYMENT.md`](DEPLOYMENT.md) is the source of truth |
 | Live portal calls | Off by default (`MYCA_ENABLE_LIVE_CALLS=0`); no return has been filed through the product |
 | Automated checks | `node scripts/check-all.mjs` locally; GitHub Actions runs CI on pushes and pull requests, plus a nightly run |
 
