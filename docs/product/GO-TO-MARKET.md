@@ -52,30 +52,45 @@ nothing can post until the business is named.
 
 ## 2. Pricing
 
-Principle: the owner pays a flat, small monthly amount that a shopkeeper will not think
-twice about; the CA firm pays per client they look after; nothing is metered by invoices
-or users, because metering makes people enter less.
+Principle: there is no free plan. MyCA does the work of an accountant's junior, so it is
+priced as a paid tool from the first day, with a 14-day Pro trial so an owner can see their
+own books in it before paying. Nothing is metered by invoices, because metering makes
+people enter less. A year paid up front costs about ten months.
 
 | Plan | For | Price | What is in it |
 |---|---|---|---|
-| Free | Anyone trying it; businesses under the GST threshold | ₹0 | One business, one person, up to 25 invoices a month, all the engines, the Monday brief, no GST returns, community support |
-| Owner | A registered business | ₹299 a month or ₹2,999 a year | Unlimited entries, GST returns and the review, GSTR-2B matching and supplier reminders, customer reminders, cash forecast, payment run, e-invoice and e-way bill when the owner connects NIC, three people, WhatsApp support |
-| Owner + Payroll | A business with employees | ₹599 a month or ₹5,999 a year | Owner, plus payroll from dated rules, PF and ESI files, Form 16, TDS returns, ten people |
-| Firm | A CA firm looking after clients | ₹149 per client business a month, minimum ₹1,499 | Every client's books in the desktop workbench, shared views, working papers, the defensible audit, unlimited staff, phone support |
-| Marketplace seller add-on | D2C sellers on Amazon, Flipkart and the rest | ₹499 a month | Settlement reconciliation, TCS and 194-O credits, SKU margins, restock from velocity |
+| Essentials | A small registered business keeping its own books | ₹399 a month or ₹3,999 a year | Unlimited invoices, bills, receipts and payments, chat in plain words, GSTR-1 and GSTR-3B worked out from the books, two people |
+| Pro | A business that wants the returns filed and the channels connected | ₹799 a month or ₹7,999 a year | Essentials, plus filing GSTR-1 and GSTR-3B on the portal with the CA's approval, e-invoices and GSTIN checks, Amazon, Shopify, Razorpay and bank connections, WhatsApp, five people |
+| CA firm | A CA firm or a larger business with an accountant in-house | ₹2,499 a month or ₹24,999 a year | Pro, plus twenty-five people, approvals across clients, priority support |
 
-Launch offer: the first 500 businesses get Owner free for a year. The ask in return is a
-WhatsApp number we may message twice a month and a willingness to say what broke.
+After the trial, a business that has not chosen a plan is read-only: it can see, ask about
+and export its books, and nothing new is posted until it subscribes.
 
-Why these numbers: Tally Prime Silver is ₹750 a month equivalent on a one-time licence
-and needs a PC; Zoho Books starts at ₹899 a month for a registered business; Vyapar is
-₹3,399 a year on mobile. ₹299 undercuts the mobile competitor and is far under the PC
-ones, and the engines cost us almost nothing per business (section 5). Payroll is where
-the labour saved is largest, so it carries the higher price. Firms are priced per client
-because that is how they bill their own customers.
+Why these numbers (market check, November 2026):
+
+| Product | Entry price a year | Top price a year | Notes |
+|---|---|---|---|
+| Vyapar | about ₹3,400 | about ₹4,300 | Billing first, mobile and desktop, filing is export only |
+| myBillBook | about ₹3,500 | about ₹6,800 | No free plan, billing and GST reports |
+| Swipe | about ₹2,800 | about ₹3,800 | Billing and e-invoices |
+| Busy | about ₹5,000 | about ₹12,000 | Desktop accounting |
+| Zoho Books | ₹8,988 (Standard) | ₹35,988 (Premium) | Cloud accounting, GSTR-1 filing on higher plans |
+| TallyPrime | ₹8,100 rental (Silver) | ₹24,300 rental (Gold) | Desktop, ₹22,500 or ₹67,500 to buy, plus ₹4,500 a year TSS |
+
+Sources: codingclave.com best billing software for small business in India, aidukan.in
+myBillBook vs Vyapar vs Zoho, tallysupport.in Tally price list. Prices move, so check again
+before the Play products are created.
+
+Essentials sits in the Vyapar and myBillBook band, where a shopkeeper already expects to
+pay, and gives more than they do because the books are real double-entry books with GST
+worked out. Pro is under Zoho Books Standard while also filing the returns, which Zoho
+keeps for its higher plans, and adds the assistant and WhatsApp. CA firm is about a Tally
+Gold rental, the tool a firm already pays for. The engines cost almost nothing per business
+(section 5), so the margin is in every plan, and the portal and AI costs sit in Pro and CA
+firm, where they are used.
 
 What is never charged for: data export, the Tally file, the CSV for the CA, deleting the
-account. A business that stops paying keeps read access and every export for a year.
+account. A business that stops paying keeps read access and every export.
 
 ## 3. The website
 
@@ -104,7 +119,7 @@ today. Drafts to put in `docs/marketing/` once the name is decided:
 
 - **WhatsApp forward (the main channel).** 90 words, one screenshot of a preview card,
   the Play link. "Type 'invoice Sharma Traders 12000 GST 18%'. MyCA shows you the invoice,
-  you say yes, it is in your books and your GSTR-1. Free for the first 500 businesses."
+  you say yes, it is in your books and your GSTR-1. Try it free for 14 days."
 - **One-page PDF for CA firms.** The firm workbench: every client's books, shared views,
   working papers, the audit that names its rules. Price per client. A QR code to the site.
 - **30-second video script.** A shopkeeper on a counter, phone in hand, three messages,
@@ -113,10 +128,10 @@ today. Drafts to put in `docs/marketing/` once the name is decided:
 - **Launch post for LinkedIn and the CA community groups.** Lead with the audit: the only
   product that shows the rule, the section and the date behind every figure.
 - **Trade association pitch.** Local trader associations and market committees run WhatsApp
-  groups with thousands of owners; one demo evening per market with the free year as the
+  groups with thousands of owners; one demo evening per market with the 14-day trial as the
   hook.
 
-What we do not do: paid ads before the first 500 are in and the brief is landing weekly;
+What we do not do: paid ads before the first 500 paying businesses are in and the brief is landing weekly;
 claims about filing until live filing is on; "AI" in the headline (owners do not buy AI,
 they buy "it is done").
 
@@ -194,4 +209,4 @@ What is true today, and what cannot be promised:
    "can I make payroll", advance tax set-aside, cash forecast bands, restock.
 4. Launch gates from the security document: encryption of the books column, access log,
    retention policy, dependency scanning, a penetration test.
-5. Play closed testing with the first 50 businesses; the free year for the first 500.
+5. Play closed testing with the first 50 businesses, then the paid launch with the 14-day trial.

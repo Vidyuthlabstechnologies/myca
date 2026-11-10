@@ -25,20 +25,22 @@ class FakeStore implements StoreBilling {
 
 void main() {
   test('a plan reads its price and limits in plain words, preferring the Play Store price', () {
-    final free = PlanOffer.fromJson({'id': 'free', 'title': 'Free', 'monthlyRupees': 0, 'buyable': false, 'features': ['books'], 'limits': {'invoicesPerMonth': 30, 'members': 1}});
-    final pro = PlanOffer.fromJson({'id': 'pro', 'title': 'Pro', 'monthlyRupees': 499, 'buyable': true, 'productId': 'myca_pro_monthly', 'features': ['einvoice'], 'limits': {'invoicesPerMonth': null, 'members': 5}});
-    expect(planLimits(free), '30 invoices a month, just you');
+    final essentials = PlanOffer.fromJson({'id': 'essentials', 'title': 'Essentials', 'monthlyRupees': 399, 'yearlyRupees': 3999, 'buyable': false, 'features': ['post'], 'limits': {'invoicesPerMonth': null, 'members': 2}});
+    final pro = PlanOffer.fromJson({'id': 'pro', 'title': 'Pro', 'monthlyRupees': 799, 'buyable': true, 'productId': 'myca_pro_monthly', 'features': ['einvoice'], 'limits': {'invoicesPerMonth': null, 'members': 5}});
+    expect(planLimits(essentials), 'Unlimited invoices, up to 2 people');
     expect(planLimits(pro), 'Unlimited invoices, up to 5 people');
     expect(pro.productId, 'myca_pro_monthly');
-    expect(planPrice(free, null), 'Free');
-    expect(planPrice(pro, null), '₹499 a month');
+    expect(planPrice(essentials, null), '₹399 a month or ₹3,999 a year');
+    expect(planPrice(pro, null), '₹799 a month');
+    expect(wholeRupees(24999), '₹24,999');
+    expect(wholeRupees(150000), '₹1,50,000');
     expect(planPrice(pro, const StoreProduct(id: 'myca_pro_monthly', price: '₹549.00')), '₹549.00 a month on Google Play');
   });
 
   test('the entitlement line says trial, pending, on hold, ending or renewing', () {
     expect(entitlementLine(Entitlement.fromJson({'plan': 'pro', 'planTitle': 'Pro', 'trial': {'daysLeft': 1}})), 'Free trial of Pro: 1 day left.');
-    expect(entitlementLine(Entitlement.fromJson({'plan': 'free', 'planTitle': 'Free', 'subscription': {'status': 'pending', 'plan': 'pro'}})), startsWith('Google Play is still processing'));
-    expect(entitlementLine(Entitlement.fromJson({'plan': 'free', 'planTitle': 'Free', 'subscription': {'status': 'on_hold', 'plan': 'pro'}})), contains('could not take the last payment'));
+    expect(entitlementLine(Entitlement.fromJson({'plan': 'lapsed', 'planTitle': 'Trial ended', 'subscription': {'status': 'pending', 'plan': 'pro'}})), startsWith('Google Play is still processing'));
+    expect(entitlementLine(Entitlement.fromJson({'plan': 'lapsed', 'planTitle': 'Trial ended', 'subscription': {'status': 'on_hold', 'plan': 'pro'}})), contains('could not take the last payment'));
     final paid = Entitlement.fromJson({'plan': 'firm', 'planTitle': 'CA firm', 'manageUrl': 'https://play.google.com/store/account/subscriptions', 'subscription': {'status': 'active', 'plan': 'firm', 'renews': true, 'currentEnd': '2026-12-05T00:00:00.000Z'}});
     expect(paid.paying, isTrue);
     expect(paid.manageUrl, startsWith('https://play.google.com'));
@@ -47,6 +49,7 @@ void main() {
     expect(ending.paying, isTrue);
     expect(entitlementLine(ending), 'You are on CA firm until 2026-12-05. It will not renew.');
     expect(Entitlement.fromJson({'plan': 'pro', 'planTitle': 'Pro', 'trial': {'daysLeft': 3}, 'subscription': {'status': 'expired', 'plan': 'pro'}}).paying, isFalse);
+    expect(entitlementLine(Entitlement.fromJson({'plan': 'lapsed', 'planTitle': 'Trial ended'})), contains('read-only'));
   });
 
   test('a bought plan is sent to MyCA once and only finished with Google Play after MyCA accepts it', () async {

@@ -34,6 +34,7 @@ async function fakeSandbox(url, init = {}) {
     issued += 1;
     return reply({ status_cd: '1', access_token: `TAXPAYER-${issued}`, token_expiry: api.clock.now + 6 * HOUR, session_expiry: api.clock.now + 6 * HOUR });
   }
+  if (auth === 'PLATFORM-TOKEN' && path === '/tds/compliance/fvu/generate') return reply({ job_id: 'FVU-JOB-1', status: 'created', tan: body?.tan });
   if (!auth.startsWith('TAXPAYER-')) return new Response(JSON.stringify({ code: 401, message: 'wrong token' }), { status: 401 });
   if (path === '/gst/compliance/tax-payer/session/refresh') {
     issued += 1;
@@ -45,6 +46,11 @@ async function fakeSandbox(url, init = {}) {
   if (gstr1 && gstr1[3]) return reply({ status_cd: '1', data: { ack_num: 'AA2711260012345' } });
   if (/\/gstrs\/\d{4}\/\d{1,2}\/status$/.test(path)) return reply({ status_cd: '1', data: { action: 'SAVE', form_typ: 'R1', status_cd: 'P' } });
   if (/\/gstrs\/gstr-1\/\d{4}\/\d{1,2}\/new-proceed$/.test(path)) return reply({ status_cd: '1', data: { reference_id: 'REF-PROCEED-1' } });
+  const gstr3b = path.match(/^\/gst\/compliance\/tax-payer\/gstrs\/gstr-3b\/(\d{4})\/(\d{1,2})(\/[a-z-]+)?$/);
+  if (gstr3b && !gstr3b[3] && method === 'POST') return reply({ status_cd: '1', data: { reference_id: 'REF-3B-1' } });
+  if (gstr3b && gstr3b[3] === '/auto-liability-calc') return reply({ status_cd: '1', data: { tx_pmt: { tx_py: [{ trans_typ: 30002, liab_ldg_id: 4417 }] } } });
+  if (gstr3b && gstr3b[3] === '/offset-liability') return reply({ status_cd: '1', data: { Message: 'Payment of tax successfully done' } });
+  if (gstr3b && gstr3b[3] === '/file') return reply({ status_cd: '1', data: { ack_num: 'AB2711260098765' } });
   if (path === '/gst/compliance/tax-payer/evc/otp') return reply({ status_cd: '1' });
   return new Response(JSON.stringify({ code: 404, message: 'no route' }), { status: 404 });
 }
@@ -175,6 +181,71 @@ test('GSTR-1 goes save, check, submit, summary, EVC OTP and file with the portal
   assert.ok(books.filings.some((f) => f.returnType === 'GSTR-1' && f.arn === 'AA2711260012345'));
   const filings = await get(owner, 'gst-filings');
   assert.equal(filings.body.data.gstr1[0].filedAck, 'AA2711260012345', filings.text);
+});
+
+test('GSTR-3B goes save, liability, set-off with the portal ledger id, EVC OTP and file, and the TDS FVU job runs on the hosted server', async () => {
+  const period = thisMonth();
+  const early = await post(owner, 'gst-gstr3b', { step: 'offset', period });
+  assert.equal(early.body.error, 'NOT_SAVED', early.text);
+  seen.length = 0;
+  const savedReturn = await post(owner, 'gst-gstr3b', { step: 'save', period });
+  assert.equal(savedReturn.body.ok, true, savedReturn.text);
+  const saveCall = seen.find((call) => call.method === 'POST' && /gstr-3b\/\d{4}\/\d{1,2}$/.test(call.path));
+  assert.equal(saveCall.auth, 'TAXPAYER-1');
+  assert.equal(saveCall.body.gstin, GSTIN);
+  assert.equal(saveCall.body.sup_details.osup_det.camt, 25, JSON.stringify(saveCall.body));
+  const liability = await post(owner, 'gst-gstr3b', { step: 'liability', period });
+  assert.equal(liability.body.ok, true, liability.text);
+  await approveReview(period);
+  seen.length = 0;
+  const paid = await post(owner, 'gst-gstr3b', { step: 'offset', period });
+  assert.equal(paid.body.ok, true, paid.text);
+  const offsetCall = seen.find((call) => call.path.endsWith('/offset-liability'));
+  assert.equal(offsetCall.body.pdcash[0].liab_ldg_id, 4417, 'the ledger id the portal gave is sent back');
+  assert.equal(offsetCall.body.pdcash[0].cpd, 25);
+  const otp = await post(owner, 'gst-gstr3b', { step: 'otp', period, pan: 'AABCU9603R' });
+  assert.equal(otp.body.sent, true, otp.text);
+  assert.equal(seen.find((call) => call.path === '/gst/compliance/tax-payer/evc/otp').query.gstr, 'gstr-3b');
+  const filed = await post(owner, 'gst-gstr3b', { step: 'file', period, otp: '333333', pan: 'AABCU9603R' });
+  assert.equal(filed.body.ok, true, filed.text);
+  assert.equal(filed.body.ackNum, 'AB2711260098765');
+  const books = await api.books(owner.businessId);
+  assert.ok(books.filings.some((f) => f.returnType === 'GSTR-3B' && f.arn === 'AB2711260098765'), JSON.stringify(books.filings));
+  const unknown = await post(owner, 'gst-gstr3b', { step: 'guess', period });
+  assert.deepEqual(unknown.body.steps, ['save', 'liability', 'offset', 'otp', 'file']);
+
+  const fvu = await post(owner, 'tds-fvu', { quarter: 'Q2 2026-27', form: '26Q', tan: 'MUMN12345A' });
+  assert.equal(fvu.body.ok, true, fvu.text);
+  assert.equal(fvu.body.job.jobId, 'FVU-JOB-1');
+  const staffless = await api.db.query("select action from audit_log where business_id = $1 and action = 'gst_portal.tds_fvu'", [owner.businessId]);
+  assert.equal(staffless.rows.length, 1);
+});
+
+test('in live mode a GSTR-3B save needs a second person\'s approval asked by month, and a change to the books voids it', async () => {
+  const [y, m] = thisMonth().split('-').map(Number);
+  const period = m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, '0')}`;
+  await confirmTool('create_invoice', { partyName: 'Retail Mart', partyGstin: '27AAACH7409R1Z1', date: `${period}-10`, lines: [{ description: 'Fabric', hsn: '5208', qty: 1, rate: 800, gstRate: 5 }] });
+  const before = { provider: process.env.MYCA_PROVIDER_ENV, gsp: process.env.MYCA_GSP_ENV };
+  process.env.MYCA_PROVIDER_ENV = 'live';
+  process.env.MYCA_GSP_ENV = 'live';
+  try {
+    const held = await post(owner, 'gst-gstr3b', { step: 'save', period });
+    assert.equal(held.body.error, 'CA_APPROVAL_REQUIRED', held.text);
+    const asked = await post(owner, 'approvals', { operation: 'gstr3b_save', period });
+    assert.equal(asked.body.ok, true, asked.text);
+    const approvalId = asked.body.approval.approvalId;
+    assert.equal(asked.body.approval.operation, 'gstr3b_save');
+    const approved = await post(accountant, 'approvals', { approvalId, decision: 'approve' });
+    assert.equal(approved.body.ok, true, approved.text);
+    const saved = await post(owner, 'gst-gstr3b', { step: 'save', period, caApprovalId: approvalId });
+    assert.equal(saved.body.ok, true, saved.text);
+    await confirmTool('create_invoice', { partyName: 'Retail Mart', partyGstin: '27AAACH7409R1Z1', date: `${period}-12`, lines: [{ description: 'Late fabric', hsn: '5208', qty: 1, rate: 300, gstRate: 5 }] });
+    const stale = await post(owner, 'gst-gstr3b', { step: 'save', period, caApprovalId: approvalId });
+    assert.match(String(stale.body.error), /APPROVAL/, stale.text);
+  } finally {
+    process.env.MYCA_PROVIDER_ENV = before.provider;
+    process.env.MYCA_GSP_ENV = before.gsp;
+  }
 });
 
 test('the session is refreshed by the job before it lapses, a lapsed one asks for a new OTP, and staff cannot reach the portal', async () => {

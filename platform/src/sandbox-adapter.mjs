@@ -33,7 +33,27 @@ function einvoicePayload(params, state) {
   return { ok: false, error: 'PAYLOAD_REQUIRED', hint: 'Pass params.invoiceId or a NIC JSON params.payload.' };
 }
 
+const PORTAL_PAYLOAD = (what) => ({ params }) => (params.payload
+  ? { ok: true, payload: { ...periodParts(params), payload: params.payload } }
+  : { ok: false, error: 'PAYLOAD_REQUIRED', hint: `Pass the ${what} as params.payload.` });
+
+function portalError(res) {
+  const inner = res?.data?.data || {};
+  if (String(inner.status_cd ?? '') === '0' && inner.error) return { ok: false, error: String(inner.error.error_cd || 'PORTAL_REFUSED'), hint: String(inner.error.message || '') };
+  return null;
+}
+
+function ledgerIdsOf(data) {
+  const ids = {};
+  for (const row of [...(data?.tx_pmt?.tx_py || []), ...(data?.liab_ldg || []), ...(data?.tx_py || [])]) {
+    if (row && row.trans_typ != null && row.liab_ldg_id != null) ids[Number(row.trans_typ)] = Number(row.liab_ldg_id);
+  }
+  return ids;
+}
+
 const REQUEST_BUILDERS = {
+  gst_save_gstr3b: PORTAL_PAYLOAD('GSTN GSTR-3B JSON'),
+  gst_gstr3b_offset: PORTAL_PAYLOAD('GSTR-3B offset (pdcash and pditc)'),
   einvoice_generate: ({ params, state }) => einvoicePayload(params, state),
   gst_save_gstr1: ({ params }) => (params.payload
     ? { ok: true, payload: { ...periodParts(params), payload: params.payload } }
@@ -41,6 +61,35 @@ const REQUEST_BUILDERS = {
 };
 
 const ADAPTERS = {
+  gst_save_gstr3b: async ({ client, params }) => {
+    const { year, month } = periodParts(params);
+    if (!params.payload) return { ok: false, error: 'PAYLOAD_REQUIRED' };
+    const res = await client.saveGstr3b({ year, month, payload: params.payload });
+    return portalError(res) || fromClient(res, { saved: true, referenceId: res.data?.data?.data?.reference_id || res.data?.data?.reference_id || '' });
+  },
+
+  gst_gstr3b_liability: async ({ client, params }) => {
+    const { year, month } = periodParts(params);
+    const res = await client.gstr3bAutoLiability(year, month);
+    const inner = res.data?.data?.data || null;
+    return portalError(res) || fromClient(res, { liability: inner, ledgerIds: ledgerIdsOf(inner) });
+  },
+
+  gst_gstr3b_offset: async ({ client, params }) => {
+    const { year, month } = periodParts(params);
+    if (!params.payload) return { ok: false, error: 'PAYLOAD_REQUIRED' };
+    const res = await client.offsetGstr3bLiability({ year, month, payload: params.payload });
+    return portalError(res) || fromClient(res, { offset: true, message: String(res.data?.data?.data?.Message || res.data?.data?.data?.message || '') });
+  },
+
+  gst_file_gstr3b_evc: async ({ client, params }) => {
+    const { year, month } = periodParts(params);
+    if (!params.pan || !params.otp) return { ok: false, error: 'PAN_AND_EVC_OTP_REQUIRED' };
+    if (!params.payload) return { ok: false, error: 'PAYLOAD_REQUIRED' };
+    const res = await client.fileGstr3b({ year, month, pan: params.pan, otp: params.otp, payload: params.payload });
+    return portalError(res) || fromClient(res, { filed: true, ackNum: res.data?.data?.data?.ack_num || res.data?.data?.ack_num || null });
+  },
+
   gstin_verify: async ({ client, params }) => {
     const gstin = String(params.gstin || '').trim().toUpperCase();
     const res = await client.searchGstin(gstin);
@@ -143,7 +192,7 @@ const ADAPTERS = {
 
   gst_evc_otp: async ({ client, params }) => {
     if (!params.pan) return { ok: false, error: 'PAN_REQUIRED' };
-    const res = await client.generateEvcOtp(params.pan, 'gstr-1');
+    const res = await client.generateEvcOtp(params.pan, params.gstr === 'gstr-3b' ? 'gstr-3b' : 'gstr-1');
     return fromClient(res, { sent: true });
   },
 
@@ -220,6 +269,22 @@ export function adapterSupports(operationId) {
 const MOCK_TAG = { mock: true, simulated: true };
 
 const MOCK_ADAPTERS = {
+  gst_save_gstr3b: async ({ params }) => {
+    const { year, month } = periodParts(params);
+    if (!params.payload) return { ok: false, error: 'PAYLOAD_REQUIRED' };
+    return { ok: true, ...MOCK_TAG, data: { saved: true, referenceId: `MOCK-GSTR3B-${year}-${String(month).padStart(2, '0')}` } };
+  },
+
+  gst_gstr3b_liability: async () => ({ ok: true, ...MOCK_TAG, data: { liability: { mock: true }, ledgerIds: {} } }),
+
+  gst_gstr3b_offset: async ({ params }) => (params.payload ? { ok: true, ...MOCK_TAG, data: { offset: true, message: 'Payment of tax successfully done' } } : { ok: false, error: 'PAYLOAD_REQUIRED' }),
+
+  gst_file_gstr3b_evc: async ({ params }) => {
+    const { year, month } = periodParts(params);
+    if (!params.pan || !params.otp) return { ok: false, error: 'PAN_AND_EVC_OTP_REQUIRED' };
+    return { ok: true, ...MOCK_TAG, data: { filed: true, ackNum: `MOCK-ACK3B-${year}-${String(month).padStart(2, '0')}` } };
+  },
+
   gstin_verify: async ({ params }) => {
     const gstin = String(params.gstin || '').trim().toUpperCase();
     if (gstin.length !== 15) return { ok: false, error: 'INVALID_GSTIN_FORMAT' };
@@ -394,7 +459,7 @@ export function mockAdapterSupports(operationId) {
   return Boolean(MOCK_ADAPTERS[operationId]);
 }
 
-export async function runSandboxOperation({ operationId, actorId = '', actor = null, caApprovalId = '', params = {}, payloadSummary = {}, clientId = 'SELF' } = {}, deps = {}) {
+export async function runSandboxOperation({ operationId, actorId = '', actor = null, caApprovalId = '', params = {}, payloadSummary = {}, clientId = 'SELF', approvalSubject = null } = {}, deps = {}) {
   const operation = sandboxOperationById(operationId);
   if (!operation) return { ok: false, error: 'UNKNOWN_SANDBOX_OPERATION' };
 
@@ -416,6 +481,7 @@ export async function runSandboxOperation({ operationId, actorId = '', actor = n
     params,
     actor: requester,
     approvalId: caApprovalId,
+    ...(approvalSubject ? { approvalSubject } : {}),
     metadata: {
       operationId: operation.operationId,
       requirementId: operation.requirementId,

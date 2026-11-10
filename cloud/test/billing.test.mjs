@@ -82,11 +82,12 @@ test('plans are public, name the Play product for each paid plan, and say which 
   assert.equal(byId.pro.monthlyRupees, 599);
   assert.equal(byId.pro.productId, 'myca_pro_monthly');
   assert.equal(byId.firm.productId, 'myca_firm_monthly');
-  assert.equal(byId.free.buyable, false);
+  assert.equal(byId.free, undefined);
+  assert.equal(byId.essentials.buyable, false, 'a plan without a Play product cannot be bought');
   assert.equal(byId.pro.buyable, true);
 });
 
-test('a new business gets a 14-day trial of Pro, then falls to Free with its limits', async () => {
+test('a new business gets a 14-day trial of Pro, then turns read-only with the paid features off', async () => {
   const owner = await api.ownerWithBusiness('+919400000081', { name: 'Trial Traders', state: '29' });
   const first = await get(owner, 'subscription');
   assert.equal(first.body.plan, 'pro');
@@ -95,32 +96,41 @@ test('a new business gets a 14-day trial of Pro, then falls to Free with its lim
 
   await age(owner, 15);
   const later = await get(owner, 'subscription');
-  assert.equal(later.body.plan, 'free');
+  assert.equal(later.body.plan, 'lapsed');
   assert.equal(later.body.trial, null);
   assert.equal((await post(owner, 'connectors', { channel: 'razorpay', keyId: 'rzp_2' })).body.error, 'PLAN_REQUIRED');
   assert.equal((await post(owner, 'invitations', { phone: '+919400000089', role: 'staff' })).body.error, 'PLAN_REQUIRED');
   assert.equal((await post(owner, 'einvoice', { invoiceId: 'INV-0001' })).body.error, 'PLAN_REQUIRED');
 });
 
-test('Free stops at 30 invoices a month', async () => {
+test('there is no free plan: after the trial the books are read-only until a plan is chosen', async () => {
+  const plans = (await api.call('GET', '/v1/plans')).body.plans;
+  assert.deepEqual(plans.map((plan) => [plan.id, plan.monthlyRupees, plan.yearlyRupees]), [['essentials', 399, 3999], ['pro', 599, 7999], ['firm', 2499, 24999]]);
+  assert.ok(plans.every((plan) => plan.monthlyRupees > 0));
   const owner = await api.ownerWithBusiness('+919400000082', { name: 'Small Shop', state: '29' });
-  await age(owner, 20);
   const month = new Date(api.clock.now + 5.5 * 60 * 60 * 1000).toISOString().slice(0, 7);
-  let held;
-  for (let i = 0; i < 31; i += 1) {
-    held = await post(owner, 'propose', { name: 'create_invoice', args: { ...SALE, date: `${month}-01` } });
-    if (held.body.error === 'PLAN_LIMIT_REACHED') break;
-    const posted = await post(owner, 'confirm', { token: held.body.preview.token });
-    assert.equal(posted.body.posted, true, posted.text);
-  }
-  assert.equal(held.body.error, 'PLAN_LIMIT_REACHED');
-  assert.equal(held.body.cap, 30);
+  const held = await post(owner, 'propose', { name: 'create_invoice', args: { ...SALE, date: `${month}-01` } });
+  assert.ok(held.body.preview, held.text);
+  await age(owner, 20);
+  const refused = await post(owner, 'confirm', { token: held.body.preview.token });
+  assert.equal(refused.body.error, 'PLAN_REQUIRED', refused.text);
+  assert.match(refused.body.hint, /read-only/);
+  assert.equal((await post(owner, 'propose', { name: 'create_invoice', args: { ...SALE, date: `${month}-01` } })).body.error, 'PLAN_REQUIRED');
+  assert.equal((await post(owner, 'uploads', { name: 'a.csv', content: 'x' })).body.error, 'PLAN_REQUIRED');
+  const asked = await post(owner, 'ask', { message: 'invoice Kiran Stores 5000 GST 18%' });
+  assert.match(asked.body.reply, /read-only/, asked.text);
+  assert.equal(asked.body.preview, undefined);
+  const yes = await post(owner, 'ask', { message: 'yes' });
+  assert.equal(yes.body.posted, undefined, yes.text);
+  const read = await post(owner, 'ask', { message: 'who owes me?' });
+  assert.doesNotMatch(read.body.reply, /read-only/, read.text);
+  assert.equal((await get(owner, 'export')).status, 200);
 });
 
 test('a Play purchase is checked with Google, acknowledged, and turns the plan on; renewal notices keep it current', async () => {
   const owner = await api.ownerWithBusiness('+919400000083', { name: 'Paying Co', state: '29' });
   await age(owner, 20);
-  assert.equal((await get(owner, 'subscription')).body.plan, 'free');
+  assert.equal((await get(owner, 'subscription')).body.plan, 'lapsed');
   assert.equal((await post(owner, 'subscription', { productId: 'gold', purchaseToken: 'tok-x' })).body.error, 'UNKNOWN_PLAN');
   assert.equal((await post(owner, 'subscription', { productId: 'myca_firm_monthly', purchaseToken: 'tok-missing' })).body.error, 'PURCHASE_NOT_FOUND');
 
@@ -147,11 +157,11 @@ test('a Play purchase is checked with Google, acknowledged, and turns the plan o
 
   purchase('tok-firm', { productId: 'myca_firm_monthly', state: 'EXPIRED', expires: api.clock.now - DAY });
   await notify('tok-firm', { type: 13 });
-  assert.equal((await get(owner, 'subscription')).body.plan, 'free');
+  assert.equal((await get(owner, 'subscription')).body.plan, 'lapsed');
 
   purchase('tok-firm', { productId: 'myca_firm_monthly', state: 'ON_HOLD', expires: api.clock.now + 5 * DAY });
   await notify('tok-firm', { type: 5 });
-  assert.equal((await get(owner, 'subscription')).body.plan, 'free', 'a payment on hold does not keep the plan');
+  assert.equal((await get(owner, 'subscription')).body.plan, 'lapsed', 'a payment on hold does not keep the plan');
 });
 
 test('a purchase the app never reported is picked up from the Play notice, and one token cannot pay for two businesses', async () => {
@@ -212,7 +222,7 @@ test('without Play notices the daily job renews a paid plan from Google, and a l
   assert.equal((await quiet.verify(later.businessId, null, { productId: 'myca_pro_monthly', purchaseToken: 'tok-later' })).ok, true);
 
   api.clock.advance(5 * DAY);
-  assert.equal((await quiet.entitlement(owner.businessId)).plan, 'free', 'past the end and the grace days the stored plan has run out');
+  assert.equal((await quiet.entitlement(owner.businessId)).plan, 'lapsed', 'past the end and the grace days the stored plan has run out');
   purchase('tok-renew', { expires: api.clock.now + 29 * DAY, accountId: owner.businessId });
   purchase('tok-lapse', { state: 'EXPIRED', expires: api.clock.now - 4 * DAY, accountId: lapsing.businessId });
   const asked = calls.length;
@@ -220,7 +230,7 @@ test('without Play notices the daily job renews a paid plan from Google, and a l
   assert.deepEqual({ checked: out.checked, changed: out.changed, failed: out.failed }, { checked: 2, changed: 2, failed: 0 });
   assert.ok(!calls.slice(asked).some((c) => c.url.includes('tok-later')), 'a plan far from its end is not looked up');
   assert.equal((await quiet.entitlement(owner.businessId)).plan, 'pro');
-  assert.equal((await quiet.entitlement(lapsing.businessId)).plan, 'free');
+  assert.equal((await quiet.entitlement(lapsing.businessId)).plan, 'lapsed');
   assert.equal((await quiet.entitlement(lapsing.businessId)).subscription.status, 'expired');
   assert.equal((await quiet.refreshDue()).checked, 0, 'an expired plan and a renewed one are not asked about again');
   api.clock.advance(-5 * DAY);

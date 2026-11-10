@@ -265,9 +265,13 @@ terraform apply -var-file=myca.tfvars \
 
 Play setup (after `terraform apply`):
 
-1. Play Console > Monetize > Subscriptions: create two subscriptions, for example
-   `myca_pro_monthly` and `myca_firm_monthly`, each with a monthly auto-renewing base plan and
-   a price. Set `play_product_pro` and `play_product_firm` to their product ids.
+1. Play Console > Monetize > Subscriptions: create three subscriptions, for example
+   `myca_essentials`, `myca_pro` and `myca_firm`. Give each a monthly and a yearly
+   auto-renewing base plan: Essentials ₹399 a month or ₹3,999 a year, Pro ₹799 or ₹7,999, CA
+   firm ₹2,499 or ₹24,999. Set `play_product_essentials`, `play_product_pro` and
+   `play_product_firm` to their product ids. There is no free plan: after the 14-day Pro
+   trial the books stay readable and exportable, and nothing new is posted until a plan is
+   bought.
 2. Play Console > Users and permissions: invite the `api_service_account` output with "View
    financial data" and "Manage orders and subscriptions".
 3. Play Console > Monetize > Monetization setup: paste the `play_notifications_topic` output as
@@ -281,8 +285,11 @@ The Windows app shows the plan and says it is bought in the Android app.
 ## Not built yet
 
 - The Google Cloud project itself, and the first `terraform apply` of `infra/cloud`.
-- A WhatsApp Business account on the Meta Cloud API: the webhook (`GET`/`POST /v1/whatsapp/webhook`, `src/whatsapp.mjs`) verifies with `MYCA_WHATSAPP_VERIFY_TOKEN`, checks the `X-Hub-Signature-256` with `MYCA_WHATSAPP_APP_SECRET`, maps the sender's number to a member and runs the same chat as the app (preview, then "yes"), replying through `MYCA_WHATSAPP_PHONE_NUMBER_ID` and `MYCA_WHATSAPP_ACCESS_TOKEN`. Without those four the route answers 404. A member of several businesses is asked which and "use 2" is remembered.
-- An SMS provider account: the Twilio and MSG91 senders exist (`src/sms-sender.mjs`, chosen by `MYCA_SMS_PROVIDER`, Terraform `sms_provider` and `sms_secret`); without one Google Sign-In is the only sign-in.
+- A WhatsApp number on the gateway. Two routes are built (`src/whatsapp.mjs`, `src/waha.mjs`), picked by `MYCA_WHATSAPP_PROVIDER` (`waha` when `MYCA_WAHA_URL` is set, else `meta`):
+  - WAHA, a self-hosted WhatsApp HTTP API on an ordinary WhatsApp number (unofficial: WhatsApp may ban a number it sees as automated, so use a number you can lose). `POST /v1/whatsapp/waha` takes WAHA's `message` events, checks the `X-Webhook-Hmac` sha512 signature with `MYCA_WAHA_WEBHOOK_SECRET` (Terraform generates it, output `waha_webhook_secret`), ignores own messages, groups, channels and media, looks up senders known only by a privacy id, and replies through `POST {MYCA_WAHA_URL}/api/sendText` with `MYCA_WAHA_API_KEY` and session `MYCA_WAHA_SESSION` (default `default`). Without the secret the route answers 404. `MYCA_SMS_PROVIDER=whatsapp` sends sign-in codes through the same gateway.
+  - The Meta Cloud API: the webhook (`GET`/`POST /v1/whatsapp/webhook`) verifies with `MYCA_WHATSAPP_VERIFY_TOKEN`, checks the `X-Hub-Signature-256` with `MYCA_WHATSAPP_APP_SECRET` and replies through `MYCA_WHATSAPP_PHONE_NUMBER_ID` and `MYCA_WHATSAPP_ACCESS_TOKEN`. Without those four the route answers 404.
+  Both map the sender's number to a member and run the same chat as the app (preview, then "yes"); a member of several businesses is asked which and "use 2" is remembered. WhatsApp chat is a Pro and CA firm feature when Play billing is on.
+- An SMS provider account: the Twilio, MSG91 and WhatsApp-gateway senders exist (`src/sms-sender.mjs`, chosen by `MYCA_SMS_PROVIDER`: `twilio`, `msg91` or `whatsapp`); without one Google Sign-In is the only sign-in.
 - Telling an invited person. An invitation is only visible to them after they sign in
   with that number; no SMS is sent because there is no sender yet.
 - Per-business government credentials, so e-invoice and filing actions cannot be proposed. Channel credentials (Amazon, Shopify, Razorpay, Zoho, and for a US business Plaid, TaxJar, Gusto and Track1099) are per business: `GET`/`POST /v1/businesses/:id/connectors` list and save them (owner only), sealed with AES-256-GCM under a key derived per business from `MYCA_CONNECTOR_KEY`, and secrets are never returned. `POST .../plaid-link-token` and `.../plaid-exchange` run Plaid Link from the app, `POST .../gusto-connect` returns the Gusto consent link whose state names the business and `GET /v1/oauth/gusto/callback` (no token; the state is checked once) finishes it on the API host (`MYCA_PUBLIC_URL`, else the request host, forms the redirect URI), and `POST .../taxjar-rate` records a sales tax rate in that business's books (2026-10-22). `POST .../connector-sync` and the nightly job pull reports through the action gate only when `MYCA_ENABLE_CHANNEL_PULLS=1` (Terraform `enable_channel_pulls`, off by default): that switch opens read-only channel pulls alone; government, model and write actions stay behind `MYCA_ENABLE_LIVE_CALLS`, which the hosted API still refuses.

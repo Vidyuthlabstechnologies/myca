@@ -929,6 +929,30 @@ export const TOOL_ARG_SCHEMAS = {
     required: ['period', 'otp'],
     properties: { period: { type: 'string', pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' }, gstin: REGISTRATION_ARG, otp: { type: 'string', pattern: '^[0-9]{6}$' }, pan: { type: 'string', maxLength: 10 }, caApprovalId: { type: 'string', maxLength: 40 } },
   },
+  save_gstr3b_portal: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['period'],
+    properties: { period: { type: 'string', pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' }, gstin: REGISTRATION_ARG, caApprovalId: { type: 'string', maxLength: 40 } },
+  },
+  gstr3b_portal_liability: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['period'],
+    properties: { period: { type: 'string', pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' }, gstin: REGISTRATION_ARG },
+  },
+  offset_gstr3b_portal: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['period'],
+    properties: { period: { type: 'string', pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' }, gstin: REGISTRATION_ARG, caApprovalId: { type: 'string', maxLength: 40 } },
+  },
+  file_gstr3b_portal: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['period', 'otp'],
+    properties: { period: { type: 'string', pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' }, gstin: REGISTRATION_ARG, otp: { type: 'string', pattern: '^[0-9]{6}$' }, pan: { type: 'string', maxLength: 10 }, caApprovalId: { type: 'string', maxLength: 40 } },
+  },
   generate_tds_fvu: {
     type: 'object',
     additionalProperties: false,
@@ -1964,6 +1988,11 @@ export const TOOL_ARG_SCHEMAS = {
       note: { type: 'string' },
       clientId: { type: 'string' },
       params: { type: 'object' },
+      period: { type: 'string', pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' },
+      gstin: REGISTRATION_ARG,
+      quarter: { type: 'string', pattern: '^Q[1-4] [0-9]{4}-[0-9]{2}$' },
+      form: { type: 'string', maxLength: 8 },
+      tan: { type: 'string', maxLength: 10 },
     },
   },
   approval_decide: {
@@ -2244,6 +2273,10 @@ const TOOL_RISK = {
   set_channel_connector: 'writes_books',
   save_gstr1_portal: 'external_government_api',
   file_gstr1_portal: 'external_government_api',
+  save_gstr3b_portal: 'external_government_api',
+  gstr3b_portal_liability: 'external_government_api',
+  offset_gstr3b_portal: 'external_government_api',
+  file_gstr3b_portal: 'external_government_api',
   generate_tds_fvu: 'external_government_api',
   portal_status: 'read_only',
   ask_knowledge: 'read_only',
@@ -3343,6 +3376,12 @@ export function planLocalToolCall(state, message) {
     if (saving && !isNegated(text)) return { kind: 'tool', name: 'save_gstr1_portal', args: { period: saving[1], ...(saving[2] ? { gstin: saving[2].toUpperCase() } : {}), ...(saving[3] ? { caApprovalId: saving[3].toUpperCase() } : {}) } };
     const filing = /^file\s+gstr-?1\s+(?:for\s+)?(\d{4}-\d{2})(?:\s+(?:for|under)\s+([0-9]{2}[A-Z0-9]{13}))?\s+(?:with\s+)?otp\s+(\d{6})(?:\s+(?:with\s+)?approval\s+(APR-\d+))?\s*$/i.exec(text.trim());
     if (filing && !isNegated(text)) return { kind: 'tool', name: 'file_gstr1_portal', args: { period: filing[1], otp: filing[3], ...(filing[2] ? { gstin: filing[2].toUpperCase() } : {}), ...(filing[4] ? { caApprovalId: filing[4].toUpperCase() } : {}) } };
+    const saving3b = /^save\s+gstr-?3b\s+(?:for\s+)?(\d{4}-\d{2})(?:\s+(?:for|under)\s+([0-9]{2}[A-Z0-9]{13}))?\s+(?:to|on)\s+(?:the\s+)?portal(?:\s+(?:with\s+)?approval\s+(APR-\d+))?\s*$/i.exec(text.trim());
+    if (saving3b && !isNegated(text)) return { kind: 'tool', name: 'save_gstr3b_portal', args: { period: saving3b[1], ...(saving3b[2] ? { gstin: saving3b[2].toUpperCase() } : {}), ...(saving3b[3] ? { caApprovalId: saving3b[3].toUpperCase() } : {}) } };
+    const paying3b = /^(?:pay|set\s*off|offset)\s+(?:the\s+)?gstr-?3b(?:\s+tax)?\s+(?:for\s+)?(\d{4}-\d{2})(?:\s+(?:for|under)\s+([0-9]{2}[A-Z0-9]{13}))?\s+on\s+(?:the\s+)?portal(?:\s+(?:with\s+)?approval\s+(APR-\d+))?\s*$/i.exec(text.trim());
+    if (paying3b && !isNegated(text)) return { kind: 'tool', name: 'offset_gstr3b_portal', args: { period: paying3b[1], ...(paying3b[2] ? { gstin: paying3b[2].toUpperCase() } : {}), ...(paying3b[3] ? { caApprovalId: paying3b[3].toUpperCase() } : {}) } };
+    const filing3b = /^file\s+gstr-?3b\s+(?:for\s+)?(\d{4}-\d{2})(?:\s+(?:for|under)\s+([0-9]{2}[A-Z0-9]{13}))?\s+(?:with\s+)?otp\s+(\d{6})(?:\s+(?:with\s+)?approval\s+(APR-\d+))?\s*$/i.exec(text.trim());
+    if (filing3b && !isNegated(text)) return { kind: 'tool', name: 'file_gstr3b_portal', args: { period: filing3b[1], otp: filing3b[3], ...(filing3b[2] ? { gstin: filing3b[2].toUpperCase() } : {}), ...(filing3b[4] ? { caApprovalId: filing3b[4].toUpperCase() } : {}) } };
     const fvu = /^(?:generate|make|prepare)\s+(?:the\s+)?fvu\s+(?:for\s+)?(Q[1-4]\s+\d{4}-\d{2})(?:\s+(24Q|26Q|27Q))?(?:\s+(?:with\s+)?approval\s+(APR-\d+))?\s*$/i.exec(text.trim());
     if (fvu && !isNegated(text)) return { kind: 'tool', name: 'generate_tds_fvu', args: { quarter: fvu[1].toUpperCase(), ...(fvu[2] ? { form: fvu[2].toUpperCase() } : {}), ...(fvu[3] ? { caApprovalId: fvu[3].toUpperCase() } : {}) } };
     if (/\bportal\s+(?:status|saves)\b|\bwhat\s+(?:is|was)\s+saved\s+to\s+the\s+portal\b|\bfvu\s+jobs?\b/i.test(text)) return { kind: 'tool', name: 'portal_status', args: {} };

@@ -190,7 +190,7 @@ class ConnectorList {
 }
 
 class PlanOffer {
-  const PlanOffer({required this.id, required this.title, required this.monthlyRupees, required this.buyable, required this.features, required this.invoicesPerMonth, required this.members, this.productId = ''});
+  const PlanOffer({required this.id, required this.title, required this.monthlyRupees, this.yearlyRupees = 0, required this.buyable, required this.features, required this.invoicesPerMonth, required this.members, this.productId = ''});
 
   factory PlanOffer.fromJson(Map<String, dynamic> map) {
     final limits = map['limits'] is Map ? (map['limits'] as Map).cast<String, dynamic>() : const <String, dynamic>{};
@@ -198,6 +198,7 @@ class PlanOffer {
       id: '${map['id'] ?? ''}',
       title: '${map['title'] ?? ''}',
       monthlyRupees: map['monthlyRupees'] is num ? (map['monthlyRupees'] as num).toInt() : 0,
+      yearlyRupees: map['yearlyRupees'] is num ? (map['yearlyRupees'] as num).toInt() : 0,
       buyable: map['buyable'] == true,
       features: _strings(map['features']),
       invoicesPerMonth: limits['invoicesPerMonth'] is num ? (limits['invoicesPerMonth'] as num).toInt() : null,
@@ -209,6 +210,7 @@ class PlanOffer {
   final String id;
   final String title;
   final int monthlyRupees;
+  final int yearlyRupees;
   final bool buyable;
   final List<String> features;
   final int? invoicesPerMonth;
@@ -223,7 +225,7 @@ class Entitlement {
     final trial = map['trial'] is Map ? (map['trial'] as Map).cast<String, dynamic>() : null;
     final sub = map['subscription'] is Map ? (map['subscription'] as Map).cast<String, dynamic>() : null;
     return Entitlement(
-      plan: '${map['plan'] ?? 'free'}',
+      plan: '${map['plan'] ?? 'lapsed'}',
       planTitle: '${map['planTitle'] ?? ''}',
       enforced: map['enforced'] == true,
       trialDaysLeft: trial == null ? null : (trial['daysLeft'] is num ? (trial['daysLeft'] as num).toInt() : 0),
@@ -247,7 +249,7 @@ class Entitlement {
   final bool testPurchase;
   final String manageUrl;
 
-  bool get paying => const {'active', 'in_grace_period', 'canceled'}.contains(status) && subscriptionPlan == plan && plan != 'free';
+  bool get paying => const {'active', 'in_grace_period', 'canceled'}.contains(status) && subscriptionPlan == plan && plan != 'lapsed';
 }
 
 class PlaidLinkToken {
@@ -829,8 +831,10 @@ class CloudSession {
     }));
   }
 
-  Future<Map<String, dynamic>> gstr1Step(String step, {required String period, String gstin = '', String otp = '', String pan = ''}) async {
-    return _accepted(await call('POST', '$_books/gst-gstr1', {
+  Future<Map<String, dynamic>> gstr1Step(String step, {required String period, String gstin = '', String otp = '', String pan = ''}) => returnStep('gstr1', step, period: period, gstin: gstin, otp: otp, pan: pan);
+
+  Future<Map<String, dynamic>> returnStep(String form, String step, {required String period, String gstin = '', String otp = '', String pan = ''}) async {
+    return _accepted(await call('POST', '$_books/gst-${form == 'gstr3b' ? 'gstr3b' : 'gstr1'}', {
       'step': step,
       'period': period,
       if (gstin.isNotEmpty) 'gstin': gstin,

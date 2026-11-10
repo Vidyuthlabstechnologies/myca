@@ -1,3 +1,5 @@
+import { createWahaSender, wahaConfigFromEnv } from './waha.mjs';
+
 const TIMEOUT_MS = 15000;
 
 function masked(phone) {
@@ -59,6 +61,10 @@ export function smsSenderFromEnv(rawEnv = process.env, { fetchImpl = fetch, log 
   const provider = String(env.MYCA_SMS_PROVIDER || '').trim().toLowerCase();
   if (!provider) return null;
   if (provider === 'twilio') return createTwilioSender({ accountSid: env.MYCA_SMS_TWILIO_SID, authToken: env.MYCA_SMS_TWILIO_TOKEN, from: env.MYCA_SMS_TWILIO_FROM, fetchImpl, log });
+  if (provider === 'whatsapp') {
+    const waha = wahaConfigFromEnv(env);
+    return createWahaSender({ baseUrl: waha.baseUrl, apiKey: waha.apiKey, session: waha.session, fetchImpl, log });
+  }
   if (provider === 'msg91') return createMsg91Sender({ authKey: env.MYCA_SMS_MSG91_AUTHKEY, templateId: env.MYCA_SMS_MSG91_TEMPLATE_ID, fetchImpl, log });
-  throw new Error(`unknown MYCA_SMS_PROVIDER "${provider}": use twilio or msg91`);
+  throw new Error(`unknown MYCA_SMS_PROVIDER "${provider}": use twilio, msg91 or whatsapp`);
 }

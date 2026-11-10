@@ -43,6 +43,7 @@ class FakeCloud {
   bool gstPortalAvailable = true;
   final gstPortalSessions = <String, Map<String, Object?>>{};
   final gstr1Steps = <Map<String, dynamic>>[];
+  final gstr3bSteps = <Map<String, dynamic>>[];
   int plaidLinkTokens = 0;
   int gustoConnects = 0;
   bool connectorsUnavailable = false;
@@ -450,6 +451,15 @@ class FakeCloud {
       if (step == 'summary') return _json(200, {'ok': true, 'sections': [{'section': 'B2B', 'records': 2, 'value': 20000, 'tax': 3600}]});
       if (step == 'otp') return _json(200, {'ok': true, 'sent': true});
       if (step == 'file') return _json(200, {'ok': true, 'ackNum': 'AA2711260012345'});
+    }
+    if (path == '$books/gst-gstr3b' && request.method == 'POST') {
+      gstr3bSteps.add(body);
+      final step = body['step'];
+      if (step == 'save') return _json(200, {'ok': true, 'save': {'referenceId': 'REF-3B'}, 'sections': {'outward': {'txval': 12000, 'iamt': 240, 'camt': 250, 'samt': 250, 'csamt': 0}, 'credit': {'iamt': 0, 'camt': 100, 'samt': 100, 'csamt': 0}}});
+      if (step == 'liability') return _json(200, {'ok': true, 'liability': {}});
+      if (step == 'offset') return _json(200, {'ok': true, 'creditUsed': 200, 'cashPaid': 540});
+      if (step == 'otp') return _json(200, {'ok': true, 'sent': true});
+      if (step == 'file') return _json(200, {'ok': true, 'ackNum': 'AA2711260099999'});
     }
     if (path == '$books/plaid-link-token') {
       plaidLinkTokens += 1;

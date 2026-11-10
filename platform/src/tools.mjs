@@ -10,7 +10,8 @@ import { regArg, companyAs, forRegistration, setRegistration, retireRegistration
 import { recordStockTransfer } from './stock-transfers.mjs';
 import { valueInventory, listInventoryValuations } from './inventory.mjs';
 import { saveChannelConfig, listConnectors, fetchChannelReport, syncChannels } from './channel-connectors.mjs';
-import { saveGstr1ToPortal, fileGstr1OnPortal, generateTdsFvu, portalStatus } from './portal-filing.mjs';
+import { saveGstr1ToPortal, fileGstr1OnPortal, generateTdsFvu, portalStatus, filingApprovalSubject } from './portal-filing.mjs';
+import { saveGstr3bToPortal, gstr3bPortalLiability, offsetGstr3bOnPortal, fileGstr3bOnPortal } from './gstr3b-portal.mjs';
 import { aaBankFeed } from './aa-import.mjs';
 import { askKnowledge } from './knowledge.mjs';
 import { askTax, reviewIncomeTaxReturn, taxModules, taxPlan } from './tax-assistant.mjs';
@@ -1695,13 +1696,15 @@ export const TOOLS = [
     name: 'approval_request',
     title: 'Request CA approval',
     description: 'Open a CA approval request for a gated external action (e.g. e-invoice generate, GST filing). The approval is bound to the client and to the exact action parameters passed as params. Maker-checker enforced.',
-    args: ['operationId', 'requirementId', 'requestedBy', 'note', 'clientId', 'params'],
+    args: ['operationId', 'requirementId', 'requestedBy', 'note', 'clientId', 'params', 'period', 'gstin', 'quarter', 'form', 'tan'],
     run: (state, args = {}) => {
+      const forFiling = !args.params && (args.period || args.quarter) ? filingApprovalSubject(state, args.operationId, args) : null;
+      if (forFiling && !forFiling.ok) return fail(forFiling.error, forFiling);
       const out = requestApproval(state, {
         operationId: args.operationId,
         requirementId: args.requirementId || '',
         clientId: args.clientId || activeClientId(state),
-        params: args.params || {},
+        params: forFiling ? forFiling.subject : args.params || {},
         actor: resolveToolActor(args, 'requestedBy'),
         payloadSummary: args.payloadSummary || {},
         note: args.note || '',
@@ -2113,6 +2116,46 @@ export const TOOLS = [
     args: ['period', 'gstin', 'otp', 'pan', 'caApprovalId'],
     run: async (state, args = {}) => {
       const out = await fileGstr1OnPortal(state, args, resolveToolActor(args));
+      return out.ok ? ok(out) : fail(out.error, out);
+    },
+  },
+  {
+    name: 'save_gstr3b_portal',
+    title: 'Save GSTR-3B to the GST portal',
+    description: 'Build the GSTR-3B of a month (and registration) from the books in the GSTN format (outward supplies, zero-rated, nil and non-GST, unregistered inter-state supplies by place of supply, input credit, interest) and save it to the GST portal through the GSP behind the action gate. Pays and files nothing.',
+    args: ['period', 'gstin', 'caApprovalId'],
+    run: async (state, args = {}) => {
+      const out = await saveGstr3bToPortal(state, args, resolveToolActor(args));
+      return out.ok ? ok(out) : fail(out.error, out);
+    },
+  },
+  {
+    name: 'gstr3b_portal_liability',
+    title: 'GSTR-3B liability from the portal',
+    description: 'Read the liability the GST portal worked out for a GSTR-3B already saved, and keep its ledger ids for the set-off. Read-only.',
+    args: ['period', 'gstin'],
+    run: async (state, args = {}) => {
+      const out = await gstr3bPortalLiability(state, args, resolveToolActor(args));
+      return out.ok ? ok(out) : fail(out.error, out);
+    },
+  },
+  {
+    name: 'offset_gstr3b_portal',
+    title: 'Pay GSTR-3B tax on the GST portal',
+    description: 'Set off the GSTR-3B tax of a month on the GST portal: the input credit in the order the law sets, the rest and any interest and late fee from the cash ledger (paid by challan beforehand). Only after the GST review for the month is approved and only if the books have not changed since the save. Cannot be undone.',
+    args: ['period', 'gstin', 'caApprovalId'],
+    run: async (state, args = {}) => {
+      const out = await offsetGstr3bOnPortal(state, args, resolveToolActor(args));
+      return out.ok ? ok(out) : fail(out.error, out);
+    },
+  },
+  {
+    name: 'file_gstr3b_portal',
+    title: 'File GSTR-3B on the GST portal (EVC)',
+    description: 'File the GSTR-3B saved to the portal for a month with the EVC OTP, after the tax was set off, through the GSP behind the action gate. Records the filing with its acknowledgement. Cannot be undone.',
+    args: ['period', 'gstin', 'otp', 'pan', 'caApprovalId'],
+    run: async (state, args = {}) => {
+      const out = await fileGstr3bOnPortal(state, args, resolveToolActor(args));
       return out.ok ? ok(out) : fail(out.error, out);
     },
   },

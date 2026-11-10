@@ -56,6 +56,10 @@ export const ACTION_CLASSES = Object.freeze(Object.assign(Object.create(null), {
   gst_save_gstr1: write('sandbox_operation', ['sandbox.saveGstr1']),
   gst_file_gstr1_evc: write('sandbox_operation', ['sandbox.fileGstr1'], IRREVERSIBLE),
   gst_gstr1_processing: read('sandbox_operation', ['sandbox.returnProcessingStatus']),
+  gst_save_gstr3b: write('sandbox_operation', ['sandbox.saveGstr3b']),
+  gst_gstr3b_liability: read('sandbox_operation', ['sandbox.gstr3bAutoLiability']),
+  gst_gstr3b_offset: write('sandbox_operation', ['sandbox.offsetGstr3bLiability'], IRREVERSIBLE),
+  gst_file_gstr3b_evc: write('sandbox_operation', ['sandbox.fileGstr3b'], IRREVERSIBLE),
   gst_gstr1_proceed: write('sandbox_operation', ['sandbox.newProceedGstr1']),
   gst_gstr1_summary: read('sandbox_operation', ['sandbox.gstr1Summary']),
   gst_evc_otp: write('sandbox_operation', ['sandbox.generateEvcOtp']),
@@ -479,13 +483,15 @@ export async function performExternalAction(state, request = {}, execute) {
   }
   const params = request.params ?? {};
   if (!isPlainJson(params)) return { ok: false, error: 'PARAMS_NOT_PLAIN_JSON', actionId };
+  const subject = request.approvalSubject ?? null;
+  if (subject !== null && (!isRecord(subject) || !isPlainJson(subject))) return { ok: false, error: 'APPROVAL_SUBJECT_NOT_PLAIN_JSON', actionId };
   const action = {
     state,
     actionId,
     entry: item,
     clientId: normalizeClientId(request.clientId),
     actor,
-    paramsHash: paramsHash(params),
+    paramsHash: paramsHash(subject || params),
     metadata: redactSecrets(request.metadata || {}),
   };
 

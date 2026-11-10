@@ -8,6 +8,7 @@ import { marginsWords, stockWords, stockMovesWords } from './sku-margins.mjs';
 import { valuationWords, valuationsWords } from './inventory.mjs';
 import { connectorsWords, fetchWords } from './channel-connectors.mjs';
 import { portalWords } from './portal-filing.mjs';
+import { gstr3bPortalWords } from './gstr3b-portal.mjs';
 import { knowledgeWords } from './knowledge.mjs';
 import { zohoPushWords } from './zoho-push.mjs';
 import { closeWords } from './daily-close.mjs';
@@ -618,6 +619,7 @@ function fmtToolResultCore(name, result, args) {
   if (name === 'value_inventory' && result.valuation) return valuationWords(result, money);
   if (name === 'channel_connectors' && result.data) return connectorsWords(result.data);
   if (['save_gstr1_portal', 'file_gstr1_portal', 'generate_tds_fvu'].includes(name) && result.data) return portalWords(name, result.data);
+  if (['save_gstr3b_portal', 'offset_gstr3b_portal', 'file_gstr3b_portal'].includes(name) && result.data) return gstr3bPortalWords(name, result.data);
   if (name === 'portal_status' && result.data) return portalWords(name, result);
   if (name === 'ask_knowledge') return knowledgeWords(result);
   if (name === 'ask_tax' && result.ok) return askTaxWords(result);
