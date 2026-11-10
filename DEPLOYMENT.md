@@ -128,6 +128,7 @@ source of truth: a value set only on someone's laptop is reverted by the next CI
 | `MYCA_CLOUD_URL` | the `api_url` output of `infra/cloud`, or empty for a local-mode app; a `v*` tag build refuses anything but an https address | Android release builds (`build-android`) |
 | `MYCA_GOOGLE_SERVER_CLIENT_ID` | the web OAuth client id the hosted API accepts for Google sign-in, or empty | Android release builds (`build-android`) |
 | `MYCA_OIDC_CLIENT_ID` | the client id of a firm's own OpenID Connect provider, or empty | Android release builds (`build-android`) |
+| `MYCA_CLOUD_URL_STAGING` | the https address of the staging API, or empty; needed only for a `test` Android build and the staging smoke | Android test builds (`build-android`, backend `test`), app smoke (`app-smoke`) |
 | `MYCA_CI_RUNNER` | the runner label for CI and the Android build, `self-hosted` to use your own runner; empty means `ubuntu-latest` | CI (`ci`), Android builds (`build-android`) |
 
 `GCP_MANAGE_DNS` and `GCP_CREATE_ARTIFACT_REGISTRY` must be `true` or `false`: an empty
@@ -304,6 +305,7 @@ Today the `.exe` is unsigned → users see a SmartScreen prompt. To sign, add tw
 | `APPLE_PROVISIONING_PROFILE_BASE64`, `APPLE_PROFILE_NAME`, `APPLE_TEAM_ID` | the App Store provisioning profile for `com.mldynamic.myca` (base64), its name, and the team id |
 | `APP_STORE_CONNECT_KEY_ID`, `APP_STORE_CONNECT_ISSUER_ID`, `APP_STORE_CONNECT_API_KEY_BASE64` | an App Store Connect API key (App Manager) and its `.p8`; with them the signed IPA is uploaded to TestFlight |
 | `ANDROID_KEY_PASSWORD` | the key password |
+| `MYCA_SMOKE_PHONE`, `MYCA_SMOKE_CODE` | one of the staging API's `MYCA_TEST_PHONES` and its `MYCA_TEST_CODE`; with `MYCA_CLOUD_URL_STAGING` they let `app-smoke` sign in to staging nightly. Never a production number: production refuses test phones |
 
 `electron-builder` signs whenever `CSC_LINK` is set (there is no `signExecutable` switch in
 `platform/package.json`). When the secret is present the build job also checks every `.exe`
