@@ -116,6 +116,15 @@ or a plugin's own manifest; it comes from a library manifest that Gradle merges 
 one, run `./gradlew :app:processReleaseMainManifest` and read
 `app/build/outputs/logs/manifest-merger-release-report.txt`.
 
+## Store icon and launcher icons
+
+`docs/release/assets/play-icon-512.png` is the 512 by 512 Play icon (opaque, the MyCA "M" on the
+brand ink colour), with its source `play-icon.svg`. The legacy launcher icons for Android 7
+(`mipmap-*/ic_launcher.png` and `ic_launcher_round.png`) are drawn from the same path as the
+adaptive icon (`drawable/ic_launcher_foreground.xml`). To redraw all of them after a change to
+that path, run `node scripts/render-launcher-icons.cjs mobile/android/app/src/main/res docs/release/assets`
+(it uses the Chromium that Playwright installs).
+
 ## 4. Declarations
 
 - Not a financial services app: MyCA holds no money, moves no money and is not a merchant of record (ADR-0010).
