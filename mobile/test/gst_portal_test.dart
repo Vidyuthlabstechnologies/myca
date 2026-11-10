@@ -111,4 +111,51 @@ void main() {
     expect(find.text('The GST portal keys are not set on this server yet.'), findsOneWidget);
     expect(find.text('Send OTP'), findsNothing);
   });
+
+  testWidgets('in live mode a filing step asks a second person to approve, then sends the approval id with the step', (tester) async {
+    final cloud = FakeCloud()..filingNeedsApproval = true;
+    await tester.pumpWidget(MycaApp(state: await hostedOwner(cloud)));
+    await tester.pumpAndSettle();
+    await openPortal(tester);
+    await tapText(tester, 'Send OTP');
+    await tester.enterText(find.byKey(const ValueKey('gstPortal.username')), 'asha_traders');
+    await tapText(tester, 'Send OTP');
+    await tester.enterText(find.byKey(const ValueKey('gstPortal.otp')), '575757');
+    await tapText(tester, 'Connect');
+
+    await tapText(tester, '1. Save to the portal');
+    expect(find.textContaining('Asked for approval'), findsOneWidget);
+    expect(cloud.filingApprovals.single['operation'], 'gstr1_save');
+    expect((cloud.filingApprovals.single['params'] as Map)['period'], '2026-10');
+
+    await tapText(tester, '1. Save to the portal');
+    expect(find.textContaining('Waiting for an owner or your accountant, other than you'), findsOneWidget);
+
+    cloud.approverIsSomeoneElse = true;
+    await tapText(tester, '1. Save to the portal');
+    expect(find.textContaining('Saved to the portal'), findsOneWidget);
+    expect(cloud.gstr1Steps.last['caApprovalId'], 'APR-1');
+    expect(cloud.gstr1Steps.last['refused'], isNull);
+  });
+
+  testWidgets('a simulated filing says so instead of showing the reference as a real acknowledgement', (tester) async {
+    final cloud = FakeCloud()..filingSimulated = true;
+    await tester.pumpWidget(MycaApp(state: await hostedOwner(cloud)));
+    await tester.pumpAndSettle();
+    await openPortal(tester);
+    await tapText(tester, 'Send OTP');
+    await tester.enterText(find.byKey(const ValueKey('gstPortal.username')), 'asha_traders');
+    await tapText(tester, 'Send OTP');
+    await tester.enterText(find.byKey(const ValueKey('gstPortal.otp')), '575757');
+    await tapText(tester, 'Connect');
+    await tapText(tester, '1. Save to the portal');
+    await tapText(tester, '2. Check the save');
+    await tapText(tester, '3. Submit');
+    await tapText(tester, '4. Send the EVC OTP');
+    await tester.enterText(find.byKey(const ValueKey('gstPortal.evc')), '424242');
+    await tapText(tester, '5. File GSTR-1');
+    await tester.tap(find.widgetWithText(FilledButton, 'File'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Filed (simulated)'), findsOneWidget);
+  });
 }

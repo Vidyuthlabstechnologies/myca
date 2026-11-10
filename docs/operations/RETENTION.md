@@ -28,7 +28,7 @@ that by making the export complete and free, not by keeping data the owner asked
 | Authenticator key and recovery codes (two-step sign-in) | While the user keeps two-step on | Deleted when the user turns it off or deletes the account | Nobody; the key is sealed per user and the codes are stored as hashes |
 | Crash reports | 90 days from the last occurrence | Deleted nightly | The operator; they carry no names, amounts or numbers |
 | Cloud SQL backups | 14 daily backups, 7 days of transaction logs | Expire | The operator, for recovery only |
-| Account (phone or Google id, name) | The account exists | Deleted on request from the app; a business the user alone owns is deleted with it | The user and the members of their businesses |
+| Account (phone, email, Google or OIDC id, name), devices, sign-in tokens, consents, memberships, invitations to their number, sign-in codes for their number, WhatsApp links, their rows in the access log | The account exists | Erased thirty days after the user deletes the account in the app; signing in again within the thirty days cancels the deletion. A business the user alone owns is deleted with it | The user and the members of their businesses |
 | Desktop edition | On the owner's PC only; 14 daily backups beside the books | The owner's own choice | The owner |
 
 ## What deletion does
@@ -42,8 +42,19 @@ that by making the export complete and free, not by keeping data the owner asked
    sales, connector secrets, invitations, memberships and the books, then the business row.
    The audit log's append-only guard is lifted only inside that transaction and only for
    that business.
-4. Backups age out by themselves within fourteen days, so an erased business is gone from
-   every copy within six weeks of the request.
+4. On the same nightly run, every account deleted more than thirty days ago is erased: the
+   user row (phone, email, Google or OIDC id, name) and everything keyed to it, which the
+   database removes with it (devices and refresh tokens, consents, memberships, two-step keys
+   and recovery codes), plus invitations sent to their number, sign-in codes for their
+   number, WhatsApp links and their access-log rows. Businesses another owner keeps stay,
+   with "created by" and "invited by" cleared. The audit trail of a business that stays
+   keeps the person's random user id on past entries, as a tombstone: once the user row is
+   gone that id no longer leads to a name, number or email, and the audit trail cannot be
+   rewritten. The request is itself audited (`member.account_deletion_requested`, no
+   personal data) in each business the person belonged to; `cloud/test/account-erasure.test.mjs`
+   checks that no table holds the phone, email or Google id afterwards.
+5. Backups age out by themselves within fourteen days, so an erased business or account is
+   gone from every copy within six weeks of the request.
 
 ## Open points for counsel
 

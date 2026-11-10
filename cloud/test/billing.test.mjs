@@ -69,7 +69,7 @@ const get = (who, action) => api.call('GET', `/v1/businesses/${who.businessId}/$
 function notify(purchaseToken, { token = NOTIFY, id = `msg-${Math.random()}`, packageName = PACKAGE, type = 4 } = {}) {
   const data = Buffer.from(JSON.stringify({ version: '1.0', packageName, eventTimeMillis: String(api.clock.now), subscriptionNotification: { version: '1.0', notificationType: type, purchaseToken, subscriptionId: 'myca_pro_monthly' } })).toString('base64');
   const raw = JSON.stringify({ message: { data, messageId: id }, subscription: 'projects/p/subscriptions/play' });
-  return api.call('POST', `/v1/billing/play/notify?token=${encodeURIComponent(token)}`, { raw, headers: { 'content-type': 'application/json' } });
+  return api.call('POST', '/v1/billing/play/notify', { raw, headers: { 'content-type': 'application/json', 'x-myca-notify-token': token } });
 }
 
 test('plans are public, name the Play product for each paid plan, and say which can be bought', async () => {

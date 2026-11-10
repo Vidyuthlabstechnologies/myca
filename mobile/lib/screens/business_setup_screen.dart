@@ -77,6 +77,22 @@ class _BusinessSetupScreenState extends State<BusinessSetupScreen> {
     }
   }
 
+  Future<void> _tryDemo() async {
+    final state = AppScope.of(context);
+    setState(() {
+      _busy = true;
+      _error = '';
+    });
+    try {
+      await state.cloud!.createDemoBusiness();
+      await state.refresh();
+    } on MycaApiException catch (err) {
+      if (mounted) setState(() => _error = err.message);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
@@ -177,6 +193,17 @@ class _BusinessSetupScreenState extends State<BusinessSetupScreen> {
             FilledButton(
               onPressed: _busy ? null : _create,
               child: Text(_busy ? 'Setting up…' : 'Continue'),
+            ),
+            const SizedBox(height: 10),
+            OutlinedButton(
+              key: const Key('setup.tryDemo'),
+              onPressed: _busy ? null : _tryDemo,
+              child: const Text('Try a demo business first'),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'A made-up trader with three months of invoices, purchases and expenses. It cannot reach the GST portal, banks or other people, and you can delete it any time.',
+              style: text.bodySmall?.copyWith(color: Palette.muted),
             ),
           ],
         ),

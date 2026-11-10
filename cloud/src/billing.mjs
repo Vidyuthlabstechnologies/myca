@@ -187,7 +187,10 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
 
   async function entitlement(businessId) {
     const at = now();
-    const business = await db.query('select created_at as "createdAt" from businesses where id = $1', [businessId]);
+    const business = await db.query('select created_at as "createdAt", demo from businesses where id = $1', [businessId]);
+    if (business.rows[0]?.demo) {
+      return { ok: true, enforced: enabled, plan: 'pro', planTitle: PLANS.pro.title, limits: PLANS.pro.limits, features: PLANS.pro.features, trial: null, demo: true, subscription: null, manageUrl: '' };
+    }
     const createdAt = business.rows[0] ? new Date(business.rows[0].createdAt).getTime() : at;
     const trialEndsAt = createdAt + TRIAL_DAYS * DAY_MS;
     const sub = await row(businessId);
@@ -304,9 +307,9 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
       return summary;
     },
 
-    async notify(rawBody, givenToken) {
-      if (!enabled || !cfg.notifyToken) return { ok: false, statusCode: 404, error: 'NOT_FOUND' };
-      if (!notifyTokenMatches(cfg.notifyToken, givenToken)) return { ok: false, statusCode: 401, error: 'BAD_TOKEN' };
+    async notify(rawBody, givenToken, { pushVerified = false } = {}) {
+      if (!enabled || (!cfg.notifyToken && !pushVerified)) return { ok: false, statusCode: 404, error: 'NOT_FOUND' };
+      if (!pushVerified && !notifyTokenMatches(cfg.notifyToken, givenToken)) return { ok: false, statusCode: 401, error: 'BAD_TOKEN' };
       let message;
       let event;
       try {

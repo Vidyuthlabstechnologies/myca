@@ -20,8 +20,7 @@ debug.log
 
 # Local tooling / caches
 .playwright-mcp/
-.serena/cache/
-.serena/project.local.yml
+.serena/
 
 # Reference clones (vendor only — see vendor/README.md)
 vendor/*

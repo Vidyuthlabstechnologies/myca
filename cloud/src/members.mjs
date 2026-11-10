@@ -117,8 +117,8 @@ export function createMembers({ db, secret, now = () => Date.now(), notify = nul
     async pendingFor(phone) {
       if (!phone) return [];
       const found = await db.query(
-        `select i.id, i.role, b.name as "businessName", u.name as "invitedBy"
-           from invitations i join businesses b on b.id = i.business_id join users u on u.id = i.invited_by
+        `select i.id, i.role, b.name as "businessName", coalesce(u.name, '') as "invitedBy"
+           from invitations i join businesses b on b.id = i.business_id left join users u on u.id = i.invited_by
           where i.phone_hash = $1 and i.accepted_at is null and i.declined_at is null and i.revoked_at is null
             and i.expires_at > $2 and b.deletion_requested_at is null
           order by i.created_at`,

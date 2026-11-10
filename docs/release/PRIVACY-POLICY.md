@@ -39,7 +39,10 @@ You can see everything MyCA holds about your business from inside the app, and d
 all of it as one file from the Businesses screen (the books, every uploaded document,
 who has access, connected systems and the audit trail). You can delete a business from
 the same screen, which removes its books and documents, and delete your account there
-too; both take effect at once. Where the Digital Personal Data Protection Act, 2023 or another law
+too. Either way it disappears from the app at once and you are signed out of every device;
+thirty days later the business, or your name, phone number, email and Google account link,
+are erased for good. Signing in again within those thirty days cancels an account deletion.
+Where the Digital Personal Data Protection Act, 2023 or another law
 gives you further rights, you can exercise them through the same address.
 
 ## Retention and security

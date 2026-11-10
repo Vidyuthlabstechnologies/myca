@@ -282,6 +282,59 @@ Play setup (after `terraform apply`):
 The iOS app shows the plan but sells nothing, since Apple only allows its own in-app purchase.
 The Windows app shows the plan and says it is bought in the Android app.
 
+## Environment reference
+
+Every variable the hosted server (`cloud/src`, and the `platform/src` engines it runs) reads.
+"Secret" means it goes in the secret store (GCP Secret Manager or AWS SSM SecureString), never
+in a plain environment variable, a workflow file or an issue. `unset` counts as empty everywhere.
+The server logs one `startup: services` line listing which optional services are on, by name only.
+
+| Name | Needed | Default | Secret | What it does |
+|---|---|---|---|---|
+| `MYCA_DATABASE_URL` | yes | | yes | Postgres connection string. |
+| `MYCA_DATABASE_CA` | production, unless a local socket or `sslmode=verify-*` | | no | CA bundle so the database TLS is verified. |
+| `MYCA_TOKEN_SECRET` | yes | | yes | HMAC key for access tokens and keyed hashes (32+ chars). |
+| `MYCA_BOOKS_KEY` | production | | yes | Seals each business's books column. |
+| `MYCA_CONNECTOR_KEY` | for connectors and the GST portal | | yes | Seals per-business provider credentials. |
+| `MYCA_JOB_TOKEN` | for scheduled jobs | | yes | Header token for `/v1/jobs/*` (32+ chars). |
+| `MYCA_ENVIRONMENT` | recommended | `production` when `K_SERVICE` or `MYCA_PRODUCTION` is set, else `local` | no | `local`, `staging` or `production`. `staging` refuses to start with any live switch or real-send integration set (see `src/environment.mjs`). Shown in `/v1/health`. |
+| `MYCA_PRODUCTION` | outside Cloud Run | | no | Marks a non-Cloud-Run host as production. |
+| `MYCA_REVISION` / `K_REVISION` | recommended | `dev` | no | Version reported in `/v1/health` and server crash reports. Set from the image tag at deploy. |
+| `MYCA_TRUSTED_PROXY_HOPS` | production outside Cloud Run | 1 on Cloud Run, else 0 | no | Proxies in front that append `X-Forwarded-For`; drives per-address limits. |
+| `PORT` | no | 8080 | no | Listen port. |
+| `MYCA_PUBLIC_URL` | for Gusto | request host | no | Public https origin for OAuth redirects. |
+| `MYCA_BODY_BUDGET_BYTES` | no | from memory limit | no | Total bytes of request bodies held at once. |
+| `MYCA_GOOGLE_CLIENT_IDS` | for Google sign-in | | no | Comma list of accepted OAuth client ids (web + Android). |
+| `MYCA_OIDC_ISSUER`, `MYCA_OIDC_CLIENT_IDS`, `MYCA_OIDC_JWKS_URL` | for OIDC sign-in | | no | A firm's identity provider. |
+| `MYCA_SMS_PROVIDER` | for phone sign-in | | no | `twilio`, `msg91` or `whatsapp`. |
+| `MYCA_SMS_TWILIO_SID`, `MYCA_SMS_TWILIO_TOKEN`, `MYCA_SMS_TWILIO_FROM` | with twilio | | token yes | Twilio sender. |
+| `MYCA_SMS_MSG91_AUTHKEY`, `MYCA_SMS_MSG91_TEMPLATE_ID` | with msg91 | | authkey yes | MSG91 sender. |
+| `MYCA_OTP_GLOBAL_PER_HOUR` | no | 500 | no | Cap on sign-in codes sent per hour across everyone; logs `alarm: otp-global-cap-80` at 80% and `otp-global-cap` when reached. |
+| `MYCA_TEST_PHONES`, `MYCA_TEST_CODE` | staging only | | code yes | Test numbers that sign in with a fixed six-digit code and no SMS. Refused in production. |
+| `MYCA_REVIEWER_SIGN_IN`, `MYCA_REVIEWER_PHONE`, `MYCA_REVIEWER_CODE` | for the Play reviewer | off | code yes | One reviewer number with a fixed code. Every business it creates is a demo business, it cannot accept invitations, and each code request is logged. Turn it off by setting `MYCA_REVIEWER_SIGN_IN` to `off`. |
+| `MYCA_DEV_OTP` | local only | | no | Prints codes to the log; refused in production. |
+| `MYCA_ADMIN_USER_IDS` | for the crash digest | | no | Comma list of user ids that may read `GET /v1/admin/crashes?days=N`. |
+| `MYCA_PROVIDER_ENV` | no | `off` | no | Provider environment for the engines. Staging allows only `off` or `sandbox`. |
+| `MYCA_MOCK_MODE` | staging | | no | `1` makes every provider simulated (`providerMode: simulated`). |
+| `MYCA_ENABLE_LIVE_CALLS` | never on hosted today | off | no | The live switch for government, model and write actions. |
+| `MYCA_ENABLE_CHANNEL_PULLS` | no | off | no | Lets the nightly job pull read-only marketplace reports. |
+| `MYCA_GSP_ENV`, `MYCA_GSP_BASE_URL` | for the GST portal | | no | GSP host selection. |
+| `MYCA_GSP_API_KEY`, `MYCA_GSP_API_SECRET`, `MYCA_GSP_TEST_API_KEY`, `MYCA_GSP_TEST_API_SECRET`, `MYCA_GSP_LIVE_API_KEY`, `MYCA_GSP_LIVE_API_SECRET` | for the GST portal | | yes | GSP (Quicko / Sandbox) keys. The live pair is refused in staging. |
+| `MYCA_MODEL_API_KEY`, `MYCA_MODEL`, `MYCA_MODEL_BASE_URL` | for the chat model | built-in patterns | key yes | Model used by the chat router (`platform/src/model-adapter.mjs`). This, not `NVIDIA_NIM_API_KEY`, is what the chat reads. |
+| `NVIDIA_NIM_API_KEY` / `NIM_API_KEY`, `NVIDIA_NIM_BASE_URL`, `NVIDIA_NIM_MODEL` | no | | key yes | Only the NIM tool (`nim-client.mjs`), not the chat router. |
+| `MYCA_WHATSAPP_PROVIDER` | no | `waha` when `MYCA_WAHA_URL` is set, else `meta` | no | WhatsApp route. |
+| `MYCA_WAHA_URL`, `MYCA_WAHA_API_KEY`, `MYCA_WAHA_SESSION`, `MYCA_WAHA_WEBHOOK_SECRET` | for WAHA | | key and secret yes | Self-hosted WhatsApp gateway. The URL must be https outside local development. |
+| `MYCA_WHATSAPP_VERIFY_TOKEN`, `MYCA_WHATSAPP_APP_SECRET`, `MYCA_WHATSAPP_PHONE_NUMBER_ID`, `MYCA_WHATSAPP_ACCESS_TOKEN` | for Meta WhatsApp | | all but the number id | Meta Cloud API. |
+| `MYCA_EMAIL_RELAY_URL`, `MYCA_EMAIL_RELAY_TOKEN`, `MYCA_EMAIL_FROM` | for outgoing email | | token yes | Email relay Worker. Must be https outside local development. |
+| `MYCA_INBOUND_EMAIL_DOMAIN`, `MYCA_INBOUND_RELAY_TOKEN` | for bills by email | | token yes | Inbound email relay. |
+| `MYCA_PLAY_PACKAGE`, `MYCA_PLAY_PRODUCT_ESSENTIALS`, `MYCA_PLAY_PRODUCT_PRO`, `MYCA_PLAY_PRODUCT_FIRM` | for Play billing | | no | Turns subscriptions on. |
+| `MYCA_PLAY_SERVICE_ACCOUNT_JSON` | Play billing outside Cloud Run | metadata server on Cloud Run | yes | Play Developer API access. Refused in staging. |
+| `MYCA_PLAY_PUSH_AUDIENCE`, `MYCA_PLAY_PUSH_SERVICE_ACCOUNT` | for Play notifications | | no | Pub/Sub push with OIDC authentication: the audience set on the push subscription and the service account it signs as. Preferred. |
+| `MYCA_PLAY_NOTIFY_TOKEN` | alternative to push auth | | yes | Shared token, sent only in the `x-myca-notify-token` header. A `?token=` in the URL is refused so it never reaches access logs. |
+| `MYCA_PLAN_PRICES` | no | built-in prices | no | Display prices, e.g. `essentials=399,pro=799,firm=2499`. |
+| `MYCA_DOCUMENT_BUCKET` | no | documents in Postgres | no | Cloud Storage bucket for document bytes (GCS only). |
+| `MYCA_TALLY_HOST`, `MYCA_TALLY_PORT`, `MYCA_LISTEN_HOST`, `MYCA_API_TOKEN`, `MYCA_TOKEN_IN_PAGE`, `MYCA_REQUIRE_SAFE_STORAGE` | desktop only | | | Read by the Windows app's local server, not the hosted API. |
+
 ## Not built yet
 
 - The Google Cloud project itself, and the first `terraform apply` of `infra/cloud`.

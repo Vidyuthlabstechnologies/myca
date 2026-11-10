@@ -1,0 +1,41 @@
+name: Tester report
+description: Something you saw while testing a build of the app
+labels: ["tester-report"]
+body:
+  - type: input
+    id: version
+    attributes:
+      label: Build version
+      description: From Your businesses, About this app, for example "MyCA 1.0.0+42 · test environment (staging)"
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: Phone and Android version
+      placeholder: Pixel 7, Android 15
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: What happened instead
+    validations:
+      required: true
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots
+      description: Use the demo business or blur real figures.
