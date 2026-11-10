@@ -375,7 +375,7 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
     const method = req.method;
     if (parts[0] !== 'v1') throw httpError(404, 'NOT_FOUND');
 
-    if (parts[1] === 'health' && parts[2] === 'live' && parts.length === 3 && method === 'GET') return { ok: true, environment, providerMode: providerMode() };
+    if (parts[1] === 'health' && parts[2] === 'live' && parts.length === 3 && method === 'GET') return { ok: true, environment, providerMode: providerMode(), version };
     if (parts[1] === 'health' && parts.length === 2 && method === 'GET') {
       const database = await databaseReachable();
       if (!database) throw httpError(503, 'DATABASE_UNAVAILABLE', { environment, providerMode: providerMode(), database: 'unreachable' });

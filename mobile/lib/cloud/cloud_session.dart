@@ -390,11 +390,21 @@ List<String> _strings(Object? value) => [
     ];
 
 class BusinessRef {
-  const BusinessRef({required this.id, required this.name, required this.role});
+  const BusinessRef({required this.id, required this.name, required this.role, this.demo = false});
 
   final String id;
   final String name;
   final String role;
+  final bool demo;
+}
+
+class ServerInfo {
+  const ServerInfo({required this.environment, required this.version});
+
+  final String environment;
+  final String version;
+
+  bool get isTest => environment.isNotEmpty && environment != 'production';
 }
 
 class InvitationRef {
@@ -1014,6 +1024,7 @@ class CloudSession {
               id: '${row['id']}',
               name: '${row['name']}',
               role: '${row['role']}',
+              demo: row['demo'] == true,
             ),
     ];
   }
@@ -1027,6 +1038,25 @@ class CloudSession {
           if (row is Map)
             StateRef(code: '${row['code']}', name: '${row['name']}'),
     ];
+  }
+
+  Future<ServerInfo?> serverInfo() async {
+    try {
+      final (status, body) = await _send('GET', '/v1/health/live', null, authed: false);
+      if (status != 200 || body['ok'] != true) return null;
+      return ServerInfo(environment: '${body['environment'] ?? ''}', version: '${body['version'] ?? ''}');
+    } on MycaApiException {
+      return null;
+    }
+  }
+
+  Future<void> createDemoBusiness() async {
+    final body = await call('POST', '/v1/businesses', {'name': 'Demo', 'demo': true});
+    final business = body['business'];
+    if (business is! Map) {
+      throw const MycaApiException('The demo business was not created.');
+    }
+    await _choose('${business['id']}');
   }
 
   Future<void> createBusiness({
@@ -1063,7 +1093,7 @@ class CloudSession {
       id: user is Map ? '${user['id']}' : '',
       name: user is Map ? '${user['name'] ?? ''}' : '',
       businesses: [
-        for (final row in _rows(body['businesses'])) BusinessRef(id: '${row['id']}', name: '${row['name']}', role: '${row['role']}'),
+        for (final row in _rows(body['businesses'])) BusinessRef(id: '${row['id']}', name: '${row['name']}', role: '${row['role']}', demo: row['demo'] == true),
       ],
       invitations: [
         for (final row in _rows(body['invitations']))

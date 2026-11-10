@@ -47,6 +47,7 @@ class FakeCloud {
   bool filingNeedsApproval = false;
   bool approverIsSomeoneElse = false;
   bool filingSimulated = false;
+  String serverEnvironment = '';
   final filingApprovals = <Map<String, Object?>>[];
   int plaidLinkTokens = 0;
   int gustoConnects = 0;
@@ -156,6 +157,10 @@ class FakeCloud {
     requests.add('${request.method} $path');
     final body = request.body.isEmpty ? <String, dynamic>{} : (jsonDecode(request.body) as Map).cast<String, dynamic>();
 
+    if (path == '/v1/health/live') {
+      if (serverEnvironment.isEmpty) return _json(404, {'ok': false, 'error': 'NOT_FOUND'});
+      return _json(200, {'ok': true, 'environment': serverEnvironment, 'providerMode': 'sandbox', 'version': 'test'});
+    }
     if (path == '/v1/privacy-notice') {
       return _json(200, {
         'ok': true,
@@ -352,6 +357,12 @@ class FakeCloud {
     }
     if (path == '/v1/businesses' && request.method == 'GET') return _json(200, {'ok': true, 'businesses': businesses});
     if (path == '/v1/businesses' && request.method == 'POST') {
+      if (body['demo'] == true) {
+        company = {'name': 'Demo: Kaveri Traders', 'gstin': '29AAACD0000D1ZL', 'state': '29'};
+        final demo = {'id': businessId, 'name': 'Demo: Kaveri Traders', 'gstin': '29AAACD0000D1ZL', 'role': 'owner', 'demo': true};
+        businesses.add(demo);
+        return _json(200, {'ok': true, 'business': demo, 'seeded': 12});
+      }
       final gstin = '${body['gstin'] ?? ''}';
       if (gstin.isEmpty && body['state'] == null) return _json(400, {'ok': false, 'error': 'STATE_REQUIRED'});
       if (gstin == '27AABCU9603R1ZX') return _json(400, {'ok': false, 'error': 'INVALID_GSTIN'});

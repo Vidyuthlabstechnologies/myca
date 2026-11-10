@@ -203,12 +203,14 @@ class _GstPortalScreenState extends State<GstPortalScreen> {
     });
   }
 
+  String get _simulatedLead => AppScope.of(context).testServer ? 'Simulated: this is the test environment, so nothing reaches the GST portal. ' : '';
+
   Future<void> _pay() async {
     final sure = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: Text('Pay the GSTR-3B tax for ${monthLabel(widget.period)}?'),
-        content: const Text('The portal uses your input tax credit first, then the cash ledger. This cannot be undone. Pay any cash shortfall by challan (PMT-06) before this step.'),
+        content: Text('${_simulatedLead}The portal uses your input tax credit first, then the cash ledger. This cannot be undone. Pay any cash shortfall by challan (PMT-06) before this step.'),
         actions: [
           TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancel')),
           FilledButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Pay')),
@@ -271,7 +273,7 @@ class _GstPortalScreenState extends State<GstPortalScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: Text('File $_formName for ${monthLabel(widget.period)}?'),
-        content: Text(_is3b ? 'Filing cannot be undone. Check the tax and the credit first.' : 'Filing cannot be undone. Check the portal summary first.'),
+        content: Text('$_simulatedLead${_is3b ? 'Filing cannot be undone. Check the tax and the credit first.' : 'Filing cannot be undone. Check the portal summary first.'}'),
         actions: [
           TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancel')),
           FilledButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('File')),
