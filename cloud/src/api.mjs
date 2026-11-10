@@ -319,7 +319,7 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
 
   async function throttle(kind, who) {
     const taken = await rateLimits.take(kind, who);
-    if (!taken.ok) throw httpError(429, 'TOO_MANY_REQUESTS', { retryAfterSeconds: taken.retryAfterSeconds, hint: 'Too many requests in a short time. Wait a little and try again.' });
+    if (!taken.ok) throw httpError(429, 'RATE_LIMITED', { retryAfterSeconds: taken.retryAfterSeconds, hint: 'Too many requests in a short time. Wait a little and try again.' });
   }
   const jobs = createJobs({ db, secret, rateLimits, withBooks, connectors, syncChannels, pullsEnabled: channelPullsEnabled, sender: whatsappSender, vault, billing, now, log });
   const google = createGoogleVerifier({ clientIds: googleClientIds, keys: googleKeys || createGoogleKeys({ now }), now });

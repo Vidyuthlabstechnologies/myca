@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:myca/app_services.dart';
 import 'package:myca/app_state.dart';
+import 'package:myca/cloud/cloud_session.dart';
 import 'package:myca/main.dart';
 import 'package:myca/shared_file.dart';
 
@@ -45,5 +46,13 @@ void main() {
 
   test('the share limit matches the Android side', () {
     expect(sharedFileLimitBytes, 8 * 1024 * 1024);
+  });
+
+  test('a rate-limited request says how long to wait in plain words', () {
+    expect(waitMessage(30), 'That was a lot of requests in a short time. Try again in 30 seconds.');
+    expect(waitMessage(45.2), 'That was a lot of requests in a short time. Try again in 46 seconds.');
+    expect(waitMessage(90), 'That was a lot of requests in a short time. Try again in 2 minutes.');
+    expect(waitMessage(60), 'That was a lot of requests in a short time. Try again in a minute.');
+    expect(waitMessage(null), cloudMessage('RATE_LIMITED'));
   });
 }

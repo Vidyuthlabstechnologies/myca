@@ -68,8 +68,17 @@ const _messages = {
   'NOT_FOR_STAFF': 'Only the owner or the accountant can do this.',
   'NIC_NOT_CONNECTED': 'Add this business\'s e-invoice keys under Connections to banks and apps first.',
   'SERVER_BUSY': 'MyCA is busy for a moment. Try again in a minute.',
+  'RATE_LIMITED': 'That was a lot of requests in a short time. Wait a minute and try again.',
   'INTERNAL_ERROR': 'Something went wrong on our side. Try again in a minute.',
 };
+
+String waitMessage(Object? retryAfterSeconds) {
+  final seconds = retryAfterSeconds is num ? retryAfterSeconds.ceil() : 0;
+  if (seconds <= 0) return _messages['RATE_LIMITED']!;
+  final minutes = (seconds / 60).ceil();
+  final wait = seconds < 60 ? '$seconds seconds' : (minutes == 1 ? 'a minute' : '$minutes minutes');
+  return 'That was a lot of requests in a short time. Try again in $wait.';
+}
 
 String cloudMessage(String code, [String hint = '']) =>
     _messages[code] ?? (hint.trim().isNotEmpty ? hint.trim() : 'Something went wrong ($code).');
@@ -716,6 +725,7 @@ class CloudSession {
         reply['error'] is String &&
         !reply.containsKey('reply')) {
       final code = reply['error'] as String;
+      if (code == 'RATE_LIMITED') throw MycaApiException(waitMessage(reply['retryAfterSeconds']));
       throw MycaApiException(explain?.call(code, reply['attemptsRemaining']) ?? cloudMessage(code, '${reply['hint'] ?? ''}'));
     }
     return reply;

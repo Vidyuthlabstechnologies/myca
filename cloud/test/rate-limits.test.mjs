@@ -18,7 +18,7 @@ test('sign-in attempts are limited per client address with Retry-After, and the 
   assert.equal(res.status, 429);
   assert.ok(Number(res.headers.get('retry-after')) > 0);
   const body = await res.json();
-  assert.equal(body.error, 'TOO_MANY_REQUESTS');
+  assert.equal(body.error, 'RATE_LIMITED');
   const elsewhere = await api.call('POST', '/v1/auth/google', { body: { idToken: googleToken() }, headers: { 'x-forwarded-for': '203.0.113.8' } });
   assert.equal(elsewhere.status, 200, 'another address is not affected');
   api.clock.advance(601 * 1000);
