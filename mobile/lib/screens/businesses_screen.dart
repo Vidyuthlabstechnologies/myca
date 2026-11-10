@@ -122,7 +122,7 @@ class _BusinessesScreenState extends State<BusinessesScreen> {
 
   Future<void> _deleteAccount() async {
     final state = AppScope.of(context);
-    if (!await _sure('Delete your account?', 'You are signed out everywhere. A business where you are the only owner is deleted with you; one with another owner stays with them.', 'Delete account')) return;
+    if (!await _sure('Delete your account?', 'You are signed out everywhere. Your name, number, email and Google link are erased after 30 days; signing in again before then cancels it. A business where you are the only owner is deleted with you; one with another owner stays with them.', 'Delete account')) return;
     try {
       await state.cloud!.deleteAccount();
       await state.signOut();
