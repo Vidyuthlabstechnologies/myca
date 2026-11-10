@@ -5,6 +5,8 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.provider.OpenableColumns
+import java.io.ByteArrayOutputStream
+import java.io.InputStream
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -38,7 +40,19 @@ class MainActivity : FlutterFragmentActivity() {
 
     private fun remember(intent: Intent?) {
         if (intent == null || intent.action != Intent.ACTION_SEND) return
-        val uri: Uri = intent.getParcelableExtra(Intent.EXTRA_STREAM) ?: return
+        val uri: Uri? = intent.getParcelableExtra(Intent.EXTRA_STREAM)
+        if (uri == null) {
+            val text = intent.getCharSequenceExtra(Intent.EXTRA_TEXT)?.toString() ?: return
+            if (text.isBlank()) return
+            val bytes = text.toByteArray(Charsets.UTF_8)
+            pending = if (bytes.size > MAX_BYTES) {
+                mapOf("tooLarge" to true)
+            } else {
+                mapOf("name" to "shared.txt", "mime" to "text/plain", "bytes" to bytes)
+            }
+            intent.action = null
+            return
+        }
         if (uri.scheme != ContentResolver.SCHEME_CONTENT) return
         val authority = uri.authority ?: return
         val owner = packageManager.resolveContentProvider(authority, 0)?.packageName
@@ -46,13 +60,27 @@ class MainActivity : FlutterFragmentActivity() {
         val mime = contentResolver.getType(uri) ?: return
         if (!ACCEPTED.any { mime.startsWith(it) }) return
         val bytes = try {
-            contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: return
+            contentResolver.openInputStream(uri)?.use { readBounded(it) } ?: return
         } catch (_: Exception) {
             return
         }
-        if (bytes.size > MAX_BYTES) return
-        pending = mapOf("name" to nameOf(uri), "mime" to mime, "bytes" to bytes)
+        pending = if (bytes == null) {
+            mapOf("tooLarge" to true)
+        } else {
+            mapOf("name" to nameOf(uri), "mime" to mime, "bytes" to bytes)
+        }
         intent.action = null
+    }
+
+    private fun readBounded(input: InputStream): ByteArray? {
+        val out = ByteArrayOutputStream()
+        val buffer = ByteArray(64 * 1024)
+        while (true) {
+            val read = input.read(buffer)
+            if (read < 0) return out.toByteArray()
+            if (out.size() + read > MAX_BYTES) return null
+            out.write(buffer, 0, read)
+        }
     }
 
     private fun nameOf(uri: Uri): String {
