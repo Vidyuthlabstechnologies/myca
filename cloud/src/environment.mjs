@@ -38,9 +38,34 @@ export function liveTargetsIn(env = process.env) {
   return names;
 }
 
+const OPERATOR_URLS = ['MYCA_WAHA_URL', 'MYCA_EMAIL_RELAY_URL', 'MYCA_MODEL_BASE_URL', 'NVIDIA_NIM_BASE_URL', 'MYCA_PUBLIC_URL'];
+const LOOPBACK = new Set(['localhost', '127.0.0.1', '::1', '[::1]']);
+
+export function plainHttpUrls(env = process.env) {
+  const names = [];
+  for (const name of OPERATOR_URLS) {
+    if (!present(env, name)) continue;
+    let url;
+    try {
+      url = new URL(String(env[name]).trim());
+    } catch {
+      names.push(name);
+      continue;
+    }
+    if (url.protocol === 'https:') continue;
+    if (url.protocol === 'http:' && LOOPBACK.has(url.hostname)) continue;
+    names.push(name);
+  }
+  return names;
+}
+
 export function environmentProblem(env = process.env) {
   const given = lower(env.MYCA_ENVIRONMENT);
   if (given && !ENVIRONMENTS.includes(given)) return `MYCA_ENVIRONMENT must be one of ${ENVIRONMENTS.join(', ')}.`;
+  if (deploymentEnvironment(env) !== 'local') {
+    const plain = plainHttpUrls(env);
+    if (plain.length) return `These must be https:// URLs outside local development, because they carry API keys and customer messages: ${plain.join(', ')}.`;
+  }
   if (deploymentEnvironment(env) !== 'staging') return '';
   const offending = liveTargetsIn(env);
   if (!offending.length) return '';

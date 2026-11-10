@@ -85,6 +85,8 @@ const handler = createApi({
   version: serviceRevision(),
   environment: deploymentEnvironment(),
   testSignIn,
+  adminUserIds: String(process.env.MYCA_ADMIN_USER_IDS || '').split(',').map((id) => id.trim()).filter(Boolean),
+  playPush: { audience: String(process.env.MYCA_PLAY_PUSH_AUDIENCE || '').trim(), serviceAccount: String(process.env.MYCA_PLAY_PUSH_SERVICE_ACCOUNT || '').trim() },
   ...(Number.isSafeInteger(otpGlobalPerHour) && otpGlobalPerHour > 0 ? { otpGlobalPerHour } : {}),
 });
 log({ startup: 'services', environment: deploymentEnvironment(), revision: serviceRevision(), on: enabledServices() });

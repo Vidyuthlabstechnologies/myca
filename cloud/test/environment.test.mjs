@@ -41,3 +41,10 @@ test('the startup line lists services by name only', () => {
   assert.deepEqual(on, ['google-sign-in', 'whatsapp:waha', 'jobs']);
   assert.ok(!JSON.stringify(on).includes('waha.example.in'));
 });
+
+test('outside local development every operator URL that carries keys or messages must be https', () => {
+  assert.equal(environmentProblem({ MYCA_WAHA_URL: 'http://waha.internal:3000' }), '', 'local development may use plain http');
+  assert.match(environmentProblem({ MYCA_PRODUCTION: '1', MYCA_WAHA_URL: 'http://waha.internal:3000' }), /MYCA_WAHA_URL/);
+  assert.match(environmentProblem({ MYCA_ENVIRONMENT: 'production', MYCA_EMAIL_RELAY_URL: 'ftp://relay' }), /MYCA_EMAIL_RELAY_URL/);
+  assert.equal(environmentProblem({ MYCA_PRODUCTION: '1', MYCA_WAHA_URL: 'https://waha.example.in', MYCA_MODEL_BASE_URL: 'http://127.0.0.1:8000' }), '');
+});

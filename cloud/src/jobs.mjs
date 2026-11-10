@@ -17,7 +17,7 @@ export const ACCESS_LOG_DAYS = 365;
 export const CRASH_REPORT_DAYS = 90;
 export const OTP_CHALLENGE_DAYS = 1;
 
-export function createJobs({ db, secret = '', withBooks, connectors = null, syncChannels = null, pullsEnabled = () => false, sender = null, vault = null, billing = null, now = () => Date.now(), log = () => {} }) {
+export function createJobs({ db, secret = '', rateLimits = null, withBooks, connectors = null, syncChannels = null, pullsEnabled = () => false, sender = null, vault = null, billing = null, now = () => Date.now(), log = () => {} }) {
   async function purge(requestId) {
     const summary = { businesses: 0, users: 0, documents: 0, objects: 0, accessRows: 0, crashRows: 0, otpRows: 0, secondStepRows: 0, failed: [] };
     const cutoff = new Date(now() - DELETION_GRACE_DAYS * 24 * 60 * 60 * 1000);
@@ -82,6 +82,7 @@ export function createJobs({ db, secret = '', withBooks, connectors = null, sync
     summary.accessRows = (await db.query('delete from access_log where at < $1', [new Date(now() - ACCESS_LOG_DAYS * 24 * 60 * 60 * 1000)])).rowCount;
     summary.crashRows = (await db.query('delete from crash_reports where last_seen < $1', [new Date(now() - CRASH_REPORT_DAYS * 24 * 60 * 60 * 1000)])).rowCount;
     summary.otpRows = (await db.query('delete from otp_challenges where created_at < $1', [new Date(now() - OTP_CHALLENGE_DAYS * 24 * 60 * 60 * 1000)])).rowCount;
+    summary.rateRows = rateLimits ? await rateLimits.prune() : 0;
     summary.secondStepRows = (await db.query('delete from second_step_challenges where created_at < $1', [new Date(now() - OTP_CHALLENGE_DAYS * 24 * 60 * 60 * 1000)])).rowCount;
     return summary;
   }

@@ -583,7 +583,7 @@ test('P4: every 503 carries Retry-After and keeps its body, and no other answer 
     assert.deepEqual(google.body, { ok: false, error: 'GOOGLE_SIGN_IN_UNAVAILABLE' });
     assert.equal(google.retryAfter, '2');
 
-    const notified = await play.call('POST', '/v1/billing/play/notify?token=t', { body: {} });
+    const notified = await play.call('POST', '/v1/billing/play/notify', { body: {}, headers: { 'x-myca-notify-token': 't' } });
     assert.equal(notified.status, 503);
     assert.deepEqual(notified.body, { ok: false, error: 'PROVIDER_UNAVAILABLE' });
     assert.equal(notified.retryAfter, '2');

@@ -307,9 +307,9 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
       return summary;
     },
 
-    async notify(rawBody, givenToken) {
-      if (!enabled || !cfg.notifyToken) return { ok: false, statusCode: 404, error: 'NOT_FOUND' };
-      if (!notifyTokenMatches(cfg.notifyToken, givenToken)) return { ok: false, statusCode: 401, error: 'BAD_TOKEN' };
+    async notify(rawBody, givenToken, { pushVerified = false } = {}) {
+      if (!enabled || (!cfg.notifyToken && !pushVerified)) return { ok: false, statusCode: 404, error: 'NOT_FOUND' };
+      if (!pushVerified && !notifyTokenMatches(cfg.notifyToken, givenToken)) return { ok: false, statusCode: 401, error: 'BAD_TOKEN' };
       let message;
       let event;
       try {
