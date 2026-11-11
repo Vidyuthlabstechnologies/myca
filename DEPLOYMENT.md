@@ -181,9 +181,23 @@ Quicko, Play) go in as `TF_VAR_*` or `-var`, never in that file. Apply from `inf
 
 ```bash
 terraform init -backend-config="bucket=myca-prod-in-myca-tfstate"
-terraform plan -out=plan -var-file=production.tfvars -var image=<current image> \
+terraform plan -out=plan -var-file=production.tfvars -var-file=countries/in.tfvars -var image=<current image> \
   -var alert_email=<owner email> -var deployer_service_account=gh-deployer@myca-prod-in.iam.gserviceaccount.com
 terraform apply plan
+```
+
+The website runs as its own service account, `myca-site`, which holds no roles, and the deployer may
+act as it. Without that, `deploy-site` fails with `iam.serviceaccounts.actAs` denied on the project's
+default compute account. In `myca-prod-in` the account was first made by hand, so
+`countries/in.tfvars` sets `site_service_account_exists = true` and Terraform adopts it. To make it by
+hand in a project where Terraform has not been applied since:
+
+```bash
+gcloud iam service-accounts create myca-site --project myca-prod-in --display-name "MyCA website (Cloud Run)"
+gcloud iam service-accounts add-iam-policy-binding myca-site@myca-prod-in.iam.gserviceaccount.com --project myca-prod-in \
+  --member serviceAccount:gh-deployer@myca-prod-in.iam.gserviceaccount.com --role roles/iam.serviceAccountUser
+gcloud run services update myca-site --project myca-prod-in --region asia-south1 \
+  --service-account myca-site@myca-prod-in.iam.gserviceaccount.com
 ```
 
 GitHub repository **variables** for `deploy-cloud` (API on every push to main) and `deploy-site`:
