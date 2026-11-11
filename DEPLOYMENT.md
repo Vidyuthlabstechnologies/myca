@@ -207,6 +207,59 @@ permissions with release rights instead of creating a key; `PLAY_SERVICE_ACCOUNT
 Leave `MYCA_MANAGE_SITE` unset: the root module's load balancer is not used. The AWS deploy is now the
 manual `deploy-aws` workflow.
 
+### Staging (test) backend
+
+Testers use a separate stack built from the same `infra/cloud` module with `environment = "staging"`.
+Every name gets the `myca-staging` prefix, so it can live in `myca-prod-in` beside production or in a
+project of its own, and it shares no database, secret, bucket, job or OAuth client with production:
+
+| Piece | Production | Staging |
+|---|---|---|
+| API (Cloud Run) | `myca-api` | `myca-staging-api`, address in the `api_url` output after the first apply |
+| Database (Cloud SQL) | `myca` | `myca-staging` |
+| Secrets | `myca-books-key`, ... | `staging-myca-books-key`, ... (generated separately) |
+| Documents bucket | `<project>-myca-documents` | `<project>-myca-staging-documents` |
+| Image registry | `myca-api` | `myca-staging-api` |
+| Jobs | `myca-api-daily`, `myca-api-weekly` | `myca-staging-api-daily`, `myca-staging-api-weekly` |
+| Terraform state | `gs://<bucket>/cloud` | `gs://<bucket>/cloud-staging` |
+| Site, Android release secrets | yes | no |
+
+A staging plan fails unless `provider_mode` is `simulated` or `dry-run`, and fails on any setting that
+could file, pay or send anything real: channel pulls, WAHA, Meta WhatsApp, SMS, the email relay, the
+model key, GSP keys, Play products or a Play service account. The server checks the same list again at
+start-up (`cloud/src/environment.mjs`). Production refuses `test_phones`. `infra/cloud/tests` checks all
+of this with mocked providers (`terraform -chdir=infra/cloud test`, run by the `terraform` workflow).
+
+Apply from `infra/cloud` with the staging state prefix, starting from `staging.tfvars.example`. Create
+a separate Google OAuth web client for staging and put its id in `google_client_ids`. The test sign-in
+code goes in as a variable, never in the file:
+
+```bash
+cp staging.tfvars.example staging.tfvars
+terraform init -reconfigure -backend-config="bucket=myca-prod-in-myca-tfstate" -backend-config="prefix=cloud-staging"
+TF_VAR_test_code=<six digits> terraform plan -out=staging.plan -var-file=staging.tfvars \
+  -var image=<current image> -var deployer_service_account=gh-deployer@myca-prod-in.iam.gserviceaccount.com
+terraform apply staging.plan
+```
+
+Run `terraform init -reconfigure` again with only `bucket=...` before you go back to production.
+
+GitHub repository **variables** that turn on the staging rollout:
+
+| Variable | Value |
+|---|---|
+| `GCP_PROJECT_ID_STAGING` | the staging project (`myca-prod-in` when it lives beside production); empty keeps the staging job off |
+| `GCP_API_REGION_STAGING`, `GCP_WIF_PROVIDER_STAGING`, `GCP_DEPLOY_SA_STAGING` | only when staging is in its own project; empty uses the production values |
+| `MYCA_CLOUD_URL_STAGING` | the staging `api_url` output, for `test` Android builds and the nightly app smoke |
+
+Create a `staging` GitHub environment. With staging on, a push to `main` runs the hosted API suite,
+rolls out to staging, and checks that `/v1/health` reports `environment: staging` and that `/v1/plans`
+answers. Production rolls out only after that passes (`cloud-run-rollout.yml` does both). To approve
+production by hand, add required reviewers to the `production` environment.
+
+Smoke staging after the first apply: `/v1/health`, `/v1/plans`, Google sign-in with the staging client,
+a test phone with its code, create a business, create an invoice.
+
 ## AWS hosted API and Play releases (previous production, 2026-11-09)
 
 The hosted API runs on AWS ECS in Mumbai (`ap-south-1`); the GCP runbook above is kept for

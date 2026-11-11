@@ -14,6 +14,30 @@ variable "region" {
   default     = "asia-south1"
 }
 
+variable "environment" {
+  description = "Which stack this is. production keeps the original resource names; staging prefixes every name with myca-staging, runs simulated providers and refuses every setting that could file, pay or send anything real."
+  type        = string
+  default     = "production"
+
+  validation {
+    condition     = contains(["production", "staging"], var.environment)
+    error_message = "environment is production or staging."
+  }
+}
+
+variable "test_phones" {
+  description = "Staging only: phone numbers that sign in with test_code and no SMS (MYCA_TEST_PHONES). The production server refuses them."
+  type        = list(string)
+  default     = []
+}
+
+variable "test_code" {
+  description = "Staging only: the fixed six-digit sign-in code for test_phones (MYCA_TEST_CODE)."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
 variable "image" {
   description = "Container image for the API, e.g. asia-south1-docker.pkg.dev/<project>/myca-api/api:<tag>."
   type        = string

@@ -458,7 +458,31 @@ test('CI: no workflow grants write at the top level; jobs holding id-token run n
     assert.ok(!Object.values(wf.permissions || {}).includes('write'), `${file} grants no write at the workflow level`);
     for (const [name, job] of Object.entries(wf.jobs)) {
       if ((job.permissions || {})['id-token'] !== 'write') continue;
+      if (job.uses) {
+        assert.match(job.uses, /^\.\/\.github\/workflows\/[\w-]+\.yml$/, `${file}:${name} hands id-token only to a workflow in this repository, whose own jobs are checked here`);
+        continue;
+      }
       assert.ok(!job.steps.some((s) => /\bnpm\b|\bnpx\b|electron-builder/.test(s.run || '')), `${file}:${name} holds id-token and runs no package scripts`);
     }
   }
+});
+
+test('CI: the hosted API rolls out to staging first, and production only after staging passes or is off', () => {
+  const { staging, production } = workflow('deploy-cloud.yml').jobs;
+  assert.equal(staging.uses, './.github/workflows/cloud-run-rollout.yml');
+  assert.equal(production.uses, './.github/workflows/cloud-run-rollout.yml');
+  assert.match(staging.if, /vars\.GCP_PROJECT_ID_STAGING != ''/, 'staging stays off until its project is set');
+  assert.equal(staging.with.environment, 'staging');
+  assert.equal(staging.with.server_environment, 'staging');
+  assert.equal(staging.with.service, 'myca-staging-api');
+  assert.deepEqual(production.needs, ['test', 'staging']);
+  assert.match(production.if, /needs\.test\.result == 'success'/);
+  assert.match(production.if, /"success", "skipped"/, 'production still deploys while no staging stack exists');
+  assert.equal(production.with.server_environment, 'production');
+  assert.equal(production.with.service, 'myca-api');
+
+  const rollout = workflow('cloud-run-rollout.yml').jobs.rollout;
+  assert.equal(rollout.environment, '${{ inputs.environment }}');
+  const health = rollout.steps.find((s) => /\/v1\/health/.test(s.run || '')).run;
+  assert.match(health, /\.environment == \$env/, 'the rollout proves it reached the stack it meant to');
 });
