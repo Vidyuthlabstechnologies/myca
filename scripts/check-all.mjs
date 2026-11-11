@@ -70,6 +70,13 @@ if (wants('cloud')) {
   else run('cloud', 'cloud', 'npm', ['test'], { MYCA_TEST_DATABASE_URL: database });
 }
 
+if (wants('design')) {
+  if (!existsSync(join(root, 'design', 'node_modules', 'style-dictionary'))) skip('design', 'setup needed: run "npm ci" in design/ first');
+  else run('design tokens', 'design', 'npm', ['test']);
+  if (!has('flutter')) skip('design package', 'flutter is not installed');
+  else if (run('design package analyze', 'design/flutter/myca_design', 'flutter', ['analyze'])) run('design package tests', 'design/flutter/myca_design', 'flutter', ['test']);
+}
+
 if (wants('mobile')) {
   if (!has('flutter')) skip('mobile', 'flutter is not installed');
   else if (run('mobile analyze', 'mobile', 'flutter', ['analyze'])) run('mobile tests', 'mobile', 'flutter', ['test']);

@@ -124,6 +124,40 @@ jobs:
           MYCA_TEST_DATABASE_URL: postgres://myca@127.0.0.1:5432/postgres
         run: npm test
 
+  design:
+    name: Design system tokens and Flutter package
+    runs-on: ${{ vars.MYCA_CI_RUNNER || 'ubuntu-latest' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+      - name: Install Style Dictionary
+        working-directory: design
+        run: npm ci --ignore-scripts
+      - name: Check tokens, generated files and contrast
+        working-directory: design
+        run: npm test
+      - name: Install Flutter at the pinned version
+        shell: bash
+        env:
+          FLUTTER_VERSION: "3.44.9"
+        run: |
+          set -euo pipefail
+          git clone --depth 1 --branch "$FLUTTER_VERSION" https://github.com/flutter/flutter.git "$RUNNER_TEMP/flutter"
+          echo "$RUNNER_TEMP/flutter/bin" >> "$GITHUB_PATH"
+      - name: Fetch packages
+        working-directory: design/flutter/myca_design
+        run: flutter pub get --enforce-lockfile
+      - name: Analyze
+        working-directory: design/flutter/myca_design
+        run: flutter analyze
+      - name: Run design package tests
+        working-directory: design/flutter/myca_design
+        run: flutter test
+
   mobile:
     name: Android app analysis and tests
     runs-on: ${{ vars.MYCA_CI_RUNNER || 'ubuntu-latest' }}
