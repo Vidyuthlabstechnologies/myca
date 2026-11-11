@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/services.dart';
@@ -13,12 +14,15 @@ abstract class OnboardingStore {
   Future<void> markMigrated();
   Future<bool> lockEnabled();
   Future<void> setLockEnabled(bool enabled);
+  Future<String> region();
+  Future<void> setRegion(String region);
 }
 
 class DeviceOnboardingStore implements OnboardingStore {
   static const _welcomed = 'onboarding.welcomed';
   static const _migrated = 'onboarding.migrated';
   static const _lock = 'lock.enabled';
+  static const _region = 'onboarding.region';
 
   @override
   Future<bool> welcomed() async =>
@@ -43,6 +47,14 @@ class DeviceOnboardingStore implements OnboardingStore {
   @override
   Future<void> setLockEnabled(bool enabled) async =>
       (await SharedPreferences.getInstance()).setBool(_lock, enabled);
+
+  @override
+  Future<String> region() async =>
+      (await SharedPreferences.getInstance()).getString(_region) ?? '';
+
+  @override
+  Future<void> setRegion(String region) async =>
+      (await SharedPreferences.getInstance()).setString(_region, region);
 }
 
 class PickedText {
@@ -143,3 +155,22 @@ Future<bool> sharePdfFromDevice(String name, Uint8List bytes) =>
 
 Future<bool> printPdfFromDevice(String name, Uint8List bytes) =>
     Printing.layoutPdf(name: name, onLayout: (_) async => bytes);
+
+String _randomHex40() {
+  final random = Random.secure();
+  return List.generate(20, (_) => random.nextInt(256).toRadixString(16).padLeft(2, '0')).join();
+}
+
+Future<String> deviceInstallationId() async {
+  const key = 'device.installationId';
+  final prefs = await SharedPreferences.getInstance();
+  final saved = prefs.getString(key) ?? '';
+  if (RegExp(r'^[0-9a-f]{40}$').hasMatch(saved)) return saved;
+  final made = _randomHex40();
+  await prefs.setString(key, made);
+  return made;
+}
+
+final String _sessionInstallationId = _randomHex40();
+
+Future<String> sessionInstallationId() async => _sessionInstallationId;

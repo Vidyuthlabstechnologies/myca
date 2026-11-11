@@ -120,7 +120,7 @@ class _PhoneSignInScreenState extends State<PhoneSignInScreen> {
     final googleOn = state.google != null && (_methods?.google ?? true);
     final firmOn = state.oidc != null && (_methods?.oidc ?? false);
     final firmHost = _methods?.oidcIssuerHost ?? '';
-    final phoneOn = _methods?.phone ?? true;
+    final phoneOn = (_methods?.phone ?? true) && !(state.chosenRegion == 'US' && (googleOn || firmOn));
     final phoneOnly = phoneOn && !googleOn && !firmOn;
     return Scaffold(
       body: SafeArea(

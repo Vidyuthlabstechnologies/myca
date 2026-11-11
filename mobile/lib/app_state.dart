@@ -46,7 +46,13 @@ class AppState extends ChangeNotifier {
     this.oidc,
     this.plaidLink = const NoPlaidLink(),
     this.openLink = _cannotOpen,
+    this.deviceCountry = '',
+    this.installationId = sessionInstallationId,
   }) : api = api ?? cloud!.api;
+
+  final String deviceCountry;
+  final Future<String> Function() installationId;
+  String region = '';
 
   final MycaApi api;
   final CloudSession? cloud;
@@ -110,7 +116,20 @@ class AppState extends ChangeNotifier {
     return file;
   }
 
+  String get chosenRegion => region == 'US' || region == 'IN' ? region : (deviceCountry.toUpperCase() == 'US' ? 'US' : 'IN');
+
+  bool get household => snapshot?.company.household ?? false;
+
+  Future<void> chooseRegion(String value) async {
+    final code = value.toUpperCase() == 'US' ? 'US' : 'IN';
+    if (region == code) return;
+    region = code;
+    await store.setRegion(code);
+    notifyListeners();
+  }
+
   Future<void> start() async {
+    region = await store.region();
     welcomed = await store.welcomed();
     migrated = await store.migrated();
     await cloud?.restore();
@@ -162,6 +181,11 @@ class AppState extends ChangeNotifier {
   Future<void> _skipMigrationForKeptBooks() async {
     final books = snapshot;
     if (cloud == null || migrated || books == null) return;
+    if (books.company.household) {
+      await store.markMigrated();
+      migrated = true;
+      return;
+    }
     final kept = books.invoices.isNotEmpty || books.purchases.isNotEmpty || books.expenses.isNotEmpty || books.creditNotes.isNotEmpty || books.quotes.isNotEmpty;
     if (!kept) return;
     await store.markMigrated();

@@ -14,9 +14,18 @@ class WelcomeScreen extends StatelessWidget {
     (Mark.confirm, 'Nothing reaches your books until you say so'),
   ];
 
+  static const _usPoints = [
+    (Mark.taxes, 'Snap your W-2 and 1099s, and we read them for you'),
+    (Mark.sales, 'Plain questions instead of IRS forms'),
+    (Mark.confirm, 'Review every line, then sign and e-file with the IRS'),
+  ];
+
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
+    final state = AppScope.of(context);
+    final us = state.chosenRegion == 'US';
+    final points = us ? _usPoints : _points;
     return Scaffold(
       body: SafeArea(
         child: Padding(
@@ -24,20 +33,37 @@ class WelcomeScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Wordmark(),
+              Row(
+                children: [
+                  const Wordmark(),
+                  const Spacer(),
+                  SegmentedButton<String>(
+                    key: const Key('welcome.region'),
+                    showSelectedIcon: false,
+                    segments: const [
+                      ButtonSegment(value: 'IN', label: Text('India')),
+                      ButtonSegment(value: 'US', label: Text('US')),
+                    ],
+                    selected: {state.chosenRegion},
+                    onSelectionChanged: (picked) => state.chooseRegion(picked.first),
+                  ),
+                ],
+              ),
               const Spacer(flex: 3),
               Text(
-                'Your books,\nkept as easily\nas a conversation.',
+                us ? 'Your taxes,\ndone as easily\nas a conversation.' : 'Your books,\nkept as easily\nas a conversation.',
                 style: text.displaySmall,
               ),
               const SizedBox(height: 14),
               Text(
-                'Sales, purchases and GST for your business, kept right without the paperwork.',
+                us
+                    ? 'Your federal return, Form 1040, prepared from your forms and your answers, and e-filed with the IRS.'
+                    : 'Sales, purchases and GST for your business, kept right without the paperwork.',
                 style: text.bodyLarge?.copyWith(color: Palette.muted),
               ),
               const SizedBox(height: 28),
               const Divider(),
-              for (final (mark, line) in _points) ...[
+              for (final (mark, line) in points) ...[
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   child: Row(
@@ -54,14 +80,17 @@ class WelcomeScreen extends StatelessWidget {
               SizedBox(
                 width: double.infinity,
                 child: FilledButton(
-                  onPressed: AppScope.of(context).finishWelcome,
+                  onPressed: () async {
+                    await state.chooseRegion(state.chosenRegion);
+                    await state.finishWelcome();
+                  },
                   child: const Text('Get started'),
                 ),
               ),
               const SizedBox(height: 12),
               Center(
                 child: Text(
-                  'About two minutes to set up',
+                  us ? 'Most returns take about 20 minutes' : 'About two minutes to set up',
                   style: text.bodySmall,
                 ),
               ),

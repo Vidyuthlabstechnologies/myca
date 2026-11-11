@@ -21,7 +21,7 @@ class _PrivacyNoticeScreenState extends State<PrivacyNoticeScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _notice ??= AppScope.of(context).cloud!.privacyNotice();
+    _notice ??= AppScope.of(context).cloud!.privacyNotice(region: AppScope.of(context).chosenRegion);
   }
 
   Future<void> _agree(PrivacyNotice notice) async {
@@ -38,7 +38,7 @@ class _PrivacyNoticeScreenState extends State<PrivacyNoticeScreen> {
       if (mounted) {
         setState(() {
           _error = err.message;
-          _notice = state.cloud!.privacyNotice();
+          _notice = state.cloud!.privacyNotice(region: state.chosenRegion);
         });
       }
     } finally {
@@ -48,7 +48,7 @@ class _PrivacyNoticeScreenState extends State<PrivacyNoticeScreen> {
 
   void _retry() {
     setState(() {
-      _notice = AppScope.of(context).cloud!.privacyNotice();
+      _notice = AppScope.of(context).cloud!.privacyNotice(region: AppScope.of(context).chosenRegion);
     });
   }
 

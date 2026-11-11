@@ -13,8 +13,10 @@ class MemoryOnboardingStore implements OnboardingStore {
     this.isWelcomed = false,
     this.isMigrated = false,
     this.isLockEnabled = true,
+    this.savedRegion = '',
   });
 
+  String savedRegion;
   bool isWelcomed;
   bool isMigrated;
   bool isLockEnabled;
@@ -36,6 +38,12 @@ class MemoryOnboardingStore implements OnboardingStore {
 
   @override
   Future<void> markMigrated() async => isMigrated = true;
+
+  @override
+  Future<String> region() async => savedRegion;
+
+  @override
+  Future<void> setRegion(String region) async => savedRegion = region;
 }
 
 AppState testState(

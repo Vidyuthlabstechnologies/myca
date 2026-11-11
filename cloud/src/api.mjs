@@ -16,7 +16,7 @@ import { IMPORT_CONTENT_ARG, isImport } from '../../platform/src/import-document
 import { assertSecret } from './tokens.mjs';
 import { createBodyBudget, defaultBodyBudgetBytes } from './body-budget.mjs';
 import { createCrashReports } from './crash-reports.mjs';
-import { PRIVACY_NOTICE, consentExempt, createConsent } from './consent.mjs';
+import { PRIVACY_NOTICE, consentExempt, createConsent, noticeFor } from './consent.mjs';
 import { createJobs, jobTokenMatches, JOB_HEADER } from './jobs.mjs';
 import { createGoogleKeys, createGoogleVerifier } from './google.mjs';
 import { createOidcVerifier } from './oidc.mjs';
@@ -381,7 +381,7 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
       if (!database) throw httpError(503, 'DATABASE_UNAVAILABLE', { environment, providerMode: providerMode(), database: 'unreachable' });
       return { ok: true, environment, providerMode: providerMode(), database: 'ok', version };
     }
-    if (parts[1] === 'privacy-notice' && parts.length === 2 && method === 'GET') return { ok: true, notice: PRIVACY_NOTICE };
+    if (parts[1] === 'privacy-notice' && parts.length === 2 && method === 'GET') return { ok: true, notice: noticeFor(url.searchParams.get('region')) };
     if (parts[1] === 'plans' && parts.length === 2 && method === 'GET') return billing.plans();
     if (parts[1] === 'billing' && parts[2] === 'play' && parts[3] === 'notify' && parts.length === 4 && method === 'POST') {
       if (url.searchParams.has('token')) throw httpError(401, 'TOKEN_IN_QUERY', { hint: `Send the token in the ${PLAY_NOTIFY_HEADER} header, or use Pub/Sub push authentication.` });

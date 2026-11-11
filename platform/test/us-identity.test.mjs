@@ -137,3 +137,15 @@ test('the model never receives an SSN the owner typed', async () => {
   assert.ok(!sent.includes('123-45-6780'));
   assert.ok(sent.includes('***-**-6780'));
 });
+
+test('a chat message never keeps an SSN in the books, the eval log or the reply', async () => {
+  const { createState } = await import('../src/store.mjs');
+  const { chat } = await import('../src/router.mjs');
+  const state = createState();
+  state.company = { ...state.company, name: 'Jordan Rivera', country: 'US', entityType: 'household' };
+  const out = await chat(state, 'my SSN is 123-45-6780');
+  const { serialize } = await import('../src/store.mjs');
+  const kept = JSON.stringify(serialize(state), (_, v) => (typeof v === 'bigint' ? String(v) : v));
+  assert.ok(!kept.includes('123-45-6780') && !kept.includes('123456780'));
+  assert.ok(!String(out.reply).includes('123-45-6780'));
+});

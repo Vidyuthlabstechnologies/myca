@@ -6,6 +6,7 @@ import '../cloud/cloud_session.dart';
 import '../migration.dart';
 import 'invitation_cards.dart';
 import '../theme.dart';
+import 'us/us_setup_screen.dart';
 
 class BusinessSetupScreen extends StatefulWidget {
   const BusinessSetupScreen({super.key});
@@ -96,6 +97,7 @@ class _BusinessSetupScreenState extends State<BusinessSetupScreen> {
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
+    if (AppScope.of(context).chosenRegion == 'US') return const UsSetupScreen();
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,
@@ -204,6 +206,14 @@ class _BusinessSetupScreenState extends State<BusinessSetupScreen> {
             Text(
               'A made-up trader with three months of invoices, purchases and expenses. It cannot reach the GST portal, banks or other people, and you can delete it any time.',
               style: text.bodySmall?.copyWith(color: Palette.muted),
+            ),
+            const SizedBox(height: 12),
+            Center(
+              child: TextButton(
+                key: const Key('setup.us'),
+                onPressed: () => AppScope.of(context).chooseRegion('US'),
+                child: const Text('Filing taxes in the United States?'),
+              ),
             ),
           ],
         ),

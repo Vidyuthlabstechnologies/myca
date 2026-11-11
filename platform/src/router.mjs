@@ -67,6 +67,7 @@ import { kindTitle } from './quotes.mjs';
 import { everyWords, recurringWords, runRecurringWords } from './recurring.mjs';
 import { reconciliationWords, matchWords, unmatchWords, chargesWords, accountWords, accountsWords, transferWords } from './bank-recon.mjs';
 import { addRuleWords, rulesWords, runRulesWords, removeRuleWords } from './bank-rules.mjs';
+import { redactTins } from './us-identity.mjs';
 
 
 const GSTR1_HELD_REASONS = {
@@ -1199,7 +1200,8 @@ export function discardPending(state) {
   return spoken(discardCore(state));
 }
 
-export async function chat(state, message) {
+export async function chat(state, said) {
+  const message = redactTins(said);
   setCurrentCountry(state);
   const out = await throughLanguage(message, async (english) => spoken(await chatCore(state, english)));
   rememberTurn(state, message, out.reply);

@@ -40,6 +40,9 @@ const _messages = {
       'That GSTIN is not valid. Check it against your registration certificate.',
   'STATE_REQUIRED': 'Choose the state your business is in.',
   'INVALID_STATE_CODE': 'Choose the state your business is in.',
+  'HOUSEHOLD_US_ONLY': 'A personal tax return is for US filers. Choose the United States first.',
+  'UNKNOWN_KIND': 'Choose a personal return or a business.',
+  'INVALID_EIN': 'An EIN has nine digits, like 12-3456789. It is on the IRS letter that gave you the number.',
   'OWNER_ONLY': 'Only the owner can change this.',
   'INVALID_ROLE': 'Choose staff or accountant.',
   'ALREADY_A_MEMBER': 'That person is already in this business.',
@@ -1001,8 +1004,8 @@ class CloudSession {
     }
   }
 
-  Future<PrivacyNotice> privacyNotice() async {
-    final (status, body) = await _send('GET', '/v1/privacy-notice', null, authed: false);
+  Future<PrivacyNotice> privacyNotice({String region = ''}) async {
+    final (status, body) = await _send('GET', region == 'US' ? '/v1/privacy-notice?region=US' : '/v1/privacy-notice', null, authed: false);
     if (status != 200 || body['notice'] is! Map) {
       throw MycaApiException(cloudMessage('${body['error'] ?? 'UNKNOWN'}'));
     }
@@ -1073,11 +1076,15 @@ class CloudSession {
     required String name,
     String gstin = '',
     String state = '',
+    String country = '',
+    String kind = '',
   }) async {
     final body = await call('POST', '/v1/businesses', {
       'name': name,
       if (gstin.isNotEmpty) 'gstin': gstin,
       if (state.isNotEmpty) 'state': state,
+      if (country.isNotEmpty) 'country': country,
+      if (kind.isNotEmpty) 'kind': kind,
     });
     final business = body['business'];
     if (business is! Map) {
