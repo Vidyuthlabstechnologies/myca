@@ -1,6 +1,7 @@
 import { providerCatalog, providerRequirementMap } from './provider-catalog.mjs';
 import { hasSecretKey } from './secret-keys.mjs';
 import { ACTION_CLASSES } from './action-gate.mjs';
+import { QUICKO_OPERATIONS } from './sandbox-endpoints.mjs';
 
 const OPERATIONS = [
   {
@@ -221,7 +222,19 @@ const OPERATIONS = [
   },
 ];
 
-export const SANDBOX_OPERATIONS = OPERATIONS.map((operation) => ({
+const CATALOGUE_OPERATIONS = QUICKO_OPERATIONS.map((endpoint) => ({
+  operationId: endpoint.id,
+  requirementId: endpoint.requirementId,
+  title: endpoint.title,
+  mode: endpoint.mode,
+  assistantBlocked: endpoint.actionClass === 'write',
+  mapsToTools: [],
+  ownerModules: ['platform/src/sandbox-endpoints.mjs'],
+  docsTitle: endpoint.title,
+  catalogue: { method: endpoint.method, path: endpoint.path, family: endpoint.family, session: endpoint.session, irreversible: endpoint.irreversible },
+}));
+
+export const SANDBOX_OPERATIONS = [...OPERATIONS, ...CATALOGUE_OPERATIONS].map((operation) => ({
   ...operation,
   caApprovalRequired: ACTION_CLASSES[operation.operationId].actionClass === 'write',
 }));

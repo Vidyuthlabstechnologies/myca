@@ -2,6 +2,9 @@ import { createHash } from 'node:crypto';
 import { sandboxOperationById, createSandboxHandoff } from './sandbox-adapter-contract.mjs';
 import { invoiceToNicPayload, nicPartyFor, nicPayloadRefusal } from './nic-config.mjs';
 import { performExternalAction } from './action-gate.mjs';
+import { quickoOperation } from './sandbox-endpoints.mjs';
+import { documentsOf, isSha256 } from './document-store.mjs';
+import { omitSecrets } from './secret-keys.mjs';
 
 function fromClient(res, data) {
   if (res && res.ok === false && res.error) return { ok: false, error: res.error, ...(res.message ? { hint: res.message } : {}) };
@@ -49,6 +52,153 @@ function ledgerIdsOf(data) {
     if (row && row.trans_typ != null && row.liab_ldg_id != null) ids[Number(row.trans_typ)] = Number(row.liab_ldg_id);
   }
   return ids;
+}
+
+function picked(params, names) {
+  const out = {};
+  for (const name of names) if (params[name] !== undefined && params[name] !== null && params[name] !== '') out[name] = params[name];
+  return out;
+}
+
+function plainObject(value) {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value : null;
+}
+
+export function catalogueRequest(endpoint, params = {}) {
+  const pathParams = { ...picked(params, endpoint.pathParams), ...(plainObject(params.path) || {}) };
+  const query = { ...picked(params, endpoint.query.map((q) => q.name)), ...(plainObject(params.query) || {}) };
+  const missingPath = endpoint.pathParams.filter((name) => pathParams[name] === undefined || String(pathParams[name]).trim() === '');
+  if (missingPath.length) return { ok: false, error: 'PATH_PARAMS_REQUIRED', missing: missingPath, hint: `Pass params.path { ${missingPath.join(', ')} }.` };
+  const missingQuery = endpoint.query.filter((q) => q.required && (query[q.name] === undefined || query[q.name] === '')).map((q) => q.name);
+  if (missingQuery.length) return { ok: false, error: 'QUERY_PARAMS_REQUIRED', missing: missingQuery, hint: `Pass params.query { ${missingQuery.join(', ')} }.` };
+  if (endpoint.needsConsent && endpoint.query.some((q) => q.name === 'consent') && !/^y$/i.test(String(query.consent || ''))) {
+    return { ok: false, error: 'CONSENT_REQUIRED', hint: 'This lookup needs consent. Ask the person, then pass query.consent "Y" and query.reason.' };
+  }
+  let body;
+  if (endpoint.body === 'json') {
+    const given = params.body;
+    if (given !== undefined && given !== null && typeof given !== 'object') return { ok: false, error: 'BODY_MUST_BE_JSON' };
+    body = Array.isArray(given) ? given : { ...(endpoint.entity ? { '@entity': endpoint.entity } : {}), ...(given || {}) };
+    if (!Array.isArray(body)) {
+      const missing = endpoint.bodyRequired.filter((name) => body[name] === undefined || body[name] === null || body[name] === '');
+      if (missing.length) return { ok: false, error: 'BODY_FIELDS_REQUIRED', missing, hint: `Pass params.body with ${missing.join(', ')}.` };
+      if (endpoint.needsConsent && !/^y$/i.test(String(body.consent || ''))) {
+        return { ok: false, error: 'CONSENT_REQUIRED', hint: 'This lookup needs the person\'s consent. Ask them, then pass body.consent "Y" and body.reason.' };
+      }
+    }
+  }
+  const documentSha256 = String(params.documentSha256 || '').trim().toLowerCase();
+  if (endpoint.body === 'multipart' && !isSha256(documentSha256)) return { ok: false, error: 'FILE_REQUIRED', hint: 'Upload the PDF with /api/upload and pass params.documentSha256.' };
+  const jobInputSha256 = String(params.jobInputSha256 || '').trim().toLowerCase();
+  if (jobInputSha256 && !isSha256(jobInputSha256)) return { ok: false, error: 'INVALID_SHA256' };
+  return {
+    ok: true,
+    call: { pathParams, query, ...(body === undefined ? {} : { body }) },
+    payload: {
+      method: endpoint.method,
+      path: endpoint.path,
+      pathParams,
+      query,
+      ...(body === undefined ? {} : { body }),
+      ...(documentSha256 ? { documentSha256 } : {}),
+      ...(params.jobInput !== undefined ? { jobInput: 'inline JSON' } : {}),
+      ...(jobInputSha256 ? { jobInputSha256 } : {}),
+    },
+  };
+}
+
+function storedBytes(state, sha256, fallbackType) {
+  const stored = documentsOf(state).readVerified(sha256);
+  if (!stored.ok) return stored;
+  const content = String(stored.content || '');
+  const match = /^data:([a-z0-9.+/-]+);base64,([A-Za-z0-9+/=\s]+)$/i.exec(content.trim());
+  if (match) return { ok: true, bytes: Buffer.from(match[2].replace(/\s+/g, ''), 'base64'), type: match[1].toLowerCase() };
+  return { ok: true, bytes: Buffer.from(content, 'utf8'), type: fallbackType };
+}
+
+function withoutTokens(value) {
+  if (Array.isArray(value)) return value.map(withoutTokens);
+  if (!value || typeof value !== 'object') return value;
+  const out = {};
+  for (const [key, child] of Object.entries(value)) if (!/token|password|secret/i.test(key)) out[key] = withoutTokens(child);
+  return out;
+}
+
+function outputUrl(inner) {
+  if (!inner || typeof inner !== 'object') return '';
+  for (const key of ['output_url', 'download_url', 'output', 'url', 'report_url', 'result_url']) {
+    if (typeof inner[key] === 'string' && /^https:/.test(inner[key])) return inner[key];
+  }
+  return '';
+}
+
+async function catalogueAdapter({ client, params, state, endpoint }) {
+  const built = catalogueRequest(endpoint, params);
+  if (!built.ok) return built;
+  let file;
+  if (endpoint.body === 'multipart') {
+    const read = storedBytes(state, String(params.documentSha256).toLowerCase(), 'application/pdf');
+    if (!read.ok) return read;
+    if (!/pdf/.test(read.type)) return { ok: false, error: 'PDF_REQUIRED', hint: 'Upload the document as a PDF.' };
+    file = { bytes: read.bytes, type: read.type, name: `${endpoint.family}.pdf` };
+  }
+  const res = await client.callEndpoint(endpoint.id, { ...built.call, ...(file ? { file } : {}) });
+  if (res.ok === false) {
+    const failed = fromClient(res);
+    return { ...failed, ...(res.missing ? { missing: res.missing } : {}), ...(res.session ? { session: res.session } : {}), ...(res.hint && !failed.hint ? { hint: res.hint } : {}) };
+  }
+  const clean = endpoint.opensSession ? omitSecrets(withoutTokens(res.data)) : withoutTokens(res.data);
+  const inner = clean?.data ?? clean;
+  const data = {
+    operationId: endpoint.id,
+    source: 'Sandbox by Quicko',
+    provider: inner,
+    ...(res.sessionEstablished ? { sessionEstablished: true, session: res.session } : {}),
+  };
+  const jobInputSha256 = String(params.jobInputSha256 || '').trim().toLowerCase();
+  if (params.jobInput !== undefined || jobInputSha256) {
+    const uploadUrl = typeof res.data?.data?.url === 'string' ? res.data.data.url : '';
+    if (!uploadUrl) return { ok: false, error: 'JOB_URL_MISSING', provider: inner, hint: 'The job was created but Sandbox returned no upload URL.' };
+    let bytes;
+    let contentType = 'application/json';
+    if (jobInputSha256) {
+      const read = storedBytes(state, jobInputSha256, 'text/csv');
+      if (!read.ok) return read;
+      bytes = read.bytes;
+      contentType = read.type;
+    } else {
+      bytes = JSON.stringify(params.jobInput);
+    }
+    const uploaded = await client.uploadJobPayload(uploadUrl, { bytes, contentType });
+    if (!uploaded.ok) return { ok: false, error: uploaded.error, provider: inner, hint: 'The job exists but its input did not upload; submit the job again.' };
+    data.uploaded = true;
+    data.provider = { ...inner, url: undefined };
+  }
+  if (params.fetchOutput && endpoint.method === 'GET') {
+    const url = outputUrl(res.data?.data);
+    if (url) {
+      const output = await client.fetchJobOutput(url);
+      if (!output.ok) return { ok: false, error: output.error, provider: inner };
+      data.output = output.output ?? output.text;
+    }
+  }
+  return { ok: true, data };
+}
+
+async function catalogueMock({ params, endpoint }) {
+  const built = catalogueRequest(endpoint, params);
+  if (!built.ok) return built;
+  return {
+    ok: true,
+    ...MOCK_TAG,
+    data: {
+      operationId: endpoint.id,
+      source: 'Sandbox by Quicko (simulated)',
+      accepted: true,
+      request: { method: endpoint.method, path: endpoint.path, pathParams: built.call.pathParams, query: built.call.query },
+      note: 'Mock mode: nothing was sent and no figures were made up. Turn mock mode off and use the test key to see real responses.',
+    },
+  };
 }
 
 const REQUEST_BUILDERS = {
@@ -258,12 +408,12 @@ const ADAPTERS = {
   income_tax_calculate: async () => ({
     ok: false,
     error: 'PROVIDER_ENDPOINT_UNDOCUMENTED',
-    hint: 'Sandbox publishes no stable income-tax calculator path in its API reference. Use prepare_itr (sprint-5 engine) for ITR maths.',
+    hint: 'Use quicko_tax_check (Sandbox old and new regime calculators) to cross-check prepare_itr; prepare_itr stays the source of truth.',
   }),
 };
 
 export function adapterSupports(operationId) {
-  return Boolean(ADAPTERS[operationId]);
+  return Boolean(ADAPTERS[operationId] || quickoOperation(operationId));
 }
 
 const MOCK_TAG = { mock: true, simulated: true };
@@ -460,10 +610,11 @@ export async function runSandboxOperation({ operationId, actorId = '', actor = n
   if (!operation) return { ok: false, error: 'UNKNOWN_SANDBOX_OPERATION' };
 
   const state = deps.state;
-  const adapter = ADAPTERS[operation.operationId];
-  const mockAdapter = MOCK_ADAPTERS[operation.operationId];
+  const endpoint = quickoOperation(operation.operationId);
+  const adapter = endpoint ? (args) => catalogueAdapter({ ...args, endpoint }) : ADAPTERS[operation.operationId];
+  const mockAdapter = endpoint ? (args) => catalogueMock({ ...args, endpoint }) : MOCK_ADAPTERS[operation.operationId];
   const requester = actor || { userId: actorId };
-  const request = REQUEST_BUILDERS[operation.operationId]?.({ params, state }) || { ok: true, payload: params };
+  const request = endpoint ? catalogueRequest(endpoint, params) : REQUEST_BUILDERS[operation.operationId]?.({ params, state }) || { ok: true, payload: params };
   const described = {
     operationId: operation.operationId,
     requirementId: operation.requirementId,

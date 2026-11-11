@@ -18,6 +18,7 @@ import {
 import { redactSecrets } from './secret-keys.mjs';
 import { loadGovtConfig } from './nic-config.mjs';
 import { SandboxClient, getSandboxClient } from './sandbox-client.mjs';
+import { QUICKO_OPERATIONS } from './sandbox-endpoints.mjs';
 import { NimClient, getNimClient } from './nim-client.mjs';
 import * as nicClient from './nic-client.mjs';
 import { sendNotification } from './notifications.mjs';
@@ -48,6 +49,7 @@ const IRREVERSIBLE = { irreversible: true };
 const PROBE = { timeoutMs: 90000 };
 const MODEL = { timeoutMs: 2 * MINUTE_MS };
 const LOCAL_APP = { local: true, timeoutMs: 30000 };
+const QUICKO_USES = ['sandbox.callEndpoint', 'sandbox.uploadJobPayload', 'sandbox.fetchJobOutput'];
 
 export const ACTION_CLASSES = Object.freeze(Object.assign(Object.create(null), {
   gst_taxpayer_generate_otp: write('sandbox_operation', ['sandbox.generateTaxpayerOtp'], IRREVERSIBLE),
@@ -100,6 +102,10 @@ export const ACTION_CLASSES = Object.freeze(Object.assign(Object.create(null), {
   gusto_token: read('channel', ['channel.gusto']),
   track1099_read: read('channel', ['channel.track1099']),
   track1099_import: write('channel', ['channel.track1099'], { timeoutMs: 5 * MINUTE_MS }),
+  ...Object.fromEntries(QUICKO_OPERATIONS.map((endpoint) => [
+    endpoint.id,
+    entry(endpoint.actionClass, 'sandbox_operation', QUICKO_USES, { irreversible: endpoint.irreversible, timeoutMs: endpoint.job ? 3 * MINUTE_MS : 90000 }),
+  ])),
 }));
 
 export const ENGINE_ACTION_FAMILY = 'country-engine';

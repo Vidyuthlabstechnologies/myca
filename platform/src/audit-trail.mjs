@@ -3,6 +3,7 @@ import { CONFIRM_TOOLS } from './chat-confirm.mjs';
 import { verifyChain } from './ledger.mjs';
 import { periodRange } from './report-sheets.mjs';
 import { localToday } from './dates.mjs';
+import { QUICKO_OPERATIONS } from './sandbox-endpoints.mjs';
 
 const IDENTIFIER = new Set(['string', 'number', 'bigint']);
 const MAX_IDS = 20;
@@ -26,6 +27,7 @@ const HOSTED_NOTE = ' Reads are kept in the hosted audit log, not here.';
 export const NOT_SEALED = 'the client an event is filed under is not sealed';
 
 export const OUTSIDE_SENTENCES = Object.freeze({
+  ...Object.fromEntries(QUICKO_OPERATIONS.map((endpoint) => [endpoint.id, endpoint.sentence])),
   gst_taxpayer_generate_otp: 'Ask the GST portal for a sign-in code',
   gst_taxpayer_verify_otp: 'Sign in to the GST portal with a code',
   gst_gstr2b_recon_submit: 'Start a GSTR-2B check at the GST portal',

@@ -17,6 +17,7 @@ import 'filing_screen.dart';
 import 'gst_payment_screen.dart';
 import 'gst_portal_screen.dart';
 import 'year_close_screen.dart';
+import 'quicko_screen.dart';
 import 'tds_credit_screen.dart';
 import 'tds_screen.dart';
 import 'review_screen.dart';
@@ -770,6 +771,16 @@ class _TaxesScreenState extends State<TaxesScreen> {
                                   MaterialPageRoute<void>(builder: (_) => const TdsCreditScreen()),
                                 ),
                               ),
+                              if (_portalAllowed)
+                                RowCard(
+                                  leading: const TintTile(tint: Tint.taxes, mark: Mark.taxes),
+                                  title: 'Income tax checks',
+                                  subtitle: 'Read Form 16 or 26AS, check a PAN, section 206AB or a bank account',
+                                  trailing: const Chevron(),
+                                  onTap: () => Navigator.of(context).push(
+                                    MaterialPageRoute<void>(builder: (_) => const QuickoScreen()),
+                                  ),
+                                ),
                             ],
                           ),
                           if (_tdsNote.isNotEmpty && tds.deductor)

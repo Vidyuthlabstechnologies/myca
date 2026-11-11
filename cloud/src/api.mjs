@@ -3,6 +3,7 @@ import { mockModeEnabled, serviceProviderEnvironment } from '../../platform/src/
 import { withProviderContext } from '../../platform/src/provider-context.mjs';
 import { createGovtActions } from './govt-actions.mjs';
 import { createGstPortal } from './gst-portal.mjs';
+import { createQuicko } from './quicko.mjs';
 import { createBilling, readOnlyChat, US_PLUS_TOOLS } from './billing.mjs';
 import { gstin } from '../../platform/src/sprint-load.mjs';
 import { rule } from '../../sprints/statutory-rules/src/index.mjs';
@@ -334,6 +335,7 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
   const billing = billingGiven || createBilling({ db, now, log });
   const govt = createGovtActions({ connectors, withBooks: (...args) => runner.withBooks(...args) });
   const gstPortal = createGstPortal({ db, connectors, withBooks: (...args) => runner.withBooks(...args), billing, key: connectorKey, fetchFn: gspFetch, now });
+  const quicko = createQuicko({ db, connectors, withBooks: (...args) => runner.withBooks(...args), key: connectorKey, fetchFn: gspFetch, now });
   const publicOrigin = (req) => {
     const configured = String(process.env.MYCA_PUBLIC_URL || '').trim().replace(/\/+$/, '');
     if (configured) return configured;
@@ -728,6 +730,10 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
         if (sharedView) throw httpError(403, 'SHARED_VIEW_READ_ONLY', { sharedAsOf: sync.asOf });
         return action === 'gst-portal' ? gstPortal.status(businessId) : gstPortal.filings(businessId, context);
       }
+      if (method === 'GET' && action === 'quicko') {
+        if (role === 'staff') throw httpError(403, 'NOT_FOR_STAFF');
+        return quicko.status(businessId);
+      }
       if (method === 'GET' && action === 'subscription') return billing.entitlement(businessId);
       if (method === 'GET' && action === 'us-return-purchase') return billing.usReturn(businessId, url.searchParams.get('taxYear'));
       if (method === 'GET' && action === 'us-plus') return billing.usPlus(businessId);
@@ -760,6 +766,20 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
         return { ok: true, sharedAsOf: await runner.share(businessId, user.userId) };
       }
       if (action === 'gstin-check') return govt.gstinCheck(businessId, context, actor, body);
+      if (action === 'quicko' || action === 'quicko-session') {
+        if (role === 'staff') throw httpError(403, 'NOT_FOR_STAFF');
+        if (sharedView) throw httpError(403, 'SHARED_VIEW_READ_ONLY', { sharedAsOf: sync.asOf });
+        if (action === 'quicko') {
+          await throttle('quickoBusiness', businessId);
+          await throttle('quickoUser', user.userId);
+          return quicko.run(businessId, context, actor, body);
+        }
+        if (body.step !== 'disconnect') {
+          await throttle('portalSignInBusiness', businessId);
+          await throttle('portalSignInSubject', `${String(body.portal || '')}:${String((body.portal === 'traces' ? body.tan : body.pan) || '').trim().toUpperCase()}`);
+        }
+        return quicko.connect(businessId, context, body);
+      }
       if (action === 'gst-portal' || action === 'gst-gstr1' || action === 'gst-gstr3b' || action === 'tds-fvu') {
         if (role === 'staff') throw httpError(403, 'NOT_FOR_STAFF');
         if (sharedView) throw httpError(403, 'SHARED_VIEW_READ_ONLY', { sharedAsOf: sync.asOf });
