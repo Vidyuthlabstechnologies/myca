@@ -1,0 +1,53 @@
+{
+  "space": {
+    "$type": "dimension",
+    "0": { "$value": "0px" },
+    "1": { "$value": "4px" },
+    "2": { "$value": "8px" },
+    "3": { "$value": "12px" },
+    "4": { "$value": "16px" },
+    "5": { "$value": "20px" },
+    "6": { "$value": "24px" },
+    "8": { "$value": "32px" },
+    "10": { "$value": "40px" },
+    "12": { "$value": "48px" },
+    "16": { "$value": "64px" }
+  },
+  "radius": {
+    "$type": "dimension",
+    "chip": { "$value": "8px" },
+    "control": { "$value": "10px" },
+    "card": { "$value": "14px" },
+    "sheet": { "$value": "18px" },
+    "mark": { "$value": "11px", "$description": "Logo tile corner on a 48 unit grid." },
+    "pill": { "$value": "999px" }
+  },
+  "size": {
+    "$type": "dimension",
+    "control": { "$value": "50px", "$description": "Height of buttons and fields. Above the 48dp touch minimum." },
+    "touch": { "$value": "48px" },
+    "column": { "$value": "720px", "$description": "Max content width on tablets and desktop." },
+    "page": { "$value": "1080px", "$description": "Max width of the website." }
+  },
+  "motion": {
+    "duration": {
+      "$type": "duration",
+      "instant": { "$value": "90ms" },
+      "quick": { "$value": "160ms" },
+      "standard": { "$value": "220ms" },
+      "gentle": { "$value": "360ms" }
+    },
+    "easing": {
+      "$type": "cubicBezier",
+      "standard": { "$value": [0.2, 0, 0, 1] },
+      "enter": { "$value": [0.05, 0.7, 0.1, 1] },
+      "exit": { "$value": [0.3, 0, 0.8, 0.15] }
+    }
+  },
+  "elevation": {
+    "card": { "$type": "shadow", "$value": [
+      { "color": "#15181B0A", "offsetX": "0px", "offsetY": "1px", "blur": "2px", "spread": "0px" },
+      { "color": "#15181B0F", "offsetX": "0px", "offsetY": "12px", "blur": "32px", "spread": "0px" }
+    ] }
+  }
+}
