@@ -19,6 +19,7 @@ import { imsWords, imsDecidedWords } from './ims.mjs';
 import { needsConfirmation, previewOf, openPending, takePending, clearPending, previewReply, blockedReply, rowsCounted } from './chat-confirm.mjs';
 import { liveCallsEnabled, mockModeEnabled } from './runtime-config.mjs';
 import { referenceImportContent, resolveImportContent } from './import-documents.mjs';
+import { openPendingArgs } from './us-efile.mjs';
 import { spoken } from './words.mjs';
 import { planEntryWithTds, creditCheckWords } from './tds-intent.mjs';
 import { paymentWords } from './gst-payment.mjs';
@@ -1094,7 +1095,7 @@ async function runConfirmation(state, decision) {
     return { reply: why, tools: [], posted: false, error: taken.error };
   }
   const { pending } = taken;
-  const resolved = resolveImportContent(state, pending.name, pending.args);
+  const resolved = resolveImportContent(state, pending.name, openPendingArgs(pending.name, pending.args));
   if (!resolved.ok) return unreadableFile(resolved.error);
   const recheck = validateAssistantToolCall(pending.name, resolved.args);
   if (!recheck.ok) return { reply: notAccepted(recheck.error), tools: [], blocked: true };

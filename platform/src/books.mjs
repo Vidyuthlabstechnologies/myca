@@ -102,6 +102,7 @@ export function newBook(company = {}) {
     portalSaves: {},
     gstr3bPortal: {},
     tdsFvuJobs: [],
+    usEfile: { returns: {}, submissionSeq: 0 },
     supplierReminderSeq: 0,
     employees: [],
     employeeSeq: 0,
@@ -194,6 +195,7 @@ export function serializeBook(book) {
     portalSaves: book.portalSaves || {},
     gstr3bPortal: book.gstr3bPortal || {},
     tdsFvuJobs: book.tdsFvuJobs || [],
+    usEfile: book.usEfile || { returns: {}, submissionSeq: 0 },
     supplierReminderSeq: book.supplierReminderSeq || 0,
     employees: book.employees || [],
     employeeSeq: book.employeeSeq || 0,
@@ -283,6 +285,7 @@ export function deserializeBook(raw) {
   book.portalSaves = raw.portalSaves && typeof raw.portalSaves === 'object' ? raw.portalSaves : {};
   book.gstr3bPortal = raw.gstr3bPortal && typeof raw.gstr3bPortal === 'object' ? raw.gstr3bPortal : {};
   book.tdsFvuJobs = Array.isArray(raw.tdsFvuJobs) ? raw.tdsFvuJobs : [];
+  book.usEfile = raw.usEfile && typeof raw.usEfile === 'object' ? raw.usEfile : { returns: {}, submissionSeq: 0 };
   book.supplierReminderSeq = raw.supplierReminderSeq || 0;
   book.employees = Array.isArray(raw.employees) ? raw.employees : [];
   book.employeeSeq = raw.employeeSeq || 0;

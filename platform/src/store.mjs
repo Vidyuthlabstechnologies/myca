@@ -91,6 +91,7 @@ export function createState() {
     portalSaves: {},
     gstr3bPortal: {},
     tdsFvuJobs: [],
+    usEfile: { returns: {}, submissionSeq: 0 },
     supplierReminderSeq: 0,
     employees: [],
     employeeSeq: 0,
@@ -202,6 +203,7 @@ export function serialize(state) {
     portalSaves: state.portalSaves || {},
     gstr3bPortal: state.gstr3bPortal || {},
     tdsFvuJobs: state.tdsFvuJobs || [],
+    usEfile: state.usEfile || { returns: {}, submissionSeq: 0 },
     supplierReminderSeq: state.supplierReminderSeq || 0,
     employees: state.employees || [],
     employeeSeq: state.employeeSeq || 0,
@@ -394,6 +396,7 @@ export function deserialize(raw) {
   state.portalSaves = raw.portalSaves && typeof raw.portalSaves === 'object' ? raw.portalSaves : {};
   state.gstr3bPortal = raw.gstr3bPortal && typeof raw.gstr3bPortal === 'object' ? raw.gstr3bPortal : {};
   state.tdsFvuJobs = Array.isArray(raw.tdsFvuJobs) ? raw.tdsFvuJobs : [];
+  state.usEfile = raw.usEfile && typeof raw.usEfile === 'object' ? raw.usEfile : { returns: {}, submissionSeq: 0 };
   state.supplierReminderSeq = raw.supplierReminderSeq || 0;
   state.employees = Array.isArray(raw.employees) ? raw.employees : [];
   state.employeeSeq = raw.employeeSeq || 0;

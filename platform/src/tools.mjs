@@ -70,6 +70,7 @@ import { scheduleCDocument, cpaPack } from './us-cpa-pack.mjs';
 import { form941File, w2File } from './us-payroll-files.mjs';
 import { usPayrollFor, approveUsPayroll, listUsPayroll, usPayslip, usPayrollFilings, setWithholding, setSutaRate, listSutaRates } from './us-payroll.mjs';
 import { scheduleCSummary, estimatedTaxDates } from './us-owner-tax.mjs';
+import { signUsReturn, fileUsReturn, usEfileStatus, fetchUsEfileAcks, usEfileSetup } from './us-efile.mjs';
 import { importUsInvoices } from './import-us-books.mjs';
 import { exportTrialBalance } from './trial-balance-export.mjs';
 import { profitAndLoss, balanceSheet, cashFlow, customerStatement } from './statements.mjs';
@@ -794,6 +795,53 @@ export const TOOLS = [
     description: 'A printable Schedule C summary for the year with the Schedule SE draft, as one HTML file for the CPA. Read-only.',
     args: ['year', 'filingStatus', 'otherSocialSecurityWages'],
     run: (state, args = {}) => scheduleCDocument(state, args),
+  },
+  {
+    name: 'sign_us_return',
+    title: 'Sign the federal return (Form 8879)',
+    description: 'Sign the computed Form 1040 for a tax year with the self-select PIN of the taxpayer (and spouse when filing jointly), the prior-year AGI or prior-year PIN, any Identity Protection PIN, and the refund (direct deposit or check) or payment (direct debit or later) choice. Checks the return is complete enough to e-file and binds the signature to this exact return. PINs and bank details are sealed. US only.',
+    args: ['taxYear', 'taxpayerPin', 'spousePin', 'priorYear', 'priorYearAgi', 'priorYearPin', 'identityProtectionPin', 'consent8879', 'refund', 'payment', 'device'],
+    run: async (state, args = {}) => {
+      const out = await signUsReturn(state, args, resolveToolActor(args, 'actorId', 'owner'));
+      return out.ok ? ok(out) : fail(out.error, out);
+    },
+  },
+  {
+    name: 'file_us_return',
+    title: 'E-file the federal return with the IRS',
+    description: 'Build the IRS MeF submission for the signed Form 1040 and transmit it. In sandbox mode (no IRS credentials, or the IRS test system) the return is checked by a local simulator or IRS assurance testing and nothing reaches the IRS production system. Refuses if the return is not signed or changed after signing. US only. Cannot be undone once accepted.',
+    args: ['taxYear', 'caApprovalId'],
+    run: async (state, args = {}) => {
+      const out = await fileUsReturn(state, args, resolveToolActor(args, 'actorId', 'owner'));
+      return out.ok ? ok(out) : fail(out.error, out);
+    },
+  },
+  {
+    name: 'us_efile_status',
+    title: 'Federal e-file status',
+    description: 'Where the federal return for a tax year stands: not filed, signed, submitted, accepted or rejected, with the submission id, the acceptance time, and for a rejection each IRS reject code with what to fix and which screen fixes it. Says whether this is sandbox or live. US only. Read-only.',
+    args: ['taxYear'],
+    run: (state, args = {}) => {
+      const out = usEfileStatus(state, args);
+      return out.ok ? ok(out) : fail(out.error, out);
+    },
+  },
+  {
+    name: 'fetch_us_efile_acks',
+    title: 'Collect IRS acknowledgements',
+    description: 'Ask the IRS for the acknowledgements of every submitted federal return still waiting for one and record each acceptance or rejection. Does nothing for sandbox returns checked by the local simulator. US only.',
+    args: [],
+    run: async (state, args = {}) => {
+      const out = await fetchUsEfileAcks(state, args, resolveToolActor(args, 'actorId', 'owner'));
+      return out.ok ? ok(out) : fail(out.error, out);
+    },
+  },
+  {
+    name: 'us_efile_setup',
+    title: 'IRS e-file setup',
+    description: 'Whether MyCA is set up to transmit to the IRS: sandbox or live, which IRS credentials (ETIN, EFIN, software ID, A2A system id, strong-authentication certificate) are still missing, and the MeF host. Holds no secrets. US only. Read-only.',
+    args: [],
+    run: () => ok(usEfileSetup()),
   },
   {
     name: 'cpa_pack',

@@ -23,6 +23,7 @@ import { sendNotification } from './notifications.mjs';
 import { probeGovt, probeTcp } from './reachability.mjs';
 import { getChannelClient } from './channel-client.mjs';
 import { sendToTally } from './tally-client.mjs';
+import { IrsMefClient, getIrsMefClient } from './us-mef-client.mjs';
 
 export const DRY_RUN_LIMIT = 200;
 
@@ -99,6 +100,8 @@ export const ACTION_CLASSES = Object.freeze(Object.assign(Object.create(null), {
   gusto_token: read('channel', ['channel.gusto']),
   track1099_read: read('channel', ['channel.track1099']),
   track1099_import: write('channel', ['channel.track1099'], { timeoutMs: 5 * MINUTE_MS }),
+  irs_mef_send: write('irs', ['irs.sendSubmissions'], { irreversible: true, timeoutMs: 3 * MINUTE_MS }),
+  irs_mef_acks: read('irs', ['irs.getAcks'], { timeoutMs: 2 * MINUTE_MS }),
 }));
 
 function transportOptions(ctx) {
@@ -169,6 +172,7 @@ const TRANSPORT_TABLES = Object.freeze({
 const TRANSPORT_CLIENTS = Object.freeze({
   sandbox: { Client: SandboxClient, current: getSandboxClient },
   nim: { Client: NimClient, current: getNimClient },
+  irs: { Client: IrsMefClient, current: getIrsMefClient },
 });
 
 function signalled(client, signal) {
@@ -307,7 +311,7 @@ function appendDryRun(state, record) {
   return stored;
 }
 
-export const TEST_MODE_FAMILIES = Object.freeze(new Set(['sandbox', 'sandbox_operation', 'nic', 'govt', 'provider', 'nim']));
+export const TEST_MODE_FAMILIES = Object.freeze(new Set(['sandbox', 'sandbox_operation', 'nic', 'govt', 'provider', 'nim', 'irs']));
 
 function recordDryRun(action, payload, reason = 'LIVE_CALLS_DISABLED') {
   const beforeHash = stateDigest(action.state);

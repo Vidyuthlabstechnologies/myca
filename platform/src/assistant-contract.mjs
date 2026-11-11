@@ -104,6 +104,9 @@ const documentSchema = {
   },
 };
 
+const US_PRIOR_YEAR = { type: 'object', additionalProperties: false, properties: { agi: { type: 'integer', minimum: 0 }, pin: { type: 'string', pattern: '^[0-9]{5}$' } } };
+const US_IP_PIN = { type: 'string', pattern: '^[0-9]{6}$' };
+
 export const TOOL_ARG_SCHEMAS = {
   company_profile: noArgs,
   set_company: {
@@ -1076,6 +1079,28 @@ export const TOOL_ARG_SCHEMAS = {
   list_amendments: { type: 'object', additionalProperties: false, properties: { period: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}$' } } },
   schedule_se: { type: 'object', additionalProperties: false, properties: { year: { type: 'string', pattern: '^[0-9]{4}$' }, filingStatus: { type: 'string', enum: ['single', 'married_joint', 'married_separate', 'head_of_household'] }, otherSocialSecurityWages: { type: 'number', minimum: 0 } } },
   schedule_c_document: { type: 'object', additionalProperties: false, properties: { year: { type: 'string', pattern: '^[0-9]{4}$' }, filingStatus: { type: 'string', enum: ['single', 'married_joint', 'married_separate', 'head_of_household'] }, otherSocialSecurityWages: { type: 'number', minimum: 0 } } },
+  sign_us_return: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['taxYear', 'taxpayerPin', 'consent8879'],
+    properties: {
+      taxYear: { type: 'integer', minimum: 2020, maximum: 2100 },
+      taxpayerPin: { type: 'string', pattern: '^[0-9]{5}$' },
+      spousePin: { type: 'string', pattern: '^[0-9]{5}$' },
+      priorYear: { type: 'object', additionalProperties: false, properties: { taxpayer: US_PRIOR_YEAR, spouse: US_PRIOR_YEAR } },
+      priorYearAgi: { type: 'integer', minimum: 0 },
+      priorYearPin: { type: 'string', pattern: '^[0-9]{5}$' },
+      identityProtectionPin: { type: 'object', additionalProperties: false, properties: { taxpayer: US_IP_PIN, spouse: US_IP_PIN } },
+      consent8879: { type: 'boolean' },
+      refund: { type: 'object', additionalProperties: false, required: ['method'], properties: { method: { type: 'string', enum: ['direct_deposit', 'check'] }, routing: { type: 'string', pattern: '^[0-9]{9}$' }, account: { type: 'string', pattern: '^[A-Za-z0-9-]{1,17}$' }, accountType: { type: 'string', enum: ['checking', 'savings'] } } },
+      payment: { type: 'object', additionalProperties: false, required: ['method'], properties: { method: { type: 'string', enum: ['direct_debit', 'later'] }, routing: { type: 'string', pattern: '^[0-9]{9}$' }, account: { type: 'string', pattern: '^[A-Za-z0-9-]{1,17}$' }, accountType: { type: 'string', enum: ['checking', 'savings'] }, date: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' }, phone: { type: 'string', pattern: '^[0-9]{10}$' } } },
+      device: { type: 'object', additionalProperties: false, properties: { ipAddress: { type: 'string', maxLength: 45 }, deviceId: { type: 'string', pattern: '^[0-9A-Fa-f]{40}$' }, deviceType: { type: 'string', maxLength: 30 }, at: { type: 'string', maxLength: 40 } } },
+    },
+  },
+  file_us_return: { type: 'object', additionalProperties: false, required: ['taxYear'], properties: { taxYear: { type: 'integer', minimum: 2020, maximum: 2100 }, caApprovalId: { type: 'string', maxLength: 40 } } },
+  us_efile_status: { type: 'object', additionalProperties: false, required: ['taxYear'], properties: { taxYear: { type: 'integer', minimum: 2020, maximum: 2100 } } },
+  fetch_us_efile_acks: { type: 'object', additionalProperties: false, properties: {} },
+  us_efile_setup: { type: 'object', additionalProperties: false, properties: {} },
   cpa_pack: { type: 'object', additionalProperties: false, properties: { year: { type: 'string', pattern: '^[0-9]{4}$' } } },
   payroll_941_file: { type: 'object', additionalProperties: false, required: ['quarter'], properties: { quarter: { type: 'string', pattern: '^[0-9]{4}-Q[1-4]$' } } },
   payroll_w2_file: { type: 'object', additionalProperties: false, required: ['year'], properties: { year: { type: 'string', pattern: '^[0-9]{4}$' } } },
@@ -2277,6 +2302,9 @@ const TOOL_RISK = {
   gstr3b_portal_liability: 'external_government_api',
   offset_gstr3b_portal: 'external_government_api',
   file_gstr3b_portal: 'external_government_api',
+  file_us_return: 'external_government_api',
+  fetch_us_efile_acks: 'external_government_api',
+  sign_us_return: 'writes_books',
   generate_tds_fvu: 'external_government_api',
   portal_status: 'read_only',
   ask_knowledge: 'read_only',

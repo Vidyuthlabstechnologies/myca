@@ -76,6 +76,8 @@ export const OUTSIDE_SENTENCES = Object.freeze({
   gusto_token: 'Connect to Gusto',
   track1099_read: 'Read 1099 forms from Track1099',
   track1099_import: 'Import 1099 forms from Track1099',
+  irs_mef_send: 'Send a federal tax return to the IRS',
+  irs_mef_acks: 'Collect IRS acknowledgements for federal returns',
 });
 
 export const AUDIT_SHEET_HEADER = ['Event', 'When (UTC)', 'Who', 'Action', 'What changed', 'Records', 'Transfers', 'Books digest before', 'Books digest after', 'Chained'];
