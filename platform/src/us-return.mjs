@@ -3,6 +3,11 @@ import { computeForm1040, FILING_STATUSES, SUPPORTED_YEARS, FORM_KINDS } from '.
 import { scheduleCSummary } from './us-owner-tax.mjs';
 import { sealTin, openTin, maskTin, tinShapeError, isSealedTin } from './us-identity.mjs';
 import { localToday } from './dates.mjs';
+import { appendAuditEvent } from './ca-api.mjs';
+
+function audit(state, action, metadata) {
+  appendAuditEvent(state, { actorId: state.__actor?.userId || 'owner', action, metadata });
+}
 
 const STEPS = Object.freeze([['profile', 'About you'], ['forms', 'Tax forms'], ['interview', 'Deductions and credits'], ['review', 'Review'], ['sign', 'Sign and file']]);
 const RELATIONSHIPS = Object.freeze(['son', 'daughter', 'stepchild', 'foster_child', 'brother', 'sister', 'half_brother', 'half_sister', 'stepbrother', 'stepsister', 'grandchild', 'niece', 'nephew', 'parent', 'grandparent', 'aunt', 'uncle', 'in_law', 'other']);
@@ -172,6 +177,7 @@ export function setUsTaxpayer(state, args = {}) {
   if (!plan.ok) return plan;
   const ret = returnOf(state, plan.taxYear, true);
   Object.assign(ret, plan.update, { updatedAt: new Date().toISOString() });
+  audit(state, 'us_taxpayer_set', { taxYear: plan.taxYear, filingStatus: ret.filingStatus, dependents: ret.dependents.length, spouse: Boolean(ret.spouse) });
   return { ok: true, data: profileView(ret) };
 }
 
@@ -251,6 +257,7 @@ export function addUsTaxForm(state, args = {}) {
   const form = { id: `usf-${plan.taxYear}-${ret.nextFormNumber++}`, ...plan.form, addedOn: localToday() };
   ret.forms.push(form);
   ret.updatedAt = new Date().toISOString();
+  audit(state, 'us_tax_form_added', { taxYear: plan.taxYear, id: form.id, kind: form.kind, owner: form.owner, payer: form.payer, source: form.source });
   return { ok: true, data: formView(form) };
 }
 
@@ -267,6 +274,7 @@ export function removeUsTaxForm(state, args = {}) {
   if (!found) return fail('US_TAX_FORM_NOT_FOUND', { id: args.id });
   found.ret.forms = found.ret.forms.filter((item) => item.id !== found.form.id);
   found.ret.updatedAt = new Date().toISOString();
+  audit(state, 'us_tax_form_removed', { taxYear: found.ret.taxYear, id: found.form.id, kind: found.form.kind, payer: found.form.payer });
   return { ok: true, data: { removed: found.form.id, kind: found.form.kind, payer: found.form.payer } };
 }
 
@@ -344,6 +352,7 @@ export function answerUsInterview(state, args = {}) {
   if (plan.answer === null) delete ret.answers[plan.id];
   else ret.answers[plan.id] = plan.answer;
   ret.updatedAt = new Date().toISOString();
+  audit(state, 'us_interview_answered', { taxYear: plan.taxYear, id: plan.id, answer: plan.answer });
   return { ok: true, data: { taxYear: plan.taxYear, id: plan.id, answer: plan.answer } };
 }
 

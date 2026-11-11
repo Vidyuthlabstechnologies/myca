@@ -202,6 +202,9 @@ test('the return tools keep SSNs sealed, compute the review and walk the steps',
   assert.equal(filing.data.taxpayer.ssn, '400123456');
   const removed = await runTool(state, 'remove_us_tax_form', { id: added.data.id });
   assert.equal(removed.ok, true);
+  const actions = state.auditEvents.map((event) => event.action);
+  for (const action of ['us_taxpayer_set', 'us_tax_form_added', 'us_interview_answered', 'us_tax_form_removed']) assert.ok(actions.includes(action), action);
+  assert.equal(JSON.stringify(state.auditEvents).includes('400123456'), false);
 });
 
 test('the US return tools are US-only, previewed before saving, and reads are remote queries', () => {
