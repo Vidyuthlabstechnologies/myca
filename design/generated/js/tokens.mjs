@@ -292,7 +292,8 @@ export const COUNTRIES = Object.freeze({
     "locale": "en-IN",
     "languages": [
       "en",
-      "hi"
+      "hi",
+      "te"
     ],
     "minorUnit": "paise",
     "yearStartMonth": 4,
@@ -327,30 +328,6 @@ export const COUNTRIES = Object.freeze({
       "flavor": "us",
       "label": "MyCA US",
       "edition": "US"
-    }
-  },
-  "MY": {
-    "code": "MY",
-    "name": "Malaysia",
-    "status": "planned",
-    "currency": "MYR",
-    "symbol": "RM",
-    "locale": "en-MY",
-    "languages": [
-      "en",
-      "ms",
-      "zh"
-    ],
-    "minorUnit": "sen",
-    "yearStartMonth": 1,
-    "yearStartDay": 1,
-    "yearLabel": "year of assessment",
-    "taxId": "TIN",
-    "taxName": "SST",
-    "app": {
-      "flavor": "my",
-      "label": "MyCA MY",
-      "edition": "MY"
     }
   },
   "GB": {
@@ -441,6 +418,29 @@ export const COUNTRIES = Object.freeze({
       "flavor": "au",
       "label": "MyCA AU",
       "edition": "AU"
+    }
+  },
+  "MY": {
+    "code": "MY",
+    "name": "Malaysia",
+    "status": "planned",
+    "currency": "MYR",
+    "symbol": "RM",
+    "locale": "en-MY",
+    "languages": [
+      "en",
+      "ms"
+    ],
+    "minorUnit": "sen",
+    "yearStartMonth": 1,
+    "yearStartDay": 1,
+    "yearLabel": "year of assessment",
+    "taxId": "TIN",
+    "taxName": "SST",
+    "app": {
+      "flavor": "my",
+      "label": "MyCA MY",
+      "edition": "MY"
     }
   }
 });

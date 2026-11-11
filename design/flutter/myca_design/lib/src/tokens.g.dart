@@ -136,11 +136,11 @@ class MycaCountryLook {
 const mycaCountryLooks = <String, MycaCountryLook>{
   'IN': MycaCountryLook(accent: Color(0xFF1B5E3F), accentSoft: Color(0xFFEAF2ED), accentDark: Color(0xFF7FC3A0), accentSoftDark: Color(0xFF16291F), highlight: Color(0xFFE2A93B)),
   'US': MycaCountryLook(accent: Color(0xFF1E3A6E), accentSoft: Color(0xFFE8EDF6), accentDark: Color(0xFF9DB8E8), accentSoftDark: Color(0xFF18223A), highlight: Color(0xFFC8312B)),
-  'MY': MycaCountryLook(accent: Color(0xFF0E4D92), accentSoft: Color(0xFFE6EEF8), accentDark: Color(0xFF8DB6EC), accentSoftDark: Color(0xFF14233A), highlight: Color(0xFFF2B705)),
   'GB': MycaCountryLook(accent: Color(0xFF5B2A6E), accentSoft: Color(0xFFF1EAF4), accentDark: Color(0xFFCDA6DC), accentSoftDark: Color(0xFF2A1B31), highlight: Color(0xFFE2A93B)),
   'CA': MycaCountryLook(accent: Color(0xFF8A2432), accentSoft: Color(0xFFF6E9EB), accentDark: Color(0xFFEBA3AD), accentSoftDark: Color(0xFF33181C), highlight: Color(0xFFE2A93B)),
   'AE': MycaCountryLook(accent: Color(0xFF006659), accentSoft: Color(0xFFE3F2EF), accentDark: Color(0xFF7FD1C3), accentSoftDark: Color(0xFF122B27), highlight: Color(0xFFC8312B)),
   'AU': MycaCountryLook(accent: Color(0xFF0B5C7A), accentSoft: Color(0xFFE4F0F5), accentDark: Color(0xFF86C6DE), accentSoftDark: Color(0xFF13262E), highlight: Color(0xFFE2A93B)),
+  'MY': MycaCountryLook(accent: Color(0xFF0E4D92), accentSoft: Color(0xFFE6EEF8), accentDark: Color(0xFF8DB6EC), accentSoftDark: Color(0xFF14233A), highlight: Color(0xFFF2B705)),
 };
 
 class MycaCountryFacts {
@@ -164,11 +164,11 @@ class MycaCountryFacts {
 }
 
 const mycaCountryFacts = <String, MycaCountryFacts>{
-  'IN': MycaCountryFacts(code: 'IN', name: 'India', status: 'live', currency: 'INR', symbol: '₹', locale: 'en-IN', languages: ['en', 'hi'], minorUnit: 'paise', yearStartMonth: 4, yearStartDay: 1, yearLabel: 'financial year', taxId: 'GSTIN', taxName: 'GST', flavor: 'india', appLabel: 'MyCA'),
+  'IN': MycaCountryFacts(code: 'IN', name: 'India', status: 'live', currency: 'INR', symbol: '₹', locale: 'en-IN', languages: ['en', 'hi', 'te'], minorUnit: 'paise', yearStartMonth: 4, yearStartDay: 1, yearLabel: 'financial year', taxId: 'GSTIN', taxName: 'GST', flavor: 'india', appLabel: 'MyCA'),
   'US': MycaCountryFacts(code: 'US', name: 'United States', status: 'beta', currency: 'USD', symbol: '\$', locale: 'en-US', languages: ['en', 'es'], minorUnit: 'cents', yearStartMonth: 1, yearStartDay: 1, yearLabel: 'calendar year', taxId: 'EIN', taxName: 'Sales tax', flavor: 'us', appLabel: 'MyCA US'),
-  'MY': MycaCountryFacts(code: 'MY', name: 'Malaysia', status: 'planned', currency: 'MYR', symbol: 'RM', locale: 'en-MY', languages: ['en', 'ms', 'zh'], minorUnit: 'sen', yearStartMonth: 1, yearStartDay: 1, yearLabel: 'year of assessment', taxId: 'TIN', taxName: 'SST', flavor: 'my', appLabel: 'MyCA MY'),
   'GB': MycaCountryFacts(code: 'GB', name: 'United Kingdom', status: 'planned', currency: 'GBP', symbol: '£', locale: 'en-GB', languages: ['en'], minorUnit: 'pence', yearStartMonth: 4, yearStartDay: 6, yearLabel: 'tax year', taxId: 'UTR', taxName: 'VAT', flavor: 'uk', appLabel: 'MyCA GB'),
   'CA': MycaCountryFacts(code: 'CA', name: 'Canada', status: 'planned', currency: 'CAD', symbol: '\$', locale: 'en-CA', languages: ['en', 'fr'], minorUnit: 'cents', yearStartMonth: 1, yearStartDay: 1, yearLabel: 'tax year', taxId: 'BN', taxName: 'GST/HST', flavor: 'ca', appLabel: 'MyCA CA'),
   'AE': MycaCountryFacts(code: 'AE', name: 'United Arab Emirates', status: 'planned', currency: 'AED', symbol: 'AED', locale: 'en-AE', languages: ['en', 'ar'], minorUnit: 'fils', yearStartMonth: 1, yearStartDay: 1, yearLabel: 'tax period', taxId: 'TRN', taxName: 'VAT', flavor: 'uae', appLabel: 'MyCA AE'),
   'AU': MycaCountryFacts(code: 'AU', name: 'Australia', status: 'planned', currency: 'AUD', symbol: '\$', locale: 'en-AU', languages: ['en'], minorUnit: 'cents', yearStartMonth: 7, yearStartDay: 1, yearLabel: 'financial year', taxId: 'ABN', taxName: 'GST', flavor: 'au', appLabel: 'MyCA AU'),
+  'MY': MycaCountryFacts(code: 'MY', name: 'Malaysia', status: 'planned', currency: 'MYR', symbol: 'RM', locale: 'en-MY', languages: ['en', 'ms'], minorUnit: 'sen', yearStartMonth: 1, yearStartDay: 1, yearLabel: 'year of assessment', taxId: 'TIN', taxName: 'SST', flavor: 'my', appLabel: 'MyCA MY'),
 };
