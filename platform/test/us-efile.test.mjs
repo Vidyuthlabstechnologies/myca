@@ -204,10 +204,27 @@ test('signing refuses a bad PIN, missing prior-year AGI, missing consent, and a 
   assert.equal(later.ok, true);
 });
 
-test('without the 1040 engine the tools say so instead of filing', async () => {
+test('the real 1040 engine feeds signing and filing: a W-2 return is signed, sent to the simulator and accepted', async () => {
+  const state = usState();
+  const set = await runTool(state, 'set_us_taxpayer', { taxYear: '2025', filingStatus: 'single', taxpayer: { firstName: 'Ana', lastName: 'Diaz', ssn: '400-12-3456', dateOfBirth: '1988-04-02', occupation: 'Nurse' }, address: { line1: '1 Main St', city: 'Austin', state: 'TX', zip: '78701' } });
+  assert.equal(set.ok, true, JSON.stringify(set));
+  const added = await runTool(state, 'add_us_tax_form', { taxYear: '2025', kind: 'W-2', payer: 'St. Mary Hospital', payerTin: '12-3456789', fields: { wages: 50000, federalWithheld: 5000, socialSecurityWages: 50000, socialSecurityTax: 3100, medicareWages: 50000, medicareTax: 725 } });
+  assert.equal(added.ok, true, JSON.stringify(added));
+  const signed = await runTool(state, 'sign_us_return', signArgs({ spousePin: undefined, priorYear: { taxpayer: { agi: 48000 } }, device: { ipAddress: '203.0.113.9', deviceId: 'd'.repeat(40), deviceType: 'phone' } }));
+  assert.equal(signed.ok, true, JSON.stringify(signed));
+  const filed = await runTool(state, 'file_us_return', { taxYear: 2025 });
+  assert.equal(filed.ok, true, JSON.stringify(filed));
+  assert.equal(filed.data.mode, 'sandbox');
+  const status = await runTool(state, 'us_efile_status', { taxYear: 2025 });
+  assert.equal(status.data.status, 'accepted', JSON.stringify(status.data));
+  assert.equal(JSON.stringify(state.usEfile).includes('400123456'), false);
+});
+
+test('a return that was never started cannot be signed', async () => {
   const state = usState();
   const out = await runTool(state, 'sign_us_return', signArgs());
-  if (out.ok === false) assert.ok(['US_RETURN_ENGINE_MISSING', 'RETURN_NOT_COMPUTED', 'RETURN_YEAR_MISMATCH'].includes(out.error), out.error);
+  assert.equal(out.ok, false);
+  assert.equal(out.error, 'US_RETURN_NOT_STARTED');
   const status = await runTool(state, 'us_efile_status', { taxYear: 2025 });
   assert.equal(status.ok, true);
   assert.equal(status.data.mode, 'sandbox');
@@ -260,4 +277,14 @@ test('MeF client: unconfigured refuses before any network, header and acknowledg
   assert.ok(header.includes('<TestCd>T</TestCd>') && header.includes('<ETIN>12345</ETIN>'));
   const acks = parseAcknowledgements('<x:AcknowledgementList><x:Acknowledgement><x:SubmissionId>S1</x:SubmissionId><x:AcceptanceStatusTxt>Rejected</x:AcceptanceStatusTxt><x:StatusDt>2026-02-11</x:StatusDt><x:ValidationErrorGrp><x:RuleNum>IND-031-04</x:RuleNum><x:SeverityCd>Reject and Stop</x:SeverityCd><x:ErrorMessageTxt>AGI</x:ErrorMessageTxt></x:ValidationErrorGrp></x:Acknowledgement></x:AcknowledgementList>');
   assert.deepEqual(acks, [{ submissionId: 'S1', status: 'Rejected', statusDate: '2026-02-11', taxYear: null, errors: [{ ruleNumber: 'IND-031-04', severity: 'Reject and Stop', message: 'AGI', xpath: '' }] }]);
+});
+
+test('an EIC worksheet with no credit or no qualifying child attaches nothing; a Schedule EIC that is needed stops the build', () => {
+  const base = computed1040();
+  const sub = (eic) => buildMefSubmission({ ...base, refund: REFUND, schedules: { ...base.schedules, EIC: eic } }, { efin: '123456', softwareId: '12345678', submissionId: makeSubmissionId('123456', '2026-02-10', 1), timestamp: 't', signature: SIGNATURE });
+  assert.equal(sub({ qualifyingChildren: 0, earnedIncome: 50000, agi: 50000, credit: 0 }).ok, true);
+  assert.equal(sub({ qualifyingChildren: 0, earnedIncome: 9000, agi: 9000, credit: 400 }).ok, true);
+  const needed = sub({ qualifyingChildren: 2, earnedIncome: 20000, agi: 20000, credit: 5000 });
+  assert.equal(needed.ok, false);
+  assert.deepEqual(needed.problems.map((p) => p.code), ['UNSUPPORTED_SCHEDULE']);
 });

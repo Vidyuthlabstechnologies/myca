@@ -215,11 +215,16 @@ function form1040Xml(computed, problems, ssnOf) {
   return group('IRS1040', header + deps + amounts.slice(0, splitAt) + refundXml + amounts.slice(splitAt), ' documentId="IRS1040"');
 }
 
+const NOT_ATTACHED = Object.freeze({
+  EIC: (value) => !(Number(value?.credit) > 0) || !(Number(value?.qualifyingChildren) > 0),
+});
+
 function schedulesXml(schedules, problems) {
   const docs = [];
   for (const [key, value] of Object.entries(schedules || {})) {
     if (value === null || value === undefined) continue;
     const spec = SCHEDULE_DOCUMENTS[key];
+    if (!spec && NOT_ATTACHED[key]?.(value)) continue;
     if (!spec) {
       problems.push(problem('UNSUPPORTED_SCHEDULE', `Schedule ${key} is on the return but MyCA cannot e-file it yet.`, 'Nothing was filed. File this return on paper or with a CPA until Schedule support is added.', 'forms'));
       continue;
@@ -230,7 +235,7 @@ function schedulesXml(schedules, problems) {
       const text = spec.text ? Object.entries(spec.text).map(([field, name]) => el(name, item[field])).join('') : '';
       const amounts = orderedAmounts(Object.fromEntries(Object.entries(lines).filter(([k]) => !(spec.text && k in spec.text) && !NON_LINE_FIELDS.has(k))), spec.lines, `Schedule ${key}`, problems);
       const id = `${spec.element}${spec.repeats ? `-${index + 1}` : ''}`;
-      docs.push(group(spec.element, text + amounts, ` documentId="${id}"`));
+      if (amounts) docs.push(group(spec.element, text + amounts, ` documentId="${id}"`));
     });
   }
   return docs;

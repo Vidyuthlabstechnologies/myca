@@ -150,6 +150,6 @@ test('Pinwheel in mock mode: sample figures are shown and nothing is added to th
   const out = await importPayrollTaxForms(state, { taxYear: 2026, taxFormIds: ['mock-w2-1'] }, null, { usReturn: fakeUsReturn() });
   assert.equal(out.data.mock, true);
   assert.equal(out.data.wouldAdd.length, 1);
-  assert.equal(state.usReturns, undefined);
+  assert.deepEqual(Object.keys(state.usReturns || {}), []);
   assert.equal(log.length, 0);
 });
