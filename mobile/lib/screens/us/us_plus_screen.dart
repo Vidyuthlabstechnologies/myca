@@ -1,3 +1,4 @@
+import 'package:myca_design/myca_design.dart' show MycaThemeContext;
 import 'package:flutter/material.dart';
 
 import '../../api/models.dart';
@@ -265,7 +266,7 @@ class _UsPlusScreenState extends State<UsPlusScreen> {
                         children: [
                           Expanded(child: Text(title, style: text.titleSmall)),
                           _joined.contains(id)
-                              ? Text("We'll let you know", key: Key('usWaitlist.joined.$id'), style: text.bodySmall?.copyWith(color: Palette.accent))
+                              ? Text("We'll let you know", key: Key('usWaitlist.joined.$id'), style: text.bodySmall?.copyWith(color: context.myca.accent))
                               : TextButton(key: Key('usWaitlist.$id'), onPressed: _busy ? null : () => _join(id), child: const Text('Tell me when')),
                         ],
                       ),
@@ -297,7 +298,7 @@ Widget _result(BuildContext context, Key key, List<Widget> children) => Containe
       key: key,
       margin: const EdgeInsets.only(top: 18),
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: Palette.accentSoft, borderRadius: BorderRadius.circular(radiusCard)),
+      decoration: BoxDecoration(color: context.myca.accentSoft, borderRadius: BorderRadius.circular(radiusCard)),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: children),
     );
 

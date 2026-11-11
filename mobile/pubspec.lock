@@ -286,6 +286,11 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.1.1"
+  flutter_localizations:
+    dependency: transitive
+    description: flutter
+    source: sdk
+    version: "0.0.0"
   flutter_plugin_android_lifecycle:
     dependency: transitive
     description:
@@ -400,6 +405,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.1.3"
+  graphs:
+    dependency: transitive
+    description:
+      name: graphs
+      sha256: "741bbf84165310a68ff28fe9e727332eef1407342fca52759cb21ad8177bb8d0"
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.3.2"
   hooks:
     dependency: transitive
     description:
@@ -468,10 +481,10 @@ packages:
     dependency: transitive
     description:
       name: intl
-      sha256: "1ca20c894b1717686a2319b8548763d812bc0aabdac580420a44c5178c57a867"
+      sha256: "3df61194eb431efc39c4ceba583b95633a403f46c9fd341e550ce0bfa50e9aa5"
       url: "https://pub.dev"
     source: hosted
-    version: "0.20.3"
+    version: "0.20.2"
   jni:
     dependency: transitive
     description:
@@ -616,6 +629,13 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.1.0"
+  myca_design:
+    dependency: "direct main"
+    description:
+      path: "../design/flutter/myca_design"
+      relative: true
+    source: path
+    version: "1.0.0"
   objective_c:
     dependency: transitive
     description:
@@ -784,6 +804,22 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.6.0"
+  rive:
+    dependency: transitive
+    description:
+      name: rive
+      sha256: "0319f216b753f5d8f3f624413cd5b5a18f6ed8f0a677f80d97b53ecd3d2080c3"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.14.11"
+  rive_native:
+    dependency: transitive
+    description:
+      name: rive_native
+      sha256: f1ae8a9ec4dab6b803fed006745e55c7de6cd568bd30750d4a6770479b9f8294
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.1.11"
   share_plus:
     dependency: "direct main"
     description:

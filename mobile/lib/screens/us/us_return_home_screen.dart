@@ -1,3 +1,4 @@
+import 'package:myca_design/myca_design.dart' show MycaThemeContext;
 import 'package:flutter/material.dart';
 
 import '../../api/models.dart';
@@ -82,7 +83,7 @@ class _UsReturnHomeScreenState extends State<UsReturnHomeScreen> {
       padding: const EdgeInsets.only(bottom: 14),
       child: Row(
         children: [
-          Icon(paid ? Icons.check_circle : Icons.sell_outlined, size: 18, color: Palette.accent),
+          Icon(paid ? Icons.check_circle : Icons.sell_outlined, size: 18, color: context.myca.accent),
           const SizedBox(width: 8),
           Expanded(child: Text(paid ? 'Your ${fee.taxYear} filing is paid. One price, no upgrade fees.' : line, key: const Key('usHub.priceLine'), style: text.bodyMedium?.copyWith(color: Palette.ink))),
         ],
@@ -193,7 +194,7 @@ class _UsReturnHomeScreenState extends State<UsReturnHomeScreen> {
       padding: const EdgeInsets.all(16),
       margin: const EdgeInsets.only(bottom: 14),
       decoration: BoxDecoration(
-        color: rejected ? Palette.dangerSoft : Palette.accentSoft,
+        color: rejected ? Palette.dangerSoft : context.myca.accentSoft,
         borderRadius: BorderRadius.circular(radiusCard),
       ),
       child: Column(
@@ -252,7 +253,7 @@ class _UsReturnHomeScreenState extends State<UsReturnHomeScreen> {
           Text(label, style: text.bodyLarge?.copyWith(color: Palette.muted)),
           if (amount.isNotEmpty) ...[
             const SizedBox(height: 6),
-            Text(amount, style: text.displaySmall?.copyWith(color: status.owed > 0 ? Palette.warn : Palette.accent, fontFeatures: moneyFigures)),
+            Text(amount, style: text.displaySmall?.copyWith(color: status.owed > 0 ? Palette.warn : context.myca.accent, fontFeatures: moneyFigures)),
           ],
           const SizedBox(height: 6),
           Text('Updates as you add forms and answer questions.', style: text.bodySmall),
@@ -315,8 +316,8 @@ class _UsReturnHomeScreenState extends State<UsReturnHomeScreen> {
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Text('$year', style: text.titleMedium?.copyWith(color: Palette.accent)),
-                              const Icon(Icons.arrow_drop_down, color: Palette.accent),
+                              Text('$year', style: text.titleMedium?.copyWith(color: context.myca.accent)),
+                              Icon(Icons.arrow_drop_down, color: context.myca.accent),
                             ],
                           ),
                         ),
@@ -349,7 +350,7 @@ class _UsReturnHomeScreenState extends State<UsReturnHomeScreen> {
                             title: title,
                             subtitle: subtitle,
                             trailing: hub.status.done(id)
-                                ? const Icon(Icons.check_circle, color: Palette.accent, semanticLabel: 'Done')
+                                ? Icon(Icons.check_circle, color: context.myca.accent, semanticLabel: 'Done')
                                 : const Chevron(),
                             onTap: () => _open(screenFor(id)),
                           ),

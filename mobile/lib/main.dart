@@ -1,3 +1,4 @@
+import 'package:myca_design/myca_design.dart' show MycaDesign;
 import 'dart:ui';
 
 import 'package:app_links/app_links.dart';
@@ -160,7 +161,7 @@ class _MycaAppState extends State<MycaApp> with WidgetsBindingObserver {
         scaffoldMessengerKey: _messenger,
         title: 'MyCA',
         debugShowCheckedModeBanner: false,
-        theme: mycaTheme(),
+        theme: widget.state.edition == 'US' ? MycaDesign.forFlavor('us').light : mycaTheme(),
         builder: (context, child) => ListenableBuilder(
           listenable: widget.state,
           builder: (context, _) => Stack(

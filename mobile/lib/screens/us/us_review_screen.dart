@@ -1,3 +1,4 @@
+import 'package:myca_design/myca_design.dart' show MycaThemeContext;
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -101,7 +102,7 @@ class _UsReviewScreenState extends State<UsReviewScreen> {
                   key: const Key('usReview.result'),
                   padding: const EdgeInsets.all(18),
                   decoration: BoxDecoration(
-                    color: review.owed > 0 ? Palette.warnSoft : Palette.accentSoft,
+                    color: review.owed > 0 ? Palette.warnSoft : context.myca.accentSoft,
                     borderRadius: BorderRadius.circular(radiusCard),
                   ),
                   child: Column(

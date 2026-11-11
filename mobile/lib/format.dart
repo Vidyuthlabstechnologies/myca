@@ -1,4 +1,8 @@
+import 'package:myca_design/myca_design.dart' show MycaCountry, MycaDateStyle, MycaFormat;
+
 String moneyCountry = 'IN';
+
+final _us = MycaFormat(MycaCountry.of('US'));
 
 String rupees(num amount) {
   if (moneyCountry == 'US') return dollars(amount);
@@ -20,20 +24,7 @@ String rupees(num amount) {
   return '$sign₹${groups.join(',')},$lastThree$paise';
 }
 
-String dollars(num amount) {
-  final negative = amount < 0;
-  final fixed = amount.abs().toStringAsFixed(2);
-  final dot = fixed.indexOf('.');
-  var whole = fixed.substring(0, dot);
-  final cents = fixed.substring(dot);
-  final groups = <String>[];
-  while (whole.length > 3) {
-    groups.insert(0, whole.substring(whole.length - 3));
-    whole = whole.substring(0, whole.length - 3);
-  }
-  groups.insert(0, whole);
-  return '${negative ? '-' : ''}\$${groups.join(',')}$cents';
-}
+String dollars(num amount) => _us.money(amount);
 
 String isoDate(DateTime date) =>
     '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
@@ -74,11 +65,7 @@ String longDate(String iso) {
   return '$day ${_months[month - 1]} ${parts[0]}';
 }
 
-String usDate(String iso) {
-  final parts = iso.split('-');
-  if (parts.length != 3 || parts.any((p) => int.tryParse(p) == null)) return iso;
-  return '${parts[1].padLeft(2, '0')}/${parts[2].padLeft(2, '0')}/${parts[0]}';
-}
+String usDate(String iso) => _us.isoDate(iso, style: MycaDateStyle.short);
 
 String? isoFromUsDate(String typed) {
   final match = RegExp(r'^(\d{1,2})/(\d{1,2})/(\d{4})$').firstMatch(typed.trim());
