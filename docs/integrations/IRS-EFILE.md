@@ -47,6 +47,7 @@ must obtain before the first real return goes to the IRS.
 - The return XML (which holds SSNs) is never stored; only its sha256, the submission id and
   the acknowledgement are kept in `usEfile`.
 - A signature is bound to the return's digest; a changed return must be signed again.
+- A production deployment never simulates a filing. Until the six `MYCA_IRS_*` settings are in place and live calls are on, `file_us_return` is refused with `US_EFILE_NOT_OPEN`, the filing fee is neither asked for nor sold (`cloud/src/billing.mjs`, `usFilingOpen` in `cloud/src/environment.mjs`), and the app says that e-file is not open yet. Local runs and staging keep the simulator.
 - US returns are hosted in the US. `cloud/src/residency.mjs` (from the multi-country work) refuses to start a deployment outside its country's regions (`MYCA_COUNTRIES=US`, `MYCA_REGION=us-*`), which backs the Publication 1345 hosting duty.
 
 ## Not verified yet

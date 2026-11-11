@@ -72,6 +72,10 @@ export function environmentProblem(env = process.env) {
   return `MYCA_ENVIRONMENT is staging, which must never file, pay or send anything real, but these are set: ${offending.join(', ')}. Unset them or use MYCA_ENVIRONMENT=production.`;
 }
 
+export function usFilingOpen(env = process.env, efileMode = 'sandbox') {
+  return deploymentEnvironment(env) !== 'production' || efileMode === 'live';
+}
+
 export function enabledServices(env = process.env) {
   const on = [];
   if (present(env, 'MYCA_GOOGLE_CLIENT_IDS')) on.push('google-sign-in');

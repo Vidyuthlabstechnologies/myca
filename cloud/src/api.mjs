@@ -335,7 +335,7 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
 
   async function unpaidFiling(businessId, session) {
     const pending = session.state.pendingChatAction;
-    if (pending?.name !== US_FILE_TOOL || !billing.usEnforced) return null;
+    if (pending?.name !== US_FILE_TOOL || (!billing.usEnforced && billing.usFilingOpen?.() !== false)) return null;
     const paid = await billing.usFilingAllowed(businessId, pending.args?.taxYear);
     return paid.ok ? null : paid;
   }

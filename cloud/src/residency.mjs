@@ -1,15 +1,21 @@
 import { countryPack, isServedCountry, regionServes, servedPacks, DEFAULT_COUNTRY } from '../../platform/src/countries/index.mjs';
 import { countryCapabilities } from '../../platform/src/countries/manifests.mjs';
+import { deploymentEnvironment } from './environment.mjs';
 
 const clean = (value) => String(value ?? '').trim();
 
-export function hostedCountries(env = process.env) {
-  const given = clean(env.MYCA_COUNTRIES).toUpperCase().split(/[\s,]+/).filter(Boolean);
-  return given.length ? [...new Set(given)] : servedPacks().map((pack) => pack.code);
-}
-
 export function deploymentRegion(env = process.env) {
   return clean(env.MYCA_REGION || env.GOOGLE_CLOUD_REGION).toLowerCase();
+}
+
+export function hostedCountries(env = process.env) {
+  const given = clean(env.MYCA_COUNTRIES).toUpperCase().split(/[\s,]+/).filter(Boolean);
+  if (given.length) return [...new Set(given)];
+  const served = servedPacks();
+  if (deploymentEnvironment(env) !== 'production') return served.map((pack) => pack.code);
+  const region = deploymentRegion(env);
+  const inRegion = region ? served.filter((pack) => regionServes(pack, region)).map((pack) => pack.code) : [];
+  return inRegion.length ? inRegion : [DEFAULT_COUNTRY];
 }
 
 export function residencyProblem(env = process.env) {

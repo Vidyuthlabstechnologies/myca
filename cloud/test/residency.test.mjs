@@ -1,11 +1,25 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { hostedCountries, residencyProblem, residencyRefusal, publicCountries } from '../src/residency.mjs';
+import { US_RETURN_PRICE_USD, US_PLUS_PRICE_USD, US_EXPERT_REVIEW_PRICE_USD } from '../src/billing.mjs';
 
 test('a deployment hosts the countries it names, and every served country when it names none', () => {
   assert.deepEqual(hostedCountries({}), ['IN', 'US']);
   assert.deepEqual(hostedCountries({ MYCA_COUNTRIES: 'in' }), ['IN']);
   assert.deepEqual(hostedCountries({ MYCA_COUNTRIES: 'US, us' }), ['US']);
+  assert.deepEqual(hostedCountries({ MYCA_ENVIRONMENT: 'staging', K_SERVICE: 'myca-api-staging' }), ['IN', 'US'], 'staging holds no real books');
+});
+
+test('a production deployment that names no country hosts only the country of its region, and India when the region is unknown', () => {
+  assert.deepEqual(hostedCountries({ K_SERVICE: 'myca-api' }), ['IN']);
+  assert.deepEqual(hostedCountries({ MYCA_PRODUCTION: '1' }), ['IN']);
+  assert.deepEqual(hostedCountries({ K_SERVICE: 'myca-api', MYCA_REGION: 'asia-south1' }), ['IN']);
+  assert.deepEqual(hostedCountries({ K_SERVICE: 'myca-api', MYCA_REGION: 'us-east4' }), ['US']);
+  assert.deepEqual(hostedCountries({ K_SERVICE: 'myca-api', MYCA_REGION: 'europe-west2' }), ['IN'], 'a region no served country lives in falls back to India');
+  assert.deepEqual(hostedCountries({ K_SERVICE: 'myca-api', MYCA_COUNTRIES: 'US' }), ['US'], 'a named list always wins');
+  assert.equal(residencyRefusal('US', { K_SERVICE: 'myca-api' }).error, 'COUNTRY_HOSTED_ELSEWHERE');
+  assert.equal(residencyRefusal('IN', { K_SERVICE: 'myca-api' }), null);
+  assert.equal(residencyProblem({ K_SERVICE: 'myca-api' }), '');
 });
 
 test('a deployment refuses to start where a country it hosts may not keep its data', () => {
@@ -14,7 +28,7 @@ test('a deployment refuses to start where a country it hosts may not keep its da
   assert.match(residencyProblem({ MYCA_COUNTRIES: 'US', MYCA_REGION: 'asia-south1' }), /United States must stay in its own country/);
   assert.match(residencyProblem({ MYCA_COUNTRIES: 'IN,US', MYCA_REGION: 'asia-south1' }), /Deploy each country separately/);
   assert.match(residencyProblem({ MYCA_COUNTRIES: 'GB' }), /does not serve yet: GB/);
-  assert.equal(residencyProblem({ MYCA_REGION: 'asia-south1' }), '', 'an unnamed country list keeps today\'s single deployment working');
+  assert.equal(residencyProblem({ MYCA_REGION: 'asia-south1' }), '', 'an unnamed country list still starts');
 });
 
 test('books for a country hosted elsewhere are refused and point at that country\'s app', () => {
@@ -31,7 +45,8 @@ test('the public country list carries what an app needs to set itself up, and no
   const us = listed.countries.find((country) => country.code === 'US');
   assert.equal(us.hostedHere, true);
   assert.equal(us.app.androidId, 'com.mldynamic.myca.us');
-  assert.deepEqual(us.prices.map((price) => price.price), [39, 79, 129]);
+  assert.deepEqual(us.prices.map((price) => price.price), [US_RETURN_PRICE_USD, US_PLUS_PRICE_USD, US_EXPERT_REVIEW_PRICE_USD], 'the published prices are the prices billing charges');
+  assert.deepEqual(us.prices.map((price) => price.price), [129, 249, 299]);
   assert.equal(listed.countries.find((country) => country.code === 'IN').hostedHere, false);
   assert.deepEqual([us.symbol, us.minorUnit, us.languages[0], us.taxName, us.yearLabel, us.yearStartDay], ['$', 'cents', 'en', 'Sales tax', 'calendar year', 1]);
   assert.equal(us.capabilities.profile.roles.country, 'country_profile');

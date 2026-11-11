@@ -58,6 +58,7 @@ const _messages = {
   'EMPTY_FILE': 'That file is empty.',
   'PLAN_REQUIRED': 'Your plan does not include this. The owner can upgrade under Plan and billing.',
   'US_RETURN_UNPAID': 'Filing this return with the IRS needs the one-time filing fee first. Preparing and reviewing it stay free.',
+  'US_EFILE_NOT_OPEN': 'IRS e-file is not open in MyCA yet. Your return is saved and nothing has been charged. You can still review it and download it as a PDF.',
   'PURCHASE_ALREADY_USED': 'This Google Play payment already paid for another return.',
   'CARD_CHECKOUT_NOT_CONFIGURED': 'Card payments are not set up yet.',
   'UNKNOWN_CHECKOUT': 'That card payment could not be found. If you paid, it shows up within a few minutes.',
