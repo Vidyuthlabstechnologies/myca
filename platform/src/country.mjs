@@ -29,17 +29,28 @@ export function formatMoney(stateOrCompany, amount, { fractionDigits = 2 } = {})
 export function yearOf(stateOrCompany, isoDate) {
   const info = countryInfo(stateOrCompany);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(String(isoDate || ''))) return null;
-  if (info.yearStartMonth === 1) return isoDate.slice(0, 4);
-  if (info.yearStartMonth === 4 && info.code === 'IN') return rules.fyOf(isoDate);
+  return yearStartingOn(info.code, info.yearStartMonth, countryPack(info.code).yearStartDay, isoDate);
+}
+
+function yearStartingOn(code, month, day, isoDate) {
+  if (month === 1 && day === 1) return isoDate.slice(0, 4);
+  if (code === 'IN') return rules.fyOf(isoDate);
   const year = Number(isoDate.slice(0, 4));
-  const start = Number(isoDate.slice(5, 7)) >= info.yearStartMonth ? year : year - 1;
+  const started = isoDate.slice(5) >= `${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  const start = started ? year : year - 1;
   return `${start}-${String((start + 1) % 100).padStart(2, '0')}`;
+}
+
+export function taxYearOf(code, isoDate) {
+  const pack = countryPack(code);
+  if (!pack || !/^\d{4}-\d{2}-\d{2}$/.test(String(isoDate || ''))) return null;
+  return yearStartingOn(pack.code, pack.yearStartMonth, pack.yearStartDay, isoDate);
 }
 
 export function yearWords(stateOrCompany, isoDate) {
   const year = yearOf(stateOrCompany, isoDate);
   if (!year) return '';
-  return countryInfo(stateOrCompany).yearStartMonth === 1 ? year : `FY ${year}`;
+  return /^\d{4}$/.test(year) ? year : `FY ${year}`;
 }
 
 const SHARED_TOOLS = new Set([

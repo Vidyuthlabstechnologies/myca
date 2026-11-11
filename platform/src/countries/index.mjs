@@ -2,6 +2,8 @@ import { INDIA } from './india.mjs';
 import { UNITED_STATES } from './united-states.mjs';
 import { UNITED_KINGDOM, CANADA, UNITED_ARAB_EMIRATES, AUSTRALIA } from './planned.mjs';
 
+export const SEGMENTS = Object.freeze(['individual', 'business', 'accountant']);
+export const PAYMENT_PROVIDERS = Object.freeze(['play', 'stripe']);
 export const PACK_STATUSES = Object.freeze(['live', 'beta', 'planned']);
 export const PACKS = Object.freeze([INDIA, UNITED_STATES, UNITED_KINGDOM, CANADA, UNITED_ARAB_EMIRATES, AUSTRALIA]);
 export const DEFAULT_COUNTRY = 'IN';
@@ -36,6 +38,11 @@ export function regionServes(pack, region) {
   return Boolean(pack && name && pack.residency.regionPrefixes.some((prefix) => name.startsWith(prefix)));
 }
 
+export function licencesNeeded(code) {
+  const pack = countryPack(code);
+  return pack ? pack.licences.filter((licence) => licence.status !== 'held') : [];
+}
+
 export function packProblems(packs = PACKS) {
   const problems = [];
   const seen = { code: new Set(), flavor: new Set(), androidId: new Set() };
@@ -44,6 +51,14 @@ export function packProblems(packs = PACKS) {
     if (!PACK_STATUSES.includes(pack.status)) problems.push(`${pack.code}: status must be one of ${PACK_STATUSES.join(', ')}.`);
     if (!/^[A-Z]{3}$/.test(pack.currency)) problems.push(`${pack.code}: the currency must be ISO 4217.`);
     if (!(pack.yearStartMonth >= 1 && pack.yearStartMonth <= 12)) problems.push(`${pack.code}: yearStartMonth must be 1 to 12.`);
+    if (!(pack.yearStartDay >= 1 && pack.yearStartDay <= 28)) problems.push(`${pack.code}: yearStartDay must be 1 to 28.`);
+    if (!pack.segments.length || !pack.segments.every((segment) => SEGMENTS.includes(segment))) problems.push(`${pack.code}: segments must be drawn from ${SEGMENTS.join(', ')}.`);
+    if (pack.status === 'live' && pack.licences.some((licence) => licence.status === 'needed')) problems.push(`${pack.code}: a live country cannot still need a licence.`);
+    for (const plan of pack.billing.plans) {
+      if (!PAYMENT_PROVIDERS.includes(plan.provider) || !pack.billing.providers.includes(plan.provider)) problems.push(`${pack.code}: plan ${plan.id} names a payment provider the pack does not list.`);
+      if (plan.sells === 'software' && plan.provider !== 'play') problems.push(`${pack.code}: plan ${plan.id} sells software inside a Play app, which Google requires to use Play billing.`);
+      if (!['software', 'tax-filing'].includes(plan.sells)) problems.push(`${pack.code}: plan ${plan.id} must say whether it sells software or tax-filing.`);
+    }
     for (const [key, value] of [['code', pack.code], ['flavor', pack.app.flavor], ['androidId', pack.app.androidId]]) {
       if (seen[key].has(value)) problems.push(`${pack.code}: ${key} ${value} is used by another pack.`);
       seen[key].add(value);

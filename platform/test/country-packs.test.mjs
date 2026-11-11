@@ -1,7 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { PACKS, countryPack, isServedCountry, packForFlavor, packProblems, regionServes, toolOwner } from '../src/countries/index.mjs';
-import { COUNTRIES, toolServesCountry, yearOf, yearWords } from '../src/country.mjs';
+import { PACKS, countryPack, isServedCountry, licencesNeeded, packForFlavor, packProblems, regionServes, toolOwner } from '../src/countries/index.mjs';
+import { countryKnowledge, knowledgeProblems, searchCountryKnowledge } from '../src/countries/knowledge.mjs';
+import { COUNTRIES, taxYearOf, toolServesCountry, yearOf, yearWords } from '../src/country.mjs';
 import { TOOLS } from '../src/tools.mjs';
 
 test('every country pack passes the registry checks', () => {
@@ -65,4 +66,45 @@ test('the Terraform country list matches the served packs and keeps each region 
     const vars = await readFile(new URL(`../../infra/cloud/countries/${code.toLowerCase()}.tfvars`, import.meta.url), 'utf8');
     assert.equal(vars.match(/region\s*=\s*"([^"]+)"/)[1], countryPack(code).residency.defaultRegion);
   }
+});
+
+test('each country reads its tax year from its own start day', () => {
+  assert.equal(taxYearOf('GB', '2026-04-05'), '2025-26');
+  assert.equal(taxYearOf('GB', '2026-04-06'), '2026-27');
+  assert.equal(taxYearOf('AU', '2026-06-30'), '2025-26');
+  assert.equal(taxYearOf('AU', '2026-07-01'), '2026-27');
+  assert.equal(taxYearOf('CA', '2026-07-01'), '2026');
+  assert.equal(taxYearOf('IN', '2026-03-31'), '2025-26');
+  assert.equal(taxYearOf('ZZ', '2026-03-31'), null);
+});
+
+test('a plan says what it sells and who takes the money, and software inside a Play app uses Play billing', () => {
+  for (const plan of countryPack('IN').billing.plans) assert.equal(plan.provider, 'play', plan.id);
+  assert.equal(countryPack('US').billing.plans.find((plan) => plan.id === 'us-return').provider, 'stripe');
+  const us = countryPack('US');
+  const wrong = { ...us, code: 'ZZ', app: { ...us.app, flavor: 'zz', androidId: 'x.zz' }, residency: { ...us.residency, regionPrefixes: ['zz-'], defaultRegion: 'zz-1' }, billing: { ...us.billing, plans: [{ id: 'books', kind: 'monthly', price: 9, sells: 'software', provider: 'stripe' }] } };
+  assert.ok(packProblems([wrong]).some((line) => /Google requires to use Play billing/.test(line)));
+});
+
+test('the licences a country still needs are listed, and a live country needs none', () => {
+  assert.ok(licencesNeeded('US').some((licence) => licence.id === 'efin'));
+  assert.ok(licencesNeeded('AU').some((licence) => licence.id === 'tax-agent'));
+  assert.deepEqual(countryPack('AE').segments, ['business']);
+  const india = countryPack('IN');
+  assert.ok(packProblems([{ ...india, licences: [{ id: 'x', authority: 'y', what: 'z', status: 'needed' }] }]).some((line) => /live country cannot still need a licence/.test(line)));
+});
+
+test('every country has a sourced, dated knowledge file that is not overdue a recheck', () => {
+  assert.deepEqual(knowledgeProblems(PACKS, new Date().toISOString().slice(0, 10)), []);
+  assert.equal(countryKnowledge('GB').attested, false);
+  assert.equal(countryKnowledge('ZZ'), null);
+});
+
+test('the knowledge base answers a question with the section and its sources', () => {
+  const found = searchCountryKnowledge('AU', 'who may charge a fee to lodge a return');
+  assert.equal(found[0].heading, 'Who may charge for tax work');
+  assert.ok(found[0].sources.some((url) => url.includes('tpb.gov.au')));
+  assert.equal(found[0].attested, false);
+  assert.ok(searchCountryKnowledge('AE', 'e-invoicing accredited service provider deadline')[0].heading.startsWith('E-invoicing'));
+  assert.deepEqual(searchCountryKnowledge('GB', ''), []);
 });

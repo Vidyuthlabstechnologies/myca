@@ -20,10 +20,13 @@ money and year formats, filing routes, prices and the data region, with no fork 
 |---|---|
 | `code`, `name`, `currency`, `symbol`, `locale`, `minorUnit`, `yearStartMonth`, `yearLabel`, `taxId` | `platform/src/country.mjs` (`COUNTRIES`, `formatMoney`, `yearOf`) |
 | `status` | `live` and `beta` packs can be picked by a business; `planned` ones cannot |
+| `yearStartDay` | the day the tax year starts (6 for the UK); `taxYearOf(code, date)` |
+| `segments` | who the country's app serves: `individual`, `business`, `accountant` (the UAE has no personal income tax; Australia lets only registered agents charge for returns) |
+| `licences` | what the company must hold before going live, with `status` `needed`, `in-progress`, `test-key` or `held`; a `live` pack may not have one `needed` |
 | `requiresState` | `cloud/src/businesses.mjs` (a business must give its state or province) |
 | `residency` (`regionPrefixes`, `defaultRegion`, `rule`, `timeZone`) | `cloud/src/residency.mjs` and `infra/cloud/country.tf` |
 | `app` (`flavor`, `androidId`, `label`, `edition`) | the Android flavor of that country's store app; `GET /v1/countries` |
-| `billing` (`currency`, `providers`, `plans`) | prices shown before sign-in; a cloud test keeps India's in step with `cloud/src/billing.mjs` |
+| `billing` (`currency`, `providers`, `plans`) | prices shown before sign-in; a cloud test keeps India's in step with `cloud/src/billing.mjs`. Each plan says what it `sells` (`software` or `tax-filing`) and its `provider`. Google Play requires software subscriptions sold in the app to use Play billing and exempts tax preparation and filing, so `packProblems()` refuses a `software` plan on any other provider |
 | `filing` (`authority`, `route`, `liveSwitch`, `modules`) | which government integration files for that country |
 | `taxModules`, `knowledge` | the `ask_tax` modules and knowledge bases the assistant may use |
 | `compliance` | where that country's compliance documents live |
@@ -57,7 +60,21 @@ service, Cloud SQL instance, bucket and Terraform state), in a region of that co
 - `GET /v1/countries` lists served countries, their apps, prices and filing routes, and which of
   them this deployment hosts, so an app or the website can configure itself.
 
+## Knowledge base
+
+`platform/src/countries/knowledge/<code>.md` holds the research for each country: what the tax
+authority requires of software, licences, the calendar, indirect tax basics, data and payment
+rules, and open questions, each with its source and a `checked` date. `countryKnowledge(code)` and
+`searchCountryKnowledge(code, question)` in `countries/knowledge.mjs` read it. These files are
+unattested research and never feed a calculation; see the README in that folder. The suite fails
+when a pack has no file, a file cites no source, or its `recheck-by` date has passed.
+
+Read the country's file before building anything for that country, and add what you learn.
+
 ## Adding a country
+
+0. Read `knowledge/<code>.md`, close its open questions that block the build, and get the
+   licences in the pack's `licences` list under way; several run on the authority's yearly calendar.
 
 1. Move its entry from `planned.mjs` to its own `<country>.mjs`, fill every key, set `status: 'beta'`.
 2. Add its regions to `infra/cloud/country.tf` and a `countries/<code>.tfvars`. The platform suite
