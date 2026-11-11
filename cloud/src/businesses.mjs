@@ -2,6 +2,8 @@ import { createState, serialize } from '../../platform/src/store.mjs';
 import { runTool } from '../../platform/src/tools.mjs';
 import { isUuid } from './auth.mjs';
 import { DEMO_GSTIN, DEMO_NAME } from './demo.mjs';
+import { countryPack } from '../../platform/src/countries/index.mjs';
+import { residencyRefusal } from './residency.mjs';
 
 const ENGINE_ROLE = { owner: 'admin', accountant: 'partner', staff: 'staff' };
 
@@ -29,7 +31,9 @@ async function openingBooks({ name, gstin, state, country, address, city, pin, e
     if (!placed.ok) return placed;
   }
   if (set.ok === false) return fail(set.error || 'INVALID_COMPANY', { errors: set.errors });
-  if (books.company.country !== 'US' && !books.company.state) return fail('STATE_REQUIRED');
+  if (countryPack(books.company.country || 'IN')?.requiresState && !books.company.state) return fail('STATE_REQUIRED');
+  const elsewhere = residencyRefusal(books.company.country);
+  if (elsewhere) return elsewhere;
   return { ok: true, state: serialize(books), company: books.company };
 }
 
