@@ -1460,6 +1460,17 @@ export const TOOL_ARG_SCHEMAS = {
     additionalProperties: false,
     properties: { module: { type: 'string', pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$', maxLength: 64 }, asOf: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' } },
   },
+  itr_knowledge: {
+    type: 'object',
+    additionalProperties: false,
+    properties: { query: { type: 'string', minLength: 2, maxLength: 300 }, form: { type: 'string', pattern: '^(?:[Ii][Tt][Rr])?\\s*-?\\s*[1-7]$|^(?:[Ss]ahaj|[Ss]ugam)$', maxLength: 8 }, rule: { type: 'string', pattern: '^\\s*(?:[AaBbDd](?:/[Dd])?)?\\s*-?\\s*[0-9]{1,4}\\s*$', maxLength: 12 }, field: { type: 'string', pattern: '^[A-Za-z0-9_.\\[\\]-]+$', minLength: 2, maxLength: 160 }, kind: { type: 'string', enum: ['guide', 'rule', 'cross-check', 'field', 'schedule', 'dropdown'] }, limit: { type: 'integer', minimum: 1, maximum: 20 } },
+  },
+  check_itr_json: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['json'],
+    properties: { json: { type: 'string', minLength: 2, maxLength: 8388608 }, form: { type: 'string', pattern: '^(?:[Ii][Tt][Rr])?\\s*-?\\s*[1-7]$', maxLength: 8 } },
+  },
   tax_plan: {
     type: 'object',
     additionalProperties: false,
@@ -2318,6 +2329,8 @@ const TOOL_RISK = {
   ask_knowledge: 'read_only',
   ask_tax: 'read_only',
   tax_modules: 'read_only',
+  itr_knowledge: 'read_only',
+  check_itr_json: 'read_only',
   tax_plan: 'read_only',
   review_income_tax: 'read_only',
   channel_connectors: 'read_only',

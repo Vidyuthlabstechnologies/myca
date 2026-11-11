@@ -1,8 +1,10 @@
 import { rules } from '../../sprint-load.mjs';
+import { progressiveTax, flatTax } from '../kit/index.mjs';
 
 const SEN_PER_RINGGIT = 100;
 const PER_CHILD = new Set(['childUnder18', 'childHigherEducation', 'disabledChild']);
 const toSen = (ringgit) => Math.round(Number(ringgit || 0) * SEN_PER_RINGGIT);
+const badBands = (ruleId) => fail('BAD_BANDS', { ruleId, hint: 'The rule record is not a valid band table; fix the statutory rule.' });
 const toRinggit = (sen) => Math.round(sen) / SEN_PER_RINGGIT;
 
 function fail(error, extra = {}) {
@@ -15,13 +17,8 @@ function ruleFor(id, yearOfAssessment) {
 }
 
 export function bandTaxSen(chargeableSen, bands) {
-  let tax = 0;
-  for (const band of bands) {
-    if (chargeableSen <= band.fromSen) break;
-    const top = band.toSen === null ? chargeableSen : Math.min(chargeableSen, band.toSen);
-    tax += (top - band.fromSen) * band.basisPoints / 10000;
-  }
-  return Math.round(tax);
+  const out = progressiveTax(chargeableSen, bands.map((band) => ({ over: band.fromSen, rateBp: band.basisPoints })));
+  return out.ok ? out.tax : null;
 }
 
 function nonNegative(value) {
@@ -66,7 +63,9 @@ export function malaysiaIncomeTax(args = {}) {
     if (!flat) return fail('RULE_NOT_IN_FORCE', { ruleId: 'my.income-tax.non-resident-rate', yearOfAssessment });
     used.push(flat);
     const chargeableSen = grossSen;
-    const taxSen = Math.round(chargeableSen * flat.value.basisPoints / 10000);
+    const flatOut = flatTax(chargeableSen, flat.value.basisPoints);
+    if (!flatOut.ok) return badBands(flat.id);
+    const taxSen = flatOut.tax;
     return finish({ yearOfAssessment, resident, grossSen, reliefs: [], unknownReliefs: [], chargeableSen, bandTaxSen: taxSen, rebateSen: 0, zakatSen, pcbPaidSen, used });
   }
   const bands = ruleFor('my.income-tax.resident-bands', yearOfAssessment);
@@ -80,6 +79,7 @@ export function malaysiaIncomeTax(args = {}) {
   const reliefSen = lines.reduce((sum, line) => sum + line.allowedSen, 0);
   const chargeableSen = Math.max(0, grossSen - reliefSen);
   const taxBeforeRebateSen = bandTaxSen(chargeableSen, bands.value.bands);
+  if (taxBeforeRebateSen === null) return badBands(bands.id);
   let rebateSen = 0;
   if (chargeableSen <= rebate.value.chargeableIncomeAtMostSen) {
     rebateSen += rebate.value.selfSen;

@@ -56,6 +56,8 @@ import { monthCloseWords } from './month-close.mjs';
 import { restockWords } from './restock.mjs';
 import { advanceTaxWords } from './advance-tax.mjs';
 import { askTaxWords, reviewWords, taxModulesWords, taxPlanWords } from './tax-assistant.mjs';
+import { itrKnowledgeWords } from './itr-knowledge.mjs';
+import { checkItrJsonWords } from './itr-json-check.mjs';
 import { supplierPayoutWords } from './supplier-bank.mjs';
 import { reportWords } from './reports.mjs';
 import { auditTrailWords } from './audit-trail.mjs';
@@ -70,6 +72,7 @@ import { kindTitle } from './quotes.mjs';
 import { everyWords, recurringWords, runRecurringWords } from './recurring.mjs';
 import { reconciliationWords, matchWords, unmatchWords, chargesWords, accountWords, accountsWords, transferWords } from './bank-recon.mjs';
 import { addRuleWords, rulesWords, runRulesWords, removeRuleWords } from './bank-rules.mjs';
+import { redactTinsFor } from './us-identity.mjs';
 
 
 const GSTR1_HELD_REASONS = {
@@ -631,6 +634,8 @@ function fmtToolResultCore(name, result, args) {
   if (name === 'ask_knowledge') return knowledgeWords(result);
   if (name === 'ask_tax' && result.ok) return askTaxWords(result);
   if (name === 'tax_modules' && result.data) return taxModulesWords(result.data);
+  if (name === 'itr_knowledge' && result.data) return itrKnowledgeWords(result.data);
+  if (name === 'check_itr_json' && result.data) return checkItrJsonWords(result.data);
   if (name === 'tax_plan' && result.data) return taxPlanWords(result.data, money);
   if (name === 'review_income_tax' && result.data) return reviewWords(result.data, money);
   if (name === 'fetch_channel_report' && result.data?.channel) return fetchWords(result.data);
@@ -1206,8 +1211,8 @@ export function discardPending(state) {
   return spoken(discardCore(state));
 }
 
-export async function chat(state, message) {
-  setCurrentCountry(state);
+export async function chat(state, said) {
+  const message = redactTinsFor(setCurrentCountry(state), said);
   const out = await throughLanguage(message, async (english) => spoken(await chatCore(state, english)));
   rememberTurn(state, message, out.reply);
   logEvalEvent(state, { input: message, toolName: out.tools?.[0]?.name || out.preview?.tool || out.pending?.name || out.pending?.tool || '', outcome: out.blocked ? 'blocked' : out.awaitingConfirmation || out.pending ? 'held' : out.tools?.length ? 'ran' : 'answered', viaModel: Boolean(out.viaModel), blocked: Boolean(out.blocked), reply: out.reply });

@@ -1,0 +1,5898 @@
+{
+"form": "ITR-1",
+"source": "itr-1-schema",
+"count": 545,
+"fields": [
+{
+"path": "ITR",
+"type": "object",
+"required": true,
+"definition": "ITR",
+"description": "This is root node. Irrespective of Individual or bulk IT returns filed."
+},
+{
+"path": "ITR.ITR1",
+"type": "object",
+"required": true,
+"definition": "ITR1",
+"description": ""
+},
+{
+"path": "ITR.ITR1.CreationInfo",
+"type": "object",
+"required": true,
+"definition": "CreationInfo",
+"description": "This element will be used by third party vendors and intermediaries to give details of their software or JSON creation."
+},
+{
+"path": "ITR.ITR1.CreationInfo.SWVersionNo",
+"type": "string",
+"required": true,
+"pattern": "|(\\s*([\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"][\\s\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"]*)\\s*)",
+"minLength": 1,
+"maxLength": 10,
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.CreationInfo.SWCreatedBy",
+"type": "string",
+"required": true,
+"pattern": "[S][W][0-9]{8}",
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.CreationInfo.JSONCreatedBy",
+"type": "string",
+"required": true,
+"pattern": "[S][W][0-9]{8}",
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.CreationInfo.JSONCreationDate",
+"type": "string",
+"required": true,
+"description": "JSONCreationDate in YYYY-MM-DD format",
+"pattern": "([12]\\d{3}-(0[1-9]|1[0-2])-(0[1-9]|[12]\\d|3[01]))"
+},
+{
+"path": "ITR.ITR1.CreationInfo.IntermediaryCity",
+"type": "string",
+"required": true,
+"pattern": "|(\\s*([\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"][\\s\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"]*)\\s*)",
+"minLength": 1,
+"maxLength": 25,
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.CreationInfo.Digest",
+"type": "string",
+"required": true,
+"pattern": "-|.{44}",
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.Form_ITR1",
+"type": "object",
+"required": true,
+"definition": "Form_ITR1",
+"description": "This is the element identified for ITR-1, holding AY, Form and Schema version values."
+},
+{
+"path": "ITR.ITR1.Form_ITR1.FormName",
+"type": "string",
+"required": true,
+"pattern": "ITR-1",
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.Form_ITR1.Description",
+"type": "string",
+"required": true,
+"pattern": "|(\\s*([\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"][\\s\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"]*)\\s*)",
+"minLength": 1,
+"maxLength": 75,
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.Form_ITR1.AssessmentYear",
+"type": "string",
+"required": true,
+"pattern": "2025",
+"minLength": 4,
+"maxLength": 4,
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.Form_ITR1.SchemaVer",
+"type": "string",
+"required": true,
+"pattern": "Ver1.0",
+"minLength": 1,
+"maxLength": 10,
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.Form_ITR1.FormVer",
+"type": "string",
+"required": true,
+"pattern": "Ver1.0",
+"minLength": 1,
+"maxLength": 10,
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.PartA_139_8A",
+"type": "object",
+"required": false,
+"definition": "PartA_139_8A",
+"description": "Enter personal information"
+},
+{
+"path": "ITR.ITR1.PartA_139_8A.PAN",
+"type": "string",
+"required": true,
+"pattern": "[A-Z]{5}[0-9]{4}[A-Z]",
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.PartA_139_8A.Name",
+"type": "string",
+"required": true,
+"pattern": "|(\\s*([\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"][\\s\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"]*)\\s*)",
+"maxLength": 125,
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.PartA_139_8A.AadhaarCardNo",
+"type": "string",
+"required": false,
+"pattern": "[0-9]{12}",
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.PartA_139_8A.AssessmentYear",
+"type": "string",
+"required": true,
+"pattern": "2025",
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.PartA_139_8A.PreviouslyFiledForThisAY",
+"type": "string",
+"required": true,
+"pattern": "Y|N",
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.PartA_139_8A.PreviouslyFiledForThisAY_139_8A",
+"type": "string",
+"required": false,
+"description": "1 - 139(1); 2 - Other",
+"enum": [
+"1",
+"2"
+],
+"pattern": "|(\\s*([\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"][\\s\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"]*)\\s*)",
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.PartA_139_8A.Applicable_139_8A",
+"type": "object",
+"required": false,
+"definition": "",
+"description": ""
+},
+{
+"path": "ITR.ITR1.PartA_139_8A.Applicable_139_8A.ITRForm",
+"type": "string",
+"required": false,
+"description": "ITR1 - ITR1; ITR2 - ITR2; ITR3 - ITR3; ITR4 - ITR4; ITR5 - ITR5; ITR6 - ITR6; ITR7 - ITR7;",
+"enum": [
+"ITR1",
+"ITR2",
+"ITR3",
+"ITR4",
+"ITR5",
+"ITR6",
+"ITR7"
+],
+"pattern": "|(\\s*([\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"][\\s\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"]*)\\s*)",
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.PartA_139_8A.Applicable_139_8A.AcknowledgementNo",
+"type": "string",
+"required": true,
+"description": "Enter Acknowledgment No. of Original return",
+"pattern": "[0-9]{15}",
+"maxLength": 15
+},
+{
+"path": "ITR.ITR1.PartA_139_8A.Applicable_139_8A.OrigRetFiledDate",
+"type": "string",
+"required": true,
+"description": "Enter Date of filing of Original return in YYYY-MM-DD format",
+"pattern": "([12]\\d{3}-(0[1-9]|1[0-2])-(0[1-9]|[12]\\d|3[01]))"
+},
+{
+"path": "ITR.ITR1.PartA_139_8A.LaidOutIn_139_8A",
+"type": "string",
+"required": true,
+"pattern": "Y|N",
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.PartA_139_8A.ITRFormUpdatingInc",
+"type": "string",
+"required": true,
+"description": "ITR1 - ITR1",
+"enum": [
+"ITR1"
+],
+"pattern": "|(\\s*([\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"][\\s\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"]*)\\s*)",
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.PartA_139_8A.UpdatingInc",
+"type": "object",
+"required": false,
+"definition": "UpdatingInc",
+"description": ""
+},
+{
+"path": "ITR.ITR1.PartA_139_8A.UpdatingInc.ReasonsForUpdatingIncDtls",
+"type": "array",
+"required": false
+},
+{
+"path": "ITR.ITR1.PartA_139_8A.UpdatingInc.ReasonsForUpdatingIncDtls[]",
+"type": "object",
+"required": true,
+"definition": "",
+"description": ""
+},
+{
+"path": "ITR.ITR1.PartA_139_8A.UpdatingInc.ReasonsForUpdatingIncDtls[].ReasonsForUpdatingIncome",
+"type": "string",
+"required": true,
+"description": "1 - Return previously not filed; 2 - Income not reported correctly; 3 - Wrong heads of income chosen; 4 - Reduction of carried forward loss; 5 - Reduction of unabsorbed depreciation; 6 - Reduction of tax credit u/s 115JB/115JC; 7 - Wrong rate of tax; OTH-Others",
+"enum": [
+"1",
+"2",
+"3",
+"4",
+"5",
+"6",
+"7",
+"OTH"
+],
+"pattern": "|(\\s*([\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"][\\s\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"]*)\\s*)",
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.PartA_139_8A.UpdatedReturnDuringPeriod",
+"type": "string",
+"required": true,
+"description": "1 - Up to 12 months from the end of Relevant Assessment Year; 2 - Between 12 to 24 Months from the end of Relevant Assessment Year; 3 - Between 24 to 36 Months from the end of Relevant Assessment Year; 4 - Between 36 to 48 Months from the end of Relevant Assessment Year",
+"enum": [
+"1",
+"2",
+"3",
+"4"
+],
+"pattern": "|(\\s*([\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"][\\s\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"]*)\\s*)",
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.PartA_139_8A.RetrntoRedCarriedFL",
+"type": "object",
+"required": false,
+"definition": "",
+"description": ""
+},
+{
+"path": "ITR.ITR1.PartA_139_8A.RetrntoRedCarriedFL.UnabsorbedDepreciation",
+"type": "string",
+"required": true,
+"pattern": "Y|N",
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.PartA_139_8A.RetrntoRedCarriedFL.UDYear",
+"type": "object",
+"required": false,
+"definition": "UDYear",
+"description": ""
+},
+{
+"path": "ITR.ITR1.PartA_139_8A.RetrntoRedCarriedFL.UDYear.UnabsorbedDepreciationYearDtls",
+"type": "array",
+"required": false
+},
+{
+"path": "ITR.ITR1.PartA_139_8A.RetrntoRedCarriedFL.UDYear.UnabsorbedDepreciationYearDtls[]",
+"type": "object",
+"recursive": null
+},
+{
+"path": "ITR.ITR1.PartB-ATI",
+"type": "object",
+"required": false,
+"definition": "PartB-ATI",
+"description": "Computation of total updated income and tax payable"
+},
+{
+"path": "ITR.ITR1.PartB-ATI.HeadOfInc",
+"type": "object",
+"required": false,
+"definition": "",
+"description": ""
+},
+{
+"path": "ITR.ITR1.PartB-ATI.HeadOfInc.Salaries",
+"type": "integer",
+"required": false,
+"description": "Income from Salary",
+"minimum": -99999999999999,
+"maximum": 99999999999999
+},
+{
+"path": "ITR.ITR1.PartB-ATI.HeadOfInc.IncomeFromHP",
+"type": "integer",
+"required": false,
+"description": "Income from house property",
+"minimum": -99999999999999,
+"maximum": 99999999999999
+},
+{
+"path": "ITR.ITR1.PartB-ATI.HeadOfInc.IncomeFromBP",
+"type": "integer",
+"required": false,
+"description": "Income from Business or Profession",
+"minimum": -99999999999999,
+"maximum": 99999999999999
+},
+{
+"path": "ITR.ITR1.PartB-ATI.HeadOfInc.IncomeFromCG",
+"type": "integer",
+"required": false,
+"description": "Income from Capital Gains",
+"minimum": -99999999999999,
+"maximum": 99999999999999
+},
+{
+"path": "ITR.ITR1.PartB-ATI.HeadOfInc.IncomeFromOS",
+"type": "integer",
+"required": false,
+"description": "Income from Other Sources",
+"minimum": -99999999999999,
+"maximum": 99999999999999
+},
+{
+"path": "ITR.ITR1.PartB-ATI.HeadOfInc.Total",
+"type": "integer",
+"required": false,
+"minimum": -99999999999999,
+"maximum": 99999999999999
+},
+{
+"path": "ITR.ITR1.PartB-ATI.LatestTotInc",
+"type": "integer",
+"required": false,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.PartB-ATI.UpdatedTotInc",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.PartB-ATI.AmtPayable",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.PartB-ATI.AmtRefundable",
+"type": "integer",
+"required": false,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.PartB-ATI.LastAmtPayable",
+"type": "integer",
+"required": false,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.PartB-ATI.Refund",
+"type": "integer",
+"required": false,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.PartB-ATI.TotRefund",
+"type": "integer",
+"required": false,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.PartB-ATI.FeeIncUS234F",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 5000,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.PartB-ATI.RegAssessementTAX",
+"type": "integer",
+"required": false,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.PartB-ATI.AggrLiabilityRefund",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999
+},
+{
+"path": "ITR.ITR1.PartB-ATI.AggrLiabilityNoRefund",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999
+},
+{
+"path": "ITR.ITR1.PartB-ATI.AddtnlIncTax",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.PartB-ATI.NetPayable",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.PartB-ATI.TaxUS140B",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.PartB-ATI.TaxDue10_11",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.PartB-ATI.ScheduleIT1",
+"type": "object",
+"required": false,
+"definition": "",
+"description": "Details of payments of tax on updated return u/s 140B"
+},
+{
+"path": "ITR.ITR1.PartB-ATI.ScheduleIT1.TaxPayment1",
+"type": "object",
+"required": false,
+"definition": "ITTaxPaymentsInfo",
+"description": "Tax payment detail"
+},
+{
+"path": "ITR.ITR1.PartB-ATI.ScheduleIT1.TaxPayment1.ITTaxPayments",
+"type": "array",
+"required": false
+},
+{
+"path": "ITR.ITR1.PartB-ATI.ScheduleIT1.TaxPayment1.ITTaxPayments[]",
+"type": "object",
+"recursive": null
+},
+{
+"path": "ITR.ITR1.PartB-ATI.ScheduleIT1.Total",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.PartB-ATI.ScheduleIT2",
+"type": "object",
+"required": false,
+"definition": "",
+"description": "Details of payments of Advance Tax or Self Assessment Tax or Regular Assessment Tax, credit for which has not been claimed in the earlier return (credit for the same is not to be allowed again under section 140B(2))"
+},
+{
+"path": "ITR.ITR1.PartB-ATI.ScheduleIT2.TaxPayment2",
+"type": "object",
+"required": false,
+"definition": "ITTaxPaymentsInfo",
+"description": "Tax payment detail"
+},
+{
+"path": "ITR.ITR1.PartB-ATI.ScheduleIT2.TaxPayment2.ITTaxPayments",
+"type": "array",
+"required": false
+},
+{
+"path": "ITR.ITR1.PartB-ATI.ScheduleIT2.TaxPayment2.ITTaxPayments[]",
+"type": "object",
+"recursive": null
+},
+{
+"path": "ITR.ITR1.PartB-ATI.ScheduleIT2.Total",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.PartB-ATI.ReleifUS89",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.PersonalInfo",
+"type": "object",
+"required": true,
+"definition": "PersonalInfo",
+"description": "Enter personal information"
+},
+{
+"path": "ITR.ITR1.PersonalInfo.AssesseeName",
+"type": "object",
+"required": true,
+"definition": "AssesseeName",
+"description": "Assessee name with Surname mandatory."
+},
+{
+"path": "ITR.ITR1.PersonalInfo.AssesseeName.FirstName",
+"type": "string",
+"required": false,
+"pattern": "|(\\s*([\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"][\\s\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"]*)\\s*)",
+"maxLength": 25,
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.PersonalInfo.AssesseeName.MiddleName",
+"type": "string",
+"required": false,
+"pattern": "|(\\s*([\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"][\\s\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"]*)\\s*)",
+"maxLength": 25,
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.PersonalInfo.AssesseeName.SurNameOrOrgName",
+"type": "string",
+"required": true,
+"description": "Enter Last or Sur name for Individual name here",
+"pattern": "|(\\s*([\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"][\\s\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"]*)\\s*)",
+"minLength": 1,
+"maxLength": 75,
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.PersonalInfo.PAN",
+"type": "string",
+"required": true,
+"pattern": "[A-Z]{5}[0-9]{4}[A-Z]",
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.PersonalInfo.Address",
+"type": "object",
+"required": true,
+"definition": "Address",
+"description": "Address of assessee"
+},
+{
+"path": "ITR.ITR1.PersonalInfo.Address.ResidenceNo",
+"type": "string",
+"required": true,
+"pattern": "|(\\s*([\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"][\\s\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"]*)\\s*)",
+"minLength": 1,
+"maxLength": 50,
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.PersonalInfo.Address.ResidenceName",
+"type": "string",
+"required": false,
+"pattern": "|(\\s*([\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"][\\s\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"]*)\\s*)",
+"maxLength": 50,
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.PersonalInfo.Address.RoadOrStreet",
+"type": "string",
+"required": false,
+"pattern": "|(\\s*([\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"][\\s\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"]*)\\s*)",
+"maxLength": 50,
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.PersonalInfo.Address.LocalityOrArea",
+"type": "string",
+"required": true,
+"pattern": "|(\\s*([\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"][\\s\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"]*)\\s*)",
+"minLength": 1,
+"maxLength": 50,
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.PersonalInfo.Address.CityOrTownOrDistrict",
+"type": "string",
+"required": true,
+"pattern": "|(\\s*([\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"][\\s\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"]*)\\s*)",
+"minLength": 1,
+"maxLength": 50,
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.PersonalInfo.Address.StateCode",
+"type": "string",
+"required": true,
+"description": "01-Andaman and Nicobar islands; 02-Andhra Pradesh; 03-Arunachal Pradesh; 04-Assam; 05-Bihar; 06-Chandigarh; 07-Dadra Nagar and Haveli; 08-Daman and Diu; 09- Delhi; 10- Goa; 11-Gujarat; 12- Haryana; 13- Himachal Pradesh; 14-Jammu and Kashmir; 15- Karnataka; 16- Kerala; 17- Lakshadweep; 18-Madhya Pradesh; 19-Maharashtra; 20-Manipur; 21-meghalaya; 22-Mizoram; 23-Nagaland; 24- Odisha; 25- Puducherry; 26- Punjab; 27-Rajasthan; 28- Sikkim; 29-Tamil Nadu; 30- Tripura; 31-Uttar Pradesh; 32- West Bengal; 33- Chhattisgarh; 34- Uttarakhand; 35- Jharkhand; 36- Telangana; 37- Ladakh; 99-Foreign",
+"enum": [
+"01",
+"02",
+"03",
+"04",
+"05",
+"06",
+"07",
+"08",
+"09",
+"10",
+"11",
+"12",
+"13",
+"14",
+"15",
+"16",
+"17",
+"18",
+"19",
+"20",
+"21",
+"22",
+"23",
+"24",
+"25",
+"26",
+"27",
+"28",
+"29",
+"30",
+"31",
+"32",
+"33",
+"34",
+"35",
+"36",
+"37",
+"99"
+],
+"pattern": "|(\\s*([\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"][\\s\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"]*)\\s*)",
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.PersonalInfo.Address.CountryCode",
+"type": "string",
+"required": true,
+"description": "93:AFGHANISTAN; 1001:ÅLAND ISLANDS; 355:ALBANIA; 213:ALGERIA; 684:AMERICAN SAMOA; 376:ANDORRA; 244:ANGOLA; 1264:ANGUILLA; 1010:ANTARCTICA; 1268:ANTIGUA AND BARBUDA; 54:ARGENTINA; 374:ARMENIA; 297:ARUBA; 61:AUSTRALIA; 43:AUSTRIA; 994:AZERBAIJAN; 1242:BAHAMAS; 973:BAHRAIN; 880:BANGLADESH; 1246:BARBADOS; 375:BELARUS; 32:BELGIUM; 501:BELIZE; 229:BENIN; 1441:BERMUDA; 975:BHUTAN; 591:BOLIVIA (PLURINATIONAL STATE OF); 1002:BONAIRE, SINT EUSTATIUS AND SABA; 387:BOSNIA AND HERZEGOVINA; 267:BOTSWANA; 1003:BOUVET ISLAND; 55:BRAZIL; 1014:BRITISH INDIAN OCEAN TERRITORY; 673:BRUNEI DARUSSALAM; 359:BULGARIA; 226: BURKINA FASO; 257:BURUNDI; 238:CABO VERDE; 855:CAMBODIA; 237:CAMEROON; 1:CANADA; 1345:CAYMAN ISLANDS; 236:CENTRAL AFRICAN REPUBLIC; 235:CHAD; 56:CHILE; 86:CHINA; 9:CHRISTMAS ISLAND; 672:COCOS (KEELING) ISLANDS; 57:COLOMBIA; 270:COMOROS; 242:CONGO; 243:CONGO (DEMOCRATIC REPUBLIC OF THE); 682:COOK ISLANDS; 506:COSTA RICA; 225:CÔTE D'IVOIRE; 385:CROATIA; 53:CUBA; 1015:CURAÇAO; 357:CYPRUS; 420:CZECHIA; 45:DENMARK; 253:DJIBOUTI; 1767:DOMINICA; 1809:DOMINICAN REPUBLIC; 593:ECUADOR; 20:EGYPT; 503:EL SALVADOR; 240:EQUATORIAL GUINEA; 291:ERITREA; 372:ESTONIA; 251:ETHIOPIA; 500:FALKLAND ISLANDS (MALVINAS); 298:FAROE ISLANDS; 679:FIJI; 358:FINLAND; 33:FRANCE; 594:FRENCH GUIANA; 689:FRENCH POLYNESIA; 1004:FRENCH SOUTHERN TERRITORIES; 241:GABON; 220:GAMBIA; 995:GEORGIA; 49:GERMANY; 233:GHANA; 350:GIBRALTAR; 30:GREECE; 299:GREENLAND; 1473:GRENADA; 590:GUADELOUPE; 1671:GUAM; 502:GUATEMALA; 1481:GUERNSEY; 224:GUINEA; 245:GUINEA-BISSAU; 592:GUYANA; 509:HAITI; 1005:HEARD ISLAND AND MCDONALD ISLANDS; 6:HOLY SEE; 504:HONDURAS; 852:HONG KONG; 36:HUNGARY; 354:ICELAND; 91:INDIA; 62:INDONESIA; 98:IRAN (ISLAMIC REPUBLIC OF); 964:IRAQ; 353:IRELAND; 1624:ISLE OF MAN; 972:ISRAEL; 5:ITALY; 1876:JAMAICA; 81:JAPAN; 1534:JERSEY; 962:JORDAN; 7:KAZAKHSTAN; 254:KENYA; 686:KIRIBATI; 850:KOREA(DEMOCRATIC PEOPLE'S REPUBLIC OF); 82:KOREA (REPUBLIC OF); 965:KUWAIT; 996:KYRGYZSTAN; 856:LAO PEOPLE'S DEMOCRATIC REPUBLIC; 371:LATVIA; 961:LEBANON; 266:LESOTHO; 231:LIBERIA; 218:LIBYA; 423:LIECHTENSTEIN; 370:LITHUANIA; 352:LUXEMBOURG; 853:MACAO; 389:MACEDONIA(THE FORMER YUGOSLAV REPUBLIC OF); 261:MADAGASCAR; 265:MALAWI; 60:MALAYSIA; 960:MALDIVES; 223:MALI; 356:MALTA; 692:MARSHALL ISLANDS; 596:MARTINIQUE; 222:MAURITANIA; 230:MAURITIUS; 269:MAYOTTE; 52:MEXICO; 691:MICRONESIA (FEDERATED STATES OF); 373:MOLDOVA (REPUBLIC OF); 377:MONACO; 976:MONGOLIA; 382:MONTENEGRO; 1664:MONTSERRAT; 212:MOROCCO; 258:MOZAMBIQUE; 95:MYANMAR; 264:NAMIBIA; 674:NAURU; 977:NEPAL; 31:NETHERLANDS; 687:NEW CALEDONIA; 64:NEW ZEALAND; 505:NICARAGUA; 227:NIGER; 234:NIGERIA; 683:NIUE; 15:NORFOLK ISLAND; 1670:NORTHERN MARIANA ISLANDS; 47:NORWAY; 968:OMAN; 92:PAKISTAN; 680:PALAU; 970:PALESTINE, STATE OF; 507:PANAMA; 675:PAPUA NEW GUINEA; 595:PARAGUAY; 51:PERU; 63:PHILIPPINES; 1011:PITCAIRN; 48:POLAND; 14:PORTUGAL; 1787:PUERTO RICO; 974:QATAR; 262:RÉUNION; 40:ROMANIA; 8:RUSSIAN FEDERATION; 250:RWANDA; 1006:SAINT BARTHÉLEMY; 290: SAINT HELENA, ASCENSION AND TRISTAN DA CUNHA; 1869:SAINT KITTS AND NEVIS; 1758:SAINT LUCIA; 1007:SAINT MARTIN (FRENCH PART); 508:SAINT PIERRE AND MIQUELON; 1784:SAINT VINCENT AND THE GRENADINES; 685:SAMOA; 378:SAN MARINO; 239:SAO TOME AND PRINCIPE; 966:SAUDI ARABIA; 221:SENEGAL; 381:SERBIA; 248:SEYCHELLES; 232:SIERRA LEONE; 65:SINGAPORE; 1721:SINT MAARTEN (DUTCH PART); 421:SLOVAKIA; 386:SLOVENIA; 677:SOLOMON ISLANDS; 252:SOMALIA; 28:SOUTH AFRICA; 1008:SOUTH GEORGIA AND THE SOUTH SANDWICH ISLANDS; 211:SOUTH SUDAN; 35:SPAIN; 94:SRI LANKA; 249:SUDAN; 597:SURINAME; 1012:SVALBARD AND JAN MAYEN; 268:SWAZILAND; 46:SWEDEN; 41:SWITZERLAND; 963:SYRIAN ARAB REPUBLIC; 886:TAIWAN; 992:TAJIKISTAN; 255:TANZANIA, UNITED REPUBLIC OF; 66:THAILAND; 670:TIMOR-LESTE (EAST TIMOR); 228:TOGO; 690:TOKELAU; 676:TONGA; 1868:TRINIDAD AND TOBAGO; 216:TUNISIA; 90:TURKEY; 993:TURKMENISTAN; 1649:TURKS AND CAICOS ISLANDS; 688:TUVALU; 256:UGANDA; 380:UKRAINE; 971:UNITED ARAB EMIRATES; 44:UNITED KINGDOM OF GREAT BRITAIN AND NORTHERN IRELAND; 2:UNITED STATES OF AMERICA; 1009:UNITED STATES MINOR OUTLYING ISLANDS; 598:URUGUAY; 998:UZBEKISTAN; 678:VANUATU; 58:VENEZUELA (BOLIVARIAN REPUBLIC OF); 84:VIET NAM; 1284:VIRGIN ISLANDS (BRITISH); 1340:VIRGIN ISLANDS (U.S.); 681:WALLIS AND FUTUNA; 1013:WESTERN SAHARA; 967:YEMEN; 260:ZAMBIA; 263:ZIMBABWE; 9999:OTHERS",
+"enum": [
+"93",
+"1001",
+"355",
+"213",
+"684",
+"376",
+"244",
+"1264",
+"1010",
+"1268",
+"54",
+"374",
+"297",
+"61",
+"43",
+"994",
+"1242",
+"973",
+"880",
+"1246",
+"375",
+"32",
+"501",
+"229",
+"1441",
+"975",
+"591",
+"1002",
+"387",
+"267",
+"1003",
+"55",
+"1014",
+"673",
+"359",
+"226",
+"257",
+"238",
+"855",
+"237",
+"1",
+"1345",
+"236",
+"235",
+"56",
+"86",
+"9",
+"672",
+"57",
+"270",
+"242",
+"243",
+"682",
+"506",
+"225",
+"385",
+"53",
+"1015",
+"357",
+"420",
+"45",
+"253",
+"1767",
+"1809",
+"593",
+"20",
+"503",
+"240",
+"291",
+"372",
+"251",
+"500",
+"298",
+"679",
+"358",
+"33",
+"594",
+"689",
+"1004",
+"241",
+"220",
+"995",
+"49",
+"233",
+"350",
+"30",
+"299",
+"1473",
+"590",
+"1671",
+"502",
+"1481",
+"224",
+"245",
+"592",
+"509",
+"1005",
+"6",
+"504",
+"852",
+"36",
+"354",
+"91",
+"62",
+"98",
+"964",
+"353",
+"1624",
+"972",
+"5",
+"1876",
+"81",
+"1534",
+"962",
+"7",
+"254",
+"686",
+"850",
+"82",
+"965",
+"996",
+"856",
+"371",
+"961",
+"266",
+"231",
+"218",
+"423",
+"370",
+"352",
+"853",
+"389",
+"261",
+"265",
+"60",
+"960",
+"223",
+"356",
+"692",
+"596",
+"222",
+"230",
+"269",
+"52",
+"691",
+"373",
+"377",
+"976",
+"382",
+"1664",
+"212",
+"258",
+"95",
+"264",
+"674",
+"977",
+"31",
+"687",
+"64",
+"505",
+"227",
+"234",
+"683",
+"15",
+"1670",
+"47",
+"968",
+"92",
+"680",
+"970",
+"507",
+"675",
+"595",
+"51",
+"63",
+"1011",
+"48",
+"14",
+"1787",
+"974",
+"262",
+"40",
+"8",
+"250",
+"1006",
+"290",
+"1869",
+"1758",
+"1007",
+"508",
+"1784",
+"685",
+"378",
+"239",
+"966",
+"221",
+"381",
+"248",
+"232",
+"65",
+"1721",
+"421",
+"386",
+"677",
+"252",
+"28",
+"1008",
+"211",
+"35",
+"94",
+"249",
+"597",
+"1012",
+"268",
+"46",
+"41",
+"963",
+"886",
+"992",
+"255",
+"66",
+"670",
+"228",
+"690",
+"676",
+"1868",
+"216",
+"90",
+"993",
+"1649",
+"688",
+"256",
+"380",
+"971",
+"44",
+"2",
+"1009",
+"598",
+"998",
+"678",
+"58",
+"84",
+"1284",
+"1340",
+"681",
+"1013",
+"967",
+"260",
+"263",
+"9999"
+],
+"pattern": "|(\\s*([\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"][\\s\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"]*)\\s*)",
+"definition": "CountryCode"
+},
+{
+"path": "ITR.ITR1.PersonalInfo.Address.PinCode",
+"type": "integer",
+"required": false,
+"pattern": "[1-9]{1}[0-9]{5}"
+},
+{
+"path": "ITR.ITR1.PersonalInfo.Address.ZipCode",
+"type": "string",
+"required": false,
+"pattern": "|(\\s*([\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"][\\s\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"]*)\\s*)",
+"maxLength": 8,
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.PersonalInfo.Address.CountryCodeMobile",
+"type": "integer",
+"required": true,
+"pattern": "[0-9]{1,5}"
+},
+{
+"path": "ITR.ITR1.PersonalInfo.Address.MobileNo",
+"type": "integer",
+"required": true,
+"pattern": "[1-9]{1}[0-9]{9}|[1-9]{1}[0-9]{4,9}"
+},
+{
+"path": "ITR.ITR1.PersonalInfo.Address.EmailAddress",
+"type": "string",
+"required": true,
+"pattern": "([\\.a-zA-Z0-9_\\-])+@([a-zA-Z0-9_\\-])+(([a-zA-Z0-9_\\-])*\\.([a-zA-Z0-9_\\-])+)+",
+"maxLength": 125,
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.PersonalInfo.DOB",
+"type": "string",
+"required": true,
+"description": "Date of Birth of the Assessee format YYYY-MM-DD; maximum date allowed 2025-03-31",
+"pattern": "([12]\\d{3}-(0[1-9]|1[0-2])-(0[1-9]|[12]\\d|3[01]))"
+},
+{
+"path": "ITR.ITR1.PersonalInfo.EmployerCategory",
+"type": "string",
+"required": true,
+"description": "CGOV:Central Government, SGOV:State Government, PSU:Public Sector Unit, PE:Pensioners - Central Government, PESG:Pensioners - State Government, PEPS:Pensioners - Public sector undertaking, PEO:Pensioners - Others, OTH:Others, NA:Not Applicable",
+"enum": [
+"CGOV",
+"SGOV",
+"PSU",
+"PE",
+"PESG",
+"PEPS",
+"PEO",
+"OTH",
+"NA"
+]
+},
+{
+"path": "ITR.ITR1.PersonalInfo.AadhaarCardNo",
+"type": "string",
+"required": false,
+"pattern": "[0-9]{12}",
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.FilingStatus",
+"type": "object",
+"required": true,
+"definition": "FilingStatus",
+"description": ""
+},
+{
+"path": "ITR.ITR1.FilingStatus.ReturnFileSec",
+"type": "integer",
+"required": true,
+"description": "11 : 139(1)-On or before due date, 12 : 139(4)-After due date, 13 : 142(1), 14 : 148, 16 : 153C, 17 : 139(5)-Revised , 18 : 139(9), 20 : 119(2)(b)-After condonation of delay, 21 : 139(8A)-Updated Return",
+"enum": [
+11,
+12,
+13,
+14,
+16,
+17,
+18,
+20,
+21
+],
+"minimum": 11,
+"maximum": 21,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.FilingStatus.OptOutNewTaxRegime",
+"type": "string",
+"required": true,
+"pattern": "Y|N",
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.FilingStatus.SeventhProvisio139",
+"type": "string",
+"required": false,
+"pattern": "Y|N",
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.FilingStatus.IncrExpAggAmt2LkTrvFrgnCntryFlg",
+"type": "string",
+"required": false,
+"pattern": "Y|N",
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.FilingStatus.AmtSeventhProvisio139ii",
+"type": "integer",
+"required": false,
+"minimum": 200000,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.FilingStatus.IncrExpAggAmt1LkElctrctyPrYrFlg",
+"type": "string",
+"required": false,
+"pattern": "Y|N",
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.FilingStatus.AmtSeventhProvisio139iii",
+"type": "integer",
+"required": false,
+"minimum": 100000,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.FilingStatus.clauseiv7provisio139i",
+"type": "string",
+"required": false,
+"pattern": "Y|N",
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.FilingStatus.clauseiv7provisio139iDtls",
+"type": "array",
+"required": false
+},
+{
+"path": "ITR.ITR1.FilingStatus.clauseiv7provisio139iDtls[]",
+"type": "object",
+"required": true,
+"definition": "clauseiv7provisio139iType",
+"description": ""
+},
+{
+"path": "ITR.ITR1.FilingStatus.clauseiv7provisio139iDtls[].clauseiv7provisio139iNature",
+"type": "string",
+"required": true,
+"description": "1 - the aggregate of tax deducted at source and tax collected at source during the previous year, in the case of the person, is twenty-five thousand rupees or more(fifty thousand for resident senior citizen); 2 - the deposit in one or more savings bank account of the person, in aggregate, is fifty lakh rupees or more, in the previous year",
+"enum": [
+"1",
+"2"
+]
+},
+{
+"path": "ITR.ITR1.FilingStatus.clauseiv7provisio139iDtls[].clauseiv7provisio139iAmount",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.FilingStatus.ReceiptNo",
+"type": "string",
+"required": false,
+"description": "Enter the Acknowledgement number of the original return.",
+"pattern": "[0-9]{15}"
+},
+{
+"path": "ITR.ITR1.FilingStatus.NoticeNo",
+"type": "string",
+"required": false,
+"pattern": "|(\\s*([\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"][\\s\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"]*)\\s*)",
+"maxLength": 100,
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.FilingStatus.OrigRetFiledDate",
+"type": "string",
+"required": false,
+"description": "Enter Date of filing of Original return in YYYY-MM-DD format",
+"pattern": "([12]\\d{3}-(0[1-9]|1[0-2])-(0[1-9]|[12]\\d|3[01]))"
+},
+{
+"path": "ITR.ITR1.FilingStatus.NoticeDateUnderSec",
+"type": "string",
+"required": false,
+"description": "Enter Date of Notice or Order in YYYY-MM-DD format",
+"pattern": "([12]\\d{3}-(0[1-9]|1[0-2])-(0[1-9]|[12]\\d|3[01]))"
+},
+{
+"path": "ITR.ITR1.FilingStatus.ItrFilingDueDate",
+"type": "string",
+"required": true,
+"pattern": "2025-07-31",
+"minLength": 9,
+"maxLength": 10,
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions",
+"type": "object",
+"required": true,
+"definition": "ITR1_IncomeDeductions",
+"description": "Income and deduction details"
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.GrossSalary",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.Salary",
+"type": "integer",
+"required": false,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.PerquisitesValue",
+"type": "integer",
+"required": false,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.ProfitsInSalary",
+"type": "integer",
+"required": false,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.IncomeNotified89A",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.IncomeNotified89AType",
+"type": "array",
+"required": false
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.IncomeNotified89AType[]",
+"type": "object",
+"required": true,
+"definition": "NOT89AType",
+"description": ""
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.IncomeNotified89AType[].NOT89ACountrycode",
+"type": "string",
+"required": true,
+"description": "US - United States; UK - United Kingdom; CA - Canada",
+"enum": [
+"US",
+"UK",
+"CA"
+]
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.IncomeNotified89AType[].NOT89AAmount",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.IncomeNotifiedOther89A",
+"type": "integer",
+"required": false,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.AllwncExemptUs10",
+"type": "object",
+"required": false,
+"definition": "",
+"description": ""
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.AllwncExemptUs10.AllwncExemptUs10Dtls",
+"type": "array",
+"required": false
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.AllwncExemptUs10.AllwncExemptUs10Dtls[]",
+"type": "object",
+"required": true,
+"definition": "AllwncExemptUs10DtlsType",
+"description": ""
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.AllwncExemptUs10.AllwncExemptUs10Dtls[].SalNatureDesc",
+"type": "string",
+"required": true,
+"description": "10(5) - Sec 10(5)-Leave Travel concession/assistance; 10(6) - Sec 10(6)-Remuneration received as an official, by whatever name called, of an embassy, high commission etc.; 10(7) - Sec 10(7)-Allowances or perquisites paid or allowed as such outside India by the Government to a citizen of India for rendering service outside India; 10(10) - Sec 10(10)-Death-cum-retirement gratuity received ; 10(10A) - Sec 10(10A)-Commuted value of pension received; 10(10AA) - Sec 10(10AA)-Earned leave encashment on Retirement; 10(10B)(i) - Sec 10(10B)-First proviso - Compensation limit notified by CG in the Official Gazette; 10(10B)(ii) - Sec 10(10B)-Second proviso - Compensation under scheme approved by the Central Government; 10(10C) - Sec 10(10C)- Amount received/receivable on voluntary retirement or termination of service; 10(10CC) - Sec 10(10CC)-Tax paid by employer on non-monetary perquisite; 10(13A) - Sec 10(13A)-Allowance to meet expenditure incurred on house rent; 10(14)(i) - Sec 10(14)(i)- Prescribed Allowances or benefits (not in a nature of perquisite) specifically granted to meet expenses wholly, necessarily and exclusively and to the extent actually incurred, in performance of duties of office or employment; 10(14)(ii) - Sec 10(14)(ii) -Prescribed Allowances or benefits granted to meet personal expenses in performance of duties of office or employment or to compensate him for increased cost of living. ; 10(14)(i)(115BAC) - Sec 10(14)(i) -Allowances referred in sub-clauses (a) to (c) of sub-rule (1) in Rule 2BB ; 10(14)(ii)(115BAC) - Sec 10(14)(ii) -Transport allowance granted to certain physically handicapped assessee ; EIC - Exempt income received by a judge covered under the payment of salaries to Supreme Court/High Court judges Act /Rules ; OTH - Any Other",
+"enum": [
+"10(5)",
+"10(6)",
+"10(7)",
+"10(10)",
+"10(10A)",
+"10(10AA)",
+"10(10B)(i)",
+"10(10B)(ii)",
+"10(10C)",
+"10(10CC)",
+"10(13A)",
+"10(14)(i)",
+"10(14)(ii)",
+"10(14)(i)(115BAC)",
+"10(14)(ii)(115BAC)",
+"EIC",
+"OTH"
+],
+"pattern": "|(\\s*([\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"][\\s\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"]*)\\s*)",
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.AllwncExemptUs10.AllwncExemptUs10Dtls[].SalOthNatOfInc",
+"type": "string",
+"required": false,
+"pattern": "|(\\s*([\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"][\\s\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"]*)\\s*)",
+"maxLength": 125,
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.AllwncExemptUs10.AllwncExemptUs10Dtls[].SalOthAmount",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.AllwncExemptUs10.TotalAllwncExemptUs10",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.Increliefus89A",
+"type": "integer",
+"required": false,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.NetSalary",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.DeductionUs16",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.DeductionUs16ia",
+"type": "integer",
+"required": false,
+"minimum": 0,
+"maximum": 75000,
+"exclusiveMinimum": false,
+"exclusiveMaximum": false
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.EntertainmentAlw16ii",
+"type": "integer",
+"required": false,
+"minimum": 0,
+"maximum": 5000,
+"exclusiveMinimum": false,
+"exclusiveMaximum": false
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.ProfessionalTaxUs16iii",
+"type": "integer",
+"required": false,
+"minimum": 0,
+"maximum": 5000,
+"exclusiveMinimum": false,
+"exclusiveMaximum": false
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.IncomeFromSal",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.TypeOfHP",
+"type": "string",
+"required": false,
+"description": "House Property income Type - S:Self Occupied; L:Let Out; D:Deemed let out",
+"pattern": "S|L|D",
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.GrossRentReceived",
+"type": "integer",
+"required": false,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.TaxPaidlocalAuth",
+"type": "integer",
+"required": false,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.AnnualValue",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.StandardDeduction",
+"type": "integer",
+"required": true,
+"description": "This field refers to Part-B B2 iv - 30% of Annual Value",
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.InterestPayable",
+"type": "integer",
+"required": false,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.ArrearsUnrealizedRentRcvd",
+"type": "integer",
+"required": false,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.TotalIncomeOfHP",
+"type": "integer",
+"required": true,
+"description": "House Property income",
+"minimum": -200000,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.IncomeOthSrc",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.OthersInc",
+"type": "object",
+"required": false,
+"definition": "",
+"description": ""
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.OthersInc.OthersIncDtlsOthSrc",
+"type": "array",
+"required": false
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.OthersInc.OthersIncDtlsOthSrc[]",
+"type": "object",
+"required": true,
+"definition": "OtherSourceIncome",
+"description": ""
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.OthersInc.OthersIncDtlsOthSrc[].OthSrcNatureDesc",
+"type": "string",
+"required": true,
+"description": "SAV : Interest from Saving Account; IFD : Interest from Deposit(Bank/Post Office/Cooperative Society); TAX : Interest from Income Tax Refund; FAP : Family pension; DIV : Dividend; 10(11)(iP) : Interest accrued on contributions to provident fund to the extent taxable as per first proviso to section 10(11); 10(11)(iiP) : Interest accrued on contributions to provident fund to the extent taxable as per second proviso to section 10(11); 10(12)(iP) : Interest accrued on contributions to provident fund to the extent taxable as per first proviso to section 10(12); 10(12)(iiP) : Interest accrued on contributions to provident fund to the extent taxable as per second proviso to section 10(12); NOT89A : Income from retirement benefit account maintained in a notified country u/s 89A ; OTHNOT89A : Income from retirement benefit account maintained in a country other than a country notified u/s 89A ; OTH : Any Other",
+"enum": [
+"SAV",
+"IFD",
+"TAX",
+"FAP",
+"DIV",
+"10(11)(iP)",
+"10(11)(iiP)",
+"10(12)(iP)",
+"10(12)(iiP)",
+"NOT89A",
+"OTHNOT89A",
+"OTH"
+],
+"pattern": "|(\\s*([\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"][\\s\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"]*)\\s*)",
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.OthersInc.OthersIncDtlsOthSrc[].NOT89A",
+"type": "array",
+"required": false
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.OthersInc.OthersIncDtlsOthSrc[].NOT89A[]",
+"type": "object",
+"required": true,
+"definition": "NOT89AType",
+"description": ""
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.OthersInc.OthersIncDtlsOthSrc[].NOT89A[].NOT89ACountrycode",
+"type": "string",
+"required": true,
+"description": "US - United States; UK - United Kingdom; CA - Canada",
+"enum": [
+"US",
+"UK",
+"CA"
+]
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.OthersInc.OthersIncDtlsOthSrc[].NOT89A[].NOT89AAmount",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.OthersInc.OthersIncDtlsOthSrc[].OthSrcOthNatOfInc",
+"type": "string",
+"required": false,
+"pattern": "|(\\s*([\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"][\\s\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"]*)\\s*)",
+"maxLength": 125,
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.OthersInc.OthersIncDtlsOthSrc[].OthSrcOthAmount",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.OthersInc.OthersIncDtlsOthSrc[].DividendInc",
+"type": "object",
+"required": false,
+"definition": "DateRangeType",
+"description": ""
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.OthersInc.OthersIncDtlsOthSrc[].DividendInc.DateRange",
+"type": "object",
+"recursive": null
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.OthersInc.OthersIncDtlsOthSrc[].NOT89AInc",
+"type": "object",
+"required": false,
+"definition": "DateRangeType",
+"description": ""
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.OthersInc.OthersIncDtlsOthSrc[].NOT89AInc.DateRange",
+"type": "object",
+"recursive": null
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.DeductionUs57iia",
+"type": "integer",
+"required": false,
+"minimum": 0,
+"maximum": 25000,
+"exclusiveMinimum": false,
+"exclusiveMaximum": false
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.Increliefus89AOS",
+"type": "integer",
+"required": false,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.GrossTotIncome",
+"type": "integer",
+"required": true,
+"description": "Gross Total Income without LTCG u/s 112A",
+"maximum": 99999999999999
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.GrossTotIncomeIncLTCG112A",
+"type": "integer",
+"required": true,
+"description": "Gross Total Income including LTCG u/s 112A",
+"maximum": 99999999999999
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.UsrDeductUndChapVIA",
+"type": "object",
+"required": true,
+"definition": "UsrDeductUndChapVIAType",
+"description": "Deductions from income"
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.UsrDeductUndChapVIA.Section80C",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.UsrDeductUndChapVIA.Section80CCC",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.UsrDeductUndChapVIA.Section80CCDEmployeeOrSE",
+"type": "integer",
+"required": true,
+"description": "For Employee/SelfEmployed",
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.UsrDeductUndChapVIA.Section80CCD1B",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.UsrDeductUndChapVIA.Section80CCDEmployer",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.UsrDeductUndChapVIA.PRANNum",
+"type": "string",
+"required": false,
+"minLength": 1,
+"maxLength": 125
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.UsrDeductUndChapVIA.Section80D",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.UsrDeductUndChapVIA.Section80DD",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.UsrDeductUndChapVIA.Section80DDBUsrType",
+"type": "string",
+"required": false,
+"description": "1 : Self or dependent ; 2 : Self or Dependent - Senior Citizen",
+"enum": [
+"1",
+"2"
+],
+"pattern": "|(\\s*([\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"][\\s\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"]*)\\s*)",
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.UsrDeductUndChapVIA.NameOfSpecDisease80DDB",
+"type": "string",
+"required": false,
+"description": "a : Dementia; b : Dystonia Musculorum Deformans; c : Motor Neuron Disease; d : Ataxia; e : Chorea; f : Hemiballismus; g : Aphasia; h: Parkinsons Disease; i : Malignant Cancers; j : Full Blown Acquired Immuno-Deficiency Syndrome (AIDS); k:Chronic Renal failure; l:Hematological disorders; m: Hemophilia; n:Thalassaemia",
+"enum": [
+"a",
+"b",
+"c",
+"d",
+"e",
+"f",
+"g",
+"h",
+"i",
+"j",
+"k",
+"l",
+"m",
+"n"
+],
+"pattern": "|(\\s*([\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"][\\s\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"]*)\\s*)",
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.UsrDeductUndChapVIA.Section80DDB",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.UsrDeductUndChapVIA.Section80E",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.UsrDeductUndChapVIA.Section80EE",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.UsrDeductUndChapVIA.Section80EEA",
+"type": "integer",
+"required": false,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.UsrDeductUndChapVIA.Section80EEB",
+"type": "integer",
+"required": false,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.UsrDeductUndChapVIA.Section80G",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.UsrDeductUndChapVIA.Section80GG",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.UsrDeductUndChapVIA.Form10BAAckNum",
+"type": "string",
+"required": false,
+"maxLength": 15
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.UsrDeductUndChapVIA.Section80GGA",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.UsrDeductUndChapVIA.Section80GGC",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.UsrDeductUndChapVIA.Section80U",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.UsrDeductUndChapVIA.Section80TTA",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.UsrDeductUndChapVIA.Section80TTB",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.UsrDeductUndChapVIA.AnyOthSec80CCH",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.UsrDeductUndChapVIA.TotalChapVIADeductions",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.DeductUndChapVIA",
+"type": "object",
+"required": true,
+"definition": "DeductUndChapVIAType",
+"description": "Deductions from income"
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.DeductUndChapVIA.Section80C",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 150000,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.DeductUndChapVIA.Section80CCC",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 150000,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.DeductUndChapVIA.Section80CCDEmployeeOrSE",
+"type": "integer",
+"required": true,
+"description": "For Employee/SelfEmployed",
+"minimum": 0,
+"maximum": 150000,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.DeductUndChapVIA.Section80CCD1B",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 50000,
+"exclusiveMinimum": false,
+"exclusiveMaximum": false
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.DeductUndChapVIA.Section80CCDEmployer",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.DeductUndChapVIA.Section80D",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 100000,
+"exclusiveMinimum": false,
+"exclusiveMaximum": false
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.DeductUndChapVIA.Section80DD",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 125000,
+"exclusiveMinimum": false,
+"exclusiveMaximum": false
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.DeductUndChapVIA.Section80DDB",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 100000,
+"exclusiveMinimum": false,
+"exclusiveMaximum": false
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.DeductUndChapVIA.Section80E",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.DeductUndChapVIA.Section80EE",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 50000,
+"exclusiveMinimum": false,
+"exclusiveMaximum": false
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.DeductUndChapVIA.Section80EEA",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 150000,
+"exclusiveMinimum": false,
+"exclusiveMaximum": false
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.DeductUndChapVIA.Section80EEB",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 150000,
+"exclusiveMinimum": false,
+"exclusiveMaximum": false
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.DeductUndChapVIA.Section80G",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.DeductUndChapVIA.Section80GG",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 60000,
+"exclusiveMinimum": false,
+"exclusiveMaximum": false
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.DeductUndChapVIA.Section80GGA",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.DeductUndChapVIA.Section80GGC",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.DeductUndChapVIA.Section80U",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 125000,
+"exclusiveMinimum": false,
+"exclusiveMaximum": false
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.DeductUndChapVIA.Section80TTA",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 10000,
+"exclusiveMinimum": false,
+"exclusiveMaximum": false
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.DeductUndChapVIA.Section80TTB",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 50000,
+"exclusiveMinimum": false,
+"exclusiveMaximum": false
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.DeductUndChapVIA.AnyOthSec80CCH",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 288000,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.DeductUndChapVIA.TotalChapVIADeductions",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.TotalIncome",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 5125000,
+"exclusiveMinimum": false,
+"exclusiveMaximum": false
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.ExemptIncAgriOthUs10",
+"type": "object",
+"required": false,
+"definition": "",
+"description": ""
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.ExemptIncAgriOthUs10.ExemptIncAgriOthUs10Dtls",
+"type": "array",
+"required": false
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.ExemptIncAgriOthUs10.ExemptIncAgriOthUs10Dtls[]",
+"type": "object",
+"required": true,
+"definition": "ExemptIncAgriOthUs10Type",
+"description": ""
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.ExemptIncAgriOthUs10.ExemptIncAgriOthUs10Dtls[].NatureDesc",
+"type": "string",
+"required": true,
+"description": "AGRI : Agriculture Income (<= Rs.5000); 10(10BC): Sec 10(10BC)-Any amount from the Central/State Govt./local authority by way of compensation on account of any disaster; 10(10D) : Sec 10(10D)- Any sum received under a life insurance policy, including the sum allocated by way of bonus on such policy except sum as mentioned in sub-clause (a) to (d) of Sec.10(10D); 10(11) : Sec 10(11)-Statuory Provident Fund received; 10(12) : Sec 10(12)-Recognised Provident Fund received;10(12C) : Sec 10(12C)-Any payment from the Agniveer Corpus Fund to a person enrolled under the Agnipath Scheme, or to his nominee.; 10(13) : Sec 10(13)-Approved superannuation fund received; 10(16) : Sec 10(16)-Scholarships granted to meet the cost of education; 10(17) : Sec 10(17)-Allowance MP/MLA/MLC; 10(17A) : Sec 10(17A)-Award instituted by Government; 10(18) : Sec 10(18)-Pension received by winner of \"Param Vir Chakra\" or \"Maha Vir Chakra\" or \"Vir Chakra\" or such other gallantry award; DMDP : Defense medical disability pension; 10(19) : Sec 10(19)-Armed Forces Family pension in case of death during operational duty; 10(26) : Sec 10(26)-Any income as referred to in section 10(26); 10(26AAA): Sec 10(26AAA)-Any income as referred to in section 10(26AAA) ; OTH : Any Other",
+"enum": [
+"AGRI",
+"10(10BC)",
+"10(10D)",
+"10(11)",
+"10(12)",
+"10(12C)",
+"10(13)",
+"10(16)",
+"10(17)",
+"10(17A)",
+"10(18)",
+"DMDP",
+"10(19)",
+"10(26)",
+"10(26AAA)",
+"OTH"
+],
+"pattern": "|(\\s*([\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"][\\s\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"]*)\\s*)",
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.ExemptIncAgriOthUs10.ExemptIncAgriOthUs10Dtls[].OthNatOfInc",
+"type": "string",
+"required": false,
+"pattern": "|(\\s*([\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"][\\s\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"]*)\\s*)",
+"maxLength": 125,
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.ExemptIncAgriOthUs10.ExemptIncAgriOthUs10Dtls[].OthAmount",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.ITR1_IncomeDeductions.ExemptIncAgriOthUs10.ExemptIncAgriOthUs10Total",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.ITR1_TaxComputation",
+"type": "object",
+"required": true,
+"definition": "ITR1_TaxComputation",
+"description": "Tax computation details"
+},
+{
+"path": "ITR.ITR1.ITR1_TaxComputation.TotalTaxPayable",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.ITR1_TaxComputation.Rebate87A",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 25000,
+"exclusiveMinimum": false,
+"exclusiveMaximum": false
+},
+{
+"path": "ITR.ITR1.ITR1_TaxComputation.TaxPayableOnRebate",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.ITR1_TaxComputation.EducationCess",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.ITR1_TaxComputation.GrossTaxLiability",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.ITR1_TaxComputation.Section89",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.ITR1_TaxComputation.NetTaxLiability",
+"type": "integer",
+"required": true,
+"description": "Balance Tax After Relief",
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.ITR1_TaxComputation.TotalIntrstPay",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.ITR1_TaxComputation.IntrstPay",
+"type": "object",
+"required": true,
+"definition": "IntrstPay",
+"description": ""
+},
+{
+"path": "ITR.ITR1.ITR1_TaxComputation.IntrstPay.IntrstPayUs234A",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.ITR1_TaxComputation.IntrstPay.IntrstPayUs234B",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.ITR1_TaxComputation.IntrstPay.IntrstPayUs234C",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.ITR1_TaxComputation.IntrstPay.LateFilingFee234F",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 5000,
+"exclusiveMinimum": false,
+"exclusiveMaximum": false
+},
+{
+"path": "ITR.ITR1.ITR1_TaxComputation.TotTaxPlusIntrstPay",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.TaxPaid",
+"type": "object",
+"required": true,
+"definition": "TaxPaid",
+"description": "Tax paid details"
+},
+{
+"path": "ITR.ITR1.TaxPaid.TaxesPaid",
+"type": "object",
+"required": true,
+"definition": "TaxesPaid",
+"description": ""
+},
+{
+"path": "ITR.ITR1.TaxPaid.TaxesPaid.AdvanceTax",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.TaxPaid.TaxesPaid.TDS",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.TaxPaid.TaxesPaid.TCS",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.TaxPaid.TaxesPaid.SelfAssessmentTax",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.TaxPaid.TaxesPaid.TotalTaxesPaid",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.TaxPaid.BalTaxPayable",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.Refund",
+"type": "object",
+"required": true,
+"definition": "Refund",
+"description": "Refund details"
+},
+{
+"path": "ITR.ITR1.Refund.RefundDue",
+"type": "integer",
+"required": true,
+"description": "Refund due if Total Taxes Paid is greater than AggregateTaxInterest",
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.Refund.BankAccountDtls",
+"type": "object",
+"required": true,
+"definition": "BankAccountDtls",
+"description": "Bank details"
+},
+{
+"path": "ITR.ITR1.Refund.BankAccountDtls.AddtnlBankDetails",
+"type": "array",
+"required": false,
+"minItems": 1
+},
+{
+"path": "ITR.ITR1.Refund.BankAccountDtls.AddtnlBankDetails[]",
+"type": "object",
+"required": true,
+"definition": "BankDetailType",
+"description": ""
+},
+{
+"path": "ITR.ITR1.Refund.BankAccountDtls.AddtnlBankDetails[].IFSCCode",
+"type": "string",
+"required": true,
+"pattern": "[A-Z]{4}[0][A-Z0-9]{6}",
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.Refund.BankAccountDtls.AddtnlBankDetails[].BankName",
+"type": "string",
+"required": true,
+"pattern": "|(\\s*([\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"][\\s\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"]*)\\s*)",
+"minLength": 1,
+"maxLength": 125,
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.Refund.BankAccountDtls.AddtnlBankDetails[].BankAccountNo",
+"type": "string",
+"required": true,
+"pattern": "[a-zA-Z0-9]([/-]?(((\\d*[1-9]\\d*)*[a-zA-Z/-])|(\\d*[1-9]\\d*[a-zA-Z]*))+)*[0-9]*",
+"minLength": 1,
+"maxLength": 20,
+"definition": "nonZeroString"
+},
+{
+"path": "ITR.ITR1.Refund.BankAccountDtls.AddtnlBankDetails[].AccountType",
+"type": "string",
+"required": true,
+"description": "SB: Savings Account, CA: Current Account,CC: Cash Credit Account, OD: Over draft account, NRO: Non Resident Account, OTH: Other",
+"enum": [
+"SB",
+"CA",
+"CC",
+"OD",
+"NRO",
+"OTH"
+]
+},
+{
+"path": "ITR.ITR1.Refund.BankAccountDtls.AddtnlBankDetails[].UseForRefund",
+"type": "string",
+"required": true,
+"enum": [
+"true",
+"false"
+],
+"pattern": "|(\\s*([\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"][\\s\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"]*)\\s*)",
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.Schedule80G",
+"type": "object",
+"required": false,
+"definition": "Schedule80G",
+"description": ""
+},
+{
+"path": "ITR.ITR1.Schedule80G.Don100Percent",
+"type": "object",
+"required": false,
+"definition": "",
+"description": ""
+},
+{
+"path": "ITR.ITR1.Schedule80G.Don100Percent.DoneeWithPan",
+"type": "array",
+"required": false,
+"minItems": 1
+},
+{
+"path": "ITR.ITR1.Schedule80G.Don100Percent.DoneeWithPan[]",
+"type": "object",
+"required": true,
+"definition": "DoneeWithPan",
+"description": ""
+},
+{
+"path": "ITR.ITR1.Schedule80G.Don100Percent.DoneeWithPan[].DoneeWithPanName",
+"type": "string",
+"required": true,
+"pattern": "|(\\s*([\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"][\\s\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"]*)\\s*)",
+"minLength": 1,
+"maxLength": 125,
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.Schedule80G.Don100Percent.DoneeWithPan[].DoneePAN",
+"type": "string",
+"required": true,
+"pattern": "[A-Z]{5}[0-9]{4}[A-Z]",
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.Schedule80G.Don100Percent.DoneeWithPan[].ArnNbr",
+"type": "string",
+"required": false,
+"description": "Please enter ARN (Donation reference Number)",
+"pattern": "|(\\s*([\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"][\\s\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"]*)\\s*)",
+"maxLength": 25,
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.Schedule80G.Don100Percent.DoneeWithPan[].AddressDetail",
+"type": "object",
+"required": true,
+"definition": "AddressDetail",
+"description": ""
+},
+{
+"path": "ITR.ITR1.Schedule80G.Don100Percent.DoneeWithPan[].AddressDetail.AddrDetail",
+"type": "string",
+"required": true,
+"pattern": "|(\\s*([\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"][\\s\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"]*)\\s*)",
+"minLength": 1,
+"maxLength": 200,
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.Schedule80G.Don100Percent.DoneeWithPan[].AddressDetail.CityOrTownOrDistrict",
+"type": "string",
+"required": true,
+"pattern": "|(\\s*([\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"][\\s\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"]*)\\s*)",
+"minLength": 1,
+"maxLength": 50,
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.Schedule80G.Don100Percent.DoneeWithPan[].AddressDetail.StateCode",
+"type": "string",
+"required": true,
+"description": "01-Andaman and Nicobar islands; 02-Andhra Pradesh; 03-Arunachal Pradesh; 04-Assam; 05-Bihar; 06-Chandigarh; 07-Dadra Nagar and Haveli; 08-Daman and Diu; 09- Delhi; 10- Goa; 11-Gujarat; 12- Haryana; 13- Himachal Pradesh; 14-Jammu and Kashmir; 15- Karnataka; 16- Kerala; 17- Lakshadweep; 18-Madhya Pradesh; 19-Maharashtra; 20-Manipur; 21-meghalaya; 22-Mizoram; 23-Nagaland; 24- Odisha; 25- Puducherry; 26- Punjab; 27-Rajasthan; 28- Sikkim; 29-Tamil Nadu; 30- Tripura; 31-Uttar Pradesh; 32- West Bengal; 33- Chhattisgarh; 34- Uttarakhand; 35- Jharkhand; 36- Telangana; 37- Ladakh",
+"enum": [
+"01",
+"02",
+"03",
+"04",
+"05",
+"06",
+"07",
+"08",
+"09",
+"10",
+"11",
+"12",
+"13",
+"14",
+"15",
+"16",
+"17",
+"18",
+"19",
+"20",
+"21",
+"22",
+"23",
+"24",
+"25",
+"26",
+"27",
+"28",
+"29",
+"30",
+"31",
+"32",
+"33",
+"34",
+"35",
+"36",
+"37"
+],
+"pattern": "|(\\s*([\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"][\\s\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"]*)\\s*)",
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.Schedule80G.Don100Percent.DoneeWithPan[].AddressDetail.PinCode",
+"type": "integer",
+"required": true,
+"pattern": "[1-9]{1}[0-9]{5}",
+"minimum": 100000,
+"maximum": 999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.Schedule80G.Don100Percent.DoneeWithPan[].DonationAmtCash",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.Schedule80G.Don100Percent.DoneeWithPan[].DonationAmtOtherMode",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.Schedule80G.Don100Percent.DoneeWithPan[].DonationAmt",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.Schedule80G.Don100Percent.DoneeWithPan[].EligibleDonationAmt",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.Schedule80G.Don100Percent.TotDon100PercentCash",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.Schedule80G.Don100Percent.TotDon100PercentOtherMode",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.Schedule80G.Don100Percent.TotDon100Percent",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.Schedule80G.Don100Percent.TotEligibleDon100Percent",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.Schedule80G.Don50PercentNoApprReqd",
+"type": "object",
+"required": false,
+"definition": "",
+"description": ""
+},
+{
+"path": "ITR.ITR1.Schedule80G.Don50PercentNoApprReqd.DoneeWithPan",
+"type": "array",
+"required": false,
+"minItems": 1
+},
+{
+"path": "ITR.ITR1.Schedule80G.Don50PercentNoApprReqd.DoneeWithPan[]",
+"type": "object",
+"required": true,
+"definition": "DoneeWithPan",
+"description": ""
+},
+{
+"path": "ITR.ITR1.Schedule80G.Don50PercentNoApprReqd.DoneeWithPan[].DoneeWithPanName",
+"type": "string",
+"required": true,
+"pattern": "|(\\s*([\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"][\\s\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"]*)\\s*)",
+"minLength": 1,
+"maxLength": 125,
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.Schedule80G.Don50PercentNoApprReqd.DoneeWithPan[].DoneePAN",
+"type": "string",
+"required": true,
+"pattern": "[A-Z]{5}[0-9]{4}[A-Z]",
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.Schedule80G.Don50PercentNoApprReqd.DoneeWithPan[].ArnNbr",
+"type": "string",
+"required": false,
+"description": "Please enter ARN (Donation reference Number)",
+"pattern": "|(\\s*([\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"][\\s\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"]*)\\s*)",
+"maxLength": 25,
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.Schedule80G.Don50PercentNoApprReqd.DoneeWithPan[].AddressDetail",
+"type": "object",
+"required": true,
+"definition": "AddressDetail",
+"description": ""
+},
+{
+"path": "ITR.ITR1.Schedule80G.Don50PercentNoApprReqd.DoneeWithPan[].AddressDetail.AddrDetail",
+"type": "string",
+"required": true,
+"pattern": "|(\\s*([\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"][\\s\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"]*)\\s*)",
+"minLength": 1,
+"maxLength": 200,
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.Schedule80G.Don50PercentNoApprReqd.DoneeWithPan[].AddressDetail.CityOrTownOrDistrict",
+"type": "string",
+"required": true,
+"pattern": "|(\\s*([\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"][\\s\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"]*)\\s*)",
+"minLength": 1,
+"maxLength": 50,
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.Schedule80G.Don50PercentNoApprReqd.DoneeWithPan[].AddressDetail.StateCode",
+"type": "string",
+"required": true,
+"description": "01-Andaman and Nicobar islands; 02-Andhra Pradesh; 03-Arunachal Pradesh; 04-Assam; 05-Bihar; 06-Chandigarh; 07-Dadra Nagar and Haveli; 08-Daman and Diu; 09- Delhi; 10- Goa; 11-Gujarat; 12- Haryana; 13- Himachal Pradesh; 14-Jammu and Kashmir; 15- Karnataka; 16- Kerala; 17- Lakshadweep; 18-Madhya Pradesh; 19-Maharashtra; 20-Manipur; 21-meghalaya; 22-Mizoram; 23-Nagaland; 24- Odisha; 25- Puducherry; 26- Punjab; 27-Rajasthan; 28- Sikkim; 29-Tamil Nadu; 30- Tripura; 31-Uttar Pradesh; 32- West Bengal; 33- Chhattisgarh; 34- Uttarakhand; 35- Jharkhand; 36- Telangana; 37- Ladakh",
+"enum": [
+"01",
+"02",
+"03",
+"04",
+"05",
+"06",
+"07",
+"08",
+"09",
+"10",
+"11",
+"12",
+"13",
+"14",
+"15",
+"16",
+"17",
+"18",
+"19",
+"20",
+"21",
+"22",
+"23",
+"24",
+"25",
+"26",
+"27",
+"28",
+"29",
+"30",
+"31",
+"32",
+"33",
+"34",
+"35",
+"36",
+"37"
+],
+"pattern": "|(\\s*([\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"][\\s\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"]*)\\s*)",
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.Schedule80G.Don50PercentNoApprReqd.DoneeWithPan[].AddressDetail.PinCode",
+"type": "integer",
+"required": true,
+"pattern": "[1-9]{1}[0-9]{5}",
+"minimum": 100000,
+"maximum": 999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.Schedule80G.Don50PercentNoApprReqd.DoneeWithPan[].DonationAmtCash",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.Schedule80G.Don50PercentNoApprReqd.DoneeWithPan[].DonationAmtOtherMode",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.Schedule80G.Don50PercentNoApprReqd.DoneeWithPan[].DonationAmt",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.Schedule80G.Don50PercentNoApprReqd.DoneeWithPan[].EligibleDonationAmt",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.Schedule80G.Don50PercentNoApprReqd.TotDon50PercentNoApprReqdCash",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.Schedule80G.Don50PercentNoApprReqd.TotDon50PercentNoApprReqdOtherMode",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.Schedule80G.Don50PercentNoApprReqd.TotDon50PercentNoApprReqd",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.Schedule80G.Don50PercentNoApprReqd.TotEligibleDon50Percent",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.Schedule80G.Don100PercentApprReqd",
+"type": "object",
+"required": false,
+"definition": "",
+"description": ""
+},
+{
+"path": "ITR.ITR1.Schedule80G.Don100PercentApprReqd.DoneeWithPan",
+"type": "array",
+"required": false,
+"minItems": 1
+},
+{
+"path": "ITR.ITR1.Schedule80G.Don100PercentApprReqd.DoneeWithPan[]",
+"type": "object",
+"required": true,
+"definition": "DoneeWithPan",
+"description": ""
+},
+{
+"path": "ITR.ITR1.Schedule80G.Don100PercentApprReqd.DoneeWithPan[].DoneeWithPanName",
+"type": "string",
+"required": true,
+"pattern": "|(\\s*([\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"][\\s\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"]*)\\s*)",
+"minLength": 1,
+"maxLength": 125,
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.Schedule80G.Don100PercentApprReqd.DoneeWithPan[].DoneePAN",
+"type": "string",
+"required": true,
+"pattern": "[A-Z]{5}[0-9]{4}[A-Z]",
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.Schedule80G.Don100PercentApprReqd.DoneeWithPan[].ArnNbr",
+"type": "string",
+"required": false,
+"description": "Please enter ARN (Donation reference Number)",
+"pattern": "|(\\s*([\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"][\\s\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"]*)\\s*)",
+"maxLength": 25,
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.Schedule80G.Don100PercentApprReqd.DoneeWithPan[].AddressDetail",
+"type": "object",
+"required": true,
+"definition": "AddressDetail",
+"description": ""
+},
+{
+"path": "ITR.ITR1.Schedule80G.Don100PercentApprReqd.DoneeWithPan[].AddressDetail.AddrDetail",
+"type": "string",
+"required": true,
+"pattern": "|(\\s*([\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"][\\s\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"]*)\\s*)",
+"minLength": 1,
+"maxLength": 200,
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.Schedule80G.Don100PercentApprReqd.DoneeWithPan[].AddressDetail.CityOrTownOrDistrict",
+"type": "string",
+"required": true,
+"pattern": "|(\\s*([\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"][\\s\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"]*)\\s*)",
+"minLength": 1,
+"maxLength": 50,
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.Schedule80G.Don100PercentApprReqd.DoneeWithPan[].AddressDetail.StateCode",
+"type": "string",
+"required": true,
+"description": "01-Andaman and Nicobar islands; 02-Andhra Pradesh; 03-Arunachal Pradesh; 04-Assam; 05-Bihar; 06-Chandigarh; 07-Dadra Nagar and Haveli; 08-Daman and Diu; 09- Delhi; 10- Goa; 11-Gujarat; 12- Haryana; 13- Himachal Pradesh; 14-Jammu and Kashmir; 15- Karnataka; 16- Kerala; 17- Lakshadweep; 18-Madhya Pradesh; 19-Maharashtra; 20-Manipur; 21-meghalaya; 22-Mizoram; 23-Nagaland; 24- Odisha; 25- Puducherry; 26- Punjab; 27-Rajasthan; 28- Sikkim; 29-Tamil Nadu; 30- Tripura; 31-Uttar Pradesh; 32- West Bengal; 33- Chhattisgarh; 34- Uttarakhand; 35- Jharkhand; 36- Telangana; 37- Ladakh",
+"enum": [
+"01",
+"02",
+"03",
+"04",
+"05",
+"06",
+"07",
+"08",
+"09",
+"10",
+"11",
+"12",
+"13",
+"14",
+"15",
+"16",
+"17",
+"18",
+"19",
+"20",
+"21",
+"22",
+"23",
+"24",
+"25",
+"26",
+"27",
+"28",
+"29",
+"30",
+"31",
+"32",
+"33",
+"34",
+"35",
+"36",
+"37"
+],
+"pattern": "|(\\s*([\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"][\\s\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"]*)\\s*)",
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.Schedule80G.Don100PercentApprReqd.DoneeWithPan[].AddressDetail.PinCode",
+"type": "integer",
+"required": true,
+"pattern": "[1-9]{1}[0-9]{5}",
+"minimum": 100000,
+"maximum": 999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.Schedule80G.Don100PercentApprReqd.DoneeWithPan[].DonationAmtCash",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.Schedule80G.Don100PercentApprReqd.DoneeWithPan[].DonationAmtOtherMode",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.Schedule80G.Don100PercentApprReqd.DoneeWithPan[].DonationAmt",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.Schedule80G.Don100PercentApprReqd.DoneeWithPan[].EligibleDonationAmt",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.Schedule80G.Don100PercentApprReqd.TotDon100PercentApprReqdCash",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.Schedule80G.Don100PercentApprReqd.TotDon100PercentApprReqdOtherMode",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.Schedule80G.Don100PercentApprReqd.TotDon100PercentApprReqd",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.Schedule80G.Don100PercentApprReqd.TotEligibleDon100PercentApprReqd",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.Schedule80G.Don50PercentApprReqd",
+"type": "object",
+"required": false,
+"definition": "",
+"description": ""
+},
+{
+"path": "ITR.ITR1.Schedule80G.Don50PercentApprReqd.DoneeWithPan",
+"type": "array",
+"required": false,
+"minItems": 1
+},
+{
+"path": "ITR.ITR1.Schedule80G.Don50PercentApprReqd.DoneeWithPan[]",
+"type": "object",
+"required": true,
+"definition": "DoneeWithPan",
+"description": ""
+},
+{
+"path": "ITR.ITR1.Schedule80G.Don50PercentApprReqd.DoneeWithPan[].DoneeWithPanName",
+"type": "string",
+"required": true,
+"pattern": "|(\\s*([\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"][\\s\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"]*)\\s*)",
+"minLength": 1,
+"maxLength": 125,
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.Schedule80G.Don50PercentApprReqd.DoneeWithPan[].DoneePAN",
+"type": "string",
+"required": true,
+"pattern": "[A-Z]{5}[0-9]{4}[A-Z]",
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.Schedule80G.Don50PercentApprReqd.DoneeWithPan[].ArnNbr",
+"type": "string",
+"required": false,
+"description": "Please enter ARN (Donation reference Number)",
+"pattern": "|(\\s*([\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"][\\s\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"]*)\\s*)",
+"maxLength": 25,
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.Schedule80G.Don50PercentApprReqd.DoneeWithPan[].AddressDetail",
+"type": "object",
+"required": true,
+"definition": "AddressDetail",
+"description": ""
+},
+{
+"path": "ITR.ITR1.Schedule80G.Don50PercentApprReqd.DoneeWithPan[].AddressDetail.AddrDetail",
+"type": "string",
+"required": true,
+"pattern": "|(\\s*([\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"][\\s\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"]*)\\s*)",
+"minLength": 1,
+"maxLength": 200,
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.Schedule80G.Don50PercentApprReqd.DoneeWithPan[].AddressDetail.CityOrTownOrDistrict",
+"type": "string",
+"required": true,
+"pattern": "|(\\s*([\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"][\\s\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"]*)\\s*)",
+"minLength": 1,
+"maxLength": 50,
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.Schedule80G.Don50PercentApprReqd.DoneeWithPan[].AddressDetail.StateCode",
+"type": "string",
+"required": true,
+"description": "01-Andaman and Nicobar islands; 02-Andhra Pradesh; 03-Arunachal Pradesh; 04-Assam; 05-Bihar; 06-Chandigarh; 07-Dadra Nagar and Haveli; 08-Daman and Diu; 09- Delhi; 10- Goa; 11-Gujarat; 12- Haryana; 13- Himachal Pradesh; 14-Jammu and Kashmir; 15- Karnataka; 16- Kerala; 17- Lakshadweep; 18-Madhya Pradesh; 19-Maharashtra; 20-Manipur; 21-meghalaya; 22-Mizoram; 23-Nagaland; 24- Odisha; 25- Puducherry; 26- Punjab; 27-Rajasthan; 28- Sikkim; 29-Tamil Nadu; 30- Tripura; 31-Uttar Pradesh; 32- West Bengal; 33- Chhattisgarh; 34- Uttarakhand; 35- Jharkhand; 36- Telangana; 37- Ladakh",
+"enum": [
+"01",
+"02",
+"03",
+"04",
+"05",
+"06",
+"07",
+"08",
+"09",
+"10",
+"11",
+"12",
+"13",
+"14",
+"15",
+"16",
+"17",
+"18",
+"19",
+"20",
+"21",
+"22",
+"23",
+"24",
+"25",
+"26",
+"27",
+"28",
+"29",
+"30",
+"31",
+"32",
+"33",
+"34",
+"35",
+"36",
+"37"
+],
+"pattern": "|(\\s*([\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"][\\s\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"]*)\\s*)",
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.Schedule80G.Don50PercentApprReqd.DoneeWithPan[].AddressDetail.PinCode",
+"type": "integer",
+"required": true,
+"pattern": "[1-9]{1}[0-9]{5}",
+"minimum": 100000,
+"maximum": 999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.Schedule80G.Don50PercentApprReqd.DoneeWithPan[].DonationAmtCash",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.Schedule80G.Don50PercentApprReqd.DoneeWithPan[].DonationAmtOtherMode",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.Schedule80G.Don50PercentApprReqd.DoneeWithPan[].DonationAmt",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.Schedule80G.Don50PercentApprReqd.DoneeWithPan[].EligibleDonationAmt",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.Schedule80G.Don50PercentApprReqd.TotDon50PercentApprReqdCash",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.Schedule80G.Don50PercentApprReqd.TotDon50PercentApprReqdOtherMode",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.Schedule80G.Don50PercentApprReqd.TotDon50PercentApprReqd",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.Schedule80G.Don50PercentApprReqd.TotEligibleDon50PercentApprReqd",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.Schedule80G.TotalDonationsUs80GCash",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.Schedule80G.TotalDonationsUs80GOtherMode",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.Schedule80G.TotalDonationsUs80G",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.Schedule80G.TotalEligibleDonationsUs80G",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.Schedule80GGA",
+"type": "object",
+"required": false,
+"definition": "Schedule80GGA",
+"description": ""
+},
+{
+"path": "ITR.ITR1.Schedule80GGA.DonationDtlsSciRsrchRuralDev",
+"type": "array",
+"required": false
+},
+{
+"path": "ITR.ITR1.Schedule80GGA.DonationDtlsSciRsrchRuralDev[]",
+"type": "object",
+"required": true,
+"definition": "",
+"description": ""
+},
+{
+"path": "ITR.ITR1.Schedule80GGA.DonationDtlsSciRsrchRuralDev[].RelevantClauseUndrDedClaimed",
+"type": "string",
+"required": true,
+"description": "80GGA(2)(a) - Sum paid to Research Association or University, college or other institution for Scientific Research; 80GGA(2)(aa) - Sum paid to Research Association or University, college or other institution for Social science or Statistical Research; 80GGA(2)(b) - Sum paid to an association or institution for Rural Development; 80GGA(2)(bb) - Sum paid to PSU or Local Authority or an association or institution approved by the National Committee for carrying out any eligible project; 80GGA(2)(c) - Sum paid to an association or institution for Conservation of Natural Resources or for afforestation; 80GGA(2)(cc) - Sum paid for Afforestation, to the funds, which are notified by Central Govt.; 80GGA(2)(d) - Sum paid for Rural Development to the funds, which are notified by Central Govt.; 80GGA(2)(e) - Sum paid to National Urban Poverty Eradication Fund as setup and notified by Central Govt.",
+"enum": [
+"80GGA2a",
+"80GGA2aa",
+"80GGA2b",
+"80GGA2bb",
+"80GGA2c",
+"80GGA2cc",
+"80GGA2d",
+"80GGA2e"
+]
+},
+{
+"path": "ITR.ITR1.Schedule80GGA.DonationDtlsSciRsrchRuralDev[].NameOfDonee",
+"type": "string",
+"required": true,
+"pattern": "|(\\s*([\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"][\\s\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"]*)\\s*)",
+"minLength": 1,
+"maxLength": 125,
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.Schedule80GGA.DonationDtlsSciRsrchRuralDev[].AddressDetail",
+"type": "object",
+"required": true,
+"definition": "AddressDetail",
+"description": ""
+},
+{
+"path": "ITR.ITR1.Schedule80GGA.DonationDtlsSciRsrchRuralDev[].AddressDetail.AddrDetail",
+"type": "string",
+"required": true,
+"pattern": "|(\\s*([\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"][\\s\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"]*)\\s*)",
+"minLength": 1,
+"maxLength": 200,
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.Schedule80GGA.DonationDtlsSciRsrchRuralDev[].AddressDetail.CityOrTownOrDistrict",
+"type": "string",
+"required": true,
+"pattern": "|(\\s*([\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"][\\s\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"]*)\\s*)",
+"minLength": 1,
+"maxLength": 50,
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.Schedule80GGA.DonationDtlsSciRsrchRuralDev[].AddressDetail.StateCode",
+"type": "string",
+"required": true,
+"description": "01-Andaman and Nicobar islands; 02-Andhra Pradesh; 03-Arunachal Pradesh; 04-Assam; 05-Bihar; 06-Chandigarh; 07-Dadra Nagar and Haveli; 08-Daman and Diu; 09- Delhi; 10- Goa; 11-Gujarat; 12- Haryana; 13- Himachal Pradesh; 14-Jammu and Kashmir; 15- Karnataka; 16- Kerala; 17- Lakshadweep; 18-Madhya Pradesh; 19-Maharashtra; 20-Manipur; 21-meghalaya; 22-Mizoram; 23-Nagaland; 24- Odisha; 25- Puducherry; 26- Punjab; 27-Rajasthan; 28- Sikkim; 29-Tamil Nadu; 30- Tripura; 31-Uttar Pradesh; 32- West Bengal; 33- Chhattisgarh; 34- Uttarakhand; 35- Jharkhand; 36- Telangana; 37- Ladakh",
+"enum": [
+"01",
+"02",
+"03",
+"04",
+"05",
+"06",
+"07",
+"08",
+"09",
+"10",
+"11",
+"12",
+"13",
+"14",
+"15",
+"16",
+"17",
+"18",
+"19",
+"20",
+"21",
+"22",
+"23",
+"24",
+"25",
+"26",
+"27",
+"28",
+"29",
+"30",
+"31",
+"32",
+"33",
+"34",
+"35",
+"36",
+"37"
+],
+"pattern": "|(\\s*([\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"][\\s\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"]*)\\s*)",
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.Schedule80GGA.DonationDtlsSciRsrchRuralDev[].AddressDetail.PinCode",
+"type": "integer",
+"required": true,
+"pattern": "[1-9]{1}[0-9]{5}",
+"minimum": 100000,
+"maximum": 999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.Schedule80GGA.DonationDtlsSciRsrchRuralDev[].DoneePAN",
+"type": "string",
+"required": true,
+"pattern": "[A-Z]{5}[0-9]{4}[A-Z]",
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.Schedule80GGA.DonationDtlsSciRsrchRuralDev[].DonationAmtCash",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.Schedule80GGA.DonationDtlsSciRsrchRuralDev[].DonationAmtOtherMode",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.Schedule80GGA.DonationDtlsSciRsrchRuralDev[].DonationAmt",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.Schedule80GGA.DonationDtlsSciRsrchRuralDev[].EligibleDonationAmt",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.Schedule80GGA.TotalDonationAmtCash80GGA",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.Schedule80GGA.TotalDonationAmtOtherMode80GGA",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.Schedule80GGA.TotalDonationsUs80GGA",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.Schedule80GGA.TotalEligibleDonationAmt80GGA",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.Schedule80GGC",
+"type": "object",
+"required": false,
+"definition": "Schedule80GGC",
+"description": ""
+},
+{
+"path": "ITR.ITR1.Schedule80GGC.Schedule80GGCDetails",
+"type": "array",
+"required": false
+},
+{
+"path": "ITR.ITR1.Schedule80GGC.Schedule80GGCDetails[]",
+"type": "object",
+"required": true,
+"definition": "",
+"description": ""
+},
+{
+"path": "ITR.ITR1.Schedule80GGC.Schedule80GGCDetails[].DonationDate",
+"type": "string",
+"required": true,
+"description": "Date of Donation in YYYY-MM-DD format",
+"pattern": "([12]\\d{3}-(0[1-9]|1[0-2])-(0[1-9]|[12]\\d|3[01]))"
+},
+{
+"path": "ITR.ITR1.Schedule80GGC.Schedule80GGCDetails[].DonationAmtCash",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.Schedule80GGC.Schedule80GGCDetails[].DonationAmtOtherMode",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.Schedule80GGC.Schedule80GGCDetails[].TransactionRefNum",
+"type": "string",
+"required": false,
+"maxLength": 50
+},
+{
+"path": "ITR.ITR1.Schedule80GGC.Schedule80GGCDetails[].IFSCCode",
+"type": "string",
+"required": false,
+"pattern": "[A-Z]{4}[0][A-Z0-9]{6}",
+"maxLength": 11,
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.Schedule80GGC.Schedule80GGCDetails[].DonationAmt",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.Schedule80GGC.Schedule80GGCDetails[].EligibleDonationAmt",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.Schedule80GGC.TotalDonationAmtCash80GGC",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.Schedule80GGC.TotalDonationAmtOtherMode80GGC",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.Schedule80GGC.TotalDonationsUs80GGC",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.Schedule80GGC.TotalEligibleDonationAmt80GGC",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.Schedule80D",
+"type": "object",
+"required": false,
+"definition": "Schedule80D",
+"description": ""
+},
+{
+"path": "ITR.ITR1.Schedule80D.Sec80DSelfFamSrCtznHealth",
+"type": "object",
+"required": true,
+"definition": "",
+"description": ""
+},
+{
+"path": "ITR.ITR1.Schedule80D.Sec80DSelfFamSrCtznHealth.SeniorCitizenFlag",
+"type": "string",
+"required": true,
+"description": "Y - Yes; N - No; S - Not claiming for Self/ Family",
+"pattern": "Y|N|S",
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.Schedule80D.Sec80DSelfFamSrCtznHealth.SelfAndFamily",
+"type": "integer",
+"required": false,
+"minimum": 0,
+"maximum": 25000,
+"exclusiveMinimum": false,
+"exclusiveMaximum": false
+},
+{
+"path": "ITR.ITR1.Schedule80D.Sec80DSelfFamSrCtznHealth.HealthInsPremSlfFam",
+"type": "integer",
+"required": false,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.Schedule80D.Sec80DSelfFamSrCtznHealth.Sec80DSelfFamHIDtls",
+"type": "object",
+"recursive": null
+},
+{
+"path": "ITR.ITR1.Schedule80D.Sec80DSelfFamSrCtznHealth.PrevHlthChckUpSlfFam",
+"type": "integer",
+"required": false,
+"minimum": 0,
+"maximum": 5000,
+"exclusiveMinimum": false,
+"exclusiveMaximum": false
+},
+{
+"path": "ITR.ITR1.Schedule80D.Sec80DSelfFamSrCtznHealth.SelfAndFamilySeniorCitizen",
+"type": "integer",
+"required": false,
+"minimum": 0,
+"maximum": 50000,
+"exclusiveMinimum": false,
+"exclusiveMaximum": false
+},
+{
+"path": "ITR.ITR1.Schedule80D.Sec80DSelfFamSrCtznHealth.HlthInsPremSlfFamSrCtzn",
+"type": "integer",
+"required": false,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.Schedule80D.Sec80DSelfFamSrCtznHealth.Sec80DSelfFamSrCtznHIDtls",
+"type": "object",
+"recursive": null
+},
+{
+"path": "ITR.ITR1.Schedule80D.Sec80DSelfFamSrCtznHealth.PrevHlthChckUpSlfFamSrCtzn",
+"type": "integer",
+"required": false,
+"minimum": 0,
+"maximum": 5000,
+"exclusiveMinimum": false,
+"exclusiveMaximum": false
+},
+{
+"path": "ITR.ITR1.Schedule80D.Sec80DSelfFamSrCtznHealth.MedicalExpSlfFamSrCtzn",
+"type": "integer",
+"required": false,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.Schedule80D.Sec80DSelfFamSrCtznHealth.ParentsSeniorCitizenFlag",
+"type": "string",
+"required": true,
+"description": "Y - Yes; N - No; P - Not claiming for Parents",
+"pattern": "Y|N|P",
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.Schedule80D.Sec80DSelfFamSrCtznHealth.Parents",
+"type": "integer",
+"required": false,
+"minimum": 0,
+"maximum": 25000,
+"exclusiveMinimum": false,
+"exclusiveMaximum": false
+},
+{
+"path": "ITR.ITR1.Schedule80D.Sec80DSelfFamSrCtznHealth.HlthInsPremParents",
+"type": "integer",
+"required": false,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.Schedule80D.Sec80DSelfFamSrCtznHealth.Sec80DParentsHIDtls",
+"type": "object",
+"recursive": null
+},
+{
+"path": "ITR.ITR1.Schedule80D.Sec80DSelfFamSrCtznHealth.PrevHlthChckUpParents",
+"type": "integer",
+"required": false,
+"minimum": 0,
+"maximum": 5000,
+"exclusiveMinimum": false,
+"exclusiveMaximum": false
+},
+{
+"path": "ITR.ITR1.Schedule80D.Sec80DSelfFamSrCtznHealth.ParentsSeniorCitizen",
+"type": "integer",
+"required": false,
+"minimum": 0,
+"maximum": 50000,
+"exclusiveMinimum": false,
+"exclusiveMaximum": false
+},
+{
+"path": "ITR.ITR1.Schedule80D.Sec80DSelfFamSrCtznHealth.HlthInsPremParentsSrCtzn",
+"type": "integer",
+"required": false,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.Schedule80D.Sec80DSelfFamSrCtznHealth.Sec80DParentsSrCtznHIDtls",
+"type": "object",
+"recursive": null
+},
+{
+"path": "ITR.ITR1.Schedule80D.Sec80DSelfFamSrCtznHealth.PrevHlthChckUpParentsSrCtzn",
+"type": "integer",
+"required": false,
+"minimum": 0,
+"maximum": 5000,
+"exclusiveMinimum": false,
+"exclusiveMaximum": false
+},
+{
+"path": "ITR.ITR1.Schedule80D.Sec80DSelfFamSrCtznHealth.MedicalExpParentsSrCtzn",
+"type": "integer",
+"required": false,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.Schedule80D.Sec80DSelfFamSrCtznHealth.EligibleAmountOfDedn",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 100000,
+"exclusiveMinimum": false,
+"exclusiveMaximum": false
+},
+{
+"path": "ITR.ITR1.Schedule80DD",
+"type": "object",
+"required": false,
+"definition": "Schedule80DD",
+"description": ""
+},
+{
+"path": "ITR.ITR1.Schedule80DD.NatureOfDisability",
+"type": "string",
+"required": true,
+"description": "1 : Dependent person with disability ; 2 : Dependent person with severe disability",
+"enum": [
+"1",
+"2"
+],
+"pattern": "|(\\s*([\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"][\\s\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"]*)\\s*)",
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.Schedule80DD.TypeOfDisability",
+"type": "string",
+"required": true,
+"description": "1 : autism, cerebral palsy, or multiple disabilities; 2 : others;",
+"enum": [
+"1",
+"2"
+],
+"pattern": "|(\\s*([\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"][\\s\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"]*)\\s*)",
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.Schedule80DD.DeductionAmount",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999
+},
+{
+"path": "ITR.ITR1.Schedule80DD.DependentType",
+"type": "string",
+"required": true,
+"description": "1. Spouse; 2. Son; 3. Daughter; 4. Father; 5. Mother; 6. Brother; 7. Sister;",
+"enum": [
+"1",
+"2",
+"3",
+"4",
+"5",
+"6",
+"7"
+],
+"pattern": "|(\\s*([\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"][\\s\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"]*)\\s*)",
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.Schedule80DD.DependentPan",
+"type": "string",
+"required": false,
+"pattern": "[A-Z]{5}[0-9]{4}[A-Z]",
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.Schedule80DD.DependentAadhaar",
+"type": "string",
+"required": false,
+"pattern": "[0-9]{12}",
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.Schedule80DD.Form10IAAckNum",
+"type": "string",
+"required": false,
+"maxLength": 15
+},
+{
+"path": "ITR.ITR1.Schedule80DD.UDIDNum",
+"type": "string",
+"required": false,
+"maxLength": 18
+},
+{
+"path": "ITR.ITR1.Schedule80U",
+"type": "object",
+"required": false,
+"definition": "Schedule80U",
+"description": ""
+},
+{
+"path": "ITR.ITR1.Schedule80U.NatureOfDisability",
+"type": "string",
+"required": true,
+"description": "1 : Self with disability ; 2 : Self with severe disability",
+"enum": [
+"1",
+"2"
+],
+"pattern": "|(\\s*([\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"][\\s\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"]*)\\s*)",
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.Schedule80U.TypeOfDisability",
+"type": "string",
+"required": true,
+"description": "1 : autism, cerebral palsy, or multiple disabilities; 2 : others;",
+"enum": [
+"1",
+"2"
+],
+"pattern": "|(\\s*([\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"][\\s\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"]*)\\s*)",
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.Schedule80U.DeductionAmount",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999
+},
+{
+"path": "ITR.ITR1.Schedule80U.Form10IAAckNum",
+"type": "string",
+"required": false,
+"maxLength": 15
+},
+{
+"path": "ITR.ITR1.Schedule80U.UDIDNum",
+"type": "string",
+"required": false,
+"maxLength": 18
+},
+{
+"path": "ITR.ITR1.Schedule80E",
+"type": "object",
+"required": false,
+"definition": "Schedule80E",
+"description": ""
+},
+{
+"path": "ITR.ITR1.Schedule80E.Schedule80EDtls",
+"type": "array",
+"required": true
+},
+{
+"path": "ITR.ITR1.Schedule80E.Schedule80EDtls[]",
+"type": "object",
+"required": true,
+"definition": "",
+"description": ""
+},
+{
+"path": "ITR.ITR1.Schedule80E.Schedule80EDtls[].LoanTknFrom",
+"type": "string",
+"required": true,
+"description": "B: Bank, I: Institution",
+"enum": [
+"B",
+"I"
+]
+},
+{
+"path": "ITR.ITR1.Schedule80E.Schedule80EDtls[].BankOrInstnName",
+"type": "string",
+"required": true,
+"pattern": "|(\\s*([\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"][\\s\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"]*)\\s*)",
+"minLength": 1,
+"maxLength": 125,
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.Schedule80E.Schedule80EDtls[].LoanAccNoOfBankOrInstnRefNo",
+"type": "string",
+"required": true,
+"pattern": "^[a-zA-Z0-9][a-zA-Z0-9/-]*$",
+"minLength": 1,
+"maxLength": 20,
+"definition": "nonZeroString"
+},
+{
+"path": "ITR.ITR1.Schedule80E.Schedule80EDtls[].DateofLoan",
+"type": "string",
+"required": true,
+"description": "Date in YYYY-MM-DD format",
+"pattern": "([12]\\d{3}-(0[1-9]|1[0-2])-(0[1-9]|[12]\\d|3[01]))"
+},
+{
+"path": "ITR.ITR1.Schedule80E.Schedule80EDtls[].TotalLoanAmt",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.Schedule80E.Schedule80EDtls[].LoanOutstndngAmt",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.Schedule80E.Schedule80EDtls[].Interest80E",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.Schedule80E.TotalInterest80E",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.Schedule80EE",
+"type": "object",
+"required": false,
+"definition": "Schedule80EE",
+"description": ""
+},
+{
+"path": "ITR.ITR1.Schedule80EE.Schedule80EEDtls",
+"type": "array",
+"required": true
+},
+{
+"path": "ITR.ITR1.Schedule80EE.Schedule80EEDtls[]",
+"type": "object",
+"required": true,
+"definition": "",
+"description": ""
+},
+{
+"path": "ITR.ITR1.Schedule80EE.Schedule80EEDtls[].LoanTknFrom",
+"type": "string",
+"required": true,
+"description": "B: Bank, I: Institution",
+"enum": [
+"B",
+"I"
+]
+},
+{
+"path": "ITR.ITR1.Schedule80EE.Schedule80EEDtls[].BankOrInstnName",
+"type": "string",
+"required": true,
+"pattern": "|(\\s*([\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"][\\s\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"]*)\\s*)",
+"minLength": 1,
+"maxLength": 125,
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.Schedule80EE.Schedule80EEDtls[].LoanAccNoOfBankOrInstnRefNo",
+"type": "string",
+"required": true,
+"pattern": "[a-zA-Z0-9]([/-]?(((\\d*[1-9]\\d*)*[a-zA-Z/-])|(\\d*[1-9]\\d*[a-zA-Z]*))+)*[0-9]*",
+"minLength": 1,
+"maxLength": 20,
+"definition": "nonZeroString"
+},
+{
+"path": "ITR.ITR1.Schedule80EE.Schedule80EEDtls[].DateofLoan",
+"type": "string",
+"required": true,
+"description": "Date in YYYY-MM-DD format",
+"pattern": "([12]\\d{3}-(0[1-9]|1[0-2])-(0[1-9]|[12]\\d|3[01]))"
+},
+{
+"path": "ITR.ITR1.Schedule80EE.Schedule80EEDtls[].TotalLoanAmt",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 3500000,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.Schedule80EE.Schedule80EEDtls[].LoanOutstndngAmt",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.Schedule80EE.Schedule80EEDtls[].Interest80EE",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.Schedule80EE.TotalInterest80EE",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.Schedule80EEA",
+"type": "object",
+"required": false,
+"definition": "Schedule80EEA",
+"description": ""
+},
+{
+"path": "ITR.ITR1.Schedule80EEA.PropStmpDtyVal",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 4500000,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.Schedule80EEA.Schedule80EEADtls",
+"type": "array",
+"required": true
+},
+{
+"path": "ITR.ITR1.Schedule80EEA.Schedule80EEADtls[]",
+"type": "object",
+"required": true,
+"definition": "",
+"description": ""
+},
+{
+"path": "ITR.ITR1.Schedule80EEA.Schedule80EEADtls[].LoanTknFrom",
+"type": "string",
+"required": true,
+"description": "B: Bank, I: Institution",
+"enum": [
+"B",
+"I"
+]
+},
+{
+"path": "ITR.ITR1.Schedule80EEA.Schedule80EEADtls[].BankOrInstnName",
+"type": "string",
+"required": true,
+"pattern": "|(\\s*([\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"][\\s\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"]*)\\s*)",
+"minLength": 1,
+"maxLength": 125,
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.Schedule80EEA.Schedule80EEADtls[].LoanAccNoOfBankOrInstnRefNo",
+"type": "string",
+"required": true,
+"pattern": "[a-zA-Z0-9]([/-]?(((\\d*[1-9]\\d*)*[a-zA-Z/-])|(\\d*[1-9]\\d*[a-zA-Z]*))+)*[0-9]*",
+"minLength": 1,
+"maxLength": 20,
+"definition": "nonZeroString"
+},
+{
+"path": "ITR.ITR1.Schedule80EEA.Schedule80EEADtls[].DateofLoan",
+"type": "string",
+"required": true,
+"description": "Date in YYYY-MM-DD format",
+"pattern": "([12]\\d{3}-(0[1-9]|1[0-2])-(0[1-9]|[12]\\d|3[01]))"
+},
+{
+"path": "ITR.ITR1.Schedule80EEA.Schedule80EEADtls[].TotalLoanAmt",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.Schedule80EEA.Schedule80EEADtls[].LoanOutstndngAmt",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.Schedule80EEA.Schedule80EEADtls[].Interest80EEA",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.Schedule80EEA.TotalInterest80EEA",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.Schedule80EEB",
+"type": "object",
+"required": false,
+"definition": "Schedule80EEB",
+"description": ""
+},
+{
+"path": "ITR.ITR1.Schedule80EEB.Schedule80EEBDtls",
+"type": "array",
+"required": true
+},
+{
+"path": "ITR.ITR1.Schedule80EEB.Schedule80EEBDtls[]",
+"type": "object",
+"required": true,
+"definition": "",
+"description": ""
+},
+{
+"path": "ITR.ITR1.Schedule80EEB.Schedule80EEBDtls[].LoanTknFrom",
+"type": "string",
+"required": true,
+"description": "B: Bank, I: Institution",
+"enum": [
+"B",
+"I"
+]
+},
+{
+"path": "ITR.ITR1.Schedule80EEB.Schedule80EEBDtls[].BankOrInstnName",
+"type": "string",
+"required": true,
+"pattern": "|(\\s*([\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"][\\s\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"]*)\\s*)",
+"minLength": 1,
+"maxLength": 125,
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.Schedule80EEB.Schedule80EEBDtls[].LoanAccNoOfBankOrInstnRefNo",
+"type": "string",
+"required": true,
+"pattern": "^[a-zA-Z0-9][a-zA-Z0-9/-]*$",
+"minLength": 1,
+"maxLength": 20,
+"definition": "nonZeroString"
+},
+{
+"path": "ITR.ITR1.Schedule80EEB.Schedule80EEBDtls[].DateofLoan",
+"type": "string",
+"required": true,
+"description": "Date in YYYY-MM-DD format",
+"pattern": "([12]\\d{3}-(0[1-9]|1[0-2])-(0[1-9]|[12]\\d|3[01]))"
+},
+{
+"path": "ITR.ITR1.Schedule80EEB.Schedule80EEBDtls[].TotalLoanAmt",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.Schedule80EEB.Schedule80EEBDtls[].LoanOutstndngAmt",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.Schedule80EEB.Schedule80EEBDtls[].VehicleRegNo",
+"type": "string",
+"required": true,
+"pattern": "|(\\s*([\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"][\\s\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"]*)\\s*)",
+"minLength": 1,
+"maxLength": 11,
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.Schedule80EEB.Schedule80EEBDtls[].Interest80EEB",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.Schedule80EEB.TotalInterest80EEB",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.Schedule80C",
+"type": "object",
+"required": false,
+"definition": "Schedule80C",
+"description": ""
+},
+{
+"path": "ITR.ITR1.Schedule80C.Schedule80CDtls",
+"type": "array",
+"required": true
+},
+{
+"path": "ITR.ITR1.Schedule80C.Schedule80CDtls[]",
+"type": "object",
+"required": true,
+"definition": "",
+"description": ""
+},
+{
+"path": "ITR.ITR1.Schedule80C.Schedule80CDtls[].Amount",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.Schedule80C.Schedule80CDtls[].IdentificationNo",
+"type": "string",
+"required": true,
+"maxLength": 50
+},
+{
+"path": "ITR.ITR1.Schedule80C.TotalAmt",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.ScheduleUs24B",
+"type": "object",
+"required": false,
+"definition": "ScheduleUs24B",
+"description": ""
+},
+{
+"path": "ITR.ITR1.ScheduleUs24B.ScheduleUs24BDtls",
+"type": "array",
+"required": true
+},
+{
+"path": "ITR.ITR1.ScheduleUs24B.ScheduleUs24BDtls[]",
+"type": "object",
+"required": true,
+"definition": "",
+"description": ""
+},
+{
+"path": "ITR.ITR1.ScheduleUs24B.ScheduleUs24BDtls[].LoanTknFrom",
+"type": "string",
+"required": true,
+"description": "B: Bank, I: Other than Bank",
+"enum": [
+"B",
+"I"
+]
+},
+{
+"path": "ITR.ITR1.ScheduleUs24B.ScheduleUs24BDtls[].BankOrInstnName",
+"type": "string",
+"required": true,
+"pattern": "|(\\s*([\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"][\\s\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"]*)\\s*)",
+"minLength": 1,
+"maxLength": 125,
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.ScheduleUs24B.ScheduleUs24BDtls[].LoanAccNoOfBankOrInstnRefNo",
+"type": "string",
+"required": true,
+"pattern": "[a-zA-Z0-9]([/-]?(((\\d*[1-9]\\d*)*[a-zA-Z/-])|(\\d*[1-9]\\d*[a-zA-Z]*))+)*[0-9]*",
+"minLength": 1,
+"maxLength": 20,
+"definition": "nonZeroString"
+},
+{
+"path": "ITR.ITR1.ScheduleUs24B.ScheduleUs24BDtls[].DateofLoan",
+"type": "string",
+"required": true,
+"description": "Date in YYYY-MM-DD format",
+"pattern": "([12]\\d{3}-(0[1-9]|1[0-2])-(0[1-9]|[12]\\d|3[01]))"
+},
+{
+"path": "ITR.ITR1.ScheduleUs24B.ScheduleUs24BDtls[].TotalLoanAmt",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.ScheduleUs24B.ScheduleUs24BDtls[].LoanOutstndngAmt",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.ScheduleUs24B.ScheduleUs24BDtls[].InterestUs24B",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.ScheduleUs24B.TotalInterestUs24B",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.ScheduleEA10_13A",
+"type": "object",
+"required": false,
+"definition": "ScheduleEA10_13A",
+"description": ""
+},
+{
+"path": "ITR.ITR1.ScheduleEA10_13A.Placeofwork",
+"type": "string",
+"required": true,
+"description": "1: Metro, 2: Non-Metro",
+"enum": [
+"1",
+"2"
+]
+},
+{
+"path": "ITR.ITR1.ScheduleEA10_13A.ActlHRARecv",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.ScheduleEA10_13A.ActlRentPaid",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.ScheduleEA10_13A.DtlsSalUsSec171",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.ScheduleEA10_13A.BasicSalary",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.ScheduleEA10_13A.DearnessAllwnc",
+"type": "integer",
+"required": false,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.ScheduleEA10_13A.ActlRentPaid10Per",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.ScheduleEA10_13A.Sal40Or50Per",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.ScheduleEA10_13A.EligbleExmpAllwncUs13A",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.TDSonSalaries",
+"type": "object",
+"required": false,
+"definition": "TDSonSalaries",
+"description": "Salary TDS details"
+},
+{
+"path": "ITR.ITR1.TDSonSalaries.TDSonSalary",
+"type": "array",
+"required": false,
+"minItems": 1
+},
+{
+"path": "ITR.ITR1.TDSonSalaries.TDSonSalary[]",
+"type": "object",
+"required": true,
+"definition": "TDSonSalary",
+"description": ""
+},
+{
+"path": "ITR.ITR1.TDSonSalaries.TDSonSalary[].EmployerOrDeductorOrCollectDetl",
+"type": "object",
+"required": true,
+"definition": "EmployerOrDeductorOrCollectDetl",
+"description": "Dedcutor Details"
+},
+{
+"path": "ITR.ITR1.TDSonSalaries.TDSonSalary[].EmployerOrDeductorOrCollectDetl.TAN",
+"type": "string",
+"required": true,
+"pattern": "HYD[A-Z][0-9]{5}[A-Z]|VPN[A-Z][0-9]{5}[A-Z]|BBN[A-Z][0-9]{5}[A-Z]|BPL[A-Z][0-9]{5}[A-Z]|JBP[A-Z][0-9]{5}[A-Z]|CHE[A-Z][0-9]{5}[A-Z]|CMB[A-Z][0-9]{5}[A-Z]|MRI[A-Z][0-9]{5}[A-Z]|DEL[A-Z][0-9]{5}[A-Z]|CAL[A-Z][0-9]{5}[A-Z]|MRT[A-Z][0-9]{5}[A-Z]|AHM[A-Z][0-9]{5}[A-Z]|BRD[A-Z][0-9]{5}[A-Z]|RKT[A-Z][0-9]{5}[A-Z]|SRT[A-Z][0-9]{5}[A-Z]|BLR[A-Z][0-9]{5}[A-Z]|AGR[A-Z][0-9]{5}[A-Z]|KNP[A-Z][0-9]{5}[A-Z]|CHN[A-Z][0-9]{5}[A-Z]|TVD[A-Z][0-9]{5}[A-Z]|ALD[A-Z][0-9]{5}[A-Z]|LKN[A-Z][0-9]{5}[A-Z]|MUM[A-Z][0-9]{5}[A-Z]|NGP[A-Z][0-9]{5}[A-Z]|AMR[A-Z][0-9]{5}[A-Z]|JLD[A-Z][0-9]{5}[A-Z]|PTL[A-Z][0-9]{5}[A-Z]|RTK[A-Z][0-9]{5}[A-Z]|KLP[A-Z][0-9]{5}[A-Z]|NSK[A-Z][0-9]{5}[A-Z]|PNE[A-Z][0-9]{5}[A-Z]|PTN[A-Z][0-9]{5}[A-Z]|RCH[A-Z][0-9]{5}[A-Z]|JDH[A-Z][0-9]{5}[A-Z]|JPR[A-Z][0-9]{5}[A-Z]|SHL[A-Z][0-9]{5}[A-Z]",
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.TDSonSalaries.TDSonSalary[].EmployerOrDeductorOrCollectDetl.EmployerOrDeductorOrCollecterName",
+"type": "string",
+"required": true,
+"pattern": "|(\\s*([\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"][\\s\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"]*)\\s*)",
+"minLength": 1,
+"maxLength": 125,
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.TDSonSalaries.TDSonSalary[].IncChrgSal",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.TDSonSalaries.TDSonSalary[].TotalTDSSal",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.TDSonSalaries.TotalTDSonSalaries",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.TDSonOthThanSals",
+"type": "object",
+"required": false,
+"definition": "TDSonOthThanSals",
+"description": "22. Details of Tax Deducted at Source on Interest [As per Form 16 A issued by Deductor(s)]"
+},
+{
+"path": "ITR.ITR1.TDSonOthThanSals.TDSonOthThanSal",
+"type": "array",
+"required": false,
+"minItems": 1
+},
+{
+"path": "ITR.ITR1.TDSonOthThanSals.TDSonOthThanSal[]",
+"type": "object",
+"required": true,
+"definition": "TDSonOthThanSal",
+"description": ""
+},
+{
+"path": "ITR.ITR1.TDSonOthThanSals.TDSonOthThanSal[].EmployerOrDeductorOrCollectDetl",
+"type": "object",
+"required": true,
+"definition": "EmployerOrDeductorOrCollectDetl",
+"description": "Dedcutor Details"
+},
+{
+"path": "ITR.ITR1.TDSonOthThanSals.TDSonOthThanSal[].EmployerOrDeductorOrCollectDetl.TAN",
+"type": "string",
+"required": true,
+"pattern": "HYD[A-Z][0-9]{5}[A-Z]|VPN[A-Z][0-9]{5}[A-Z]|BBN[A-Z][0-9]{5}[A-Z]|BPL[A-Z][0-9]{5}[A-Z]|JBP[A-Z][0-9]{5}[A-Z]|CHE[A-Z][0-9]{5}[A-Z]|CMB[A-Z][0-9]{5}[A-Z]|MRI[A-Z][0-9]{5}[A-Z]|DEL[A-Z][0-9]{5}[A-Z]|CAL[A-Z][0-9]{5}[A-Z]|MRT[A-Z][0-9]{5}[A-Z]|AHM[A-Z][0-9]{5}[A-Z]|BRD[A-Z][0-9]{5}[A-Z]|RKT[A-Z][0-9]{5}[A-Z]|SRT[A-Z][0-9]{5}[A-Z]|BLR[A-Z][0-9]{5}[A-Z]|AGR[A-Z][0-9]{5}[A-Z]|KNP[A-Z][0-9]{5}[A-Z]|CHN[A-Z][0-9]{5}[A-Z]|TVD[A-Z][0-9]{5}[A-Z]|ALD[A-Z][0-9]{5}[A-Z]|LKN[A-Z][0-9]{5}[A-Z]|MUM[A-Z][0-9]{5}[A-Z]|NGP[A-Z][0-9]{5}[A-Z]|AMR[A-Z][0-9]{5}[A-Z]|JLD[A-Z][0-9]{5}[A-Z]|PTL[A-Z][0-9]{5}[A-Z]|RTK[A-Z][0-9]{5}[A-Z]|KLP[A-Z][0-9]{5}[A-Z]|NSK[A-Z][0-9]{5}[A-Z]|PNE[A-Z][0-9]{5}[A-Z]|PTN[A-Z][0-9]{5}[A-Z]|RCH[A-Z][0-9]{5}[A-Z]|JDH[A-Z][0-9]{5}[A-Z]|JPR[A-Z][0-9]{5}[A-Z]|SHL[A-Z][0-9]{5}[A-Z]",
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.TDSonOthThanSals.TDSonOthThanSal[].EmployerOrDeductorOrCollectDetl.EmployerOrDeductorOrCollecterName",
+"type": "string",
+"required": true,
+"pattern": "|(\\s*([\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"][\\s\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"]*)\\s*)",
+"minLength": 1,
+"maxLength": 125,
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.TDSonOthThanSals.TDSonOthThanSal[].TDSSection",
+"type": "string",
+"required": true,
+"description": "92A:192- Salary-Payment to Government employees other than Indian Government employees; 92B:192- Salary-Payment to employees other than Government employees; 92C:192- Salary-Payment to Indian Government employees; 192A:192A/2AA- TDS on PF withdrawal; 193:193- Interest on Securities; 194:194- Dividends; 94A:194A- Interest other than 'Interest on securities'; 94B:194B- Winning from lottery or crossword puzzle; 94BA:194BA- Winnings from online games; 4BB:194BB- Winning from horse race; 94C:194C- Payments to contractors and sub-contractors; 94D:194D- Insurance commission; 4DA:194DA- Payment in respect of life insurance policy; 94E:194E- Payments to non-resident sportsmen or sports associations; 4EE:194EE- Payments in respect of deposits under National Savings; 4F:194F/94F- Payments on account of repurchase of units by Mutual Fund or Unit Trust of India; 4G:194G/94G- Commission, price, etc. on sale of lottery tickets; 4H:194H/94H- Commission or brokerage; 4-IA:194I(a)/4IA- Rent on hiring of plant and machinery; 4-IB:194I(b)/4IB - Rent on other than plant and machinery; 4IA:194IA/9IA- TDS on Sale of immovable property; 4IB:194IB/9IB- Payment of rent by certain individuals or Hindu undivided; 4IC:194IC- Payment under specified agreement; 94J-A:194J(a)/4JA - Fees for technical services; 94J-B:194J(b)/4JB- Fees for professional services or royalty etc; 94K:194K- Income payable to a resident assessee in respect of units of a specified mutual fund or of the units of the Unit Trust of India; 4LA:194LA- Payment of compensation on acquisition of certain immovable; 4LB:194LB- Income by way of Interest from Infrastructure Debt fund; 4LC1:194LC/LC1- 194LC (2)(i) and (ia) Income under clause (i) and (ia) of sub-section (2) of section 194LC; 4LC2:194LC/LC2- 194LC (2)(ib) Income under clause (ib) of sub-section (2) of section 194LC; 4LC3:194LC/LC3- 194LC (2)(ic) Income under clause (ic) of sub-section (2) of section 194LC; 4BA1:194LBA(a)/BA1- Certain income in the form of interest from units of a business trust to a resident unit holder; 4BA2: 194LBA(b)/BA2- Certain income in the form of dividend from units of a business trust to a resident unit holder; LBA1:194LBA(a)/BA1- 194LBA(a) income referred to in section 10(23FC)(a) from units of a business trust-NR; LBA2:194LBA(b)/BA2-194LBA(b) Income referred to in section 10(23FC)(b) from units of a business trust-NR; LBA3:194LBA(c)/BA3- 194LBA(c) Income referred to in section 10(23FCA) from units of a business trust-NR; LBB: 194LBB- Income in respect of units of investment fund; 94R:194R- Benefits or perquisites of business or profession; 94S:194S- Payment of consideration for transfer of virtual digital asset by persons other than specified persons; 94B-P:Proviso to section 194B/4BP- Winnings from lotteries and crossword puzzles where consideration is made in kind or cash is not sufficient to meet the tax liability and tax has been paid before such winnings are released; 94R-P: First Proviso to sub-section(1) of section 194R/4RP- Benefits or perquisites of business or profession where such benefit is provided in kind or where part in cash is not sufficient to meet tax liability and tax required to be deducted is paid before such benefit is released; 94S-P:Proviso to sub- section(1) of section 194S/4SP- Payment for transfer of virtual digital asset where payment is in kind or in exchange of another virtual digital asset and tax required to be deducted is paid before such payment is released; LBC:194LBC- Income in respect of investment in securitization trust; 4LD:194LD- TDS on interest on bonds / government securities; 94M:194M- Payment of certain sums by certain individuals or HUF; 94N:194N- Payment of certain amounts in cash other than cases covered by first proviso or third proviso; 94N-F: 194N/4NF -First Proviso Payment of certain amounts in cash to non-filers except in case of co-operativesocieties; 94N-C:194N/4NC- Third Proviso Payment of certain amounts in cash to co-operative societies not covered by first proviso; 94N-FT: 194N/NFT- First Proviso read with Third Proviso Payment of certain amount in cash to non-filers being co-operative societies; 94O:194O- Payment of certain sums by e-commerce operator to e-commerce participant.; 94P: 194P- Deduction of tax in case of specified senior citizen; 94Q:194Q- Deduction of tax at source on payment of certain sum for purchase of goods; 195:195- Other sums payable to a non-resident; 96A:196A- Income in respect of units of non-residents; 96B:196B- Payments in respect of units to an offshore fund; 96C:196C- Income from foreign currency bonds or shares of Indian; 96D:196D- Income of foreign institutional investors from securities; 96DA:196D(1A)/6DA- Income of specified fund from securities; 94BA-P: 194BA(2)/BAP-Sub-section (2) of section 194BA Net Winnings from online games where the net winnings are made in kind or cash is not sufficient to meet the tax liability and tax has been paid before such net winnings are released;",
+"enum": [
+"92A",
+"92B",
+"92C",
+"192A",
+"193",
+"194",
+"94A",
+"94B",
+"94BA",
+"4BB",
+"94C",
+"94D",
+"4DA",
+"94E",
+"4EE",
+"4F",
+"4G",
+"4H",
+"4-IA",
+"4-IB",
+"4IA",
+"4IB",
+"4IC",
+"94J-A",
+"94J-B",
+"94K",
+"4LA",
+"4LB",
+"4LC1",
+"4LC2",
+"4LC3",
+"4BA1",
+"4BA2",
+"LBA1",
+"LBA2",
+"LBA3",
+"LBB",
+"94R",
+"94S",
+"94B-P",
+"94R-P",
+"94S-P",
+"LBC",
+"4LD",
+"94M",
+"94N",
+"94N-F",
+"94N-C",
+"94N-FT",
+"94O",
+"94P",
+"94Q",
+"195",
+"96A",
+"96B",
+"96C",
+"96D",
+"96DA",
+"94BA-P"
+],
+"pattern": "|(\\s*([\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"][\\s\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"]*)\\s*)",
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.TDSonOthThanSals.TDSonOthThanSal[].AmtForTaxDeduct",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.TDSonOthThanSals.TDSonOthThanSal[].DeductedYr",
+"type": "string",
+"required": true,
+"description": "2024: 2024-25; 2023: 2023-24; 2022: 2022-23; 2021: 2021-22; 2020: 2020-21; 2019: 2019-20; 2018: 2018-19; 2017: 2017-18; 2016: 2016-17; 2015: 2015-16; 2014: 2014-15; 2013: 2013-14; 2012: 2012-13; 2011: 2011-12; 2010: 2010-11; 2009: 2009-10; 2008: 2008-09",
+"enum": [
+"2024",
+"2023",
+"2022",
+"2021",
+"2020",
+"2019",
+"2018",
+"2017",
+"2016",
+"2015",
+"2014",
+"2013",
+"2012",
+"2011",
+"2010",
+"2009",
+"2008"
+],
+"pattern": "|(\\s*([\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"][\\s\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"]*)\\s*)",
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.TDSonOthThanSals.TDSonOthThanSal[].TotTDSOnAmtPaid",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.TDSonOthThanSals.TDSonOthThanSal[].ClaimOutOfTotTDSOnAmtPaid",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.TDSonOthThanSals.TotalTDSonOthThanSals",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.ScheduleTDS3Dtls",
+"type": "object",
+"required": false,
+"definition": "ScheduleTDS3Dtls",
+"description": "Details of Tax Deducted at Source [16C furnished by the Deductor(s)]"
+},
+{
+"path": "ITR.ITR1.ScheduleTDS3Dtls.TDS3Details",
+"type": "array",
+"required": false,
+"minItems": 1
+},
+{
+"path": "ITR.ITR1.ScheduleTDS3Dtls.TDS3Details[]",
+"type": "object",
+"required": true,
+"definition": "TDS3Details",
+"description": ""
+},
+{
+"path": "ITR.ITR1.ScheduleTDS3Dtls.TDS3Details[].PANofTenant",
+"type": "string",
+"required": true,
+"pattern": "[A-Z]{5}[0-9]{4}[A-Z]",
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.ScheduleTDS3Dtls.TDS3Details[].AadhaarofTenant",
+"type": "string",
+"required": false,
+"pattern": "[0-9]{12}",
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.ScheduleTDS3Dtls.TDS3Details[].TDSSection",
+"type": "string",
+"required": true,
+"description": "92A:192- Salary-Payment to Government employees other than Indian Government employees; 92B:192- Salary-Payment to employees other than Government employees; 92C:192- Salary-Payment to Indian Government employees; 192A:192A/2AA- TDS on PF withdrawal; 193:193- Interest on Securities; 194:194- Dividends; 94A:194A- Interest other than 'Interest on securities'; 94B:194B- Winning from lottery or crossword puzzle; 94BA:194BA- Winnings from online games; 4BB:194BB- Winning from horse race; 94C:194C- Payments to contractors and sub-contractors; 94D:194D- Insurance commission; 4DA:194DA- Payment in respect of life insurance policy; 94E:194E- Payments to non-resident sportsmen or sports associations; 4EE:194EE- Payments in respect of deposits under National Savings; 4F:194F/94F- Payments on account of repurchase of units by Mutual Fund or Unit Trust of India; 4G:194G/94G- Commission, price, etc. on sale of lottery tickets; 4H:194H/94H- Commission or brokerage; 4-IA:194I(a)/4IA- Rent on hiring of plant and machinery; 4-IB:194I(b)/4IB - Rent on other than plant and machinery; 4IA:194IA/9IA- TDS on Sale of immovable property; 4IB:194IB/9IB- Payment of rent by certain individuals or Hindu undivided; 4IC:194IC- Payment under specified agreement; 94J-A:194J(a)/4JA - Fees for technical services; 94J-B:194J(b)/4JB- Fees for professional services or royalty etc; 94K:194K- Income payable to a resident assessee in respect of units of a specified mutual fund or of the units of the Unit Trust of India; 4LA:194LA- Payment of compensation on acquisition of certain immovable; 4LB:194LB- Income by way of Interest from Infrastructure Debt fund; 4LC1:194LC/LC1- 194LC (2)(i) and (ia) Income under clause (i) and (ia) of sub-section (2) of section 194LC; 4LC2:194LC/LC2- 194LC (2)(ib) Income under clause (ib) of sub-section (2) of section 194LC; 4LC3:194LC/LC3- 194LC (2)(ic) Income under clause (ic) of sub-section (2) of section 194LC; 4BA1:194LBA(a)/BA1- Certain income in the form of interest from units of a business trust to a resident unit holder; 4BA2: 194LBA(b)/BA2- Certain income in the form of dividend from units of a business trust to a resident unit holder; LBA1:194LBA(a)/BA1- 194LBA(a) income referred to in section 10(23FC)(a) from units of a business trust-NR; LBA2:194LBA(b)/BA2-194LBA(b) Income referred to in section 10(23FC)(b) from units of a business trust-NR; LBA3:194LBA(c)/BA3- 194LBA(c) Income referred to in section 10(23FCA) from units of a business trust-NR; LBB: 194LBB- Income in respect of units of investment fund; 94R:194R- Benefits or perquisites of business or profession; 94S:194S- Payment of consideration for transfer of virtual digital asset by persons other than specified persons; 94B-P:Proviso to section 194B/4BP- Winnings from lotteries and crossword puzzles where consideration is made in kind or cash is not sufficient to meet the tax liability and tax has been paid before such winnings are released; 94R-P: First Proviso to sub-section(1) of section 194R/4RP- Benefits or perquisites of business or profession where such benefit is provided in kind or where part in cash is not sufficient to meet tax liability and tax required to be deducted is paid before such benefit is released; 94S-P:Proviso to sub- section(1) of section 194S/4SP- Payment for transfer of virtual digital asset where payment is in kind or in exchange of another virtual digital asset and tax required to be deducted is paid before such payment is released; LBC:194LBC- Income in respect of investment in securitization trust; 4LD:194LD- TDS on interest on bonds / government securities; 94M:194M- Payment of certain sums by certain individuals or HUF; 94N:194N- Payment of certain amounts in cash other than cases covered by first proviso or third proviso; 94N-F: 194N/4NF -First Proviso Payment of certain amounts in cash to non-filers except in case of co-operativesocieties; 94N-C:194N/4NC- Third Proviso Payment of certain amounts in cash to co-operative societies not covered by first proviso; 94N-FT: 194N/NFT- First Proviso read with Third Proviso Payment of certain amount in cash to non-filers being co-operative societies; 94O:194O- Payment of certain sums by e-commerce operator to e-commerce participant.; 94P: 194P- Deduction of tax in case of specified senior citizen; 94Q:194Q- Deduction of tax at source on payment of certain sum for purchase of goods; 195:195- Other sums payable to a non-resident; 96A:196A- Income in respect of units of non-residents; 96B:196B- Payments in respect of units to an offshore fund; 96C:196C- Income from foreign currency bonds or shares of Indian; 96D:196D- Income of foreign institutional investors from securities; 96DA:196D(1A)/6DA- Income of specified fund from securities; 94BA-P: 194BA(2)/BAP-Sub-section (2) of section 194BA Net Winnings from online games where the net winnings are made in kind or cash is not sufficient to meet the tax liability and tax has been paid before such net winnings are released;",
+"enum": [
+"92A",
+"92B",
+"92C",
+"192A",
+"193",
+"194",
+"94A",
+"94B",
+"94BA",
+"4BB",
+"94C",
+"94D",
+"4DA",
+"94E",
+"4EE",
+"4F",
+"4G",
+"4H",
+"4-IA",
+"4-IB",
+"4IA",
+"4IB",
+"4IC",
+"94J-A",
+"94J-B",
+"94K",
+"4LA",
+"4LB",
+"4LC1",
+"4LC2",
+"4LC3",
+"4BA1",
+"4BA2",
+"LBA1",
+"LBA2",
+"LBA3",
+"LBB",
+"94R",
+"94S",
+"94B-P",
+"94R-P",
+"94S-P",
+"LBC",
+"4LD",
+"94M",
+"94N",
+"94N-F",
+"94N-C",
+"94N-FT",
+"94O",
+"94P",
+"94Q",
+"195",
+"96A",
+"96B",
+"96C",
+"96D",
+"96DA",
+"94BA-P"
+],
+"pattern": "|(\\s*([\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"][\\s\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"]*)\\s*)",
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.ScheduleTDS3Dtls.TDS3Details[].NameOfTenant",
+"type": "string",
+"required": true,
+"pattern": "|(\\s*([\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"][\\s\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"]*)\\s*)",
+"minLength": 1,
+"maxLength": 125,
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.ScheduleTDS3Dtls.TDS3Details[].GrsRcptToTaxDeduct",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.ScheduleTDS3Dtls.TDS3Details[].DeductedYr",
+"type": "string",
+"required": true,
+"description": "2024:2024-25; 2023:2023-24; 2022:2022-23; 2021:2021-22; 2020:2020-21; 2019:2019-20; 2018:2018-19; 2017:2017-18;",
+"enum": [
+"2024",
+"2023",
+"2022",
+"2021",
+"2020",
+"2019",
+"2018",
+"2017"
+],
+"pattern": "|(\\s*([\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"][\\s\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"]*)\\s*)",
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.ScheduleTDS3Dtls.TDS3Details[].TDSDeducted",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.ScheduleTDS3Dtls.TDS3Details[].TDSClaimed",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.ScheduleTDS3Dtls.TotalTDS3Details",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.ScheduleTCS",
+"type": "object",
+"required": false,
+"definition": "ScheduleTCS",
+"description": ""
+},
+{
+"path": "ITR.ITR1.ScheduleTCS.TCS",
+"type": "array",
+"required": false,
+"minItems": 1
+},
+{
+"path": "ITR.ITR1.ScheduleTCS.TCS[]",
+"type": "object",
+"required": true,
+"definition": "",
+"description": ""
+},
+{
+"path": "ITR.ITR1.ScheduleTCS.TCS[].EmployerOrDeductorOrCollectDetl",
+"type": "object",
+"required": true,
+"definition": "EmployerOrDeductorOrCollectDetl",
+"description": "Dedcutor Details"
+},
+{
+"path": "ITR.ITR1.ScheduleTCS.TCS[].EmployerOrDeductorOrCollectDetl.TAN",
+"type": "string",
+"required": true,
+"pattern": "HYD[A-Z][0-9]{5}[A-Z]|VPN[A-Z][0-9]{5}[A-Z]|BBN[A-Z][0-9]{5}[A-Z]|BPL[A-Z][0-9]{5}[A-Z]|JBP[A-Z][0-9]{5}[A-Z]|CHE[A-Z][0-9]{5}[A-Z]|CMB[A-Z][0-9]{5}[A-Z]|MRI[A-Z][0-9]{5}[A-Z]|DEL[A-Z][0-9]{5}[A-Z]|CAL[A-Z][0-9]{5}[A-Z]|MRT[A-Z][0-9]{5}[A-Z]|AHM[A-Z][0-9]{5}[A-Z]|BRD[A-Z][0-9]{5}[A-Z]|RKT[A-Z][0-9]{5}[A-Z]|SRT[A-Z][0-9]{5}[A-Z]|BLR[A-Z][0-9]{5}[A-Z]|AGR[A-Z][0-9]{5}[A-Z]|KNP[A-Z][0-9]{5}[A-Z]|CHN[A-Z][0-9]{5}[A-Z]|TVD[A-Z][0-9]{5}[A-Z]|ALD[A-Z][0-9]{5}[A-Z]|LKN[A-Z][0-9]{5}[A-Z]|MUM[A-Z][0-9]{5}[A-Z]|NGP[A-Z][0-9]{5}[A-Z]|AMR[A-Z][0-9]{5}[A-Z]|JLD[A-Z][0-9]{5}[A-Z]|PTL[A-Z][0-9]{5}[A-Z]|RTK[A-Z][0-9]{5}[A-Z]|KLP[A-Z][0-9]{5}[A-Z]|NSK[A-Z][0-9]{5}[A-Z]|PNE[A-Z][0-9]{5}[A-Z]|PTN[A-Z][0-9]{5}[A-Z]|RCH[A-Z][0-9]{5}[A-Z]|JDH[A-Z][0-9]{5}[A-Z]|JPR[A-Z][0-9]{5}[A-Z]|SHL[A-Z][0-9]{5}[A-Z]",
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.ScheduleTCS.TCS[].EmployerOrDeductorOrCollectDetl.EmployerOrDeductorOrCollecterName",
+"type": "string",
+"required": true,
+"pattern": "|(\\s*([\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"][\\s\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"]*)\\s*)",
+"minLength": 1,
+"maxLength": 125,
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.ScheduleTCS.TCS[].AmtTaxCollected",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.ScheduleTCS.TCS[].CollectedYr",
+"type": "string",
+"required": true,
+"description": "2024: 2024-25; 2023: 2023-24; 2022: 2022-23; 2021: 2021-22; 2020: 2020-21; 2019: 2019-20; 2018: 2018-19; 2017: 2017-18; 2016: 2016-17; 2015: 2015-16; 2014: 2014-15; 2013: 2013-14; 2012: 2012-13; 2011: 2011-12; 2010: 2010-11; 2009: 2009-10; 2008: 2008-09",
+"enum": [
+"2024",
+"2023",
+"2022",
+"2021",
+"2020",
+"2019",
+"2018",
+"2017",
+"2016",
+"2015",
+"2014",
+"2013",
+"2012",
+"2011",
+"2010",
+"2009",
+"2008"
+]
+},
+{
+"path": "ITR.ITR1.ScheduleTCS.TCS[].TotalTCS",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.ScheduleTCS.TCS[].AmtTCSClaimedThisYear",
+"type": "integer",
+"required": true,
+"description": "Amount out of (5) claimed for this year",
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.ScheduleTCS.TotalSchTCS",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.TaxPayments",
+"type": "object",
+"required": false,
+"definition": "TaxPayments",
+"description": "Tax payment details"
+},
+{
+"path": "ITR.ITR1.TaxPayments.TaxPayment",
+"type": "array",
+"required": false,
+"minItems": 1
+},
+{
+"path": "ITR.ITR1.TaxPayments.TaxPayment[]",
+"type": "object",
+"required": true,
+"definition": "TaxPayment",
+"description": "Tax payment detail"
+},
+{
+"path": "ITR.ITR1.TaxPayments.TaxPayment[].BSRCode",
+"type": "string",
+"required": true,
+"pattern": "[0-9]{3}[0-9A-Z]{4}",
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.TaxPayments.TaxPayment[].DateDep",
+"type": "string",
+"required": true,
+"description": "Date of deposit should be on or after 2024-04-01 in YYYY-MM-DD format",
+"pattern": "([12]\\d{3}-(0[1-9]|1[0-2])-(0[1-9]|[12]\\d|3[01]))"
+},
+{
+"path": "ITR.ITR1.TaxPayments.TaxPayment[].SrlNoOfChaln",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.TaxPayments.TaxPayment[].Amt",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.TaxPayments.TotalTaxPayments",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.LTCG112A",
+"type": "object",
+"required": false,
+"definition": "LTCG112A",
+"description": "Long Term capital gains u/s 112A"
+},
+{
+"path": "ITR.ITR1.LTCG112A.TotSaleCnsdrn",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.LTCG112A.TotCstAcqisn",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.LTCG112A.LongCap112A",
+"type": "integer",
+"required": true,
+"minimum": 0,
+"maximum": 125000,
+"exclusiveMinimum": false
+},
+{
+"path": "ITR.ITR1.Verification",
+"type": "object",
+"required": true,
+"definition": "Verification",
+"description": "Verification declaration details"
+},
+{
+"path": "ITR.ITR1.Verification.Declaration",
+"type": "object",
+"required": true,
+"definition": "",
+"description": ""
+},
+{
+"path": "ITR.ITR1.Verification.Declaration.AssesseeVerName",
+"type": "string",
+"required": true,
+"pattern": "|(\\s*([\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"][\\s\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"]*)\\s*)",
+"minLength": 1,
+"maxLength": 127,
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.Verification.Declaration.FatherName",
+"type": "string",
+"required": true,
+"pattern": "|(\\s*([\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"][\\s\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"]*)\\s*)",
+"minLength": 1,
+"maxLength": 125,
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.Verification.Declaration.AssesseeVerPAN",
+"type": "string",
+"required": true,
+"pattern": "[A-Z]{5}[0-9]{4}[A-Z]",
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.Verification.Capacity",
+"type": "string",
+"required": true,
+"description": "S : Self ; R : Representative",
+"enum": [
+"S",
+"R"
+]
+},
+{
+"path": "ITR.ITR1.Verification.Place",
+"type": "string",
+"required": true,
+"pattern": "|(\\s*([\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"][\\s\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"]*)\\s*)",
+"minLength": 1,
+"maxLength": 50,
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.TaxReturnPreparer",
+"type": "object",
+"required": false,
+"definition": "TaxReturnPreparer",
+"description": "TRP details"
+},
+{
+"path": "ITR.ITR1.TaxReturnPreparer.IdentificationNoOfTRP",
+"type": "string",
+"required": true,
+"pattern": "[T][0-9]{9}|[0-9]{6}",
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.TaxReturnPreparer.NameOfTRP",
+"type": "string",
+"required": true,
+"pattern": "|(\\s*([\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"][\\s\\w\\d_=!@#$%\\^*\\(\\){}\\[\\]\\|\\\\:;',\\.\\?/~`\\-\\+<>&\"]*)\\s*)",
+"minLength": 1,
+"maxLength": 125,
+"definition": "nonEmptyString"
+},
+{
+"path": "ITR.ITR1.TaxReturnPreparer.ReImbFrmGov",
+"type": "integer",
+"required": false,
+"minimum": 0,
+"maximum": 99999999999999,
+"exclusiveMinimum": false
+}
+],
+"guide": {
+"source": "itr-1-guide",
+"entries": [
+{
+"section": "1 Creation Info — Software & Filing Metadata",
+"paths": [
+"CreationInfo.SWVersionNo"
+],
+"description": "Required. Software version that generated this JSON. Max 10 chars. Default: \"1.0\"",
+"primarySource": "Auto- populated by the filing software at time of JSON generation.",
+"validationSource": "None. Internally generated.",
+"conflictTrigger": "—",
+"page": 3
+},
+{
+"section": "1 Creation Info — Software & Filing Metadata",
+"paths": [
+"CreationInfo.SWCreatedBy"
+],
+"description": "Required. CBDT- registered software ID. Format: SW followed by 8 digits.",
+"primarySource": "Taxvela's CBDT- assigned registration code. Fixed per deployment.",
+"validationSource": "Verified against CBDT software registry when the return is uploaded.",
+"conflictTrigger": "Software ID not recognised in CBDT registry — portal will reject the upload.",
+"page": 3
+},
+{
+"section": "1 Creation Info — Software & Filing Metadata",
+"paths": [
+"CreationInfo.JSONCreationDate"
+],
+"description": "Required. Date the JSON file was generated. Format: YYYY- MM-DD.",
+"primarySource": "System date at the time the return is prepared.",
+"validationSource": "None.",
+"conflictTrigger": "—",
+"page": 3
+},
+{
+"section": "1 Creation Info — Software & Filing Metadata",
+"paths": [
+"CreationInfo.Digest"
+],
+"description": "Required. A tamper-proof hash of the entire JSON payload. Must be exactly 44 characters or a dash.",
+"primarySource": "Computed by the filing software after the full payload is assembled. Must be recalculated if any field changes.",
+"validationSource": "Portal recomputes and checks this value at upload.",
+"conflictTrigger": "Digest does not match payload — return is rejected outright. This fires if any field was edited after the digest was generated.",
+"page": 3
+},
+{
+"section": "2 Form Metadata — ITR-1 Identification",
+"paths": [
+"Form_ITR1.FormName"
+],
+"description": "Required. Must be exactly \"ITR- 1\".",
+"primarySource": "Fixed constant set by the filing software.",
+"validationSource": "Portal validates form name against schema.",
+"conflictTrigger": "—",
+"page": 3
+},
+{
+"section": "2 Form Metadata — ITR-1 Identification",
+"paths": [
+"Form_ITR1.AssessmentYear"
+],
+"description": "Required. Assessment year in YYYY format. For FY 2024-25, this is \"2025\".",
+"primarySource": "Fixed per filing season.",
+"validationSource": "Portal validates AY is open for filing.",
+"conflictTrigger": "Incorrect AY — portal rejects the return.",
+"page": 4
+},
+{
+"section": "2 Form Metadata — ITR-1 Identification",
+"paths": [
+"Form_ITR1.SchemaVer",
+"Form_ITR1.FormVer"
+],
+"description": "Required. Schema version (currently \"1.2\") and form utility version (currently \"1.7\"). Must match latest CBDT release.",
+"primarySource": "Fixed at deployment. Must be updated whenever CBDT releases a new schema version.",
+"validationSource": "Portal validates schema version is current.",
+"conflictTrigger": "Outdated schema version — portal may reject. Filing software must always use the latest published schema. with the parent’s income under Section 64(1A) and should not be filed independen tly. Independen t filing is permitted only if the income is derived entirely through the minor’s own skill or talent, or if the minor qualifies under Section 80U. The product must prompt the taxpayer to confirm which basis applies before proceeding.",
+"page": 4
+},
+{
+"section": "2 Form Metadata — ITR-1 Identification",
+"paths": [
+"PersonalInfo.EmployerCategory"
+],
+"description": "Required. One of: Central Govt, State Govt, PSU, Pensioner (CG/SG/PSU/Oth er), Others, Not Applicable. Must not be 'Not Applicable' if salary income is declared — Rule 219.",
+"primarySource": "Taxpayer selects during salary input. Should be cross-checked against Form 16 issuer type.",
+"validationSource": "Form 16 Part A (employer TAN prefix can indicate government employer). AIS data.",
+"conflictTrigger": "Wrong employer category directly affects standard deduction, entertainme nt allowance, 80CCD(1), and 80CCD(2) limits. If 'Not Applicable' is selected when salary exists — Category A.",
+"page": 5
+},
+{
+"section": "2 Form Metadata — ITR-1 Identification",
+"paths": [
+"PersonalInfo.Address"
+],
+"description": "Required fields: House/flat number, Locality, City/District, State code, Country code, PIN code, Mobile number, Email address.",
+"primarySource": "Taxpayer's address from profile. PIN code auto- suggested from city.",
+"validationSource": "None for address. Mobile and email verified via OTP during onboarding.",
+"conflictTrigger": "—",
+"page": 5
+},
+{
+"section": "4 Filing Status — Return Type and Tax Regime",
+"paths": [
+"FilingStatus.ReturnFileSec"
+],
+"description": "Required. Code indicating under which section the return is being filed: 11 = 139(1) On time 12 = 139(4) Belated 17 = 139(5) Revised 18 = 139(9) Defective response 21 = 139(8A) Updated return",
+"primarySource": "Determined based on current date versus the ITR filing due date. Taxpayer confirms.",
+"validationSource": "CBDT e-filing portal due date calendar.",
+"conflictTrigger": "Old Tax Regime cannot be selected after the due date under section 139(1) — Rule 152. If a belated return under 139(4) was originally filed, Old Regime cannot be chosen in a revised return under 139(5) — Rule 198.",
+"page": 6
+},
+{
+"section": "4 Filing Status — Return Type and Tax Regime",
+"paths": [
+"FilingStatus.OptOutNewTaxRegime"
+],
+"description": "Required. Indicates whether the taxpayer is opting for the Old Tax Regime (Y) or the New Tax Regime (N). Default from AY 2024-25 onwards is New Regime.",
+"primarySource": "Taxpayer selects after reviewing tax comparison under both regimes. See Business Rules section.",
+"validationSource": "All income and deduction data feeds into the regime comparison calculation.",
+"conflictTrigger": "New Regime selected but deductions such as 80C, 80D, 80G, 80TTA, HRA claimed — each is a Category A error. Product must enforce deduction eligibility based on regime chosen — Rules 147– 176.",
+"page": 6
+},
+{
+"section": "4 Filing Status — Return Type and Tax Regime",
+"paths": [
+"FilingStatus.ItrFilingDueDate"
+],
+"description": "Required. The due date applicable for this return. For individuals without audit: 31- Jul-2025 for AY 2025-26.",
+"primarySource": "Fixed per CBDT notification for the assessment year.",
+"validationSource": "CBDT official circulars.",
+"conflictTrigger": "—",
+"page": 6
+},
+{
+"section": "4 Filing Status — Return Type and Tax Regime",
+"paths": [
+"FilingStatus.SeventhProvisio139"
+],
+"description": "Applicable when taxpayer's TDS + TCS during the year is ₹25,000 or more (₹50,000 for senior citizens), or savings bank deposits total ₹50 lakhs or more — making them liable to file even if income is below the basic exemption limit.",
+"primarySource": "Taxpayer declares. Flag is raised if AIS or 26AS reflects high TDS or large deposit transactions.",
+"validationSource": "AIS and 26AS — TDS/TCS totals and SFT data for large bank deposits.",
+"conflictTrigger": "High TDS visible in AIS/26AS but the taxpayer does not flag this — discrepancy noted and taxpayer is prompted to confirm.",
+"page": 6
+},
+{
+"section": "5 Income from Salary (Schedule B1)",
+"paths": [
+"ITR1_IncomeDeductions.GrossSalary"
+],
+"description": "Required. Total of salary under section 17(1) + value of perquisites under 17(2) + profits in lieu of salary under 17(3) + income under section 89A. Validation Rule 59.",
+"primarySource": "Form 16 Part B — Gross Salary box. If Form 16 is unavailable, AIS salary data is used as the starting point.",
+"validationSource": "Form 26AS Schedule of TDS under section 192 reflects gross salary paid. AIS Salary tile.",
+"conflictTrigger": "Gross salary from Form 16 does not match AIS salary data — discrepancy resolution is triggered. Taxpayer is asked to confirm the correct figure or provide a revised Form 16. If the taxpayer has two employers in the same year (e.g., mid-year job change) — both Form 16s must be captured. The product must check whether both employers have correctly deducted TDS on the combined income. If one employer was unaware of the other income and under- deducted, this will show up as a mismatch between total salary declared and total TDS in 26AS. The taxpayer is informed and any shortfall is computed as self- assessment tax.",
+"page": 7
+},
+{
+"section": "5 Income from Salary (Schedule B1)",
+"paths": [
+"ITR1_IncomeDeductions.Salary",
+"ITR1_IncomeDeductions.PerquisitesValue",
+"ITR1_IncomeDeductions.ProfitsInSalary"
+],
+"description": "Components of Gross Salary: • Salary as per section 17(1) • Value of perquisites under 17(2) • Profits in lieu of salary under 17(3) Each reported separately.",
+"primarySource": "Form 16 Part B — individual line items for each component.",
+"validationSource": "AIS salary component breakup.",
+"conflictTrigger": "—",
+"page": 8
+},
+{
+"section": "5 Income from Salary (Schedule B1)",
+"paths": [
+"ITR1_IncomeDeductions.IncomeNotified89A"
+],
+"description": "Income from a retirement benefit account held in a country notified under section 89A (USA, UK, Canada). Reported separately.",
+"primarySource": "Taxpayer declaration supported by foreign bank or retirement account statement.",
+"validationSource": "No government API available for foreign accounts. Taxpayer-provided documents only.",
+"conflictTrigger": "If relief under 89A is claimed but Form 10EE has not been filed on the portal — Category D warning. Taxpayer is informed that the deduction may not be allowed.",
+"page": 8
+},
+{
+"section": "5 Income from Salary (Schedule B1)",
+"paths": [
+"ITR1_IncomeDeductions.AllwncExemptUs10"
+],
+"description": "Exempt allowances under section 10 — each must be declared separately by type: • HRA — 10(13A) • LTA — 10(5) • Gratuity — 10(10) • Leave encashment — 10(10AA) • VRS — 10(10C) • Other prescribed allowances — 10(14)(i), 10(14)(ii) • Perquisite tax paid by employer — 10(10CC) Total cannot exceed Gross Salary — Rule 63.",
+"primarySource": "Form 16 Part B — exempt allowances section, line by line.",
+"validationSource": "AIS salary breakup. Validation Rules 63–77 check each individual cap.",
+"conflictTrigger": "New Regime: HRA, LTA, 10(14)(i) and 10(14)(ii) allowances cannot be claimed — Category A (Rules 150, 165–168). Old Regime: HRA cannot exceed 1/3rd of salary — Rule 177. Any individual allowance exceeding its statutory cap — Category A.",
+"page": 8
+},
+{
+"section": "5 Income from Salary (Schedule B1)",
+"paths": [
+"ITR1_IncomeDeductions.NetSalary"
+],
+"description": "Required. Gross Salary minus total exempt allowances under section 10 minus relief under 89A. Rule 60.",
+"primarySource": "Computed from the above fields.",
+"validationSource": "Cross-checked against the Net Salary line in Form 16 Part B.",
+"conflictTrigger": "Computed net salary does not match Form 16 — likely an allowance line was missed during data capture. Discrepanc y loop triggered.",
+"page": 9
+},
+{
+"section": "5 Income from Salary (Schedule B1)",
+"paths": [
+"ITR1_IncomeDeductions.DeductionUs16ia"
+],
+"description": "Standard Deduction under section 16(ia). Old Regime: maximum ₹50,000. New Regime: maximum ₹75,000. Rule 112, Rule 224.",
+"primarySource": "Applied automatically based on regime selection. No taxpayer input required.",
+"validationSource": "Form 16 Part B — deductions under section 16.",
+"conflictTrigger": "Value entered exceeds the applicable cap for the selected regime — Category A.",
+"page": 9
+},
+{
+"section": "5 Income from Salary (Schedule B1)",
+"paths": [
+"ITR1_IncomeDeductions.EntertainmentAlw16ii"
+],
+"description": "Entertainment Allowance deduction under 16(ii). Maximum ₹5,000. Allowed strictly for Central Government and State Government employees only under Old Regime. PSU employees, statutory corporation employees, and local authority employees are classified as non- government employees for this section and cannot claim this deduction. Rule 57, 58.",
+"primarySource": "Form 16 Part B. Applicable only if employer category is Central Govt, State Govt, or PSU.",
+"validationSource": "Employer category from PersonalInfo.",
+"conflictTrigger": "Claimed by a PSU employee, statutory corporation employee, or any other non- Central/Stat e Government employee in Old Regime — Category A (Rule 58). Any claim in New Regime — Category A (Rule 164).",
+"page": 9
+},
+{
+"section": "5 Income from Salary (Schedule B1)",
+"paths": [
+"ITR1_IncomeDeductions.ProfessionalTaxUs16iii"
+],
+"description": "Professional Tax deduction under 16(iii). Maximum ₹5,000.",
+"primarySource": "Form 16 Part B or professional tax payment receipt uploaded by taxpayer.",
+"validationSource": "No government API for municipal PT records. Taxpayer-provided only.",
+"conflictTrigger": "Claimed in New Regime — Category A (Rule 169).",
+"page": 10
+},
+{
+"section": "5 Income from Salary (Schedule B1)",
+"paths": [
+"ITR1_IncomeDeductions.DeductionUs16"
+],
+"description": "Required. Total of all deductions under section 16 = 16(ia) + 16(ii) + 16(iii). Rule 61.",
+"primarySource": "Computed from the three above fields.",
+"validationSource": "Cross-checked against Form 16 Part B total deductions under section 16.",
+"conflictTrigger": "Computed total does not match Form 16 — discrepancy loop triggered.",
+"page": 10
+},
+{
+"section": "5 Income from Salary (Schedule B1)",
+"paths": [
+"ITR1_IncomeDeductions.IncomeFromSal"
+],
+"description": "Required. Net Salary minus Deductions under section 16. Rule 62.",
+"primarySource": "Computed.",
+"validationSource": "Cross-checked against Form 16 Part B — Income Chargeable under Salaries.",
+"conflictTrigger": "Computed figure does not match Form 16 — discrepancy loop triggered.",
+"page": 10
+},
+{
+"section": "6 Income from House Property (Schedule B2) — On",
+"paths": [
+"ITR1_IncomeDeductions.TypeOfHP"
+],
+"description": "Type of property: S = Self- Occupied L = Let Out D = Deemed Let Out ITR-1 allows only one house property. If the taxpayer owns more than one, ITR-2 must be used.",
+"primarySource": "Taxpayer declares.",
+"validationSource": "None — taxpayer declaration.",
+"conflictTrigger": "Let Out selected but no rent declared — Category A (Rule 45). Self- Occupied selected but municipal tax is claimed — Category A (Rule 49). More than one property — taxpayer must be redirected to ITR-2.",
+"page": 10
+},
+{
+"section": "6 Income from House Property (Schedule B2) — On",
+"paths": [
+"ITR1_IncomeDeductions.GrossRentReceived"
+],
+"description": "Annual rent received or receivable for the year. Required if property is Let Out or Deemed Let Out.",
+"primarySource": "Taxpayer declares. Supporting documents: registered lease agreement, or bank statement showing rent credits.",
+"validationSource": "AIS property/rent data (reported by housing societies or tenants deducting TDS under 194IB).",
+"conflictTrigger": "Declared rent differs significantly from AIS rental data — taxpayer is asked to confirm or provide lease agreement.",
+"page": 10
+},
+{
+"section": "6 Income from House Property (Schedule B2) — On",
+"paths": [
+"ITR1_IncomeDeductions.TaxPaidlocalAuth"
+],
+"description": "Municipal or local authority tax paid during the year on the let-out property. Not allowed for Self- Occupied — Rule 49.",
+"primarySource": "Taxpayer uploads property tax receipt or municipal bill.",
+"validationSource": "No government API for municipal records. Taxpayer documents only.",
+"conflictTrigger": "Municipal tax claimed on Self- Occupied property — Category A. Municipal tax claimed but rent is nil — Category A (Rule 44).",
+"page": 11
+},
+{
+"section": "6 Income from House Property (Schedule B2) — On",
+"paths": [
+"ITR1_IncomeDeductions.AnnualValue"
+],
+"description": "Required. Gross Rent minus Municipal Tax paid. Rule 46.",
+"primarySource": "Computed.",
+"validationSource": "Formula check.",
+"conflictTrigger": "Value does not equal Gross Rent minus Municipal Tax — Category A.",
+"page": 11
+},
+{
+"section": "6 Income from House Property (Schedule B2) — On",
+"paths": [
+"ITR1_IncomeDeductions.StandardDeduction"
+],
+"description": "Required. 30% of Annual Value — allowed as a flat deduction for repairs and maintenance. Rule 43.",
+"primarySource": "Computed automatically.",
+"validationSource": "Formula check: must be exactly 30% of Annual Value.",
+"conflictTrigger": "Value is not 30% of Annual Value — Category A.",
+"page": 11
+},
+{
+"section": "6 Income from House Property (Schedule B2) — On",
+"paths": [
+"ITR1_IncomeDeductions.InterestPayable"
+],
+"description": "Interest paid on housing loan (borrowed capital) claimed under section 24(b). Old Regime, Self-Occupied: maximum ₹2,00,000 — Rule 48. New Regime, Self-Occupied: no interest allowed — Rule 163. Let Out: no cap.",
+"primarySource": "Home loan interest certificate from the lending bank. Must match Schedule 24(b) entries — Rule 250.",
+"validationSource": "AIS loan interest data. Schedule 24(b) breakdown must sum to this value.",
+"conflictTrigger": "Self- Occupied + Old Regime: interest exceeds ₹2,00,000 — Category A. Self- Occupied + New Regime: any interest claimed — Category A. Schedule 24(b) total does not match this field — Category A (Rule 250). Bank details not provided in Schedule 24(b) — blocked (Rule 229).",
+"page": 11
+},
+{
+"section": "6 Income from House Property (Schedule B2) — On",
+"paths": [
+"ITR1_IncomeDeductions.TotalIncomeOfHP"
+],
+"description": "Required. Annual Value minus Standard Deduction minus Interest. Minimum value: minus ₹2,00,000 (loss cap). Rule 47.",
+"primarySource": "Computed.",
+"validationSource": "Formula check.",
+"conflictTrigger": "Computed value differs from formula — Category A. New Regime with house property loss: Gross Total Income must equal Salary plus Other Sources only — Rule 161.",
+"page": 11
+},
+{
+"section": "7 Income from Other Sources (Schedule B3)",
+"paths": [
+"ITR1_IncomeDeductions.OthersInc[].OthSrcNatureDesc"
+],
+"description": "Each income item must be categorised by nature. Options: • SAV — Savings account interest • IFD — FD / bank deposit interest • TAX — Income Tax refund interest • FAP — Family pension • DIV — Dividend • NOT89A — Retirement account in notified country • OTH — Any other Each category can appear only once — Rules 50, 51, 55, 56.",
+"primarySource": "AIS pre-filled income data. Taxpayer reviews and confirms each item. Bank interest certificates for IFD.",
+"validationSource": "AIS Interest tile. Form 26Q (TDS on interest). NSDL dividend data.",
+"conflictTrigger": "Same income category selected twice — Category A. Income visible in AIS but not declared, while TDS credit is claimed against it — Category A (Rule 113). Product must ensure TDS credit claims are matched with correspondi ng income declarations .",
+"page": 12
+},
+{
+"section": "7 Income from Other Sources (Schedule B3)",
+"paths": [
+"ITR1_IncomeDeductions.OthersInc[].OthSrcOthAmount"
+],
+"description": "Required. Amount for each category of other source income.",
+"primarySource": "AIS pre-filled amounts. Taxpayer confirms or corrects. For interest income: bank- issued interest certificates serve as primary source.",
+"validationSource": "AIS income amounts per category.",
+"conflictTrigger": "Declared amount differs from AIS amount — taxpayer is shown both figures and asked to confirm which is correct, or to provide a supporting document. See Discrepanc y Resolution note.",
+"page": 12
+},
+{
+"section": "7 Income from Other Sources (Schedule B3)",
+"paths": [
+"ITR1_IncomeDeductions.DeductionUs57iia"
+],
+"description": "Deduction on Family Pension income. Old Regime: lower of one-third of pension or ₹15,000 — Rule 54. New Regime: up to ₹25,000 — Rule 223.",
+"primarySource": "Computed from the family pension amount declared. Taxpayer selects FAP under Other Sources.",
+"validationSource": "AIS family pension data.",
+"conflictTrigger": "Family pension not declared but deduction is claimed — Category A (Rule 53). Deduction exceeds the applicable cap for the regime — Category A.",
+"page": 13
+},
+{
+"section": "7 Income from Other Sources (Schedule B3)",
+"paths": [
+"ITR1_IncomeDeductions.IncomeOthSrc"
+],
+"description": "Required. Total of all individual Other Source income entries. Rule 52.",
+"primarySource": "Computed.",
+"validationSource": "Sum cross-check.",
+"conflictTrigger": "Total does not match sum of individual entries — Category A.",
+"page": 13
+},
+{
+"section": "8 Long-Term Capital Gains under Section 112A (Exe",
+"paths": [
+"LTCG112A.TotSaleCnsdrn"
+],
+"description": "Required. Total sale consideration from listed equity shares or equity- oriented mutual funds during the year.",
+"primarySource": "Broker's Capital Gains Statement (available from broker or CAMS/Karvy). AIS Capital Gains tile.",
+"validationSource": "AIS Capital Gains data reported by exchanges and brokers.",
+"conflictTrigger": "Declared sale considerati on is significantly lower than AIS data — taxpayer is asked to provide broker statement.",
+"page": 13
+},
+{
+"section": "8 Long-Term Capital Gains under Section 112A (Exe",
+"paths": [
+"LTCG112A.TotCstAcqisn"
+],
+"description": "Required. Cost of acquisition. For equity purchased before 31-Jan- 2018, the cost is grandfathered to the market price on that date — whichever is lower of actual cost or 31-Jan- 2018 price, but limited to actual sale price.",
+"primarySource": "Broker's Capital Gains Statement. For pre-2018 purchases, the product must apply grandfathering rules automatically using market price data for that date.",
+"validationSource": "BSE/NSE historical price data for the grandfathering calculation.",
+"conflictTrigger": "Taxpayer- entered cost does not account for the 31- Jan-2018 grandfatheri ng rule — product must detect and correct this.",
+"page": 13
+},
+{
+"section": "8 Long-Term Capital Gains under Section 112A (Exe",
+"paths": [
+"LTCG112A.LongCap112A"
+],
+"description": "Required. Net LTCG = Sale Consideration minus Cost of Acquisition. Maximum value allowed in ITR-1 is ₹1,25,000 (exempt portion). Rules 226, 227. If total LTCG exceeds ₹1,25,000 — taxpayer is ineligible for ITR- 1 and must use ITR-2.",
+"primarySource": "Computed from the two fields above.",
+"validationSource": "AIS Capital Gains tile.",
+"conflictTrigger": "LTCG exceeds ₹1,25,000 — taxpayer cannot file ITR-1. Product must detect this and redirect to ITR-2 before the filing proceeds further.",
+"page": 13
+},
+{
+"section": "§9 Gross Total Income and Total Income",
+"paths": [
+"ITR1_IncomeDeductions.GrossTotIncome"
+],
+"description": "Required. Sum of Salary income + House Property income + Other Source income (excluding LTCG 112A). Rule 22.",
+"primarySource": "Computed.",
+"validationSource": "Formula check.",
+"conflictTrigger": "Old Regime: GTI does not equal sum of the three heads — Category A (Rule 22).",
+"page": 14
+},
+{
+"section": "§9 Gross Total Income and Total Income",
+"paths": [
+"ITR1_IncomeDeductions.TotalIncome"
+],
+"description": "Required. GTI minus Chapter VI-A deductions. Minimum value is zero. ITR-1 cap: total income excluding LTCG must not exceed ₹50,00,000 — Rule 117.",
+"primarySource": "Computed.",
+"validationSource": "Formula and portal cap check.",
+"conflictTrigger": "Total income excluding LTCG exceeds ₹50 lakhs — taxpayer is ineligible for ITR-1 (Rule 117). Product must detect this and redirect to ITR-2.",
+"page": 14
+},
+{
+"section": "§9 Gross Total Income and Total Income",
+"paths": [
+"ITR1_IncomeDeductions.ExemptIncAgriOthUs10"
+],
+"description": "Exempt income must be declared separately — agriculture income, PF receipts, pension from gallantry awardees, insurance policy receipts, scholarships, etc. Note: Gratuity under Section 10(10) must NOT be reported here. For ITR-1 filers (salaried taxpayers), gratuity is an exempt allowance within the Salary schedule (AllwncExemptU s10) and must be reported there to correctly offset the Gross Salary figure. Reporting it here as well will result in a double-count and a Category A mismatch on Net Salary. Each category can appear only once — Rule 185.",
+"primarySource": "Taxpayer declares. For agricultural income: land records or Kisan passbook.",
+"validationSource": "AIS Exempt Income tile.",
+"conflictTrigger": "Agriculture income exceeds ₹5,000 — Category A (Rule 29). Same exempt income category selected more than once — Category A (Rule 185).",
+"page": 14
+},
+{
+"section": "10 Chapter VI-A Deductions (Schedule VIA)",
+"paths": [
+"DeductUndChapVIA.Section80C"
+],
+"description": "80CCC 80CCDEmployeeOrSE Combined cap of ₹1,50,000 for 80C + 80CCC + 80CCD(1) together — Old Regime only. New Regime: none of these can be claimed — Rule 1, 154. Covers: LIC premiums, EPF, PPF, ELSS, school tuition fees, NSC, home loan principal, etc.",
+"primarySource": "Schedule 80C details: taxpayer uploads premium receipts, EPF/PPF statements, ELSS account statements. Each item needs amount and document identification number — Rule 233, 251.",
+"validationSource": "AIS: insurance premium payments, EPF and PPF data. Schedule 80C item totals must match VIA claim — Rules 251, 257.",
+"conflictTrigger": "Old Regime: combined 80C + 80CCC + 80CCD(1) exceeds ₹1,50,000 — Category A (Rule 1). New Regime: any claim under these sections — Category A (Rule 154).",
+"page": 15
+},
+{
+"section": "10 Chapter VI-A Deductions (Schedule VIA)",
+"paths": [
+"DeductUndChapVIA.Section80CCD1B"
+],
+"description": "Additional NPS contribution by employee — over and above the ₹1,50,000 limit. Cap: ₹50,000 (Old Regime). New Regime: not allowed. PRAN number is mandatory — Rule 234.",
+"primarySource": "NPS account statement. PRAN number must be provided.",
+"validationSource": "NPS Trust / NSDL CRA records.",
+"conflictTrigger": "Old Regime: exceeds ₹50,000 — Category A. New Regime: any claim — Category A (Rule 170). PRAN not provided — submission blocked.",
+"page": 15
+},
+{
+"section": "10 Chapter VI-A Deductions (Schedule VIA)",
+"paths": [
+"DeductUndChapVIA.Section80CCDEmployer"
+],
+"description": "Employer's NPS contribution on behalf of the employee. Cap varies by employer type: • Central/State Govt employer: 14% of salary — Rule 121 • Other employers: 10% of salary — Rule 4 • New Regime (PSU, Others, Govt): 14% of salary — Rule Pensioners and 'Not Applicable' category cannot claim this — Rule 116.",
+"primarySource": "Form 16 Part B — employer NPS contribution row.",
+"validationSource": "AIS NPS Employer Contribution data.",
+"conflictTrigger": "Pensioner or 'Not Applicable' employer category + this deduction claimed — Category A (Rule 116). Amount exceeds the applicable percentage cap — Category A.",
+"page": 15
+},
+{
+"section": "10 Chapter VI-A Deductions (Schedule VIA)",
+"paths": [
+"DeductUndChapVIA.Section80D"
+],
+"description": "Health insurance premium deduction — Old Regime only. New Regime: not allowed — Rule 174. Caps: • Self and Family (non-senior): ₹25,000 — Rule 128 • Self and Family (senior citizen): ₹50,000 — Rule 131 • Parents (non- senior): ₹25,000 — Rule 133 • Parents (senior citizen): ₹50,000 — Rule 135 • Combined maximum: ₹1,00,000 — Rule 137 • Preventive health check-up: combined max ₹5,000 — Rule Insurer name and policy number are mandatory — Rules 266–269.",
+"primarySource": "Schedule 80D: health insurance premium receipts. Insurer name, policy number, and premium amount per insured person required.",
+"validationSource": "AIS insurance premium payment data.",
+"conflictTrigger": "Any individual or combined cap exceeded — Category A. New Regime: any claim — Category A. Insurer name or policy number missing when premium is claimed — blocked.",
+"page": 16
+},
+{
+"section": "10 Chapter VI-A Deductions (Schedule VIA)",
+"paths": [
+"DeductUndChapVIA.Section80DD"
+],
+"description": "Deduction for medical treatment of a dependent with a disability — Old Regime only. • Disability (40– 80%): ₹75,000 — Rule 212 • Severe disability (80%+): ₹1,25,000 — Rule 213 Dependent relationship, PAN or Aadhaar of dependent, and Form 10IA acknowledgemen t (for autism/cerebral palsy/multiple disabilities) required.",
+"primarySource": "Schedule 80DD: disability certificate, dependent details, Form 10IA if applicable.",
+"validationSource": "UDID database where applicable.",
+"conflictTrigger": "New Regime: any claim — Category A (Rule 155). Amount does not match the applicable fixed slab — Category A. Deduction claimed but required details not provided — blocked (Rule 215).",
+"page": 16
+},
+{
+"section": "10 Chapter VI-A Deductions (Schedule VIA)",
+"paths": [
+"DeductUndChapVIA.Section80DDB"
+],
+"description": "Deduction for treatment of specified diseases — Old Regime only. New Regime: not allowed — Rule 156. Caps: • Resident (non- senior citizen): ₹40,000 — Rule 7 • Senior Citizen: ₹1,00,000 — Rule 5 Disease must be from the notified list. Name of disease and patient details are mandatory — Rule 249.",
+"primarySource": "Medical certificate from a specialist doctor. Disease name (from notified list) and patient details required.",
+"validationSource": "No government API. Taxpayer- provided certificate only.",
+"conflictTrigger": "New Regime: any claim — Category A. Amount exceeds the applicable cap — Category A. Disease or patient details not provided — blocked.",
+"page": 17
+},
+{
+"section": "10 Chapter VI-A Deductions (Schedule VIA)",
+"paths": [
+"DeductUndChapVIA.Section80E"
+],
+"description": "Interest paid on education loan. No monetary cap — entire interest paid is deductible. Old Regime. Bank name and loan details mandatory — Rule 235.",
+"primarySource": "Schedule 80E: bank certificate showing interest paid in the year.",
+"validationSource": "AIS loan interest data if reported by bank.",
+"conflictTrigger": "New Regime: any claim — blocked. Bank details not provided — blocked (Rule 235). Schedule 80E total does not match VIA claim — blocked (Rule 252, 258).",
+"page": 17
+},
+{
+"section": "10 Chapter VI-A Deductions (Schedule VIA)",
+"paths": [
+"DeductUndChapVIA.Section80EE"
+],
+"description": "80EEA 80EEB Additional interest deductions on housing or vehicle loans: • 80EE: First home loan ≤ ₹35L, sanctioned Apr 2016–Mar 2017. Cap ₹50,000 — Rule 122, 237, 262 • 80EEA: Affordable housing loan (stamp duty value ≤ ₹45L), sanctioned Apr 2019–Mar 2022. Cap ₹1,50,000 — Rule 123, 239, 240 • 80EEB: Electric vehicle loan, sanctioned Apr 2019–Mar 2023. Cap ₹1,50,000 — Rule 125, 242 Note: 80EE and 80EEA cannot both be claimed — Rule 124.",
+"primarySource": "Loan sanction certificate and interest certificate from the lending bank. Loan sanction date must fall within the specified window.",
+"validationSource": "AIS loan data. Bank details in 80EE/80EEA must also appear in Schedule 24(b) — Rules 231, 232.",
+"conflictTrigger": "New Regime: any claim under any of these — blocked. 80EE and 80EEA both non-zero — Category A (Rule 124). Sanction date outside the applicable window — blocked. Stamp duty value exceeds ₹45L for 80EEA — blocked. Loan amount exceeds ₹35L for 80EE — blocked. Bank details not in Schedule 24(b) — blocked.",
+"page": 17
+},
+{
+"section": "10 Chapter VI-A Deductions (Schedule VIA)",
+"paths": [
+"DeductUndChapVIA.Section80G"
+],
+"description": "Donations to approved funds and charitable institutions. Old Regime only. New Regime: not allowed — Rule 157. Donation in cash above ₹2,000 is not allowed — Rule 88. Donee PAN must be provided and must not match taxpayer's own PAN — Rule 78. Same Donee PAN cannot appear more than once — Rule 118.",
+"primarySource": "Schedule 80G: donation receipts with Donee name, PAN, ARN, address, amount in cash versus other mode.",
+"validationSource": "Donee PAN verification. NGO/Trust registration database.",
+"conflictTrigger": "80G claimed in VIA but Schedule 80G not filled — Category A (Rule 8). Cash donation exceeds ₹2,000 — disallowed (Rule 88). Donee PAN equals taxpayer PAN — Category A (Rule 78). New Regime: any claim — Category A (Rule 157).",
+"page": 18
+},
+{
+"section": "10 Chapter VI-A Deductions (Schedule VIA)",
+"paths": [
+"DeductUndChapVIA.Section80GG"
+],
+"description": "Rent paid deduction for taxpayers who do not receive HRA. Maximum is the least of: ₹60,000 per year, 25% of total income, or excess of rent paid over 10% of total income — Rule 114. Form 10BA must be filed — Category D Rule 4. Cannot be claimed alongside HRA exemption for the same period — Rule 120.",
+"primarySource": "Form 10BA acknowledgem ent number. Monthly rent amount and landlord details declared by taxpayer.",
+"validationSource": "AIS data. If HRA under 10(13A) has been claimed, 80GG is blocked.",
+"conflictTrigger": "HRA exemption and 80GG both claimed — Category A (Rule 120). Amount exceeds the applicable limit — blocked. Form 10BA not filed — Category D warning.",
+"page": 18
+},
+{
+"section": "10 Chapter VI-A Deductions (Schedule VIA)",
+"paths": [
+"DeductUndChapVIA.Section80GGA"
+],
+"description": "Donations to scientific research or rural development organisations. New Regime: not allowed — Rule 176. Cash donations above ₹2,000 not allowed — Rule 144. Donee PAN must not match taxpayer PAN — Rule 94.",
+"primarySource": "Schedule 80GGA: donation receipts with Donee PAN, cash / other mode split.",
+"validationSource": "Donee PAN verification.",
+"conflictTrigger": "New Regime: any claim — blocked. Cash donation exceeds ₹2,000 — disallowed. Details not provided when deduction is claimed — blocked (Rule 91).",
+"page": 19
+},
+{
+"section": "10 Chapter VI-A Deductions (Schedule VIA)",
+"paths": [
+"DeductUndChapVIA.Section80GGC"
+],
+"description": "Contributions to registered political parties. Only contributions in modes other than cash are allowed. Date of contribution must fall between 01- Apr-2024 and 31- Mar-2025 for AY 2025-26 — Rule 220.",
+"primarySource": "Schedule 80GGC: contribution receipts, date of contribution, mode of payment.",
+"validationSource": "Electoral trust or political party contribution records.",
+"conflictTrigger": "Cash contribution — not eligible. Contributio n date outside AY 2024-25 — blocked. Details not provided — blocked (Rules 207, 208).",
+"page": 19
+},
+{
+"section": "10 Chapter VI-A Deductions (Schedule VIA)",
+"paths": [
+"DeductUndChapVIA.Section80TTA"
+],
+"description": "Savings account interest deduction. Maximum ₹10,000. Old Regime only. Not available to Senior Citizens — they must use 80TTB instead — Rule 13.",
+"primarySource": "AIS Interest tile — savings account interest.",
+"validationSource": "AIS savings interest data.",
+"conflictTrigger": "Old Regime: exceeds ₹10,000 — Category A (Rule 11). Taxpayer is a Senior Citizen (born on or before 01- Apr-1965): cannot claim 80TTA — Category A (Rule 13). New Regime: any claim — Category A (Rule 158).",
+"page": 19
+},
+{
+"section": "10 Chapter VI-A Deductions (Schedule VIA)",
+"paths": [
+"DeductUndChapVIA.Section80TTB"
+],
+"description": "Interest income deduction for Senior Citizens (age 60 and above). Covers savings, FD, and deposit interest. Maximum ₹50,000. Old Regime only.",
+"primarySource": "AIS Interest tile — total bank and deposit interest for senior citizen taxpayers.",
+"validationSource": "AIS data.",
+"conflictTrigger": "Taxpayer is below 60 years of age — cannot claim 80TTB — Category A (Rule 15). New Regime: any claim — Category A (Rule 159).",
+"page": 19
+},
+{
+"section": "10 Chapter VI-A Deductions (Schedule VIA)",
+"paths": [
+"DeductUndChapVIA.Section80U"
+],
+"description": "Self-disability deduction — Old Regime only. • Disability (40– 80%): ₹75,000 — Rule 210 • Severe disability (80%+): ₹1,25,000 — Rule 209 Form 10IA acknowledgemen t required for autism, cerebral palsy, or multiple disabilities. UDID number required.",
+"primarySource": "Schedule 80U: nature of disability, disability certificate, UDID number, Form 10IA if applicable.",
+"validationSource": "UDID database where applicable.",
+"conflictTrigger": "New Regime: any claim — blocked. Amount does not match applicable slab — Category A. Required documents not provided — blocked (Rule 216).",
+"page": 20
+},
+{
+"section": "10 Chapter VI-A Deductions (Schedule VIA)",
+"paths": [
+"DeductUndChapVIA.AnyOthSec80CCH"
+],
+"description": "Agniveer Corpus Fund contribution under section 80CCH. Available only to Central Government employees enrolled in the Agnipath scheme, aged 17–27 years at time of joining. Maximum: 46.2% of salary under section 17(1) — Rule 195.",
+"primarySource": "Payroll certificate from the Ministry of Defence or Central Government employer for Agniveer scheme enrolees. This field is applicable to a very small subset of ITR- 1 filers and is handled as a manual declaration.",
+"validationSource": "Ministry of Defence payroll records.",
+"conflictTrigger": "Non-Central Govt employee claims this — blocked (Rule 196). Amount exceeds 46.2% of salary — Category A (Rule 195).",
+"page": 20
+},
+{
+"section": "10 Chapter VI-A Deductions (Schedule VIA)",
+"paths": [
+"DeductUndChapVIA.TotalChapVIADeductions"
+],
+"description": "Required. Sum of all individual deductions above. Cannot exceed Gross Total Income — Rules 17, 18.",
+"primarySource": "Computed.",
+"validationSource": "Formula check.",
+"conflictTrigger": "Total exceeds GTI — capped at GTI (Rule 18). Sum does not match individual totals — Category A (Rule 17).",
+"page": 20
+},
+{
+"section": "11 Tax Computation (Schedule C)",
+"paths": [
+"ITR1_TaxComputation.TotalTaxPayable"
+],
+"description": "Required. Tax on Total Income computed as per the applicable slab rates for Old or New Regime.",
+"primarySource": "Computed based on Total Income and the regime selected.",
+"validationSource": "Verified against published slab rate tables for AY 2025-26.",
+"conflictTrigger": "Tax computed does not match expected slab-based output — internal calculation error. Must be resolved before the return is filed.",
+"page": 20
+},
+{
+"section": "11 Tax Computation (Schedule C)",
+"paths": [
+"ITR1_TaxComputation.Rebate87A"
+],
+"description": "Rebate for resident individual taxpayers. Maximum ₹25,000. Old Regime: available if Total Income (including LTCG) does not exceed ₹5,00,000. Rebate up to ₹12,500 — Rule 201. New Regime: available if Total Income excluding LTCG does not exceed ₹7,22,230. Rebate up to ₹25,000 — Rule 200.",
+"primarySource": "Computed and applied automatically based on Total Income and regime.",
+"validationSource": "Total income computation output.",
+"conflictTrigger": "Old Regime: Total Income (including LTCG) exceeds ₹5,00,000 but rebate is claimed — Category A (Rule 23). New Regime: Total Income excluding LTCG exceeds ₹7,22,230 but rebate is claimed — Category A (Rule 200).",
+"page": 21
+},
+{
+"section": "11 Tax Computation (Schedule C)",
+"paths": [
+"ITR1_TaxComputation.EducationCess"
+],
+"description": "Required. Health and Education Cess at 4% of (Tax after Rebate). Rule 26.",
+"primarySource": "Computed.",
+"validationSource": "Formula: (TaxPayableOnRe bate × 4%).",
+"conflictTrigger": "Value is not 4% of tax after rebate — Category A (Rule 26).",
+"page": 21
+},
+{
+"section": "11 Tax Computation (Schedule C)",
+"paths": [
+"ITR1_TaxComputation.Section89"
+],
+"description": "Relief for arrears or advance salary under section 89(1). Form 10E must be filed on the e- filing portal before this relief is claimed — Rule 126, Category D Rule 3.",
+"primarySource": "Taxpayer provides details of arrears. Form 10E acknowledgem ent from the portal.",
+"validationSource": "Form 10E filed on the e-filing portal.",
+"conflictTrigger": "Salary or perquisite figures are nil but relief under 89 is claimed — Category A (Rule 126). Form 10E not filed — Category D warning. The relief claim may not be accepted.",
+"page": 21
+},
+{
+"section": "11 Tax Computation (Schedule C)",
+"paths": [
+"ITR1_TaxComputation.IntrstPay"
+],
+"description": "(234A, 234B, 234C, 234F) Interest for: • Late filing — 234A • Shortfall in advance tax — 234B • Deferment of advance tax instalments — 234C • Late filing fee — 234F (max ₹5,000; ₹1,000 if income ≤ ₹5L) All are computed based on filing date and advance tax paid.",
+"primarySource": "Computed based on filing date, advance tax payment schedule, and tax liability.",
+"validationSource": "Advance tax payment dates and amounts from Schedule IT (challan records).",
+"conflictTrigger": "Total interest and fee does not match the sum of 234A + 234B + 234C + 234F — Category A (Rules 27, 28).",
+"page": 21
+},
+{
+"section": "12 Taxes Paid — TDS, TCS, Advance Tax, Self-Ass",
+"paths": [
+"TaxPaid.TaxesPaid.TDS"
+],
+"description": "Required. Total TDS credit claimed. Must equal sum of TDS Schedule 1 (salary) + TDS Schedule 2 (other income) + TDS Schedule 3 (rent) — Rules 103, 104, 108.",
+"primarySource": "Auto- populated from Form 26AS and AIS. Taxpayer reviews each TDS entry before confirming.",
+"validationSource": "TRACES Form 26AS — the authoritative record of all TDS deductions. AIS TDS tile.",
+"conflictTrigger": "TDS claimed exceeds TDS shown in Form 26AS — discrepancy resolution triggered. Taxpayer is asked to reconcile with the employer or bank. TDS credit claimed but the correspondi ng income has not been declared — Category A (Rule 113). Product must ensure income and TDS credits are always matched.",
+"page": 22
+},
+{
+"section": "12 Taxes Paid — TDS, TCS, Advance Tax, Self-Ass",
+"paths": [
+"TaxPaid.TaxesPaid.TCS"
+],
+"description": "Required. Total TCS credit claimed — Rules 96, 97, 109.",
+"primarySource": "Auto- populated from Form 26AS TCS schedule.",
+"validationSource": "TRACES 26AS TCS data.",
+"conflictTrigger": "TCS claimed exceeds TCS collected as per 26AS — Category A (Rule 96).",
+"page": 22
+},
+{
+"section": "12 Taxes Paid — TDS, TCS, Advance Tax, Self-Ass",
+"paths": [
+"TaxPaid.TaxesPaid.AdvanceTax"
+],
+"description": "Required. Total advance tax paid between 01-Apr- 2024 and 31- Mar-2025. Reconciled against challan entries in Schedule IT — Rule 110.",
+"primarySource": "Challan details entered by taxpayer: BSR code, challan serial number, date, and amount.",
+"validationSource": "OLTAS challan payment records verifiable through the NSDL portal.",
+"conflictTrigger": "Advance tax total does not equal the sum of Schedule IT challans within the advance tax date range — Category A (Rule 110).",
+"page": 22
+},
+{
+"section": "12 Taxes Paid — TDS, TCS, Advance Tax, Self-Ass",
+"paths": [
+"TaxPaid.TaxesPaid.SelfAssessmentTax"
+],
+"description": "Required. Self- assessment tax paid on or after 01-Apr-2025. Reconciled against Schedule IT — Rule 111.",
+"primarySource": "Challan details for tax paid after the financial year end.",
+"validationSource": "OLTAS challan verification.",
+"conflictTrigger": "SAT total does not equal Schedule IT entries dated after 31-Mar-2025 — Category A (Rule 111).",
+"page": 23
+},
+{
+"section": "12 Taxes Paid — TDS, TCS, Advance Tax, Self-Ass",
+"paths": [
+"TaxPaid.TaxesPaid.TotalTaxesPaid"
+],
+"description": "Required. TDS + TCS + Advance Tax + Self- Assessment Tax — Rule 104.",
+"primarySource": "Computed.",
+"validationSource": "Formula check.",
+"conflictTrigger": "Sum does not match component s— Category A.",
+"page": 23
+},
+{
+"section": "12 Taxes Paid — TDS, TCS, Advance Tax, Self-Ass",
+"paths": [
+"TaxPaid.BalTaxPayable"
+],
+"description": "Required. Total tax and interest payable minus Total Taxes Paid. Minimum zero — Rule 106.",
+"primarySource": "Computed.",
+"validationSource": "Formula check.",
+"conflictTrigger": "—",
+"page": 23
+},
+{
+"section": "13 Refund and Bank Account Details",
+"paths": [
+"Refund.RefundDue"
+],
+"description": "Required. Total Taxes Paid minus Total Tax and Interest Payable, if positive — Rule 105.",
+"primarySource": "Computed.",
+"validationSource": "Formula check.",
+"conflictTrigger": "Refund amount does not match formula — Category A.",
+"page": 23
+},
+{
+"section": "13 Refund and Bank Account Details",
+"paths": [
+"Refund.BankAccountDtls[].IFSCCode"
+],
+"description": "Required. IFSC code of the bank account nominated for refund credit — Rule 107. At least one account must be marked as the refund account.",
+"primarySource": "Taxpayer provides bank account details during onboarding.",
+"validationSource": "RBI IFSC master database and GIFT IFSC codes. Validated in real time.",
+"conflictTrigger": "IFSC code not found in RBI database — Category A (Rule 107). No account marked for refund — submission blocked.",
+"page": 23
+},
+{
+"section": "13 Refund and Bank Account Details",
+"paths": [
+"Refund.BankAccountDtls[].BankAccountNo"
+],
+"description": "Required. Bank account number, maximum 20 characters.",
+"primarySource": "Taxpayer provided.",
+"validationSource": "Validated via penny-drop or micro-deposit verification.",
+"conflictTrigger": "Account number fails validation — blocked.",
+"page": 23
+},
+{
+"section": "14 Schedule 10(13A) — HRA Exemption Calculation",
+"paths": [
+"ScheduleEA10_13A.Placeofwork"
+],
+"description": "Required. Whether the taxpayer works in a metro city (Delhi, Mumbai, Chennai, Kolkata) or non- metro. Metro: HRA cap is 50% of salary. Non-Metro: 40% of salary.",
+"primarySource": "Taxpayer declares city of work.",
+"validationSource": "None — taxpayer declaration.",
+"conflictTrigger": "—",
+"page": 23
+},
+{
+"section": "14 Schedule 10(13A) — HRA Exemption Calculation",
+"paths": [
+"ScheduleEA10_13A.ActlHRARecv"
+],
+"description": "Required. Actual HRA received from the employer during the year.",
+"primarySource": "Form 16 Part B — HRA component.",
+"validationSource": "AIS salary breakup.",
+"conflictTrigger": "—",
+"page": 24
+},
+{
+"section": "14 Schedule 10(13A) — HRA Exemption Calculation",
+"paths": [
+"ScheduleEA10_13A.ActlRentPaid"
+],
+"description": "Required. Actual annual rent paid by the taxpayer.",
+"primarySource": "Rent receipts or bank transfer records. Lease agreement as supporting document.",
+"validationSource": "AIS rent data if available. Form 26AS TDS under 194IB (tenant TDS) if monthly rent exceeds ₹50,000.",
+"conflictTrigger": "HRA claimed exceeds actual rent paid minus 10% of salary — blocked (Rule 271). HRA claimed exceeds 50% (metro) or 40% (non-metro) of salary — blocked (Rule 272).",
+"page": 24
+},
+{
+"section": "14 Schedule 10(13A) — HRA Exemption Calculation",
+"paths": [
+"ScheduleEA10_13A.EligbleExmpAllwncUs13A"
+],
+"description": "Required. Eligible HRA exemption = lowest of: (a) Actual HRA received (b) Actual rent paid minus 10% of (salary + DA) (c) 40% or 50% of (salary + DA) based on city type Rule 273.",
+"primarySource": "Computed from the three inputs above.",
+"validationSource": "Cross-checked against HRA exemption claimed in the salary schedule — Rule 278.",
+"conflictTrigger": "HRA exemption in salary schedule does not match the eligible amount computed here — Category A (Rule 278). New Regime: any HRA exemption claimed — Category A (Rules 150, 166).",
+"page": 24
+},
+{
+"section": "16 Verification and Signing",
+"paths": [
+"Verification.Declaration"
+],
+"description": "Required. The taxpayer (or authorised representative) declares that the information furnished is true and correct to the best of their knowledge.",
+"primarySource": "Taxpayer confirms during final review before submission.",
+"validationSource": "None.",
+"conflictTrigger": "—",
+"page": 26
+},
+{
+"section": "16 Verification and Signing",
+"paths": [
+"Verification.Capacity"
+],
+"description": "Required. S = Self, R = Representative. For an individual filing their own return, this will always be 'S'.",
+"primarySource": "Auto-set based on who is completing the filing.",
+"validationSource": "None.",
+"conflictTrigger": "—",
+"page": 26
+},
+{
+"section": "16 Verification and Signing",
+"paths": [
+"Verification.Place"
+],
+"description": "Required. City from which the return is being filed. Maximum 50 characters.",
+"primarySource": "Taxpayer declares at time of final submission.",
+"validationSource": "None.",
+"conflictTrigger": "—",
+"page": 26
+}
+]
+}
+}

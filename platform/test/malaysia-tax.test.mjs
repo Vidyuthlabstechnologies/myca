@@ -56,6 +56,8 @@ test('non-residents pay a flat 30% with no reliefs', () => {
 
 test('band tax at the top band', () => {
   assert.equal(bandTaxSen(2500000 * 100, [{ fromSen: 0, toSen: 2000000 * 100, basisPoints: 0 }, { fromSen: 2000000 * 100, toSen: null, basisPoints: 3000 }]), 150000 * 100);
+  assert.equal(bandTaxSen(500001, [{ fromSen: 0, toSen: 500000, basisPoints: 0 }, { fromSen: 500000, toSen: null, basisPoints: 100 }]), 0, 'one sen at 1% rounds once, to nothing');
+  assert.equal(bandTaxSen(100, [{ fromSen: 50, toSen: null, basisPoints: 100 }]), null, 'a band table that does not start at zero is refused');
 });
 
 test('service tax: 8% standard, 6% reduced, rental moves to 6% in 2026, flat card charge', () => {

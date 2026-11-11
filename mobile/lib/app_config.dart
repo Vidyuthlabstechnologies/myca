@@ -26,3 +26,8 @@ class AppConfig {
 
   bool get hosted => cloudUrl.isNotEmpty;
 }
+
+String editionFor(String? flavor, {String defined = const String.fromEnvironment('MYCA_EDITION')}) {
+  final pick = (defined.isNotEmpty ? defined : flavor ?? '').toUpperCase();
+  return pick == 'US' ? 'US' : 'IN';
+}

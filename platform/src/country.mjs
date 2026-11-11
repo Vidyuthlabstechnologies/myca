@@ -74,6 +74,10 @@ export function setCurrentCountry(stateOrCode) {
   return currentCountry;
 }
 
+export function currentCountryCode() {
+  return currentCountry;
+}
+
 export function formatMoneyCurrent(amount, options) {
   return formatMoney({ country: currentCountry }, amount, options);
 }

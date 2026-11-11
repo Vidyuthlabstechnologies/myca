@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/services.dart';
@@ -143,3 +144,22 @@ Future<bool> sharePdfFromDevice(String name, Uint8List bytes) =>
 
 Future<bool> printPdfFromDevice(String name, Uint8List bytes) =>
     Printing.layoutPdf(name: name, onLayout: (_) async => bytes);
+
+String _randomHex40() {
+  final random = Random.secure();
+  return List.generate(20, (_) => random.nextInt(256).toRadixString(16).padLeft(2, '0')).join();
+}
+
+Future<String> deviceInstallationId() async {
+  const key = 'device.installationId';
+  final prefs = await SharedPreferences.getInstance();
+  final saved = prefs.getString(key) ?? '';
+  if (RegExp(r'^[0-9a-f]{40}$').hasMatch(saved)) return saved;
+  final made = _randomHex40();
+  await prefs.setString(key, made);
+  return made;
+}
+
+final String _sessionInstallationId = _randomHex40();
+
+Future<String> sessionInstallationId() async => _sessionInstallationId;

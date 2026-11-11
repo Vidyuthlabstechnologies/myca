@@ -26,6 +26,7 @@ abstract class StoreBilling {
   Future<bool> available();
   Future<Map<String, StoreProduct>> products(Set<String> ids);
   Future<bool> buy(String productId, String accountId);
+  Future<bool> buyOnce(String productId, String accountId);
   Future<void> restore(String accountId);
   Future<void> finish(StorePurchase purchase);
 }
@@ -71,6 +72,13 @@ class PlayBilling implements StoreBilling {
   }
 
   @override
+  Future<bool> buyOnce(String productId, String accountId) async {
+    final details = _details[productId];
+    if (details == null) return false;
+    return _store.buyConsumable(purchaseParam: PurchaseParam(productDetails: details, applicationUserName: accountId));
+  }
+
+  @override
   Future<void> restore(String accountId) => _store.restorePurchases(applicationUserName: accountId);
 
   @override
@@ -81,9 +89,10 @@ class PlayBilling implements StoreBilling {
 }
 
 class PurchaseRecorder {
-  PurchaseRecorder({required this.store, required this.record, required this.onResult});
+  PurchaseRecorder({required this.store, required this.record, required this.onResult, this.accepts});
 
   final StoreBilling store;
+  final bool Function(String productId)? accepts;
   final Future<void> Function(String productId, String token) record;
   final void Function(StorePurchase purchase, Object? error) onResult;
   StreamSubscription<List<StorePurchase>>? _sub;
@@ -95,6 +104,7 @@ class PurchaseRecorder {
 
   Future<void> handle(List<StorePurchase> list) async {
     for (final p in list) {
+      if (accepts != null && !accepts!(p.productId)) continue;
       if (p.state != StorePurchaseState.purchased) {
         if (p.state != StorePurchaseState.pending) await store.finish(p);
         onResult(p, null);

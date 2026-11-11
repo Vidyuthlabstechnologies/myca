@@ -6,6 +6,7 @@ import { periodSummary } from './period-summary.mjs';
 import { creditsToDate } from './advance-tax.mjs';
 import { findTaxGuidance, loadTaxModule, rupees, taxModuleCatalog } from './tax-modules.mjs';
 import { countryOf } from './country.mjs';
+import { itrGuidanceSections } from './itr-knowledge.mjs';
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const FY_LABEL = /^\d{4}-\d{2}$/;
@@ -425,11 +426,11 @@ export function taxPrompt(question, sections, onDate, jurisdiction = 'IN') {
     context += block;
   }
   const disclaimer = disclaimerFor(jurisdiction);
-  const tools = [...new Set(sections.flatMap((section) => taxModuleCatalog().find((module) => module.name === section.module)?.tools || []))];
+  const tools = [...new Set([...sections.flatMap((section) => taxModuleCatalog().find((module) => module.name === section.module)?.tools || []), ...(sections.some((section) => section.module === 'itr-knowledge') ? ['itr_knowledge', 'check_itr_json'] : [])])];
   return {
     context,
     systemPrompt: [
-      jurisdiction === 'US' ? `You are MyCA's tax assistant for individuals, small businesses and their CPAs in the United States, for federal income tax. The guidance below is current for ${onDate}.` : `You are MyCA's tax assistant for small businesses and their CAs in India. The guidance below is current for ${onDate}.`,
+      jurisdiction === 'US' ? `You are MyCA's tax assistant for individuals, small businesses and their CPAs in the United States, for federal income tax. The guidance below is current for ${onDate}.` : `You are MyCA's tax assistant for small businesses and their CAs in India. The guidance below is current for ${onDate}; items marked [itr-knowledge/...] come from the CBDT's AY 2025-26 ITR schemas, validation rules and MyCA's filing guides.`,
       'Answer only from the guidance supplied, and put the reference in square brackets, such as [module/section], after each statement you take from it.',
       'Never state an amount, rate, date, limit or section number that is not in the guidance, and never calculate a tax figure; for a computation, name the MyCA tool that does it.',
       `MyCA tools for this topic: ${tools.join(', ') || 'none'}.`,
@@ -460,7 +461,9 @@ export async function askTax(state, args = {}, actor) {
   const onDate = ISO_DATE.test(String(args.asOf || '')) ? args.asOf : localToday();
   const jurisdiction = countryOf(state) === 'US' ? 'US' : 'IN';
   const disclaimer = disclaimerFor(jurisdiction);
-  const sections = findTaxGuidance(question, { onDate, limit: 3, module: args.module ? String(args.module) : undefined, jurisdiction });
+  const moduleSections = findTaxGuidance(question, { onDate, limit: 3, module: args.module ? String(args.module) : undefined, jurisdiction });
+  const itrSections = args.module || jurisdiction !== 'IN' ? [] : itrGuidanceSections(question, { limit: moduleSections.length ? 2 : 3 });
+  const sections = [...moduleSections, ...itrSections];
   if (!sections.length) return { ok: true, question, onDate, sections, answered: false, jurisdiction, modules: taxModuleCatalog(jurisdiction).map((module) => ({ name: module.name, description: module.description })) };
   const built = taxPrompt(question, sections, onDate, jurisdiction);
   const result = await performExternalAction(state, {

@@ -70,7 +70,25 @@ String longDate(String iso) {
   final month = parts.length == 3 ? int.tryParse(parts[1]) : null;
   final day = parts.length == 3 ? int.tryParse(parts[2]) : null;
   if (month == null || day == null || month < 1 || month > 12) return iso;
+  if (moneyCountry == 'US') return '${_months[month - 1]} $day, ${parts[0]}';
   return '$day ${_months[month - 1]} ${parts[0]}';
+}
+
+String usDate(String iso) {
+  final parts = iso.split('-');
+  if (parts.length != 3 || parts.any((p) => int.tryParse(p) == null)) return iso;
+  return '${parts[1].padLeft(2, '0')}/${parts[2].padLeft(2, '0')}/${parts[0]}';
+}
+
+String? isoFromUsDate(String typed) {
+  final match = RegExp(r'^(\d{1,2})/(\d{1,2})/(\d{4})$').firstMatch(typed.trim());
+  if (match == null) return null;
+  final month = int.parse(match.group(1)!);
+  final day = int.parse(match.group(2)!);
+  final year = int.parse(match.group(3)!);
+  final date = DateTime.tryParse('${year.toString().padLeft(4, '0')}-${month.toString().padLeft(2, '0')}-${day.toString().padLeft(2, '0')}');
+  if (date == null || date.month != month || date.day != day) return null;
+  return isoDate(date);
 }
 
 String plainNumber(num value) => value == value.roundToDouble()
