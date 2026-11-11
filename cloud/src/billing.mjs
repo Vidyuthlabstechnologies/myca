@@ -1,4 +1,5 @@
 import { createSign, timingSafeEqual } from 'node:crypto';
+import { createStripe, stripeSignatureValid } from './stripe.mjs';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 export const TRIAL_DAYS = 14;
@@ -22,7 +23,18 @@ export const PLANS = Object.freeze({
 
 const PAID = ['essentials', 'pro', 'firm'];
 export const US_RETURN_PRICE_USD = 39;
+export const US_PLUS_PRICE_USD = 79;
+export const US_EXPERT_REVIEW_PRICE_USD = 129;
+export const US_WAITLIST_PRODUCTS = Object.freeze({ done_for_you: 'Done For You', international: 'International add-on' });
+export const US_PLUS_TOOLS = Object.freeze(['read_irs_letter', 'us_withholding_check', 'us_estimated_payments']);
+export const US_RETURN_PRICE_LINE = (price) => `$${price} to file. Federal only. No state, refund or upgrade fees.`;
 const US_RETURN_YEARS_BACK = 3;
+const PLUS_LIVE = new Set(['active', 'trialing', 'past_due']);
+const CARD_RETURN_PRODUCT = 'card:us_return';
+
+function dollars(value, fallback) {
+  return /^[0-9]{1,4}$/.test(String(value || '').trim()) ? Number(value) : fallback;
+}
 
 function cheapestWith(feature) {
   return PAID.map((id) => PLANS[id]).filter((plan) => plan.features.includes(feature)).map((plan) => plan.title);
@@ -58,7 +70,10 @@ export function billingConfigFromEnv(env = process.env) {
   return {
     packageName: unset(env.MYCA_PLAY_PACKAGE),
     productIds: { essentials: unset(env.MYCA_PLAY_PRODUCT_ESSENTIALS), pro: unset(env.MYCA_PLAY_PRODUCT_PRO), firm: unset(env.MYCA_PLAY_PRODUCT_FIRM) },
-    usReturn: { packageName: unset(env.MYCA_PLAY_PACKAGE_US), productId: unset(env.MYCA_PLAY_PRODUCT_US_1040), priceUsd: /^[0-9]{1,4}$/.test(String(env.MYCA_US_RETURN_PRICE_USD || '').trim()) ? Number(env.MYCA_US_RETURN_PRICE_USD) : US_RETURN_PRICE_USD },
+    usReturn: { packageName: unset(env.MYCA_PLAY_PACKAGE_US), productId: unset(env.MYCA_PLAY_PRODUCT_US_1040), priceUsd: dollars(env.MYCA_US_RETURN_PRICE_USD, US_RETURN_PRICE_USD) },
+    usPlus: { priceUsd: dollars(env.MYCA_US_PLUS_PRICE_USD, US_PLUS_PRICE_USD) },
+    usExpertReview: { on: unset(env.MYCA_US_EXPERT_REVIEW) === '1', priceUsd: dollars(env.MYCA_US_EXPERT_REVIEW_PRICE_USD, US_EXPERT_REVIEW_PRICE_USD) },
+    stripe: { secretKey: unset(env.MYCA_STRIPE_SECRET_KEY), webhookSecret: unset(env.MYCA_STRIPE_WEBHOOK_SECRET), plusPriceId: unset(env.MYCA_STRIPE_PRICE_US_PLUS), returnUrl: unset(env.MYCA_US_CHECKOUT_RETURN_URL) },
     notifyToken: unset(env.MYCA_PLAY_NOTIFY_TOKEN),
     serviceAccount: parseServiceAccount(unset(env.MYCA_PLAY_SERVICE_ACCOUNT_JSON)),
     prices,
@@ -67,6 +82,10 @@ export function billingConfigFromEnv(env = process.env) {
 
 export function billingConfigProblem(env = process.env) {
   const cfg = billingConfigFromEnv(env);
+  const card = cfg.stripe;
+  if ((card.secretKey || card.webhookSecret) && !(card.secretKey && card.webhookSecret && card.returnUrl)) return 'Card checkout needs all of MYCA_STRIPE_SECRET_KEY, MYCA_STRIPE_WEBHOOK_SECRET and MYCA_US_CHECKOUT_RETURN_URL.';
+  if (card.returnUrl && !/^https:\/\//.test(card.returnUrl) && !/^http:\/\/(localhost|127\.0\.0\.1)[:/]/.test(card.returnUrl)) return 'MYCA_US_CHECKOUT_RETURN_URL must be an https address.';
+  if (card.secretKey && !/^(sk|rk)_(test|live)_/.test(card.secretKey)) return 'MYCA_STRIPE_SECRET_KEY is not a Stripe secret key (it starts sk_live_ or sk_test_).';
   if (!(cfg.packageName && PAID.some((plan) => cfg.productIds[plan])) && !((cfg.usReturn.packageName || cfg.packageName) && cfg.usReturn.productId)) return '';
   const given = unset(env.MYCA_PLAY_SERVICE_ACCOUNT_JSON);
   if (given && !cfg.serviceAccount) return 'MYCA_PLAY_SERVICE_ACCOUNT_JSON is not a service account key: paste the whole JSON file Google Cloud gave for the Play service account.';
@@ -96,9 +115,16 @@ function fail(error, extra = {}) {
 export function createBilling({ db, config = {}, now = () => Date.now(), fetchImpl = (...args) => globalThis.fetch(...args), log = () => {} }) {
   const cfg = { packageName: '', productIds: {}, notifyToken: '', serviceAccount: null, prices: {}, ...config };
   cfg.usReturn = { packageName: '', productId: '', priceUsd: US_RETURN_PRICE_USD, ...(config.usReturn || {}) };
+  cfg.usPlus = { priceUsd: US_PLUS_PRICE_USD, ...(config.usPlus || {}) };
+  cfg.usExpertReview = { on: false, priceUsd: US_EXPERT_REVIEW_PRICE_USD, ...(config.usExpertReview || {}) };
+  cfg.stripe = { secretKey: '', webhookSecret: '', plusPriceId: '', returnUrl: '', ...(config.stripe || {}) };
   const enabled = Boolean(cfg.packageName && PAID.some((plan) => cfg.productIds[plan]));
   const usPackage = cfg.usReturn.packageName || cfg.packageName;
-  const usEnforced = Boolean(usPackage && cfg.usReturn.productId);
+  const usPlayEnabled = Boolean(usPackage && cfg.usReturn.productId);
+  const cardEnabled = Boolean(cfg.stripe.secretKey && cfg.stripe.webhookSecret && cfg.stripe.returnUrl);
+  const plusBuyable = cardEnabled && Boolean(cfg.stripe.plusPriceId);
+  const usEnforced = usPlayEnabled || cardEnabled;
+  const stripe = cardEnabled ? createStripe({ secretKey: cfg.stripe.secretKey, fetchImpl }) : null;
   const planOfProduct = (productId) => PAID.find((plan) => cfg.productIds[plan] && cfg.productIds[plan] === productId) || null;
   let cachedToken = { value: '', until: 0 };
 
@@ -197,7 +223,7 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
     const business = await db.query('select created_at as "createdAt", demo, kind from businesses where id = $1', [businessId]);
     if (business.rows[0]?.kind === 'household') {
       const plan = PLANS.household;
-      return { ok: true, enforced: enabled, plan: plan.id, planTitle: plan.title, limits: plan.limits, features: plan.features, trial: null, subscription: null, manageUrl: '', usReturn: { enforced: usEnforced, priceUsd: cfg.usReturn.priceUsd, productId: cfg.usReturn.productId } };
+      return { ok: true, enforced: enabled, plan: plan.id, planTitle: plan.title, limits: plan.limits, features: plan.features, trial: null, subscription: null, manageUrl: '', usReturn: { enforced: usEnforced, priceUsd: cfg.usReturn.priceUsd, productId: cfg.usReturn.productId, checkout: checkoutKind() }, usPlus: await usPlus(businessId) };
     }
     if (business.rows[0]?.demo) {
       return { ok: true, enforced: enabled, plan: 'pro', planTitle: PLANS.pro.title, limits: PLANS.pro.limits, features: PLANS.pro.features, trial: null, demo: true, subscription: null, manageUrl: '' };
@@ -252,7 +278,7 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
   }
 
   async function usPurchase(businessId, taxYear) {
-    const found = await db.query('select product_id as "productId", price_usd as "priceUsd", test_purchase as "testPurchase", created_at as "createdAt" from us_return_purchases where business_id = $1 and tax_year = $2', [businessId, taxYear]);
+    const found = await db.query('select provider, product_id as "productId", price_usd as "priceUsd", test_purchase as "testPurchase", created_at as "createdAt" from us_return_purchases where business_id = $1 and tax_year = $2', [businessId, taxYear]);
     return found.rows[0] || null;
   }
 
@@ -271,6 +297,9 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
       currency: 'USD',
       productId: cfg.usReturn.productId,
       buyable: usEnforced,
+      checkout: checkoutKind(),
+      priceLine: US_RETURN_PRICE_LINE(bought ? bought.priceUsd : cfg.usReturn.priceUsd),
+      provider: bought?.provider || null,
       purchasedAt: bought ? new Date(bought.createdAt).toISOString() : null,
       testPurchase: Boolean(bought?.testPurchase),
     };
@@ -281,7 +310,7 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
     const bad = usTaxYearProblem(taxYear);
     if (bad) return bad;
     if (await usPurchase(businessId, Number(taxYear))) return { ok: true };
-    return fail('US_RETURN_UNPAID', { taxYear: Number(taxYear), priceUsd: cfg.usReturn.priceUsd, productId: cfg.usReturn.productId, hint: `Preparing and reviewing your return is free. Filing it with the IRS is $${cfg.usReturn.priceUsd} for the ${taxYear} return, paid once on the Sign and e-file screen.` });
+    return fail('US_RETURN_UNPAID', { taxYear: Number(taxYear), priceUsd: cfg.usReturn.priceUsd, productId: cfg.usReturn.productId, hint: `Preparing and checking your return is free. Filing it with the IRS is $${cfg.usReturn.priceUsd} for the ${taxYear} return, paid once on the Sign and e-file screen.` });
   }
 
   async function lookupProduct(productId, purchaseToken) {
@@ -297,7 +326,7 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
   }
 
   async function verifyUsReturn(businessId, userId, { taxYear, productId, purchaseToken } = {}) {
-    if (!usEnforced) return fail('BILLING_NOT_CONFIGURED', { hint: 'The operator has not set up the Google Play product for US returns yet.' });
+    if (!usPlayEnabled) return fail('BILLING_NOT_CONFIGURED', { hint: 'The operator has not set up the Google Play product for US returns yet.' });
     if (!(await isHousehold(businessId))) return fail('NOT_A_PERSONAL_RETURN', { hint: 'The filing fee is for a personal US return. Businesses use a monthly plan.' });
     const bad = usTaxYearProblem(taxYear);
     if (bad) return bad;
@@ -334,6 +363,201 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
     return usReturn(businessId, year);
   }
 
+  function checkoutKind() {
+    return cardEnabled ? 'card' : usPlayEnabled ? 'play' : 'none';
+  }
+
+  async function usPlusRow(businessId) {
+    const found = await db.query('select subscription_id as "subscriptionId", status, current_end as "currentEnd", cancel_at_period_end as "cancelAtPeriodEnd", price_usd as "priceUsd" from us_plus_subscriptions where business_id = $1', [businessId]);
+    return found.rows[0] || null;
+  }
+
+  async function usPlus(businessId) {
+    const sub = await usPlusRow(businessId);
+    const until = sub?.currentEnd ? new Date(sub.currentEnd).getTime() : 0;
+    const active = Boolean(sub && PLUS_LIVE.has(sub.status) && until + GRACE_DAYS * DAY_MS > now());
+    return {
+      ok: true,
+      enforced: cardEnabled,
+      active: active || !cardEnabled,
+      subscribed: active,
+      status: sub?.status || null,
+      until: until ? new Date(until).toISOString() : null,
+      renews: active && !sub.cancelAtPeriodEnd,
+      priceUsd: sub ? sub.priceUsd : cfg.usPlus.priceUsd,
+      per: 'year',
+      buyable: plusBuyable,
+      features: ['IRS letter reader', 'Withholding check', 'Quarterly estimate reminders'],
+    };
+  }
+
+  async function usPlusAllows(businessId) {
+    const plus = await usPlus(businessId);
+    if (plus.active) return { ok: true };
+    return fail('US_PLUS_REQUIRED', { priceUsd: cfg.usPlus.priceUsd, hint: `This is part of MyCA Plus, $${cfg.usPlus.priceUsd} a year. Cancel any time.` });
+  }
+
+  function offers() {
+    return {
+      usReturn: { title: 'MyCA Return', priceUsd: cfg.usReturn.priceUsd, currency: 'USD', per: 'tax_year', priceLine: US_RETURN_PRICE_LINE(cfg.usReturn.priceUsd), checkout: checkoutKind(), packageName: usPackage, productId: cfg.usReturn.productId, buyable: usEnforced },
+      usPlus: { title: 'MyCA Plus', priceUsd: cfg.usPlus.priceUsd, currency: 'USD', per: 'year', checkout: plusBuyable ? 'card' : 'none', buyable: plusBuyable, features: ['IRS letter reader', 'Withholding check', 'Quarterly estimate reminders'] },
+      usExpertReview: cfg.usExpertReview.on ? { title: 'Expert Review', priceUsd: cfg.usExpertReview.priceUsd, currency: 'USD', per: 'return', available: true } : { title: 'Expert Review', available: false },
+      usWaitlist: Object.entries(US_WAITLIST_PRODUCTS).map(([id, title]) => ({ id, title })),
+    };
+  }
+
+  async function usCheckout(businessId, userId, { product, taxYear } = {}, { unsupported = [] } = {}) {
+    if (!cardEnabled) return fail('CARD_CHECKOUT_NOT_CONFIGURED', { hint: 'The operator has not set up card payments yet.' });
+    if (!(await isHousehold(businessId))) return fail('NOT_A_PERSONAL_RETURN', { hint: 'Card checkout is for a personal US return. Businesses use a monthly plan.' });
+    const back = cfg.stripe.returnUrl;
+    const join = back.includes('?') ? '&' : '?';
+    if (product === 'return') {
+      const bad = usTaxYearProblem(taxYear);
+      if (bad) return bad;
+      const year = Number(taxYear);
+      if (await usPurchase(businessId, year)) return fail('ALREADY_PAID', { taxYear: year, hint: `The ${year} return is already paid for.` });
+      if (unsupported.length) {
+        const names = unsupported.map((item) => item.form).filter(Boolean);
+        return fail('UNSUPPORTED_FORMS', { taxYear: year, forms: unsupported, hint: `Your return needs ${names.join(', ')}, which MyCA can't file yet. You have not been charged.` });
+      }
+      const metadata = { businessId, userId, product: 'return', taxYear: String(year) };
+      const made = await stripe.createCheckout({
+        mode: 'payment',
+        client_reference_id: businessId,
+        line_items: [{ quantity: 1, price_data: { currency: 'usd', unit_amount: cfg.usReturn.priceUsd * 100, product_data: { name: `MyCA Return, ${year} federal` } } }],
+        metadata,
+        payment_intent_data: { metadata, statement_descriptor_suffix: 'TAX RETURN' },
+        success_url: `${back}${join}checkout={CHECKOUT_SESSION_ID}&result=paid`,
+        cancel_url: `${back}${join}result=canceled`,
+      });
+      return started(businessId, userId, made, { product: 'return', taxYear: year, priceUsd: cfg.usReturn.priceUsd });
+    }
+    if (product === 'plus') {
+      if (!plusBuyable) return fail('CARD_CHECKOUT_NOT_CONFIGURED', { hint: 'The operator has not set up MyCA Plus yet.' });
+      if ((await usPlus(businessId)).subscribed) return fail('ALREADY_SUBSCRIBED', { hint: 'MyCA Plus is already on for this return.' });
+      const metadata = { businessId, userId, product: 'plus' };
+      const made = await stripe.createCheckout({
+        mode: 'subscription',
+        client_reference_id: businessId,
+        line_items: [{ quantity: 1, price: cfg.stripe.plusPriceId }],
+        metadata,
+        subscription_data: { metadata },
+        success_url: `${back}${join}checkout={CHECKOUT_SESSION_ID}&result=paid`,
+        cancel_url: `${back}${join}result=canceled`,
+      });
+      return started(businessId, userId, made, { product: 'plus', priceUsd: cfg.usPlus.priceUsd });
+    }
+    return fail('UNKNOWN_PRODUCT', { products: ['return', 'plus'] });
+  }
+
+  async function started(businessId, userId, made, metadata) {
+    if (!made.ok || !made.data.url) {
+      log({ billing: 'stripe_checkout_failed', status: made.status });
+      return fail('PROVIDER_UNAVAILABLE', { hint: 'Card payments could not be started. Nothing was charged; try again in a minute.' });
+    }
+    await audit(businessId, userId, 'billing.us_checkout_started', { provider: 'stripe', ...metadata });
+    return { ok: true, url: made.data.url, sessionId: made.data.id };
+  }
+
+  async function recordCheckout(session) {
+    const meta = session.metadata || {};
+    const businessId = String(meta.businessId || session.client_reference_id || '');
+    if (!UUID.test(businessId)) return { recorded: false, reason: 'no_business' };
+    if (session.status !== 'complete' || !['paid', 'no_payment_required'].includes(session.payment_status)) return { recorded: false, reason: 'not_paid', businessId };
+    const userId = UUID.test(String(meta.userId || '')) ? meta.userId : null;
+    if (meta.product === 'return') {
+      const year = Number(meta.taxYear);
+      if (!Number.isInteger(year)) return { recorded: false, reason: 'no_tax_year', businessId };
+      const priceUsd = Math.round(Number(session.amount_total || 0) / 100);
+      const saved = await db.query(
+        `insert into us_return_purchases (business_id, tax_year, provider, purchase_token, product_id, price_usd, test_purchase, created_by)
+         values ($1, $2, 'stripe', $3, $4, $5, $6, $7) on conflict do nothing returning tax_year`,
+        [businessId, year, String(session.id), CARD_RETURN_PRODUCT, priceUsd, session.livemode !== true, userId],
+      );
+      if (saved.rows.length) await audit(businessId, userId, 'billing.us_return_paid', { provider: 'stripe', taxYear: year, priceUsd, testPurchase: session.livemode !== true });
+      return { recorded: true, businessId, product: 'return', taxYear: year };
+    }
+    if (meta.product === 'plus' && session.subscription) {
+      const subscriptionId = typeof session.subscription === 'string' ? session.subscription : session.subscription.id;
+      const sub = typeof session.subscription === 'object' && session.subscription.status ? session.subscription : (await stripe.getSubscription(subscriptionId)).data || {};
+      await savePlus(businessId, userId, subscriptionId, sub);
+      return { recorded: true, businessId, product: 'plus' };
+    }
+    return { recorded: false, reason: 'unknown_product', businessId };
+  }
+
+  async function savePlus(businessId, userId, subscriptionId, sub) {
+    const end = Number(sub.current_period_end || sub.items?.data?.[0]?.current_period_end || 0);
+    const status = String(sub.status || 'active');
+    const saved = await db.query(
+      `insert into us_plus_subscriptions (business_id, provider, subscription_id, status, current_end, cancel_at_period_end, price_usd, created_by)
+       values ($1, 'stripe', $2, $3, $4, $5, $6, $7)
+       on conflict (business_id) do update set subscription_id = excluded.subscription_id, status = excluded.status, current_end = excluded.current_end, cancel_at_period_end = excluded.cancel_at_period_end, updated_at = now()
+       returning (xmax = 0) as inserted, status`,
+      [businessId, subscriptionId, status, end ? new Date(end * 1000) : null, sub.cancel_at_period_end === true, cfg.usPlus.priceUsd, userId],
+    );
+    if (saved.rows[0]?.inserted) await audit(businessId, userId, 'billing.us_plus_started', { provider: 'stripe', status, priceUsd: cfg.usPlus.priceUsd });
+  }
+
+  async function usCheckoutConfirm(businessId, userId, { sessionId } = {}) {
+    if (!cardEnabled) return fail('CARD_CHECKOUT_NOT_CONFIGURED');
+    const id = String(sessionId || '');
+    if (!/^cs_[A-Za-z0-9_]{1,200}$/.test(id)) return fail('UNKNOWN_CHECKOUT');
+    const found = await stripe.getCheckout(id);
+    if (!found.ok) return fail(found.status === 404 ? 'UNKNOWN_CHECKOUT' : 'PROVIDER_UNAVAILABLE', { hint: 'The card payment could not be checked. If you paid, it is picked up within a few minutes.' });
+    const owner = String(found.data.metadata?.businessId || found.data.client_reference_id || '');
+    if (owner !== businessId) return fail('PURCHASE_BELONGS_TO_ANOTHER_BUSINESS', { hint: 'This payment was made for another return.' });
+    const out = await recordCheckout(found.data);
+    if (!out.recorded) return fail(out.reason === 'not_paid' ? 'PURCHASE_NOT_COMPLETE' : 'UNKNOWN_CHECKOUT', { hint: 'The card payment has not gone through yet.' });
+    if (out.product === 'return') return usReturn(businessId, out.taxYear);
+    return usPlus(businessId);
+  }
+
+  async function stripeWebhook(raw, signature) {
+    if (!cardEnabled) return { ok: false, statusCode: 404, error: 'CARD_CHECKOUT_NOT_CONFIGURED' };
+    const payload = Buffer.isBuffer(raw) ? raw.toString('utf8') : String(raw || '');
+    if (!stripeSignatureValid(cfg.stripe.webhookSecret, payload, signature, Math.floor(now() / 1000))) return { ok: false, statusCode: 400, error: 'BAD_SIGNATURE' };
+    let event;
+    try {
+      event = JSON.parse(payload);
+    } catch {
+      return { ok: false, statusCode: 400, error: 'BAD_EVENT' };
+    }
+    const object = event?.data?.object || {};
+    if (event.type === 'checkout.session.completed' || event.type === 'checkout.session.async_payment_succeeded') {
+      const out = await recordCheckout(object);
+      return { ok: true, received: event.type, recorded: out.recorded };
+    }
+    if (event.type === 'customer.subscription.updated' || event.type === 'customer.subscription.deleted') {
+      const end = Number(object.current_period_end || object.items?.data?.[0]?.current_period_end || 0);
+      const status = event.type === 'customer.subscription.deleted' ? 'canceled_final' : String(object.status || '');
+      const changed = await db.query(
+        'update us_plus_subscriptions set status = $2, current_end = coalesce($3, current_end), cancel_at_period_end = $4, updated_at = now() where subscription_id = $1 returning business_id as "businessId"',
+        [String(object.id || ''), status, end ? new Date(end * 1000) : null, object.cancel_at_period_end === true],
+      );
+      if (changed.rows[0]) await audit(changed.rows[0].businessId, null, 'billing.us_plus_changed', { provider: 'stripe', status });
+      return { ok: true, received: event.type, recorded: Boolean(changed.rows[0]) };
+    }
+    return { ok: true, received: event.type || 'unknown', recorded: false };
+  }
+
+  async function cancelUsPlus(businessId, userId) {
+    const sub = await usPlusRow(businessId);
+    if (!cardEnabled || !sub) return fail('NOT_SUBSCRIBED', { hint: 'MyCA Plus is not on for this return.' });
+    const out = await stripe.cancelAtPeriodEnd(sub.subscriptionId);
+    if (!out.ok) return fail('PROVIDER_UNAVAILABLE', { hint: 'Stripe could not be reached. Nothing changed; try again in a minute.' });
+    await db.query('update us_plus_subscriptions set cancel_at_period_end = true, updated_at = now() where business_id = $1', [businessId]);
+    await audit(businessId, userId, 'billing.us_plus_canceled', { provider: 'stripe' });
+    return usPlus(businessId);
+  }
+
+  async function joinUsWaitlist(businessId, userId, { product } = {}) {
+    if (!US_WAITLIST_PRODUCTS[product]) return fail('UNKNOWN_PRODUCT', { products: Object.keys(US_WAITLIST_PRODUCTS) });
+    const saved = await db.query('insert into us_waitlist (business_id, product, created_by) values ($1, $2, $3) on conflict do nothing returning product', [businessId, product, userId]);
+    if (saved.rows.length) await audit(businessId, userId, 'us.waitlist_joined', { product });
+    return { ok: true, product, title: US_WAITLIST_PRODUCTS[product], joined: true };
+  }
+
   async function audit(businessId, userId, action, metadata) {
     await db.query(`insert into audit_log (business_id, user_id, request_id, action, metadata) values ($1, $2, '', $3, $4::jsonb)`, [businessId, userId, action, JSON.stringify(metadata)]);
   }
@@ -348,13 +572,21 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
       trialDays: TRIAL_DAYS,
       currency: 'INR',
       plans: PAID.map((id) => PLANS[id]).map((plan) => ({ ...plan, monthlyRupees: cfg.prices[plan.id] ?? plan.monthlyRupees, productId: cfg.productIds[plan.id] || '', buyable: enabled && Boolean(cfg.productIds[plan.id]) })),
-      usReturn: { title: 'US federal return', priceUsd: cfg.usReturn.priceUsd, currency: 'USD', per: 'tax_year', packageName: usPackage, productId: cfg.usReturn.productId, buyable: usEnforced },
+      ...offers(),
     }),
     entitlement,
     usEnforced,
+    cardEnabled,
     usReturn,
     usFilingAllowed,
     verifyUsReturn,
+    usCheckout,
+    usCheckoutConfirm,
+    stripeWebhook,
+    usPlus,
+    usPlusAllows,
+    cancelUsPlus,
+    joinUsWaitlist,
     allows,
     withinLimit,
 

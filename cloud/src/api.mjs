@@ -3,7 +3,7 @@ import { mockModeEnabled, serviceProviderEnvironment } from '../../platform/src/
 import { withProviderContext } from '../../platform/src/provider-context.mjs';
 import { createGovtActions } from './govt-actions.mjs';
 import { createGstPortal } from './gst-portal.mjs';
-import { createBilling, readOnlyChat } from './billing.mjs';
+import { createBilling, readOnlyChat, US_PLUS_TOOLS } from './billing.mjs';
 import { gstin } from '../../platform/src/sprint-load.mjs';
 import { rule } from '../../sprints/statutory-rules/src/index.mjs';
 import { createAuth, isUuid, OTP_MAX_GLOBAL_PER_HOUR } from './auth.mjs';
@@ -42,6 +42,12 @@ function indiaDate(at) {
 
 export const INBOUND_RELAY_HEADER = 'x-myca-relay-token';
 export const PLAY_NOTIFY_HEADER = 'x-myca-notify-token';
+export const STRIPE_SIGNATURE_HEADER = 'stripe-signature';
+export const US_SUPPORTED_FORMS = Object.freeze({
+  supported: ['1040', 'Schedule 1', 'Schedule 1-A', 'Schedule 2', 'Schedule 3', 'Schedule A', 'Schedule B', 'Schedule C', 'Schedule D', 'Schedule SE', 'Form 8949', 'Form 8812', 'Form 8863', 'Form 8959', 'Form 8960', 'Form 8995', 'W-2', '1099-INT', '1099-DIV', '1099-B', '1099-NEC', '1099-MISC', '1099-G', '1099-R', 'SSA-1099', '1098', '1098-E', '1098-T'],
+  coming: ['Form 2441', 'Form 8962', 'Form 8995-A', 'Form 2210', 'Schedule E'],
+  notThisSeason: ['State returns', 'Form 1040-NR', 'Dual-status returns', 'FBAR (FinCEN 114)', 'Form 8938', 'Form 1116', 'Form 1040-X'],
+});
 
 const MAX_BODY_BYTES = 1024 * 1024;
 export const MAX_UPLOAD_BYTES = 8 * 1024 * 1024;
@@ -57,6 +63,10 @@ const OWNER_ONLY_POSTS = new Map([
   ['ca-share', 'OWNER_ONLY'],
   ['subscription', 'SHARED_VIEW_READ_ONLY'],
   ['us-return-purchase', 'SHARED_VIEW_READ_ONLY'],
+  ['us-checkout', 'SHARED_VIEW_READ_ONLY'],
+  ['us-checkout-confirm', 'SHARED_VIEW_READ_ONLY'],
+  ['us-plus-cancel', 'SHARED_VIEW_READ_ONLY'],
+  ['us-waitlist', 'SHARED_VIEW_READ_ONLY'],
   ['invitations', 'SHARED_VIEW_READ_ONLY'],
   ['inbound', 'SHARED_VIEW_READ_ONLY'],
   ['connectors', 'SHARED_VIEW_READ_ONLY'],
@@ -298,6 +308,18 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
   const runner = createBooksRunner({ db, now, vault, booksKey });
   const connectors = createConnectorStore({ db, key: connectorKey });
   const withBooks = runner.withBooks;
+  async function unsupportedForms(businessId, context, actor, taxYear) {
+    try {
+      const review = await runner.withReadOnlyBooks(businessId, context, (session) => session.query('us_return_review', { taxYear }, actor));
+      const data = review && typeof review === 'object' ? (review.data && typeof review.data === 'object' ? review.data : review) : {};
+      const list = Array.isArray(data.unsupported) ? data.unsupported : [];
+      return list.map((item) => (typeof item === 'string' ? { form: item, reason: '' } : { form: String(item?.form || ''), reason: String(item?.reason || '') })).filter((item) => item.form);
+    } catch (err) {
+      log({ billing: 'supported_forms_check_failed', error: String(err?.message || err) });
+      return [];
+    }
+  }
+
   async function unpaidFiling(businessId, session) {
     const pending = session.state.pendingChatAction;
     if (pending?.name !== US_FILE_TOOL || !billing.usEnforced) return null;
@@ -399,6 +421,13 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
       if (!received.ok) throw httpError(received.statusCode, received.error);
       return received;
     }
+    if (parts[1] === 'billing' && parts[2] === 'stripe' && parts[3] === 'webhook' && parts.length === 4 && method === 'POST') {
+      const raw = await readRaw(req, MAX_BODY_BYTES);
+      const received = await billing.stripeWebhook(raw, String(req.headers[STRIPE_SIGNATURE_HEADER] || ''));
+      if (!received.ok) throw httpError(received.statusCode, received.error);
+      return received;
+    }
+    if (parts[1] === 'us' && parts[2] === 'supported-forms' && parts.length === 3 && method === 'GET') return { ok: true, taxYears: [2025, 2026], ...US_SUPPORTED_FORMS };
     if (parts[1] === 'auth' && parts[2] === 'methods' && parts.length === 3 && method === 'GET') {
       return { ok: true, phone: auth.phoneEnabled, google: google.enabled, oidc: openId.enabled, ...(openId.enabled ? { oidcIssuer: openId.issuer } : {}) };
     }
@@ -695,6 +724,7 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
       }
       if (method === 'GET' && action === 'subscription') return billing.entitlement(businessId);
       if (method === 'GET' && action === 'us-return-purchase') return billing.usReturn(businessId, url.searchParams.get('taxYear'));
+      if (method === 'GET' && action === 'us-plus') return billing.usPlus(businessId);
       if (method !== 'POST') throw httpError(404, 'NOT_FOUND');
 
       const ownerRule = OWNER_ONLY_POSTS.get(action);
@@ -753,6 +783,13 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
       }
       if (action === 'subscription') return billing.verify(businessId, user.userId, body);
       if (action === 'us-return-purchase') return billing.verifyUsReturn(businessId, user.userId, body);
+      if (action === 'us-checkout') {
+        const unsupported = body.product === 'return' ? await unsupportedForms(businessId, context, actor, body.taxYear) : [];
+        return billing.usCheckout(businessId, user.userId, body, { unsupported });
+      }
+      if (action === 'us-checkout-confirm') return billing.usCheckoutConfirm(businessId, user.userId, body);
+      if (action === 'us-plus-cancel') return billing.cancelUsPlus(businessId, user.userId);
+      if (action === 'us-waitlist') return billing.joinUsWaitlist(businessId, user.userId, body);
       const posting = WRITES.has(action) ? await billing.allows(businessId, 'post') : { ok: true };
       if (!posting.ok) return posting;
       if (action === 'invitations') {
@@ -827,7 +864,13 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
         });
       }
       if (action === 'discard') return withBooks(businessId, context, (session) => session.discard(actor));
-      if (action === 'query') return runner.withReadOnlyBooks(businessId, context, (session) => session.query(body.name, body.args || {}, actor));
+      if (action === 'query') {
+        if (US_PLUS_TOOLS.includes(body.name)) {
+          const plus = await billing.usPlusAllows(businessId);
+          if (!plus.ok) return plus;
+        }
+        return runner.withReadOnlyBooks(businessId, context, (session) => session.query(body.name, body.args || {}, actor));
+      }
       if (action === 'ask') {
         const message = chatText(body.message);
         if (!message.trim()) throw httpError(400, 'MESSAGE_REQUIRED');

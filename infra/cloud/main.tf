@@ -222,6 +222,8 @@ locals {
     "myca-gsp-test-api-key"      = var.gsp_test_api_key
     "myca-gsp-test-api-secret"   = var.gsp_test_api_secret
     "myca-play-notify-token"     = random_password.play_notify_token.result
+    "myca-stripe-secret-key"     = var.stripe_secret_key
+    "myca-stripe-webhook-secret" = var.stripe_webhook_secret
   }
 }
 
@@ -525,6 +527,36 @@ resource "google_cloud_run_v2_service" "api" {
       env {
         name  = "MYCA_PLAY_PRODUCT_US_1040"
         value = var.play_product_us_1040
+      }
+      env {
+        name = "MYCA_STRIPE_SECRET_KEY"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.api["myca-stripe-secret-key"].secret_id
+            version = "latest"
+          }
+        }
+      }
+      env {
+        name = "MYCA_STRIPE_WEBHOOK_SECRET"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.api["myca-stripe-webhook-secret"].secret_id
+            version = "latest"
+          }
+        }
+      }
+      env {
+        name  = "MYCA_STRIPE_PRICE_US_PLUS"
+        value = var.stripe_price_us_plus
+      }
+      env {
+        name  = "MYCA_US_CHECKOUT_RETURN_URL"
+        value = var.us_checkout_return_url
+      }
+      env {
+        name  = "MYCA_US_EXPERT_REVIEW"
+        value = var.us_expert_review ? "1" : "0"
       }
       env {
         name = "MYCA_PLAY_NOTIFY_TOKEN"

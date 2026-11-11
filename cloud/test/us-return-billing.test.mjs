@@ -70,7 +70,11 @@ test('the price of a US return is $39 by default and the operator can change it'
 
 test('plans list the US return as a one-time $39 per tax year', async () => {
   const out = await api.call('GET', '/v1/plans');
-  assert.deepEqual(out.body.usReturn, { title: 'US federal return', priceUsd: 39, currency: 'USD', per: 'tax_year', packageName: US_PACKAGE, productId: PRODUCT, buyable: true });
+  assert.deepEqual(out.body.usReturn, { title: 'MyCA Return', priceUsd: 39, currency: 'USD', per: 'tax_year', priceLine: '$39 to file. Federal only. No state, refund or upgrade fees.', checkout: 'play', packageName: US_PACKAGE, productId: PRODUCT, buyable: true });
+  assert.equal(out.body.usPlus.buyable, false, 'MyCA Plus needs card checkout');
+  assert.equal(out.body.usExpertReview.available, false, 'Expert Review stays hidden until the operator turns it on');
+  assert.deepEqual(out.body.usWaitlist.map((item) => item.id), ['done_for_you', 'international']);
+  assert.ok(out.body.usWaitlist.every((item) => item.priceUsd === undefined), 'waitlist products show no price');
 });
 
 test('a household never lapses into read-only: preparing a return is free', async () => {

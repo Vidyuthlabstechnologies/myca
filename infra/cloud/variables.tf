@@ -261,3 +261,35 @@ variable "deployer_service_account" {
   type        = string
   default     = ""
 }
+
+variable "stripe_secret_key" {
+  description = "Stripe secret key of the US company (sk_live_ or sk_test_) for card checkout of US returns and MyCA Plus. Google Play's payments policy exempts tax preparation and filing from Play Billing. Leave \"unset\" to keep the Play product."
+  type        = string
+  default     = "unset"
+  sensitive   = true
+}
+
+variable "stripe_webhook_secret" {
+  description = "Signing secret (whsec_) of the Stripe webhook endpoint pointed at /v1/billing/stripe/webhook."
+  type        = string
+  default     = "unset"
+  sensitive   = true
+}
+
+variable "stripe_price_us_plus" {
+  description = "Stripe price id of the yearly MyCA Plus subscription (USD 79 a year)."
+  type        = string
+  default     = ""
+}
+
+variable "us_checkout_return_url" {
+  description = "https address Stripe Checkout returns to after paying, which opens the MyCA US app (an App Link)."
+  type        = string
+  default     = ""
+}
+
+variable "us_expert_review" {
+  description = "Offer Expert Review ($129, a US CPA or EA signs). Keep false until a reviewer partner is signed."
+  type        = bool
+  default     = false
+}
