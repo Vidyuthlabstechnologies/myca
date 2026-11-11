@@ -25,9 +25,9 @@ export const UNITED_STATES = Object.freeze({
     currency: 'USD',
     providers: Object.freeze(['stripe', 'play']),
     plans: Object.freeze([
-      Object.freeze({ id: 'us-return', kind: 'per-return', price: 39, sells: 'tax-filing', provider: 'stripe' }),
-      Object.freeze({ id: 'us-plus', kind: 'yearly', price: 79, sells: 'tax-filing', provider: 'stripe', review: 'Google Play may treat a yearly software subscription as cloud software, which must use Play billing.' }),
-      Object.freeze({ id: 'us-expert-review', kind: 'per-return', price: 129, sells: 'tax-filing', provider: 'stripe', flag: 'MYCA_US_EXPERT_REVIEW' }),
+      Object.freeze({ id: 'us-return', kind: 'per-return', price: 129, sells: 'tax-filing', provider: 'stripe' }),
+      Object.freeze({ id: 'us-plus', kind: 'yearly', price: 249, sells: 'tax-filing', provider: 'stripe', review: 'Google Play may treat a yearly software subscription as cloud software, which must use Play billing.' }),
+      Object.freeze({ id: 'us-expert-review', kind: 'per-return', price: 299, sells: 'tax-filing', provider: 'stripe', flag: 'MYCA_US_EXPERT_REVIEW' }),
     ]),
   }),
   filing: Object.freeze([

@@ -120,7 +120,9 @@ function fail(error, extra = {}) {
   return { ok: false, error, ...extra };
 }
 
-export function createBilling({ db, config = {}, now = () => Date.now(), fetchImpl = (...args) => globalThis.fetch(...args), log = () => {} }) {
+export const US_EFILE_NOT_OPEN_HINT = 'IRS e-file is not open in MyCA yet. Your return is saved and nothing has been charged. You can still review it and download it as a PDF.';
+
+export function createBilling({ db, config = {}, now = () => Date.now(), fetchImpl = (...args) => globalThis.fetch(...args), log = () => {}, usFilingOpen = () => true }) {
   const cfg = { packageName: '', productIds: {}, notifyToken: '', serviceAccount: null, prices: {}, ...config };
   cfg.usReturn = { packageName: '', productId: '', priceUsd: US_RETURN_PRICE_USD, launchPriceUsd: 0, launchUntil: '', ...(config.usReturn || {}) };
   const launchUntil = launchEnd(cfg.usReturn.launchUntil);
@@ -138,6 +140,8 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
   const plusBuyable = plusOnPlay || plusOnCard;
   const plusCheckout = plusOnPlay ? 'play' : plusOnCard ? 'card' : 'none';
   const usEnforced = usPlayEnabled || cardEnabled;
+  const usSold = () => usEnforced && usFilingOpen() === true;
+  const notOpen = () => fail('US_EFILE_NOT_OPEN', { hint: US_EFILE_NOT_OPEN_HINT });
   const stripe = cardEnabled ? createStripe({ secretKey: cfg.stripe.secretKey, fetchImpl }) : null;
   const planOfProduct = (productId) => PAID.find((plan) => cfg.productIds[plan] && cfg.productIds[plan] === productId) || null;
   let cachedToken = { value: '', until: 0 };
@@ -237,7 +241,7 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
     const business = await db.query('select created_at as "createdAt", demo, kind from businesses where id = $1', [businessId]);
     if (business.rows[0]?.kind === 'household') {
       const plan = PLANS.household;
-      return { ok: true, enforced: enabled, plan: plan.id, planTitle: plan.title, limits: plan.limits, features: plan.features, trial: null, subscription: null, manageUrl: '', usReturn: { enforced: usEnforced, priceUsd: returnPrice(), listPriceUsd: cfg.usReturn.priceUsd, productId: cfg.usReturn.productId, checkout: checkoutKind() }, usPlus: await usPlus(businessId) };
+      return { ok: true, enforced: enabled, plan: plan.id, planTitle: plan.title, limits: plan.limits, features: plan.features, trial: null, subscription: null, manageUrl: '', usReturn: { enforced: usSold(), filingOpen: usFilingOpen() === true, priceUsd: returnPrice(), listPriceUsd: cfg.usReturn.priceUsd, productId: cfg.usReturn.productId, checkout: checkoutKind() }, usPlus: await usPlus(businessId) };
     }
     if (business.rows[0]?.demo) {
       return { ok: true, enforced: enabled, plan: 'pro', planTitle: PLANS.pro.title, limits: PLANS.pro.limits, features: PLANS.pro.features, trial: null, demo: true, subscription: null, manageUrl: '' };
@@ -304,15 +308,16 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
     return {
       ok: true,
       taxYear: year,
-      enforced: usEnforced,
-      paid: Boolean(bought) || !usEnforced,
+      enforced: usSold(),
+      paid: Boolean(bought) || !usSold(),
+      filingOpen: usFilingOpen() === true,
       purchased: Boolean(bought),
       priceUsd: bought ? bought.priceUsd : returnPrice(),
       listPriceUsd: cfg.usReturn.priceUsd,
       launchOffer: bought ? null : launchOffer(),
       currency: 'USD',
       productId: cfg.usReturn.productId,
-      buyable: usEnforced,
+      buyable: usSold(),
       checkout: checkoutKind(),
       priceLine: bought ? US_RETURN_PRICE_LINE(bought.priceUsd) : US_RETURN_PRICE_LINE(returnPrice(), cfg.usReturn.priceUsd),
       provider: bought?.provider || null,
@@ -322,6 +327,7 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
   }
 
   async function usFilingAllowed(businessId, taxYear) {
+    if (usFilingOpen() !== true) return notOpen();
     if (!usEnforced) return { ok: true };
     const bad = usTaxYearProblem(taxYear);
     if (bad) return bad;
@@ -500,6 +506,7 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
     const back = cfg.stripe.returnUrl;
     const join = back.includes('?') ? '&' : '?';
     if (product === 'return') {
+      if (usFilingOpen() !== true) return notOpen();
       const bad = usTaxYearProblem(taxYear);
       if (bad) return bad;
       const year = Number(taxYear);
@@ -665,6 +672,7 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
     }),
     entitlement,
     usEnforced,
+    usFilingOpen: () => usFilingOpen() === true,
     cardEnabled,
     usReturn,
     usFilingAllowed,

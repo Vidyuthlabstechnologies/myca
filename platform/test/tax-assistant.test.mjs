@@ -13,7 +13,7 @@ import { incomeTax } from '../src/sprint-load.mjs';
 import { REMOTE_QUERY_TOOLS } from '../src/remote-contract.mjs';
 import { ACTION_CLASSES } from '../src/action-gate.mjs';
 import { findTaxGuidance, formatFigure, frontmatterProblems, loadTaxModule, loadTaxModules, parseFrontmatter, taxModuleCatalog, validateTaxModules } from '../src/tax-modules.mjs';
-import { askTax, booksGstTurnover, presumptiveIncome, reviewIncomeTaxReturn, taxPlan, taxPrompt, ungroundedFigures } from '../src/tax-assistant.mjs';
+import { askTax, askTaxWords, countryGuidanceSections, countryModuleCatalog, booksGstTurnover, presumptiveIncome, reviewIncomeTaxReturn, taxPlan, taxPrompt, ungroundedFigures } from '../src/tax-assistant.mjs';
 
 async function withEnv(vars, fn) {
   const saved = Object.fromEntries(Object.keys(vars).map((key) => [key, process.env[key]]));
@@ -272,4 +272,27 @@ test('asking with an old date uses that year\'s rules', async () => {
   const slabs = result.sections.find((section) => section.id === 'slabs');
   assert.ok(slabs);
   assert.match(slabs.text, /₹3,00,000 to ₹7,00,000 5%/);
+});
+
+test('a country without tax modules is answered from its own research notes, never from India\'s', () => {
+  const sections = countryGuidanceSections('MY', 'what is the service tax rate on rental or leasing?');
+  assert.ok(sections.length > 0);
+  assert.ok(sections.every((section) => section.ref.startsWith('my-knowledge/') && section.kind === 'country-knowledge'));
+  assert.match(sections.map((section) => section.text).join('\n'), /rental or leasing/);
+  assert.ok(sections.every((section) => /^https:\/\//.test(section.source)));
+  assert.deepEqual(countryGuidanceSections('MY', 'which ready-made libraries does MyCA use and what are the open questions?').filter((section) => /ready-made|open-questions|summary/.test(section.ref)), [], 'build notes are not shown as tax guidance');
+  assert.deepEqual(countryGuidanceSections('MY', 'weather'), []);
+
+  const built = taxPrompt('when is Form BE due?', sections, TODAY, 'MY');
+  assert.match(built.systemPrompt, /tax agents in Malaysia/);
+  assert.match(built.systemPrompt, /never answer from another country's tax law/);
+  assert.doesNotMatch(built.systemPrompt, /India|\bCA\b|CBDT/);
+  assert.match(built.systemPrompt, /confirm with your tax agent before you file/);
+
+  const words = askTaxWords({ sections, answered: false, answer: 'guidance', jurisdiction: 'MY', unattested: ['my-knowledge'] });
+  assert.match(words, /research notes and are not yet signed off by a tax agent/);
+  assert.doesNotMatch(words, /your CA\b/);
+  const none = askTaxWords({ sections: [], jurisdiction: 'MY', modules: countryModuleCatalog('MY') });
+  assert.match(none, /They cover: my-knowledge\. Ask your tax agent/);
+  assert.equal(countryModuleCatalog('MY')[0].reviewStatus, 'not yet signed off');
 });

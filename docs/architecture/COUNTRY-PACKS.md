@@ -62,8 +62,10 @@ service, Cloud SQL instance, bucket and Terraform state), in a region of that co
 - The API reads `MYCA_COUNTRIES` (the countries it hosts) and `MYCA_REGION`. It refuses to start
   when a hosted country's data may not live in that region, and refuses to open books for a
   country hosted elsewhere (`COUNTRY_HOSTED_ELSEWHERE`, with the right app's name).
-  Unset `MYCA_COUNTRIES` hosts every served country, which keeps local runs and today's single
-  deployment working; set it on every production deployment.
+  With `MYCA_COUNTRIES` unset, local runs and staging host every served country. A production
+  deployment hosts only the country its region belongs to, and India when the region is not
+  known, so a deployment nobody configured never takes another country's books. Set it on every
+  production deployment anyway.
 - `GET /v1/countries` lists served countries, their apps, prices and filing routes, and which of
   them this deployment hosts, so an app or the website can configure itself.
 

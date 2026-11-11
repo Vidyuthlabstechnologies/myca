@@ -51,20 +51,20 @@ requests; this file records what they established and what still blocks a real f
 ## Payments: what Google Play allows
 
 - Google's payments policy says tax preparation and filing should not use Google Play's billing
-  system, so the $39 return fee is taken by card through Stripe.
+  system, so the $129 return fee is taken by card through Stripe.
 - The same policy puts cloud software and services among the things that must use Google Play
-  billing. A yearly software subscription sold inside the Android app (MyCA Plus at $79 a year)
+  billing. A yearly software subscription sold inside the Android app (MyCA Plus at $249 a year)
   is at risk of being treated as cloud software, not tax filing. Either sell Plus through Play
   billing, or make sure what Plus sells is tax preparation and get that confirmed.
   Source: https://support.google.com/googleplay/android-developer/answer/10281818?hl=en
 - The India app's monthly plans are cloud software and stay on Play billing.
 
-## Prices (settled 2026-11-11)
+## Prices (settled 2026-11-11, raised the same day to the premium plan)
 
-- Return: $39 per federal return, once per tax year. Preparing and reviewing are free; filing
-  is what is paid for.
-- Plus: $79 a year, software only.
-- Expert Review: $129, from February 2027, needs a CPA or enrolled agent partner.
+- Return: $129 per federal return, once per tax year, with a $99 launch price until
+  15 April 2027. Preparing and reviewing are free; filing is what is paid for.
+- Plus: $249 a year, software only.
+- Expert Review: $299, from February 2027, needs a CPA or enrolled agent partner.
 - Done For You, International and state returns: 2028, waitlist until then.
 
 ## Federal individual figures the engine uses (2025 and 2026)

@@ -12,7 +12,8 @@ import { whatsAppConfigFromEnv, createWhatsAppSender } from './whatsapp.mjs';
 import { createWahaSender } from './waha.mjs';
 import { createBilling, billingConfigFromEnv, billingConfigProblem } from './billing.mjs';
 import { isProduction, hostingName, serviceRevision, databaseTlsProblem, proxyHopsProblem } from './runtime.mjs';
-import { deploymentEnvironment, environmentProblem, enabledServices } from './environment.mjs';
+import { deploymentEnvironment, environmentProblem, enabledServices, usFilingOpen } from './environment.mjs';
+import { usEfileSetup } from '../../platform/src/us-efile.mjs';
 import { residencyProblem } from './residency.mjs';
 import { testSignInFromEnv } from './test-sign-in.mjs';
 
@@ -68,7 +69,7 @@ const db = createDb(required('MYCA_DATABASE_URL'), { onError: (err) => log({ db:
 await migrateWithRetry(db);
 const handler = createApi({
   db,
-  billing: createBilling({ db, config: billingConfigFromEnv(process.env), log }),
+  billing: createBilling({ db, config: billingConfigFromEnv(process.env), log, usFilingOpen: () => usFilingOpen(process.env, usEfileSetup().mode) }),
   secret: required('MYCA_TOKEN_SECRET'),
   otpSender: otpSender(),
   googleClientIds: clientIdsFrom(process.env.MYCA_GOOGLE_CLIENT_IDS),
