@@ -1,0 +1,130 @@
+{
+  "country": {
+    "in": {
+      "$type": "color",
+      "accent": {
+        "$value": "#1B5E3F"
+      },
+      "accentSoft": {
+        "$value": "#EAF2ED"
+      },
+      "accentDark": {
+        "$value": "#7FC3A0"
+      },
+      "accentSoftDark": {
+        "$value": "#16291F"
+      },
+      "highlight": {
+        "$value": "#E2A93B"
+      }
+    },
+    "us": {
+      "$type": "color",
+      "accent": {
+        "$value": "#1E3A6E"
+      },
+      "accentSoft": {
+        "$value": "#E8EDF6"
+      },
+      "accentDark": {
+        "$value": "#9DB8E8"
+      },
+      "accentSoftDark": {
+        "$value": "#18223A"
+      },
+      "highlight": {
+        "$value": "#C8312B"
+      }
+    },
+    "my": {
+      "$type": "color",
+      "accent": {
+        "$value": "#0E4D92"
+      },
+      "accentSoft": {
+        "$value": "#E6EEF8"
+      },
+      "accentDark": {
+        "$value": "#8DB6EC"
+      },
+      "accentSoftDark": {
+        "$value": "#14233A"
+      },
+      "highlight": {
+        "$value": "#F2B705"
+      }
+    },
+    "gb": {
+      "$type": "color",
+      "accent": {
+        "$value": "#5B2A6E"
+      },
+      "accentSoft": {
+        "$value": "#F1EAF4"
+      },
+      "accentDark": {
+        "$value": "#CDA6DC"
+      },
+      "accentSoftDark": {
+        "$value": "#2A1B31"
+      },
+      "highlight": {
+        "$value": "#E2A93B"
+      }
+    },
+    "ca": {
+      "$type": "color",
+      "accent": {
+        "$value": "#8A2432"
+      },
+      "accentSoft": {
+        "$value": "#F6E9EB"
+      },
+      "accentDark": {
+        "$value": "#EBA3AD"
+      },
+      "accentSoftDark": {
+        "$value": "#33181C"
+      },
+      "highlight": {
+        "$value": "#E2A93B"
+      }
+    },
+    "ae": {
+      "$type": "color",
+      "accent": {
+        "$value": "#006659"
+      },
+      "accentSoft": {
+        "$value": "#E3F2EF"
+      },
+      "accentDark": {
+        "$value": "#7FD1C3"
+      },
+      "accentSoftDark": {
+        "$value": "#122B27"
+      },
+      "highlight": {
+        "$value": "#C8312B"
+      }
+    },
+    "au": {
+      "$type": "color",
+      "accent": {
+        "$value": "#0B5C7A"
+      },
+      "accentSoft": {
+        "$value": "#E4F0F5"
+      },
+      "accentDark": {
+        "$value": "#86C6DE"
+      },
+      "accentSoftDark": {
+        "$value": "#13262E"
+      },
+      "highlight": {
+        "$value": "#E2A93B"
+      }
+    }
+  }
+}

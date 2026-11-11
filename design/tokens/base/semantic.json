@@ -1,0 +1,34 @@
+{
+  "theme": {
+    "light": {
+      "$type": "color",
+      "canvas": { "$value": "{color.neutral.25}" },
+      "surface": { "$value": "{color.neutral.0}" },
+      "sunken": { "$value": "{color.neutral.50}" },
+      "ink": { "$value": "{color.neutral.900}" },
+      "onInk": { "$value": "{color.neutral.0}" },
+      "muted": { "$value": "{color.neutral.500}" },
+      "faint": { "$value": "{color.neutral.300}" },
+      "line": { "$value": "{color.neutral.100}" },
+      "warn": { "$value": "{color.amber.700}" },
+      "warnSoft": { "$value": "{color.amber.50}" },
+      "danger": { "$value": "{color.red.700}" },
+      "dangerSoft": { "$value": "{color.red.50}" }
+    },
+    "dark": {
+      "$type": "color",
+      "canvas": { "$value": "{color.neutral.950}" },
+      "surface": { "$value": "{color.neutral.850}" },
+      "sunken": { "$value": "#181B1E" },
+      "ink": { "$value": "#F2F1EC" },
+      "onInk": { "$value": "{color.neutral.900}" },
+      "muted": { "$value": "#A6A9AD" },
+      "faint": { "$value": "#71757A" },
+      "line": { "$value": "{color.neutral.800}" },
+      "warn": { "$value": "{color.amber.300}" },
+      "warnSoft": { "$value": "#33260F" },
+      "danger": { "$value": "{color.red.300}" },
+      "dangerSoft": { "$value": "#3A1A17" }
+    }
+  }
+}

@@ -36,6 +36,19 @@ android {
         }
     }
 
+    flavorDimensions += "edition"
+    productFlavors {
+        create("india") {
+            dimension = "edition"
+            manifestPlaceholders["appLabel"] = if (project.hasProperty("mycaTest")) "MyCA Test" else "MyCA"
+        }
+        create("us") {
+            dimension = "edition"
+            applicationId = "com.mldynamic.myca.us"
+            manifestPlaceholders["appLabel"] = if (project.hasProperty("mycaTest")) "MyCA US Test" else "MyCA US"
+        }
+    }
+
     signingConfigs {
         if (!releaseKey.isEmpty) {
             create("release") {

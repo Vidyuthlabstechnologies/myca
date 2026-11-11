@@ -34,7 +34,7 @@ one-use token; nothing posts until that token is confirmed.
 ```bash
 flutter analyze
 flutter test
-flutter build apk --debug
+flutter build apk --debug --flavor india
 flutter test tool/screenshots_test.dart --update-goldens
 ```
 
@@ -214,12 +214,18 @@ manager. The key and its passwords never go in the repository. Without the file,
 release build falls back to the debug key, prints a warning, and cannot be uploaded to
 Play.
 
+MyCA India and MyCA US are two store apps built from this one codebase. The build
+flavor picks the app; neither app can switch to the other country.
+
 ```bash
-flutter build appbundle --release --dart-define=MYCA_CLOUD_URL=https://<api host>
+flutter build appbundle --release --flavor india --dart-define=MYCA_CLOUD_URL=https://<api host>
+flutter build appbundle --release --flavor us --dart-define=MYCA_CLOUD_URL=https://<US api host>
 ```
 
-The application id is `com.mldynamic.myca` (owner decision, 6 October 2026). It cannot
-change after the first upload to Play.
+The India application id is `com.mldynamic.myca` (owner decision, 6 October 2026) and the
+US one is `com.mldynamic.myca.us`. Neither can change after the first upload to Play. The
+US app needs its own Play listing, its own Android OAuth client for the new package, and
+`MYCA_PLAY_PACKAGE_US` on the server. iOS is not split yet: it still builds one app.
 
 ## Not built yet
 

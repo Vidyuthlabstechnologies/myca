@@ -1,0 +1,37 @@
+{
+  "color": {
+    "$type": "color",
+    "neutral": {
+      "0": { "$value": "#FFFFFF" },
+      "25": { "$value": "#FAFAF7" },
+      "50": { "$value": "#F2F1EC" },
+      "100": { "$value": "#E6E4DE" },
+      "300": { "$value": "#9A9DA1" },
+      "500": { "$value": "#6C7075" },
+      "800": { "$value": "#2A2E33" },
+      "850": { "$value": "#1E2226" },
+      "900": { "$value": "#15181B" },
+      "950": { "$value": "#0E1012" }
+    },
+    "ledger": {
+      "50": { "$value": "#EAF2ED" },
+      "600": { "$value": "#1B5E3F" },
+      "300": { "$value": "#7FC3A0" }
+    },
+    "amber": {
+      "50": { "$value": "#FAF1E0" },
+      "700": { "$value": "#94570A" },
+      "300": { "$value": "#E7B566" }
+    },
+    "red": {
+      "50": { "$value": "#FAEAE8" },
+      "700": { "$value": "#B3261E" },
+      "300": { "$value": "#F2A39C" }
+    },
+    "bahi": {
+      "red": { "$value": "#C8312B", "$description": "Bahi the mascot's ledger cover. Mascot and illustration only, never for UI state." },
+      "gold": { "$value": "#E2A93B", "$description": "Bahi's binding thread and coin highlights." },
+      "paper": { "$value": "#FFF8EC", "$description": "Bahi's page colour." }
+    }
+  }
+}
