@@ -76,7 +76,20 @@ live server because the tools are missing.
 
 ## US pricing
 
-Waiting on the owner's choice in the thread. The recommended option is **$39 per federal return, paid
-once per tax year**, sold as a one-time in-app product (`myca_us_1040_<year>`), which keeps US filers off
-the India monthly plans. Filing is allowed only once the return is paid for; preparing and reviewing it
-is free, so people can see their refund first.
+Owner decision (2026-11-11): **$39 per federal return, paid once per tax year.** Preparing, reviewing
+and downloading the return are free, so people see their refund first; filing with the IRS unlocks once
+that year is paid. Households never fall into the India trial or read-only plan.
+
+How it works:
+
+- One consumable Play product, for example `myca_us_1040`, priced USD 39. Set it as
+  `MYCA_PLAY_PRODUCT_US_1040` (Terraform `play_product_us_1040`). Consumable, so the same product is bought
+  again next year; each payment is recorded against one tax year (`us_return_purchases`, migration 022).
+- The app's Sign and e-file screen shows "Pay $39 and continue" after signing. The server checks the
+  payment with Google (`purchases.products`), acknowledges it, records it, and writes the
+  `billing.us_return_paid` audit event. A payment token can pay for only one return and one year.
+- `file_us_return` is refused with `US_RETURN_UNPAID` until that year is paid, whether it comes from the
+  app, a confirm, or chat.
+- With no product set, filing is not held back (sandbox and development).
+- Not done yet: refunds and voided purchases are not watched (Play voided-purchases API), and iOS uses
+  the App Store product once the iOS build ships.

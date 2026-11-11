@@ -50,12 +50,13 @@ export function createBusinesses({ db, now = () => Date.now(), booksKey = '' }) 
       const opening = await openingBooks({ name: String(name ?? ''), gstin: String(gstin ?? ''), state: String(state ?? ''), country: String(country ?? ''), address: String(address ?? ''), city: String(city ?? ''), pin: String(pin ?? ''), entityType: String(kind ?? '').trim().toLowerCase() }, new Date(now()));
       if (!opening.ok) return opening;
       return db.tx(async (q) => {
-        const business = await q('insert into businesses (name, gstin, created_by, created_at, demo) values ($1, $2, $3, $4, $5) returning id', [
+        const business = await q('insert into businesses (name, gstin, created_by, created_at, demo, kind) values ($1, $2, $3, $4, $5, $6) returning id', [
           opening.company.name,
           opening.company.gstin,
           userId,
           new Date(now()),
           Boolean(demo),
+          opening.company.entityType === 'household' ? 'household' : 'business',
         ]);
         const id = business.rows[0].id;
         await q("insert into memberships (user_id, business_id, role) values ($1, $2, 'owner')", [userId, id]);

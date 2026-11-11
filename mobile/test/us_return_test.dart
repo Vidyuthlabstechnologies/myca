@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -6,15 +7,58 @@ import 'package:myca/api/models.dart';
 import 'package:myca/api/myca_api.dart';
 import 'package:myca/app_services.dart';
 import 'package:myca/app_state.dart';
+import 'package:myca/billing/store_billing.dart';
 import 'package:myca/cloud/token_store.dart';
 import 'package:myca/format.dart';
 import 'package:myca/main.dart';
+import 'package:myca/screens/us/us_sign_screen.dart';
 import 'package:myca/us/tin.dart';
+import 'package:myca/us/us_filing_fee.dart';
 import 'package:myca/us/us_return.dart';
 
 import 'cloud_test.dart' show signedIn, sessionOn;
 import 'fake_api.dart';
 import 'fake_cloud.dart';
+
+class FeeStore implements StoreBilling {
+  final controller = StreamController<List<StorePurchase>>.broadcast();
+  final bought = <String>[];
+  final finished = <String>[];
+
+  @override
+  Stream<List<StorePurchase>> get purchases => controller.stream;
+  @override
+  Future<bool> available() async => true;
+  @override
+  Future<Map<String, StoreProduct>> products(Set<String> ids) async => {for (final id in ids) id: StoreProduct(id: id, price: '\$39.00')};
+  @override
+  Future<bool> buy(String productId, String accountId) async => false;
+  @override
+  Future<bool> buyOnce(String productId, String accountId) async {
+    bought.add('$productId:$accountId');
+    return true;
+  }
+  @override
+  Future<void> restore(String accountId) async {}
+  @override
+  Future<void> finish(StorePurchase purchase) async => finished.add(purchase.token);
+}
+
+class FakeFees implements UsFilingFees {
+  bool paid = false;
+  final recorded = <String>[];
+
+  @override
+  String get accountId => 'biz-1';
+  @override
+  Future<UsFilingFee> status(int taxYear) async => UsFilingFee(taxYear: taxYear, enforced: true, paid: paid, priceUsd: 39, productId: 'myca_us_1040');
+  @override
+  Future<UsFilingFee> record(int taxYear, String productId, String purchaseToken) async {
+    recorded.add('$taxYear:$productId:$purchaseToken');
+    paid = true;
+    return status(taxYear);
+  }
+}
 
 class UsFakeApi implements MycaApi {
   final proposals = <Proposal>[];
@@ -512,6 +556,44 @@ void main() {
     expect(api.confirmed, ['sign_us_return', 'file_us_return']);
     expect(find.text('Sent to the IRS'), findsOneWidget);
     expect(find.textContaining('00000020253150000001'), findsOneWidget);
+  });
+
+  testWidgets('filing is held until that year\'s \$39 is paid on Google Play; then the file button appears', (tester) async {
+    final api = UsFakeApi()..taxpayer = {'filingStatus': 'single'};
+    api.forms.add({'id': 'F1', 'kind': 'W-2', 'payer': 'Acme', 'amounts': {'wages': 52000}});
+    api.efile = 'signed';
+    final fees = FakeFees();
+    final store = FeeStore();
+    await tester.pumpWidget(MycaApp(state: usState(api)));
+    await tester.pumpAndSettle();
+    final year = currentTaxYear(DateTime.now());
+    tester.state<NavigatorState>(find.byType(Navigator).first).push(MaterialPageRoute<void>(builder: (_) => UsSignScreen(taxYear: year, fees: fees, store: store)));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('usFee.card')), findsOneWidget);
+    expect(find.textContaining('is \$39, paid once'), findsOneWidget);
+    expect(find.byKey(const Key('usSign.prepare')), findsNothing, reason: 'no filing before the fee');
+    await tester.tap(find.byKey(const Key('usFee.pay')));
+    await tester.pumpAndSettle();
+    expect(store.bought, ['myca_us_1040:biz-1']);
+    store.controller.add([const StorePurchase(productId: 'myca_pro_monthly', token: 'not-mine', state: StorePurchaseState.purchased)]);
+    await tester.pumpAndSettle();
+    expect(fees.recorded, isEmpty, reason: 'a business plan purchase is left to Plan and billing');
+    store.controller.add([const StorePurchase(productId: 'myca_us_1040', token: 'tok-1', state: StorePurchaseState.purchased, needsFinish: true)]);
+    await tester.pumpAndSettle();
+    expect(fees.recorded, ['$year:myca_us_1040:tok-1']);
+    expect(store.finished, ['tok-1']);
+    expect(find.byKey(const Key('usFee.card')), findsNothing);
+    await tester.tap(find.byKey(const Key('usSign.prepare')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('usSign.filingSummary')), findsOneWidget);
+  });
+
+  test('the filing fee reads from the server and is never due when billing is off', () {
+    final due = UsFilingFee.fromJson({'taxYear': 2025, 'enforced': true, 'paid': false, 'priceUsd': 39, 'productId': 'myca_us_1040'}, 2025);
+    expect(due.due, isTrue);
+    expect(usFilingFeeLine(due), 'Filing your 2025 return with the IRS is \$39, paid once. Preparing, reviewing and downloading it stay free.');
+    expect(UsFilingFee.fromJson({'enforced': false, 'paid': true}, 2025).due, isFalse);
+    expect(UsFilingFee.fromJson({'enforced': true, 'paid': true}, 2025).due, isFalse);
   });
 
   testWidgets('Sign: someone who owes can pay from the bank on a date, and a joint return asks for both PINs', (tester) async {

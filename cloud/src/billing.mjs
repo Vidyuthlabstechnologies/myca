@@ -16,10 +16,13 @@ export const PLANS = Object.freeze({
   lapsed: Object.freeze({ id: 'lapsed', title: 'Trial ended', monthlyRupees: 0, yearlyRupees: 0, limits: { invoicesPerMonth: 0, members: 1 }, features: ['books'] }),
   essentials: Object.freeze({ id: 'essentials', title: 'Essentials', monthlyRupees: 399, yearlyRupees: 3999, limits: { invoicesPerMonth: null, members: 2 }, features: ['books', 'post', 'chat', 'gst-reports', 'team'] }),
   pro: Object.freeze({ id: 'pro', title: 'Pro', monthlyRupees: 799, yearlyRupees: 7999, limits: { invoicesPerMonth: null, members: 5 }, features: ['books', 'post', 'chat', 'gst-reports', 'gst-returns', 'einvoice', 'connectors', 'whatsapp', 'team'] }),
+  household: Object.freeze({ id: 'household', title: 'Personal tax return', monthlyRupees: 0, yearlyRupees: 0, limits: { invoicesPerMonth: 0, members: 3 }, features: ['books', 'post', 'chat', 'team'] }),
   firm: Object.freeze({ id: 'firm', title: 'CA firm', monthlyRupees: 2499, yearlyRupees: 24999, limits: { invoicesPerMonth: null, members: 25 }, features: ['books', 'post', 'chat', 'gst-reports', 'gst-returns', 'einvoice', 'connectors', 'whatsapp', 'team', 'priority-support'] }),
 });
 
 const PAID = ['essentials', 'pro', 'firm'];
+export const US_RETURN_PRICE_USD = 39;
+const US_RETURN_YEARS_BACK = 3;
 
 function cheapestWith(feature) {
   return PAID.map((id) => PLANS[id]).filter((plan) => plan.features.includes(feature)).map((plan) => plan.title);
@@ -55,6 +58,7 @@ export function billingConfigFromEnv(env = process.env) {
   return {
     packageName: unset(env.MYCA_PLAY_PACKAGE),
     productIds: { essentials: unset(env.MYCA_PLAY_PRODUCT_ESSENTIALS), pro: unset(env.MYCA_PLAY_PRODUCT_PRO), firm: unset(env.MYCA_PLAY_PRODUCT_FIRM) },
+    usReturn: { productId: unset(env.MYCA_PLAY_PRODUCT_US_1040), priceUsd: /^[0-9]{1,4}$/.test(String(env.MYCA_US_RETURN_PRICE_USD || '').trim()) ? Number(env.MYCA_US_RETURN_PRICE_USD) : US_RETURN_PRICE_USD },
     notifyToken: unset(env.MYCA_PLAY_NOTIFY_TOKEN),
     serviceAccount: parseServiceAccount(unset(env.MYCA_PLAY_SERVICE_ACCOUNT_JSON)),
     prices,
@@ -63,7 +67,7 @@ export function billingConfigFromEnv(env = process.env) {
 
 export function billingConfigProblem(env = process.env) {
   const cfg = billingConfigFromEnv(env);
-  if (!cfg.packageName || !PAID.some((plan) => cfg.productIds[plan])) return '';
+  if (!cfg.packageName || (!PAID.some((plan) => cfg.productIds[plan]) && !cfg.usReturn.productId)) return '';
   const given = unset(env.MYCA_PLAY_SERVICE_ACCOUNT_JSON);
   if (given && !cfg.serviceAccount) return 'MYCA_PLAY_SERVICE_ACCOUNT_JSON is not a service account key: paste the whole JSON file Google Cloud gave for the Play service account.';
   if (!given && !env.K_SERVICE) return 'Google Play subscriptions are on but MYCA_PLAY_SERVICE_ACCOUNT_JSON is empty: outside Cloud Run the API has no other way to reach the Play Developer API.';
@@ -91,7 +95,9 @@ function fail(error, extra = {}) {
 
 export function createBilling({ db, config = {}, now = () => Date.now(), fetchImpl = (...args) => globalThis.fetch(...args), log = () => {} }) {
   const cfg = { packageName: '', productIds: {}, notifyToken: '', serviceAccount: null, prices: {}, ...config };
+  cfg.usReturn = { productId: '', priceUsd: US_RETURN_PRICE_USD, ...(config.usReturn || {}) };
   const enabled = Boolean(cfg.packageName && PAID.some((plan) => cfg.productIds[plan]));
+  const usEnforced = Boolean(cfg.packageName && cfg.usReturn.productId);
   const planOfProduct = (productId) => PAID.find((plan) => cfg.productIds[plan] && cfg.productIds[plan] === productId) || null;
   let cachedToken = { value: '', until: 0 };
 
@@ -187,7 +193,11 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
 
   async function entitlement(businessId) {
     const at = now();
-    const business = await db.query('select created_at as "createdAt", demo from businesses where id = $1', [businessId]);
+    const business = await db.query('select created_at as "createdAt", demo, kind from businesses where id = $1', [businessId]);
+    if (business.rows[0]?.kind === 'household') {
+      const plan = PLANS.household;
+      return { ok: true, enforced: enabled, plan: plan.id, planTitle: plan.title, limits: plan.limits, features: plan.features, trial: null, subscription: null, manageUrl: '', usReturn: { enforced: usEnforced, priceUsd: cfg.usReturn.priceUsd, productId: cfg.usReturn.productId } };
+    }
     if (business.rows[0]?.demo) {
       return { ok: true, enforced: enabled, plan: 'pro', planTitle: PLANS.pro.title, limits: PLANS.pro.limits, features: PLANS.pro.features, trial: null, demo: true, subscription: null, manageUrl: '' };
     }
@@ -228,6 +238,101 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
     return fail('PLAN_LIMIT_REACHED', { limit, cap, plan: got.plan, hint: `The ${got.planTitle} plan allows ${cap}. The owner can upgrade under Plan and billing.` });
   }
 
+  function usTaxYearProblem(taxYear) {
+    const year = Number(taxYear);
+    const latest = new Date(now()).getUTCFullYear();
+    if (!Number.isInteger(year) || year > latest || year < latest - US_RETURN_YEARS_BACK) return fail('BAD_TAX_YEAR', { hint: `Pick a tax year from ${latest - US_RETURN_YEARS_BACK} to ${latest}.` });
+    return null;
+  }
+
+  async function isHousehold(businessId) {
+    const found = await db.query('select kind from businesses where id = $1', [businessId]);
+    return found.rows[0]?.kind === 'household';
+  }
+
+  async function usPurchase(businessId, taxYear) {
+    const found = await db.query('select product_id as "productId", price_usd as "priceUsd", test_purchase as "testPurchase", created_at as "createdAt" from us_return_purchases where business_id = $1 and tax_year = $2', [businessId, taxYear]);
+    return found.rows[0] || null;
+  }
+
+  async function usReturn(businessId, taxYear) {
+    const bad = usTaxYearProblem(taxYear);
+    if (bad) return bad;
+    const year = Number(taxYear);
+    const bought = await usPurchase(businessId, year);
+    return {
+      ok: true,
+      taxYear: year,
+      enforced: usEnforced,
+      paid: Boolean(bought) || !usEnforced,
+      purchased: Boolean(bought),
+      priceUsd: bought ? bought.priceUsd : cfg.usReturn.priceUsd,
+      currency: 'USD',
+      productId: cfg.usReturn.productId,
+      buyable: usEnforced,
+      purchasedAt: bought ? new Date(bought.createdAt).toISOString() : null,
+      testPurchase: Boolean(bought?.testPurchase),
+    };
+  }
+
+  async function usFilingAllowed(businessId, taxYear) {
+    if (!usEnforced) return { ok: true };
+    const bad = usTaxYearProblem(taxYear);
+    if (bad) return bad;
+    if (await usPurchase(businessId, Number(taxYear))) return { ok: true };
+    return fail('US_RETURN_UNPAID', { taxYear: Number(taxYear), priceUsd: cfg.usReturn.priceUsd, productId: cfg.usReturn.productId, hint: `Preparing and reviewing your return is free. Filing it with the IRS is $${cfg.usReturn.priceUsd} for the ${taxYear} return, paid once on the Sign and e-file screen.` });
+  }
+
+  async function lookupProduct(productId, purchaseToken) {
+    const out = await play('GET', `products/${encodeURIComponent(productId)}/tokens/${encodeURIComponent(purchaseToken)}`);
+    if (!out.ok) return { ok: false, status: out.status };
+    return {
+      ok: true,
+      purchased: Number(out.data.purchaseState ?? 0) === 0,
+      accountId: String(out.data.obfuscatedExternalAccountId || ''),
+      needsAck: Number(out.data.acknowledgementState ?? 0) === 0 && Number(out.data.consumptionState ?? 0) === 0,
+      testPurchase: out.data.purchaseType === 0,
+    };
+  }
+
+  async function verifyUsReturn(businessId, userId, { taxYear, productId, purchaseToken } = {}) {
+    if (!usEnforced) return fail('BILLING_NOT_CONFIGURED', { hint: 'The operator has not set up the Google Play product for US returns yet.' });
+    if (!(await isHousehold(businessId))) return fail('NOT_A_PERSONAL_RETURN', { hint: 'The filing fee is for a personal US return. Businesses use a monthly plan.' });
+    const bad = usTaxYearProblem(taxYear);
+    if (bad) return bad;
+    const year = Number(taxYear);
+    const token = String(purchaseToken || '');
+    if (productId !== cfg.usReturn.productId || !token || token.length > 2000) return fail('UNKNOWN_PRODUCT', { products: [cfg.usReturn.productId] });
+    const used = await db.query(`select business_id as "businessId", tax_year as "taxYear" from us_return_purchases where provider = 'play' and purchase_token = $1`, [token]);
+    if (used.rows[0]) {
+      if (used.rows[0].businessId === businessId && Number(used.rows[0].taxYear) === year) return usReturn(businessId, year);
+      return fail('PURCHASE_ALREADY_USED', { hint: 'This Google Play payment already paid for another return. Each tax year is paid once.' });
+    }
+    if (await usPurchase(businessId, year)) return fail('ALREADY_PAID', { taxYear: year, hint: `The ${year} return is already paid for.` });
+    let found;
+    try {
+      found = await lookupProduct(productId, token);
+    } catch (error) {
+      log({ billing: 'play_auth_failed', status: error.status || 0 });
+      return fail('PROVIDER_UNAVAILABLE', { hint: 'Google Play could not be reached. Your payment is safe; try again in a minute.' });
+    }
+    if (!found.ok) return fail('PURCHASE_NOT_FOUND', { status: found.status, hint: 'Google Play does not know this payment.' });
+    if (!found.purchased) return fail('PURCHASE_NOT_COMPLETE', { hint: 'Google Play has not finished this payment yet. It is picked up once it goes through.' });
+    if (found.accountId && found.accountId !== businessId) return fail('PURCHASE_BELONGS_TO_ANOTHER_BUSINESS', { hint: 'This Google Play payment was made for another return.' });
+    const saved = await db.query(
+      `insert into us_return_purchases (business_id, tax_year, provider, purchase_token, product_id, price_usd, test_purchase, created_by)
+       values ($1, $2, 'play', $3, $4, $5, $6, $7) on conflict do nothing returning tax_year`,
+      [businessId, year, token, productId, cfg.usReturn.priceUsd, found.testPurchase, userId],
+    );
+    if (!saved.rows.length) return fail('PURCHASE_ALREADY_USED', { hint: 'This return or this payment was just recorded by another request.' });
+    if (found.needsAck) {
+      const ack = await play('POST', `products/${encodeURIComponent(productId)}/tokens/${encodeURIComponent(token)}:acknowledge`);
+      if (!ack.ok) log({ billing: 'acknowledge_failed', status: ack.status });
+    }
+    await audit(businessId, userId, 'billing.us_return_paid', { provider: 'play', taxYear: year, priceUsd: cfg.usReturn.priceUsd, testPurchase: found.testPurchase });
+    return usReturn(businessId, year);
+  }
+
   async function audit(businessId, userId, action, metadata) {
     await db.query(`insert into audit_log (business_id, user_id, request_id, action, metadata) values ($1, $2, '', $3, $4::jsonb)`, [businessId, userId, action, JSON.stringify(metadata)]);
   }
@@ -242,8 +347,13 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
       trialDays: TRIAL_DAYS,
       currency: 'INR',
       plans: PAID.map((id) => PLANS[id]).map((plan) => ({ ...plan, monthlyRupees: cfg.prices[plan.id] ?? plan.monthlyRupees, productId: cfg.productIds[plan.id] || '', buyable: enabled && Boolean(cfg.productIds[plan.id]) })),
+      usReturn: { title: 'US federal return', priceUsd: cfg.usReturn.priceUsd, currency: 'USD', per: 'tax_year', productId: cfg.usReturn.productId, buyable: usEnforced },
     }),
     entitlement,
+    usEnforced,
+    usReturn,
+    usFilingAllowed,
+    verifyUsReturn,
     allows,
     withinLimit,
 

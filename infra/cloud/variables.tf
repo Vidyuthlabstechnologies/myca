@@ -238,6 +238,12 @@ variable "play_product_firm" {
   default     = ""
 }
 
+variable "play_product_us_1040" {
+  description = "Google Play one-time (consumable) product id for filing a US federal return, priced at USD 39 for the United States, for example \"myca_us_1040\". Empty leaves US filing free."
+  type        = string
+  default     = ""
+}
+
 variable "plan_prices" {
   description = "Monthly prices shown in the app, in rupees, used only until the app reads the Play Store price, for example \"pro=499,firm=1499\"."
   type        = string

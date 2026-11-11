@@ -57,6 +57,11 @@ const _messages = {
   'BODY_TOO_LARGE': 'That file is larger than 8 MB. Export a shorter period and try again.',
   'EMPTY_FILE': 'That file is empty.',
   'PLAN_REQUIRED': 'Your plan does not include this. The owner can upgrade under Plan and billing.',
+  'US_RETURN_UNPAID': 'Filing this return with the IRS needs the one-time filing fee first. Preparing and reviewing it stay free.',
+  'PURCHASE_ALREADY_USED': 'This Google Play payment already paid for another return.',
+  'ALREADY_PAID': 'This return is already paid for.',
+  'PURCHASE_NOT_COMPLETE': 'Google Play has not finished this payment yet. Filing unlocks as soon as it clears.',
+  'NOT_A_PERSONAL_RETURN': 'The filing fee is for a personal US return.',
   'PLAN_LIMIT_REACHED': 'This business has reached its plan limit. The owner can upgrade under Plan and billing.',
   'PURCHASE_BELONGS_TO_ANOTHER_BUSINESS': 'This Google Play subscription already pays for another business. Each business needs its own plan.',
   'PURCHASE_NOT_FOUND': 'Google Play does not show this purchase yet. Try again in a minute.',
@@ -770,6 +775,11 @@ class CloudSession {
     final entitlement = body['entitlement'];
     return entitlement is Map ? Entitlement.fromJson(entitlement.cast<String, dynamic>()) : await this.entitlement();
   }
+
+  Future<Map<String, dynamic>> usReturnFee(int taxYear) async => _accepted(await call('GET', '$_books/us-return-purchase?taxYear=$taxYear'));
+
+  Future<Map<String, dynamic>> recordUsReturnPayment(int taxYear, String productId, String purchaseToken) async =>
+      _accepted(await call('POST', '$_books/us-return-purchase', {'taxYear': taxYear, 'productId': productId, 'purchaseToken': purchaseToken}));
 
   Future<EinvoiceOutcome> generateEinvoice(String invoiceId) async {
     return EinvoiceOutcome.fromJson(await call('POST', '$_books/einvoice', {'invoiceId': invoiceId}));

@@ -5,11 +5,14 @@ import 'package:flutter/services.dart';
 import '../../api/models.dart';
 import '../../api/myca_api.dart';
 import '../../app_state.dart';
+import '../../billing/store_billing.dart';
 import '../../format.dart';
 import '../../theme.dart';
 import '../../us/tin.dart';
+import '../../us/us_filing_fee.dart';
 import '../../us/us_return.dart';
 import '../../widgets.dart';
+import '../plan_screen.dart' show buyInApp;
 import 'us_fields.dart';
 
 String deviceTypeName() => switch (defaultTargetPlatform) {
@@ -21,17 +24,20 @@ String deviceTypeName() => switch (defaultTargetPlatform) {
 };
 
 class _SignContext {
-  const _SignContext(this.status, this.review, this.efile);
+  const _SignContext(this.status, this.review, this.efile, this.fee);
 
   final UsReturnStatus status;
   final UsReview review;
   final UsEfileStatus efile;
+  final UsFilingFee fee;
 }
 
 class UsSignScreen extends StatefulWidget {
-  const UsSignScreen({super.key, required this.taxYear});
+  const UsSignScreen({super.key, required this.taxYear, this.fees, this.store});
 
   final int taxYear;
+  final UsFilingFees? fees;
+  final StoreBilling? store;
 
   @override
   State<UsSignScreen> createState() => _UsSignScreenState();
@@ -59,19 +65,33 @@ class _UsSignScreenState extends State<UsSignScreen> {
   bool _busy = false;
   ChatPreview? _filing;
   String _signedSummary = '';
+  UsFilingFee? _paidFee;
+  UsFilingFees? _fees;
+  StoreBilling? _store;
 
   MycaApi get _api => AppScope.of(context).api;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    final cloud = AppScope.of(context).cloud;
+    _fees ??= widget.fees ?? (cloud == null ? const NoFilingFees() : CloudFilingFees(cloud));
+    _store ??= widget.store ?? (buyInApp && cloud != null ? PlayBilling() : null);
     _context ??= _load();
+  }
+
+  Future<UsFilingFee> _loadFee(int year) async {
+    try {
+      return await _fees!.status(year);
+    } on Object {
+      return UsFilingFee(taxYear: year, enforced: false, paid: true, priceUsd: usFilingPriceUsd);
+    }
   }
 
   Future<_SignContext> _load() async {
     final year = widget.taxYear;
-    final results = await Future.wait<Object>([loadReturnStatus(_api, year), loadReview(_api, year), loadEfileStatus(_api, year)]);
-    return _SignContext(results[0] as UsReturnStatus, results[1] as UsReview, results[2] as UsEfileStatus);
+    final results = await Future.wait<Object>([loadReturnStatus(_api, year), loadReview(_api, year), loadEfileStatus(_api, year), _loadFee(year)]);
+    return _SignContext(results[0] as UsReturnStatus, results[1] as UsReview, results[2] as UsEfileStatus, results[3] as UsFilingFee);
   }
 
   @override
@@ -326,7 +346,9 @@ class _UsSignScreenState extends State<UsSignScreen> {
                     const StatusTag(text: 'IRS test system: nothing is really filed', color: Palette.warn),
                   ],
                   const SizedBox(height: 22),
-                  if (_filing == null)
+                  if ((_paidFee ?? ctx.fee).due)
+                    UsFilingFeeCard(fee: ctx.fee, fees: _fees!, store: _store, onPaid: (fee) => setState(() => _paidFee = fee))
+                  else if (_filing == null)
                     FilledButton(key: const Key('usSign.prepare'), onPressed: _busy ? null : _prepareFiling, child: Text(_busy ? 'Checking…' : 'E-file with the IRS'))
                   else ...[
                     Container(

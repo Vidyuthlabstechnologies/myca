@@ -519,6 +519,10 @@ resource "google_cloud_run_v2_service" "api" {
         value = var.play_product_firm
       }
       env {
+        name  = "MYCA_PLAY_PRODUCT_US_1040"
+        value = var.play_product_us_1040
+      }
+      env {
         name = "MYCA_PLAY_NOTIFY_TOKEN"
         value_source {
           secret_key_ref {

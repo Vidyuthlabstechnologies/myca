@@ -51,10 +51,12 @@ const SMALL_BODY_BYTES = 64 * 1024;
 const MERGE_BYTES = 16 * 1024;
 const MERGE_PIECES = 256;
 
+const US_FILE_TOOL = 'file_us_return';
 const OWNER_ONLY_POSTS = new Map([
   ['ca-sync', 'OWNER_ONLY'],
   ['ca-share', 'OWNER_ONLY'],
   ['subscription', 'SHARED_VIEW_READ_ONLY'],
+  ['us-return-purchase', 'SHARED_VIEW_READ_ONLY'],
   ['invitations', 'SHARED_VIEW_READ_ONLY'],
   ['inbound', 'SHARED_VIEW_READ_ONLY'],
   ['connectors', 'SHARED_VIEW_READ_ONLY'],
@@ -296,6 +298,12 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
   const runner = createBooksRunner({ db, now, vault, booksKey });
   const connectors = createConnectorStore({ db, key: connectorKey });
   const withBooks = runner.withBooks;
+  async function unpaidFiling(businessId, session) {
+    const pending = session.state.pendingChatAction;
+    if (pending?.name !== US_FILE_TOOL || !billing.usEnforced) return null;
+    const paid = await billing.usFilingAllowed(businessId, pending.args?.taxYear);
+    return paid.ok ? null : paid;
+  }
   const billing = billingGiven || createBilling({ db, now, log });
   const govt = createGovtActions({ connectors, withBooks: (...args) => runner.withBooks(...args) });
   const gstPortal = createGstPortal({ db, connectors, withBooks: (...args) => runner.withBooks(...args), billing, key: connectorKey, fetchFn: gspFetch, now });
@@ -686,6 +694,7 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
         return action === 'gst-portal' ? gstPortal.status(businessId) : gstPortal.filings(businessId, context);
       }
       if (method === 'GET' && action === 'subscription') return billing.entitlement(businessId);
+      if (method === 'GET' && action === 'us-return-purchase') return billing.usReturn(businessId, url.searchParams.get('taxYear'));
       if (method !== 'POST') throw httpError(404, 'NOT_FOUND');
 
       const ownerRule = OWNER_ONLY_POSTS.get(action);
@@ -743,6 +752,7 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
         throw httpError(403, 'SHARED_VIEW_READ_ONLY', { sharedAsOf: sync.asOf });
       }
       if (action === 'subscription') return billing.verify(businessId, user.userId, body);
+      if (action === 'us-return-purchase') return billing.verifyUsReturn(businessId, user.userId, body);
       const posting = WRITES.has(action) ? await billing.allows(businessId, 'post') : { ok: true };
       if (!posting.ok) return posting;
       if (action === 'invitations') {
@@ -802,17 +812,35 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
           if (IMPORT_CONTENT_ARG[name] in args || typeof args.documentSha256 !== 'string') throw httpError(400, 'IMPORT_NEEDS_UPLOAD');
           return withBooks(businessId, context, (session) => session.propose(name, args, actor), { hashes: [args.documentSha256] });
         }
+        if (name === US_FILE_TOOL) {
+          const paid = await billing.usFilingAllowed(businessId, args.taxYear);
+          if (!paid.ok) return paid;
+        }
         if (!PROPOSABLE.has(name)) throw httpError(400, 'NOT_PROPOSABLE', { tool: name });
         return withBooks(businessId, context, (session) => session.propose(name, args, actor));
       }
-      if (action === 'confirm') return withBooks(businessId, context, (session) => session.confirm(body.token, actor));
+      if (action === 'confirm') {
+        return withBooks(businessId, context, async (session) => {
+          const unpaid = await unpaidFiling(businessId, session);
+          if (unpaid) return unpaid;
+          return session.confirm(body.token, actor);
+        });
+      }
       if (action === 'discard') return withBooks(businessId, context, (session) => session.discard(actor));
       if (action === 'query') return runner.withReadOnlyBooks(businessId, context, (session) => session.query(body.name, body.args || {}, actor));
       if (action === 'ask') {
         const message = chatText(body.message);
         if (!message.trim()) throw httpError(400, 'MESSAGE_REQUIRED');
         const canPost = await billing.allows(businessId, 'post');
-        return withBooks(businessId, context, (session) => (canPost.ok ? session.chat(message, actor) : readOnlyChat(session, message, actor)));
+        return withBooks(businessId, context, async (session) => {
+          if (!canPost.ok) return readOnlyChat(session, message, actor);
+          if (await unpaidFiling(businessId, session)) await session.discard(actor);
+          const out = await session.chat(message, actor);
+          const unpaid = await unpaidFiling(businessId, session);
+          if (!unpaid) return out;
+          await session.discard(actor);
+          return { reply: unpaid.hint, tools: [], error: unpaid.error };
+        });
       }
       if (action === 'company') {
         if (role !== 'owner') throw httpError(403, 'OWNER_ONLY');

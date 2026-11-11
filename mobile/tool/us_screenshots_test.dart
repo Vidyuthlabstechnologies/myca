@@ -3,9 +3,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:myca/app_state.dart';
 import 'package:myca/format.dart';
 import 'package:myca/main.dart';
+import 'package:myca/screens/us/us_sign_screen.dart';
+import 'package:myca/us/us_return.dart';
 
 import '../test/fake_api.dart';
-import '../test/us_return_test.dart' show UsFakeApi, usState;
+import '../test/us_return_test.dart' show FakeFees, FeeStore, UsFakeApi, usState;
 import 'screenshots_test.dart' show loadFonts, shot;
 
 void main() {
@@ -55,5 +57,10 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('usHub.step.sign')));
     await shot(tester, 'us_07_sign');
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    api.efile = 'signed';
+    tester.state<NavigatorState>(find.byType(Navigator).first).push(MaterialPageRoute<void>(builder: (_) => UsSignScreen(taxYear: currentTaxYear(DateTime.now()), fees: FakeFees(), store: FeeStore())));
+    await shot(tester, 'us_08_filing_fee');
   });
 }
