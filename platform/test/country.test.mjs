@@ -4,7 +4,9 @@ import { createState, serialize, deserialize } from '../src/store.mjs';
 import { runTool, TOOLS } from '../src/tools.mjs';
 import { chat } from '../src/router.mjs';
 import { createInvoice } from '../src/invoice.mjs';
+import { engineToolOwner } from '../src/countries/manifests.mjs';
 import { countryOf, countryInfo, formatMoney, yearOf, yearWords, toolsForCountry, toolServesCountry, setCurrentCountry, formatMoneyCurrent } from '../src/country.mjs';
+import { countryPack } from '../src/countries/index.mjs';
 import { validateAssistantToolCall } from '../src/assistant-contract.mjs';
 
 test('a business is Indian unless it says otherwise, and the country fixes currency, locale and the year', () => {
@@ -54,12 +56,15 @@ test('a US business sees the shared and US-only tools; Indian tools are refused 
     assert.equal(shared.includes(indian), false, indian);
     assert.equal(toolServesCountry(indian, 'IN'), true);
   }
-  const usOnly = ['import_payroll_summary', 'list_payroll_imports', 'us_connectors', 'plaid_link_sandbox', 'plaid_link_token', 'plaid_exchange', 'track1099_csv', 'track1099_issuers', 'track1099_import', 'track1099_job', 'taxjar_rate', 'gusto_connect_url', 'gusto_callback', 'set_sales_tax_rate', 'list_sales_tax_rates', 'set_contractor', 'contractor_payments', 'set_sales_tax_nexus', 'list_sales_tax_nexus', 'sales_tax_return', 'sales_tax_review', 'sales_tax_review_answer', 'record_sales_tax_payment', 'record_sales_tax_filing', 'sales_tax_overview', 'set_withholding', 'us_payroll_filings', 'schedule_c_summary', 'estimated_tax_dates', 'import_us_invoices', 'contractor_1099_file', 'set_suta_rate', 'list_suta_rates', 'schedule_se', 'schedule_c_document', 'cpa_pack', 'payroll_941_file', 'payroll_w2_file'];
+  const usOnly = countryPack('US').tools.filter((name) => TOOLS.some((tool) => tool.name === name));
+  assert.ok(usOnly.length >= 38);
   for (const name of usOnly) {
     assert.ok(shared.includes(name), name);
     assert.equal(toolServesCountry(name, 'IN'), false, name);
   }
-  assert.equal(toolsForCountry(TOOLS, 'IN').length, TOOLS.length - usOnly.length);
+  const otherCountries = TOOLS.filter((tool) => !usOnly.includes(tool.name) && !toolServesCountry(tool.name, 'IN')).map((tool) => tool.name);
+  assert.ok(otherCountries.every((name) => !['IN', 'US', '*'].includes(engineToolOwner(name))), otherCountries.join(', '));
+  assert.equal(toolsForCountry(TOOLS, 'IN').length, TOOLS.length - usOnly.length - otherCountries.length);
   const state = createState();
   state.company = { name: 'Maple Street Bakery', country: 'US', gstin: '', state: '' };
   const refused = await runTool(state, 'gst_payable', {});
