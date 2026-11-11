@@ -1,0 +1,22 @@
+{
+  "name": "@myca/design",
+  "version": "1.0.0",
+  "private": true,
+  "description": "MyCA universal design system: tokens, country themes, locale formatting for every MyCA app and site",
+  "type": "module",
+  "exports": {
+    ".": "./web/index.mjs",
+    "./tokens": "./generated/js/tokens.mjs",
+    "./css": "./generated/css/myca.css"
+  },
+  "scripts": {
+    "build": "node build.mjs",
+    "test": "node --test \"test/*.test.mjs\""
+  },
+  "devDependencies": {
+    "style-dictionary": "5.8.0"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

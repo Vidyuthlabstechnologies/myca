@@ -45,6 +45,7 @@ It will live in its own `cloud/` package, which may depend on the Postgres drive
 | `infra/` | Terraform. `infra/bootstrap` is the one-time owner step (state bucket, workload identity for GitHub). `infra/cloud` is production on Google Cloud: Cloud Run API and site, Cloud SQL, Secret Manager, Cloud Scheduler, Pub/Sub for Play. `infra/aws` is the earlier AWS deployment, kept only until it is switched off; do not build on it. |
 | `email-relay/` | Cloudflare Worker that sends the app's email. `node --test`, three tests. |
 | `.github/workflows/` | CI, nightly, the Cloud Run deploy (`deploy-cloud.yml`), site deploy, Terraform, and the Android, Windows and iOS builds. |
+| `design/` | Universal design system for every country app and site: tokens (Style Dictionary), generated CSS/JS/Dart, web formatting, and the `myca_design` Flutter package (theme, country formats, Bahi, components, strings). Design language in `docs/design/DESIGN-LANGUAGE.md`. Edit tokens, then `npm run build` in `design/`. |
 | `deploy/` | Marketing/research static site — not the product. |
 | `vendor/` | Unused reference clones. **Never import from here** (licences). |
 
@@ -66,7 +67,7 @@ and the Android app) and prints a pass/fail table:
 
 ```bash
 node scripts/check-all.mjs            # everything
-node scripts/check-all.mjs platform   # or any of: platform sprints cloud email-relay listing mobile
+node scripts/check-all.mjs platform   # or any of: platform sprints cloud email-relay listing design mobile
 node scripts/rules-watch.mjs          # gaps and records ending soon; exit 1 when a person is needed
 ```
 
