@@ -66,6 +66,7 @@ import { runDailyAutomation, automationStatus } from './automation.mjs';
 import { readDocument } from './document-reader.mjs';
 import { amendInvoice, listAmendments } from './invoice-amendments.mjs';
 import { scheduleSe } from './us-se-tax.mjs';
+import { setUsTaxpayer, addUsTaxForm, removeUsTaxForm, answerUsInterview, listUsTaxForms, usInterview, usReturnReview, usReturnStatus, usFormKinds, usTaxEstimate } from './us-return.mjs';
 import { scheduleCDocument, cpaPack } from './us-cpa-pack.mjs';
 import { form941File, w2File } from './us-payroll-files.mjs';
 import { usPayrollFor, approveUsPayroll, listUsPayroll, usPayslip, usPayrollFilings, setWithholding, setSutaRate, listSutaRates } from './us-payroll.mjs';
@@ -780,6 +781,76 @@ export const TOOLS = [
     description: 'Amendments made to filed invoices, optionally for one GSTR-1 month. Read-only.',
     args: ['period'],
     run: (state, args = {}) => listAmendments(state, args),
+  },
+  {
+    name: 'us_return_status',
+    title: 'US tax return progress',
+    description: 'Progress of a personal Form 1040 for a tax year: filing status, the taxpayer\'s name, each step (about you, tax forms, deductions and credits, review, sign) and whether it is done, the refund or amount owed so far, and whether it is ready to sign. US only. Read-only.',
+    args: ['taxYear'],
+    run: (state, args = {}) => usReturnStatus(state, args),
+  },
+  {
+    name: 'list_us_tax_forms',
+    title: 'US tax forms on a return',
+    description: 'The W-2, 1099, SSA-1099 and 1098 forms entered on a personal Form 1040 for a tax year, with the payer, whose form it is and the box amounts. US only. Read-only.',
+    args: ['taxYear'],
+    run: (state, args = {}) => listUsTaxForms(state, args),
+  },
+  {
+    name: 'us_form_kinds',
+    title: 'US tax form kinds',
+    description: 'The tax forms a personal return accepts (W-2, 1099-INT, 1099-DIV, 1099-B, 1099-NEC, 1099-MISC, 1099-G, 1099-R, SSA-1099, 1098, 1098-E, 1098-T), each with its boxes as field keys, labels and types. US only. Read-only.',
+    args: [],
+    run: () => usFormKinds(),
+  },
+  {
+    name: 'us_interview',
+    title: 'US return questions',
+    description: 'The deduction, credit and payment questions for a personal Form 1040 that fit the filing status and forms entered, each with help text, kind and the answer so far. US only. Read-only.',
+    args: ['taxYear'],
+    run: (state, args = {}) => usInterview(state, args),
+  },
+  {
+    name: 'us_return_review',
+    title: 'Review the US Form 1040',
+    description: 'Compute the personal Form 1040 for a tax year from the dated federal rules: income, Schedules 1, 1-A, 2, 3, A, B, C, D and SE, Form 8949, the child tax credit (8812), earned income credit, education credits (8863), additional Medicare tax (8959), net investment income tax (8960), the QBI deduction (8995), tax on qualified dividends and capital gains, withholding, and the refund or amount owed, with each line and the errors and warnings to fix, each naming its step. Dated rules a CPA has not reviewed. US only. Read-only.',
+    args: ['taxYear'],
+    run: (state, args = {}) => usReturnReview(state, args),
+  },
+  {
+    name: 'us_tax_estimate',
+    title: 'Estimate US federal income tax',
+    description: 'A quick federal income tax estimate for a tax year from a few figures (filing status, wages, withholding, interest, dividends, long-term gains, business profit, children under 17, age, itemized deductions, estimated payments) with the same engine as the full return; nothing is saved. US only. Read-only.',
+    args: ['taxYear', 'filingStatus', 'wages', 'federalWithheld', 'interest', 'dividends', 'qualifiedDividends', 'longTermGains', 'businessProfit', 'children', 'age', 'itemizedDeductions', 'estimatedTaxPayments'],
+    run: (state, args = {}) => usTaxEstimate(state, args),
+  },
+  {
+    name: 'set_us_taxpayer',
+    title: 'Set US return details',
+    description: 'Set the filing status, taxpayer, spouse, dependents and home address of a personal Form 1040 for a tax year. SSNs and ITINs are sealed and only the last four digits are ever returned. US only.',
+    args: ['taxYear', 'filingStatus', 'taxpayer', 'spouse', 'dependents', 'address'],
+    run: (state, args = {}) => setUsTaxpayer(state, args),
+  },
+  {
+    name: 'add_us_tax_form',
+    title: 'Add a US tax form',
+    description: 'Add a W-2, 1099, SSA-1099 or 1098 to a personal Form 1040, with the payer, whose form it is (taxpayer or spouse) and the box amounts keyed as us_form_kinds lists them. US only.',
+    args: ['taxYear', 'kind', 'owner', 'payer', 'payerTin', 'fields', 'source', 'documentId'],
+    run: (state, args = {}) => addUsTaxForm(state, args),
+  },
+  {
+    name: 'remove_us_tax_form',
+    title: 'Remove a US tax form',
+    description: 'Remove one tax form from a personal Form 1040 by its id. US only.',
+    args: ['id'],
+    run: (state, args = {}) => removeUsTaxForm(state, args),
+  },
+  {
+    name: 'answer_us_interview',
+    title: 'Answer a US return question',
+    description: 'Save the answer to one us_interview question (an amount, yes or no, or a choice); an empty answer clears it. US only.',
+    args: ['taxYear', 'id', 'answer'],
+    run: (state, args = {}) => answerUsInterview(state, args),
   },
   {
     name: 'schedule_se',

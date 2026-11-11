@@ -47,6 +47,7 @@ import { planTransport, transportWords, ewayBillNeed } from './eway-bill.mjs';
 import { planApproval, planSalaryPayment, payrollWords } from './payroll.mjs';
 import { setCurrentCountry, formatMoneyCurrent, countryOf } from './country.mjs';
 import { usDocumentPreview, planSalesTaxRate, planContractor } from './us-sales.mjs';
+import { usTaxpayerPreview, usTaxFormPreview, removeUsTaxFormPreview, usInterviewPreview } from './us-return.mjs';
 import { planNexus, checkSalesTaxAnswer, planSalesTaxPayment, planSalesTaxFiling } from './us-sales-tax.mjs';
 import { planGstPayment } from './gst-pay-record.mjs';
 import { planYearClose } from './year-close.mjs';
@@ -74,6 +75,7 @@ import { runBankRules, ruleWords } from './bank-rules.mjs';
 export const CONFIRM_TOOLS = new Set([
   'create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'record_filing', 'record_supplier_reminder', 'record_collection_reminder', 'record_payment_run', 'month_close_approve', 'set_sku_supply', 'record_purchase_order', 'record_advance_tax', 'set_supplier_bank', 'attach_document', 'push_tally', 'import_payroll_summary', 'add_employee', 'change_salary', 'end_employment', 'approve_payroll', 'record_salary_payment', 'set_tds_deductor', 'record_tds_deposit', 'tds_review_answer', 'set_gst_credit_opening', 'record_gst_payment', 'close_year', 'post_expense', 'set_expense_head', 'create_credit_note', 'create_debit_note', 'create_purchase_note', 'record_supplier_debit_note', 'cancel_invoice', 'gst_review_answer', 'import_gstr2b', 'ims_decide', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'set_party_address', 'set_business_address', 'set_transport', 'set_sales_tax_rate', 'set_contractor', 'set_sales_tax_nexus', 'sales_tax_review_answer', 'record_sales_tax_payment', 'record_sales_tax_filing', 'set_withholding', 'set_suta_rate', 'import_us_invoices', 'import_pos_sales', 'import_settlement', 'import_marketplace_orders', 'import_tcs_statement', 'import_26as_credits', 'record_tds_withheld', 'add_bill_tds', 'record_stock', 'record_stock_transfer', 'set_sku_cost', 'import_sku_costs', 'value_inventory', 'set_registration', 'retire_registration', 'set_channel_identity', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote', 'add_recurring', 'stop_recurring', 'amend_invoice', 'match_bank_line', 'unmatch_bank_line', 'book_bank_charges', 'add_bank_rule', 'remove_bank_rule', 'run_bank_rules', 'set_bank_account', 'record_transfer',
   'set_invoice_template', 'set_invoice_numbering', 'set_supplier_terms',
+  'set_us_taxpayer', 'add_us_tax_form', 'remove_us_tax_form', 'answer_us_interview',
   'import_tally', 'import_tally_xml', 'import_zoho', 'import_bank',
   'govt_generate_irn', 'govt_nic_cancel_irn',
   'exception_decide',
@@ -1939,6 +1941,10 @@ const PREVIEWERS = {
   set_contractor: contractorPreview,
   set_sales_tax_nexus: nexusPreview,
   set_withholding: withholdingPreview,
+  set_us_taxpayer: usTaxpayerPreview,
+  add_us_tax_form: usTaxFormPreview,
+  remove_us_tax_form: removeUsTaxFormPreview,
+  answer_us_interview: usInterviewPreview,
   set_suta_rate: sutaRatePreview,
   sales_tax_review_answer: salesTaxReviewAnswerPreview,
   record_sales_tax_payment: salesTaxPaymentPreview,

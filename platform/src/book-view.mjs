@@ -16,7 +16,7 @@ export const BOOK_KEYS = new Set([
   'supplierReminders', 'supplierReminderSeq', 'collectionReminders', 'collectionReminderSeq',
   'employees', 'employeeSeq',
   'tdsEntries', 'tdsDeposits',
-  'gstCreditOpening', 'tdsReviews', 'payrollRuns', 'salesTaxRates', 'salesTaxNexus', 'salesTaxReviews', 'salesTaxPayments', 'gstPayments', 'sutaRates', 'yearClosings', 'automation', 'amendmentSeq', 'chatRecent',
+  'gstCreditOpening', 'tdsReviews', 'payrollRuns', 'usReturns', 'salesTaxRates', 'salesTaxNexus', 'salesTaxReviews', 'salesTaxPayments', 'gstPayments', 'sutaRates', 'yearClosings', 'automation', 'amendmentSeq', 'chatRecent',
   'settlements', 'settlementSeq', 'channels', 'tcsStatements', 'tdsCreditStatements', 'skus', 'stockMoves', 'inventoryValuations', 'portalSaves', 'gstr3bPortal', 'tdsFvuJobs',
 ]);
 

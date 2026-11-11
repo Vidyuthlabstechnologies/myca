@@ -10,11 +10,12 @@ const NAME = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const SECTION_ID = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const FRONTMATTER_KEYS = new Set(['name', 'description', 'license', 'compatibility', 'metadata', 'allowed-tools']);
-const PLACEHOLDER = /\{\{([A-Za-z0-9._-]+)(?:#([A-Za-z0-9.]+))?(?:\|(paise|percent|days))?\}\}/g;
+const PLACEHOLDER = /\{\{([A-Za-z0-9._-]+)(?:#([A-Za-z0-9._]+))?(?:\|(paise|cents|percent|days))?\}\}/g;
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const STOP = new Set(['what', 'does', 'did', 'the', 'our', 'about', 'with', 'from', 'that', 'this', 'have', 'has', 'had', 'for', 'and', 'are', 'was', 'were', 'when', 'where', 'which', 'who', 'how', 'why', 'say', 'can', 'could', 'should', 'would', 'will', 'shall', 'may', 'must', 'need', 'any', 'there', 'their', 'they', 'them', 'into', 'than', 'then', 'been', 'being', 'please', 'tell', 'know', 'you', 'your', 'not', 'all', 'one', 'get', 'out', 'way', 'much', 'many', 'its', 'also', 'only', 'more', 'most', 'some', 'such', 'under', 'over', 'per', 'each', 'other']);
 const UNRESOLVED_TEXT = '[figure not in MyCA rules for that date]';
 const rupeeFormat = new Intl.NumberFormat('en-IN', { maximumFractionDigits: 2 });
+const dollarFormat = new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 });
 
 let cache = null;
 
@@ -203,6 +204,19 @@ export function rupees(paise) {
   return `₹${rupeeFormat.format(Number(paise) / 100)}`;
 }
 
+export function dollars(cents) {
+  return `$${dollarFormat.format(Number(cents) / 100)}`;
+}
+
+function bandWords(bands) {
+  return bands.map((band) => {
+    const rate = `${band.basisPoints / 100}%`;
+    if (band.toCents === null) return `above ${dollars(band.fromCents)} ${rate}`;
+    if (band.fromCents === 0) return `up to ${dollars(band.toCents)} ${rate}`;
+    return `${dollars(band.fromCents)} to ${dollars(band.toCents)} ${rate}`;
+  }).join('; ');
+}
+
 function joinWords(items, last = 'and') {
   const list = items.map(String);
   if (list.length <= 1) return list.join('');
@@ -237,6 +251,7 @@ export function formatFigure(value, key = '', unit = '') {
   if (value === null || value === undefined) return null;
   if (typeof value === 'number') {
     if (unit === 'paise' || /Paise(?:\.|$)/.test(key) || key === 'paise') return rupees(value);
+    if (unit === 'cents' || /Cents(?:\.|$)/.test(key) || key === 'cents') return dollars(value);
     if (unit === 'percent' || /Percent$|^percent/.test(key)) return `${value}%`;
     if (unit === 'days') return `${value}`;
     if (/BasisPoints$/.test(key) || key === 'basisPoints') return `${value / 100}%`;
@@ -246,6 +261,7 @@ export function formatFigure(value, key = '', unit = '') {
   if (typeof value === 'string') return value;
   if (Array.isArray(value)) {
     if (value.length && value.every((item) => item && typeof item === 'object' && 'fromPaise' in item && 'ratePercent' in item)) return slabWords(value);
+    if (value.length && value.every((item) => item && typeof item === 'object' && 'fromCents' in item && 'basisPoints' in item)) return bandWords(value);
     if (value.length && value.every((item) => item && typeof item === 'object' && 'aboveTotalIncomePaise' in item)) return joinWords(value.map((item) => `${item.ratePercent}% above ${rupees(item.aboveTotalIncomePaise)}`));
     if (value.every((item) => typeof item === 'string')) return joinWords(value, 'or');
     return null;
@@ -268,7 +284,8 @@ function pick(value, path) {
     current = current[key];
   }
   const paiseParent = keys.slice(0, -1).some((key) => /Paise$/.test(key));
-  return { value: current, key: paiseParent ? `${keys.at(-1)}Paise` : keys.at(-1) };
+  const centsParent = keys.slice(0, -1).some((key) => /Cents$/.test(key));
+  return { value: current, key: paiseParent ? `${keys.at(-1)}Paise` : centsParent ? `${keys.at(-1)}Cents` : keys.at(-1) };
 }
 
 function citationOf(record) {
@@ -316,8 +333,8 @@ function dateOr(onDate) {
   return ISO_DATE.test(String(onDate || '')) ? String(onDate) : localToday();
 }
 
-export function taxModuleCatalog() {
-  return registry().modules.map((module) => ({ name: module.name, description: module.description, domain: module.metadata.domain || '', jurisdiction: module.metadata.jurisdiction || '', version: module.metadata.version || '', reviewStatus: module.metadata['review-status'] || '', sections: module.sections.map((section) => ({ id: section.id, title: section.title })), tools: module.allowedTools }));
+export function taxModuleCatalog(jurisdiction) {
+  return registry().modules.filter((module) => !jurisdiction || (module.metadata.jurisdiction || 'IN') === jurisdiction).map((module) => ({ name: module.name, description: module.description, domain: module.metadata.domain || '', jurisdiction: module.metadata.jurisdiction || '', version: module.metadata.version || '', reviewStatus: module.metadata['review-status'] || '', sections: module.sections.map((section) => ({ id: section.id, title: section.title })), tools: module.allowedTools }));
 }
 
 export function loadTaxModule(name, onDate) {
@@ -374,12 +391,13 @@ function scoreSection(section, module, asked, rarity) {
   return { score, matched };
 }
 
-export function findTaxGuidance(question, { onDate, limit = 3, module } = {}) {
+export function findTaxGuidance(question, { onDate, limit = 3, module, jurisdiction } = {}) {
   const asked = tokensOf(question);
   if (!asked.length) return [];
   const date = dateOr(onDate);
-  const pool = registry().modules.filter((item) => !module || item.name === module);
-  const rarity = keywordRarity(registry().modules);
+  const inScope = registry().modules.filter((item) => !jurisdiction || (item.metadata.jurisdiction || 'IN') === jurisdiction);
+  const pool = inScope.filter((item) => !module || item.name === module);
+  const rarity = keywordRarity(inScope);
   const scored = [];
   for (const item of pool) {
     for (const section of item.sections) {
