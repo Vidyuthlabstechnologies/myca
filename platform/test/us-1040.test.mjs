@@ -203,6 +203,11 @@ test('the return tools keep SSNs sealed, compute the review and walk the steps',
   assert.equal(masked.data.digitalAssets, false);
   const filing = computedForm1040ForFiling(state, { taxYear: '2025' });
   assert.equal(filing.data.taxpayer.ssn, '400123456');
+  const pdf = await runTool(state, 'us_return_pdf', { taxYear: '2025' });
+  const bytes = Buffer.from(pdf.data.base64, 'base64').toString('latin1');
+  assert.ok(bytes.startsWith('%PDF-1.4') && bytes.trimEnd().endsWith('%%EOF'));
+  assert.ok(bytes.includes('***-**-3456') && !bytes.includes('400123456'));
+  assert.equal((await runTool(state, 'read_us_tax_document', { documentId: 'a'.repeat(64) })).ok, false);
   const removed = await runTool(state, 'remove_us_tax_form', { id: added.data.id });
   assert.equal(removed.ok, true);
   const actions = state.auditEvents.map((event) => event.action);

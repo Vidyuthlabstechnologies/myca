@@ -2,6 +2,8 @@ import { documentsOf, isSha256 } from './document-store.mjs';
 import { matchDocument, matchWords } from './receipt-match.mjs';
 import { countryOf } from './country.mjs';
 import { extractWithModel, modelConfigured } from './model-adapter.mjs';
+import { FORM_SPECS, coerceFields, US_RETURN_YEARS } from './us-return.mjs';
+import { FORM_KINDS } from './us-1040.mjs';
 
 const round2 = (value) => Math.round(Number(value || 0) * 100) / 100;
 
@@ -123,4 +125,39 @@ export function readDocumentWords(data) {
     ...(data.matches && data.matches.length ? [matchWords(data.matches, (n) => `₹${Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`)] : []),
     'Say "record it" to preview the purchase, or correct anything first.',
   ].join('\n');
+}
+
+function extractionSchema() {
+  const properties = {};
+  for (const kind of FORM_KINDS) for (const item of FORM_SPECS[kind].fields) {
+    if (properties[item.key] || item.key === 'box12') continue;
+    properties[item.key] = item.type === 'money' ? { type: 'number' } : item.type === 'yesno' ? { type: 'boolean' } : { type: 'string' };
+  }
+  return { type: 'object', additionalProperties: false, properties: { kind: { type: 'string', enum: [...FORM_KINDS] }, taxYear: { type: 'string' }, fields: { type: 'object', additionalProperties: false, properties }, confidence: { type: 'number' }, notes: { type: 'string' } }, required: ['kind', 'fields'] };
+}
+
+export async function readUsTaxDocument(state, args = {}) {
+  const sha = String(args.documentId || args.documentSha256 || '').trim().toLowerCase();
+  if (!isSha256(sha)) return { ok: false, error: 'INVALID_SHA256' };
+  if (!modelConfigured()) return { ok: false, error: 'MODEL_NOT_CONFIGURED', hint: 'Set MYCA_MODEL_API_KEY to let MyCA read tax forms; until then enter the boxes by hand.' };
+  const stored = documentsOf(state).readVerified(sha);
+  if (!stored.ok) return stored;
+  const read = await extractWithModel({
+    content: stored.content,
+    schema: extractionSchema(),
+    name: 'us_tax_form',
+    instructions: `The document is a US tax information return: one of ${FORM_KINDS.join(', ')}. Give its kind, the tax year printed on it and each box amount under these keys. Never copy a Social Security number or other taxpayer identification number of the person the form is about.`,
+  });
+  if (!read.ok) return read;
+  const extracted = read.extracted || {};
+  const kind = FORM_KINDS.includes(extracted.kind) ? extracted.kind : null;
+  if (!kind) return { ok: false, error: 'FORM_KIND_UNREADABLE', hint: 'Choose the form kind and enter the boxes by hand.' };
+  const problems = [];
+  const raw = { ...(extracted.fields || {}) };
+  const payer = String(raw.payer || '').replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, 80);
+  const payerTin = /^\d{2}-?\d{7}$/.test(String(raw.payerTin || '')) ? String(raw.payerTin).replace(/^(\d{2})-?(\d{7})$/, '$1-$2') : '';
+  const fields = coerceFields(kind, raw, problems);
+  const confidence = Math.max(0, Math.min(1, Number(extracted.confidence ?? 0.5)));
+  const taxYear = US_RETURN_YEARS.includes(String(extracted.taxYear || '')) ? String(extracted.taxYear) : (US_RETURN_YEARS.includes(String(args.taxYear || '')) ? String(args.taxYear) : US_RETURN_YEARS[0]);
+  return { ok: true, data: { documentId: sha, kind, taxYear, payer, payerTin, fields, confidence, warnings: problems, proposal: { tool: 'add_us_tax_form', args: { taxYear, kind, payer, payerTin, fields, source: 'upload', documentId: sha } }, note: 'A model read the form; nothing is saved until you confirm the boxes.' } };
 }

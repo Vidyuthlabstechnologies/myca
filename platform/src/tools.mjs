@@ -63,9 +63,10 @@ import { countryOf, isCountry, toolServesCountry } from './country.mjs';
 import { createUsInvoice, createUsPurchase, setSalesTaxRate, listSalesTaxRates, setContractor, contractorPayments } from './us-sales.mjs';
 import { rulesStatus } from './rules-status.mjs';
 import { runDailyAutomation, automationStatus } from './automation.mjs';
-import { readDocument } from './document-reader.mjs';
+import { readDocument, readUsTaxDocument } from './document-reader.mjs';
 import { amendInvoice, listAmendments } from './invoice-amendments.mjs';
 import { scheduleSe } from './us-se-tax.mjs';
+import { usReturnPdf } from './us-return-pdf.mjs';
 import { usTaxpayer, setUsTaxpayer, addUsTaxForm, removeUsTaxForm, answerUsInterview, listUsTaxForms, usInterview, usReturnReview, usReturnStatus, usFormKinds, usTaxEstimate } from './us-return.mjs';
 import { scheduleCDocument, cpaPack } from './us-cpa-pack.mjs';
 import { form941File, w2File } from './us-payroll-files.mjs';
@@ -781,6 +782,20 @@ export const TOOLS = [
     description: 'Amendments made to filed invoices, optionally for one GSTR-1 month. Read-only.',
     args: ['period'],
     run: (state, args = {}) => listAmendments(state, args),
+  },
+  {
+    name: 'read_us_tax_document',
+    title: 'Read a US tax form',
+    description: 'A model reads an uploaded W-2, 1099, SSA-1099 or 1098 (sent through /api/upload) and returns its kind, payer and box amounts with a ready add_us_tax_form proposal. Nothing is saved until confirmed, and the person\'s SSN is never read. Needs MYCA_MODEL_API_KEY. US only. Read-only.',
+    args: ['documentId', 'taxYear'],
+    run: (state, args = {}) => readUsTaxDocument(state, args),
+  },
+  {
+    name: 'us_return_pdf',
+    title: 'US return PDF',
+    description: 'A printable PDF of the computed Form 1040 lines and schedules for review, with masked SSNs and the checks still open, as base64. Not the IRS form. US only. Read-only.',
+    args: ['taxYear'],
+    run: (state, args = {}) => usReturnPdf(state, args),
   },
   {
     name: 'us_taxpayer',

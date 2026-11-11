@@ -9,6 +9,7 @@ function audit(state, action, metadata) {
   appendAuditEvent(state, { actorId: state.__actor?.userId || 'owner', action, metadata });
 }
 
+export const US_RETURN_YEARS = SUPPORTED_YEARS;
 const STEPS = Object.freeze([['profile', 'About you'], ['forms', 'Tax forms'], ['interview', 'Deductions and credits'], ['review', 'Review'], ['sign', 'Sign and file']]);
 const RELATIONSHIPS = Object.freeze(['son', 'daughter', 'stepchild', 'foster_child', 'brother', 'sister', 'half_brother', 'half_sister', 'stepbrother', 'stepsister', 'grandchild', 'niece', 'nephew', 'sibling', 'niece_nephew', 'parent', 'grandparent', 'aunt', 'uncle', 'in_law', 'other']);
 const US_STATES = new Set('AL AK AZ AR CA CO CT DE DC FL GA HI ID IL IN IA KS KY LA ME MD MA MI MN MS MO MT NE NV NH NJ NM NY NC ND OH OK OR PA RI SC SD TN TX UT VT VA WA WV WI WY PR GU VI AS MP'.split(' '));
@@ -189,7 +190,7 @@ export function setUsTaxpayer(state, args = {}) {
   return { ok: true, data: profileView(ret) };
 }
 
-function coerceFields(kind, fields, problems) {
+export function coerceFields(kind, fields, problems) {
   const spec = FORM_SPECS[kind];
   const out = {};
   const source = fields && typeof fields === 'object' ? fields : {};
@@ -585,3 +586,4 @@ export function usReturnWords(name, data, money) {
   }
   return '';
 }
+
