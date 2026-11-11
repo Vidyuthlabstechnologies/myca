@@ -187,6 +187,8 @@ and the Play upload:
 | `MYCA_API_URL` | the public https address, checked at `/v1/health` after a rollout | `deploy-cloud` |
 | `PLAY_TRACK` | `internal`, `alpha` (closed testing), `beta` or `production`; empty keeps uploads off | `build-android` `play` job |
 | `PLAY_PACKAGE` | `com.mldynamic.myca` (default) | `build-android` `play` job |
+| `PLAY_US_TRACK` | Track for the separate MyCA US app; empty keeps its uploads off | `build-android` `play` job |
+| `PLAY_US_PACKAGE` | `com.mldynamic.myca.us` (default) | `build-android` `play` job |
 | `PLAY_RELEASE_STATUS` | `draft` (default; you press release in Play Console) or `completed` | `build-android` `play` job |
 
 The deploy role trusts `token.actions.githubusercontent.com` for
