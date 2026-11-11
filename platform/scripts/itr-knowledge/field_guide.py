@@ -59,7 +59,6 @@ def boundaries(body, pos):
         cands = {c: n for c, n in starts.items() if lo < c <= right + 3}
         if cands:
             top = max(cands.values())
-            # among near-equal counts prefer the leftmost start: the column's own left edge
             cut = min(c for c, n in cands.items() if n >= top * 0.6)
         else:
             cut = right

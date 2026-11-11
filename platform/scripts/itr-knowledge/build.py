@@ -30,7 +30,6 @@ def clean(text):
     return re.sub(r'\s+', ' ', str(text or '')).strip()
 
 
-# ---------- JSON schema -> field dictionary ----------
 
 def flatten_schema(schema):
     defs = schema.get('definitions', {})
@@ -90,7 +89,6 @@ def flatten_schema(schema):
     return fields
 
 
-# ---------- Excel utility ----------
 
 def dropdown_lists(ws):
     rows = list(ws.iter_rows(values_only=True))
@@ -114,7 +112,7 @@ def dropdown_lists(ws):
             continue
         values = [v for v in values if not re.fullmatch(r'infyxl\w+', v, re.I)]
         if any(re.fullmatch(r'pwd|password|hash ?key|hash ?iteration', v, re.I) for v in values):
-            continue  # the workbook's protection settings, not a list a return uses
+            continue
         if name == '(Select)' or any(re.fullmatch(r'[0-9A-Za-z+/=]{15,}', v) for v in values[:3]):
             continue
         lists[name] = values
@@ -154,13 +152,11 @@ def read_utility(path):
     return {'file': os.path.basename(path), 'sheets': sheets, 'help': help_rows, 'dropdowns': dropdowns}
 
 
-# ---------- field guide merge ----------
 
 def split_paths(cell):
     tokens = cell.split()
     joined = []
     for t in tokens:
-        # a path broken by the column wrap ("Section80CCDEmp loyer", "Section1 6ia") is glued back
         prev = joined[-1] if joined else ''
         if prev and is_path(prev) and (re.match(r'^[a-z]', t) or (re.match(r'^\d', t) and prev[-1].isdigit())) and not re.search(r'[).,]$', prev):
             joined[-1] += t

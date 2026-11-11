@@ -57,7 +57,6 @@ test('every form has its schema, rules, fields and utility, with the rule counts
     const utility = loadItrForm(form, 'utility');
     assert.ok(utility.sheets.length >= 15, form);
   }
-  // the only gap is the one in the source: ITR-5 jumps from rule 643 to 665
   assert.deepEqual(loadItrForm('ITR-5', 'rules').numbersNotInSource, { A: Array.from({ length: 21 }, (_, i) => 644 + i) });
   assert.ok(loadItrForm('ITR-3', 'rules').auditCrossChecks.length > 50);
   assert.ok(loadItrForm('ITR-1', 'fields').guide.entries.length >= 70);

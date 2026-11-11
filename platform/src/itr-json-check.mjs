@@ -36,9 +36,6 @@ function patternOf(source) {
   return patternCache.get(source);
 }
 
-// A small JSON Schema draft-04 validator: exactly the keywords the CBDT ITR schemas use
-// (type, properties, required, additionalProperties, enum, pattern, min/maxLength, minimum,
-// maximum, exclusiveMinimum/Maximum, multipleOf, items, min/maxItems, $ref, allOf).
 export function validateAgainstSchema(schema, data) {
   const defs = schema.definitions || {};
   const errors = [];

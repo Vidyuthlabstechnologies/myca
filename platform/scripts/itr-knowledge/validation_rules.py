@@ -70,7 +70,6 @@ def recover(pdf, rules):
         prev = r['no'] - 1
         if prev < 1 or (r['category'], prev) in have: continue
         if i == 0 or rules[i-1]['category'] != r['category'] or rules[i-1]['no'] != prev - 1: continue
-        # rule prev fell between the previous rule's table and this one's table: look at the top of this page and the bottom of the previous page
         page = pdf.pages[r['page'] - 1]
         tables = [t for t in page.find_tables()]
         first_top = min((t.bbox[1] for t in tables), default=page.height)
