@@ -66,6 +66,16 @@ const _messages = {
   'GST_PORTAL_NOT_CONNECTED': 'Connect the GST portal for this GSTIN first.',
   'GST_PORTAL_SESSION_ENDED': 'The GST portal session ended. Ask for a new OTP to reconnect.',
   'NOT_FOR_STAFF': 'Only the owner or the accountant can do this.',
+  'QUICKO_OFF': 'Income tax checks are switched off on this server.',
+  'QUICKO_SESSIONS_UNAVAILABLE': 'Signing in to the income tax portal is not set up on this server yet.',
+  'PORTAL_SESSION_REQUIRED': 'Sign in to the income tax portal first.',
+  'PORTAL_SIGN_IN_REFUSED': 'The income tax portal did not accept that PAN and password.',
+  'PASSWORD_REQUIRED': 'Enter the income tax portal password.',
+  'INVALID_PAN': 'That PAN is not valid. It looks like ABCDE1234F.',
+  'INVALID_TAN': 'That TAN is not valid. It looks like BLRA12345B.',
+  'INVALID_IFSC': 'That IFSC is not valid. It has 11 characters, like SBIN0001234.',
+  'INVALID_ACCOUNT_NUMBER': 'Check the bank account number.',
+  'PDF_REQUIRED': 'Choose the PDF of the form.',
   'NIC_NOT_CONNECTED': 'Add this business\'s e-invoice keys under Connections to banks and apps first.',
   'SERVER_BUSY': 'MyCA is busy for a moment. Try again in a minute.',
   'RATE_LIMITED': 'That was a lot of requests in a short time. Wait a minute and try again.',
@@ -363,6 +373,51 @@ class GstPortalStatus {
     }
     return null;
   }
+}
+
+class QuickoSession {
+  const QuickoSession({required this.portal, required this.subject, required this.connected, required this.expiresAt});
+
+  factory QuickoSession.fromJson(Map<String, dynamic> json) => QuickoSession(
+        portal: '${json['portal'] ?? ''}',
+        subject: '${json['subject'] ?? ''}',
+        connected: json['connected'] == true,
+        expiresAt: DateTime.tryParse('${json['expiresAt'] ?? ''}'),
+      );
+
+  final String portal;
+  final String subject;
+  final bool connected;
+  final DateTime? expiresAt;
+}
+
+class QuickoStatus {
+  const QuickoStatus({required this.available, required this.simulated, required this.sessions});
+
+  factory QuickoStatus.fromJson(Map<String, dynamic> json) => QuickoStatus(
+        available: json['available'] == true,
+        simulated: json['simulated'] == true,
+        sessions: [for (final row in _rows(json['sessions'])) QuickoSession.fromJson(row)],
+      );
+
+  final bool available;
+  final bool simulated;
+  final List<QuickoSession> sessions;
+
+  QuickoSession? sessionFor(String portal) {
+    for (final session in sessions) {
+      if (session.portal == portal && session.connected) return session;
+    }
+    return null;
+  }
+}
+
+class QuickoResult {
+  const QuickoResult({required this.data, required this.mode, required this.simulated});
+
+  final Map<String, dynamic> data;
+  final String mode;
+  final bool simulated;
 }
 
 class SyncResult {
@@ -850,6 +905,24 @@ class CloudSession {
       if (otp.isNotEmpty) 'otp': otp,
     }));
   }
+
+  Future<QuickoStatus> quickoStatus() async => QuickoStatus.fromJson(_accepted(await call('GET', '$_books/quicko')));
+
+  Future<QuickoResult> quickoTool(String tool, Map<String, Object?> args) async {
+    final body = await call('POST', '$_books/quicko', {'tool': tool, 'args': args});
+    return QuickoResult(data: _data(body), mode: '${body['mode'] ?? ''}', simulated: body['simulated'] == true);
+  }
+
+  Future<Map<String, dynamic>> quickoSignIn(String portal, {String pan = '', String tan = '', String password = ''}) async {
+    return _accepted(await call('POST', '$_books/quicko-session', {
+      'portal': portal,
+      if (pan.isNotEmpty) 'pan': pan,
+      if (tan.isNotEmpty) 'tan': tan,
+      'password': password,
+    }));
+  }
+
+  Future<Map<String, dynamic>> quickoSignOut(String portal) async => _accepted(await call('POST', '$_books/quicko-session', {'portal': portal, 'step': 'disconnect'}));
 
   Future<Map<String, dynamic>> gstr1Step(String step, {required String period, String gstin = '', String otp = '', String pan = ''}) => returnStep('gstr1', step, period: period, gstin: gstin, otp: otp, pan: pan);
 

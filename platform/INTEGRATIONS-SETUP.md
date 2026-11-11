@@ -72,6 +72,13 @@ their own flows. Named tools for the common jobs: `read_form16`, `read_form26as`
 `capital_gains_pnl`, `quicko_tax_check`, `verify_pan`, `pan_aadhaar_status`, `check_206ab`,
 `search_tan`, `lookup_ifsc`, `verify_bank_account`, `mca_company`, `gstins_for_pan`.
 
+On the hosted server, `POST /v1/businesses/:id/quicko` with `{ tool, args }` runs those tools
+and read-only `sandbox_operation` calls with the business's own Quicko key, or the service key
+(`MYCA_GSP_API_KEY`, `MYCA_GSP_ENV`). `POST .../quicko-session` with `{ portal: "itd", pan,
+password }` or `{ portal: "traces", tan, password }` signs in; the token is sealed with
+`MYCA_CONNECTOR_KEY` in `quicko_portal_sessions` and used on the next call. `step:
+"disconnect"` removes it.
+
 **Endpoint status (verified live against TEST):** auth, GSTIN search/verify, and the
 GSTR-2B reconciliation job (returns a real `job_id` + signed upload URLs) all work.
 Taxpayer OTP, e-invoice auth, and TDS FVU/analytics accept the request with the correct
