@@ -18,6 +18,7 @@ export const CONNECTOR_CHANNELS = {
   plaid: { title: 'Plaid (US bank feeds)', fields: ['clientId', 'secret', 'environment', 'accessToken', 'itemId', 'cursor'], secrets: ['secret', 'accessToken'], optional: ['itemId', 'cursor'], kinds: ['bank'], country: 'US' },
   taxjar: { title: 'TaxJar (US sales tax rates)', fields: ['apiToken', 'environment'], secrets: ['apiToken'], optional: ['environment'], kinds: [], country: 'US' },
   gusto: { title: 'Gusto (US payroll)', fields: ['clientId', 'clientSecret', 'environment', 'redirectUri', 'accessToken', 'refreshToken', 'companyUuid', 'oauthState'], secrets: ['clientSecret', 'accessToken', 'refreshToken'], optional: ['environment', 'redirectUri', 'companyUuid', 'oauthState'], kinds: ['payroll'], country: 'US' },
+  pinwheel: { title: 'Pinwheel (US W-2s from payroll)', fields: ['apiSecret', 'environment', 'accountId'], secrets: ['apiSecret'], optional: ['environment', 'accountId'], kinds: [], country: 'US' },
   track1099: { title: 'Track1099 (US 1099 e-filing)', fields: ['apiToken', 'teamApiId', 'testMode'], secrets: ['apiToken'], optional: ['testMode'], kinds: [], country: 'US' },
 };
 const FIELD_RULES = {
@@ -32,6 +33,7 @@ const FIELD_RULES = {
   testMode: { test: (v) => ['true', 'false', '1', '0', 'yes', 'no'].includes(v.toLowerCase()), hint: 'true or false' },
   redirectUri: { test: (v) => /^https?:\/\/(127\.0\.0\.1|localhost|[a-z0-9.-]+\.[a-z]{2,})(:\d+)?\/[A-Za-z0-9/._-]*$/.test(v), hint: 'the callback URL registered with the provider' },
   companyUuid: { test: (v) => /^[A-Za-z0-9-]{1,80}$/.test(v), hint: 'the Gusto company uuid' },
+  accountId: { test: (v) => /^[A-Za-z0-9-]{8,80}$/.test(v), hint: 'the Pinwheel account id that Pinwheel Link returns' },
   teamApiId: { test: (v) => /^[A-Za-z0-9_-]{1,80}$/.test(v), hint: 'the Team API ID shown under the API tokens on the Track1099 Account page' },
 };
 

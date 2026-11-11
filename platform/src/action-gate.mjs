@@ -97,6 +97,7 @@ export const ACTION_CLASSES = Object.freeze(Object.assign(Object.create(null), {
   zoho_push_invoices: write('channel', ['channel.zoho'], { timeoutMs: 10 * MINUTE_MS }),
   plaid_link: read('channel', ['channel.plaid']),
   taxjar_rate: read('channel', ['channel.taxjar']),
+  pinwheel_read: read('channel', ['channel.pinwheel']),
   gusto_token: read('channel', ['channel.gusto']),
   track1099_read: read('channel', ['channel.track1099']),
   track1099_import: write('channel', ['channel.track1099'], { timeoutMs: 5 * MINUTE_MS }),
@@ -153,6 +154,7 @@ const CHANNEL_TRANSPORT = Object.freeze({
   zoho: (ctx) => (request) => signalled(getChannelClient(), ctx.signal).zoho(request, ctx.signal),
   plaid: (ctx) => (request) => signalled(getChannelClient(), ctx.signal).plaid(request, ctx.signal),
   taxjar: (ctx) => (request) => signalled(getChannelClient(), ctx.signal).taxjar(request, ctx.signal),
+  pinwheel: (ctx) => (request) => signalled(getChannelClient(), ctx.signal).pinwheel(request, ctx.signal),
   gusto: (ctx) => (request) => signalled(getChannelClient(), ctx.signal).gusto(request, ctx.signal),
   track1099: (ctx) => (request) => signalled(getChannelClient(), ctx.signal).track1099(request, ctx.signal),
 });

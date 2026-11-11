@@ -55,6 +55,7 @@ export const REMOTE_QUERY_TOOLS = new Set([
   'schedule_c_summary',
   'us_efile_status',
   'us_efile_setup',
+  'payroll_tax_forms',
   'estimated_tax_dates',
   'sales_tax_return',
   'sales_tax_review',

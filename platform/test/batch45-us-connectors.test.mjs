@@ -140,7 +140,7 @@ test('Track1099 keys are kept for the day the API is wired; the US connectors vi
   assert.equal(saved.ok, true, JSON.stringify(saved));
   assert.equal(saved.data.apiToken, 'set');
   const view = await runTool(state, 'us_connectors', {});
-  assert.deepEqual(view.data.connectors.map((c) => c.channel), ['plaid', 'taxjar', 'gusto', 'track1099']);
+  assert.deepEqual(view.data.connectors.map((c) => c.channel), ['plaid', 'taxjar', 'gusto', 'track1099', 'pinwheel']);
   assert.ok(view.data.connectors.every((c) => !JSON.stringify(c).includes('track-key-1')));
   assert.deepEqual(view.data.gustoRedirect.desktop, ['http://127.0.0.1:4780/api/oauth/gusto/callback', 'http://localhost:4780/api/oauth/gusto/callback']);
 

@@ -73,6 +73,7 @@ export const OUTSIDE_SENTENCES = Object.freeze({
   zoho_push_invoices: 'Send invoices to Zoho',
   plaid_link: 'Link a bank through Plaid',
   taxjar_rate: 'Look up a sales tax rate',
+  pinwheel_read: 'Read W-2s and 1099s from the payroll provider',
   gusto_token: 'Connect to Gusto',
   track1099_read: 'Read 1099 forms from Track1099',
   track1099_import: 'Import 1099 forms from Track1099',

@@ -8,6 +8,8 @@ const PLAID_HOSTS = { sandbox: 'https://sandbox.plaid.com', development: 'https:
 const TAXJAR_HOSTS = { sandbox: 'https://api.sandbox.taxjar.com', production: 'https://api.taxjar.com' };
 const GUSTO_HOSTS = { demo: 'https://api.gusto-demo.com', production: 'https://api.gusto.com' };
 const GUSTO_VERSION = '2024-04-01';
+const PINWHEEL_HOSTS = { sandbox: 'https://sandbox.getpinwheel.com', production: 'https://api.getpinwheel.com' };
+const PINWHEEL_VERSION = '2025-07-08';
 const TRACK1099_HOST = 'https://www.track1099.com';
 const POLL_MS = 15000;
 const POLL_LIMIT = 40;
@@ -152,6 +154,43 @@ export class ChannelClient {
       if (!page.data.has_more) break;
     }
     return { ok: true, transactions, cursor };
+  }
+
+  async pinwheel({ config, op, params = {} }, signal) {
+    const base = PINWHEEL_HOSTS[config.environment === 'production' ? 'production' : 'sandbox'];
+    const headers = { 'x-api-secret': config.apiSecret, 'pinwheel-version': PINWHEEL_VERSION, 'content-type': 'application/json', accept: 'application/json' };
+    const call = async (method, path, body) => {
+      const res = await this.fetchFn(`${base}/v1${path}`, { method, headers, signal, ...(body ? { body: JSON.stringify(body) } : {}) });
+      const data = await asJson(res);
+      if (!res.ok) return { ok: false, error: 'PINWHEEL_ERROR', status: res.status, code: data.error?.code || data.code || '', detail: data.error?.message || data.message || data.raw || '' };
+      return { ok: true, data: data.data === undefined ? data : data.data, meta: data.meta || {} };
+    };
+    if (op === 'link_token') return call('POST', '/link_tokens', { org_name: 'MyCA', end_user_id: params.endUserId || 'owner', features: ['tax_forms'], language: 'en' });
+    if (op === 'tax_form') return call('GET', `/accounts/${encodeURIComponent(params.accountId)}/tax_forms/${encodeURIComponent(params.taxFormId)}?with_parsed_data=true`);
+    if (op === 'tax_forms') {
+      const forms = [];
+      let cursor = '';
+      for (let i = 0; i < 20; i += 1) {
+        const query = new URLSearchParams({ limit: '50' });
+        if (params.year) { query.set('from_year', String(params.year)); query.set('to_year', String(params.year)); }
+        if (cursor) query.set('cursor', cursor);
+        const page = await call('GET', `/accounts/${encodeURIComponent(params.accountId)}/tax_forms?${query}`);
+        if (!page.ok) return page;
+        forms.push(...(Array.isArray(page.data) ? page.data : []));
+        cursor = page.meta?.next_cursor || '';
+        if (!cursor) break;
+      }
+      const detailed = [];
+      for (const form of forms) {
+        if (!params.formIds || params.formIds.includes(form.id)) {
+          const one = await call('GET', `/accounts/${encodeURIComponent(params.accountId)}/tax_forms/${encodeURIComponent(form.id)}?with_parsed_data=true`);
+          if (!one.ok) return one;
+          detailed.push(one.data);
+        }
+      }
+      return { ok: true, data: { taxForms: detailed } };
+    }
+    return { ok: false, error: 'UNKNOWN_OP' };
   }
 
   async taxjar({ config, op, params = {} }, signal) {

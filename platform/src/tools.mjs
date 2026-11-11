@@ -118,7 +118,7 @@ import { providerCatalog, providerRequirementMap } from './provider-catalog.mjs'
 import { sandboxAdapterPlan } from './sandbox-adapter-contract.mjs';
 import { getSandboxClient, resetSandboxClient } from './sandbox-client.mjs';
 import { saveSandboxKeys, publicSandboxKeys, clearSandboxKeys } from './sandbox-keys.mjs';
-import { plaidLinkSandbox, plaidLinkToken, plaidExchange, taxjarRate, gustoConnectUrl, gustoCallback, usConnectorsStatus } from './us-connectors.mjs';
+import { plaidLinkSandbox, plaidLinkToken, plaidExchange, taxjarRate, gustoConnectUrl, gustoCallback, usConnectorsStatus, pinwheelLinkToken, payrollTaxForms, importPayrollTaxForms } from './us-connectors.mjs';
 import { track1099Csv, track1099Issuers, track1099Import, track1099Job } from './track1099.mjs';
 import { postPayrollImport, listPayrollImports } from './us-payroll-import.mjs';
 import { getNimClient } from './nim-client.mjs';
@@ -2257,6 +2257,27 @@ export const TOOLS = [
     title: 'US connectors',
     description: 'Plaid, TaxJar, Gusto and Track1099 on this machine: what is saved (never a secret), whether each is linked, and the Gusto redirect URLs to register. Read-only.',
     run: () => usConnectorsStatus(),
+  },
+  {
+    name: 'pinwheel_link_token',
+    title: 'Connect an employer for W-2s',
+    description: 'Create the short-lived Pinwheel Link token the app opens Pinwheel Link with, so the owner can sign in to their employer or payroll provider and share their W-2s. Behind the channel pull switch. Read-only.',
+    args: ['userId'],
+    run: async (state, args = {}) => pinwheelLinkToken(state, args, resolveToolActor(args)),
+  },
+  {
+    name: 'payroll_tax_forms',
+    title: 'W-2s from payroll',
+    description: 'List the W-2 and 1099-NEC/MISC forms the linked employer or payroll provider has for a tax year, with every box read from Pinwheel (in dollars). Pass the accountId Pinwheel Link returned the first time; it is remembered. Adds nothing; import_payroll_tax_forms does. Read-only.',
+    args: ['taxYear', 'accountId', 'owner'],
+    run: async (state, args = {}) => payrollTaxForms(state, args, resolveToolActor(args)),
+  },
+  {
+    name: 'import_payroll_tax_forms',
+    title: 'Add W-2s from payroll to the return',
+    description: 'Fetch the chosen forms again from Pinwheel and add them to the US return exactly as the employer reported them. Skips a form already added. Needs confirmation.',
+    args: ['taxYear', 'taxFormIds', 'accountId', 'owner'],
+    run: async (state, args = {}) => importPayrollTaxForms(state, args, resolveToolActor(args)),
   },
   {
     name: 'plaid_link_sandbox',
