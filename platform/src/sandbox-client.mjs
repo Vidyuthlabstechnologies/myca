@@ -1,6 +1,8 @@
 import { loadEnvFile, testModeEnabled } from './runtime-config.mjs';
 import { providerContext } from './provider-context.mjs';
 import { loadSandboxKeys, SANDBOX_HOSTS } from './sandbox-keys.mjs';
+import { loadGovtConfig } from './nic-config.mjs';
+import { ewbRefusal } from './ewb-errors.mjs';
 
 function detectEnvironment(baseUrl) {
   return /test/i.test(String(baseUrl)) ? 'test' : 'live';
@@ -22,6 +24,17 @@ function deadline(options, ms = DEFAULT_TIMEOUT_MS) {
 }
 
 const platformTokens = new Map();
+const irpSessions = new Map();
+const MAX_IRP_SESSIONS = 256;
+const IRP_SESSION_MS = 6 * 3600 * 1000;
+
+function irpSessionKey(client, creds) {
+  return [client.baseUrl, client.apiKey, creds.gstin, creds.username].map((part) => String(part || '').trim()).join('|');
+}
+
+export function clearIrpSessions() {
+  irpSessions.clear();
+}
 
 function withBusinessKeys(options) {
   const given = providerContext()?.sandbox;
@@ -29,6 +42,7 @@ function withBusinessKeys(options) {
   const session = {
     ...(options.taxpayerToken == null && given.taxpayerToken ? { taxpayerToken: given.taxpayerToken, taxpayerExpiresAt: Number(given.taxpayerExpiresAt || 0) } : {}),
     ...(options.fetchFn == null && typeof given.fetchFn === 'function' ? { fetchFn: given.fetchFn } : {}),
+    ...(options.irpUser == null && given.irpUser ? { irpUser: given.irpUser } : {}),
   };
   if (!given.apiKey || options.apiKey != null) return { ...options, ...session };
   const environment = given.environment === 'production' || given.environment === 'live' ? 'live' : 'test';
@@ -78,6 +92,18 @@ export class SandboxClient {
     this.taxpayerExpiresAt = Number(options.taxpayerExpiresAt || 0);
     this.einvoiceToken = null;
     this.einvoiceExpiresAt = 0;
+    this.einvoiceKey = null;
+    this.irpUser = options.irpUser || null;
+  }
+
+  irpCredentials() {
+    const given = this.irpUser || providerContext()?.govt || null;
+    const cfg = given || loadGovtConfig();
+    return {
+      username: String(cfg?.username || '').trim(),
+      password: String(cfg?.password || ''),
+      gstin: String(cfg?.gstin || '').trim().toUpperCase(),
+    };
   }
 
   isConfigured() {
@@ -348,6 +374,8 @@ export class SandboxClient {
     const data = res.data?.data || {};
     if (res.ok && Number(data.Status) === 1 && data.access_token) {
       this.einvoiceToken = data.access_token;
+      if (!this.irpUser) this.irpUser = { username: String(username || '').trim(), password: String(password || ''), gstin: String(gstin || '').trim().toUpperCase() };
+      this.einvoiceKey = irpSessionKey(this, this.irpCredentials());
       const expires = Number(data.expiry || 0);
       this.einvoiceExpiresAt = expires > 0 ? expires : Date.now() + 6 * 3600 * 1000;
     }
@@ -355,16 +383,136 @@ export class SandboxClient {
   }
 
   async generateEinvoice(payload) {
-    const token = this.einvoiceToken || this.token;
-    return this.request('/gst/compliance/e-invoice/tax-payer/invoice', { token, body: payload });
+    return this.ewbRequest('/gst/compliance/e-invoice/tax-payer/invoice', { body: payload });
   }
 
   async cancelEinvoice({ irn, reason = '1', remark = '' } = {}) {
-    const token = this.einvoiceToken || this.token;
-    return this.request(`/gst/compliance/e-invoice/tax-payer/invoice/${encodeURIComponent(irn)}/cancel`, {
-      token,
-      body: { Irn: String(irn || ''), CnlRsn: String(reason), CnlRem: String(remark || '') },
+    return this.ewbRequest(`/gst/compliance/e-invoice/tax-payer/invoice/${encodeURIComponent(irn)}/cancel`, {
+      body: { Irn: String(irn || ''), CnlRsn: String(reason), CnlRem: String(remark || '').slice(0, 100) },
     });
+  }
+
+  async ewayBillAuthenticate({ username, password, gstin, force = false } = {}) {
+    const res = await this.request('/gst/compliance/e-way-bill/tax-payer/authenticate', {
+      body: {
+        username: String(username || '').trim(),
+        password: String(password || ''),
+        gstin: String(gstin || '').trim().toUpperCase(),
+      },
+    });
+    const data = res.data?.data || {};
+    if (res.ok && Number(data.Status) === 1 && data.access_token) {
+      const expires = Number(data.expiry || 0);
+      this.einvoiceToken = data.access_token;
+      this.einvoiceKey = irpSessionKey(this, { username, gstin: String(gstin || '').trim().toUpperCase() });
+      this.einvoiceExpiresAt = expires > Date.now() ? expires : Date.now() + IRP_SESSION_MS;
+      return { ok: true, status: res.status, expiresAt: this.einvoiceExpiresAt };
+    }
+    const refused = ewbRefusal(data);
+    if (refused) return { ok: false, status: res.status, error: refused.error, message: refused.message };
+    return { ok: false, status: res.status, error: res.error || 'EWB_AUTH_FAILED', message: res.message || '' };
+  }
+
+  async irpToken(force = false) {
+    const now = Date.now();
+    const creds = this.irpCredentials();
+    const key = irpSessionKey(this, creds);
+    if (!force && this.einvoiceToken && this.einvoiceExpiresAt > now + 60000 && this.einvoiceKey === key) return { ok: true, token: this.einvoiceToken };
+    if (!creds.username || !creds.password || !creds.gstin) {
+      return { ok: false, error: 'EWB_API_USER_MISSING', hint: 'Save the e-invoice / e-way bill API username, password and GSTIN (created on the e-way bill portal for the GSP Sandbox by Quicko) first.' };
+    }
+    const cached = irpSessions.get(key);
+    if (!force && cached && cached.expiresAt > now + 60000) {
+      this.einvoiceToken = cached.token;
+      this.einvoiceExpiresAt = cached.expiresAt;
+      this.einvoiceKey = key;
+      return { ok: true, token: cached.token };
+    }
+    const auth = await this.ewayBillAuthenticate(creds);
+    if (!auth.ok) return auth;
+    this.einvoiceKey = key;
+    irpSessions.delete(key);
+    irpSessions.set(key, { token: this.einvoiceToken, expiresAt: this.einvoiceExpiresAt });
+    while (irpSessions.size > MAX_IRP_SESSIONS) irpSessions.delete(irpSessions.keys().next().value);
+    return { ok: true, token: this.einvoiceToken };
+  }
+
+  async ewbRequest(endpoint, { method = 'POST', body } = {}) {
+    let session = await this.irpToken();
+    if (!session.ok) return { ...session, environment: this.environment };
+    let res = await this.request(endpoint, { method, body, token: session.token });
+    if (res.status === 401) {
+      this.einvoiceToken = null;
+      irpSessions.delete(irpSessionKey(this, this.irpCredentials()));
+      session = await this.irpToken(true);
+      if (!session.ok) return session;
+      res = await this.request(endpoint, { method, body, token: session.token });
+    }
+    const refused = res.ok ? ewbRefusal(res.data?.data) : null;
+    if (refused) return { ok: false, status: res.status, error: refused.error, message: refused.message, data: res.data, environment: this.environment };
+    return { ...res, environment: this.environment };
+  }
+
+  async generateEwayBillByIrn(irn, transport = {}) {
+    return this.ewbRequest(`/gst/compliance/e-invoice/tax-payer/invoice/${encodeURIComponent(irn)}/e-way-bill`, { body: { Irn: String(irn || ''), ...transport } });
+  }
+
+  async getEwayBillByIrn(irn) {
+    return this.ewbRequest(`/gst/compliance/e-invoice/tax-payer/invoice/${encodeURIComponent(irn)}/e-way-bill`, { method: 'GET' });
+  }
+
+  async generateEwayBill(partA) {
+    return this.ewbRequest('/gst/compliance/e-way-bill/consignor/bill', { body: partA });
+  }
+
+  async getEwayBill(ewbNo) {
+    return this.ewbRequest(`/gst/compliance/e-way-bill/tax-payer/bill/${encodeURIComponent(ewbNo)}`, { method: 'GET' });
+  }
+
+  async ewayBillByDocument({ docType = 'INV', docNo } = {}) {
+    return this.ewbRequest(`/gst/compliance/e-way-bill/consignor/bill${qs({ document_type: docType, document_number: docNo })}`, { method: 'GET' });
+  }
+
+  async cancelEwayBill({ ewbNo, reasonCode, remark = '' } = {}) {
+    return this.ewbRequest(`/gst/compliance/e-way-bill/consignor/bill/${encodeURIComponent(ewbNo)}/cancel`, {
+      body: { ewbNo: Number(ewbNo), cancelRsnCode: Number(reasonCode), cancelRmrk: String(remark || '').slice(0, 50) },
+    });
+  }
+
+  async updateEwayBillVehicle(ewbNo, partB) {
+    return this.ewbRequest(`/gst/compliance/e-way-bill/consignor/bill/${encodeURIComponent(ewbNo)}/vehicle`, { method: 'PUT', body: { ewbNo: Number(ewbNo), ...partB } });
+  }
+
+  async updateEwayBillTransporter(ewbNo, transporterId) {
+    return this.ewbRequest(`/gst/compliance/e-way-bill/consignor/bill/${encodeURIComponent(ewbNo)}/transporter`, { method: 'PUT', body: { ewbNo: Number(ewbNo), transporterId: String(transporterId || '') } });
+  }
+
+  async extendEwayBill(ewbNo, extension) {
+    return this.ewbRequest(`/gst/compliance/e-way-bill/consignor/bill/${encodeURIComponent(ewbNo)}/extend`, { body: { ewbNo: Number(ewbNo), ...extension } });
+  }
+
+  async consolidateEwayBills(trip) {
+    return this.ewbRequest('/gst/compliance/e-way-bill/consignor/consolidated-bill', { body: trip });
+  }
+
+  async startMultiVehicle(ewbNo, movement) {
+    return this.ewbRequest(`/gst/compliance/e-way-bill/consignor/bill/${encodeURIComponent(ewbNo)}/multi-vehicle`, { body: { ewbNo: Number(ewbNo), ...movement } });
+  }
+
+  async addMultiVehicle(ewbNo, vehicle) {
+    return this.ewbRequest(`/gst/compliance/e-way-bill/consignor/bill/${encodeURIComponent(ewbNo)}/multi-vehicle/vehicle`, { body: { ewbNo: Number(ewbNo), ...vehicle } });
+  }
+
+  async changeMultiVehicle(ewbNo, change) {
+    return this.ewbRequest(`/gst/compliance/e-way-bill/consignor/bill/${encodeURIComponent(ewbNo)}/multi-vehicle/vehicle`, { method: 'PUT', body: { ewbNo: Number(ewbNo), ...change } });
+  }
+
+  async consigneeEwayBills(generatedDate) {
+    return this.ewbRequest(`/gst/compliance/e-way-bill/consignee/bills${qs({ generated_date: generatedDate })}`, { method: 'GET' });
+  }
+
+  async rejectEwayBill(ewbNo) {
+    return this.ewbRequest(`/gst/compliance/e-way-bill/consignee/bill/${encodeURIComponent(ewbNo)}/reject`, { body: { ewbNo: Number(ewbNo) } });
   }
 
   // ---- TDS (platform token) ----

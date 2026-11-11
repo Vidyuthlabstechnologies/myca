@@ -48,7 +48,7 @@ function approve(state, { operationId, clientId = 'SELF', params = {}, requester
 test('action table: one class per external action, and Sandbox classes agree with the contract', () => {
   const required = [
     'nic_auth', 'nic_health', 'nic_gstin_master', 'nic_irn_generate', 'nic_irn_get', 'nic_irn_get_by_doc',
-    'nic_irn_cancel', 'nic_rejected_irns', 'nic_ewb_generate', 'nic_ewb_get', 'govt_probe', 'notification_send',
+    'nic_irn_cancel', 'nic_rejected_irns', 'ewb_generate', 'ewb_get', 'ewb_cancel', 'govt_probe', 'notification_send',
     'nim_ask', 'nim_status', 'provider_doctor_ping', 'sandbox_status', 'validate_gstin_lookup',
   ];
   for (const id of required) assert.ok(Object.hasOwn(ACTION_CLASSES, id), id);
@@ -56,7 +56,7 @@ test('action table: one class per external action, and Sandbox classes agree wit
   for (const op of SANDBOX_OPERATIONS) {
     assert.equal(ACTION_CLASSES[op.operationId]?.actionClass, op.caApprovalRequired ? 'write' : 'read', op.operationId);
   }
-  for (const id of ['nic_auth', 'nic_irn_generate', 'nic_irn_cancel', 'nic_ewb_generate', 'notification_send', 'gst_file_gstr1_evc']) {
+  for (const id of ['nic_auth', 'nic_irn_generate', 'nic_irn_cancel', 'ewb_generate', 'ewb_cancel', 'notification_send', 'gst_file_gstr1_evc']) {
     assert.equal(ACTION_CLASSES[id].actionClass, 'write', id);
   }
   for (const id of ['nic_health', 'govt_probe', 'nim_ask', 'validate_gstin_lookup']) {

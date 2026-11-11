@@ -119,21 +119,6 @@ export function rejectedIrns(state, date, actor) {
   return gated(state, 'nic_rejected_irns', { params: { date }, actor, fixture: () => ({ ok: true, data: { Irns: [] } }) }, (t) => t.nic.rejectedIrns(date));
 }
 
-export function generateEwayBill(state, input, actor) {
-  const params = defined({ irn: input.irn, transport: input.transport });
-  const payload = { Irn: input.irn, ...(input.transport && typeof input.transport === 'object' ? input.transport : {}) };
-  return gated(state, 'nic_ewb_generate', {
-    params,
-    actor,
-    payload,
-    fixture: () => ({ ok: true, data: { Irn: input.irn, EwbNo: 'SIMULATED', Status: 'ACT' }, hint: 'Simulated e-Way Bill; nothing reached the IRP.' }),
-  }, (t) => t.nic.generateEwayBill(payload));
-}
-
-export function getEwayBill(state, irn, actor) {
-  return gated(state, 'nic_ewb_get', { params: { irn }, actor, fixture: () => ({ ok: true, data: { Irn: irn, Status: 'ACT' } }) }, (t) => t.nic.getEwayBill(irn));
-}
-
 export function probe(state, actor) {
   return gated(state, 'govt_probe', {
     actor,

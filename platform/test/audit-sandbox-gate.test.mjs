@@ -5,6 +5,7 @@ import { createInvoice } from '../src/invoice.mjs';
 import { runTool } from '../src/tools.mjs';
 import { runSandboxOperation } from '../src/sandbox-adapter.mjs';
 import { findApproval, approvalStatus, paramsHash, requestApproval, decideApproval } from '../src/approvals.mjs';
+import { withProviderContext } from '../src/provider-context.mjs';
 
 const BASE_URL = 'https://test-api.sandbox.co.in';
 process.env.MYCA_GSP_API_KEY = 'k';
@@ -21,6 +22,7 @@ globalThis.fetch = async (url, init = {}) => {
   const target = new URL(String(url));
   if (target.origin !== BASE_URL) throw new Error(`NETWORK_FORBIDDEN_IN_TESTS ${url}`);
   if (target.pathname === '/authenticate') return reply({ access_token: 'tok', expires_in: 3600 });
+  if (target.pathname === '/gst/compliance/e-way-bill/tax-payer/authenticate') return reply({ data: { Status: 1, access_token: 'irp-tok', expiry: Date.now() + 3600000 } });
   providerCalls.push({ path: target.pathname, body: init.body });
   const filed = target.pathname.match(/\/gstr-1\/(\d+)\/(\d+)\/file$/);
   if (filed) return reply({ data: { ack_num: `ACK-${filed[1]}-${filed[2]}` } });
@@ -238,7 +240,8 @@ test('live Sandbox reads map the provider response, and an approved e-invoice wr
     const params = { payload: { Version: '1.1' } };
     const request = requestApproval(state, { operationId: 'einvoice_generate', params, actor: { userId: 'maker' } });
     decideApproval(state, { approvalId: request.approval.approvalId, decision: 'approve', actor: { userId: 'partner1', role: 'partner' } });
-    const gated = await runSandboxOperation({ actorId: 'ca', operationId: 'einvoice_generate', caApprovalId: request.approval.approvalId, params }, { state });
+    const irpUser = { username: 'apiuser', password: 'pw', gstin: '27AABCU9603R1ZN' };
+    const gated = await withProviderContext({ govt: irpUser }, () => runSandboxOperation({ actorId: 'ca', operationId: 'einvoice_generate', caApprovalId: request.approval.approvalId, params }, { state }));
     assert.equal(gated.ok, true);
     assert.equal(gated.data.irn, 'irn_test');
     assert.equal(approvalStatus(findApproval(state, request.approval.approvalId)), 'used');

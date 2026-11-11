@@ -110,8 +110,9 @@ test('C2: cancelling an IRN and generating an e-Way Bill need approval too', asy
     assert.equal(cancel.ok, false);
     assert.equal(cancel.error, 'APPROVAL_REQUIRED');
     assert.equal(state.invoices[1].irnStatus, undefined);
-    const ewb = await runTool(state, 'govt_nic_generate_ewb', { irn: 'IRN-TO-CANCEL', transport: { Distance: 10 } });
-    assert.equal(ewb.error, 'APPROVAL_REQUIRED');
+    state.invoices[1].transport = { mode: 'road', vehicleNo: 'MH12AB1234', distanceKm: 10, transporterName: '', transporterId: '', docNo: '', setOn: '2026-09-20' };
+    const ewb = await runTool(state, 'govt_generate_ewb', { invoiceId: 'INV-0002' });
+    assert.equal(ewb.error, 'CA_APPROVAL_REQUIRED', JSON.stringify(ewb));
     assert.equal(calls.length, 0);
 
     await approve(state, 'nic_irn_cancel', { invoiceId: 'INV-0002', reason: '1' });
