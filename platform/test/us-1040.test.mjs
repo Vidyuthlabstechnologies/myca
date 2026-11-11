@@ -287,3 +287,15 @@ test('the US planning tools project withholding, plan estimated payments and lis
   assert.equal((await runTool(state, 'read_irs_letter', { documentId: 'a'.repeat(64) })).ok, false);
   for (const name of ['us_supported_forms', 'us_withholding_check', 'us_estimated_payments', 'read_irs_letter']) assert.equal(isRemoteQuery(name), true, name);
 });
+
+test('a payroll-imported form keeps its source and document id in the form list', async () => {
+  const { addUsTaxForm, listUsTaxForms } = await import('../src/us-return.mjs');
+  const state = createState();
+  const added = addUsTaxForm(state, { taxYear: '2025', kind: 'W-2', payer: 'Acme Inc', fields: { wages: 1000 }, source: 'payroll', documentId: 'pinwheel-abc' });
+  assert.equal(added.ok, true);
+  const [form] = listUsTaxForms(state, { taxYear: '2025' }).data.forms;
+  assert.equal(form.source, 'payroll');
+  assert.equal(form.documentId, 'pinwheel-abc');
+  addUsTaxForm(state, { taxYear: '2025', kind: 'W-2', payer: 'B', fields: { wages: 1 }, source: 'model' });
+  assert.equal(listUsTaxForms(state, { taxYear: '2025' }).data.forms[1].source, 'manual');
+});

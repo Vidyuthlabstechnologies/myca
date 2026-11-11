@@ -260,7 +260,7 @@ export function planUsTaxForm(state, args = {}) {
   }
   if (kind === 'W-2' && fields.wages > 0 && fields.federalWithheld > fields.wages) problems.push('Federal tax withheld is more than the wages.');
   if (problems.length) return fail('US_TAX_FORM_INVALID', { problems });
-  const source = args.source === 'upload' ? 'upload' : 'manual';
+  const source = ['upload', 'payroll'].includes(args.source) ? args.source : 'manual';
   return { ok: true, taxYear, form: { kind, owner, payer, payerTin: payerTin.replace(/^(\d{2})-?(\d{7})$/, '$1-$2'), fields, source, documentId: text(args.documentId, 80) } };
 }
 
@@ -293,7 +293,7 @@ export function removeUsTaxForm(state, args = {}) {
 }
 
 function formView(form) {
-  return { id: form.id, kind: form.kind, owner: form.owner, payer: form.payer, payerTin: form.payerTin, amounts: form.fields, source: form.source, addedOn: form.addedOn };
+  return { id: form.id, kind: form.kind, owner: form.owner, payer: form.payer, payerTin: form.payerTin, amounts: form.fields, source: form.source, documentId: form.documentId || '', addedOn: form.addedOn };
 }
 
 export function listUsTaxForms(state, args = {}) {
