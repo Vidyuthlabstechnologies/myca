@@ -108,3 +108,17 @@ test('the knowledge base answers a question with the section and its sources', (
   assert.ok(searchCountryKnowledge('AE', 'e-invoicing accredited service provider deadline')[0].heading.startsWith('E-invoicing'));
   assert.deepEqual(searchCountryKnowledge('GB', ''), []);
 });
+
+test('the deploy workflow allows exactly the regions the country packs allow, and the stack tells the API its country', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const workflow = await readFile(new URL('../../.github/workflows/deploy-cloud.yml', import.meta.url), 'utf8');
+  const tf = await readFile(new URL('../../infra/cloud/country.tf', import.meta.url), 'utf8');
+  for (const code of Object.keys(COUNTRIES)) {
+    const allowed = [...workflow.matchAll(new RegExp(`${code}:([a-z0-9-]+)`, 'g'))].map((hit) => hit[1]).sort();
+    const regions = JSON.parse(tf.match(new RegExp(`${code} = (\\[[^\\]]*\\])`))[1]).sort();
+    assert.deepEqual(allowed, regions, code);
+  }
+  const main = await readFile(new URL('../../infra/cloud/main.tf', import.meta.url), 'utf8');
+  assert.match(main, /MYCA_COUNTRIES\s+= var\.country/);
+  assert.match(main, /MYCA_REGION\s+= var\.region/);
+});
