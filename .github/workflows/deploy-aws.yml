@@ -1,0 +1,113 @@
+name: Deploy hosted API to AWS ECS (manual, until the move to Cloud Run is done)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-aws
+  cancel-in-progress: false
+
+jobs:
+  test:
+    name: Hosted API suite
+    # Skips cleanly until the deploy role and the service names are set as GitHub variables.
+    if: ${{ vars.AWS_DEPLOY_ROLE_ARN != '' && vars.AWS_ECS_SERVICE != '' && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: myca
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: "--health-cmd \"pg_isready -U myca\" --health-interval 5s --health-timeout 5s --health-retries 12"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+      - name: The suite must pass before anything is built
+        working-directory: cloud
+        env:
+          MYCA_TEST_DATABASE_URL: postgres://myca@127.0.0.1:5432/postgres
+        run: |
+          npm ci --ignore-scripts
+          npm test
+
+  deploy:
+    name: Build the image and roll out
+    needs: test
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION || 'ap-south-1' }}
+      ECR_REPOSITORY: ${{ vars.AWS_ECR_REPOSITORY || 'myca-api' }}
+      CLUSTER: ${{ vars.AWS_ECS_CLUSTER || 'default' }}
+      SERVICE: ${{ vars.AWS_ECS_SERVICE }}
+      API_URL: ${{ vars.MYCA_API_URL }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Sign in to AWS with the GitHub deploy role (no stored keys)
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Build and push the image (tags are immutable, so each commit gets its own)
+        id: image
+        shell: bash
+        run: |
+          set -euo pipefail
+          account="$(aws sts get-caller-identity --query Account --output text)"
+          registry="${account}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+          image="${registry}/${ECR_REPOSITORY}:${GITHUB_SHA}"
+          aws ecr get-login-password --region "$AWS_REGION" | docker login --username AWS --password-stdin "$registry"
+          if aws ecr describe-images --repository-name "$ECR_REPOSITORY" --image-ids imageTag="$GITHUB_SHA" >/dev/null 2>&1; then
+            echo "image for ${GITHUB_SHA} is already in ECR"
+          else
+            docker build --platform linux/amd64 -f cloud/Dockerfile -t "$image" .
+            docker push "$image"
+          fi
+          echo "image=$image" >> "$GITHUB_OUTPUT"
+
+      - name: Register a task definition with the new image and roll out; the old tasks serve until the new ones are healthy
+        shell: bash
+        env:
+          IMAGE: ${{ steps.image.outputs.image }}
+        run: |
+          set -euo pipefail
+          current="$(aws ecs describe-services --cluster "$CLUSTER" --services "$SERVICE" --query 'services[0].taskDefinition' --output text)"
+          aws ecs describe-task-definition --task-definition "$current" --query taskDefinition --output json > current.json
+          jq --arg image "$IMAGE" '.containerDefinitions[0].image = $image
+            | del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy)' current.json > next.json
+          next="$(aws ecs register-task-definition --cli-input-json file://next.json --query 'taskDefinition.taskDefinitionArn' --output text)"
+          aws ecs update-service --cluster "$CLUSTER" --service "$SERVICE" --task-definition "$next" >/dev/null
+          aws ecs wait services-stable --cluster "$CLUSTER" --services "$SERVICE"
+          echo "rolled out $next" | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Check the live health endpoint
+        if: ${{ env.API_URL != '' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3 4 5 6; do
+            if curl -fsS "$API_URL/v1/health" | grep -q '"ok":true'; then
+              echo "healthy: $API_URL" | tee -a "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "the new tasks never answered /v1/health" >&2
+          exit 1
