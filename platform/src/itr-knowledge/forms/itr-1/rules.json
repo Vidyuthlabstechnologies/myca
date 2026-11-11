@@ -1,0 +1,2062 @@
+{
+"form": "ITR-1",
+"source": "itr-1-rules",
+"title": "ITR 1 Validation Rules for AY 2025-26",
+"categories": {
+"A": "Return cannot be uploaded; the portal shows an error.",
+"B": "Return is uploaded, but the taxpayer is told of a possible defect u/s 139(9) and CPC may send a notice.",
+"D": "Return is uploaded, but a deduction or claim may not be allowed unless the supporting claim form or particulars are filed.",
+"B/D": "Category B or D (the source lists them in one table)."
+},
+"rules": [
+{
+"category": "A",
+"no": 1,
+"page": 6,
+"text": "If Old Tax Regime is selected and Sum of deductions claimed u/s 80C, 80CCC & 80CCD (1) cannot be more than Rs. 1,50,000.",
+"id": "ITR-1-A-1"
+},
+{
+"category": "A",
+"no": 2,
+"page": 6,
+"text": "If Old Tax is selected and employer category is \"CG-Pensioners\" \"SG-Pensioners\" \"PSU-Pensioners\" \"Other Pensioners” or Not Applicable, then Deduction u/s 80CCD (1) should not be more than 20% of Gross total Income",
+"id": "ITR-1-A-2"
+},
+{
+"category": "A",
+"no": 3,
+"page": 6,
+"text": "If Old Tax is selected and if the employer category is other than \"CG-Pensioners\" \"SG-Pensioners\" \"PSU-Pensioners\" \"Other Pensioners” or not applicable, then Maximum amount that can be claimed for u/s 80CCD (1) is 10% of Salary",
+"id": "ITR-1-A-3"
+},
+{
+"category": "A",
+"no": 4,
+"page": 6,
+"text": "Deduction u/s 80CCD (2) should not be more than 10% of salary by an employer other than Central Government or State Government in case of old tax regime.",
+"id": "ITR-1-A-4"
+},
+{
+"category": "A",
+"no": 5,
+"page": 6,
+"text": "If Old tax Regime is selected, and 80DDB - Resident assessee has claimed more than the maximum limit of Rs.1,00,000/-',",
+"id": "ITR-1-A-5"
+},
+{
+"category": "A",
+"no": 6,
+"page": 6,
+"text": "If Old tax Regime is selected and Assessee is claiming deduction under section 80DDB, but eligible category description not provided",
+"id": "ITR-1-A-6"
+},
+{
+"category": "A",
+"no": 7,
+"page": 6,
+"text": "If Old tax Regime is selected, then Maximum amount that can be claimed for category \"Self or Dependent\" u/s 80DDB is Rs. 40,000",
+"id": "ITR-1-A-7"
+},
+{
+"category": "A",
+"no": 8,
+"page": 6,
+"text": "If Old tax Regime is selected and Deduction u/s 80G claimed but details are not provided in Schedule 80G",
+"id": "ITR-1-A-8"
+},
+{
+"category": "A",
+"no": 9,
+"page": 6,
+"text": "If Old tax Regime is selected, then In Schedule 80G, in Table F, Donation should be equal to sum of donation entitled for 100% deduction without qualifying limit + donation entitled for 50% without qualifying limit +donation entitled for 100% deduction subject to qualifying limit + donation entitled for 50% subject to qualifying limit",
+"id": "ITR-1-A-9"
+},
+{
+"category": "A",
+"no": 10,
+"page": 6,
+"text": "If Old tax Regime is selected, then In Schedule VIA, deduction claimed u/s 80G is more than the e ligible amount of donation mentioned in Schedule 80G",
+"id": "ITR-1-A-10"
+},
+{
+"category": "A",
+"no": 11,
+"page": 6,
+"text": "If Old tax Regime is selected, then Assessee can claim deduction under section 80TTA to the maximum limit of Rs.10,000/-",
+"id": "ITR-1-A-11"
+},
+{
+"category": "A",
+"no": 12,
+"page": 6,
+"text": "If Old tax Regime is selected, then Deduction u/s 80TTA is restricted to the savings account interest income from other sources.",
+"id": "ITR-1-A-12"
+},
+{
+"category": "A",
+"no": 13,
+"page": 6,
+"text": "Deduction u/s 80TTA cannot be claimed by Senior Citizen (date of birth is on or Before 02.04.1964 1965",
+"id": "ITR-1-A-13"
+},
+{
+"category": "A",
+"no": 14,
+"page": 6,
+"text": "If Old tax Regime is selected, then Assessee can claim deduction under section 80TTB to the maximum limit of Rs.50,000/-",
+"id": "ITR-1-A-14"
+},
+{
+"category": "A",
+"no": 15,
+"page": 6,
+"text": "Assessee being less than 60 years of age cannot claim deduction under section 80TTB",
+"id": "ITR-1-A-15"
+},
+{
+"category": "A",
+"no": 16,
+"page": 6,
+"text": "If Old tax Regime is selected, and Assessee being senior citizen and claiming deduction under section 80TTB on other than interest income from other source",
+"id": "ITR-1-A-16"
+},
+{
+"category": "A",
+"no": 17,
+"page": 6,
+"text": "Total of chapter VI-A deductions should match with sum of individual deductions restricted to GTI",
+"id": "ITR-1-A-17"
+},
+{
+"category": "A",
+"no": 18,
+"page": 7,
+"text": "Deductions claimed under Chapter VI-A is should not be more than “Gross Total Income”",
+"recovered": true,
+"id": "ITR-1-A-18"
+},
+{
+"category": "A",
+"no": 19,
+"page": 7,
+"text": "ITR-1 -\"Name\" of taxpayer in ITR does not match with the \"Name\" as per the PAN data base",
+"id": "ITR-1-A-19"
+},
+{
+"category": "A",
+"no": 20,
+"page": 7,
+"text": "In the return filed \"Gross Total Income\" and all the heads of income is entered should be more than zero if tax liability has been computed and paid",
+"id": "ITR-1-A-20"
+},
+{
+"category": "A",
+"no": 21,
+"page": 7,
+"text": "\"Income details\" and \"Tax computation\" should be disclosed where details regarding “Taxes Paid” have been disclosed.",
+"id": "ITR-1-A-21"
+},
+{
+"category": "A",
+"no": 22,
+"page": 7,
+"text": "If Old Tax Regime is selected and Gross Total Income is not equal to the Total of Incomes from Salary, House Property & Other Sources & Long-term capital gains as per sec 112A.",
+"id": "ITR-1-A-22"
+},
+{
+"category": "A",
+"no": 23,
+"page": 7,
+"text": "If Old tax Regime is selected, Rebate u/s 87A is claimed by Resident Individual having Total income including LTCG 7a(iii) u/s 112A of more than Rs. 5,00,000",
+"id": "ITR-1-A-23"
+},
+{
+"category": "A",
+"no": 24,
+"page": 7,
+"text": "Total income should be the difference between \"Gross total income\" and \"Total deductions\" OR zero if the gross total income minus deduction is negative",
+"id": "ITR-1-A-24"
+},
+{
+"category": "A",
+"no": 25,
+"page": 7,
+"text": "The amount of \"Tax after Rebate \" should be equal to \"Tax payable on total income\" Minus \"Rebate u/s 87A\"",
+"id": "ITR-1-A-25"
+},
+{
+"category": "A",
+"no": 26,
+"page": 7,
+"text": "The amount at “Total tax and Cess” should be equal to sum of \"Tax after Rebate\" and “Heath & Education Cess",
+"id": "ITR-1-A-26"
+},
+{
+"category": "A",
+"no": 27,
+"page": 7,
+"text": "“Total Tax, Fees & Interest” should be equal to the sum of “Total Tax & Cess + Interest u/s 234A + 234B+ 234C + 234F- Relief u/s 89”",
+"id": "ITR-1-A-27"
+},
+{
+"category": "A",
+"no": 28,
+"page": 7,
+"text": "In \"Schedule Income Details\" Total Interest, Fee Payable should be equal to the sum of Interest u/s 234 A+ Interest u/s 234 B+ Interest u/s 234 C+ Fee u/s 234F",
+"id": "ITR-1-A-28"
+},
+{
+"category": "A",
+"no": 29,
+"page": 7,
+"text": "Agriculture Income shown as exempt cannot be more than Rs 5000/-",
+"id": "ITR-1-A-29"
+},
+{
+"category": "A",
+"no": 30,
+"page": 7,
+"text": "In \"schedule \"Income Details” Exempt income should be equal to sum of amount entered in individual col. Of exempt income.",
+"id": "ITR-1-A-30"
+},
+{
+"category": "A",
+"no": 31,
+"page": 7,
+"text": "Sec 10(10BC)-Any amount from the Central/State Govt./local authority by way of compensation on account of any disaster drop-down cannot be selected more than one time under Exempt Income.",
+"id": "ITR-1-A-31"
+},
+{
+"category": "A",
+"no": 32,
+"page": 7,
+"text": "Sec 10(10D)- Any sum received under a life insurance policy, including the sum allocated by way of bonus on such policy except sum as mentioned in sub-clause (a) to (d) of Sec.10(10D)\" drop- down cannot be selected more than one time under Exempt Income.",
+"id": "ITR-1-A-32"
+},
+{
+"category": "A",
+"no": 33,
+"page": 7,
+"text": "Sec 10(11)-Statutory Provident Fund received drop-down cannot be selected more than one time under Exempt Income.",
+"id": "ITR-1-A-33"
+},
+{
+"category": "A",
+"no": 34,
+"page": 7,
+"text": "Sec 10(12)-Recognized Provident Fund received drop-down cannot be selected more than one time under Exempt Income.",
+"id": "ITR-1-A-34"
+},
+{
+"category": "A",
+"no": 35,
+"page": 7,
+"text": "Sec 10(13)-Approved superannuation fund received drop-down cannot be selected more than one time under Exempt Income.",
+"id": "ITR-1-A-35"
+},
+{
+"category": "A",
+"no": 36,
+"page": 7,
+"text": "Sec 10(16)-Scholarships granted to meet the cost of education drop-down cannot be selected more than one time under Exempt Income.",
+"id": "ITR-1-A-36"
+},
+{
+"category": "A",
+"no": 37,
+"page": 7,
+"text": "If Old Tax Regime is selected; then Sec 10(17)-Allowance MP/MLA/MLC drop-down cannot be selected more than one time under Exempt Income.",
+"id": "ITR-1-A-37"
+},
+{
+"category": "A",
+"no": 38,
+"page": 7,
+"text": "Sec 10(18)-Pension received by winner of “PARAM Vir Chakra or \"Maha Vir Chakra\" or \"Vir Chakra\" or such other gallantry award\" drop-down cannot be selected more than one time under Exempt Income.",
+"id": "ITR-1-A-38"
+},
+{
+"category": "A",
+"no": 39,
+"page": 8,
+"text": "Defense Medical Disability Pension drop-down cannot be selected more than one time under Exempt Income.",
+"recovered": true,
+"id": "ITR-1-A-39"
+},
+{
+"category": "A",
+"no": 40,
+"page": 8,
+"text": "Sec 10(19)-Armed Forces Family pension in case of death during operational duty drop-down cannot be selected more than one time under Exempt Income",
+"id": "ITR-1-A-40"
+},
+{
+"category": "A",
+"no": 41,
+"page": 8,
+"text": "Sec 10(26)-Any income as referred to in section 10(26) drop-down cannot be selected more than one time under Exempt Income. (Message to be shown to the taxpayers while preparing the return that this deduction is available only for certain category of assesses of NE Region and Ladakh)",
+"id": "ITR-1-A-41"
+},
+{
+"category": "A",
+"no": 42,
+"page": 8,
+"text": "Sec 10(26AAA)-Any income as referred to in section 10(26AAA) drop-down cannot be selected more than one time under Exempt Income.",
+"id": "ITR-1-A-42"
+},
+{
+"category": "A",
+"no": 43,
+"page": 8,
+"text": "Standard deduction allowed on House property should be equal to 30% of Annual value.",
+"id": "ITR-1-A-43"
+},
+{
+"category": "A",
+"no": 44,
+"page": 8,
+"text": "Gross rent received/ receivable/ lettable value should be more than zero or null where assessee is claiming municipal tax",
+"id": "ITR-1-A-44"
+},
+{
+"category": "A",
+"no": 45,
+"page": 8,
+"text": "Taxpayer has selected type of property as let-out or deemed let out then Gross rent received/ receivable/ lettable value should be more than zero",
+"id": "ITR-1-A-45"
+},
+{
+"category": "A",
+"no": 46,
+"page": 8,
+"text": "In Schedule Gross Total Income, Sl.no B2iii. Annual Value should be output of SL.no B2i-B2ii",
+"id": "ITR-1-A-46"
+},
+{
+"category": "A",
+"no": 47,
+"page": 8,
+"text": "In Schedule Gross total Income, Sl.no B2vii.Income chargeable under the head ‘House Property’ (iii – iv-v + vi) should be equal to sum of B2iii- B2iv-B2v+B2vi or the sum of Individual values under the head of House Property cannot be different from the \"Income chargeable under the head House Property\".",
+"id": "ITR-1-A-47"
+},
+{
+"category": "A",
+"no": 48,
+"page": 8,
+"text": "If Old Tax Regime is selected then In Schedule HP, if \"Type of House Property\" is selected as \"Self-Occupied”, then the assessee cannot claim interest on borrowed capital more than Rs 2,00,000,",
+"id": "ITR-1-A-48"
+},
+{
+"category": "A",
+"no": 49,
+"page": 8,
+"text": "In \"Schedule Income Details\" Tax paid to local authorities shall not be allowed for Type of House Property as \"Self-Occupied\"",
+"id": "ITR-1-A-49"
+},
+{
+"category": "A",
+"no": 50,
+"page": 8,
+"text": "\"Interest from savings account\" drop-down cannot be selected more than one time under Income from other sources",
+"id": "ITR-1-A-50"
+},
+{
+"category": "A",
+"no": 51,
+"page": 8,
+"text": "\"Interest from Deposits (Bank/Post Office/Cooperative Society)\" drop-down cannot be selected more than one time under Income from other sources",
+"id": "ITR-1-A-51"
+},
+{
+"category": "A",
+"no": 52,
+"page": 8,
+"text": "In schedule \"Income Details” Income from other sources should be equal to sum of amounts entered in individual col. of income from other sources",
+"id": "ITR-1-A-52"
+},
+{
+"category": "A",
+"no": 53,
+"page": 8,
+"text": "In \"Schedule Income Details\" Deduction u/s 57(iia) shall be allowed only if \"Family pension\" is offered to tax and option 'No' is selected for 'Are you opting for new tax regime u/s 115BAC?",
+"id": "ITR-1-A-53"
+},
+{
+"category": "A",
+"no": 54,
+"page": 8,
+"text": "In case of \"Old Tax Regime\"- D eduction u/s 57(iia) cannot be more than lower of 1/3rd of Family pension or Rs. 15,000.",
+"id": "ITR-1-A-54"
+},
+{
+"category": "A",
+"no": 55,
+"page": 8,
+"text": "Interest from Income Tax Refund drop-down cannot be selected more than one time under Income from other sources.",
+"id": "ITR-1-A-55"
+},
+{
+"category": "A",
+"no": 56,
+"page": 8,
+"text": "Family pension drop-down cannot be selected more than one time under Income from other sources.",
+"id": "ITR-1-A-56"
+},
+{
+"category": "A",
+"no": 57,
+"page": 8,
+"text": "If Old Tax Regime is selected, then for Central and State Govt, PSU employees, the Entertainment allowance u/s 16(ii) will be allowed to the extent of Rs 5000 or 1/5th of Salary whichever is lower",
+"id": "ITR-1-A-57"
+},
+{
+"category": "A",
+"no": 58,
+"page": 8,
+"text": "If Old Tax Regime is selected, then No Entertainment allowance u/s 16(ii) will be allowed to employees other than Central, State Government and PSU",
+"id": "ITR-1-A-58"
+},
+{
+"category": "A",
+"no": 59,
+"page": 8,
+"text": "Gross salary should be total of salary as per section 17(1) and value of perquisites as per section 17(2) and profits in lieu of salary as per section 17(3) and Income from retirement benefit account maintained in a notified country u/s 89A and Income from retirement benefit account maintained in a country other than notified country u/s 89A",
+"id": "ITR-1-A-59"
+},
+{
+"category": "A",
+"no": 60,
+"page": 9,
+"text": "In the Schedule “Gross total Income\", 'Net Salary' should be the difference between 'Gross salary' and 'Allowances to the extent exempt u/s 10' and Relief u/s 89A'",
+"recovered": true,
+"id": "ITR-1-A-60"
+},
+{
+"category": "A",
+"no": 61,
+"page": 9,
+"text": "In Schedule Gross Total Income, B1 (iv) Deductions u/s 16 should be sum of B1 (iva+ivb+ivc)",
+"id": "ITR-1-A-61"
+},
+{
+"category": "A",
+"no": 62,
+"page": 9,
+"text": "In Schedule Gross Total Income, Sl.no B1v Income chargeable under Salaries should be (B1iii– B1iv)",
+"id": "ITR-1-A-62"
+},
+{
+"category": "A",
+"no": 63,
+"page": 9,
+"text": "“Total of all allowances to the extent exempt u/s 10 cannot be more than Gross Salary''",
+"id": "ITR-1-A-63"
+},
+{
+"category": "A",
+"no": 64,
+"page": 9,
+"text": "If Old Tax Regime is selected, then Exemption u/Sec 10(5)- Leave Travel concession/assistance cannot be more than respective income in Salary as per section 17(1)",
+"id": "ITR-1-A-64"
+},
+{
+"category": "A",
+"no": 65,
+"page": 9,
+"text": "Exempt allowance Sec 10(6)-Remuneration received as an official, by whatever name called, of an embassy, high commission etc.\" cannot be more than Gross Salary",
+"id": "ITR-1-A-65"
+},
+{
+"category": "A",
+"no": 66,
+"page": 9,
+"text": "Exempt allowance u/s 10(7)-Allowances or perquisites paid or allowed as such outside India by the Government to a citizen of India for rendering service outside India cannot be more than Gross salary",
+"id": "ITR-1-A-66"
+},
+{
+"category": "A",
+"no": 67,
+"page": 9,
+"text": "Exempt allowance u/s 10(10)-Death-cum-retirement gratuity received cannot be more than Rs. 20,00,000 if nature of employment is Public Sector Undertaking,PSU - Pensioners, others - Pensioners, Others",
+"id": "ITR-1-A-67"
+},
+{
+"category": "A",
+"no": 68,
+"page": 9,
+"text": "Exempt Allowance u/s Sec 10(10A)-Commuted value of pension received cannot be more than Salary as per sec 17(1)",
+"id": "ITR-1-A-68"
+},
+{
+"category": "A",
+"no": 69,
+"page": 9,
+"text": "Exempt Allowance u/s 10(10AA)-Earned leave encashment on retirement cannot more than Salary as per sec 17(1) (Message to be shown to the taxpayers while preparing the return that maximum deduction for a non- Government employees including PSU employee is only Rs 25 lakh)",
+"id": "ITR-1-A-69"
+},
+{
+"category": "A",
+"no": 70,
+"page": 9,
+"text": "Exempt Allowance u/s 10(10B)-First Proviso- Compensation limit notified by CG in the Official Gazette cannot exceed Rs.500,000",
+"id": "ITR-1-A-70"
+},
+{
+"category": "A",
+"no": 71,
+"page": 9,
+"text": "Exempt Allowance u/s 10(10C)-Amount received/receivable on voluntary retirement or termination of service cannot exceed Rs. 5,00,000",
+"id": "ITR-1-A-71"
+},
+{
+"category": "A",
+"no": 72,
+"page": 9,
+"text": "In exempt allowances only Sec 10(10B) (i) OR Sec 10(10B) (ii) OR Sec 10(10C) can be selected.",
+"id": "ITR-1-A-72"
+},
+{
+"category": "A",
+"no": 73,
+"page": 9,
+"text": "Exempt Allowance u/s 10(10CC)-Tax paid by employer on non-monetary perquisite cannot be more than Value of perquisites as per section 17(2)",
+"id": "ITR-1-A-73"
+},
+{
+"category": "A",
+"no": 74,
+"page": 9,
+"text": "If Old Tax Regime is selected, then Exempt Allowance Sec 10(13A)-Allowance to meet expenditure incurred on house rent cannot be more than Salary as per section 17(1)",
+"id": "ITR-1-A-74"
+},
+{
+"category": "A",
+"no": 75,
+"page": 9,
+"text": "If Old Tax Regime is selected, then Exempt Allowances -Sec 10(14)(i) Prescribed Allowances or benefits (not in a nature of perquisite) specifically granted to meet expenses wholly, necessarily and exclusively and to the extent actually incurred, in performance of duties of office or employment cannot be more than Value of Salary as per section 17(1) at sr. no B1(ia)",
+"id": "ITR-1-A-75"
+},
+{
+"category": "A",
+"no": 76,
+"page": 9,
+"text": "If Old Tax Regime is selected, then Exempt Allowance -Sec 10(14)(ii) Prescribed Allowances or benefits granted to meet personal expenses in performance of duties of office or employment or to compensate him for increased cost of living cannot be more than Value of Salary as per section 17(1) at sr no (ia)",
+"id": "ITR-1-A-76"
+},
+{
+"category": "A",
+"no": 77,
+"page": 9,
+"text": "In Schedule \"Income Details\" allowance to extent exempt u/s 10 should be equal to sum of individual values entered.",
+"id": "ITR-1-A-77"
+},
+{
+"category": "A",
+"no": 78,
+"page": 9,
+"text": "In Sch 80G Donee PAN should not be same as \"Assessee PAN\" or \"PAN at Verification\"",
+"id": "ITR-1-A-78"
+},
+{
+"category": "A",
+"no": 79,
+"page": 9,
+"text": "In Schedule 80G in table (A) \"Donations entitled for 100% deduction without qualifying limit\" donation in cash or donation in other mode is to be entered mandatory without which total deduction column should not be entered",
+"id": "ITR-1-A-79"
+},
+{
+"category": "A",
+"no": 80,
+"page": 10,
+"text": "In Schedule 80G in table (B) \"Donations entitled for 50% deduction without qualifying limit\" donation in cash or donation in other mode is to be entered mandatory without which total deduction column should not be entered",
+"recovered": true,
+"id": "ITR-1-A-80"
+},
+{
+"category": "A",
+"no": 81,
+"page": 10,
+"text": "In Schedule 80G in table (c) \"Donations entitled for 100% deduction Subject to Qualifying Limit\" Donation in cash or Donation in other mode is to be entered mandatory without which total deduction column should not be entered",
+"id": "ITR-1-A-81"
+},
+{
+"category": "A",
+"no": 82,
+"page": 10,
+"text": "In Schedule 80G in table (D) “Donations entitled for 50% deduction Subject to Qualifying Limit\" Donation in cash or Donation in other mode is to be entered mandatory without which total deduction column should not be entered",
+"id": "ITR-1-A-82"
+},
+{
+"category": "A",
+"no": 83,
+"page": 10,
+"text": "In Schedule 80G in table (E) Donations should be equal to the sum of (Donations entitled for 100% deduction without qualifying limit +Donations entitled for 50% deduction without qualifying limit+ Donations entitled for 100% deduction subject to qualifying limit +Donations entitled for 100% deduction subject to qualifying limit)",
+"id": "ITR-1-A-83"
+},
+{
+"category": "A",
+"no": 84,
+"page": 10,
+"text": "Total Donation should be equal to sum of \"Donation in cash\" AND \"Donation in other mode\" in table (80G) (A)\"Donations entitled for 100% deduction without qualifying limit\"",
+"id": "ITR-1-A-84"
+},
+{
+"category": "A",
+"no": 85,
+"page": 10,
+"text": "Total Donation' should be equal to sum of \"Donation in cash\" AND \"Donation in other mode\" in table (80G) (B)\"Donations entitled for 50% deduction without qualifying limit\"",
+"id": "ITR-1-A-85"
+},
+{
+"category": "A",
+"no": 86,
+"page": 10,
+"text": "Total Donation' should be equal to sum of \"Donation in cash\" AND \"Donation in other mode\" in table (80G) (C)\"Donations entitled for 100% deduction subject to qualifying limit\"",
+"id": "ITR-1-A-86"
+},
+{
+"category": "A",
+"no": 87,
+"page": 10,
+"text": "Total Donation' should be equal to sum of \"Donation in cash\" AND \"Donation in other mode\" in table (80G) (D)\"Donations entitled for 50% deduction subject to qualifying limit\"",
+"id": "ITR-1-A-87"
+},
+{
+"category": "A",
+"no": 88,
+"page": 10,
+"text": "If Old Tax Regime is selected, then Deduction u/s 80G is not allowed for donation made in cash above Rs. 2,000/-.",
+"id": "ITR-1-A-88"
+},
+{
+"category": "A",
+"no": 89,
+"page": 10,
+"text": "In \"Schedule 80GGA\" \"Donation in cash\" or \"Donation in other mode\" is to be entered mandatory without which total deduction column should not be entered",
+"id": "ITR-1-A-89"
+},
+{
+"category": "A",
+"no": 90,
+"page": 10,
+"text": "Total Donation' should be equal to sum of \"Donation in cash\" AND \"Donation in other mode\" in table (80GGA)",
+"id": "ITR-1-A-90"
+},
+{
+"category": "A",
+"no": 91,
+"page": 10,
+"text": "If Deduction u/s 80GGA is claimed, details should be provided in Schedule 80GGA.",
+"id": "ITR-1-A-91"
+},
+{
+"category": "A",
+"no": 92,
+"page": 10,
+"text": "In Schedule 80GGA, 'Eligible amount of Donations' cannot be more than the 'Total Donations'.",
+"id": "ITR-1-A-92"
+},
+{
+"category": "A",
+"no": 93,
+"page": 10,
+"text": "In Schedule VIA, deduction claimed u/s 80GGA cannot be more than the eligible amount of donation mentioned in Schedule 80GGA",
+"id": "ITR-1-A-93"
+},
+{
+"category": "A",
+"no": 94,
+"page": 10,
+"text": "Donee PAN mentioned in Schedule 80GGA cannot be same as the assessee PAN or the verification PAN",
+"id": "ITR-1-A-94"
+},
+{
+"category": "A",
+"no": 95,
+"page": 10,
+"text": "In Schedule IT total of col 4 Tax Paid should be equal to sum of individual values",
+"id": "ITR-1-A-95"
+},
+{
+"category": "A",
+"no": 96,
+"page": 10,
+"text": "In Schedule TCS, “The Amount of TCS claimed this year” should not be more than “Tax collected”.",
+"id": "ITR-1-A-96"
+},
+{
+"category": "A",
+"no": 97,
+"page": 10,
+"text": "In Schedule TCS total of col 6 TCS credit out of (5) being claimed this year should be equal to sum of individual values",
+"id": "ITR-1-A-97"
+},
+{
+"category": "A",
+"no": 98,
+"page": 10,
+"text": "In Schedule TDS2 (Other than salary), “The Amount of TDS claimed this year” should not be more than “Tax deducted”.",
+"id": "ITR-1-A-98"
+},
+{
+"category": "A",
+"no": 99,
+"page": 10,
+"text": "In Schedule TDS (2), TDS (3)/TCS year of tax deduction cannot be '0' / 'null ' if there is a claim of TDS / TCS",
+"id": "ITR-1-A-99"
+},
+{
+"category": "A",
+"no": 100,
+"page": 10,
+"text": "In Schedule TDS1 total of col 5 'Total Tax deducted\" should be equal to sum of individual values of col 5",
+"id": "ITR-1-A-100"
+},
+{
+"category": "A",
+"no": 101,
+"page": 11,
+"text": "In Schedule TDS2 total of col 6 'TDS Credit out of (5) claimed this year\" should be equal to sum of individual values of col 6",
+"recovered": true,
+"id": "ITR-1-A-101"
+},
+{
+"category": "A",
+"no": 102,
+"page": 11,
+"text": "In Schedule TDS3 total of col 7' 'TDS Credit out of (5) claimed this year should be equal to sum of individual values of col 7",
+"id": "ITR-1-A-102"
+},
+{
+"category": "A",
+"no": 103,
+"page": 11,
+"text": "TDS, TCS or Tax paid claimed in “Taxes Paid and Verification” should be equal to the details of tax amount paid provided in Schedule IT, Schedule TDS1, Schedule TDS2 and Schedule TCS.",
+"id": "ITR-1-A-103"
+},
+{
+"category": "A",
+"no": 104,
+"page": 11,
+"text": "The sum of amounts claimed at TDS, TCS, Advance Tax and Self-Assessment Tax should be equal to the amount claimed at “Total Taxes Paid”.",
+"id": "ITR-1-A-104"
+},
+{
+"category": "A",
+"no": 105,
+"page": 11,
+"text": "Refund claimed should be equal to “Total Taxes Paid” minus “Total Tax and Interest payable”.",
+"id": "ITR-1-A-105"
+},
+{
+"category": "A",
+"no": 106,
+"page": 11,
+"text": "Tax payable Amount should be equal to “Total Tax and Interest payable” minus “Total Taxes Paid”.",
+"id": "ITR-1-A-106"
+},
+{
+"category": "A",
+"no": 107,
+"page": 11,
+"text": "IFSC under “Bank Details” and in schedule 80GGC should match with the RBI database / GIFT IFSC codes.",
+"id": "ITR-1-A-107"
+},
+{
+"category": "A",
+"no": 108,
+"page": 11,
+"text": "In \"Schedule Taxes Paid and Verification\" Total TDS Claimed should be equal to the sum of total TDS claimed in TDS 1, 2 & 3",
+"id": "ITR-1-A-108"
+},
+{
+"category": "A",
+"no": 109,
+"page": 11,
+"text": "In \"Schedule Taxes Paid and Verification\" Total TCS Claimed should be equal to the sum of total TCS claimed in TCS schedule",
+"id": "ITR-1-A-109"
+},
+{
+"category": "A",
+"no": 110,
+"page": 11,
+"text": "In \"Schedule Taxes Paid and Verification\" Total Advance Tax paid is not equal to the sum of total Tax Paid in schedule IT where date of deposit is between 1/04/20XX and 31/03/20XX of PY for which return is being filed.",
+"id": "ITR-1-A-110"
+},
+{
+"category": "A",
+"no": 111,
+"page": 11,
+"text": "In \"Schedule Taxes Paid and Verification\" Total Self-Assessment Tax Paid is not equal to the sum of total Tax Paid in schedule IT where date of deposit is after 31/03/20XX of AY for which return is being filed.",
+"id": "ITR-1-A-111"
+},
+{
+"category": "A",
+"no": 112,
+"page": 11,
+"text": "In case of Old Tax Regime, taxpayer being an employee can claim Standard deduction u/s 16ia only to the extent of Rs 50000.",
+"id": "ITR-1-A-112"
+},
+{
+"category": "A",
+"no": 113,
+"page": 11,
+"text": "Credit for TDS has been claimed in the return of income, but the corresponding receipts/income has been omitted to be offered for taxation. (Receipts/ Income should be offered to tax in one or the schedules in the return. Further, receipts as appearing in Form 26AS to be offered to tax in one or the schedules in the return)",
+"id": "ITR-1-A-113"
+},
+{
+"category": "A",
+"no": 114,
+"page": 11,
+"text": "In Schedule Income Details, the maximum limit allowable under section 80GG is: Rs.60,000/- or 25% of his total income excluding LTCG before allowing deduction of this expenditure, whichever is less.",
+"id": "ITR-1-A-114"
+},
+{
+"category": "A",
+"no": 115,
+"page": 11,
+"text": "If Old Tax Regime is selected, then the maximum limit allowable under section 80CCD(1B) is Rs.50,000/-",
+"id": "ITR-1-A-115"
+},
+{
+"category": "A",
+"no": 116,
+"page": 11,
+"text": "Deduction u/s 80CCD (2) cannot be claimed by taxpayer who has selected employer category as \"CG-Pensioners\" \"SG-Pensioners\" \"PSU-Pensioners\" \"Other Pensioners \" or \"Not Applicable\"",
+"id": "ITR-1-A-116"
+},
+{
+"category": "A",
+"no": 117,
+"page": 11,
+"text": "Total income excluding LTCG B7(a)(iii) should not be greater than Rs 50 lakhs.",
+"id": "ITR-1-A-117"
+},
+{
+"category": "A",
+"no": 118,
+"page": 11,
+"text": "In schedule 80G, if donation is made same PAN of Donee cannot appear more than once",
+"id": "ITR-1-A-118"
+},
+{
+"category": "A",
+"no": 119,
+"page": 11,
+"text": "In schedule 80GGA, if donation is made in cash same PAN of Donee cannot appear more than once",
+"id": "ITR-1-A-119"
+},
+{
+"category": "A",
+"no": 120,
+"page": 11,
+"text": "House rent allowance (HRA u/s.10(13A)) is claimed, hence deduction u/s.80GG is not allowed for the corresponding period.",
+"id": "ITR-1-A-120"
+},
+{
+"category": "A",
+"no": 121,
+"page": 12,
+"text": "In case of Old Tax Regime - Deduction u/s 80CCD (2) should not be more than 14% of salary if any of the employer category is Central Government or state government",
+"recovered": true,
+"id": "ITR-1-A-121"
+},
+{
+"category": "A",
+"no": 122,
+"page": 12,
+"text": "If Old Tax Regime is selected, then Assessee claiming deduction u/s 80EE more than the maximum limit of Rs 50000/-",
+"id": "ITR-1-A-122"
+},
+{
+"category": "A",
+"no": 123,
+"page": 12,
+"text": "If Old Tax Regime is selected, then Assessee claiming deduction u/s 80EEA more than the maximum limit of Rs 150000/-",
+"id": "ITR-1-A-123"
+},
+{
+"category": "A",
+"no": 124,
+"page": 12,
+"text": "Only one of the deductions u/s 80EE/ 80EEA is allowed. Thus, if deductions claimed under section 80EEA is greater than “Zero\" deductions claimed under section 80EE cannot be greater than “Zero\"",
+"id": "ITR-1-A-124"
+},
+{
+"category": "A",
+"no": 125,
+"page": 12,
+"text": "If Old Tax Regime is selected, then Assessee claiming deduction u/s 80EEB cannot be more than Rs 150000/-",
+"id": "ITR-1-A-125"
+},
+{
+"category": "A",
+"no": 126,
+"page": 12,
+"text": "Relief u/s 89 cannot be claimed by taxpayer if details of salary as per 17(1), Value of perquisite as per 17(2) and Profit in lieu of salary as per 17(3) or family pension are \"zero\"/ \"blank\"",
+"id": "ITR-1-A-126"
+},
+{
+"category": "A",
+"no": 127,
+"page": 12,
+"text": "If the original return is filed under section 142(1) then taxpayer cannot file a return u/s 139",
+"id": "ITR-1-A-127"
+},
+{
+"category": "A",
+"no": 128,
+"page": 12,
+"text": "If Old Tax Regime is selected, then In Schedule 80D, Deduction at Sl. No. 1a Self and Family will be allowed to the extent of Rs.25000",
+"id": "ITR-1-A-128"
+},
+{
+"category": "A",
+"no": 129,
+"page": 12,
+"text": "In Schedule 80D, Deduction at Sl. No. 1a should be equal to sum of Sl. No (i+ii) Note: This validation to be checked if value of (i+ii) at Sl. No. 1a is less than 25000",
+"id": "ITR-1-A-129"
+},
+{
+"category": "A",
+"no": 130,
+"page": 12,
+"text": "If Old Tax Regime is selected, then In Schedule 80D, the amount of preventive health checkup of all the fields combined should not exceed 5000.",
+"id": "ITR-1-A-130"
+},
+{
+"category": "A",
+"no": 131,
+"page": 12,
+"text": "If Old Tax Regime is selected, then In Schedule 80D, Deduction at Sl. No. 1b Self and Family (Senior Citizen) will be allowed to the extent of Rs. 50000",
+"id": "ITR-1-A-131"
+},
+{
+"category": "A",
+"no": 132,
+"page": 12,
+"text": "In Schedule 80D, Deduction at Sl. No. 1b should be equal to sum of Sl. No (i+ii+iii) Note: This validation to be checked if value of (i+ii+iii) at Sl. No. 1b is less than 50000",
+"id": "ITR-1-A-132"
+},
+{
+"category": "A",
+"no": 133,
+"page": 12,
+"text": "If Old Tax Regime is selected, then In Schedule 80D, Deduction at Sl. No. 2a Parents will be allowed to the extent of Rs. 25000",
+"id": "ITR-1-A-133"
+},
+{
+"category": "A",
+"no": 134,
+"page": 12,
+"text": "In Schedule 80D, Deduction at Sl. No. 2a should be equal to sum of Sl. No (i+ii) Note: This rule will be applicable If Old Tax Regime is selected. Note: If sum is greater than 25000, then 2a should be restricted to 25000",
+"id": "ITR-1-A-134"
+},
+{
+"category": "A",
+"no": 135,
+"page": 12,
+"text": "If Old Tax Regime is selected and In Schedule 80D, value at field 2b is greater than Rs. 50000",
+"id": "ITR-1-A-135"
+},
+{
+"category": "A",
+"no": 136,
+"page": 12,
+"text": "In Schedule 80D, Deduction at Sl. No. 2b should be equal to sum of Sl. No (i+ii+iii) Note: This validation to be checked if value of (i+ii+iii) Sl. No. 2b is less than 50000",
+"id": "ITR-1-A-136"
+},
+{
+"category": "A",
+"no": 137,
+"page": 12,
+"text": "If Old tax Regime is selected and In Schedule 80D, Sl. No. 3 Eligible amount of deduction is greater than Rs. 100000",
+"id": "ITR-1-A-137"
+},
+{
+"category": "A",
+"no": 138,
+"page": 12,
+"text": "In Schedule 80D, Eligible amount of deduction at Sl. No. 3 should be equal to sum of Sl. No (1a+1b+2a+2b) subject to GTI Note: This validation to be checked if value of Sl. No. (1a+1b+2a+2b) at Sl. No. 3 is less than or equal to 100000",
+"id": "ITR-1-A-138"
+},
+{
+"category": "A",
+"no": 139,
+"page": 12,
+"text": "If 80D claimed in Income Details Deduction under Chapter VIA, then same amount and details should be provided in Schedule 80D",
+"id": "ITR-1-A-139"
+},
+{
+"category": "A",
+"no": 140,
+"page": 12,
+"text": "In Schedule 80G, 'Eligible amount of Donations' cannot be more than the 'Total Donations'.",
+"id": "ITR-1-A-140"
+},
+{
+"category": "A",
+"no": 141,
+"page": 12,
+"text": "In \"Schedule Income Details \" Total Tax, Fee & Interest should be equal to sum of Balance Tax after Relief +Total Interest, Fee Payable",
+"id": "ITR-1-A-141"
+},
+{
+"category": "A",
+"no": 142,
+"page": 13,
+"text": "\"Sec 10(17A)-Award instituted by Government\" drop-down cannot be selected more than one time under Exempt Income.",
+"recovered": true,
+"id": "ITR-1-A-142"
+},
+{
+"category": "A",
+"no": 143,
+"page": 13,
+"text": "If exempt allowance is claimed u/s. 10(10AA) above Rs.25 Lakhs for employer category other \"Central and state government, CG- Pensioners, SG- Pensioner\"",
+"id": "ITR-1-A-143"
+},
+{
+"category": "A",
+"no": 144,
+"page": 13,
+"text": "Deduction u/s 80GGA is not allowed for donation made in cash above Rs. 2000/-.",
+"id": "ITR-1-A-144"
+},
+{
+"category": "A",
+"no": 145,
+"page": 13,
+"text": "In schedule 80GGA, if donation is made, same PAN of Donee cannot appear more than once",
+"id": "ITR-1-A-145"
+},
+{
+"category": "A",
+"no": 146,
+"page": 13,
+"text": "In income details total of Dividend income should be equal to sum of “Quarterly breakup of Dividend Income\"",
+"id": "ITR-1-A-146"
+},
+{
+"category": "A",
+"no": 147,
+"page": 13,
+"text": "If option Yes is selected for 'Are you opting for new tax regime u/s 115BAC?' then Part C – Deductions and Taxable Total Income, Deduction at B5(a), B5(b), B5(c ), B5(d),B5(f),B5(g),B5(h),B5(i),B5(j),B5(k),B5(l),B5(m),B5(n),B5(o),B5(p),B5(q),B5(r),B5(s) should not be more than \"0\"",
+"id": "ITR-1-A-147"
+},
+{
+"category": "A",
+"no": 148,
+"page": 13,
+"text": "In schedule 80G, If PAN is already entered in anyone of the set of blocks (i.e. 100%, 50%, with Qualifying limit, without Qualifying limit) then same PAN cannot be entered in any other block",
+"id": "ITR-1-A-148"
+},
+{
+"category": "A",
+"no": 149,
+"page": 13,
+"text": "If New Tax Regime is selected, exempt allowance under Section 10(14)(ii) - “Transport allowance granted to certain physically handicapped assessee\" should not exceed Rs 38,400",
+"id": "ITR-1-A-149"
+},
+{
+"category": "A",
+"no": 150,
+"page": 13,
+"text": "If New Tax Regime is selected and Exempt allowances under \"Sec 10(5)-Leave Travel concession/assistance\" \"Sec 10(13A)-Allowance to meet expenditure incurred on house rent\" \"Sec 10(14)(i)- Prescribed Allowances or benefits (not in a nature of perquisite) specifically granted to meet expenses wholly, necessarily and exclusively and to the extent actually incurred, in performance of duties of office or employment\" \"Sec 10(14)(ii) -Prescribed Allowances or benefits granted to meet personal expenses in performance of duties of office or employment or to compensate him for increased cost of living\" is more than \"0\"",
+"id": "ITR-1-A-150"
+},
+{
+"category": "A",
+"no": 151,
+"page": 13,
+"text": "If Old Tax Regime is selected and Exempt allowances under \"Section 10(14)(i) - Allowances referred in sub-clauses (a) to (c) of sub-rule (1) in Rule 2BB\" \"Section 10(14)(ii) - Transport allowance granted to certain physically handicapped assessee\" is more than \"0\"",
+"id": "ITR-1-A-151"
+},
+{
+"category": "A",
+"no": 152,
+"page": 13,
+"text": "Old Tax Regime cannot be selected after the due date of filing of return mentioned u/s 139(1)",
+"id": "ITR-1-A-152"
+},
+{
+"category": "A",
+"no": 153,
+"page": 13,
+"text": "Once a proceeding is initiated u/s148, no other return can be filed u/s 139",
+"id": "ITR-1-A-153"
+},
+{
+"category": "A",
+"no": 154,
+"page": 13,
+"text": "If New Tax Regime is selected and the Sum of deductions claimed u/s 80C, 80CCC & 80CCD (1) should not be more than zero.",
+"id": "ITR-1-A-154"
+},
+{
+"category": "A",
+"no": 155,
+"page": 13,
+"text": "If New tax Regime is selected then In Schedule VIA, deduction claimed u/s 80DD should not be more than \"0\"",
+"id": "ITR-1-A-155"
+},
+{
+"category": "A",
+"no": 156,
+"page": 13,
+"text": "If New Tax regime is selected, then deduction claimed u/s 80DDB should not be more than \"0\"",
+"id": "ITR-1-A-156"
+},
+{
+"category": "A",
+"no": 157,
+"page": 13,
+"text": "If New Tax Regime is selected, then deduction u/s 80G claimed should not be more than \"0\". Further, no details should not be provided in schedule 80G",
+"id": "ITR-1-A-157"
+},
+{
+"category": "A",
+"no": 158,
+"page": 13,
+"text": "If New Tax Regime is selected Then in Schedule VIA, the deduction claimed u/s 80TTA should not be more than \"0\"",
+"id": "ITR-1-A-158"
+},
+{
+"category": "A",
+"no": 159,
+"page": 13,
+"text": "If New tax Regime is selected Then in Schedule VIA, deduction claimed u/s 80TTB should not be more than \"0\"",
+"id": "ITR-1-A-159"
+},
+{
+"category": "A",
+"no": 160,
+"page": 13,
+"text": "If New tax Regime is selected Then in Schedule VIA, deduction claimed u/s 80U should not be more than \"0\"",
+"id": "ITR-1-A-160"
+},
+{
+"category": "A",
+"no": 161,
+"page": 14,
+"text": "If New tax Regime is selected Then in case of house property loss, Gross Total Income should be equal to the Total of Incomes from Salary and Other Sources.",
+"recovered": true,
+"id": "ITR-1-A-161"
+},
+{
+"category": "A",
+"no": 162,
+"page": 14,
+"text": "If New Tax Regime is selected, then exempt income u/s 10(17)-Allowance MP/MLA/MLC should not be more than zero",
+"id": "ITR-1-A-162"
+},
+{
+"category": "A",
+"no": 163,
+"page": 14,
+"text": "If New Tax Regime is selected and In Schedule HP, if \"Type of House Property\" is selected as \"Self-Occupied”, then the interest on borrowed capital should not be more than \"0”,",
+"id": "ITR-1-A-163"
+},
+{
+"category": "A",
+"no": 164,
+"page": 14,
+"text": "If New Tax Regime is selected, then Entertainment allowance u/s 16(ii) should not be more than \"0\"",
+"id": "ITR-1-A-164"
+},
+{
+"category": "A",
+"no": 165,
+"page": 14,
+"text": "If New Tax Regime is selected, Then Exemption u/Sec 10(5)- Leave Travel concession/assistance should not be more than \"0\"",
+"id": "ITR-1-A-165"
+},
+{
+"category": "A",
+"no": 166,
+"page": 14,
+"text": "If New Tax Regime is selected, Then Exempt Allowance Sec 10(13A)-Allowance to meet expenditure incurred on house rent should not be more than \"0\"",
+"id": "ITR-1-A-166"
+},
+{
+"category": "A",
+"no": 167,
+"page": 14,
+"text": "If New Tax Regime is selected Then Exempt Allowances -Sec 10(14)(i) Prescribed Allowances or benefits (not in a nature of perquisite) specifically granted to meet expenses wholly, necessarily and exclusively and to the extent actually incurred, in performance of duties of office or employment should not be more than \"0\"",
+"id": "ITR-1-A-167"
+},
+{
+"category": "A",
+"no": 168,
+"page": 14,
+"text": "If New Tax Regime is selected, Then Exempt Allowance -Sec 10(14)(ii) Prescribed Allowances or benefits granted to meet personal expenses in performance of duties of office or employment or to compensate him for increased cost of living should not be more than \"0\"",
+"id": "ITR-1-A-168"
+},
+{
+"category": "A",
+"no": 169,
+"page": 14,
+"text": "If New Tax Regime is selected then In Schedule VIA, Professional tax u/s 16(iii) should not be more than \"0\"",
+"id": "ITR-1-A-169"
+},
+{
+"category": "A",
+"no": 170,
+"page": 14,
+"text": "If New Tax Regime is selected then In Schedule VIA, deduction under section 80CCD(1B) should not be more than \"0\"",
+"id": "ITR-1-A-170"
+},
+{
+"category": "A",
+"no": 171,
+"page": 14,
+"text": "If New Tax Regime is selected then In Schedule VIA, deduction under section 80EE should not be more than \"0\"",
+"id": "ITR-1-A-171"
+},
+{
+"category": "A",
+"no": 172,
+"page": 14,
+"text": "If New Tax Regime is selected then In Schedule VIA, deduction under section 80EEA should not be more than \"0\"",
+"id": "ITR-1-A-172"
+},
+{
+"category": "A",
+"no": 173,
+"page": 14,
+"text": "If New Tax Regime is selected then In Schedule VIA, deduction under section 80EEB should not be more than \"0\"",
+"id": "ITR-1-A-173"
+},
+{
+"category": "A",
+"no": 174,
+"page": 14,
+"text": "If New Tax Regime is selected, then deduction u/s 80D claimed should not be more than \"0\" and details should not be provided in schedule 80D",
+"id": "ITR-1-A-174"
+},
+{
+"category": "A",
+"no": 175,
+"page": 14,
+"text": "If New Tax Regime is selected and Income from house property is positive then Gross Total Income is not equal to the Total of Incomes from Salary, House Property, Other Sources & LTCG u/s 112A.",
+"id": "ITR-1-A-175"
+},
+{
+"category": "A",
+"no": 176,
+"page": 14,
+"text": "If New Tax Regime is selected, then deduction u/s 80GGA claimed should not be more than \"0\" and details should not be provided in schedule 80GGA",
+"id": "ITR-1-A-176"
+},
+{
+"category": "A",
+"no": 177,
+"page": 14,
+"text": "If Old Tax Regime is selected, then Exempt Allowance Sec 10(13A)-Allowance to meet expenditure incurred on house rent cannot be more than 1/3rd of Salary as per section 17(1)",
+"id": "ITR-1-A-177"
+},
+{
+"category": "A",
+"no": 178,
+"page": 14,
+"text": "Exempt allowance u/s 10(10CC) cannot be more than the TDS claimed u/s 192 in schedule TDS1",
+"id": "ITR-1-A-178"
+},
+{
+"category": "A",
+"no": 179,
+"page": 14,
+"text": "In Schedule 80D, Deduction at sl.no.1a \"Self and Family\" can be claimed only if dropdown at sl.no.1 ‘Whether you or any of your family member (excluding parents) is a senior citizen?’ is selected as \"No\"",
+"id": "ITR-1-A-179"
+},
+{
+"category": "A",
+"no": 180,
+"page": 14,
+"text": "In Schedule 80D, Deduction at sl.no.1b \"Self & Family including Senior Citizen\" can be claimed only if dropdown at sl.no.1 ‘Whether you or any of your family member (excluding parents) is a senior citizen? ‘Is selected as \"Yes\"",
+"id": "ITR-1-A-180"
+},
+{
+"category": "A",
+"no": 181,
+"page": 15,
+"text": "In Schedule 80D, Deduction at sl.no.2a \"Parents\" can be claimed only if dropdown at sl.no.2 ‘Whether any one of your parents is a senior citizen’ is selected as \"No\"",
+"recovered": true,
+"id": "ITR-1-A-181"
+},
+{
+"category": "A",
+"no": 182,
+"page": 15,
+"text": "In Schedule 80D, Deduction at sl.no.2b \"Parents including Senior Citizen\" can be claimed only if dropdown at sl.no.2 ‘Whether any one of your parents is a senior citizen’ is selected as \"Yes\"",
+"id": "ITR-1-A-182"
+},
+{
+"category": "A",
+"no": 183,
+"page": 15,
+"text": "In Schedule 80D, deduction cannot be claimed in sl.no.1a and 1b if dropdown is selected as \"Not claiming for Self /Family\"",
+"id": "ITR-1-A-183"
+},
+{
+"category": "A",
+"no": 184,
+"page": 15,
+"text": "In Schedule 80D, deduction cannot be claimed in sl.no.2a and 2b if dropdown is selected as \"Not claiming for Parents\"",
+"id": "ITR-1-A-184"
+},
+{
+"category": "A",
+"no": 185,
+"page": 15,
+"text": "Any drop-down of nature of income cannot be selected more than one time under Exempt Income.",
+"id": "ITR-1-A-185"
+},
+{
+"category": "A",
+"no": 186,
+"page": 15,
+"text": "In B(i)- Salary, Income claimed for relief from taxation u/s 89A cannot be claimed more than income offered in B(i)(d)",
+"id": "ITR-1-A-186"
+},
+{
+"category": "A",
+"no": 187,
+"page": 15,
+"text": "In B3- Income from other sources, Income claimed for relief from taxation u/s 89A cannot be claimed more than the income offered under Income from retirement benefit account maintained in a notified country u/s 89A",
+"id": "ITR-1-A-187"
+},
+{
+"category": "A",
+"no": 188,
+"page": 15,
+"text": "Sum of quarterly breakup of Income from retirement benefit account maintained in a notified country u/s 89A (taxable portion) should be equal to 'amount entered in Income from retirement benefit account maintained in a notified country u/s 89A- Income claimed for relief from taxation u/s 89A'",
+"id": "ITR-1-A-188"
+},
+{
+"category": "A",
+"no": 189,
+"page": 15,
+"text": "Interest from Income Tax Refund drop-down cannot be selected more than one time under Income from other sources.",
+"id": "ITR-1-A-189"
+},
+{
+"category": "A",
+"no": 190,
+"page": 15,
+"text": "Interest from Income Tax Refund drop-down cannot be selected more than one time under Income from other sources.",
+"id": "ITR-1-A-190"
+},
+{
+"category": "A",
+"no": 191,
+"page": 15,
+"text": "In Schedule Income from Other sources, under dropdown, \"Income from retirement benefit account maintained in a notified country u/s 89A \" in country drop-down, one country cannot be selected more than one time.",
+"id": "ITR-1-A-191"
+},
+{
+"category": "A",
+"no": 192,
+"page": 15,
+"text": "In Schedule Salary, under line item \"Income from retirement benefit account maintained in a notified country u/s 89A \" in country drop-down, one country cannot be selected more than one time.",
+"id": "ITR-1-A-192"
+},
+{
+"category": "A",
+"no": 193,
+"page": 15,
+"text": "TDS deducted value in schedule TDS 1 CANNOT BE MORE THAN value in schedule Salary \"Total Gross salary\"",
+"id": "ITR-1-A-193"
+},
+{
+"category": "A",
+"no": 194,
+"page": 15,
+"text": "Exempt Allowance u/s 10(10B) (i) and 10(10B) (ii) Should not be allowed to Central Government employees, state government employees, CG-Pensioners, SG- Pensioners, PSU-Pensioners, or Others-Pensioners",
+"id": "ITR-1-A-194"
+},
+{
+"category": "A",
+"no": 195,
+"page": 15,
+"text": "Deduction u/s 80CCH should not exceed 46.2% of Salary u/s 17(1)",
+"id": "ITR-1-A-195"
+},
+{
+"category": "A",
+"no": 196,
+"page": 15,
+"text": "Deduction u/s 80CCH can be claimed if Nature of employment is 'Central Government' and age is from 17 years to 27 years as on date of joining of armed forces.",
+"id": "ITR-1-A-196"
+},
+{
+"category": "A",
+"no": 197,
+"page": 15,
+"text": "Exempt Allowance u/s 10(10B)-Second proviso- Compensation under scheme approved by the Central Government cannot exceed Rs.500,000",
+"id": "ITR-1-A-197"
+},
+{
+"category": "A",
+"no": 198,
+"page": 15,
+"text": "If Return is filed u/s 139(5) and original return was filed u/s 139(4) then Old Tax Regime cannot be selected.",
+"id": "ITR-1-A-198"
+},
+{
+"category": "A",
+"no": 199,
+"page": 15,
+"text": "Option to withdraw from New Tax Regime is not available after due date of filing of return as mentioned u/s 139(1)",
+"id": "ITR-1-A-199"
+},
+{
+"category": "A",
+"no": 200,
+"page": 15,
+"text": "If New tax Regime is selected, Rebate u/s 87A is claimed by Resident Individual having Total income excluding LTCG of more than Rs.7,22,230",
+"id": "ITR-1-A-200"
+},
+{
+"category": "A",
+"no": 201,
+"page": 15,
+"text": "Rebate u/s 87A can be claimed to the extent of Rs.12500 by Resident Individual having Total income of Rs. 5,00,000 under old tax regime",
+"id": "ITR-1-A-201"
+},
+{
+"category": "A",
+"no": 202,
+"page": 16,
+"text": "If 80GGC claimed in Income Details Deduction under Chapter VIA, then same amount and details should be provided in Schedule 80GGC",
+"id": "ITR-1-A-202"
+},
+{
+"category": "A",
+"no": 203,
+"page": 16,
+"text": "In Schedule 80GGC, 'Eligible number of contributions' for each row shall be equal to \"contribution in other mode\" to the extent of Gross total income",
+"id": "ITR-1-A-203"
+},
+{
+"category": "A",
+"no": 204,
+"page": 16,
+"text": "Total Contribution' should be equal to sum of \"Contribution in cash\" AND \"Contribution in other mode\" in table (80GGC)",
+"id": "ITR-1-A-204"
+},
+{
+"category": "A",
+"no": 205,
+"page": 16,
+"text": "In schedule 80GGC, Sl no. D \"Eligible Amount of contribution” should be equal to sum of individual amounts restricted to GTI",
+"id": "ITR-1-A-205"
+},
+{
+"category": "A",
+"no": 206,
+"page": 16,
+"text": "In schedule 80GGC, Values at sl.no. A - total contribution in Cash, B-contribution in other mode and C-Total contribution should be equal to sum of individual amounts entered",
+"id": "ITR-1-A-206"
+},
+{
+"category": "A",
+"no": 207,
+"page": 16,
+"text": "Date of contribution is mandatory for contribution made under 80GGC",
+"id": "ITR-1-A-207"
+},
+{
+"category": "A",
+"no": 208,
+"page": 16,
+"text": "Details of contribution made in other mode are required in schedule 80GGC",
+"id": "ITR-1-A-208"
+},
+{
+"category": "A",
+"no": 209,
+"page": 16,
+"text": "If Old Tax Regime is selected, and in the schedule 80U value at i- 'Nature of disability' is selected as \"self with severe disability\" and the value at field ii-'Amount if deduction' is less or more than 125,000 subject to GTI.",
+"id": "ITR-1-A-209"
+},
+{
+"category": "A",
+"no": 210,
+"page": 16,
+"text": "If Old Tax Regime is selected, and in the schedule 80U value at i- 'Nature of disability' is selected as \"self with disability\" and the value at field ii-'Amount of deduction' is less or more than 75,000 subject to GTI.",
+"id": "ITR-1-A-210"
+},
+{
+"category": "A",
+"no": 211,
+"page": 16,
+"text": "If 80U claimed in Deduction under Chapter VIA, then same amount and details should be provided in Schedule 80U",
+"id": "ITR-1-A-211"
+},
+{
+"category": "A",
+"no": 212,
+"page": 16,
+"text": "If Old Tax Regime is selected, and if drop down selected at sl no (i)-Nature of disability' of schedule 80DD is 'dependent person with disability' and amount is less or more than 75000 subjects to GTI.",
+"id": "ITR-1-A-212"
+},
+{
+"category": "A",
+"no": 213,
+"page": 16,
+"text": "If Old Tax Regime is selected, and if drop down selected at sl no (i)-Nature of disability' of schedule 80DD is 'dependent person with severe disability' and amount is less or more than 125000 subject to GTI.",
+"id": "ITR-1-A-213"
+},
+{
+"category": "A",
+"no": 214,
+"page": 16,
+"text": "If 80DD claimed in Deduction under Chapter VIA, then same amount and details should be provided in Schedule 80DD",
+"id": "ITR-1-A-214"
+},
+{
+"category": "A",
+"no": 215,
+"page": 16,
+"text": "In schedule 80DD, if deduction is > 0, then details of such deduction is required",
+"id": "ITR-1-A-215"
+},
+{
+"category": "A",
+"no": 216,
+"page": 16,
+"text": "In schedule 80U, if deduction is > 0, then details of such deduction is required",
+"id": "ITR-1-A-216"
+},
+{
+"category": "A",
+"no": 217,
+"page": 16,
+"text": "In schedule 80U, if deduction is > 0, then details of such donation are required",
+"id": "ITR-1-A-217"
+},
+{
+"category": "A",
+"no": 218,
+"page": 16,
+"text": "In schedule 80DD, if deduction is > 0, then details of such donation are required",
+"id": "ITR-1-A-218"
+},
+{
+"category": "A",
+"no": 219,
+"page": 16,
+"text": "When details of Salary Income are given then 'Nature of employment' cannot be selected as 'Not Applicable',",
+"id": "ITR-1-A-219"
+},
+{
+"category": "A",
+"no": 220,
+"page": 16,
+"text": "Deduction u/s 80GGC can be claimed for the Contributions made between period 01.04.2024 to 31.03.2025 for AY 2025-26",
+"id": "ITR-1-A-220"
+},
+{
+"category": "A",
+"no": 221,
+"page": 16,
+"text": "Aadhaar number in Part A general information schedule should match with Aadhaar number as per profile",
+"id": "ITR-1-A-221"
+},
+{
+"category": "A",
+"no": 222,
+"page": 17,
+"text": "\"Exempt Allowances\" in Salary under each section should be disclosed in one dropdown",
+"recovered": true,
+"id": "ITR-1-A-222"
+},
+{
+"category": "A",
+"no": 223,
+"page": 17,
+"text": "In case of new tax regime, deduction u/s 57(iia) can be availed upto 1/3rd of Family pension maximum of Rs. 25,000",
+"id": "ITR-1-A-223"
+},
+{
+"category": "A",
+"no": 224,
+"page": 17,
+"text": "In case of New Tax Regime: Taxpayer being an employee can claim Standard deduction u/s 16ia only to the extent of Rs 75000.",
+"id": "ITR-1-A-224"
+},
+{
+"category": "A",
+"no": 225,
+"page": 17,
+"text": "In case of New Tax Regime, deduction u/s 80CCD (2) should not be more than 14% of salary if the employer category is selected as PSU”, “Others\", \"Central Govt\" or \"State Govt\"",
+"id": "ITR-1-A-225"
+},
+{
+"category": "A",
+"no": 226,
+"page": 17,
+"text": "Under Exempt Income, Sl. No. iii Long term capital gains as per sec 112A should not be more than 1,25,000",
+"id": "ITR-1-A-226"
+},
+{
+"category": "A",
+"no": 227,
+"page": 17,
+"text": "In Exempt Income, Sl. No. iii Long term capital gains as per sec 112A should be output of Sl. No. (i - ii)",
+"id": "ITR-1-A-227"
+},
+{
+"category": "A",
+"no": 228,
+"page": 17,
+"text": "In Part A General, filing section is selected as 139(9) and the responses for A23 in 139(9) is not matching with the responses of A23 question in the ITR against which defective response is getting submitted.",
+"id": "ITR-1-A-228"
+},
+{
+"category": "A",
+"no": 229,
+"page": 17,
+"text": "\"Details of Bank from which loan is taken\" needs to be provided for claiming Interest on borrowed capital u/s 24(b) in schedule Interest u/s 24(b)",
+"id": "ITR-1-A-229"
+},
+{
+"category": "A",
+"no": 230,
+"page": 17,
+"text": "Deduction u/s 80EE / 80EEA can be claimed when the limit u/s 24(b) is exhausted.",
+"id": "ITR-1-A-230"
+},
+{
+"category": "A",
+"no": 231,
+"page": 17,
+"text": "As the deduction u/s 80EE can be claimed over and above deduction u/s 24(b), \"Details of bank from which loan is taken\" in schedule 80EE should be part of the details disclosed in schedule 24(b)",
+"id": "ITR-1-A-231"
+},
+{
+"category": "A",
+"no": 232,
+"page": 17,
+"text": "As the deduction u/s 80EEA can be claimed over and above deduction u/s 24(b), \"Details of bank from which loan is taken\" in schedule 80EEA should be part of the details disclosed in schedule 24(b)",
+"id": "ITR-1-A-232"
+},
+{
+"category": "A",
+"no": 233,
+"page": 17,
+"text": "Details such as Amount eligible for deduction u/s 80C, Identification Number of supporting document are required to provide in schedule 80C to claim deduction",
+"id": "ITR-1-A-233"
+},
+{
+"category": "A",
+"no": 234,
+"page": 17,
+"text": "PRAN should be provided in schedule VIA to claim deduction u/s 80CCD (1), 80CCD(1B)",
+"id": "ITR-1-A-234"
+},
+{
+"category": "A",
+"no": 235,
+"page": 17,
+"text": "\"Details of Bank from which loan is taken\" need to be provided for claiming deduction u/s 80E in schedule 80E",
+"id": "ITR-1-A-235"
+},
+{
+"category": "A",
+"no": 236,
+"page": 17,
+"text": "\"Details of Bank from which loan is taken\" need to be provided for claiming deduction u/s 80EE in schedule 80EE",
+"id": "ITR-1-A-236"
+},
+{
+"category": "A",
+"no": 237,
+"page": 17,
+"text": "Deduction u/s 80EE can be claimed only if maximum loan taken does not exceed Rs. 35 lakhs against the property",
+"id": "ITR-1-A-237"
+},
+{
+"category": "A",
+"no": 238,
+"page": 17,
+"text": "\"Details of Bank from which loan is taken\" needs to be provided for claiming deduction u/s 80EEA in schedule 80EEA",
+"id": "ITR-1-A-238"
+},
+{
+"category": "A",
+"no": 239,
+"page": 17,
+"text": "Deduction u/s 80EEA can be claimed only on the residential house property having stamp duty value upto Rs.45 Lakhs",
+"id": "ITR-1-A-239"
+},
+{
+"category": "A",
+"no": 240,
+"page": 17,
+"text": "The Date of sanction of loan under schedule 80EEA shall be between 1.4.19 and 31.3.22",
+"id": "ITR-1-A-240"
+},
+{
+"category": "A",
+"no": 241,
+"page": 17,
+"text": "\"Details of Bank from which loan is taken\" need to be provided for claiming deduction u/s 80EEB in schedule 80EEB",
+"id": "ITR-1-A-241"
+},
+{
+"category": "A",
+"no": 242,
+"page": 17,
+"text": "The Date of sanction of loan under schedule 80EEB shall be between 1.4.19 and 31.3.23",
+"id": "ITR-1-A-242"
+},
+{
+"category": "A",
+"no": 243,
+"page": 18,
+"text": "Details of Form 10BA is required to provide to claim deduction u/s 80GG",
+"id": "ITR-1-A-243"
+},
+{
+"category": "A",
+"no": 244,
+"page": 18,
+"text": "In schedule 80D, breakup of individual rows for \"amount of premium paid\" shall match with the health insurance premium entered by the user under \"Health insurance\" at sl.no.1a",
+"id": "ITR-1-A-244"
+},
+{
+"category": "A",
+"no": 245,
+"page": 18,
+"text": "In schedule 80D, breakup of individual rows for \"amount of premium paid\" shall match with the health insurance premium entered by the user under \"Health insurance\" at sl.no.1b",
+"id": "ITR-1-A-245"
+},
+{
+"category": "A",
+"no": 246,
+"page": 18,
+"text": "In schedule 80D, breakup of individual rows for \"amount of premium paid\" shall match with the health insurance premium entered by the user under \"Health insurance\" at sl.no.2a",
+"id": "ITR-1-A-246"
+},
+{
+"category": "A",
+"no": 247,
+"page": 18,
+"text": "In schedule 80D, breakup of individual rows for \"amount of premium paid\" shall match with the health insurance premium entered by the user under \"Health insurance\" at sl.no.2b",
+"id": "ITR-1-A-247"
+},
+{
+"category": "A",
+"no": 248,
+"page": 18,
+"text": "Form 10IA filed for autism, cerebral palsy, multiple disabilities needs to be filed separately for claiming Deduction u/s 80U and 80DD respectively.",
+"id": "ITR-1-A-248"
+},
+{
+"category": "A",
+"no": 249,
+"page": 18,
+"text": "Details of specified disease is required to be provided to claim deduction u/s 80DDB",
+"id": "ITR-1-A-249"
+},
+{
+"category": "A",
+"no": 250,
+"page": 18,
+"text": "In schedule House property, value of \"interest on borrowed capital\" should be same as the \"total of interest paid u/s 24(b)\" as per schedule 24(b)",
+"id": "ITR-1-A-250"
+},
+{
+"category": "A",
+"no": 251,
+"page": 18,
+"text": "Deduction u/s 80C claimed under chapter VIA should be same as the “Total of payment made as per schedule 80C \"",
+"id": "ITR-1-A-251"
+},
+{
+"category": "A",
+"no": 252,
+"page": 18,
+"text": "Deduction u/s 80E in schedule VIA should match with the \"Total of interest u/s 80E\" as per schedule 80E",
+"id": "ITR-1-A-252"
+},
+{
+"category": "A",
+"no": 253,
+"page": 18,
+"text": "Deduction u/s 80EE in schedule VIA should match with the \"Total of interest u/s 80EE\" as per schedule 80EE",
+"id": "ITR-1-A-253"
+},
+{
+"category": "A",
+"no": 254,
+"page": 18,
+"text": "Deduction u/s 80EEA in schedule VIA should match with the \"Total of interest u/s 80EEA\" as per schedule 80EEA",
+"id": "ITR-1-A-254"
+},
+{
+"category": "A",
+"no": 255,
+"page": 18,
+"text": "Deduction u/s 80EEB in schedule VIA should match with the \"Total of interest u/s 80EEB\" as per schedule 80EEB",
+"id": "ITR-1-A-255"
+},
+{
+"category": "A",
+"no": 256,
+"page": 18,
+"text": "In schedule 24(b) the sum of individual rows for \"Interest during the year\" (x) shall match with the \"Total of Payments\" as per the schedule 24(b)",
+"id": "ITR-1-A-256"
+},
+{
+"category": "A",
+"no": 257,
+"page": 18,
+"text": "In schedule 80C the sum of individual rows for \"Amount of payment\" (ii) shall match with the \"Total of Payments\" as per the schedule 80C",
+"id": "ITR-1-A-257"
+},
+{
+"category": "A",
+"no": 258,
+"page": 18,
+"text": "In schedule 80E the sum of individual rows for \"Amount of interest u/s 80E\" (x) shall match with the \"Total of Payments\" as per the schedule 80E",
+"id": "ITR-1-A-258"
+},
+{
+"category": "A",
+"no": 259,
+"page": 18,
+"text": "In schedule 80EE the sum of individual rows for \"Interest during the year\" (x) shall match with the \"Total of Payments\" as per the schedule 80EE",
+"id": "ITR-1-A-259"
+},
+{
+"category": "A",
+"no": 260,
+"page": 18,
+"text": "In schedule 80EEA the sum of individual rows for \"Amount of interest u/s 80EEA\" (ix) shall match with the \"Total of Payments\" as per the schedule 80EEA",
+"id": "ITR-1-A-260"
+},
+{
+"category": "A",
+"no": 261,
+"page": 18,
+"text": "In schedule 80EEB the sum of individual rows for \"Amount of interest u/s 80EEB\" (x) shall match with the \"Total of Payments\" as per the schedule 80EEB",
+"id": "ITR-1-A-261"
+},
+{
+"category": "A",
+"no": 262,
+"page": 18,
+"text": "The Date of sanction of loan in schedule 80EE shall be between 1.4.16 and 31.3.17",
+"id": "ITR-1-A-262"
+},
+{
+"category": "A",
+"no": 263,
+"page": 18,
+"text": "Interest on borrowed capital in schedule 24(b) can’t be claimed in case of Self occupied house property under new tax regime",
+"id": "ITR-1-A-263"
+},
+{
+"category": "A",
+"no": 264,
+"page": 18,
+"text": "If Old Tax Regime is selected, and Deduction u/s 80D is claimed but details not provided in Schedule 80D",
+"id": "ITR-1-A-264"
+},
+{
+"category": "A",
+"no": 265,
+"page": 19,
+"text": "Assessee having status as Individual and opting new tax regime have filled any of the schedules amongst 80C schedule, 10(13A) schedule, 80E schedule, 80EE schedule, 80EEA schedule or 80EEB schedule",
+"recovered": true,
+"id": "ITR-1-A-265"
+},
+{
+"category": "A",
+"no": 266,
+"page": 19,
+"text": "Details such as name of the Insurer, Policy number are required to be provided in schedule 80D to claim deduction for health insurance at sl. No. 1a (i)",
+"id": "ITR-1-A-266"
+},
+{
+"category": "A",
+"no": 267,
+"page": 19,
+"text": "Details such as name of the Insurer, Policy number are required to be provided in schedule 80D to claim deduction for health insurance at sl. No. 1b (i)",
+"id": "ITR-1-A-267"
+},
+{
+"category": "A",
+"no": 268,
+"page": 19,
+"text": "Details such as name of the Insurer, Policy number are required to be provided in schedule 80D to claim deduction for health insurance at sl. No. 2a (i)",
+"id": "ITR-1-A-268"
+},
+{
+"category": "A",
+"no": 269,
+"page": 19,
+"text": "Details such as name of the Insurer, Policy number are required to be provided in schedule 80D to claim deduction for health insurance at sl. No. 2b (i)",
+"id": "ITR-1-A-269"
+},
+{
+"category": "A",
+"no": 270,
+"page": 19,
+"text": "Section 192 applicable to Tax deducted on salary income is selected as the dropdown under schedule TDS 2, or 3 which are for details of TDS on other than salary income.",
+"id": "ITR-1-A-270"
+},
+{
+"category": "A",
+"no": 271,
+"page": 19,
+"text": "HRA u/s 10(13A) shall not be more than Actual rent paid after deducting 10% of basic salary and DA",
+"id": "ITR-1-A-271"
+},
+{
+"category": "A",
+"no": 272,
+"page": 19,
+"text": "HRA u/s 10(13A) shall not be more than 50% of basic salary and DA",
+"id": "ITR-1-A-272"
+},
+{
+"category": "A",
+"no": 273,
+"page": 19,
+"text": "In schedule 10(13A) the lowest of the following amounts shall be claimed as HRA exemption: A) Actual HRA received B) Actual rent paid 10% of (salary+DA) C) 40% or 50% of (salary+DA)",
+"id": "ITR-1-A-273"
+},
+{
+"category": "A",
+"no": 274,
+"page": 19,
+"text": "Taxpayers having salary income and exempt allowances needs to provide \"Nature of employment\"",
+"id": "ITR-1-A-274"
+},
+{
+"category": "A",
+"no": 275,
+"page": 19,
+"text": "\"Schedule 10(13A) needs to be filled for claiming exempt allowance u/s 10(13A)",
+"id": "ITR-1-A-275"
+},
+{
+"category": "A",
+"no": 276,
+"page": 19,
+"text": "Sum of Basic salary, dearness allowance as per schedule 10(13A) and actual HRA received shall not be more than salary as per section 17(1) under Income details",
+"id": "ITR-1-A-276"
+},
+{
+"category": "A",
+"no": 277,
+"page": 19,
+"text": "Status selected is Individual and having date of birth on or after 01/04/2007 shall not be allowed to file return for AY 25-26",
+"id": "ITR-1-A-277"
+},
+{
+"category": "A",
+"no": 278,
+"page": 19,
+"text": "Exempt Allowance u/s 10(13A) in schedule Salary should match with the \"Eligible allowance u/s 10(13A)\" as per schedule 10(13A)",
+"id": "ITR-1-A-278"
+},
+{
+"category": "A",
+"no": 279,
+"page": 19,
+"text": "Exempt allowance u/s 10(10)-Death-cum-retirement gratuity received cannot be more than 25,00,000 if nature of employment is \"CG\", \"CG-Pensioners\", \"SG\" or \"SG-Pensioners\".",
+"id": "ITR-1-A-279"
+},
+{
+"category": "B",
+"no": 1,
+"page": 19,
+"text": "Linking of Aadhar and PAN is required to avoid consequences of not linking PAN and Aadhar in eligible cases as per Circular 03/2023",
+"id": "ITR-1-B-1"
+},
+{
+"category": "B",
+"no": 2,
+"page": 19,
+"text": "Quoting of Aadhar in ITR is required as per section 139(AA)in applicable cases and linking of Aadhar and PAN is required to avoid consequences of not linking PAN and Aadhar in eligible cases as per Circular 03/2023",
+"id": "ITR-1-B-2"
+},
+{
+"category": "B",
+"no": 3,
+"page": 20,
+"text": "TDS section code such 194B, 194BB, 194BA,194IA,194IC,194LA or 194S as is selected under Schedule \"TDS2 Details of Tax Deducted at Source on Income Other than Salary\" at field 2a \"Section under which TDS deducted\" or assessee having income under special rate is not eligible to file ITR-1",
+"id": "ITR-1-B-3"
+},
+{
+"category": "B",
+"no": 4,
+"page": 20,
+"text": "TDS section code such 194B, 194BB, 194BA, 194IA,194IC,194LA, or 194S as is selected under Schedule \"TDS3 Details of Tax Deducted at Source on Income Other than Salary\" at field 2a \"Section under which TDS deducted\" or assessee having income under special rate is not eligible to file ITR-1.",
+"id": "ITR-1-B-4"
+},
+{
+"category": "B",
+"no": 5,
+"page": 20,
+"text": "TDS section code such as 194E,194LB,194LC,194LBA(a),194LBA(b),194LBA©,195,196A,196B,196C,196D or 196D(1A) is selected under Schedule \"TDS2 Details of Tax Deducted at Source on Income Other than Salary\" at field 2a \"Section under which TDS deducted\"",
+"id": "ITR-1-B-5"
+},
+{
+"category": "B",
+"no": 6,
+"page": 20,
+"text": "TDS section code such as 194E,194LB,194LC,194LBA(a),194LBA(b),194LBA©,195,196A,196B,196C,196D or 196D(1A) is selected under Schedule \"TDS3 Details of Tax Deducted at Source on Income Other than Salary\" at field 2a \"Section under which TDS deducted\"",
+"id": "ITR-1-B-6"
+},
+{
+"category": "B",
+"no": 7,
+"page": 20,
+"text": "TDS section code such as 194Q, 194C or 194R is selected under Schedule \"TDS2 Details of Tax Deducted at Source on Income Other than Salary\" at field 2a \"Section under which TDS deducted\" for which ITR 1 is not applicable",
+"id": "ITR-1-B-7"
+},
+{
+"category": "B",
+"no": 8,
+"page": 20,
+"text": "TDS section code such as 194Q,194C or 194R is selected under Schedule \"TDS3 Details of Tax Deducted at Source on Income Other than Salary\" at field 2a \"Section under which TDS deducted\" for which ITR 1 is not applicable",
+"id": "ITR-1-B-8"
+},
+{
+"category": "D",
+"no": 1,
+"page": 20,
+"text": "Under Salary, assessee has claimed Income claimed for relief from taxation u/s 89A without furnishing of Form 10EE.",
+"id": "ITR-1-D-1"
+},
+{
+"category": "D",
+"no": 2,
+"page": 20,
+"text": "Under Income from Other Sources, assessee has claimed Income claimed for relief from taxation u/s 89A without furnishing of Form 10EE.",
+"id": "ITR-1-D-2"
+},
+{
+"category": "D",
+"no": 3,
+"page": 20,
+"text": "The assessee has claimed relief u/s 89(1) without furnishing of Form 10E",
+"id": "ITR-1-D-3"
+},
+{
+"category": "D",
+"no": 4,
+"page": 20,
+"text": "Deduction u/s 80GG shall be claimed for the period of stay for which the rent is actually paid, i.e., 5000 per month",
+"id": "ITR-1-D-4"
+}
+],
+"auditCrossChecks": []
+}

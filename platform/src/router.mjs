@@ -53,6 +53,8 @@ import { monthCloseWords } from './month-close.mjs';
 import { restockWords } from './restock.mjs';
 import { advanceTaxWords } from './advance-tax.mjs';
 import { askTaxWords, reviewWords, taxModulesWords, taxPlanWords } from './tax-assistant.mjs';
+import { itrKnowledgeWords } from './itr-knowledge.mjs';
+import { checkItrJsonWords } from './itr-json-check.mjs';
 import { supplierPayoutWords } from './supplier-bank.mjs';
 import { reportWords } from './reports.mjs';
 import { auditTrailWords } from './audit-trail.mjs';
@@ -624,6 +626,8 @@ function fmtToolResultCore(name, result, args) {
   if (name === 'ask_knowledge') return knowledgeWords(result);
   if (name === 'ask_tax' && result.ok) return askTaxWords(result);
   if (name === 'tax_modules' && result.data) return taxModulesWords(result.data);
+  if (name === 'itr_knowledge' && result.data) return itrKnowledgeWords(result.data);
+  if (name === 'check_itr_json' && result.data) return checkItrJsonWords(result.data);
   if (name === 'tax_plan' && result.data) return taxPlanWords(result.data, money);
   if (name === 'review_income_tax' && result.data) return reviewWords(result.data, money);
   if (name === 'fetch_channel_report' && result.data?.channel) return fetchWords(result.data);
