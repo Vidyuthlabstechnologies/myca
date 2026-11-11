@@ -88,7 +88,7 @@ void main() {
             : null,
         plaidLink: const DevicePlaidLink(),
         openLink: (url) => launchUrl(url, mode: LaunchMode.externalApplication),
-        deviceCountry: PlatformDispatcher.instance.locale.countryCode ?? '',
+        edition: editionFor(appFlavor),
         installationId: deviceInstallationId,
       ),
     ),

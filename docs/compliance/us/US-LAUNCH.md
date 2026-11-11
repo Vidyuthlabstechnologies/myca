@@ -61,7 +61,13 @@ live server because the tools are missing.
 
 ### Google Play
 
-- [ ] Production, *Countries / regions*: add the United States (and keep India).
+MyCA US is its own Play app, `com.mldynamic.myca.us` (Android flavor `us`), separate from MyCA
+India (`com.mldynamic.myca`, flavor `india`). The US app opens straight into the US experience and
+has no switch to India. CI builds both; it uploads the US bundle when `PLAY_US_TRACK` is set.
+
+- [ ] Create the `com.mldynamic.myca.us` app in Play Console. *Countries / regions*: United States only.
+- [ ] Add an Android OAuth client for `com.mldynamic.myca.us` with the Play signing SHA-1.
+- [ ] Set `MYCA_PLAY_PACKAGE_US` (Terraform `play_package_us`) so US payments are checked against the US app.
 - [ ] *Data safety*: add Government ID (SSN/ITIN), financial info (bank account), and say it is
       encrypted in transit and at rest and can be deleted on request.
 - [ ] *Financial features* declaration: the app prepares and files tax returns.

@@ -14,15 +14,12 @@ abstract class OnboardingStore {
   Future<void> markMigrated();
   Future<bool> lockEnabled();
   Future<void> setLockEnabled(bool enabled);
-  Future<String> region();
-  Future<void> setRegion(String region);
 }
 
 class DeviceOnboardingStore implements OnboardingStore {
   static const _welcomed = 'onboarding.welcomed';
   static const _migrated = 'onboarding.migrated';
   static const _lock = 'lock.enabled';
-  static const _region = 'onboarding.region';
 
   @override
   Future<bool> welcomed() async =>
@@ -47,14 +44,6 @@ class DeviceOnboardingStore implements OnboardingStore {
   @override
   Future<void> setLockEnabled(bool enabled) async =>
       (await SharedPreferences.getInstance()).setBool(_lock, enabled);
-
-  @override
-  Future<String> region() async =>
-      (await SharedPreferences.getInstance()).getString(_region) ?? '';
-
-  @override
-  Future<void> setRegion(String region) async =>
-      (await SharedPreferences.getInstance()).setString(_region, region);
 }
 
 class PickedText {

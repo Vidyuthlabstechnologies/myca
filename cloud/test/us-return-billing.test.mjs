@@ -5,6 +5,7 @@ import { createBilling, billingConfigFromEnv, US_RETURN_PRICE_USD } from '../src
 import { startApi } from './helpers.mjs';
 
 const PACKAGE = 'com.mldynamic.myca';
+const US_PACKAGE = 'com.mldynamic.myca.us';
 const PRODUCT = 'myca_us_1040';
 const { privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
 const calls = [];
@@ -15,7 +16,7 @@ async function fakeGoogle(url, init = {}) {
   calls.push({ url: text, method: init.method || 'GET' });
   const json = (status, data) => new Response(JSON.stringify(data), { status });
   if (text === 'https://oauth2.googleapis.com/token') return json(200, { access_token: 'ya29.test', expires_in: 3600 });
-  const base = `https://androidpublisher.googleapis.com/androidpublisher/v3/applications/${PACKAGE}/purchases/products/`;
+  const base = `https://androidpublisher.googleapis.com/androidpublisher/v3/applications/${US_PACKAGE}/purchases/products/`;
   if (!text.startsWith(base)) return json(404, {});
   const rest = text.slice(base.length);
   const ack = rest.match(/^([^/]+)\/tokens\/([^/:]+):acknowledge$/);
@@ -44,7 +45,7 @@ before(async () => {
       db,
       now,
       fetchImpl: fakeGoogle,
-      config: { packageName: PACKAGE, productIds: { pro: 'myca_pro_monthly' }, usReturn: { productId: PRODUCT, priceUsd: 39 }, serviceAccount: { clientEmail: 'play@test.iam.gserviceaccount.com', privateKey: privateKey.export({ type: 'pkcs8', format: 'pem' }), tokenUri: 'https://oauth2.googleapis.com/token' } },
+      config: { packageName: PACKAGE, productIds: { pro: 'myca_pro_monthly' }, usReturn: { packageName: US_PACKAGE, productId: PRODUCT, priceUsd: 39 }, serviceAccount: { clientEmail: 'play@test.iam.gserviceaccount.com', privateKey: privateKey.export({ type: 'pkcs8', format: 'pem' }), tokenUri: 'https://oauth2.googleapis.com/token' } },
     }),
   });
   year = new Date(api.clock.now).getUTCFullYear() - 1;
@@ -62,14 +63,14 @@ const get = (who, path) => api.call('GET', `/v1/businesses/${who.businessId}/${p
 
 test('the price of a US return is $39 by default and the operator can change it', () => {
   assert.equal(US_RETURN_PRICE_USD, 39);
-  assert.deepEqual(billingConfigFromEnv({ MYCA_PLAY_PRODUCT_US_1040: 'myca_us_1040' }).usReturn, { productId: 'myca_us_1040', priceUsd: 39 });
+  assert.deepEqual(billingConfigFromEnv({ MYCA_PLAY_PRODUCT_US_1040: 'myca_us_1040', MYCA_PLAY_PACKAGE_US: 'com.mldynamic.myca.us' }).usReturn, { packageName: 'com.mldynamic.myca.us', productId: 'myca_us_1040', priceUsd: 39 });
   assert.equal(billingConfigFromEnv({ MYCA_US_RETURN_PRICE_USD: '49' }).usReturn.priceUsd, 49);
   assert.equal(billingConfigFromEnv({ MYCA_US_RETURN_PRICE_USD: 'free' }).usReturn.priceUsd, 39);
 });
 
 test('plans list the US return as a one-time $39 per tax year', async () => {
   const out = await api.call('GET', '/v1/plans');
-  assert.deepEqual(out.body.usReturn, { title: 'US federal return', priceUsd: 39, currency: 'USD', per: 'tax_year', productId: PRODUCT, buyable: true });
+  assert.deepEqual(out.body.usReturn, { title: 'US federal return', priceUsd: 39, currency: 'USD', per: 'tax_year', packageName: US_PACKAGE, productId: PRODUCT, buyable: true });
 });
 
 test('a household never lapses into read-only: preparing a return is free', async () => {
@@ -103,6 +104,7 @@ test('a Play payment is checked with Google, acknowledged, recorded for one tax 
   assert.equal(paid.body.purchased, true);
   assert.equal(paid.body.testPurchase, true);
   assert.ok(calls.some((c) => c.method === 'POST' && c.url.endsWith(':acknowledge')));
+  assert.ok(calls.filter((c) => c.url.includes('/applications/')).every((c) => c.url.includes(`/applications/${US_PACKAGE}/`)), 'US payments are checked against the US app');
   assert.equal(purchases.get('us-token-1').acknowledgementState, 1);
   const again = await post(who, 'us-return-purchase', { taxYear: year, productId: PRODUCT, purchaseToken: 'us-token-1' });
   assert.equal(again.body.paid, true, 'sending the same payment twice is harmless');

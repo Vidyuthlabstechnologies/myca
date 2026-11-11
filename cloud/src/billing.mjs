@@ -58,7 +58,7 @@ export function billingConfigFromEnv(env = process.env) {
   return {
     packageName: unset(env.MYCA_PLAY_PACKAGE),
     productIds: { essentials: unset(env.MYCA_PLAY_PRODUCT_ESSENTIALS), pro: unset(env.MYCA_PLAY_PRODUCT_PRO), firm: unset(env.MYCA_PLAY_PRODUCT_FIRM) },
-    usReturn: { productId: unset(env.MYCA_PLAY_PRODUCT_US_1040), priceUsd: /^[0-9]{1,4}$/.test(String(env.MYCA_US_RETURN_PRICE_USD || '').trim()) ? Number(env.MYCA_US_RETURN_PRICE_USD) : US_RETURN_PRICE_USD },
+    usReturn: { packageName: unset(env.MYCA_PLAY_PACKAGE_US), productId: unset(env.MYCA_PLAY_PRODUCT_US_1040), priceUsd: /^[0-9]{1,4}$/.test(String(env.MYCA_US_RETURN_PRICE_USD || '').trim()) ? Number(env.MYCA_US_RETURN_PRICE_USD) : US_RETURN_PRICE_USD },
     notifyToken: unset(env.MYCA_PLAY_NOTIFY_TOKEN),
     serviceAccount: parseServiceAccount(unset(env.MYCA_PLAY_SERVICE_ACCOUNT_JSON)),
     prices,
@@ -67,7 +67,7 @@ export function billingConfigFromEnv(env = process.env) {
 
 export function billingConfigProblem(env = process.env) {
   const cfg = billingConfigFromEnv(env);
-  if (!cfg.packageName || (!PAID.some((plan) => cfg.productIds[plan]) && !cfg.usReturn.productId)) return '';
+  if (!(cfg.packageName && PAID.some((plan) => cfg.productIds[plan])) && !((cfg.usReturn.packageName || cfg.packageName) && cfg.usReturn.productId)) return '';
   const given = unset(env.MYCA_PLAY_SERVICE_ACCOUNT_JSON);
   if (given && !cfg.serviceAccount) return 'MYCA_PLAY_SERVICE_ACCOUNT_JSON is not a service account key: paste the whole JSON file Google Cloud gave for the Play service account.';
   if (!given && !env.K_SERVICE) return 'Google Play subscriptions are on but MYCA_PLAY_SERVICE_ACCOUNT_JSON is empty: outside Cloud Run the API has no other way to reach the Play Developer API.';
@@ -95,9 +95,10 @@ function fail(error, extra = {}) {
 
 export function createBilling({ db, config = {}, now = () => Date.now(), fetchImpl = (...args) => globalThis.fetch(...args), log = () => {} }) {
   const cfg = { packageName: '', productIds: {}, notifyToken: '', serviceAccount: null, prices: {}, ...config };
-  cfg.usReturn = { productId: '', priceUsd: US_RETURN_PRICE_USD, ...(config.usReturn || {}) };
+  cfg.usReturn = { packageName: '', productId: '', priceUsd: US_RETURN_PRICE_USD, ...(config.usReturn || {}) };
   const enabled = Boolean(cfg.packageName && PAID.some((plan) => cfg.productIds[plan]));
-  const usEnforced = Boolean(cfg.packageName && cfg.usReturn.productId);
+  const usPackage = cfg.usReturn.packageName || cfg.packageName;
+  const usEnforced = Boolean(usPackage && cfg.usReturn.productId);
   const planOfProduct = (productId) => PAID.find((plan) => cfg.productIds[plan] && cfg.productIds[plan] === productId) || null;
   let cachedToken = { value: '', until: 0 };
 
@@ -123,8 +124,8 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
     return cachedToken.value;
   }
 
-  async function play(method, path) {
-    const res = await fetchImpl(`${PLAY_API}/${encodeURIComponent(cfg.packageName)}/purchases/${path}`, {
+  async function play(method, path, packageName = cfg.packageName) {
+    const res = await fetchImpl(`${PLAY_API}/${encodeURIComponent(packageName)}/purchases/${path}`, {
       method,
       headers: { authorization: `Bearer ${await accessToken()}`, 'content-type': 'application/json' },
       body: method === 'POST' ? '{}' : undefined,
@@ -284,7 +285,7 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
   }
 
   async function lookupProduct(productId, purchaseToken) {
-    const out = await play('GET', `products/${encodeURIComponent(productId)}/tokens/${encodeURIComponent(purchaseToken)}`);
+    const out = await play('GET', `products/${encodeURIComponent(productId)}/tokens/${encodeURIComponent(purchaseToken)}`, usPackage);
     if (!out.ok) return { ok: false, status: out.status };
     return {
       ok: true,
@@ -326,7 +327,7 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
     );
     if (!saved.rows.length) return fail('PURCHASE_ALREADY_USED', { hint: 'This return or this payment was just recorded by another request.' });
     if (found.needsAck) {
-      const ack = await play('POST', `products/${encodeURIComponent(productId)}/tokens/${encodeURIComponent(token)}:acknowledge`);
+      const ack = await play('POST', `products/${encodeURIComponent(productId)}/tokens/${encodeURIComponent(token)}:acknowledge`, usPackage);
       if (!ack.ok) log({ billing: 'acknowledge_failed', status: ack.status });
     }
     await audit(businessId, userId, 'billing.us_return_paid', { provider: 'play', taxYear: year, priceUsd: cfg.usReturn.priceUsd, testPurchase: found.testPurchase });
@@ -347,7 +348,7 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
       trialDays: TRIAL_DAYS,
       currency: 'INR',
       plans: PAID.map((id) => PLANS[id]).map((plan) => ({ ...plan, monthlyRupees: cfg.prices[plan.id] ?? plan.monthlyRupees, productId: cfg.productIds[plan.id] || '', buyable: enabled && Boolean(cfg.productIds[plan.id]) })),
-      usReturn: { title: 'US federal return', priceUsd: cfg.usReturn.priceUsd, currency: 'USD', per: 'tax_year', productId: cfg.usReturn.productId, buyable: usEnforced },
+      usReturn: { title: 'US federal return', priceUsd: cfg.usReturn.priceUsd, currency: 'USD', per: 'tax_year', packageName: usPackage, productId: cfg.usReturn.productId, buyable: usEnforced },
     }),
     entitlement,
     usEnforced,

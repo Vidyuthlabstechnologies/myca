@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:myca/api/models.dart';
 import 'package:myca/api/myca_api.dart';
+import 'package:myca/app_config.dart';
 import 'package:myca/app_services.dart';
 import 'package:myca/app_state.dart';
 import 'package:myca/billing/store_billing.dart';
@@ -219,8 +220,9 @@ class UsFakeApi implements MycaApi {
 
 AppState usState(UsFakeApi api, {PickAnyFile? pickAny, List<(String, Uint8List)>? shared}) => AppState(
   api: api,
-  store: MemoryOnboardingStore(isWelcomed: true, isMigrated: true, savedRegion: 'US'),
+  store: MemoryOnboardingStore(isWelcomed: true, isMigrated: true),
   pickTextFile: (_) async => null,
+  edition: 'US',
   pickAnyFile: pickAny ?? () async => null,
   pdf: PdfActions(share: (name, bytes) async {
     shared?.add((name, bytes));
@@ -293,27 +295,33 @@ void main() {
     expect(currentTaxYear(DateTime(2026, 11, 11)), 2026);
   });
 
-  testWidgets('the welcome screen offers India or the US, and the US copy talks about the 1040', (tester) async {
-    final store = MemoryOnboardingStore();
-    final state = AppState(api: UsFakeApi(), store: store, pickTextFile: (_) async => null, deviceCountry: 'IN');
+  test('the store build decides the country: the us flavor is the US app, anything else is India', () {
+    expect(editionFor('us', defined: ''), 'US');
+    expect(editionFor('india', defined: ''), 'IN');
+    expect(editionFor(null, defined: ''), 'IN');
+    expect(editionFor(null, defined: 'US'), 'US');
+    expect(AppState(api: UsFakeApi(), store: MemoryOnboardingStore(), pickTextFile: (_) async => null, edition: 'us').edition, 'US');
+  });
+
+  testWidgets('the US app opens on the US welcome and offers no switch to India', (tester) async {
+    final state = AppState(api: UsFakeApi(), store: MemoryOnboardingStore(), pickTextFile: (_) async => null, edition: 'US');
     await tester.pumpWidget(MycaApp(state: state));
-    await tester.pumpAndSettle();
-    expect(find.textContaining('Your books'), findsOneWidget);
-    await tester.tap(find.text('US'));
     await tester.pumpAndSettle();
     expect(find.textContaining('Your taxes'), findsOneWidget);
     expect(find.textContaining('W-2'), findsOneWidget);
-    expect(store.savedRegion, 'US');
-  });
-
-  testWidgets('a phone set to the US starts on the US welcome', (tester) async {
-    final state = AppState(api: UsFakeApi(), store: MemoryOnboardingStore(), pickTextFile: (_) async => null, deviceCountry: 'US');
-    await tester.pumpWidget(MycaApp(state: state));
-    await tester.pumpAndSettle();
-    expect(find.textContaining('Your taxes'), findsOneWidget);
+    expect(find.text('India'), findsNothing);
     await tester.tap(find.text('Get started'));
     await tester.pumpAndSettle();
-    expect((state.store as MemoryOnboardingStore).savedRegion, 'US');
+    expect(state.welcomed, isTrue);
+  });
+
+  testWidgets('the India app opens on the India welcome with no US option', (tester) async {
+    final state = AppState(api: UsFakeApi(), store: MemoryOnboardingStore(), pickTextFile: (_) async => null);
+    await tester.pumpWidget(MycaApp(state: state));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Your books'), findsOneWidget);
+    expect(find.text('US'), findsNothing);
+    expect(find.textContaining('1040'), findsNothing);
   });
 
   testWidgets('hosted US first run: a personal return makes a household and opens the 1040 hub', (tester) async {
@@ -323,9 +331,10 @@ void main() {
     await session.setName('Jordan');
     final state = AppState(
       cloud: sessionOn(cloud, tokens),
-      store: MemoryOnboardingStore(isWelcomed: true, savedRegion: 'US'),
+      store: MemoryOnboardingStore(isWelcomed: true),
       pickTextFile: (_) async => null,
       now: () => DateTime(2026, 3, 2, 10),
+      edition: 'US',
     );
     await tester.pumpWidget(MycaApp(state: state));
     await tester.pumpAndSettle();
@@ -342,23 +351,15 @@ void main() {
     expect(find.text('Where are your books today?'), findsNothing);
   });
 
-  testWidgets('hosted US: a business owner gets a US business, and India is one tap away', (tester) async {
+  testWidgets('hosted US: a business owner gets US business books', (tester) async {
     final cloud = FakeCloud();
     final tokens = MemoryTokenStore();
     final session = await signedIn(cloud, tokens);
     await session.setName('Luna');
-    final store = MemoryOnboardingStore(isWelcomed: true, savedRegion: 'US');
-    final state = AppState(cloud: sessionOn(cloud, tokens), store: store, pickTextFile: (_) async => null, now: () => DateTime(2026, 3, 2, 10));
+    final state = AppState(cloud: sessionOn(cloud, tokens), store: MemoryOnboardingStore(isWelcomed: true), pickTextFile: (_) async => null, now: () => DateTime(2026, 3, 2, 10), edition: 'US');
     await tester.pumpWidget(MycaApp(state: state));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('usSetup.business')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('usSetup.india')));
-    await tester.pumpAndSettle();
-    expect(find.text('Tell us about the business'), findsOneWidget);
-    expect(store.savedRegion, 'IN');
-    await tester.tap(find.byKey(const Key('setup.us')));
-    await tester.pumpAndSettle();
+    expect(find.text('Filing in India instead?'), findsNothing);
     await tester.tap(find.text('Keep books for my US business'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('usSetup.business')), 'Luna Bakery LLC');
@@ -650,9 +651,10 @@ void main() {
     await signedIn(cloud, tokens);
     final state = AppState(
       cloud: sessionOn(cloud, tokens),
-      store: MemoryOnboardingStore(isWelcomed: true, savedRegion: 'US'),
+      store: MemoryOnboardingStore(isWelcomed: true),
       pickTextFile: (_) async => null,
       now: () => DateTime(2026, 3, 2, 10),
+      edition: 'US',
     );
     await tester.pumpWidget(MycaApp(state: state));
     await tester.pumpAndSettle();

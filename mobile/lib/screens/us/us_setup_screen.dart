@@ -175,14 +175,6 @@ class _UsSetupScreenState extends State<UsSetupScreen> {
               'Your return is encrypted on our servers, your Social Security number is sealed separately and never shown in full, and nothing is sent to the IRS until you sign.',
               style: text.bodySmall?.copyWith(color: Palette.muted),
             ),
-            const SizedBox(height: 12),
-            Center(
-              child: TextButton(
-                key: const Key('usSetup.india'),
-                onPressed: () => state.chooseRegion('IN'),
-                child: const Text('Filing in India instead?'),
-              ),
-            ),
           ],
         ),
       ),

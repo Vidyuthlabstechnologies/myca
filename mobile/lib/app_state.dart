@@ -46,13 +46,13 @@ class AppState extends ChangeNotifier {
     this.oidc,
     this.plaidLink = const NoPlaidLink(),
     this.openLink = _cannotOpen,
-    this.deviceCountry = '',
+    String edition = 'IN',
     this.installationId = sessionInstallationId,
-  }) : api = api ?? cloud!.api;
+  })  : api = api ?? cloud!.api,
+        edition = edition.toUpperCase() == 'US' ? 'US' : 'IN';
 
-  final String deviceCountry;
+  final String edition;
   final Future<String> Function() installationId;
-  String region = '';
 
   final MycaApi api;
   final CloudSession? cloud;
@@ -116,20 +116,9 @@ class AppState extends ChangeNotifier {
     return file;
   }
 
-  String get chosenRegion => region == 'US' || region == 'IN' ? region : (deviceCountry.toUpperCase() == 'US' ? 'US' : 'IN');
-
   bool get household => snapshot?.company.household ?? false;
 
-  Future<void> chooseRegion(String value) async {
-    final code = value.toUpperCase() == 'US' ? 'US' : 'IN';
-    if (region == code) return;
-    region = code;
-    await store.setRegion(code);
-    notifyListeners();
-  }
-
   Future<void> start() async {
-    region = await store.region();
     welcomed = await store.welcomed();
     migrated = await store.migrated();
     await cloud?.restore();

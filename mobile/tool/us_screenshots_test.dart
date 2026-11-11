@@ -22,7 +22,7 @@ void main() {
 
   testWidgets('US filer screens', (tester) async {
     await phone(tester);
-    final welcome = AppState(api: UsFakeApi(), store: MemoryOnboardingStore(), pickTextFile: (_) async => null, deviceCountry: 'US');
+    final welcome = AppState(api: UsFakeApi(), store: MemoryOnboardingStore(), pickTextFile: (_) async => null, edition: 'US');
     await tester.pumpWidget(MycaApp(state: welcome));
     await shot(tester, 'us_01_welcome');
 

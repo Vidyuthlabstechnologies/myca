@@ -24,7 +24,7 @@ class WelcomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
     final state = AppScope.of(context);
-    final us = state.chosenRegion == 'US';
+    final us = state.edition == 'US';
     final points = us ? _usPoints : _points;
     return Scaffold(
       body: SafeArea(
@@ -33,22 +33,7 @@ class WelcomeScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  const Wordmark(),
-                  const Spacer(),
-                  SegmentedButton<String>(
-                    key: const Key('welcome.region'),
-                    showSelectedIcon: false,
-                    segments: const [
-                      ButtonSegment(value: 'IN', label: Text('India')),
-                      ButtonSegment(value: 'US', label: Text('US')),
-                    ],
-                    selected: {state.chosenRegion},
-                    onSelectionChanged: (picked) => state.chooseRegion(picked.first),
-                  ),
-                ],
-              ),
+              const Wordmark(),
               const Spacer(flex: 3),
               Text(
                 us ? 'Your taxes,\ndone as easily\nas a conversation.' : 'Your books,\nkept as easily\nas a conversation.',
@@ -80,10 +65,7 @@ class WelcomeScreen extends StatelessWidget {
               SizedBox(
                 width: double.infinity,
                 child: FilledButton(
-                  onPressed: () async {
-                    await state.chooseRegion(state.chosenRegion);
-                    await state.finishWelcome();
-                  },
+                  onPressed: state.finishWelcome,
                   child: const Text('Get started'),
                 ),
               ),
