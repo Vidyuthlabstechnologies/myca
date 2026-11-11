@@ -337,7 +337,9 @@ The server logs one `startup: services` line listing which optional services are
 | `MYCA_US_PLUS_PRICE_USD` | no | `249` | no | Price shown for MyCA Plus. |
 | `MYCA_US_EXPERT_REVIEW` | no | `0` | no | `1` offers Expert Review ($299, `MYCA_US_EXPERT_REVIEW_PRICE_USD`). Keep it off until a US CPA or EA partner is signed. |
 | `MYCA_PLAY_PRODUCT_US_1040` | for US filing fees | | no | A one-time (consumable) Play product. When set, filing a US return (`file_us_return`) needs that tax year paid; preparing stays free. |
-| `MYCA_US_RETURN_PRICE_USD` | | `129` | no | The US filing fee shown before the Play Store price loads. |
+| `MYCA_US_RETURN_PRICE_USD` | | `129` | no | The list price of a US return. Shown before the Play Store price loads. |
+| `MYCA_US_RETURN_LAUNCH_PRICE_USD` | no | `99` | no | First-season launch price of a US return, charged until `MYCA_US_LAUNCH_OFFER_UNTIL`. `0` turns the offer off. |
+| `MYCA_US_LAUNCH_OFFER_UNTIL` | no | `2027-04-15` | no | Last day (US Eastern) of the launch price. After it the list price applies. |
 | `MYCA_PLAY_SERVICE_ACCOUNT_JSON` | Play billing outside Cloud Run | metadata server on Cloud Run | yes | Play Developer API access. Refused in staging. |
 | `MYCA_PLAY_PUSH_AUDIENCE`, `MYCA_PLAY_PUSH_SERVICE_ACCOUNT` | for Play notifications | | no | Pub/Sub push with OIDC authentication: the audience set on the push subscription and the service account it signs as. Preferred. |
 | `MYCA_PLAY_NOTIFY_TOKEN` | alternative to push auth | | yes | Shared token, sent only in the `x-myca-notify-token` header. A `?token=` in the URL is refused so it never reaches access logs. |

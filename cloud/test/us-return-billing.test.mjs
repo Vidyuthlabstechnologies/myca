@@ -74,14 +74,16 @@ const get = (who, path) => api.call('GET', `/v1/businesses/${who.businessId}/${p
 
 test('the price of a US return is $129 by default and the operator can change it', () => {
   assert.equal(US_RETURN_PRICE_USD, 129);
-  assert.deepEqual(billingConfigFromEnv({ MYCA_PLAY_PRODUCT_US_1040: 'myca_us_1040', MYCA_PLAY_PACKAGE_US: 'com.mldynamic.myca.us' }).usReturn, { packageName: 'com.mldynamic.myca.us', productId: 'myca_us_1040', priceUsd: 129 });
+  assert.deepEqual(billingConfigFromEnv({ MYCA_PLAY_PRODUCT_US_1040: 'myca_us_1040', MYCA_PLAY_PACKAGE_US: 'com.mldynamic.myca.us' }).usReturn, { packageName: 'com.mldynamic.myca.us', productId: 'myca_us_1040', priceUsd: 129, launchPriceUsd: 99, launchUntil: '2027-04-15' });
+  assert.equal(billingConfigFromEnv({ MYCA_US_RETURN_LAUNCH_PRICE_USD: '0' }).usReturn.launchPriceUsd, 0);
+  assert.equal(billingConfigFromEnv({ MYCA_US_LAUNCH_OFFER_UNTIL: '2028-04-17' }).usReturn.launchUntil, '2028-04-17');
   assert.equal(billingConfigFromEnv({ MYCA_US_RETURN_PRICE_USD: '49' }).usReturn.priceUsd, 49);
   assert.equal(billingConfigFromEnv({ MYCA_US_RETURN_PRICE_USD: 'free' }).usReturn.priceUsd, 129);
 });
 
 test('plans list the US return as a one-time $129 per tax year', async () => {
   const out = await api.call('GET', '/v1/plans');
-  assert.deepEqual(out.body.usReturn, { title: 'MyCA Return', priceUsd: 129, currency: 'USD', per: 'tax_year', priceLine: '$129 to file your federal return. One price, no upgrade fees.', checkout: 'play', packageName: US_PACKAGE, productId: PRODUCT, buyable: true });
+  assert.deepEqual(out.body.usReturn, { title: 'MyCA Return', priceUsd: 129, listPriceUsd: 129, launchOffer: null, currency: 'USD', per: 'tax_year', priceLine: '$129 to file your federal return. One price, no upgrade fees.', checkout: 'play', packageName: US_PACKAGE, productId: PRODUCT, buyable: true });
   assert.deepEqual({ checkout: out.body.usPlus.checkout, productId: out.body.usPlus.productId, packageName: out.body.usPlus.packageName, buyable: out.body.usPlus.buyable }, { checkout: 'play', productId: PLUS, packageName: US_PACKAGE, buyable: true }, 'inside the app, MyCA Plus is a Google Play subscription');
   assert.equal(out.body.usExpertReview.available, false, 'Expert Review stays hidden until the operator turns it on');
   assert.deepEqual(out.body.usWaitlist.map((item) => item.id), ['done_for_you', 'international']);
@@ -192,4 +194,14 @@ test('MyCA Plus bought in Google Play is checked with Google, acknowledged, unlo
   assert.equal(lapsed.body.subscribed, false, 'an expired Play subscription is rechecked with Google and turns Plus off');
   const audit = await api.db.query("select metadata from audit_log where business_id = $1 and action = 'billing.us_plus_started'", [who.businessId]);
   assert.equal(audit.rows[0].metadata.provider, 'play');
+});
+
+test('the launch price applies through the last day of the offer, then the list price returns', async () => {
+  const at = (iso) => createBilling({ db: null, now: () => Date.parse(iso), config: { usReturn: { priceUsd: 129, launchPriceUsd: 99, launchUntil: '2027-04-15' } } }).plans();
+  const during = (await at('2027-04-15T20:00:00-04:00')).usReturn;
+  assert.deepEqual({ price: during.priceUsd, list: during.listPriceUsd, offer: during.launchOffer }, { price: 99, list: 129, offer: { priceUsd: 99, until: '2027-04-15' } });
+  assert.equal(during.priceLine, '$99 to file your federal return, launch price for this season (usually $129). One price, no upgrade fees.');
+  const afterOffer = (await at('2027-04-16T00:00:01-04:00')).usReturn;
+  assert.deepEqual({ price: afterOffer.priceUsd, offer: afterOffer.launchOffer }, { price: 129, offer: null });
+  assert.equal(afterOffer.priceLine, '$129 to file your federal return. One price, no upgrade fees.');
 });

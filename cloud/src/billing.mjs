@@ -23,11 +23,18 @@ export const PLANS = Object.freeze({
 
 const PAID = ['essentials', 'pro', 'firm'];
 export const US_RETURN_PRICE_USD = 129;
+export const US_RETURN_LAUNCH_PRICE_USD = 99;
+export const US_RETURN_LAUNCH_UNTIL = '2027-04-15';
 export const US_PLUS_PRICE_USD = 249;
 export const US_EXPERT_REVIEW_PRICE_USD = 299;
 export const US_WAITLIST_PRODUCTS = Object.freeze({ done_for_you: 'Done For You', international: 'International add-on' });
 export const US_PLUS_TOOLS = Object.freeze(['read_irs_letter', 'us_withholding_check', 'us_estimated_payments']);
-export const US_RETURN_PRICE_LINE = (price) => `$${price} to file your federal return. One price, no upgrade fees.`;
+export const US_RETURN_PRICE_LINE = (price, listPrice = price) => (listPrice > price ? `$${price} to file your federal return, launch price for this season (usually $${listPrice}). One price, no upgrade fees.` : `$${price} to file your federal return. One price, no upgrade fees.`);
+
+function launchEnd(day) {
+  const text = String(day || '').trim();
+  return /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(text) ? Date.parse(`${text}T23:59:59-04:00`) || 0 : 0;
+}
 const US_RETURN_YEARS_BACK = 3;
 const PLUS_LIVE = new Set(['active', 'trialing', 'past_due']);
 const CARD_RETURN_PRODUCT = 'card:us_return';
@@ -70,7 +77,7 @@ export function billingConfigFromEnv(env = process.env) {
   return {
     packageName: unset(env.MYCA_PLAY_PACKAGE),
     productIds: { essentials: unset(env.MYCA_PLAY_PRODUCT_ESSENTIALS), pro: unset(env.MYCA_PLAY_PRODUCT_PRO), firm: unset(env.MYCA_PLAY_PRODUCT_FIRM) },
-    usReturn: { packageName: unset(env.MYCA_PLAY_PACKAGE_US), productId: unset(env.MYCA_PLAY_PRODUCT_US_1040), priceUsd: dollars(env.MYCA_US_RETURN_PRICE_USD, US_RETURN_PRICE_USD) },
+    usReturn: { packageName: unset(env.MYCA_PLAY_PACKAGE_US), productId: unset(env.MYCA_PLAY_PRODUCT_US_1040), priceUsd: dollars(env.MYCA_US_RETURN_PRICE_USD, US_RETURN_PRICE_USD), launchPriceUsd: dollars(env.MYCA_US_RETURN_LAUNCH_PRICE_USD, US_RETURN_LAUNCH_PRICE_USD), launchUntil: unset(env.MYCA_US_LAUNCH_OFFER_UNTIL) || US_RETURN_LAUNCH_UNTIL },
     usPlus: { priceUsd: dollars(env.MYCA_US_PLUS_PRICE_USD, US_PLUS_PRICE_USD), productId: unset(env.MYCA_PLAY_PRODUCT_US_PLUS) },
     usExpertReview: { on: unset(env.MYCA_US_EXPERT_REVIEW) === '1', priceUsd: dollars(env.MYCA_US_EXPERT_REVIEW_PRICE_USD, US_EXPERT_REVIEW_PRICE_USD) },
     stripe: { secretKey: unset(env.MYCA_STRIPE_SECRET_KEY), webhookSecret: unset(env.MYCA_STRIPE_WEBHOOK_SECRET), plusPriceId: unset(env.MYCA_STRIPE_PRICE_US_PLUS), returnUrl: unset(env.MYCA_US_CHECKOUT_RETURN_URL) },
@@ -115,7 +122,10 @@ function fail(error, extra = {}) {
 
 export function createBilling({ db, config = {}, now = () => Date.now(), fetchImpl = (...args) => globalThis.fetch(...args), log = () => {} }) {
   const cfg = { packageName: '', productIds: {}, notifyToken: '', serviceAccount: null, prices: {}, ...config };
-  cfg.usReturn = { packageName: '', productId: '', priceUsd: US_RETURN_PRICE_USD, ...(config.usReturn || {}) };
+  cfg.usReturn = { packageName: '', productId: '', priceUsd: US_RETURN_PRICE_USD, launchPriceUsd: 0, launchUntil: '', ...(config.usReturn || {}) };
+  const launchUntil = launchEnd(cfg.usReturn.launchUntil);
+  const returnPrice = () => (cfg.usReturn.launchPriceUsd > 0 && cfg.usReturn.launchPriceUsd < cfg.usReturn.priceUsd && now() <= launchUntil ? cfg.usReturn.launchPriceUsd : cfg.usReturn.priceUsd);
+  const launchOffer = () => (returnPrice() < cfg.usReturn.priceUsd ? { priceUsd: returnPrice(), until: cfg.usReturn.launchUntil } : null);
   cfg.usPlus = { priceUsd: US_PLUS_PRICE_USD, productId: '', ...(config.usPlus || {}) };
   cfg.usExpertReview = { on: false, priceUsd: US_EXPERT_REVIEW_PRICE_USD, ...(config.usExpertReview || {}) };
   cfg.stripe = { secretKey: '', webhookSecret: '', plusPriceId: '', returnUrl: '', ...(config.stripe || {}) };
@@ -227,7 +237,7 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
     const business = await db.query('select created_at as "createdAt", demo, kind from businesses where id = $1', [businessId]);
     if (business.rows[0]?.kind === 'household') {
       const plan = PLANS.household;
-      return { ok: true, enforced: enabled, plan: plan.id, planTitle: plan.title, limits: plan.limits, features: plan.features, trial: null, subscription: null, manageUrl: '', usReturn: { enforced: usEnforced, priceUsd: cfg.usReturn.priceUsd, productId: cfg.usReturn.productId, checkout: checkoutKind() }, usPlus: await usPlus(businessId) };
+      return { ok: true, enforced: enabled, plan: plan.id, planTitle: plan.title, limits: plan.limits, features: plan.features, trial: null, subscription: null, manageUrl: '', usReturn: { enforced: usEnforced, priceUsd: returnPrice(), listPriceUsd: cfg.usReturn.priceUsd, productId: cfg.usReturn.productId, checkout: checkoutKind() }, usPlus: await usPlus(businessId) };
     }
     if (business.rows[0]?.demo) {
       return { ok: true, enforced: enabled, plan: 'pro', planTitle: PLANS.pro.title, limits: PLANS.pro.limits, features: PLANS.pro.features, trial: null, demo: true, subscription: null, manageUrl: '' };
@@ -297,12 +307,14 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
       enforced: usEnforced,
       paid: Boolean(bought) || !usEnforced,
       purchased: Boolean(bought),
-      priceUsd: bought ? bought.priceUsd : cfg.usReturn.priceUsd,
+      priceUsd: bought ? bought.priceUsd : returnPrice(),
+      listPriceUsd: cfg.usReturn.priceUsd,
+      launchOffer: bought ? null : launchOffer(),
       currency: 'USD',
       productId: cfg.usReturn.productId,
       buyable: usEnforced,
       checkout: checkoutKind(),
-      priceLine: US_RETURN_PRICE_LINE(bought ? bought.priceUsd : cfg.usReturn.priceUsd),
+      priceLine: bought ? US_RETURN_PRICE_LINE(bought.priceUsd) : US_RETURN_PRICE_LINE(returnPrice(), cfg.usReturn.priceUsd),
       provider: bought?.provider || null,
       purchasedAt: bought ? new Date(bought.createdAt).toISOString() : null,
       testPurchase: Boolean(bought?.testPurchase),
@@ -314,7 +326,7 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
     const bad = usTaxYearProblem(taxYear);
     if (bad) return bad;
     if (await usPurchase(businessId, Number(taxYear))) return { ok: true };
-    return fail('US_RETURN_UNPAID', { taxYear: Number(taxYear), priceUsd: cfg.usReturn.priceUsd, productId: cfg.usReturn.productId, hint: `Preparing and checking your return is free. Filing it with the IRS is $${cfg.usReturn.priceUsd} for the ${taxYear} return, paid once on the Sign and e-file screen.` });
+    return fail('US_RETURN_UNPAID', { taxYear: Number(taxYear), priceUsd: returnPrice(), productId: cfg.usReturn.productId, hint: `Preparing and checking your return is free. Filing it with the IRS is $${returnPrice()} for the ${taxYear} return, paid once on the Sign and e-file screen.` });
   }
 
   async function lookupProduct(productId, purchaseToken) {
@@ -356,14 +368,14 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
     const saved = await db.query(
       `insert into us_return_purchases (business_id, tax_year, provider, purchase_token, product_id, price_usd, test_purchase, created_by)
        values ($1, $2, 'play', $3, $4, $5, $6, $7) on conflict do nothing returning tax_year`,
-      [businessId, year, token, productId, cfg.usReturn.priceUsd, found.testPurchase, userId],
+      [businessId, year, token, productId, returnPrice(), found.testPurchase, userId],
     );
     if (!saved.rows.length) return fail('PURCHASE_ALREADY_USED', { hint: 'This return or this payment was just recorded by another request.' });
     if (found.needsAck) {
       const ack = await play('POST', `products/${encodeURIComponent(productId)}/tokens/${encodeURIComponent(token)}:acknowledge`, usPackage);
       if (!ack.ok) log({ billing: 'acknowledge_failed', status: ack.status });
     }
-    await audit(businessId, userId, 'billing.us_return_paid', { provider: 'play', taxYear: year, priceUsd: cfg.usReturn.priceUsd, testPurchase: found.testPurchase });
+    await audit(businessId, userId, 'billing.us_return_paid', { provider: 'play', taxYear: year, priceUsd: returnPrice(), testPurchase: found.testPurchase });
     return usReturn(businessId, year);
   }
 
@@ -475,7 +487,7 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
 
   function offers() {
     return {
-      usReturn: { title: 'MyCA Return', priceUsd: cfg.usReturn.priceUsd, currency: 'USD', per: 'tax_year', priceLine: US_RETURN_PRICE_LINE(cfg.usReturn.priceUsd), checkout: checkoutKind(), packageName: usPackage, productId: cfg.usReturn.productId, buyable: usEnforced },
+      usReturn: { title: 'MyCA Return', priceUsd: returnPrice(), listPriceUsd: cfg.usReturn.priceUsd, launchOffer: launchOffer(), currency: 'USD', per: 'tax_year', priceLine: US_RETURN_PRICE_LINE(returnPrice(), cfg.usReturn.priceUsd), checkout: checkoutKind(), packageName: usPackage, productId: cfg.usReturn.productId, buyable: usEnforced },
       usPlus: { title: 'MyCA Plus', priceUsd: cfg.usPlus.priceUsd, currency: 'USD', per: 'year', checkout: plusCheckout, packageName: plusOnPlay ? usPackage : '', productId: plusOnPlay ? cfg.usPlus.productId : '', buyable: plusBuyable, features: ['IRS letter reader', 'Withholding check', 'Quarterly estimate reminders'] },
       usExpertReview: cfg.usExpertReview.on ? { title: 'Expert Review', priceUsd: cfg.usExpertReview.priceUsd, currency: 'USD', per: 'return', available: true } : { title: 'Expert Review', available: false },
       usWaitlist: Object.entries(US_WAITLIST_PRODUCTS).map(([id, title]) => ({ id, title })),
@@ -500,13 +512,13 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
       const made = await stripe.createCheckout({
         mode: 'payment',
         client_reference_id: businessId,
-        line_items: [{ quantity: 1, price_data: { currency: 'usd', unit_amount: cfg.usReturn.priceUsd * 100, product_data: { name: `MyCA Return, ${year} federal` } } }],
+        line_items: [{ quantity: 1, price_data: { currency: 'usd', unit_amount: returnPrice() * 100, product_data: { name: `MyCA Return, ${year} federal` } } }],
         metadata,
         payment_intent_data: { metadata, statement_descriptor_suffix: 'TAX RETURN' },
         success_url: `${back}${join}checkout={CHECKOUT_SESSION_ID}&result=paid`,
         cancel_url: `${back}${join}result=canceled`,
       });
-      return started(businessId, userId, made, { product: 'return', taxYear: year, priceUsd: cfg.usReturn.priceUsd });
+      return started(businessId, userId, made, { product: 'return', taxYear: year, priceUsd: returnPrice() });
     }
     if (product === 'plus') {
       if (!plusOnCard) return fail('CARD_CHECKOUT_NOT_CONFIGURED', { hint: plusOnPlay ? 'MyCA Plus is bought in Google Play.' : 'The operator has not set up MyCA Plus yet.' });

@@ -83,7 +83,7 @@ has no switch to India. CI builds both; it uploads the US bundle when `PLAY_US_T
 
 ## US pricing
 
-Owner direction (2026-11-11): price as premium, at or above TurboTax at each tier. **$129 per federal return, paid once per tax year;** MyCA Plus $249 a year; Expert Review $299 once a CPA or EA partner is signed. All three are settings (`MYCA_US_RETURN_PRICE_USD`, `MYCA_US_PLUS_PRICE_USD`, `MYCA_US_EXPERT_REVIEW_PRICE_USD`). Preparing, reviewing
+Owner direction (2026-11-11): price as premium, at or above TurboTax at each tier. **$129 per federal return, paid once per tax year;** MyCA Plus $249 a year; Expert Review $299 once a CPA or EA partner is signed. All three are settings (`MYCA_US_RETURN_PRICE_USD`, `MYCA_US_PLUS_PRICE_USD`, `MYCA_US_EXPERT_REVIEW_PRICE_USD`). Launch offer (owner, 2026-11-11): the first season's return is $99 until 15 April 2027 (`MYCA_US_RETURN_LAUNCH_PRICE_USD`, `MYCA_US_LAUNCH_OFFER_UNTIL`); the price line says it is a launch price and names the $129 list price. Card checkout charges the launch price by itself. If the return is sold through the Play product, set that product to USD 99 in Play Console for the season and back to USD 129 after 15 April. Preparing, reviewing
 and downloading the return are free, so people see their refund first; filing with the IRS unlocks once
 that year is paid. Households never fall into the India trial or read-only plan.
 
