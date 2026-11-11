@@ -9,14 +9,9 @@ variable "project_id" {
 }
 
 variable "region" {
-  description = "Region for every resource. Data must stay in India."
+  description = "Region for every resource. It must be inside the country this deployment serves (see country.tf)."
   type        = string
   default     = "asia-south1"
-
-  validation {
-    condition     = startswith(var.region, "asia-south")
-    error_message = "MyCA data stays in India: use asia-south1 (Mumbai) or asia-south2 (Delhi)."
-  }
 }
 
 variable "image" {

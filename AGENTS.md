@@ -48,6 +48,14 @@ It will live in its own `cloud/` package, which may depend on the Postgres drive
 | `deploy/` | Marketing/research static site — not the product. |
 | `vendor/` | Unused reference clones. **Never import from here** (licences). |
 
+## Countries
+
+Everything that differs by country (tools, prices, filing routes, data region, app flavor, tax
+modules) lives in one file per country under `platform/src/countries/`. Read
+`docs/architecture/COUNTRY-PACKS.md` before adding country-only behaviour. Country-only tools go
+in that pack's sorted `tools` list, never in `country.mjs`. Each country's data stays in that
+country: one deployment per country, checked by `cloud/src/residency.mjs` and `infra/cloud/country.tf`.
+
 ## Commands
 
 ```bash

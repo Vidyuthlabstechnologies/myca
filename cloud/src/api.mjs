@@ -10,6 +10,7 @@ import { createAuth, isUuid, OTP_MAX_GLOBAL_PER_HOUR } from './auth.mjs';
 import { createSecondFactor } from './second-factor.mjs';
 import { createDevices } from './devices.mjs';
 import { createBusinesses, engineRole } from './businesses.mjs';
+import { publicCountries } from './residency.mjs';
 import { createBooksRunner } from './books-runner.mjs';
 import { createMembers } from './members.mjs';
 import { IMPORT_CONTENT_ARG, isImport } from '../../platform/src/import-documents.mjs';
@@ -376,6 +377,7 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
     if (parts[0] !== 'v1') throw httpError(404, 'NOT_FOUND');
 
     if (parts[1] === 'health' && parts[2] === 'live' && parts.length === 3 && method === 'GET') return { ok: true, environment, providerMode: providerMode(), version };
+    if (parts[1] === 'countries' && parts.length === 2 && method === 'GET') return publicCountries();
     if (parts[1] === 'health' && parts.length === 2 && method === 'GET') {
       const database = await databaseReachable();
       if (!database) throw httpError(503, 'DATABASE_UNAVAILABLE', { environment, providerMode: providerMode(), database: 'unreachable' });
