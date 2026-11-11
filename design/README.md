@@ -2,7 +2,7 @@
 
 The one design system every MyCA country app and site uses. The design language (what it looks
 like, how it talks, what changes by country) is in
-[`docs/design/DESIGN-LANGUAGE.md`](../docs/design/DESIGN-LANGUAGE.md).
+[`docs/design/DESIGN-LANGUAGE.md`](../docs/design/DESIGN-LANGUAGE.md). Consumer research and the principles every screen follows: [`docs/design/UX-RESEARCH.md`](../docs/design/UX-RESEARCH.md).
 
 ```
 design/
