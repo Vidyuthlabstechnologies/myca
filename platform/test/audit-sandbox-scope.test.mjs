@@ -16,6 +16,7 @@ function catalogueParams(endpoint) {
     ...(endpoint.body === 'json' ? { body: Object.fromEntries(endpoint.bodyRequired.map((name) => [name, fill(name)])) } : {}),
   };
 }
+import { withProviderContext } from '../src/provider-context.mjs';
 
 const BASE_URL = 'https://test-api.sandbox.co.in';
 const urls = [];
@@ -58,14 +59,26 @@ const PARAMS = {
   gstin_verify: { gstin: '27AABCU9603R1ZN' },
   tds_analytics_job: { quarter: 'Q1', tan: 'PNEA12345B', form: '26Q', fy: 'FY 2026-27' },
   tds_fvu_generate: { taxYear: '2026-27', quarter: 'Q1', form: '26Q', tan: 'PNEA12345B' },
+  ewb_get: { ewbNo: '291010077005' },
+  ewb_cancel: { ewbNo: '291010077005', reasonCode: 2 },
+  ewb_update_vehicle: { ewbNo: '291010077005', vehicleNo: 'MH12AB1234', fromPlace: 'Pune', fromState: 27, reasonCode: 1 },
+  ewb_update_transporter: { ewbNo: '291010077005', transporterId: '29AAACW6874H1ZS' },
+  ewb_extend: { ewbNo: '291010077005', vehicleNo: 'MH12AB1234', fromPlace: 'Pune', fromState: 27, fromPincode: 411019, remainingDistance: 50, reasonCode: 1 },
+  ewb_consolidate: { ewbNos: ['291010077005', '291010077006'], vehicleNo: 'MH12AB1234', fromPlace: 'Pune', fromState: 27 },
+  ewb_multi_vehicle_start: { ewbNo: '291010077005', fromPlace: 'Pune', fromState: 27, toPlace: 'Surat', toState: 24, totalQuantity: 10, reasonCode: 1 },
+  ewb_multi_vehicle_add: { ewbNo: '291010077005', groupNo: '1', vehicleNo: 'MH12AB1234', quantity: 5 },
+  ewb_multi_vehicle_change: { ewbNo: '291010077005', groupNo: 1, oldVehicleNo: 'MH12AB1234', newVehicleNo: 'MH12AB9999', fromPlace: 'Pune', fromState: 27, reasonCode: 1 },
+  ewb_consignee_list: { date: '2026-11-10' },
+  ewb_reject: { ewbNo: '291010077005' },
 };
 
 test('every Sandbox adapter calls only the transport functions its action declares, on the configured host', async () => {
   const state = createState();
   state.company = { ...state.company, address: 'Plot 4, MIDC, Pune 411019', pin: '411019', city: 'Pune' };
   const inv = createInvoice(state, { partyName: 'Retail', partyGstin: '27AAACH7409R1Z1', partyState: '27', partyAddress: '12 FC Road, Pune 411004', lines: [{ description: 'x', hsn: '5208', qty: 1, rate: 100, gstRate: 5 }] });
-  const params = { ...PARAMS, einvoice_generate: { invoiceId: inv.invoice.id } };
-  await withEnv({ MYCA_ENABLE_LIVE_CALLS: '1', MYCA_MOCK_MODE: '0', MYCA_GSP_API_KEY: 'k', MYCA_GSP_API_SECRET: 's', MYCA_GSP_BASE_URL: BASE_URL }, async () => {
+  inv.invoice.transport = { mode: 'road', vehicleNo: 'MH12AB1234', distanceKm: 12, transporterName: '', transporterId: '', docNo: '', setOn: '2026-11-11' };
+  const params = { ...PARAMS, einvoice_generate: { invoiceId: inv.invoice.id }, ewb_generate: { invoiceId: inv.invoice.id } };
+  await withProviderContext({ govt: { username: 'api', password: 'pw', gstin: '27AABCU9603R1ZN' } }, () => withEnv({ MYCA_ENABLE_LIVE_CALLS: '1', MYCA_MOCK_MODE: '0', MYCA_GSP_API_KEY: 'k', MYCA_GSP_API_SECRET: 's', MYCA_GSP_BASE_URL: BASE_URL }, async () => {
     for (const operation of SANDBOX_OPERATIONS.filter((op) => adapterSupports(op.operationId))) {
       const { operationId } = operation;
       const endpoint = quickoOperation(operationId);
@@ -90,7 +103,7 @@ test('every Sandbox adapter calls only the transport functions its action declar
       }
       if (ACTION_CLASSES[operationId].uses.length) assert.ok(urls.length > before, `${operationId} made no request: ${out.error}`);
     }
-  });
+  }));
   assert.ok(urls.length > 0);
   for (const url of urls) assert.ok(url.startsWith(`${BASE_URL}/`), url);
 });

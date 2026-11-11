@@ -5,6 +5,7 @@ import { performExternalAction } from './action-gate.mjs';
 import { quickoOperation } from './sandbox-endpoints.mjs';
 import { documentsOf, isSha256 } from './document-store.mjs';
 import { omitSecrets } from './secret-keys.mjs';
+import { EWB_ADAPTERS, EWB_MOCK_ADAPTERS, EWB_REQUEST_BUILDERS } from './ewb-adapter.mjs';
 
 function fromClient(res, data) {
   if (res && res.ok === false && res.error) return { ok: false, error: res.error, ...(res.message ? { hint: res.message } : {}) };
@@ -202,6 +203,10 @@ async function catalogueMock({ params, endpoint }) {
 }
 
 const REQUEST_BUILDERS = {
+  ...Object.fromEntries(Object.entries(EWB_REQUEST_BUILDERS).map(([id, builder]) => [id, (input) => {
+    const built = builder(input);
+    return built.ok ? { ok: true, payload: built.payload } : built;
+  }])),
   gst_save_gstr3b: PORTAL_PAYLOAD('GSTN GSTR-3B JSON'),
   gst_gstr3b_offset: PORTAL_PAYLOAD('GSTR-3B offset (pdcash and pditc)'),
   einvoice_generate: ({ params, state }) => einvoicePayload(params, state),
@@ -211,6 +216,8 @@ const REQUEST_BUILDERS = {
 };
 
 const ADAPTERS = {
+  ...EWB_ADAPTERS,
+
   gst_save_gstr3b: async ({ client, params }) => {
     const { year, month } = periodParts(params);
     if (!params.payload) return { ok: false, error: 'PAYLOAD_REQUIRED' };
@@ -367,10 +374,19 @@ const ADAPTERS = {
     const res = await client.generateEinvoice(built.payload);
     const data = res.data?.data || {};
     if (res.ok && Number(data.Status) === 1) {
-      return { ok: true, data: { irn: data.Data?.Irn || null, ackNo: data.Data?.AckNo || null, ackDate: data.Data?.AckDt || null, signedQrCode: data.Data?.SignedQRCode || null, status: data.Data?.Status || 'ACT' } };
+      const d = data.Data || {};
+      if (built.invoice && d.Irn) {
+        const prefix = res.environment === 'live' ? '' : 'sandbox';
+        const field = (name) => (prefix ? `${prefix}${name[0].toUpperCase()}${name.slice(1)}` : name);
+        built.invoice[field('irn')] = d.Irn;
+        built.invoice[field('ackNo')] = d.AckNo || built.invoice[field('ackNo')];
+        built.invoice[field('ackDate')] = d.AckDt || built.invoice[field('ackDate')];
+        built.invoice[field('signedQrCode')] = d.SignedQRCode || built.invoice[field('signedQrCode')];
+      }
+      return { ok: true, sandbox: res.environment !== 'live', data: { irn: d.Irn || null, ackNo: d.AckNo || null, ackDate: d.AckDt || null, signedQrCode: d.SignedQRCode || null, status: d.Status || 'ACT' } };
     }
-    const err = data.ErrorDetails?.[0]?.ErrorMessage || data.error?.message || res.error || 'IRN_FAILED';
-    return { ok: false, error: err, provider: data };
+    const err = res.error || data.ErrorDetails?.[0]?.ErrorMessage || data.error?.message || 'IRN_FAILED';
+    return { ok: false, error: err, ...(res.message ? { hint: res.message } : {}), provider: data };
   },
 
   einvoice_cancel: async ({ client, params }) => {
@@ -380,7 +396,7 @@ const ADAPTERS = {
     if (res.ok && Number(data.Status) === 1) {
       return { ok: true, data: { cancelled: true, irn: data.Data?.Irn || params.irn, cancelDate: data.Data?.CancelDate || null } };
     }
-    const err = data.ErrorDetails?.[0]?.ErrorMessage || data.error?.message || res.error || 'CANCEL_FAILED';
+    const err = res.error || data.ErrorDetails?.[0]?.ErrorMessage || data.error?.message || 'CANCEL_FAILED';
     return { ok: false, error: err, provider: data };
   },
 
@@ -419,6 +435,8 @@ export function adapterSupports(operationId) {
 const MOCK_TAG = { mock: true, simulated: true };
 
 const MOCK_ADAPTERS = {
+  ...EWB_MOCK_ADAPTERS,
+
   gst_save_gstr3b: async ({ params }) => {
     const { year, month } = periodParts(params);
     if (!params.payload) return { ok: false, error: 'PAYLOAD_REQUIRED' };

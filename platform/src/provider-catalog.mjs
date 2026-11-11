@@ -62,7 +62,7 @@ export const PROVIDER_CATALOG = [
       },
       {
         requirementId: 'REQ-CA-007',
-        capability: 'NIC e-invoice, e-way bill by IRN, PDF, cancel, and IRN lookup',
+        capability: 'E-invoice (IRN), e-way bills (by IRN or from the invoice, Part B, transporter, extension, consolidation, multi-vehicle, consignee rejection), PDF, cancel, and lookups',
         existingOwners: [
           'platform/src/govt.mjs',
           'platform/src/invoice.mjs',
@@ -91,6 +91,18 @@ export const PROVIDER_CATALOG = [
           {
             title: 'Cancel e-invoice',
             url: `${SANDBOX_DOCS_BASE}/api-reference/gst/compliance/endpoints/e-invoice/cancel_e_invoice.md`,
+          },
+          {
+            title: 'E-way bill overview',
+            url: `${SANDBOX_DOCS_BASE}/api-reference/gst/compliance/guides/e-way-bill/overview.md`,
+          },
+          {
+            title: 'Generate e-way bill',
+            url: `${SANDBOX_DOCS_BASE}/api-reference/gst/compliance/endpoints/e-way-bill/consignor/generate_e_way_bill.md`,
+          },
+          {
+            title: 'Generate e-way bill by IRN',
+            url: `${SANDBOX_DOCS_BASE}/api-reference/gst/compliance/endpoints/e-invoice/generate_e_way_bill.md`,
           },
         ],
       },

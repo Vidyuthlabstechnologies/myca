@@ -1,27 +1,31 @@
 import { test, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { randomBytes, generateKeyPairSync, createCipheriv } from 'node:crypto';
-import { clearNicSession } from '../../platform/src/nic-client.mjs';
+import { clearIrpSessions } from '../../platform/src/sandbox-client.mjs';
 import { startApi } from './helpers.mjs';
 
 const KEY = 'connector-key-for-tests-0123456789abcdef0123456789';
-const SEK = randomBytes(32).toString('base64');
-const PEM = generateKeyPairSync('rsa', { modulusLength: 2048, publicKeyEncoding: { type: 'spki', format: 'pem' }, privateKeyEncoding: { type: 'pkcs8', format: 'pem' } }).publicKey;
 const calls = [];
 const hostOf = (url) => new URL(url).host;
 const realFetch = globalThis.fetch;
 
-function aesEcb(obj) {
-  const cipher = createCipheriv('aes-256-ecb', Buffer.from(SEK, 'base64'), null);
-  return Buffer.concat([cipher.update(JSON.stringify(obj), 'utf8'), cipher.final()]).toString('base64');
+function reply(body, status = 200) {
+  return new Response(JSON.stringify(body), { status });
 }
 
-function fakeProviders(url, init) {
+function fakeProviders(url, init = {}) {
   const text = String(url);
   calls.push(text);
-  if (text.includes('/eivital/v1.04/auth')) return new Response(JSON.stringify({ Status: 1, Data: { AuthToken: 'NIC-TOKEN', Sek: SEK, TokenExpiry: new Date(Date.now() + 3600000).toISOString() } }), { status: 200 });
-  if (text.includes('/eicore/v1.03/Invoice')) return new Response(JSON.stringify({ Status: 1, Data: aesEcb({ Irn: (text.includes('gstsandbox') ? 'SANDBOXIRN' : 'LIVEIRN').padEnd(64, '0'), AckNo: 112610000000001, AckDt: '2026-11-05 10:00:00', SignedQRCode: 'qr' }) }), { status: 200 });
-  return new Response(JSON.stringify({ message: 'no route' }), { status: 404 });
+  const target = new URL(text);
+  const live = target.host === 'api.sandbox.co.in';
+  if (!['api.sandbox.co.in', 'test-api.sandbox.co.in'].includes(target.host)) return reply({ message: 'no route' }, 404);
+  if (target.pathname === '/authenticate') return reply({ access_token: 'platform-token', expires_in: 3600 });
+  if (target.pathname === '/gst/compliance/e-way-bill/tax-payer/authenticate') return reply({ code: 200, data: { Status: 1, access_token: 'irp-token', expiry: Date.now() + 3600000 } });
+  if (target.pathname === '/gst/compliance/e-invoice/tax-payer/invoice') {
+    return reply({ code: 200, data: { Status: 1, Data: { Irn: (live ? 'LIVEIRN' : 'SANDBOXIRN').padEnd(64, '0'), AckNo: 112610000000001, AckDt: '2026-11-05 10:00:00', SignedQRCode: 'qr' } } });
+  }
+  if (target.pathname === '/gst/compliance/e-way-bill/consignor/bill') return reply({ code: 200, data: { alert: null, data: { ewayBillNo: live ? 291010077005 : 991010077005, ewayBillDate: '11/11/2026 05:00:00 PM', validUpto: '12/11/2026 11:59:00 PM' }, status: '1' } });
+  if (/\/consignor\/bill\/\d+\/cancel$/.test(target.pathname)) return reply({ code: 200, data: { alert: null, data: { cancelDate: '11/11/2026 07:56:00 PM' }, status: '1' } });
+  return reply({ message: 'no route' }, 404);
 }
 
 async function withEnv(vars, fn) {
@@ -58,7 +62,7 @@ after(async () => {
 });
 beforeEach(() => {
   calls.length = 0;
-  clearNicSession();
+  clearIrpSessions();
 });
 
 const post = (who, action, body) => api.call('POST', `/v1/businesses/${who.businessId}/${action}`, { token: who.token, body });
@@ -74,34 +78,38 @@ async function b2bSale() {
   return books.invoices.at(-1).id;
 }
 
-const nicKeys = (environment) => ({ channel: 'nic', clientId: 'NIC-CLIENT', clientSecret: 'nic-secret', username: 'apiuser', password: 'P@ss', gstin: '27AABCU9603R1ZN', publicKeyPem: PEM.replace(/\n/g, ' '), environment });
+const irpUser = (environment) => ({ channel: 'nic', username: 'apiuser', password: 'P@ss', gstin: '27AABCU9603R1ZN', environment });
+const quickoKey = (environment) => ({ channel: 'quicko', apiKey: environment === 'production' ? 'key_live_123' : 'key_test_123', apiSecret: 'secret_456', environment });
 
-test('test mode: the business\'s own NIC sandbox keys issue a sandbox IRN with no approval, never on the production IRP', async () => {
+test('test mode: the e-invoice goes through Quicko on its test host with no approval, and never lands in the real IRN', async () => {
   await withEnv({ MYCA_PROVIDER_ENV: 'test', MYCA_MOCK_MODE: '0' }, async () => {
     const invoiceId = await b2bSale();
     const missing = await post(owner, 'einvoice', { invoiceId });
     assert.equal(missing.body.error, 'NIC_NOT_CONNECTED');
-    const saved = await post(owner, 'connectors', nicKeys('production'));
+    assert.match(missing.body.hint, /Sandbox by Quicko/);
+    const saved = await post(owner, 'connectors', irpUser('production'));
     assert.equal(saved.status, 200, saved.text);
     assert.equal(saved.body.mode, 'live');
     assert.equal(saved.body.password, 'set');
+    assert.equal((await post(owner, 'connectors', quickoKey('production'))).status, 200);
     const out = await post(owner, 'einvoice', { invoiceId });
     assert.equal(out.status, 200, out.text);
     assert.equal(out.body.ok, true, out.text);
     assert.equal(out.body.mode, 'test');
     assert.equal(out.body.chosenMode, 'live');
-    assert.equal(out.body.sandbox, true);
-    assert.ok(calls.length > 0 && calls.every((url) => hostOf(url) === 'einv1api.gstsandbox.nic.in'), calls.join(' '));
+    assert.equal(out.body.provider, 'sandbox');
+    assert.ok(calls.length > 0 && calls.every((url) => hostOf(url) === 'test-api.sandbox.co.in'), calls.join(' '));
     const inv = (await api.books(owner.businessId)).invoices.find((i) => i.id === invoiceId);
     assert.equal(inv.sandboxIrn, 'SANDBOXIRN'.padEnd(64, '0'));
     assert.equal(inv.irn, undefined);
-    assert.ok(!JSON.stringify(out.body).includes('nic-secret'));
+    assert.ok(!JSON.stringify(out.body).includes('P@ss'));
   });
 });
 
-test('live mode: the owner\'s switch sends it to the production IRP only after someone else approves', async () => {
+test('live mode: the owner\'s switch sends the e-invoice to Quicko live only after someone else approves', async () => {
   await withEnv({ MYCA_PROVIDER_ENV: 'live', MYCA_MOCK_MODE: '0' }, async () => {
-    await post(owner, 'connectors', nicKeys('production'));
+    await post(owner, 'connectors', irpUser('production'));
+    await post(owner, 'connectors', quickoKey('production'));
     const invoiceId = await b2bSale();
     const blocked = await post(owner, 'einvoice', { invoiceId });
     assert.equal(blocked.body.error, 'APPROVAL_REQUIRED', blocked.text);
@@ -120,18 +128,58 @@ test('live mode: the owner\'s switch sends it to the production IRP only after s
     const issued = await post(owner, 'einvoice', { invoiceId });
     assert.equal(issued.body.ok, true, issued.text);
     assert.equal(issued.body.mode, 'live');
-    assert.ok(calls.some((url) => hostOf(url) === 'einvoice1.gst.gov.in'), calls.join(' '));
+    assert.ok(calls.length > 0 && calls.every((url) => hostOf(url) === 'api.sandbox.co.in'), calls.join(' '));
     const inv = (await api.books(owner.businessId)).invoices.find((i) => i.id === invoiceId);
     assert.equal(inv.irn, 'LIVEIRN'.padEnd(64, '0'));
 
     await post(owner, 'connectors', { channel: 'nic', environment: 'sandbox' });
     calls.length = 0;
-    clearNicSession();
+    clearIrpSessions();
     const next = await b2bSale();
     const sandbox = await post(owner, 'einvoice', { invoiceId: next });
     assert.equal(sandbox.body.ok, true, sandbox.text);
     assert.equal(sandbox.body.mode, 'test');
-    assert.ok(calls.every((url) => hostOf(url) === 'einv1api.gstsandbox.nic.in'), calls.join(' '));
+    assert.ok(calls.every((url) => hostOf(url) === 'test-api.sandbox.co.in'), calls.join(' '));
+  });
+});
+
+test('e-way bill: generated from the invoice through Quicko after approval, then cancelled, all at /ewaybill', async () => {
+  await withEnv({ MYCA_PROVIDER_ENV: 'live', MYCA_MOCK_MODE: '0' }, async () => {
+    await post(owner, 'connectors', irpUser('production'));
+    await post(owner, 'connectors', quickoKey('production'));
+    n += 1;
+    const held = await post(owner, 'propose', { name: 'create_invoice', args: { partyName: `Gujarat Mills ${n}`, partyGstin: '24AAACF7856R1ZY', partyAddress: '7 Ring Road, Surat 395002', lines: [{ description: 'Cotton cloth', hsn: '5208', qty: 100, rate: 1000, gstRate: 5 }] } });
+    assert.equal(held.status, 200, held.text);
+    assert.equal((await post(owner, 'confirm', { token: held.body.preview.token })).body.posted, true);
+    const invoiceId = (await api.books(owner.businessId)).invoices.at(-1).id;
+    const transport = await post(owner, 'propose', { name: 'set_transport', args: { invoiceId, vehicleNo: 'MH12AB1234', distanceKm: 260 } });
+    assert.equal(transport.status, 200, transport.text);
+    assert.equal((await post(owner, 'confirm', { token: transport.body.preview.token })).status, 200);
+
+    assert.equal((await post(owner, 'ewaybill', { op: 'teleport', invoiceId })).body.error, 'UNKNOWN_EWB_OP');
+    const blocked = await post(owner, 'ewaybill', { op: 'generate', invoiceId });
+    assert.equal(blocked.body.error, 'APPROVAL_REQUIRED', blocked.text);
+    assert.equal(calls.length, 0);
+    const asked = await post(owner, 'approvals', { operation: 'ewaybill_generate', invoiceId });
+    assert.equal(asked.body.ok, true, asked.text);
+    assert.equal((await post(accountant, 'approvals', { approvalId: asked.body.approval.approvalId, decision: 'approve' })).body.approval.status, 'approved');
+    const out = await post(owner, 'ewaybill', { op: 'generate', invoiceId });
+    assert.equal(out.body.ok, true, out.text);
+    assert.equal(out.body.data.ewbNo, '291010077005');
+    assert.equal(out.body.data.via, 'invoice');
+    assert.ok(calls.some((url) => url.endsWith('/gst/compliance/e-way-bill/consignor/bill')), calls.join(' '));
+    assert.ok(calls.every((url) => hostOf(url) === 'api.sandbox.co.in'), calls.join(' '));
+    let inv = (await api.books(owner.businessId)).invoices.find((i) => i.id === invoiceId);
+    assert.equal(inv.ewbNo, '291010077005');
+
+    const cancelAsk = await post(owner, 'approvals', { operation: 'ewaybill_cancel', invoiceId, reasonCode: 2 });
+    assert.equal(cancelAsk.body.ok, true, cancelAsk.text);
+    await post(accountant, 'approvals', { approvalId: cancelAsk.body.approval.approvalId, decision: 'approve' });
+    const cancelled = await post(owner, 'ewaybill', { op: 'cancel', invoiceId, reasonCode: 2 });
+    assert.equal(cancelled.body.ok, true, cancelled.text);
+    inv = (await api.books(owner.businessId)).invoices.find((i) => i.id === invoiceId);
+    assert.equal(inv.ewbNo, undefined);
+    assert.equal(inv.ewbHistory[0].ewbNo, '291010077005');
   });
 });
 

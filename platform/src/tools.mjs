@@ -94,7 +94,7 @@ import { setNexus, listNexus, salesTaxReturn, salesTaxReviewOf, answerSalesTaxRe
 import { recordTdsDeposit, setDeductor, tdsSummary } from './tds-deduction.mjs';
 import { paymentFor, setCreditOpening } from './gst-payment.mjs';
 import { tdsReturnDraft } from './tds-return.mjs';
-import { setTransport, recordShare, ewayBillStatus, transportPayload } from './eway-bill.mjs';
+import { setTransport, recordShare, ewayBillStatus } from './eway-bill.mjs';
 import { ensureParty } from './invoice.mjs';
 import { tdsReviewOf, answerTdsReview } from './tds-review.mjs';
 import { addReminder, completeReminder, listReminders } from './reminders.mjs';
@@ -420,7 +420,7 @@ export const TOOLS = [
   {
     name: 'govt_generate_ewb',
     title: 'Generate e-way bill',
-    description: 'Generate the e-way bill for an invoice from its IRN and transport details through the action gate (live switch and a matching approval). Refused without transport details or an IRN.',
+    description: 'Generate the e-way bill for an invoice through Sandbox by Quicko (GSP) and the action gate (live switch and a matching approval). Uses the IRN when the invoice has one, otherwise builds Part A from the invoice. Refused without transport details.',
     args: ['invoiceId', 'caApprovalId'],
     run: async (state, args = {}) => {
       const invoice = (state.invoices || []).find((item) => item.id === String(args.invoiceId || '').trim().toUpperCase());
@@ -428,13 +428,15 @@ export const TOOLS = [
       const status = ewayBillStatus(state, invoice);
       if (status.ewbNo) return fail('ALREADY_GENERATED', { ewbNo: status.ewbNo });
       if (!status.transport) return fail('TRANSPORT_REQUIRED', { hint: status.why });
-      if (!invoice.irn) return fail('IRN_REQUIRED', { hint: 'Generate the e-invoice first; MyCA generates the e-way bill from the IRN.' });
-      const out = await nicActions.generateEwayBill(state, { irn: invoice.irn, transport: transportPayload(status.transport), caApprovalId: args.caApprovalId }, resolveToolActor(args));
-      if (out?.ok && out.data?.EwbNo && !out.mock && !out.dryRunId) {
-        invoice.ewbNo = String(out.data.EwbNo);
-        invoice.ewbDate = out.data.EwbDt || '';
-        invoice.ewbValidity = out.data.Validity || '';
-      }
+      const actor = resolveToolActor(args);
+      const out = await runSandboxOperation({
+        operationId: 'ewb_generate',
+        actorId: actor.userId,
+        actor,
+        caApprovalId: args.caApprovalId || '',
+        params: { invoiceId: invoice.id },
+        clientId: activeClientId(state),
+      }, { state });
       if (!out?.ok) return fail(out?.error || 'EWB_FAILED', { ...out, invoiceId: invoice.id });
       return ok({ ...out, invoiceId: invoice.id, ewbNo: invoice.ewbNo || '' });
     },
@@ -527,28 +529,6 @@ export const TOOLS = [
     args: ['date'],
     run: async (state, args = {}) => {
       const out = await nicActions.rejectedIrns(state, String(args.date || ''), resolveToolActor(args));
-      return out.ok ? ok(out) : fail(out.error || 'LOOKUP_FAILED', out);
-    },
-  },
-  {
-    name: 'govt_nic_generate_ewb',
-    title: 'Generate e-Way Bill',
-    description: 'Generate an e-Way Bill against an existing IRN with transport details.',
-    args: ['irn', 'transport'],
-    run: async (state, args = {}) => {
-      if (!args.irn) return fail('irn required');
-      const out = await nicActions.generateEwayBill(state, { irn: String(args.irn), transport: args.transport }, resolveToolActor(args));
-      return out.ok ? ok(out) : fail(out.error || 'EWB_FAILED', out);
-    },
-  },
-  {
-    name: 'govt_nic_get_ewb',
-    title: 'Get e-Way Bill by IRN',
-    description: 'Fetch the e-Way Bill generated against an IRN.',
-    args: ['irn'],
-    run: async (state, args = {}) => {
-      if (!args.irn) return fail('irn required');
-      const out = await nicActions.getEwayBill(state, String(args.irn), resolveToolActor(args));
       return out.ok ? ok(out) : fail(out.error || 'LOOKUP_FAILED', out);
     },
   },
@@ -1678,7 +1658,8 @@ export const TOOLS = [
     args: ['invoiceId', 'provider', 'caApprovalId'],
     run: async (state, args = {}) => {
       if (!args.invoiceId) return fail('invoiceId required, e.g. INV-0001');
-      if (args.provider === 'sandbox') {
+      const provider = args.provider === 'nic' || args.provider === 'sandbox' ? args.provider : (getSandboxClient().isConfigured() ? 'sandbox' : 'nic');
+      if (provider === 'sandbox') {
         const actor = resolveToolActor(args);
         const out = await runSandboxOperation({
           operationId: 'einvoice_generate',

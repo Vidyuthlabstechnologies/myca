@@ -20,8 +20,6 @@ export const IRP_PATHS = {
   irnByDoc: (docType, docNo, docDate) =>
     `/eicore/v1.03/Invoice/irnbydocdetails?doctype=${encodeURIComponent(docType)}&docnum=${encodeURIComponent(docNo)}&docdate=${encodeURIComponent(docDate)}`,
   rejectedIrns: (date) => `/eicore/v1.03/Invoice/rejectedirns?date=${encodeURIComponent(date)}`,
-  generateEwb: '/eiewb/v1.03/ewaybill',
-  ewbByIrn: (irn) => `/eiewb/v1.03/ewaybill/irn/${encodeURIComponent(irn)}`,
 };
 
 function nicEnvironment(cfg) {
@@ -352,25 +350,6 @@ export async function nicGetRejectedIrns(date, cfgOrFetch = loadGovtConfig(), fe
   return call(cfg, fn, options, { method: 'GET', path: IRP_PATHS.rejectedIrns(date) });
 }
 
-export async function nicGenerateEwayBill(payload, cfgOrFetch = loadGovtConfig(), fetchFn = fetch, options = {}) {
-  if (!payload || !payload.Irn) return { ok: false, error: 'IRN_REQUIRED', hint: 'Pass { Irn, TransId, TransName, TransMode, Distance, VehNo, VehType, ... }.' };
-  const cfg = typeof cfgOrFetch === 'function' ? loadGovtConfig() : cfgOrFetch;
-  const fn = typeof cfgOrFetch === 'function' ? cfgOrFetch : fetchFn;
-  return call(cfg, fn, options, { path: IRP_PATHS.generateEwb, body: payload });
-}
-
-export async function nicGetEwayBill(irn, cfgOrFetch = loadGovtConfig(), fetchFn = fetch, options = {}) {
-  if (!irn) return { ok: false, error: 'IRN_REQUIRED' };
-  const cfg = typeof cfgOrFetch === 'function' ? loadGovtConfig() : cfgOrFetch;
-  const fn = typeof cfgOrFetch === 'function' ? cfgOrFetch : fetchFn;
-  return call(cfg, fn, options, { method: 'GET', path: IRP_PATHS.ewbByIrn(irn) });
-}
-
-export async function nicCancelEwayBill({ ewbNo, reason = '1', remark = '' } = {}, fetchFn = fetch, options = {}) {
-  if (!ewbNo) return { ok: false, error: 'EWB_NO_REQUIRED', hint: 'Cancelling an e-Way Bill uses the separate e-Way Bill System (api.ewaybillgst.gov.in), not the IRP. Wire it once EWB credentials exist.' };
-  return { ok: false, error: 'EWB_CANCEL_VIA_EWB_SYSTEM', ewbNo, reason, remark };
-}
-
 function extractIrn(path, body) {
   if (body?.Irn) return body.Irn;
   const m = String(path || '').match(/\/irn\/([^/?]+)/);
@@ -379,13 +358,10 @@ function extractIrn(path, body) {
 
 // Deterministic canned IRP responses for mock mode.
 function mockCallData(method, path, body) {
-  if (path === IRP_PATHS.generateEwb) {
-    return { Irn: body?.Irn || 'MOCKIRN', EwbNo: '271020000012345', EwbDt: '20/09/2026', Validity: '24/09/2026' };
-  }
   if (path === IRP_PATHS.cancelIrn) {
     return { Irn: body?.Irn || '', CancelDate: '20/09/2026 13:00:00', Status: 'CNL' };
   }
-  if (path.includes('/irnbyirn') || /\/(Invoice|ewaybill)\/irn\//.test(path)) {
+  if (path.includes('/irnbyirn') || /\/Invoice\/irn\//.test(path)) {
     const irn = extractIrn(path, body);
     return { Irn: irn, AckNo: `MOCK-ACK-${irn.slice(-6)}`, AckDt: '20/09/2026 12:00:00', SignedInvoice: `mock_jwt_${irn}.sig`, Status: 'ACT' };
   }

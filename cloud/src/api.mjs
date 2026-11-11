@@ -340,7 +340,7 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
     return paid.ok ? null : paid;
   }
   const billing = billingGiven || createBilling({ db, now, log });
-  const govt = createGovtActions({ connectors, withBooks: (...args) => runner.withBooks(...args) });
+  const govt = createGovtActions({ connectors, withBooks: (...args) => runner.withBooks(...args), fetchFn: gspFetch });
   const gstPortal = createGstPortal({ db, connectors, withBooks: (...args) => runner.withBooks(...args), billing, key: connectorKey, fetchFn: gspFetch, now });
   const quicko = createQuicko({ db, connectors, withBooks: (...args) => runner.withBooks(...args), key: connectorKey, fetchFn: gspFetch, now });
   const publicOrigin = (req) => {
@@ -795,11 +795,16 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
         if (action === 'tds-fvu') return gstPortal.tdsFvu(businessId, context, actor, body);
         return gstPortal.gstr1(businessId, context, actor, body);
       }
-      if (action === 'einvoice' || action === 'approvals') {
+      if (action === 'einvoice' || action === 'ewaybill' || action === 'approvals') {
         if (sharedView) throw httpError(403, 'SHARED_VIEW_READ_ONLY');
-        const allowed = action === 'einvoice' ? await billing.allows(businessId, 'einvoice') : { ok: true };
+        const allowed = action === 'approvals' ? { ok: true } : await billing.allows(businessId, 'einvoice');
         if (!allowed.ok) return allowed;
-        return action === 'einvoice' ? govt.einvoice(businessId, context, actor, body) : govt.approvals(businessId, context, actor, 'POST', body);
+        if (action === 'einvoice') return govt.einvoice(businessId, context, actor, body);
+        if (action === 'ewaybill') {
+          if (role === 'staff' && body.op !== 'get' && body.op !== 'consignee_list') throw httpError(403, 'NOT_FOR_STAFF');
+          return govt.ewaybill(businessId, context, actor, body);
+        }
+        return govt.approvals(businessId, context, actor, 'POST', body);
       }
       if (sharedView) {
         if (action === 'query') return runner.withSharedBooks(businessId, context, (session) => session.query(body.name, body.args || {}, actor));

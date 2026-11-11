@@ -15,8 +15,6 @@ import {
   nicCancelIrn,
   nicGetIrn,
   nicGetRejectedIrns,
-  nicGenerateEwayBill,
-  nicCancelEwayBill,
   nicSession,
   clearNicSession,
   nicAuthenticate,
@@ -43,8 +41,7 @@ test('nic endpoints: correct hosts and paths for sandbox and production', () => 
   assert.equal(IRP_PATHS.cancelIrn, '/eicore/v1.03/Invoice/Cancel');
   assert.equal(IRP_PATHS.irnByIrn('IRN1'), '/eicore/v1.03/Invoice/irn/IRN1');
   assert.match(IRP_PATHS.irnByDoc('INV', 'A1', '05/08/2026'), /doctype=INV&docnum=A1&docdate=05%2F08%2F2026/);
-  assert.equal(IRP_PATHS.generateEwb, '/eiewb/v1.03/ewaybill');
-  assert.equal(IRP_PATHS.ewbByIrn('IRN1'), '/eiewb/v1.03/ewaybill/irn/IRN1');
+  assert.equal(IRP_PATHS.generateEwb, undefined, 'e-way bills go through the GSP, not NIC directly');
   assert.equal(IRP_PATHS.health, '/eivital/v1.04/heartbeat/ping');
 });
 
@@ -107,15 +104,12 @@ test('nic: mock auth + IRN still works and stamps only the mock fields of the in
   assert.equal(typeof session.active, 'boolean');
 });
 
-test('nic: cancel validates the reason code and e-Way Bill cancel is honest about the EWB system', async () => {
+test('nic: cancel validates the reason code', async () => {
   const state = createState();
   const inv = createInvoice(state, { partyName: 'Retail', partyGstin: '', partyState: '27', lines: [{ description: 'x', qty: 1, rate: 100, gstRate: 5 }] });
   assert.equal((await nicCancelIrn(state, { invoiceId: inv.invoice.id, reason: '9' })).error, 'IRN_REQUIRED');
   state.invoices[0].irn = 'IRN-1';
   assert.equal((await nicCancelIrn(state, { invoiceId: inv.invoice.id, reason: '9' })).error, 'INVALID_CANCEL_REASON');
-  const ewb = await nicCancelEwayBill({ ewbNo: '123' });
-  assert.equal(ewb.error, 'EWB_CANCEL_VIA_EWB_SYSTEM');
-  assert.equal((await nicGenerateEwayBill({})).error, 'IRN_REQUIRED');
   assert.equal((await nicGetRejectedIrns('2026-09-19')).error, 'DATE_REQUIRED');
 });
 
