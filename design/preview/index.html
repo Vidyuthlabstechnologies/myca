@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en" data-country="in">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>MyCA Design System</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="../generated/css/myca.css">
+<style>
+  /* Layout: a quiet token reference on top, then one phone-sized card per country in a wrapping grid. */
+  body { margin: 0; background: var(--canvas); color: var(--ink); font-size: var(--type-body-size); line-height: var(--type-body-leading); -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: var(--size-page); margin: 0 auto; padding-block: var(--space-8) var(--space-16); padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: var(--space-10); }
+  header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-4); }
+  .brand { display: inline-flex; align-items: center; gap: 10px; font-weight: 600; font-size: 20px; letter-spacing: -0.4px; }
+  .brand svg { width: 28px; height: 28px; }
+  .brand svg rect { fill: var(--ink); }
+  .brand svg path { stroke: var(--on-ink); }
+  h1 { font-size: var(--type-headline-size); font-weight: var(--type-headline-weight); letter-spacing: var(--type-headline-tracking); line-height: var(--type-headline-leading); margin: 0; text-wrap: balance; }
+  h2 { font-size: var(--type-overline-size); font-weight: 600; letter-spacing: var(--type-overline-tracking); text-transform: uppercase; color: var(--muted); margin: 0 0 var(--space-3); }
+  .lede { color: var(--muted); max-width: 62ch; margin: var(--space-2) 0 0; }
+  .toggle { display: inline-flex; border: 1px solid var(--line); border-radius: var(--radius-control); overflow: hidden; background: var(--surface); }
+  .toggle button { font: inherit; font-size: 14px; font-weight: 500; padding: 8px 14px; border: 0; background: transparent; color: var(--muted); cursor: pointer; }
+  .toggle button[aria-pressed="true"] { background: var(--ink); color: var(--on-ink); }
+  .toggle button:focus-visible, .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: var(--space-4); }
+  .country { background: var(--canvas); border: 1px solid var(--line); border-radius: var(--radius-sheet); padding: var(--space-5); display: grid; gap: var(--space-4); align-content: start; min-width: 0; }
+  .country-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
+  .wordmark { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; font-size: 17px; letter-spacing: -0.3px; }
+  .wordmark svg { width: 22px; height: 22px; }
+  .wordmark svg rect { fill: var(--ink); }
+  .wordmark svg path { stroke: var(--on-ink); }
+  .wordmark em { font-style: normal; color: var(--accent); font-weight: 500; }
+  .status { font-size: var(--type-caption-size); color: var(--muted); }
+  .swatches { display: flex; gap: 6px; }
+  .swatches span { width: 22px; height: 22px; border-radius: 6px; border: 1px solid var(--line); }
+  .panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-card); }
+  .row { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-3); padding: 12px 14px; }
+  .row + .row { border-top: 1px solid var(--line); }
+  .row span:first-child { color: var(--muted); font-size: var(--type-small-size); }
+  .money { font-weight: 600; white-space: nowrap; }
+  .money.in { color: var(--accent); }
+  .big { padding: 14px; display: grid; gap: 2px; }
+  .big .money { font-size: var(--type-display-size); font-weight: var(--type-display-weight); letter-spacing: var(--type-display-tracking); line-height: var(--type-display-leading); }
+  .notice { background: var(--warn-soft); color: var(--ink); border-radius: var(--radius-control); padding: 10px 12px; font-size: var(--type-small-size); display: flex; gap: 8px; }
+  .notice b { color: var(--warn); }
+  .tags { display: flex; flex-wrap: wrap; gap: var(--space-3); }
+  .tag { display: inline-flex; align-items: center; gap: 6px; font-size: var(--type-caption-size); font-weight: 600; }
+  .tag::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  .tag.good { color: var(--accent); }
+  .tag.warn { color: var(--warn); }
+  .tag.danger { color: var(--danger); }
+  .tag.neutral { color: var(--muted); }
+  .actions { display: flex; gap: var(--space-2); flex-wrap: wrap; }
+  .btn { font: inherit; font-size: 15px; font-weight: 600; min-height: 44px; padding: 0 16px; border-radius: var(--radius-control); border: 1px solid var(--line); background: var(--surface); color: var(--ink); cursor: pointer; }
+  .btn.primary { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+  .facts { font-size: var(--type-caption-size); color: var(--muted); display: grid; grid-template-columns: auto 1fr; gap: 2px var(--space-3); margin: 0; }
+  .facts dt { color: var(--faint); }
+  .facts dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+  .bahi { display: flex; align-items: center; gap: var(--space-3); font-size: var(--type-small-size); color: var(--muted); }
+  .bahi img { width: 56px; height: 56px; flex: none; }
+  .tokens { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: var(--space-4); }
+  .tokens .panel { padding: var(--space-4); min-width: 0; }
+  .scale { display: grid; gap: 6px; }
+  .scale div { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); white-space: nowrap; overflow: hidden; }
+  .scale small { color: var(--faint); font-size: 12px; font-variant-numeric: tabular-nums; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip { display: grid; gap: 4px; font-size: 12px; color: var(--muted); }
+  .chip i { display: block; width: 52px; height: 36px; border-radius: 8px; border: 1px solid var(--line); }
+  .bars { display: grid; gap: 6px; }
+  .bars div { display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .bars b { display: block; height: 10px; background: var(--accent); border-radius: 3px; }
+  [dir="rtl"] .row, [dir="rtl"] .country-head { direction: rtl; }
+  @media (prefers-reduced-motion: no-preference) { .btn, .toggle button { transition: background var(--motion-duration-quick) var(--motion-easing-standard); } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <div class="brand"><svg viewBox="0 0 48 48" aria-hidden="true"><rect width="48" height="48" rx="11"/><path d="M13 34V15l11 13 11-13v19" fill="none" stroke-width="3.4" stroke-linecap="square"/></svg>MyCA design system</div>
+      <h1 style="margin-top: 16px">One look, seven countries</h1>
+      <p class="lede">Every country app shares the ink-on-paper surfaces, type and Bahi. Only the accent, the language and the local formats change. Money and dates below come from each country's locale, not from hand-written rules.</p>
+    </div>
+    <div class="toggle" role="group" aria-label="Theme">
+      <button type="button" id="theme-system" data-theme-choice="system" aria-pressed="true">System</button>
+      <button type="button" id="theme-light" data-theme-choice="light" aria-pressed="false">Light</button>
+      <button type="button" id="theme-dark" data-theme-choice="dark" aria-pressed="false">Dark</button>
+    </div>
+  </header>
+
+  <section>
+    <h2>Countries</h2>
+    <div class="grid" id="countries"></div>
+  </section>
+
+  <section>
+    <h2>Shared tokens</h2>
+    <div class="tokens">
+      <div class="panel"><h2>Type scale (Inter)</h2><div class="scale" id="scale"></div></div>
+      <div class="panel"><h2>Surfaces and states</h2><div class="chips" id="surfaces"></div></div>
+      <div class="panel"><h2>Spacing (4-point)</h2><div class="bars" id="spacing"></div></div>
+    </div>
+  </section>
+</div>
+<script type="module">
+  import { COUNTRIES, TOKENS, formatMoney, formatDate, taxYearLabel, look, localeFor, direction } from '../web/index.mjs';
+
+  const MASCOT = '../flutter/myca_design/assets/mascot/wave.png';
+  const words = {
+    en: { in: 'Money in', out: 'Money out', bal: 'Balance', due: (t, d) => `${t} due on ${d}`, ok: 'Paid', filed: 'Filed', late: 'Overdue', draft: 'Draft', review: 'Review', approve: 'Approve', hi: "Hi, I'm Bahi. Nothing is filed or paid until you approve it." },
+    ms: { in: 'Wang masuk', out: 'Wang keluar', bal: 'Baki', due: (t, d) => `${t} perlu dibayar pada ${d}`, ok: 'Dibayar', filed: 'Telah difailkan', late: 'Tertunggak', draft: 'Draf', review: 'Semak', approve: 'Luluskan', hi: 'Hai, saya Bahi. Tiada apa yang difailkan atau dibayar tanpa kelulusan anda.' },
+    ar: { in: 'الوارد', out: 'الصادر', bal: 'الرصيد', due: (t, d) => `${t} مستحق في ${d}`, ok: 'مدفوع', filed: 'تم التقديم', late: 'متأخر', draft: 'مسودة', review: 'مراجعة', approve: 'موافقة', hi: 'مرحبًا، أنا باهي. لا يُقدَّم أو يُدفع أي شيء حتى توافق عليه.' },
+  };
+  const samples = { IN: [184250, 61980.5], US: [12480, 3920.75], MY: [28640, 9120.4], GB: [9840, 2610.2], CA: [11200, 4385.9], AE: [46300, 15920], AU: [13750, 5210.65] };
+  const mark = '<svg viewBox="0 0 48 48" aria-hidden="true"><rect width="48" height="48" rx="11"/><path d="M13 34V15l11 13 11-13v19" fill="none" stroke-width="3.4" stroke-linecap="square"/></svg>';
+  const el = (html) => { const t = document.createElement('template'); t.innerHTML = html.trim(); return t.content.firstElementChild; };
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+
+  const cards = [];
+  for (const [code, facts] of Object.entries(COUNTRIES)) {
+    const lang = code === 'MY' ? 'ms' : code === 'AE' ? 'ar' : 'en';
+    cards.push({ code, facts, lang: 'en' });
+    if (lang !== 'en') cards.push({ code, facts, lang });
+  }
+  const grid = document.getElementById('countries');
+  for (const { code, facts, lang } of cards) {
+    const w = words[lang];
+    const locale = localeFor(code, lang);
+    const [inflow, outflow] = samples[code];
+    const l = look(code);
+    const suffix = facts.app.label.replace('MyCA', '').trim();
+    const card = el(`
+      <article class="country" data-country="${code.toLowerCase()}" lang="${locale}" dir="${direction(locale)}">
+        <div class="country-head">
+          <span class="wordmark">${mark}MyCA${suffix ? ` <em>${esc(suffix)}</em>` : ''}</span>
+          <span class="swatches" aria-label="Accent colours"><span style="background:${l.accent}"></span><span style="background:${l.accentSoft}"></span><span style="background:${l.highlight}"></span></span>
+        </div>
+        <div class="panel">
+          <div class="big"><span class="status">${w.bal}</span><span class="money" dir="ltr">${formatMoney(inflow - outflow, code, { language: lang })}</span></div>
+          <div class="row"><span>${w.in}</span><span class="money in" dir="ltr">${formatMoney(inflow, code, { language: lang })}</span></div>
+          <div class="row"><span>${w.out}</span><span class="money" dir="ltr">${formatMoney(-outflow, code, { language: lang })}</span></div>
+        </div>
+        <div class="notice"><b aria-hidden="true">●</b><span>${esc(w.due(facts.taxName, formatDate('2026-11-20', code, { language: lang })))}</span></div>
+        <div class="tags"><span class="tag good">${w.ok}</span><span class="tag neutral">${w.filed}</span><span class="tag warn">${w.draft}</span><span class="tag danger">${w.late}</span></div>
+        <div class="actions"><button class="btn primary" type="button">${w.approve}</button><button class="btn" type="button">${w.review}</button></div>
+        <div class="bahi"><img src="${MASCOT}" alt="Bahi waving"><span>${esc(w.hi)}</span></div>
+        <dl class="facts" dir="ltr">
+          <dt>Country</dt><dd>${esc(facts.name)} · ${esc(facts.status)}</dd>
+          <dt>Locale</dt><dd>${locale} · ${facts.currency}</dd>
+          <dt>Tax ID</dt><dd>${esc(facts.taxId)} · ${esc(facts.taxName)}</dd>
+          <dt>Year</dt><dd>${esc(taxYearLabel(code, 2026))}</dd>
+          <dt>Dates</dt><dd>${formatDate('2026-02-03', code, { style: 'short' })} · ${formatDate('2026-02-03', code, { language: lang, style: 'long' })}</dd>
+        </dl>
+      </article>`);
+    grid.append(card);
+  }
+
+  const scale = document.getElementById('scale');
+  for (const [name, t] of Object.entries(TOKENS.type)) {
+    scale.append(el(`<div><span style="font-size:${t.size}px;font-weight:${t.weight};letter-spacing:${t.tracking}px;line-height:${t.leading}${name === 'overline' ? ';text-transform:uppercase' : ''}">${name}</span><small>${t.size} / ${t.weight}</small></div>`));
+  }
+  const surfaces = document.getElementById('surfaces');
+  for (const name of ['canvas', 'surface', 'sunken', 'line', 'faint', 'muted', 'ink', 'warn', 'warn-soft', 'danger', 'danger-soft']) {
+    surfaces.append(el(`<span class="chip"><i style="background:var(--${name})"></i>${name}</span>`));
+  }
+  surfaces.append(el(`<span class="chip"><i style="background:${TOKENS.color.bahi.red}"></i>bahi</span>`));
+  const spacing = document.getElementById('spacing');
+  for (const [step, px] of Object.entries(TOKENS.space)) {
+    if (px === 0) continue;
+    spacing.append(el(`<div><span style="width:28px">${step}</span><b style="width:${px * 2}px"></b>${px}px</div>`));
+  }
+
+  const buttons = document.querySelectorAll('[data-theme-choice]');
+  const setTheme = (choice) => {
+    if (choice === 'system') document.documentElement.removeAttribute('data-theme');
+    else document.documentElement.setAttribute('data-theme', choice);
+    buttons.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.themeChoice === choice)));
+  };
+  buttons.forEach((b) => b.addEventListener('click', () => setTheme(b.dataset.themeChoice)));
+</script>
+</body>
+</html>
