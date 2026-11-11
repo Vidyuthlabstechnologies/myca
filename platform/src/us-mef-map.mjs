@@ -30,6 +30,8 @@ export const FORM_1040_LINES = Object.freeze({
   '11': 'AdjustedGrossIncomeAmt',
   '12': 'TotalItemizedOrStandardDedAmt',
   '13': 'QualifiedBusinessIncomeDedAmt',
+  '13a': 'QualifiedBusinessIncomeDedAmt',
+  '13b': 'TotalAdditionalDeductionsAmt',
   '14': 'TotalDeductionsAmt',
   '15': 'TaxableIncomeAmt',
   '16': 'TaxAmt',
@@ -145,6 +147,7 @@ export const SCHEDULE_DOCUMENTS = Object.freeze({
   },
   SE: {
     element: 'IRS1040ScheduleSE',
+    repeats: true,
     lines: {
       '2': 'NetProfitOrLossAmt',
       '3': 'CombinedSEIncomeAmt',
@@ -152,6 +155,7 @@ export const SCHEDULE_DOCUMENTS = Object.freeze({
       '6': 'TotalNetEarningsFromSelfEmplAmt',
       '7': 'MaximumSocSecWagesAmt',
       '8a': 'TotalSocSecTipsAmt',
+      '9': 'SocSecWageBaseLessWagesAmt',
       '10': 'SocialSecurityTaxAmt',
       '11': 'MedicareTaxAmt',
       '12': 'SelfEmploymentTaxAmt',

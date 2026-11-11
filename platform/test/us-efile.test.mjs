@@ -99,7 +99,7 @@ test('an incomplete return lists every problem with the screen that fixes it and
 });
 
 test('Schedule C and SE lines map to their MeF documents', () => {
-  const withC = computed1040({ filingStatus: 'single', spouse: null, dependents: [], schedules: { C: [{ businessName: 'Luna Bakery', activityCode: '311810', lines: { '1': 40000, '28': 12000, '31': 28000 } }], SE: { '2': 28000, '12': 3956, '13': 1978 }, '1': { '3': 28000, '15': 1978, '26': 1978 }, '2': { '4': 3956, '21': 3956 } } });
+  const withC = computed1040({ filingStatus: 'single', spouse: null, dependents: [], schedules: { C: [{ businessName: 'Luna Bakery', activityCode: '311810', lines: { '1': 40000, '28': 12000, '31': 28000 } }], SE: [{ owner: 'taxpayer', lines: { '2': 28000, '12': 3956, '13': 1978 } }], '1': { '3': 28000, '15': 1978, '26': 1978 }, '2': { '4': 3956, '21': 3956 } } });
   const built = buildMefSubmission(withC, { efin: '123456', softwareId: '12345678', submissionId: makeSubmissionId('123456', '2026-02-10', 1), timestamp: 't', signature: { taxpayer: { pin: '12345', priorYearPin: '11111' }, date: '2026-02-10' } });
   assert.equal(built.ok, true, JSON.stringify(built.problems));
   assert.ok(built.xml.includes('<IRS1040ScheduleC documentId="IRS1040ScheduleC-1"><BusinessNameLine1Txt>Luna Bakery</BusinessNameLine1Txt><PrincipalBusinessActivityCd>311810</PrincipalBusinessActivityCd><TotalGrossReceiptsAmt>40000</TotalGrossReceiptsAmt>'));

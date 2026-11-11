@@ -16,6 +16,7 @@ const IP_PIN = /^\d{6}$/;
 const ROUTING = /^\d{9}$/;
 const ACCOUNT = /^[A-Za-z0-9-]{1,17}$/;
 const DEVICE_ID = /^[0-9A-Fa-f]{40}$/;
+const NON_LINE_FIELDS = new Set(['lines', 'id', 'owner', 'source', 'expenses', 'belowMinimum']);
 const IPV4 = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/;
 
 function el(name, value) {
@@ -224,10 +225,10 @@ function schedulesXml(schedules, problems) {
       continue;
     }
     const items = spec.repeats ? (Array.isArray(value) ? value : [value]) : [value];
-    items.forEach((item, index) => {
-      const lines = item.lines || item;
+    items.filter((item) => item && !item.belowMinimum).forEach((item, index) => {
+      const lines = item.lines && typeof item.lines === 'object' ? item.lines : item;
       const text = spec.text ? Object.entries(spec.text).map(([field, name]) => el(name, item[field])).join('') : '';
-      const amounts = orderedAmounts(Object.fromEntries(Object.entries(lines).filter(([k]) => !(spec.text && k in spec.text) && k !== 'lines')), spec.lines, `Schedule ${key}`, problems);
+      const amounts = orderedAmounts(Object.fromEntries(Object.entries(lines).filter(([k]) => !(spec.text && k in spec.text) && !NON_LINE_FIELDS.has(k))), spec.lines, `Schedule ${key}`, problems);
       const id = `${spec.element}${spec.repeats ? `-${index + 1}` : ''}`;
       docs.push(group(spec.element, text + amounts, ` documentId="${id}"`));
     });

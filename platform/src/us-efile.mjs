@@ -57,7 +57,7 @@ export function efileMode() {
 async function engineReturn(state, taxYear) {
   let engine;
   try {
-    engine = await import('./us-1040.mjs');
+    engine = await import('./us-return.mjs');
   } catch {
     return fail('US_RETURN_ENGINE_MISSING', { hint: 'The Form 1040 engine is not installed in this build.' });
   }

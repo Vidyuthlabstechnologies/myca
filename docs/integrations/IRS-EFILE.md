@@ -9,7 +9,7 @@ must obtain before the first real return goes to the IRS.
 | Module | What it does |
 |---|---|
 | `platform/src/us-mef-map.mjs` | Form 1040, Schedule 1, 2, 3, C, SE and W-2 lines to MeF element names. One table; change names here only. |
-| `platform/src/us-mef-xml.mjs` | Builds the return XML and the submission manifest from the computed 1040 (`computedForm1040ForFiling` in `us-1040.mjs`). Refuses with a list of problems (code, message, fix, step) instead of dropping a line it cannot map. |
+| `platform/src/us-mef-xml.mjs` | Builds the return XML and the submission manifest from the computed 1040 (`computedForm1040ForFiling` in `us-return.mjs`). Refuses with a list of problems (code, message, fix, step) instead of dropping a line it cannot map. |
 | `platform/src/us-mef-zip.mjs` | The transmission zip (one zip per submission holding `manifest/manifest.xml` and `xml/submission.xml`). No dependency; `node:zlib` crc32. |
 | `platform/src/us-mef-sim.mjs` | Local acknowledgement simulator used in sandbox mode. |
 | `platform/src/us-mef-settings.mjs` | Reads the IRS credentials from the environment and says which are missing. |
