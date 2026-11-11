@@ -25,6 +25,7 @@ import { sendNotification } from './notifications.mjs';
 import { probeGovt, probeTcp } from './reachability.mjs';
 import { getChannelClient } from './channel-client.mjs';
 import { sendToTally } from './tally-client.mjs';
+import { IrsMefClient, getIrsMefClient } from './us-mef-client.mjs';
 
 export const DRY_RUN_LIMIT = 200;
 
@@ -99,9 +100,12 @@ export const ACTION_CLASSES = Object.freeze(Object.assign(Object.create(null), {
   zoho_push_invoices: write('channel', ['channel.zoho'], { timeoutMs: 10 * MINUTE_MS }),
   plaid_link: read('channel', ['channel.plaid']),
   taxjar_rate: read('channel', ['channel.taxjar']),
+  pinwheel_read: read('channel', ['channel.pinwheel']),
   gusto_token: read('channel', ['channel.gusto']),
   track1099_read: read('channel', ['channel.track1099']),
   track1099_import: write('channel', ['channel.track1099'], { timeoutMs: 5 * MINUTE_MS }),
+  irs_mef_send: write('irs', ['irs.sendSubmissions'], { irreversible: true, timeoutMs: 3 * MINUTE_MS }),
+  irs_mef_acks: read('irs', ['irs.getAcks'], { timeoutMs: 2 * MINUTE_MS }),
   ...Object.fromEntries(QUICKO_OPERATIONS.map((endpoint) => [
     endpoint.id,
     entry(endpoint.actionClass, 'sandbox_operation', QUICKO_USES, { irreversible: endpoint.irreversible, timeoutMs: endpoint.job ? 3 * MINUTE_MS : 90000 }),
@@ -185,6 +189,7 @@ const CHANNEL_TRANSPORT = Object.freeze({
   zoho: (ctx) => (request) => signalled(getChannelClient(), ctx.signal).zoho(request, ctx.signal),
   plaid: (ctx) => (request) => signalled(getChannelClient(), ctx.signal).plaid(request, ctx.signal),
   taxjar: (ctx) => (request) => signalled(getChannelClient(), ctx.signal).taxjar(request, ctx.signal),
+  pinwheel: (ctx) => (request) => signalled(getChannelClient(), ctx.signal).pinwheel(request, ctx.signal),
   gusto: (ctx) => (request) => signalled(getChannelClient(), ctx.signal).gusto(request, ctx.signal),
   track1099: (ctx) => (request) => signalled(getChannelClient(), ctx.signal).track1099(request, ctx.signal),
 });
@@ -205,6 +210,7 @@ const TRANSPORT_TABLES = Object.freeze({
 const TRANSPORT_CLIENTS = Object.freeze({
   sandbox: { Client: SandboxClient, current: getSandboxClient },
   nim: { Client: NimClient, current: getNimClient },
+  irs: { Client: IrsMefClient, current: getIrsMefClient },
 });
 
 function signalled(client, signal) {
@@ -344,7 +350,7 @@ function appendDryRun(state, record) {
   return stored;
 }
 
-export const TEST_MODE_FAMILIES = Object.freeze(new Set(['sandbox', 'sandbox_operation', 'nic', 'govt', 'provider', 'nim']));
+export const TEST_MODE_FAMILIES = Object.freeze(new Set(['sandbox', 'sandbox_operation', 'nic', 'govt', 'provider', 'nim', 'irs']));
 
 function recordDryRun(action, payload, reason = 'LIVE_CALLS_DISABLED') {
   const beforeHash = stateDigest(action.state);

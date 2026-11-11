@@ -97,6 +97,11 @@ and [`README.md`](README.md) for what is left and how it is being done.
   the payables and the bank debits on the check dates, previewed and confirmed from the pull's
   reminder on the desktop or the phone, skipped when already posted, and left out of MyCA's own
   941 draft because the provider files it
+- IRS e-file for Form 1040 (2026-11-11): Form 8879 self-select PIN signing bound to the
+  return, MeF XML and manifest from the computed 1040, the transmission zip, a WS-Security
+  A2A client behind the action gate, acknowledgements and rejections with the fix and the
+  screen; sandbox simulator by default, never validated against the IRS schema or ATS yet
+  (`docs/integrations/IRS-EFILE.md`)
 - Track1099 and the hosted connector flows (2026-10-21): the 1099-NEC CSV in Track1099's own
   template, payers listed, the import uploaded behind the gate with a CA approval and its job kept;
   the hosted API runs Plaid Link token and exchange, the Gusto connect and callback, and TaxJar

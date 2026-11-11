@@ -75,6 +75,7 @@ import { scheduleCDocument, cpaPack } from './us-cpa-pack.mjs';
 import { form941File, w2File } from './us-payroll-files.mjs';
 import { usPayrollFor, approveUsPayroll, listUsPayroll, usPayslip, usPayrollFilings, setWithholding, setSutaRate, listSutaRates } from './us-payroll.mjs';
 import { scheduleCSummary, estimatedTaxDates } from './us-owner-tax.mjs';
+import { signUsReturn, fileUsReturn, usEfileStatus, fetchUsEfileAcks, usEfileSetup } from './us-efile.mjs';
 import { importUsInvoices } from './import-us-books.mjs';
 import { exportTrialBalance } from './trial-balance-export.mjs';
 import { profitAndLoss, balanceSheet, cashFlow, customerStatement } from './statements.mjs';
@@ -122,7 +123,7 @@ import { providerCatalog, providerRequirementMap } from './provider-catalog.mjs'
 import { sandboxAdapterPlan } from './sandbox-adapter-contract.mjs';
 import { getSandboxClient, resetSandboxClient } from './sandbox-client.mjs';
 import { saveSandboxKeys, publicSandboxKeys, clearSandboxKeys } from './sandbox-keys.mjs';
-import { plaidLinkSandbox, plaidLinkToken, plaidExchange, taxjarRate, gustoConnectUrl, gustoCallback, usConnectorsStatus } from './us-connectors.mjs';
+import { plaidLinkSandbox, plaidLinkToken, plaidExchange, taxjarRate, gustoConnectUrl, gustoCallback, usConnectorsStatus, pinwheelLinkToken, payrollTaxForms, importPayrollTaxForms } from './us-connectors.mjs';
 import { track1099Csv, track1099Issuers, track1099Import, track1099Job } from './track1099.mjs';
 import { postPayrollImport, listPayrollImports } from './us-payroll-import.mjs';
 import { getNimClient } from './nim-client.mjs';
@@ -921,6 +922,53 @@ export const TOOLS = [
     description: 'A printable Schedule C summary for the year with the Schedule SE draft, as one HTML file for the CPA. Read-only.',
     args: ['year', 'filingStatus', 'otherSocialSecurityWages'],
     run: (state, args = {}) => scheduleCDocument(state, args),
+  },
+  {
+    name: 'sign_us_return',
+    title: 'Sign the federal return (Form 8879)',
+    description: 'Sign the computed Form 1040 for a tax year with the self-select PIN of the taxpayer (and spouse when filing jointly), the prior-year AGI or prior-year PIN, any Identity Protection PIN, and the refund (direct deposit or check) or payment (direct debit or later) choice. Checks the return is complete enough to e-file and binds the signature to this exact return. PINs and bank details are sealed. US only.',
+    args: ['taxYear', 'taxpayerPin', 'spousePin', 'priorYear', 'priorYearAgi', 'priorYearPin', 'identityProtectionPin', 'consent8879', 'refund', 'payment', 'device'],
+    run: async (state, args = {}) => {
+      const out = await signUsReturn(state, args, resolveToolActor(args, 'actorId', 'owner'));
+      return out.ok ? ok(out) : fail(out.error, out);
+    },
+  },
+  {
+    name: 'file_us_return',
+    title: 'E-file the federal return with the IRS',
+    description: 'Build the IRS MeF submission for the signed Form 1040 and transmit it. In sandbox mode (no IRS credentials, or the IRS test system) the return is checked by a local simulator or IRS assurance testing and nothing reaches the IRS production system. Refuses if the return is not signed or changed after signing. US only. Cannot be undone once accepted.',
+    args: ['taxYear', 'caApprovalId'],
+    run: async (state, args = {}) => {
+      const out = await fileUsReturn(state, args, resolveToolActor(args, 'actorId', 'owner'));
+      return out.ok ? ok(out) : fail(out.error, out);
+    },
+  },
+  {
+    name: 'us_efile_status',
+    title: 'Federal e-file status',
+    description: 'Where the federal return for a tax year stands: not filed, signed, submitted, accepted or rejected, with the submission id, the acceptance time, and for a rejection each IRS reject code with what to fix and which screen fixes it. Says whether this is sandbox or live. US only. Read-only.',
+    args: ['taxYear'],
+    run: (state, args = {}) => {
+      const out = usEfileStatus(state, args);
+      return out.ok ? ok(out) : fail(out.error, out);
+    },
+  },
+  {
+    name: 'fetch_us_efile_acks',
+    title: 'Collect IRS acknowledgements',
+    description: 'Ask the IRS for the acknowledgements of every submitted federal return still waiting for one and record each acceptance or rejection. Does nothing for sandbox returns checked by the local simulator. US only.',
+    args: [],
+    run: async (state, args = {}) => {
+      const out = await fetchUsEfileAcks(state, args, resolveToolActor(args, 'actorId', 'owner'));
+      return out.ok ? ok(out) : fail(out.error, out);
+    },
+  },
+  {
+    name: 'us_efile_setup',
+    title: 'IRS e-file setup',
+    description: 'Whether MyCA is set up to transmit to the IRS: sandbox or live, which IRS credentials (ETIN, EFIN, software ID, A2A system id, strong-authentication certificate) are still missing, and the MeF host. Holds no secrets. US only. Read-only.',
+    args: [],
+    run: () => ok(usEfileSetup()),
   },
   {
     name: 'cpa_pack',
@@ -2336,6 +2384,27 @@ export const TOOLS = [
     title: 'US connectors',
     description: 'Plaid, TaxJar, Gusto and Track1099 on this machine: what is saved (never a secret), whether each is linked, and the Gusto redirect URLs to register. Read-only.',
     run: () => usConnectorsStatus(),
+  },
+  {
+    name: 'pinwheel_link_token',
+    title: 'Connect an employer for W-2s',
+    description: 'Create the short-lived Pinwheel Link token the app opens Pinwheel Link with, so the owner can sign in to their employer or payroll provider and share their W-2s. Behind the channel pull switch. Read-only.',
+    args: ['userId'],
+    run: async (state, args = {}) => pinwheelLinkToken(state, args, resolveToolActor(args)),
+  },
+  {
+    name: 'payroll_tax_forms',
+    title: 'W-2s from payroll',
+    description: 'List the W-2 and 1099-NEC/MISC forms the linked employer or payroll provider has for a tax year, with every box read from Pinwheel (in dollars). Pass the accountId Pinwheel Link returned the first time; it is remembered. Adds nothing; import_payroll_tax_forms does. Read-only.',
+    args: ['taxYear', 'accountId', 'owner'],
+    run: async (state, args = {}) => payrollTaxForms(state, args, resolveToolActor(args)),
+  },
+  {
+    name: 'import_payroll_tax_forms',
+    title: 'Add W-2s from payroll to the return',
+    description: 'Fetch the chosen forms again from Pinwheel and add them to the US return exactly as the employer reported them. Skips a form already added. Needs confirmation.',
+    args: ['taxYear', 'taxFormIds', 'accountId', 'owner'],
+    run: async (state, args = {}) => importPayrollTaxForms(state, args, resolveToolActor(args)),
   },
   {
     name: 'plaid_link_sandbox',
