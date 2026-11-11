@@ -302,7 +302,7 @@ export async function importPayrollTaxForms(state, args = {}, actor, options = {
   if (!pulled.ok) return pulled;
   if (pulled.mock) return { ok: true, data: { taxYear: pulled.taxYear, mock: true, added: [], wouldAdd: pulled.read.filter((r) => r.form).map((r) => ({ taxFormId: r.taxFormId, kind: r.form.kind, payer: r.form.payer, amounts: r.form.fields })), note: 'Mock mode is on, so these are sample figures and nothing was added to the return.' } };
   const usReturn = options.usReturn || await import('./us-return.mjs');
-  const existing = new Set((state.usReturns?.[pulled.taxYear]?.forms || []).map((f) => f.documentId).filter(Boolean));
+  const existing = new Set((usReturn.listUsTaxForms(state, { taxYear: pulled.taxYear })?.data?.forms || []).map((f) => f.documentId).filter(Boolean));
   const added = [];
   const skipped = pulled.read.filter((r) => r.skipped).map((r) => ({ taxFormId: r.taxFormId, reason: r.skipped }));
   const failed = [];

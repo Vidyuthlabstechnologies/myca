@@ -58,6 +58,9 @@ function pinwheelFake(log) {
 
 function fakeUsReturn() {
   return {
+    listUsTaxForms(state, args) {
+      return { ok: true, data: { forms: (state.usReturns?.[args.taxYear]?.forms || []).map((f) => ({ id: f.id, documentId: f.documentId || '' })) } };
+    },
     addUsTaxForm(state, args) {
       if (!args.payer) return { ok: false, error: 'US_TAX_FORM_INVALID', problems: ['Payer name is required.'] };
       if (!state.usReturns) state.usReturns = {};
