@@ -15,6 +15,8 @@ import { saveGstr3bToPortal, gstr3bPortalLiability, offsetGstr3bOnPortal, fileGs
 import { aaBankFeed } from './aa-import.mjs';
 import { askKnowledge } from './knowledge.mjs';
 import { askTax, reviewIncomeTaxReturn, taxModules, taxPlan } from './tax-assistant.mjs';
+import { itrKnowledge } from './itr-knowledge.mjs';
+import { checkItrJson } from './itr-json-check.mjs';
 import { pushZohoInvoices } from './zoho-push.mjs';
 import { booksAuditLedger } from './audit-ledger.mjs';
 import { salaryPrivate } from './employees.mjs';
@@ -63,13 +65,17 @@ import { countryOf, isCountry, toolServesCountry } from './country.mjs';
 import { createUsInvoice, createUsPurchase, setSalesTaxRate, listSalesTaxRates, setContractor, contractorPayments } from './us-sales.mjs';
 import { rulesStatus } from './rules-status.mjs';
 import { runDailyAutomation, automationStatus } from './automation.mjs';
-import { readDocument } from './document-reader.mjs';
+import { readDocument, readUsTaxDocument, readIrsLetter } from './document-reader.mjs';
+import { usSupportedForms, usWithholdingCheck, usEstimatedPayments } from './us-planning.mjs';
 import { amendInvoice, listAmendments } from './invoice-amendments.mjs';
 import { scheduleSe } from './us-se-tax.mjs';
+import { usReturnPdf } from './us-return-pdf.mjs';
+import { usTaxpayer, setUsTaxpayer, addUsTaxForm, removeUsTaxForm, answerUsInterview, listUsTaxForms, usInterview, usReturnReview, usReturnStatus, usFormKinds, usTaxEstimate } from './us-return.mjs';
 import { scheduleCDocument, cpaPack } from './us-cpa-pack.mjs';
 import { form941File, w2File } from './us-payroll-files.mjs';
 import { usPayrollFor, approveUsPayroll, listUsPayroll, usPayslip, usPayrollFilings, setWithholding, setSutaRate, listSutaRates } from './us-payroll.mjs';
 import { scheduleCSummary, estimatedTaxDates } from './us-owner-tax.mjs';
+import { signUsReturn, fileUsReturn, usEfileStatus, fetchUsEfileAcks, usEfileSetup } from './us-efile.mjs';
 import { importUsInvoices } from './import-us-books.mjs';
 import { exportTrialBalance } from './trial-balance-export.mjs';
 import { profitAndLoss, balanceSheet, cashFlow, customerStatement } from './statements.mjs';
@@ -117,17 +123,20 @@ import { providerCatalog, providerRequirementMap } from './provider-catalog.mjs'
 import { sandboxAdapterPlan } from './sandbox-adapter-contract.mjs';
 import { getSandboxClient, resetSandboxClient } from './sandbox-client.mjs';
 import { saveSandboxKeys, publicSandboxKeys, clearSandboxKeys } from './sandbox-keys.mjs';
-import { plaidLinkSandbox, plaidLinkToken, plaidExchange, taxjarRate, gustoConnectUrl, gustoCallback, usConnectorsStatus } from './us-connectors.mjs';
+import { plaidLinkSandbox, plaidLinkToken, plaidExchange, taxjarRate, gustoConnectUrl, gustoCallback, usConnectorsStatus, pinwheelLinkToken, payrollTaxForms, importPayrollTaxForms } from './us-connectors.mjs';
 import { track1099Csv, track1099Issuers, track1099Import, track1099Job } from './track1099.mjs';
 import { postPayrollImport, listPayrollImports } from './us-payroll-import.mjs';
 import { getNimClient } from './nim-client.mjs';
 import { runSandboxOperation } from './sandbox-adapter.mjs';
+import { QUICKO_TOOLS } from './quicko-tools.mjs';
 import { requestApproval, decideApproval, approvalStatus, normalizeActor } from './approvals.mjs';
 import { normalizeClientId, getBook } from './books.mjs';
 import { refreshExceptions, listExceptions, summarise, decideException } from './exceptions.mjs';
 import { appendAuditEvent } from './ca-api.mjs';
 import { liveCallsEnabled, mockModeEnabled } from './runtime-config.mjs';
 import { seedDemo } from './store.mjs';
+import { ENGINE_TOOL_DEFS } from './countries/manifests.mjs';
+import { runEngineTool } from './countries/engines.mjs';
 
 function ok(data) {
   return { ok: true, data };
@@ -762,6 +771,125 @@ export const TOOLS = [
     run: (state, args = {}) => listAmendments(state, args),
   },
   {
+    name: 'read_us_tax_document',
+    title: 'Read a US tax form',
+    description: 'A model reads an uploaded W-2, 1099, SSA-1099 or 1098 (sent through /api/upload) and returns its kind, payer and box amounts with a ready add_us_tax_form proposal. Nothing is saved until confirmed, and the person\'s SSN is never read. Needs MYCA_MODEL_API_KEY. US only. Read-only.',
+    args: ['documentId', 'taxYear'],
+    run: (state, args = {}) => readUsTaxDocument(state, args),
+  },
+  {
+    name: 'us_return_pdf',
+    title: 'US return PDF',
+    description: 'A printable PDF of the computed Form 1040 lines and schedules for review, with masked SSNs and the checks still open, as base64. Not the IRS form. US only. Read-only.',
+    args: ['taxYear'],
+    run: (state, args = {}) => usReturnPdf(state, args),
+  },
+  {
+    name: 'us_taxpayer',
+    title: 'US return details',
+    description: 'The saved filing status, taxpayer, spouse, dependents and address of a personal Form 1040 for a tax year, with only the last four digits of each SSN. US only. Read-only.',
+    args: ['taxYear'],
+    run: (state, args = {}) => usTaxpayer(state, args),
+  },
+  {
+    name: 'us_return_status',
+    title: 'US tax return progress',
+    description: 'Progress of a personal Form 1040 for a tax year: filing status, the taxpayer\'s name, each step (about you, tax forms, deductions and credits, review, sign) and whether it is done, the refund or amount owed so far, and whether it is ready to sign. US only. Read-only.',
+    args: ['taxYear'],
+    run: (state, args = {}) => usReturnStatus(state, args),
+  },
+  {
+    name: 'list_us_tax_forms',
+    title: 'US tax forms on a return',
+    description: 'The W-2, 1099, SSA-1099 and 1098 forms entered on a personal Form 1040 for a tax year, with the payer, whose form it is and the box amounts. US only. Read-only.',
+    args: ['taxYear'],
+    run: (state, args = {}) => listUsTaxForms(state, args),
+  },
+  {
+    name: 'us_supported_forms',
+    title: 'US forms MyCA prepares',
+    description: 'The IRS forms and schedules MyCA computes for a personal return, and the ones coming next. A return that needs a coming form lists it under unsupported in us_return_review. US only. Read-only.',
+    args: [],
+    run: () => usSupportedForms(),
+  },
+  {
+    name: 'us_withholding_check',
+    title: 'Check US paycheck withholding',
+    description: 'Projects the year\'s federal tax from year-to-date pay and withholding plus the pay periods left, using the return\'s filing status, family and other income, and gives the gap, the extra to withhold each paycheck (W-4 line 4(c)) and the safe harbor. Pass filingStatus if no return is started. US only. Read-only.',
+    args: ['taxYear', 'payPerPeriod', 'withheldPerPeriod', 'periodsLeft', 'ytdWages', 'ytdWithheld', 'otherIncome', 'filingStatus'],
+    run: (state, args = {}) => usWithholdingCheck(state, args),
+  },
+  {
+    name: 'us_estimated_payments',
+    title: 'Plan US estimated tax payments',
+    description: 'The Form 1040-ES instalments (dates and amounts) needed to avoid an underpayment penalty, given the expected net side income on top of the return, and which safe harbor sets them. Pass filingStatus if no return is started. US only. Read-only.',
+    args: ['taxYear', 'expectedSideIncome', 'filingStatus'],
+    run: (state, args = {}) => usEstimatedPayments(state, args),
+  },
+  {
+    name: 'read_irs_letter',
+    title: 'Read an IRS letter',
+    description: 'A model reads an uploaded IRS notice (such as CP2000 or CP14, sent through /api/upload), explains it in plain English with its deadline and amount, checks the items it lists against the return in MyCA and drafts a reply for review. Never reads the SSN and never sends anything. Needs MYCA_MODEL_API_KEY. US only. Read-only.',
+    args: ['documentId', 'taxYear'],
+    run: (state, args = {}) => readIrsLetter(state, args),
+  },
+  {
+    name: 'us_form_kinds',
+    title: 'US tax form kinds',
+    description: 'The tax forms a personal return accepts (W-2, 1099-INT, 1099-DIV, 1099-B, 1099-NEC, 1099-MISC, 1099-G, 1099-R, SSA-1099, 1098, 1098-E, 1098-T), each with its boxes as field keys, labels and types. US only. Read-only.',
+    args: [],
+    run: () => usFormKinds(),
+  },
+  {
+    name: 'us_interview',
+    title: 'US return questions',
+    description: 'The deduction, credit and payment questions for a personal Form 1040 that fit the filing status and forms entered, each with help text, kind and the answer so far. US only. Read-only.',
+    args: ['taxYear'],
+    run: (state, args = {}) => usInterview(state, args),
+  },
+  {
+    name: 'us_return_review',
+    title: 'Review the US Form 1040',
+    description: 'Compute the personal Form 1040 for a tax year from the dated federal rules: income, Schedules 1, 1-A, 2, 3, A, B, C, D and SE, Form 8949, the child tax credit (8812), earned income credit, education credits (8863), additional Medicare tax (8959), net investment income tax (8960), the QBI deduction (8995), tax on qualified dividends and capital gains, withholding, and the refund or amount owed, with each line and the errors and warnings to fix, each naming its step. Dated rules a CPA has not reviewed. US only. Read-only.',
+    args: ['taxYear'],
+    run: (state, args = {}) => usReturnReview(state, args),
+  },
+  {
+    name: 'us_tax_estimate',
+    title: 'Estimate US federal income tax',
+    description: 'A quick federal income tax estimate for a tax year from a few figures (filing status, wages, withholding, interest, dividends, long-term gains, business profit, children under 17, age, itemized deductions, estimated payments) with the same engine as the full return; nothing is saved. US only. Read-only.',
+    args: ['taxYear', 'filingStatus', 'wages', 'federalWithheld', 'interest', 'dividends', 'qualifiedDividends', 'longTermGains', 'businessProfit', 'children', 'age', 'itemizedDeductions', 'estimatedTaxPayments'],
+    run: (state, args = {}) => usTaxEstimate(state, args),
+  },
+  {
+    name: 'set_us_taxpayer',
+    title: 'Set US return details',
+    description: 'Set the filing status, taxpayer, spouse, dependents and home address of a personal Form 1040 for a tax year. SSNs and ITINs are sealed and only the last four digits are ever returned. US only.',
+    args: ['taxYear', 'filingStatus', 'taxpayer', 'spouse', 'dependents', 'address'],
+    run: (state, args = {}) => setUsTaxpayer(state, args),
+  },
+  {
+    name: 'add_us_tax_form',
+    title: 'Add a US tax form',
+    description: 'Add a W-2, 1099, SSA-1099 or 1098 to a personal Form 1040, with the payer, whose form it is (taxpayer or spouse) and the box amounts keyed as us_form_kinds lists them. US only.',
+    args: ['taxYear', 'kind', 'owner', 'payer', 'payerTin', 'fields', 'source', 'documentId'],
+    run: (state, args = {}) => addUsTaxForm(state, args),
+  },
+  {
+    name: 'remove_us_tax_form',
+    title: 'Remove a US tax form',
+    description: 'Remove one tax form from a personal Form 1040 by its id. US only.',
+    args: ['id'],
+    run: (state, args = {}) => removeUsTaxForm(state, args),
+  },
+  {
+    name: 'answer_us_interview',
+    title: 'Answer a US return question',
+    description: 'Save the answer to one us_interview question (an amount, yes or no, or a choice); an empty answer clears it. US only.',
+    args: ['taxYear', 'id', 'answer'],
+    run: (state, args = {}) => answerUsInterview(state, args),
+  },
+  {
     name: 'schedule_se',
     title: 'Schedule SE draft',
     description: 'Self-employment tax for the year from the Schedule C net profit: net earnings after the statutory reduction, the Social Security part up to the wage base less any wages earned elsewhere (owner-entered), the Medicare part, the deductible half, and the additional Medicare tax shown separately. Dated rules a CPA has not reviewed. Read-only.',
@@ -774,6 +902,53 @@ export const TOOLS = [
     description: 'A printable Schedule C summary for the year with the Schedule SE draft, as one HTML file for the CPA. Read-only.',
     args: ['year', 'filingStatus', 'otherSocialSecurityWages'],
     run: (state, args = {}) => scheduleCDocument(state, args),
+  },
+  {
+    name: 'sign_us_return',
+    title: 'Sign the federal return (Form 8879)',
+    description: 'Sign the computed Form 1040 for a tax year with the self-select PIN of the taxpayer (and spouse when filing jointly), the prior-year AGI or prior-year PIN, any Identity Protection PIN, and the refund (direct deposit or check) or payment (direct debit or later) choice. Checks the return is complete enough to e-file and binds the signature to this exact return. PINs and bank details are sealed. US only.',
+    args: ['taxYear', 'taxpayerPin', 'spousePin', 'priorYear', 'priorYearAgi', 'priorYearPin', 'identityProtectionPin', 'consent8879', 'refund', 'payment', 'device'],
+    run: async (state, args = {}) => {
+      const out = await signUsReturn(state, args, resolveToolActor(args, 'actorId', 'owner'));
+      return out.ok ? ok(out) : fail(out.error, out);
+    },
+  },
+  {
+    name: 'file_us_return',
+    title: 'E-file the federal return with the IRS',
+    description: 'Build the IRS MeF submission for the signed Form 1040 and transmit it. In sandbox mode (no IRS credentials, or the IRS test system) the return is checked by a local simulator or IRS assurance testing and nothing reaches the IRS production system. Refuses if the return is not signed or changed after signing. US only. Cannot be undone once accepted.',
+    args: ['taxYear', 'caApprovalId'],
+    run: async (state, args = {}) => {
+      const out = await fileUsReturn(state, args, resolveToolActor(args, 'actorId', 'owner'));
+      return out.ok ? ok(out) : fail(out.error, out);
+    },
+  },
+  {
+    name: 'us_efile_status',
+    title: 'Federal e-file status',
+    description: 'Where the federal return for a tax year stands: not filed, signed, submitted, accepted or rejected, with the submission id, the acceptance time, and for a rejection each IRS reject code with what to fix and which screen fixes it. Says whether this is sandbox or live. US only. Read-only.',
+    args: ['taxYear'],
+    run: (state, args = {}) => {
+      const out = usEfileStatus(state, args);
+      return out.ok ? ok(out) : fail(out.error, out);
+    },
+  },
+  {
+    name: 'fetch_us_efile_acks',
+    title: 'Collect IRS acknowledgements',
+    description: 'Ask the IRS for the acknowledgements of every submitted federal return still waiting for one and record each acceptance or rejection. Does nothing for sandbox returns checked by the local simulator. US only.',
+    args: [],
+    run: async (state, args = {}) => {
+      const out = await fetchUsEfileAcks(state, args, resolveToolActor(args, 'actorId', 'owner'));
+      return out.ok ? ok(out) : fail(out.error, out);
+    },
+  },
+  {
+    name: 'us_efile_setup',
+    title: 'IRS e-file setup',
+    description: 'Whether MyCA is set up to transmit to the IRS: sandbox or live, which IRS credentials (ETIN, EFIN, software ID, A2A system id, strong-authentication certificate) are still missing, and the MeF host. Holds no secrets. US only. Read-only.',
+    args: [],
+    run: () => ok(usEfileSetup()),
   },
   {
     name: 'cpa_pack',
@@ -2192,6 +2367,27 @@ export const TOOLS = [
     run: () => usConnectorsStatus(),
   },
   {
+    name: 'pinwheel_link_token',
+    title: 'Connect an employer for W-2s',
+    description: 'Create the short-lived Pinwheel Link token the app opens Pinwheel Link with, so the owner can sign in to their employer or payroll provider and share their W-2s. Behind the channel pull switch. Read-only.',
+    args: ['userId'],
+    run: async (state, args = {}) => pinwheelLinkToken(state, args, resolveToolActor(args)),
+  },
+  {
+    name: 'payroll_tax_forms',
+    title: 'W-2s from payroll',
+    description: 'List the W-2 and 1099-NEC/MISC forms the linked employer or payroll provider has for a tax year, with every box read from Pinwheel (in dollars). Pass the accountId Pinwheel Link returned the first time; it is remembered. Adds nothing; import_payroll_tax_forms does. Read-only.',
+    args: ['taxYear', 'accountId', 'owner'],
+    run: async (state, args = {}) => payrollTaxForms(state, args, resolveToolActor(args)),
+  },
+  {
+    name: 'import_payroll_tax_forms',
+    title: 'Add W-2s from payroll to the return',
+    description: 'Fetch the chosen forms again from Pinwheel and add them to the US return exactly as the employer reported them. Skips a form already added. Needs confirmation.',
+    args: ['taxYear', 'taxFormIds', 'accountId', 'owner'],
+    run: async (state, args = {}) => importPayrollTaxForms(state, args, resolveToolActor(args)),
+  },
+  {
     name: 'plaid_link_sandbox',
     title: 'Link a Plaid sandbox bank',
     description: 'In the Plaid sandbox, create a test bank item without Plaid Link (sandbox public token, then the exchange) and keep the access token in the vault, so fetch_channel_report { channel: "plaid", kind: "bank" } pulls its transactions. Behind the channel pull switch; mock mode simulates it.',
@@ -2762,6 +2958,20 @@ export const TOOLS = [
     run: (state, args = {}) => taxModules(state, args),
   },
   {
+    name: 'itr_knowledge',
+    title: 'Look up ITR forms, validation rules and fields',
+    description: "Search MyCA's ITR knowledge base for AY 2025-26: the CBDT validation rules for ITR-1 to ITR-6 (Category A blocks the upload, B brings a defect notice u/s 139(9), D needs a claim form), the tax audit (Form 3CD) cross-checks, every field of the official JSON schemas with its allowed values and limits, the field guides that say where each ITR-1 and ITR-2 figure comes from and what conflict to look for, the Excel utility's schedules and drop-down lists, and guides on choosing a form, due dates, Form 16 vs AIS, the regimes for FY 2026-27 and a business-return case study. Give a query, or a form with a rule number or a field name. Every answer names its source document and page. Read-only.",
+    args: ['query', 'form', 'rule', 'field', 'kind', 'limit'],
+    run: (state, args = {}) => itrKnowledge(state, args),
+  },
+  {
+    name: 'check_itr_json',
+    title: 'Check an ITR JSON against the official schema',
+    description: 'Check an income tax return JSON (ITR-1 to ITR-6, as generated for upload) against the CBDT schema for AY 2025-26: missing required fields, wrong types, values outside the allowed list, wrong formats (PAN, dates, IFSC) and amounts over the limits, with the validation rule each problem relates to and a reminder of the Category B and D rules. Does not upload anything. Read-only.',
+    args: ['json', 'form'],
+    run: (state, args = {}) => checkItrJson(state, args),
+  },
+  {
     name: 'tax_plan',
     title: 'Plan income tax: old or new regime',
     description: 'For a resident individual or proprietor: tax for a financial year under both regimes from the dated rules, which is cheaper and by how much, the extra old-regime deductions that would break even, unused 80C and 80D limits, the 87A rebate edge, and presumptive income under 44AD or 44ADA from turnover (6% on digital receipts, 8% on the rest, or 50% for a profession) against actual profit. Amounts in rupees. Headed "for your CA to confirm". Read-only.',
@@ -3059,6 +3269,8 @@ export const TOOLS = [
     description: 'Post two sample invoices for Nalanda Textiles so the five CA reviewers can click through a live set of books.',
     run: (state) => ok({ invoices: seedDemo(state).invoices.length }),
   },
+  ...QUICKO_TOOLS,
+  ...ENGINE_TOOL_DEFS.map((tool) => ({ name: tool.name, title: tool.title, description: tool.description, args: [...tool.args], run: (state, args = {}) => runEngineTool(tool.name, state, args) })),
 ];
 
 export const TOOL_MAP = Object.fromEntries(TOOLS.map((t) => [t.name, t]));

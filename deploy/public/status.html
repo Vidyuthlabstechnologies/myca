@@ -4,78 +4,86 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Build Status — AI Automation for Indian CA Firms</title>
+<meta name="theme-color" content="#FAFAF7">
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<link rel="stylesheet" href="/assets/fonts.css">
 <style>
+  nav a.brand-link { display: inline-flex; align-items: center; gap: 8px; text-transform: none; letter-spacing: -0.3px; font-size: 17px; font-weight: 600; color: #15181B; }
+  nav a.brand-link img { width: 24px; height: 24px; }
+  nav a.brand-link small { font-weight: 500; font-size: 13px; color: #6C7075; letter-spacing: 0; }
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: 'Segoe UI', system-ui, sans-serif; background: #ffffff; color: #1a1a2e; line-height: 1.7; -webkit-font-smoothing: antialiased; }
+  body { font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif; background: #FAFAF7; color: #15181B; line-height: 1.7; -webkit-font-smoothing: antialiased; }
 
-  nav { position: sticky; top: 0; z-index: 100; background: rgba(255,255,255,0.92); backdrop-filter: blur(12px); border-bottom: 1px solid #e8e8f0; padding: 0 2rem; }
+  nav { position: sticky; top: 0; z-index: 100; background: rgba(250,250,247,0.9); backdrop-filter: blur(12px); border-bottom: 1px solid #E6E4DE; padding: 0 2rem; }
   nav .inner { max-width: 1200px; margin: 0 auto; display: flex; align-items: center; gap: 2rem; overflow-x: auto; white-space: nowrap; padding: 0.75rem 0; scrollbar-width: none; }
   nav .inner::-webkit-scrollbar { display: none; }
-  nav a { text-decoration: none; color: #555; font-size: 0.8rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; }
-  nav a:hover { color: #2563eb; }
-  nav .logo { font-weight: 700; font-size: 1rem; color: #1a1a2e; }
+  nav a { text-decoration: none; color: #6C7075; font-size: 0.8rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; }
+  nav a:hover { color: #1B5E3F; }
+  nav .logo { font-weight: 600; font-size: 1rem; color: #15181B; }
 
   .hero { max-width: 1200px; margin: 0 auto; padding: 4rem 2rem 2rem; text-align: center; }
-  .hero .tag { display: inline-block; background: #eef2ff; color: #4f46e5; padding: 0.35rem 1rem; border-radius: 100px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 1.25rem; }
-  .hero h1 { font-size: clamp(1.8rem, 4vw, 2.6rem); font-weight: 800; }
-  .hero p { color: #666; max-width: 640px; margin: 0 auto 1rem; }
+  .hero .tag { display: inline-block; background: #EAF2ED; color: #1B5E3F; padding: 0.35rem 1rem; border-radius: 100px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 1.25rem; }
+  .hero h1 { font-size: clamp(1.8rem, 4vw, 2.6rem); font-weight: 600; }
+  .hero p { color: #6C7075; max-width: 640px; margin: 0 auto 1rem; }
   .hero .links { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; margin-top: 1.5rem; }
   .btn { text-decoration: none; padding: 0.6rem 1.2rem; border-radius: 8px; font-size: 0.9rem; font-weight: 600; display: inline-block; }
-  .btn.primary { background: #4f46e5; color: #fff; }
-  .btn.outline { border: 1px solid #d8d8e0; color: #444; }
+  .btn.primary { background: #1B5E3F; color: #fff; }
+  .btn.outline { border: 1px solid #E6E4DE; color: #6C7075; }
 
-  section { max-width: 1200px; margin: 0 auto; padding: 3rem 2rem; border-top: 1px solid #f0f0f5; }
-  .label { display: inline-block; background: #f1f5f9; color: #475569; padding: 0.25rem 0.75rem; border-radius: 4px; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 1rem; }
-  section h2 { font-size: clamp(1.4rem, 3vw, 1.8rem); font-weight: 700; margin-bottom: 0.5rem; }
-  section .sub { color: #666; max-width: 700px; margin-bottom: 2rem; }
+  section { max-width: 1200px; margin: 0 auto; padding: 3rem 2rem; border-top: 1px solid #E6E4DE; }
+  .label { display: inline-block; background: #F2F1EC; color: #6C7075; padding: 0.25rem 0.75rem; border-radius: 4px; font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 1rem; }
+  section h2 { font-size: clamp(1.4rem, 3vw, 1.8rem); font-weight: 600; margin-bottom: 0.5rem; }
+  section .sub { color: #6C7075; max-width: 700px; margin-bottom: 2rem; }
 
   /* Phase timeline */
-  .phase { display: grid; grid-template-columns: 140px 1fr; gap: 1.5rem; padding: 1.5rem 0; border-bottom: 1px solid #f0f0f5; align-items: start; }
+  .phase { display: grid; grid-template-columns: 140px 1fr; gap: 1.5rem; padding: 1.5rem 0; border-bottom: 1px solid #E6E4DE; align-items: start; }
   .phase:last-child { border-bottom: none; }
-  .phase .num { font-size: 0.8rem; font-weight: 700; color: #4f46e5; }
-  .phase .box { background: #fafbfd; border: 1px solid #e8e8f0; border-radius: 10px; padding: 1.25rem; }
-  .phase .box.done { border-color: #bbf7d0; background: #f0fdf4; }
-  .phase .box h3 { font-size: 1rem; font-weight: 700; margin-bottom: 0.35rem; }
-  .phase .box .status { display: inline-block; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; padding: 0.15rem 0.5rem; border-radius: 4px; margin-bottom: 0.5rem; }
-  .phase .box .status.done { background: #dcfce7; color: #15803d; }
-  .phase .box .status.next { background: #eef2ff; color: #4f46e5; }
-  .phase .box .status.pending { background: #f1f5f9; color: #64748b; }
-  .phase .box .benchmark { font-size: 0.8rem; color: #444; margin-top: 0.5rem; }
+  .phase .num { font-size: 0.8rem; font-weight: 600; color: #1B5E3F; }
+  .phase .box { background: #FFFFFF; border: 1px solid #E6E4DE; border-radius: 10px; padding: 1.25rem; }
+  .phase .box.done { border-color: #C9DFD2; background: #EAF2ED; }
+  .phase .box h3 { font-size: 1rem; font-weight: 600; margin-bottom: 0.35rem; }
+  .phase .box .status { display: inline-block; font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; padding: 0.15rem 0.5rem; border-radius: 4px; margin-bottom: 0.5rem; }
+  .phase .box .status.done { background: #EAF2ED; color: #1B5E3F; }
+  .phase .box .status.next { background: #EAF2ED; color: #1B5E3F; }
+  .phase .box .status.pending { background: #F2F1EC; color: #6C7075; }
+  .phase .box .benchmark { font-size: 0.8rem; color: #6C7075; margin-top: 0.5rem; }
   .phase .box ul { padding-left: 1.1rem; margin-top: 0.35rem; }
-  .phase .box li { font-size: 0.85rem; color: #555; }
+  .phase .box li { font-size: 0.85rem; color: #6C7075; }
 
   /* Feature matrix */
   table { width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-top: 1rem; }
-  th { background: #f8fafc; font-weight: 600; padding: 0.6rem 0.75rem; text-align: left; border-bottom: 2px solid #e2e8f0; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; color: #475569; }
-  td { padding: 0.55rem 0.75rem; border-bottom: 1px solid #f1f5f9; color: #333; }
-  tr:hover td { background: #fafbfd; }
-  .cat { background: #fafbfd; font-weight: 600; }
+  th { background: #F2F1EC; font-weight: 600; padding: 0.6rem 0.75rem; text-align: left; border-bottom: 2px solid #E6E4DE; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; color: #6C7075; }
+  td { padding: 0.55rem 0.75rem; border-bottom: 1px solid #F2F1EC; color: #15181B; }
+  tr:hover td { background: #FFFFFF; }
+  .cat { background: #FFFFFF; font-weight: 600; }
 
   /* Benchmark table */
   .b { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); margin-top: 1.5rem; }
-  .bx { background: #fafbfd; border: 1px solid #e8e8f0; border-radius: 10px; padding: 1.25rem; }
-  .bx .v { font-size: 1.6rem; font-weight: 800; color: #4f46e5; }
-  .bx .l { font-size: 0.78rem; color: #888; margin-top: 0.2rem; }
+  .bx { background: #FFFFFF; border: 1px solid #E6E4DE; border-radius: 10px; padding: 1.25rem; }
+  .bx .v { font-size: 1.6rem; font-weight: 600; color: #1B5E3F; }
+  .bx .l { font-size: 0.78rem; color: #9A9DA1; margin-top: 0.2rem; }
 
   /* Gate list */
   .gates { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-top: 1.5rem; }
-  .gate { display: flex; align-items: center; gap: 0.6rem; background: #f7fcf9; border: 1px solid #dcfce7; border-radius: 8px; padding: 0.6rem 0.8rem; font-size: 0.85rem; color: #166534; }
-  .gate::before { content: "✓"; font-weight: 800; color: #16a34a; }
+  .gate { display: flex; align-items: center; gap: 0.6rem; background: #EAF2ED; border: 1px solid #EAF2ED; border-radius: 8px; padding: 0.6rem 0.8rem; font-size: 0.85rem; color: #1B5E3F; }
+  .gate::before { content: "✓"; font-weight: 600; color: #1B5E3F; }
 
-  footer { max-width: 1200px; margin: 0 auto; padding: 2.5rem 2rem; text-align: center; color: #aaa; font-size: 0.8rem; border-top: 1px solid #f0f0f5; }
+  footer { max-width: 1200px; margin: 0 auto; padding: 2.5rem 2rem; text-align: center; color: #9A9DA1; font-size: 0.8rem; border-top: 1px solid #E6E4DE; }
 
   @media (max-width: 768px) {
     .phase { grid-template-columns: 1fr; }
     .gates { grid-template-columns: 1fr; }
     table { font-size: 0.78rem; }
   }
+  @media (max-width: 760px) { table { display: block; overflow-x: auto; max-width: 100%; } pre, code { white-space: pre-wrap; word-break: break-word; } }
 </style>
 </head>
 <body>
 
 <nav>
   <div class="inner">
-    <a href="#" class="logo">CA AI · Build Status</a>
+    <a href="/" class="logo brand-link"><img src="/assets/logo.svg" alt="" width="24" height="24">MyCA <small>· Build status</small></a>
     <a href="#plan">Plan</a>
     <a href="#matrix">Feature Matrix</a>
     <a href="#sprint1">Sprint 1</a>
@@ -115,7 +123,7 @@
         <li>Auto-categorization (ledger + TDS + capital/revenue)</li>
       </ul>
       <div class="benchmark"><strong>Gate:</strong> Data entry 30s→&lt;3s/transaction, ≥95% accuracy. Compare: Accomation, Provi AI.</div>
-      <div class="benchmark" style="color:#15803d"><strong>Status:</strong> Intake engine shipped — 11/11 (Sprint 1) + 11/11 (Sprint 2) tests green. Bank statements, digital PDFs, scanned-PDF OCR contract, and rule-cited auto-categorization now live.</div>
+      <div class="benchmark" style="color:#1B5E3F"><strong>Status:</strong> Intake engine shipped — 11/11 (Sprint 1) + 11/11 (Sprint 2) tests green. Bank statements, digital PDFs, scanned-PDF OCR contract, and rule-cited auto-categorization now live.</div>
     </div>
   </div>
 
@@ -130,7 +138,7 @@
         <li>Versioned rulesets, exceptions queue, plain-language query</li>
       </ul>
       <div class="benchmark"><strong>Gate:</strong> Recon 2-4hrs → &lt;10min/client, 100% traceability. Compare: GSTAgent, FireAI, CORAA.</div>
-      <div class="benchmark" style="color:#15803d"><strong>Status:</strong> GST reconciliation engine shipped — 33/33 (Sprint 3) tests green. GSTIN check-digit validation, 2B-vs-books matching, GSTR-1/3B bucket diffs, Rule 37A blocked/unclaimed split, IMS rollups, and a plain-language action queue all live.</div>
+      <div class="benchmark" style="color:#1B5E3F"><strong>Status:</strong> GST reconciliation engine shipped — 33/33 (Sprint 3) tests green. GSTIN check-digit validation, 2B-vs-books matching, GSTR-1/3B bucket diffs, Rule 37A blocked/unclaimed split, IMS rollups, and a plain-language action queue all live.</div>
     </div>
   </div>
 
@@ -145,7 +153,7 @@
         <li>Compliance dashboard + alert escalation</li>
       </ul>
       <div class="benchmark"><strong>Gate:</strong> 0 missed deadlines, doc chase 8-12hrs→automated. Compare: Finexo, Aalekh, MNB.</div>
-      <div class="benchmark" style="color:#15803d"><strong>Status:</strong> Deadline + collection engine shipped — 44/44 (Sprint 4) tests green. 8 statutory return types, weekend/holiday working-day dues, Sec 44AB audit + TP logic, escalation at as-of date, automated chase plan, per-client compliance dashboard, and a CI-ready exit-code CLI.</div>
+      <div class="benchmark" style="color:#1B5E3F"><strong>Status:</strong> Deadline + collection engine shipped — 44/44 (Sprint 4) tests green. 8 statutory return types, weekend/holiday working-day dues, Sec 44AB audit + TP logic, escalation at as-of date, automated chase plan, per-client compliance dashboard, and a CI-ready exit-code CLI.</div>
     </div>
   </div>
 
@@ -160,7 +168,7 @@
         <li>TDS quarterly returns, threshold monitoring</li>
       </ul>
       <div class="benchmark"><strong>Gate:</strong> ITR 5hrs→&lt;20min/client, 100% regime-accuracy. Compare: Aalekh, Provi AI.</div>
-      <div class="benchmark" style="color:#15803d"><strong>Status:</strong> Filing prep engine shipped — 58/58 (Sprint 5) tests green. GSTR-1 tables from the sales register with e-invoice validation, GSTR-3B 3.1a + ITC split, AIS/26AS pre-fill with gap reconciliation, exact old-vs-new regime compare, TDS threshold monitor, and a CI-ready exit-code CLI.</div>
+      <div class="benchmark" style="color:#1B5E3F"><strong>Status:</strong> Filing prep engine shipped — 58/58 (Sprint 5) tests green. GSTR-1 tables from the sales register with e-invoice validation, GSTR-3B 3.1a + ITC split, AIS/26AS pre-fill with gap reconciliation, exact old-vs-new regime compare, TDS threshold monitor, and a CI-ready exit-code CLI.</div>
     </div>
   </div>
 
@@ -271,7 +279,7 @@
     <tr><td>Onboard new client</td><td>&lt;1s</td><td>manual setup</td><td>+</td></tr>
   </table>
 
-  <p class="sub" style="margin-top:1.5rem;color:#15803d"><strong>Next (Sprint 2):</strong> Bank statement ingestion, PDF/scan OCR, TDS-section auto-assignment, capital-vs-revenue classification.</p>
+  <p class="sub" style="margin-top:1.5rem;color:#1B5E3F"><strong>Next (Sprint 2):</strong> Bank statement ingestion, PDF/scan OCR, TDS-section auto-assignment, capital-vs-revenue classification.</p>
 </section>
 
 <!-- ═══════ SPRINT 2 ═══════ -->
@@ -318,7 +326,7 @@
     <tr><td>Cost per run</td><td>₹0 (rule engine)</td><td>token fees</td><td>token fees</td><td>token fees</td><td>+</td></tr>
   </table>
 
-  <p class="sub" style="margin-top:1.5rem;color:#15803d"><strong>Next (Sprint 3):</strong> GST reconciliation — GSTR-2B parse + match, GSTR-1 vs 3B, Rule 37A + IMS tracking.</p>
+  <p class="sub" style="margin-top:1.5rem;color:#1B5E3F"><strong>Next (Sprint 3):</strong> GST reconciliation — GSTR-2B parse + match, GSTR-1 vs 3B, Rule 37A + IMS tracking.</p>
 </section>
 
 <!-- ═══════ SPRINT 3 ═══════ -->
@@ -356,7 +364,7 @@
     <tr><td>Cost per run</td><td>₹0 (rule engine)</td><td>token fees</td><td>token fees</td><td>token fees</td><td>+</td></tr>
   </table>
 
-  <p class="sub" style="margin-top:1.5rem;color:#15803d"><strong>Next (Sprint 4, shipped ↓):</strong> Deadline engine + automated doc collection (Finexo, Aalekh, MNB) — see Sprint 4 below.</p>
+  <p class="sub" style="margin-top:1.5rem;color:#1B5E3F"><strong>Next (Sprint 4, shipped ↓):</strong> Deadline engine + automated doc collection (Finexo, Aalekh, MNB) — see Sprint 4 below.</p>
 </section>
 
 <!-- ═══════ SPRINT 4 ═══════ -->
@@ -394,7 +402,7 @@
     <tr><td>Cost per run</td><td>₹0 (rule engine)</td><td>token fees</td><td>token fees</td><td>token fees</td><td>+</td></tr>
   </table>
 
-  <p class="sub" style="margin-top:1.5rem;color:#15803d"><strong>Next (Sprint 5, shipped ↓):</strong> Filing assistant — GSTR-1/3B auto-population, ITR prep with AIS/26AS pre-fill and regime compare.</p>
+  <p class="sub" style="margin-top:1.5rem;color:#1B5E3F"><strong>Next (Sprint 5, shipped ↓):</strong> Filing assistant — GSTR-1/3B auto-population, ITR prep with AIS/26AS pre-fill and regime compare.</p>
 </section>
 
 <!-- ═══════ SPRINT 5 ═══════ -->
@@ -419,8 +427,8 @@
     <div class="gate">INTEGRATION · 6 gates — filingPrep, INV-108 exclusion, regime math, CLI exit 0/1/2</div>
   </div>
 
-  <div class="b" style="margin-top:1.5rem; padding:0.9rem 1.2rem; background:#f8fafc; border-left:4px solid #16a34a;">
-    <span style="font-size:0.8rem;color:#555;"><strong>Fixture run (9 valid + 1 invalid invoice):</strong> GSTR-1 B2B ₹5.2L (IGST ₹87,600), B2CL ₹3L, B2CS ₹1.3L intra + ₹40K inter, nil ₹40K, HSN summary 4 codes — INV-108 rejected for INVALID_HSN + TAX_MISMATCH. GSTR-3B inter ₹7.6L/IGST ₹1.26L, intra ₹2.3L/CGST-SGST ₹16,800 ea, ITC available ₹1,30,400 (₹45K import). ITR: GTI ₹45.5L → new regime ₹10,01,000 vs old ₹11,46,600, recommends new, payable ₹9,43,500 after ₹57,500 TDS; AIS flags ₹3.9L unexplained. TDS: 4 flags (Raj Contractors ₹1,100, Tech Pro ₹3,500, Shelter RE ₹40,000, Finance Bank ₹4,500). CLI exits 2 — action required by design.</span>
+  <div class="b" style="margin-top:1.5rem; padding:0.9rem 1.2rem; background:#F2F1EC; border-left:4px solid #1B5E3F;">
+    <span style="font-size:0.8rem;color:#6C7075;"><strong>Fixture run (9 valid + 1 invalid invoice):</strong> GSTR-1 B2B ₹5.2L (IGST ₹87,600), B2CL ₹3L, B2CS ₹1.3L intra + ₹40K inter, nil ₹40K, HSN summary 4 codes — INV-108 rejected for INVALID_HSN + TAX_MISMATCH. GSTR-3B inter ₹7.6L/IGST ₹1.26L, intra ₹2.3L/CGST-SGST ₹16,800 ea, ITC available ₹1,30,400 (₹45K import). ITR: GTI ₹45.5L → new regime ₹10,01,000 vs old ₹11,46,600, recommends new, payable ₹9,43,500 after ₹57,500 TDS; AIS flags ₹3.9L unexplained. TDS: 4 flags (Raj Contractors ₹1,100, Tech Pro ₹3,500, Shelter RE ₹40,000, Finance Bank ₹4,500). CLI exits 2 — action required by design.</span>
   </div>
 
   <table style="margin-top:2rem">
@@ -436,7 +444,7 @@
     <tr><td>Cost per run</td><td>₹0 (rule engine)</td><td>token fees</td><td>token fees</td><td>+</td></tr>
   </table>
 
-  <p class="sub" style="margin-top:1.5rem;color:#15803d"><strong>Next (Sprint 6):</strong> Defensible audit — full-population ledger scrutiny, rule-cited flags, SA 230 working papers.</p>
+  <p class="sub" style="margin-top:1.5rem;color:#1B5E3F"><strong>Next (Sprint 6):</strong> Defensible audit — full-population ledger scrutiny, rule-cited flags, SA 230 working papers.</p>
 </section>
 
 <!-- ═══════ BUILD ORDER ═══════ -->
@@ -461,13 +469,14 @@
     <tr><td>12</td><td>Benchmarking, API, ecosystem</td><td>Nobody</td><td>Pure differentiator. Network effects kick in.</td></tr>
   </table>
 
-  <div style="margin-top:2rem; padding:1.25rem 1.5rem; background:#f8fafc; border-left:4px solid #4f46e5; border-radius:8px;">
-    <h4 style="font-size:0.9rem;font-weight:700;">Core Thesis</h4>
-    <p style="font-size:0.88rem;color:#555;">The firm that owns the <strong>data layer</strong> for Indian CA compliance owns the market. Data in → categorize → reconcile → file → audit → advise. Each stage unlocks the next; we never build stage N+1 before stage N works at competitor parity on real client data.</p>
+  <div style="margin-top:2rem; padding:1.25rem 1.5rem; background:#F2F1EC; border-left:4px solid #1B5E3F; border-radius:8px;">
+    <h4 style="font-size:0.9rem;font-weight: 600;">Core Thesis</h4>
+    <p style="font-size:0.88rem;color:#6C7075;">The firm that owns the <strong>data layer</strong> for Indian CA compliance owns the market. Data in → categorize → reconcile → file → audit → advise. Each stage unlocks the next; we never build stage N+1 before stage N works at competitor parity on real client data.</p>
   </div>
 </section>
 
 <footer>
+  <p><a href="/" style="color:inherit">MyCA</a> · <a href="/privacy" style="color:inherit">Privacy</a> · <a href="/delete-account" style="color:inherit">Delete your account</a></p>
   <p>AI Automation for Indian CA Firms — Live Build Tracker</p>
   <p style="margin-top:0.5rem;">Sprint 5 shipped 2026-09-07 · Next: Sprint 6 (defensible audit) · Phases 1–4 of 6 done, 9 of 12 build-order items shipped</p>
 </footer>

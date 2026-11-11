@@ -1,0 +1,91 @@
+Taxvela Technologies Private Limited                                               I
+ITR-2
+Income Tax Return — Form 2
+Who files ITR-2?
+Eligible to File ITR-2                 Must File ITR-3 or Higher
+•    Resident Individual or HUF           •   Income from business or
+•    Income from salary or pension            profession of any kind
+•    Income from two or more house        •   Income from partnership firm
+properties                           •   Income requiring Schedule BP
+•    Capital gains (STCG and LTCG             (Presumptive business income)
+including equity, MF, property,      •   Any taxpayer who has business
+bonds, crypto/VDA)                       income that cannot be covered
+•    LTCG under section 112A                  under Presumptive Taxation
+exceeding ₹1,25,000                      (Section 44AD, 44ADA, 44AE)
+•    Income from other sources
+including dividend, interest,
+winnings
+•    Foreign income, foreign assets, or
+DTAA relief
+•    Director in a company (without
+business income)
+•    Holder of unlisted equity shares
+•    NRI or Resident but Not Ordinarily
+Resident
+Taxvela Technologies Private Limited                                                                                         I
+1. Validation Categories
+ITR-2 uses only two validation categories — A and D. There is no Category B in ITR-2.
+Cat.          Portal Action               What the Product Must Do                         Examples from ITR-2
+Return is blocked and        All Category A conflicts must be fully     Name mismatch with PAN. Income total
+cannot be uploaded.          resolved before the return is finalised.   incorrect. Capital gains rate applied to
+A                                   This is a hard gate — no submission        wrong bucket. Schedule not filled when
+is possible until every Category A         required.
+error is cleared.
+Return is uploaded but a     The product must check whether the         Form 29C for AMT. Form 67 for DTAA
+deduction may not be         required form has been filed on the e-     relief. Form 10E for section 89 relief.
+D      allowed unless a             filing portal and inform the taxpayer      Form 10BA for section 80GG.
+supporting form is           before submission if it has not.
+separately filed.
+2. How to Read the Field Mapping Table
+The five columns in the table follow the same structure as the ITR-1 document.
+For Items with ★ in red colour, I will explain those things separately.
+See the footnote at the end of this document for details.
+Taxvela Technologies Private Limited                                                                I
+5. Key Product Behaviour Requirements
+5.1 ITR-2 Eligibility Check
+The product must confirm ITR-2 eligibility before proceeding. If the taxpayer has any income from
+business or profession — including freelance income, partnership income, or proprietary business —
+ITR-2 is not applicable and the taxpayer must be directed to ITR-3 or ITR-4.
+5.2 23 July 2024 Capital Gains Split
+Every LTCG transaction must be automatically bucketed by transfer date. Transfers before 23 July
+2024 are taxed at 20% with indexation. Transfers on or after 23 July 2024 are taxed at 12.5% without
+indexation. The product must extract the transfer date from the uploaded document and apply the
+correct rate without requiring the taxpayer to select it. The taxpayer may override with a stated reason.
+5.3 Brought Forward Losses
+Schedule CFL data must be auto-fetched from the portal's pre-fill. The taxpayer must be able to review
+and override any pre-filled figure, with a mandatory reason field. The confirmed figures feed Schedule
+BFLA and ultimately Part B-TI.
+5.4 HUF-Specific Restrictions
+Where the filing status is HUF, the product must automatically block deductions under 80CCD(1),
+80CCD(1B), 80CCD(2), 80E, 80EE, 80EEA, 80EEB, 80U, and relief u/s 89. Schedule ESOP must also
+be locked for HUF filers. These restrictions are applied at the field level and not left to the taxpayer to
+identify.
+5.5 VDA / Crypto Filing
+A third-party tool integration (similar to KoinX) is required to handle crypto and VDA transaction
+aggregation. The product must import the structured output of this tool into Schedule VDA and cross-
+verify the total against the AIS VDA tile. This is to be scoped separately — see the footnote.
+5.6 Section 80QQB and 80RRB — Filing Date Check
+The product must check the filing date at the time of submission. If the return is being filed after the
+section 139(1) due date, deductions under 80QQB and 80RRB must be automatically set to zero and
+the taxpayer must be informed of this statutory disallowance before submission.
+5.7 Non-Resident Restrictions
+Where residential status is NRI, the product must block Schedule FSI, Schedule TR, rebate u/s 87A,
+80DDB, 80DD, 80U, 80TTB, 80QQB, and 80RRB. It must also block Schedule FA filing requirements
+prompts (as NRIs are exempt). These restrictions are applied automatically based on the residential
+status selected.
+Taxvela Technologies Private Limited                                                                 I
+Footnote — Items Requiring Separate Discussion
+Need to discuss
+1. Schedule VDA (Crypto / Virtual Digital Assets) — A third-party transaction aggregation tool (similar
+to KoinX) must be integrated or built. The volume, multi-exchange nature, and cost-basis complexity of
+VDA transactions make manual entry impractical. The precise integration architecture, data format, and
+liability for calculation accuracy must be defined.
+2. Schedule FSI (Foreign Income) — The data collection process for foreign tax paid, foreign income
+by head, and country-wise TIN details involves documents that are not standardised in India. The flow
+and the document types the product will accept must be scoped separately.
+3. Schedule TR (DTAA Relief) — Form 67 filing is a prerequisite. Whether the product will guide the
+taxpayer through Form 67 filing on the e-filing portal, or only verify that it has been filed, needs to be
+decided.
+4. Schedule 5A (Portuguese Civil Code) — Applicable to a small subset of taxpayers in Goa, Daman &
+Diu. The product must determine whether this is handled as a self-declaration flow or requires a
+separate review process

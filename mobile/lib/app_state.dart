@@ -46,7 +46,13 @@ class AppState extends ChangeNotifier {
     this.oidc,
     this.plaidLink = const NoPlaidLink(),
     this.openLink = _cannotOpen,
-  }) : api = api ?? cloud!.api;
+    String edition = 'IN',
+    this.installationId = sessionInstallationId,
+  })  : api = api ?? cloud!.api,
+        edition = edition.toUpperCase() == 'US' ? 'US' : 'IN';
+
+  final String edition;
+  final Future<String> Function() installationId;
 
   final MycaApi api;
   final CloudSession? cloud;
@@ -110,6 +116,8 @@ class AppState extends ChangeNotifier {
     return file;
   }
 
+  bool get household => snapshot?.company.household ?? false;
+
   Future<void> start() async {
     welcomed = await store.welcomed();
     migrated = await store.migrated();
@@ -162,6 +170,11 @@ class AppState extends ChangeNotifier {
   Future<void> _skipMigrationForKeptBooks() async {
     final books = snapshot;
     if (cloud == null || migrated || books == null) return;
+    if (books.company.household) {
+      await store.markMigrated();
+      migrated = true;
+      return;
+    }
     final kept = books.invoices.isNotEmpty || books.purchases.isNotEmpty || books.expenses.isNotEmpty || books.creditNotes.isNotEmpty || books.quotes.isNotEmpty;
     if (!kept) return;
     await store.markMigrated();

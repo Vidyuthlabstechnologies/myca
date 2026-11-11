@@ -4,7 +4,9 @@ As of main on 2026-11-10. Verification: platform **1,351**, the hosted API **341
 email relay **3**, every sprint suite, the Android app about **600** widget tests (`node scripts/check-all.mjs`),
 CI green, end-to-end smoke runs on Windows. Hosting: the API and the public site run on Google Cloud
 (Cloud Run and Cloud SQL in Mumbai, project `myca-prod-in`) since 2026-11-10, with an empty database;
-the earlier AWS deployment (2026-11-08) is being switched off. [`DEPLOYMENT.md`](DEPLOYMENT.md) is the source of truth. "Verified" means covered by tests or an
+the earlier AWS deployment (2026-11-08) is being switched off. A separate staging stack (`environment = "staging"`,
+simulated providers, no real sends) is defined in `infra/cloud` and rolled out before production, but not yet
+applied. [`DEPLOYMENT.md`](DEPLOYMENT.md) is the source of truth. "Verified" means covered by tests or an
 actual run — not merely written.
 
 Phase 0 (pilot readiness) is **82% complete**: every Critical (4/4) and High (18/18) audit finding is closed; of the mediums, amount parsing and the audit clause checks are done (2026-10-15).
@@ -95,6 +97,11 @@ and [`README.md`](README.md) for what is left and how it is being done.
   the payables and the bank debits on the check dates, previewed and confirmed from the pull's
   reminder on the desktop or the phone, skipped when already posted, and left out of MyCA's own
   941 draft because the provider files it
+- IRS e-file for Form 1040 (2026-11-11): Form 8879 self-select PIN signing bound to the
+  return, MeF XML and manifest from the computed 1040, the transmission zip, a WS-Security
+  A2A client behind the action gate, acknowledgements and rejections with the fix and the
+  screen; sandbox simulator by default, never validated against the IRS schema or ATS yet
+  (`docs/integrations/IRS-EFILE.md`)
 - Track1099 and the hosted connector flows (2026-10-21): the 1099-NEC CSV in Track1099's own
   template, payers listed, the import uploaded behind the gate with a CA approval and its job kept;
   the hosted API runs Plaid Link token and exchange, the Gusto connect and callback, and TaxJar
@@ -207,8 +214,20 @@ and [`README.md`](README.md) for what is left and how it is being done.
   - `search_gstin`: Look up official taxpayer legal name, trade name, active status, type, and address
   - **Document Store Auto-Discovery**: `gst_reconcile`, `prepare_itr`, and `monitor_tds` discover uploaded client documents automatically when inputs are not passed in command arguments
   - **Redundant E-Invoicing**: Dual-path e-invoicing supporting direct NIC IRP and Quicko Sandbox GSP with fallback/provider selection
-- `income_tax_calculate` stays fail-closed (`PROVIDER_ENDPOINT_UNDOCUMENTED`): Sandbox
-  publishes no stable income-tax calculator path, so `prepare_itr` remains the source of truth
+- **All Sandbox by Quicko APIs (2026-11-11)**: a catalogue of all 366 documented endpoints
+  (`sandbox-catalog.mjs`, built from Sandbox's OpenAPI files) behind the action gate, each
+  classed read, OTP/login, save, file or money; writes need a CA approval and are blocked for
+  the assistant. Named tools: `read_form16`, `read_form26as`, `capital_gains_pnl`,
+  `quicko_tax_check`, `verify_pan`, `pan_aadhaar_status`, `check_206ab`, `search_tan`,
+  `lookup_ifsc`, `verify_bank_account`, `mca_company`, `gstins_for_pan`, `quicko_catalog`.
+  Hosted: `GET/POST /v1/businesses/:id/quicko` runs the named tools and read-only catalogue
+  calls (filing, OTP, sign-in and money ops stay on the desktop with a CA approval), and
+  `POST .../quicko-session` signs in to the ITD or TRACES portal; the session token is sealed
+  per business in `quicko_portal_sessions` (migration 024) and never returned. Android:
+  Taxes → Income tax checks reads Form 16 / 26AS PDFs and runs PAN, 206AB and bank account
+  checks, and signs in to the income tax portal
+- `income_tax_calculate` stays fail-closed and points to `quicko_tax_check`; `prepare_itr`
+  remains the source of truth
 - **CA approval workflow**: request / decide / consume, maker-checker separation,
   reviewer roles (partner/reviewer/admin), 24-hour expiry, single use
 - NIC e-invoice: RSA v1.04 auth, IRN payload build, mock IRN, government host probe

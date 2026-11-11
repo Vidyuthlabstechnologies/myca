@@ -2,6 +2,8 @@ import { createState, serialize } from '../../platform/src/store.mjs';
 import { runTool } from '../../platform/src/tools.mjs';
 import { isUuid } from './auth.mjs';
 import { DEMO_GSTIN, DEMO_NAME } from './demo.mjs';
+import { countryPack } from '../../platform/src/countries/index.mjs';
+import { residencyRefusal } from './residency.mjs';
 
 const ENGINE_ROLE = { owner: 'admin', accountant: 'partner', staff: 'staff' };
 
@@ -18,23 +20,27 @@ function fail(error, extra = {}) {
   return { ok: false, error, ...extra };
 }
 
-async function openingBooks({ name, gstin, state, country, address, city, pin }, today) {
+async function openingBooks({ name, gstin, state, country, address, city, pin, entityType }, today) {
+  if (entityType && !['household', 'business'].includes(entityType)) return fail('UNKNOWN_KIND');
+  if (entityType === 'household' && String(country).toUpperCase() !== 'US') return fail('HOUSEHOLD_US_ONLY');
   const books = createState();
   books.company = { name: '', gstin: '', state: '', pan: '', fy: financialYear(today), address: '' };
-  const set = await runTool(books, 'set_company', { name, ...(country ? { country } : {}), gstin, ...(state ? { state } : {}) });
+  const set = await runTool(books, 'set_company', { name, ...(country ? { country } : {}), gstin, ...(state ? { state } : {}), ...(entityType === 'household' ? { entityType: 'household' } : {}) });
   if (set.ok && String(address || '').trim()) {
     const placed = await runTool(books, 'set_business_address', { address, city, pin });
     if (!placed.ok) return placed;
   }
   if (set.ok === false) return fail(set.error || 'INVALID_COMPANY', { errors: set.errors });
-  if (books.company.country !== 'US' && !books.company.state) return fail('STATE_REQUIRED');
+  if (countryPack(books.company.country || 'IN')?.requiresState && !books.company.state) return fail('STATE_REQUIRED');
+  const elsewhere = residencyRefusal(books.company.country);
+  if (elsewhere) return elsewhere;
   return { ok: true, state: serialize(books), company: books.company };
 }
 
 import { storedState } from './books-seal.mjs';
 export function createBusinesses({ db, now = () => Date.now(), booksKey = '' }) {
   return {
-    async create(userId, { name, gstin = '', state = '', country = '', address = '', city = '', pin = '' } = {}, { demo = false } = {}) {
+    async create(userId, { name, gstin = '', state = '', country = '', address = '', city = '', pin = '', kind = '' } = {}, { demo = false } = {}) {
       if (demo) {
         name = DEMO_NAME;
         gstin = DEMO_GSTIN;
@@ -43,16 +49,18 @@ export function createBusinesses({ db, now = () => Date.now(), booksKey = '' }) 
         address = '12, Demo Road, Jayanagar';
         city = 'Bengaluru';
         pin = '560041';
+        kind = '';
       }
-      const opening = await openingBooks({ name: String(name ?? ''), gstin: String(gstin ?? ''), state: String(state ?? ''), country: String(country ?? ''), address: String(address ?? ''), city: String(city ?? ''), pin: String(pin ?? '') }, new Date(now()));
+      const opening = await openingBooks({ name: String(name ?? ''), gstin: String(gstin ?? ''), state: String(state ?? ''), country: String(country ?? ''), address: String(address ?? ''), city: String(city ?? ''), pin: String(pin ?? ''), entityType: String(kind ?? '').trim().toLowerCase() }, new Date(now()));
       if (!opening.ok) return opening;
       return db.tx(async (q) => {
-        const business = await q('insert into businesses (name, gstin, created_by, created_at, demo) values ($1, $2, $3, $4, $5) returning id', [
+        const business = await q('insert into businesses (name, gstin, created_by, created_at, demo, kind) values ($1, $2, $3, $4, $5, $6) returning id', [
           opening.company.name,
           opening.company.gstin,
           userId,
           new Date(now()),
           Boolean(demo),
+          opening.company.entityType === 'household' ? 'household' : 'business',
         ]);
         const id = business.rows[0].id;
         await q("insert into memberships (user_id, business_id, role) values ($1, $2, 'owner')", [userId, id]);
@@ -63,7 +71,7 @@ export function createBusinesses({ db, now = () => Date.now(), booksKey = '' }) 
             [id, userId, JSON.stringify({ source: 'POST /v1/businesses demo', why: 'A fictional business for trying the app; it cannot use live providers and is purged when unused.' })],
           );
         }
-        return { ok: true, business: { id, name: opening.company.name, gstin: opening.company.gstin, role: 'owner', demo: Boolean(demo) } };
+        return { ok: true, business: { id, name: opening.company.name, gstin: opening.company.gstin, country: opening.company.country || 'IN', kind: opening.company.entityType === 'household' ? 'household' : 'business', role: 'owner', demo: Boolean(demo) } };
       });
     },
 

@@ -32,6 +32,7 @@ vendor/*
 *.tfstate.*
 crash.log
 *.tfvars
+!infra/cloud/countries/*.tfvars
 !*.tfvars.example
 override.tf
 override.tf.json
@@ -52,3 +53,6 @@ key.properties
 *.p8
 *.p12
 *.pem
+
+# Sandbox OpenAPI downloads for the catalogue build
+platform/scripts/sandbox-catalog/.specs/

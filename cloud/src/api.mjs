@@ -3,20 +3,22 @@ import { mockModeEnabled, serviceProviderEnvironment } from '../../platform/src/
 import { withProviderContext } from '../../platform/src/provider-context.mjs';
 import { createGovtActions } from './govt-actions.mjs';
 import { createGstPortal } from './gst-portal.mjs';
-import { createBilling, readOnlyChat } from './billing.mjs';
+import { createQuicko } from './quicko.mjs';
+import { createBilling, readOnlyChat, US_PLUS_TOOLS } from './billing.mjs';
 import { gstin } from '../../platform/src/sprint-load.mjs';
 import { rule } from '../../sprints/statutory-rules/src/index.mjs';
 import { createAuth, isUuid, OTP_MAX_GLOBAL_PER_HOUR } from './auth.mjs';
 import { createSecondFactor } from './second-factor.mjs';
 import { createDevices } from './devices.mjs';
 import { createBusinesses, engineRole } from './businesses.mjs';
+import { publicCountries } from './residency.mjs';
 import { createBooksRunner } from './books-runner.mjs';
 import { createMembers } from './members.mjs';
 import { IMPORT_CONTENT_ARG, isImport } from '../../platform/src/import-documents.mjs';
 import { assertSecret } from './tokens.mjs';
 import { createBodyBudget, defaultBodyBudgetBytes } from './body-budget.mjs';
 import { createCrashReports } from './crash-reports.mjs';
-import { PRIVACY_NOTICE, consentExempt, createConsent } from './consent.mjs';
+import { PRIVACY_NOTICE, consentExempt, createConsent, noticeFor } from './consent.mjs';
 import { createJobs, jobTokenMatches, JOB_HEADER } from './jobs.mjs';
 import { createGoogleKeys, createGoogleVerifier } from './google.mjs';
 import { createOidcVerifier } from './oidc.mjs';
@@ -33,6 +35,7 @@ import { chatText } from './chat-text.mjs';
 import { htmlEscape } from '../../platform/src/text-safe.mjs';
 import { DEMO_BLOCKED_ACTIONS, seedDemo } from './demo.mjs';
 import { createRateLimits, LIMITS } from './rate-limits.mjs';
+import { ENGINE_WRITE_TOOLS } from '../../platform/src/countries/manifests.mjs';
 
 const INDIA_OFFSET_MS = 330 * 60 * 1000;
 
@@ -42,6 +45,12 @@ function indiaDate(at) {
 
 export const INBOUND_RELAY_HEADER = 'x-myca-relay-token';
 export const PLAY_NOTIFY_HEADER = 'x-myca-notify-token';
+export const STRIPE_SIGNATURE_HEADER = 'stripe-signature';
+export const US_SUPPORTED_FORMS = Object.freeze({
+  supported: ['1040', 'Schedule 1', 'Schedule 1-A', 'Schedule 2', 'Schedule 3', 'Schedule A', 'Schedule B', 'Schedule C', 'Schedule D', 'Schedule SE', 'Form 8949', 'Form 8812', 'Form 8863', 'Form 8959', 'Form 8960', 'Form 8995', 'W-2', '1099-INT', '1099-DIV', '1099-B', '1099-NEC', '1099-MISC', '1099-G', '1099-R', 'SSA-1099', '1098', '1098-E', '1098-T'],
+  coming: ['Form 2441', 'Form 8962', 'Form 8995-A', 'Form 2210', 'Schedule E'],
+  notThisSeason: ['State returns', 'Form 1040-NR', 'Dual-status returns', 'FBAR (FinCEN 114)', 'Form 8938', 'Form 1116', 'Form 1040-X'],
+});
 
 const MAX_BODY_BYTES = 1024 * 1024;
 export const MAX_UPLOAD_BYTES = 8 * 1024 * 1024;
@@ -51,10 +60,17 @@ const SMALL_BODY_BYTES = 64 * 1024;
 const MERGE_BYTES = 16 * 1024;
 const MERGE_PIECES = 256;
 
+const US_FILE_TOOL = 'file_us_return';
 const OWNER_ONLY_POSTS = new Map([
   ['ca-sync', 'OWNER_ONLY'],
   ['ca-share', 'OWNER_ONLY'],
   ['subscription', 'SHARED_VIEW_READ_ONLY'],
+  ['us-return-purchase', 'SHARED_VIEW_READ_ONLY'],
+  ['us-checkout', 'SHARED_VIEW_READ_ONLY'],
+  ['us-checkout-confirm', 'SHARED_VIEW_READ_ONLY'],
+  ['us-plus-cancel', 'SHARED_VIEW_READ_ONLY'],
+  ['us-plus-purchase', 'SHARED_VIEW_READ_ONLY'],
+  ['us-waitlist', 'SHARED_VIEW_READ_ONLY'],
   ['invitations', 'SHARED_VIEW_READ_ONLY'],
   ['inbound', 'SHARED_VIEW_READ_ONLY'],
   ['connectors', 'SHARED_VIEW_READ_ONLY'],
@@ -68,9 +84,11 @@ const OWNER_ONLY_POSTS = new Map([
 
 const WRITES = new Set(['replace', 'uploads', 'propose', 'confirm', 'connector-sync', 'plaid-exchange', 'gusto-connect']);
 
-export const PROPOSABLE = new Set(['import_payroll_summary', 'create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'record_filing', 'record_supplier_reminder', 'add_employee', 'set_tds_deductor', 'record_tds_deposit', 'change_salary', 'end_employment', 'post_expense', 'set_expense_head', 'create_credit_note', 'cancel_invoice', 'gst_review_answer', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote', 'exception_decide', 'ims_decide', 'create_purchase_note', 'import_settlement', 'import_marketplace_orders', 'import_tcs_statement', 'import_26as_credits', 'record_tds_withheld', 'add_bill_tds', 'set_business_address', 'set_party_address', 'set_sku_cost', 'import_sku_costs', 'record_stock', 'record_stock_transfer', 'value_inventory', 'set_registration', 'retire_registration', 'set_channel_identity', 'set_invoice_template', 'set_supplier_terms', 'set_employee_bank', 'set_invoice_numbering', 'amend_invoice', 'create_debit_note', 'record_supplier_debit_note', 'record_collection_reminder', 'record_payment_run', 'attach_document', 'approve_payroll', 'record_salary_payment', 'tds_review_answer', 'record_gst_payment', 'close_year', 'set_transport', 'set_sales_tax_nexus', 'sales_tax_review_answer', 'record_sales_tax_payment', 'record_sales_tax_filing', 'set_suta_rate', 'add_recurring', 'stop_recurring', 'match_bank_line', 'unmatch_bank_line', 'book_bank_charges', 'add_bank_rule', 'remove_bank_rule', 'run_bank_rules', 'set_bank_account', 'record_transfer']);
+export const PROPOSABLE = new Set(['sign_us_return', 'file_us_return', 'import_payroll_tax_forms', 'import_payroll_summary', 'create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'record_filing', 'record_supplier_reminder', 'add_employee', 'set_tds_deductor', 'record_tds_deposit', 'change_salary', 'end_employment', 'post_expense', 'set_expense_head', 'create_credit_note', 'cancel_invoice', 'gst_review_answer', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote', 'exception_decide', 'ims_decide', 'create_purchase_note', 'import_settlement', 'import_marketplace_orders', 'import_tcs_statement', 'import_26as_credits', 'record_tds_withheld', 'add_bill_tds', 'set_business_address', 'set_party_address', 'set_sku_cost', 'import_sku_costs', 'record_stock', 'record_stock_transfer', 'value_inventory', 'set_registration', 'retire_registration', 'set_channel_identity', 'set_invoice_template', 'set_supplier_terms', 'set_employee_bank', 'set_invoice_numbering', 'amend_invoice', 'create_debit_note', 'record_supplier_debit_note', 'record_collection_reminder', 'record_payment_run', 'attach_document', 'approve_payroll', 'record_salary_payment', 'tds_review_answer', 'record_gst_payment', 'close_year', 'set_transport', 'set_sales_tax_nexus', 'sales_tax_review_answer', 'record_sales_tax_payment', 'record_sales_tax_filing', 'set_suta_rate', 'add_recurring', 'stop_recurring', 'match_bank_line', 'unmatch_bank_line', 'book_bank_charges', 'add_bank_rule', 'remove_bank_rule', 'run_bank_rules', 'set_bank_account', 'record_transfer', 'set_us_taxpayer', 'add_us_tax_form', 'remove_us_tax_form', 'answer_us_interview']);
 
 const NOT_A_PLACE_OF_BUSINESS = new Set(['97', '99']);
+
+for (const name of ENGINE_WRITE_TOOLS) PROPOSABLE.add(name);
 
 export function businessStates(onDate) {
   const current = rule('gst.gstin.state-codes', onDate);
@@ -275,6 +293,13 @@ function createAccessLog(db) {
   };
 }
 
+export function withRequestAddress(args, address) {
+  const device = args.device && typeof args.device === 'object' ? args.device : {};
+  const { ipAddress, ...rest } = device;
+  const ip = String(address || '').replace(/^::ffff:/, '').slice(0, 45);
+  return { ...args, device: ip ? { ...rest, ipAddress: ip } : rest };
+}
+
 export function clientAddress(req, hops = trustedProxyHops()) {
   const socket = String(req.socket?.remoteAddress || '').slice(0, 64);
   if (!hops) return socket;
@@ -296,9 +321,28 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
   const runner = createBooksRunner({ db, now, vault, booksKey });
   const connectors = createConnectorStore({ db, key: connectorKey });
   const withBooks = runner.withBooks;
+  async function unsupportedForms(businessId, context, actor, taxYear) {
+    try {
+      const review = await runner.withReadOnlyBooks(businessId, context, (session) => session.query('us_return_review', { taxYear }, actor));
+      const data = review && typeof review === 'object' ? (review.data && typeof review.data === 'object' ? review.data : review) : {};
+      const list = Array.isArray(data.unsupported) ? data.unsupported : [];
+      return list.filter((item) => typeof item === 'string' || item?.required !== false).map((item) => (typeof item === 'string' ? { form: item, reason: '' } : { form: String(item?.form || ''), reason: String(item?.reason || ''), code: String(item?.code || '') })).filter((item) => item.form);
+    } catch (err) {
+      log({ billing: 'supported_forms_check_failed', error: String(err?.message || err) });
+      return [];
+    }
+  }
+
+  async function unpaidFiling(businessId, session) {
+    const pending = session.state.pendingChatAction;
+    if (pending?.name !== US_FILE_TOOL || !billing.usEnforced) return null;
+    const paid = await billing.usFilingAllowed(businessId, pending.args?.taxYear);
+    return paid.ok ? null : paid;
+  }
   const billing = billingGiven || createBilling({ db, now, log });
   const govt = createGovtActions({ connectors, withBooks: (...args) => runner.withBooks(...args), fetchFn: gspFetch });
   const gstPortal = createGstPortal({ db, connectors, withBooks: (...args) => runner.withBooks(...args), billing, key: connectorKey, fetchFn: gspFetch, now });
+  const quicko = createQuicko({ db, connectors, withBooks: (...args) => runner.withBooks(...args), key: connectorKey, fetchFn: gspFetch, now });
   const publicOrigin = (req) => {
     const configured = String(process.env.MYCA_PUBLIC_URL || '').trim().replace(/\/+$/, '');
     if (configured) return configured;
@@ -376,12 +420,13 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
     if (parts[0] !== 'v1') throw httpError(404, 'NOT_FOUND');
 
     if (parts[1] === 'health' && parts[2] === 'live' && parts.length === 3 && method === 'GET') return { ok: true, environment, providerMode: providerMode(), version };
+    if (parts[1] === 'countries' && parts.length === 2 && method === 'GET') return publicCountries();
     if (parts[1] === 'health' && parts.length === 2 && method === 'GET') {
       const database = await databaseReachable();
       if (!database) throw httpError(503, 'DATABASE_UNAVAILABLE', { environment, providerMode: providerMode(), database: 'unreachable' });
       return { ok: true, environment, providerMode: providerMode(), database: 'ok', version };
     }
-    if (parts[1] === 'privacy-notice' && parts.length === 2 && method === 'GET') return { ok: true, notice: PRIVACY_NOTICE };
+    if (parts[1] === 'privacy-notice' && parts.length === 2 && method === 'GET') return { ok: true, notice: noticeFor(url.searchParams.get('region')) };
     if (parts[1] === 'plans' && parts.length === 2 && method === 'GET') return billing.plans();
     if (parts[1] === 'billing' && parts[2] === 'play' && parts[3] === 'notify' && parts.length === 4 && method === 'POST') {
       if (url.searchParams.has('token')) throw httpError(401, 'TOKEN_IN_QUERY', { hint: `Send the token in the ${PLAY_NOTIFY_HEADER} header, or use Pub/Sub push authentication.` });
@@ -391,6 +436,13 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
       if (!received.ok) throw httpError(received.statusCode, received.error);
       return received;
     }
+    if (parts[1] === 'billing' && parts[2] === 'stripe' && parts[3] === 'webhook' && parts.length === 4 && method === 'POST') {
+      const raw = await readRaw(req, MAX_BODY_BYTES);
+      const received = await billing.stripeWebhook(raw, String(req.headers[STRIPE_SIGNATURE_HEADER] || ''));
+      if (!received.ok) throw httpError(received.statusCode, received.error);
+      return received;
+    }
+    if (parts[1] === 'us' && parts[2] === 'supported-forms' && parts.length === 3 && method === 'GET') return { ok: true, taxYears: [2025, 2026], ...US_SUPPORTED_FORMS };
     if (parts[1] === 'auth' && parts[2] === 'methods' && parts.length === 3 && method === 'GET') {
       return { ok: true, phone: auth.phoneEnabled, google: google.enabled, oidc: openId.enabled, ...(openId.enabled ? { oidcIssuer: openId.issuer } : {}) };
     }
@@ -685,7 +737,13 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
         if (sharedView) throw httpError(403, 'SHARED_VIEW_READ_ONLY', { sharedAsOf: sync.asOf });
         return action === 'gst-portal' ? gstPortal.status(businessId) : gstPortal.filings(businessId, context);
       }
+      if (method === 'GET' && action === 'quicko') {
+        if (role === 'staff') throw httpError(403, 'NOT_FOR_STAFF');
+        return quicko.status(businessId);
+      }
       if (method === 'GET' && action === 'subscription') return billing.entitlement(businessId);
+      if (method === 'GET' && action === 'us-return-purchase') return billing.usReturn(businessId, url.searchParams.get('taxYear'));
+      if (method === 'GET' && action === 'us-plus') return billing.usPlus(businessId);
       if (method !== 'POST') throw httpError(404, 'NOT_FOUND');
 
       const ownerRule = OWNER_ONLY_POSTS.get(action);
@@ -715,6 +773,20 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
         return { ok: true, sharedAsOf: await runner.share(businessId, user.userId) };
       }
       if (action === 'gstin-check') return govt.gstinCheck(businessId, context, actor, body);
+      if (action === 'quicko' || action === 'quicko-session') {
+        if (role === 'staff') throw httpError(403, 'NOT_FOR_STAFF');
+        if (sharedView) throw httpError(403, 'SHARED_VIEW_READ_ONLY', { sharedAsOf: sync.asOf });
+        if (action === 'quicko') {
+          await throttle('quickoBusiness', businessId);
+          await throttle('quickoUser', user.userId);
+          return quicko.run(businessId, context, actor, body);
+        }
+        if (body.step !== 'disconnect') {
+          await throttle('portalSignInBusiness', businessId);
+          await throttle('portalSignInSubject', `${String(body.portal || '')}:${String((body.portal === 'traces' ? body.tan : body.pan) || '').trim().toUpperCase()}`);
+        }
+        return quicko.connect(businessId, context, body);
+      }
       if (action === 'gst-portal' || action === 'gst-gstr1' || action === 'gst-gstr3b' || action === 'tds-fvu') {
         if (role === 'staff') throw httpError(403, 'NOT_FOR_STAFF');
         if (sharedView) throw httpError(403, 'SHARED_VIEW_READ_ONLY', { sharedAsOf: sync.asOf });
@@ -748,6 +820,15 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
         throw httpError(403, 'SHARED_VIEW_READ_ONLY', { sharedAsOf: sync.asOf });
       }
       if (action === 'subscription') return billing.verify(businessId, user.userId, body);
+      if (action === 'us-return-purchase') return billing.verifyUsReturn(businessId, user.userId, body);
+      if (action === 'us-checkout') {
+        const unsupported = body.product === 'return' ? await unsupportedForms(businessId, context, actor, body.taxYear) : [];
+        return billing.usCheckout(businessId, user.userId, body, { unsupported });
+      }
+      if (action === 'us-checkout-confirm') return billing.usCheckoutConfirm(businessId, user.userId, body);
+      if (action === 'us-plus-cancel') return billing.cancelUsPlus(businessId, user.userId);
+      if (action === 'us-plus-purchase') return billing.verifyUsPlus(businessId, user.userId, body);
+      if (action === 'us-waitlist') return billing.joinUsWaitlist(businessId, user.userId, body);
       const posting = WRITES.has(action) ? await billing.allows(businessId, 'post') : { ok: true };
       if (!posting.ok) return posting;
       if (action === 'invitations') {
@@ -807,17 +888,42 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
           if (IMPORT_CONTENT_ARG[name] in args || typeof args.documentSha256 !== 'string') throw httpError(400, 'IMPORT_NEEDS_UPLOAD');
           return withBooks(businessId, context, (session) => session.propose(name, args, actor), { hashes: [args.documentSha256] });
         }
+        if (name === US_FILE_TOOL) {
+          const paid = await billing.usFilingAllowed(businessId, args.taxYear);
+          if (!paid.ok) return paid;
+        }
         if (!PROPOSABLE.has(name)) throw httpError(400, 'NOT_PROPOSABLE', { tool: name });
-        return withBooks(businessId, context, (session) => session.propose(name, args, actor));
+        const proposed = name === 'sign_us_return' ? withRequestAddress(args, clientAddress(req)) : args;
+        return withBooks(businessId, context, (session) => session.propose(name, proposed, actor));
       }
-      if (action === 'confirm') return withBooks(businessId, context, (session) => session.confirm(body.token, actor));
+      if (action === 'confirm') {
+        return withBooks(businessId, context, async (session) => {
+          const unpaid = await unpaidFiling(businessId, session);
+          if (unpaid) return unpaid;
+          return session.confirm(body.token, actor);
+        });
+      }
       if (action === 'discard') return withBooks(businessId, context, (session) => session.discard(actor));
-      if (action === 'query') return runner.withReadOnlyBooks(businessId, context, (session) => session.query(body.name, body.args || {}, actor));
+      if (action === 'query') {
+        if (US_PLUS_TOOLS.includes(body.name)) {
+          const plus = await billing.usPlusAllows(businessId);
+          if (!plus.ok) return plus;
+        }
+        return runner.withReadOnlyBooks(businessId, context, (session) => session.query(body.name, body.args || {}, actor));
+      }
       if (action === 'ask') {
         const message = chatText(body.message);
         if (!message.trim()) throw httpError(400, 'MESSAGE_REQUIRED');
         const canPost = await billing.allows(businessId, 'post');
-        return withBooks(businessId, context, (session) => (canPost.ok ? session.chat(message, actor) : readOnlyChat(session, message, actor)));
+        return withBooks(businessId, context, async (session) => {
+          if (!canPost.ok) return readOnlyChat(session, message, actor);
+          if (await unpaidFiling(businessId, session)) await session.discard(actor);
+          const out = await session.chat(message, actor);
+          const unpaid = await unpaidFiling(businessId, session);
+          if (!unpaid) return out;
+          await session.discard(actor);
+          return { reply: unpaid.hint, tools: [], error: unpaid.error };
+        });
       }
       if (action === 'company') {
         if (role !== 'owner') throw httpError(403, 'OWNER_ONLY');

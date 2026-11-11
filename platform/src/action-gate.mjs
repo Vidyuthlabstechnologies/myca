@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { ENGINE_EXTERNAL_ACTIONS } from './countries/manifests.mjs';
 import { channelPullsEnabled, liveCallsEnabled, loadEnvFile, mockModeEnabled, testModeEnabled } from './runtime-config.mjs';
 import { appendAuditEvent, stateDigest } from './ca-api.mjs';
 import { normalizeClientId } from './books.mjs';
@@ -17,12 +18,14 @@ import {
 import { redactSecrets } from './secret-keys.mjs';
 import { loadGovtConfig } from './nic-config.mjs';
 import { SandboxClient, getSandboxClient } from './sandbox-client.mjs';
+import { QUICKO_OPERATIONS } from './sandbox-endpoints.mjs';
 import { NimClient, getNimClient } from './nim-client.mjs';
 import * as nicClient from './nic-client.mjs';
 import { sendNotification } from './notifications.mjs';
 import { probeGovt, probeTcp } from './reachability.mjs';
 import { getChannelClient } from './channel-client.mjs';
 import { sendToTally } from './tally-client.mjs';
+import { IrsMefClient, getIrsMefClient } from './us-mef-client.mjs';
 
 export const DRY_RUN_LIMIT = 200;
 
@@ -47,6 +50,7 @@ const IRREVERSIBLE = { irreversible: true };
 const PROBE = { timeoutMs: 90000 };
 const MODEL = { timeoutMs: 2 * MINUTE_MS };
 const LOCAL_APP = { local: true, timeoutMs: 30000 };
+const QUICKO_USES = ['sandbox.callEndpoint', 'sandbox.uploadJobPayload', 'sandbox.fetchJobOutput'];
 
 export const ACTION_CLASSES = Object.freeze(Object.assign(Object.create(null), {
   gst_taxpayer_generate_otp: write('sandbox_operation', ['sandbox.generateTaxpayerOtp'], IRREVERSIBLE),
@@ -105,10 +109,45 @@ export const ACTION_CLASSES = Object.freeze(Object.assign(Object.create(null), {
   zoho_push_invoices: write('channel', ['channel.zoho'], { timeoutMs: 10 * MINUTE_MS }),
   plaid_link: read('channel', ['channel.plaid']),
   taxjar_rate: read('channel', ['channel.taxjar']),
+  pinwheel_read: read('channel', ['channel.pinwheel']),
   gusto_token: read('channel', ['channel.gusto']),
   track1099_read: read('channel', ['channel.track1099']),
   track1099_import: write('channel', ['channel.track1099'], { timeoutMs: 5 * MINUTE_MS }),
+  irs_mef_send: write('irs', ['irs.sendSubmissions'], { irreversible: true, timeoutMs: 3 * MINUTE_MS }),
+  irs_mef_acks: read('irs', ['irs.getAcks'], { timeoutMs: 2 * MINUTE_MS }),
+  ...Object.fromEntries(QUICKO_OPERATIONS.map((endpoint) => [
+    endpoint.id,
+    entry(endpoint.actionClass, 'sandbox_operation', QUICKO_USES, { irreversible: endpoint.irreversible, timeoutMs: endpoint.job ? 3 * MINUTE_MS : 90000 }),
+  ])),
 }));
+
+export const ENGINE_ACTION_FAMILY = 'country-engine';
+export const ENGINE_ACTION_CLASSES = Object.freeze(Object.assign(Object.create(null), Object.fromEntries(ENGINE_EXTERNAL_ACTIONS.map((action) => [action.id, Object.freeze({ ...entry(action.access, ENGINE_ACTION_FAMILY, ['https.request'], { irreversible: action.irreversible, timeoutMs: action.timeoutSeconds * 1000 }), hosts: action.hosts, country: action.country })]))));
+
+export function externalActionClass(actionId) {
+  const id = String(actionId || '');
+  if (Object.hasOwn(ACTION_CLASSES, id)) return ACTION_CLASSES[id];
+  return Object.hasOwn(ENGINE_ACTION_CLASSES, id) ? ENGINE_ACTION_CLASSES[id] : null;
+}
+
+function allowedHosts(item) {
+  if (!item || !item.hosts) return [];
+  return testModeEnabled() ? item.hosts.test : item.hosts.live;
+}
+
+const HTTPS_TRANSPORT = Object.freeze({
+  request: (ctx) => async (url, init = {}) => {
+    let target;
+    try {
+      target = new URL(String(url));
+    } catch {
+      throw new Error('ENGINE_URL_UNREADABLE');
+    }
+    if (target.protocol !== 'https:' || target.port || target.username || target.password) throw new Error('ENGINE_URL_NOT_PLAIN_HTTPS');
+    if (!allowedHosts(externalActionClass(ctx.actionId)).includes(target.hostname)) throw new Error(`ENGINE_HOST_NOT_ALLOWED:${target.hostname}`);
+    return getChannelClient().fetchFn(target.toString(), { ...init, redirect: 'error', signal: init.signal ? AbortSignal.any([init.signal, ctx.signal]) : ctx.signal });
+  },
+});
 
 function transportOptions(ctx) {
   return { mock: false, signal: ctx.signal };
@@ -156,6 +195,7 @@ const CHANNEL_TRANSPORT = Object.freeze({
   zoho: (ctx) => (request) => signalled(getChannelClient(), ctx.signal).zoho(request, ctx.signal),
   plaid: (ctx) => (request) => signalled(getChannelClient(), ctx.signal).plaid(request, ctx.signal),
   taxjar: (ctx) => (request) => signalled(getChannelClient(), ctx.signal).taxjar(request, ctx.signal),
+  pinwheel: (ctx) => (request) => signalled(getChannelClient(), ctx.signal).pinwheel(request, ctx.signal),
   gusto: (ctx) => (request) => signalled(getChannelClient(), ctx.signal).gusto(request, ctx.signal),
   track1099: (ctx) => (request) => signalled(getChannelClient(), ctx.signal).track1099(request, ctx.signal),
 });
@@ -165,6 +205,7 @@ const TALLY_TRANSPORT = Object.freeze({
 });
 
 const TRANSPORT_TABLES = Object.freeze({
+  https: HTTPS_TRANSPORT,
   tally: TALLY_TRANSPORT,
   nic: NIC_TRANSPORT,
   channel: CHANNEL_TRANSPORT,
@@ -175,6 +216,7 @@ const TRANSPORT_TABLES = Object.freeze({
 const TRANSPORT_CLIENTS = Object.freeze({
   sandbox: { Client: SandboxClient, current: getSandboxClient },
   nim: { Client: NimClient, current: getNimClient },
+  irs: { Client: IrsMefClient, current: getIrsMefClient },
 });
 
 function signalled(client, signal) {
@@ -199,6 +241,7 @@ function resolveTransport(use) {
 }
 
 const TRANSPORT_BY_USE = new Map(Object.values(ACTION_CLASSES).flatMap((item) => item.uses).map((use) => [use, resolveTransport(use)]));
+TRANSPORT_BY_USE.set('https.request', resolveTransport('https.request'));
 
 function scopedTransports(uses, ctx) {
   const groups = {};
@@ -313,7 +356,7 @@ function appendDryRun(state, record) {
   return stored;
 }
 
-export const TEST_MODE_FAMILIES = Object.freeze(new Set(['sandbox', 'sandbox_operation', 'nic', 'govt', 'provider', 'nim']));
+export const TEST_MODE_FAMILIES = Object.freeze(new Set(['sandbox', 'sandbox_operation', 'nic', 'govt', 'provider', 'nim', 'irs']));
 
 function recordDryRun(action, payload, reason = 'LIVE_CALLS_DISABLED') {
   const beforeHash = stateDigest(action.state);
@@ -479,7 +522,7 @@ async function runWithDeadline(action, execute, timeoutMs) {
 
 export async function performExternalAction(state, request = {}, execute) {
   const actionId = String(request?.actionId || '');
-  const item = Object.hasOwn(ACTION_CLASSES, actionId) ? ACTION_CLASSES[actionId] : null;
+  const item = externalActionClass(actionId);
   if (!item) return { ok: false, error: 'UNKNOWN_EXTERNAL_ACTION', actionId };
   if (typeof execute !== 'function') return { ok: false, error: 'EXECUTOR_REQUIRED', actionId };
   if (!isRecord(state)) return { ok: false, error: 'STATE_REQUIRED', actionId };
@@ -515,7 +558,7 @@ export async function performExternalAction(state, request = {}, execute) {
 
   const pullAllowed = item.family === 'channel' && item.actionClass === 'read' && channelPullsEnabled();
   if (!liveCallsEnabled() && !pullAllowed && !item.local) return recordDryRun(action, request.payload ?? params);
-  if (testModeEnabled() && !pullAllowed && !item.local && !TEST_MODE_FAMILIES.has(item.family)) return recordDryRun(action, request.payload ?? params, 'TEST_MODE_HELD');
+  if (testModeEnabled() && !pullAllowed && !item.local && !TEST_MODE_FAMILIES.has(item.family) && !(item.hosts && item.hosts.test.length)) return recordDryRun(action, request.payload ?? params, 'TEST_MODE_HELD');
 
   const beforeHash = stateDigest(state);
   const claim = item.actionClass === 'write' && !item.local && !testModeEnabled() ? claimApproval(action, request.approvalId) : { ok: true, approval: null };

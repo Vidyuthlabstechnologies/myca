@@ -20,10 +20,10 @@ void main() {
     final tx = overview.states.single;
     expect(tx.state, 'TX');
     expect(tx.lastPeriod!.toPay, 53.75);
-    expect(salesTaxPeriodWords(tx.lastPeriod!), '2026-Q3: collected \$53.75, to pay \$53.75, due 20 October 2026');
+    expect(salesTaxPeriodWords(tx.lastPeriod!), '2026-Q3: collected \$53.75, to pay \$53.75, due October 20, 2026');
     api.salesTaxFiled = true;
     final filed = SalesTaxOverview.fromTool(await api.query('sales_tax_overview'))!.states.single.lastPeriod!;
-    expect(salesTaxPeriodWords(filed), '2026-Q3: filed on 5 October 2026, confirmation TX778899');
+    expect(salesTaxPeriodWords(filed), '2026-Q3: filed on October 5, 2026, confirmation TX778899');
     expect(SalesTaxOverview.fromTool(await (FakeMycaApi(signedIn: true)..country = 'US').query('sales_tax_overview'))!.hasNexus, isFalse);
   });
 
@@ -50,7 +50,7 @@ void main() {
     await tester.tap(find.text('Post it'));
     await tester.pumpAndSettle();
     expect(find.text('TX · quarterly'), findsOneWidget);
-    expect(find.textContaining('to pay \$53.75, due 20 October 2026'), findsOneWidget);
+    expect(find.textContaining('to pay \$53.75, due October 20, 2026'), findsOneWidget);
 
     await tester.tap(find.text('TX · quarterly'));
     await tester.pumpAndSettle();
@@ -97,7 +97,7 @@ void main() {
     await tester.ensureVisible(find.text('Post it'));
     await tester.tap(find.text('Post it'));
     await tester.pumpAndSettle();
-    expect(find.textContaining('filed on 5 October 2026, confirmation TX778899'), findsOneWidget);
+    expect(find.textContaining('filed on October 5, 2026, confirmation TX778899'), findsOneWidget);
     expect(find.textContaining('GST'), findsNothing);
   });
 }

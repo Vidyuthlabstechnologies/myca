@@ -6,7 +6,9 @@ import { RULES as AUDIT_THRESHOLD_RULES } from './rules/audit-thresholds.mjs';
 import { RULES as HOLIDAY_RULES } from './rules/holidays.mjs';
 import { RULES as PAYROLL_RULES } from './rules/payroll.mjs';
 import { RULES as US_FEDERAL_RULES } from './rules/us-federal.mjs';
+import { RULES as US_INDIVIDUAL_RULES } from './rules/us-individual.mjs';
 import { RULES as US_SALES_TAX_RULES } from './rules/us-sales-tax.mjs';
+import { RULES as MALAYSIA_RULES } from './rules/malaysia.mjs';
 import { RULES as MSME_RULES } from './rules/msme.mjs';
 import { RULES as PRESUMPTIVE_RULES } from './rules/presumptive.mjs';
 
@@ -19,7 +21,9 @@ export const RULE_MODULES = Object.freeze({
   'holidays': HOLIDAY_RULES,
   'payroll': PAYROLL_RULES,
   'us-federal': US_FEDERAL_RULES,
+  'us-individual': US_INDIVIDUAL_RULES,
   'us-sales-tax': US_SALES_TAX_RULES,
+  'malaysia': MALAYSIA_RULES,
   'msme': MSME_RULES,
   'presumptive': PRESUMPTIVE_RULES
 });

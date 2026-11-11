@@ -10,8 +10,11 @@ class FakeCloud {
 
   final requests = <String>[];
   final businesses = <Map<String, Object?>>[];
+  final createdBodies = <Map<String, Object?>>[];
   final invoices = <Map<String, Object?>>[];
   final uploads = <String, String>{};
+  final quickoCalls = <Map<String, Object?>>[];
+  final quickoSessions = <Map<String, Object?>>[];
   final imports = <String>[];
   final myInvitations = <Map<String, Object?>>[];
   final members = <Map<String, Object?>>[];
@@ -161,6 +164,20 @@ class FakeCloud {
       if (serverEnvironment.isEmpty) return _json(404, {'ok': false, 'error': 'NOT_FOUND'});
       return _json(200, {'ok': true, 'environment': serverEnvironment, 'providerMode': 'sandbox', 'version': 'test'});
     }
+    if (path == '/v1/privacy-notice' && request.url.queryParameters['region'] == 'US') {
+      return _json(200, {
+        'ok': true,
+        'notice': {
+          'document': 'privacy',
+          'version': 'us-test',
+          'title': 'How MyCA uses your information (United States)',
+          'status': 'Draft for legal review.',
+          'sections': [
+            {'heading': 'How we use it', 'body': 'Section 7216 does not let us use your tax return information for anything else.'},
+          ],
+        },
+      });
+    }
     if (path == '/v1/privacy-notice') {
       return _json(200, {
         'ok': true,
@@ -251,7 +268,7 @@ class FakeCloud {
       return _json(401, {'ok': false, 'error': 'UNAUTHENTICATED', 'reason': 'TOKEN_EXPIRED'});
     }
     if (path == '/v1/me/consent' && request.method == 'POST') {
-      if (body['version'] != 'v-test') return _json(400, {'ok': false, 'error': 'NOTICE_CHANGED'});
+      if (body['version'] != 'v-test' && body['version'] != 'us-test') return _json(400, {'ok': false, 'error': 'NOTICE_CHANGED'});
       noticeAccepted = true;
       consents.add('${body['document']}@${body['version']}');
       return _json(200, {'ok': true});
@@ -364,6 +381,15 @@ class FakeCloud {
         return _json(200, {'ok': true, 'business': demo, 'seeded': 12});
       }
       final gstin = '${body['gstin'] ?? ''}';
+      if (body['country'] == 'US') {
+        final household = body['kind'] == 'household';
+        company = {'name': body['name'], 'gstin': '', 'state': '', 'country': 'US', if (household) 'entityType': 'household'};
+        final made = {'id': businessId, 'name': body['name'], 'gstin': '', 'role': 'owner', 'country': 'US', 'kind': household ? 'household' : 'business'};
+        businesses.add(made);
+        createdBodies.add(Map<String, Object?>.from(body));
+        return _json(200, {'ok': true, 'business': made});
+      }
+      if (body['kind'] == 'household') return _json(400, {'ok': false, 'error': 'HOUSEHOLD_US_ONLY'});
       if (gstin.isEmpty && body['state'] == null) return _json(400, {'ok': false, 'error': 'STATE_REQUIRED'});
       if (gstin == '27AABCU9603R1ZX') return _json(400, {'ok': false, 'error': 'INVALID_GSTIN'});
       company = {'name': body['name'], 'gstin': gstin, 'state': body['state'] ?? gstin.substring(0, 2)};
@@ -456,6 +482,46 @@ class FakeCloud {
         gstPortalSessions.remove(gstin);
         return _json(200, {'ok': true, 'gstin': gstin, 'disconnected': true});
       }
+    }
+    if (path == '$books/quicko' && request.method == 'GET') {
+      return _json(200, {'ok': true, 'available': true, 'simulated': false, 'tools': const ['read_form16'], 'sessions': quickoSessions});
+    }
+    if (path == '$books/quicko' && request.method == 'POST') {
+      final tool = '${body['tool']}';
+      final args = (body['args'] as Map?)?.cast<String, Object?>() ?? const <String, Object?>{};
+      quickoCalls.add({'tool': tool, ...args});
+      if (tool == 'read_form16') {
+        if (!uploads.containsKey(args['documentSha256'])) return _json(200, {'ok': false, 'error': 'DOCUMENT_NOT_FOUND'});
+        return _json(200, {'ok': true, 'mode': 'test', 'simulated': false, 'data': {
+          'summary': {
+            'assessmentYear': '2026-27',
+            'employer': {'name': 'Acme Pvt Ltd', 'tan': 'BLRA12345B'},
+            'employee': {'pan': 'ABCDE1234F', 'name': 'Asha Rao'},
+            'figuresAsPrinted': {'totalTaxableIncome': 1725000, 'netTaxPayable': 180000, 'grossTotalIncome': null},
+          },
+          'note': 'Every figure is as printed.',
+        }});
+      }
+      if (tool == 'check_206ab') {
+        if (args['consent'] != true) return _json(200, {'ok': false, 'error': 'CONSENT_REQUIRED'});
+        return _json(200, {'ok': true, 'mode': 'test', 'data': {'pan': args['pan'], 'name': 'KIRAN TRADERS', 'specifiedPerson': 'no', 'panStatus': 'operative'}});
+      }
+      if (tool == 'verify_bank_account') {
+        if ('${args['ifsc']}'.length != 11) return _json(200, {'ok': false, 'error': 'INVALID_IFSC'});
+        return _json(200, {'ok': true, 'mode': 'test', 'data': {'accountEndsWith': '${args['accountNumber']}'.substring('${args['accountNumber']}'.length - 4), 'result': {'account_exists': true, 'name_at_bank': 'KIRAN TRADERS'}}});
+      }
+      return _json(200, {'ok': false, 'error': 'UNKNOWN_TOOL'});
+    }
+    if (path == '$books/quicko-session' && request.method == 'POST') {
+      if (body['step'] == 'disconnect') {
+        quickoSessions.clear();
+        return _json(200, {'ok': true, 'portal': 'itd', 'disconnected': true});
+      }
+      if (body['password'] != 'right-password') return _json(200, {'ok': false, 'error': 'PORTAL_SIGN_IN_REFUSED'});
+      quickoSessions
+        ..clear()
+        ..add({'portal': 'itd', 'subject': body['pan'], 'connected': true, 'expiresAt': '2026-11-09T18:00:00.000Z'});
+      return _json(200, {'ok': true, 'portal': 'itd', 'subject': body['pan'], 'connected': true});
     }
     if (path == '$books/approvals' && request.method == 'GET') {
       return _json(200, {'ok': true, 'approvals': filingApprovals});

@@ -1,6 +1,7 @@
 import { rules } from './sprint-load.mjs';
 import { localToday } from './dates.mjs';
-import { countryOf } from './country.mjs';
+import { countryOf, countryPack } from './country.mjs';
+import { ENGINE_RULE_FAMILIES } from './countries/manifests.mjs';
 
 const FAMILIES = [
   { key: 'gst', country: 'IN', title: 'GST rates, thresholds, set-off, interest and late fees', match: (id) => id.startsWith('gst.'), watch: ['CBIC central tax and rate notifications after every GST Council meeting', 'CGST Rules amendments (rule 36, 37, 37A, 61, 88A, 138)'] },
@@ -12,11 +13,14 @@ const FAMILIES = [
   { key: 'holiday', country: 'IN', title: 'Gazetted holiday calendar', match: (id) => id.startsWith('holiday.'), watch: ['DoPT holiday Office Memorandum, published each July for the next calendar year'] },
   { key: 'payroll', country: 'IN', title: 'Provident fund and state insurance', match: (id) => id.startsWith('payroll.') && !id.startsWith('payroll.pt.'), watch: ['EPFO circulars on wage ceiling, rates and administrative charges', 'ESIC notifications on contribution rates and the wage limit', 'Code on Social Security 2020 rules as brought into force'] },
   { key: 'professional-tax', country: 'IN', title: 'Professional tax by state', match: (id) => id.startsWith('payroll.pt.'), watch: ['Each state commercial tax department notification; budgets change slabs in April'] },
-  { key: 'us-federal', country: 'US', title: 'Federal information reporting', match: (id) => id.startsWith('us.federal.'), watch: ['IRS General Instructions for Certain Information Returns (new edition each year)', 'IRS inflation adjustment revenue procedure each October or November'] },
+  { key: 'us-federal', country: 'US', title: 'Federal information reporting', match: (id) => id.startsWith('us.federal.') && !id.startsWith('us.federal.individual.'), watch: ['IRS General Instructions for Certain Information Returns (new edition each year)', 'IRS inflation adjustment revenue procedure each October or November'] },
+  { key: 'us-individual', country: 'US', title: 'Federal individual income tax', match: (id) => id.startsWith('us.federal.individual.'), watch: ['IRS inflation adjustment revenue procedure each October or November (brackets, standard deduction, EITC, capital gain bands)', 'Form 1040 and schedule instructions for the year filed', 'New federal tax legislation (for example Public Law 119-21 provisions ending after 2028)'] },
   { key: 'us-sales-tax', country: 'US', title: 'State sales tax due dates', match: (id) => id.startsWith('us.salestax.'), watch: ['Texas Comptroller sales tax due dates', 'California Department of Tax and Fee Administration filing calendar', 'Any new state the business registers in needs its own dated rule'] },
+  ...ENGINE_RULE_FAMILIES.map((family) => ({ key: family.key, country: family.country, title: family.title, match: (id) => id.startsWith(family.prefix), watch: family.watch })),
 ];
 
 const SOON_DAYS = 90;
+const REVIEWERS = { IN: 'your CA', US: 'a US CPA' };
 
 function inForceOn(record, date) {
   return record.effectiveFrom <= date && (record.effectiveTo === null || record.effectiveTo >= date);
@@ -64,7 +68,7 @@ export function rulesStatus(state, args = {}) {
   });
   const totals = families.reduce((sum, family) => ({ records: sum.records + family.records, attested: sum.attested + family.attested, gaps: sum.gaps + family.gaps.length, ending: sum.ending + family.ending.length }), { records: 0, attested: 0, gaps: 0, ending: 0 });
   const notes = [];
-  if (totals.attested === 0) notes.push(country === 'US' ? 'No rule has been reviewed by a US CPA yet; figures carry a not-reviewed note until one attests.' : 'No rule has been reviewed by your CA yet; figures carry a not-reviewed note until one attests.');
+  if (totals.attested === 0) notes.push(`No rule has been reviewed by ${REVIEWERS[country] || 'a local tax professional'} yet; figures carry a not-reviewed note until one attests.`);
   for (const family of families) {
     if (family.gaps.length) notes.push(`${family.title}: ${family.gaps.length === 1 ? '1 rule has' : `${family.gaps.length} rules have`} nothing in force on ${asOf} (${family.gaps.slice(0, 3).join(', ')}${family.gaps.length > 3 ? ', …' : ''}).`);
     if (family.ending.length) notes.push(`${family.title}: ${family.ending.length === 1 ? '1 record ends' : `${family.ending.length} records end`} by ${family.ending.map((row) => row.effectiveTo).sort().pop()} with no successor recorded.`);
@@ -84,7 +88,7 @@ export function rulesStatus(state, args = {}) {
 }
 
 export function rulesStatusWords(data) {
-  const head = `${data.totals.records} dated statutory records for ${data.country === 'US' ? 'the United States' : 'India'} as of ${data.asOf}; ${data.totals.attested} reviewed by ${data.country === 'US' ? 'a CPA' : 'your CA'}.`;
+  const head = `${data.totals.records} dated statutory records for ${data.country === 'US' ? 'the United States' : countryPack(data.country)?.name || data.country} as of ${data.asOf}; ${data.totals.attested} reviewed by ${data.country === 'US' ? 'a CPA' : REVIEWERS[data.country] || 'a local tax professional'}.`;
   const rows = data.families.map((family) => `· ${family.title}: ${family.inForce} in force${family.latestFrom ? `, latest from ${family.latestFrom}` : ''}${family.coveredUntil ? `, covered until ${family.coveredUntil}` : ''}${family.attention ? ' — needs attention' : ''}`);
   return [head, ...rows, ...data.notes].join('\n');
 }

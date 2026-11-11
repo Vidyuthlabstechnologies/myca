@@ -1,4 +1,7 @@
+import 'dart:async';
 import 'dart:ui';
+
+import 'package:myca_design/myca_design.dart' show MycaDesign;
 
 import 'package:app_links/app_links.dart';
 import 'package:flutter/foundation.dart';
@@ -30,8 +33,11 @@ import 'screens/home_screen.dart';
 import 'screens/migration_flow.dart';
 import 'screens/sign_in_screen.dart';
 import 'screens/welcome_screen.dart';
+import 'screens/us/us_return_home_screen.dart';
 import 'shared_file.dart';
 import 'theme.dart';
+import 'tour/tour.dart';
+import 'tour/tour_coach.dart';
 
 void main() {
   LicenseRegistry.addLicense(() async* {
@@ -87,6 +93,8 @@ void main() {
             : null,
         plaidLink: const DevicePlaidLink(),
         openLink: (url) => launchUrl(url, mode: LaunchMode.externalApplication),
+        edition: editionFor(appFlavor),
+        installationId: deviceInstallationId,
       ),
     ),
   );
@@ -103,8 +111,13 @@ class MycaApp extends StatefulWidget {
 
 class _MycaAppState extends State<MycaApp> with WidgetsBindingObserver {
   final _navigator = GlobalKey<NavigatorState>();
+  late final _tour = TourController(navigator: _navigator, onFinished: _tourFinished);
   final _messenger = GlobalKey<ScaffoldMessengerState>();
   bool _openingShared = false;
+
+  Future<void> _tourFinished(bool startBooks) async {
+    if (startBooks && !widget.state.welcomed) await widget.state.finishWelcome();
+  }
 
   @override
   void initState() {
@@ -118,6 +131,7 @@ class _MycaAppState extends State<MycaApp> with WidgetsBindingObserver {
   void dispose() {
     widget.state.removeListener(_openSharedFile);
     WidgetsBinding.instance.removeObserver(this);
+    _tour.dispose();
     super.dispose();
   }
 
@@ -129,6 +143,7 @@ class _MycaAppState extends State<MycaApp> with WidgetsBindingObserver {
       _messenger.currentState!.showSnackBar(SnackBar(content: Text(note)));
     }
     if (state.sharedFile == null || !state.readyForEntries || _openingShared) return;
+    if (_tour.active) unawaited(_tour.finish());
     final navigator = _navigator.currentState;
     if (navigator == null) return;
     _openingShared = true;
@@ -150,32 +165,72 @@ class _MycaAppState extends State<MycaApp> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    return AppScope(
-      state: widget.state,
-      child: MaterialApp(
-        navigatorKey: _navigator,
-        scaffoldMessengerKey: _messenger,
-        title: 'MyCA',
-        debugShowCheckedModeBanner: false,
-        theme: mycaTheme(),
-        builder: (context, child) => ListenableBuilder(
-          listenable: widget.state,
-          builder: (context, _) => Stack(
-            children: [
-              if (widget.state.testServer)
-                Column(
-                  children: [
-                    const TestServerBanner(),
-                    Expanded(child: MediaQuery.removePadding(context: context, removeTop: true, child: child ?? const SizedBox.shrink())),
-                  ],
-                )
-              else
-                ?child,
-              if (widget.state.locked) const LockScreen(),
-            ],
+    return TourScope(
+      tour: _tour,
+      child: ListenableBuilder(
+        listenable: _tour,
+        builder: (context, _) => AppScope(
+          state: _tour.sample ?? widget.state,
+          child: MaterialApp(
+            navigatorKey: _navigator,
+            navigatorObservers: [_tour.observer],
+            scaffoldMessengerKey: _messenger,
+            title: 'MyCA',
+            debugShowCheckedModeBanner: false,
+            theme: widget.state.edition == 'US' ? MycaDesign.forFlavor('us').light : mycaTheme(),
+            builder: (context, child) => ListenableBuilder(
+              listenable: widget.state,
+              builder: (context, _) => Stack(
+                children: [
+                  if (widget.state.testServer)
+                    Column(
+                      children: [
+                        const TestServerBanner(),
+                        Expanded(
+                          child: MediaQuery.removePadding(
+                            context: context,
+                            removeTop: true,
+                            child: _Readable(child: child ?? const SizedBox.shrink()),
+                          ),
+                        ),
+                      ],
+                    )
+                  else if (child != null)
+                    _Readable(child: child),
+                  if (_tour.active && !widget.state.locked) TourCoach(tour: _tour),
+                  if (widget.state.locked) AppScope(state: widget.state, child: const LockScreen()),
+                ],
+              ),
+            ),
+            home: const AppGate(),
           ),
         ),
-        home: const AppGate(),
+      ),
+    );
+  }
+}
+
+class _Readable extends StatelessWidget {
+  const _Readable({required this.child});
+
+  static const widest = 720.0;
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final media = MediaQuery.of(context);
+    if (media.size.width <= widest + 120) return child;
+    return ColoredBox(
+      color: Palette.sunken,
+      child: Center(
+        child: SizedBox(
+          width: widest,
+          child: MediaQuery(
+            data: media.copyWith(size: Size(widest, media.size.height)),
+            child: child,
+          ),
+        ),
       ),
     );
   }
@@ -248,6 +303,7 @@ class AppGate extends StatelessWidget {
       );
     }
     if (snapshot.activeUser == null) return SignInScreen(snapshot: snapshot);
+    if (snapshot.company.household) return UsReturnHomeScreen(snapshot: snapshot);
     if (!state.migrated) return MigrationFlow(snapshot: snapshot);
     return HomeScreen(snapshot: snapshot);
   }

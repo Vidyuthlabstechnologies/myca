@@ -1,4 +1,7 @@
+import { ENGINE_READ_TOOLS } from './countries/manifests.mjs';
+
 export const REMOTE_QUERY_TOOLS = new Set([
+  ...ENGINE_READ_TOOLS,
   'company_profile',
   'list_invoices',
   'invoice_document', 'invoice_template', 'settlement_status', 'marketplace_credits', 'tds_credit_check', 'stock_position', 'stock_moves', 'inventory_valuations', 'sku_margins', 'daily_close', 'registrations',
@@ -31,6 +34,8 @@ export const REMOTE_QUERY_TOOLS = new Set([
   'advance_tax',
   'ask_tax',
   'tax_modules',
+  'itr_knowledge',
+  'check_itr_json',
   'tax_plan',
   'review_income_tax',
   'supplier_payout_file',
@@ -46,6 +51,19 @@ export const REMOTE_QUERY_TOOLS = new Set([
   'read_document',
   'list_amendments',
   'schedule_se',
+  'read_us_tax_document',
+  'us_return_pdf',
+  'us_taxpayer',
+  'us_return_status',
+  'list_us_tax_forms',
+  'us_interview',
+  'us_return_review',
+  'us_form_kinds',
+  'us_supported_forms',
+  'us_withholding_check',
+  'us_estimated_payments',
+  'read_irs_letter',
+  'us_tax_estimate',
   'schedule_c_document',
   'cpa_pack',
   'payroll_941_file',
@@ -53,6 +71,9 @@ export const REMOTE_QUERY_TOOLS = new Set([
   'us_payroll_filings',
   'list_suta_rates',
   'schedule_c_summary',
+  'us_efile_status',
+  'us_efile_setup',
+  'payroll_tax_forms',
   'estimated_tax_dates',
   'sales_tax_return',
   'sales_tax_review',
@@ -93,6 +114,8 @@ export const REMOTE_QUERY_TOOLS = new Set([
   'validate_gstin',
   'bank_reconciliation', 'list_bank_rules', 'list_bank_accounts',
   'audit_trail',
+  'quicko_catalog', 'read_form16', 'read_form26as', 'capital_gains_pnl', 'quicko_tax_check', 'verify_pan', 'pan_aadhaar_status', 'check_206ab',
+  'search_tan', 'lookup_ifsc', 'verify_bank_account', 'mca_company', 'gstins_for_pan',
 ]);
 
 export const COMPANY_PROFILE_FIELDS = ['name', 'gstin', 'pan', 'state', 'address', 'city', 'pin', 'entityType', 'invoiceNumbering', 'invoiceTemplate'];

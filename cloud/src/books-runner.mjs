@@ -1,6 +1,8 @@
 import { openSession } from '../../platform/src/session.mjs';
 import { createMemoryBooksStore, createMemoryDocumentStore } from '../../platform/src/store-ports.mjs';
 import { refreshIfDue, shareNow } from './ca-sync.mjs';
+import { redactTinsDeepFor } from '../../platform/src/us-identity.mjs';
+import { countryOf } from '../../platform/src/country.mjs';
 
 const SHA256 = /^[a-f0-9]{64}$/;
 
@@ -49,7 +51,7 @@ export function createBooksRunner({ db, now = () => Date.now(), vault, booksKey 
     return { books, documents, session };
   }
 
-  async function audit(q, businessId, context, events) {
+  async function audit(q, businessId, context, events, state) {
     for (const event of events) {
       await q(
         `insert into audit_log (business_id, user_id, device_id, request_id, action, before_hash, after_hash, metadata)
@@ -62,7 +64,7 @@ export function createBooksRunner({ db, now = () => Date.now(), vault, booksKey 
           String(event.action || ''),
           String(event.beforeHash || ''),
           String(event.afterHash || ''),
-          JSON.stringify(event.metadata || {}),
+          JSON.stringify(redactTinsDeepFor(countryOf(state), event.metadata || {})),
         ],
       );
     }
@@ -97,7 +99,7 @@ export function createBooksRunner({ db, now = () => Date.now(), vault, booksKey 
         storedState(booksKey, businessId, books.stored()),
       ]);
       for (const doc of documents.added()) await vault.write(q, businessId, doc);
-      await audit(q, businessId, context, session.state.auditEvents.slice(auditedBefore));
+      await audit(q, businessId, context, session.state.auditEvents.slice(auditedBefore), session.state);
       await stillSignedIn(q, context);
       return out;
     });
@@ -134,7 +136,7 @@ export function createBooksRunner({ db, now = () => Date.now(), vault, booksKey 
       const { session } = await open(q, businessId, row.state, row.version);
       const auditedBefore = session.state.auditEvents.length;
       const out = await run(session, q);
-      await audit(q, businessId, context, session.state.auditEvents.slice(auditedBefore));
+      await audit(q, businessId, context, session.state.auditEvents.slice(auditedBefore), session.state);
       return out;
     });
   }
@@ -148,7 +150,7 @@ export function createBooksRunner({ db, now = () => Date.now(), vault, booksKey 
       const { session } = await open(q, businessId, shared.state, shared.version);
       const auditedBefore = session.state.auditEvents.length;
       const out = await run(session, { asOf: shared.as_of }, q);
-      await audit(q, businessId, context, session.state.auditEvents.slice(auditedBefore));
+      await audit(q, businessId, context, session.state.auditEvents.slice(auditedBefore), session.state);
       return out;
     });
   }

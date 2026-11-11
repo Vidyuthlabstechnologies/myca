@@ -42,4 +42,4 @@ export async function seedDemo(session, today, actor) {
   return { ok: true, steps: done.length };
 }
 
-export const DEMO_BLOCKED_ACTIONS = new Set(['gst-portal', 'gst-gstr1', 'gst-gstr3b', 'tds-fvu', 'einvoice', 'ewaybill', 'connectors', 'connector-sync', 'plaid-link-token', 'plaid-exchange', 'gusto-connect', 'taxjar-rate', 'invitations', 'inbound', 'subscription', 'replace']);
+export const DEMO_BLOCKED_ACTIONS = new Set(['gst-portal', 'quicko', 'quicko-session', 'gst-gstr1', 'gst-gstr3b', 'tds-fvu', 'einvoice', 'ewaybill', 'connectors', 'connector-sync', 'plaid-link-token', 'plaid-exchange', 'gusto-connect', 'taxjar-rate', 'invitations', 'inbound', 'subscription', 'replace']);

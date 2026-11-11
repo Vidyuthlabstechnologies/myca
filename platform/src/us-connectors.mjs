@@ -10,6 +10,8 @@ export const TAXJAR_HOSTS = { sandbox: 'https://api.sandbox.taxjar.com', product
 export const GUSTO_HOSTS = { demo: 'https://api.gusto-demo.com', production: 'https://api.gusto.com' };
 export const GUSTO_REDIRECT_PATH = '/api/oauth/gusto/callback';
 const PLAID_SANDBOX_INSTITUTION = 'ins_109508';
+export const PINWHEEL_CENTS = 100;
+const PINWHEEL_FORM_KINDS = { 'W-2': 'W-2', 'W-2C': 'W-2', '1099-NEC': '1099-NEC', '1099-MISC': '1099-MISC' };
 
 function fail(error, extra = {}) {
   return { ok: false, error, ...extra };
@@ -178,6 +180,143 @@ export async function gustoCallback(state, args = {}, actor, options = {}) {
   return { ok: true, data: { channel: 'gusto', companyUuid: out.data.companyUuid, connectedOn: localToday(), mock: Boolean(out.mock) } };
 }
 
+function pinwheelMoney(value) {
+  const n = Number(value);
+  return Number.isFinite(n) ? Math.round(n) / PINWHEEL_CENTS : undefined;
+}
+
+function compact(fields) {
+  return Object.fromEntries(Object.entries(fields).filter(([, v]) => v !== undefined && v !== '' && !(Array.isArray(v) && v.length === 0)));
+}
+
+export function pinwheelTaxFormToUsForm(taxForm, owner = 'taxpayer') {
+  const kind = PINWHEEL_FORM_KINDS[String(taxForm?.form_type || '').toUpperCase()];
+  const p = taxForm?.parsed_data || {};
+  const notes = (taxForm?.warnings || []).map((w) => `${w.field || 'form'}: ${w.message || w.status || 'check this box'}`);
+  const base = { taxFormId: String(taxForm?.id || ''), formType: String(taxForm?.form_type || ''), year: Number(taxForm?.year || 0), documentId: `pinwheel-${String(taxForm?.id || '')}`.slice(0, 80), notes };
+  if (!kind) return { ...base, skipped: `MyCA does not read ${taxForm?.form_type || 'this form'} from payroll yet; add it by hand.` };
+  if (!taxForm?.parsed_data) return { ...base, skipped: 'Pinwheel sent the PDF but no parsed boxes; add this form by hand from the PDF.' };
+  if (kind === 'W-2') {
+    const states = Array.isArray(p.box_15_to_20) ? p.box_15_to_20 : [];
+    const first = states[0] || {};
+    if (states.length > 1) notes.push(`This W-2 lists ${states.length} states; only ${first.box_15_state || 'the first'} is carried. Add the other state wages by hand.`);
+    if (String(taxForm.form_type).toUpperCase() === 'W-2C') notes.push('This is a corrected W-2 (W-2c). Remove the original W-2 from the return if it is there.');
+    const box13 = p.box_13 || {};
+    return { ...base, form: { kind, owner, payer: String(p.box_c?.name || '').trim(), payerTin: String(p.box_b || '').trim(), source: 'payroll', documentId: base.documentId, fields: compact({
+      wages: pinwheelMoney(p.box_1), federalWithheld: pinwheelMoney(p.box_2), socialSecurityWages: pinwheelMoney(p.box_3), socialSecurityTax: pinwheelMoney(p.box_4), medicareWages: pinwheelMoney(p.box_5), medicareTax: pinwheelMoney(p.box_6), socialSecurityTips: pinwheelMoney(p.box_7),
+      box12: (Array.isArray(p.box_12) ? p.box_12 : []).map((row) => ({ code: String(row?.code || '').toUpperCase(), amount: pinwheelMoney(row?.amount) || 0 })),
+      retirementPlan: box13.retirement_plan === undefined ? undefined : Boolean(box13.retirement_plan),
+      state: first.box_15_state ? String(first.box_15_state).toUpperCase() : undefined, stateWages: pinwheelMoney(first.box_16), stateWithheld: pinwheelMoney(first.box_17), localWithheld: pinwheelMoney(first.box_19),
+    }) } };
+  }
+  const payer = String(p.payer_name || p.payer?.name || '').trim();
+  const payerTin = String(p.payer_tin || p.payer?.tin || '').trim();
+  const fields = kind === '1099-NEC'
+    ? compact({ nonemployeeCompensation: pinwheelMoney(p.box_1), federalWithheld: pinwheelMoney(p.box_4) })
+    : compact({ rents: pinwheelMoney(p.box_1), royalties: pinwheelMoney(p.box_2), otherIncome: pinwheelMoney(p.box_3), federalWithheld: pinwheelMoney(p.box_4) });
+  return { ...base, form: { kind, owner, payer, payerTin, source: 'payroll', documentId: base.documentId, fields } };
+}
+
+function mockPinwheelTaxForms(year) {
+  return [{ id: 'mock-w2-1', form_type: 'W-2', year, parsed_data: { box_b: '12-3456789', box_c: { name: 'Sample Employer Inc' }, box_1: 6250000, box_2: 712000, box_3: 6250000, box_4: 387500, box_5: 6250000, box_6: 90625, box_12: [{ code: 'D', amount: 300000 }], box_13: { retirement_plan: true }, box_15_to_20: [{ box_15_state: 'CA', box_16: 6250000, box_17: 241000 }] }, warnings: [] }];
+}
+
+function pinwheelReady(options) {
+  const { config, save } = store('pinwheel', options);
+  if (!config || !config.apiSecret) return { error: fail('CONNECTOR_NOT_CONFIGURED', { channel: 'pinwheel', hint: 'Save the Pinwheel API secret first (set_channel_connector channel pinwheel).' }) };
+  return { config, save };
+}
+
+function taxYearOf(args) {
+  const year = Number(args.taxYear);
+  return Number.isInteger(year) && year >= 2020 && year <= 2100 ? year : 0;
+}
+
+export async function pinwheelLinkToken(state, args = {}, actor, options = {}) {
+  const ready = pinwheelReady(options);
+  if (ready.error) return ready.error;
+  const out = await performExternalAction(state, {
+    actionId: 'pinwheel_read',
+    clientId: String(state.activeClientId || 'SELF'),
+    params: { op: 'link_token', environment: ready.config.environment || 'sandbox' },
+    actor: actor || { userId: 'owner' },
+    metadata: { op: 'link_token' },
+    fixture: () => ({ ok: true, mock: true, data: { token: 'mock-pinwheel-link-token', expires: '' } }),
+  }, async (transports) => transports.channel.pinwheel({ config: ready.config, op: 'link_token', params: { endUserId: String(args.userId || 'owner') } }));
+  if (!out.ok) return out;
+  return { ok: true, data: { linkToken: out.data.token, expiration: out.data.expires || '', environment: ready.config.environment || 'sandbox', mock: Boolean(out.mock), next: 'Open Pinwheel Link with this token. When the owner finishes, pass the account id it returns to payroll_tax_forms.' } };
+}
+
+async function pullPinwheelForms(state, args, actor, options, formIds) {
+  const ready = pinwheelReady(options);
+  if (ready.error) return ready.error;
+  const taxYear = taxYearOf(args);
+  if (!taxYear) return fail('TAX_YEAR_REQUIRED', { hint: 'Say which tax year, like 2026.' });
+  const given = String(args.accountId || '').trim();
+  if (given && !/^[A-Za-z0-9-]{8,80}$/.test(given)) return fail('BAD_ACCOUNT_ID', { hint: 'The account id comes from Pinwheel Link when the owner finishes connecting their employer.' });
+  const accountId = given || String(ready.config.accountId || '');
+  if (!accountId) return fail('PAYROLL_NOT_LINKED', { hint: 'Connect the employer or payroll provider first: pinwheel_link_token, then Pinwheel Link in the app.' });
+  const out = await performExternalAction(state, {
+    actionId: 'pinwheel_read',
+    clientId: String(state.activeClientId || 'SELF'),
+    params: { op: 'tax_forms', environment: ready.config.environment || 'sandbox', year: taxYear, account: createHash('sha256').update(accountId).digest('hex').slice(0, 16) },
+    actor: actor || { userId: 'owner' },
+    metadata: { op: 'tax_forms', year: taxYear },
+    fixture: () => ({ ok: true, mock: true, data: { taxForms: mockPinwheelTaxForms(taxYear).filter((f) => !formIds || formIds.includes(f.id)) } }),
+  }, async (transports) => transports.channel.pinwheel({ config: ready.config, op: 'tax_forms', params: { accountId, year: taxYear, formIds } }));
+  if (!out.ok) return out;
+  if (given && given !== ready.config.accountId && !out.mock) {
+    const saved = await ready.save({ accountId: given });
+    if (saved && saved.ok === false) return saved;
+  }
+  const owner = args.owner === 'spouse' ? 'spouse' : 'taxpayer';
+  const read = (out.data.taxForms || []).filter((f) => Number(f.year) === taxYear).map((f) => pinwheelTaxFormToUsForm(f, owner));
+  return { ok: true, taxYear, owner, mock: Boolean(out.mock), environment: ready.config.environment || 'sandbox', read };
+}
+
+export async function payrollTaxForms(state, args = {}, actor, options = {}) {
+  const pulled = await pullPinwheelForms(state, args, actor, options, null);
+  if (!pulled.ok) return pulled;
+  return { ok: true, data: { taxYear: pulled.taxYear, owner: pulled.owner, environment: pulled.environment, mock: pulled.mock, forms: pulled.read.filter((r) => r.form).map((r) => ({ taxFormId: r.taxFormId, kind: r.form.kind, payer: r.form.payer, payerTin: r.form.payerTin, amounts: r.form.fields, notes: r.notes })), skipped: pulled.read.filter((r) => r.skipped).map((r) => ({ taxFormId: r.taxFormId, formType: r.formType, reason: r.skipped })), amountsNote: 'Pinwheel sends amounts in cents; MyCA shows dollars.', next: 'import_payroll_tax_forms with these taxFormIds adds them to the return after you confirm.' } };
+}
+
+export function importPayrollTaxFormsPreview(_state, args = {}) {
+  const ids = Array.isArray(args.taxFormIds) ? args.taxFormIds.map(String) : [];
+  const taxYear = taxYearOf(args);
+  const blockers = [];
+  if (!taxYear) blockers.push('Say which tax year.');
+  if (!ids.length) blockers.push('Pick the forms to add (payroll_tax_forms lists them).');
+  return {
+    blockers,
+    summary: `Add ${ids.length} form${ids.length === 1 ? '' : 's'} from your payroll provider to your ${taxYear || ''} return${args.owner === 'spouse' ? ' (spouse)' : ''}.`,
+    effects: ['MyCA fetches the forms again from Pinwheel and adds the boxes exactly as your employer reported them.', 'A form already added from payroll is not added twice.', 'You can remove any of them from the return later.'],
+    figures: { forms: ids.length },
+    pinned: { taxYear, owner: args.owner === 'spouse' ? 'spouse' : 'taxpayer', taxFormIds: ids, ...(args.accountId ? { accountId: String(args.accountId) } : {}) },
+  };
+}
+
+export async function importPayrollTaxForms(state, args = {}, actor, options = {}) {
+  const ids = Array.isArray(args.taxFormIds) ? [...new Set(args.taxFormIds.map(String))].slice(0, 50) : [];
+  if (!ids.length) return fail('TAX_FORMS_REQUIRED', { hint: 'Pass the taxFormIds that payroll_tax_forms listed.' });
+  const pulled = await pullPinwheelForms(state, args, actor, options, ids);
+  if (!pulled.ok) return pulled;
+  if (pulled.mock) return { ok: true, data: { taxYear: pulled.taxYear, mock: true, added: [], wouldAdd: pulled.read.filter((r) => r.form).map((r) => ({ taxFormId: r.taxFormId, kind: r.form.kind, payer: r.form.payer, amounts: r.form.fields })), note: 'Mock mode is on, so these are sample figures and nothing was added to the return.' } };
+  const usReturn = options.usReturn || await import('./us-return.mjs');
+  const existing = new Set((usReturn.listUsTaxForms(state, { taxYear: pulled.taxYear })?.data?.forms || []).map((f) => f.documentId).filter(Boolean));
+  const added = [];
+  const skipped = pulled.read.filter((r) => r.skipped).map((r) => ({ taxFormId: r.taxFormId, reason: r.skipped }));
+  const failed = [];
+  const missing = ids.filter((id) => !pulled.read.some((r) => r.taxFormId === id));
+  for (const id of missing) failed.push({ taxFormId: id, error: 'TAX_FORM_NOT_FOUND', problems: [`Pinwheel has no ${pulled.taxYear} form ${id} on this account.`] });
+  for (const r of pulled.read.filter((x) => x.form)) {
+    if (existing.has(r.form.documentId)) { skipped.push({ taxFormId: r.taxFormId, reason: 'Already on the return.' }); continue; }
+    const result = usReturn.addUsTaxForm(state, { taxYear: pulled.taxYear, ...r.form });
+    if (result.ok) added.push({ taxFormId: r.taxFormId, id: result.data.id, kind: result.data.kind, payer: result.data.payer, amounts: result.data.amounts, notes: r.notes });
+    else failed.push({ taxFormId: r.taxFormId, error: result.error, problems: result.problems || [] });
+  }
+  return { ok: failed.length === 0, ...(failed.length ? { error: 'SOME_FORMS_NOT_ADDED' } : {}), data: { taxYear: pulled.taxYear, added, skipped, failed } };
+}
+
 export function usConnectorsStatus() {
-  return { ok: true, data: { connectors: ['plaid', 'taxjar', 'gusto', 'track1099'].map((channel) => publicChannelConfig(channel)), gustoRedirect: { desktop: [gustoRedirectUri({ host: '127.0.0.1' }), gustoRedirectUri({ host: 'localhost' })], hosted: 'https://<api host>/v1/oauth/gusto/callback' }, titles: Object.fromEntries(['plaid', 'taxjar', 'gusto', 'track1099'].map((c) => [c, CONNECTOR_CHANNELS[c].title])) } };
+  return { ok: true, data: { connectors: ['plaid', 'taxjar', 'gusto', 'track1099', 'pinwheel'].map((channel) => publicChannelConfig(channel)), gustoRedirect: { desktop: [gustoRedirectUri({ host: '127.0.0.1' }), gustoRedirectUri({ host: 'localhost' })], hosted: 'https://<api host>/v1/oauth/gusto/callback' }, titles: Object.fromEntries(['plaid', 'taxjar', 'gusto', 'track1099', 'pinwheel'].map((c) => [c, CONNECTOR_CHANNELS[c].title])) } };
 }

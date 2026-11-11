@@ -1,4 +1,8 @@
+import 'package:myca_design/myca_design.dart' show MycaCountry, MycaDateStyle, MycaFormat;
+
 String moneyCountry = 'IN';
+
+final _us = MycaFormat(MycaCountry.of('US'));
 
 String rupees(num amount) {
   if (moneyCountry == 'US') return dollars(amount);
@@ -20,20 +24,7 @@ String rupees(num amount) {
   return '$sign₹${groups.join(',')},$lastThree$paise';
 }
 
-String dollars(num amount) {
-  final negative = amount < 0;
-  final fixed = amount.abs().toStringAsFixed(2);
-  final dot = fixed.indexOf('.');
-  var whole = fixed.substring(0, dot);
-  final cents = fixed.substring(dot);
-  final groups = <String>[];
-  while (whole.length > 3) {
-    groups.insert(0, whole.substring(whole.length - 3));
-    whole = whole.substring(0, whole.length - 3);
-  }
-  groups.insert(0, whole);
-  return '${negative ? '-' : ''}\$${groups.join(',')}$cents';
-}
+String dollars(num amount) => _us.money(amount);
 
 String isoDate(DateTime date) =>
     '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
@@ -70,7 +61,21 @@ String longDate(String iso) {
   final month = parts.length == 3 ? int.tryParse(parts[1]) : null;
   final day = parts.length == 3 ? int.tryParse(parts[2]) : null;
   if (month == null || day == null || month < 1 || month > 12) return iso;
+  if (moneyCountry == 'US') return '${_months[month - 1]} $day, ${parts[0]}';
   return '$day ${_months[month - 1]} ${parts[0]}';
+}
+
+String usDate(String iso) => _us.isoDate(iso, style: MycaDateStyle.short);
+
+String? isoFromUsDate(String typed) {
+  final match = RegExp(r'^(\d{1,2})/(\d{1,2})/(\d{4})$').firstMatch(typed.trim());
+  if (match == null) return null;
+  final month = int.parse(match.group(1)!);
+  final day = int.parse(match.group(2)!);
+  final year = int.parse(match.group(3)!);
+  final date = DateTime.tryParse('${year.toString().padLeft(4, '0')}-${month.toString().padLeft(2, '0')}-${day.toString().padLeft(2, '0')}');
+  if (date == null || date.month != month || date.day != day) return null;
+  return isoDate(date);
 }
 
 String plainNumber(num value) => value == value.roundToDouble()
@@ -122,4 +127,15 @@ String dueWords(String dueDate, DateTime today, {required bool open}) {
   if (days < 0) return 'Overdue by ${-days} ${days == -1 ? 'day' : 'days'}';
   if (days == 0) return 'Due today';
   return 'Due ${longDate(dueDate)}';
+}
+
+final _isoDay = RegExp(r'^(\d{4})-(\d{2})-(\d{2})$');
+
+String readableDay(String text) {
+  final match = _isoDay.firstMatch(text.trim());
+  if (match == null) return text;
+  final month = int.parse(match.group(2)!);
+  final day = int.parse(match.group(3)!);
+  if (month < 1 || month > 12 || day < 1 || day > 31) return text;
+  return '$day ${_months[month - 1].substring(0, 3)} ${match.group(1)}';
 }

@@ -3,6 +3,7 @@ import { CONFIRM_TOOLS } from './chat-confirm.mjs';
 import { verifyChain } from './ledger.mjs';
 import { periodRange } from './report-sheets.mjs';
 import { localToday } from './dates.mjs';
+import { QUICKO_OPERATIONS } from './sandbox-endpoints.mjs';
 
 const IDENTIFIER = new Set(['string', 'number', 'bigint']);
 const MAX_IDS = 20;
@@ -26,6 +27,7 @@ const HOSTED_NOTE = ' Reads are kept in the hosted audit log, not here.';
 export const NOT_SEALED = 'the client an event is filed under is not sealed';
 
 export const OUTSIDE_SENTENCES = Object.freeze({
+  ...Object.fromEntries(QUICKO_OPERATIONS.map((endpoint) => [endpoint.id, endpoint.sentence])),
   gst_taxpayer_generate_otp: 'Ask the GST portal for a sign-in code',
   gst_taxpayer_verify_otp: 'Sign in to the GST portal with a code',
   gst_gstr2b_recon_submit: 'Start a GSTR-2B check at the GST portal',
@@ -82,9 +84,12 @@ export const OUTSIDE_SENTENCES = Object.freeze({
   zoho_push_invoices: 'Send invoices to Zoho',
   plaid_link: 'Link a bank through Plaid',
   taxjar_rate: 'Look up a sales tax rate',
+  pinwheel_read: 'Read W-2s and 1099s from the payroll provider',
   gusto_token: 'Connect to Gusto',
   track1099_read: 'Read 1099 forms from Track1099',
   track1099_import: 'Import 1099 forms from Track1099',
+  irs_mef_send: 'Send a federal tax return to the IRS',
+  irs_mef_acks: 'Collect IRS acknowledgements for federal returns',
 });
 
 export const AUDIT_SHEET_HEADER = ['Event', 'When (UTC)', 'Who', 'Action', 'What changed', 'Records', 'Transfers', 'Books digest before', 'Books digest after', 'Chained'];

@@ -27,8 +27,11 @@ It will live in its own `cloud/` package, which may depend on the Postgres drive
    (via `appendAuditEvent`) and be explainable (`why` + `source` for any flag).
 4. **No plaintext secrets** in code, logs, `state.json`, or tool results. Use
    `credential-vault.mjs` for anything secret.
-5. **Zero new runtime dependencies.** ESM only, Node 22. `node:crypto` and other
-   built-ins are fine. Do not add to `platform/package.json` dependencies.
+5. **Zero new runtime dependencies in `platform/`.** ESM only, Node 22. `node:crypto` and other
+   built-ins are fine. Do not add to `platform/package.json` dependencies. Prefer a ready-made
+   package or provider over writing your own: check `platform/src/countries/ready-made.mjs`,
+   install a package in `cloud/` and hand it to the engine through a port
+   (`docs/architecture/COUNTRY-ENGINES.md`). Never embed GPL, AGPL or source-available code.
 6. **No code comments.** The codebase convention is self-explanatory names, no comments
    (the frozen sprint specs state this explicitly and it is followed throughout).
 
@@ -45,8 +48,24 @@ It will live in its own `cloud/` package, which may depend on the Postgres drive
 | `infra/` | Terraform. `infra/bootstrap` is the one-time owner step (state bucket, workload identity for GitHub). `infra/cloud` is production on Google Cloud: Cloud Run API and site, Cloud SQL, Secret Manager, Cloud Scheduler, Pub/Sub for Play. `infra/aws` is the earlier AWS deployment, kept only until it is switched off; do not build on it. |
 | `email-relay/` | Cloudflare Worker that sends the app's email. `node --test`, three tests. |
 | `.github/workflows/` | CI, nightly, the Cloud Run deploy (`deploy-cloud.yml`), site deploy, Terraform, and the Android, Windows and iOS builds. |
+| `design/` | Universal design system for every country app and site: tokens (Style Dictionary), generated CSS/JS/Dart, web formatting, and the `myca_design` Flutter package (theme, country formats, Bahi, components, strings). Design language in `docs/design/DESIGN-LANGUAGE.md`. Edit tokens, then `npm run build` in `design/`. |
 | `deploy/` | Marketing/research static site — not the product. |
 | `vendor/` | Unused reference clones. **Never import from here** (licences). |
+
+## Countries
+
+Everything that differs by country (tools, prices, filing routes, data region, app flavor, tax
+modules) lives in one file per country under `platform/src/countries/`. Read
+`docs/architecture/COUNTRY-PACKS.md` before adding country-only behaviour. Country-only tools go
+in that pack's sorted `tools` list, never in `country.mjs`. Each country's data stays in that
+country: one deployment per country, checked by `cloud/src/residency.mjs` and `infra/cloud/country.tf`.
+
+A country's code lives in its own folder, `platform/src/countries/<name>/`, and is declared in a
+manifest: read `docs/architecture/COUNTRY-ENGINES.md`. Do not edit `tools.mjs`,
+`assistant-contract.mjs`, `chat-confirm.mjs`, `router.mjs`, `remote-contract.mjs`, `store.mjs`,
+`books.mjs` or `cloud/src/api.mjs` to add a country's tool; the manifest feeds all of them. Use
+`countries/kit` for brackets, tax periods, the return life cycle, check digits and the country's
+slice of the book. `node scripts/new-country.mjs` starts a new country.
 
 ## Commands
 
@@ -66,7 +85,7 @@ and the Android app) and prints a pass/fail table:
 
 ```bash
 node scripts/check-all.mjs            # everything
-node scripts/check-all.mjs platform   # or any of: platform sprints cloud email-relay listing mobile
+node scripts/check-all.mjs platform   # or any of: platform sprints cloud email-relay listing design mobile
 node scripts/rules-watch.mjs          # gaps and records ending soon; exit 1 when a person is needed
 ```
 

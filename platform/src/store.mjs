@@ -91,6 +91,7 @@ export function createState() {
     portalSaves: {},
     gstr3bPortal: {},
     tdsFvuJobs: [],
+    usEfile: { returns: {}, submissionSeq: 0 },
     supplierReminderSeq: 0,
     employees: [],
     employeeSeq: 0,
@@ -99,6 +100,7 @@ export function createState() {
     gstCreditOpening: null,
     tdsReviews: {},
     payrollRuns: {},
+    usReturns: {},
     salesTaxRates: [],
     salesTaxNexus: [],
     salesTaxReviews: {},
@@ -106,6 +108,7 @@ export function createState() {
     gstPayments: {},
     sutaRates: [],
     yearClosings: {},
+    countryData: {},
     automation: { lastRun: '', log: [] },
     amendmentSeq: 0,
     chatRecent: [],
@@ -202,6 +205,7 @@ export function serialize(state) {
     portalSaves: state.portalSaves || {},
     gstr3bPortal: state.gstr3bPortal || {},
     tdsFvuJobs: state.tdsFvuJobs || [],
+    usEfile: state.usEfile || { returns: {}, submissionSeq: 0 },
     supplierReminderSeq: state.supplierReminderSeq || 0,
     employees: state.employees || [],
     employeeSeq: state.employeeSeq || 0,
@@ -210,6 +214,7 @@ export function serialize(state) {
     gstCreditOpening: state.gstCreditOpening || null,
     tdsReviews: state.tdsReviews || {},
     payrollRuns: state.payrollRuns || {},
+    usReturns: state.usReturns || {},
     salesTaxRates: state.salesTaxRates || [],
     salesTaxNexus: state.salesTaxNexus || [],
     salesTaxReviews: state.salesTaxReviews || {},
@@ -217,6 +222,7 @@ export function serialize(state) {
     gstPayments: state.gstPayments || {},
     sutaRates: state.sutaRates || [],
     yearClosings: state.yearClosings || {},
+    countryData: state.countryData || {},
     automation: state.automation || { lastRun: '', log: [] },
     amendmentSeq: state.amendmentSeq || 0,
     chatRecent: Array.isArray(state.chatRecent) ? state.chatRecent : [],
@@ -394,6 +400,7 @@ export function deserialize(raw) {
   state.portalSaves = raw.portalSaves && typeof raw.portalSaves === 'object' ? raw.portalSaves : {};
   state.gstr3bPortal = raw.gstr3bPortal && typeof raw.gstr3bPortal === 'object' ? raw.gstr3bPortal : {};
   state.tdsFvuJobs = Array.isArray(raw.tdsFvuJobs) ? raw.tdsFvuJobs : [];
+  state.usEfile = raw.usEfile && typeof raw.usEfile === 'object' ? raw.usEfile : { returns: {}, submissionSeq: 0 };
   state.supplierReminderSeq = raw.supplierReminderSeq || 0;
   state.employees = Array.isArray(raw.employees) ? raw.employees : [];
   state.employeeSeq = raw.employeeSeq || 0;
@@ -402,6 +409,7 @@ export function deserialize(raw) {
   state.gstCreditOpening = raw.gstCreditOpening && typeof raw.gstCreditOpening === 'object' ? raw.gstCreditOpening : null;
   state.tdsReviews = raw.tdsReviews && typeof raw.tdsReviews === 'object' ? raw.tdsReviews : {};
   state.payrollRuns = raw.payrollRuns && typeof raw.payrollRuns === 'object' ? raw.payrollRuns : {};
+  state.usReturns = raw.usReturns && typeof raw.usReturns === 'object' && !Array.isArray(raw.usReturns) ? raw.usReturns : {};
   state.salesTaxRates = Array.isArray(raw.salesTaxRates) ? raw.salesTaxRates : [];
   state.salesTaxNexus = Array.isArray(raw.salesTaxNexus) ? raw.salesTaxNexus : [];
   state.salesTaxReviews = raw.salesTaxReviews && typeof raw.salesTaxReviews === 'object' ? raw.salesTaxReviews : {};
@@ -409,6 +417,7 @@ export function deserialize(raw) {
   state.gstPayments = raw.gstPayments && typeof raw.gstPayments === 'object' ? raw.gstPayments : {};
   state.sutaRates = Array.isArray(raw.sutaRates) ? raw.sutaRates : [];
   state.yearClosings = raw.yearClosings && typeof raw.yearClosings === 'object' ? raw.yearClosings : {};
+  state.countryData = raw.countryData && typeof raw.countryData === 'object' && !Array.isArray(raw.countryData) ? raw.countryData : {};
   state.automation = raw.automation && typeof raw.automation === 'object' ? raw.automation : { lastRun: '', log: [] };
   state.amendmentSeq = raw.amendmentSeq || 0;
   state.chatRecent = Array.isArray(raw.chatRecent) ? raw.chatRecent : [];

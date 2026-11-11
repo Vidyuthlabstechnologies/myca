@@ -102,6 +102,7 @@ export function newBook(company = {}) {
     portalSaves: {},
     gstr3bPortal: {},
     tdsFvuJobs: [],
+    usEfile: { returns: {}, submissionSeq: 0 },
     supplierReminderSeq: 0,
     employees: [],
     employeeSeq: 0,
@@ -110,6 +111,7 @@ export function newBook(company = {}) {
     gstCreditOpening: null,
     tdsReviews: {},
     payrollRuns: {},
+    usReturns: {},
     salesTaxRates: [],
     salesTaxNexus: [],
     salesTaxReviews: {},
@@ -120,6 +122,7 @@ export function newBook(company = {}) {
     automation: { lastRun: '', log: [] },
     amendmentSeq: 0,
     chatRecent: [],
+    countryData: {},
   };
 }
 
@@ -194,6 +197,7 @@ export function serializeBook(book) {
     portalSaves: book.portalSaves || {},
     gstr3bPortal: book.gstr3bPortal || {},
     tdsFvuJobs: book.tdsFvuJobs || [],
+    usEfile: book.usEfile || { returns: {}, submissionSeq: 0 },
     supplierReminderSeq: book.supplierReminderSeq || 0,
     employees: book.employees || [],
     employeeSeq: book.employeeSeq || 0,
@@ -202,6 +206,7 @@ export function serializeBook(book) {
     gstCreditOpening: book.gstCreditOpening || null,
     tdsReviews: book.tdsReviews || {},
     payrollRuns: book.payrollRuns || {},
+    usReturns: book.usReturns || {},
     salesTaxRates: book.salesTaxRates || [],
     salesTaxNexus: book.salesTaxNexus || [],
     salesTaxReviews: book.salesTaxReviews || {},
@@ -209,6 +214,7 @@ export function serializeBook(book) {
     gstPayments: book.gstPayments || {},
     sutaRates: book.sutaRates || [],
     yearClosings: book.yearClosings || {},
+    countryData: book.countryData || {},
     automation: book.automation || { lastRun: '', log: [] },
     amendmentSeq: book.amendmentSeq || 0,
     chatRecent: Array.isArray(book.chatRecent) ? book.chatRecent : [],
@@ -283,6 +289,7 @@ export function deserializeBook(raw) {
   book.portalSaves = raw.portalSaves && typeof raw.portalSaves === 'object' ? raw.portalSaves : {};
   book.gstr3bPortal = raw.gstr3bPortal && typeof raw.gstr3bPortal === 'object' ? raw.gstr3bPortal : {};
   book.tdsFvuJobs = Array.isArray(raw.tdsFvuJobs) ? raw.tdsFvuJobs : [];
+  book.usEfile = raw.usEfile && typeof raw.usEfile === 'object' ? raw.usEfile : { returns: {}, submissionSeq: 0 };
   book.supplierReminderSeq = raw.supplierReminderSeq || 0;
   book.employees = Array.isArray(raw.employees) ? raw.employees : [];
   book.employeeSeq = raw.employeeSeq || 0;
@@ -291,6 +298,7 @@ export function deserializeBook(raw) {
   book.gstCreditOpening = raw.gstCreditOpening && typeof raw.gstCreditOpening === 'object' ? raw.gstCreditOpening : null;
   book.tdsReviews = raw.tdsReviews && typeof raw.tdsReviews === 'object' ? raw.tdsReviews : {};
   book.payrollRuns = raw.payrollRuns && typeof raw.payrollRuns === 'object' ? raw.payrollRuns : {};
+  book.usReturns = raw.usReturns && typeof raw.usReturns === 'object' && !Array.isArray(raw.usReturns) ? raw.usReturns : {};
   book.salesTaxRates = Array.isArray(raw.salesTaxRates) ? raw.salesTaxRates : [];
   book.salesTaxNexus = Array.isArray(raw.salesTaxNexus) ? raw.salesTaxNexus : [];
   book.salesTaxReviews = raw.salesTaxReviews && typeof raw.salesTaxReviews === 'object' ? raw.salesTaxReviews : {};
@@ -298,6 +306,7 @@ export function deserializeBook(raw) {
   book.gstPayments = raw.gstPayments && typeof raw.gstPayments === 'object' ? raw.gstPayments : {};
   book.sutaRates = Array.isArray(raw.sutaRates) ? raw.sutaRates : [];
   book.yearClosings = raw.yearClosings && typeof raw.yearClosings === 'object' ? raw.yearClosings : {};
+  book.countryData = raw.countryData && typeof raw.countryData === 'object' && !Array.isArray(raw.countryData) ? raw.countryData : {};
   book.automation = raw.automation && typeof raw.automation === 'object' ? raw.automation : { lastRun: '', log: [] };
   book.amendmentSeq = raw.amendmentSeq || 0;
   book.chatRecent = Array.isArray(raw.chatRecent) ? raw.chatRecent : [];

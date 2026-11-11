@@ -1,4 +1,5 @@
 import { TOOLS, runTool } from './tools.mjs';
+import { engineWords } from './countries/engines.mjs';
 import { templateWords } from './invoice-template.mjs';
 import { settlementWords, settlementStatusWords } from './settlements.mjs';
 import { orderImportWords } from './marketplace-orders.mjs';
@@ -19,6 +20,7 @@ import { imsWords, imsDecidedWords } from './ims.mjs';
 import { needsConfirmation, previewOf, openPending, takePending, clearPending, previewReply, blockedReply, rowsCounted } from './chat-confirm.mjs';
 import { liveCallsEnabled, mockModeEnabled } from './runtime-config.mjs';
 import { referenceImportContent, resolveImportContent } from './import-documents.mjs';
+import { openPendingArgs } from './us-efile.mjs';
 import { spoken } from './words.mjs';
 import { planEntryWithTds, creditCheckWords } from './tds-intent.mjs';
 import { paymentWords } from './gst-payment.mjs';
@@ -30,6 +32,8 @@ import { automationWords } from './automation.mjs';
 import { readDocumentWords } from './document-reader.mjs';
 import { amendmentWords } from './invoice-amendments.mjs';
 import { scheduleSeWords } from './us-se-tax.mjs';
+import { usReturnWords } from './us-return.mjs';
+import { usPlanningWords } from './us-planning.mjs';
 import { cpaPackWords } from './us-cpa-pack.mjs';
 import { payrollFileWords } from './us-payroll-files.mjs';
 import { chooseTool, modelConfigured } from './model-adapter.mjs';
@@ -53,6 +57,8 @@ import { monthCloseWords } from './month-close.mjs';
 import { restockWords } from './restock.mjs';
 import { advanceTaxWords } from './advance-tax.mjs';
 import { askTaxWords, reviewWords, taxModulesWords, taxPlanWords } from './tax-assistant.mjs';
+import { itrKnowledgeWords } from './itr-knowledge.mjs';
+import { checkItrJsonWords } from './itr-json-check.mjs';
 import { supplierPayoutWords } from './supplier-bank.mjs';
 import { reportWords } from './reports.mjs';
 import { auditTrailWords } from './audit-trail.mjs';
@@ -67,6 +73,7 @@ import { kindTitle } from './quotes.mjs';
 import { everyWords, recurringWords, runRecurringWords } from './recurring.mjs';
 import { reconciliationWords, matchWords, unmatchWords, chargesWords, accountWords, accountsWords, transferWords } from './bank-recon.mjs';
 import { addRuleWords, rulesWords, runRulesWords, removeRuleWords } from './bank-rules.mjs';
+import { redactTinsFor } from './us-identity.mjs';
 
 
 const GSTR1_HELD_REASONS = {
@@ -323,6 +330,8 @@ function fmtToolResultCore(name, result, args) {
   if (result?.error === 'SALARIES_PRIVATE') return 'Only the owner can see or change employees and salaries.';
   if (result?.error === 'OWNER_ONLY') return result.hint || 'Only the owner can do that.';
   if (!result || result.ok === false) return failedInWords(result?.error, result);
+  const engineWorded = engineWords(name);
+  if (engineWorded) return engineWorded(result, money, args);
   const d = result.data ?? result.invoice ?? result;
   if (name === 'create_invoice' && result.invoice?.export) {
     const inv = result.invoice;
@@ -577,6 +586,8 @@ function fmtToolResultCore(name, result, args) {
   if (name === 'amend_invoice' && result.amendment) return amendmentWords(result, money);
   if (name === 'list_amendments' && result.data) return result.data.count ? `Amendments:\n${result.data.amendments.map((a) => `· ${a.id} ${a.date}: ${a.invoiceId} (${a.originalPeriod}) ${money(a.before)} → ${money(a.after)}, in GSTR-1 ${a.period}, ${a.reason}`).join('\n')}` : 'No invoice has been amended.';
   if (name === 'schedule_se' && result.data) return scheduleSeWords(result.data, money);
+  if (['us_withholding_check', 'us_estimated_payments', 'us_supported_forms'].includes(name) && result.data) return usPlanningWords(name, result.data);
+  if (['us_return_status', 'us_return_review', 'us_tax_estimate', 'list_us_tax_forms', 'us_interview'].includes(name) && result.data) return usReturnWords(name, result.data, money);
   if (name === 'schedule_c_document' && result.data) return `Schedule C ${result.data.year}: net profit ${money(result.data.netProfit)}${result.data.selfEmploymentTax != null ? `, self-employment tax ${money(result.data.selfEmploymentTax)}` : ''}. Saved as ${result.data.fileName} from the Federal and owner taxes screen.`;
   if (name === 'cpa_pack' && result.data) return cpaPackWords(result.data, money);
   if ((name === 'payroll_941_file' || name === 'payroll_w2_file') && result.data) return payrollFileWords(name, result.data, money);
@@ -624,6 +635,8 @@ function fmtToolResultCore(name, result, args) {
   if (name === 'ask_knowledge') return knowledgeWords(result);
   if (name === 'ask_tax' && result.ok) return askTaxWords(result);
   if (name === 'tax_modules' && result.data) return taxModulesWords(result.data);
+  if (name === 'itr_knowledge' && result.data) return itrKnowledgeWords(result.data);
+  if (name === 'check_itr_json' && result.data) return checkItrJsonWords(result.data);
   if (name === 'tax_plan' && result.data) return taxPlanWords(result.data, money);
   if (name === 'review_income_tax' && result.data) return reviewWords(result.data, money);
   if (name === 'fetch_channel_report' && result.data?.channel) return fetchWords(result.data);
@@ -1094,7 +1107,7 @@ async function runConfirmation(state, decision) {
     return { reply: why, tools: [], posted: false, error: taken.error };
   }
   const { pending } = taken;
-  const resolved = resolveImportContent(state, pending.name, pending.args);
+  const resolved = resolveImportContent(state, pending.name, openPendingArgs(pending.name, pending.args));
   if (!resolved.ok) return unreadableFile(resolved.error);
   const recheck = validateAssistantToolCall(pending.name, resolved.args);
   if (!recheck.ok) return { reply: notAccepted(recheck.error), tools: [], blocked: true };
@@ -1199,8 +1212,8 @@ export function discardPending(state) {
   return spoken(discardCore(state));
 }
 
-export async function chat(state, message) {
-  setCurrentCountry(state);
+export async function chat(state, said) {
+  const message = redactTinsFor(setCurrentCountry(state), said);
   const out = await throughLanguage(message, async (english) => spoken(await chatCore(state, english)));
   rememberTurn(state, message, out.reply);
   logEvalEvent(state, { input: message, toolName: out.tools?.[0]?.name || out.preview?.tool || out.pending?.name || out.pending?.tool || '', outcome: out.blocked ? 'blocked' : out.awaitingConfirmation || out.pending ? 'held' : out.tools?.length ? 'ran' : 'answered', viaModel: Boolean(out.viaModel), blocked: Boolean(out.blocked), reply: out.reply });
