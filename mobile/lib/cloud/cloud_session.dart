@@ -794,6 +794,9 @@ class CloudSession {
 
   Future<Map<String, dynamic>> usPlus() async => _accepted(await call('GET', '$_books/us-plus'));
 
+  Future<Map<String, dynamic>> recordUsPlusPurchase(String productId, String purchaseToken) async =>
+      _accepted(await call('POST', '$_books/us-plus-purchase', {'productId': productId, 'purchaseToken': purchaseToken}));
+
   Future<Map<String, dynamic>> cancelUsPlus() async => _accepted(await call('POST', '$_books/us-plus-cancel', <String, Object?>{}));
 
   Future<Map<String, dynamic>> joinUsWaitlist(String product) async => _accepted(await call('POST', '$_books/us-waitlist', {'product': product}));

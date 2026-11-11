@@ -68,6 +68,7 @@ has no switch to India. CI builds both; it uploads the US bundle when `PLAY_US_T
 - [ ] Create the `com.mldynamic.myca.us` app in Play Console. *Countries / regions*: United States only.
 - [ ] Add an Android OAuth client for `com.mldynamic.myca.us` with the Play signing SHA-1.
 - [ ] Set `MYCA_PLAY_PACKAGE_US` (Terraform `play_package_us`) so US payments are checked against the US app.
+- [ ] Create the yearly subscription for MyCA Plus (USD 79) in the US app and set `MYCA_PLAY_PRODUCT_US_PLUS`. Plus is sold through Play inside the app because Play's payments policy requires Play billing for software subscriptions; the $39 return is tax filing and stays on card.
 - [ ] *Data safety*: add Government ID (SSN/ITIN), financial info (bank account), and say it is
       encrypted in transit and at rest and can be deleted on request.
 - [ ] *Financial features* declaration: the app prepares and files tax returns.

@@ -293,3 +293,9 @@ variable "us_expert_review" {
   type        = bool
   default     = false
 }
+
+variable "play_product_us_plus" {
+  description = "Google Play yearly subscription product id for MyCA Plus (USD 79 a year) in the MyCA US app. Inside the Android app Plus is sold through Play billing, because Play may treat it as a software subscription; the website can sell it by card."
+  type        = string
+  default     = ""
+}

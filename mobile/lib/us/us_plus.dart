@@ -9,7 +9,7 @@ const usPlusPriceUsd = 79;
 const usExpertReviewPriceUsd = 129;
 
 class UsPlusStatus {
-  const UsPlusStatus({required this.enforced, required this.active, required this.subscribed, required this.renews, required this.until, required this.priceUsd, required this.buyable});
+  const UsPlusStatus({required this.enforced, required this.active, required this.subscribed, required this.renews, required this.until, required this.priceUsd, required this.buyable, this.checkout = 'card', this.productId = '', this.manageUrl = ''});
 
   factory UsPlusStatus.fromJson(Map<String, dynamic> json) => UsPlusStatus(
         enforced: json['enforced'] == true,
@@ -19,6 +19,9 @@ class UsPlusStatus {
         until: '${json['until'] ?? ''}',
         priceUsd: _int(json['priceUsd'], usPlusPriceUsd),
         buyable: json['buyable'] == true,
+        checkout: '${json['checkout'] ?? 'card'}',
+        productId: '${json['productId'] ?? ''}',
+        manageUrl: '${json['manageUrl'] ?? ''}',
       );
 
   final bool enforced;
@@ -28,6 +31,11 @@ class UsPlusStatus {
   final String until;
   final int priceUsd;
   final bool buyable;
+  final String checkout;
+  final String productId;
+  final String manageUrl;
+
+  bool get onPlay => checkout == 'play';
 }
 
 class UsOffers {
@@ -55,7 +63,9 @@ class UsOffers {
 const defaultWaitlist = [('done_for_you', 'Done For You'), ('international', 'International add-on')];
 
 abstract class UsPlusService {
+  String get accountId;
   Future<UsPlusStatus> status();
+  Future<UsPlusStatus> recordPlay(String productId, String purchaseToken);
   Future<UsOffers> offers();
   Future<(String, String)> startCheckout();
   Future<UsPlusStatus> confirm(String sessionId);
@@ -69,7 +79,13 @@ class CloudUsPlus implements UsPlusService {
   final CloudSession cloud;
 
   @override
+  String get accountId => cloud.businessId ?? '';
+
+  @override
   Future<UsPlusStatus> status() async => UsPlusStatus.fromJson(await cloud.usPlus());
+
+  @override
+  Future<UsPlusStatus> recordPlay(String productId, String purchaseToken) async => UsPlusStatus.fromJson(await cloud.recordUsPlusPurchase(productId, purchaseToken));
 
   @override
   Future<UsOffers> offers() async => UsOffers.fromJson(await cloud.usOffers());
@@ -96,7 +112,13 @@ class NoUsPlus implements UsPlusService {
   static const _open = UsPlusStatus(enforced: false, active: true, subscribed: false, renews: false, until: '', priceUsd: usPlusPriceUsd, buyable: false);
 
   @override
+  String get accountId => '';
+
+  @override
   Future<UsPlusStatus> status() async => _open;
+
+  @override
+  Future<UsPlusStatus> recordPlay(String productId, String purchaseToken) async => _open;
 
   @override
   Future<UsOffers> offers() async => const UsOffers(waitlist: defaultWaitlist);

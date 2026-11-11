@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:myca/api/myca_api.dart';
 import 'package:myca/app_services.dart';
+import 'package:myca/billing/store_billing.dart';
 import 'package:myca/main.dart';
 import 'package:myca/screens/us/us_plus_screen.dart';
 import 'package:myca/screens/us/us_sign_screen.dart';
@@ -12,10 +13,23 @@ import 'package:myca/us/us_plus.dart';
 import 'package:myca/us/us_return.dart';
 import 'package:myca/widgets.dart';
 
-import 'us_return_test.dart' show FakeFees, UsFakeApi, scrollTap, usState;
+import 'us_return_test.dart' show FakeFees, FeeStore, UsFakeApi, scrollTap, usState;
 
 class FakePlus implements UsPlusService {
-  FakePlus({this.subscribed = false, this.expertReview = false});
+  FakePlus({this.subscribed = false, this.expertReview = false, this.onPlay = false});
+
+  final bool onPlay;
+  final played = <String>[];
+
+  @override
+  String get accountId => 'biz-1';
+
+  @override
+  Future<UsPlusStatus> recordPlay(String productId, String purchaseToken) async {
+    played.add('$productId:$purchaseToken');
+    subscribed = true;
+    return status();
+  }
 
   bool subscribed;
   bool renews = true;
@@ -24,7 +38,18 @@ class FakePlus implements UsPlusService {
   final joined = <String>[];
 
   @override
-  Future<UsPlusStatus> status() async => UsPlusStatus(enforced: true, active: subscribed, subscribed: subscribed, renews: subscribed && renews, until: '2027-11-11T00:00:00.000Z', priceUsd: 79, buyable: true);
+  Future<UsPlusStatus> status() async => UsPlusStatus(
+        enforced: true,
+        active: subscribed,
+        subscribed: subscribed,
+        renews: subscribed && renews,
+        until: '2027-11-11T00:00:00.000Z',
+        priceUsd: 79,
+        buyable: true,
+        checkout: onPlay ? 'play' : 'card',
+        productId: onPlay ? 'myca_us_plus_yearly' : '',
+        manageUrl: onPlay && subscribed ? 'https://play.google.com/store/account/subscriptions?sku=myca_us_plus_yearly&package=com.mldynamic.myca.us' : '',
+      );
 
   @override
   Future<UsOffers> offers() async => UsOffers(expertReview: expertReview, waitlist: defaultWaitlist);
@@ -238,5 +263,30 @@ void main() {
     expect(stateHasIncomeTax('TX'), isFalse);
     expect(stateHasIncomeTax('NY'), isTrue);
     expect(stateHasIncomeTax(''), isFalse);
+  });
+
+  testWidgets('inside the app, MyCA Plus is a Google Play subscription, recorded with the server and cancelled in Play', (tester) async {
+    final api = UsFakeApi();
+    final plus = FakePlus(onPlay: true);
+    final store = FeeStore();
+    final opened = <Uri>[];
+    await tester.pumpWidget(MycaApp(state: usState(api, opened: opened)));
+    await tester.pumpAndSettle();
+    await openOver(tester, UsPlusScreen(taxYear: 2025, plus: plus, store: store));
+    expect(find.byKey(const Key('usPlus.subscribe')), findsNothing, reason: 'no card checkout for Plus inside the app');
+    await tester.tap(find.byKey(const Key('usPlus.subscribePlay')));
+    await tester.pumpAndSettle();
+    expect(store.bought, ['sub:myca_us_plus_yearly:biz-1']);
+    store.controller.add([const StorePurchase(productId: 'myca_us_1040', token: 'not-plus', state: StorePurchaseState.purchased)]);
+    await tester.pumpAndSettle();
+    expect(plus.played, isEmpty, reason: 'a filing fee purchase is left to the Sign screen');
+    store.controller.add([const StorePurchase(productId: 'myca_us_plus_yearly', token: 'plus-1', state: StorePurchaseState.purchased, needsFinish: true)]);
+    await tester.pumpAndSettle();
+    expect(plus.played, ['myca_us_plus_yearly:plus-1']);
+    expect(store.finished, ['plus-1']);
+    expect(find.byKey(const Key('usPlus.on')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('usPlus.manage')));
+    await tester.pumpAndSettle();
+    expect(opened.single.host, 'play.google.com');
   });
 }

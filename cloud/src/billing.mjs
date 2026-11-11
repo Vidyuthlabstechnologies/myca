@@ -71,7 +71,7 @@ export function billingConfigFromEnv(env = process.env) {
     packageName: unset(env.MYCA_PLAY_PACKAGE),
     productIds: { essentials: unset(env.MYCA_PLAY_PRODUCT_ESSENTIALS), pro: unset(env.MYCA_PLAY_PRODUCT_PRO), firm: unset(env.MYCA_PLAY_PRODUCT_FIRM) },
     usReturn: { packageName: unset(env.MYCA_PLAY_PACKAGE_US), productId: unset(env.MYCA_PLAY_PRODUCT_US_1040), priceUsd: dollars(env.MYCA_US_RETURN_PRICE_USD, US_RETURN_PRICE_USD) },
-    usPlus: { priceUsd: dollars(env.MYCA_US_PLUS_PRICE_USD, US_PLUS_PRICE_USD) },
+    usPlus: { priceUsd: dollars(env.MYCA_US_PLUS_PRICE_USD, US_PLUS_PRICE_USD), productId: unset(env.MYCA_PLAY_PRODUCT_US_PLUS) },
     usExpertReview: { on: unset(env.MYCA_US_EXPERT_REVIEW) === '1', priceUsd: dollars(env.MYCA_US_EXPERT_REVIEW_PRICE_USD, US_EXPERT_REVIEW_PRICE_USD) },
     stripe: { secretKey: unset(env.MYCA_STRIPE_SECRET_KEY), webhookSecret: unset(env.MYCA_STRIPE_WEBHOOK_SECRET), plusPriceId: unset(env.MYCA_STRIPE_PRICE_US_PLUS), returnUrl: unset(env.MYCA_US_CHECKOUT_RETURN_URL) },
     notifyToken: unset(env.MYCA_PLAY_NOTIFY_TOKEN),
@@ -86,7 +86,8 @@ export function billingConfigProblem(env = process.env) {
   if ((card.secretKey || card.webhookSecret) && !(card.secretKey && card.webhookSecret && card.returnUrl)) return 'Card checkout needs all of MYCA_STRIPE_SECRET_KEY, MYCA_STRIPE_WEBHOOK_SECRET and MYCA_US_CHECKOUT_RETURN_URL.';
   if (card.returnUrl && !/^https:\/\//.test(card.returnUrl) && !/^http:\/\/(localhost|127\.0\.0\.1)[:/]/.test(card.returnUrl)) return 'MYCA_US_CHECKOUT_RETURN_URL must be an https address.';
   if (card.secretKey && !/^(sk|rk)_(test|live)_/.test(card.secretKey)) return 'MYCA_STRIPE_SECRET_KEY is not a Stripe secret key (it starts sk_live_ or sk_test_).';
-  if (!(cfg.packageName && PAID.some((plan) => cfg.productIds[plan])) && !((cfg.usReturn.packageName || cfg.packageName) && cfg.usReturn.productId)) return '';
+  const usPlay = cfg.usReturn.packageName || cfg.packageName;
+  if (!(cfg.packageName && PAID.some((plan) => cfg.productIds[plan])) && !(usPlay && (cfg.usReturn.productId || cfg.usPlus.productId))) return '';
   const given = unset(env.MYCA_PLAY_SERVICE_ACCOUNT_JSON);
   if (given && !cfg.serviceAccount) return 'MYCA_PLAY_SERVICE_ACCOUNT_JSON is not a service account key: paste the whole JSON file Google Cloud gave for the Play service account.';
   if (!given && !env.K_SERVICE) return 'Google Play subscriptions are on but MYCA_PLAY_SERVICE_ACCOUNT_JSON is empty: outside Cloud Run the API has no other way to reach the Play Developer API.';
@@ -115,14 +116,17 @@ function fail(error, extra = {}) {
 export function createBilling({ db, config = {}, now = () => Date.now(), fetchImpl = (...args) => globalThis.fetch(...args), log = () => {} }) {
   const cfg = { packageName: '', productIds: {}, notifyToken: '', serviceAccount: null, prices: {}, ...config };
   cfg.usReturn = { packageName: '', productId: '', priceUsd: US_RETURN_PRICE_USD, ...(config.usReturn || {}) };
-  cfg.usPlus = { priceUsd: US_PLUS_PRICE_USD, ...(config.usPlus || {}) };
+  cfg.usPlus = { priceUsd: US_PLUS_PRICE_USD, productId: '', ...(config.usPlus || {}) };
   cfg.usExpertReview = { on: false, priceUsd: US_EXPERT_REVIEW_PRICE_USD, ...(config.usExpertReview || {}) };
   cfg.stripe = { secretKey: '', webhookSecret: '', plusPriceId: '', returnUrl: '', ...(config.stripe || {}) };
   const enabled = Boolean(cfg.packageName && PAID.some((plan) => cfg.productIds[plan]));
   const usPackage = cfg.usReturn.packageName || cfg.packageName;
   const usPlayEnabled = Boolean(usPackage && cfg.usReturn.productId);
   const cardEnabled = Boolean(cfg.stripe.secretKey && cfg.stripe.webhookSecret && cfg.stripe.returnUrl);
-  const plusBuyable = cardEnabled && Boolean(cfg.stripe.plusPriceId);
+  const plusOnPlay = Boolean(usPackage && cfg.usPlus.productId);
+  const plusOnCard = !plusOnPlay && cardEnabled && Boolean(cfg.stripe.plusPriceId);
+  const plusBuyable = plusOnPlay || plusOnCard;
+  const plusCheckout = plusOnPlay ? 'play' : plusOnCard ? 'card' : 'none';
   const usEnforced = usPlayEnabled || cardEnabled;
   const stripe = cardEnabled ? createStripe({ secretKey: cfg.stripe.secretKey, fetchImpl }) : null;
   const planOfProduct = (productId) => PAID.find((plan) => cfg.productIds[plan] && cfg.productIds[plan] === productId) || null;
@@ -212,10 +216,10 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
     return found.rows[0]?.businessId || null;
   }
 
-  function manageUrl(productId) {
-    if (!cfg.packageName) return '';
+  function manageUrl(productId, packageName = cfg.packageName) {
+    if (!packageName) return '';
     const sku = productId ? `sku=${encodeURIComponent(productId)}&` : '';
-    return `https://play.google.com/store/account/subscriptions?${sku}package=${encodeURIComponent(cfg.packageName)}`;
+    return `https://play.google.com/store/account/subscriptions?${sku}package=${encodeURIComponent(packageName)}`;
   }
 
   async function entitlement(businessId) {
@@ -368,18 +372,53 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
   }
 
   async function usPlusRow(businessId) {
-    const found = await db.query('select subscription_id as "subscriptionId", status, current_end as "currentEnd", cancel_at_period_end as "cancelAtPeriodEnd", price_usd as "priceUsd" from us_plus_subscriptions where business_id = $1', [businessId]);
+    const found = await db.query('select provider, subscription_id as "subscriptionId", status, current_end as "currentEnd", cancel_at_period_end as "cancelAtPeriodEnd", price_usd as "priceUsd" from us_plus_subscriptions where business_id = $1', [businessId]);
     return found.rows[0] || null;
   }
 
-  async function usPlus(businessId) {
-    const sub = await usPlusRow(businessId);
-    const until = sub?.currentEnd ? new Date(sub.currentEnd).getTime() : 0;
-    const active = Boolean(sub && PLUS_LIVE.has(sub.status) && until + GRACE_DAYS * DAY_MS > now());
+  async function lookupUsPlus(purchaseToken) {
+    const out = await play('GET', `subscriptionsv2/tokens/${encodeURIComponent(purchaseToken)}`, usPackage);
+    if (!out.ok) return { ok: false, status: out.status };
+    const items = Array.isArray(out.data.lineItems) ? out.data.lineItems : [];
+    const item = items.find((line) => line.productId === cfg.usPlus.productId) || {};
+    const expiry = items.map((line) => Date.parse(line.expiryTime || '')).filter(Number.isFinite);
+    const status = stateWord(out.data.subscriptionState);
     return {
       ok: true,
-      enforced: cardEnabled,
-      active: active || !cardEnabled,
+      productId: String(item.productId || ''),
+      status,
+      currentEnd: expiry.length ? new Date(Math.max(...expiry)) : null,
+      canceled: status === 'canceled',
+      accountId: String(out.data.externalAccountIdentifiers?.obfuscatedExternalAccountId || ''),
+      needsAck: out.data.acknowledgementState === 'ACKNOWLEDGEMENT_STATE_PENDING',
+      testPurchase: Boolean(out.data.testPurchase),
+    };
+  }
+
+  async function refreshPlayPlus(businessId, sub) {
+    if (!plusOnPlay || sub?.provider !== 'play') return sub;
+    const until = sub.currentEnd ? new Date(sub.currentEnd).getTime() : 0;
+    if (until > now()) return sub;
+    try {
+      const found = await lookupUsPlus(sub.subscriptionId);
+      if (!found.ok) return sub;
+      await db.query('update us_plus_subscriptions set status = $2, current_end = $3, cancel_at_period_end = $4, updated_at = now() where business_id = $1', [businessId, found.status, found.currentEnd, found.canceled]);
+      return usPlusRow(businessId);
+    } catch (error) {
+      log({ billing: 'play_auth_failed', status: error.status || 0 });
+      return sub;
+    }
+  }
+
+  async function usPlus(businessId) {
+    const sub = await refreshPlayPlus(businessId, await usPlusRow(businessId));
+    const until = sub?.currentEnd ? new Date(sub.currentEnd).getTime() : 0;
+    const live = sub?.provider === 'play' ? LIVE_STATUSES.has(sub.status) : PLUS_LIVE.has(sub?.status);
+    const active = Boolean(sub && live && until + GRACE_DAYS * DAY_MS > now());
+    return {
+      ok: true,
+      enforced: plusBuyable,
+      active: active || !plusBuyable,
       subscribed: active,
       status: sub?.status || null,
       until: until ? new Date(until).toISOString() : null,
@@ -387,8 +426,45 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
       priceUsd: sub ? sub.priceUsd : cfg.usPlus.priceUsd,
       per: 'year',
       buyable: plusBuyable,
+      checkout: plusCheckout,
+      productId: plusOnPlay ? cfg.usPlus.productId : '',
+      provider: sub?.provider || null,
+      manageUrl: sub?.provider === 'play' ? manageUrl(cfg.usPlus.productId, usPackage) : '',
       features: ['IRS letter reader', 'Withholding check', 'Quarterly estimate reminders'],
     };
+  }
+
+  async function verifyUsPlus(businessId, userId, { productId, purchaseToken } = {}) {
+    if (!plusOnPlay) return fail('BILLING_NOT_CONFIGURED', { hint: 'The operator has not set up the Google Play product for MyCA Plus yet.' });
+    if (!(await isHousehold(businessId))) return fail('NOT_A_PERSONAL_RETURN', { hint: 'MyCA Plus is for a personal US return.' });
+    const token = String(purchaseToken || '');
+    if (productId !== cfg.usPlus.productId || !token || token.length > 2000) return fail('UNKNOWN_PRODUCT', { products: [cfg.usPlus.productId] });
+    const holder = await db.query('select business_id as "businessId" from us_plus_subscriptions where subscription_id = $1', [token]);
+    if (holder.rows[0] && holder.rows[0].businessId !== businessId) return fail('PURCHASE_BELONGS_TO_ANOTHER_BUSINESS', { hint: 'This Google Play subscription already pays for another return.' });
+    let found;
+    try {
+      found = await lookupUsPlus(token);
+    } catch (error) {
+      log({ billing: 'play_auth_failed', status: error.status || 0 });
+      return fail('PROVIDER_UNAVAILABLE', { hint: 'Google Play could not be reached. Your purchase is safe; try again in a minute.' });
+    }
+    if (!found.ok) return fail('PURCHASE_NOT_FOUND', { status: found.status, hint: 'Google Play does not know this purchase.' });
+    if (found.productId !== cfg.usPlus.productId) return fail('PURCHASE_PRODUCT_MISMATCH');
+    if (found.accountId && found.accountId !== businessId) return fail('PURCHASE_BELONGS_TO_ANOTHER_BUSINESS', { hint: 'This Google Play subscription was bought for another return.' });
+    if (!LIVE_STATUSES.has(found.status)) return fail('PURCHASE_NOT_COMPLETE', { hint: 'Google Play has not finished this payment yet.' });
+    const saved = await db.query(
+      `insert into us_plus_subscriptions (business_id, provider, subscription_id, status, current_end, cancel_at_period_end, price_usd, created_by)
+       values ($1, 'play', $2, $3, $4, $5, $6, $7)
+       on conflict (business_id) do update set provider = excluded.provider, subscription_id = excluded.subscription_id, status = excluded.status, current_end = excluded.current_end, cancel_at_period_end = excluded.cancel_at_period_end, updated_at = now()
+       returning (xmax = 0) as inserted`,
+      [businessId, token, found.status, found.currentEnd, found.canceled, cfg.usPlus.priceUsd, userId],
+    );
+    if (found.needsAck) {
+      const ack = await play('POST', `subscriptions/${encodeURIComponent(found.productId)}/tokens/${encodeURIComponent(token)}:acknowledge`, usPackage);
+      if (!ack.ok) log({ billing: 'acknowledge_failed', status: ack.status });
+    }
+    if (saved.rows[0]?.inserted) await audit(businessId, userId, 'billing.us_plus_started', { provider: 'play', status: found.status, priceUsd: cfg.usPlus.priceUsd, testPurchase: found.testPurchase });
+    return usPlus(businessId);
   }
 
   async function usPlusAllows(businessId) {
@@ -400,7 +476,7 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
   function offers() {
     return {
       usReturn: { title: 'MyCA Return', priceUsd: cfg.usReturn.priceUsd, currency: 'USD', per: 'tax_year', priceLine: US_RETURN_PRICE_LINE(cfg.usReturn.priceUsd), checkout: checkoutKind(), packageName: usPackage, productId: cfg.usReturn.productId, buyable: usEnforced },
-      usPlus: { title: 'MyCA Plus', priceUsd: cfg.usPlus.priceUsd, currency: 'USD', per: 'year', checkout: plusBuyable ? 'card' : 'none', buyable: plusBuyable, features: ['IRS letter reader', 'Withholding check', 'Quarterly estimate reminders'] },
+      usPlus: { title: 'MyCA Plus', priceUsd: cfg.usPlus.priceUsd, currency: 'USD', per: 'year', checkout: plusCheckout, packageName: plusOnPlay ? usPackage : '', productId: plusOnPlay ? cfg.usPlus.productId : '', buyable: plusBuyable, features: ['IRS letter reader', 'Withholding check', 'Quarterly estimate reminders'] },
       usExpertReview: cfg.usExpertReview.on ? { title: 'Expert Review', priceUsd: cfg.usExpertReview.priceUsd, currency: 'USD', per: 'return', available: true } : { title: 'Expert Review', available: false },
       usWaitlist: Object.entries(US_WAITLIST_PRODUCTS).map(([id, title]) => ({ id, title })),
     };
@@ -433,7 +509,7 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
       return started(businessId, userId, made, { product: 'return', taxYear: year, priceUsd: cfg.usReturn.priceUsd });
     }
     if (product === 'plus') {
-      if (!plusBuyable) return fail('CARD_CHECKOUT_NOT_CONFIGURED', { hint: 'The operator has not set up MyCA Plus yet.' });
+      if (!plusOnCard) return fail('CARD_CHECKOUT_NOT_CONFIGURED', { hint: plusOnPlay ? 'MyCA Plus is bought in Google Play.' : 'The operator has not set up MyCA Plus yet.' });
       if ((await usPlus(businessId)).subscribed) return fail('ALREADY_SUBSCRIBED', { hint: 'MyCA Plus is already on for this return.' });
       const metadata = { businessId, userId, product: 'plus' };
       const made = await stripe.createCheckout({
@@ -543,6 +619,7 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
 
   async function cancelUsPlus(businessId, userId) {
     const sub = await usPlusRow(businessId);
+    if (sub?.provider === 'play') return fail('MANAGE_IN_PLAY', { manageUrl: manageUrl(cfg.usPlus.productId, usPackage), hint: 'MyCA Plus was bought in Google Play. Cancel it there, under Subscriptions.' });
     if (!cardEnabled || !sub) return fail('NOT_SUBSCRIBED', { hint: 'MyCA Plus is not on for this return.' });
     const out = await stripe.cancelAtPeriodEnd(sub.subscriptionId);
     if (!out.ok) return fail('PROVIDER_UNAVAILABLE', { hint: 'Stripe could not be reached. Nothing changed; try again in a minute.' });
@@ -585,6 +662,7 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
     stripeWebhook,
     usPlus,
     usPlusAllows,
+    verifyUsPlus,
     cancelUsPlus,
     joinUsWaitlist,
     allows,

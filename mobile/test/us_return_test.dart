@@ -33,7 +33,10 @@ class FeeStore implements StoreBilling {
   @override
   Future<Map<String, StoreProduct>> products(Set<String> ids) async => {for (final id in ids) id: StoreProduct(id: id, price: '\$39.00')};
   @override
-  Future<bool> buy(String productId, String accountId) async => false;
+  Future<bool> buy(String productId, String accountId) async {
+    bought.add('sub:$productId:$accountId');
+    return true;
+  }
   @override
   Future<bool> buyOnce(String productId, String accountId) async {
     bought.add('$productId:$accountId');

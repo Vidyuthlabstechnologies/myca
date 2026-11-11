@@ -4,12 +4,14 @@ import '../../api/models.dart';
 import '../../api/myca_api.dart';
 import '../../app_services.dart';
 import '../../app_state.dart';
+import '../../billing/store_billing.dart';
 import '../../format.dart';
 import '../../marks.dart';
 import '../../theme.dart';
 import '../../us/us_plus.dart';
 import '../../us/us_return.dart';
 import '../../widgets.dart';
+import '../plan_screen.dart' show buyInApp;
 
 Map<String, dynamic> _map(Object? value) => value is Map ? value.cast<String, dynamic>() : const <String, dynamic>{};
 
@@ -18,10 +20,11 @@ num _num(Object? value) => value is num ? value : num.tryParse('${value ?? ''}')
 String _errorText(Object err) => err is MycaApiException ? err.message : 'Something went wrong. Try again.';
 
 class UsPlusScreen extends StatefulWidget {
-  const UsPlusScreen({super.key, required this.taxYear, this.plus});
+  const UsPlusScreen({super.key, required this.taxYear, this.plus, this.store});
 
   final int taxYear;
   final UsPlusService? plus;
+  final StoreBilling? store;
 
   @override
   State<UsPlusScreen> createState() => _UsPlusScreenState();
@@ -34,22 +37,83 @@ class _UsPlusScreenState extends State<UsPlusScreen> {
   bool _busy = false;
   String _note = '';
   final _joined = <String>{};
+  StoreBilling? _store;
+  PurchaseRecorder? _recorder;
+  String _playPrice = '';
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     final cloud = AppScope.of(context).cloud;
     _plus ??= widget.plus ?? (cloud == null ? const NoUsPlus() : CloudUsPlus(cloud));
+    _store ??= widget.store ?? (buyInApp && cloud != null ? PlayBilling() : null);
     _loaded ??= _load();
+  }
+
+  @override
+  void dispose() {
+    _recorder?.stop();
+    super.dispose();
+  }
+
+  Future<void> _startPlay(UsPlusStatus plus) async {
+    final store = _store;
+    if (_recorder != null || store == null || !plus.onPlay || plus.productId.isEmpty) return;
+    try {
+      if (!await store.available()) return;
+      final products = await store.products({plus.productId});
+      _recorder = PurchaseRecorder(
+        store: store,
+        accepts: (productId) => productId == plus.productId,
+        record: (productId, token) async {
+          await _plus!.recordPlay(productId, token);
+          if (mounted) _reload();
+        },
+        onResult: (purchase, error) {
+          if (!mounted) return;
+          setState(() {
+            _busy = false;
+            _note = switch (purchase.state) {
+              StorePurchaseState.pending => 'Google Play is processing the payment. Plus turns on as soon as it clears.',
+              StorePurchaseState.failed => 'Google Play did not complete the payment. Nothing was charged.',
+              StorePurchaseState.purchased => error == null ? '' : _errorText(error),
+              StorePurchaseState.canceled => '',
+            };
+          });
+        },
+      )..start();
+      if (mounted) setState(() => _playPrice = products[plus.productId]?.price ?? '');
+    } on Object {
+      return;
+    }
+  }
+
+  Future<void> _subscribeInPlay(UsPlusStatus plus) async {
+    final store = _store;
+    if (store == null) return;
+    setState(() {
+      _busy = true;
+      _note = '';
+    });
+    final started = await store.buy(plus.productId, _plus!.accountId).catchError((_) => false);
+    if (!started && mounted) {
+      setState(() {
+        _busy = false;
+        _note = 'Google Play could not open the payment. Check that you are signed in to the Play Store and try again.';
+      });
+    }
   }
 
   Future<(UsPlusStatus, UsOffers)> _load() async {
     final status = await _plus!.status();
+    await _startPlay(status);
     final offers = await _plus!.offers().catchError((_) => const UsOffers(waitlist: defaultWaitlist));
     return (status, offers);
   }
 
-  void _reload() => setState(() => _loaded = _load());
+  void _reload() => setState(() {
+        _loaded = _load();
+      });
 
   Future<void> _run(Future<void> Function() work) async {
     setState(() {
@@ -102,13 +166,28 @@ class _UsPlusScreenState extends State<UsPlusScreen> {
     if (plus.subscribed) {
       final until = plus.until.length >= 10 ? longDate(plus.until.substring(0, 10)) : '';
       children.add(Text(plus.renews ? 'MyCA Plus is on. It renews${until.isEmpty ? '' : ' on $until'}.' : 'MyCA Plus is on until $until. It will not renew.', key: const Key('usPlus.on'), style: text.titleMedium));
-      if (plus.renews) {
+      if (plus.renews && plus.manageUrl.isNotEmpty) {
+        children.addAll([
+          const SizedBox(height: 10),
+          OutlinedButton(key: const Key('usPlus.manage'), onPressed: () => AppScope.of(context).openLink(Uri.parse(plus.manageUrl)), child: const Text('Cancel or manage in Google Play')),
+        ]);
+      } else if (plus.renews) {
         children.addAll([
           const SizedBox(height: 10),
           OutlinedButton(key: const Key('usPlus.cancel'), onPressed: _busy ? null : _cancel, child: const Text('Cancel renewal')),
           Text('You keep Plus until the end of the year you paid for.', style: text.bodySmall?.copyWith(color: Palette.muted)),
         ]);
       }
+    } else if (plus.buyable && plus.onPlay) {
+      children.addAll([
+        FilledButton(
+          key: const Key('usPlus.subscribePlay'),
+          onPressed: _busy || _store == null ? null : () => _subscribeInPlay(plus),
+          child: Text('Get MyCA Plus, ${_playPrice.isEmpty ? '\$${plus.priceUsd}' : _playPrice} a year'),
+        ),
+        const SizedBox(height: 6),
+        Text(_store == null ? 'Get MyCA Plus in the MyCA US app for Android.' : 'Paid through Google Play. Cancel any time in Play.', style: text.bodySmall?.copyWith(color: Palette.muted)),
+      ]);
     } else if (plus.buyable) {
       children.addAll([
         FilledButton(key: const Key('usPlus.subscribe'), onPressed: _busy ? null : _subscribe, child: Text('Get MyCA Plus, \$${plus.priceUsd} a year')),

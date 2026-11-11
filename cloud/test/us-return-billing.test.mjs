@@ -7,6 +7,8 @@ import { startApi } from './helpers.mjs';
 const PACKAGE = 'com.mldynamic.myca';
 const US_PACKAGE = 'com.mldynamic.myca.us';
 const PRODUCT = 'myca_us_1040';
+const PLUS = 'myca_us_plus_yearly';
+const plusSubs = new Map();
 const { privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
 const calls = [];
 const purchases = new Map();
@@ -16,6 +18,15 @@ async function fakeGoogle(url, init = {}) {
   calls.push({ url: text, method: init.method || 'GET' });
   const json = (status, data) => new Response(JSON.stringify(data), { status });
   if (text === 'https://oauth2.googleapis.com/token') return json(200, { access_token: 'ya29.test', expires_in: 3600 });
+  if (text.startsWith(`https://androidpublisher.googleapis.com/androidpublisher/v3/applications/${US_PACKAGE}/purchases/subscriptionsv2/tokens/`)) {
+    const found = plusSubs.get(decodeURIComponent(text.split('/tokens/')[1]));
+    return found ? json(200, found) : json(404, {});
+  }
+  if (text.includes(`/applications/${US_PACKAGE}/purchases/subscriptions/`) && text.endsWith(':acknowledge')) {
+    const found = plusSubs.get(decodeURIComponent(text.split('/tokens/')[1].replace(/:acknowledge$/, '')));
+    if (found) found.acknowledgementState = 'ACKNOWLEDGEMENT_STATE_ACKNOWLEDGED';
+    return json(200, {});
+  }
   const base = `https://androidpublisher.googleapis.com/androidpublisher/v3/applications/${US_PACKAGE}/purchases/products/`;
   if (!text.startsWith(base)) return json(404, {});
   const rest = text.slice(base.length);
@@ -45,7 +56,7 @@ before(async () => {
       db,
       now,
       fetchImpl: fakeGoogle,
-      config: { packageName: PACKAGE, productIds: { pro: 'myca_pro_monthly' }, usReturn: { packageName: US_PACKAGE, productId: PRODUCT, priceUsd: 39 }, serviceAccount: { clientEmail: 'play@test.iam.gserviceaccount.com', privateKey: privateKey.export({ type: 'pkcs8', format: 'pem' }), tokenUri: 'https://oauth2.googleapis.com/token' } },
+      config: { packageName: PACKAGE, productIds: { pro: 'myca_pro_monthly' }, usReturn: { packageName: US_PACKAGE, productId: PRODUCT, priceUsd: 39 }, usPlus: { priceUsd: 79, productId: PLUS }, serviceAccount: { clientEmail: 'play@test.iam.gserviceaccount.com', privateKey: privateKey.export({ type: 'pkcs8', format: 'pem' }), tokenUri: 'https://oauth2.googleapis.com/token' } },
     }),
   });
   year = new Date(api.clock.now).getUTCFullYear() - 1;
@@ -71,7 +82,7 @@ test('the price of a US return is $39 by default and the operator can change it'
 test('plans list the US return as a one-time $39 per tax year', async () => {
   const out = await api.call('GET', '/v1/plans');
   assert.deepEqual(out.body.usReturn, { title: 'MyCA Return', priceUsd: 39, currency: 'USD', per: 'tax_year', priceLine: '$39 to file. Federal only. No state, refund or upgrade fees.', checkout: 'play', packageName: US_PACKAGE, productId: PRODUCT, buyable: true });
-  assert.equal(out.body.usPlus.buyable, false, 'MyCA Plus needs card checkout');
+  assert.deepEqual({ checkout: out.body.usPlus.checkout, productId: out.body.usPlus.productId, packageName: out.body.usPlus.packageName, buyable: out.body.usPlus.buyable }, { checkout: 'play', productId: PLUS, packageName: US_PACKAGE, buyable: true }, 'inside the app, MyCA Plus is a Google Play subscription');
   assert.equal(out.body.usExpertReview.available, false, 'Expert Review stays hidden until the operator turns it on');
   assert.deepEqual(out.body.usWaitlist.map((item) => item.id), ['done_for_you', 'international']);
   assert.ok(out.body.usWaitlist.every((item) => item.priceUsd === undefined), 'waitlist products show no price');
@@ -153,4 +164,32 @@ test('without a Play product for US returns, filing is not held back', async () 
   } finally {
     await plain.close();
   }
+});
+
+test('MyCA Plus bought in Google Play is checked with Google, acknowledged, unlocks the Plus tools and is cancelled in Play', async () => {
+  const who = await household('+919400000078');
+  assert.equal((await post(who, 'query', { name: 'read_irs_letter', args: {} })).body.error, 'US_PLUS_REQUIRED');
+  const expiry = new Date(api.clock.now + 365 * 86400000).toISOString();
+  plusSubs.set('plus-token-1', { subscriptionState: 'SUBSCRIPTION_STATE_ACTIVE', acknowledgementState: 'ACKNOWLEDGEMENT_STATE_PENDING', lineItems: [{ productId: PLUS, expiryTime: expiry }], externalAccountIdentifiers: { obfuscatedExternalAccountId: who.businessId }, testPurchase: {} });
+  calls.length = 0;
+  const bought = await post(who, 'us-plus-purchase', { productId: PLUS, purchaseToken: 'plus-token-1' });
+  assert.equal(bought.body.subscribed, true, bought.text);
+  assert.equal(bought.body.provider, 'play');
+  assert.match(bought.body.manageUrl, /package=com\.mldynamic\.myca\.us/);
+  assert.equal(plusSubs.get('plus-token-1').acknowledgementState, 'ACKNOWLEDGEMENT_STATE_ACKNOWLEDGED');
+  assert.ok(calls.filter((c) => c.url.includes('/applications/')).every((c) => c.url.includes(`/applications/${US_PACKAGE}/`)));
+  assert.notEqual((await post(who, 'query', { name: 'read_irs_letter', args: {} })).body.error, 'US_PLUS_REQUIRED');
+  const cancel = await post(who, 'us-plus-cancel', {});
+  assert.equal(cancel.body.error, 'MANAGE_IN_PLAY');
+  const someone = await household('+919400000079', 'Sam Lee');
+  assert.equal((await post(someone, 'us-plus-purchase', { productId: PLUS, purchaseToken: 'plus-token-1' })).body.error, 'PURCHASE_BELONGS_TO_ANOTHER_BUSINESS');
+  assert.equal((await post(someone, 'us-plus-purchase', { productId: 'other', purchaseToken: 'x' })).body.error, 'UNKNOWN_PRODUCT');
+  assert.equal((await post(someone, 'us-checkout', { product: 'plus' })).body.error, 'CARD_CHECKOUT_NOT_CONFIGURED', 'no card route for Plus inside the app');
+  plusSubs.get('plus-token-1').subscriptionState = 'SUBSCRIPTION_STATE_EXPIRED';
+  plusSubs.get('plus-token-1').lineItems[0].expiryTime = new Date(api.clock.now - 10 * 86400000).toISOString();
+  await api.db.query("update us_plus_subscriptions set current_end = now() - interval '10 days' where business_id = $1", [who.businessId]);
+  const lapsed = await get(who, 'us-plus');
+  assert.equal(lapsed.body.subscribed, false, 'an expired Play subscription is rechecked with Google and turns Plus off');
+  const audit = await api.db.query("select metadata from audit_log where business_id = $1 and action = 'billing.us_plus_started'", [who.businessId]);
+  assert.equal(audit.rows[0].metadata.provider, 'play');
 });

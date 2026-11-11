@@ -66,6 +66,7 @@ const OWNER_ONLY_POSTS = new Map([
   ['us-checkout', 'SHARED_VIEW_READ_ONLY'],
   ['us-checkout-confirm', 'SHARED_VIEW_READ_ONLY'],
   ['us-plus-cancel', 'SHARED_VIEW_READ_ONLY'],
+  ['us-plus-purchase', 'SHARED_VIEW_READ_ONLY'],
   ['us-waitlist', 'SHARED_VIEW_READ_ONLY'],
   ['invitations', 'SHARED_VIEW_READ_ONLY'],
   ['inbound', 'SHARED_VIEW_READ_ONLY'],
@@ -789,6 +790,7 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
       }
       if (action === 'us-checkout-confirm') return billing.usCheckoutConfirm(businessId, user.userId, body);
       if (action === 'us-plus-cancel') return billing.cancelUsPlus(businessId, user.userId);
+      if (action === 'us-plus-purchase') return billing.verifyUsPlus(businessId, user.userId, body);
       if (action === 'us-waitlist') return billing.joinUsWaitlist(businessId, user.userId, body);
       const posting = WRITES.has(action) ? await billing.allows(businessId, 'post') : { ok: true };
       if (!posting.ok) return posting;

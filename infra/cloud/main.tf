@@ -547,6 +547,10 @@ resource "google_cloud_run_v2_service" "api" {
         }
       }
       env {
+        name  = "MYCA_PLAY_PRODUCT_US_PLUS"
+        value = var.play_product_us_plus
+      }
+      env {
         name  = "MYCA_STRIPE_PRICE_US_PLUS"
         value = var.stripe_price_us_plus
       }

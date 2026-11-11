@@ -333,6 +333,7 @@ The server logs one `startup: services` line listing which optional services are
 | `MYCA_STRIPE_WEBHOOK_SECRET` | for card checkout | unset | yes | Signing secret of the Stripe webhook pointed at `POST /v1/billing/stripe/webhook` (events: `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `customer.subscription.updated`, `customer.subscription.deleted`). |
 | `MYCA_US_CHECKOUT_RETURN_URL` | for card checkout | unset | no | https page Stripe returns to; it should open the MyCA US app. |
 | `MYCA_STRIPE_PRICE_US_PLUS` | for MyCA Plus | unset | no | Stripe price id of the yearly Plus subscription. |
+| `MYCA_PLAY_PRODUCT_US_PLUS` | for MyCA Plus in the app | unset | no | Play yearly subscription for MyCA Plus in the MyCA US app. When set, the app sells Plus through Play (card checkout for Plus is then off), since Play's payments policy may count Plus as a software subscription. The $39 return stays on card. |
 | `MYCA_US_PLUS_PRICE_USD` | no | `79` | no | Price shown for MyCA Plus. |
 | `MYCA_US_EXPERT_REVIEW` | no | `0` | no | `1` offers Expert Review ($129, `MYCA_US_EXPERT_REVIEW_PRICE_USD`). Keep it off until a US CPA or EA partner is signed. |
 | `MYCA_PLAY_PRODUCT_US_1040` | for US filing fees | | no | A one-time (consumable) Play product. When set, filing a US return (`file_us_return`) needs that tax year paid; preparing stays free. |

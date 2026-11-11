@@ -3,7 +3,7 @@ alter table us_return_purchases add constraint us_return_purchases_provider_chec
 
 create table us_plus_subscriptions (
   business_id uuid primary key references businesses (id) on delete cascade,
-  provider text not null check (provider in ('stripe')),
+  provider text not null check (provider in ('stripe', 'play')),
   subscription_id text not null unique,
   status text not null,
   current_end timestamptz,
