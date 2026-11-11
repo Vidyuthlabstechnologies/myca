@@ -49,6 +49,11 @@ run "production_keeps_its_original_names" {
   }
 
   assert {
+    condition     = length(google_service_account.site) == 1 && google_service_account.site[0].account_id == "myca-site"
+    error_message = "The website runs as its own service account, not the project's default one."
+  }
+
+  assert {
     condition     = anytrue([for env in google_cloud_run_v2_service.api.template[0].containers[0].env : env.name == "MYCA_ENVIRONMENT" && env.value == "production"])
     error_message = "Production must run with MYCA_ENVIRONMENT=production."
   }
@@ -97,6 +102,11 @@ run "staging_gets_its_own_prefixed_stack" {
   assert {
     condition     = length(google_cloud_run_v2_service.site) == 0 && length(google_secret_manager_secret.release) == 0
     error_message = "Staging must not create the site or the Android release secrets."
+  }
+
+  assert {
+    condition     = length(google_service_account.site) == 0
+    error_message = "Staging must not create the website's service account."
   }
 
   assert {

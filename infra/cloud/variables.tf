@@ -264,9 +264,15 @@ variable "plan_prices" {
 }
 
 variable "deployer_service_account" {
-  description = "The bootstrap deploy_service_account output. It gets push on the myca-api registry, run.developer on the myca-api service and actAs on its service account, so CI can roll out the API and nothing else. Empty skips these grants."
+  description = "The bootstrap deploy_service_account output. It gets push on the myca-api registry, run.developer on the myca-api and myca-site services and actAs on their two service accounts, so CI can roll out the API and the website and nothing else. Empty skips these grants."
   type        = string
   default     = ""
+}
+
+variable "site_service_account_exists" {
+  description = "True when the myca-site service account was already created by hand in this project, so Terraform adopts it and does not try to create it again. India's production project has it; a new project leaves this false."
+  type        = bool
+  default     = false
 }
 
 variable "carried_secrets" {
