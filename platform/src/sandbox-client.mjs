@@ -1,6 +1,7 @@
 import { loadEnvFile, testModeEnabled } from './runtime-config.mjs';
 import { providerContext } from './provider-context.mjs';
 import { loadSandboxKeys, SANDBOX_HOSTS } from './sandbox-keys.mjs';
+import { quickoEndpoint } from './sandbox-endpoints.mjs';
 
 function detectEnvironment(baseUrl) {
   return /test/i.test(String(baseUrl)) ? 'test' : 'live';
@@ -23,12 +24,54 @@ function deadline(options, ms = DEFAULT_TIMEOUT_MS) {
 
 const platformTokens = new Map();
 
+const JOB_HOSTS = /^[a-z0-9.-]+\.s3[.-]([a-z0-9-]+\.)?amazonaws\.com$|^s3[.-]([a-z0-9-]+\.)?amazonaws\.com$/;
+const JOB_OUTPUT_LIMIT = 8 * 1024 * 1024;
+
+function withoutContentType(form, headers) {
+  if (!form) return headers;
+  const { 'content-type': _dropped, ...rest } = headers;
+  return rest;
+}
+
+export function jobUrlAllowed(value) {
+  try {
+    const url = new URL(String(value || ''));
+    return url.protocol === 'https:' && !url.username && !url.password && JOB_HOSTS.test(url.hostname);
+  } catch {
+    return false;
+  }
+}
+
+function fillPath(template, values = {}) {
+  const missing = [];
+  const path = template.replace(/\{([^}]+)\}/g, (_, name) => {
+    const value = values[name];
+    if (value === undefined || value === null || String(value).trim() === '') {
+      missing.push(name);
+      return '';
+    }
+    return encodeURIComponent(String(value).trim());
+  });
+  return { path, missing };
+}
+
+function tokenOf(data) {
+  const inner = data?.data && typeof data.data === 'object' ? data.data : {};
+  return {
+    token: String(inner.access_token || data?.access_token || inner.token || ''),
+    refreshToken: String(inner.refresh_token || data?.refresh_token || ''),
+    expiresAt: Number(inner.token_expiry || inner.expires_at || 0) || (Number(inner.expires_in || data?.expires_in || 0) ? Date.now() + Number(inner.expires_in || data.expires_in) * 1000 : 0),
+  };
+}
+
 function withBusinessKeys(options) {
   const given = providerContext()?.sandbox;
   if (!given) return options;
   const session = {
     ...(options.taxpayerToken == null && given.taxpayerToken ? { taxpayerToken: given.taxpayerToken, taxpayerExpiresAt: Number(given.taxpayerExpiresAt || 0) } : {}),
     ...(options.fetchFn == null && typeof given.fetchFn === 'function' ? { fetchFn: given.fetchFn } : {}),
+    ...(options.sessions == null && given.sessions && typeof given.sessions === 'object' ? { sessions: given.sessions } : {}),
+    ...(options.onSession == null && typeof given.onSession === 'function' ? { onSession: given.onSession } : {}),
   };
   if (!given.apiKey || options.apiKey != null) return { ...options, ...session };
   const environment = given.environment === 'production' || given.environment === 'live' ? 'live' : 'test';
@@ -78,6 +121,11 @@ export class SandboxClient {
     this.taxpayerExpiresAt = Number(options.taxpayerExpiresAt || 0);
     this.einvoiceToken = null;
     this.einvoiceExpiresAt = 0;
+    this.sessions = {};
+    for (const [kind, session] of Object.entries(options.sessions || {})) {
+      if (session?.token) this.sessions[kind] = { token: String(session.token), expiresAt: Number(session.expiresAt || 0), refreshToken: session.refreshToken ? String(session.refreshToken) : '' };
+    }
+    this.onSession = typeof options.onSession === 'function' ? options.onSession : null;
   }
 
   isConfigured() {
@@ -142,8 +190,8 @@ export class SandboxClient {
     const url = endpoint.startsWith('http') ? endpoint : `${this.baseUrl}${endpoint.startsWith('/') ? '' : '/'}${endpoint}`;
     const send = async (authToken) => this.fetchFn(url, {
       method: options.method || 'POST',
-      headers: { ...this.headers(authToken), ...(options.headers || {}) },
-      body: options.body === undefined ? undefined : JSON.stringify(options.body),
+      headers: withoutContentType(options.form, { ...this.headers(authToken), ...(options.headers || {}) }),
+      body: options.form ? options.form : options.body === undefined ? undefined : JSON.stringify(options.body),
       signal: deadline(options, 30000),
     });
     try {
@@ -183,6 +231,105 @@ export class SandboxClient {
       error: auth.error,
       authenticatedAt: auth.ok ? new Date().toISOString() : null,
     };
+  }
+
+  sessionToken(kind) {
+    if (kind === 'platform') return null;
+    if (kind === 'gst_taxpayer') return this.taxpayerToken || null;
+    const session = this.sessions[kind];
+    if (!session?.token) return null;
+    if (session.expiresAt && session.expiresAt < Date.now()) return null;
+    return session.token;
+  }
+
+  keepSession(kind, found) {
+    if (!found.token) return false;
+    if (kind === 'gst_taxpayer') {
+      this.taxpayerToken = found.token;
+      this.taxpayerExpiresAt = found.expiresAt || Date.now() + 6 * 3600 * 1000;
+    } else {
+      this.sessions[kind] = { token: found.token, refreshToken: found.refreshToken || this.sessions[kind]?.refreshToken || '', expiresAt: found.expiresAt || 0 };
+    }
+    if (this.onSession) this.onSession(kind, { ...this.sessions[kind] || { token: this.taxpayerToken, expiresAt: this.taxpayerExpiresAt } });
+    return true;
+  }
+
+  dropSession(kind) {
+    if (kind === 'gst_taxpayer') {
+      this.taxpayerToken = null;
+      this.taxpayerExpiresAt = 0;
+    } else {
+      delete this.sessions[kind];
+    }
+    if (this.onSession) this.onSession(kind, null);
+  }
+
+  async callEndpoint(endpointId, { pathParams = {}, query = {}, body, file } = {}, options = {}) {
+    const endpoint = quickoEndpoint(endpointId);
+    if (!endpoint) return { ok: false, error: 'UNKNOWN_SANDBOX_ENDPOINT' };
+    const filled = fillPath(endpoint.path, pathParams);
+    if (filled.missing.length) return { ok: false, error: 'PATH_PARAMS_REQUIRED', missing: filled.missing };
+    const missingQuery = endpoint.query.filter((q) => q.required && (query[q.name] === undefined || query[q.name] === null || query[q.name] === '')).map((q) => q.name);
+    if (missingQuery.length) return { ok: false, error: 'QUERY_PARAMS_REQUIRED', missing: missingQuery };
+    const known = new Set(endpoint.query.map((q) => q.name));
+    const sent = Object.fromEntries(Object.entries(query).filter(([name]) => known.has(name)));
+    let token = null;
+    if (endpoint.session !== 'platform') {
+      token = this.sessionToken(endpoint.session);
+      if (!token) return { ok: false, error: 'PORTAL_SESSION_REQUIRED', session: endpoint.session, hint: 'Sign in to the portal first (the login operation for this session), then try again.' };
+    }
+    let form = null;
+    if (endpoint.body === 'multipart') {
+      if (!file?.bytes) return { ok: false, error: 'FILE_REQUIRED', hint: 'Upload the PDF with /api/upload and pass params.documentSha256.' };
+      form = new FormData();
+      form.append('file', new Blob([file.bytes], { type: file.type || 'application/pdf' }), file.name || 'document.pdf');
+    }
+    const res = await this.request(`${filled.path}${qs(sent)}`, {
+      ...options,
+      method: endpoint.method,
+      ...(token ? { token } : {}),
+      ...(form ? { form } : endpoint.method === 'GET' || endpoint.method === 'DELETE' || body === undefined ? {} : { body }),
+    });
+    if (res.ok && endpoint.opensSession) {
+      const kept = this.keepSession(endpoint.opensSession, tokenOf(res.data));
+      return { ...res, sessionEstablished: kept, session: endpoint.opensSession };
+    }
+    if (res.ok && endpoint.closesSession) this.dropSession(endpoint.closesSession);
+    return res;
+  }
+
+  async uploadJobPayload(url, { bytes, contentType = 'application/json' } = {}, options = {}) {
+    if (!jobUrlAllowed(url)) return { ok: false, error: 'JOB_URL_NOT_ALLOWED', hint: 'Only the pre-signed S3 URL Sandbox returned for the job is accepted.' };
+    if (bytes === undefined || bytes === null) return { ok: false, error: 'JOB_INPUT_REQUIRED' };
+    try {
+      const res = await this.fetchFn(String(url), { method: 'PUT', headers: { 'content-type': contentType }, body: bytes, signal: deadline(options, 60000) });
+      return res.ok ? { ok: true, status: res.status } : { ok: false, error: `UPLOAD_HTTP_${res.status}` };
+    } catch (err) {
+      return { ok: false, error: String(err.message || err) };
+    }
+  }
+
+  async fetchJobOutput(url, options = {}) {
+    if (!jobUrlAllowed(url)) return { ok: false, error: 'JOB_URL_NOT_ALLOWED' };
+    try {
+      const res = await this.fetchFn(String(url), { method: 'GET', signal: deadline(options, 60000) });
+      if (!res.ok) return { ok: false, error: `DOWNLOAD_HTTP_${res.status}` };
+      const declared = Number(res.headers?.get?.('content-length') || 0);
+      if (declared > JOB_OUTPUT_LIMIT) return { ok: false, error: 'JOB_OUTPUT_TOO_LARGE', bytes: declared };
+      const text = await res.text();
+      if (text.length > JOB_OUTPUT_LIMIT) return { ok: false, error: 'JOB_OUTPUT_TOO_LARGE', bytes: text.length };
+      const type = String(res.headers?.get?.('content-type') || '');
+      if (/json/.test(type) || /^\s*[[{]/.test(text)) {
+        try {
+          return { ok: true, contentType: type || 'application/json', output: JSON.parse(text) };
+        } catch {
+          return { ok: true, contentType: type, text };
+        }
+      }
+      return { ok: true, contentType: type, text };
+    } catch (err) {
+      return { ok: false, error: String(err.message || err) };
+    }
   }
 
   // ---- GST compliance: public (platform token) ----

@@ -122,6 +122,7 @@ import { track1099Csv, track1099Issuers, track1099Import, track1099Job } from '.
 import { postPayrollImport, listPayrollImports } from './us-payroll-import.mjs';
 import { getNimClient } from './nim-client.mjs';
 import { runSandboxOperation } from './sandbox-adapter.mjs';
+import { QUICKO_TOOLS } from './quicko-tools.mjs';
 import { requestApproval, decideApproval, approvalStatus, normalizeActor } from './approvals.mjs';
 import { normalizeClientId, getBook } from './books.mjs';
 import { refreshExceptions, listExceptions, summarise, decideException } from './exceptions.mjs';
@@ -3078,6 +3079,7 @@ export const TOOLS = [
     description: 'Post two sample invoices for Nalanda Textiles so the five CA reviewers can click through a live set of books.',
     run: (state) => ok({ invoices: seedDemo(state).invoices.length }),
   },
+  ...QUICKO_TOOLS,
 ];
 
 export const TOOL_MAP = Object.fromEntries(TOOLS.map((t) => [t.name, t]));

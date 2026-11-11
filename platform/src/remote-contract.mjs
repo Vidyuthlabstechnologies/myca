@@ -93,6 +93,8 @@ export const REMOTE_QUERY_TOOLS = new Set([
   'validate_gstin',
   'bank_reconciliation', 'list_bank_rules', 'list_bank_accounts',
   'audit_trail',
+  'quicko_catalog', 'read_form16', 'read_form26as', 'capital_gains_pnl', 'quicko_tax_check', 'verify_pan', 'pan_aadhaar_status', 'check_206ab',
+  'search_tan', 'lookup_ifsc', 'verify_bank_account', 'mca_company', 'gstins_for_pan',
 ]);
 
 export const COMPANY_PROFILE_FIELDS = ['name', 'gstin', 'pan', 'state', 'address', 'city', 'pin', 'entityType', 'invoiceNumbering', 'invoiceTemplate'];

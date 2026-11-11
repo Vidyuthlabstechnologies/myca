@@ -46,9 +46,31 @@ Sandbox is the provider API MyCA already speaks.
 
 Reference: the full documentation index is at <https://developer.sandbox.co.in/llms.txt>
 (GST, TDS and Income Tax overviews, authentication, errors, rate limits) and the official
-SDKs and samples at <https://github.com/in-co-sandbox>. MyCA uses the GST compliance and
-analytics routes (GSTIN, returns, GSTR-2B job, e-invoice) and the TDS e-file job; the
-Income Tax calculator, report and Form 16 OCR routes are not wired.
+SDKs and samples at <https://github.com/in-co-sandbox>.
+
+**Every Sandbox API is wired (2026-11-11).** `platform/src/sandbox-catalog.mjs` is built from
+Sandbox's 15 published OpenAPI files by `node platform/scripts/sandbox-catalog/build.mjs`
+(366 endpoints: KYC, PAN, Aadhaar, DigiLocker, EntityLocker, MCA, bank and virtual accounts,
+income tax OCR, calculators, reports, the ITD portal and ERI filing, TDS, TCS, TRACES and GST).
+`platform/src/sandbox-endpoints.mjs` gives each one a class:
+
+| Class | Examples | Gate |
+|---|---|---|
+| read | PAN verify, 206AB check, IFSC, MCA, Form 16 and 26AS reading, calculators, GSTR-2A, ledgers, notices | runs once outbound calls are on |
+| OTP / login | Aadhaar OTP, ITD login, TRACES sign-in, ERI client OTP | CA approval, assistant blocked |
+| save / change | GSTR-9 save, IMS status, TRACES credentials, virtual account create | CA approval, assistant blocked |
+| file | ITR e-file and e-verify, ERI submit, TDS e-file, GSTR-4 and GSTR-9 file | CA approval, irreversible |
+| money | payouts, UPI collect, penny-drop | CA approval, irreversible |
+
+Call any of them with `sandbox_operation` (operationId from `quicko_catalog`, params
+`{ path, query, body }`; `documentSha256` for a PDF field; `jobInput` or `jobInputSha256` to
+upload a job's input to its pre-signed S3 URL; `fetchOutput: true` on the poll to download the
+result). A sign-in (ITD, TRACES, GST session refresh) keeps its token inside MyCA and the token
+is never returned. Lookups that Sandbox marks as needing consent are refused until
+`consent: "Y"` is passed. E-way bills and IRNs are not in the general catalogue; they stay on
+their own flows. Named tools for the common jobs: `read_form16`, `read_form26as`,
+`capital_gains_pnl`, `quicko_tax_check`, `verify_pan`, `pan_aadhaar_status`, `check_206ab`,
+`search_tan`, `lookup_ifsc`, `verify_bank_account`, `mca_company`, `gstins_for_pan`.
 
 **Endpoint status (verified live against TEST):** auth, GSTIN search/verify, and the
 GSTR-2B reconciliation job (returns a real `job_id` + signed upload URLs) all work.
@@ -56,9 +78,9 @@ Taxpayer OTP, e-invoice auth, and TDS FVU/analytics accept the request with the 
 route and payload. The public return-tracking route works, though the TEST fixture
 rejects every financial-year value tried.
 
-**Not wired:** the income-tax calculator. Sandbox publishes no stable path for it (the
-reference page is an empty stub), so MyCA refuses to guess and `income_tax_calculate`
-returns `PROVIDER_ENDPOINT_UNDOCUMENTED` — use `prepare_itr` (sprint-5 engine).
+**Income tax calculator:** Sandbox now publishes old and new regime calculators;
+`quicko_tax_check` runs them to cross-check `prepare_itr`, which stays the figure used in a
+return. `income_tax_calculate` still refuses and points there.
 
 **Gotcha:** the TEST host (`test-api.sandbox.co.in`) returns the *same fixture record for
 every GSTIN*. If every lookup returns the same taxpayer, you are on TEST. MyCA warns
