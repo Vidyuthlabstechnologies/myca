@@ -5,6 +5,7 @@ import { localToday } from './dates.mjs';
 import { periodSummary } from './period-summary.mjs';
 import { creditsToDate } from './advance-tax.mjs';
 import { findTaxGuidance, loadTaxModule, rupees, taxModuleCatalog } from './tax-modules.mjs';
+import { countryOf } from './country.mjs';
 import { itrGuidanceSections } from './itr-knowledge.mjs';
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -14,6 +15,8 @@ const MAX_CONTEXT = 9000;
 const ROUNDING_TOLERANCE_PAISE = 1000;
 const TURNOVER_TOLERANCE_PAISE = 100000;
 const DISCLAIMER = 'Reference only, not tax advice: confirm with your CA before you file.';
+const US_DISCLAIMER = 'Reference only, not tax advice: confirm with your CPA or enrolled agent before you file.';
+const disclaimerFor = (jurisdiction) => (jurisdiction === 'US' ? US_DISCLAIMER : DISCLAIMER);
 const INCOME_RULES = ['income-tax.new-regime.slabs', 'income-tax.new-regime.rebate', 'income-tax.old-regime.rebate', 'income-tax.new-regime.standard-deduction', 'income-tax.old-regime.standard-deduction', 'income-tax.deduction.80c.cap', 'income-tax.deduction.80d.caps', 'income-tax.surcharge.individual', 'income-tax.cess.health-education'];
 const SEVERITY_ORDER = { error: 0, risk: 1, saving: 2, check: 3 };
 
@@ -415,23 +418,24 @@ export function ungroundedFigures(reply, context) {
   return [...new Set(numbersIn(reply).filter((value) => !known.has(value)))];
 }
 
-export function taxPrompt(question, sections, onDate) {
+export function taxPrompt(question, sections, onDate, jurisdiction = 'IN') {
   let context = '';
   for (const section of sections) {
     const block = `[${section.ref}] ${section.title}\nSource: ${section.source}\n${section.text}\n\n`;
     if (context.length + block.length > MAX_CONTEXT) break;
     context += block;
   }
+  const disclaimer = disclaimerFor(jurisdiction);
   const tools = [...new Set([...sections.flatMap((section) => taxModuleCatalog().find((module) => module.name === section.module)?.tools || []), ...(sections.some((section) => section.module === 'itr-knowledge') ? ['itr_knowledge', 'check_itr_json'] : [])])];
   return {
     context,
     systemPrompt: [
-      `You are MyCA's tax assistant for small businesses and their CAs in India. The guidance below is current for ${onDate}; items marked [itr-knowledge/...] come from the CBDT's AY 2025-26 ITR schemas, validation rules and MyCA's filing guides.`,
+      jurisdiction === 'US' ? `You are MyCA's tax assistant for individuals, small businesses and their CPAs in the United States, for federal income tax. The guidance below is current for ${onDate}.` : `You are MyCA's tax assistant for small businesses and their CAs in India. The guidance below is current for ${onDate}; items marked [itr-knowledge/...] come from the CBDT's AY 2025-26 ITR schemas, validation rules and MyCA's filing guides.`,
       'Answer only from the guidance supplied, and put the reference in square brackets, such as [module/section], after each statement you take from it.',
       'Never state an amount, rate, date, limit or section number that is not in the guidance, and never calculate a tax figure; for a computation, name the MyCA tool that does it.',
       `MyCA tools for this topic: ${tools.join(', ') || 'none'}.`,
-      'If the guidance does not answer the question, say so plainly and say what to ask the CA.',
-      `End with: "${DISCLAIMER}"`,
+      `If the guidance does not answer the question, say so plainly and say what to ask the ${jurisdiction === 'US' ? 'CPA' : 'CA'}.`,
+      `End with: "${disclaimer}"`,
     ].join(' '),
     prompt: `Guidance:\n${context}Question: ${question}`,
   };
@@ -455,11 +459,13 @@ export async function askTax(state, args = {}, actor) {
   const question = String(args.question || '').trim();
   if (question.length < 3) return fail('QUESTION_REQUIRED');
   const onDate = ISO_DATE.test(String(args.asOf || '')) ? args.asOf : localToday();
-  const moduleSections = findTaxGuidance(question, { onDate, limit: 3, module: args.module ? String(args.module) : undefined });
-  const itrSections = args.module ? [] : itrGuidanceSections(question, { limit: moduleSections.length ? 2 : 3 });
+  const jurisdiction = countryOf(state) === 'US' ? 'US' : 'IN';
+  const disclaimer = disclaimerFor(jurisdiction);
+  const moduleSections = findTaxGuidance(question, { onDate, limit: 3, module: args.module ? String(args.module) : undefined, jurisdiction });
+  const itrSections = args.module || jurisdiction !== 'IN' ? [] : itrGuidanceSections(question, { limit: moduleSections.length ? 2 : 3 });
   const sections = [...moduleSections, ...itrSections];
-  if (!sections.length) return { ok: true, question, onDate, sections, answered: false, modules: taxModuleCatalog().map((module) => ({ name: module.name, description: module.description })) };
-  const built = taxPrompt(question, sections, onDate);
+  if (!sections.length) return { ok: true, question, onDate, sections, answered: false, jurisdiction, modules: taxModuleCatalog(jurisdiction).map((module) => ({ name: module.name, description: module.description })) };
+  const built = taxPrompt(question, sections, onDate, jurisdiction);
   const result = await performExternalAction(state, {
     actionId: 'tax_answer',
     clientId: normalizeClientId(state.activeClientId),
@@ -467,16 +473,16 @@ export async function askTax(state, args = {}, actor) {
     actor: actor || { userId: 'owner' },
     metadata: { sections: sections.length },
     payload: { question, sections: sections.length },
-    fixture: () => ({ ok: true, mock: true, simulated: true, data: { reply: `${offlineAnswer(sections)}\n\n${DISCLAIMER}`, model: 'mock' } }),
+    fixture: () => ({ ok: true, mock: true, simulated: true, data: { reply: `${offlineAnswer(sections)}\n\n${disclaimer}`, model: 'mock' } }),
   }, async (transports) => {
     const out = await transports.nim.complete({ prompt: built.prompt, systemPrompt: built.systemPrompt, temperature: 0.1, maxTokens: 900 });
     if (!out.ok) return fail(out.error || 'MODEL_FAILED', { hint: out.hint });
     return { ok: true, data: { reply: String(out.reply || out.text || '').trim(), model: out.model || '' } };
   });
-  const base = { ok: true, question, onDate, sections, unattested: [...new Set(sections.flatMap((section) => section.rules.filter((rule) => !rule.attested).map((rule) => rule.id)))] };
+  const base = { ok: true, question, onDate, sections, jurisdiction, unattested: [...new Set(sections.flatMap((section) => section.rules.filter((rule) => !rule.attested).map((rule) => rule.id)))] };
   if (!result.ok) return { ...base, answered: false, blocked: result.error, hint: result.hint || '', dryRun: Boolean(result.dryRun), answer: offlineAnswer(sections) };
   const reply = result.data.reply;
-  const stray = ungroundedFigures(reply, `${built.context} ${question} ${DISCLAIMER}`);
+  const stray = ungroundedFigures(reply, `${built.context} ${question} ${disclaimer}`);
   if (stray.length) return { ...base, answered: false, blocked: 'MODEL_FIGURE_NOT_GROUNDED', strayFigures: stray, answer: offlineAnswer(sections), model: result.data.model };
   return { ...base, answered: true, answer: reply, model: result.data.model, mock: Boolean(result.mock) };
 }
@@ -488,7 +494,7 @@ export function taxModules(state, args = {}) {
     if (!loaded.ok) return loaded;
     return { ok: true, data: loaded };
   }
-  return { ok: true, data: { onDate, modules: taxModuleCatalog() } };
+  return { ok: true, data: { onDate, modules: taxModuleCatalog(countryOf(state) === 'US' ? 'US' : 'IN') } };
 }
 
 function refsLine(sections) {
@@ -496,12 +502,13 @@ function refsLine(sections) {
 }
 
 export function askTaxWords(result) {
-  if (!result.sections?.length) return `None of MyCA's tax modules covers that yet. They cover: ${(result.modules || []).map((module) => module.name).join(', ')}. Ask your CA, or rephrase with the return, section or payment you mean.`;
-  const unattested = result.unattested?.length ? '\nThe figures come from MyCA\'s dated rules and are not yet signed off by a CA.' : '';
+  if (!result.sections?.length) return `None of MyCA's tax modules covers that yet. They cover: ${(result.modules || []).map((module) => module.name).join(', ')}. Ask your ${result.jurisdiction === 'US' ? 'CPA' : 'CA'}, or rephrase with the return, section or payment you mean.`;
+  const us = result.jurisdiction === 'US';
+  const unattested = result.unattested?.length ? `\nThe figures come from MyCA's dated rules and are not yet signed off by a ${us ? 'CPA' : 'CA'}.` : '';
   if (!result.answered) {
     const why = result.blocked === 'MODEL_FIGURE_NOT_GROUNDED' ? 'The model\'s answer quoted a figure that is not in MyCA\'s rules, so here is the guidance itself.'
       : result.blocked ? `I could not ask the model (${result.blocked}${result.hint ? `: ${result.hint}` : ''}), so here is the guidance itself.` : '';
-    return `${why ? `${why}\n\n` : ''}${result.answer}\n\nFrom:\n${refsLine(result.sections)}${unattested}\n${DISCLAIMER}`;
+    return `${why ? `${why}\n\n` : ''}${result.answer}\n\nFrom:\n${refsLine(result.sections)}${unattested}\n${disclaimerFor(result.jurisdiction)}`;
   }
   return `${result.mock ? 'Simulated: ' : ''}${result.answer}\n\nFrom:\n${refsLine(result.sections)}${unattested}`;
 }

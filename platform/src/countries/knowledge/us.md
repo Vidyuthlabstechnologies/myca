@@ -67,11 +67,34 @@ requests; this file records what they established and what still blocks a real f
 - Expert Review: $129, from February 2027, needs a CPA or enrolled agent partner.
 - Done For You, International and state returns: 2028, waitlist until then.
 
+## Federal individual figures the engine uses (2025 and 2026)
+
+- 2025 follows P.L. 119-21 (One Big Beautiful Bill Act): standard deduction $15,750 single,
+  $31,500 joint, $23,625 head of household; child tax credit $2,200 a child with $1,700
+  refundable; SALT cap $40,000 ($20,000 separate), phased down above $500,000 of MAGI to a
+  $10,000 floor; Schedule 1-A deductions for tips, overtime, car loan interest and the $6,000
+  senior deduction, for 2025 to 2028.
+- 2026 (Rev. Proc. 2025-32): standard deduction $16,100 / $32,200 / $24,150; SALT cap $40,400
+  above $505,000; non-itemizers deduct up to $1,000 ($2,000 joint) of cash gifts, and
+  itemized charity has a 0.5% of AGI floor.
+- Tax under $100,000 of taxable income uses the Tax Table: the middle of each $50 band ($25
+  below $3,000). The EIC uses the same $50 bands.
+- No estimated tax penalty when the balance after withholding is under $1,000, or when
+  payments reach the lesser of 90% of this year's tax and 100% of last year's (110% above
+  $150,000 AGI, $75,000 separate); IRC 6654.
+- Every figure is a dated record with no CPA attestation yet; returns say so until one attests.
+  Source: `sprints/statutory-rules/src/rules/us-individual.mjs`, IRS Rev. Proc. 2024-40 and
+  2025-32, P.L. 119-21, IRC 6654 (US engine pull request #223)
+
 ## Not covered yet by the engine
 
 - Alternative minimum tax, Schedule E and K-1, Form 4797, 2441, 8962, 5329, 8995-A, 2210, state
   returns and non-resident returns (1040-NR). The app refuses to file when a return needs one
   of these.
+- The engine reports each needed form it cannot prepare under `unsupported` on the review
+  (Schedule E, 2441, 8962, 8995-A, and 2210 with `required: false` because the IRS can bill the
+  penalty). 1040-NR is not detected: the return has no residency input yet.
+  Source: `platform/src/us-1040.mjs` (US engine pull request #223)
 
 ## Open questions
 
