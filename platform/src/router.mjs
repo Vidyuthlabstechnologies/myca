@@ -68,6 +68,7 @@ import { kindTitle } from './quotes.mjs';
 import { everyWords, recurringWords, runRecurringWords } from './recurring.mjs';
 import { reconciliationWords, matchWords, unmatchWords, chargesWords, accountWords, accountsWords, transferWords } from './bank-recon.mjs';
 import { addRuleWords, rulesWords, runRulesWords, removeRuleWords } from './bank-rules.mjs';
+import { redactTinsFor } from './us-identity.mjs';
 
 
 const GSTR1_HELD_REASONS = {
@@ -1202,8 +1203,8 @@ export function discardPending(state) {
   return spoken(discardCore(state));
 }
 
-export async function chat(state, message) {
-  setCurrentCountry(state);
+export async function chat(state, said) {
+  const message = redactTinsFor(setCurrentCountry(state), said);
   const out = await throughLanguage(message, async (english) => spoken(await chatCore(state, english)));
   rememberTurn(state, message, out.reply);
   logEvalEvent(state, { input: message, toolName: out.tools?.[0]?.name || out.preview?.tool || out.pending?.name || out.pending?.tool || '', outcome: out.blocked ? 'blocked' : out.awaitingConfirmation || out.pending ? 'held' : out.tools?.length ? 'ran' : 'answered', viaModel: Boolean(out.viaModel), blocked: Boolean(out.blocked), reply: out.reply });

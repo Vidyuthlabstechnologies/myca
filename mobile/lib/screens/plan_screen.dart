@@ -101,7 +101,7 @@ class _PlanScreenState extends State<PlanScreen> {
       if (!await store.available()) return;
       final ids = {for (final p in plans) if (p.buyable && p.productId.isNotEmpty) p.productId};
       final products = ids.isEmpty ? const <String, StoreProduct>{} : await store.products(ids);
-      _recorder = PurchaseRecorder(store: store, record: (productId, token) async => _entitlement = await cloud.recordPurchase(productId, token), onResult: _onPurchase)..start();
+      _recorder = PurchaseRecorder(store: store, accepts: (id) => plans.any((p) => p.productId == id), record: (productId, token) async => _entitlement = await cloud.recordPurchase(productId, token), onResult: _onPurchase)..start();
       await store.restore(accountId);
       if (mounted) {
         setState(() {

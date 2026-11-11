@@ -18,6 +18,8 @@ class FakeStore implements StoreBilling {
   @override
   Future<bool> buy(String productId, String accountId) async => true;
   @override
+  Future<bool> buyOnce(String productId, String accountId) async => true;
+  @override
   Future<void> restore(String accountId) async {}
   @override
   Future<void> finish(StorePurchase purchase) async => finished.add(purchase.token);

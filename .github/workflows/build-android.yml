@@ -139,12 +139,16 @@ jobs:
           if [ -n "$CLOUD_URL" ]; then define+=(--dart-define="MYCA_CLOUD_URL=$CLOUD_URL"); fi
           if [ -n "$GOOGLE_SERVER_CLIENT_ID" ]; then define+=(--dart-define="MYCA_GOOGLE_SERVER_CLIENT_ID=$GOOGLE_SERVER_CLIENT_ID"); fi
           if [ -n "$OIDC_CLIENT_ID" ]; then define+=(--dart-define="MYCA_OIDC_CLIENT_ID=$OIDC_CLIENT_ID"); fi
-          flutter build apk --release "${define[@]}"
-          flutter build appbundle --release "${define[@]}"
+          flutter build apk --release --flavor india "${define[@]}"
+          flutter build appbundle --release --flavor india "${define[@]}"
+          flutter build apk --release --flavor us "${define[@]}"
+          flutter build appbundle --release --flavor us "${define[@]}"
           mkdir -p ../dist
-          cp build/app/outputs/flutter-apk/app-release.apk ../dist/myca-android.apk
-          cp build/app/outputs/bundle/release/app-release.aab ../dist/myca-android.aab
-          (cd ../dist && sha256sum myca-android.apk myca-android.aab > SHA256SUMS-android.txt)
+          cp build/app/outputs/flutter-apk/app-india-release.apk ../dist/myca-android.apk
+          cp build/app/outputs/bundle/indiaRelease/app-india-release.aab ../dist/myca-android.aab
+          cp build/app/outputs/flutter-apk/app-us-release.apk ../dist/myca-us-android.apk
+          cp build/app/outputs/bundle/usRelease/app-us-release.aab ../dist/myca-us-android.aab
+          (cd ../dist && sha256sum myca-android.apk myca-android.aab myca-us-android.apk myca-us-android.aab > SHA256SUMS-android.txt)
           aapt2="$(ls -d "$ANDROID_HOME"/build-tools/*/aapt2 | sort -V | tail -1)"
           {
             echo "### Release APK badging"
@@ -196,7 +200,7 @@ jobs:
           if ! gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             gh release create "$tag" --repo "$GITHUB_REPOSITORY" --title "$tag" --notes "MyCA $tag" --draft=false
           fi
-          gh release upload "$tag" dist/myca-android.apk dist/myca-android.aab dist/SHA256SUMS-android.txt --repo "$GITHUB_REPOSITORY" --clobber
+          gh release upload "$tag" dist/myca-android.apk dist/myca-android.aab dist/myca-us-android.apk dist/myca-us-android.aab dist/SHA256SUMS-android.txt --repo "$GITHUB_REPOSITORY" --clobber
 
   play:
     name: Upload the bundle to Google Play
@@ -233,3 +237,11 @@ jobs:
           PLAY_TRACK: ${{ vars.PLAY_TRACK }}
           PLAY_RELEASE_STATUS: ${{ vars.PLAY_RELEASE_STATUS || 'draft' }}
         run: node scripts/play-upload.mjs dist/myca-android.aab | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Upload the US app to its Play listing (only when PLAY_US_TRACK is set)
+        if: ${{ vars.PLAY_US_TRACK != '' }}
+        env:
+          PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          PLAY_PACKAGE: ${{ vars.PLAY_US_PACKAGE || 'com.mldynamic.myca.us' }}
+          PLAY_TRACK: ${{ vars.PLAY_US_TRACK }}
+          PLAY_RELEASE_STATUS: ${{ vars.PLAY_RELEASE_STATUS || 'draft' }}
+        run: node scripts/play-upload.mjs dist/myca-us-android.aab | tee -a "$GITHUB_STEP_SUMMARY"
