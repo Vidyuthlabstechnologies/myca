@@ -729,7 +729,16 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
       if (action === 'quicko' || action === 'quicko-session') {
         if (role === 'staff') throw httpError(403, 'NOT_FOR_STAFF');
         if (sharedView) throw httpError(403, 'SHARED_VIEW_READ_ONLY', { sharedAsOf: sync.asOf });
-        return action === 'quicko' ? quicko.run(businessId, context, actor, body) : quicko.connect(businessId, context, body);
+        if (action === 'quicko') {
+          await throttle('quickoBusiness', businessId);
+          await throttle('quickoUser', user.userId);
+          return quicko.run(businessId, context, actor, body);
+        }
+        if (body.step !== 'disconnect') {
+          await throttle('portalSignInBusiness', businessId);
+          await throttle('portalSignInSubject', `${String(body.portal || '')}:${String((body.portal === 'traces' ? body.tan : body.pan) || '').trim().toUpperCase()}`);
+        }
+        return quicko.connect(businessId, context, body);
       }
       if (action === 'gst-portal' || action === 'gst-gstr1' || action === 'gst-gstr3b' || action === 'tds-fvu') {
         if (role === 'staff') throw httpError(403, 'NOT_FOR_STAFF');
