@@ -33,6 +33,16 @@ test('the public country list carries what an app needs to set itself up, and no
   assert.equal(us.app.androidId, 'com.mldynamic.myca.us');
   assert.deepEqual(us.prices.map((price) => price.price), [39, 79, 129]);
   assert.equal(listed.countries.find((country) => country.code === 'IN').hostedHere, false);
+  assert.deepEqual([us.symbol, us.minorUnit, us.languages[0], us.taxName, us.yearLabel, us.yearStartDay], ['$', 'cents', 'en', 'Sales tax', 'calendar year', 1]);
+  assert.equal(us.capabilities.profile.roles.country, 'country_profile');
+});
+
+test('the India deployment does not accept a Singapore region, and a country engine\'s write tools can be proposed', async () => {
+  assert.match(residencyProblem({ MYCA_COUNTRIES: 'IN', MYCA_REGION: 'asia-southeast1' }), /India must stay in its own country/);
+  const { PROPOSABLE } = await import('../src/api.mjs');
+  const { ENGINE_WRITE_TOOLS } = await import('../../platform/src/countries/manifests.mjs');
+  for (const name of ENGINE_WRITE_TOOLS) assert.equal(PROPOSABLE.has(name), true, name);
+  assert.equal(PROPOSABLE.has('country_profile'), false);
 });
 
 test('India prices in the country pack are the prices billing charges', async () => {

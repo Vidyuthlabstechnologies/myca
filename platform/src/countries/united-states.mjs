@@ -5,11 +5,13 @@ export const UNITED_STATES = Object.freeze({
   currency: 'USD',
   symbol: '$',
   locale: 'en-US',
+  languages: Object.freeze(['en', 'es']),
   minorUnit: 'cents',
   yearStartMonth: 1,
   yearStartDay: 1,
   yearLabel: 'calendar year',
   taxId: 'EIN',
+  taxName: 'Sales tax',
   requiresState: false,
   segments: Object.freeze(['individual', 'business']),
   residency: Object.freeze({
