@@ -205,30 +205,85 @@ resource "random_password" "books_key" {
   special = false
 }
 
+resource "random_password" "waha_webhook_secret" {
+  length  = 48
+  special = false
+}
+
 locals {
   database_url = "postgres://${google_sql_user.api.name}:${random_password.db.result}@localhost/${google_sql_database.main.name}?host=/cloudsql/${google_sql_database_instance.main.connection_name}"
-  secrets = {
-    "myca-database-url"          = local.database_url
-    "myca-token-secret"          = random_password.token_secret.result
-    "myca-job-token"             = random_password.job_token.result
-    "myca-inbound-relay-token"   = random_password.inbound_relay_token.result
-    "myca-whatsapp-verify-token" = random_password.whatsapp_verify_token.result
-    "myca-connector-key"         = random_password.connector_key.result
-    "myca-books-key"             = random_password.books_key.result
-    "myca-whatsapp-app-secret"   = var.whatsapp_app_secret
-    "myca-whatsapp-access-token" = var.whatsapp_access_token
-    "myca-sms-secret"            = var.sms_secret
-    "myca-model-api-key"         = var.model_api_key
-    "myca-gsp-test-api-key"      = var.gsp_test_api_key
-    "myca-gsp-test-api-secret"   = var.gsp_test_api_secret
-    "myca-play-notify-token"     = random_password.play_notify_token.result
+  given        = { for name, value in var.carried_secrets : name => value if nonsensitive(trimspace(value) != "") }
+  generated = {
+    MYCA_TOKEN_SECRET          = random_password.token_secret.result
+    MYCA_BOOKS_KEY             = random_password.books_key.result
+    MYCA_CONNECTOR_KEY         = random_password.connector_key.result
+    MYCA_JOB_TOKEN             = random_password.job_token.result
+    MYCA_INBOUND_RELAY_TOKEN   = random_password.inbound_relay_token.result
+    MYCA_WHATSAPP_VERIFY_TOKEN = random_password.whatsapp_verify_token.result
+    MYCA_PLAY_NOTIFY_TOKEN     = random_password.play_notify_token.result
+    MYCA_WAHA_WEBHOOK_SECRET   = random_password.waha_webhook_secret.result
   }
+  optional_secrets = { for name, value in {
+    MYCA_MODEL_API_KEY             = var.model_api_key
+    NVIDIA_NIM_API_KEY             = var.model_api_key
+    MYCA_WAHA_API_KEY              = var.waha_api_key
+    MYCA_WHATSAPP_APP_SECRET       = var.whatsapp_app_secret
+    MYCA_WHATSAPP_ACCESS_TOKEN     = var.whatsapp_access_token
+    MYCA_SMS_TWILIO_TOKEN          = var.sms_provider == "twilio" ? var.sms_secret : ""
+    MYCA_SMS_MSG91_AUTHKEY         = var.sms_provider == "msg91" ? var.sms_secret : ""
+    MYCA_EMAIL_RELAY_TOKEN         = var.email_relay_token
+    MYCA_GSP_TEST_API_KEY          = var.gsp_test_api_key
+    MYCA_GSP_TEST_API_SECRET       = var.gsp_test_api_secret
+    MYCA_GSP_API_KEY               = var.gsp_api_key
+    MYCA_GSP_API_SECRET            = var.gsp_api_secret
+    MYCA_PLAY_SERVICE_ACCOUNT_JSON = var.play_service_account_json
+  } : name => value if nonsensitive(!contains(["", "unset"], trimspace(value))) }
+  secrets      = merge(local.generated, local.given, { MYCA_DATABASE_URL = local.database_url }, local.optional_secrets)
+  secret_names = sort(nonsensitive(keys(local.secrets)))
+  environment = { for name, value in {
+    TZ                             = var.daily_job_time_zone
+    MYCA_REGION                    = var.region
+    MYCA_GOOGLE_CLIENT_IDS         = join(",", var.google_client_ids)
+    MYCA_OIDC_ISSUER               = var.oidc_issuer
+    MYCA_OIDC_CLIENT_IDS           = join(",", var.oidc_client_ids)
+    MYCA_DOCUMENT_BUCKET           = google_storage_bucket.documents.name
+    MYCA_ENABLE_CHANNEL_PULLS      = var.enable_channel_pulls ? "1" : "0"
+    MYCA_INBOUND_EMAIL_DOMAIN      = var.inbound_email_domain
+    MYCA_WHATSAPP_PROVIDER         = var.waha_url != "" ? "waha" : ""
+    MYCA_WAHA_URL                  = var.waha_url
+    MYCA_WAHA_SESSION              = var.waha_url != "" ? var.waha_session : ""
+    MYCA_WHATSAPP_PHONE_NUMBER_ID  = var.whatsapp_phone_number_id == "unset" ? "" : var.whatsapp_phone_number_id
+    MYCA_MOCK_MODE                 = var.provider_mode == "simulated" ? "1" : "0"
+    MYCA_PROVIDER_ENV              = contains(["live", "test"], var.provider_mode) ? var.provider_mode : "off"
+    MYCA_GSP_ENV                   = var.gsp_environment
+    MYCA_PUBLIC_URL                = var.public_url
+    MYCA_SMS_PROVIDER              = var.sms_provider
+    MYCA_SMS_TWILIO_SID            = var.sms_twilio_sid
+    MYCA_SMS_TWILIO_FROM           = var.sms_twilio_from
+    MYCA_SMS_MSG91_TEMPLATE_ID     = var.sms_msg91_template_id
+    MYCA_EMAIL_RELAY_URL           = var.email_relay_url
+    MYCA_EMAIL_FROM                = var.email_from
+    MYCA_MODEL                     = var.model_name
+    NVIDIA_NIM_MODEL               = var.model_name
+    MYCA_MODEL_BASE_URL            = var.model_base_url
+    MYCA_PLAY_PACKAGE              = var.play_package_name
+    MYCA_PLAY_PRODUCT_ESSENTIALS   = var.play_product_essentials
+    MYCA_PLAY_PRODUCT_PRO          = var.play_product_pro
+    MYCA_PLAY_PRODUCT_FIRM         = var.play_product_firm
+    MYCA_PLAN_PRICES               = var.plan_prices
+    MYCA_ENVIRONMENT               = "production"
+    MYCA_PLAY_PUSH_AUDIENCE        = local.play_push_audience
+    MYCA_PLAY_PUSH_SERVICE_ACCOUNT = google_service_account.play_push.email
+    MYCA_ADMIN_USER_IDS            = join(",", var.admin_user_ids)
+    MYCA_OTP_GLOBAL_PER_HOUR       = var.otp_global_per_hour == null ? "" : tostring(var.otp_global_per_hour)
+  } : name => value if value != "" }
+  play_push_audience = "myca-play-notifications"
 }
 
 resource "google_secret_manager_secret" "api" {
-  for_each = local.secrets
+  for_each = toset(local.secret_names)
 
-  secret_id = each.key
+  secret_id = replace(lower(each.key), "_", "-")
   labels    = local.labels
 
   replication {
@@ -243,14 +298,14 @@ resource "google_secret_manager_secret" "api" {
 }
 
 resource "google_secret_manager_secret_version" "api" {
-  for_each = local.secrets
+  for_each = toset(local.secret_names)
 
   secret      = google_secret_manager_secret.api[each.key].id
-  secret_data = each.value
+  secret_data = local.secrets[each.key]
 }
 
 resource "google_secret_manager_secret_iam_member" "api" {
-  for_each = local.secrets
+  for_each = toset(local.secret_names)
 
   secret_id = google_secret_manager_secret.api[each.key].id
   role      = "roles/secretmanager.secretAccessor"
@@ -303,233 +358,25 @@ resource "google_cloud_run_v2_service" "api" {
         cpu_idle = true
       }
 
-      env {
-        name = "MYCA_DATABASE_URL"
-        value_source {
-          secret_key_ref {
-            secret  = google_secret_manager_secret.api["myca-database-url"].secret_id
-            version = "latest"
-          }
+      dynamic "env" {
+        for_each = local.environment
+        content {
+          name  = env.key
+          value = env.value
         }
       }
 
-      env {
-        name = "MYCA_TOKEN_SECRET"
-        value_source {
-          secret_key_ref {
-            secret  = google_secret_manager_secret.api["myca-token-secret"].secret_id
-            version = "latest"
+      dynamic "env" {
+        for_each = toset(local.secret_names)
+        content {
+          name = env.value
+          value_source {
+            secret_key_ref {
+              secret  = google_secret_manager_secret.api[env.value].secret_id
+              version = "latest"
+            }
           }
         }
-      }
-
-      env {
-        name  = "MYCA_GOOGLE_CLIENT_IDS"
-        value = join(",", var.google_client_ids)
-      }
-
-      env {
-        name  = "MYCA_OIDC_ISSUER"
-        value = var.oidc_issuer
-      }
-
-      env {
-        name  = "MYCA_OIDC_CLIENT_IDS"
-        value = join(",", var.oidc_client_ids)
-      }
-
-      env {
-        name  = "MYCA_DOCUMENT_BUCKET"
-        value = google_storage_bucket.documents.name
-      }
-
-      env {
-        name = "MYCA_CONNECTOR_KEY"
-        value_source {
-          secret_key_ref {
-            secret  = google_secret_manager_secret.api["myca-connector-key"].secret_id
-            version = "latest"
-          }
-        }
-      }
-
-      env {
-        name = "MYCA_BOOKS_KEY"
-        value_source {
-          secret_key_ref {
-            secret  = google_secret_manager_secret.api["myca-books-key"].secret_id
-            version = "latest"
-          }
-        }
-      }
-
-      env {
-        name  = "MYCA_ENABLE_CHANNEL_PULLS"
-        value = var.enable_channel_pulls ? "1" : "0"
-      }
-
-      env {
-        name = "MYCA_JOB_TOKEN"
-        value_source {
-          secret_key_ref {
-            secret  = google_secret_manager_secret.api["myca-job-token"].secret_id
-            version = "latest"
-          }
-        }
-      }
-
-      env {
-        name  = "MYCA_INBOUND_EMAIL_DOMAIN"
-        value = var.inbound_email_domain
-      }
-
-      env {
-        name = "MYCA_WHATSAPP_VERIFY_TOKEN"
-        value_source {
-          secret_key_ref {
-            secret  = google_secret_manager_secret.api["myca-whatsapp-verify-token"].secret_id
-            version = "latest"
-          }
-        }
-      }
-      env {
-        name = "MYCA_WHATSAPP_APP_SECRET"
-        value_source {
-          secret_key_ref {
-            secret  = google_secret_manager_secret.api["myca-whatsapp-app-secret"].secret_id
-            version = "latest"
-          }
-        }
-      }
-      env {
-        name = "MYCA_WHATSAPP_ACCESS_TOKEN"
-        value_source {
-          secret_key_ref {
-            secret  = google_secret_manager_secret.api["myca-whatsapp-access-token"].secret_id
-            version = "latest"
-          }
-        }
-      }
-      env {
-        name  = "MYCA_WHATSAPP_PHONE_NUMBER_ID"
-        value = var.whatsapp_phone_number_id
-      }
-      env {
-        name = "MYCA_INBOUND_RELAY_TOKEN"
-        value_source {
-          secret_key_ref {
-            secret  = google_secret_manager_secret.api["myca-inbound-relay-token"].secret_id
-            version = "latest"
-          }
-        }
-      }
-
-      env {
-        name  = "MYCA_MOCK_MODE"
-        value = var.provider_mode == "simulated" ? "1" : "0"
-      }
-      env {
-        name  = "MYCA_PROVIDER_ENV"
-        value = contains(["live", "test"], var.provider_mode) ? var.provider_mode : "off"
-      }
-      env {
-        name = "MYCA_GSP_TEST_API_KEY"
-        value_source {
-          secret_key_ref {
-            secret  = google_secret_manager_secret.api["myca-gsp-test-api-key"].secret_id
-            version = "latest"
-          }
-        }
-      }
-      env {
-        name = "MYCA_GSP_TEST_API_SECRET"
-        value_source {
-          secret_key_ref {
-            secret  = google_secret_manager_secret.api["myca-gsp-test-api-secret"].secret_id
-            version = "latest"
-          }
-        }
-      }
-      env {
-        name  = "MYCA_PUBLIC_URL"
-        value = var.public_url
-      }
-      env {
-        name  = "MYCA_SMS_PROVIDER"
-        value = var.sms_provider
-      }
-      env {
-        name  = "MYCA_SMS_TWILIO_SID"
-        value = var.sms_twilio_sid
-      }
-      env {
-        name  = "MYCA_SMS_TWILIO_FROM"
-        value = var.sms_twilio_from
-      }
-      env {
-        name  = "MYCA_SMS_MSG91_TEMPLATE_ID"
-        value = var.sms_msg91_template_id
-      }
-      env {
-        name = "MYCA_SMS_TWILIO_TOKEN"
-        value_source {
-          secret_key_ref {
-            secret  = google_secret_manager_secret.api["myca-sms-secret"].secret_id
-            version = "latest"
-          }
-        }
-      }
-      env {
-        name = "MYCA_SMS_MSG91_AUTHKEY"
-        value_source {
-          secret_key_ref {
-            secret  = google_secret_manager_secret.api["myca-sms-secret"].secret_id
-            version = "latest"
-          }
-        }
-      }
-      env {
-        name = "MYCA_MODEL_API_KEY"
-        value_source {
-          secret_key_ref {
-            secret  = google_secret_manager_secret.api["myca-model-api-key"].secret_id
-            version = "latest"
-          }
-        }
-      }
-      env {
-        name  = "MYCA_MODEL"
-        value = var.model_name
-      }
-      env {
-        name  = "MYCA_MODEL_BASE_URL"
-        value = var.model_base_url
-      }
-
-      env {
-        name  = "MYCA_PLAY_PACKAGE"
-        value = var.play_package_name
-      }
-      env {
-        name  = "MYCA_PLAY_PRODUCT_PRO"
-        value = var.play_product_pro
-      }
-      env {
-        name  = "MYCA_PLAY_PRODUCT_FIRM"
-        value = var.play_product_firm
-      }
-      env {
-        name = "MYCA_PLAY_NOTIFY_TOKEN"
-        value_source {
-          secret_key_ref {
-            secret  = google_secret_manager_secret.api["myca-play-notify-token"].secret_id
-            version = "latest"
-          }
-        }
-      }
-      env {
-        name  = "MYCA_PLAN_PRICES"
-        value = var.plan_prices
       }
 
       volume_mounts {
@@ -552,7 +399,7 @@ resource "google_cloud_run_v2_service" "api" {
         failure_threshold = 3
         timeout_seconds   = 3
         http_get {
-          path = "/v1/health"
+          path = "/v1/health/live"
         }
       }
     }
@@ -586,7 +433,7 @@ resource "google_cloud_scheduler_job" "daily" {
     http_method = "POST"
     uri         = "${google_cloud_run_v2_service.api.uri}/v1/jobs/daily"
     headers = {
-      "x-myca-job-token" = random_password.job_token.result
+      "x-myca-job-token" = local.secrets["MYCA_JOB_TOKEN"]
     }
   }
 
@@ -611,7 +458,7 @@ resource "google_cloud_scheduler_job" "weekly" {
     http_method = "POST"
     uri         = "${google_cloud_run_v2_service.api.uri}/v1/jobs/weekly"
     headers = {
-      "x-myca-job-token" = random_password.job_token.result
+      "x-myca-job-token" = local.secrets["MYCA_JOB_TOKEN"]
     }
   }
 
@@ -763,17 +610,6 @@ resource "google_logging_project_sink" "myca" {
   filter                 = "(resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"${local.name}\") OR (resource.type=\"cloudsql_database\" AND resource.labels.database_id=\"${var.project_id}:myca\") OR (resource.type=\"cloud_scheduler_job\" AND resource.labels.job_id=~\"^${local.name}\")"
 }
 
-resource "google_project_iam_member" "myca_log_writer" {
-  project = var.project_id
-  role    = "roles/logging.bucketWriter"
-  member  = google_logging_project_sink.myca.writer_identity
-
-  condition {
-    title      = "myca-log-bucket-only"
-    expression = "resource.name.endsWith(\"/buckets/${google_logging_project_bucket_config.myca.bucket_id}\")"
-  }
-}
-
 resource "google_artifact_registry_repository_iam_member" "deployer_push" {
   count = var.deployer_service_account == "" ? 0 : 1
 
@@ -813,6 +649,19 @@ resource "google_pubsub_topic_iam_member" "play_publisher" {
   member = "serviceAccount:google-play-developer-notifications@system.gserviceaccount.com"
 }
 
+resource "google_service_account" "play_push" {
+  account_id   = "myca-play-push"
+  display_name = "Signs Pub/Sub pushes of Play notifications to the MyCA API"
+}
+
+data "google_project" "this" {}
+
+resource "google_service_account_iam_member" "pubsub_signs_play_push" {
+  service_account_id = google_service_account.play_push.name
+  role               = "roles/iam.serviceAccountTokenCreator"
+  member             = "serviceAccount:service-${data.google_project.this.number}@gcp-sa-pubsub.iam.gserviceaccount.com"
+}
+
 resource "google_pubsub_subscription" "play_notifications" {
   name   = "${local.name}-play-notifications-push"
   topic  = google_pubsub_topic.play_notifications.id
@@ -822,8 +671,15 @@ resource "google_pubsub_subscription" "play_notifications" {
   message_retention_duration = "604800s"
 
   push_config {
-    push_endpoint = "${google_cloud_run_v2_service.api.uri}/v1/billing/play/notify?token=${random_password.play_notify_token.result}"
+    push_endpoint = "${google_cloud_run_v2_service.api.uri}/v1/billing/play/notify"
+
+    oidc_token {
+      service_account_email = google_service_account.play_push.email
+      audience              = local.play_push_audience
+    }
   }
+
+  depends_on = [google_service_account_iam_member.pubsub_signs_play_push]
 
   retry_policy {
     minimum_backoff = "10s"

@@ -249,3 +249,109 @@ variable "deployer_service_account" {
   type        = string
   default     = ""
 }
+
+variable "carried_secrets" {
+  description = "Secrets carried over from an earlier host, by environment variable name (MYCA_BOOKS_KEY, MYCA_CONNECTOR_KEY, MYCA_TOKEN_SECRET, ...). A value given here replaces the generated one, so books sealed elsewhere still open. Empty values are ignored."
+  type        = map(string)
+  default     = {}
+  sensitive   = true
+}
+
+variable "waha_url" {
+  description = "Base URL of the self-hosted WhatsApp gateway (WAHA). Empty leaves the WAHA route off. Point its webhook at <api_url>/v1/whatsapp/waha with HMAC sha512 and the waha_webhook_secret output."
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = var.waha_url == "" || can(regex("^https://", var.waha_url))
+    error_message = "waha_url must be https://: the API refuses a plain-http gateway outside local runs."
+  }
+}
+
+variable "waha_api_key" {
+  description = "The X-Api-Key the WhatsApp gateway was started with (WAHA_API_KEY)."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "waha_session" {
+  description = "The gateway session that holds the scanned WhatsApp number."
+  type        = string
+  default     = "default"
+}
+
+variable "gsp_api_key" {
+  description = "Sandbox by Quicko API key for the host chosen by gsp_environment. Empty leaves it unset."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "gsp_api_secret" {
+  description = "Sandbox by Quicko API secret paired with gsp_api_key."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "gsp_environment" {
+  description = "Which Sandbox host gsp_api_key belongs to: test or live."
+  type        = string
+  default     = "test"
+
+  validation {
+    condition     = contains(["test", "live"], var.gsp_environment)
+    error_message = "gsp_environment is test or live."
+  }
+}
+
+variable "play_product_essentials" {
+  description = "Play Console product id of the Essentials subscription. Empty leaves that plan unsold."
+  type        = string
+  default     = ""
+}
+
+variable "play_service_account_json" {
+  description = "Optional Play Developer API service account key. On Cloud Run the API's own service account is used when this is empty (add it as a user in Play Console)."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "email_relay_url" {
+  description = "URL of the email relay (email-relay/ in this repo). Empty leaves email sending off."
+  type        = string
+  default     = ""
+}
+
+variable "email_from" {
+  description = "From address for emails MyCA sends."
+  type        = string
+  default     = ""
+}
+
+variable "email_relay_token" {
+  description = "Bearer token the email relay expects."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "site_image" {
+  description = "Container image for the site (deploy/site/Dockerfile). Only used when the service is first created; deploy-site rolls out later images."
+  type        = string
+  default     = "us-docker.pkg.dev/cloudrun/container/hello"
+}
+
+variable "admin_user_ids" {
+  description = "MyCA user ids that receive the crash digest (MYCA_ADMIN_USER_IDS). Empty turns the digest off."
+  type        = list(string)
+  default     = []
+}
+
+variable "otp_global_per_hour" {
+  description = "Cap on sign-in codes sent per hour across all numbers (MYCA_OTP_GLOBAL_PER_HOUR). Null keeps the server default."
+  type        = number
+  default     = null
+}
