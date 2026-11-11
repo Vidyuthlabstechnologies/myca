@@ -42,13 +42,13 @@ test('a US business sees only the US families, and chat answers "rules status" i
   state.company = { name: 'Maple Street Bakery', country: 'US', gstin: '', state: '' };
   const out = await runTool(state, 'rules_status', { asOf: '2026-10-13' });
   assert.deepEqual(out.data.families.map((f) => f.key), ['us-federal', 'us-individual', 'us-sales-tax']);
-  assert.equal(out.data.totals.records, 43);
+  assert.equal(out.data.totals.records, 44);
   assert.match(out.data.notes[0], /US CPA/);
   const federal = out.data.families[0];
   assert.equal(federal.inForce, 8);
   assert.equal(federal.latestFrom, '2026-01-01');
   const reply = await chat(state, 'rules status');
-  assert.match(reply.reply, /43 dated statutory records for the United States/);
+  assert.match(reply.reply, /44 dated statutory records for the United States/);
   assert.match(reply.reply, /State sales tax due dates: 2 in force/);
   const indian = await chat(createState(), 'are the tax rules up to date?');
   assert.match(indian.reply, /dated statutory records for India/);

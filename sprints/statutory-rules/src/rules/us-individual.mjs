@@ -345,6 +345,17 @@ export const RULES = [
     attestations: []
   },
   {
+    id: 'us.federal.individual.estimated-tax-penalty',
+    value: { minimumUnderpaymentCents: 1000 * D, currentYearBasisPoints: 9000, priorYearBasisPoints: 10000, highIncomePriorYearBasisPoints: 11000, highIncomeAgiCents: { mfs: 75000 * D, other: 150000 * D } },
+    basis: 'no_underpayment_penalty_when_the_balance_due_after_withholding_is_under_the_minimum_or_payments_reach_the_current_year_or_prior_year_share_of_tax',
+    effectiveFrom: '2020-01-01',
+    effectiveTo: null,
+    act: 'IRC',
+    section: '6654(d)(1), 6654(e)(1)',
+    source: `IRC section 6654: no addition to tax when the tax shown less withholding is under one thousand dollars; otherwise the required annual payment is the lesser of ninety percent of this year's tax and one hundred percent of last year's tax, one hundred ten percent when last year's AGI exceeded one hundred fifty thousand dollars (seventy-five thousand married filing separately); the annualized method and waivers are not encoded (${NOT_REREAD})`,
+    attestations: []
+  },
+  {
     id: 'us.federal.individual.educator-expenses',
     value: { maxPerEducatorCents: 300 * D },
     basis: 'above_the_line_deduction_for_unreimbursed_classroom_expenses_of_an_eligible_educator',

@@ -63,7 +63,8 @@ import { countryOf, isCountry, toolServesCountry } from './country.mjs';
 import { createUsInvoice, createUsPurchase, setSalesTaxRate, listSalesTaxRates, setContractor, contractorPayments } from './us-sales.mjs';
 import { rulesStatus } from './rules-status.mjs';
 import { runDailyAutomation, automationStatus } from './automation.mjs';
-import { readDocument, readUsTaxDocument } from './document-reader.mjs';
+import { readDocument, readUsTaxDocument, readIrsLetter } from './document-reader.mjs';
+import { usSupportedForms, usWithholdingCheck, usEstimatedPayments } from './us-planning.mjs';
 import { amendInvoice, listAmendments } from './invoice-amendments.mjs';
 import { scheduleSe } from './us-se-tax.mjs';
 import { usReturnPdf } from './us-return-pdf.mjs';
@@ -817,6 +818,34 @@ export const TOOLS = [
     description: 'The W-2, 1099, SSA-1099 and 1098 forms entered on a personal Form 1040 for a tax year, with the payer, whose form it is and the box amounts. US only. Read-only.',
     args: ['taxYear'],
     run: (state, args = {}) => listUsTaxForms(state, args),
+  },
+  {
+    name: 'us_supported_forms',
+    title: 'US forms MyCA prepares',
+    description: 'The IRS forms and schedules MyCA computes for a personal return, and the ones coming next. A return that needs a coming form lists it under unsupported in us_return_review. US only. Read-only.',
+    args: [],
+    run: () => usSupportedForms(),
+  },
+  {
+    name: 'us_withholding_check',
+    title: 'Check US paycheck withholding',
+    description: 'Projects the year\'s federal tax from year-to-date pay and withholding plus the pay periods left, using the return\'s filing status, family and other income, and gives the gap, the extra to withhold each paycheck (W-4 line 4(c)) and the safe harbor. Pass filingStatus if no return is started. US only. Read-only.',
+    args: ['taxYear', 'payPerPeriod', 'withheldPerPeriod', 'periodsLeft', 'ytdWages', 'ytdWithheld', 'otherIncome', 'filingStatus'],
+    run: (state, args = {}) => usWithholdingCheck(state, args),
+  },
+  {
+    name: 'us_estimated_payments',
+    title: 'Plan US estimated tax payments',
+    description: 'The Form 1040-ES instalments (dates and amounts) needed to avoid an underpayment penalty, given the expected net side income on top of the return, and which safe harbor sets them. Pass filingStatus if no return is started. US only. Read-only.',
+    args: ['taxYear', 'expectedSideIncome', 'filingStatus'],
+    run: (state, args = {}) => usEstimatedPayments(state, args),
+  },
+  {
+    name: 'read_irs_letter',
+    title: 'Read an IRS letter',
+    description: 'A model reads an uploaded IRS notice (such as CP2000 or CP14, sent through /api/upload), explains it in plain English with its deadline and amount, checks the items it lists against the return in MyCA and drafts a reply for review. Never reads the SSN and never sends anything. Needs MYCA_MODEL_API_KEY. US only. Read-only.',
+    args: ['documentId', 'taxYear'],
+    run: (state, args = {}) => readIrsLetter(state, args),
   },
   {
     name: 'us_form_kinds',

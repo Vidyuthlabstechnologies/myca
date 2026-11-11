@@ -42,8 +42,13 @@ const QUESTIONS = Object.freeze([
   { id: 'businessCostOfGoods', text: 'Self-employment: cost of goods sold', help: 'What you paid for goods you resold.', kind: 'amount', when: (ctx) => !ctx.usesBooks && ctx.manualBusiness },
   { id: 'businessExpenses', text: 'Self-employment: total business expenses', help: 'Supplies, software, advertising, travel, the business part of your phone, and the like.', kind: 'amount', when: (ctx) => !ctx.usesBooks && ctx.manualBusiness },
   { id: 'estimatedTaxPayments', text: 'Federal estimated tax paid for the year (Form 1040-ES)', help: 'All four instalments together, including one paid in January.', kind: 'amount' },
+  { id: 'priorYearTax', text: 'Last year\'s total federal tax (Form 1040 line 24)', help: 'Used to check whether an estimated tax penalty can apply. Leave empty if you did not file last year.', kind: 'amount' },
+  { id: 'priorYearAgi', text: 'Last year\'s adjusted gross income (Form 1040 line 11)', help: 'Above $150,000 ($75,000 separate) the safe harbor is 110% of last year\'s tax.', kind: 'amount', when: (ctx) => ctx.answers?.priorYearTax !== undefined },
   { id: 'priorYearOverpaymentApplied', text: 'Last year\'s refund applied to this year', help: 'Only if you chose to apply it rather than receive it.', kind: 'amount' },
   { id: 'stateRefundTaxable', text: 'How much of the state refund on your 1099-G is taxable?', help: 'Zero if you took the standard deduction last year. If you itemized, the part that lowered your federal tax.', kind: 'amount', when: (ctx) => ctx.hasStateRefund },
+  { id: 'rentalIncome', text: 'Did you have rental or royalty income not on a 1099-MISC?', help: 'Renting out a home, room or vacation property, or royalties. These go on Schedule E.', kind: 'yesno' },
+  { id: 'childCareExpenses', text: 'Child or dependent care costs you paid so you could work', help: 'Daycare, after-school care or a sitter for a child under 13 or a dependent who cannot care for themself (Form 2441).', kind: 'amount', when: (ctx) => ctx.hasDependents },
+  { id: 'marketplaceCoverage', text: 'Did anyone on this return have health coverage from the Marketplace (Form 1095-A)?', help: 'Coverage bought on HealthCare.gov or a state exchange.', kind: 'yesno' },
   { id: 'otherIncome', text: 'Other income not on a form', help: 'Prizes, jury duty pay, hobby income and similar.', kind: 'amount' },
   { id: 'qualifiedTips', text: 'Tips you received in a job where tips are customary', help: 'For the no-tax-on-tips deduction (2025 to 2028).', kind: 'amount' },
   { id: 'spouseQualifiedTips', text: 'Tips your spouse received', help: 'For the no-tax-on-tips deduction.', kind: 'amount', when: (ctx) => ctx.joint },
@@ -314,7 +319,7 @@ function context(state, ret) {
   const books = ret ? booksScheduleC(state, ret.taxYear) : null;
   const usesBooks = Boolean(books) && answers.useBooksForScheduleC !== false;
   const manualBusiness = Number(answers.businessGrossReceipts || 0) > 0;
-  return { status: ret?.filingStatus || '', joint: ret?.filingStatus === 'mfj', booksHaveIncome: Boolean(books), usesBooks, books, manualBusiness, hasBusiness: usesBooks || manualBusiness || (ret?.forms || []).some((form) => form.kind === '1099-NEC'), hasStateRefund: (ret?.forms || []).some((form) => form.kind === '1099-G' && Number(form.fields.stateRefund || 0) > 0) };
+  return { status: ret?.filingStatus || '', answers: ret?.answers || {}, hasDependents: (ret?.dependents || []).length > 0, joint: ret?.filingStatus === 'mfj', booksHaveIncome: Boolean(books), usesBooks, books, manualBusiness, hasBusiness: usesBooks || manualBusiness || (ret?.forms || []).some((form) => form.kind === '1099-NEC'), hasStateRefund: (ret?.forms || []).some((form) => form.kind === '1099-G' && Number(form.fields.stateRefund || 0) > 0) };
 }
 
 function visibleQuestions(state, ret) {
@@ -390,7 +395,7 @@ export function engineInput(state, ret, { forFiling = false } = {}) {
   };
 }
 
-const STEP_OF_CODE = { SPOUSE_REQUIRED: 'profile', SPOUSE_NAME_FOR_MFS: 'profile', HOH_NEEDS_QUALIFYING_PERSON: 'profile', QSS_NEEDS_CHILD: 'profile', DEPENDENT_DOB_INVALID: 'profile', CHILD_WITHOUT_SSN: 'profile', TAXPAYER_DOB_MISSING: 'profile', SPOUSE_FORM_ON_NON_JOINT: 'forms', NEC_ABOVE_RECEIPTS: 'forms', SCHEDULE_E_NOT_COVERED: 'forms', NO_INCOME_DOCUMENTS: 'forms', EARLY_DISTRIBUTION: 'forms', STATE_REFUND_TAXABILITY: 'interview', SE_HEALTH_ABOVE_PROFIT: 'interview', MORTGAGE_DEBT_LIMIT: 'forms', FORM_8283: 'interview', EMPLOYER_OVERWITHHELD_SS: 'forms' };
+const STEP_OF_CODE = { SPOUSE_REQUIRED: 'profile', SPOUSE_NAME_FOR_MFS: 'profile', HOH_NEEDS_QUALIFYING_PERSON: 'profile', QSS_NEEDS_CHILD: 'profile', DEPENDENT_DOB_INVALID: 'profile', CHILD_WITHOUT_SSN: 'profile', TAXPAYER_DOB_MISSING: 'profile', SPOUSE_FORM_ON_NON_JOINT: 'forms', NEC_ABOVE_RECEIPTS: 'forms', SCHEDULE_E_NOT_COVERED: 'forms', FORM_2441_NOT_COVERED: 'interview', FORM_8962_NOT_COVERED: 'interview', FORM_2210_MAY_APPLY: 'interview', QBI_ABOVE_THRESHOLD: 'review', NO_INCOME_DOCUMENTS: 'forms', EARLY_DISTRIBUTION: 'forms', STATE_REFUND_TAXABILITY: 'interview', SE_HEALTH_ABOVE_PROFIT: 'interview', MORTGAGE_DEBT_LIMIT: 'forms', FORM_8283: 'interview', EMPLOYER_OVERWITHHELD_SS: 'forms' };
 
 function profileChecks(ret) {
   const checks = [];
@@ -434,17 +439,17 @@ export function usReturnReview(state, args = {}) {
   const { ret, result } = computedFor(state, taxYear);
   if (!ret) return result;
   const profile = profileChecks(ret);
-  if (!result.ok) return { ok: true, data: { taxYear, lines: [], refund: 0, owed: 0, checks: [...profile, ...(result.error === 'FILING_STATUS_REQUIRED' && profile.some((item) => item.code === 'FILING_STATUS_REQUIRED') ? [] : [{ level: 'error', code: result.error, message: result.error === 'RULE_NOT_IN_FORCE' ? `MyCA has no tax rules for ${taxYear} yet.` : result.error, fix: '', step: 'review' }])], computed: false } };
+  if (!result.ok) return { ok: true, data: { taxYear, lines: [], refund: 0, owed: 0, unsupported: [], checks: [...profile, ...(result.error === 'FILING_STATUS_REQUIRED' && profile.some((item) => item.code === 'FILING_STATUS_REQUIRED') ? [] : [{ level: 'error', code: result.error, message: result.error === 'RULE_NOT_IN_FORCE' ? `MyCA has no tax rules for ${taxYear} yet.` : result.error, fix: '', step: 'review' }])], computed: false } };
   const data = result.data;
   const checks = [...profile, ...data.checks.map((item) => ({ ...item, step: STEP_OF_CODE[item.code] || 'review' }))];
-  return { ok: true, data: { taxYear, filingStatus: data.filingStatus, lines: reviewLines(data), summary: data.summary, refund: data.summary.refund, owed: data.summary.owed, checks, schedules: Object.keys(data.schedules), rulesUsed: data.rulesUsed, unreviewed: data.unreviewed, notCovered: data.notCovered, notes: data.notes, computed: true } };
+  return { ok: true, data: { taxYear, filingStatus: data.filingStatus, lines: reviewLines(data), summary: data.summary, refund: data.summary.refund, owed: data.summary.owed, checks, schedules: Object.keys(data.schedules), rulesUsed: data.rulesUsed, unreviewed: data.unreviewed, unsupported: data.unsupported, notCovered: data.notCovered, notes: data.notes, computed: true } };
 }
 
 export function usReturnStatus(state, args = {}) {
   const taxYear = yearArg(args.taxYear);
   if (!taxYear) return fail('TAX_YEAR_NOT_SUPPORTED', { supported: SUPPORTED_YEARS });
   const ret = returnOf(state, taxYear);
-  if (!ret) return { ok: true, data: { taxYear, started: false, filingStatus: '', taxpayerName: '', steps: STEPS.map(([id, label]) => ({ id, label, done: false })), refund: 0, owed: 0, readyToSign: false } };
+  if (!ret) return { ok: true, data: { taxYear, started: false, filingStatus: '', taxpayerName: '', steps: STEPS.map(([id, label]) => ({ id, label, done: false })), refund: 0, owed: 0, readyToSign: false, unsupported: [] } };
   const review = usReturnReview(state, { taxYear }).data;
   const errors = review.checks.filter((item) => item.level === 'error');
   const questions = visibleQuestions(state, ret);
@@ -455,7 +460,7 @@ export function usReturnStatus(state, args = {}) {
     review: review.computed && errors.length === 0,
     sign: Boolean(state.usEfile?.returns?.[String(taxYear)]?.signature?.signedAt),
   };
-  return { ok: true, data: { taxYear, started: true, filingStatus: ret.filingStatus, taxpayerName: ret.taxpayer ? `${ret.taxpayer.firstName} ${ret.taxpayer.lastName}`.trim() : '', steps: STEPS.map(([id, label]) => ({ id, label, done: done[id] })), refund: review.refund, owed: review.owed, readyToSign: done.profile && done.forms && done.review, errors: errors.length, warnings: review.checks.length - errors.length } };
+  return { ok: true, data: { taxYear, started: true, filingStatus: ret.filingStatus, taxpayerName: ret.taxpayer ? `${ret.taxpayer.firstName} ${ret.taxpayer.lastName}`.trim() : '', steps: STEPS.map(([id, label]) => ({ id, label, done: done[id] })), refund: review.refund, owed: review.owed, readyToSign: done.profile && done.forms && done.review, errors: errors.length, warnings: review.checks.length - errors.length, unsupported: review.unsupported || [] } };
 }
 
 function efileShape(ret, data, input) {
@@ -476,6 +481,7 @@ function efileShape(ret, data, input) {
     refund: ret.directDeposit || null,
     summary: data.summary,
     checks: data.checks,
+    unsupported: data.unsupported,
     rulesUsed: data.rulesUsed,
     unreviewed: data.unreviewed,
   };

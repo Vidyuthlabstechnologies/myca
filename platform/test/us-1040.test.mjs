@@ -246,3 +246,44 @@ test('ask_tax answers a US business from the US module and an Indian one from th
   const india = await runTool(createState(), 'ask_tax', { question: 'standard deduction for salary', asOf: '2025-06-01' });
   assert.ok(india.sections.every((section) => section.module.startsWith('india-')));
 });
+
+test('a return lists each form it needs but cannot prepare in unsupported, with a matching check', () => {
+  assert.deepEqual(single([w2(50000, 5000)]).data.unsupported, []);
+  const owed = single([w2(50000, 0)]);
+  assert.deepEqual(owed.data.unsupported, [{ form: '2210', reason: 'Possible estimated tax penalty', code: 'FORM_2210_MAY_APPLY', required: false }]);
+  assert.equal(owed.data.checks.find((item) => item.code === 'FORM_2210_MAY_APPLY').level, 'warning');
+  assert.deepEqual(single([w2(50000, 0)], { answers: { priorYearTax: 0 } }).data.unsupported, []);
+  assert.equal(single([w2(50000, 0)], { answers: { priorYearTax: 3000, priorYearAgi: 160000 } }).data.unsupported.length, 1);
+  const out = single([w2(50000, 5000)], { dependents: [{ firstName: 'Leo', lastName: 'Diaz', relationship: 'son', dateOfBirth: '2020-01-01', ssn: true, monthsLived: 12 }], answers: { childCareExpenses: 3000, marketplaceCoverage: true, rentalIncome: true } });
+  assert.deepEqual(out.data.unsupported.map((item) => [item.form, item.required]), [['Schedule E', true], ['2441', true], ['8962', true]]);
+  for (const need of out.data.unsupported) assert.equal(out.data.checks.find((item) => item.code === need.code).form, need.form);
+  assert.equal(out.data.checks.find((item) => item.code === 'FORM_8962_NOT_COVERED').level, 'error');
+});
+
+test('the US planning tools project withholding, plan estimated payments and list the supported forms', async () => {
+  const state = createState();
+  state.company = { ...(state.company || {}), country: 'US' };
+  const forms = await runTool(state, 'us_supported_forms', {});
+  assert.ok(forms.data.supported.includes('Schedule C') && forms.data.coming.includes('2441'));
+  assert.equal((await runTool(state, 'us_withholding_check', { taxYear: '2026', ytdWages: 40000 })).error, 'US_RETURN_NOT_STARTED');
+  const check = await runTool(state, 'us_withholding_check', { taxYear: '2026', filingStatus: 'single', payPerPeriod: 2000, withheldPerPeriod: 100, periodsLeft: 5, ytdWages: 50000, ytdWithheld: 2500 });
+  assert.equal(check.ok, true);
+  assert.equal(check.data.projectedWages, 60000);
+  assert.equal(check.data.projectedWithholding, 3000);
+  assert.equal(check.data.projectedTax, 5023);
+  assert.equal(check.data.gap, 2023);
+  assert.equal(check.data.extraPerPaycheck, 405);
+  assert.equal(check.data.safeHarbor.basis, 'current_year_90_percent');
+  assert.equal(check.data.safeHarbor.requiredAnnualPayment, 4521);
+  assert.equal(check.data.safeHarbor.met, false);
+  const plan = await runTool(state, 'us_estimated_payments', { taxYear: '2027', filingStatus: 'single' });
+  assert.equal(plan.error, 'TAX_YEAR_NOT_SUPPORTED');
+  const est = await runTool(state, 'us_estimated_payments', { taxYear: '2026', filingStatus: 'single', expectedSideIncome: 40000 });
+  assert.equal(est.ok, true);
+  assert.deepEqual(est.data.quarters.map((item) => item.due), ['2026-04-15', '2026-06-15', '2026-09-15', '2027-01-15']);
+  assert.equal(est.data.quarters.reduce((total, item) => total + item.amount, 0), est.data.requiredAnnualPayment - est.data.paidSoFar);
+  assert.equal(est.data.safeHarborBasis, 'current_year_90_percent');
+  assert.equal(est.data.requiredAnnualPayment, Math.round(est.data.projectedTax * 0.9));
+  assert.equal((await runTool(state, 'read_irs_letter', { documentId: 'a'.repeat(64) })).ok, false);
+  for (const name of ['us_supported_forms', 'us_withholding_check', 'us_estimated_payments', 'read_irs_letter']) assert.equal(isRemoteQuery(name), true, name);
+});

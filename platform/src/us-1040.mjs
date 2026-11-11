@@ -6,6 +6,9 @@ export const FORM_KINDS = Object.freeze(['W-2', '1099-INT', '1099-DIV', '1099-B'
 const LONG_STATUS = Object.freeze({ single: 'single', mfj: 'married_joint', mfs: 'married_separate', hoh: 'head_of_household', qss: 'single' });
 const STATUS_LABEL = Object.freeze({ single: 'Single', mfj: 'Married filing jointly', mfs: 'Married filing separately', hoh: 'Head of household', qss: 'Qualifying surviving spouse' });
 const CHILD_RELATIONSHIPS = new Set(['son', 'daughter', 'stepchild', 'foster_child', 'brother', 'sister', 'half_brother', 'half_sister', 'stepbrother', 'stepsister', 'grandchild', 'niece', 'nephew', 'sibling', 'niece_nephew']);
+const FORM_REASONS = Object.freeze({ 'Schedule E': 'Rental and royalty income', 2441: 'Child and dependent care expenses', 8962: 'Marketplace health coverage (premium tax credit)', '8995-A': 'Qualified business income above the threshold', 2210: 'Possible estimated tax penalty' });
+export const US_FORMS_SUPPORTED = Object.freeze(['1040', 'Schedule 1', 'Schedule 1-A', 'Schedule 2', 'Schedule 3', 'Schedule A', 'Schedule B', 'Schedule C', 'Schedule D', 'Schedule SE', 'Schedule EIC', '8812', '8863', '8949', '8959', '8960', '8995']);
+export const US_FORMS_COMING = Object.freeze(['2441', '8962', '8995-A', '2210', 'Schedule E']);
 const NOT_COVERED = Object.freeze([
   'Alternative minimum tax (Form 6251)',
   'Rental, royalty, partnership, S corporation and trust income (Schedule E, Schedule K-1)',
@@ -267,8 +270,8 @@ function steppedPhaseOut(amount, magi, start, perThousand) {
   return Math.max(0, amount - steps * perThousand);
 }
 
-function check(level, code, message, fix = '') {
-  return { level, code, message, fix };
+function check(level, code, message, fix = '', form) {
+  return form ? { level, code, message, fix, form } : { level, code, message, fix };
 }
 
 export function computeForm1040(input = {}, taxYearArg) {
@@ -303,6 +306,11 @@ export function computeForm1040(input = {}, taxYearArg) {
 
   const answers = input.answers || {};
   const checks = [];
+  const unsupported = [];
+  const needForm = (form, code, message, fix, required = true) => {
+    if (!unsupported.some((item) => item.form === form)) unsupported.push({ form, reason: FORM_REASONS[form], code, required });
+    checks.push(check(required ? 'error' : 'warning', code, message, fix, form));
+  };
   const married = status === 'mfj' || status === 'mfs';
   const hasSpouse = status === 'mfj';
   const owners = hasSpouse ? ['taxpayer', 'spouse'] : ['taxpayer'];
@@ -341,7 +349,10 @@ export function computeForm1040(input = {}, taxYearArg) {
   if (stateRefunds > 0 && answers.stateRefundTaxable === undefined) checks.push(check('warning', 'STATE_REFUND_TAXABILITY', 'A state or local tax refund is taxable only to the extent it reduced last year\'s itemized deduction.', 'Answer the state refund question in the interview.'));
   const miscForms = formsOf(input, '1099-MISC');
   const miscOther = sum(miscForms, (form) => field(form, 'otherIncome'));
-  if (miscForms.some((form) => field(form, 'rents') || field(form, 'royalties'))) checks.push(check('error', 'SCHEDULE_E_NOT_COVERED', 'Rents or royalties on a 1099-MISC go on Schedule E, which MyCA does not prepare yet.', 'Have your CPA prepare Schedule E.'));
+  if (miscForms.some((form) => field(form, 'rents') || field(form, 'royalties'))) needForm('Schedule E', 'SCHEDULE_E_NOT_COVERED', 'Rents or royalties on a 1099-MISC go on Schedule E, which MyCA does not prepare yet.', 'Have your CPA prepare Schedule E.');
+  else if (answers.rentalIncome === true || answers.rentalIncome === 'yes') needForm('Schedule E', 'SCHEDULE_E_NOT_COVERED', 'Rental or royalty income goes on Schedule E, which MyCA does not prepare yet.', 'Have your CPA prepare Schedule E.');
+  if (positive(answers.childCareExpenses) > 0) needForm('2441', 'FORM_2441_NOT_COVERED', 'Child and dependent care costs are claimed on Form 2441, which MyCA does not prepare yet; no credit is included.', 'Have your CPA prepare Form 2441.');
+  if (answers.marketplaceCoverage === true || answers.marketplaceCoverage === 'yes') needForm('8962', 'FORM_8962_NOT_COVERED', 'Marketplace coverage on a Form 1095-A must be reconciled on Form 8962, which MyCA does not prepare yet; a return without it is rejected.', 'Have your CPA prepare Form 8962.');
   const otherIncome = dollars(answers.otherIncome) + miscOther;
 
   const businesses = businessesOf(input);
@@ -474,7 +485,7 @@ export function computeForm1040(input = {}, taxYearArg) {
   let line13a = 0;
   let form8995 = null;
   if (qbiIncome !== 0 || reitDividends > 0) {
-    if (beforeQbi > qbiThreshold) checks.push(check('error', 'QBI_ABOVE_THRESHOLD', `Taxable income before the QBI deduction is above ${qbiThreshold}, so Form 8995-A applies, which MyCA does not prepare; no QBI deduction is included.`, 'Have your CPA prepare Form 8995-A.'));
+    if (beforeQbi > qbiThreshold) needForm('8995-A', 'QBI_ABOVE_THRESHOLD', `Taxable income before the QBI deduction is above ${qbiThreshold}, so Form 8995-A applies, which MyCA does not prepare; no QBI deduction is included.`, 'Have your CPA prepare Form 8995-A.');
     else {
       const component = ofBasis(Math.max(0, qbiIncome), qbi.basisPoints) + ofBasis(reitDividends, qbi.basisPoints);
       const incomeLimit = ofBasis(Math.max(0, beforeQbi - (qualifiedDividends + d.netCapitalGain)), qbi.basisPoints);
@@ -663,6 +674,14 @@ export function computeForm1040(input = {}, taxYearArg) {
     ...(eic ? { EIC: eic } : {}),
   };
   if (!w2s.length && !(input.forms || []).length && !businesses.length) checks.push(check('warning', 'NO_INCOME_DOCUMENTS', 'No W-2, 1099 or business income has been added yet.', 'Add your tax forms.'));
+  const penalty = read('us.federal.individual.estimated-tax-penalty');
+  if (penalty) {
+    const paid = line25d + line26;
+    const priorYearTax = answers.priorYearTax === undefined || answers.priorYearTax === '' ? null : positive(answers.priorYearTax);
+    const priorShare = priorYearTax === null ? null : ofBasis(priorYearTax, positive(answers.priorYearAgi) > fromCents(status === 'mfs' ? penalty.highIncomeAgiCents.mfs : penalty.highIncomeAgiCents.other) ? penalty.highIncomePriorYearBasisPoints : penalty.priorYearBasisPoints);
+    const required = Math.min(ofBasis(line24, penalty.currentYearBasisPoints), priorShare === null ? Infinity : priorShare);
+    if (line24 - line25d >= fromCents(penalty.minimumUnderpaymentCents) && paid < required) needForm('2210', 'FORM_2210_MAY_APPLY', `Tax paid during the year is below the required annual payment${priorShare === null ? ' (90% of this year\'s tax; last year\'s tax was not given)' : ''}, so an underpayment penalty may apply. Form 2210 is not prepared; the IRS can work out the penalty and bill it.`, 'Answer last year\'s tax in the interview, or have your CPA prepare Form 2210.', false);
+  }
   if (agi > 200000) checks.push(check('warning', 'AMT_NOT_COMPUTED', 'The alternative minimum tax is not computed; at this income it rarely applies without incentive stock options or large state taxes, but your CPA should confirm.', ''));
 
   const rulesUsed = [...used.values()].map((record) => `${record.id}@${record.effectiveFrom}`);
@@ -683,6 +702,7 @@ export function computeForm1040(input = {}, taxYearArg) {
       checks,
       rulesUsed,
       unreviewed,
+      unsupported,
       notCovered: NOT_COVERED,
       notes: [
         'Whole dollars, rounded as the IRS allows. Tax under $100,000 of taxable income uses the Tax Table method (the middle of each $50 band); the EIC uses the same $50 bands as the EIC Table.',
