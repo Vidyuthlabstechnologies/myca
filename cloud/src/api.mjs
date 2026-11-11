@@ -725,7 +725,6 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
       }
       if (action === 'einvoice' || action === 'ewaybill' || action === 'approvals') {
         if (sharedView) throw httpError(403, 'SHARED_VIEW_READ_ONLY');
-        // E-way bills come with e-invoicing in the plans (both go through the IRP user).
         const allowed = action === 'approvals' ? { ok: true } : await billing.allows(businessId, 'einvoice');
         if (!allowed.ok) return allowed;
         if (action === 'einvoice') return govt.einvoice(businessId, context, actor, body);

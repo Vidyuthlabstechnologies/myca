@@ -99,7 +99,6 @@ export function transportPayload(transport) {
   };
 }
 
-// dd/mm/yyyy, the date format of the e-way bill system.
 export function ewbDate(iso) {
   const parts = String(iso || '').slice(0, 10).split('-');
   return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : String(iso || '');
@@ -117,8 +116,6 @@ function clean(text, max) {
   return String(text || '').replace(/[^A-Za-z0-9 #,\-/.&()]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max);
 }
 
-// Part A (and Part B when a vehicle is known) of a standalone e-way bill built from a
-// posted invoice, for invoices with no IRN. Field names follow the e-way bill API.
 export function ewayBillPartA(state, invoice) {
   if (!invoice) return fail('INVOICE_NOT_FOUND');
   const transport = invoice.transport;
@@ -214,7 +211,6 @@ export function ewayBillPartA(state, invoice) {
   return { ok: true, partA };
 }
 
-// The e-way bill number, date and validity from either API's answer.
 export function ewbResult(data = {}) {
   const inner = data?.data && typeof data.data === 'object' && !Array.isArray(data.data) ? data.data : data;
   const fromIrp = inner?.Data || null;

@@ -1,9 +1,3 @@
-// E-way bill operations on Sandbox by Quicko (GSP). Each operation has a request builder
-// (checks the input and shapes the API body before the action gate runs), a live adapter
-// (calls the scoped Sandbox transport and records the outcome on the invoice) and a mock
-// adapter (a tagged simulation for MYCA_MOCK_MODE). NIC direct access needs a turnover of
-// 100 crore rupees or more, so MyCA reaches the e-way bill system only through the GSP.
-
 import { EWB_REASONS, EWB_TRANSPORT_MODES, ewayBillPartA, ewbDate, ewbResult, findEwbInvoice, transportPayload } from './eway-bill.mjs';
 
 const EWB_NO = /^[0-9]{12}$/;
@@ -44,7 +38,6 @@ function stateArg(value) {
   return Number.isInteger(code) && code >= 1 && code <= 99 ? code : 0;
 }
 
-// The e-way bill an operation acts on: a 12-digit number, or the one recorded on an invoice.
 function targetOf(state, params) {
   const invoice = findEwbInvoice(state, { invoiceId: params.invoiceId, ewbNo: params.ewbNo });
   if (params.invoiceId && !invoice) return fail('INVOICE_NOT_FOUND', { invoiceId: params.invoiceId });
@@ -76,7 +69,6 @@ function placeArgs(params, { requireVehicle = false } = {}) {
   return { ok: true, fromPlace, fromState, transMode, vehicleNo, transDocNo, transDocDate };
 }
 
-// ---- request builders (run before the gate; their payload is what the audit trail keeps) ----
 
 export const EWB_REQUEST_BUILDERS = {
   ewb_generate: ({ params, state }) => {
@@ -330,15 +322,12 @@ function stampGenerated(invoice, environment, result, via) {
   }
 }
 
-// ---- live adapters ----
 
 export const EWB_ADAPTERS = {
   ewb_generate: async ({ client, params, state }) => {
     const built = build('ewb_generate', params, state);
     if (!built.ok) return built;
     const invoice = built.invoice;
-    // Which IRN applies depends on the key's environment; an IRN of either kind means
-    // the e-invoice route, and the answer says which environment it ran in.
     const irn = String(invoice.irn || invoice.sandboxIrn || '');
     let res;
     let via;
@@ -487,7 +476,6 @@ export const EWB_ADAPTERS = {
   },
 };
 
-// ---- mock adapters (MYCA_MOCK_MODE): checked like the live ones, nothing leaves the PC ----
 
 function mockEwbNo(seed) {
   let n = 0;
@@ -524,7 +512,6 @@ export const EWB_MOCK_ADAPTERS = {
   ewb_reject: mocked('ewb_reject', (built) => ({ rejected: true, ewbNo: built.payload.ewbNo, rejectedOn: 'simulated' })),
 };
 
-// What the gate records as the request payload (no invoice objects, no secrets).
 export function ewbAuditPayload(operationId, params, state) {
   const built = build(operationId, params, state);
   if (!built.ok) return built;

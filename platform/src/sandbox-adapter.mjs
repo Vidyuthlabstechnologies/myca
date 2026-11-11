@@ -226,7 +226,6 @@ const ADAPTERS = {
     if (res.ok && Number(data.Status) === 1) {
       const d = data.Data || {};
       if (built.invoice && d.Irn) {
-        // Like the NIC client: an IRN from the test IRP never lands in the real fields.
         const prefix = res.environment === 'live' ? '' : 'sandbox';
         const field = (name) => (prefix ? `${prefix}${name[0].toUpperCase()}${name.slice(1)}` : name);
         built.invoice[field('irn')] = d.Irn;

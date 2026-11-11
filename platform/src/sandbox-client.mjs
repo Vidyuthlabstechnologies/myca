@@ -24,8 +24,6 @@ function deadline(options, ms = DEFAULT_TIMEOUT_MS) {
 }
 
 const platformTokens = new Map();
-// IRP / e-way bill sessions (one access token covers both), keyed by the API key and the
-// taxpayer's API user so that no other GSTIN is ever sent under a session.
 const irpSessions = new Map();
 const MAX_IRP_SESSIONS = 256;
 const IRP_SESSION_MS = 6 * 3600 * 1000;
@@ -98,7 +96,6 @@ export class SandboxClient {
     this.irpUser = options.irpUser || null;
   }
 
-  // The e-invoice / e-way bill API user (created on the IRP or EWB portal for the GSP).
   irpCredentials() {
     const given = this.irpUser || providerContext()?.govt || null;
     const cfg = given || loadGovtConfig();
@@ -377,7 +374,6 @@ export class SandboxClient {
     const data = res.data?.data || {};
     if (res.ok && Number(data.Status) === 1 && data.access_token) {
       this.einvoiceToken = data.access_token;
-      // Later e-invoice and e-way bill calls on this client run as the user who signed in.
       if (!this.irpUser) this.irpUser = { username: String(username || '').trim(), password: String(password || ''), gstin: String(gstin || '').trim().toUpperCase() };
       this.einvoiceKey = irpSessionKey(this, this.irpCredentials());
       const expires = Number(data.expiry || 0);
@@ -386,8 +382,6 @@ export class SandboxClient {
     return res;
   }
 
-  // The IRP session opens on first use from the saved API user (see irpToken), so a
-  // generate never goes out under the platform token.
   async generateEinvoice(payload) {
     return this.ewbRequest('/gst/compliance/e-invoice/tax-payer/invoice', { body: payload });
   }
@@ -398,7 +392,6 @@ export class SandboxClient {
     });
   }
 
-  // ---- E-way bill (IRP / EWB access token, shared with e-invoice) ----
   async ewayBillAuthenticate({ username, password, gstin, force = false } = {}) {
     const res = await this.request('/gst/compliance/e-way-bill/tax-payer/authenticate', {
       body: {
@@ -424,7 +417,6 @@ export class SandboxClient {
     const now = Date.now();
     const creds = this.irpCredentials();
     const key = irpSessionKey(this, creds);
-    // A token opened explicitly (einvoice_authenticate) or earlier for the same API user.
     if (!force && this.einvoiceToken && this.einvoiceExpiresAt > now + 60000 && this.einvoiceKey === key) return { ok: true, token: this.einvoiceToken };
     if (!creds.username || !creds.password || !creds.gstin) {
       return { ok: false, error: 'EWB_API_USER_MISSING', hint: 'Save the e-invoice / e-way bill API username, password and GSTIN (created on the e-way bill portal for the GSP Sandbox by Quicko) first.' };
@@ -445,8 +437,6 @@ export class SandboxClient {
     return { ok: true, token: this.einvoiceToken };
   }
 
-  // One authenticated e-way bill call. A refusal (status "0") comes back as ok:false with
-  // the NIC error code; an expired session is renewed once.
   async ewbRequest(endpoint, { method = 'POST', body } = {}) {
     let session = await this.irpToken();
     if (!session.ok) return { ...session, environment: this.environment };
@@ -460,8 +450,6 @@ export class SandboxClient {
     }
     const refused = res.ok ? ewbRefusal(res.data?.data) : null;
     if (refused) return { ok: false, status: res.status, error: refused.error, message: refused.message, data: res.data, environment: this.environment };
-    // The adapter only sees the scoped transport functions, so the answer says which
-    // environment (test or live key) it came from.
     return { ...res, environment: this.environment };
   }
 

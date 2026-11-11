@@ -1,8 +1,3 @@
-// Refusals from the e-way bill system and the IRP, as relayed by Sandbox by Quicko.
-// The e-way bill APIs answer HTTP 200 with { status: '0', error: { errorCodes: '312,' } };
-// the IRP (e-invoice, and e-way bill by IRN) answers { Status: 0, ErrorDetails: [...] }.
-// Codes and words follow the NIC e-way bill and e-invoice error lists.
-
 const EWB_WORDS = {
   108: 'The e-way bill API username or password is wrong.',
   212: 'The consignee GSTIN is not valid.',

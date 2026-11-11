@@ -12,7 +12,6 @@ function reply(body, status = 200) {
   return new Response(JSON.stringify(body), { status });
 }
 
-// A stand-in for Sandbox by Quicko (test and live hosts). NIC is never called directly.
 function fakeProviders(url, init = {}) {
   const text = String(url);
   calls.push(text);

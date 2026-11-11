@@ -7,8 +7,6 @@ import { requestApproval, decideApproval, approvalStatus } from '../../platform/
 import { modeOf } from './govt-connectors.mjs';
 import { filingApprovalSubject } from '../../platform/src/portal-filing.mjs';
 
-// E-way bill operations offered at POST /ewaybill { op, ...params }. Each runs as the
-// Sandbox by Quicko operation of the same name through the action gate.
 export const EWB_OPS = Object.freeze({
   generate: 'ewb_generate',
   get: 'ewb_get',
@@ -26,7 +24,6 @@ export const EWB_OPS = Object.freeze({
 
 const EWB_FIELDS = ['invoiceId', 'ewbNo', 'ewbNos', 'invoiceIds', 'docType', 'docNo', 'date', 'reasonCode', 'remark', 'reasonRem', 'vehicleNo', 'vehicleType', 'fromPlace', 'fromState', 'fromPincode', 'toPlace', 'toState', 'transMode', 'mode', 'transDocNo', 'transDocDate', 'transporterId', 'remainingDistance', 'consignmentStatus', 'transitType', 'addressLine1', 'addressLine2', 'addressLine3', 'totalQuantity', 'unitCode', 'groupNo', 'quantity', 'oldVehicleNo', 'newVehicleNo', 'oldTranNo', 'newTranNo'];
 
-// Only known fields, so that the approval binds exactly what will be sent.
 export function ewbParams(body = {}) {
   const params = {};
   for (const field of EWB_FIELDS) {
@@ -84,7 +81,6 @@ export function createGovtActions({ connectors, withBooks, fetchFn = null }) {
     return { config, chosen: modeOf(config) };
   }
 
-  // The business's own Quicko key when it saved one, otherwise the service key.
   async function quickoKeys(businessId) {
     const own = await connectors.load(businessId, 'quicko');
     if (own && own.enabled !== false && own.apiKey && own.apiSecret) return { apiKey: own.apiKey, apiSecret: own.apiSecret, environment: own.environment };
@@ -95,8 +91,6 @@ export function createGovtActions({ connectors, withBooks, fetchFn = null }) {
     return { mode: effective, chosenMode: chosen, serviceMode: serviceProviderEnvironment(), simulated: mockModeEnabled(), modeWords: modeWords(effective), provider: 'sandbox' };
   }
 
-  // Runs one Quicko IRP / e-way bill operation for the business: its own API user, its
-  // own (or the service) Quicko key, the owner's test/live switch, and the books.
   async function irpOperation(businessId, ctx, actor, operationId, params) {
     const { config, chosen } = await context(businessId, 'nic');
     if (!config && !mockModeEnabled()) return fail('NIC_NOT_CONNECTED', { hint: 'Add this business\'s e-invoice / e-way bill API user (username, password, GSTIN) under Connections first. Create it on the e-way bill portal and pick Sandbox by Quicko as the GSP.' });
