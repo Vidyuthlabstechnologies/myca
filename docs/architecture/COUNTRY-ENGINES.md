@@ -102,10 +102,41 @@ kit below. It must not import `tools.mjs`, `router.mjs`, `assistant-contract.mjs
 | `cloud/src/api.mjs` | write tools the app may propose; capabilities in `GET /v1/countries` |
 | `country.mjs` | a country's tools serve only that country |
 | `rules-status.mjs` | rule families |
+| `action-gate.mjs` | external actions and the hosts each may reach |
 
 The golden rules in `AGENTS.md` still hold for a country engine: figures come from dated rules,
 live government calls sit behind the live switch and an approval, every state change records an
 audit event, and secrets go through the vault.
+
+## Calls to a government or provider
+
+Nothing a country engine sends leaves the machine except through `performExternalAction` in
+`action-gate.mjs`, which applies the live switch, the approval by a second person for a live
+write, the time limit, the dry run when calls are off, and the audit event. A country declares
+its calls in the manifest instead of editing the gate:
+
+```js
+externalActions: [
+  { id: 'myinvois_submit', access: 'write', irreversible: true,
+    hosts: { live: ['api.myinvois.hasil.gov.my'], test: ['preprod-api.myinvois.hasil.gov.my'] } },
+  { id: 'myinvois_status', access: 'read', hosts: { live: [...], test: [...] } },
+],
+```
+
+The engine then calls the gate and receives one transport, `transports.https.request(url, init)`, which takes what `fetch` takes and only reaches
+the hosts declared for the current mode: the test hosts when `MYCA_PROVIDER_ENV=test`, the live
+hosts when it is `live`. Any other host, plain HTTP, a port or a redirect is refused. An action
+with no test host is held as a dry run in test mode.
+
+```js
+const result = await performExternalAction(state, { actionId: 'myinvois_status', actor, params }, async (transports) => {
+  const response = await transports.https.request(`${base}/api/v1.0/documents/${uuid}/details`, { headers });
+  return { ok: response.ok, data: await response.json() };
+});
+```
+
+In tests, hand the gate a fake with `setChannelClient(new ChannelClient({ fetchFn }))` from
+`channel-client.mjs`; that client's `fetchFn` is the one door every country call leaves by.
 
 ## State
 

@@ -4,6 +4,7 @@ import { createState, serialize, deserialize } from '../src/store.mjs';
 import { runTool, TOOLS } from '../src/tools.mjs';
 import { chat } from '../src/router.mjs';
 import { createInvoice } from '../src/invoice.mjs';
+import { engineToolOwner } from '../src/countries/manifests.mjs';
 import { countryOf, countryInfo, formatMoney, yearOf, yearWords, toolsForCountry, toolServesCountry, setCurrentCountry, formatMoneyCurrent } from '../src/country.mjs';
 import { countryPack } from '../src/countries/index.mjs';
 import { validateAssistantToolCall } from '../src/assistant-contract.mjs';
@@ -61,7 +62,9 @@ test('a US business sees the shared and US-only tools; Indian tools are refused 
     assert.ok(shared.includes(name), name);
     assert.equal(toolServesCountry(name, 'IN'), false, name);
   }
-  assert.equal(toolsForCountry(TOOLS, 'IN').length, TOOLS.length - usOnly.length);
+  const otherCountries = TOOLS.filter((tool) => !usOnly.includes(tool.name) && !toolServesCountry(tool.name, 'IN')).map((tool) => tool.name);
+  assert.ok(otherCountries.every((name) => !['IN', 'US', '*'].includes(engineToolOwner(name))), otherCountries.join(', '));
+  assert.equal(toolsForCountry(TOOLS, 'IN').length, TOOLS.length - usOnly.length - otherCountries.length);
   const state = createState();
   state.company = { name: 'Maple Street Bakery', country: 'US', gstin: '', state: '' };
   const refused = await runTool(state, 'gst_payable', {});

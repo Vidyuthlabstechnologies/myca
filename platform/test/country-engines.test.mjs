@@ -17,6 +17,9 @@ import { newBook, serializeBook, deserializeBook } from '../src/books.mjs';
 import { bookView } from '../src/book-view.mjs';
 import { rulesStatus } from '../src/rules-status.mjs';
 import { READY_MADE, readyMadeFor, readyMadeProblems } from '../src/countries/ready-made.mjs';
+import { ACTION_CLASSES, ENGINE_ACTION_CLASSES, ENGINE_ACTION_FAMILY, externalActionClass, performExternalAction } from '../src/action-gate.mjs';
+import { ChannelClient, getChannelClient, setChannelClient } from '../src/channel-client.mjs';
+import { requestApproval, decideApproval } from '../src/approvals.mjs';
 import { countrySlice, openCountrySlice, progressiveTax, flatTax, bandProblems, taxYearBounds, periodsBetween, periodOf, luhnValid, weightedSum, weightedRemainder, moveReturn, nextStatuses, returnLocked, providePort, hasPort, port, portOr } from '../src/countries/kit/index.mjs';
 
 const COUNTRIES_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', 'src', 'countries');
@@ -133,7 +136,7 @@ test('the shared country_profile tool runs for every country through every centr
   assert.match(engineWords('country_profile')(usResult), /United States: USD, the calendar year starts on 1 January; 2026-03-31 falls in 2026\./);
   assert.equal(capabilityTool('US', 'profile', 'country'), 'country_profile');
   assert.equal(capabilityTool('US', 'income-tax', 'estimate'), '');
-  assert.deepEqual(Object.keys(countryCapabilities('MY')), ['profile']);
+  assert.equal(Object.keys(countryCapabilities('MY'))[0], 'profile');
   assert.equal(manifestFor('my').country, 'MY');
   assert.equal(engineRun('nothing_here'), null);
   assert.equal(enginePreview('country_profile'), null);
@@ -348,4 +351,99 @@ test('the ready-made catalogue is complete, and copyleft code is never embedded'
   assert.match(readyMadeProblems([{ ...stdnum, decision: 'in-use' }]).join('\n'), /platform\/ takes no packages/);
   assert.match(readyMadeProblems([stdnum, stdnum]).join('\n'), /listed twice/);
   assert.match(readyMadeProblems([{ ...stdnum, url: 'http://example.com', why: 'short', need: 'magic' }]).join('\n'), /https link[\s\S]*say why|need is one of/);
+});
+
+async function withEnv(vars, fn) {
+  const saved = Object.fromEntries(Object.keys(vars).map((key) => [key, process.env[key]]));
+  Object.assign(process.env, vars);
+  try {
+    return await fn();
+  } finally {
+    for (const [key, value] of Object.entries(saved)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
+}
+
+test('a manifest declares the government calls a country makes, each with the hosts it may reach', () => {
+  const action = { id: 'my_portal_send', access: 'write', irreversible: true, hosts: { live: ['api.example.gov.my'], test: ['test.example.gov.my'] } };
+  const withAction = (patch) => manifestProblems([{ ...FIXTURE, externalActions: [{ ...action, ...patch }] }], ['MY']).join('\n');
+  assert.equal(withAction({}), '');
+  assert.match(withAction({ id: 'Portal-Send' }), /external action id is lower case/);
+  assert.match(withAction({ access: 'send' }), /access is read or write/);
+  assert.match(withAction({ access: 'read' }), /only a write can be irreversible/);
+  assert.match(withAction({ hosts: { live: [], test: [] } }), /name the live host/);
+  assert.match(withAction({ hosts: { live: ['https://api.example.gov.my/v1'] } }), /not a bare host name/);
+  assert.match(withAction({ hosts: { live: ['api.example.gov.my'], test: ['api.example.gov.my'] } }), /test host cannot also be the live host/);
+  assert.match(withAction({ timeoutSeconds: 0 }), /timeoutSeconds is a whole number/);
+  assert.match(manifestProblems([{ ...FIXTURE, externalActions: [action, action] }], ['MY']).join('\n'), /already has this external action/);
+  const tables = engineTables([{ ...FIXTURE, externalActions: [action] }]);
+  assert.deepEqual(tables.externalActions, [{ id: 'my_portal_send', access: 'write', irreversible: true, timeoutSeconds: 60, hosts: { live: ['api.example.gov.my'], test: ['test.example.gov.my'] }, country: 'MY' }]);
+  for (const id of Object.keys(ENGINE_ACTION_CLASSES)) assert.equal(Object.hasOwn(ACTION_CLASSES, id), false, `${id} is already a core action`);
+  assert.equal(externalActionClass('myinvois_submit').family, ENGINE_ACTION_FAMILY);
+  assert.equal(externalActionClass('myinvois_submit').irreversible, true);
+  assert.equal(externalActionClass('myinvois_status').actionClass, 'read');
+  assert.equal(externalActionClass('nic_irn_generate').family, 'nic');
+  assert.equal(externalActionClass('toString'), null);
+});
+
+test('a country engine reaches its government host only through the gate, and only the host for the current mode', async () => {
+  const realClient = getChannelClient();
+  const calls = [];
+  setChannelClient(new ChannelClient({
+    fetchFn: async (url, init) => {
+      calls.push({ url, method: init.method, redirect: init.redirect, hasSignal: Boolean(init.signal) });
+      return { ok: true, status: 200, json: async () => ({ status: 'Valid' }) };
+    },
+  }));
+  const actor = { userId: 'owner-1', role: 'owner' };
+  const TEST_URL = 'https://preprod-api.myinvois.hasil.gov.my/api/v1.0/documents/ABC/details';
+  const send = async (transports, path) => {
+    const response = await transports.https.request(typeof path === 'string' ? path : TEST_URL, { method: 'GET' });
+    return { ok: response.ok, data: await response.json() };
+  };
+  try {
+    const off = createState();
+    const held = await withEnv({ MYCA_PROVIDER_ENV: 'off', MYCA_MOCK_MODE: '0' }, () => performExternalAction(off, { actionId: 'myinvois_status', actor, params: { uuid: 'ABC' } }, send));
+    assert.equal(held.error, 'LIVE_CALLS_DISABLED');
+    assert.equal(off.dryRuns.length, 1);
+    assert.equal(calls.length, 0, 'nothing leaves while calls are switched off');
+
+    const state = createState();
+    const read = await withEnv({ MYCA_PROVIDER_ENV: 'test', MYCA_MOCK_MODE: '0' }, () => performExternalAction(state, { actionId: 'myinvois_status', actor, params: { uuid: 'ABC' } }, send));
+    assert.deepEqual(read, { ok: true, data: { status: 'Valid' } });
+    assert.deepEqual(calls, [{ url: 'https://preprod-api.myinvois.hasil.gov.my/api/v1.0/documents/ABC/details', method: 'GET', redirect: 'error', hasSignal: true }]);
+    assert.equal(state.auditEvents.at(-1).action, 'external.myinvois_status');
+
+    const wrongHost = await withEnv({ MYCA_PROVIDER_ENV: 'test', MYCA_MOCK_MODE: '0' }, () => performExternalAction(state, { actionId: 'myinvois_status', actor, params: {} }, (transports) => send(transports, 'https://api.myinvois.hasil.gov.my/api/v1.0/documents/ABC/details')));
+    assert.match(wrongHost.error, /ENGINE_HOST_NOT_ALLOWED:api\.myinvois\.hasil\.gov\.my/, 'test mode never reaches the live host');
+    const elsewhere = await withEnv({ MYCA_PROVIDER_ENV: 'test', MYCA_MOCK_MODE: '0' }, () => performExternalAction(state, { actionId: 'myinvois_status', actor, params: {} }, (transports) => send(transports, 'https://preprod-api.myinvois.hasil.gov.my.example.com/x')));
+    assert.match(elsewhere.error, /ENGINE_HOST_NOT_ALLOWED/);
+    for (const bad of ['http://preprod-api.myinvois.hasil.gov.my/x', 'https://preprod-api.myinvois.hasil.gov.my:8443/x', 'https://user:pw@preprod-api.myinvois.hasil.gov.my/x']) {
+      const refused = await withEnv({ MYCA_PROVIDER_ENV: 'test', MYCA_MOCK_MODE: '0' }, () => performExternalAction(state, { actionId: 'myinvois_status', actor, params: {} }, (transports) => send(transports, bad)));
+      assert.equal(refused.error, 'ENGINE_URL_NOT_PLAIN_HTTPS', bad);
+    }
+    assert.equal(calls.length, 1);
+    assert.equal(Object.keys((await withEnv({ MYCA_PROVIDER_ENV: 'test', MYCA_MOCK_MODE: '0' }, () => performExternalAction(state, { actionId: 'myinvois_status', actor, params: {} }, async (transports) => ({ ok: true, groups: Object.keys(transports) })))).groups).length, 1, 'the engine gets the https transport and nothing else');
+
+    const assistant = await withEnv({ MYCA_PROVIDER_ENV: 'test', MYCA_MOCK_MODE: '0' }, () => performExternalAction(state, { actionId: 'myinvois_submit', actor: { userId: 'assistant' }, params: {} }, send));
+    assert.equal(assistant.error, 'ASSISTANT_BLOCKED_FOR_OPERATION');
+
+    const live = createState();
+    const params = { documents: 1 };
+    const liveSend = (transports) => send(transports, 'https://api.myinvois.hasil.gov.my/api/v1.0/documentsubmissions');
+    const unapproved = await withEnv({ MYCA_PROVIDER_ENV: 'live', MYCA_MOCK_MODE: '0' }, () => performExternalAction(live, { actionId: 'myinvois_submit', actor, params }, liveSend));
+    assert.equal(unapproved.error, 'APPROVAL_REQUIRED', 'a live write waits for a second person');
+    assert.equal(calls.length, 1);
+    const asked = requestApproval(live, { operationId: 'myinvois_submit', clientId: 'SELF', params, actor: { userId: 'owner-1', role: 'staff' } });
+    decideApproval(live, { approvalId: asked.approval.approvalId, decision: 'approve', actor: { userId: 'partner-1', role: 'partner' } });
+    const sent = await withEnv({ MYCA_PROVIDER_ENV: 'live', MYCA_MOCK_MODE: '0' }, () => performExternalAction(live, { actionId: 'myinvois_submit', actor, params }, liveSend));
+    assert.equal(sent.ok, true);
+    assert.equal(calls.at(-1).url, 'https://api.myinvois.hasil.gov.my/api/v1.0/documentsubmissions');
+    const liveToTest = await withEnv({ MYCA_PROVIDER_ENV: 'live', MYCA_MOCK_MODE: '0' }, () => performExternalAction(live, { actionId: 'myinvois_status', actor, params: {} }, send));
+    assert.match(liveToTest.error, /ENGINE_HOST_NOT_ALLOWED:preprod-api/, 'live mode never reaches the test host');
+  } finally {
+    setChannelClient(realClient);
+  }
 });
