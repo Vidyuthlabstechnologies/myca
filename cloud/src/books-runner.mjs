@@ -1,6 +1,7 @@
 import { openSession } from '../../platform/src/session.mjs';
 import { createMemoryBooksStore, createMemoryDocumentStore } from '../../platform/src/store-ports.mjs';
 import { refreshIfDue, shareNow } from './ca-sync.mjs';
+import { redactTinsDeep } from '../../platform/src/us-identity.mjs';
 
 const SHA256 = /^[a-f0-9]{64}$/;
 
@@ -62,7 +63,7 @@ export function createBooksRunner({ db, now = () => Date.now(), vault, booksKey 
           String(event.action || ''),
           String(event.beforeHash || ''),
           String(event.afterHash || ''),
-          JSON.stringify(event.metadata || {}),
+          JSON.stringify(redactTinsDeep(event.metadata || {})),
         ],
       );
     }

@@ -6,6 +6,7 @@ import { getBook, canonicalClientId, normalizeClientId, isValidClientId, ensureB
 import { documentsOf } from './document-store.mjs';
 import { ensureDefaultAdmin, listUsers, addUser, findUser, verifyUserPin } from './identity.mjs';
 import { normalizeUserId } from './approvals.mjs';
+import { redactTinsDeep } from './us-identity.mjs';
 
 function jsonHash(value) {
   const json = JSON.stringify(value, (_key, item) => (typeof item === 'bigint' ? item.toString() : item));
@@ -224,7 +225,7 @@ export function appendAuditEvent(state, event) {
     at: event.at || new Date().toISOString(),
     beforeHash,
     afterHash: event.afterHash || beforeHash,
-    metadata: event.metadata || {},
+    metadata: redactTinsDeep(event.metadata || {}),
     prevHash: previous && previous.hash ? previous.hash : '',
   };
   record.hash = auditEventHash(record);

@@ -1,4 +1,5 @@
 import { loadEnvFile } from './runtime-config.mjs';
+import { redactModelRequest } from './us-identity.mjs';
 
 const DEFAULT_MODEL = 'claude-sonnet-5-5';
 const DEFAULT_BASE_URL = 'https://api.anthropic.com';
@@ -35,7 +36,8 @@ export function modelConfigured() {
 
 const MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
 
-async function callModel(body) {
+async function callModel(unredacted) {
+  const body = redactModelRequest(unredacted);
   const config = modelConfig();
   if (transportOverride) return transportOverride(body);
   if (!config.apiKey) return { ok: false, error: 'MODEL_NOT_CONFIGURED' };
