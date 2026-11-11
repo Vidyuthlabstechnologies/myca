@@ -15,6 +15,8 @@ import { saveGstr3bToPortal, gstr3bPortalLiability, offsetGstr3bOnPortal, fileGs
 import { aaBankFeed } from './aa-import.mjs';
 import { askKnowledge } from './knowledge.mjs';
 import { askTax, reviewIncomeTaxReturn, taxModules, taxPlan } from './tax-assistant.mjs';
+import { itrKnowledge } from './itr-knowledge.mjs';
+import { checkItrJson } from './itr-json-check.mjs';
 import { pushZohoInvoices } from './zoho-push.mjs';
 import { booksAuditLedger } from './audit-ledger.mjs';
 import { salaryPrivate } from './employees.mjs';
@@ -2781,6 +2783,20 @@ export const TOOLS = [
     description: "List MyCA's tax knowledge modules (Agent Skills format: GST returns, input tax credit, income tax for individuals, TDS on business payments, presumptive income), or show one module with every figure filled in from the dated rules for a date. Read-only.",
     args: ['module', 'asOf'],
     run: (state, args = {}) => taxModules(state, args),
+  },
+  {
+    name: 'itr_knowledge',
+    title: 'Look up ITR forms, validation rules and fields',
+    description: "Search MyCA's ITR knowledge base for AY 2025-26: the CBDT validation rules for ITR-1 to ITR-6 (Category A blocks the upload, B brings a defect notice u/s 139(9), D needs a claim form), the tax audit (Form 3CD) cross-checks, every field of the official JSON schemas with its allowed values and limits, the field guides that say where each ITR-1 and ITR-2 figure comes from and what conflict to look for, the Excel utility's schedules and drop-down lists, and guides on choosing a form, due dates, Form 16 vs AIS, the regimes for FY 2026-27 and a business-return case study. Give a query, or a form with a rule number or a field name. Every answer names its source document and page. Read-only.",
+    args: ['query', 'form', 'rule', 'field', 'kind', 'limit'],
+    run: (state, args = {}) => itrKnowledge(state, args),
+  },
+  {
+    name: 'check_itr_json',
+    title: 'Check an ITR JSON against the official schema',
+    description: 'Check an income tax return JSON (ITR-1 to ITR-6, as generated for upload) against the CBDT schema for AY 2025-26: missing required fields, wrong types, values outside the allowed list, wrong formats (PAN, dates, IFSC) and amounts over the limits, with the validation rule each problem relates to and a reminder of the Category B and D rules. Does not upload anything. Read-only.',
+    args: ['json', 'form'],
+    run: (state, args = {}) => checkItrJson(state, args),
   },
   {
     name: 'tax_plan',
