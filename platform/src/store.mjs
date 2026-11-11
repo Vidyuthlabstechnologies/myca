@@ -107,6 +107,7 @@ export function createState() {
     gstPayments: {},
     sutaRates: [],
     yearClosings: {},
+    countryData: {},
     automation: { lastRun: '', log: [] },
     amendmentSeq: 0,
     chatRecent: [],
@@ -219,6 +220,7 @@ export function serialize(state) {
     gstPayments: state.gstPayments || {},
     sutaRates: state.sutaRates || [],
     yearClosings: state.yearClosings || {},
+    countryData: state.countryData || {},
     automation: state.automation || { lastRun: '', log: [] },
     amendmentSeq: state.amendmentSeq || 0,
     chatRecent: Array.isArray(state.chatRecent) ? state.chatRecent : [],
@@ -412,6 +414,7 @@ export function deserialize(raw) {
   state.gstPayments = raw.gstPayments && typeof raw.gstPayments === 'object' ? raw.gstPayments : {};
   state.sutaRates = Array.isArray(raw.sutaRates) ? raw.sutaRates : [];
   state.yearClosings = raw.yearClosings && typeof raw.yearClosings === 'object' ? raw.yearClosings : {};
+  state.countryData = raw.countryData && typeof raw.countryData === 'object' && !Array.isArray(raw.countryData) ? raw.countryData : {};
   state.automation = raw.automation && typeof raw.automation === 'object' ? raw.automation : { lastRun: '', log: [] };
   state.amendmentSeq = raw.amendmentSeq || 0;
   state.chatRecent = Array.isArray(raw.chatRecent) ? raw.chatRecent : [];

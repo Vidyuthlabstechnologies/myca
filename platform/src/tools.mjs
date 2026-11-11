@@ -129,6 +129,8 @@ import { refreshExceptions, listExceptions, summarise, decideException } from '.
 import { appendAuditEvent } from './ca-api.mjs';
 import { liveCallsEnabled, mockModeEnabled } from './runtime-config.mjs';
 import { seedDemo } from './store.mjs';
+import { ENGINE_TOOL_DEFS } from './countries/manifests.mjs';
+import { runEngineTool } from './countries/engines.mjs';
 
 function ok(data) {
   return { ok: true, data };
@@ -3147,6 +3149,7 @@ export const TOOLS = [
     description: 'Post two sample invoices for Nalanda Textiles so the five CA reviewers can click through a live set of books.',
     run: (state) => ok({ invoices: seedDemo(state).invoices.length }),
   },
+  ...ENGINE_TOOL_DEFS.map((tool) => ({ name: tool.name, title: tool.title, description: tool.description, args: [...tool.args], run: (state, args = {}) => runEngineTool(tool.name, state, args) })),
 ];
 
 export const TOOL_MAP = Object.fromEntries(TOOLS.map((t) => [t.name, t]));

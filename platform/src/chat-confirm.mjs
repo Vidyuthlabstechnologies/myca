@@ -72,6 +72,8 @@ import { planAmendment } from './invoice-amendments.mjs';
 import { tallyXmlToDayBookCsv } from './tally-xml.mjs';
 import { findBankLine, planMatch, planBankCharges, planBankRule, planBankAccount, planTransfer, previewStatementLines, rulesOf, linesOf, accountFor, amountOf, sideOf, ruleMatches, docWords, ruleFromMatch } from './bank-recon.mjs';
 import { runBankRules, ruleWords } from './bank-rules.mjs';
+import { ENGINE_WRITE_TOOLS } from './countries/manifests.mjs';
+import { enginePreview } from './countries/engines.mjs';
 
 export const CONFIRM_TOOLS = new Set([
   'sign_us_return', 'file_us_return', 'import_payroll_tax_forms',
@@ -80,6 +82,7 @@ export const CONFIRM_TOOLS = new Set([
   'import_tally', 'import_tally_xml', 'import_zoho', 'import_bank',
   'govt_generate_irn', 'govt_nic_cancel_irn',
   'exception_decide',
+  ...ENGINE_WRITE_TOOLS,
 ]);
 
 const PENDING_TTL_MS = 10 * 60 * 1000;
@@ -2017,7 +2020,7 @@ export function needsConfirmation(name) {
 
 export function previewOf(state, name, args = {}) {
   setCurrentCountry(state);
-  const build = PREVIEWERS[name];
+  const build = PREVIEWERS[name] || enginePreview(name);
   if (!build) return { blockers: [], summary: `Run ${name}.`, effects: [], figures: {} };
   try {
     return build(state, args);

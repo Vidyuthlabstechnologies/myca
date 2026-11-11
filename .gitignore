@@ -32,6 +32,7 @@ vendor/*
 *.tfstate.*
 crash.log
 *.tfvars
+!infra/cloud/countries/*.tfvars
 !*.tfvars.example
 override.tf
 override.tf.json

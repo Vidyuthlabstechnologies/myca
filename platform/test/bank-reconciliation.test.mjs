@@ -7,6 +7,7 @@ import { runTool } from '../src/tools.mjs';
 import { chat } from '../src/router.mjs';
 import { CONFIRM_TOOLS, previewOf } from '../src/chat-confirm.mjs';
 import { isRemoteQuery } from '../src/remote-contract.mjs';
+import { ENGINE_WRITE_TOOLS } from '../src/countries/manifests.mjs';
 import { validateAssistantToolCall, planLocalToolCall } from '../src/assistant-contract.mjs';
 import { toolServesCountry } from '../src/country.mjs';
 import { createInvoice, recordReceipt } from '../src/invoice.mjs';
@@ -512,7 +513,7 @@ test('the new tools are registered for remote queries, both countries, confirmat
   const proposable = new Set([...listed[1].matchAll(/'([^']+)'/g)].map((hit) => hit[1]));
   const engineOnly = new Set(['month_close_approve', 'set_sku_supply', 'record_purchase_order', 'record_advance_tax', 'set_supplier_bank', 'push_tally', 'set_gst_credit_opening', 'set_sales_tax_rate', 'set_contractor', 'set_withholding', 'govt_nic_cancel_irn', 'govt_generate_irn']);
   for (const name of CONFIRM_TOOLS) {
-    if (isImport(name) || engineOnly.has(name)) continue;
+    if (isImport(name) || engineOnly.has(name) || ENGINE_WRITE_TOOLS.includes(name)) continue;
     assert.equal(proposable.has(name), true, `${name} can be proposed from the app`);
   }
   for (const name of [...BANK_WRITES, 'add_recurring', 'stop_recurring']) assert.equal(proposable.has(name), true, name);

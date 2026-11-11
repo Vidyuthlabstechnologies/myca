@@ -121,6 +121,7 @@ export function newBook(company = {}) {
     automation: { lastRun: '', log: [] },
     amendmentSeq: 0,
     chatRecent: [],
+    countryData: {},
   };
 }
 
@@ -211,6 +212,7 @@ export function serializeBook(book) {
     gstPayments: book.gstPayments || {},
     sutaRates: book.sutaRates || [],
     yearClosings: book.yearClosings || {},
+    countryData: book.countryData || {},
     automation: book.automation || { lastRun: '', log: [] },
     amendmentSeq: book.amendmentSeq || 0,
     chatRecent: Array.isArray(book.chatRecent) ? book.chatRecent : [],
@@ -301,6 +303,7 @@ export function deserializeBook(raw) {
   book.gstPayments = raw.gstPayments && typeof raw.gstPayments === 'object' ? raw.gstPayments : {};
   book.sutaRates = Array.isArray(raw.sutaRates) ? raw.sutaRates : [];
   book.yearClosings = raw.yearClosings && typeof raw.yearClosings === 'object' ? raw.yearClosings : {};
+  book.countryData = raw.countryData && typeof raw.countryData === 'object' && !Array.isArray(raw.countryData) ? raw.countryData : {};
   book.automation = raw.automation && typeof raw.automation === 'object' ? raw.automation : { lastRun: '', log: [] };
   book.amendmentSeq = raw.amendmentSeq || 0;
   book.chatRecent = Array.isArray(raw.chatRecent) ? raw.chatRecent : [];

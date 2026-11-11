@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { ENGINE_EXTERNAL_ACTIONS } from './countries/manifests.mjs';
 import { channelPullsEnabled, liveCallsEnabled, loadEnvFile, mockModeEnabled, testModeEnabled } from './runtime-config.mjs';
 import { appendAuditEvent, stateDigest } from './ca-api.mjs';
 import { normalizeClientId } from './books.mjs';
@@ -105,6 +106,34 @@ export const ACTION_CLASSES = Object.freeze(Object.assign(Object.create(null), {
   irs_mef_acks: read('irs', ['irs.getAcks'], { timeoutMs: 2 * MINUTE_MS }),
 }));
 
+export const ENGINE_ACTION_FAMILY = 'country-engine';
+export const ENGINE_ACTION_CLASSES = Object.freeze(Object.assign(Object.create(null), Object.fromEntries(ENGINE_EXTERNAL_ACTIONS.map((action) => [action.id, Object.freeze({ ...entry(action.access, ENGINE_ACTION_FAMILY, ['https.request'], { irreversible: action.irreversible, timeoutMs: action.timeoutSeconds * 1000 }), hosts: action.hosts, country: action.country })]))));
+
+export function externalActionClass(actionId) {
+  const id = String(actionId || '');
+  if (Object.hasOwn(ACTION_CLASSES, id)) return ACTION_CLASSES[id];
+  return Object.hasOwn(ENGINE_ACTION_CLASSES, id) ? ENGINE_ACTION_CLASSES[id] : null;
+}
+
+function allowedHosts(item) {
+  if (!item || !item.hosts) return [];
+  return testModeEnabled() ? item.hosts.test : item.hosts.live;
+}
+
+const HTTPS_TRANSPORT = Object.freeze({
+  request: (ctx) => async (url, init = {}) => {
+    let target;
+    try {
+      target = new URL(String(url));
+    } catch {
+      throw new Error('ENGINE_URL_UNREADABLE');
+    }
+    if (target.protocol !== 'https:' || target.port || target.username || target.password) throw new Error('ENGINE_URL_NOT_PLAIN_HTTPS');
+    if (!allowedHosts(externalActionClass(ctx.actionId)).includes(target.hostname)) throw new Error(`ENGINE_HOST_NOT_ALLOWED:${target.hostname}`);
+    return getChannelClient().fetchFn(target.toString(), { ...init, redirect: 'error', signal: init.signal ? AbortSignal.any([init.signal, ctx.signal]) : ctx.signal });
+  },
+});
+
 function transportOptions(ctx) {
   return { mock: false, signal: ctx.signal };
 }
@@ -164,6 +193,7 @@ const TALLY_TRANSPORT = Object.freeze({
 });
 
 const TRANSPORT_TABLES = Object.freeze({
+  https: HTTPS_TRANSPORT,
   tally: TALLY_TRANSPORT,
   nic: NIC_TRANSPORT,
   channel: CHANNEL_TRANSPORT,
@@ -199,6 +229,7 @@ function resolveTransport(use) {
 }
 
 const TRANSPORT_BY_USE = new Map(Object.values(ACTION_CLASSES).flatMap((item) => item.uses).map((use) => [use, resolveTransport(use)]));
+TRANSPORT_BY_USE.set('https.request', resolveTransport('https.request'));
 
 function scopedTransports(uses, ctx) {
   const groups = {};
@@ -479,7 +510,7 @@ async function runWithDeadline(action, execute, timeoutMs) {
 
 export async function performExternalAction(state, request = {}, execute) {
   const actionId = String(request?.actionId || '');
-  const item = Object.hasOwn(ACTION_CLASSES, actionId) ? ACTION_CLASSES[actionId] : null;
+  const item = externalActionClass(actionId);
   if (!item) return { ok: false, error: 'UNKNOWN_EXTERNAL_ACTION', actionId };
   if (typeof execute !== 'function') return { ok: false, error: 'EXECUTOR_REQUIRED', actionId };
   if (!isRecord(state)) return { ok: false, error: 'STATE_REQUIRED', actionId };
@@ -515,7 +546,7 @@ export async function performExternalAction(state, request = {}, execute) {
 
   const pullAllowed = item.family === 'channel' && item.actionClass === 'read' && channelPullsEnabled();
   if (!liveCallsEnabled() && !pullAllowed && !item.local) return recordDryRun(action, request.payload ?? params);
-  if (testModeEnabled() && !pullAllowed && !item.local && !TEST_MODE_FAMILIES.has(item.family)) return recordDryRun(action, request.payload ?? params, 'TEST_MODE_HELD');
+  if (testModeEnabled() && !pullAllowed && !item.local && !TEST_MODE_FAMILIES.has(item.family) && !(item.hosts && item.hosts.test.length)) return recordDryRun(action, request.payload ?? params, 'TEST_MODE_HELD');
 
   const beforeHash = stateDigest(state);
   const claim = item.actionClass === 'write' && !item.local && !testModeEnabled() ? claimApproval(action, request.approvalId) : { ok: true, approval: null };

@@ -56,6 +56,9 @@ jobs:
             terraform -chdir="$dir" validate -no-color
           done
 
+      - name: Terraform test (hosted API environments, mocked providers)
+        run: terraform -chdir=infra/cloud test -no-color
+
   plan:
     name: Plan (pull request, read-only)
     needs: check

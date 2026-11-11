@@ -13,6 +13,7 @@ import { createWahaSender } from './waha.mjs';
 import { createBilling, billingConfigFromEnv, billingConfigProblem } from './billing.mjs';
 import { isProduction, hostingName, serviceRevision, databaseTlsProblem, proxyHopsProblem } from './runtime.mjs';
 import { deploymentEnvironment, environmentProblem, enabledServices } from './environment.mjs';
+import { residencyProblem } from './residency.mjs';
 import { testSignInFromEnv } from './test-sign-in.mjs';
 
 const STARTUP_ATTEMPTS = 10;
@@ -52,6 +53,8 @@ async function migrateWithRetry(db) {
 
 const environmentRefusal = environmentProblem();
 if (environmentRefusal) throw new Error(environmentRefusal);
+const residencyRefused = residencyProblem();
+if (residencyRefused) throw new Error(residencyRefused);
 const testSignIn = testSignInFromEnv(process.env, deploymentEnvironment());
 if (testSignIn.problem) throw new Error(testSignIn.problem);
 const otpGlobalPerHour = Number.parseInt(String(process.env.MYCA_OTP_GLOBAL_PER_HOUR || ''), 10);
