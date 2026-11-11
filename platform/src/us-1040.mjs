@@ -126,10 +126,6 @@ function eitcAt(amount, row, start, band) {
   return Math.max(0, Math.round(reduced));
 }
 
-function personOf(input, owner) {
-  return owner === 'spouse' ? input.spouse || {} : input.taxpayer || {};
-}
-
 function formsOf(input, kind) {
   return (input.forms || []).filter((form) => form.kind === kind);
 }
