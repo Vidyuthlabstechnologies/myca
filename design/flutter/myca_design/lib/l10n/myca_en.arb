@@ -1,0 +1,51 @@
+{
+  "@@locale": "en",
+  "actionContinue": "Continue",
+  "actionSave": "Save",
+  "actionCancel": "Cancel",
+  "actionApprove": "Approve",
+  "actionEdit": "Edit",
+  "actionShare": "Share",
+  "actionTryAgain": "Try again",
+  "actionAskBahi": "Ask Bahi",
+  "statusDraft": "Draft",
+  "statusDue": "Due",
+  "statusOverdue": "Overdue",
+  "statusFiled": "Filed",
+  "statusPaid": "Paid",
+  "statusNeedsReview": "Needs a look",
+  "moneyIn": "Money in",
+  "moneyOut": "Money out",
+  "balance": "Balance",
+  "nothingYet": "Nothing here yet",
+  "errorOffline": "You're offline. We'll keep this and send it when you're back.",
+  "errorGeneric": "Something went wrong on our side. Your books are safe.",
+  "approvalPromise": "Nothing is filed or paid until you approve it.",
+  "taxDueOn": "{taxName} due on {date}",
+  "@taxDueOn": {
+    "placeholders": {
+      "taxName": {
+        "type": "String"
+      },
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "dataStaysIn": "Your data stays in {country}.",
+  "@dataStaysIn": {
+    "placeholders": {
+      "country": {
+        "type": "String"
+      }
+    }
+  },
+  "bahiHello": "Hi {name}, I'm Bahi. I keep your books tidy.",
+  "@bahiHello": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  }
+}

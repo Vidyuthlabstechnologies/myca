@@ -1,10 +1,11 @@
-name: Deploy site (GCP)
+name: Deploy site (Cloud Run)
 
 on:
   push:
     branches: [main]
     paths:
       - "deploy/public/**"
+      - "deploy/site/**"
       - ".github/workflows/deploy-site.yml"
   workflow_dispatch:
 
@@ -17,17 +18,18 @@ concurrency:
 
 jobs:
   deploy:
-    name: Sync to GCS + purge CDN
-    # Skips cleanly until Akhil's bootstrap + GitHub variables are in place.
-    if: ${{ vars.GCP_WIF_PROVIDER != '' && vars.MYCA_MANAGE_SITE == 'true' && github.ref == 'refs/heads/main' }}
+    name: Build the site image and roll out
+    # Skips cleanly until the deploy identity and project are set as GitHub variables.
+    if: ${{ vars.GCP_WIF_PROVIDER != '' && vars.GCP_PROJECT_ID != '' && github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
     environment: production
     permissions:
       contents: read
       id-token: write
     env:
-      SITE_BUCKET: ${{ vars.GCP_SITE_BUCKET }}
-      URL_MAP: ${{ vars.GCP_URL_MAP }}
+      PROJECT: ${{ vars.GCP_PROJECT_ID }}
+      REGION: ${{ vars.GCP_API_REGION || 'asia-south1' }}
+      IMAGE: ${{ vars.GCP_API_REGION || 'asia-south1' }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/myca-api/myca-site:${{ github.sha }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -41,26 +43,20 @@ jobs:
 
       - uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
 
-      - name: Upload site
+      - name: Build and push the image
         run: |
-          gcloud storage rsync deploy/public "gs://${SITE_BUCKET}" \
-            --recursive \
-            --delete-unmatched-destination-objects
+          gcloud auth configure-docker "${REGION}-docker.pkg.dev" --quiet
+          docker build -f deploy/site/Dockerfile -t "$IMAGE" .
+          docker push "$IMAGE"
 
-      - name: Set HTML cache headers
-        run: |
-          gcloud storage objects update "gs://${SITE_BUCKET}/**" \
-            --cache-control="public, max-age=300, must-revalidate"
+      - name: Roll out
+        run: gcloud run deploy myca-site --project "$PROJECT" --region "$REGION" --image "$IMAGE" --quiet
 
-      - name: Purge Cloud CDN cache
+      - name: Check the privacy policy answers
+        shell: bash
         run: |
-          gcloud compute url-maps invalidate-cdn-cache "${URL_MAP}" \
-            --path "/*" --async
-
-      - name: Summary
-        run: |
-          {
-            echo "### Site deployed"
-            echo "- Bucket: \`${SITE_BUCKET}\`"
-            echo "- CDN invalidated: \`${URL_MAP}\`"
-          } >> "$GITHUB_STEP_SUMMARY"
+          set -euo pipefail
+          url="$(gcloud run services describe myca-site --project "$PROJECT" --region "$REGION" --format='value(status.url)')"
+          curl -fsS -o /dev/null "$url/privacy"
+          curl -fsS -o /dev/null "$url/delete-account"
+          echo "### Site deployed to $url" >> "$GITHUB_STEP_SUMMARY"

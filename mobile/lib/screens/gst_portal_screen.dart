@@ -20,10 +20,11 @@ String _clock(DateTime at) {
 }
 
 class GstPortalScreen extends StatefulWidget {
-  const GstPortalScreen({super.key, required this.period, this.gstin = ''});
+  const GstPortalScreen({super.key, required this.period, this.gstin = '', this.form = 'gstr1'});
 
   final String period;
   final String gstin;
+  final String form;
 
   @override
   State<GstPortalScreen> createState() => _GstPortalScreenState();
@@ -45,6 +46,13 @@ class _GstPortalScreenState extends State<GstPortalScreen> {
   String _ack = '';
   List<Map<String, dynamic>> _sections = const [];
   bool _loaded = false;
+  bool _paid = false;
+  bool _liabilityRead = false;
+  String _taxLine = '';
+
+  bool get _is3b => widget.form == 'gstr3b';
+
+  String get _formName => _is3b ? 'GSTR-3B' : 'GSTR-1';
 
   @override
   void didChangeDependencies() {
@@ -130,22 +138,91 @@ class _GstPortalScreenState extends State<GstPortalScreen> {
     }
   }
 
+  String _operation(String step) => '${_is3b ? 'gstr3b' : 'gstr1'}_$step';
+
+  Future<Map<String, dynamic>> _withApproval(String step, String otp) async {
+    final operation = _operation(step);
+    final rows = await _cloud.filingApprovals(operation, widget.period);
+    for (final row in rows.where((row) => row['status'] == 'approved')) {
+      final out = await _cloud.returnStep(widget.form, step, period: widget.period, gstin: _gstin, otp: otp, caApprovalId: '${row['approvalId']}');
+      if (out['error'] != 'CA_APPROVAL_REQUIRED') return out;
+    }
+    final pending = rows.where((row) => row['status'] == 'pending').toList();
+    if (pending.isEmpty) {
+      await _cloud.requestFilingApproval(operation, widget.period, gstin: _gstin);
+      return {'ok': false, 'awaitingApproval': 'asked'};
+    }
+    final approvalId = '${pending.first['approvalId']}';
+    final decided = await _cloud.approve(approvalId);
+    if (decided['error'] == 'MAKER_CHECKER_VIOLATION') return {'ok': false, 'awaitingApproval': 'waiting'};
+    if (decided['ok'] != true) throw MycaApiException(cloudMessage('${decided['error'] ?? 'UNKNOWN'}', '${decided['hint'] ?? ''}'));
+    return _cloud.returnStep(widget.form, step, period: widget.period, gstin: _gstin, otp: otp, caApprovalId: approvalId);
+  }
+
   Future<Map<String, dynamic>?> _step(String step, String doing, {String otp = ''}) async {
-    final out = await _run(doing, () => _cloud.gstr1Step(step, period: widget.period, gstin: _gstin, otp: otp));
+    var out = await _run(doing, () => _cloud.returnStep(widget.form, step, period: widget.period, gstin: _gstin, otp: otp));
+    if (out != null && out['error'] == 'CA_APPROVAL_REQUIRED') out = await _run('Checking the approval for this step…', () => _withApproval(step, otp));
+    if (out != null && out['awaitingApproval'] != null) {
+      final asked = out['awaitingApproval'] == 'asked';
+      if (mounted) {
+        setState(() => _note = asked
+            ? 'This business is in live mode, so this step needs a second person. Asked for approval: an owner or your accountant, other than you, opens this return and taps the same step to approve it.'
+            : 'Waiting for an owner or your accountant, other than you, to approve this step.');
+      }
+      return null;
+    }
     if (out == null && _error.contains('session ended')) await _reload();
     return out;
   }
 
   Future<void> _save() async {
-    final out = await _step('save', 'Saving the GSTR-1 to the portal…');
+    final out = await _step('save', 'Saving the $_formName to the portal…');
     if (out == null || !mounted) return;
+    final sections = out['sections'] is Map ? (out['sections'] as Map).cast<String, dynamic>() : const <String, dynamic>{};
     setState(() {
+      if (_is3b) {
+        _taxLine = gstr3bTaxLine(sections);
+        _paid = false;
+        _liabilityRead = false;
+      }
       _saved = true;
       _submitted = false;
       _evcSent = false;
       _processing = '';
       _sections = const [];
-      _note = 'Saved to the portal. Check it next.';
+      _note = _is3b ? 'Saved to the portal. Read the tax the portal works out next.' : 'Saved to the portal. Check it next.';
+    });
+  }
+
+  Future<void> _liability() async {
+    final out = await _step('liability', 'Reading the tax the portal works out…');
+    if (out == null || !mounted) return;
+    setState(() {
+      _liabilityRead = true;
+      _note = 'The portal has worked out the tax. Pay it from credit and cash next.';
+    });
+  }
+
+  String get _simulatedLead => AppScope.of(context).testServer ? 'Simulated: this is the test environment, so nothing reaches the GST portal. ' : '';
+
+  Future<void> _pay() async {
+    final sure = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Pay the GSTR-3B tax for ${monthLabel(widget.period)}?'),
+        content: Text('${_simulatedLead}The portal uses your input tax credit first, then the cash ledger. This cannot be undone. Pay any cash shortfall by challan (PMT-06) before this step.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Pay')),
+        ],
+      ),
+    );
+    if (sure != true || !mounted) return;
+    final out = await _step('offset', 'Setting off the tax…');
+    if (out == null || !mounted) return;
+    setState(() {
+      _paid = true;
+      _note = 'Tax set off: ${rupees(out['creditUsed'] as num? ?? 0)} from credit and ${rupees(out['cashPaid'] as num? ?? 0)} from cash. Send the EVC OTP next.';
     });
   }
 
@@ -195,8 +272,8 @@ class _GstPortalScreenState extends State<GstPortalScreen> {
     final sure = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('File GSTR-1 for ${monthLabel(widget.period)}?'),
-        content: const Text('Filing cannot be undone. Check the portal summary first.'),
+        title: Text('File $_formName for ${monthLabel(widget.period)}?'),
+        content: Text('$_simulatedLead${_is3b ? 'Filing cannot be undone. Check the tax and the credit first.' : 'Filing cannot be undone. Check the portal summary first.'}'),
         actions: [
           TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancel')),
           FilledButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('File')),
@@ -209,7 +286,7 @@ class _GstPortalScreenState extends State<GstPortalScreen> {
     _evcOtp.clear();
     setState(() {
       _ack = '${out['ackNum'] ?? ''}';
-      _note = 'Filed. Acknowledgement $_ack.';
+      _note = out['simulated'] == true ? 'Filed (simulated). Reference $_ack is practice only: nothing was sent to the GST portal.' : 'Filed. Acknowledgement $_ack.';
     });
   }
 
@@ -229,7 +306,7 @@ class _GstPortalScreenState extends State<GstPortalScreen> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
         children: [
-          Text('GSTR-1 for ${monthLabel(widget.period)}${_gstin.isEmpty ? '' : ' · $_gstin'}', style: text.titleMedium),
+          Text('$_formName for ${monthLabel(widget.period)}${_gstin.isEmpty ? '' : ' · $_gstin'}', style: text.titleMedium),
           const SizedBox(height: 8),
           if (status == null && _error.isEmpty) const LinearProgressIndicator(),
           if (status != null && !status.available)
@@ -312,19 +389,21 @@ class _GstPortalScreenState extends State<GstPortalScreen> {
     return [
       Text('Connected as ${session.username}${expires == null ? '' : ' until ${_clock(expires)}'}. MyCA keeps the session alive while API access stays on.', style: text.bodyMedium),
       const SizedBox(height: 8),
-      button('1. Save to the portal', filed ? null : _save),
-      button('2. Check the save', _saved && !filed ? _check : null),
-      button('3. Submit', _saved && !_submitted && !filed && _processing != 'processed_with_errors' && _processing != 'error' ? _submit : null),
-      if (_sections.isNotEmpty) ...[
-        const SizedBox(height: 12),
-        Text('PORTAL SUMMARY', style: text.labelSmall),
-        for (final row in _sections)
-          Padding(
-            padding: const EdgeInsets.only(top: 4),
-            child: Text('${row['section']}: ${row['records']} ${row['records'] == 1 ? 'record' : 'records'}, value ${rupees(row['value'] as num? ?? 0)}, tax ${rupees(row['tax'] as num? ?? 0)}', style: text.bodyMedium),
-          ),
+      if (_is3b) ..._gstr3bSteps(text, button, filed) else ...[
+        button('1. Save to the portal', filed ? null : _save),
+        button('2. Check the save', _saved && !filed ? _check : null),
+        button('3. Submit', _saved && !_submitted && !filed && _processing != 'processed_with_errors' && _processing != 'error' ? _submit : null),
+        if (_sections.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          Text('PORTAL SUMMARY', style: text.labelSmall),
+          for (final row in _sections)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text('${row['section']}: ${row['records']} ${row['records'] == 1 ? 'record' : 'records'}, value ${rupees(row['value'] as num? ?? 0)}, tax ${rupees(row['tax'] as num? ?? 0)}', style: text.bodyMedium),
+            ),
+        ],
+        button('4. Send the EVC OTP', _submitted && !filed ? _sendEvc : null),
       ],
-      button('4. Send the EVC OTP', _submitted && !filed ? _sendEvc : null),
       if (_evcSent && !filed) ...[
         const SizedBox(height: 12),
         TextField(
@@ -334,10 +413,29 @@ class _GstPortalScreenState extends State<GstPortalScreen> {
           maxLength: 6,
           decoration: const InputDecoration(labelText: 'EVC OTP'),
         ),
-        button('5. File GSTR-1', _file, primary: true),
+        button(_is3b ? '5. File GSTR-3B' : '5. File GSTR-1', _file, primary: true),
       ],
       const SizedBox(height: 16),
       TextButton(onPressed: busy ? null : _disconnect, child: const Text('Disconnect the GST portal')),
     ];
   }
+
+  List<Widget> _gstr3bSteps(TextTheme text, Widget Function(String, VoidCallback?, {bool primary}) button, bool filed) => [
+        button('1. Save to the portal', filed ? null : _save),
+        if (_taxLine.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Text(_taxLine, style: text.bodyMedium),
+          ),
+        button('2. Read the tax the portal works out', _saved && !filed ? _liability : null),
+        button('3. Pay the tax', _liabilityRead && !_paid && !filed ? _pay : null),
+        button('4. Send the EVC OTP', _paid && !filed ? _sendEvc : null),
+      ];
+}
+
+String gstr3bTaxLine(Map<String, dynamic> sections) {
+  final outward = sections['outward'] is Map ? (sections['outward'] as Map).cast<String, dynamic>() : const <String, dynamic>{};
+  final credit = sections['credit'] is Map ? (sections['credit'] as Map).cast<String, dynamic>() : const <String, dynamic>{};
+  num sum(Map<String, dynamic> row) => ['iamt', 'camt', 'samt', 'csamt'].fold<num>(0, (total, key) => total + (row[key] as num? ?? 0));
+  return 'Outward taxable ${rupees(outward['txval'] as num? ?? 0)}, tax ${rupees(sum(outward))}, credit ${rupees(sum(credit))}.';
 }

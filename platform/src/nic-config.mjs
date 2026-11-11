@@ -203,17 +203,80 @@ function nicDate(iso) {
   return dt.length === 3 ? `${dt[2]}/${dt[1]}/${dt[0]}` : String(iso || '');
 }
 
-export function invoiceToNicPayload(company, inv) {
+const PIN = /\b([1-9][0-9]{5})\b/;
+const IRN_FROM = '2021-10-01';
+const CANCEL_HOURS = 24;
+
+function pinIn(text) {
+  const found = PIN.exec(String(text || ''));
+  return found ? Number(found[1]) : null;
+}
+
+function sellerPin(company) {
+  const pin = String(company?.pin ?? '').trim();
+  return /^[1-9][0-9]{5}$/.test(pin) ? Number(pin) : pinIn(company?.address);
+}
+
+function hsnOf(line) {
+  return String(line?.hsn ?? '').replace(/\s+/g, '');
+}
+
+export function nicSupplyType(inv) {
+  if (inv?.export) return inv.export.withTax ? 'EXPWP' : 'EXPWOP';
+  return String(inv?.partyGstin || '').trim() ? 'B2B' : '';
+}
+
+export function nicPayloadProblems(company, inv, party = null, today = new Date().toISOString().slice(0, 10)) {
+  const problems = [];
+  const supply = nicSupplyType(inv);
+  if (!supply) problems.push({ code: 'B2C_NO_IRN', words: 'An invoice to a buyer without a GSTIN gets no IRN: e-invoicing covers B2B, export and SEZ supplies only.' });
+  const date = String(inv?.date || '');
+  if (date && date < IRN_FROM) problems.push({ code: 'DOCUMENT_TOO_OLD', words: 'The IRP takes documents dated 1 October 2021 or later.' });
+  if (date && date > today) problems.push({ code: 'FUTURE_DOCUMENT', words: 'The document is dated in the future.' });
+  const missing = (inv?.lines || []).map((line, at) => ({ at: at + 1, hsn: hsnOf(line) })).filter((line) => !/^[0-9]{4}(?:[0-9]{2}){0,2}$/.test(line.hsn));
+  if (missing.length) problems.push({ code: 'HSN_REQUIRED', lines: missing.map((line) => line.at), words: `Line ${missing.map((line) => line.at).join(', ')} needs an HSN or SAC code of 4, 6 or 8 digits (6 or more when the yearly turnover is above 5 crore).` });
+  if (!sellerPin(company)) problems.push({ code: 'SELLER_PIN_REQUIRED', words: 'Your business PIN code is not on file. Say "business address: ..." with the 6-digit PIN.' });
+  if (!String(company?.address || '').trim()) problems.push({ code: 'SELLER_ADDRESS_REQUIRED', words: 'Your business address is not on file. Say "business address: ..." with the 6-digit PIN.' });
+  if (supply === 'B2B' && !pinIn(party?.address)) problems.push({ code: 'BUYER_PIN_REQUIRED', words: `${inv.partyName || 'The buyer'}'s address with its PIN code is not on file. Say "address for ${inv.partyName || 'the customer'}: ..." with the PIN.` });
+  if (inv?.export && !/^[A-Z]{2}$/.test(String(inv.export.countryCode || '')) ) problems.push({ code: 'EXPORT_COUNTRY_REQUIRED', words: 'An export e-invoice needs the buyer\'s country code (for example US or AE).' });
+  if (inv?.export && String(inv.export.countryCode || '').toUpperCase() === 'IN') problems.push({ code: 'EXPORT_COUNTRY_INDIA', words: 'An export buyer\'s country cannot be India.' });
+  return problems;
+}
+
+export function nicPartyFor(state, inv) {
+  const parties = Array.isArray(state?.parties) ? state.parties : [];
+  return parties.find((party) => (inv?.partyAccountId && party.accountId === inv.partyAccountId)) || parties.find((party) => party.name === inv?.partyName) || null;
+}
+
+export function nicPayloadRefusal(state, inv) {
+  const problems = nicPayloadProblems(state.company || {}, inv, nicPartyFor(state, inv));
+  return problems.length ? { ok: false, error: 'IRN_PAYLOAD_INVALID', invoiceId: inv.id, problems, hint: problems.map((problem) => problem.words).join(' ') } : null;
+}
+
+export function nicCancelProblem(inv, now = new Date()) {
+  const raw = String(inv?.ackDate || inv?.sandboxAckDate || '').trim();
+  if (!raw) return null;
+  const at = new Date(raw.includes('T') ? raw : `${raw.replace(' ', 'T')}+05:30`);
+  if (Number.isNaN(at.getTime())) return null;
+  if (now.getTime() - at.getTime() <= CANCEL_HOURS * 3600 * 1000) return null;
+  return { code: 'IRN_CANCEL_WINDOW_PASSED', words: 'An IRN can be cancelled on the IRP only within 24 hours of generation. Issue a credit note instead.' };
+}
+
+export function invoiceToNicPayload(company, inv, party = null) {
   const date = nicDate(inv.date);
   const docType = nicDocType(inv.id);
-  const pin = Number(company.pin || 411001);
-  const loc = company.city || 'Pune';
+  const exported = inv.export || null;
+  const supply = nicSupplyType(inv) || 'B2B';
+  const ownPin = sellerPin(company);
+  const loc = String(company.city || '').trim() || String(company.address || '').split(',').map((part) => part.trim()).filter(Boolean).pop() || '';
+  const buyerAddress = String(party?.address || '').trim();
+  const buyerState = exported ? '96' : inv.partyState || inv.registrationState || company.state;
   const items = (inv.lines || []).map((l, i) => ({
     SlNo: String(i + 1),
-    IsServc: 'N',
-    HsnCd: String(l.hsn || '5208'),
+    IsServc: hsnOf(l).startsWith('99') ? 'Y' : 'N',
+    HsnCd: hsnOf(l),
     Qty: Number(l.qty || 1),
-    Unit: 'NOS',
+    Unit: hsnOf(l).startsWith('99') ? 'OTH' : 'NOS',
     UnitPrice: Number(l.rate || 0),
     TotAmt: Number(l.taxable || 0),
     Discount: 0,
@@ -227,25 +290,25 @@ export function invoiceToNicPayload(company, inv) {
   }));
   return {
     Version: '1.1',
-    TranDtls: { TaxSch: 'GST', SupTyp: inv.partyGstin ? 'B2B' : 'B2C', RegRev: 'N', IgstOnIntra: 'N' },
+    TranDtls: { TaxSch: 'GST', SupTyp: supply, RegRev: 'N', IgstOnIntra: 'N' },
     DocDtls: { Typ: docType, No: String(inv.id).slice(0, 16), Dt: date },
     ...(docType !== 'INV' && inv.invoiceId ? { PrecDocDtls: [{ InvNo: String(inv.invoiceId).slice(0, 16), InvDt: nicDate(inv.invoiceDate) }] } : {}),
     SellerDtls: {
       Gstin: inv.registrationGstin || company.gstin,
       LglNm: company.name,
-      Addr1: company.address || loc,
-      Loc: loc,
-      Pin: pin,
-      Stcd: inv.registrationState || company.state || '27',
+      Addr1: String(company.address || '').slice(0, 100),
+      Loc: loc.slice(0, 50),
+      Pin: ownPin,
+      Stcd: inv.registrationState || company.state,
     },
     BuyerDtls: {
-      Gstin: inv.partyGstin || undefined,
+      Gstin: exported ? 'URP' : inv.partyGstin || undefined,
       LglNm: inv.partyName,
-      Pos: inv.partyState || inv.placeOfSupply || inv.registrationState || company.state,
-      Addr1: inv.partyName,
-      Loc: loc,
-      Pin: pin,
-      Stcd: inv.partyState || inv.registrationState || company.state,
+      Pos: exported ? '96' : inv.partyState || inv.placeOfSupply || inv.registrationState || company.state,
+      Addr1: buyerAddress.slice(0, 100) || undefined,
+      Loc: buyerAddress.split(',').map((part) => part.trim()).filter(Boolean).pop()?.replace(PIN, '').trim().slice(0, 50) || undefined,
+      Pin: exported ? 999999 : pinIn(buyerAddress),
+      Stcd: buyerState,
     },
     ItemList: items,
     ValDtls: {
@@ -255,6 +318,15 @@ export function invoiceToNicPayload(company, inv) {
       IgstVal: Number(inv.igst || 0),
       TotInvVal: Number(inv.total || 0),
     },
+    ...(exported ? {
+      ExpDtls: {
+        CntCode: String(exported.countryCode || '').toUpperCase() || undefined,
+        ForCur: exported.currency && exported.currency !== 'INR' ? exported.currency : undefined,
+        ShipBNo: exported.shippingBillNo || undefined,
+        ShipBDt: exported.shippingBillDate ? nicDate(exported.shippingBillDate) : undefined,
+        Port: exported.portCode || undefined,
+      },
+    } : {}),
   };
 }
 

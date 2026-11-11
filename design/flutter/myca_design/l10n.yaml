@@ -1,0 +1,6 @@
+arb-dir: lib/l10n
+template-arb-file: myca_en.arb
+output-dir: lib/src/l10n
+output-localization-file: myca_localizations.dart
+output-class: MycaLocalizations
+nullable-getter: false

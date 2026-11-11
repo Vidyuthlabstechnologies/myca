@@ -9,8 +9,12 @@ import { connectorKeyFromEnv } from './connectors.mjs';
 import { booksKeyFromEnv } from './books-seal.mjs';
 import { smsSenderFromEnv } from './sms-sender.mjs';
 import { whatsAppConfigFromEnv, createWhatsAppSender } from './whatsapp.mjs';
+import { createWahaSender } from './waha.mjs';
 import { createBilling, billingConfigFromEnv, billingConfigProblem } from './billing.mjs';
 import { isProduction, hostingName, serviceRevision, databaseTlsProblem, proxyHopsProblem } from './runtime.mjs';
+import { deploymentEnvironment, environmentProblem, enabledServices } from './environment.mjs';
+import { residencyProblem } from './residency.mjs';
+import { testSignInFromEnv } from './test-sign-in.mjs';
 
 const STARTUP_ATTEMPTS = 10;
 const STARTUP_WAIT_MS = 3000;
@@ -47,6 +51,13 @@ async function migrateWithRetry(db) {
   }
 }
 
+const environmentRefusal = environmentProblem();
+if (environmentRefusal) throw new Error(environmentRefusal);
+const residencyRefused = residencyProblem();
+if (residencyRefused) throw new Error(residencyRefused);
+const testSignIn = testSignInFromEnv(process.env, deploymentEnvironment());
+if (testSignIn.problem) throw new Error(testSignIn.problem);
+const otpGlobalPerHour = Number.parseInt(String(process.env.MYCA_OTP_GLOBAL_PER_HOUR || ''), 10);
 const tlsProblem = databaseTlsProblem();
 if (tlsProblem) throw new Error(tlsProblem);
 const hopsProblem = proxyHopsProblem();
@@ -68,10 +79,20 @@ const handler = createApi({
   jobToken: String(process.env.MYCA_JOB_TOKEN || '').trim(),
   inboundEmail: { domain: String(process.env.MYCA_INBOUND_EMAIL_DOMAIN || '').trim(), relayToken: String(process.env.MYCA_INBOUND_RELAY_TOKEN || '').trim() },
   whatsapp: whatsAppConfigFromEnv(process.env),
-  whatsappSender: (() => { const cfg = whatsAppConfigFromEnv(process.env); return cfg.phoneNumberId && cfg.accessToken ? createWhatsAppSender({ phoneNumberId: cfg.phoneNumberId, accessToken: cfg.accessToken, log }) : null; })(),
+  whatsappSender: (() => {
+    const cfg = whatsAppConfigFromEnv(process.env);
+    if (cfg.provider === 'waha') return cfg.waha.baseUrl ? createWahaSender({ baseUrl: cfg.waha.baseUrl, apiKey: cfg.waha.apiKey, session: cfg.waha.session, log }) : null;
+    return cfg.phoneNumberId && cfg.accessToken ? createWhatsAppSender({ phoneNumberId: cfg.phoneNumberId, accessToken: cfg.accessToken, log }) : null;
+  })(),
   log,
   version: serviceRevision(),
+  environment: deploymentEnvironment(),
+  testSignIn,
+  adminUserIds: String(process.env.MYCA_ADMIN_USER_IDS || '').split(',').map((id) => id.trim()).filter(Boolean),
+  playPush: { audience: String(process.env.MYCA_PLAY_PUSH_AUDIENCE || '').trim(), serviceAccount: String(process.env.MYCA_PLAY_PUSH_SERVICE_ACCOUNT || '').trim() },
+  ...(Number.isSafeInteger(otpGlobalPerHour) && otpGlobalPerHour > 0 ? { otpGlobalPerHour } : {}),
 });
+log({ startup: 'services', environment: deploymentEnvironment(), revision: serviceRevision(), on: enabledServices() });
 const port = Number(process.env.PORT || 8080);
 const server = createServer(handler);
 server.keepAliveTimeout = 65000;

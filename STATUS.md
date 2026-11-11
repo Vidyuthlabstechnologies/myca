@@ -1,8 +1,12 @@
 # MyCA — Status
 
-As of main on 2026-10-14. Verification: platform **682/682**,
-engines **330/330** (`11 / 11 / 49 / 51 / 68 / 2` plus **138** statutory-rule tests), the hosted API suite against Postgres in CI, the Android app **166** widget tests,
-CI green, end-to-end smoke runs on Windows. "Verified" means covered by tests or an
+As of main on 2026-11-10. Verification: platform **1,351**, the hosted API **341** against Postgres,
+email relay **3**, every sprint suite, the Android app about **600** widget tests (`node scripts/check-all.mjs`),
+CI green, end-to-end smoke runs on Windows. Hosting: the API and the public site run on Google Cloud
+(Cloud Run and Cloud SQL in Mumbai, project `myca-prod-in`) since 2026-11-10, with an empty database;
+the earlier AWS deployment (2026-11-08) is being switched off. A separate staging stack (`environment = "staging"`,
+simulated providers, no real sends) is defined in `infra/cloud` and rolled out before production, but not yet
+applied. [`DEPLOYMENT.md`](DEPLOYMENT.md) is the source of truth. "Verified" means covered by tests or an
 actual run — not merely written.
 
 Phase 0 (pilot readiness) is **82% complete**: every Critical (4/4) and High (18/18) audit finding is closed; of the mediums, amount parsing and the audit clause checks are done (2026-10-15).
@@ -284,8 +288,13 @@ and [`README.md`](README.md) for what is left and how it is being done.
   `govt_set_public_key`
 - NIC production: 404 from our network without the production on-boarding (static IPs +
   test report) — infra prereq, not a config issue
-- `gst_save_gstr1` and `gst_file_gstr1_evc`: declared in the contract, fail closed as
-  `NOT_IMPLEMENTED` (no verified endpoint wired)
+- GSTR-1 and GSTR-3B on the portal (2026-11-10): `gst_save_gstr1`, `gst_file_gstr1_evc`,
+  `gst_save_gstr3b`, `gst_gstr3b_liability`, `gst_gstr3b_offset` and `gst_file_gstr3b_evc`
+  run through Sandbox by Quicko behind the action gate, the approved review and an unchanged
+  draft. Each filing step needs a CA approval asked by month and bound to the draft, so a
+  change to the books needs a fresh approval. Verified against fixtures only; the GSTR-3B
+  save path `POST /gst/compliance/tax-payer/gstrs/gstr-3b/{y}/{m}` follows the GSTR-1 pattern
+  and must be checked with the test key
 - GCP site/infra: `terraform fmt` + `validate` pass; never applied to a real project
   (awaits the one-time owner bootstrap)
 
@@ -307,7 +316,7 @@ no live switch, no CA approvals, and no bytes leaving the PC.
 - **NIM**: `nim_status` / `nim_ask` return a simulated assistant reply.
 - **Tools + doctor**: `validate_gstin`, `sandbox_status`, `provider_doctor` report
   `environment:'mock'` / `mock:true` and skip pings.
-- `.env` ships with `MYCA_MOCK_MODE=1`; `.env.example` documents it (default `0`). The
+- `.env.example` documents `MYCA_MOCK_MODE` (default `0`); copy it to `.env` to try mock mode. The
   test suite is hermetic: `npm test` runs with `--env-file=.env.test` which pins both
   `MYCA_MOCK_MODE=0` and `MYCA_ENABLE_LIVE_CALLS=0`, so flakes in `.env` never break CI.
 - Mock fixtures are deterministic (sha256-derived IRNs, fixed legal names) and every
@@ -320,8 +329,8 @@ no live switch, no CA approvals, and no bytes leaving the PC.
 | REQ-CA-011–015 | Built in on 2026-10-15 (reminders with an assignee, document requests to clients, the outbox, plain-text firm search, the eval log with corrections). Answers from the notes through the model built 2026-10-16 (`ask_knowledge`: the notes that mention the question's words go to the model through the action gate with a prompt that forbids any figure not in the notes; the notes found are shown even when the model is off) |
 | Live filing | Save and file GSTR-1 through the GSP and the TDS FVU job are wired end to end behind the action gate (`save_gstr1_portal`, `file_gstr1_portal`, `generate_tds_fvu`, 2026-10-16): a save needs no held invoice, a filing needs the approved review, an unchanged draft, the EVC OTP and a CA approval, and records its acknowledgement. Left: GSP onboarding and production credentials, the live switch, ITR, MCA21. DSC signing built 2026-10-20 (`dsc_certificates` lists the Windows certificate store, `dsc_sign` makes a detached PKCS#7 over an uploaded document through the action gate with a CA approval and stores it beside the books; verified with a self-signed certificate in the suite) |
 | Integrations | Account Aggregator FI data imports as a bank statement (2026-10-16: the decrypted JSON an AA client delivers, every account with its Transactions, through `import_bank`; the consent and FIU licence stay with the owner). Zoho Books write-back built 2026-10-16 (`push_zoho_invoices`: the month's invoices not yet in Zoho go through the action gate as a write with a CA approval, the customer is found or created, each line carries its HSN and the matching Zoho tax, and the invoice keeps its Zoho id; credentials in the local vault as the `zoho` connector). Tally write-back over its HTTP port built 2026-10-20 (`push_tally`, previewed, loopback only, audited through the gate as a local application). Documents are read by the model (vision), so no separate OCR provider is planned |
-| Firm backend | The hosted API (`cloud/`) is built with accounts, tenancy, roles, backups and a daily job, and deploys itself once a Google Cloud project exists. Built 2026-10-16: the Cloud Storage document vault (`MYCA_DOCUMENT_BUCKET`; bytes by sha256 per business, Postgres keeps the index, every read re-verifies the hash; Terraform creates the bucket) and OpenID Connect sign-in for a firm's own identity provider (`POST /v1/auth/oidc`, `MYCA_OIDC_ISSUER` and `MYCA_OIDC_CLIENT_IDS`, keys through discovery). Left: the Google Cloud project, and an OIDC sign-in screen in the app once a firm names its issuer |
-| D2C and marketplace brands (decided 2026-10-16, `docs/superpowers/specs/2026-10-16-d2c-programme.md`) | Built 2026-10-16: D1 settlement reconciliation, D2 orders and returns with settlements posting, D3 TCS and 194-O credits against the portal statement and 26AS, D4 several GSTINs under one business with stock transfers, D5 SKU costs, stock and margins, D7 the daily close; on the phone as the Marketplace screen, the close on Home and registration-scoped Taxes. D6 connectors built to the credential boundary 2026-10-16 (`set_channel_connector`, `fetch_channel_report`, `sync_channels` for Amazon SP-API, Shopify and Razorpay through the action gate with mock fixtures; the desktop fetches daily; Flipkart, Myntra, Nykaa, Meesho and Unicommerce stay file imports). Hosted pulls built 2026-10-16: each business saves its connector credentials on the hosted API (`POST /v1/businesses/:id/connectors`, sealed per business with `MYCA_CONNECTOR_KEY`, never shown back), the nightly job and `POST .../connector-sync` pull through the gate behind the separate read-only switch `MYCA_ENABLE_CHANNEL_PULLS` (government and model calls stay behind the live switch, which the hosted API still refuses). Left to go live: seller credentials and the owner turning the pull switch on; and D8: the WhatsApp webhook is built on the hosted API (Meta Cloud API, signature-checked, members matched by number, the same preview-and-confirm chat; 2026-10-16) and waits on a WhatsApp Business account; Hindi and Telugu wait on the model decision |
+| Firm backend | The hosted API (`cloud/`) is built with accounts, tenancy, roles, backups and a daily job, and runs on Cloud Run in Mumbai since 2026-11-10 (deployed by `deploy-cloud.yml` through workload identity, no stored keys). Built 2026-10-16: the Cloud Storage document vault (`MYCA_DOCUMENT_BUCKET`; bytes by sha256 per business, Postgres keeps the index, every read re-verifies the hash; Terraform creates the bucket) and OpenID Connect sign-in for a firm's own identity provider (`POST /v1/auth/oidc`, `MYCA_OIDC_ISSUER` and `MYCA_OIDC_CLIENT_IDS`, keys through discovery). The app's firm sign-in screen uses the authorization code flow with PKCE (S256) since 2026-11-10. Left: a firm that names its issuer |
+| D2C and marketplace brands (decided 2026-10-16, `docs/superpowers/specs/2026-10-16-d2c-programme.md`) | Built 2026-10-16: D1 settlement reconciliation, D2 orders and returns with settlements posting, D3 TCS and 194-O credits against the portal statement and 26AS, D4 several GSTINs under one business with stock transfers, D5 SKU costs, stock and margins, D7 the daily close; on the phone as the Marketplace screen, the close on Home and registration-scoped Taxes. D6 connectors built to the credential boundary 2026-10-16 (`set_channel_connector`, `fetch_channel_report`, `sync_channels` for Amazon SP-API, Shopify and Razorpay through the action gate with mock fixtures; the desktop fetches daily; Flipkart, Myntra, Nykaa, Meesho and Unicommerce stay file imports). Hosted pulls built 2026-10-16: each business saves its connector credentials on the hosted API (`POST /v1/businesses/:id/connectors`, sealed per business with `MYCA_CONNECTOR_KEY`, never shown back), the nightly job and `POST .../connector-sync` pull through the gate behind the separate read-only switch `MYCA_ENABLE_CHANNEL_PULLS` (government and model calls stay behind the live switch, which the hosted API still refuses). Left to go live: seller credentials (the pull switch is on by default on the hosted API since 2026-11-10); and D8: the WhatsApp webhook is built on the hosted API, on the Meta Cloud API or (2026-11-10) a self-hosted WAHA gateway on a normal WhatsApp number, signature-checked, members matched by number, the same preview-and-confirm chat; it waits on the gateway host and its scanned number; Hindi and Telugu wait on the model decision |
 | UI polish | Invoice design built 2026-10-16 (colour, layout, bank details, terms, footer, signatory, HSN column; desktop print and app PDF). Export invoices in a foreign currency (2026-10-15) cover the multi-currency need for Indian businesses; the desktop has keyboard shortcuts (Ctrl+K or / for chat, Ctrl+1 to 8 for the tabs, Esc clears) |
 | Ops | Custom domain + TLS active, GitHub Pro branch protection, code-signing certificate. The packaged app checks the project's GitHub release page on launch; once the installer is signed by the publisher it downloads, verifies and installs it quietly (2026-10-21), until then it offers the download |
 | Tax assistant (2026-11-09) | Built: five tax knowledge modules in the open Agent Skills format (`platform/src/tax-modules/*/SKILL.md`: GST returns, input tax credit, income tax for individuals, TDS on business payments, presumptive income) whose figures are filled in from the dated statutory rules for the date asked about; `ask_tax` answers from them through the action gate and refuses a model answer that quotes a figure not in the rules; `tax_plan` (both regimes, break-even deductions, 87A edge, 44AD/44ADA against actual profit); `review_income_tax` (checks a prepared return against MyCA's computation, Form 26AS and the year's GST sales). New rule records `income-tax.presumptive.business` and `.profession`. Left: CA sign-off on the modules and the new records, capital gains, house property and HRA in the computation, reading a prepared ITR JSON or Form 16 straight into the review, and screens in the desktop and Android apps (both reach the tools through chat today) |
@@ -366,6 +375,13 @@ no live switch, no CA approvals, and no bytes leaving the PC.
   works the TDS out as of the bill date and refuses a bill paid in full; TDS on an expense
   already posted, and a payment said with "less TDS", are not split in one step (MyCA asks
   for the bill TDS first). `record_tds_withheld` takes sales invoices (INV- numbers) only.
+- E-invoice payloads (2026-11-09, checked against the NIC release notes of 16 October 2026):
+  B2B and exports (EXPWP, EXPWOP with country, currency and shipping bill) are built; a B2C
+  invoice, a line without a 4, 6 or 8 digit HSN or SAC, a missing seller or buyer PIN, and a
+  document before 1 October 2021 are refused before any IRP call, and an IRN older than 24
+  hours is not sent for cancellation. Not built: SEZ (SEZWPA, SEZWPNA, SEZWOP), deemed exports
+  and the new RCM types (RCMDOM, RCMIMP), the 30-day reporting limit for turnover of 10 crore
+  or more (MyCA does not hold the turnover), and the 6-digit HSN rule above 5 crore.
 - Switching two-step on needs only a live session (accepted 2026-11-06): a stolen or unlocked
   session can enrol its own authenticator and take the recovery codes, and every later
   sign-in by the owner then stops at a step only the thief can pass until an operator

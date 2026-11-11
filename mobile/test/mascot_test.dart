@@ -1,8 +1,10 @@
 import 'dart:io' as io;
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:myca/mascot/mascot.dart';
+import 'package:myca_design/myca_design.dart' show BahiMood;
 import 'package:rive/rive.dart';
+
+const designMascot = '../design/flutter/myca_design/assets/mascot';
 
 void main() {
   testWidgets('the Bahi file has every mood and a talking switch', (tester) async {
@@ -17,12 +19,12 @@ void main() {
         markTestSkipped('Rive native libraries are not set up: dart run rive_native:setup --platform <yours>');
         return;
       }
-      final file = await File.decode(io.File(Mascot.riveAsset).readAsBytesSync(), riveFactory: Factory.flutter);
+      final file = await File.decode(io.File('$designMascot/bahi.riv').readAsBytesSync(), riveFactory: Factory.flutter);
       final controller = RiveWidgetController(file!);
       final data = controller.dataBind(DataBind.auto());
       expect(controller.artboard.name, 'Bahi');
       expect(data.boolean('talking'), isNotNull);
-      for (final mood in MascotMood.values) {
+      for (final mood in BahiMood.values) {
         data.number('mood')!.value = mood.index.toDouble();
         controller.stateMachine.advanceAndApply(0.4);
         expect(data.number('mood')!.value, mood.index);
@@ -33,8 +35,8 @@ void main() {
   });
 
   test('every mood has a still picture', () {
-    for (final mood in MascotMood.values) {
-      expect(io.File('assets/mascot/${mood.name}.png').existsSync(), isTrue, reason: mood.name);
+    for (final mood in BahiMood.values) {
+      expect(io.File('$designMascot/${mood.name}.png').existsSync(), isTrue, reason: mood.name);
     }
   });
 }

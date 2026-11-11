@@ -58,8 +58,9 @@ const OFF = { MYCA_ENABLE_LIVE_CALLS: '0', MYCA_MOCK_MODE: '0' };
 
 function books() {
   const state = createState();
+  state.company = { ...state.company, address: 'Plot 4, MIDC, Pune 411019', pin: '411019', city: 'Pune' };
   for (const rate of [1000, 2000]) {
-    createInvoice(state, { date: '2026-09-05', partyName: 'Retail Mart', partyGstin: '27AAACH7409R1Z1', partyState: '27', lines: [{ description: 'Fabric', hsn: '5208', qty: 1, rate, gstRate: 5 }] });
+    createInvoice(state, { date: '2026-09-05', partyName: 'Retail Mart', partyGstin: '27AAACH7409R1Z1', partyState: '27', partyAddress: '12 FC Road, Pune 411004', lines: [{ description: 'Fabric', hsn: '5208', qty: 1, rate, gstRate: 5 }] });
   }
   return state;
 }

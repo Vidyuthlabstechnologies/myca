@@ -11,7 +11,8 @@ import { providerDoctor } from '../src/provider-doctor.mjs';
 
 function freshState() {
   const state = createState();
-  createInvoice(state, { partyName: 'Retail', partyGstin: '', partyState: '27', lines: [{ description: 'x', qty: 1, rate: 100, gstRate: 5 }] });
+  state.company = { ...state.company, address: 'Plot 4, MIDC, Pune 411019', pin: '411019', city: 'Pune' };
+  createInvoice(state, { partyName: 'Retail', partyGstin: '27AAACH7409R1Z1', partyState: '27', partyAddress: '12 FC Road, Pune 411004', lines: [{ description: 'x', hsn: '5208', qty: 1, rate: 100, gstRate: 5 }] });
   return state;
 }
 

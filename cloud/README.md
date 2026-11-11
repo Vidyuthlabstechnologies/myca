@@ -265,9 +265,13 @@ terraform apply -var-file=myca.tfvars \
 
 Play setup (after `terraform apply`):
 
-1. Play Console > Monetize > Subscriptions: create two subscriptions, for example
-   `myca_pro_monthly` and `myca_firm_monthly`, each with a monthly auto-renewing base plan and
-   a price. Set `play_product_pro` and `play_product_firm` to their product ids.
+1. Play Console > Monetize > Subscriptions: create three subscriptions, for example
+   `myca_essentials`, `myca_pro` and `myca_firm`. Give each a monthly and a yearly
+   auto-renewing base plan: Essentials ₹399 a month or ₹3,999 a year, Pro ₹799 or ₹7,999, CA
+   firm ₹2,499 or ₹24,999. Set `play_product_essentials`, `play_product_pro` and
+   `play_product_firm` to their product ids. There is no free plan: after the 14-day Pro
+   trial the books stay readable and exportable, and nothing new is posted until a plan is
+   bought.
 2. Play Console > Users and permissions: invite the `api_service_account` output with "View
    financial data" and "Manage orders and subscriptions".
 3. Play Console > Monetize > Monetization setup: paste the `play_notifications_topic` output as
@@ -278,11 +282,67 @@ Play setup (after `terraform apply`):
 The iOS app shows the plan but sells nothing, since Apple only allows its own in-app purchase.
 The Windows app shows the plan and says it is bought in the Android app.
 
+## Environment reference
+
+Every variable the hosted server (`cloud/src`, and the `platform/src` engines it runs) reads.
+"Secret" means it goes in the secret store (GCP Secret Manager or AWS SSM SecureString), never
+in a plain environment variable, a workflow file or an issue. `unset` counts as empty everywhere.
+The server logs one `startup: services` line listing which optional services are on, by name only.
+
+| Name | Needed | Default | Secret | What it does |
+|---|---|---|---|---|
+| `MYCA_DATABASE_URL` | yes | | yes | Postgres connection string. |
+| `MYCA_DATABASE_CA` | production, unless a local socket or `sslmode=verify-*` | | no | CA bundle so the database TLS is verified. |
+| `MYCA_TOKEN_SECRET` | yes | | yes | HMAC key for access tokens and keyed hashes (32+ chars). |
+| `MYCA_BOOKS_KEY` | production | | yes | Seals each business's books column. |
+| `MYCA_CONNECTOR_KEY` | for connectors and the GST portal | | yes | Seals per-business provider credentials. |
+| `MYCA_JOB_TOKEN` | for scheduled jobs | | yes | Header token for `/v1/jobs/*` (32+ chars). |
+| `MYCA_ENVIRONMENT` | recommended | `production` when `K_SERVICE` or `MYCA_PRODUCTION` is set, else `local` | no | `local`, `staging` or `production`. `staging` refuses to start with any live switch or real-send integration set (see `src/environment.mjs`). Shown in `/v1/health`. |
+| `MYCA_PRODUCTION` | outside Cloud Run | | no | Marks a non-Cloud-Run host as production. |
+| `MYCA_REVISION` / `K_REVISION` | recommended | `dev` | no | Version reported in `/v1/health` and server crash reports. Set from the image tag at deploy. |
+| `MYCA_TRUSTED_PROXY_HOPS` | production outside Cloud Run | 1 on Cloud Run, else 0 | no | Proxies in front that append `X-Forwarded-For`; drives per-address limits. |
+| `PORT` | no | 8080 | no | Listen port. |
+| `MYCA_PUBLIC_URL` | for Gusto | request host | no | Public https origin for OAuth redirects. |
+| `MYCA_BODY_BUDGET_BYTES` | no | from memory limit | no | Total bytes of request bodies held at once. |
+| `MYCA_GOOGLE_CLIENT_IDS` | for Google sign-in | | no | Comma list of accepted OAuth client ids (web + Android). |
+| `MYCA_OIDC_ISSUER`, `MYCA_OIDC_CLIENT_IDS`, `MYCA_OIDC_JWKS_URL` | for OIDC sign-in | | no | A firm's identity provider. |
+| `MYCA_SMS_PROVIDER` | for phone sign-in | | no | `twilio`, `msg91` or `whatsapp`. |
+| `MYCA_SMS_TWILIO_SID`, `MYCA_SMS_TWILIO_TOKEN`, `MYCA_SMS_TWILIO_FROM` | with twilio | | token yes | Twilio sender. |
+| `MYCA_SMS_MSG91_AUTHKEY`, `MYCA_SMS_MSG91_TEMPLATE_ID` | with msg91 | | authkey yes | MSG91 sender. |
+| `MYCA_OTP_GLOBAL_PER_HOUR` | no | 500 | no | Cap on sign-in codes sent per hour across everyone; logs `alarm: otp-global-cap-80` at 80% and `otp-global-cap` when reached. |
+| `MYCA_TEST_PHONES`, `MYCA_TEST_CODE` | staging only | | code yes | Test numbers that sign in with a fixed six-digit code and no SMS. Refused in production. |
+| `MYCA_REVIEWER_SIGN_IN`, `MYCA_REVIEWER_PHONE`, `MYCA_REVIEWER_CODE` | for the Play reviewer | off | code yes | One reviewer number with a fixed code. Every business it creates is a demo business, it cannot accept invitations, and each code request is logged. Turn it off by setting `MYCA_REVIEWER_SIGN_IN` to `off`. |
+| `MYCA_DEV_OTP` | local only | | no | Prints codes to the log; refused in production. |
+| `MYCA_ADMIN_USER_IDS` | for the crash digest | | no | Comma list of user ids that may read `GET /v1/admin/crashes?days=N`. |
+| `MYCA_PROVIDER_ENV` | no | `off` | no | Provider environment for the engines. Staging allows only `off` or `sandbox`. |
+| `MYCA_MOCK_MODE` | staging | | no | `1` makes every provider simulated (`providerMode: simulated`). |
+| `MYCA_ENABLE_LIVE_CALLS` | never on hosted today | off | no | The live switch for government, model and write actions. |
+| `MYCA_ENABLE_CHANNEL_PULLS` | no | off | no | Lets the nightly job pull read-only marketplace reports. |
+| `MYCA_GSP_ENV`, `MYCA_GSP_BASE_URL` | for the GST portal | | no | GSP host selection. |
+| `MYCA_GSP_API_KEY`, `MYCA_GSP_API_SECRET`, `MYCA_GSP_TEST_API_KEY`, `MYCA_GSP_TEST_API_SECRET`, `MYCA_GSP_LIVE_API_KEY`, `MYCA_GSP_LIVE_API_SECRET` | for the GST portal | | yes | GSP (Quicko / Sandbox) keys. The live pair is refused in staging. |
+| `MYCA_MODEL_API_KEY`, `MYCA_MODEL`, `MYCA_MODEL_BASE_URL` | for the chat model | built-in patterns | key yes | Model used by the chat router (`platform/src/model-adapter.mjs`). This, not `NVIDIA_NIM_API_KEY`, is what the chat reads. |
+| `NVIDIA_NIM_API_KEY` / `NIM_API_KEY`, `NVIDIA_NIM_BASE_URL`, `NVIDIA_NIM_MODEL` | no | | key yes | Only the NIM tool (`nim-client.mjs`), not the chat router. |
+| `MYCA_WHATSAPP_PROVIDER` | no | `waha` when `MYCA_WAHA_URL` is set, else `meta` | no | WhatsApp route. |
+| `MYCA_WAHA_URL`, `MYCA_WAHA_API_KEY`, `MYCA_WAHA_SESSION`, `MYCA_WAHA_WEBHOOK_SECRET` | for WAHA | | key and secret yes | Self-hosted WhatsApp gateway. The URL must be https outside local development. |
+| `MYCA_WHATSAPP_VERIFY_TOKEN`, `MYCA_WHATSAPP_APP_SECRET`, `MYCA_WHATSAPP_PHONE_NUMBER_ID`, `MYCA_WHATSAPP_ACCESS_TOKEN` | for Meta WhatsApp | | all but the number id | Meta Cloud API. |
+| `MYCA_EMAIL_RELAY_URL`, `MYCA_EMAIL_RELAY_TOKEN`, `MYCA_EMAIL_FROM` | for outgoing email | | token yes | Email relay Worker. Must be https outside local development. |
+| `MYCA_INBOUND_EMAIL_DOMAIN`, `MYCA_INBOUND_RELAY_TOKEN` | for bills by email | | token yes | Inbound email relay. |
+| `MYCA_PLAY_PACKAGE`, `MYCA_PLAY_PRODUCT_ESSENTIALS`, `MYCA_PLAY_PRODUCT_PRO`, `MYCA_PLAY_PRODUCT_FIRM` | for Play billing | | no | Turns subscriptions on. |
+| `MYCA_PLAY_SERVICE_ACCOUNT_JSON` | Play billing outside Cloud Run | metadata server on Cloud Run | yes | Play Developer API access. Refused in staging. |
+| `MYCA_PLAY_PUSH_AUDIENCE`, `MYCA_PLAY_PUSH_SERVICE_ACCOUNT` | for Play notifications | | no | Pub/Sub push with OIDC authentication: the audience set on the push subscription and the service account it signs as. Preferred. |
+| `MYCA_PLAY_NOTIFY_TOKEN` | alternative to push auth | | yes | Shared token, sent only in the `x-myca-notify-token` header. A `?token=` in the URL is refused so it never reaches access logs. |
+| `MYCA_PLAN_PRICES` | no | built-in prices | no | Display prices, e.g. `essentials=399,pro=799,firm=2499`. |
+| `MYCA_DOCUMENT_BUCKET` | no | documents in Postgres | no | Cloud Storage bucket for document bytes (GCS only). |
+| `MYCA_TALLY_HOST`, `MYCA_TALLY_PORT`, `MYCA_LISTEN_HOST`, `MYCA_API_TOKEN`, `MYCA_TOKEN_IN_PAGE`, `MYCA_REQUIRE_SAFE_STORAGE` | desktop only | | | Read by the Windows app's local server, not the hosted API. |
+
 ## Not built yet
 
 - The Google Cloud project itself, and the first `terraform apply` of `infra/cloud`.
-- A WhatsApp Business account on the Meta Cloud API: the webhook (`GET`/`POST /v1/whatsapp/webhook`, `src/whatsapp.mjs`) verifies with `MYCA_WHATSAPP_VERIFY_TOKEN`, checks the `X-Hub-Signature-256` with `MYCA_WHATSAPP_APP_SECRET`, maps the sender's number to a member and runs the same chat as the app (preview, then "yes"), replying through `MYCA_WHATSAPP_PHONE_NUMBER_ID` and `MYCA_WHATSAPP_ACCESS_TOKEN`. Without those four the route answers 404. A member of several businesses is asked which and "use 2" is remembered.
-- An SMS provider account: the Twilio and MSG91 senders exist (`src/sms-sender.mjs`, chosen by `MYCA_SMS_PROVIDER`, Terraform `sms_provider` and `sms_secret`); without one Google Sign-In is the only sign-in.
+- A WhatsApp number on the gateway. Two routes are built (`src/whatsapp.mjs`, `src/waha.mjs`), picked by `MYCA_WHATSAPP_PROVIDER` (`waha` when `MYCA_WAHA_URL` is set, else `meta`):
+  - WAHA, a self-hosted WhatsApp HTTP API on an ordinary WhatsApp number (unofficial: WhatsApp may ban a number it sees as automated, so use a number you can lose). `POST /v1/whatsapp/waha` takes WAHA's `message` events, checks the `X-Webhook-Hmac` sha512 signature with `MYCA_WAHA_WEBHOOK_SECRET` (Terraform generates it, output `waha_webhook_secret`), ignores own messages, groups, channels and media, looks up senders known only by a privacy id, and replies through `POST {MYCA_WAHA_URL}/api/sendText` with `MYCA_WAHA_API_KEY` and session `MYCA_WAHA_SESSION` (default `default`). Without the secret the route answers 404. `MYCA_SMS_PROVIDER=whatsapp` sends sign-in codes through the same gateway.
+  - The Meta Cloud API: the webhook (`GET`/`POST /v1/whatsapp/webhook`) verifies with `MYCA_WHATSAPP_VERIFY_TOKEN`, checks the `X-Hub-Signature-256` with `MYCA_WHATSAPP_APP_SECRET` and replies through `MYCA_WHATSAPP_PHONE_NUMBER_ID` and `MYCA_WHATSAPP_ACCESS_TOKEN`. Without those four the route answers 404.
+  Both map the sender's number to a member and run the same chat as the app (preview, then "yes"); a member of several businesses is asked which and "use 2" is remembered. WhatsApp chat is a Pro and CA firm feature when Play billing is on.
+- An SMS provider account: the Twilio, MSG91 and WhatsApp-gateway senders exist (`src/sms-sender.mjs`, chosen by `MYCA_SMS_PROVIDER`: `twilio`, `msg91` or `whatsapp`); without one Google Sign-In is the only sign-in.
 - Telling an invited person. An invitation is only visible to them after they sign in
   with that number; no SMS is sent because there is no sender yet.
 - Per-business government credentials, so e-invoice and filing actions cannot be proposed. Channel credentials (Amazon, Shopify, Razorpay, Zoho, and for a US business Plaid, TaxJar, Gusto and Track1099) are per business: `GET`/`POST /v1/businesses/:id/connectors` list and save them (owner only), sealed with AES-256-GCM under a key derived per business from `MYCA_CONNECTOR_KEY`, and secrets are never returned. `POST .../plaid-link-token` and `.../plaid-exchange` run Plaid Link from the app, `POST .../gusto-connect` returns the Gusto consent link whose state names the business and `GET /v1/oauth/gusto/callback` (no token; the state is checked once) finishes it on the API host (`MYCA_PUBLIC_URL`, else the request host, forms the redirect URI), and `POST .../taxjar-rate` records a sales tax rate in that business's books (2026-10-22). `POST .../connector-sync` and the nightly job pull reports through the action gate only when `MYCA_ENABLE_CHANNEL_PULLS=1` (Terraform `enable_channel_pulls`, off by default): that switch opens read-only channel pulls alone; government, model and write actions stay behind `MYCA_ENABLE_LIVE_CALLS`, which the hosted API still refuses.

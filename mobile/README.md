@@ -38,6 +38,17 @@ flutter build apk --debug
 flutter test tool/screenshots_test.dart --update-goldens
 ```
 
+`test_smoke/` drives the app's own client (`CloudSession`) against a running hosted API: sign in
+with a test number, make a business, book a sale, read Today, delete the business. It is skipped
+unless `MYCA_SMOKE_URL`, `MYCA_SMOKE_PHONE` and `MYCA_SMOKE_CODE` are set; the phone and code must
+be one of that API's `MYCA_TEST_PHONES` and its `MYCA_TEST_CODE`. CI runs it on every push against
+an API it starts itself (job "App against a running API"), and `app-smoke.yml` runs it nightly or by
+hand against `MYCA_CLOUD_URL_STAGING` once the two `MYCA_SMOKE_*` secrets exist.
+
+```bash
+MYCA_SMOKE_URL=http://127.0.0.1:8080 MYCA_SMOKE_PHONE=9876501234 MYCA_SMOKE_CODE=482913 flutter test test_smoke
+```
+
 ## Running against the local server
 
 The server only answers `127.0.0.1` and needs a per-launch token, so the phone reaches

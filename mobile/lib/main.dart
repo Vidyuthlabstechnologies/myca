@@ -107,6 +107,7 @@ class MycaApp extends StatefulWidget {
 class _MycaAppState extends State<MycaApp> with WidgetsBindingObserver {
   final _navigator = GlobalKey<NavigatorState>();
   late final _tour = TourController(navigator: _navigator, onFinished: _tourFinished);
+  final _messenger = GlobalKey<ScaffoldMessengerState>();
   bool _openingShared = false;
 
   Future<void> _tourFinished(bool startBooks) async {
@@ -131,6 +132,11 @@ class _MycaAppState extends State<MycaApp> with WidgetsBindingObserver {
 
   void _openSharedFile() {
     final state = widget.state;
+    if (state.sharedNote.isNotEmpty && _messenger.currentState != null) {
+      final note = state.sharedNote;
+      state.sharedNote = '';
+      _messenger.currentState!.showSnackBar(SnackBar(content: Text(note)));
+    }
     if (state.sharedFile == null || !state.readyForEntries || _openingShared) return;
     if (_tour.active) unawaited(_tour.finish());
     final navigator = _navigator.currentState;
@@ -163,6 +169,7 @@ class _MycaAppState extends State<MycaApp> with WidgetsBindingObserver {
           child: MaterialApp(
             navigatorKey: _navigator,
             navigatorObservers: [_tour.observer],
+            scaffoldMessengerKey: _messenger,
             title: 'MyCA',
             debugShowCheckedModeBanner: false,
             theme: mycaTheme(),
@@ -170,7 +177,21 @@ class _MycaAppState extends State<MycaApp> with WidgetsBindingObserver {
               listenable: widget.state,
               builder: (context, _) => Stack(
                 children: [
-                  if (child != null) _Readable(child: child),
+                  if (widget.state.testServer)
+                    Column(
+                      children: [
+                        const TestServerBanner(),
+                        Expanded(
+                          child: MediaQuery.removePadding(
+                            context: context,
+                            removeTop: true,
+                            child: _Readable(child: child ?? const SizedBox.shrink()),
+                          ),
+                        ),
+                      ],
+                    )
+                  else if (child != null)
+                    _Readable(child: child),
                   if (_tour.active && !widget.state.locked) TourCoach(tour: _tour),
                   if (widget.state.locked) AppScope(state: widget.state, child: const LockScreen()),
                 ],
@@ -203,6 +224,29 @@ class _Readable extends StatelessWidget {
           child: MediaQuery(
             data: media.copyWith(size: Size(widest, media.size.height)),
             child: child,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class TestServerBanner extends StatelessWidget {
+  const TestServerBanner({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      key: const Key('test-server-banner'),
+      color: Palette.warn,
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          child: Text(
+            'Test environment: nothing is filed, paid or sent',
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.w600),
           ),
         ),
       ),

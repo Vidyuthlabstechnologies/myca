@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:myca/main.dart';
-import 'package:myca/mascot/mascot.dart';
+import 'package:myca_design/myca_design.dart' show Bahi;
 
 import '../test/fake_api.dart';
 
@@ -35,7 +35,7 @@ Future<void> shot(WidgetTester tester, String name) async {
 }
 
 void main() {
-  Mascot.live = false;
+  Bahi.live = false;
   setUpAll(loadFonts);
 
   Future<void> phone(WidgetTester tester) async {

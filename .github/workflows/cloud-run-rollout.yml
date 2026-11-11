@@ -1,0 +1,118 @@
+name: Roll out the hosted API to one stack
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: "GitHub environment the rollout runs in: staging, production or production-us."
+        type: string
+        required: true
+      server_environment:
+        description: "MYCA_ENVIRONMENT the stack must report at /v1/health once rolled out: staging or production."
+        type: string
+        required: true
+      country:
+        description: "IN or US; the region must lie inside it."
+        type: string
+        required: true
+      project:
+        description: "GCP project of the stack."
+        type: string
+        required: true
+      region:
+        description: "Region the stack was applied in."
+        type: string
+        required: true
+      wif_provider:
+        description: "Workload Identity Federation provider CI signs in with."
+        type: string
+        required: true
+      deploy_sa:
+        description: "Service account CI deploys as."
+        type: string
+        required: true
+      service:
+        description: "Cloud Run service, which is also the name of its image registry (myca-api, myca-staging-api)."
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  rollout:
+    name: Build the image and roll out
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      COUNTRY: ${{ inputs.country }}
+      REGION: ${{ inputs.region }}
+      PROJECT: ${{ inputs.project }}
+      WIF_PROVIDER: ${{ inputs.wif_provider }}
+      DEPLOY_SA: ${{ inputs.deploy_sa }}
+      SERVICE: ${{ inputs.service }}
+      SERVER_ENVIRONMENT: ${{ inputs.server_environment }}
+    steps:
+      - name: Refuse a stack whose region is outside its country
+        shell: bash
+        run: |
+          set -euo pipefail
+          [ -n "$PROJECT" ] && [ -n "$REGION" ] && [ -n "$WIF_PROVIDER" ] && [ -n "$DEPLOY_SA" ] || {
+            echo "::error::The $SERVER_ENVIRONMENT $COUNTRY stack is not set up: set its GCP project, region, WIF provider and deploy SA variables (see DEPLOYMENT.md)."; exit 1; }
+          case "$COUNTRY:$REGION" in
+            IN:asia-south1|IN:asia-south2) ;;
+            US:us-central1|US:us-east1|US:us-east4|US:us-west1) ;;
+            *) echo "::error::$REGION is outside $COUNTRY; data stays in its own country."; exit 1 ;;
+          esac
+          echo "IMAGE=${REGION}-docker.pkg.dev/${PROJECT}/${SERVICE}/myca-api:${GITHUB_SHA}" >> "$GITHUB_ENV"
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
+        with:
+          workload_identity_provider: ${{ env.WIF_PROVIDER }}
+          service_account: ${{ env.DEPLOY_SA }}
+
+      - uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
+
+      - name: Build and push the image
+        run: |
+          gcloud auth configure-docker "${REGION}-docker.pkg.dev" --quiet
+          docker build -f cloud/Dockerfile -t "$IMAGE" .
+          docker push "$IMAGE"
+
+      - name: Roll out; the previous revision keeps serving until the new one passes its probes
+        run: |
+          gcloud run deploy "$SERVICE" \
+            --project "$PROJECT" --region "$REGION" \
+            --image "$IMAGE" \
+            --quiet
+
+      - name: Check the live health endpoint reports this stack
+        shell: bash
+        run: |
+          set -euo pipefail
+          url="$(gcloud run services describe "$SERVICE" --project "$PROJECT" --region "$REGION" --format='value(status.url)')"
+          echo "URL=$url" >> "$GITHUB_ENV"
+          for attempt in 1 2 3 4 5 6; do
+            if curl -fsS "$url/v1/health" | jq -e --arg env "$SERVER_ENVIRONMENT" '.ok == true and .environment == $env' >/dev/null; then
+              echo "healthy $SERVER_ENVIRONMENT: $url" | tee -a "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "the new revision never answered /v1/health as $SERVER_ENVIRONMENT" >&2
+          exit 1
+
+      - name: Check the plans the app shows
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsS "$URL/v1/plans" | jq -e '.plans | length > 0' >/dev/null
+          echo "plans served: $URL/v1/plans" | tee -a "$GITHUB_STEP_SUMMARY"

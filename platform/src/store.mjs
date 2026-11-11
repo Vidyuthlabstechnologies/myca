@@ -89,6 +89,7 @@ export function createState() {
     stockMoves: [],
     inventoryValuations: [],
     portalSaves: {},
+    gstr3bPortal: {},
     tdsFvuJobs: [],
     supplierReminderSeq: 0,
     employees: [],
@@ -105,6 +106,7 @@ export function createState() {
     gstPayments: {},
     sutaRates: [],
     yearClosings: {},
+    countryData: {},
     automation: { lastRun: '', log: [] },
     amendmentSeq: 0,
     chatRecent: [],
@@ -199,6 +201,7 @@ export function serialize(state) {
     stockMoves: state.stockMoves || [],
     inventoryValuations: state.inventoryValuations || [],
     portalSaves: state.portalSaves || {},
+    gstr3bPortal: state.gstr3bPortal || {},
     tdsFvuJobs: state.tdsFvuJobs || [],
     supplierReminderSeq: state.supplierReminderSeq || 0,
     employees: state.employees || [],
@@ -215,6 +218,7 @@ export function serialize(state) {
     gstPayments: state.gstPayments || {},
     sutaRates: state.sutaRates || [],
     yearClosings: state.yearClosings || {},
+    countryData: state.countryData || {},
     automation: state.automation || { lastRun: '', log: [] },
     amendmentSeq: state.amendmentSeq || 0,
     chatRecent: Array.isArray(state.chatRecent) ? state.chatRecent : [],
@@ -390,6 +394,7 @@ export function deserialize(raw) {
   state.stockMoves = Array.isArray(raw.stockMoves) ? raw.stockMoves : [];
   state.inventoryValuations = Array.isArray(raw.inventoryValuations) ? raw.inventoryValuations : [];
   state.portalSaves = raw.portalSaves && typeof raw.portalSaves === 'object' ? raw.portalSaves : {};
+  state.gstr3bPortal = raw.gstr3bPortal && typeof raw.gstr3bPortal === 'object' ? raw.gstr3bPortal : {};
   state.tdsFvuJobs = Array.isArray(raw.tdsFvuJobs) ? raw.tdsFvuJobs : [];
   state.supplierReminderSeq = raw.supplierReminderSeq || 0;
   state.employees = Array.isArray(raw.employees) ? raw.employees : [];
@@ -406,6 +411,7 @@ export function deserialize(raw) {
   state.gstPayments = raw.gstPayments && typeof raw.gstPayments === 'object' ? raw.gstPayments : {};
   state.sutaRates = Array.isArray(raw.sutaRates) ? raw.sutaRates : [];
   state.yearClosings = raw.yearClosings && typeof raw.yearClosings === 'object' ? raw.yearClosings : {};
+  state.countryData = raw.countryData && typeof raw.countryData === 'object' && !Array.isArray(raw.countryData) ? raw.countryData : {};
   state.automation = raw.automation && typeof raw.automation === 'object' ? raw.automation : { lastRun: '', log: [] };
   state.amendmentSeq = raw.amendmentSeq || 0;
   state.chatRecent = Array.isArray(raw.chatRecent) ? raw.chatRecent : [];

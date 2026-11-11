@@ -1,6 +1,6 @@
 import { performExternalAction } from './action-gate.mjs';
 import { normalizeClientId } from './books.mjs';
-import { generateMockIrnPayload, invoiceToNicPayload } from './nic-config.mjs';
+import { generateMockIrnPayload, invoiceToNicPayload, nicCancelProblem, nicPartyFor, nicPayloadRefusal } from './nic-config.mjs';
 import { mockModeEnabled } from './runtime-config.mjs';
 
 function clientOf(state) {
@@ -46,11 +46,12 @@ function gated(state, actionId, { params = {}, actor, payload, fixture, prefligh
 export async function generateIrn(state, invoiceId, actor) {
   const inv = findInvoice(state, invoiceId);
   if (!inv) return { ok: false, error: 'INVOICE_NOT_FOUND', invoiceId };
-  const payload = invoiceToNicPayload(state.company, inv);
+  const payload = invoiceToNicPayload(state.company, inv, nicPartyFor(state, inv));
   const out = await gated(state, 'nic_irn_generate', {
     params: { invoiceId },
     actor,
     payload,
+    preflight: () => nicPayloadRefusal(state, inv),
     metadata: { invoiceId },
     fixture: (copy) => stampMockIrn(nicDocuments(copy), copy.company, invoiceId),
   }, (t) => t.nic.generateIrn(state, invoiceId));
@@ -92,9 +93,11 @@ export function cancelIrn(state, input, actor) {
     params,
     actor,
     metadata: defined({ invoiceId: input.invoiceId }),
-    preflight: () => (inv && !inv.irn && inv.mockIrn && !input.irn
-      ? { ok: false, error: 'MOCK_IRN_NOT_CANCELLABLE', hint: 'This invoice only has a simulated IRN; there is nothing to cancel on the IRP.' }
-      : null),
+    preflight: () => {
+      if (inv && !inv.irn && inv.mockIrn && !input.irn) return { ok: false, error: 'MOCK_IRN_NOT_CANCELLABLE', hint: 'This invoice only has a simulated IRN; there is nothing to cancel on the IRP.' };
+      const late = inv ? nicCancelProblem(inv) : null;
+      return late ? { ok: false, error: late.code, invoiceId: inv.id, hint: late.words } : null;
+    },
     fixture: (copy) => {
       const target = (copy.invoices || []).find((item) => item.id === input.invoiceId);
       if (target) target.mockIrnStatus = 'CNL';

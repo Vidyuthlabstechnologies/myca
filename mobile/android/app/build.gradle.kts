@@ -13,7 +13,7 @@ val releaseKey = Properties().apply {
 
 android {
     namespace = "in.myca.myca"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -24,12 +24,16 @@ android {
 
     defaultConfig {
         applicationId = "com.mldynamic.myca"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
-        targetSdk = flutter.targetSdkVersion
+        minSdk = 24
+        targetSdk = 36
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        manifestPlaceholders["appLabel"] = "MyCA"
+        if (project.hasProperty("mycaTest")) {
+            applicationIdSuffix = ".test"
+            versionNameSuffix = "-test"
+            manifestPlaceholders["appLabel"] = "MyCA Test"
+        }
     }
 
     signingConfigs {
@@ -67,4 +71,5 @@ flutter {
 
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
+    implementation("androidx.appcompat:appcompat:1.7.0")
 }

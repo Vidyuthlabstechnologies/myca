@@ -35,7 +35,9 @@ function exportPlan(input) {
   const shippingBillDate = raw.shippingBillDate ? postingDate(raw.shippingBillDate) : '';
   if (raw.shippingBillDate && !shippingBillDate) return { ok: false, error: 'INVALID_DATE', shippingBillDate: raw.shippingBillDate };
   const portCode = String(raw.portCode || '').trim().toUpperCase().slice(0, 6);
-  return { ok: true, plan: { currency, exchangeRate, withTax, shippingBillNo, shippingBillDate, portCode } };
+  const countryCode = String(raw.countryCode || '').trim().toUpperCase();
+  if (countryCode && (!/^[A-Z]{2}$/.test(countryCode) || countryCode === 'IN')) return { ok: false, error: 'BAD_COUNTRY_CODE', countryCode };
+  return { ok: true, plan: { currency, exchangeRate, withTax, shippingBillNo, shippingBillDate, portCode, ...(countryCode ? { countryCode } : {}) } };
 }
 
 function padInv(n) {

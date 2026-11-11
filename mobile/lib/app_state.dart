@@ -55,6 +55,11 @@ class AppState extends ChangeNotifier {
   final PickAnyFile pickAnyFile;
   final TakeSharedFile takeSharedFile;
   PickedFile? sharedFile;
+  String sharedNote = '';
+  ServerInfo? server;
+  bool _serverAsked = false;
+
+  bool get testServer => server?.isTest ?? false;
   final NotificationPlanner notifications;
   final SaveTextFile saveTextFile;
   final SaveBytesFile saveBytesFile;
@@ -84,7 +89,14 @@ class AppState extends ChangeNotifier {
   bool get _guards => cloud != null && cloud!.signedIn && lockAvailable && lockEnabled;
 
   Future<void> checkSharedFile() async {
-    final file = await takeSharedFile();
+    final PickedFile? file;
+    try {
+      file = await takeSharedFile();
+    } on SharedFileTooLarge {
+      sharedNote = 'That file is larger than 8 MB, so MyCA could not open it. Share a smaller file or a photo of the page.';
+      notifyListeners();
+      return;
+    }
     if (file == null) return;
     sharedFile = file;
     notifyListeners();
@@ -112,6 +124,10 @@ class AppState extends ChangeNotifier {
 
   Future<void> refresh() async {
     final hosted = cloud;
+    if (hosted != null && !locked && !_serverAsked) {
+      _serverAsked = true;
+      server = await hosted.serverInfo();
+    }
     if (hosted != null && !hosted.ready) {
       snapshot = null;
       if (!hosted.signedIn) recoveryNote = '';

@@ -1,4 +1,5 @@
 import { TOOLS, runTool } from './tools.mjs';
+import { engineWords } from './countries/engines.mjs';
 import { templateWords } from './invoice-template.mjs';
 import { settlementWords, settlementStatusWords } from './settlements.mjs';
 import { orderImportWords } from './marketplace-orders.mjs';
@@ -8,6 +9,7 @@ import { marginsWords, stockWords, stockMovesWords } from './sku-margins.mjs';
 import { valuationWords, valuationsWords } from './inventory.mjs';
 import { connectorsWords, fetchWords } from './channel-connectors.mjs';
 import { portalWords } from './portal-filing.mjs';
+import { gstr3bPortalWords } from './gstr3b-portal.mjs';
 import { knowledgeWords } from './knowledge.mjs';
 import { zohoPushWords } from './zoho-push.mjs';
 import { closeWords } from './daily-close.mjs';
@@ -322,6 +324,8 @@ function fmtToolResultCore(name, result, args) {
   if (result?.error === 'SALARIES_PRIVATE') return 'Only the owner can see or change employees and salaries.';
   if (result?.error === 'OWNER_ONLY') return result.hint || 'Only the owner can do that.';
   if (!result || result.ok === false) return failedInWords(result?.error, result);
+  const engineWorded = engineWords(name);
+  if (engineWorded) return engineWorded(result, money, args);
   const d = result.data ?? result.invoice ?? result;
   if (name === 'create_invoice' && result.invoice?.export) {
     const inv = result.invoice;
@@ -618,6 +622,7 @@ function fmtToolResultCore(name, result, args) {
   if (name === 'value_inventory' && result.valuation) return valuationWords(result, money);
   if (name === 'channel_connectors' && result.data) return connectorsWords(result.data);
   if (['save_gstr1_portal', 'file_gstr1_portal', 'generate_tds_fvu'].includes(name) && result.data) return portalWords(name, result.data);
+  if (['save_gstr3b_portal', 'offset_gstr3b_portal', 'file_gstr3b_portal'].includes(name) && result.data) return gstr3bPortalWords(name, result.data);
   if (name === 'portal_status' && result.data) return portalWords(name, result);
   if (name === 'ask_knowledge') return knowledgeWords(result);
   if (name === 'ask_tax' && result.ok) return askTaxWords(result);
@@ -703,6 +708,9 @@ function fmtToolResultCore(name, result, args) {
   }
   if (name === 'set_transport' && result.transport) {
     return `Recorded transport for ${result.invoiceId}: ${transportWords(result.transport)}.${result.need?.needed ? ` ${result.need.why}` : ''}`;
+  }
+  if (name === 'set_business_address' && result.data?.company) {
+    return `Recorded your business address: ${result.data.company.address}, PIN ${result.data.company.pin}. It prints on invoices and goes into e-invoices from now on.`;
   }
   if (name === 'set_party_address' && result.data?.party) {
     return `Recorded the address of ${result.data.party.name}: ${result.data.party.address}. It prints on their invoices from now on.`;
@@ -886,7 +894,7 @@ ${d.hint}` : ''}`;
     if (d.mock) {
       return `NIC Sandbox Mock: IRN generated for Doc ${d.payload?.DocDtls?.No}.\nIRN: ${d.irn}\nAck No: ${d.ackNo} (${d.ackDate})\n[Simulated NIC Session]`;
     }
-    return d.ok ? `IRN issued for payload Doc ${d.payload?.DocDtls?.No}.` : `IRN not issued: ${d.error || JSON.stringify(d.nic || d.auth).slice(0, 500)}`;
+    return d.ok ? `IRN issued for payload Doc ${d.payload?.DocDtls?.No}.` : `IRN not issued: ${d.error === 'IRN_PAYLOAD_INVALID' || d.error === 'IRN_CANCEL_WINDOW_PASSED' ? d.hint : d.error || JSON.stringify(d.nic || d.auth).slice(0, 500)}`;
   }
   if (name === 'integration_readiness') {
     const topMissing = (d.rows || []).filter((row) => row.status === 'missing').slice(0, 6).map((row) => row.title).join(', ');

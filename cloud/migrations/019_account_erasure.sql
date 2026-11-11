@@ -1,0 +1,12 @@
+alter table businesses alter column created_by drop not null;
+alter table businesses drop constraint businesses_created_by_fkey;
+alter table businesses add constraint businesses_created_by_fkey foreign key (created_by) references users (id) on delete set null;
+alter table memberships drop constraint memberships_invited_by_fkey;
+alter table memberships add constraint memberships_invited_by_fkey foreign key (invited_by) references users (id) on delete set null;
+alter table invitations alter column invited_by drop not null;
+alter table invitations drop constraint invitations_invited_by_fkey;
+alter table invitations add constraint invitations_invited_by_fkey foreign key (invited_by) references users (id) on delete set null;
+alter table inbound_keys alter column created_by drop not null;
+alter table inbound_keys drop constraint inbound_keys_created_by_fkey;
+alter table inbound_keys add constraint inbound_keys_created_by_fkey foreign key (created_by) references users (id) on delete set null;
+create index users_deleted_at on users (deleted_at) where deleted_at is not null;

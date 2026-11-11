@@ -1,5 +1,6 @@
 export const BOOK_KEYS = new Set([
   'company', 'ledger', 'parties', 'vendors', 'invoices', 'purchases',
+  'countryData',
   'invoiceSeq', 'invoiceSeqByFy', 'billSeq', 'transferSeq', 'imports', 'lockThrough',
   'files', 'attachments', 'pendingFile', 'pendingChatAction', 'lastConfirmation',
   'exceptions', 'exceptionSeq',
@@ -17,7 +18,7 @@ export const BOOK_KEYS = new Set([
   'employees', 'employeeSeq',
   'tdsEntries', 'tdsDeposits',
   'gstCreditOpening', 'tdsReviews', 'payrollRuns', 'salesTaxRates', 'salesTaxNexus', 'salesTaxReviews', 'salesTaxPayments', 'gstPayments', 'sutaRates', 'yearClosings', 'automation', 'amendmentSeq', 'chatRecent',
-  'settlements', 'settlementSeq', 'channels', 'tcsStatements', 'tdsCreditStatements', 'skus', 'stockMoves', 'inventoryValuations', 'portalSaves', 'tdsFvuJobs',
+  'settlements', 'settlementSeq', 'channels', 'tcsStatements', 'tdsCreditStatements', 'skus', 'stockMoves', 'inventoryValuations', 'portalSaves', 'gstr3bPortal', 'tdsFvuJobs',
 ]);
 
 export const FIRM_KEYS = new Set([

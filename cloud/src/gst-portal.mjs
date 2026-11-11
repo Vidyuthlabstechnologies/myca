@@ -2,7 +2,8 @@ import { SandboxClient } from '../../platform/src/sandbox-client.mjs';
 import { withProviderContext } from '../../platform/src/provider-context.mjs';
 import { providerEnvironment, serviceProviderEnvironment, mockModeEnabled } from '../../platform/src/runtime-config.mjs';
 import { regArg } from '../../platform/src/registrations.mjs';
-import { saveGstr1ToPortal, checkGstr1OnPortal, submitGstr1OnPortal, gstr1PortalSummary, requestGstr1Evc, fileGstr1OnPortal, portalStatus } from '../../platform/src/portal-filing.mjs';
+import { saveGstr1ToPortal, checkGstr1OnPortal, submitGstr1OnPortal, gstr1PortalSummary, requestGstr1Evc, fileGstr1OnPortal, generateTdsFvu, portalStatus } from '../../platform/src/portal-filing.mjs';
+import { saveGstr3bToPortal, gstr3bPortalLiability, offsetGstr3bOnPortal, requestGstr3bEvc, fileGstr3bOnPortal } from '../../platform/src/gstr3b-portal.mjs';
 import { sealSecrets, openSecrets } from './connectors.mjs';
 import { modeOf } from './govt-connectors.mjs';
 
@@ -13,7 +14,21 @@ const REFRESH_AHEAD_MS = 90 * 60 * 1000;
 const USE_AHEAD_MS = 10 * 60 * 1000;
 const REFRESH_BATCH = 200;
 const ENDED = new Set(['AUTH4037', 'AUTH4042', 'AUTH4033']);
-const STEPS = ['save', 'check', 'submit', 'summary', 'otp', 'file'];
+const GSTR1_STEPS = {
+  save: saveGstr1ToPortal,
+  check: checkGstr1OnPortal,
+  submit: submitGstr1OnPortal,
+  summary: gstr1PortalSummary,
+  otp: requestGstr1Evc,
+  file: fileGstr1OnPortal,
+};
+const GSTR3B_STEPS = {
+  save: saveGstr3bToPortal,
+  liability: gstr3bPortalLiability,
+  offset: offsetGstr3bOnPortal,
+  otp: requestGstr3bEvc,
+  file: fileGstr3bOnPortal,
+};
 
 function fail(error, extra = {}) {
   return { ok: false, error, ...extra };
@@ -257,9 +272,9 @@ export function createGstPortal({ db, connectors, withBooks, billing = null, key
     return fail('UNKNOWN_STEP', { steps: ['otp', 'verify', 'disconnect'] });
   }
 
-  async function gstr1(businessId, ctx, actor, body = {}) {
+  async function returnStep(form, steps, businessId, ctx, actor, body = {}) {
     const step = String(body.step || '');
-    if (!STEPS.includes(step)) return fail('UNKNOWN_STEP', { steps: STEPS });
+    if (!Object.hasOwn(steps, step)) return fail('UNKNOWN_STEP', { steps: Object.keys(steps) });
     if (billing) {
       const allowed = await billing.allows(businessId, 'gst-returns');
       if (!allowed.ok) return allowed;
@@ -276,22 +291,35 @@ export function createGstPortal({ db, connectors, withBooks, billing = null, key
       if (!live.ok) return live;
       row = live.row;
     }
-    const args = { period: String(body.period || '').trim(), gstin: reg.gstin, otp: body.otp, pan: body.pan, actorId: actor.actor.userId, role: actor.actor.role };
+    const args = { period: String(body.period || '').trim(), gstin: reg.gstin, otp: body.otp, pan: body.pan, caApprovalId: body.caApprovalId, actorId: actor.actor.userId, role: actor.actor.role };
     const out = await withProviderContext(contextFor(keys, row), () => withBooks(businessId, ctx, async (session) => {
-      const run = {
-        save: saveGstr1ToPortal,
-        check: checkGstr1OnPortal,
-        submit: submitGstr1OnPortal,
-        summary: gstr1PortalSummary,
-        otp: requestGstr1Evc,
-        file: fileGstr1OnPortal,
-      }[step];
-      const result = await run(session.state, args, actor.actor);
+      const result = await steps[step](session.state, args, actor.actor);
       if (result.ok || step === 'check') session.persist();
       return { ...result, mode: providerEnvironment(), simulated: mockModeEnabled() };
     }));
     if (!out.ok && ENDED.has(String(out.error))) await endSession(businessId, reg.gstin, out.error);
-    await audit(businessId, ctx, `gst_portal.gstr1_${step}`, { gstin: reg.gstin, period: args.period, ok: out.ok === true, error: out.ok ? '' : String(out.error || ''), simulated: mockModeEnabled() });
+    await audit(businessId, ctx, `gst_portal.${form}_${step}`, { gstin: reg.gstin, period: args.period, ok: out.ok === true, error: out.ok ? '' : String(out.error || ''), simulated: mockModeEnabled() });
+    return out;
+  }
+
+  const gstr1 = (businessId, ctx, actor, body) => returnStep('gstr1', GSTR1_STEPS, businessId, ctx, actor, body);
+  const gstr3b = (businessId, ctx, actor, body) => returnStep('gstr3b', GSTR3B_STEPS, businessId, ctx, actor, body);
+
+  async function tdsFvu(businessId, ctx, actor, body = {}) {
+    if (billing) {
+      const allowed = await billing.allows(businessId, 'gst-returns');
+      if (!allowed.ok) return allowed;
+    }
+    const keys = await keysFor(businessId);
+    const blocked = ready(keys);
+    if (blocked) return blocked;
+    const args = { quarter: String(body.quarter || '').trim(), form: body.form, tan: body.tan, filingType: body.filingType, caApprovalId: body.caApprovalId, actorId: actor.actor.userId, role: actor.actor.role };
+    const out = await withProviderContext(contextFor(keys), () => withBooks(businessId, ctx, async (session) => {
+      const result = await generateTdsFvu(session.state, args, actor.actor);
+      if (result.ok) session.persist();
+      return { ...result, mode: providerEnvironment(), simulated: mockModeEnabled() };
+    }));
+    await audit(businessId, ctx, 'gst_portal.tds_fvu', { quarter: args.quarter, form: String(args.form || '26Q'), ok: out.ok === true, error: out.ok ? '' : String(out.error || ''), simulated: mockModeEnabled() });
     return out;
   }
 
@@ -331,5 +359,5 @@ export function createGstPortal({ db, connectors, withBooks, billing = null, key
     return summary;
   }
 
-  return { status, connection, gstr1, filings, refreshDue };
+  return { status, connection, gstr1, gstr3b, tdsFvu, filings, refreshDue };
 }

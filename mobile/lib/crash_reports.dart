@@ -106,7 +106,7 @@ class DeviceCrashStore implements CrashStore {
 
   @override
   Future<bool> enabled() async =>
-      (await SharedPreferences.getInstance()).getBool(_enabled) ?? true;
+      (await SharedPreferences.getInstance()).getBool(_enabled) ?? false;
 
   @override
   Future<void> setEnabled(bool enabled) async =>
@@ -141,7 +141,7 @@ class DeviceCrashStore implements CrashStore {
 }
 
 class MemoryCrashStore implements CrashStore {
-  MemoryCrashStore({this.on = true});
+  MemoryCrashStore({this.on = false});
 
   bool on;
   List<Map<String, Object?>> queue = [];

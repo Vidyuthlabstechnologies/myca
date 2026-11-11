@@ -13,12 +13,27 @@ const RENEW_BATCH = 500;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export const PLANS = Object.freeze({
-  free: Object.freeze({ id: 'free', title: 'Free', monthlyRupees: 0, limits: { invoicesPerMonth: 30, members: 1 }, features: ['books', 'gst-returns', 'chat'] }),
-  pro: Object.freeze({ id: 'pro', title: 'Pro', monthlyRupees: 499, limits: { invoicesPerMonth: null, members: 5 }, features: ['books', 'gst-returns', 'chat', 'einvoice', 'connectors', 'whatsapp', 'team'] }),
-  firm: Object.freeze({ id: 'firm', title: 'CA firm', monthlyRupees: 1499, limits: { invoicesPerMonth: null, members: 25 }, features: ['books', 'gst-returns', 'chat', 'einvoice', 'connectors', 'whatsapp', 'team', 'priority-support'] }),
+  lapsed: Object.freeze({ id: 'lapsed', title: 'Trial ended', monthlyRupees: 0, yearlyRupees: 0, limits: { invoicesPerMonth: 0, members: 1 }, features: ['books'] }),
+  essentials: Object.freeze({ id: 'essentials', title: 'Essentials', monthlyRupees: 399, yearlyRupees: 3999, limits: { invoicesPerMonth: null, members: 2 }, features: ['books', 'post', 'chat', 'gst-reports', 'team'] }),
+  pro: Object.freeze({ id: 'pro', title: 'Pro', monthlyRupees: 799, yearlyRupees: 7999, limits: { invoicesPerMonth: null, members: 5 }, features: ['books', 'post', 'chat', 'gst-reports', 'gst-returns', 'einvoice', 'connectors', 'whatsapp', 'team'] }),
+  firm: Object.freeze({ id: 'firm', title: 'CA firm', monthlyRupees: 2499, yearlyRupees: 24999, limits: { invoicesPerMonth: null, members: 25 }, features: ['books', 'post', 'chat', 'gst-reports', 'gst-returns', 'einvoice', 'connectors', 'whatsapp', 'team', 'priority-support'] }),
 });
 
-const PAID = ['pro', 'firm'];
+const PAID = ['essentials', 'pro', 'firm'];
+
+function cheapestWith(feature) {
+  return PAID.map((id) => PLANS[id]).filter((plan) => plan.features.includes(feature)).map((plan) => plan.title);
+}
+
+export const READ_ONLY_REPLY = 'The free trial has ended, so the books are read-only: you can still ask questions and export everything, but nothing new is posted. The owner can choose a plan under Plan and billing.';
+
+export async function readOnlyChat(session, message, actor) {
+  if (session.state.pendingChatAction) await session.discard(actor);
+  const out = await session.chat(message, actor);
+  if (!out.preview && !out.awaitingConfirmation && !out.pending) return out;
+  await session.discard(actor);
+  return { reply: READ_ONLY_REPLY, tools: [], error: 'PLAN_REQUIRED' };
+}
 
 function unset(value) {
   const text = String(value || '').trim();
@@ -39,7 +54,7 @@ export function billingConfigFromEnv(env = process.env) {
   const prices = Object.fromEntries(String(env.MYCA_PLAN_PRICES || '').split(',').map((pair) => pair.split('=').map((part) => part.trim())).filter(([plan, price]) => PAID.includes(plan) && /^[0-9]{1,6}$/.test(price || '')).map(([plan, price]) => [plan, Number(price)]));
   return {
     packageName: unset(env.MYCA_PLAY_PACKAGE),
-    productIds: { pro: unset(env.MYCA_PLAY_PRODUCT_PRO), firm: unset(env.MYCA_PLAY_PRODUCT_FIRM) },
+    productIds: { essentials: unset(env.MYCA_PLAY_PRODUCT_ESSENTIALS), pro: unset(env.MYCA_PLAY_PRODUCT_PRO), firm: unset(env.MYCA_PLAY_PRODUCT_FIRM) },
     notifyToken: unset(env.MYCA_PLAY_NOTIFY_TOKEN),
     serviceAccount: parseServiceAccount(unset(env.MYCA_PLAY_SERVICE_ACCOUNT_JSON)),
     prices,
@@ -48,7 +63,7 @@ export function billingConfigFromEnv(env = process.env) {
 
 export function billingConfigProblem(env = process.env) {
   const cfg = billingConfigFromEnv(env);
-  if (!cfg.packageName || !(cfg.productIds.pro || cfg.productIds.firm)) return '';
+  if (!cfg.packageName || !PAID.some((plan) => cfg.productIds[plan])) return '';
   const given = unset(env.MYCA_PLAY_SERVICE_ACCOUNT_JSON);
   if (given && !cfg.serviceAccount) return 'MYCA_PLAY_SERVICE_ACCOUNT_JSON is not a service account key: paste the whole JSON file Google Cloud gave for the Play service account.';
   if (!given && !env.K_SERVICE) return 'Google Play subscriptions are on but MYCA_PLAY_SERVICE_ACCOUNT_JSON is empty: outside Cloud Run the API has no other way to reach the Play Developer API.';
@@ -76,7 +91,7 @@ function fail(error, extra = {}) {
 
 export function createBilling({ db, config = {}, now = () => Date.now(), fetchImpl = (...args) => globalThis.fetch(...args), log = () => {} }) {
   const cfg = { packageName: '', productIds: {}, notifyToken: '', serviceAccount: null, prices: {}, ...config };
-  const enabled = Boolean(cfg.packageName && (cfg.productIds.pro || cfg.productIds.firm));
+  const enabled = Boolean(cfg.packageName && PAID.some((plan) => cfg.productIds[plan]));
   const planOfProduct = (productId) => PAID.find((plan) => cfg.productIds[plan] && cfg.productIds[plan] === productId) || null;
   let cachedToken = { value: '', until: 0 };
 
@@ -172,14 +187,17 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
 
   async function entitlement(businessId) {
     const at = now();
-    const business = await db.query('select created_at as "createdAt" from businesses where id = $1', [businessId]);
+    const business = await db.query('select created_at as "createdAt", demo from businesses where id = $1', [businessId]);
+    if (business.rows[0]?.demo) {
+      return { ok: true, enforced: enabled, plan: 'pro', planTitle: PLANS.pro.title, limits: PLANS.pro.limits, features: PLANS.pro.features, trial: null, demo: true, subscription: null, manageUrl: '' };
+    }
     const createdAt = business.rows[0] ? new Date(business.rows[0].createdAt).getTime() : at;
     const trialEndsAt = createdAt + TRIAL_DAYS * DAY_MS;
     const sub = await row(businessId);
     const paidUntil = sub?.currentEnd ? new Date(sub.currentEnd).getTime() + GRACE_DAYS * DAY_MS : 0;
     const paying = Boolean(sub && LIVE_STATUSES.has(sub.status) && PAID.includes(sub.plan) && paidUntil > at);
     const inTrial = !paying && at < trialEndsAt;
-    const plan = paying ? sub.plan : inTrial ? 'pro' : 'free';
+    const plan = paying ? sub.plan : inTrial ? 'pro' : 'lapsed';
     return {
       ok: true,
       enforced: enabled,
@@ -197,7 +215,9 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
     if (!enabled) return { ok: true };
     const got = await entitlement(businessId);
     if (got.features.includes(feature)) return { ok: true, entitlement: got };
-    return fail('PLAN_REQUIRED', { feature, plan: got.plan, hint: `${PLANS.pro.title} or ${PLANS.firm.title} includes this. The owner can upgrade under Plan and billing.` });
+    const plans = cheapestWith(feature);
+    const hint = got.plan === 'lapsed' ? 'The free trial has ended, so the books are read-only: you can see and export everything. The owner can choose a plan under Plan and billing.' : `${plans.join(' or ')} includes this. The owner can upgrade under Plan and billing.`;
+    return fail('PLAN_REQUIRED', { feature, plan: got.plan, hint });
   }
 
   async function withinLimit(businessId, limit, used) {
@@ -221,7 +241,7 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
       packageName: cfg.packageName,
       trialDays: TRIAL_DAYS,
       currency: 'INR',
-      plans: Object.values(PLANS).map((plan) => ({ ...plan, monthlyRupees: cfg.prices[plan.id] ?? plan.monthlyRupees, productId: plan.id === 'free' ? '' : cfg.productIds[plan.id] || '', buyable: enabled && plan.id !== 'free' && Boolean(cfg.productIds[plan.id]) })),
+      plans: PAID.map((id) => PLANS[id]).map((plan) => ({ ...plan, monthlyRupees: cfg.prices[plan.id] ?? plan.monthlyRupees, productId: cfg.productIds[plan.id] || '', buyable: enabled && Boolean(cfg.productIds[plan.id]) })),
     }),
     entitlement,
     allows,
@@ -287,9 +307,9 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
       return summary;
     },
 
-    async notify(rawBody, givenToken) {
-      if (!enabled || !cfg.notifyToken) return { ok: false, statusCode: 404, error: 'NOT_FOUND' };
-      if (!notifyTokenMatches(cfg.notifyToken, givenToken)) return { ok: false, statusCode: 401, error: 'BAD_TOKEN' };
+    async notify(rawBody, givenToken, { pushVerified = false } = {}) {
+      if (!enabled || (!cfg.notifyToken && !pushVerified)) return { ok: false, statusCode: 404, error: 'NOT_FOUND' };
+      if (!pushVerified && !notifyTokenMatches(cfg.notifyToken, givenToken)) return { ok: false, statusCode: 401, error: 'BAD_TOKEN' };
       let message;
       let event;
       try {

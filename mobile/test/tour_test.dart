@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:myca/main.dart';
-import 'package:myca/mascot/mascot.dart';
+import 'package:myca_design/myca_design.dart' show Bahi;
 
 import 'fake_api.dart';
 
@@ -18,7 +18,7 @@ void main() {
     await tester.pumpWidget(MycaApp(state: state));
     await tester.pumpAndSettle();
 
-    expect(find.byType(Mascot), findsOneWidget);
+    expect(find.byType(Bahi), findsOneWidget);
     await tester.tap(find.text('Take a 2-minute tour first'));
     await settle(tester);
 

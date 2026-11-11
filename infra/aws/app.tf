@@ -11,15 +11,24 @@ locals {
     MYCA_INBOUND_RELAY_TOKEN   = random_password.inbound_relay_token.result
     MYCA_WHATSAPP_VERIFY_TOKEN = random_password.whatsapp_verify_token.result
     MYCA_PLAY_NOTIFY_TOKEN     = random_password.play_notify_token.result
+    MYCA_WAHA_WEBHOOK_SECRET   = random_password.waha_webhook_secret.result
   }
+  optional_secrets = { for name, value in {
+    NVIDIA_NIM_API_KEY     = var.model_api_key
+    MYCA_WAHA_API_KEY      = var.waha_api_key
+    MYCA_SMS_TWILIO_TOKEN  = var.sms_twilio_token
+    MYCA_SMS_MSG91_AUTHKEY = var.sms_msg91_authkey
+    MYCA_EMAIL_RELAY_TOKEN = var.email_relay_token
+  } : name => value if nonsensitive(trimspace(value) != "") }
+  optional_secret_names = sort([for name, value in local.optional_secrets : name])
   secrets = merge(local.generated, {
     MYCA_DATABASE_URL = "postgres://${aws_db_instance.main.username}:${random_password.db.result}@${aws_db_instance.main.address}:${aws_db_instance.main.port}/${aws_db_instance.main.db_name}"
     MYCA_DATABASE_CA  = data.http.rds_ca.response_body
-  }, local.play_key_given ? { MYCA_PLAY_SERVICE_ACCOUNT_JSON = var.play_service_account_json } : {}, local.gsp_key_given ? { MYCA_GSP_API_KEY = var.gsp_api_key, MYCA_GSP_API_SECRET = var.gsp_api_secret } : {})
+  }, local.play_key_given ? { MYCA_PLAY_SERVICE_ACCOUNT_JSON = var.play_service_account_json } : {}, local.gsp_key_given ? { MYCA_GSP_API_KEY = var.gsp_api_key, MYCA_GSP_API_SECRET = var.gsp_api_secret } : {}, local.optional_secrets)
   play_key_given = nonsensitive(trimspace(var.play_service_account_json) != "")
   gsp_key_given  = nonsensitive(trimspace(var.gsp_api_key) != "" && trimspace(var.gsp_api_secret) != "")
-  play_products  = { for name, id in { MYCA_PLAY_PRODUCT_PRO = var.play_product_pro, MYCA_PLAY_PRODUCT_FIRM = var.play_product_firm } : name => id if id != "" }
-  secret_names   = concat(["MYCA_TOKEN_SECRET", "MYCA_BOOKS_KEY", "MYCA_CONNECTOR_KEY", "MYCA_JOB_TOKEN", "MYCA_INBOUND_RELAY_TOKEN", "MYCA_WHATSAPP_VERIFY_TOKEN", "MYCA_PLAY_NOTIFY_TOKEN", "MYCA_DATABASE_URL", "MYCA_DATABASE_CA"], local.play_key_given ? ["MYCA_PLAY_SERVICE_ACCOUNT_JSON"] : [], local.gsp_key_given ? ["MYCA_GSP_API_KEY", "MYCA_GSP_API_SECRET"] : [])
+  play_products  = { for name, id in { MYCA_PLAY_PRODUCT_ESSENTIALS = var.play_product_essentials, MYCA_PLAY_PRODUCT_PRO = var.play_product_pro, MYCA_PLAY_PRODUCT_FIRM = var.play_product_firm } : name => id if id != "" }
+  secret_names   = concat(["MYCA_TOKEN_SECRET", "MYCA_BOOKS_KEY", "MYCA_CONNECTOR_KEY", "MYCA_JOB_TOKEN", "MYCA_INBOUND_RELAY_TOKEN", "MYCA_WHATSAPP_VERIFY_TOKEN", "MYCA_PLAY_NOTIFY_TOKEN", "MYCA_WAHA_WEBHOOK_SECRET", "MYCA_DATABASE_URL", "MYCA_DATABASE_CA"], local.play_key_given ? ["MYCA_PLAY_SERVICE_ACCOUNT_JSON"] : [], local.gsp_key_given ? ["MYCA_GSP_API_KEY", "MYCA_GSP_API_SECRET"] : [], local.optional_secret_names)
   production     = !var.pilot_sign_in_codes_in_logs
   environment = merge(
     {
@@ -28,10 +37,22 @@ locals {
       MYCA_PROVIDER_ENV         = contains(["live", "test"], var.provider_mode) ? var.provider_mode : "off"
       MYCA_GOOGLE_CLIENT_IDS    = join(",", var.google_client_ids)
       MYCA_PLAY_PACKAGE         = var.play_package_name
-      MYCA_ENABLE_CHANNEL_PULLS = "0"
+      MYCA_ENABLE_CHANNEL_PULLS = var.channel_pulls ? "1" : "0"
       MYCA_GSP_ENV              = var.gsp_environment
       TZ                        = "Asia/Kolkata"
     },
+    { for name, value in {
+      MYCA_WHATSAPP_PROVIDER     = var.waha_url != "" ? "waha" : ""
+      MYCA_WAHA_URL              = var.waha_url
+      MYCA_WAHA_SESSION          = var.waha_session
+      MYCA_SMS_PROVIDER          = var.sms_provider
+      MYCA_SMS_TWILIO_SID        = var.sms_twilio_sid
+      MYCA_SMS_TWILIO_FROM       = var.sms_twilio_from
+      MYCA_SMS_MSG91_TEMPLATE_ID = var.sms_msg91_template_id
+      MYCA_EMAIL_RELAY_URL       = var.email_relay_url
+      MYCA_EMAIL_FROM            = var.email_from
+      NVIDIA_NIM_MODEL           = var.model_name
+    } : name => value if value != "" },
     local.play_products,
     local.production ? { MYCA_PRODUCTION = "1" } : { MYCA_DEV_OTP = "1" },
   )
@@ -64,6 +85,11 @@ resource "random_password" "inbound_relay_token" {
 
 resource "random_password" "whatsapp_verify_token" {
   length  = 48
+  special = false
+}
+
+resource "random_password" "waha_webhook_secret" {
+  length  = 64
   special = false
 }
 
@@ -218,8 +244,12 @@ resource "aws_apprunner_service" "api" {
       error_message = "The API refuses to start with no sign-in method. Set google_client_ids (Google Sign-In), or pilot_sign_in_codes_in_logs = true for a closed pilot."
     }
     precondition {
+      condition     = var.sms_provider != "whatsapp" || var.waha_url != ""
+      error_message = "sms_provider = \"whatsapp\" sends sign-in codes through the WhatsApp gateway, so waha_url must be set."
+    }
+    precondition {
       condition     = length(local.play_products) == 0 || local.play_key_given
-      error_message = "The API refuses to start with Play products but no Play service account key. Set play_service_account_json to the JSON key of the service account invited in Play Console, or leave play_product_pro and play_product_firm empty."
+      error_message = "The API refuses to start with Play products but no Play service account key. Set play_service_account_json to the JSON key of the service account invited in Play Console, or leave play_product_essentials, play_product_pro and play_product_firm empty."
     }
   }
 

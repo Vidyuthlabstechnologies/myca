@@ -5,8 +5,20 @@ import { runTool } from '../../platform/src/tools.mjs';
 import { normalizeClientId } from '../../platform/src/books.mjs';
 import { requestApproval, decideApproval, approvalStatus } from '../../platform/src/approvals.mjs';
 import { modeOf } from './govt-connectors.mjs';
+import { filingApprovalSubject } from '../../platform/src/portal-filing.mjs';
 
-const OPERATIONS = { einvoice: 'nic_irn_generate' };
+const OPERATIONS = {
+  einvoice: 'nic_irn_generate',
+  gstr1_save: 'gst_save_gstr1',
+  gstr1_submit: 'gst_gstr1_proceed',
+  gstr1_otp: 'gst_evc_otp',
+  gstr1_file: 'gst_file_gstr1_evc',
+  gstr3b_save: 'gst_save_gstr3b',
+  gstr3b_offset: 'gst_gstr3b_offset',
+  gstr3b_otp: 'gst_evc_otp',
+  gstr3b_file: 'gst_file_gstr3b_evc',
+  tds_fvu: 'tds_fvu_generate',
+};
 
 function fail(error, extra = {}) {
   return { ok: false, error, ...extra };
@@ -15,7 +27,7 @@ function fail(error, extra = {}) {
 function publicApproval(approval) {
   return {
     approvalId: approval.approvalId,
-    operation: Object.keys(OPERATIONS).find((key) => OPERATIONS[key] === approval.operationId) || approval.operationId,
+    operation: approval.operationId === 'gst_evc_otp' ? (approval.paramsPreview?.form === 'GSTR-3B' ? 'gstr3b_otp' : 'gstr1_otp') : Object.keys(OPERATIONS).find((key) => OPERATIONS[key] === approval.operationId) || approval.operationId,
     params: approval.paramsPreview,
     requestedBy: approval.requestedBy,
     requestedAt: approval.requestedAt,
@@ -89,8 +101,17 @@ export function createGovtActions({ connectors, withBooks }) {
           session.persist();
           return { ok: true, approval: publicApproval(out.approval) };
         }
-        const operationId = OPERATIONS[String(body.operation || '')];
+        const operation = String(body.operation || '');
+        const operationId = Object.hasOwn(OPERATIONS, operation) ? OPERATIONS[operation] : '';
         if (!operationId) return fail('UNKNOWN_OPERATION', { known: Object.keys(OPERATIONS) });
+        if (operation !== 'einvoice') {
+          const subject = filingApprovalSubject(session.state, operationId, { period: body.period, gstin: body.gstin, quarter: body.quarter, form: operation === 'gstr3b_otp' ? 'GSTR-3B' : body.form, tan: body.tan });
+          if (!subject.ok) return subject;
+          const asked = requestApproval(session.state, { operationId, clientId: normalizeClientId(session.state.activeClientId), params: subject.subject, actor: actor.actor });
+          if (!asked.ok) return asked;
+          session.persist();
+          return { ok: true, approval: publicApproval(asked.approval), hint: 'An owner or the accountant, other than you, approves it. It stays good while the books for that month do not change.' };
+        }
         const invoiceId = String(body.invoiceId || '').trim();
         if (!invoiceId) return fail('INVOICE_ID_REQUIRED');
         const out = requestApproval(session.state, { operationId, clientId: normalizeClientId(session.state.activeClientId), params: { invoiceId }, actor: actor.actor });

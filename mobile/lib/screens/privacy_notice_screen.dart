@@ -16,6 +16,7 @@ class _PrivacyNoticeScreenState extends State<PrivacyNoticeScreen> {
   Future<PrivacyNotice>? _notice;
   String _error = '';
   bool _busy = false;
+  bool _crashReports = false;
 
   @override
   void didChangeDependencies() {
@@ -31,6 +32,7 @@ class _PrivacyNoticeScreenState extends State<PrivacyNoticeScreen> {
     });
     try {
       await state.cloud!.acceptNotice(notice);
+      if (_crashReports) await state.setCrashReports(true);
       await state.refresh();
     } on MycaApiException catch (err) {
       if (mounted) {
@@ -126,6 +128,25 @@ class _PrivacyNoticeScreenState extends State<PrivacyNoticeScreen> {
                         ),
                         const SizedBox(height: 8),
                       ],
+                      Material(
+                        color: Colors.transparent,
+                        child: CheckboxListTile(
+                          key: const ValueKey('consent.crashReports'),
+                          contentPadding: EdgeInsets.zero,
+                          controlAffinity: ListTileControlAffinity.leading,
+                          value: _crashReports,
+                          onChanged: _busy
+                              ? null
+                              : (value) => setState(
+                                  () => _crashReports = value ?? false,
+                                ),
+                          title: const Text('Also send crash reports'),
+                          subtitle: const Text(
+                            'Off unless you tick it. Only what went wrong in the app, with names, amounts, GSTINs and phone numbers removed. You can change this later under Your business.',
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
                       FilledButton(
                         onPressed: _busy ? null : () => _agree(notice),
                         child: Text(_busy ? 'Saving…' : 'I agree'),

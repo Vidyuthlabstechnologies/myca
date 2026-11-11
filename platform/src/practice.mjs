@@ -221,4 +221,3 @@ export function searchFirmNotes(state, { query } = {}) {
   return { ok: true, data: { query: q, hits: hits.slice(0, MAX_HITS), total: hits.length } };
 }
 
-export const FIRM_DOCUMENT_KINDS = DOCUMENT_KINDS;

@@ -44,7 +44,7 @@ let n = 0;
 before(async () => {
   globalThis.fetch = async (url, init) => (String(url).startsWith('http://127.0.0.1') || String(url).startsWith('http://localhost') ? realFetch(url, init) : fakeProviders(url, init));
   api = await startApi({ connectorKey: KEY });
-  owner = await api.ownerWithBusiness('+919400000071', { name: 'Nalanda Textiles', gstin: '27AABCU9603R1ZN' });
+  owner = await api.ownerWithBusiness('+919400000071', { name: 'Nalanda Textiles', gstin: '27AABCU9603R1ZN', address: 'Plot 4, MIDC, Pune 411019', city: 'Pune', pin: '411019' });
   const invited = await api.call('POST', `/v1/businesses/${owner.businessId}/invitations`, { token: owner.token, body: { phone: '+919400000072', role: 'accountant' } });
   assert.equal(invited.status, 200, invited.text);
   const ravi = await api.signIn('+919400000072');
@@ -66,7 +66,7 @@ const get = (who, action) => api.call('GET', `/v1/businesses/${who.businessId}/$
 
 async function b2bSale() {
   n += 1;
-  const held = await post(owner, 'propose', { name: 'create_invoice', args: { partyName: `Retail Mart ${n}`, partyGstin: '27AAACH7409R1Z1', lines: [{ description: 'Fabric', hsn: '5208', qty: 1, rate: 1000 * n, gstRate: 5 }] } });
+  const held = await post(owner, 'propose', { name: 'create_invoice', args: { partyName: `Retail Mart ${n}`, partyGstin: '27AAACH7409R1Z1', partyAddress: '12 FC Road, Pune 411004', lines: [{ description: 'Fabric', hsn: '5208', qty: 1, rate: 1000 * n, gstRate: 5 }] } });
   assert.equal(held.status, 200, held.text);
   const posted = await post(owner, 'confirm', { token: held.body.preview.token });
   assert.equal(posted.body.posted, true, posted.text);

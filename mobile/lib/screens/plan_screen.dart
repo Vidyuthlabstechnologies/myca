@@ -10,8 +10,10 @@ import '../theme.dart';
 bool get buyInApp => !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
 
 const featureWords = {
-  'books': 'Books, invoices and bills',
-  'gst-returns': 'GST returns prepared for your CA',
+  'books': 'See and export your books',
+  'post': 'Unlimited invoices, bills, receipts and payments',
+  'gst-reports': 'GSTR-1 and GSTR-3B worked out from your books',
+  'gst-returns': 'File GSTR-1 and GSTR-3B on the GST portal, with your CA\'s approval',
   'chat': 'Ask MyCA in plain words',
   'einvoice': 'E-invoices (IRN) and GSTIN checks',
   'connectors': 'Amazon, Shopify, Razorpay, Zoho and bank connections',
@@ -26,17 +28,32 @@ String planLimits(PlanOffer plan) {
   return '$invoices, $people';
 }
 
+String wholeRupees(int amount) {
+  final digits = '$amount';
+  if (digits.length <= 3) return '₹$digits';
+  final last = digits.substring(digits.length - 3);
+  var rest = digits.substring(0, digits.length - 3);
+  final groups = <String>[];
+  while (rest.length > 2) {
+    groups.insert(0, rest.substring(rest.length - 2));
+    rest = rest.substring(0, rest.length - 2);
+  }
+  if (rest.isNotEmpty) groups.insert(0, rest);
+  return '₹${groups.join(',')},$last';
+}
+
 String planPrice(PlanOffer plan, StoreProduct? product) {
-  if (plan.monthlyRupees == 0) return 'Free';
   if (product != null && product.price.isNotEmpty) return '${product.price} a month on Google Play';
-  return '₹${plan.monthlyRupees} a month';
+  final monthly = '${wholeRupees(plan.monthlyRupees)} a month';
+  return plan.yearlyRupees > 0 ? '$monthly or ${wholeRupees(plan.yearlyRupees)} a year' : monthly;
 }
 
 String entitlementLine(Entitlement e) {
   final until = e.currentEnd.length >= 10 ? e.currentEnd.substring(0, 10) : '';
   if (e.trialDaysLeft != null) return 'Free trial of ${e.planTitle}: ${e.trialDaysLeft} ${e.trialDaysLeft == 1 ? 'day' : 'days'} left.';
   if (e.status == 'pending') return 'Google Play is still processing the payment. The plan starts as soon as it clears.';
-  if (e.status == 'on_hold' || e.status == 'paused') return 'Google Play could not take the last payment, so this business is on Free. Fix the payment method in Google Play to get the plan back.';
+  if (e.status == 'on_hold' || e.status == 'paused') return 'Google Play could not take the last payment, so the books are read-only. Fix the payment method in Google Play to get the plan back.';
+  if (e.plan == 'lapsed') return 'The free trial has ended, so the books are read-only: you can still see, ask and export. Choose a plan to post again.';
   if (e.paying && !e.renews) return 'You are on ${e.planTitle}${until.isEmpty ? '' : ' until $until'}. It will not renew.';
   if (e.paying) return 'You are on ${e.planTitle}${until.isEmpty ? '' : ', renews $until'}.';
   return 'You are on ${e.planTitle}.';

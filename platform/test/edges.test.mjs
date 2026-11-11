@@ -19,7 +19,7 @@ import { parseZohoBooksCsv } from '../src/import-zoho.mjs';
 import { tallyXmlToDayBookCsv } from '../src/tally-xml.mjs';
 import { invoicesToGstr1Json } from '../src/gstr1-json.mjs';
 import { TOOLS, runTool } from '../src/tools.mjs';
-import { invoiceToNicPayload, nicGenerateIrn, probeGovt, nicAuthenticate, mycaDir, saveGovtConfig, loadGovtConfig, publicGovtConfig, migrateGovtVault, govtConfigPath } from '../src/govt.mjs';
+import { invoiceToNicPayload, nicSupplyType, nicPayloadProblems, nicGenerateIrn, probeGovt, nicAuthenticate, mycaDir, saveGovtConfig, loadGovtConfig, publicGovtConfig, migrateGovtVault, govtConfigPath } from '../src/govt.mjs';
 import { csvRows } from '../src/text-safe.mjs';
 import { liveCallsEnabled } from '../src/runtime-config.mjs';
 import { openSession } from '../src/session.mjs';
@@ -362,8 +362,8 @@ test('nic payload: B2B vs B2C supply type and date format', () => {
   const p = invoiceToNicPayload(state.company, b2b.invoice);
   assert.equal(p.TranDtls.SupTyp, 'B2B');
   assert.equal(p.DocDtls.Dt, '01/08/2026');
-  const b2c = invoiceToNicPayload(state.company, { ...b2b.invoice, partyGstin: '' });
-  assert.equal(b2c.TranDtls.SupTyp, 'B2C');
+  assert.equal(nicSupplyType({ ...b2b.invoice, partyGstin: '' }), '');
+  assert.ok(nicPayloadProblems(state.company, { ...b2b.invoice, partyGstin: '' }).some((problem) => problem.code === 'B2C_NO_IRN'));
 });
 
 test('intent: em-dash strip, comma rates, purchase vs sale, help and empty', () => {
@@ -1576,12 +1576,14 @@ test('search_gstin and redundant e-invoice and document auto-discovery', async (
   const originalMock = process.env.MYCA_MOCK_MODE;
   process.env.MYCA_MOCK_MODE = '1';
   try {
+    state.company = { ...state.company, address: 'Plot 4, MIDC, Pune 411019', pin: '411019', city: 'Pune' };
     createInvoice(state, {
       id: 'INV-0001',
       date: '2026-08-01',
       partyName: 'Buyer',
       partyGstin: '27AAACH7409R1Z1',
-      lines: [{ description: 'Item', qty: 1, rate: 1000, gstRate: 18 }],
+      partyAddress: '12 FC Road, Pune 411004',
+      lines: [{ description: 'Item', hsn: '8471', qty: 1, rate: 1000, gstRate: 18 }],
     });
     const sandboxIrn = await runTool(state, 'govt_generate_irn', { invoiceId: 'INV-0001', provider: 'sandbox' });
     assert.equal(sandboxIrn.ok, true);

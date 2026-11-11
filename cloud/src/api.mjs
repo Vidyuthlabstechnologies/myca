@@ -3,13 +3,14 @@ import { mockModeEnabled, serviceProviderEnvironment } from '../../platform/src/
 import { withProviderContext } from '../../platform/src/provider-context.mjs';
 import { createGovtActions } from './govt-actions.mjs';
 import { createGstPortal } from './gst-portal.mjs';
-import { createBilling, PLANS } from './billing.mjs';
+import { createBilling, readOnlyChat } from './billing.mjs';
 import { gstin } from '../../platform/src/sprint-load.mjs';
 import { rule } from '../../sprints/statutory-rules/src/index.mjs';
-import { createAuth, isUuid } from './auth.mjs';
+import { createAuth, isUuid, OTP_MAX_GLOBAL_PER_HOUR } from './auth.mjs';
 import { createSecondFactor } from './second-factor.mjs';
 import { createDevices } from './devices.mjs';
 import { createBusinesses, engineRole } from './businesses.mjs';
+import { publicCountries } from './residency.mjs';
 import { createBooksRunner } from './books-runner.mjs';
 import { createMembers } from './members.mjs';
 import { IMPORT_CONTENT_ARG, isImport } from '../../platform/src/import-documents.mjs';
@@ -30,6 +31,10 @@ import { inWords } from '../../platform/src/words.mjs';
 import { createInbound, INBOUND_HEADER, relayTokenMatches } from './inbound.mjs';
 import { createWhatsApp } from './whatsapp.mjs';
 import { chatText } from './chat-text.mjs';
+import { htmlEscape } from '../../platform/src/text-safe.mjs';
+import { DEMO_BLOCKED_ACTIONS, seedDemo } from './demo.mjs';
+import { createRateLimits, LIMITS } from './rate-limits.mjs';
+import { ENGINE_WRITE_TOOLS } from '../../platform/src/countries/manifests.mjs';
 
 const INDIA_OFFSET_MS = 330 * 60 * 1000;
 
@@ -38,6 +43,7 @@ function indiaDate(at) {
 }
 
 export const INBOUND_RELAY_HEADER = 'x-myca-relay-token';
+export const PLAY_NOTIFY_HEADER = 'x-myca-notify-token';
 
 const MAX_BODY_BYTES = 1024 * 1024;
 export const MAX_UPLOAD_BYTES = 8 * 1024 * 1024;
@@ -62,9 +68,13 @@ const OWNER_ONLY_POSTS = new Map([
   ['replace', 'SHARED_VIEW_READ_ONLY'],
 ]);
 
-export const PROPOSABLE = new Set(['import_payroll_summary', 'create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'record_filing', 'record_supplier_reminder', 'add_employee', 'set_tds_deductor', 'record_tds_deposit', 'change_salary', 'end_employment', 'post_expense', 'set_expense_head', 'create_credit_note', 'cancel_invoice', 'gst_review_answer', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote', 'exception_decide', 'ims_decide', 'create_purchase_note', 'import_settlement', 'import_marketplace_orders', 'import_tcs_statement', 'import_26as_credits', 'record_tds_withheld', 'add_bill_tds', 'set_sku_cost', 'import_sku_costs', 'record_stock', 'record_stock_transfer', 'value_inventory', 'set_registration', 'retire_registration', 'set_channel_identity', 'set_invoice_template', 'set_supplier_terms', 'set_employee_bank', 'set_invoice_numbering', 'amend_invoice', 'create_debit_note', 'record_supplier_debit_note', 'record_collection_reminder', 'record_payment_run', 'attach_document', 'approve_payroll', 'record_salary_payment', 'tds_review_answer', 'record_gst_payment', 'close_year', 'set_transport', 'set_sales_tax_nexus', 'sales_tax_review_answer', 'record_sales_tax_payment', 'record_sales_tax_filing', 'set_suta_rate', 'add_recurring', 'stop_recurring', 'match_bank_line', 'unmatch_bank_line', 'book_bank_charges', 'add_bank_rule', 'remove_bank_rule', 'run_bank_rules', 'set_bank_account', 'record_transfer']);
+const WRITES = new Set(['replace', 'uploads', 'propose', 'confirm', 'connector-sync', 'plaid-exchange', 'gusto-connect']);
+
+export const PROPOSABLE = new Set(['import_payroll_summary', 'create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'record_filing', 'record_supplier_reminder', 'add_employee', 'set_tds_deductor', 'record_tds_deposit', 'change_salary', 'end_employment', 'post_expense', 'set_expense_head', 'create_credit_note', 'cancel_invoice', 'gst_review_answer', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote', 'exception_decide', 'ims_decide', 'create_purchase_note', 'import_settlement', 'import_marketplace_orders', 'import_tcs_statement', 'import_26as_credits', 'record_tds_withheld', 'add_bill_tds', 'set_business_address', 'set_party_address', 'set_sku_cost', 'import_sku_costs', 'record_stock', 'record_stock_transfer', 'value_inventory', 'set_registration', 'retire_registration', 'set_channel_identity', 'set_invoice_template', 'set_supplier_terms', 'set_employee_bank', 'set_invoice_numbering', 'amend_invoice', 'create_debit_note', 'record_supplier_debit_note', 'record_collection_reminder', 'record_payment_run', 'attach_document', 'approve_payroll', 'record_salary_payment', 'tds_review_answer', 'record_gst_payment', 'close_year', 'set_transport', 'set_sales_tax_nexus', 'sales_tax_review_answer', 'record_sales_tax_payment', 'record_sales_tax_filing', 'set_suta_rate', 'add_recurring', 'stop_recurring', 'match_bank_line', 'unmatch_bank_line', 'book_bank_charges', 'add_bank_rule', 'remove_bank_rule', 'run_bank_rules', 'set_bank_account', 'record_transfer']);
 
 const NOT_A_PLACE_OF_BUSINESS = new Set(['97', '99']);
+
+for (const name of ENGINE_WRITE_TOOLS) PROPOSABLE.add(name);
 
 export function businessStates(onDate) {
   const current = rule('gst.gstin.state-codes', onDate);
@@ -73,6 +83,10 @@ export function businessStates(onDate) {
     .filter((code) => !NOT_A_PLACE_OF_BUSINESS.has(code) && gstin.STATE_CODES[code])
     .map((code) => ({ code, name: gstin.STATE_CODES[code] }))
     .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+export function gustoPage(ok, text) {
+  return { __html: `<!doctype html><meta charset="utf-8"><title>MyCA</title><body style="font:16px system-ui;background:#0c1220;color:#e8edf6;padding:40px"><h1>${ok ? 'Gusto is connected' : 'Gusto was not connected'}</h1><p>${htmlEscape(text)}</p><p>You can close this tab and go back to the MyCA app.</p></body>` };
 }
 
 function httpError(statusCode, error, extra = {}) {
@@ -272,14 +286,14 @@ export function clientAddress(req, hops = trustedProxyHops()) {
   return String(parts[parts.length - hops] || '').slice(0, 64);
 }
 
-export function createApi({ billing: billingGiven = null, db, secret, booksKey = '', otpSender = null, googleClientIds = [], googleKeys, oidc = {}, oidcKeys = null, documentVault = null, connectorKey = '', now = () => Date.now(), log = () => {}, version = 'dev', jobToken = '', inboundEmail = {}, whatsapp = {}, whatsappSender = null, bodyBudgetBytes = 0, gspFetch = null }) {
+export function createApi({ billing: billingGiven = null, db, secret, booksKey = '', otpSender = null, googleClientIds = [], googleKeys, oidc = {}, oidcKeys = null, documentVault = null, connectorKey = '', now = () => Date.now(), log = () => {}, version = 'dev', environment = 'local', healthTimeoutMs = 2000, playPush = {}, testSignIn = null, otpGlobalPerHour = OTP_MAX_GLOBAL_PER_HOUR, rateLimits: limitsGiven = LIMITS, adminUserIds = [], jobToken = '', inboundEmail = {}, whatsapp = {}, whatsappSender = null, bodyBudgetBytes = 0, gspFetch = null }) {
   process.env.MYCA_HOSTED = '1';
   assertSecret(secret);
   const budget = createBodyBudget(Number.isSafeInteger(bodyBudgetBytes) && bodyBudgetBytes > 0 ? bodyBudgetBytes : defaultBodyBudgetBytes({ constrainedMemory: process.constrainedMemory(), ceiling: MAX_BUSINESS_BYTES }));
   const { readRaw, readJson, release: releaseBody } = createBodyReaders(budget);
   const providerMode = () => (mockModeEnabled() ? 'simulated' : serviceProviderEnvironment());
   const secondFactor = createSecondFactor({ db, secret, booksKey, now });
-  const auth = createAuth({ db, secret, otpSender, now, secondFactor });
+  const auth = createAuth({ db, secret, otpSender, now, secondFactor, testSignIn, otpGlobalPerHour, log });
   const devices = createDevices({ db, now });
   const businesses = createBusinesses({ db, now, booksKey });
   const vault = documentVault || createDocumentVault({ now, log });
@@ -298,13 +312,50 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
   const members = createMembers({ db, secret, now, notify: otpSender && typeof otpSender.sendText === 'function' ? (phone, text) => otpSender.sendText(phone, text) : null });
   const crashes = createCrashReports({ db, now });
   const inbound = createInbound({ db, secret, now, withBooks, email: { domain: inboundEmail.domain }, storedBytes: (businessId) => businesses.storedBytes(businessId), limitBytes: MAX_BUSINESS_BYTES });
-  const whatsApp = createWhatsApp({ db, withBooks, withSharedBooks: runner.withSharedBooks, syncOf, config: whatsapp, sender: whatsappSender, now, log });
+  const whatsApp = createWhatsApp({ db, withBooks, billing, withSharedBooks: runner.withSharedBooks, syncOf, config: whatsapp, sender: whatsappSender, now, log });
   const consent = createConsent({ db, now });
   const recordAccess = createAccessLog(db);
-  const jobs = createJobs({ db, withBooks, connectors, syncChannels, pullsEnabled: channelPullsEnabled, sender: whatsappSender, vault, billing, now, log });
+  const rateLimits = createRateLimits({ db, now, limits: limitsGiven });
+  const isAdmin = (userId) => {
+    const listed = typeof adminUserIds === 'function' ? adminUserIds() : adminUserIds;
+    return Array.isArray(listed) && listed.some((id) => isUuid(id) && id.toLowerCase() === String(userId).toLowerCase());
+  };
+
+  async function throttle(kind, who) {
+    const taken = await rateLimits.take(kind, who);
+    if (!taken.ok) throw httpError(429, 'RATE_LIMITED', { retryAfterSeconds: taken.retryAfterSeconds, hint: 'Too many requests in a short time. Wait a little and try again.' });
+  }
+  const jobs = createJobs({ db, secret, rateLimits, withBooks, connectors, syncChannels, pullsEnabled: channelPullsEnabled, sender: whatsappSender, vault, billing, now, log });
   const google = createGoogleVerifier({ clientIds: googleClientIds, keys: googleKeys || createGoogleKeys({ now }), now });
   const openId = createOidcVerifier({ issuer: oidc.issuer || '', clientIds: oidc.clientIds || [], jwksUrl: oidc.jwksUrl || '', keys: oidcKeys, now });
-  if (!otpSender && !google.enabled && !openId.enabled) throw new Error('no sign-in method: configure an SMS sender, MYCA_GOOGLE_CLIENT_IDS or MYCA_OIDC_ISSUER with MYCA_OIDC_CLIENT_IDS');
+  if (!auth.phoneEnabled && !google.enabled && !openId.enabled) throw new Error('no sign-in method: configure an SMS sender, MYCA_GOOGLE_CLIENT_IDS or MYCA_OIDC_ISSUER with MYCA_OIDC_CLIENT_IDS');
+
+  const pushAudience = String(playPush.audience || '').trim();
+  const pushAccount = String(playPush.serviceAccount || '').trim().toLowerCase();
+  const pushVerifier = pushAudience && pushAccount ? createGoogleVerifier({ clientIds: [pushAudience], keys: googleKeys || createGoogleKeys({ now }), now }) : null;
+
+  async function playPushVerified(req) {
+    if (!pushVerifier) return false;
+    const given = bearer(req);
+    if (!given) return false;
+    const out = await pushVerifier.verify(given);
+    return Boolean(out.ok && String(out.email || '').toLowerCase() === pushAccount);
+  }
+
+  function reviewer(user) {
+    return Boolean(testSignIn && user && user.phone && testSignIn.isReviewer(user.phone));
+  }
+
+  async function databaseReachable() {
+    let timer;
+    const timeout = new Promise((resolve) => { timer = setTimeout(() => resolve(false), healthTimeoutMs); });
+    const probe = db.query('select 1').then(() => true, () => false);
+    try {
+      return await Promise.race([probe, timeout]);
+    } finally {
+      clearTimeout(timer);
+    }
+  }
 
   async function withConsent(signedIn) {
     return signedIn.ok && signedIn.user ? { ...signedIn, consent: await consent.status(signedIn.user.id) } : signedIn;
@@ -328,12 +379,20 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
     const method = req.method;
     if (parts[0] !== 'v1') throw httpError(404, 'NOT_FOUND');
 
-    if (parts[1] === 'health' && method === 'GET') return { ok: true, providerMode: providerMode() };
+    if (parts[1] === 'health' && parts[2] === 'live' && parts.length === 3 && method === 'GET') return { ok: true, environment, providerMode: providerMode(), version };
+    if (parts[1] === 'countries' && parts.length === 2 && method === 'GET') return publicCountries();
+    if (parts[1] === 'health' && parts.length === 2 && method === 'GET') {
+      const database = await databaseReachable();
+      if (!database) throw httpError(503, 'DATABASE_UNAVAILABLE', { environment, providerMode: providerMode(), database: 'unreachable' });
+      return { ok: true, environment, providerMode: providerMode(), database: 'ok', version };
+    }
     if (parts[1] === 'privacy-notice' && parts.length === 2 && method === 'GET') return { ok: true, notice: PRIVACY_NOTICE };
     if (parts[1] === 'plans' && parts.length === 2 && method === 'GET') return billing.plans();
     if (parts[1] === 'billing' && parts[2] === 'play' && parts[3] === 'notify' && parts.length === 4 && method === 'POST') {
+      if (url.searchParams.has('token')) throw httpError(401, 'TOKEN_IN_QUERY', { hint: `Send the token in the ${PLAY_NOTIFY_HEADER} header, or use Pub/Sub push authentication.` });
       const raw = await readRaw(req, MAX_BODY_BYTES);
-      const received = await billing.notify(raw, url.searchParams.get('token') || '');
+      const pushVerified = await playPushVerified(req);
+      const received = await billing.notify(raw, String(req.headers[PLAY_NOTIFY_HEADER] || ''), { pushVerified });
       if (!received.ok) throw httpError(received.statusCode, received.error);
       return received;
     }
@@ -345,7 +404,7 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
       const code = url.searchParams.get('code') || '';
       const givenState = url.searchParams.get('state') || '';
       const businessId = givenState.split('.')[0] || '';
-      const page = (ok, text) => ({ __html: `<!doctype html><meta charset="utf-8"><title>MyCA</title><body style="font:16px system-ui;background:#0c1220;color:#e8edf6;padding:40px"><h1>${ok ? 'Gusto is connected' : 'Gusto was not connected'}</h1><p>${text}</p><p>You can close this tab and go back to the MyCA app.</p></body>` });
+      const page = gustoPage;
       if (!/^[0-9a-f-]{8,64}$/i.test(businessId)) return page(false, 'The link did not carry a business.');
       const config = await connectors.load(businessId, 'gusto');
       if (!config) return page(false, 'No Gusto application is saved for this business.');
@@ -358,6 +417,7 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
     }
 
     if (parts[1] === 'auth' && method === 'POST') {
+      if (parts[2] !== 'otp' && parts[2] !== 'logout') await throttle('signIn', clientAddress(req));
       const body = await readJson(req);
       if (parts[2] === 'otp') return auth.requestOtp(body.phone, clientAddress(req));
       if (parts[2] === 'verify') return withConsent(await auth.verifyOtp(body));
@@ -390,6 +450,14 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
         return received;
       }
       throw httpError(405, 'METHOD_NOT_ALLOWED');
+    }
+
+    if (parts[1] === 'whatsapp' && parts[2] === 'waha' && parts.length === 3) {
+      if (method !== 'POST') throw httpError(405, 'METHOD_NOT_ALLOWED');
+      const raw = await readRaw(req, MAX_BODY_BYTES);
+      const received = await whatsApp.receiveWaha(requestId, raw, req.headers);
+      if (!received.ok) throw httpError(received.statusCode, received.error);
+      return received;
     }
 
     if (parts[1] === 'inbound' && parts[2] === 'email' && parts.length === 3 && method === 'POST') {
@@ -453,7 +521,15 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
     }
 
     if (parts[1] === 'crash-reports' && parts.length === 2 && method === 'POST') {
+      await throttle('crash', user.userId);
       return crashes.record(await readJson(req, MAX_CRASH_BYTES));
+    }
+
+    if (parts[1] === 'admin' && parts[2] === 'crashes' && parts.length === 3 && method === 'GET') {
+      if (!isAdmin(user.userId)) throw httpError(404, 'NOT_FOUND');
+      const days = Math.max(1, Math.min(90, Number(url.searchParams.get('days')) || 1));
+      log({ requestId, admin: 'crash-digest', userId: user.userId, days });
+      return { ok: true, days, versions: await crashes.digest(now() - days * 24 * 60 * 60 * 1000) };
     }
 
     if (parts[1] === 'reference' && parts[2] === 'states' && method === 'GET') {
@@ -475,6 +551,7 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
     }
 
     if (parts[1] === 'invitations' && parts.length === 4 && method === 'POST' && (parts[3] === 'accept' || parts[3] === 'decline')) {
+      if (parts[3] === 'accept' && reviewer(user)) throw httpError(403, 'REVIEWER_DEMO_ONLY');
       const context = { userId: user.userId, deviceId: user.deviceId, requestId };
       return members.respond(user, context, parts[2], parts[3] === 'accept');
     }
@@ -515,16 +592,30 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
 
     if (parts[1] === 'businesses' && parts.length === 2) {
       if (method === 'GET') return { ok: true, businesses: await businesses.listFor(user.userId) };
-      if (method === 'POST') return businesses.create(user.userId, await readJson(req));
+      if (method === 'POST') {
+        const body = await readJson(req);
+        const demo = body.demo === true || reviewer(user);
+        const created = await businesses.create(user.userId, body, { demo });
+        if (!created.ok || !demo) return created;
+        const context = { userId: user.userId, deviceId: user.deviceId, requestId };
+        const seeded = await withBooks(created.business.id, context, (session) => seedDemo(session, indiaDate(now()), { actor: { userId: user.userId, role: 'admin', name: user.name || user.userId } }));
+        if (!seeded.ok) log({ requestId, demo: 'seed failed', step: seeded.step, cause: seeded.cause });
+        return { ...created, seeded: seeded.ok ? seeded.steps : 0 };
+      }
     }
 
     if (parts[1] === 'businesses' && parts.length === 4) {
       const businessId = parts[2];
       if (!isUuid(businessId)) throw httpError(404, 'BUSINESS_NOT_FOUND');
-      const role = await member(user, businessId);
+      const membership = await businesses.membership(user.userId, businessId);
+      if (!membership) throw httpError(404, 'BUSINESS_NOT_FOUND');
+      const role = membership.role;
       const context = { userId: user.userId, deviceId: user.deviceId, requestId };
       const actor = { actor: { userId: user.userId, role: engineRole(role), name: user.name || user.userId } };
       const action = parts[3];
+      if (membership.demo && method === 'POST' && DEMO_BLOCKED_ACTIONS.has(action)) {
+        throw httpError(403, 'DEMO_BUSINESS', { hint: 'This is a demo business with fictional data, so it cannot reach the GST portal, the IRP, connected services, billing or other people. Create your own business to do that.' });
+      }
       await recordAccess(businessId, context, method, action, role);
       if (method === 'GET' && action === 'access') {
         if (role !== 'owner') throw httpError(403, 'OWNER_ONLY');
@@ -608,6 +699,8 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
         throw httpError(403, 'OWNER_ONLY');
       }
 
+      if (action === 'ask') await throttle('ask', user.userId);
+      if (action === 'uploads') await throttle('upload', user.userId);
       const body = await readJson(req, action === 'uploads' ? MAX_UPLOAD_BYTES : action === 'replace' ? Math.min(MAX_BUSINESS_BYTES, budget.limit) : MAX_BODY_BYTES);
       if (action === 'brief') {
         if (role === 'accountant') throw httpError(403, 'NOT_FOR_ACCOUNTANTS');
@@ -627,10 +720,13 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
         return { ok: true, sharedAsOf: await runner.share(businessId, user.userId) };
       }
       if (action === 'gstin-check') return govt.gstinCheck(businessId, context, actor, body);
-      if (action === 'gst-portal' || action === 'gst-gstr1') {
+      if (action === 'gst-portal' || action === 'gst-gstr1' || action === 'gst-gstr3b' || action === 'tds-fvu') {
         if (role === 'staff') throw httpError(403, 'NOT_FOR_STAFF');
         if (sharedView) throw httpError(403, 'SHARED_VIEW_READ_ONLY', { sharedAsOf: sync.asOf });
-        return action === 'gst-portal' ? gstPortal.connection(businessId, context, actor, body) : gstPortal.gstr1(businessId, context, actor, body);
+        if (action === 'gst-portal') return gstPortal.connection(businessId, context, actor, body);
+        if (action === 'gst-gstr3b') return gstPortal.gstr3b(businessId, context, actor, body);
+        if (action === 'tds-fvu') return gstPortal.tdsFvu(businessId, context, actor, body);
+        return gstPortal.gstr1(businessId, context, actor, body);
       }
       if (action === 'einvoice' || action === 'approvals') {
         if (sharedView) throw httpError(403, 'SHARED_VIEW_READ_ONLY');
@@ -652,6 +748,8 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
         throw httpError(403, 'SHARED_VIEW_READ_ONLY', { sharedAsOf: sync.asOf });
       }
       if (action === 'subscription') return billing.verify(businessId, user.userId, body);
+      const posting = WRITES.has(action) ? await billing.allows(businessId, 'post') : { ok: true };
+      if (!posting.ok) return posting;
       if (action === 'invitations') {
         const team = await billing.allows(businessId, 'team');
         if (!team.ok) return team;
@@ -710,15 +808,7 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
           return withBooks(businessId, context, (session) => session.propose(name, args, actor), { hashes: [args.documentSha256] });
         }
         if (!PROPOSABLE.has(name)) throw httpError(400, 'NOT_PROPOSABLE', { tool: name });
-        const cap = name === 'create_invoice' && billing.enabled ? (await billing.entitlement(businessId)).limits.invoicesPerMonth : null;
-        return withBooks(businessId, context, (session) => {
-          if (cap != null) {
-            const month = indiaDate(now()).slice(0, 7);
-            const used = (session.state.invoices || []).filter((inv) => String(inv.date || '').startsWith(month)).length;
-            if (used >= cap) return { ok: false, error: 'PLAN_LIMIT_REACHED', limit: 'invoicesPerMonth', cap, hint: `The ${PLANS.free.title} plan allows ${cap} invoices a month. The owner can upgrade under Plan and billing.` };
-          }
-          return session.propose(name, args, actor);
-        });
+        return withBooks(businessId, context, (session) => session.propose(name, args, actor));
       }
       if (action === 'confirm') return withBooks(businessId, context, (session) => session.confirm(body.token, actor));
       if (action === 'discard') return withBooks(businessId, context, (session) => session.discard(actor));
@@ -726,7 +816,8 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
       if (action === 'ask') {
         const message = chatText(body.message);
         if (!message.trim()) throw httpError(400, 'MESSAGE_REQUIRED');
-        return withBooks(businessId, context, (session) => session.chat(message, actor));
+        const canPost = await billing.allows(businessId, 'post');
+        return withBooks(businessId, context, (session) => (canPost.ok ? session.chat(message, actor) : readOnlyChat(session, message, actor)));
       }
       if (action === 'company') {
         if (role !== 'owner') throw httpError(403, 'OWNER_ONLY');
@@ -760,9 +851,9 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
       }
     }
     log({ requestId, method: req.method, path: url ? url.pathname.replace(/[0-9a-f-]{36}/gi, ':id') : '(unreadable)', status, ...(body && body.error === 'SERVER_BUSY' ? { db: 'pool busy' } : {}) });
-    const retry = status === 503 ? { 'retry-after': '2' } : {};
+    const retry = status === 503 ? { 'retry-after': '2' } : status === 429 && body && Number.isSafeInteger(body.retryAfterSeconds) ? { 'retry-after': String(body.retryAfterSeconds) } : {};
     if (body && typeof body === 'object' && typeof body.__html === 'string') {
-      res.writeHead(status, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'x-request-id': requestId, ...retry });
+      res.writeHead(status, { 'content-type': 'text/html; charset=utf-8', 'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'", 'x-content-type-options': 'nosniff', 'cache-control': 'no-store', 'x-request-id': requestId, ...retry });
       res.end(body.__html);
       return;
     }

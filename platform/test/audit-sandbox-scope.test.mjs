@@ -39,6 +39,10 @@ const PARAMS = {
   gst_gstr1_proceed: { period: '2026-08' },
   gst_gstr1_summary: { period: '2026-08' },
   gst_evc_otp: { pan: 'AABCU9603R' },
+  gst_save_gstr3b: { period: '2026-08', payload: { gstin: '27AABCU9603R1ZN' } },
+  gst_gstr3b_liability: { period: '2026-08' },
+  gst_gstr3b_offset: { period: '2026-08', payload: { pdcash: [], pditc: {} } },
+  gst_file_gstr3b_evc: { period: '2026-08', pan: 'AABCU9603R', otp: '123456', payload: { gstin: '27AABCU9603R1ZN' } },
   einvoice_authenticate: { username: 'api', password: 'pw', gstin: '27AABCU9603R1ZN' },
   einvoice_cancel: { irn: 'IRN-1', reason: '1' },
   gstin_verify: { gstin: '27AABCU9603R1ZN' },
@@ -48,7 +52,8 @@ const PARAMS = {
 
 test('every Sandbox adapter calls only the transport functions its action declares, on the configured host', async () => {
   const state = createState();
-  const inv = createInvoice(state, { partyName: 'Retail', partyGstin: '27AAACH7409R1Z1', partyState: '27', lines: [{ description: 'x', hsn: '5208', qty: 1, rate: 100, gstRate: 5 }] });
+  state.company = { ...state.company, address: 'Plot 4, MIDC, Pune 411019', pin: '411019', city: 'Pune' };
+  const inv = createInvoice(state, { partyName: 'Retail', partyGstin: '27AAACH7409R1Z1', partyState: '27', partyAddress: '12 FC Road, Pune 411004', lines: [{ description: 'x', hsn: '5208', qty: 1, rate: 100, gstRate: 5 }] });
   const params = { ...PARAMS, einvoice_generate: { invoiceId: inv.invoice.id } };
   await withEnv({ MYCA_ENABLE_LIVE_CALLS: '1', MYCA_MOCK_MODE: '0', MYCA_GSP_API_KEY: 'k', MYCA_GSP_API_SECRET: 's', MYCA_GSP_BASE_URL: BASE_URL }, async () => {
     for (const operation of SANDBOX_OPERATIONS.filter((op) => adapterSupports(op.operationId))) {

@@ -1,0 +1,22 @@
+name: Feature
+description: Something MyCA should do
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: why
+    attributes:
+      label: Why
+      description: Who needs it and what problem it solves
+    validations:
+      required: true
+  - type: textarea
+    id: tasks
+    attributes:
+      label: Tasks
+      placeholder: "- [ ] ..."
+  - type: textarea
+    id: done
+    attributes:
+      label: Acceptance criteria
+    validations:
+      required: true

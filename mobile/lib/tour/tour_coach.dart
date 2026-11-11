@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../mascot/mascot.dart';
+import 'package:myca_design/myca_design.dart' show Bahi;
 import '../theme.dart';
 import 'tour.dart';
 
@@ -103,7 +103,7 @@ class _CoachCardState extends State<_CoachCard> {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Mascot(mood: step.mood, size: mascot, talking: _talking),
+                Bahi(mood: step.mood, size: mascot, talking: _talking),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Padding(
@@ -112,7 +112,7 @@ class _CoachCardState extends State<_CoachCard> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          '${Mascot.name} · ${tour.index + 1} of ${tour.count}',
+                          '${Bahi.name} · ${tour.index + 1} of ${tour.count}',
                           style: text.labelSmall?.copyWith(color: Palette.accent),
                         ),
                         const SizedBox(height: 4),

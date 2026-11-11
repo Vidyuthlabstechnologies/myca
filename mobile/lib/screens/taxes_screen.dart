@@ -576,9 +576,9 @@ class _TaxesScreenState extends State<TaxesScreen> {
                     note: _fileNote,
                     onSave: () => _saveFile(gst),
                     onPortal: _portalAllowed
-                        ? () => Navigator.of(context).push(
+                        ? (form) => Navigator.of(context).push(
                               MaterialPageRoute<void>(
-                                builder: (_) => GstPortalScreen(period: gst.period, gstin: _gstin),
+                                builder: (_) => GstPortalScreen(period: gst.period, gstin: _gstin, form: form),
                               ),
                             )
                         : null,
@@ -980,7 +980,7 @@ class _Gstr1Card extends StatelessWidget {
   final bool saving;
   final String note;
   final VoidCallback onSave;
-  final VoidCallback? onPortal;
+  final void Function(String form)? onPortal;
 
   @override
   Widget build(BuildContext context) {
@@ -1026,8 +1026,16 @@ class _Gstr1Card extends StatelessWidget {
             SizedBox(
               width: double.infinity,
               child: OutlinedButton(
-                onPressed: file.empty ? null : onPortal,
-                child: const Text('File on the GST portal'),
+                onPressed: file.empty ? null : () => onPortal!('gstr1'),
+                child: const Text('File GSTR-1 on the GST portal'),
+              ),
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton(
+                onPressed: () => onPortal!('gstr3b'),
+                child: const Text('File GSTR-3B on the GST portal'),
               ),
             ),
           ],
@@ -1035,7 +1043,7 @@ class _Gstr1Card extends StatelessWidget {
           Text(
             onPortal == null
                 ? 'MyCA does not upload or file this. You or your CA do that on the GST portal.'
-                : 'Save the file to upload it yourself, or file it on the GST portal from here with the portal OTP.',
+                : 'Save the file to upload it yourself, or file GSTR-1 and GSTR-3B on the GST portal from here with the portal OTP.',
             style: text.bodySmall,
           ),
         ],

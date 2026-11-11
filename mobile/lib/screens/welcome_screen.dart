@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../app_state.dart';
 import '../brand.dart';
 import '../marks.dart';
-import '../mascot/mascot.dart';
+import 'package:myca_design/myca_design.dart' show Bahi;
 import '../theme.dart';
 import '../tour/tour.dart';
 
@@ -38,7 +38,7 @@ class WelcomeScreen extends StatelessWidget {
                         const Spacer(flex: 2),
                         const Align(
                           alignment: Alignment.centerLeft,
-                          child: Mascot(size: 112),
+                          child: Bahi(size: 112),
                         ),
                         const SizedBox(height: 12),
                         Text(

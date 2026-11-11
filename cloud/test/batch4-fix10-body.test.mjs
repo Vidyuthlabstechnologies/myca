@@ -369,7 +369,7 @@ test('B2: a declared length over the route limit is answered before the body is 
     const routes = [
       ['a JSON route under a business', biz(owner, 'query'), owner.token],
       ['a public JSON route', '/v1/auth/otp', undefined],
-      ['the billing notification', '/v1/billing/play/notify?token=whatever', undefined],
+      ['the billing notification', '/v1/billing/play/notify', undefined],
       ['the WhatsApp webhook', '/v1/whatsapp/webhook', undefined],
     ];
     for (const [name, path, token] of routes) {
@@ -587,7 +587,7 @@ test('B1: one budget serves the JSON routes, the raw routes and uploads, and sma
       ['uploads', biz(owner, 'uploads'), owner.token],
       ['a JSON route under a business', biz(owner, 'query'), owner.token],
       ['a public JSON route', '/v1/auth/otp', undefined],
-      ['the billing notification', '/v1/billing/play/notify?token=whatever', undefined],
+      ['the billing notification', '/v1/billing/play/notify', undefined],
       ['the WhatsApp webhook', '/v1/whatsapp/webhook', undefined],
     ];
     for (const [name, path, token] of big) {
@@ -601,7 +601,7 @@ test('B1: one budget serves the JSON routes, the raw routes and uploads, and sma
     const small = [
       ['a JSON route under a business', 'POST', biz(owner, 'query'), owner.token, '{"name":"business_summary","args":{}}'],
       ['a public JSON route', 'POST', '/v1/auth/otp', undefined, '{"phone":"abc"}'],
-      ['the billing notification', 'POST', '/v1/billing/play/notify?token=whatever', undefined, '{}'],
+      ['the billing notification', 'POST', '/v1/billing/play/notify', undefined, '{}'],
       ['the WhatsApp webhook', 'POST', '/v1/whatsapp/webhook', undefined, '{}'],
     ];
     for (const [name, method, path, token, text] of small) {
@@ -855,7 +855,7 @@ test('B5: a client that drops while the server is still checking who it is, or o
     const owner = await api.ownerWithBusiness(freshPhone(), { name: 'Dropped Traders', state: '29' });
     for (let i = 0; i < 3; i += 1) {
       const raw = live.wire();
-      await raw.write(head({ path: '/v1/billing/play/notify?token=whatever', length: 100 }) + '{"message":');
+      await raw.write(head({ path: '/v1/billing/play/notify', length: 100 }) + '{"message":');
       raw.destroy();
       const tokened = live.wire();
       await tokened.write(head({ path: biz(owner, 'query'), token: owner.token, length: 100 }) + '{"name":');

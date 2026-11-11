@@ -43,6 +43,12 @@ class FakeCloud {
   bool gstPortalAvailable = true;
   final gstPortalSessions = <String, Map<String, Object?>>{};
   final gstr1Steps = <Map<String, dynamic>>[];
+  final gstr3bSteps = <Map<String, dynamic>>[];
+  bool filingNeedsApproval = false;
+  bool approverIsSomeoneElse = false;
+  bool filingSimulated = false;
+  String serverEnvironment = '';
+  final filingApprovals = <Map<String, Object?>>[];
   int plaidLinkTokens = 0;
   int gustoConnects = 0;
   bool connectorsUnavailable = false;
@@ -151,6 +157,10 @@ class FakeCloud {
     requests.add('${request.method} $path');
     final body = request.body.isEmpty ? <String, dynamic>{} : (jsonDecode(request.body) as Map).cast<String, dynamic>();
 
+    if (path == '/v1/health/live') {
+      if (serverEnvironment.isEmpty) return _json(404, {'ok': false, 'error': 'NOT_FOUND'});
+      return _json(200, {'ok': true, 'environment': serverEnvironment, 'providerMode': 'sandbox', 'version': 'test'});
+    }
     if (path == '/v1/privacy-notice') {
       return _json(200, {
         'ok': true,
@@ -347,6 +357,12 @@ class FakeCloud {
     }
     if (path == '/v1/businesses' && request.method == 'GET') return _json(200, {'ok': true, 'businesses': businesses});
     if (path == '/v1/businesses' && request.method == 'POST') {
+      if (body['demo'] == true) {
+        company = {'name': 'Demo: Kaveri Traders', 'gstin': '29AAACD0000D1ZL', 'state': '29'};
+        final demo = {'id': businessId, 'name': 'Demo: Kaveri Traders', 'gstin': '29AAACD0000D1ZL', 'role': 'owner', 'demo': true};
+        businesses.add(demo);
+        return _json(200, {'ok': true, 'business': demo, 'seeded': 12});
+      }
       final gstin = '${body['gstin'] ?? ''}';
       if (gstin.isEmpty && body['state'] == null) return _json(400, {'ok': false, 'error': 'STATE_REQUIRED'});
       if (gstin == '27AABCU9603R1ZX') return _json(400, {'ok': false, 'error': 'INVALID_GSTIN'});
@@ -441,6 +457,29 @@ class FakeCloud {
         return _json(200, {'ok': true, 'gstin': gstin, 'disconnected': true});
       }
     }
+    if (path == '$books/approvals' && request.method == 'GET') {
+      return _json(200, {'ok': true, 'approvals': filingApprovals});
+    }
+    if (path == '$books/approvals' && request.method == 'POST') {
+      if (body['approvalId'] != null) {
+        final found = filingApprovals.where((a) => a['approvalId'] == body['approvalId']).toList();
+        if (found.isEmpty) return _json(200, {'ok': false, 'error': 'APPROVAL_NOT_FOUND'});
+        if (!approverIsSomeoneElse) return _json(200, {'ok': false, 'error': 'MAKER_CHECKER_VIOLATION'});
+        found.first['status'] = 'approved';
+        return _json(200, {'ok': true, 'approval': found.first});
+      }
+      final approval = <String, Object?>{'approvalId': 'APR-${filingApprovals.length + 1}', 'operation': body['operation'], 'params': {'period': body['period'], 'gstin': body['gstin']}, 'status': 'pending'};
+      filingApprovals.add(approval);
+      return _json(200, {'ok': true, 'approval': approval});
+    }
+    if ((path == '$books/gst-gstr1' || path == '$books/gst-gstr3b') && request.method == 'POST' && filingNeedsApproval && body['step'] != 'check' && body['step'] != 'summary' && body['step'] != 'liability') {
+      final operation = '${path.endsWith('gstr3b') ? 'gstr3b' : 'gstr1'}_${body['step']}';
+      final approved = filingApprovals.any((a) => a['approvalId'] == body['caApprovalId'] && a['operation'] == operation && a['status'] == 'approved');
+      if (!approved) {
+        (path.endsWith('gstr3b') ? gstr3bSteps : gstr1Steps).add({...body, 'refused': true});
+        return _json(200, {'ok': false, 'error': 'CA_APPROVAL_REQUIRED'});
+      }
+    }
     if (path == '$books/gst-gstr1' && request.method == 'POST') {
       gstr1Steps.add(body);
       final step = body['step'];
@@ -449,7 +488,16 @@ class FakeCloud {
       if (step == 'submit') return _json(200, {'ok': true, 'submittedOn': '2026-11-09'});
       if (step == 'summary') return _json(200, {'ok': true, 'sections': [{'section': 'B2B', 'records': 2, 'value': 20000, 'tax': 3600}]});
       if (step == 'otp') return _json(200, {'ok': true, 'sent': true});
-      if (step == 'file') return _json(200, {'ok': true, 'ackNum': 'AA2711260012345'});
+      if (step == 'file') return _json(200, {'ok': true, 'ackNum': 'AA2711260012345', 'simulated': filingSimulated});
+    }
+    if (path == '$books/gst-gstr3b' && request.method == 'POST') {
+      gstr3bSteps.add(body);
+      final step = body['step'];
+      if (step == 'save') return _json(200, {'ok': true, 'save': {'referenceId': 'REF-3B'}, 'sections': {'outward': {'txval': 12000, 'iamt': 240, 'camt': 250, 'samt': 250, 'csamt': 0}, 'credit': {'iamt': 0, 'camt': 100, 'samt': 100, 'csamt': 0}}});
+      if (step == 'liability') return _json(200, {'ok': true, 'liability': {}});
+      if (step == 'offset') return _json(200, {'ok': true, 'creditUsed': 200, 'cashPaid': 540});
+      if (step == 'otp') return _json(200, {'ok': true, 'sent': true});
+      if (step == 'file') return _json(200, {'ok': true, 'ackNum': 'AA2711260099999'});
     }
     if (path == '$books/plaid-link-token') {
       plaidLinkTokens += 1;

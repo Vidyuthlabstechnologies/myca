@@ -8,12 +8,59 @@ import { isReturnPeriod, fpOf } from './return-period.mjs';
 import { parseQuarter } from './tds-return.mjs';
 import { localToday } from './dates.mjs';
 import { normalizeClientId } from './books.mjs';
+import { gstr3bPortalStatus, gstr3bPortalJson, gstr3bSubject } from './gstr3b-portal.mjs';
 
 const ARN = /^[A-Z0-9]{10,20}$/;
 const FORMS = { '24Q': 'salary', '26Q': 'other', '27Q': 'other' };
 
 function fail(error, extra = {}) {
   return { ok: false, error, ...extra };
+}
+
+export function filingSubject(operationId, fields) {
+  return { operationId, ...fields };
+}
+
+export function gstr1DraftHash(state, period, gstin) {
+  const regd = regArg(state, gstin);
+  if (!regd.ok) return regd;
+  const built = gstr1Payload(state, period, regd.gstin);
+  if (!built.ok) return built;
+  return { ok: true, gstin: regd.gstin, hash: built.hash };
+}
+
+const GSTR1_DRAFT_OPS = new Set(['gst_save_gstr1', 'gst_gstr1_proceed', 'gst_file_gstr1_evc']);
+const GSTR3B_DRAFT_OPS = new Set(['gst_save_gstr3b', 'gst_gstr3b_offset', 'gst_file_gstr3b_evc']);
+
+export function filingApprovalSubject(state, operationId, args = {}) {
+  const op = String(operationId || '');
+  if (op === 'tds_fvu_generate') {
+    const quarter = parseQuarter(args.quarter);
+    if (!quarter) return fail('INVALID_QUARTER', { hint: 'Say the quarter as Q2 2026-27.' });
+    const form = String(args.form || '26Q').trim().toUpperCase();
+    const tan = String(args.tan || state.company?.tan || '').trim().toUpperCase();
+    if (!tan) return fail('TAN_REQUIRED');
+    return { ok: true, subject: filingSubject(op, { quarter: quarter.label, form, tan }) };
+  }
+  const period = String(args.period || '').trim();
+  if (!isReturnPeriod(period)) return fail('INVALID_PERIOD', { hint: 'Use YYYY-MM, for example 2026-09.' });
+  if (op === 'gst_evc_otp') {
+    const regd = regArg(state, args.gstin);
+    if (!regd.ok) return regd;
+    const form = String(args.form || 'GSTR-1').toUpperCase() === 'GSTR-3B' ? 'GSTR-3B' : 'GSTR-1';
+    return { ok: true, subject: filingSubject(op, { form, period, gstin: regd.gstin }) };
+  }
+  if (GSTR1_DRAFT_OPS.has(op)) {
+    const draft = gstr1DraftHash(state, period, args.gstin);
+    if (!draft.ok) return draft;
+    return { ok: true, subject: filingSubject(op, { period, gstin: draft.gstin, draftHash: draft.hash }) };
+  }
+  if (GSTR3B_DRAFT_OPS.has(op)) {
+    const built = gstr3bPortalJson(state, period, args.gstin);
+    if (!built.ok) return built;
+    return { ok: true, subject: gstr3bSubject(op, { period: built.period, gstin: built.gstin, draftHash: built.hash }) };
+  }
+  return fail('NOT_A_FILING_OPERATION', { operationId: op });
 }
 
 function savesOf(state) {
@@ -46,6 +93,7 @@ export async function saveGstr1ToPortal(state, args = {}, actor) {
     actorId: actor?.userId || 'owner',
     actor,
     caApprovalId: args.caApprovalId || '',
+    approvalSubject: filingSubject('gst_save_gstr1', { period, gstin: regd.gstin, draftHash: built.hash }),
     params: { period, payload: built.body },
     payloadSummary: { period, gstin: regd.gstin, rows: invoices, draftHash: built.hash },
     clientId: normalizeClientId(state.activeClientId),
@@ -107,6 +155,7 @@ export async function submitGstr1OnPortal(state, args = {}, actor) {
     actorId: actor?.userId || 'owner',
     actor,
     caApprovalId: args.caApprovalId || '',
+    approvalSubject: filingSubject('gst_gstr1_proceed', { period: found.period, gstin: found.gstin, draftHash: found.saved.draftHash }),
     params: { period: found.period },
     payloadSummary: { period: found.period, gstin: found.gstin, draftHash: found.saved.draftHash },
     clientId: normalizeClientId(state.activeClientId),
@@ -156,6 +205,7 @@ export async function requestGstr1Evc(state, args = {}, actor) {
     actorId: actor?.userId || 'owner',
     actor,
     caApprovalId: args.caApprovalId || '',
+    approvalSubject: filingSubject('gst_evc_otp', { form: 'GSTR-1', period: found.period, gstin: found.gstin }),
     params: { pan },
     payloadSummary: { period: found.period, gstin: found.gstin },
     clientId: normalizeClientId(state.activeClientId),
@@ -196,6 +246,7 @@ export async function fileGstr1OnPortal(state, args = {}, actor) {
     actorId: actor?.userId || 'owner',
     actor,
     caApprovalId: args.caApprovalId || '',
+    approvalSubject: filingSubject('gst_file_gstr1_evc', { period, gstin: regd.gstin, draftHash: saved.draftHash }),
     params: { period, pan, otp, summary },
     payloadSummary: { period, gstin: regd.gstin, draftHash: saved.draftHash },
     clientId: normalizeClientId(state.activeClientId),
@@ -225,6 +276,7 @@ export async function generateTdsFvu(state, args = {}, actor) {
     actorId: actor?.userId || 'owner',
     actor,
     caApprovalId: args.caApprovalId || '',
+    approvalSubject: filingSubject('tds_fvu_generate', { quarter: quarter.label, form, tan }),
     params: { taxYear: fy, quarter: quarter.label.split(' ')[0], form, tan, filingType: args.filingType || 'regular' },
     payloadSummary: { quarter: quarter.label, form, tan },
     clientId: normalizeClientId(state.activeClientId),
@@ -240,7 +292,7 @@ export async function generateTdsFvu(state, args = {}, actor) {
 
 export function portalStatus(state) {
   const saves = Object.values(savesOf(state)).sort((a, b) => a.period.localeCompare(b.period) || a.gstin.localeCompare(b.gstin));
-  return { ok: true, data: { gstr1: saves, fvu: Array.isArray(state.tdsFvuJobs) ? state.tdsFvuJobs : [] } };
+  return { ok: true, data: { gstr1: saves, gstr3b: gstr3bPortalStatus(state), fvu: Array.isArray(state.tdsFvuJobs) ? state.tdsFvuJobs : [] } };
 }
 
 export function portalWords(name, result) {
@@ -249,8 +301,8 @@ export function portalWords(name, result) {
   if (name === 'generate_tds_fvu') return `${result.mock ? 'Simulated: ' : ''}FVU job for ${result.job.form} ${result.job.quarter}: ${result.job.status}${result.job.jobId ? ` (${result.job.jobId})` : ''}.${result.job.fvu ? ` File: ${result.job.fvu}.` : ''}${result.note ? ` ${result.note}` : ''}`;
   if (name === 'portal_status') {
     const d = result.data;
-    if (!d.gstr1.length && !d.fvu.length) return 'Nothing has been saved to the GST portal or sent for FVU yet.';
-    return [...d.gstr1.map((s) => `· GSTR-1 ${s.period} ${s.gstin}: saved ${s.savedOn}${s.filedAck ? `, filed ${s.filedOn} (${s.filedAck})` : ''}${s.mock ? ' (simulated)' : ''}`), ...d.fvu.map((j) => `· FVU ${j.form} ${j.quarter}: ${j.status}${j.mock ? ' (simulated)' : ''}`)].join('\n');
+    if (!d.gstr1.length && !(d.gstr3b || []).length && !d.fvu.length) return 'Nothing has been saved to the GST portal or sent for FVU yet.';
+    return [...d.gstr1.map((s) => `· GSTR-1 ${s.period} ${s.gstin}: saved ${s.savedOn}${s.filedAck ? `, filed ${s.filedOn} (${s.filedAck})` : ''}${s.mock ? ' (simulated)' : ''}`), ...(d.gstr3b || []).map((s) => `· GSTR-3B ${s.period} ${s.gstin}: saved ${s.savedOn}${s.offsetOn ? `, tax set off ${s.offsetOn}` : ''}${s.filedAck ? `, filed ${s.filedOn} (${s.filedAck})` : ''}${s.mock ? ' (simulated)' : ''}`), ...d.fvu.map((j) => `· FVU ${j.form} ${j.quarter}: ${j.status}${j.mock ? ' (simulated)' : ''}`)].join('\n');
   }
   return '';
 }

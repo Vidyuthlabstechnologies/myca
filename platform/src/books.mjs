@@ -100,6 +100,7 @@ export function newBook(company = {}) {
     stockMoves: [],
     inventoryValuations: [],
     portalSaves: {},
+    gstr3bPortal: {},
     tdsFvuJobs: [],
     supplierReminderSeq: 0,
     employees: [],
@@ -119,6 +120,7 @@ export function newBook(company = {}) {
     automation: { lastRun: '', log: [] },
     amendmentSeq: 0,
     chatRecent: [],
+    countryData: {},
   };
 }
 
@@ -191,6 +193,7 @@ export function serializeBook(book) {
     stockMoves: book.stockMoves || [],
     inventoryValuations: book.inventoryValuations || [],
     portalSaves: book.portalSaves || {},
+    gstr3bPortal: book.gstr3bPortal || {},
     tdsFvuJobs: book.tdsFvuJobs || [],
     supplierReminderSeq: book.supplierReminderSeq || 0,
     employees: book.employees || [],
@@ -207,6 +210,7 @@ export function serializeBook(book) {
     gstPayments: book.gstPayments || {},
     sutaRates: book.sutaRates || [],
     yearClosings: book.yearClosings || {},
+    countryData: book.countryData || {},
     automation: book.automation || { lastRun: '', log: [] },
     amendmentSeq: book.amendmentSeq || 0,
     chatRecent: Array.isArray(book.chatRecent) ? book.chatRecent : [],
@@ -279,6 +283,7 @@ export function deserializeBook(raw) {
   book.stockMoves = Array.isArray(raw.stockMoves) ? raw.stockMoves : [];
   book.inventoryValuations = Array.isArray(raw.inventoryValuations) ? raw.inventoryValuations : [];
   book.portalSaves = raw.portalSaves && typeof raw.portalSaves === 'object' ? raw.portalSaves : {};
+  book.gstr3bPortal = raw.gstr3bPortal && typeof raw.gstr3bPortal === 'object' ? raw.gstr3bPortal : {};
   book.tdsFvuJobs = Array.isArray(raw.tdsFvuJobs) ? raw.tdsFvuJobs : [];
   book.supplierReminderSeq = raw.supplierReminderSeq || 0;
   book.employees = Array.isArray(raw.employees) ? raw.employees : [];
@@ -295,6 +300,7 @@ export function deserializeBook(raw) {
   book.gstPayments = raw.gstPayments && typeof raw.gstPayments === 'object' ? raw.gstPayments : {};
   book.sutaRates = Array.isArray(raw.sutaRates) ? raw.sutaRates : [];
   book.yearClosings = raw.yearClosings && typeof raw.yearClosings === 'object' ? raw.yearClosings : {};
+  book.countryData = raw.countryData && typeof raw.countryData === 'object' && !Array.isArray(raw.countryData) ? raw.countryData : {};
   book.automation = raw.automation && typeof raw.automation === 'object' ? raw.automation : { lastRun: '', log: [] };
   book.amendmentSeq = raw.amendmentSeq || 0;
   book.chatRecent = Array.isArray(raw.chatRecent) ? raw.chatRecent : [];

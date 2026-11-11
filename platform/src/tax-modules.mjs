@@ -392,6 +392,3 @@ export function findTaxGuidance(question, { onDate, limit = 3, module } = {}) {
   return scored.filter((hit) => hit.score >= top / 3).slice(0, Math.max(1, Math.min(Number(limit) || 3, 6))).map((hit) => ({ ...resolveSection(hit.section, date), score: Math.round(hit.score * 100) / 100, matched: hit.matched }));
 }
 
-export function resetTaxModuleCache() {
-  cache = null;
-}

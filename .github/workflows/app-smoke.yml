@@ -1,0 +1,47 @@
+name: App smoke against staging
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "30 21 * * *"
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    name: App against the staging API
+    runs-on: ${{ vars.MYCA_CI_RUNNER || 'ubuntu-latest' }}
+    env:
+      MYCA_SMOKE_URL: ${{ vars.MYCA_CLOUD_URL_STAGING }}
+      MYCA_SMOKE_PHONE: ${{ secrets.MYCA_SMOKE_PHONE }}
+      MYCA_SMOKE_CODE: ${{ secrets.MYCA_SMOKE_CODE }}
+    steps:
+      - name: Say what is missing
+        shell: bash
+        run: |
+          if [ -z "$MYCA_SMOKE_URL" ] || [ -z "$MYCA_SMOKE_PHONE" ] || [ -z "$MYCA_SMOKE_CODE" ]; then
+            echo "::notice::Set the MYCA_CLOUD_URL_STAGING variable and the MYCA_SMOKE_PHONE and MYCA_SMOKE_CODE secrets (one of the staging MYCA_TEST_PHONES and its MYCA_TEST_CODE) to run this smoke."
+            echo "SKIP=1" >> "$GITHUB_ENV"
+          fi
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: env.SKIP != '1'
+        with:
+          persist-credentials: false
+      - name: Install Flutter at the pinned version
+        if: env.SKIP != '1'
+        shell: bash
+        env:
+          FLUTTER_VERSION: "3.44.9"
+        run: |
+          set -euo pipefail
+          git clone --depth 1 --branch "$FLUTTER_VERSION" https://github.com/flutter/flutter.git "$RUNNER_TEMP/flutter"
+          echo "$RUNNER_TEMP/flutter/bin" >> "$GITHUB_PATH"
+      - name: Fetch packages
+        if: env.SKIP != '1'
+        working-directory: mobile
+        run: flutter pub get --enforce-lockfile
+      - name: Sign in, make a business, book a sale and read Today
+        if: env.SKIP != '1'
+        working-directory: mobile
+        run: flutter test test_smoke

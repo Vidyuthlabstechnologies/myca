@@ -24,7 +24,3 @@ export function recentTurns(state) {
   return out;
 }
 
-export function forgetTurns(state) {
-  state.chatRecent = [];
-  return { ok: true, data: { forgotten: true } };
-}

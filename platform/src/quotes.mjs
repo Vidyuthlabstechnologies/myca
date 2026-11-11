@@ -15,7 +15,6 @@ export const SALES_DOCUMENT_KINDS = {
   challan: { prefix: 'DC', title: 'Delivery challan', outcomes: ['returned', 'cancelled'], expires: false },
 };
 export const CHALLAN_REASONS = ['job-work', 'approval', 'line-sale', 'exhibition', 'own-use', 'other'];
-export const SALES_DOCUMENT_ID = /^(QT|PI|SO|DC)-\d{4,}$/;
 
 export function kindOf(document) {
   return Object.hasOwn(SALES_DOCUMENT_KINDS, String(document?.kind || '')) ? document.kind : 'quote';

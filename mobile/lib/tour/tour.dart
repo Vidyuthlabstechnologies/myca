@@ -6,7 +6,7 @@ import '../api/models.dart';
 import '../api/myca_api.dart';
 import '../app_services.dart';
 import '../app_state.dart';
-import '../mascot/mascot.dart';
+import 'package:myca_design/myca_design.dart' show Bahi, BahiMood;
 import '../registers.dart';
 import '../screens/ask_screen.dart';
 import '../screens/books_check_screen.dart';
@@ -30,7 +30,7 @@ class TourStep {
     this.nextLabel = 'Next',
   });
 
-  final MascotMood mood;
+  final BahiMood mood;
   final String say;
   final TourWait wait;
   final TourPlace place;
@@ -51,61 +51,61 @@ Widget _saleComposer() => const PartyScreen(
 
 final tourSteps = <TourStep>[
   const TourStep(
-    mood: MascotMood.wave,
-    say: 'Namaste! I\'m ${Mascot.name}. This is Nalanda Textiles, a sample shop. Everything here is pretend, so tap anything you like. Your own books are not touched.',
+    mood: BahiMood.wave,
+    say: 'Namaste! I\'m ${Bahi.name}. This is Nalanda Textiles, a sample shop. Everything here is pretend, so tap anything you like. Your own books are not touched.',
     nextLabel: 'Show me around',
   ),
   const TourStep(
-    mood: MascotMood.thinking,
+    mood: BahiMood.thinking,
     say: 'The top card is your day at a glance: GST you owe this month, and anything that needs you before a filing.',
   ),
   TourStep(
-    mood: MascotMood.happy,
+    mood: BahiMood.happy,
     say: 'Let\'s log a sale. Tap New entry, then I sold something, and pick $sampleCustomer.',
     wait: TourWait.sale,
     place: TourPlace.top,
     showMe: _saleComposer,
   ),
   TourStep(
-    mood: MascotMood.thinking,
+    mood: BahiMood.thinking,
     say: 'Type an amount, say 8000, choose 18% GST, then tap Preview. MyCA works out the tax.',
     wait: TourWait.sale,
     place: TourPlace.top,
     showMe: _saleComposer,
   ),
   const TourStep(
-    mood: MascotMood.happy,
+    mood: BahiMood.happy,
     say: 'This is only a preview. Nothing reaches your books until you tap Post it.',
     wait: TourWait.posted,
     place: TourPlace.top,
   ),
   const TourStep(
-    mood: MascotMood.celebrate,
+    mood: BahiMood.celebrate,
     say: 'Posted! The invoice is in the customer\'s thread, and GST is already counted for this month.',
     place: TourPlace.top,
   ),
   TourStep(
-    mood: MascotMood.thinking,
+    mood: BahiMood.thinking,
     say: 'Here is what you owe. Tax on sales, less credit on purchases, and the due date for each filing.',
     open: () => const TaxesScreen(),
   ),
   TourStep(
-    mood: MascotMood.happy,
+    mood: BahiMood.happy,
     say: 'Rent, fuel, tea for the staff: log expenses here. MyCA picks the head and tells you why.',
     open: () => const ExpensesScreen(),
   ),
   TourStep(
-    mood: MascotMood.worried,
+    mood: BahiMood.worried,
     say: 'When something looks off, like a bank line that matches nothing, it shows up here with the reason.',
     open: () => const BooksCheckScreen(),
   ),
   TourStep(
-    mood: MascotMood.happy,
+    mood: BahiMood.happy,
     say: 'And you can just ask, in English or Hinglish. Try "Who owes me?"',
     open: () => const AskScreen(first: 'How is business?'),
   ),
   const TourStep(
-    mood: MascotMood.celebrate,
+    mood: BahiMood.celebrate,
     say: 'That\'s MyCA! Ready to set up your own books? It takes about two minutes.',
     nextLabel: 'Start my books',
   ),

@@ -20,8 +20,7 @@ debug.log
 
 # Local tooling / caches
 .playwright-mcp/
-.serena/cache/
-.serena/project.local.yml
+.serena/
 
 # Reference clones (vendor only — see vendor/README.md)
 vendor/*
@@ -33,6 +32,7 @@ vendor/*
 *.tfstate.*
 crash.log
 *.tfvars
+!infra/cloud/countries/*.tfvars
 !*.tfvars.example
 override.tf
 override.tf.json
@@ -46,3 +46,10 @@ Thumbs.db
 
 mobile/android/app/google-services.json
 mobile/ios/Runner/GoogleService-Info.plist
+
+*.jks
+*.keystore
+key.properties
+*.p8
+*.p12
+*.pem
