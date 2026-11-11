@@ -29,7 +29,14 @@ export const UNITED_STATES = Object.freeze({
     ]),
   }),
   filing: Object.freeze([
-    Object.freeze({ id: 'irs-mef', authority: 'IRS', route: 'MeF (MyCA as transmitter)', liveSwitch: 'MYCA_IRS_ETIN', modules: Object.freeze(['us-efile.mjs', 'us-mef-client.mjs']) }),
+    Object.freeze({
+      id: 'irs-mef',
+      authority: 'IRS',
+      route: 'MeF (MyCA as transmitter)',
+      liveSwitch: 'MYCA_PROVIDER_ENV',
+      settings: Object.freeze(['MYCA_IRS_ETIN', 'MYCA_IRS_EFIN', 'MYCA_IRS_SOFTWARE_ID', 'MYCA_IRS_APP_SYS_ID', 'MYCA_IRS_CERT_PATH', 'MYCA_IRS_KEY_PATH']),
+      modules: Object.freeze(['us-efile.mjs', 'us-mef-xml.mjs', 'us-mef-map.mjs', 'us-mef-zip.mjs', 'us-mef-sim.mjs', 'us-mef-settings.mjs', 'us-mef-client.mjs']),
+    }),
   ]),
   licences: Object.freeze([
     Object.freeze({ id: 'efin', authority: 'IRS', what: 'e-file provider application (EFIN, ETIN) with a US-person Responsible Official, Pub 3112', status: 'needed' }),

@@ -27,7 +27,7 @@ money and year formats, filing routes, prices and the data region, with no fork 
 | `residency` (`regionPrefixes`, `defaultRegion`, `rule`, `timeZone`) | `cloud/src/residency.mjs` and `infra/cloud/country.tf` |
 | `app` (`flavor`, `androidId`, `label`, `edition`) | the Android flavor of that country's store app; `GET /v1/countries` |
 | `billing` (`currency`, `providers`, `plans`) | prices shown before sign-in; a cloud test keeps India's in step with `cloud/src/billing.mjs`. Each plan says what it `sells` (`software` or `tax-filing`) and its `provider`. Google Play requires software subscriptions sold in the app to use Play billing and exempts tax preparation and filing, so `packProblems()` refuses a `software` plan on any other provider |
-| `filing` (`authority`, `route`, `liveSwitch`, `modules`) | which government integration files for that country |
+| `filing` (`authority`, `route`, `liveSwitch`, `settings`, `modules`) | which government integration files for that country, the switch that turns it live and the settings it then needs |
 | `taxModules`, `knowledge` | the `ask_tax` modules and knowledge bases the assistant may use |
 | `compliance` | where that country's compliance documents live |
 | `toolPolicy`, `tools` | which assistant tools serve the country (below) |

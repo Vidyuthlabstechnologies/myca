@@ -32,8 +32,9 @@ requests; this file records what they established and what still blocks a real f
 - IRS Publication 1345: return data is hosted in the United States; two-step sign-in before
   signing; an extended-validation certificate and weekly external vulnerability scans.
 - Software must pass the Assurance Testing System (ATS) each year before it may transmit.
-- Credentials the deployment needs: ETIN, EFIN, software id from ATS, application system id,
-  and the MeF certificate and key.
+- Live filing needs `MYCA_PROVIDER_ENV=live` and all six of `MYCA_IRS_ETIN`, `MYCA_IRS_EFIN`,
+  `MYCA_IRS_SOFTWARE_ID` (from ATS), `MYCA_IRS_APP_SYS_ID`, `MYCA_IRS_CERT_PATH` and
+  `MYCA_IRS_KEY_PATH`. Without them the local simulator answers.
   Source: `docs/integrations/IRS-EFILE.md` (e-file pull request) and IRS Publications 3112 and
   1345; verify each point with counsel before the application.
 
