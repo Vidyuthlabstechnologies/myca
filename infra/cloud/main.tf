@@ -4,7 +4,32 @@ provider "google" {
 }
 
 locals {
-  name = "myca-api"
+  is_production      = var.environment == "production"
+  stem               = local.is_production ? "myca" : "myca-${var.environment}"
+  name               = "${local.stem}-api"
+  secret_prefix      = local.is_production ? "" : "${var.environment}-"
+  title_suffix       = local.is_production ? "" : " (${var.environment})"
+  play_push_audience = "${local.stem}-play-notifications"
+  staging_refused = [for setting, on in {
+    "provider_mode live or test" = contains(["live", "test"], var.provider_mode)
+    enable_channel_pulls         = var.enable_channel_pulls
+    waha_url                     = var.waha_url != ""
+    waha_api_key                 = nonsensitive(var.waha_api_key != "")
+    whatsapp_app_secret          = nonsensitive(!contains(["", "unset"], var.whatsapp_app_secret))
+    whatsapp_access_token        = nonsensitive(!contains(["", "unset"], var.whatsapp_access_token))
+    whatsapp_phone_number_id     = !contains(["", "unset"], var.whatsapp_phone_number_id)
+    sms_provider                 = var.sms_provider != ""
+    sms_secret                   = nonsensitive(!contains(["", "unset"], var.sms_secret))
+    email_relay_url              = var.email_relay_url != ""
+    email_relay_token            = nonsensitive(var.email_relay_token != "")
+    model_api_key                = nonsensitive(!contains(["", "unset"], var.model_api_key))
+    gsp_api_key                  = nonsensitive(var.gsp_api_key != "")
+    gsp_api_secret               = nonsensitive(var.gsp_api_secret != "")
+    play_service_account_json    = nonsensitive(var.play_service_account_json != "")
+    play_product_essentials      = var.play_product_essentials != ""
+    play_product_pro             = var.play_product_pro != ""
+    play_product_firm            = var.play_product_firm != ""
+  } : setting if on]
   labels = {
     app        = "myca"
     component  = "api"
@@ -61,7 +86,7 @@ resource "google_project_iam_member" "api_sql" {
 
   condition {
     title      = "myca-instance-only"
-    expression = "resource.type == \"sqladmin.googleapis.com/Instance\" && resource.name == \"projects/${var.project_id}/instances/myca\""
+    expression = "resource.type == \"sqladmin.googleapis.com/Instance\" && resource.name == \"projects/${var.project_id}/instances/${local.stem}\""
   }
 }
 
@@ -69,7 +94,7 @@ resource "google_project_iam_member" "api_sql" {
 # Document vault: uploaded files by sha256, one prefix per business
 # ---------------------------------------------------------------------------
 resource "google_storage_bucket" "documents" {
-  name                        = "${var.project_id}-myca-documents"
+  name                        = "${var.project_id}-${local.stem}-documents"
   location                    = var.region
   storage_class               = "STANDARD"
   uniform_bucket_level_access = true
@@ -94,7 +119,7 @@ resource "google_storage_bucket_iam_member" "api_documents" {
 # Database: Postgres in Mumbai, daily backups kept 14 days, point-in-time recovery
 # ---------------------------------------------------------------------------
 resource "google_sql_database_instance" "main" {
-  name                = "myca"
+  name                = local.stem
   database_version    = "POSTGRES_16"
   region              = var.region
   deletion_protection = var.deletion_protection
@@ -237,6 +262,7 @@ locals {
     MYCA_GSP_API_KEY               = var.gsp_api_key
     MYCA_GSP_API_SECRET            = var.gsp_api_secret
     MYCA_PLAY_SERVICE_ACCOUNT_JSON = var.play_service_account_json
+    MYCA_TEST_CODE                 = var.test_code
   } : name => value if nonsensitive(!contains(["", "unset"], trimspace(value))) }
   secrets      = merge(local.generated, local.given, { MYCA_DATABASE_URL = local.database_url }, local.optional_secrets)
   secret_names = sort(nonsensitive(keys(local.secrets)))
@@ -271,19 +297,19 @@ locals {
     MYCA_PLAY_PRODUCT_PRO          = var.play_product_pro
     MYCA_PLAY_PRODUCT_FIRM         = var.play_product_firm
     MYCA_PLAN_PRICES               = var.plan_prices
-    MYCA_ENVIRONMENT               = "production"
+    MYCA_ENVIRONMENT               = var.environment
+    MYCA_TEST_PHONES               = join(",", var.test_phones)
     MYCA_PLAY_PUSH_AUDIENCE        = local.play_push_audience
     MYCA_PLAY_PUSH_SERVICE_ACCOUNT = google_service_account.play_push.email
     MYCA_ADMIN_USER_IDS            = join(",", var.admin_user_ids)
     MYCA_OTP_GLOBAL_PER_HOUR       = var.otp_global_per_hour == null ? "" : tostring(var.otp_global_per_hour)
   } : name => value if value != "" }
-  play_push_audience = "myca-play-notifications"
 }
 
 resource "google_secret_manager_secret" "api" {
   for_each = toset(local.secret_names)
 
-  secret_id = replace(lower(each.key), "_", "-")
+  secret_id = "${local.secret_prefix}${replace(lower(each.key), "_", "-")}"
   labels    = local.labels
 
   replication {
@@ -324,6 +350,16 @@ resource "google_cloud_run_v2_service" "api" {
 
   lifecycle {
     ignore_changes = [template[0].containers[0].image]
+
+    precondition {
+      condition     = local.is_production || length(local.staging_refused) == 0
+      error_message = "A ${var.environment} stack must never file, pay or send anything real. Unset: ${join(", ", local.staging_refused)}."
+    }
+
+    precondition {
+      condition     = !local.is_production || length(var.test_phones) == 0
+      error_message = "test_phones sign in with a fixed code, so production refuses them. Use the reviewer sign-in for the Play reviewer."
+    }
   }
 
   template {
@@ -476,7 +512,7 @@ resource "google_cloud_run_v2_service_iam_member" "public" {
 # Monitoring: uptime, server errors, latency
 # ---------------------------------------------------------------------------
 resource "google_monitoring_uptime_check_config" "api" {
-  display_name = "MyCA API health"
+  display_name = "MyCA API health${local.title_suffix}"
   timeout      = "10s"
   period       = "300s"
 
@@ -501,7 +537,7 @@ resource "google_monitoring_uptime_check_config" "api" {
 resource "google_monitoring_notification_channel" "email" {
   count = var.alert_email != "" ? 1 : 0
 
-  display_name = "MyCA API alerts"
+  display_name = "MyCA API alerts${local.title_suffix}"
   type         = "email"
   labels = {
     email_address = var.alert_email
@@ -516,7 +552,7 @@ locals {
 resource "google_monitoring_alert_policy" "down" {
   count = var.alert_email != "" ? 1 : 0
 
-  display_name = "MyCA API is down"
+  display_name = "MyCA API is down${local.title_suffix}"
   combiner     = "OR"
 
   conditions {
@@ -544,7 +580,7 @@ resource "google_monitoring_alert_policy" "down" {
 resource "google_monitoring_alert_policy" "errors" {
   count = var.alert_email != "" ? 1 : 0
 
-  display_name = "MyCA API is returning server errors"
+  display_name = "MyCA API is returning server errors${local.title_suffix}"
   combiner     = "OR"
 
   conditions {
@@ -571,7 +607,7 @@ resource "google_monitoring_alert_policy" "errors" {
 resource "google_monitoring_alert_policy" "latency" {
   count = var.alert_email != "" ? 1 : 0
 
-  display_name = "MyCA API is slow"
+  display_name = "MyCA API is slow${local.title_suffix}"
   combiner     = "OR"
 
   conditions {
@@ -607,7 +643,7 @@ resource "google_logging_project_sink" "myca" {
   name                   = "${local.name}-logs"
   destination            = "logging.googleapis.com/${google_logging_project_bucket_config.myca.id}"
   unique_writer_identity = true
-  filter                 = "(resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"${local.name}\") OR (resource.type=\"cloudsql_database\" AND resource.labels.database_id=\"${var.project_id}:myca\") OR (resource.type=\"cloud_scheduler_job\" AND resource.labels.job_id=~\"^${local.name}\")"
+  filter                 = "(resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"${local.name}\") OR (resource.type=\"cloudsql_database\" AND resource.labels.database_id=\"${var.project_id}:${local.stem}\") OR (resource.type=\"cloud_scheduler_job\" AND resource.labels.job_id=~\"^${local.name}\")"
 }
 
 resource "google_artifact_registry_repository_iam_member" "deployer_push" {
@@ -650,7 +686,7 @@ resource "google_pubsub_topic_iam_member" "play_publisher" {
 }
 
 resource "google_service_account" "play_push" {
-  account_id   = "myca-play-push"
+  account_id   = "${local.stem}-play-push"
   display_name = "Signs Pub/Sub pushes of Play notifications to the MyCA API"
 }
 

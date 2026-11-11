@@ -48,5 +48,5 @@ output "waha_webhook_secret" {
 
 output "site_url" {
   description = "Public address of the site, privacy policy (/privacy) and account deletion page (/delete-account)."
-  value       = google_cloud_run_v2_service.site.uri
+  value       = one(google_cloud_run_v2_service.site[*].uri)
 }
