@@ -1,3 +1,4 @@
+import 'package:myca_design/myca_design.dart' show MycaThemeContext;
 import 'package:flutter/material.dart';
 
 import '../../api/myca_api.dart';
@@ -77,7 +78,7 @@ class _UsSetupScreenState extends State<UsSetupScreen> {
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(radiusCard),
-        border: Border.all(color: picked ? Palette.accent : Palette.line, width: picked ? 2 : 1),
+        border: Border.all(color: picked ? context.myca.accent : Palette.line, width: picked ? 2 : 1),
       ),
       clipBehavior: Clip.antiAlias,
       child: RowCard(
@@ -85,7 +86,7 @@ class _UsSetupScreenState extends State<UsSetupScreen> {
         leading: TintTile(tint: picked ? Tint.taxes : Tint.ask, mark: mark),
         title: title,
         subtitle: subtitle,
-        trailing: Icon(picked ? Icons.radio_button_checked : Icons.radio_button_off, color: picked ? Palette.accent : Palette.faint),
+        trailing: Icon(picked ? Icons.radio_button_checked : Icons.radio_button_off, color: picked ? context.myca.accent : Palette.faint),
         onTap: () => setState(() {
           _goal = value;
           _error = '';

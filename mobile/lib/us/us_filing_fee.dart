@@ -1,3 +1,4 @@
+import 'package:myca_design/myca_design.dart' show MycaThemeContext;
 import 'package:flutter/material.dart';
 
 import '../api/myca_api.dart';
@@ -255,7 +256,7 @@ class _UsFilingFeeCardState extends State<UsFilingFeeCard> {
     return Container(
       key: const Key('usFee.card'),
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: Palette.accentSoft, borderRadius: BorderRadius.circular(radiusCard)),
+      decoration: BoxDecoration(color: context.myca.accentSoft, borderRadius: BorderRadius.circular(radiusCard)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
