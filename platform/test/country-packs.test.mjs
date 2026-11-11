@@ -109,9 +109,9 @@ test('the knowledge base answers a question with the section and its sources', (
   assert.deepEqual(searchCountryKnowledge('GB', ''), []);
 });
 
-test('the deploy workflow allows exactly the regions the country packs allow, and the stack tells the API its country', async () => {
+test('the Cloud Run rollout allows exactly the regions the country packs allow, and the stack tells the API its country', async () => {
   const { readFile } = await import('node:fs/promises');
-  const workflow = await readFile(new URL('../../.github/workflows/deploy-cloud.yml', import.meta.url), 'utf8');
+  const workflow = await readFile(new URL('../../.github/workflows/cloud-run-rollout.yml', import.meta.url), 'utf8');
   const tf = await readFile(new URL('../../infra/cloud/country.tf', import.meta.url), 'utf8');
   for (const code of Object.keys(COUNTRIES)) {
     const allowed = [...workflow.matchAll(new RegExp(`${code}:([a-z0-9-]+)`, 'g'))].map((hit) => hit[1]).sort();
