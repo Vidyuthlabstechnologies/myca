@@ -112,6 +112,7 @@ source of truth: a value set only on someone's laptop is reverted by the next CI
 | `GCP_REGION` | `asia-south1` | `region` (required) |
 | `GCP_WIF_PROVIDER` | the `workload_identity_provider` output | deploy auth |
 | `GCP_DEPLOY_SA` | the `deploy_service_account` output | deploy auth |
+| `GCP_PROJECT_ID_US`, `GCP_API_REGION_US`, `GCP_WIF_PROVIDER_US`, `GCP_DEPLOY_SA_US` | the same four values for the US stack (its own project, `infra/cloud` applied with `-var-file=countries/us.tfvars` and state prefix `cloud-us`); empty until the US stack exists | `deploy-cloud` run by hand with country `US`, in the `production-us` environment |
 | `GCP_WIF_PLAN_PROVIDER` | the `plan_workload_identity_provider` output | PR plan auth |
 | `GCP_PLAN_SA` | the `plan_service_account` output | PR plan auth |
 | `GCP_TF_STATE_BUCKET` | the `tf_state_bucket` output | state backend |
