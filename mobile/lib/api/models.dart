@@ -13,7 +13,7 @@ String _text(Object? value) => value == null ? '' : value.toString();
 num _stillOpen(num value) => value > 0 ? (value * 100).round() / 100 : 0;
 
 class Company {
-  const Company({required this.name, required this.gstin, this.tdsDeductor = false, this.country = 'IN', this.gstFrequency = 'monthly'});
+  const Company({required this.name, required this.gstin, this.tdsDeductor = false, this.country = 'IN', this.gstFrequency = 'monthly', this.entityType = ''});
 
   factory Company.fromJson(Object? json) {
     final map = _map(json);
@@ -23,9 +23,13 @@ class Company {
       tdsDeductor: map['tdsDeductor'] == true,
       country: _text(map['country']).isEmpty ? 'IN' : _text(map['country']).toUpperCase(),
       gstFrequency: _text(map['gstFrequency']).toLowerCase() == 'quarterly' ? 'quarterly' : 'monthly',
+      entityType: _text(map['entityType']).toLowerCase(),
     );
   }
 
+  final String entityType;
+
+  bool get household => country == 'US' && entityType == 'household';
   final String name;
   final String gstin;
   final String country;

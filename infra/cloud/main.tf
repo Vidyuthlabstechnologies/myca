@@ -263,6 +263,8 @@ locals {
     MYCA_GSP_API_SECRET            = var.gsp_api_secret
     MYCA_PLAY_SERVICE_ACCOUNT_JSON = var.play_service_account_json
     MYCA_TEST_CODE                 = var.test_code
+    MYCA_STRIPE_SECRET_KEY         = var.stripe_secret_key
+    MYCA_STRIPE_WEBHOOK_SECRET     = var.stripe_webhook_secret
   } : name => value if nonsensitive(!contains(["", "unset"], trimspace(value))) }
   secrets      = merge(local.generated, local.given, { MYCA_DATABASE_URL = local.database_url }, local.optional_secrets)
   secret_names = sort(nonsensitive(keys(local.secrets)))
@@ -298,6 +300,12 @@ locals {
     MYCA_PLAY_PRODUCT_PRO          = var.play_product_pro
     MYCA_PLAY_PRODUCT_FIRM         = var.play_product_firm
     MYCA_PLAN_PRICES               = var.plan_prices
+    MYCA_PLAY_PACKAGE_US           = var.play_package_us
+    MYCA_PLAY_PRODUCT_US_1040      = var.play_product_us_1040
+    MYCA_PLAY_PRODUCT_US_PLUS      = var.play_product_us_plus
+    MYCA_STRIPE_PRICE_US_PLUS      = var.stripe_price_us_plus
+    MYCA_US_CHECKOUT_RETURN_URL    = var.us_checkout_return_url
+    MYCA_US_EXPERT_REVIEW          = var.us_expert_review ? "1" : "0"
     MYCA_ENVIRONMENT               = var.environment
     MYCA_TEST_PHONES               = join(",", var.test_phones)
     MYCA_PLAY_PUSH_AUDIENCE        = local.play_push_audience

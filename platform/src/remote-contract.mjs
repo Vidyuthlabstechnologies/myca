@@ -34,6 +34,8 @@ export const REMOTE_QUERY_TOOLS = new Set([
   'advance_tax',
   'ask_tax',
   'tax_modules',
+  'itr_knowledge',
+  'check_itr_json',
   'tax_plan',
   'review_income_tax',
   'supplier_payout_file',

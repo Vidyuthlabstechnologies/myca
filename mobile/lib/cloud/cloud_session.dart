@@ -40,6 +40,9 @@ const _messages = {
       'That GSTIN is not valid. Check it against your registration certificate.',
   'STATE_REQUIRED': 'Choose the state your business is in.',
   'INVALID_STATE_CODE': 'Choose the state your business is in.',
+  'HOUSEHOLD_US_ONLY': 'A personal tax return is for US filers. Choose the United States first.',
+  'UNKNOWN_KIND': 'Choose a personal return or a business.',
+  'INVALID_EIN': 'An EIN has nine digits, like 12-3456789. It is on the IRS letter that gave you the number.',
   'OWNER_ONLY': 'Only the owner can change this.',
   'INVALID_ROLE': 'Choose staff or accountant.',
   'ALREADY_A_MEMBER': 'That person is already in this business.',
@@ -54,6 +57,15 @@ const _messages = {
   'BODY_TOO_LARGE': 'That file is larger than 8 MB. Export a shorter period and try again.',
   'EMPTY_FILE': 'That file is empty.',
   'PLAN_REQUIRED': 'Your plan does not include this. The owner can upgrade under Plan and billing.',
+  'US_RETURN_UNPAID': 'Filing this return with the IRS needs the one-time filing fee first. Preparing and reviewing it stay free.',
+  'PURCHASE_ALREADY_USED': 'This Google Play payment already paid for another return.',
+  'CARD_CHECKOUT_NOT_CONFIGURED': 'Card payments are not set up yet.',
+  'UNKNOWN_CHECKOUT': 'That card payment could not be found. If you paid, it shows up within a few minutes.',
+  'ALREADY_SUBSCRIBED': 'MyCA Plus is already on.',
+  'NOT_SUBSCRIBED': 'MyCA Plus is not on.',
+  'ALREADY_PAID': 'This return is already paid for.',
+  'PURCHASE_NOT_COMPLETE': 'Google Play has not finished this payment yet. Filing unlocks as soon as it clears.',
+  'NOT_A_PERSONAL_RETURN': 'The filing fee is for a personal US return.',
   'PLAN_LIMIT_REACHED': 'This business has reached its plan limit. The owner can upgrade under Plan and billing.',
   'PURCHASE_BELONGS_TO_ANOTHER_BUSINESS': 'This Google Play subscription already pays for another business. Each business needs its own plan.',
   'PURCHASE_NOT_FOUND': 'Google Play does not show this purchase yet. Try again in a minute.',
@@ -809,6 +821,8 @@ class CloudSession {
     return ConnectorView.fromJson(body);
   }
 
+  Future<Map<String, dynamic>> usOffers() async => _accepted(await call('GET', '/v1/plans'));
+
   Future<List<PlanOffer>> plans() async {
     final body = _accepted(await call('GET', '/v1/plans'));
     final rows = body['plans'];
@@ -822,6 +836,25 @@ class CloudSession {
     final entitlement = body['entitlement'];
     return entitlement is Map ? Entitlement.fromJson(entitlement.cast<String, dynamic>()) : await this.entitlement();
   }
+
+  Future<Map<String, dynamic>> usReturnFee(int taxYear) async => _accepted(await call('GET', '$_books/us-return-purchase?taxYear=$taxYear'));
+
+  Future<Map<String, dynamic>> recordUsReturnPayment(int taxYear, String productId, String purchaseToken) async =>
+      _accepted(await call('POST', '$_books/us-return-purchase', {'taxYear': taxYear, 'productId': productId, 'purchaseToken': purchaseToken}));
+
+  Future<Map<String, dynamic>> startUsCheckout(String product, {int? taxYear}) async =>
+      _accepted(await call('POST', '$_books/us-checkout', {'product': product, 'taxYear': ?taxYear}));
+
+  Future<Map<String, dynamic>> confirmUsCheckout(String sessionId) async => _accepted(await call('POST', '$_books/us-checkout-confirm', {'sessionId': sessionId}));
+
+  Future<Map<String, dynamic>> usPlus() async => _accepted(await call('GET', '$_books/us-plus'));
+
+  Future<Map<String, dynamic>> recordUsPlusPurchase(String productId, String purchaseToken) async =>
+      _accepted(await call('POST', '$_books/us-plus-purchase', {'productId': productId, 'purchaseToken': purchaseToken}));
+
+  Future<Map<String, dynamic>> cancelUsPlus() async => _accepted(await call('POST', '$_books/us-plus-cancel', <String, Object?>{}));
+
+  Future<Map<String, dynamic>> joinUsWaitlist(String product) async => _accepted(await call('POST', '$_books/us-waitlist', {'product': product}));
 
   Future<EinvoiceOutcome> generateEinvoice(String invoiceId) async {
     return EinvoiceOutcome.fromJson(await call('POST', '$_books/einvoice', {'invoiceId': invoiceId}));
@@ -1074,8 +1107,8 @@ class CloudSession {
     }
   }
 
-  Future<PrivacyNotice> privacyNotice() async {
-    final (status, body) = await _send('GET', '/v1/privacy-notice', null, authed: false);
+  Future<PrivacyNotice> privacyNotice({String region = ''}) async {
+    final (status, body) = await _send('GET', region == 'US' ? '/v1/privacy-notice?region=US' : '/v1/privacy-notice', null, authed: false);
     if (status != 200 || body['notice'] is! Map) {
       throw MycaApiException(cloudMessage('${body['error'] ?? 'UNKNOWN'}'));
     }
@@ -1146,11 +1179,15 @@ class CloudSession {
     required String name,
     String gstin = '',
     String state = '',
+    String country = '',
+    String kind = '',
   }) async {
     final body = await call('POST', '/v1/businesses', {
       'name': name,
       if (gstin.isNotEmpty) 'gstin': gstin,
       if (state.isNotEmpty) 'state': state,
+      if (country.isNotEmpty) 'country': country,
+      if (kind.isNotEmpty) 'kind': kind,
     });
     final business = body['business'];
     if (business is! Map) {

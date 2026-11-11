@@ -374,3 +374,53 @@ variable "otp_global_per_hour" {
   type        = number
   default     = null
 }
+
+variable "play_package_us" {
+  description = "Package name of the separate MyCA US Android app, whose Play listing sells the US filing fee."
+  type        = string
+  default     = "com.mldynamic.myca.us"
+}
+
+variable "play_product_us_1040" {
+  description = "Google Play one-time (consumable) product id for filing a US federal return, priced at USD 129 for the United States, for example \"myca_us_1040\". Empty leaves US filing free."
+  type        = string
+  default     = ""
+}
+
+variable "stripe_secret_key" {
+  description = "Stripe secret key of the US company (sk_live_ or sk_test_) for card checkout of US returns and MyCA Plus. Google Play's payments policy exempts tax preparation and filing from Play Billing. Leave \"unset\" to keep the Play product."
+  type        = string
+  default     = "unset"
+  sensitive   = true
+}
+
+variable "stripe_webhook_secret" {
+  description = "Signing secret (whsec_) of the Stripe webhook endpoint pointed at /v1/billing/stripe/webhook."
+  type        = string
+  default     = "unset"
+  sensitive   = true
+}
+
+variable "stripe_price_us_plus" {
+  description = "Stripe price id of the yearly MyCA Plus subscription (USD 249 a year)."
+  type        = string
+  default     = ""
+}
+
+variable "us_checkout_return_url" {
+  description = "https address Stripe Checkout returns to after paying, which opens the MyCA US app (an App Link)."
+  type        = string
+  default     = ""
+}
+
+variable "us_expert_review" {
+  description = "Offer Expert Review ($299, a US CPA or EA signs). Keep false until a reviewer partner is signed."
+  type        = bool
+  default     = false
+}
+
+variable "play_product_us_plus" {
+  description = "Google Play yearly subscription product id for MyCA Plus (USD 249 a year) in the MyCA US app. Inside the Android app Plus is sold through Play billing, because Play may treat it as a software subscription; the website can sell it by card."
+  type        = string
+  default     = ""
+}
