@@ -10,15 +10,20 @@ money and year formats, filing routes, prices and the data region, with no fork 
 | `india.mjs` | IN India | live |
 | `united-states.mjs` | US United States | beta (Form 1040, US books) |
 | `planned.mjs` | GB, CA, AE, AU | planned: listed for the roadmap, not selectable |
+| `malaysia.mjs` | MY Malaysia | planned; its engine is being built in `malaysia/` |
 | `index.mjs` | the registry, `packProblems()` checks | |
 
 `node scripts/countries.mjs` prints the matrix and exits 1 when a pack is broken.
+
+The pack holds facts. The code a country adds (its tools, tax engine and filing client) lives in
+its own folder and is described in `COUNTRY-ENGINES.md`.
 
 ## What a pack holds
 
 | Key | Used by |
 |---|---|
 | `code`, `name`, `currency`, `symbol`, `locale`, `minorUnit`, `yearStartMonth`, `yearLabel`, `taxId` | `platform/src/country.mjs` (`COUNTRIES`, `formatMoney`, `yearOf`) |
+| `languages`, `taxName` | the languages the country's app is offered in, the default first, and the name people know the main indirect tax by (GST, Sales tax, SST, VAT). The design system and the apps read these from `GET /v1/countries` |
 | `status` | `live` and `beta` packs can be picked by a business; `planned` ones cannot |
 | `yearStartDay` | the day the tax year starts (6 for the UK); `taxYearOf(code, date)` |
 | `segments` | who the country's app serves: `individual`, `business`, `accountant` (the UAE has no personal income tax; Australia lets only registered agents charge for returns) |
@@ -34,7 +39,9 @@ money and year formats, filing routes, prices and the data region, with no fork 
 
 ## Tools
 
-A tool listed in a pack's `tools` serves only that country. India's pack has `toolPolicy: 'unclaimed'`,
+A tool listed in a pack's `tools`, or declared in the country's engine manifest, serves only that
+country. New country tools go in the manifest (`COUNTRY-ENGINES.md`); the `tools` list in the US
+pack covers the US modules written before the manifest existed. India's pack has `toolPolicy: 'unclaimed'`,
 so India gets every tool no other pack claims. Every other pack has `toolPolicy: 'shared-and-own'`:
 it gets its own tools plus the cross-country `SHARED_TOOLS` in `country.mjs`.
 
@@ -73,14 +80,16 @@ Read the country's file before building anything for that country, and add what 
 
 ## Adding a country
 
-0. Read `knowledge/<code>.md`, close its open questions that block the build, and get the
-   licences in the pack's `licences` list under way; several run on the authority's yearly calendar.
-
-1. Move its entry from `planned.mjs` to its own `<country>.mjs`, fill every key, set `status: 'beta'`.
-2. Add its regions to `infra/cloud/country.tf` and a `countries/<code>.tfvars`. The platform suite
+1. `node scripts/new-country.mjs ...` writes the planned pack, the empty engine folder and the
+   research file, and registers them (`COUNTRY-ENGINES.md`). GB, CA, AE and AU predate the
+   script and sit in `planned.mjs`; give each its own file and folder when its build starts.
+2. Research: fill `knowledge/<code>.md`, close its open questions that block the build, and get
+   the licences in the pack's `licences` list under way; several run on the authority's yearly
+   calendar. Then fill every key of the pack and set `status: 'beta'` when testers can use it.
+3. Add its regions to `infra/cloud/country.tf` and a `countries/<code>.tfvars`. The platform suite
    checks both against the pack.
-3. Add its tax engine, filing client and knowledge base as modules named in the pack, and list its
-   tools in the pack.
-4. Add the Android flavor named in `app.flavor` to `mobile/android/app/build.gradle.kts`.
-5. Deploy it as its own country (above) and point the new app's `MYCA_CLOUD_URL` at it.
-6. Write its compliance documents under `docs/compliance/<code>/`.
+4. Build its tax engine and filing client inside its own folder and declare its tools in the
+   manifest.
+5. Add the Android flavor named in `app.flavor` to `mobile/android/app/build.gradle.kts`.
+6. Deploy it as its own country (above) and point the new app's `MYCA_CLOUD_URL` at it.
+7. Write its compliance documents under `docs/compliance/<code>/`.

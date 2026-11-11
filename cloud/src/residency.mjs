@@ -1,4 +1,5 @@
 import { countryPack, isServedCountry, regionServes, servedPacks, DEFAULT_COUNTRY } from '../../platform/src/countries/index.mjs';
+import { countryCapabilities } from '../../platform/src/countries/manifests.mjs';
 
 const clean = (value) => String(value ?? '').trim();
 
@@ -39,14 +40,21 @@ export function publicCountries(env = process.env) {
       name: pack.name,
       status: pack.status,
       currency: pack.currency,
+      symbol: pack.symbol,
+      minorUnit: pack.minorUnit,
       locale: pack.locale,
+      languages: pack.languages,
       yearStartMonth: pack.yearStartMonth,
+      yearStartDay: pack.yearStartDay,
+      yearLabel: pack.yearLabel,
       taxId: pack.taxId,
+      taxName: pack.taxName,
       requiresState: pack.requiresState,
       segments: pack.segments,
       app: pack.app,
       prices: pack.billing.plans.map(({ id, kind, price, provider }) => ({ id, kind, price, provider })),
       filing: pack.filing.map(({ id, authority, route }) => ({ id, authority, route })),
+      capabilities: countryCapabilities(pack.code),
       hostedHere: hosted.includes(pack.code),
     })),
   };

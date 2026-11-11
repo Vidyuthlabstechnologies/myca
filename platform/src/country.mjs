@@ -1,5 +1,6 @@
 import { rules } from './sprint-load.mjs';
 import { DEFAULT_COUNTRY, countryPack, servedPacks, toolOwner } from './countries/index.mjs';
+import { EVERY_COUNTRY, engineToolOwner } from './countries/manifests.mjs';
 
 const IDENTITY_KEYS = ['code', 'name', 'currency', 'symbol', 'locale', 'minorUnit', 'yearStartMonth', 'yearLabel', 'taxId'];
 
@@ -82,7 +83,9 @@ const SHARED_EXTRA = new Set(['create_invoice', 'create_purchase', 'post_expense
 export function toolServesCountry(toolName, country) {
   const name = String(toolName || '');
   const pack = countryPack(country) || countryPack(DEFAULT_COUNTRY);
-  const owner = toolOwner(name);
+  const engineOwner = engineToolOwner(name);
+  if (engineOwner === EVERY_COUNTRY) return true;
+  const owner = toolOwner(name) || engineOwner;
   if (owner) return owner === pack.code;
   if (pack.toolPolicy === 'unclaimed') return true;
   return SHARED_TOOLS.has(name) || SHARED_EXTRA.has(name);

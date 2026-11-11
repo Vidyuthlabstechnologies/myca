@@ -1,11 +1,20 @@
 import { INDIA } from './india.mjs';
 import { UNITED_STATES } from './united-states.mjs';
 import { UNITED_KINGDOM, CANADA, UNITED_ARAB_EMIRATES, AUSTRALIA } from './planned.mjs';
+import { MALAYSIA } from './malaysia.mjs';
 
 export const SEGMENTS = Object.freeze(['individual', 'business', 'accountant']);
 export const PAYMENT_PROVIDERS = Object.freeze(['play', 'stripe']);
 export const PACK_STATUSES = Object.freeze(['live', 'beta', 'planned']);
-export const PACKS = Object.freeze([INDIA, UNITED_STATES, UNITED_KINGDOM, CANADA, UNITED_ARAB_EMIRATES, AUSTRALIA]);
+export const PACKS = Object.freeze([
+  INDIA,
+  UNITED_STATES,
+  UNITED_KINGDOM,
+  CANADA,
+  UNITED_ARAB_EMIRATES,
+  AUSTRALIA,
+  MALAYSIA,
+]);
 export const DEFAULT_COUNTRY = 'IN';
 
 const BY_CODE = new Map(PACKS.map((pack) => [pack.code, pack]));
@@ -52,6 +61,8 @@ export function packProblems(packs = PACKS) {
     if (!/^[A-Z]{3}$/.test(pack.currency)) problems.push(`${pack.code}: the currency must be ISO 4217.`);
     if (!(pack.yearStartMonth >= 1 && pack.yearStartMonth <= 12)) problems.push(`${pack.code}: yearStartMonth must be 1 to 12.`);
     if (!(pack.yearStartDay >= 1 && pack.yearStartDay <= 28)) problems.push(`${pack.code}: yearStartDay must be 1 to 28.`);
+    if (!Array.isArray(pack.languages) || !pack.languages.length || !pack.languages.every((language) => /^[a-z]{2,3}$/.test(language))) problems.push(`${pack.code}: languages must list at least one ISO 639 code, the default first.`);
+    if (typeof pack.taxName !== 'string' || !pack.taxName.trim()) problems.push(`${pack.code}: taxName must name the main indirect tax as people see it.`);
     if (!pack.segments.length || !pack.segments.every((segment) => SEGMENTS.includes(segment))) problems.push(`${pack.code}: segments must be drawn from ${SEGMENTS.join(', ')}.`);
     if (pack.status === 'live' && pack.licences.some((licence) => licence.status === 'needed')) problems.push(`${pack.code}: a live country cannot still need a licence.`);
     for (const plan of pack.billing.plans) {
