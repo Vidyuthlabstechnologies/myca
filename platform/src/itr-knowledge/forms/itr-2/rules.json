@@ -1,0 +1,5243 @@
+{
+"form": "ITR-2",
+"source": "itr-2-rules",
+"title": "ITR 2 Validation Rules for AY 2025-26",
+"categories": {
+"A": "Return cannot be uploaded; the portal shows an error.",
+"B": "Return is uploaded, but the taxpayer is told of a possible defect u/s 139(9) and CPC may send a notice.",
+"D": "Return is uploaded, but a deduction or claim may not be allowed unless the supporting claim form or particulars are filed.",
+"B/D": "Category B or D (the source lists them in one table)."
+},
+"rules": [
+{
+"category": "A",
+"no": 1,
+"page": 6,
+"text": "Assessee should enter valid Mobile Number",
+"id": "ITR-2-A-1"
+},
+{
+"category": "A",
+"no": 2,
+"page": 6,
+"text": "Name of the taxpayer does not match with the \"Name\" as per the PAN database. Please update the name as appearing in e-filing profile.",
+"id": "ITR-2-A-2"
+},
+{
+"category": "A",
+"no": 3,
+"page": 6,
+"text": "Assessee claiming the benefit of senior citizen & super senior citizen, but the date of birth is not matching with PAN database/ Aadhaar database",
+"id": "ITR-2-A-3"
+},
+{
+"category": "A",
+"no": 4,
+"page": 6,
+"text": "If the original return is filed under section 142(1) then revised return cannot be filed",
+"id": "ITR-2-A-4"
+},
+{
+"category": "A",
+"no": 5,
+"page": 6,
+"text": "If \"Whether you have held unlisted equity shares at any time during the previous year?\" is selected as Yes, then the details should be filled.",
+"id": "ITR-2-A-5"
+},
+{
+"category": "A",
+"no": 6,
+"page": 6,
+"text": "In Filing status, \"Are you governed by Portuguese Civil Code as per section 5A?\" is selected as 'Yes' then Schedule Governed by Portuguese Civil Code should be mandatory.",
+"id": "ITR-2-A-6"
+},
+{
+"category": "A",
+"no": 7,
+"page": 6,
+"text": "\"Whether this return is being filed by a representative assessee?\" is selected as Yes then details should be provided.",
+"id": "ITR-2-A-7"
+},
+{
+"category": "A",
+"no": 8,
+"page": 6,
+"text": "In Part A General, Return is being filed by Representative Assessee, but the PAN quoted in representative assessee field is not the same as the PAN who is trying to upload the return.",
+"id": "ITR-2-A-8"
+},
+{
+"category": "A",
+"no": 9,
+"page": 6,
+"text": "In Part A General, \"Are you filing return of income under the Seventh proviso to Section 139(1) \" is selected as Yes then the respective details should be filled.",
+"id": "ITR-2-A-9"
+},
+{
+"category": "A",
+"no": 10,
+"page": 6,
+"text": "\"Whether you were Director in a company at any time during the previous year?\" is selected as Yes then the respective details should be filled.",
+"id": "ITR-2-A-10"
+},
+{
+"category": "A",
+"no": 11,
+"page": 6,
+"text": "First three alphabets should be as per list TAN codes on field TAN",
+"id": "ITR-2-A-11"
+},
+{
+"category": "A",
+"no": 12,
+"page": 6,
+"text": "Once a proceeding is initiated u/s 148 or 153A or 153C, return cannot be filed u/s 139.",
+"id": "ITR-2-A-12"
+},
+{
+"category": "A",
+"no": 13,
+"page": 6,
+"text": "In Part A General, \"Are you filing return of income under clause (iv) of the Seventh proviso to Section 139(1) \" is selected as Yes and drop-down is selected then the respective amounts should be filled.",
+"id": "ITR-2-A-13"
+},
+{
+"category": "A",
+"no": 14,
+"page": 7,
+"text": "In Filing status, \"Are you governed by Portuguese Civil Code as per section 5A?\" is selected as 'No' then Schedule Governed by Portuguese Civil Code should not be filed.",
+"id": "ITR-2-A-14"
+},
+{
+"category": "A",
+"no": 15,
+"page": 7,
+"text": "In Part A General, \"Whether you are / FPI?\" should be selected \"Yes\" for enabling the Schedule 115AD(1)(b)(iii)-Proviso",
+"id": "ITR-2-A-15"
+},
+{
+"category": "A",
+"no": 16,
+"page": 7,
+"text": "In Part A general, if filed in response to a notice u/s 139(9)/142(1)/148 or order under section 119(2)(b) then unique number /Document Identification Number (DIN) and date of such notice/Order are mandatory",
+"id": "ITR-2-A-16"
+},
+{
+"category": "A",
+"no": 17,
+"page": 7,
+"text": "Return which is getting filed should be as per role CD of the PAN",
+"id": "ITR-2-A-17"
+},
+{
+"category": "A",
+"no": 18,
+"page": 7,
+"text": "Option for opting out of new tax regime is not available after due date of filing of return as mentioned u/s 139(1)",
+"id": "ITR-2-A-18"
+},
+{
+"category": "A",
+"no": 19,
+"page": 7,
+"text": "Option for opting out of new tax regime is not available after due date of filing of return as mentioned u/s 139(1)",
+"id": "ITR-2-A-19"
+},
+{
+"category": "A",
+"no": 20,
+"page": 7,
+"text": "Residents and not ordinarily residents cannot be FII/FPIs.",
+"id": "ITR-2-A-20"
+},
+{
+"category": "A",
+"no": 21,
+"page": 7,
+"text": "Old Tax Regime cannot be selected after due date if filing u/s 139(1)",
+"id": "ITR-2-A-21"
+},
+{
+"category": "A",
+"no": 22,
+"page": 7,
+"text": "In Schedule S, Sl. No. 1 Gross Salary (1a + 1b + 1c +1d + 1e + 1f) should be consistent with sum of Sl. No. 1a+1b+1c+1d+1e +1f",
+"id": "ITR-2-A-22"
+},
+{
+"category": "A",
+"no": 23,
+"page": 7,
+"text": "In Schedule S, Sl. No. 2 Total Gross Salary (from all employers) should be sum of Sl. No. 1 +…. n",
+"id": "ITR-2-A-23"
+},
+{
+"category": "A",
+"no": 24,
+"page": 7,
+"text": "In Schedule S, Sl. No. 3 Allowances to the extent exempt u/s 10 should be equal to the sum of all the dropdowns",
+"id": "ITR-2-A-24"
+},
+{
+"category": "A",
+"no": 25,
+"page": 7,
+"text": "In Schedule S, Sl. No. 4 Net Salary should be output of Sl. No. 2 - 3 - 3a",
+"id": "ITR-2-A-25"
+},
+{
+"category": "A",
+"no": 26,
+"page": 7,
+"text": "In Schedule S, Sl. No. 5 Deductions u/s 16 (5a+5b+5c) should be equal to sum of 5a+5b+5c",
+"id": "ITR-2-A-26"
+},
+{
+"category": "A",
+"no": 27,
+"page": 7,
+"text": "In Schedule S, Sl. No. 6 Income chargeable under Salaries should be output of Sl. No 4-5",
+"id": "ITR-2-A-27"
+},
+{
+"category": "A",
+"no": 28,
+"page": 7,
+"text": "Exemption u/s 10(10) for gratuity shall not exceed income offered under the head salary under sub head gratuity receipt and cannot exceed (i) Rs20 lakhs in case of Nature of employment is \"Public Sector Undertaking\", \"PSU- Pensioners\", \"Others-Pensioners\" or \"Others\". (ii)Rs 25 lakhs in case of Nature of employment is \"Central Government\", \"State Government\", \"CG-Pensioners\" or \"SG-Pensioners\"",
+"id": "ITR-2-A-28"
+},
+{
+"category": "A",
+"no": 29,
+"page": 7,
+"text": "If old tax regime is selected, In Schedule S in Field 3 dropdown value of \"Sec 10(13A)- Allowance to meet expenditure incurred on house rent \" should not be more than (50% of dropdown value of \" Basic Salary and Dearness Allowance) or House Rent Allowance \" in the Sl. No. . 1a of all employers of Schedule S.",
+"id": "ITR-2-A-29"
+},
+{
+"category": "A",
+"no": 30,
+"page": 8,
+"text": "In Sch S in Field 3 dropdown value of \"Sec 10(10B) Second proviso - Compensation under scheme approved by the Central Government \" should not be more than dropdown value of \"Compensation due/received by an assessee from his employer or former employer in connection with the termination of his employment or modification thereto\" in the Sl. No. . 1c in Sch S or Rs. 500000/-",
+"id": "ITR-2-A-30"
+},
+{
+"category": "A",
+"no": 31,
+"page": 8,
+"text": "In Schedule S in Field 3 Total value of allowances to the extent exempt u/s 10 excluding HRA u/s 10(13A) shall not exceed Sl. No. 1(a)+1(b)+1© (of all the employers) as reduced by House Rent Allowance (of all the employers)",
+"id": "ITR-2-A-31"
+},
+{
+"category": "A",
+"no": 32,
+"page": 8,
+"text": "Sum of Drop downs in Sl. No. 1a of Schedule S should be equal to Sl. No. 1a",
+"id": "ITR-2-A-32"
+},
+{
+"category": "A",
+"no": 33,
+"page": 8,
+"text": "Sum of Drop downs in Sl. No. 1b of Schedule Should be equal to Sl. No. 1b",
+"id": "ITR-2-A-33"
+},
+{
+"category": "A",
+"no": 34,
+"page": 8,
+"text": "Sum of Drop downs in Sl. No. 1c of Schedule S should be equal to Sl. No. 1c",
+"id": "ITR-2-A-34"
+},
+{
+"category": "A",
+"no": 35,
+"page": 8,
+"text": "Entertainment allowance 16(ii) will not be allowed for employees other than government.",
+"id": "ITR-2-A-35"
+},
+{
+"category": "A",
+"no": 36,
+"page": 8,
+"text": "If old tax regime is selected, In Schedule Salary, Entertainment allowance (sl.no 5b) will be allowed only to the extent of Rs 5000 or 1/5 of basic salary whichever is less for Central Govt, State Government and PSU employees u/s 16(ii)",
+"id": "ITR-2-A-36"
+},
+{
+"category": "A",
+"no": 37,
+"page": 8,
+"text": "In Schedule Salary, Professional tax u/s 16(iii) will be allowed only to the extent of Rs.5000/-",
+"id": "ITR-2-A-37"
+},
+{
+"category": "A",
+"no": 38,
+"page": 8,
+"text": "In Schedule Salary, at Sl. No. 1a- Gratuity shall not be allowed against more than one Employer.",
+"id": "ITR-2-A-38"
+},
+{
+"category": "A",
+"no": 39,
+"page": 8,
+"text": "In Schedule Salary, at Sl. No. 1a- Commuted pension shall not be allowed against more than one Employer.",
+"id": "ITR-2-A-39"
+},
+{
+"category": "A",
+"no": 40,
+"page": 8,
+"text": "If old tax regime is selected, in schedule Salary, Standard deduction shall not be allowed more than the lower of Rs. 50,000 or Net Salary",
+"id": "ITR-2-A-40"
+},
+{
+"category": "A",
+"no": 41,
+"page": 8,
+"text": "Sec 10(5)-Leave Travel concession/assistance received cannot be more than \"Leave Travel Allowance\" under Salary as per section 17(1).",
+"id": "ITR-2-A-41"
+},
+{
+"category": "A",
+"no": 42,
+"page": 8,
+"text": "Exempt allowance Sec 10(6)-Remuneration received as an official, by whatever name called, of an embassy, high commission etc.\" cannot be more than Gross Salary i.e., Sl. No. 1(a)+1(b)+1(c) (of all the employers)",
+"id": "ITR-2-A-42"
+},
+{
+"category": "A",
+"no": 43,
+"page": 8,
+"text": "Exempt allowance u/s 10(7)-Allowances or perquisites paid or allowed as such outside India by the Government to a citizen of India for rendering service outside India cannot be more than Gross salary i.e. Sl. No. 1(a)+1(b)+1(c) (of all the employers)",
+"id": "ITR-2-A-43"
+},
+{
+"category": "A",
+"no": 44,
+"page": 8,
+"text": "Sec 10(10A)-Commuted value of pension received cannot be more than Salary as per section 17(1)",
+"id": "ITR-2-A-44"
+},
+{
+"category": "A",
+"no": 45,
+"page": 8,
+"text": "Sec 10(10AA)-Earned leave encashment cannot be more than Salary as per section 17(1)",
+"id": "ITR-2-A-45"
+},
+{
+"category": "A",
+"no": 46,
+"page": 9,
+"text": "Exempt Allowance u/s 10(10C)-Amount received/receivable on voluntary retirement or termination of service cannot exceed Rs. 5,00,000",
+"id": "ITR-2-A-46"
+},
+{
+"category": "A",
+"no": 47,
+"page": 9,
+"text": "In Schedule Salary, exempt allowances in Section 10(10B)(i) OR Section 10(10B)(ii) OR Section 10(10C), only one can be claimed.",
+"id": "ITR-2-A-47"
+},
+{
+"category": "A",
+"no": 48,
+"page": 9,
+"text": "In Schedule Salary, Exempt Allowance u/s 10(10CC)-Tax paid by employer on non- monetary perquisite cannot be more than Value of perquisites as per section 17(2)",
+"id": "ITR-2-A-48"
+},
+{
+"category": "A",
+"no": 49,
+"page": 9,
+"text": "In Schedule Salary, Section 10(14)(i) Prescribed Allowances or benefits (not in a nature of perquisite) specifically granted to meet expenses wholly, necessarily and exclusively and to the extent actually incurred, in performance of duties of office or employment cannot be more than the value of Salary under \"Other Allowance\" & \"Others\" in Section 17(1)",
+"id": "ITR-2-A-49"
+},
+{
+"category": "A",
+"no": 50,
+"page": 9,
+"text": "Sec 10(14)(ii) Prescribed Allowances or benefits granted to meet personal expenses in performance of duties of office or employment or to compensate him for increased cost of living cannot be more than the value of Salary under \"Other Allowance\" & \"Others\" in Section 17(1)",
+"id": "ITR-2-A-50"
+},
+{
+"category": "A",
+"no": 51,
+"page": 9,
+"text": "In Schedule Salary, same exempt allowance cannot be selected more than once.",
+"id": "ITR-2-A-51"
+},
+{
+"category": "A",
+"no": 52,
+"page": 9,
+"text": "If exempt allowance u/s 10(13A) is claimed, then deduction u/s 80GG cannot be claimed more than Rs. 55,000.",
+"id": "ITR-2-A-52"
+},
+{
+"category": "A",
+"no": 53,
+"page": 9,
+"text": "In schedule S, if taxpayer selects other than central & state government in nature of employer & if he is claiming deduction u/s 10(10AA), then deduction u/s 10(10AA) should not be more than Rs. 25 lakh.",
+"id": "ITR-2-A-53"
+},
+{
+"category": "A",
+"no": 54,
+"page": 9,
+"text": "If new tax regime is selected, then following allowances cannot be claimed as exempt (i.e. all these allowances should not be more than zero): \"Sec 10(5)-Leave Travel concession/assistance\" \"Sec 10(13A)-Allowance to meet expenditure incurred on house rent\" \"Sec 10(14)(i)- Prescribed Allowances or benefits (not in a nature of perquisite) specifically granted to meet expenses wholly, necessarily and exclusively and to the extent actually incurred, in performance of duties of office or employment\" \"Sec 10(14)(ii) -Prescribed Allowances or benefits granted to meet personal expenses in performance of duties of office or employment or to compensate him for increased cost of living\"",
+"id": "ITR-2-A-54"
+},
+{
+"category": "A",
+"no": 55,
+"page": 9,
+"text": "If old tax regime is selected, the following allowances cannot be claimed as exempt (i.e. all these allowances should not be more than zero): \"Section 10(14)(i) - Allowances referred in sub-clauses (a) to (c) of sub-rule (1) in Rule 2BB\" \"Section 10(14)(ii) - Transport allowance granted to certain physically handicapped assessee\"",
+"id": "ITR-2-A-55"
+},
+{
+"category": "A",
+"no": 56,
+"page": 9,
+"text": "Exempt allowance u/s 10(14)(ii) \"Transport allowance granted to certain physically handicapped assessee\" cannot exceed Rs 38,400",
+"id": "ITR-2-A-56"
+},
+{
+"category": "A",
+"no": 57,
+"page": 10,
+"text": "If new tax regime is selected, Entertainment allowance u/s 16(ii) cannot be claimed.",
+"id": "ITR-2-A-57"
+},
+{
+"category": "A",
+"no": 58,
+"page": 10,
+"text": "If new tax regime is selected, Professional allowance u/s 16(iii) cannot be claimed.",
+"id": "ITR-2-A-58"
+},
+{
+"category": "A",
+"no": 59,
+"page": 10,
+"text": "HUF cannot claim Income claimed for relief from taxation u/s 89A",
+"id": "ITR-2-A-59"
+},
+{
+"category": "A",
+"no": 60,
+"page": 10,
+"text": "In Schedule Salary, Income claimed for relief from taxation u/s 89A cannot be claimed more than income offered in 1d",
+"id": "ITR-2-A-60"
+},
+{
+"category": "A",
+"no": 61,
+"page": 10,
+"text": "Sum of Drop downs in Sl. No. 1d of Schedule S should be equal to Sl. No. 1d",
+"id": "ITR-2-A-61"
+},
+{
+"category": "A",
+"no": 62,
+"page": 10,
+"text": "Exempt allowance u/s 10(10B) is claimed by Central Government employees, State government employees, CG-Pensioners, and SG- Pensioners",
+"id": "ITR-2-A-62"
+},
+{
+"category": "A",
+"no": 63,
+"page": 10,
+"text": "In schedule salary, under nature of perquisites, income is given more than once against one dropdown, under each block.",
+"id": "ITR-2-A-63"
+},
+{
+"category": "A",
+"no": 64,
+"page": 10,
+"text": "In schedule salary, under profit in lieu of salary, income is given more than once against one dropdown, under each block.",
+"id": "ITR-2-A-64"
+},
+{
+"category": "A",
+"no": 65,
+"page": 10,
+"text": "In \"Income from retirement benefit account maintained in a notified country u/s 89A\" in country drop-down, one country cannot be selected more than one time.",
+"id": "ITR-2-A-65"
+},
+{
+"category": "A",
+"no": 66,
+"page": 10,
+"text": "In Schedule Salary, Exempt allowance u/s 10(10B)(ii)-Retrenchment Compensation received in respect of approved scheme cannot exceed Rs.5,00,000",
+"id": "ITR-2-A-66"
+},
+{
+"category": "A",
+"no": 67,
+"page": 10,
+"text": "In Schedule HP, Standard deduction allowed on House property should be equal to 30% of Annual value.",
+"id": "ITR-2-A-67"
+},
+{
+"category": "A",
+"no": 68,
+"page": 10,
+"text": "In case of co-owned house property assessee’s share and co-owner(s) share should be equal to 100 %.",
+"id": "ITR-2-A-68"
+},
+{
+"category": "A",
+"no": 69,
+"page": 10,
+"text": "In case property is co-owned, annual value of the property owned should be equal to own percentage share *annual value.",
+"id": "ITR-2-A-69"
+},
+{
+"category": "A",
+"no": 70,
+"page": 10,
+"text": "Assessee cannot claim interest on borrowed capital if assessee’s share of co-owned property is zero",
+"id": "ITR-2-A-70"
+},
+{
+"category": "A",
+"no": 71,
+"page": 10,
+"text": "Municipal tax is not allowed where Gross rent received/ receivable/ lettable value is zero or null",
+"id": "ITR-2-A-71"
+},
+{
+"category": "A",
+"no": 72,
+"page": 10,
+"text": "If old tax regime is selected, in schedule HP 'Interest on borrowed capital from HP' should not be more than 2 lakhs in case of self-occupied property.",
+"id": "ITR-2-A-72"
+},
+{
+"category": "A",
+"no": 73,
+"page": 10,
+"text": "Value at field 3 should be equal to Sum of Sl. No. 1k+2k+2",
+"id": "ITR-2-A-73"
+},
+{
+"category": "A",
+"no": 74,
+"page": 10,
+"text": "In case of type of property is let out or deemed let out then Gross rent received/ receivable/ lettable value should be more than zero",
+"id": "ITR-2-A-74"
+},
+{
+"category": "A",
+"no": 75,
+"page": 10,
+"text": "In Schedule HP, Sl.no 1e - Annual Value should be output of SL.no (1a- 1d)",
+"id": "ITR-2-A-75"
+},
+{
+"category": "A",
+"no": 76,
+"page": 10,
+"text": "In Schedule HP, Sl.no 1d -Total should be output of SL.no (1b+1c)",
+"id": "ITR-2-A-76"
+},
+{
+"category": "A",
+"no": 77,
+"page": 10,
+"text": "In Schedule HP, Sl.no 1i -Total should be output of SL.no (1g+1h)",
+"id": "ITR-2-A-77"
+},
+{
+"category": "A",
+"no": 78,
+"page": 11,
+"text": "In Schedule HP - Sl.no 1k Income from House Property (1f – 1i + 1j) should be equal to sum of 1f – 1i + 1j",
+"id": "ITR-2-A-78"
+},
+{
+"category": "A",
+"no": 79,
+"page": 11,
+"text": "In Schedule HP, Sl.no 2 Pass through income should be equal to the amount of HP income mentioned in Schedule PTI",
+"id": "ITR-2-A-79"
+},
+{
+"category": "A",
+"no": 80,
+"page": 11,
+"text": "In Schedule HP, more than two houses are claimed to be self-occupied / annual lettable value for the properties is zero or null for more than two house and interest on borrowed capital cannot be claimed as deduction for more than two self-occupied properties",
+"id": "ITR-2-A-80"
+},
+{
+"category": "A",
+"no": 81,
+"page": 11,
+"text": "If new tax regime is selected, Interest on borrowed capital cannot be claimed for \"Self- Occupied\" house property.",
+"id": "ITR-2-A-81"
+},
+{
+"category": "A",
+"no": 82,
+"page": 11,
+"text": "In case of co-owned house property, Asseesee PAN & Co-owners PAN cannot be same",
+"id": "ITR-2-A-82"
+},
+{
+"category": "A",
+"no": 83,
+"page": 11,
+"text": "Being Resident or Resident but not Ordinarily resident Individual question \"Please select whether you want to claim the benefit u/s 115H or not\" should be answered.",
+"id": "ITR-2-A-83"
+},
+{
+"category": "A",
+"no": 84,
+"page": 11,
+"text": "In Schedule 112A, Col. 6 Total Sale Value should be equal to Col. 4*Col. 5",
+"id": "ITR-2-A-84"
+},
+{
+"category": "A",
+"no": 85,
+"page": 11,
+"text": "In Schedule 112A, Col. 7 Cost of acquisition without indexation should be higher of Col. 8 and Col. 9",
+"id": "ITR-2-A-85"
+},
+{
+"category": "A",
+"no": 86,
+"page": 11,
+"text": "In Schedule 112A, Col. 9 If the long-term capital asset was acquired before 01.02.2018 should be lower of Col. 6 and Col. 11",
+"id": "ITR-2-A-86"
+},
+{
+"category": "A",
+"no": 87,
+"page": 11,
+"text": "In Schedule 112A, Col. 11 Total Fair Market Value of capital asset as per section 55(2)(ac) should be equal to Col. 4*Col. 10",
+"id": "ITR-2-A-87"
+},
+{
+"category": "A",
+"no": 88,
+"page": 11,
+"text": "In Schedule 112A, Col. 13 Total deductions should be equal to sum of Col. (7+12)",
+"id": "ITR-2-A-88"
+},
+{
+"category": "A",
+"no": 89,
+"page": 11,
+"text": "In Schedule 112A, Col. 14 Balance should be equal to the output of Col. 6-Col. 13",
+"id": "ITR-2-A-89"
+},
+{
+"category": "A",
+"no": 90,
+"page": 11,
+"text": "In Schedule 112A, Total should be equal to the sum of individual rows",
+"id": "ITR-2-A-90"
+},
+{
+"category": "A",
+"no": 91,
+"page": 11,
+"text": "In Schedule 115AD(1)(iii) proviso, Col. 6 Total Sale Value should be equal to Col. 4*Col. 5",
+"id": "ITR-2-A-91"
+},
+{
+"category": "A",
+"no": 92,
+"page": 11,
+"text": "In Schedule 115AD(1)(iii) proviso, Col. 7 Cost of acquisition without indexation should be higher of Col. 8 and Col. 9",
+"id": "ITR-2-A-92"
+},
+{
+"category": "A",
+"no": 93,
+"page": 11,
+"text": "In Schedule 115AD(1)(iii) proviso, Col. 9 If the long-term capital asset was acquired before 01.02.2018 should be lower of Col. 6 and Col. 11",
+"id": "ITR-2-A-93"
+},
+{
+"category": "A",
+"no": 94,
+"page": 11,
+"text": "In Schedule 115AD(1)(iii) proviso, Col. 11 Total Fair Market Value of capital asset as per section 55(2)(ac) should be equal to Col. 4*Col. 10",
+"id": "ITR-2-A-94"
+},
+{
+"category": "A",
+"no": 95,
+"page": 11,
+"text": "In Schedule 115AD(1)(iii) proviso, Col. 13 Total deductions should be equal to sum of Col. (7+12)",
+"id": "ITR-2-A-95"
+},
+{
+"category": "A",
+"no": 96,
+"page": 11,
+"text": "In Schedule 115AD(1)(iii) proviso, Col. 14 Balance should be equal to the output of Col. 6-Col. 13",
+"id": "ITR-2-A-96"
+},
+{
+"category": "A",
+"no": 97,
+"page": 12,
+"text": "In Schedule 115AD(1)(iii) proviso, Total should be equal to the sum of individual rows",
+"id": "ITR-2-A-97"
+},
+{
+"category": "A",
+"no": 98,
+"page": 12,
+"text": "Total of STCG should be equal to the individual breakup in Schedule CG",
+"id": "ITR-2-A-98"
+},
+{
+"category": "A",
+"no": 99,
+"page": 12,
+"text": "Total of LTCG should be equal to the individual breakup in Schedule CG",
+"id": "ITR-2-A-99"
+},
+{
+"category": "A",
+"no": 100,
+"page": 12,
+"text": "In Schedule CG, SL.no. C Income chargeable under the head \"Capital Gain\" should be equal to the sum of Sl. No. A9+B13",
+"id": "ITR-2-A-100"
+},
+{
+"category": "A",
+"no": 101,
+"page": 12,
+"text": "In Schedule CG, Full Value of Consideration (Sl. No. A1aiii) is zero than expenses (Sl. No. A1b(iv) should not be claimed",
+"id": "ITR-2-A-101"
+},
+{
+"category": "A",
+"no": 102,
+"page": 12,
+"text": "In Schedule CG, Full Value of Consideration (Sl. No. A(2)(a)) is zero then expenses (Sl. No. A(2)(biv)) should not be claimed",
+"id": "ITR-2-A-102"
+},
+{
+"category": "A",
+"no": 103,
+"page": 12,
+"text": "In Schedule CG, Full Value of Consideration (Sl. No. A(4)(aiii)) is zero then expenses (Sl. No. A(4)(biv)) should not be claimed",
+"id": "ITR-2-A-103"
+},
+{
+"category": "A",
+"no": 104,
+"page": 12,
+"text": "In Schedule CG, Full Value of Consideration (Sl. No. A(5)(aiii)) is zero then expenses (Sl. No. A(5)(biv)) should not be claimed",
+"id": "ITR-2-A-104"
+},
+{
+"category": "A",
+"no": 105,
+"page": 12,
+"text": "In Schedule CG, Full Value of Consideration (Sl. No. B(1)(aiii)) is zero then expenses (Sl. No. B(1)(biv)) should not be claimed",
+"id": "ITR-2-A-105"
+},
+{
+"category": "A",
+"no": 106,
+"page": 12,
+"text": "In Schedule CG, Full Value of Consideration (Sl. No. B(2)(a)) is zero then expenses (Sl. No. B(2)(biv)) should not be claimed",
+"id": "ITR-2-A-106"
+},
+{
+"category": "A",
+"no": 107,
+"page": 12,
+"text": "In Schedule CG, Full Value of Consideration (Sl. No. B3a) is zero then expenses (Sl. No. (B(3)(biv)) should not be claimed",
+"id": "ITR-2-A-107"
+},
+{
+"category": "A",
+"no": 108,
+"page": 12,
+"text": "In Schedule CG, Full Value of Consideration (Sl. No. B6aiii) is zero then expenses (Sl. No. B(6)(biv)) should not be claimed",
+"id": "ITR-2-A-108"
+},
+{
+"category": "A",
+"no": 109,
+"page": 12,
+"text": "In Schedule CG, Full Value of Consideration (Sl. No. B9aiii) is zero and expenses (Sl. No. B9b(iv) should not be claimed",
+"id": "ITR-2-A-109"
+},
+{
+"category": "A",
+"no": 110,
+"page": 12,
+"text": "In schedule CG, Sl. No. A1 biv of STCG Total should be equal to sum of A1(bi+bii+biii)",
+"id": "ITR-2-A-110"
+},
+{
+"category": "A",
+"no": 111,
+"page": 12,
+"text": "In schedule CG, Sl. No. A1c of STCG Balance should be equal to A1(aiii-biv)",
+"id": "ITR-2-A-111"
+},
+{
+"category": "A",
+"no": 112,
+"page": 12,
+"text": "In Schedule CG Sl.no. A1e of STCG should be equal to A(1c-1d)",
+"id": "ITR-2-A-112"
+},
+{
+"category": "A",
+"no": 113,
+"page": 12,
+"text": "In schedule CG, Sl. No. A2 biv of STCG Total should be equal to sum of A2(bi+bii+biii)",
+"id": "ITR-2-A-113"
+},
+{
+"category": "A",
+"no": 114,
+"page": 12,
+"text": "In schedule CG, Sl. No. A2c of STCG Balance should be equal to A(2a-biv)",
+"id": "ITR-2-A-114"
+},
+{
+"category": "A",
+"no": 115,
+"page": 12,
+"text": "In Schedule CG Sl.no. A2e of STCG should be equal to the sum of A(2c+2d)",
+"id": "ITR-2-A-115"
+},
+{
+"category": "A",
+"no": 116,
+"page": 12,
+"text": "In Schedule CG Sl.no. A4(a)(ic) should be higher of A4(a)(ia) or A4(a)(ib)",
+"id": "ITR-2-A-116"
+},
+{
+"category": "A",
+"no": 117,
+"page": 12,
+"text": "In Schedule CG, Sl. No. A4(aiii) should be equal to sum of A4[(a)(ic)+(a)(ii)]",
+"id": "ITR-2-A-117"
+},
+{
+"category": "A",
+"no": 118,
+"page": 13,
+"text": "If in Sch CG A4(biv) is should be equal to Sum of A4(bi+bii+biii)",
+"id": "ITR-2-A-118"
+},
+{
+"category": "A",
+"no": 119,
+"page": 13,
+"text": "In schedule CG, Sl. No. A4c Balance should be equal to A4(aiii-biv)",
+"id": "ITR-2-A-119"
+},
+{
+"category": "A",
+"no": 120,
+"page": 13,
+"text": "In Schedule CG Sl.no. A4e of STCG should be equal to the sum of A(4c+4d)",
+"id": "ITR-2-A-120"
+},
+{
+"category": "A",
+"no": 121,
+"page": 13,
+"text": "In Schedule CG Sl.no. A5(a)(ic) should be higher of A5(a)(ia) or A5(a)(ib)",
+"id": "ITR-2-A-121"
+},
+{
+"category": "A",
+"no": 122,
+"page": 13,
+"text": "In Schedule CG, Sl. No. A5(aiii) should be equal to sum of A5[(a)(ic)+(aii)]",
+"id": "ITR-2-A-122"
+},
+{
+"category": "A",
+"no": 123,
+"page": 13,
+"text": "If in Sch CG A5(biv) should be equal to Sum of A5(bi+bii+biii)",
+"id": "ITR-2-A-123"
+},
+{
+"category": "A",
+"no": 124,
+"page": 13,
+"text": "In schedule CG, Sl. No. A5c Balance should be equal to A5(aiii-biv)",
+"id": "ITR-2-A-124"
+},
+{
+"category": "A",
+"no": 125,
+"page": 13,
+"text": "In Schedule CG Sl.no. A5e of STCG should be equal to the sum of A(5c+5d)",
+"id": "ITR-2-A-125"
+},
+{
+"category": "A",
+"no": 126,
+"page": 13,
+"text": "In Schedule CG Sl.no. A6 of STCG should be equal to the sum of A(aXi + b)",
+"id": "ITR-2-A-126"
+},
+{
+"category": "A",
+"no": 127,
+"page": 13,
+"text": "In Schedule CG Sl.no. A7 of STCG should be equal to the sum of (A7ai + A7aii + A7b + A7c)",
+"id": "ITR-2-A-127"
+},
+{
+"category": "A",
+"no": 128,
+"page": 13,
+"text": "In Schedule CG, Sl. No. A8 Col. 10 Applicable Rate should be equal to lower of Col. 6 (Rate as per Treaty) or Col. 9 (Rate as per IT Act)",
+"id": "ITR-2-A-128"
+},
+{
+"category": "A",
+"no": 129,
+"page": 13,
+"text": "In schedule CG, Sl. No. B1 biv of LTCG Total should be equal to sum of B1 (biia + ∑biib(c) + biii) - where transfer is before 23rd July 2024 and B1(bi + ∑biib(a) + biii) - where transfer is on or after 23rd July 2024",
+"id": "ITR-2-A-129"
+},
+{
+"category": "A",
+"no": 130,
+"page": 13,
+"text": "In schedule CG, Sl. No. B1c of LTCG Balance should be equal to B1(aiii-biv)",
+"id": "ITR-2-A-130"
+},
+{
+"category": "A",
+"no": 131,
+"page": 13,
+"text": "In Schedule CG Sl.no. B1e of LTCG should be equal to B(1c-1d)",
+"id": "ITR-2-A-131"
+},
+{
+"category": "A",
+"no": 132,
+"page": 13,
+"text": "In schedule CG, Sl. No. B2 biv of LTCG Total should be equal to sum of B2(bi+bii+biii)",
+"id": "ITR-2-A-132"
+},
+{
+"category": "A",
+"no": 133,
+"page": 13,
+"text": "In schedule CG, Sl. No. B2c of LTCG Balance should be equal to B(2a-biv)",
+"id": "ITR-2-A-133"
+},
+{
+"category": "A",
+"no": 134,
+"page": 13,
+"text": "In Schedule CG Sl.no. B2e of LTCG should be equal to B(2c-2d)",
+"id": "ITR-2-A-134"
+},
+{
+"category": "A",
+"no": 135,
+"page": 13,
+"text": "In schedule CG, Sl. No. B3ii biv of LTCG Total should be equal to sum of B3(bi+bii+biii)",
+"id": "ITR-2-A-135"
+},
+{
+"category": "A",
+"no": 136,
+"page": 13,
+"text": "In schedule CG, Sl. No. B3c of LTCG Balance should be equal to B(3a-biv)",
+"id": "ITR-2-A-136"
+},
+{
+"category": "A",
+"no": 137,
+"page": 13,
+"text": "In Schedule CG Sl.no. B3e of LTCG should be the difference of B(3c-3d)",
+"id": "ITR-2-A-137"
+},
+{
+"category": "A",
+"no": 138,
+"page": 13,
+"text": "In Schedule CG, Sl. No. B4a LTCG u/s 112A should be equal to total of Col. 14 of Schedule 112A",
+"id": "ITR-2-A-138"
+},
+{
+"category": "A",
+"no": 139,
+"page": 13,
+"text": "In Schedule CG Sl.no. B4c of LTCG should be equal to B(4a-4b)",
+"id": "ITR-2-A-139"
+},
+{
+"category": "A",
+"no": 140,
+"page": 13,
+"text": "In Schedule CG, Sl. No. B5c LTCG on share or debenture should be equal to B(5a-5b)",
+"id": "ITR-2-A-140"
+},
+{
+"category": "A",
+"no": 141,
+"page": 13,
+"text": "In Schedule CG Sl.no. B6(a)(ic) should be higher of B6(a)(ia) or B4(a)(ib)",
+"id": "ITR-2-A-141"
+},
+{
+"category": "A",
+"no": 142,
+"page": 14,
+"text": "In schedule CG, Sl. No. B6 aiii Total should be equal to sum of B6(a)(ic+ii)",
+"id": "ITR-2-A-142"
+},
+{
+"category": "A",
+"no": 143,
+"page": 14,
+"text": "In schedule CG, Sl. No. B6 biv Total should be equal to sum of B6(bi+bii+biii)",
+"id": "ITR-2-A-143"
+},
+{
+"category": "A",
+"no": 144,
+"page": 14,
+"text": "In schedule CG, Sl. No. B6c Balance should be equal to B(6aiii-biv)",
+"id": "ITR-2-A-144"
+},
+{
+"category": "A",
+"no": 145,
+"page": 14,
+"text": "In Schedule CG Sl. No. B6e of LTCG should be equal to B(6c-6d)",
+"id": "ITR-2-A-145"
+},
+{
+"category": "A",
+"no": 146,
+"page": 14,
+"text": "In Schedule CG, Sl. No. B7a LTCG u/s 112A should be equal to total of Col. 14 of Schedule 115AD(1)(iii)",
+"id": "ITR-2-A-146"
+},
+{
+"category": "A",
+"no": 147,
+"page": 14,
+"text": "In Schedule CG Sl. No. B7c of LTCG should be equal to B(7a-7b)",
+"id": "ITR-2-A-147"
+},
+{
+"category": "A",
+"no": 148,
+"page": 14,
+"text": "In Schedule CG, Sl. No. B8c LTCG on share or debenture should be equal to B(8a-8b)",
+"id": "ITR-2-A-148"
+},
+{
+"category": "A",
+"no": 149,
+"page": 14,
+"text": "In Schedule CG, Sl. No. B9(a)(ic) should be higher of B9(a)(ia) or B9(a)(ib)",
+"id": "ITR-2-A-149"
+},
+{
+"category": "A",
+"no": 150,
+"page": 14,
+"text": "In Schedule CG, Sl. No. B9 aiii Total should be equal to sum of B9(a)(ic+ii)",
+"id": "ITR-2-A-150"
+},
+{
+"category": "A",
+"no": 151,
+"page": 14,
+"text": "In Schedule CG, Sl. No. B9 biv Total should be equal to sum of B9(bi+bii+biii)",
+"id": "ITR-2-A-151"
+},
+{
+"category": "A",
+"no": 152,
+"page": 14,
+"text": "In Schedule CG, Sl. No. B9c Balance should be equal to B(9aiii-biv)",
+"id": "ITR-2-A-152"
+},
+{
+"category": "A",
+"no": 153,
+"page": 14,
+"text": "In Schedule CG Sl. No. B9e of LTCG should be equal to B(9c-9d)",
+"id": "ITR-2-A-153"
+},
+{
+"category": "A",
+"no": 154,
+"page": 14,
+"text": "In Schedule CG, Sl. No. B10 should be equal to B10(aXi + aXii + b)",
+"id": "ITR-2-A-154"
+},
+{
+"category": "A",
+"no": 155,
+"page": 14,
+"text": "In Schedule CG, Sl. No. B11 should be equal to B11a1(i) + B11a1(ii) + B11a2(i)+ B11a2(ii)+B11b",
+"id": "ITR-2-A-155"
+},
+{
+"category": "A",
+"no": 156,
+"page": 14,
+"text": "In Schedule CG, Sl. No. B12 Col. 10 Applicable Rate is not equal to lower of Col. 6 (Rate as per Treaty) or Col. 9 (Rate as per IT Act)",
+"id": "ITR-2-A-156"
+},
+{
+"category": "A",
+"no": 157,
+"page": 14,
+"text": "In Schedule Capital Gain, Resident cannot claim tax benefit u/s 112(1)(c) at Sl. No. B6ie if he has not exercised option under 115H.",
+"id": "ITR-2-A-157"
+},
+{
+"category": "A",
+"no": 158,
+"page": 14,
+"text": "In Schedule OS, Resident cannot claim tax benefit u/s 115AC if he has not exercised option under 115H.",
+"id": "ITR-2-A-158"
+},
+{
+"category": "A",
+"no": 159,
+"page": 14,
+"text": "In Schedule Capital Gain, Resident cannot claim tax benefit u/s 115AC at Sl. No. B6iie if he has not exercised option under 115H.",
+"id": "ITR-2-A-159"
+},
+{
+"category": "A",
+"no": 160,
+"page": 14,
+"text": "In Schedule CG, Sl. No. D1f should be equal to sum of D (1a + 1b + 1c + 1d + 1e)",
+"id": "ITR-2-A-160"
+},
+{
+"category": "A",
+"no": 161,
+"page": 14,
+"text": "In Schedule CG, Sl. No. Exi should be equal to the sum of sl. no (ii + iii + iv + v + vi + vii+viii +ix + x)",
+"id": "ITR-2-A-161"
+},
+{
+"category": "A",
+"no": 162,
+"page": 14,
+"text": "In “Schedule CG\" E(xii) Total should be equal to the sum of E (Capital Loss to be set off -Total loss set off)",
+"id": "ITR-2-A-162"
+},
+{
+"category": "A",
+"no": 163,
+"page": 14,
+"text": "In Schedule CG, Value at field Ei2 should be equal to the sum of Sl. No. (A2ei+ A3ai+ A7ai)",
+"id": "ITR-2-A-163"
+},
+{
+"category": "A",
+"no": 164,
+"page": 14,
+"text": "In Schedule CG, Value at field Ei4 should be equal to the sum of Sl. No. (A4e+ A7b + A(A))",
+"id": "ITR-2-A-164"
+},
+{
+"category": "A",
+"no": 165,
+"page": 15,
+"text": "In Schedule CG, value at field Ei5 should be equal to the sum of Sl. No. (A1e+A3b+A5e+A6+A7c + A(A))",
+"id": "ITR-2-A-165"
+},
+{
+"category": "A",
+"no": 166,
+"page": 15,
+"text": "In Schedule CG, Sl. No. Ei6 should be equal to Amount of income at sl. no A8b.",
+"id": "ITR-2-A-166"
+},
+{
+"category": "A",
+"no": 167,
+"page": 15,
+"text": "In Sch CG, value at field Ei7 should be equal to the sum of Sl. No. (B3(ii)ei + B4ci + B6ei+B6eiii + B7ci + B8ci + B11a1(i) + B11a2(i) + B(A))",
+"id": "ITR-2-A-167"
+},
+{
+"category": "A",
+"no": 168,
+"page": 15,
+"text": "In Sch CG, value at field Ei9 should be equal to the sum of Sl. No. (B1ga+B2e+B3(i)ei+B5ci+ B9ei+B10i+ B11b)",
+"id": "ITR-2-A-168"
+},
+{
+"category": "A",
+"no": 169,
+"page": 15,
+"text": "In Schedule CG, Sl. No. Ei10 should be equal to Amount of income at Sl. No. B12b.",
+"id": "ITR-2-A-169"
+},
+{
+"category": "A",
+"no": 170,
+"page": 15,
+"text": "In Schedule CG, value at field Eii should be equal to the sum of Sl. No. (A2ei+A3ai+A7ai)",
+"id": "ITR-2-A-170"
+},
+{
+"category": "A",
+"no": 171,
+"page": 15,
+"text": "In Sch CG, value at field Eiv should be equal to the sum of Sl. No. (A4e+A7b+A(A))",
+"id": "ITR-2-A-171"
+},
+{
+"category": "A",
+"no": 172,
+"page": 15,
+"text": "In Sch CG, value at field Ev should be equal to the sum of Sl. No. (A1e+A3b+A5e +A6+A7c +A(A))",
+"id": "ITR-2-A-172"
+},
+{
+"category": "A",
+"no": 173,
+"page": 15,
+"text": "In Schedule CG, Sl. No. Evi should be equal to Amount at income of Sl. No. A8b.",
+"id": "ITR-2-A-173"
+},
+{
+"category": "A",
+"no": 174,
+"page": 15,
+"text": "In Sch CG, value at field Evii should be equal to the sum of Sl. No. (B3(ii)ei+B4ci+B5cii+B6ei+B6eiii+B7ci+B8ci+B11a1(i)+B11a2(i)+ B(A)_10%)",
+"id": "ITR-2-A-174"
+},
+{
+"category": "A",
+"no": 175,
+"page": 15,
+"text": "In Sch CG, value at field Eix should be equal to the sum of Sl. No. (B1ga + B2e + B3(i)ei+B5ci + B9ei + B10i + B11b)",
+"id": "ITR-2-A-175"
+},
+{
+"category": "A",
+"no": 176,
+"page": 15,
+"text": "In Schedule CG, Sl. No. Ex should be equal to Amount of income at Sl. No. B12b.",
+"id": "ITR-2-A-176"
+},
+{
+"category": "A",
+"no": 177,
+"page": 15,
+"text": "Total of deductions claimed under respective section in STCG and LTCG should match Table D.",
+"id": "ITR-2-A-177"
+},
+{
+"category": "A",
+"no": 178,
+"page": 15,
+"text": "In Sch CG, value at field E11should be equal to the Col no (1-2-3-4-5-6-7-8 -9- 10)",
+"id": "ITR-2-A-178"
+},
+{
+"category": "A",
+"no": 179,
+"page": 15,
+"text": "In schedule CG at table F total of all the quarter of field \"Short-term capital gains taxable at the rate of 15%\" should match with field 3(iiia) of schedule BFLA \"Short- term capital gain taxable @ 15% (Not applicable for Resident Senior Citizens)\"",
+"id": "ITR-2-A-179"
+},
+{
+"category": "A",
+"no": 180,
+"page": 15,
+"text": "In schedule CG at table F the total of all the quarters of field \"Short-term capital gains taxable at the rate of 30%\" should match with field 3(iv) of schedule BFLA \"Short-term capital gain taxable @ 30%\" (Not applicable for Resident Senior Citizens)",
+"id": "ITR-2-A-180"
+},
+{
+"category": "A",
+"no": 181,
+"page": 15,
+"text": "In schedule CG at table F total of all the quarters of field \"Short-term capital gains taxable at applicable rates\" should match with field 3(v) of schedule BFLA \"Short-term capital gain taxable at applicable rates\" (Not applicable for Resident Senior Citizens)",
+"id": "ITR-2-A-181"
+},
+{
+"category": "A",
+"no": 182,
+"page": 15,
+"text": "In schedule CG at table F total of all the quarter of field \"Short-term capital gains taxable at DTAA rates\" should match with field 3(vi) of schedule BFLA \"Short-term capital gain taxable at special rates in India as per DTAA\" (Not applicable for Resident Senior Citizens)",
+"id": "ITR-2-A-182"
+},
+{
+"category": "A",
+"no": 183,
+"page": 16,
+"text": "In schedule CG at table F total of all the quarters of field \"Long- term capital gains taxable at the rate of 10%\" should match with field 3(viia) of schedule BFLA \"Long- term capital gain taxable @ 10%\" (Not applicable for Resident Senior Citizens)",
+"id": "ITR-2-A-183"
+},
+{
+"category": "A",
+"no": 184,
+"page": 16,
+"text": "In schedule CG at table F total of all the quarter of field \"Long- term capital gains taxable at the rate of 20%\" should match with field 3(viii) of schedule BFLA \"Long term capital gain taxable @ 20%\" (Not applicable for Resident Senior Citizens)",
+"id": "ITR-2-A-184"
+},
+{
+"category": "A",
+"no": 185,
+"page": 16,
+"text": "In schedule CG at table F total of all the quarter of field \"Long term capital gains taxable @ DTAA rates\" should match with field 3(ix) of schedule BFLA \"Long-term capital gain taxable at special rates in India as per DTAA\" (Not applicable for Resident Senior Citizens)",
+"id": "ITR-2-A-185"
+},
+{
+"category": "A",
+"no": 186,
+"page": 16,
+"text": "In schedule 112A, Value at Column no. 4,5,10 & 11 cannot be greater than zero in case drop down is selected as \"After 31st January 2018\" to question whether shares are acquired on or before 31.01.2018 or after 31.01.2018?",
+"id": "ITR-2-A-186"
+},
+{
+"category": "A",
+"no": 187,
+"page": 16,
+"text": "In schedule 115AD(1)(b)(iii), Value at Column no. 4,5,10 & 11 cannot be greater than zero in case drop down is selected as \"After 31st January 2018\" to question whether shares are acquired on or before 31.01.2018 or after 31.01.2018?",
+"id": "ITR-2-A-187"
+},
+{
+"category": "A",
+"no": 188,
+"page": 16,
+"text": "In Schedule CG, in case A1(aii) does not exceed 1.10 times A1(ai), value at A1(aiii) should be equal to A1(ai), or else value at A1(aiii) should be equal to A1(aii)",
+"id": "ITR-2-A-188"
+},
+{
+"category": "A",
+"no": 189,
+"page": 16,
+"text": "In Schedule CG, in case B1(aii) does not exceed 1.10 times B1(ai), value at B1(aiii) should be equal to B1(ai), or else value at B1(aiii) should be equal to B1(aii)",
+"id": "ITR-2-A-189"
+},
+{
+"category": "A",
+"no": 190,
+"page": 16,
+"text": "Please fill in either Schedule 112A\" or \"Schedule 115AD(1)(b)(iii) proviso\" as applicable in your case\"",
+"id": "ITR-2-A-190"
+},
+{
+"category": "A",
+"no": 191,
+"page": 16,
+"text": "In Schedule CG, SL. No. C3 Income chargeable under the head “CAPITAL GAINS” should be equal to the sum of \"Sum of Capital Gain Incomes\" and \"Income from transfer of Virtual Digital Assets\"",
+"id": "ITR-2-A-191"
+},
+{
+"category": "A",
+"no": 192,
+"page": 16,
+"text": "In Schedule CG, SL. No. C2 Income from transfer of Virtual Digital Assets should be equal to Sl. No. B of Schedule VDA",
+"id": "ITR-2-A-192"
+},
+{
+"category": "A",
+"no": 193,
+"page": 16,
+"text": "In Schedule CG, Table F Sl. No. 10 the breakup of all the quarters should be equal to the value of 'Income under the head Capital Gain' of schedule SI",
+"id": "ITR-2-A-193"
+},
+{
+"category": "A",
+"no": 194,
+"page": 16,
+"text": "In Schedule CG, Table F Sl. No.10 the breakup of all the quarters should be equal to the value at Sl. No. C2",
+"id": "ITR-2-A-194"
+},
+{
+"category": "A",
+"no": 195,
+"page": 16,
+"text": "Schedule CG, Date of sale is mandatory if either of the field at B(1)(aiii) or B(1)(biia) or B(1)(biib) is more than zero",
+"id": "ITR-2-A-195"
+},
+{
+"category": "A",
+"no": 196,
+"page": 16,
+"text": "Schedule CG, Date of purchase is mandatory if either of the field at B(1)(aiii) or B(1)(biia) or B(1)(biib) is more than zero",
+"id": "ITR-2-A-196"
+},
+{
+"category": "A",
+"no": 197,
+"page": 16,
+"text": "In Schedule CG, since the date of purchase is less than 24 months from the date of sale, it does not qualify for long-term capital gain.",
+"id": "ITR-2-A-197"
+},
+{
+"category": "A",
+"no": 198,
+"page": 17,
+"text": "In Schedule CG, since the date of purchase is more than 24 months from the date of sale, it does not qualify for short-term capital gain.",
+"id": "ITR-2-A-198"
+},
+{
+"category": "A",
+"no": 199,
+"page": 17,
+"text": "The year of improvement is mandatory if Cost of improvement is declared in Schedule CG, Sl. No. B1 'From sale of land or building or both'.",
+"id": "ITR-2-A-199"
+},
+{
+"category": "A",
+"no": 200,
+"page": 17,
+"text": "Please fill in either Schedule 112A\" or \"Schedule 115AD(1)(b)(iii) proviso\" as applicable in your case\"",
+"id": "ITR-2-A-200"
+},
+{
+"category": "A",
+"no": 201,
+"page": 17,
+"text": "In Schedule VDA, value at Sl. No. 7 should be equal to Sl. No. 6 - Sl. No. 5",
+"id": "ITR-2-A-201"
+},
+{
+"category": "A",
+"no": 202,
+"page": 17,
+"text": "In Schedule VDA, value at 'Total (Sum of all Positive Incomes of Capital Gain in Col. 7) should be equal to sum of col. 7 if head of income is selected as Capital Gain in col. 4",
+"id": "ITR-2-A-202"
+},
+{
+"category": "A",
+"no": 203,
+"page": 17,
+"text": "In Schedule OS, Sl.no 1 Gross amount chargeable to tax at normal applicable rates should be equal to the sum of Sl. No. 1a+1b+1c+1d+1e",
+"id": "ITR-2-A-203"
+},
+{
+"category": "A",
+"no": 204,
+"page": 17,
+"text": "In Schedule OS, Sl.no 3c Deduction u/s 57 should be equal to the sum of Sl. No. 3a(i)+3a(ii)+3a(iii)+3b",
+"id": "ITR-2-A-204"
+},
+{
+"category": "A",
+"no": 205,
+"page": 17,
+"text": "In Schedule OS, Sl. No. 1c Rental income from machinery, plants, building, etc., Gross is equal to zero or null than Sl. No. 3b Depreciation cannot be claimed.",
+"id": "ITR-2-A-205"
+},
+{
+"category": "A",
+"no": 206,
+"page": 17,
+"text": "In Schedule OS, Sl.no 7 Income from other sources (other than from owning racehorses) should be equal to sum of sl.no 2+6",
+"id": "ITR-2-A-206"
+},
+{
+"category": "A",
+"no": 207,
+"page": 17,
+"text": "In Schedule OS, Sl.no 8 Income from the activity of owning and maintaining racehorses should be equal to sum of sl.no 8a-8b+8c+8d",
+"id": "ITR-2-A-207"
+},
+{
+"category": "A",
+"no": 208,
+"page": 17,
+"text": "In Schedule OS, Sl.no 9 Income under the head\" Income from Other Sources\" should be equal to sum of sl.no (7 +8e)",
+"id": "ITR-2-A-208"
+},
+{
+"category": "A",
+"no": 209,
+"page": 17,
+"text": "In \"Schedule OS\" 2e should be equal to sum of all the drop downs",
+"id": "ITR-2-A-209"
+},
+{
+"category": "A",
+"no": 210,
+"page": 17,
+"text": "In Schedule OS, Sl.no 1d Income of nature referred to in section 56(2)(x) which is chargeable to tax (di + dii + diii + div + dv) should be equal to sum of sl.no 1di+1dii+1diii+1div+1dv",
+"id": "ITR-2-A-210"
+},
+{
+"category": "A",
+"no": 211,
+"page": 17,
+"text": "Taxpayer is a non-resident and showing income under section 115BBF",
+"id": "ITR-2-A-211"
+},
+{
+"category": "A",
+"no": 212,
+"page": 17,
+"text": "In Schedule OS - column 3 of table 2f, the sum of dropdown value of 1a should not exceed the field 1ai \"Dividend other than ii\"",
+"id": "ITR-2-A-212"
+},
+{
+"category": "A",
+"no": 213,
+"page": 17,
+"text": "In Schedule OS - column 3 of table 2f, the sum of dropdown value of 1b should not exceed field 1b \"Interest, Gross\"",
+"id": "ITR-2-A-213"
+},
+{
+"category": "A",
+"no": 214,
+"page": 17,
+"text": "In Schedule OS - column 3 of table 2f, the sum of dropdown value of 1c should not exceed the field 1c \"Rental income from machinery, plants, buildings, etc., Gross\"",
+"id": "ITR-2-A-214"
+},
+{
+"category": "A",
+"no": 215,
+"page": 17,
+"text": "In Schedule OS - column 3 of table 2f, the sum of dropdown value of 1d should not exceed the field 1d \"Income of the nature referred to in section 56(2)(x) which is chargeable to tax \"",
+"id": "ITR-2-A-215"
+},
+{
+"category": "A",
+"no": 216,
+"page": 18,
+"text": "In Schedule OS - column 3 of table 2f, the sum of dropdown value of 2a(i) should not exceed the field 2a(i) \"Winnings from lotteries, crossword puzzles etc. chargeable u/s 115BB\"",
+"id": "ITR-2-A-216"
+},
+{
+"category": "A",
+"no": 217,
+"page": 18,
+"text": "In Schedule OS - column 3 of table 2f, the sum of dropdown value of 2d should not exceed the field 2d \"Any other income chargeable at special rate\" above",
+"id": "ITR-2-A-217"
+},
+{
+"category": "A",
+"no": 218,
+"page": 18,
+"text": "In Schedule OS - column 3 of table 2f, the sum of dropdown value of 2e at Col 2 Amount of Income should not exceed the field 2e \"Pass through income in the nature of income from other sources chargeable at special rates\" above",
+"id": "ITR-2-A-218"
+},
+{
+"category": "A",
+"no": 219,
+"page": 18,
+"text": "In schedule OS field 6 \"Net Income from other sources chargeable at normal applicable rates \" should equal to (1 – 3 + 4 + 5 - 5a -DTAA related to 1) i.e. \"Gross income chargeable to tax at normal applicable rates (1a+ 1b+ 1c+ 1d + 1e) - Deductions under section 57 + Amounts not deductible u/s 58 + Profits chargeable to tax u/s 59 - Income claimed for relief from taxation u/s 89A - DTAA related to 1 in table f\".",
+"id": "ITR-2-A-219"
+},
+{
+"category": "A",
+"no": 220,
+"page": 18,
+"text": "In schedule OS, Sl. No. 2f For TRC flag is Yes, column 10 should be lower of column 6 and column 9.",
+"id": "ITR-2-A-220"
+},
+{
+"category": "A",
+"no": 221,
+"page": 18,
+"text": "In Schedule OS, Sl.no 2 Income chargeable to tax at special rate should be equal to the sum of Sl. No. 2a+2b+2c+2d+2e+2f elements related to Sl. No. 1",
+"id": "ITR-2-A-221"
+},
+{
+"category": "A",
+"no": 222,
+"page": 18,
+"text": "Deduction u/s 57(iia) can be claimed only if income is offered in Family Pension in Schedule OS",
+"id": "ITR-2-A-222"
+},
+{
+"category": "A",
+"no": 223,
+"page": 18,
+"text": "In Schedule OS, Sl. No. 1b should be equal to sum of (bi + bii + biii + biv + bv + bvi + bvii + bviii + bix)",
+"id": "ITR-2-A-223"
+},
+{
+"category": "A",
+"no": 224,
+"page": 18,
+"text": "In Schedule OS, Sl. No. 2c Accumulated balance of recognized provident fund taxable u/s 111 should be equal to sum of Col iii of Income Benefit",
+"id": "ITR-2-A-224"
+},
+{
+"category": "A",
+"no": 225,
+"page": 18,
+"text": "In Schedule OS, Sl. No. 2c Total of tax benefit should be equal to individual amounts of col iv (Tax Benefit)",
+"id": "ITR-2-A-225"
+},
+{
+"category": "A",
+"no": 226,
+"page": 18,
+"text": "The total of all the quarters of Income from Lottery should be equal to 2a(i) of Schedule OS - DTAA 115BB respectively.",
+"id": "ITR-2-A-226"
+},
+{
+"category": "A",
+"no": 227,
+"page": 18,
+"text": "In Schedule OS, Sl. No. 10 the quarterly break up of Dividend Income should be equal to [1ai (Dividend, gross) - DTAA Dividend other than 2(22)(e) - System calculated value of Interest expenditure u/s 57 attributable to Dividend other than 2(22)(e)]",
+"id": "ITR-2-A-227"
+},
+{
+"category": "A",
+"no": 228,
+"page": 18,
+"text": "In case of Old Tax Regime, in schedule OS, Deduction u/s 57(iia) cannot be more than lower of (i)1/3rd of Family pension or (ii)Rs.15,000. Note: Rounding off +1 and -1.",
+"id": "ITR-2-A-228"
+},
+{
+"category": "A",
+"no": 229,
+"page": 18,
+"text": "In Schedule OS, Interest expenditure on dividend u/s 57(1) should not be more than 20% of Dividend income.",
+"id": "ITR-2-A-229"
+},
+{
+"category": "A",
+"no": 230,
+"page": 19,
+"text": "In Schedule OS, Expenses / deductions (in case of other than family pension), shall be allowed only if income is offered in Sl. No. 1b, 1c, 1d and 1e (except Family pension).",
+"id": "ITR-2-A-230"
+},
+{
+"category": "A",
+"no": 231,
+"page": 19,
+"text": "In Schedule OS, value at sl.no.1a should be equal to 1ai + 1aii+1aiii.",
+"id": "ITR-2-A-231"
+},
+{
+"category": "A",
+"no": 232,
+"page": 19,
+"text": "In Schedule OS, Sl. No. 10 the quarterly break up of Dividend income taxable at DTAA rates should be equal to Dividend income selected at Sl. No. 2f of Schedule OS",
+"id": "ITR-2-A-232"
+},
+{
+"category": "A",
+"no": 233,
+"page": 19,
+"text": "In Schedule OS, Sl. No. 10 the quarterly break up of Dividend Income u/s 115A(1)(a)(i) @ 20% (Including PTI Income) should be equal to Dividend income selected at Sl. No. 2d and Sl. No 2e of Schedule OS",
+"id": "ITR-2-A-233"
+},
+{
+"category": "A",
+"no": 234,
+"page": 19,
+"text": "In Schedule OS, Sl. No. 10 Dividend Income u/s 115AC @ 10% should be equal to Dividend income selected at Sl. No. 2d and Sl. No 2e of Schedule OS",
+"id": "ITR-2-A-234"
+},
+{
+"category": "A",
+"no": 235,
+"page": 19,
+"text": "In Schedule OS, Sl. No. 10 the quarterly break up of Dividend Income u/s 115ACA (1)(a) 10% (Including PTI Income) should be equal to Dividend income selected at Sl. No. 2d and Sl. No 2e of Schedule OS.",
+"id": "ITR-2-A-235"
+},
+{
+"category": "A",
+"no": 236,
+"page": 19,
+"text": "In Schedule OS, Sl. No. 10 the quarterly break up of Dividend Income (other than units referred to in section 115AB) u/s 115AD(1)(i) @ 20% (Including PTI Income) should be equal to Dividend income selected at Sl. No. 2d and Sl. No 2e of Schedule OS",
+"id": "ITR-2-A-236"
+},
+{
+"category": "A",
+"no": 237,
+"page": 19,
+"text": "In Schedule Other Sources, Income claimed for relief from taxation u/s 89A cannot be claimed more than the income offered under Income from retirement benefit account maintained in a notified country u/s 89A",
+"id": "ITR-2-A-237"
+},
+{
+"category": "A",
+"no": 238,
+"page": 19,
+"text": "The quarterly breakup of Income from retirement benefit account maintained in a notified country u/s 89A\" must be equal to amount entered in \"Income from retirement benefit account maintained in a notified country u/s 89A\" less \"Income claimed for relief from taxation u/s 89A\".",
+"id": "ITR-2-A-238"
+},
+{
+"category": "A",
+"no": 239,
+"page": 19,
+"text": "In Schedule OS, sl. no 5a. Income claimed for relief from taxation u/s 89A, shall be allowed only if income is offered in Sl. No. 1e under Income from retirement benefit account maintained in a notified country u/s 89A)",
+"id": "ITR-2-A-239"
+},
+{
+"category": "A",
+"no": 240,
+"page": 19,
+"text": "In Schedule other sources, Income from retirement benefit account maintained in a notified country u/s 89A is not equal to sum of amounts of income entered against individual country.",
+"id": "ITR-2-A-240"
+},
+{
+"category": "A",
+"no": 241,
+"page": 19,
+"text": "In schedule other sources, Expenses and deduction u/s 57 other than interest is claimed but corresponding income is not offered under the head other sources.",
+"id": "ITR-2-A-241"
+},
+{
+"category": "A",
+"no": 242,
+"page": 19,
+"text": "In Schedule OS - column 3 of table 2f, the sum of dropdown value of Col 2 Amount of Income of 2a(ii) should not exceed the field 2a(ii) \"Income by way of winnings from online games chargeable u/s 115BBJ\"",
+"id": "ITR-2-A-242"
+},
+{
+"category": "A",
+"no": 243,
+"page": 19,
+"text": "In Schedule OS, Sl. No. 10 the quarterly break up of \"Income by way of winnings from online games u/s 115BBJ\" should be equal to Sl. No. 2a(ii) -Income by way of winnings from online games u/s 115BBJ- DTAA 115BBJ respectively",
+"id": "ITR-2-A-243"
+},
+{
+"category": "A",
+"no": 244,
+"page": 20,
+"text": "In Schedule OS, Sl. No. 10 the quarterly break up of \"Dividend Income as per proviso to sec 115A(1)(a)(A) @10%\" (Including PTI Income) (i+ii+iii+iv+v) should be equal to sum of dividend income selected at Sl. No. 2d and Sl. No 2e in Schedule OS.",
+"id": "ITR-2-A-244"
+},
+{
+"category": "A",
+"no": 245,
+"page": 20,
+"text": "In \"Income from retirement benefit account maintained in a notified country u/s 89A\" in country drop-down, one country cannot be selected more than one time.",
+"id": "ITR-2-A-245"
+},
+{
+"category": "A",
+"no": 246,
+"page": 20,
+"text": "For ITR-2, Anonymous donation u/s 115BBC is not applicable.",
+"id": "ITR-2-A-246"
+},
+{
+"category": "A",
+"no": 247,
+"page": 20,
+"text": "In Schedule BFLA Sl. no 2(xi) should be equal to sl. no 6(x) of CFL",
+"id": "ITR-2-A-247"
+},
+{
+"category": "A",
+"no": 248,
+"page": 20,
+"text": "In Schedule BFLA Sl. no 2(ii) should be equal to sl. no 3c(x) of CFL",
+"id": "ITR-2-A-248"
+},
+{
+"category": "A",
+"no": 249,
+"page": 20,
+"text": "In \"Schedule BFLA 2xiii Total of brought forward loss set off should be equal to sum of (2ii+ 2iiia + 2iiib +2iv + 2v+ 2vi + 2viia + 2viib + 2viii + 2ix + 2xi+2xii)",
+"id": "ITR-2-A-249"
+},
+{
+"category": "A",
+"no": 250,
+"page": 20,
+"text": "In \"Schedule BFLA\" in 3(xiv) Current year’s income remaining after set off Total should be equal to the sum of (3i + 3ii + 3iiia+3iiib + 3iv+ 3v + 3vi + 3viia+3viib + 3viii + 3ix +3x +3xi+3xii)",
+"id": "ITR-2-A-250"
+},
+{
+"category": "A",
+"no": 251,
+"page": 20,
+"text": "In Schedule BFLA, Col. 3 should be equal to Col. 1- Col. 2",
+"id": "ITR-2-A-251"
+},
+{
+"category": "A",
+"no": 252,
+"page": 20,
+"text": "In schedule BFLA 1(i) \"Salaries\" should match with 4(ii) of schedule CYLA",
+"id": "ITR-2-A-252"
+},
+{
+"category": "A",
+"no": 253,
+"page": 20,
+"text": "In schedule BFLA 1(ii) \"House property\" should match with 4(iii) of schedule CYLA",
+"id": "ITR-2-A-253"
+},
+{
+"category": "A",
+"no": 254,
+"page": 20,
+"text": "In schedule BFLA 1(iiia) \"Short-term capital gain taxable @ 15%\" should match with 4(iva) of schedule CYLA",
+"id": "ITR-2-A-254"
+},
+{
+"category": "A",
+"no": 255,
+"page": 20,
+"text": "In schedule BFLA 1(iv) \"Short-term capital gain taxable @ 30%\" should match with 4(v) of schedule CYLA",
+"id": "ITR-2-A-255"
+},
+{
+"category": "A",
+"no": 256,
+"page": 20,
+"text": "In schedule BFLA 1(v) \"Short-term capital gain taxable at applicable rates\" should match with 4(vi) of schedule CYLA",
+"id": "ITR-2-A-256"
+},
+{
+"category": "A",
+"no": 257,
+"page": 20,
+"text": "In schedule BFLA 1(vi) \"Short-term capital gain taxable at special rates in India as per DTAA\" should match with 4(vii) of schedule CYLA",
+"id": "ITR-2-A-257"
+},
+{
+"category": "A",
+"no": 258,
+"page": 20,
+"text": "In schedule BFLA 1(viia) \"Long-term capital gain taxable @ 10%\" should match with 4(viiia) of schedule CYLA",
+"id": "ITR-2-A-258"
+},
+{
+"category": "A",
+"no": 259,
+"page": 20,
+"text": "In schedule BFLA 1(viii) \"Long term capital gain taxable @ 20%\" should match with 4(ix) of schedule CYLA",
+"id": "ITR-2-A-259"
+},
+{
+"category": "A",
+"no": 260,
+"page": 20,
+"text": "In Schedule BFLA, Sl. No. 1ix should be equal to Sl. No. 4x of schedule CYLA",
+"id": "ITR-2-A-260"
+},
+{
+"category": "A",
+"no": 261,
+"page": 20,
+"text": "In schedule BFLA 1(x) \"Net income from other sources chargeable at normal applicable rates.\" should match with 4(xi) of schedule CYLA",
+"id": "ITR-2-A-261"
+},
+{
+"category": "A",
+"no": 262,
+"page": 20,
+"text": "In schedule BFLA 1(xi) \"Profit from owning and maintaining racehorses\" should match with 4(xii) of schedule CYLA",
+"id": "ITR-2-A-262"
+},
+{
+"category": "A",
+"no": 263,
+"page": 21,
+"text": "Schedule BFLA Sl. no 2(iiia+iiib+iv+v+vi+viia+viib+viii+ix) should be equal to sl. no 4(x)+5(x) of CFL",
+"id": "ITR-2-A-263"
+},
+{
+"category": "A",
+"no": 264,
+"page": 21,
+"text": "The amount of adjustment mentioned in CFL is not equal to the amount of adjustment in BFLA.",
+"id": "ITR-2-A-264"
+},
+{
+"category": "A",
+"no": 265,
+"page": 21,
+"text": "If old tax regime is selected, then sl.no 2xiv 'total house property loss of the current year set off' should not be more than Rs.200000.",
+"id": "ITR-2-A-265"
+},
+{
+"category": "A",
+"no": 266,
+"page": 21,
+"text": "\"House property loss claimed at Schedule CYLA\" should be equal to amount at \"Schedule HP\".",
+"id": "ITR-2-A-266"
+},
+{
+"category": "A",
+"no": 267,
+"page": 21,
+"text": "\"Other sources loss at Schedule CYLA\" should be equal to amount at \"Schedule OS\".",
+"id": "ITR-2-A-267"
+},
+{
+"category": "A",
+"no": 268,
+"page": 21,
+"text": "In Schedule CYLA, Sl.no 2xiv Total loss set off (2ii+ 2iva+2ivb + 2v + 2vi + 2vii + 2viiia+2viiib + 2ix + 2x+2xi+2xii+2xiii) should be equal to sum of 2ii + 2iva+2ivb + 2v + 2vi + 2vii + 2viiia+2viiib + 2ix + 2x+2xi+2xii+2xiii",
+"id": "ITR-2-A-268"
+},
+{
+"category": "A",
+"no": 269,
+"page": 21,
+"text": "In Schedule CYLA, Sl.no 3xiv Total loss set off (3ii + 3iii + 3iva+3ivb + 3v + 3vi + 3vii + 3viiia+3viiib + 3ix + 3x+3xi+3xii+3xiii) should be equal to sum of 3ii + 3iii + 3iva+3ivb + 3v + 3vi + 3vii + 3viiia+3viiib + 3ix + 3x+3xii+3xiii",
+"id": "ITR-2-A-269"
+},
+{
+"category": "A",
+"no": 270,
+"page": 21,
+"text": "In Schedule CYLA, Sl.no 2xv i.e., Loss remaining after set-off should be equal to the output of Sl.no. 2i-2xiv",
+"id": "ITR-2-A-270"
+},
+{
+"category": "A",
+"no": 271,
+"page": 21,
+"text": "In Schedule CYLA, Sl.no 3xv i.e., Loss remaining after set-off should be equal to the output of Sl.no. 3i-3xiv",
+"id": "ITR-2-A-271"
+},
+{
+"category": "A",
+"no": 272,
+"page": 21,
+"text": "In Schedule CYLA, Col No. 4 Current year’s Income remaining after set off should be equal to the output of Col No. 1-2-3",
+"id": "ITR-2-A-272"
+},
+{
+"category": "A",
+"no": 273,
+"page": 21,
+"text": "In Schedule CYLA Short term capital gain @15% should be equal to SL.no. 11ii of item E of Schedule CG",
+"id": "ITR-2-A-273"
+},
+{
+"category": "A",
+"no": 274,
+"page": 21,
+"text": "In Schedule CYLA Short term capital gain @30% should be equal to SL.no. 11iv of item E of Schedule CG",
+"id": "ITR-2-A-274"
+},
+{
+"category": "A",
+"no": 275,
+"page": 21,
+"text": "In Schedule CYLA Short term capital gain taxable at applicable rates should be equal to SL.no. 11v of item E of Schedule CG",
+"id": "ITR-2-A-275"
+},
+{
+"category": "A",
+"no": 276,
+"page": 21,
+"text": "In Schedule CYLA Short term capital gain taxable at DTAA rates should be equal to SL.no. 11vi of item E of Schedule CG",
+"id": "ITR-2-A-276"
+},
+{
+"category": "A",
+"no": 277,
+"page": 21,
+"text": "In Schedule CYLA Long term capital gain taxable @10% should be equal to SL.no. 11vii of item E of Schedule CG",
+"id": "ITR-2-A-277"
+},
+{
+"category": "A",
+"no": 278,
+"page": 21,
+"text": "In Schedule CYLA Long term capital gain taxable @20% should be equal to SL.no. 11ix of item E of Schedule CG",
+"id": "ITR-2-A-278"
+},
+{
+"category": "A",
+"no": 279,
+"page": 21,
+"text": "In Schedule CYLA Other Source Income (excluding profit from owning race horses and amount chargeable to special rate of tax) should be equal to SL.no. 6 of Schedule OS",
+"id": "ITR-2-A-279"
+},
+{
+"category": "A",
+"no": 280,
+"page": 22,
+"text": "In Schedule CYLA Profit from owning and maintaining race horses should be equal to SL.no. 8e of Schedule OS",
+"id": "ITR-2-A-280"
+},
+{
+"category": "A",
+"no": 281,
+"page": 22,
+"text": "In Schedule CYLA Salary Income should be equal to SL.no. 6 of Schedule Salary",
+"id": "ITR-2-A-281"
+},
+{
+"category": "A",
+"no": 282,
+"page": 22,
+"text": "In Schedule CYLA Long term capital gain taxable at DTAA rates should be equal to SL.no. 11x of item E of Schedule CG",
+"id": "ITR-2-A-282"
+},
+{
+"category": "A",
+"no": 283,
+"page": 22,
+"text": "If new tax regime is selected, in schedule CYLA Sl. No. 2ii to 2xiv should not be more than Rs. Zero (i.e., house property loss of the current year can't set off against any other income).",
+"id": "ITR-2-A-283"
+},
+{
+"category": "A",
+"no": 284,
+"page": 22,
+"text": "If new tax regime is selected, in schedule CYLA Sl. No. 2xv cannot be more than Rs. Zero",
+"id": "ITR-2-A-284"
+},
+{
+"category": "A",
+"no": 285,
+"page": 22,
+"text": "In Schedule CYLA, 'Total loss set off' cannot be more than the 'Loss to be set off'",
+"id": "ITR-2-A-285"
+},
+{
+"category": "A",
+"no": 286,
+"page": 22,
+"text": "In Schedule CYLA, Normal OS loss should be set off first against the Profit from the activity of owning and maintaining race horses.",
+"id": "ITR-2-A-286"
+},
+{
+"category": "A",
+"no": 287,
+"page": 22,
+"text": "In Schedule CYLA sum of column no 2 + 3 should not exceed amount as referred in column 1",
+"id": "ITR-2-A-287"
+},
+{
+"category": "A",
+"no": 288,
+"page": 22,
+"text": "In Schedule BFLA value in Column 2 should not exceed amount as referred in column 1.",
+"id": "ITR-2-A-288"
+},
+{
+"category": "A",
+"no": 289,
+"page": 22,
+"text": "In Schedule BFLA, the amount mentioned at Column 3 should not exceed the amount mentioned at Column 1.",
+"id": "ITR-2-A-289"
+},
+{
+"category": "A",
+"no": 290,
+"page": 22,
+"text": "Schedule BFLA, amount mentioned at Sl. no 2(xii) should not exceed the sum of amount mentioned at Sl. no. x of Column 3 to 6 of CFL.",
+"id": "ITR-2-A-290"
+},
+{
+"category": "A",
+"no": 291,
+"page": 22,
+"text": "Short Term Capital Loss at Schedule CFL\" should be equal to sum of \"Short Term Capital Losses remaining after set off\" at table E of Schedule CG.",
+"id": "ITR-2-A-291"
+},
+{
+"category": "A",
+"no": 292,
+"page": 22,
+"text": "Long Term Capital Loss at Schedule CFL is not equal to sum of \"Long Term Capital Losses remaining after set off\" at table E of Schedule CG.",
+"id": "ITR-2-A-292"
+},
+{
+"category": "A",
+"no": 293,
+"page": 22,
+"text": "House Property Loss at Schedule CFL should be equal to the amount at \"House Property Loss remaining after set-off at Schedule CYLA\".",
+"id": "ITR-2-A-293"
+},
+{
+"category": "A",
+"no": 294,
+"page": 22,
+"text": "Total of brought forward losses should be equal to amount provided in individual AYs",
+"id": "ITR-2-A-294"
+},
+{
+"category": "A",
+"no": 295,
+"page": 22,
+"text": "The amount of adjustment mentioned in CFL is not equal to amount of adjustment in BFLA.",
+"id": "ITR-2-A-295"
+},
+{
+"category": "A",
+"no": 296,
+"page": 22,
+"text": "Donee PAN should not be same as \"Assessee PAN\" or \"PAN at Verification\"",
+"id": "ITR-2-A-296"
+},
+{
+"category": "A",
+"no": 297,
+"page": 22,
+"text": "In Schedule 80G, the amount of deduction computed should not be more than the eligible amount",
+"id": "ITR-2-A-297"
+},
+{
+"category": "A",
+"no": 298,
+"page": 22,
+"text": "Deduction u/s 80G is not allowed for donation made in cash above Rs. 2,000/- at Sl. No. A.",
+"id": "ITR-2-A-298"
+},
+{
+"category": "A",
+"no": 299,
+"page": 23,
+"text": "Deduction u/s 80G is not allowed for donation made in cash above Rs. 2,000/- at Sl. No. B.",
+"id": "ITR-2-A-299"
+},
+{
+"category": "A",
+"no": 300,
+"page": 23,
+"text": "Deduction u/s 80G is not allowed for donation made in cash above Rs. 2,000/- at Sl. No. C.",
+"id": "ITR-2-A-300"
+},
+{
+"category": "A",
+"no": 301,
+"page": 23,
+"text": "Deduction u/s 80G is not allowed for donation made in cash above Rs. 2,000/- at Sl. No. D.",
+"id": "ITR-2-A-301"
+},
+{
+"category": "A",
+"no": 302,
+"page": 23,
+"text": "In Schedule 80G (A) \"Donations entitled for 100% deduction without qualifying limit\" \"Total Donation\" should be equal to sum of \"Donation in cash\" AND \"Donation in other mode\"",
+"id": "ITR-2-A-302"
+},
+{
+"category": "A",
+"no": 303,
+"page": 23,
+"text": "In Schedule 80G (B) \"Donations e \"Total Donation\" should be equal to sum of \"Donation in cash\" AND \"Donation in other mode\"",
+"id": "ITR-2-A-303"
+},
+{
+"category": "A",
+"no": 304,
+"page": 23,
+"text": "In Schedule 80G (C) \"Donations entitled for 100% deduction without qualifying limit\" \"Total Donation\" should be equal to sum of \"Donation in cash\" AND \"Donation in other mode\"",
+"id": "ITR-2-A-304"
+},
+{
+"category": "A",
+"no": 305,
+"page": 23,
+"text": "In Schedule 80G (D) \"Donations entitled for 100% deduction without qualifying limit\" \"Total Donation\" should be equal to sum of \"Donation in cash\" AND \"Donation in other mode\"",
+"id": "ITR-2-A-305"
+},
+{
+"category": "A",
+"no": 306,
+"page": 23,
+"text": "In Schedule 80G(E) Donations should be equal to (A+B+C+D)",
+"id": "ITR-2-A-306"
+},
+{
+"category": "A",
+"no": 307,
+"page": 23,
+"text": "If old tax regime is selected, In Schedule VIA, deduction claimed u/s 80G should not be more than the total eligible amount of donation mentioned in Schedule 80G.",
+"id": "ITR-2-A-307"
+},
+{
+"category": "A",
+"no": 308,
+"page": 23,
+"text": "Schedule 80G should be blank if new tax regime is selected.",
+"id": "ITR-2-A-308"
+},
+{
+"category": "A",
+"no": 309,
+"page": 23,
+"text": "In schedule 80G, If PAN is already entered in anyone of the set of blocks (i.e., 100%, 50%, with Qualifying limit, without Qualifying limit) then the same PAN cannot be entered in any other block except PAN 'AAAAR1077P'.",
+"id": "ITR-2-A-309"
+},
+{
+"category": "A",
+"no": 310,
+"page": 23,
+"text": "If old tax regime is selected, then Deduction at Sl. No. 1a of Schedule 80D Self and Family shall be allowed to the extent of 25000",
+"id": "ITR-2-A-310"
+},
+{
+"category": "A",
+"no": 311,
+"page": 23,
+"text": "If Old tax Regime is selected, then In Schedule 80D, Deduction at Sl. No. 1a should be equal to sum of Sl. No (i+ii) Note: This validation to be checked if value at Sl. No. 1a is less than 25000",
+"id": "ITR-2-A-311"
+},
+{
+"category": "A",
+"no": 312,
+"page": 23,
+"text": "If Old tax Regime is selected, In Schedule 80D, the amount of preventive health checkup of all the fields combined together should not exceed 5000",
+"id": "ITR-2-A-312"
+},
+{
+"category": "A",
+"no": 313,
+"page": 23,
+"text": "If Old Tax Regime is selected, In Schedule 80D, Deduction at Sl. No. 1b Self and Family (Senior Citizen) shall be allowed to the extent of 50000",
+"id": "ITR-2-A-313"
+},
+{
+"category": "A",
+"no": 314,
+"page": 23,
+"text": "If Old Tax Regime is selected, then in Schedule 80D, the Deduction at Sl. No. 1b should be equal to the sum of Sl. No (i+ii+iii) Note: This validation to be checked if value at Sl. No. 1b is less than 50000",
+"id": "ITR-2-A-314"
+},
+{
+"category": "A",
+"no": 315,
+"page": 24,
+"text": "If old tax regime is selected, then Deduction at Sl. No. 2a of Schedule 80D parents shall be allowed to the extent of 25000",
+"id": "ITR-2-A-315"
+},
+{
+"category": "A",
+"no": 316,
+"page": 24,
+"text": "If Old tax Regime is selected, then In Schedule 80D, Deduction at Sl. No. 2a should be equal to sum of Sl. No (i+ii) Note: This validation to be checked if value at Sl. No. 2a is less than 25000",
+"id": "ITR-2-A-316"
+},
+{
+"category": "A",
+"no": 317,
+"page": 24,
+"text": "If Old Tax Regime is selected, In Schedule 80D, Deduction at Sl. No. 2b parents (Senior Citizen) shall be allowed to the extent of 50000",
+"id": "ITR-2-A-317"
+},
+{
+"category": "A",
+"no": 318,
+"page": 24,
+"text": "If Old Tax Regime is selected, then in Schedule 80D, Deduction at Sl. No. 2b should be equal to sum of Sl. No (i+ii+iii) Note: This validation to be checked if value at Sl. No. 2b is less than 50000",
+"id": "ITR-2-A-318"
+},
+{
+"category": "A",
+"no": 319,
+"page": 24,
+"text": "If old tax regime is selected, then sl. No 3 of schedule 80D 'Eligible amount of deduction' should not be more than 100000",
+"id": "ITR-2-A-319"
+},
+{
+"category": "A",
+"no": 320,
+"page": 24,
+"text": "If old tax regime is selected, In Schedule 80D, Eligible amount of deduction at Sl. No. 3 should be equal to sum of Sl. No (1a+1b+2a+2b) Note: This validation to be checked if value at Sl. No. 3 is less than or equal to 100000",
+"id": "ITR-2-A-320"
+},
+{
+"category": "A",
+"no": 321,
+"page": 24,
+"text": "Deduction under section 80D is claimed in Sch VI A then Schedule 80D must be filled",
+"id": "ITR-2-A-321"
+},
+{
+"category": "A",
+"no": 322,
+"page": 24,
+"text": "80D claimed in Sch VI A should be equal to Eligible amount of deduction of Schedule 80D",
+"id": "ITR-2-A-322"
+},
+{
+"category": "A",
+"no": 323,
+"page": 24,
+"text": "If new tax regime is selected, Deduction u/s 80D should not be claimed.",
+"id": "ITR-2-A-323"
+},
+{
+"category": "A",
+"no": 324,
+"page": 24,
+"text": "Please select drop down as 'No' to claim deduction for Self and Family",
+"id": "ITR-2-A-324"
+},
+{
+"category": "A",
+"no": 325,
+"page": 24,
+"text": "Please select drop down as 'Yes' to claim deduction for Self and Family including Senior Citizen",
+"id": "ITR-2-A-325"
+},
+{
+"category": "A",
+"no": 326,
+"page": 24,
+"text": "Please select drop down as 'No' to claim deduction for Parents",
+"id": "ITR-2-A-326"
+},
+{
+"category": "A",
+"no": 327,
+"page": 24,
+"text": "Please select drop down as 'Yes' to claim deduction for Parents including Senior Citizen",
+"id": "ITR-2-A-327"
+},
+{
+"category": "A",
+"no": 328,
+"page": 24,
+"text": "Please select dropdowns 'Yes' or 'No' to claim deduction u/s 80D",
+"id": "ITR-2-A-328"
+},
+{
+"category": "A",
+"no": 329,
+"page": 24,
+"text": "Please select dropdowns 'Yes' or 'No' to claim deduction u/s 80D",
+"id": "ITR-2-A-329"
+},
+{
+"category": "A",
+"no": 330,
+"page": 24,
+"text": "In Schedule 80GGA, Details of donation for scientific research are rural development \"Total Donation\" should be equal to sum of \"Donation in cash\" AND \"Donation in other mode\"",
+"id": "ITR-2-A-330"
+},
+{
+"category": "A",
+"no": 331,
+"page": 24,
+"text": "in Schedule 80GGA, Total Donation should be equal to the sum of (i+ii)",
+"id": "ITR-2-A-331"
+},
+{
+"category": "A",
+"no": 332,
+"page": 24,
+"text": "Donee PAN should not be same as \"Assessee PAN\" or \"PAN at Verification\"",
+"id": "ITR-2-A-332"
+},
+{
+"category": "A",
+"no": 333,
+"page": 24,
+"text": "If old tax regime is selected & if taxpayer wants to claim deduction u/s 80GGA of Schedule VIA, then mandatorily he is required to fill Schedule 80GGA.",
+"id": "ITR-2-A-333"
+},
+{
+"category": "A",
+"no": 334,
+"page": 25,
+"text": "Schedule 80GGA should be blank if option Yes is selected for 'Are you opting for new tax regime u/s 115BAC?'",
+"id": "ITR-2-A-334"
+},
+{
+"category": "A",
+"no": 335,
+"page": 25,
+"text": "In Schedule 80GGA, then Deduction u/s 80GGA is not allowed for donation made in cash for above Rs. 2000.",
+"id": "ITR-2-A-335"
+},
+{
+"category": "A",
+"no": 336,
+"page": 25,
+"text": "Deduction u/s 80CCD(1) is not applicable to HUF.",
+"id": "ITR-2-A-336"
+},
+{
+"category": "A",
+"no": 337,
+"page": 25,
+"text": "Deduction u/s 80CCD(1B) is not allowed to HUF.",
+"id": "ITR-2-A-337"
+},
+{
+"category": "A",
+"no": 338,
+"page": 25,
+"text": "Deduction u/s 80CCD(2) is not allowed to HUF.",
+"id": "ITR-2-A-338"
+},
+{
+"category": "A",
+"no": 339,
+"page": 25,
+"text": "Deduction u/s 80E is not allowed to HUF.",
+"id": "ITR-2-A-339"
+},
+{
+"category": "A",
+"no": 340,
+"page": 25,
+"text": "Deduction u/s 80EE is not allowed to HUF.",
+"id": "ITR-2-A-340"
+},
+{
+"category": "A",
+"no": 341,
+"page": 25,
+"text": "If Old Tax regime is selected, deduction u/s 80TTA cannot be claimed by a Resident Senior Citizen person",
+"id": "ITR-2-A-341"
+},
+{
+"category": "A",
+"no": 342,
+"page": 25,
+"text": "If option No is selected for 'Are you opting for new tax regime u/s 115BAC?', Deduction u/s 80TTB is not allowed to senior citizen.",
+"id": "ITR-2-A-342"
+},
+{
+"category": "A",
+"no": 343,
+"page": 25,
+"text": "Deduction u/s 80U is not allowed to HUF.",
+"id": "ITR-2-A-343"
+},
+{
+"category": "A",
+"no": 344,
+"page": 25,
+"text": "Deduction u/s 80EEA is not allowed to HUF",
+"id": "ITR-2-A-344"
+},
+{
+"category": "A",
+"no": 345,
+"page": 25,
+"text": "Deduction u/s 80EEB is not allowed to HUF",
+"id": "ITR-2-A-345"
+},
+{
+"category": "A",
+"no": 346,
+"page": 25,
+"text": "Deduction u/s 80DD is not allowed to Non Resident.",
+"id": "ITR-2-A-346"
+},
+{
+"category": "A",
+"no": 347,
+"page": 25,
+"text": "Deduction u/s 80DDB is claimed by Non resident.",
+"id": "ITR-2-A-347"
+},
+{
+"category": "A",
+"no": 348,
+"page": 25,
+"text": "Deduction u/s 80U is claimed by Non resident.",
+"id": "ITR-2-A-348"
+},
+{
+"category": "A",
+"no": 349,
+"page": 25,
+"text": "Deductions claimed under Chapter VI-A should not be greater than “Gross Total Income”",
+"id": "ITR-2-A-349"
+},
+{
+"category": "A",
+"no": 350,
+"page": 25,
+"text": "In Schedule VIA, amount claimed in deduction u/s 80GGA should not be different from the amount claimed in Schedule 80GGA",
+"id": "ITR-2-A-350"
+},
+{
+"category": "A",
+"no": 351,
+"page": 25,
+"text": "In Schedule Part BTI- Deduction under Chapter VI-A should be consistent with the total of all deductions in Schedule VI-A",
+"id": "ITR-2-A-351"
+},
+{
+"category": "A",
+"no": 352,
+"page": 25,
+"text": "Deduction u/s 80QQB is not applicable to Non resident individuals & HUF.",
+"id": "ITR-2-A-352"
+},
+{
+"category": "A",
+"no": 353,
+"page": 25,
+"text": "Deduction u/s 80QQB is not applicable to Non resident individuals & HUF.",
+"id": "ITR-2-A-353"
+},
+{
+"category": "A",
+"no": 354,
+"page": 25,
+"text": "Deduction u/s 80RRB is not applicable to Non resident Individuals & HUF.",
+"id": "ITR-2-A-354"
+},
+{
+"category": "A",
+"no": 355,
+"page": 25,
+"text": "Deduction u/s 80RRB is not applicable to Non resident Individuals &n HUF.",
+"id": "ITR-2-A-355"
+},
+{
+"category": "A",
+"no": 356,
+"page": 25,
+"text": "In Schedule VIA, deduction u/s 80RRB plus 80QQB claimed is more than the income entered in Schedule OS Sl. No. 1e",
+"id": "ITR-2-A-356"
+},
+{
+"category": "A",
+"no": 357,
+"page": 26,
+"text": "Deduction u/s 80CCD(2) cannot be claimed by taxpayer who has selected all employer category as CG-Pensioners, SG-Pensioners, PSU-Pensioners, Other- Pensioners",
+"id": "ITR-2-A-357"
+},
+{
+"category": "A",
+"no": 358,
+"page": 26,
+"text": "Deduction u/s 80CCD(2) cannot be claimed more than 14% of salary if any of the employer is Central Government or State Government in case of Old tax regime",
+"id": "ITR-2-A-358"
+},
+{
+"category": "A",
+"no": 359,
+"page": 26,
+"text": "Deduction u/s 80QQB cannot be claimed if return is not filed within the due date or extended due date.",
+"id": "ITR-2-A-359"
+},
+{
+"category": "A",
+"no": 360,
+"page": 26,
+"text": "Deduction u/s 80RRB cannot be claimed if return is not filed within the due date or extended due date.",
+"id": "ITR-2-A-360"
+},
+{
+"category": "A",
+"no": 361,
+"page": 26,
+"text": "If new tax regime is selected, then In Schedule Chapter VI-A, Deduction u/s 80C, 80CCC, 80CCD(1) , 80CCD(1B), 80D, 80DD, 80DDB, 80E, 80EE, 80EEA, 80EEB, 80G, 80GG, 80GGA, 80GGC, 80QQB, 80RRB, 80TTA, 80TTB, 80U cannot be claimed.",
+"id": "ITR-2-A-361"
+},
+{
+"category": "A",
+"no": 362,
+"page": 26,
+"text": "Deduction u/s 80TTA should be restricted to interest income from Savings Account under Income from other sources.",
+"id": "ITR-2-A-362"
+},
+{
+"category": "A",
+"no": 363,
+"page": 26,
+"text": "If Old Tax Regime is selected, Assessee being resident senior citizen claiming deduction u/s 80TTB should be restricted to interest income (Savings & Deposits) from other sources.",
+"id": "ITR-2-A-363"
+},
+{
+"category": "A",
+"no": 364,
+"page": 26,
+"text": "Deduction u/s 80CCD(2) should not be more than 10% of salary in case of employer category is other than Central Government or State Government in case of Old Tax Regime",
+"id": "ITR-2-A-364"
+},
+{
+"category": "A",
+"no": 365,
+"page": 26,
+"text": "Sum of deductions u/s 80C, 80CCC and 80CCD(1) is more than Rs. 150000.",
+"id": "ITR-2-A-365"
+},
+{
+"category": "A",
+"no": 366,
+"page": 26,
+"text": "Deduction u/s 80CCH to be limited to 60% of salary.",
+"id": "ITR-2-A-366"
+},
+{
+"category": "A",
+"no": 367,
+"page": 26,
+"text": "Deduction u/s 80CCD(1) to be limited to 10% of salary or 20% of GTI as applicable.",
+"id": "ITR-2-A-367"
+},
+{
+"category": "A",
+"no": 368,
+"page": 26,
+"text": "Non resident individuals cannot claim deduction u/s 80TTB",
+"id": "ITR-2-A-368"
+},
+{
+"category": "A",
+"no": 369,
+"page": 26,
+"text": "Deduction u/s 80CCH(1) is not allowed in New (Default) Tax Regime u/s 115BAC",
+"id": "ITR-2-A-369"
+},
+{
+"category": "A",
+"no": 370,
+"page": 26,
+"text": "In Schedule 80GGC, Amount of deduction computed cannot be more than the eligible amount. Hence deduction u/s 80GGC is restricted to eligible amount of contribution in schedule 80GGC",
+"id": "ITR-2-A-370"
+},
+{
+"category": "A",
+"no": 371,
+"page": 26,
+"text": "In Schedule 80GGC, 'Eligible amount of contributions' for each row shall be equal to \"contribution in other mode\" subject to GTI",
+"id": "ITR-2-A-371"
+},
+{
+"category": "A",
+"no": 372,
+"page": 26,
+"text": "Total contribution' should be equal to sum of \"contribution in cash\" AND \"contribution in other mode\" in table (80GGC)",
+"id": "ITR-2-A-372"
+},
+{
+"category": "A",
+"no": 373,
+"page": 26,
+"text": "In schedule 80GGC, sl. no. D \"Eligible Amount of contribution\" should be equal to sum of individual amounts restricted to GTI",
+"id": "ITR-2-A-373"
+},
+{
+"category": "A",
+"no": 374,
+"page": 27,
+"text": "In schedule 80GGC, Values at sl. no. A - total contribution in Cash, B-contribution in other mode and C-Total contribution should be equal to sum of individual amounts entered",
+"id": "ITR-2-A-374"
+},
+{
+"category": "A",
+"no": 375,
+"page": 27,
+"text": "In schedule 80GGC, If Values at \"Total contribution\" in a row is more than \"0\", then \"Date of contribution\" is required",
+"id": "ITR-2-A-375"
+},
+{
+"category": "A",
+"no": 376,
+"page": 27,
+"text": "In schedule 80GGC, if \"contribution in other mode\" is > 0, then details of such contribution are required",
+"id": "ITR-2-A-376"
+},
+{
+"category": "A",
+"no": 377,
+"page": 27,
+"text": "If Old Tax Regime is selected, and in the schedule VI-A, value at 2u is selected as \"Self with disability\", Then the amount should be equal to Rs. 75,000 subject to GTI.",
+"id": "ITR-2-A-377"
+},
+{
+"category": "A",
+"no": 378,
+"page": 27,
+"text": "If Old Tax Regime is selected, and if drop down selected at sl. no (i)-Nature of disability' of schedule 80DD is 'dependent person with disability' and amount is less or more -Rs. 75000 subject to GTI.",
+"id": "ITR-2-A-378"
+},
+{
+"category": "A",
+"no": 379,
+"page": 27,
+"text": "If Old Tax Regime is selected, and if drop down selected at sl. no (i)-Nature of disability' of schedule 80DD is 'dependent person with severe disability' and amount is less or more Rs. 125000 subject to GTI.",
+"id": "ITR-2-A-379"
+},
+{
+"category": "A",
+"no": 380,
+"page": 27,
+"text": "If Old Tax Regime is selected, and in the schedule 80U value at i- 'Nature of disability' is selected as \"self with severe disability\" and the value at field ii-'Amount if deduction' is less or more than 125,000 subject to GTI.",
+"id": "ITR-2-A-380"
+},
+{
+"category": "A",
+"no": 381,
+"page": 27,
+"text": "If 80U claimed in Deduction under Chapter VIA, then same amount and details should be provided in Schedule 80U",
+"id": "ITR-2-A-381"
+},
+{
+"category": "A",
+"no": 382,
+"page": 27,
+"text": "In schedule 80U, if deduction is > 0, then details of such donation are required",
+"id": "ITR-2-A-382"
+},
+{
+"category": "A",
+"no": 383,
+"page": 27,
+"text": "If 80DD claimed in Deduction under Chapter VIA, then same amount and details should be provided in Schedule 80DD",
+"id": "ITR-2-A-383"
+},
+{
+"category": "A",
+"no": 384,
+"page": 27,
+"text": "In schedule 80DD, if deduction is > 0, then details of such donation are required",
+"id": "ITR-2-A-384"
+},
+{
+"category": "A",
+"no": 385,
+"page": 27,
+"text": "In schedule SI, Sl. No. 1 should be equal to Sl. No. 2(c) of schedule OS",
+"id": "ITR-2-A-385"
+},
+{
+"category": "A",
+"no": 386,
+"page": 27,
+"text": "In schedule SI, Sl. No. 1 should be equal to Sl. no 2(civ) of schedule OS",
+"id": "ITR-2-A-386"
+},
+{
+"category": "A",
+"no": 387,
+"page": 27,
+"text": "If no special Income is shown, then tax at special rates should not be computed.",
+"id": "ITR-2-A-387"
+},
+{
+"category": "A",
+"no": 388,
+"page": 27,
+"text": "Special income u/s 115BB (Winnings from lotteries, puzzles, races, games etc.) offered in schedule OS Sl. No. 2a should be equal to corresponding income in schedule SI",
+"id": "ITR-2-A-388"
+},
+{
+"category": "A",
+"no": 389,
+"page": 27,
+"text": "Special income u/s115BBE (Income under section 68, 69, 69A, 69B, 69C or 69D) offered in schedule OS Sl. No. 2b is not equal to corresponding income in schedule SI",
+"id": "ITR-2-A-389"
+},
+{
+"category": "A",
+"no": 390,
+"page": 27,
+"text": "Special income under Income from other sources chargeable at special rates in India as per DTAA offered in schedule BFLA Sl. No. 3(xii) is not equal to corresponding income in schedule SI",
+"id": "ITR-2-A-390"
+},
+{
+"category": "A",
+"no": 391,
+"page": 27,
+"text": "In Schedule SI, the amount at column (ii) Tax thereon should be equal to taxable income (*) special rate",
+"id": "ITR-2-A-391"
+},
+{
+"category": "A",
+"no": 392,
+"page": 28,
+"text": "In Schedule SI, tax computed cannot be null if income is greater than zero",
+"id": "ITR-2-A-392"
+},
+{
+"category": "A",
+"no": 393,
+"page": 28,
+"text": "In Schedule Part B-TI, Income chargeable to tax at special rate under section 111A, 112, 112A etc. included in 10 should be consistent with all the special incomes of Schedule SI",
+"id": "ITR-2-A-393"
+},
+{
+"category": "A",
+"no": 394,
+"page": 28,
+"text": "Sum of income u/s 111A or section 115AD(1)(ii)- Proviso (STCG on shares/equity- oriented MF on which STT paid) & Pass Through Income in the nature of Short Term Capital Gain chargeable @ 15% in schedule SI should be equal to corresponding income as per schedule BFLA",
+"id": "ITR-2-A-394"
+},
+{
+"category": "A",
+"no": 395,
+"page": 28,
+"text": "Sum of income u/s 115AD (STCG for FIIs on securities where STT not paid) & Pass- Through Income in the nature of Short Term Capital Gain chargeable @ 30% should be equal to corresponding income as per schedule BFLA",
+"id": "ITR-2-A-395"
+},
+{
+"category": "A",
+"no": 396,
+"page": 28,
+"text": "Sum of income u/s 112 (LTCG on others), Proviso to 112(1)( LTCG on listed securities/ units without indexation) & Pass Through Income in the nature of Long Term Capital Gain chargeable @ 20% should be equal to corresponding income as per schedule BFLA",
+"id": "ITR-2-A-396"
+},
+{
+"category": "A",
+"no": 397,
+"page": 28,
+"text": "Sum of income u/s 112(1)(c)(iii) (LTCG for non-resident on unlisted securities or other than Listed debentures), 115AC (LTCG for non-resident on bonds/GDR), 115ACA (LTCG for an employee of specified company on GDR), 115AD (LTCG for FII on securities), 115E (LTCG for non-resident Indian on specified asset), 112A or section 115AD(1)(iii)-Proviso (LTCG on sale of shares or units on which STT is paid), Pass Through Income in the nature of Long Term Capital Gain chargeable @ 10%-u/s 112A, Pass Through Income in the nature of Long Term Capital Gain chargeable @ 10% - u/s other than 112A should be equal to corresponding income as per schedule BFLA",
+"id": "ITR-2-A-397"
+},
+{
+"category": "A",
+"no": 398,
+"page": 28,
+"text": "Total of all special incomes at (i) should match with total income in schedule SI",
+"id": "ITR-2-A-398"
+},
+{
+"category": "A",
+"no": 399,
+"page": 28,
+"text": "In \"Schedule SI\" Total of column \"Tax thereon (ii)\" should be equal to value entered in individual columns",
+"id": "ITR-2-A-399"
+},
+{
+"category": "A",
+"no": 400,
+"page": 28,
+"text": "Special income offered in schedule OS Sl. No. 2d should be equal to corresponding income in schedule SI",
+"id": "ITR-2-A-400"
+},
+{
+"category": "A",
+"no": 401,
+"page": 28,
+"text": "Special income offered in schedule OS Sl. No. 2d should be equal to corresponding income in schedule SI",
+"id": "ITR-2-A-401"
+},
+{
+"category": "A",
+"no": 402,
+"page": 28,
+"text": "Special income offered in schedule OS Sl. No. 2d should be equal to corresponding income in schedule SI",
+"id": "ITR-2-A-402"
+},
+{
+"category": "A",
+"no": 403,
+"page": 28,
+"text": "Special income offered in schedule OS Sl. No. 2d should be equal to corresponding income in schedule SI",
+"id": "ITR-2-A-403"
+},
+{
+"category": "A",
+"no": 404,
+"page": 28,
+"text": "Special income offered in schedule OS Sl. No. 2d should be equal to corresponding income in schedule SI",
+"id": "ITR-2-A-404"
+},
+{
+"category": "A",
+"no": 405,
+"page": 28,
+"text": "Special income offered in schedule OS Sl. No. 2d should be equal to corresponding income in schedule SI",
+"id": "ITR-2-A-405"
+},
+{
+"category": "A",
+"no": 406,
+"page": 29,
+"text": "Special income offered in schedule OS Sl. No. 2d should be equal to corresponding income in schedule SI",
+"id": "ITR-2-A-406"
+},
+{
+"category": "A",
+"no": 407,
+"page": 29,
+"text": "Special income offered in schedule OS Sl. No. 2d should be equal to corresponding income in schedule SI",
+"id": "ITR-2-A-407"
+},
+{
+"category": "A",
+"no": 408,
+"page": 29,
+"text": "Special income offered in schedule OS Sl. No. 2d should be equal to corresponding income in schedule SI",
+"id": "ITR-2-A-408"
+},
+{
+"category": "A",
+"no": 409,
+"page": 29,
+"text": "Special income offered in schedule OS Sl. No. 2d should be equal to corresponding income in schedule SI",
+"id": "ITR-2-A-409"
+},
+{
+"category": "A",
+"no": 410,
+"page": 29,
+"text": "Special income offered in schedule OS Sl. No. 2d should be equal to corresponding income in schedule SI",
+"id": "ITR-2-A-410"
+},
+{
+"category": "A",
+"no": 411,
+"page": 29,
+"text": "Special income offered in schedule OS Sl. No. 2d should be equal to corresponding income in schedule SI",
+"id": "ITR-2-A-411"
+},
+{
+"category": "A",
+"no": 412,
+"page": 29,
+"text": "Special income offered in schedule OS Sl. No. 2d should be equal to corresponding income in schedule SI",
+"id": "ITR-2-A-412"
+},
+{
+"category": "A",
+"no": 413,
+"page": 29,
+"text": "Special income offered in schedule OS Sl. No. 2d should be equal to corresponding income in schedule SI",
+"id": "ITR-2-A-413"
+},
+{
+"category": "A",
+"no": 414,
+"page": 29,
+"text": "Special income offered in schedule OS Sl. No. 2d should be equal to corresponding income in schedule SI",
+"id": "ITR-2-A-414"
+},
+{
+"category": "A",
+"no": 415,
+"page": 29,
+"text": "Special income offered in schedule OS Sl. No. 2d should be equal to corresponding income in schedule SI",
+"id": "ITR-2-A-415"
+},
+{
+"category": "A",
+"no": 416,
+"page": 29,
+"text": "Special income offered in schedule OS Sl. No. 2e should be equal to corresponding income in schedule SI",
+"id": "ITR-2-A-416"
+},
+{
+"category": "A",
+"no": 417,
+"page": 29,
+"text": "Special income offered in schedule OS Sl. No. 2e should be equal to corresponding income in schedule SI",
+"id": "ITR-2-A-417"
+},
+{
+"category": "A",
+"no": 418,
+"page": 29,
+"text": "Special income offered in schedule OS Sl. No. 2e should be equal to corresponding income in schedule SI",
+"id": "ITR-2-A-418"
+},
+{
+"category": "A",
+"no": 419,
+"page": 29,
+"text": "Special income offered in schedule OS Sl. No. 2e should be equal to corresponding income in schedule SI",
+"id": "ITR-2-A-419"
+},
+{
+"category": "A",
+"no": 420,
+"page": 29,
+"text": "Special income offered in schedule OS Sl. No. 2e should be equal to corresponding income in schedule SI",
+"id": "ITR-2-A-420"
+},
+{
+"category": "A",
+"no": 421,
+"page": 29,
+"text": "Special income offered in schedule OS Sl. No. 2e should be equal to corresponding income in schedule SI",
+"id": "ITR-2-A-421"
+},
+{
+"category": "A",
+"no": 422,
+"page": 29,
+"text": "Special income offered in schedule OS Sl. No. 2e should be equal to corresponding income in schedule SI",
+"id": "ITR-2-A-422"
+},
+{
+"category": "A",
+"no": 423,
+"page": 29,
+"text": "Special income offered in schedule OS Sl. No. 2e should be equal to corresponding income in schedule SI",
+"id": "ITR-2-A-423"
+},
+{
+"category": "A",
+"no": 424,
+"page": 30,
+"text": "Special income offered in schedule OS Sl. No. 2e should be equal to corresponding income in schedule SI",
+"id": "ITR-2-A-424"
+},
+{
+"category": "A",
+"no": 425,
+"page": 30,
+"text": "Special income offered in schedule OS Sl. No. 2e should be equal to corresponding income in schedule SI",
+"id": "ITR-2-A-425"
+},
+{
+"category": "A",
+"no": 426,
+"page": 30,
+"text": "Special income offered in schedule OS Sl. No. 2e should be equal to corresponding income in schedule SI",
+"id": "ITR-2-A-426"
+},
+{
+"category": "A",
+"no": 427,
+"page": 30,
+"text": "Special income offered in schedule OS Sl. No. 2e should be equal to corresponding income in schedule SI",
+"id": "ITR-2-A-427"
+},
+{
+"category": "A",
+"no": 428,
+"page": 30,
+"text": "Special income offered in schedule OS Sl. No. 2e should be equal to corresponding income in schedule SI",
+"id": "ITR-2-A-428"
+},
+{
+"category": "A",
+"no": 429,
+"page": 30,
+"text": "Special income offered in schedule OS Sl. No. 2e should be equal to corresponding income in schedule SI",
+"id": "ITR-2-A-429"
+},
+{
+"category": "A",
+"no": 430,
+"page": 30,
+"text": "Special income offered in schedule OS Sl. No. 2e should be equal to corresponding income in schedule SI",
+"id": "ITR-2-A-430"
+},
+{
+"category": "A",
+"no": 431,
+"page": 30,
+"text": "Special income offered in schedule OS Sl. No. 2e should be equal to corresponding income in schedule SI",
+"id": "ITR-2-A-431"
+},
+{
+"category": "A",
+"no": 432,
+"page": 30,
+"text": "Special income offered in schedule OS Sl. No. 2e should be equal to corresponding income in schedule SI",
+"id": "ITR-2-A-432"
+},
+{
+"category": "A",
+"no": 433,
+"page": 30,
+"text": "Special income offered in schedule OS Sl. No. 2d should be equal to corresponding income in schedule SI",
+"id": "ITR-2-A-433"
+},
+{
+"category": "A",
+"no": 434,
+"page": 30,
+"text": "Income selected in 2d\"Any other income chargeable at special rate\" of schedule OS should match with the corresponding income in schedule SI",
+"id": "ITR-2-A-434"
+},
+{
+"category": "A",
+"no": 435,
+"page": 30,
+"text": "Income selected in sl. no 2e of schedule OS should match with the corresponding income in schedule SI",
+"id": "ITR-2-A-435"
+},
+{
+"category": "A",
+"no": 436,
+"page": 30,
+"text": "Special income offered in schedule OS Sl. No. 2d should be equal to corresponding income in schedule SI, i.e., Income chargeable u/s 115AC(1)(b)' Income by way of dividend on GDR purchased in foreign currency in case of a non-resident'",
+"id": "ITR-2-A-436"
+},
+{
+"category": "A",
+"no": 437,
+"page": 30,
+"text": "Special income offered in schedule OS Sl. No. 2e should be equal to corresponding income in schedule SI, i.e., Pass through Income chargeable u/s 115AC(1)(b)' Income by way of dividend on GDR purchased in foreign currency in case of a non-resident'",
+"id": "ITR-2-A-437"
+},
+{
+"category": "A",
+"no": 438,
+"page": 30,
+"text": "Income selected in sl. no 2d of schedule OS should match with the corresponding income in schedule SI",
+"id": "ITR-2-A-438"
+},
+{
+"category": "A",
+"no": 439,
+"page": 30,
+"text": "Income selected in sl. no 2e of schedule OS should match with the corresponding income in schedule SI",
+"id": "ITR-2-A-439"
+},
+{
+"category": "A",
+"no": 440,
+"page": 31,
+"text": "Special income u/s 115BBJ (Winnings from lotteries, puzzles, races, games etc.) offered in Schedule OS, sl. no. 2a(ii) should be equal to corresponding income in Schedule SI.",
+"id": "ITR-2-A-440"
+},
+{
+"category": "A",
+"no": 441,
+"page": 31,
+"text": "If Old Tax regime is selected, In Schedule AMT, Sl.no. 1 shall be equal to Sl. No. 12 Total Income of Part BTI.",
+"id": "ITR-2-A-441"
+},
+{
+"category": "A",
+"no": 442,
+"page": 31,
+"text": "In Schedule AMT, Sl. No. 3 Adjusted Total Income under section 115JC should be equal to sum of Sl. No. 1 + 2a.",
+"id": "ITR-2-A-442"
+},
+{
+"category": "A",
+"no": 443,
+"page": 31,
+"text": "If Old Tax Regime is selected, In Schedule AMT, Sl. No. 2a should be equal to sum of system computed value of 80QQB & 80RRB of Schedule VIA.",
+"id": "ITR-2-A-443"
+},
+{
+"category": "A",
+"no": 444,
+"page": 31,
+"text": "In Schedule AMTC, Sl. No. 1 should be equal to Sl. No. 1d of Part BTTI",
+"id": "ITR-2-A-444"
+},
+{
+"category": "A",
+"no": 445,
+"page": 31,
+"text": "If Old Tax Regime is selected, In Schedule AMTC, Sl. No. 2 should be equal to Sl. No. 7 of Part BTTI.",
+"id": "ITR-2-A-445"
+},
+{
+"category": "A",
+"no": 446,
+"page": 31,
+"text": "In Schedule AMTC, Sl. No. 3 should be equal to Sl. No. (2 - 1)",
+"id": "ITR-2-A-446"
+},
+{
+"category": "A",
+"no": 447,
+"page": 31,
+"text": "In Schedule AMTC, Sl. No. 3 should be equal to zero when Sl. No. 2 is less than or equal to Sl. No. 1",
+"id": "ITR-2-A-447"
+},
+{
+"category": "A",
+"no": 448,
+"page": 31,
+"text": "If Old Tax regime is selected, In Schedule AMTC, Sl.no. 5 Amount of tax credit under section 115JD utilized during the year [total of item No. 4 (C)] should be equal to Total of item no. 4C",
+"id": "ITR-2-A-448"
+},
+{
+"category": "A",
+"no": 449,
+"page": 31,
+"text": "If Old Tax regime is selected, In Schedule AMTC, Sl.no. 6 Amount of AMT liability available for credit in subsequent assessment years [total of 4 (D)] should be equal to Total of item no. 4D.",
+"id": "ITR-2-A-449"
+},
+{
+"category": "A",
+"no": 450,
+"page": 31,
+"text": "In Schedule AMT, Sl. No. 4 tax payable under section 115JC should be equal to 18.5% of Sl. No. 3, provided Sl. No. 3 is greater than 20 Lakh.",
+"id": "ITR-2-A-450"
+},
+{
+"category": "A",
+"no": 451,
+"page": 31,
+"text": "If Old Tax regime is selected, in \"Schedule AMTC\" Col. D Balance AMT Credit Carried Forward should be equal to the sum of Col. B3 (Balance brought forward to the current assessment year) - Col. C (AMT Credit Utilized during the Current Assessment Year) Note: This rule is not applicable for total column. It is applicable for each individual AY",
+"id": "ITR-2-A-451"
+},
+{
+"category": "A",
+"no": 452,
+"page": 31,
+"text": "If new tax regime is selected, Schedule AMT should be blank.",
+"id": "ITR-2-A-452"
+},
+{
+"category": "A",
+"no": 453,
+"page": 31,
+"text": "If new tax regime is selected, In Schedule AMTC, values at column C and column D should not be more than zero.",
+"id": "ITR-2-A-453"
+},
+{
+"category": "A",
+"no": 454,
+"page": 31,
+"text": "In Schedule EI, Sl. No. 5 Pass through income not chargeable to tax should be equal to the amount of exempt income mentioned in Schedule PTI",
+"id": "ITR-2-A-454"
+},
+{
+"category": "A",
+"no": 455,
+"page": 31,
+"text": "In \"Schedule EI\", in total of Other exempt income, (including exempt income of minor child) should be equal to value entered in amount columns.",
+"id": "ITR-2-A-455"
+},
+{
+"category": "A",
+"no": 456,
+"page": 32,
+"text": "In \"Schedule EI\", \"Total income not chargeable to tax as per DTAA\" should be equal to the total of amount entered in \"Amount of Income\"",
+"id": "ITR-2-A-456"
+},
+{
+"category": "A",
+"no": 457,
+"page": 32,
+"text": "In Schedule EI, Sl. No. 6 should be equal to sum of Sl. No. (1 + 2 + 3 + 4 + 5)",
+"id": "ITR-2-A-457"
+},
+{
+"category": "A",
+"no": 458,
+"page": 32,
+"text": "In \"Schedule EI\" in the Net Agricultural income for the year should be equal to (Gross Agricultural receipts (other than income to be excluded under rule 7A, 7B or 8 of I.T. Rules) – Expenditure incurred on agriculture –Unabsorbed agricultural loss of previous eight assessment years)",
+"id": "ITR-2-A-458"
+},
+{
+"category": "A",
+"no": 459,
+"page": 32,
+"text": "In Schedule PTI Col. 9 should be equal to output of Col 7-8",
+"id": "ITR-2-A-459"
+},
+{
+"category": "A",
+"no": 460,
+"page": 32,
+"text": "In Schedule PTI, Sl. No. iia Short Term should be equal to sum of ai+aii",
+"id": "ITR-2-A-460"
+},
+{
+"category": "A",
+"no": 461,
+"page": 32,
+"text": "In Schedule PTI, Sl. No. iib Long Term should be equal to sum of bi+bii",
+"id": "ITR-2-A-461"
+},
+{
+"category": "A",
+"no": 462,
+"page": 32,
+"text": "In Schedule PTI, Sl. No. iii Other Sources should be equal to sum of a+b",
+"id": "ITR-2-A-462"
+},
+{
+"category": "A",
+"no": 463,
+"page": 32,
+"text": "In Schedule PTI, Sl. No. iv Income claimed to be exempt should be equal to sum of a+b+c",
+"id": "ITR-2-A-463"
+},
+{
+"category": "A",
+"no": 464,
+"page": 32,
+"text": "In schedule FSI total of column e \"Tax relief available in India(e)= (c) or (d) whichever is lower\" should match with e(i) + e(ii) + e(iii) + e(iv) i.e. Salary + House Property + Capital Gains + Other Sources.",
+"id": "ITR-2-A-464"
+},
+{
+"category": "A",
+"no": 465,
+"page": 32,
+"text": "Schedule FSI is not applicable if residential status is non resident",
+"id": "ITR-2-A-465"
+},
+{
+"category": "A",
+"no": 466,
+"page": 32,
+"text": "In schedule FSI total of column b \"Income from outside India (included in PART B- TI) should match with b(i) + b(ii) + b(iii) + b(iv) i.e. Salary + House Property + Capital Gains + Other Sources.",
+"id": "ITR-2-A-466"
+},
+{
+"category": "A",
+"no": 467,
+"page": 32,
+"text": "If new tax regime is selected, then in schedule EI exempt income u/s 10(17)-Allowance MP/MLA/MLC cannot be claimed.",
+"id": "ITR-2-A-467"
+},
+{
+"category": "A",
+"no": 468,
+"page": 32,
+"text": "In Schedule EI, if net agricultural income for the year exceeds Rs.5 lakh, details of each agriculture land should not be blank",
+"id": "ITR-2-A-468"
+},
+{
+"category": "A",
+"no": 469,
+"page": 32,
+"text": "In Schedule FSI, if tax relief is claimed against salary income, then amount shown in Gross salary under Schedule salary should not be less than the amount shown under salary in Schedule FSI",
+"id": "ITR-2-A-469"
+},
+{
+"category": "A",
+"no": 470,
+"page": 32,
+"text": "In Schedule FSI If tax relief is claimed against House Property, then the amount shown in House property in Sl.no 1k+2 should not be less than the amount of income shown under House property in Schedule FSI",
+"id": "ITR-2-A-470"
+},
+{
+"category": "A",
+"no": 471,
+"page": 32,
+"text": "In Schedule FSI, if tax relief is claimed against Capital Gains then amount of Income shown in Capital gains should not be less than the amount of income shown under Capital gains in Schedule FSI",
+"id": "ITR-2-A-471"
+},
+{
+"category": "A",
+"no": 472,
+"page": 32,
+"text": "The assessee is governed by Portuguese Code, then \"PAN of Spouse\" should be provided.",
+"id": "ITR-2-A-472"
+},
+{
+"category": "A",
+"no": 473,
+"page": 33,
+"text": "In Schedule 5A, Sl. No. 4 total is not equal to sum of Sl. No. (1+2+3) for all the columns.",
+"id": "ITR-2-A-473"
+},
+{
+"category": "A",
+"no": 474,
+"page": 33,
+"text": "In schedule TR field 2 \"Total Tax relief available in respect of country where DTAA is applicable (section 90/90A) (Part of total of 1(d)\" should match with the sum of items in 1(d), wherever the corresponding 1(e) field is selected as Section 90/90A",
+"id": "ITR-2-A-474"
+},
+{
+"category": "A",
+"no": 475,
+"page": 33,
+"text": "In schedule TR field 3 \"Total Tax relief available in respect of country where DTAA is not applicable (section 91) (Part of total of 1(d))\" should match with the sum of items in 1(d), wherever the corresponding 1(e) field is selected as Section 91.",
+"id": "ITR-2-A-475"
+},
+{
+"category": "A",
+"no": 476,
+"page": 33,
+"text": "Schedule TR is not applicable if residential status is non resident",
+"id": "ITR-2-A-476"
+},
+{
+"category": "A",
+"no": 477,
+"page": 33,
+"text": "In schedule TR field \"Total taxes paid outside India (total of (c) of Schedule FSI in respect of each country)\" should match with total of column \"Tax paid outside India\" in schedule FSI for each and every \"Country code\" and \"Taxpayer Identification Number\".",
+"id": "ITR-2-A-477"
+},
+{
+"category": "A",
+"no": 478,
+"page": 33,
+"text": "In schedule TR field \"Total tax relief available (total of (e) of Schedule FSI in respect of each country\" should match with total of column \"Tax relief available in India (e) = (c) or (d) whichever is lower\" in schedule FSI for each and every \"Country code\" and \"Taxpayer Identification Number\".",
+"id": "ITR-2-A-478"
+},
+{
+"category": "A",
+"no": 479,
+"page": 33,
+"text": "Schedule AL should be filled if total Income is greater than 1 crore.",
+"id": "ITR-2-A-479"
+},
+{
+"category": "A",
+"no": 480,
+"page": 33,
+"text": "In Part A General \"Name of the representative, Capacity of the representative, Address of the representative and Permanent Account Number (PAN)/ Aadhaar of the representative\" is mandatory if in schedule \"Verification\" Verification capacity is selected as \"Representative\" from drop down",
+"id": "ITR-2-A-480"
+},
+{
+"category": "A",
+"no": 481,
+"page": 33,
+"text": "In Schedule TCS, “The Amount of TCS claimed this year” cannot be more than “Tax collected”.",
+"id": "ITR-2-A-481"
+},
+{
+"category": "A",
+"no": 482,
+"page": 33,
+"text": "In \"Schedule IT\" Total of Column 5 \"Amount\" Should be equal to sum of amount entered in amount column",
+"id": "ITR-2-A-482"
+},
+{
+"category": "A",
+"no": 483,
+"page": 33,
+"text": "In \"Schedule Part B-TTI\" in 15( c) of TCS should be equal to the value entered in total of column 7(i) of 20D",
+"id": "ITR-2-A-483"
+},
+{
+"category": "A",
+"no": 484,
+"page": 33,
+"text": "In Schedule TCS, Total TCS claimed should be equal to sum of individual values",
+"id": "ITR-2-A-484"
+},
+{
+"category": "A",
+"no": 485,
+"page": 33,
+"text": "In Schedule TDS2 (Other than salary), \"Unclaimed TDS brought forward and details of TDS of current FY should be provided in different rows in Sch TDS 2\"",
+"id": "ITR-2-A-485"
+},
+{
+"category": "A",
+"no": 486,
+"page": 33,
+"text": "In schedule TDS Other than Salary, TDS claimed cannot be more than Gross income disclosed",
+"id": "ITR-2-A-486"
+},
+{
+"category": "A",
+"no": 487,
+"page": 33,
+"text": "Corresponding Receipts/withdrawals offered - \"Gross Amount (Col 11)\" and \"Head of Income (Col 12)\" are to be filled since TDS is claimed in column 9 of TDS2.",
+"id": "ITR-2-A-487"
+},
+{
+"category": "A",
+"no": 488,
+"page": 33,
+"text": "Corresponding Receipts/withdrawals offered - \"Gross Amount (Col 11)\" and \"Head of Income (Col 12)\" are to be filled since TDS is claimed in column 6 of TDS3.",
+"id": "ITR-2-A-488"
+},
+{
+"category": "A",
+"no": 489,
+"page": 34,
+"text": "In field \"TDS claimed\" amount entered cannot be more than sum of amount filled in \"TDS b/f\" and \"TDS Deducted\".",
+"id": "ITR-2-A-489"
+},
+{
+"category": "A",
+"no": 490,
+"page": 34,
+"text": "In field \"TDS claimed\" amount entered cannot be more than sum of amount filled in \"TDS b/f\" and \"TDS Deducted\".",
+"id": "ITR-2-A-490"
+},
+{
+"category": "A",
+"no": 491,
+"page": 34,
+"text": "HUF cannot have TDS on salary.",
+"id": "ITR-2-A-491"
+},
+{
+"category": "A",
+"no": 492,
+"page": 34,
+"text": "In Schedule TDS (2)/(3), TDS credit relating to other person is selected than the PAN of other person should be provided.",
+"id": "ITR-2-A-492"
+},
+{
+"category": "A",
+"no": 493,
+"page": 34,
+"text": "In Schedule TDS (2)/(3), if TDS credit relating to other person is selected then TAN of the Deductor/ PAN of Tenant/ Buyer should not be filled.",
+"id": "ITR-2-A-493"
+},
+{
+"category": "A",
+"no": 494,
+"page": 34,
+"text": "In Schedule TDS from salary, “Total tax deducted\" cannot be more than \"Income chargeable under the head Salary\".",
+"id": "ITR-2-A-494"
+},
+{
+"category": "A",
+"no": 495,
+"page": 34,
+"text": "TDS on Salary can be claimed only if respective Salary income is disclosed in Salary Schedule.",
+"id": "ITR-2-A-495"
+},
+{
+"category": "A",
+"no": 496,
+"page": 34,
+"text": "In Schedule TCS, Unclaimed TCS brought forward & details of TCS of current FY cannot be entered in same rows",
+"id": "ITR-2-A-496"
+},
+{
+"category": "A",
+"no": 497,
+"page": 34,
+"text": "TCS Claimed in own hands & in hands of any other person, shall not exceed TCS brought forward, TCS collected in own hands & Collected in the hands of spouse as per section 5A or any other person as per rule 37-I(1) in schedule TCS",
+"id": "ITR-2-A-497"
+},
+{
+"category": "A",
+"no": 498,
+"page": 34,
+"text": "In Schedule TCS, TCS credit relating to other person is selected but the PAN of other person is not provided or TCS credit is claimed in other person's hand but PAN of other person is not provided",
+"id": "ITR-2-A-498"
+},
+{
+"category": "A",
+"no": 499,
+"page": 34,
+"text": "In Schedule TCS, applicable dropdown in column 2(i) should be selected",
+"id": "ITR-2-A-499"
+},
+{
+"category": "A",
+"no": 500,
+"page": 34,
+"text": "In schedule TCS, Tax deduction and Tax collection account no. of the collector should be provided",
+"id": "ITR-2-A-500"
+},
+{
+"category": "A",
+"no": 501,
+"page": 34,
+"text": "In Schedule TCS, column 8, 'TCS credit being carried forward' should be equal to column 5 + column 6 - column 7",
+"id": "ITR-2-A-501"
+},
+{
+"category": "A",
+"no": 502,
+"page": 34,
+"text": "In Schedule TDS2, column 13, 'TDS credit being carried forward' should be equal to column 6 + 7 + 8 - 9 – 10",
+"id": "ITR-2-A-502"
+},
+{
+"category": "A",
+"no": 503,
+"page": 34,
+"text": "In Schedule ESOP \"Balance amount of tax deferred to be carried forward to be next Assessment years\" Sl.no 8 should be equal to Sl.no 3-7",
+"id": "ITR-2-A-503"
+},
+{
+"category": "A",
+"no": 504,
+"page": 34,
+"text": "In Schedule ESOP \"Balance amount of tax deferred to be carried forward to be next Assessment years\" Sl.no 8 should be equal to Sl.no 3b of Part B-TTI",
+"id": "ITR-2-A-504"
+},
+{
+"category": "A",
+"no": 505,
+"page": 34,
+"text": "In Schedule ESOP If Sl.no 4, option selected as 'Not sold' AND If in Sl.no 5, option selected as 'No', then Sl.no 7 should be as Zero",
+"id": "ITR-2-A-505"
+},
+{
+"category": "A",
+"no": 506,
+"page": 34,
+"text": "In Schedule ESOP if Sl. No. 5 is selected as \"Yes\", then Sl.no 7 should be auto populated from Sl.no 3,",
+"id": "ITR-2-A-506"
+},
+{
+"category": "A",
+"no": 507,
+"page": 35,
+"text": "Assessee with total income exceeding Rs. 7,00,000 subject to marginal relief (if any) cannot claim Rebate u/s 87A. Please refer to section 87A of Income tax act, 1961.",
+"id": "ITR-2-A-507"
+},
+{
+"category": "A",
+"no": 508,
+"page": 35,
+"text": "If Old tax regime is selected, then value in the field \"Rebate u/s 87A\" should not be more than Rs.12,500.",
+"id": "ITR-2-A-508"
+},
+{
+"category": "A",
+"no": 509,
+"page": 35,
+"text": "\"Losses of current year to be carried forward\" at \"Part B TI\" should be equal to \"Total of Current Year Losses\" of Schedule CFL.",
+"id": "ITR-2-A-509"
+},
+{
+"category": "A",
+"no": 510,
+"page": 35,
+"text": "Tax computation has been disclosed but GTI (Gross Total Income) is Nil or 0.",
+"id": "ITR-2-A-510"
+},
+{
+"category": "A",
+"no": 511,
+"page": 35,
+"text": "The value in pt.3av -\"Total Short term \" in Part B TI should be equal to total of pt. (3aia+3aib + 3aii + 3aiii +3aiv)",
+"id": "ITR-2-A-511"
+},
+{
+"category": "A",
+"no": 512,
+"page": 35,
+"text": "The value in pt.3biv -\"Total Long term\" in Part B TI should be equal to total of pt. (3bia+3bib+3bii+3biii)",
+"id": "ITR-2-A-512"
+},
+{
+"category": "A",
+"no": 513,
+"page": 35,
+"text": "In Schedule Part BTI, the amount of \"Total Capital Gains\" should be equal to the sum of \"Short Term and Long Term Capital Gains\".",
+"id": "ITR-2-A-513"
+},
+{
+"category": "A",
+"no": 514,
+"page": 35,
+"text": "\"Total Income from other sources\" at Schedule B TI is different with the sum of \"Individual incomes from Other Sources head\".",
+"id": "ITR-2-A-514"
+},
+{
+"category": "A",
+"no": 515,
+"page": 35,
+"text": "The Total value of all heads of income should be equal to sum of individual heads of income.",
+"id": "ITR-2-A-515"
+},
+{
+"category": "A",
+"no": 516,
+"page": 35,
+"text": "Tax Payments claimed in \"Part B-TTI\" should be equal to claims made in Schedule TDS/TCS/Schedule IT.",
+"id": "ITR-2-A-516"
+},
+{
+"category": "A",
+"no": 517,
+"page": 35,
+"text": "Schedule Salary is mandatory to fill if Income claimed under the head Salaries in Part B-TI.",
+"id": "ITR-2-A-517"
+},
+{
+"category": "A",
+"no": 518,
+"page": 35,
+"text": "Schedule HP is mandatory to fill if Income claimed under the head House Property in Part B TI.",
+"id": "ITR-2-A-518"
+},
+{
+"category": "A",
+"no": 519,
+"page": 35,
+"text": "Income claimed in STCG chargeable @15%, \"Table E in Schedule CG\" should be filled.",
+"id": "ITR-2-A-519"
+},
+{
+"category": "A",
+"no": 520,
+"page": 35,
+"text": "Income claimed in STCG chargeable @30%, then \"Table E in Schedule CG\" should be filled.",
+"id": "ITR-2-A-520"
+},
+{
+"category": "A",
+"no": 521,
+"page": 35,
+"text": "Income claimed in STCG is chargeable at applicable rate, then \"Table E in Schedule CG\" should be filled",
+"id": "ITR-2-A-521"
+},
+{
+"category": "A",
+"no": 522,
+"page": 35,
+"text": "Income claimed under the head Short-term chargeable at special rates in India as per DTAA in Part B TI, should be consistent with the amount mentioned in Schedule CG",
+"id": "ITR-2-A-522"
+},
+{
+"category": "A",
+"no": 523,
+"page": 35,
+"text": "Income claimed in LTCG chargeable @10%, then \"Table E in Schedule CG\" should be filled",
+"id": "ITR-2-A-523"
+},
+{
+"category": "A",
+"no": 524,
+"page": 35,
+"text": "Income claimed in LTCG chargeable @20%, then \"Table E in Schedule CG\" should be filled",
+"id": "ITR-2-A-524"
+},
+{
+"category": "A",
+"no": 525,
+"page": 36,
+"text": "Income claimed under the head Long term chargeable at special rates in India as per DTAA in Part B TI, should be consistent with the amount mentioned in Schedule CG",
+"id": "ITR-2-A-525"
+},
+{
+"category": "A",
+"no": 526,
+"page": 36,
+"text": "\"Income from sources other than from owning Race Horses & Income chargeable at special rate\" is claimed at Schedule Part B TI, then Sch OS should be filled.",
+"id": "ITR-2-A-526"
+},
+{
+"category": "A",
+"no": 527,
+"page": 36,
+"text": "\"Income chargeable to tax at special rate\" is claimed at Schedule Part B TI, then “Schedule OS\" should be filled",
+"id": "ITR-2-A-527"
+},
+{
+"category": "A",
+"no": 528,
+"page": 36,
+"text": "\"Income from the activity of owning and maintaining race horses\" is claimed at Schedule Part B TI, then \"Schedule OS\" should be filled",
+"id": "ITR-2-A-528"
+},
+{
+"category": "A",
+"no": 529,
+"page": 36,
+"text": "\"Losses of the current year set off against income from all the heads\" should be equal to \"Total losses set off\" at Schedule CYLA.",
+"id": "ITR-2-A-529"
+},
+{
+"category": "A",
+"no": 530,
+"page": 36,
+"text": "Brought forward losses set off against Balance Income should be equal to \"Total of brought forward losses set off\" at Schedule BFLA.",
+"id": "ITR-2-A-530"
+},
+{
+"category": "A",
+"no": 531,
+"page": 36,
+"text": "Gross Total Income should be equal to the sum of the Incomes individually offered.",
+"id": "ITR-2-A-531"
+},
+{
+"category": "A",
+"no": 532,
+"page": 36,
+"text": "\"Total Income\" should be equal to \"Gross Total Income minus Chapter VI-A deductions after considering rounding-off\".",
+"id": "ITR-2-A-532"
+},
+{
+"category": "A",
+"no": 533,
+"page": 36,
+"text": "If deductions claimed at \"Part B TI\", then \"Schedule VI-A\" should be filled.",
+"id": "ITR-2-A-533"
+},
+{
+"category": "A",
+"no": 534,
+"page": 36,
+"text": "In \"Schedule Part B-TI\" Net agricultural income/ any other income for rate purpose should be equal to the value entered in Sl. No. 2 of Schedule EI",
+"id": "ITR-2-A-534"
+},
+{
+"category": "A",
+"no": 535,
+"page": 36,
+"text": "In \"Schedule Part B-TI\" in '11' Deductions under Chapter VI-A should be equal to the value entered in \"v\" of Schedule VIA or (9-10) of PART-BTI, whichever is lower.",
+"id": "ITR-2-A-535"
+},
+{
+"category": "A",
+"no": 536,
+"page": 36,
+"text": "In \"Schedule Part B-TI\", at Sl. No. '7' Balance after set off in the current year losses should be equal to value of Sl. No. 5 - Sl. No. 6 of Schedule Part BTI",
+"id": "ITR-2-A-536"
+},
+{
+"category": "A",
+"no": 537,
+"page": 36,
+"text": "In Part BTI, Sl. No. 17 Deemed income under section 115JC should be equal to Sl. No. .3 of Schedule AMT",
+"id": "ITR-2-A-537"
+},
+{
+"category": "A",
+"no": 538,
+"page": 36,
+"text": "In \"Schedule Part B-TI\", Sl. No.'15' Aggregate income should be equal to the sum of 12-13+14",
+"id": "ITR-2-A-538"
+},
+{
+"category": "A",
+"no": 539,
+"page": 36,
+"text": "Taxpayer cannot offer income chargeable at special rates in Schedule Part B-TI without mentioning the same in respective schedules",
+"id": "ITR-2-A-539"
+},
+{
+"category": "A",
+"no": 540,
+"page": 36,
+"text": "In schedule Part B-TI, Income offered in Capital gain chargeable @ 30% u/s 115BBH, is not matching with Sl. No. C2 of Sch CG",
+"id": "ITR-2-A-540"
+},
+{
+"category": "A",
+"no": 541,
+"page": 36,
+"text": "Amount of \"Total Capital Gains\" is not equal to sum of Sl. No. 3c 'Sum of Short- term/Long-term capital gains' & 3d 'Capital gain chargeable @ 30% u/s 115BBH'.",
+"id": "ITR-2-A-541"
+},
+{
+"category": "A",
+"no": 542,
+"page": 36,
+"text": "HUF cannot claim relief u/s 89",
+"id": "ITR-2-A-542"
+},
+{
+"category": "A",
+"no": 543,
+"page": 36,
+"text": "In \"Schedule Part B-TTI\" Tax payable on deemed total income under section 115JC should be equal to the 4 of schedule AMT.",
+"id": "ITR-2-A-543"
+},
+{
+"category": "A",
+"no": 544,
+"page": 37,
+"text": "In Schedule Part BTTI, Credit under section 115JD of tax paid in earlier years should be equal to Sl. No. 5 of Schedule AMTC.",
+"id": "ITR-2-A-544"
+},
+{
+"category": "A",
+"no": 545,
+"page": 37,
+"text": "If Old Tax regime is selected, In Part B TTI Sl. No. 1a should be equal to sl. No. 4 of Schedule AMT",
+"id": "ITR-2-A-545"
+},
+{
+"category": "A",
+"no": 546,
+"page": 37,
+"text": "In \"Schedule Part B TTI\" 15d Self-Assessment Tax should be equal to the sum of total Tax Paid in schedule IT where date of deposit is after 31/03/2025 for A.Y 2025-26.",
+"id": "ITR-2-A-546"
+},
+{
+"category": "A",
+"no": 547,
+"page": 37,
+"text": "In \"Schedule Part B TTI\" point 15a \"Advance Tax\" paid should be equal to the sum of total Tax Paid in schedule IT where date of deposit is between 01/04/2024 and 31/03/2025.",
+"id": "ITR-2-A-547"
+},
+{
+"category": "A",
+"no": 548,
+"page": 37,
+"text": "If old tax regime is selected, then In Schedule Part BTTI, SL.no 1d Total tax payable on deemed total income (1a+1b+1c) should be equal to sum of Sl.no. 1a+1b+1c",
+"id": "ITR-2-A-548"
+},
+{
+"category": "A",
+"no": 549,
+"page": 37,
+"text": "\"Tax Payable on Total Income\" should be equal to Normal Tax plus Special Tax minus Rebate on Agricultural Income.",
+"id": "ITR-2-A-549"
+},
+{
+"category": "A",
+"no": 550,
+"page": 37,
+"text": "The amount at \"Tax payable\" should be equal to the amount of Tax Payable on Total Income minus Rebate u/s 87A.",
+"id": "ITR-2-A-550"
+},
+{
+"category": "A",
+"no": 551,
+"page": 37,
+"text": "The amount at \"Gross tax liability\" should be equal to the sum of (Tax Payable, Surcharge & Education Cess)",
+"id": "ITR-2-A-551"
+},
+{
+"category": "A",
+"no": 552,
+"page": 37,
+"text": "\"Relief claimed under section 90/90A in Part B TTI\" should be equal to \"Amount entered in Schedule TR\"",
+"id": "ITR-2-A-552"
+},
+{
+"category": "A",
+"no": 553,
+"page": 37,
+"text": "\"Relief claimed under section 91 in Part B TTI\" should be equal to \"Amount entered in Schedule TR\"",
+"id": "ITR-2-A-553"
+},
+{
+"category": "A",
+"no": 554,
+"page": 37,
+"text": "\"Total Tax Relief\" should be equal to the sum of (Relief u/s 89, Relief u/s 90/90A and Relief u/s 91).",
+"id": "ITR-2-A-554"
+},
+{
+"category": "A",
+"no": 555,
+"page": 37,
+"text": "\"Total Interest and Fee Payable\" should be equal to \"Interest u/s 234A + 234B + 234C+ Fee payable u/s 234F\"",
+"id": "ITR-2-A-555"
+},
+{
+"category": "A",
+"no": 556,
+"page": 37,
+"text": "\"Aggregate liability\" should be equal to the sum of \"Net tax liability plus Total Interest Payable\"",
+"id": "ITR-2-A-556"
+},
+{
+"category": "A",
+"no": 557,
+"page": 37,
+"text": "\"Total Taxes Paid\" should be equal to the sum of \"Advance Tax, TDS, TCS & Self- Assessment Tax\"",
+"id": "ITR-2-A-557"
+},
+{
+"category": "A",
+"no": 558,
+"page": 37,
+"text": "IFSC under \"Bank Details\" should match with the RBI database",
+"id": "ITR-2-A-558"
+},
+{
+"category": "A",
+"no": 559,
+"page": 37,
+"text": "Rebate u/s 87A is not allowed to Non-resident.",
+"id": "ITR-2-A-559"
+},
+{
+"category": "A",
+"no": 560,
+"page": 37,
+"text": "Rebate u/s 87A is not allowed to HUF.",
+"id": "ITR-2-A-560"
+},
+{
+"category": "A",
+"no": 561,
+"page": 37,
+"text": "If old tax regime is selected & sl. no. 12 of part B-TI (i.e. total income) is more than Rs. 5 lakhs, then Rebate u/s 87A cannot be claimed by Resident or Resident but not Ordinarily Resident Individual.",
+"id": "ITR-2-A-561"
+},
+{
+"category": "A",
+"no": 562,
+"page": 38,
+"text": "Refund claimed should match with the difference of “Total Taxes Paid” and “Total Tax and Interest payable”.",
+"id": "ITR-2-A-562"
+},
+{
+"category": "A",
+"no": 563,
+"page": 38,
+"text": "Tax payable Amount should match with the difference of “Total Tax and “Interest payable” and “Total Taxes Paid”.",
+"id": "ITR-2-A-563"
+},
+{
+"category": "A",
+"no": 564,
+"page": 38,
+"text": "\"Income details\" and \"Tax computation\" should be disclosed where details regarding “Taxes Paid” have been disclosed.",
+"id": "ITR-2-A-564"
+},
+{
+"category": "A",
+"no": 565,
+"page": 38,
+"text": "In \"Schedule Part B-TTI\", Gross tax payable should be higher of Total Tax Payable on deemed total income or Gross tax liability.",
+"id": "ITR-2-A-565"
+},
+{
+"category": "A",
+"no": 566,
+"page": 38,
+"text": "In Schedule Part BTTI, Sl. No. 10 Tax payable after credit u/s 115JD should be equal to sum of Sl. No. 8a + 8c – 9",
+"id": "ITR-2-A-566"
+},
+{
+"category": "A",
+"no": 567,
+"page": 38,
+"text": "In Schedule Part BTTI, Sl. No. 12 Net tax liability should be equal to Sl. No. 10-11e",
+"id": "ITR-2-A-567"
+},
+{
+"category": "A",
+"no": 568,
+"page": 38,
+"text": "Relief u/s 89 cannot be claimed by taxpayer if details of salary are \"zero\"/ \"blank\"",
+"id": "ITR-2-A-568"
+},
+{
+"category": "A",
+"no": 569,
+"page": 38,
+"text": "If new tax regime is selected, In Schedule Part B TTI, Sl. No. 1a to 1d should not be more than zero.",
+"id": "ITR-2-A-569"
+},
+{
+"category": "A",
+"no": 570,
+"page": 38,
+"text": "In Schedule Part B TTI, Sl. No. 8a + 8b should be equal to Sl.No.8.",
+"id": "ITR-2-A-570"
+},
+{
+"category": "A",
+"no": 571,
+"page": 38,
+"text": "In Sl. No 8c, figure is not equal to Col 7 of Schedule Tax Deferred on ESOP",
+"id": "ITR-2-A-571"
+},
+{
+"category": "A",
+"no": 572,
+"page": 38,
+"text": "Since your status is HUF, remove all the field filed in Schedule Tax Deferred on ESOP",
+"id": "ITR-2-A-572"
+},
+{
+"category": "A",
+"no": 573,
+"page": 38,
+"text": "Deduction u/s 80GGC can be claimed for the Contributions made between period 01.04.2024 to 31.03.2025 for AY 2025-26.",
+"id": "ITR-2-A-573"
+},
+{
+"category": "A",
+"no": 574,
+"page": 38,
+"text": "HUF can claim deductions u/s 80DD for dependent being \"Member of HUF\"",
+"id": "ITR-2-A-574"
+},
+{
+"category": "A",
+"no": 575,
+"page": 38,
+"text": "If the property is co-owned, the percentage share of property and Name & PAN of co- owner(s) is mandatory.",
+"id": "ITR-2-A-575"
+},
+{
+"category": "A",
+"no": 576,
+"page": 38,
+"text": "Option out of opting in for new tax regime is not available after due date of filing of return as mentioned u/s 139(1)",
+"id": "ITR-2-A-576"
+},
+{
+"category": "A",
+"no": 577,
+"page": 38,
+"text": "In Table E of Schedule CG, Sum of amount of set off claimed cannot exceed the income available for set off- STCG 15%.",
+"id": "ITR-2-A-577"
+},
+{
+"category": "A",
+"no": 578,
+"page": 38,
+"text": "In Table E of Schedule CG, Sum of amount of set off claimed cannot exceed the income available for set off- STCG 20%.",
+"id": "ITR-2-A-578"
+},
+{
+"category": "A",
+"no": 579,
+"page": 38,
+"text": "In Table E of Schedule CG, Sum of amount of set off claimed cannot exceed the income available for set off- STCG 30%.",
+"id": "ITR-2-A-579"
+},
+{
+"category": "A",
+"no": 580,
+"page": 38,
+"text": "In Table E of Schedule CG, Sum of amount of set off claimed cannot exceed the income available for set off- STCG Applicable rates%.",
+"id": "ITR-2-A-580"
+},
+{
+"category": "A",
+"no": 581,
+"page": 38,
+"text": "In Table E of Schedule CG, Sum of amount of set off claimed cannot exceed the income available for set off- STCG DTAA rates.",
+"id": "ITR-2-A-581"
+},
+{
+"category": "A",
+"no": 582,
+"page": 39,
+"text": "In Table E of Schedule CG, Sum of amount of set off claimed cannot exceed the income available for set off- LTCG 10%.",
+"id": "ITR-2-A-582"
+},
+{
+"category": "A",
+"no": 583,
+"page": 39,
+"text": "In Table E of Schedule CG, Sum of amount of set off claimed cannot exceed the income available for set off- LTCG 12.5%.",
+"id": "ITR-2-A-583"
+},
+{
+"category": "A",
+"no": 584,
+"page": 39,
+"text": "In Table E of Schedule CG, Sum of amount of set off claimed cannot exceed the income available for set off- LTCG 20%.",
+"id": "ITR-2-A-584"
+},
+{
+"category": "A",
+"no": 585,
+"page": 39,
+"text": "In Table E of Schedule CG, Sum of amount of set off claimed cannot exceed the income available for set off- LTCG DTAA Rates.",
+"id": "ITR-2-A-585"
+},
+{
+"category": "A",
+"no": 586,
+"page": 39,
+"text": "In Table E of Schedule CG, Sum of amount of set off claimed cannot exceed the losses available for set off- STCL15%.",
+"id": "ITR-2-A-586"
+},
+{
+"category": "A",
+"no": 587,
+"page": 39,
+"text": "In Table E of Schedule CG, Sum of amount of set off claimed cannot exceed the losses available for set off- STCL20%.",
+"id": "ITR-2-A-587"
+},
+{
+"category": "A",
+"no": 588,
+"page": 39,
+"text": "In Table E of Schedule CG, Sum of amount of set off claimed cannot exceed the losses available for set off- STCL30%.",
+"id": "ITR-2-A-588"
+},
+{
+"category": "A",
+"no": 589,
+"page": 39,
+"text": "In Table E of Schedule CG, Sum of amount of set off claimed cannot exceed the losses available for set off- STCL Applicable rate%.",
+"id": "ITR-2-A-589"
+},
+{
+"category": "A",
+"no": 590,
+"page": 39,
+"text": "In Table E of Schedule CG, Sum of amount of set off claimed cannot exceed the losses available for set off- STCL_DTAA Rates",
+"id": "ITR-2-A-590"
+},
+{
+"category": "A",
+"no": 591,
+"page": 39,
+"text": "In Table E of Schedule CG, Sum of amount of set off claimed cannot exceed the losses available for set off- LTCL 10%",
+"id": "ITR-2-A-591"
+},
+{
+"category": "A",
+"no": 592,
+"page": 39,
+"text": "In Table E of Schedule CG, Sum of amount of set off claimed cannot exceed the losses available for set off- LTCL 12.5%",
+"id": "ITR-2-A-592"
+},
+{
+"category": "A",
+"no": 593,
+"page": 39,
+"text": "In Table E of Schedule CG, Sum of amount of set off claimed cannot exceed the losses available for set off- LTCL 20%",
+"id": "ITR-2-A-593"
+},
+{
+"category": "A",
+"no": 594,
+"page": 39,
+"text": "In Table E of Schedule CG, Sum of amount of set off claimed cannot exceed the losses available for set off- LTCL _DTAA Rates",
+"id": "ITR-2-A-594"
+},
+{
+"category": "A",
+"no": 595,
+"page": 39,
+"text": "In Table E of Schedule CG, Column 11 of each row should be equal to 1- (2+3+4+5+6+7+8+9+10)",
+"id": "ITR-2-A-595"
+},
+{
+"category": "A",
+"no": 596,
+"page": 39,
+"text": "In Table E of Schedule CG, Row (xii) 'Loss remaining after set off' should be equal to (i - xi)",
+"id": "ITR-2-A-596"
+},
+{
+"category": "A",
+"no": 597,
+"page": 39,
+"text": "In Schedule Part B-TI, Income disclosed in Short term chargeable @20% should be equal to Sl.no. 11iii of Table E in Schedule CG.",
+"id": "ITR-2-A-597"
+},
+{
+"category": "A",
+"no": 598,
+"page": 39,
+"text": "In Schedule Part B-TI, Income disclosed in Long term chargeable @12.5% should be equal to Sl.no. 11viii of Table E in Schedule CG.",
+"id": "ITR-2-A-598"
+},
+{
+"category": "A",
+"no": 599,
+"page": 39,
+"text": "In Schedule CYLA, Short term capital gain @20% should be equal to Sl. No. 11iii of item E of Schedule CG",
+"id": "ITR-2-A-599"
+},
+{
+"category": "A",
+"no": 600,
+"page": 40,
+"text": "In Schedule CYLA, Long term capital gain taxable @10% should be equal to Sl. No. 11viii of item E of Schedule CG",
+"id": "ITR-2-A-600"
+},
+{
+"category": "A",
+"no": 601,
+"page": 40,
+"text": "In Schedule CG, the beneficial rate of LTCG on sale of land or building or both is applicable only if the acquisition is before 23 July 2024 and transfer is on or after 23 July 2024",
+"id": "ITR-2-A-601"
+},
+{
+"category": "A",
+"no": 602,
+"page": 40,
+"text": "Indexation should not be allowed if the asset is transferred On or after 23 July 2024 in case of Non Residents.",
+"id": "ITR-2-A-602"
+},
+{
+"category": "A",
+"no": 603,
+"page": 40,
+"text": "In schedule CG, value at B1eii should be B1eiA- B1eiB, if eiA>eiB, else 0 if purchase was before 23rd July 2024 and date of sale is on after 23rd July. In other cases, it should be \"0\"",
+"id": "ITR-2-A-603"
+},
+{
+"category": "A",
+"no": 604,
+"page": 40,
+"text": "In Schedule CG, tax on LTCG from sale of land or building or both should be 20% in case of transfer is before 23 July for both Residents and Non Residents (also for Residents after 23rd July 2024 for purpose of second proviso to Sec 112(1)(a)) and 12.5% in case of transfer on or after 23 July 2024 for Non Residents",
+"id": "ITR-2-A-604"
+},
+{
+"category": "A",
+"no": 605,
+"page": 40,
+"text": "In Schedule CG, Long Term Capital Gains from listed securities referred in proviso to 112(1) and GDR of Indian company before 23 July 2024 and on or after 23 July 2024 should be equal to the total Long Term Capital Gains from such assets",
+"id": "ITR-2-A-605"
+},
+{
+"category": "A",
+"no": 606,
+"page": 40,
+"text": "In schedule CG, value at B3iie should be equal to B3iiei+B3iieii",
+"id": "ITR-2-A-606"
+},
+{
+"category": "A",
+"no": 607,
+"page": 40,
+"text": "In Schedule CG, value of capital gains u/s 112A (where transfer is before 23 July 2024) should be equal to the corresponding amount mentioned for the same in Schedule 112A",
+"id": "ITR-2-A-607"
+},
+{
+"category": "A",
+"no": 608,
+"page": 40,
+"text": "In Schedule CG, value of capital gains u/s 112A (where transfer is on or after 23 July 2024) should be equal to the corresponding amount mentioned for the same in Schedule 112A",
+"id": "ITR-2-A-608"
+},
+{
+"category": "A",
+"no": 609,
+"page": 40,
+"text": "In Schedule CG, Long Term Capital Gains from sale of shares or debentures of Indian Company in hands of Non residents before 23rd July 2024 (for listed debentures and other than listed debentures) and on or after 23rd July 2024(only listed shares and debentures) should be equal to the total LTCG from such shares or debentures",
+"id": "ITR-2-A-609"
+},
+{
+"category": "A",
+"no": 610,
+"page": 40,
+"text": "In schedule CG, value at sl.no. B5c should be same as B5ci+B5cii+B5ciii",
+"id": "ITR-2-A-610"
+},
+{
+"category": "A",
+"no": 611,
+"page": 40,
+"text": "In schedule CG, value at B6e should be equal to B6ei+B6eii+B6eiii",
+"id": "ITR-2-A-611"
+},
+{
+"category": "A",
+"no": 612,
+"page": 40,
+"text": "In Schedule CG, value of capital gains u/s 115AD(1)(b)(iii) proviso (where transfer is before 23 July 2024) should be equal to the corresponding amount mentioned for the same in Schedule 115AD(1)(b)(iii) proviso",
+"id": "ITR-2-A-612"
+},
+{
+"category": "A",
+"no": 613,
+"page": 40,
+"text": "In Schedule CG, value of capital gains u/s 115AD(1)(b)(iii) proviso (where transfer is on or after 23 July 2024) should be equal to the corresponding amount mentioned for the same in Schedule 115AD(1)(b)(iii) proviso",
+"id": "ITR-2-A-613"
+},
+{
+"category": "A",
+"no": 614,
+"page": 40,
+"text": "In schedule CG, value at sl.no. B8a should be same as B8ai+B8aii",
+"id": "ITR-2-A-614"
+},
+{
+"category": "A",
+"no": 615,
+"page": 40,
+"text": "In schedule CG, value at sl.no. B8c should be same as B8ci+B8cii",
+"id": "ITR-2-A-615"
+},
+{
+"category": "A",
+"no": 616,
+"page": 41,
+"text": "In schedule CG, value at sl.no. B8b should be same as B8bi+B8bii",
+"id": "ITR-2-A-616"
+},
+{
+"category": "A",
+"no": 617,
+"page": 41,
+"text": "In schedule CG, value at B9e should be equal to B9ei+B9eii",
+"id": "ITR-2-A-617"
+},
+{
+"category": "A",
+"no": 618,
+"page": 41,
+"text": "In Schedule CG, if any unutilized amount in Capital Gains Deposit Scheme is withdrawn then, whether date of limitation / withdrawal was before 23rd July 2024 should be mentioned",
+"id": "ITR-2-A-618"
+},
+{
+"category": "A",
+"no": 619,
+"page": 41,
+"text": "In schedule CG, value at sl.no. B10b should be same as B10bi+B10bii",
+"id": "ITR-2-A-619"
+},
+{
+"category": "A",
+"no": 620,
+"page": 41,
+"text": "In schedule CG, value at B10(i) should be equal to \"B10bi + sum of B10a where date of limitation / withdrawal was before 23rd July 2024\"",
+"id": "ITR-2-A-620"
+},
+{
+"category": "A",
+"no": 621,
+"page": 41,
+"text": "In schedule CG, value at B10(ii) is not equal to \"B10bii + sum of B10a where date of limitation / withdrawal was on or after 23rd July 2024\"",
+"id": "ITR-2-A-621"
+},
+{
+"category": "A",
+"no": 622,
+"page": 41,
+"text": "Value at field Ei3 should be equal to the sum of sl. no (A2e(ii)+ A3a(ii)+ A7a(ii)+A(A) @20%)",
+"id": "ITR-2-A-622"
+},
+{
+"category": "A",
+"no": 623,
+"page": 41,
+"text": "Value at field Eiii should be equal to the sum of sl. no A2e(ii)+ A3a(ii)+ A7a(ii)+A(A) @20%",
+"id": "ITR-2-A-623"
+},
+{
+"category": "A",
+"no": 624,
+"page": 41,
+"text": "Value at field Ei8 should be equal to the sum of sl. no (B1gb+ B3(i)eii+B3(ii)eii+ B4cii+ B5ciii +B6eii + B7cii +B8cii+ B9eii+ B10ii+ B11a1 (ii)+ B11a2(ii) + B(A)12.5%)",
+"id": "ITR-2-A-624"
+},
+{
+"category": "A",
+"no": 625,
+"page": 41,
+"text": "Value at field Eviii should be equal to the sum of sl. no (B1gb+ B3(i)eii+B3(ii)eii+ B4cii+ B5ciii +B6eii + B7cii +B8cii+ B9eii+ B10ii+ B11a1 (ii)+ B11a2(ii) + B(A)12.5%)",
+"id": "ITR-2-A-625"
+},
+{
+"category": "A",
+"no": 626,
+"page": 41,
+"text": "In schedule CG at table F total of all the quarter of field \"Short term capital gains taxable @ 20% rates\" should match with field 3(iiib) of schedule BFLA \"Short-term capital gain taxable 20%\" (Not applicable for Resident Senior Citizens)",
+"id": "ITR-2-A-626"
+},
+{
+"category": "A",
+"no": 627,
+"page": 41,
+"text": "In schedule CG at table F total of all the quarter of field \"Long term capital gains taxable @ 12.5% rates\" should match with field 3(viib) of schedule BFLA \"Long-term capital gain taxable @12.5%\" (Not applicable for Resident Senior Citizens)",
+"id": "ITR-2-A-627"
+},
+{
+"category": "A",
+"no": 628,
+"page": 41,
+"text": "In Schedule BFLA, Sl. No. 1iiib should be equal to Sl.No.4ivb of schedule CYLA",
+"id": "ITR-2-A-628"
+},
+{
+"category": "A",
+"no": 629,
+"page": 41,
+"text": "In Schedule BFLA, Sl. No. 1viib should be equal to Sl. No. 4viiib of schedule CYLA",
+"id": "ITR-2-A-629"
+},
+{
+"category": "A",
+"no": 630,
+"page": 41,
+"text": "Sum of income u/s 111A or section 115AD(1)(b)(ii)- Proviso (STCG on shares/equity- oriented MF on which STT paid) & Pass Through Income in the nature of Short-Term Capital Gain chargeable @ 20% in schedule SI should be equal to corresponding income as per schedule BFLA",
+"id": "ITR-2-A-630"
+},
+{
+"category": "A",
+"no": 631,
+"page": 41,
+"text": "In schedule CG, Sl. No. B1ca of LTCG Balance should be equal to B1(aiii-biva)",
+"id": "ITR-2-A-631"
+},
+{
+"category": "A",
+"no": 632,
+"page": 41,
+"text": "In schedule CG, Sl. No. B1ea of LTCG Balance should be equal to B1(ca - d)",
+"id": "ITR-2-A-632"
+},
+{
+"category": "A",
+"no": 633,
+"page": 42,
+"text": "Sum of capital gains from all properties where date of transfer was before 23rd July 2024 and where date of transfer was on or after 23rd July 2024 should be correctly reflected at B1g(a) and B1g(b) respectively",
+"id": "ITR-2-A-633"
+},
+{
+"category": "A",
+"no": 634,
+"page": 42,
+"text": "In Schedule CG, B4a should be equal to sum of B4ai + B4aii.",
+"id": "ITR-2-A-634"
+},
+{
+"category": "A",
+"no": 635,
+"page": 42,
+"text": "In Schedule CG, B4b should be equal to sum of B4bi + B4bii.",
+"id": "ITR-2-A-635"
+},
+{
+"category": "A",
+"no": 636,
+"page": 42,
+"text": "In Schedule CG, B5b should be equal to sum of B5bi + B4bii+B5biii.",
+"id": "ITR-2-A-636"
+},
+{
+"category": "A",
+"no": 637,
+"page": 42,
+"text": "In Schedule CG, B7a should be equal to sum of B7ai + B7aii.",
+"id": "ITR-2-A-637"
+},
+{
+"category": "A",
+"no": 638,
+"page": 42,
+"text": "In Schedule CG, B7b should be equal to sum of B7bi + B7bii.",
+"id": "ITR-2-A-638"
+},
+{
+"category": "A",
+"no": 639,
+"page": 42,
+"text": "In Schedule CG, B7c should be equal to sum of B7ci + B7cii.",
+"id": "ITR-2-A-639"
+},
+{
+"category": "A",
+"no": 640,
+"page": 42,
+"text": "Sum of income u/s 112(1) (LTCG on listed securities/ units without indexation),112(1)(c)(iii) (LTCG for non-resident on unlisted securities), 115AC (LTCG for non-resident on bonds/GDR), 115ACA (LTCG for an employee of specified company on GDR), 115E (LTCG for non-resident Indian on specified asset), 112 (LTCG on others), 112A or section 115AD(1)(iii)-Proviso (LTCG on sale of shares or units on which STT is paid), Pass Through Income in the nature of Long Term Capital Gain chargeable @ 12.5%-u/s 112A, Pass Through Income in the nature of Long Term Capital Gain chargeable @ 12.5% - u/s other than 112A should be equal to corresponding income as per schedule BFLA.",
+"id": "ITR-2-A-640"
+},
+{
+"category": "A",
+"no": 641,
+"page": 42,
+"text": "In Schedule CYLA Income from other sources taxable at special rates in India as per DTAA should be equal to SL.no. 2f of Schedule OS",
+"id": "ITR-2-A-641"
+},
+{
+"category": "A",
+"no": 642,
+"page": 42,
+"text": "In schedule BFLA 1(xii) \"Income from other sources taxable at special rates in India as per DTAA\" should match with 4(xiii) of schedule CYLA",
+"id": "ITR-2-A-642"
+},
+{
+"category": "A",
+"no": 643,
+"page": 42,
+"text": "In Schedule OS, quarterly break up of Dividend Income at 3b should be equal to \"Dividend Income referred in Sl. No. 1a(iii)-DTAA of Dividend. \" In Schedule OS",
+"id": "ITR-2-A-643"
+},
+{
+"category": "A",
+"no": 644,
+"page": 42,
+"text": "In schedule 112A, Value at field \"Total of Col 14 where transfer was before 23rd July 2024 \" is not matching with sum of individual fields of col 14 where dropdown is selected as \"Before 23rd July 2024 \" in 1b",
+"id": "ITR-2-A-644"
+},
+{
+"category": "A",
+"no": 645,
+"page": 42,
+"text": "In schedule 115AD, Value at field \"Total of Col 14 where transfer was before 23rd July 2024 \" is not matching with sum of individual fields of col 14 where dropdown is selected as \"Before 23rd July 2024 \" in 1b",
+"id": "ITR-2-A-645"
+},
+{
+"category": "A",
+"no": 646,
+"page": 42,
+"text": "Value at field A(A) should be equal to sum of values of drop downs 20% or 30% or applicable rate",
+"id": "ITR-2-A-646"
+},
+{
+"category": "A",
+"no": 647,
+"page": 42,
+"text": "Value at field B(A) should be equal to sum of values of drop down 12.5% or 10%",
+"id": "ITR-2-A-647"
+},
+{
+"category": "A",
+"no": 648,
+"page": 42,
+"text": "In Schedule CG, Table D, Sl. No. 1aiv,1biv and 1div are more than zero but details of iva, ivb and ivc are blank",
+"id": "ITR-2-A-648"
+},
+{
+"category": "A",
+"no": 649,
+"page": 43,
+"text": "In Schedule CG, Long Term Capital Gains from sale of Land or building or both before 23 July 2024 and on or after 23 July 2024 should be equal to the total Long Term Capital Gains from sale of Land or building or both",
+"id": "ITR-2-A-649"
+},
+{
+"category": "A",
+"no": 650,
+"page": 43,
+"text": "In schedule CG, in Table D, Deduction u/s 54EC of LTCG, amount invested should not be more than 50L",
+"id": "ITR-2-A-650"
+},
+{
+"category": "A",
+"no": 651,
+"page": 43,
+"text": "Sl.no.2 of Schedule 80D is not applicable for HUF",
+"id": "ITR-2-A-651"
+},
+{
+"category": "A",
+"no": 652,
+"page": 43,
+"text": "In schedule CG, Sl. No. B2 of LTCG, Total deduction u/s 54 should be equal to sum of deduction mentioned.",
+"id": "ITR-2-A-652"
+},
+{
+"category": "A",
+"no": 653,
+"page": 43,
+"text": "Sum of Improve cost in each L&B block should be equal to sum of all improve costs for such block of land and building in schedule CG under Long term capital gain",
+"id": "ITR-2-A-653"
+},
+{
+"category": "A",
+"no": 654,
+"page": 43,
+"text": "Sum of Indexed Improve cost in each L&B block should be equal to sum of all Indexed improve costs for such block of land and building in schedule CG under Long term capital gain",
+"id": "ITR-2-A-654"
+},
+{
+"category": "A",
+"no": 655,
+"page": 43,
+"text": "If New tax regime is selected, In schedule Salary, Standard deduction shall not be allowed more than the lower of Rs. 75,000 or Net Salary",
+"id": "ITR-2-A-655"
+},
+{
+"category": "A",
+"no": 656,
+"page": 43,
+"text": "In Schedule CG, if sl.no.6 in sl.no.B. in LTCG is being filled, then its mandatory to select the section code i.e., 115AD/112(1)(c ) or 115AC",
+"id": "ITR-2-A-656"
+},
+{
+"category": "A",
+"no": 657,
+"page": 43,
+"text": "Under New Tax Regime, deduction u/s 80CCD(2) should not exceed 14% of basic salary and dearness allowance",
+"id": "ITR-2-A-657"
+},
+{
+"category": "A",
+"no": 658,
+"page": 43,
+"text": "Please choose the same tax regime that the taxpayer selected in the return for which the response to the defective notice is being filed.",
+"id": "ITR-2-A-658"
+},
+{
+"category": "A",
+"no": 659,
+"page": 43,
+"text": "Kindly fill in the details of dividend in Sl. No. 1a(iii) of schedule OS if buy back loss is claimed in schedule CG",
+"id": "ITR-2-A-659"
+},
+{
+"category": "A",
+"no": 660,
+"page": 43,
+"text": "In schedule CG, Sl. No. B3i biva of LTCG Total should be equal to sum of B3i(bia+biia+biiia)",
+"id": "ITR-2-A-660"
+},
+{
+"category": "A",
+"no": 661,
+"page": 43,
+"text": "In schedule CG, Sl. No. B3 biv of LTCG Total should be equal to sum of B3(bi+bii+biii)",
+"id": "ITR-2-A-661"
+},
+{
+"category": "A",
+"no": 662,
+"page": 43,
+"text": "In schedule CG, Sl. No. B3(i)(ca) of LTCG Balance should be equal to B(3a-biva)",
+"id": "ITR-2-A-662"
+},
+{
+"category": "A",
+"no": 663,
+"page": 43,
+"text": "In Schedule CG Sl.no. B3(i)ea of LTCG should be the difference of B(3ca-3d)",
+"id": "ITR-2-A-663"
+},
+{
+"category": "A",
+"no": 664,
+"page": 43,
+"text": "In Schedule CG Sl.no. B3(i)e of LTCG should be equal to the sum of B3iei and B3ieii.",
+"id": "ITR-2-A-664"
+},
+{
+"category": "A",
+"no": 665,
+"page": 43,
+"text": "In Schedule CG, tax on LTCG from sale listed securities (other than a unit) or zero coupon bonds should be 20% in case of transfer is before 23 July.",
+"id": "ITR-2-A-665"
+},
+{
+"category": "A",
+"no": 666,
+"page": 43,
+"text": "In Schedule CG, tax on LTCG from sale listed securities (other than a unit) or zero coupon bonds as per 1st Proviso to section 112(1) should be 10% in case of transfer is before 23 July.",
+"id": "ITR-2-A-666"
+},
+{
+"category": "A",
+"no": 667,
+"page": 44,
+"text": "In schedule CG, value at B3ih should be [B3(f) – B3(g)] if transfer was before 23rd July 2024",
+"id": "ITR-2-A-667"
+},
+{
+"category": "A",
+"no": 668,
+"page": 44,
+"text": "In schedule CG,sl. No 2(i) of Table F Short-term capital gains taxable at the rate of 20% should not be more than zero",
+"id": "ITR-2-A-668"
+},
+{
+"category": "A",
+"no": 669,
+"page": 44,
+"text": "In schedule CG,sl. No 7(i) of Table F Long- term capital gains taxable at the rate of 12.5% should not be more than zero",
+"id": "ITR-2-A-669"
+},
+{
+"category": "A",
+"no": 670,
+"page": 44,
+"text": "In Schedule Salary, Nature of Exempt allowance can be selected as \"Exempt income received by a judge covered under the payment of salaries to Supreme Court/High Court judges Act /Rules\" only if nature of Employer is CG/SG",
+"id": "ITR-2-A-670"
+},
+{
+"category": "A",
+"no": 671,
+"page": 44,
+"text": "HRA u/s 10(13A) shall not be more than Actual rent paid after deducting 10% of basic salary and DA",
+"id": "ITR-2-A-671"
+},
+{
+"category": "A",
+"no": 672,
+"page": 44,
+"text": "HRA u/s 10(13A) shall not be more than 50% of basic salary and DA",
+"id": "ITR-2-A-672"
+},
+{
+"category": "A",
+"no": 673,
+"page": 44,
+"text": "In Table 10(13A) of schedule salary, the lowest of the following amounts shall be claimed as HRA exemption: A) Actual HRA received B) Actual rent paid- 10% of (salary+DA) C) 40% or 50% of (salary+DA)",
+"id": "ITR-2-A-673"
+},
+{
+"category": "A",
+"no": 674,
+"page": 44,
+"text": "\"Table 10(13A) of schedule salary\" needs to be filled for claiming exempt allowance u/s 10(13A)",
+"id": "ITR-2-A-674"
+},
+{
+"category": "A",
+"no": 675,
+"page": 44,
+"text": "Sum of Basic salary, dearness allowance as per Table 10(13A) of schedule salary and actual HRA received shall not be more than salary as per section 17(1) under Income details",
+"id": "ITR-2-A-675"
+},
+{
+"category": "A",
+"no": 676,
+"page": 44,
+"text": "In schedule House property, value of \"Interest payable on borrowed capital\" should be same as the \"Total Interest on Borrowed capital u/s 24(b)\" as per schedule 24(b)",
+"id": "ITR-2-A-676"
+},
+{
+"category": "A",
+"no": 677,
+"page": 44,
+"text": "In Table 24(b) of Schedule HP, the sum of individual rows for \"Interest on Borrowed capital u/s 24(b)\" shall match with the \"Total Interest on borrowed capital u/s 24(b)\" as per Table 24(b)",
+"id": "ITR-2-A-677"
+},
+{
+"category": "A",
+"no": 678,
+"page": 44,
+"text": "Interest on borrowed capital can’t be claimed in case of Self occupied house property under new tax regime",
+"id": "ITR-2-A-678"
+},
+{
+"category": "A",
+"no": 679,
+"page": 44,
+"text": "Details of loan taken need to be provided for claiming Interest on borrowed capital u/s 24(b) in Table 24(b) of Schedule HP",
+"id": "ITR-2-A-679"
+},
+{
+"category": "A",
+"no": 680,
+"page": 44,
+"text": "Name of the Insurer and Policy number are required to be provided in schedule 80D to claim deduction for health insurance at sl. No. 1a (i)",
+"id": "ITR-2-A-680"
+},
+{
+"category": "A",
+"no": 681,
+"page": 44,
+"text": "Name of the Insurer and Policy number are required to be provided in schedule 80D to claim deduction for health insurance at sl. No. 1b (i)",
+"id": "ITR-2-A-681"
+},
+{
+"category": "A",
+"no": 682,
+"page": 44,
+"text": "Name of the Insurer and Policy number are required to be provided in schedule 80D to claim deduction for health insurance at sl. No. 2a (i)",
+"id": "ITR-2-A-682"
+},
+{
+"category": "A",
+"no": 683,
+"page": 45,
+"text": "Name of the Insurer and Policy number are required to be provided in schedule 80D to claim deduction for health insurance at sl. No. 2b (i)",
+"id": "ITR-2-A-683"
+},
+{
+"category": "A",
+"no": 684,
+"page": 45,
+"text": "In schedule 80D, breakup of individual rows for \"Health Insurance amount\" shall match with the health insurance premium entered by the user under \"Health insurance\" at sl.no.1a",
+"id": "ITR-2-A-684"
+},
+{
+"category": "A",
+"no": 685,
+"page": 45,
+"text": "In schedule 80D, breakup of individual rows for \"Health Insurance amount\" shall match with the health insurance premium entered by the user under \"Health insurance\" at sl.no.1b",
+"id": "ITR-2-A-685"
+},
+{
+"category": "A",
+"no": 686,
+"page": 45,
+"text": "In schedule 80D, breakup of individual rows for \"Health Insurance amount\" shall match with the health insurance premium entered by the user under \"Health insurance\" at sl.no.2a",
+"id": "ITR-2-A-686"
+},
+{
+"category": "A",
+"no": 687,
+"page": 45,
+"text": "In schedule 80D, breakup of individual rows for \"Health Insurance amount\" shall match with the health insurance premium entered by the user under \"Health insurance\" at sl.no.2b",
+"id": "ITR-2-A-687"
+},
+{
+"category": "A",
+"no": 688,
+"page": 45,
+"text": "Form 10IA needs to be filed separately for claiming Deduction u/s 80U and 80DD respectively.",
+"id": "ITR-2-A-688"
+},
+{
+"category": "A",
+"no": 689,
+"page": 45,
+"text": "Deduction u/s 80EE / 80EEA can be claimed when the limit u/s 24(b) is exhausted.",
+"id": "ITR-2-A-689"
+},
+{
+"category": "A",
+"no": 690,
+"page": 45,
+"text": "As the deduction u/s 80EE can be claimed over and above deduction u/s 24(b), details of loan taken in schedule 80EE should be part of the details disclosed in Table 24(b) of Schedule HP",
+"id": "ITR-2-A-690"
+},
+{
+"category": "A",
+"no": 691,
+"page": 45,
+"text": "As the deduction u/s 80EEA can be claimed over and above deduction u/s 24(b), details of loan taken in schedule 80EEA should be part of the details disclosed in Table 24(b) of Schedule HP",
+"id": "ITR-2-A-691"
+},
+{
+"category": "A",
+"no": 692,
+"page": 45,
+"text": "Details of loan need to be provided for claiming deduction u/s 80E in schedule 80E",
+"id": "ITR-2-A-692"
+},
+{
+"category": "A",
+"no": 693,
+"page": 45,
+"text": "Details of loan need to be provided for claiming deduction u/s 80EE in schedule 80EE",
+"id": "ITR-2-A-693"
+},
+{
+"category": "A",
+"no": 694,
+"page": 45,
+"text": "Deduction u/s 80EE can be claimed only if maximum loan taken does not exceed Rs. 35 lakhs against the property",
+"id": "ITR-2-A-694"
+},
+{
+"category": "A",
+"no": 695,
+"page": 45,
+"text": "\"Details of Bank from which loan is taken\" needs to be provided for claiming deduction u/s 80EEA in schedule 80EEA",
+"id": "ITR-2-A-695"
+},
+{
+"category": "A",
+"no": 696,
+"page": 45,
+"text": "Deduction u/s 80EEA can be claimed only on the residential house property having stamp value upto Rs.45 Lakhs",
+"id": "ITR-2-A-696"
+},
+{
+"category": "A",
+"no": 697,
+"page": 45,
+"text": "The Date of sanction of loan under schedule 80EEA shall be between 01.04.2019 and 31.03.2022",
+"id": "ITR-2-A-697"
+},
+{
+"category": "A",
+"no": 698,
+"page": 45,
+"text": "Details of loan need to be provided for claiming deduction u/s 80EEB in schedule 80EEB",
+"id": "ITR-2-A-698"
+},
+{
+"category": "A",
+"no": 699,
+"page": 46,
+"text": "The Date of sanction of loan under schedule 80EEB shall be between 01.04.2019 and 31.03.2023",
+"id": "ITR-2-A-699"
+},
+{
+"category": "A",
+"no": 700,
+"page": 46,
+"text": "Deduction u/s 80E in schedule VIA should match with the \"Total Interest u/s 80E\" as per schedule 80E",
+"id": "ITR-2-A-700"
+},
+{
+"category": "A",
+"no": 701,
+"page": 46,
+"text": "Deduction u/s 80EE in schedule VIA should match with the \"Total Interest u/s 80EE\" as per schedule 80EE",
+"id": "ITR-2-A-701"
+},
+{
+"category": "A",
+"no": 702,
+"page": 46,
+"text": "Deduction u/s 80EEA in schedule VIA should match with the \"Total Interest u/s 80EEA\" as per schedule 80EEA",
+"id": "ITR-2-A-702"
+},
+{
+"category": "A",
+"no": 703,
+"page": 46,
+"text": "Deduction u/s 80EEB in schedule VIA should match with the \"Total Interest u/s 80EEB\" as per schedule 80EEB",
+"id": "ITR-2-A-703"
+},
+{
+"category": "A",
+"no": 704,
+"page": 46,
+"text": "In schedule 80E the sum of individual rows for \"Interest u/s 80E\" shall match with the \"Total Interest u/s 80E\" as per the schedule 80E",
+"id": "ITR-2-A-704"
+},
+{
+"category": "A",
+"no": 705,
+"page": 46,
+"text": "In schedule 80EE the sum of individual rows for \"Interest u/s 80EE\" shall match with the \"Total Interest u/s 80EE\" as per the schedule 80EE",
+"id": "ITR-2-A-705"
+},
+{
+"category": "A",
+"no": 706,
+"page": 46,
+"text": "In schedule 80EEA the sum of individual rows for \"Interest u/s 80EEA\" shall match with the \"Interest u/s 80EEA\" as per the schedule 80EEA",
+"id": "ITR-2-A-706"
+},
+{
+"category": "A",
+"no": 707,
+"page": 46,
+"text": "In schedule 80EEB the sum of individual rows for \"Interest u/s 80EEB\" shall match with the \"Total Interest u/s 80EEB\" as per the schedule 80EEB",
+"id": "ITR-2-A-707"
+},
+{
+"category": "A",
+"no": 708,
+"page": 46,
+"text": "The Date of sanction of loan in schedule 80EE shall be between 01.04.2016 and 31.03.2017",
+"id": "ITR-2-A-708"
+},
+{
+"category": "A",
+"no": 709,
+"page": 46,
+"text": "Assessee having status as HUF is not eligible to fill any schedule out of 80E Schedule, 80EE Schedule, 80EEA Schedule or 80EEB Schedule for claiming respective deduction",
+"id": "ITR-2-A-709"
+},
+{
+"category": "A",
+"no": 710,
+"page": 46,
+"text": "Assessee having status as Individual and opting new tax regime have filled any of the schedules amongst 80C schedule, 80E schedule, 80EE schedule, 80EEA schedule, 80EEB schedule or Table 10(13A)",
+"id": "ITR-2-A-710"
+},
+{
+"category": "A",
+"no": 711,
+"page": 46,
+"text": "Details such as Amount eligible for deduction u/s 80C, Policy number or Document Identification number are required to provide in schedule 80C to claim deduction",
+"id": "ITR-2-A-711"
+},
+{
+"category": "A",
+"no": 712,
+"page": 46,
+"text": "Deduction u/s 80C claimed under chapter VIA should be same as the \"Total Deduction u/s 80C\"",
+"id": "ITR-2-A-712"
+},
+{
+"category": "A",
+"no": 713,
+"page": 46,
+"text": "In schedule 80C the sum of individual rows for \"Amount eligible for deduction u/s 80C\" shall match with the \"Total Deduction u/s 80C\" as per the schedule 80C",
+"id": "ITR-2-A-713"
+},
+{
+"category": "A",
+"no": 714,
+"page": 46,
+"text": "PRAN should be provided in schedule VIA to claim deduction u/s 80CCD(1) or 80CCD(1B)",
+"id": "ITR-2-A-714"
+},
+{
+"category": "A",
+"no": 715,
+"page": 46,
+"text": "Details of Form 10BA are required to provide to claim deduction u/s 80GG",
+"id": "ITR-2-A-715"
+},
+{
+"category": "A",
+"no": 716,
+"page": 46,
+"text": "Details of specified disease are required to be provided to claim deduction u/s 80DDB",
+"id": "ITR-2-A-716"
+},
+{
+"category": "A",
+"no": 717,
+"page": 47,
+"text": "Acknowledgement Number of Form 10CCD should be provided in schedule VIA to claim deduction u/s 80QQB",
+"id": "ITR-2-A-717"
+},
+{
+"category": "A",
+"no": 718,
+"page": 47,
+"text": "Acknowledgement Number of Form 10CCE should be provided in schedule VIA to claim deduction u/s 80RRB",
+"id": "ITR-2-A-718"
+},
+{
+"category": "A",
+"no": 719,
+"page": 47,
+"text": "Section 192 applicable to Tax deducted on salary income is selected as the dropdown under schedule TDS 2, or TDS 3 which are for details of TDS on other than salary income.",
+"id": "ITR-2-A-719"
+},
+{
+"category": "A",
+"no": 720,
+"page": 47,
+"text": "In AY 25, In Schedule OS, Dividend u/s 2(22)(f) cannot be entered in Q1 & Q2",
+"id": "ITR-2-A-720"
+},
+{
+"category": "A",
+"no": 721,
+"page": 47,
+"text": "In AY 25, In Schedule CG, STCG @15% cannot be entered in Q3, Q4 or Q5.",
+"id": "ITR-2-A-721"
+},
+{
+"category": "A",
+"no": 722,
+"page": 47,
+"text": "Exempt Allowance u/s 10(13A) in schedule Salary should match with the \"Eligible allowance u/s 10(13A)\" as per Table 10(13A) of Schedule Salary",
+"id": "ITR-2-A-722"
+},
+{
+"category": "A",
+"no": 723,
+"page": 47,
+"text": "The date of Birth/ Formation should be before 01/04/20XX of AY for which ITR is being filled.",
+"id": "ITR-2-A-723"
+},
+{
+"category": "A",
+"no": 724,
+"page": 47,
+"text": "In Schedule HP, Details of Interest on borrowed capital u/s 24(b) is mandatory to claim the deduction.",
+"id": "ITR-2-A-724"
+},
+{
+"category": "B/D",
+"no": 1,
+"page": 47,
+"text": "Form 29C- Report under section 115JC of the Income-tax Act, 1961 is mandatory to file if AMT tax is more than Normal Tax.",
+"id": "ITR-2-BD-1"
+},
+{
+"category": "B/D",
+"no": 2,
+"page": 47,
+"text": "Total income under section 115JC as per schedule AMT is less than or equal to Rs. 5000000 and surcharge is entered in Schedule B-TTI.",
+"id": "ITR-2-BD-2"
+},
+{
+"category": "B/D",
+"no": 3,
+"page": 47,
+"text": "If the assessee is claiming relief u/s 90 & 91 then it is mandatory to file form 67",
+"id": "ITR-2-BD-3"
+},
+{
+"category": "B/D",
+"no": 4,
+"page": 47,
+"text": "If assessee is shown income under section 115BBF then furnishing of Form 3CFA is mandatory within due time",
+"id": "ITR-2-BD-4"
+},
+{
+"category": "B/D",
+"no": 5,
+"page": 47,
+"text": "Form 10E is required to be filed to claim Relief u/s 89.",
+"id": "ITR-2-BD-5"
+},
+{
+"category": "B/D",
+"no": 6,
+"page": 47,
+"text": "Form 10BA is required to be filed to claim deduction u/s 80GG.",
+"id": "ITR-2-BD-6"
+},
+{
+"category": "B/D",
+"no": 7,
+"page": 47,
+"text": "Deduction u/s 80QQB cannot be claimed if return is not filed within the due date or extended due Date",
+"id": "ITR-2-BD-7"
+},
+{
+"category": "B/D",
+"no": 8,
+"page": 47,
+"text": "Deduction u/s 80RRB cannot be claimed if return is not filed within the due date or extended due Date",
+"id": "ITR-2-BD-8"
+},
+{
+"category": "B/D",
+"no": 9,
+"page": 48,
+"text": "In Schedule CYLA, income is available for setoff of losses, but house property loss is not fully setoff. The losses not applied to be set off cannot be carried forward as there is income available.",
+"id": "ITR-2-BD-9"
+},
+{
+"category": "B/D",
+"no": 10,
+"page": 48,
+"text": "In Schedule CYLA, the whole OS loss should be set off against any head of income in case the income is more than loss. The losses not applied to be set off cannot be carried forward as there is income available.",
+"id": "ITR-2-BD-10"
+},
+{
+"category": "B/D",
+"no": 11,
+"page": 48,
+"text": "In schedule 80U, if deduction is > 0, then details of such donation are required",
+"id": "ITR-2-BD-11"
+},
+{
+"category": "B/D",
+"no": 12,
+"page": 48,
+"text": "In schedule 80DD, if deduction is > 0, then details of such disability form are required.",
+"id": "ITR-2-BD-12"
+},
+{
+"category": "B/D",
+"no": 13,
+"page": 48,
+"text": "For Resident taxpayers, DTAA benefit is not available in rate of taxation, and the claim may not be allowed. Please re-check the claims made. Residents may claim DTAA benefit under Schedule TR and FSI",
+"id": "ITR-2-BD-13"
+},
+{
+"category": "B/D",
+"no": 14,
+"page": 48,
+"text": "TDS credited in hands of other person will be allowed to taxpayer only if that other person declares the same in schedule TDS of their ITR",
+"id": "ITR-2-BD-14"
+},
+{
+"category": "B/D",
+"no": 15,
+"page": 48,
+"text": "TCS credited in the hands of other person will be allowed to taxpayer only if that other person declares the same in schedule TCS of their ITR",
+"id": "ITR-2-BD-15"
+},
+{
+"category": "B/D",
+"no": 16,
+"page": 48,
+"text": "In Schedule CG, Table E, the entire loss should be set off with gains available for set off.",
+"id": "ITR-2-BD-16"
+},
+{
+"category": "B/D",
+"no": 17,
+"page": 48,
+"text": "TDS section code such as 194Q,194C,194R or 194M is selected under Schedule \"TDS2 Details of Tax Deducted at Source on Income Other than Salary\" at field 2a \"Section under which TDS deducted\"",
+"id": "ITR-2-BD-17"
+},
+{
+"category": "B/D",
+"no": 18,
+"page": 48,
+"text": "TDS section code such as 194Q, 194C, 194R or 194M is selected under Schedule \"TDS3 Details of Tax Deducted at Source on Income Other than Salary\" at field 2a \"Section under which TDS deducted\"",
+"id": "ITR-2-BD-18"
+},
+{
+"category": "B/D",
+"no": 19,
+"page": 48,
+"text": "TDS made under the section quoted that income in the nature of VDA (Virtual Digital Assets) is derived by you in FY concerned. Must however it is seen from the content of return that income correspondent to VDA is either not offered to tax or is not offered to tax completely.",
+"id": "ITR-2-BD-19"
+},
+{
+"category": "B/D",
+"no": 20,
+"page": 48,
+"text": "TDS made under the section quoted that income in the nature of Winnings from lotteries, crossword puzzles, races, card games etc. chargeable u/s 115BB is derived by you in FY concerned. Must however it is seen from the content of return that income correspondent to Winnings from lotteries, crossword puzzles, races, card games etc. chargeable u/s 115BB is either not offered to tax or is not offered to tax completely.",
+"id": "ITR-2-BD-20"
+},
+{
+"category": "B/D",
+"no": 21,
+"page": 48,
+"text": "TDS made under the section quoted that income in the nature of the activity of owning and maintaining race horses is derived by you in FY concerned. Must however it is seen from the content of return that income correspondent to activity of owning and maintaining race horses is either not offered to tax or is not offered to tax completely.",
+"id": "ITR-2-BD-21"
+},
+{
+"category": "B/D",
+"no": 22,
+"page": 49,
+"text": "TDS made under the section quoted that income in the nature of Winnings from Online games chargeable u/s 115BBJ is derived by you in FY concerned. Must however it is seen from the content of return that income correspondent to Winnings from Online Games chargeable u/s 115BBJ is either not offered to tax or is not offered to tax completely.",
+"id": "ITR-2-BD-22"
+},
+{
+"category": "B/D",
+"no": 23,
+"page": 49,
+"text": "For Resident taxpayers, DTAA benefit is not available, and the claim may not be allowed. Please re-check the claims made.",
+"id": "ITR-2-BD-23"
+}
+],
+"auditCrossChecks": []
+}

@@ -53,3 +53,6 @@ key.properties
 *.p8
 *.p12
 *.pem
+
+# Sandbox OpenAPI downloads for the catalogue build
+platform/scripts/sandbox-catalog/.specs/

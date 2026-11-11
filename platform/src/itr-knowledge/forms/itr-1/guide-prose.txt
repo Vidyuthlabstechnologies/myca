@@ -1,0 +1,157 @@
+ITR-1 (SAHAJ)
+Income Tax Return — Form 1
+Who can file ITR-1?
+Eligible to File ITR-1              Not Eligible — Must File ITR-2 or Higher
+•    Resident Individual only                 •   Total income exceeds ₹50 lakhs
+•    Total income up to ₹50 lakhs             •   Income from business or
+•    Income from salary or pension                profession
+•    Income from one house property           •   More than one house property
+•    Income from other sources                •   LTCG under 112A exceeds
+(interest, dividends, family                 ₹1,25,000
+pension)                                 •   Director in a company
+•    Long-term capital gains under            •   Holds unlisted equity shares
+section 112A up to ₹1,25,000             •   Non-Resident or Resident Not
+•    Agricultural income up to ₹5,000             Ordinarily Resident
+•   Agricultural income exceeds
+₹5,000
+•   Minor taxpayer (born on or after
+01-Apr-2007) — income is typically
+clubbed with parent’s income
+under Section 64(1A); independent
+filing only where income is from
+personal skill/talent or disability
+applies under Section 80U
+1. Validation Categories
+The Income Tax Department's portal enforces three categories of validation rules when a return is uploaded. The product must
+treat each category differently:
+Cat.            Portal Action             What the Product Must Do                        Examples from ITR-1
+A       Return is blocked. It       All Category A conflicts must be          Name mismatch with PAN database.
+cannot be uploaded. An      resolved before the return is             Deduction cap exceeded. Income head total
+error message is shown.     finalised. This is a hard gate — the      incorrect. Wrong digest.
+return cannot be submitted until
+every Category A rule is satisfied.
+B       Return is uploaded but      The product must warn the taxpayer        TDS section codes that indicate income
+the taxpayer is informed    clearly before submission, explain        types incompatible with ITR-1. PAN-
+of a possible defect        the specific issue, and give them the     Aadhaar not linked.
+under section 139(9).       option to correct it or proceed with
+CPC may issue a notice.     acknowledgement.
+D       Return is uploaded but a    The product must check whether the        Relief under section 89 without Form 10E.
+deduction or claim may      required supporting form (Form 10E,       Relief under 89A without Form 10EE.
+not be allowed unless a     10EE, or 10BA) has been filed on          Section 80GG without Form 10BA.
+supporting form is also     the portal. If not, the taxpayer must
+filed.                      be informed before submission.
+2. How to Read the Field Mapping Table
+For a better understanding, how a calculation is done. I created a table . Here is how it should be read.
+Column                                                    What it Contains
+JSON Field Path          The exact field name as it appears in the government's ITR-1 JSON schema. This is the data
+point the portal expects.
+Field Description &      What the field represents, whether it is required, its data type, permissible values, and any
+Constraints              statutory monetary caps.
+Primary Data             Where the product is expected to obtain or extract this value — Form 16, AIS, taxpayer
+Source                   declaration, computed from other fields, etc.
+Secondary                The external government data source used to cross-verify the primary source — Form 26AS,
+Validation Source        AIS, TRACES, RBI database, etc. This column is left blank where no external cross-check is
+applicable.
+Conflict /               The specific condition under which the data from the primary source conflicts with the validation
+Exception Trigger        source, or a statutory rule is breached. When a conflict trigger fires, the product must not proceed
+silently — it must initiate the discrepancy resolution process described in Section 3.
+3. Potential issues while filing ITR -1
+ITR -1 is simple form. But there could be some potential issues may come. Those are discussed here and in the table.
+When a conflict is identified between the primary data source and the validation source, the product must not make an
+assumption or silently pick one value over the other. The following process applies:
+3.1 What the Product Must Do When a Conflict is Detected
+•     Pause the population of the affected field.
+•    Show the taxpayer both figures — the value extracted from the primary source (e.g., Form 16 gross salary) and the
+value from the validation source (e.g., AIS salary data) — with a plain-language explanation of why they differ.
+•    Ask the taxpayer a specific, plain-language question requesting confirmation or a supporting document. Do not ask
+vague questions — the question must name the exact figures and the exact discrepancy.
+•    Accept the taxpayer's response — either a confirmed figure with a reason, or an uploaded supporting document —
+and update the field accordingly.
+•    Re-run all affected validation checks before proceeding to the next section.
+4. ITR-1 Field Mapping — Data Source and Validation Reference
+I prepared this as per Json requested by IT departments.
+1 & 2 are mostly ERI integration related filed. 3 is auto-populated mostly and sometimes not
+Please check from 4.
+3. Personal Information — Taxpayer Identity
+PersonalInfo.AssesseeName                     Required.            Taxpayer's         CBDT PAN              Name in the
+Surname              profile as         database. Name in     return does
+mandatory (max       registered on      ITR must match        not match
+75 chars). First     the e-filing       name on PAN           the PAN
+and middle name      portal. Cross-     exactly —             database —
+optional (max 25     checked            Validation Rule 19.   Category A
+chars each).         against PAN                              error.
+card.                                    Return
+cannot be
+filed.
+PersonalInfo.PAN                              Required. 10-        Taxpayer's         CBDT PAN              Invalid or
+character            PAN as             database.             unverified
+Permanent            provided                                 PAN —
+Account Number.      during account                           return
+creation.                                cannot be
+Verified before                          submitted.
+onboarding.
+PersonalInfo.AadhaarCardNo                    Functionally         Taxpayer's         UIDAI Aadhaar-        Aadhaar in
+required for most    Aadhaar as         PAN linkage           return does
+taxpayers. 12-       provided           status. PAN-          not match
+digit Aadhaar        during             Aadhaar must be       profile —
+number. Must         onboarding.        linked.               Category A.
+match Aadhaar                                                 PAN-
+profile — Rule                                                Aadhaar not
+221.                                                          linked —
+Category B
+warning
+issued to
+taxpayer.
+PersonalInfo.DOB                              Required. Date       Taxpayer's         Determines senior     Date of birth
+of birth in YYYY-    date of birth      citizen status —      on or after
+MM-DD format.        from profile.      affects 80TTA,        01-Apr-2007
+Must be on or                           80TTB, 87A rebate     indicates a
+before 2025-03-                         eligibility.          minor
+31.                                                           taxpayer.
+Category B
+warning
+must be
+shown: a
+minor’s
+income is
+generally
+clubbed
+5. Key Product Behaviour Requirements
+5.1 ITR-1 Eligibility Check
+Before the product begins collecting any tax information, it must verify that the taxpayer is eligible to file
+ITR-1. If any disqualifying condition is identified — total income above ₹50 lakhs, business income of
+any kind, more than one house property, LTCG above ₹1.25 lakhs, directorship, unlisted equity, non-
+resident status, or agricultural income above ₹5,000 — the product must redirect the taxpayer to the
+appropriate form (ITR-2, ITR-3, or ITR-4) without allowing the ITR-1 filing to proceed.
+5.2 Tax Regime Selection
+The product must calculate the taxpayer's tax liability under both the Old Tax Regime and the New Tax
+Regime before asking the taxpayer to choose. The comparison must be shown in plain language. The
+taxpayer must actively confirm their choice. Once a regime is selected, the product must enforce all
+applicable rules for that regime throughout the return — including blocking deductions that are not
+permitted under the selected regime. The regime cannot be changed after the due date under section
+139(1).
+However, Default is New tax regime. Central government trying to eliminate the Old tax regime
+gradually. But in best interest of the taxpayers, we must provide the tax regime selection.
+5.3 Pre-filling from AIS
+The product must fetch the taxpayer's Annual Information Statement (AIS) at the start of every filing
+session. AIS serves as the baseline reference for salary income, interest income, dividend income,
+TDS credits, TCS credits, and advance tax payments. All data extracted from documents such as Form
+16 must be reconciled against AIS. Where a difference is found, the discrepancy resolution process in
+Section 3 applies. The product must not present unreconciled data to the taxpayer as confirmed
+figures.
+5.4 Document Capture and Data Extraction
+The product must be capable of extracting income and deduction data from documents uploaded by the
+taxpayer — including Form 16 (both Part A and Part B), bank interest certificates, home loan interest
+certificates, premium receipts, and broker capital gains statements. Where documents are scanned
+images rather than digital PDFs, the product must still be able to read and extract the relevant figures.
+Any field where the extracted value cannot be confirmed with sufficient accuracy must be flagged for
+the taxpayer to verify manually.
+5.5 Deduction Interdependencies
+Several deductions under Chapter VI-A have interdependencies that the product must enforce
+automatically. The combined deduction under sections 80C, 80CCC, and 80CCD(1) cannot exceed
+₹1,50,000. The deduction under 80CCD(1B) is a separate limit of ₹50,000 and is in addition to the
+above. Sections 80EE and 80EEA cannot both be claimed in the same return. Sections 80TTA and
+80TTB are mutually exclusive — only one applies depending on the taxpayer's age. The HRA
+exemption under section 10(13A) and the deduction under section 80GG for rent paid cannot both be
+claimed for the same period. The product must check these interdependencies after each deduction is
+entered and alert the taxpayer immediately if a conflict is created.

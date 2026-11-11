@@ -13,6 +13,8 @@ class FakeCloud {
   final createdBodies = <Map<String, Object?>>[];
   final invoices = <Map<String, Object?>>[];
   final uploads = <String, String>{};
+  final quickoCalls = <Map<String, Object?>>[];
+  final quickoSessions = <Map<String, Object?>>[];
   final imports = <String>[];
   final myInvitations = <Map<String, Object?>>[];
   final members = <Map<String, Object?>>[];
@@ -480,6 +482,46 @@ class FakeCloud {
         gstPortalSessions.remove(gstin);
         return _json(200, {'ok': true, 'gstin': gstin, 'disconnected': true});
       }
+    }
+    if (path == '$books/quicko' && request.method == 'GET') {
+      return _json(200, {'ok': true, 'available': true, 'simulated': false, 'tools': const ['read_form16'], 'sessions': quickoSessions});
+    }
+    if (path == '$books/quicko' && request.method == 'POST') {
+      final tool = '${body['tool']}';
+      final args = (body['args'] as Map?)?.cast<String, Object?>() ?? const <String, Object?>{};
+      quickoCalls.add({'tool': tool, ...args});
+      if (tool == 'read_form16') {
+        if (!uploads.containsKey(args['documentSha256'])) return _json(200, {'ok': false, 'error': 'DOCUMENT_NOT_FOUND'});
+        return _json(200, {'ok': true, 'mode': 'test', 'simulated': false, 'data': {
+          'summary': {
+            'assessmentYear': '2026-27',
+            'employer': {'name': 'Acme Pvt Ltd', 'tan': 'BLRA12345B'},
+            'employee': {'pan': 'ABCDE1234F', 'name': 'Asha Rao'},
+            'figuresAsPrinted': {'totalTaxableIncome': 1725000, 'netTaxPayable': 180000, 'grossTotalIncome': null},
+          },
+          'note': 'Every figure is as printed.',
+        }});
+      }
+      if (tool == 'check_206ab') {
+        if (args['consent'] != true) return _json(200, {'ok': false, 'error': 'CONSENT_REQUIRED'});
+        return _json(200, {'ok': true, 'mode': 'test', 'data': {'pan': args['pan'], 'name': 'KIRAN TRADERS', 'specifiedPerson': 'no', 'panStatus': 'operative'}});
+      }
+      if (tool == 'verify_bank_account') {
+        if ('${args['ifsc']}'.length != 11) return _json(200, {'ok': false, 'error': 'INVALID_IFSC'});
+        return _json(200, {'ok': true, 'mode': 'test', 'data': {'accountEndsWith': '${args['accountNumber']}'.substring('${args['accountNumber']}'.length - 4), 'result': {'account_exists': true, 'name_at_bank': 'KIRAN TRADERS'}}});
+      }
+      return _json(200, {'ok': false, 'error': 'UNKNOWN_TOOL'});
+    }
+    if (path == '$books/quicko-session' && request.method == 'POST') {
+      if (body['step'] == 'disconnect') {
+        quickoSessions.clear();
+        return _json(200, {'ok': true, 'portal': 'itd', 'disconnected': true});
+      }
+      if (body['password'] != 'right-password') return _json(200, {'ok': false, 'error': 'PORTAL_SIGN_IN_REFUSED'});
+      quickoSessions
+        ..clear()
+        ..add({'portal': 'itd', 'subject': body['pan'], 'connected': true, 'expiresAt': '2026-11-09T18:00:00.000Z'});
+      return _json(200, {'ok': true, 'portal': 'itd', 'subject': body['pan'], 'connected': true});
     }
     if (path == '$books/approvals' && request.method == 'GET') {
       return _json(200, {'ok': true, 'approvals': filingApprovals});

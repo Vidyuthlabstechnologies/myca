@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:myca_design/myca_design.dart' show Bahi;
 import 'package:myca/app_state.dart';
 import 'package:myca/format.dart';
 import 'package:myca/main.dart';
@@ -11,6 +12,7 @@ import '../test/us_return_test.dart' show FakeFees, FeeStore, UsFakeApi, usState
 import 'screenshots_test.dart' show loadFonts, shot;
 
 void main() {
+  Bahi.live = false;
   setUpAll(loadFonts);
   tearDown(() => moneyCountry = 'IN');
 
@@ -41,23 +43,23 @@ void main() {
     await shot(tester, 'us_02_hub');
     await tester.tap(find.byKey(const Key('usHub.step.profile')));
     await shot(tester, 'us_03_about_you');
-    await tester.pageBack();
+    await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('usHub.step.forms')));
     await shot(tester, 'us_04_documents');
-    await tester.pageBack();
+    await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('usHub.step.interview')));
     await shot(tester, 'us_05_question');
-    await tester.pageBack();
+    await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('usHub.step.review')));
     await shot(tester, 'us_06_review');
-    await tester.pageBack();
+    await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('usHub.step.sign')));
     await shot(tester, 'us_07_sign');
-    await tester.pageBack();
+    await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
     api.efile = 'signed';
     tester.state<NavigatorState>(find.byType(Navigator).first).push(MaterialPageRoute<void>(builder: (_) => UsSignScreen(taxYear: currentTaxYear(DateTime.now()), fees: FakeFees(), store: FeeStore())));

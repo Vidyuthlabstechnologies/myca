@@ -34,11 +34,11 @@ test('every tax module is a valid Agent Skill: name matches its folder, descript
   assert.deepEqual(report.problems, []);
   assert.equal(report.ok, true);
   const catalog = taxModuleCatalog();
-  assert.deepEqual(catalog.map((module) => module.name), ['india-gst-input-tax-credit', 'india-gst-returns', 'india-income-tax-individuals', 'india-presumptive-income', 'india-tds-business-payments']);
+  assert.deepEqual(catalog.map((module) => module.name), ['india-gst-input-tax-credit', 'india-gst-returns', 'india-income-tax-individuals', 'india-presumptive-income', 'india-tds-business-payments', 'us-federal-income-tax-individuals']);
   const toolNames = new Set(TOOLS.map((tool) => tool.name));
   for (const module of catalog) {
     assert.ok(module.sections.length >= 5, module.name);
-    assert.equal(module.jurisdiction, 'IN');
+    assert.equal(module.jurisdiction, module.name.startsWith('us-') ? 'US' : 'IN');
     for (const tool of module.tools) assert.ok(toolNames.has(tool), `${module.name} names a tool MyCA does not have: ${tool}`);
   }
 });

@@ -65,6 +65,7 @@ test('the e-invoice profile is checked, saved in the country slice with an audit
   assert.equal(saved.ok, true);
   assert.equal(state.countryData.myEinvoiceProfile.supplier.tin, 'C20830570210');
   assert.equal(state.auditEvents.at(-1).action, 'my_einvoice_profile_set');
+  assert.equal(state.auditEvents.at(-1).metadata.after.tin, 'C20830570210', 'the Malaysian TIN stays readable in the audit trail');
   const checked = ENGINE.run.my_einvoice_check(state, { number: 'INV-1', buyer, lines });
   assert.equal(checked.ok, true);
   assert.equal(checked.data.totals.payable, 1080);
@@ -95,6 +96,9 @@ test('an e-invoice is signed, sent through the gate to the LHDN sandbox, tracked
     const status = await withEnv(TEST_ENV, () => ENGINE.run.my_einvoice_status(state, { submissionUid: 'SUBMISSION0000000000000001' }));
     assert.equal(status.data.documents[0].link, 'https://preprod.myinvois.hasil.gov.my/DOCUMENT000000000000000001/share/LONG1');
     assert.equal(state.countryData.myEinvoices.byNumber['INV-1'].status, 'valid');
+    assert.deepEqual(state.auditEvents.filter((event) => event.action === 'my_einvoice_status_changed').map((event) => [event.metadata.before, event.metadata.after]), [['submitted', 'valid']]);
+    await withEnv(TEST_ENV, () => ENGINE.run.my_einvoice_status(state, { submissionUid: 'SUBMISSION0000000000000001' }));
+    assert.equal(state.auditEvents.filter((event) => event.action === 'my_einvoice_status_changed').length, 1, 'an unchanged status is not audited again');
     const cancelled = await withEnv(TEST_ENV, () => ENGINE.run.cancel_my_einvoice(state, { uuid: 'DOCUMENT000000000000000001', reason: 'Wrong buyer' }));
     assert.equal(cancelled.ok, true);
     assert.equal(state.countryData.myEinvoices.byNumber['INV-1'].status, 'cancelled');
@@ -120,6 +124,12 @@ test('with calls off nothing leaves; mock mode simulates; a missing certificate 
     assert.equal(mock.data.environment, 'mock');
     assert.equal(calls.length, 0);
     assert.equal((await ENGINE.run.issue_my_einvoice(createState(), { number: 'INV-3', buyer, lines })).error, 'EINVOICE_FIELDS_MISSING');
+    const mockAgain = await withEnv({ MYCA_PROVIDER_ENV: 'off', MYCA_MOCK_MODE: '1' }, () => ENGINE.run.issue_my_einvoice(state, { number: 'INV-2', buyer, lines }));
+    assert.equal(mockAgain.error, 'EINVOICE_ALREADY_SENT');
+    clearMyInvoisTokens();
+    const real = await withEnv(TEST_ENV, () => ENGINE.run.issue_my_einvoice(state, { number: 'INV-2', buyer, lines }));
+    assert.equal(real.ok, true, 'a mock submission does not block the real one');
+    assert.equal(state.countryData.myEinvoices.byNumber['INV-2'].environment, 'test');
   } finally {
     setChannelClient(real);
   }
@@ -136,4 +146,17 @@ test('tax, SST and TIN tools answer from the engines', async () => {
   const tin = await withEnv({ MYCA_PROVIDER_ENV: 'off', MYCA_MOCK_MODE: '1' }, () => ENGINE.run.validate_my_tin(createState(), { tin: 'IG12345678901', idValue: '900101015555' }));
   assert.equal(tin.data.lhdn, 'valid');
   assert.equal(ENGINE.run.validate_my_tin({}, { tin: '1234', idValue: 'x' }).data.format, false);
+  const realClient = getChannelClient();
+  try {
+    for (const [status, expected] of [[200, 'valid'], [404, 'not found'], [500, 'MYINVOIS_REJECTED'], [401, 'MYINVOIS_REJECTED'], [429, 'MYINVOIS_THROTTLED']]) {
+      clearMyInvoisTokens();
+      setChannelClient(new ChannelClient({ fetchFn: async (url) => (url.endsWith('/connect/token')
+        ? { ok: true, status: 200, text: async () => JSON.stringify({ access_token: 'jwt', expires_in: 3600 }), headers: { get: () => null } }
+        : { ok: status < 300, status, text: async () => '{}', headers: { get: () => null } }) }));
+      const out = await withEnv(TEST_ENV, () => ENGINE.run.validate_my_tin(createState(), { tin: 'C20830570210', idValue: '202001234567' }));
+      assert.equal(out.ok ? out.data.lhdn : out.error, expected, `HTTP ${status}`);
+    }
+  } finally {
+    setChannelClient(realClient);
+  }
 });

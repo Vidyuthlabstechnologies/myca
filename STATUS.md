@@ -209,8 +209,20 @@ and [`README.md`](README.md) for what is left and how it is being done.
   - `search_gstin`: Look up official taxpayer legal name, trade name, active status, type, and address
   - **Document Store Auto-Discovery**: `gst_reconcile`, `prepare_itr`, and `monitor_tds` discover uploaded client documents automatically when inputs are not passed in command arguments
   - **Redundant E-Invoicing**: Dual-path e-invoicing supporting direct NIC IRP and Quicko Sandbox GSP with fallback/provider selection
-- `income_tax_calculate` stays fail-closed (`PROVIDER_ENDPOINT_UNDOCUMENTED`): Sandbox
-  publishes no stable income-tax calculator path, so `prepare_itr` remains the source of truth
+- **All Sandbox by Quicko APIs (2026-11-11)**: a catalogue of all 366 documented endpoints
+  (`sandbox-catalog.mjs`, built from Sandbox's OpenAPI files) behind the action gate, each
+  classed read, OTP/login, save, file or money; writes need a CA approval and are blocked for
+  the assistant. Named tools: `read_form16`, `read_form26as`, `capital_gains_pnl`,
+  `quicko_tax_check`, `verify_pan`, `pan_aadhaar_status`, `check_206ab`, `search_tan`,
+  `lookup_ifsc`, `verify_bank_account`, `mca_company`, `gstins_for_pan`, `quicko_catalog`.
+  Hosted: `GET/POST /v1/businesses/:id/quicko` runs the named tools and read-only catalogue
+  calls (filing, OTP, sign-in and money ops stay on the desktop with a CA approval), and
+  `POST .../quicko-session` signs in to the ITD or TRACES portal; the session token is sealed
+  per business in `quicko_portal_sessions` (migration 024) and never returned. Android:
+  Taxes → Income tax checks reads Form 16 / 26AS PDFs and runs PAN, 206AB and bank account
+  checks, and signs in to the income tax portal
+- `income_tax_calculate` stays fail-closed and points to `quicko_tax_check`; `prepare_itr`
+  remains the source of truth
 - **CA approval workflow**: request / decide / consume, maker-checker separation,
   reviewer roles (partner/reviewer/admin), 24-hour expiry, single use
 - NIC e-invoice: RSA v1.04 auth, IRN payload build, mock IRN, government host probe
