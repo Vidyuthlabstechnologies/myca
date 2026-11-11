@@ -39,3 +39,14 @@ output "api_service_account" {
   description = "Invite this email in Play Console > Users and permissions with View financial data and Manage orders and subscriptions, so the API can check purchases."
   value       = google_service_account.api.email
 }
+
+output "waha_webhook_secret" {
+  description = "HMAC key to give the WhatsApp gateway for its webhook to <api_url>/v1/whatsapp/waha (algorithm sha512)."
+  value       = local.secrets["MYCA_WAHA_WEBHOOK_SECRET"]
+  sensitive   = true
+}
+
+output "site_url" {
+  description = "Public address of the site, privacy policy (/privacy) and account deletion page (/delete-account)."
+  value       = one(google_cloud_run_v2_service.site[*].uri)
+}

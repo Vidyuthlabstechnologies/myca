@@ -38,3 +38,17 @@ test('a refused step stops the upload and says which step, and an unknown track 
   await assert.rejects(uploadBundle({ account, packageName: 'p', bundle: Buffer.from('x'), fetchFn }), /opening an edit failed with HTTP 403/);
   await assert.rejects(uploadBundle({ account, packageName: 'p', bundle: Buffer.from('x'), track: 'everyone', fetchFn: async () => { throw new Error('called'); } }), /unknown track/);
 });
+
+test('an access token from the CI identity skips the key sign-in and goes straight to the edit', async () => {
+  const calls = [];
+  const fetchFn = async (url, options = {}) => {
+    calls.push([options.method, url.replace(/^https:\/\/[^/]+/, ''), options.headers?.authorization]);
+    const reply = url.endsWith('/edits') ? { id: 'E2' } : url.includes('/bundles') ? { versionCode: 7 } : {};
+    return new Response(JSON.stringify(reply), { status: 200 });
+  };
+  const out = await uploadBundle({ accessToken: 'ci-token', packageName: 'com.mldynamic.myca', bundle: Buffer.from('aab'), fetchFn });
+  assert.equal(out.versionCode, 7);
+  assert.equal(calls.some(([, path]) => path.includes('/token')), false);
+  assert.ok(calls.every(([, , authorization]) => authorization === 'Bearer ci-token'));
+  await assert.rejects(uploadBundle({ packageName: 'p', bundle: Buffer.from('x'), fetchFn }), /access token or a service account key/);
+});

@@ -4,7 +4,9 @@ As of main on 2026-11-10. Verification: platform **1,351**, the hosted API **341
 email relay **3**, every sprint suite, the Android app about **600** widget tests (`node scripts/check-all.mjs`),
 CI green, end-to-end smoke runs on Windows. Hosting: the API and the public site run on Google Cloud
 (Cloud Run and Cloud SQL in Mumbai, project `myca-prod-in`) since 2026-11-10, with an empty database;
-the earlier AWS deployment (2026-11-08) is being switched off. [`DEPLOYMENT.md`](DEPLOYMENT.md) is the source of truth. "Verified" means covered by tests or an
+the earlier AWS deployment (2026-11-08) is being switched off. A separate staging stack (`environment = "staging"`,
+simulated providers, no real sends) is defined in `infra/cloud` and rolled out before production, but not yet
+applied. [`DEPLOYMENT.md`](DEPLOYMENT.md) is the source of truth. "Verified" means covered by tests or an
 actual run — not merely written.
 
 Phase 0 (pilot readiness) is **82% complete**: every Critical (4/4) and High (18/18) audit finding is closed; of the mediums, amount parsing and the audit clause checks are done (2026-10-15).

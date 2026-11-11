@@ -30,6 +30,7 @@ import { isoDate, localToday } from './dates.mjs';
 import { documentsOf } from './document-store.mjs';
 import { inWords } from './words.mjs';
 import { isReturnPeriod } from './return-period.mjs';
+import { ENGINE_ARG_SCHEMAS, ENGINE_TOOL_RISK } from './countries/manifests.mjs';
 
 const PERIOD_TOOLS = new Set(['gst_payable', 'export_tally', 'export_gstr1_json', 'prepare_gstr1', 'filing_pack', 'prepare_gstr3b']);
 
@@ -2187,6 +2188,7 @@ export const TOOL_ARG_SCHEMAS = {
       gstin: { type: 'string', maxLength: 15 },
     },
   },
+  ...ENGINE_ARG_SCHEMAS,
 };
 
 const ASSISTANT_BLOCKED_TOOLS = new Set(['govt_save_credentials', 'set_channel_connector', 'govt_set_public_key', 'govt_nic_cancel_irn', 'govt_nic_generate_ewb', 'seed_demo', 'approval_decide', 'set_company', 'add_client', 'set_active_client', 'save_document', 'get_document', 'lock_period', 'unlock_period', 'send_notification', 'test_notification']);
@@ -2366,6 +2368,7 @@ const TOOL_RISK = {
   search_gstin: 'read_or_prepare',
   export_xlsx: 'read_only',
   audit_trail: 'read_only',
+  ...ENGINE_TOOL_RISK,
 };
 
 export function assistantTools(tools) {

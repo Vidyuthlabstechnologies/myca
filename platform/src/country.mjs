@@ -1,11 +1,12 @@
 import { rules } from './sprint-load.mjs';
+import { DEFAULT_COUNTRY, countryPack, servedPacks, toolOwner } from './countries/index.mjs';
+import { EVERY_COUNTRY, engineToolOwner } from './countries/manifests.mjs';
 
-export const COUNTRIES = Object.freeze({
-  IN: Object.freeze({ code: 'IN', name: 'India', currency: 'INR', symbol: '₹', locale: 'en-IN', minorUnit: 'paise', yearStartMonth: 4, yearLabel: 'financial year', taxId: 'GSTIN', region: 'asia-south1' }),
-  US: Object.freeze({ code: 'US', name: 'United States', currency: 'USD', symbol: '$', locale: 'en-US', minorUnit: 'cents', yearStartMonth: 1, yearLabel: 'calendar year', taxId: 'EIN', region: 'us-central1' }),
-});
+const IDENTITY_KEYS = ['code', 'name', 'currency', 'symbol', 'locale', 'minorUnit', 'yearStartMonth', 'yearLabel', 'taxId'];
 
-export const DEFAULT_COUNTRY = 'IN';
+export const COUNTRIES = Object.freeze(Object.fromEntries(servedPacks().map((pack) => [pack.code, Object.freeze({ ...Object.fromEntries(IDENTITY_KEYS.map((key) => [key, pack[key]])), region: pack.residency.defaultRegion })])));
+
+export { DEFAULT_COUNTRY, countryPack };
 
 export function countryOf(stateOrCompany) {
   const company = stateOrCompany && stateOrCompany.company ? stateOrCompany.company : stateOrCompany;
@@ -29,14 +30,28 @@ export function formatMoney(stateOrCompany, amount, { fractionDigits = 2 } = {})
 export function yearOf(stateOrCompany, isoDate) {
   const info = countryInfo(stateOrCompany);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(String(isoDate || ''))) return null;
-  if (info.yearStartMonth === 4) return rules.fyOf(isoDate);
-  return isoDate.slice(0, 4);
+  return yearStartingOn(info.code, info.yearStartMonth, countryPack(info.code).yearStartDay, isoDate);
+}
+
+function yearStartingOn(code, month, day, isoDate) {
+  if (month === 1 && day === 1) return isoDate.slice(0, 4);
+  if (code === 'IN') return rules.fyOf(isoDate);
+  const year = Number(isoDate.slice(0, 4));
+  const started = isoDate.slice(5) >= `${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  const start = started ? year : year - 1;
+  return `${start}-${String((start + 1) % 100).padStart(2, '0')}`;
+}
+
+export function taxYearOf(code, isoDate) {
+  const pack = countryPack(code);
+  if (!pack || !/^\d{4}-\d{2}-\d{2}$/.test(String(isoDate || ''))) return null;
+  return yearStartingOn(pack.code, pack.yearStartMonth, pack.yearStartDay, isoDate);
 }
 
 export function yearWords(stateOrCompany, isoDate) {
   const year = yearOf(stateOrCompany, isoDate);
   if (!year) return '';
-  return countryInfo(stateOrCompany).yearStartMonth === 4 ? `FY ${year}` : year;
+  return /^\d{4}$/.test(year) ? year : `FY ${year}`;
 }
 
 const SHARED_TOOLS = new Set([
@@ -63,12 +78,17 @@ export function formatMoneyCurrent(amount, options) {
   return formatMoney({ country: currentCountry }, amount, options);
 }
 
-const US_ONLY_TOOLS = new Set(['import_payroll_summary', 'list_payroll_imports', 'us_connectors', 'plaid_link_sandbox', 'plaid_link_token', 'plaid_exchange', 'track1099_csv', 'track1099_issuers', 'track1099_import', 'track1099_job', 'taxjar_rate', 'gusto_connect_url', 'gusto_callback', 'set_sales_tax_rate', 'list_sales_tax_rates', 'set_contractor', 'contractor_payments', 'set_sales_tax_nexus', 'list_sales_tax_nexus', 'sales_tax_return', 'sales_tax_review', 'sales_tax_review_answer', 'record_sales_tax_payment', 'record_sales_tax_filing', 'sales_tax_overview', 'set_withholding', 'us_payroll_filings', 'schedule_c_summary', 'estimated_tax_dates', 'import_us_invoices', 'contractor_1099_file', 'set_suta_rate', 'list_suta_rates', 'schedule_se', 'schedule_c_document', 'cpa_pack', 'payroll_941_file', 'payroll_w2_file', 'read_us_tax_document', 'us_return_pdf', 'us_taxpayer', 'us_return_status', 'list_us_tax_forms', 'us_interview', 'us_return_review', 'us_form_kinds', 'us_supported_forms', 'us_withholding_check', 'us_estimated_payments', 'read_irs_letter', 'us_tax_estimate', 'set_us_taxpayer', 'add_us_tax_form', 'remove_us_tax_form', 'answer_us_interview']);
+const SHARED_EXTRA = new Set(['create_invoice', 'create_purchase', 'post_expense', 'set_expense_head']);
 
 export function toolServesCountry(toolName, country) {
   const name = String(toolName || '');
-  if (country === 'IN') return !US_ONLY_TOOLS.has(name);
-  return SHARED_TOOLS.has(name) || US_ONLY_TOOLS.has(name) || name === 'create_invoice' || name === 'create_purchase' || name === 'post_expense' || name === 'set_expense_head';
+  const pack = countryPack(country) || countryPack(DEFAULT_COUNTRY);
+  const engineOwner = engineToolOwner(name);
+  if (engineOwner === EVERY_COUNTRY) return true;
+  const owner = toolOwner(name) || engineOwner;
+  if (owner) return owner === pack.code;
+  if (pack.toolPolicy === 'unclaimed') return true;
+  return SHARED_TOOLS.has(name) || SHARED_EXTRA.has(name);
 }
 
 export function toolsForCountry(tools, country) {
