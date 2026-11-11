@@ -9,8 +9,10 @@ mock_provider "google" {
 mock_provider "random" {}
 
 variables {
-  project_id = "myca-test"
-  image      = "asia-south1-docker.pkg.dev/myca-test/myca-api/myca-api:test"
+  project_id  = "myca-test"
+  region      = "asia-south1"
+  alert_email = ""
+  image       = "asia-south1-docker.pkg.dev/myca-test/myca-api/myca-api:test"
 }
 
 run "production_keeps_its_original_names" {
