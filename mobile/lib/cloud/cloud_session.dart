@@ -59,6 +59,10 @@ const _messages = {
   'PLAN_REQUIRED': 'Your plan does not include this. The owner can upgrade under Plan and billing.',
   'US_RETURN_UNPAID': 'Filing this return with the IRS needs the one-time filing fee first. Preparing and reviewing it stay free.',
   'PURCHASE_ALREADY_USED': 'This Google Play payment already paid for another return.',
+  'CARD_CHECKOUT_NOT_CONFIGURED': 'Card payments are not set up yet.',
+  'UNKNOWN_CHECKOUT': 'That card payment could not be found. If you paid, it shows up within a few minutes.',
+  'ALREADY_SUBSCRIBED': 'MyCA Plus is already on.',
+  'NOT_SUBSCRIBED': 'MyCA Plus is not on.',
   'ALREADY_PAID': 'This return is already paid for.',
   'PURCHASE_NOT_COMPLETE': 'Google Play has not finished this payment yet. Filing unlocks as soon as it clears.',
   'NOT_A_PERSONAL_RETURN': 'The filing fee is for a personal US return.',
@@ -762,6 +766,8 @@ class CloudSession {
     return ConnectorView.fromJson(body);
   }
 
+  Future<Map<String, dynamic>> usOffers() async => _accepted(await call('GET', '/v1/plans'));
+
   Future<List<PlanOffer>> plans() async {
     final body = _accepted(await call('GET', '/v1/plans'));
     final rows = body['plans'];
@@ -780,6 +786,17 @@ class CloudSession {
 
   Future<Map<String, dynamic>> recordUsReturnPayment(int taxYear, String productId, String purchaseToken) async =>
       _accepted(await call('POST', '$_books/us-return-purchase', {'taxYear': taxYear, 'productId': productId, 'purchaseToken': purchaseToken}));
+
+  Future<Map<String, dynamic>> startUsCheckout(String product, {int? taxYear}) async =>
+      _accepted(await call('POST', '$_books/us-checkout', {'product': product, 'taxYear': ?taxYear}));
+
+  Future<Map<String, dynamic>> confirmUsCheckout(String sessionId) async => _accepted(await call('POST', '$_books/us-checkout-confirm', {'sessionId': sessionId}));
+
+  Future<Map<String, dynamic>> usPlus() async => _accepted(await call('GET', '$_books/us-plus'));
+
+  Future<Map<String, dynamic>> cancelUsPlus() async => _accepted(await call('POST', '$_books/us-plus-cancel', <String, Object?>{}));
+
+  Future<Map<String, dynamic>> joinUsWaitlist(String product) async => _accepted(await call('POST', '$_books/us-waitlist', {'product': product}));
 
   Future<EinvoiceOutcome> generateEinvoice(String invoiceId) async {
     return EinvoiceOutcome.fromJson(await call('POST', '$_books/einvoice', {'invoiceId': invoiceId}));

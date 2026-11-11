@@ -313,7 +313,7 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
       const review = await runner.withReadOnlyBooks(businessId, context, (session) => session.query('us_return_review', { taxYear }, actor));
       const data = review && typeof review === 'object' ? (review.data && typeof review.data === 'object' ? review.data : review) : {};
       const list = Array.isArray(data.unsupported) ? data.unsupported : [];
-      return list.map((item) => (typeof item === 'string' ? { form: item, reason: '' } : { form: String(item?.form || ''), reason: String(item?.reason || '') })).filter((item) => item.form);
+      return list.filter((item) => typeof item === 'string' || item?.required !== false).map((item) => (typeof item === 'string' ? { form: item, reason: '' } : { form: String(item?.form || ''), reason: String(item?.reason || ''), code: String(item?.code || '') })).filter((item) => item.form);
     } catch (err) {
       log({ billing: 'supported_forms_check_failed', error: String(err?.message || err) });
       return [];

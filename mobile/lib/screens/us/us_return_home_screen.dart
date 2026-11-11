@@ -6,6 +6,7 @@ import '../../app_state.dart';
 import '../../format.dart';
 import '../../marks.dart';
 import '../../theme.dart';
+import '../../us/us_filing_fee.dart';
 import '../../us/us_return.dart';
 import '../../widgets.dart';
 import '../ask_screen.dart';
@@ -17,7 +18,9 @@ import 'us_forms_screen.dart';
 import 'us_interview_screen.dart';
 import 'us_profile_screen.dart';
 import 'us_review_screen.dart';
+import 'us_plus_screen.dart';
 import 'us_sign_screen.dart';
+import 'us_state_sheet_screen.dart';
 
 class UsReturnHomeScreen extends StatefulWidget {
   const UsReturnHomeScreen({super.key, required this.snapshot});
@@ -29,10 +32,13 @@ class UsReturnHomeScreen extends StatefulWidget {
 }
 
 class _Hub {
-  const _Hub(this.status, this.efile);
+  const _Hub(this.status, this.efile, {this.review, this.state = '', this.fee});
 
   final UsReturnStatus status;
   final UsEfileStatus efile;
+  final UsReview? review;
+  final String state;
+  final UsFilingFee? fee;
 }
 
 class _UsReturnHomeScreenState extends State<UsReturnHomeScreen> {
@@ -52,10 +58,36 @@ class _UsReturnHomeScreenState extends State<UsReturnHomeScreen> {
 
   Future<_Hub> _load() async {
     final year = _year!;
+    final cloud = AppScope.of(context).cloud;
+    final fees = cloud == null ? const NoFilingFees() : CloudFilingFees(cloud);
     final results = await Future.wait<Object>([loadReturnStatus(_api, year), loadEfileStatus(_api, year)]);
     final status = results[0] as UsReturnStatus;
     _filingStatus = status.filingStatus;
-    return _Hub(status, results[1] as UsEfileStatus);
+    final extras = await Future.wait<Object?>([
+      loadReview(_api, year).then<Object?>((r) => r).catchError((_) => null),
+      _api.query('us_taxpayer', {'taxYear': year}).then<Object?>((t) => t).catchError((_) => null),
+      fees.status(year).then<Object?>((f) => f).catchError((_) => null),
+    ]);
+    final address = toolData(extras[1])['address'];
+    final state = address is Map ? '${address['state'] ?? ''}' : '';
+    return _Hub(status, results[1] as UsEfileStatus, review: extras[0] as UsReview?, state: state, fee: extras[2] as UsFilingFee?);
+  }
+
+  Widget _priceLine(_Hub hub) {
+    final text = Theme.of(context).textTheme;
+    final fee = hub.fee;
+    final line = fee == null ? usPriceLine(usFilingPriceUsd) : fee.line;
+    final paid = fee != null && fee.enforced && fee.paid;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Row(
+        children: [
+          Icon(paid ? Icons.check_circle : Icons.sell_outlined, size: 18, color: Palette.accent),
+          const SizedBox(width: 8),
+          Expanded(child: Text(paid ? 'Your ${fee.taxYear} filing is paid. Federal only. No state, refund or upgrade fees.' : line, key: const Key('usHub.priceLine'), style: text.bodyMedium?.copyWith(color: Palette.ink))),
+        ],
+      ),
+    );
   }
 
   void _reload() => setState(() {
@@ -306,6 +338,8 @@ class _UsReturnHomeScreenState extends State<UsReturnHomeScreen> {
                       ),
                     _efileCard(hub.efile),
                     _summary(hub.status),
+                    if (hub.review != null && !hub.review!.canFile) ...[UsUnsupportedNotice(forms: hub.review!.unsupported), const SizedBox(height: 14)],
+                    _priceLine(hub),
                     Panel(
                       children: [
                         for (final (id, mark, title, subtitle) in _steps)
@@ -321,10 +355,27 @@ class _UsReturnHomeScreenState extends State<UsReturnHomeScreen> {
                           ),
                       ],
                     ),
-                    const SizedBox(height: 18),
-                    Text(
-                      'MyCA prepares your federal return. Your state return is not included yet.',
-                      style: text.bodySmall?.copyWith(color: Palette.muted),
+                    const SizedBox(height: 14),
+                    Panel(
+                      children: [
+                        if (stateHasIncomeTax(hub.state))
+                          RowCard(
+                            key: const Key('usHub.state'),
+                            leading: const TintTile(tint: Tint.ask, mark: Mark.paper),
+                            title: 'Your state return',
+                            subtitle: stateReturnNote,
+                            trailing: const Chevron(),
+                            onTap: () => _open(UsStateSheetScreen(taxYear: year, state: hub.state)),
+                          ),
+                        RowCard(
+                          key: const Key('usHub.plus'),
+                          leading: const TintTile(tint: Tint.taxes, mark: Mark.ask),
+                          title: 'MyCA Plus',
+                          subtitle: 'IRS letters, withholding checks and quarterly estimates, all year',
+                          trailing: const Chevron(),
+                          onTap: () => _open(UsPlusScreen(taxYear: year)),
+                        ),
+                      ],
                     ),
                   ],
                 ],

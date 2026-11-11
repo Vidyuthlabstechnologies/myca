@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 
 import '../api/myca_api.dart';
+import '../app_state.dart';
 import '../billing/store_billing.dart';
 import '../cloud/cloud_session.dart';
 import '../theme.dart';
+import 'us_return.dart';
 
 class UsFilingFee {
-  const UsFilingFee({required this.taxYear, required this.enforced, required this.paid, required this.priceUsd, this.productId = '', this.testPurchase = false});
+  const UsFilingFee({required this.taxYear, required this.enforced, required this.paid, required this.priceUsd, this.productId = '', this.testPurchase = false, this.checkout = 'play', this.priceLine = ''});
 
   factory UsFilingFee.fromJson(Map<String, dynamic> json, int taxYear) => UsFilingFee(
         taxYear: (json['taxYear'] as num?)?.toInt() ?? taxYear,
@@ -15,6 +17,8 @@ class UsFilingFee {
         priceUsd: (json['priceUsd'] as num?)?.toInt() ?? usFilingPriceUsd,
         productId: '${json['productId'] ?? ''}',
         testPurchase: json['testPurchase'] == true,
+        checkout: '${json['checkout'] ?? 'play'}',
+        priceLine: '${json['priceLine'] ?? ''}',
       );
 
   final int taxYear;
@@ -23,16 +27,31 @@ class UsFilingFee {
   final int priceUsd;
   final String productId;
   final bool testPurchase;
+  final String checkout;
+  final String priceLine;
 
   bool get due => enforced && !paid;
+  bool get byCard => checkout == 'card';
+  String get line => priceLine.isEmpty ? usPriceLine(priceUsd) : priceLine;
 }
 
 const usFilingPriceUsd = 39;
+
+String usPriceLine(int priceUsd) => '\$$priceUsd to file. Federal only. No state, refund or upgrade fees.';
+
+class UsCardCheckout {
+  const UsCardCheckout({required this.url, required this.sessionId});
+
+  final String url;
+  final String sessionId;
+}
 
 abstract class UsFilingFees {
   String get accountId;
   Future<UsFilingFee> status(int taxYear);
   Future<UsFilingFee> record(int taxYear, String productId, String purchaseToken);
+  Future<UsCardCheckout> startCard(int taxYear);
+  Future<UsFilingFee> confirmCard(int taxYear, String sessionId);
 }
 
 class CloudFilingFees implements UsFilingFees {
@@ -49,6 +68,15 @@ class CloudFilingFees implements UsFilingFees {
   @override
   Future<UsFilingFee> record(int taxYear, String productId, String purchaseToken) async =>
       UsFilingFee.fromJson(await cloud.recordUsReturnPayment(taxYear, productId, purchaseToken), taxYear);
+
+  @override
+  Future<UsCardCheckout> startCard(int taxYear) async {
+    final out = await cloud.startUsCheckout('return', taxYear: taxYear);
+    return UsCardCheckout(url: '${out['url'] ?? ''}', sessionId: '${out['sessionId'] ?? ''}');
+  }
+
+  @override
+  Future<UsFilingFee> confirmCard(int taxYear, String sessionId) async => UsFilingFee.fromJson(await cloud.confirmUsCheckout(sessionId), taxYear);
 }
 
 class NoFilingFees implements UsFilingFees {
@@ -62,9 +90,15 @@ class NoFilingFees implements UsFilingFees {
 
   @override
   Future<UsFilingFee> record(int taxYear, String productId, String purchaseToken) => status(taxYear);
+
+  @override
+  Future<UsCardCheckout> startCard(int taxYear) async => throw const MycaApiException('Card payments are not set up on this server.');
+
+  @override
+  Future<UsFilingFee> confirmCard(int taxYear, String sessionId) => status(taxYear);
 }
 
-String usFilingFeeLine(UsFilingFee fee) => 'Filing your ${fee.taxYear} return with the IRS is \$${fee.priceUsd}, paid once. Preparing, reviewing and downloading it stay free.';
+String usFilingFeeLine(UsFilingFee fee) => 'Filing your ${fee.taxYear} return with the IRS is \$${fee.priceUsd}, paid once. Federal only, with no state, refund or upgrade fees. Preparing and checking it stay free.';
 
 class UsFilingFeeCard extends StatefulWidget {
   const UsFilingFeeCard({super.key, required this.fee, required this.fees, required this.store, required this.onPaid});
@@ -84,6 +118,7 @@ class _UsFilingFeeCardState extends State<UsFilingFeeCard> {
   bool _ready = false;
   bool _buying = false;
   String _note = '';
+  String _sessionId = '';
 
   @override
   void initState() {
@@ -98,6 +133,7 @@ class _UsFilingFeeCardState extends State<UsFilingFeeCard> {
   }
 
   Future<void> _start() async {
+    if (widget.fee.byCard) return;
     final store = widget.store;
     final id = widget.fee.productId;
     if (store == null || id.isEmpty || widget.fees.accountId.isEmpty) return;
@@ -153,6 +189,65 @@ class _UsFilingFeeCardState extends State<UsFilingFeeCard> {
     }
   }
 
+  Future<void> _payByCard() async {
+    final state = AppScope.of(context);
+    setState(() {
+      _buying = true;
+      _note = '';
+    });
+    try {
+      final checkout = await widget.fees.startCard(widget.fee.taxYear);
+      final opened = checkout.url.isNotEmpty && await state.openLink(Uri.parse(checkout.url));
+      if (!mounted) return;
+      setState(() {
+        _buying = false;
+        _sessionId = checkout.sessionId;
+        _note = opened ? '' : 'The card payment page could not be opened. Try again.';
+      });
+    } on MycaApiException catch (err) {
+      if (mounted) {
+        setState(() {
+          _buying = false;
+          _note = err.message;
+        });
+      }
+    }
+  }
+
+  Future<void> _checkCard() async {
+    setState(() {
+      _buying = true;
+      _note = '';
+    });
+    try {
+      final fee = await widget.fees.confirmCard(widget.fee.taxYear, _sessionId);
+      if (!mounted) return;
+      setState(() => _buying = false);
+      if (fee.paid) widget.onPaid(fee);
+    } on MycaApiException catch (err) {
+      if (mounted) {
+        setState(() {
+          _buying = false;
+          _note = err.message;
+        });
+      }
+    }
+  }
+
+  List<Widget> _cardButtons(TextTheme text) => [
+        FilledButton(
+          key: const Key('usFee.payCard'),
+          onPressed: _buying ? null : _payByCard,
+          child: Text(_buying && _sessionId.isEmpty ? 'Opening the payment page…' : 'Pay \$${widget.fee.priceUsd} by card'),
+        ),
+        if (_sessionId.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          OutlinedButton(key: const Key('usFee.paidCard'), onPressed: _buying ? null : _checkCard, child: const Text("I've paid, continue")),
+        ],
+        const SizedBox(height: 8),
+        Text('Card payment by Stripe for the US company. MyCA never sees your card number.', style: text.bodySmall?.copyWith(color: Palette.muted)),
+      ];
+
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
@@ -168,11 +263,41 @@ class _UsFilingFeeCardState extends State<UsFilingFeeCard> {
           const SizedBox(height: 6),
           Text(usFilingFeeLine(widget.fee), style: text.bodyMedium),
           const SizedBox(height: 14),
-          if (_ready)
+          if (widget.fee.byCard)
+            ..._cardButtons(text)
+          else if (_ready)
             FilledButton(key: const Key('usFee.pay'), onPressed: _buying ? null : _buy, child: Text(_buying ? 'Opening Google Play…' : 'Pay $price and continue'))
           else
             Text('Pay the filing fee in the MyCA app for Android, then come back here to file.', style: text.bodySmall?.copyWith(color: Palette.muted)),
           if (_note.isNotEmpty) ...[const SizedBox(height: 10), Text(_note, key: const Key('usFee.note'), style: text.bodySmall?.copyWith(color: Palette.danger))],
+        ],
+      ),
+    );
+  }
+}
+
+class UsUnsupportedNotice extends StatelessWidget {
+  const UsUnsupportedNotice({super.key, required this.forms});
+
+  final List<UsUnsupportedForm> forms;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    return Container(
+      key: const Key('usUnsupported.notice'),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(color: Palette.warnSoft, borderRadius: BorderRadius.circular(radiusCard)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text("MyCA can't file this return yet", style: text.titleMedium),
+          const SizedBox(height: 6),
+          Text(unsupportedFormsLine(forms), style: text.bodyMedium),
+          for (final f in forms)
+            if (f.reason.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 4), child: Text('${f.form}: ${f.reason}', style: text.bodySmall)),
+          const SizedBox(height: 6),
+          Text('You can still prepare, check and download it for free.', style: text.bodySmall?.copyWith(color: Palette.muted)),
         ],
       ),
     );

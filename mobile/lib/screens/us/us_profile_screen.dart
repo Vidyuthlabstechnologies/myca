@@ -305,6 +305,11 @@ class _UsProfileScreenState extends State<UsProfileScreen> {
                 TextField(key: const Key('usProfile.city'), controller: _city, textCapitalization: TextCapitalization.words, decoration: InputDecoration(labelText: 'City', errorText: _errors['city'])),
                 const SizedBox(height: 12),
                 UsStateField(key: const Key('usProfile.state'), value: _state, errorText: _errors['state'], onChanged: (value) => setState(() => _state = value)),
+                if (stateHasIncomeTax(_state ?? ''))
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Text(stateReturnNote, key: const Key('usProfile.stateNote'), style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Palette.muted)),
+                  ),
                 const SizedBox(height: 12),
                 TextField(key: const Key('usProfile.zip'), controller: _zip, keyboardType: TextInputType.number, decoration: InputDecoration(labelText: 'ZIP code', errorText: _errors['zip'])),
                 const SizedBox(height: 22),

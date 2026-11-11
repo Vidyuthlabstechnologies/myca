@@ -7,6 +7,7 @@ import '../../api/myca_api.dart';
 import '../../app_state.dart';
 import '../../format.dart';
 import '../../theme.dart';
+import '../../us/us_filing_fee.dart';
 import '../../us/us_return.dart';
 import '../../widgets.dart';
 import 'us_forms_screen.dart';
@@ -116,6 +117,7 @@ class _UsReviewScreenState extends State<UsReviewScreen> {
                     ],
                   ),
                 ),
+                if (!review.canFile) ...[const SizedBox(height: 16), UsUnsupportedNotice(forms: review.unsupported)],
                 if (review.checks.isNotEmpty) ...[
                   const SizedBox(height: 20),
                   const SectionLabel('Needs a look'),
@@ -173,8 +175,8 @@ class _UsReviewScreenState extends State<UsReviewScreen> {
                 const SizedBox(height: 10),
                 FilledButton(
                   key: const Key('usReview.sign'),
-                  onPressed: review.blocked ? null : () => _open(UsSignScreen(taxYear: widget.taxYear)),
-                  child: Text(review.blocked ? 'Fix the items above to sign' : 'Looks right: sign and file'),
+                  onPressed: review.blocked || !review.canFile ? null : () => _open(UsSignScreen(taxYear: widget.taxYear)),
+                  child: Text(!review.canFile ? "MyCA can't file this return yet" : review.blocked ? 'Fix the items above to sign' : 'Looks right: sign and file'),
                 ),
                 const SizedBox(height: 10),
                 Text('Every figure here is worked out by MyCA\'s tax engine from your forms and answers. The AI assistant explains them but never sets them.', style: text.bodySmall?.copyWith(color: Palette.muted)),

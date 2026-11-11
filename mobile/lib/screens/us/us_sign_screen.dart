@@ -327,6 +327,9 @@ class _UsSignScreenState extends State<UsSignScreen> {
             }
             final ctx = loaded.data!;
             if (ctx.efile.filed) return _filedView(ctx.efile);
+            if (!ctx.review.canFile) {
+              return ListView(padding: const EdgeInsets.fromLTRB(20, 12, 20, 32), children: [UsUnsupportedNotice(forms: ctx.review.unsupported)]);
+            }
             if (ctx.review.blocked) {
               return const EmptyNote(text: 'Your return still has items to fix. Open Review your return and fix them, then come back to sign.');
             }

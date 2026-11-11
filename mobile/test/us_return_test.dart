@@ -46,16 +46,32 @@ class FeeStore implements StoreBilling {
 }
 
 class FakeFees implements UsFilingFees {
+  FakeFees({this.card = false});
+
+  final bool card;
   bool paid = false;
+  bool cardPaid = false;
   final recorded = <String>[];
+  final confirmed = <String>[];
 
   @override
   String get accountId => 'biz-1';
   @override
-  Future<UsFilingFee> status(int taxYear) async => UsFilingFee(taxYear: taxYear, enforced: true, paid: paid, priceUsd: 39, productId: 'myca_us_1040');
+  Future<UsFilingFee> status(int taxYear) async => UsFilingFee(taxYear: taxYear, enforced: true, paid: paid, priceUsd: 39, productId: 'myca_us_1040', checkout: card ? 'card' : 'play');
   @override
   Future<UsFilingFee> record(int taxYear, String productId, String purchaseToken) async {
     recorded.add('$taxYear:$productId:$purchaseToken');
+    paid = true;
+    return status(taxYear);
+  }
+
+  @override
+  Future<UsCardCheckout> startCard(int taxYear) async => const UsCardCheckout(url: 'https://checkout.stripe.com/c/pay/cs_test_1', sessionId: 'cs_test_1');
+
+  @override
+  Future<UsFilingFee> confirmCard(int taxYear, String sessionId) async {
+    confirmed.add(sessionId);
+    if (!cardPaid) throw const MycaApiException('The card payment has not gone through yet.');
     paid = true;
     return status(taxYear);
   }
@@ -77,6 +93,12 @@ class UsFakeApi implements MycaApi {
   num refund = 1234.5;
   num owed = 0;
   Map<String, Object?> readResult = {};
+  List<Map<String, Object?>> unsupported = [];
+  List<Map<String, Object?>> reviewLines = [
+    {'form': 'Form 1040', 'line': '1a', 'label': 'Wages', 'amount': 52000, 'source': 'W-2 from Acme Corp'},
+    {'form': 'Form 1040', 'line': '25a', 'label': 'Federal tax withheld', 'amount': 6100, 'source': 'W-2 box 2'},
+  ];
+  final tools = <String, Object?>{};
   Map<String, Object?> signed = {};
   int _token = 0;
   final _pending = <String, Proposal>{};
@@ -192,19 +214,18 @@ class UsFakeApi implements MycaApi {
         });
       case 'us_return_review':
         return _ok({
-          'lines': [
-            {'form': 'Form 1040', 'line': '1a', 'label': 'Wages', 'amount': 52000, 'source': 'W-2 from Acme Corp'},
-            {'form': 'Form 1040', 'line': '25a', 'label': 'Federal tax withheld', 'amount': 6100, 'source': 'W-2 box 2'},
-          ],
+          'lines': reviewLines,
           'refund': refund,
           'owed': owed,
           'checks': checks,
+          'unsupported': unsupported,
         });
       case 'us_efile_status':
         return _ok({'status': efile, 'mode': mode, 'submissionId': efile == 'submitted' ? '00000020253150000001' : '', 'rejections': rejections});
       case 'us_return_pdf':
         return _ok({'base64': 'JVBERi0xLjQK'});
     }
+    if (tools.containsKey(name)) return tools[name];
     return {'ok': false, 'error': 'UNKNOWN_TOOL'};
   }
 
@@ -218,12 +239,20 @@ class UsFakeApi implements MycaApi {
   Future<ToolOutcome> updateCompany({required String name, String gstin = ''}) async => const ToolOutcome(ok: true, error: '');
 }
 
-AppState usState(UsFakeApi api, {PickAnyFile? pickAny, List<(String, Uint8List)>? shared}) => AppState(
+AppState usState(UsFakeApi api, {PickAnyFile? pickAny, List<(String, Uint8List)>? shared, List<Uri>? opened, List<String>? sharedText}) => AppState(
   api: api,
   store: MemoryOnboardingStore(isWelcomed: true, isMigrated: true),
   pickTextFile: (_) async => null,
   edition: 'US',
   pickAnyFile: pickAny ?? () async => null,
+  openLink: (url) async {
+    opened?.add(url);
+    return true;
+  },
+  shareText: (text) async {
+    sharedText?.add(text);
+    return true;
+  },
   pdf: PdfActions(share: (name, bytes) async {
     shared?.add((name, bytes));
     return true;
@@ -592,7 +621,9 @@ void main() {
   test('the filing fee reads from the server and is never due when billing is off', () {
     final due = UsFilingFee.fromJson({'taxYear': 2025, 'enforced': true, 'paid': false, 'priceUsd': 39, 'productId': 'myca_us_1040'}, 2025);
     expect(due.due, isTrue);
-    expect(usFilingFeeLine(due), 'Filing your 2025 return with the IRS is \$39, paid once. Preparing, reviewing and downloading it stay free.');
+    expect(usFilingFeeLine(due), 'Filing your 2025 return with the IRS is \$39, paid once. Federal only, with no state, refund or upgrade fees. Preparing and checking it stay free.');
+    expect(due.line, '\$39 to file. Federal only. No state, refund or upgrade fees.');
+    expect(UsFilingFee.fromJson({'checkout': 'card'}, 2025).byCard, isTrue);
     expect(UsFilingFee.fromJson({'enforced': false, 'paid': true}, 2025).due, isFalse);
     expect(UsFilingFee.fromJson({'enforced': true, 'paid': true}, 2025).due, isFalse);
   });

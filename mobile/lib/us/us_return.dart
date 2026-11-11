@@ -308,8 +308,15 @@ class UsCheck {
   bool get blocking => level == 'error';
 }
 
+class UsUnsupportedForm {
+  const UsUnsupportedForm(this.form, this.reason);
+
+  final String form;
+  final String reason;
+}
+
 class UsReview {
-  const UsReview({required this.lines, required this.refund, required this.owed, required this.checks});
+  const UsReview({required this.lines, required this.refund, required this.owed, required this.checks, this.unsupported = const []});
 
   factory UsReview.fromJson(Object? json) {
     final data = _map(json);
@@ -318,6 +325,11 @@ class UsReview {
       refund: _num(data['refund']),
       owed: _num(data['owed']),
       checks: [for (final c in _maps(data['checks'])) UsCheck(level: _text(c['level']), message: _text(c['message']), fix: _text(c['fix']), step: _text(c['step']))],
+      unsupported: [
+        if (data['unsupported'] is List)
+          for (final u in data['unsupported'] as List)
+            if (u is Map && _text(u['form']).isNotEmpty && u['required'] != false) UsUnsupportedForm(_text(u['form']), _text(u['reason'])) else if (u is String && u.isNotEmpty) UsUnsupportedForm(u, ''),
+      ],
     );
   }
 
@@ -325,8 +337,17 @@ class UsReview {
   final num refund;
   final num owed;
   final List<UsCheck> checks;
+  final List<UsUnsupportedForm> unsupported;
 
   bool get blocked => checks.any((c) => c.blocking);
+  bool get canFile => unsupported.isEmpty;
+
+  UsReviewLine? line(String form, String line) {
+    for (final l in lines) {
+      if (l.form == form && l.line == line) return l;
+    }
+    return null;
+  }
 }
 
 class UsRejection {
@@ -392,3 +413,15 @@ Future<UsEfileStatus> loadEfileStatus(MycaApi api, int year) async {
   }
 }
 
+
+const noIncomeTaxStates = {'AK', 'FL', 'NV', 'NH', 'SD', 'TN', 'TX', 'WA', 'WY'};
+
+bool stateHasIncomeTax(String code) => code.isNotEmpty && !noIncomeTaxStates.contains(code.toUpperCase());
+
+const stateReturnNote = "File your state return on your state's website. We'll give you the numbers it needs.";
+
+String unsupportedFormsLine(List<UsUnsupportedForm> forms) {
+  final names = [for (final f in forms) f.form];
+  final list = names.length <= 1 ? names.join() : '${names.sublist(0, names.length - 1).join(', ')} and ${names.last}';
+  return 'Your return needs $list, which MyCA can\'t file yet. You won\'t be charged for a return we can\'t file.';
+}
