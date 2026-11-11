@@ -70,6 +70,8 @@ import { planAmendment } from './invoice-amendments.mjs';
 import { tallyXmlToDayBookCsv } from './tally-xml.mjs';
 import { findBankLine, planMatch, planBankCharges, planBankRule, planBankAccount, planTransfer, previewStatementLines, rulesOf, linesOf, accountFor, amountOf, sideOf, ruleMatches, docWords, ruleFromMatch } from './bank-recon.mjs';
 import { runBankRules, ruleWords } from './bank-rules.mjs';
+import { ENGINE_WRITE_TOOLS } from './countries/manifests.mjs';
+import { enginePreview } from './countries/engines.mjs';
 
 export const CONFIRM_TOOLS = new Set([
   'create_invoice', 'create_purchase', 'record_receipt', 'record_payment', 'record_filing', 'record_supplier_reminder', 'record_collection_reminder', 'record_payment_run', 'month_close_approve', 'set_sku_supply', 'record_purchase_order', 'record_advance_tax', 'set_supplier_bank', 'attach_document', 'push_tally', 'import_payroll_summary', 'add_employee', 'change_salary', 'end_employment', 'approve_payroll', 'record_salary_payment', 'set_tds_deductor', 'record_tds_deposit', 'tds_review_answer', 'set_gst_credit_opening', 'record_gst_payment', 'close_year', 'post_expense', 'set_expense_head', 'create_credit_note', 'create_debit_note', 'create_purchase_note', 'record_supplier_debit_note', 'cancel_invoice', 'gst_review_answer', 'import_gstr2b', 'ims_decide', 'add_reminder', 'complete_reminder', 'set_cash_balance', 'set_payment_terms', 'set_party_address', 'set_business_address', 'set_transport', 'set_sales_tax_rate', 'set_contractor', 'set_sales_tax_nexus', 'sales_tax_review_answer', 'record_sales_tax_payment', 'record_sales_tax_filing', 'set_withholding', 'set_suta_rate', 'import_us_invoices', 'import_pos_sales', 'import_settlement', 'import_marketplace_orders', 'import_tcs_statement', 'import_26as_credits', 'record_tds_withheld', 'add_bill_tds', 'record_stock', 'record_stock_transfer', 'set_sku_cost', 'import_sku_costs', 'value_inventory', 'set_registration', 'retire_registration', 'set_channel_identity', 'ask_ca', 'reply_ca', 'close_ca', 'create_quote', 'mark_quote', 'convert_quote', 'add_recurring', 'stop_recurring', 'amend_invoice', 'match_bank_line', 'unmatch_bank_line', 'book_bank_charges', 'add_bank_rule', 'remove_bank_rule', 'run_bank_rules', 'set_bank_account', 'record_transfer',
@@ -77,6 +79,7 @@ export const CONFIRM_TOOLS = new Set([
   'import_tally', 'import_tally_xml', 'import_zoho', 'import_bank',
   'govt_generate_irn', 'govt_nic_cancel_irn',
   'exception_decide',
+  ...ENGINE_WRITE_TOOLS,
 ]);
 
 const PENDING_TTL_MS = 10 * 60 * 1000;
@@ -2011,7 +2014,7 @@ export function needsConfirmation(name) {
 
 export function previewOf(state, name, args = {}) {
   setCurrentCountry(state);
-  const build = PREVIEWERS[name];
+  const build = PREVIEWERS[name] || enginePreview(name);
   if (!build) return { blockers: [], summary: `Run ${name}.`, effects: [], figures: {} };
   try {
     return build(state, args);

@@ -269,6 +269,7 @@ locals {
   environment = { for name, value in {
     TZ                             = var.daily_job_time_zone
     MYCA_REGION                    = var.region
+    MYCA_COUNTRIES                 = var.country
     MYCA_GOOGLE_CLIENT_IDS         = join(",", var.google_client_ids)
     MYCA_OIDC_ISSUER               = var.oidc_issuer
     MYCA_OIDC_CLIENT_IDS           = join(",", var.oidc_client_ids)

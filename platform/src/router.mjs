@@ -1,4 +1,5 @@
 import { TOOLS, runTool } from './tools.mjs';
+import { engineWords } from './countries/engines.mjs';
 import { templateWords } from './invoice-template.mjs';
 import { settlementWords, settlementStatusWords } from './settlements.mjs';
 import { orderImportWords } from './marketplace-orders.mjs';
@@ -323,6 +324,8 @@ function fmtToolResultCore(name, result, args) {
   if (result?.error === 'SALARIES_PRIVATE') return 'Only the owner can see or change employees and salaries.';
   if (result?.error === 'OWNER_ONLY') return result.hint || 'Only the owner can do that.';
   if (!result || result.ok === false) return failedInWords(result?.error, result);
+  const engineWorded = engineWords(name);
+  if (engineWorded) return engineWorded(result, money, args);
   const d = result.data ?? result.invoice ?? result;
   if (name === 'create_invoice' && result.invoice?.export) {
     const inv = result.invoice;
