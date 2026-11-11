@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { performExternalAction } from '../../action-gate.mjs';
 import { appendAuditEvent } from '../../ca-api.mjs';
-import { loadEnvFile, providerEnvironment } from '../../runtime-config.mjs';
+import { loadEnvFile, mockModeEnabled, providerEnvironment } from '../../runtime-config.mjs';
 import { countrySlice, openCountrySlice } from '../kit/index.mjs';
 import { submissionEntry } from './myinvois-document.mjs';
 import { signMyInvoisDocument } from './myinvois-sign.mjs';
@@ -42,6 +42,10 @@ function signingMaterial() {
   return { certificatePem: readFileSync(certPath, 'utf8'), privateKeyPem: readFileSync(keyPath, 'utf8'), passphrase: setting('MYCA_MYINVOIS_KEY_PASSPHRASE') || undefined };
 }
 
+function currentEnvironment() {
+  return mockModeEnabled() ? 'mock' : providerEnvironment();
+}
+
 function einvoices(state) {
   return openCountrySlice(state, 'myEinvoices', () => ({ byNumber: {} }));
 }
@@ -49,7 +53,7 @@ function einvoices(state) {
 export async function submitMyInvois(state, args) {
   const number = String(args.number);
   const existing = countrySlice(state, 'myEinvoices').byNumber?.[number];
-  if (existing && existing.status !== 'rejected' && existing.status !== 'cancelled') return { ok: false, error: 'EINVOICE_ALREADY_SENT', number, uuid: existing.uuid, status: existing.status };
+  if (existing && existing.environment === currentEnvironment() && existing.status !== 'rejected' && existing.status !== 'cancelled') return { ok: false, error: 'EINVOICE_ALREADY_SENT', number, uuid: existing.uuid, status: existing.status };
   const material = signingMaterial();
   let document = args.document;
   if (material) {
@@ -100,13 +104,16 @@ export async function readMyInvoisSubmission(state, args) {
   }, async (transports) => myInvoisSubmission(myInvoisConfig(transports.https.request), { submissionUid }));
   if (!out.ok) return out;
   const documents = (out.data.documentSummary || []).map((doc) => ({ uuid: doc.uuid, number: doc.internalId, status: doc.status, longId: doc.longId || '', link: doc.longId ? myInvoisShareLink(providerEnvironment(), doc.uuid, doc.longId) : '' }));
-  const book = einvoices(state).byNumber;
+  const book = countrySlice(state, 'myEinvoices').byNumber || {};
   for (const doc of documents) {
     const record = book[doc.number];
-    if (record && record.uuid === doc.uuid && doc.status) {
-      record.status = String(doc.status).toLowerCase();
-      if (doc.link) record.link = doc.link;
-    }
+    const status = String(doc.status || '').toLowerCase();
+    if (!record || record.uuid !== doc.uuid || !status || (record.status === status && (!doc.link || record.link === doc.link))) continue;
+    const before = record.status;
+    const saved = einvoices(state).byNumber[doc.number];
+    saved.status = status;
+    if (doc.link) saved.link = doc.link;
+    appendAuditEvent(state, { action: 'my_einvoice_status_changed', actorId: actorOf(args).userId, metadata: { number: doc.number, uuid: doc.uuid, before, after: status } });
   }
   return { ok: true, mock: Boolean(out.mock), data: { submissionUid, overallStatus: out.data.overallStatus, documents } };
 }

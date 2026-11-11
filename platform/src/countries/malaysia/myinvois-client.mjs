@@ -155,7 +155,9 @@ export async function validateMyTin(config = {}, args = {}) {
   const send = config.transport;
   if (typeof send !== 'function') return fail('TRANSPORT_MISSING', { hint: 'The action gate passes the transport; the Malaysia engine never opens a connection itself.' });
   const response = await send(`${MYINVOIS_HOSTS[auth.environment].api}/api/v1.0/taxpayer/validate/${encodeURIComponent(tin)}?idType=${idType}&idValue=${encodeURIComponent(idValue)}`, { method: 'GET', headers: { Authorization: `Bearer ${auth.token}` } });
-  return { ok: true, environment: auth.environment, data: { tin, valid: response.status === 200 } };
+  if (response.status === 200 || response.status === 404) return { ok: true, environment: auth.environment, data: { tin, valid: response.status === 200 } };
+  if (response.status === 429) return fail('MYINVOIS_THROTTLED', { retryAfterSeconds: Number(response.headers?.get?.('retry-after') || 60) });
+  return fail('MYINVOIS_REJECTED', { status: response.status, lhdn: await readJson(response), hint: 'LHDN did not answer whether the TIN exists; nothing is known about it yet.' });
 }
 
 export function myInvoisShareLink(environment, uuid, longId) {

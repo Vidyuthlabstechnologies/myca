@@ -5,6 +5,7 @@ import { localToday } from './dates.mjs';
 import { periodSummary } from './period-summary.mjs';
 import { creditsToDate } from './advance-tax.mjs';
 import { findTaxGuidance, loadTaxModule, rupees, taxModuleCatalog } from './tax-modules.mjs';
+import { itrGuidanceSections } from './itr-knowledge.mjs';
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const FY_LABEL = /^\d{4}-\d{2}$/;
@@ -421,11 +422,11 @@ export function taxPrompt(question, sections, onDate) {
     if (context.length + block.length > MAX_CONTEXT) break;
     context += block;
   }
-  const tools = [...new Set(sections.flatMap((section) => taxModuleCatalog().find((module) => module.name === section.module)?.tools || []))];
+  const tools = [...new Set([...sections.flatMap((section) => taxModuleCatalog().find((module) => module.name === section.module)?.tools || []), ...(sections.some((section) => section.module === 'itr-knowledge') ? ['itr_knowledge', 'check_itr_json'] : [])])];
   return {
     context,
     systemPrompt: [
-      `You are MyCA's tax assistant for small businesses and their CAs in India. The guidance below is current for ${onDate}.`,
+      `You are MyCA's tax assistant for small businesses and their CAs in India. The guidance below is current for ${onDate}; items marked [itr-knowledge/...] come from the CBDT's AY 2025-26 ITR schemas, validation rules and MyCA's filing guides.`,
       'Answer only from the guidance supplied, and put the reference in square brackets, such as [module/section], after each statement you take from it.',
       'Never state an amount, rate, date, limit or section number that is not in the guidance, and never calculate a tax figure; for a computation, name the MyCA tool that does it.',
       `MyCA tools for this topic: ${tools.join(', ') || 'none'}.`,
@@ -454,7 +455,9 @@ export async function askTax(state, args = {}, actor) {
   const question = String(args.question || '').trim();
   if (question.length < 3) return fail('QUESTION_REQUIRED');
   const onDate = ISO_DATE.test(String(args.asOf || '')) ? args.asOf : localToday();
-  const sections = findTaxGuidance(question, { onDate, limit: 3, module: args.module ? String(args.module) : undefined });
+  const moduleSections = findTaxGuidance(question, { onDate, limit: 3, module: args.module ? String(args.module) : undefined });
+  const itrSections = args.module ? [] : itrGuidanceSections(question, { limit: moduleSections.length ? 2 : 3 });
+  const sections = [...moduleSections, ...itrSections];
   if (!sections.length) return { ok: true, question, onDate, sections, answered: false, modules: taxModuleCatalog().map((module) => ({ name: module.name, description: module.description })) };
   const built = taxPrompt(question, sections, onDate);
   const result = await performExternalAction(state, {

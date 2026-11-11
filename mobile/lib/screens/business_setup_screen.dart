@@ -6,6 +6,7 @@ import '../cloud/cloud_session.dart';
 import '../migration.dart';
 import 'invitation_cards.dart';
 import '../theme.dart';
+import 'us/us_setup_screen.dart';
 
 class BusinessSetupScreen extends StatefulWidget {
   const BusinessSetupScreen({super.key});
@@ -96,6 +97,7 @@ class _BusinessSetupScreenState extends State<BusinessSetupScreen> {
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
+    if (AppScope.of(context).edition == 'US') return const UsSetupScreen();
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,

@@ -31,6 +31,7 @@ import 'screens/home_screen.dart';
 import 'screens/migration_flow.dart';
 import 'screens/sign_in_screen.dart';
 import 'screens/welcome_screen.dart';
+import 'screens/us/us_return_home_screen.dart';
 import 'shared_file.dart';
 import 'theme.dart';
 import 'tour/tour.dart';
@@ -90,6 +91,8 @@ void main() {
             : null,
         plaidLink: const DevicePlaidLink(),
         openLink: (url) => launchUrl(url, mode: LaunchMode.externalApplication),
+        edition: editionFor(appFlavor),
+        installationId: deviceInstallationId,
       ),
     ),
   );
@@ -298,6 +301,7 @@ class AppGate extends StatelessWidget {
       );
     }
     if (snapshot.activeUser == null) return SignInScreen(snapshot: snapshot);
+    if (snapshot.company.household) return UsReturnHomeScreen(snapshot: snapshot);
     if (!state.migrated) return MigrationFlow(snapshot: snapshot);
     return HomeScreen(snapshot: snapshot);
   }

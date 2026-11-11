@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:myca_design/myca_design.dart' show Bahi;
 
 import '../app_state.dart';
 import '../brand.dart';
 import '../marks.dart';
-import 'package:myca_design/myca_design.dart' show Bahi;
 import '../theme.dart';
 import '../tour/tour.dart';
 
@@ -16,10 +16,19 @@ class WelcomeScreen extends StatelessWidget {
     (Mark.confirm, 'Nothing reaches your books until you say so'),
   ];
 
+  static const _usPoints = [
+    (Mark.taxes, 'Snap your W-2 and 1099s, and we read them for you'),
+    (Mark.sales, 'Plain questions instead of IRS forms'),
+    (Mark.confirm, 'Review every line, then sign and e-file with the IRS'),
+  ];
+
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
-    final tour = TourScope.maybeOf(context);
+    final state = AppScope.of(context);
+    final us = state.edition == 'US';
+    final points = us ? _usPoints : _points;
+    final tour = us ? null : TourScope.maybeOf(context);
     return Scaffold(
       body: SafeArea(
         child: LayoutBuilder(
@@ -42,26 +51,26 @@ class WelcomeScreen extends StatelessWidget {
                         ),
                         const SizedBox(height: 12),
                         Text(
-                          'Your books,\nkept as easily\nas a conversation.',
+                          us ? 'Your taxes,\ndone as easily\nas a conversation.' : 'Your books,\nkept as easily\nas a conversation.',
                           style: text.displaySmall,
                         ),
                         const SizedBox(height: 14),
                         Text(
-                          'Sales, purchases and GST for your business, kept right without the paperwork.',
+                          us
+                              ? 'Your federal return, Form 1040, prepared from your forms and your answers, and e-filed with the IRS.'
+                              : 'Sales, purchases and GST for your business, kept right without the paperwork.',
                           style: text.bodyLarge?.copyWith(color: Palette.muted),
                         ),
                         const SizedBox(height: 28),
                         const Divider(),
-                        for (final (mark, line) in _points) ...[
+                        for (final (mark, line) in points) ...[
                           Padding(
                             padding: const EdgeInsets.symmetric(vertical: 14),
                             child: Row(
                               children: [
                                 MarkIcon(mark: mark, size: 22),
                                 const SizedBox(width: 16),
-                                Expanded(
-                                  child: Text(line, style: text.bodyLarge),
-                                ),
+                                Expanded(child: Text(line, style: text.bodyLarge)),
                               ],
                             ),
                           ),
@@ -71,7 +80,7 @@ class WelcomeScreen extends StatelessWidget {
                         SizedBox(
                           width: double.infinity,
                           child: FilledButton(
-                            onPressed: AppScope.of(context).finishWelcome,
+                            onPressed: state.finishWelcome,
                             child: const Text('Get started'),
                           ),
                         ),
@@ -88,7 +97,7 @@ class WelcomeScreen extends StatelessWidget {
                         const SizedBox(height: 12),
                         Center(
                           child: Text(
-                            'About two minutes to set up',
+                            us ? 'Most returns take about 20 minutes' : 'About two minutes to set up',
                             style: text.bodySmall,
                           ),
                         ),

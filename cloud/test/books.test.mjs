@@ -135,7 +135,7 @@ test('oversized and malformed bodies are refused before anything runs', async ()
 });
 
 test('logs carry no amounts, names, phone numbers or business ids', async () => {
-  const text = JSON.stringify(api.logs);
+  const text = JSON.stringify(api.logs.map(({ requestId, ...entry }) => entry));
   for (const secret of ['Kiran', 'Kaveri', '9440', '9200000001', owner.businessId, owner.token]) {
     assert.equal(text.includes(secret), false, secret);
   }

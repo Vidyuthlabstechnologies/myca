@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:myca/app_state.dart';
 import 'package:myca/main.dart';
 import 'package:myca_design/myca_design.dart' show Bahi;
 
@@ -76,5 +77,18 @@ void main() {
     await settle(tester);
     expect(state.welcomed, isFalse);
     expect(find.text('Get started'), findsOneWidget);
+  });
+
+  testWidgets('the US edition welcome has no India sample tour', (tester) async {
+    final state = AppState(
+      api: FakeMycaApi(signedIn: true),
+      store: MemoryOnboardingStore(isWelcomed: false, isMigrated: false),
+      pickTextFile: (_) async => null,
+      edition: 'US',
+    );
+    await tester.pumpWidget(MycaApp(state: state));
+    await tester.pumpAndSettle();
+    expect(find.text('Get started'), findsOneWidget);
+    expect(find.text('Take a 2-minute tour first'), findsNothing);
   });
 }

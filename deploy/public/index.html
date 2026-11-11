@@ -3,94 +3,148 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MyCA: your books, GST and payroll, kept right from your phone</title>
+<title>MyCA: your books, kept as easily as a conversation</title>
 <meta name="description" content="MyCA keeps a small business's books the way a careful accountant would. Type a sentence, see the entry, say yes. GST returns, TDS, payroll and the CA's export, with every figure traced to the rule behind it.">
-<meta property="og:title" content="MyCA: your books, GST and payroll, kept right from your phone">
+<meta name="theme-color" content="#FAFAF7">
+<meta property="og:type" content="website">
+<meta property="og:title" content="MyCA: your books, kept as easily as a conversation">
 <meta property="og:description" content="Type a sentence, see the entry, say yes. Nothing reaches your books until you do.">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23b42318'/%3E%3Ctext x='16' y='22' text-anchor='middle' font-family='Georgia,serif' font-size='18' fill='%23fff7ed'%3EM%3C/text%3E%3C/svg%3E">
+<meta property="og:image" content="/assets/og-image.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<link rel="preload" href="/assets/fonts/Inter-Regular.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/assets/fonts/Inter-SemiBold.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/assets/site.css">
 <style>
-  :root {
-    --ink: #1c1917; --muted: #57534e; --line: #e7e5e4; --paper: #fffaf3; --surface: #ffffff;
-    --accent: #b42318; --accent-ink: #fff7ed; --good: #166534; --soft: #fdf2e9;
-  }
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  html { scroll-behavior: smooth; }
-  body { font-family: Georgia, 'Times New Roman', serif; background: var(--paper); color: var(--ink); line-height: 1.6; -webkit-font-smoothing: antialiased; }
-  .sans { font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; }
-  a { color: var(--accent); }
-  header { position: sticky; top: 0; background: rgba(255,250,243,.94); backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); z-index: 10; }
-  .wrap { max-width: 1040px; margin: 0 auto; padding: 0 20px; }
-  nav { display: flex; align-items: center; justify-content: space-between; height: 60px; gap: 16px; }
-  nav .logo { display: flex; align-items: center; gap: 10px; font-weight: 700; text-decoration: none; color: var(--ink); font-size: 1.1rem; }
-  nav .logo i { width: 28px; height: 28px; border-radius: 8px; background: var(--accent); color: var(--accent-ink); display: inline-flex; align-items: center; justify-content: center; font-style: normal; font-weight: 700; }
-  nav ul { list-style: none; display: flex; gap: 22px; }
-  nav ul a { text-decoration: none; color: var(--muted); font-size: .95rem; }
-  nav ul a:hover { color: var(--ink); }
-  .hero { padding: 72px 0 48px; display: grid; grid-template-columns: 1.1fr .9fr; gap: 40px; align-items: center; }
-  .hero h1 { font-size: clamp(2rem, 4.6vw, 3.2rem); line-height: 1.12; font-weight: 400; letter-spacing: -.01em; }
-  .hero p.lede { margin-top: 18px; font-size: 1.15rem; color: var(--muted); max-width: 520px; }
-  .cta { margin-top: 28px; display: flex; gap: 12px; flex-wrap: wrap; }
-  .btn { display: inline-block; padding: 12px 20px; border-radius: 10px; text-decoration: none; font-weight: 600; border: 1px solid var(--ink); color: var(--ink); background: transparent; }
-  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
-  .btn:hover { opacity: .9; }
-  .phone { background: var(--surface); border: 1px solid var(--line); border-radius: 22px; padding: 18px; box-shadow: 0 20px 40px rgba(28,25,23,.08); max-width: 360px; margin-left: auto; }
-  .bubble { border-radius: 14px; padding: 10px 14px; margin: 8px 0; max-width: 92%; font-size: .95rem; }
-  .bubble.me { background: var(--accent); color: var(--accent-ink); margin-left: auto; }
-  .bubble.app { background: var(--soft); border: 1px solid var(--line); }
-  .bubble.app .tag { font-size: .72rem; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
-  .bubble .effect { color: var(--muted); font-size: .9rem; margin-top: 4px; }
-  .bubble .yes { margin-top: 10px; display: inline-block; padding: 6px 12px; border-radius: 8px; background: var(--ink); color: #fff; font-size: .85rem; }
-  section { padding: 56px 0; border-top: 1px solid var(--line); }
-  h2 { font-size: 1.9rem; font-weight: 400; margin-bottom: 8px; }
-  .sub { color: var(--muted); margin-bottom: 28px; max-width: 640px; }
-  .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
-  .step { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 22px; }
-  .step b { display: block; font-size: 1.1rem; margin-bottom: 6px; }
-  .step span.n { display: inline-block; width: 28px; height: 28px; border-radius: 50%; background: var(--ink); color: #fff; text-align: center; line-height: 28px; font-size: .9rem; margin-bottom: 10px; }
-  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
-  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 20px; }
-  .card h3 { font-size: 1.05rem; margin-bottom: 8px; }
-  .card ul { list-style: none; }
-  .card li { padding: 4px 0; color: var(--muted); font-size: .95rem; border-top: 1px dashed var(--line); }
-  .card li:first-child { border-top: 0; }
-  .plans { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
-  .plan { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 20px; display: flex; flex-direction: column; }
-  .plan.featured { border-color: var(--accent); box-shadow: 0 10px 30px rgba(180,35,24,.08); }
-  .plan .price { font-size: 1.8rem; margin: 8px 0 2px; }
-  .plan .per { color: var(--muted); font-size: .9rem; margin-bottom: 12px; }
+  .hero { padding: 64px 0 72px; display: grid; grid-template-columns: 1.05fr .95fr; gap: 48px; align-items: center; }
+  .hero .lede { margin-top: 20px; max-width: 500px; }
+  .hero .cta { margin-top: 30px; display: flex; gap: 12px; flex-wrap: wrap; }
+  .hero .fine { margin-top: 14px; font-size: 13.5px; color: var(--muted); }
+  .promises { list-style: none; margin-top: 34px; max-width: 460px; border-top: 1px solid var(--line); }
+  .promises li { display: flex; gap: 14px; align-items: center; padding: 13px 0; border-bottom: 1px solid var(--line); font-size: 15.5px; }
+  .promises svg { width: 20px; height: 20px; flex: none; color: var(--ink); }
+
+  .stage { position: relative; display: flex; justify-content: flex-end; }
+  .phone { position: relative; width: 100%; max-width: 360px; background: var(--canvas); border: 1px solid var(--line); border-radius: 34px; padding: 10px; box-shadow: 0 2px 4px rgba(21,24,27,.04), 0 30px 60px rgba(21,24,27,.12); }
+  .screen { background: var(--canvas); border-radius: 26px; overflow: hidden; border: 1px solid var(--line); }
+  .bar { display: flex; align-items: center; gap: 12px; padding: 16px 16px 12px; background: var(--canvas); }
+  .bar svg { width: 20px; height: 20px; flex: none; }
+  .avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--sunken); display: inline-flex; align-items: center; justify-content: center; font-size: 14px; color: var(--muted); flex: none; }
+  .bar .who b { display: block; font-size: 16.5px; letter-spacing: -.2px; line-height: 1.2; }
+  .bar .who span { font-size: 12px; color: var(--muted); letter-spacing: .02em; }
+  .thread { padding: 6px 14px 14px; display: flex; flex-direction: column; gap: 10px; min-height: 360px; }
+  .msg-me { align-self: flex-end; background: var(--ink); color: #fff; border-radius: 12px; padding: 10px 14px; font-size: 14.5px; font-weight: 500; max-width: 88%; }
+  .entry { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; font-size: 14.5px; max-width: 92%; }
+  .entry.pending { border-color: #E9C58E; }
+  .entry .eyebrow { font-size: 11px; }
+  .entry.pending .eyebrow { color: var(--warn); }
+  .entry.posted .eyebrow { color: var(--accent); }
+  .entry p { margin-top: 4px; line-height: 1.4; }
+  .entry .meta { color: var(--muted); font-size: 13px; margin-top: 6px; }
+  .entry .meta div + div { margin-top: 2px; }
+  .actions { display: flex; gap: 10px; padding: 12px 14px 16px; border-top: 1px solid var(--line); background: var(--canvas); }
+  .actions span { flex: 1; text-align: center; border-radius: var(--radius-control); padding: 11px 0; font-weight: 600; font-size: 14.5px; border: 1px solid var(--line); background: var(--surface); }
+  .actions span.go { flex: 1.8; background: var(--ink); border-color: var(--ink); color: #fff; }
+  .stage .bahi { position: absolute; width: 190px; left: -30px; bottom: -36px; filter: drop-shadow(0 12px 18px rgba(21,24,27,.14)); animation: bob 3.2s ease-in-out infinite; }
+  .stage .say { position: absolute; left: -4px; bottom: 156px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px 12px 12px 4px; padding: 7px 11px; font-size: 13px; font-weight: 500; box-shadow: var(--shadow); white-space: nowrap; }
+  @keyframes bob { 0%, 100% { transform: translateY(0) rotate(-2deg); } 50% { transform: translateY(-8px) rotate(2deg); } }
+
+  .head { display: flex; justify-content: space-between; align-items: flex-end; gap: 24px; }
+  .head img { width: 120px; height: 120px; flex: none; margin-bottom: -10px; }
+  .steps { margin-top: 32px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .step .n { display: inline-flex; width: 30px; height: 30px; border-radius: 50%; background: var(--ink); color: #fff; align-items: center; justify-content: center; font-size: 14px; font-weight: 600; margin-bottom: 14px; }
+  .step h3 { margin-bottom: 6px; }
+  .step p { color: var(--muted); }
+
+  .grid { margin-top: 32px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .feature .ico { margin-bottom: 14px; }
+  .feature h3 { margin-bottom: 8px; }
+  .feature ul { list-style: none; }
+  .feature li { padding: 7px 0; color: var(--muted); font-size: 14.5px; border-top: 1px solid var(--line); }
+  .feature li:first-child { border-top: 0; padding-top: 0; }
+
+  .plans { margin-top: 32px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; align-items: stretch; }
+  .plan { display: flex; flex-direction: column; position: relative; }
+  .plan.featured { border: 1.5px solid var(--ink); box-shadow: var(--shadow); }
+  .plan .badge { position: absolute; top: -12px; left: 20px; background: var(--ink); color: #fff; font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; padding: 4px 10px; border-radius: 999px; }
+  .plan .price { font-size: 34px; font-weight: 500; letter-spacing: -.9px; margin-top: 12px; line-height: 1.1; }
+  .plan .per { color: var(--muted); font-size: 14px; margin: 4px 0 16px; }
   .plan ul { list-style: none; flex: 1; }
-  .plan li { padding: 5px 0; font-size: .93rem; color: var(--muted); border-top: 1px dashed var(--line); }
-  .plan li:first-child { border-top: 0; }
-  .offer { margin-top: 18px; padding: 16px 20px; background: var(--soft); border: 1px solid var(--line); border-radius: 12px; }
-  .honest { max-width: 760px; }
-  .honest p { margin: 10px 0; }
-  .honest p b { font-weight: 600; }
-  .dl { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
-  footer { border-top: 1px solid var(--line); padding: 28px 0 40px; color: var(--muted); font-size: .9rem; }
-  footer ul { list-style: none; display: flex; gap: 18px; flex-wrap: wrap; margin-top: 8px; }
-  footer a { color: var(--muted); }
-  @media (max-width: 860px) {
-    .hero { grid-template-columns: 1fr; padding-top: 44px; }
-    .phone { margin: 0; max-width: none; }
-    .steps, .grid { grid-template-columns: 1fr; }
-    .plans { grid-template-columns: 1fr 1fr; }
-    .dl { grid-template-columns: 1fr; }
-    nav ul { display: none; }
+  .plan li { display: flex; gap: 10px; padding: 8px 0; font-size: 14.5px; border-top: 1px solid var(--line); }
+  .plan li svg { width: 16px; height: 16px; flex: none; margin-top: 3px; color: var(--accent); }
+  .plan .btn { margin-top: 18px; }
+  .offer { margin-top: 18px; display: flex; gap: 16px; align-items: center; background: var(--accent-soft); border-radius: var(--radius-card); padding: 16px 20px; color: #1E3D2E; }
+  .offer img { width: 64px; height: 64px; flex: none; }
+
+  .trust { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 32px; }
+  .trust .card { display: flex; gap: 14px; }
+  .trust h3 { margin-bottom: 4px; }
+  .trust p { color: var(--muted); font-size: 14.5px; }
+
+  .get { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 32px; }
+  .get .card p { color: var(--muted); margin-top: 6px; }
+  .get .card .btn, .get .card .soon { margin-top: 18px; }
+  .soon { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; color: var(--muted); background: var(--sunken); border-radius: 999px; padding: 6px 12px; }
+  .closing { margin-top: 56px; display: flex; align-items: center; gap: 24px; background: var(--ink); color: #fff; border-radius: 20px; padding: 28px 32px; }
+  .closing img { width: 112px; height: 112px; flex: none; }
+  .closing h2 { color: #fff; }
+  .closing p { color: rgba(255,255,255,.72); margin-top: 6px; }
+  .closing .btn { margin-left: auto; background: #fff; color: var(--ink); border-color: #fff; flex: none; }
+
+  @media (max-width: 900px) {
+    .hero { grid-template-columns: 1fr; padding-top: 40px; gap: 56px; }
+    .stage { justify-content: center; }
+    .stage .bahi { left: 0; }
+    .stage .say { left: 16px; }
+    .steps, .grid { grid-template-columns: 1fr 1fr; }
+    .plans { grid-template-columns: 1fr; max-width: 460px; }
+    .trust, .get { grid-template-columns: 1fr; }
   }
-  @media (max-width: 520px) { .plans { grid-template-columns: 1fr; } }
+  @media (max-width: 620px) {
+    .steps, .grid { grid-template-columns: 1fr; }
+    .head img { width: 84px; height: 84px; }
+    .stage { padding-top: 90px; }
+    .stage .bahi { width: 116px; left: auto; right: -6px; top: 0; bottom: auto; z-index: 2; }
+    .stage .say { left: auto; right: 104px; top: 26px; bottom: auto; }
+    .closing { flex-direction: column; align-items: flex-start; padding: 24px; }
+    .closing .btn { margin-left: 0; }
+    .closing img { width: 84px; height: 84px; }
+  }
 </style>
 </head>
 <body>
-<header>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-receipt" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6M9 16h3"/></symbol>
+  <symbol id="i-percent" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9 15l6-6"/><circle cx="9.5" cy="9.5" r=".8" fill="currentColor"/><circle cx="14.5" cy="14.5" r=".8" fill="currentColor"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="3.5" width="17" height="17" rx="4"/><path d="M8 12.5l2.7 2.5L16 9.5"/></symbol>
+  <symbol id="i-tick" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+  <symbol id="i-in" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 10l5 5 5-5"/><path d="M4 19h16"/></symbol>
+  <symbol id="i-out" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4M7 9l5-5 5 5"/><path d="M4 19h16"/></symbol>
+  <symbol id="i-cal" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15.5" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4"/></symbol>
+  <symbol id="i-people" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.6-3.6 3.2-5.5 6.5-5.5s5.9 1.9 6.5 5.5"/><path d="M16 4.8a3.5 3.5 0 010 6.4M18.5 14.8c1.7.8 2.7 2.5 3 5.2"/></symbol>
+  <symbol id="i-bag" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8h14l-1 12.5H6z"/><path d="M9 8V6.5a3 3 0 016 0V8"/></symbol>
+  <symbol id="i-book" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4.5h11.5a2 2 0 012 2V20H7a2 2 0 01-2-2z"/><path d="M5 18a2 2 0 012-2h11.5"/><path d="M9 8.5h6"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="10.5" width="15" height="10" rx="2.5"/><path d="M8 10.5V8a4 4 0 018 0v2.5"/></symbol>
+  <symbol id="i-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="i-phone" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="2.5" width="12" height="19" rx="3"/><path d="M10.5 18.5h3"/></symbol>
+  <symbol id="i-link" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14a4 4 0 005.7 0l3-3a4 4 0 00-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 00-5.7 0l-3 3a4 4 0 005.7 5.7l1-1"/></symbol>
+  <symbol id="i-exit" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5v10M8 10l4 4 4-4"/><path d="M5 15v3.5A2 2 0 007 20.5h10a2 2 0 002-2V15"/></symbol>
+  <symbol id="i-back" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 6l-6 6 6 6"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 16V11a6 6 0 0112 0v5l1.5 2h-15z"/><path d="M10 20.5h4"/></symbol>
+  <symbol id="i-windows" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="12.5" rx="2.5"/><path d="M8.5 20.5h7M12 17v3.5"/></symbol>
+</svg>
+
+<header class="site-header">
   <div class="wrap">
-    <nav class="sans">
-      <a class="logo" href="#top"><i>M</i> MyCA</a>
+    <nav>
+      <a class="brand" href="/" aria-label="MyCA home"><img src="/assets/logo.svg" alt="" width="26" height="26">MyCA</a>
       <ul>
-        <li><a href="#how">How it works</a></li>
-        <li><a href="#inside">What is in it</a></li>
+        <li class="hide-sm"><a href="#how">How it works</a></li>
+        <li class="hide-sm"><a href="#inside">What is in it</a></li>
         <li><a href="#pricing">Pricing</a></li>
-        <li><a href="#trust">Security</a></li>
-        <li><a href="#get">Get it</a></li>
+        <li class="hide-sm"><a href="#trust">Security</a></li>
+        <li><a class="btn primary small" href="#get">Get MyCA</a></li>
       </ul>
     </nav>
   </div>
@@ -100,98 +154,175 @@
   <div class="wrap">
     <div class="hero">
       <div>
-        <h1>Your books, GST and payroll, kept right from your phone.</h1>
-        <p class="lede">Type a sentence. MyCA shows you the entry it is about to make, in rupees, with the tax worked out. Say yes, and it is in your books and in your return. Nothing reaches your books until you do.</p>
-        <div class="cta sans">
-          <a class="btn primary" href="#get">Get MyCA</a>
+        <h1 class="display">Your books, kept as easily as a conversation.</h1>
+        <p class="lede">Type a sentence. MyCA shows you the entry it is about to make, in rupees, with the GST worked out. Say yes, and it is in your books and in your return.</p>
+        <div class="cta">
+          <a class="btn primary" href="#get">Get started</a>
           <a class="btn" href="#how">See how it works</a>
         </div>
+        <p class="fine">14 days of Pro to start. About two minutes to set up.</p>
+        <ul class="promises">
+          <li><svg aria-hidden="true"><use href="#i-receipt"/></svg>Log a sale the way you would send a message</li>
+          <li><svg aria-hidden="true"><use href="#i-percent"/></svg>GST and due dates worked out for you</li>
+          <li><svg aria-hidden="true"><use href="#i-check"/></svg>Nothing reaches your books until you say so</li>
+        </ul>
       </div>
-      <div class="phone sans" aria-label="A chat with MyCA">
-        <div class="bubble me">invoice Sharma Traders 12,000 GST 18%</div>
-        <div class="bubble app">
-          <div class="tag">Preview</div>
-          Invoice to Sharma Traders dated 17 October 2026: taxable ₹12,000.00, CGST ₹1,080.00 + SGST ₹1,080.00, total ₹14,160.00. Due 16 November 2026.
-          <div class="effect">· Sharma Traders owes you ₹14,160.00 more.</div>
-          <div class="effect">· It goes into your GSTR-1 for October 2026.</div>
-          <span class="yes">Yes, post it</span>
+
+      <div class="stage">
+        <div class="phone" role="img" aria-label="The MyCA app: a sale to Sharma Traders is typed as a sentence, previewed with GST, and waits for the owner to post it.">
+          <div class="screen" aria-hidden="true">
+            <div class="bar">
+              <svg><use href="#i-back"/></svg>
+              <span class="avatar">S</span>
+              <span class="who"><b>Sharma Traders</b><span>27AAKFS4321M1Z8</span></span>
+              <svg style="margin-left:auto"><use href="#i-bell"/></svg>
+            </div>
+            <div class="thread">
+              <div class="entry">
+                <div class="eyebrow">2026-10-02 · <span style="color:var(--accent)">Paid</span></div>
+                <p>Invoice INV-0041</p>
+                <p class="money" style="font-size:22px;font-weight:500;letter-spacing:-.4px">₹8,260.00</p>
+              </div>
+              <div class="msg-me money">Sale: ₹12,000.00 + GST at 18%</div>
+              <div class="entry pending">
+                <div class="eyebrow">Not posted yet</div>
+                <p class="money">Invoice to Sharma Traders: total ₹14,160.00.</p>
+                <div class="meta money">
+                  <div>CGST ₹1,080.00 · SGST ₹1,080.00</div>
+                  <div>Goes into your GSTR-1 for October 2026</div>
+                  <div>The books change only after you confirm.</div>
+                </div>
+              </div>
+            </div>
+            <div class="actions"><span>Discard</span><span class="go">Post it</span></div>
+          </div>
         </div>
-        <div class="bubble me">yes</div>
-        <div class="bubble app">Posted INV-0042 to Sharma Traders on 17 October 2026 for ₹14,160.00.</div>
+        <img class="bahi" src="/assets/bahi/wave.png" alt="Bahi, the MyCA ledger, waving" width="312" height="312">
+        <div class="say" aria-hidden="true">Namaste! I'm Bahi.</div>
       </div>
     </div>
   </div>
 
-  <section id="how">
+  <section class="block" id="how">
     <div class="wrap">
-      <h2>Three steps, every time</h2>
-      <p class="sub">Sales, bills, expenses, receipts, payroll and returns all work the same way, so there is nothing to learn twice.</p>
+      <div class="head">
+        <div>
+          <h2>Three steps, every time</h2>
+          <p class="sub">Sales, bills, expenses, receipts, payroll and returns all work the same way, so there is nothing to learn twice.</p>
+        </div>
+        <img src="/assets/bahi/thinking.png" alt="" width="312" height="312" loading="lazy">
+      </div>
       <div class="steps">
-        <div class="step"><span class="n sans">1</span><b>Say it</b>In your words, in English or Hindi: "paid 8,000 rent", "received 5,000 from Kiran Stores", "who owes me?". Or fill a short form, or photograph a bill.</div>
-        <div class="step"><span class="n sans">2</span><b>See it</b>MyCA shows exactly what it will record: the amounts, the GST split, the due date, what changes in your books and in your returns. If something is missing, it asks instead of guessing.</div>
-        <div class="step"><span class="n sans">3</span><b>Say yes</b>Only then is it posted. Every figure is traced to the invoice behind it and the rule it used, so your CA can check it in a minute.</div>
+        <div class="card step"><span class="n">1</span><h3>Say it</h3><p>In your words, in English or Hindi: "paid 8,000 rent", "received 5,000 from Kiran Stores", "who owes me?". Or fill a short form, or photograph a bill.</p></div>
+        <div class="card step"><span class="n">2</span><h3>See it</h3><p>MyCA shows exactly what it will record: the amounts, the GST split, the due date, what changes in your books and in your returns. If something is missing, it asks instead of guessing.</p></div>
+        <div class="card step"><span class="n">3</span><h3>Say yes</h3><p>Only then is it posted. Every figure is traced to the invoice behind it and the rule it used, so your CA can check it in a minute.</p></div>
       </div>
     </div>
   </section>
 
-  <section id="inside">
+  <section class="block" id="inside">
     <div class="wrap">
       <h2>What is in it</h2>
       <p class="sub">Only what works today. Grouped the way an owner thinks, not the way an accountant does.</p>
       <div class="grid">
-        <div class="card"><h3>Money in</h3><ul><li>Invoices and quotes as PDFs, shared on WhatsApp</li><li>Who owes you, and for how long</li><li>Payment reminders in a tone that fits each customer</li><li>E-invoice and e-way bill when you connect NIC</li></ul></div>
-        <div class="card"><h3>Money out</h3><ul><li>Bills and expenses, with the GST credit tracked</li><li>Who to pay this week: MSME dates and the 180-day credit limit first</li><li>Bank statement import with the entries matched</li><li>Cash forecast: "can I afford 4 lakh in November?"</li></ul></div>
-        <div class="card"><h3>Taxes</h3><ul><li>GSTR-1 and GSTR-3B drafted from the invoices, reviewed step by step</li><li>GSTR-2B matching and supplier reminders for missing credit</li><li>TDS on bills and salaries, quarterly returns</li><li>Every due date, with a reminder before it</li></ul></div>
-        <div class="card"><h3>People</h3><ul><li>Payroll from the rules in force that month: PF, ESI, professional tax, TDS</li><li>Payslips, PF and ESI files, Form 16</li><li>Staff and your CA in the same books, each seeing what they should</li></ul></div>
-        <div class="card"><h3>Selling online</h3><ul><li>Amazon and Flipkart settlements reconciled to the bank</li><li>TCS and 194-O credits claimed</li><li>Margin per product after fees and returns</li></ul></div>
-        <div class="card"><h3>Your CA</h3><ul><li>A monthly export, a Tally file and the GSTR-1 file</li><li>A shared view the CA can read without changing anything</li><li>An audit that names the rule, the section and the date behind every flag</li></ul></div>
+        <div class="card feature"><span class="ico green"><svg><use href="#i-in"/></svg></span><h3>Money in</h3><ul><li>Invoices and quotes as PDFs, shared on WhatsApp</li><li>Who owes you, and for how long</li><li>Payment reminders in a tone that fits each customer</li><li>E-invoice and e-way bill when you connect NIC</li></ul></div>
+        <div class="card feature"><span class="ico"><svg><use href="#i-out"/></svg></span><h3>Money out</h3><ul><li>Bills and expenses, with the GST credit tracked</li><li>Who to pay this week: MSME dates and the 180-day credit limit first</li><li>Bank statement import with the entries matched</li><li>Cash forecast: "can I afford 4 lakh in November?"</li></ul></div>
+        <div class="card feature"><span class="ico"><svg><use href="#i-cal"/></svg></span><h3>Taxes</h3><ul><li>GSTR-1 and GSTR-3B drafted from the invoices, reviewed step by step</li><li>GSTR-2B matching and supplier reminders for missing credit</li><li>TDS on bills and salaries, quarterly returns</li><li>Every due date, with a reminder before it</li></ul></div>
+        <div class="card feature"><span class="ico"><svg><use href="#i-people"/></svg></span><h3>People</h3><ul><li>Payroll from the rules in force that month: PF, ESI, professional tax, TDS</li><li>Payslips, PF and ESI files, Form 16</li><li>Staff and your CA in the same books, each seeing what they should</li></ul></div>
+        <div class="card feature"><span class="ico"><svg><use href="#i-bag"/></svg></span><h3>Selling online</h3><ul><li>Amazon and Flipkart settlements reconciled to the bank</li><li>TCS and 194-O credits claimed</li><li>Margin per product after fees and returns</li></ul></div>
+        <div class="card feature"><span class="ico"><svg><use href="#i-book"/></svg></span><h3>Your CA</h3><ul><li>A monthly export, a Tally file and the GSTR-1 file</li><li>A shared view the CA can read without changing anything</li><li>An audit that names the rule, the section and the date behind every flag</li></ul></div>
       </div>
     </div>
   </section>
 
-  <section id="pricing">
+  <section class="block" id="pricing">
     <div class="wrap">
       <h2>Pricing</h2>
       <p class="sub">One flat amount a month, cheaper by the year. Nothing is counted per invoice. Every plan starts with 14 days of Pro, and exporting your data never costs anything.</p>
-      <div class="plans sans">
-        <div class="plan"><b>Essentials</b><div class="price">₹399</div><div class="per">a month, or ₹3,999 a year</div><ul><li>Unlimited invoices, bills and payments</li><li>Ask MyCA in plain words</li><li>GSTR-1 and GSTR-3B worked out from your books</li><li>You and one more person</li></ul></div>
-        <div class="plan featured"><b>Pro</b><div class="price">₹799</div><div class="per">a month, or ₹7,999 a year</div><ul><li>Everything in Essentials</li><li>File GSTR-1 and GSTR-3B on the GST portal, with your CA's approval</li><li>E-invoices, GSTIN checks, Amazon, Shopify, Razorpay and bank connections</li><li>Ask and post on WhatsApp, five people</li></ul></div>
-        <div class="plan"><b>CA firm</b><div class="price">₹2,499</div><div class="per">a month, or ₹24,999 a year</div><ul><li>Everything in Pro</li><li>Twenty-five people across the firm</li><li>Approve filings for every client</li><li>Priority support</li></ul></div>
+      <div class="plans">
+        <div class="card plan">
+          <h3>Essentials</h3>
+          <div class="price money">₹399</div><div class="per">a month, or ₹3,999 a year</div>
+          <ul>
+            <li><svg><use href="#i-tick"/></svg>Unlimited invoices, bills and payments</li>
+            <li><svg><use href="#i-tick"/></svg>Ask MyCA in plain words</li>
+            <li><svg><use href="#i-tick"/></svg>GSTR-1 and GSTR-3B worked out from your books</li>
+            <li><svg><use href="#i-tick"/></svg>You and one more person</li>
+          </ul>
+          <a class="btn" href="#get">Start with Essentials</a>
+        </div>
+        <div class="card plan featured">
+          <span class="badge">Most picked</span>
+          <h3>Pro</h3>
+          <div class="price money">₹799</div><div class="per">a month, or ₹7,999 a year</div>
+          <ul>
+            <li><svg><use href="#i-tick"/></svg>Everything in Essentials</li>
+            <li><svg><use href="#i-tick"/></svg>File GSTR-1 and GSTR-3B on the GST portal, with your CA's approval</li>
+            <li><svg><use href="#i-tick"/></svg>E-invoices, GSTIN checks, Amazon, Shopify, Razorpay and bank connections</li>
+            <li><svg><use href="#i-tick"/></svg>Ask and post on WhatsApp, five people</li>
+          </ul>
+          <a class="btn primary" href="#get">Start 14 days of Pro</a>
+        </div>
+        <div class="card plan">
+          <h3>CA firm</h3>
+          <div class="price money">₹2,499</div><div class="per">a month, or ₹24,999 a year</div>
+          <ul>
+            <li><svg><use href="#i-tick"/></svg>Everything in Pro</li>
+            <li><svg><use href="#i-tick"/></svg>Twenty-five people across the firm</li>
+            <li><svg><use href="#i-tick"/></svg>Approve filings for every client</li>
+            <li><svg><use href="#i-tick"/></svg>Priority support</li>
+          </ul>
+          <a class="btn" href="#get">Set up your firm</a>
+        </div>
       </div>
-      <div class="offer"><b>After the trial.</b> If you do not pick a plan, nothing is deleted: your books stay readable and exportable, and posting starts again the day you subscribe.</div>
+      <div class="offer">
+        <img src="/assets/bahi/happy.png" alt="" width="312" height="312" loading="lazy">
+        <p><b>After the trial.</b> If you do not pick a plan, nothing is deleted: your books stay readable and exportable, and posting starts again the day you subscribe.</p>
+      </div>
     </div>
   </section>
 
-  <section id="trust">
-    <div class="wrap honest">
+  <section class="block" id="trust">
+    <div class="wrap">
       <h2>Security and privacy, in plain words</h2>
-      <p><b>Your books are yours.</b> On the phone they live in our service in Mumbai, one business to one record, and nobody who is not a member of your business can see them. On Windows they never leave your computer.</p>
-      <p><b>Nothing is posted, sent or filed without you.</b> Every entry is previewed and confirmed. Reminders go from your own phone. Filing a return needs the live switch and a CA's approval, and MyCA never holds your portal password.</p>
-      <p><b>The app holds no tax logic.</b> The phone app sends sentences and shows answers; the figures are worked out on the server from dated rules you can read. There is nothing on the phone worth taking apart.</p>
-      <p><b>Every figure can be traced.</b> To the invoice behind it, the rule it used, the section of the Act and the date the rule took effect. If a rule has not been checked by our partner CA firm yet, the figure says so.</p>
-      <p><b>You can leave with everything.</b> A full export, a Tally file and the return files are free on every plan, and deleting your account is a button.</p>
-      <p>The full notice is at <a href="/privacy.html">/privacy.html</a>. What is still open before launch is written down in the repository's security document, not hidden.</p>
+      <div class="trust">
+        <div class="card"><span class="ico green"><svg><use href="#i-lock"/></svg></span><div><h3>Your books are yours</h3><p>On the phone they live in our service in Mumbai, one business to one record, and nobody who is not a member of your business can see them. On Windows they never leave your computer.</p></div></div>
+        <div class="card"><span class="ico"><svg><use href="#i-check"/></svg></span><div><h3>Nothing happens without you</h3><p>Every entry is previewed and confirmed. Reminders go from your own phone. Filing a return needs the live switch and a CA's approval, and MyCA never holds your portal password.</p></div></div>
+        <div class="card"><span class="ico"><svg><use href="#i-phone"/></svg></span><div><h3>The app holds no tax logic</h3><p>The phone app sends sentences and shows answers; the figures are worked out on the server from dated rules you can read. There is nothing on the phone worth taking apart.</p></div></div>
+        <div class="card"><span class="ico"><svg><use href="#i-link"/></svg></span><div><h3>Every figure can be traced</h3><p>To the invoice behind it, the rule it used, the section of the Act and the date the rule took effect. If a rule has not been checked by our partner CA firm yet, the figure says so.</p></div></div>
+        <div class="card"><span class="ico"><svg><use href="#i-exit"/></svg></span><div><h3>You can leave with everything</h3><p>A full export, a Tally file and the return files are free on every plan, and <a href="/delete-account">deleting your account</a> is a button.</p></div></div>
+        <div class="card"><span class="ico"><svg><use href="#i-eye"/></svg></span><div><h3>Nothing hidden</h3><p>The full notice is in our <a href="/privacy">privacy policy</a>. What is still open before launch is written down in the repository's security document.</p></div></div>
+      </div>
     </div>
   </section>
 
-  <section id="get">
+  <section class="block" id="get">
     <div class="wrap">
       <h2>Get MyCA</h2>
-      <div class="dl">
-        <div class="card"><h3>Android</h3><p>For the owner. Sign in with Google, give your GSTIN, bring in your books from Tally, Zoho or a bank statement, or start fresh. First invoice in under three minutes.</p><p style="margin-top:12px"><span class="sans" style="color:var(--muted)">Play Store listing opens with the pilot.</span></p></div>
-        <div class="card"><h3>Windows</h3><p>For the owner at a desk, or the CA firm. Everything stays on your PC, with a daily backup and the nightly checks already running.</p><p style="margin-top:12px"><a class="btn sans" href="https://github.com/Vidyuthlabstechnologies/myca/releases">Download the installer</a></p></div>
+      <div class="get">
+        <div class="card"><span class="ico"><svg><use href="#i-phone"/></svg></span><h3 style="margin-top:14px">Android</h3><p>For the owner. Sign in with Google, give your GSTIN, bring in your books from Tally, Zoho or a bank statement, or start fresh. First invoice in under three minutes.</p><span class="soon">Play Store listing opens with the pilot</span></div>
+        <div class="card"><span class="ico"><svg><use href="#i-windows"/></svg></span><h3 style="margin-top:14px">Windows</h3><p>For the owner at a desk, or the CA firm. Everything stays on your PC, with a daily backup and the nightly checks already running.</p><a class="btn primary" href="https://github.com/Vidyuthlabstechnologies/myca/releases">Download the installer</a></div>
+      </div>
+      <div class="closing">
+        <img src="/assets/bahi/celebrate.png" alt="Bahi celebrating" width="312" height="312" loading="lazy">
+        <div><h2>Bahi keeps the books. You run the business.</h2><p>Your first invoice takes less time than making chai.</p></div>
+        <a class="btn" href="https://github.com/Vidyuthlabstechnologies/myca/releases">Get started</a>
       </div>
     </div>
   </section>
 </main>
 
-<footer>
-  <div class="wrap">
-    <div>MyCA. Built in India for Indian businesses.</div>
-    <ul class="sans">
-      <li><a href="/privacy.html">Privacy</a></li>
-      <li><a href="/status.html">Status</a></li>
-      <li><a href="/research.html">Market research</a></li>
+<footer class="site-footer">
+  <div class="wrap row">
+    <div>
+      <a class="brand" href="/"><img src="/assets/logo.svg" alt="" width="26" height="26">MyCA</a>
+      <p>Built in India for Indian businesses.<br>ML Dynamic Solutions Private Limited.</p>
+    </div>
+    <ul>
+      <li><a href="/privacy">Privacy</a></li>
+      <li><a href="/delete-account">Delete your account</a></li>
+      <li><a href="/status">Status</a></li>
+      <li><a href="/research">Market research</a></li>
       <li><a href="https://github.com/Vidyuthlabstechnologies/myca">Source</a></li>
     </ul>
   </div>

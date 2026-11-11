@@ -1,0 +1,479 @@
+{
+ "about": "Every file the owner supplied on 2026-11-11 ('ITR knowledge' folder plus Old_vs_New_Tax_Regime_FY_2026-27.docx). 'path' is relative to the 'ITR knowledge' folder, except the regime document, which was supplied on its own. The originals are not committed: the repository is public and the samples hold a taxpayer's figures.",
+ "sources": [
+  {
+   "id": "itr-1-schema",
+   "path": "ITR 1/ITR-1_2025_Main_V1.2.json",
+   "title": "ITR-1 JSON schema, AY 2025-26",
+   "publisher": "Central Board of Direct Taxes, Directorate of Income Tax (Systems), e-Filing",
+   "version": "1.2",
+   "dated": "2025",
+   "kind": "json-schema",
+   "usedIn": [
+    "forms/itr-1/schema.json",
+    "forms/itr-1/fields.json"
+   ]
+  },
+  {
+   "id": "itr-1-rules",
+   "path": "ITR 1/CBDT_e-Filing_ITR 1_Validation Rules_AY 2025-26_V1.1.pdf",
+   "title": "ITR 1 Validation Rules for AY 2025-26",
+   "publisher": "Central Board of Direct Taxes, Directorate of Income Tax (Systems), e-Filing",
+   "version": "1.1",
+   "dated": "2025-07-10",
+   "kind": "validation-rules",
+   "usedIn": [
+    "forms/itr-1/rules.json"
+   ],
+   "pages": 20
+  },
+  {
+   "id": "itr-1-utility",
+   "path": "ITR 1/ITR1_AY_25-26_V1.7.xlsm",
+   "title": "ITR-1 Excel utility, AY 2025-26",
+   "publisher": "Central Board of Direct Taxes, Directorate of Income Tax (Systems), e-Filing",
+   "version": "1.7",
+   "dated": "2025",
+   "kind": "excel-utility",
+   "usedIn": [
+    "forms/itr-1/utility.json",
+    "docs/excel-utility.md"
+   ]
+  },
+  {
+   "id": "itr-2-schema",
+   "path": "ITR 2/ITR-2_2025_Main_V1.2.json",
+   "title": "ITR-2 JSON schema, AY 2025-26",
+   "publisher": "Central Board of Direct Taxes, Directorate of Income Tax (Systems), e-Filing",
+   "version": "1.2",
+   "dated": "2025",
+   "kind": "json-schema",
+   "usedIn": [
+    "forms/itr-2/schema.json",
+    "forms/itr-2/fields.json"
+   ]
+  },
+  {
+   "id": "itr-2-rules",
+   "path": "ITR 2/CBDT__e-Filing_ITR 2_Validation Rules_AY 2025-26_V1.0.pdf",
+   "title": "ITR 2 Validation Rules for AY 2025-26",
+   "publisher": "Central Board of Direct Taxes, Directorate of Income Tax (Systems), e-Filing",
+   "version": "1.0",
+   "dated": "2025-07-10",
+   "kind": "validation-rules",
+   "usedIn": [
+    "forms/itr-2/rules.json"
+   ],
+   "pages": 49
+  },
+  {
+   "id": "itr-2-utility",
+   "path": "ITR 2/ITR2_AY_25-26_V1.5.xlsm",
+   "title": "ITR-2 Excel utility, AY 2025-26",
+   "publisher": "Central Board of Direct Taxes, Directorate of Income Tax (Systems), e-Filing",
+   "version": "1.5",
+   "dated": "2025",
+   "kind": "excel-utility",
+   "usedIn": [
+    "forms/itr-2/utility.json",
+    "docs/excel-utility.md"
+   ]
+  },
+  {
+   "id": "itr-3-schema",
+   "path": "ITR 3/ITR-3_2025_Main_V1.3.json",
+   "title": "ITR-3 JSON schema, AY 2025-26",
+   "publisher": "Central Board of Direct Taxes, Directorate of Income Tax (Systems), e-Filing",
+   "version": "1.3",
+   "dated": "2025",
+   "kind": "json-schema",
+   "usedIn": [
+    "forms/itr-3/schema.json",
+    "forms/itr-3/fields.json"
+   ]
+  },
+  {
+   "id": "itr-3-rules",
+   "path": "ITR 3/CBDT_e-filing_ITR-3_Validation Rules_V1.0_AY 25-26.pdf",
+   "title": "ITR 3 Validation Rules for AY 2025-26",
+   "publisher": "Central Board of Direct Taxes, Directorate of Income Tax (Systems), e-Filing",
+   "version": "1.0",
+   "dated": "2025-07-10",
+   "kind": "validation-rules",
+   "usedIn": [
+    "forms/itr-3/rules.json"
+   ],
+   "pages": 87
+  },
+  {
+   "id": "itr-3-utility",
+   "path": "ITR 3/ITR3_AY_25-26_V1.11.xlsm",
+   "title": "ITR-3 Excel utility, AY 2025-26",
+   "publisher": "Central Board of Direct Taxes, Directorate of Income Tax (Systems), e-Filing",
+   "version": "1.11",
+   "dated": "2025",
+   "kind": "excel-utility",
+   "usedIn": [
+    "forms/itr-3/utility.json",
+    "docs/excel-utility.md"
+   ]
+  },
+  {
+   "id": "itr-4-schema",
+   "path": "ITR 4/ITR-4_2025_Main_V1.3_0.json",
+   "title": "ITR-4 JSON schema, AY 2025-26",
+   "publisher": "Central Board of Direct Taxes, Directorate of Income Tax (Systems), e-Filing",
+   "version": "1.3",
+   "dated": "2025",
+   "kind": "json-schema",
+   "usedIn": [
+    "forms/itr-4/schema.json",
+    "forms/itr-4/fields.json"
+   ]
+  },
+  {
+   "id": "itr-4-rules",
+   "path": "ITR 4/CBDT_e-Filing_ITR 4_Validation Rules_AY 2025-26_V1.1.pdf",
+   "title": "ITR 4 Validation Rules for AY 2025-26",
+   "publisher": "Central Board of Direct Taxes, Directorate of Income Tax (Systems), e-Filing",
+   "version": "1.1",
+   "dated": "2025-07-10",
+   "kind": "validation-rules",
+   "usedIn": [
+    "forms/itr-4/rules.json"
+   ],
+   "pages": 22
+  },
+  {
+   "id": "itr-4-utility",
+   "path": "ITR 4/ITR4_AY_25-26_V1.6.xlsm",
+   "title": "ITR-4 Excel utility, AY 2025-26",
+   "publisher": "Central Board of Direct Taxes, Directorate of Income Tax (Systems), e-Filing",
+   "version": "1.6",
+   "dated": "2025",
+   "kind": "excel-utility",
+   "usedIn": [
+    "forms/itr-4/utility.json",
+    "docs/excel-utility.md"
+   ]
+  },
+  {
+   "id": "itr-5-schema",
+   "path": "ITR 5/ITR-5_2025_Main_V1.2.json",
+   "title": "ITR-5 JSON schema, AY 2025-26",
+   "publisher": "Central Board of Direct Taxes, Directorate of Income Tax (Systems), e-Filing",
+   "version": "1.2",
+   "dated": "2025",
+   "kind": "json-schema",
+   "usedIn": [
+    "forms/itr-5/schema.json",
+    "forms/itr-5/fields.json"
+   ]
+  },
+  {
+   "id": "itr-5-rules",
+   "path": "ITR 5/CBDT_e-Filing_ITR 5_Validation Rules_V 1.0.pdf",
+   "title": "ITR 5 Validation Rules for AY 2025-26",
+   "publisher": "Central Board of Direct Taxes, Directorate of Income Tax (Systems), e-Filing",
+   "version": "1.0",
+   "dated": "2025-08-12",
+   "kind": "validation-rules",
+   "usedIn": [
+    "forms/itr-5/rules.json"
+   ],
+   "pages": 66
+  },
+  {
+   "id": "itr-5-utility",
+   "path": "ITR 5/ITR5_AY_2025-26_V1.9.xlsm",
+   "title": "ITR-5 Excel utility, AY 2025-26",
+   "publisher": "Central Board of Direct Taxes, Directorate of Income Tax (Systems), e-Filing",
+   "version": "1.9",
+   "dated": "2025",
+   "kind": "excel-utility",
+   "usedIn": [
+    "forms/itr-5/utility.json",
+    "docs/excel-utility.md"
+   ]
+  },
+  {
+   "id": "itr-6-schema",
+   "path": "ITR 6/ITR-6_2025_Main_V1.3.json",
+   "title": "ITR-6 JSON schema, AY 2025-26",
+   "publisher": "Central Board of Direct Taxes, Directorate of Income Tax (Systems), e-Filing",
+   "version": "1.3",
+   "dated": "2025",
+   "kind": "json-schema",
+   "usedIn": [
+    "forms/itr-6/schema.json",
+    "forms/itr-6/fields.json"
+   ]
+  },
+  {
+   "id": "itr-6-rules",
+   "path": "ITR 6/CBDT__e-Filing_ITR-6_Validation Rules_Version 1.0 (1).pdf",
+   "title": "ITR 6 Validation Rules for AY 2025-26",
+   "publisher": "Central Board of Direct Taxes, Directorate of Income Tax (Systems), e-Filing",
+   "version": "1.0",
+   "dated": "2025-08-14",
+   "kind": "validation-rules",
+   "usedIn": [
+    "forms/itr-6/rules.json"
+   ],
+   "pages": 92
+  },
+  {
+   "id": "itr-6-utility",
+   "path": "ITR 6/ITR 6_AY 25-26_V1.9.xlsm",
+   "title": "ITR-6 Excel utility, AY 2025-26",
+   "publisher": "Central Board of Direct Taxes, Directorate of Income Tax (Systems), e-Filing",
+   "version": "1.9",
+   "dated": "2025",
+   "kind": "excel-utility",
+   "usedIn": [
+    "forms/itr-6/utility.json",
+    "docs/excel-utility.md"
+   ]
+  },
+  {
+   "id": "itr-1-guide",
+   "path": "ITR 1/ITR-1_explanation by field.pdf",
+   "title": "ITR-1 (Sahaj): explanation by field",
+   "publisher": "Taxvela Technologies Private Limited",
+   "version": "",
+   "dated": "2026-03-23",
+   "kind": "field-guide",
+   "usedIn": [
+    "forms/itr-1/fields.json",
+    "docs/itr-1-guide.md"
+   ],
+   "pages": 27
+  },
+  {
+   "id": "itr-2-guide",
+   "path": "ITR 2/ITR-2_explanation by fields.pdf",
+   "title": "ITR-2: explanation by fields",
+   "publisher": "Taxvela Technologies Private Limited",
+   "version": "",
+   "dated": "2026-03-23",
+   "kind": "field-guide",
+   "usedIn": [
+    "forms/itr-2/fields.json",
+    "docs/itr-2-guide.md"
+   ],
+   "pages": 26
+  },
+  {
+   "id": "general-notes",
+   "path": "General Notes.pdf",
+   "title": "General Notes (all ITR forms)",
+   "publisher": "Taxvela",
+   "version": "",
+   "dated": "2026-03-23",
+   "kind": "notes",
+   "usedIn": [
+    "docs/general-notes.md"
+   ],
+   "pages": 2
+  },
+  {
+   "id": "form16-vs-ais",
+   "path": "sample_data/Scenarios of Form 16 vs AIS.pdf",
+   "title": "Scenarios of Form 16 vs AIS",
+   "publisher": "Taxvela",
+   "version": "",
+   "dated": "2026-03-31",
+   "kind": "notes",
+   "usedIn": [
+    "docs/form16-vs-ais.md"
+   ],
+   "pages": 3
+  },
+  {
+   "id": "product-vision",
+   "path": "sample_data/Product Vision.docx",
+   "title": "Product Vision (ITR-1 and ITR-2)",
+   "publisher": "Taxvela",
+   "version": "",
+   "dated": "2026",
+   "kind": "notes",
+   "usedIn": [
+    "docs/product-vision.md"
+   ]
+  },
+  {
+   "id": "case-study-workflow",
+   "path": "Case study/sample workflow.pdf",
+   "title": "Case study: preparation and filing of a business return (manual workflow)",
+   "publisher": "Taxvela",
+   "version": "",
+   "dated": "2026-03-28",
+   "kind": "case-study",
+   "usedIn": [
+    "docs/case-study-business-return.md"
+   ],
+   "pages": 6
+  },
+  {
+   "id": "case-study-comparison-menu",
+   "path": "Case study/1.checkcomparison.png",
+   "title": "Filing software menu: Online > AIS/TIS > Comparison of AIS & Computation data",
+   "publisher": "Taxvela",
+   "version": "",
+   "dated": "2026",
+   "kind": "screenshot",
+   "usedIn": [
+    "docs/case-study-business-return.md"
+   ]
+  },
+  {
+   "id": "case-study-ais-vs-computation",
+   "path": "Case study/2.aisvscomputation.png",
+   "title": "AIS vs computation comparison screen",
+   "publisher": "Taxvela",
+   "version": "",
+   "dated": "2026",
+   "kind": "screenshot",
+   "usedIn": [
+    "docs/case-study-business-return.md"
+   ]
+  },
+  {
+   "id": "case-study-interest-detail",
+   "path": "Case study/3.compu.png",
+   "title": "Computation detail: interest on time deposits",
+   "publisher": "Taxvela",
+   "version": "",
+   "dated": "2026",
+   "kind": "screenshot",
+   "usedIn": [
+    "docs/case-study-business-return.md"
+   ]
+  },
+  {
+   "id": "case-study-ais",
+   "path": "Case study/AIS.png",
+   "title": "AIS: Taxpayer Information Summary (TIS)",
+   "publisher": "Taxvela",
+   "version": "",
+   "dated": "2026",
+   "kind": "screenshot",
+   "usedIn": [
+    "docs/case-study-business-return.md"
+   ]
+  },
+  {
+   "id": "case-study-ais-detailed",
+   "path": "Case study/AIS_detailed.png",
+   "title": "AIS: detailed TDS/TCS information",
+   "publisher": "Taxvela",
+   "version": "",
+   "dated": "2026",
+   "kind": "screenshot",
+   "usedIn": [
+    "docs/case-study-business-return.md"
+   ]
+  },
+  {
+   "id": "case-study-balance-sheet",
+   "path": "Case study/11.BScompu.png",
+   "title": "ITR balance sheet in the filing software",
+   "publisher": "Taxvela",
+   "version": "",
+   "dated": "2026",
+   "kind": "screenshot",
+   "usedIn": [
+    "docs/case-study-business-return.md"
+   ]
+  },
+  {
+   "id": "case-study-trading-pl",
+   "path": "Case study/12.PLcompu.png",
+   "title": "ITR trading and P&L account in the filing software",
+   "publisher": "Taxvela",
+   "version": "",
+   "dated": "2026",
+   "kind": "screenshot",
+   "usedIn": [
+    "docs/case-study-business-return.md"
+   ]
+  },
+  {
+   "id": "case-study-gst-data",
+   "path": "Case study/Data 2.xlsx",
+   "title": "Case study: monthly GST reconciliation, books (Tally) vs GSTR-1, GSTR-3B and GSTR-2A, FY 2024-25",
+   "publisher": "Taxvela",
+   "version": "",
+   "dated": "2026",
+   "kind": "worksheet",
+   "usedIn": [
+    "docs/case-study-business-return.md"
+   ]
+  },
+  {
+   "id": "sample-form16-a",
+   "path": "sample_data/form16 and json/form16_subjectA_final.pdf",
+   "title": "Sample Form 16, subject A (scanned, redacted)",
+   "publisher": "Employer via TRACES",
+   "version": "",
+   "dated": "2025-05-31",
+   "kind": "sample",
+   "usedIn": [
+    "docs/sample-returns.md"
+   ],
+   "pages": 8
+  },
+  {
+   "id": "sample-form16-b",
+   "path": "sample_data/form16 and json/form_16_subjectB_redacted_final.pdf",
+   "title": "Sample Form 16, subject B (redacted)",
+   "publisher": "Employer via TRACES",
+   "version": "",
+   "dated": "2025-05-27",
+   "kind": "sample",
+   "usedIn": [
+    "docs/sample-returns.md",
+    "docs/form16-structure.md"
+   ],
+   "pages": 10
+  },
+  {
+   "id": "sample-json-a",
+   "path": "sample_data/form16 and json/subjectA.json",
+   "title": "Sample ITR-2 JSON, subject A (identity removed)",
+   "publisher": "Filing software",
+   "version": "",
+   "dated": "2025-09-25",
+   "kind": "sample",
+   "usedIn": [
+    "docs/sample-returns.md",
+    "../../test/fixtures/itr/subject-a-itr2.json"
+   ]
+  },
+  {
+   "id": "sample-json-b",
+   "path": "sample_data/form16 and json/subjecB.json",
+   "title": "Sample ITR-1 JSON skeleton, subject B (identity removed, figures blank)",
+   "publisher": "Filing software",
+   "version": "",
+   "dated": "2025-09-13",
+   "kind": "sample",
+   "usedIn": [
+    "docs/sample-returns.md"
+   ]
+  },
+  {
+   "id": "regime-fy-2026-27",
+   "path": "Old_vs_New_Tax_Regime_FY_2026-27.docx",
+   "title": "India income tax: old tax regime vs new tax regime, FY 2026-27 / tax year 2026-27",
+   "publisher": "Taxvela",
+   "version": "",
+   "dated": "2026-11-11",
+   "kind": "notes",
+   "usedIn": [
+    "docs/regime-fy-2026-27.md",
+    "../tax-modules/india-income-tax-individuals/SKILL.md"
+   ]
+  }
+ ]
+}

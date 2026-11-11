@@ -28,13 +28,13 @@ void main() {
     await tester.tap(find.text('FEDERAL AND OWNER TAXES'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Instalment 1: 15 April 2026'), findsOneWidget);
+    expect(find.text('Instalment 1: April 15, 2026'), findsOneWidget);
     expect(find.text('Paid, confirmation EFTPS1'), findsOneWidget);
     expect(find.textContaining('income from 1 April to 31 May · date has passed'), findsOneWidget);
     expect(find.text('Net profit before items outside the books'), findsOneWidget);
     expect(find.text('-\$1,404.75'), findsOneWidget);
     expect(find.text('Form 941 for 2026-Q3'), findsOneWidget);
-    expect(find.textContaining('Wages \$15,000.00 · total taxes \$3,495.00 · due 31 October 2026'), findsOneWidget);
+    expect(find.textContaining('Wages \$15,000.00 · total taxes \$3,495.00 · due October 31, 2026'), findsOneWidget);
     expect(find.text('W-2 for 1 employee'), findsOneWidget);
     expect(find.textContaining('\$2,500.00 · W-9 missing'), findsOneWidget);
     final save = find.text('Save the 1099-NEC data file');
