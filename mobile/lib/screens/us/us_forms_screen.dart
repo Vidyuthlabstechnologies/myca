@@ -85,7 +85,7 @@ class _UsFormsScreenState extends State<UsFormsScreen> {
     setState(() => _reading = true);
     try {
       final sha = await _api.upload(picked.name, dataUrlOf(picked));
-      final answer = await _api.query('read_us_tax_document', {'documentSha256': sha, 'taxYear': widget.taxYear});
+      final answer = await _api.query('read_us_tax_document', {'documentId': sha, 'documentSha256': sha, 'taxYear': widget.taxYear});
       final data = toolData(answer);
       final kinds = await _kinds!;
       final kind = formKindOf('${data['kind'] ?? ''}', kinds);

@@ -409,7 +409,7 @@ void main() {
 
     await tester.tap(find.byKey(const Key('usForms.scan')));
     await tester.pumpAndSettle();
-    expect(api.queries.where((q) => q.name == 'read_us_tax_document').single.args['documentSha256'], 'sha-int.jpg');
+    expect(api.queries.where((q) => q.name == 'read_us_tax_document').single.args['documentId'], 'sha-int.jpg');
     expect(find.text('Add 1099-INT'), findsOneWidget);
     expect(find.textContaining('Check each box'), findsOneWidget);
     expect(find.text('42.17'), findsOneWidget);
