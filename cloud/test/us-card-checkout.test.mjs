@@ -22,7 +22,7 @@ async function fakeStripe(url, init = {}) {
   if (path === 'checkout/sessions' && method === 'POST') {
     const id = `cs_test_${nextId++}`;
     const metadata = Object.fromEntries(Object.entries(form).filter(([key]) => key.startsWith('metadata[')).map(([key, value]) => [key.slice(9, -1), value]));
-    const session = { id, url: `https://checkout.stripe.com/c/pay/${id}`, status: 'open', payment_status: 'unpaid', mode: form.mode, metadata, client_reference_id: form.client_reference_id, amount_total: Number(form['line_items[0][price_data][unit_amount]'] || 7900), livemode: false };
+    const session = { id, url: `https://checkout.stripe.com/c/pay/${id}`, status: 'open', payment_status: 'unpaid', mode: form.mode, metadata, client_reference_id: form.client_reference_id, amount_total: Number(form['line_items[0][price_data][unit_amount]'] || 24900), livemode: false };
     sessions.set(id, session);
     return json(200, session);
   }
@@ -93,11 +93,11 @@ test('card checkout is configured from the environment and half a setup is refus
   assert.equal(billingConfigProblem({ MYCA_STRIPE_SECRET_KEY: 'sk_live_abc', MYCA_STRIPE_WEBHOOK_SECRET: 'whsec_1', MYCA_US_CHECKOUT_RETURN_URL: 'https://myca.app/x' }), '');
 });
 
-test('plans offer $39 by card, Plus at $79 a year, and no price on waitlist products', async () => {
+test('plans offer $129 by card, Plus at $249 a year, and no price on waitlist products', async () => {
   const out = await api.call('GET', '/v1/plans');
   assert.equal(out.body.usReturn.checkout, 'card');
-  assert.equal(out.body.usReturn.priceLine, '$39 to file. Federal only. No state, refund or upgrade fees.');
-  assert.deepEqual({ price: out.body.usPlus.priceUsd, per: out.body.usPlus.per, buyable: out.body.usPlus.buyable }, { price: 79, per: 'year', buyable: true });
+  assert.equal(out.body.usReturn.priceLine, '$129 to file your federal return. One price, no upgrade fees.');
+  assert.deepEqual({ price: out.body.usPlus.priceUsd, per: out.body.usPlus.per, buyable: out.body.usPlus.buyable }, { price: 249, per: 'year', buyable: true });
   const forms = await api.call('GET', '/v1/us/supported-forms');
   assert.ok(forms.body.supported.includes('W-2'));
   assert.ok(forms.body.coming.includes('Form 2441'));
@@ -117,7 +117,7 @@ test('a card payment for a return goes through Stripe Checkout and is recorded o
   const made = stripeCalls.find((c) => c.method === 'POST');
   assert.equal(made.auth, 'Bearer sk_test_123');
   assert.equal(made.form.mode, 'payment');
-  assert.equal(made.form['line_items[0][price_data][unit_amount]'], '3900');
+  assert.equal(made.form['line_items[0][price_data][unit_amount]'], '12900');
   assert.equal(made.form['line_items[0][price_data][currency]'], 'usd');
   assert.equal(made.form['metadata[businessId]'], who.businessId);
   assert.equal(made.form['metadata[taxYear]'], String(year));
@@ -143,7 +143,7 @@ test('a card payment for a return goes through Stripe Checkout and is recorded o
   assert.equal(audit.rows.length, 1);
   assert.equal(audit.rows[0].metadata.provider, 'stripe');
   const row = await api.db.query('select provider, price_usd from us_return_purchases where business_id = $1', [who.businessId]);
-  assert.deepEqual(row.rows[0], { provider: 'stripe', price_usd: 39 });
+  assert.deepEqual(row.rows[0], { provider: 'stripe', price_usd: 129 });
 });
 
 test('the app can confirm a payment itself if the webhook is late, but not someone else\'s', async () => {
@@ -172,7 +172,7 @@ test('MyCA Plus is a yearly subscription that unlocks the Plus tools and cancels
   const who = await household('+919400000086');
   const locked = await post(who, 'query', { name: 'us_withholding_check', args: { taxYear: year + 1 } });
   assert.equal(locked.body.error, 'US_PLUS_REQUIRED', locked.text);
-  assert.equal(locked.body.priceUsd, 79);
+  assert.equal(locked.body.priceUsd, 249);
   assert.equal((await get(who, 'us-plus')).body.active, false);
   stripeCalls.length = 0;
   const started = await post(who, 'us-checkout', { product: 'plus' });

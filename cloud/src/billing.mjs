@@ -22,12 +22,12 @@ export const PLANS = Object.freeze({
 });
 
 const PAID = ['essentials', 'pro', 'firm'];
-export const US_RETURN_PRICE_USD = 39;
-export const US_PLUS_PRICE_USD = 79;
-export const US_EXPERT_REVIEW_PRICE_USD = 129;
+export const US_RETURN_PRICE_USD = 129;
+export const US_PLUS_PRICE_USD = 249;
+export const US_EXPERT_REVIEW_PRICE_USD = 299;
 export const US_WAITLIST_PRODUCTS = Object.freeze({ done_for_you: 'Done For You', international: 'International add-on' });
 export const US_PLUS_TOOLS = Object.freeze(['read_irs_letter', 'us_withholding_check', 'us_estimated_payments']);
-export const US_RETURN_PRICE_LINE = (price) => `$${price} to file. Federal only. No state, refund or upgrade fees.`;
+export const US_RETURN_PRICE_LINE = (price) => `$${price} to file your federal return. One price, no upgrade fees.`;
 const US_RETURN_YEARS_BACK = 3;
 const PLUS_LIVE = new Set(['active', 'trialing', 'past_due']);
 const CARD_RETURN_PRODUCT = 'card:us_return';

@@ -31,7 +31,7 @@ class FeeStore implements StoreBilling {
   @override
   Future<bool> available() async => true;
   @override
-  Future<Map<String, StoreProduct>> products(Set<String> ids) async => {for (final id in ids) id: StoreProduct(id: id, price: '\$39.00')};
+  Future<Map<String, StoreProduct>> products(Set<String> ids) async => {for (final id in ids) id: StoreProduct(id: id, price: '\$129.00')};
   @override
   Future<bool> buy(String productId, String accountId) async {
     bought.add('sub:$productId:$accountId');
@@ -60,7 +60,7 @@ class FakeFees implements UsFilingFees {
   @override
   String get accountId => 'biz-1';
   @override
-  Future<UsFilingFee> status(int taxYear) async => UsFilingFee(taxYear: taxYear, enforced: true, paid: paid, priceUsd: 39, productId: 'myca_us_1040', checkout: card ? 'card' : 'play');
+  Future<UsFilingFee> status(int taxYear) async => UsFilingFee(taxYear: taxYear, enforced: true, paid: paid, priceUsd: 129, productId: 'myca_us_1040', checkout: card ? 'card' : 'play');
   @override
   Future<UsFilingFee> record(int taxYear, String productId, String purchaseToken) async {
     recorded.add('$taxYear:$productId:$purchaseToken');
@@ -591,7 +591,7 @@ void main() {
     expect(find.textContaining('00000020253150000001'), findsOneWidget);
   });
 
-  testWidgets('filing is held until that year\'s \$39 is paid on Google Play; then the file button appears', (tester) async {
+  testWidgets('filing is held until that year\'s \$129 is paid on Google Play; then the file button appears', (tester) async {
     final api = UsFakeApi()..taxpayer = {'filingStatus': 'single'};
     api.forms.add({'id': 'F1', 'kind': 'W-2', 'payer': 'Acme', 'amounts': {'wages': 52000}});
     api.efile = 'signed';
@@ -603,7 +603,7 @@ void main() {
     tester.state<NavigatorState>(find.byType(Navigator).first).push(MaterialPageRoute<void>(builder: (_) => UsSignScreen(taxYear: year, fees: fees, store: store)));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('usFee.card')), findsOneWidget);
-    expect(find.textContaining('is \$39, paid once'), findsOneWidget);
+    expect(find.textContaining('is \$129, paid once'), findsOneWidget);
     expect(find.byKey(const Key('usSign.prepare')), findsNothing, reason: 'no filing before the fee');
     await tester.tap(find.byKey(const Key('usFee.pay')));
     await tester.pumpAndSettle();
@@ -622,10 +622,10 @@ void main() {
   });
 
   test('the filing fee reads from the server and is never due when billing is off', () {
-    final due = UsFilingFee.fromJson({'taxYear': 2025, 'enforced': true, 'paid': false, 'priceUsd': 39, 'productId': 'myca_us_1040'}, 2025);
+    final due = UsFilingFee.fromJson({'taxYear': 2025, 'enforced': true, 'paid': false, 'priceUsd': 129, 'productId': 'myca_us_1040'}, 2025);
     expect(due.due, isTrue);
-    expect(usFilingFeeLine(due), 'Filing your 2025 return with the IRS is \$39, paid once. Federal only, with no state, refund or upgrade fees. Preparing and checking it stay free.');
-    expect(due.line, '\$39 to file. Federal only. No state, refund or upgrade fees.');
+    expect(usFilingFeeLine(due), 'Filing your 2025 return with the IRS is \$129, paid once. One price for your federal return, with no upgrade fees. Preparing and checking it stay free.');
+    expect(due.line, '\$129 to file your federal return. One price, no upgrade fees.');
     expect(UsFilingFee.fromJson({'checkout': 'card'}, 2025).byCard, isTrue);
     expect(UsFilingFee.fromJson({'enforced': false, 'paid': true}, 2025).due, isFalse);
     expect(UsFilingFee.fromJson({'enforced': true, 'paid': true}, 2025).due, isFalse);

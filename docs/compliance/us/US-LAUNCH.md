@@ -68,7 +68,7 @@ has no switch to India. CI builds both; it uploads the US bundle when `PLAY_US_T
 - [ ] Create the `com.mldynamic.myca.us` app in Play Console. *Countries / regions*: United States only.
 - [ ] Add an Android OAuth client for `com.mldynamic.myca.us` with the Play signing SHA-1.
 - [ ] Set `MYCA_PLAY_PACKAGE_US` (Terraform `play_package_us`) so US payments are checked against the US app.
-- [ ] Create the yearly subscription for MyCA Plus (USD 79) in the US app and set `MYCA_PLAY_PRODUCT_US_PLUS`. Plus is sold through Play inside the app because Play's payments policy requires Play billing for software subscriptions; the $39 return is tax filing and stays on card.
+- [ ] Create the yearly subscription for MyCA Plus (USD 249) in the US app and set `MYCA_PLAY_PRODUCT_US_PLUS`. Plus is sold through Play inside the app because Play's payments policy requires Play billing for software subscriptions; the $129 return is tax filing and stays on card.
 - [ ] *Data safety*: add Government ID (SSN/ITIN), financial info (bank account), and say it is
       encrypted in transit and at rest and can be deleted on request.
 - [ ] *Financial features* declaration: the app prepares and files tax returns.
@@ -83,16 +83,16 @@ has no switch to India. CI builds both; it uploads the US bundle when `PLAY_US_T
 
 ## US pricing
 
-Owner decision (2026-11-11): **$39 per federal return, paid once per tax year.** Preparing, reviewing
+Owner direction (2026-11-11): price as premium, at or above TurboTax at each tier. **$129 per federal return, paid once per tax year;** MyCA Plus $249 a year; Expert Review $299 once a CPA or EA partner is signed. All three are settings (`MYCA_US_RETURN_PRICE_USD`, `MYCA_US_PLUS_PRICE_USD`, `MYCA_US_EXPERT_REVIEW_PRICE_USD`). Preparing, reviewing
 and downloading the return are free, so people see their refund first; filing with the IRS unlocks once
 that year is paid. Households never fall into the India trial or read-only plan.
 
 How it works:
 
-- One consumable Play product, for example `myca_us_1040`, priced USD 39. Set it as
+- One consumable Play product, for example `myca_us_1040`, priced USD 129. Set it as
   `MYCA_PLAY_PRODUCT_US_1040` (Terraform `play_product_us_1040`). Consumable, so the same product is bought
   again next year; each payment is recorded against one tax year (`us_return_purchases`, migration 022).
-- The app's Sign and e-file screen shows "Pay $39 and continue" after signing. The server checks the
+- The app's Sign and e-file screen shows "Pay $129 and continue" after signing. The server checks the
   payment with Google (`purchases.products`), acknowledges it, records it, and writes the
   `billing.us_return_paid` audit event. A payment token can pay for only one return and one year.
 - `file_us_return` is refused with `US_RETURN_UNPAID` until that year is paid, whether it comes from the

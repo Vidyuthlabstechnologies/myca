@@ -329,15 +329,15 @@ The server logs one `startup: services` line listing which optional services are
 | `MYCA_INBOUND_EMAIL_DOMAIN`, `MYCA_INBOUND_RELAY_TOKEN` | for bills by email | | token yes | Inbound email relay. |
 | `MYCA_PLAY_PACKAGE`, `MYCA_PLAY_PRODUCT_ESSENTIALS`, `MYCA_PLAY_PRODUCT_PRO`, `MYCA_PLAY_PRODUCT_FIRM` | for Play billing | | no | Turns subscriptions on. |
 | `MYCA_PLAY_PACKAGE_US` | for US filing fees | `MYCA_PLAY_PACKAGE` | no | Package name of the separate MyCA US app (`com.mldynamic.myca.us`); US payments are checked against it. |
-| `MYCA_STRIPE_SECRET_KEY` | for card checkout | unset | yes | Stripe secret key of the US company. With the three settings below it, US returns ($39) and MyCA Plus ($79 a year) are paid by card instead of Google Play (Play exempts tax filing from Play Billing). |
+| `MYCA_STRIPE_SECRET_KEY` | for card checkout | unset | yes | Stripe secret key of the US company. With the three settings below it, US returns ($129) and MyCA Plus ($249 a year) are paid by card instead of Google Play (Play exempts tax filing from Play Billing). |
 | `MYCA_STRIPE_WEBHOOK_SECRET` | for card checkout | unset | yes | Signing secret of the Stripe webhook pointed at `POST /v1/billing/stripe/webhook` (events: `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `customer.subscription.updated`, `customer.subscription.deleted`). |
 | `MYCA_US_CHECKOUT_RETURN_URL` | for card checkout | unset | no | https page Stripe returns to; it should open the MyCA US app. |
 | `MYCA_STRIPE_PRICE_US_PLUS` | for MyCA Plus | unset | no | Stripe price id of the yearly Plus subscription. |
-| `MYCA_PLAY_PRODUCT_US_PLUS` | for MyCA Plus in the app | unset | no | Play yearly subscription for MyCA Plus in the MyCA US app. When set, the app sells Plus through Play (card checkout for Plus is then off), since Play's payments policy may count Plus as a software subscription. The $39 return stays on card. |
-| `MYCA_US_PLUS_PRICE_USD` | no | `79` | no | Price shown for MyCA Plus. |
-| `MYCA_US_EXPERT_REVIEW` | no | `0` | no | `1` offers Expert Review ($129, `MYCA_US_EXPERT_REVIEW_PRICE_USD`). Keep it off until a US CPA or EA partner is signed. |
+| `MYCA_PLAY_PRODUCT_US_PLUS` | for MyCA Plus in the app | unset | no | Play yearly subscription for MyCA Plus in the MyCA US app. When set, the app sells Plus through Play (card checkout for Plus is then off), since Play's payments policy may count Plus as a software subscription. The $129 return stays on card. |
+| `MYCA_US_PLUS_PRICE_USD` | no | `249` | no | Price shown for MyCA Plus. |
+| `MYCA_US_EXPERT_REVIEW` | no | `0` | no | `1` offers Expert Review ($299, `MYCA_US_EXPERT_REVIEW_PRICE_USD`). Keep it off until a US CPA or EA partner is signed. |
 | `MYCA_PLAY_PRODUCT_US_1040` | for US filing fees | | no | A one-time (consumable) Play product. When set, filing a US return (`file_us_return`) needs that tax year paid; preparing stays free. |
-| `MYCA_US_RETURN_PRICE_USD` | | `39` | no | The US filing fee shown before the Play Store price loads. |
+| `MYCA_US_RETURN_PRICE_USD` | | `129` | no | The US filing fee shown before the Play Store price loads. |
 | `MYCA_PLAY_SERVICE_ACCOUNT_JSON` | Play billing outside Cloud Run | metadata server on Cloud Run | yes | Play Developer API access. Refused in staging. |
 | `MYCA_PLAY_PUSH_AUDIENCE`, `MYCA_PLAY_PUSH_SERVICE_ACCOUNT` | for Play notifications | | no | Pub/Sub push with OIDC authentication: the audience set on the push subscription and the service account it signs as. Preferred. |
 | `MYCA_PLAY_NOTIFY_TOKEN` | alternative to push auth | | yes | Shared token, sent only in the `x-myca-notify-token` header. A `?token=` in the URL is refused so it never reaches access logs. |

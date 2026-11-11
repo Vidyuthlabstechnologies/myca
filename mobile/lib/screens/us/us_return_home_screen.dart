@@ -84,7 +84,7 @@ class _UsReturnHomeScreenState extends State<UsReturnHomeScreen> {
         children: [
           Icon(paid ? Icons.check_circle : Icons.sell_outlined, size: 18, color: Palette.accent),
           const SizedBox(width: 8),
-          Expanded(child: Text(paid ? 'Your ${fee.taxYear} filing is paid. Federal only. No state, refund or upgrade fees.' : line, key: const Key('usHub.priceLine'), style: text.bodyMedium?.copyWith(color: Palette.ink))),
+          Expanded(child: Text(paid ? 'Your ${fee.taxYear} filing is paid. One price, no upgrade fees.' : line, key: const Key('usHub.priceLine'), style: text.bodyMedium?.copyWith(color: Palette.ink))),
         ],
       ),
     );

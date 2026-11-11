@@ -35,9 +35,9 @@ class UsFilingFee {
   String get line => priceLine.isEmpty ? usPriceLine(priceUsd) : priceLine;
 }
 
-const usFilingPriceUsd = 39;
+const usFilingPriceUsd = 129;
 
-String usPriceLine(int priceUsd) => '\$$priceUsd to file. Federal only. No state, refund or upgrade fees.';
+String usPriceLine(int priceUsd) => '\$$priceUsd to file your federal return. One price, no upgrade fees.';
 
 class UsCardCheckout {
   const UsCardCheckout({required this.url, required this.sessionId});
@@ -98,7 +98,7 @@ class NoFilingFees implements UsFilingFees {
   Future<UsFilingFee> confirmCard(int taxYear, String sessionId) => status(taxYear);
 }
 
-String usFilingFeeLine(UsFilingFee fee) => 'Filing your ${fee.taxYear} return with the IRS is \$${fee.priceUsd}, paid once. Federal only, with no state, refund or upgrade fees. Preparing and checking it stay free.';
+String usFilingFeeLine(UsFilingFee fee) => 'Filing your ${fee.taxYear} return with the IRS is \$${fee.priceUsd}, paid once. One price for your federal return, with no upgrade fees. Preparing and checking it stay free.';
 
 class UsFilingFeeCard extends StatefulWidget {
   const UsFilingFeeCard({super.key, required this.fee, required this.fees, required this.store, required this.onPaid});

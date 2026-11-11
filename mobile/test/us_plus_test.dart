@@ -44,7 +44,7 @@ class FakePlus implements UsPlusService {
         subscribed: subscribed,
         renews: subscribed && renews,
         until: '2027-11-11T00:00:00.000Z',
-        priceUsd: 79,
+        priceUsd: 249,
         buyable: true,
         checkout: onPlay ? 'play' : 'card',
         productId: onPlay ? 'myca_us_plus_yearly' : '',
@@ -80,11 +80,11 @@ Future<void> openOver(WidgetTester tester, Widget screen) async {
 }
 
 void main() {
-  testWidgets('the hub shows the \$39 price line before About you, and the state sheet only for states with income tax', (tester) async {
+  testWidgets('the hub shows the \$129 price line before About you, and the state sheet only for states with income tax', (tester) async {
     final api = UsFakeApi()..taxpayer = {'filingStatus': 'single', 'address': {'state': 'TX'}};
     await tester.pumpWidget(MycaApp(state: usState(api)));
     await tester.pumpAndSettle();
-    expect(find.text('\$39 to file. Federal only. No state, refund or upgrade fees.'), findsOneWidget);
+    expect(find.text('\$129 to file your federal return. One price, no upgrade fees.'), findsOneWidget);
     final priceY = tester.getTopLeft(find.byKey(const Key('usHub.priceLine'))).dy;
     expect(priceY, lessThan(tester.getTopLeft(find.byKey(const Key('usHub.step.profile'))).dy), reason: 'the price comes before the first question');
     expect(find.byKey(const Key('usHub.state')), findsNothing, reason: 'Texas has no income tax, so nothing more is said');
@@ -118,7 +118,7 @@ void main() {
     expect(find.byKey(const Key('usFee.payCard')), findsNothing, reason: 'no payment for a return MyCA cannot file');
   });
 
-  testWidgets('the \$39 is paid by card in the browser, then confirmed before the file button appears', (tester) async {
+  testWidgets('the \$129 is paid by card in the browser, then confirmed before the file button appears', (tester) async {
     final api = UsFakeApi()..taxpayer = {'filingStatus': 'single'};
     api.forms.add({'id': 'F1', 'kind': 'W-2', 'payer': 'Acme', 'amounts': {'wages': 52000}});
     api.efile = 'signed';
@@ -142,14 +142,14 @@ void main() {
     expect(find.byKey(const Key('usSign.prepare')), findsOneWidget);
   });
 
-  testWidgets('MyCA Plus: tools are locked until the \$79 a year is paid, and renewal cancels in one tap', (tester) async {
+  testWidgets('MyCA Plus: tools are locked until the \$249 a year is paid, and renewal cancels in one tap', (tester) async {
     final api = UsFakeApi();
     final plus = FakePlus();
     final opened = <Uri>[];
     await tester.pumpWidget(MycaApp(state: usState(api, opened: opened)));
     await tester.pumpAndSettle();
     await openOver(tester, UsPlusScreen(taxYear: 2025, plus: plus));
-    expect(find.text('Get MyCA Plus, \$79 a year'), findsOneWidget);
+    expect(find.text('Get MyCA Plus, \$249 a year'), findsOneWidget);
     expect(tester.widget<RowCard>(find.byKey(const Key('usPlus.letter'))).onTap, isNull);
     await tester.tap(find.byKey(const Key('usPlus.subscribe')));
     await tester.pumpAndSettle();

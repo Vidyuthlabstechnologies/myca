@@ -245,7 +245,7 @@ variable "play_package_us" {
 }
 
 variable "play_product_us_1040" {
-  description = "Google Play one-time (consumable) product id for filing a US federal return, priced at USD 39 for the United States, for example \"myca_us_1040\". Empty leaves US filing free."
+  description = "Google Play one-time (consumable) product id for filing a US federal return, priced at USD 129 for the United States, for example \"myca_us_1040\". Empty leaves US filing free."
   type        = string
   default     = ""
 }
@@ -277,7 +277,7 @@ variable "stripe_webhook_secret" {
 }
 
 variable "stripe_price_us_plus" {
-  description = "Stripe price id of the yearly MyCA Plus subscription (USD 79 a year)."
+  description = "Stripe price id of the yearly MyCA Plus subscription (USD 249 a year)."
   type        = string
   default     = ""
 }
@@ -289,13 +289,13 @@ variable "us_checkout_return_url" {
 }
 
 variable "us_expert_review" {
-  description = "Offer Expert Review ($129, a US CPA or EA signs). Keep false until a reviewer partner is signed."
+  description = "Offer Expert Review ($299, a US CPA or EA signs). Keep false until a reviewer partner is signed."
   type        = bool
   default     = false
 }
 
 variable "play_product_us_plus" {
-  description = "Google Play yearly subscription product id for MyCA Plus (USD 79 a year) in the MyCA US app. Inside the Android app Plus is sold through Play billing, because Play may treat it as a software subscription; the website can sell it by card."
+  description = "Google Play yearly subscription product id for MyCA Plus (USD 249 a year) in the MyCA US app. Inside the Android app Plus is sold through Play billing, because Play may treat it as a software subscription; the website can sell it by card."
   type        = string
   default     = ""
 }

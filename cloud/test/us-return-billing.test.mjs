@@ -56,7 +56,7 @@ before(async () => {
       db,
       now,
       fetchImpl: fakeGoogle,
-      config: { packageName: PACKAGE, productIds: { pro: 'myca_pro_monthly' }, usReturn: { packageName: US_PACKAGE, productId: PRODUCT, priceUsd: 39 }, usPlus: { priceUsd: 79, productId: PLUS }, serviceAccount: { clientEmail: 'play@test.iam.gserviceaccount.com', privateKey: privateKey.export({ type: 'pkcs8', format: 'pem' }), tokenUri: 'https://oauth2.googleapis.com/token' } },
+      config: { packageName: PACKAGE, productIds: { pro: 'myca_pro_monthly' }, usReturn: { packageName: US_PACKAGE, productId: PRODUCT, priceUsd: 129 }, usPlus: { priceUsd: 249, productId: PLUS }, serviceAccount: { clientEmail: 'play@test.iam.gserviceaccount.com', privateKey: privateKey.export({ type: 'pkcs8', format: 'pem' }), tokenUri: 'https://oauth2.googleapis.com/token' } },
     }),
   });
   year = new Date(api.clock.now).getUTCFullYear() - 1;
@@ -72,16 +72,16 @@ async function household(phone, name = 'Jordan Rivera') {
 const post = (who, action, body) => api.call('POST', `/v1/businesses/${who.businessId}/${action}`, { token: who.token, body });
 const get = (who, path) => api.call('GET', `/v1/businesses/${who.businessId}/${path}`, { token: who.token });
 
-test('the price of a US return is $39 by default and the operator can change it', () => {
-  assert.equal(US_RETURN_PRICE_USD, 39);
-  assert.deepEqual(billingConfigFromEnv({ MYCA_PLAY_PRODUCT_US_1040: 'myca_us_1040', MYCA_PLAY_PACKAGE_US: 'com.mldynamic.myca.us' }).usReturn, { packageName: 'com.mldynamic.myca.us', productId: 'myca_us_1040', priceUsd: 39 });
+test('the price of a US return is $129 by default and the operator can change it', () => {
+  assert.equal(US_RETURN_PRICE_USD, 129);
+  assert.deepEqual(billingConfigFromEnv({ MYCA_PLAY_PRODUCT_US_1040: 'myca_us_1040', MYCA_PLAY_PACKAGE_US: 'com.mldynamic.myca.us' }).usReturn, { packageName: 'com.mldynamic.myca.us', productId: 'myca_us_1040', priceUsd: 129 });
   assert.equal(billingConfigFromEnv({ MYCA_US_RETURN_PRICE_USD: '49' }).usReturn.priceUsd, 49);
-  assert.equal(billingConfigFromEnv({ MYCA_US_RETURN_PRICE_USD: 'free' }).usReturn.priceUsd, 39);
+  assert.equal(billingConfigFromEnv({ MYCA_US_RETURN_PRICE_USD: 'free' }).usReturn.priceUsd, 129);
 });
 
-test('plans list the US return as a one-time $39 per tax year', async () => {
+test('plans list the US return as a one-time $129 per tax year', async () => {
   const out = await api.call('GET', '/v1/plans');
-  assert.deepEqual(out.body.usReturn, { title: 'MyCA Return', priceUsd: 39, currency: 'USD', per: 'tax_year', priceLine: '$39 to file. Federal only. No state, refund or upgrade fees.', checkout: 'play', packageName: US_PACKAGE, productId: PRODUCT, buyable: true });
+  assert.deepEqual(out.body.usReturn, { title: 'MyCA Return', priceUsd: 129, currency: 'USD', per: 'tax_year', priceLine: '$129 to file your federal return. One price, no upgrade fees.', checkout: 'play', packageName: US_PACKAGE, productId: PRODUCT, buyable: true });
   assert.deepEqual({ checkout: out.body.usPlus.checkout, productId: out.body.usPlus.productId, packageName: out.body.usPlus.packageName, buyable: out.body.usPlus.buyable }, { checkout: 'play', productId: PLUS, packageName: US_PACKAGE, buyable: true }, 'inside the app, MyCA Plus is a Google Play subscription');
   assert.equal(out.body.usExpertReview.available, false, 'Expert Review stays hidden until the operator turns it on');
   assert.deepEqual(out.body.usWaitlist.map((item) => item.id), ['done_for_you', 'international']);
@@ -95,18 +95,18 @@ test('a household never lapses into read-only: preparing a return is free', asyn
   assert.equal(plan.body.plan, 'household', plan.text);
   assert.equal(plan.body.trial, null);
   assert.ok(plan.body.features.includes('post'));
-  assert.equal(plan.body.usReturn.priceUsd, 39);
+  assert.equal(plan.body.usReturn.priceUsd, 129);
 });
 
 test('filing is refused until that tax year is paid, and the answer says how much', async () => {
   const who = await household('+919400000072');
   const status = await get(who, `us-return-purchase?taxYear=${year}`);
   assert.equal(status.body.paid, false, status.text);
-  assert.equal(status.body.priceUsd, 39);
+  assert.equal(status.body.priceUsd, 129);
   const refused = await post(who, 'propose', { name: 'file_us_return', args: { taxYear: year } });
   assert.equal(refused.body.error, 'US_RETURN_UNPAID', refused.text);
-  assert.equal(refused.body.priceUsd, 39);
-  assert.match(refused.body.hint, /\$39/);
+  assert.equal(refused.body.priceUsd, 129);
+  assert.match(refused.body.hint, /\$129/);
 });
 
 test('a Play payment is checked with Google, acknowledged, recorded for one tax year, and audited', async () => {

@@ -5,8 +5,8 @@ Map<String, dynamic> _map(Object? value) => value is Map ? value.cast<String, dy
 
 int _int(Object? value, int fallback) => value is num ? value.toInt() : int.tryParse('${value ?? ''}') ?? fallback;
 
-const usPlusPriceUsd = 79;
-const usExpertReviewPriceUsd = 129;
+const usPlusPriceUsd = 249;
+const usExpertReviewPriceUsd = 299;
 
 class UsPlusStatus {
   const UsPlusStatus({required this.enforced, required this.active, required this.subscribed, required this.renews, required this.until, required this.priceUsd, required this.buyable, this.checkout = 'card', this.productId = '', this.manageUrl = ''});
