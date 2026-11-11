@@ -112,7 +112,7 @@ test('signing refuses a missing certificate or a key that does not match', () =>
   assert.equal(signMyInvoisDocument(document, {}).error, 'SIGNING_CERTIFICATE_MISSING');
 });
 
-function fakeFetch(log, { tokenStatus = 200 } = {}) {
+function fakeTransport(log, { tokenStatus = 200 } = {}) {
   return async (url, options) => {
     log.push({ url, options });
     if (url.endsWith('/connect/token')) {
@@ -127,7 +127,7 @@ beforeEach(() => clearMyInvoisTokens());
 
 test('the client logs in once, reuses the token and submits to the sandbox host', async () => {
   const log = [];
-  const config = { environment: 'test', clientId: 'id', clientSecret: 'secret', onBehalfOf: 'C20830570210', fetch: fakeFetch(log) };
+  const config = { environment: 'test', clientId: 'id', clientSecret: 'secret', onBehalfOf: 'C20830570210', transport: fakeTransport(log) };
   const { document } = buildMyInvoisDocument(invoice());
   const first = await submitMyInvoisDocuments(config, { documents: [{ document, codeNumber: 'INV-2026-0001' }] });
   const second = await submitMyInvoisDocuments(config, { documents: [{ document, codeNumber: 'INV-2026-0002' }] });
@@ -145,12 +145,12 @@ test('the client logs in once, reuses the token and submits to the sandbox host'
 test('production needs an approval, off means no call, and a failed login is reported', async () => {
   const log = [];
   const { document } = buildMyInvoisDocument(invoice());
-  const live = await submitMyInvoisDocuments({ environment: 'live', clientId: 'id', clientSecret: 's', fetch: fakeFetch(log) }, { documents: [{ document, codeNumber: 'A' }] });
+  const live = await submitMyInvoisDocuments({ environment: 'live', clientId: 'id', clientSecret: 's', transport: fakeTransport(log) }, { documents: [{ document, codeNumber: 'A' }] });
   assert.equal(live.error, 'APPROVAL_REQUIRED');
   assert.equal(log.length, 0);
-  const off = await myInvoisToken({ clientId: 'id', clientSecret: 's', fetch: fakeFetch(log) });
+  const off = await myInvoisToken({ clientId: 'id', clientSecret: 's', transport: fakeTransport(log) });
   assert.equal(off.error, 'LIVE_CALLS_DISABLED');
-  const bad = await myInvoisToken({ environment: 'test', clientId: 'id', clientSecret: 's', fetch: fakeFetch(log, { tokenStatus: 400 }) });
+  const bad = await myInvoisToken({ environment: 'test', clientId: 'id', clientSecret: 's', transport: fakeTransport(log, { tokenStatus: 400 }) });
   assert.equal(bad.error, 'MYINVOIS_LOGIN_FAILED');
   assert.equal(bad.lhdn.error, 'invalid_client');
   assert.equal((await cancelMyInvoisDocument({ environment: 'test' }, { uuid: 'F9D425P6DS7D8IU2Z9WTDYCZ4X' })).error, 'CANCEL_REASON_REQUIRED');

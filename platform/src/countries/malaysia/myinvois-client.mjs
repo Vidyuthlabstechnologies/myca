@@ -45,9 +45,10 @@ export async function myInvoisToken(config = {}) {
   const key = `${environment}|${config.clientId}|${config.onBehalfOf || ''}`;
   const cached = tokens.get(key);
   if (cached && cached.expiresAt - TOKEN_MARGIN_MS > Date.now()) return { ok: true, token: cached.token, environment };
-  const fetchFn = config.fetch || fetch;
+  const send = config.transport;
+  if (typeof send !== 'function') return fail('TRANSPORT_MISSING', { hint: 'The action gate passes the transport; the Malaysia engine never opens a connection itself.' });
   const form = new URLSearchParams({ client_id: config.clientId, client_secret: config.clientSecret, grant_type: 'client_credentials', scope: 'InvoicingAPI' });
-  const response = await fetchFn(`${MYINVOIS_HOSTS[environment].api}/connect/token`, {
+  const response = await send(`${MYINVOIS_HOSTS[environment].api}/connect/token`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded', ...(config.onBehalfOf ? { onbehalfof: config.onBehalfOf } : {}) },
     body: form.toString(),
@@ -61,8 +62,9 @@ export async function myInvoisToken(config = {}) {
 async function call(config, method, path, body) {
   const auth = await myInvoisToken(config);
   if (!auth.ok) return auth;
-  const fetchFn = config.fetch || fetch;
-  const response = await fetchFn(`${MYINVOIS_HOSTS[auth.environment].api}${path}`, {
+  const send = config.transport;
+  if (typeof send !== 'function') return fail('TRANSPORT_MISSING', { hint: 'The action gate passes the transport; the Malaysia engine never opens a connection itself.' });
+  const response = await send(`${MYINVOIS_HOSTS[auth.environment].api}${path}`, {
     method,
     headers: { Authorization: `Bearer ${auth.token}`, 'Content-Type': 'application/json', Accept: 'application/json', 'Accept-Language': 'en' },
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
@@ -149,8 +151,9 @@ export async function validateMyTin(config = {}, args = {}) {
   if (mockModeEnabled()) return { ok: true, mock: true, data: { tin, valid: true } };
   const auth = await myInvoisToken(config);
   if (!auth.ok) return auth;
-  const fetchFn = config.fetch || fetch;
-  const response = await fetchFn(`${MYINVOIS_HOSTS[auth.environment].api}/api/v1.0/taxpayer/validate/${encodeURIComponent(tin)}?idType=${idType}&idValue=${encodeURIComponent(idValue)}`, { method: 'GET', headers: { Authorization: `Bearer ${auth.token}` } });
+  const send = config.transport;
+  if (typeof send !== 'function') return fail('TRANSPORT_MISSING', { hint: 'The action gate passes the transport; the Malaysia engine never opens a connection itself.' });
+  const response = await send(`${MYINVOIS_HOSTS[auth.environment].api}/api/v1.0/taxpayer/validate/${encodeURIComponent(tin)}?idType=${idType}&idValue=${encodeURIComponent(idValue)}`, { method: 'GET', headers: { Authorization: `Bearer ${auth.token}` } });
   return { ok: true, environment: auth.environment, data: { tin, valid: response.status === 200 } };
 }
 
