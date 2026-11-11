@@ -47,6 +47,7 @@ must obtain before the first real return goes to the IRS.
 - The return XML (which holds SSNs) is never stored; only its sha256, the submission id and
   the acknowledgement are kept in `usEfile`.
 - A signature is bound to the return's digest; a changed return must be signed again.
+- US returns are hosted in the US. `cloud/src/residency.mjs` (from the multi-country work) refuses to start a deployment outside its country's regions (`MYCA_COUNTRIES=US`, `MYCA_REGION=us-*`), which backs the Publication 1345 hosting duty.
 
 ## Not verified yet
 
