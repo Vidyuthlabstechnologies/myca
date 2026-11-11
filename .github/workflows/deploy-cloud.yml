@@ -8,6 +8,7 @@ on:
       - "platform/src/**"
       - "sprints/**"
       - ".github/workflows/deploy-cloud.yml"
+      - ".github/workflows/cloud-run-rollout.yml"
   workflow_dispatch:
     inputs:
       country:
@@ -53,73 +54,38 @@ jobs:
           npm ci --ignore-scripts
           npm test
 
-  deploy:
-    name: Build the image and roll out
+  staging:
+    name: Staging
     needs: test
-    runs-on: ubuntu-latest
-    # A push to main deploys India. The US stack deploys only when asked for, from its own
-    # project, with its own *_US variables and its own GitHub environment.
-    environment: ${{ inputs.country == 'US' && 'production-us' || 'production' }}
+    if: ${{ vars.GCP_PROJECT_ID_STAGING != '' && (inputs.country || 'IN') == 'IN' }}
+    uses: ./.github/workflows/cloud-run-rollout.yml
     permissions:
       contents: read
       id-token: write
-    env:
-      COUNTRY: ${{ inputs.country || 'IN' }}
-      REGION: ${{ inputs.country == 'US' && vars.GCP_API_REGION_US || vars.GCP_API_REGION }}
-      PROJECT: ${{ inputs.country == 'US' && vars.GCP_PROJECT_ID_US || vars.GCP_PROJECT_ID }}
-      WIF_PROVIDER: ${{ inputs.country == 'US' && vars.GCP_WIF_PROVIDER_US || vars.GCP_WIF_PROVIDER }}
-      DEPLOY_SA: ${{ inputs.country == 'US' && vars.GCP_DEPLOY_SA_US || vars.GCP_DEPLOY_SA }}
-      SERVICE: myca-api
-    steps:
-      - name: Refuse a stack whose region is outside its country
-        shell: bash
-        run: |
-          set -euo pipefail
-          [ -n "$PROJECT" ] && [ -n "$REGION" ] && [ -n "$WIF_PROVIDER" ] && [ -n "$DEPLOY_SA" ] || {
-            echo "::error::The $COUNTRY stack is not set up: set its GCP project, region, WIF provider and deploy SA variables (the *_US ones for US)."; exit 1; }
-          case "$COUNTRY:$REGION" in
-            IN:asia-south1|IN:asia-south2) ;;
-            US:us-central1|US:us-east1|US:us-east4|US:us-west1) ;;
-            *) echo "::error::$REGION is outside $COUNTRY; data stays in its own country (see infra/cloud/country.tf)."; exit 1 ;;
-          esac
-          echo "IMAGE=${REGION}-docker.pkg.dev/${PROJECT}/myca-api/myca-api:${GITHUB_SHA}" >> "$GITHUB_ENV"
+    with:
+      environment: staging
+      server_environment: staging
+      country: IN
+      project: ${{ vars.GCP_PROJECT_ID_STAGING }}
+      region: ${{ vars.GCP_API_REGION_STAGING || vars.GCP_API_REGION }}
+      wif_provider: ${{ vars.GCP_WIF_PROVIDER_STAGING || vars.GCP_WIF_PROVIDER }}
+      deploy_sa: ${{ vars.GCP_DEPLOY_SA_STAGING || vars.GCP_DEPLOY_SA }}
+      service: myca-staging-api
 
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
-        with:
-          workload_identity_provider: ${{ env.WIF_PROVIDER }}
-          service_account: ${{ env.DEPLOY_SA }}
-
-      - uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
-
-      - name: Build and push the image
-        run: |
-          gcloud auth configure-docker "${REGION}-docker.pkg.dev" --quiet
-          docker build -f cloud/Dockerfile -t "$IMAGE" .
-          docker push "$IMAGE"
-
-      - name: Roll out; the previous revision keeps serving until the new one passes its probes
-        run: |
-          gcloud run deploy "$SERVICE" \
-            --project "$PROJECT" --region "$REGION" \
-            --image "$IMAGE" \
-            --quiet
-
-      - name: Check the live health endpoint
-        shell: bash
-        run: |
-          set -euo pipefail
-          url="$(gcloud run services describe "$SERVICE" --project "$PROJECT" --region "$REGION" --format='value(status.url)')"
-          for attempt in 1 2 3 4 5 6; do
-            if curl -fsS "$url/v1/health" | grep -q '"ok":true'; then
-              echo "healthy: $url" | tee -a "$GITHUB_STEP_SUMMARY"
-              exit 0
-            fi
-            sleep 10
-          done
-          echo "the new revision never answered /v1/health" >&2
-          exit 1
+  production:
+    name: Production
+    needs: [test, staging]
+    if: ${{ !cancelled() && needs.test.result == 'success' && contains(fromJSON('["success", "skipped"]'), needs.staging.result) }}
+    uses: ./.github/workflows/cloud-run-rollout.yml
+    permissions:
+      contents: read
+      id-token: write
+    with:
+      environment: ${{ inputs.country == 'US' && 'production-us' || 'production' }}
+      server_environment: production
+      country: ${{ inputs.country || 'IN' }}
+      project: ${{ inputs.country == 'US' && vars.GCP_PROJECT_ID_US || vars.GCP_PROJECT_ID }}
+      region: ${{ inputs.country == 'US' && vars.GCP_API_REGION_US || vars.GCP_API_REGION }}
+      wif_provider: ${{ inputs.country == 'US' && vars.GCP_WIF_PROVIDER_US || vars.GCP_WIF_PROVIDER }}
+      deploy_sa: ${{ inputs.country == 'US' && vars.GCP_DEPLOY_SA_US || vars.GCP_DEPLOY_SA }}
+      service: myca-api

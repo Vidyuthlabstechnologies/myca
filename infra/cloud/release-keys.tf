@@ -11,7 +11,7 @@ locals {
 }
 
 resource "google_secret_manager_secret" "release" {
-  for_each = local.release_secrets
+  for_each = local.is_production ? local.release_secrets : toset([])
 
   secret_id = each.value
   labels    = merge(local.labels, { component = "release" })
@@ -28,7 +28,7 @@ resource "google_secret_manager_secret" "release" {
 }
 
 resource "google_secret_manager_secret_iam_member" "release_deployer" {
-  for_each = var.deployer_service_account == "" ? toset([]) : local.release_secrets
+  for_each = local.is_production && var.deployer_service_account != "" ? local.release_secrets : toset([])
 
   secret_id = google_secret_manager_secret.release[each.value].id
   role      = "roles/secretmanager.secretAccessor"

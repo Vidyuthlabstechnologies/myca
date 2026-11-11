@@ -1,0 +1,10 @@
+environment         = "staging"
+project_id          = "myca-prod-in"
+region              = "asia-south1"
+provider_mode       = "simulated"
+db_tier             = "db-f1-micro"
+min_instances       = 0
+max_instances       = 2
+deletion_protection = false
+google_client_ids   = ["STAGING_WEB_CLIENT_ID.apps.googleusercontent.com"]
+test_phones         = ["+919800000001"]
