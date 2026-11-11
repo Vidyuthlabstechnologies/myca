@@ -275,6 +275,13 @@ function createAccessLog(db) {
   };
 }
 
+export function withRequestAddress(args, address) {
+  const device = args.device && typeof args.device === 'object' ? args.device : {};
+  const { ipAddress, ...rest } = device;
+  const ip = String(address || '').replace(/^::ffff:/, '').slice(0, 45);
+  return { ...args, device: ip ? { ...rest, ipAddress: ip } : rest };
+}
+
 export function clientAddress(req, hops = trustedProxyHops()) {
   const socket = String(req.socket?.remoteAddress || '').slice(0, 64);
   if (!hops) return socket;
@@ -803,7 +810,8 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
           return withBooks(businessId, context, (session) => session.propose(name, args, actor), { hashes: [args.documentSha256] });
         }
         if (!PROPOSABLE.has(name)) throw httpError(400, 'NOT_PROPOSABLE', { tool: name });
-        return withBooks(businessId, context, (session) => session.propose(name, args, actor));
+        const proposed = name === 'sign_us_return' ? withRequestAddress(args, clientAddress(req)) : args;
+        return withBooks(businessId, context, (session) => session.propose(name, proposed, actor));
       }
       if (action === 'confirm') return withBooks(businessId, context, (session) => session.confirm(body.token, actor));
       if (action === 'discard') return withBooks(businessId, context, (session) => session.discard(actor));
