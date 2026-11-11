@@ -171,6 +171,9 @@ test('the return tools keep SSNs sealed, compute the review and walk the steps',
   assert.equal(set.data.taxpayer.ssn, '***-**-3456');
   assert.equal(JSON.stringify(state, (key, value) => (typeof value === 'bigint' ? String(value) : value)).includes('400123456'), false);
   assert.equal(JSON.stringify(state, (key, value) => (typeof value === 'bigint' ? String(value) : value)).includes('400-12-3456'), false);
+  const saved = await runTool(state, 'us_taxpayer', { taxYear: '2025' });
+  assert.equal(saved.data.taxpayer.ssnLast4, '3456');
+  assert.equal(saved.data.address.zip, '78701');
   const bad = await runTool(state, 'set_us_taxpayer', { taxYear: '2025', taxpayer: { firstName: 'Ana', lastName: 'Diaz', ssn: '000-12-3456' } });
   assert.equal(bad.ok, false);
   const added = await runTool(state, 'add_us_tax_form', { taxYear: '2025', kind: 'W-2', payer: 'St. Mary Hospital', payerTin: '12-3456789', fields: w2(50000, 5000).fields });

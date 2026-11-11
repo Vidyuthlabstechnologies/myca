@@ -10,7 +10,7 @@ function audit(state, action, metadata) {
 }
 
 const STEPS = Object.freeze([['profile', 'About you'], ['forms', 'Tax forms'], ['interview', 'Deductions and credits'], ['review', 'Review'], ['sign', 'Sign and file']]);
-const RELATIONSHIPS = Object.freeze(['son', 'daughter', 'stepchild', 'foster_child', 'brother', 'sister', 'half_brother', 'half_sister', 'stepbrother', 'stepsister', 'grandchild', 'niece', 'nephew', 'parent', 'grandparent', 'aunt', 'uncle', 'in_law', 'other']);
+const RELATIONSHIPS = Object.freeze(['son', 'daughter', 'stepchild', 'foster_child', 'brother', 'sister', 'half_brother', 'half_sister', 'stepbrother', 'stepsister', 'grandchild', 'niece', 'nephew', 'sibling', 'niece_nephew', 'parent', 'grandparent', 'aunt', 'uncle', 'in_law', 'other']);
 const US_STATES = new Set('AL AK AZ AR CA CO CT DE DC FL GA HI ID IL IN IA KS KY LA ME MD MA MI MN MS MO MT NE NV NH NJ NM NY NC ND OH OK OR PA RI SC SD TN TX UT VT VA WA WV WI WY PR GU VI AS MP'.split(' '));
 const MAX_AMOUNT = 1e11;
 
@@ -165,11 +165,19 @@ export function planUsTaxpayer(state, args = {}) {
 
 function personView(person) {
   if (!person) return null;
-  return { firstName: person.firstName, lastName: person.lastName, ssn: person.tin ? maskTin(person.tin.last4) : '', tinKind: person.tin?.kind || '', dateOfBirth: person.dateOfBirth, occupation: person.occupation, blind: person.blind, canBeClaimedAsDependent: person.canBeClaimedAsDependent };
+  return { firstName: person.firstName, lastName: person.lastName, ssn: person.tin ? maskTin(person.tin.last4) : '', ssnLast4: person.tin?.last4 || '', tinKind: person.tin?.kind || '', dateOfBirth: person.dateOfBirth, occupation: person.occupation, blind: person.blind, canBeClaimedAsDependent: person.canBeClaimedAsDependent };
 }
 
 function profileView(ret) {
   return { taxYear: ret.taxYear, filingStatus: ret.filingStatus, taxpayer: personView(ret.taxpayer), spouse: personView(ret.spouse), dependents: ret.dependents.map((item) => ({ id: item.id, ...personView(item), relationship: item.relationship, months: item.months, student: item.student, disabled: item.disabled })), address: ret.address };
+}
+
+export function usTaxpayer(state, args = {}) {
+  const taxYear = yearArg(args.taxYear);
+  if (!taxYear) return fail('TAX_YEAR_NOT_SUPPORTED', { supported: SUPPORTED_YEARS });
+  const ret = returnOf(state, taxYear);
+  if (!ret) return { ok: true, data: { taxYear, started: false, filingStatus: '', taxpayer: null, spouse: null, dependents: [], address: null } };
+  return { ok: true, data: { started: true, ...profileView(ret) } };
 }
 
 export function setUsTaxpayer(state, args = {}) {

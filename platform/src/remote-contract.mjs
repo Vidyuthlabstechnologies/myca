@@ -46,6 +46,7 @@ export const REMOTE_QUERY_TOOLS = new Set([
   'read_document',
   'list_amendments',
   'schedule_se',
+  'us_taxpayer',
   'us_return_status',
   'list_us_tax_forms',
   'us_interview',

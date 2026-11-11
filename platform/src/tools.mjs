@@ -66,7 +66,7 @@ import { runDailyAutomation, automationStatus } from './automation.mjs';
 import { readDocument } from './document-reader.mjs';
 import { amendInvoice, listAmendments } from './invoice-amendments.mjs';
 import { scheduleSe } from './us-se-tax.mjs';
-import { setUsTaxpayer, addUsTaxForm, removeUsTaxForm, answerUsInterview, listUsTaxForms, usInterview, usReturnReview, usReturnStatus, usFormKinds, usTaxEstimate } from './us-return.mjs';
+import { usTaxpayer, setUsTaxpayer, addUsTaxForm, removeUsTaxForm, answerUsInterview, listUsTaxForms, usInterview, usReturnReview, usReturnStatus, usFormKinds, usTaxEstimate } from './us-return.mjs';
 import { scheduleCDocument, cpaPack } from './us-cpa-pack.mjs';
 import { form941File, w2File } from './us-payroll-files.mjs';
 import { usPayrollFor, approveUsPayroll, listUsPayroll, usPayslip, usPayrollFilings, setWithholding, setSutaRate, listSutaRates } from './us-payroll.mjs';
@@ -781,6 +781,13 @@ export const TOOLS = [
     description: 'Amendments made to filed invoices, optionally for one GSTR-1 month. Read-only.',
     args: ['period'],
     run: (state, args = {}) => listAmendments(state, args),
+  },
+  {
+    name: 'us_taxpayer',
+    title: 'US return details',
+    description: 'The saved filing status, taxpayer, spouse, dependents and address of a personal Form 1040 for a tax year, with only the last four digits of each SSN. US only. Read-only.',
+    args: ['taxYear'],
+    run: (state, args = {}) => usTaxpayer(state, args),
   },
   {
     name: 'us_return_status',
