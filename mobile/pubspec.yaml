@@ -49,11 +49,11 @@ dependencies:
   url_launcher: ^6.3.3
   plaid_flutter: ^5.2.1
   in_app_purchase: ^3.3.1
-  qr: ^3.0.2
+  qr: ^3.0.3
   rive: ^0.14.11
   myca_design:
     path: ../design/flutter/myca_design
-  crypto: ^3.0.7
+  crypto: ^3.0.8
 
 dev_dependencies:
   flutter_test:
