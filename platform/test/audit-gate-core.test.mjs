@@ -59,7 +59,8 @@ test('scoped transports: every action declares the transport functions it may ca
   }
   assert.deepEqual(ACTION_CLASSES.gst_file_gstr1_evc.uses, ['sandbox.fileGstr1']);
   assert.deepEqual(ACTION_CLASSES.nic_irn_generate.uses, ['nic.generateIrn']);
-  assert.equal(ACTION_CLASSES.nic_ewb_cancel.actionClass, 'write');
+  assert.equal(ACTION_CLASSES.ewb_cancel.actionClass, 'write');
+  assert.equal(ACTION_CLASSES.nic_ewb_cancel, undefined, 'e-way bills never go to NIC directly');
 });
 
 test('scoped transports: execute receives only the functions its action declares', async () => {

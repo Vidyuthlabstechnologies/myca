@@ -48,7 +48,7 @@ test('whether an e-way bill is needed comes from the dated threshold rule, the g
   assert.match(unknown.why, /Some states set a higher limit/);
 });
 
-test('transport details are checked, previewed, kept with the invoice, and the status walks from transport to IRN to generated', async () => {
+test('transport details are checked, previewed, kept with the invoice, and the status walks from transport to ready to generated', async () => {
   const state = books();
   const before = await runTool(state, 'eway_bill_status', { invoiceId: 'INV-0001' });
   assert.equal(before.data.status, 'transport-needed');
@@ -66,12 +66,13 @@ test('transport details are checked, previewed, kept with the invoice, and the s
   assert.equal(state.invoices[0].transport.vehicleNo, 'MH12AB1234');
   assert.deepEqual(transportPayload(state.invoices[0].transport), { Distance: 120, TransMode: '1', TransName: 'ABC Logistics', VehNo: 'MH12AB1234', VehType: 'R' });
   const status = await runTool(state, 'eway_bill_status', { invoiceId: 'INV-0001' });
-  assert.equal(status.data.status, 'irn-needed');
-  const blocked = await runTool(state, 'govt_generate_ewb', { invoiceId: 'INV-0001' });
-  assert.equal(blocked.error, 'IRN_REQUIRED');
+  assert.equal(status.data.status, 'ready', 'no IRN is needed: the e-way bill can be built from the invoice');
+  assert.equal(status.data.via, 'invoice');
   assert.equal((await runTool(state, 'govt_generate_ewb', { invoiceId: 'INV-0002' })).error, 'TRANSPORT_REQUIRED');
   state.invoices[0].irn = 'a'.repeat(64);
-  assert.equal((await runTool(state, 'eway_bill_status', { invoiceId: 'INV-0001' })).data.status, 'ready');
+  const withIrn = await runTool(state, 'eway_bill_status', { invoiceId: 'INV-0001' });
+  assert.equal(withIrn.data.status, 'ready');
+  assert.equal(withIrn.data.via, 'irn');
   const attempt = await runTool(state, 'govt_generate_ewb', { invoiceId: 'INV-0001' });
   assert.equal(attempt.ok === true && attempt.ewbNo !== '' && !process.env.MYCA_ENABLE_LIVE_CALLS, false, 'nothing is generated with the live switch off');
   assert.equal(state.invoices[0].ewbNo, undefined);

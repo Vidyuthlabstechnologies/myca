@@ -143,11 +143,13 @@ function ewayBillWords(status) {
     ewbNo: status.ewbNo || '',
     ewbValidity: status.ewbValidity || '',
     hasIrn: Boolean(status.hasIrn),
+    ...(status.sandboxEwbNo ? { sandboxEwbNo: status.sandboxEwbNo } : {}),
     next: {
       'not-needed': '',
       'transport-needed': 'Add the vehicle, distance and transporter, then the e-way bill can be generated.',
-      'irn-needed': 'Generate the e-invoice (IRN) first; the e-way bill is generated from it through the action gate.',
-      ready: 'Ready to generate through the action gate (live switch and approval).',
+      ready: status.hasIrn
+        ? 'Ready to generate from the IRN through Sandbox by Quicko (live switch and approval).'
+        : 'Ready to generate from the invoice through Sandbox by Quicko (live switch and approval); no e-invoice is needed.',
       generated: '',
     }[status.status] || '',
   };

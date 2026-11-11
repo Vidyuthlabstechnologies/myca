@@ -97,17 +97,45 @@ Nothing is sent in clear. All IRP calls are gated by the live switch
    - `generate irn INV-0001` → mock-first (`mock: true`), re-run with the live switch on
      to hit the IRP.
    - `govt_nic_cancel_irn`, `govt_nic_get_irn`, `govt_nic_get_irn_by_doc`,
-     `govt_nic_rejected_irns`, `govt_nic_gstin`, `govt_nic_generate_ewb`,
-     `govt_nic_get_ewb` → remaining IRP operations (all live-gated).
+     `govt_nic_rejected_irns`, `govt_nic_gstin` → remaining IRP operations (all
+     live-gated). Direct NIC API access is only for taxpayers with a turnover of 100
+     crore rupees or more; everyone else uses the Quicko route below.
 
 Verify: `provider_doctor` → `nic_einvoice` shows `configured` (all six pieces present).
 
 **Caveats:**
-- E-Way Bill **cancel** is not offered by the IRP; MyCA returns
-  `EWB_CANCEL_VIA_EWB_SYSTEM` and points you to the e-Way Bill system
-  (`api.ewaybillgst.gov.in`).
+- E-way bills never go to NIC directly. They go through Sandbox by Quicko (see below).
 - Sandbox vanity GSTINs for tests: `33GSPTN1882G1Z3`, `27GSPMH1881G1ZH`,
   `27GSPMH1882G1ZG`, `33GSPTN3381G1Z5`, `33GSPTN3382G1Z4`, `27GSPMH3381G1ZI`.
+
+## 2a. E-way bills and e-invoices through Sandbox by Quicko (REQ-CA-007)
+
+NIC gives direct API access only above 100 crore rupees of turnover, so MyCA sends
+e-invoices and e-way bills through the GSP Sandbox by Quicko.
+
+1. On the e-way bill portal (`ewaybillgst.gov.in`) → Registration → For GSP, create an
+   API user and pick **Sandbox by Quicko** as the GSP (do the same on the e-invoice
+   portal for IRNs). Note the API username and password.
+2. Save the Quicko API key and secret (`MYCA_GSP_API_KEY` / `MYCA_GSP_API_SECRET`, or
+   the Sandbox keys screen), and the API user, password and GSTIN on the **Govt** tab.
+   The hosted app takes the same three under Connections → "E-invoice and e-way bill
+   API user".
+3. MyCA opens the IRP / e-way bill session on first use (one token serves both, kept
+   per API user and GSTIN) and renews it when it expires.
+4. Operations (all through the action gate; writes need an approval in live mode):
+   - `govt_generate_ewb` / `ewb_generate`: by IRN when the invoice has one, otherwise
+     Part A from the invoice (seller and buyer GSTIN, address, PIN, state, HSN lines)
+     with Part B from the transport details.
+   - `ewb_get`, `ewb_cancel`, `ewb_update_vehicle` (Part B), `ewb_update_transporter`,
+     `ewb_extend`, `ewb_consolidate`, `ewb_multi_vehicle_start` / `_add` / `_change`,
+     `ewb_consignee_list`, `ewb_reject`, run with `sandbox_operation` (desktop) or
+     `POST /v1/businesses/{id}/ewaybill` with `op` (hosted; ask for an approval with
+     `POST .../approvals { operation: "ewaybill_<op>", ...same fields }`).
+   - E-invoice: `govt_generate_irn` uses Quicko when a Quicko key is saved (or with
+     `provider: "sandbox"`); the hosted `einvoice` action always uses Quicko.
+5. Portal refusals come back as `EWB_<code>` or `IRP_<code>` with the NIC words, for
+   example `EWB_382` "Validity can be extended only within 8 hours before or after it
+   ends".
 
 ## 3. Email notifications (REQ-CA-013)
 
