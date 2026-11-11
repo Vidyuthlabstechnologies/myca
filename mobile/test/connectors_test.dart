@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:myca/app_services.dart';
 import 'package:myca/app_state.dart';
 import 'package:myca/cloud/cloud_session.dart';
 import 'package:myca/cloud/plaid_link.dart';
@@ -23,7 +24,7 @@ class FakePlaidLink implements PlaidLinkOpener {
   }
 }
 
-Future<AppState> hostedOwner(FakeCloud cloud, {String country = 'IN', PlaidLinkOpener? plaid, List<Uri>? openedLinks}) async {
+Future<AppState> hostedOwner(FakeCloud cloud, {String country = 'IN', PlaidLinkOpener? plaid, List<Uri>? openedLinks, PickAnyFile? pickAnyFile}) async {
   cloud.userName = 'Asha';
   final tokens = MemoryTokenStore();
   final first = CloudSession(baseUrl: 'https://api.example.test', tokens: tokens, client: cloud.client);
@@ -35,6 +36,7 @@ Future<AppState> hostedOwner(FakeCloud cloud, {String country = 'IN', PlaidLinkO
     cloud: CloudSession(baseUrl: 'https://api.example.test', tokens: tokens, client: cloud.client),
     store: MemoryOnboardingStore(isWelcomed: true, isMigrated: true),
     pickTextFile: (_) async => null,
+    pickAnyFile: pickAnyFile ?? () async => null,
     plaidLink: plaid ?? const NoPlaidLink(),
     openLink: (url) async {
       openedLinks?.add(url);

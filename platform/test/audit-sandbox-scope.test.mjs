@@ -6,6 +6,16 @@ import { SANDBOX_OPERATIONS } from '../src/sandbox-adapter-contract.mjs';
 import { adapterSupports, runSandboxOperation } from '../src/sandbox-adapter.mjs';
 import { requestApproval, decideApproval } from '../src/approvals.mjs';
 import { ACTION_CLASSES } from '../src/action-gate.mjs';
+import { quickoOperation } from '../src/sandbox-endpoints.mjs';
+
+function catalogueParams(endpoint) {
+  const fill = (name) => (/year/.test(name) ? '2026' : /month/.test(name) ? '08' : name === 'consent' ? 'Y' : `x-${name}`);
+  return {
+    path: Object.fromEntries(endpoint.pathParams.map((name) => [name, fill(name)])),
+    query: Object.fromEntries(endpoint.query.filter((q) => q.required || q.name === 'consent').map((q) => [q.name, fill(q.name)])),
+    ...(endpoint.body === 'json' ? { body: Object.fromEntries(endpoint.bodyRequired.map((name) => [name, fill(name)])) } : {}),
+  };
+}
 
 const BASE_URL = 'https://test-api.sandbox.co.in';
 const urls = [];
@@ -58,7 +68,8 @@ test('every Sandbox adapter calls only the transport functions its action declar
   await withEnv({ MYCA_ENABLE_LIVE_CALLS: '1', MYCA_MOCK_MODE: '0', MYCA_GSP_API_KEY: 'k', MYCA_GSP_API_SECRET: 's', MYCA_GSP_BASE_URL: BASE_URL }, async () => {
     for (const operation of SANDBOX_OPERATIONS.filter((op) => adapterSupports(op.operationId))) {
       const { operationId } = operation;
-      const opParams = params[operationId] || {};
+      const endpoint = quickoOperation(operationId);
+      const opParams = endpoint ? catalogueParams(endpoint) : params[operationId] || {};
       let caApprovalId = '';
       if (operation.caApprovalRequired) {
         const req = requestApproval(state, { operationId, params: opParams, actor: { userId: 'ca' } });
@@ -68,6 +79,15 @@ test('every Sandbox adapter calls only the transport functions its action declar
       const before = urls.length;
       const out = await runSandboxOperation({ actorId: 'ca', operationId, caApprovalId, params: opParams }, { state });
       assert.doesNotMatch(String(out.error || ''), /is not a function|UNKNOWN_TRANSPORT/, operationId);
+      if (out.error === 'PORTAL_SESSION_REQUIRED') {
+        assert.notEqual(endpoint?.session || 'platform', 'platform', operationId);
+        assert.equal(urls.length, before, `${operationId} sent nothing without a portal session`);
+        continue;
+      }
+      if (endpoint?.body === 'multipart') {
+        assert.equal(out.error, 'FILE_REQUIRED', operationId);
+        continue;
+      }
       if (ACTION_CLASSES[operationId].uses.length) assert.ok(urls.length > before, `${operationId} made no request: ${out.error}`);
     }
   });
