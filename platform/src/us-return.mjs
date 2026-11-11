@@ -444,7 +444,7 @@ export function usReturnStatus(state, args = {}) {
     forms: ret.forms.length > 0 || context(state, ret).hasBusiness,
     interview: questions.every((question) => Object.hasOwn(ret.answers, question.id)),
     review: review.computed && errors.length === 0,
-    sign: Boolean(ret.signedAt),
+    sign: Boolean(state.usEfile?.returns?.[String(taxYear)]?.signature?.signedAt),
   };
   return { ok: true, data: { taxYear, started: true, filingStatus: ret.filingStatus, taxpayerName: ret.taxpayer ? `${ret.taxpayer.firstName} ${ret.taxpayer.lastName}`.trim() : '', steps: STEPS.map(([id, label]) => ({ id, label, done: done[id] })), refund: review.refund, owed: review.owed, readyToSign: done.profile && done.forms && done.review, errors: errors.length, warnings: review.checks.length - errors.length } };
 }
