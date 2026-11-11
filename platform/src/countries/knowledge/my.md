@@ -14,8 +14,8 @@ business with revenue above RM1 million must issue e-invoices through LHDN's MyI
 is open to any software without a licence, and the newest wave (RM1 million to RM5 million)
 only started on 1 January 2026. MyCA already does this kind of work in India through NIC.
 Income tax and SST have no filing API for third parties, so MyCA prepares the figures and the
-taxpayer files in MyTax or MySST. The one open decision is hosting, because Google Cloud has no
-Malaysia region yet.
+taxpayer files in MyTax or MySST. Data is hosted in Google Cloud Singapore until Google opens a
+Malaysia region (owner decision, 11 November 2026).
 
 ## Tax year and calendar
 
@@ -95,9 +95,9 @@ Malaysia region yet.
 - Google Cloud has no Malaysia region. Cloud Run's nearest locations are Singapore
   (`asia-southeast1`), Jakarta and Bangkok. AWS opened a Malaysia region in August 2024.
   Source: https://docs.cloud.google.com/run/docs/locations
-- MyCA's own rule is that each country's data stays in that country. Malaysia therefore needs an
-  owner decision: host in Google Cloud Singapore under the transfer rule above, or run the
-  Malaysia deployment on a cloud with a Malaysia region. The pack lists no region until then.
+- MyCA's own rule is that each country's data stays in that country. For Malaysia the owner chose
+  Google Cloud Singapore (`asia-southeast1`) under the transfer rule above on 11 November 2026,
+  to move to a Google Malaysia region once one opens. The privacy notice must say so.
 
 ## Payments
 
@@ -157,7 +157,6 @@ Checked 2026-11-11 from secondary sources; written as dated rules `my.income-tax
 
 ## Open questions
 
-- Hosting: Google Cloud Singapore or a cloud with a Malaysia region. Owner decision.
 - The sales tax goods schedules (which goods are 5% and which 10%), from the Customs orders.
 - YA 2026 relief caps from Budget 2026; the gazetted text behind every rule, for attestation.
 - Employer side: EPF, SOCSO, EIS and the monthly tax deduction (PCB) tables.
