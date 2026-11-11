@@ -241,7 +241,8 @@ locals {
   secrets      = merge(local.generated, local.given, { MYCA_DATABASE_URL = local.database_url }, local.optional_secrets)
   secret_names = sort(nonsensitive(keys(local.secrets)))
   environment = { for name, value in {
-    TZ                             = "Asia/Kolkata"
+    TZ                             = var.daily_job_time_zone
+    MYCA_REGION                    = var.region
     MYCA_GOOGLE_CLIENT_IDS         = join(",", var.google_client_ids)
     MYCA_OIDC_ISSUER               = var.oidc_issuer
     MYCA_OIDC_CLIENT_IDS           = join(",", var.oidc_client_ids)

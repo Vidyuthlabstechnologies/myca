@@ -9,6 +9,12 @@ on:
       - "sprints/**"
       - ".github/workflows/deploy-cloud.yml"
   workflow_dispatch:
+    inputs:
+      country:
+        description: "Which country's stack to deploy. Each country is its own project, so a US rollout never touches India's."
+        type: choice
+        options: [IN, US]
+        default: IN
 
 permissions:
   contents: read
@@ -51,16 +57,33 @@ jobs:
     name: Build the image and roll out
     needs: test
     runs-on: ubuntu-latest
-    environment: production
+    # A push to main deploys India. The US stack deploys only when asked for, from its own
+    # project, with its own *_US variables and its own GitHub environment.
+    environment: ${{ inputs.country == 'US' && 'production-us' || 'production' }}
     permissions:
       contents: read
       id-token: write
     env:
-      REGION: ${{ vars.GCP_API_REGION }}
-      PROJECT: ${{ vars.GCP_PROJECT_ID }}
+      COUNTRY: ${{ inputs.country || 'IN' }}
+      REGION: ${{ inputs.country == 'US' && vars.GCP_API_REGION_US || vars.GCP_API_REGION }}
+      PROJECT: ${{ inputs.country == 'US' && vars.GCP_PROJECT_ID_US || vars.GCP_PROJECT_ID }}
+      WIF_PROVIDER: ${{ inputs.country == 'US' && vars.GCP_WIF_PROVIDER_US || vars.GCP_WIF_PROVIDER }}
+      DEPLOY_SA: ${{ inputs.country == 'US' && vars.GCP_DEPLOY_SA_US || vars.GCP_DEPLOY_SA }}
       SERVICE: myca-api
-      IMAGE: ${{ vars.GCP_API_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/myca-api/myca-api:${{ github.sha }}
     steps:
+      - name: Refuse a stack whose region is outside its country
+        shell: bash
+        run: |
+          set -euo pipefail
+          [ -n "$PROJECT" ] && [ -n "$REGION" ] && [ -n "$WIF_PROVIDER" ] && [ -n "$DEPLOY_SA" ] || {
+            echo "::error::The $COUNTRY stack is not set up: set its GCP project, region, WIF provider and deploy SA variables (the *_US ones for US)."; exit 1; }
+          case "$COUNTRY:$REGION" in
+            IN:asia-south1|IN:asia-south2) ;;
+            US:us-central1|US:us-east1|US:us-east4|US:us-west1) ;;
+            *) echo "::error::$REGION is outside $COUNTRY; data stays in its own country (see infra/cloud/country.tf)."; exit 1 ;;
+          esac
+          echo "IMAGE=${REGION}-docker.pkg.dev/${PROJECT}/myca-api/myca-api:${GITHUB_SHA}" >> "$GITHUB_ENV"
+
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -68,8 +91,8 @@ jobs:
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
         with:
-          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
-          service_account: ${{ vars.GCP_DEPLOY_SA }}
+          workload_identity_provider: ${{ env.WIF_PROVIDER }}
+          service_account: ${{ env.DEPLOY_SA }}
 
       - uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
 
