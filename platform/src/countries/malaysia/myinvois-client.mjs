@@ -34,6 +34,7 @@ function mockUid(seed) {
 }
 
 async function readJson(response) {
+  if (typeof response.text !== 'function') return typeof response.json === 'function' ? response.json().catch(() => ({})) : {};
   const body = await response.text();
   try { return body ? JSON.parse(body) : {}; } catch { return { raw: body.slice(0, 500) }; }
 }
@@ -70,8 +71,8 @@ async function call(config, method, path, body) {
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   });
   const json = await readJson(response);
-  if (response.status === 429) return fail('MYINVOIS_THROTTLED', { retryAfterSeconds: Number(response.headers.get('retry-after') || 60) });
-  if (!response.ok) return fail('MYINVOIS_REJECTED', { status: response.status, lhdn: json, ...(response.status === 422 ? { retryAfterSeconds: Number(response.headers.get('retry-after') || 0) } : {}) });
+  if (response.status === 429) return fail('MYINVOIS_THROTTLED', { retryAfterSeconds: Number(response.headers?.get?.('retry-after') || 60) });
+  if (!response.ok) return fail('MYINVOIS_REJECTED', { status: response.status, lhdn: json, ...(response.status === 422 ? { retryAfterSeconds: Number(response.headers?.get?.('retry-after') || 0) } : {}) });
   return { ok: true, environment: auth.environment, data: json };
 }
 

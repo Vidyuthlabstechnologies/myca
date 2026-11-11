@@ -3,9 +3,9 @@ import { countrySlice, openCountrySlice } from '../kit/index.mjs';
 import { malaysiaIncomeTax } from './income-tax.mjs';
 import { serviceTaxRate, salesTaxRate, sstReturn, sstRegistrationCheck } from './sst.mjs';
 import { buildMyInvoisDocument, documentProblems, isTinFormat } from './myinvois-document.mjs';
+import { submitMyInvois, cancelMyInvois, readMyInvoisSubmission, checkMyTin } from './myinvois-actions.mjs';
 
 const PROFILE_FIELDS = ['name', 'tin', 'idType', 'idValue', 'sst', 'ttx', 'msic', 'phone', 'email', 'address'];
-const GATE_PENDING = Object.freeze({ ok: false, error: 'GATE_ACTION_PENDING', hint: 'Sending to LHDN MyInvois waits for the MyInvois actions in the action gate. Use my_einvoice_check to prepare the document meanwhile.' });
 
 function supplierProfile(state) {
   const saved = countrySlice(state, 'myEinvoiceProfile');
@@ -55,10 +55,10 @@ export const ENGINE = Object.freeze({
       if (!built.ok) return built;
       return { ok: true, data: { ready: true, totals: built.totals, document: built.document } };
     },
-    my_einvoice_status: () => GATE_PENDING,
+    my_einvoice_status: (state, args = {}) => readMyInvoisSubmission(state, args),
     validate_my_tin: (state, args = {}) => {
       if (!isTinFormat(args.tin)) return { ok: true, data: { tin: String(args.tin || ''), format: false, lhdn: 'not checked', why: 'Not in an LHDN TIN format (IG for individuals, C, CS, D, E, F, FA, PT, TA, TC, TN, TR, TP, J or LE for others).' } };
-      return { ok: true, data: { tin: String(args.tin).toUpperCase(), format: true, lhdn: 'pending', hint: GATE_PENDING.hint } };
+      return checkMyTin(state, args);
     },
     set_my_einvoice_profile: (state, args = {}) => {
       const profile = profileFrom(args);
@@ -74,9 +74,9 @@ export const ENGINE = Object.freeze({
     issue_my_einvoice: (state, args = {}) => {
       const built = buildMyInvoisDocument(einvoiceInput(state, args));
       if (!built.ok) return built;
-      return { ...GATE_PENDING, totals: built.totals };
+      return submitMyInvois(state, { ...args, document: built.document, totals: built.totals });
     },
-    cancel_my_einvoice: () => GATE_PENDING,
+    cancel_my_einvoice: (state, args = {}) => cancelMyInvois(state, args),
   }),
   preview: Object.freeze({
     set_my_einvoice_profile: (state, args = {}) => {
@@ -86,9 +86,9 @@ export const ENGINE = Object.freeze({
     issue_my_einvoice: (state, args = {}) => {
       const built = buildMyInvoisDocument(einvoiceInput(state, args));
       if (!built.ok) return { blockers: built.problems.map((problem) => `${problem.field}: ${problem.why}`), summary: `E-invoice ${args.number || ''} is not ready.`, effects: [], figures: {} };
-      return { blockers: [GATE_PENDING.hint], summary: `Send e-invoice ${args.number} for ${money(built.totals.payable)} to LHDN MyInvois.`, effects: ['LHDN validates it and gives it a UUID and a QR link for the buyer.', 'A validated e-invoice can only be cancelled within 72 hours.'], figures: { net: built.totals.net, tax: built.totals.tax, payable: built.totals.payable } };
+      return { blockers: [], summary: `Send e-invoice ${args.number} for ${money(built.totals.payable)} to LHDN MyInvois.`, effects: ['LHDN validates it and gives it a UUID and a QR link for the buyer.', 'A validated e-invoice can only be cancelled within 72 hours.'], figures: { net: built.totals.net, tax: built.totals.tax, payable: built.totals.payable } };
     },
-    cancel_my_einvoice: (state, args = {}) => ({ blockers: [GATE_PENDING.hint], summary: `Cancel e-invoice ${args.uuid || ''} at LHDN.`, effects: ['The buyer sees it as cancelled; issue a new e-invoice if one is still owed.'], figures: {} }),
+    cancel_my_einvoice: (state, args = {}) => ({ blockers: String(args.reason || '').trim() ? [] : ['Give the reason for cancelling.'], summary: `Cancel e-invoice ${args.uuid || ''} at LHDN.`, effects: ['The buyer sees it as cancelled; issue a new e-invoice if one is still owed.'], figures: {} }),
   }),
   words: Object.freeze({
     my_tax_estimate: (result) => {
