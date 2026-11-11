@@ -1,5 +1,6 @@
 const schema = (properties = {}, required = []) => Object.freeze({ type: 'object', additionalProperties: false, properties: Object.freeze(properties), ...(required.length ? { required: Object.freeze(required) } : {}) });
 const party = { type: 'object' };
+const MYINVOIS_HOSTS = Object.freeze({ live: Object.freeze(['api.myinvois.hasil.gov.my']), test: Object.freeze(['preprod-api.myinvois.hasil.gov.my']) });
 const lines = { type: 'array', items: { type: 'object' } };
 
 export const MANIFEST = Object.freeze({
@@ -76,5 +77,12 @@ export const MANIFEST = Object.freeze({
       access: 'read',
       schema: schema({ tin: { type: 'string' }, idType: { type: 'string', enum: ['BRN', 'NRIC', 'PASSPORT', 'ARMY'] }, idValue: { type: 'string' } }, ['tin', 'idValue']),
     }),
+  ]),
+  externalActions: Object.freeze([
+    Object.freeze({ id: 'myinvois_cancel', access: 'write', irreversible: true, hosts: MYINVOIS_HOSTS }),
+    Object.freeze({ id: 'myinvois_login', access: 'write', hosts: MYINVOIS_HOSTS }),
+    Object.freeze({ id: 'myinvois_status', access: 'read', hosts: MYINVOIS_HOSTS }),
+    Object.freeze({ id: 'myinvois_submit', access: 'write', irreversible: true, hosts: MYINVOIS_HOSTS }),
+    Object.freeze({ id: 'myinvois_tin_validate', access: 'read', hosts: MYINVOIS_HOSTS }),
   ]),
 });

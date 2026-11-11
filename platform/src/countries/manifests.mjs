@@ -21,6 +21,7 @@ export const MANIFESTS = Object.freeze([
 
 const TOOL_NAME = /^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$/;
 const FAMILY_KEY = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const HOST = /^(?=.{4,253}$)[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)+$/;
 
 function toolsOf(manifests) {
   return manifests.flatMap((manifest) => manifest.tools.map((tool) => ({ ...tool, country: manifest.country })));
@@ -39,6 +40,7 @@ export function engineTables(manifests) {
     readTools: Object.freeze(tools.filter((tool) => tool.access === 'read').map((tool) => tool.name)),
     writeTools: Object.freeze(tools.filter((tool) => tool.access === 'write').map((tool) => tool.name)),
     ruleFamilies: Object.freeze(manifests.flatMap((manifest) => (manifest.ruleFamilies || []).map((family) => Object.freeze({ ...family, country: manifest.country })))),
+    externalActions: Object.freeze(manifests.flatMap((manifest) => (manifest.externalActions || []).map((action) => Object.freeze({ id: action.id, access: action.access, irreversible: action.irreversible === true, timeoutSeconds: action.timeoutSeconds || 60, hosts: Object.freeze({ live: Object.freeze([...(action.hosts?.live || [])]), test: Object.freeze([...(action.hosts?.test || [])]) }), country: manifest.country })))),
     owners: new Map(tools.map((tool) => [tool.name, tool.country])),
   });
 }
@@ -51,6 +53,7 @@ export const ENGINE_TOOL_RISK = TABLES.risk;
 export const ENGINE_READ_TOOLS = TABLES.readTools;
 export const ENGINE_WRITE_TOOLS = TABLES.writeTools;
 export const ENGINE_RULE_FAMILIES = TABLES.ruleFamilies;
+export const ENGINE_EXTERNAL_ACTIONS = TABLES.externalActions;
 
 export function engineToolOwner(toolName) {
   return TABLES.owners.get(String(toolName || '')) || '';
@@ -81,6 +84,7 @@ export function manifestProblems(manifests = MANIFESTS, countryCodes = []) {
   const seenCountry = new Set();
   const seenTool = new Map();
   const seenFamily = new Set();
+  const seenAction = new Set();
   for (const manifest of manifests) {
     const code = manifest.country;
     if (code !== EVERY_COUNTRY && !/^[A-Z]{2}$/.test(String(code))) problems.push(`${code}: a manifest names one ISO country code, or ${EVERY_COUNTRY} for every country.`);
@@ -114,6 +118,20 @@ export function manifestProblems(manifests = MANIFESTS, countryCodes = []) {
         if (!roles.includes(role)) problems.push(`${code} ${name}: ${role} is not a role of this capability. Use one of ${roles.join(', ')}.`);
         if (!names.has(tool)) problems.push(`${code} ${name}: role ${role} names ${tool}, which is not one of this manifest's tools.`);
       }
+    }
+    for (const action of manifest.externalActions || []) {
+      const at = `${code} ${action.id}`;
+      if (!TOOL_NAME.test(String(action.id || ''))) problems.push(`${at}: an external action id is lower case words joined by underscores.`);
+      if (seenAction.has(action.id)) problems.push(`${at}: another manifest already has this external action.`);
+      seenAction.add(action.id);
+      if (!TOOL_ACCESS.includes(action.access)) problems.push(`${at}: access is read or write.`);
+      if (action.irreversible && action.access !== 'write') problems.push(`${at}: only a write can be irreversible.`);
+      const live = action.hosts?.live;
+      const trial = action.hosts?.test || [];
+      if (!Array.isArray(live) || !live.length) problems.push(`${at}: name the live host or hosts this action may call.`);
+      for (const host of [...(Array.isArray(live) ? live : []), ...trial]) if (!HOST.test(String(host))) problems.push(`${at}: ${host} is not a bare host name (no scheme, port or path).`);
+      if (trial.some((host) => (live || []).includes(host))) problems.push(`${at}: a test host cannot also be the live host.`);
+      if (action.timeoutSeconds !== undefined && !(Number.isInteger(action.timeoutSeconds) && action.timeoutSeconds >= 1 && action.timeoutSeconds <= 600)) problems.push(`${at}: timeoutSeconds is a whole number from 1 to 600.`);
     }
     for (const family of manifest.ruleFamilies || []) {
       const at = `${code} ${family.key}`;
