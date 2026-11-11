@@ -40,6 +40,10 @@ const round2 = (value) => Math.round(Number(value || 0) * 100) / 100;
 
 export const LHDN_CODE_SOURCE = CODES.source;
 
+export function isTinFormat(value) {
+  return TIN.test(String(value || '').trim().toUpperCase());
+}
+
 export function stateCode(value) {
   const text = String(value || '').trim();
   if (STATES.has(text.padStart(2, '0'))) return text.padStart(2, '0');

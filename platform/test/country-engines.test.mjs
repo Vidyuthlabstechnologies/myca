@@ -133,7 +133,7 @@ test('the shared country_profile tool runs for every country through every centr
   assert.match(engineWords('country_profile')(usResult), /United States: USD, the calendar year starts on 1 January; 2026-03-31 falls in 2026\./);
   assert.equal(capabilityTool('US', 'profile', 'country'), 'country_profile');
   assert.equal(capabilityTool('US', 'income-tax', 'estimate'), '');
-  assert.deepEqual(Object.keys(countryCapabilities('MY')), ['profile']);
+  assert.deepEqual(Object.keys(countryCapabilities('MY')), ['profile', 'income-tax', 'indirect-tax', 'e-invoice', 'identity']);
   assert.equal(manifestFor('my').country, 'MY');
   assert.equal(engineRun('nothing_here'), null);
   assert.equal(enginePreview('country_profile'), null);
