@@ -149,3 +149,72 @@ test('a chat message never keeps an SSN in the books, the eval log or the reply'
   assert.ok(!kept.includes('123-45-6780') && !kept.includes('123456780'));
   assert.ok(!String(out.reply).includes('123-45-6780'));
 });
+
+const NINE_DIGITS = 'please note 104523750 and bank account 302145987 and 500 12 2500';
+
+async function chatSends(country) {
+  const { createState } = await import('../src/store.mjs');
+  const { chat } = await import('../src/router.mjs');
+  const { setModelTransport } = await import('../src/model-adapter.mjs');
+  const state = createState();
+  state.company = { ...state.company, country };
+  const sent = [];
+  setModelTransport(async (body) => { sent.push(JSON.stringify(body)); return { ok: true, response: { content: [] } }; });
+  try {
+    await chat(state, NINE_DIGITS);
+  } finally {
+    setModelTransport(null);
+  }
+  return sent.join('\n');
+}
+
+test('outside the US, nine-digit amounts, bank accounts and spaced numbers in chat reach the router and the model unchanged', async () => {
+  const sent = await chatSends('IN');
+  assert.ok(sent.length > 0);
+  for (const kept of ['104523750', '302145987', '500 12 2500']) assert.ok(sent.includes(kept), kept);
+  assert.ok(!sent.includes('***-**-'));
+});
+
+test('in US books the same chat message is masked before the model sees it', async () => {
+  const sent = await chatSends('US');
+  assert.ok(sent.length > 0);
+  for (const masked of ['***-**-3750', '***-**-5987', '***-**-2500']) assert.ok(sent.includes(masked), masked);
+  for (const gone of ['104523750', '302145987', '500 12 2500']) assert.ok(!sent.includes(gone), gone);
+});
+
+test('outside the US a tool result with a nine-digit paise amount reaches the model unchanged and still parses', async () => {
+  const { redactModelRequest } = await import('../src/us-identity.mjs');
+  const { setCurrentCountry } = await import('../src/country.mjs');
+  const { setModelTransport, extractWithModel } = await import('../src/model-adapter.mjs');
+  const result = '{"cash":302145987}';
+  const body = { messages: [{ role: 'user', content: [{ type: 'tool_result', tool_use_id: 't', content: [{ type: 'text', text: result }] }] }] };
+  const kept = redactModelRequest(body, 'IN');
+  assert.deepEqual(JSON.parse(kept.messages[0].content[0].content[0].text), { cash: 302145987 });
+  assert.equal(redactModelRequest(body, 'US').messages[0].content[0].content[0].text, '{"cash":***-**-5987}');
+  let sent = '';
+  setModelTransport(async (request) => { sent = JSON.stringify(request); return { ok: true, response: { content: [] } }; });
+  setCurrentCountry('IN');
+  try {
+    await extractWithModel({ content: result, schema: { type: 'object' }, name: 'read' });
+  } finally {
+    setModelTransport(null);
+  }
+  assert.ok(sent.includes('302145987'));
+});
+
+test('a tin field is masked only when it is a US SSN or ITIN, and audit events are masked only in US books', async () => {
+  const { appendAuditEvent } = await import('../src/ca-api.mjs');
+  const { createState } = await import('../src/store.mjs');
+  assert.deepEqual(redactTinsDeep({ tin: 'C12345678901' }), { tin: 'C12345678901' });
+  const malaysia = createState();
+  malaysia.company = { ...malaysia.company, country: 'MY' };
+  const kept = appendAuditEvent(malaysia, { action: 'my_einvoice_profile_set', metadata: { tin: 'C12345678901', note: 'account 302145987' } });
+  assert.deepEqual(kept.metadata, { tin: 'C12345678901', note: 'account 302145987' });
+  const india = createState();
+  india.company = { ...india.company, country: 'IN' };
+  assert.deepEqual(appendAuditEvent(india, { action: 'record_sale', metadata: { amount: '104523750' } }).metadata, { amount: '104523750' });
+  const us = createState();
+  us.company = { ...us.company, country: 'US', entityType: 'household' };
+  const masked = appendAuditEvent(us, { action: 'set_us_taxpayer', metadata: { tin: '123456780', note: 'spouse 987-65-4320' } });
+  assert.deepEqual(masked.metadata, { tin: '***-**-6780', note: 'spouse ***-**-4320' });
+});

@@ -130,6 +130,18 @@ export function redactTins(text) {
 
 export const redactSsns = redactTins;
 
+export function tinsMaskedFor(country) {
+  return String(country || '').toUpperCase() === 'US';
+}
+
+export function redactTinsFor(country, text) {
+  return tinsMaskedFor(country) ? redactTins(text) : text;
+}
+
+export function redactTinsDeepFor(country, value) {
+  return tinsMaskedFor(country) ? redactTinsDeep(value) : value;
+}
+
 export function redactTinsDeep(value, depth = 0) {
   if (depth > 20) return value;
   if (typeof value === 'string') return redactTins(value);
@@ -137,7 +149,7 @@ export function redactTinsDeep(value, depth = 0) {
   if (value && typeof value === 'object') {
     const out = {};
     for (const [key, item] of Object.entries(value)) {
-      out[key] = /^(ssn|itin|tin|taxpayerId)$/i.test(key) && typeof item === 'string' && !isSealedTin(item) ? maskTin(item) : redactTinsDeep(item, depth + 1);
+      out[key] = /^(ssn|itin|tin|taxpayerId)$/i.test(key) && typeof item === 'string' && !isSealedTin(item) && tinKind(item) ? maskTin(item) : redactTinsDeep(item, depth + 1);
     }
     return out;
   }
@@ -153,8 +165,8 @@ function redactBlock(block) {
   return block;
 }
 
-export function redactModelRequest(body) {
-  if (!body || typeof body !== 'object') return body;
+export function redactModelRequest(body, country = 'US') {
+  if (!body || typeof body !== 'object' || !tinsMaskedFor(country)) return body;
   const out = { ...body };
   if (typeof out.system === 'string') out.system = redactTins(out.system);
   else if (Array.isArray(out.system)) out.system = out.system.map(redactBlock);

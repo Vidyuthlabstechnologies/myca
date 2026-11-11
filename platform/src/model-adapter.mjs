@@ -1,5 +1,6 @@
 import { loadEnvFile } from './runtime-config.mjs';
 import { redactModelRequest } from './us-identity.mjs';
+import { currentCountryCode } from './country.mjs';
 
 const DEFAULT_MODEL = 'claude-sonnet-5-5';
 const DEFAULT_BASE_URL = 'https://api.anthropic.com';
@@ -36,8 +37,8 @@ export function modelConfigured() {
 
 const MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
 
-async function callModel(unredacted) {
-  const body = redactModelRequest(unredacted);
+async function callModel(unredacted, country = currentCountryCode()) {
+  const body = redactModelRequest(unredacted, country);
   const config = modelConfig();
   if (transportOverride) return transportOverride(body);
   if (!config.apiKey) return { ok: false, error: 'MODEL_NOT_CONFIGURED' };
@@ -85,7 +86,7 @@ export async function chooseTool({ message, tools, country = 'IN', history = [] 
     tools: offered,
     tool_choice: { type: 'any' },
     messages: [...history, { role: 'user', content: text }],
-  });
+  }, country);
   if (!called.ok) return called;
   const use = toolUseOf(called.response);
   if (!use) return { ok: false, error: 'MODEL_NO_TOOL' };
