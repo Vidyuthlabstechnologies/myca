@@ -170,17 +170,24 @@ WhatsApp or email. For goods on the move, the e-way bill is offered on the same 
 - The invoice screen shows the e-way bill card only when one is needed: why, the
   transport, what is still missing, and the number once generated. The PDF prints the
   number.
-- `govt_generate_ewb` builds the NIC request from the IRN and the transport details and
-  sends it through the action gate (live switch, approval bound to the payload). It is
-  refused without transport details or an IRN, and a dry run or a simulated reply never
-  stores a number. MyCA generates e-way bills from the e-invoice; the separate e-way
-  bill system for businesses outside e-invoicing is not wired.
+- `govt_generate_ewb` sends the e-way bill through Sandbox by Quicko (the GSP) and the
+  action gate (live switch, approval bound to the invoice). With an IRN it uses the
+  e-invoice route (e-way bill by IRN); without one it builds Part A from the invoice
+  (seller and buyer GSTIN, address, PIN, state, HSN lines, values) and Part B from the
+  transport. It is refused without transport details, and a dry run, a test-mode reply
+  or a simulated reply never stores a real number (test numbers go to `sandboxEwb`).
+  NIC direct API access needs a turnover of 100 crore rupees or more, so MyCA does not
+  call NIC for e-way bills (2026-11-11).
+- After generation, `sandbox_operation` runs `ewb_get`, `ewb_cancel`,
+  `ewb_update_vehicle` (Part B), `ewb_update_transporter`, `ewb_extend`,
+  `ewb_consolidate`, `ewb_multi_vehicle_start` / `_add` / `_change`,
+  `ewb_consignee_list` and `ewb_reject`, each through the gate. The hosted API offers the
+  same set at `POST /v1/businesses/{id}/ewaybill` with `op`.
 - The invoice screen shows the e-invoice state and, when the app works against the
   Windows server, offers "Generate e-invoice" for a B2B invoice through the action gate
   (2026-10-15). The hosted service never takes a government action from a phone.
-- Still to build: per-business NIC credentials in the hosted service (credentials are
-  resolved per machine today), and the e-way bill system route for businesses outside
-  the e-invoicing bracket.
+- Still to build: the invoice screen buttons for the post-generation actions (cancel,
+  vehicle change, extension) call the hosted `ewaybill` endpoint.
 
 ## Acceptance criteria
 

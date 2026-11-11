@@ -231,21 +231,6 @@ export const TOOL_ARG_SCHEMAS = {
     required: ['date'],
     properties: { date: { type: 'string', minLength: 8 } },
   },
-  govt_nic_generate_ewb: {
-    type: 'object',
-    additionalProperties: false,
-    required: ['irn'],
-    properties: {
-      irn: { type: 'string', minLength: 1 },
-      transport: { type: 'object' },
-    },
-  },
-  govt_nic_get_ewb: {
-    type: 'object',
-    additionalProperties: false,
-    required: ['irn'],
-    properties: { irn: { type: 'string', minLength: 1 } },
-  },
   test_notification: {
     type: 'object',
     additionalProperties: false,
@@ -2348,7 +2333,7 @@ export const TOOL_ARG_SCHEMAS = {
   ...ENGINE_ARG_SCHEMAS,
 };
 
-const ASSISTANT_BLOCKED_TOOLS = new Set(['govt_save_credentials', 'set_channel_connector', 'govt_set_public_key', 'govt_nic_cancel_irn', 'govt_nic_generate_ewb', 'seed_demo', 'approval_decide', 'set_company', 'add_client', 'set_active_client', 'save_document', 'get_document', 'lock_period', 'unlock_period', 'send_notification', 'test_notification']);
+const ASSISTANT_BLOCKED_TOOLS = new Set(['govt_save_credentials', 'set_channel_connector', 'govt_set_public_key', 'govt_nic_cancel_irn', 'seed_demo', 'approval_decide', 'set_company', 'add_client', 'set_active_client', 'save_document', 'get_document', 'lock_period', 'unlock_period', 'send_notification', 'test_notification']);
 
 const TOOL_RISK = {
   create_invoice: 'writes_books',
