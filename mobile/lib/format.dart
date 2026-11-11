@@ -141,3 +141,14 @@ String dueWords(String dueDate, DateTime today, {required bool open}) {
   if (days == 0) return 'Due today';
   return 'Due ${longDate(dueDate)}';
 }
+
+final _isoDay = RegExp(r'^(\d{4})-(\d{2})-(\d{2})$');
+
+String readableDay(String text) {
+  final match = _isoDay.firstMatch(text.trim());
+  if (match == null) return text;
+  final month = int.parse(match.group(2)!);
+  final day = int.parse(match.group(3)!);
+  if (month < 1 || month > 12 || day < 1 || day > 31) return text;
+  return '$day ${_months[month - 1].substring(0, 3)} ${match.group(1)}';
+}

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'format.dart' show readableDay;
 import 'api/models.dart';
 import 'marks.dart';
 import 'theme.dart';
@@ -368,7 +369,7 @@ class Bubble extends StatelessWidget {
                     children: [
                       if (label != null)
                         Text(
-                          label!.toUpperCase(),
+                          readableDay(label!).toUpperCase(),
                           style: TextStyle(
                             color: status,
                             fontSize: 11,
