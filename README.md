@@ -125,7 +125,8 @@ safe.
         └──────────────► the same engine ◄─────────────┘
                          platform/src/session.mjs      one serialized gate per books
                          router.mjs                    propose → confirm, query
-                         assistant-contract.mjs        strict schemas, risk classes
+                         tool-schemas*.mjs             strict schemas
+                         assistant-tools.mjs           risk classes, blocked tools
                          tools.mjs                     116 named tools
              ┌───────────────────┼─────────────────────┐
              ▼                   ▼                     ▼

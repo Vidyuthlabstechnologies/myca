@@ -57,7 +57,7 @@ designed and not built.
 flowchart TD
   caller[Server or hosted API] --> session[session.mjs: one serialized gate per books]
   session --> router[router.mjs: propose, confirm, discard, query]
-  router --> contract[assistant-contract.mjs: strict schemas, risk classes]
+  router --> contract[assistant-contract.mjs, tool-schemas*.mjs, assistant-tools.mjs: strict schemas, risk classes]
   contract --> tools[tools.mjs: 116 named tools]
   tools --> ledger[ledger.mjs, invoice.mjs: postings in paise]
   tools --> engines[sprints: GST, credit matching, deadlines, income tax, TDS, importers]
