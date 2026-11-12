@@ -48,6 +48,17 @@ export const RULES = [
     attestations: []
   },
   {
+    id: 'us.federal.fica.social-security',
+    value: { employeeBasisPoints: 620, employerBasisPoints: 620, wageBaseCents: 192300 * DOLLAR },
+    basis: 'percent_of_wages_each_side_as_basis_points_up_to_the_calendar_year_wage_base',
+    effectiveFrom: '2027-01-01',
+    effectiveTo: '2027-12-31',
+    act: 'IRC',
+    section: '3101(a); 3111(a); 3121(a)(1)',
+    source: 'Social Security Administration, "Cost-of-Living Increase and Other Determinations for 2027", Federal Register Vol. 91 No. 205, page 67380, 26 October 2026 (document 2026-21796): the OASDI contribution and benefit base is one hundred ninety-two thousand three hundred dollars for remuneration paid in 2027; rates unchanged at 6.2 per cent each side under IRC section 3101(a) and 3111(a) (notice read from govinfo.gov on 2026-11-12)',
+    attestations: []
+  },
+  {
     id: 'us.federal.fica.medicare',
     value: { employeeBasisPoints: 145, employerBasisPoints: 145, additionalEmployeeBasisPoints: 90, additionalAboveCents: 200000 * DOLLAR },
     basis: 'percent_of_all_wages_each_side_as_basis_points_plus_the_employee_only_additional_rate_on_wages_above_the_threshold_withheld_from_the_employer_paying_them',

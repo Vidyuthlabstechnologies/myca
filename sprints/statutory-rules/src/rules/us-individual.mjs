@@ -1,6 +1,8 @@
 const D = 100;
 const RP_2025 = 'Rev. Proc. 2024-40 as modified by Public Law 119-21 (One Big Beautiful Bill Act, enacted 4 July 2025)';
 const RP_2026 = 'Rev. Proc. 2025-32 (inflation adjustments for 2026, including the Public Law 119-21 amendments)';
+const RP_2027 = 'Rev. Proc. 2026-35 (inflation adjustments for 2027)';
+const READ_2027 = 'figures read from the revenue procedure text, irs.gov/pub/irs-drop/rp-26-35.pdf, on 2026-11-12';
 const NOT_REREAD = 'figures as stated in published IRS guidance and secondary summaries read on 2026-11-11; the revenue procedure text not re-read for this record';
 
 const bands = (tops) => {
@@ -50,6 +52,21 @@ export const RULES = [
     attestations: []
   },
   {
+    id: 'us.federal.individual.brackets',
+    value: {
+      single: bands([12800, 52025, 109125, 208325, 264550, 661375]),
+      mfj: bands([25600, 104050, 218250, 416650, 529100, 793650]),
+      mfs: bands([12800, 52025, 109125, 208325, 264550, 396825]),
+      hoh: bands([18250, 69650, 109100, 208300, 264550, 661350]),
+    },
+    basis: 'ordinary_income_tax_rate_bands_on_taxable_income_by_filing_status_qualifying_surviving_spouse_uses_mfj',
+    ...year(2027),
+    act: 'IRC',
+    section: '1(j); 1(f)',
+    source: `IRC section 1(j) as made permanent by Public Law 119-21 section 70101; ${RP_2027} section 3.01, Tables 1 to 4 (${READ_2027})`,
+    attestations: []
+  },
+  {
     id: 'us.federal.individual.standard-deduction',
     value: { basicCents: { single: 15750 * D, mfj: 31500 * D, mfs: 15750 * D, hoh: 23625 * D, qss: 31500 * D }, additionalMarriedCents: 1600 * D, additionalUnmarriedCents: 2000 * D, dependentMinimumCents: 1350 * D, dependentEarnedIncomeAddCents: 450 * D },
     basis: 'basic_standard_deduction_by_filing_status_plus_an_additional_amount_for_each_of_age_65_and_blindness_dependents_limited_to_the_greater_of_the_minimum_or_earned_income_plus_the_add_amount',
@@ -70,6 +87,16 @@ export const RULES = [
     attestations: []
   },
   {
+    id: 'us.federal.individual.standard-deduction',
+    value: { basicCents: { single: 16600 * D, mfj: 33200 * D, mfs: 16600 * D, hoh: 24925 * D, qss: 33200 * D }, additionalMarriedCents: 1700 * D, additionalUnmarriedCents: 2100 * D, dependentMinimumCents: 1400 * D, dependentEarnedIncomeAddCents: 500 * D },
+    basis: 'basic_standard_deduction_by_filing_status_plus_an_additional_amount_for_each_of_age_65_and_blindness_dependents_limited_to_the_greater_of_the_minimum_or_earned_income_plus_the_add_amount',
+    ...year(2027),
+    act: 'IRC',
+    section: '63(c)',
+    source: `IRC section 63(c) as amended by Public Law 119-21; ${RP_2027} section 3.15 (${READ_2027})`,
+    attestations: []
+  },
+  {
     id: 'us.federal.individual.capital-gains-rates',
     value: { zeroRateMaxCents: { single: 48350 * D, mfj: 96700 * D, mfs: 48350 * D, hoh: 64750 * D, qss: 96700 * D }, fifteenRateMaxCents: { single: 533400 * D, mfj: 600050 * D, mfs: 300000 * D, hoh: 566700 * D, qss: 600050 * D }, lowBasisPoints: 0, middleBasisPoints: 1500, highBasisPoints: 2000 },
     basis: 'net_capital_gain_and_qualified_dividends_taxed_at_zero_fifteen_and_twenty_percent_with_the_band_tops_measured_on_taxable_income',
@@ -87,6 +114,16 @@ export const RULES = [
     act: 'IRC',
     section: '1(h); 1(j)(5)',
     source: `IRC section 1(h) and 1(j)(5); ${RP_2026} section 4.03 (${NOT_REREAD})`,
+    attestations: []
+  },
+  {
+    id: 'us.federal.individual.capital-gains-rates',
+    value: { zeroRateMaxCents: { single: 51050 * D, mfj: 102100 * D, mfs: 51050 * D, hoh: 68350 * D, qss: 102100 * D }, fifteenRateMaxCents: { single: 563200 * D, mfj: 633600 * D, mfs: 316800 * D, hoh: 598400 * D, qss: 633600 * D }, lowBasisPoints: 0, middleBasisPoints: 1500, highBasisPoints: 2000 },
+    basis: 'net_capital_gain_and_qualified_dividends_taxed_at_zero_fifteen_and_twenty_percent_with_the_band_tops_measured_on_taxable_income',
+    ...year(2027),
+    act: 'IRC',
+    section: '1(h); 1(j)(5)',
+    source: `IRC section 1(h) and 1(j)(5); ${RP_2027} section 3.03 (${READ_2027})`,
     attestations: []
   },
   {
@@ -118,6 +155,16 @@ export const RULES = [
     act: 'IRC',
     section: '24(h)',
     source: `IRC section 24(h) as amended by Public Law 119-21 section 70104; ${RP_2026}: maximum credit two thousand two hundred dollars, refundable base amount one thousand seven hundred dollars (${NOT_REREAD})`,
+    attestations: []
+  },
+  {
+    id: 'us.federal.individual.child-tax-credit',
+    value: { perChildCents: 2300 * D, otherDependentCents: 500 * D, refundablePerChildCents: 1800 * D, earnedIncomeFloorCents: 2500 * D, refundableBasisPoints: 1500, phaseOutStartCents: { mfj: 400000 * D, other: 200000 * D }, phaseOutPerThousandCents: 50 * D },
+    basis: 'credit_per_qualifying_child_under_17_and_per_other_dependent_reduced_by_the_step_for_each_thousand_or_part_of_modified_agi_above_the_start_refundable_part_limited_per_child_and_to_a_percent_of_earned_income_above_the_floor',
+    ...year(2027),
+    act: 'IRC',
+    section: '24(h)',
+    source: `IRC section 24(h) as amended by Public Law 119-21 section 70104; ${RP_2027} section 3.05: maximum credit two thousand three hundred dollars, refundable amount one thousand eight hundred dollars; the other-dependent credit, earned income floor, refundable percentage and phase-out are statutory and unchanged (${READ_2027})`,
     attestations: []
   },
   {
@@ -153,6 +200,22 @@ export const RULES = [
     attestations: []
   },
   {
+    id: 'us.federal.individual.eitc',
+    value: {
+      byChildren: [eitcRow(765, 8960, 765, 11210, 18730), eitcRow(3400, 13450, 1598, 24660, 32170), eitcRow(4000, 18880, 2106, 24660, 32170), eitcRow(4500, 18880, 2106, 24660, 32170)],
+      investmentIncomeLimitCents: 12600 * D,
+      noChildMinAge: 25,
+      noChildMaxAge: 64,
+      bandCents: 50 * D,
+    },
+    basis: 'credit_percent_of_earned_income_up_to_the_earned_income_amount_less_the_phase_out_percent_of_the_greater_of_agi_or_earned_income_above_the_start_by_number_of_qualifying_children_capped_at_three',
+    ...year(2027),
+    act: 'IRC',
+    section: '32(b); 32(i); 32(j)',
+    source: `IRC section 32; ${RP_2027} section 3.06 (maximum credits six hundred eighty-five, four thousand five hundred seventy-three, seven thousand five hundred fifty-two and eight thousand four hundred ninety-six dollars; investment income limit twelve thousand six hundred dollars) (${READ_2027})`,
+    attestations: []
+  },
+  {
     id: 'us.federal.individual.education-credits',
     value: { aotcFullCents: 2000 * D, aotcQuarterCents: 2000 * D, aotcRefundableBasisPoints: 4000, aotcMaxYears: 4, llcBasisPoints: 2000, llcExpenseCapCents: 10000 * D, phaseOutCents: { mfj: { from: 160000 * D, to: 180000 * D }, other: { from: 80000 * D, to: 90000 * D } }, mfsAllowed: false },
     basis: 'american_opportunity_credit_of_all_the_first_and_a_quarter_of_the_next_qualified_expenses_per_student_forty_percent_refundable_lifetime_learning_credit_twenty_percent_of_expenses_per_return_both_phased_out_on_modified_agi',
@@ -181,6 +244,16 @@ export const RULES = [
     act: 'IRC',
     section: '164(b)(6)(B); 164(b)(7)',
     source: `IRC section 164(b)(6)(B) and 164(b)(7) as amended by Public Law 119-21 section 70120: cap and threshold rise by one per cent a year from 2026 (forty thousand four hundred and five hundred five thousand dollars) (${NOT_REREAD})`,
+    attestations: []
+  },
+  {
+    id: 'us.federal.individual.salt-cap',
+    value: { capCents: 40804 * D, mfsCapCents: 20402 * D, phaseDownStartCents: 510050 * D, mfsPhaseDownStartCents: 255025 * D, phaseDownBasisPoints: 3000, floorCents: 10000 * D, mfsFloorCents: 5000 * D },
+    basis: 'itemized_state_and_local_tax_deduction_cap_reduced_by_a_percent_of_modified_agi_above_the_start_but_not_below_the_floor',
+    ...year(2027),
+    act: 'IRC',
+    section: '164(b)(6)(B); 164(b)(7)',
+    source: 'IRC section 164(b)(7)(A)(iii) and (B)(ii) as added by Public Law 119-21 section 70120: for years after 2026 and before 2030 the cap and the threshold are 101 per cent of the amounts for the preceding year, with no rounding rule; 101 per cent of forty thousand four hundred and of five hundred five thousand dollars gives forty thousand eight hundred four and five hundred ten thousand fifty dollars, half for a married individual filing separately (statute read on law.cornell.edu on 2026-11-12; not in Rev. Proc. 2026-35)',
     attestations: []
   },
   {
@@ -259,6 +332,16 @@ export const RULES = [
     attestations: []
   },
   {
+    id: 'us.federal.individual.student-loan-interest',
+    value: { maxCents: 2500 * D, phaseOutCents: { mfj: { from: 180000 * D, to: 210000 * D }, other: { from: 90000 * D, to: 105000 * D } }, mfsAllowed: false },
+    basis: 'student_loan_interest_deduction_up_to_the_maximum_reduced_pro_rata_across_the_modified_agi_phase_out_range',
+    ...year(2027),
+    act: 'IRC',
+    section: '221',
+    source: `IRC section 221; ${RP_2027} section 3.31 (${READ_2027})`,
+    attestations: []
+  },
+  {
     id: 'us.federal.individual.senior-deduction',
     value: { perPersonCents: 6000 * D, minAge: 65, phaseOutStartCents: { mfj: 150000 * D, other: 75000 * D }, phaseOutBasisPoints: 600, mfsAllowed: false },
     basis: 'deduction_for_each_taxpayer_or_spouse_aged_65_or_over_reduced_by_a_percent_of_modified_agi_above_the_start',
@@ -323,6 +406,16 @@ export const RULES = [
     attestations: []
   },
   {
+    id: 'us.federal.individual.qbi',
+    value: { basisPoints: 2000, thresholdCents: { mfj: 416600 * D, qss: 416600 * D, mfs: 208325 * D, single: 208300 * D, hoh: 208300 * D } },
+    basis: 'qualified_business_income_deduction_simplified_computation_available_at_or_below_the_taxable_income_threshold',
+    ...year(2027),
+    act: 'IRC',
+    section: '199A',
+    source: `IRC section 199A as amended by Public Law 119-21 section 70105; ${RP_2027} section 3.28 (${READ_2027}). The minimum deduction for active QBI (four hundred fifteen dollars when QBI is at least one thousand thirty dollars in 2027) is not encoded`,
+    attestations: []
+  },
+  {
     id: 'us.federal.individual.return-due',
     value: { month: 4, day: 15 },
     basis: 'individual_income_tax_return_due_day_of_the_year_after_the_tax_year_for_a_calendar_year_filer',
@@ -373,6 +466,16 @@ export const RULES = [
     act: 'IRC',
     section: '62(a)(2)(D)',
     source: `IRC section 62(a)(2)(D); ${RP_2026}: three hundred fifty dollars (${NOT_REREAD})`,
+    attestations: []
+  },
+  {
+    id: 'us.federal.individual.educator-expenses',
+    value: { maxPerEducatorCents: 350 * D },
+    basis: 'above_the_line_deduction_for_unreimbursed_classroom_expenses_of_an_eligible_educator',
+    ...year(2027),
+    act: 'IRC',
+    section: '62(a)(2)(D)',
+    source: `IRC section 62(a)(2)(D); ${RP_2027} section 3.13: three hundred fifty dollars (${READ_2027})`,
     attestations: []
   },
 ];
