@@ -165,7 +165,7 @@ people most often:
 - **A new tool** needs:
   - an entry in `tools.mjs`;
   - a strict schema in `assistant-contract.mjs` (`additionalProperties: false`) and its `TOOL_RISK`;
-  - a previewer in `chat-confirm.mjs` if it writes;
+  - a previewer if it writes: the function in the matching `chat-confirm/<domain>.mjs` (sales, gst-tds, payables, payroll, bank, imports, us; helpers used by several in `shared.mjs`), registered in `PREVIEWERS` in `chat-confirm.mjs`;
   - wording in `router.mjs`;
   - tests.
 
