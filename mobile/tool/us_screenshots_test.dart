@@ -9,7 +9,8 @@ import 'package:myca/us/us_return.dart';
 
 import '../test/fake_api.dart';
 import '../test/us_return_test.dart' show FakeFees, FeeStore, UsFakeApi, usState;
-import 'screenshots_test.dart' show loadFonts, shot;
+import 'fonts.dart';
+import 'screenshots_test.dart' show shot;
 
 void main() {
   Bahi.live = false;
