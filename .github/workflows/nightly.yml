@@ -51,6 +51,7 @@ jobs:
         with:
           node-version: "22"
       - name: Gaps and records ending within ninety days
+        shell: bash
         run: node scripts/rules-watch.mjs | tee "$GITHUB_STEP_SUMMARY"
 
   sources:
@@ -64,6 +65,7 @@ jobs:
         with:
           node-version: "22"
       - name: CBIC, GST portal, CBDT, EPFO, ESIC, DoPT and IRS pages against the last accepted reading
+        shell: bash
         run: node scripts/rules-sources.mjs | tee "$GITHUB_STEP_SUMMARY"
 
   report:

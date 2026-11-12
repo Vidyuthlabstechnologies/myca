@@ -236,6 +236,7 @@ jobs:
           PLAY_PACKAGE: ${{ vars.PLAY_PACKAGE || 'com.mldynamic.myca' }}
           PLAY_TRACK: ${{ vars.PLAY_TRACK }}
           PLAY_RELEASE_STATUS: ${{ vars.PLAY_RELEASE_STATUS || 'draft' }}
+        shell: bash
         run: node scripts/play-upload.mjs dist/myca-android.aab | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Upload the US app to its Play listing (only when PLAY_US_TRACK is set)
         if: ${{ vars.PLAY_US_TRACK != '' }}
@@ -244,4 +245,5 @@ jobs:
           PLAY_PACKAGE: ${{ vars.PLAY_US_PACKAGE || 'com.mldynamic.myca.us' }}
           PLAY_TRACK: ${{ vars.PLAY_US_TRACK }}
           PLAY_RELEASE_STATUS: ${{ vars.PLAY_RELEASE_STATUS || 'draft' }}
+        shell: bash
         run: node scripts/play-upload.mjs dist/myca-us-android.aab | tee -a "$GITHUB_STEP_SUMMARY"
