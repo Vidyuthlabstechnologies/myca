@@ -198,6 +198,7 @@ jobs:
     env:
       MYCA_SMOKE_URL: http://127.0.0.1:8080
       MYCA_SMOKE_PHONE: "9876501234"
+      MYCA_SMOKE_PHONE_2: "9876501235"
       MYCA_SMOKE_CODE: "482913"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -215,7 +216,7 @@ jobs:
         env:
           MYCA_DATABASE_URL: postgres://myca@127.0.0.1:5432/postgres
           MYCA_ENVIRONMENT: staging
-          MYCA_TEST_PHONES: ${{ env.MYCA_SMOKE_PHONE }}
+          MYCA_TEST_PHONES: ${{ env.MYCA_SMOKE_PHONE }},${{ env.MYCA_SMOKE_PHONE_2 }}
           MYCA_TEST_CODE: ${{ env.MYCA_SMOKE_CODE }}
           MYCA_LISTEN_HOST: 127.0.0.1
           PORT: "8080"
@@ -239,7 +240,7 @@ jobs:
       - name: Fetch packages
         working-directory: mobile
         run: flutter pub get --enforce-lockfile
-      - name: Sign in, make a business, book a sale and read Today through the app's client
+      - name: Sign in, book sales, and check isolation, GST split and no double posting through the app's client
         working-directory: mobile
         run: flutter test test_smoke
       - name: API log

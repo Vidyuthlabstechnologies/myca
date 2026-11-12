@@ -1,7 +1,13 @@
-# MyCA API on AWS (Mumbai)
+# MyCA API on AWS (Mumbai), retired
 
-An alternative to `infra/cloud` (Google Cloud) for the hosted API, written while Google Cloud
-billing is closed. Both can live side by side; deploy only one at a time.
+**Not production.** Production moved to Google Cloud on 2026-11-10 (`infra/cloud`, see
+`DEPLOYMENT.md` "Google Cloud production"). This folder is kept only so the old AWS stack can
+be read and torn down. It describes App Runner, which is not what ran there last (ECS Express,
+set up by hand), so **never run `terraform apply` here**: it would rewrite the old role trust and
+SSM values. `deploy-aws.yml` is manual-only for the same reason. Delete this folder and that
+workflow once the AWS account is shut down.
+
+The original notes follow.
 
 ## What it creates
 

@@ -17,7 +17,7 @@ void main() {
   tearDown(() => moneyCountry = 'IN');
 
   Future<void> phone(WidgetTester tester) async {
-    tester.view.physicalSize = const Size(1080, 2280);
+    tester.view.physicalSize = const Size(1080, 2160);
     tester.view.devicePixelRatio = 2.75;
     addTearDown(tester.view.reset);
   }
