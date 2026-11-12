@@ -71,6 +71,38 @@ void main() {
     expect(api.companyUpdates, isEmpty, reason: 'the sample business never renames the real one');
   });
 
+  testWidgets('the coach steps aside while the keyboard is open, so the field being typed in stays visible', (tester) async {
+    final state = testState(FakeMycaApi(signedIn: true), onboarded: false);
+    await tester.pumpWidget(MycaApp(state: state));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Take a 2-minute tour first'));
+    await settle(tester);
+    await tester.tap(find.text('Show me around'));
+    await settle(tester);
+    await tester.tap(find.text('Next').last);
+    await settle(tester);
+    await tester.tap(find.text('Show me'));
+    await settle(tester);
+
+    final say = find.textContaining('Type an amount');
+    AnimatedOpacity coachFade() => tester.widget<AnimatedOpacity>(find.ancestor(of: say, matching: find.byType(AnimatedOpacity)).first);
+    IgnorePointer coachTaps() => tester.widget<IgnorePointer>(find.ancestor(of: say, matching: find.byType(IgnorePointer)).first);
+    expect(coachFade().opacity, 1);
+    expect(coachTaps().ignoring, isFalse);
+
+    tester.view.viewInsets = const FakeViewPadding(bottom: 800);
+    addTearDown(tester.view.resetViewInsets);
+    await tester.pumpAndSettle();
+    expect(coachFade().opacity, 0);
+    expect(coachTaps().ignoring, isTrue);
+    expect(find.semantics.byLabel(RegExp('Type an amount')), findsNothing);
+
+    tester.view.resetViewInsets();
+    await tester.pumpAndSettle();
+    expect(coachFade().opacity, 1);
+    expect(coachTaps().ignoring, isFalse);
+  });
+
   testWidgets('ending the tour early leaves the welcome screen as it was', (tester) async {
     final state = testState(FakeMycaApi(signedIn: true), onboarded: false);
     await tester.pumpWidget(MycaApp(state: state));

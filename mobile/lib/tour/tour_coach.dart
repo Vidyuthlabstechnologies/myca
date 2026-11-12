@@ -17,27 +17,35 @@ class TourCoach extends StatelessWidget {
     final media = MediaQuery.of(context);
     final top = step.place == TourPlace.top;
     final wide = media.size.width > 600;
+    final typing = media.viewInsets.bottom > 0;
     final card = _CoachCard(tour: tour, step: step);
     return Positioned(
       left: 0,
       right: 0,
       top: top ? media.padding.top + 58 : null,
       bottom: top ? null : media.padding.bottom + 12,
-      child: Center(
-        child: ConstrainedBox(
-          constraints: BoxConstraints(maxWidth: wide ? 520 : double.infinity),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 240),
-              transitionBuilder: (child, animation) => FadeTransition(
-                opacity: animation,
-                child: SlideTransition(
-                  position: Tween(begin: Offset(0, top ? -0.08 : 0.08), end: Offset.zero).animate(animation),
-                  child: child,
+      child: IgnorePointer(
+        ignoring: typing,
+        child: AnimatedOpacity(
+          opacity: typing ? 0 : 1,
+          duration: const Duration(milliseconds: 180),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: wide ? 520 : double.infinity),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 240),
+                  transitionBuilder: (child, animation) => FadeTransition(
+                    opacity: animation,
+                    child: SlideTransition(
+                      position: Tween(begin: Offset(0, top ? -0.08 : 0.08), end: Offset.zero).animate(animation),
+                      child: child,
+                    ),
+                  ),
+                  child: KeyedSubtree(key: ValueKey(tour.index), child: card),
                 ),
               ),
-              child: KeyedSubtree(key: ValueKey(tour.index), child: card),
             ),
           ),
         ),
