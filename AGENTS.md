@@ -165,17 +165,19 @@ Test script note: suites use `node --test "test/*.test.mjs"` (quoted glob). This
   contents. Send imports as `{ documentSha256 }` after `/api/upload`.
 - **An IRP session belongs to its taxpayer.** `nic-client.mjs` holds one session per
   set of credentials (`nicSessionKey`). Never reintroduce a module-level session.
-- **Assistant tools** must be declared in `tools.mjs`, have a strict schema in
-  `assistant-contract.mjs` (`additionalProperties: false`), and be tested.
-  `assistantTools()` filters blocked tools; keep `TOOL_RISK` current.
+- **Assistant tools** must be declared in `tools.mjs`, have a strict schema in the
+  matching `tool-schemas-*.mjs` file (`books`, `sales-purchases`, `tax`, `us`;
+  `additionalProperties: false`), and be tested. `tool-schemas.mjs` joins them and
+  `assistant-contract.mjs` re-exports `TOOL_ARG_SCHEMAS`. `assistantTools()` in
+  `assistant-tools.mjs` filters blocked tools; keep `TOOL_RISK` there current.
 
 ## Adding a feature — checklist
 
 1. Add logic to a focused `platform/src/*.mjs` module; keep it pure where possible.
 2. If it changes books/state, record an audit event and reconsider `stateDigest`.
 3. Expose it via a named tool in `tools.mjs` with a clear `title`/`description`.
-4. Add the schema to `assistant-contract.mjs`; mark it blocked if it is unsafe to
-   run autonomously.
+4. Add the schema to the matching `tool-schemas-*.mjs` file and its risk to `TOOL_RISK`
+   in `assistant-tools.mjs`; mark it blocked there if it is unsafe to run autonomously.
 5. Route it from `intent.mjs` only if it is safe to trigger from chat.
 6. Add regression tests to `platform/test/edges.test.mjs` (or a new `*.test.mjs`).
 7. Run `npm test` in `platform` (and any touched sprint).

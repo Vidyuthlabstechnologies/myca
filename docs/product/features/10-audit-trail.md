@@ -4,7 +4,7 @@
 |---|---|
 | Requirements | NFR-5 in the [product PRD](../PRD.md) |
 | Status | Built (batch 4, 2026-11): the trail as a read tool, chat words, an Excel workbook and an app screen; a hash chain over each event; the hosted split between the books and the `audit_log` table. The chain has no key and the limits below apply |
-| Code | `platform/src/audit-trail.mjs`; `appendAuditEvent` and `auditEventHash` in `platform/src/ca-api.mjs`; `auditTrailSheets` in `platform/src/report-sheets.mjs`; `planAuditTrailFromChat` in `platform/src/assistant-contract.mjs`; the reply in `platform/src/router.mjs`; `cloud/src/books-runner.mjs`; `mobile/lib/screens/audit_trail_screen.dart` |
+| Code | `platform/src/audit-trail.mjs`; `appendAuditEvent` and `auditEventHash` in `platform/src/ca-api.mjs`; `auditTrailSheets` in `platform/src/report-sheets.mjs`; `planAuditTrailFromChat` in `platform/src/audit-trail-intent.mjs`; the reply in `platform/src/router.mjs`; `cloud/src/books-runner.mjs`; `mobile/lib/screens/audit_trail_screen.dart` |
 
 ## What the owner experiences
 
