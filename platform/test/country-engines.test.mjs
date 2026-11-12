@@ -45,7 +45,7 @@ test('the country manifests and engines in the repository pass every check', asy
 });
 
 test('a manifest is pure data, and no engine reaches into the central files', () => {
-  const central = /from\s+'(?:\.\.\/)+(?:tools|router|assistant-contract|assistant-tools|tool-schemas(?:-[a-z-]+)?|chat-confirm|remote-contract|session|server)\.mjs'/;
+  const central = /from\s+'(?:\.\.\/)+(?:tools|router|assistant-contract|assistant-tools|tool-schemas(?:-[a-z-]+)?|chat-confirm|confirm-[a-z-]+|remote-contract|session|server)\.mjs'/;
   for (const folder of ENGINE_FOLDERS) {
     assert.doesNotMatch(readFileSync(join(COUNTRIES_DIR, folder, 'manifest.mjs'), 'utf8'), /^\s*import\s/m, `${folder}/manifest.mjs must not import anything`);
     for (const file of readdirSync(join(COUNTRIES_DIR, folder)).filter((name) => name.endsWith('.mjs'))) {
