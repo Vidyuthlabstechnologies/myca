@@ -132,6 +132,7 @@ that path, run `node scripts/render-launcher-icons.cjs mobile/android/app/src/ma
 - Content rating: everyone.
 - Ads: none. In-app purchases: yes, auto-renewing subscriptions (Essentials, Pro and CA firm) through Google Play Billing, with a 14-day free trial counted by MyCA itself.
 - Target audience: business owners, 18 and over.
+- App access: some functionality is restricted to signed-in users. Instructions for the reviewer: on the first screen enter the reviewer number, tap "Send code" (no SMS is sent), then enter the six-digit code (vault entry "MyCA Play reviewer"). The account sees only demo businesses with sample books, and cannot join a real business. The number and code are turned on in `infra/cloud` (`DEPLOYMENT.md`, "Play reviewer sign-in").
 
 ## 5. Testing track before production
 

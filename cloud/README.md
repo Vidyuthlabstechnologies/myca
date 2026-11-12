@@ -311,7 +311,7 @@ The server logs one `startup: services` line listing which optional services are
 | `MYCA_SMS_MSG91_AUTHKEY`, `MYCA_SMS_MSG91_TEMPLATE_ID` | with msg91 | | authkey yes | MSG91 sender. |
 | `MYCA_OTP_GLOBAL_PER_HOUR` | no | 500 | no | Cap on sign-in codes sent per hour across everyone; logs `alarm: otp-global-cap-80` at 80% and `otp-global-cap` when reached. |
 | `MYCA_TEST_PHONES`, `MYCA_TEST_CODE` | staging only | | code yes | Test numbers that sign in with a fixed six-digit code and no SMS. Refused in production. |
-| `MYCA_REVIEWER_SIGN_IN`, `MYCA_REVIEWER_PHONE`, `MYCA_REVIEWER_CODE` | for the Play reviewer | off | code yes | One reviewer number with a fixed code. Every business it creates is a demo business, it cannot accept invitations, and each code request is logged. Turn it off by setting `MYCA_REVIEWER_SIGN_IN` to `off`. |
+| `MYCA_REVIEWER_SIGN_IN`, `MYCA_REVIEWER_PHONE`, `MYCA_REVIEWER_CODE` | for the Play reviewer | off | code yes | One reviewer number with a fixed code. Every business it creates is a demo business, it cannot accept invitations, and each code request is logged. Turn it off by setting `MYCA_REVIEWER_SIGN_IN` to `off`. On Google Cloud, set the Terraform variables `reviewer_phone` and `reviewer_code` instead; an empty `reviewer_phone` keeps it off. |
 | `MYCA_DEV_OTP` | local only | | no | Prints codes to the log; refused in production. |
 | `MYCA_ADMIN_USER_IDS` | for the crash digest | | no | Comma list of user ids that may read `GET /v1/admin/crashes?days=N`. |
 | `MYCA_PROVIDER_ENV` | no | `off` | no | Provider environment for the engines. Staging allows only `off` or `sandbox`. |
