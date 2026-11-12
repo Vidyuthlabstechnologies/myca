@@ -486,3 +486,48 @@ test('CI: the hosted API rolls out to staging first, and production only after s
   const health = rollout.steps.find((s) => /\/v1\/health/.test(s.run || '')).run;
   assert.match(health, /\.environment == \$env/, 'the rollout proves it reached the stack it meant to');
 });
+
+function pipesOutsideQuotes(script) {
+  let quote = '';
+  for (let i = 0; i < script.length; i += 1) {
+    const ch = script[i];
+    if (quote) {
+      if (ch === '\\' && quote === '"') i += 1;
+      else if (ch === quote) quote = '';
+      continue;
+    }
+    if (ch === '\\') { i += 1; continue; }
+    if (ch === '"' || ch === "'") { quote = ch; continue; }
+    if (ch === '#' && (i === 0 || /\s/.test(script[i - 1]))) {
+      while (i < script.length && script[i] !== '\n') i += 1;
+      continue;
+    }
+    if (ch === '|' && script[i - 1] !== '|' && script[i + 1] !== '|') return true;
+  }
+  return false;
+}
+
+test('CI: a step that pipes a command runs with pipefail, so the command failing fails the step', () => {
+  const unsafe = [];
+  for (const file of workflowFiles()) {
+    const wf = workflow(file);
+    for (const { jobName, job, step } of allSteps(wf)) {
+      if (typeof step.run !== 'string' || !pipesOutsideQuotes(step.run)) continue;
+      if (/windows/i.test(String(job['runs-on'] || ''))) continue;
+      const shell = step.shell || job.defaults?.run?.shell || wf.defaults?.run?.shell || '';
+      if (/^(pwsh|powershell|cmd)/.test(shell)) continue;
+      if (shell === 'bash' || /set -[a-z]*o pipefail|set -o pipefail/.test(step.run)) continue;
+      unsafe.push(`${file}:${jobName}:${step.name || step.run.split('\n')[0]}`);
+    }
+  }
+  assert.deepEqual(unsafe, [], 'add shell: bash (bash -eo pipefail) to these steps; the default bash -e reports the exit code of the last command in a pipe');
+});
+
+test('CI: the pipe detector ignores quoted bars, || fallbacks and comments', () => {
+  assert.equal(pipesOutsideQuotes('node scripts/rules-watch.mjs | tee "$GITHUB_STEP_SUMMARY"'), true);
+  assert.equal(pipesOutsideQuotes('grep -E "^(package|sdkVersion)" file'), false);
+  assert.equal(pipesOutsideQuotes("sed -n 's/a|b/c/p' file"), false);
+  assert.equal(pipesOutsideQuotes('test -n "$X" || exit 1'), false);
+  assert.equal(pipesOutsideQuotes('echo ok # a | b'), false);
+  assert.equal(pipesOutsideQuotes('printf "%s" "$v" |\n  sha256sum'), true);
+});
