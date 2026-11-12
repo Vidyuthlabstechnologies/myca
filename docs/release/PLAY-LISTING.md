@@ -68,8 +68,8 @@ MyCA is made by ML Dynamic Solutions Private Limited.
 | Tags | accounting, GST, invoicing, bookkeeping, payroll |
 | Contact email | the company's support address |
 | Privacy policy URL | the published copy of `docs/release/PRIVACY-POLICY.md` (served from `deploy/public/privacy.html`) |
-| Screenshots | Home, a customer thread with a preview, Taxes, the GST review, Payroll. Take them on a Pixel at 1080×2400 after the first device run |
-| Feature graphic | 1024×500, the brand mark on the cream background from `mobile/lib/brand.dart` |
+| Screenshots | Eight at 1080×2160 in `docs/release/assets/play/` (`phone-01` to `phone-08`): home, a sale waiting for confirmation, a customer, an invoice, taxes, the GST review, reports, the books check. Rendered on sample books by `mobile/tool/play_listing_test.dart` |
+| Feature graphic | `docs/release/assets/play/feature-graphic.png`, 1024×500: the wordmark, the short description and Bahi on the cream background |
 
 ## 2. Data safety form
 
