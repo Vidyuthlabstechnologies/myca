@@ -65,6 +65,10 @@ void main() {
     expect(state.welcomed, isTrue);
     expect(find.textContaining('Namaste!'), findsNothing);
     expect(api.confirmed, isEmpty);
+    expect(api.proposals, isEmpty, reason: 'the sample sale never reaches the real books');
+    expect(api.sent, isEmpty, reason: 'no tour message is sent to the real assistant');
+    expect(api.uploads, isEmpty, reason: 'no sample file is uploaded');
+    expect(api.companyUpdates, isEmpty, reason: 'the sample business never renames the real one');
   });
 
   testWidgets('ending the tour early leaves the welcome screen as it was', (tester) async {
