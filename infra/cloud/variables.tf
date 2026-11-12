@@ -38,6 +38,19 @@ variable "test_code" {
   sensitive   = true
 }
 
+variable "reviewer_phone" {
+  description = "The Google Play reviewer's Indian mobile number (MYCA_REVIEWER_PHONE). Setting it turns the reviewer sign-in on: one number, a fixed code, demo businesses only. Empty keeps it off."
+  type        = string
+  default     = ""
+}
+
+variable "reviewer_code" {
+  description = "The fixed six-digit code the Play reviewer signs in with (MYCA_REVIEWER_CODE). Give it as TF_VAR_reviewer_code and in Play Console > App access, never in a file."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
 variable "image" {
   description = "Container image for the API, e.g. asia-south1-docker.pkg.dev/<project>/myca-api/api:<tag>."
   type        = string
