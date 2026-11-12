@@ -348,24 +348,64 @@ const DELHI_2026 = [
   ['2026-12-25', 'Christmas Day']
 ];
 
-const NOT_COMPULSORY_OUTSIDE_DELHI = ['Holi', 'Ram Navami', 'Janmashtami (Vaishnva)'];
-const MOON_SIGHTING = ['Id-ul-Fitr', 'Id-ul-Zuha (Bakrid)', 'Muharram', 'Milad-un-Nabi or Id-e-Milad (Birthday of Prophet Mohammad)'];
+const DELHI_2027 = [
+  ['2027-01-26', 'Republic Day'],
+  ['2027-03-10', 'Id-ul-Fitr'],
+  ['2027-03-23', 'Holi'],
+  ['2027-03-26', 'Good Friday'],
+  ['2027-04-15', 'Ram Navami'],
+  ['2027-04-19', 'Mahavir Jayanti'],
+  ['2027-05-17', 'Id-ul-Zuha (Bakrid)'],
+  ['2027-05-20', 'Budha Purnima'],
+  ['2027-06-16', 'Muharram'],
+  ['2027-08-15', 'Independence Day'],
+  ['2027-08-15', "Milad-un-Nabi or Id-e-Milad (Prophet Mohammad's Birthday)"],
+  ['2027-08-25', 'Janmashtami (Vaishnav)'],
+  ['2027-10-02', "Mahatma Gandhi's Birthday"],
+  ['2027-10-09', 'Dussehra (Vijaya Dashmi)'],
+  ['2027-10-29', 'Diwali (Deepavali)'],
+  ['2027-11-14', "Guru Nanak's Birthday"],
+  ['2027-12-25', 'Christmas Day']
+];
 
-test('holidays come only from the DoPT office memorandum for 2026 and hold one calendar year each', () => {
+const NOT_COMPULSORY_OUTSIDE_DELHI = ['Holi', 'Ram Navami', 'Janmashtami (Vaishnva)'];
+const NOT_COMPULSORY_OUTSIDE_DELHI_2027 = ['Holi', 'Ram Navami', 'Janmashtami (Vaishnav)'];
+const MOON_SIGHTING = ['Id-ul-Fitr', 'Id-ul-Zuha (Bakrid)', 'Muharram', 'Milad-un-Nabi or Id-e-Milad (Birthday of Prophet Mohammad)'];
+const MOON_SIGHTING_2027 = ['Id-ul-Fitr', 'Id-ul-Zuha (Bakrid)', 'Muharram', "Milad-un-Nabi or Id-e-Milad (Prophet Mohammad's Birthday)"];
+const HOLIDAY_YEARS = { 2026: { memorandum: /F\.No\.12\/2\/2023-JCA dated 03\.07\.2025/, moon: MOON_SIGHTING }, 2027: { memorandum: /F\.No\.12\/2\/2023-JCA dated 16\.07\.2026/, moon: MOON_SIGHTING_2027 } };
+
+test('holidays come only from the DoPT office memorandum for each year and hold one calendar year each', () => {
   assert.deepEqual(validateRules(HOLIDAY_RULES).problems, []);
-  assert.deepEqual(HOLIDAY_RULES.map((record) => record.id).sort(), ['holiday.central-government.compulsory', 'holiday.central-government.delhi']);
+  assert.deepEqual([...new Set(HOLIDAY_RULES.map((record) => record.id))].sort(), ['holiday.central-government.compulsory', 'holiday.central-government.delhi']);
+  assert.deepEqual([...new Set(HOLIDAY_RULES.map((record) => record.effectiveFrom.slice(0, 4)))].sort(), ['2026', '2027']);
   for (const record of HOLIDAY_RULES) {
+    const year = record.effectiveFrom.slice(0, 4);
     assert.deepEqual(record.attestations, []);
-    assert.equal(record.effectiveFrom, '2026-01-01');
-    assert.equal(record.effectiveTo, '2026-12-31');
-    assert.match(record.source, /12\/2\/2023-JCA/);
+    assert.equal(record.effectiveFrom, `${year}-01-01`);
+    assert.equal(record.effectiveTo, `${year}-12-31`);
+    assert.match(record.source, HOLIDAY_YEARS[year].memorandum);
     const dates = record.value.holidays.map((holiday) => holiday.date);
     assert.deepEqual(dates, [...dates].sort());
-    assert.equal(new Set(dates).size, dates.length);
-    for (const date of dates) assert.ok(isIsoDate(date) && date.startsWith('2026-'), date);
-    assert.deepEqual(record.value.moonSightingMayChange, MOON_SIGHTING);
+    const entries = record.value.holidays.map((holiday) => `${holiday.date} ${holiday.name}`);
+    assert.equal(new Set(entries).size, entries.length);
+    for (const date of dates) assert.ok(isIsoDate(date) && date.startsWith(`${year}-`), date);
+    assert.deepEqual(record.value.moonSightingMayChange, HOLIDAY_YEARS[year].moon);
+    const names = record.value.holidays.map((holiday) => holiday.name);
+    for (const name of record.value.moonSightingMayChange) assert.ok(names.includes(name), `${record.id} ${year}: ${name}`);
   }
-  assert.equal(rule('holiday.central-government.delhi', '2027-01-01').error, 'RULE_NOT_IN_FORCE');
+  assert.equal(rule('holiday.central-government.delhi', '2028-01-01').error, 'RULE_NOT_IN_FORCE');
+});
+
+test('2027: the Delhi list is Annexure-I of the 16 July 2026 memorandum and the compulsory list its 14 holidays', () => {
+  const delhi = valueOn('holiday.central-government.delhi', '2027-06-01').value;
+  assert.deepEqual(delhi.holidays, DELHI_2027.map(([date, name]) => ({ date, name })));
+  const compulsory = valueOn('holiday.central-government.compulsory', '2027-06-01').value;
+  assert.deepEqual(compulsory.holidays, DELHI_2027.filter(([, name]) => !NOT_COMPULSORY_OUTSIDE_DELHI_2027.includes(name)).map(([date, name]) => ({ date, name })));
+  assert.equal(compulsory.holidays.length, 14);
+  assert.deepEqual(delhi.holidays.filter((holiday) => holiday.date === '2027-08-15').map((holiday) => holiday.name), ['Independence Day', "Milad-un-Nabi or Id-e-Milad (Prophet Mohammad's Birthday)"]);
+  assert.equal(delhi.holidays.find((holiday) => holiday.name === 'Diwali (Deepavali)').date, '2027-10-29');
+  assert.equal(valueOn('holiday.central-government.delhi', '2026-12-31').value.holidays.at(-1).date, '2026-12-25');
+  assert.equal(valueOn('holiday.central-government.delhi', '2027-01-01').value.holidays[0].date, '2027-01-26');
 });
 
 test('the Delhi list is Annexure-I and the compulsory list is the 14 holidays every Central Government office observes', () => {

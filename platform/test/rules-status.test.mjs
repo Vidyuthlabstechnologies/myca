@@ -18,8 +18,8 @@ test('the rules status lists every Indian family with what is in force, what end
   assert.equal(d.totals.attested, 0);
   const holidays = d.families.find((f) => f.key === 'holiday');
   assert.equal(holidays.coveredUntil, '2026-12-31');
-  assert.deepEqual(holidays.ending.map((row) => row.effectiveTo), ['2026-12-31', '2026-12-31']);
-  assert.equal(holidays.attention, true);
+  assert.deepEqual(holidays.ending, [], 'the 2027 calendar follows on 2027-01-01');
+  assert.equal(holidays.attention, false);
   const gst = d.families.find((f) => f.key === 'gst');
   assert.equal(gst.attention, false);
   assert.deepEqual(gst.gaps, []);
@@ -27,13 +27,19 @@ test('the rules status lists every Indian family with what is in force, what end
   const pt = d.families.find((f) => f.key === 'professional-tax');
   assert.ok(pt.ids >= 14, `${pt.ids} states`);
   assert.match(d.notes[0], /No rule has been reviewed by your CA yet/);
-  assert.match(d.notes.join(' '), /Gazetted holiday calendar: 2 records end by 2026-12-31 with no successor recorded/);
+  assert.doesNotMatch(d.notes.join(' '), /Gazetted holiday calendar/);
   const words = rulesStatusWords(d);
   assert.match(words, /dated statutory records for India as of 2026-10-13; 0 reviewed by your CA\./);
-  assert.match(words, /Gazetted holiday calendar: 2 in force, latest from 2026-01-01, covered until 2026-12-31 — needs attention/);
-  const later = rulesStatus(state, { asOf: '2026-07-01' });
+  assert.doesNotMatch(words, /Gazetted holiday calendar[^.]*needs attention/);
+  const october2027 = rulesStatus(state, { asOf: '2027-10-13' }).data;
+  const ending2027 = october2027.families.find((f) => f.key === 'holiday');
+  assert.deepEqual(ending2027.ending.map((row) => row.effectiveTo), ['2027-12-31', '2027-12-31']);
+  assert.equal(ending2027.attention, true);
+  assert.match(october2027.notes.join(' '), /Gazetted holiday calendar: 2 records end by 2027-12-31 with no successor recorded/);
+  assert.match(rulesStatusWords(october2027), /Gazetted holiday calendar: 2 in force, latest from 2027-01-01, covered until 2027-12-31 — needs attention/);
+  const later = rulesStatus(state, { asOf: '2027-07-01' });
   assert.equal(later.data.families.find((f) => f.key === 'holiday').attention, false, 'nothing ends within ninety days of July');
-  const yearEnd = rulesStatus(state, { asOf: '2027-01-15' });
+  const yearEnd = rulesStatus(state, { asOf: '2028-01-15' });
   assert.deepEqual(yearEnd.data.families.find((f) => f.key === 'holiday').gaps, ['holiday.central-government.compulsory', 'holiday.central-government.delhi']);
 });
 
