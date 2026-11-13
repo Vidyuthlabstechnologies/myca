@@ -597,8 +597,8 @@ export const TOOLS = [
   {
     name: 'create_purchase',
     title: 'Record purchase bill',
-    description: 'Book a supplier invoice: purchases + AP (with GST input credit in India; in the US any sales tax paid is part of the cost).',
-    args: ['partyName', 'partyGstin', 'lines', 'date', 'supplierInvoiceNo', 'salesTaxPaid', 'documentSha256'],
+    description: 'Book a supplier invoice: purchases + AP (with GST input credit in India; in the US any sales tax paid is part of the cost). In India set reverseCharge for a purchase where you pay the GST (an unregistered supplier or a notified service), or originCountry for an import of services; MyCA then books the tax as payable by you and numbers a self-invoice (SI-nnnn) that can get an IRN as RCMDOM or RCMIMP.',
+    args: ['partyName', 'partyGstin', 'lines', 'date', 'supplierInvoiceNo', 'salesTaxPaid', 'documentSha256', 'reverseCharge', 'originCountry', 'partyAddress'],
     run: (state, args) => (countryOf(state) === 'US' ? createUsPurchase(state, args) : createPurchase(state, args)),
   },
   {
@@ -1654,7 +1654,7 @@ export const TOOLS = [
   {
     name: 'govt_generate_irn',
     title: 'Generate e-invoice IRN',
-    description: 'Build NIC Invoice JSON from a posted tax invoice, credit note (CN-) or debit note (DN-) and generate its IRN through the action gate (live switch and a matching CA approval). A note carries the original invoice as PrecDocDtls.',
+    description: 'Build NIC Invoice JSON from a posted tax invoice, credit note (CN-), debit note (DN-) or reverse charge self-invoice (SI-, or its BILL- number; sent as RCMDOM or RCMIMP with the supplier as URP) and generate its IRN through the action gate (live switch and a matching CA approval). A note carries the original invoice as PrecDocDtls.',
     args: ['invoiceId', 'provider', 'caApprovalId'],
     run: async (state, args = {}) => {
       if (!args.invoiceId) return fail('invoiceId required, e.g. INV-0001');

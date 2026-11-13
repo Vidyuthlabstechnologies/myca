@@ -550,7 +550,7 @@ export const TAX_TOOL_SCHEMAS = {
     additionalProperties: false,
     required: ['invoiceId'],
     properties: {
-      invoiceId: { type: 'string', pattern: '^(INV|CN|DN)-[0-9]{4,}$' },
+      invoiceId: { type: 'string', pattern: '^(INV|CN|DN|BILL|SI)-[0-9]{4,}$' },
       provider: { type: 'string', enum: ['nic', 'sandbox'] },
       caApprovalId: { type: 'string' },
     },

@@ -30,6 +30,7 @@ export function createState() {
     invoiceSeq: 0,
     invoiceSeqByFy: {},
     billSeq: 0,
+    selfInvoiceSeq: 0,
     transferSeq: 100000,
     imports: [],
     files: {},
@@ -145,6 +146,7 @@ export function serialize(state) {
     invoiceSeq: state.invoiceSeq,
     invoiceSeqByFy: state.invoiceSeqByFy || {},
     billSeq: state.billSeq || 0,
+    selfInvoiceSeq: state.selfInvoiceSeq || 0,
     transferSeq: state.transferSeq,
     imports: state.imports,
     attachments: state.attachments || {},
@@ -339,6 +341,7 @@ export function deserialize(raw) {
   state.invoiceSeq = raw.invoiceSeq || 0;
   state.invoiceSeqByFy = raw.invoiceSeqByFy && typeof raw.invoiceSeqByFy === 'object' ? raw.invoiceSeqByFy : {};
   state.billSeq = raw.billSeq || 0;
+  state.selfInvoiceSeq = raw.selfInvoiceSeq || 0;
   state.transferSeq = raw.transferSeq || 100000;
   state.imports = raw.imports || [];
   state.files = {};

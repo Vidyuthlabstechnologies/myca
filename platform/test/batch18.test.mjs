@@ -37,7 +37,8 @@ test('a credit or debit note builds a CRN or DBN e-invoice payload with the orig
   assert.equal(simulated.ok, true, JSON.stringify(simulated).slice(0, 300));
   assert.match(state.debitNotes[0].mockIrn, /^[a-f0-9]{64}$/);
   assert.equal(validateAssistantToolCall('govt_generate_irn', { invoiceId: 'CN-0001' }).ok, true);
-  assert.equal(validateAssistantToolCall('govt_generate_irn', { invoiceId: 'BILL-0001' }).ok, false);
+  assert.equal(validateAssistantToolCall('govt_generate_irn', { invoiceId: 'SI-0001' }).ok, true);
+  assert.equal(validateAssistantToolCall('govt_generate_irn', { invoiceId: 'PO-0001' }).ok, false);
   const plan = planLocalToolCall(state, 'generate irn CN-0001');
   assert.deepEqual(plan, { kind: 'tool', name: 'govt_generate_irn', args: { invoiceId: 'CN-0001' } });
   const mockPlan = planLocalToolCall(state, 'mock irn DN-0001');

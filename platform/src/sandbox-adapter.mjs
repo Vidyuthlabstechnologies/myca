@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { sandboxOperationById, createSandboxHandoff } from './sandbox-adapter-contract.mjs';
-import { invoiceToNicPayload, nicPartyFor, nicPayloadRefusal } from './nic-config.mjs';
+import { invoiceToNicPayload, nicDocumentById, nicPartyFor, nicPayloadRefusal } from './nic-config.mjs';
 import { performExternalAction } from './action-gate.mjs';
 import { quickoOperation } from './sandbox-endpoints.mjs';
 import { documentsOf, isSha256 } from './document-store.mjs';
@@ -27,7 +27,7 @@ function einvoicePayload(params, state) {
     return { ok: false, error: 'PAYLOAD_CONFLICTS_WITH_INVOICE', hint: 'Pass either params.invoiceId (the payload is built from the books) or a NIC JSON params.payload, not both.' };
   }
   if (invoiceId) {
-    const invoice = [...(state?.invoices || []), ...(state?.purchases || [])].find((i) => i.id === invoiceId);
+    const invoice = nicDocumentById(state, invoiceId) || (state?.purchases || []).find((i) => i.id === invoiceId);
     if (!invoice) return { ok: false, error: 'INVOICE_NOT_FOUND', invoiceId };
     const refused = nicPayloadRefusal(state, invoice);
     if (refused) return refused;
