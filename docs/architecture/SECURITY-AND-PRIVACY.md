@@ -225,16 +225,75 @@
 
 ## 5. Language models
 
-Not in use today. When one is added (ADR-0004):
+A model is used in three places, and only when `MYCA_MODEL_API_KEY` is set
+(`platform/src/model-adapter.mjs`): choosing an action for a chat message the
+built-in rules did not understand, translating a Hindi or Telugu message into
+English, and reading a bill or receipt. In every one of them the model's answer
+is treated as untrusted input.
 
-- It receives the message and the tool catalogue, not the books.
-- It returns a tool name and arguments, which are validated against the schema and
-  shown to the owner as a preview.
-- For document reading it receives the document image. Whether that may leave India,
-  and which provider's terms are acceptable for financial documents, is PRD Q3 and
-  belongs to the DPDP assessment.
-- Text in a document or a message is data. It is never treated as an instruction to
-  the system.
+- It receives the message, the last few chat turns, the country of the business
+  and a list of actions. It does not receive the books or a key.
+- The list it is given (`modelTools` in `platform/src/assistant-tools.mjs`) holds
+  only actions that are previewed before they change anything and actions that
+  only read. Actions that reach a government system directly, run an automation,
+  read a document or change sandbox keys are never in it.
+- It returns an action name and arguments. A name that was not in the list is
+  refused (`MODEL_UNOFFERED_TOOL`), even when an action of that name exists. The
+  arguments are checked against the action's schema, which refuses a field it
+  does not name, a number above `MAX_EXACT_AMOUNT` and a field named like a
+  built-in object property.
+- An action that changes the books is held as a preview, and only the person's
+  own next message can confirm it. A translation cannot: when a translated
+  message would confirm, or would run an action the model is not given, nothing
+  is done and the person is asked to write that one message plainly.
+- A translation must keep every figure of the original (`figuresKept`), or it is
+  discarded.
+- Reading a document gives a proposed purchase with cleaned fields and posts
+  nothing. Text in a document, a party name, a note or an earlier chat turn is
+  data. It is never treated as an instruction to the system.
+- A message the chat model does not match gets a fixed reply. It is not handed
+  to a second model, and no free-text answer from a model is shown as MyCA's
+  own. NVIDIA NIM answers only when the person writes "ask nim ...", the reply
+  is labelled as NIM's, and the hosted service is not given a NIM key. The chat
+  model's key is given to no other provider.
+- What is sent is bounded: a message of at most 2,000 characters, the last six
+  turns at 500 characters each, an answer of at most 1,024 tokens, 30 seconds.
+- Asking the assistant is limited to 120 an hour for each person, in the app and
+  on WhatsApp together. Past the limit WhatsApp sends one notice and then stays
+  quiet until the hour is over.
+
+`platform/test/red-team/prompts.mjs` holds 73 attacks: a model told to file a
+return, pay tax, sign, save or clear provider keys, load demo data over real
+books or run an automation; entries the person never asked for; forged earlier
+turns and approvals; instructions hidden in a bill or a party name; a
+translation that turns into a confirmation or changes an amount; action names
+that are unlisted, empty or invented; arguments that are too large, negative or
+malformed. `platform/test/red-team.test.mjs` plays each one with the model's
+answer scripted to do what the attacker wants, and fails when the books change
+without a preview, an action outside the list runs, or a planted key value
+appears in a request to the model or in a reply. The same file runs every action
+the model may run without a preview and checks the books are unchanged after it.
+The set runs with the platform suite on every push. A new attack is one more
+entry in the list.
+
+Not covered by the set: what a real model does with these prompts. The answers
+are scripted, so the set proves the gate holds whatever the model says, not that
+the model resists.
+
+Open, for the owner and the DPDP assessment:
+
+- A PAN, GSTIN, Aadhaar or bank account number typed into a message reaches the
+  model provider as typed, and so do party names and amounts in the six
+  remembered turns. US taxpayer numbers are masked before sending
+  (`redactModelRequest`); Indian identifiers are not, because the action chosen
+  needs them.
+- A bill or receipt that is read goes to the provider as an image. Which region
+  it may be sent to, and which provider's terms are acceptable for financial
+  documents, is PRD Q3.
+- Seventeen nested argument objects accept fields they do not name (the free
+  `params` of an approval request and of a raw provider operation, and some
+  Malaysia e-invoice and US form parts). Each of them sits behind a preview or
+  is never offered to the model.
 
 ## 6. Play Store
 

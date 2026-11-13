@@ -8,6 +8,7 @@ import { wahaConfigFromEnv, wahaPhone, wahaSignatureMatches } from './waha.mjs';
 const GRAPH_VERSION = 'v21.0';
 const MAX_TEXT = 2000;
 const REPLY_LIMIT = 4000;
+const TOO_MANY_REPLY = 'That is a lot of messages in one hour, so I am pausing here. Write again in a little while, or use the app.';
 const TIMEOUT_MS = 15000;
 
 function masked(phone) {
@@ -67,7 +68,7 @@ export function signatureMatches(appSecret, rawBody, header) {
   return timingSafeEqual(Buffer.from(expected, 'hex'), Buffer.from(given, 'hex'));
 }
 
-export function createWhatsApp({ db, withBooks, billing = null, withSharedBooks = null, syncOf = null, config = {}, sender = null, now = () => Date.now(), log = () => {} }) {
+export function createWhatsApp({ db, withBooks, billing = null, withSharedBooks = null, syncOf = null, rateLimits = null, config = {}, sender = null, now = () => Date.now(), log = () => {} }) {
   const metaEnabled = config.provider !== 'waha' && Boolean(config.verifyToken) && Boolean(config.appSecret) && Boolean(sender);
   const wahaEnabled = config.provider === 'waha' && Boolean(config.waha?.webhookSecret) && Boolean(sender);
   const enabled = metaEnabled || wahaEnabled;
@@ -139,6 +140,12 @@ export function createWhatsApp({ db, withBooks, billing = null, withSharedBooks 
     if (answer.text) {
       await reply(phone, answer.text);
       return { ok: true, replied: true };
+    }
+    const taken = rateLimits ? await rateLimits.take('ask', answer.user.userId) : { ok: true };
+    if (!taken.ok) {
+      const told = (await rateLimits.take('askPaused', answer.user.userId)).ok;
+      if (told) await reply(phone, TOO_MANY_REPLY);
+      return { ok: true, replied: told, rateLimited: true };
     }
     const actor = { actor: { userId: answer.user.userId, role: engineRole(answer.user.role), name: answer.user.name || answer.user.userId } };
     const asked = chatText(text);

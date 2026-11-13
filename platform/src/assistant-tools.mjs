@@ -6,6 +6,8 @@ const ASSISTANT_BLOCKED_TOOLS = new Set(['govt_save_credentials', 'set_channel_c
 
 const TOOL_RISK = {
   create_invoice: 'writes_books',
+  share_invoice: 'internal_workflow',
+  govt_nic_mock: 'external_government_api',
   create_purchase: 'writes_books',
   record_receipt: 'writes_books',
   record_payment: 'writes_books',
@@ -203,6 +205,15 @@ const TOOL_RISK = {
   ...ENGINE_TOOL_RISK,
 };
 
+const MODEL_NEVER = new Set(['run_automation', 'read_document', 'sandbox_operation', 'nim_ask']);
+const MODEL_READS = new Set(['read_only', 'read_or_prepare']);
+
+export function modelTools(tools, needsConfirmation) {
+  return assistantTools(tools).filter((tool) => !MODEL_NEVER.has(tool.name)
+    && tool.risk !== 'external_government_api'
+    && (needsConfirmation(tool.name) || MODEL_READS.has(tool.risk)));
+}
+
 export function assistantTools(tools) {
   return tools
     .filter((tool) => !ASSISTANT_BLOCKED_TOOLS.has(tool.name))
@@ -261,7 +272,7 @@ function validateObject(schema, value, path = 'args') {
   }
   if (schema.additionalProperties === false) {
     for (const key of Object.keys(value)) {
-      if (!schema.properties?.[key]) return `${path}.${key} is not allowed`;
+      if (!Object.hasOwn(schema.properties || {}, key)) return `${path}.${key} is not allowed`;
     }
   }
   for (const [key, childSchema] of Object.entries(schema.properties || {})) {

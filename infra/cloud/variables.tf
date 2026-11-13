@@ -234,7 +234,7 @@ variable "sms_msg91_template_id" {
 }
 
 variable "model_api_key" {
-  description = "API key for the language model that reads bills and answers in Hindi and Telugu. Leave \"unset\" to run without a model (English rules only)."
+  description = "API key for the chat model that routes unmatched messages, reads bills and translates Hindi and Telugu (MYCA_MODEL_API_KEY, Anthropic Messages API). It is given to no other provider. Leave \"unset\" to run without a model (English rules only)."
   type        = string
   default     = "unset"
   sensitive   = true
@@ -247,7 +247,7 @@ variable "model_name" {
 }
 
 variable "model_base_url" {
-  description = "OpenAI-compatible base URL of the model provider. Empty uses the engine default."
+  description = "Base URL of the chat model provider, which must speak the Anthropic Messages API. Empty uses the engine default."
   type        = string
   default     = ""
 }

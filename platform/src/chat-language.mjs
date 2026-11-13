@@ -1,4 +1,5 @@
 import { modelConfigured, translateWithModel } from './model-adapter.mjs';
+import { confirmationIntent } from './chat-confirm.mjs';
 
 const SCRIPTS = [
   ['hi', /[ऀ-ॿ]/],
@@ -12,6 +13,10 @@ const MODEL_OFF = {
 const NOT_UNDERSTOOD = {
   hi: 'मैं इस संदेश का अनुवाद पक्के तौर पर नहीं कर सका, और संख्याओं का अंदाज़ा नहीं लगाता। कृपया अंग्रेज़ी में लिखें या अंकों को वैसे ही दोहराएँ। कुछ भी दर्ज नहीं किया गया।',
   te: 'ఈ సందేశాన్ని నేను ఖచ్చితంగా అనువదించలేకపోయాను, సంఖ్యలను ఊహించను. దయచేసి ఇంగ్లీష్‌లో రాయండి లేదా అంకెలను అలాగే మళ్ళీ చెప్పండి. ఏదీ నమోదు కాలేదు.',
+};
+const SAY_IT_PLAINLY = {
+  hi: 'पोस्ट करने के लिए "हाँ" लिखें, या रद्द करने के लिए "नहीं"। अभी कुछ भी दर्ज नहीं किया गया।',
+  te: 'పోస్ట్ చేయడానికి "అవును" అని రాయండి, రద్దు చేయడానికి "వద్దు" అని రాయండి. ఇప్పటివరకు ఏదీ నమోదు కాలేదు.',
 };
 const READ_AS = { hi: 'अंग्रेज़ी में समझा गया', te: 'ఇంగ్లీష్‌లో అర్థం చేసుకున్నది' };
 const DECISIONS = {
@@ -66,7 +71,9 @@ export async function throughLanguage(message, runEnglish) {
   if (!modelConfigured()) return { reply: MODEL_OFF[language], tools: [], language, blocked: true };
   const understood = await translateWithModel({ text: message, from: NAMES[language], to: 'English' });
   if (!understood.ok || !figuresKept(message, understood.text)) return { reply: NOT_UNDERSTOOD[language], tools: [], language, blocked: true };
-  const out = await runEnglish(understood.text);
+  const decided = confirmationIntent(understood.text);
+  if (decided && decided !== 'cancel') return { reply: SAY_IT_PLAINLY[language], tools: [], posted: false, language, understood: understood.text, blocked: true };
+  const out = await runEnglish(understood.text, { translated: true });
   const back = await translateWithModel({ text: out.reply, from: 'English', to: NAMES[language] });
   const reading = out.awaitingConfirmation ? `\n${READ_AS[language]}: "${understood.text}"` : '';
   if (!back.ok || !figuresKept(out.reply, back.text)) return { ...out, reply: `${out.reply}${reading}`, language, understood: understood.text, translated: false };

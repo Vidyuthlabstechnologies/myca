@@ -36,7 +36,7 @@ import { excelPlanWaits, planExcelFromChat } from './excel-intent.mjs';
 import { SUPPLIER_DUES_SAID, MSME_STATED, TERMS_TALK_SAID, POSTING_SAID, planSupplierTermsFromChat } from './supplier-terms-intent.mjs';
 
 export { TOOL_ARG_SCHEMAS } from './tool-schemas.mjs';
-export { assistantTools, validateAssistantToolCall } from './assistant-tools.mjs';
+export { assistantTools, modelTools, validateAssistantToolCall } from './assistant-tools.mjs';
 
 const PERIOD_TOOLS = new Set(['gst_payable', 'export_tally', 'export_gstr1_json', 'prepare_gstr1', 'filing_pack', 'prepare_gstr3b']);
 
