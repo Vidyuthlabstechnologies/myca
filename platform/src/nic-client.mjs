@@ -95,7 +95,7 @@ function envOf(cfg) {
 // per set of credentials means no other GSTIN can ever be sent under it.
 export function nicSessionKey(cfg = {}) {
   return createHash('sha256')
-    .update([envOf(cfg), cfg.clientId, cfg.username, cfg.gstin].map((part) => String(part ?? '').trim()).join('\n'))
+    .update(JSON.stringify([envOf(cfg), cfg.clientId, cfg.username, cfg.gstin].map((part) => String(part ?? '').trim()).concat([String(cfg.clientSecret ?? ''), String(cfg.password ?? '')])))
     .digest('hex');
 }
 

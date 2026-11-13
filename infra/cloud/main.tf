@@ -685,6 +685,34 @@ resource "google_monitoring_alert_policy" "latency" {
   notification_channels = local.alert_channels
 }
 
+resource "google_monitoring_alert_policy" "jobs" {
+  count = var.alert_email != "" ? 1 : 0
+
+  display_name = "MyCA nightly or weekly job failed${local.title_suffix}"
+  combiner     = "OR"
+
+  conditions {
+    display_name = "Cloud Scheduler got no success from the API"
+    condition_matched_log {
+      filter = "resource.type=\"cloud_scheduler_job\" AND resource.labels.job_id=~\"^${local.name}-(daily|weekly)$\" AND severity>=ERROR"
+    }
+  }
+
+  alert_strategy {
+    auto_close = "86400s"
+    notification_rate_limit {
+      period = "3600s"
+    }
+  }
+
+  documentation {
+    mime_type = "text/markdown"
+    content   = "The scheduler called the API and did not get a 2xx answer, so the daily checks and the retention purge may not have run. A 404 means the job token in the scheduler and in the service differ. See docs/operations/RUNBOOK.md, \"Scheduler alert: a job failed\"."
+  }
+
+  notification_channels = local.alert_channels
+}
+
 resource "google_logging_project_bucket_config" "myca" {
   project        = var.project_id
   location       = "global"

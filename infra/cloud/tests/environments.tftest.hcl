@@ -59,6 +59,29 @@ run "production_keeps_its_original_names" {
   }
 }
 
+run "a_failed_nightly_or_weekly_job_raises_an_alert" {
+  command = apply
+
+  variables {
+    alert_email = "ops@example.com"
+  }
+
+  assert {
+    condition     = length(google_monitoring_alert_policy.jobs) == 1
+    error_message = "With an alert address there must be an alert for a failed scheduled job."
+  }
+
+  assert {
+    condition     = google_monitoring_alert_policy.jobs[0].conditions[0].condition_matched_log[0].filter == "resource.type=\"cloud_scheduler_job\" AND resource.labels.job_id=~\"^myca-api-(daily|weekly)$\" AND severity>=ERROR"
+    error_message = "The alert must watch the daily and weekly scheduler jobs of this stack for errors."
+  }
+
+  assert {
+    condition     = google_cloud_scheduler_job.daily.name == "myca-api-daily"
+    error_message = "The alert filter and the daily job must share one name."
+  }
+}
+
 run "production_keeps_the_play_reviewer_sign_in_off_by_default" {
   command = apply
 

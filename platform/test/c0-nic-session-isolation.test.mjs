@@ -79,7 +79,7 @@ test('each taxpayer reuses its own session and keeps it when another signs in', 
   });
 });
 
-test('the session key separates environment, client, user and GSTIN', () => {
+test('the session key separates environment, client, user, GSTIN and the secrets given with them', () => {
   const keys = new Set([
     nicSessionKey(ALPHA),
     nicSessionKey(BETA),
@@ -88,5 +88,7 @@ test('the session key separates environment, client, user and GSTIN', () => {
     nicSessionKey({ ...ALPHA, gstin: '24AAACG1234F1Z5' }),
   ]);
   assert.equal(keys.size, 5);
-  assert.equal(nicSessionKey(ALPHA), nicSessionKey({ ...ALPHA, password: 'changed', clientSecret: 'x' }));
+  assert.equal(nicSessionKey(ALPHA), nicSessionKey({ ...ALPHA }));
+  assert.notEqual(nicSessionKey(ALPHA), nicSessionKey({ ...ALPHA, password: 'changed' }));
+  assert.notEqual(nicSessionKey(ALPHA), nicSessionKey({ ...ALPHA, clientSecret: 'x' }));
 });

@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { loadEnvFile, testModeEnabled } from './runtime-config.mjs';
 import { providerContext } from './provider-context.mjs';
 import { loadSandboxKeys, SANDBOX_HOSTS } from './sandbox-keys.mjs';
@@ -29,8 +30,16 @@ const irpSessions = new Map();
 const MAX_IRP_SESSIONS = 256;
 const IRP_SESSION_MS = 6 * 3600 * 1000;
 
+function cacheKey(parts) {
+  return createHash('sha256').update(JSON.stringify(parts.map((part) => String(part ?? '')))).digest('hex');
+}
+
+function platformKey(client) {
+  return cacheKey([client.baseUrl, client.apiKey, client.apiSecret]);
+}
+
 function irpSessionKey(client, creds) {
-  return [client.baseUrl, client.apiKey, creds.gstin, creds.username].map((part) => String(part || '').trim()).join('|');
+  return cacheKey([client.baseUrl, client.apiKey, client.apiSecret, String(creds.gstin || '').trim().toUpperCase(), String(creds.username || '').trim(), creds.password]);
 }
 
 export function clearIrpSessions() {
@@ -129,7 +138,7 @@ export class SandboxClient {
     this.apiVersion = options.apiVersion ?? '1.0.0';
     const send = options.fetchFn || ((...args) => globalThis.fetch(...args));
     this.fetchFn = (url, init = {}) => send(url, { redirect: 'error', ...init });
-    const cached = platformTokens.get(`${this.baseUrl}|${this.apiKey}`);
+    const cached = platformTokens.get(platformKey(this));
     this.token = cached?.token || null;
     this.tokenExpiresAt = cached?.expiresAt || 0;
     this.taxpayerToken = options.taxpayerToken || null;
@@ -200,7 +209,7 @@ export class SandboxClient {
       }
       this.token = accessToken;
       this.tokenExpiresAt = now + (Number(data.expires_in || 82800) * 1000);
-      platformTokens.set(`${this.baseUrl}|${this.apiKey}`, { token: this.token, expiresAt: this.tokenExpiresAt });
+      platformTokens.set(platformKey(this), { token: this.token, expiresAt: this.tokenExpiresAt });
       return { ok: true, expiresIn: Number(data.expires_in || 82800), message: 'Sandbox authentication successful' };
     } catch (err) {
       return { ok: false, error: String(err.message || err) };
@@ -227,7 +236,7 @@ export class SandboxClient {
       let data = await res.json().catch(() => ({}));
       if (res.status === 401 && !options.token) {
         this.token = null;
-        platformTokens.delete(`${this.baseUrl}|${this.apiKey}`);
+        platformTokens.delete(platformKey(this));
         const retryAuth = await this.authenticate(true, options);
         if (!retryAuth.ok) return retryAuth;
         res = await send(this.token);
@@ -553,7 +562,7 @@ export class SandboxClient {
     if (res.ok && Number(data.Status) === 1 && data.access_token) {
       const expires = Number(data.expiry || 0);
       this.einvoiceToken = data.access_token;
-      this.einvoiceKey = irpSessionKey(this, { username, gstin: String(gstin || '').trim().toUpperCase() });
+      this.einvoiceKey = irpSessionKey(this, { username, password, gstin });
       this.einvoiceExpiresAt = expires > Date.now() ? expires : Date.now() + IRP_SESSION_MS;
       return { ok: true, status: res.status, expiresAt: this.einvoiceExpiresAt };
     }
