@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../secure_window.dart';
 import '../theme.dart';
 
 class RecoveryCodesScreen extends StatefulWidget {
@@ -12,7 +13,7 @@ class RecoveryCodesScreen extends StatefulWidget {
   State<RecoveryCodesScreen> createState() => _RecoveryCodesScreenState();
 }
 
-class _RecoveryCodesScreenState extends State<RecoveryCodesScreen> {
+class _RecoveryCodesScreenState extends State<RecoveryCodesScreen> with SecureWindowWhileShown {
   bool _copied = false;
 
   Future<void> _copyAll() async {

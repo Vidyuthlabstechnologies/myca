@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../api/myca_api.dart';
 import '../app_state.dart';
 import '../cloud/cloud_session.dart';
+import '../secure_window.dart';
 import '../theme.dart';
 import '../widgets/qr_image.dart';
 import 'recovery_codes_screen.dart';
@@ -15,7 +16,7 @@ class TwoStepSetupScreen extends StatefulWidget {
   State<TwoStepSetupScreen> createState() => _TwoStepSetupScreenState();
 }
 
-class _TwoStepSetupScreenState extends State<TwoStepSetupScreen> {
+class _TwoStepSetupScreenState extends State<TwoStepSetupScreen> with SecureWindowWhileShown {
   Future<SecondStepSetup>? _setup;
   final _code = TextEditingController();
   String _error = '';
