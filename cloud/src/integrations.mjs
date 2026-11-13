@@ -1,19 +1,3 @@
-// One place that knows every outside service MyCA talks to, which keys each one needs,
-// and how a test key differs from a live one.
-//
-// The whole service runs in one provider mode, MYCA_PROVIDER_ENV (off, test or live;
-// MYCA_MOCK_MODE=1 answers with labelled simulated results instead). Keys that differ
-// between sandbox and production sit in two slots, for example
-//   MYCA_STRIPE_TEST_SECRET_KEY   and   MYCA_STRIPE_LIVE_SECRET_KEY
-// applyKeySlots() copies the slot of the active mode into the plain name the code reads
-// (MYCA_STRIPE_SECRET_KEY) and removes the other slot from the process, so a sandbox
-// server never holds a live key in memory. Going live is then one change: set
-// MYCA_PROVIDER_ENV=live (Terraform provider_mode = "live") with the LIVE slots filled.
-//
-// keyProblems() runs before anything else at startup and refuses to start on a mixed or
-// half-set configuration: a live key in a test slot, a test key while live, a key without
-// its secret, or live mode without the keys live mode needs.
-
 import { hostedCountries } from './residency.mjs';
 import { deploymentEnvironment } from './environment.mjs';
 
@@ -34,7 +18,6 @@ export function keyKind(value) {
   return '';
 }
 
-// Names whose value differs between sandbox and production. Each has a TEST and a LIVE slot.
 export const SLOTTED = Object.freeze({
   MYCA_GSP_API_KEY: 'MYCA_GSP_{MODE}_API_KEY',
   MYCA_GSP_API_SECRET: 'MYCA_GSP_{MODE}_API_SECRET',
@@ -48,7 +31,6 @@ export const SLOTTED = Object.freeze({
 
 export const slotName = (base, mode) => SLOTTED[base].replace('{MODE}', mode === 'live' ? 'LIVE' : 'TEST');
 
-// The provider mode as the server will run it, read from env alone (no .env files).
 export function providerModeOf(env = process.env) {
   if (TRUE_WORDS.has(lower(env.MYCA_MOCK_MODE))) return 'simulated';
   const declared = lower(env.MYCA_PROVIDER_ENV);
@@ -58,7 +40,6 @@ export function providerModeOf(env = process.env) {
 
 const keyMode = (mode) => (mode === 'live' ? 'live' : 'test');
 
-// The value the code will see for a slotted name once slots are applied.
 function effective(env, base, mode) {
   return read(env, slotName(base, keyMode(mode))) || read(env, base);
 }
@@ -149,7 +130,6 @@ function configured(env, item, mode) {
   return 'not set';
 }
 
-// What each integration will do in this configuration. Never includes a key's value.
 export function integrationReport(env = process.env) {
   const mode = providerModeOf(env);
   const countries = hostedCountries(env);
@@ -165,7 +145,6 @@ export function integrationReport(env = process.env) {
   return { mode, countries, integrations: rows };
 }
 
-// Problems that must stop the server from starting.
 export function keyProblems(env = process.env) {
   const mode = providerModeOf(env);
   const problems = [];
@@ -214,9 +193,6 @@ export function keyProblems(env = process.env) {
   return problems;
 }
 
-// Copy the active mode's slots into the plain names and drop the other mode's slots, so the
-// rest of the server reads one name and a sandbox process never holds a live key.
-// Run keyProblems() first: this does not check anything.
 export function applyKeySlots(env = process.env) {
   const mode = providerModeOf(env);
   const active = keyMode(mode);

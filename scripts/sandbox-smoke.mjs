@@ -1,11 +1,4 @@
 #!/usr/bin/env node
-// Sandbox smoke test from a PC: one real call to the sandbox of every integration whose test
-// keys are in this shell. See cloud/src/sandbox-smoke.mjs for the checks and the keys they read,
-// and docs/release/GO-LIVE.md for when to run it.
-//
-//   node scripts/sandbox-smoke.mjs                # every check that has keys
-//   node scripts/sandbox-smoke.mjs quicko stripe  # only these
-//   node scripts/sandbox-smoke.mjs --json
 
 import { runSmoke } from '../cloud/src/sandbox-smoke.mjs';
 

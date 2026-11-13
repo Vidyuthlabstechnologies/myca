@@ -1,26 +1,3 @@
-// Sandbox smoke test: one real call to the sandbox of every integration MyCA uses.
-//
-//   node scripts/sandbox-smoke.mjs              # from a PC, with test keys in the shell
-//   POST /v1/jobs/sandbox-smoke                 # the API itself, nightly, with the keys it holds
-//
-// Safety, before anything is sent:
-//   - It refuses to run if any key it would use looks like a live key (key_live_, sk_live_ ...).
-//   - Every request goes through a guard that only lets sandbox hosts through. A production
-//     host (api.stripe.com is shared, so Stripe is checked by key instead) stops the run.
-//   - Nothing is filed: the e-invoice check generates an IRN on the NIC sandbox only.
-//
-// Keys it reads (all test keys; the same names the server uses):
-//   Quicko            MYCA_GSP_TEST_API_KEY, MYCA_GSP_TEST_API_SECRET
-//   NIC e-invoice     MYCA_SMOKE_IRP_USER, MYCA_SMOKE_IRP_PASSWORD, MYCA_SMOKE_IRP_GSTIN (Quicko's sandbox IRP user)
-//   Stripe            MYCA_STRIPE_TEST_SECRET_KEY
-//   Plaid             MYCA_SMOKE_PLAID_CLIENT_ID, MYCA_SMOKE_PLAID_SECRET
-//   Gusto (demo)      MYCA_SMOKE_GUSTO_ACCESS_TOKEN
-//   TaxJar (sandbox)  MYCA_SMOKE_TAXJAR_TOKEN
-//   WAHA WhatsApp     MYCA_WAHA_URL, MYCA_WAHA_API_KEY
-//   AI model          MYCA_MODEL_API_KEY or NVIDIA_NIM_API_KEY (MYCA_MODEL_BASE_URL optional)
-//   US e-file partner MYCA_US_FILER_TEST_BASE_URL, MYCA_US_FILER_TEST_API_KEY
-// A check without its keys is reported as "skipped", never as passed.
-
 import { keyKind } from './integrations.mjs';
 
 const SANDBOX_HOSTS = new Set([
@@ -59,7 +36,6 @@ async function json(res) {
   try { return JSON.parse(text); } catch { return { raw: text.slice(0, 200) }; }
 }
 
-// A public GSTIN whose search result is stable on Quicko's test host.
 const SAMPLE_GSTIN = '27AAPFU0939F1ZV';
 
 export const CHECKS = [
@@ -233,8 +209,6 @@ export async function runSmoke(env = process.env, { fetchFn = globalThis.fetch, 
   return { ok: !results.some((r) => r.status === 'failed'), results };
 }
 
-// The running API in test mode: after applyKeySlots() the plain names hold the test keys
-// (keyProblems() refused to start otherwise), so they stand in for the TEST slots.
 export function serverSmokeEnv(env = process.env) {
   const out = { ...env };
   for (const [slot, plain] of [

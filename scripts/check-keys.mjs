@@ -1,13 +1,4 @@
 #!/usr/bin/env node
-// Checks a set of MyCA server settings before they go anywhere near a deploy.
-//
-//   node scripts/check-keys.mjs                 # checks this shell's environment
-//   node scripts/check-keys.mjs prod.env        # checks a KEY=value file
-//   node scripts/check-keys.mjs prod.env --live # also asks "would this be safe if I switched to live now?"
-//
-// It prints which mode the API would run in, what each integration would reach, and every
-// problem that would stop the API from starting. It never prints a key's value.
-// Exit code 1 when the API would refuse to start.
 
 import { readFileSync } from 'node:fs';
 import { integrationReport, keyProblems } from '../cloud/src/integrations.mjs';

@@ -481,13 +481,10 @@ class ServerInfo {
   final String environment;
   final String version;
 
-  /// How the server reaches tax portals, e-file partners and payment providers:
-  /// live, test (their sandboxes), simulated or off. Empty from an older server.
   final String providerMode;
 
   bool get isTestServer => environment.isNotEmpty && environment != 'production';
 
-  /// The production server running on sandbox keys: real books, nothing filed for real.
   bool get isSandbox => !isTestServer && providerMode.isNotEmpty && providerMode != 'live';
 
   bool get isTest => isTestServer || isSandbox;

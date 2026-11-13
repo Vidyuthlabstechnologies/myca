@@ -239,8 +239,6 @@ class _Readable extends StatelessWidget {
 class TestServerBanner extends StatelessWidget {
   const TestServerBanner({super.key, this.sandbox = false});
 
-  /// True on the production server while it runs on sandbox keys: the books are real,
-  /// but returns, e-invoices and e-way bills go to the providers' test systems.
   final bool sandbox;
 
   @override
