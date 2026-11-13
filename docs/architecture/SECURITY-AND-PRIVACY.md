@@ -90,8 +90,9 @@
 - One business's books are one row; a request locks and reads only that row.
 - The acting user is supplied by the server from the verified session. Identity fields
   in a request body are overwritten (`withTrustedActor`).
-- Provider sessions are keyed by environment, client, user and GSTIN, so one taxpayer's
-  session is never reused for another.
+- Provider sessions are keyed by environment, client, user and GSTIN and are served only
+  to a caller who presents the secrets that opened them, so one taxpayer's session is
+  never reused for another.
 - The WhatsApp channel applies the same shared-view rule as the API: an accountant whose
   owner shares the books daily or by hand reads the shared copy and cannot post (2026-10-16).
 - One address may ask for at most thirty sign-in codes an hour across all numbers, beside
@@ -125,8 +126,10 @@
   it is scrubbed, and only the first 40 frames are read.
 - A session with a government system is never shared between businesses (2026-11-13). The
   engine keeps e-invoice, e-way bill and Sandbox platform sessions in memory for reuse;
-  each is now filed under a hash of everything that was presented to get it, the password
-  or API secret included. Before, the key was the GSTIN and the API user name alone, so a
+  each is now kept with the password and API secret that opened it, and is handed out only
+  to a caller who presents the same ones (compared in constant time, never hashed or
+  logged). A wrong password signs in on its own and cannot remove the holder's session.
+  Before, a session was found by the GSTIN and the API user name alone, so a
   second business that saved another taxpayer's GSTIN and user name with any password was
   served from that taxpayer's live session. GST portal and Quicko sessions were already
   stored per business in the database.

@@ -1,7 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { randomBytes, generateKeyPairSync } from 'node:crypto';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { SandboxClient, clearIrpSessions } from '../src/sandbox-client.mjs';
-import { nicSessionKey } from '../src/nic-client.mjs';
+import { clearNicSession, encryptPayload, nicGetIrn, nicSession } from '../src/nic-client.mjs';
 
 const BASE = 'https://test-api.sandbox.co.in';
 const GSTIN = '29ABCDE1234F1Z5';
@@ -71,16 +75,71 @@ test('a Sandbox platform token is never handed to a caller who gives the same AP
   assert.equal(fake.calls.filter((call) => call.path === '/authenticate').length, signIns, 'the owner still reuses their own token');
 });
 
-test('a direct NIC session is kept apart by password and client secret as well as by client, user and GSTIN', () => {
-  const alpha = { env: 'sandbox', clientId: 'client-1', clientSecret: 'cs', username: 'alpha', password: 'p', gstin: GSTIN };
-  const keys = new Set([
-    nicSessionKey(alpha),
-    nicSessionKey({ ...alpha, password: 'a-guess' }),
-    nicSessionKey({ ...alpha, clientSecret: 'a-guess' }),
-    nicSessionKey({ ...alpha, username: 'other' }),
-    nicSessionKey({ ...alpha, gstin: '27AABCU9603R1ZN' }),
-  ]);
-  assert.equal(keys.size, 5);
-  assert.equal(nicSessionKey(alpha), nicSessionKey({ ...alpha }));
-  assert.match(nicSessionKey(alpha), /^[a-f0-9]{64}$/);
+function fakeIrp() {
+  const calls = [];
+  const state = { refuse: false };
+  let sek = '';
+  const fetchFn = async (url, opts) => {
+    const signIn = url.endsWith('/eivital/v1.04/auth');
+    calls.push({ signIn, token: opts.headers.AuthToken || '' });
+    if (signIn) {
+      if (state.refuse) return { ok: true, status: 200, text: async () => JSON.stringify({ Status: 0, ErrorDetails: [{ ErrorCode: '1005', ErrorMessage: 'Invalid Token' }] }) };
+      sek = randomBytes(32).toString('base64');
+      return { ok: true, status: 200, text: async () => JSON.stringify({ Status: 1, Data: { AuthToken: 'token-of-alpha', Sek: sek, TokenExpiry: new Date(Date.now() + 3600000).toISOString() } }) };
+    }
+    return { ok: true, status: 200, text: async () => JSON.stringify({ Status: 1, Data: encryptPayload({ Irn: 'IRN-X' }, sek) }) };
+  };
+  return { calls, state, fetchFn };
+}
+
+test('a direct NIC session is never used for a caller who gives another password or client secret', async () => {
+  clearNicSession();
+  const dir = mkdtempSync(join(tmpdir(), 'myca-nic-held-'));
+  const before = process.env.APPDATA;
+  process.env.APPDATA = dir;
+  try {
+    const { publicKey } = generateKeyPairSync('rsa', { modulusLength: 2048, publicKeyEncoding: { type: 'spki', format: 'pem' }, privateKeyEncoding: { type: 'pkcs8', format: 'pem' } });
+    const { saveNicPublicKey } = await import('../src/nic-config.mjs');
+    saveNicPublicKey(publicKey);
+    const alpha = { env: 'sandbox', clientId: 'client-1', clientSecret: 'cs', username: 'alpha', password: 'p', gstin: GSTIN };
+    const irp = fakeIrp();
+    assert.equal((await nicGetIrn('IRN-X', alpha, irp.fetchFn, { allowLive: true })).ok, true);
+    assert.equal(nicSession(alpha).active, true);
+    assert.equal(nicSession({ ...alpha, password: 'a-guess' }).active, false);
+    assert.equal(nicSession({ ...alpha, clientSecret: 'a-guess' }).active, false);
+    assert.equal(nicSession({ ...alpha, password: '' }).active, false);
+
+    irp.state.refuse = true;
+    for (const guess of [{ password: 'a-guess' }, { clientSecret: 'a-guess' }]) {
+      const made = irp.calls.length;
+      const borrowed = await nicGetIrn('IRN-X', { ...alpha, ...guess }, irp.fetchFn, { allowLive: true });
+      assert.equal(borrowed.ok, false, JSON.stringify(borrowed));
+      assert.deepEqual(irp.calls.slice(made), [{ signIn: true, token: '' }], 'they are made to sign in, and the owner\'s token is not sent for them');
+    }
+
+    const signIns = irp.calls.filter((call) => call.signIn).length;
+    assert.equal((await nicGetIrn('IRN-X', alpha, irp.fetchFn, { allowLive: true })).ok, true);
+    assert.equal(irp.calls.filter((call) => call.signIn).length, signIns, 'the owner still reuses their own session');
+    assert.equal(irp.calls.at(-1).token, 'token-of-alpha');
+  } finally {
+    process.env.APPDATA = before;
+    clearNicSession();
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('a failed sign-in with a guessed password does not throw away the owner\'s e-invoice session', async () => {
+  clearIrpSessions();
+  const fake = fakeSandbox({ secretOf: { key_shared: 'secret_shared' }, passwordOf: { alpha_api: 'right-password' } });
+  const owner = client(fake, { irpUser: { username: 'alpha_api', password: 'right-password', gstin: GSTIN } });
+  assert.equal((await owner.ewbRequest('/gst/compliance/e-way-bill/tax-payer/bill/331001', { method: 'GET' })).ok, true);
+  for (let round = 0; round < 3; round += 1) {
+    const other = client(fake, { irpUser: { username: 'alpha_api', password: `a-guess-${round}`, gstin: GSTIN } });
+    assert.equal((await other.ewbRequest('/gst/compliance/e-way-bill/tax-payer/bill/331001', { method: 'GET' })).ok, false);
+  }
+  const signIns = fake.calls.filter((call) => call.path.endsWith('/tax-payer/authenticate') && call.body.password === 'right-password').length;
+  const again = client(fake, { irpUser: { username: 'alpha_api', password: 'right-password', gstin: GSTIN } });
+  assert.equal((await again.ewbRequest('/gst/compliance/e-way-bill/tax-payer/bill/331001', { method: 'GET' })).ok, true);
+  assert.equal(fake.calls.filter((call) => call.path.endsWith('/tax-payer/authenticate') && call.body.password === 'right-password').length, signIns);
+  clearIrpSessions();
 });
