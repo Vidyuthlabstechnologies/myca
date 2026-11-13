@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { createBilling } from '../src/billing.mjs';
 import { DEMO_GSTIN, DEMO_NAME } from '../src/demo.mjs';
 import { MAX_EXACT_AMOUNT } from '../../platform/src/assistant-tools.mjs';
+import { localToday } from '../../platform/src/dates.mjs';
 import { JOB_HEADER } from '../src/jobs.mjs';
 import { startApi, SALE } from './helpers.mjs';
 
@@ -25,7 +26,7 @@ after(() => api.close());
 
 const post = (who, action, body) => api.call('POST', `/v1/businesses/${who.businessId}/${action}`, { token: who.token, body });
 const get = (who, action) => api.call('GET', `/v1/businesses/${who.businessId}/${action}`, { token: who.token });
-const sale = (lines = SALE.lines) => ({ ...SALE, date: new Date(api.clock.now + 5.5 * 60 * 60 * 1000).toISOString().slice(0, 10), lines });
+const sale = (lines = SALE.lines) => ({ ...SALE, date: localToday(new Date(api.clock.now)), lines });
 const another = async (who, body) => {
   const made = await api.call('POST', '/v1/businesses', { token: who.token, body });
   assert.equal(made.status, 200, made.text);
