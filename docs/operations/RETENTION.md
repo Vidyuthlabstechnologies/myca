@@ -26,6 +26,7 @@ that by making the export complete and free, not by keeping data the owner asked
 | Sign-in codes | 1 day | Deleted nightly (they expire in five minutes anyway) | Nobody; only a salted hash is stored |
 | Second-step challenges (the pending sign-in between the phone code and the authenticator code) | 1 day | Deleted nightly (they expire in five minutes anyway) | Nobody; a challenge holds no code |
 | Authenticator key and recovery codes (two-step sign-in) | While the user keeps two-step on | Deleted when the user turns it off or deletes the account | Nobody; the key is sealed per user and the codes are stored as hashes |
+| WhatsApp message ids (kept so a message delivered twice is handled once; no text is stored) | 30 days | Deleted nightly | Nobody |
 | Crash reports | 90 days from the last occurrence | Deleted nightly | The operator; they carry no names, amounts or numbers |
 | Cloud SQL backups | 14 daily backups, 7 days of transaction logs | Expire | The operator, for recovery only |
 | Account (phone, email, Google or OIDC id, name), devices, sign-in tokens, consents, memberships, invitations to their number, sign-in codes for their number, WhatsApp links, their rows in the access log | The account exists | Erased thirty days after the user deletes the account in the app; signing in again within the thirty days cancels the deletion. A business the user alone owns is deleted with it | The user and the members of their businesses |

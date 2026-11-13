@@ -1,4 +1,5 @@
 import { isProduction } from './runtime.mjs';
+import { metadataHost } from '../../platform/src/outbound.mjs';
 
 export const ENVIRONMENTS = ['local', 'staging', 'production'];
 const TRUE_WORDS = new Set(['1', 'true', 'yes', 'on']);
@@ -38,7 +39,7 @@ export function liveTargetsIn(env = process.env) {
   return names;
 }
 
-const OPERATOR_URLS = ['MYCA_WAHA_URL', 'MYCA_EMAIL_RELAY_URL', 'MYCA_MODEL_BASE_URL', 'NVIDIA_NIM_BASE_URL', 'MYCA_PUBLIC_URL'];
+const OPERATOR_URLS = ['MYCA_WAHA_URL', 'MYCA_EMAIL_RELAY_URL', 'MYCA_MODEL_BASE_URL', 'NVIDIA_NIM_BASE_URL', 'MYCA_PUBLIC_URL', 'MYCA_GSP_BASE_URL', 'MYCA_OIDC_ISSUER', 'MYCA_OIDC_JWKS_URL'];
 const LOOPBACK = new Set(['localhost', '127.0.0.1', '::1', '[::1]']);
 
 export function plainHttpUrls(env = process.env) {
@@ -49,6 +50,10 @@ export function plainHttpUrls(env = process.env) {
     try {
       url = new URL(String(env[name]).trim());
     } catch {
+      names.push(name);
+      continue;
+    }
+    if (url.username || url.password || metadataHost(url.hostname)) {
       names.push(name);
       continue;
     }
@@ -64,7 +69,7 @@ export function environmentProblem(env = process.env) {
   if (given && !ENVIRONMENTS.includes(given)) return `MYCA_ENVIRONMENT must be one of ${ENVIRONMENTS.join(', ')}.`;
   if (deploymentEnvironment(env) !== 'local') {
     const plain = plainHttpUrls(env);
-    if (plain.length) return `These must be https:// URLs outside local development, because they carry API keys and customer messages: ${plain.join(', ')}.`;
+    if (plain.length) return `These must be https:// URLs outside local development, with no user name or password in them and never a cloud metadata address, because they carry API keys and customer messages: ${plain.join(', ')}.`;
   }
   if (deploymentEnvironment(env) !== 'staging') return '';
   const offending = liveTargetsIn(env);

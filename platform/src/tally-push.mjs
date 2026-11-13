@@ -1,3 +1,4 @@
+import { xmlElements, xmlSource } from './xml-scan.mjs';
 import { exportTallyXml, tallyVouchers } from './tally-export.mjs';
 import { isReturnPeriod } from './return-period.mjs';
 import { localToday } from './dates.mjs';
@@ -29,7 +30,7 @@ function tagNumber(xml, tag) {
 
 export function parseTallyReply(xml) {
   const text = String(xml || '');
-  const lineErrors = [...text.matchAll(/<LINEERROR>([\s\S]*?)<\/LINEERROR>/gi)].map((m) => m[1].replace(/\s+/g, ' ').trim()).filter(Boolean);
+  const lineErrors = xmlElements(xmlSource(text, { ignoreCase: true }), 'LINEERROR', { exact: true }).map((found) => found.inner.replace(/\s+/g, ' ').trim()).filter(Boolean);
   return {
     created: tagNumber(text, 'CREATED'),
     altered: tagNumber(text, 'ALTERED'),

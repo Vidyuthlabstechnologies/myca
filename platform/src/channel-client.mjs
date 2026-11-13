@@ -1,4 +1,6 @@
+import { publicHttpsUrl, readCapped } from './outbound.mjs';
 import { connectorEnvironment } from './runtime-config.mjs';
+
 const AMAZON_LWA = 'https://api.amazon.com/auth/o2/token';
 const AMAZON_REGIONS = { IN: 'https://sellingpartnerapi-eu.amazon.com', EU: 'https://sellingpartnerapi-eu.amazon.com', NA: 'https://sellingpartnerapi-na.amazon.com', FE: 'https://sellingpartnerapi-fe.amazon.com' };
 const AMAZON_REPORTS = { settlement: 'GET_V2_SETTLEMENT_REPORT_DATA_FLAT_FILE_V2', orders: 'GET_FLAT_FILE_ALL_ORDERS_DATA_BY_LAST_UPDATE_GENERAL' };
@@ -22,14 +24,25 @@ function sleep(ms, signal) {
   });
 }
 
+export const MAX_PROVIDER_JSON_BYTES = 16 * 1024 * 1024;
+export const MAX_PROVIDER_FILE_BYTES = 32 * 1024 * 1024;
+const AMAZON_DOCUMENT_HOST = /(^|\.)amazonaws\.com$/;
+
 async function asJson(res) {
-  const text = await res.text();
-  try { return JSON.parse(text); } catch { return { raw: text }; }
+  const read = await readCapped(res, MAX_PROVIDER_JSON_BYTES);
+  if (!read.ok) throw new Error(read.error);
+  try { return JSON.parse(read.text); } catch { return { raw: read.text }; }
+}
+
+export function amazonDocumentUrl(value) {
+  const url = publicHttpsUrl(value);
+  return url && !url.port && AMAZON_DOCUMENT_HOST.test(url.hostname) ? url.toString() : '';
 }
 
 export class ChannelClient {
   constructor(options = {}) {
-    this.fetchFn = options.fetchFn || ((...args) => globalThis.fetch(...args));
+    const send = options.fetchFn || ((...args) => globalThis.fetch(...args));
+    this.fetchFn = (url, init = {}) => send(url, { redirect: 'error', ...init });
     this.pollMs = options.pollMs ?? POLL_MS;
     this.pollLimit = options.pollLimit ?? POLL_LIMIT;
   }
@@ -63,9 +76,13 @@ export class ChannelClient {
     const docData = await asJson(doc);
     if (!doc.ok || !docData.url) return { ok: false, error: 'AMAZON_DOCUMENT_FAILED', status: doc.status };
     if (docData.compressionAlgorithm) return { ok: false, error: 'AMAZON_DOCUMENT_COMPRESSED', hint: 'Compressed report documents are not read yet; download the report from Seller Central and import the file.' };
-    const file = await this.fetchFn(docData.url, { signal });
+    const documentUrl = amazonDocumentUrl(docData.url);
+    if (!documentUrl) return { ok: false, error: 'AMAZON_DOCUMENT_HOST_REFUSED', hint: 'The report link did not point at Amazon storage, so it was not fetched.' };
+    const file = await this.fetchFn(documentUrl, { signal });
     if (!file.ok) return { ok: false, error: 'AMAZON_DOWNLOAD_FAILED', status: file.status };
-    return { ok: true, text: await file.text(), reportId: createdData.reportId };
+    const read = await readCapped(file, MAX_PROVIDER_FILE_BYTES);
+    if (!read.ok) return { ok: false, error: 'AMAZON_DOCUMENT_TOO_LARGE', bytes: read.bytes };
+    return { ok: true, text: read.text, reportId: createdData.reportId };
   }
 
   async shopify({ config, kind, from, to }, signal) {

@@ -112,7 +112,7 @@ export function createWhatsApp({ db, withBooks, billing = null, withSharedBooks 
     const answer = await db.tx(async (q) => {
       if (await seen(q, messageId)) return { duplicate: true };
       const businesses = await businessesOf(q, phone);
-      if (!businesses.length) return { text: 'This number is not a member of any MyCA business. Sign in on the app with it first.' };
+      if (!businesses.length) return { stranger: true, text: 'This number is not a member of any MyCA business. Sign in on the app with it first.' };
       const pick = /^use\s+(\d{1,2})\s*$/i.exec(text.trim());
       let chosenId = await linked(q, phone);
       if (/^(?:switch|switch\s+business|businesses|which\s+business)\s*\??$/i.test(text.trim())) {
@@ -138,8 +138,9 @@ export function createWhatsApp({ db, withBooks, billing = null, withSharedBooks 
     });
     if (answer.duplicate) return { ok: true, duplicate: true };
     if (answer.text) {
-      await reply(phone, answer.text);
-      return { ok: true, replied: true };
+      const allowed = rateLimits ? (await rateLimits.take(answer.stranger ? 'whatsappStranger' : 'whatsappMenu', phone)).ok : true;
+      if (allowed) await reply(phone, answer.text);
+      return allowed ? { ok: true, replied: true } : { ok: true, replied: false, rateLimited: true };
     }
     const taken = rateLimits ? await rateLimits.take('ask', answer.user.userId) : { ok: true };
     if (!taken.ok) {

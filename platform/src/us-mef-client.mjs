@@ -1,3 +1,4 @@
+import { xmlElements, xmlFirst, xmlSource } from './xml-scan.mjs';
 import { createHash, createSign, randomUUID, X509Certificate } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { productionCallsEnabled } from './runtime-config.mjs';
@@ -67,12 +68,12 @@ function mtomBody(envelope, attachment) {
 }
 
 function between(text, name) {
-  const m = new RegExp(`<(?:\\w+:)?${name}[^>]*>([\\s\\S]*?)</(?:\\w+:)?${name}>`).exec(text);
-  return m ? m[1] : '';
+  const found = xmlFirst(xmlSource(text), name, { prefixed: true });
+  return found ? found.inner : '';
 }
 
 function all(text, name) {
-  return [...text.matchAll(new RegExp(`<(?:\\w+:)?${name}[^>]*>([\\s\\S]*?)</(?:\\w+:)?${name}>`, 'g'))].map((m) => m[1]);
+  return xmlElements(xmlSource(text), name, { prefixed: true }).map((found) => found.inner);
 }
 
 export function parseAcknowledgements(xml) {

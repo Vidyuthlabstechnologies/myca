@@ -1,4 +1,5 @@
 import { createPublicKey, verify } from 'node:crypto';
+import { metadataHost, publicHttpsUrl } from '../../platform/src/outbound.mjs';
 
 const SKEW_SECONDS = 60;
 const DEFAULT_CACHE_SECONDS = 3600;
@@ -31,7 +32,7 @@ export function createJwksKeys({ url, fetchImpl = fetch, now = () => Date.now(),
   async function load() {
     if (!jwksUrl && discover) jwksUrl = await discover();
     if (!jwksUrl) throw new Error('jwks: no url');
-    const res = await fetchImpl(jwksUrl, { signal: AbortSignal.timeout(5000) });
+    const res = await fetchImpl(jwksUrl, { redirect: 'error', signal: AbortSignal.timeout(5000) });
     if (!res.ok) throw new Error(`jwks: HTTP ${res.status}`);
     const body = await res.json();
     const maxAge = Number((/max-age=(\d+)/.exec(res.headers.get('cache-control') || '') || [])[1]) || DEFAULT_CACHE_SECONDS;
@@ -109,14 +110,25 @@ export function oidcConfigFromEnv(env = process.env) {
   };
 }
 
+function keysUrlAllowed(value, issuer) {
+  if (typeof value !== 'string') return false;
+  if (publicHttpsUrl(value)) return true;
+  try {
+    const url = new URL(value);
+    return url.protocol === 'https:' && !url.username && !url.password && !metadataHost(url.hostname) && url.host === new URL(issuer).host;
+  } catch {
+    return false;
+  }
+}
+
 export function createOidcVerifier({ issuer = '', clientIds = [], jwksUrl = '', keys = null, fetchImpl = fetch, now = () => Date.now() } = {}) {
   const trimmed = String(issuer || '').replace(/\/+$/, '');
   const issuers = trimmed ? [trimmed, `${trimmed}/`] : [];
   const discover = async () => {
-    const res = await fetchImpl(`${trimmed}/.well-known/openid-configuration`, { signal: AbortSignal.timeout(5000) });
+    const res = await fetchImpl(`${trimmed}/.well-known/openid-configuration`, { redirect: 'error', signal: AbortSignal.timeout(5000) });
     if (!res.ok) throw new Error(`oidc discovery: HTTP ${res.status}`);
     const body = await res.json();
-    if (typeof body.jwks_uri !== 'string' || !/^https:\/\//.test(body.jwks_uri)) throw new Error('oidc discovery: no jwks_uri');
+    if (!keysUrlAllowed(body.jwks_uri, trimmed)) throw new Error('oidc discovery: no jwks_uri');
     return body.jwks_uri;
   };
   const resolvedKeys = keys || createJwksKeys({ url: jwksUrl, fetchImpl, now, discover: trimmed ? discover : null });

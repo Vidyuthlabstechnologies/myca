@@ -11,7 +11,7 @@ async function post(fetchImpl, url, init) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
-    const res = await fetchImpl(url, { ...init, signal: controller.signal });
+    const res = await fetchImpl(url, { ...init, redirect: 'error', signal: controller.signal });
     const text = await res.text();
     if (!res.ok) throw new Error(`sms provider answered ${res.status}: ${text.slice(0, 200)}`);
     return text;

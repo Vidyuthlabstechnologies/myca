@@ -127,7 +127,8 @@ export class SandboxClient {
     this.apiSecret = options.apiSecret ?? (scopedSecret || read('MYCA_GSP_API_SECRET') || (savedUsable ? saved.apiSecret : ''));
     this.keySource = options.apiKey != null ? 'explicit' : scopedKey ? scoped.key : read('MYCA_GSP_API_KEY') ? 'MYCA_GSP_API_KEY' : savedUsable ? 'saved' : 'none';
     this.apiVersion = options.apiVersion ?? '1.0.0';
-    this.fetchFn = options.fetchFn || ((...args) => globalThis.fetch(...args));
+    const send = options.fetchFn || ((...args) => globalThis.fetch(...args));
+    this.fetchFn = (url, init = {}) => send(url, { redirect: 'error', ...init });
     const cached = platformTokens.get(`${this.baseUrl}|${this.apiKey}`);
     this.token = cached?.token || null;
     this.tokenExpiresAt = cached?.expiresAt || 0;
@@ -213,6 +214,7 @@ export class SandboxClient {
       if (!auth.ok) return auth;
       token = this.token;
     }
+    if (/^[a-z][a-z0-9+.-]*:/i.test(endpoint) && !endpoint.startsWith(`${this.baseUrl}/`)) return { ok: false, error: 'ENDPOINT_HOST_REFUSED', hint: 'A Sandbox request goes to the configured Sandbox host only.' };
     const url = endpoint.startsWith('http') ? endpoint : `${this.baseUrl}${endpoint.startsWith('/') ? '' : '/'}${endpoint}`;
     const send = async (authToken) => this.fetchFn(url, {
       method: options.method || 'POST',

@@ -219,6 +219,19 @@ number that no rule bounds is refused above 1e11 (`MAX_EXACT_AMOUNT`, ₹10,000 
 is a document whose lines come to more than that, because past that size a total can no
 longer be kept to the last paisa and the posted figure would differ from the preview.
 
+## Limits on what is fetched and read
+
+No request this server makes follows a redirect. A link from a provider's answer is fetched
+only after `platform/src/outbound.mjs` has checked it (https, no credentials, a public host,
+and for an Amazon report an `amazonaws.com` host), and an answer is read up to a cap (16 MB
+of connector JSON, 32 MB for a report file) and then dropped with `RESPONSE_TOO_LARGE`.
+Outside local development the server does not start when a URL the operator sets is plain
+http, carries a user name or password, or is a cloud metadata address. A crash report line
+is cut to 4,000 characters before it is scrubbed. On WhatsApp a number that belongs to no
+business is answered twice a day (`whatsappStranger`) and a member's business list thirty
+times an hour (`whatsappMenu`); the nightly job deletes message ids older than 30 days and
+reports them as `purge.whatsappRows`.
+
 ## Plans and billing
 
 Subscriptions are sold through Google Play Billing in the Android app. A person gets Pro free
