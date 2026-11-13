@@ -59,8 +59,12 @@ be one of that API's `MYCA_TEST_PHONES` and its `MYCA_TEST_CODE`. CI runs it on 
 an API it starts itself (job "App against a running API"), and `app-smoke.yml` runs it nightly or by
 hand against `MYCA_CLOUD_URL_STAGING` once the two `MYCA_SMOKE_*` secrets exist.
 
+Run the two smoke files one at a time (`--concurrency=1`). Both sign in with `MYCA_SMOKE_PHONE`,
+and asking for a new sign-in code cancels the one asked for before it, so two files signing in at
+the same moment make one of them fail with "That code was already used".
+
 ```bash
-MYCA_SMOKE_URL=http://127.0.0.1:8080 MYCA_SMOKE_PHONE=9876501234 MYCA_SMOKE_PHONE_2=9876501235 MYCA_SMOKE_CODE=482913 flutter test test_smoke
+MYCA_SMOKE_URL=http://127.0.0.1:8080 MYCA_SMOKE_PHONE=9876501234 MYCA_SMOKE_PHONE_2=9876501235 MYCA_SMOKE_CODE=482913 flutter test --concurrency=1 test_smoke
 ```
 
 ## Running against the local server

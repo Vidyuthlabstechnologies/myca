@@ -5,6 +5,7 @@ export const LIMITS = Object.freeze({
   ask: { max: 120, windowSeconds: 3600 },
   crash: { max: 30, windowSeconds: 3600 },
   upload: { max: 200, windowSeconds: 3600 },
+  gstinCheck: { max: 120, windowSeconds: 3600 },
   quickoBusiness: { max: 300, windowSeconds: 3600 },
   quickoUser: { max: 200, windowSeconds: 3600 },
   portalSignInBusiness: { max: 10, windowSeconds: 3600 },
