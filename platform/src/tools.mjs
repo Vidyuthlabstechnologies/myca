@@ -3278,11 +3278,12 @@ export const TOOL_MAP = Object.fromEntries(TOOLS.map((t) => [t.name, t]));
 const ACTOR_ID_ARGS = ['actorId', 'requestedBy', 'decidedBy'];
 
 // When the caller is signed in, who they are comes from the session, never from the
-// arguments they sent. 'assistant' is left alone: it only ever lowers what is allowed.
+// arguments they sent. The 'assistant' marker on actorId is kept, because it only ever
+// lowers what is allowed; the role, the requester and the decider still come from the session.
 function withTrustedActor(state, tool, args) {
   const actor = state && state.__actor;
-  if (!actor || !actor.userId || args.actorId === 'assistant') return args;
-  const trusted = { ...args, actorId: actor.userId, role: actor.role || '' };
+  if (!actor || !actor.userId) return args;
+  const trusted = { ...args, actorId: args.actorId === 'assistant' ? 'assistant' : actor.userId, role: actor.role || '' };
   for (const key of ACTOR_ID_ARGS) {
     if (key !== 'actorId' && (tool.args || []).includes(key)) trusted[key] = actor.userId;
   }

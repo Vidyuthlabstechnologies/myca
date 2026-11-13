@@ -45,4 +45,4 @@ jobs:
       - name: Sign in, make a business, book a sale and read Today
         if: env.SKIP != '1'
         working-directory: mobile
-        run: flutter test test_smoke
+        run: flutter test --concurrency=1 test_smoke

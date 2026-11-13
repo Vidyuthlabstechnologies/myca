@@ -196,7 +196,8 @@ Quicko and NIC keys under Connections (`quicko` and `nic` connectors, sealed per
 picks Mode: Test (sandbox) or Live. `MYCA_PROVIDER_ENV` is the service ceiling: a business never
 runs above it, and every request outside the e-invoice and GSTIN routes runs with calls off.
 Routes: `POST .../einvoice {invoiceId}` (a sandbox IRN lands in `sandboxIrn`, never `irn`),
-`POST .../gstin-check {gstin}`, and `GET`/`POST .../approvals` (live writes need an approval
+`POST .../gstin-check {gstin}` (120 an hour per person, and refused for a demo business), and
+`GET`/`POST .../approvals` (live writes need an approval
 from an owner or the accountant other than the person who asked; test mode needs none).
 Filing a return stays a CA's step on the portal by design. `infra/cloud` inputs:
 

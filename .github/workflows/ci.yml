@@ -242,7 +242,7 @@ jobs:
         run: flutter pub get --enforce-lockfile
       - name: Sign in, book sales, and check isolation, GST split and no double posting through the app's client
         working-directory: mobile
-        run: flutter test test_smoke
+        run: flutter test --concurrency=1 test_smoke
       - name: API log
         if: always()
         run: cat "$RUNNER_TEMP/api.log" || true

@@ -452,9 +452,10 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
       const givenState = url.searchParams.get('state') || '';
       const businessId = givenState.split('.')[0] || '';
       const page = gustoPage;
-      if (!/^[0-9a-f-]{8,64}$/i.test(businessId)) return page(false, 'The link did not carry a business.');
+      if (!isUuid(businessId)) return page(false, 'The link did not carry a business.');
       const config = await connectors.load(businessId, 'gusto');
       if (!config) return page(false, 'No Gusto application is saved for this business.');
+      if (!config.oauthState || givenState !== config.oauthState) return page(false, 'OAUTH_STATE_MISMATCH: Start the connection again from the keys page; the link had expired or was not ours.');
       const out = await withBooks(businessId, { userId: null, deviceId: null, requestId }, async (session, q) => {
         const result = await gustoCallback(session.state, { code, state: givenState }, { userId: 'owner', role: 'owner' }, { config, save: (patch) => connectors.patch(businessId, 'gusto', patch, q) });
         session.persist();
@@ -772,7 +773,10 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
         if (sync.mode === 'live') throw httpError(409, 'CA_SEES_LIVE_BOOKS');
         return { ok: true, sharedAsOf: await runner.share(businessId, user.userId) };
       }
-      if (action === 'gstin-check') return govt.gstinCheck(businessId, context, actor, body);
+      if (action === 'gstin-check') {
+        await throttle('gstinCheck', user.userId);
+        return govt.gstinCheck(businessId, context, actor, body);
+      }
       if (action === 'quicko' || action === 'quicko-session') {
         if (role === 'staff') throw httpError(403, 'NOT_FOR_STAFF');
         if (sharedView) throw httpError(403, 'SHARED_VIEW_READ_ONLY', { sharedAsOf: sync.asOf });
