@@ -251,6 +251,8 @@ locals {
   reviewer_sign_in      = var.reviewer_phone != ""
   reviewer_code_present = nonsensitive(var.reviewer_code != "")
   reviewer_code_valid   = nonsensitive(length(regexall("^[0-9]{6}$", var.reviewer_code)) == 1)
+  reviewer_code_strong  = nonsensitive(!contains(["000000", "111111", "123456", "654321", "999999"], var.reviewer_code))
+  reviewer_phone_valid  = length(regexall("^(\\+?91|0)?[6-9][0-9]{9}$", replace(var.reviewer_phone, "/[\\s()-]/", ""))) == 1
   optional_secrets = { for name, value in {
     MYCA_MODEL_API_KEY             = var.model_api_key
     NVIDIA_NIM_API_KEY             = var.model_api_key
@@ -377,8 +379,8 @@ resource "google_cloud_run_v2_service" "api" {
     }
 
     precondition {
-      condition     = local.reviewer_sign_in == local.reviewer_code_present && (!local.reviewer_sign_in || local.reviewer_code_valid)
-      error_message = "The Play reviewer sign-in needs both reviewer_phone and reviewer_code, and the code must be six digits."
+      condition     = local.reviewer_sign_in == local.reviewer_code_present && (!local.reviewer_sign_in || (local.reviewer_phone_valid && local.reviewer_code_valid && local.reviewer_code_strong))
+      error_message = "The Play reviewer sign-in needs both reviewer_phone and reviewer_code. The phone must be an Indian mobile number and the code six digits that are not 000000, 111111, 123456, 654321 or 999999: the server refuses anything else and would not start."
     }
   }
 

@@ -249,3 +249,39 @@ run "reviewer_code_must_be_six_digits" {
 
   expect_failures = [google_cloud_run_v2_service.api]
 }
+
+run "reviewer_code_the_server_calls_easy_to_guess_is_refused" {
+  command = plan
+
+  variables {
+    reviewer_phone = "+919800000002"
+    reviewer_code  = "123456"
+  }
+
+  expect_failures = [google_cloud_run_v2_service.api]
+}
+
+run "reviewer_phone_must_be_an_indian_mobile" {
+  command = plan
+
+  variables {
+    reviewer_phone = "+912212345678"
+    reviewer_code  = "482913"
+  }
+
+  expect_failures = [google_cloud_run_v2_service.api]
+}
+
+run "reviewer_phone_may_be_written_with_spaces" {
+  command = apply
+
+  variables {
+    reviewer_phone = "+91 98000 00002"
+    reviewer_code  = "482913"
+  }
+
+  assert {
+    condition     = anytrue([for env in google_cloud_run_v2_service.api.template[0].containers[0].env : env.name == "MYCA_REVIEWER_SIGN_IN" && env.value == "on"])
+    error_message = "A number the server accepts must pass the plan."
+  }
+}
