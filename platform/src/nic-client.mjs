@@ -1,4 +1,5 @@
 import { createCipheriv, createDecipheriv, randomBytes, createHash } from 'node:crypto';
+import { sameSecrets } from './held-secret.mjs';
 import { loadGovtConfig, pemFromDisk, rsaEncryptBase64, GOVT_GUIDE, invoiceToNicPayload, nicDocumentById, generateMockIrnPayload, nicCancelProblem, nicPartyFor, nicPayloadRefusal } from './nic-config.mjs';
 import { liveCallsEnabled, mockModeEnabled, testModeEnabled } from './runtime-config.mjs';
 
@@ -99,14 +100,19 @@ export function nicSessionKey(cfg = {}) {
     .digest('hex');
 }
 
+function secretsOf(cfg) {
+  return [cfg?.clientSecret, cfg?.password].map((part) => String(part ?? ''));
+}
+
 function sessionFor(cfg) {
-  return sessions.get(nicSessionKey(cfg)) || NO_SESSION;
+  const kept = sessions.get(nicSessionKey(cfg));
+  return kept && sameSecrets(secretsOf(cfg), kept.secrets) ? kept.session : NO_SESSION;
 }
 
 function rememberSession(cfg, session) {
   const key = nicSessionKey(cfg);
   sessions.delete(key);
-  sessions.set(key, session);
+  sessions.set(key, { session, secrets: secretsOf(cfg) });
   while (sessions.size > MAX_SESSIONS) sessions.delete(sessions.keys().next().value);
 }
 

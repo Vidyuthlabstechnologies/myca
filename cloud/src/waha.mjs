@@ -3,6 +3,10 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 const TIMEOUT_MS = 15000;
 const REPLY_LIMIT = 4000;
 
+export function withoutNumbers(text) {
+  return String(text ?? '').replace(/\d{7,}/g, (run) => `${'x'.repeat(run.length - 3)}${run.slice(-3)}`);
+}
+
 function masked(phone) {
   const digits = String(phone || '');
   return `${digits.slice(0, 3)}…${digits.slice(-2)}`;
@@ -28,7 +32,7 @@ async function call(fetchImpl, url, init) {
   try {
     const res = await fetchImpl(url, { ...init, redirect: 'error', signal: controller.signal });
     const text = await res.text();
-    if (!res.ok) throw new Error(`whatsapp gateway answered ${res.status}: ${text.slice(0, 200)}`);
+    if (!res.ok) throw new Error(`whatsapp gateway answered ${res.status}: ${withoutNumbers(text.slice(0, 200))}`);
     return text;
   } finally {
     clearTimeout(timer);

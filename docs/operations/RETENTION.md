@@ -26,7 +26,7 @@ that by making the export complete and free, not by keeping data the owner asked
 | Sign-in codes | 1 day | Deleted nightly (they expire in five minutes anyway) | Nobody; only a salted hash is stored |
 | Second-step challenges (the pending sign-in between the phone code and the authenticator code) | 1 day | Deleted nightly (they expire in five minutes anyway) | Nobody; a challenge holds no code |
 | Authenticator key and recovery codes (two-step sign-in) | While the user keeps two-step on | Deleted when the user turns it off or deletes the account | Nobody; the key is sealed per user and the codes are stored as hashes |
-| WhatsApp message ids (kept so a message delivered twice is handled once; no text is stored) | 30 days | Deleted nightly | Nobody |
+| WhatsApp message ids (kept so a message delivered twice is handled once; stored as a hash, because the gateway's id carries the sender's number; no text is stored) | 30 days | Deleted nightly | Nobody |
 | Crash reports | 90 days from the last occurrence | Deleted nightly | The operator; they carry no names, amounts or numbers |
 | Cloud SQL backups | 14 daily backups, 7 days of transaction logs | Expire | The operator, for recovery only |
 | Account (phone, email, Google or OIDC id, name), devices, sign-in tokens, consents, memberships, invitations to their number, sign-in codes for their number, WhatsApp links, their rows in the access log | The account exists | Erased thirty days after the user deletes the account in the app; signing in again within the thirty days cancels the deletion. A business the user alone owns is deleted with it | The user and the members of their businesses |
@@ -48,12 +48,16 @@ that by making the export complete and free, not by keeping data the owner asked
    database removes with it (devices and refresh tokens, consents, memberships, two-step keys
    and recovery codes), plus invitations sent to their number, sign-in codes for their
    number, WhatsApp links and their access-log rows. Businesses another owner keeps stay,
-   with "created by" and "invited by" cleared. The audit trail of a business that stays
-   keeps the person's random user id on past entries, as a tombstone: once the user row is
-   gone that id no longer leads to a name, number or email, and the audit trail cannot be
-   rewritten. The request is itself audited (`member.account_deletion_requested`, no
-   personal data) in each business the person belonged to; `cloud/test/account-erasure.test.mjs`
-   checks that no table holds the phone, email or Google id afterwards.
+   with "created by" and "invited by" cleared. The audit log table of a business that
+   stays keeps the person's random user id on past entries, as a tombstone: once the user
+   row is gone that id leads to no number or email. The audit trail inside that business's
+   own books is different: each entry there was written with the person's name, and the
+   entries are hashed and chained, so the name stays beside what they posted for as long
+   as the business keeps its books. The request is itself audited
+   (`member.account_deletion_requested`, no personal data) in each business the person
+   belonged to; `cloud/test/account-erasure.test.mjs` and
+   `cloud/test/audit-data-lifecycle.test.mjs` check that no table, no WhatsApp row and no
+   other business's books hold the phone, email or Google id afterwards.
 5. Backups age out by themselves within fourteen days, so an erased business or account is
    gone from every copy within six weeks of the request.
 
@@ -63,3 +67,6 @@ that by making the export complete and free, not by keeping data the owner asked
   Act 2023 rules once notified.
 - The grievance officer's name and the retention lines on the privacy notice.
 - Whether an export must be offered automatically on deletion rather than on request.
+- Whether a former member's name may stay in the audit trail of a business that keeps its
+  books after the member's account is erased, as that business's record of who posted
+  what, or must be redacted there.

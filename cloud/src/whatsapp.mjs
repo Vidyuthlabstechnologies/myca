@@ -1,9 +1,9 @@
-import { createHmac, timingSafeEqual } from 'node:crypto';
+import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
 import { normalizePhone } from './auth.mjs';
 import { engineRole } from './businesses.mjs';
 import { READ_ONLY_REPLY } from './billing.mjs';
 import { chatText } from './chat-text.mjs';
-import { wahaConfigFromEnv, wahaPhone, wahaSignatureMatches } from './waha.mjs';
+import { wahaConfigFromEnv, wahaPhone, wahaSignatureMatches, withoutNumbers } from './waha.mjs';
 
 const GRAPH_VERSION = 'v21.0';
 const MAX_TEXT = 2000;
@@ -31,7 +31,7 @@ export function createWhatsAppSender({ phoneNumberId, accessToken, fetchImpl = f
           signal: controller.signal,
         });
         const body = await res.text();
-        if (!res.ok) throw new Error(`whatsapp answered ${res.status}: ${body.slice(0, 200)}`);
+        if (!res.ok) throw new Error(`whatsapp answered ${res.status}: ${withoutNumbers(body.slice(0, 200))}`);
         log({ whatsapp: 'sent', to: masked(phone) });
       } finally {
         clearTimeout(timer);
@@ -68,6 +68,10 @@ export function signatureMatches(appSecret, rawBody, header) {
   return timingSafeEqual(Buffer.from(expected, 'hex'), Buffer.from(given, 'hex'));
 }
 
+export function messageKey(messageId) {
+  return createHash('sha256').update(String(messageId)).digest('hex');
+}
+
 export function createWhatsApp({ db, withBooks, billing = null, withSharedBooks = null, syncOf = null, rateLimits = null, config = {}, sender = null, now = () => Date.now(), log = () => {} }) {
   const metaEnabled = config.provider !== 'waha' && Boolean(config.verifyToken) && Boolean(config.appSecret) && Boolean(sender);
   const wahaEnabled = config.provider === 'waha' && Boolean(config.waha?.webhookSecret) && Boolean(sender);
@@ -99,7 +103,7 @@ export function createWhatsApp({ db, withBooks, billing = null, withSharedBooks 
   }
 
   async function seen(q, messageId) {
-    const inserted = await q('insert into whatsapp_messages (id, received_at) values ($1, $2) on conflict (id) do nothing returning id', [messageId, new Date(now()).toISOString()]);
+    const inserted = await q('insert into whatsapp_messages (id, received_at) values ($1, $2) on conflict (id) do nothing returning id', [messageKey(messageId), new Date(now()).toISOString()]);
     return inserted.rowCount === 0;
   }
 

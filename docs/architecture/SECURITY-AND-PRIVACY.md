@@ -90,8 +90,9 @@
 - One business's books are one row; a request locks and reads only that row.
 - The acting user is supplied by the server from the verified session. Identity fields
   in a request body are overwritten (`withTrustedActor`).
-- Provider sessions are keyed by environment, client, user and GSTIN, so one taxpayer's
-  session is never reused for another.
+- Provider sessions are keyed by environment, client, user and GSTIN and are served only
+  to a caller who presents the secrets that opened them, so one taxpayer's session is
+  never reused for another.
 - The WhatsApp channel applies the same shared-view rule as the API: an accountant whose
   owner shares the books daily or by hand reads the shared copy and cannot post (2026-10-16).
 - One address may ask for at most thirty sign-in codes an hour across all numbers, beside
@@ -123,6 +124,15 @@
   crash report is cleaned in a fraction of a second where it used to take about seven.
   A crash report line is cut to 4,000 characters, at a space where there is one, before
   it is scrubbed, and only the first 40 frames are read.
+- A session with a government system is never shared between businesses (2026-11-13). The
+  engine keeps e-invoice, e-way bill and Sandbox platform sessions in memory for reuse;
+  each is now kept with the password and API secret that opened it, and is handed out only
+  to a caller who presents the same ones (compared in constant time, never hashed or
+  logged). A wrong password signs in on its own and cannot remove the holder's session.
+  Before, a session was found by the GSTIN and the API user name alone, so a
+  second business that saved another taxpayer's GSTIN and user name with any password was
+  served from that taxpayer's live session. GST portal and Quicko sessions were already
+  stored per business in the database.
 - A WhatsApp number that belongs to no business is told so twice in a day and then gets no
   reply; a member who asks for the business list is answered thirty times an hour. The
   message is still recorded once either way, so a repeat is not handled twice.
@@ -209,9 +219,20 @@
   business.
 - Before a report is queued on the phone, and again on the server, the message and the
   stack are scrubbed:
-  - quoted text, GSTINs, PANs, phone numbers, email addresses, rupee amounts, numbers of
-    four or more digits, ids, tokens and URL query strings are replaced with markers;
-  - file names and line numbers are kept.
+  - quoted text, GSTINs, PANs, phone numbers, email addresses, rupee and dollar amounts,
+    numbers of four or more digits, ids, tokens and URL query strings are replaced with
+    markers;
+  - on the server (2026-11-13) a number is replaced wherever it sits, including straight
+    after a colon, a dot or a letter as in `{"phone":98...}` or `user_98...`; any run of
+    seven or more digits goes; and US Social Security numbers, EINs and US phone numbers
+    have their own markers. `cloud/test/audit-data-lifecycle.test.mjs` builds 4,000 random
+    error messages in eight shapes and checks that no seeded number, email, GSTIN or PAN
+    survives. The copy of the rules on the phone (`mobile/lib/crash_reports.dart`) still
+    lets a number through after a colon, a dot or a letter; the server removes it before
+    anything is stored;
+  - file names and line numbers are kept;
+  - a name that is not in quotes cannot be recognised and stays, which is why only
+    unhandled errors are reported.
 - The message is cut to 300 characters and the stack to 40 frames.
 - Limits:
   - the queue on the phone holds at most 20 reports, with repeats counted;
@@ -250,6 +271,8 @@
 | The CSV importers have no cap on rows or cells beyond the 8 MB upload limit | They take time in proportion to the file, but the largest accepted file of nothing but commas holds one request for about two seconds, and about five and a half in the settlement importer | A row and cell cap per importer, or moving imports to a worker |
 | Sign-in codes share one cap of 500 an hour across all numbers | Someone who asks for codes for many numbers can use the cap up and keep new phone sign-ins waiting until the hour turns; each number and each address has its own smaller limit, signed-in devices are not affected and Google Sign-In stays open | A limit at the edge by address range, or a cap that grows with the number of real users |
 | The size of a file shared into the Android app is checked by the server (8 MB) and not on the phone before it is read (#145) | A very large shared file can use the phone's memory before the upload is refused | A size check in the share handler before the bytes are read |
+| When an account is erased, the books of a business that stays keep the person's name beside their past entries. Each entry in that audit trail is hashed together with the name and chained to the next, so the name cannot be blanked without rewriting the chain | A former member's name stays readable to that business's owner for as long as the business keeps its books; their number, email and sign-in ids are gone | A decision with counsel: keep it as the business's own record of who posted what, or add a signed redaction step that re-chains the trail |
+| A failed nightly or weekly job raises an alert (Cloud Scheduler got no 2xx, which covers a wrong job token answering 404), but a scheduler job that is paused or deleted raises none | Retention would stop without notice until someone looks | Check `gcloud scheduler jobs describe myca-api-daily` with each restore drill (RUNBOOK), or add a heartbeat the job writes and an alert on its age |
 | Phone numbers are stored in clear in `users` | Exposure in a breach | Acceptable as the login identifier; revisit with the assessment |
 | A hosted read (a query or the snapshot) is audited in the `audit_log` table only, not in the books | Not a confidentiality risk; the audit trail the app shows lists changes and not those reads, and the access log is where the owner sees who looked | Read `audit_log` into the trail if owners ask for reads there |
 | Retention policy written and enforced (`docs/operations/RETENTION.md`); the periods await counsel | A period counsel changes means a code change | Counsel's sign-off |
