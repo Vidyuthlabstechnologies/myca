@@ -502,6 +502,7 @@ Today the `.exe` is unsigned → users see a SmartScreen prompt. To sign, add tw
 | `APPLE_PROVISIONING_PROFILE_BASE64`, `APPLE_PROFILE_NAME`, `APPLE_TEAM_ID` | the App Store provisioning profile for `com.mldynamic.myca` (base64), its name, and the team id |
 | `APP_STORE_CONNECT_KEY_ID`, `APP_STORE_CONNECT_ISSUER_ID`, `APP_STORE_CONNECT_API_KEY_BASE64` | an App Store Connect API key (App Manager) and its `.p8`; with them the signed IPA is uploaded to TestFlight |
 | `MYCA_SMOKE_PHONE`, `MYCA_SMOKE_CODE` | one of the staging API's `MYCA_TEST_PHONES` and its `MYCA_TEST_CODE`; with `MYCA_CLOUD_URL_STAGING` they let `app-smoke` sign in to staging nightly. Never a production number: production refuses test phones |
+| `MYCA_SMOKE_PHONE_2` | optional: a second staging `MYCA_TEST_PHONES` number (same code), so `app-smoke` also checks that one account cannot read another's business. Without it that check is skipped |
 
 `electron-builder` signs whenever `CSC_LINK` is set (there is no `signExecutable` switch in
 `platform/package.json`). When the secret is present the build job also checks every `.exe`
