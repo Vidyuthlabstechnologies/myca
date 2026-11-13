@@ -352,10 +352,10 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
   const members = createMembers({ db, secret, now, notify: otpSender && typeof otpSender.sendText === 'function' ? (phone, text) => otpSender.sendText(phone, text) : null });
   const crashes = createCrashReports({ db, now });
   const inbound = createInbound({ db, secret, now, withBooks, email: { domain: inboundEmail.domain }, storedBytes: (businessId) => businesses.storedBytes(businessId), limitBytes: MAX_BUSINESS_BYTES });
-  const whatsApp = createWhatsApp({ db, withBooks, billing, withSharedBooks: runner.withSharedBooks, syncOf, config: whatsapp, sender: whatsappSender, now, log });
+  const rateLimits = createRateLimits({ db, now, limits: limitsGiven });
+  const whatsApp = createWhatsApp({ db, withBooks, billing, withSharedBooks: runner.withSharedBooks, syncOf, rateLimits, config: whatsapp, sender: whatsappSender, now, log });
   const consent = createConsent({ db, now });
   const recordAccess = createAccessLog(db);
-  const rateLimits = createRateLimits({ db, now, limits: limitsGiven });
   const isAdmin = (userId) => {
     const listed = typeof adminUserIds === 'function' ? adminUserIds() : adminUserIds;
     return Array.isArray(listed) && listed.some((id) => isUuid(id) && id.toLowerCase() === String(userId).toLowerCase());

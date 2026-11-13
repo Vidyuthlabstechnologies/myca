@@ -706,9 +706,9 @@ export const TAX_TOOL_SCHEMAS = {
     type: 'object',
     additionalProperties: false,
     properties: {
-      holidaysText: { type: 'string' },
-      months: { type: 'array', items: { type: 'string' } },
-      asOfDate: { type: 'string' },
+      holidaysText: { type: 'string', maxLength: 20000 },
+      months: { type: 'array', minItems: 1, maxItems: 60, items: { type: 'string', pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' } },
+      asOfDate: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' },
     },
   },
   track_gst_returns: {

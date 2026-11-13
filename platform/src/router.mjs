@@ -18,7 +18,6 @@ import { stockTransferWords } from './stock-transfers.mjs';
 import { planLocalToolCall, validateAssistantToolCall } from './assistant-contract.mjs';
 import { imsWords, imsDecidedWords } from './ims.mjs';
 import { needsConfirmation, previewOf, openPending, takePending, clearPending, previewReply, blockedReply, rowsCounted } from './chat-confirm.mjs';
-import { liveCallsEnabled, mockModeEnabled } from './runtime-config.mjs';
 import { referenceImportContent, resolveImportContent } from './import-documents.mjs';
 import { openPendingArgs } from './us-efile.mjs';
 import { spoken } from './words.mjs';
@@ -39,7 +38,7 @@ import { payrollFileWords } from './us-payroll-files.mjs';
 import { chooseTool, modelConfigured } from './model-adapter.mjs';
 import { rememberTurn, recentTurns } from './chat-memory.mjs';
 import { logEvalEvent } from './practice.mjs';
-import { assistantTools } from './assistant-contract.mjs';
+import { modelTools } from './assistant-contract.mjs';
 import { usPayrollWords } from './us-payroll.mjs';
 import { ownerTaxWords } from './us-owner-tax.mjs';
 import { usImportWords } from './import-us-books.mjs';
@@ -1095,6 +1094,7 @@ function proposeCore(state, name, args = {}) {
 }
 
 const NOTHING_PENDING = 'There is nothing waiting to be posted.';
+const NOT_FROM_A_TRANSLATION = 'A translation alone does not change anything that is not previewed first, so nothing was done. Please write this one in English.';
 const CONFIRM_TOKEN = /^[0-9a-f]{12}$/;
 
 async function runConfirmation(state, decision) {
@@ -1139,13 +1139,24 @@ function discardCore(state) {
   return { reply: `Not posted: ${pending.summary || 'nothing was waiting'}`, tools: [], posted: false };
 }
 
-async function chatCore(state, message) {
+let modelOffer = null;
+
+function offeredToModel() {
+  if (!modelOffer) modelOffer = modelTools(TOOLS, needsConfirmation);
+  return modelOffer;
+}
+
+async function chatCore(state, message, how = {}) {
   const plan = planEntryWithTds((text) => planLocalToolCall(state, text), message);
   if (plan.kind === 'reply') return { reply: plan.reply, tools: plan.tools || [], blocked: plan.blocked || false };
 
   if (plan.kind === 'cancel') return discardCore(state);
 
-  if (plan.kind === 'confirm') return runConfirmation(state, plan.decision);
+  if (plan.kind === 'confirm') return how.translated ? { reply: NOT_FROM_A_TRANSLATION, tools: [], posted: false, blocked: true } : runConfirmation(state, plan.decision);
+
+  if (how.translated && !plan.fallback && !offeredToModel().some((tool) => tool.name === plan.name)) {
+    return { reply: NOT_FROM_A_TRANSLATION, tools: [], posted: false, blocked: true };
+  }
 
   if (plan.name === 'post_expense' && (plan.args.head == null || plan.args.head === '') && modelConfigured() && tagExpense(state, { description: plan.args.narration || plan.args.description, payee: plan.args.payee }).source === 'default') {
     const suggested = await suggestExpenseHead({ description: plan.args.narration || plan.args.description, payee: plan.args.payee });
@@ -1168,7 +1179,7 @@ async function chatCore(state, message) {
   }
   if (plan.fallback) {
     if (modelConfigured()) {
-      const chosen = await chooseTool({ message, tools: assistantTools(TOOLS).filter((tool) => tool.risk !== 'external_government_api' && !['run_automation', 'read_document', 'sandbox_operation', 'nim_ask'].includes(tool.name)), country: state.company?.country || 'IN', history: recentTurns(state) });
+      const chosen = await chooseTool({ message, tools: offeredToModel(), country: state.company?.country || 'IN', history: recentTurns(state) });
       if (chosen.ok) {
         const modelPlan = { kind: 'tool', name: chosen.name, args: chosen.args, viaModel: true };
         if (needsConfirmation(modelPlan.name)) return holdForConfirmation(state, modelPlan);
@@ -1177,17 +1188,11 @@ async function chatCore(state, message) {
         const chosenResult = await runTool(state, modelPlan.name, { ...modelPlan.args, actorId: 'assistant' });
         return { reply: fmtToolResult(modelPlan.name, chosenResult, modelPlan.args), tools: [{ name: modelPlan.name, result: chosenResult }], viaModel: true };
       }
+      if (chosen.error === 'MODEL_UNOFFERED_TOOL') {
+        return { reply: 'I did not match that to anything I can do from a message, so nothing was recorded.', tools: [], blocked: true, viaModel: true };
+      }
       if (chosen.error === 'MODEL_NO_MATCH') {
         return { reply: `I did not match that to anything I can do${chosen.reason ? ` (${chosen.reason})` : ''}, so nothing was recorded. Try "invoice Kiran Stores 50000 GST 18%", "paid 12000 rent", "who owes me?", or say "help" for more.`, tools: [{ name: plan.name, result }], viaModel: true };
-      }
-    }
-    if (liveCallsEnabled() && !mockModeEnabled()) {
-      const ask = await runTool(state, 'nim_ask', { prompt: message });
-      if (ask.ok && ask.data?.reply) {
-        return {
-          reply: ask.data.reply,
-          tools: [{ name: 'nim_ask', result: ask }],
-        };
       }
     }
     return {
@@ -1215,7 +1220,7 @@ export function discardPending(state) {
 
 export async function chat(state, said) {
   const message = redactTinsFor(setCurrentCountry(state), said);
-  const out = await throughLanguage(message, async (english) => spoken(await chatCore(state, english)));
+  const out = await throughLanguage(message, async (english, how) => spoken(await chatCore(state, english, how)));
   rememberTurn(state, message, out.reply);
   logEvalEvent(state, { input: message, toolName: out.tools?.[0]?.name || out.preview?.tool || out.pending?.name || out.pending?.tool || '', outcome: out.blocked ? 'blocked' : out.awaitingConfirmation || out.pending ? 'held' : out.tools?.length ? 'ran' : 'answered', viaModel: Boolean(out.viaModel), blocked: Boolean(out.blocked), reply: out.reply });
   return out;

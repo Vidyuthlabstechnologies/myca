@@ -55,7 +55,7 @@ import { auditTrail } from './audit-trail.mjs';
 import { import2b, creditAtRisk, reconcileDocuments } from './gstr2b-check.mjs';
 import { imsReview, decideIms } from './ims.mjs';
 import { booksCheck } from './books-check.mjs';
-import { deadlineRun, filingRows } from './deadline-run.mjs';
+import { askedMonths, deadlineRun, filingRows } from './deadline-run.mjs';
 import { listFilings, recordFiling } from './filings.mjs';
 import { draftSupplierReminder, recordSupplierReminder } from './supplier-reminders.mjs';
 import { addEmployee, changeSalary, endEmployment, listEmployees, setEmployeeBank } from './employees.mjs';
@@ -2738,7 +2738,9 @@ export const TOOLS = [
     description: 'Statutory due dates for the firm and every registered client (GSTR-1/3B, PMT-06, TDS, PF, advance tax, ITR, GSTR-9) from the dated rules, as of today. Due dates never roll over weekends or holidays.',
     run: (state, args = {}) => {
       const asOfDate = /^\d{4}-\d{2}-\d{2}$/.test(String(args.asOfDate || '')) ? args.asOfDate : localToday();
-      const run = deadlineRun(state, { asOfDate, months: args.months, holidaysText: args.holidaysText || '' });
+      const window = askedMonths(args.months, asOfDate);
+      if (!window.ok) return fail(window.error);
+      const run = deadlineRun(state, { asOfDate, months: window.months, holidaysText: String(args.holidaysText || '') });
       return ok({ asOfDate, ...run });
     },
   },

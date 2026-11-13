@@ -5,6 +5,7 @@ import { dueDateFor } from './due-dates.mjs';
 const PAISE = 100;
 const QUARTER_OF_END_MONTH = { 6: 1, 9: 2, 12: 3, 3: 4 };
 const QRMP_3B_EARLIEST_DAY_STATE = '27';
+const YEAR_MONTH = /^\d{4}-(0[1-9]|1[0-2])$/;
 
 function truthy(v) {
   return v === true || ['true', 'yes', '1', 'y'].includes(String(v ?? '').trim().toLowerCase());
@@ -137,7 +138,7 @@ function resolve(spec, periodEnd, profile) {
 
 export function listDeadlines({ clients, months }) {
   const profiles = (Array.isArray(clients) ? clients : []).map(profileOf);
-  const window = new Set((Array.isArray(months) ? months : []).map(String));
+  const window = new Set((Array.isArray(months) ? months : []).map(String).filter((ym) => YEAR_MONTH.test(ym)));
   if (!window.size) return [];
   const sorted = [...window].sort();
   const earliest = shiftYm(sorted[0], -24);

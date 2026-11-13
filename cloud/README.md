@@ -334,7 +334,7 @@ The server logs one `startup: services` line listing which optional services are
 | `MYCA_GSP_ENV`, `MYCA_GSP_BASE_URL` | for the GST portal | | no | GSP host selection. |
 | `MYCA_GSP_API_KEY`, `MYCA_GSP_API_SECRET`, `MYCA_GSP_TEST_API_KEY`, `MYCA_GSP_TEST_API_SECRET`, `MYCA_GSP_LIVE_API_KEY`, `MYCA_GSP_LIVE_API_SECRET` | for the GST portal | | yes | GSP (Quicko / Sandbox) keys. The live pair is refused in staging. |
 | `MYCA_MODEL_API_KEY`, `MYCA_MODEL`, `MYCA_MODEL_BASE_URL` | for the chat model | built-in patterns | key yes | Model used by the chat router (`platform/src/model-adapter.mjs`). This, not `NVIDIA_NIM_API_KEY`, is what the chat reads. |
-| `NVIDIA_NIM_API_KEY` / `NIM_API_KEY`, `NVIDIA_NIM_BASE_URL`, `NVIDIA_NIM_MODEL` | no | | key yes | Only the NIM tool (`nim-client.mjs`), not the chat router. |
+| `NVIDIA_NIM_API_KEY` / `NIM_API_KEY`, `NVIDIA_NIM_BASE_URL`, `NVIDIA_NIM_MODEL` | no | | key yes | Only the NIM tool (`nim-client.mjs`), which answers a message that starts with "ask nim". Leave it unset on the hosted service: Terraform no longer sets it, and it must never hold the chat model's key, because it is sent to NVIDIA. |
 | `MYCA_WHATSAPP_PROVIDER` | no | `waha` when `MYCA_WAHA_URL` is set, else `meta` | no | WhatsApp route. |
 | `MYCA_WAHA_URL`, `MYCA_WAHA_API_KEY`, `MYCA_WAHA_SESSION`, `MYCA_WAHA_WEBHOOK_SECRET` | for WAHA | | key and secret yes | Self-hosted WhatsApp gateway. The URL must be https outside local development. |
 | `MYCA_WHATSAPP_VERIFY_TOKEN`, `MYCA_WHATSAPP_APP_SECRET`, `MYCA_WHATSAPP_PHONE_NUMBER_ID`, `MYCA_WHATSAPP_ACCESS_TOKEN` | for Meta WhatsApp | | all but the number id | Meta Cloud API. |

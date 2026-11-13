@@ -255,7 +255,6 @@ locals {
   reviewer_phone_valid  = length(regexall("^(\\+?91|0)?[6-9][0-9]{9}$", replace(var.reviewer_phone, "/[\\s()-]/", ""))) == 1
   optional_secrets = { for name, value in {
     MYCA_MODEL_API_KEY             = var.model_api_key
-    NVIDIA_NIM_API_KEY             = var.model_api_key
     MYCA_WAHA_API_KEY              = var.waha_api_key
     MYCA_WHATSAPP_APP_SECRET       = var.whatsapp_app_secret
     MYCA_WHATSAPP_ACCESS_TOKEN     = var.whatsapp_access_token
@@ -299,7 +298,6 @@ locals {
     MYCA_EMAIL_RELAY_URL           = var.email_relay_url
     MYCA_EMAIL_FROM                = var.email_from
     MYCA_MODEL                     = var.model_name
-    NVIDIA_NIM_MODEL               = var.model_name
     MYCA_MODEL_BASE_URL            = var.model_base_url
     MYCA_PLAY_PACKAGE              = var.play_package_name
     MYCA_PLAY_PRODUCT_ESSENTIALS   = var.play_product_essentials

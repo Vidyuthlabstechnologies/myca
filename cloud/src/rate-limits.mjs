@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 export const LIMITS = Object.freeze({
   signIn: { max: 60, windowSeconds: 600 },
   ask: { max: 120, windowSeconds: 3600 },
+  askPaused: { max: 1, windowSeconds: 3600 },
   crash: { max: 30, windowSeconds: 3600 },
   upload: { max: 200, windowSeconds: 3600 },
   gstinCheck: { max: 120, windowSeconds: 3600 },

@@ -221,7 +221,8 @@ CSV/XML import works with or without a live Tally connection.
 ## 6. NVIDIA NIM (optional AI)
 
 `NVIDIA_NIM_API_KEY=<key from build.nvidia.com>`. An LLM may only choose tools — it never
-produces a financial figure.
+produces a financial figure. NIM answers only a message that starts with "ask nim", and the
+reply is labelled as NIM's. A message MyCA does not understand is never passed to it.
 
 ## 6a. United States: Plaid, TaxJar, Gusto, Track1099 (2026-10-21)
 
