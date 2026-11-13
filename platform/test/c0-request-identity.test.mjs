@@ -7,9 +7,11 @@ import { createState } from '../src/store.mjs';
 import { openSession } from '../src/session.mjs';
 import { bookView } from '../src/book-view.mjs';
 import { runTool } from '../src/tools.mjs';
+import { decideApproval } from '../src/approvals.mjs';
 
 const OWNER = { userId: 'USR-OWNER', role: 'admin', name: 'Asha' };
 const STAFF = { userId: 'USR-STAFF', role: 'staff', name: 'Ravi' };
+const PARTNER = { userId: 'USR-PARTNER', role: 'partner', name: 'Meera' };
 const SALE = {
   partyName: 'Kiran Stores',
   partyGstin: '',
@@ -71,6 +73,20 @@ test('the assistant marker is never upgraded to the signed-in user', async () =>
   const out = await runTool(asOwner, 'sandbox_operation', { operationId: 'einvoice_generate', params: { invoiceId: 'INV-0001' }, actorId: 'assistant' });
   assert.equal(out.ok, false);
   assert.equal(out.error, 'ASSISTANT_BLOCKED_FOR_OPERATION');
+});
+
+test('a tool the model runs for a signed-in person cannot name another requester or role', async () => {
+  const state = createState();
+  const asPartner = bookView(state, state, { actor: PARTNER });
+  const out = await runTool(asPartner, 'approval_request', { ...REQUEST, requestedBy: 'USR-OWNER', role: 'admin', actorId: 'assistant' });
+  assert.equal(out.ok, true);
+  assert.equal(state.approvals[0].requestedBy, 'usr-partner');
+  assert.equal(state.approvals[0].requestedRole, 'partner');
+  const own = decideApproval(state, { approvalId: state.approvals[0].approvalId, decision: 'approve', actor: PARTNER });
+  assert.equal(own.ok, false);
+  assert.equal(own.error, 'MAKER_CHECKER_VIOLATION');
+  const other = decideApproval(state, { approvalId: state.approvals[0].approvalId, decision: 'approve', actor: OWNER });
+  assert.equal(other.ok, true);
 });
 
 test('the actor on a view is frozen and unreachable for writes', () => {
