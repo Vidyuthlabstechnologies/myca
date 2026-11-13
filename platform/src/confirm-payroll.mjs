@@ -1,6 +1,5 @@
 import { planEmployee, planSalaryChange, planLeaving } from './employees.mjs';
 import { planApproval, planSalaryPayment, payrollWords } from './payroll.mjs';
-import { bank } from './sprint-load.mjs';
 import { money } from './confirm-words.mjs';
 
 const EMPLOYEE_REASONS = {

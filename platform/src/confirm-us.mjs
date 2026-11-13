@@ -4,7 +4,6 @@ import { planSalesTaxRate, planContractor } from './us-sales.mjs';
 import { planNexus, checkSalesTaxAnswer, planSalesTaxPayment, planSalesTaxFiling } from './us-sales-tax.mjs';
 import { planWithholding, planSutaRate } from './us-payroll.mjs';
 import { planUsImport } from './import-us-books.mjs';
-import { bank } from './sprint-load.mjs';
 import { money, REVIEW_REASONS } from './confirm-words.mjs';
 
 export function salesTaxRatePreview(state, args) {

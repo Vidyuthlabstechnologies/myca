@@ -23,7 +23,7 @@ import { formatMoneyCurrent, countryOf } from './country.mjs';
 import { usDocumentPreview } from './us-sales.mjs';
 import { planSupplierNote } from './supplier-notes.mjs';
 import { regArg } from './registrations.mjs';
-import { bank, gstin as gstinRules } from './sprint-load.mjs';
+import { gstin as gstinRules } from './sprint-load.mjs';
 import { planAmendment } from './invoice-amendments.mjs';
 import { money } from './confirm-words.mjs';
 import { TDS_REASONS } from './confirm-tax.mjs';
