@@ -115,6 +115,7 @@ export const ACTION_CLASSES = Object.freeze(Object.assign(Object.create(null), {
   track1099_import: write('channel', ['channel.track1099'], { timeoutMs: 5 * MINUTE_MS }),
   irs_mef_send: write('irs', ['irs.sendSubmissions'], { irreversible: true, timeoutMs: 3 * MINUTE_MS }),
   irs_mef_acks: read('irs', ['irs.getAcks'], { timeoutMs: 2 * MINUTE_MS }),
+  us_filer_session: read('us_filer', ['usFiler.request'], { timeoutMs: 45000 }),
   ...Object.fromEntries(QUICKO_OPERATIONS.map((endpoint) => [
     endpoint.id,
     entry(endpoint.actionClass, 'sandbox_operation', QUICKO_USES, { irreversible: endpoint.irreversible, timeoutMs: endpoint.job ? 3 * MINUTE_MS : 90000 }),
@@ -145,6 +146,24 @@ const HTTPS_TRANSPORT = Object.freeze({
     }
     if (target.protocol !== 'https:' || target.port || target.username || target.password) throw new Error('ENGINE_URL_NOT_PLAIN_HTTPS');
     if (!allowedHosts(externalActionClass(ctx.actionId)).includes(target.hostname)) throw new Error(`ENGINE_HOST_NOT_ALLOWED:${target.hostname}`);
+    return getChannelClient().fetchFn(target.toString(), { ...init, redirect: 'error', signal: init.signal ? AbortSignal.any([init.signal, ctx.signal]) : ctx.signal });
+  },
+});
+
+// The US e-file partner is chosen by setting (Column Tax or April), so its host is the one
+// configured in MYCA_US_FILER_BASE_URL rather than a fixed manifest list.
+const US_FILER_TRANSPORT = Object.freeze({
+  request: (ctx) => async (url, init = {}) => {
+    let target;
+    let allowed;
+    try {
+      target = new URL(String(url));
+      allowed = new URL(configValue('MYCA_US_FILER_BASE_URL')).hostname;
+    } catch {
+      throw new Error('US_FILER_URL_UNREADABLE');
+    }
+    if (target.protocol !== 'https:' || target.port || target.username || target.password) throw new Error('US_FILER_URL_NOT_PLAIN_HTTPS');
+    if (target.hostname !== allowed) throw new Error(`US_FILER_HOST_NOT_ALLOWED:${target.hostname}`);
     return getChannelClient().fetchFn(target.toString(), { ...init, redirect: 'error', signal: init.signal ? AbortSignal.any([init.signal, ctx.signal]) : ctx.signal });
   },
 });
@@ -206,6 +225,7 @@ const TALLY_TRANSPORT = Object.freeze({
 
 const TRANSPORT_TABLES = Object.freeze({
   https: HTTPS_TRANSPORT,
+  usFiler: US_FILER_TRANSPORT,
   tally: TALLY_TRANSPORT,
   nic: NIC_TRANSPORT,
   channel: CHANNEL_TRANSPORT,
@@ -356,7 +376,7 @@ function appendDryRun(state, record) {
   return stored;
 }
 
-export const TEST_MODE_FAMILIES = Object.freeze(new Set(['sandbox', 'sandbox_operation', 'nic', 'govt', 'provider', 'nim', 'irs']));
+export const TEST_MODE_FAMILIES = Object.freeze(new Set(['sandbox', 'sandbox_operation', 'nic', 'govt', 'provider', 'nim', 'irs', 'us_filer']));
 
 function recordDryRun(action, payload, reason = 'LIVE_CALLS_DISABLED') {
   const beforeHash = stateDigest(action.state);

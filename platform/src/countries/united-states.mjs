@@ -32,6 +32,14 @@ export const UNITED_STATES = Object.freeze({
   }),
   filing: Object.freeze([
     Object.freeze({
+      id: 'embedded-partner',
+      authority: 'IRS',
+      route: 'Embedded e-file partner (Column Tax or April) for the 2027 season; MyCA prefills and the partner signs Form 8879 and transmits',
+      liveSwitch: 'MYCA_PROVIDER_ENV',
+      settings: Object.freeze(['MYCA_US_FILER', 'MYCA_US_FILER_BASE_URL', 'MYCA_US_FILER_API_KEY', 'MYCA_US_FILER_WEBHOOK_SECRET']),
+      modules: Object.freeze(['us-filing-partner.mjs', 'us-efile.mjs']),
+    }),
+    Object.freeze({
       id: 'irs-mef',
       authority: 'IRS',
       route: 'MeF (MyCA as transmitter)',

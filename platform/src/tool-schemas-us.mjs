@@ -135,7 +135,7 @@ export const US_TOOL_SCHEMAS = {
       device: { type: 'object', additionalProperties: false, properties: { ipAddress: { type: 'string', maxLength: 45 }, deviceId: { type: 'string', pattern: '^[0-9A-Fa-f]{40}$' }, deviceType: { type: 'string', maxLength: 30 }, at: { type: 'string', maxLength: 40 } } },
     },
   },
-  file_us_return: { type: 'object', additionalProperties: false, required: ['taxYear'], properties: { taxYear: { type: 'integer', minimum: 2020, maximum: 2100 }, caApprovalId: { type: 'string', maxLength: 40 } } },
+  file_us_return: { type: 'object', additionalProperties: false, required: ['taxYear'], properties: { taxYear: { type: 'integer', minimum: 2020, maximum: 2100 }, caApprovalId: { type: 'string', maxLength: 40 }, partnerScope: { type: 'string', maxLength: 36 }, contact: { type: 'object', additionalProperties: false, properties: { email: { type: 'string', maxLength: 200 }, phone: { type: 'string', maxLength: 20 } } } } },
   us_efile_status: { type: 'object', additionalProperties: false, required: ['taxYear'], properties: { taxYear: { type: 'integer', minimum: 2020, maximum: 2100 } } },
   fetch_us_efile_acks: { type: 'object', additionalProperties: false, properties: {} },
   us_efile_setup: { type: 'object', additionalProperties: false, properties: {} },

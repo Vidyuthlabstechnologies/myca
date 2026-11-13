@@ -43,6 +43,27 @@ Money is shown in dollars with thousands grouping; dates read *April 15, 2026* a
 The app calls these tools; until the engine and e-file PRs land, the hub shows an error note on a
 live server because the tools are missing.
 
+## 2027 filing season: the fastest path (2026-11-13)
+
+The season opens in late January 2027 (tax year 2026). MyCA's own IRS route needs an EFIN, a US-person
+Responsible Official and ATS testing, which cannot all be in place by then. So for 2027 the return is
+e-filed through an embedded partner (Column Tax or April); MyCA does the preparation, the refund estimate,
+the review and the fee, then hands the filer to the partner prefilled. See
+[`docs/integrations/US-EFILE-PARTNER.md`](../../integrations/US-EFILE-PARTNER.md). The own-EFIN route
+stays built for 2028.
+
+What must be true by about 20 January 2027:
+
+- [ ] Partner contract signed and the five `MYCA_US_FILER_*` settings set (owner).
+- [ ] Stripe live on the US company (owner), so the $99 launch fee can be charged.
+- [ ] The US stack (`infra/cloud/countries/us.tfvars`, `us-central1`) applied through the
+      `production-us` rollout, so US returns stay in the US (owner runs it).
+- [ ] The US Play app created and the US listing done (owner, see below).
+- [ ] A US CPA or EA attests the tax year 2026 rule records (owner signs the partner; Column Tax's own
+      return engine is the one the IRS receives, so this mainly protects MyCA's estimate).
+- [ ] Privacy notice names the US company as controller, with a real contact (owner gives the
+      names; code change is small).
+
 ## Owner actions before a US launch
 
 ### Legal and IRS

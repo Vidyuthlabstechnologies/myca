@@ -413,6 +413,42 @@ variable "stripe_secret_key" {
   sensitive   = true
 }
 
+variable "us_filer" {
+  description = "Embedded US e-file partner for the 2027 season: column-tax or april. Empty keeps MyCA's own IRS MeF route (needs an EFIN). See docs/integrations/US-EFILE-PARTNER.md."
+  type        = string
+  default     = ""
+  validation {
+    condition     = contains(["", "column-tax", "april"], var.us_filer)
+    error_message = "us_filer must be empty, column-tax or april."
+  }
+}
+
+variable "us_filer_base_url" {
+  description = "HTTPS base URL of the e-file partner's API (sandbox or production), from the partner's onboarding."
+  type        = string
+  default     = ""
+}
+
+variable "us_filer_session_path" {
+  description = "Path of the partner's create-session endpoint, appended to us_filer_base_url."
+  type        = string
+  default     = "/v1/sessions"
+}
+
+variable "us_filer_api_key" {
+  description = "API key the e-file partner issued to MyCA. Leave \"unset\" until the partner contract is signed."
+  type        = string
+  default     = "unset"
+  sensitive   = true
+}
+
+variable "us_filer_webhook_secret" {
+  description = "Secret (24+ characters) MyCA and the partner share to sign webhooks sent to /v1/us/filer/webhook."
+  type        = string
+  default     = "unset"
+  sensitive   = true
+}
+
 variable "stripe_webhook_secret" {
   description = "Signing secret (whsec_) of the Stripe webhook endpoint pointed at /v1/billing/stripe/webhook."
   type        = string

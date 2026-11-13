@@ -1,3 +1,4 @@
+import { PARTNER_SIGNATURE_HEADER, efileRoute, partnerSignatureValid, normalizePartnerEvent, parseExternalId, applyPartnerEvent } from '../../platform/src/us-filing-partner.mjs';
 import { randomUUID } from 'node:crypto';
 import { mockModeEnabled, serviceProviderEnvironment } from '../../platform/src/runtime-config.mjs';
 import { withProviderContext } from '../../platform/src/provider-context.mjs';
@@ -442,6 +443,25 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
       if (!received.ok) throw httpError(received.statusCode, received.error);
       return received;
     }
+    if (parts[1] === 'us' && parts[2] === 'filer' && parts[3] === 'webhook' && parts.length === 4 && method === 'POST') {
+      const raw = await readRaw(req, MAX_BODY_BYTES);
+      if (!partnerSignatureValid(raw, req.headers[PARTNER_SIGNATURE_HEADER])) throw httpError(401, 'FILER_SIGNATURE_INVALID');
+      let body;
+      try {
+        body = JSON.parse(raw.toString('utf8'));
+      } catch {
+        throw httpError(400, 'FILER_EVENT_UNREADABLE');
+      }
+      const event = normalizePartnerEvent(body);
+      const target = parseExternalId(event.externalId);
+      if (!target?.scope || !isUuid(target.scope)) return { ok: true, ignored: 'FILER_EVENT_UNKNOWN_RETURN' };
+      const out = await withBooks(target.scope, { userId: null, deviceId: null, requestId }, async (session) => {
+        const applied = applyPartnerEvent(session.state, event);
+        if (applied.changed) session.persist();
+        return applied;
+      }).catch((err) => (err?.statusCode === 404 || err?.status === 404 ? { ok: false, error: 'FILER_EVENT_UNKNOWN_RETURN' } : Promise.reject(err)));
+      return out.ok ? { ok: true, status: out.status, changed: Boolean(out.changed) } : { ok: true, ignored: out.error };
+    }
     if (parts[1] === 'us' && parts[2] === 'supported-forms' && parts.length === 3 && method === 'GET') return { ok: true, taxYears: [2025, 2026], ...US_SUPPORTED_FORMS };
     if (parts[1] === 'auth' && parts[2] === 'methods' && parts.length === 3 && method === 'GET') {
       return { ok: true, phone: auth.phoneEnabled, google: google.enabled, oidc: openId.enabled, ...(openId.enabled ? { oidcIssuer: openId.issuer } : {}) };
@@ -826,7 +846,8 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
       if (action === 'subscription') return billing.verify(businessId, user.userId, body);
       if (action === 'us-return-purchase') return billing.verifyUsReturn(businessId, user.userId, body);
       if (action === 'us-checkout') {
-        const unsupported = body.product === 'return' ? await unsupportedForms(businessId, context, actor, body.taxYear) : [];
+        // The e-file partner files forms MyCA's own engine does not, so only MyCA's own route refuses them.
+        const unsupported = body.product === 'return' && efileRoute() !== 'partner' ? await unsupportedForms(businessId, context, actor, body.taxYear) : [];
         return billing.usCheckout(businessId, user.userId, body, { unsupported });
       }
       if (action === 'us-checkout-confirm') return billing.usCheckoutConfirm(businessId, user.userId, body);
@@ -897,13 +918,16 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
           if (!paid.ok) return paid;
         }
         if (!PROPOSABLE.has(name)) throw httpError(400, 'NOT_PROPOSABLE', { tool: name });
-        const proposed = name === 'sign_us_return' ? withRequestAddress(args, clientAddress(req)) : args;
+        const proposed = name === 'sign_us_return' ? withRequestAddress(args, clientAddress(req)) : name === US_FILE_TOOL ? { ...args, partnerScope: businessId } : args;
         return withBooks(businessId, context, (session) => session.propose(name, proposed, actor));
       }
       if (action === 'confirm') {
         return withBooks(businessId, context, async (session) => {
           const unpaid = await unpaidFiling(businessId, session);
           if (unpaid) return unpaid;
+          // Requests run with provider calls off; filing a US return is the one confirm that may
+          // reach the IRS or the e-file partner, at the service's own provider setting.
+          if (session.state.pendingChatAction?.name === US_FILE_TOOL) return withProviderContext({ environment: serviceProviderEnvironment() }, () => session.confirm(body.token, actor));
           return session.confirm(body.token, actor);
         });
       }

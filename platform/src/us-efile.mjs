@@ -7,6 +7,7 @@ import { buildMefSubmission, makeSubmissionId, returnDigest, routingNumberValid 
 import { simulateAcknowledgement } from './us-mef-sim.mjs';
 import { irsMefSettings, irsMefMissing } from './us-mef-settings.mjs';
 import { transmissionZip } from './us-mef-zip.mjs';
+import { efileRoute, partnerMode, partnerSetup, startPartnerFiling } from './us-filing-partner.mjs';
 
 const PIN = /^\d{5}$/;
 const IP_PIN = /^\d{6}$/;
@@ -51,6 +52,7 @@ function yearOf(args) {
 }
 
 export function efileMode() {
+  if (efileRoute() === 'partner') return partnerMode();
   return productionCallsEnabled() && irsMefMissing().length === 0 ? 'live' : 'sandbox';
 }
 
@@ -225,6 +227,7 @@ function irsTimestamp(iso) {
 export async function fileUsReturn(state, args = {}, actor, options = {}) {
   const taxYear = yearOf(args);
   if (!taxYear) return fail('TAX_YEAR_INVALID');
+  if (efileRoute() === 'partner') return filePartner(state, taxYear, args, actor, options);
   const entry = peekBook(state).returns[String(taxYear)];
   if (!entry?.signature) return fail('NOT_SIGNED', { hint: 'Sign the return (Form 8879) first.', step: 'sign' });
   const latest = entry.submissions?.at(-1);
@@ -276,6 +279,16 @@ export async function fileUsReturn(state, args = {}, actor, options = {}) {
   return { ok: true, submissionId, status: 'submitted', mode };
 }
 
+// 2027 season: the embedded partner signs Form 8879 with the filer and transmits, so no MyCA
+// signature is needed first. The cloud passes partnerScope (the business id) so the partner's
+// webhook can find the return again.
+async function filePartner(state, taxYear, args, actor, options) {
+  const loaded = await computedReturn(state, taxYear, options);
+  if (!loaded.ok) return loaded;
+  const contact = args.contact && typeof args.contact === 'object' ? { email: String(args.contact.email || '').slice(0, 200), phone: String(args.contact.phone || '').replace(/\D/g, '').slice(0, 15) } : {};
+  return startPartnerFiling(state, { taxYear, computed: loaded.data, scope: args.partnerScope, contact }, actor, options);
+}
+
 function applyAck(submission, ack) {
   const accepted = /^accepted$/i.test(String(ack.status || ''));
   const rejected = /^rejected$/i.test(String(ack.status || ''));
@@ -303,7 +316,10 @@ export function usEfileStatus(state, args = {}) {
   if (!taxYear) return fail('TAX_YEAR_INVALID');
   const entry = peekBook(state).returns[String(taxYear)];
   const latest = entry?.submissions?.at(-1) || null;
-  const base = { taxYear, mode: latest?.mode || efileMode(), submissionId: latest?.submissionId || null, acceptedAt: null, rejections: [] };
+  const route = efileRoute();
+  const partner = entry?.partner ? { provider: entry.partner.provider, startedAt: entry.partner.startedAt } : null;
+  const base = { taxYear, route, partner, mode: latest?.mode || entry?.partner?.mode || efileMode(), submissionId: latest?.submissionId || null, acceptedAt: null, rejections: [] };
+  if (route === 'partner' && entry?.partner && (!latest || latest.status === 'rejected') && entry.partner.status === 'in_progress') return { ok: true, ...base, status: 'in_progress', attempts: entry.submissions?.length || 0, rejections: latest ? rejectionsOf(latest.ack?.errors) : [] };
   if (!entry || (!entry.signature && !latest)) return { ok: true, ...base, status: 'not_filed' };
   if (!latest) return { ok: true, ...base, status: 'signed', signedAt: entry.signature.signedAt };
   const status = latest.status;
@@ -342,7 +358,7 @@ export async function fetchUsEfileAcks(state, args = {}, actor) {
 
 export function usEfileSetup() {
   const settings = irsMefSettings();
-  return { ok: true, mode: efileMode(), configured: irsMefMissing(settings).length === 0, missing: irsMefMissing(settings), host: settings.baseUrl };
+  return { ok: true, mode: efileMode(), route: efileRoute(), configured: irsMefMissing(settings).length === 0, missing: irsMefMissing(settings), host: settings.baseUrl, partner: partnerSetup() };
 }
 
 export const SEALED_PENDING_TOOLS = Object.freeze(new Set(['sign_us_return']));
@@ -383,11 +399,26 @@ export function filePreview(state, args = {}) {
   const entry = taxYear ? peekBook(state).returns[String(taxYear)] : null;
   const latest = entry?.submissions?.at(-1);
   const blockers = [];
+  const route = efileRoute();
   if (!taxYear) blockers.push('Say which tax year to file.');
-  else if (!entry?.signature) blockers.push(`Sign the ${taxYear} return first.`);
+  else if (!entry?.signature && route !== 'partner') blockers.push(`Sign the ${taxYear} return first.`);
   if (latest?.status === 'accepted') blockers.push(`The ${taxYear} return was already accepted by the IRS.`);
   if (latest?.status === 'submitted') blockers.push(`The ${taxYear} return is already submitted; wait for the IRS acknowledgement.`);
   const mode = efileMode();
+  if (route === 'partner') {
+    const label = partnerSetup().label || 'our IRS-authorised e-file partner';
+    return {
+      blockers,
+      summary: `Continue to e-file your ${taxYear} federal return with ${label}.`,
+      effects: [
+        'Your name, address, dependents and tax forms are passed on so you do not type them again.',
+        partnerSetup().sendsTins ? 'Your SSN is passed on too, sealed in transit.' : 'You enter your SSN once more on the filing screen.',
+        `You review and sign Form 8879 there; ${label} sends the return to the IRS and MyCA shows the IRS answer.`,
+        mode === 'live' ? '' : 'Sandbox mode: nothing reaches the IRS.',
+      ].filter(Boolean),
+      figures: { taxYear, mode, route },
+    };
+  }
   return {
     blockers,
     summary: mode === 'live' ? `E-file your ${taxYear} federal return with the IRS.` : `Send your ${taxYear} federal return to the e-file sandbox. Nothing reaches the IRS.`,
