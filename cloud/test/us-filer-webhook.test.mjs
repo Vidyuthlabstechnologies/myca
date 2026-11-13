@@ -63,13 +63,13 @@ test('the app hands a return to the e-file partner and the partner webhook moves
   await write(who, 'add_us_tax_form', { taxYear: String(year), kind: 'W-2', payer: 'Hill Studio', payerTin: '12-3456789', fields: { wages: 60000, federalWithheld: 6000, socialSecurityWages: 60000, socialSecurityTax: 3720, medicareWages: 60000, medicareTax: 870 } });
 
   const filed = await write(who, 'file_us_return', { taxYear: year, partnerScope: '00000000-0000-4000-8000-000000000000' });
-  const result = filed.result?.data || filed.result || filed;
+  const handoff = filed.tools?.find((t) => t.name === 'file_us_return')?.result?.data?.handoffUrl;
   assert.equal(sessions.length, 1, JSON.stringify(filed));
   const externalId = sessions[0].external_id;
   assert.ok(externalId.startsWith(`myca.${who.businessId}.${year}.`), 'the server, not the caller, names the business');
   assert.equal(sessions[0].prefill.w2s[0].wages, 60000);
   assert.equal(sessions[0].prefill.taxpayer.ssn, undefined, 'no SSN leaves MyCA unless the operator allows it');
-  assert.ok(JSON.stringify(result).includes('https://file.partner.example/s/1'), JSON.stringify(filed));
+  assert.equal(handoff, 'https://file.partner.example/s/1', JSON.stringify(filed));
 
   const before = await query(who, 'us_efile_status', { taxYear: year });
   assert.equal(before.body.result?.data?.status ?? before.body.data?.status ?? before.body.status, 'in_progress', before.text);
