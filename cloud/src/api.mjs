@@ -99,8 +99,15 @@ export function businessStates(onDate) {
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
+const RAW_BODIES = new WeakSet();
+
+function rawBody(body) {
+  RAW_BODIES.add(body);
+  return body;
+}
+
 export function gustoPage(ok, text) {
-  return { __html: `<!doctype html><meta charset="utf-8"><title>MyCA</title><body style="font:16px system-ui;background:#0c1220;color:#e8edf6;padding:40px"><h1>${ok ? 'Gusto is connected' : 'Gusto was not connected'}</h1><p>${htmlEscape(text)}</p><p>You can close this tab and go back to the MyCA app.</p></body>` };
+  return rawBody({ __html: `<!doctype html><meta charset="utf-8"><title>MyCA</title><body style="font:16px system-ui;background:#0c1220;color:#e8edf6;padding:40px"><h1>${ok ? 'Gusto is connected' : 'Gusto was not connected'}</h1><p>${htmlEscape(text)}</p><p>You can close this tab and go back to the MyCA app.</p></body>` });
 }
 
 function httpError(statusCode, error, extra = {}) {
@@ -489,7 +496,7 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
       if (method === 'GET') {
         const verified = whatsApp.verify(url.searchParams);
         if (!verified.ok) throw httpError(verified.statusCode, verified.error);
-        return { __text: verified.text };
+        return rawBody({ __text: verified.text });
       }
       if (method === 'POST') {
         const raw = await readRaw(req, MAX_BODY_BYTES);
@@ -962,12 +969,12 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
     }
     log({ requestId, method: req.method, path: url ? url.pathname.replace(/[0-9a-f-]{36}/gi, ':id') : '(unreadable)', status, ...(body && body.error === 'SERVER_BUSY' ? { db: 'pool busy' } : {}) });
     const retry = status === 503 ? { 'retry-after': '2' } : status === 429 && body && Number.isSafeInteger(body.retryAfterSeconds) ? { 'retry-after': String(body.retryAfterSeconds) } : {};
-    if (body && typeof body === 'object' && typeof body.__html === 'string') {
+    if (body && typeof body === 'object' && RAW_BODIES.has(body) && typeof body.__html === 'string') {
       res.writeHead(status, { 'content-type': 'text/html; charset=utf-8', 'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'", 'x-content-type-options': 'nosniff', 'cache-control': 'no-store', 'x-request-id': requestId, ...retry });
       res.end(body.__html);
       return;
     }
-    if (body && typeof body === 'object' && typeof body.__text === 'string') {
+    if (body && typeof body === 'object' && RAW_BODIES.has(body) && typeof body.__text === 'string') {
       res.writeHead(status, { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store', 'x-request-id': requestId, ...retry });
       res.end(body.__text);
       return;

@@ -82,3 +82,25 @@ test('chat: "export for tally" answers with the file summary', async () => {
   const out = await chat(state, 'export my books for tally');
   assert.match(out.reply, /^Tally file for [A-Z][a-z]+ \d{4} is ready: \d+ vouchers? and \d+ ledgers, saved as tally_27AABCU9603R1ZN_\d{4}-\d{2}\.xml from Taxes\./, out.reply);
 });
+
+test('a name carrying a character XML forbids still exports as a file Tally can read', async () => {
+  const state = createState();
+  state.company = { ...state.company, name: 'Asha & Sons', gstin: '27AABCU9603R1ZN', state: '27' };
+  const sale = createInvoice(state, { id: 'INV-0001', date: '2026-08-05', partyName: 'Retail\u0001 Mart\u000b', partyGstin: '27AAACH7409R1Z1', lines: [{ description: 'Cloth', hsn: '5208', qty: 1, rate: 100, gstRate: 5 }] });
+  assert.equal(sale.ok, true, JSON.stringify(sale));
+  const { exportTallyXml } = await import('../src/tally-export.mjs');
+  const out = exportTallyXml(state, { period: '2026-08' });
+  const xml = typeof out === 'string' ? out : out.xml || out.data?.xml || JSON.stringify(out);
+  assert.match(xml, /Retail Mart/);
+  assert.doesNotMatch(xml, /[\u0000-\u0008\u000B\u000C\u000E-\u001F]/);
+});
+
+test('a Tally file with a character reference outside Unicode is read, not refused whole', async () => {
+  const { tallyXmlToDayBookCsv } = await import('../src/tally-xml.mjs');
+  const voucher = (name) => `<ENVELOPE><BODY><IMPORTDATA><REQUESTDATA><TALLYMESSAGE><VOUCHER VCHTYPE="Sales"><DATE>20261001</DATE><VOUCHERNUMBER>1</VOUCHERNUMBER><PARTYLEDGERNAME>${name}</PARTYLEDGERNAME><ALLLEDGERENTRIES.LIST><LEDGERNAME>${name}</LEDGERNAME><ISDEEMEDPOSITIVE>Yes</ISDEEMEDPOSITIVE><AMOUNT>-100.00</AMOUNT></ALLLEDGERENTRIES.LIST><ALLLEDGERENTRIES.LIST><LEDGERNAME>Sales</LEDGERNAME><ISDEEMEDPOSITIVE>No</ISDEEMEDPOSITIVE><AMOUNT>100.00</AMOUNT></ALLLEDGERENTRIES.LIST></VOUCHER></TALLYMESSAGE></REQUESTDATA></IMPORTDATA></BODY></ENVELOPE>`;
+  for (const reference of ['&#99999999999;', '&#xFFFFFFF;', '&#xD800;', '&#1;', '&#x0;']) {
+    const out = tallyXmlToDayBookCsv(voucher(`Kiran ${reference}Stores &amp; Co &#8377;`));
+    const csv = typeof out === 'string' ? out : out.csv || JSON.stringify(out);
+    assert.match(csv, /Kiran Stores & Co ₹/, reference);
+  }
+});
