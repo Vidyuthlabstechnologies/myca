@@ -8,11 +8,14 @@ export const SECOND_STEP_MAX_ATTEMPTS = 5;
 export const ENROL_MAX_ATTEMPTS = 5;
 export const CHANGE_MAX_ATTEMPTS = 5;
 export const CHANGE_COOL_DOWN_SECONDS = 15 * 60;
+export const SIGN_IN_MAX_WRONG_CODES = 10;
+export const SIGN_IN_COOL_DOWN_SECONDS = 15 * 60;
 export const RECOVERY_CODES = 8;
 export const RECOVERY_CODE_ALPHABET = 'abcdefghjkmnpqrstuvwxyz23456789';
 export const RECOVERY_CODE_LENGTH = 10;
 const SECRET_BYTES = 20;
 const ALGORITHM = 'aes-256-gcm';
+const TAG_BYTES = 16;
 const VERSION = 'v1';
 const KEY_INFO = 'myca-user-totp';
 const TOTP_SHAPE = /^\d{6}$/;
@@ -56,7 +59,7 @@ export function createSecondFactor({ db, secret, booksKey = '', now = () => Date
     if (!booksKey) throw Object.assign(new Error('the authenticator key is sealed and the service has no MYCA_BOOKS_KEY'), { code: 'BOOKS_KEY_MISSING' });
     const [, iv, tag, body] = value.split('.');
     try {
-      const decipher = createDecipheriv(ALGORITHM, userKey(userId), Buffer.from(iv, 'base64url'));
+      const decipher = createDecipheriv(ALGORITHM, userKey(userId), Buffer.from(iv, 'base64url'), { authTagLength: TAG_BYTES });
       decipher.setAuthTag(Buffer.from(tag, 'base64url'));
       return Buffer.concat([decipher.update(Buffer.from(body, 'base64url')), decipher.final()]).toString('utf8');
     } catch {
@@ -124,6 +127,23 @@ export function createSecondFactor({ db, secret, booksKey = '', now = () => Date
     }
     await q('update user_totp set attempts = $2, failed_at = $3 where user_id = $1', [userId, tried + 1, at()]);
     return { ...checked, attemptsRemaining: CHANGE_MAX_ATTEMPTS - tried - 1 };
+  }
+
+  async function checkAtSignIn(q, userId, input) {
+    const found = await q('select enabled_at, sign_in_attempts, sign_in_failed_at from user_totp where user_id = $1 for update', [userId]);
+    const row = found.rows[0];
+    if (!row || !row.enabled_at) return fail('NOT_ENABLED');
+    const spent = row.sign_in_attempts >= SIGN_IN_MAX_WRONG_CODES;
+    const opensAt = spent && row.sign_in_failed_at ? row.sign_in_failed_at.getTime() + SIGN_IN_COOL_DOWN_SECONDS * 1000 : 0;
+    if (opensAt > now()) return fail('TOO_MANY_ATTEMPTS', { retryAfterSeconds: Math.max(1, Math.ceil((opensAt - now()) / 1000)) });
+    const tried = spent ? 0 : row.sign_in_attempts;
+    const checked = await check(q, userId, input);
+    if (checked.ok) {
+      await q('update user_totp set sign_in_attempts = 0, sign_in_failed_at = null where user_id = $1', [userId]);
+      return checked;
+    }
+    await q('update user_totp set sign_in_attempts = $2, sign_in_failed_at = $3 where user_id = $1', [userId, tried + 1, at()]);
+    return checked;
   }
 
   return {
@@ -220,8 +240,9 @@ export function createSecondFactor({ db, secret, booksKey = '', now = () => Date
         if (challenge.expires_at.getTime() <= now()) return fail('CODE_EXPIRED');
         if (challenge.attempts >= SECOND_STEP_MAX_ATTEMPTS) return fail('TOO_MANY_ATTEMPTS');
         await q('update second_step_challenges set attempts = attempts + 1 where id = $1', [challengeId]);
-        const checked = await check(q, challenge.user_id, code);
+        const checked = await checkAtSignIn(q, challenge.user_id, code);
         if (!checked.ok) {
+          if (checked.error === 'TOO_MANY_ATTEMPTS') return fail('TOO_MANY_ATTEMPTS', { retryAfterSeconds: checked.retryAfterSeconds });
           return fail(checked.error === 'CODE_USED' ? 'CODE_USED' : 'INVALID_CODE', { attemptsRemaining: SECOND_STEP_MAX_ATTEMPTS - challenge.attempts - 1 });
         }
         await clearTries(q, challenge.user_id);

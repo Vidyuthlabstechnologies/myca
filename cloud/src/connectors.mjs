@@ -4,6 +4,7 @@ import { HOSTED_CHANNELS as CONNECTOR_CHANNELS } from './govt-connectors.mjs';
 
 const MIN_KEY_LENGTH = 32;
 const ALGORITHM = 'aes-256-gcm';
+const TAG_BYTES = 16;
 
 function fail(error, extra = {}) {
   return { ok: false, error, ...extra };
@@ -29,7 +30,7 @@ export function openSecrets(secret, businessId, sealed) {
   const [iv, tag, body] = String(sealed || '').split('.');
   if (!iv || !tag || !body) return {};
   try {
-    const decipher = createDecipheriv(ALGORITHM, deriveKey(secret, businessId), Buffer.from(iv, 'base64url'));
+    const decipher = createDecipheriv(ALGORITHM, deriveKey(secret, businessId), Buffer.from(iv, 'base64url'), { authTagLength: TAG_BYTES });
     decipher.setAuthTag(Buffer.from(tag, 'base64url'));
     return JSON.parse(Buffer.concat([decipher.update(Buffer.from(body, 'base64url')), decipher.final()]).toString('utf8'));
   } catch {
