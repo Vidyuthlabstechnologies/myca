@@ -381,4 +381,4 @@ The server logs one `startup: services` line listing which optional services are
   direct-to-storage uploads.
 - A business may hold 200 MB of documents in total (\`MAX_BUSINESS_BYTES\`); beyond that an upload answers 413 STORAGE_FULL.
 
-`MYCA_BOOKS_KEY` seals every business's books row (AES-256-GCM, a key derived per business) and every user's authenticator key (`user_totp`, a key derived per user). It is optional locally and required on Cloud Run; Terraform generates it into Secret Manager. Rotating it means re-sealing every row of both, so keep it where the database password is kept.
+`MYCA_BOOKS_KEY` seals every business's books row (AES-256-GCM, a key derived per business) and every user's authenticator key (`user_totp`, a key derived per user). It is optional locally and required on Cloud Run; Terraform generates it into Secret Manager. Rotating it means re-sealing every row of both and of the shared copies, which `npm run reseal` does in one transaction (`DEPLOYMENT.md`, "Change the books key"); keep it where the database password is kept.

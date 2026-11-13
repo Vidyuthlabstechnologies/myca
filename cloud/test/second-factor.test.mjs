@@ -2,7 +2,7 @@ import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { createDecipheriv, createHmac, createSign, generateKeyPairSync, hkdfSync } from 'node:crypto';
 import { base32Decode, totpCode } from '../src/totp.mjs';
-import { ENROL_MAX_ATTEMPTS, RECOVERY_CODES, SECOND_STEP_MAX_ATTEMPTS, SECOND_STEP_TTL_SECONDS, createSecondFactor } from '../src/second-factor.mjs';
+import { ENROL_MAX_ATTEMPTS, RECOVERY_CODES, SECOND_STEP_MAX_ATTEMPTS, SECOND_STEP_TTL_SECONDS, SIGN_IN_COOL_DOWN_SECONDS, SIGN_IN_MAX_WRONG_CODES, createSecondFactor } from '../src/second-factor.mjs';
 import { ACCESS_TTL_SECONDS, keyedHash } from '../src/tokens.mjs';
 import { PRIVACY_NOTICE } from '../src/consent.mjs';
 import { JOB_HEADER } from '../src/jobs.mjs';
@@ -645,5 +645,39 @@ test('deleting the account while second-step sign-ins are in flight never answer
     assert.ok(won <= 1, `round ${round}: one code, one sign-in`);
     const live = await api.db.query('select count(*)::int as n from devices where user_id = $1 and revoked_at is null', [session.user.id]);
     assert.equal(live.rows[0].n, 0, `round ${round}: every device is ended`);
+  }
+});
+
+test('wrong codes at sign-in are counted for the person across challenges: after ten in a row a new challenge is refused even with the right code, and fifteen minutes later the right code signs in', async () => {
+  const own = await startApi();
+  try {
+    const phone = freshPhone();
+    const { secret, token } = await enrol(phone, own);
+    assert.equal(SIGN_IN_MAX_WRONG_CODES, 2 * SECOND_STEP_MAX_ATTEMPTS);
+    for (let round = 0; round < 2; round++) {
+      const step = await firstStep(phone, own);
+      for (let i = 0; i < SECOND_STEP_MAX_ATTEMPTS; i++) {
+        const out = await secondStep(step.body.challengeId, wrongCode(secret, own), 'second phone', own);
+        assert.equal(out.body.error, 'INVALID_CODE', out.text);
+      }
+    }
+    const third = await firstStep(phone, own);
+    const locked = await secondStep(third.body.challengeId, current(secret, own), 'second phone', own);
+    assert.equal(locked.status, 429, locked.text);
+    assert.equal(locked.body.error, 'TOO_MANY_ATTEMPTS');
+    assert.ok(locked.body.retryAfterSeconds > 0 && locked.body.retryAfterSeconds <= SIGN_IN_COOL_DOWN_SECONDS, locked.text);
+    assert.equal(locked.body.accessToken, undefined);
+    const stillMine = await status(token, own);
+    assert.equal(stillMine.status === 200 || stillMine.status === 401, true, 'the session that was already open is not ended by wrong codes elsewhere');
+
+    own.clock.advance(SIGN_IN_COOL_DOWN_SECONDS * 1000 + 1000);
+    const fourth = await firstStep(phone, own);
+    const opened = await secondStep(fourth.body.challengeId, current(secret, own), 'second phone', own);
+    assert.equal(opened.status, 200, opened.text);
+    assert.ok(opened.body.accessToken);
+    const counts = await own.db.query('select sign_in_attempts, sign_in_failed_at from user_totp');
+    assert.deepEqual(counts.rows, [{ sign_in_attempts: 0, sign_in_failed_at: null }]);
+  } finally {
+    await own.close();
   }
 });
