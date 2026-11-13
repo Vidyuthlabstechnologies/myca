@@ -49,6 +49,7 @@ async function callModel(unredacted, country = currentCountryCode()) {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'x-api-key': config.apiKey, 'anthropic-version': API_VERSION },
       body: JSON.stringify({ model: config.model, max_tokens: MAX_TOKENS, ...body }),
+      redirect: 'error',
       signal: controller.signal,
     });
     const declared = Number(res.headers.get('content-length') || 0);

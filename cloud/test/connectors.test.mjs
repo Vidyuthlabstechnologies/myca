@@ -80,8 +80,8 @@ test('a pull is a dry run until MYCA_ENABLE_CHANNEL_PULLS is on; with it the rep
     if (url.includes('/auth/o2/token')) return json({ access_token: 'tok' });
     if (url.endsWith('/reports') && init.method === 'POST') return json({ reportId: 'R1' });
     if (url.endsWith('/reports/R1')) return json({ processingStatus: 'DONE', reportDocumentId: 'D1' });
-    if (url.endsWith('/documents/D1')) return json({ url: 'https://files.example/D1' });
-    if (url === 'https://files.example/D1') return { ok: true, status: 200, headers: { get: () => '' }, text: async () => AMAZON_TSV };
+    if (url.endsWith('/documents/D1')) return json({ url: 'https://tortuga-prod-eu.s3-eu-west-1.amazonaws.com/D1' });
+    if (url === 'https://tortuga-prod-eu.s3-eu-west-1.amazonaws.com/D1') return { ok: true, status: 200, headers: { get: () => '' }, text: async () => AMAZON_TSV };
     return json({ errors: [{ message: 'unexpected' }] }, 500);
   };
   setChannelClient(new ChannelClient({ fetchFn: fakeFetch, pollMs: 1, pollLimit: 3 }));

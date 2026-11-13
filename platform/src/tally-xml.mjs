@@ -3,6 +3,7 @@
  * Protocol is Tally's published XML interface; this parser is original to Bahikhata.
  */
 import { csvRows } from './text-safe.mjs';
+import { soleCdata, withoutCdataMarks, xmlElements, xmlFirst, xmlOpenings, xmlSource } from './xml-scan.mjs';
 
 const ENTITIES = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'" };
 
@@ -21,11 +22,11 @@ function decodeEntities(text) {
   });
 }
 
-function tag(block, name) {
-  const m = block.match(new RegExp(`<${name}[^>]*>([\\s\\S]*?)</${name}>`, 'i'));
-  if (!m) return '';
-  const cdata = m[1].match(/^\s*<!\[CDATA\[([\s\S]*?)\]\]>\s*$/);
-  return cdata ? cdata[1].trim() : decodeEntities(m[1].replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1')).trim();
+function tag(source, name) {
+  const found = xmlFirst(source, name);
+  if (!found) return '';
+  const whole = soleCdata(found.inner);
+  return whole !== null ? whole.trim() : decodeEntities(withoutCdataMarks(found.inner)).trim();
 }
 
 function attr(block, name) {
@@ -40,12 +41,23 @@ function tallyDate(raw) {
   return raw;
 }
 
-function voucherAmount(block) {
-  const amounts = [...block.matchAll(/<(?:AMOUNT)[^>]*>([\d.\-]+)<\//gi)].map((m) => Number(m[1]));
-  const partyAmt = [...block.matchAll(/<ALLLEDGERENTRIES\.LIST[\s\S]*?<\/ALLLEDGERENTRIES\.LIST>/gi)]
-    .map((m) => Number(tag(m[0], 'AMOUNT')))
+const AMOUNT_TEXT = /[\d.\-]/;
+
+function plainAmounts(source) {
+  const amounts = [];
+  for (const open of xmlOpenings(source, 'AMOUNT')) {
+    let end = open.bodyFrom;
+    while (end < source.text.length && AMOUNT_TEXT.test(source.text[end])) end += 1;
+    if (end > open.bodyFrom && source.text.startsWith('</', end)) amounts.push(Number(source.text.slice(open.bodyFrom, end)));
+  }
+  return amounts;
+}
+
+function voucherAmount(source) {
+  const partyAmt = xmlElements(source, 'ALLLEDGERENTRIES.LIST', { bare: true })
+    .map((entry) => Number(tag(xmlSource(entry.outer, { ignoreCase: true }), 'AMOUNT')))
     .filter((n) => Number.isFinite(n) && n !== 0);
-  const abs = partyAmt.length ? Math.max(...partyAmt.map(Math.abs)) : Math.max(0, ...amounts.map(Math.abs));
+  const abs = partyAmt.length ? Math.max(...partyAmt.map(Math.abs)) : Math.max(0, ...plainAmounts(source).map(Math.abs));
   return abs;
 }
 
@@ -54,11 +66,12 @@ export function tallyXmlToDayBookCsv(xml) {
   if (!/<ENVELOPE|<VOUCHER/i.test(text)) {
     return { ok: false, error: 'Not a Tally XML envelope (expected <ENVELOPE> or <VOUCHER>).', csv: '', count: 0 };
   }
-  const blocks = [...text.matchAll(/<VOUCHER\b[\s\S]*?<\/VOUCHER>/gi)].map((m) => m[0]);
+  const blocks = xmlElements(xmlSource(text, { ignoreCase: true }), 'VOUCHER', { boundary: true, bare: true }).map((found) => found.outer);
   const header = ['Date', 'Voucher Type', 'Voucher No', 'Particulars', 'Amount', 'GSTIN', 'Narration'];
   const rows = [header];
-  for (const b of blocks) {
-    const type = tag(b, 'VOUCHERTYPENAME') || attr(b, 'VCHTYPE') || 'Journal';
+  for (const block of blocks) {
+    const b = xmlSource(block, { ignoreCase: true });
+    const type = tag(b, 'VOUCHERTYPENAME') || attr(block, 'VCHTYPE') || 'Journal';
     const date = tallyDate(tag(b, 'DATE'));
     const no = tag(b, 'VOUCHERNUMBER') || tag(b, 'REFERENCE');
     const party = tag(b, 'PARTYLEDGERNAME') || tag(b, 'PARTYNAME') || 'Unknown';

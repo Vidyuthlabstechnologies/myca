@@ -116,6 +116,16 @@
   owner-only actions refuse everyone else before their body is read; and a client that
   drops mid-upload is answered 400 and is not recorded as a crash. A dropped or refused
   database connection also answers 503 `SERVER_BUSY`, and the API process stays up.
+- The readers of text that comes from outside (the Tally XML export, Tally's reply to a
+  push, an IRS acknowledgement and a crash report) take time in proportion to the size of
+  what they read (2026-11-13). Each is tested with the largest hostile input its route
+  accepts: a 4 MB file of unclosed tags is read in well under four seconds, and a 63 KB
+  crash report is cleaned in a fraction of a second where it used to take about seven.
+  A crash report line is cut to 4,000 characters, at a space where there is one, before
+  it is scrubbed, and only the first 40 frames are read.
+- A WhatsApp number that belongs to no business is told so twice in a day and then gets no
+  reply; a member who asks for the business list is answered thirty times an hour. The
+  message is still recorded once either way, so a repeat is not handled twice.
 
 ### Actions that leave the system
 
@@ -125,6 +135,27 @@
 - An approval is bound to a hash of the exact payload; changing anything voids it.
 - OTP, EVC and DSC steps are performed by the taxpayer. The product does not store
   them.
+- No request the server makes follows a redirect (2026-11-13): connectors, the GSP,
+  both model clients, the WhatsApp gateway, the SMS providers, the email relay and OpenID
+  Connect discovery all set `redirect: 'error'`; Shopify alone reads the redirect itself
+  and follows it only to the same shop. Connector hosts come from fixed tables or checked
+  patterns (`*.myshopify.com`, the Zoho data centres, the Amazon regions,
+  `*.sandbox.co.in`).
+- A link that arrives in a provider's answer is checked before it is fetched
+  (`platform/src/outbound.mjs`): an Amazon report link must be https on an
+  `amazonaws.com` host with no port and no credentials, a GSP endpoint given as a full
+  URL must sit under the configured base, and the keys link in an OpenID Connect discovery
+  document must be https on a public host or on the issuer's own host. Loopback, private,
+  link-local, carrier-grade NAT and cloud metadata addresses are refused in IPv4 and in
+  every IPv6 form that carries one, as are single-label and `.internal`/`.local` names.
+- Answers are read up to a cap and then dropped: 16 MB for a connector's JSON, 32 MB for
+  a report file, 8 MB for a GSP job output, 2 MB for a model answer.
+- Outside local development every URL the operator sets (`MYCA_WAHA_URL`,
+  `MYCA_EMAIL_RELAY_URL`, `MYCA_MODEL_BASE_URL`, `NVIDIA_NIM_BASE_URL`, `MYCA_PUBLIC_URL`,
+  `MYCA_GSP_BASE_URL`, `MYCA_OIDC_ISSUER`, `MYCA_OIDC_JWKS_URL`) must be https, carry no
+  user name or password and never be a cloud metadata address, or the server does not
+  start. A private host the operator runs, such as a WhatsApp gateway on the internal
+  network, is allowed.
 
 ### Integrity and audit
 
@@ -215,6 +246,10 @@
 | Switching two-step on needs only a live session: starting and confirming it ask for no fresh phone code, Google token or firm token, and nothing is sent to the owner when two-step is switched on, off or renewed. A step-up was left out of the first release on purpose, so the phone's own lock is the only check (accepted 2026-11-06) | A stolen or unlocked session can enrol its own authenticator and take the eight recovery codes. That session gains no sign-in of its own (the authenticator code is asked only after the owner's phone code, Google or firm sign-in), but every later sign-in by the owner stops at a second step only the thief can pass, so the owner is locked out until an operator steps in, and a thief whose session stays live can enrol again after a reset | Planned: a fresh phone code, or a Google or firm token issued in the last few minutes, before starting, confirming, turning off and renewing, and a text to the number on every change (a user who signed in with Google only has no number yet). Until then the operator, once the user is identified, runs `delete from user_totp where user_id = ...` and `delete from recovery_codes where user_id = ...` and, when the user did not switch two-step on themselves, `update devices set revoked_at = now() where user_id = ... and revoked_at is null` in the same sitting, because a session that stays live can enrol again; the user then signs in in one step and turns two-step on again from Security |
 | The WhatsApp channel is keyed on the sender's phone number and is covered neither by two-step sign-in nor by signing a device out: a message from a linked number that Meta has signed still proposes and posts, and the device check is skipped because the channel carries no device (accepted 2026-11-08) | Someone who holds the owner's number, such as a lost phone with WhatsApp still open or a swapped SIM, can post invoices and other entries by WhatsApp after the owner has turned two-step on and ended every device in the app | A decision on whether posting over WhatsApp should need the app once two-step is on (reads would stay), or a channel tied to a signed-in device the owner can end |
 | Uploads, inbound documents and mail are capped at 200 MB per business | Storage per business is bounded; growth is from businesses, not abuse | Watch the bucket size |
+| A host name is checked when the request is built, not when it is resolved | A public name the operator or a provider gives that later resolves to an inside address (DNS rebinding) is not caught by the server itself; refusing redirects and the fixed host tables leave the operator-set URLs as the only place this applies | Pin the resolved address per request, which needs a custom connection lookup, or keep the service on an egress that cannot reach inside addresses |
+| The CSV importers have no cap on rows or cells beyond the 8 MB upload limit | They take time in proportion to the file, but the largest accepted file of nothing but commas holds one request for about two seconds, and about five and a half in the settlement importer | A row and cell cap per importer, or moving imports to a worker |
+| Sign-in codes share one cap of 500 an hour across all numbers | Someone who asks for codes for many numbers can use the cap up and keep new phone sign-ins waiting until the hour turns; each number and each address has its own smaller limit, signed-in devices are not affected and Google Sign-In stays open | A limit at the edge by address range, or a cap that grows with the number of real users |
+| The size of a file shared into the Android app is checked by the server (8 MB) and not on the phone before it is read (#145) | A very large shared file can use the phone's memory before the upload is refused | A size check in the share handler before the bytes are read |
 | Phone numbers are stored in clear in `users` | Exposure in a breach | Acceptable as the login identifier; revisit with the assessment |
 | A hosted read (a query or the snapshot) is audited in the `audit_log` table only, not in the books | Not a confidentiality risk; the audit trail the app shows lists changes and not those reads, and the access log is where the owner sees who looked | Read `audit_log` into the trail if owners ask for reads there |
 | Retention policy written and enforced (`docs/operations/RETENTION.md`); the periods await counsel | A period counsel changes means a code change | Counsel's sign-off |
