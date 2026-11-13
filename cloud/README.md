@@ -210,12 +210,24 @@ Filing a return stays a CA's step on the portal by design. `infra/cloud` inputs:
 | `public_url` | `MYCA_PUBLIC_URL` | the https custom domain, used for OAuth redirect URIs |
 | `enable_channel_pulls` | `MYCA_ENABLE_CHANNEL_PULLS` | read-only Amazon, Shopify and Razorpay report pulls with each business's own keys |
 
+## Limits on what is posted
+
+A preview is confirmed once: sending the same confirmation again reports the first posting,
+and a code from a preview that was replaced or discarded posts nothing. Every write to one
+business takes the row lock on its books, so two people confirming together post once. A
+number that no rule bounds is refused above 1e11 (`MAX_EXACT_AMOUNT`, ₹10,000 crore), and so
+is a document whose lines come to more than that, because past that size a total can no
+longer be kept to the last paisa and the posted figure would differ from the preview.
+
 ## Plans and billing
 
-Subscriptions are sold through Google Play Billing in the Android app. Every business gets Pro
-free for 14 days from the day it is created, then Free (30 invoices a month, the owner only)
-unless it pays for Pro or CA firm. E-invoicing, connectors and inviting people need a paid plan.
-Nothing is gated until the Play products are configured.
+Subscriptions are sold through Google Play Billing in the Android app. A person gets Pro free
+for 14 days from the day they create their first business; a business they create later shares
+that same trial and does not start a new one, so deleting a business and creating it again
+gains nothing. After the trial a business is read-only unless it pays for a plan. A demo
+business does not use up the trial, and its name, GSTIN and registrations cannot be changed.
+E-invoicing, connectors and inviting people need a paid plan. Nothing is gated until the Play
+products are configured.
 
 | Route | Who | What |
 |---|---|---|

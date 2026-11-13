@@ -216,6 +216,16 @@ export function assistantTools(tools) {
     }));
 }
 
+export const MAX_EXACT_AMOUNT = 1e11;
+
+function lineValue(items) {
+  let total = 0;
+  for (const item of items) {
+    if (item && typeof item.qty === 'number' && typeof item.rate === 'number') total += Math.abs(item.qty * item.rate);
+  }
+  return total;
+}
+
 function valueType(value) {
   if (Array.isArray(value)) return 'array';
   return typeof value;
@@ -234,6 +244,7 @@ function checkScalar(schema, value, path) {
   }
   if (schema.type === 'number' || schema.type === 'integer') {
     if (!Number.isFinite(value)) return `${path} must be finite`;
+    if (schema.maximum == null && Math.abs(value) > MAX_EXACT_AMOUNT) return `${path} is too large`;
     if (schema.minimum != null && value < schema.minimum) return `${path} must be >= ${schema.minimum}`;
     if (schema.maximum != null && value > schema.maximum) return `${path} must be <= ${schema.maximum}`;
     if (schema.exclusiveMinimum != null && value <= schema.exclusiveMinimum) return `${path} must be > ${schema.exclusiveMinimum}`;
@@ -263,6 +274,7 @@ function validateObject(schema, value, path = 'args') {
         const err = validateObject(childSchema.items, value[key][i], `${path}.${key}[${i}]`);
         if (err) return err;
       }
+      if (lineValue(value[key]) > MAX_EXACT_AMOUNT) return `${path}.${key} is too large`;
       continue;
     }
     const err = childSchema.type === 'object'

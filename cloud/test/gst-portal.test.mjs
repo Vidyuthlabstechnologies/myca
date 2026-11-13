@@ -248,6 +248,84 @@ test('in live mode a GSTR-3B save needs a second person\'s approval asked by mon
   }
 });
 
+function monthsBack(count) {
+  const [y, m] = thisMonth().split('-').map(Number);
+  const d = new Date(Date.UTC(y, m - 1 - count, 1));
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+}
+
+test('no GSTR-3B step can be skipped: filing needs the save, the approved review, the set-off, the OTP and unchanged books', async () => {
+  const period = monthsBack(2);
+  await confirmTool('create_invoice', { partyName: 'Retail Mart', partyGstin: '27AAACH7409R1Z1', date: `${period}-08`, lines: [{ description: 'Linen', hsn: '5309', qty: 1, rate: 2000, gstRate: 5 }] });
+  seen.length = 0;
+  const filedOnPortal = () => seen.filter((call) => /gstr-3b\/\d{4}\/\d{1,2}\/file$/.test(call.path)).length;
+  const setOffOnPortal = () => seen.filter((call) => call.path.endsWith('/offset-liability')).length;
+  const step = (name, extra = {}) => post(owner, 'gst-gstr3b', { step: name, period, ...extra });
+  const file = (extra = {}) => step('file', { otp: '333333', pan: 'AABCU9603R', ...extra });
+
+  for (const early of ['liability', 'offset', 'otp', 'file']) {
+    const out = await step(early, { otp: '333333', pan: 'AABCU9603R' });
+    assert.equal(out.body.error, 'NOT_SAVED', `${early}: ${out.text}`);
+  }
+  assert.equal((await step('save')).body.ok, true);
+  assert.equal((await file()).body.error, 'REVIEW_NOT_APPROVED');
+  assert.equal((await step('offset')).body.error, 'REVIEW_NOT_APPROVED');
+  assert.equal((await step('liability')).body.ok, true);
+  await approveReview(period);
+  assert.equal((await file()).body.error, 'NOT_SET_OFF');
+  assert.equal(setOffOnPortal(), 0);
+  assert.equal((await step('offset')).body.ok, true);
+  assert.equal((await step('offset')).body.error, 'ALREADY_SET_OFF');
+  assert.equal(setOffOnPortal(), 1, 'the tax is set off once');
+  for (const otp of ['', '12345', '1234567', 'abcdef', '12 456']) {
+    assert.equal((await file({ otp })).body.error, 'OTP_REQUIRED', JSON.stringify(otp));
+  }
+  const other = await post(owner, 'gst-gstr3b', { step: 'file', period: monthsBack(3), otp: '333333', pan: 'AABCU9603R' });
+  assert.equal(other.body.error, 'NOT_SAVED', 'a save for one month files no other month');
+  assert.equal(filedOnPortal(), 0, 'nothing reached the portal file call');
+
+  await confirmTool('create_invoice', { partyName: 'Retail Mart', partyGstin: '27AAACH7409R1Z1', date: `${period}-20`, lines: [{ description: 'More linen', hsn: '5309', qty: 1, rate: 500, gstRate: 5 }] });
+  assert.equal((await file()).body.error, 'DRAFT_CHANGED');
+  assert.equal(filedOnPortal(), 0);
+  const books = await api.books(owner.businessId);
+  assert.equal(books.filings.some((f) => f.returnType === 'GSTR-3B' && f.period === period), false);
+});
+
+test('in live mode an approval given for one month, or asked and approved by one person, opens nothing else', async () => {
+  const asked = monthsBack(4);
+  const other = monthsBack(5);
+  for (const period of [asked, other]) {
+    await confirmTool('create_invoice', { partyName: 'Retail Mart', partyGstin: '27AAACH7409R1Z1', date: `${period}-10`, lines: [{ description: 'Cotton', hsn: '5208', qty: 1, rate: 900, gstRate: 5 }] });
+  }
+  const before = { provider: process.env.MYCA_PROVIDER_ENV, gsp: process.env.MYCA_GSP_ENV };
+  process.env.MYCA_PROVIDER_ENV = 'live';
+  process.env.MYCA_GSP_ENV = 'live';
+  try {
+    const request = await post(owner, 'approvals', { operation: 'gstr3b_save', period: asked });
+    assert.equal(request.body.ok, true, request.text);
+    const approvalId = request.body.approval.approvalId;
+    const pending = await post(owner, 'gst-gstr3b', { step: 'save', period: asked, caApprovalId: approvalId });
+    assert.match(String(pending.body.error), /APPROVAL/, 'an approval nobody decided opens nothing');
+    const own = await post(owner, 'approvals', { approvalId, decision: 'approve' });
+    assert.equal(own.body.error, 'MAKER_CHECKER_VIOLATION', own.text);
+    assert.equal((await post(accountant, 'approvals', { approvalId, decision: 'approve' })).body.ok, true);
+    const wrongMonth = await post(owner, 'gst-gstr3b', { step: 'save', period: other, caApprovalId: approvalId });
+    assert.match(String(wrongMonth.body.error), /APPROVAL/, wrongMonth.text);
+    const made = await post(owner, 'gst-gstr3b', { step: 'save', period: other, caApprovalId: 'APR-DOES-NOT-EXIST' });
+    assert.match(String(made.body.error), /APPROVAL/, made.text);
+    assert.equal((await post(owner, 'gst-gstr3b', { step: 'save', period: asked, caApprovalId: approvalId })).body.ok, true);
+    const again = await post(owner, 'gst-gstr3b', { step: 'offset', period: asked, caApprovalId: approvalId });
+    assert.equal(again.body.error, 'REVIEW_NOT_APPROVED', again.text);
+    await approveReview(asked);
+    const paid = await post(owner, 'gst-gstr3b', { step: 'offset', period: asked, caApprovalId: approvalId });
+    assert.match(String(paid.body.error), /APPROVAL/, 'the approval for the save does not pay the tax');
+    assert.equal(seen.filter((call) => call.path.endsWith('/offset-liability') && call.path.includes(`/${Number(asked.slice(5))}/`)).length, 0);
+  } finally {
+    process.env.MYCA_PROVIDER_ENV = before.provider;
+    process.env.MYCA_GSP_ENV = before.gsp;
+  }
+});
+
 test('the session is refreshed by the job before it lapses, a lapsed one asks for a new OTP, and staff cannot reach the portal', async () => {
   api.clock.advance(5 * HOUR);
   const before = issued;

@@ -238,7 +238,7 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
 
   async function entitlement(businessId) {
     const at = now();
-    const business = await db.query('select created_at as "createdAt", demo, kind from businesses where id = $1', [businessId]);
+    const business = await db.query('select b.created_at as "createdAt", b.demo, b.kind, u.trial_started_at as "trialStartedAt" from businesses b left join users u on u.id = b.created_by where b.id = $1', [businessId]);
     if (business.rows[0]?.kind === 'household') {
       const plan = PLANS.household;
       return { ok: true, enforced: enabled, plan: plan.id, planTitle: plan.title, limits: plan.limits, features: plan.features, trial: null, subscription: null, manageUrl: '', usReturn: { enforced: usSold(), filingOpen: usFilingOpen() === true, priceUsd: returnPrice(), listPriceUsd: cfg.usReturn.priceUsd, productId: cfg.usReturn.productId, checkout: checkoutKind() }, usPlus: await usPlus(businessId) };
@@ -247,7 +247,8 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
       return { ok: true, enforced: enabled, plan: 'pro', planTitle: PLANS.pro.title, limits: PLANS.pro.limits, features: PLANS.pro.features, trial: null, demo: true, subscription: null, manageUrl: '' };
     }
     const createdAt = business.rows[0] ? new Date(business.rows[0].createdAt).getTime() : at;
-    const trialEndsAt = createdAt + TRIAL_DAYS * DAY_MS;
+    const firstBusinessAt = business.rows[0]?.trialStartedAt ? new Date(business.rows[0].trialStartedAt).getTime() : createdAt;
+    const trialEndsAt = Math.min(createdAt, firstBusinessAt) + TRIAL_DAYS * DAY_MS;
     const sub = await row(businessId);
     const paidUntil = sub?.currentEnd ? new Date(sub.currentEnd).getTime() + GRACE_DAYS * DAY_MS : 0;
     const paying = Boolean(sub && LIVE_STATUSES.has(sub.status) && PAID.includes(sub.plan) && paidUntil > at);
