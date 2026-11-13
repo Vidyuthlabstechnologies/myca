@@ -45,7 +45,7 @@ What else MyCA does
 - Export everything, at any time, in one file
 
 Plans
-Every new business gets a 14-day free trial of Pro. After the trial the books stay readable and exportable, and posting needs a plan:
+Your first business gets a 14-day free trial of Pro. After the trial the books stay readable and exportable, and posting needs a plan:
 - Essentials: Rs 399 a month or Rs 3,999 a year, for 2 people
 - Pro: Rs 799 a month or Rs 7,999 a year, for 5 people, with portal filing, e-invoices, connectors and WhatsApp
 - CA firm: Rs 2,499 a month or Rs 24,999 a year, for 25 people

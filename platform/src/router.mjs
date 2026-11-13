@@ -239,6 +239,7 @@ function notAccepted(error) {
   const text = String(error || '');
   if (/gstRate is required/.test(text)) return 'A GST rate is needed for each item; MyCA does not assume one. Nothing was changed.';
   if (/partyName/.test(text)) return 'Say who it is with. Nothing was changed.';
+  if (/is too large$/.test(text)) return 'One of the amounts is too large to keep exactly, so nothing was changed.';
   if (/amount|rate|qty/.test(text) && /minimum|exclusiveMinimum|number/.test(text)) return 'One of the amounts is not a usable number. Nothing was changed.';
   return 'Some of the details were missing or not in the right form, so nothing was changed.';
 }
