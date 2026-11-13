@@ -41,10 +41,34 @@ updates:
       site:
         patterns: ["*"]
 
+  - package-ecosystem: npm
+    directory: /design
+    schedule:
+      interval: weekly
+    groups:
+      design:
+        patterns: ["*"]
+
   - package-ecosystem: pub
     directory: /mobile
     schedule:
       interval: weekly
     groups:
       flutter-packages:
+        patterns: ["*"]
+
+  - package-ecosystem: docker
+    directories: ["/cloud", "/deploy/site"]
+    schedule:
+      interval: weekly
+    groups:
+      base-images:
+        patterns: ["*"]
+
+  - package-ecosystem: pub
+    directory: /design/flutter/myca_design
+    schedule:
+      interval: weekly
+    groups:
+      design-flutter:
         patterns: ["*"]

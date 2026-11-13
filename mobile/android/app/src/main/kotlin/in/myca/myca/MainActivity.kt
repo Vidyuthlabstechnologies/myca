@@ -5,6 +5,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.provider.OpenableColumns
+import android.view.WindowManager
 import java.io.ByteArrayOutputStream
 import java.io.InputStream
 import io.flutter.embedding.android.FlutterFragmentActivity
@@ -32,6 +33,18 @@ class MainActivity : FlutterFragmentActivity() {
                 val taken = pending
                 pending = null
                 result.success(taken)
+            } else {
+                result.notImplemented()
+            }
+        }
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, SECURE_CHANNEL).setMethodCallHandler { call, result ->
+            if (call.method == "set") {
+                if (call.arguments == true) {
+                    window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+                } else {
+                    window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+                }
+                result.success(null)
             } else {
                 result.notImplemented()
             }
@@ -96,6 +109,7 @@ class MainActivity : FlutterFragmentActivity() {
 
     companion object {
         const val CHANNEL = "in.myca/share"
+        const val SECURE_CHANNEL = "in.myca/secure"
         const val MAX_BYTES = 8 * 1024 * 1024
         val ACCEPTED = listOf("image/", "application/pdf", "text/")
     }

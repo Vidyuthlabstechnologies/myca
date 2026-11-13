@@ -544,9 +544,31 @@ It deliberately keeps `enforce_admins: false` so the owner has an emergency bypa
   a provider version, refresh them with
   `terraform providers lock -platform=linux_amd64 -platform=windows_amd64 -platform=darwin_arm64`
   in each module and commit the result.
+- Every `npm ci`, in CI and in the API image, runs with `--ignore-scripts`, so no dependency's
+  install script runs on a runner or in a build. Flutter fetches with `pub get --enforce-lockfile`.
+- The API and site images start from base images pinned by digest (`cloud/Dockerfile`,
+  `deploy/site/Dockerfile`); Dependabot proposes new digests weekly. Cloud Run deploys the pushed
+  image by its digest, not by tag, so a re-pushed tag cannot change what runs.
+- Each API rollout records a CycloneDX bill of materials (workflow artifact
+  `myca-api-<environment>.sbom.cdx.json`) and a GitHub build-provenance attestation for the image
+  digest. Each Windows and Android release attaches `myca-windows.sbom.cdx.json` or
+  `myca-android.sbom.cdx.json` and attests the installers and app files. Check a download with
+  `gh attestation verify <file> --repo Vidyuthlabstechnologies/myca`.
+- Both Play listings upload with the short-lived `gh-deployer` token; there is no stored Play key.
+  Invite `gh-deployer` to the US app in Play Console as well before setting `PLAY_US_TRACK`.
+- `.github/workflows/codeql.yml` runs CodeQL (security-extended) on the JavaScript and on the
+  workflows themselves for every push and pull request to `main` and `develop`, and weekly.
+- No workflow uses `pull_request_target`; pull requests from forks get no secrets and no
+  Google Cloud identity, because the deploy pool trusts only `main` and `v*` tags and the plan pool
+  only grants the read-only planner.
+- Owner settings that code cannot change: turn on secret scanning push protection (Settings >
+  Code security), protect `v*` tags so only maintainers can create them (the deploy pool trusts any
+  `v*` tag), and keep the Android upload key only in Secret Manager and the vault with Play App
+  Signing on (#143).
 - `platform/test/release-pipeline.test.mjs` checks these invariants (tag handling, job
   permissions, SHA pins, checksums, signing, aliases, WIF and IAM scope, state prefixes,
-  Terraform inputs, and this document's variable list) on every CI run.
+  Terraform inputs, install scripts, image digests, bills of materials, attestations, CodeQL,
+  and this document's variable list) on every CI run.
 
 ### 5. Email relay (Cloudflare Worker)
 
