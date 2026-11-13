@@ -853,7 +853,7 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
         if (!connectors.enabled) return { ok: false, error: 'CONNECTORS_UNAVAILABLE', hint: 'The service has no connector key; ask the operator to set MYCA_CONNECTOR_KEY.' };
         const config = await connectors.load(businessId, channel);
         const flowIn = (q) => ({ config, save: (patch) => connectors.patch(businessId, channel, patch, q) });
-        if (action === 'gusto-connect') return gustoConnectUrl({ redirectUri: body.redirectUri || `${publicOrigin(req)}/v1/oauth/gusto/callback`, statePrefix: businessId }, flowIn());
+        if (action === 'gusto-connect') return gustoConnectUrl({ redirectUri: `${publicOrigin(req)}/v1/oauth/gusto/callback`, statePrefix: businessId }, flowIn());
         return withBooks(businessId, context, async (session, q) => {
           const flow = flowIn(q);
           const out = action === 'plaid-link-token' ? await plaidLinkToken(session.state, { userId: user.userId }, actor.actor, flow)

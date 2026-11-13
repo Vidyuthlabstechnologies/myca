@@ -40,6 +40,8 @@ const _messages = {
       'That GSTIN is not valid. Check it against your registration certificate.',
   'STATE_REQUIRED': 'Choose the state your business is in.',
   'INVALID_STATE_CODE': 'Choose the state your business is in.',
+  'STATE_NOT_GSTIN_STATE':
+      'The state must match your GSTIN: its first two digits are the state code.',
   'HOUSEHOLD_US_ONLY': 'A personal tax return is for US filers. Choose the United States first.',
   'UNKNOWN_KIND': 'Choose a personal return or a business.',
   'INVALID_EIN': 'An EIN has nine digits, like 12-3456789. It is on the IRS letter that gave you the number.',

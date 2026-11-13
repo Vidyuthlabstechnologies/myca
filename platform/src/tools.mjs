@@ -235,6 +235,11 @@ export const TOOLS = [
         if (st && !/^\d{2}$/.test(st)) return fail('INVALID_STATE_CODE');
         patch.state = st;
       }
+      const gstinAfter = patch.gstin ?? company.gstin ?? '';
+      const stateAfter = patch.state ?? company.state ?? '';
+      if (gstinAfter && stateAfter && !['97', '99'].includes(gstinAfter.slice(0, 2)) && stateAfter !== gstinAfter.slice(0, 2)) {
+        return fail('STATE_NOT_GSTIN_STATE', { state: stateAfter, gstinState: gstinAfter.slice(0, 2), hint: 'The state is the first two digits of the GSTIN.' });
+      }
       if (args.pan != null) {
         const pan = String(args.pan).trim().toUpperCase();
         if (pan && !/^[A-Z]{5}\d{4}[A-Z]$/.test(pan)) return fail('INVALID_PAN');
