@@ -48,14 +48,19 @@ export GRADLE_OPTS="-Dorg.gradle.internal.http.connectionTimeout=120000 -Dorg.gr
 ```
 
 `test_smoke/` drives the app's own client (`CloudSession`) against a running hosted API: sign in
-with a test number, make a business, book a sale, read Today, delete the business. It is skipped
+with a test number, make a business, book a sale, read Today, delete the business. `p0_flows_test.dart`
+adds the release-blocking checks from `docs/release/E2E-CHECKLIST.md`: one business never shows another's
+invoices (B5), CGST and SGST for the same state and IGST for another (I1, I3), a wrong GSTIN check digit
+is refused (I5), and confirming one preview twice, even at the same moment, posts once (X3, I10). Set
+`MYCA_SMOKE_PHONE_2` to a second test number to also check that another account cannot read or write
+the business; without it that one test is skipped. The smoke is skipped
 unless `MYCA_SMOKE_URL`, `MYCA_SMOKE_PHONE` and `MYCA_SMOKE_CODE` are set; the phone and code must
 be one of that API's `MYCA_TEST_PHONES` and its `MYCA_TEST_CODE`. CI runs it on every push against
 an API it starts itself (job "App against a running API"), and `app-smoke.yml` runs it nightly or by
 hand against `MYCA_CLOUD_URL_STAGING` once the two `MYCA_SMOKE_*` secrets exist.
 
 ```bash
-MYCA_SMOKE_URL=http://127.0.0.1:8080 MYCA_SMOKE_PHONE=9876501234 MYCA_SMOKE_CODE=482913 flutter test test_smoke
+MYCA_SMOKE_URL=http://127.0.0.1:8080 MYCA_SMOKE_PHONE=9876501234 MYCA_SMOKE_PHONE_2=9876501235 MYCA_SMOKE_CODE=482913 flutter test test_smoke
 ```
 
 ## Running against the local server

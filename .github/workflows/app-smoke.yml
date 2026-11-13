@@ -15,6 +15,7 @@ jobs:
     env:
       MYCA_SMOKE_URL: ${{ vars.MYCA_CLOUD_URL_STAGING }}
       MYCA_SMOKE_PHONE: ${{ secrets.MYCA_SMOKE_PHONE }}
+      MYCA_SMOKE_PHONE_2: ${{ secrets.MYCA_SMOKE_PHONE_2 }}
       MYCA_SMOKE_CODE: ${{ secrets.MYCA_SMOKE_CODE }}
     steps:
       - name: Say what is missing

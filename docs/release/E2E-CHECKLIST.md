@@ -159,9 +159,13 @@ Every flow runs on N1. Steps marked "N2" or "N3" also run on those.
 
 ## What is automated
 
-`mobile/test_smoke/hosted_smoke_test.dart` already covers L2, B1, I1 and R1 through the app's own
-client against a running API on every push (CI job "App against a running API") and nightly
-against staging (`app-smoke.yml`). Candidates to automate next, in order: B5 (isolation), I3 and
-I4 (GST split and rates), X3 (no double posting) and A2 (deletion), because a mistake there is a
-P0 and each can run without a phone. Everything that needs a camera, a share sheet, Play or
+`mobile/test_smoke/` runs through the app's own client against a running API on every push (CI
+job "App against a running API") and nightly against staging (`app-smoke.yml`).
+`hosted_smoke_test.dart` covers L2, B1, I1 and R1. `p0_flows_test.dart` covers the API side of B5
+(a second business and a second account see nothing of the first), I1 and I3 (CGST and SGST,
+or IGST only), I5 (wrong check digit refused) and X3 and I10 (the same confirm sent twice at once
+posts one invoice). A2 (deletion and erasure) is covered by `cloud/test/account-erasure.test.mjs`.
+These still run by hand on the devices, because the tests do not see the screens, a killed app or
+a slow network. Next to automate: I4 (mixed rates to the paise) and I7 (credit note and cancel
+move the trial balance exactly). Everything that needs a camera, a share sheet, Play or
 biometrics stays manual.
