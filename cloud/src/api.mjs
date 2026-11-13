@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { mockModeEnabled, serviceProviderEnvironment } from '../../platform/src/runtime-config.mjs';
+import { runSmoke, serverSmokeEnv } from './sandbox-smoke.mjs';
 import { withProviderContext } from '../../platform/src/provider-context.mjs';
 import { createGovtActions } from './govt-actions.mjs';
 import { createGstPortal } from './gst-portal.mjs';
@@ -307,7 +308,7 @@ export function clientAddress(req, hops = trustedProxyHops()) {
   return String(parts[parts.length - hops] || '').slice(0, 64);
 }
 
-export function createApi({ billing: billingGiven = null, db, secret, booksKey = '', otpSender = null, googleClientIds = [], googleKeys, oidc = {}, oidcKeys = null, documentVault = null, connectorKey = '', now = () => Date.now(), log = () => {}, version = 'dev', environment = 'local', healthTimeoutMs = 2000, playPush = {}, testSignIn = null, otpGlobalPerHour = OTP_MAX_GLOBAL_PER_HOUR, rateLimits: limitsGiven = LIMITS, adminUserIds = [], jobToken = '', inboundEmail = {}, whatsapp = {}, whatsappSender = null, bodyBudgetBytes = 0, gspFetch = null }) {
+export function createApi({ billing: billingGiven = null, db, secret, booksKey = '', otpSender = null, googleClientIds = [], googleKeys, oidc = {}, oidcKeys = null, documentVault = null, connectorKey = '', now = () => Date.now(), log = () => {}, version = 'dev', environment = 'local', healthTimeoutMs = 2000, playPush = {}, testSignIn = null, otpGlobalPerHour = OTP_MAX_GLOBAL_PER_HOUR, rateLimits: limitsGiven = LIMITS, adminUserIds = [], jobToken = '', inboundEmail = {}, whatsapp = {}, whatsappSender = null, bodyBudgetBytes = 0, gspFetch = null, smokeFetch = null }) {
   process.env.MYCA_HOSTED = '1';
   assertSecret(secret);
   const budget = createBodyBudget(Number.isSafeInteger(bodyBudgetBytes) && bodyBudgetBytes > 0 ? bodyBudgetBytes : defaultBodyBudgetBytes({ constrainedMemory: process.constrainedMemory(), ceiling: MAX_BUSINESS_BYTES }));
@@ -530,6 +531,14 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
       const summary = await gstPortal.refreshDue();
       log({ requestId, job: 'gst-sessions', ...summary });
       return { ok: true, job: 'gst-sessions', summary };
+    }
+    if (parts[1] === 'jobs' && parts[2] === 'sandbox-smoke' && parts.length === 3 && method === 'POST') {
+      if (!jobTokenMatches(jobToken, req.headers[JOB_HEADER])) throw httpError(404, 'NOT_FOUND');
+      if (providerMode() !== 'test') return { ok: true, job: 'sandbox-smoke', skipped: `The service runs in ${providerMode()} mode; the smoke test runs only against sandboxes, in test mode.` };
+      const smoke = await runSmoke(serverSmokeEnv(process.env), smokeFetch ? { fetchFn: smokeFetch } : {});
+      const summary = smoke.refused ? { refused: smoke.refused } : Object.fromEntries(smoke.results.map((r) => [r.id, `${r.status}: ${r.detail}`]));
+      log({ requestId, job: 'sandbox-smoke', ok: smoke.ok && !smoke.refused, ...summary });
+      return { ok: true, job: 'sandbox-smoke', passed: smoke.ok && !smoke.refused, refused: smoke.refused || undefined, results: smoke.results };
     }
     if (parts[1] === 'jobs' && parts[2] === 'daily' && parts.length === 3 && method === 'POST') {
       if (!jobTokenMatches(jobToken, req.headers[JOB_HEADER])) throw httpError(404, 'NOT_FOUND');

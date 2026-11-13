@@ -12,7 +12,13 @@ import '../widgets.dart';
 import 'invitation_cards.dart';
 
 String aboutLine(ServerInfo? server) {
-  final where = server == null ? 'server not reached' : (server.isTest ? 'test environment (${server.environment})' : 'live service');
+  final where = server == null
+      ? 'server not reached'
+      : server.isTestServer
+          ? 'test environment (${server.environment})'
+          : server.isSandbox
+              ? 'sandbox mode (${server.providerMode})'
+              : 'live service';
   return 'MyCA $appVersion · $where';
 }
 

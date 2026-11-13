@@ -66,6 +66,7 @@ class AppState extends ChangeNotifier {
   bool _serverAsked = false;
 
   bool get testServer => server?.isTest ?? false;
+  bool get sandboxServer => server?.isSandbox ?? false;
   final NotificationPlanner notifications;
   final SaveTextFile saveTextFile;
   final SaveBytesFile saveBytesFile;

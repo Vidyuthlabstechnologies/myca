@@ -1,3 +1,4 @@
+import { connectorEnvironment } from './runtime-config.mjs';
 const AMAZON_LWA = 'https://api.amazon.com/auth/o2/token';
 const AMAZON_REGIONS = { IN: 'https://sellingpartnerapi-eu.amazon.com', EU: 'https://sellingpartnerapi-eu.amazon.com', NA: 'https://sellingpartnerapi-na.amazon.com', FE: 'https://sellingpartnerapi-fe.amazon.com' };
 const AMAZON_REPORTS = { settlement: 'GET_V2_SETTLEMENT_REPORT_DATA_FLAT_FILE_V2', orders: 'GET_FLAT_FILE_ALL_ORDERS_DATA_BY_LAST_UPDATE_GENERAL' };
@@ -134,7 +135,7 @@ export class ChannelClient {
   }
 
   async plaid({ config, op, params = {}, from, to }, signal) {
-    const base = PLAID_HOSTS[config.environment || 'sandbox'] || PLAID_HOSTS.sandbox;
+    const base = PLAID_HOSTS[connectorEnvironment(config.environment)] || PLAID_HOSTS.sandbox;
     const post = async (path, body) => {
       const res = await this.fetchFn(`${base}${path}`, { method: 'POST', headers: { 'content-type': 'application/json' }, signal, body: JSON.stringify({ client_id: config.clientId, secret: config.secret, ...body }) });
       const data = await asJson(res);
@@ -157,7 +158,7 @@ export class ChannelClient {
   }
 
   async pinwheel({ config, op, params = {} }, signal) {
-    const base = PINWHEEL_HOSTS[config.environment === 'production' ? 'production' : 'sandbox'];
+    const base = PINWHEEL_HOSTS[connectorEnvironment(config.environment) === 'production' ? 'production' : 'sandbox'];
     const headers = { 'x-api-secret': config.apiSecret, 'pinwheel-version': PINWHEEL_VERSION, 'content-type': 'application/json', accept: 'application/json' };
     const call = async (method, path, body) => {
       const res = await this.fetchFn(`${base}/v1${path}`, { method, headers, signal, ...(body ? { body: JSON.stringify(body) } : {}) });
@@ -194,7 +195,7 @@ export class ChannelClient {
   }
 
   async taxjar({ config, op, params = {} }, signal) {
-    const base = TAXJAR_HOSTS[config.environment === 'production' ? 'production' : 'sandbox'];
+    const base = TAXJAR_HOSTS[connectorEnvironment(config.environment) === 'production' ? 'production' : 'sandbox'];
     const headers = { authorization: `Bearer ${config.apiToken}`, 'x-api-version': '2022-01-24', 'content-type': 'application/json' };
     if (op === 'rates') {
       const query = new URLSearchParams();
@@ -216,7 +217,7 @@ export class ChannelClient {
   }
 
   async gusto({ config, op, params = {}, from, to }, signal) {
-    const base = GUSTO_HOSTS[config.environment === 'production' ? 'production' : 'demo'];
+    const base = GUSTO_HOSTS[connectorEnvironment(config.environment, 'demo') === 'production' ? 'production' : 'demo'];
     if (op === 'token' || op === 'refresh') {
       const body = op === 'token'
         ? { client_id: config.clientId, client_secret: config.clientSecret, redirect_uri: params.redirectUri, code: params.code, grant_type: 'authorization_code' }

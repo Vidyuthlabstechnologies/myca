@@ -29,6 +29,8 @@ locals {
     play_product_essentials      = var.play_product_essentials != ""
     play_product_pro             = var.play_product_pro != ""
     play_product_firm            = var.play_product_firm != ""
+    gsp_live_api_key             = nonsensitive(!contains(["", "unset"], var.gsp_live_api_key))
+    stripe_live_secret_key       = nonsensitive(!contains(["", "unset"], var.stripe_live_secret_key))
   } : setting if on]
   labels = {
     app        = "myca"
@@ -254,22 +256,28 @@ locals {
   reviewer_code_strong  = nonsensitive(!contains(["000000", "111111", "123456", "654321", "999999"], var.reviewer_code))
   reviewer_phone_valid  = length(regexall("^(\\+?91|0)?[6-9][0-9]{9}$", replace(var.reviewer_phone, "/[\\s()-]/", ""))) == 1
   optional_secrets = { for name, value in {
-    MYCA_MODEL_API_KEY             = var.model_api_key
-    MYCA_WAHA_API_KEY              = var.waha_api_key
-    MYCA_WHATSAPP_APP_SECRET       = var.whatsapp_app_secret
-    MYCA_WHATSAPP_ACCESS_TOKEN     = var.whatsapp_access_token
-    MYCA_SMS_TWILIO_TOKEN          = var.sms_provider == "twilio" ? var.sms_secret : ""
-    MYCA_SMS_MSG91_AUTHKEY         = var.sms_provider == "msg91" ? var.sms_secret : ""
-    MYCA_EMAIL_RELAY_TOKEN         = var.email_relay_token
-    MYCA_GSP_TEST_API_KEY          = var.gsp_test_api_key
-    MYCA_GSP_TEST_API_SECRET       = var.gsp_test_api_secret
-    MYCA_GSP_API_KEY               = var.gsp_api_key
-    MYCA_GSP_API_SECRET            = var.gsp_api_secret
-    MYCA_PLAY_SERVICE_ACCOUNT_JSON = var.play_service_account_json
-    MYCA_TEST_CODE                 = var.test_code
-    MYCA_REVIEWER_CODE             = var.reviewer_code
-    MYCA_STRIPE_SECRET_KEY         = var.stripe_secret_key
-    MYCA_STRIPE_WEBHOOK_SECRET     = var.stripe_webhook_secret
+    MYCA_MODEL_API_KEY              = var.model_api_key
+    MYCA_WAHA_API_KEY               = var.waha_api_key
+    MYCA_WHATSAPP_APP_SECRET        = var.whatsapp_app_secret
+    MYCA_WHATSAPP_ACCESS_TOKEN      = var.whatsapp_access_token
+    MYCA_SMS_TWILIO_TOKEN           = var.sms_provider == "twilio" ? var.sms_secret : ""
+    MYCA_SMS_MSG91_AUTHKEY          = var.sms_provider == "msg91" ? var.sms_secret : ""
+    MYCA_EMAIL_RELAY_TOKEN          = var.email_relay_token
+    MYCA_GSP_TEST_API_KEY           = var.gsp_test_api_key
+    MYCA_GSP_TEST_API_SECRET        = var.gsp_test_api_secret
+    MYCA_GSP_API_KEY                = var.gsp_api_key
+    MYCA_GSP_API_SECRET             = var.gsp_api_secret
+    MYCA_GSP_LIVE_API_KEY           = var.gsp_live_api_key
+    MYCA_GSP_LIVE_API_SECRET        = var.gsp_live_api_secret
+    MYCA_STRIPE_TEST_SECRET_KEY     = var.stripe_test_secret_key
+    MYCA_STRIPE_TEST_WEBHOOK_SECRET = var.stripe_test_webhook_secret
+    MYCA_STRIPE_LIVE_SECRET_KEY     = var.stripe_live_secret_key
+    MYCA_STRIPE_LIVE_WEBHOOK_SECRET = var.stripe_live_webhook_secret
+    MYCA_PLAY_SERVICE_ACCOUNT_JSON  = var.play_service_account_json
+    MYCA_TEST_CODE                  = var.test_code
+    MYCA_REVIEWER_CODE              = var.reviewer_code
+    MYCA_STRIPE_SECRET_KEY          = var.stripe_secret_key
+    MYCA_STRIPE_WEBHOOK_SECRET      = var.stripe_webhook_secret
   } : name => value if nonsensitive(!contains(["", "unset"], trimspace(value))) }
   secrets      = merge(local.generated, local.given, { MYCA_DATABASE_URL = local.database_url }, local.optional_secrets)
   secret_names = sort(nonsensitive(keys(local.secrets)))
@@ -289,7 +297,7 @@ locals {
     MYCA_WHATSAPP_PHONE_NUMBER_ID  = var.whatsapp_phone_number_id == "unset" ? "" : var.whatsapp_phone_number_id
     MYCA_MOCK_MODE                 = var.provider_mode == "simulated" ? "1" : "0"
     MYCA_PROVIDER_ENV              = contains(["live", "test"], var.provider_mode) ? var.provider_mode : "off"
-    MYCA_GSP_ENV                   = var.gsp_environment
+    MYCA_GSP_ENV                   = contains(["live", "test"], var.provider_mode) ? var.provider_mode : var.gsp_environment
     MYCA_PUBLIC_URL                = var.public_url
     MYCA_SMS_PROVIDER              = var.sms_provider
     MYCA_SMS_TWILIO_SID            = var.sms_twilio_sid
@@ -308,6 +316,8 @@ locals {
     MYCA_PLAY_PRODUCT_US_1040      = var.play_product_us_1040
     MYCA_PLAY_PRODUCT_US_PLUS      = var.play_product_us_plus
     MYCA_STRIPE_PRICE_US_PLUS      = var.stripe_price_us_plus
+    MYCA_STRIPE_TEST_PRICE_US_PLUS = var.stripe_test_price_us_plus
+    MYCA_STRIPE_LIVE_PRICE_US_PLUS = var.stripe_live_price_us_plus
     MYCA_US_CHECKOUT_RETURN_URL    = var.us_checkout_return_url
     MYCA_US_EXPERT_REVIEW          = var.us_expert_review ? "1" : "0"
     MYCA_ENVIRONMENT               = var.environment
@@ -513,6 +523,30 @@ resource "google_cloud_scheduler_job" "weekly" {
   http_target {
     http_method = "POST"
     uri         = "${google_cloud_run_v2_service.api.uri}/v1/jobs/weekly"
+    headers = {
+      "x-myca-job-token" = local.secrets["MYCA_JOB_TOKEN"]
+    }
+  }
+
+  depends_on = [google_project_service.apis]
+}
+
+resource "google_cloud_scheduler_job" "sandbox_smoke" {
+  count            = var.provider_mode == "test" ? 1 : 0
+  name             = "${local.name}-sandbox-smoke"
+  region           = var.region
+  description      = "Calls the sandbox of every integration that has test keys (Quicko, NIC e-invoice, Stripe test, WAHA, the model) and logs the result. Runs only while provider_mode is test."
+  schedule         = "15 3 * * *"
+  time_zone        = var.daily_job_time_zone
+  attempt_deadline = "300s"
+
+  retry_config {
+    retry_count = 0
+  }
+
+  http_target {
+    http_method = "POST"
+    uri         = "${google_cloud_run_v2_service.api.uri}/v1/jobs/sandbox-smoke"
     headers = {
       "x-myca-job-token" = local.secrets["MYCA_JOB_TOKEN"]
     }

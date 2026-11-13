@@ -80,3 +80,13 @@ export function mockModeEnabled() {
   const raw = process.env.MYCA_MOCK_MODE ?? env.MYCA_MOCK_MODE ?? '';
   return TRUTHY.has(String(raw).trim().toLowerCase());
 }
+
+// Bank, payroll and sales-tax connectors (Plaid, Pinwheel, TaxJar, Gusto) keep their own
+// "environment" in each business's saved keys. Their production hosts are reached only
+// when this service runs live: in test or off mode a business that saved "production"
+// still talks to the provider's sandbox, so one switch (MYCA_PROVIDER_ENV) decides it.
+export function connectorEnvironment(given, sandboxName = 'sandbox') {
+  const asked = String(given || '').trim().toLowerCase();
+  if (asked !== 'production' && asked !== 'development') return sandboxName;
+  return providerEnvironment() === 'live' ? asked : sandboxName;
+}

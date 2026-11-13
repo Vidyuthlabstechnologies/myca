@@ -51,6 +51,7 @@ class FakeCloud {
   bool approverIsSomeoneElse = false;
   bool filingSimulated = false;
   String serverEnvironment = '';
+  String providerMode = 'live';
   final filingApprovals = <Map<String, Object?>>[];
   int plaidLinkTokens = 0;
   int gustoConnects = 0;
@@ -162,7 +163,7 @@ class FakeCloud {
 
     if (path == '/v1/health/live') {
       if (serverEnvironment.isEmpty) return _json(404, {'ok': false, 'error': 'NOT_FOUND'});
-      return _json(200, {'ok': true, 'environment': serverEnvironment, 'providerMode': 'sandbox', 'version': 'test'});
+      return _json(200, {'ok': true, 'environment': serverEnvironment, 'providerMode': providerMode, 'version': 'test'});
     }
     if (path == '/v1/privacy-notice' && request.url.queryParameters['region'] == 'US') {
       return _json(200, {
