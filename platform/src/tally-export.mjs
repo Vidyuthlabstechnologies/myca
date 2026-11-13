@@ -1,10 +1,10 @@
-import { htmlEscape } from './text-safe.mjs';
+import { xmlText } from './text-safe.mjs';
 import { isReturnPeriod, periodOf } from './return-period.mjs';
 import { localToday } from './dates.mjs';
 import { isTdsReceipt } from './tds-credits.mjs';
 
 const round2 = (value) => Math.round(Number(value || 0) * 100) / 100;
-const text = (value) => htmlEscape(String(value ?? '').trim());
+const text = (value) => xmlText(String(value ?? '').trim());
 
 const GROUPS = {
   customer: 'Sundry Debtors',

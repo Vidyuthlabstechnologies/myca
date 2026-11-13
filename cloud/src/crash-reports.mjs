@@ -9,6 +9,7 @@ const MAX_COUNT = 1000;
 const KINDS = new Set(['flutter', 'async', 'server']);
 
 const SCRUBS = [
+  [/[\u0000-\u0008\u000B-\u001F\u007F-\u009F\u2028\u2029]/g, ''],
   [/(https?:\/\/[^\s?#"']+)[?#][^\s"')]*/gi, '$1'],
   [/[\w.+-]+@[\w-]+(?:\.[\w-]+)+/g, '[EMAIL]'],
   [/\beyJ[\w-]+\.[\w-]+\.[\w-]+/g, '[TOKEN]'],

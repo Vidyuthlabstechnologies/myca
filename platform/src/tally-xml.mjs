@@ -6,11 +6,17 @@ import { csvRows } from './text-safe.mjs';
 
 const ENTITIES = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'" };
 
+function character(code) {
+  const usable = Number.isInteger(code) && code >= 0x20 && code <= 0x10FFFF && !(code >= 0xD800 && code <= 0xDFFF) && code !== 0xFFFE && code !== 0xFFFF;
+  if (usable || code === 0x09 || code === 0x0A || code === 0x0D) return String.fromCodePoint(code);
+  return '';
+}
+
 function decodeEntities(text) {
   return String(text).replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (whole, body) => {
     const key = body.toLowerCase();
-    if (key.startsWith('#x')) return String.fromCodePoint(parseInt(body.slice(2), 16));
-    if (key.startsWith('#')) return String.fromCodePoint(Number(body.slice(1)));
+    if (key.startsWith('#x')) return character(parseInt(body.slice(2), 16));
+    if (key.startsWith('#')) return character(Number(body.slice(1)));
     return Object.hasOwn(ENTITIES, key) ? ENTITIES[key] : whole;
   });
 }

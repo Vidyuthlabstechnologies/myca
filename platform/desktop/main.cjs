@@ -56,11 +56,11 @@ ipcMain.handle('myca:save-pdf', async (event, payload = {}) => {
   if (!html) return { ok: false, error: 'NO_CONTENT' };
   if (html.length > MAX_HTML_BYTES) return { ok: false, error: 'CONTENT_TOO_LARGE' };
   const suggested = String(payload.suggestedName || 'MyCA-document.pdf').replace(/[\\/:*?"<>|]/g, '-');
-  const tmpHtml = path.join(app.getPath('temp'), `myca-print-${Date.now()}.html`);
+  const tmpHtml = path.join(app.getPath('temp'), `myca-print-${randomBytes(12).toString('hex')}.html`);
   let win;
   try {
     const strict = `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:; font-src data:">`;
-    writeFileSync(tmpHtml, /<head[^>]*>/i.test(html) ? html.replace(/<head[^>]*>/i, (open) => `${open}${strict}`) : `${strict}${html}`, 'utf8');
+    writeFileSync(tmpHtml, /<head[^>]*>/i.test(html) ? html.replace(/<head[^>]*>/i, (open) => `${open}${strict}`) : `${strict}${html}`, { encoding: 'utf8', flag: 'wx', mode: 0o600 });
     win = new BrowserWindow({
       show: false,
       webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true, javascript: false, webSecurity: true, allowRunningInsecureContent: false },
