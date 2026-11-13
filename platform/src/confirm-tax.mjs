@@ -14,7 +14,6 @@ import { planTcsStatement, plan26asCredits, sectionWords } from './marketplace-c
 import { planTdsWithheld } from './tds-credits.mjs';
 import { planRegistration, openDocumentsFor, registrationByGstin } from './registrations.mjs';
 import { filingRows } from './deadline-run.mjs';
-import { bank } from './sprint-load.mjs';
 import { money, REVIEW_REASONS } from './confirm-words.mjs';
 
 export function gstPaymentPreview(state, args) {
