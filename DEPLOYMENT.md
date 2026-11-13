@@ -392,6 +392,8 @@ Staging uses the same steps with the `staging-` secret prefix and the `myca-stag
 
 ### Who holds which key
 
+Sandbox and live provider keys sit in separate TEST and LIVE slots; going live is changing `provider_mode`. See [docs/release/GO-LIVE.md](docs/release/GO-LIVE.md) for the slots, the startup checks, the nightly sandbox smoke test and the go-live checklist.
+
 Keys never go in chat, in the repository, in GitHub secrets or in plain workflow variables.
 
 | Key | Lives in | Read by |

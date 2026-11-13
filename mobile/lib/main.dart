@@ -185,7 +185,7 @@ class _MycaAppState extends State<MycaApp> with WidgetsBindingObserver {
                   if (widget.state.testServer)
                     Column(
                       children: [
-                        const TestServerBanner(),
+                        TestServerBanner(sandbox: widget.state.sandboxServer),
                         Expanded(
                           child: MediaQuery.removePadding(
                             context: context,
@@ -237,7 +237,9 @@ class _Readable extends StatelessWidget {
 }
 
 class TestServerBanner extends StatelessWidget {
-  const TestServerBanner({super.key});
+  const TestServerBanner({super.key, this.sandbox = false});
+
+  final bool sandbox;
 
   @override
   Widget build(BuildContext context) {
@@ -249,7 +251,7 @@ class TestServerBanner extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
           child: Text(
-            'Test environment: nothing is filed, paid or sent',
+            sandbox ? 'Sandbox mode: nothing is filed with the government yet' : 'Test environment: nothing is filed, paid or sent',
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.labelMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.w600),
           ),

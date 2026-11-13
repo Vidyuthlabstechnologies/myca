@@ -478,12 +478,18 @@ class BusinessRef {
 }
 
 class ServerInfo {
-  const ServerInfo({required this.environment, required this.version});
+  const ServerInfo({required this.environment, required this.version, this.providerMode = ''});
 
   final String environment;
   final String version;
 
-  bool get isTest => environment.isNotEmpty && environment != 'production';
+  final String providerMode;
+
+  bool get isTestServer => environment.isNotEmpty && environment != 'production';
+
+  bool get isSandbox => !isTestServer && providerMode.isNotEmpty && providerMode != 'live';
+
+  bool get isTest => isTestServer || isSandbox;
 }
 
 class InvitationRef {
@@ -1163,7 +1169,11 @@ class CloudSession {
     try {
       final (status, body) = await _send('GET', '/v1/health/live', null, authed: false);
       if (status != 200 || body['ok'] != true) return null;
-      return ServerInfo(environment: '${body['environment'] ?? ''}', version: '${body['version'] ?? ''}');
+      return ServerInfo(
+        environment: '${body['environment'] ?? ''}',
+        version: '${body['version'] ?? ''}',
+        providerMode: '${body['providerMode'] ?? ''}',
+      );
     } on MycaApiException {
       return null;
     }

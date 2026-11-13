@@ -182,6 +182,11 @@ variable "gsp_test_api_key" {
   type        = string
   default     = "unset"
   sensitive   = true
+
+  validation {
+    condition     = contains(["", "unset"], var.gsp_test_api_key) || !startswith(var.gsp_test_api_key, "key_live_")
+    error_message = "gsp_test_api_key holds a live key. Put live keys only in gsp_live_api_key."
+  }
 }
 
 variable "gsp_test_api_secret" {
@@ -189,6 +194,75 @@ variable "gsp_test_api_secret" {
   type        = string
   default     = "unset"
   sensitive   = true
+}
+
+variable "gsp_live_api_key" {
+  description = "Sandbox by Quicko LIVE API key (key_live_...). Used only when provider_mode is \"live\"; in test mode it is kept out of the running API. Fill it before go-live, then switching provider_mode is the whole change. Leave \"unset\" until Quicko issues it."
+  type        = string
+  default     = "unset"
+  sensitive   = true
+
+  validation {
+    condition     = contains(["", "unset"], var.gsp_live_api_key) || startswith(var.gsp_live_api_key, "key_live_")
+    error_message = "gsp_live_api_key must be a live key (key_live_...). Test keys go in gsp_test_api_key."
+  }
+}
+
+variable "gsp_live_api_secret" {
+  description = "Sandbox by Quicko LIVE API secret paired with gsp_live_api_key."
+  type        = string
+  default     = "unset"
+  sensitive   = true
+}
+
+variable "stripe_test_secret_key" {
+  description = "Stripe TEST secret key (sk_test_ or rk_test_), used while provider_mode is \"test\"."
+  type        = string
+  default     = "unset"
+  sensitive   = true
+
+  validation {
+    condition     = contains(["", "unset"], var.stripe_test_secret_key) || startswith(var.stripe_test_secret_key, "sk_test_") || startswith(var.stripe_test_secret_key, "rk_test_")
+    error_message = "stripe_test_secret_key must start sk_test_ or rk_test_."
+  }
+}
+
+variable "stripe_test_webhook_secret" {
+  description = "Signing secret (whsec_) of the TEST-mode Stripe webhook endpoint."
+  type        = string
+  default     = "unset"
+  sensitive   = true
+}
+
+variable "stripe_test_price_us_plus" {
+  description = "TEST-mode Stripe price id of MyCA Plus."
+  type        = string
+  default     = ""
+}
+
+variable "stripe_live_secret_key" {
+  description = "Stripe LIVE secret key (sk_live_ or rk_live_), used only when provider_mode is \"live\"."
+  type        = string
+  default     = "unset"
+  sensitive   = true
+
+  validation {
+    condition     = contains(["", "unset"], var.stripe_live_secret_key) || startswith(var.stripe_live_secret_key, "sk_live_") || startswith(var.stripe_live_secret_key, "rk_live_")
+    error_message = "stripe_live_secret_key must start sk_live_ or rk_live_."
+  }
+}
+
+variable "stripe_live_webhook_secret" {
+  description = "Signing secret (whsec_) of the LIVE-mode Stripe webhook endpoint."
+  type        = string
+  default     = "unset"
+  sensitive   = true
+}
+
+variable "stripe_live_price_us_plus" {
+  description = "LIVE-mode Stripe price id of MyCA Plus."
+  type        = string
+  default     = ""
 }
 
 variable "public_url" {
@@ -334,7 +408,7 @@ variable "gsp_api_secret" {
 }
 
 variable "gsp_environment" {
-  description = "Which Sandbox host gsp_api_key belongs to: test or live."
+  description = "Only used when provider_mode is simulated or dry-run. In test and live mode MYCA_GSP_ENV follows provider_mode, so the Quicko host always matches the mode."
   type        = string
   default     = "test"
 

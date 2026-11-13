@@ -13,6 +13,7 @@ import { createWahaSender } from './waha.mjs';
 import { createBilling, billingConfigFromEnv, billingConfigProblem } from './billing.mjs';
 import { isProduction, hostingName, serviceRevision, databaseTlsProblem, proxyHopsProblem } from './runtime.mjs';
 import { deploymentEnvironment, environmentProblem, enabledServices, usFilingOpen } from './environment.mjs';
+import { applyKeySlots, integrationReport, keyProblems } from './integrations.mjs';
 import { usEfileSetup } from '../../platform/src/us-efile.mjs';
 import { residencyProblem } from './residency.mjs';
 import { testSignInFromEnv } from './test-sign-in.mjs';
@@ -54,6 +55,9 @@ async function migrateWithRetry(db) {
 
 const environmentRefusal = environmentProblem();
 if (environmentRefusal) throw new Error(environmentRefusal);
+const keyRefusals = keyProblems();
+if (keyRefusals.length) throw new Error(`Provider keys are mixed or incomplete, so the API will not start:\n- ${keyRefusals.join('\n- ')}`);
+const keySlots = applyKeySlots();
 const residencyRefused = residencyProblem();
 if (residencyRefused) throw new Error(residencyRefused);
 const testSignIn = testSignInFromEnv(process.env, deploymentEnvironment());
@@ -93,7 +97,7 @@ const handler = createApi({
   playPush: { audience: String(process.env.MYCA_PLAY_PUSH_AUDIENCE || '').trim(), serviceAccount: String(process.env.MYCA_PLAY_PUSH_SERVICE_ACCOUNT || '').trim() },
   ...(Number.isSafeInteger(otpGlobalPerHour) && otpGlobalPerHour > 0 ? { otpGlobalPerHour } : {}),
 });
-log({ startup: 'services', environment: deploymentEnvironment(), revision: serviceRevision(), on: enabledServices() });
+log({ startup: 'services', environment: deploymentEnvironment(), revision: serviceRevision(), on: enabledServices(), keySlots, integrations: integrationReport().integrations.map(({ id, status }) => `${id}: ${status}`) });
 const port = Number(process.env.PORT || 8080);
 const server = createServer(handler);
 server.keepAliveTimeout = 65000;
