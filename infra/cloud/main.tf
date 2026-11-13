@@ -248,6 +248,11 @@ locals {
     MYCA_PLAY_NOTIFY_TOKEN     = random_password.play_notify_token.result
     MYCA_WAHA_WEBHOOK_SECRET   = random_password.waha_webhook_secret.result
   }
+  reviewer_sign_in      = var.reviewer_phone != ""
+  reviewer_code_present = nonsensitive(var.reviewer_code != "")
+  reviewer_code_valid   = nonsensitive(length(regexall("^[0-9]{6}$", var.reviewer_code)) == 1)
+  reviewer_code_strong  = nonsensitive(!contains(["000000", "111111", "123456", "654321", "999999"], var.reviewer_code))
+  reviewer_phone_valid  = length(regexall("^(\\+?91|0)?[6-9][0-9]{9}$", replace(var.reviewer_phone, "/[\\s()-]/", ""))) == 1
   optional_secrets = { for name, value in {
     MYCA_MODEL_API_KEY             = var.model_api_key
     NVIDIA_NIM_API_KEY             = var.model_api_key
@@ -263,6 +268,7 @@ locals {
     MYCA_GSP_API_SECRET            = var.gsp_api_secret
     MYCA_PLAY_SERVICE_ACCOUNT_JSON = var.play_service_account_json
     MYCA_TEST_CODE                 = var.test_code
+    MYCA_REVIEWER_CODE             = var.reviewer_code
     MYCA_STRIPE_SECRET_KEY         = var.stripe_secret_key
     MYCA_STRIPE_WEBHOOK_SECRET     = var.stripe_webhook_secret
   } : name => value if nonsensitive(!contains(["", "unset"], trimspace(value))) }
@@ -308,6 +314,8 @@ locals {
     MYCA_US_EXPERT_REVIEW          = var.us_expert_review ? "1" : "0"
     MYCA_ENVIRONMENT               = var.environment
     MYCA_TEST_PHONES               = join(",", var.test_phones)
+    MYCA_REVIEWER_SIGN_IN          = local.reviewer_sign_in ? "on" : ""
+    MYCA_REVIEWER_PHONE            = var.reviewer_phone
     MYCA_PLAY_PUSH_AUDIENCE        = local.play_push_audience
     MYCA_PLAY_PUSH_SERVICE_ACCOUNT = google_service_account.play_push.email
     MYCA_ADMIN_USER_IDS            = join(",", var.admin_user_ids)
@@ -368,6 +376,11 @@ resource "google_cloud_run_v2_service" "api" {
     precondition {
       condition     = !local.is_production || length(var.test_phones) == 0
       error_message = "test_phones sign in with a fixed code, so production refuses them. Use the reviewer sign-in for the Play reviewer."
+    }
+
+    precondition {
+      condition     = local.reviewer_sign_in == local.reviewer_code_present && (!local.reviewer_sign_in || (local.reviewer_phone_valid && local.reviewer_code_valid && local.reviewer_code_strong))
+      error_message = "The Play reviewer sign-in needs both reviewer_phone and reviewer_code. The phone must be an Indian mobile number and the code six digits that are not 000000, 111111, 123456, 654321 or 999999: the server refuses anything else and would not start."
     }
   }
 

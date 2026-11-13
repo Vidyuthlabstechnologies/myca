@@ -626,11 +626,13 @@ function mulberry32(seed) {
   };
 }
 
+const CHAT_SOURCES = new Set(['assistant-contract.mjs', 'assistant-tools.mjs', 'chat-words.mjs']);
+
 function intentVocabulary() {
   const dir = new URL('../src/', import.meta.url);
   const words = new Map();
   for (const file of readdirSync(dir)) {
-    if (!file.endsWith('-intent.mjs') && file !== 'assistant-contract.mjs') continue;
+    if (!file.endsWith('-intent.mjs') && !CHAT_SOURCES.has(file) && !file.startsWith('tool-schema')) continue;
     const cleaned = readFileSync(new URL(file, dir), 'utf8').replace(/\\[a-zA-Z]/g, ' ').replace(/[^A-Za-z' ]/g, ' ');
     for (const word of cleaned.split(/\s+/)) {
       const lower = word.toLowerCase();

@@ -164,8 +164,8 @@ people most often:
   `test/book-view.test.mjs` fails if one is missed.
 - **A new tool** needs:
   - an entry in `tools.mjs`;
-  - a strict schema in `assistant-contract.mjs` (`additionalProperties: false`) and its `TOOL_RISK`;
-  - a previewer in `chat-confirm.mjs` if it writes;
+  - a strict schema in the matching `tool-schemas-*.mjs` file (`additionalProperties: false`) and its `TOOL_RISK` in `assistant-tools.mjs`;
+  - if it writes, a previewer in the matching `confirm-*.mjs` file (`books`, `sales-purchases`, `tax`, `payroll`, `us`), registered in `PREVIEWERS` in `chat-confirm.mjs`;
   - wording in `router.mjs`;
   - tests.
 

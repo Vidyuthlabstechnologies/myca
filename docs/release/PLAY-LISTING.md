@@ -68,8 +68,8 @@ MyCA is made by ML Dynamic Solutions Private Limited.
 | Tags | accounting, GST, invoicing, bookkeeping, payroll |
 | Contact email | the company's support address |
 | Privacy policy URL | the published copy of `docs/release/PRIVACY-POLICY.md` (served from `deploy/public/privacy.html`) |
-| Screenshots | Home, a customer thread with a preview, Taxes, the GST review, Payroll. Take them on a Pixel at 1080×2400 after the first device run |
-| Feature graphic | 1024×500, the brand mark on the cream background from `mobile/lib/brand.dart` |
+| Screenshots | Eight at 1080×2160 in `docs/release/assets/play/` (`phone-01` to `phone-08`): home, a sale waiting for confirmation, a customer, an invoice, taxes, the GST review, reports, the books check. Rendered on sample books by `mobile/tool/play_listing_test.dart` |
+| Feature graphic | `docs/release/assets/play/feature-graphic.png`, 1024×500: the wordmark, the short description and Bahi on the cream background |
 
 ## 2. Data safety form
 
@@ -118,8 +118,8 @@ one, run `./gradlew :app:processReleaseMainManifest` and read
 
 ## Store icon and launcher icons
 
-The icon, the feature graphic and the eight phone screenshots for the listing are in
-`docs/release/assets/`; its README says how each is made and in what order to upload them.
+The feature graphic and the eight phone screenshots for the listing are in
+`docs/release/assets/play/`; its README says how each is made and in what order to upload them.
 
 `docs/release/assets/play-icon-512.png` is the 512 by 512 Play icon (opaque, the MyCA "M" on the
 brand ink colour), with its source `play-icon.svg`. The legacy launcher icons for Android 7
@@ -135,6 +135,7 @@ that path, run `node scripts/render-launcher-icons.cjs mobile/android/app/src/ma
 - Content rating: everyone.
 - Ads: none. In-app purchases: yes, auto-renewing subscriptions (Essentials, Pro and CA firm) through Google Play Billing, with a 14-day free trial counted by MyCA itself.
 - Target audience: business owners, 18 and over.
+- App access: some functionality is restricted to signed-in users. Instructions for the reviewer: on the first screen enter the reviewer number, tap "Send code" (no SMS is sent), then enter the six-digit code (vault entry "MyCA Play reviewer"). The account sees only demo businesses with sample books, and cannot join a real business. The number and code are turned on in `infra/cloud` (`DEPLOYMENT.md`, "Play reviewer sign-in").
 
 ## 5. Testing track before production
 

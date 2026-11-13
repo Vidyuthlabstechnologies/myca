@@ -87,17 +87,17 @@ into the reply the owner reads. Keep the real logic in other files of the same f
 
 A country folder may import the shared modules (`ledger.mjs`, `ca-api.mjs` for audit events,
 `credential-vault.mjs`, `action-gate.mjs`, `sprint-load.mjs`, `dates.mjs`, `country.mjs`) and the
-kit below. It must not import `tools.mjs`, `router.mjs`, `assistant-contract.mjs`,
-`chat-confirm.mjs`, `remote-contract.mjs`, `session.mjs` or `server.mjs`.
+kit below. It must not import `tools.mjs`, `router.mjs`, `assistant-contract.mjs`, `assistant-tools.mjs`,
+the `tool-schemas*.mjs` files, `chat-confirm.mjs`, the `confirm-*.mjs` files, `remote-contract.mjs`, `session.mjs` or `server.mjs`.
 
 ## What picks the manifest up
 
 | Central file | What it takes |
 |---|---|
 | `tools.mjs` | every tool, with its `run` |
-| `assistant-contract.mjs` | the argument schema and the risk (`read_only` or `writes_books`) |
+| `tool-schemas-*.mjs`, `assistant-tools.mjs` | the argument schema and the risk (`read_only` or `writes_books`) |
 | `remote-contract.mjs` | read tools the app may query |
-| `chat-confirm.mjs` | write tools that need a confirmation, and their `preview` |
+| `chat-confirm.mjs` and the `confirm-*.mjs` previewers | write tools that need a confirmation, and their `preview` |
 | `router.mjs` | `words` |
 | `cloud/src/api.mjs` | write tools the app may propose; capabilities in `GET /v1/countries` |
 | `country.mjs` | a country's tools serve only that country |

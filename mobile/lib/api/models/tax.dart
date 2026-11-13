@@ -1,5 +1,171 @@
 part of '../models.dart';
 
+class TdsMonth {
+  const TdsMonth({required this.month, required this.deducted, required this.depositBy});
+
+  final String month;
+  final num deducted;
+  final String depositBy;
+}
+
+class TdsQuarter {
+  const TdsQuarter({
+    required this.quarter,
+    this.kind = 'other',
+    required this.deducted,
+    required this.deposited,
+    required this.shortfall,
+    required this.dueDate,
+    required this.form,
+    required this.approved,
+    required this.filedArn,
+  });
+
+  factory TdsQuarter.fromJson(Object? json) {
+    final map = _map(json);
+    final filed = map['filed'];
+    return TdsQuarter(
+      quarter: _text(map['quarter']),
+      kind: _text(map['kind']).isEmpty ? 'other' : _text(map['kind']),
+      deducted: _num(map['deducted']),
+      deposited: _num(map['deposited']),
+      shortfall: _num(map['shortfall']),
+      dueDate: _text(map['dueDate']),
+      form: _text(map['form']),
+      approved: map['approved'] == true,
+      filedArn: filed is Map ? _text(filed['arn']) : '',
+    );
+  }
+
+  final String quarter;
+  final String kind;
+  final num deducted;
+  final num deposited;
+  final num shortfall;
+  final String dueDate;
+  final String form;
+  final bool approved;
+  final String filedArn;
+}
+
+class TdsSummary {
+  const TdsSummary({
+    required this.deductor,
+    required this.tan,
+    required this.deducted,
+    required this.deposited,
+    required this.due,
+    required this.months,
+    this.quarters = const <TdsQuarter>[],
+  });
+
+  static TdsSummary? fromTool(Object? json) {
+    final map = _map(json);
+    if (map['ok'] == false) return null;
+    final data = toolData(json);
+    return TdsSummary(
+      deductor: data['deductor'] == true,
+      tan: _text(data['tan']),
+      deducted: _num(data['deducted']),
+      deposited: _num(data['deposited']),
+      due: _num(data['due']),
+      months: [
+        for (final row in _maps(data['months']))
+          TdsMonth(month: _text(row['month']), deducted: _num(row['deducted']), depositBy: _text(row['depositBy'])),
+      ],
+      quarters: _maps(data['quarters']).map(TdsQuarter.fromJson).toList(),
+    );
+  }
+
+  final bool deductor;
+  final String tan;
+  final num deducted;
+  final num deposited;
+  final num due;
+  final List<TdsMonth> months;
+  final List<TdsQuarter> quarters;
+}
+
+class TdsCreditRow {
+  const TdsCreditRow({
+    required this.section,
+    required this.tan,
+    required this.deductor,
+    required this.customer,
+    required this.quarter,
+    required this.in26as,
+    required this.inBooks,
+    required this.gap,
+    required this.status,
+    this.note = '',
+  });
+
+  factory TdsCreditRow.fromJson(Object? json) {
+    final map = _map(json);
+    return TdsCreditRow(
+      section: _text(map['section']),
+      tan: _text(map['tan']),
+      deductor: _text(map['deductor']),
+      customer: _text(map['customer']),
+      quarter: _text(map['quarter']),
+      in26as: _num(map['in26as']),
+      inBooks: _num(map['inBooks']),
+      gap: _num(map['gap']),
+      status: _text(map['status']),
+      note: _text(map['note']).trim(),
+    );
+  }
+
+  final String section;
+  final String tan;
+  final String deductor;
+  final String customer;
+  final String quarter;
+  final num in26as;
+  final num inBooks;
+  final num gap;
+  final String status;
+  final String note;
+
+  String get who => deductor.isNotEmpty ? deductor : customer;
+}
+
+class TdsCreditCheck {
+  const TdsCreditCheck({
+    required this.fy,
+    required this.source,
+    required this.rows,
+    required this.in26as,
+    required this.inBooks,
+    required this.gap,
+    required this.note,
+  });
+
+  static TdsCreditCheck? fromTool(Object? json) {
+    final map = _map(json);
+    if (map['ok'] == false) return null;
+    final data = toolData(json);
+    final totals = _map(data['totals']);
+    return TdsCreditCheck(
+      fy: _text(data['fy']),
+      source: _text(data['source']),
+      rows: _maps(data['rows']).map(TdsCreditRow.fromJson).toList(),
+      in26as: _num(totals['in26as']),
+      inBooks: _num(totals['inBooks']),
+      gap: _num(totals['gap']),
+      note: _text(data['note']),
+    );
+  }
+
+  final String fy;
+  final String source;
+  final List<TdsCreditRow> rows;
+  final num in26as;
+  final num inBooks;
+  final num gap;
+  final String note;
+}
+
 class TaxHeads {
   const TaxHeads({
     required this.igst,
@@ -22,18 +188,6 @@ class TaxHeads {
   final num cgst;
   final num sgst;
   final num total;
-}
-
-class HeldInvoice {
-  const HeldInvoice({required this.number, required this.code});
-
-  factory HeldInvoice.fromJson(Object? json) {
-    final map = _map(json);
-    return HeldInvoice(number: _text(map['inum']), code: _text(map['code']));
-  }
-
-  final String number;
-  final String code;
 }
 
 class Gstr1File {
@@ -157,68 +311,6 @@ class GstPayment {
   final List<String> notes;
 }
 
-class InvoiceShare {
-  const InvoiceShare({required this.on, required this.by, required this.channel, required this.outcome});
-
-  factory InvoiceShare.fromJson(Object? json) {
-    final map = _map(json);
-    return InvoiceShare(on: _text(map['on']), by: _text(map['by']), channel: _text(map['channel']), outcome: _text(map['outcome']));
-  }
-
-  final String on;
-  final String by;
-  final String channel;
-  final String outcome;
-}
-
-class EInvoice {
-  const EInvoice({required this.status, required this.irn, required this.ackNo, required this.why});
-
-  factory EInvoice.fromJson(Object? json) {
-    final map = _map(json);
-    return EInvoice(status: _text(map['status']), irn: _text(map['irn']), ackNo: _text(map['ackNo']), why: _text(map['why']));
-  }
-
-  final String status;
-  final String irn;
-  final String ackNo;
-  final String why;
-}
-
-class EwayBill {
-  const EwayBill({
-    required this.needed,
-    required this.why,
-    required this.status,
-    required this.transportWords,
-    required this.ewbNo,
-    required this.ewbValidity,
-    required this.next,
-  });
-
-  factory EwayBill.fromJson(Object? json) {
-    final map = _map(json);
-    final transport = map['transport'];
-    return EwayBill(
-      needed: map['needed'] == true,
-      why: _text(map['why']),
-      status: _text(map['status']),
-      transportWords: transport is Map ? _text(transport['words']) : '',
-      ewbNo: _text(map['ewbNo']),
-      ewbValidity: _text(map['ewbValidity']),
-      next: _text(map['next']),
-    );
-  }
-
-  final bool needed;
-  final String why;
-  final String status;
-  final String transportWords;
-  final String ewbNo;
-  final String ewbValidity;
-  final String next;
-}
-
 class PeriodGst {
   const PeriodGst({
     required this.period,
@@ -328,147 +420,6 @@ class FiledReturn {
 List<FiledReturn> filedReturnsFrom(Object? json) {
   final data = json is Map ? json['data'] : null;
   return data is List ? data.map(FiledReturn.fromJson).toList() : const [];
-}
-
-class ExceptionItem {
-  const ExceptionItem({
-    required this.id,
-    required this.title,
-    required this.why,
-    required this.severity,
-    required this.moneyAtRisk,
-    required this.status,
-  });
-
-  factory ExceptionItem.fromJson(Object? json) {
-    final map = _map(json);
-    return ExceptionItem(
-      id: _text(map['id']),
-      title: _text(map['title']),
-      why: _text(map['why']),
-      severity: _text(map['severity']),
-      moneyAtRisk: _num(map['moneyAtRisk']),
-      status: _text(map['status']),
-    );
-  }
-
-  final String id;
-  final String title;
-  final String why;
-  final String severity;
-  final num moneyAtRisk;
-  final String status;
-
-  bool get open => status == 'open';
-}
-
-class MonthFigures {
-  const MonthFigures({
-    required this.sales,
-    required this.salesNet,
-    required this.purchases,
-    required this.expenses,
-    this.payrollStatus = 'hidden',
-    this.payrollGross = 0,
-    this.payrollPaidOn = '',
-  });
-
-  factory MonthFigures.fromJson(Object? json) {
-    final map = _map(json);
-    final payroll = map['payroll'];
-    return MonthFigures(
-      sales: _num(_map(map['sales'])['total']),
-      salesNet: _num(_map(map['sales'])['net']),
-      purchases: _num(_map(map['purchases'])['total']),
-      expenses: _num(_map(map['expenses'])['total']),
-      payrollStatus: payroll is Map ? _text(payroll['status']) : 'hidden',
-      payrollGross: payroll is Map ? _num(payroll['gross']) : 0,
-      payrollPaidOn: payroll is Map ? _text(payroll['paidOn']) : '',
-    );
-  }
-
-  final num sales;
-  final num salesNet;
-  final num purchases;
-  final num expenses;
-  final String payrollStatus;
-  final num payrollGross;
-  final String payrollPaidOn;
-}
-
-class OwedCustomer {
-  const OwedCustomer({
-    required this.name,
-    required this.due,
-    required this.invoices,
-  });
-
-  factory OwedCustomer.fromJson(Object? json) {
-    final map = _map(json);
-    return OwedCustomer(
-      name: _text(map['name']),
-      due: _num(map['due']),
-      invoices: _num(map['invoices']).toInt(),
-    );
-  }
-
-  final String name;
-  final num due;
-  final int invoices;
-}
-
-class BusinessSummary {
-  const BusinessSummary({
-    required this.period,
-    required this.previousPeriod,
-    required this.current,
-    required this.previous,
-    required this.owedToYou,
-    required this.openInvoices,
-    required this.customers,
-    required this.caveat,
-    this.owedBySuppliers = 0,
-    this.unpaidBills = 0,
-    this.suppliers = const [],
-  });
-
-  factory BusinessSummary.fromJson(Object? json) {
-    final map = _map(json);
-    final owed = _map(map['owedToYou']);
-    final owing = _map(map['owedBySuppliers']);
-    return BusinessSummary(
-      period: _text(map['period']),
-      previousPeriod: _text(map['previousPeriod']),
-      current: MonthFigures.fromJson(map['current']),
-      previous: MonthFigures.fromJson(map['previous']),
-      owedToYou: _num(owed['total']),
-      openInvoices: _num(owed['invoices']).toInt(),
-      customers: _maps(owed['customers']).map(OwedCustomer.fromJson).toList(),
-      caveat: _text(map['caveat']),
-      owedBySuppliers: _num(owing['total']),
-      unpaidBills: _num(owing['bills']).toInt(),
-      suppliers: _maps(
-        owing['suppliers'],
-      ).map(OwedCustomer.fromJson).toList(),
-    );
-  }
-
-  final String period;
-  final String previousPeriod;
-  final MonthFigures current;
-  final MonthFigures previous;
-  final num owedToYou;
-  final int openInvoices;
-  final List<OwedCustomer> customers;
-  final String caveat;
-  final num owedBySuppliers;
-  final int unpaidBills;
-  final List<OwedCustomer> suppliers;
-}
-
-BusinessSummary? businessSummaryFrom(Object? json) {
-  final data = toolData(json);
-  return data.isEmpty ? null : BusinessSummary.fromJson(data);
 }
 
 class ReviewLine {
@@ -777,26 +728,36 @@ class ImsReview {
   int get acceptableRows => rows.where((row) => (row.match == 'matched' || row.match == 'date differs') && row.decision != 'accept').length;
 }
 
-class SupplierRisk {
-  const SupplierRisk({
-    required this.supplier,
-    required this.gstin,
-    required this.credit,
-    required this.bills,
-  });
+class RulesStatus {
+  const RulesStatus({required this.asOf, required this.records, required this.attested, required this.attention, required this.notes});
 
-  factory SupplierRisk.fromJson(Object? json) {
+  static RulesStatus? fromTool(Object? json) {
     final map = _map(json);
-    return SupplierRisk(
-      supplier: _text(map['supplier']),
-      gstin: _text(map['gstin']),
-      credit: _num(map['credit']),
-      bills: _num(map['bills']).toInt(),
+    if (map['ok'] == false) return null;
+    final data = toolData(json);
+    final totals = _map(data['totals']);
+    return RulesStatus(
+      asOf: _text(data['asOf']),
+      records: totals['records'] is num ? (totals['records'] as num).toInt() : 0,
+      attested: totals['attested'] is num ? (totals['attested'] as num).toInt() : 0,
+      attention: [for (final row in _maps(data['families'])) if (row['attention'] == true) _text(row['title'])],
+      notes: [for (final note in (data['notes'] as List? ?? const [])) _text(note)],
     );
   }
 
-  final String supplier;
-  final String gstin;
-  final num credit;
-  final int bills;
+  final String asOf;
+  final int records;
+  final int attested;
+  final List<String> attention;
+  final List<String> notes;
+
+  String get summary => '$records dated records, $attested reviewed by your accountant.';
+}
+
+List<Deadline> deadlinesFrom(Object? json) =>
+    _maps(toolData(json)['deadlines']).map(Deadline.fromJson).toList();
+
+PeriodGst? periodGstFrom(Object? json) {
+  final data = toolData(json);
+  return data.isEmpty ? null : PeriodGst.fromJson(data);
 }

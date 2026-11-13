@@ -1,5 +1,16 @@
 part of '../models.dart';
 
+String bankDocKindWords(String docKind) => switch (docKind) {
+  'receipt' => 'receipt',
+  'payment' => 'payment',
+  'expense' => 'expense',
+  'settlement' => 'payout',
+  'transfer' => 'transfer',
+  'salary' => 'salary',
+  'gst' => 'GST payment',
+  _ => 'entry',
+};
+
 const ownAccountKinds = {'bank': 'Bank account', 'cash': 'Cash', 'wallet': 'Wallet'};
 
 class OwnAccount {

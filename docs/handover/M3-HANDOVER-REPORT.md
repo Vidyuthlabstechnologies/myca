@@ -51,8 +51,8 @@ There are no values here or anywhere in GitHub. Everything is in the team vault 
 - [`docs/release/DATA-SAFETY.md`](../release/DATA-SAFETY.md),
   [`PRIVACY-POLICY.md`](../release/PRIVACY-POLICY.md) and
   [`PLAY-LISTING.md`](../release/PLAY-LISTING.md): what goes into the Play Console.
-- [`docs/release/assets/README.md`](../release/assets/README.md): the icon, feature graphic and
-  screenshots.
+- [`docs/release/assets/play/README.md`](../release/assets/play/README.md): the feature graphic
+  and screenshots.
 - [`OWNER-CHECKLIST.md`](OWNER-CHECKLIST.md) and [`DEVELOPER-HANDOVER.md`](DEVELOPER-HANDOVER.md).
 
 ## 5. What was merged for this release
@@ -69,7 +69,8 @@ M3 backlog and release work, 2026-11-10 to 2026-11-12:
 | #227, #229 | Staging stack and multi-environment Cloud Run deploys |
 | #218 | Website matches the app |
 | #239 to #242 | Post-merge launch fixes; the website runs as its own service account |
-| #243 | Play listing assets (#152), `infra/aws` retired (#181), automated release-blocking smoke checks (M3.7) |
+| #243 | `infra/aws` retired (#181), automated release-blocking smoke checks (M3.7) |
+| #250 | Play listing assets (#152): the feature graphic and eight phone screenshots in `docs/release/assets/play/` |
 
 The feature work merged in the same window, such as the tax assistant, GSTR-1 and GSTR-3B filing
 through Quicko, e-way bills, the country packs and the US app, is listed in `git log` and
@@ -87,7 +88,7 @@ one next.
 | #142 | P1 | Audit the merged manifest of the release bundle on a device build | developer |
 | #143 | P0 | Play App Signing, and the Play signing SHA-1 as an Android OAuth client | owner |
 | #148 | P0 | One privacy policy that matches the app, published at the site's `/privacy` | owner and developer |
-| #152 | P1 | Upload the assets from #243 to the listing | owner |
+| #152 | P1 | Upload the assets from #250 to the listing | owner |
 | #153 | P0 | Play Console policy declarations and App access | owner |
 | #154 | P1 | Play Billing products, licence testers, notifications | owner |
 | #155 to #158 | P0 and P1 | Developer account, first upload, internal round, closed testing | owner, then testers |

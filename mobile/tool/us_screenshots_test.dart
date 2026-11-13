@@ -9,7 +9,8 @@ import 'package:myca/us/us_return.dart';
 
 import '../test/fake_api.dart';
 import '../test/us_return_test.dart' show FakeFees, FeeStore, UsFakeApi, usState;
-import 'screenshots_test.dart' show loadFonts, shot;
+import 'fonts.dart';
+import 'screenshots_test.dart' show shot;
 
 void main() {
   Bahi.live = false;
@@ -17,7 +18,7 @@ void main() {
   tearDown(() => moneyCountry = 'IN');
 
   Future<void> phone(WidgetTester tester) async {
-    tester.view.physicalSize = const Size(1080, 2160);
+    tester.view.physicalSize = const Size(1080, 2280);
     tester.view.devicePixelRatio = 2.75;
     addTearDown(tester.view.reset);
   }

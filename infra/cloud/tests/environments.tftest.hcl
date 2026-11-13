@@ -59,6 +59,39 @@ run "production_keeps_its_original_names" {
   }
 }
 
+run "production_keeps_the_play_reviewer_sign_in_off_by_default" {
+  command = apply
+
+  assert {
+    condition     = !anytrue([for env in google_cloud_run_v2_service.api.template[0].containers[0].env : startswith(env.name, "MYCA_REVIEWER_")])
+    error_message = "The Play reviewer sign-in must stay off until reviewer_phone is set."
+  }
+}
+
+run "production_turns_on_the_play_reviewer_sign_in" {
+  command = apply
+
+  variables {
+    reviewer_phone = "+919800000002"
+    reviewer_code  = "482913"
+  }
+
+  assert {
+    condition     = anytrue([for env in google_cloud_run_v2_service.api.template[0].containers[0].env : env.name == "MYCA_REVIEWER_SIGN_IN" && env.value == "on"])
+    error_message = "Setting reviewer_phone must turn the reviewer sign-in on."
+  }
+
+  assert {
+    condition     = anytrue([for env in google_cloud_run_v2_service.api.template[0].containers[0].env : env.name == "MYCA_REVIEWER_PHONE" && env.value == "+919800000002"])
+    error_message = "The reviewer's number must reach the server."
+  }
+
+  assert {
+    condition     = contains(keys(google_secret_manager_secret.api), "MYCA_REVIEWER_CODE") && google_secret_manager_secret.api["MYCA_REVIEWER_CODE"].secret_id == "myca-reviewer-code"
+    error_message = "The reviewer's code must be a secret, not a plain variable."
+  }
+}
+
 run "staging_gets_its_own_prefixed_stack" {
   command = apply
 
@@ -184,4 +217,71 @@ run "production_refuses_test_phones" {
   }
 
   expect_failures = [google_cloud_run_v2_service.api]
+}
+
+run "reviewer_phone_without_a_code_is_refused" {
+  command = plan
+
+  variables {
+    reviewer_phone = "+919800000002"
+  }
+
+  expect_failures = [google_cloud_run_v2_service.api]
+}
+
+run "reviewer_code_without_a_phone_is_refused" {
+  command = plan
+
+  variables {
+    reviewer_code = "482913"
+  }
+
+  expect_failures = [google_cloud_run_v2_service.api]
+}
+
+run "reviewer_code_must_be_six_digits" {
+  command = plan
+
+  variables {
+    reviewer_phone = "+919800000002"
+    reviewer_code  = "48291"
+  }
+
+  expect_failures = [google_cloud_run_v2_service.api]
+}
+
+run "reviewer_code_the_server_calls_easy_to_guess_is_refused" {
+  command = plan
+
+  variables {
+    reviewer_phone = "+919800000002"
+    reviewer_code  = "123456"
+  }
+
+  expect_failures = [google_cloud_run_v2_service.api]
+}
+
+run "reviewer_phone_must_be_an_indian_mobile" {
+  command = plan
+
+  variables {
+    reviewer_phone = "+912212345678"
+    reviewer_code  = "482913"
+  }
+
+  expect_failures = [google_cloud_run_v2_service.api]
+}
+
+run "reviewer_phone_may_be_written_with_spaces" {
+  command = apply
+
+  variables {
+    reviewer_phone = "+91 98000 00002"
+    reviewer_code  = "482913"
+  }
+
+  assert {
+    condition     = anytrue([for env in google_cloud_run_v2_service.api.template[0].containers[0].env : env.name == "MYCA_REVIEWER_SIGN_IN" && env.value == "on"])
+    error_message = "A number the server accepts must pass the plan."
+  }
 }

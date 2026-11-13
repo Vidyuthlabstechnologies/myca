@@ -1,5 +1,317 @@
 part of '../models.dart';
 
+class Receipt {
+  const Receipt({
+    required this.amount,
+    required this.date,
+    required this.mode,
+    this.section = '',
+    this.tan = '',
+  });
+
+  factory Receipt.fromJson(Object? json) {
+    final map = _map(json);
+    return Receipt(
+      amount: _num(map['amount']),
+      date: _text(map['date']),
+      mode: _text(map['mode']),
+      section: _text(map['section']),
+      tan: _text(map['tan']),
+    );
+  }
+
+  final num amount;
+  final String date;
+  final String mode;
+  final String section;
+  final String tan;
+
+  bool get tds => mode == 'tds';
+}
+
+class CreditNote {
+  const CreditNote({
+    required this.id,
+    required this.date,
+    required this.invoiceId,
+    required this.partyName,
+    required this.reason,
+    required this.total,
+    required this.cancels,
+  });
+
+  factory CreditNote.fromJson(Object? json) {
+    final map = _map(json);
+    return CreditNote(
+      id: _text(map['id']),
+      date: _text(map['date']),
+      invoiceId: _text(map['invoiceId']),
+      partyName: _text(map['partyName']),
+      reason: _text(map['reason']),
+      total: _num(map['total']),
+      cancels: map['cancels'] == true,
+    );
+  }
+
+  final String id;
+  final String date;
+  final String invoiceId;
+  final String partyName;
+  final String reason;
+  final num total;
+  final bool cancels;
+}
+
+class Invoice {
+  const Invoice({
+    required this.id,
+    required this.date,
+    required this.partyName,
+    required this.partyGstin,
+    required this.total,
+    required this.status,
+    required this.receipts,
+    required this.gstRates,
+    this.payments = const [],
+    this.dueDate = '',
+    this.termsDays,
+    this.msme = false,
+  });
+
+  factory Invoice.fromJson(Object? json) {
+    final map = _map(json);
+    return Invoice(
+      id: _text(map['id']),
+      date: _text(map['date']),
+      partyName: _text(map['partyName']),
+      partyGstin: _text(map['partyGstin']),
+      total: _num(map['total']),
+      status: _text(map['status']),
+      receipts: _maps(map['receipts']).map(Receipt.fromJson).toList(),
+      payments: _maps(map['payments']).map(Receipt.fromJson).toList(),
+      dueDate: _text(map['dueDate']),
+      msme: map['msme'] == true,
+      termsDays: map['paymentTermsDays'] is num
+          ? (map['paymentTermsDays'] as num).toInt()
+          : null,
+      gstRates: [
+        for (final line in _maps(map['lines']))
+          if (line['gstRate'] is num) line['gstRate'] as num,
+      ],
+    );
+  }
+
+  final String id;
+  final String date;
+  final String partyName;
+  final String partyGstin;
+  final num total;
+  final String status;
+  final List<Receipt> receipts;
+  final List<Receipt> payments;
+  final List<num> gstRates;
+  final String dueDate;
+  final int? termsDays;
+  final bool msme;
+
+  bool get paid => status == 'paid';
+
+  bool get partial => status == 'partial';
+
+  num get owed => _stillOpen(total - receipts.fold<num>(0, (sum, r) => sum + r.amount) - payments.fold<num>(0, (sum, p) => sum + p.amount));
+
+  num owedAfter(Iterable<CreditNote> notes) => _stillOpen(owed - notes.where((note) => note.invoiceId == id).fold<num>(0, (sum, note) => sum + note.total));
+
+  bool get cancelled => status == 'cancelled';
+
+  bool get open => !paid && !cancelled && status != 'settled';
+}
+
+class HeldInvoice {
+  const HeldInvoice({required this.number, required this.code});
+
+  factory HeldInvoice.fromJson(Object? json) {
+    final map = _map(json);
+    return HeldInvoice(number: _text(map['inum']), code: _text(map['code']));
+  }
+
+  final String number;
+  final String code;
+}
+
+class InvoiceShare {
+  const InvoiceShare({required this.on, required this.by, required this.channel, required this.outcome});
+
+  factory InvoiceShare.fromJson(Object? json) {
+    final map = _map(json);
+    return InvoiceShare(on: _text(map['on']), by: _text(map['by']), channel: _text(map['channel']), outcome: _text(map['outcome']));
+  }
+
+  final String on;
+  final String by;
+  final String channel;
+  final String outcome;
+}
+
+class EInvoice {
+  const EInvoice({required this.status, required this.irn, required this.ackNo, required this.why});
+
+  factory EInvoice.fromJson(Object? json) {
+    final map = _map(json);
+    return EInvoice(status: _text(map['status']), irn: _text(map['irn']), ackNo: _text(map['ackNo']), why: _text(map['why']));
+  }
+
+  final String status;
+  final String irn;
+  final String ackNo;
+  final String why;
+}
+
+class EwayBill {
+  const EwayBill({
+    required this.needed,
+    required this.why,
+    required this.status,
+    required this.transportWords,
+    required this.ewbNo,
+    required this.ewbValidity,
+    required this.next,
+  });
+
+  factory EwayBill.fromJson(Object? json) {
+    final map = _map(json);
+    final transport = map['transport'];
+    return EwayBill(
+      needed: map['needed'] == true,
+      why: _text(map['why']),
+      status: _text(map['status']),
+      transportWords: transport is Map ? _text(transport['words']) : '',
+      ewbNo: _text(map['ewbNo']),
+      ewbValidity: _text(map['ewbValidity']),
+      next: _text(map['next']),
+    );
+  }
+
+  final bool needed;
+  final String why;
+  final String status;
+  final String transportWords;
+  final String ewbNo;
+  final String ewbValidity;
+  final String next;
+}
+
+class OwedCustomer {
+  const OwedCustomer({
+    required this.name,
+    required this.due,
+    required this.invoices,
+  });
+
+  factory OwedCustomer.fromJson(Object? json) {
+    final map = _map(json);
+    return OwedCustomer(
+      name: _text(map['name']),
+      due: _num(map['due']),
+      invoices: _num(map['invoices']).toInt(),
+    );
+  }
+
+  final String name;
+  final num due;
+  final int invoices;
+}
+
+class CollectionDraft {
+  const CollectionDraft({
+    required this.customer,
+    required this.total,
+    required this.invoices,
+    required this.oldestDaysLate,
+    required this.tone,
+    required this.scoreWords,
+    required this.message,
+    required this.lastSent,
+    required this.timesSent,
+  });
+
+  static CollectionDraft? fromTool(Object? json) {
+    final data = toolData(json);
+    final rows = _maps(data['customers']);
+    if (rows.isEmpty) return null;
+    final map = rows.first;
+    if (_text(map['message']).isEmpty) return null;
+    return CollectionDraft(
+      customer: _text(map['customer']),
+      total: _num(map['total']),
+      invoices: _maps(map['invoices']).length,
+      oldestDaysLate: _num(map['oldestDaysLate']).toInt(),
+      tone: _text(map['tone']),
+      scoreWords: _text(map['scoreWords']),
+      message: _text(map['message']),
+      lastSent: _text(map['lastSent']),
+      timesSent: _num(map['timesSent']).toInt(),
+    );
+  }
+
+  final String customer;
+  final num total;
+  final int invoices;
+  final int oldestDaysLate;
+  final String tone;
+  final String scoreWords;
+  final String message;
+  final String lastSent;
+  final int timesSent;
+}
+
+class Reminder {
+  const Reminder({
+    required this.id,
+    required this.text,
+    required this.due,
+    required this.inDays,
+    required this.state,
+    required this.aboutLabel,
+    this.documentSha256 = '',
+    this.documentName = '',
+  });
+
+  factory Reminder.fromJson(Object? json) {
+    final map = _map(json);
+    final about = _map(map['about']);
+    final id = _text(about['id']);
+    final name = _text(about['name']);
+    return Reminder(
+      id: _text(map['id']),
+      text: _text(map['text']),
+      due: _text(map['due']),
+      inDays: _num(map['inDays']).toInt(),
+      state: _text(map['state']),
+      aboutLabel: _text(about['kind']) == 'document'
+          ? name
+          : [id, name].where((part) => part.isNotEmpty).join(', '),
+      documentSha256: _text(map['documentSha256']),
+      documentName: _text(map['documentName']),
+    );
+  }
+
+  final String id;
+  final String text;
+  final String due;
+  final int inDays;
+  final String state;
+  final String aboutLabel;
+  final String documentSha256;
+  final String documentName;
+
+  bool get hasDocument => documentSha256.isNotEmpty;
+  bool get isDue => state == 'overdue' || state == 'today';
+}
+
+List<Reminder> remindersFrom(Object? json) =>
+    _maps(toolData(json)['reminders']).map(Reminder.fromJson).toList();
+
 const salesDocumentKinds = ['quote', 'proforma', 'order', 'challan'];
 
 const salesDocumentLabels = {
@@ -145,49 +457,6 @@ const repeatEveryLabels = {
 
 List<RecurringEntry> recurringFrom(Object? json) =>
     _maps(toolData(json)['schedules']).map(RecurringEntry.fromJson).toList();
-
-class Today {
-  const Today({
-    required this.gst,
-    required this.deadlines,
-    required this.exceptions,
-    this.summary,
-    this.reminders = const [],
-  });
-
-  final PeriodGst? gst;
-  final List<Deadline> deadlines;
-  final List<ExceptionItem> exceptions;
-  final BusinessSummary? summary;
-  final List<Reminder> reminders;
-}
-
-class ToolOutcome {
-  const ToolOutcome({required this.ok, required this.error});
-
-  factory ToolOutcome.fromJson(Object? json) {
-    final map = _map(json);
-    return ToolOutcome(ok: map['ok'] != false, error: _text(map['error']));
-  }
-
-  final bool ok;
-  final String error;
-}
-
-class Place {
-  const Place({required this.code, required this.name});
-
-  factory Place.fromJson(Object? json) {
-    final map = _map(json);
-    return Place(code: _text(map['code']), name: _text(map['name']));
-  }
-
-  final String code;
-  final String name;
-
-  String get label =>
-      name.isEmpty ? code : (code.isEmpty ? name : '$name ($code)');
-}
 
 class InvoiceLine {
   const InvoiceLine({
@@ -448,126 +717,4 @@ class InvoiceDocument {
           if (sgst > 0) ('SGST', sgst),
           if (igst > 0) ('IGST', igst),
         ];
-}
-
-String _plainRate(num value) => value == value.roundToDouble() ? value.toInt().toString() : value.toString();
-
-class RulesStatus {
-  const RulesStatus({required this.asOf, required this.records, required this.attested, required this.attention, required this.notes});
-
-  static RulesStatus? fromTool(Object? json) {
-    final map = _map(json);
-    if (map['ok'] == false) return null;
-    final data = toolData(json);
-    final totals = _map(data['totals']);
-    return RulesStatus(
-      asOf: _text(data['asOf']),
-      records: totals['records'] is num ? (totals['records'] as num).toInt() : 0,
-      attested: totals['attested'] is num ? (totals['attested'] as num).toInt() : 0,
-      attention: [for (final row in _maps(data['families'])) if (row['attention'] == true) _text(row['title'])],
-      notes: [for (final note in (data['notes'] as List? ?? const [])) _text(note)],
-    );
-  }
-
-  final String asOf;
-  final int records;
-  final int attested;
-  final List<String> attention;
-  final List<String> notes;
-
-  String get summary => '$records dated records, $attested reviewed by your accountant.';
-}
-
-class SalesTaxFiled {
-  const SalesTaxFiled({required this.confirmation, required this.filedOn, required this.late});
-
-  final String confirmation;
-  final String filedOn;
-  final bool late;
-}
-
-class SalesTaxPeriod {
-  const SalesTaxPeriod({
-    required this.period,
-    required this.taxCollected,
-    required this.toPay,
-    required this.dueDate,
-    required this.filed,
-    required this.approved,
-    required this.empty,
-    required this.ended,
-  });
-
-  factory SalesTaxPeriod.fromJson(Object? json) {
-    final map = _map(json);
-    final filed = map['filed'] is Map ? _map(map['filed']) : null;
-    return SalesTaxPeriod(
-      period: _text(map['period']),
-      taxCollected: _num(map['taxCollected']),
-      toPay: _num(map['toPay']),
-      dueDate: _text(map['dueDate']),
-      filed: filed == null ? null : SalesTaxFiled(confirmation: _text(filed['confirmation']), filedOn: _text(filed['filedOn']), late: filed['late'] == true),
-      approved: map['approved'] == true,
-      empty: map['empty'] == true,
-      ended: map['ended'] != false,
-    );
-  }
-
-  final String period;
-  final num taxCollected;
-  final num toPay;
-  final String dueDate;
-  final SalesTaxFiled? filed;
-  final bool approved;
-  final bool empty;
-  final bool ended;
-}
-
-class SalesTaxStateRow {
-  const SalesTaxStateRow({
-    required this.state,
-    required this.frequency,
-    required this.permitNo,
-    required this.lastPeriod,
-    required this.overdue,
-    required this.notes,
-  });
-
-  factory SalesTaxStateRow.fromJson(Object? json) {
-    final map = _map(json);
-    return SalesTaxStateRow(
-      state: _text(map['state']),
-      frequency: _text(map['frequency']),
-      permitNo: _text(map['permitNo']),
-      lastPeriod: map['lastPeriod'] is Map ? SalesTaxPeriod.fromJson(map['lastPeriod']) : null,
-      overdue: map['overdue'] == true,
-      notes: [for (final note in (map['notes'] as List? ?? const [])) _text(note)],
-    );
-  }
-
-  final String state;
-  final String frequency;
-  final String permitNo;
-  final SalesTaxPeriod? lastPeriod;
-  final bool overdue;
-  final List<String> notes;
-}
-
-class SalesTaxOverview {
-  const SalesTaxOverview({required this.states, required this.overdue});
-
-  static SalesTaxOverview? fromTool(Object? json) {
-    final map = _map(json);
-    if (map['ok'] == false) return null;
-    final data = toolData(json);
-    return SalesTaxOverview(
-      states: _maps(data['states']).map(SalesTaxStateRow.fromJson).toList(),
-      overdue: data['overdue'] is num ? (data['overdue'] as num).toInt() : 0,
-    );
-  }
-
-  final List<SalesTaxStateRow> states;
-  final int overdue;
-
-  bool get hasNexus => states.isNotEmpty;
 }

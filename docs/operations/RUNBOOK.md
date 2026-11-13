@@ -21,7 +21,7 @@ Cloud project are written and validated but not yet applied (see the last sectio
 | GitHub Actions `Build Windows installer`, `Build Android app` | Tag `v*` | Installers, APK and app bundle with SHA256 sums attached to the release. | Releases |
 | GitHub Actions `Deploy hosted API` | Push to `main` touching `cloud/`, `platform/src/` or `sprints/` | Suite first, then the image is built, pushed and rolled out; the old revision keeps serving until the new one answers `/v1/health`. | Actions |
 | Dependabot | Weekly | Grouped update PRs for Actions, `platform` dev dependencies, `cloud` and the Flutter packages. CI runs on each. | Pull requests |
-| Cloud Monitoring (`infra/cloud`) | Always, once `alert_email` is set | Uptime check on `/v1/health` every minute; alerts when it fails, on 5xx responses, and when p95 latency passes three seconds. | Email |
+| Cloud Monitoring (`infra/cloud`) | Always, once `alert_email` is set | Uptime check on `/v1/health` every five minutes from three regions; alerts when it fails, on more than five 5xx responses in five minutes, and when p95 latency passes three seconds for ten minutes. A staging stack's alerts end in "(staging)". | Email |
 
 ## 1a. Switches that are off until a person sets them
 
@@ -64,8 +64,22 @@ the failing suite, fix on a branch, merge; the next night closes the issue.
 
 **Cloud Run alert: down.** Open Cloud Run → `myca-api` → Revisions. If the newest
 revision is failing its probes, route 100% of traffic back to the previous one from the
-console, then look at Logs for the `startup` entries. A database outage shows as
-`database not ready` repeated ten times before the instance exits.
+console (or with the commands in `DEPLOYMENT.md`, "Roll back the hosted API"), then look at Logs
+for the `startup` entries. A database outage shows as `database not ready` repeated ten times
+before the instance exits.
+
+**Cloud Run alert: server errors.** Open Logs Explorer with
+`resource.type="cloud_run_revision" AND resource.labels.service_name="myca-api" AND httpRequest.status>=500`.
+If the errors began with the newest revision, roll back as above and fix on a branch. If
+`/v1/health` answers 503 with `DATABASE_UNAVAILABLE`, the database is the cause: check Cloud
+SQL → `myca` → Overview for a restart, maintenance or a full disk. Otherwise read the crash
+digest (`GET /v1/admin/crashes` as one of `MYCA_ADMIN_USER_IDS`) for the route that fails.
+
+**Cloud Run alert: slow.** Check Cloud Run → `myca-api` → Metrics: if the instance count sits
+at `max_instances`, raise it in `infra/cloud` and apply; if latency jumps after idle periods,
+`min_instances` is 0 and requests wait for a cold start. Then check Cloud SQL → `myca` →
+Query insights for the slowest queries and the CPU graph; a shared-core tier that stays near
+full CPU needs a larger `db_tier`.
 
 **Cloud SQL restore drill** (do this once before the first real user, and after any
 schema change): create a clone from a point in time, point a local API at it with the

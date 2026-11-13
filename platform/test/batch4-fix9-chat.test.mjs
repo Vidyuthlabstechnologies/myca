@@ -546,7 +546,7 @@ test('R13: agreed days above 365, however many digits, are refused with the days
 });
 
 test('R-regexp: no pattern is built from a stored party, vendor or payee name, and names that look like patterns are matched by their words', async () => {
-  const source = readFileSync(new URL('../src/assistant-contract.mjs', import.meta.url), 'utf8');
+  const source = readFileSync(new URL('../src/audit-trail-intent.mjs', import.meta.url), 'utf8');
   assert.doesNotMatch(source, /new RegExp\(`\(\?<!\[a-z0-9\]\)/, 'the lookbehind pattern built from a name is gone');
   assert.doesNotMatch(source, /known\.reduce\(\(rest, name\) => rest\.replace\(new RegExp/, 'the names are removed by string search');
 

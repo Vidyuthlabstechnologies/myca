@@ -38,6 +38,15 @@ flutter build apk --debug --flavor india
 flutter test tool/screenshots_test.dart --update-goldens
 ```
 
+The first Android build downloads Gradle (the wrapper checks it against `distributionSha256Sum`), the
+Android NDK and every dependency, which takes a while on a slow line. The wrapper waits up to two
+minutes per request (`networkTimeout` in `android/gradle/wrapper/gradle-wrapper.properties`). If the
+dependency downloads still time out, give Gradle the same patience for the build:
+
+```bash
+export GRADLE_OPTS="-Dorg.gradle.internal.http.connectionTimeout=120000 -Dorg.gradle.internal.http.socketTimeout=120000"
+```
+
 `test_smoke/` drives the app's own client (`CloudSession`) against a running hosted API: sign in
 with a test number, make a business, book a sale, read Today, delete the business. `p0_flows_test.dart`
 adds the release-blocking checks from `docs/release/E2E-CHECKLIST.md`: one business never shows another's
