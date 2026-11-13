@@ -36,7 +36,7 @@ export const SALES_PURCHASE_TOOL_SCHEMAS = {
   create_purchase: {
     ...documentSchema,
     properties: {
-      salesTaxPaid: { type: 'number', minimum: 0 }, ...documentSchema.properties, supplierInvoiceNo: { type: 'string', maxLength: 16 }, documentSha256: { type: 'string', pattern: '^[0-9a-f]{64}$' }, ...tdsProperties },
+      salesTaxPaid: { type: 'number', minimum: 0 }, ...documentSchema.properties, supplierInvoiceNo: { type: 'string', maxLength: 16 }, documentSha256: { type: 'string', pattern: '^[0-9a-f]{64}$' }, reverseCharge: { type: 'boolean' }, originCountry: { type: 'string', pattern: '^[A-Za-z]{2}$' }, partyAddress: { type: 'string', maxLength: 200 }, ...tdsProperties },
   },
   print_invoice: {
     type: 'object',

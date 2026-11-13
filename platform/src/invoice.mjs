@@ -9,6 +9,7 @@ import { invoiceTemplateOf, bankWords } from './invoice-template.mjs';
 import { regArg, docFieldsFor } from './registrations.mjs';
 import { planTds, recordTdsEntry, tdsPayableAccountId, wantsTds } from './tds-deduction.mjs';
 import { gstin as gstinRules } from './sprint-load.mjs';
+import { needsSelfInvoice, reverseChargeOf } from './reverse-charge.mjs';
 
 function badGstin(value) {
   const said = String(value || '').trim();
@@ -385,16 +386,20 @@ export function createPurchase(state, input) {
   }
   const grossTaxable = specs.reduce((sum, s) => sum + Math.round(s.qty * s.rate * 100) / 100, 0);
   if (grossTaxable <= 0) return { ok: false, error: 'ZERO_AMOUNT' };
+  const reverse = reverseChargeOf(input);
+  if (!reverse.ok) return reverse;
+  const rcm = reverse.rcm;
+  const imported = rcm?.kind === 'import';
 
   const vendorName = String(input.partyName ?? '').trim() || 'Supplier';
-  const vendor = ensureVendor(state, { name: vendorName, gstin: input.partyGstin, stateCode: input.partyState });
+  const vendor = ensureVendor(state, { name: vendorName, gstin: input.partyGstin, stateCode: imported ? FOREIGN_POS : input.partyState });
   const lines = rawLines.map((l, i) => {
     const { qty, rate: rateAmt, gstRate } = specs[i];
     const taxable = Math.round(qty * rateAmt * 100) / 100;
     const split = gstSplit({
       taxable,
       rate: gstRate,
-      supplierState: partyStateOf(vendor.gstin) || stateCodeOf(input.partyState) || reg.state,
+      supplierState: imported ? FOREIGN_POS : partyStateOf(vendor.gstin) || stateCodeOf(input.partyState) || reg.state,
       partyState: reg.state,
     });
     return {
@@ -412,7 +417,7 @@ export function createPurchase(state, input) {
   const cgst = lines.reduce((s, l) => s + l.cgst, 0);
   const sgst = lines.reduce((s, l) => s + l.sgst, 0);
   const igst = lines.reduce((s, l) => s + l.igst, 0);
-  const total = Math.round((taxable + cgst + sgst + igst) * 100) / 100;
+  const total = rcm ? Math.round(taxable * 100) / 100 : Math.round((taxable + cgst + sgst + igst) * 100) / 100;
   let tds = null;
   if (wantsTds(input)) {
     const planned = planTds(state, input, { date, basis: taxable, payable: total, payee: vendor.name, beforeGst: true });
@@ -427,15 +432,31 @@ export function createPurchase(state, input) {
     while (idTaken(state.purchases, billName(state.billSeq)));
   }
   const id = input.id || billName(state.billSeq);
+  const selfSeqBefore = state.selfInvoiceSeq || 0;
+  let selfInvoiceNo = '';
+  if (needsSelfInvoice(rcm)) {
+    const selfName = (n) => `SI-${String(n).padStart(4, '0')}`;
+    do state.selfInvoiceSeq = (state.selfInvoiceSeq || 0) + 1;
+    while ((state.purchases || []).some((bill) => bill.selfInvoiceNo === selfName(state.selfInvoiceSeq)));
+    selfInvoiceNo = selfName(state.selfInvoiceSeq);
+  }
   const linked = TRANSFER_FLAGS.LINKED;
   const itcEligible = input.itcEligible !== false;
+  const taxTo = rcm ? null : vendor.accountId;
+  const OUTPUT_OF = { cgst: 2100, sgst: 2101, igst: 2102 };
+  const prefix = rcm ? 'RCM-' : '';
   const bundle = [
     { id: nextTransferId(state), debitAccountId: 5000, creditAccountId: vendor.accountId, amount: paise(taxable), flags: linked, invoiceId: id, code: 'PURCHASE' },
   ];
+  const heads = [['cgst', cgst, 1200], ['sgst', sgst, 1201], ['igst', igst, 1202]];
   if (itcEligible) {
-    if (cgst > 0) bundle.push({ id: nextTransferId(state), debitAccountId: 1200, creditAccountId: vendor.accountId, amount: paise(cgst), flags: linked, invoiceId: id, code: 'ITC-CGST' });
-    if (sgst > 0) bundle.push({ id: nextTransferId(state), debitAccountId: 1201, creditAccountId: vendor.accountId, amount: paise(sgst), flags: linked, invoiceId: id, code: 'ITC-SGST' });
-    if (igst > 0) bundle.push({ id: nextTransferId(state), debitAccountId: 1202, creditAccountId: vendor.accountId, amount: paise(igst), flags: linked, invoiceId: id, code: 'ITC-IGST' });
+    for (const [head, amount, itcAccount] of heads) {
+      if (amount > 0) bundle.push({ id: nextTransferId(state), debitAccountId: itcAccount, creditAccountId: taxTo || OUTPUT_OF[head], amount: paise(amount), flags: linked, invoiceId: id, code: `${prefix}ITC-${head.toUpperCase()}` });
+    }
+  } else if (rcm) {
+    for (const [head, amount] of heads) {
+      if (amount > 0) bundle.push({ id: nextTransferId(state), debitAccountId: 5000, creditAccountId: OUTPUT_OF[head], amount: paise(amount), flags: linked, invoiceId: id, code: `RCM-BLOCKED-${head.toUpperCase()}` });
+    }
   } else if (cgst + sgst + igst > 0) {
     // Blocked credit (section 17(5)) is part of the cost, not an input tax asset.
     bundle.push({ id: nextTransferId(state), debitAccountId: 5000, creditAccountId: vendor.accountId, amount: paise(cgst + sgst + igst), flags: linked, invoiceId: id, code: 'GST-BLOCKED' });
@@ -444,6 +465,7 @@ export function createPurchase(state, input) {
   const posted = createTransfers(state.ledger, bundle);
   if (posted.some((p) => !p.ok)) {
     if (assignedSeq) state.billSeq = seqBefore;
+    state.selfInvoiceSeq = selfSeqBefore;
     return { ok: false, error: 'LEDGER_REJECT', posted };
   }
   if (tds) recordTdsEntry(state, tds, id);
@@ -453,6 +475,9 @@ export function createPurchase(state, input) {
     lines, taxable, cgst, sgst, igst, total, status: 'posted', kind: 'purchase',
     ...docFieldsFor(reg),
     itcEligible,
+    ...(rcm ? { reverseCharge: rcm } : {}),
+    ...(selfInvoiceNo ? { selfInvoiceNo } : {}),
+    ...(rcm && String(input.partyAddress ?? '').trim() ? { partyAddress: String(input.partyAddress).trim().slice(0, 200) } : {}),
     ...(tds ? { tds: { section: tds.section, rate: tds.rate, basis: tds.basis, amount: tds.tds, pan: tds.pan } } : {}),
     transferIds: posted.map((p) => p.id),
   };

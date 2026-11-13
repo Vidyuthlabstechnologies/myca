@@ -18,6 +18,7 @@ import { isPeriodLocked } from './period-lock.mjs';
 import { lastGstRateFor, lastHsnFor, planPayment } from './invoice.mjs';
 import { planSupplierReminder } from './supplier-reminders.mjs';
 import { planTds, tdsWords, wantsTds } from './tds-deduction.mjs';
+import { reverseChargeOf } from './reverse-charge.mjs';
 import { planTransport, transportWords, ewayBillNeed } from './eway-bill.mjs';
 import { formatMoneyCurrent, countryOf } from './country.mjs';
 import { usDocumentPreview } from './us-sales.mjs';
@@ -89,7 +90,10 @@ export function documentPreview(state, args, kind) {
     : sale
       ? (stateCodeOf(args.partyState) || partyStateOf(args.partyGstin) || ownState)
       : ownState;
-  const supplier = sale ? ownState : (partyStateOf(args.partyGstin) || stateCodeOf(args.partyState) || ownState);
+  const reverse = sale ? { ok: true, rcm: null } : reverseChargeOf(args);
+  if (!reverse.ok) blockers.push(reverse.hint || reverse.error);
+  const rcm = reverse.ok ? reverse.rcm : null;
+  const supplier = sale ? ownState : rcm?.kind === 'import' ? '96' : (partyStateOf(args.partyGstin) || stateCodeOf(args.partyState) || ownState);
   const saidGstin = String(args.partyGstin || '').trim().toUpperCase();
   if (saidGstin && !exportSale) {
     const checked = gstinRules.validateGstin(saidGstin);
@@ -123,7 +127,7 @@ export function documentPreview(state, args, kind) {
   const due = sale && terms.days != null && date ? ` Due ${dueDateOf(date, terms.days)} (${termsLabel(terms.days)}${terms.source === 'customer' ? `, ${party}'s usual terms` : ''}).` : '';
   let tds = null;
   if (!sale && wantsTds(args) && date && !blockers.length) {
-    const planned = planTds(state, args, { date, basis: taxable, payable: taxable + tax, payee: party, beforeGst: true });
+    const planned = planTds(state, args, { date, basis: taxable, payable: rcm ? taxable : taxable + tax, payee: party, beforeGst: true });
     if (planned.ok) tds = planned.tds;
     else blockers.push((TDS_REASONS[planned.error] || (() => planned.error))(planned));
   }
@@ -131,11 +135,15 @@ export function documentPreview(state, args, kind) {
     blockers,
     summary: sale
       ? `${exportWords} ${party}${args.partyGstin ? ` (${args.partyGstin})` : ''} dated ${date || '?'}: taxable ${money(taxable)}, ${heads}, total ${money(taxable + tax)}. Place of supply ${exportSale ? 'outside India (96)' : gstinRules.STATE_CODES?.[pos] || pos || '?'}.${due}`
-      : `Purchase bill from ${party}${args.partyGstin ? ` (${args.partyGstin})` : ''} dated ${date || '?'}: taxable ${money(taxable)}, ${heads}, total ${money(taxable + tax)}. Input credit ${args.itcEligible === false ? 'blocked (s.17(5)) and added to cost' : money(tax)}.`,
+      : rcm
+        ? `${rcm.kind === 'import' ? `Import of services from ${party} (${rcm.originCountry})` : `Reverse charge purchase from ${party}${args.partyGstin ? ` (${args.partyGstin})` : ''}`} dated ${date || '?'}: taxable ${money(taxable)}, ${heads} payable by you under reverse charge. Input credit ${args.itcEligible === false ? 'blocked (s.17(5)) and added to cost' : money(tax)}.`
+        : `Purchase bill from ${party}${args.partyGstin ? ` (${args.partyGstin})` : ''} dated ${date || '?'}: taxable ${money(taxable)}, ${heads}, total ${money(taxable + tax)}. Input credit ${args.itcEligible === false ? 'blocked (s.17(5)) and added to cost' : money(tax)}.`,
     effects: sale
       ? [`${party} owes you ${money(taxable + tax)} more.`, exportSale ? `It goes into GSTR-1 table 6A${date ? ` for ${date.slice(0, 7)}` : ''} as ${exportSale.withTax ? 'WPAY' : 'WOPAY'}.` : args.partyGstin && (args.lines || []).some((l) => Number(l.gstRate) > 0 && !/^\d{4,8}$/.test(String(l.hsn ?? '').trim())) ? missingHsnWords(state, args) : `It goes into your GSTR-1${date ? ` for ${date.slice(0, 7)}` : ''}.`]
-      : [`You owe ${party} ${money(taxable + tax - (tds?.tds || 0))} more.`, args.itcEligible === false ? 'The GST on it cannot be claimed, so it is part of the cost.' : 'It is checked against your GSTR-2B when you add one.', ...(tds ? [tdsWords(tds, taxable + tax - tds.tds, `you owe ${party}`)] : [])],
-    figures: { date, taxable, tax, total: Math.round((taxable + tax) * 100) / 100, placeOfSupply: pos, ...(tds ? { tds: tds.tds, tdsSection: tds.section, tdsRate: tds.rate } : {}) },
+      : rcm
+        ? [`You owe ${party} ${money(taxable - (tds?.tds || 0))} more; the GST of ${money(tax)} is yours to pay in cash with this month's GSTR-3B.`, ...(rcm.kind === 'notified' ? [] : ['MyCA numbers a self-invoice for it, which can get an IRN when e-invoicing applies to you.']), ...(tds ? [tdsWords(tds, taxable - tds.tds, `you owe ${party}`)] : [])]
+        : [`You owe ${party} ${money(taxable + tax - (tds?.tds || 0))} more.`, args.itcEligible === false ? 'The GST on it cannot be claimed, so it is part of the cost.' : 'It is checked against your GSTR-2B when you add one.', ...(tds ? [tdsWords(tds, taxable + tax - tds.tds, `you owe ${party}`)] : [])],
+    figures: { date, taxable, tax, total: Math.round((rcm ? taxable : taxable + tax) * 100) / 100, placeOfSupply: pos, ...(rcm ? { reverseCharge: rcm.kind } : {}), ...(tds ? { tds: tds.tds, tdsSection: tds.section, tdsRate: tds.rate } : {}) },
   };
 }
 

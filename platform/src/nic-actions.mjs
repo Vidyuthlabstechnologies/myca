@@ -1,6 +1,6 @@
 import { performExternalAction } from './action-gate.mjs';
 import { normalizeClientId } from './books.mjs';
-import { generateMockIrnPayload, invoiceToNicPayload, nicCancelProblem, nicPartyFor, nicPayloadRefusal } from './nic-config.mjs';
+import { generateMockIrnPayload, invoiceToNicPayload, nicCancelProblem, nicDocumentById, nicPartyFor, nicPayloadRefusal } from './nic-config.mjs';
 import { mockModeEnabled } from './runtime-config.mjs';
 
 function clientOf(state) {
@@ -12,15 +12,16 @@ export function nicDocuments(state) {
 }
 
 function findInvoice(state, invoiceId) {
-  return nicDocuments(state).find((inv) => inv.id === invoiceId) || null;
+  return nicDocumentById(state, invoiceId) || null;
 }
 
 function defined(fields) {
   return Object.fromEntries(Object.entries(fields).filter(([, value]) => value !== undefined && value !== null && value !== ''));
 }
 
-function stampMockIrn(invoices, company, invoiceId) {
-  const inv = (invoices || []).find((item) => item.id === invoiceId);
+function stampMockIrn(state, invoiceId) {
+  const company = state.company;
+  const inv = nicDocumentById(state, invoiceId);
   if (!inv) return { ok: false, error: 'INVOICE_NOT_FOUND', invoiceId };
   const mock = generateMockIrnPayload(company, inv);
   inv.mockIrn = mock.irn;
@@ -34,7 +35,7 @@ function stampMockIrn(invoices, company, invoiceId) {
     ackNo: mock.ackNo,
     ackDate: mock.ackDate,
     signedQrCode: mock.signedQrCode,
-    payload: invoiceToNicPayload(company, inv),
+    payload: invoiceToNicPayload(company, inv, nicPartyFor(state, inv)),
     hint: 'Simulated IRN stored only in mock fields; nothing reached the IRP.',
   };
 }
@@ -53,14 +54,14 @@ export async function generateIrn(state, invoiceId, actor) {
     payload,
     preflight: () => nicPayloadRefusal(state, inv),
     metadata: { invoiceId },
-    fixture: (copy) => stampMockIrn(nicDocuments(copy), copy.company, invoiceId),
-  }, (t) => t.nic.generateIrn(state, invoiceId));
+    fixture: (copy) => stampMockIrn(copy, inv.id),
+  }, (t) => t.nic.generateIrn(state, inv.id));
   return { payload, ...out };
 }
 
 export async function simulateIrn(state, invoiceId, actor) {
   if (mockModeEnabled()) return generateIrn(state, invoiceId, actor);
-  return { ...stampMockIrn(nicDocuments(state), state.company, invoiceId), mock: true };
+  return { ...stampMockIrn(state, invoiceId), mock: true };
 }
 
 export async function authenticate(state, actor) {

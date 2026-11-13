@@ -1,5 +1,5 @@
 import { createCipheriv, createDecipheriv, randomBytes, createHash } from 'node:crypto';
-import { loadGovtConfig, pemFromDisk, rsaEncryptBase64, GOVT_GUIDE, invoiceToNicPayload, generateMockIrnPayload, nicCancelProblem, nicPartyFor, nicPayloadRefusal } from './nic-config.mjs';
+import { loadGovtConfig, pemFromDisk, rsaEncryptBase64, GOVT_GUIDE, invoiceToNicPayload, nicDocumentById, generateMockIrnPayload, nicCancelProblem, nicPartyFor, nicPayloadRefusal } from './nic-config.mjs';
 import { liveCallsEnabled, mockModeEnabled, testModeEnabled } from './runtime-config.mjs';
 
 export { rsaEncryptBase64 };
@@ -268,7 +268,7 @@ export async function nicGstinMaster(gstin, cfgOrFetch = loadGovtConfig(), fetch
 }
 
 export async function nicGenerateIrn(state, invoiceId, fetchFn = fetch, options = {}) {
-  const inv = [...(state.invoices || []), ...(state.creditNotes || []), ...(state.debitNotes || [])].find((i) => i.id === invoiceId);
+  const inv = nicDocumentById(state, invoiceId);
   if (!inv) return { ok: false, error: 'INVOICE_NOT_FOUND', invoiceId };
   const cfg = loadGovtConfig();
   const useMock = options.mock === false ? false : Boolean(options.mock || cfg.env === 'mock' || cfg.useMock || mockModeEnabled());
