@@ -288,7 +288,7 @@ export async function runUsSandboxCheck(sandbox, { phone = '+12025550143', taxYe
   const verified = await api('POST', '/v1/auth/verify', { body: { challengeId: otp.body.challengeId, phone, code, deviceLabel: 'sandbox check' } });
   step('sign in', verified.status === 200, verified.text);
   const token = verified.body.accessToken;
-  const agreed = await api('POST', '/v1/me/consent', { token, body: { document: PRIVACY_NOTICE.document, version: PRIVACY_NOTICE.version } });
+  const agreed = await api('POST', '/v1/me/consent', { token, body: { document: PRIVACY_NOTICE.document, version: PRIVACY_NOTICE.version, adult: true } });
   step('accept the privacy notice', agreed.status === 200, agreed.text);
   const created = await api('POST', '/v1/businesses', { token, body: { name: 'Sandbox Filer', country: 'US', kind: 'household' } });
   step('create a household', created.status === 200, created.text);

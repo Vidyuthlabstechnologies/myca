@@ -66,6 +66,7 @@ export const PRIVACY_NOTICE_US = {
   document: 'privacy',
   version: 'us-draft-2026-11-14.2',
   region: 'US',
+  requiresAdult: true,
   title: 'How MyCA uses your information (United States)',
   status: 'Draft for legal review. Not yet approved for release.',
   controller: '[The US company: legal name and US address, to be confirmed before release.]',

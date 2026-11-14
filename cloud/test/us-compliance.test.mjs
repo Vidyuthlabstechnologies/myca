@@ -233,7 +233,7 @@ test('a US-only deployment accepts only the US notice and says so', async () => 
   const us = createConsent({ db: api.db, now: () => api.clock.now, notices: noticesFor(['US']) });
   assert.equal((await us.status(session.user.id)).version, PRIVACY_NOTICE_US.version);
   assert.equal((await us.accept(session.user.id, null, { document: 'privacy', version: PRIVACY_NOTICE.version })).error, 'NOTICE_CHANGED');
-  assert.equal((await us.accept(session.user.id, null, { document: 'privacy', version: PRIVACY_NOTICE_US.version })).ok, true);
+  assert.equal((await us.accept(session.user.id, null, { document: 'privacy', version: PRIVACY_NOTICE_US.version, adult: true })).ok, true);
   assert.equal(await us.accepted(session.user.id), true);
 });
 
