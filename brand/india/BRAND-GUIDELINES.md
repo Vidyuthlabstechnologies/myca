@@ -26,7 +26,7 @@ owner's phone, and files nothing until the owner says yes.**
 | Pillar | What it means | Proof we can show |
 |---|---|---|
 | **Right** | Figures come from deterministic engines and dated GST rules, never from a guess | The GST review screen, the books check, the rule and date behind every figure |
-| **In your control** | Nothing posts, files or pays until you see a preview and say yes | The sale preview card, EVC OTP at filing, optional CA approval |
+| **In your control** | Nothing posts, files or pays until you see a preview and say yes | The sale preview card, the step-by-step GST review, CA approval on every filing |
 | **Done for you** | Returns drafted, reminders set, bank matched, while you run the business | GSTR-1 and GSTR-3B drafts, the Monday brief, bank matching |
 
 ## 2. Logo
@@ -142,9 +142,9 @@ These are hard rules. Legal and the owner sign off anything outside them.
 
 | We may say | We may not say |
 |---|---|
-| "Files GSTR-1 and GSTR-3B on the GST portal once you confirm with the EVC OTP" (through a licensed GSP) | "Government approved", "GSTN partner", "official", or show the GSTN, CBIC or Ashoka emblem |
-| "If a return MyCA filed is wrong because of our mistake, we correct and refile it at no charge" | "We pay your penalties", "zero penalty guarantee", "no notices ever" |
-| "Your CA can approve a filing before it goes" | "CA-approved", "certified by CAs", "ICAI approved" |
+| "GSTR-1 and GSTR-3B drafted from your books, for you and your CA to review". Say "file on the portal from MyCA" only once GSP filing is live in production (STATUS.md, Live filing), and then always with "after your CA's approval and your EVC OTP" | "Government approved", "GSTN partner", "official", or show the GSTN, CBIC or Ashoka emblem |
+| The correction promise, only as a MyCA Assured feature and in the app's words: "if a return filed through MyCA is wrong because of an error in MyCA, we prepare the correction at no charge. Interest, late fees and penalties are not covered" | The promise for Essentials, Pro or CA firm; "we refile for you"; "we pay your penalties", "zero penalty guarantee", "no notices ever" |
+| "Every filing needs your CA's approval" (it is not optional in the product) | "CA-approved", "certified by CAs", "ICAI approved" |
 | "14-day free trial of Pro" | "Free forever", "free plan" |
 | "Nothing posts or files until you approve it" | "Fully automatic, no need to check" |
 | Prices: Essentials ₹999, Pro ₹1,999, CA firm ₹5,999 a month, or about ten months' price for a year; MyCA Assured ₹4,999 "opening soon". Google Play shows the final price | Selling MyCA Assured as available before a CA team is signed |
