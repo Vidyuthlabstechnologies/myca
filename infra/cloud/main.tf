@@ -28,6 +28,7 @@ locals {
     play_service_account_json    = nonsensitive(var.play_service_account_json != "")
     play_product_essentials      = var.play_product_essentials != ""
     play_product_pro             = var.play_product_pro != ""
+    play_product_assured         = var.play_product_assured != ""
     play_product_firm            = var.play_product_firm != ""
     gsp_live_api_key             = nonsensitive(!contains(["", "unset"], var.gsp_live_api_key))
     stripe_live_secret_key       = nonsensitive(!contains(["", "unset"], var.stripe_live_secret_key))
@@ -312,6 +313,7 @@ locals {
     MYCA_PLAY_PACKAGE              = var.play_package_name
     MYCA_PLAY_PRODUCT_ESSENTIALS   = var.play_product_essentials
     MYCA_PLAY_PRODUCT_PRO          = var.play_product_pro
+    MYCA_PLAY_PRODUCT_ASSURED      = var.play_product_assured
     MYCA_PLAY_PRODUCT_FIRM         = var.play_product_firm
     MYCA_PLAN_PRICES               = var.plan_prices
     MYCA_PLAY_PACKAGE_US           = var.play_package_us

@@ -25,9 +25,10 @@ export const INDIA = Object.freeze({
     currency: 'INR',
     providers: Object.freeze(['play']),
     plans: Object.freeze([
-      Object.freeze({ id: 'essentials', kind: 'monthly', price: 399, sells: 'software', provider: 'play' }),
-      Object.freeze({ id: 'pro', kind: 'monthly', price: 799, sells: 'software', provider: 'play' }),
-      Object.freeze({ id: 'firm', kind: 'monthly', price: 2499, sells: 'software', provider: 'play' }),
+      Object.freeze({ id: 'essentials', kind: 'monthly', price: 999, sells: 'software', provider: 'play' }),
+      Object.freeze({ id: 'pro', kind: 'monthly', price: 1999, sells: 'software', provider: 'play' }),
+      Object.freeze({ id: 'assured', kind: 'monthly', price: 4999, sells: 'software', provider: 'play', review: 'Bundles Pro with a CA who files GST and TDS each month. Sold through Play because the software is part of it; not sold until a CA team is signed and MYCA_PLAY_PRODUCT_ASSURED is set.' }),
+      Object.freeze({ id: 'firm', kind: 'monthly', price: 5999, sells: 'software', provider: 'play' }),
     ]),
   }),
   filing: Object.freeze([

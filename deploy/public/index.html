@@ -64,7 +64,7 @@
   .feature li { padding: 7px 0; color: var(--muted); font-size: 14.5px; border-top: 1px solid var(--line); }
   .feature li:first-child { border-top: 0; padding-top: 0; }
 
-  .plans { margin-top: 32px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; align-items: stretch; }
+  .plans { margin-top: 32px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; align-items: stretch; }
   .plan { display: flex; flex-direction: column; position: relative; }
   .plan.featured { border: 1.5px solid var(--ink); box-shadow: var(--shadow); }
   .plan .badge { position: absolute; top: -12px; left: 20px; background: var(--ink); color: #fff; font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; padding: 4px 10px; border-radius: 999px; }
@@ -92,6 +92,9 @@
   .closing p { color: rgba(255,255,255,.72); margin-top: 6px; }
   .closing .btn { margin-left: auto; background: #fff; color: var(--ink); border-color: #fff; flex: none; }
 
+  @media (max-width: 1100px) {
+    .plans { grid-template-columns: 1fr 1fr; }
+  }
   @media (max-width: 900px) {
     .hero { grid-template-columns: 1fr; padding-top: 40px; gap: 56px; }
     .stage { justify-content: center; }
@@ -242,7 +245,7 @@
       <div class="plans">
         <div class="card plan">
           <h3>Essentials</h3>
-          <div class="price money">₹399</div><div class="per">a month, or ₹3,999 a year</div>
+          <div class="price money">₹999</div><div class="per">a month, or ₹9,999 a year</div>
           <ul>
             <li><svg><use href="#i-tick"/></svg>Unlimited invoices, bills and payments</li>
             <li><svg><use href="#i-tick"/></svg>Ask MyCA in plain words</li>
@@ -254,7 +257,7 @@
         <div class="card plan featured">
           <span class="badge">Most picked</span>
           <h3>Pro</h3>
-          <div class="price money">₹799</div><div class="per">a month, or ₹7,999 a year</div>
+          <div class="price money">₹1,999</div><div class="per">a month, or ₹19,999 a year</div>
           <ul>
             <li><svg><use href="#i-tick"/></svg>Everything in Essentials</li>
             <li><svg><use href="#i-tick"/></svg>File GSTR-1 and GSTR-3B on the GST portal, with your CA's approval</li>
@@ -264,8 +267,20 @@
           <a class="btn primary" href="#get">Start 14 days of Pro</a>
         </div>
         <div class="card plan">
+          <span class="badge">Opening soon</span>
+          <h3>MyCA Assured</h3>
+          <div class="price money">₹4,999</div><div class="per">a month, or ₹49,999 a year</div>
+          <ul>
+            <li><svg><use href="#i-tick"/></svg>Everything in Pro</li>
+            <li><svg><use href="#i-tick"/></svg>A chartered accountant reviews and files your GST and TDS returns every month</li>
+            <li><svg><use href="#i-tick"/></svg>Accuracy promise: if a return we filed is wrong because of our mistake, we correct and refile it at no charge</li>
+            <li><svg><use href="#i-tick"/></svg>Priority support</li>
+          </ul>
+          <a class="btn" href="#get">Start on Pro meanwhile</a>
+        </div>
+        <div class="card plan">
           <h3>CA firm</h3>
-          <div class="price money">₹2,499</div><div class="per">a month, or ₹24,999 a year</div>
+          <div class="price money">₹5,999</div><div class="per">a month, or ₹59,999 a year</div>
           <ul>
             <li><svg><use href="#i-tick"/></svg>Everything in Pro</li>
             <li><svg><use href="#i-tick"/></svg>Twenty-five people across the firm</li>

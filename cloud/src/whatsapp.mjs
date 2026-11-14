@@ -164,7 +164,7 @@ export function createWhatsApp({ db, withBooks, billing = null, withSharedBooks 
     const allowed = run || !billing ? { ok: true } : await billing.allows(answer.businessId, 'whatsapp');
     if (!allowed.ok) {
       const lapsed = allowed.plan === 'lapsed';
-      await reply(phone, lapsed ? READ_ONLY_REPLY : 'Chat on WhatsApp comes with the Pro and CA firm plans. The owner can upgrade under Plan and billing in the app.');
+      await reply(phone, lapsed ? READ_ONLY_REPLY : 'Chat on WhatsApp comes with the Pro, MyCA Assured and CA firm plans. The owner can upgrade under Plan and billing in the app.');
       return { ok: true, replied: true, planRequired: true };
     }
     const out = await (run || withBooks(answer.businessId, { requestId, userId: answer.user.userId, deviceId: null }, (session) => session.chat(asked, actor)));

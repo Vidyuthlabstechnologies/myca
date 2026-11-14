@@ -27,13 +27,13 @@ class FakeStore implements StoreBilling {
 
 void main() {
   test('a plan reads its price and limits in plain words, preferring the Play Store price', () {
-    final essentials = PlanOffer.fromJson({'id': 'essentials', 'title': 'Essentials', 'monthlyRupees': 399, 'yearlyRupees': 3999, 'buyable': false, 'features': ['post'], 'limits': {'invoicesPerMonth': null, 'members': 2}});
-    final pro = PlanOffer.fromJson({'id': 'pro', 'title': 'Pro', 'monthlyRupees': 799, 'buyable': true, 'productId': 'myca_pro_monthly', 'features': ['einvoice'], 'limits': {'invoicesPerMonth': null, 'members': 5}});
+    final essentials = PlanOffer.fromJson({'id': 'essentials', 'title': 'Essentials', 'monthlyRupees': 999, 'yearlyRupees': 9999, 'buyable': false, 'features': ['post'], 'limits': {'invoicesPerMonth': null, 'members': 2}});
+    final pro = PlanOffer.fromJson({'id': 'pro', 'title': 'Pro', 'monthlyRupees': 1999, 'buyable': true, 'productId': 'myca_pro_monthly', 'features': ['einvoice'], 'limits': {'invoicesPerMonth': null, 'members': 5}});
     expect(planLimits(essentials), 'Unlimited invoices, up to 2 people');
     expect(planLimits(pro), 'Unlimited invoices, up to 5 people');
     expect(pro.productId, 'myca_pro_monthly');
-    expect(planPrice(essentials, null), '₹399 a month or ₹3,999 a year');
-    expect(planPrice(pro, null), '₹799 a month');
+    expect(planPrice(essentials, null), '₹999 a month or ₹9,999 a year');
+    expect(planPrice(pro, null), '₹1,999 a month');
     expect(wholeRupees(24999), '₹24,999');
     expect(wholeRupees(150000), '₹1,50,000');
     expect(planPrice(pro, const StoreProduct(id: 'myca_pro_monthly', price: '₹549.00')), '₹549.00 a month on Google Play');

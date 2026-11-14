@@ -15,13 +15,14 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export const PLANS = Object.freeze({
   lapsed: Object.freeze({ id: 'lapsed', title: 'Trial ended', monthlyRupees: 0, yearlyRupees: 0, limits: { invoicesPerMonth: 0, members: 1 }, features: ['books'] }),
-  essentials: Object.freeze({ id: 'essentials', title: 'Essentials', monthlyRupees: 399, yearlyRupees: 3999, limits: { invoicesPerMonth: null, members: 2 }, features: ['books', 'post', 'chat', 'gst-reports', 'team'] }),
-  pro: Object.freeze({ id: 'pro', title: 'Pro', monthlyRupees: 799, yearlyRupees: 7999, limits: { invoicesPerMonth: null, members: 5 }, features: ['books', 'post', 'chat', 'gst-reports', 'gst-returns', 'einvoice', 'connectors', 'whatsapp', 'team'] }),
+  essentials: Object.freeze({ id: 'essentials', title: 'Essentials', monthlyRupees: 999, yearlyRupees: 9999, limits: { invoicesPerMonth: null, members: 2 }, features: ['books', 'post', 'chat', 'gst-reports', 'team'] }),
+  pro: Object.freeze({ id: 'pro', title: 'Pro', monthlyRupees: 1999, yearlyRupees: 19999, limits: { invoicesPerMonth: null, members: 5 }, features: ['books', 'post', 'chat', 'gst-reports', 'gst-returns', 'einvoice', 'connectors', 'whatsapp', 'team'] }),
+  assured: Object.freeze({ id: 'assured', title: 'MyCA Assured', monthlyRupees: 4999, yearlyRupees: 49999, limits: { invoicesPerMonth: null, members: 5 }, features: ['books', 'post', 'chat', 'gst-reports', 'gst-returns', 'einvoice', 'connectors', 'whatsapp', 'team', 'ca-assured', 'accuracy-promise', 'priority-support'] }),
   household: Object.freeze({ id: 'household', title: 'Personal tax return', monthlyRupees: 0, yearlyRupees: 0, limits: { invoicesPerMonth: 0, members: 3 }, features: ['books', 'post', 'chat', 'team'] }),
-  firm: Object.freeze({ id: 'firm', title: 'CA firm', monthlyRupees: 2499, yearlyRupees: 24999, limits: { invoicesPerMonth: null, members: 25 }, features: ['books', 'post', 'chat', 'gst-reports', 'gst-returns', 'einvoice', 'connectors', 'whatsapp', 'team', 'priority-support'] }),
+  firm: Object.freeze({ id: 'firm', title: 'CA firm', monthlyRupees: 5999, yearlyRupees: 59999, limits: { invoicesPerMonth: null, members: 25 }, features: ['books', 'post', 'chat', 'gst-reports', 'gst-returns', 'einvoice', 'connectors', 'whatsapp', 'team', 'priority-support'] }),
 });
 
-const PAID = ['essentials', 'pro', 'firm'];
+const PAID = ['essentials', 'pro', 'assured', 'firm'];
 export const US_RETURN_PRICE_USD = 129;
 export const US_RETURN_LAUNCH_PRICE_USD = 99;
 export const US_RETURN_LAUNCH_UNTIL = '2027-04-15';
@@ -76,7 +77,7 @@ export function billingConfigFromEnv(env = process.env) {
   const prices = Object.fromEntries(String(env.MYCA_PLAN_PRICES || '').split(',').map((pair) => pair.split('=').map((part) => part.trim())).filter(([plan, price]) => PAID.includes(plan) && /^[0-9]{1,6}$/.test(price || '')).map(([plan, price]) => [plan, Number(price)]));
   return {
     packageName: unset(env.MYCA_PLAY_PACKAGE),
-    productIds: { essentials: unset(env.MYCA_PLAY_PRODUCT_ESSENTIALS), pro: unset(env.MYCA_PLAY_PRODUCT_PRO), firm: unset(env.MYCA_PLAY_PRODUCT_FIRM) },
+    productIds: { essentials: unset(env.MYCA_PLAY_PRODUCT_ESSENTIALS), pro: unset(env.MYCA_PLAY_PRODUCT_PRO), assured: unset(env.MYCA_PLAY_PRODUCT_ASSURED), firm: unset(env.MYCA_PLAY_PRODUCT_FIRM) },
     usReturn: { packageName: unset(env.MYCA_PLAY_PACKAGE_US), productId: unset(env.MYCA_PLAY_PRODUCT_US_1040), priceUsd: dollars(env.MYCA_US_RETURN_PRICE_USD, US_RETURN_PRICE_USD), launchPriceUsd: dollars(env.MYCA_US_RETURN_LAUNCH_PRICE_USD, US_RETURN_LAUNCH_PRICE_USD), launchUntil: unset(env.MYCA_US_LAUNCH_OFFER_UNTIL) || US_RETURN_LAUNCH_UNTIL },
     usPlus: { priceUsd: dollars(env.MYCA_US_PLUS_PRICE_USD, US_PLUS_PRICE_USD), productId: unset(env.MYCA_PLAY_PRODUCT_US_PLUS) },
     usExpertReview: { on: unset(env.MYCA_US_EXPERT_REVIEW) === '1', priceUsd: dollars(env.MYCA_US_EXPERT_REVIEW_PRICE_USD, US_EXPERT_REVIEW_PRICE_USD) },
