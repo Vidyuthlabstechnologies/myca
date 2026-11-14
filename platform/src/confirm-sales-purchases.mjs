@@ -346,6 +346,8 @@ const CREDIT_NOTE_REASONS = {
 };
 
 export function creditNotePreview(state, args, cancel = false) {
+  const own = cancel ? null : engineBooks(countryOf(state), 'create_credit_note', 'preview');
+  if (own) return own(state, args);
   const invoiceId = String(args.invoiceId || '').trim().toUpperCase();
   if (cancel && creditedAgainst(state, invoiceId) > 0) {
     return { blockers: [CREDIT_NOTE_REASONS.PARTLY_CREDITED({ invoiceId })], summary: '', effects: [], figures: {} };

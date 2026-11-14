@@ -21,6 +21,11 @@ const BASE = planned({
 export const UNITED_ARAB_EMIRATES = Object.freeze({
   ...BASE,
   status: 'beta',
+  withheld: Object.freeze([
+    'add_employee', 'approve_payroll', 'change_salary', 'end_employment', 'file_gstr1_portal', 'generate_tds_fvu', 'import_26as_credits', 'import_tcs_statement',
+    'list_payroll', 'marketplace_credits', 'payroll_payout_file', 'payroll_run', 'payslip', 'portal_status', 'record_salary_payment', 'registrations', 'retire_registration',
+    'save_gstr1_portal', 'set_employee_bank', 'set_registration',
+  ]),
   billing: Object.freeze({
     currency: 'AED',
     providers: Object.freeze(['play']),

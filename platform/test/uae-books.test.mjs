@@ -301,3 +301,18 @@ test('every English message written in the UAE files has an Arabic translation',
     assert.ok(hint.en && ARABIC.test(hint.ar), code);
   }
 });
+
+test('in the UAE the shared credit note reverses VAT, and India-only payroll, TDS, TCS and GST portal tools are not served', async () => {
+  const state = aeState();
+  const { invoice } = run.create_ae_invoice(state, { partyName: 'Oasis', date: '2027-02-10', lines: [{ rate: 1000 }] });
+  const preview = previewOf(state, 'create_credit_note', { invoiceId: invoice.id, amount: 105, date: '2027-02-12', reason: 'Discount' });
+  assert.match(preview.summary, /AED 5\.00 VAT/);
+  const note = await runTool(state, 'create_credit_note', { invoiceId: invoice.id, amount: 105, date: '2027-02-12', reason: 'Discount' });
+  assert.equal(note.ok, true);
+  assert.equal(note.creditNote.country, 'AE');
+  assert.equal(balance(state, VAT_OUTPUT), 45);
+  for (const tool of ['payroll_run', 'add_employee', 'generate_tds_fvu', 'import_tcs_statement', 'save_gstr1_portal', 'set_registration']) {
+    assert.equal((await runTool(state, tool, {})).error, 'NOT_FOR_COUNTRY', tool);
+  }
+  assert.notEqual((await runTool(createState(), 'payroll_run', {})).error, 'NOT_FOR_COUNTRY');
+});

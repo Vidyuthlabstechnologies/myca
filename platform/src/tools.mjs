@@ -625,7 +625,7 @@ export const TOOLS = [
     title: 'Credit note',
     description: 'Reduce a posted sales invoice by a credit note (goods returned, price reduced, or the whole invoice) with reversing entries. Never edits the invoice.',
     args: ['invoiceId', 'amount', 'date', 'reason'],
-    run: (state, args) => createCreditNote(state, args),
+    run: (state, args) => engineBooks(countryOf(state), 'create_credit_note')?.(state, args) ?? createCreditNote(state, args),
   },
   {
     name: 'cancel_invoice',

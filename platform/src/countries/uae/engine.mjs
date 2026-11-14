@@ -324,5 +324,6 @@ export const ENGINE = Object.freeze({
   books: Object.freeze({
     create_invoice: Object.freeze({ run: RUN.create_ae_invoice, preview: PREVIEW.create_ae_invoice }),
     create_purchase: Object.freeze({ run: RUN.create_ae_purchase, preview: PREVIEW.create_ae_purchase }),
+    create_credit_note: Object.freeze({ run: RUN.create_ae_credit_note, preview: PREVIEW.create_ae_credit_note }),
   }),
 });

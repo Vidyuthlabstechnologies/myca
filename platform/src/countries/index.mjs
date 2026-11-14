@@ -83,6 +83,7 @@ export function packProblems(packs = PACKS) {
       if (!pack.filing.length) problems.push(`${pack.code}: a served country needs a filing route.`);
     }
     if (pack.toolPolicy === 'unclaimed' && pack.tools.length) problems.push(`${pack.code}: a pack that serves every unclaimed tool lists none of its own.`);
+    if (![...(pack.withheld || [])].every((tool, index, list) => index === 0 || list[index - 1] < tool)) problems.push(`${pack.code}: keep withheld tools sorted and unique.`);
     if (![...pack.tools].every((tool, index, list) => index === 0 || list[index - 1] < tool)) problems.push(`${pack.code}: keep tools sorted and unique, so that parallel branches merge cleanly.`);
   }
   for (const region of packs.flatMap((pack) => pack.residency.regionPrefixes.map((prefix) => [pack.code, prefix]))) {
