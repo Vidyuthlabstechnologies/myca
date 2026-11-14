@@ -88,7 +88,8 @@ class _PrivacyNoticeScreenState extends State<PrivacyNoticeScreen> {
             if (notice == null) {
               return const Center(child: CircularProgressIndicator());
             }
-            return Column(
+            return LayoutBuilder(
+              builder: (context, box) => Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Expanded(
@@ -113,12 +114,13 @@ class _PrivacyNoticeScreenState extends State<PrivacyNoticeScreen> {
                   ),
                 ),
                 Container(
+                  constraints: BoxConstraints(maxHeight: box.maxHeight * 0.6),
                   decoration: const BoxDecoration(
                     color: Palette.surface,
                     border: Border(top: BorderSide(color: Palette.line)),
                   ),
                   padding: const EdgeInsets.fromLTRB(24, 12, 24, 16),
-                  child: Column(
+                  child: SingleChildScrollView(child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       if (_error.isNotEmpty) ...[
@@ -157,9 +159,10 @@ class _PrivacyNoticeScreenState extends State<PrivacyNoticeScreen> {
                         child: const Text('Not now, sign me out'),
                       ),
                     ],
-                  ),
+                  )),
                 ),
               ],
+              ),
             );
           },
         ),

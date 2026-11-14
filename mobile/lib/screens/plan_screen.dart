@@ -5,7 +5,9 @@ import '../api/myca_api.dart';
 import '../app_state.dart';
 import '../billing/store_billing.dart';
 import '../cloud/cloud_session.dart';
+import '../format.dart';
 import '../theme.dart';
+import '../widgets.dart';
 
 bool get buyInApp => !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
 
@@ -50,8 +52,10 @@ String planPrice(PlanOffer plan, StoreProduct? product) {
   return plan.yearlyRupees > 0 ? '$monthly or ${wholeRupees(plan.yearlyRupees)} a year' : monthly;
 }
 
+bool planOpeningSoon(PlanOffer plan) => plan.id == 'assured' && plan.productId.isEmpty;
+
 String entitlementLine(Entitlement e) {
-  final until = e.currentEnd.length >= 10 ? e.currentEnd.substring(0, 10) : '';
+  final until = e.currentEnd.length >= 10 ? longDate(e.currentEnd.substring(0, 10)) : '';
   if (e.trialDaysLeft != null) return 'Free trial of ${e.planTitle}: ${e.trialDaysLeft} ${e.trialDaysLeft == 1 ? 'day' : 'days'} left.';
   if (e.status == 'pending') return 'Google Play is still processing the payment. The plan starts as soon as it clears.';
   if (e.status == 'on_hold' || e.status == 'paused') return 'Google Play could not take the last payment, so the books are read-only. Fix the payment method in Google Play to get the plan back.';
@@ -209,6 +213,10 @@ class _PlanScreenState extends State<PlanScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(plan.id == e.plan ? '${plan.title} (current)' : plan.title, style: text.titleMedium),
+                          if (planOpeningSoon(plan)) ...[
+                            const SizedBox(height: 4),
+                            const StatusTag(key: ValueKey('plan.openingSoon'), text: 'Opening soon', color: Palette.warn),
+                          ],
                           const SizedBox(height: 4),
                           Text(planPrice(plan, _products[plan.productId]), style: text.bodyLarge),
                           const SizedBox(height: 4),

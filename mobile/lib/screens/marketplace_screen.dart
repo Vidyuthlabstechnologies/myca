@@ -382,7 +382,7 @@ class _RegistrationSheetState extends State<_RegistrationSheet> {
     return SafeArea(
       child: Padding(
         padding: EdgeInsets.fromLTRB(22, 4, 22, 22 + MediaQuery.of(context).viewInsets.bottom),
-        child: Column(
+        child: SingleChildScrollView(child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -403,7 +403,7 @@ class _RegistrationSheetState extends State<_RegistrationSheet> {
             const SizedBox(height: 18),
             SizedBox(width: double.infinity, child: FilledButton(onPressed: _done, child: const Text('Preview'))),
           ],
-        ),
+        )),
       ),
     );
   }
@@ -456,7 +456,7 @@ class _CostSheetState extends State<_CostSheet> {
     return SafeArea(
       child: Padding(
         padding: EdgeInsets.fromLTRB(22, 4, 22, 22 + MediaQuery.of(context).viewInsets.bottom),
-        child: Column(
+        child: SingleChildScrollView(child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -477,7 +477,7 @@ class _CostSheetState extends State<_CostSheet> {
             const SizedBox(height: 18),
             SizedBox(width: double.infinity, child: FilledButton(onPressed: _done, child: const Text('Preview'))),
           ],
-        ),
+        )),
       ),
     );
   }
@@ -543,7 +543,7 @@ class _StockSheetState extends State<_StockSheet> {
     return SafeArea(
       child: Padding(
         padding: EdgeInsets.fromLTRB(22, 4, 22, 22 + MediaQuery.of(context).viewInsets.bottom),
-        child: Column(
+        child: SingleChildScrollView(child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -581,7 +581,7 @@ class _StockSheetState extends State<_StockSheet> {
             const SizedBox(height: 18),
             SizedBox(width: double.infinity, child: FilledButton(onPressed: _done, child: const Text('Preview'))),
           ],
-        ),
+        )),
       ),
     );
   }

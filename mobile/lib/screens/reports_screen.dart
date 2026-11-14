@@ -265,8 +265,9 @@ class _ReportFormState extends State<_ReportForm> {
 
   Widget _choice(String label, List<String> options, String value, void Function(String) onChanged) => DropdownButtonFormField<String>(
     initialValue: value,
+    isExpanded: true,
     decoration: InputDecoration(labelText: label),
-    items: [for (final option in options) DropdownMenuItem(value: option, child: Text(option.replaceAll('-', ' ')))],
+    items: [for (final option in options) DropdownMenuItem(value: option, child: Text(option.replaceAll('-', ' '), overflow: TextOverflow.ellipsis))],
     onChanged: (chosen) {
       if (chosen != null) setState(() => onChanged(chosen));
     },
@@ -277,7 +278,7 @@ class _ReportFormState extends State<_ReportForm> {
     final name = _name.text.trim();
     return Padding(
       padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + MediaQuery.viewInsetsOf(context).bottom),
-      child: Column(
+      child: SingleChildScrollView(child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -310,7 +311,7 @@ class _ReportFormState extends State<_ReportForm> {
             child: const Text('Preview'),
           ),
         ],
-      ),
+      )),
     );
   }
 }

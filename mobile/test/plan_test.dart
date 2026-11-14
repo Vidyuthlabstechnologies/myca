@@ -46,10 +46,10 @@ void main() {
     final paid = Entitlement.fromJson({'plan': 'firm', 'planTitle': 'CA firm', 'manageUrl': 'https://play.google.com/store/account/subscriptions', 'subscription': {'status': 'active', 'plan': 'firm', 'renews': true, 'currentEnd': '2026-12-05T00:00:00.000Z'}});
     expect(paid.paying, isTrue);
     expect(paid.manageUrl, startsWith('https://play.google.com'));
-    expect(entitlementLine(paid), 'You are on CA firm, renews 2026-12-05.');
+    expect(entitlementLine(paid), 'You are on CA firm, renews 5 December 2026.');
     final ending = Entitlement.fromJson({'plan': 'firm', 'planTitle': 'CA firm', 'subscription': {'status': 'canceled', 'plan': 'firm', 'renews': false, 'currentEnd': '2026-12-05T00:00:00.000Z'}});
     expect(ending.paying, isTrue);
-    expect(entitlementLine(ending), 'You are on CA firm until 2026-12-05. It will not renew.');
+    expect(entitlementLine(ending), 'You are on CA firm until 5 December 2026. It will not renew.');
     expect(Entitlement.fromJson({'plan': 'pro', 'planTitle': 'Pro', 'trial': {'daysLeft': 3}, 'subscription': {'status': 'expired', 'plan': 'pro'}}).paying, isFalse);
     expect(entitlementLine(Entitlement.fromJson({'plan': 'lapsed', 'planTitle': 'Trial ended'})), contains('read-only'));
   });
