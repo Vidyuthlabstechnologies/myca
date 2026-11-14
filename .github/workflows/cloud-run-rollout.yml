@@ -66,6 +66,7 @@ jobs:
           case "$COUNTRY:$REGION" in
             IN:asia-south1|IN:asia-south2) ;;
             US:us-central1|US:us-east1|US:us-east4|US:us-west1) ;;
+            AE:me-central1) ;;
             *) echo "::error::$REGION is outside $COUNTRY; data stays in its own country."; exit 1 ;;
           esac
           echo "IMAGE=${REGION}-docker.pkg.dev/${PROJECT}/${SERVICE}/myca-api:${GITHUB_SHA}" >> "$GITHUB_ENV"
