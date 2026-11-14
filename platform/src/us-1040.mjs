@@ -613,7 +613,7 @@ export function computeForm1040(input = {}, taxYearArg) {
 
   const withheld = (kind, name = 'federalWithheld') => sum(formsOf(input, kind), (form) => field(form, name));
   const line25a = withheld('W-2');
-  const line25b = withheld('1099-INT') + withheld('1099-DIV') + withheld('1099-NEC') + withheld('1099-MISC') + withheld('1099-G') + withheld('1099-R') + withheld('SSA-1099') + sum(formsOf(input, '1099-B'), (form) => dollars(form.fields?.federalWithheld) + sum(Array.isArray(form.fields?.transactions) ? form.fields.transactions : [], (row) => row.federalWithheld));
+  const line25b = withheld('1099-INT') + withheld('1099-DIV') + withheld('1099-NEC') + withheld('1099-MISC') + withheld('1099-G') + withheld('1099-R') + withheld('SSA-1099') + sum(formsOf(input, '1099-B'), (form) => positive(form.fields?.federalWithheld) + sum(Array.isArray(form.fields?.transactions) ? form.fields.transactions : [], (row) => positive(row.federalWithheld)));
   const line25c = additionalWithheld;
   const line25d = line25a + line25b + line25c;
   const line26 = positive(answers.estimatedTaxPayments) + positive(answers.priorYearOverpaymentApplied);
