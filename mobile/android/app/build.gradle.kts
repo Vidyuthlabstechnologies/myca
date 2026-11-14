@@ -47,6 +47,16 @@ android {
             applicationId = "com.mldynamic.myca.us"
             manifestPlaceholders["appLabel"] = if (project.hasProperty("mycaTest")) "MyCA US Test" else "MyCA US"
         }
+        create("uk") {
+            dimension = "edition"
+            applicationId = "com.mldynamic.myca.uk"
+            manifestPlaceholders["appLabel"] = if (project.hasProperty("mycaTest")) "MyCA UK Test" else "MyCA UK"
+        }
+        create("uae") {
+            dimension = "edition"
+            applicationId = "com.mldynamic.myca.uae"
+            manifestPlaceholders["appLabel"] = if (project.hasProperty("mycaTest")) "MyCA UAE Test" else "MyCA UAE"
+        }
     }
 
     signingConfigs {
