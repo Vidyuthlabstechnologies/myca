@@ -95,11 +95,23 @@ requests; this file records what they established and what still blocks a real f
   (Schedule E, 2441, 8962, 8995-A, and 2210 with `required: false` because the IRS can bill the
   penalty). 1040-NR is not detected: the return has no residency input yet.
   Source: `platform/src/us-1040.mjs` (US engine pull request #223)
-- The minimum QBI deduction for active trades or businesses from tax year 2026 (IRC 199A(i), added
-  by Public Law 119-21). The engine flags it as `QBI minimum deduction` with `required: false`
-  (code `QBI_MINIMUM_NOT_APPLIED`) whenever a 2026 return has positive QBI, because leaving it out
-  can only make the deduction smaller, never overstate it. Building it needs a material
-  participation answer and the indexed figures in a rule record.
+
+
+## Minimum QBI deduction (IRC 199A(i), from 2026)
+
+- Public Law 119-21 section 70105 added IRC 199A(i) for tax years beginning after 2025: when
+  aggregate QBI from active trades or businesses (material participation, IRC 469(h)) is at least
+  $1,000, the QBI deduction is the greater of the computed amount or $400. The figures are indexed
+  only after 2026, so Rev. Proc. 2025-32 has no 2026 change; 2027 is $415 with a $1,030 floor
+  (Rev. Proc. 2026-35). Rule record `us.federal.individual.qbi-minimum`.
+- The engine follows draft 2026 Form 8995: line 15 is the smaller of lines 10 and 14, line 16 the
+  minimum, line 17 the greater of the two (to Form 1040 line 13a) and line 18 the loss carryforward.
+  The minimum applies even when the taxable income limit on line 14 is lower.
+- The interview asks `qbiMaterialParticipation` for 2026 returns with business income. Answered no,
+  there is no minimum; unanswered, the review shows warning `QBI_MINIMUM_NEEDS_ANSWER` only when the
+  minimum would raise the deduction. Above the Form 8995 threshold the return still needs 8995-A.
+  Sources: https://www.law.cornell.edu/uscode/text/26/199A,
+  https://www.irs.gov/pub/irs-drop/rp-25-32.pdf, https://www.irs.gov/pub/irs-dft/f8995--dft.pdf
 
 ## Engine edge cases checked (2026-11-14)
 
