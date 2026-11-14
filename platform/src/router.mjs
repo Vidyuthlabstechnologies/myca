@@ -55,6 +55,7 @@ import { weeklyBriefWords } from './weekly-brief.mjs';
 import { monthCloseWords } from './month-close.mjs';
 import { restockWords } from './restock.mjs';
 import { advanceTaxWords } from './advance-tax.mjs';
+import { incomeTaxInterestWords, tdsInterestWords } from './it-interest.mjs';
 import { askTaxWords, reviewWords, taxModulesWords, taxPlanWords } from './tax-assistant.mjs';
 import { itrKnowledgeWords } from './itr-knowledge.mjs';
 import { checkItrJsonWords } from './itr-json-check.mjs';
@@ -794,6 +795,8 @@ function fmtToolResultCore(name, result, args) {
   if (name === 'month_close' && result.data) return monthCloseWords(result.data, money);
   if (name === 'restock_plan' && result.data) return restockWords(result.data, money);
   if (name === 'advance_tax' && result.data) return advanceTaxWords(result.data, money);
+  if (name === 'income_tax_interest' && result.data) return incomeTaxInterestWords(result.data, money);
+  if (name === 'tds_interest' && result.data) return tdsInterestWords(result.data, money);
   if (name === 'supplier_payout_file' && result.data) return supplierPayoutWords(result.data, money);
   if (name === 'push_tally' && result.push) return tallyPushWords(result, money);
   if (name === 'import_payroll_summary' && result.data) return payrollImportWords(result, money);

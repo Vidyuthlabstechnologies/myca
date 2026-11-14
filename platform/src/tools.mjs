@@ -26,6 +26,7 @@ import { weeklyBrief } from './weekly-brief.mjs';
 import { monthCloseOf, approveMonthClose } from './month-close.mjs';
 import { restockPlan, setSkuSupply, recordPurchaseOrder } from './restock.mjs';
 import { advanceTax, recordAdvanceTaxPayment } from './advance-tax.mjs';
+import { incomeTaxInterest, tdsInterestFor } from './it-interest.mjs';
 import { setSupplierBank, supplierPayoutFile } from './supplier-bank.mjs';
 import { attachDocument } from './receipt-match.mjs';
 import { saveReport, runReport, listReports, deleteReport } from './reports.mjs';
@@ -3099,6 +3100,20 @@ export const TOOLS = [
     description: 'For an individual or proprietor: profit for the financial year to date scaled to twelve months (both figures shown), tax under the chosen regime from the dated rules, less TDS credit from Form 26AS or marketplace settlements, split into the instalments due 15 June, 15 September, 15 December and 15 March (or the whole by 15 March when presumptive), with what is met, missed or next. Headed "for your CA to confirm" with its assumptions. Read-only.',
     args: ['regime', 'presumptive', 'otherIncome', 'asOf'],
     run: (state, args = {}) => advanceTax(state, args),
+  },
+  {
+    name: 'income_tax_interest',
+    title: 'Income tax interest under 234A, 234B and 234C',
+    description: 'Interest for a financial year from the figures given: 234A for a return filed after the due date, 234B when advance tax paid is under 90% of the assessed tax (recomputed after each self-assessment payment), and 234C for each instalment paid short (15, 45, 75 and 100 percent; none for June at 12% or September at 36%; only 15 March when presumptive; tax on capital gains, lottery, dividend or new business income arising later can be left out of earlier instalments). Months or part count as full months and amounts are rounded down to Rs 100 (Rule 119A); self-assessment tax goes first to interest (s.140A). Amounts in rupees. Headed "for your CA to confirm". Read-only.',
+    args: ['fy', 'dueDate', 'filedOn', 'determinedOn', 'taxOnTotalIncome', 'taxOnReturnedIncome', 'tdsTcs', 'relief', 'lateFee', 'advanceTaxPayments', 'selfAssessmentPayments', 'presumptive', 'seniorNoBusiness', 'excludedIncome'],
+    run: (state, args = {}) => incomeTaxInterest(args),
+  },
+  {
+    name: 'tds_interest',
+    title: 'TDS late fee and interest (234E, 201(1A))',
+    description: 'The late fee of Rs 200 a day under 234E for a TDS statement filed after its due date, capped at the TDS in it (from the quarter\'s draft when a quarter is given, or the due date, filing date and TDS given), and interest under 201(1A) on amounts given: 1% a month or part from the date tax was deductible to the date deducted, and 1.5% from deduction to payment when paid after the 7th of the next month (30 April for March). Months counted by calendar month as TRACES does unless basis is "period". Amounts in rupees. Read-only.',
+    args: ['quarter', 'form', 'dueDate', 'filedOn', 'tds', 'late', 'basis', 'asOf'],
+    run: (state, args = {}) => tdsInterestFor(state, args),
   },
   {
     name: 'record_advance_tax',
