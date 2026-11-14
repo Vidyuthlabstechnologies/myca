@@ -177,7 +177,7 @@ class _UsPlusScreenState extends State<UsPlusScreen> {
         children.addAll([
           const SizedBox(height: 10),
           OutlinedButton(key: const Key('usPlus.cancel'), onPressed: _busy ? null : _cancel, child: const Text('Cancel renewal')),
-          Text('You keep Plus until the end of the year you paid for.', style: text.bodySmall?.copyWith(color: Palette.muted)),
+          Text('You keep Plus until the end of the year you paid for.', style: text.bodySmall?.copyWith(color: context.myca.muted)),
         ]);
       }
     } else if (plus.buyable && plus.onPlay) {
@@ -188,7 +188,7 @@ class _UsPlusScreenState extends State<UsPlusScreen> {
           child: Text('Get MyCA Plus, ${_playPrice.isEmpty ? '\$${plus.priceUsd}' : _playPrice} a year'),
         ),
         const SizedBox(height: 6),
-        Text(_store == null ? 'MyCA Plus cannot be bought in this app on this device yet.' : 'Renews automatically every year at ${_playPrice.isEmpty ? '\$${plus.priceUsd}' : _playPrice} until you cancel. Paid through Google Play; cancel any time in Play before the renewal date and you keep Plus until the end of the year you paid for.', key: const Key('usPlus.playNote'), style: text.bodySmall?.copyWith(color: Palette.muted)),
+        Text(_store == null ? 'MyCA Plus cannot be bought in this app on this device yet.' : 'Renews automatically every year at ${_playPrice.isEmpty ? '\$${plus.priceUsd}' : _playPrice} until you cancel. Paid through Google Play; cancel any time in Play before the renewal date and you keep Plus until the end of the year you paid for.', key: const Key('usPlus.playNote'), style: text.bodySmall?.copyWith(color: context.myca.muted)),
       ]);
     } else if (plus.buyable) {
       children.addAll([
@@ -198,7 +198,7 @@ class _UsPlusScreenState extends State<UsPlusScreen> {
           OutlinedButton(key: const Key('usPlus.paid'), onPressed: _busy ? null : _confirm, child: const Text("I've paid, continue")),
         ],
         const SizedBox(height: 6),
-        Text('Renews automatically every year at \$${plus.priceUsd} until you cancel. Paid by card through Stripe; cancel any time in one tap here and you keep Plus until the end of the year you paid for.', style: text.bodySmall?.copyWith(color: Palette.muted)),
+        Text('Renews automatically every year at \$${plus.priceUsd} until you cancel. Paid by card through Stripe; cancel any time in one tap here and you keep Plus until the end of the year you paid for.', style: text.bodySmall?.copyWith(color: context.myca.muted)),
       ]);
     } else if (!plus.active) {
       children.add(Text('MyCA Plus is not on sale yet.', style: text.bodyMedium));
@@ -224,10 +224,10 @@ class _UsPlusScreenState extends State<UsPlusScreen> {
               children: [
                 Text('Help with the IRS all year', style: text.headlineMedium),
                 const SizedBox(height: 6),
-                Text('\$${plus.priceUsd} a year, on its own or with your return.', style: text.bodyMedium?.copyWith(color: Palette.muted)),
+                Text('\$${plus.priceUsd} a year, on its own or with your return.', style: text.bodyMedium?.copyWith(color: context.myca.muted)),
                 const SizedBox(height: 16),
                 _status(plus),
-                if (_note.isNotEmpty) ...[const SizedBox(height: 10), Text(_note, key: const Key('usPlus.note'), style: text.bodySmall?.copyWith(color: Palette.danger))],
+                if (_note.isNotEmpty) ...[const SizedBox(height: 10), Text(_note, key: const Key('usPlus.note'), style: text.bodySmall?.copyWith(color: context.myca.danger))],
                 const SizedBox(height: 20),
                 Panel(
                   children: [
@@ -346,10 +346,10 @@ class _UsLetterScreenState extends State<UsLetterScreen> {
     return _ToolScaffold(title: 'IRS letter', children: [
       Text('Take a photo of every page of the letter, or pick the PDF.', style: text.bodyMedium),
       const SizedBox(height: 6),
-      Text('Your Social Security number is never read.', style: text.bodySmall?.copyWith(color: Palette.muted)),
+      Text('Your Social Security number is never read.', style: text.bodySmall?.copyWith(color: context.myca.muted)),
       const SizedBox(height: 14),
       FilledButton(key: const Key('usLetter.pick'), onPressed: _busy ? null : _pick, child: Text(_busy ? 'Reading the letter…' : 'Choose the letter')),
-      if (_note.isNotEmpty) ...[const SizedBox(height: 10), Text(_note, key: const Key('usLetter.note'), style: text.bodySmall?.copyWith(color: Palette.danger))],
+      if (_note.isNotEmpty) ...[const SizedBox(height: 10), Text(_note, key: const Key('usLetter.note'), style: text.bodySmall?.copyWith(color: context.myca.danger))],
       if (letter != null)
         _result(context, const Key('usLetter.result'), [
           Text('${letter['notice'] ?? 'IRS letter'}', style: text.titleMedium),
@@ -357,7 +357,7 @@ class _UsLetterScreenState extends State<UsLetterScreen> {
           Text('${letter['plainEnglish'] ?? ''}', style: text.bodyMedium),
           if ('${letter['deadline'] ?? ''}'.length >= 10) ...[
             const SizedBox(height: 8),
-            Text('Reply by ${longDate('${letter['deadline']}'.substring(0, 10))}', style: text.titleSmall?.copyWith(color: Palette.warn)),
+            Text('Reply by ${longDate('${letter['deadline']}'.substring(0, 10))}', style: text.titleSmall?.copyWith(color: context.myca.warn)),
           ],
           if (letter['amountIrsSays'] != null && _num(letter['amountIrsSays']) != 0) ...[
             const SizedBox(height: 4),
@@ -375,7 +375,7 @@ class _UsLetterScreenState extends State<UsLetterScreen> {
             OutlinedButton(onPressed: () => AppScope.of(context).shareText(reply), child: const Text('Share the reply')),
           ],
           const SizedBox(height: 8),
-          Text('Check it before you send it. MyCA does not contact the IRS for you.', style: text.bodySmall?.copyWith(color: Palette.muted)),
+          Text('Check it before you send it. MyCA does not contact the IRS for you.', style: text.bodySmall?.copyWith(color: context.myca.muted)),
         ]),
     ]);
   }
@@ -485,7 +485,7 @@ class _UsWithholdingScreenState extends State<UsWithholdingScreen> {
       _MoneyField('usWithholding.ytdWithheld', _ytdWithheld, 'Federal tax withheld so far'),
       _MoneyField('usWithholding.other', _other, 'Other income this year (optional)'),
       FilledButton(key: const Key('usWithholding.check'), onPressed: _busy ? null : _check, child: Text(_busy ? 'Checking…' : 'Check')),
-      if (_note.isNotEmpty) ...[const SizedBox(height: 10), Text(_note, style: text.bodySmall?.copyWith(color: Palette.danger))],
+      if (_note.isNotEmpty) ...[const SizedBox(height: 10), Text(_note, style: text.bodySmall?.copyWith(color: context.myca.danger))],
       if (out != null)
         _result(context, const Key('usWithholding.result'), [
           Text(gap > 0 ? 'You are on track to owe about ${dollars(gap)} in April.' : 'You are on track for a refund of about ${dollars(-gap)}.', style: text.titleMedium),
@@ -567,7 +567,7 @@ class _UsEstimatesScreenState extends State<UsEstimatesScreen> {
       const SizedBox(height: 14),
       _MoneyField('usEstimates.income', _income, 'Expected side income for the year'),
       FilledButton(key: const Key('usEstimates.work'), onPressed: _busy ? null : _work, child: const Text('Work it out')),
-      if (_note.isNotEmpty) ...[const SizedBox(height: 10), Text(_note, style: text.bodySmall?.copyWith(color: Palette.danger))],
+      if (_note.isNotEmpty) ...[const SizedBox(height: 10), Text(_note, style: text.bodySmall?.copyWith(color: context.myca.danger))],
       if (quarters != null)
         _result(context, const Key('usEstimates.result'), [
           if (quarters.every((q) => q.amount <= 0))

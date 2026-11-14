@@ -193,7 +193,7 @@ class _PlanScreenState extends State<PlanScreen> {
           ? Center(
               child: _error.isEmpty
                   ? const CircularProgressIndicator()
-                  : Padding(padding: const EdgeInsets.all(24), child: Text(_error, textAlign: TextAlign.center, style: text.bodyMedium?.copyWith(color: Palette.danger))),
+                  : Padding(padding: const EdgeInsets.all(24), child: Text(_error, textAlign: TextAlign.center, style: text.bodyMedium?.copyWith(color: paletteOf(context).danger))),
             )
           : ListView(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
@@ -201,7 +201,7 @@ class _PlanScreenState extends State<PlanScreen> {
                 Text(entitlementLine(e), style: text.titleMedium),
                 if (e.testPurchase) ...[
                   const SizedBox(height: 6),
-                  Text('This is a Google Play test purchase: no real money is taken.', style: text.bodyMedium?.copyWith(color: Palette.warn)),
+                  Text('This is a Google Play test purchase: no real money is taken.', style: text.bodyMedium?.copyWith(color: paletteOf(context).warn)),
                 ],
                 if (_note.isNotEmpty) ...[
                   const SizedBox(height: 8),
@@ -224,7 +224,7 @@ class _PlanScreenState extends State<PlanScreen> {
                           for (final feature in plan.features) Text('• ${featureWords[feature] ?? feature}', style: text.bodyMedium),
                           if (plan.opening) ...[
                             const SizedBox(height: 8),
-                            Text('Opening soon. It opens once the professional who reviews and files is named here.', style: text.bodyMedium?.copyWith(color: Palette.warn)),
+                            Text('Opening soon. It opens once the professional who reviews and files is named here.', style: text.bodyMedium?.copyWith(color: paletteOf(context).warn)),
                           ],
                           if (plan.professional.isNotEmpty) ...[
                             const SizedBox(height: 8),

@@ -203,7 +203,10 @@ client before Google sign-in works on an iPhone:
 | First `CFBundleURLSchemes` entry (`REPLACE_WITH_REVERSED_GOOGLE_IOS_CLIENT_ID`) | The same id reversed, `com.googleusercontent.apps.…` |
 
 The second URL type, scheme `com.mldynamic.myca`, carries the OpenID Connect redirect
-and needs no change. Camera, photo library and Face ID usage strings are set; the
+and needs no change. Sign in with Apple (the `sign_in_with_apple` package, MIT) is
+offered only in the US app on iOS (`appleSignInOffered`, `lib/cloud/apple_auth.dart`): the
+US build adds `Runner/RunnerUS.entitlements`, and the button shows once the server reports
+`apple: true`. Widget tests use a fake `AppleAuth`. Camera, photo library and Face ID usage strings are set; the
 system picker asks for the camera only if the owner opens it. Reminders use the same
 `flutter_local_notifications` schedule on both platforms, asking iOS for permission
 once. Sharing a file into the app from another app is Android only; on iOS the owner

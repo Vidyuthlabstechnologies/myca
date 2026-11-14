@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import '../api/models.dart';
 import '../api/myca_api.dart';
 import '../growth.dart';
+import 'apple_auth.dart';
 import 'token_store.dart';
 
 const _messages = {
@@ -18,6 +19,12 @@ const _messages = {
   'WRONG_AUDIENCE': 'This copy of the app is not set up for Google sign-in.',
   'GOOGLE_TOKEN_EXPIRED': 'That Google sign-in took too long. Try again.',
   'GOOGLE_UNREACHABLE': 'MyCA could not reach Google. Try again in a minute.',
+  'APPLE_SIGN_IN_UNAVAILABLE': 'Sign in with Apple is not available yet.',
+  'INVALID_APPLE_TOKEN': 'Apple could not confirm who you are. Try again.',
+  'APPLE_WRONG_AUDIENCE': 'This copy of the app is not set up for Sign in with Apple.',
+  'APPLE_TOKEN_EXPIRED': 'That Apple sign-in took too long. Try again.',
+  'APPLE_UNREACHABLE': 'MyCA could not reach Apple. Try again in a minute.',
+  'APPLE_NONCE_MISMATCH': 'That Apple sign-in could not be checked. Try again.',
   'OIDC_SIGN_IN_UNAVAILABLE': 'Sign-in with your firm\'s account is not available yet.',
   'INVALID_OIDC_TOKEN': 'Your firm\'s sign-in could not confirm who you are. Try again.',
   'OIDC_TOKEN_EXPIRED': 'That sign-in took too long. Try again.',
@@ -643,10 +650,11 @@ class PrivacyNotice {
 }
 
 class SignInMethods {
-  const SignInMethods({required this.phone, required this.google, this.oidc = false, this.oidcIssuer = ''});
+  const SignInMethods({required this.phone, required this.google, this.apple = false, this.oidc = false, this.oidcIssuer = ''});
 
   final bool phone;
   final bool google;
+  final bool apple;
   final bool oidc;
   final String oidcIssuer;
 
@@ -1139,24 +1147,32 @@ class CloudSession {
         return SignInMethods(
           phone: body['phone'] == true,
           google: body['google'] == true,
+          apple: body['apple'] == true,
           oidc: body['oidc'] == true,
           oidcIssuer: '${body['oidcIssuer'] ?? ''}',
         );
       }
     } on MycaApiException {
-      return const SignInMethods(phone: true, google: true);
+      return const SignInMethods(phone: true, google: true, apple: true);
     }
-    return const SignInMethods(phone: true, google: true);
+    return const SignInMethods(phone: true, google: true, apple: true);
   }
 
   Future<void> signInWithGoogle(String idToken) => _signInWithIdToken('/v1/auth/google', idToken);
 
   Future<void> signInWithOidc(String idToken) => _signInWithIdToken('/v1/auth/oidc', idToken);
 
-  Future<void> _signInWithIdToken(String path, String idToken) async {
+  Future<void> signInWithApple(AppleCredential credential) => _signInWithIdToken('/v1/auth/apple', credential.idToken, {
+    'rawNonce': credential.rawNonce,
+    if (credential.givenName.trim().isNotEmpty || credential.familyName.trim().isNotEmpty)
+      'fullName': {'givenName': credential.givenName.trim(), 'familyName': credential.familyName.trim()},
+  });
+
+  Future<void> _signInWithIdToken(String path, String idToken, [Map<String, Object?> extra = const {}]) async {
     final (_, body) = await _send('POST', path, {
       'idToken': idToken,
       'deviceLabel': deviceLabel,
+      ...extra,
     }, authed: false);
     if (body['ok'] != true) {
       throw MycaApiException(cloudMessage('${body['error'] ?? 'UNKNOWN'}'));

@@ -160,7 +160,7 @@ class _PrivacyRightsScreenState extends State<PrivacyRightsScreen> {
           FutureBuilder<List<PrivacyRequest>>(
             future: _requests,
             builder: (context, snap) {
-              if (snap.hasError) return Text('Your requests could not be loaded.', style: text.bodyMedium?.copyWith(color: Palette.danger));
+              if (snap.hasError) return Text('Your requests could not be loaded.', style: text.bodyMedium?.copyWith(color: paletteOf(context).danger));
               final rows = snap.data;
               if (rows == null) return const Padding(padding: EdgeInsets.all(12), child: Center(child: CircularProgressIndicator()));
               if (rows.isEmpty) return Text('None yet.', style: text.bodyMedium);
@@ -178,7 +178,7 @@ class _PrivacyRightsScreenState extends State<PrivacyRightsScreen> {
             },
           ),
           const SizedBox(height: 16),
-          Text(notTaxAdvice, style: text.bodySmall?.copyWith(color: Palette.muted)),
+          Text(notTaxAdvice, style: text.bodySmall?.copyWith(color: paletteOf(context).muted)),
         ],
       ),
     );

@@ -1,3 +1,4 @@
+import 'package:myca_design/myca_design.dart' show MycaThemeContext;
 import 'package:flutter/material.dart';
 
 import '../../api/models.dart';
@@ -146,7 +147,7 @@ class _UsFormsScreenState extends State<UsFormsScreen> {
               children: [
                 Text('Add every W-2, 1099 and 1098 you got for ${widget.taxYear}.', style: text.bodyLarge),
                 const SizedBox(height: 6),
-                Text('Employers, banks and brokers send them by January 31. Look in your mail, email, and their websites.', style: text.bodySmall?.copyWith(color: Palette.muted)),
+                Text('Employers, banks and brokers send them by January 31. Look in your mail, email, and their websites.', style: text.bodySmall?.copyWith(color: context.myca.muted)),
                 const SizedBox(height: 18),
                 LayoutBuilder(
                   builder: (context, box) {
@@ -163,7 +164,7 @@ class _UsFormsScreenState extends State<UsFormsScreen> {
                 ),
                 if (_note.isNotEmpty) ...[
                   const SizedBox(height: 12),
-                  Text(_note, style: const TextStyle(color: Palette.danger, fontWeight: FontWeight.w500)),
+                  Text(_note, style: TextStyle(color: context.myca.danger, fontWeight: FontWeight.w500)),
                 ],
                 const SizedBox(height: 22),
                 if (loaded.connectionState != ConnectionState.done)

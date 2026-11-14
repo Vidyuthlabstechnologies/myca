@@ -191,6 +191,22 @@ export function createAuth({ db, secret, otpSender, now = () => Date.now(), seco
       });
     },
 
+    async signInWithApple({ issuer, sub, email = '', name = '' }, deviceLabel = '') {
+      return db.tx(async (q) => {
+        const user = await q(
+          `with prior as (select deleted_at from users where oidc_issuer = $1 and oidc_sub = $2)
+           insert into users (oidc_issuer, oidc_sub, email, name, created_at) values ($1, $2, nullif($3, ''), $4, $5)
+           on conflict (oidc_issuer, oidc_sub) do update
+             set deleted_at = null,
+                 email = coalesce(nullif(excluded.email, ''), users.email),
+                 name = coalesce(nullif(users.name, ''), excluded.name)
+           returning id, name, (xmax = 0) as created, (select deleted_at from prior) as was_deleted_at`,
+          [issuer, sub, email, name, at()],
+        );
+        return session(q, user.rows[0], deviceLabel);
+      });
+    },
+
     async refresh(refreshToken) {
       if (typeof refreshToken !== 'string' || !refreshToken) return fail('INVALID_REFRESH_TOKEN');
       return db.tx(async (q) => {

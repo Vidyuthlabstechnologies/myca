@@ -55,7 +55,8 @@ jobs:
           # MyCA US is its own App Store app, like the Android flavor `us`: its own bundle id and name,
           # and MYCA_EDITION=US so it opens straight into the US experience (editionFor in app_config.dart).
           if [ "$APP" = "us" ]; then
-            sed -i '' "s/PRODUCT_BUNDLE_IDENTIFIER = com.mldynamic.myca;/PRODUCT_BUNDLE_IDENTIFIER = com.mldynamic.myca.us;/g" ios/Runner.xcodeproj/project.pbxproj
+            sed -i '' "s/PRODUCT_BUNDLE_IDENTIFIER = com.mldynamic.myca;/PRODUCT_BUNDLE_IDENTIFIER = com.mldynamic.myca.us; CODE_SIGN_ENTITLEMENTS = Runner\/RunnerUS.entitlements;/g" ios/Runner.xcodeproj/project.pbxproj
+            grep -q 'CODE_SIGN_ENTITLEMENTS = Runner/RunnerUS.entitlements;' ios/Runner.xcodeproj/project.pbxproj
             /usr/libexec/PlistBuddy -c 'Set :CFBundleDisplayName MyCA US' ios/Runner/Info.plist
             echo "BUNDLE_ID=com.mldynamic.myca.us" >> "$GITHUB_ENV"
             echo "EDITION_DEFINE=--dart-define=MYCA_EDITION=US" >> "$GITHUB_ENV"

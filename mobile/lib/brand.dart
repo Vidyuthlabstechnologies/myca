@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'package:myca_design/myca_design.dart' show mycaCountryLooks;
+
 import 'theme.dart';
 
 class BrandMark extends StatelessWidget {
@@ -85,12 +87,12 @@ class Wordmark extends StatelessWidget {
         BrandMark(size: size * 1.3),
         SizedBox(width: size * 0.45),
         Text.rich(
-          const TextSpan(
+          TextSpan(
             text: 'My',
             children: [
               TextSpan(
                 text: 'CA',
-                style: TextStyle(color: Palette.accent),
+                style: TextStyle(color: Theme.of(context).brightness == Brightness.dark ? mycaCountryLooks['IN']!.accentDark : Palette.accent),
               ),
             ],
           ),
