@@ -595,16 +595,16 @@ export const TOOLS = [
   {
     name: 'create_invoice',
     title: 'Create invoice',
-    description: 'Create a tax invoice and post double-entry transfers (AR, sales, tax output). In India GST by rate and place of supply; in the US sales tax from the recorded rate of the jurisdiction given, or exempt with a reason. Data entry starts here.',
+    description: 'Create a tax invoice and post double-entry transfers (AR, sales, tax output). In India GST by rate and place of supply; in the UAE 5% VAT by emirate; in the US sales tax from the recorded rate of the jurisdiction given, or exempt with a reason. Data entry starts here.',
     args: ['partyName', 'partyGstin', 'lines', 'date', 'paymentTermsDays', 'taxJurisdiction', 'taxExempt', 'exemptionReason', 'partyAddress'],
-    run: (state, args) => (countryOf(state) === 'US' ? createUsInvoice(state, args) : createInvoice(state, args)),
+    run: (state, args) => (countryOf(state) === 'US' ? createUsInvoice(state, args) : countryOf(state) === 'AE' ? runEngineTool('create_ae_invoice', state, args) : createInvoice(state, args)),
   },
   {
     name: 'create_purchase',
     title: 'Record purchase bill',
     description: 'Book a supplier invoice: purchases + AP (with GST input credit in India; in the US any sales tax paid is part of the cost). In India set reverseCharge for a purchase where you pay the GST (an unregistered supplier or a notified service), or originCountry for an import of services; MyCA then books the tax as payable by you and numbers a self-invoice (SI-nnnn) that can get an IRN as RCMDOM or RCMIMP.',
     args: ['partyName', 'partyGstin', 'lines', 'date', 'supplierInvoiceNo', 'salesTaxPaid', 'documentSha256', 'reverseCharge', 'originCountry', 'partyAddress'],
-    run: (state, args) => (countryOf(state) === 'US' ? createUsPurchase(state, args) : createPurchase(state, args)),
+    run: (state, args) => (countryOf(state) === 'US' ? createUsPurchase(state, args) : countryOf(state) === 'AE' ? runEngineTool('create_ae_purchase', state, args) : createPurchase(state, args)),
   },
   {
     name: 'print_invoice',
