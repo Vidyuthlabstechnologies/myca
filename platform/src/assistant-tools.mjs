@@ -119,6 +119,7 @@ const TOOL_RISK = {
   tds_credit_check: 'read_only',
   marketplace_credits: 'read_only',
   set_sku_cost: 'writes_books',
+  find_item: 'read_only',
   import_sku_costs: 'writes_books',
   record_stock: 'writes_books',
   stock_position: 'read_only',

@@ -39,8 +39,8 @@ Sources are listed per country. Prices are list prices seen on 2026-11-14 in sec
 | UPI payment request on invoices, WhatsApp reminders | yes | Parity |
 | Quotes, delivery challans, purchase orders, restock | yes | Parity |
 | CA-firm multi-client books, CA review | yes | Ahead |
-| Barcode scan item lookup and fast counter (POS) billing | no | Gap (Vyapar, myBillBook) |
-| Thermal (58/80 mm) receipt printing | no | Gap (Vyapar, myBillBook) |
+| Barcode scan item lookup and fast counter (POS) billing | yes (camera scan, `find_item`, Counter sale screen) | Built |
+| Thermal (58/80 mm) receipt printing | yes (Bluetooth ESC/POS, engine figures only) | Built |
 | Full offline billing on the phone | partial (desktop is local) | Gap on Android (Vyapar) |
 | App in Hindi and regional languages | no | Gap (Vyapar, myBillBook) |
 | Loyalty points, online catalogue/store link | no | Gap (myBillBook, Vyapar) |
@@ -142,7 +142,7 @@ Sources are listed per country. Prices are list prices seen on 2026-11-14 in sec
 |---|---|---|---|---|
 | 1 | US | Sign the e-file partner (1099-B/crypto CSV import is built) | No filing, no revenue; investors are the users TurboTax upsells hardest | US launch thread + owner |
 | 2 | Malaysia | PCB (monthly tax deduction) on top of the EPF/SOCSO/EIS payroll now built | SQL Account's payroll add-on is the main reason SMEs stay on desktop | Malaysia thread, from the official KWSP/PERKESO/LHDN tables |
-| 3 | India | Barcode counter billing and thermal printing on Android | Retail shops pick Vyapar/myBillBook for this alone | India mobile thread |
+| 3 | India | Barcode counter billing and thermal printing on Android (BUILT) | Retail shops pick Vyapar/myBillBook for this alone | India mobile thread |
 | 4 | UK | Open Banking bank feeds and receipt OCR on UK screens | Every rival has them; quarterly MTD updates need categorised bank lines | UK thread (TrueLayer or Yapily via a cloud port) |
 | 5 | India | Hindi and regional-language app | Vyapar's growth came from it | Design system thread |
 | 6 | US | Prior-year import, 2441, 8962, Schedule E, 1040-X, states | Common returns that now bounce to a rival | US engine thread |

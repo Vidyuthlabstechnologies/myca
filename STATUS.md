@@ -189,6 +189,9 @@ and [`README.md`](README.md) for what is left and how it is being done.
   (`us_refund_boost`, each unused deduction priced by re-running the return); UK simplified expenses
   and trading allowance check (`gb_simplified_expenses`) and CIS deductions (`gb_cis_deductions`);
   UAE end-of-service gratuity (`ae_gratuity`) and WPS salary file (`ae_wps_file`), all from dated rules
+- India counter billing (2026-11-14): `find_item` looks up a SKU by code or barcode, `set_sku_cost`
+  stores barcode and selling price; the Android Counter sale screen scans with the camera, bills through
+  `create_invoice` and prints the engine's figures on a 58/80 mm Bluetooth ESC/POS printer
 
 
 ### Data import

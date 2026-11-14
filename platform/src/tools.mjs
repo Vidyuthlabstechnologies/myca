@@ -6,7 +6,7 @@ import { importSettlement, settlementStatus } from './settlements.mjs';
 import { importMarketplaceOrders, postSettlement } from './marketplace-orders.mjs';
 import { setChannelIdentity, importTcsStatement, import26asCredits, marketplaceCredits } from './marketplace-credits.mjs';
 import { recordTdsWithheld, tdsCreditCheck } from './tds-credits.mjs';
-import { setSkuCost, importSkuCosts, recordStock, stockPosition, skuMargins, stockMoves } from './sku-margins.mjs';
+import { findItem, setSkuCost, importSkuCosts, recordStock, stockPosition, skuMargins, stockMoves } from './sku-margins.mjs';
 import { dailyClose } from './daily-close.mjs';
 import { regArg, companyAs, forRegistration, setRegistration, retireRegistration, listRegistrations } from './registrations.mjs';
 import { recordStockTransfer } from './stock-transfers.mjs';
@@ -2190,9 +2190,16 @@ export const TOOLS = [
   {
     name: 'set_sku_cost',
     title: 'SKU cost',
-    description: 'Record a product\'s unit cost (and name, HSN) so margins by SKU and channel can be computed. The cost is what you paid per unit, landed. Owner only.',
-    args: ['sku', 'cost', 'name', 'hsn', 'gstRate', 'on'],
+    description: 'Record a product\'s unit cost (and name, HSN, GST rate, barcode and selling price) so margins by SKU and channel can be computed and a scanned barcode fills a bill. The cost is what you paid per unit, landed. Owner only.',
+    args: ['sku', 'cost', 'name', 'hsn', 'gstRate', 'barcode', 'price', 'on'],
     run: (state, args = {}) => setSkuCost(state, args),
+  },
+  {
+    name: 'find_item',
+    title: 'Find an item by barcode or SKU',
+    description: 'Look up a product by its scanned barcode or its SKU: name, selling price, HSN, GST rate and stock on hand, for counter billing. Read-only.',
+    args: ['code'],
+    run: (state, args = {}) => findItem(state, args),
   },
   {
     name: 'import_sku_costs',
