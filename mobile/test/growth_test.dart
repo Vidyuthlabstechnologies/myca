@@ -71,6 +71,10 @@ void main() {
     expect(info.shareText(us: false), 'I keep my books and GST in MyCA. Get it at https://myca.example/r/AB2CD3EF and use my invite code AB2CD3EF when you sign up.');
     final noLink = ReferralInfo.fromJson({'code': 'AB2CD3EF'});
     expect(noLink.shareText(us: true), contains('MyCA US on the app store'));
+    expect(info.firm, isFalse);
+    expect(info.firmLine, isNull);
+    final firm = ReferralInfo.fromJson({'code': 'AB2CD3EF', 'firm': true, 'credits': {'earned': 2, 'applied': 0}});
+    expect(firm.firmLine, 'Each client who joins with your code and pays earns your firm a credit. 2 credits earned so far.');
     expect(referralClaimMessage('OWN_CODE'), 'That is your own code. Share it with someone else.');
     expect(referralClaimMessage('???'), startsWith('MyCA could not use that code'));
   });

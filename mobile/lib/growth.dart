@@ -67,7 +67,7 @@ class FunnelTracker {
 }
 
 class ReferralInfo {
-  const ReferralInfo({required this.code, required this.link, required this.invited, required this.converted, required this.reward});
+  const ReferralInfo({required this.code, required this.link, required this.invited, required this.converted, required this.reward, this.firm = false, this.creditsEarned = 0});
 
   factory ReferralInfo.fromJson(Map<String, dynamic> map) => ReferralInfo(
         code: '${map['code'] ?? ''}',
@@ -75,6 +75,8 @@ class ReferralInfo {
         invited: map['invited'] is num ? (map['invited'] as num).toInt() : 0,
         converted: map['converted'] is num ? (map['converted'] as num).toInt() : 0,
         reward: map['reward'] is String && (map['reward'] as String).isNotEmpty ? map['reward'] as String : null,
+        firm: map['firm'] == true,
+        creditsEarned: map['credits'] is Map && (map['credits'] as Map)['earned'] is num ? ((map['credits'] as Map)['earned'] as num).toInt() : 0,
       );
 
   final String code;
@@ -82,6 +84,10 @@ class ReferralInfo {
   final int invited;
   final int converted;
   final String? reward;
+  final bool firm;
+  final int creditsEarned;
+
+  String? get firmLine => firm ? 'Each client who joins with your code and pays earns your firm a credit. ${creditsEarned == 1 ? '1 credit' : '$creditsEarned credits'} earned so far.' : null;
 
   String shareText({required bool us}) {
     final where = link ?? (us ? 'MyCA US on the app store' : 'MyCA on Google Play');
