@@ -96,6 +96,8 @@ class FakeCloud {
   bool phoneOn = true;
   bool googleOn = true;
   bool oidcOn = false;
+  bool appleOn = false;
+  final appleBodies = <Map<String, dynamic>>[];
   String oidcIssuer = 'https://login.firm.example';
   String oidcToken = 'oidc-id-token';
   final deviceLabels = <String>[];
@@ -203,7 +205,22 @@ class FakeCloud {
       });
     }
     if (path == '/v1/auth/methods') {
-      return _json(200, {'ok': true, 'phone': phoneOn, 'google': googleOn, 'oidc': oidcOn, if (oidcOn) 'oidcIssuer': oidcIssuer});
+      return _json(200, {'ok': true, 'phone': phoneOn, 'google': googleOn, 'apple': appleOn, 'oidc': oidcOn, if (oidcOn) 'oidcIssuer': oidcIssuer});
+    }
+    if (path == '/v1/auth/apple') {
+      deviceLabels.add('${body['deviceLabel']}');
+      appleBodies.add(Map<String, dynamic>.from(body));
+      if (!appleOn) return _json(503, {'ok': false, 'error': 'APPLE_SIGN_IN_UNAVAILABLE'});
+      if (body['idToken'] != 'apple-id-token') return _json(400, {'ok': false, 'error': 'INVALID_APPLE_TOKEN'});
+      if ('${body['rawNonce'] ?? ''}'.length < 16) return _json(400, {'ok': false, 'error': 'APPLE_NONCE_MISMATCH'});
+      final fullName = body['fullName'];
+      if (userName.isEmpty && fullName is Map) userName = '${fullName['givenName'] ?? ''} ${fullName['familyName'] ?? ''}'.trim();
+      if (secondStepOn) return _json(200, _secondStep());
+      return _json(200, {
+        ..._issue(),
+        'user': {'id': 'u1', 'name': userName, 'isNew': businesses.isEmpty},
+        'consent': {'document': 'privacy', 'version': 'v-test', 'accepted': noticeAccepted},
+      });
     }
     if (path == '/v1/auth/oidc') {
       deviceLabels.add('${body['deviceLabel']}');

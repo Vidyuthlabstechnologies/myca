@@ -4,6 +4,7 @@ import { createConsoleSender } from './auth.mjs';
 import { createDb, migrate } from './db.mjs';
 import { clientIdsFrom } from './google.mjs';
 import { oidcConfigFromEnv } from './oidc.mjs';
+import { appleClientIdsFromEnv } from './apple.mjs';
 import { createDocumentVault, documentVaultConfigFromEnv } from './document-vault.mjs';
 import { connectorKeyFromEnv } from './connectors.mjs';
 import { booksKeyFromEnv } from './books-seal.mjs';
@@ -79,6 +80,7 @@ const handler = createApi({
   otpSender: otpSender(),
   googleClientIds: clientIdsFrom(process.env.MYCA_GOOGLE_CLIENT_IDS),
   oidc: oidcConfigFromEnv(process.env),
+  appleClientIds: appleClientIdsFromEnv(process.env),
   documentVault: createDocumentVault({ ...documentVaultConfigFromEnv(process.env), log }),
   connectorKey: connectorKeyFromEnv(process.env),
   booksKey: (() => { const key = booksKeyFromEnv(process.env); if (!key && isProduction()) throw new Error(`MYCA_BOOKS_KEY is required in ${hostingName()}: the books column is sealed with it`); return key; })(),

@@ -106,7 +106,7 @@ mobile `us_plus_test.dart` 8/8.
 | # | Requirement | Source | Status | Where |
 |---|---|---|---|---|
 | 39 | 5.1.1(v) in-app account deletion; regulated fields may confirm by support; tell users what is kept; subscriptions: tell them billing continues through Apple | [Apple account deletion](https://developer.apple.com/support/offering-account-deletion-in-your-app) | gap (iOS) | Same API |
-| 40 | 4.8: an app that uses Google sign-in must also offer a login that limits data to name and email, lets the email be hidden, and does not track; Sign in with Apple meets it | [App Review Guidelines 4.8](https://developer.apple.com/app-store/review/guidelines/) | gap (iOS) | Add Sign in with Apple (and token revocation on deletion) before App Store submission |
+| 40 | 4.8: an app that uses Google sign-in must also offer a login that limits data to name and email, lets the email be hidden, and does not track; Sign in with Apple meets it | [App Review Guidelines 4.8](https://developer.apple.com/app-store/review/guidelines/) | done in code (2026-11-14) | `POST /v1/auth/apple` (`cloud/src/apple.mjs`, nonce checked, off until `MYCA_APPLE_CLIENT_IDS` is set) and a black "Continue with Apple" button above Google on the US iOS sign-in screen; entitlement in `mobile/ios/Runner/RunnerUS.entitlements`. No Apple tokens are kept, so deletion has nothing to revoke. Owner: enable the capability on the App ID, regenerate the US profile, set `MYCA_APPLE_CLIENT_IDS` (`docs/release/APP-STORE.md` section 2a) |
 | 41 | 5.1.1(ix): a financial app must be submitted by the legal entity that provides the service | same | owner | Submit under the US company's developer account |
 | 42 | 3.1.1/3.1.3: a digital service unlocked in the app uses in-app purchase; the US storefront has allowed external purchase links since May 2025 | same; [Epic order coverage](https://www.macrumors.com/2025/05/01/apple-updates-u-s-app-review-guidelines-epic/) | counsel | Decide IAP versus an external link for the return fee on iOS |
 | 43 | Privacy nutrition labels match Data safety | App Store Connect | owner | PLAY-LISTING-US table |
@@ -159,4 +159,4 @@ mobile `us_plus_test.dart` 8/8.
 - Decide with counsel: Plus as preparation or as a use needing consent; tax-pro sharing consent; joint-return
   SSN consent; consent record retention after erasure.
 - Store forms: Data safety, financial features ("Other"), target audience 18+, the web deletion link, and for
-  iOS Sign in with Apple and the entity account.
+  iOS the Sign in with Apple capability on the App ID (the code is done) and the entity account.
