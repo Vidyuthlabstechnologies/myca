@@ -169,7 +169,7 @@ class _ExpenseHeadScreenState extends State<ExpenseHeadScreen>
                       if (expense.tagSource == 'default')
                         'Tap to move it to the right head',
                       if (expense.gstRate > 0 && !expense.inputCredit)
-                        'GST ${plainNumber(expense.gstRate)}% inside, no credit taken',
+                        '$salesTaxName ${plainNumber(expense.gstRate)}% inside, no credit taken',
                     ],
                     onTap: busy ? null : () => _move(expense),
                   ),

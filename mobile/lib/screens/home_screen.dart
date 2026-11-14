@@ -364,6 +364,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 if (snapshot.activeUser?.role != 'staff' &&
                     snapshot.activeUser?.role != 'accountant')
+                if (!uk)
                   RowCard(
                     leading: const TintTile(tint: Tint.ask, mark: Mark.employee),
                     title: 'Employees',
@@ -386,6 +387,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   onTap: () => _open(const CashScreen()),
                 ),
                 if (company.country != 'AE')
+                if (!uk)
                 RowCard(
                   leading: const TintTile(tint: Tint.sales, mark: Mark.otherApp),
                   title: 'Marketplace',
@@ -423,7 +425,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 RowCard(
                   leading: const TintTile(tint: Tint.ask, mark: Mark.people),
-                  title: 'Your CA',
+                  title: uk ? 'Your accountant' : 'Your CA',
                   subtitle: 'Questions you asked and their answers',
                   trailing: const Chevron(),
                   onTap: () => _open(const CaScreen()),

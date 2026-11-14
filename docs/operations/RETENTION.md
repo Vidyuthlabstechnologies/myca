@@ -31,6 +31,8 @@ that by making the export complete and free, not by keeping data the owner asked
 | Crash reports | 90 days from the last occurrence | Deleted nightly | The operator; they carry no names, amounts or numbers |
 | Cloud SQL backups | 14 daily backups, 7 days of transaction logs | Expire | The operator, for recovery only |
 | Account (phone, email, Google or OIDC id, name), devices, sign-in tokens, consents, memberships, invitations to their number, sign-in codes for their number, WhatsApp links, their rows in the access log | The account exists | Erased thirty days after the user deletes the account in the app; signing in again within the thirty days cancels the deletion. A business the user alone owns is deleted with it | The user and the members of their businesses |
+| A US household whose return MyCA itself e-filed to the IRS (MeF, live) | Three years from the later of the return's due date and the IRS receipt (Pub 1345, Form 8879) | The nightly purge skips the deleted household until then, then erases it as above (`cloud/src/us-retention.mjs`). Partner and sandbox filings are not held | The household's members while it exists; nobody after deletion except the operator for an IRS request |
+| IRC 7216 consents (US) | Until withdrawn or the period the filer chose (one year by default) ends; the row stays as the record of what was signed | Erased with the account | The filer |
 | Desktop edition | On the owner's PC only; 14 daily backups beside the books | The owner's own choice | The owner |
 
 ## What deletion does

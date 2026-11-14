@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../api/myca_api.dart';
 import '../app_state.dart';
+import '../format.dart';
 import '../proposal_flow.dart';
 import '../marks.dart';
 import '../theme.dart';
@@ -93,9 +94,9 @@ class _AskScreenState extends State<AskScreen> with ProposalFlow {
                 ? ListView(
                     padding: const EdgeInsets.all(16),
                     children: [
-                      const EmptyNote(
+                      EmptyNote(
                         text:
-                            'Ask about your GST, deadlines or invoices. '
+                            '${moneyCountry == 'GB' ? 'Ask about your VAT' : 'Ask about your GST'}, deadlines or invoices. '
                             'Nothing is posted to your books until you confirm it. '
                             'MyCA works from the rules it shows you; it is not a chartered accountant '
                             'and does not give tax or legal advice.',

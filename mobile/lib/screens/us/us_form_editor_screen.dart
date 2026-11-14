@@ -122,15 +122,17 @@ class _UsFormEditorScreenState extends State<UsFormEditorScreen> {
   }
 
   Widget _field(UsFieldSpec f) {
-    final label = f.box.isEmpty ? f.label : 'Box ${f.box} · ${f.label}';
+    final label = f.box.isEmpty ? f.label : 'Box ${f.box}';
+    final helper = f.box.isEmpty ? null : f.label;
     switch (f.type) {
       case 'state':
-        return UsStateField(key: Key('usForm.${f.key}'), value: _choices[f.key], label: label, errorText: _errors[f.key], onChanged: (v) => setState(() => _choices[f.key] = v));
+        return UsStateField(key: Key('usForm.${f.key}'), value: _choices[f.key], label: label, helperText: helper, errorText: _errors[f.key], onChanged: (v) => setState(() => _choices[f.key] = v));
       case 'term':
         return DropdownButtonFormField<String>(
           key: Key('usForm.${f.key}'),
           initialValue: _choices[f.key],
-          decoration: InputDecoration(labelText: label, errorText: _errors[f.key]),
+          isExpanded: true,
+          decoration: InputDecoration(labelText: label, helperText: helper, errorText: _errors[f.key]),
           items: const [
             DropdownMenuItem(value: 'short', child: Text('Short-term (held one year or less)')),
             DropdownMenuItem(value: 'long', child: Text('Long-term (held more than a year)')),
@@ -138,14 +140,14 @@ class _UsFormEditorScreenState extends State<UsFormEditorScreen> {
           onChanged: (v) => setState(() => _choices[f.key] = v),
         );
       case 'money':
-        return MoneyField(key: Key('usForm.${f.key}'), controller: _controllers[f.key]!, label: label, errorText: _errors[f.key]);
+        return MoneyField(key: Key('usForm.${f.key}'), controller: _controllers[f.key]!, label: label, helper: helper, errorText: _errors[f.key]);
       default:
         return TextField(
           key: Key('usForm.${f.key}'),
           controller: _controllers[f.key],
           textCapitalization: f.type == 'text' ? TextCapitalization.words : TextCapitalization.characters,
           keyboardType: f.type == 'ein' ? TextInputType.number : TextInputType.text,
-          decoration: InputDecoration(labelText: label, errorText: _errors[f.key]),
+          decoration: InputDecoration(labelText: label, helperText: helper ?? (f.type == 'ein' ? 'Nine digits, like 12-3456789' : null), errorText: _errors[f.key]),
         );
     }
   }
@@ -172,14 +174,16 @@ class _UsFormEditorScreenState extends State<UsFormEditorScreen> {
             const SizedBox(height: 16),
             if (withSpouse) ...[
               const SectionLabel('Whose form is this?'),
-              SegmentedButton<String>(
+              RadioGroup<String>(
                 key: const Key('usForm.owner'),
-                segments: const [
-                  ButtonSegment(value: 'taxpayer', label: Text('Mine')),
-                  ButtonSegment(value: 'spouse', label: Text('My spouse\'s')),
-                ],
-                selected: {_owner},
-                onSelectionChanged: (picked) => setState(() => _owner = picked.first),
+                groupValue: _owner,
+                onChanged: (picked) => setState(() => _owner = picked ?? _owner),
+                child: const Column(
+                  children: [
+                    RadioListTile<String>(key: Key('usForm.owner.taxpayer'), contentPadding: EdgeInsets.zero, value: 'taxpayer', title: Text('Mine')),
+                    RadioListTile<String>(key: Key('usForm.owner.spouse'), contentPadding: EdgeInsets.zero, value: 'spouse', title: Text('My spouse\'s')),
+                  ],
+                ),
               ),
               const SizedBox(height: 16),
             ],

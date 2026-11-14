@@ -88,20 +88,36 @@ const _errorWords = <String, String>{
   'DECLARATION_REQUIRED': 'Tick the declaration first.',
   'CALCULATION_NOT_FOUND': 'Ask HMRC for the final calculation first.',
   'WRONG_CALCULATION_TYPE': 'The final declaration needs the final calculation, not an in-year one.',
-  'FINAL_DECLARATION_ALREADY_SENT': 'The final declaration for this tax year has already been sent.',
+  'FINAL_DECLARATION_ALREADY_SENT': 'The return for this tax year is already with HMRC. To change it, amend the return instead.',
+  'NO_RETURN_TO_AMEND': 'There is no return to amend yet. Send the final declaration for this tax year first.',
+  'AMENDMENT_WINDOW_CLOSED': 'It is too late to amend the return for this tax year through software. Ask HMRC about an overpayment relief claim instead.',
+  'TAX_YEAR_NOT_ENDED': 'The final declaration can only be made after the tax year ends on 5 April.',
+  'CALCULATION_HAS_ERRORS': 'HMRC listed errors on this calculation. Fix the updates it names, then ask for a new calculation.',
+  'BAD_DECLARER': 'Say who is declaring: the taxpayer or their agent.',
+  'CALCULATION_YEAR_MISMATCH': 'That calculation is for a different tax year. Ask HMRC for a new one.',
   'HMRC_SYNC_FAILED': 'HMRC did not answer. Try again in a few minutes.',
   'GB_TAXPAYER_INVALID': 'Some numbers need a look.',
+  'BAD_AMOUNT': 'Some amounts need a look. HMRC needs pounds and pence, like 1250.50.',
+  'BAD_PERIOD_END': 'Check the last day of the VAT period.',
 };
+
+const _hintFirst = {'TAX_YEAR_NOT_ENDED', 'AMENDMENT_WINDOW_CLOSED'};
 
 String ukErrorWords(Object? result, {String fallback = 'That did not work. Try again.'}) {
   final map = ukMap(result);
   final code = ukText(map['error']);
-  if (_errorWords.containsKey(code)) return _errorWords[code]!;
   final hint = ukText(map['hint']);
-  if (hint.isNotEmpty) return hint;
+  if (_hintFirst.contains(code) && hint.isNotEmpty) return gbDatesIn(hint);
+  if (_errorWords.containsKey(code)) return _errorWords[code]!;
+  if (hint.isNotEmpty) return gbDatesIn(hint);
   final message = ukText(map['message']);
   return message.isNotEmpty ? message : fallback;
 }
+
+Map<String, String> ukFieldProblems(Object? result) => {
+  for (final p in ukMaps(ukMap(result)['problems']))
+    if (ukText(p['field']).isNotEmpty) ukText(p['field']): ukText(p['why']),
+};
 
 bool ukOk(Object? result) => ukMap(result)['ok'] != false && ukMap(result)['data'] is Map;
 
@@ -122,9 +138,9 @@ Future<ChatReply> proposeAndConfirm(MycaApi api, String tool, Map<String, Object
 
 String replyProblem(ChatReply reply, String tool, {String fallback = 'Nothing was sent. Try again.'}) {
   for (final t in reply.tools) {
-    if (t['name'] == tool && ukMap(t['result'])['ok'] == false) return ukErrorWords(t['result'], fallback: reply.reply.isEmpty ? fallback : reply.reply);
+    if (t['name'] == tool && ukMap(t['result'])['ok'] == false) return ukErrorWords(t['result'], fallback: reply.reply.isEmpty ? fallback : gbDatesIn(reply.reply));
   }
-  return reply.reply.isEmpty ? fallback : reply.reply;
+  return reply.reply.isEmpty ? fallback : gbDatesIn(reply.reply);
 }
 
 class UkMoneyField extends StatelessWidget {

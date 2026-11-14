@@ -703,7 +703,7 @@ class _TransferSheetState extends State<_TransferSheet> {
             TextField(
               controller: _amount,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(labelText: 'Amount', prefixText: '₹ '),
+              decoration: InputDecoration(labelText: 'Amount', prefixText: moneyPrefix),
             ),
             const SizedBox(height: 10),
             TextField(

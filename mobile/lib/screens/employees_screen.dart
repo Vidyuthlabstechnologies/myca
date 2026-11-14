@@ -310,6 +310,8 @@ class _EmployeeFormScreenState extends State<EmployeeFormScreen>
   bool _esi = false;
 
   bool get _us => (AppScope.of(context).snapshot?.company.country ?? 'IN') == 'US';
+
+  bool get _uk => AppScope.of(context).edition == 'GB';
   String _error = '';
   bool _posted = false;
 
@@ -456,25 +458,25 @@ class _EmployeeFormScreenState extends State<EmployeeFormScreen>
                     TextField(
                       controller: _basic,
                       keyboardType: money,
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         labelText: 'Basic',
-                        prefixText: '₹ ',
+                        prefixText: moneyPrefix,
                       ),
                     ),
                     TextField(
                       controller: _hra,
                       keyboardType: money,
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         labelText: 'HRA (optional)',
-                        prefixText: '₹ ',
+                        prefixText: moneyPrefix,
                       ),
                     ),
                     TextField(
                       controller: _other,
                       keyboardType: money,
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         labelText: 'Other allowances (optional)',
-                        prefixText: '₹ ',
+                        prefixText: moneyPrefix,
                       ),
                     ),
                   ],
@@ -497,7 +499,7 @@ class _EmployeeFormScreenState extends State<EmployeeFormScreen>
                       ),
                     ),
                   ],
-                  if (_adding && !_us) ...[
+                  if (_adding && !_us && !_uk) ...[
                     const SizedBox(height: 10),
                     TextField(
                       controller: _pan,
