@@ -291,6 +291,7 @@ locals {
     MYCA_GOOGLE_CLIENT_IDS         = join(",", var.google_client_ids)
     MYCA_OIDC_ISSUER               = var.oidc_issuer
     MYCA_OIDC_CLIENT_IDS           = join(",", var.oidc_client_ids)
+    MYCA_APPLE_CLIENT_IDS          = join(",", var.apple_client_ids)
     MYCA_DOCUMENT_BUCKET           = google_storage_bucket.documents.name
     MYCA_ENABLE_CHANNEL_PULLS      = var.enable_channel_pulls ? "1" : "0"
     MYCA_INBOUND_EMAIL_DOMAIN      = var.inbound_email_domain

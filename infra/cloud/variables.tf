@@ -140,6 +140,12 @@ variable "oidc_issuer" {
   default     = "unset"
 }
 
+variable "apple_client_ids" {
+  description = "Audiences (iOS bundle id, optional Services ID) whose Sign in with Apple identity tokens the API accepts."
+  type        = list(string)
+  default     = []
+}
+
 variable "oidc_client_ids" {
   description = "Client ids (audiences) at the OIDC issuer whose ID tokens the API accepts."
   type        = list(string)

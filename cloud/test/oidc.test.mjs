@@ -26,7 +26,7 @@ const oidc = (token) => api.call('POST', '/v1/auth/oidc', { body: { idToken: tok
 
 test('the methods list names the issuer when OIDC sign-in is on', async () => {
   const out = await api.call('GET', '/v1/auth/methods');
-  assert.deepEqual(out.body, { ok: true, phone: true, google: true, oidc: true, oidcIssuer: OIDC_ISSUER });
+  assert.deepEqual(out.body, { ok: true, phone: true, google: true, apple: false, oidc: true, oidcIssuer: OIDC_ISSUER });
 });
 
 test('a token from the configured issuer signs a user in, keeps them across sign-ins, and the user works like any other', async () => {
