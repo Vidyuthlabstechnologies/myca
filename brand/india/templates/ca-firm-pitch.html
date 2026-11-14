@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en-IN">
+<head>
+<meta charset="utf-8">
+<title>MyCA for CA firms</title>
+<link rel="stylesheet" href="brand.css">
+<style>
+  @page { size: 1920px 1080px; margin: 0; }
+  @media print { html, body { background: #fff; padding: 0; gap: 0; display: block; } .slide { break-after: page; } }
+  .slide { width: 1920px; height: 1080px; background: var(--canvas); }
+  .slide.g { background: var(--green); color: #fff; }
+  .slide.k { background: var(--ink); color: #fff; }
+  .slide .logo { position: absolute; left: 112px; top: 84px; height: 56px; }
+  .slide .num { position: absolute; right: 112px; top: 96px; font-size: 22px; color: var(--muted); font-feature-settings: 'tnum' 1; }
+  .slide.g .num, .slide.k .num { color: rgba(255,255,255,.6); }
+  .slide .col { position: absolute; left: 112px; top: 240px; width: 1040px; display: flex; flex-direction: column; }
+  .slide .over { font-size: 26px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--green); }
+  .slide.g .over, .slide.k .over { color: var(--green-light); }
+  .slide h1 { margin-top: 22px; width: 1000px; font-size: 84px; line-height: 1.06; font-weight: 600; letter-spacing: -0.03em; text-wrap: balance; }
+  .slide .lede { margin-top: 48px; width: 900px; font-size: 34px; line-height: 1.4; color: var(--muted); text-wrap: pretty; }
+  .slide.g .lede, .slide.k .lede { color: rgba(255,255,255,.8); }
+  .slide ul { margin-top: 56px; width: 960px; list-style: none; }
+  .slide li { font-size: 32px; line-height: 1.35; padding: 18px 0 18px 52px; position: relative; border-top: 1px solid var(--line); }
+  .slide.g li, .slide.k li { border-color: rgba(255,255,255,.18); }
+  .slide li::before { content: ''; position: absolute; left: 0; top: 28px; width: 26px; height: 14px; border-left: 5px solid var(--green); border-bottom: 5px solid var(--green); transform: rotate(-45deg); }
+  .slide.g li::before, .slide.k li::before { border-color: var(--green-light); }
+  .slide .side { position: absolute; right: 112px; top: 200px; }
+  .slide .side.phone { left: auto; width: 520px; padding: 14px; border-radius: 52px; }
+  .slide .side.phone img { border-radius: 40px; }
+  .slide .bahi { position: absolute; right: 160px; bottom: 120px; width: 420px; }
+  .prices { margin-top: 64px; width: 1696px; display: grid; grid-template-columns: 1.3fr 1fr 1fr; gap: 28px; }
+  .prices .card { padding: 40px; }
+  .prices .n { font-size: 30px; font-weight: 600; }
+  .prices .a { font-size: 76px; font-weight: 600; letter-spacing: -0.03em; margin-top: 10px; font-feature-settings: 'tnum' 1; }
+  .prices .p { font-size: 24px; color: var(--muted); }
+  .prices .w { font-size: 24px; line-height: 1.4; color: var(--muted); margin-top: 18px; }
+  .prices .best { border: 3px solid var(--green); }
+  .legal { position: absolute; left: 112px; bottom: 60px; font-size: 18px; color: var(--muted); }
+  .slide.g .legal, .slide.k .legal { color: rgba(255,255,255,.6); }
+</style>
+</head>
+<body data-pdf="ca-firm-pitch">
+<script>
+  const M = '../../../design/flutter/myca_design/assets/mascot/';
+  const P = '../../../docs/release/assets/play/';
+  const L = '../../logo/';
+  const list = (items) => `<ul>${items.map((i) => `<li>${i}</li>`).join('')}</ul>`;
+  const slides = [
+    { cls: 'g', logo: 'myca-lockup-on-green', over: 'MyCA for CA firms', h: 'Clients who keep their books right. A firm that reviews instead of re-keys.', extra: `<img class="bahi" src="${M}wave.png" alt="">` },
+    { over: 'The month end today', h: 'Bills on WhatsApp on the 9th. Re-keying until the 11th.', body: list(['Clients send photos, PDFs and notebooks, late', 'Your team re-types them into Tally', 'GSTINs, HSN codes and 2B mismatches chased by phone', 'The same scramble again before the 20th']), extra: `<img class="bahi" src="${M}worried.png" alt="" style="width:360px">` },
+    { over: 'What changes', h: 'Clients record as it happens. You review.', body: list(['Sales, bills and expenses entered on the phone, in a sentence or a photo', 'Every entry previewed in plain words before it posts', 'GSTR-1 and GSTR-3B drafted from the books, not from a pile']), extra: `<div class="phone side"><img src="${P}phone-02-sale-preview.png" alt=""></div>` },
+    { over: 'Your firm view', h: 'Every client in one place.', body: list(['Due dates across clients, with what is blocking each one', 'An approvals queue: require your sign-off before the client\'s EVC OTP', 'Each person on your team with their own role']), extra: `<div class="phone side"><img src="${P}phone-05-taxes.png" alt=""></div>` },
+    { over: 'Review is fast', h: 'Every figure shows the rule behind it.', body: list(['Each line of a return traces to the invoices and the dated GST rule', 'GSTR-2B matching shows which credit is safe and which supplier to remind', 'A books check runs every night']), extra: `<div class="phone side"><img src="${P}phone-06-gst-review.png" alt=""></div>` },
+    { over: 'Your tools stay', h: 'Nothing is locked in.', body: list(['Export to Tally at any time, for your working papers', 'CSV and a full export of every business, any day', 'Clients can bring their Tally or Zoho books in, previewed with counts first']), extra: `<img class="bahi" src="${M}happy.png" alt="" style="width:380px">` },
+    { cls: 'k', logo: 'myca-lockup-on-dark', over: 'Trust', h: 'Nothing files without the client, or without you if you choose.', body: list(['Filing on the portal only after the client\'s EVC OTP, through a licensed GSP', 'Books sealed per business, HTTPS only, backed up daily', 'If a return MyCA filed is wrong because of our mistake, we refile it at no charge']), legal: 'MyCA does not pay penalties or interest, and does not take over the professional responsibility of the CA.' },
+    { over: 'Plans', h: 'Priced for a firm, not per invoice.', prices: true, legal: 'Monthly prices. Google Play shows the final price before payment. Each client invited by the firm who subscribes earns the firm one free month.' },
+    { over: 'Start with a pilot', h: 'Five clients. Thirty days. One calm month end.', body: list(['We set up five of your clients with you and import their Tally data', 'We sit with your team for the first GST month end', 'You decide at day 30, with your own numbers']), extra: `<img class="bahi" src="${M}thinking.png" alt="" style="width:380px">` },
+    { cls: 'g', logo: 'myca-lockup-on-green', over: 'Next step', h: 'A 20-minute walkthrough on sample books.', lede: '{{SENDER}} · {{PHONE}} · {{EMAIL}}', extra: `<img class="bahi" src="${M}celebrate.png" alt="">`, legal: 'MyCA is made by ML Dynamic Solutions Private Limited. MyCA is not affiliated with GSTN, ICAI or the Government of India.' },
+  ];
+  const prices = `<div class="prices">
+    <div class="card best"><div class="n">CA firm</div><div class="a">₹5,999</div><div class="p">a month · ₹59,999 a year</div><div class="w">25 people across your clients, approvals across clients, priority support, everything in Pro</div></div>
+    <div class="card"><div class="n">Client: Essentials</div><div class="a">₹999</div><div class="p">a month · ₹9,999 a year</div><div class="w">Own books, GST worked out, 2 people</div></div>
+    <div class="card"><div class="n">Client: Pro</div><div class="a">₹1,999</div><div class="p">a month · ₹19,999 a year</div><div class="w">Plus portal filing, e-invoices, connectors, 5 people</div></div>
+  </div>`;
+  slides.forEach((s, i) => {
+    const n = String(i + 1).padStart(2, '0');
+    document.write(`<section class="frame slide ${s.cls || ''}" data-frame="slide-${n}">
+      <img class="logo" src="${L}${s.logo || 'myca-lockup'}.svg" alt="">
+      <div class="num">${n} / ${slides.length}</div>
+      <div class="col"><div class="over">${s.over}</div>
+      <h1>${s.h}</h1>
+      ${s.lede ? `<div class="lede">${s.lede}</div>` : ''}
+      ${s.body || ''}${s.prices ? prices : ''}</div>${s.extra || ''}
+      ${s.legal ? `<div class="legal">${s.legal}</div>` : ''}
+    </section>`);
+  });
+</script>
+</body>
+</html>

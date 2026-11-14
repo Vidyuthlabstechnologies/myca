@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en-IN">
+<head>
+<meta charset="utf-8">
+<title>MyCA store screenshots</title>
+<link rel="stylesheet" href="brand.css">
+<style>
+  .shot { width: 1080px; height: 2160px; background: var(--paper); }
+  .shot.lead { background: var(--green); }
+  .shot .copy { position: absolute; left: 80px; right: 80px; top: 150px; }
+  .shot h1 { font-size: 80px; line-height: 1.08; font-weight: 600; letter-spacing: -0.025em; text-wrap: balance; }
+  .shot p { margin-top: 26px; font-size: 38px; line-height: 1.3; color: var(--muted); }
+  .shot.lead h1, .shot.lead p { color: var(--white); }
+  .shot.lead p { opacity: .82; }
+  .shot .mark { position: absolute; left: 80px; top: 64px; height: 52px; }
+  .shot .phone { left: 110px; width: 860px; top: 560px; }
+</style>
+</head>
+<body>
+<script>
+  const shots = [
+    ['01-home', 'phone-01-home', 'Your books, <span class="g">kept right</span>', 'See what needs you today, in one place'],
+    ['02-preview', 'phone-02-sale-preview', 'Type it. Check it. <span class="g">Say yes.</span>', 'Nothing posts until you approve it'],
+    ['03-gst-review', 'phone-06-gst-review', 'GST returns, <span class="g">ready for review</span>', 'GSTR-1 and GSTR-3B drafted from your books'],
+    ['04-invoice', 'phone-04-invoice', 'GST invoices <span class="g">in seconds</span>', 'E-invoice and e-way bill when you need them'],
+    ['05-taxes', 'phone-05-taxes', 'Every due date, <span class="g">handled</span>', 'GST, TDS and payroll reminders, on time'],
+    ['06-customer', 'phone-03-customer', 'Know who <span class="g">owes you</span>', 'Invoices, quotes and reminders per customer'],
+    ['07-reports', 'phone-07-reports', 'Reports your <span class="g">CA will like</span>', 'P&amp;L, balance sheet and trial balance'],
+    ['08-books-check', 'phone-08-books-check', 'Checked <span class="g">every night</span>', 'Your books balanced and backed up daily'],
+  ];
+  for (const [name, screen, title, line] of shots) {
+    const lead = name === '01-home';
+    document.write(`
+      <section class="frame shot ${lead ? 'lead' : ''}" data-frame="${name}">
+        <img class="mark" src="../../logo/${lead ? 'myca-lockup-on-green' : 'myca-lockup'}.svg" alt="">
+        <div class="copy">
+          <h1>${title.replace('class="g"', lead ? 'style="color:#BFE3CF"' : 'class="green"')}</h1>
+          <p>${line}</p>
+        </div>
+        <div class="phone"><img src="../../../docs/release/assets/play/${screen}.png" alt=""></div>
+      </section>`);
+  }
+</script>
+</body>
+</html>
