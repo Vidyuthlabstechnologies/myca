@@ -83,8 +83,9 @@ export function parsePosSalesCsv(text) {
     day.bills += idx.count == null ? 0 : Number(cells[idx.count]) || 0;
     byDay.set(date, day);
   }
-  const days = [...byDay.values()].map((day) => ({ ...day, lines: [...day.lines.values()].sort((a, b) => a.gstRate - b.gstRate) })).sort((a, b) => a.date.localeCompare(b.date));
-  return { days, held, meta: { count: days.length, rows: rows.length - 1 } };
+  const heldDays = new Set(held.map((row) => row.date).filter((date) => date && byDay.has(date)));
+  const days = [...byDay.values()].filter((day) => !heldDays.has(day.date)).map((day) => ({ ...day, lines: [...day.lines.values()].sort((a, b) => a.gstRate - b.gstRate) })).sort((a, b) => a.date.localeCompare(b.date));
+  return { days, held, heldDays: [...heldDays].sort(), meta: { count: days.length + heldDays.size, rows: rows.length - 1 } };
 }
 
 export function planPosImport(state, args = {}) {
@@ -94,6 +95,7 @@ export function planPosImport(state, args = {}) {
   const existing = new Set((state.invoices || []).filter((inv) => inv.source === 'pos').map((inv) => inv.date));
   const ready = [];
   const skipped = parsed.held.map((row) => ({ id: `row ${row.row}`, reason: row.reason, date: row.date || row.value }));
+  for (const date of parsed.heldDays) skipped.push({ id: date, reason: 'day_has_held_rows' });
   for (const day of parsed.days) {
     if (existing.has(day.date)) { skipped.push({ id: day.date, reason: 'exists' }); continue; }
     const computedTax = round2(day.lines.reduce((sum, line) => sum + gstSplit({ taxable: line.taxable, rate: line.gstRate, supplierState: company.state, partyState: company.state }).tax, 0));
@@ -125,7 +127,7 @@ export function posImportWords(result, money) {
   const total = result.created.reduce((sum, item) => sum + item.invoice.total, 0);
   const reasons = {};
   for (const row of result.skipped) reasons[row.reason] = (reasons[row.reason] || 0) + 1;
-  const words = { exists: 'already imported for that day', tax_differs: 'whose GST in the file differs from the rate', RATE_REQUIRED: 'with no GST rate', INVALID_DATE: 'with a date I cannot read', BAD_AMOUNT: 'with an amount I cannot read', PERIOD_LOCKED: 'in a locked period' };
+  const words = { exists: 'already imported for that day', tax_differs: 'whose GST in the file differs from the rate', RATE_REQUIRED: 'with no GST rate', INVALID_DATE: 'with a date I cannot read', BAD_AMOUNT: 'with an amount I cannot read', PERIOD_LOCKED: 'in a locked period', day_has_held_rows: 'whole days held because a row of that day was held; fix the row and import the file again' };
   const held = Object.entries(reasons).map(([reason, count]) => `${count} ${words[reason] || reason}`);
   return `Imported counter sales for ${made === 1 ? '1 day' : `${made} days`}${made ? ` totalling ${money(total)}` : ''}; each day is one walk-in invoice by GST rate, so it lands in B2CS of GSTR-1.${held.length ? ` Held back: ${held.join('; ')}.` : ''}`;
 }

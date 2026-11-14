@@ -111,7 +111,7 @@ function creditCheck(state, periods) {
 }
 
 function dueDates(deadlines, asOfDate) {
-  const passed = deadlines.filter((row) => row.daysUntil < 0 && row.daysUntil >= -90 && !row.filed);
+  const passed = deadlines.filter((row) => row.daysUntil < 0 && row.daysUntil >= -90 && !row.filed && row.level !== 'before_start');
   const next = deadlines.filter((row) => row.daysUntil >= 0 && !row.filed).sort((a, b) => a.daysUntil - b.daysUntil)[0];
   const nextLine = next ? `Next: ${next.returnLabel || next.returnType} for ${next.period}, due ${next.dueDate}.` : '';
   if (!passed.length) {

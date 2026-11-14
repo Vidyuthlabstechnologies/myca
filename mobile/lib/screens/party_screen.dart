@@ -268,10 +268,11 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
   List<Widget> _purchaseNoteFields(Party party) => [
     DropdownButtonFormField<String>(
       initialValue: _invoiceId,
+      isExpanded: true,
       decoration: const InputDecoration(labelText: 'Against bill'),
       items: [
         for (final doc in party.documents.where((d) => !d.cancelled))
-          DropdownMenuItem(value: doc.id, child: Text('${doc.id} · ${rupees(doc.total)}')),
+          DropdownMenuItem(value: doc.id, child: Text('${doc.id} · ${rupees(doc.total)}', overflow: TextOverflow.ellipsis)),
       ],
       onChanged: (value) => setState(() => _invoiceId = value),
     ),
@@ -796,7 +797,8 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
             ),
         ],
       ),
-      body: Column(
+      body: LayoutBuilder(
+        builder: (context, body) => Column(
         children: [
           Expanded(
             child: ListView(
@@ -858,6 +860,7 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
                   : _composer == _Composer.purchaseNote
                   ? _submitPurchaseNote
                   : _submitDocument,
+              maxHeight: body.maxHeight * 0.62,
               children: _composer == _Composer.payment
                   ? _paymentFields(party)
                   : _composer == _Composer.purchaseNote
@@ -867,6 +870,7 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
                   : [..._documentFields(rates), if (!_us) ..._repeatFields()],
             ),
         ],
+      ),
       ),
     );
   }

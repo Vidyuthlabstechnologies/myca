@@ -440,7 +440,7 @@ class _BalanceSheetState extends State<_BalanceSheet> {
         22,
         22 + MediaQuery.viewInsetsOf(context).bottom,
       ),
-      child: Column(
+      child: SingleChildScrollView(child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -484,7 +484,7 @@ class _BalanceSheetState extends State<_BalanceSheet> {
             child: FilledButton(onPressed: _done, child: const Text('Preview')),
           ),
         ],
-      ),
+      )),
     );
   }
 }

@@ -299,6 +299,39 @@ export const RULES = [
     attestations: []
   },
   {
+    id: 'gst.compensation-cess',
+    value: { levied: true, hsnPrefixes: null },
+    basis: 'cess_leviable_on_hsn_prefixes_null_means_any_notified_goods',
+    effectiveFrom: '2017-07-01',
+    effectiveTo: '2025-09-21',
+    act: 'CGST',
+    section: 'Goods and Services Tax (Compensation to States) Act 2017, section 8',
+    source: '1/2017-Compensation Cess (Rate) dated 28.06.2017 as amended: cess on the goods in its Schedule (pan masala, tobacco and tobacco products, aerated waters, coal, motor vehicles and others); MyCA lets any goods line carry cess in this period',
+    attestations: []
+  },
+  {
+    id: 'gst.compensation-cess',
+    value: { levied: true, hsnPrefixes: ['24', '21069020'] },
+    basis: 'cess_leviable_on_hsn_prefixes_null_means_any_notified_goods',
+    effectiveFrom: '2025-09-22',
+    effectiveTo: '2026-01-31',
+    act: 'CGST',
+    section: 'Goods and Services Tax (Compensation to States) Act 2017, section 8',
+    source: '2/2025-Compensation Cess (Rate) dated 17.09.2025 w.e.f. 22.09.2025 (with 9/2025-Central Tax (Rate) of the same date): cess ends on all goods except pan masala (2106 90 20) and tobacco and tobacco products (chapter 24), which keep it while they stay at 28 per cent in Schedule VII',
+    attestations: []
+  },
+  {
+    id: 'gst.compensation-cess',
+    value: { levied: false, hsnPrefixes: [] },
+    basis: 'cess_leviable_on_hsn_prefixes_null_means_any_notified_goods',
+    effectiveFrom: '2026-02-01',
+    effectiveTo: null,
+    act: 'CGST',
+    section: 'Goods and Services Tax (Compensation to States) Act 2017, section 8',
+    source: '19/2025-Central Tax (Rate) and 19/2025-Integrated Tax (Rate) dated 31.12.2025 w.e.f. 01.02.2026 omit Schedule VII and move pan masala and tobacco goods to 40 per cent; compensation cess on them ends on the same date, so no goods carry it',
+    attestations: []
+  },
+  {
     id: 'gst.ewaybill.threshold',
     value: { consignmentValuePaiseMoreThan: 50000 * RUPEE },
     basis: 'consignment_value_paise_more_than',

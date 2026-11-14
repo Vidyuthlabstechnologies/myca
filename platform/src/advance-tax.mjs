@@ -6,6 +6,7 @@ import { marketplaceCredits } from './marketplace-credits.mjs';
 import { tdsWithheldInFy } from './tds-credits.mjs';
 import { salaryPrivate } from './employees.mjs';
 import { isPeriodLocked } from './period-lock.mjs';
+import { advanceTax234C } from './it-interest.mjs';
 
 export const ADVANCE_TAX_ACCOUNT = { id: 1300, code: '1300', name: 'Advance tax paid', type: 'asset', flags: 0 };
 const INDIVIDUAL_TYPES = new Set(['', 'individual', 'proprietorship', 'proprietor', 'sole proprietor', 'sole proprietorship', 'huf']);
@@ -111,6 +112,8 @@ export function advanceTax(state, args = {}) {
   const next = instalments.find((i) => i.status === 'ahead') || null;
   const missed = instalments.filter((i) => i.status === 'missed');
   const notBelowThreshold = net >= 10000;
+  const interestSoFar = advanceTax234C({ fy: fy.label, netTaxPaise: Math.round(net * 100), payments: payments.map((p) => ({ date: p.date, amountPaise: Math.round(Number(p.amount) * 100) })), presumptive, asOf: today });
+  const interest234C = interestSoFar.ok ? interestSoFar.data.interestPaise / 100 : 0;
   return {
     ok: true,
     data: {
@@ -132,7 +135,8 @@ export function advanceTax(state, args = {}) {
       next,
       missed,
       liable: notBelowThreshold,
-      interest: missed.length ? 'Interest under sections 234B and 234C may apply to the shortfall; MyCA does not compute it.' : '',
+      interest: missed.length ? 'Interest under sections 234B and 234C applies to a shortfall. 234C on the instalments missed so far is worked out below on this estimate; 234B runs from 1 April after the year ends on any shortfall below 90%. Ask for "income tax interest" with the final figures.' : '',
+      interest234C,
       assumptions: [
         `Profit to date is sales less credit notes, purchases, expenses${toDate.payrollHidden ? '' : ' and approved payroll'} dated in ${fy.label} up to ${today}, before depreciation and any adjustment your CA makes${toDate.payrollHidden ? '; payroll is left out because only the owner sees it' : ''}.`,
         `The year is taken as ${elapsed} ${elapsed === 1 ? 'month' : 'months'} elapsed and the profit scaled to twelve; a seasonal business should say its expected year instead.`,
@@ -182,6 +186,7 @@ export function advanceTaxWords(d, money) {
   if (!d.liable) lines.push('Under ₹10,000 net, so no advance tax is due; keep an eye on it as the year goes.');
   for (const i of d.instalments) lines.push(`· ${longDate(i.dueDate)} (${i.cumulativePercent}% cumulative, ${money(i.cumulative)}): ${i.status === 'met' ? 'met' : i.status === 'missed' ? `missed, ${money(i.dueNow)} short` : i.dueNow > 0 ? `${money(i.dueNow)} to pay by then` : 'nothing more to pay'}.`);
   if (d.interest) lines.push(d.interest);
+  if (d.interest234C > 0) lines.push(`Interest under 234C so far on this estimate: ${money(d.interest234C)}.`);
   if (d.next && d.next.dueNow > 0 && d.liable) lines.push(`Set aside ${money(d.next.dueNow)} by ${longDate(d.next.dueDate)}. Say "paid advance tax ${d.next.dueNow} challan <CIN>" once it is paid.`);
   lines.push(`Assumptions: ${d.assumptions.join(' ')}`);
   return lines.join('\n');

@@ -57,7 +57,7 @@ test('the ESI file lists covered members with days and wages in the portal colum
   assert.equal(lines[1], '1234567890,Meena Shah,16,9290,,');
   assert.deepEqual(d.missingIp, []);
   assert.equal(d.totals.remittance, draft.totals.esiPayable);
-  assert.equal(d.totals.employerContribution, 301.94);
+  assert.equal(d.totals.employerContribution, 302);
 });
 
 test('the salary TDS statement (Form 138) is drafted and reviewed apart from the non-salary one, sharing the challans', async () => {

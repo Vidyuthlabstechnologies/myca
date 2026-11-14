@@ -57,6 +57,7 @@ import { weeklyBriefWords } from './weekly-brief.mjs';
 import { monthCloseWords } from './month-close.mjs';
 import { restockWords } from './restock.mjs';
 import { advanceTaxWords } from './advance-tax.mjs';
+import { incomeTaxInterestWords, tdsInterestWords } from './it-interest.mjs';
 import { askTaxWords, reviewWords, taxModulesWords, taxPlanWords } from './tax-assistant.mjs';
 import { itrKnowledgeWords } from './itr-knowledge.mjs';
 import { checkItrJsonWords } from './itr-json-check.mjs';
@@ -136,6 +137,7 @@ const FAILURES = {
   BAD_AMOUNT: () => 'That amount does not work here, so nothing was changed.',
   OVERPAYMENT: (r) => `That is more than is owed${r.due != null ? ` (${money(r.due)})` : ''}, so nothing was changed.`,
   INVOICE_CANCELLED: () => 'That invoice is cancelled, so nothing was changed.',
+  BEFORE_INVOICE: (r) => `That date is before the invoice${r.invoiceDate ? ` (${r.invoiceDate})` : ''}, so nothing was changed.${r.hint ? ` ${r.hint}` : ''}`,
   BAD_SECTION: () => 'Say which TDS section the customer deducted under, like 194C or 194J.',
   BAD_TAN: () => 'A TAN looks like MUMA12345B.',
   RATE_REQUIRED: () => 'A GST rate is needed for each item; MyCA does not assume one. Nothing was changed.',
@@ -144,7 +146,7 @@ const FAILURES = {
   SETUP_REQUIRED: () => 'Set up the business first: its name and GSTIN, or its state if it is not registered. Nothing was changed.',
   TALLY_UNREACHABLE: (r) => `Tally did not answer at ${r.url}. ${r.hint || ''}`.trim(),
   TALLY_TIMEOUT: (r) => `Tally at ${r.url} took too long to answer; try again with the company loaded.`,
-  TALLY_REJECTED: (r) => `Tally rejected ${r.errors} ${r.errors === 1 ? 'entry' : 'entries'}${r.lineErrors?.length ? `: ${r.lineErrors.join('; ')}` : ''}. Nothing is recorded as sent.`,
+  TALLY_REJECTED: (r) => `Tally rejected ${r.errors} ${r.errors === 1 ? 'entry' : 'entries'}${r.lineErrors?.length ? `: ${r.lineErrors.join('; ')}` : ''}.${r.partial ? ` ${r.hint}` : ' Nothing is recorded as sent.'}`,
   ALREADY_PUSHED: (r) => `${r.period} was already sent to Tally on ${r.pushedOn}. ${r.hint || ''}`.trim(),
   NOTHING_TO_PUSH: (r) => `Nothing in ${r.period} to send to Tally.`,
   TALLY_NOT_LOCAL: () => 'Tally is reached on this machine only, for example http://127.0.0.1:9000.',
@@ -475,7 +477,7 @@ function fmtToolResultCore(name, result, args) {
   }
   if (name === 'create_purchase_note' && result.purchaseNote) {
     const n = result.purchaseNote;
-    return `Debit note ${n.id} to ${n.partyName} for ${money(n.total)} against ${n.billId} (${n.date}).${result.refundDue > 0 ? ` ${money(result.refundDue)} was already paid and is now due back to you.` : ` You owe ${money(result.outstanding)} on it now.`}`;
+    return `Debit note ${n.id} to ${n.partyName} for ${money(n.total)} against ${n.billId} (${n.date}).${result.refundDue > 0 ? ` ${money(result.refundDue)} was already paid and is now due back to you.` : ` You owe ${money(result.outstanding)} on it now.`}${n.tdsReversed > 0 ? ` TDS of ${money(n.tdsReversed)} is reversed.` : ''}${result.hint ? ` ${result.hint}` : ''}`;
   }
   if ((name === 'create_credit_note' || name === 'cancel_invoice') && result.creditNote) {
     const n = result.creditNote;
@@ -487,7 +489,7 @@ function fmtToolResultCore(name, result, args) {
   }
   if (name === 'set_gst_credit_opening' && result.opening) {
     const o = result.opening;
-    return `Recorded the GST credit balance at the start of ${monthWords(o.period)}: IGST ${money(o.igst)}, CGST ${money(o.cgst)}, SGST ${money(o.sgst)}. Set-off from that month on counts it.`;
+    return `Recorded the GST credit balance at the start of ${monthWords(o.period)}: IGST ${money(o.igst)}, CGST ${money(o.cgst)}, SGST ${money(o.sgst)}${o.cess != null ? `, cess ${money(o.cess)}` : ''}. Set-off from that month on counts it.`;
   }
   if (name === 'tds_review_answer' && result.review) {
     const review = result.review;
@@ -732,6 +734,7 @@ function fmtToolResultCore(name, result, args) {
   }
   if (name === 'eway_bill_status' && result.data) {
     const s = result.data;
+    if (!s.ewbNo && s.mockEwbNo) return `Simulated e-way bill ${s.mockEwbNo} from the sandbox; nothing reached the e-way bill portal and the goods cannot move on it.`;
     return s.ewbNo ? `E-way bill ${s.ewbNo}${s.ewbValidity ? `, valid till ${s.ewbValidity}` : ''}.` : `${s.why}${s.needed && s.transport ? ` Transport: ${transportWords(s.transport)}.` : ''}${s.needed && !s.transport ? ' Say the transport details, for example "transport for INV-0001: vehicle MH12AB1234, 120 km, transporter ABC Logistics".' : ''}`;
   }
   if (name === 'set_tds_deductor' && result.tan) {
@@ -799,6 +802,8 @@ function fmtToolResultCore(name, result, args) {
   if (name === 'month_close' && result.data) return monthCloseWords(result.data, money);
   if (name === 'restock_plan' && result.data) return restockWords(result.data, money);
   if (name === 'advance_tax' && result.data) return advanceTaxWords(result.data, money);
+  if (name === 'income_tax_interest' && result.data) return incomeTaxInterestWords(result.data, money);
+  if (name === 'tds_interest' && result.data) return tdsInterestWords(result.data, money);
   if (name === 'supplier_payout_file' && result.data) return supplierPayoutWords(result.data, money);
   if (name === 'push_tally' && result.push) return tallyPushWords(result, money);
   if (name === 'import_payroll_summary' && result.data) return payrollImportWords(result, money);

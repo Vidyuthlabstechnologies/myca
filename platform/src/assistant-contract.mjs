@@ -1,3 +1,4 @@
+import { mockModeEnabled } from './runtime-config.mjs';
 import { planReceiptWithoutInvoice } from './receipt-intent.mjs';
 import { planExpenseFromChat, planRetagFromChat } from './expense-intent.mjs';
 import { planPaymentFromChat } from './payment-intent.mjs';
@@ -167,7 +168,7 @@ export function planLocalToolCall(state, message) {
   if (/\b(upload|submit|sign|file)\b.*\b(gstn|return|gstr|dsc|otp)\b/i.test(text)) {
     return {
       kind: 'reply',
-      reply: 'I can prepare the GST filing pack and export GSTR data, but I cannot upload, submit, sign, or file on GSTN. A practising CA must review and complete filing on the portal.',
+      reply: `I do not file from chat, so nothing was filed. File GST returns in the app under Taxes and filings: save the return to the portal, have the month's GST review approved by the owner (and the CA approval where the service asks for one), then enter the portal OTP to file. Filing cannot be undone.${mockModeEnabled() ? ' This service runs in sandbox, so a filing there is simulated: nothing reaches the GST portal and nothing is recorded as filed.' : ''} I can prepare the filing pack or the GSTR-1 file here.`,
       tools: [],
       blocked: true,
     };

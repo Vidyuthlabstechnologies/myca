@@ -3,6 +3,7 @@ import { gst } from './sprint-load.mjs';
 import { isReturnPeriod, periodOf } from './return-period.mjs';
 import { localToday } from './dates.mjs';
 import { csvRawRows } from './text-safe.mjs';
+import { regArg, scopeKey, isPrincipal, docGstin } from './registrations.mjs';
 
 const { parseGstr2B, match2B, itcOf, reconcile } = gst;
 
@@ -71,26 +72,52 @@ export function keyTooLongErrors(errors) {
   return errors.filter((error) => error.code === KEY_TOO_LONG).slice(0, ERRORS_SHOWN);
 }
 
+function storedTwob(state) {
+  return state.gstr2b && typeof state.gstr2b === 'object' ? state.gstr2b : {};
+}
+
+function scopeGstin(state, gstin) {
+  return isPrincipal(state, gstin) ? '' : String(gstin).replace(/\s+/g, '').toUpperCase();
+}
+
+export function twobStatements(state, gstin) {
+  const wanted = scopeGstin(state, gstin);
+  return Object.entries(storedTwob(state)).flatMap(([key, entry]) => {
+    const at = key.indexOf('@');
+    const period = at < 0 ? key : key.slice(0, at);
+    const owner = at < 0 ? '' : key.slice(at + 1);
+    return owner === wanted && entry ? [[period, entry]] : [];
+  });
+}
+
+export function twobFor(state, period, gstin) {
+  const all = storedTwob(state);
+  const key = scopeKey(state, period, gstin);
+  return Object.hasOwn(all, key) ? all[key] : null;
+}
+
 export function import2b(state, args = {}) {
   const period = String(args.period || '').trim();
   if (!isReturnPeriod(period)) return { ok: false, error: 'INVALID_PERIOD', hint: 'Say which month this 2B is for, as YYYY-MM.' };
+  const regd = regArg(state, args.gstin);
+  if (!regd.ok) return regd;
+  const key = scopeKey(state, period, regd.gstin);
   const { rows, errors } = parse2bFile(args.csv);
   if (!rows.length) return { ok: false, error: 'NO_ROWS', errors: errors.slice(0, 5) };
   state.gstr2b = state.gstr2b && typeof state.gstr2b === 'object' ? state.gstr2b : {};
-  const replaced = Object.hasOwn(state.gstr2b, period);
-  state.gstr2b[period] = {
+  const replaced = Object.hasOwn(state.gstr2b, key);
+  state.gstr2b[key] = {
     fileName: String(args.fileName || 'GSTR-2B.csv').slice(0, 120),
     importedOn: localToday(),
     rows,
     skipped: errors.length,
   };
   const left = keyTooLongErrors(errors);
-  return { ok: true, period, rows: rows.length, skipped: errors.length, replaced, ...(left.length ? { errors: left } : {}) };
+  return { ok: true, period, ...(regd.principal ? {} : { gstin: regd.gstin }), rows: rows.length, skipped: errors.length, replaced, ...(left.length ? { errors: left } : {}) };
 }
 
-export function allRows(state) {
-  const stored = state.gstr2b && typeof state.gstr2b === 'object' ? state.gstr2b : {};
-  return Object.entries(stored).flatMap(([period, entry]) => (entry.rows || []).map((row) => ({ ...row, statementPeriod: period })));
+export function allRows(state, gstin) {
+  return twobStatements(state, gstin).flatMap(([period, entry]) => (entry.rows || []).map((row) => ({ ...row, statementPeriod: period })));
 }
 
 function supplierKey(row) {
@@ -159,12 +186,14 @@ function billRow(bill) {
   };
 }
 
-export function creditAtRisk(state, { period } = {}) {
+export function creditAtRisk(state, { period, gstin } = {}) {
   const wanted = String(period || '').trim() || localToday().slice(0, 7);
   if (!isReturnPeriod(wanted)) return { ok: false, error: 'INVALID_PERIOD', hint: 'Use YYYY-MM, for example 2026-09.' };
-  const stored = state.gstr2b && typeof state.gstr2b === 'object' && Object.hasOwn(state.gstr2b, wanted) ? state.gstr2b[wanted] : null;
-  const twob = documentsOf(allRows(state), { byDate: true }).map((document) => document.raw);
-  const bills = (state.purchases || []).filter((bill) => periodOf(bill.date) === wanted && itcOf(billRow(bill)) > 0);
+  const regd = regArg(state, gstin);
+  if (!regd.ok) return regd;
+  const stored = twobFor(state, wanted, regd.gstin);
+  const twob = documentsOf(allRows(state, regd.gstin), { byDate: true }).map((document) => document.raw);
+  const bills = (state.purchases || []).filter((bill) => periodOf(bill.date) === wanted && docGstin(state, bill) === regd.gstin && itcOf(billRow(bill)) > 0);
   const risks = [];
   const numbered = [];
   for (const bill of bills) {
@@ -220,7 +249,8 @@ export function creditAtRisk(state, { period } = {}) {
     data: {
       period: wanted,
       statement: stored ? { fileName: stored.fileName, importedOn: stored.importedOn, rows: (stored.rows || []).length } : null,
-      statements: Object.keys(state.gstr2b || {}).sort(),
+      ...(regd.principal ? {} : { gstin: regd.gstin }),
+      statements: twobStatements(state, regd.gstin).map(([period]) => period).sort(),
       bills: bills.length,
       creditInBooks: round2(bills.reduce((sum, bill) => sum + itcOf(billRow(bill)), 0)),
       creditMatched: round2(matchedCredit),

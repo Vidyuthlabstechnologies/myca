@@ -66,7 +66,7 @@ A late statement costs a fee of two hundred rupees a day under s.234E, up to the
 Keywords: interest, 201(1a), 1 percent, 1.5 percent, disallowance, 40(a)(ia), 30 percent, expense disallowed, short deduction, not deducted
 Source: Income-tax Act 1961 s.201(1), s.201(1A), s.40(a)(ia)
 
-TDS not deducted carries interest of one per cent a month from the date it was deductible to the date it is deducted; TDS deducted but not deposited carries one and a half per cent a month from deduction to deposit.
+TDS not deducted carries interest of one per cent a month or part from the date it was deductible to the date it is deducted; TDS deducted but not deposited carries one and a half per cent a month or part from deduction to deposit. `tds_interest` works out this interest and the s.234E late fee for a statement.
 
 If TDS is not deducted, or is deducted and not deposited by the return due date, thirty per cent of the expense is disallowed for that year and allowed in the year the TDS is paid.
 
