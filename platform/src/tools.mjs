@@ -921,8 +921,8 @@ export const TOOLS = [
   {
     name: 'file_us_return',
     title: 'E-file the federal return with the IRS',
-    description: 'Build the IRS MeF submission for the signed Form 1040 and transmit it. In sandbox mode (no IRS credentials, or the IRS test system) the return is checked by a local simulator or IRS assurance testing and nothing reaches the IRS production system. Refuses if the return is not signed or changed after signing. US only. Cannot be undone once accepted.',
-    args: ['taxYear', 'caApprovalId'],
+    description: 'E-file the Form 1040. On MyCA\'s own route (MeF): build the IRS submission for the signed return and transmit it; refuses if the return is not signed or changed after signing. On the 2027 partner route (MYCA_US_FILER set): open a filing session with the IRS-authorised e-file partner, prefilled from the return, and give back the link where the filer signs Form 8879 and the partner transmits; the partner\'s webhook then records submitted, accepted or rejected. In sandbox mode a local simulator answers and nothing reaches the IRS. US only. Cannot be undone once accepted.',
+    args: ['taxYear', 'caApprovalId', 'partnerScope', 'contact'],
     run: async (state, args = {}) => {
       const out = await fileUsReturn(state, args, resolveToolActor(args, 'actorId', 'owner'));
       return out.ok ? ok(out) : fail(out.error, out);

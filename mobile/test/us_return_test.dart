@@ -92,6 +92,7 @@ class UsFakeApi implements MycaApi {
   List<Map<String, Object?>> checks = [];
   String efile = 'not_filed';
   String mode = 'sandbox';
+  String route = 'mef';
   List<Map<String, Object?>> rejections = [];
   num refund = 1234.5;
   num owed = 0;
@@ -130,7 +131,7 @@ class UsFakeApi implements MycaApi {
   @override
   Future<ChatReply> propose(String name, Map<String, Object?> args) async {
     proposals.add(Proposal(name, args));
-    if (name == 'file_us_return' && efile != 'signed') return ChatReply.fromJson({'reply': 'Sign the return first.', 'blocked': true});
+    if (name == 'file_us_return' && efile != 'signed' && route != 'partner') return ChatReply.fromJson({'reply': 'Sign the return first.', 'blocked': true});
     final token = 'tok-${_token++}';
     _pending[token] = Proposal(name, args);
     final summary = name == 'file_us_return' ? 'Send your 2025 Form 1040 to the IRS test system.' : 'Save $name.';
@@ -167,6 +168,16 @@ class UsFakeApi implements MycaApi {
         signed = args;
         efile = 'signed';
       case 'file_us_return':
+        if (route == 'partner') {
+          efile = 'in_progress';
+          return ChatReply.fromJson({
+            'reply': 'Continue on the partner page.',
+            'posted': false,
+            'tools': [
+              {'name': 'file_us_return', 'result': {'ok': true, 'data': {'route': 'partner', 'status': 'in_progress', 'handoffUrl': 'https://file.partner.example/s/1'}}},
+            ],
+          });
+        }
         efile = 'submitted';
     }
     return ChatReply.fromJson({'reply': p.tool == 'sign_us_return' ? 'Signed with PIN. Refund to account ending 6789.' : 'Saved.', 'posted': true});
@@ -224,7 +235,7 @@ class UsFakeApi implements MycaApi {
           'unsupported': unsupported,
         });
       case 'us_efile_status':
-        return _ok({'status': efile, 'mode': mode, 'submissionId': efile == 'submitted' ? '00000020253150000001' : '', 'rejections': rejections});
+        return _ok({'status': efile, 'mode': mode, 'route': route, 'submissionId': efile == 'submitted' ? '00000020253150000001' : '', 'rejections': rejections});
       case 'us_return_pdf':
         return _ok({'base64': 'JVBERi0xLjQK'});
     }
@@ -589,6 +600,32 @@ void main() {
     expect(api.confirmed, ['sign_us_return', 'file_us_return']);
     expect(find.text('Sent to the IRS'), findsOneWidget);
     expect(find.textContaining('00000020253150000001'), findsOneWidget);
+  });
+
+  testWidgets('partner route: no PIN screen; one tap opens the e-file partner prefilled, and the hub waits for the IRS answer', (tester) async {
+    final api = UsFakeApi()
+      ..taxpayer = {'filingStatus': 'single'}
+      ..route = 'partner';
+    api.forms.add({'id': 'F1', 'kind': 'W-2', 'payer': 'Acme', 'amounts': {'wages': 52000}});
+    final opened = <Uri>[];
+    await tester.pumpWidget(MycaApp(state: usState(api, opened: opened)));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('usHub.step.sign')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('usSign.pin')), findsNothing, reason: 'the partner signs Form 8879 with the filer');
+    expect(find.byKey(const Key('usSign.partnerIntro')), findsOneWidget);
+    expect(find.text('Ready to e-file'), findsOneWidget);
+    expect(find.textContaining('IRS test system'), findsOneWidget);
+    await scrollTap(tester, find.byKey(const Key('usSign.partner')));
+    expect(api.confirmed, ['file_us_return']);
+    expect(opened, [Uri.parse('https://file.partner.example/s/1')]);
+    expect(find.text('Finish e-filing'), findsOneWidget);
+    expect(find.text('Continue where you left off'), findsOneWidget);
+
+    api.efile = 'accepted';
+    await scrollTap(tester, find.byKey(const Key('usSign.partnerRefresh')));
+    expect(find.text('Accepted by the IRS'), findsOneWidget);
   });
 
   testWidgets('filing is held until that year\'s \$129 is paid on Google Play; then the file button appears', (tester) async {

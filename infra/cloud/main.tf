@@ -278,6 +278,8 @@ locals {
     MYCA_REVIEWER_CODE              = var.reviewer_code
     MYCA_STRIPE_SECRET_KEY          = var.stripe_secret_key
     MYCA_STRIPE_WEBHOOK_SECRET      = var.stripe_webhook_secret
+    MYCA_US_FILER_API_KEY           = var.us_filer_api_key
+    MYCA_US_FILER_WEBHOOK_SECRET    = var.us_filer_webhook_secret
   } : name => value if nonsensitive(!contains(["", "unset"], trimspace(value))) }
   secrets      = merge(local.generated, local.given, { MYCA_DATABASE_URL = local.database_url }, local.optional_secrets)
   secret_names = sort(nonsensitive(keys(local.secrets)))
@@ -313,6 +315,9 @@ locals {
     MYCA_PLAY_PRODUCT_FIRM         = var.play_product_firm
     MYCA_PLAN_PRICES               = var.plan_prices
     MYCA_PLAY_PACKAGE_US           = var.play_package_us
+    MYCA_US_FILER                  = var.us_filer
+    MYCA_US_FILER_BASE_URL         = var.us_filer_base_url
+    MYCA_US_FILER_SESSION_PATH     = var.us_filer_session_path
     MYCA_PLAY_PRODUCT_US_1040      = var.play_product_us_1040
     MYCA_PLAY_PRODUCT_US_PLUS      = var.play_product_us_plus
     MYCA_STRIPE_PRICE_US_PLUS      = var.stripe_price_us_plus

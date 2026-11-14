@@ -291,6 +291,79 @@ class _UsSignScreenState extends State<UsSignScreen> {
     ],
   ];
 
+  Future<void> _continueWithPartner() async {
+    final openLink = AppScope.of(context).openLink;
+    setState(() {
+      _busy = true;
+      _note = '';
+    });
+    try {
+      final reply = await saveAndConfirm(_api, 'file_us_return', {'taxYear': widget.taxYear});
+      final url = reply.toolResult('file_us_return')['handoffUrl'];
+      var note = '';
+      if (url is String && url.startsWith('https://')) {
+        final opened = await openLink(Uri.parse(url));
+        if (!opened) note = 'The filing page did not open. Try again.';
+      } else if (reply.toolResult('file_us_return').isEmpty) {
+        note = reply.reply.isEmpty ? 'E-filing could not start. Try again.' : reply.reply;
+      }
+      if (!mounted) return;
+      setState(() {
+        _note = note;
+        _context = _load();
+      });
+    } on MycaApiException catch (err) {
+      if (mounted) setState(() => _note = err.message);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Widget _partnerView(_SignContext ctx) {
+    final text = Theme.of(context).textTheme;
+    final owed = ctx.review.owed > 0;
+    final resuming = ctx.efile.inProgress;
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+      children: [
+        Text(resuming ? 'Finish e-filing' : 'Ready to e-file', style: text.headlineMedium),
+        const SizedBox(height: 8),
+        Text(owed ? 'You owe ${dollars(ctx.review.owed)}.' : 'Your refund is ${dollars(ctx.review.refund)}.', style: text.titleMedium),
+        const SizedBox(height: 12),
+        Text(
+          'Your return is e-filed through our IRS-authorized e-file partner. We pass on your name, address, dependents and tax forms, '
+          'so there you only add your SSN, check the return and sign Form 8879. The IRS answer shows up here.',
+          key: const Key('usSign.partnerIntro'),
+          style: text.bodyLarge,
+        ),
+        for (final r in ctx.efile.rejections) ...[
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(color: Palette.warnSoft, borderRadius: BorderRadius.circular(radiusControl)),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [Text('The IRS sent it back: ${r.message}', style: text.bodyMedium), const SizedBox(height: 4), Text(r.fix, style: text.bodySmall)],
+            ),
+          ),
+        ],
+        if (ctx.efile.sandbox) ...[const SizedBox(height: 12), const StatusTag(text: 'IRS test system: nothing is really filed', color: Palette.warn)],
+        const SizedBox(height: 22),
+        if ((_paidFee ?? ctx.fee).due)
+          UsFilingFeeCard(fee: ctx.fee, fees: _fees!, store: _store, onPaid: (fee) => setState(() => _paidFee = fee))
+        else
+          FilledButton(
+            key: const Key('usSign.partner'),
+            onPressed: _busy ? null : _continueWithPartner,
+            child: Text(_busy ? 'Opening…' : resuming ? 'Continue where you left off' : 'Continue to e-file'),
+          ),
+        if (resuming)
+          TextButton(key: const Key('usSign.partnerRefresh'), onPressed: _busy ? null : () => setState(() { _context = _load(); }), child: const Text('I have finished. Check again')),
+        if (_note.isNotEmpty) ...[const SizedBox(height: 12), Text(_note, style: const TextStyle(color: Palette.danger, fontWeight: FontWeight.w500))],
+      ],
+    );
+  }
+
   Widget _filedView(UsEfileStatus efile) {
     final text = Theme.of(context).textTheme;
     return ListView(
@@ -327,6 +400,7 @@ class _UsSignScreenState extends State<UsSignScreen> {
             }
             final ctx = loaded.data!;
             if (ctx.efile.filed) return _filedView(ctx.efile);
+            if (ctx.efile.partner) return _partnerView(ctx);
             if (!ctx.review.canFile) {
               return ListView(padding: const EdgeInsets.fromLTRB(20, 12, 20, 32), children: [UsUnsupportedNotice(forms: ctx.review.unsupported)]);
             }

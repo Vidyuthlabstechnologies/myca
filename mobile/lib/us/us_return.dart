@@ -360,7 +360,7 @@ class UsRejection {
 }
 
 class UsEfileStatus {
-  const UsEfileStatus({required this.status, required this.mode, required this.submissionId, required this.acceptedAt, required this.rejections});
+  const UsEfileStatus({required this.status, required this.mode, required this.submissionId, required this.acceptedAt, required this.rejections, this.route = 'mef'});
 
   factory UsEfileStatus.fromJson(Object? json) {
     final data = _map(json);
@@ -370,6 +370,7 @@ class UsEfileStatus {
       submissionId: _text(data['submissionId']),
       acceptedAt: _text(data['acceptedAt']),
       rejections: [for (final r in _maps(data['rejections'])) UsRejection(code: _text(r['code']), message: _text(r['message']), fix: _text(r['fix']), step: _text(r['step']))],
+      route: _text(data['route']).isEmpty ? 'mef' : _text(data['route']),
     );
   }
 
@@ -381,8 +382,14 @@ class UsEfileStatus {
   final String acceptedAt;
   final List<UsRejection> rejections;
 
+  /// 'partner' when the return is filed through the embedded e-file partner (2027 season),
+  /// 'mef' when MyCA transmits to the IRS itself.
+  final String route;
+
   bool get filed => status == 'submitted' || status == 'accepted';
   bool get sandbox => mode != 'live';
+  bool get partner => route == 'partner';
+  bool get inProgress => status == 'in_progress';
 }
 
 int currentTaxYear(DateTime now) => now.month >= 11 ? now.year : now.year - 1;

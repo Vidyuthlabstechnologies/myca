@@ -152,17 +152,20 @@ class ChatReply {
     required this.preview,
     required this.posted,
     required this.blocked,
+    this.tools = const [],
   });
 
   factory ChatReply.fromJson(Object? json) {
     final map = _map(json);
     final awaiting =
         map['awaitingConfirmation'] == true && map['preview'] is Map;
+    final tools = map['tools'];
     return ChatReply(
       reply: _text(map['reply']),
       preview: awaiting ? ChatPreview.fromJson(map['preview']) : null,
       posted: map['posted'] == true,
       blocked: map['blocked'] == true,
+      tools: tools is List ? [for (final t in tools) if (t is Map) Map<String, dynamic>.from(t)] : const [],
     );
   }
 
@@ -170,6 +173,17 @@ class ChatReply {
   final ChatPreview? preview;
   final bool posted;
   final bool blocked;
+
+  /// The tools a confirm ran, each as {name, result}.
+  final List<Map<String, dynamic>> tools;
+
+  /// The data of the named tool's result, or an empty map.
+  Map<String, dynamic> toolResult(String name) {
+    for (final t in tools) {
+      if (t['name'] == name) return toolData(t['result']);
+    }
+    return const <String, dynamic>{};
+  }
 }
 
 class Today {

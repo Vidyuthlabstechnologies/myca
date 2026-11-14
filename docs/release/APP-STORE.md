@@ -43,6 +43,13 @@ once these repository secrets exist (until then it only uploads the unsigned app
 | `APPLE_TEAM_ID` | the ten-character team id |
 | `APP_STORE_CONNECT_KEY_ID`, `APP_STORE_CONNECT_ISSUER_ID`, `APP_STORE_CONNECT_API_KEY_BASE64` | an App Store Connect API key (App Manager role) and its `.p8`, base64 |
 
+**MyCA US on iOS.** The US app is its own App Store app, `com.mldynamic.myca.us` ("MyCA US"), as
+on Android. Run *Build iOS app* by hand with `app: us`. It swaps the bundle id and name, builds with
+`MYCA_EDITION=US` (straight into the US experience) and points at `MYCA_CLOUD_URL_US` when that
+repository variable is set. It needs two more secrets: `APPLE_PROVISIONING_PROFILE_BASE64_US`
+(the App Store profile for `com.mldynamic.myca.us`) and `APPLE_PROFILE_NAME_US`. Register the
+bundle id and create the app in App Store Connect with the United States storefront first.
+
 Push a `v*` tag and the signed build lands in TestFlight; the manual steps below remain
 the fallback and the way to do the first upload from a Mac.
 
