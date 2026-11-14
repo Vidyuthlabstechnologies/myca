@@ -37,5 +37,5 @@ export function sendThroughAsp(state, { document, xml, totals, actorId = 'owner'
   };
   slice.byNumber[key] = record;
   appendAuditEvent(state, { action: 'ae_einvoice_issued', actorId, metadata: { number: record.number, type: record.type, uuid: record.uuid, mode, payable: totals.payable, currency: totals.currency } });
-  return { ok: true, sandbox: true, data: record, hint: 'Sandbox: checked against PINT AE and recorded, not sent to an Accredited Service Provider or the FTA.' };
+  return { ok: true, sandbox: true, data: record, hint: 'Sandbox: the main PINT AE fields were checked and the e-invoice recorded; it was not sent to an Accredited Service Provider or the FTA, which run the full validation.' };
 }

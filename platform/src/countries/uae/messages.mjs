@@ -92,7 +92,7 @@ const EXACT = new Map(Object.entries({
   'Give the unpaid tax in AED.': 'أدخل الضريبة غير المسددة بالدرهم.',
   'No Accredited Service Provider is connected yet, so live e-invoices cannot be sent. Sandbox mode (MYCA_PROVIDER_ENV=test or MYCA_MOCK_MODE=1) checks and records them without sending.': 'لم يُربط بعد أي مزود خدمة معتمد، فلا يمكن إرسال الفواتير الإلكترونية الفعلية. وضع التجربة يتحقق منها ويسجلها دون إرسال.',
   'This number was already issued with different content. Use a new number, or a credit note to correct it.': 'صدر هذا الرقم من قبل بمحتوى مختلف. استخدم رقمًا جديدًا، أو إشعارًا دائنًا للتصحيح.',
-  'Sandbox: checked against PINT AE and recorded, not sent to an Accredited Service Provider or the FTA.': 'وضع التجربة: تم التحقق وفق PINT AE والتسجيل، دون إرسال إلى مزود خدمة معتمد أو إلى الهيئة الاتحادية للضرائب.',
+  'Sandbox: the main PINT AE fields were checked and the e-invoice recorded; it was not sent to an Accredited Service Provider or the FTA, which run the full validation.': 'وضع التجربة: تم التحقق من الحقول الأساسية وفق PINT AE وتسجيل الفاتورة؛ ولم تُرسل إلى مزود خدمة معتمد أو إلى الهيئة، اللذين يجريان التحقق الكامل.',
   'Enter the 15-digit Tax Registration Number from the FTA certificate.': 'أدخل رقم التسجيل الضريبي المكوّن من 15 رقمًا من شهادة الهيئة الاتحادية للضرائب.',
   'A TRN has digits only.': 'رقم التسجيل الضريبي يتكون من أرقام فقط.',
   'A TRN cannot be all zeros.': 'لا يجوز أن يكون رقم التسجيل الضريبي أصفارًا فقط.',
