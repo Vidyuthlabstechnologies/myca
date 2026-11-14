@@ -141,6 +141,8 @@ const TOOL_RISK = {
   check_itr_json: 'read_only',
   tax_plan: 'read_only',
   review_income_tax: 'read_only',
+  income_tax_interest: 'read_only',
+  tds_interest: 'read_only',
   channel_connectors: 'read_only',
   fetch_channel_report: 'external_government_api',
   sync_channels: 'external_government_api',

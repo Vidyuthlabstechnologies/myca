@@ -10,6 +10,7 @@ import { regArg, companyAs, scopeKey } from './registrations.mjs';
 import { localToday } from './dates.mjs';
 import { normalizeClientId } from './books.mjs';
 import { reverseChargeTotals } from './reverse-charge.mjs';
+import { isSezSupply } from './chart.mjs';
 
 const ARN = /^[A-Z0-9]{10,20}$/;
 const PAN = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
@@ -21,8 +22,37 @@ function fail(error, extra = {}) {
 }
 
 const r2 = (value) => Math.round(Number(value || 0) * 100) / 100;
-const amounts = (txval, iamt, camt, samt) => ({ txval: r2(txval), iamt: r2(iamt), camt: r2(camt), samt: r2(samt), csamt: 0 });
-const taxOnly = (iamt, camt, samt) => ({ iamt: r2(iamt), camt: r2(camt), samt: r2(samt), csamt: 0 });
+const amounts = (txval, iamt, camt, samt, csamt = 0) => ({ txval: r2(txval), iamt: r2(iamt), camt: r2(camt), samt: r2(samt), csamt: r2(csamt) });
+const taxOnly = (iamt, camt, samt, csamt = 0) => ({ iamt: r2(iamt), camt: r2(camt), samt: r2(samt), csamt: r2(csamt) });
+
+function cessOf(doc) {
+  return (doc.lines || []).reduce((sum, line) => sum + Number(line.cess || 0), 0);
+}
+
+function zeroRatedDoc(doc) {
+  return Boolean(doc.export) || String(doc.placeOfSupply || '') === '96' || isSezSupply(doc);
+}
+
+export function cessTotals(docs) {
+  const signed = [...(docs.invoices || []).map((doc) => [doc, 1]), ...(docs.debitNotes || []).map((doc) => [doc, 1]), ...(docs.creditNotes || []).map((doc) => [doc, -1])];
+  let outward = 0;
+  let zero = 0;
+  for (const [doc, sign] of signed) {
+    if (zeroRatedDoc(doc)) zero += sign * cessOf(doc);
+    else outward += sign * cessOf(doc);
+  }
+  let input = 0;
+  let ineligible = 0;
+  for (const bill of docs.purchases || []) {
+    if (bill.itcEligible === false) ineligible += cessOf(bill);
+    else input += cessOf(bill);
+  }
+  for (const note of docs.purchaseNotes || []) {
+    if (note.itcEligible === false) ineligible -= cessOf(note);
+    else input -= cessOf(note);
+  }
+  return { outward: r2(outward), zero: r2(zero), output: r2(outward + zero), input: r2(input), ineligible: r2(ineligible) };
+}
 
 function savesOf(state) {
   if (!state.gstr3bPortal || typeof state.gstr3bPortal !== 'object') state.gstr3bPortal = {};
@@ -40,7 +70,7 @@ function exportsAndNonGst(docs) {
   let nonGst = 0;
   const signed = [...(docs.invoices || []).map((doc) => [doc, 1]), ...(docs.debitNotes || []).map((doc) => [doc, 1]), ...(docs.creditNotes || []).map((doc) => [doc, -1])];
   for (const [inv, sign] of signed) {
-    const exported = Boolean(inv.export) || String(inv.placeOfSupply || '') === '96';
+    const exported = zeroRatedDoc(inv);
     for (const line of inv.lines || []) {
       const taxable = sign * Number(line.taxable || 0);
       const igst = sign * Number(line.igst || 0);
@@ -86,7 +116,8 @@ export function gstr3bPortalJson(state, period, gstin) {
   const extra = exportsAndNonGst(docs);
   const warnings = [];
   if (draft.missingHsn?.length) warnings.push(`Invoices without an HSN are counted in the totals: ${draft.missingHsn.join(', ')}.`);
-  const outward = amounts(Number(totals.interTaxable || 0) + Number(totals.intraTaxable || 0) - extra.fromRated.txval, Number(totals.interIgst || 0) - extra.fromRated.iamt, totals.intraCgst, totals.intraSgst);
+  const cess = cessTotals(docs);
+  const outward = amounts(Number(totals.interTaxable || 0) + Number(totals.intraTaxable || 0) - extra.fromRated.txval, Number(totals.interIgst || 0) - extra.fromRated.iamt, totals.intraCgst, totals.intraSgst, cess.outward);
   const nilExempt = Math.max(0, Number(draft.outward?.nilExemptTaxable || 0) - extra.fromNil - extra.nonGst);
   const itc = draft.itc || {};
   const available = itc.available || {};
@@ -94,8 +125,8 @@ export function gstr3bPortalJson(state, period, gstin) {
   const rcm = reverseChargeTotals(docs.purchases);
   const importServices = rcm.eligibleImport.igst;
   const otherRcm = rcm.eligibleOther;
-  const others = taxOnly(Number(available.igst || 0) - importServices - otherRcm.igst, Number(available.cgst || 0) - otherRcm.cgst, Number(available.sgst || 0) - otherRcm.sgst);
-  const net = taxOnly(available.igst, available.cgst, available.sgst);
+  const others = taxOnly(Number(available.igst || 0) - importServices - otherRcm.igst, Number(available.cgst || 0) - otherRcm.cgst, Number(available.sgst || 0) - otherRcm.sgst, cess.input);
+  const net = taxOnly(available.igst, available.cgst, available.sgst, cess.input);
   const payment = paymentFor(state, docs.period, { gstin: regd.gstin });
   const late = payment.ok ? payment.data.late : null;
   const interest = late?.interest ? late.interest : 0;
@@ -107,7 +138,7 @@ export function gstr3bPortalJson(state, period, gstin) {
     ret_period: fpOf(docs.period),
     sup_details: {
       osup_det: outward,
-      osup_zero: amounts(extra.zero.txval, extra.zero.iamt, 0, 0),
+      osup_zero: amounts(extra.zero.txval, extra.zero.iamt, 0, 0, cess.zero),
       osup_nil_exmp: { txval: r2(nilExempt) },
       isup_rev: amounts(rcm.taxable, rcm.igst, rcm.cgst, rcm.sgst),
       osup_nongst: { txval: r2(extra.nonGst) },
@@ -131,7 +162,7 @@ export function gstr3bPortalJson(state, period, gstin) {
       ],
       itc_net: net,
       itc_inelg: [
-        { ty: 'RUL', ...taxOnly(ineligible.igst, ineligible.cgst, ineligible.sgst) },
+        { ty: 'RUL', ...taxOnly(ineligible.igst, ineligible.cgst, ineligible.sgst, cess.ineligible) },
         { ty: 'OTH', ...taxOnly(0, 0, 0) },
       ],
     },
@@ -147,9 +178,10 @@ export function gstr3bPortalJson(state, period, gstin) {
   if (!payment.ok) warnings.push('The tax to pay could not be worked out, so no interest is included.');
   else if (payment.data.broughtForwardKnown === false) warnings.push('Credit carried from earlier months is not known to MyCA; check the electronic credit ledger on the portal.');
   if (rcm.count) warnings.push(`Reverse charge tax of ₹${rcm.total} on ${rcm.count} ${rcm.count === 1 ? 'purchase' : 'purchases'} is in 3.1(d) and must be paid in cash; its credit is in 4(A)(2) and 4(A)(3).`);
-  warnings.push('Imports of goods, ISD credit, credit reversals and cess are not in the books, so those rows are zero.');
+  if (cess.output || cess.input) warnings.push(`Compensation cess: ₹${cess.output} on supplies and ₹${cess.input} of cess credit; cess credit can be used only against cess.`);
+  warnings.push(cess.output || cess.input ? 'Imports of goods, ISD credit and credit reversals are not in the books, so those rows are zero.' : 'Imports of goods, ISD credit, credit reversals and cess are not in the books, so those rows are zero.');
   const hash = createHash('sha256').update(JSON.stringify(body)).digest('hex');
-  return { ok: true, period: docs.period, gstin: company.gstin, body, hash, warnings, payment: payment.ok ? payment.data : null };
+  return { ok: true, period: docs.period, gstin: company.gstin, body, hash, warnings, payment: payment.ok ? payment.data : null, cess };
 }
 
 function foundSave(state, args) {
@@ -221,7 +253,9 @@ function cashWithReverseCharge(payment) {
   return { igst: Number(cash.igst || 0) + Number(rcm.igst || 0), cgst: Number(cash.cgst || 0) + Number(rcm.cgst || 0), sgst: Number(cash.sgst || 0) + Number(rcm.sgst || 0) };
 }
 
-export function offsetPlan(payment, ledgerIds = {}) {
+export function offsetPlan(payment, ledgerIds = {}, cess = {}) {
+  const cessCredit = r2(Math.max(0, Math.min(Number(cess.input || 0), Number(cess.output || 0))));
+  const cessCash = r2(Math.max(0, Number(cess.output || 0) - cessCredit));
   const used = payment.used || {};
   const cash = payment.cash || {};
   const rcm = payment.reverseCharge || {};
@@ -233,10 +267,10 @@ export function offsetPlan(payment, ledgerIds = {}) {
   const fee = r2(Number(late?.lateFee || 0) / 2);
   const ledger = (type) => Number(ledgerIds[type] || 0);
   const rcmTotal = Number(rcm.igst || 0) + Number(rcm.cgst || 0) + Number(rcm.sgst || 0);
-  const cashRow = (type, row, lateFee) => ({ liab_ldg_id: ledger(type), trans_typ: type, ipd: r2(row.igst), cpd: r2(row.cgst), spd: r2(row.sgst), cspd: 0, i_intrpd: share(row, 'igst'), c_intrpd: share(row, 'cgst'), s_intrpd: share(row, 'sgst'), cs_intrpd: 0, c_lfeepd: lateFee, s_lfeepd: lateFee });
+  const cashRow = (type, row, lateFee, cessPaid = 0) => ({ liab_ldg_id: ledger(type), trans_typ: type, ipd: r2(row.igst), cpd: r2(row.cgst), spd: r2(row.sgst), cspd: cessPaid, i_intrpd: share(row, 'igst'), c_intrpd: share(row, 'cgst'), s_intrpd: share(row, 'sgst'), cs_intrpd: 0, c_lfeepd: lateFee, s_lfeepd: lateFee });
   return {
     pdcash: [
-      cashRow(TAX, cash, fee),
+      cashRow(TAX, cash, fee, cessCash),
       ...(rcmTotal > 0 ? [cashRow(REVERSE_CHARGE, rcm, 0)] : []),
     ],
     pditc: {
@@ -245,7 +279,7 @@ export function offsetPlan(payment, ledgerIds = {}) {
       i_pdi: r2(used.igst?.igst), i_pdc: r2(used.igst?.cgst), i_pds: r2(used.igst?.sgst),
       c_pdi: r2(used.cgst?.igst), c_pdc: r2(used.cgst?.cgst),
       s_pdi: r2(used.sgst?.igst), s_pds: r2(used.sgst?.sgst),
-      cs_pdcs: 0,
+      cs_pdcs: cessCredit,
     },
   };
 }
@@ -259,8 +293,8 @@ export async function offsetGstr3bOnPortal(state, args = {}, actor) {
   const review = approvedReview(state, found.period, found.gstin);
   if (!review.ok) return review;
   if (!built.payment) return fail('PAYMENT_UNKNOWN', { hint: 'MyCA could not work out the tax to pay for the month.' });
-  const plan = offsetPlan(built.payment, found.saved.ledgerIds || {});
-  const cashNeeded = r2(plan.pdcash.reduce((sum, row) => sum + row.ipd + row.cpd + row.spd + row.i_intrpd + row.c_intrpd + row.s_intrpd + row.c_lfeepd + row.s_lfeepd, 0));
+  const plan = offsetPlan(built.payment, found.saved.ledgerIds || {}, built.cess);
+  const cashNeeded = r2(plan.pdcash.reduce((sum, row) => sum + row.ipd + row.cpd + row.spd + row.cspd + row.i_intrpd + row.c_intrpd + row.s_intrpd + row.c_lfeepd + row.s_lfeepd, 0));
   const out = await op(state, actor, args, 'gst_gstr3b_offset', { period: found.period, payload: plan }, { period: found.period, gstin: found.gstin, draftHash: found.saved.draftHash, cash: cashNeeded }, { period: found.period, gstin: found.gstin, draftHash: found.saved.draftHash });
   if (!out.ok) return { ...out, period: found.period, gstin: found.gstin, cashNeeded, hint: out.hint || (cashNeeded > 0 ? `The cash ledger needs ₹${cashNeeded}; pay it by challan (PMT-06) first.` : '') };
   found.saved.offsetOn = localToday();
@@ -286,7 +320,7 @@ export async function fileGstr3bOnPortal(state, args = {}, actor) {
   if (!built.ok) return built;
   const review = approvedReview(state, found.period, found.gstin);
   if (!review.ok) return review;
-  const cashOwed = built.payment ? Number(built.payment.cash?.total || 0) + Number(built.payment.reverseCharge?.total || 0) + Number(built.payment.creditUsed || 0) : 0;
+  const cashOwed = (built.payment ? Number(built.payment.cash?.total || 0) + Number(built.payment.reverseCharge?.total || 0) + Number(built.payment.creditUsed || 0) : 0) + Number(built.cess?.output || 0);
   if (!found.saved.offsetOn && cashOwed > 0) return fail('NOT_SET_OFF', { hint: 'Set off the tax on the portal first ("pay GSTR-3B for 2026-09 on the portal").' });
   const pan = String(args.pan || state.company?.pan || '').trim().toUpperCase();
   if (!PAN.test(pan)) return fail('PAN_REQUIRED');

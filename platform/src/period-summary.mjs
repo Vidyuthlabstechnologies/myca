@@ -7,6 +7,7 @@ import { noteTotals } from './debit-notes.mjs';
 import { documentsForPeriod, fpOf, taxByHead } from './return-period.mjs';
 import { localToday } from './dates.mjs';
 import { reverseChargeTotals } from './reverse-charge.mjs';
+import { isSezSupply } from './chart.mjs';
 
 const { filingPrep } = filing;
 
@@ -18,7 +19,7 @@ function noteTaxableSplit(notes, supplierState) {
       paiseOf[Number(note.igst || 0) > 0 ? 'inter' : 'intra'] += Math.round(Number(note.taxable || 0) * 100);
       continue;
     }
-    const inter = String(note.partyState || note.placeOfSupply || supplierState) !== String(supplierState);
+    const inter = isSezSupply(note) || String(note.partyState || note.placeOfSupply || supplierState) !== String(supplierState);
     for (const line of lines) {
       const bucket = Number(line.gstRate || 0) === 0 ? 'zero' : inter ? 'inter' : 'intra';
       paiseOf[bucket] += Math.round(Number(line.taxable || 0) * 100);
@@ -78,13 +79,41 @@ function withLiabilityHsn(invoices) {
   });
 }
 
+function withSezSupplies(outward, sezInvoices) {
+  if (!sezInvoices.length) return outward;
+  const r2 = (v) => Math.round(Number(v || 0) * 100) / 100;
+  const totals = { interTaxable: 0, interIgst: 0, intraTaxable: 0, intraCgst: 0, intraSgst: 0, ...(outward?.totals || {}) };
+  const rows3a = [...(outward?.rows3a || []).map((row) => ({ ...row }))];
+  let nilExemptTaxable = Number(outward?.nilExemptTaxable || 0);
+  for (const line of sezInvoices.flatMap((inv) => inv.lines || [])) {
+    const taxable = Number(line.taxable || 0);
+    const rate = Number(line.gstRate || 0);
+    if (rate === 0 || taxable === 0) {
+      nilExemptTaxable = r2(nilExemptTaxable + taxable);
+      continue;
+    }
+    totals.interTaxable = r2(totals.interTaxable + taxable);
+    totals.interIgst = r2(totals.interIgst + Number(line.igst || 0));
+    let row = rows3a.find((item) => item.rate === rate && item.interState);
+    if (!row) {
+      row = { rate, interState: true, taxable: 0, cgst: 0, sgst: 0, igst: 0 };
+      rows3a.push(row);
+    }
+    row.taxable = r2(row.taxable + taxable);
+    row.igst = r2(row.igst + Number(line.igst || 0));
+  }
+  rows3a.sort((a, b) => (a.rate !== b.rate ? a.rate - b.rate : a.interState === b.interState ? 0 : a.interState ? 1 : -1));
+  return { ...(outward || {}), rows3a, nilExemptTaxable, totals };
+}
+
 export function gstr3bFor(state, docs, inwardOverride) {
-  const salesText = invoicesToSalesCsv(withLiabilityHsn(docs.invoices));
+  const sezInvoices = (docs.invoices || []).filter((inv) => isSezSupply(inv));
+  const salesText = invoicesToSalesCsv(withLiabilityHsn((docs.invoices || []).filter((inv) => !isSezSupply(inv))));
   const inwardText = inwardOverride || purchasesToInwardCsv(docs.purchases);
   const supplierState = docs.gstin !== undefined ? companyAs(state, docs.gstin).state : state.company.state;
   const result = filingPrep({ salesText, inwardText, supplierState, fy: state.company.fy });
   const draft = result.gstr3b || {};
-  return { ...draft, outward: netOfNotes(draft.outward, docs.creditNotes || [], docs.debitNotes || [], supplierState), itc: lessPurchaseNotes(draft.itc, docs.purchaseNotes || []), period: docs.period, missingHsn: invoicesMissingHsn(docs.invoices) };
+  return { ...draft, outward: netOfNotes(withSezSupplies(draft.outward, sezInvoices), docs.creditNotes || [], docs.debitNotes || [], supplierState), itc: lessPurchaseNotes(draft.itc, docs.purchaseNotes || []), period: docs.period, missingHsn: invoicesMissingHsn(docs.invoices) };
 }
 
 export function periodSummary(state, period, gstin) {

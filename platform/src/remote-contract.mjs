@@ -38,6 +38,8 @@ export const REMOTE_QUERY_TOOLS = new Set([
   'check_itr_json',
   'tax_plan',
   'review_income_tax',
+  'income_tax_interest',
+  'tds_interest',
   'supplier_payout_file',
   'run_report',
   'list_payroll_imports',

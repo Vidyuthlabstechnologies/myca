@@ -42,8 +42,15 @@ function itemsByRate(lines) {
     row.camt = round2(row.camt + round2(l.cgst));
     row.samt = round2(row.samt + round2(l.sgst));
     row.iamt = round2(row.iamt + round2(l.igst));
+    row.csamt = round2(row.csamt + round2(l.cess));
   }
   return [...byRate.values()].sort((a, b) => a.rt - b.rt).map((itm_det, idx) => ({ num: idx + 1, itm_det }));
+}
+
+const INV_TYP = { SEZWP: 'SEWP', SEZWOP: 'SEWOP', DEXP: 'DE' };
+
+function invTyp(doc) {
+  return INV_TYP[doc?.supplyType] || 'R';
 }
 
 function holdReason(inv) {
@@ -100,14 +107,14 @@ export function invoicesToGstr1Json(company, invoices = [], periodFp, opts = {})
         ...(inv.export.portCode ? { sbpcode: inv.export.portCode } : {}),
         ...(inv.export.shippingBillNo ? { sbnum: inv.export.shippingBillNo } : {}),
         ...(inv.export.shippingBillDate ? { sbdt: ddmmyyyy(inv.export.shippingBillDate) } : {}),
-        itms: (inv.lines || []).map((l, i) => ({ num: i + 1, txval: round2(l.taxable), rt: Number(l.gstRate || 0), iamt: round2(l.igst), csamt: 0 })),
+        itms: (inv.lines || []).map((l, i) => ({ num: i + 1, txval: round2(l.taxable), rt: Number(l.gstRate || 0), iamt: round2(l.igst), csamt: round2(l.cess) })),
       });
       continue;
     }
     if (inv.partyGstin) {
       const ctin = String(inv.partyGstin).toUpperCase();
       if (!b2bMap.has(ctin)) b2bMap.set(ctin, []);
-      b2bMap.get(ctin).push({ inum: inv.id, idt: ddmmyyyy(inv.date), val, pos, rchrg: 'N', inv_typ: 'R', itms: itemsByRate(inv.lines) });
+      b2bMap.get(ctin).push({ inum: inv.id, idt: ddmmyyyy(inv.date), val, pos, rchrg: 'N', inv_typ: invTyp(inv), itms: itemsByRate(inv.lines) });
     } else if (isB2cl(inv, pos, supplierState)) {
       if (!b2clMap.has(pos)) b2clMap.set(pos, []);
       b2clMap.get(pos).push({ inum: inv.id, idt: ddmmyyyy(inv.date), val, itms: itemsByRate(inv.lines) });
@@ -123,6 +130,7 @@ export function invoicesToGstr1Json(company, invoices = [], periodFp, opts = {})
         row.camt = round2(row.camt + itm_det.camt);
         row.samt = round2(row.samt + itm_det.samt);
         row.iamt = round2(row.iamt + itm_det.iamt);
+        row.csamt = round2(row.csamt + itm_det.csamt);
       }
     }
   }
@@ -146,7 +154,7 @@ export function invoicesToGstr1Json(company, invoices = [], periodFp, opts = {})
     if (note.partyGstin) {
       const ctin = String(note.partyGstin).toUpperCase();
       if (!cdnrMap.has(ctin)) cdnrMap.set(ctin, []);
-      cdnrMap.get(ctin).push({ ntty: note.ntty, nt_num: note.id, nt_dt: ddmmyyyy(note.date), pos, rchrg: 'N', inv_typ: 'R', val, itms: itemsByRate(note.lines) });
+      cdnrMap.get(ctin).push({ ntty: note.ntty, nt_num: note.id, nt_dt: ddmmyyyy(note.date), pos, rchrg: 'N', inv_typ: invTyp(note.supplyType ? note : original), val, itms: itemsByRate(note.lines) });
     } else if (original.export || pos === '96') {
       cdnur.push({ ntty: note.ntty, nt_num: note.id, nt_dt: ddmmyyyy(note.date), typ: original.export?.withTax ? 'EXPWP' : 'EXPWOP', val, itms: itemsByRate(note.lines) });
     } else if (isB2cl(original, pos, supplierState)) {
@@ -163,6 +171,7 @@ export function invoicesToGstr1Json(company, invoices = [], periodFp, opts = {})
         row.camt = round2(row.camt + note.sign * itm_det.camt);
         row.samt = round2(row.samt + note.sign * itm_det.samt);
         row.iamt = round2(row.iamt + note.sign * itm_det.iamt);
+        row.csamt = round2(row.csamt + note.sign * itm_det.csamt);
       }
     }
   }
@@ -188,7 +197,7 @@ export function invoicesToGstr1Json(company, invoices = [], periodFp, opts = {})
       continue;
     }
     const pos = String(revised.partyState || revised.placeOfSupply || supplierState).padStart(2, '0');
-    const entry = { oinum: original.id, oidt: ddmmyyyy(original.date), inum: revised.id, idt: ddmmyyyy(revised.date), val: round2(revised.total), pos, rchrg: 'N', inv_typ: 'R', itms: itemsByRate(revised.lines) };
+    const entry = { oinum: original.id, oidt: ddmmyyyy(original.date), inum: revised.id, idt: ddmmyyyy(revised.date), val: round2(revised.total), pos, rchrg: 'N', inv_typ: invTyp(original), itms: itemsByRate(revised.lines) };
     if (revised.partyGstin) {
       const ctin = String(revised.partyGstin).toUpperCase();
       if (!b2baMap.has(ctin)) b2baMap.set(ctin, []);
@@ -206,6 +215,7 @@ export function invoicesToGstr1Json(company, invoices = [], periodFp, opts = {})
         row.camt = round2(row.camt + itm_det.camt);
         row.samt = round2(row.samt + itm_det.samt);
         row.iamt = round2(row.iamt + itm_det.iamt);
+        row.csamt = round2(row.csamt + itm_det.csamt);
       }
     }
   }
@@ -250,6 +260,7 @@ export function invoicesToGstr1Json(company, invoices = [], periodFp, opts = {})
     row.igst = round2(row.igst + Number(inv.igst || 0));
     row.cgst = round2(row.cgst + Number(inv.cgst || 0));
     row.sgst = round2(row.sgst + Number(inv.sgst || 0));
+    row.csamt = round2(row.csamt + Number(inv.cess || 0));
     ecoMap.set(etin, row);
   }
   if (ecoMap.size) body.supeco = { clttx: [...ecoMap.values()] };

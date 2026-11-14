@@ -12,7 +12,7 @@ import { planTerms, termsLabel, invoiceTerms, dueDateOf } from './payment-terms.
 import { planSupplierTerms, msmeDays } from './supplier-dues.mjs';
 import { planRecurring, findRecurring, everyWords } from './recurring.mjs';
 import { planQuote, findQuote, checkConvert, invoiceArgsFromQuote, kindTitle, kindOf, SALES_DOCUMENT_KINDS } from './quotes.mjs';
-import { gstSplit, partyStateOf } from './chart.mjs';
+import { gstSplit, partyStateOf, INVOICE_SUPPLY_TYPES, cessOf, hasCessInput, badCessInput } from './chart.mjs';
 import { postingDate, localToday } from './dates.mjs';
 import { isPeriodLocked } from './period-lock.mjs';
 import { lastGstRateFor, lastHsnFor, planPayment } from './invoice.mjs';
@@ -82,6 +82,12 @@ export function documentPreview(state, args, kind) {
   const fx = exportSale ? Number(String(exportSale.currency || 'INR').toUpperCase() === 'INR' ? 1 : exportSale.exchangeRate) : 1;
   if (exportSale && !(fx > 0)) blockers.push('An export needs the exchange rate: rupees per unit of the currency.');
   if (exportSale && String(args.partyGstin || '').trim()) blockers.push('An export goes to a buyer outside India, who has no GSTIN.');
+  const supplyType = sale && args.supplyType != null ? String(args.supplyType).trim().toUpperCase() : '';
+  if (supplyType && !INVOICE_SUPPLY_TYPES.includes(supplyType)) blockers.push(`${supplyType} is not a supply type I know; say SEZWP, SEZWOP or DEXP.`);
+  else if (supplyType && exportSale) blockers.push('A supply to an SEZ or a deemed export is to a buyer in India; it is not also an export.');
+  else if (supplyType && !String(args.partyGstin || '').trim()) blockers.push(supplyType === 'DEXP' ? 'A deemed export needs the recipient\'s GSTIN.' : 'A supply to an SEZ unit or developer needs its GSTIN.');
+  if (supplyType === 'DEXP' && (args.lines || []).some((l) => String(l?.hsn ?? '').trim().startsWith('99'))) blockers.push('Deemed exports under section 147 cover goods only, not services.');
+  if ((args.lines || []).some((l) => badCessInput(l))) blockers.push('Cess is a percentage and/or rupees per unit, zero or more.');
   const regd = regArg(state, args.registrationGstin);
   if (!regd.ok) blockers.push(`${args.registrationGstin} is not a registration of this business.`);
   const ownState = regd.ok ? regd.registration.state : company.state;
@@ -112,16 +118,24 @@ export function documentPreview(state, args, kind) {
     const rate = exportSale ? Math.round(Number(l.rate) * (fx > 0 ? fx : 0) * 100) / 100 : Number(l.rate);
     const gstRate = Number(l.gstRate == null || l.gstRate === '' ? 0 : l.gstRate);
     const taxable = Math.round(qty * rate * 100) / 100;
-    const split = exportSale && !exportSale.withTax ? { cgst: 0, sgst: 0, igst: 0 } : gstSplit({ taxable, rate: gstRate, supplierState: supplier, partyState: pos });
-    return { ...split, taxable, gstRate, qty, rate };
+    const untaxed = (exportSale && !exportSale.withTax) || supplyType === 'SEZWOP';
+    const split = untaxed ? { cgst: 0, sgst: 0, igst: 0 } : gstSplit({ taxable, rate: gstRate, supplierState: supplier, partyState: pos, interState: supplyType === 'SEZWP' });
+    const cess = !untaxed && hasCessInput(l) && !badCessInput(l) ? cessOf(l, taxable, qty).cess : 0;
+    return { ...split, cess, taxable, gstRate, qty, rate };
   });
   const sum = (key) => Math.round(lines.reduce((s, l) => s + (l[key] || 0), 0) * 100) / 100;
   const taxable = sum('taxable');
-  const tax = Math.round((sum('cgst') + sum('sgst') + sum('igst')) * 100) / 100;
+  const cess = sum('cess');
+  const tax = Math.round((sum('cgst') + sum('sgst') + sum('igst') + cess) * 100) / 100;
   if (!(taxable > 0)) blockers.push('It comes to nothing, so there is nothing to post.');
   const party = args.partyName || (sale ? 'Walk-in' : 'Supplier');
-  const heads = exportSale && !exportSale.withTax ? 'no IGST (zero-rated under LUT or bond)' : sum('igst') > 0 ? `IGST ${money(sum('igst'))}` : `CGST ${money(sum('cgst'))} + SGST ${money(sum('sgst'))}`;
-  const exportWords = exportSale ? `Export invoice (${String(exportSale.currency || 'INR').toUpperCase()}${fx > 0 && fx !== 1 ? ` at ${fx}` : ''}) to` : 'Invoice to';
+  const gstHeads = (exportSale && !exportSale.withTax) || supplyType === 'SEZWOP' ? 'no IGST (zero-rated under LUT or bond)' : sum('igst') > 0 || supplyType === 'SEZWP' ? `IGST ${money(sum('igst'))}` : `CGST ${money(sum('cgst'))} + SGST ${money(sum('sgst'))}`;
+  const heads = cess > 0 ? `${gstHeads}, cess ${money(cess)}` : gstHeads;
+  const SUPPLY_WORDS = { SEZWP: 'Supply to an SEZ with IGST (IGST Act s.16) to', SEZWOP: 'Zero-rated supply to an SEZ (IGST Act s.16) to', DEXP: 'Deemed export (CGST Act s.147) to' };
+  const exportWords = exportSale ? `Export invoice (${String(exportSale.currency || 'INR').toUpperCase()}${fx > 0 && fx !== 1 ? ` at ${fx}` : ''}) to` : SUPPLY_WORDS[supplyType] || 'Invoice to';
+  const supplyEffect = supplyType === 'DEXP'
+    ? `It goes into GSTR-1 table 6C as a deemed export (DE)${date ? ` for ${date.slice(0, 7)}` : ''} and into GSTR-3B 3.1(a).`
+    : supplyType === 'SEZWP' || supplyType === 'SEZWOP' ? `It goes into GSTR-1 table 6B as ${supplyType === 'SEZWP' ? 'SEWP' : 'SEWOP'}${date ? ` for ${date.slice(0, 7)}` : ''} and into GSTR-3B 3.1(b).` : '';
   const terms = sale ? invoiceTerms(state, { name: party, gstin: args.partyGstin, override: args.paymentTermsDays }) : { days: null };
   if (terms.error) blockers.push('Terms are a whole number of days from 0 to 365.');
   const due = sale && terms.days != null && date ? ` Due ${dueDateOf(date, terms.days)} (${termsLabel(terms.days)}${terms.source === 'customer' ? `, ${party}'s usual terms` : ''}).` : '';
@@ -139,7 +153,7 @@ export function documentPreview(state, args, kind) {
         ? `${rcm.kind === 'import' ? `Import of services from ${party} (${rcm.originCountry})` : `Reverse charge purchase from ${party}${args.partyGstin ? ` (${args.partyGstin})` : ''}`} dated ${date || '?'}: taxable ${money(taxable)}, ${heads} payable by you under reverse charge. Input credit ${args.itcEligible === false ? 'blocked (s.17(5)) and added to cost' : money(tax)}.`
         : `Purchase bill from ${party}${args.partyGstin ? ` (${args.partyGstin})` : ''} dated ${date || '?'}: taxable ${money(taxable)}, ${heads}, total ${money(taxable + tax)}. Input credit ${args.itcEligible === false ? 'blocked (s.17(5)) and added to cost' : money(tax)}.`,
     effects: sale
-      ? [`${party} owes you ${money(taxable + tax)} more.`, exportSale ? `It goes into GSTR-1 table 6A${date ? ` for ${date.slice(0, 7)}` : ''} as ${exportSale.withTax ? 'WPAY' : 'WOPAY'}.` : args.partyGstin && (args.lines || []).some((l) => Number(l.gstRate) > 0 && !/^\d{4,8}$/.test(String(l.hsn ?? '').trim())) ? missingHsnWords(state, args) : `It goes into your GSTR-1${date ? ` for ${date.slice(0, 7)}` : ''}.`]
+      ? [`${party} owes you ${money(taxable + tax)} more.`, supplyEffect || (exportSale ? `It goes into GSTR-1 table 6A${date ? ` for ${date.slice(0, 7)}` : ''} as ${exportSale.withTax ? 'WPAY' : 'WOPAY'}.` : args.partyGstin && (args.lines || []).some((l) => Number(l.gstRate) > 0 && !/^\d{4,8}$/.test(String(l.hsn ?? '').trim())) ? missingHsnWords(state, args) : `It goes into your GSTR-1${date ? ` for ${date.slice(0, 7)}` : ''}.`)]
       : rcm
         ? [`You owe ${party} ${money(taxable - (tds?.tds || 0))} more; the GST of ${money(tax)} is yours to pay in cash with this month's GSTR-3B.`, ...(rcm.kind === 'notified' ? [] : ['MyCA numbers a self-invoice for it, which can get an IRN when e-invoicing applies to you.']), ...(tds ? [tdsWords(tds, taxable - tds.tds, `you owe ${party}`)] : [])]
         : [`You owe ${party} ${money(taxable + tax - (tds?.tds || 0))} more.`, args.itcEligible === false ? 'The GST on it cannot be claimed, so it is part of the cost.' : 'It is checked against your GSTR-2B when you add one.', ...(tds ? [tdsWords(tds, taxable + tax - tds.tds, `you owe ${party}`)] : [])],

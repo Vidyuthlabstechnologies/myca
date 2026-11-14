@@ -227,7 +227,8 @@ function hsnOf(line) {
 export function nicSupplyType(inv) {
   if (inv?.kind === 'purchase') return rcmSupplyType(inv);
   if (inv?.export) return inv.export.withTax ? 'EXPWP' : 'EXPWOP';
-  return String(inv?.partyGstin || '').trim() ? 'B2B' : '';
+  if (!String(inv?.partyGstin || '').trim()) return '';
+  return ['SEZWP', 'SEZWOP', 'DEXP'].includes(inv?.supplyType) ? inv.supplyType : 'B2B';
 }
 
 export function nicPayloadProblems(company, inv, party = null, today = localToday()) {
@@ -253,7 +254,7 @@ export function nicPayloadProblems(company, inv, party = null, today = localToda
   if (supply === 'RCMIMP' && !/^[A-Z]{2}$/.test(String(inv.reverseCharge?.originCountry || ''))) problems.push({ code: 'ORIGIN_COUNTRY_REQUIRED', words: 'A reverse charge import needs the supplier\'s country code (for example US or SG).' });
   if (supply === 'RCMIMP' && String(inv.reverseCharge?.originCountry || '') === 'IN') problems.push({ code: 'ORIGIN_COUNTRY_INDIA', words: 'The origin country of a reverse charge import must be outside India.' });
   if (supply === 'RCMIMP' && (inv.lines || []).some((line) => !hsnOf(line).startsWith('99'))) problems.push({ code: 'RCM_IMPORT_SERVICES_ONLY', words: 'A reverse charge import covers services only; every line needs a SAC starting 99.' });
-  if (supply === 'B2B' && !pinIn(party?.address)) problems.push({ code: 'BUYER_PIN_REQUIRED', words: `${inv.partyName || 'The buyer'}'s address with its PIN code is not on file. Say "address for ${inv.partyName || 'the customer'}: ..." with the PIN.` });
+  if (['B2B', 'SEZWP', 'SEZWOP', 'DEXP'].includes(supply) && !pinIn(party?.address)) problems.push({ code: 'BUYER_PIN_REQUIRED', words: `${inv.partyName || 'The buyer'}'s address with its PIN code is not on file. Say "address for ${inv.partyName || 'the customer'}: ..." with the PIN.` });
   if (inv?.export && !/^[A-Z]{2}$/.test(String(inv.export.countryCode || '')) ) problems.push({ code: 'EXPORT_COUNTRY_REQUIRED', words: 'An export e-invoice needs the buyer\'s country code (for example US or AE).' });
   if (inv?.export && String(inv.export.countryCode || '').toUpperCase() === 'IN') problems.push({ code: 'EXPORT_COUNTRY_INDIA', words: 'An export buyer\'s country cannot be India.' });
   return problems;
@@ -301,10 +302,11 @@ function selfInvoiceToNicPayload(company, bill) {
     IgstAmt: Number(l.igst || 0),
     CgstAmt: Number(l.cgst || 0),
     SgstAmt: Number(l.sgst || 0),
+    ...(l.cess != null ? { CesRt: Number(l.cessRate || 0), CesAmt: Number(l.cessAdval || 0), CesNonAdvlAmt: Number(l.cessNonAdval || 0) } : {}),
     ...(origin ? { OrgCntry: origin } : {}),
     TotItemVal: Number(l.amount || 0),
   }));
-  const tax = Number(bill.cgst || 0) + Number(bill.sgst || 0) + Number(bill.igst || 0);
+  const tax = Number(bill.cgst || 0) + Number(bill.sgst || 0) + Number(bill.igst || 0) + Number(bill.cess || 0);
   return {
     Version: '1.1',
     TranDtls: { TaxSch: 'GST', SupTyp: imported ? 'RCMIMP' : 'RCMDOM', RegRev: 'Y', IgstOnIntra: 'N' },
@@ -332,6 +334,7 @@ function selfInvoiceToNicPayload(company, bill) {
       CgstVal: Number(bill.cgst || 0),
       SgstVal: Number(bill.sgst || 0),
       IgstVal: Number(bill.igst || 0),
+      ...(bill.cess != null ? { CesVal: Number(bill.cess || 0) } : {}),
       TotInvVal: Math.round((Number(bill.taxable || 0) + tax) * 100) / 100,
     },
   };
@@ -367,6 +370,7 @@ export function invoiceToNicPayload(company, inv, party = null) {
     IgstAmt: Number(l.igst || 0),
     CgstAmt: Number(l.cgst || 0),
     SgstAmt: Number(l.sgst || 0),
+    ...(l.cess != null ? { CesRt: Number(l.cessRate || 0), CesAmt: Number(l.cessAdval || 0), CesNonAdvlAmt: Number(l.cessNonAdval || 0) } : {}),
     TotItemVal: Number(l.amount || 0),
   }));
   return {
@@ -397,6 +401,7 @@ export function invoiceToNicPayload(company, inv, party = null) {
       CgstVal: Number(inv.cgst || 0),
       SgstVal: Number(inv.sgst || 0),
       IgstVal: Number(inv.igst || 0),
+      ...(inv.cess != null ? { CesVal: Number(inv.cess || 0) } : {}),
       TotInvVal: Number(inv.total || 0),
     },
     ...(exported ? {

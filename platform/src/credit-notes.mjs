@@ -1,5 +1,5 @@
 import { createTransfers, paise, TRANSFER_FLAGS } from './ledger.mjs';
-import { gstSplit } from './chart.mjs';
+import { gstSplit, hasCess, scaledCess, ensureCessAccounts, OUTPUT_CESS_ACCOUNT_ID } from './chart.mjs';
 import { postingDate } from './dates.mjs';
 import { isPeriodLocked } from './period-lock.mjs';
 
@@ -8,8 +8,9 @@ const NO_TAX = { cgst: 0, sgst: 0, igst: 0, tax: 0 };
 
 function splitFor(invoice, taxable, gstRate, company) {
   if (invoice.zeroRated) return NO_TAX;
-  return gstSplit({ taxable, rate: gstRate, supplierState: invoice.registrationState || company.state, partyState: invoice.placeOfSupply || invoice.partyState });
+  return gstSplit({ taxable, rate: gstRate, supplierState: invoice.registrationState || company.state, partyState: invoice.placeOfSupply || invoice.partyState, interState: invoice.supplyType === 'SEZWP' });
 }
+
 
 export function gstCorrectionDeadline(invoiceDate) {
   const [y, m] = String(invoiceDate || '').split('-').map(Number);
@@ -51,6 +52,7 @@ export function outstandingOf(state, invoice) {
 
 function itemisedLines(invoice, raw, company) {
   if (invoice.country === 'US') return { ok: false, error: 'LINES_NOT_FOR_COUNTRY' };
+  if (hasCess(invoice)) return { ok: false, error: 'CESS_NOTE_BY_AMOUNT', hint: 'This invoice carries cess; give the credit note as an amount so the cess is reduced in proportion.' };
   const rates = new Set((invoice.lines || []).map((line) => Number(line.gstRate || 0)));
   const lines = [];
   for (const [i, item] of raw.entries()) {
@@ -77,6 +79,7 @@ function scaledLines(invoice, fraction, company) {
   return (invoice.lines || []).map((line) => {
     const taxable = round2(Number(line.taxable || 0) * fraction);
     const split = splitFor(invoice, taxable, Number(line.gstRate || 0), company);
+    const cess = scaledCess(line, fraction);
     return {
       description: line.description,
       hsn: line.hsn,
@@ -87,7 +90,8 @@ function scaledLines(invoice, fraction, company) {
       cgst: split.cgst,
       sgst: split.sgst,
       igst: split.igst,
-      amount: round2(taxable + split.tax),
+      ...cess,
+      amount: round2(taxable + split.tax + Number(cess.cess || 0)),
     };
   });
 }
@@ -119,21 +123,23 @@ export function planCreditNote(state, args = {}) {
     const last = lines[lines.length - 1];
     last.taxable = round2(last.taxable + requested - scaled);
     if (last.subtotal != null) last.subtotal = last.taxable;
-    last.amount = round2(last.taxable + last.cgst + last.sgst + last.igst + Number(last.salesTax || 0));
+    last.amount = round2(last.taxable + last.cgst + last.sgst + last.igst + Number(last.cess || 0) + Number(last.salesTax || 0));
   }
   const salesTax = round2(lines.reduce((sum, line) => sum + Number(line.salesTax || 0), 0));
   const taxable = round2(lines.reduce((sum, line) => sum + line.taxable, 0));
   const cgst = round2(lines.reduce((sum, line) => sum + line.cgst, 0));
   const sgst = round2(lines.reduce((sum, line) => sum + line.sgst, 0));
   const igst = round2(lines.reduce((sum, line) => sum + line.igst, 0));
-  const total = round2(taxable + cgst + sgst + igst + salesTax);
+  const withCess = lines.some((line) => line.cess != null);
+  const cess = round2(lines.reduce((sum, line) => sum + Number(line.cess || 0), 0));
+  const total = round2(taxable + cgst + sgst + igst + cess + salesTax);
   const lastDate = gstCorrectionDeadline(invoice.date);
-  if (invoice.country !== 'US' && cgst + sgst + igst > 0 && date > lastDate) return { ok: false, error: 'CREDIT_NOTE_TIME_BARRED', invoiceId, date, lastDate, hint: `GST on ${invoiceId} can be reduced by a credit note only up to ${lastDate} (section 34(2)); after that issue a financial credit note without GST.` };
+  if (invoice.country !== 'US' && cgst + sgst + igst + cess > 0 && date > lastDate) return { ok: false, error: 'CREDIT_NOTE_TIME_BARRED', invoiceId, date, lastDate, hint: `GST on ${invoiceId} can be reduced by a credit note only up to ${lastDate} (section 34(2)); after that issue a financial credit note without GST.` };
   const cashReceived = round2((invoice.receipts || []).filter((receipt) => receipt.mode !== 'tds').reduce((sum, receipt) => sum + Number(receipt.amount || 0), 0));
   const refundDue = round2(Math.min(cashReceived, Math.max(0, receivedAgainst(invoice) + alreadyCredited + total - Number(invoice.total))));
   return {
     ok: true,
-    plan: { invoice, date, reason, full: fraction === 1, lines, taxable, cgst, sgst, igst, salesTax, country: invoice.country || 'IN', total, alreadyCredited, received: cashReceived, refundDue },
+    plan: { invoice, date, reason, full: fraction === 1, lines, taxable, cgst, sgst, igst, ...(withCess ? { cess } : {}), salesTax, country: invoice.country || 'IN', total, alreadyCredited, received: cashReceived, refundDue },
   };
 }
 
@@ -153,6 +159,10 @@ export function createCreditNote(state, args = {}) {
   if (plan.cgst > 0) bundle.push({ id: nextTransferId(state), debitAccountId: 2100, creditAccountId: party.accountId, amount: paise(plan.cgst), flags: linked, invoiceId: id, code: 'CN-CGST', userData: plan.date });
   if (plan.sgst > 0) bundle.push({ id: nextTransferId(state), debitAccountId: 2101, creditAccountId: party.accountId, amount: paise(plan.sgst), flags: linked, invoiceId: id, code: 'CN-SGST', userData: plan.date });
   if (plan.igst > 0) bundle.push({ id: nextTransferId(state), debitAccountId: 2102, creditAccountId: party.accountId, amount: paise(plan.igst), flags: linked, invoiceId: id, code: 'CN-IGST', userData: plan.date });
+  if (plan.cess > 0) {
+    ensureCessAccounts(state);
+    bundle.push({ id: nextTransferId(state), debitAccountId: OUTPUT_CESS_ACCOUNT_ID, creditAccountId: party.accountId, amount: paise(plan.cess), flags: linked, invoiceId: id, code: 'CN-CESS', userData: plan.date });
+  }
   if (plan.salesTax > 0) bundle.push({ id: nextTransferId(state), debitAccountId: 2110, creditAccountId: party.accountId, amount: paise(plan.salesTax), flags: linked, invoiceId: id, code: 'CN-SALES-TAX', userData: plan.date });
   const posted = createTransfers(state.ledger, bundle);
   if (posted.some((result) => !result.ok)) {
@@ -179,7 +189,10 @@ export function createCreditNote(state, args = {}) {
     cgst: plan.cgst,
     sgst: plan.sgst,
     igst: plan.igst,
+    ...(plan.cess != null ? { cess: plan.cess } : {}),
     total: plan.total,
+    ...(invoice.supplyType ? { supplyType: invoice.supplyType } : {}),
+    ...(invoice.supplyType === 'SEZWOP' ? { zeroRated: true } : {}),
     transferIds: posted.map((result) => result.id),
   };
   state.creditNotes = state.creditNotes || [];
