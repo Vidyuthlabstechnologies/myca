@@ -240,7 +240,7 @@ test('e-invoice mandate: phases, the RM1 million exemption until August 2026, RM
   const record = rules.rule('my.einvoice.mandate', '2026-09-01').record;
   assert.equal(record.effectiveFrom, '2026-09-01');
   assert.match(record.section, /4\.8.*1\.6\.1\(e\)/);
-  assert.match(record.source, /thestar\.com\.my/);
+  assert.ok(String(record.source).split(/\s+/).some((part) => { try { return new URL(part).hostname === 'thestar.com.my'; } catch { return false; } }));
   assert.equal(rules.rule('my.einvoice.mandate', '2026-08-31').record.effectiveTo, '2026-08-31');
   assert.match(ENGINE.words.my_einvoice_required(ENGINE.run.my_einvoice_required({}, { annualTurnover: 2000000, date: '2026-09-01' })), /Exempt/);
 });
