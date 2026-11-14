@@ -907,7 +907,7 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
       if (action === 'invitations') {
         const team = await billing.allows(businessId, 'team');
         if (!team.ok) return team;
-        const seats = await billing.withinLimit(businessId, 'members', (await businesses.members(businessId)).length);
+        const seats = await billing.withinLimit(businessId, 'members', (await businesses.members(businessId)).length + (await members.seatsHeld(businessId, body.phone)));
         if (!seats.ok) return seats;
         return members.invite(businessId, context, body);
       }
