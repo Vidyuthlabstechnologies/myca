@@ -316,6 +316,14 @@ export function withRequestAddress(args, address) {
   return { ...args, device: ip ? { ...rest, ipAddress: ip } : rest };
 }
 
+const SERVER_DEVICE_FACTS = Object.freeze(['ipAddress', 'ipAddressTimestamp', 'port', 'multiFactor']);
+
+export function withServerDeviceFacts(args, address) {
+  const device = args?.device && typeof args.device === 'object' && !Array.isArray(args.device) ? args.device : {};
+  const kept = Object.fromEntries(Object.entries(device).filter(([key]) => !SERVER_DEVICE_FACTS.includes(key)));
+  return withRequestAddress({ ...(args || {}), device: kept }, address);
+}
+
 export function clientAddress(req, hops = trustedProxyHops()) {
   const socket = String(req.socket?.remoteAddress || '').slice(0, 64);
   if (!hops) return socket;
@@ -351,8 +359,10 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
 
   // Confirming a US filing: the server names the business for the e-file partner's webhook
   // (whatever proposed it, app or chat), and the call runs at the service's provider setting.
-  function asEngineProviderCall(session, run) {
-    return ENGINE_PROVIDER_TOOLS.includes(session.state.pendingChatAction?.name) ? withProviderContext({ environment: serviceProviderEnvironment() }, run) : run();
+  function asEngineProviderCall(session, address, run) {
+    const pending = session.state.pendingChatAction;
+    if (pending && ENGINE_ADDRESS_TOOLS.includes(pending.name)) pending.args = withServerDeviceFacts(pending.args, address);
+    return ENGINE_PROVIDER_TOOLS.includes(pending?.name) ? withProviderContext({ environment: serviceProviderEnvironment() }, run) : run();
   }
 
   async function asUsFiling(session, businessId, userId, run) {
@@ -1021,7 +1031,7 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
           if (!paid.ok) return paid;
         }
         if (!PROPOSABLE.has(name)) throw httpError(400, 'NOT_PROPOSABLE', { tool: name });
-        const proposed = name === 'sign_us_return' || ENGINE_ADDRESS_TOOLS.includes(name) ? withRequestAddress(args, clientAddress(req)) : name === US_FILE_TOOL ? { ...args, partnerScope: businessId, shareTins: await usConsents.valid(user.userId, PARTNER_TINS) } : args;
+        const proposed = ENGINE_ADDRESS_TOOLS.includes(name) ? withServerDeviceFacts(args, clientAddress(req)) : name === 'sign_us_return' ? withRequestAddress(args, clientAddress(req)) : name === US_FILE_TOOL ? { ...args, partnerScope: businessId, shareTins: await usConsents.valid(user.userId, PARTNER_TINS) } : args;
         return withBooks(businessId, context, (session) => session.propose(name, proposed, actor));
       }
       if (action === 'confirm') {
@@ -1033,7 +1043,7 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
           // Requests run with provider calls off; filing a US return is the one confirm that may
           // reach the IRS or the e-file partner, at the service's own provider setting.
           if (session.state.pendingChatAction?.name === US_FILE_TOOL) return asUsFiling(session, businessId, user.userId, () => session.confirm(body.token, actor));
-          return asEngineProviderCall(session, () => session.confirm(body.token, actor));
+          return asEngineProviderCall(session, clientAddress(req), () => session.confirm(body.token, actor));
         });
       }
       if (action === 'discard') return withBooks(businessId, context, (session) => session.discard(actor));
@@ -1056,6 +1066,8 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
             await session.discard(actor);
             return { reply: unprotected.hint, tools: [], error: unprotected.error };
           }
+          const pendingHmrc = session.state.pendingChatAction;
+          if (pendingHmrc && ENGINE_ADDRESS_TOOLS.includes(pendingHmrc.name)) pendingHmrc.args = withServerDeviceFacts(pendingHmrc.args, clientAddress(req));
           // A "yes" in chat can confirm a pending US filing, which must reach the partner the same way.
           const out = session.state.pendingChatAction?.name === US_FILE_TOOL && confirmationIntent(message) && confirmationIntent(message) !== 'cancel' ? await asUsFiling(session, businessId, user.userId, () => session.chat(message, actor)) : await session.chat(message, actor);
           const unpaid = await unpaidFiling(businessId, session);
