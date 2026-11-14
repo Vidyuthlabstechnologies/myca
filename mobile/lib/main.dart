@@ -241,7 +241,7 @@ class _MycaAppState extends State<MycaApp> with WidgetsBindingObserver {
                     )
                   else if (child != null)
                     _Readable(us: widget.state.edition == 'US', child: child),
-                  if (_tour.active && !widget.state.locked) TourCoach(tour: _tour),
+                  if (_tour.coaching && !widget.state.locked) TourCoach(tour: _tour),
                   if (widget.state.locked) AppScope(state: widget.state, child: const LockScreen()),
                 ],
               ),
