@@ -1,11 +1,17 @@
 const { chromium } = require('playwright');
 const fs = require('fs');
-const path = 'M39,68 V40 L54,58 L69,40 V68';
-const mark = `<path d="${path}" fill="none" stroke="#FFFFFF" stroke-width="5" stroke-linecap="square" stroke-linejoin="miter"/>`;
+const ledger = [
+  '<path d="M48 28c-8-6-18-7-28-5v44c10-2 20-1 28 5" fill="none" stroke="#FFFFFF" stroke-width="5" stroke-linejoin="round" stroke-linecap="round"/>',
+  '<path d="M48 28c8-6 18-7 28-5v44c-10-2-20-1-28 5z" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="5" stroke-linejoin="round"/>',
+  '<path d="M48 28v44" stroke="#FFFFFF" stroke-width="5" stroke-linecap="round"/>',
+  '<path d="M55 49l7 7 12-15" fill="none" stroke="#1B5E3F" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round"/>',
+  '<path d="M27 37h13M27 46h13M27 55h9" stroke="#FFFFFF" stroke-opacity="0.6" stroke-width="3" stroke-linecap="round"/>',
+].join('');
+const mark = `<g transform="translate(16.56 16.95) scale(0.78)">${ledger}</g>`;
 const svg = (shape) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="18 18 72 72" width="100%" height="100%">${shape}${mark}</svg>`;
-const square = svg('<rect x="18" y="18" width="72" height="72" rx="14" fill="#15181B"/>');
-const round = svg('<circle cx="54" cy="54" r="36" fill="#15181B"/>');
-const full = svg('<rect x="0" y="0" width="108" height="108" fill="#15181B"/>');
+const square = svg('<rect x="18" y="18" width="72" height="72" rx="14" fill="#1B5E3F"/>');
+const round = svg('<circle cx="54" cy="54" r="36" fill="#1B5E3F"/>');
+const full = svg('<rect x="0" y="0" width="108" height="108" fill="#1B5E3F"/>');
 const res = process.argv[2];
 const sizes = { mdpi: 48, hdpi: 72, xhdpi: 96, xxhdpi: 144, xxxhdpi: 192 };
 (async () => {

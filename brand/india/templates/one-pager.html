@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en-IN">
+<head>
+<meta charset="utf-8">
+<title>MyCA one-pager</title>
+<link rel="stylesheet" href="brand.css">
+<style>
+  @page { size: 210mm 297mm; margin: 0; }
+  @media print { html, body { background: #fff; padding: 0; } }
+  .a4 { width: 794px; height: 1123px; background: var(--canvas); }
+  .top { position: absolute; left: 0; right: 0; top: 0; height: 410px; overflow: hidden; background: var(--green); color: #fff; }
+  .top .logo { position: absolute; left: 56px; top: 44px; height: 40px; }
+  .top h1 { position: absolute; left: 56px; top: 112px; width: 420px; font-size: 46px; line-height: 1.06; font-weight: 600; letter-spacing: -0.028em; }
+  .top p { position: absolute; left: 56px; top: 228px; width: 400px; font-size: 16.5px; line-height: 1.45; color: rgba(255,255,255,.85); }
+  .top .pill { position: absolute; left: 56px; top: 336px; background: #fff; color: var(--green); font-size: 15px; padding: 8px 18px; }
+  .a4 .phone { left: 500px; top: 44px; width: 240px; padding: 8px; border-radius: 30px; }
+  .a4 .phone img { border-radius: 22px; }
+  .body { position: absolute; left: 56px; right: 56px; top: 440px; }
+  h2 { font-size: 13px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--green); }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 28px; margin-top: 12px; }
+  .item b { display: block; font-size: 15.5px; font-weight: 600; }
+  .item span { display: block; font-size: 13.5px; line-height: 1.45; color: var(--muted); margin-top: 3px; }
+  .plans { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 14px; }
+  .plan { padding: 14px 14px; }
+  .plan .n { font-size: 14px; font-weight: 600; }
+  .plan .a { font-size: 24px; font-weight: 600; letter-spacing: -0.02em; margin-top: 4px; font-feature-settings: 'tnum' 1; }
+  .plan .p { font-size: 11.5px; color: var(--muted); }
+  .plan .w { font-size: 11.5px; line-height: 1.4; color: var(--muted); margin-top: 8px; }
+  .plan.best { border: 2px solid var(--green); }
+  .promise { margin-top: 18px; padding: 16px 20px; background: var(--green-mist); border-radius: 14px; display: flex; gap: 18px; align-items: center; }
+  .promise img { width: 74px; }
+  .promise b { font-size: 15.5px; }
+  .promise span { display: block; font-size: 13px; color: var(--ink-2); margin-top: 3px; line-height: 1.45; }
+  .foot { left: 56px; right: 56px; bottom: 26px; font-size: 10.5px; color: var(--muted); line-height: 1.5; display: block; }
+</style>
+</head>
+<body data-pdf="myca-one-pager">
+<section class="frame a4" data-frame="myca-one-pager" data-scale="2">
+  <div class="top">
+    <img class="logo" src="../../logo/myca-lockup-on-green.svg" alt="">
+    <h1>Your books, kept right.</h1>
+    <p>MyCA keeps a business's books, GST and payroll the way a careful accountant would, from your phone. Nothing posts or files until you say yes.</p>
+    <span class="pill">Get it on Google Play · 14-day Pro trial</span>
+    <div class="phone"><img src="../../../docs/release/assets/play/phone-01-home.png" alt=""></div>
+  </div>
+
+  <div class="body">
+    <h2>What MyCA does</h2>
+    <div class="grid">
+      <div class="item"><b>Books by chat</b><span>Type "invoice Sharma Traders 12000 GST 18%" or snap a bill. See a preview, then say yes.</span></div>
+      <div class="item"><b>GST returns, drafted and filed</b><span>GSTR-1 and GSTR-3B from your books, filed on the portal once you confirm with the EVC OTP.</span></div>
+      <div class="item"><b>Invoices, e-invoices, e-way bills</b><span>GST invoices, quotations, credit notes, IRN and e-way bills when you need them.</span></div>
+      <div class="item"><b>GSTR-2B matching</b><span>Know which purchase credit is safe to take, and which suppliers to remind.</span></div>
+      <div class="item"><b>Payroll and TDS</b><span>PF, ESI and professional tax worked out; TDS statements prepared for review.</span></div>
+      <div class="item"><b>Your CA, built in</b><span>Invite your CA with their own role. Require their approval before any filing.</span></div>
+    </div>
+
+    <h2 style="margin-top:22px">Plans</h2>
+    <div class="plans">
+      <div class="card plan"><div class="n">Essentials</div><div class="a">₹999</div><div class="p">a month · ₹9,999 a year</div><div class="w">Your own books, GST worked out, 2 people</div></div>
+      <div class="card plan best"><div class="n">Pro</div><div class="a">₹1,999</div><div class="p">a month · ₹19,999 a year</div><div class="w">Plus portal filing, e-invoices, connectors, WhatsApp, 5 people</div></div>
+      <div class="card plan"><div class="n">MyCA Assured</div><div class="a">₹4,999</div><div class="p">a month · opening soon</div><div class="w">Pro plus a CA who reviews and files GST and TDS monthly</div></div>
+      <div class="card plan"><div class="n">CA firm</div><div class="a">₹5,999</div><div class="p">a month · ₹59,999 a year</div><div class="w">Pro plus 25 people and approvals across clients</div></div>
+    </div>
+
+    <div class="promise">
+      <img src="../../../design/flutter/myca_design/assets/mascot/happy.png" alt="">
+      <div><b>Our promise is accuracy.</b><span>If a return MyCA filed is wrong because of our mistake, we correct and refile it at no charge. Your books stay readable and exportable whatever plan you choose.</span></div>
+    </div>
+  </div>
+
+  <div class="foot">MyCA is made by ML Dynamic Solutions Private Limited. MyCA is not affiliated with GSTN, the GST Council or the Government of India. Google Play shows the final price before you pay. Filing on the GST portal is through a licensed GST Suvidha Provider. The accuracy promise does not cover penalties or interest.</div>
+</section>
+</body>
+</html>

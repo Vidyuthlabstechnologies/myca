@@ -121,8 +121,8 @@ one, run `./gradlew :app:processReleaseMainManifest` and read
 The feature graphic and the eight phone screenshots for the listing are in
 `docs/release/assets/play/`; its README says how each is made and in what order to upload them.
 
-`docs/release/assets/play-icon-512.png` is the 512 by 512 Play icon (opaque, the MyCA "M" on the
-brand ink colour), with its source `play-icon.svg`. The legacy launcher icons for Android 7
+`docs/release/assets/play-icon-512.png` is the 512 by 512 Play icon (opaque, the open ledger with a checked page on
+ledger green `#1B5E3F`), with its source `play-icon.svg`. The legacy launcher icons for Android 7
 (`mipmap-*/ic_launcher.png` and `ic_launcher_round.png`) are drawn from the same path as the
 adaptive icon (`drawable/ic_launcher_foreground.xml`). To redraw all of them after a change to
 that path, run `node scripts/render-launcher-icons.cjs mobile/android/app/src/main/res docs/release/assets`

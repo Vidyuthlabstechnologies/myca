@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en-IN">
+<head>
+<meta charset="utf-8">
+<title>MyCA brand sheet</title>
+<link rel="stylesheet" href="brand.css">
+<style>
+  .sheet { width: 1920px; height: 2330px; background: var(--canvas); padding: 96px 112px; }
+  .sheet h1 { font-size: 72px; font-weight: 600; letter-spacing: -0.03em; }
+  .sheet .intro { font-size: 28px; color: var(--muted); margin-top: 14px; }
+  .sec { margin-top: 72px; }
+  .sec h2 { font-size: 22px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--green); margin-bottom: 24px; }
+  .logos { display: grid; grid-template-columns: 1.6fr 1fr 1fr 1fr; gap: 20px; }
+  .tile { height: 240px; border-radius: 14px; border: 1px solid var(--line); display: grid; place-items: center; }
+  .tile img { height: 80px; }
+  .tile.sq img { height: 120px; }
+  .sw { display: grid; grid-template-columns: repeat(7, 1fr); gap: 16px; }
+  .sw div { border-radius: 14px; border: 1px solid var(--line); overflow: hidden; background: #fff; }
+  .sw i { display: block; height: 150px; }
+  .sw b { display: block; font-size: 20px; font-weight: 600; padding: 14px 16px 0; }
+  .sw span { display: block; font-size: 17px; color: var(--muted); padding: 2px 16px 14px; font-feature-settings: 'tnum' 1; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; }
+  .type div { display: flex; align-items: baseline; gap: 28px; border-top: 1px solid var(--line); padding: 14px 0; }
+  .type small { width: 150px; flex: none; font-size: 18px; color: var(--muted); }
+  .moods { display: flex; gap: 12px; align-items: flex-end; }
+  .moods figure { text-align: center; }
+  .moods img { width: 150px; }
+  .moods figcaption { font-size: 18px; color: var(--muted); }
+  .voice { display: grid; grid-template-columns: 1fr 1fr; gap: 0 28px; font-size: 22px; line-height: 1.4; }
+  .voice div { padding: 14px 0; border-top: 1px solid var(--line); }
+  .voice .no { color: var(--muted); text-decoration: line-through; text-decoration-color: var(--danger); }
+  .rules { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .rule { padding: 26px 30px; font-size: 22px; line-height: 1.45; }
+  .rule b { display: block; font-size: 22px; margin-bottom: 8px; }
+</style>
+</head>
+<body>
+<section class="frame sheet" data-frame="myca-brand-sheet">
+  <img src="../../logo/myca-lockup.svg" alt="" style="height:64px">
+  <h1 style="margin-top:56px">MyCA India brand kit</h1>
+  <div class="intro">Your books, kept right. A calm, competent accountant who happens to be a friend.</div>
+
+  <div class="sec">
+    <h2>Logo</h2>
+    <div class="logos">
+      <div class="tile" style="background:#fff"><img src="../../logo/myca-lockup.svg" alt=""></div>
+      <div class="tile sq" style="background:var(--green)"><img src="../../logo/myca-mark-reversed.svg" alt=""></div>
+      <div class="tile" style="background:var(--ink)"><img src="../../logo/myca-lockup-on-dark.svg" alt="" style="height:56px"></div>
+      <div class="tile sq" style="background:var(--paper)"><img src="../../logo/myca-stacked.svg" alt="" style="height:150px"></div>
+    </div>
+  </div>
+
+  <div class="sec">
+    <h2>Colour</h2>
+    <div class="sw">
+      <div><i style="background:#1B5E3F"></i><b>Ledger green</b><span>#1B5E3F · accent</span></div>
+      <div><i style="background:#EAF2ED"></i><b>Ledger mist</b><span>#EAF2ED · tint</span></div>
+      <div><i style="background:#15181B"></i><b>Ink</b><span>#15181B · text, buttons</span></div>
+      <div><i style="background:#FAFAF7"></i><b>Canvas</b><span>#FAFAF7 · background</span></div>
+      <div><i style="background:#F2F1EC"></i><b>Paper</b><span>#F2F1EC · quiet</span></div>
+      <div><i style="background:#C8312B"></i><b>Bahi red</b><span>#C8312B · mascot only</span></div>
+      <div><i style="background:#E2A93B"></i><b>Bahi gold</b><span>#E2A93B · celebration</span></div>
+    </div>
+  </div>
+
+  <div class="sec two">
+    <div class="type">
+      <h2>Type: Inter</h2>
+      <div><small>Headline 600</small><span style="font-size:64px;font-weight:600;letter-spacing:-0.03em">Kept right.</span></div>
+      <div><small>Sub 500</small><span style="font-size:40px;font-weight:500">GST returns, drafted</span></div>
+      <div><small>Body 400</small><span style="font-size:30px">Nothing posts until you say yes.</span></div>
+      <div><small>Money</small><span style="font-size:40px;font-weight:500;font-feature-settings:'tnum' 1">₹2,77,600.00</span></div>
+      <div><small>Hindi</small><span class="hi" style="font-size:36px;font-weight:500">आपकी बही, सही रखी।</span></div>
+    </div>
+    <div>
+      <h2>Bahi</h2>
+      <div class="moods">
+        <figure><img src="../../../design/flutter/myca_design/assets/mascot/wave.png" alt=""><figcaption>Wave</figcaption></figure>
+        <figure><img src="../../../design/flutter/myca_design/assets/mascot/happy.png" alt=""><figcaption>Happy</figcaption></figure>
+        <figure><img src="../../../design/flutter/myca_design/assets/mascot/thinking.png" alt=""><figcaption>Thinking</figcaption></figure>
+        <figure><img src="../../../design/flutter/myca_design/assets/mascot/worried.png" alt=""><figcaption>Worried</figcaption></figure>
+        <figure><img src="../../../design/flutter/myca_design/assets/mascot/celebrate.png" alt=""><figcaption>Celebrate</figcaption></figure>
+      </div>
+      <div style="font-size:22px;line-height:1.45;color:var(--muted);margin-top:18px">One Bahi per piece, beside the message, never on numbers. No government emblems, cash or CA seals.</div>
+    </div>
+  </div>
+
+  <div class="sec">
+    <h2>Voice</h2>
+    <div class="voice">
+      <div>GST due on 20 Nov. Review and pay.</div><div class="no">Avoid heavy penalties NOW!</div>
+      <div>Nothing files until you approve it.</div><div class="no">Let AI file it for you.</div>
+      <div>If our mistake, we refile at no charge.</div><div class="no">Zero penalty guarantee.</div>
+      <div>Books, GST and payroll by chat.</div><div class="no">India's cheapest GST app.</div>
+    </div>
+  </div>
+
+  <div class="sec">
+    <h2>Claims</h2>
+    <div class="rules">
+      <div class="card rule"><b>Always</b>"MyCA is not affiliated with GSTN or the Government of India." Real screens on sample books only. Prices: ₹999, ₹1,999, ₹5,999 a month; Assured ₹4,999 opening soon.</div>
+      <div class="card rule"><b>Never</b>"Government approved", "CA-approved", "free forever", "we pay your penalties", "bank-grade", GSTN or national emblems.</div>
+    </div>
+  </div>
+</section>
+</body>
+</html>
