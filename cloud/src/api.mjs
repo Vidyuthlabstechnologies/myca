@@ -30,6 +30,7 @@ import { SECOND_STEP_FOR_FILING, US_SECOND_STEP_TOOLS, usSecondStepRequired } fr
 import { createJobs, jobTokenMatches, JOB_HEADER } from './jobs.mjs';
 import { createGoogleKeys, createGoogleVerifier } from './google.mjs';
 import { createOidcVerifier } from './oidc.mjs';
+import { createAppleKeys, createAppleVerifier } from './apple.mjs';
 import { createDocumentVault } from './document-vault.mjs';
 import { createConnectorStore } from './connectors.mjs';
 import { syncChannels } from '../../platform/src/channel-connectors.mjs';
@@ -269,8 +270,8 @@ function statusOf(result) {
   if (!result || result.ok !== false) return 200;
   if (result.error === 'TOO_MANY_REQUESTS' || result.error === 'TOO_MANY_ATTEMPTS') return 429;
   if (result.error === 'OWNER_ONLY') return 403;
-  if (result.error === 'PHONE_SIGN_IN_UNAVAILABLE' || result.error === 'GOOGLE_SIGN_IN_UNAVAILABLE' || result.error === 'SERVER_BUSY') return 503;
-  if (result.error === 'GOOGLE_UNREACHABLE') return 502;
+  if (result.error === 'PHONE_SIGN_IN_UNAVAILABLE' || result.error === 'GOOGLE_SIGN_IN_UNAVAILABLE' || result.error === 'APPLE_SIGN_IN_UNAVAILABLE' || result.error === 'SERVER_BUSY') return 503;
+  if (result.error === 'GOOGLE_UNREACHABLE' || result.error === 'APPLE_UNREACHABLE') return 502;
   if (result.error === 'INVITATION_NOT_FOUND' || result.error === 'MEMBER_NOT_FOUND' || result.error === 'BUSINESS_NOT_FOUND' || result.error === 'DEVICE_NOT_FOUND') return 404;
   if (result.error === 'ALREADY_ENABLED' || result.error === 'CURRENT_DEVICE') return 409;
   if (result.error === 'STORAGE_FULL') return 413;
@@ -322,7 +323,7 @@ export function clientAddress(req, hops = trustedProxyHops()) {
   return String(parts[parts.length - hops] || '').slice(0, 64);
 }
 
-export function createApi({ billing: billingGiven = null, db, secret, booksKey = '', otpSender = null, googleClientIds = [], googleKeys, oidc = {}, oidcKeys = null, documentVault = null, connectorKey = '', now = () => Date.now(), log = () => {}, version = 'dev', environment = 'local', healthTimeoutMs = 2000, playPush = {}, testSignIn = null, otpGlobalPerHour = OTP_MAX_GLOBAL_PER_HOUR, rateLimits: limitsGiven = LIMITS, adminUserIds = [], jobToken = '', inboundEmail = {}, whatsapp = {}, whatsappSender = null, bodyBudgetBytes = 0, gspFetch = null, smokeFetch = null, growth: growthConfig = {} }) {
+export function createApi({ billing: billingGiven = null, db, secret, booksKey = '', otpSender = null, googleClientIds = [], googleKeys, oidc = {}, oidcKeys = null, appleClientIds = [], appleKeys = null, documentVault = null, connectorKey = '', now = () => Date.now(), log = () => {}, version = 'dev', environment = 'local', healthTimeoutMs = 2000, playPush = {}, testSignIn = null, otpGlobalPerHour = OTP_MAX_GLOBAL_PER_HOUR, rateLimits: limitsGiven = LIMITS, adminUserIds = [], jobToken = '', inboundEmail = {}, whatsapp = {}, whatsappSender = null, bodyBudgetBytes = 0, gspFetch = null, smokeFetch = null, growth: growthConfig = {} }) {
   process.env.MYCA_HOSTED = '1';
   assertSecret(secret);
   const budget = createBodyBudget(Number.isSafeInteger(bodyBudgetBytes) && bodyBudgetBytes > 0 ? bodyBudgetBytes : defaultBodyBudgetBytes({ constrainedMemory: process.constrainedMemory(), ceiling: MAX_BUSINESS_BYTES }));
@@ -403,7 +404,8 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
   const jobs = createJobs({ db, secret, rateLimits, withBooks, readBooks: (...args) => runner.withReadOnlyBooks(...args), connectors, syncChannels, pullsEnabled: channelPullsEnabled, sender: whatsappSender, vault, billing, now, log });
   const google = createGoogleVerifier({ clientIds: googleClientIds, keys: googleKeys || createGoogleKeys({ now }), now });
   const openId = createOidcVerifier({ issuer: oidc.issuer || '', clientIds: oidc.clientIds || [], jwksUrl: oidc.jwksUrl || '', keys: oidcKeys, now });
-  if (!auth.phoneEnabled && !google.enabled && !openId.enabled) throw new Error('no sign-in method: configure an SMS sender, MYCA_GOOGLE_CLIENT_IDS or MYCA_OIDC_ISSUER with MYCA_OIDC_CLIENT_IDS');
+  const apple = createAppleVerifier({ clientIds: appleClientIds, keys: appleKeys || createAppleKeys({ now }), now });
+  if (!auth.phoneEnabled && !google.enabled && !openId.enabled && !apple.enabled) throw new Error('no sign-in method: configure an SMS sender, MYCA_GOOGLE_CLIENT_IDS, MYCA_APPLE_CLIENT_IDS or MYCA_OIDC_ISSUER with MYCA_OIDC_CLIENT_IDS');
 
   const pushAudience = String(playPush.audience || '').trim();
   const pushAccount = String(playPush.serviceAccount || '').trim().toLowerCase();
@@ -498,7 +500,7 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
     }
     if (parts[1] === 'us' && parts[2] === 'supported-forms' && parts.length === 3 && method === 'GET') return { ok: true, taxYears: US_RETURN_YEARS.map(Number), ...US_SUPPORTED_FORMS };
     if (parts[1] === 'auth' && parts[2] === 'methods' && parts.length === 3 && method === 'GET') {
-      return { ok: true, phone: auth.phoneEnabled, google: google.enabled, oidc: openId.enabled, ...(openId.enabled ? { oidcIssuer: openId.issuer } : {}) };
+      return { ok: true, phone: auth.phoneEnabled, google: google.enabled, apple: apple.enabled, oidc: openId.enabled, ...(openId.enabled ? { oidcIssuer: openId.issuer } : {}) };
     }
 
     if (parts[1] === 'oauth' && parts[2] === 'gusto' && parts[3] === 'callback' && parts.length === 4 && method === 'GET') {
@@ -527,6 +529,11 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
         const identity = await google.verify(body.idToken);
         if (!identity.ok) return identity;
         return withConsent(await auth.signInWithGoogle(identity, body.deviceLabel));
+      }
+      if (parts[2] === 'apple') {
+        const identity = await apple.verify(body.idToken, { rawNonce: body.rawNonce, fullName: body.fullName });
+        if (!identity.ok) return identity;
+        return withConsent(await auth.signInWithApple(identity, body.deviceLabel));
       }
       if (parts[2] === 'oidc') {
         const identity = await openId.verify(body.idToken);

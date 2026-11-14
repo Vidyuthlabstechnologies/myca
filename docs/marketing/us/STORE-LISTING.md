@@ -93,7 +93,7 @@ MyCA US is not affiliated with the IRS or any government agency.
 | Age rating | | 4+ (no objectionable content); declare "Unrestricted web access: No" | |
 | Support URL | | `https://[domain]/us/support` (owner) | |
 | Marketing URL | | `https://[domain]/us` | |
-| Privacy policy URL | | `https://[domain]/privacy#us` | |
+| Privacy policy URL | | `https://[domain]/us/privacy` (terms: `/us/terms`, refunds: `/us/refunds`) | |
 | Copyright | | 2026 [US company name] | |
 
 Apple counts the name and subtitle as keywords already, so "MyCA", "US", "file", "your", "taxes",

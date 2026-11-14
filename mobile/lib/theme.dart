@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:myca_design/myca_design.dart' show MycaPalette;
 
 class Palette {
   static const canvas = Color(0xFFFAFAF7);
@@ -14,6 +15,39 @@ class Palette {
   static const warnSoft = Color(0xFFFAF1E0);
   static const danger = Color(0xFFB3261E);
   static const dangerSoft = Color(0xFFFAEAE8);
+}
+
+const indiaPalette = MycaPalette(
+  canvas: Palette.canvas,
+  surface: Palette.surface,
+  sunken: Palette.sunken,
+  ink: Palette.ink,
+  onInk: Colors.white,
+  muted: Palette.muted,
+  faint: Palette.faint,
+  line: Palette.line,
+  accent: Palette.accent,
+  accentSoft: Palette.accentSoft,
+  highlight: Color(0xFFE2A93B),
+  warn: Palette.warn,
+  warnSoft: Palette.warnSoft,
+  danger: Palette.danger,
+  dangerSoft: Palette.dangerSoft,
+  bahi: Palette.danger,
+);
+
+MycaPalette paletteOf(BuildContext context) => Theme.of(context).extension<MycaPalette>() ?? indiaPalette;
+
+Color toneOf(BuildContext context, Color color) {
+  final p = paletteOf(context);
+  return switch (color) {
+    Palette.ink => p.ink,
+    Palette.warn => p.warn,
+    Palette.danger => p.danger,
+    Palette.muted => p.muted,
+    Palette.accent => p.accent,
+    _ => color,
+  };
 }
 
 class Tint {
