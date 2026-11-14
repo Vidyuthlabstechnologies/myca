@@ -240,10 +240,150 @@ function words(out) {
 
 export function vatLinesFromBooks(state, { from, to }) {
   if (!isIsoDate(from) || !isIsoDate(to) || to < from) return fail('BAD_PERIOD', { hint: 'Give from and to as the first and last day of the VAT period.' });
-  const inPeriod = (doc) => doc.country === 'GB' && doc.status !== 'cancelled' && doc.date >= from && doc.date <= to;
+  const counted = (doc) => doc.status !== 'cancelled' || (doc.creditNoteIds || []).length > 0;
+  const inPeriod = (doc) => doc.country === 'GB' && counted(doc) && doc.date >= from && doc.date <= to;
   const toLine = (line) => ({ net: line.subtotal ?? line.taxable ?? 0, vat: line.vat ?? 0, rate: line.vatCode || 'standard' });
-  const sales = (state.invoices || []).filter(inPeriod).flatMap((doc) => doc.lines.map(toLine));
+  const sales = [
+    ...(state.invoices || []).filter(inPeriod).flatMap((doc) => doc.lines.map(toLine)),
+    ...(state.creditNotes || []).filter((note) => note.country === 'GB' && note.date >= from && note.date <= to).flatMap((note) => note.lines.map((line) => { const out = toLine(line); return { ...out, net: -Number(out.net || 0), vat: -Number(out.vat || 0) }; })),
+  ];
   const purchases = (state.purchases || []).filter(inPeriod).flatMap((doc) => doc.lines.map((line) => ({ ...toLine(line), vat: doc.vatReclaimed === 0 ? 0 : line.vat ?? 0 })));
   const skipped = [...(state.invoices || []), ...(state.purchases || [])].filter((doc) => doc.date >= from && doc.date <= to && doc.country !== 'GB' && doc.status !== 'cancelled').length;
-  return { ok: true, sales, purchases, documents: (state.invoices || []).filter(inPeriod).length + (state.purchases || []).filter(inPeriod).length, skipped, today: localToday() };
+  return { ok: true, sales, purchases, documents: (state.invoices || []).filter(inPeriod).length + (state.purchases || []).filter(inPeriod).length, creditNotes: (state.creditNotes || []).filter((note) => note.country === 'GB' && note.date >= from && note.date <= to).length, skipped, today: localToday() };
+}
+
+function creditedOn(state, invoiceId) {
+  return (state.creditNotes || []).filter((note) => note.invoiceId === invoiceId).reduce((sum, note) => sum + toPence(note.total), 0);
+}
+
+function receivedOn(invoice) {
+  return (invoice.receipts || []).reduce((sum, receipt) => sum + toPence(receipt.amount), 0);
+}
+
+function nextCreditNoteId(state) {
+  state.creditNoteSeq = Number(state.creditNoteSeq || 0);
+  const taken = new Set((state.creditNotes || []).map((note) => note.id));
+  let id;
+  do {
+    state.creditNoteSeq += 1;
+    id = `CN-${String(state.creditNoteSeq).padStart(4, '0')}`;
+  } while (taken.has(id));
+  return id;
+}
+
+export function planGbCreditNote(state, args = {}) {
+  const invoiceId = String(args.invoiceId || '').trim().toUpperCase();
+  const invoice = (state.invoices || []).find((item) => item.id === invoiceId);
+  if (!invoice) return fail('INVOICE_NOT_FOUND', { invoiceId, hint: `${invoiceId || 'That'} is not an invoice in these books.` });
+  if (invoice.country !== 'GB') return fail('NOT_A_UK_INVOICE', { invoiceId, hint: `${invoiceId} was not made in the UK edition, so it cannot get a UK credit note.` });
+  if (invoice.status === 'cancelled') return fail('INVOICE_CANCELLED', { invoiceId, hint: `${invoiceId} is already cancelled.` });
+  const date = postingDate(args.date);
+  if (!date) return fail('INVALID_DATE', { date: args.date, hint: 'That date cannot be read.' });
+  if (date < invoice.date) return fail('BEFORE_INVOICE', { date, invoiceDate: invoice.date, hint: `A credit note cannot be dated before the invoice (${invoice.date}).` });
+  if (isPeriodLocked(state, date)) return fail('PERIOD_LOCKED', { date, lockThrough: state.lockThrough, hint: `That date is inside the locked period (through ${state.lockThrough}).` });
+  const reason = String(args.reason || '').trim();
+  if (!reason) return fail('REASON_REQUIRED', { hint: 'Say why: goods returned, price reduced, or the invoice was wrong.' });
+  const totalPence = toPence(invoice.total);
+  const already = creditedOn(state, invoiceId);
+  const room = totalPence - already;
+  if (room <= 0) return fail('FULLY_CREDITED', { invoiceId, hint: `${invoiceId} is already credited in full.` });
+  let wanted;
+  if (args.amount === undefined || args.amount === null || args.amount === '') wanted = room;
+  else {
+    const amount = Number(args.amount);
+    if (!Number.isFinite(amount) || amount <= 0) return fail('BAD_AMOUNT', { hint: 'Give the credit as an amount above zero, including VAT.' });
+    wanted = toPence(amount);
+  }
+  if (wanted > room) return fail('EXCEEDS_INVOICE', { invoiceId, room: toPounds(room), hint: `Only £${toPounds(room).toFixed(2)} of ${invoiceId} is left to credit.` });
+  const full = wanted === totalPence;
+  const sourceLines = invoice.lines || [];
+  const lines = sourceLines.map((line) => {
+    const gross = toPence(line.amount);
+    const net = full ? toPence(line.subtotal ?? line.taxable) : Math.round(toPence(line.subtotal ?? line.taxable) * wanted / totalPence);
+    const vat = full ? toPence(line.vat) : Math.round(toPence(line.vat) * wanted / totalPence);
+    return { description: line.description, qty: line.qty, rate: line.rate, gstRate: line.vatPercent ?? 0, vatCode: line.vatCode || 'outside-scope', vatPercent: line.vatPercent ?? 0, net, vat, gross };
+  });
+  const drift = wanted - lines.reduce((sum, line) => sum + line.net + line.vat, 0);
+  if (lines.length && drift) lines[lines.length - 1].net += drift;
+  const net = lines.reduce((sum, line) => sum + line.net, 0);
+  const vat = lines.reduce((sum, line) => sum + line.vat, 0);
+  const refundDue = Math.max(0, Math.min(receivedOn(invoice), receivedOn(invoice) + already + wanted - totalPence));
+  return { ok: true, plan: { invoice, date, reason, full, lines, net, vat, total: net + vat, refundDue, cancel: Boolean(args.cancel) && full } };
+}
+
+export function createGbCreditNote(state, args = {}) {
+  const planned = planGbCreditNote(state, args);
+  if (!planned.ok) return planned;
+  const { plan } = planned;
+  const { invoice } = plan;
+  const party = (state.parties || []).find((entry) => (invoice.partyAccountId ? entry.accountId === invoice.partyAccountId : entry.name === invoice.partyName));
+  if (!party) return fail('PARTY_NOT_FOUND');
+  ensureGbAccounts(state.ledger);
+  const seqBefore = state.transferSeq;
+  const noteSeqBefore = state.creditNoteSeq;
+  const id = nextCreditNoteId(state);
+  const linked = TRANSFER_FLAGS.LINKED;
+  const bundle = [{ id: nextTransferId(state), debitAccountId: SALES, creditAccountId: Number(party.accountId), amount: BigInt(plan.net), flags: linked, invoiceId: id, code: 'CREDIT_NOTE', userData: plan.date }];
+  if (plan.vat > 0) bundle.push({ id: nextTransferId(state), debitAccountId: VAT_OUTPUT, creditAccountId: Number(party.accountId), amount: BigInt(plan.vat), flags: linked, invoiceId: id, code: 'CN-VAT', userData: plan.date });
+  const posted = createTransfers(state.ledger, bundle);
+  if (posted.some((result) => !result.ok)) {
+    state.transferSeq = seqBefore;
+    state.creditNoteSeq = noteSeqBefore;
+    return fail('LEDGER_REJECT', { posted });
+  }
+  const note = {
+    id,
+    date: plan.date,
+    country: 'GB',
+    invoiceId: invoice.id,
+    invoiceDate: invoice.date,
+    partyName: invoice.partyName,
+    partyGstin: '',
+    partyState: '',
+    partyAccountId: party.accountId,
+    supplierVrn: invoice.supplierVrn || '',
+    reason: plan.reason,
+    cancels: plan.cancel,
+    lines: plan.lines.map((line) => ({ description: line.description, hsn: '', qty: line.qty, rate: line.rate, gstRate: line.gstRate, vatCode: line.vatCode, vatPercent: line.vatPercent, taxable: toPounds(line.net), subtotal: toPounds(line.net), vat: toPounds(line.vat), cgst: 0, sgst: 0, igst: 0, amount: toPounds(line.net + line.vat) })),
+    taxable: toPounds(plan.net),
+    subtotal: toPounds(plan.net),
+    vat: toPounds(plan.vat),
+    cgst: 0,
+    sgst: 0,
+    igst: 0,
+    total: toPounds(plan.total),
+    transferIds: posted.map((result) => result.id),
+  };
+  state.creditNotes = state.creditNotes || [];
+  state.creditNotes.push(note);
+  invoice.creditNoteIds = [...(invoice.creditNoteIds || []), id];
+  if (note.cancels) invoice.status = 'cancelled';
+  else if (toPence(invoice.total) - creditedOn(state, invoice.id) - receivedOn(invoice) <= 0 && invoice.status !== 'paid') invoice.status = 'settled';
+  return { ok: true, creditNote: note, invoice, posted, refundDue: toPounds(plan.refundDue) };
+}
+
+export function cancelGbInvoice(state, args = {}) {
+  const invoiceId = String(args.invoiceId || '').trim().toUpperCase();
+  if (creditedOn(state, invoiceId) > 0) return fail('PARTLY_CREDITED', { invoiceId, hint: 'Issue a credit note for the rest instead.' });
+  return createGbCreditNote(state, { invoiceId, date: args.date, reason: args.reason || 'Invoice cancelled', cancel: true });
+}
+
+export function gbCreditNotePreview(state, args = {}, cancel = false) {
+  const invoiceId = String(args.invoiceId || '').trim().toUpperCase();
+  if (cancel && creditedOn(state, invoiceId) > 0) return { blockers: ['Part of this invoice is already credited. Issue a credit note for the rest instead.'], summary: '', effects: [], figures: {} };
+  const planned = planGbCreditNote(state, cancel ? { invoiceId, date: args.date, reason: args.reason || 'Invoice cancelled', cancel: true } : args);
+  if (!planned.ok) return { blockers: [planned.hint || planned.error], summary: '', effects: [], figures: {} };
+  const { plan } = planned;
+  const money = (pence) => `£${toPounds(pence).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const what = cancel ? `Cancel ${plan.invoice.id} (${plan.invoice.partyName}) with a credit note for its full ${money(plan.total)}` : `Credit note of ${money(plan.total)} against ${plan.invoice.id} (${plan.invoice.partyName})${plan.full ? ', the whole invoice' : ''}`;
+  return {
+    blockers: [],
+    summary: `${what} dated ${plan.date}: ${money(plan.net)} plus ${money(plan.vat)} VAT. Reason: ${plan.reason}.`,
+    effects: [
+      'The customer owes you that much less, or is owed it back if they have already paid.',
+      plan.vat > 0 ? `${money(plan.vat)} comes off the VAT due on the return for the period that includes ${plan.date}.` : 'No VAT changes.',
+      ...(plan.refundDue > 0 ? [`${plan.invoice.partyName} has already paid, so ${money(plan.refundDue)} becomes due back to them.`] : []),
+    ],
+    figures: { invoiceId: plan.invoice.id, date: plan.date, net: toPounds(plan.net), vat: toPounds(plan.vat), total: toPounds(plan.total), refundDue: toPounds(plan.refundDue), cancels: cancel },
+  };
 }

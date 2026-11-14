@@ -5,6 +5,9 @@ import '../cloud/cloud_session.dart';
 import '../app_state.dart';
 import '../marks.dart';
 import '../theme.dart';
+import '../uae/uae_edition.dart';
+import '../uae/uae_emirates.dart';
+import '../uae/uae_strings.dart';
 import '../uk/uk_plan_screen.dart';
 import '../widgets.dart';
 import 'businesses_screen.dart';
@@ -21,6 +24,8 @@ Future<void> showBusinessSheet(BuildContext context, Snapshot snapshot) {
   final state = AppScope.of(context);
   final company = snapshot.company;
   final user = snapshot.activeUser;
+  final ae = uaeEdition(context) ? UaeStrings.of(context) : null;
+  final aeTrn = '${uaeProfile.value?['trn'] ?? ''}';
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
@@ -35,13 +40,15 @@ Future<void> showBusinessSheet(BuildContext context, Snapshot snapshot) {
             children: [
               Text(company.name, style: text.headlineSmall),
               const SizedBox(height: 4),
-              if (state.edition != 'GB')
-              Text(
-                company.gstin.isEmpty
-                    ? 'Not registered for GST'
-                    : 'GSTIN ${company.gstin}',
-                style: text.bodyMedium,
-              ),
+              if (ae == null && state.edition != 'GB')
+                Text(
+                  company.gstin.isEmpty
+                      ? 'Not registered for GST'
+                      : 'GSTIN ${company.gstin}',
+                  style: text.bodyMedium,
+                )
+              else if (ae != null && aeTrn.isNotEmpty)
+                Text(ae.trnOf(aeTrn), style: text.bodyMedium),
               if (user != null)
                 Text('Signed in as ${user.name}', style: text.bodyMedium),
               const SizedBox(height: 18),
@@ -62,6 +69,7 @@ Future<void> showBusinessSheet(BuildContext context, Snapshot snapshot) {
                         navigator.push(MaterialPageRoute<void>(builder: (_) => const PeopleScreen()));
                       },
                     ),
+                    if (ae == null)
                     RowCard(
                       leading: const TintTile(tint: Tint.ask, mark: Mark.confirm),
                       title: 'Plan and billing',
@@ -103,8 +111,7 @@ Future<void> showBusinessSheet(BuildContext context, Snapshot snapshot) {
                           navigator.push(MaterialPageRoute<void>(builder: (_) => const ConnectionsScreen()));
                         },
                       ),
-                    if (user?.role == 'owner')
-                    if (state.edition != 'GB')
+                    if (user?.role == 'owner' && ae == null && state.edition != 'GB')
                       RowCard(
                         leading: const TintTile(tint: Tint.ask, mark: Mark.cloudBooks),
                         title: 'Connections to banks and apps',
@@ -285,8 +292,10 @@ class _CrashSwitch extends StatelessWidget {
           'Send crash reports',
           style: Theme.of(context).textTheme.titleMedium,
         ),
-        subtitle: const Text(
-          'Only what went wrong in the app. Names, amounts, GSTINs and phone numbers are removed before it leaves the phone.',
+        subtitle: Text(
+          uaeEdition(context)
+              ? 'Only what went wrong in the app. Names, amounts, TRNs and phone numbers are removed before it leaves the phone.'
+              : 'Only what went wrong in the app. Names, amounts, GSTINs and phone numbers are removed before it leaves the phone.',
         ),
         value: state.crashReportsOn,
         activeTrackColor: Palette.ink,

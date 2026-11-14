@@ -205,6 +205,20 @@ What the app does about it:
 | Small Business Relief | Revenue up to AED 3 million, extended to tax periods ending on or before 31 December 2029 by Ministerial Decision No. 131 (announced 7 August 2026) | Secondary: https://en.aletihad.ae/news/uae/4683761/ministry-of-finance-extends-small-business-relief-for-corpor (WAM). Exclusions (members of multinational groups, Qualifying Free Zone Persons) come from MD 73 of 2023; confirm with the FTA |
 | Qualifying Free Zone Person | 0% on qualifying income, must still register and file | ae.md |
 
+How the VAT 201 comes from the books (2026-11-14):
+- A UAE sale (`create_ae_invoice`, and the shared `create_invoice` in the UAE edition) books
+  receivable, sales (4000) and 5% output VAT (2120) on standard-rated lines, and keeps the emirate
+  it was made from for boxes 1a to 1g. Zero-rated, exempt and out-of-scope lines carry no VAT.
+- A purchase bill (`create_ae_purchase`) books recoverable input VAT (1220). Blocked VAT
+  (entertainment, private cars) and the unrecoverable share of a partial-recovery line are cost.
+  Reverse-charge and import lines are booked as output and input VAT together (boxes 3, 6, 10).
+- A credit note (`create_ae_credit_note`) reverses sales and output VAT in proportion, in the
+  period of the credit note.
+- `ae_vat_return` with `fromBooks` totals those documents for the period and can take extra
+  manual lines (for example tourist refunds or a customs figure). Entries made outside the UAE
+  tools are listed as left out, never counted silently.
+- Every UAE tool takes `lang: "ar"` and then answers, warns and explains in Arabic.
+
 ## 4. E-invoicing
 
 ### 4.1 Timeline
