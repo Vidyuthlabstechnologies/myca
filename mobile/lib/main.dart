@@ -180,7 +180,7 @@ class _MycaAppState extends State<MycaApp> with WidgetsBindingObserver {
             scaffoldMessengerKey: _messenger,
             title: 'MyCA',
             debugShowCheckedModeBanner: false,
-            theme: widget.state.edition == 'AE' ? uaeDesign.light : widget.state.edition == 'US' ? MycaDesign.forFlavor('us').light : mycaTheme(),
+            theme: widget.state.edition == 'AE' ? uaeDesign.light : widget.state.edition == 'US' ? MycaDesign.forFlavor('us').light : widget.state.edition == 'GB' ? MycaDesign.forFlavor('uk').light : mycaTheme(),
             localizationsDelegates: widget.state.edition == 'AE' ? MycaDesign.localizationsDelegates : null,
             supportedLocales: widget.state.edition == 'AE' ? uaeDesign.supportedLocales : const [Locale('en', 'US')],
             localeResolutionCallback: widget.state.edition == 'AE' ? uaeResolveLocale : null,
