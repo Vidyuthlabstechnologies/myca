@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:myca/us/us_text_scaler.dart';
 import 'package:myca/api/models.dart';
 import 'package:myca/api/myca_api.dart';
 import 'package:myca/app_config.dart';
@@ -618,12 +619,12 @@ void main() {
 
     expect(find.byKey(const Key('usSign.pin')), findsNothing, reason: 'the partner signs Form 8879 with the filer');
     expect(find.byKey(const Key('usSign.partnerIntro')), findsOneWidget);
-    expect(find.text('Ready to e-file'), findsOneWidget);
+    expect(find.text(wholeWords('Ready to e-file')), findsOneWidget);
     expect(find.textContaining('IRS test system'), findsOneWidget);
     await scrollTap(tester, find.byKey(const Key('usSign.partner')));
     expect(api.confirmed, ['file_us_return']);
     expect(opened, [Uri.parse('https://file.partner.example/s/1')]);
-    expect(find.text('Finish e-filing'), findsOneWidget);
+    expect(find.text(wholeWords('Finish e-filing')), findsOneWidget);
     expect(find.text('Continue where you left off'), findsOneWidget);
 
     api.efile = 'accepted';

@@ -6,6 +6,7 @@ import '../brand.dart';
 import '../marks.dart';
 import '../theme.dart';
 import '../tour/tour.dart';
+import '../uae/uae_strings.dart';
 
 class WelcomeScreen extends StatelessWidget {
   const WelcomeScreen({super.key});
@@ -33,9 +34,16 @@ class WelcomeScreen extends StatelessWidget {
     final text = Theme.of(context).textTheme;
     final state = AppScope.of(context);
     final us = state.edition == 'US';
+    final ae = state.edition == 'AE' ? UaeStrings.of(context) : null;
     final uk = state.edition == 'GB';
-    final points = us ? _usPoints : uk ? _ukPoints : _points;
-    final tour = us || uk ? null : TourScope.maybeOf(context);
+    final points = us
+        ? _usPoints
+        : uk
+        ? _ukPoints
+        : ae != null
+        ? [(Mark.sales, ae.welcomeSale), (Mark.taxes, ae.welcomeTaxes), (Mark.confirm, ae.welcomeConfirm)]
+        : _points;
+    final tour = us || uk || ae != null ? null : TourScope.maybeOf(context);
     return Scaffold(
       body: SafeArea(
         child: LayoutBuilder(
@@ -58,7 +66,7 @@ class WelcomeScreen extends StatelessWidget {
                         ),
                         const SizedBox(height: 12),
                         Text(
-                          us ? 'Your taxes,\ndone as easily\nas a conversation.' : 'Your books,\nkept as easily\nas a conversation.',
+                          us ? 'Your taxes,\ndone as easily\nas a conversation.' : ae?.welcomeTitle ?? 'Your books,\nkept as easily\nas a conversation.',
                           style: text.displaySmall,
                         ),
                         const SizedBox(height: 14),
@@ -67,8 +75,8 @@ class WelcomeScreen extends StatelessWidget {
                               ? 'Your federal return, Form 1040, prepared from your forms and your answers, and e-filed with the IRS.'
                               : uk
                               ? 'VAT, Self Assessment and Making Tax Digital for Income Tax, kept right without the paperwork.'
-                              : 'Sales, purchases and GST for your business, kept right without the paperwork.',
-                          style: text.bodyLarge?.copyWith(color: Palette.muted),
+                              : ae?.welcomeLine ?? 'Sales, purchases and GST for your business, kept right without the paperwork.',
+                          style: text.bodyLarge?.copyWith(color: paletteOf(context).muted),
                         ),
                         const SizedBox(height: 28),
                         const Divider(),
@@ -90,7 +98,7 @@ class WelcomeScreen extends StatelessWidget {
                           width: double.infinity,
                           child: FilledButton(
                             onPressed: state.finishWelcome,
-                            child: const Text('Get started'),
+                            child: Text(ae?.getStarted ?? 'Get started'),
                           ),
                         ),
                         if (tour != null) ...[
@@ -106,7 +114,7 @@ class WelcomeScreen extends StatelessWidget {
                         const SizedBox(height: 12),
                         Center(
                           child: Text(
-                            us ? 'Most returns take about 20 minutes' : 'About two minutes to set up',
+                            us ? 'Most returns take about 20 minutes' : ae?.setupMinutes ?? 'About two minutes to set up',
                             style: text.bodySmall,
                           ),
                         ),

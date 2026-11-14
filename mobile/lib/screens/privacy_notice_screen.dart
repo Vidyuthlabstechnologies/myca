@@ -102,7 +102,7 @@ class _PrivacyNoticeScreenState extends State<PrivacyNoticeScreen> {
                 const SizedBox(height: 8),
                 Text(
                   notice.status,
-                  style: text.bodyMedium?.copyWith(color: Palette.warn),
+                  style: text.bodyMedium?.copyWith(color: paletteOf(context).warn),
                 ),
               ],
               for (final section in notice.sections) ...[
@@ -116,7 +116,7 @@ class _PrivacyNoticeScreenState extends State<PrivacyNoticeScreen> {
               if (_error.isNotEmpty) ...[
                 Text(
                   _error,
-                  style: const TextStyle(color: Palette.danger),
+                  style: TextStyle(color: paletteOf(context).danger),
                 ),
                 const SizedBox(height: 8),
               ],
@@ -202,9 +202,9 @@ class _PrivacyNoticeScreenState extends State<PrivacyNoticeScreen> {
                               color: Theme.of(context).colorScheme.surface,
                               border: Border(top: BorderSide(color: Theme.of(context).colorScheme.outlineVariant)),
                             )
-                          : const BoxDecoration(
-                              color: Palette.surface,
-                              border: Border(top: BorderSide(color: Palette.line)),
+                          : BoxDecoration(
+                              color: paletteOf(context).surface,
+                              border: Border(top: BorderSide(color: paletteOf(context).line)),
                             ),
                       padding: const EdgeInsets.fromLTRB(24, 12, 24, 16),
                       child: Column(

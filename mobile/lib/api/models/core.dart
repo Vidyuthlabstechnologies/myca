@@ -156,6 +156,7 @@ class ChatReply {
     this.results = const [],
     this.blockers = const [],
     this.error = '',
+    this.raw = const <String, dynamic>{},
   });
 
   factory ChatReply.fromJson(Object? json) {
@@ -173,6 +174,7 @@ class ChatReply {
       results: [for (final tool in _maps(map['tools'])) _map(tool['result'])],
       blockers: held['blockers'] is List ? (held['blockers'] as List).map(_text).where((line) => line.isNotEmpty).toList() : const <String>[],
       error: _text(map['error']),
+      raw: map,
     );
   }
 
@@ -183,6 +185,7 @@ class ChatReply {
   final ChatPreview? preview;
   final bool posted;
   final bool blocked;
+  final Map<String, dynamic> raw;
 
   /// The tools a confirm ran, each as {name, result}.
   final List<Map<String, dynamic>> tools;

@@ -89,7 +89,7 @@ class _UsReturnHomeScreenState extends State<UsReturnHomeScreen> {
         children: [
           Icon(paid ? Icons.check_circle : Icons.sell_outlined, size: 18, color: context.myca.accent),
           const SizedBox(width: 8),
-          Expanded(child: Text(paid ? 'Your ${fee.taxYear} filing is paid. One price, no upgrade fees.' : line, key: const Key('usHub.priceLine'), semanticsLabel: paid || fee == null ? null : usFeeSpoken(fee), style: text.bodyMedium?.copyWith(color: Palette.ink))),
+          Expanded(child: Text(paid ? 'Your ${fee.taxYear} filing is paid. One price, no upgrade fees.' : line, key: const Key('usHub.priceLine'), semanticsLabel: paid || fee == null ? null : usFeeSpoken(fee), style: text.bodyMedium?.copyWith(color: context.myca.ink))),
         ],
       ),
     );
@@ -237,7 +237,7 @@ class _UsReturnHomeScreenState extends State<UsReturnHomeScreen> {
       padding: const EdgeInsets.all(16),
       margin: const EdgeInsets.only(bottom: 14),
       decoration: BoxDecoration(
-        color: rejected ? Palette.dangerSoft : context.myca.accentSoft,
+        color: rejected ? context.myca.dangerSoft : context.myca.accentSoft,
         borderRadius: BorderRadius.circular(radiusCard),
       ),
       child: Column(
@@ -251,7 +251,7 @@ class _UsReturnHomeScreenState extends State<UsReturnHomeScreen> {
           for (final r in efile.rejections) ...[
             const SizedBox(height: 10),
             Text(r.message, style: text.bodyMedium),
-            if (r.fix.isNotEmpty) Text(r.fix, style: text.bodySmall?.copyWith(color: Palette.muted)),
+            if (r.fix.isNotEmpty) Text(r.fix, style: text.bodySmall?.copyWith(color: context.myca.muted)),
             if (r.step.isNotEmpty)
               Align(
                 alignment: Alignment.centerLeft,
@@ -286,20 +286,20 @@ class _UsReturnHomeScreenState extends State<UsReturnHomeScreen> {
       padding: const EdgeInsets.all(18),
       margin: const EdgeInsets.only(bottom: 18),
       decoration: BoxDecoration(
-        color: Palette.surface,
+        color: context.myca.surface,
         borderRadius: BorderRadius.circular(radiusCard),
-        border: Border.all(color: Palette.line),
+        border: Border.all(color: context.myca.line),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: text.bodyLarge?.copyWith(color: Palette.muted)),
+          Text(label, style: text.bodyLarge?.copyWith(color: context.myca.muted)),
           if (amount.isNotEmpty) ...[
             const SizedBox(height: 6),
             FittedBox(
               fit: BoxFit.scaleDown,
               alignment: Alignment.centerLeft,
-              child: Text(amount, key: const Key('usHub.amount'), maxLines: 1, style: text.displaySmall?.copyWith(color: status.owed > 0 ? Palette.warn : context.myca.accent, fontFeatures: moneyFigures)),
+              child: Text(amount, key: const Key('usHub.amount'), maxLines: 1, style: text.displaySmall?.copyWith(color: status.owed > 0 ? context.myca.warn : context.myca.accent, fontFeatures: moneyFigures)),
             ),
           ],
           const SizedBox(height: 6),
@@ -370,7 +370,7 @@ class _UsReturnHomeScreenState extends State<UsReturnHomeScreen> {
                       ),
                     ),
                   ),
-                  Text('Form 1040, prepared from your forms and answers.', style: text.bodyMedium?.copyWith(color: Palette.muted)),
+                  Text('Form 1040, prepared from your forms and answers.', style: text.bodyMedium?.copyWith(color: context.myca.muted)),
                   const SizedBox(height: 18),
                   if (loaded.hasError)
                     UsLoadError(inline: true, message: usLoadProblem(loaded.error, 'Your return could not be loaded.'), onRetry: _reload)
@@ -380,7 +380,7 @@ class _UsReturnHomeScreenState extends State<UsReturnHomeScreen> {
                     if (hub.efile.sandbox && hub.efile.status != 'not_filed')
                       Padding(
                         padding: const EdgeInsets.only(bottom: 12),
-                        child: StatusTag(text: 'IRS test system: this return is not really filed', color: Palette.warn),
+                        child: StatusTag(text: 'IRS test system: this return is not really filed', color: context.myca.warn),
                       ),
                     _efileCard(hub.efile),
                     _summary(hub.status),

@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:myca/api/models.dart';
 import 'package:myca/api/myca_api.dart';
@@ -50,6 +51,8 @@ const usDevices = [
   UsDevice('Pro Max', 430, 932, ios: true, top: 59, bottom: 34),
   UsDevice('iPad portrait', 768, 1024, ios: true, top: 24, bottom: 20),
 ];
+
+const headingSize = 20.0;
 
 const offline = 'Cannot reach MyCA. Check your connection and try again.';
 
@@ -125,7 +128,8 @@ WalkApi filledApi({String status = 'mfj'}) {
   return api;
 }
 
-Future<void> configure(WidgetTester tester, UsDevice device, double scale, {double pixelRatio = 2}) async {
+Future<void> configure(WidgetTester tester, UsDevice device, double scale, {double pixelRatio = 2, bool dark = false}) async {
+  tester.platformDispatcher.platformBrightnessTestValue = dark ? Brightness.dark : Brightness.light;
   tester.view.physicalSize = Size(device.width * pixelRatio, device.height * pixelRatio);
   tester.view.devicePixelRatio = pixelRatio;
   tester.view.padding = FakeViewPadding(top: device.top * pixelRatio, bottom: device.bottom * pixelRatio);
@@ -137,6 +141,7 @@ Future<void> configure(WidgetTester tester, UsDevice device, double scale, {doub
 void unconfigure(WidgetTester tester) {
   debugDefaultTargetPlatformOverride = null;
   tester.platformDispatcher.clearTextScaleFactorTestValue();
+  tester.platformDispatcher.clearPlatformBrightnessTestValue();
   tester.view.reset();
 }
 
@@ -172,12 +177,52 @@ class UsWalk {
   }
 
   Future<void> _check(String name) async {
+    _headings(name);
     if (!guidelines) return;
     for (final (label, guideline) in [('tap target', androidTapTargetGuideline), ('label', labeledTapTargetGuideline), ('contrast', textContrastGuideline)]) {
       final result = await guideline.evaluate(tester);
       if (!result.passed) problems.add('$name $label: ${(result.reason ?? '').trim().split('\n').take(6).join(' | ')}');
     }
   }
+
+  void _headings(String name) {
+    for (final paragraph in tester.allRenderObjects.whereType<RenderParagraph>()) {
+      if (!paragraph.hasSize || paragraph.size.isEmpty) continue;
+      var largest = 0.0;
+      paragraph.text.visitChildren((span) {
+        final size = span.style?.fontSize ?? 0;
+        if (size > largest) largest = size;
+        return true;
+      });
+      if (largest < headingSize) continue;
+      final text = paragraph.text.toPlainText();
+      final painter = TextPainter(
+        text: paragraph.text,
+        textDirection: paragraph.textDirection,
+        textAlign: paragraph.textAlign,
+        textScaler: paragraph.textScaler,
+        maxLines: paragraph.maxLines,
+        ellipsis: paragraph.overflow == TextOverflow.ellipsis ? '\u2026' : null,
+        strutStyle: paragraph.strutStyle,
+        textWidthBasis: paragraph.textWidthBasis,
+        textHeightBehavior: paragraph.textHeightBehavior,
+        locale: paragraph.locale,
+      )..layout(maxWidth: paragraph.size.width + 0.5);
+      var start = 0;
+      while (start < text.length) {
+        final end = painter.getLineBoundary(TextPosition(offset: start)).end;
+        if (end <= start) break;
+        if (end < text.length && !_space(text[end - 1]) && !_space(text[end])) {
+          problems.add('$name: heading "$text" breaks inside a word at "${text.substring(start, end)}|${text.substring(end)}"');
+          break;
+        }
+        start = end;
+      }
+      painter.dispose();
+    }
+  }
+
+  static bool _space(String c) => c.trim().isEmpty;
 
   Future<ScrollableState?> _scrollEnd() async {
     final scrollables = tester
@@ -445,15 +490,15 @@ class UsWalk {
   }
 }
 
-Future<List<String>> walkUs(WidgetTester tester, UsDevice device, double scale, {String folder = '', bool capture = false, bool guidelines = false}) async {
-  await configure(tester, device, scale);
+Future<List<String>> walkUs(WidgetTester tester, UsDevice device, double scale, {String folder = '', bool capture = false, bool guidelines = false, bool dark = false}) async {
+  await configure(tester, device, scale, dark: dark);
   final walk = UsWalk(tester, folder: folder, capture: capture, guidelines: guidelines);
   final original = FlutterError.onError;
   FlutterError.onError = (details) {
     final first = details.exceptionAsString().split('\n').where((l) => l.trim().isNotEmpty).take(2).join(' ');
     if (Platform.environment["US_DEBUG"] == "1") stderr.writeln(details.toString());
     final where = RegExp(r'error-causing widget was:\s*\n\s*(.+)').firstMatch(details.toString())?.group(1) ?? '';
-    walk.problems.add('${device.size} @${scale}x ${walk.current}: $first ${where.replaceAll(RegExp(r'file:///.*?/mobile/'), '')}');
+    walk.problems.add('${device.size} @${scale}x${dark ? ' dark' : ''} ${walk.current}: $first ${where.replaceAll(RegExp(r'file:///.*?/mobile/'), '')}');
   };
   try {
     await walk.run();

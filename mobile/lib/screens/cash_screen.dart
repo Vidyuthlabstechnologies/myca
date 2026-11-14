@@ -214,6 +214,7 @@ class _CashScreenState extends State<CashScreen> {
                   ),
                 ],
               ),
+              if (moneyCountry != 'AE') ...[
               const SizedBox(height: 12),
               SizedBox(
                 width: double.infinity,
@@ -227,6 +228,7 @@ class _CashScreenState extends State<CashScreen> {
                   label: const Text('Who to pay'),
                 ),
               ),
+              ],
               const SizedBox(height: 12),
               _Card(
                 children: [

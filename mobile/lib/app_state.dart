@@ -10,6 +10,7 @@ import 'shared_file.dart';
 import 'api/myca_api.dart';
 import 'app_services.dart';
 import 'cloud/cloud_session.dart';
+import 'cloud/apple_auth.dart';
 import 'cloud/google_auth.dart';
 import 'cloud/oidc_auth.dart';
 import 'cloud/plaid_link.dart';
@@ -61,6 +62,7 @@ class AppState extends ChangeNotifier {
     this.crashes,
     this.funnel,
     this.google,
+    this.apple,
     this.oidc,
     this.plaidLink = const NoPlaidLink(),
     this.openLink = _cannotOpen,
@@ -130,6 +132,7 @@ class AppState extends ChangeNotifier {
   final CrashReporter? crashes;
   final FunnelTracker? funnel;
   final GoogleAuth? google;
+  final AppleAuth? apple;
   final OidcAuth? oidc;
   final PlaidLinkOpener plaidLink;
   final Future<bool> Function(Uri url) openLink;

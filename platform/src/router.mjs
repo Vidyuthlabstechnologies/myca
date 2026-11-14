@@ -33,6 +33,7 @@ import { amendmentWords } from './invoice-amendments.mjs';
 import { scheduleSeWords } from './us-se-tax.mjs';
 import { usReturnWords } from './us-return.mjs';
 import { usPlanningWords } from './us-planning.mjs';
+import { usRefundBoostWords } from './us-refund-boost.mjs';
 import { cpaPackWords } from './us-cpa-pack.mjs';
 import { payrollFileWords } from './us-payroll-files.mjs';
 import { chooseTool, modelConfigured } from './model-adapter.mjs';
@@ -340,6 +341,7 @@ function fmtToolResultCore(name, result, args) {
   }
   if (name === 'create_invoice' && result.invoice) {
     const i = result.invoice;
+    if (i.country === 'AE') return engineWords('create_ae_invoice')(result, money, args);
     if (i.country === 'US') {
       return `Posted ${i.id} to ${i.partyName} on ${i.date} for ${money(i.total)} (${money(i.subtotal)}${i.taxExempt ? `, exempt from sales tax: ${i.exemptionReason}` : ` plus ${money(i.salesTax)} sales tax`}).`;
     }
@@ -587,6 +589,7 @@ function fmtToolResultCore(name, result, args) {
   if (name === 'list_amendments' && result.data) return result.data.count ? `Amendments:\n${result.data.amendments.map((a) => `· ${a.id} ${a.date}: ${a.invoiceId} (${a.originalPeriod}) ${money(a.before)} → ${money(a.after)}, in GSTR-1 ${a.period}, ${a.reason}`).join('\n')}` : 'No invoice has been amended.';
   if (name === 'schedule_se' && result.data) return scheduleSeWords(result.data, money);
   if (['us_withholding_check', 'us_estimated_payments', 'us_supported_forms'].includes(name) && result.data) return usPlanningWords(name, result.data);
+  if (name === 'us_refund_boost' && result.data) return usRefundBoostWords(result.data);
   if (['us_return_status', 'us_return_review', 'us_tax_estimate', 'list_us_tax_forms', 'us_interview'].includes(name) && result.data) return usReturnWords(name, result.data, money);
   if (name === 'schedule_c_document' && result.data) return `Schedule C ${result.data.year}: net profit ${money(result.data.netProfit)}${result.data.selfEmploymentTax != null ? `, self-employment tax ${money(result.data.selfEmploymentTax)}` : ''}. Saved as ${result.data.fileName} from the Federal and owner taxes screen.`;
   if (name === 'cpa_pack' && result.data) return cpaPackWords(result.data, money);
@@ -828,6 +831,7 @@ function fmtToolResultCore(name, result, args) {
     const b = result.bill;
     return `Paid ${b.partyName} ${money(result.payment.amount)} against ${b.id} by ${result.payment.mode} on ${result.payment.date}. ${result.remaining > 0.005 ? `${money(result.remaining)} is still owed on it.` : `${b.id} is paid in full.`}`;
   }
+  if (name === 'create_purchase' && result.invoice?.country === 'AE') return engineWords('create_ae_purchase')(result, money, args);
   if (name === 'create_purchase' && result.invoice) {
     const i = result.invoice;
     return `Booked ${i.id} from ${i.partyName} for ${money(i.total)}${i.itcEligible === false ? '. The GST on it cannot be claimed, so it is part of the cost.' : `, with ${money(i.cgst + i.sgst + i.igst)} of GST counted as input credit.`}${i.tds?.amount ? ` ${money(i.tds.amount)} TDS under ${i.tds.section} is held back, so ${money(i.total - i.tds.amount)} is owed to ${i.partyName}.` : ''}`;

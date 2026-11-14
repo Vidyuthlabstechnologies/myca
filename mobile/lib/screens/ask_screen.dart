@@ -7,6 +7,8 @@ import '../my/my_strings.dart';
 import '../proposal_flow.dart';
 import '../marks.dart';
 import '../theme.dart';
+import '../uae/uae_edition.dart';
+import '../uae/uae_strings.dart';
 import '../widgets.dart';
 
 class AskScreen extends StatefulWidget {
@@ -95,6 +97,9 @@ class _AskScreenState extends State<AskScreen> with ProposalFlow {
                 ? ListView(
                     padding: const EdgeInsets.all(16),
                     children: [
+                      if (uaeEdition(context))
+                        EmptyNote(text: UaeStrings.of(context).askIntro)
+                      else
                       EmptyNote(
                         text:
                             '${moneyCountry == 'GB' ? 'Ask about your VAT' : 'Ask about your GST'}, deadlines or invoices. '
@@ -108,6 +113,7 @@ class _AskScreenState extends State<AskScreen> with ProposalFlow {
                         runSpacing: 8,
                         children: [
                           for (final starter in _starters)
+                            if (!uaeEdition(context) || starter != 'Dhanda kaisa chal raha hai?')
                             ActionChip(
                               label: Text(starter),
                               onPressed: () => _send(starter),
@@ -168,8 +174,8 @@ class _AskScreenState extends State<AskScreen> with ProposalFlow {
                   IconButton.filled(
                     tooltip: 'Send',
                     style: IconButton.styleFrom(
-                      backgroundColor: Palette.ink,
-                      foregroundColor: Colors.white,
+                      backgroundColor: paletteOf(context).ink,
+                      foregroundColor: paletteOf(context).onInk,
                       minimumSize: const Size(50, 50),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(radiusControl),

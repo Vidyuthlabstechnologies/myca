@@ -1,3 +1,4 @@
+import { usRefundBoost } from './us-refund-boost.mjs';
 import { tally, bank, gstin, filing, audit } from './sprint-load.mjs';
 import { invoiceTemplate, setInvoiceTemplate } from './invoice-template.mjs';
 import { importSettlement, settlementStatus } from './settlements.mjs';
@@ -595,7 +596,7 @@ export const TOOLS = [
   {
     name: 'create_invoice',
     title: 'Create invoice',
-    description: 'Create a tax invoice and post double-entry transfers (AR, sales, tax output). In India GST by rate and place of supply; in the US sales tax from the recorded rate of the jurisdiction given, or exempt with a reason. Data entry starts here.',
+    description: 'Create a tax invoice and post double-entry transfers (AR, sales, tax output). In India GST by rate and place of supply; in the UAE 5% VAT by emirate; in the US sales tax from the recorded rate of the jurisdiction given, or exempt with a reason. Data entry starts here.',
     args: ['partyName', 'partyGstin', 'lines', 'date', 'paymentTermsDays', 'taxJurisdiction', 'taxExempt', 'exemptionReason', 'partyAddress'],
     run: (state, args) => (engineBooks(countryOf(state), 'create_invoice')?.(state, args) ?? (countryOf(state) === 'US' ? createUsInvoice(state, args) : createInvoice(state, args))),
   },
@@ -625,14 +626,14 @@ export const TOOLS = [
     title: 'Credit note',
     description: 'Reduce a posted sales invoice by a credit note (goods returned, price reduced, or the whole invoice) with reversing entries. Never edits the invoice.',
     args: ['invoiceId', 'amount', 'date', 'reason'],
-    run: (state, args) => createCreditNote(state, args),
+    run: (state, args) => (engineBooks(countryOf(state), 'create_credit_note')?.(state, args) ?? createCreditNote(state, args)),
   },
   {
     name: 'cancel_invoice',
     title: 'Cancel invoice',
     description: 'Cancel a posted sales invoice by a credit note for its full value; the invoice stays in the journal and the return of its period.',
     args: ['invoiceId', 'date', 'reason'],
-    run: (state, args) => cancelInvoice(state, args),
+    run: (state, args) => (engineBooks(countryOf(state), 'cancel_invoice')?.(state, args) ?? cancelInvoice(state, args)),
   },
   {
     name: 'create_debit_note',
@@ -823,6 +824,13 @@ export const TOOLS = [
     description: 'Projects the year\'s federal tax from year-to-date pay and withholding plus the pay periods left, using the return\'s filing status, family and other income, and gives the gap, the extra to withhold each paycheck (W-4 line 4(c)) and the safe harbor. Pass filingStatus if no return is started. US only. Read-only.',
     args: ['taxYear', 'payPerPeriod', 'withheldPerPeriod', 'periodsLeft', 'ytdWages', 'ytdWithheld', 'otherIncome', 'filingStatus'],
     run: (state, args = {}) => usWithholdingCheck(state, args),
+  },
+  {
+    name: 'us_refund_boost',
+    title: 'Find more US refund',
+    description: 'Checks the started return for common deductions, credits and filing-status choices it does not use yet (IRA, HSA, student loan interest, educator expenses, self-employed health and retirement, tips, overtime, car loan interest, charity, medical, itemizing, head of household) and works out what each is worth by running the return again. US only. Read-only.',
+    args: ['taxYear'],
+    run: (state, args = {}) => usRefundBoost(state, args),
   },
   {
     name: 'us_estimated_payments',

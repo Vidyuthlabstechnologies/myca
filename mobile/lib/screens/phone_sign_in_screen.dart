@@ -8,6 +8,7 @@ import '../cloud/cloud_session.dart';
 import '../my/my_strings.dart';
 import '../secure_window.dart';
 import '../theme.dart';
+import 'apple_sign_in_button.dart';
 import 'privacy_notice_screen.dart';
 
 String? usPhoneNumber(String typed) {
@@ -98,6 +99,16 @@ class _PhoneSignInScreenState extends State<PhoneSignInScreen> with SecureWindow
     });
   }
 
+  Future<void> _apple() {
+    final state = AppScope.of(context);
+    return _run(() async {
+      final credential = await state.apple!.credential();
+      if (credential == null) return;
+      await state.cloud!.signInWithApple(credential);
+      await state.refresh();
+    });
+  }
+
   Future<void> _firm() {
     final state = AppScope.of(context);
     final issuer = _methods?.oidcIssuer ?? '';
@@ -145,10 +156,17 @@ class _PhoneSignInScreenState extends State<PhoneSignInScreen> with SecureWindow
     final secondStep = cloud.secondStepPending;
     final awaitingCode = cloud.awaitingCode && !secondStep;
     final googleOn = state.google != null && (_methods?.google ?? true);
+    final appleOn = state.apple != null && (_methods?.apple ?? true);
     final firmOn = state.oidc != null && (_methods?.oidc ?? false);
     final firmHost = _methods?.oidcIssuerHost ?? '';
-    final phoneOn = (_methods?.phone ?? true) && !((state.edition == 'US' || state.edition == 'MY') && (googleOn || firmOn));
-    final phoneOnly = phoneOn && !googleOn && !firmOn;
+    final accountOn = googleOn || appleOn || firmOn;
+    final phoneOn = (_methods?.phone ?? true) && !((state.edition == 'US' || state.edition == 'MY') && accountOn);
+    final phoneOnly = phoneOn && !accountOn;
+    final accountHint = appleOn && googleOn
+        ? 'Use your Apple or Google account. No new password to remember.'
+        : appleOn
+            ? 'Use your Apple account. No new password to remember.'
+            : (googleOn ? 'Use your Google account. No new password to remember.' : 'Use the account your firm gave you. No new password to remember.');
     return Scaffold(
       body: SafeArea(
         child: Center(
@@ -180,7 +198,7 @@ class _PhoneSignInScreenState extends State<PhoneSignInScreen> with SecureWindow
                             ? w('We sent a 6-digit code to ${_phone.text.trim()}.', 'Kami telah menghantar kod 6 digit ke ${_phone.text.trim()}.')
                             : (phoneOnly
                                   ? w('We will text you a code to sign in. No password to remember.', 'Kami akan menghantar kod melalui SMS untuk log masuk. Tiada kata laluan untuk diingat.')
-                                  : (googleOn ? w('Use your Google account. No new password to remember.', 'Gunakan akaun Google anda. Tiada kata laluan baharu untuk diingat.') : w('Use the account your firm gave you. No new password to remember.', 'Gunakan akaun yang diberikan oleh firma anda. Tiada kata laluan baharu untuk diingat.'))),
+                                  : (!appleOn ? (googleOn ? w('Use your Google account. No new password to remember.', 'Gunakan akaun Google anda. Tiada kata laluan baharu untuk diingat.') : w('Use the account your firm gave you. No new password to remember.', 'Gunakan akaun yang diberikan oleh firma anda. Tiada kata laluan baharu untuk diingat.')) : accountHint)),
                     style: text.bodyLarge?.copyWith(color: muted),
                   ),
                   if (!awaitingCode && !secondStep) ...[
@@ -196,7 +214,11 @@ class _PhoneSignInScreenState extends State<PhoneSignInScreen> with SecureWindow
                     ),
                   ],
                   const SizedBox(height: 28),
+                  if (appleOn && !awaitingCode && !secondStep) ...[
+                    AppleSignInButton(busy: _busy, onPressed: _busy ? null : _apple),
+                  ],
                   if (googleOn && !awaitingCode && !secondStep) ...[
+                    if (appleOn) const SizedBox(height: 12),
                     FilledButton(
                       onPressed: _busy ? null : _google,
                       child: Text(
@@ -205,13 +227,13 @@ class _PhoneSignInScreenState extends State<PhoneSignInScreen> with SecureWindow
                     ),
                   ],
                   if (firmOn && !awaitingCode && !secondStep) ...[
-                    if (googleOn) const SizedBox(height: 12),
+                    if (googleOn || appleOn) const SizedBox(height: 12),
                     OutlinedButton(
                       onPressed: _busy ? null : _firm,
                       child: Text(firmHost.isEmpty ? w('Sign in with your firm\'s account', 'Log masuk dengan akaun firma anda') : w('Sign in with your firm\'s account ($firmHost)', 'Log masuk dengan akaun firma anda ($firmHost)')),
                     ),
                   ],
-                  if ((googleOn || firmOn) && phoneOn && !awaitingCode && !secondStep) ...[
+                  if (accountOn && phoneOn && !awaitingCode && !secondStep) ...[
                     const SizedBox(height: 24),
                     Text(
                       w('Or use your mobile number', 'Atau gunakan nombor telefon bimbit anda'),
@@ -238,7 +260,7 @@ class _PhoneSignInScreenState extends State<PhoneSignInScreen> with SecureWindow
                       ),
                       onSubmitted: (_) => _secondStep(),
                     )
-                  else if (!phoneOn && !googleOn && !firmOn)
+                  else if (!phoneOn && !accountOn)
                     Text(
                       w('Sign-in is not available right now. Try again later.', 'Log masuk tidak tersedia sekarang. Cuba lagi kemudian.'),
                       style: text.bodyLarge,
@@ -313,7 +335,7 @@ class _PhoneSignInScreenState extends State<PhoneSignInScreen> with SecureWindow
                     ),
                   ] else if (phoneOn) ...[
                     const SizedBox(height: 20),
-                    ((googleOn || firmOn) && !awaitingCode)
+                    (accountOn && !awaitingCode)
                         ? OutlinedButton(
                             onPressed: _busy ? null : _sendCode,
                             child: Text(w('Send code', 'Hantar kod')),

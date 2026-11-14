@@ -72,7 +72,7 @@ class _NameScreenState extends State<NameScreen> {
                   ),
                   if (_error.isNotEmpty) ...[
                     const SizedBox(height: 12),
-                    Text(_error, style: const TextStyle(color: Palette.danger, fontWeight: FontWeight.w500)),
+                    Text(_error, style: TextStyle(color: paletteOf(context).danger, fontWeight: FontWeight.w500)),
                   ],
                   const SizedBox(height: 20),
                   FilledButton(onPressed: _busy ? null : _save, child: Text(_busy ? w('Saving…', 'Menyimpan…') : w('Continue', 'Teruskan'))),
