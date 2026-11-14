@@ -7,8 +7,11 @@ String get moneyPrefix => moneyCountry == 'AE' ? 'AED ' : '₹ ';
 final _us = MycaFormat(MycaCountry.of('US'));
 final _ae = MycaFormat(MycaCountry.of('AE'));
 
+final _gb = MycaFormat(MycaCountry.of('GB'));
+
 String rupees(num amount) {
   if (moneyCountry == 'US') return dollars(amount);
+  if (moneyCountry == 'GB') return pounds(amount);
   if (moneyCountry == 'AE') return _ae.money(amount);
   final negative = amount < 0;
   final fixed = amount.abs().toStringAsFixed(2);
@@ -29,6 +32,8 @@ String rupees(num amount) {
 }
 
 String dollars(num amount) => _us.money(amount);
+
+String pounds(num amount) => _gb.money(amount);
 
 String isoDate(DateTime date) =>
     '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';

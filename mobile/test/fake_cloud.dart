@@ -12,6 +12,7 @@ class FakeCloud {
   final requests = <String>[];
   final businesses = <Map<String, Object?>>[];
   final createdBodies = <Map<String, Object?>>[];
+  final requestedPhones = <String>[];
   final invoices = <Map<String, Object?>>[];
   final uploads = <String, String>{};
   final quickoCalls = <Map<String, Object?>>[];
@@ -229,6 +230,8 @@ class FakeCloud {
     }
     if (path == '/v1/auth/otp') {
       if (!phoneOn) return _json(503, {'ok': false, 'error': 'PHONE_SIGN_IN_UNAVAILABLE'});
+      requestedPhones.add('${body['phone']}');
+      if (RegExp(r'^\+1[2-9]\d{2}[2-9]\d{6}$').hasMatch('${body['phone']}')) return _json(200, {'ok': true, 'challengeId': challengeId, 'expiresInSeconds': 300});
       final phone = '${body['phone']}'.replaceAll(' ', '');
       if (!RegExp(r'^(\+91)?[6-9]\d{9}$').hasMatch(phone)) return _json(400, {'ok': false, 'error': 'INVALID_PHONE'});
       return _json(200, {'ok': true, 'challengeId': challengeId, 'expiresInSeconds': 300});
@@ -414,6 +417,13 @@ class FakeCloud {
         return _json(200, {'ok': true, 'business': demo, 'seeded': 12});
       }
       final gstin = '${body['gstin'] ?? ''}';
+      if (body['country'] == 'GB') {
+        company = {'name': body['name'], 'gstin': '', 'state': '', 'country': 'GB'};
+        final made = {'id': businessId, 'name': body['name'], 'gstin': '', 'role': 'owner', 'country': 'GB', 'kind': 'business'};
+        businesses.add(made);
+        createdBodies.add(Map<String, Object?>.from(body));
+        return _json(200, {'ok': true, 'business': made});
+      }
       if (body['country'] == 'US') {
         final household = body['kind'] == 'household';
         company = {'name': body['name'], 'gstin': '', 'state': '', 'country': 'US', if (household) 'entityType': 'household'};

@@ -18,12 +18,13 @@ async function challenge(phone) {
   return { challengeId: otp.body.challengeId, code: api.sender.last().code, response: otp };
 }
 
-test('phone numbers are normalised to +91 and anything else is refused', () => {
+test('phone numbers are normalised to +91, a +1 number is kept for MyCA US, and anything else is refused', () => {
   assert.equal(normalizePhone('9876543210'), '+919876543210');
   assert.equal(normalizePhone('+91 98765 43210'), '+919876543210');
   assert.equal(normalizePhone('09876543210'), '+919876543210');
   assert.equal(normalizePhone('919876543210'), '+919876543210');
-  for (const bad of ['', '12345', '5876543210', '98765432101', '+1 415 555 0100', 'abcdefghij', null]) {
+  assert.equal(normalizePhone('+1 415 555 0100'), '+14155550100');
+  for (const bad of ['', '12345', '5876543210', '98765432101', '+1 015 555 0100', '+44 20 7946 0958', 'abcdefghij', null]) {
     assert.equal(normalizePhone(bad), '', String(bad));
   }
 });

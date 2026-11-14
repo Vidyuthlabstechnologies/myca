@@ -17,6 +17,12 @@ class WelcomeScreen extends StatelessWidget {
     (Mark.confirm, 'Nothing reaches your books until you say so'),
   ];
 
+  static const _ukPoints = [
+    (Mark.taxes, 'VAT returns and Making Tax Digital updates, checked before they go'),
+    (Mark.sales, 'Your Self Assessment bill and payments on account, worked out'),
+    (Mark.confirm, 'Nothing is sent to HMRC until you say so'),
+  ];
+
   static const _usPoints = [
     (Mark.taxes, 'Snap your W-2 and 1099s, and we read them for you'),
     (Mark.sales, 'Plain questions instead of IRS forms'),
@@ -29,12 +35,15 @@ class WelcomeScreen extends StatelessWidget {
     final state = AppScope.of(context);
     final us = state.edition == 'US';
     final ae = state.edition == 'AE' ? UaeStrings.of(context) : null;
+    final uk = state.edition == 'GB';
     final points = us
         ? _usPoints
+        : uk
+        ? _ukPoints
         : ae != null
         ? [(Mark.sales, ae.welcomeSale), (Mark.taxes, ae.welcomeTaxes), (Mark.confirm, ae.welcomeConfirm)]
         : _points;
-    final tour = us || ae != null ? null : TourScope.maybeOf(context);
+    final tour = us || uk || ae != null ? null : TourScope.maybeOf(context);
     return Scaffold(
       body: SafeArea(
         child: LayoutBuilder(
@@ -64,6 +73,8 @@ class WelcomeScreen extends StatelessWidget {
                         Text(
                           us
                               ? 'Your federal return, Form 1040, prepared from your forms and your answers, and e-filed with the IRS.'
+                              : uk
+                              ? 'VAT, Self Assessment and Making Tax Digital for Income Tax, kept right without the paperwork.'
                               : ae?.welcomeLine ?? 'Sales, purchases and GST for your business, kept right without the paperwork.',
                           style: text.bodyLarge?.copyWith(color: Palette.muted),
                         ),

@@ -95,6 +95,11 @@ Each test file creates and drops its own database.
 MYCA_LISTEN_HOST=127.0.0.1 MYCA_DATABASE_URL=postgres://myca@127.0.0.1:54329/myca_dev MYCA_TOKEN_SECRET=<32+ random characters> MYCA_BOOKS_KEY=<32+ random characters> MYCA_DEV_OTP=1 PORT=8080 npm run dev
 ```
 
+For MyCA US with every outside service faked (Stripe test checkout, Google Play, the e-file
+partner, the MeF simulator), use `node scripts/us-sandbox.mjs` from the repository root instead:
+see `docs/release/US-SANDBOX.md`. `node scripts/us-sandbox.mjs --check` walks the whole US path
+and exits 0 when it works.
+
 `MYCA_GOOGLE_CLIENT_IDS` lists the OAuth client ids (comma-separated) whose Google ID
 tokens the API accepts; set it to the web client id the app passes as
 `MYCA_GOOGLE_SERVER_CLIENT_ID`. `MYCA_OIDC_ISSUER` with `MYCA_OIDC_CLIENT_IDS` turns on

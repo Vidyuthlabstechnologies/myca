@@ -11,6 +11,7 @@ import '../../theme.dart';
 import '../../us/us_filing_fee.dart';
 import '../../us/us_return.dart';
 import '../../widgets.dart';
+import 'us_fields.dart';
 import 'us_forms_screen.dart';
 import 'us_interview_screen.dart';
 import 'us_profile_screen.dart';
@@ -88,9 +89,10 @@ class _UsReviewScreenState extends State<UsReviewScreen> {
           builder: (context, loaded) {
             if (loaded.connectionState != ConnectionState.done) return const Center(child: CircularProgressIndicator());
             if (loaded.hasError) {
-              return EmptyNote(text: loaded.error is MycaApiException ? (loaded.error as MycaApiException).message : 'Your return could not be worked out yet.');
+              return UsLoadError(message: usLoadProblem(loaded.error, 'Your return could not be worked out yet.'), onRetry: () => setState(() { _review = loadReview(_api, widget.taxYear); }));
             }
             final review = loaded.data!;
+            final big = MediaQuery.textScalerOf(context).scale(10) > 13;
             final byForm = <String, List<UsReviewLine>>{};
             for (final l in review.lines) {
               byForm.putIfAbsent(l.form.isEmpty ? 'Form 1040' : l.form, () => []).add(l);
@@ -110,10 +112,14 @@ class _UsReviewScreenState extends State<UsReviewScreen> {
                     children: [
                       Text(review.owed > 0 ? 'You owe the IRS' : 'Your federal refund', style: text.bodyLarge),
                       const SizedBox(height: 4),
-                      Text(dollars(review.owed > 0 ? review.owed : review.refund), style: text.displaySmall?.copyWith(fontFeatures: moneyFigures)),
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Text(dollars(review.owed > 0 ? review.owed : review.refund), maxLines: 1, style: text.displaySmall?.copyWith(fontFeatures: moneyFigures)),
+                      ),
                       if (review.owed > 0) ...[
                         const SizedBox(height: 6),
-                        Text('Due by April 15. You can pay from your bank when you file.', style: text.bodySmall),
+                        Text('Due by ${longDate('${widget.taxYear + 1}-04-15')}. You can pay from your bank when you file.', style: text.bodySmall),
                       ],
                     ],
                   ),
@@ -152,17 +158,27 @@ class _UsReviewScreenState extends State<UsReviewScreen> {
                       for (final l in entry.value)
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                          child: AmountRow(
-                            start: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(l.line.isEmpty ? l.label : 'Line ${l.line} · ${l.label}', style: text.bodyMedium?.copyWith(color: Palette.ink)),
-                                if (l.source.isNotEmpty) Text(l.source, style: text.bodySmall),
-                              ],
-                            ),
-                            amount: dollars(l.amount),
-                            style: text.titleSmall?.copyWith(fontFeatures: moneyFigures),
-                          ),
+                          child: big
+                              ? Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(l.line.isEmpty ? l.label : 'Line ${l.line} · ${l.label}', style: text.bodyMedium?.copyWith(color: Palette.ink)),
+                                    if (l.source.isNotEmpty) Text(l.source, style: text.bodySmall),
+                                    const SizedBox(height: 2),
+                                    Text(dollars(l.amount), style: text.titleSmall?.copyWith(fontFeatures: moneyFigures)),
+                                  ],
+                                )
+                              : AmountRow(
+                                  start: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(l.line.isEmpty ? l.label : 'Line ${l.line} · ${l.label}', style: text.bodyMedium?.copyWith(color: Palette.ink)),
+                                      if (l.source.isNotEmpty) Text(l.source, style: text.bodySmall),
+                                    ],
+                                  ),
+                                  amount: dollars(l.amount),
+                                  style: text.titleSmall?.copyWith(fontFeatures: moneyFigures),
+                                ),
                         ),
                     ],
                   ),

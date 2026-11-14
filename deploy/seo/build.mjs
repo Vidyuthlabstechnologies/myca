@@ -31,7 +31,7 @@ function shell({ path, title, description, body, ld, edition = 'india' }) {
 <meta property="og:url" content="${url}">
 <meta property="og:title" content="${escape(title)}">
 <meta property="og:description" content="${escape(description)}">
-<meta property="og:image" content="${ORIGIN}/assets/og-image.png">
+<meta property="og:image" content="${ORIGIN}/assets/${edition === 'us' ? 'og-image-us.png' : 'og-image.png'}">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
