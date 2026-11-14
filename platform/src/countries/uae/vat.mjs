@@ -157,10 +157,14 @@ export function vatReturn(args = {}) {
       if (treatment === 'standard') {
         const vat = taxOn(line, net, standard, at, problems, warnings);
         const recoverable = percentOf(vat, recovery);
-        if (line.blocked === true) blockedVat += vat;
-        boxes['9'].net += net;
-        boxes['9'].vat += recoverable;
-        boxes['9'].adjustment += adjustment;
+        if (line.blocked === true) {
+          blockedVat += vat;
+          if (adjustment) problems.push({ line: at, field: 'adjustment', why: 'Only standard-rated sales (box 1) and expenses (box 9) carry an adjustment.' });
+        } else {
+          boxes['9'].net += net;
+          boxes['9'].vat += recoverable;
+          boxes['9'].adjustment += adjustment;
+        }
       } else if (treatment === 'reverse-charge' || treatment === 'import' || treatment === 'import-adjustment') {
         const vat = taxOn(line, net, standard, at, problems, warnings);
         const target = treatment === 'reverse-charge' ? boxes['3'] : treatment === 'import' ? importsFromLines : boxes['7'];

@@ -106,7 +106,7 @@ test('VAT 201: sales by emirate, zero-rated, exempt, reverse charge, imports and
   assert.equal(b['8'].net, 100000 + 20000 - 5000 + 8000 + 40000 + 12000 + 50000);
   assert.equal(b['8'].vat, 5000 + 1000 - 250 + 400 + 2500);
   assert.equal(b['9'].vat, 1500 + 0 + 300);
-  assert.equal(b['9'].net, 42000);
+  assert.equal(b['9'].net, 40000, 'blocked expenses stay out of box 9');
   assert.equal(b['10'].vat, 400 + 2500);
   assert.equal(out.data.totalDue, 8650);
   assert.equal(out.data.totalRecoverable, 4700);
