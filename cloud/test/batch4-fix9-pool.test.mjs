@@ -123,7 +123,7 @@ async function startPooled({ max = 3, connectionTimeoutMillis, phone = true, goo
     const otp = await call('POST', '/v1/auth/otp', { body: { phone: number } });
     const verified = await call('POST', '/v1/auth/verify', { body: { challengeId: otp.body.challengeId, phone: number, code: sender.last().code, deviceLabel: 'test phone' } });
     if (verified.status !== 200) throw new Error(`sign-in failed: ${verified.text}`);
-    const agreed = await call('POST', '/v1/me/consent', { token: verified.body.accessToken, body: { document: PRIVACY_NOTICE.document, version: PRIVACY_NOTICE.version } });
+    const agreed = await call('POST', '/v1/me/consent', { token: verified.body.accessToken, body: { document: PRIVACY_NOTICE.document, version: PRIVACY_NOTICE.version, adult: true } });
     if (agreed.status !== 200) throw new Error(`consent failed: ${agreed.text}`);
     return verified.body;
   }
