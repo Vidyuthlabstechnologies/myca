@@ -5,7 +5,7 @@ import { filingFor } from './filings.mjs';
 
 function billOutstanding(bill) {
   const paid = (bill.payments || []).reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
-  return Math.round((Number(bill.total || 0) - Number(bill.notedTotal || 0) - Number(bill.tds?.amount || 0) - paid) * 100) / 100;
+  return Math.round((Number(bill.total || 0) - Number(bill.notedTotal || 0) - (Number(bill.tds?.amount || 0) - Number(bill.tds?.reversed || 0)) - paid) * 100) / 100;
 }
 
 const GSTIN = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/;

@@ -58,8 +58,26 @@ export async function issueTokens(q, userId, deviceId, secret, now = () => Date.
 export function createAuth({ db, secret, otpSender, now = () => Date.now(), secondFactor = null, testSignIn = null, otpGlobalPerHour = OTP_MAX_GLOBAL_PER_HOUR, log = () => {} }) {
   const at = () => new Date(now());
 
+  async function keepBusinessesOf(q, user) {
+    if (!user.was_deleted_at) return;
+    const kept = await q(
+      `update businesses set deletion_requested_at = null
+        where deletion_requested_at = $2
+          and id in (select business_id from memberships where user_id = $1 and role = 'owner')
+        returning id`,
+      [user.id, user.was_deleted_at],
+    );
+    for (const business of kept.rows) {
+      await q(
+        `insert into audit_log (business_id, user_id, request_id, action, metadata) values ($1, $2, '', 'member.account_deletion_cancelled', $3::jsonb)`,
+        [business.id, user.id, JSON.stringify({ source: 'sign-in during the grace period' })],
+      );
+    }
+  }
+
   async function session(q, user, deviceLabel) {
     const userId = user.id;
+    await keepBusinessesOf(q, user);
     if (secondFactor && await secondFactor.enabledFor(q, userId)) {
       return { ...(await secondFactor.challenge(q, userId, deviceLabel)), user: { id: userId, name: user.name, isNew: false } };
     }
@@ -133,9 +151,10 @@ export function createAuth({ db, secret, otpSender, now = () => Date.now(), seco
         }
         await q('update otp_challenges set consumed_at = $2 where id = $1', [challengeId, at()]);
         const user = await q(
-          `insert into users (phone, created_at) values ($1, $2)
+          `with prior as (select deleted_at from users where phone = $1)
+           insert into users (phone, created_at) values ($1, $2)
            on conflict (phone) do update set deleted_at = null
-           returning id, name, (xmax = 0) as created`,
+           returning id, name, (xmax = 0) as created, (select deleted_at from prior) as was_deleted_at`,
           [phone, at()],
         );
         return session(q, user.rows[0], deviceLabel);
@@ -145,10 +164,11 @@ export function createAuth({ db, secret, otpSender, now = () => Date.now(), seco
     async signInWithGoogle({ sub, email = '', name = '' }, deviceLabel = '') {
       return db.tx(async (q) => {
         const user = await q(
-          `insert into users (google_sub, email, name, created_at) values ($1, nullif($2, ''), $3, $4)
+          `with prior as (select deleted_at from users where google_sub = $1)
+           insert into users (google_sub, email, name, created_at) values ($1, nullif($2, ''), $3, $4)
            on conflict (google_sub) do update
              set deleted_at = null, email = coalesce(nullif(excluded.email, ''), users.email)
-           returning id, name, (xmax = 0) as created`,
+           returning id, name, (xmax = 0) as created, (select deleted_at from prior) as was_deleted_at`,
           [sub, email, name, at()],
         );
         return session(q, user.rows[0], deviceLabel);
@@ -158,10 +178,11 @@ export function createAuth({ db, secret, otpSender, now = () => Date.now(), seco
     async signInWithOidc({ issuer, sub, email = '', name = '' }, deviceLabel = '') {
       return db.tx(async (q) => {
         const user = await q(
-          `insert into users (oidc_issuer, oidc_sub, email, name, created_at) values ($1, $2, nullif($3, ''), $4, $5)
+          `with prior as (select deleted_at from users where oidc_issuer = $1 and oidc_sub = $2)
+           insert into users (oidc_issuer, oidc_sub, email, name, created_at) values ($1, $2, nullif($3, ''), $4, $5)
            on conflict (oidc_issuer, oidc_sub) do update
              set deleted_at = null, email = coalesce(nullif(excluded.email, ''), users.email)
-           returning id, name, (xmax = 0) as created`,
+           returning id, name, (xmax = 0) as created, (select deleted_at from prior) as was_deleted_at`,
           [issuer, sub, email, name, at()],
         );
         return session(q, user.rows[0], deviceLabel);
@@ -217,11 +238,12 @@ export function createAuth({ db, secret, otpSender, now = () => Date.now(), seco
     },
 
     async deleteAccount(userId) {
+      const when = at();
       return db.tx(async (q) => {
         await q('delete from second_step_challenges where user_id = $1', [userId]);
         await q('delete from user_totp where user_id = $1', [userId]);
         await q('delete from recovery_codes where user_id = $1', [userId]);
-        await q('update users set deleted_at = $2 where id = $1', [userId, at()]);
+        await q('update users set deleted_at = $2 where id = $1', [userId, when]);
         await q(
           `insert into audit_log (business_id, user_id, request_id, action, metadata)
            select business_id, $1, '', 'member.account_deletion_requested', $2::jsonb from memberships where user_id = $1`,
@@ -235,7 +257,7 @@ export function createAuth({ db, secret, otpSender, now = () => Date.now(), seco
               and not exists (
                 select 1 from memberships m join users u on u.id = m.user_id
                  where m.business_id = businesses.id and m.role = 'owner' and m.user_id <> $1 and u.deleted_at is null)`,
-          [userId, at()],
+          [userId, when],
         );
         return { ok: true };
       });

@@ -98,8 +98,8 @@ export function invoiceDocument(state, id) {
       paymentTermsDays: invoice.paymentTermsDays ?? null,
       dueDate: invoice.dueDate || '',
       quoteId: invoice.quoteId || '',
-      balance: round2(invoice.total - received - credited),
-      upiPayment: upiPayment(state, invoice, round2(invoice.total - received - credited)),
+      balance: round2(invoice.total + debited - received - credited),
+      upiPayment: upiPayment(state, invoice, round2(invoice.total + debited - received - credited)),
     },
   };
 }
@@ -125,7 +125,7 @@ export function upiPayment(state, invoice, balance) {
 function einvoiceWords(state, invoice) {
   if ((state.company?.country || 'IN') !== 'IN') return null;
   if (invoice.status === 'cancelled') return { status: 'not-applicable', irn: '', why: 'The invoice is cancelled.' };
-  if (!invoice.partyGstin) return { status: 'not-applicable', irn: '', why: 'E-invoicing applies to invoices to registered buyers (B2B); this one is to an unregistered buyer.' };
+  if (!invoice.partyGstin && !invoice.export) return { status: 'not-applicable', irn: '', why: 'E-invoicing applies to invoices to registered buyers (B2B); this one is to an unregistered buyer.' };
   if (invoice.irn) return { status: 'issued', irn: invoice.irn, ackNo: invoice.ackNo || '', why: 'IRN issued by the IRP.' };
   if (invoice.sandboxIrn) return { status: 'sandbox', irn: invoice.sandboxIrn, ackNo: invoice.sandboxAckNo || '', why: 'Sandbox IRN from the NIC test IRP. It is not valid for a real supply; switch e-invoicing to live to issue the real one.' };
   if (invoice.mockIrn) return { status: 'mock', irn: invoice.mockIrn, ackNo: invoice.mockAckNo || '', why: 'Simulated IRN; nothing reached the IRP.' };

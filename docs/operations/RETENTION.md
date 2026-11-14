@@ -21,8 +21,9 @@ that by making the export complete and free, not by keeping data the owner asked
 | The books (one sealed row per business), documents, members, connectors, audit trail, access log | The business exists | Erased thirty days after the owner deletes the business; the owner can export in the meantime | Members of the business, by role; the operator cannot read the books column without the service key |
 | Shared view for the accountant | The business exists | Erased with the business | The accountant member |
 | Access log (who asked for what, when) | 365 days | Rows older than a year are deleted nightly | The owner, from "who looked at my books" |
-| Database audit (pgaudit: every read and write of the database by any role, including the operator) | 180 days in Cloud Logging | Expires | The operator, for incident work; never the content, only who touched what |
-| Request and job logs (Cloud Logging) | 180 days | Expires | The operator |
+| Database audit (pgaudit: every read and write of the database by any role, including the operator) | 365 days in Cloud Logging, in the country's region | Expires | The operator, for incident work; never the content, only who touched what |
+| Request and job logs (Cloud Logging, bucket `myca-…-logs-<region>`, in India for the India service) | 365 days (DPDP Rules 2025 r.8(3) asks for one year; CERT-In asks for 180 days in India) | Expires | The operator |
+| Privacy and grievance requests (`privacy_requests`) | Open until answered; then 365 days from the request | Deleted nightly once answered and a year old. When the account is erased the reference, kind and dates stay for that year but the message, nominee details and reply are blanked | The person, in Your privacy rights; admins, from `GET /v1/admin/privacy-requests` |
 | Sign-in codes | 1 day | Deleted nightly (they expire in five minutes anyway) | Nobody; only a salted hash is stored |
 | Second-step challenges (the pending sign-in between the phone code and the authenticator code) | 1 day | Deleted nightly (they expire in five minutes anyway) | Nobody; a challenge holds no code |
 | Authenticator key and recovery codes (two-step sign-in) | While the user keeps two-step on | Deleted when the user turns it off or deletes the account | Nobody; the key is sealed per user and the codes are stored as hashes |

@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 class FakeCloud {
+  final List<Map<String, Object?>> privacyRequests = [];
   static const code = '428913';
   static const challengeId = '11111111-1111-4111-8111-111111111111';
   static const businessId = '22222222-2222-4222-8222-222222222222';
@@ -188,6 +189,9 @@ class FakeCloud {
         'notice': {
           'document': 'privacy',
           'version': 'v-test',
+          'requiresAdult': true,
+          'contact': {'grievanceOfficer': {'name': 'Asha Rao', 'email': 'grievance@myca.test', 'phone': '[phone, optional]'}},
+          'links': {'terms': 'https://myca.test/terms', 'refunds': 'https://myca.test/refunds', 'grievance': 'https://myca.test/grievance'},
           'title': 'How MyCA uses your information',
           'status': 'Draft for legal review.',
           'sections': [
@@ -271,8 +275,18 @@ class FakeCloud {
       access = 'expired';
       return _json(401, {'ok': false, 'error': 'UNAUTHENTICATED', 'reason': 'TOKEN_EXPIRED'});
     }
+    if (path == '/v1/me/privacy-requests' && request.method == 'POST') {
+      if (body['kind'] == 'grievance' && '${body['message'] ?? ''}'.isEmpty) return _json(400, {'ok': false, 'error': 'MESSAGE_REQUIRED'});
+      final made = {'reference': 'DPR-20261114-ABC${privacyRequests.length}', 'kind': body['kind'], 'status': 'open', 'message': body['message'] ?? '', 'reply': '', 'createdAt': '2026-11-14T00:00:00.000Z', 'dueAt': '2026-12-14T00:00:00.000Z'};
+      privacyRequests.insert(0, made);
+      return _json(200, {'ok': true, 'request': made, 'replyWithinDays': 30});
+    }
+    if (path == '/v1/me/privacy-requests' && request.method == 'GET') {
+      return _json(200, {'ok': true, 'requests': privacyRequests, 'replyWithinDays': 30});
+    }
     if (path == '/v1/me/consent' && request.method == 'POST') {
       if (body['version'] != 'v-test' && body['version'] != 'us-test') return _json(400, {'ok': false, 'error': 'NOTICE_CHANGED'});
+      if (body['version'] == 'v-test' && body['adult'] != true) return _json(400, {'ok': false, 'error': 'ADULT_REQUIRED'});
       noticeAccepted = true;
       consents.add('${body['document']}@${body['version']}');
       return _json(200, {'ok': true});

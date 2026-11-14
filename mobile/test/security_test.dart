@@ -369,6 +369,7 @@ void main() {
     expect(find.text('How MyCA uses your information'), findsOneWidget);
     expect(cloud.requests.where((r) => r.startsWith('GET /v1/businesses')), isEmpty, reason: 'no business data before consent');
 
+    await press(tester, find.text('I am 18 or over'));
     await press(tester, find.text('I agree'));
     expect(cloud.consents, ['privacy@v-test']);
     expect(find.text('What should we call you?'), findsOneWidget);

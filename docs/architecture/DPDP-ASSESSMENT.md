@@ -54,7 +54,7 @@ No sensitive categories are sought. No children's data: the app is for business 
 
 ## 5. Before launch
 
-- Self-service account deletion endpoint and screen.
-- 90-day purge of crash reports in the daily job.
-- Breach procedure in `docs/operations/RUNBOOK.md`.
-- Name the grievance officer and the processors in `docs/release/PRIVACY-POLICY.md`.
+Updated 2026-11-14: self-service account deletion, the 90-day crash purge, the breach
+procedure, the processors in the notice, a rights and grievance request screen with a 30-day
+answer, an 18-or-over declaration and one-year logs in India are all built. What is left, and
+the full list by law, is in `docs/compliance/india/COMPLIANCE-CHECKLIST.md`.
