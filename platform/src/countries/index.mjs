@@ -1,6 +1,7 @@
 import { INDIA } from './india.mjs';
 import { UNITED_STATES } from './united-states.mjs';
-import { UNITED_KINGDOM, CANADA, UNITED_ARAB_EMIRATES, AUSTRALIA } from './planned.mjs';
+import { CANADA, UNITED_ARAB_EMIRATES, AUSTRALIA } from './planned.mjs';
+import { UNITED_KINGDOM } from './united-kingdom.mjs';
 import { MALAYSIA } from './malaysia.mjs';
 
 export const SEGMENTS = Object.freeze(['individual', 'business', 'accountant']);

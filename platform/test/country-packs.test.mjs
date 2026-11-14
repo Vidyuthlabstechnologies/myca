@@ -20,9 +20,10 @@ test('the checks catch a pack that would break residency, pricing or merging', (
 });
 
 test('only live and beta packs are countries a business can pick', () => {
-  assert.deepEqual(Object.keys(COUNTRIES), ['IN', 'US']);
-  assert.equal(isServedCountry('GB'), false);
-  assert.equal(countryPack('gb').status, 'planned');
+  assert.deepEqual(Object.keys(COUNTRIES), ['IN', 'US', 'GB']);
+  assert.equal(isServedCountry('GB'), true);
+  assert.equal(isServedCountry('CA'), false);
+  assert.equal(countryPack('ca').status, 'planned');
   assert.ok(PACKS.length >= 6);
 });
 

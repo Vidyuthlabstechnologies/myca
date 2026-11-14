@@ -317,7 +317,7 @@ test('one command adds a country: a planned pack, an empty engine, a research fi
     assert.equal(manifests.manifestFor('SG').tools.length, 0);
     const engines = readFileSync(join(root, 'platform/src/countries/engines.mjs'), 'utf8');
     assert.match(engines, /import \{ ENGINE as SINGAPORE \} from '\.\/singapore\/engine\.mjs';/);
-    assert.match(engines, /MALAYSIA,\n {4}SINGAPORE,\n {2}\];/);
+    assert.match(engines, /[A-Z_]+,\n {4}SINGAPORE,\n {2}\];/);
     const knowledge = readFileSync(join(root, 'platform/src/countries/knowledge/sg.md'), 'utf8');
     assert.match(knowledge, /checked: 2026-11-11\nrecheck-by: 2027-02-09/);
     assert.doesNotMatch(knowledge, /Source:/, 'the research file starts without a source, so the suite stays red until someone researches');

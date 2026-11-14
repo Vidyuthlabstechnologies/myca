@@ -39,7 +39,7 @@ import { chatText } from './chat-text.mjs';
 import { htmlEscape } from '../../platform/src/text-safe.mjs';
 import { DEMO_BLOCKED_ACTIONS, seedDemo } from './demo.mjs';
 import { createRateLimits, LIMITS } from './rate-limits.mjs';
-import { ENGINE_WRITE_TOOLS } from '../../platform/src/countries/manifests.mjs';
+import { ENGINE_WRITE_TOOLS, ENGINE_PROVIDER_TOOLS, ENGINE_ADDRESS_TOOLS } from '../../platform/src/countries/manifests.mjs';
 
 const INDIA_OFFSET_MS = 330 * 60 * 1000;
 
@@ -346,6 +346,10 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
 
   // Confirming a US filing: the server names the business for the e-file partner's webhook
   // (whatever proposed it, app or chat), and the call runs at the service's provider setting.
+  function asEngineProviderCall(session, run) {
+    return ENGINE_PROVIDER_TOOLS.includes(session.state.pendingChatAction?.name) ? withProviderContext({ environment: serviceProviderEnvironment() }, run) : run();
+  }
+
   function asUsFiling(session, businessId, run) {
     const pending = session.state.pendingChatAction;
     if (pending?.name === US_FILE_TOOL) pending.args = { ...(pending.args || {}), partnerScope: businessId };
@@ -966,7 +970,7 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
           if (!paid.ok) return paid;
         }
         if (!PROPOSABLE.has(name)) throw httpError(400, 'NOT_PROPOSABLE', { tool: name });
-        const proposed = name === 'sign_us_return' ? withRequestAddress(args, clientAddress(req)) : name === US_FILE_TOOL ? { ...args, partnerScope: businessId } : args;
+        const proposed = name === 'sign_us_return' || ENGINE_ADDRESS_TOOLS.includes(name) ? withRequestAddress(args, clientAddress(req)) : name === US_FILE_TOOL ? { ...args, partnerScope: businessId } : args;
         return withBooks(businessId, context, (session) => session.propose(name, proposed, actor));
       }
       if (action === 'confirm') {
@@ -976,7 +980,7 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
           // Requests run with provider calls off; filing a US return is the one confirm that may
           // reach the IRS or the e-file partner, at the service's own provider setting.
           if (session.state.pendingChatAction?.name === US_FILE_TOOL) return asUsFiling(session, businessId, () => session.confirm(body.token, actor));
-          return session.confirm(body.token, actor);
+          return asEngineProviderCall(session, () => session.confirm(body.token, actor));
         });
       }
       if (action === 'discard') return withBooks(businessId, context, (session) => session.discard(actor));

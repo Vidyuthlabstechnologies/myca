@@ -1,5 +1,6 @@
 import { MANIFEST as SHARED } from './shared/manifest.mjs';
 import { MANIFEST as MALAYSIA } from './malaysia/manifest.mjs';
+import { MANIFEST as UNITED_KINGDOM } from './united-kingdom/manifest.mjs';
 
 export const EVERY_COUNTRY = '*';
 export const TOOL_ACCESS = Object.freeze(['read', 'write']);
@@ -17,6 +18,7 @@ export const CAPABILITIES = Object.freeze({
 export const MANIFESTS = Object.freeze([
   SHARED,
   MALAYSIA,
+  UNITED_KINGDOM,
 ]);
 
 const TOOL_NAME = /^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$/;
@@ -41,6 +43,8 @@ export function engineTables(manifests) {
     writeTools: Object.freeze(tools.filter((tool) => tool.access === 'write').map((tool) => tool.name)),
     ruleFamilies: Object.freeze(manifests.flatMap((manifest) => (manifest.ruleFamilies || []).map((family) => Object.freeze({ ...family, country: manifest.country })))),
     externalActions: Object.freeze(manifests.flatMap((manifest) => (manifest.externalActions || []).map((action) => Object.freeze({ id: action.id, access: action.access, irreversible: action.irreversible === true, timeoutSeconds: action.timeoutSeconds || 60, hosts: Object.freeze({ live: Object.freeze([...(action.hosts?.live || [])]), test: Object.freeze([...(action.hosts?.test || [])]) }), country: manifest.country })))),
+    providerTools: Object.freeze(tools.filter((tool) => tool.access === 'write' && tool.providerCalls === true).map((tool) => tool.name)),
+    addressTools: Object.freeze(tools.filter((tool) => tool.clientAddress === true).map((tool) => tool.name)),
     owners: new Map(tools.map((tool) => [tool.name, tool.country])),
   });
 }
@@ -54,6 +58,8 @@ export const ENGINE_READ_TOOLS = TABLES.readTools;
 export const ENGINE_WRITE_TOOLS = TABLES.writeTools;
 export const ENGINE_RULE_FAMILIES = TABLES.ruleFamilies;
 export const ENGINE_EXTERNAL_ACTIONS = TABLES.externalActions;
+export const ENGINE_PROVIDER_TOOLS = TABLES.providerTools;
+export const ENGINE_ADDRESS_TOOLS = TABLES.addressTools;
 
 export function engineToolOwner(toolName) {
   return TABLES.owners.get(String(toolName || '')) || '';
@@ -102,6 +108,10 @@ export function manifestProblems(manifests = MANIFESTS, countryCodes = []) {
       if (typeof tool.title !== 'string' || !tool.title.trim()) problems.push(`${at}: a title is required.`);
       if (typeof tool.description !== 'string' || tool.description.trim().length < 20) problems.push(`${at}: a description the assistant can choose by is required.`);
       if (!TOOL_ACCESS.includes(tool.access)) problems.push(`${at}: access is read or write.`);
+      if (tool.providerCalls !== undefined && (tool.providerCalls !== true || tool.access !== 'write')) problems.push(`${at}: providerCalls is true on a write tool whose confirm reaches a government or provider; reads run with provider calls off.`);
+      if (tool.providerCalls === true && !(manifest.externalActions || []).length) problems.push(`${at}: a tool that reaches a provider needs the manifest to declare its externalActions.`);
+      if (tool.clientAddress !== undefined && tool.clientAddress !== true) problems.push(`${at}: clientAddress is true or left out.`);
+      if (tool.clientAddress === true && !Object.hasOwn(tool.schema?.properties || {}, 'device')) problems.push(`${at}: a tool given the client address takes a device argument.`);
       if (!tool.schema || tool.schema.type !== 'object' || tool.schema.additionalProperties !== false || typeof tool.schema.properties !== 'object') problems.push(`${at}: the schema is an object schema with additionalProperties false and its properties listed.`);
       else for (const key of tool.schema.required || []) if (!Object.hasOwn(tool.schema.properties, key)) problems.push(`${at}: required argument ${key} is not among the properties.`);
     }
