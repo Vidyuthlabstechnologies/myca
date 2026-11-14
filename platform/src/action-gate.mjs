@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { ENGINE_EXTERNAL_ACTIONS } from './countries/manifests.mjs';
-import { channelPullsEnabled, liveCallsEnabled, loadEnvFile, mockModeEnabled, testModeEnabled } from './runtime-config.mjs';
+import { channelPullsEnabled, liveCallsEnabled, loadEnvFile, mockModeEnabled, productionCallsEnabled, testModeEnabled } from './runtime-config.mjs';
 import { appendAuditEvent, stateDigest } from './ca-api.mjs';
 import { normalizeClientId } from './books.mjs';
 import { BOOK_KEYS } from './book-view.mjs';
@@ -135,19 +135,35 @@ function allowedHosts(item) {
   return testModeEnabled() ? item.hosts.test : item.hosts.live;
 }
 
+function plainHttpsTarget(url, hosts) {
+  let target;
+  try {
+    target = new URL(String(url));
+  } catch {
+    throw new Error('ENGINE_URL_UNREADABLE');
+  }
+  if (target.protocol !== 'https:' || target.port || target.username || target.password) throw new Error('ENGINE_URL_NOT_PLAIN_HTTPS');
+  if (!hosts.includes(target.hostname)) throw new Error(`ENGINE_HOST_NOT_ALLOWED:${target.hostname}`);
+  return target;
+}
+
 const HTTPS_TRANSPORT = Object.freeze({
   request: (ctx) => async (url, init = {}) => {
-    let target;
-    try {
-      target = new URL(String(url));
-    } catch {
-      throw new Error('ENGINE_URL_UNREADABLE');
-    }
-    if (target.protocol !== 'https:' || target.port || target.username || target.password) throw new Error('ENGINE_URL_NOT_PLAIN_HTTPS');
-    if (!allowedHosts(externalActionClass(ctx.actionId)).includes(target.hostname)) throw new Error(`ENGINE_HOST_NOT_ALLOWED:${target.hostname}`);
+    const target = plainHttpsTarget(url, allowedHosts(externalActionClass(ctx.actionId)));
     return getChannelClient().fetchFn(target.toString(), { ...init, redirect: 'error', signal: init.signal ? AbortSignal.any([init.signal, ctx.signal]) : ctx.signal });
   },
 });
+
+function simulatedTransports(item, simulator) {
+  return () => Object.freeze({
+    https: Object.freeze({
+      request: async (url, init = {}) => {
+        const target = plainHttpsTarget(url, item.hosts ? item.hosts.test : []);
+        return simulator(target.toString(), { ...init, redirect: 'error' });
+      },
+    }),
+  });
+}
 
 function transportOptions(ctx) {
   return { mock: false, signal: ctx.signal };
@@ -494,7 +510,7 @@ function deadlineFor(item, requested) {
   return Number.isFinite(asked) && asked > 0 ? Math.min(item.timeoutMs, Math.ceil(asked)) : item.timeoutMs;
 }
 
-async function runWithDeadline(action, execute, timeoutMs) {
+async function runWithDeadline(action, execute, timeoutMs, transportsFor = (ctx) => scopedTransports(action.entry.uses, ctx)) {
   const controller = new AbortController();
   const ctx = Object.freeze({
     actionId: action.actionId,
@@ -510,7 +526,7 @@ async function runWithDeadline(action, execute, timeoutMs) {
       resolve({ ok: false, error: 'EXTERNAL_TIMEOUT', outcomeUnknown: true });
     }, timeoutMs);
   });
-  const attempt = (async () => execute(scopedTransports(action.entry.uses, ctx), ctx))()
+  const attempt = (async () => execute(transportsFor(ctx), ctx))()
     .then((result) => (isRecord(result) ? result : { ok: false, error: 'INVALID_TRANSPORT_RESULT' }))
     .catch((err) => ({ ok: false, error: errorText(err) }));
   try {
@@ -555,6 +571,15 @@ export async function performExternalAction(state, request = {}, execute) {
   }
 
   if (mockModeEnabled()) return runFixture(action, request.fixture);
+
+  if (typeof request.simulator === 'function') {
+    if (productionCallsEnabled() || item.family !== ENGINE_ACTION_FAMILY || !item.hosts || !item.hosts.test.length) return refusal(action, 'SIMULATOR_NOT_ALLOWED', { hint: 'A simulated provider answers only for a country engine action with a test host, and never while production calls are on.' });
+    const beforeHash = stateDigest(state);
+    const simulated = await runWithDeadline(action, execute, deadlineFor(item, request.timeoutMs), simulatedTransports(item, request.simulator));
+    const tagged = isRecord(simulated) ? { ...simulated, simulated: true } : { ok: false, error: 'INVALID_TRANSPORT_RESULT', simulated: true };
+    recordAudit(action, { beforeHash, result: tagged, extra: { simulated: true, caApprovalRequired: false } });
+    return tagged;
+  }
 
   const pullAllowed = item.family === 'channel' && item.actionClass === 'read' && channelPullsEnabled();
   if (!liveCallsEnabled() && !pullAllowed && !item.local) return recordDryRun(action, request.payload ?? params);
