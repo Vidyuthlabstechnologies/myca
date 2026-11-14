@@ -158,8 +158,8 @@ class UaeStrings {
   String get problemsToFix => _('Fix these before it can be issued', 'أصلح ما يلي قبل الإصدار');
   String get issueSandbox => _('Issue in the sandbox', 'أصدرها في بيئة الاختبار');
   String get sandboxNote => _(
-    'Sandbox: the e-invoice goes to a test Accredited Service Provider. It is not a real tax invoice and nothing reaches the FTA.',
-    'بيئة اختبار: تُرسل الفاتورة الإلكترونية إلى مزوّد خدمة معتمد تجريبي. ليست فاتورة ضريبية حقيقية ولا يصل شيء إلى الهيئة.',
+    'Sandbox: MyCA checks the e-invoice and records it here. It is not sent to any Accredited Service Provider, it is not a real tax invoice and nothing reaches the FTA.',
+    'بيئة اختبار: يفحص MyCA الفاتورة الإلكترونية ويسجّلها هنا. لا تُرسل إلى أي مزوّد خدمة معتمد، وليست فاتورة ضريبية حقيقية ولا يصل شيء إلى الهيئة.',
   );
   String get issued => _('Issued in the sandbox', 'صدرت في بيئة الاختبار');
   String get totalWithVat => _('Total with VAT', 'الإجمالي شاملًا الضريبة');

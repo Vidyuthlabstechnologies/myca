@@ -257,7 +257,7 @@ export function planUsTaxForm(state, args = {}) {
   if (hasTransactions) {
     const local = [];
     fields.transactions = coerceFields(kind, { transactions: args.fields.transactions }, local).transactions;
-    problems.push(...local);
+    problems.push(...local.filter((problem) => problem.startsWith('Sale ')));
   }
   if (kind === 'W-2' && fields.wages > 0 && fields.federalWithheld > fields.wages) problems.push('Federal tax withheld is more than the wages.');
   if (problems.length) return fail('US_TAX_FORM_INVALID', { problems });

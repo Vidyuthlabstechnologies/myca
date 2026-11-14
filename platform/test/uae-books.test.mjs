@@ -182,7 +182,7 @@ test('the VAT 201 is filled from the books: sales by emirate, credit notes, purc
   assert.equal(boxes['3'].vat, 100);
   assert.equal(boxes['4'].net, 3000);
   assert.equal(boxes['5'].net, 500);
-  assert.equal(boxes['9'].net, 6400);
+  assert.equal(boxes['9'].net, 6000, 'the blocked dinner stays out of box 9');
   assert.equal(boxes['9'].vat, 300);
   assert.equal(boxes['10'].vat, 100);
   assert.equal(filed.data.totalDue, 750);

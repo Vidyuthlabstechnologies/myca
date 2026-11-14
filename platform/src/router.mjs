@@ -33,6 +33,8 @@ import { amendmentWords } from './invoice-amendments.mjs';
 import { scheduleSeWords } from './us-se-tax.mjs';
 import { usReturnWords } from './us-return.mjs';
 import { usPlanningWords } from './us-planning.mjs';
+import { usRefundBoostWords } from './us-refund-boost.mjs';
+import { usBrokerageCsvWords } from './us-brokerage-import.mjs';
 import { cpaPackWords } from './us-cpa-pack.mjs';
 import { payrollFileWords } from './us-payroll-files.mjs';
 import { chooseTool, modelConfigured } from './model-adapter.mjs';
@@ -589,6 +591,8 @@ function fmtToolResultCore(name, result, args) {
   if (name === 'list_amendments' && result.data) return result.data.count ? `Amendments:\n${result.data.amendments.map((a) => `· ${a.id} ${a.date}: ${a.invoiceId} (${a.originalPeriod}) ${money(a.before)} → ${money(a.after)}, in GSTR-1 ${a.period}, ${a.reason}`).join('\n')}` : 'No invoice has been amended.';
   if (name === 'schedule_se' && result.data) return scheduleSeWords(result.data, money);
   if (['us_withholding_check', 'us_estimated_payments', 'us_supported_forms'].includes(name) && result.data) return usPlanningWords(name, result.data);
+  if (name === 'us_refund_boost' && result.data) return usRefundBoostWords(result.data);
+  if (name === 'us_brokerage_csv' && result.data) return usBrokerageCsvWords(result.data);
   if (['us_return_status', 'us_return_review', 'us_tax_estimate', 'list_us_tax_forms', 'us_interview'].includes(name) && result.data) return usReturnWords(name, result.data, money);
   if (name === 'schedule_c_document' && result.data) return `Schedule C ${result.data.year}: net profit ${money(result.data.netProfit)}${result.data.selfEmploymentTax != null ? `, self-employment tax ${money(result.data.selfEmploymentTax)}` : ''}. Saved as ${result.data.fileName} from the Federal and owner taxes screen.`;
   if (name === 'cpa_pack' && result.data) return cpaPackWords(result.data, money);

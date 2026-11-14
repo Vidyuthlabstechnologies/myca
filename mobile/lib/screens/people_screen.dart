@@ -239,7 +239,7 @@ class _PeopleScreenState extends State<PeopleScreen> {
               if (_error.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 12),
-                  child: Text(_error, style: const TextStyle(color: Palette.danger, fontWeight: FontWeight.w500)),
+                  child: Text(_error, style: TextStyle(color: paletteOf(context).danger, fontWeight: FontWeight.w500)),
                 ),
               const SectionLabel('In this business'),
               Panel(
@@ -363,7 +363,7 @@ class _InviteSheetState extends State<_InviteSheet> {
                   ChoiceChip(
                     label: Text(roleLabel(role)),
                     selected: _role == role,
-                    selectedColor: Palette.sunken,
+                    selectedColor: paletteOf(context).sunken,
                     showCheckmark: false,
                     onSelected: (_) => setState(() => _role = role),
                   ),
@@ -373,7 +373,7 @@ class _InviteSheetState extends State<_InviteSheet> {
             Text(_roleWords(context, _role), style: text.bodyMedium),
             if (_error.isNotEmpty) ...[
               const SizedBox(height: 10),
-              Text(_error, style: const TextStyle(color: Palette.danger, fontWeight: FontWeight.w500)),
+              Text(_error, style: TextStyle(color: paletteOf(context).danger, fontWeight: FontWeight.w500)),
             ],
             const SizedBox(height: 18),
             FilledButton(onPressed: _busy ? null : _send, child: Text(_busy ? 'Inviting…' : 'Invite')),

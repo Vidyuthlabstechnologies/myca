@@ -61,6 +61,7 @@ What must be true by about 20 January 2027:
 - [ ] The US Play app created and the US listing done (owner, see below).
 - [ ] A US CPA or EA attests the tax year 2026 rule records (owner signs the partner; Column Tax's own
       return engine is the one the IRS receives, so this mainly protects MyCA's estimate).
+- [ ] Fill the bracketed blanks in `deploy/public/us/terms.html` and `us/refunds.html` and in the US notice, then remove their `noindex` line (and `renderUsPrivacy`'s in `deploy/seo/build.mjs`) and add `us/privacy`, `us/terms`, `us/refunds` back to `renderSitemap`.
 - [ ] Privacy notice names the US company as controller, with a real contact. The US notice
       (`us-draft-2026-11-14.2`) already describes the partner route and US hosting; three bracketed
       blanks remain: the US company, the partner's name, and the privacy contact. The IRC 7216 consent

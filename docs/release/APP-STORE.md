@@ -29,6 +29,54 @@ submitting.
   registered; build with `MYCA_OIDC_CLIENT_ID` and register
   `com.mldynamic.myca://oidc` as a redirect URI at the provider.
 
+## 2a. Sign in with Apple (MyCA US on iOS, guideline 4.8)
+
+MyCA US offers Google sign-in, so guideline 4.8 needs an equivalent login that limits
+data to name and email, lets the person hide their email and does not track. Sign in
+with Apple is built (2026-11-14): the black "Continue with Apple" button sits above
+Google on the iOS sign-in screen of the US app, and `POST /v1/auth/apple`
+(`cloud/src/apple.mjs`) checks Apple's identity token: issuer
+`https://appleid.apple.com`, Apple's keys at `https://appleid.apple.com/auth/keys`, an
+accepted audience, and a nonce that is the SHA-256 of a fresh random value the app
+made for that one sign-in. The US build adds the entitlement
+`com.apple.developer.applesignin` (`mobile/ios/Runner/RunnerUS.entitlements`, set by
+the `app: us` step of *Build iOS app*). It is off until the owner does this:
+
+1. Certificates, Identifiers & Profiles: open the App ID `com.mldynamic.myca.us`, tick
+   **Sign in with Apple** (as a primary App ID) and save.
+2. Regenerate the App Store provisioning profile for `com.mldynamic.myca.us` so it
+   carries the capability, and replace `APPLE_PROVISIONING_PROFILE_BASE64_US`. A
+   signed US build fails with an entitlement error until this is done; the unsigned
+   build is not affected.
+3. On the US hosted service set `MYCA_APPLE_CLIENT_IDS=com.mldynamic.myca.us`
+   (Terraform `apple_client_ids`). Without it `GET /v1/auth/methods` says
+   `apple: false` and the app hides the button.
+4. Private relay email: in Certificates, Identifiers & Profiles → Services → Sign in
+   with Apple for Email Communication, register the domain MyCA sends from (and its
+   SPF/DKIM) if MyCA will ever email a relay address. MyCA sends no email to users
+   today, so this can wait.
+5. Only if a web or Android flow is wanted later: create a **Services ID** (for
+   example `com.mldynamic.myca.us.web`), configure its domain and return URL, create a
+   Sign in with Apple **key** (`.p8`) and keep it in Secret Manager, then add the
+   Services ID to `MYCA_APPLE_CLIENT_IDS`. The Android app hides the button until such
+   a flow exists (`appleSignInOffered` in `mobile/lib/cloud/apple_auth.dart`).
+
+Account deletion and token revocation: Apple asks apps to revoke Apple tokens with the
+REST API when an account is deleted. MyCA never exchanges Apple's authorization code,
+so it holds no Apple access or refresh token and there is nothing to revoke; only
+Apple's stable user id (`oidc_issuer`/`oidc_sub`) and the verified email are stored.
+`DELETE /v1/me` works the same for Apple users (tested in `cloud/test/apple.test.mjs`):
+the account is closed at once and erased after the grace period, and signing in with
+Apple afterwards starts a new account. If a Services ID key is ever added and refresh
+tokens are kept, add a call to `https://appleid.apple.com/auth/revoke` to the deletion.
+
+The name Apple shares arrives only on the first authorization and only on the device;
+the app sends it with that sign-in and the server keeps it if the account has no name.
+Later sign-ins may carry no email; the stored one is kept.
+
+For review, the demo account stays a phone number with a fixed code; the reviewer can
+also use their own Apple ID once step 3 is done.
+
 ## 3. Signing and TestFlight
 
 The workflow `.github/workflows/build-ios.yml` signs and uploads to TestFlight on its own
@@ -79,9 +127,9 @@ Answer the same way as the Play Data safety form.
 
 Tracking: none. No advertising or analytics SDK. Third parties: the model provider
 (document image or text, chat text) and the SMS provider (phone number) as in the
-privacy policy; Apple's own sign-in is not offered. If Sign in with Apple is ever
-required because Google sign-in is on, add it then; today Google sign-in is only
-offered when the hosted service enables it, alongside phone and the firm's provider.
+privacy policy. In the India app Apple's own sign-in is not offered. MyCA US on iOS
+offers Sign in with Apple beside Google (section 2a), so the email Apple gives may be a
+private relay address; it is collected for sign-in only, like the Google email.
 
 Permissions and their strings (`Info.plist`): camera and photo library for reading a
 bill or receipt; Face ID for the app lock. Notifications are asked for once, for a
@@ -116,6 +164,8 @@ Home, a customer thread with a preview, Taxes, the GST review, Payroll and Repor
 
 - Apple Developer Program enrolment and the yearly fee.
 - The iOS Google OAuth client and the two placeholder values in `Info.plist`.
+- Sign in with Apple for MyCA US: the capability on the App ID, the regenerated US
+  profile and `MYCA_APPLE_CLIENT_IDS` (section 2a).
 - Signing certificate, archive, TestFlight and the review submission from a Mac.
 - Running the app on a real iPhone once before TestFlight; it has only been built in
   CI.

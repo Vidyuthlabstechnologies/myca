@@ -95,6 +95,11 @@ requests; this file records what they established and what still blocks a real f
   (Schedule E, 2441, 8962, 8995-A, and 2210 with `required: false` because the IRS can bill the
   penalty). 1040-NR is not detected: the return has no residency input yet.
   Source: `platform/src/us-1040.mjs` (US engine pull request #223)
+- The minimum QBI deduction for active trades or businesses from tax year 2026 (IRC 199A(i), added
+  by Public Law 119-21). The engine flags it as `QBI minimum deduction` with `required: false`
+  (code `QBI_MINIMUM_NOT_APPLIED`) whenever a 2026 return has positive QBI, because leaving it out
+  can only make the deduction smaller, never overstate it. Building it needs a material
+  participation answer and the indexed figures in a rule record.
 
 ## Engine edge cases checked (2026-11-14)
 

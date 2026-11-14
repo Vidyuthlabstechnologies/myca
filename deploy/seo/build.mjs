@@ -1,6 +1,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { PRIVACY_NOTICE_US } from '../../cloud/src/consent.mjs';
 import { EARLY_ACCESS_ACTION, GUIDE_INDEX, ORIGIN, PAGES, PLAY_ID, US_FORMS } from './pages.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -64,9 +65,11 @@ ${body}
     </div>
     <ul>
       <li><a href="/guides">Guides</a></li>
-      <li><a href="/privacy">Privacy</a></li>
+      <li><a href="${edition === 'us' ? '/us/privacy' : '/privacy'}">Privacy</a></li>
       <li><a href="/delete-account">Delete your account</a></li>
-${edition === 'us' ? '' : `      <li><a href="/terms">Terms</a></li>
+${edition === 'us' ? `      <li><a href="/us/terms">Terms</a></li>
+      <li><a href="/us/refunds">Refunds</a></li>
+` : `      <li><a href="/terms">Terms</a></li>
       <li><a href="/refunds">Refunds</a></li>
       <li><a href="/disclaimer">Disclaimer</a></li>
       <li><a href="/grievance">Grievance Officer</a></li>
@@ -237,12 +240,25 @@ export function renderInvite() {
   return shell({ path: 'invite', title: 'You were invited to MyCA', description: 'Someone you know invited you to MyCA. Get the app and enter their invite code after you sign in.', body, ld: [] }).replace('<meta name="theme-color"', '<meta name="robots" content="noindex">\n<meta name="theme-color"');
 }
 
+export function renderUsPrivacy(notice = PRIVACY_NOTICE_US) {
+  const body = `
+  <section class="block">
+    <div class="wrap prose">
+      <h1>${escape(notice.title)}</h1>
+${notice.status ? `      <p class="note">${escape(notice.status)}</p>\n` : ''}      <p class="fine">Version ${escape(notice.version)}. The same notice is shown in the MyCA US app before you sign in.</p>
+${notice.sections.map((section) => `      <h2>${escape(section.heading)}</h2>\n${String(section.body).split(/\n\s*\n/).map((para) => `      <p>${escape(para.trim())}</p>`).join('\n')}`).join('\n')}
+    </div>
+  </section>`;
+  return shell({ path: 'us/privacy', title: 'MyCA US privacy notice', description: 'How MyCA US collects, uses, shares and protects your tax information, including your Social Security number, and the choices and rights you have.', body, ld: [], edition: 'us' }).replace('<meta name="theme-color"', '<meta name="robots" content="noindex">\n<meta name="theme-color"');
+}
+
 export function outputs() {
   const files = {
     'invite.html': renderInvite(),
     'guides.html': renderGuides(),
     'sitemap.xml': renderSitemap(),
     'robots.txt': renderRobots(),
+    'us/privacy.html': renderUsPrivacy(),
   };
   for (const page of PAGES) files[`${page.slug}.html`] = renderPage(page);
   return files;

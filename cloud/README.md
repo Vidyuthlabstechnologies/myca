@@ -106,7 +106,15 @@ tokens the API accepts; set it to the web client id the app passes as
 `POST /v1/auth/oidc` for any OpenID Connect issuer (a firm's Keycloak, Azure AD or
 Okta): the issuer's keys are found through its discovery document, or at
 `MYCA_OIDC_JWKS_URL` when given, and `GET /v1/auth/methods` names the issuer so the app
-can show the button. `MYCA_DOCUMENT_BUCKET` names a Cloud Storage bucket; when set,
+can show the button. `MYCA_APPLE_CLIENT_IDS` turns on `POST /v1/auth/apple`
+(`src/apple.mjs`): the identity token is checked against Apple's keys at
+`https://appleid.apple.com/auth/keys`, issuer `https://appleid.apple.com`, one of the listed
+audiences, and a nonce that must be the SHA-256 hex of the `rawNonce` the app sends with it.
+The account is keyed by Apple's subject (stored as `oidc_issuer`/`oidc_sub`); Apple's
+verified email, often a private relay address, is kept when given and never cleared when a
+later token leaves it out, and `fullName` (sent by the app on the first sign-in only) fills
+an empty name. MyCA keeps no Apple refresh token, so there is nothing to revoke at Apple
+when `DELETE /v1/me` runs. `MYCA_DOCUMENT_BUCKET` names a Cloud Storage bucket; when set,
 uploaded document bytes go there under `businesses/<id>/<sha256>` with the Cloud Run
 service account's token from the metadata server, and Postgres keeps only the index
 row (`location = 'gcs'`). Without it the bytes stay in Postgres, as they do in tests. `MYCA_DEV_OTP=1` prints phone sign-in codes to the
@@ -346,6 +354,7 @@ The server logs one `startup: services` line listing which optional services are
 | `MYCA_BODY_BUDGET_BYTES` | no | from memory limit | no | Total bytes of request bodies held at once. |
 | `MYCA_GOOGLE_CLIENT_IDS` | for Google sign-in | | no | Comma list of accepted OAuth client ids (web + Android). |
 | `MYCA_OIDC_ISSUER`, `MYCA_OIDC_CLIENT_IDS`, `MYCA_OIDC_JWKS_URL` | for OIDC sign-in | | no | A firm's identity provider. |
+| `MYCA_APPLE_CLIENT_IDS` | for Sign in with Apple (US iOS app) | | no | Comma list of accepted audiences: the bundle id `com.mldynamic.myca.us`, plus a Services ID if a web flow is added. Off when unset. |
 | `MYCA_SMS_PROVIDER` | for phone sign-in | | no | `twilio`, `msg91` or `whatsapp`. |
 | `MYCA_SMS_TWILIO_SID`, `MYCA_SMS_TWILIO_TOKEN`, `MYCA_SMS_TWILIO_FROM` | with twilio | | token yes | Twilio sender. |
 | `MYCA_SMS_MSG91_AUTHKEY`, `MYCA_SMS_MSG91_TEMPLATE_ID` | with msg91 | | authkey yes | MSG91 sender. |

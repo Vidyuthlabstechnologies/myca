@@ -28,12 +28,12 @@ class RulesStatusNote extends StatelessWidget {
               for (final family in rules.attention)
                 Padding(
                   padding: const EdgeInsets.only(top: 4),
-                  child: Text('Needs an update: $family', style: text.bodyMedium?.copyWith(color: Palette.warn)),
+                  child: Text('Needs an update: $family', style: text.bodyMedium?.copyWith(color: paletteOf(context).warn)),
                 ),
               for (final note in rules.notes)
                 Padding(
                   padding: const EdgeInsets.only(top: 4),
-                  child: Text(note, style: text.bodySmall?.copyWith(color: Palette.muted)),
+                  child: Text(note, style: text.bodySmall?.copyWith(color: paletteOf(context).muted)),
                 ),
             ],
           ),
@@ -60,23 +60,24 @@ class TintTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final glyph = mark;
+    final p = paletteOf(context);
     return Container(
       width: size,
       height: size,
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: glyph == null ? Palette.sunken : Palette.surface,
+        color: glyph == null ? p.sunken : p.surface,
         borderRadius: BorderRadius.circular(
           glyph == null ? size : radiusControl,
         ),
-        border: glyph == null ? null : Border.all(color: Palette.line),
+        border: glyph == null ? null : Border.all(color: p.line),
       ),
       child: glyph != null
-          ? MarkIcon(mark: glyph, color: tint.stroke, size: size * 0.55)
+          ? MarkIcon(mark: glyph, color: toneOf(context, tint.stroke), size: size * 0.55)
           : Text(
               letter ?? '',
               style: TextStyle(
-                color: Palette.ink,
+                color: p.ink,
                 fontSize: size * 0.4,
                 fontWeight: FontWeight.w500,
               ),
@@ -95,9 +96,9 @@ class Panel extends StatelessWidget {
     return Container(
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
-        color: Palette.surface,
+        color: paletteOf(context).surface,
         borderRadius: BorderRadius.circular(radiusCard),
-        border: Border.all(color: Palette.line),
+        border: Border.all(color: paletteOf(context).line),
       ),
       child: Column(
         children: [
@@ -134,7 +135,7 @@ class RowCard extends StatelessWidget {
     final text = Theme.of(context).textTheme;
     final big = MediaQuery.textScalerOf(context).scale(14) / 14 > 1.3;
     return Material(
-      color: Palette.surface,
+      color: paletteOf(context).surface,
       child: InkWell(
         onTap: onTap,
         child: Padding(
@@ -228,7 +229,7 @@ class Chevron extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) =>
-      const Icon(Icons.chevron_right, color: Palette.faint, size: 20);
+      Icon(Icons.chevron_right, color: paletteOf(context).faint, size: 20);
 }
 
 class SectionLabel extends StatelessWidget {
@@ -459,9 +460,9 @@ class ProposalBar extends StatelessWidget {
     return SafeArea(
       top: false,
       child: Container(
-        decoration: const BoxDecoration(
-          color: Palette.surface,
-          border: Border(top: BorderSide(color: Palette.line)),
+        decoration: BoxDecoration(
+          color: paletteOf(context).surface,
+          border: Border(top: BorderSide(color: paletteOf(context).line)),
         ),
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
         child: Row(

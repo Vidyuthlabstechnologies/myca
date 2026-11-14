@@ -60,6 +60,8 @@ export const REMOTE_QUERY_TOOLS = new Set([
   'us_return_review',
   'us_form_kinds',
   'us_supported_forms',
+  'us_brokerage_csv',
+  'us_refund_boost',
   'us_withholding_check',
   'us_estimated_payments',
   'read_irs_letter',
@@ -118,7 +120,7 @@ export const REMOTE_QUERY_TOOLS = new Set([
   'search_tan', 'lookup_ifsc', 'verify_bank_account', 'mca_company', 'gstins_for_pan',
 ]);
 
-export const COMPANY_PROFILE_FIELDS = ['name', 'gstin', 'pan', 'state', 'address', 'city', 'pin', 'entityType', 'invoiceNumbering', 'invoiceTemplate'];
+export const COMPANY_PROFILE_FIELDS = ['name', 'gstin', 'pan', 'state', 'address', 'city', 'pin', 'entityType', 'invoiceNumbering', 'invoiceTemplate', 'composition', 'lutNumber'];
 
 export function isRemoteQuery(name) {
   return REMOTE_QUERY_TOOLS.has(String(name));

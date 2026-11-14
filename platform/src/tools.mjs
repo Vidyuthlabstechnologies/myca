@@ -1,3 +1,5 @@
+import { usBrokerageCsv } from './us-brokerage-import.mjs';
+import { usRefundBoost } from './us-refund-boost.mjs';
 import { tally, bank, gstin, filing, audit } from './sprint-load.mjs';
 import { invoiceTemplate, setInvoiceTemplate } from './invoice-template.mjs';
 import { importSettlement, settlementStatus } from './settlements.mjs';
@@ -193,7 +195,7 @@ export const TOOLS = [
     name: 'set_company',
     title: 'Set business profile',
     description: 'Set this book\'s own business identity (name, GSTIN, PAN, state, FY, address; country and EIN before anything is posted). Affects future postings only; history is untouched.',
-    args: ['name', 'gstin', 'pan', 'state', 'fy', 'address', 'city', 'pin', 'entityType', 'country', 'ein', 'invoiceNumbering'],
+    args: ['name', 'gstin', 'pan', 'state', 'fy', 'address', 'city', 'pin', 'entityType', 'country', 'ein', 'invoiceNumbering', 'composition', 'lutNumber'],
     run: (state, args = {}) => {
       const company = state.company;
       const patch = {};
@@ -257,6 +259,13 @@ export const TOOLS = [
         const pin = String(args.pin).trim();
         if (pin && !/^\d{6}$/.test(pin)) return fail('INVALID_PIN');
         patch.pin = pin ? Number(pin) : '';
+      }
+      if (args.composition != null) {
+        if (typeof args.composition !== 'boolean') return fail('BAD_COMPOSITION', { hint: 'true or false' });
+        patch.composition = args.composition;
+      }
+      if (args.lutNumber != null) {
+        patch.lutNumber = String(args.lutNumber).trim().toUpperCase().replace(/[^A-Z0-9/-]/g, '').slice(0, 20);
       }
       Object.assign(company, patch);
       if (company.name && company.setupNeeded) delete company.setupNeeded;
@@ -625,14 +634,14 @@ export const TOOLS = [
     title: 'Credit note',
     description: 'Reduce a posted sales invoice by a credit note (goods returned, price reduced, or the whole invoice) with reversing entries. Never edits the invoice.',
     args: ['invoiceId', 'amount', 'date', 'reason'],
-    run: (state, args) => engineBooks(countryOf(state), 'create_credit_note')?.(state, args) ?? createCreditNote(state, args),
+    run: (state, args) => (engineBooks(countryOf(state), 'create_credit_note')?.(state, args) ?? createCreditNote(state, args)),
   },
   {
     name: 'cancel_invoice',
     title: 'Cancel invoice',
     description: 'Cancel a posted sales invoice by a credit note for its full value; the invoice stays in the journal and the return of its period.',
     args: ['invoiceId', 'date', 'reason'],
-    run: (state, args) => cancelInvoice(state, args),
+    run: (state, args) => (engineBooks(countryOf(state), 'cancel_invoice')?.(state, args) ?? cancelInvoice(state, args)),
   },
   {
     name: 'create_debit_note',
@@ -823,6 +832,20 @@ export const TOOLS = [
     description: 'Projects the year\'s federal tax from year-to-date pay and withholding plus the pay periods left, using the return\'s filing status, family and other income, and gives the gap, the extra to withhold each paycheck (W-4 line 4(c)) and the safe harbor. Pass filingStatus if no return is started. US only. Read-only.',
     args: ['taxYear', 'payPerPeriod', 'withheldPerPeriod', 'periodsLeft', 'ytdWages', 'ytdWithheld', 'otherIncome', 'filingStatus'],
     run: (state, args = {}) => usWithholdingCheck(state, args),
+  },
+  {
+    name: 'us_brokerage_csv',
+    title: 'Read a brokerage or crypto CSV',
+    description: 'Reads a broker 1099-B or Form 8949 CSV export (Schwab, Fidelity, Robinhood, Koinly, CoinTracker and similar) or an exchange trade history (Coinbase-style buys and sells, matched first in, first out) into 1099-B sales ready for add_us_tax_form, with short- and long-term totals and rows it could not read. US only. Read-only.',
+    args: ['csv', 'taxYear', 'payer'],
+    run: (state, args = {}) => usBrokerageCsv(state, args),
+  },
+  {
+    name: 'us_refund_boost',
+    title: 'Find more US refund',
+    description: 'Checks the started return for common deductions, credits and filing-status choices it does not use yet (IRA, HSA, student loan interest, educator expenses, self-employed health and retirement, tips, overtime, car loan interest, charity, medical, itemizing, head of household) and works out what each is worth by running the return again. US only. Read-only.',
+    args: ['taxYear'],
+    run: (state, args = {}) => usRefundBoost(state, args),
   },
   {
     name: 'us_estimated_payments',
