@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:myca/app_config.dart';
 import 'package:myca/app_state.dart';
+import 'package:myca/billing/store_billing.dart';
 import 'package:myca/cloud/token_store.dart';
 import 'package:myca/format.dart';
 import 'package:myca/main.dart';
@@ -456,6 +457,35 @@ void main() {
     expect(ukPlans.map((plan) => plan.productId), ['myca_uk_sole_trader_monthly', 'myca_uk_business_monthly', 'myca_uk_accountant_monthly']);
   });
 
+  testWidgets('once the UK plans open, a plan is bought in Google Play and confirmed with MyCA', (tester) async {
+    final api = GbFakeApi();
+    final store = UkFakeStore();
+    final billing = UkFakeBilling();
+    await pumpUk(tester, api, UkPlanScreen(store: store, billing: billing));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('uk.plan.notOpen')), findsNothing);
+    expect(find.text('£99.00 a month on Google Play'), findsOneWidget);
+    expect(find.byKey(const Key('uk.plan.buy.uk-accountant')), findsNothing, reason: 'only plans the server sells get a button');
+    await tester.tap(find.byKey(const Key('uk.plan.buy.uk-business')));
+    await tester.pump();
+    expect(store.bought, ['myca_uk_business_monthly:biz-1']);
+    store.controller.add([const StorePurchase(productId: 'myca_uk_business_monthly', token: 'tok-uk', state: StorePurchaseState.purchased, needsFinish: true)]);
+    await tester.pumpAndSettle();
+    expect(billing.recorded, ['myca_uk_business_monthly:tok-uk']);
+    expect(store.finished, ['tok-uk']);
+    expect(find.text('Thank you. Business is on for this business.'), findsOneWidget);
+    expect(find.textContaining('₹'), findsNothing);
+  });
+
+  testWidgets('while the UK plans are closed there is nothing to buy', (tester) async {
+    final api = GbFakeApi();
+    final store = UkFakeStore();
+    await pumpUk(tester, api, UkPlanScreen(store: store, billing: UkFakeBilling(open: false)));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('uk.plan.notOpen')), findsOneWidget);
+    expect(find.textContaining('Subscribe'), findsNothing);
+  });
+
   testWidgets('changing an amount after checking clears the declaration and needs a new check', (tester) async {
     final api = GbFakeApi();
     await pumpUk(tester, api, const UkVatReturnScreen(obligation: openObligation));
@@ -871,4 +901,57 @@ void main() {
       }
     }
   });
+}
+
+class UkFakeStore implements StoreBilling {
+  final controller = StreamController<List<StorePurchase>>.broadcast();
+  final finished = <String>[];
+  final bought = <String>[];
+
+  @override
+  Stream<List<StorePurchase>> get purchases => controller.stream;
+  @override
+  Future<bool> available() async => true;
+  @override
+  Future<Map<String, StoreProduct>> products(Set<String> ids) async => {
+        for (final id in ids) id: StoreProduct(id: id, price: id.contains('business') ? '£99.00' : '£49.00'),
+      };
+  @override
+  Future<bool> buy(String productId, String accountId) async {
+    bought.add('$productId:$accountId');
+    return true;
+  }
+
+  @override
+  Future<bool> buyOnce(String productId, String accountId) async => true;
+  @override
+  Future<void> restore(String accountId) async {}
+  @override
+  Future<void> finish(StorePurchase purchase) async => finished.add(purchase.token);
+}
+
+class UkFakeBilling implements UkPlanBilling {
+  UkFakeBilling({this.open = true});
+
+  final bool open;
+  final recorded = <String>[];
+
+  @override
+  String? get accountId => 'biz-1';
+
+  @override
+  Future<Map<String, dynamic>> plans() async => {
+        'currency': 'GBP',
+        'plans': [
+          {'id': 'uk-sole-trader', 'productId': 'myca_uk_sole_trader_monthly', 'buyable': open},
+          {'id': 'uk-business', 'productId': 'myca_uk_business_monthly', 'buyable': open},
+          {'id': 'uk-accountant', 'productId': 'myca_uk_accountant_monthly', 'buyable': false},
+        ],
+      };
+
+  @override
+  Future<String> record(String productId, String purchaseToken) async {
+    recorded.add('$productId:$purchaseToken');
+    return 'Business';
+  }
 }

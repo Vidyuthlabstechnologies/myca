@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../api/myca_api.dart';
+import '../app_state.dart';
+import '../billing/store_billing.dart';
+import '../cloud/cloud_session.dart';
+import '../screens/plan_screen.dart' show buyInApp;
 import 'uk_common.dart';
 
 class UkPlan {
@@ -37,18 +42,140 @@ const ukPlansNotOpen = 'Plans open when MyCA UK launches on Google Play. Until t
 
 const ukPlanTerms = 'Each plan has a 14-day free trial. Google Play shows the final price, including VAT, before you pay, and you can cancel any time in Google Play, Subscriptions.';
 
-class UkPlanScreen extends StatelessWidget {
-  const UkPlanScreen({super.key});
+abstract class UkPlanBilling {
+  String? get accountId;
+  Future<Map<String, dynamic>> plans();
+  Future<String> record(String productId, String purchaseToken);
+}
+
+class CloudUkPlanBilling implements UkPlanBilling {
+  CloudUkPlanBilling(this.cloud);
+
+  final CloudSession cloud;
+
+  @override
+  String? get accountId => cloud.businessId;
+
+  @override
+  Future<Map<String, dynamic>> plans() => cloud.countryPlans('GB');
+
+  @override
+  Future<String> record(String productId, String purchaseToken) async => (await cloud.recordPurchase(productId, purchaseToken)).planTitle;
+}
+
+const ukPlayFailed = 'Google Play could not open the payment. Check that you are signed in to the Play Store and try again.';
+
+class UkPlanScreen extends StatefulWidget {
+  const UkPlanScreen({super.key, this.store, this.billing});
+
+  final StoreBilling? store;
+  final UkPlanBilling? billing;
+
+  @override
+  State<UkPlanScreen> createState() => _UkPlanScreenState();
+}
+
+class _UkPlanScreenState extends State<UkPlanScreen> {
+  bool _started = false;
+  UkPlanBilling? _billing;
+  StoreBilling? _store;
+  PurchaseRecorder? _recorder;
+  Set<String> _buyable = const {};
+  Map<String, StoreProduct> _products = const {};
+  bool _buying = false;
+  String _note = '';
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_started) return;
+    _started = true;
+    final cloud = AppScope.of(context).cloud;
+    _billing = widget.billing ?? (cloud != null && cloud.ready ? CloudUkPlanBilling(cloud) : null);
+    if (_billing != null) _load();
+  }
+
+  @override
+  void dispose() {
+    _recorder?.stop();
+    super.dispose();
+  }
+
+  Future<void> _load() async {
+    final billing = _billing!;
+    try {
+      final body = await billing.plans();
+      final rows = body['plans'];
+      final buyable = <String>{
+        if (rows is List)
+          for (final row in rows)
+            if (row is Map && row['buyable'] == true && '${row['productId'] ?? ''}'.isNotEmpty) '${row['productId']}',
+      };
+      final accountId = billing.accountId;
+      final store = widget.store ?? (buyInApp ? PlayBilling() : null);
+      if (buyable.isEmpty || store == null || accountId == null || !await store.available()) return;
+      final products = await store.products(buyable);
+      _store = store;
+      _recorder = PurchaseRecorder(store: store, accepts: (id) => ukPlans.any((plan) => plan.productId == id), record: (productId, token) async => _onRecorded(await billing.record(productId, token)), onResult: _onPurchase)..start();
+      await store.restore(accountId);
+      if (mounted) {
+        setState(() {
+          _buyable = buyable;
+          _products = products;
+        });
+      }
+    } on MycaApiException catch (err) {
+      if (mounted) setState(() => _note = err.message);
+    } catch (_) {}
+  }
+
+  String _recordedTitle = '';
+
+  void _onRecorded(String title) => _recordedTitle = title;
+
+  void _onPurchase(StorePurchase purchase, Object? error) {
+    if (!mounted) return;
+    setState(() {
+      if (purchase.state != StorePurchaseState.pending) _buying = false;
+      _note = switch (purchase.state) {
+        StorePurchaseState.pending => 'Google Play is processing the payment. The plan starts as soon as it clears.',
+        StorePurchaseState.canceled => '',
+        StorePurchaseState.failed => 'Google Play did not complete the payment. Nothing was charged.',
+        StorePurchaseState.purchased => error == null ? 'Thank you. ${_recordedTitle.isEmpty ? 'The plan' : _recordedTitle} is on for this business.' : error is MycaApiException ? error.message : 'The payment went through but MyCA could not confirm it yet. It will be picked up automatically.',
+      };
+    });
+  }
+
+  Future<void> _buy(UkPlan plan) async {
+    final store = _store;
+    final accountId = _billing?.accountId;
+    if (store == null || accountId == null) return;
+    setState(() {
+      _buying = true;
+      _note = '';
+    });
+    final started = await store.buy(plan.productId, accountId).catchError((_) => false);
+    if (!started && mounted) {
+      setState(() {
+        _buying = false;
+        _note = ukPlayFailed;
+      });
+    }
+  }
+
+  bool _canBuy(UkPlan plan) => _buyable.contains(plan.productId) && _products.containsKey(plan.productId);
 
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
+    final open = ukPlans.any(_canBuy);
     return Scaffold(
       appBar: AppBar(title: const Text('Plan and billing')),
       body: ListView(
         padding: ukPagePadding,
         children: [
-          const UkCard(key: Key('uk.plan.notOpen'), children: [UkNote(ukPlansNotOpen)]),
+          if (!open) const UkCard(key: Key('uk.plan.notOpen'), children: [UkNote(ukPlansNotOpen)]),
+          if (_note.isNotEmpty) UkCard(key: const Key('uk.plan.note'), children: [UkNote(_note)]),
           const SizedBox(height: 12),
           for (final plan in ukPlans) ...[
             UkCard(
@@ -56,7 +183,7 @@ class UkPlanScreen extends StatelessWidget {
               children: [
                 Text(plan.title, style: text.titleMedium),
                 const SizedBox(height: 4),
-                Text(plan.price, style: text.headlineSmall),
+                Text(_canBuy(plan) ? '${_products[plan.productId]!.price} a month on Google Play' : plan.price, style: text.headlineSmall),
                 const SizedBox(height: 4),
                 Text(plan.forWho, style: text.bodyMedium),
                 const SizedBox(height: 8),
@@ -65,6 +192,10 @@ class UkPlanScreen extends StatelessWidget {
                     padding: const EdgeInsets.only(bottom: 4),
                     child: Text('• $line', style: text.bodyMedium),
                   ),
+                if (_canBuy(plan)) ...[
+                  const SizedBox(height: 8),
+                  FilledButton(key: Key('uk.plan.buy.${plan.id}'), onPressed: _buying ? null : () => _buy(plan), child: Text('Subscribe to ${plan.title}')),
+                ],
               ],
             ),
             const SizedBox(height: 12),

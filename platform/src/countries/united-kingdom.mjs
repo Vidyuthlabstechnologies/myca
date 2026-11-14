@@ -25,9 +25,9 @@ export const UNITED_KINGDOM = Object.freeze({
     currency: 'GBP',
     providers: Object.freeze(['play', 'stripe']),
     plans: Object.freeze([
-      Object.freeze({ id: 'uk-sole-trader', title: 'Sole Trader', kind: 'monthly', price: 49, sells: 'software', provider: 'play', playProduct: 'myca_uk_sole_trader_monthly' }),
-      Object.freeze({ id: 'uk-business', title: 'Business', kind: 'monthly', price: 99, sells: 'software', provider: 'play', playProduct: 'myca_uk_business_monthly' }),
-      Object.freeze({ id: 'uk-accountant', title: 'Accountant firm', kind: 'monthly', price: 499, sells: 'software', provider: 'play', playProduct: 'myca_uk_accountant_monthly' }),
+      Object.freeze({ id: 'uk-sole-trader', title: 'Sole Trader', kind: 'monthly', price: 49, sells: 'software', provider: 'play', playProduct: 'myca_uk_sole_trader_monthly', members: 2, features: Object.freeze(['books', 'post', 'chat', 'team', 'vat-returns', 'mtd-income-tax']) }),
+      Object.freeze({ id: 'uk-business', title: 'Business', kind: 'monthly', price: 99, sells: 'software', provider: 'play', playProduct: 'myca_uk_business_monthly', members: 5, features: Object.freeze(['books', 'post', 'chat', 'team', 'vat-returns', 'mtd-income-tax', 'connectors', 'priority-support']) }),
+      Object.freeze({ id: 'uk-accountant', title: 'Accountant firm', kind: 'monthly', price: 499, sells: 'software', provider: 'play', playProduct: 'myca_uk_accountant_monthly', members: 25, features: Object.freeze(['books', 'post', 'chat', 'team', 'vat-returns', 'mtd-income-tax', 'connectors', 'priority-support', 'agent-filing']) }),
       Object.freeze({ id: 'uk-self-assessment', title: 'Self Assessment return', kind: 'per-return', price: 149, sells: 'tax-filing', provider: 'stripe' }),
     ]),
   }),

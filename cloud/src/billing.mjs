@@ -90,6 +90,19 @@ export function countryBillingFromEnv(env = process.env) {
   }]));
 }
 
+function countryProduct(plan, own = {}) {
+  return plan.provider === 'play' ? (own.productIds || {})[plan.id] || plan.playProduct || '' : '';
+}
+
+export function countryPlan(planId) {
+  for (const pack of servedPacks()) {
+    if (OWN_BILLING.has(pack.code)) continue;
+    const plan = (pack.billing?.plans || []).find((entry) => entry.id === planId && entry.provider === 'play');
+    if (plan) return { id: plan.id, title: plan.title || plan.id, country: pack.code, limits: { invoicesPerMonth: null, members: plan.members || 1 }, features: [...(plan.features || ['books', 'post', 'chat'])] };
+  }
+  return null;
+}
+
 export function countryPlanOffers(code, overrides = {}) {
   const pack = countryPack(code);
   if (!pack || pack.status === 'planned' || OWN_BILLING.has(pack.code) || !pack.billing?.plans?.length) return null;
@@ -99,9 +112,9 @@ export function countryPlanOffers(code, overrides = {}) {
     country: pack.code,
     currency: pack.billing.currency,
     packageName: own.packageName || '',
-    opening: true,
-    buyable: false,
-    hint: COUNTRY_PLANS_NOT_OPEN,
+    opening: !own.packageName,
+    buyable: Boolean(own.packageName),
+    hint: own.packageName ? '' : COUNTRY_PLANS_NOT_OPEN,
     plans: pack.billing.plans.map((plan) => ({
       id: plan.id,
       title: plan.title || plan.id,
@@ -110,10 +123,11 @@ export function countryPlanOffers(code, overrides = {}) {
       currency: pack.billing.currency,
       provider: plan.provider,
       sells: plan.sells,
-      productId: plan.provider === 'play' ? productIds[plan.id] || plan.playProduct || '' : '',
+      productId: countryProduct(plan, own),
       placeholderProduct: plan.provider === 'play' && !productIds[plan.id],
-      buyable: false,
-      opening: true,
+      buyable: Boolean(own.packageName) && plan.provider === 'play' && Boolean(countryProduct(plan, own)),
+      opening: !own.packageName || plan.provider !== 'play',
+      ...(plan.provider === 'play' ? { members: plan.members || 1, features: [...(plan.features || [])] } : {}),
     })),
   };
 }
@@ -191,7 +205,18 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
   const usSold = () => usEnforced && usFilingOpen() === true;
   const notOpen = () => fail('US_EFILE_NOT_OPEN', { hint: US_EFILE_NOT_OPEN_HINT });
   const stripe = cardEnabled ? createStripe({ secretKey: cfg.stripe.secretKey, fetchImpl }) : null;
-  const planOfProduct = (productId) => PAID.find((plan) => cfg.productIds[plan] && cfg.productIds[plan] === productId) || null;
+  const countryProducts = new Map();
+  for (const [code, own] of Object.entries(cfg.countries || {})) {
+    if (!own?.packageName) continue;
+    const offer = countryPlanOffers(code, cfg.countries);
+    for (const plan of offer?.plans || []) if (plan.provider === 'play' && plan.productId) countryProducts.set(plan.productId, { plan: plan.id, country: code, packageName: own.packageName });
+  }
+  const countryPackages = new Set([...countryProducts.values()].map((entry) => entry.packageName));
+  const playOn = enabled || countryProducts.size > 0;
+  const planOfProduct = (productId) => PAID.find((plan) => cfg.productIds[plan] && cfg.productIds[plan] === productId) || countryProducts.get(productId)?.plan || null;
+  const planInfo = (planId) => PLANS[planId] || countryPlan(planId);
+  const isPaidPlan = (planId) => PAID.includes(planId) || [...countryProducts.values()].some((entry) => entry.plan === planId);
+  const packageOfPlan = (planId) => [...countryProducts.values()].find((entry) => entry.plan === planId)?.packageName || cfg.packageName;
   const planOpen = (planId) => planId !== 'assured' || Boolean(cfg.assuredProfessional);
   let cachedToken = { value: '', until: 0 };
 
@@ -234,8 +259,8 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
     return { ok: res.ok, status: res.status, data };
   }
 
-  async function lookup(purchaseToken) {
-    const out = await play('GET', `subscriptionsv2/tokens/${encodeURIComponent(purchaseToken)}`);
+  async function lookup(purchaseToken, packageName = cfg.packageName) {
+    const out = await play('GET', `subscriptionsv2/tokens/${encodeURIComponent(purchaseToken)}`, packageName);
     if (!out.ok) return { ok: false, status: out.status };
     const items = Array.isArray(out.data.lineItems) ? out.data.lineItems : [];
     const item = items.find((line) => planOfProduct(line.productId)) || items[0] || {};
@@ -255,7 +280,7 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
 
   async function acknowledge(found, purchaseToken) {
     if (!found.needsAck || !LIVE_STATUSES.has(found.status) || !found.productId) return;
-    const out = await play('POST', `subscriptions/${encodeURIComponent(found.productId)}/tokens/${encodeURIComponent(purchaseToken)}:acknowledge`);
+    const out = await play('POST', `subscriptions/${encodeURIComponent(found.productId)}/tokens/${encodeURIComponent(purchaseToken)}:acknowledge`, countryProducts.get(found.productId)?.packageName || cfg.packageName);
     if (!out.ok) log({ billing: 'acknowledge_failed', status: out.status });
   }
 
@@ -313,7 +338,7 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
   function replaces(before, purchaseToken, found) {
     if (!before || before.token === purchaseToken) return true;
     if (found.linkedPurchaseToken && found.linkedPurchaseToken === before.token) return true;
-    if (!(PAID.includes(before.plan) && paidUntilOf(before) > now())) return true;
+    if (!(isPaidPlan(before.plan) && paidUntilOf(before) > now())) return true;
     return LIVE_STATUSES.has(found.status) && Boolean(found.currentEnd) && (!before.currentEnd || found.currentEnd.getTime() >= new Date(before.currentEnd).getTime());
   }
 
@@ -334,10 +359,10 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
     const business = await db.query('select b.created_at as "createdAt", b.demo, b.kind, u.trial_started_at as "trialStartedAt" from businesses b left join users u on u.id = b.created_by where b.id = $1', [businessId]);
     if (business.rows[0]?.kind === 'household') {
       const plan = PLANS.household;
-      return { ok: true, enforced: enabled, plan: plan.id, planTitle: plan.title, limits: plan.limits, features: plan.features, trial: null, subscription: null, manageUrl: '', usReturn: { enforced: usSold(), filingOpen: usFilingOpen() === true, priceUsd: returnPrice(), listPriceUsd: cfg.usReturn.priceUsd, productId: cfg.usReturn.productId, checkout: checkoutKind() }, usPlus: await usPlus(businessId) };
+      return { ok: true, enforced: playOn, plan: plan.id, planTitle: plan.title, limits: plan.limits, features: plan.features, trial: null, subscription: null, manageUrl: '', usReturn: { enforced: usSold(), filingOpen: usFilingOpen() === true, priceUsd: returnPrice(), listPriceUsd: cfg.usReturn.priceUsd, productId: cfg.usReturn.productId, checkout: checkoutKind() }, usPlus: await usPlus(businessId) };
     }
     if (business.rows[0]?.demo) {
-      return { ok: true, enforced: enabled, plan: 'pro', planTitle: PLANS.pro.title, limits: PLANS.pro.limits, features: PLANS.pro.features, trial: null, demo: true, subscription: null, manageUrl: '' };
+      return { ok: true, enforced: playOn, plan: 'pro', planTitle: PLANS.pro.title, limits: PLANS.pro.limits, features: PLANS.pro.features, trial: null, demo: true, subscription: null, manageUrl: '' };
     }
     const createdAt = business.rows[0] ? new Date(business.rows[0].createdAt).getTime() : at;
     const firstBusinessAt = business.rows[0]?.trialStartedAt ? new Date(business.rows[0].trialStartedAt).getTime() : createdAt;
@@ -345,33 +370,34 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
     const sub = await row(businessId);
     const creditDays = (sub?.creditMonths || 0) * CREDIT_MONTH_DAYS;
     const paidUntil = paidUntilOf(sub);
-    const paying = Boolean(sub && PAID.includes(sub.plan) && paidUntil > at);
+    const paying = Boolean(sub && isPaidPlan(sub.plan) && paidUntil > at);
     const inTrial = !paying && at < trialEndsAt;
     const plan = paying ? sub.plan : inTrial ? 'pro' : 'lapsed';
     return {
       ok: true,
-      enforced: enabled,
+      enforced: playOn,
       plan,
-      planTitle: PLANS[plan].title,
-      limits: PLANS[plan].limits,
-      features: PLANS[plan].features,
+      planTitle: planInfo(plan).title,
+      limits: planInfo(plan).limits,
+      features: planInfo(plan).features,
       trial: inTrial ? { endsAt: new Date(trialEndsAt).toISOString(), daysLeft: Math.max(0, Math.ceil((trialEndsAt - at) / DAY_MS)) } : null,
       subscription: sub ? { provider: sub.provider, plan: sub.plan, productId: sub.productId, status: sub.status, renews: sub.status === 'active' || sub.status === 'in_grace_period', currentEnd: sub.currentEnd ? new Date(sub.currentEnd).toISOString() : null, testPurchase: sub.testPurchase, creditMonths: sub.creditMonths || 0, ...(sub.creditMonths ? { creditUntil: new Date(new Date(sub.currentEnd).getTime() + creditDays * DAY_MS).toISOString() } : {}) } : null,
-      manageUrl: sub?.provider === 'play' ? manageUrl(sub.productId) : '',
+      manageUrl: sub?.provider === 'play' ? manageUrl(sub.productId, packageOfPlan(sub.plan)) : '',
     };
   }
 
   async function allows(businessId, feature) {
-    if (!enabled) return { ok: true };
+    if (!playOn) return { ok: true };
     const got = await entitlement(businessId);
     if (got.features.includes(feature)) return { ok: true, entitlement: got };
-    const plans = cheapestWith(feature);
+    const own = countryPlan(got.plan);
+    const plans = own ? (countryPlanOffers(own.country, cfg.countries || {})?.plans || []).filter((plan) => (plan.features || []).includes(feature)).map((plan) => plan.title) : cheapestWith(feature);
     const hint = got.plan === 'lapsed' ? 'The free trial has ended, so the books are read-only: you can see and export everything. The owner can choose a plan under Plan and billing.' : `${plans.join(' or ')} includes this. The owner can upgrade under Plan and billing.`;
     return fail('PLAN_REQUIRED', { feature, plan: got.plan, hint });
   }
 
   async function withinLimit(businessId, limit, used) {
-    if (!enabled) return { ok: true };
+    if (!playOn) return { ok: true };
     const got = await entitlement(businessId);
     const cap = got.limits[limit];
     if (cap == null || used < cap) return { ok: true };
@@ -832,15 +858,16 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
     withinLimit,
 
     async verify(businessId, userId, { productId, purchaseToken } = {}) {
-      if (!enabled) return fail('BILLING_NOT_CONFIGURED', { hint: 'The operator has not set up Google Play subscriptions yet.' });
+      const country = countryProducts.get(String(productId || '')) || null;
+      if (!enabled && !country) return fail('BILLING_NOT_CONFIGURED', { hint: 'The operator has not set up Google Play subscriptions yet.' });
       const token = String(purchaseToken || '');
-      if (!planOfProduct(productId) || !token || token.length > 2000) return fail('UNKNOWN_PLAN', { products: PAID.map((p) => cfg.productIds[p]).filter(Boolean) });
+      if (!planOfProduct(productId) || !token || token.length > 2000) return fail('UNKNOWN_PLAN', { products: [...PAID.map((p) => cfg.productIds[p]).filter(Boolean), ...countryProducts.keys()] });
       if (!planOpen(planOfProduct(productId))) return fail('PLAN_NOT_OPEN', { hint: 'MyCA Assured opens once the independent professional who reviews and files your returns is named. Nothing was charged by MyCA; ask Google Play for a refund if you were.' });
       const holder = await ownerOfToken(token);
       if (holder && holder !== businessId) return fail('PURCHASE_BELONGS_TO_ANOTHER_BUSINESS', { hint: 'This Google Play subscription already pays for another business.' });
       let found;
       try {
-        found = await lookup(token);
+        found = await lookup(token, country?.packageName || cfg.packageName);
       } catch (error) {
         log({ billing: 'play_auth_failed', status: error.status || 0 });
         return fail('PROVIDER_UNAVAILABLE', { hint: 'Google Play could not be reached. Your purchase is safe; open Plan and billing again in a minute.' });
@@ -850,16 +877,16 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
       if (found.accountId && found.accountId !== businessId) return fail('PURCHASE_BELONGS_TO_ANOTHER_BUSINESS', { hint: 'This Google Play subscription was bought for another business.' });
       if (!(await save(businessId, userId, token, found))) return fail('PURCHASE_SUPERSEDED', { hint: 'This Google Play purchase was replaced by a newer subscription for this business.', entitlement: await entitlement(businessId) });
       await acknowledge(found, token);
-      await audit(businessId, userId, 'billing.subscribe', { provider: 'play', plan: found.plan, status: found.status, testPurchase: found.testPurchase });
+      await audit(businessId, userId, 'billing.subscribe', { provider: 'play', plan: found.plan, ...(country ? { country: country.country } : {}), status: found.status, testPurchase: found.testPurchase });
       return { ok: true, plan: found.plan, status: found.status, testPurchase: found.testPurchase, entitlement: await entitlement(businessId) };
     },
 
     async refreshDue() {
       const summary = { checked: 0, changed: 0, failed: 0 };
-      if (!enabled) return summary;
+      if (!playOn) return summary;
       const at = now();
       const due = await db.query(
-        `select business_id as "businessId", provider_subscription_id as "token", status, current_end as "currentEnd"
+        `select business_id as "businessId", provider_subscription_id as "token", plan, status, current_end as "currentEnd"
            from subscriptions
           where provider = 'play' and status = any($1::text[]) and current_end is not null and current_end < $2 and current_end > $3
           order by current_end limit $4`,
@@ -869,7 +896,7 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
         summary.checked += 1;
         let found;
         try {
-          found = await lookup(sub.token);
+          found = await lookup(sub.token, packageOfPlan(sub.plan));
         } catch (error) {
           summary.failed += 1;
           log({ billing: 'renewal_check_failed', businessId: sub.businessId, status: error.status || 0 });
@@ -893,7 +920,7 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
     },
 
     async notify(rawBody, givenToken, { pushVerified = false } = {}) {
-      if (!enabled || (!cfg.notifyToken && !pushVerified)) return { ok: false, statusCode: 404, error: 'NOT_FOUND' };
+      if (!playOn || (!cfg.notifyToken && !pushVerified)) return { ok: false, statusCode: 404, error: 'NOT_FOUND' };
       if (!pushVerified && !notifyTokenMatches(cfg.notifyToken, givenToken)) return { ok: false, statusCode: 401, error: 'BAD_TOKEN' };
       let message;
       let event;
@@ -903,11 +930,12 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
       } catch {
         return { ok: true, ignored: true };
       }
-      if (event.packageName !== cfg.packageName || !event.subscriptionNotification?.purchaseToken) return { ok: true, ignored: true };
+      const fromPackage = String(event.packageName || '');
+      if (!fromPackage || !((enabled && fromPackage === cfg.packageName) || countryPackages.has(fromPackage)) || !event.subscriptionNotification?.purchaseToken) return { ok: true, ignored: true };
       const token = String(event.subscriptionNotification.purchaseToken);
       let found;
       try {
-        found = await lookup(token);
+        found = await lookup(token, fromPackage);
       } catch (error) {
         log({ billing: 'play_auth_failed', status: error.status || 0 });
         return { ok: false, statusCode: 503, error: 'PROVIDER_UNAVAILABLE' };
