@@ -729,6 +729,7 @@ function fmtToolResultCore(name, result, args) {
   }
   if (name === 'eway_bill_status' && result.data) {
     const s = result.data;
+    if (!s.ewbNo && s.mockEwbNo) return `Simulated e-way bill ${s.mockEwbNo} from the sandbox; nothing reached the e-way bill portal and the goods cannot move on it.`;
     return s.ewbNo ? `E-way bill ${s.ewbNo}${s.ewbValidity ? `, valid till ${s.ewbValidity}` : ''}.` : `${s.why}${s.needed && s.transport ? ` Transport: ${transportWords(s.transport)}.` : ''}${s.needed && !s.transport ? ' Say the transport details, for example "transport for INV-0001: vehicle MH12AB1234, 120 km, transporter ABC Logistics".' : ''}`;
   }
   if (name === 'set_tds_deductor' && result.tan) {

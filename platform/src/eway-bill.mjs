@@ -91,6 +91,7 @@ export function ewayBillStatus(state, invoice) {
   const need = ewayBillNeed(state, invoice);
   const transport = invoice?.transport || null;
   const generated = Boolean(invoice?.ewbNo);
+  const simulated = !generated && Boolean(invoice?.mockEwb?.ewbNo);
   return {
     ...need,
     transport,
@@ -99,9 +100,10 @@ export function ewayBillStatus(state, invoice) {
     ewbNo: invoice?.ewbNo || '',
     ewbValidity: invoice?.ewbValidity || '',
     ...(invoice?.sandboxEwb?.ewbNo && !invoice.sandboxEwb.cancelledOn ? { sandboxEwbNo: invoice.sandboxEwb.ewbNo } : {}),
+    ...(simulated ? { mockEwbNo: invoice.mockEwb.ewbNo } : {}),
     ewbCancelled: (invoice?.ewbHistory || []).filter((item) => item.cancelledOn).map((item) => ({ ewbNo: item.ewbNo, cancelledOn: item.cancelledOn })),
     via: invoice?.irn ? 'irn' : 'invoice',
-    status: generated ? 'generated' : !need.needed ? 'not-needed' : !transport ? 'transport-needed' : 'ready',
+    status: generated ? 'generated' : simulated ? 'simulated' : !need.needed ? 'not-needed' : !transport ? 'transport-needed' : 'ready',
   };
 }
 

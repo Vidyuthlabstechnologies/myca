@@ -227,6 +227,14 @@ test('4. the e-invoice and the e-way bill come back simulated in mock mode and n
   assert.equal(ewb.body.simulated, true);
   const status = await books.query('eway_bill_status', { invoiceId: 'INV-0003' });
   assert.equal(status.needed, true);
+  assert.equal(status.status, 'simulated', 'a simulated e-way bill moves the status on');
+  assert.equal(status.ewbNo, '', 'the real e-way bill number stays empty');
+  assert.equal(status.mockEwbNo, ewb.body.data.ewbNo);
+  const again = await books.post('ewaybill', { op: 'generate', invoiceId: 'INV-0003' });
+  assert.equal(again.body.data?.ewbNo, ewb.body.data.ewbNo, 'asking again gives the same simulated number');
+  const document = await books.query('invoice_document', { id: 'INV-0001' });
+  assert.equal(document.einvoice.status, 'mock');
+  assert.ok(document.einvoice.ackDate.slice(0, 10) >= document.date, 'the simulated acknowledgement is not dated before the invoice');
   await booksBalance(owner);
 });
 
@@ -249,6 +257,28 @@ test('5. GSTR-1 and GSTR-3B for the month match the invoices, bills and credit n
   const cdnr = (json.cdnr || []).flatMap((entry) => entry.nt);
   assert.deepEqual(cdnr.map((nt) => nt.nt_num), ['CN-0001']);
   assert.equal(txval(cdnr), paise(1000));
+
+  const hsnRows = json.hsn.data || [...(json.hsn.hsn_b2b || []), ...(json.hsn.hsn_b2c || [])];
+  const hsnTotal = (pick) => hsnRows.reduce((total, row) => total + paise(pick(row)), 0);
+  assert.equal(hsnTotal((row) => row.txval), sum(sales, (i) => i.taxable) - paise(1000), 'table 12 holds every invoice less the credit note');
+  assert.equal(hsnTotal((row) => row.iamt), sum(sales, (i) => i.igst));
+  assert.equal(hsnTotal((row) => row.camt), sum(sales, (i) => i.cgst) - paise(25));
+  assert.equal(hsnTotal((row) => row.samt), sum(sales, (i) => i.sgst) - paise(25));
+  const byHsn = (code) => hsnRows.filter((row) => row.hsn_sc === code).reduce((total, row) => total + paise(row.txval), 0);
+  assert.equal(byHsn('5208'), paise(10000 + 83000 + 5000 - 1000));
+  assert.equal(byHsn('5407'), paise(2000));
+  assert.equal(byHsn('5007'), paise(60000 + 150000));
+  if (json.hsn.hsn_b2b) {
+    const registered = sales.filter((i) => i.partyGstin);
+    assert.equal(json.hsn.hsn_b2b.reduce((total, row) => total + paise(row.txval), 0), sum(registered, (i) => i.taxable) - paise(1000), 'the B2B part of table 12 holds the registered buyers');
+    assert.equal(json.hsn.hsn_b2c.reduce((total, row) => total + paise(row.txval), 0), sum(sales.filter((i) => !i.partyGstin), (i) => i.taxable), 'the B2C part holds the rest');
+  }
+  const issued = json.doc_issue.doc_det.flatMap((group) => group.docs.map((row) => ({ ...row, doc_num: group.doc_num })));
+  const invoiceSeries = issued.find((row) => row.from === 'INV-0001');
+  assert.deepEqual([invoiceSeries.to, invoiceSeries.totnum, invoiceSeries.cancel, invoiceSeries.net_issue], [sales.at(-1).id, sales.length, 0, sales.length], 'table 13 counts every invoice issued');
+  const noteSeries = issued.find((row) => row.from === 'CN-0001');
+  assert.deepEqual([noteSeries.to, noteSeries.totnum, noteSeries.net_issue], ['CN-0001', 1, 1], 'table 13 counts the credit note');
+  assert.notEqual(invoiceSeries.doc_num, noteSeries.doc_num);
   const expTxval = exp.reduce((total, inv) => total + inv.itms.reduce((t, item) => t + paise(item.txval), 0), 0);
   assert.equal(txval(b2b) + txval(b2cl) + sum(json.b2cs, (row) => row.txval) + expTxval, sum(sales, (i) => i.taxable), 'every invoice is in exactly one GSTR-1 table, at its taxable value');
 
@@ -320,6 +350,9 @@ test('6. the GST review is answered through propose and confirm, and filing in m
   const thisMonth = deadlines.deadlines.filter((d) => d.period === period && /^GSTR-(1|3B)$/.test(d.returnType));
   assert.equal(thisMonth.length, 2);
   assert.ok(thisMonth.every((d) => !d.filed && !d.arn), 'the month\'s returns are still due');
+  const earlier = deadlines.deadlines.filter((d) => d.clientId === 'SELF' && /^\d{4}-\d{2}$/.test(d.period) && d.period < period && !d.filed);
+  assert.ok(earlier.some((d) => d.level === 'before_start'), JSON.stringify(earlier));
+  assert.ok(earlier.every((d) => d.level !== 'overdue'), 'months before the books start in MyCA are not overdue');
   const filings = await books.get('gst-filings');
   assert.equal(filings.status, 200, filings.text);
   for (const row of [...filings.body.data.gstr1, ...filings.body.data.gstr3b]) assert.equal(Boolean(row.mock || row.filedMock), true, 'every portal row is marked simulated');
@@ -402,7 +435,7 @@ test('10. chat answers typical English and Hinglish questions from the books and
   assert.equal(paise(payable.toPay), paise(payable.output.total) - paise(payable.creditUsed) + paise(payable.reverseCharge.total), 'cash is the tax on sales less the credit used, plus the reverse charge tax');
   const ewb = await books.post('ask', { message: 'e-way bill status INV-0003' });
   assert.doesNotMatch(ewb.body.reply, /Say the distance/, ewb.body.reply);
-  assert.match(ewb.body.reply, /₹63,000\.00/, ewb.body.reply);
+  assert.match(ewb.body.reply, /^Simulated e-way bill \d{12} from the sandbox; nothing reached the e-way bill portal/, ewb.body.reply);
   const outstanding = (await books.snapshot()).invoices.reduce((total, i) => total + paise(i.total), 0) - paise(1050 + 5000 + 2100);
   for (const message of ['who owes me money', 'kaun paisa dena baaki hai']) {
     const out = await books.post('ask', { message });
@@ -411,7 +444,10 @@ test('10. chat answers typical English and Hinglish questions from the books and
   const file = await books.post('ask', { message: 'file my GSTR-1' });
   assert.equal(file.status, 200, file.text);
   assert.notEqual(file.body.posted, true);
-  assert.doesNotMatch(file.body.reply, /\b(?:has been|was|is now|successfully)\s+filed\b/i);
+  assert.doesNotMatch(file.body.reply, /(?<!nothing )\b(?:has been|was|is now|successfully)\s+filed\b/i);
+  assert.match(file.body.reply, /nothing was filed/);
+  assert.match(file.body.reply, /Taxes and filings/);
+  assert.match(file.body.reply, /simulated/);
   const after = await api.books(owner.businessId);
   assert.equal(after.ledger.transfers.length, before.ledger.transfers.length, 'questions post nothing');
   await booksBalance(owner);
