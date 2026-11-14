@@ -51,7 +51,11 @@ class AppState extends ChangeNotifier {
     String edition = 'IN',
     this.installationId = sessionInstallationId,
   })  : api = api ?? cloud!.api,
-        edition = edition.toUpperCase() == 'US' ? 'US' : 'IN';
+        edition = edition.toUpperCase() == 'US'
+            ? 'US'
+            : const {'GB', 'UK'}.contains(edition.toUpperCase())
+            ? 'GB'
+            : 'IN';
 
   final String edition;
   final Future<String> Function() installationId;

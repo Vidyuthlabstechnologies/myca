@@ -179,7 +179,11 @@ class _MycaAppState extends State<MycaApp> with WidgetsBindingObserver {
             scaffoldMessengerKey: _messenger,
             title: 'MyCA',
             debugShowCheckedModeBanner: false,
-            theme: widget.state.edition == 'US' ? MycaDesign.forFlavor('us').light : mycaTheme(),
+            theme: widget.state.edition == 'US'
+                ? MycaDesign.forFlavor('us').light
+                : widget.state.edition == 'GB'
+                ? MycaDesign.forFlavor('uk').light
+                : mycaTheme(),
             builder: (context, child) => ListenableBuilder(
               listenable: widget.state,
               builder: (context, _) => Stack(

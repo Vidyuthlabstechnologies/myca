@@ -33,6 +33,7 @@ import 'register_screen.dart';
 import 'sales_tax_screen.dart';
 import 'us_taxes_screen.dart';
 import 'taxes_screen.dart';
+import '../uk/uk_hub_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key, required this.snapshot});
@@ -64,6 +65,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<SupplierDues> _loadDues() async {
     if (_us) return SupplierDues.fromTool(null);
+    if (AppScope.of(context).edition == 'GB') return SupplierDues.fromTool(null);
     final state = AppScope.of(context);
     try {
       return SupplierDues.fromTool(await state.api.query('supplier_dues'));
@@ -134,6 +136,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final text = Theme.of(context).textTheme;
     final company = snapshot.company;
     final empty = snapshot.invoices.isEmpty && snapshot.purchases.isEmpty;
+    final uk = state.edition == 'GB';
     return Scaffold(
       appBar: AppBar(
         title: const Wordmark(size: 18),
@@ -204,7 +207,9 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             _AskBar(onSubmit: (text) => _open(AskScreen(first: text))),
             const SizedBox(height: 18),
-            if (company.country == 'IN')
+            if (uk)
+              UkHomePanel(onTap: () => _open(const UkHubScreen()))
+            else if (company.country == 'IN')
               FutureBuilder<Today>(
                 future: _today,
                 builder: (context, today) => _TodayPanel(
@@ -226,7 +231,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   },
                 ),
               ),
-            if (company.country != 'IN')
+            if (company.country != 'IN' && !uk)
               Padding(
                 padding: const EdgeInsets.only(top: 12),
                 child: _UsTaxesPanel(onTap: () => _open(const UsTaxesScreen())),
@@ -247,7 +252,7 @@ class _HomeScreenState extends State<HomeScreen> {
               future: _dues,
               builder: (context, snap) {
                 final dues = snap.data;
-                if (_us || dues == null || dues.msme.count == 0) return const SizedBox.shrink();
+                if (_us || uk || dues == null || dues.msme.count == 0) return const SizedBox.shrink();
                 return Padding(
                   padding: const EdgeInsets.only(top: 12),
                   child: _MsmePanel(dues: dues, onTap: () => _open(const PayBillsScreen())),

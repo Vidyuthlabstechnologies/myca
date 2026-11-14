@@ -3,6 +3,7 @@ package `in`.myca.myca
 import android.content.ContentResolver
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.provider.OpenableColumns
 import android.view.WindowManager
@@ -37,6 +38,9 @@ class MainActivity : FlutterFragmentActivity() {
                 result.notImplemented()
             }
         }
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, DEVICE_CHANNEL).setMethodCallHandler { call, result ->
+            if (call.method == "facts") result.success(deviceFacts()) else result.notImplemented()
+        }
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, SECURE_CHANNEL).setMethodCallHandler { call, result ->
             if (call.method == "set") {
                 if (call.arguments == true) {
@@ -50,6 +54,12 @@ class MainActivity : FlutterFragmentActivity() {
             }
         }
     }
+
+    private fun deviceFacts(): Map<String, String> = mapOf(
+        "osVersion" to Build.VERSION.RELEASE.orEmpty(),
+        "manufacturer" to Build.MANUFACTURER.orEmpty(),
+        "model" to Build.MODEL.orEmpty(),
+    )
 
     private fun remember(intent: Intent?) {
         if (intent == null || intent.action != Intent.ACTION_SEND) return
@@ -110,6 +120,7 @@ class MainActivity : FlutterFragmentActivity() {
     companion object {
         const val CHANNEL = "in.myca/share"
         const val SECURE_CHANNEL = "in.myca/secure"
+        const val DEVICE_CHANNEL = "in.myca/device"
         const val MAX_BYTES = 8 * 1024 * 1024
         val ACCEPTED = listOf("image/", "application/pdf", "text/")
     }

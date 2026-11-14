@@ -400,6 +400,13 @@ class FakeCloud {
         return _json(200, {'ok': true, 'business': demo, 'seeded': 12});
       }
       final gstin = '${body['gstin'] ?? ''}';
+      if (body['country'] == 'GB') {
+        company = {'name': body['name'], 'gstin': '', 'state': '', 'country': 'GB'};
+        final made = {'id': businessId, 'name': body['name'], 'gstin': '', 'role': 'owner', 'country': 'GB', 'kind': 'business'};
+        businesses.add(made);
+        createdBodies.add(Map<String, Object?>.from(body));
+        return _json(200, {'ok': true, 'business': made});
+      }
       if (body['country'] == 'US') {
         final household = body['kind'] == 'household';
         company = {'name': body['name'], 'gstin': '', 'state': '', 'country': 'US', if (household) 'entityType': 'household'};
