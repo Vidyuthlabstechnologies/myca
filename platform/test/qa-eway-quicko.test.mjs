@@ -9,7 +9,8 @@ import assert from 'node:assert/strict';
 import { createState } from '../src/store.mjs';
 import { createInvoice } from '../src/invoice.mjs';
 import { runTool } from '../src/tools.mjs';
-import { ewayBillNeed, planTransport, setTransport, transportPayload } from '../src/eway-bill.mjs';
+import { ewayBillNeed, planTransport, setTransport, transportPayload, ewayBillPartA } from '../src/eway-bill.mjs';
+import { fileGstr3bOnPortal } from '../src/gstr3b-portal.mjs';
 import { EWB_REQUEST_BUILDERS } from '../src/ewb-adapter.mjs';
 import { SandboxClient } from '../src/sandbox-client.mjs';
 import { fileGstr1OnPortal, saveGstr1ToPortal, submitGstr1OnPortal } from '../src/portal-filing.mjs';
@@ -167,4 +168,71 @@ test('a simulated GSTR-1 filing does not block the real one and is shown as simu
   const status = await runTool(state, 'portal_status', {});
   assert.equal(status.data.gstr1[0].filedMock, true);
   assert.equal((state.filings || []).length, 0);
+});
+
+test('Part A totals are the sums of the items sent, and the service value goes in otherValue', () => {
+  const state = books();
+  const invoice = sale(state, [
+    { description: 'Cloth', hsn: '5208', qty: 1, rate: 60000, gstRate: 5 },
+    { description: 'Installation', hsn: '998391', qty: 1, rate: 20000, gstRate: 18 },
+  ], { partyAddress: '7 Ring Road, Surat 395002' });
+  invoice.transport = { mode: 'road', vehicleNo: 'MH12AB1234', distanceKm: 260, transporterName: '', transporterId: '', docNo: '', setOn: '2026-09-05' };
+  const built = ewayBillPartA(state, invoice);
+  assert.equal(built.ok, true, JSON.stringify(built));
+  const a = built.partA;
+  assert.equal(a.totalValue, a.itemList.reduce((sum, item) => sum + item.taxableAmount, 0));
+  assert.equal(a.totalValue, 60000);
+  assert.equal(a.igstValue, 3000);
+  assert.equal(a.totInvValue, 86600);
+  assert.equal(a.otherValue, 23600);
+  assert.equal(a.totalValue + a.cgstValue + a.sgstValue + a.igstValue + a.cessValue + a.otherValue, a.totInvValue);
+});
+
+test('a simulated GSTR-3B acknowledgement does not block the real filing', async () => {
+  const state = books();
+  await runTool(state, 'create_invoice', { partyName: 'Kiran Stores', partyGstin: BUYER_MH, lines: [{ description: 'Cotton', hsn: '5205', qty: 1, rate: 1000, gstRate: 5 }], date: '2026-09-05' });
+  const review = await runTool(state, 'gst_review', { period: '2026-09' });
+  for (const step of review.data.steps) await runTool(state, 'gst_review_answer', { period: '2026-09', step: step.id, answer: step.id === 'approve' ? 'approve' : 'correct', draftHash: review.data.draftHash });
+  const actor = { userId: 'owner', role: 'owner' };
+  const saved3b = await withEnv({ MYCA_MOCK_MODE: '1' }, () => runTool(state, 'save_gstr3b_portal', { period: '2026-09' }));
+  assert.equal(saved3b.ok, true, JSON.stringify(saved3b));
+  await withEnv({ MYCA_MOCK_MODE: '1' }, () => runTool(state, 'offset_gstr3b_portal', { period: '2026-09' }));
+  const first = await withEnv({ MYCA_MOCK_MODE: '1' }, () => fileGstr3bOnPortal(state, { period: '2026-09', otp: '123456' }, actor));
+  assert.equal(first.ok, true, JSON.stringify(first));
+  const second = await withEnv({ MYCA_MOCK_MODE: '1' }, () => fileGstr3bOnPortal(state, { period: '2026-09', otp: '123456' }, actor));
+  assert.equal(second.ok, true, JSON.stringify(second));
+  const saved = Object.values(state.gstr3bPortal)[0];
+  saved.filedMock = false;
+  const third = await withEnv({ MYCA_MOCK_MODE: '1' }, () => fileGstr3bOnPortal(state, { period: '2026-09', otp: '123456' }, actor));
+  assert.equal(third.error, 'ALREADY_FILED');
+});
+
+test('named GST portal calls refuse an expired taxpayer session instead of sending it', async () => {
+  const sent = [];
+  const client = new SandboxClient({
+    apiKey: 'key_test_x', apiSecret: 'secret_x', baseUrl: 'https://test-api.sandbox.co.in', saved: null,
+    taxpayerToken: 'OLD-TAXPAYER', taxpayerExpiresAt: Date.now() - 1000,
+    fetchFn: async (url, init) => {
+      sent.push({ url: String(url), auth: init.headers?.authorization });
+      return new Response(JSON.stringify({ access_token: 'P', data: {} }), { status: 200 });
+    },
+  });
+  const calls = [
+    client.saveGstr1({ year: 2026, month: 9, payload: {} }),
+    client.fileGstr1({ year: 2026, month: 9, pan: 'AABCU9603R', otp: '123456', summary: {} }),
+    client.saveGstr3b({ year: 2026, month: 9, payload: {} }),
+    client.fileGstr3b({ year: 2026, month: 9, pan: 'AABCU9603R', otp: '123456', payload: {} }),
+  ];
+  for (const res of await Promise.all(calls)) assert.equal(res.error, 'PORTAL_SESSION_REQUIRED');
+  assert.equal(sent.length, 0);
+  const live = new SandboxClient({
+    apiKey: 'key_test_x', apiSecret: 'secret_x', baseUrl: 'https://test-api.sandbox.co.in', saved: null,
+    taxpayerToken: 'NEW-TAXPAYER', taxpayerExpiresAt: Date.now() + 3600000,
+    fetchFn: async (url, init) => {
+      sent.push({ url: String(url), auth: init.headers?.authorization });
+      return new Response(JSON.stringify({ data: { status_cd: '1' } }), { status: 200 });
+    },
+  });
+  assert.equal((await live.saveGstr1({ year: 2026, month: 9, payload: {} })).ok, true);
+  assert.equal(sent.at(-1).auth, 'NEW-TAXPAYER');
 });

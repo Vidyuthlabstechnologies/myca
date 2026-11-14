@@ -177,10 +177,11 @@ export function ewayBillPartA(state, invoice) {
       cessNonadvol: 0,
     };
   });
-  const taxable = round2(invoice.taxable);
-  const cgst = round2(invoice.cgst);
-  const sgst = round2(invoice.sgst);
-  const igst = round2(invoice.igst);
+  const sumOf = (field) => round2(goods.reduce((sum, line) => sum + Number(line[field] || 0), 0));
+  const taxable = sumOf('taxable');
+  const cgst = sumOf('cgst');
+  const sgst = sumOf('sgst');
+  const igst = sumOf('igst');
   const total = round2(invoice.total);
   const other = round2(total - taxable - cgst - sgst - igst);
   const fromState = stateCode(seller.Stcd);

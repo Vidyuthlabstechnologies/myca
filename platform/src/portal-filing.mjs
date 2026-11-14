@@ -304,7 +304,7 @@ export function portalWords(name, result) {
   if (name === 'portal_status') {
     const d = result.data;
     if (!d.gstr1.length && !(d.gstr3b || []).length && !d.fvu.length) return 'Nothing has been saved to the GST portal or sent for FVU yet.';
-    return [...d.gstr1.map((s) => `· GSTR-1 ${s.period} ${s.gstin}: saved ${s.savedOn}${s.filedAck ? `, filed ${s.filedOn} (${s.filedAck})` : ''}${s.mock || s.filedMock ? ' (simulated)' : ''}`), ...(d.gstr3b || []).map((s) => `· GSTR-3B ${s.period} ${s.gstin}: saved ${s.savedOn}${s.offsetOn ? `, tax set off ${s.offsetOn}` : ''}${s.filedAck ? `, filed ${s.filedOn} (${s.filedAck})` : ''}${s.mock ? ' (simulated)' : ''}`), ...d.fvu.map((j) => `· FVU ${j.form} ${j.quarter}: ${j.status}${j.mock ? ' (simulated)' : ''}`)].join('\n');
+    return [...d.gstr1.map((s) => `· GSTR-1 ${s.period} ${s.gstin}: saved ${s.savedOn}${s.filedAck ? `, filed ${s.filedOn} (${s.filedAck})` : ''}${s.mock || s.filedMock ? ' (simulated)' : ''}`), ...(d.gstr3b || []).map((s) => `· GSTR-3B ${s.period} ${s.gstin}: saved ${s.savedOn}${s.offsetOn ? `, tax set off ${s.offsetOn}` : ''}${s.filedAck ? `, filed ${s.filedOn} (${s.filedAck})` : ''}${s.mock || s.filedMock ? ' (simulated)' : ''}`), ...d.fvu.map((j) => `· FVU ${j.form} ${j.quarter}: ${j.status}${j.mock ? ' (simulated)' : ''}`)].join('\n');
   }
   return '';
 }

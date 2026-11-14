@@ -281,7 +281,7 @@ export async function requestGstr3bEvc(state, args = {}, actor) {
 export async function fileGstr3bOnPortal(state, args = {}, actor) {
   const found = foundSave(state, args);
   if (!found.ok) return found;
-  if (found.saved.filedAck) return fail('ALREADY_FILED', { ackNum: found.saved.filedAck });
+  if (found.saved.filedAck && !found.saved.filedMock) return fail('ALREADY_FILED', { ackNum: found.saved.filedAck });
   const built = sameDraft(state, found);
   if (!built.ok) return built;
   const review = approvedReview(state, found.period, found.gstin);
@@ -302,6 +302,7 @@ export async function fileGstr3bOnPortal(state, args = {}, actor) {
   }
   found.saved.filedAck = ackNum;
   found.saved.filedOn = localToday();
+  found.saved.filedMock = Boolean(out.mock);
   return { ok: true, period: found.period, gstin: found.gstin, ackNum, filing, mock: Boolean(out.mock) };
 }
 

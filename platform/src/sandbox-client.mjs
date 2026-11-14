@@ -448,18 +448,31 @@ export class SandboxClient {
     return res;
   }
 
+  taxpayerCallToken() {
+    if (!this.taxpayerToken) return this.token;
+    if (this.taxpayerExpiresAt && this.taxpayerExpiresAt < Date.now()) return false;
+    return this.taxpayerToken;
+  }
+
+  taxpayerSessionEnded() {
+    return { ok: false, error: 'PORTAL_SESSION_REQUIRED', session: 'gst_taxpayer', hint: 'The GST portal session has ended; verify a new OTP, then try again.' };
+  }
+
   async gstr1Summary(year, month) {
-    const token = this.taxpayerToken || this.token;
+    const token = this.taxpayerCallToken();
+    if (token === false) return this.taxpayerSessionEnded();
     return this.request(`/gst/compliance/tax-payer/gstrs/gstr-1/${encodeURIComponent(year)}/${encodeURIComponent(month)}`, { method: 'GET', token });
   }
 
   async returnProcessingStatus(year, month, referenceId) {
-    const token = this.taxpayerToken || this.token;
+    const token = this.taxpayerCallToken();
+    if (token === false) return this.taxpayerSessionEnded();
     return this.request(`/gst/compliance/tax-payer/gstrs/${encodeURIComponent(year)}/${encodeURIComponent(month)}/status${qs({ reference_id: referenceId })}`, { method: 'GET', token });
   }
 
   async generateEvcOtp(pan, gstr) {
-    const token = this.taxpayerToken || this.token;
+    const token = this.taxpayerCallToken();
+    if (token === false) return this.taxpayerSessionEnded();
     return this.request(`/gst/compliance/tax-payer/evc/otp${qs({ gstr: gstr || 'gstr-1' })}`, {
       token,
       body: { pan: String(pan || '').trim().toUpperCase() },
@@ -467,14 +480,16 @@ export class SandboxClient {
   }
 
   async trackTaxpayerReturns(year, month, returnType) {
-    const token = this.taxpayerToken || this.token;
+    const token = this.taxpayerCallToken();
+    if (token === false) return this.taxpayerSessionEnded();
     const query = qs({ return_type: returnType || undefined });
     return this.request(`/gst/compliance/tax-payer/gstrs/${encodeURIComponent(year)}/${encodeURIComponent(month)}/track${query}`, { method: 'GET', token });
   }
 
   // ---- GSTR-1 filing (taxpayer token) ----
   async saveGstr1({ year, month, payload } = {}) {
-    const token = this.taxpayerToken || this.token;
+    const token = this.taxpayerCallToken();
+    if (token === false) return this.taxpayerSessionEnded();
     return this.request(`/gst/compliance/tax-payer/gstrs/gstr-1/${encodeURIComponent(year)}/${encodeURIComponent(month)}`, {
       token,
       body: payload,
@@ -482,13 +497,15 @@ export class SandboxClient {
   }
 
   async newProceedGstr1({ year, month, gstr = 'gstr-1', isNil } = {}) {
-    const token = this.taxpayerToken || this.token;
+    const token = this.taxpayerCallToken();
+    if (token === false) return this.taxpayerSessionEnded();
     const query = qs({ is_nil: isNil || undefined });
     return this.request(`/gst/compliance/tax-payer/gstrs/${encodeURIComponent(gstr)}/${encodeURIComponent(year)}/${encodeURIComponent(month)}/new-proceed${query}`, { token });
   }
 
   async fileGstr1({ year, month, pan, otp, summary } = {}) {
-    const token = this.taxpayerToken || this.token;
+    const token = this.taxpayerCallToken();
+    if (token === false) return this.taxpayerSessionEnded();
     const query = qs({ pan: String(pan || '').toUpperCase(), otp });
     return this.request(`/gst/compliance/tax-payer/gstrs/gstr-1/${encodeURIComponent(year)}/${encodeURIComponent(month)}/file${query}`, {
       token,
@@ -497,22 +514,26 @@ export class SandboxClient {
   }
 
   async saveGstr3b({ year, month, payload } = {}) {
-    const token = this.taxpayerToken || this.token;
+    const token = this.taxpayerCallToken();
+    if (token === false) return this.taxpayerSessionEnded();
     return this.request(`/gst/compliance/tax-payer/gstrs/gstr-3b/${encodeURIComponent(year)}/${encodeURIComponent(month)}`, { token, body: payload });
   }
 
   async gstr3bAutoLiability(year, month) {
-    const token = this.taxpayerToken || this.token;
+    const token = this.taxpayerCallToken();
+    if (token === false) return this.taxpayerSessionEnded();
     return this.request(`/gst/compliance/tax-payer/gstrs/gstr-3b/${encodeURIComponent(year)}/${encodeURIComponent(month)}/auto-liability-calc`, { method: 'GET', token });
   }
 
   async offsetGstr3bLiability({ year, month, payload } = {}) {
-    const token = this.taxpayerToken || this.token;
+    const token = this.taxpayerCallToken();
+    if (token === false) return this.taxpayerSessionEnded();
     return this.request(`/gst/compliance/tax-payer/gstrs/gstr-3b/${encodeURIComponent(year)}/${encodeURIComponent(month)}/offset-liability`, { token, body: payload });
   }
 
   async fileGstr3b({ year, month, pan, otp, payload } = {}) {
-    const token = this.taxpayerToken || this.token;
+    const token = this.taxpayerCallToken();
+    if (token === false) return this.taxpayerSessionEnded();
     const query = qs({ pan: String(pan || '').toUpperCase(), otp });
     return this.request(`/gst/compliance/tax-payer/gstrs/gstr-3b/${encodeURIComponent(year)}/${encodeURIComponent(month)}/file${query}`, { token, body: payload });
   }
