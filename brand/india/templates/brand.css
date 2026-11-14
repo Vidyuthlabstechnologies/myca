@@ -1,0 +1,58 @@
+@font-face { font-family: 'Inter'; font-weight: 400; src: url('../../../design/flutter/myca_design/assets/fonts/Inter-Regular.ttf'); }
+@font-face { font-family: 'Inter'; font-weight: 500; src: url('../../../design/flutter/myca_design/assets/fonts/Inter-Medium.ttf'); }
+@font-face { font-family: 'Inter'; font-weight: 600; src: url('../../../design/flutter/myca_design/assets/fonts/Inter-SemiBold.ttf'); }
+@font-face { font-family: 'Noto Sans Devanagari'; font-weight: 400; src: url('../../../design/flutter/myca_fonts_devanagari/fonts/NotoSansDevanagari-Regular.ttf'); }
+@font-face { font-family: 'Noto Sans Devanagari'; font-weight: 500; src: url('../../../design/flutter/myca_fonts_devanagari/fonts/NotoSansDevanagari-Medium.ttf'); }
+@font-face { font-family: 'Noto Sans Devanagari'; font-weight: 600; src: url('../../../design/flutter/myca_fonts_devanagari/fonts/NotoSansDevanagari-SemiBold.ttf'); }
+
+:root {
+  --green: #1B5E3F;
+  --green-mist: #EAF2ED;
+  --green-light: #7FC3A0;
+  --ink: #15181B;
+  --ink-2: #2A2E33;
+  --canvas: #FAFAF7;
+  --paper: #F2F1EC;
+  --white: #FFFFFF;
+  --muted: #6C7075;
+  --line: #E6E4DE;
+  --bahi-red: #C8312B;
+  --gold: #E2A93B;
+  --bahi-paper: #FFF8EC;
+  --warn: #94570A;
+  --warn-soft: #FAF1E0;
+  --danger: #B3261E;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { background: #D9D8D2; }
+body {
+  font-family: 'Inter', 'Noto Sans Devanagari', sans-serif;
+  color: var(--ink);
+  font-feature-settings: 'tnum' 0, 'cv11' 1;
+  -webkit-font-smoothing: antialiased;
+  padding: 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 40px;
+  align-items: flex-start;
+}
+.hi { font-family: 'Noto Sans Devanagari', 'Inter', sans-serif; }
+.frame { position: relative; overflow: hidden; flex: none; }
+.green { color: var(--green); }
+.muted { color: var(--muted); }
+.tnum { font-feature-settings: 'tnum' 1; }
+.overline { font-size: 22px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
+.pill { display: inline-flex; align-items: center; gap: 10px; border-radius: 999px; padding: 10px 22px; font-weight: 600; }
+.card { background: var(--white); border: 1px solid var(--line); border-radius: 14px; }
+.shadow { box-shadow: 0 1px 2px rgba(21,24,27,.04), 0 24px 60px -20px rgba(21,24,27,.25); }
+.phone {
+  position: absolute;
+  border-radius: 56px;
+  background: var(--ink);
+  padding: 18px;
+  box-shadow: 0 40px 80px -30px rgba(21,24,27,.45);
+}
+.phone img { display: block; width: 100%; border-radius: 40px; }
+.foot { position: absolute; display: flex; align-items: center; justify-content: space-between; }
+.legal { font-size: 15px; color: var(--muted); }

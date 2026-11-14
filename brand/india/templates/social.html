@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="en-IN">
+<head>
+<meta charset="utf-8">
+<title>MyCA social graphics</title>
+<link rel="stylesheet" href="brand.css">
+<style>
+  .sq { width: 1080px; height: 1080px; background: var(--canvas); }
+  .story { width: 1080px; height: 1920px; background: var(--canvas); }
+  .li { width: 1200px; height: 627px; background: var(--canvas); }
+  .on-green { background: var(--green); color: var(--white); }
+  .on-ink { background: var(--ink); color: var(--white); }
+  .on-paper { background: var(--paper); }
+  .pad { position: absolute; inset: 80px; display: flex; flex-direction: column; }
+  .logo { height: 56px; align-self: flex-start; }
+  .h1 { font-size: 92px; line-height: 1.04; font-weight: 600; letter-spacing: -0.03em; text-wrap: balance; }
+  .h2 { font-size: 64px; line-height: 1.1; font-weight: 600; letter-spacing: -0.025em; text-wrap: balance; }
+  .sub { font-size: 36px; line-height: 1.35; color: var(--muted); text-wrap: pretty; }
+  .on-green .sub, .on-ink .sub { color: rgba(255,255,255,.78); }
+  .spacer { flex: 1; }
+  .bahi { position: absolute; }
+  .row { display: flex; gap: 24px; }
+  .step { flex: 1; padding: 36px 32px; }
+  .step .n { width: 64px; height: 64px; border-radius: 999px; background: var(--green-mist); color: var(--green); font-size: 32px; font-weight: 600; display: grid; place-items: center; }
+  .step h3 { font-size: 40px; font-weight: 600; margin-top: 28px; letter-spacing: -0.02em; }
+  .step p { font-size: 28px; line-height: 1.35; color: var(--muted); margin-top: 12px; }
+  .crop { position: absolute; overflow: hidden; border-radius: 28px; border: 1px solid var(--line); background: var(--white); }
+  .crop img { display: block; position: absolute; }
+  .bubble { position: absolute; background: var(--ink); color: var(--white); border-radius: 28px 28px 6px 28px; padding: 26px 34px; font-size: 34px; font-weight: 500; }
+  .tick { display: flex; gap: 22px; align-items: flex-start; font-size: 36px; line-height: 1.3; margin-top: 30px; }
+  .tick svg { flex: none; margin-top: 4px; }
+  .price { flex: 1; padding: 36px 30px; display: flex; flex-direction: column; gap: 10px; }
+  .price .name { font-size: 30px; font-weight: 600; }
+  .price .amt { font-size: 60px; font-weight: 600; letter-spacing: -0.03em; font-feature-settings: 'tnum' 1; }
+  .price .per { font-size: 24px; color: var(--muted); }
+  .price .what { font-size: 24px; line-height: 1.4; color: var(--muted); margin-top: 12px; }
+  .price.best { border: 2px solid var(--green); }
+  .tag { align-self: flex-start; background: var(--green-mist); color: var(--green); font-size: 20px; font-weight: 600; padding: 6px 14px; border-radius: 999px; }
+  .moods { display: flex; justify-content: space-between; align-items: flex-end; }
+  .moods figure { text-align: center; }
+  .moods img { width: 200px; display: block; }
+  .moods figcaption { font-size: 24px; color: var(--muted); margin-top: 8px; }
+  .quote { font-size: 74px; line-height: 1.12; font-weight: 600; letter-spacing: -0.028em; text-wrap: balance; }
+</style>
+</head>
+<body>
+
+<script>
+  const MASCOT = '../../../design/flutter/myca_design/assets/mascot/';
+  const PLAY = '../../../docs/release/assets/play/';
+  const LOGO = '../../logo/';
+  const check = (c) => `<svg width="44" height="44" viewBox="0 0 44 44"><circle cx="22" cy="22" r="22" fill="${c === 'w' ? 'rgba(255,255,255,.14)' : '#EAF2ED'}"/><path d="M13 22.5l6 6 12-13" fill="none" stroke="${c === 'w' ? '#BFE3CF' : '#1B5E3F'}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  window.check = check;
+</script>
+
+<section class="frame sq on-green" data-frame="post-01-launch">
+  <div class="pad">
+    <img class="logo" src="../../logo/myca-lockup-on-green.svg" alt="">
+    <div class="spacer"></div>
+    <div class="h1" style="max-width:720px">Your books, kept right.</div>
+    <div class="sub" style="margin-top:28px;max-width:600px">Books, GST and payroll by chat. You approve every entry and filing.</div>
+    <div class="spacer" style="flex:.35"></div>
+    <div class="pill" style="align-self:flex-start;background:#fff;color:var(--green);font-size:30px">Now on Google Play</div>
+  </div>
+  <img class="bahi" src="../../../design/flutter/myca_design/assets/mascot/wave.png" style="right:40px;bottom:150px;width:340px" alt="">
+</section>
+
+<section class="frame sq" data-frame="post-02-how">
+  <div class="pad">
+    <img class="logo" src="../../logo/myca-lockup.svg" alt="">
+    <div class="h2" style="margin-top:70px">Three steps. <span class="green">Every time.</span></div>
+    <div class="spacer"></div>
+    <div class="row">
+      <div class="card step"><div class="n">1</div><h3>Say it</h3><p>Type a sentence or snap a bill</p></div>
+      <div class="card step"><div class="n">2</div><h3>See it</h3><p>MyCA shows exactly what it will post</p></div>
+      <div class="card step"><div class="n">3</div><h3>Say yes</h3><p>Only then does it go in your books</p></div>
+    </div>
+    <div class="spacer" style="flex:.6"></div>
+    <div class="bubble" style="position:static;align-self:flex-end;font-size:30px">invoice Sharma Traders 12000 GST 18%</div>
+  </div>
+</section>
+
+<section class="frame sq on-paper" data-frame="post-03-gstr1">
+  <div class="pad" style="right:500px">
+    <img class="logo" src="../../logo/myca-lockup.svg" alt="">
+    <div class="spacer"></div>
+    <div class="overline green">GST month end</div>
+    <div class="h2" style="margin-top:20px">GSTR-1 is due on the 11th. <span class="green">Yours is drafted.</span></div>
+    <div class="sub" style="margin-top:26px;font-size:32px">Review it step by step, then file with your EVC OTP.</div>
+    <div class="spacer" style="flex:.5"></div>
+  </div>
+  <div class="phone" style="left:610px;top:120px;width:430px;padding:12px;border-radius:40px"><img src="../../../docs/release/assets/play/phone-06-gst-review.png" style="border-radius:30px" alt=""></div>
+</section>
+
+<section class="frame sq on-paper" data-frame="post-03-gstr1-hi">
+  <div class="pad hi" style="right:500px">
+    <img class="logo" src="../../logo/myca-lockup.svg" alt="">
+    <div class="spacer"></div>
+    <div class="green" style="font-size:28px;font-weight:600">GST महीने का अंत</div>
+    <div class="h2" style="margin-top:20px;font-size:58px;line-height:1.3">GSTR-1 की आखिरी तारीख 11 है। <span class="green">आपका ड्राफ्ट तैयार है।</span></div>
+    <div class="sub" style="margin-top:26px;font-size:32px">बस जाँचिए और EVC OTP से फाइल कीजिए।</div>
+    <div class="spacer" style="flex:.5"></div>
+  </div>
+  <div class="phone" style="left:610px;top:120px;width:430px;padding:12px;border-radius:40px"><img src="../../../docs/release/assets/play/phone-06-gst-review.png" style="border-radius:30px" alt=""></div>
+</section>
+
+<section class="frame sq" data-frame="post-04-promise">
+  <div class="pad">
+    <img class="logo" src="../../logo/myca-lockup.svg" alt="">
+    <div class="spacer"></div>
+    <div class="overline green">Our promise is accuracy</div>
+    <div class="quote" style="margin-top:26px">If a return MyCA filed is wrong because of our mistake, we <span class="green">correct and refile it</span> at no charge.</div>
+    <div class="spacer" style="flex:.5"></div>
+    <div class="legal" style="font-size:20px;max-width:640px">Covers returns filed through MyCA where the error is MyCA's. MyCA does not pay penalties or interest.</div>
+  </div>
+  <img class="bahi" src="../../../design/flutter/myca_design/assets/mascot/happy.png" style="right:56px;bottom:56px;width:250px" alt="">
+</section>
+
+<section class="frame sq on-paper" data-frame="post-05-preview">
+  <div class="pad">
+    <img class="logo" src="../../logo/myca-lockup.svg" alt="">
+    <div class="h2" style="margin-top:60px;max-width:820px">Say it in a sentence. <span class="green">See it before it posts.</span></div>
+  </div>
+  <div class="card shadow" style="position:absolute;left:80px;right:80px;top:400px;bottom:80px;padding:44px 44px;display:flex;flex-direction:column;gap:30px">
+    <div class="bubble" style="position:static;align-self:flex-end;font-size:32px">invoice Gujarat Weaves 8000 GST 18%</div>
+    <div style="border:2px solid #D9B98A;background:var(--bahi-paper);border-radius:22px;padding:30px 34px;max-width:720px">
+      <div class="overline" style="color:var(--warn);font-size:22px">Not posted yet</div>
+      <div style="font-size:36px;margin-top:14px;line-height:1.3">Invoice to Gujarat Weaves: total <b class="tnum" style="font-weight:600">₹9,440.00</b></div>
+      <div class="muted" style="font-size:28px;margin-top:10px">₹8,000 + GST ₹1,440. The books change only after you confirm.</div>
+    </div>
+    <div class="row" style="margin-top:auto;gap:18px">
+      <div style="flex:1;height:84px;border:1px solid var(--line);border-radius:14px;display:grid;place-items:center;font-size:30px;font-weight:600">Discard</div>
+      <div style="flex:2;height:84px;background:var(--ink);color:#fff;border-radius:14px;display:grid;place-items:center;font-size:30px;font-weight:600">Post it</div>
+    </div>
+  </div>
+</section>
+
+<section class="frame sq on-ink" data-frame="post-06-control">
+  <div class="pad">
+    <img class="logo" src="../../logo/myca-lockup-on-dark.svg" alt="">
+    <div class="spacer"></div>
+    <div class="h1">Nothing files without <span style="color:var(--green-light)">your yes.</span></div>
+    <div style="margin-top:44px">
+      <div class="tick"><script>document.write(check('w'))</script><span>A preview before every entry</span></div>
+      <div class="tick"><script>document.write(check('w'))</script><span>Your EVC OTP on every return</span></div>
+      <div class="tick"><script>document.write(check('w'))</script><span>Your CA's approval, if you want it</span></div>
+    </div>
+    <div class="spacer" style="flex:.4"></div>
+  </div>
+</section>
+
+<section class="frame sq" data-frame="post-07-data">
+  <div class="pad">
+    <img class="logo" src="../../logo/myca-lockup.svg" alt="">
+    <div class="spacer"></div>
+    <div class="h1">Your books are <span class="green">yours.</span></div>
+    <div style="margin-top:36px">
+      <div class="tick"><script>document.write(check())</script><span>Sealed per business, sent only over HTTPS</span></div>
+      <div class="tick"><script>document.write(check())</script><span>Checked every night, backed up daily</span></div>
+      <div class="tick"><script>document.write(check())</script><span>Export everything in one file, any time</span></div>
+      <div class="tick"><script>document.write(check())</script><span>Delete from inside the app when you choose</span></div>
+    </div>
+    <div class="spacer" style="flex:.4"></div>
+  </div>
+</section>
+
+<section class="frame sq on-paper" data-frame="post-08-bahi">
+  <div class="pad">
+    <img class="logo" src="../../logo/myca-lockup.svg" alt="">
+    <div class="h2" style="margin-top:60px">Say hello to <span style="color:var(--bahi-red)">Bahi.</span></div>
+    <div class="sub" style="margin-top:20px;max-width:820px">The ledger who keeps MyCA tidy. He waves hello, thinks while your return is drafted, and celebrates when it is filed.</div>
+    <div class="spacer"></div>
+    <div class="moods">
+      <figure><img src="../../../design/flutter/myca_design/assets/mascot/wave.png" alt=""><figcaption>Hello</figcaption></figure>
+      <figure><img src="../../../design/flutter/myca_design/assets/mascot/thinking.png" alt=""><figcaption>Working on it</figcaption></figure>
+      <figure><img src="../../../design/flutter/myca_design/assets/mascot/worried.png" alt=""><figcaption>Due soon</figcaption></figure>
+      <figure><img src="../../../design/flutter/myca_design/assets/mascot/celebrate.png" alt=""><figcaption>Filed</figcaption></figure>
+    </div>
+  </div>
+</section>
+
+<section class="frame sq" data-frame="post-09-payroll">
+  <div class="pad">
+    <img class="logo" src="../../logo/myca-lockup.svg" alt="">
+    <div class="spacer"></div>
+    <div class="overline green">Payroll</div>
+    <div class="h1" style="margin-top:20px">PF, ESI and PT, <span class="green">worked out for you.</span></div>
+    <div class="sub" style="margin-top:28px;max-width:760px">Approve the run, and the payslips and figures are ready. You stay in control of every rupee.</div>
+    <div class="spacer" style="flex:.5"></div>
+  </div>
+  <img class="bahi" src="../../../design/flutter/myca_design/assets/mascot/thinking.png" style="right:60px;top:60px;width:240px" alt="">
+</section>
+
+<section class="frame sq on-paper" data-frame="post-10-plans">
+  <div class="pad">
+    <img class="logo" src="../../logo/myca-lockup.svg" alt="">
+    <div class="h2" style="margin-top:56px">Simple plans. <span class="green">No per-invoice limits.</span></div>
+    <div class="spacer"></div>
+    <div class="row" style="gap:20px">
+      <div class="card price"><div class="name">Essentials</div><div class="amt">₹999</div><div class="per">a month</div><div class="what">Your own books, GST worked out, 2 people</div></div>
+      <div class="card price best"><span class="tag">Most chosen</span><div class="name">Pro</div><div class="amt">₹1,999</div><div class="per">a month</div><div class="what">Plus portal filing, e-invoices, connectors, 5 people</div></div>
+      <div class="card price"><div class="name">CA firm</div><div class="amt">₹5,999</div><div class="per">a month</div><div class="what">Plus 25 people and approvals across clients</div></div>
+    </div>
+    <div class="sub" style="margin-top:34px;font-size:28px">Pay yearly and get about two months free. Start with a 14-day Pro trial.</div>
+  </div>
+</section>
+
+<section class="frame story on-green" data-frame="story-01-launch">
+  <div class="pad" style="inset:120px 80px">
+    <img class="logo" src="../../logo/myca-lockup-on-green.svg" alt="" style="height:64px">
+    <div class="h1" style="margin-top:110px;font-size:104px">Your books, kept right.</div>
+    <div class="sub" style="margin-top:30px;font-size:40px">Books, GST and payroll by chat. You approve every entry and filing.</div>
+    <div class="pill" style="align-self:flex-start;margin-top:44px;background:#fff;color:var(--green);font-size:34px;padding:18px 38px">Try Pro free for 14 days</div>
+  </div>
+  <div class="phone" style="left:190px;top:900px;width:700px;padding:14px;border-radius:48px"><img src="../../../docs/release/assets/play/phone-01-home.png" style="border-radius:36px" alt=""></div>
+</section>
+
+<section class="frame story on-paper" data-frame="story-02-gstr1">
+  <div class="pad" style="inset:120px 80px">
+    <img class="logo" src="../../logo/myca-lockup.svg" alt="" style="height:64px">
+    <div class="overline green" style="margin-top:100px">GST month end</div>
+    <div class="h1" style="margin-top:20px">GSTR-1 due on the 11th. <span class="green">Yours is drafted.</span></div>
+  </div>
+  <div class="phone" style="left:190px;top:820px;width:700px;padding:14px;border-radius:48px"><img src="../../../docs/release/assets/play/phone-06-gst-review.png" style="border-radius:36px" alt=""></div>
+</section>
+
+<section class="frame li on-green" data-frame="linkedin-01-launch">
+  <div class="pad" style="inset:64px 72px">
+    <img class="logo" src="../../logo/myca-lockup-on-green.svg" alt="" style="height:48px">
+    <div class="spacer"></div>
+    <div class="h2" style="font-size:66px;max-width:700px">Your books, kept right.</div>
+    <div class="sub" style="margin-top:20px;font-size:28px;max-width:640px">Books, GST and payroll for Indian businesses. You approve every entry and filing.</div>
+    <div class="spacer" style="flex:.4"></div>
+  </div>
+  <img class="bahi" src="../../../design/flutter/myca_design/assets/mascot/wave.png" style="right:70px;bottom:40px;width:330px" alt="">
+</section>
+
+<section class="frame li" data-frame="linkedin-02-ca">
+  <div class="pad" style="inset:64px 72px;right:520px">
+    <img class="logo" src="../../logo/myca-lockup.svg" alt="" style="height:48px">
+    <div class="spacer"></div>
+    <div class="overline green" style="font-size:18px">For CA firms</div>
+    <div class="h2" style="font-size:52px;margin-top:14px">Review your clients' books. <span class="green">Don't re-key them.</span></div>
+    <div class="sub" style="margin-top:18px;font-size:24px">Every client in one place, approvals across clients, Tally export any time.</div>
+    <div class="spacer" style="flex:.4"></div>
+  </div>
+  <div class="crop shadow" style="left:700px;top:60px;width:420px;height:507px">
+    <img src="../../../docs/release/assets/play/phone-05-taxes.png" style="width:420px;left:0;top:-60px" alt="">
+  </div>
+</section>
+
+</body>
+</html>

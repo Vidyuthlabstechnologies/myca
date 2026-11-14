@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>MyCA logo pack</title>
+<link rel="stylesheet" href="brand.css">
+<style>
+  html, body { background: transparent; }
+  .lp { background: transparent; }
+  .lp img { display: block; height: 100%; }
+</style>
+</head>
+<body>
+<script>
+  const files = ['myca-mark', 'myca-mark-reversed', 'myca-mark-ink', 'myca-mark-white', 'myca-lockup', 'myca-lockup-on-dark', 'myca-lockup-on-green', 'myca-lockup-ink', 'myca-lockup-white', 'myca-stacked'];
+  for (const f of files) {
+    for (const h of [512, 1024]) {
+      document.write(`<div class="frame lp" data-frame="${f}-${h}" data-alpha="true" style="height:${h}px;display:inline-block"><img src="../../logo/${f}.svg" alt=""></div>`);
+    }
+  }
+</script>
+</body>
+</html>
