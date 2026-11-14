@@ -115,6 +115,7 @@ export const UNITED_STATES = Object.freeze({
     'us_form_kinds',
     'us_interview',
     'us_payroll_filings',
+    'us_refund_boost',
     'us_return_pdf',
     'us_return_review',
     'us_return_status',

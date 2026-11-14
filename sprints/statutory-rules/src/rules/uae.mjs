@@ -87,4 +87,14 @@ export const RULES = [
     '2027-01-01', null, 'Cabinet Decision 106 of 2025', 'Schedule',
     'Electronic Invoicing penalties apply from each person\'s mandatory date, not to voluntary issuance; amounts as summarised by advisers and not yet read in the decision text (https://mof.gov.ae/wp-content/uploads/2026/02/UAE-Electronic-Invoicing-Guidelines_V-1.0-23Feb2026.pdf)'
   ),
+  record(
+    'ae.labour.gratuity', { firstYears: 5, daysPerYearFirst: 21, daysPerYearAfter: 30, minimumServiceDays: 365, capMonthsOfWage: 24, dayRateDivisor: 30, wageBasis: 'last-basic-wage', unpaidAbsenceExcluded: true }, 'end_of_service_gratuity_for_full_time_private_sector_workers',
+    '2022-02-02', null, 'Federal Decree-Law 33 of 2021 on the Regulation of Labour Relations', '51; Cabinet Resolution 1 of 2022',
+    'Article 51: a full-time worker with at least one year of continuous service earns 21 days of the last basic wage for each of the first five years and 30 days for each further year, pro rata for part years, capped at two years of wage; days of unpaid absence do not count; the day rate is the basic monthly wage divided by 30 as MOHRE computes it (https://www.zoho.com/en-ae/payroll/academy/compliance/uae-gratuity-by-tenure.html, https://gulfnews.com/living-in-uae/ask-us/unpaid-leave-days-will-not-be-included-in-gratuity-calculation-mohre-1.1673617486269)'
+  ),
+  record(
+    'ae.labour.wps', { employeeIdLength: 14, routingCodeLength: 9, employerIdMaxLength: 13, accountMaxLength: 23, currency: 'AED', employerReferenceMaxLength: 35 }, 'wage_protection_system_salary_information_file_layout',
+    '2009-09-01', null, 'Ministerial Resolution 788 of 2009 on the Wage Protection System; Federal Decree-Law 33 of 2021', '22',
+    'Central Bank of the UAE Wage Protection System salary information file (SIF): one EDR line per employee (labour id, agent routing code, IBAN, pay start and end, days, fixed and variable pay, unpaid leave days) and one closing SCR line (employer id, bank routing code, file date and time, salary month MMYYYY, EDR count, total, AED, reference); file named employer id plus YYMMDDHHMMSS.SIF (https://netbanking.mashreqbank.com/B001/WPS_File_Format_eng.html)'
+  ),
 ];
