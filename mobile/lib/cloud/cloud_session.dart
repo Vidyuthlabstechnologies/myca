@@ -891,6 +891,8 @@ class CloudSession {
 
   Future<Map<String, dynamic>> usOffers() async => _accepted(await call('GET', '/v1/plans'));
 
+  Future<Map<String, dynamic>> countryPlans(String country) async => _accepted(await call('GET', '/v1/plans?country=${Uri.encodeQueryComponent(country)}'));
+
   Future<List<PlanOffer>> plans() async {
     final body = _accepted(await call('GET', '/v1/plans'));
     final rows = body['plans'];

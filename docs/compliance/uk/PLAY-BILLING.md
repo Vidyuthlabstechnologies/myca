@@ -55,6 +55,22 @@ launch.
   submissions are possible without an active plan or trial.
 - Upgrades and downgrades go through Play's plan change; proration is Play's.
 
+## How the server checks a UK Play purchase
+
+- The UK plans come from the country pack (`platform/src/countries/united-kingdom.mjs`) and are served
+  at `GET /v1/plans?country=GB`.
+- Play product ids are placeholders until the products exist in Play Console:
+  `myca_uk_sole_trader_monthly`, `myca_uk_business_monthly`, `myca_uk_accountant_monthly`. At launch,
+  create the products with these ids, or set `MYCA_PLAY_PRODUCT_UK_SOLE_TRADER`,
+  `MYCA_PLAY_PRODUCT_UK_BUSINESS` and `MYCA_PLAY_PRODUCT_UK_ACCOUNTANT` to the real ids.
+- Nothing can be bought until `MYCA_PLAY_PACKAGE_GB` is set (`com.mldynamic.myca.uk`). Once it is, the
+  app's Subscribe buttons appear. The server checks each purchase with Google against the UK package,
+  acknowledges it, and keeps it current from Play notices and the daily renewal check, all on the same
+  UK package. Once Play billing is on, a UK business whose trial has ended and who has no plan is
+  read-only, as in India.
+- Tests run against the shared Play fake in `cloud/sandbox/play-fake.mjs`
+  (`cloud/test/uk-play-billing.test.mjs`).
+
 ## Cancellation rights (consumers)
 
 The CCR give a consumer who buys at a distance 14 days to cancel. Many MyCA UK buyers are sole
