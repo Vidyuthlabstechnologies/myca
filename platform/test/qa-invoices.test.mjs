@@ -9,6 +9,8 @@ import { invoiceDocument } from '../src/invoice-document.mjs';
 import { invoiceToNicPayload, nicPayloadProblems, nicPartyFor } from '../src/nic-config.mjs';
 import { addRecurring, runRecurring } from '../src/recurring.mjs';
 import { listAccounts, trialBalance } from '../src/ledger.mjs';
+import { recordSupplierNote } from '../src/supplier-notes.mjs';
+import { createQuote, convertQuote } from '../src/quotes.mjs';
 
 const acc = (state, code) => listAccounts(state.ledger).find((a) => a.code === String(code));
 const BUYER = '27AAACH7409R1Z1';
@@ -197,4 +199,32 @@ test('a repeating reverse charge import keeps its reverse charge', () => {
   const bill = state.purchases.find((item) => item.partyName === 'Cloud Co');
   assert.equal(bill.reverseCharge?.kind, 'import');
   assert.equal(bill.total, 5000);
+});
+
+test('a supplier debit note on a reverse charge bill stays under reverse charge', () => {
+  const state = books();
+  const bill = createPurchase(state, { date: '2026-09-05', partyName: 'Cloud Co', originCountry: 'US', lines: [{ description: 'Hosting', hsn: '998315', qty: 1, rate: 1000, gstRate: 18 }] });
+  assert.equal(bill.ok, true, JSON.stringify(bill));
+  const out = recordSupplierNote(state, { billId: bill.invoice.id, date: '2026-09-10', reason: 'Extra usage', amount: 500 });
+  assert.equal(out.ok, true, JSON.stringify(out));
+  assert.equal(out.supplierNote.reverseCharge?.kind, 'import');
+  assert.deepEqual([out.supplierNote.taxable, out.supplierNote.igst, out.supplierNote.total], [500, 90, 500]);
+  const domestic = createPurchase(state, { date: '2026-09-05', partyName: 'Ravi Transport', reverseCharge: true, partyAddress: 'Hadapsar, Pune 411028', lines: [{ description: 'Freight', hsn: '996511', qty: 1, rate: 1000, gstRate: 5 }] });
+  const more = recordSupplierNote(state, { billId: domestic.invoice.id, date: '2026-09-10', reason: 'Extra trip', amount: 200 });
+  assert.equal(more.ok, true, JSON.stringify(more));
+  assert.equal(more.supplierNote.reverseCharge?.kind, 'domestic');
+  assert.deepEqual([more.supplierNote.taxable, more.supplierNote.cgst, more.supplierNote.total], [200, 5, 200]);
+  assert.equal(trialBalance(state.ledger).balanced, true);
+});
+
+test('a quote to an unregistered buyer in another state is IGST and the invoice keeps that place of supply', () => {
+  const state = books();
+  const made = createQuote(state, { date: '2026-09-05', partyName: 'Karnataka Shop', partyState: '29', lines: [{ description: 'Cloth', hsn: '5208', qty: 1, rate: 1000, gstRate: 5 }] });
+  assert.equal(made.ok, true, JSON.stringify(made));
+  assert.equal(made.quote.placeOfSupply, '29');
+  assert.deepEqual([made.quote.cgst, made.quote.igst], [0, 50]);
+  const out = convertQuote(state, { id: made.quote.id, date: '2026-09-06' });
+  assert.equal(out.ok, true, JSON.stringify(out));
+  assert.equal(out.invoice.placeOfSupply, '29');
+  assert.equal(out.invoice.igst, 50);
 });
