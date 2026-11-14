@@ -35,5 +35,7 @@ String editionFor(String? flavor, {String defined = const String.fromEnvironment
 String normalEdition(String edition) => switch (edition.toUpperCase()) {
   'US' => 'US',
   'MY' => 'MY',
+  'GB' || 'UK' => 'GB',
+  'AE' || 'UAE' => 'AE',
   _ => 'IN',
 };

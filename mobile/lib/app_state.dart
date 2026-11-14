@@ -5,7 +5,7 @@ import 'format.dart';
 import 'package:flutter/widgets.dart';
 
 import 'api/models.dart';
-import 'app_config.dart' show normalEdition;
+import 'app_config.dart';
 import 'shared_file.dart';
 import 'api/myca_api.dart';
 import 'app_services.dart';

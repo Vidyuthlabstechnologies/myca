@@ -34,7 +34,7 @@ class MemoryFunnelStore implements FunnelStore {
 typedef SendFunnelSteps = Future<void> Function(List<Map<String, Object?>> steps);
 
 class FunnelTracker {
-  FunnelTracker({required this.store, required String edition, this.usAllowed = usFunnelAllowed}) : edition = switch (edition.toUpperCase()) { 'US' => 'us', 'MY' => 'my', _ => 'india' };
+  FunnelTracker({required this.store, required String edition, this.usAllowed = usFunnelAllowed}) : edition = switch (edition.toUpperCase()) { 'US' => 'us', 'MY' => 'my', 'GB' => 'gb', 'AE' => 'ae', _ => 'india' };
 
   final FunnelStore store;
   final String edition;

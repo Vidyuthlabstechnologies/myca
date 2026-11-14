@@ -44,6 +44,7 @@ import 'shared_file.dart';
 import 'theme.dart';
 import 'tour/tour.dart';
 import 'tour/tour_coach.dart';
+import 'uae/uae_format.dart';
 
 void main() {
   LicenseRegistry.addLicense(() async* {
@@ -205,15 +206,17 @@ class _MycaAppState extends State<MycaApp> with WidgetsBindingObserver {
             debugShowCheckedModeBanner: false,
             theme: switch (widget.state.edition) {
               'US' => MycaDesign.forFlavor('us').light,
+              'GB' => MycaDesign.forFlavor('uk').light,
+              'AE' => uaeDesign.light,
               'MY' => _myDesign.light,
               _ => mycaTheme(),
             },
             darkTheme: widget.state.edition == 'MY' ? _myDesign.dark : null,
             themeMode: widget.state.edition == 'MY' ? ThemeMode.system : ThemeMode.light,
-            localizationsDelegates: widget.state.edition == 'MY' ? _myDelegates : null,
-            supportedLocales: widget.state.edition == 'MY' ? const [Locale('en', 'MY'), Locale('ms', 'MY')] : const [Locale('en', 'US')],
+            localizationsDelegates: widget.state.edition == 'MY' ? _myDelegates : widget.state.edition == 'AE' ? MycaDesign.localizationsDelegates : null,
+            supportedLocales: widget.state.edition == 'MY' ? const [Locale('en', 'MY'), Locale('ms', 'MY')] : widget.state.edition == 'AE' ? uaeDesign.supportedLocales : const [Locale('en', 'US')],
             locale: widget.state.edition == 'MY' ? _myLocale(widget.state.language) : null,
-            localeResolutionCallback: widget.state.edition == 'MY' ? (device, supported) => device?.languageCode == 'ms' ? const Locale('ms', 'MY') : const Locale('en', 'MY') : null,
+            localeResolutionCallback: widget.state.edition == 'MY' ? (device, supported) => device?.languageCode == 'ms' ? const Locale('ms', 'MY') : const Locale('en', 'MY') : widget.state.edition == 'AE' ? uaeResolveLocale : null,
             builder: (context, child) => ListenableBuilder(
               listenable: widget.state,
               builder: (context, _) => Stack(
