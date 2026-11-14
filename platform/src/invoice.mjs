@@ -10,6 +10,7 @@ import { regArg, docFieldsFor } from './registrations.mjs';
 import { planTds, recordTdsEntry, tdsPayableAccountId, wantsTds } from './tds-deduction.mjs';
 import { gstin as gstinRules } from './sprint-load.mjs';
 import { needsSelfInvoice, reverseChargeOf } from './reverse-charge.mjs';
+import { COMPOSITION_DECLARATION, documentTitleOf, exportEndorsementOf, hsnShownOn, reverseChargeLineOf } from './invoice-compliance.mjs';
 
 function badGstin(value) {
   const said = String(value || '').trim();
@@ -38,7 +39,8 @@ function exportPlan(input) {
   const portCode = String(raw.portCode || '').trim().toUpperCase().slice(0, 6);
   const countryCode = String(raw.countryCode || '').trim().toUpperCase();
   if (countryCode && (!/^[A-Z]{2}$/.test(countryCode) || countryCode === 'IN')) return { ok: false, error: 'BAD_COUNTRY_CODE', countryCode };
-  return { ok: true, plan: { currency, exchangeRate, withTax, shippingBillNo, shippingBillDate, portCode, ...(countryCode ? { countryCode } : {}) } };
+  const lutNumber = String(raw.lutNumber || '').trim().toUpperCase().replace(/[^A-Z0-9/-]/g, '').slice(0, 20);
+  return { ok: true, plan: { currency, exchangeRate, withTax, shippingBillNo, shippingBillDate, portCode, ...(countryCode ? { countryCode } : {}), ...(lutNumber && !withTax ? { lutNumber } : {}) } };
 }
 
 function sumOf(lines, key) {
@@ -585,8 +587,9 @@ export function printInvoice(state, id) {
   const c = state.company;
   const t = invoiceTemplateOf(state);
   const sale = inv.kind !== 'purchase';
-  const hsnHead = t.showHsn ? '<th>HSN</th>' : '';
-  const rows = inv.lines.map((l) => `<tr><td>${htmlEscape(l.description)}</td>${t.showHsn ? `<td>${htmlEscape(l.hsn)}</td>` : ''}<td class="num">${htmlEscape(l.qty)}</td><td class="num">${htmlEscape(l.rate)}</td><td class="num">${htmlEscape(l.taxable)}</td><td class="num">${htmlEscape(l.gstRate)}%</td><td class="num">${htmlEscape(l.amount)}</td></tr>`).join('');
+  const showHsn = !sale || hsnShownOn(state, inv, t);
+  const hsnHead = showHsn ? '<th>HSN</th>' : '';
+  const rows = inv.lines.map((l) => `<tr><td>${htmlEscape(l.description)}</td>${showHsn ? `<td>${htmlEscape(l.hsn)}</td>` : ''}<td class="num">${htmlEscape(l.qty)}</td><td class="num">${htmlEscape(l.rate)}</td><td class="num">${htmlEscape(l.taxable)}</td><td class="num">${htmlEscape(l.gstRate)}%</td><td class="num">${htmlEscape(l.amount)}</td></tr>`).join('');
   const minimal = t.layout === 'minimal';
   const rule = minimal ? `1px solid ${t.accent}` : `3px double ${t.accent}`;
   const font = minimal ? 'Segoe UI,Helvetica,Arial,sans-serif' : 'Georgia,serif';
@@ -595,10 +598,13 @@ export function printInvoice(state, id) {
   const pay = payment ? `<section class="pay"><strong>Pay to</strong><br>${htmlEscape(payment)}</section>` : '';
   const signed = sale ? `<section class="sign">For ${htmlEscape(c.name)}<br><br><br>${htmlEscape(t.signatory || 'Authorised signatory')}</section>` : '';
   const foot = t.footer ? `<p class="foot">${htmlEscape(t.footer)}</p>` : '';
+  const title = sale ? ({ 'Tax invoice': 'Tax Invoice', 'Bill of supply': 'Bill of Supply' })[documentTitleOf(state, inv)] || 'Invoice' : 'Purchase Invoice';
+  const notes = sale ? [reverseChargeLineOf(state, inv), exportEndorsementOf(state, inv), state.company?.composition === true ? COMPOSITION_DECLARATION : '', inv.irn ? `IRN ${inv.irn}${inv.ackNo ? `, Ack No ${inv.ackNo}` : ''}${inv.ackDate ? `, Ack Date ${inv.ackDate}` : ''}` : ''].filter(Boolean) : [];
+  const noted = notes.length ? `<p class="notes">${notes.map((line) => htmlEscape(line)).join('<br>')}</p>` : '';
   const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${htmlEscape(inv.id)}</title>
 <style>body{font-family:${font};padding:32px;color:#1c1917}h1{border-bottom:${rule};color:${t.accent}}table{width:100%;border-collapse:collapse;margin-top:16px}td,th{border-bottom:1px solid #e4d8c4;padding:6px;text-align:left}th{color:${t.accent}}.num{text-align:right}footer{margin-top:24px;border-top:${rule};padding-top:8px}.pay,.terms{margin-top:16px;font-size:0.9em}.sign{margin-top:32px;text-align:right}.foot{margin-top:24px;font-size:0.85em;color:#57534e;text-align:center}</style></head>
-<body><p>${htmlEscape(c.name)} · ${htmlEscape(inv.registrationGstin || c.gstin)}</p><h1>Tax Invoice ${htmlEscape(inv.id)}</h1>
-<p>${sale ? 'Bill to' : 'Supplier'}: ${htmlEscape(inv.partyName)} ${htmlEscape(inv.partyGstin || '')}<br>Date ${htmlEscape(inv.date)}</p>
+<body><p>${htmlEscape(c.name)} · ${htmlEscape(inv.registrationGstin || c.gstin)}</p><h1>${htmlEscape(title)} ${htmlEscape(inv.id)}</h1>
+<p>${sale ? 'Bill to' : 'Supplier'}: ${htmlEscape(inv.partyName)} ${htmlEscape(inv.partyGstin || '')}<br>Date ${htmlEscape(inv.date)}</p>${noted}
 <table><thead><tr><th>Item</th>${hsnHead}<th>Qty</th><th>Rate</th><th>Taxable</th><th>GST</th><th>Amount</th></tr></thead><tbody>${rows}</tbody></table>
 <footer>Taxable ₹${htmlEscape(inv.taxable)} &nbsp; CGST ₹${htmlEscape(inv.cgst)} &nbsp; SGST ₹${htmlEscape(inv.sgst)} &nbsp; IGST ₹${htmlEscape(inv.igst)}<br><strong>Total ₹${htmlEscape(inv.total)}</strong></footer>${pay}${terms}${signed}${foot}</body></html>`;
   return { ok: true, html, invoice: inv };
