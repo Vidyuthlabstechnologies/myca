@@ -8,7 +8,7 @@ import { penaltyEstimate } from '../src/countries/uae/penalties.mjs';
 import { uaeDeadlines } from '../src/countries/uae/deadlines.mjs';
 import { buildPintAe, transactionCode } from '../src/countries/uae/einvoice.mjs';
 import { checkTrn } from '../src/countries/uae/trn.mjs';
-import { toFils, percentOf, addMonthsClamped } from '../src/countries/uae/common.mjs';
+import { toFils, percentOf, addMonthsClamped, emirateOf } from '../src/countries/uae/common.mjs';
 import { countryPack } from '../src/countries/index.mjs';
 import { runTool } from '../src/tools.mjs';
 import { createState } from '../src/store.mjs';
@@ -135,9 +135,9 @@ test('VAT 201: a refund position, box 1 and 9 adjustments, tourist refunds and t
   assert.deepEqual(b['2'], { net: -1000, vat: -50, adjustment: 0 });
   assert.deepEqual(b['6'], { net: 21000, vat: 1050, adjustment: 0 });
   assert.equal(b['8'].vat, 500 - 200 - 50 + 1050);
-  assert.equal(b['10'].vat, 1000);
-  assert.equal(b['11'].vat, 4000 + 100 + 1000);
-  assert.equal(out.data.payable, 1300 - 5100);
+  assert.deepEqual(b['10'], { net: 21000, vat: 1050, adjustment: 0 });
+  assert.equal(b['11'].vat, 4000 + 100 + 1050);
+  assert.equal(out.data.payable, 1300 - 5150);
   assert.equal(out.data.refund, true);
   assert.ok(out.data.warnings.some((w) => /box 15/.test(w)));
   assert.ok(out.data.warnings.some((w) => /differs from the customs figure/.test(w)));
@@ -412,4 +412,43 @@ test('addMonthsClamped keeps month ends at month ends', () => {
   assert.equal(addMonthsClamped('2026-01-31', 1), '2026-02-28');
   assert.equal(addMonthsClamped('2026-01-15', 1), '2026-02-15');
   assert.equal(addMonthsClamped('2027-02-28', 12), '2028-02-29');
+});
+
+test('VAT 201: a fully recoverable import nets to zero when customs shows a different figure, and partial recovery follows the import lines', () => {
+  const full = vatReturn({ period: '2026-Q1', lines: [{ kind: 'expense', treatment: 'import', net: 1000 }], customsImports: { net: 2000, vat: 100 } });
+  assert.equal(full.ok, true, JSON.stringify(full));
+  assert.deepEqual(full.data.boxes['6'], { net: 2000, vat: 100, adjustment: 0 });
+  assert.deepEqual(full.data.boxes['10'], { net: 2000, vat: 100, adjustment: 0 });
+  assert.equal(full.data.payable, 0);
+  const half = vatReturn({ period: '2026-Q1', lines: [{ kind: 'expense', treatment: 'import', net: 1000, recoveryBasisPoints: 5000 }], customsImports: { net: 2000, vat: 100 } });
+  assert.equal(half.data.boxes['10'].vat, 50);
+  assert.equal(half.data.payable, 50);
+  const lines = vatReturn({ period: '2026-Q1', lines: [{ kind: 'expense', treatment: 'import', net: 1000, recoveryBasisPoints: 5000 }, { kind: 'expense', treatment: 'reverse-charge', net: 400 }] });
+  assert.deepEqual(lines.data.boxes['10'], { net: 1400, vat: 25 + 20, adjustment: 0 });
+});
+
+test('Arabic input: Arabic-Indic digits in a TRN and Arabic emirate names are read', () => {
+  assert.deepEqual(checkTrn('١٠٠١٢٣٤٥٦٧٠٠٠٠٣'), checkTrn('100123456700003'));
+  assert.equal(checkTrn('۱۰۰۱۲۳۴۵۶۷۰۰۰۰۳').trn, '100123456700003');
+  assert.equal(emirateOf('دبي').code, 'DXB');
+  assert.equal(emirateOf('أبو ظبي').code, 'AUH');
+  assert.equal(emirateOf('رأس الخيمة').code, 'RAK');
+  assert.equal(emirateOf('القاهرة'), null);
+  const out = vatReturn({ period: '2026-Q1', lines: [{ kind: 'supply', emirate: 'الشارقة', net: 1000 }] });
+  assert.equal(out.data.boxes['1c'].vat, 50);
+});
+
+test('statutory figures in answers come from the rules: late registration penalty and the corporate tax nil band', () => {
+  assert.equal(vatRegistrationCheck({ taxableSuppliesLast12Months: 1000, date: '2026-11-14' }).data.lateRegistrationPenalty, 10000);
+  assert.equal(vatRegistrationCheck({ taxableSuppliesLast12Months: 1000, date: '2025-11-14' }).data.lateRegistrationPenalty, null);
+  assert.equal(corporateTaxEstimate({ periodStart: '2026-01-01', periodEnd: '2026-12-31', revenue: 5000000, accountingProfit: 1000000 }).data.nilBand, 375000);
+});
+
+test('a profile typed in Arabic is saved with Latin digits and the emirate code', () => {
+  const state = createState();
+  const saved = ENGINE.run.set_ae_business_profile(state, { name: 'Falcon Trading LLC', emirate: 'دبي', trn: '١٠٠ ١٢٣٤ ٥٦٧٠ ٠٠٠٣', tin: '١٠٠١٢٣٤٥٦٧', legalId: 'CN-1', city: 'Dubai', addressLine: 'Bay Square' });
+  assert.equal(saved.ok, true, JSON.stringify(saved));
+  assert.equal(saved.data.business.trn, '100123456700003');
+  assert.equal(saved.data.business.tin, '1001234567');
+  assert.equal(saved.data.business.emirate, 'DXB');
 });

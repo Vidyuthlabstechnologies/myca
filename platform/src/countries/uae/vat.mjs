@@ -105,6 +105,7 @@ export function vatReturn(args = {}) {
   const byEmirate = Object.fromEntries(EMIRATES.map((emirate) => [emirate.box, emptyBox()]));
   const boxes = { '2': emptyBox(), '3': emptyBox(), '4': emptyBox(), '5': emptyBox(), '6': emptyBox(), '7': emptyBox(), '9': emptyBox(), '10': emptyBox() };
   const importsFromLines = emptyBox();
+  let importsRecoverable = 0;
   let blockedVat = 0;
   let outsidePeriod = 0;
   let ignored = 0;
@@ -167,8 +168,12 @@ export function vatReturn(args = {}) {
         target.vat += vat;
         const recoverable = percentOf(vat, recovery);
         if (line.blocked === true) blockedVat += vat;
-        boxes['10'].net += net;
-        boxes['10'].vat += recoverable;
+        if (treatment === 'import') {
+          importsRecoverable += recoverable;
+        } else {
+          boxes['10'].net += net;
+          boxes['10'].vat += recoverable;
+        }
         if (adjustment) problems.push({ line: at, field: 'adjustment', why: 'Only standard-rated sales (box 1) and expenses (box 9) carry an adjustment.' });
       } else {
         ignored += 1;
@@ -193,6 +198,11 @@ export function vatReturn(args = {}) {
     boxes['6'].net = importsFromLines.net;
     boxes['6'].vat = importsFromLines.vat;
     if (importsFromLines.net) warnings.push('Box 6 is filled by EmaraTax from customs declarations; check it matches the import VAT shown there.');
+  }
+
+  if (importsFromLines.net || importsFromLines.vat) {
+    boxes['10'].net += boxes['6'].net;
+    boxes['10'].vat += importsFromLines.vat ? Math.round((boxes['6'].vat * importsRecoverable) / importsFromLines.vat) : 0;
   }
 
   if (problems.length) return fail('VAT_RETURN_LINES_INVALID', { problems, hint: 'Fix these lines; nothing was totalled.' });
@@ -253,6 +263,8 @@ export function vatRegistrationCheck(args = {}) {
   const expenses = money(args.taxableExpensesLast12Months, 'taxableExpensesLast12Months', -1, problems, { allowNegative: false });
   if (problems.length) return fail('BAD_AMOUNTS', { problems });
   const { mandatoryFils, voluntaryFils, registerWithinDays } = rule.value;
+  const penalties = ruleOn('ae.vat.penalties', date);
+  const lateRegistrationFils = penalties ? penalties.value.lateRegistrationFils : null;
   let status = 'not-required';
   let why = `Taxable supplies are below the voluntary threshold of AED ${toDirhams(voluntaryFils).toLocaleString('en-AE')}.`;
   if (last12 > mandatoryFils || next30 > mandatoryFils) {
@@ -264,5 +276,5 @@ export function vatRegistrationCheck(args = {}) {
     status = 'may-register';
     why = `Taxable supplies or expenses pass AED ${toDirhams(voluntaryFils).toLocaleString('en-AE')}, so voluntary registration is open; it lets the business recover input VAT.`;
   }
-  return { ok: true, data: { status, why, mandatoryThreshold: toDirhams(mandatoryFils), voluntaryThreshold: toDirhams(voluntaryFils), lateRegistrationPenalty: 10000, ...ruleNote(rule) } };
+  return { ok: true, data: { status, why, mandatoryThreshold: toDirhams(mandatoryFils), voluntaryThreshold: toDirhams(voluntaryFils), lateRegistrationPenalty: lateRegistrationFils === null ? null : toDirhams(lateRegistrationFils), ...ruleNote(rule) } };
 }
