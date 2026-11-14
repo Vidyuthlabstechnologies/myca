@@ -149,6 +149,41 @@ Future<Uint8List> buildInvoicePdf(
               ),
           ],
         ),
+        if (doc.statutoryLines.isNotEmpty) ...[
+          pw.SizedBox(height: 10),
+          for (final line in doc.statutoryLines) pw.Text(line, style: body),
+        ],
+        if (!doc.isQuote && (doc.einvoice?.onPdf ?? false)) ...[
+          pw.SizedBox(height: 12),
+          pw.Row(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              if (doc.einvoice!.signedQrCode.isNotEmpty) ...[
+                pw.BarcodeWidget(
+                  barcode: pw.Barcode.qrCode(),
+                  data: doc.einvoice!.signedQrCode,
+                  width: 96,
+                  height: 96,
+                ),
+                pw.SizedBox(width: 12),
+              ],
+              pw.Expanded(
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Text('E-INVOICE', style: label),
+                    pw.SizedBox(height: 3),
+                    pw.Text('IRN ${doc.einvoice!.irn}', style: small),
+                    if (doc.einvoice!.ackNo.isNotEmpty)
+                      pw.Text('Ack No ${doc.einvoice!.ackNo}${doc.einvoice!.ackDate.isEmpty ? '' : '   Ack Date ${doc.einvoice!.ackDate}'}', style: small),
+                    if (!doc.einvoice!.valid)
+                      pw.Text('TEST IRN, NOT VALID FOR A REAL SUPPLY', style: heavy.copyWith(color: PdfColors.red700)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
         pw.SizedBox(height: 18),
         pw.Table(
           border: const pw.TableBorder(

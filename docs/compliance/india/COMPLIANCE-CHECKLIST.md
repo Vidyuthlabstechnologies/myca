@@ -66,11 +66,11 @@ building them now avoids a second release.
 |---|---|---|---|
 | 5.1 | ASP through a licensed GSP; no "approved by GSTN" claims | Done | Footer and disclaimer name Quicko as the GSP |
 | 5.2 | Filing only with the taxpayer's OTP/EVC and approval | Done (earlier) | Approval workflow, `MYCA_ENABLE_LIVE_CALLS` |
-| 5.3 | Tax invoice fields (CGST r.46) | Mostly done | See `docs/compliance/india/` follow-ups below |
-| 5.4 | IRN, ack and signed QR on the e-invoice PDF (r.48(4)) | Next | PR 2 |
-| 5.5 | Bill of supply for exempt or composition sellers (r.46A) | Next | PR 2 |
-| 5.6 | HSN always printed on tax invoices | Next | PR 2 |
-| 5.7 | Reverse charge line, export endorsement on the invoice | Next | PR 2 |
+| 5.3 | Tax invoice fields (CGST r.46) | Mostly done | Rows 5.4 to 5.8 |
+| 5.4 | IRN, ack and signed QR on the e-invoice PDF (r.48(4)) | Done | `mobile/lib/invoice_pdf.dart` E-INVOICE block; test IRNs marked not valid; HTML print carries the IRN line |
+| 5.5 | Bill of supply for exempt or composition sellers (r.46A) | Done | `platform/src/invoice-compliance.mjs` `documentTitleOf`; composition declaration when `company.composition` |
+| 5.6 | HSN printed on B2B tax invoices even if the design hides it (Notification 78/2020 lets AATO ≤ ₹5 cr leave it off B2C) | Done | `hsnShownOn` |
+| 5.7 | Reverse charge line, export endorsement (with LUT) on the invoice | Done | `reverseChargeLineOf`, `exportEndorsementOf`, `exportSale.lutNumber` |
 | 5.8 | HSN digits by turnover; 30-day IRN window for AATO ≥ ₹10 cr; cess; UQC; CN/DN document and s.34 deadline | Next | Later PRs; needs AATO stored per year |
 
 ## 6. Google Play
