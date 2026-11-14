@@ -179,7 +179,7 @@ class _MycaAppState extends State<MycaApp> with WidgetsBindingObserver {
             scaffoldMessengerKey: _messenger,
             title: 'MyCA',
             debugShowCheckedModeBanner: false,
-            theme: widget.state.edition == 'US' ? MycaDesign.forFlavor('us').light : mycaTheme(),
+            theme: widget.state.edition == 'US' ? usAppTheme() : mycaTheme(),
             builder: (context, child) => ListenableBuilder(
               listenable: widget.state,
               builder: (context, _) => Stack(
@@ -210,6 +210,11 @@ class _MycaAppState extends State<MycaApp> with WidgetsBindingObserver {
       ),
     );
   }
+}
+
+ThemeData usAppTheme() {
+  final base = MycaDesign.forFlavor('us').light;
+  return base.copyWith(inputDecorationTheme: base.inputDecorationTheme.copyWith(helperMaxLines: 4, errorMaxLines: 4));
 }
 
 class _Readable extends StatelessWidget {

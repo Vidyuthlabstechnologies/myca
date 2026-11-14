@@ -571,7 +571,7 @@ void main() {
     await scrollTap(tester, find.byKey(const Key('usSign.sign')));
     expect(find.text('Choose any five digits except 00000.'), findsOneWidget);
     expect(find.textContaining('does not add up'), findsOneWidget);
-    expect(find.text('Tick the box to sign.'), findsOneWidget);
+    expect(find.text('Check the box to sign.'), findsOneWidget);
     expect(api.proposals, isEmpty);
 
     await tester.enterText(find.byKey(const Key('usSign.pin')), '24680');

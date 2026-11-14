@@ -88,78 +88,96 @@ class _PrivacyNoticeScreenState extends State<PrivacyNoticeScreen> {
             if (notice == null) {
               return const Center(child: CircularProgressIndicator());
             }
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Expanded(
-                  child: ListView(
-                    padding: const EdgeInsets.fromLTRB(24, 24, 24, 12),
-                    children: [
-                      Text(notice.title, style: text.headlineMedium),
-                      if (notice.status.isNotEmpty) ...[
-                        const SizedBox(height: 8),
-                        Text(
-                          notice.status,
-                          style: text.bodyMedium?.copyWith(color: Palette.warn),
-                        ),
-                      ],
-                      for (final section in notice.sections) ...[
-                        const SizedBox(height: 20),
-                        Text(section.heading, style: text.titleMedium),
-                        const SizedBox(height: 6),
-                        Text(section.body, style: text.bodyLarge),
-                      ],
-                    ],
-                  ),
-                ),
-                Container(
-                  decoration: const BoxDecoration(
-                    color: Palette.surface,
-                    border: Border(top: BorderSide(color: Palette.line)),
-                  ),
-                  padding: const EdgeInsets.fromLTRB(24, 12, 24, 16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      if (_error.isNotEmpty) ...[
-                        Text(
-                          _error,
-                          style: const TextStyle(color: Palette.danger),
-                        ),
-                        const SizedBox(height: 8),
-                      ],
-                      Material(
-                        color: Colors.transparent,
-                        child: CheckboxListTile(
-                          key: const ValueKey('consent.crashReports'),
-                          contentPadding: EdgeInsets.zero,
-                          controlAffinity: ListTileControlAffinity.leading,
-                          value: _crashReports,
-                          onChanged: _busy
-                              ? null
-                              : (value) => setState(
-                                  () => _crashReports = value ?? false,
-                                ),
-                          title: const Text('Also send crash reports'),
-                          subtitle: const Text(
-                            'Off unless you tick it. Only what went wrong in the app, with names, amounts, GSTINs and phone numbers removed. You can change this later under Your business.',
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      FilledButton(
-                        onPressed: _busy ? null : () => _agree(notice),
-                        child: Text(_busy ? 'Saving…' : 'I agree'),
-                      ),
-                      const SizedBox(height: 4),
-                      TextButton(
-                        onPressed: _busy ? null : state.signOut,
-                        child: const Text('Not now, sign me out'),
-                      ),
-                    ],
-                  ),
+            final us = state.edition == 'US';
+            final body = [
+              Text(notice.title, style: text.headlineMedium),
+              if (notice.status.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Text(
+                  notice.status,
+                  style: text.bodyMedium?.copyWith(color: Palette.warn),
                 ),
               ],
+              for (final section in notice.sections) ...[
+                const SizedBox(height: 20),
+                Text(section.heading, style: text.titleMedium),
+                const SizedBox(height: 6),
+                Text(section.body, style: text.bodyLarge),
+              ],
+            ];
+            final consent = [
+              if (_error.isNotEmpty) ...[
+                Text(
+                  _error,
+                  style: const TextStyle(color: Palette.danger),
+                ),
+                const SizedBox(height: 8),
+              ],
+              Material(
+                color: Colors.transparent,
+                child: CheckboxListTile(
+                  key: const ValueKey('consent.crashReports'),
+                  contentPadding: EdgeInsets.zero,
+                  controlAffinity: ListTileControlAffinity.leading,
+                  value: _crashReports,
+                  onChanged: _busy
+                      ? null
+                      : (value) => setState(
+                          () => _crashReports = value ?? false,
+                        ),
+                  title: const Text('Also send crash reports'),
+                  subtitle: Text(
+                    us
+                        ? 'Off unless you check it. Only what went wrong in the app, with names, amounts, Social Security numbers and phone numbers removed. You can change this later under Your account.'
+                        : 'Off unless you tick it. Only what went wrong in the app, with names, amounts, GSTINs and phone numbers removed. You can change this later under Your business.',
+                  ),
+                ),
+              ),
+              const SizedBox(height: 4),
+              FilledButton(
+                key: const ValueKey('consent.agree'),
+                onPressed: _busy ? null : () => _agree(notice),
+                child: Text(_busy ? 'Saving…' : 'I agree'),
+              ),
+              const SizedBox(height: 4),
+              TextButton(
+                onPressed: _busy ? null : state.signOut,
+                child: const Text('Not now, sign me out'),
+              ),
+            ];
+            return LayoutBuilder(
+              builder: (context, box) {
+                final roomy = box.maxHeight >= 440 && MediaQuery.textScalerOf(context).scale(10) <= 13;
+                if (!roomy) {
+                  return ListView(
+                    key: const ValueKey('consent.list'),
+                    padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+                    children: [...body, const SizedBox(height: 20), const Divider(), const SizedBox(height: 8), ...consent],
+                  );
+                }
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(
+                      child: ListView(
+                        padding: const EdgeInsets.fromLTRB(24, 24, 24, 12),
+                        children: body,
+                      ),
+                    ),
+                    Container(
+                      decoration: const BoxDecoration(
+                        color: Palette.surface,
+                        border: Border(top: BorderSide(color: Palette.line)),
+                      ),
+                      padding: const EdgeInsets.fromLTRB(24, 12, 24, 16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: consent,
+                      ),
+                    ),
+                  ],
+                );
+              },
             );
           },
         ),

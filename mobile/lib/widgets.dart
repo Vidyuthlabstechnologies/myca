@@ -132,6 +132,7 @@ class RowCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
+    final big = MediaQuery.textScalerOf(context).scale(14) / 14 > 1.3;
     return Material(
       color: Palette.surface,
       child: InkWell(
@@ -141,8 +142,7 @@ class RowCard extends StatelessWidget {
           child: LayoutBuilder(
             builder: (context, box) => Row(
               children: [
-                leading,
-                const SizedBox(width: 14),
+                if (!big) ...[leading, const SizedBox(width: 14)],
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -150,15 +150,15 @@ class RowCard extends StatelessWidget {
                       Text(
                         title,
                         style: text.titleMedium,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
+                        maxLines: big ? null : 2,
+                        overflow: big ? null : TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 1),
                       Text(
                         subtitle,
                         style: text.bodyMedium,
-                        maxLines: 3,
-                        overflow: TextOverflow.ellipsis,
+                        maxLines: big ? null : 3,
+                        overflow: big ? null : TextOverflow.ellipsis,
                       ),
                       if (badge != null) ...[const SizedBox(height: 6), badge!],
                     ],

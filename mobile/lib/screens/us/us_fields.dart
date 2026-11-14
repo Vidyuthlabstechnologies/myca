@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../api/myca_api.dart';
 import '../../format.dart';
 import '../../us/tin.dart';
 import '../../us/us_return.dart';
@@ -71,11 +72,12 @@ String? usDateProblem(String typed, {bool required = true}) {
 }
 
 class UsStateField extends StatelessWidget {
-  const UsStateField({super.key, required this.value, required this.onChanged, this.label = 'State', this.errorText});
+  const UsStateField({super.key, required this.value, required this.onChanged, this.label = 'State', this.helperText, this.errorText});
 
   final String? value;
   final ValueChanged<String?> onChanged;
   final String label;
+  final String? helperText;
   final String? errorText;
 
   @override
@@ -83,7 +85,7 @@ class UsStateField extends StatelessWidget {
     return DropdownButtonFormField<String>(
       initialValue: usStates.any((s) => s.$1 == value) ? value : null,
       isExpanded: true,
-      decoration: InputDecoration(labelText: label, errorText: errorText),
+      decoration: InputDecoration(labelText: label, helperText: helperText, errorText: errorText),
       items: [for (final (code, name) in usStates) DropdownMenuItem(value: code, child: Text(name))],
       onChanged: onChanged,
     );
@@ -115,6 +117,30 @@ num? parseDollars(String typed) {
   final value = num.tryParse(cleaned);
   if (value == null || value < 0) return null;
   return (value * 100).round() / 100;
+}
+
+String usLoadProblem(Object? error, String fallback) => error is MycaApiException ? error.message : fallback;
+
+class UsLoadError extends StatelessWidget {
+  const UsLoadError({super.key, required this.message, required this.onRetry, this.inline = false});
+
+  final String message;
+  final VoidCallback onRetry;
+  final bool inline;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    final children = [
+        Icon(Icons.cloud_off_outlined, size: 40, color: Theme.of(context).colorScheme.onSurfaceVariant, semanticLabel: 'Could not load'),
+        const SizedBox(height: 16),
+        Text(message, textAlign: TextAlign.center, style: text.bodyLarge),
+        const SizedBox(height: 20),
+        Center(child: FilledButton(key: const Key('usLoadError.retry'), onPressed: onRetry, child: const Text('Try again'))),
+      ];
+    if (inline) return Padding(key: const Key('usLoadError'), padding: const EdgeInsets.symmetric(vertical: 24), child: Column(children: children));
+    return ListView(key: const Key('usLoadError'), padding: const EdgeInsets.fromLTRB(24, 48, 24, 24), children: children);
+  }
 }
 
 String dollarsTyped(Object? value) {

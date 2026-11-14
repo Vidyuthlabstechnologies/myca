@@ -14,11 +14,13 @@ Future<void> loadFonts() async {
     roboto.addFont(bytes(file));
   }
   await roboto.load();
-  final inter = FontLoader('Inter');
-  for (final file in ['Inter-Regular.ttf', 'Inter-Medium.ttf', 'Inter-SemiBold.ttf']) {
-    inter.addFont(File('assets/fonts/$file').readAsBytes().then((data) => ByteData.view(data.buffer)));
+  for (final family in ['Inter', 'packages/myca_design/Inter']) {
+    final inter = FontLoader(family);
+    for (final file in ['Inter-Regular.ttf', 'Inter-Medium.ttf', 'Inter-SemiBold.ttf']) {
+      inter.addFont(File('assets/fonts/$file').readAsBytes().then((data) => ByteData.view(data.buffer)));
+    }
+    await inter.load();
   }
-  await inter.load();
   final icons = FontLoader('MaterialIcons')..addFont(bytes('materialicons-regular.otf'));
   await icons.load();
 }

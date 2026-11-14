@@ -132,7 +132,7 @@ class _UsSignScreenState extends State<UsSignScreen> {
         if (_phone.text.replaceAll(RegExp(r'\D'), '').length != 10) _errors['phone'] = 'Enter your 10-digit US phone number. The IRS asks for it with a bank payment.';
       }
     }
-    if (!_consent) _errors['consent'] = 'Tick the box to sign.';
+    if (!_consent) _errors['consent'] = 'Check the box to sign.';
     if (_errors.isNotEmpty) return setState(() => _note = 'Some answers need a look.');
     final bank = {
       'routing': _routing.text.replaceAll(RegExp(r'\D'), ''),
@@ -343,13 +343,18 @@ class _UsSignScreenState extends State<UsSignScreen> {
             decoration: BoxDecoration(color: Palette.warnSoft, borderRadius: BorderRadius.circular(radiusControl)),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: [Text('The IRS sent it back: ${r.message}', style: text.bodyMedium), const SizedBox(height: 4), Text(r.fix, style: text.bodySmall)],
+              children: [
+                Text('The IRS sent it back: ${r.message}', style: text.bodyMedium),
+                if (r.fix.isNotEmpty) ...[const SizedBox(height: 4), Text(r.fix, style: text.bodySmall)],
+              ],
             ),
           ),
         ],
         if (ctx.efile.sandbox) ...[const SizedBox(height: 12), const StatusTag(text: 'IRS test system: nothing is really filed', color: Palette.warn)],
         const SizedBox(height: 22),
-        if ((_paidFee ?? ctx.fee).due)
+        if (!ctx.fee.filingOpen)
+          _notOpen()
+        else if ((_paidFee ?? ctx.fee).due)
           UsFilingFeeCard(fee: ctx.fee, fees: _fees!, store: _store, onPaid: (fee) => setState(() => _paidFee = fee))
         else
           FilledButton(
@@ -360,6 +365,42 @@ class _UsSignScreenState extends State<UsSignScreen> {
         if (resuming)
           TextButton(key: const Key('usSign.partnerRefresh'), onPressed: _busy ? null : () => setState(() { _context = _load(); }), child: const Text('I have finished. Check again')),
         if (_note.isNotEmpty) ...[const SizedBox(height: 12), Text(_note, style: const TextStyle(color: Palette.danger, fontWeight: FontWeight.w500))],
+      ],
+    );
+  }
+
+  Widget _notOpen() => Container(
+        key: const Key('usSign.notOpen'),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(color: Palette.warnSoft, borderRadius: BorderRadius.circular(radiusCard)),
+        child: Text(usFilingNotOpenLine, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Palette.ink)),
+      );
+
+  Widget _blockedView(UsReview review) {
+    final text = Theme.of(context).textTheme;
+    return ListView(
+      key: const Key('usSign.blocked'),
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+      children: [
+        Text('A few things to fix first', style: text.headlineMedium),
+        const SizedBox(height: 8),
+        Text('Your return can be signed once these are fixed. Open Review your return to fix each one.', style: text.bodyLarge),
+        for (final c in review.checks.where((c) => c.blocking)) ...[
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(color: Palette.dangerSoft, borderRadius: BorderRadius.circular(radiusControl)),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(c.message, style: text.titleSmall),
+                if (c.fix.isNotEmpty) ...[const SizedBox(height: 4), Text(c.fix, style: text.bodySmall)],
+              ],
+            ),
+          ),
+        ],
+        const SizedBox(height: 22),
+        FilledButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Back to my return')),
       ],
     );
   }
@@ -396,7 +437,7 @@ class _UsSignScreenState extends State<UsSignScreen> {
           builder: (context, loaded) {
             if (loaded.connectionState != ConnectionState.done) return const Center(child: CircularProgressIndicator());
             if (loaded.hasError) {
-              return EmptyNote(text: loaded.error is MycaApiException ? (loaded.error as MycaApiException).message : 'Your return could not be loaded.');
+              return UsLoadError(message: usLoadProblem(loaded.error, 'Your return could not be loaded.'), onRetry: () => setState(() { _context = _load(); }));
             }
             final ctx = loaded.data!;
             if (ctx.efile.filed) return _filedView(ctx.efile);
@@ -405,7 +446,7 @@ class _UsSignScreenState extends State<UsSignScreen> {
               return ListView(padding: const EdgeInsets.fromLTRB(20, 12, 20, 32), children: [UsUnsupportedNotice(forms: ctx.review.unsupported)]);
             }
             if (ctx.review.blocked) {
-              return const EmptyNote(text: 'Your return still has items to fix. Open Review your return and fix them, then come back to sign.');
+              return _blockedView(ctx.review);
             }
             final joint = ctx.status.filingStatus == 'mfj';
             final owed = ctx.review.owed > 0;
@@ -423,7 +464,9 @@ class _UsSignScreenState extends State<UsSignScreen> {
                     const StatusTag(text: 'IRS test system: nothing is really filed', color: Palette.warn),
                   ],
                   const SizedBox(height: 22),
-                  if ((_paidFee ?? ctx.fee).due)
+                  if (!ctx.fee.filingOpen)
+                    _notOpen()
+                  else if ((_paidFee ?? ctx.fee).due)
                     UsFilingFeeCard(fee: ctx.fee, fees: _fees!, store: _store, onPaid: (fee) => setState(() => _paidFee = fee))
                   else if (_filing == null)
                     FilledButton(key: const Key('usSign.prepare'), onPressed: _busy ? null : _prepareFiling, child: Text(_busy ? 'Checking…' : 'E-file with the IRS'))
@@ -456,8 +499,8 @@ class _UsSignScreenState extends State<UsSignScreen> {
                 ),
                 const SizedBox(height: 18),
                 const SectionLabel('Your signature'),
-                _pinField(_pin, 'pin', 'Your signature PIN'),
-                if (joint) ...[const SizedBox(height: 12), _pinField(_spousePin, 'spousePin', 'Your spouse\'s signature PIN')],
+                _pinField(_pin, 'pin', 'Signature PIN'),
+                if (joint) ...[const SizedBox(height: 12), _pinField(_spousePin, 'spousePin', 'Spouse\'s signature PIN')],
                 const SizedBox(height: 22),
                 const SectionLabel('Prove it is you'),
                 Text('The IRS checks last year\'s adjusted gross income (AGI) to confirm who is signing.', style: text.bodySmall),

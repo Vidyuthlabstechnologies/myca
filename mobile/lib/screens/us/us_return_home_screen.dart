@@ -16,6 +16,7 @@ import '../invite_screen.dart';
 import '../people_screen.dart';
 import '../plan_screen.dart';
 import '../security_screen.dart';
+import 'us_fields.dart';
 import 'us_forms_screen.dart';
 import 'us_interview_screen.dart';
 import 'us_profile_screen.dart';
@@ -119,60 +120,52 @@ class _UsReturnHomeScreenState extends State<UsReturnHomeScreen> {
 
   void _account() {
     final state = AppScope.of(context);
+    Widget item(String key, String title, String subtitle, Widget screen) => ListTile(
+          key: Key('usAccount.$key'),
+          title: Text(title),
+          subtitle: subtitle.isEmpty ? null : Text(subtitle),
+          onTap: () {
+            Navigator.of(context).pop();
+            _open(screen);
+          },
+        );
     showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
+      isScrollControlled: true,
       builder: (sheet) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              title: const Text('Share with your spouse or tax pro'),
-              subtitle: const Text('They see this return; only you can sign it'),
-              onTap: () {
-                Navigator.of(sheet).pop();
-                _open(const PeopleScreen());
-              },
-            ),
-            ListTile(
-              title: const Text('Plan and billing'),
-              onTap: () {
-                Navigator.of(sheet).pop();
-                _open(const PlanScreen());
-              },
-            ),
-            ListTile(
-              title: const Text('Invite a friend'),
-              subtitle: const Text('Share your invite code, or use one you were sent'),
-              onTap: () {
-                Navigator.of(sheet).pop();
-                _open(const InviteScreen());
-              },
-            ),
-            ListTile(
-              title: const Text('Security'),
-              subtitle: const Text('App lock and two-step sign-in'),
-              onTap: () {
-                Navigator.of(sheet).pop();
-                _open(const SecurityScreen());
-              },
-            ),
-            ListTile(
-              title: const Text('Switch or add'),
-              subtitle: const Text('Another return, or books for a business'),
-              onTap: () {
-                Navigator.of(sheet).pop();
-                _open(const BusinessesScreen());
-              },
-            ),
-            ListTile(
-              title: const Text('Sign out'),
-              onTap: () {
-                Navigator.of(sheet).pop();
-                state.signOut();
-              },
-            ),
-          ],
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(sheet).height * 0.85),
+          child: ListView(
+            key: const Key('usHub.accountMenu'),
+            shrinkWrap: true,
+            children: [
+              item('people', 'Share with your spouse or tax pro', 'They see this return; only you can sign it', const PeopleScreen()),
+              item('plan', 'Plan and billing', '', const PlanScreen()),
+              item('invite', 'Invite a friend', 'Share your invite code, or use one you were sent', const InviteScreen()),
+              item('security', 'Security', 'App lock and two-step sign-in', const SecurityScreen()),
+              item('switch', 'Switch or add', 'Another return, or books for a business', const BusinessesScreen()),
+              if (state.cloud != null && state.crashes != null)
+                ListenableBuilder(
+                  listenable: state,
+                  builder: (context, _) => SwitchListTile(
+                    key: const Key('usAccount.crashReports'),
+                    title: const Text('Send crash reports'),
+                    subtitle: const Text('Only what went wrong in the app. Names, amounts, Social Security numbers and phone numbers are removed first.'),
+                    value: state.crashReportsOn,
+                    onChanged: (enabled) => state.setCrashReports(enabled),
+                  ),
+                ),
+              ListTile(
+                key: const Key('usAccount.signOut'),
+                title: const Text('Sign out'),
+                onTap: () {
+                  Navigator.of(sheet).pop();
+                  state.signOut();
+                },
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -262,7 +255,11 @@ class _UsReturnHomeScreenState extends State<UsReturnHomeScreen> {
           Text(label, style: text.bodyLarge?.copyWith(color: Palette.muted)),
           if (amount.isNotEmpty) ...[
             const SizedBox(height: 6),
-            Text(amount, style: text.displaySmall?.copyWith(color: status.owed > 0 ? Palette.warn : context.myca.accent, fontFeatures: moneyFigures)),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(amount, key: const Key('usHub.amount'), maxLines: 1, style: text.displaySmall?.copyWith(color: status.owed > 0 ? Palette.warn : context.myca.accent, fontFeatures: moneyFigures)),
+            ),
           ],
           const SizedBox(height: 6),
           Text('Updates as you add forms and answer questions.', style: text.bodySmall),
@@ -305,39 +302,37 @@ class _UsReturnHomeScreenState extends State<UsReturnHomeScreen> {
               return ListView(
                 padding: const EdgeInsets.fromLTRB(20, 4, 20, 28),
                 children: [
-                  Row(
-                    children: [
-                      Expanded(child: Text('Your $year federal return', style: text.headlineMedium)),
-                      PopupMenuButton<int>(
-                        key: const Key('usHub.year'),
-                        tooltip: 'Tax year',
-                        initialValue: year,
-                        onSelected: (picked) => setState(() {
-                          _year = picked;
-                          _hub = _load();
-                        }),
-                        itemBuilder: (_) => [
-                          for (final y in [currentTaxYear(AppScope.of(context).now()), currentTaxYear(AppScope.of(context).now()) - 1, currentTaxYear(AppScope.of(context).now()) - 2])
-                            PopupMenuItem(value: y, child: Text('Tax year $y')),
-                        ],
-                        child: Padding(
-                          padding: const EdgeInsets.all(8),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text('$year', style: text.titleMedium?.copyWith(color: context.myca.accent)),
-                              Icon(Icons.arrow_drop_down, color: context.myca.accent),
-                            ],
-                          ),
+                  Text('Your $year federal return', style: text.headlineMedium),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: PopupMenuButton<int>(
+                      key: const Key('usHub.year'),
+                      tooltip: 'Change tax year',
+                      initialValue: year,
+                      onSelected: (picked) => setState(() {
+                        _year = picked;
+                        _hub = _load();
+                      }),
+                      itemBuilder: (_) => [
+                        for (final y in [currentTaxYear(AppScope.of(context).now()), currentTaxYear(AppScope.of(context).now()) - 1, currentTaxYear(AppScope.of(context).now()) - 2])
+                          PopupMenuItem(value: y, child: Text('Tax year $y')),
+                      ],
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(minHeight: 48),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text('Tax year $year', style: text.titleMedium?.copyWith(color: context.myca.accent)),
+                            Icon(Icons.arrow_drop_down, color: context.myca.accent),
+                          ],
                         ),
                       ),
-                    ],
+                    ),
                   ),
-                  const SizedBox(height: 4),
                   Text('Form 1040, prepared from your forms and answers.', style: text.bodyMedium?.copyWith(color: Palette.muted)),
                   const SizedBox(height: 18),
                   if (loaded.hasError)
-                    EmptyNote(text: loaded.error is MycaApiException ? (loaded.error as MycaApiException).message : 'Your return could not be loaded. Pull down to try again.')
+                    UsLoadError(inline: true, message: usLoadProblem(loaded.error, 'Your return could not be loaded.'), onRetry: _reload)
                   else if (hub == null)
                     const Padding(padding: EdgeInsets.all(32), child: Center(child: CircularProgressIndicator()))
                   else ...[

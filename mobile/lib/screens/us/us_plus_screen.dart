@@ -13,6 +13,7 @@ import '../../us/us_plus.dart';
 import '../../us/us_return.dart';
 import '../../widgets.dart';
 import '../plan_screen.dart' show buyInApp;
+import 'us_fields.dart';
 
 Map<String, dynamic> _map(Object? value) => value is Map ? value.cast<String, dynamic>() : const <String, dynamic>{};
 
@@ -187,7 +188,7 @@ class _UsPlusScreenState extends State<UsPlusScreen> {
           child: Text('Get MyCA Plus, ${_playPrice.isEmpty ? '\$${plus.priceUsd}' : _playPrice} a year'),
         ),
         const SizedBox(height: 6),
-        Text(_store == null ? 'Get MyCA Plus in the MyCA US app for Android.' : 'Paid through Google Play. Cancel any time in Play.', style: text.bodySmall?.copyWith(color: Palette.muted)),
+        Text(_store == null ? 'MyCA Plus cannot be bought in this app on this device yet.' : 'Paid through Google Play. Cancel any time in Play.', key: const Key('usPlus.playNote'), style: text.bodySmall?.copyWith(color: Palette.muted)),
       ]);
     } else if (plus.buyable) {
       children.addAll([
@@ -214,7 +215,7 @@ class _UsPlusScreenState extends State<UsPlusScreen> {
         child: FutureBuilder<(UsPlusStatus, UsOffers)>(
           future: _loaded,
           builder: (context, loaded) {
-            if (loaded.hasError) return EmptyNote(text: _errorText(loaded.error!));
+            if (loaded.hasError) return UsLoadError(message: _errorText(loaded.error!), onRetry: _reload);
             if (!loaded.hasData) return const Center(child: CircularProgressIndicator());
             final (plus, offers) = loaded.data!;
             final open = plus.active;
