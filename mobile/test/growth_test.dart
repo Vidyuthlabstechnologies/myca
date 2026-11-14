@@ -65,6 +65,15 @@ void main() {
     ]);
   });
 
+  test('the Malaysia app sends no funnel steps, even with the US switch on', () async {
+    final sent = <Object>[];
+    final tracker = FunnelTracker(store: MemoryFunnelStore(), edition: 'MY', usAllowed: true);
+    expect(tracker.edition, 'my');
+    expect(tracker.active, isFalse);
+    expect(await tracker.reach(['signed_in'], (steps) async => sent.add(steps)), 0);
+    expect(sent, isEmpty);
+  });
+
   test('an invite reads in plain words for each app', () {
     final info = ReferralInfo.fromJson({'code': 'AB2CD3EF', 'link': 'https://myca.example/r/AB2CD3EF', 'invited': 2, 'converted': 1, 'reward': ''});
     expect(info.reward, isNull);

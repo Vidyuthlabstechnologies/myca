@@ -153,6 +153,9 @@ class ChatReply {
     required this.posted,
     required this.blocked,
     this.tools = const [],
+    this.results = const [],
+    this.blockers = const [],
+    this.error = '',
   });
 
   factory ChatReply.fromJson(Object? json) {
@@ -160,15 +163,22 @@ class ChatReply {
     final awaiting =
         map['awaitingConfirmation'] == true && map['preview'] is Map;
     final tools = map['tools'];
+    final held = _map(map['preview']);
     return ChatReply(
       reply: _text(map['reply']),
       preview: awaiting ? ChatPreview.fromJson(map['preview']) : null,
       posted: map['posted'] == true,
       blocked: map['blocked'] == true,
       tools: tools is List ? [for (final t in tools) if (t is Map) Map<String, dynamic>.from(t)] : const [],
+      results: [for (final tool in _maps(map['tools'])) _map(tool['result'])],
+      blockers: held['blockers'] is List ? (held['blockers'] as List).map(_text).where((line) => line.isNotEmpty).toList() : const <String>[],
+      error: _text(map['error']),
     );
   }
 
+  final List<Map<String, dynamic>> results;
+  final List<String> blockers;
+  final String error;
   final String reply;
   final ChatPreview? preview;
   final bool posted;

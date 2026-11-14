@@ -1,3 +1,7 @@
 country             = "MY"
 region              = "asia-southeast1"
 daily_job_time_zone = "Asia/Kuala_Lumpur"
+play_package_name       = "com.mldynamic.myca.my"
+play_product_essentials = "myca_my_sme_monthly"
+play_product_pro        = "myca_my_growth_monthly"
+play_product_firm       = "myca_my_firm_monthly"

@@ -34,14 +34,14 @@ class MemoryFunnelStore implements FunnelStore {
 typedef SendFunnelSteps = Future<void> Function(List<Map<String, Object?>> steps);
 
 class FunnelTracker {
-  FunnelTracker({required this.store, required String edition, this.usAllowed = usFunnelAllowed}) : edition = edition.toUpperCase() == 'US' ? 'us' : 'india';
+  FunnelTracker({required this.store, required String edition, this.usAllowed = usFunnelAllowed}) : edition = switch (edition.toUpperCase()) { 'US' => 'us', 'MY' => 'my', _ => 'india' };
 
   final FunnelStore store;
   final String edition;
   final bool usAllowed;
   final Set<String> _inFlight = {};
 
-  bool get active => edition == 'india' || usAllowed;
+  bool get active => edition == 'india' || (edition == 'us' && usAllowed);
 
   Future<int> reach(Iterable<String> steps, SendFunnelSteps send, {String source = ''}) async {
     if (!active) return 0;

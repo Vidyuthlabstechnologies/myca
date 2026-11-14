@@ -143,12 +143,16 @@ jobs:
           flutter build appbundle --release --flavor india "${define[@]}"
           flutter build apk --release --flavor us "${define[@]}"
           flutter build appbundle --release --flavor us "${define[@]}"
+          flutter build apk --release --flavor my "${define[@]}"
+          flutter build appbundle --release --flavor my "${define[@]}"
           mkdir -p ../dist
           cp build/app/outputs/flutter-apk/app-india-release.apk ../dist/myca-android.apk
           cp build/app/outputs/bundle/indiaRelease/app-india-release.aab ../dist/myca-android.aab
           cp build/app/outputs/flutter-apk/app-us-release.apk ../dist/myca-us-android.apk
           cp build/app/outputs/bundle/usRelease/app-us-release.aab ../dist/myca-us-android.aab
-          (cd ../dist && sha256sum myca-android.apk myca-android.aab myca-us-android.apk myca-us-android.aab > SHA256SUMS-android.txt)
+          cp build/app/outputs/flutter-apk/app-my-release.apk ../dist/myca-my-android.apk
+          cp build/app/outputs/bundle/myRelease/app-my-release.aab ../dist/myca-my-android.aab
+          (cd ../dist && sha256sum myca-android.apk myca-android.aab myca-us-android.apk myca-us-android.aab myca-my-android.apk myca-my-android.aab > SHA256SUMS-android.txt)
           aapt2="$(ls -d "$ANDROID_HOME"/build-tools/*/aapt2 | sort -V | tail -1)"
           {
             echo "### Release APK badging"
@@ -229,6 +233,8 @@ jobs:
             dist/myca-android.aab
             dist/myca-us-android.apk
             dist/myca-us-android.aab
+            dist/myca-my-android.apk
+            dist/myca-my-android.aab
       - name: Upload the files to the tag's release
         shell: bash
         run: |
@@ -237,7 +243,7 @@ jobs:
           if ! gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             gh release create "$tag" --repo "$GITHUB_REPOSITORY" --title "$tag" --notes "MyCA $tag" --draft=false
           fi
-          gh release upload "$tag" dist/myca-android.apk dist/myca-android.aab dist/myca-us-android.apk dist/myca-us-android.aab dist/SHA256SUMS-android.txt dist/myca-android.sbom.cdx.json --repo "$GITHUB_REPOSITORY" --clobber
+          gh release upload "$tag" dist/myca-android.apk dist/myca-android.aab dist/myca-us-android.apk dist/myca-us-android.aab dist/myca-my-android.apk dist/myca-my-android.aab dist/SHA256SUMS-android.txt dist/myca-android.sbom.cdx.json --repo "$GITHUB_REPOSITORY" --clobber
 
   play:
     name: Upload the bundle to Google Play

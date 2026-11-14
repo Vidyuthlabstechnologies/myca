@@ -5,6 +5,7 @@ import 'format.dart';
 import 'package:flutter/widgets.dart';
 
 import 'api/models.dart';
+import 'app_config.dart' show normalEdition;
 import 'shared_file.dart';
 import 'api/myca_api.dart';
 import 'app_services.dart';
@@ -26,6 +27,21 @@ Future<bool> _cannotShare(String text) async => false;
 Future<bool> _cannotOpen(Uri url) async => false;
 
 Future<PickedFile?> _cannotPickAny() async => null;
+
+abstract class LanguageStore {
+  Future<String> load();
+  Future<void> save(String code);
+}
+
+class NoLanguageStore implements LanguageStore {
+  const NoLanguageStore();
+
+  @override
+  Future<String> load() async => '';
+
+  @override
+  Future<void> save(String code) async {}
+}
 
 class AppState extends ChangeNotifier {
   AppState({
@@ -50,10 +66,45 @@ class AppState extends ChangeNotifier {
     this.openLink = _cannotOpen,
     String edition = 'IN',
     this.installationId = sessionInstallationId,
+    this.languages = const NoLanguageStore(),
+    ValueNotifier<String>? languageChoice,
+    this.sendAnswerReport,
   })  : api = api ?? cloud!.api,
-        edition = edition.toUpperCase() == 'US' ? 'US' : 'IN';
+        languageChoice = languageChoice ?? ValueNotifier<String>(''),
+        edition = normalEdition(edition);
 
   final String edition;
+  final LanguageStore languages;
+  final Future<void> Function(Map<String, Object?> report)? sendAnswerReport;
+
+  Future<bool> reportAnswer({required String answer, required String reason}) async {
+    final report = <String, Object?>{
+      'kind': 'flutter',
+      'type': 'AiAnswerReport',
+      'appVersion': 'unknown',
+      'count': 1,
+      'message': '$reason | ${edition.toLowerCase()} | ${answer.length > 240 ? answer.substring(0, 240) : answer}',
+      'stack': 'ai-answer-report $reason',
+    };
+    final send = sendAnswerReport ?? (cloud != null && cloud!.signedIn ? (Map<String, Object?> one) => cloud!.sendCrashReports([one]) : null);
+    if (send == null) return false;
+    try {
+      await send(report);
+      return true;
+    } on Exception {
+      return false;
+    }
+  }
+  final ValueNotifier<String> languageChoice;
+
+  String get language => languageChoice.value;
+
+  Future<void> setLanguage(String code) async {
+    if (code == language) return;
+    languageChoice.value = code;
+    notifyListeners();
+    await languages.save(code);
+  }
   final Future<String> Function() installationId;
 
   final MycaApi api;
@@ -123,6 +174,8 @@ class AppState extends ChangeNotifier {
   bool get household => snapshot?.company.household ?? false;
 
   Future<void> start() async {
+    final saved = await languages.load();
+    if (saved.isNotEmpty) languageChoice.value = saved;
     welcomed = await store.welcomed();
     migrated = await store.migrated();
     await cloud?.restore();
@@ -158,7 +211,7 @@ class AppState extends ChangeNotifier {
     notifyListeners();
     try {
       snapshot = await api.snapshot();
-      moneyCountry = snapshot?.company.country ?? 'IN';
+      moneyCountry = snapshot?.company.country ?? (edition == 'MY' ? 'MY' : 'IN');
       await _skipMigrationForKeptBooks();
       _sendCrashReports();
       _reachFunnel();
