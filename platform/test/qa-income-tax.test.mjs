@@ -14,6 +14,9 @@ import { planAdvanceTaxFromChat } from '../src/advance-tax-intent.mjs';
 import { validateAgainstSchema } from '../src/itr-json-check.mjs';
 import { form16A } from '../src/tds-certificates.mjs';
 import { planTds } from '../src/tds-deduction.mjs';
+import { tdsReturnDraft } from '../src/tds-return.mjs';
+import { filingRows } from '../src/deadline-run.mjs';
+import { runTool } from '../src/tools.mjs';
 import { taxPlan, reviewIncomeTaxReturn } from '../src/tax-assistant.mjs';
 
 const LAKH = 100000 * 100;
@@ -127,4 +130,38 @@ test('TDS on a 194C contractor: 1% for an individual PAN, 2% for a firm, nothing
   const noPan = planTds(state, { tdsSection: '194C' }, { date: '2026-10-05', basis: 40000, payable: 40000, payee: 'Y' }).tds;
   assert.equal(noPan.rate, 20);
   assert.equal(noPan.tds, 8000);
+});
+
+function tdsBooks() {
+  const state = createState();
+  state.company = { ...state.company, name: 'Asha Traders', tdsDeductor: true, tan: 'MUMA12345B' };
+  const entry = (section, date, payee, pan, basis, tdsAmount) => ({ section, category: section === '194J' ? 'professional' : '', asset: '', pan, payee, fy: '2026-27', date, basis, beforeGst: true, tds: tdsAmount, shortfall: 0, rate: 10, noPan: false, crossed: true, kind: 'aggregate', rulesUsed: [], unreviewed: false, source: 'test' });
+  state.tdsEntries = [entry('194J', '2026-08-05', 'Rao & Co', 'AAAFR1234K', 60000, 6000), entry('192', '2026-08-31', 'Meena', 'ABCPM1234K', 150000, 9000)];
+  return state;
+}
+
+test('24Q and 26Q are recorded as filed separately: filing one does not mark the other filed', async () => {
+  const state = tdsBooks();
+  const row = () => filingRows(state, '2026-11-01').find((item) => item.returnType === 'TDS_QUARTERLY' && item.period === 'Q2 2026-27');
+  assert.ok(row(), 'the Q2 TDS statement is listed');
+  const record = (args) => runTool(state, 'record_filing', { returnType: 'TDS_QUARTERLY', period: 'Q2 2026-27', filedOn: '2026-10-30', ...args });
+  assert.equal((await record({ arn: 'TDS26QQ2ACK0001' })).error, 'TDS_FORM_REQUIRED');
+  const other = await record({ form: '26Q', arn: 'TDS26QQ2ACK0001' });
+  assert.equal(other.ok, true, JSON.stringify(other));
+  assert.equal(tdsReturnDraft(state, 'Q2 2026-27', { form: 'other' }).data.filed?.arn, 'TDS26QQ2ACK0001');
+  assert.equal(tdsReturnDraft(state, 'Q2 2026-27', { form: 'salary' }).data.filed, null);
+  assert.notEqual(row().level, 'filed', 'the quarter stays open while 24Q is not filed');
+  assert.equal((await record({ form: 'other', arn: 'TDS26QQ2ACK0002' })).error, 'ALREADY_RECORDED');
+  const salary = await record({ form: '24Q', arn: 'TDS24QQ2ACK0001', filedOn: '2026-10-31' });
+  assert.equal(salary.ok, true, JSON.stringify(salary));
+  assert.equal(tdsReturnDraft(state, 'Q2 2026-27', { form: 'salary' }).data.filed?.arn, 'TDS24QQ2ACK0001');
+  assert.equal(row().level, 'filed');
+});
+
+test('a TDS statement filing recorded before the forms were told apart still counts for both', () => {
+  const state = tdsBooks();
+  state.filings = [{ returnType: 'TDS_QUARTERLY', period: 'Q2 2026-27', label: 'TDS statement', arn: 'OLDTDSACK0001', filedOn: '2026-10-30', dueDate: '2026-10-31', late: false, filedBy: '', source: 'recorded' }];
+  assert.equal(tdsReturnDraft(state, 'Q2 2026-27', { form: 'other' }).data.filed?.arn, 'OLDTDSACK0001');
+  assert.equal(tdsReturnDraft(state, 'Q2 2026-27', { form: 'salary' }).data.filed?.arn, 'OLDTDSACK0001');
+  assert.equal(filingRows(state, '2026-11-01').find((item) => item.returnType === 'TDS_QUARTERLY' && item.period === 'Q2 2026-27').level, 'filed');
 });

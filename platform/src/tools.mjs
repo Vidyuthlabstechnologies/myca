@@ -3179,8 +3179,8 @@ export const TOOLS = [
   {
     name: 'record_filing',
     title: 'Record a filed return',
-    description: 'Record that a return was filed outside MyCA (on the portal or by the CA), with its acknowledgement (ARN) and date. The return must be one MyCA lists for this business. Files nothing.',
-    args: ['returnType', 'period', 'arn', 'filedOn', 'filedBy'],
+    description: 'Record that a return was filed outside MyCA (on the portal or by the CA), with its acknowledgement (ARN) and date. The return must be one MyCA lists for this business; for a TDS statement say the form, 24Q (salary) or 26Q (other payments). Files nothing.',
+    args: ['returnType', 'period', 'arn', 'filedOn', 'filedBy', 'form'],
     run: (state, args = {}) => recordFiling(state, args, filingRows(state, args.filedOn)),
   },
   {
