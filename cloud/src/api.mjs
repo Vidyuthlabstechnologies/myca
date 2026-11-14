@@ -26,7 +26,7 @@ import { createGrowth } from './growth.mjs';
 import { PRIVACY_NOTICE, consentExempt, createConsent, legalLinks, noticeFor, noticesFor } from './consent.mjs';
 import { createPrivacyRequests } from './privacy-requests.mjs';
 import { createUsConsents, PARTNER_TINS } from './us-7216.mjs';
-import { SECOND_STEP_FOR_FILING, US_SECOND_STEP_TOOLS, usSecondStepRequired } from './us-safeguards.mjs';
+import { GB_SECOND_STEP_TOOLS, SECOND_STEP_FOR_FILING, SECOND_STEP_FOR_HMRC, US_SECOND_STEP_TOOLS, usSecondStepRequired } from './us-safeguards.mjs';
 import { createJobs, jobTokenMatches, JOB_HEADER } from './jobs.mjs';
 import { createGoogleKeys, createGoogleVerifier } from './google.mjs';
 import { createOidcVerifier } from './oidc.mjs';
@@ -359,9 +359,16 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
 
   // Confirming a US filing: the server names the business for the e-file partner's webhook
   // (whatever proposed it, app or chat), and the call runs at the service's provider setting.
-  function asEngineProviderCall(session, address, run) {
+  async function withServerFactors(userId, pending, address) {
+    if (!pending || !ENGINE_ADDRESS_TOOLS.includes(pending.name)) return;
+    pending.args = withServerDeviceFacts(pending.args, address);
+    const factors = await secondFactor.factorsForHmrc(userId);
+    if (factors.length) pending.args.device.multiFactor = factors;
+  }
+
+  async function asEngineProviderCall(session, userId, address, run) {
     const pending = session.state.pendingChatAction;
-    if (pending && ENGINE_ADDRESS_TOOLS.includes(pending.name)) pending.args = withServerDeviceFacts(pending.args, address);
+    await withServerFactors(userId, pending, address);
     return ENGINE_PROVIDER_TOOLS.includes(pending?.name) ? withProviderContext({ environment: serviceProviderEnvironment() }, run) : run();
   }
 
@@ -372,8 +379,9 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
   }
 
   async function secondStepMissing(userId, name) {
-    if (!US_SECOND_STEP_TOOLS.includes(name) || !usSecondStepRequired()) return null;
-    return (await secondFactor.status(userId)).enabled ? null : SECOND_STEP_FOR_FILING;
+    const refusal = US_SECOND_STEP_TOOLS.includes(name) ? SECOND_STEP_FOR_FILING : GB_SECOND_STEP_TOOLS.includes(name) ? SECOND_STEP_FOR_HMRC : null;
+    if (!refusal || !usSecondStepRequired()) return null;
+    return (await secondFactor.status(userId)).enabled ? null : refusal;
   }
 
   async function unpaidFiling(businessId, session) {
@@ -1043,7 +1051,7 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
           // Requests run with provider calls off; filing a US return is the one confirm that may
           // reach the IRS or the e-file partner, at the service's own provider setting.
           if (session.state.pendingChatAction?.name === US_FILE_TOOL) return asUsFiling(session, businessId, user.userId, () => session.confirm(body.token, actor));
-          return asEngineProviderCall(session, clientAddress(req), () => session.confirm(body.token, actor));
+          return asEngineProviderCall(session, user.userId, clientAddress(req), () => session.confirm(body.token, actor));
         });
       }
       if (action === 'discard') return withBooks(businessId, context, (session) => session.discard(actor));
@@ -1066,8 +1074,7 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
             await session.discard(actor);
             return { reply: unprotected.hint, tools: [], error: unprotected.error };
           }
-          const pendingHmrc = session.state.pendingChatAction;
-          if (pendingHmrc && ENGINE_ADDRESS_TOOLS.includes(pendingHmrc.name)) pendingHmrc.args = withServerDeviceFacts(pendingHmrc.args, clientAddress(req));
+          await withServerFactors(user.userId, session.state.pendingChatAction, clientAddress(req));
           // A "yes" in chat can confirm a pending US filing, which must reach the partner the same way.
           const out = session.state.pendingChatAction?.name === US_FILE_TOOL && confirmationIntent(message) && confirmationIntent(message) !== 'cancel' ? await asUsFiling(session, businessId, user.userId, () => session.chat(message, actor)) : await session.chat(message, actor);
           const unpaid = await unpaidFiling(businessId, session);

@@ -1,7 +1,7 @@
-import { createCipheriv, createDecipheriv, hkdfSync, randomBytes, randomInt } from 'node:crypto';
+import { createCipheriv, createDecipheriv, createHash, hkdfSync, randomBytes, randomInt } from 'node:crypto';
 import { isUuid, issueTokens, plainText } from './auth.mjs';
 import { keyedHash } from './tokens.mjs';
-import { base32Decode, base32Encode, otpauthUri, verifyTotp } from './totp.mjs';
+import { TOTP_STEP_SECONDS, base32Decode, base32Encode, otpauthUri, verifyTotp } from './totp.mjs';
 
 export const SECOND_STEP_TTL_SECONDS = 300;
 export const SECOND_STEP_MAX_ATTEMPTS = 5;
@@ -153,6 +153,16 @@ export function createSecondFactor({ db, secret, booksKey = '', now = () => Date
     async enabledFor(q, userId) {
       const found = await q('select 1 from user_totp where user_id = $1 and enabled_at is not null', [userId]);
       return found.rowCount > 0;
+    },
+
+    async factorsForHmrc(userId) {
+      const found = await db.query('select enabled_at, last_step from user_totp where user_id = $1 and enabled_at is not null', [userId]);
+      const row = found.rows[0];
+      if (!row) return [];
+      const lastStep = Number(row.last_step || 0);
+      const timestamp = lastStep > 0 ? new Date(lastStep * TOTP_STEP_SECONDS * 1000) : row.enabled_at;
+      const uniqueReference = createHash('sha256').update(`myca-totp:${userId}:${row.enabled_at.toISOString()}`).digest('hex');
+      return [{ type: 'TOTP', timestamp: timestamp.toISOString(), uniqueReference }];
     },
 
     async status(userId) {
