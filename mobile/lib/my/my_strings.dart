@@ -132,7 +132,7 @@ class MyStrings {
   String get homeTax => _t('Income tax', 'Cukai pendapatan');
   String get homeTaxBody => _t('See your tax for the year of assessment before you file in MyTax.', 'Lihat cukai anda bagi tahun taksiran sebelum memfailkan dalam MyTax.');
   String get estimateTax => _t('Estimate my tax', 'Anggarkan cukai saya');
-  String get homeBusiness => _t('Growth', 'Pertumbuhan');
+  String get homeBusiness => _t('Business', 'Perniagaan');
   String get profileMissing => _t('Add your e-invoice details before you send an e-invoice.', 'Tambah butiran e-Invois anda sebelum menghantar e-Invois.');
   String get profileReady => _t('e-Invoice details saved', 'Butiran e-Invois disimpan');
   String get addDetails => _t('Add details', 'Tambah butiran');
@@ -170,7 +170,7 @@ class MyStrings {
   String get buyer => _t('Buyer', 'Pembeli');
   String get seller => _t('Seller', 'Penjual');
   String buyerKindName(String kind) => switch (kind) {
-    'business' => _t('Growth', 'Pertumbuhan'),
+    'business' => _t('Business', 'Perniagaan'),
     'individual' => _t('Individual', 'Individu'),
     'public' => _t('General public (B2C)', 'Orang awam (B2C)'),
     'foreign' => _t('Foreign buyer', 'Pembeli asing'),
@@ -532,10 +532,10 @@ class MyStrings {
     'einvoice' => _t('e-Invoices to LHDN MyInvois with QR codes', 'e-Invois ke LHDN MyInvois dengan kod QR'),
     'sst' => _t('SST-02 prepared with due dates', 'SST-02 disediakan dengan tarikh akhir'),
     'tax' => _t('Income tax estimate for MyTax', 'Anggaran cukai pendapatan untuk MyTax'),
-    'starter' => _t('Everything in Starter', 'Semua dalam Permulaan'),
-    'consolidated' => _t('Consolidated and self-billed e-invoices', 'e-Invois disatukan dan bil kendiri'),
+    'starter' => _t('Everything in SME', 'Semua dalam PKS'),
+    'consolidated' => _t('Monthly consolidated e-invoices', 'e-Invois disatukan bulanan'),
     'team' => _t('Your staff in the same books', 'Kakitangan anda dalam buku yang sama'),
-    'business' => _t('Everything in Business', 'Semua dalam Perniagaan'),
+    'business' => _t('Everything in Growth', 'Semua dalam Pertumbuhan'),
     'agent' => _t('Your tax agent in the same books', 'Ejen cukai anda dalam buku yang sama'),
     'support' => _t('Priority support', 'Sokongan keutamaan'),
     _ => key,
