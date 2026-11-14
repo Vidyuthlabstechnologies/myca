@@ -5,6 +5,7 @@ import 'format.dart';
 import 'package:flutter/widgets.dart';
 
 import 'api/models.dart';
+import 'app_config.dart';
 import 'shared_file.dart';
 import 'api/myca_api.dart';
 import 'app_services.dart';
@@ -51,11 +52,7 @@ class AppState extends ChangeNotifier {
     String edition = 'IN',
     this.installationId = sessionInstallationId,
   })  : api = api ?? cloud!.api,
-        edition = edition.toUpperCase() == 'US'
-            ? 'US'
-            : const {'GB', 'UK'}.contains(edition.toUpperCase())
-            ? 'GB'
-            : 'IN';
+        edition = editionFor(null, defined: edition);
 
   final String edition;
   final Future<String> Function() installationId;

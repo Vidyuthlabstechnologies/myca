@@ -147,7 +147,7 @@ void main() {
     }
   });
 
-  test('the uk flavour and MYCA_EDITION=GB give the GB edition, and India and US are unchanged', () {
+  test('the uk flavour and MYCA_EDITION=GB give the GB edition, and India, US and UAE are unchanged', () {
     expect(editionFor('uk', defined: ''), 'GB');
     expect(editionFor('india', defined: 'GB'), 'GB');
     expect(editionFor('us', defined: ''), 'US');
@@ -156,7 +156,7 @@ void main() {
     expect(gbState(GbFakeApi()).edition, 'GB');
     expect(AppState(api: GbFakeApi(), store: MemoryOnboardingStore(), pickTextFile: (_) async => null, edition: 'uk').edition, 'GB');
     expect(AppState(api: GbFakeApi(), store: MemoryOnboardingStore(), pickTextFile: (_) async => null, edition: 'US').edition, 'US');
-    expect(AppState(api: GbFakeApi(), store: MemoryOnboardingStore(), pickTextFile: (_) async => null, edition: 'AE').edition, 'IN');
+    expect(AppState(api: GbFakeApi(), store: MemoryOnboardingStore(), pickTextFile: (_) async => null, edition: 'AE').edition, 'AE');
   });
 
   test('pounds read the British way and tax years start on 6 April', () {

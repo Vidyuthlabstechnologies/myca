@@ -34,6 +34,7 @@ import 'sales_tax_screen.dart';
 import 'us_taxes_screen.dart';
 import 'taxes_screen.dart';
 import '../uk/uk_hub_screen.dart';
+import 'uae/uae_taxes_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key, required this.snapshot});
@@ -65,7 +66,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<SupplierDues> _loadDues() async {
     if (_us) return SupplierDues.fromTool(null);
-    if (AppScope.of(context).edition == 'GB') return SupplierDues.fromTool(null);
+    if (AppScope.of(context).edition == 'GB' || widget.snapshot.company.country == 'AE') return SupplierDues.fromTool(null);
     final state = AppScope.of(context);
     try {
       return SupplierDues.fromTool(await state.api.query('supplier_dues'));
@@ -209,6 +210,8 @@ class _HomeScreenState extends State<HomeScreen> {
             const SizedBox(height: 18),
             if (uk)
               UkHomePanel(onTap: () => _open(const UkHubScreen()))
+            else if (company.country == 'AE')
+              UaeTaxesPanel(onTap: () => _open(const UaeTaxesScreen()))
             else if (company.country == 'IN')
               FutureBuilder<Today>(
                 future: _today,
@@ -231,7 +234,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   },
                 ),
               ),
-            if (company.country != 'IN' && !uk)
+            if (company.country != 'IN' && company.country != 'AE' && !uk)
               Padding(
                 padding: const EdgeInsets.only(top: 12),
                 child: _UsTaxesPanel(onTap: () => _open(const UsTaxesScreen())),
@@ -382,6 +385,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   trailing: const Chevron(),
                   onTap: () => _open(const CashScreen()),
                 ),
+                if (company.country != 'AE')
                 RowCard(
                   leading: const TintTile(tint: Tint.sales, mark: Mark.otherApp),
                   title: 'Marketplace',
