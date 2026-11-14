@@ -244,7 +244,8 @@ export function consentExempt(method, parts) {
 
 export function noticesFor(countries = []) {
   const codes = (Array.isArray(countries) ? countries : []).map((code) => String(code).toUpperCase());
-  const list = NOTICES.filter((notice) => (notice.region === 'US' ? codes.includes('US') : codes.some((code) => code !== 'US')));
+  const own = new Set(['US', 'MY']);
+  const list = NOTICES.filter((notice) => (own.has(notice.region) ? codes.includes(notice.region) : codes.some((code) => !own.has(code))));
   return list.length ? list : NOTICES;
 }
 

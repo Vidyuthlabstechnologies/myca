@@ -4,7 +4,7 @@ import { startApi, BOOKS_KEY } from './helpers.mjs';
 import { base32Decode, totpCode } from '../src/totp.mjs';
 import { storedState } from '../src/books-seal.mjs';
 import { JOB_HEADER } from '../src/jobs.mjs';
-import { createConsent, noticesFor, PRIVACY_NOTICE, PRIVACY_NOTICE_US } from '../src/consent.mjs';
+import { createConsent, noticesFor, PRIVACY_NOTICE, PRIVACY_NOTICE_US, PRIVACY_NOTICE_MY } from '../src/consent.mjs';
 import { createUsConsents, usConsentForms, formHasBlanks, renderConsent, consentPeriod, PARTNER_TINS, EXPERT_REVIEW, PLUS_USE, TIGTA_STATEMENT, US_PREPARER_NAME } from '../src/us-7216.mjs';
 import { usRecordsHeldUntil } from '../src/us-retention.mjs';
 import { usSecondStepRequired } from '../src/us-safeguards.mjs';
@@ -229,6 +229,8 @@ test('a US-only deployment accepts only the US notice and says so', async () => 
   assert.deepEqual(noticesFor(['US']).map((n) => n.version), [PRIVACY_NOTICE_US.version]);
   assert.deepEqual(noticesFor(['IN']).map((n) => n.version), [PRIVACY_NOTICE.version]);
   assert.equal(noticesFor(['IN', 'US']).length, 2);
+  assert.deepEqual(noticesFor(['MY']).map((n) => n.version), [PRIVACY_NOTICE_MY.version]);
+  assert.equal(noticesFor(['IN', 'MY']).length, 2);
   const session = await api.signIn(`+91${nextPhone++}`, { agree: false });
   const us = createConsent({ db: api.db, now: () => api.clock.now, notices: noticesFor(['US']) });
   assert.equal((await us.status(session.user.id)).version, PRIVACY_NOTICE_US.version);
