@@ -51,7 +51,9 @@ test('a UK business on the hosted service connects to the HMRC sandbox and syncs
   const link = await run('connect_gb_hmrc', {});
   const started = JSON.stringify(link);
   const stateValue = started.match(/"state":"([^"]+)"/)[1];
-  assert.match(started, /test-www\.tax\.service\.gov\.uk\/oauth\/authorize/);
+  const signIn = new URL(started.match(/"(https:\/\/[^"]+\/oauth\/authorize[^"]*)"/)[1]);
+  assert.equal(signIn.host, 'test-www.tax.service.gov.uk');
+  assert.equal(signIn.pathname, '/oauth/authorize');
   assert.equal(calls.length, 0, 'nothing reaches HMRC before the code comes back');
   await run('finish_gb_hmrc_connection', { code: 'code-12345678', state: stateValue });
   assert.equal(calls.length, 1, 'the confirm reached the HMRC sandbox token endpoint');
