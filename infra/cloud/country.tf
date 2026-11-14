@@ -4,8 +4,8 @@ variable "country" {
   default     = "IN"
 
   validation {
-    condition     = contains(["IN", "US", "MY"], var.country)
-    error_message = "MyCA serves IN, US and MY today. Add a country pack in platform/src/countries before deploying a new country."
+    condition     = contains(["IN", "US", "GB", "AE", "MY"], var.country)
+    error_message = "MyCA serves IN, US, GB (beta), AE (beta) and MY (beta) today. Add a country pack in platform/src/countries before deploying a new country."
   }
 }
 
@@ -13,6 +13,8 @@ locals {
   country_regions = {
     IN = ["asia-south1", "asia-south2"]
     US = ["us-central1", "us-east1", "us-east4", "us-west1"]
+    GB = ["europe-west2"]
+    AE = ["me-central1"]
     MY = ["asia-southeast1"]
   }
 }

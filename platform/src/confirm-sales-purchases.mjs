@@ -37,7 +37,7 @@ function stateCodeOf(value) {
 export function amendmentPreview(state, args) {
   const planned = planAmendment(state, args);
   if (!planned.ok) {
-    const reason = { INVOICE_NOT_FOUND: `There is no invoice ${planned.invoiceId}.`, NOT_FILED: planned.hint, AMENDMENT_PERIOD_FILED: planned.hint, REASON_REQUIRED: 'Say why the invoice is being amended.', NOTHING_CHANGED: 'Nothing on the invoice would change.', INVALID_GSTIN: `${planned.partyGstin} is not a GSTIN.`, PERIOD_LOCKED: `The books are locked through ${planned.lockThrough}.`, DATE_BEFORE_INVOICE: 'An amendment cannot be dated before the invoice.', INVOICE_CANCELLED: 'That invoice is cancelled.' }[planned.error] || planned.error;
+    const reason = { INVOICE_NOT_FOUND: `There is no invoice ${planned.invoiceId}.`, NOT_FILED: planned.hint, AMENDMENT_PERIOD_FILED: planned.hint, REASON_REQUIRED: 'Say why the invoice is being amended.', NOTHING_CHANGED: 'Nothing on the invoice would change.', INVALID_GSTIN: `${planned.partyGstin} is not a GSTIN.`, PERIOD_LOCKED: `The books are locked through ${planned.lockThrough}.`, DATE_BEFORE_INVOICE: 'An amendment cannot be dated before the invoice.', AMENDMENT_TIME_BARRED: planned.hint, INVOICE_CANCELLED: 'That invoice is cancelled.' }[planned.error] || planned.error;
     return { blockers: [reason], summary: '', effects: [], figures: {} };
   }
   const p = planned.plan;
@@ -339,6 +339,7 @@ const CREDIT_NOTE_REASONS = {
   BAD_AMOUNT: () => 'The amount must be a positive number.',
   EXCEEDS_INVOICE: (p) => `Only ${money(p.room)} of ${p.invoiceId} is left to credit.`,
   PARTLY_CREDITED: (p) => `${p.invoiceId} already has a credit note; issue one for the rest instead of cancelling.`,
+  CREDIT_NOTE_TIME_BARRED: (p) => p.hint,
 };
 
 export function creditNotePreview(state, args, cancel = false) {
@@ -482,11 +483,12 @@ const TRANSPORT_REASONS = {
   INVOICE_NOT_FOUND: (p) => `${p.invoiceId} is not an invoice in these books.`,
   INVOICE_CANCELLED: (p) => `${p.invoiceId} is cancelled.`,
   BAD_MODE: () => 'The mode is road, rail, air or ship.',
-  VEHICLE_REQUIRED: () => 'Say the vehicle number for movement by road, for example MH12AB1234.',
+  VEHICLE_REQUIRED: () => 'Say the vehicle number for movement by road, for example MH12AB1234, or the transporter id if the transporter will add the vehicle.',
   BAD_VEHICLE: (p) => `${p.vehicleNo} is not a vehicle number I can read (for example MH12AB1234).`,
   BAD_DISTANCE: () => 'Say the distance as whole kilometres, from 1 to 4000.',
   BAD_TRANSPORTER_ID: (p) => `${p.transporterId} is not a 15-character transporter id (GSTIN or TRANSIN).`,
   DOC_REQUIRED: (p) => `For movement by ${p.mode}, say the transport document number.`,
+  BAD_DOC_DATE: (p) => `${p.docDate} is not a date I can read; give the transport document date as YYYY-MM-DD.`,
 };
 
 export function transportPreview(state, args) {

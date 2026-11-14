@@ -192,6 +192,8 @@ void main() {
     expect(tester.widget<CheckboxListTile>(box).value, isFalse);
     await tester.tap(box);
     await tester.pumpAndSettle();
+    await tester.tap(find.text('I am 18 or over'));
+    await tester.pump();
     await tester.tap(find.text('I agree'));
     await tester.pumpAndSettle();
     expect(state.crashReportsOn, isTrue);
@@ -206,6 +208,8 @@ void main() {
     final state = _hosted(session, CrashReporter(store: store));
     await tester.pumpWidget(MycaApp(state: state));
     await tester.pumpAndSettle();
+    await tester.tap(find.text('I am 18 or over'));
+    await tester.pump();
     await tester.tap(find.text('I agree'));
     await tester.pumpAndSettle();
     expect(state.crashReportsOn, isFalse);

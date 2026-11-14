@@ -168,6 +168,7 @@ test('only a CA firm earns a credit, once, when the client it invited pays', asy
   await api.call('POST', '/v1/me/referral/claim', { token: friend.token, body: { code: shopView.code } });
   assert.equal((await api.db.query('select count(*)::int as n from referral_credits where referrer_user_id = $1', [shop.user.id])).rows[0].n, 0, 'a shop earns nothing');
   const paidFirst = await api.ownerWithBusiness('+919700000405', { name: 'Late Joiner', state: '29' });
+  await subscribe(paidFirst.businessId, 'pro');
   await steps(paidFirst.token, [{ step: 'paid' }]);
   await api.call('POST', '/v1/me/referral/claim', { token: paidFirst.token, body: { code: firmView.code } });
   assert.equal((await api.call('GET', '/v1/me/referral', { token: firm.token })).body.credits.earned, 2, 'a client who paid before claiming still earns the firm a credit');

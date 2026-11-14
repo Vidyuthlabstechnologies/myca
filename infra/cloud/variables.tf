@@ -99,9 +99,9 @@ variable "weekly_job_schedule" {
 }
 
 variable "log_retention_days" {
-  description = "Days the MyCA log bucket keeps the API, database and job logs (CERT-In directions of April 2022 ask for 180). The project _Default bucket is left alone."
+  description = "Days the MyCA log bucket keeps the API, database and job logs. The DPDP Rules 2025 ask for one year of processing logs; CERT-In directions of April 2022 ask for 180 days, in India. The project _Default bucket is left alone."
   type        = number
-  default     = 180
+  default     = 365
 }
 
 variable "daily_job_time_zone" {

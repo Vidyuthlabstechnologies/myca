@@ -27,6 +27,17 @@ export function localToday(now = new Date()) {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 }
 
+const MONTH_NUMBERS = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, sept: 9, oct: 10, nov: 11, dec: 12 };
+
+export function reportDate(value) {
+  const raw = String(value == null ? '' : value).trim();
+  const timed = /^(\S+?)(?:T|\s+)\d{1,2}:\d{2}(?::\d{2})?(?:\.\d+)?\s*(?:[AaPp][Mm])?\s*(?:Z|UTC|IST|GMT|[+-]\d{2}:?\d{2})?$/.exec(raw);
+  const day = timed ? timed[1] : raw;
+  const named = /^(\d{1,2})[-/. ]([A-Za-z]{3,4})[-/. ](\d{4})$/.exec(day);
+  if (named) return Object.hasOwn(MONTH_NUMBERS, named[2].toLowerCase()) ? isoDate(`${named[1]}-${MONTH_NUMBERS[named[2].toLowerCase()]}-${named[3]}`) : null;
+  return isoDate(day);
+}
+
 // A blank date means today; anything else must be a real day.
 export function postingDate(value) {
   if (value == null || String(value).trim() === '') return localToday();

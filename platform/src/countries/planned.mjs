@@ -28,17 +28,6 @@ export function planned({ code, name, currency, symbol, locale, languages, minor
   });
 }
 
-export const UNITED_KINGDOM = planned({
-  code: 'GB', name: 'United Kingdom', currency: 'GBP', symbol: '£', locale: 'en-GB', languages: ['en'], minorUnit: 'pence', yearStartMonth: 4, yearStartDay: 6, yearLabel: 'tax year', taxId: 'UTR', taxName: 'VAT', requiresState: false, flavor: 'uk', timeZone: 'Europe/London',
-  residency: { rule: 'UK taxpayer data is hosted in the UK (UK GDPR, ICO registration).', regionPrefixes: ['europe-west2'], defaultRegion: 'europe-west2' },
-  filing: [{ id: 'mtd-itsa', authority: 'HMRC', route: 'Making Tax Digital API (HMRC-recognised software)' }, { id: 'mtd-vat', authority: 'HMRC', route: 'Making Tax Digital API' }],
-  segments: ['business', 'individual'],
-  licences: [
-    { id: 'hmrc-production', authority: 'HMRC', what: 'Developer Hub production credentials: security questionnaire, fraud prevention headers, penetration test' },
-    { id: 'ico-fee', authority: 'ICO', what: 'Data protection fee as a controller' },
-  ],
-});
-
 export const CANADA = planned({
   code: 'CA', name: 'Canada', currency: 'CAD', symbol: '$', locale: 'en-CA', languages: ['en', 'fr'], minorUnit: 'cents', yearStartMonth: 1, yearLabel: 'tax year', taxId: 'BN', taxName: 'GST/HST', requiresState: true, flavor: 'ca', timeZone: 'America/Toronto',
   residency: { rule: 'Canadian taxpayer data is hosted in Canada (PIPEDA, Quebec Law 25).', regionPrefixes: ['northamerica-northeast'], defaultRegion: 'northamerica-northeast1' },
@@ -47,17 +36,6 @@ export const CANADA = planned({
   licences: [
     { id: 'netfile-certification', authority: 'CRA', what: 'NETFILE certification, repeated each year: test returns in mid-November, confirmation letter before the season' },
     { id: 'revenu-quebec', authority: 'Revenu Québec', what: 'Authorisation then certification of the TP-1 software, needed only to serve Quebec residents' },
-  ],
-});
-
-export const UNITED_ARAB_EMIRATES = planned({
-  code: 'AE', name: 'United Arab Emirates', currency: 'AED', symbol: 'AED', locale: 'en-AE', languages: ['en', 'ar'], minorUnit: 'fils', yearStartMonth: 1, yearLabel: 'tax period', taxId: 'TRN', taxName: 'VAT', requiresState: false, flavor: 'uae', timeZone: 'Asia/Dubai',
-  residency: { rule: 'UAE business data is hosted in the UAE; Google Cloud has no UAE region, so this pack needs an in-country host before launch.', regionPrefixes: [], defaultRegion: '' },
-  filing: [{ id: 'vat-ct', authority: 'Federal Tax Authority', route: 'EmaraTax' }, { id: 'einvoice', authority: 'Ministry of Finance', route: 'Accredited Service Provider (Peppol)' }],
-  segments: ['business'],
-  licences: [
-    { id: 'asp', authority: 'Ministry of Finance', what: 'An Accredited Service Provider partner for Peppol e-invoicing, or MyCA\'s own accreditation' },
-    { id: 'in-country-host', authority: 'MyCA', what: 'A cloud with a UAE region (Google Cloud has none) or an owner decision on hosting' },
   ],
 });
 
