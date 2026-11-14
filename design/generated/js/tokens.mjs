@@ -378,7 +378,7 @@ export const COUNTRIES = Object.freeze({
   "AE": {
     "code": "AE",
     "name": "United Arab Emirates",
-    "status": "planned",
+    "status": "beta",
     "currency": "AED",
     "symbol": "AED",
     "locale": "en-AE",

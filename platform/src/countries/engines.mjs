@@ -2,6 +2,7 @@ import { MANIFESTS } from './manifests.mjs';
 import { ENGINE as SHARED } from './shared/engine.mjs';
 import { ENGINE as MALAYSIA } from './malaysia/engine.mjs';
 import { ENGINE as UNITED_KINGDOM } from './united-kingdom/engine.mjs';
+import { ENGINE as UAE } from './uae/engine.mjs';
 
 const KINDS = Object.freeze(['run', 'preview', 'words']);
 
@@ -10,6 +11,7 @@ function engines() {
     SHARED,
     MALAYSIA,
     UNITED_KINGDOM,
+    UAE,
   ];
 }
 

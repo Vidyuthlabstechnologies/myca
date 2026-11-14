@@ -39,17 +39,6 @@ export const CANADA = planned({
   ],
 });
 
-export const UNITED_ARAB_EMIRATES = planned({
-  code: 'AE', name: 'United Arab Emirates', currency: 'AED', symbol: 'AED', locale: 'en-AE', languages: ['en', 'ar'], minorUnit: 'fils', yearStartMonth: 1, yearLabel: 'tax period', taxId: 'TRN', taxName: 'VAT', requiresState: false, flavor: 'uae', timeZone: 'Asia/Dubai',
-  residency: { rule: 'UAE business data is hosted in the UAE; Google Cloud has no UAE region, so this pack needs an in-country host before launch.', regionPrefixes: [], defaultRegion: '' },
-  filing: [{ id: 'vat-ct', authority: 'Federal Tax Authority', route: 'EmaraTax' }, { id: 'einvoice', authority: 'Ministry of Finance', route: 'Accredited Service Provider (Peppol)' }],
-  segments: ['business'],
-  licences: [
-    { id: 'asp', authority: 'Ministry of Finance', what: 'An Accredited Service Provider partner for Peppol e-invoicing, or MyCA\'s own accreditation' },
-    { id: 'in-country-host', authority: 'MyCA', what: 'A cloud with a UAE region (Google Cloud has none) or an owner decision on hosting' },
-  ],
-});
-
 export const AUSTRALIA = planned({
   code: 'AU', name: 'Australia', currency: 'AUD', symbol: '$', locale: 'en-AU', languages: ['en'], minorUnit: 'cents', yearStartMonth: 7, yearLabel: 'financial year', taxId: 'ABN', taxName: 'GST', requiresState: true, flavor: 'au', timeZone: 'Australia/Sydney',
   residency: { rule: 'Australian taxpayer data is hosted onshore (ATO DSP Operational Framework).', regionPrefixes: ['australia-southeast'], defaultRegion: 'australia-southeast1' },

@@ -4,10 +4,10 @@ import { hostedCountries, residencyProblem, residencyRefusal, publicCountries } 
 import { US_RETURN_PRICE_USD, US_PLUS_PRICE_USD, US_EXPERT_REVIEW_PRICE_USD } from '../src/billing.mjs';
 
 test('a deployment hosts the countries it names, and every served country when it names none', () => {
-  assert.deepEqual(hostedCountries({}), ['IN', 'US', 'GB']);
+  assert.deepEqual(hostedCountries({}), ['IN', 'US', 'GB', 'AE']);
   assert.deepEqual(hostedCountries({ MYCA_COUNTRIES: 'in' }), ['IN']);
   assert.deepEqual(hostedCountries({ MYCA_COUNTRIES: 'US, us' }), ['US']);
-  assert.deepEqual(hostedCountries({ MYCA_ENVIRONMENT: 'staging', K_SERVICE: 'myca-api-staging' }), ['IN', 'US', 'GB'], 'staging holds no real books');
+  assert.deepEqual(hostedCountries({ MYCA_ENVIRONMENT: 'staging', K_SERVICE: 'myca-api-staging' }), ['IN', 'US', 'GB', 'AE'], 'staging holds no real books');
 });
 
 test('a production deployment that names no country hosts only the country of its region, and India when the region is unknown', () => {
@@ -31,6 +31,9 @@ test('a deployment refuses to start where a country it hosts may not keep its da
   assert.match(residencyProblem({ MYCA_COUNTRIES: 'CA' }), /does not serve yet: CA/);
   assert.equal(residencyProblem({ MYCA_COUNTRIES: 'GB', MYCA_REGION: 'europe-west2' }), '');
   assert.match(residencyProblem({ MYCA_COUNTRIES: 'GB', MYCA_REGION: 'us-east4' }), /United Kingdom must stay in its own country/);
+  assert.equal(residencyProblem({ MYCA_COUNTRIES: 'AE', MYCA_REGION: 'me-central1' }), '');
+  assert.match(residencyProblem({ MYCA_COUNTRIES: 'AE', MYCA_REGION: 'asia-south1' }), /must stay in its own country/);
+  assert.deepEqual(hostedCountries({ K_SERVICE: 'myca-api', MYCA_REGION: 'me-central1' }), ['AE']);
   assert.equal(residencyProblem({ MYCA_REGION: 'asia-south1' }), '', 'an unnamed country list still starts');
 });
 
@@ -44,7 +47,7 @@ test('books for a country hosted elsewhere are refused and point at that country
 
 test('the public country list carries what an app needs to set itself up, and nothing planned', () => {
   const listed = publicCountries({ MYCA_COUNTRIES: 'US' });
-  assert.deepEqual(listed.countries.map((country) => country.code), ['IN', 'US', 'GB']);
+  assert.deepEqual(listed.countries.map((country) => country.code), ['IN', 'US', 'GB', 'AE']);
   const us = listed.countries.find((country) => country.code === 'US');
   assert.equal(us.hostedHere, true);
   assert.equal(us.app.androidId, 'com.mldynamic.myca.us');

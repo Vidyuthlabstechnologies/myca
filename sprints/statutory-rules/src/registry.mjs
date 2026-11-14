@@ -10,6 +10,7 @@ import { RULES as US_INDIVIDUAL_RULES } from './rules/us-individual.mjs';
 import { RULES as US_SALES_TAX_RULES } from './rules/us-sales-tax.mjs';
 import { RULES as MALAYSIA_RULES } from './rules/malaysia.mjs';
 import { RULES as UNITED_KINGDOM_RULES } from './rules/united-kingdom.mjs';
+import { RULES as UAE_RULES } from './rules/uae.mjs';
 import { RULES as MSME_RULES } from './rules/msme.mjs';
 import { RULES as PRESUMPTIVE_RULES } from './rules/presumptive.mjs';
 
@@ -27,7 +28,8 @@ export const RULE_MODULES = Object.freeze({
   'malaysia': MALAYSIA_RULES,
   'msme': MSME_RULES,
   'presumptive': PRESUMPTIVE_RULES,
-  'united-kingdom': UNITED_KINGDOM_RULES
+  'united-kingdom': UNITED_KINGDOM_RULES,
+  'uae': UAE_RULES
 });
 
 export function registeredRecords() {
