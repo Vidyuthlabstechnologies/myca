@@ -1,10 +1,10 @@
+import 'package:myca_design/myca_design.dart' show MycaThemeContext;
 import 'package:flutter/material.dart';
 
 import '../../api/models.dart';
 import '../../api/myca_api.dart';
 import '../../app_state.dart';
 import '../../format.dart';
-import '../../theme.dart';
 import '../../us/tin.dart';
 import '../../us/us_return.dart';
 import '../../widgets.dart';
@@ -270,7 +270,7 @@ class _UsProfileScreenState extends State<UsProfileScreen> {
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
               children: [
                 const SectionLabel('Filing status'),
-                if (_errors['status'] != null) Text(_errors['status']!, style: const TextStyle(color: Palette.danger)),
+                if (_errors['status'] != null) Text(_errors['status']!, style: TextStyle(color: context.myca.danger)),
                 RadioGroup<String>(
                   groupValue: _status.isEmpty ? null : _status,
                   onChanged: (value) => setState(() => _status = value ?? ''),
@@ -307,7 +307,7 @@ class _UsProfileScreenState extends State<UsProfileScreen> {
                 if (stateHasIncomeTax(_state ?? ''))
                   Padding(
                     padding: const EdgeInsets.only(top: 6),
-                    child: Text(stateReturnNote, key: const Key('usProfile.stateNote'), style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Palette.muted)),
+                    child: Text(stateReturnNote, key: const Key('usProfile.stateNote'), style: Theme.of(context).textTheme.bodySmall?.copyWith(color: context.myca.muted)),
                   ),
                 const SizedBox(height: 12),
                 TextField(key: const Key('usProfile.zip'), controller: _zip, keyboardType: TextInputType.number, decoration: InputDecoration(labelText: 'ZIP code', errorText: _errors['zip'])),
@@ -338,14 +338,14 @@ class _UsProfileScreenState extends State<UsProfileScreen> {
                 ),
                 if (_note.isNotEmpty) ...[
                   const SizedBox(height: 16),
-                  Text(_note, style: const TextStyle(color: Palette.danger, fontWeight: FontWeight.w500)),
+                  Text(_note, style: TextStyle(color: context.myca.danger, fontWeight: FontWeight.w500)),
                 ],
                 const SizedBox(height: 22),
                 FilledButton(key: const Key('usProfile.save'), onPressed: _busy ? null : _save, child: Text(_busy ? 'Saving…' : 'Save')),
                 const SizedBox(height: 10),
                 Text(
                   'Social Security numbers are sealed with their own key the moment they reach us. The app, your tax pro and our AI assistant only ever see the last four digits.',
-                  style: text.bodySmall?.copyWith(color: Palette.muted),
+                  style: text.bodySmall?.copyWith(color: context.myca.muted),
                 ),
               ],
             );

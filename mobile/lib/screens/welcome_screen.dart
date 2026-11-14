@@ -68,7 +68,7 @@ class WelcomeScreen extends StatelessWidget {
                               : uk
                               ? 'VAT, Self Assessment and Making Tax Digital for Income Tax, kept right without the paperwork.'
                               : 'Sales, purchases and GST for your business, kept right without the paperwork.',
-                          style: text.bodyLarge?.copyWith(color: Palette.muted),
+                          style: text.bodyLarge?.copyWith(color: paletteOf(context).muted),
                         ),
                         const SizedBox(height: 28),
                         const Divider(),

@@ -56,7 +56,7 @@ class _LockScreenState extends State<LockScreen> {
               Text(
                 _failed ? 'That did not work. Try again.' : 'Use your fingerprint, face or screen lock to open your books.',
                 textAlign: TextAlign.center,
-                style: text.bodyLarge?.copyWith(color: _failed ? Palette.danger : Palette.muted),
+                style: text.bodyLarge?.copyWith(color: _failed ? paletteOf(context).danger : paletteOf(context).muted),
               ),
               const Spacer(flex: 3),
               SizedBox(
