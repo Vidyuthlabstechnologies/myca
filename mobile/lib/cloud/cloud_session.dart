@@ -855,15 +855,21 @@ class CloudSession {
         !reply.containsKey('reply')) {
       final code = reply['error'] as String;
       if (code == 'RATE_LIMITED') throw MycaApiException(waitMessage(reply['retryAfterSeconds']));
-      throw MycaApiException(explain?.call(code, reply['attemptsRemaining']) ?? cloudMessage(code, '${reply['hint'] ?? ''}'));
+      throw MycaApiException(explain?.call(code, reply['attemptsRemaining']) ?? cloudMessage(code, '${reply['hint'] ?? ''}'), code: code);
     }
     return reply;
   }
 
   Map<String, dynamic> _accepted(Map<String, dynamic> body) {
-    if (body['ok'] == false) throw MycaApiException(cloudMessage('${body['error'] ?? 'UNKNOWN'}', '${body['hint'] ?? ''}'));
+    if (body['ok'] == false) throw MycaApiException(cloudMessage('${body['error'] ?? 'UNKNOWN'}', '${body['hint'] ?? ''}'), code: '${body['error'] ?? ''}');
     return body;
   }
+
+  Future<Map<String, dynamic>> usConsents() async => _accepted(await call('GET', '/v1/me/us-consents'));
+
+  Future<Map<String, dynamic>> signUsConsent(Map<String, Object?> body) async => _accepted(await call('POST', '/v1/me/us-consents', body));
+
+  Future<void> revokeUsConsent(String document) async => _accepted(await call('DELETE', '/v1/me/us-consents/${Uri.encodeComponent(document)}'));
 
   Map<String, dynamic> _data(Map<String, dynamic> body) {
     final data = _accepted(body)['data'];
@@ -884,6 +890,8 @@ class CloudSession {
   }
 
   Future<Map<String, dynamic>> usOffers() async => _accepted(await call('GET', '/v1/plans'));
+
+  Future<Map<String, dynamic>> countryPlans(String country) async => _accepted(await call('GET', '/v1/plans?country=${Uri.encodeQueryComponent(country)}'));
 
   Future<List<PlanOffer>> plans() async {
     final body = _accepted(await call('GET', '/v1/plans'));

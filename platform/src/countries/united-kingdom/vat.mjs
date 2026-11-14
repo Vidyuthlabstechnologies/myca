@@ -1,4 +1,4 @@
-import { ruleSet, gbRule, toPence, toPounds, share, monthEndPlus, isIsoDate } from './rules.mjs';
+import { ruleSet, gbRule, toPence, toPounds, share, monthEndPlus, isIsoDate, amountProblems } from './rules.mjs';
 
 export const VAT_SCHEMES = Object.freeze(['standard', 'flat-rate']);
 export const VAT_RATE_NAMES = Object.freeze(['standard', 'reduced', 'zero', 'exempt', 'outside-scope']);
@@ -49,6 +49,9 @@ export function vatReturnProblems(body) {
 }
 
 export function buildVatReturn(args = {}) {
+  if (args.to !== undefined && args.to !== null && args.to !== '' && !isIsoDate(args.to)) return fail('BAD_PERIOD_END', { hint: 'Give the last day of the VAT period as a real date, like 2026-06-30.' });
+  const bad = [...amountProblems((Array.isArray(args.sales) ? args.sales : []).map((line) => ({ net: line?.net, vat: line?.vat })), 'sales', { allowNegative: true }), ...amountProblems((Array.isArray(args.purchases) ? args.purchases : []).map((line) => ({ net: line?.net, vat: line?.vat })), 'purchases', { allowNegative: true })];
+  if (bad.length) return fail('BAD_AMOUNT', { problems: bad, hint: bad.map((problem) => `${problem.field}: ${problem.why}`).join(' ') });
   const date = isIsoDate(args.to) ? args.to : new Date().toISOString().slice(0, 10);
   const { values, used, missing } = ruleSet({ rates: 'gb.vat.rates', schemes: 'gb.vat.schemes', due: 'gb.vat.return' }, date);
   if (missing.length) return fail('RULES_MISSING', { missing });
@@ -61,14 +64,14 @@ export function buildVatReturn(args = {}) {
   for (const [index, line] of sales.entries()) {
     const out = lineVat(values.rates, line || {});
     if (!out) return fail('BAD_VAT_RATE', { line: `sales[${index}]`, rates: VAT_RATE_NAMES });
-    totals.box6 += out.net;
+    if (line.rate !== 'outside-scope') totals.box6 += out.net;
     if (scheme === 'standard') totals.box1 += out.vat;
     if (line.euGoods) totals.box8 += out.net;
   }
   for (const [index, line] of purchases.entries()) {
     const out = lineVat(values.rates, line || {});
     if (!out) return fail('BAD_VAT_RATE', { line: `purchases[${index}]`, rates: VAT_RATE_NAMES });
-    totals.box7 += out.net;
+    if (line.rate !== 'outside-scope') totals.box7 += out.net;
     if (line.euGoods) {
       totals.box9 += out.net;
       totals.box2 += out.vat;

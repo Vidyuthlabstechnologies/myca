@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 
 import '../api/myca_api.dart';
 import '../app_state.dart';
+import '../format.dart';
 import '../proposal_flow.dart';
 import '../marks.dart';
 import '../theme.dart';
+import '../uae/uae_edition.dart';
+import '../uae/uae_strings.dart';
 import '../widgets.dart';
 
 class AskScreen extends StatefulWidget {
@@ -93,9 +96,12 @@ class _AskScreenState extends State<AskScreen> with ProposalFlow {
                 ? ListView(
                     padding: const EdgeInsets.all(16),
                     children: [
-                      const EmptyNote(
+                      if (uaeEdition(context))
+                        EmptyNote(text: UaeStrings.of(context).askIntro)
+                      else
+                      EmptyNote(
                         text:
-                            'Ask about your GST, deadlines or invoices. '
+                            '${moneyCountry == 'GB' ? 'Ask about your VAT' : 'Ask about your GST'}, deadlines or invoices. '
                             'Nothing is posted to your books until you confirm it. '
                             'MyCA works from the rules it shows you; it is not a chartered accountant '
                             'and does not give tax or legal advice.',
@@ -106,6 +112,7 @@ class _AskScreenState extends State<AskScreen> with ProposalFlow {
                         runSpacing: 8,
                         children: [
                           for (final starter in _starters)
+                            if (!uaeEdition(context) || starter != 'Dhanda kaisa chal raha hai?')
                             ActionChip(
                               label: Text(starter),
                               onPressed: () => _send(starter),

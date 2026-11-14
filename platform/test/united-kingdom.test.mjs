@@ -69,7 +69,7 @@ test('the UK pack is a served beta country with its own app, London data and Pla
 test('the UK manifest is clean, its tools serve only the UK, and provider tools are flagged for the hosted service', () => {
   const manifest = manifestFor('GB');
   assert.deepEqual(manifestProblems([manifest], ['GB']), []);
-  assert.equal(manifest.tools.length, 20);
+  assert.equal(manifest.tools.length, 21);
   assert.ok(ENGINE_PROVIDER_TOOLS.includes('submit_gb_vat_return'));
   assert.ok(ENGINE_PROVIDER_TOOLS.includes('sync_gb_hmrc'));
   assert.equal(ENGINE_PROVIDER_TOOLS.includes('gb_tax_estimate'), false);
@@ -244,7 +244,11 @@ test('allowances, reliefs and the edges of the computation', () => {
   assert.equal(gbSelfAssessment({ taxYear: '2026-27', residence: 'mars' }).error, 'BAD_RESIDENCE');
   assert.equal(gbSelfAssessment({ taxYear: '2024-25' }).error, 'RULES_MISSING_FOR_YEAR');
   assert.equal(gbSelfAssessment({ taxYear: '2027-28' }).error, 'RULES_MISSING_FOR_YEAR');
-  assert.equal(gbSelfAssessment({ taxYear: '2026-27', income: { employment: -5000, dividends: 'abc' } }).data.totalLiability, 0);
+  const typo = gbSelfAssessment({ taxYear: '2026-27', income: { employment: -5000, dividends: 'abc' } });
+  assert.equal(typo.error, 'BAD_AMOUNT');
+  assert.deepEqual(typo.problems.map((problem) => problem.field), ['income.employment', 'income.dividends']);
+  assert.equal(gbSelfAssessment({ taxYear: '2026-27', income: { selfEmployment: { turnover: 30000, expenses: 5000, adjustments: -1200 } } }).ok, true);
+  assert.equal(gbSelfAssessment({ taxYear: '2026-27', income: { employment: '41000.50' } }).ok, true);
   assert.equal(nothing.data.unreviewed, true);
 });
 

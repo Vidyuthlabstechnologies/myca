@@ -122,15 +122,11 @@ class _UsProfileScreenState extends State<UsProfileScreen> {
   }
 
   Future<void> _load() async {
-    Map<String, dynamic> data = const {};
-    try {
-      data = toolData(await _api.query('us_taxpayer', {'taxYear': widget.taxYear}));
-    } on MycaApiException {
-      data = const {};
-    }
+    final data = toolData(await _api.query('us_taxpayer', {'taxYear': widget.taxYear}));
     if (!mounted) return;
     setState(() {
       _status = _text(data['filingStatus']);
+      _dependents.clear();
       if (data['taxpayer'] is Map) _you = _Person.from(data['taxpayer']);
       if (data['spouse'] is Map) _spouse = _Person.from(data['spouse']);
       for (final d in (data['dependents'] as List? ?? const [])) {
@@ -267,6 +263,9 @@ class _UsProfileScreenState extends State<UsProfileScreen> {
           future: _loaded,
           builder: (context, loaded) {
             if (loaded.connectionState != ConnectionState.done) return const Center(child: CircularProgressIndicator());
+            if (loaded.hasError) {
+              return UsLoadError(message: usLoadProblem(loaded.error, 'Your details could not be loaded.'), onRetry: () => setState(() { _loaded = _load(); }));
+            }
             return ListView(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
               children: [

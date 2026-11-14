@@ -9,6 +9,7 @@ const approvalId = { type: 'string' };
 
 export const MANIFEST = Object.freeze({
   country: 'GB',
+  books: Object.freeze(['create_invoice', 'create_purchase', 'create_credit_note', 'cancel_invoice']),
   capabilities: Object.freeze({
     'income-tax': Object.freeze({ status: 'beta', roles: Object.freeze({ profile: 'set_gb_taxpayer', estimate: 'gb_tax_estimate', review: 'gb_itsa_quarter_check' }) }),
     'indirect-tax': Object.freeze({ status: 'beta', roles: Object.freeze({ summary: 'gb_vat_return_check', return: 'submit_gb_vat_return' }) }),
@@ -54,6 +55,12 @@ export const MANIFEST = Object.freeze({
       description: 'Finish the HMRC connection with the code and state HMRC sent back after sign-in; exchanges the code for tokens kept encrypted. Sandbox unless live calls are on.',
       access: 'write', providerCalls: true,
       schema: schema({ code: { type: 'string' }, state: { type: 'string' } }, ['code', 'state']),
+    }),
+    Object.freeze({
+      name: 'gb_hmrc_history', title: 'Everything sent to HMRC',
+      description: 'Every VAT return, Income Tax quarterly update and final declaration or amendment MyCA has sent to HMRC for this business, newest first, with HMRC receipt references, the environment and the declaration agreed. Read-only.',
+      access: 'read',
+      schema: schema({ kind: { type: 'string', enum: ['all', 'vat', 'itsa-update', 'final-declaration'] } }),
     }),
     Object.freeze({
       name: 'gb_hmrc_status', title: 'HMRC connection and obligations',
@@ -113,7 +120,7 @@ export const MANIFEST = Object.freeze({
       name: 'gb_vat_return_check', title: 'Prepare a UK VAT return',
       description: 'Build the nine-box MTD VAT return from sales and purchase lines (standard or flat rate scheme) and list every box that breaks HMRC\'s rules, with the due date. Read-only; nothing is sent.',
       access: 'read',
-      schema: schema({ periodKey: { type: 'string' }, from: { type: 'string' }, to: { type: 'string' }, scheme: { type: 'string', enum: ['standard', 'flat-rate'] }, sales: lines, purchases: lines, flatRateBasisPoints: { type: 'integer' }, firstYearOfRegistration: { type: 'boolean' }, periodMonths: { type: 'integer' } }, ['periodKey']),
+      schema: schema({ periodKey: { type: 'string' }, from: { type: 'string' }, to: { type: 'string' }, scheme: { type: 'string', enum: ['standard', 'flat-rate'] }, sales: lines, purchases: lines, flatRateBasisPoints: { type: 'integer' }, firstYearOfRegistration: { type: 'boolean' }, periodMonths: { type: 'integer' }, fromBooks: { type: 'boolean' } }, ['periodKey']),
     }),
     Object.freeze({
       name: 'set_gb_taxpayer', title: 'Save the UK taxpayer details',
@@ -123,9 +130,9 @@ export const MANIFEST = Object.freeze({
     }),
     Object.freeze({
       name: 'submit_gb_final_declaration', title: 'Send the MTD final declaration',
-      description: 'Send the Income Tax final declaration to HMRC for a tax year, using the intent-to-finalise calculation the taxpayer reviewed and their declaration that it is correct and complete. Cannot be undone. Sandbox unless live calls are on.',
+      description: 'Send the Income Tax final declaration to HMRC for a tax year, or confirm an amendment, using the calculation the taxpayer reviewed and the HMRC declaration made by the taxpayer or their agent. Cannot be withdrawn. Sandbox unless live calls are on.',
       access: 'write', providerCalls: true, clientAddress: true,
-      schema: schema({ taxYear, calculationId: { type: 'string' }, declaration: { type: 'boolean' }, device, approvalId }, ['taxYear', 'calculationId', 'declaration']),
+      schema: schema({ taxYear, calculationId: { type: 'string' }, declaration: { type: 'boolean' }, declaredBy: { type: 'string', enum: ['taxpayer', 'agent'] }, device, approvalId }, ['taxYear', 'calculationId', 'declaration']),
     }),
     Object.freeze({
       name: 'submit_gb_itsa_update', title: 'Send an MTD Income Tax quarterly update',

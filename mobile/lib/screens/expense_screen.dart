@@ -8,8 +8,11 @@ import '../format.dart';
 import '../proposal_flow.dart';
 import '../registers.dart';
 import '../theme.dart';
+import '../uae/uae_edition.dart';
+import '../uae/uae_strings.dart';
 import '../widgets.dart';
 import 'head_picker.dart';
+import 'uae/uae_document_screen.dart';
 
 class ExpenseScreen extends StatefulWidget {
   const ExpenseScreen({super.key, this.head});
@@ -72,7 +75,7 @@ class _ExpenseScreenState extends State<ExpenseScreen> with ProposalFlow {
     if (amount == null) return setState(() => _error = 'Enter the amount.');
     if (rate == null) {
       return setState(
-        () => _error = 'The GST rate must be a number, or leave it blank.',
+        () => _error = 'The $salesTaxName rate must be a number, or leave it blank.',
       );
     }
     final tdsProblem = _tds.problem();
@@ -92,7 +95,7 @@ class _ExpenseScreenState extends State<ExpenseScreen> with ProposalFlow {
     };
     _lastArgs = args;
     await propose(
-      '$what: ${rupees(amount)} from $_mode${rate > 0 ? ', GST $rate% inside' : ''}',
+      '$what: ${rupees(amount)} from $_mode${rate > 0 ? ', $salesTaxName $rate% inside' : ''}',
       'post_expense',
       args,
     );
@@ -119,6 +122,7 @@ class _ExpenseScreenState extends State<ExpenseScreen> with ProposalFlow {
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
     final preview = pending;
+    final ae = uaeEdition(context) ? UaeStrings.of(context) : null;
     return Scaffold(
       appBar: AppBar(title: const Text('Expense')),
       body: Column(
@@ -144,6 +148,14 @@ class _ExpenseScreenState extends State<ExpenseScreen> with ProposalFlow {
                   ),
                 ),
                 const SizedBox(height: 12),
+                if (ae != null)
+                  TextField(
+                    key: const ValueKey('expense.amount'),
+                    controller: _amount,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    decoration: InputDecoration(labelText: ae.amountPaidWithVat, prefixText: 'AED '),
+                  )
+                else
                 Row(
                   children: [
                     Expanded(
@@ -153,9 +165,9 @@ class _ExpenseScreenState extends State<ExpenseScreen> with ProposalFlow {
                         keyboardType: const TextInputType.numberWithOptions(
                           decimal: true,
                         ),
-                        decoration: const InputDecoration(
-                          labelText: 'Amount paid, with GST',
-                          prefixText: '₹ ',
+                        decoration: InputDecoration(
+                          labelText: 'Amount paid, with $salesTaxName',
+                          prefixText: moneyPrefix,
                         ),
                       ),
                     ),
@@ -167,8 +179,8 @@ class _ExpenseScreenState extends State<ExpenseScreen> with ProposalFlow {
                         keyboardType: const TextInputType.numberWithOptions(
                           decimal: true,
                         ),
-                        decoration: const InputDecoration(
-                          labelText: 'GST inside',
+                        decoration: InputDecoration(
+                          labelText: '$salesTaxName inside',
                           suffixText: '%',
                         ),
                       ),
@@ -199,8 +211,19 @@ class _ExpenseScreenState extends State<ExpenseScreen> with ProposalFlow {
                   ],
                 ),
                 const SizedBox(height: 6),
+                if (ae != null) ...[
+                  Text(ae.expenseVatNote, key: const ValueKey('expense.aeNote'), style: text.bodySmall),
+                  Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: TextButton(
+                      key: const ValueKey('expense.aeBill'),
+                      onPressed: () => Navigator.of(context).pushReplacement(MaterialPageRoute<void>(builder: (_) => const UaePurchaseScreen())),
+                      child: Text(ae.addPurchaseBill),
+                    ),
+                  ),
+                ] else
                 Text(
-                  'Give the GST rate only if the bill shows GST. Credit is taken only when the supplier GSTIN is on the bill; add it later from the Purchases chat if you need it.',
+                  moneyCountry == 'GB' ? 'Give the VAT rate only if the receipt shows VAT. Reclaim VAT only with a valid VAT receipt from a VAT-registered supplier.' : 'Give the GST rate only if the bill shows GST. Credit is taken only when the supplier GSTIN is on the bill; add it later from the Purchases chat if you need it.',
                   style: text.bodySmall,
                 ),
                 if (_error.isNotEmpty) ...[

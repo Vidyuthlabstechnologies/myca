@@ -12,6 +12,7 @@ import '../format.dart';
 import '../marks.dart';
 import '../registers.dart';
 import '../theme.dart';
+import '../uae/uae_strings.dart';
 import '../widgets.dart';
 import 'ask_screen.dart';
 import 'bank_screen.dart';
@@ -33,6 +34,7 @@ import 'register_screen.dart';
 import 'sales_tax_screen.dart';
 import 'us_taxes_screen.dart';
 import 'taxes_screen.dart';
+import '../uk/uk_hub_screen.dart';
 import 'uae/uae_taxes_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -64,7 +66,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<SupplierDues> _loadDues() async {
-    if (_us || widget.snapshot.company.country == 'AE') return SupplierDues.fromTool(null);
+    if (_us) return SupplierDues.fromTool(null);
+    if (AppScope.of(context).edition == 'GB' || widget.snapshot.company.country == 'AE') return SupplierDues.fromTool(null);
     final state = AppScope.of(context);
     try {
       return SupplierDues.fromTool(await state.api.query('supplier_dues'));
@@ -135,6 +138,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final text = Theme.of(context).textTheme;
     final company = snapshot.company;
     final empty = snapshot.invoices.isEmpty && snapshot.purchases.isEmpty;
+    final uk = state.edition == 'GB';
     return Scaffold(
       appBar: AppBar(
         title: const Wordmark(size: 18),
@@ -205,7 +209,9 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             _AskBar(onSubmit: (text) => _open(AskScreen(first: text))),
             const SizedBox(height: 18),
-            if (company.country == 'AE')
+            if (uk)
+              UkHomePanel(onTap: () => _open(const UkHubScreen()))
+            else if (company.country == 'AE')
               UaeTaxesPanel(onTap: () => _open(const UaeTaxesScreen()))
             else if (company.country == 'IN')
               FutureBuilder<Today>(
@@ -229,7 +235,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   },
                 ),
               ),
-            if (company.country != 'IN' && company.country != 'AE')
+            if (company.country != 'IN' && company.country != 'AE' && !uk)
               Padding(
                 padding: const EdgeInsets.only(top: 12),
                 child: _UsTaxesPanel(onTap: () => _open(const UsTaxesScreen())),
@@ -250,7 +256,7 @@ class _HomeScreenState extends State<HomeScreen> {
               future: _dues,
               builder: (context, snap) {
                 final dues = snap.data;
-                if (_us || dues == null || dues.msme.count == 0) return const SizedBox.shrink();
+                if (_us || uk || dues == null || dues.msme.count == 0) return const SizedBox.shrink();
                 return Padding(
                   padding: const EdgeInsets.only(top: 12),
                   child: _MsmePanel(dues: dues, onTap: () => _open(const PayBillsScreen())),
@@ -307,7 +313,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       const RegisterScreen(kind: RegisterKind.purchases),
                     ),
                     onExpenses: () => _open(const ExpensesScreen()),
-                    onPayroll: () => _open(const EmployeesScreen()),
+                    onPayroll: company.country == 'AE' ? null : () => _open(const EmployeesScreen()),
                   ),
                 );
               },
@@ -357,8 +363,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   trailing: const Chevron(),
                   onTap: () => _open(const ExpensesScreen()),
                 ),
-                if (snapshot.activeUser?.role != 'staff' &&
+                if (company.country != 'AE' &&
+                    snapshot.activeUser?.role != 'staff' &&
                     snapshot.activeUser?.role != 'accountant')
+                if (!uk)
                   RowCard(
                     leading: const TintTile(tint: Tint.ask, mark: Mark.employee),
                     title: 'Employees',
@@ -381,6 +389,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   onTap: () => _open(const CashScreen()),
                 ),
                 if (company.country != 'AE')
+                if (!uk)
                 RowCard(
                   leading: const TintTile(tint: Tint.sales, mark: Mark.otherApp),
                   title: 'Marketplace',
@@ -418,8 +427,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 RowCard(
                   leading: const TintTile(tint: Tint.ask, mark: Mark.people),
-                  title: 'Your CA',
-                  subtitle: 'Questions you asked and their answers',
+                  title: company.country == 'AE' ? UaeStrings.of(context).yourAccountant : uk ? 'Your accountant' : 'Your CA',
+                  subtitle: company.country == 'AE' ? UaeStrings.of(context).yourAccountantSubtitle : 'Questions you asked and their answers',
                   trailing: const Chevron(),
                   onTap: () => _open(const CaScreen()),
                 ),

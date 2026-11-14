@@ -153,7 +153,7 @@ class _SourceStep extends StatelessWidget {
         ),
         Panel(
           children: [
-            for (final path in migrationPaths.where(
+            for (final path in migrationPathsFor(AppScope.of(context).edition).where(
               (path) => !bringMore || path.imports.isNotEmpty,
             ))
               RowCard(
@@ -196,7 +196,8 @@ class _BusinessStepState extends State<_BusinessStep> {
   Future<void> _save() async {
     final name = _name.text.trim();
     final gstin = _gstin.text.trim().toUpperCase();
-    final shape = gstinShapeError(gstin);
+    final uk = AppScope.of(context).edition == 'GB';
+    final shape = uk ? null : gstinShapeError(gstin);
     if (name.isEmpty) {
       return setState(() => _error = 'Enter your business name.');
     }
@@ -215,7 +216,7 @@ class _BusinessStepState extends State<_BusinessStep> {
       if (outcome.ok) return widget.onDone();
       setState(
         () => _error =
-            'MyCA did not accept that (${outcome.error}). Check the GSTIN.',
+            uk ? 'MyCA did not accept that (${outcome.error}).' : 'MyCA did not accept that (${outcome.error}). Check the GSTIN.',
       );
     } on MycaApiException catch (err) {
       if (mounted) setState(() => _error = err.message);
@@ -226,6 +227,7 @@ class _BusinessStepState extends State<_BusinessStep> {
 
   @override
   Widget build(BuildContext context) {
+    final uk = AppScope.of(context).edition == 'GB';
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
       children: [
@@ -239,6 +241,7 @@ class _BusinessStepState extends State<_BusinessStep> {
           decoration: const InputDecoration(labelText: 'Business name'),
         ),
         const SizedBox(height: 14),
+        if (!uk)
         TextField(
           controller: _gstin,
           textCapitalization: TextCapitalization.characters,

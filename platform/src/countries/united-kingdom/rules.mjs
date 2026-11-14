@@ -103,3 +103,14 @@ export function monthEndPlus(date, months, days) {
   end.setUTCDate(end.getUTCDate() + days);
   return end.toISOString().slice(0, 10);
 }
+
+export function amountProblems(value, path = '', { allowNegative = false } = {}) {
+  if (value === undefined || value === null || value === '') return [];
+  if (Array.isArray(value)) return value.flatMap((entry, index) => amountProblems(entry, `${path}[${index}]`, { allowNegative }));
+  if (typeof value === 'object') return Object.entries(value).flatMap(([key, entry]) => amountProblems(entry, path ? `${path}.${key}` : key, { allowNegative }));
+  if (typeof value === 'boolean') return [];
+  const number = typeof value === 'number' ? value : (typeof value === 'string' && /^\s*-?\d+(\.\d+)?\s*$/.test(value) ? Number(value) : NaN);
+  if (!Number.isFinite(number)) return [{ field: path, why: 'Give an amount in pounds, like 1250.50.' }];
+  if (!allowNegative && number < 0) return [{ field: path, why: 'Amounts cannot be negative here. Enter costs as expenses, not as negative income.' }];
+  return [];
+}
