@@ -1109,7 +1109,7 @@ class CloudSession {
   }
 
   Future<PrivacyNotice> privacyNotice({String region = ''}) async {
-    final (status, body) = await _send('GET', region == 'US' ? '/v1/privacy-notice?region=US' : '/v1/privacy-notice', null, authed: false);
+    final (status, body) = await _send('GET', region == 'US' || region == 'MY' ? '/v1/privacy-notice?region=$region' : '/v1/privacy-notice', null, authed: false);
     if (status != 200 || body['notice'] is! Map) {
       throw MycaApiException(cloudMessage('${body['error'] ?? 'UNKNOWN'}'));
     }

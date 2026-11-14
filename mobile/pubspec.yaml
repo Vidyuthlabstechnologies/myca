@@ -80,6 +80,7 @@ flutter:
 
   assets:
     - assets/fonts/Inter-LICENSE.txt
+    - assets/my/msic.json
 
   fonts:
     - family: Inter

@@ -56,6 +56,9 @@ class FakeCloud {
   int gustoConnects = 0;
   bool connectorsUnavailable = false;
   bool pullsOn = true;
+  Map<String, Object?>? Function(String action, Map<String, dynamic> body)? booksAnswer;
+  Map<String, Object?> subscription = {'plan': 'trial', 'planTitle': 'Free trial', 'trial': {'daysLeft': 14}};
+  final recordedPurchases = <String>[];
 
   Map<String, Object?> _connectorView(String channel) {
     final spec = connectorSpecs[channel]!;
@@ -163,6 +166,20 @@ class FakeCloud {
     if (path == '/v1/health/live') {
       if (serverEnvironment.isEmpty) return _json(404, {'ok': false, 'error': 'NOT_FOUND'});
       return _json(200, {'ok': true, 'environment': serverEnvironment, 'providerMode': 'sandbox', 'version': 'test'});
+    }
+    if (path == '/v1/privacy-notice' && request.url.queryParameters['region'] == 'MY') {
+      return _json(200, {
+        'ok': true,
+        'notice': {
+          'document': 'privacy',
+          'version': 'my-test',
+          'title': 'How MyCA uses your information (Malaysia)',
+          'status': 'Draft for legal review.',
+          'sections': [
+            {'heading': 'Where it is kept', 'body': 'Malaysian data is kept in Google Cloud Singapore under PDPA section 129.'},
+          ],
+        },
+      });
     }
     if (path == '/v1/privacy-notice' && request.url.queryParameters['region'] == 'US') {
       return _json(200, {
@@ -385,6 +402,13 @@ class FakeCloud {
         final household = body['kind'] == 'household';
         company = {'name': body['name'], 'gstin': '', 'state': '', 'country': 'US', if (household) 'entityType': 'household'};
         final made = {'id': businessId, 'name': body['name'], 'gstin': '', 'role': 'owner', 'country': 'US', 'kind': household ? 'household' : 'business'};
+        businesses.add(made);
+        createdBodies.add(Map<String, Object?>.from(body));
+        return _json(200, {'ok': true, 'business': made});
+      }
+      if (body['country'] == 'MY') {
+        company = {'name': body['name'], 'gstin': '', 'state': '', 'country': 'MY'};
+        final made = {'id': businessId, 'name': body['name'], 'gstin': '', 'role': 'owner', 'country': 'MY', 'kind': 'business'};
         businesses.add(made);
         createdBodies.add(Map<String, Object?>.from(body));
         return _json(200, {'ok': true, 'business': made});
@@ -671,7 +695,16 @@ class FakeCloud {
       sharedAsOf = '2026-10-07T12:45:00.000Z';
       return _json(200, {'ok': true, 'sharedAsOf': sharedAsOf});
     }
+    if (path == '$books/subscription' && request.method == 'GET') return _json(200, {'ok': true, ...subscription});
+    if (path == '$books/subscription' && request.method == 'POST') {
+      recordedPurchases.add('${body['productId']}:${body['purchaseToken']}');
+      final plan = '${body['productId']}'.replaceAll('myca_', '').replaceAll('_yearly', '').replaceAll('_', '-');
+      subscription = {'plan': plan, 'planTitle': plan == 'my-business' ? 'Business' : plan, 'subscription': {'status': 'active', 'plan': plan, 'renews': true, 'currentEnd': '2027-10-05T00:00:00.000Z'}};
+      return _json(200, {'ok': true, 'entitlement': subscription});
+    }
     if (path == '$books/query') {
+      final answered = booksAnswer?.call('query', body);
+      if (answered != null) return _json(200, answered);
       return _json(200, switch (body['name']) {
         'expense_heads' => {'ok': true, 'data': const <Object?>[]},
         'business_summary' => {'ok': false, 'error': 'X'},
@@ -704,6 +737,8 @@ class FakeCloud {
       return _json(200, {'ok': true, 'sha256': 'hash-${uploads.length}', 'bytes': content.length});
     }
     if (path == '$books/propose') {
+      final answered = booksAnswer?.call('propose', body);
+      if (answered != null) return _json(200, answered);
       final args = (body['args'] as Map?) ?? const {};
       if ('${body['name']}'.startsWith('import_')) {
         if (!uploads.containsKey(args['documentSha256'])) return _json(400, {'ok': false, 'error': 'IMPORT_NEEDS_UPLOAD'});
@@ -723,6 +758,8 @@ class FakeCloud {
       });
     }
     if (path == '$books/confirm') {
+      final answered = booksAnswer?.call('confirm', body);
+      if (answered != null) return _json(200, answered);
       invoices.add({'id': 'INV-0001', 'date': '2026-10-06', 'partyName': 'Kiran', 'partyGstin': '', 'total': 9440, 'status': 'posted'});
       return _json(200, {'reply': 'Posted INV-0001 to Kiran for ₹9,440.00.', 'posted': true, 'confirmed': true});
     }

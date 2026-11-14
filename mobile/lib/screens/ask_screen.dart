@@ -115,7 +115,25 @@ class _AskScreenState extends State<AskScreen> with ProposalFlow {
                 : ListView(
                     controller: _scroll,
                     padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                    children: [for (final entry in entries) entry.toBubble()],
+                    children: [
+                      for (final entry in entries)
+                        if (entry.tone == BubbleTone.mine)
+                          entry.toBubble()
+                        else
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              entry.toBubble(),
+                              TextButton.icon(
+                                key: ValueKey('ask.report.${entries.indexOf(entry)}'),
+                                onPressed: () => reportAnswer(context, entry.text),
+                                style: TextButton.styleFrom(foregroundColor: Palette.muted, visualDensity: VisualDensity.compact),
+                                icon: const Icon(Icons.flag_outlined, size: 16),
+                                label: const Text('Report this answer'),
+                              ),
+                            ],
+                          ),
+                    ],
                   ),
           ),
           if (pending != null)
@@ -164,4 +182,37 @@ class _AskScreenState extends State<AskScreen> with ProposalFlow {
       ),
     );
   }
+}
+
+const answerReportReasons = ['Wrong or misleading', 'Harmful or offensive', 'Something else'];
+
+Future<void> reportAnswer(BuildContext context, String answer) async {
+  final state = AppScope.of(context);
+  final messenger = ScaffoldMessenger.of(context);
+  final reason = await showModalBottomSheet<String>(
+    context: context,
+    showDragHandle: true,
+    builder: (context) => SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 4),
+            child: Text('Report this answer', style: Theme.of(context).textTheme.titleMedium),
+          ),
+          const Padding(
+            padding: EdgeInsets.fromLTRB(20, 0, 20, 8),
+            child: Text('Tell us what is wrong. The answer is sent to MyCA for review, without your books.'),
+          ),
+          for (final reason in answerReportReasons)
+            ListTile(key: ValueKey('ask.reason.$reason'), title: Text(reason), onTap: () => Navigator.of(context).pop(reason)),
+          const SizedBox(height: 8),
+        ],
+      ),
+    ),
+  );
+  if (reason == null) return;
+  final sent = await state.reportAnswer(answer: answer, reason: reason);
+  messenger.showSnackBar(SnackBar(content: Text(sent ? 'Thank you. The answer was reported for review.' : 'Could not send the report. Try again when you are online.')));
 }

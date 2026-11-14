@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:ui';
 
 import 'package:myca_design/myca_design.dart' show MycaDesign;
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:app_links/app_links.dart';
 import 'package:flutter/foundation.dart';
@@ -34,6 +35,10 @@ import 'screens/migration_flow.dart';
 import 'screens/sign_in_screen.dart';
 import 'screens/welcome_screen.dart';
 import 'screens/us/us_return_home_screen.dart';
+import 'screens/my/my_home_screen.dart';
+import 'screens/my/my_profile_screens.dart';
+import 'screens/my/my_welcome_screen.dart';
+import 'my/my_strings.dart';
 import 'shared_file.dart';
 import 'theme.dart';
 import 'tour/tour.dart';
@@ -95,10 +100,29 @@ void main() {
         openLink: (url) => launchUrl(url, mode: LaunchMode.externalApplication),
         edition: editionFor(appFlavor),
         installationId: deviceInstallationId,
+        languages: const DeviceLanguageStore(),
       ),
     ),
   );
 }
+
+class DeviceLanguageStore implements LanguageStore {
+  const DeviceLanguageStore();
+
+  static const _key = 'app.language';
+
+  @override
+  Future<String> load() async => (await SharedPreferences.getInstance()).getString(_key) ?? '';
+
+  @override
+  Future<void> save(String code) async => (await SharedPreferences.getInstance()).setString(_key, code);
+}
+
+final _myDesign = MycaDesign.forFlavor('my');
+
+const _myDelegates = [MyStrings.delegate, ...MycaDesign.localizationsDelegates];
+
+Locale? _myLocale(String language) => MyStrings.supportedLanguages.contains(language) ? Locale(language, 'MY') : null;
 
 class MycaApp extends StatefulWidget {
   const MycaApp({super.key, required this.state});
@@ -111,7 +135,7 @@ class MycaApp extends StatefulWidget {
 
 class _MycaAppState extends State<MycaApp> with WidgetsBindingObserver {
   final _navigator = GlobalKey<NavigatorState>();
-  late final _tour = TourController(navigator: _navigator, onFinished: _tourFinished);
+  late final _tour = TourController(navigator: _navigator, onFinished: _tourFinished, shareText: widget.state.shareText);
   final _messenger = GlobalKey<ScaffoldMessengerState>();
   bool _openingShared = false;
 
@@ -168,16 +192,26 @@ class _MycaAppState extends State<MycaApp> with WidgetsBindingObserver {
     return TourScope(
       tour: _tour,
       child: ListenableBuilder(
-        listenable: _tour,
+        listenable: Listenable.merge([_tour, widget.state.languageChoice]),
         builder: (context, _) => AppScope(
           state: _tour.sample ?? widget.state,
           child: MaterialApp(
             navigatorKey: _navigator,
             navigatorObservers: [_tour.observer],
             scaffoldMessengerKey: _messenger,
-            title: 'MyCA',
+            title: widget.state.edition == 'MY' ? 'MyCA Malaysia' : 'MyCA',
             debugShowCheckedModeBanner: false,
-            theme: widget.state.edition == 'US' ? MycaDesign.forFlavor('us').light : mycaTheme(),
+            theme: switch (widget.state.edition) {
+              'US' => MycaDesign.forFlavor('us').light,
+              'MY' => _myDesign.light,
+              _ => mycaTheme(),
+            },
+            darkTheme: widget.state.edition == 'MY' ? _myDesign.dark : null,
+            themeMode: widget.state.edition == 'MY' ? ThemeMode.system : ThemeMode.light,
+            localizationsDelegates: widget.state.edition == 'MY' ? _myDelegates : null,
+            supportedLocales: widget.state.edition == 'MY' ? const [Locale('en', 'MY'), Locale('ms', 'MY')] : const [Locale('en', 'US')],
+            locale: widget.state.edition == 'MY' ? _myLocale(widget.state.language) : null,
+            localeResolutionCallback: widget.state.edition == 'MY' ? (device, supported) => device?.languageCode == 'ms' ? const Locale('ms', 'MY') : const Locale('en', 'MY') : null,
             builder: (context, child) => ListenableBuilder(
               listenable: widget.state,
               builder: (context, _) => Stack(
@@ -197,7 +231,7 @@ class _MycaAppState extends State<MycaApp> with WidgetsBindingObserver {
                     )
                   else if (child != null)
                     _Readable(child: child),
-                  if (_tour.active && !widget.state.locked) TourCoach(tour: _tour),
+                  if (_tour.coaching && !widget.state.locked) TourCoach(tour: _tour),
                   if (widget.state.locked) AppScope(state: widget.state, child: const LockScreen()),
                 ],
               ),
@@ -269,12 +303,13 @@ class AppGate extends StatelessWidget {
     if (state.loading && snapshot == null) {
       return const Scaffold(body: Center(child: BrandMark(size: 72)));
     }
-    if (!state.welcomed) return const WelcomeScreen();
+    final malaysia = state.edition == 'MY';
+    if (!state.welcomed) return malaysia ? const MyWelcomeScreen() : const WelcomeScreen();
     final cloud = state.cloud;
     if (cloud != null && !cloud.signedIn) return const PhoneSignInScreen();
     if (cloud != null && cloud.needsConsent) return const PrivacyNoticeScreen();
     if (cloud != null && cloud.needsName) return const NameScreen();
-    if (cloud != null && !cloud.ready) return const BusinessSetupScreen();
+    if (cloud != null && !cloud.ready) return malaysia ? const MySetupScreen() : const BusinessSetupScreen();
     if (snapshot == null) {
       return Scaffold(
         body: Center(
@@ -286,7 +321,8 @@ class AppGate extends StatelessWidget {
                 const BrandMark(size: 56),
                 const SizedBox(height: 24),
                 Text(
-                  'MyCA is out of reach',
+                  malaysia ? MyStrings.of(context).outOfReach : 'MyCA is out of reach',
+                  textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.headlineSmall,
                 ),
                 const SizedBox(height: 8),
@@ -294,7 +330,7 @@ class AppGate extends StatelessWidget {
                 const SizedBox(height: 24),
                 FilledButton(
                   onPressed: state.refresh,
-                  child: const Text('Try again'),
+                  child: Text(malaysia ? MyStrings.of(context).tryAgain : 'Try again'),
                 ),
               ],
             ),
@@ -304,6 +340,7 @@ class AppGate extends StatelessWidget {
     }
     if (snapshot.activeUser == null) return SignInScreen(snapshot: snapshot);
     if (snapshot.company.household) return UsReturnHomeScreen(snapshot: snapshot);
+    if (malaysia || snapshot.company.country == 'MY') return MyHomeScreen(snapshot: snapshot);
     if (!state.migrated) return MigrationFlow(snapshot: snapshot);
     return HomeScreen(snapshot: snapshot);
   }

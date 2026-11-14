@@ -3,6 +3,7 @@ import 'dart:convert';
 import '../api/models.dart';
 import '../api/myca_api.dart';
 import '../format.dart' show isoDate, rupees;
+import 'sample_malaysia.dart';
 
 class SampleProposal {
   const SampleProposal(this.tool, this.args);
@@ -263,6 +264,8 @@ class SampleBooksApi implements MycaApi {
   String buyerAddress = '';
   bool tdsDeductor = false;
   String country = 'IN';
+  DateTime Function() clock = () => DateTime(2026, 10, 5, 10, 30);
+  late final malaysia = SampleMalaysia(clock: () => clock());
   final salesTaxStates = <Map<String, Object?>>[];
   bool salesTaxPaid = false;
   bool salesTaxFiled = false;
@@ -597,7 +600,7 @@ class SampleBooksApi implements MycaApi {
 
   @override
   Future<Snapshot> snapshot() async => Snapshot.fromJson({
-    'company': {'name': companyName, 'gstin': country == 'US' ? '' : '27AABCU9603R1ZN', 'tdsDeductor': tdsDeductor, 'country': country, 'gstFrequency': quarterlyGst ? 'quarterly' : 'monthly'},
+    'company': {'name': country == 'MY' ? sampleMalaysiaCompany : companyName, 'gstin': country == 'US' || country == 'MY' ? '' : '27AABCU9603R1ZN', 'tdsDeductor': tdsDeductor, 'country': country, 'gstFrequency': quarterlyGst ? 'quarterly' : 'monthly'},
     'invoices': invoices,
     'purchases': purchases,
     'expenses': expenses,
@@ -651,6 +654,10 @@ class SampleBooksApi implements MycaApi {
   Future<ChatReply> propose(String name, Map<String, Object?> args) async {
     final proposal = SampleProposal(name, args);
     proposals.add(proposal);
+    if (country == 'MY' && malaysia.handles(name)) {
+      _held = null;
+      return ChatReply.fromJson(malaysia.propose(name, args));
+    }
     if (name == 'create_invoice' && args['partyName'] == 'Blocked Party') {
       return ChatReply.fromJson({
         'reply': 'I did not post anything, because:\n· GST rate is not valid.',
@@ -880,6 +887,7 @@ class SampleBooksApi implements MycaApi {
   @override
   Future<ChatReply> confirm(String token) async {
     confirmed.add(token);
+    if (country == 'MY' && malaysia.heldTool != null && token == SampleBooksApi.token) return ChatReply.fromJson(malaysia.confirm());
     final held = _held;
     if (token == SampleBooksApi.token && held != null) {
       _held = null;
@@ -1548,6 +1556,7 @@ class SampleBooksApi implements MycaApi {
   Future<ChatReply> discard() async {
     discards += 1;
     _held = null;
+    malaysia.heldTool = null;
     return ChatReply.fromJson({
       'reply': 'Not posted: nothing was waiting.',
       'posted': false,
@@ -1579,6 +1588,7 @@ class SampleBooksApi implements MycaApi {
   ]) async {
     queries.add(name);
     queryArgs.add(SampleQueryCall(name, args));
+    if (country == 'MY' && malaysia.handles(name)) return malaysia.query(name, args);
     switch (name) {
       case 'profit_and_loss':
         return {
