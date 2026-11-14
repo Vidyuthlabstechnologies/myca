@@ -176,7 +176,7 @@ class _CashScreenState extends State<CashScreen> {
                 children: [
                   Text('BANK AND CASH NOW', style: text.labelSmall),
                   const SizedBox(height: 6),
-                  Text(
+                  Amount(
                     rupees(forecast.startAmount),
                     style: text.displaySmall?.copyWith(
                       fontWeight: FontWeight.w400,

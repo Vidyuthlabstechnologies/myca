@@ -183,6 +183,23 @@ class RowCard extends StatelessWidget {
   }
 }
 
+class Amount extends StatelessWidget {
+  const Amount(this.value, {super.key, this.style, this.alignment = Alignment.centerLeft});
+
+  final String value;
+  final TextStyle? style;
+  final AlignmentGeometry alignment;
+
+  @override
+  Widget build(BuildContext context) {
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      alignment: alignment,
+      child: Text(value, style: style, maxLines: 1, softWrap: false),
+    );
+  }
+}
+
 class AmountRow extends StatelessWidget {
   const AmountRow({
     super.key,
@@ -394,8 +411,9 @@ class Bubble extends StatelessWidget {
               if (amount != null)
                 Padding(
                   padding: const EdgeInsets.only(top: 2),
-                  child: Text(
+                  child: Amount(
                     amount!,
+                    alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
                     style: TextStyle(
                       color: foreground,
                       fontSize: 20,

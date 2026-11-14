@@ -675,7 +675,7 @@ class _TodayPanel extends StatelessWidget {
                             style: text.labelSmall,
                           ),
                           const SizedBox(height: 4),
-                          Text(
+                          Amount(
                             rupees(gst.outputTax.total),
                             style: text.headlineMedium?.copyWith(
                               fontFeatures: moneyFigures,

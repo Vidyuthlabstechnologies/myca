@@ -892,7 +892,7 @@ class _PeriodCard extends StatelessWidget {
           style: text.labelSmall,
         ),
         const SizedBox(height: 6),
-        Text(
+        Amount(
           rupees(gst.outputTax.total),
           style: text.displaySmall?.copyWith(
             fontWeight: FontWeight.w400,

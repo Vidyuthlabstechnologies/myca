@@ -487,7 +487,9 @@ class _Fact extends StatelessWidget {
           const SizedBox(width: 12),
           Expanded(
             flex: 3,
-            child: Text(value, textAlign: TextAlign.end, style: text.bodyMedium?.copyWith(fontFeatures: moneyFigures)),
+            child: value.contains('₹') && !value.contains(' ')
+                ? Amount(value, alignment: Alignment.centerRight, style: text.bodyMedium?.copyWith(fontFeatures: moneyFigures))
+                : Text(value, textAlign: TextAlign.end, style: text.bodyMedium?.copyWith(fontFeatures: moneyFigures)),
           ),
         ],
       ),
