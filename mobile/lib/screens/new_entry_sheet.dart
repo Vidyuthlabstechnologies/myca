@@ -4,6 +4,7 @@ import '../marks.dart';
 import '../registers.dart';
 import '../theme.dart';
 import '../uae/uae_edition.dart';
+import '../uae/uae_strings.dart';
 import '../widgets.dart';
 import 'ask_screen.dart';
 import 'bill_capture_screen.dart';
@@ -23,6 +24,7 @@ Future<void> showNewEntrySheet(BuildContext context) {
   }
 
   final ae = uaeEdition(context);
+  final s = UaeStrings.of(context);
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
@@ -36,22 +38,22 @@ Future<void> showNewEntrySheet(BuildContext context) {
             Padding(
               padding: const EdgeInsets.fromLTRB(6, 0, 0, 10),
               child: Text(
-                'What happened?',
+                s.whatHappened,
                 style: Theme.of(sheet).textTheme.headlineSmall,
               ),
             ),
             _SheetRow(
               tint: Tint.sales,
               mark: Mark.sales,
-              title: 'I sold something',
-              subtitle: 'Raise an invoice for a customer',
+              title: s.iSold,
+              subtitle: s.iSoldSubtitle,
               onTap: () => entry(RegisterKind.sales),
             ),
             _SheetRow(
               tint: Tint.purchases,
               mark: Mark.purchases,
-              title: 'I bought something',
-              subtitle: 'Add a supplier bill',
+              title: s.iBought,
+              subtitle: s.iBoughtSubtitle,
               onTap: () => entry(RegisterKind.purchases),
             ),
             if (!ae)
@@ -65,15 +67,15 @@ Future<void> showNewEntrySheet(BuildContext context) {
             _SheetRow(
               tint: Tint.expense,
               mark: Mark.expense,
-              title: 'I paid an expense',
-              subtitle: 'Rent, fuel, anything without a supplier bill',
+              title: s.iPaidExpense,
+              subtitle: s.iPaidExpenseSubtitle,
               onTap: () => go(const ExpenseScreen()),
             ),
             _SheetRow(
               tint: Tint.ask,
               mark: Mark.ask,
-              title: 'Just ask',
-              subtitle: 'Type anything, MyCA will sort it',
+              title: s.justAsk,
+              subtitle: s.justAskSubtitle,
               onTap: () => go(const AskScreen()),
             ),
           ],

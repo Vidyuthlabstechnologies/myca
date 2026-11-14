@@ -31,6 +31,7 @@ Future<void> showBusinessSheet(BuildContext context, Snapshot snapshot) {
     isScrollControlled: true,
     builder: (sheet) {
       final text = Theme.of(sheet).textTheme;
+      final s = UaeStrings.of(sheet);
       return SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
@@ -50,7 +51,7 @@ Future<void> showBusinessSheet(BuildContext context, Snapshot snapshot) {
               else if (ae != null && aeTrn.isNotEmpty)
                 Text(ae.trnOf(aeTrn), style: text.bodyMedium),
               if (user != null)
-                Text('Signed in as ${user.name}', style: text.bodyMedium),
+                Text(s.signedInAs(user.name), style: text.bodyMedium),
               const SizedBox(height: 18),
               if (state.cloud != null) ...[
                 if (user?.role != 'accountant') ...[
@@ -61,8 +62,8 @@ Future<void> showBusinessSheet(BuildContext context, Snapshot snapshot) {
                   children: [
                     RowCard(
                       leading: const TintTile(tint: Tint.ask, mark: Mark.people),
-                      title: 'People',
-                      subtitle: 'Who can work in these books',
+                      title: s.people,
+                      subtitle: s.peopleSubtitle,
                       trailing: const Chevron(),
                       onTap: () {
                         navigator.pop();
@@ -82,8 +83,8 @@ Future<void> showBusinessSheet(BuildContext context, Snapshot snapshot) {
                     ),
                     RowCard(
                       leading: const TintTile(tint: Tint.ask, mark: Mark.people),
-                      title: 'Invite a business owner',
-                      subtitle: 'Share your invite code, or use one you were sent',
+                      title: s.inviteOwner,
+                      subtitle: s.inviteOwnerSubtitle,
                       trailing: const Chevron(),
                       onTap: () {
                         navigator.pop();
@@ -92,8 +93,8 @@ Future<void> showBusinessSheet(BuildContext context, Snapshot snapshot) {
                     ),
                     RowCard(
                       leading: const TintTile(tint: Tint.ask, mark: Mark.confirm),
-                      title: 'Security',
-                      subtitle: 'Two-step sign-in and where you are signed in',
+                      title: s.security,
+                      subtitle: s.securitySubtitle,
                       trailing: const Chevron(),
                       onTap: () {
                         navigator.pop();
@@ -103,8 +104,8 @@ Future<void> showBusinessSheet(BuildContext context, Snapshot snapshot) {
                     if (user?.role == 'owner')
                       RowCard(
                         leading: const TintTile(tint: Tint.ask, mark: Mark.otherApp),
-                        title: 'Connections',
-                        subtitle: 'A POS or an inbox that feeds these books',
+                        title: s.connections,
+                        subtitle: s.connectionsSubtitle,
                         trailing: const Chevron(),
                         onTap: () {
                           navigator.pop();
@@ -124,8 +125,8 @@ Future<void> showBusinessSheet(BuildContext context, Snapshot snapshot) {
                       ),
                     RowCard(
                       leading: const TintTile(tint: Tint.ask, mark: Mark.switchBooks),
-                      title: 'Your businesses',
-                      subtitle: 'Switch business or answer an invitation',
+                      title: s.yourBusinesses,
+                      subtitle: s.yourBusinessesSubtitle,
                       trailing: const Chevron(),
                       onTap: () {
                         navigator.pop();
@@ -144,7 +145,7 @@ Future<void> showBusinessSheet(BuildContext context, Snapshot snapshot) {
                 Padding(
                   padding: const EdgeInsets.only(bottom: 12),
                   child: Text(
-                    'Set a screen lock on this phone to protect MyCA with it.',
+                    s.setScreenLock,
                     style: text.bodyMedium,
                   ),
                 ),
@@ -181,11 +182,11 @@ Future<void> showBusinessSheet(BuildContext context, Snapshot snapshot) {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'Bring in more books',
+                                  s.bringInMore,
                                   style: text.titleMedium,
                                 ),
                                 Text(
-                                  'Tally, Zoho or a bank statement',
+                                  s.bringInMoreSubtitle,
                                   style: text.bodyMedium,
                                 ),
                               ],
@@ -203,7 +204,7 @@ Future<void> showBusinessSheet(BuildContext context, Snapshot snapshot) {
                   navigator.pop();
                   state.signOut();
                 },
-                child: const Text('Sign out'),
+                child: Text(s.signOut),
               ),
             ],
           ),
@@ -244,7 +245,7 @@ class _BriefSwitchState extends State<_BriefSwitch> {
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-          const SnackBar(content: Text('Could not change the Monday brief setting.')),
+          SnackBar(content: Text(UaeStrings.of(context).briefFailed)),
         );
       }
     } finally {
@@ -254,6 +255,7 @@ class _BriefSwitchState extends State<_BriefSwitch> {
 
   @override
   Widget build(BuildContext context) {
+    final s = UaeStrings.of(context);
     return Material(
       color: Palette.surface,
       shape: RoundedRectangleBorder(
@@ -263,12 +265,10 @@ class _BriefSwitchState extends State<_BriefSwitch> {
       child: SwitchListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 14),
         title: Text(
-          'Monday brief on WhatsApp',
+          s.mondayBrief,
           style: Theme.of(context).textTheme.titleMedium,
         ),
-        subtitle: const Text(
-          'Every Monday at 7 am: cash and runway, sales against last week, who owes you and for how long, what is due, and the one thing to do.',
-        ),
+        subtitle: Text(s.mondayBriefSubtitle),
         value: _on ?? false,
         activeTrackColor: Palette.ink,
         onChanged: _on == null || _busy ? null : _set,
@@ -289,12 +289,12 @@ class _CrashSwitch extends StatelessWidget {
       builder: (context, _) => SwitchListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 4),
         title: Text(
-          'Send crash reports',
+          UaeStrings.of(context).crashReports,
           style: Theme.of(context).textTheme.titleMedium,
         ),
         subtitle: Text(
           uaeEdition(context)
-              ? 'Only what went wrong in the app. Names, amounts, TRNs and phone numbers are removed before it leaves the phone.'
+              ? UaeStrings.of(context).crashReportsAe
               : 'Only what went wrong in the app. Names, amounts, GSTINs and phone numbers are removed before it leaves the phone.',
         ),
         value: state.crashReportsOn,
@@ -316,8 +316,8 @@ class _LockSwitch extends StatelessWidget {
       listenable: state,
       builder: (context, _) => SwitchListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 4),
-        title: Text('App lock', style: Theme.of(context).textTheme.titleMedium),
-        subtitle: const Text('Ask for your fingerprint, face or screen lock to open MyCA'),
+        title: Text(UaeStrings.of(context).appLock, style: Theme.of(context).textTheme.titleMedium),
+        subtitle: Text(UaeStrings.of(context).appLockSubtitle),
         value: state.lockEnabled,
         activeTrackColor: Palette.ink,
         onChanged: (enabled) => state.setLockEnabled(enabled),

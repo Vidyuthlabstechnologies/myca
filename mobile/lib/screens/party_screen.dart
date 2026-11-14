@@ -165,7 +165,7 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
   Future<void> onPosted() async {
     HapticFeedback.mediumImpact();
     final messenger = ScaffoldMessenger.of(context);
-    final confirmation = entries.isEmpty ? 'Posted.' : entries.last.text;
+    final confirmation = entries.isEmpty ? UaeStrings.of(context).postedDot : entries.last.text;
     await AppScope.of(context).refresh();
     if (!mounted) return;
     setState(() {
@@ -453,17 +453,13 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
     final amount = parseAmount(_amount.text);
     final invoiceId = _invoiceId;
     if (amount == null || invoiceId == null) {
-      return setState(
-        () => _formError = _sales
-            ? 'Enter the amount received.'
-            : 'Enter the amount paid.',
-      );
+      return setState(() => _formError = UaeStrings.of(context).enterAmountReceivedOrPaid(_sales));
     }
     final received = isoDate(AppScope.of(context).now());
     setState(() => _composer = _Composer.none);
     if (!_sales) {
       await propose(
-        'Paid ${rupees(amount)} by $_mode against $invoiceId',
+        UaeStrings.of(context).paidSaid(rupees(amount), _mode, invoiceId),
         'record_payment',
         {
           'billId': invoiceId,
@@ -475,7 +471,7 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
       return;
     }
     await propose(
-      'Received ${rupees(amount)} by $_mode against $invoiceId',
+      UaeStrings.of(context).receivedSaid(rupees(amount), _mode, invoiceId),
       'record_receipt',
       {
         'invoiceId': invoiceId,
@@ -517,22 +513,24 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
     ).snapshot?.termsFor(party.name, party.gstin);
     final days = await showModalBottomSheet<int>(
       context: context,
+      isScrollControlled: true,
       builder: (sheet) {
         final text = Theme.of(sheet).textTheme;
+        final s = UaeStrings.of(sheet);
         return SafeArea(
-          child: Padding(
+          child: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(22, 4, 22, 22),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'How long does ${party.name} have to pay?',
+                  s.howLongToPay(party.name),
                   style: text.headlineSmall,
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  'New invoices get a due date. Invoices already raised keep theirs.',
+                  s.termsNote,
                   style: text.bodySmall,
                 ),
                 const SizedBox(height: 14),
@@ -542,7 +540,7 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
                   children: [
                     for (final choice in const [0, 7, 15, 30, 45, 60, 90])
                       ChoiceChip(
-                        label: Text(termsLabel(choice)),
+                        label: Text(s.termsLabel(choice)),
                         selected: choice == current,
                         selectedColor: Palette.sunken,
                         showCheckmark: false,
@@ -557,7 +555,7 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
       },
     );
     if (days == null || !mounted || days == current) return;
-    await propose('${party.name}: ${termsLabel(days)}', 'set_payment_terms', {
+    await propose('${party.name}: ${UaeStrings.of(context).termsLabel(days)}', 'set_payment_terms', {
       'partyName': party.name,
       if (party.gstin.isNotEmpty) 'partyGstin': party.gstin,
       'days': days,
@@ -592,6 +590,7 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
   }
 
   List<Widget> _history(Party party) {
+    final s = UaeStrings.of(context);
     final what = _sales ? 'Invoice' : 'Bill';
     final notes =
         AppScope.of(context).snapshot?.creditNotes ?? const <CreditNote>[];
@@ -630,7 +629,7 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
                 if (quote.kind == 'challan' && quote.reason.isNotEmpty)
                   challanReasonLabels[quote.reason] ?? quote.reason,
                 if (quote.invoiceId.isNotEmpty) 'Became ${quote.invoiceId}',
-                'Tap to view or send',
+                s.tapToView,
               ],
               onTap: () => Navigator.of(context).push(
                 MaterialPageRoute<void>(
@@ -653,10 +652,11 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
     List<CreditNote> Function(String) notesFor,
   ) {
     final payBy = _payBy(doc);
+    final s = UaeStrings.of(context);
     return [
       ...[
         Bubble(
-          text: '$what ${doc.id}',
+          text: s.ar ? (_sales ? s.invoiceTitle(doc.id) : s.billTitle(doc.id)) : '$what ${doc.id}',
           amount: rupees(doc.total),
           tone: BubbleTone.plain,
           label: doc.date,
@@ -669,20 +669,20 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
               : 'Unpaid',
           footnotes: _sales
               ? [
-                  if (dueWords(
+                  if (s.dueWords(
                     doc.dueDate,
                     AppScope.of(context).now(),
                     open: doc.open,
                   ).isNotEmpty)
-                    dueWords(
+                    s.dueWords(
                       doc.dueDate,
                       AppScope.of(context).now(),
                       open: doc.open,
                     ),
-                  'Tap to view or send',
+                  s.tapToView,
                 ]
               : [
-                  if (doc.partial) '${rupees(doc.owed)} still owed',
+                  if (doc.partial) s.stillOwed(rupees(doc.owed)),
                   if (payBy != null) 'Pay by ${longDate(payBy.date)}${payBy.msme ? ' (MSME)' : ''}',
                   if (_riskByBill.containsKey(doc.id)) 'Credit at risk: ${_riskByBill[doc.id]}',
                 ],
@@ -697,8 +697,8 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
         for (final note in notesFor(doc.id))
           Bubble(
             text: note.cancels
-                ? 'Cancelled ${doc.id}: ${note.reason}'
-                : 'Credit note ${note.id} against ${doc.id}: ${note.reason}',
+                ? s.cancelledDoc(doc.id, note.reason)
+                : s.creditNoteAgainst(note.id, doc.id, note.reason),
             amount: '−${rupees(note.total)}',
             tone: BubbleTone.plain,
             label: note.date,
@@ -707,7 +707,7 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
           Bubble(
             text: receipt.tds
                 ? 'TDS withheld${receipt.section.isEmpty ? '' : ' (${receipt.section})'} against ${doc.id}'
-                : 'Received by ${receipt.mode} against ${doc.id}',
+                : s.receivedAgainst(receipt.mode, doc.id),
             amount: rupees(receipt.amount),
             tone: BubbleTone.plain,
             label: receipt.date,
@@ -717,7 +717,7 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
           ),
         for (final payment in doc.payments)
           Bubble(
-            text: 'Paid by ${payment.mode} against ${doc.id}',
+            text: s.paidAgainst(payment.mode, doc.id),
             amount: rupees(payment.amount),
             tone: BubbleTone.plain,
             label: payment.date,
@@ -739,6 +739,7 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
     final rates = ratesUsedBefore(
       party.documents.isEmpty ? documents : party.documents,
     );
+    final s = UaeStrings.of(context);
     return Scaffold(
       appBar: AppBar(
         titleSpacing: 0,
@@ -773,7 +774,7 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
         actions: [
           if (_sales)
             IconButton(
-              tooltip: 'Statement of account',
+              tooltip: s.statementOfAccount,
               icon: const Icon(Icons.receipt_long_outlined),
               onPressed: () => Navigator.of(context).push(
                 MaterialPageRoute<void>(
@@ -805,9 +806,7 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
               children: [
                 if (history.isEmpty && entries.isEmpty)
                   EmptyNote(
-                    text: _sales
-                        ? 'Nothing logged for ${party.name} yet. Enter the sale below and you will see it before it is posted.'
-                        : 'Nothing logged for ${party.name} yet. Enter the bill below and you will see it before it is posted.',
+                    text: s.nothingLogged(_sales, party.name),
                   ),
                 ...history,
                 for (final entry in entries) entry.toBubble(),
@@ -819,7 +818,7 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
               busy: busy,
               onPost: postPending,
               onDiscard: discardPending,
-              postLabel: _proposedTool == 'set_supplier_terms' ? 'Yes' : 'Post it',
+              postLabel: _proposedTool == 'set_supplier_terms' ? s.yes : 'Post it',
             )
           else if (_composer == _Composer.none)
             _ActionChips(
@@ -843,7 +842,7 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
           else
             _ComposerCard(
               title: _composer == _Composer.payment
-                  ? (_sales ? 'Payment received' : 'Payment made')
+                  ? s.paymentTitle(_sales)
                   : _composer == _Composer.quote
                   ? 'New ${salesDocumentLabel(_docKind).toLowerCase()}'
                   : _composer == _Composer.purchaseNote
@@ -1101,14 +1100,14 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
       initialValue: _invoiceId,
       isExpanded: true,
       decoration: InputDecoration(
-        labelText: _sales ? 'Against invoice' : 'Against bill',
+        labelText: UaeStrings.of(context).againstDocument(_sales),
       ),
       items: [
         for (final doc in party.unpaid)
           DropdownMenuItem(
             value: doc.id,
             child: Text(
-              '${doc.id} · ${rupees(_stillOwed(doc))} owed',
+              UaeStrings.of(context).owedOn(doc.id, rupees(_stillOwed(doc))),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
@@ -1126,7 +1125,7 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
       autofocus: true,
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
       decoration: InputDecoration(
-        labelText: _sales ? 'Amount received' : 'Amount paid',
+        labelText: UaeStrings.of(context).amountReceivedOrPaid(_sales),
         prefixText: moneyPrefix,
       ),
     ),
@@ -1136,7 +1135,7 @@ class _PartyScreenState extends State<PartyScreen> with ProposalFlow {
       children: [
         for (final mode in const ['bank', 'cash'])
           ChoiceChip(
-            label: Text(mode == 'bank' ? (_ae ? UaeStrings.of(context).bank : 'Bank or UPI') : 'Cash'),
+            label: Text(mode == 'bank' ? (_ae ? UaeStrings.of(context).bank : 'Bank or UPI') : UaeStrings.of(context).cash),
             selected: _mode == mode,
             selectedColor: Palette.sunken,
             showCheckmark: false,

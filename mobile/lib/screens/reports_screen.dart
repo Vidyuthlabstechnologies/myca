@@ -8,6 +8,8 @@ import '../format.dart';
 import '../marks.dart';
 import '../proposal_flow.dart';
 import '../theme.dart';
+import '../uae/uae_edition.dart';
+import '../uae/uae_strings.dart';
 import '../widgets.dart';
 import 'audit_trail_screen.dart';
 
@@ -65,9 +67,10 @@ class _ReportsScreenState extends State<ReportsScreen> with ProposalFlow {
     });
     ReportResult? result;
     var note = '';
+    final failed = UaeStrings.of(context).reportFailed;
     try {
       result = ReportResult.fromTool(await api.query('run_report', {'name': report.name}));
-      if (result == null) note = 'The report could not be run.';
+      if (result == null) note = failed;
     } on MycaApiException catch (err) {
       note = err.message;
     }
@@ -79,14 +82,15 @@ class _ReportsScreenState extends State<ReportsScreen> with ProposalFlow {
     });
   }
 
-  Future<void> _delete(SavedReport report) => propose('Delete the report ${report.name}', 'delete_report', {'name': report.name});
+  Future<void> _delete(SavedReport report) => propose(UaeStrings.of(context).deleteReportSaid(report.name), 'delete_report', {'name': report.name});
 
   Future<void> _saveExcel(SavedReport report) async {
     final state = AppScope.of(context);
+    final aeStrings = uaeEdition(context) ? UaeStrings.of(context) : null;
     setState(() => _excelNote = '');
     var note = '';
     try {
-      note = await saveXlsx(state, toolData(await state.api.query('export_xlsx', {'report': 'saved_report', 'name': report.name})));
+      note = await saveXlsx(state, toolData(await state.api.query('export_xlsx', {'report': 'saved_report', 'name': report.name})), aeStrings);
     } on MycaApiException catch (err) {
       note = err.message;
     }
@@ -101,7 +105,7 @@ class _ReportsScreenState extends State<ReportsScreen> with ProposalFlow {
       builder: (_) => const _ReportForm(),
     );
     if (draft == null || !mounted) return;
-    await propose('Save the report ${draft.name}', 'save_report', {
+    await propose(UaeStrings.of(context).saveReportSaid(draft.name), 'save_report', {
       'name': draft.name,
       'metric': draft.metric,
       'groupBy': draft.groupBy,
@@ -111,7 +115,8 @@ class _ReportsScreenState extends State<ReportsScreen> with ProposalFlow {
   }
 
   Widget _resultPanel(ReportResult result, TextTheme text) {
-    final comparison = reportComparisonWords(result, rupees);
+    final s = UaeStrings.of(context);
+    final comparison = s.reportComparison(result);
     return Panel(
       children: [
         RowCard(
@@ -123,13 +128,13 @@ class _ReportsScreenState extends State<ReportsScreen> with ProposalFlow {
           RowCard(
             leading: const TintTile(tint: Tint.taxes, mark: Mark.comingUp),
             title: '${row.label}: ${rupees(row.amount)}',
-            subtitle: row.before == null ? '' : 'was ${rupees(row.before!)}',
+            subtitle: row.before == null ? '' : s.wasAmount(rupees(row.before!)),
           ),
         if (result.more > 0)
           RowCard(
             leading: const TintTile(tint: Tint.taxes, mark: Mark.comingUp),
-            title: '${result.more} more',
-            subtitle: 'Save as Excel for the full list',
+            title: s.moreRows(result.more),
+            subtitle: s.excelForFullList,
           ),
       ],
     );
@@ -138,12 +143,13 @@ class _ReportsScreenState extends State<ReportsScreen> with ProposalFlow {
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
+    final s = UaeStrings.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Reports'),
+        title: Text(s.reports),
         actions: [
           IconButton(
-            tooltip: 'Save a report',
+            tooltip: s.saveAReport,
             onPressed: busy || pending != null ? null : _add,
             icon: const Icon(Icons.add),
           ),
@@ -162,14 +168,14 @@ class _ReportsScreenState extends State<ReportsScreen> with ProposalFlow {
                 child: ListView(
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
                   children: [
-                    const SectionLabel('Built-in'),
+                    SectionLabel(s.builtIn),
                     Panel(
                       children: [
                         RowCard(
                           key: const ValueKey('reports.audit'),
                           leading: const TintTile(tint: Tint.taxes, mark: Mark.paper),
-                          title: 'Audit trail',
-                          subtitle: 'Who changed what and when, with a check for edits to the log',
+                          title: s.auditTrail,
+                          subtitle: s.auditTrailSubtitle,
                           trailing: const Chevron(),
                           onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const AuditTrailScreen())),
                         ),
@@ -177,18 +183,18 @@ class _ReportsScreenState extends State<ReportsScreen> with ProposalFlow {
                     ),
                     const SizedBox(height: 16),
                     if (reports.isEmpty)
-                      const EmptyNote(text: 'No saved reports yet. Tap + to save one: sales by customer this month, expenses by head this quarter, and so on.')
+                      EmptyNote(text: s.noSavedReports)
                     else ...[
-                      const SectionLabel('Your reports'),
+                      SectionLabel(s.yourReports),
                       Panel(
                         children: [
                           for (final report in reports) ...[
                             RowCard(
                               leading: TintTile(tint: Tint.taxes, mark: _openName == report.name ? Mark.confirm : Mark.sales),
                               title: report.name,
-                              subtitle: report.words,
+                              subtitle: s.reportWords(report),
                               trailing: IconButton(
-                                tooltip: 'Delete ${report.name}',
+                                tooltip: s.deleteNamed(report.name),
                                 onPressed: busy || pending != null ? null : () => _delete(report),
                                 icon: const Icon(Icons.delete_outline),
                               ),
@@ -207,7 +213,7 @@ class _ReportsScreenState extends State<ReportsScreen> with ProposalFlow {
                                   children: [
                                     OutlinedButton(
                                       onPressed: busy ? null : () => _saveExcel(report),
-                                      child: const Text('Save as Excel'),
+                                      child: Text(s.saveAsExcel),
                                     ),
                                     if (_excelNote.isNotEmpty)
                                       Padding(padding: const EdgeInsets.only(top: 8), child: Text(_excelNote, style: text.bodyMedium)),
@@ -224,7 +230,7 @@ class _ReportsScreenState extends State<ReportsScreen> with ProposalFlow {
                   ],
                 ),
               ),
-              if (pending != null) ProposalBar(busy: busy, onPost: postPending, onDiscard: discardPending, postLabel: 'Yes'),
+              if (pending != null) ProposalBar(busy: busy, onPost: postPending, onDiscard: discardPending, postLabel: s.yes),
             ],
           );
         },
@@ -266,7 +272,7 @@ class _ReportFormState extends State<_ReportForm> {
   Widget _choice(String label, List<String> options, String value, void Function(String) onChanged) => DropdownButtonFormField<String>(
     initialValue: value,
     decoration: InputDecoration(labelText: label),
-    items: [for (final option in options) DropdownMenuItem(value: option, child: Text(option.replaceAll('-', ' ')))],
+    items: [for (final option in options) DropdownMenuItem(value: option, child: Text(UaeStrings.of(context).reportOption(option)))],
     onChanged: (chosen) {
       if (chosen != null) setState(() => onChanged(chosen));
     },
@@ -275,39 +281,40 @@ class _ReportFormState extends State<_ReportForm> {
   @override
   Widget build(BuildContext context) {
     final name = _name.text.trim();
+    final s = UaeStrings.of(context);
     return Padding(
       padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + MediaQuery.viewInsetsOf(context).bottom),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text('Save a report', style: Theme.of(context).textTheme.titleLarge),
+          Text(s.saveAReport, style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 12),
           TextField(
             controller: _name,
             autofocus: true,
             textCapitalization: TextCapitalization.sentences,
-            decoration: const InputDecoration(labelText: 'Name'),
+            decoration: InputDecoration(labelText: s.name),
             onChanged: (_) => setState(() {}),
           ),
           const SizedBox(height: 12),
-          _choice('What', reportMetrics, _metric, (v) => _metric = v),
+          _choice(s.what, reportMetrics, _metric, (v) => _metric = v),
           const SizedBox(height: 12),
-          _choice('Grouped by', reportGroups, _groupBy, (v) => _groupBy = v),
+          _choice(s.groupedBy, reportGroups, _groupBy, (v) => _groupBy = v),
           const SizedBox(height: 12),
-          _choice('Period', reportPeriods, _period, (v) => _period = v),
+          _choice(s.period, reportPeriods, _period, (v) => _period = v),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
             value: _compare,
             onChanged: (v) => setState(() => _compare = v),
-            title: const Text('Compare with the period before'),
+            title: Text(s.compareBefore),
           ),
           const SizedBox(height: 8),
           FilledButton(
             onPressed: name.isEmpty
                 ? null
                 : () => Navigator.of(context).pop(_ReportDraft(name: name, metric: _metric, groupBy: _groupBy, period: _period, compare: _compare)),
-            child: const Text('Preview'),
+            child: Text(s.preview),
           ),
         ],
       ),

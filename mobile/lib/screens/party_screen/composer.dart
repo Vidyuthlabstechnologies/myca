@@ -31,9 +31,8 @@ class _ActionChips extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final label = sales
-        ? (again ? 'Another sale' : 'Sale')
-        : (again ? 'Another bill' : 'Bill');
+    final s = UaeStrings.of(context);
+    final label = s.documentChip(sales, again);
     return SafeArea(
       top: false,
       child: Padding(
@@ -55,7 +54,7 @@ class _ActionChips extends StatelessWidget {
                     sales ? Icons.south_west : Icons.north_east,
                     size: 18,
                   ),
-                  label: Text(sales ? 'Payment received' : 'Paid'),
+                  label: Text(s.paymentChip(sales)),
                   onPressed: busy ? null : onPayment,
                 ),
               if (onTdsWithheld != null)
@@ -75,9 +74,7 @@ class _ActionChips extends StatelessWidget {
                 ),
               if (onTerms != null)
                 ActionChip(
-                  label: Text(
-                    terms == null ? 'Set terms' : 'Terms: ${termsLabel(terms)}',
-                  ),
+                  label: Text(s.termsChip(terms)),
                   onPressed: busy ? null : onTerms,
                 ),
               if (onSupplierTerms != null)
@@ -140,7 +137,7 @@ class _ComposerCard extends StatelessWidget {
                     ),
                   ),
                   IconButton(
-                    tooltip: 'Cancel',
+                    tooltip: UaeStrings.of(context).cancel,
                     icon: const Icon(Icons.close),
                     onPressed: onCancel,
                   ),
@@ -159,7 +156,7 @@ class _ComposerCard extends StatelessWidget {
                 ),
               ],
               const SizedBox(height: 12),
-              FilledButton(onPressed: onSubmit, child: const Text('Preview')),
+              FilledButton(onPressed: onSubmit, child: Text(UaeStrings.of(context).preview)),
             ],
           ),
         ),

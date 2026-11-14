@@ -5,6 +5,7 @@ import '../../api/myca_api.dart';
 import '../../app_state.dart';
 import '../../marks.dart';
 import '../../theme.dart';
+import '../../uae/uae_edition.dart';
 import '../../uae/uae_emirates.dart';
 import '../../uae/uae_format.dart';
 import '../../uae/uae_strings.dart';
@@ -15,10 +16,11 @@ import 'uae_profile_screen.dart';
 import 'uae_vat_return_screen.dart';
 
 class UaeDeadline {
-  const UaeDeadline({required this.id, required this.date, required this.daysLeft, required this.overdue});
+  const UaeDeadline({required this.id, required this.date, required this.daysLeft, required this.overdue, this.what = ''});
 
   factory UaeDeadline.fromJson(Map<String, dynamic> row) => UaeDeadline(
     id: uaeText(row['id']),
+    what: uaeText(row['what']),
     date: uaeText(row['date']),
     daysLeft: uaeNum(row['daysLeft']).toInt(),
     overdue: row['overdue'] == true,
@@ -28,6 +30,7 @@ class UaeDeadline {
   final String date;
   final int daysLeft;
   final bool overdue;
+  final String what;
 }
 
 class UaeDeadlines {
@@ -54,7 +57,7 @@ Future<void> loadUaeProfile(MycaApi api) async {
   } catch (_) {}
 }
 
-Future<UaeDeadlines> loadUaeDeadlines(MycaApi api, DateTime now) async {
+Future<UaeDeadlines> loadUaeDeadlines(MycaApi api, DateTime now, {String lang = 'en'}) async {
   await loadUaeProfile(api);
   final profile = uaeProfile.value;
   final today = _iso(now);
@@ -63,7 +66,7 @@ Future<UaeDeadlines> loadUaeDeadlines(MycaApi api, DateTime now) async {
   var vatEnd = lastQuarter.end;
   var ctEnd = ctYearEnd(now.year - 1, yearEnd);
   Future<List<UaeDeadline>> ask() async {
-    final data = toolData(await api.query('ae_deadlines', {'today': today, 'vatPeriodEnd': vatEnd, 'ctPeriodEnd': ctEnd, 'revenue': uaeNum(profile?['revenue'])}));
+    final data = toolData(await api.query('ae_deadlines', {'today': today, 'vatPeriodEnd': vatEnd, 'ctPeriodEnd': ctEnd, 'revenue': uaeNum(profile?['revenue']), if (lang == 'ar') 'lang': 'ar'}));
     return [for (final row in uaeRows(data['items'])) UaeDeadline.fromJson(row)];
   }
 
@@ -87,16 +90,21 @@ class UaeTaxesScreen extends StatefulWidget {
 
 class _UaeTaxesScreenState extends State<UaeTaxesScreen> {
   Future<UaeDeadlines>? _deadlines;
+  String _lang = 'en';
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _deadlines ??= _load();
+    final lang = uaeLang(context);
+    if (_deadlines == null || lang != _lang) {
+      _lang = lang;
+      _deadlines = _load();
+    }
   }
 
   Future<UaeDeadlines> _load() {
     final state = AppScope.of(context);
-    return loadUaeDeadlines(state.api, state.now());
+    return loadUaeDeadlines(state.api, state.now(), lang: _lang);
   }
 
   Future<void> _open(Widget screen) async {
@@ -195,12 +203,12 @@ class UaeDeadlinesCard extends StatelessWidget {
     final s = UaeStrings.of(context);
     final f = UaeFormat.of(context);
     if (items.isEmpty) return Panel(children: [RowCard(leading: const TintTile(tint: Tint.taxes, mark: Mark.comingUp), title: s.comingUp, subtitle: s.noDates)]);
-    String what(String id) => switch (id) {
+    String what(UaeDeadline item) => switch (item.id) {
       'vat-return' => s.vatReturnDue,
       'ct-return' => s.ctReturnDue,
       'einvoice-asp' => s.einvoiceAsp,
       'einvoice-live' => s.einvoiceLive,
-      _ => id,
+      _ => item.what.isEmpty ? item.id : item.what,
     };
     String when(UaeDeadline item) {
       final left = item.overdue ? s.datePassed : item.daysLeft == 0 ? s.dueToday : s.daysLeft(item.daysLeft);
@@ -214,7 +222,7 @@ class UaeDeadlinesCard extends StatelessWidget {
           RowCard(
             key: ValueKey('uae.deadline.${item.id}'),
             leading: TintTile(tint: item.overdue ? Tint.urgent : Tint.taxes, mark: item.overdue ? Mark.urgent : Mark.comingUp),
-            title: what(item.id),
+            title: what(item),
             subtitle: when(item),
           ),
       ],

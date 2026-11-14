@@ -4,11 +4,12 @@ import '../api/models.dart';
 import '../api/myca_api.dart';
 import '../app_state.dart';
 import '../theme.dart';
+import '../uae/uae_strings.dart';
 
 Future<ExpenseHead?> showHeadPicker(
   BuildContext context, {
   String? current,
-  String title = 'Which head?',
+  String? title,
 }) async {
   final api = AppScope.of(context).api;
   List<ExpenseHead> heads;
@@ -23,6 +24,7 @@ Future<ExpenseHead?> showHeadPicker(
     isScrollControlled: true,
     builder: (sheet) {
       final text = Theme.of(sheet).textTheme;
+      final s = UaeStrings.of(sheet);
       return SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(22, 4, 22, 22),
@@ -30,12 +32,12 @@ Future<ExpenseHead?> showHeadPicker(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(title, style: text.headlineSmall),
+              Text(title ?? s.whichHead, style: text.headlineSmall),
               const SizedBox(height: 6),
               Text(
                 heads.isEmpty
-                    ? 'The heads could not be loaded.'
-                    : 'MyCA remembers your choice for the same payee or wording.',
+                    ? s.headsNotLoaded
+                    : s.headsRemembered,
                 style: text.bodySmall,
               ),
               const SizedBox(height: 14),
@@ -47,7 +49,7 @@ Future<ExpenseHead?> showHeadPicker(
                     children: [
                       for (final head in heads)
                         ChoiceChip(
-                          label: Text(head.name),
+                          label: Text(s.accountName(head.name)),
                           selected: head.code == current,
                           selectedColor: Palette.sunken,
                           showCheckmark: false,

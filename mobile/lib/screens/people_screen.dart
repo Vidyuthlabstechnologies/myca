@@ -7,12 +7,16 @@ import '../format.dart';
 import '../cloud/cloud_session.dart';
 import '../theme.dart';
 import '../widgets.dart';
+import '../uae/uae_edition.dart';
 import 'invitation_cards.dart';
 
 const _roleHelp = {
   'staff': 'Records sales, bills, payments and expenses.',
   'accountant': 'Works in the books like staff. For your CA or bookkeeper.',
 };
+
+String _roleWords(BuildContext context, String role) =>
+    role == 'accountant' && uaeEdition(context) ? 'Works in the books like staff. For your accountant or registered tax agent.' : _roleHelp[role]!;
 
 const caSyncChoices = [
   ('live', 'As things happen', 'Your accountant sees every entry at once.'),
@@ -181,7 +185,7 @@ class _PeopleScreenState extends State<PeopleScreen> {
             for (final role in const ['owner', 'staff', 'accountant'])
               ListTile(
                 title: Text(roleLabel(role)),
-                subtitle: Text(_roleHelp[role] ?? 'Can do everything, including deleting the business and inviting others.'),
+                subtitle: Text(_roleHelp.containsKey(role) ? _roleWords(context, role) : 'Can do everything, including deleting the business and inviting others.'),
                 trailing: role == member.role ? const Icon(Icons.check) : null,
                 onTap: () => Navigator.of(sheet).pop(role),
               ),
@@ -366,7 +370,7 @@ class _InviteSheetState extends State<_InviteSheet> {
               ],
             ),
             const SizedBox(height: 8),
-            Text(_roleHelp[_role]!, style: text.bodyMedium),
+            Text(_roleWords(context, _role), style: text.bodyMedium),
             if (_error.isNotEmpty) ...[
               const SizedBox(height: 10),
               Text(_error, style: const TextStyle(color: Palette.danger, fontWeight: FontWeight.w500)),

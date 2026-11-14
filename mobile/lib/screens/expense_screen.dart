@@ -70,9 +70,9 @@ class _ExpenseScreenState extends State<ExpenseScreen> with ProposalFlow {
     final amount = parseAmount(_amount.text);
     final rate = _rate.text.trim().isEmpty ? 0 : parseRate(_rate.text);
     if (what.isEmpty) {
-      return setState(() => _error = 'Say what the expense was for.');
+      return setState(() => _error = UaeStrings.of(context).sayWhatFor);
     }
-    if (amount == null) return setState(() => _error = 'Enter the amount.');
+    if (amount == null) return setState(() => _error = UaeStrings.of(context).enterAmount);
     if (rate == null) {
       return setState(
         () => _error = 'The $salesTaxName rate must be a number, or leave it blank.',
@@ -95,7 +95,7 @@ class _ExpenseScreenState extends State<ExpenseScreen> with ProposalFlow {
     };
     _lastArgs = args;
     await propose(
-      '$what: ${rupees(amount)} from $_mode${rate > 0 ? ', $salesTaxName $rate% inside' : ''}',
+      rate > 0 ? '$what: ${rupees(amount)} from $_mode, $salesTaxName $rate% inside' : UaeStrings.of(context).expenseSaid(what, rupees(amount), _mode == 'bank'),
       'post_expense',
       args,
     );
@@ -114,7 +114,7 @@ class _ExpenseScreenState extends State<ExpenseScreen> with ProposalFlow {
       if (!mounted) return;
       final args = {...last, 'head': chosen.code};
       _lastArgs = args;
-      await propose('Put it under ${chosen.name}', 'post_expense', args);
+      await propose(UaeStrings.of(context).putUnder(UaeStrings.of(context).accountName(chosen.name)), 'post_expense', args);
     }
   }
 
@@ -123,8 +123,9 @@ class _ExpenseScreenState extends State<ExpenseScreen> with ProposalFlow {
     final text = Theme.of(context).textTheme;
     final preview = pending;
     final ae = uaeEdition(context) ? UaeStrings.of(context) : null;
+    final s = UaeStrings.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Expense')),
+      appBar: AppBar(title: Text(s.expense)),
       body: Column(
         children: [
           Expanded(
@@ -135,16 +136,16 @@ class _ExpenseScreenState extends State<ExpenseScreen> with ProposalFlow {
                 TextField(
                   controller: _what,
                   textCapitalization: TextCapitalization.sentences,
-                  decoration: const InputDecoration(
-                    labelText: 'What was it for',
+                  decoration: InputDecoration(
+                    labelText: s.whatFor,
                   ),
                 ),
                 const SizedBox(height: 12),
                 TextField(
                   controller: _payee,
                   textCapitalization: TextCapitalization.words,
-                  decoration: const InputDecoration(
-                    labelText: 'Paid to (optional)',
+                  decoration: InputDecoration(
+                    labelText: s.paidTo,
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -194,18 +195,14 @@ class _ExpenseScreenState extends State<ExpenseScreen> with ProposalFlow {
                   children: [
                     for (final mode in const ['bank', 'cash'])
                       ChoiceChip(
-                        label: Text(mode == 'bank' ? 'From bank' : 'From cash'),
+                        label: Text(mode == 'bank' ? s.fromBank : s.fromCash),
                         selected: _mode == mode,
                         selectedColor: Palette.sunken,
                         showCheckmark: false,
                         onSelected: (_) => setState(() => _mode = mode),
                       ),
                     ActionChip(
-                      label: Text(
-                        _head == null
-                            ? 'Head: automatic'
-                            : 'Head: ${_head!.name}',
-                      ),
+                      label: Text(s.headChip(_head == null ? null : s.accountName(_head!.name))),
                       onPressed: busy ? null : _pickHead,
                     ),
                   ],
@@ -247,7 +244,7 @@ class _ExpenseScreenState extends State<ExpenseScreen> with ProposalFlow {
               child: Align(
                 alignment: Alignment.centerLeft,
                 child: ActionChip(
-                  label: Text('Under ${preview.headName} · change'),
+                  label: Text(s.underHead(s.accountName(preview.headName))),
                   onPressed: busy ? null : _pickHead,
                 ),
               ),
@@ -267,7 +264,7 @@ class _ExpenseScreenState extends State<ExpenseScreen> with ProposalFlow {
                   width: double.infinity,
                   child: FilledButton(
                     onPressed: busy ? null : _submit,
-                    child: const Text('Preview'),
+                    child: Text(s.preview),
                   ),
                 ),
               ),

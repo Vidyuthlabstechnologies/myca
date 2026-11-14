@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../api/models.dart';
 import '../app_state.dart';
-import '../format.dart';
 import '../marks.dart';
 import '../registers.dart';
 import '../theme.dart';
+import '../uae/uae_strings.dart';
 import '../widgets.dart';
 import 'business_sheet.dart';
 import 'register_screen.dart';
@@ -59,8 +59,9 @@ class _BooksCheckScreenState extends State<BooksCheckScreen> {
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
+    final s = UaeStrings.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Your books check')),
+      appBar: AppBar(title: Text(s.booksCheckTitle)),
       body: FutureBuilder<BooksCheck?>(
         future: _check,
         builder: (context, state) {
@@ -73,11 +74,11 @@ class _BooksCheckScreenState extends State<BooksCheckScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text('The check could not be run.'),
+                  Text(s.checkFailed),
                   const SizedBox(height: 16),
                   FilledButton(
                     onPressed: _reload,
-                    child: const Text('Try again'),
+                    child: Text(s.tryAgain),
                   ),
                 ],
               ),
@@ -89,14 +90,14 @@ class _BooksCheckScreenState extends State<BooksCheckScreen> {
               padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
               children: [
                 Text(
-                  'AS OF ${longDate(check.asOfDate).toUpperCase()}',
+                  s.asOf(s.longDate(check.asOfDate).toUpperCase()),
                   style: text.labelSmall,
                 ),
                 const SizedBox(height: 4),
                 Text(check.headline, style: text.headlineSmall),
                 const SizedBox(height: 4),
                 Text(
-                  'Everything below is worked out from your books. Nothing has been changed or filed.',
+                  s.workedOutNothingChanged,
                   style: text.bodyMedium,
                 ),
                 const SizedBox(height: 18),

@@ -69,23 +69,24 @@ class _AskScreenState extends State<AskScreen> with ProposalFlow {
     super.dispose();
   }
 
-  void _send(String text) {
+  void _send(String text, {String? shown}) {
     final message = text.trim();
     if (message.isEmpty || busy) return;
     _input.clear();
-    say(message);
+    say(message, shown: shown);
   }
 
   @override
   Widget build(BuildContext context) {
+    final s = UaeStrings.of(context);
     return Scaffold(
       appBar: AppBar(
         titleSpacing: 0,
-        title: const Row(
+        title: Row(
           children: [
-            TintTile(tint: Tint.ask, mark: Mark.ask, size: 34),
-            SizedBox(width: 12),
-            Text('Ask MyCA'),
+            const TintTile(tint: Tint.ask, mark: Mark.ask, size: 34),
+            const SizedBox(width: 12),
+            Text(s.askMyCa),
           ],
         ),
       ),
@@ -114,8 +115,8 @@ class _AskScreenState extends State<AskScreen> with ProposalFlow {
                           for (final starter in _starters)
                             if (!uaeEdition(context) || starter != 'Dhanda kaisa chal raha hai?')
                             ActionChip(
-                              label: Text(starter),
-                              onPressed: () => _send(starter),
+                              label: Text(s.starter(starter)),
+                              onPressed: () => _send(starter, shown: s.ar ? s.starter(starter) : null),
                             ),
                         ],
                       ),
@@ -145,15 +146,15 @@ class _AskScreenState extends State<AskScreen> with ProposalFlow {
                       minLines: 1,
                       maxLines: 4,
                       textInputAction: TextInputAction.send,
-                      decoration: const InputDecoration(
-                        hintText: 'Message MyCA',
+                      decoration: InputDecoration(
+                        hintText: s.messageMyCa,
                       ),
                       onSubmitted: _send,
                     ),
                   ),
                   const SizedBox(width: 8),
                   IconButton.filled(
-                    tooltip: 'Send',
+                    tooltip: s.send,
                     style: IconButton.styleFrom(
                       backgroundColor: Palette.ink,
                       foregroundColor: Colors.white,

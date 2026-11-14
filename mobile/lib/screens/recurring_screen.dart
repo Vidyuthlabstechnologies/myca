@@ -65,16 +65,17 @@ class _RecurringScreenState extends State<RecurringScreen> with ProposalFlow {
   }
 
   Future<void> _addExpense() async {
+    final s = UaeStrings.of(context);
     final amount = parseAmount(_amount.text);
-    if (amount == null || amount <= 0) return setState(() => _error = 'Enter the amount paid each time.');
+    if (amount == null || amount <= 0) return setState(() => _error = s.enterAmountEachTime);
     final what = _what.text.trim();
-    if (what.isEmpty) return setState(() => _error = 'Say what it is for, for example broadband or rent.');
+    if (what.isEmpty) return setState(() => _error = s.sayWhatItIsFor);
     final rateText = _rate.text.trim();
     final rate = rateText.isEmpty ? null : parseRate(rateText);
     if (rateText.isNotEmpty && rate == null) return setState(() => _error = 'Enter the $salesTaxName rate as a number, or leave it blank.');
     setState(() => _error = '');
     await propose(
-      'Expense: ${rupees(amount)} for $what, ${(repeatEveryLabels[_every] ?? _every).toLowerCase()}',
+      s.recurringExpenseSaid(rupees(amount), what, s.repeatEvery(_every)),
       'add_recurring',
       {
         'kind': 'expense',
@@ -89,20 +90,16 @@ class _RecurringScreenState extends State<RecurringScreen> with ProposalFlow {
   }
 
   String _subtitle(RecurringEntry row) {
-    final parts = <String>[
-      (repeatEveryLabels[row.every] ?? row.every),
-      if (row.active) 'next ${longDate(row.nextDate)}' else if (row.status == 'ended') 'ended' else 'stopped',
-      if (row.count > 0) '${row.count} made',
-      if (row.lastError.isNotEmpty) 'last try failed: ${row.lastError}',
-    ];
-    return parts.join(' · ');
+    final s = UaeStrings.of(context);
+    return s.recurringSubtitle(s.repeatEvery(row.every), active: row.active, status: row.status, next: s.longDate(row.nextDate), count: row.count, lastError: row.lastError);
   }
 
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
+    final s = UaeStrings.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Repeating entries')),
+      appBar: AppBar(title: Text(s.repeatingEntries)),
       body: FutureBuilder<List<RecurringEntry>>(
         future: _entries,
         builder: (context, snap) {
@@ -114,14 +111,14 @@ class _RecurringScreenState extends State<RecurringScreen> with ProposalFlow {
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
                   children: [
                     Text(
-                      'Invoices, bills and expenses that repeat are posted on their dates by the daily run, exactly as if you entered them. Set a repeating invoice or bill from the customer or supplier page.',
+                      s.recurringIntro,
                       style: text.bodyMedium,
                     ),
                     const SizedBox(height: 16),
                     if (snap.connectionState != ConnectionState.done)
                       const Center(child: CircularProgressIndicator())
                     else if (rows.isEmpty)
-                      Text('Nothing repeats yet.', style: text.bodyMedium)
+                      Text(s.nothingRepeats, style: text.bodyMedium)
                     else
                       Panel(
                         children: [
@@ -129,12 +126,12 @@ class _RecurringScreenState extends State<RecurringScreen> with ProposalFlow {
                             RowCard(
                               key: ValueKey('recurring.${row.id}'),
                               leading: TintTile(tint: row.kind == 'invoice' ? Tint.sales : Tint.purchases, mark: Mark.comingUp),
-                              title: '${row.kindWords} ${row.party}'.trim(),
+                              title: '${s.recurringKind(row.kind)} ${row.party}'.trim(),
                               subtitle: '${rupees(row.amount)} · ${_subtitle(row)}',
                               trailing: row.active
                                   ? TextButton(
-                                      onPressed: busy ? null : () => propose('Stop ${row.id}', 'stop_recurring', {'id': row.id}),
-                                      child: const Text('Stop'),
+                                      onPressed: busy ? null : () => propose(s.stopSaid(row.id), 'stop_recurring', {'id': row.id}),
+                                      child: Text(s.stop),
                                     )
                                   : null,
                             ),
@@ -145,25 +142,25 @@ class _RecurringScreenState extends State<RecurringScreen> with ProposalFlow {
                       OutlinedButton(
                         key: const ValueKey('recurring.add'),
                         onPressed: busy ? null : () => setState(() => _adding = true),
-                        child: const Text('Add a repeating expense'),
+                        child: Text(s.addRepeatingExpense),
                       ),
                     if (pending == null && _adding) ...[
                       TextField(
                         controller: _what,
                         textCapitalization: TextCapitalization.sentences,
-                        decoration: const InputDecoration(labelText: 'What it is for', helperText: 'For example broadband, shop rent or software'),
+                        decoration: InputDecoration(labelText: s.whatItIsFor, helperText: s.whatItIsForHint),
                       ),
                       const SizedBox(height: 10),
                       TextField(
                         controller: _amount,
                         keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        decoration: InputDecoration(labelText: 'Amount paid each time', prefixText: moneyPrefix, helperText: moneyCountry == 'AE' ? UaeStrings.of(context).includingVat : 'Including any $salesTaxName'),
+                        decoration: InputDecoration(labelText: s.amountEachTime, prefixText: moneyPrefix, helperText: moneyCountry == 'AE' ? UaeStrings.of(context).includingVat : 'Including any $salesTaxName'),
                       ),
                       const SizedBox(height: 10),
                       TextField(
                         controller: _payee,
                         textCapitalization: TextCapitalization.words,
-                        decoration: const InputDecoration(labelText: 'Paid to (optional)'),
+                        decoration: InputDecoration(labelText: s.paidTo),
                       ),
                       if (moneyCountry != 'AE') ...[
                       const SizedBox(height: 10),
@@ -177,9 +174,9 @@ class _RecurringScreenState extends State<RecurringScreen> with ProposalFlow {
                       DropdownButtonFormField<String>(
                         isExpanded: true,
                         initialValue: _every,
-                        decoration: const InputDecoration(labelText: 'Repeat', helperText: 'From today, paid from the bank'),
+                        decoration: InputDecoration(labelText: s.repeat, helperText: s.repeatHint),
                         items: [
-                          for (final entry in repeatEveryLabels.entries) DropdownMenuItem(value: entry.key, child: Text(entry.value)),
+                          for (final entry in repeatEveryLabels.entries) DropdownMenuItem(value: entry.key, child: Text(s.repeatEvery(entry.key))),
                         ],
                         onChanged: (value) => setState(() => _every = value ?? 'month'),
                       ),
@@ -188,7 +185,7 @@ class _RecurringScreenState extends State<RecurringScreen> with ProposalFlow {
                         Text(_error, style: text.bodyMedium?.copyWith(color: Palette.danger)),
                       ],
                       const SizedBox(height: 14),
-                      FilledButton(onPressed: busy ? null : _addExpense, child: const Text('Preview')),
+                      FilledButton(onPressed: busy ? null : _addExpense, child: Text(s.preview)),
                     ],
                     for (final entry in entries) entry.toBubble(),
                   ],

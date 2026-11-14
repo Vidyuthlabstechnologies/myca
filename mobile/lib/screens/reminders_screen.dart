@@ -8,6 +8,7 @@ import '../format.dart';
 import '../marks.dart';
 import '../proposal_flow.dart';
 import '../theme.dart';
+import '../uae/uae_strings.dart';
 import '../widgets.dart';
 import '../widgets/utf16_limit.dart';
 
@@ -18,11 +19,11 @@ class ReminderDraft {
   final String due;
 }
 
-String reminderWhen(Reminder reminder) => switch (reminder.state) {
+String reminderWhen(Reminder reminder, [UaeStrings s = const UaeStrings(false)]) => switch (reminder.state) {
   'overdue' =>
-    reminder.inDays == -1 ? 'Yesterday' : '${-reminder.inDays} days ago',
-  'today' => 'Today',
-  _ => reminder.inDays == 1 ? 'Tomorrow' : longDate(reminder.due),
+    reminder.inDays == -1 ? s.yesterday : s.daysAgo(-reminder.inDays),
+  'today' => s.today,
+  _ => reminder.inDays == 1 ? s.tomorrow : s.longDate(reminder.due),
 };
 
 Future<ReminderDraft?> showReminderSheet(
@@ -74,10 +75,10 @@ class _ReminderSheetState extends State<_ReminderSheet> {
   void _done() {
     final text = _text.text.trim();
     if (text.isEmpty) {
-      return setState(() => _error = 'Say what to remind you about.');
+      return setState(() => _error = UaeStrings.of(context).sayWhatToRemind);
     }
     final due = _due;
-    if (due == null) return setState(() => _error = 'Choose a day.');
+    if (due == null) return setState(() => _error = UaeStrings.of(context).chooseADay);
     Navigator.of(context).pop(ReminderDraft(text: text, due: isoDate(due)));
   }
 
@@ -85,10 +86,11 @@ class _ReminderSheetState extends State<_ReminderSheet> {
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
     final today = _today;
+    final s = UaeStrings.of(context);
     final choices = {
-      'Today': today,
-      'Tomorrow': today.add(const Duration(days: 1)),
-      'In a week': today.add(const Duration(days: 7)),
+      s.today: today,
+      s.tomorrow: today.add(const Duration(days: 1)),
+      s.inAWeek: today.add(const Duration(days: 7)),
     };
     final picked = _due;
     final custom = picked != null && !choices.values.contains(picked);
@@ -103,15 +105,15 @@ class _ReminderSheetState extends State<_ReminderSheet> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Remind me', style: text.headlineSmall),
+          Text(s.remindMe, style: text.headlineSmall),
           const SizedBox(height: 14),
           TextField(
             controller: _text,
             autofocus: widget.text.isEmpty,
             textCapitalization: TextCapitalization.sentences,
             inputFormatters: const [Utf16LengthLimit(200)],
-            decoration: const InputDecoration(
-              labelText: 'What about',
+            decoration: InputDecoration(
+              labelText: s.whatAbout,
               counterText: '',
             ),
           ),
@@ -129,7 +131,7 @@ class _ReminderSheetState extends State<_ReminderSheet> {
                   onSelected: (_) => setState(() => _due = entry.value),
                 ),
               ChoiceChip(
-                label: Text(custom ? longDate(isoDate(picked)) : 'Pick a day'),
+                label: Text(custom ? s.longDate(isoDate(picked)) : s.pickADay),
                 selected: custom,
                 selectedColor: Palette.sunken,
                 showCheckmark: false,
@@ -150,7 +152,7 @@ class _ReminderSheetState extends State<_ReminderSheet> {
           const SizedBox(height: 16),
           SizedBox(
             width: double.infinity,
-            child: FilledButton(onPressed: _done, child: const Text('Preview')),
+            child: FilledButton(onPressed: _done, child: Text(s.preview)),
           ),
         ],
       ),
@@ -168,6 +170,7 @@ Future<bool> confirmReminderDone(
     context: context,
     builder: (sheet) {
       final text = Theme.of(sheet).textTheme;
+      final s = UaeStrings.of(sheet);
       return SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(22, 4, 22, 22),
@@ -176,7 +179,7 @@ Future<bool> confirmReminderDone(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                reminderWhen(reminder).toUpperCase(),
+                reminderWhen(reminder, s).toUpperCase(),
                 style: text.labelSmall,
               ),
               const SizedBox(height: 4),
@@ -200,7 +203,7 @@ Future<bool> confirmReminderDone(
                       );
                     },
                     icon: const Icon(Icons.receipt_long_outlined),
-                    label: const Text('Open the bill'),
+                    label: Text(s.openTheBill),
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -210,11 +213,11 @@ Future<bool> confirmReminderDone(
                 child: reminder.hasDocument
                     ? OutlinedButton(
                         onPressed: () => Navigator.of(sheet).pop(true),
-                        child: const Text('Mark done'),
+                        child: Text(s.markDone),
                       )
                     : FilledButton(
                         onPressed: () => Navigator.of(sheet).pop(true),
-                        child: const Text('Mark done'),
+                        child: Text(s.markDone),
                       ),
               ),
             ],
@@ -271,7 +274,7 @@ class _RemindersScreenState extends State<RemindersScreen> with ProposalFlow {
   Future<void> _add() async {
     final draft = await showReminderSheet(context);
     if (draft == null || !mounted) return;
-    await propose('Remind me: ${draft.text}', 'add_reminder', {
+    await propose(UaeStrings.of(context).remindSaid(draft.text), 'add_reminder', {
       'text': draft.text,
       'due': draft.due,
     });
@@ -283,8 +286,9 @@ class _RemindersScreenState extends State<RemindersScreen> with ProposalFlow {
 
   @override
   Widget build(BuildContext context) {
+    final s = UaeStrings.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Reminders')),
+      appBar: AppBar(title: Text(s.reminders)),
       body: Column(
         children: [
           Expanded(
@@ -298,10 +302,7 @@ class _RemindersScreenState extends State<RemindersScreen> with ProposalFlow {
                     if (state.connectionState == ConnectionState.done &&
                         reminders.isEmpty &&
                         entries.isEmpty)
-                      const EmptyNote(
-                        text:
-                            'No reminders. Add one here, or say "remind me to call Rajesh tomorrow" in Ask.',
-                      ),
+                      EmptyNote(text: s.noReminders),
                     if (reminders.isNotEmpty)
                       Panel(
                         children: [
@@ -319,7 +320,7 @@ class _RemindersScreenState extends State<RemindersScreen> with ProposalFlow {
                               ),
                               title: reminder.text,
                               subtitle: [
-                                reminderWhen(reminder),
+                                reminderWhen(reminder, s),
                                 if (reminder.aboutLabel.isNotEmpty)
                                   reminder.aboutLabel,
                               ].join(' · '),
@@ -349,7 +350,7 @@ class _RemindersScreenState extends State<RemindersScreen> with ProposalFlow {
                   alignment: Alignment.centerLeft,
                   child: ActionChip(
                     avatar: const Icon(Icons.add, size: 18),
-                    label: const Text('Reminder'),
+                    label: Text(s.reminder),
                     onPressed: busy ? null : _add,
                   ),
                 ),
