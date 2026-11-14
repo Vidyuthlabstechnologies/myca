@@ -26,6 +26,8 @@ test('the Malaysian notice states the PDPA basis, the controller, Singapore stor
   assert.deepEqual(PRIVACY_NOTICE_MY.storage, { provider: 'Google Cloud', region: 'asia-southeast1', place: 'Singapore', transferBasis: 'PDPA section 129' });
   assert.equal(PRIVACY_NOTICE_MY.retention.years, 7);
   assert.equal(PRIVACY_NOTICE_MY.breachNotification.commissionerWithinHours, 72);
+  assert.equal(PRIVACY_NOTICE_MY.breachNotification.usersWithinDays, 7);
+  assert.match(body, /we tell you within 7 days of notifying the Commissioner/);
   assert.equal(PRIVACY_NOTICE_MY.dataProtectionOfficer.confirmed, false);
   assert.match(PRIVACY_NOTICE_MY.status, /Draft for legal review/);
   assert.doesNotMatch(body, /Data Protection Board|GSTIN|DPDP|GST figures/, 'nothing from the Indian notice leaks into the Malaysian one');
@@ -36,7 +38,7 @@ test('the Malay notice says the same in Bahasa Malaysia, section by section, und
   assert.equal(PRIVACY_NOTICE_MY_MS.version, PRIVACY_NOTICE_MY.version);
   assert.equal(PRIVACY_NOTICE_MY_MS.sections.length, PRIVACY_NOTICE_MY.sections.length);
   const body = text(PRIVACY_NOTICE_MY_MS);
-  for (const phrase of ['Akta Perlindungan Data Peribadi 2010', 'Seksyen 129', 'Singapura', 'asia-southeast1', 'tujuh tahun', 'seksyen 82 Akta Cukai Pendapatan 1967', 'dalam masa 72 jam', 'Pesuruhjaya Perlindungan Data Peribadi', 'dpo@', 'akan disahkan sebelum diterbitkan']) assert.ok(body.includes(phrase), phrase);
+  for (const phrase of ['Akta Perlindungan Data Peribadi 2010', 'Seksyen 129', 'Singapura', 'asia-southeast1', 'tujuh tahun', 'seksyen 82 Akta Cukai Pendapatan 1967', 'dalam masa 72 jam', 'dalam masa 7 hari selepas memaklumkan Pesuruhjaya', 'Pesuruhjaya Perlindungan Data Peribadi', 'dpo@', 'akan disahkan sebelum diterbitkan']) assert.ok(body.includes(phrase), phrase);
   assert.deepEqual(PRIVACY_NOTICE_MY_MS.storage, PRIVACY_NOTICE_MY.storage);
   assert.equal(PRIVACY_NOTICE_MY_MS.controller, PRIVACY_NOTICE_MY.controller);
 });

@@ -99,7 +99,7 @@ export const PRIVACY_NOTICE_MY = {
   dataProtectionOfficer: { email: MY_DPO_EMAIL, confirmed: false },
   storage: { provider: 'Google Cloud', region: 'asia-southeast1', place: 'Singapore', transferBasis: 'PDPA section 129' },
   retention: { years: 7, basis: ['Income Tax Act 1967 section 82', 'Sales Tax Act 2018 and Service Tax Act 2018 record-keeping requirements'] },
-  breachNotification: { commissionerWithinHours: 72 },
+  breachNotification: { commissionerWithinHours: 72, usersWithinDays: 7 },
   sections: [
     {
       heading: 'Who we are',
@@ -131,7 +131,7 @@ export const PRIVACY_NOTICE_MY = {
     },
     {
       heading: 'If something goes wrong',
-      body: 'If a personal data breach happens, we notify the Personal Data Protection Commissioner within 72 hours of becoming aware of it, and we tell you without undue delay when the breach is likely to cause you significant harm.',
+      body: 'If a personal data breach happens, we notify the Personal Data Protection Commissioner within 72 hours of becoming aware of it, and when the breach is likely to cause you significant harm we tell you within 7 days of notifying the Commissioner, with what happened and what you can do.',
     },
     {
       heading: 'Contact',
@@ -177,7 +177,7 @@ export const PRIVACY_NOTICE_MY_MS = {
     },
     {
       heading: 'Jika berlaku masalah',
-      body: 'Jika berlaku pelanggaran data peribadi, kami memaklumkan Pesuruhjaya Perlindungan Data Peribadi dalam masa 72 jam selepas mengetahuinya, dan kami memaklumkan anda tanpa kelewatan yang tidak wajar apabila pelanggaran itu mungkin menyebabkan kemudaratan yang ketara kepada anda.',
+      body: 'Jika berlaku pelanggaran data peribadi, kami memaklumkan Pesuruhjaya Perlindungan Data Peribadi dalam masa 72 jam selepas mengetahuinya, dan apabila pelanggaran itu mungkin menyebabkan kemudaratan yang ketara kepada anda, kami memaklumkan anda dalam masa 7 hari selepas memaklumkan Pesuruhjaya, berserta apa yang berlaku dan apa yang boleh anda lakukan.',
     },
     {
       heading: 'Hubungi',
