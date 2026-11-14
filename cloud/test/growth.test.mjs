@@ -1,7 +1,7 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { startApi } from './helpers.mjs';
-import { cleanStep, normalizeCode, referralLink, REFERRAL_CLAIM_DAYS, CODE_LENGTH } from '../src/growth.mjs';
+import { cleanStep, normalizeCode, referralLink, REFERRAL_CLAIM_DAYS, CODE_LENGTH, FIRM_REWARD } from '../src/growth.mjs';
 
 const admins = [];
 let api;
@@ -147,6 +147,7 @@ test('only a CA firm earns a credit, once, when the client it invited pays', asy
 
   const firmView = (await api.call('GET', '/v1/me/referral', { token: firm.token })).body;
   assert.equal(firmView.firm, true);
+  assert.equal(firmView.reward, FIRM_REWARD);
   assert.deepEqual(firmView.credits, { earned: 0, applied: 0, monthsEarned: 0 });
   const shopView = (await api.call('GET', '/v1/me/referral', { token: shop.token })).body;
   assert.equal(shopView.firm, false);

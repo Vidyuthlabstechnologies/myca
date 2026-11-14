@@ -74,7 +74,9 @@ void main() {
     expect(info.firm, isFalse);
     expect(info.firmLine, isNull);
     final firm = ReferralInfo.fromJson({'code': 'AB2CD3EF', 'firm': true, 'credits': {'earned': 2, 'applied': 0}});
-    expect(firm.firmLine, 'Each client who joins with your code and pays earns your firm a credit. 2 credits earned so far.');
+    expect(firm.firmLine, 'Each client who joins with your code and pays earns your firm a credit. 2 credits waiting for your next renewal.');
+    final named = ReferralInfo.fromJson({'code': 'AB2CD3EF', 'firm': true, 'reward': 'One month free.', 'credits': {'earned': 1}});
+    expect(named.firmLine, 'One month free. 1 credit waiting for your next renewal.');
     expect(referralClaimMessage('OWN_CODE'), 'That is your own code. Share it with someone else.');
     expect(referralClaimMessage('???'), startsWith('MyCA could not use that code'));
   });

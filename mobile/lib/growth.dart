@@ -87,7 +87,7 @@ class ReferralInfo {
   final bool firm;
   final int creditsEarned;
 
-  String? get firmLine => firm ? 'Each client who joins with your code and pays earns your firm a credit. ${creditsEarned == 1 ? '1 credit' : '$creditsEarned credits'} earned so far.' : null;
+  String? get firmLine => firm ? '${reward ?? 'Each client who joins with your code and pays earns your firm a credit.'} ${creditsEarned == 1 ? '1 credit' : '$creditsEarned credits'} waiting for your next renewal.' : null;
 
   String shareText({required bool us}) {
     final where = link ?? (us ? 'MyCA US on the app store' : 'MyCA on Google Play');
