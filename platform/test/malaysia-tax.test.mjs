@@ -35,7 +35,9 @@ test('zakat reduces tax but never below zero; spouse relief needs a spouse witho
   assert.equal(out.data.taxPayable, 0);
   const joint = malaysiaIncomeTax({ yearOfAssessment: '2025', income: { business: 40000 }, reliefs: { spouse: 4000 }, spouseHasIncome: false });
   assert.equal(joint.data.chargeableIncome, 27000);
-  assert.equal(joint.data.rebate, 800);
+  assert.equal(joint.data.rebateEntitled, 800);
+  assert.equal(joint.data.rebate, 360, 'the rebate never takes tax below zero');
+  assert.equal(joint.data.taxPayable, 0);
 });
 
 test('an unknown relief is reported, not counted, and a year without rules is refused', () => {
@@ -70,7 +72,8 @@ test('service tax: 8% standard, 6% reduced, rental moves to 6% in 2026, flat car
   assert.equal(serviceTaxRate('healthcare', '2025-08-01').kind, 'exempt');
   assert.equal(serviceTaxRate('credit-card', '2026-01-01').amountSen, 2500);
   assert.equal(serviceTaxRate('massage', '2026-01-01').error, 'UNKNOWN_SERVICE_CATEGORY');
-  assert.equal(serviceTaxRate('general', '2024-01-01').error, 'RULE_NOT_IN_FORCE');
+  assert.equal(serviceTaxRate('general', '2024-01-01').basisPoints, 600, 'before March 2024 service tax was 6%');
+  assert.equal(serviceTaxRate('general', '2018-08-31').error, 'RULE_NOT_IN_FORCE');
 });
 
 test('sales tax accepts only rates in force', () => {
@@ -110,7 +113,8 @@ test('SST-02 return totals sales and service tax for the period only', () => {
 
 test('registration thresholds differ by service and the late penalty steps up', () => {
   assert.equal(sstRegistrationCheck({ category: 'food-and-beverage', last12Months: 1400000, date: '2026-01-01' }).data.mustRegister, false);
-  assert.equal(sstRegistrationCheck({ category: 'general', last12Months: 500000, date: '2026-01-01' }).data.mustRegister, true);
+  assert.equal(sstRegistrationCheck({ category: 'general', last12Months: 500000, date: '2026-01-01' }).data.mustRegister, false, 'registration is due once the value exceeds the threshold');
+  assert.equal(sstRegistrationCheck({ category: 'general', last12Months: 500000.01, date: '2026-01-01' }).data.mustRegister, true);
   assert.equal(sstRegistrationCheck({ category: 'rental-or-leasing', last12Months: 900000, date: '2026-01-01' }).data.threshold, 1000000);
   assert.equal(sstRegistrationCheck({ kind: 'sales', last12Months: 600000, date: '2026-01-01' }).data.mustRegister, true);
   const late = sstLatePenalty({ unpaidTax: 1000, dueDate: '2026-05-31', paidOn: '2026-07-15' });
