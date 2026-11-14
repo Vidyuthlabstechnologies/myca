@@ -48,6 +48,7 @@ export function scaledLines(document, fraction, { supplierState, partyState }) {
       description: line.description,
       hsn: line.hsn,
       qty: round2(Number(line.qty || 0) * fraction),
+      ...(line.unit ? { unit: line.unit } : {}),
       rate: line.rate,
       gstRate: line.gstRate,
       taxable,

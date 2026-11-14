@@ -84,6 +84,7 @@ function scaledLines(invoice, fraction, company) {
       description: line.description,
       hsn: line.hsn,
       qty: round2(Number(line.qty || 0) * fraction),
+      ...(line.unit ? { unit: line.unit } : {}),
       rate: line.rate,
       gstRate: line.gstRate,
       taxable,

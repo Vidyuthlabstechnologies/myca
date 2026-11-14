@@ -1123,8 +1123,8 @@ export const TOOLS = [
   {
     name: 'gstr9_draft',
     title: 'GSTR-9 annual return draft',
-    description: 'A draft of the annual return for a financial year from the twelve monthly figures: outward supplies and tax by head (table 4 and 5 where known), credit and debit notes, input credit availed by head (table 6), reversals (table 7), GSTR-2B against credit availed (table 8 where 2B was added), tax paid in cash and by credit (table 9), and the HSN summary (table 17). Read-only; files nothing.',
-    args: ['fy'],
+    description: 'A draft of the annual return for a financial year from the twelve monthly figures: outward supplies and tax by head (table 4 and 5 where known), credit and debit notes, input credit availed by head (table 6), reversals (table 7), GSTR-2B against credit availed (table 8 where 2B was added), tax paid in cash and by credit (table 9), and the HSN summary (table 17). One draft per GSTIN: give gstin for a registration other than the principal one. Read-only; files nothing.',
+    args: ['fy', 'gstin'],
     run: (state, args = {}) => gstr9Draft(state, args),
   },
   {

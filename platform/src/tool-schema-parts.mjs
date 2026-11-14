@@ -12,6 +12,7 @@ export const lineSchema = {
     description: { type: 'string', minLength: 1 },
     hsn: { type: 'string' },
     qty: { type: 'number', exclusiveMinimum: 0 },
+    unit: { type: 'string', maxLength: 20 },
     rate: { type: 'number', minimum: 0 },
     gstRate: { type: 'number', minimum: 0, maximum: 28 },
     taxable: { type: 'boolean' },

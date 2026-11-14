@@ -524,7 +524,7 @@ export const TAX_TOOL_SCHEMAS = {
   gstr9_draft: {
     type: 'object',
     additionalProperties: false,
-    properties: { fy: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}$' } },
+    properties: { fy: { type: 'string', pattern: '^[0-9]{4}-[0-9]{2}$' }, gstin: REGISTRATION_ARG },
   },
   gst_payable: {
     type: 'object',

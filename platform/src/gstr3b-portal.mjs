@@ -132,7 +132,7 @@ export function gstr3bPortalJson(state, period, gstin) {
   const interest = late?.interest ? late.interest : 0;
   const cash = cashWithReverseCharge(payment.ok ? payment.data : null);
   const cashTotal = Number(cash.igst || 0) + Number(cash.cgst || 0) + Number(cash.sgst || 0);
-  const share = (head) => (cashTotal > 0 ? r2(interest * Number(cash[head] || 0) / cashTotal) : 0);
+  const [igstInterest, cgstInterest, sgstInterest] = cashTotal > 0 ? splitByWeight(interest, [cash.igst, cash.cgst, cash.sgst]) : [0, 0, 0];
   const body = {
     gstin: company.gstin,
     ret_period: fpOf(docs.period),
@@ -172,7 +172,7 @@ export function gstr3bPortalJson(state, period, gstin) {
         { ty: 'NONGST', inter: 0, intra: 0 },
       ],
     },
-    intr_ltfee: { intr_details: taxOnly(share('igst'), share('cgst'), share('sgst')) },
+    intr_ltfee: { intr_details: taxOnly(igstInterest, cgstInterest, sgstInterest) },
   };
   if (interest > 0) warnings.push(`Interest of ₹${r2(interest)} for paying late is included.`);
   if (!payment.ok) warnings.push('The tax to pay could not be worked out, so no interest is included.');
@@ -247,6 +247,21 @@ export async function gstr3bPortalLiability(state, args = {}, actor) {
   return { ok: true, period: found.period, gstin: found.gstin, liability: found.saved.liability, mock: Boolean(out.mock) };
 }
 
+export function splitByWeight(amount, weights) {
+  const total = BigInt(Math.max(0, Math.round(Number(amount || 0) * 100)));
+  const units = weights.map((weight) => BigInt(Math.max(0, Math.round(Number(weight || 0) * 100))));
+  const sum = units.reduce((acc, unit) => acc + unit, 0n);
+  if (total === 0n || sum === 0n) return units.map(() => 0);
+  const parts = units.map((unit, index) => ({ index, floor: (total * unit) / sum, remainder: (total * unit) % sum }));
+  let left = total - parts.reduce((acc, part) => acc + part.floor, 0n);
+  for (const part of [...parts].sort((a, b) => (b.remainder > a.remainder ? 1 : b.remainder < a.remainder ? -1 : a.index - b.index))) {
+    if (left === 0n) break;
+    part.floor += 1n;
+    left -= 1n;
+  }
+  return parts.map((part) => Number(part.floor) / 100);
+}
+
 function cashWithReverseCharge(payment) {
   const cash = payment?.cash || {};
   const rcm = payment?.reverseCharge || {};
@@ -263,15 +278,20 @@ export function offsetPlan(payment, ledgerIds = {}, cess = {}) {
   const interest = Number(late?.interest || 0);
   const all = cashWithReverseCharge(payment);
   const cashTotal = all.igst + all.cgst + all.sgst;
-  const share = (row, head) => (cashTotal > 0 ? r2(interest * Number(row[head] || 0) / cashTotal) : 0);
-  const fee = r2(Number(late?.lateFee || 0) / 2);
+  const rcmRow = { igst: Number(rcm.igst || 0), cgst: Number(rcm.cgst || 0), sgst: Number(rcm.sgst || 0) };
+  const byHead = cashTotal > 0 ? splitByWeight(interest, [all.igst, all.cgst, all.sgst]) : [0, 0, 0];
+  const interestOf = { tax: {}, rcm: {} };
+  ['igst', 'cgst', 'sgst'].forEach((head, index) => {
+    [interestOf.tax[head], interestOf.rcm[head]] = splitByWeight(byHead[index], [cash[head], rcmRow[head]]);
+  });
+  const [cgstFee, sgstFee] = splitByWeight(Number(late?.lateFee || 0), [1, 1]);
   const ledger = (type) => Number(ledgerIds[type] || 0);
   const rcmTotal = Number(rcm.igst || 0) + Number(rcm.cgst || 0) + Number(rcm.sgst || 0);
-  const cashRow = (type, row, lateFee, cessPaid = 0) => ({ liab_ldg_id: ledger(type), trans_typ: type, ipd: r2(row.igst), cpd: r2(row.cgst), spd: r2(row.sgst), cspd: cessPaid, i_intrpd: share(row, 'igst'), c_intrpd: share(row, 'cgst'), s_intrpd: share(row, 'sgst'), cs_intrpd: 0, c_lfeepd: lateFee, s_lfeepd: lateFee });
+  const cashRow = (type, row, part, fees, cessPaid = 0) => ({ liab_ldg_id: ledger(type), trans_typ: type, ipd: r2(row.igst), cpd: r2(row.cgst), spd: r2(row.sgst), cspd: cessPaid, i_intrpd: part.igst, c_intrpd: part.cgst, s_intrpd: part.sgst, cs_intrpd: 0, c_lfeepd: fees[0], s_lfeepd: fees[1] });
   return {
     pdcash: [
-      cashRow(TAX, cash, fee, cessCash),
-      ...(rcmTotal > 0 ? [cashRow(REVERSE_CHARGE, rcm, 0)] : []),
+      cashRow(TAX, cash, interestOf.tax, [cgstFee, sgstFee], cessCash),
+      ...(rcmTotal > 0 ? [cashRow(REVERSE_CHARGE, rcm, interestOf.rcm, [0, 0])] : []),
     ],
     pditc: {
       liab_ldg_id: ledger(TAX),

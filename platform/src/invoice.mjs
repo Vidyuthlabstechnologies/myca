@@ -240,6 +240,7 @@ export function createInvoice(state, input) {
       description: l.description,
       hsn: String(l.hsn ?? '').trim(),
       qty,
+      ...(String(l.unit ?? '').trim() ? { unit: String(l.unit).trim() } : {}),
       rate: rateAmt,
       ...(exportSale && exportSale.currency !== 'INR' ? { foreignRate, foreignAmount: Math.round(qty * foreignRate * 100) / 100 } : {}),
       gstRate,
