@@ -34,7 +34,7 @@ void main() {
   });
 
   testWidgets('a failed e-invoice list shows the offline message and tries again', (tester) async {
-    final api = MyTestApi()..failNext['list_my_einvoices'] = 1;
+    final api = MyTestApi()..failNext['my_einvoices'] = 1;
     await tester.pumpWidget(MycaApp(state: myState(api)));
     await settle(tester);
     expect(find.textContaining('Cannot reach MyCA'), findsOneWidget);

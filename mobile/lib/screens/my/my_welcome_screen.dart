@@ -35,7 +35,7 @@ class MyWelcomeScreen extends StatelessWidget {
                   children: [
                     Row(
                       children: [
-                        const Expanded(child: Align(alignment: Alignment.centerLeft, child: Wordmark(showCountry: true))),
+                        const Expanded(child: Align(alignment: Alignment.centerLeft, child: FittedBox(fit: BoxFit.scaleDown, child: Wordmark(showCountry: true)))),
                         const MyLanguageButton(),
                       ],
                     ),

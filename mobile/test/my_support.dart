@@ -101,9 +101,11 @@ AppState myState(MycaApi api, {bool welcomed = true, String language = '', DateT
   shareText: share ?? (_) async => true,
 );
 
-Widget myApp(AppState state, Widget home, {String language = 'en', bool dark = false}) => AppScope(
+Widget myApp(AppState state, Widget home, {String language = 'en', bool dark = false, double textScale = 1}) => AppScope(
   state: state,
   child: MaterialApp(
+    debugShowCheckedModeBanner: false,
+    builder: textScale == 1 ? null : (context, child) => MediaQuery(data: MediaQuery.of(context).copyWith(textScaler: TextScaler.linear(textScale)), child: child!),
     theme: MycaDesign.forFlavor('my').light,
     darkTheme: MycaDesign.forFlavor('my').dark,
     themeMode: dark ? ThemeMode.dark : ThemeMode.light,
