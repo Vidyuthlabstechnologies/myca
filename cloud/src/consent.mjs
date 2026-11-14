@@ -109,7 +109,110 @@ export const PRIVACY_NOTICE_US = {
   ],
 };
 
-const NOTICES = [PRIVACY_NOTICE, PRIVACY_NOTICE_US];
+const MY_VERSION = 'my-draft-2026-11-14';
+const MY_CONTROLLER = 'ML Dynamic Solutions Private Limited, 606, 6th Floor, Gowra Fountainhead, Patrika Nagar, Madhapur, HITEC City, Hyderabad, Telangana 500081, India';
+const MY_DPO_EMAIL = 'dpo@[domain to be confirmed]';
+
+export const PRIVACY_NOTICE_MY = {
+  document: 'privacy',
+  version: MY_VERSION,
+  region: 'MY',
+  language: 'en',
+  title: 'How MyCA uses your personal data (Malaysia)',
+  status: 'Draft for legal review under the Personal Data Protection Act 2010 as amended in 2024. Not yet approved for release.',
+  law: 'Personal Data Protection Act 2010 (Act 709), as amended by the Personal Data Protection (Amendment) Act 2024',
+  controller: MY_CONTROLLER,
+  dataProtectionOfficer: { email: MY_DPO_EMAIL, confirmed: false },
+  storage: { provider: 'Google Cloud', region: 'asia-southeast1', place: 'Singapore', transferBasis: 'PDPA section 129' },
+  retention: { years: 7, basis: ['Income Tax Act 1967 section 82', 'Sales Tax Act 2018 and Service Tax Act 2018 record-keeping requirements'] },
+  breachNotification: { commissionerWithinHours: 72, usersWithinDays: 7 },
+  sections: [
+    {
+      heading: 'Who we are',
+      body: `MyCA is provided by ${MY_CONTROLLER}. We are the data user (controller) of the personal data described here under the Personal Data Protection Act 2010 as amended in 2024 (the PDPA), and we are responsible for it.`,
+    },
+    {
+      heading: 'What we collect',
+      body: 'To sign you in: your mobile number, or the name and email address of the Google account you choose. To keep your books: the invoices, bills, expenses, receipts and payments you record, the customers and suppliers named in them with their tax identification numbers (TIN), business registration, MyKad or passport numbers and addresses, the e-invoices you issue or receive through LHDN MyInvois, and the files you upload. To estimate your income tax: the income, reliefs, zakat and monthly tax deductions you enter. We also keep which phone you signed in on and a record of every change to the books and who made it.',
+    },
+    {
+      heading: 'Why we use it',
+      body: 'To keep your books; to build, sign and submit e-invoices to LHDN MyInvois when you confirm them; to prepare your SST-02 figures and your income tax estimate; to remind you of due dates; to let the people you invite work with you; to keep your account secure; and to fix problems in the app. We do not sell your personal data and do not use it for advertising. Giving us these details is voluntary, but without them we cannot keep your books or issue e-invoices for you.',
+    },
+    {
+      heading: 'Who it is shared with',
+      body: 'LHDN (the Inland Revenue Board of Malaysia), when you submit, cancel or reject an e-invoice or check a TIN. Google Cloud, which hosts MyCA. The people you invite to your business, such as your staff or your tax agent. Nobody else, unless the law requires it.',
+    },
+    {
+      heading: 'Where it is kept',
+      body: 'On Google Cloud servers in Singapore (region asia-southeast1). Google Cloud has no region in Malaysia yet. Section 129 of the PDPA, as amended in 2024, allows personal data to be transferred to a place outside Malaysia whose law is substantially similar to the PDPA or ensures an adequate level of protection; we rely on Singapore\'s Personal Data Protection Act 2012 for that. We will move your data to a Malaysian region when one opens.',
+    },
+    {
+      heading: 'How long we keep it',
+      body: 'While you use MyCA, and then for seven years after the end of the year the records relate to, because section 82 of the Income Tax Act 1967 and the record-keeping rules of the Sales Tax Act 2018 and the Service Tax Act 2018 require business records, including e-invoices, to be kept for seven years. After that they are deleted. [Retention periods to be confirmed by counsel.]',
+    },
+    {
+      heading: 'Your rights',
+      body: 'You may ask for access to the personal data we hold about you and for a copy of it, ask us to correct it if it is inaccurate, incomplete, misleading or out of date, ask us to send it to another data user (data portability), and withdraw your consent at any time by deleting your account in the app; records the law requires us to keep are kept for that time. You may complain to the Personal Data Protection Commissioner of Malaysia.',
+    },
+    {
+      heading: 'If something goes wrong',
+      body: 'If a personal data breach happens, we notify the Personal Data Protection Commissioner within 72 hours of becoming aware of it, and when the breach is likely to cause you significant harm we tell you within 7 days of notifying the Commissioner, with what happened and what you can do.',
+    },
+    {
+      heading: 'Contact',
+      body: `Data Protection Officer: ${MY_DPO_EMAIL}, ML Dynamic Solutions Private Limited. [The officer and this address are to be confirmed before release.]`,
+    },
+  ],
+};
+
+export const PRIVACY_NOTICE_MY_MS = {
+  ...PRIVACY_NOTICE_MY,
+  language: 'ms',
+  title: 'Cara MyCA menggunakan data peribadi anda (Malaysia)',
+  status: 'Draf untuk semakan undang-undang di bawah Akta Perlindungan Data Peribadi 2010 seperti yang dipinda pada 2024. Belum diluluskan untuk diterbitkan.',
+  law: 'Akta Perlindungan Data Peribadi 2010 (Akta 709), seperti yang dipinda oleh Akta Perlindungan Data Peribadi (Pindaan) 2024',
+  sections: [
+    {
+      heading: 'Siapa kami',
+      body: `MyCA disediakan oleh ${MY_CONTROLLER}. Kami ialah pengguna data (pengawal) bagi data peribadi yang diterangkan di sini di bawah Akta Perlindungan Data Peribadi 2010 seperti yang dipinda pada 2024 (APDP), dan kami bertanggungjawab ke atasnya.`,
+    },
+    {
+      heading: 'Apa yang kami kumpul',
+      body: 'Untuk log masuk: nombor telefon bimbit anda, atau nama dan alamat e-mel akaun Google yang anda pilih. Untuk menyimpan buku akaun anda: invois, bil, perbelanjaan, resit dan bayaran yang anda rekodkan, pelanggan dan pembekal yang dinamakan di dalamnya bersama nombor pengenalan cukai (TIN), nombor pendaftaran perniagaan, MyKad atau pasport dan alamat mereka, e-invois yang anda keluarkan atau terima melalui LHDN MyInvois, dan fail yang anda muat naik. Untuk menganggar cukai pendapatan anda: pendapatan, pelepasan, zakat dan potongan cukai bulanan yang anda masukkan. Kami juga menyimpan telefon yang anda gunakan untuk log masuk dan rekod setiap perubahan pada buku akaun serta siapa yang membuatnya.',
+    },
+    {
+      heading: 'Mengapa kami menggunakannya',
+      body: 'Untuk menyimpan buku akaun anda; untuk membina, menandatangani dan menghantar e-invois kepada LHDN MyInvois apabila anda mengesahkannya; untuk menyediakan angka SST-02 dan anggaran cukai pendapatan anda; untuk mengingatkan anda tentang tarikh akhir; untuk membolehkan orang yang anda jemput bekerja bersama anda; untuk memastikan akaun anda selamat; dan untuk membetulkan masalah dalam aplikasi. Kami tidak menjual data peribadi anda dan tidak menggunakannya untuk pengiklanan. Pemberian butiran ini adalah sukarela, tetapi tanpanya kami tidak dapat menyimpan buku akaun anda atau mengeluarkan e-invois untuk anda.',
+    },
+    {
+      heading: 'Dengan siapa ia dikongsi',
+      body: 'LHDN (Lembaga Hasil Dalam Negeri Malaysia), apabila anda menghantar, membatalkan atau menolak e-invois atau menyemak TIN. Google Cloud, yang mengehoskan MyCA. Orang yang anda jemput ke perniagaan anda, seperti kakitangan atau ejen cukai anda. Tiada orang lain, melainkan jika dikehendaki oleh undang-undang.',
+    },
+    {
+      heading: 'Di mana ia disimpan',
+      body: 'Di pelayan Google Cloud di Singapura (rantau asia-southeast1). Google Cloud belum mempunyai rantau di Malaysia. Seksyen 129 APDP, seperti yang dipinda pada 2024, membenarkan data peribadi dipindahkan ke tempat di luar Malaysia yang undang-undangnya pada substansinya serupa dengan APDP atau memastikan tahap perlindungan yang mencukupi; kami bergantung pada Akta Perlindungan Data Peribadi 2012 Singapura untuk itu. Kami akan memindahkan data anda ke rantau di Malaysia apabila ia dibuka.',
+    },
+    {
+      heading: 'Berapa lama kami menyimpannya',
+      body: 'Selagi anda menggunakan MyCA, dan kemudian selama tujuh tahun selepas akhir tahun yang berkaitan dengan rekod itu, kerana seksyen 82 Akta Cukai Pendapatan 1967 dan peraturan penyimpanan rekod Akta Cukai Jualan 2018 dan Akta Cukai Perkhidmatan 2018 menghendaki rekod perniagaan, termasuk e-invois, disimpan selama tujuh tahun. Selepas itu ia dipadam. [Tempoh penyimpanan akan disahkan oleh peguam.]',
+    },
+    {
+      heading: 'Hak anda',
+      body: 'Anda boleh meminta akses kepada data peribadi yang kami simpan tentang anda dan salinannya, meminta kami membetulkannya jika ia tidak tepat, tidak lengkap, mengelirukan atau tidak terkini, meminta kami menghantarnya kepada pengguna data lain (kemudahalihan data), dan menarik balik persetujuan anda pada bila-bila masa dengan memadam akaun anda dalam aplikasi; rekod yang dikehendaki oleh undang-undang disimpan untuk tempoh itu. Anda boleh membuat aduan kepada Pesuruhjaya Perlindungan Data Peribadi Malaysia.',
+    },
+    {
+      heading: 'Jika berlaku masalah',
+      body: 'Jika berlaku pelanggaran data peribadi, kami memaklumkan Pesuruhjaya Perlindungan Data Peribadi dalam masa 72 jam selepas mengetahuinya, dan apabila pelanggaran itu mungkin menyebabkan kemudaratan yang ketara kepada anda, kami memaklumkan anda dalam masa 7 hari selepas memaklumkan Pesuruhjaya, berserta apa yang berlaku dan apa yang boleh anda lakukan.',
+    },
+    {
+      heading: 'Hubungi',
+      body: `Pegawai Perlindungan Data: ${MY_DPO_EMAIL}, ML Dynamic Solutions Private Limited. [Pegawai dan alamat ini akan disahkan sebelum diterbitkan.]`,
+    },
+  ],
+};
+
+const NOTICES = [PRIVACY_NOTICE, PRIVACY_NOTICE_US, PRIVACY_NOTICE_MY];
 
 export function legalLinks(siteUrl) {
   const base = String(siteUrl || '').trim().replace(/\/+$/, '');
@@ -117,8 +220,11 @@ export function legalLinks(siteUrl) {
   return { privacy: `${base}/privacy`, terms: `${base}/terms`, refunds: `${base}/refunds`, disclaimer: `${base}/disclaimer`, grievance: `${base}/grievance`, deleteAccount: `${base}/delete-account` };
 }
 
-export function noticeFor(region) {
-  return String(region || '').toUpperCase() === 'US' ? PRIVACY_NOTICE_US : PRIVACY_NOTICE;
+export function noticeFor(region, language) {
+  const code = String(region || '').trim().toUpperCase();
+  if (code === 'US') return PRIVACY_NOTICE_US;
+  if (code === 'MY') return String(language || '').trim().toLowerCase().startsWith('ms') ? PRIVACY_NOTICE_MY_MS : PRIVACY_NOTICE_MY;
+  return PRIVACY_NOTICE;
 }
 
 const EXEMPT = new Set(['GET me', 'DELETE me', 'POST me/consent', 'POST crash-reports', 'GET reference/states', 'GET me/privacy-requests', 'POST me/privacy-requests']);

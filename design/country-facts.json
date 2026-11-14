@@ -141,7 +141,7 @@
     "MY": {
       "code": "MY",
       "name": "Malaysia",
-      "status": "planned",
+      "status": "beta",
       "currency": "MYR",
       "symbol": "RM",
       "locale": "en-MY",
@@ -157,7 +157,7 @@
       "taxName": "SST",
       "app": {
         "flavor": "my",
-        "label": "MyCA MY",
+        "label": "MyCA Malaysia",
         "edition": "MY"
       }
     }

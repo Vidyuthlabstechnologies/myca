@@ -423,7 +423,7 @@ export const COUNTRIES = Object.freeze({
   "MY": {
     "code": "MY",
     "name": "Malaysia",
-    "status": "planned",
+    "status": "beta",
     "currency": "MYR",
     "symbol": "RM",
     "locale": "en-MY",
@@ -439,7 +439,7 @@ export const COUNTRIES = Object.freeze({
     "taxName": "SST",
     "app": {
       "flavor": "my",
-      "label": "MyCA MY",
+      "label": "MyCA Malaysia",
       "edition": "MY"
     }
   }
