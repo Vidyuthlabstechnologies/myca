@@ -1,3 +1,4 @@
+import { usRefundBoost } from './us-refund-boost.mjs';
 import { tally, bank, gstin, filing, audit } from './sprint-load.mjs';
 import { invoiceTemplate, setInvoiceTemplate } from './invoice-template.mjs';
 import { importSettlement, settlementStatus } from './settlements.mjs';
@@ -823,6 +824,13 @@ export const TOOLS = [
     description: 'Projects the year\'s federal tax from year-to-date pay and withholding plus the pay periods left, using the return\'s filing status, family and other income, and gives the gap, the extra to withhold each paycheck (W-4 line 4(c)) and the safe harbor. Pass filingStatus if no return is started. US only. Read-only.',
     args: ['taxYear', 'payPerPeriod', 'withheldPerPeriod', 'periodsLeft', 'ytdWages', 'ytdWithheld', 'otherIncome', 'filingStatus'],
     run: (state, args = {}) => usWithholdingCheck(state, args),
+  },
+  {
+    name: 'us_refund_boost',
+    title: 'Find more US refund',
+    description: 'Checks the started return for common deductions, credits and filing-status choices it does not use yet (IRA, HSA, student loan interest, educator expenses, self-employed health and retirement, tips, overtime, car loan interest, charity, medical, itemizing, head of household) and works out what each is worth by running the return again. US only. Read-only.',
+    args: ['taxYear'],
+    run: (state, args = {}) => usRefundBoost(state, args),
   },
   {
     name: 'us_estimated_payments',

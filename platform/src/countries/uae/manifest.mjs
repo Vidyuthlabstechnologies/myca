@@ -19,6 +19,7 @@ export const MANIFEST = Object.freeze({
   ruleFamilies: Object.freeze([
     Object.freeze({ key: 'ae-vat', title: 'UAE value added tax', prefix: 'ae.vat.', watch: Object.freeze(['FTA public clarifications and VAT guides', 'Cabinet Decisions amending the VAT Executive Regulation and the penalty schedule']) }),
     Object.freeze({ key: 'ae-corporate-tax', title: 'UAE corporate tax', prefix: 'ae.ct.', watch: Object.freeze(['Ministerial Decisions on Small Business Relief and Free Zone Persons', 'FTA Corporate Tax guides']) }),
+    Object.freeze({ key: 'ae-labour', title: 'UAE labour law: gratuity and the Wage Protection System', prefix: 'ae.labour.', watch: Object.freeze(['Amendments to Federal Decree-Law 33 of 2021 and Cabinet Resolution 1 of 2022', 'Central Bank WPS file format notices']) }),
     Object.freeze({ key: 'ae-einvoice', title: 'UAE electronic invoicing (PINT AE)', prefix: 'ae.einvoice.', watch: Object.freeze(['Ministry of Finance e-invoicing guidelines and PINT AE releases', 'Cabinet Decision 106 of 2025 amendments']) }),
   ]),
   tools: Object.freeze([
@@ -53,6 +54,12 @@ export const MANIFEST = Object.freeze({
       schema: schema({}),
     }),
     Object.freeze({
+      name: 'ae_gratuity', title: 'UAE end-of-service gratuity',
+      description: 'End-of-service gratuity under Article 51 of the 2021 Labour Law: 21 days of the last basic wage for each of the first five years and 30 days for each year after, pro rata, capped at two years of wage, nothing before one year of service, unpaid absence excluded. Also gives the liability to carry in the books today. Read-only.',
+      access: 'read',
+      schema: schema({ joinDate: text, lastDay: text, basicMonthly: number, unpaidAbsenceDays: number, dismissedForGrossMisconduct: flag }, ['joinDate', 'lastDay', 'basicMonthly']),
+    }),
+    Object.freeze({
       name: 'ae_penalty_estimate', title: 'Estimate a UAE tax penalty',
       description: 'The administrative penalty for a late VAT return, late VAT payment, late corporate tax return or late corporate tax payment under the schedule in force from 14 April 2026. Read-only.',
       access: 'read',
@@ -75,6 +82,12 @@ export const MANIFEST = Object.freeze({
       description: 'Fill the VAT 201 boxes for one tax period (written 2026-01/2026-03 or 2026-Q1) from the books (fromBooks true), from sale and purchase lines, or both: standard-rated sales by emirate, reverse charge, zero-rated, exempt, imports, recoverable input tax, and the payable or refundable total with the due date 28 days after the period. The business files it on EmaraTax. Read-only.',
       access: 'read',
       schema: schema({ period: text, fromBooks: flag, lines: list, touristRefunds: object, customsImports: object, annualTurnover: number }, ['period']),
+    }),
+    Object.freeze({
+      name: 'ae_wps_file', title: 'WPS salary file (SIF)',
+      description: 'Build the Wage Protection System salary information file for one month: an EDR line per employee (MOHRE person id, routing code, IBAN, pay period, fixed and variable pay, unpaid leave days) and the closing SCR line, with IBAN check digits and totals verified, named as banks expect. The employer uploads it through the WPS agent. Read-only.',
+      access: 'read',
+      schema: schema({ month: text, fileDate: text, fileTime: text, employerId: text, employerBankRouting: text, employerReference: text, employees: { type: 'array', items: { type: 'object', additionalProperties: false, properties: { name: text, labourId: text, routingCode: text, account: text, payStart: text, payEnd: text, fixed: number, variable: number, unpaidLeaveDays: number } } } }, ['month', 'fileDate', 'fileTime', 'employerId', 'employerBankRouting', 'employees']),
     }),
     Object.freeze({
       name: 'create_ae_credit_note', title: 'UAE credit note',

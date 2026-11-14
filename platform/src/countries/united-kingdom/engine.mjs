@@ -5,6 +5,7 @@ import { buildVatReturn, vatRegistrationCheck } from './vat.mjs';
 import { quarterlyPeriods, mtdItMandate, selfEmploymentCumulative, ukPropertyCumulative, penaltyPoints, latePayment } from './mtd.mjs';
 import { checkGbIdentifier, utrValid, ninoValid, vrnValid, normaliseUtr, normaliseNino, normaliseVrn } from './identifiers.mjs';
 import { parseTaxYear, gbMoney, monthEndPlus } from './rules.mjs';
+import { simplifiedExpenses, cisDeductions } from './allowances.mjs';
 import { amendmentWindowCloses, declarationFor } from './declarations.mjs';
 import { createGbInvoice, createGbPurchase, gbDocumentPreview, vatLinesFromBooks, createGbCreditNote, cancelGbInvoice, gbCreditNotePreview } from './books.mjs';
 import {
@@ -100,6 +101,7 @@ export const ENGINE = Object.freeze({
     connect_gb_hmrc: (state, args = {}) => startHmrcConnection(state, args),
     disconnect_gb_hmrc: (state, args = {}) => disconnectHmrc(state, args),
     finish_gb_hmrc_connection: (state, args = {}) => finishHmrcConnection(state, args),
+    gb_cis_deductions: (state, args = {}) => cisDeductions(args),
     gb_hmrc_history: (state, args = {}) => hmrcHistory(state, args),
     gb_hmrc_status: (state) => hmrcStatus(state),
     gb_itsa_quarter_check: (state, args = {}) => quarterCheck(args),
@@ -107,6 +109,7 @@ export const ENGINE = Object.freeze({
     gb_mtd_mandate: (state, args = {}) => mtdItMandate(args),
     gb_mtd_periods: (state, args = {}) => quarterlyPeriods(args.taxYear, { calendar: args.calendarQuarters ?? taxpayer(state).calendarQuarters === true }),
     gb_penalty_points: (state, args = {}) => penaltyPoints(args),
+    gb_simplified_expenses: (state, args = {}) => simplifiedExpenses(args),
     gb_tax_calendar: (state, args = {}) => gbTaxCalendar(state, args),
     gb_tax_estimate: (state, args = {}) => {
       const profile = taxpayer(state);
@@ -191,6 +194,13 @@ export const ENGINE = Object.freeze({
     trigger_gb_itsa_calculation: (state, args = {}) => ({ ...hmrcPreview(`Ask HMRC for an ${args.calculationType || 'in-year'} calculation for ${args.taxYear || ''}.`, ['HMRC works out the tax from the updates sent so far; nothing is filed.']), blockers: calculationBlockers(state, args) }),
   }),
   words: Object.freeze({
+    gb_cis_deductions: (result) => (result.ok ? `CIS deducted${result.data.taxYear ? ` in ${result.data.taxYear}` : ''}: ${gbMoney(result.data.totalDeducted)} from ${gbMoney(result.data.totalGross)} gross across ${result.data.contractors.length} contractor${result.data.contractors.length === 1 ? '' : 's'}.${result.data.mismatches ? ` ${result.data.mismatches} statement${result.data.mismatches === 1 ? ' needs' : 's need'} checking.` : ''}` : ''),
+    gb_simplified_expenses: (result) => {
+      if (!result.ok) return '';
+      const d = result.data;
+      const pick = d.comparison ? (d.comparison.better === 'expenses' ? ` Claiming expenses beats the £1,000 trading allowance by ${gbMoney(d.comparison.saving)}.` : d.comparison.better === 'trading-allowance' ? ` The £1,000 trading allowance beats your expenses by ${gbMoney(d.comparison.saving)}.` : ' Turnover is within the £1,000 trading allowance, so nothing is taxed.') : '';
+      return `Flat-rate mileage ${gbMoney(d.mileage)} and working from home ${gbMoney(d.useOfHome.total)} for ${d.taxYear}; total expenses ${gbMoney(d.totalExpenses)}.${pick}`;
+    },
     gb_tax_estimate: (result) => {
       if (!result.ok) return '';
       const d = result.data;

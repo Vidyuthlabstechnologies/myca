@@ -95,6 +95,7 @@ const TOOL_RISK = {
   us_interview: 'read_only',
   us_return_review: 'read_only',
   us_supported_forms: 'read_only',
+  us_refund_boost: 'read_only',
   us_withholding_check: 'read_only',
   us_estimated_payments: 'read_only',
   read_irs_letter: 'read_only',
