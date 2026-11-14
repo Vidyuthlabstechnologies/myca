@@ -120,7 +120,7 @@ export const MANIFEST = Object.freeze({
       name: 'gb_vat_return_check', title: 'Prepare a UK VAT return',
       description: 'Build the nine-box MTD VAT return from sales and purchase lines (standard or flat rate scheme) and list every box that breaks HMRC\'s rules, with the due date. Read-only; nothing is sent.',
       access: 'read',
-      schema: schema({ periodKey: { type: 'string' }, from: { type: 'string' }, to: { type: 'string' }, scheme: { type: 'string', enum: ['standard', 'flat-rate'] }, sales: lines, purchases: lines, flatRateBasisPoints: { type: 'integer' }, firstYearOfRegistration: { type: 'boolean' }, periodMonths: { type: 'integer' }, fromBooks: { type: 'boolean' } }, ['periodKey']),
+      schema: schema({ periodKey: { type: 'string' }, from: { type: 'string' }, to: { type: 'string' }, scheme: { type: 'string', enum: ['standard', 'flat-rate'] }, sales: lines, purchases: lines, flatRateBasisPoints: { type: 'integer' }, limitedCostTrader: { type: 'boolean' }, firstYearOfRegistration: { type: 'boolean' }, periodMonths: { type: 'integer' }, fromBooks: { type: 'boolean' } }, ['periodKey']),
     }),
     Object.freeze({
       name: 'set_gb_taxpayer', title: 'Save the UK taxpayer details',

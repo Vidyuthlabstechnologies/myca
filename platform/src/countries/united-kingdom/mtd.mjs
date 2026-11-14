@@ -206,10 +206,15 @@ export function penaltyPoints(args = {}) {
     if (!late || entry.easement === true || itsaFirstYear) continue;
     awarded.push({ dueBy: entry.dueBy, expires: addMonthsDays(entry.dueBy, expiryMonths, 0) });
   }
+  const lapses = (dueBy) => addMonthsDays(`${dueBy.slice(0, 8)}01`, 1 + rule.value.pointExpiryMonths, 0);
+  let active = [];
   for (const point of awarded) {
-    points = Math.min(threshold, points + 1);
+    if (active.length < threshold) active = active.filter((held) => lapses(held) > point.dueBy);
+    active = [...active, point.dueBy].slice(-threshold);
+    points = active.length;
     if (points === threshold) { penalties += 1; events.push({ dueBy: point.dueBy, penalty: toPounds(rule.value.penaltyPence) }); }
   }
+  if (active.length < threshold) points = active.filter((held) => lapses(held) > today).length;
   const atThreshold = points >= threshold;
   return {
     ok: true,
