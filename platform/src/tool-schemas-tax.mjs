@@ -57,6 +57,7 @@ export const TAX_TOOL_SCHEMAS = {
       csv: { type: 'string', minLength: 1 },
       period: { type: 'string', pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' },
       fileName: { type: 'string', maxLength: 120 },
+      gstin: REGISTRATION_ARG,
     },
   },
   record_filing: {

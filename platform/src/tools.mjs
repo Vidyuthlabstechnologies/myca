@@ -1498,15 +1498,15 @@ export const TOOLS = [
   {
     name: 'import_gstr2b',
     title: 'Add GSTR-2B',
-    description: 'Store the GSTR-2B statement for one month (the CSV from the GST portal) so purchase bills can be checked against what suppliers reported. Posts nothing to the ledger; a second file for the same month replaces the first.',
-    args: ['csv', 'period', 'fileName'],
+    description: 'Store the GSTR-2B statement for one month (the CSV from the GST portal) so purchase bills can be checked against what suppliers reported. Posts nothing to the ledger; a second file for the same month replaces the first. Give gstin for a registration other than the principal one; each GSTIN keeps its own 2B.',
+    args: ['csv', 'period', 'fileName', 'gstin'],
     run: (state, args = {}) => import2b(state, args),
   },
   {
     name: 'credit_at_risk',
     title: 'Credit at risk',
-    description: 'For one month: the input credit on purchase bills that GSTR-2B does not support (not reported, not available, different amounts or date, or no supplier bill number), by supplier, and 2B entries not in your books. Read-only.',
-    args: ['period'],
+    description: 'For one month: the input credit on purchase bills that GSTR-2B does not support (not reported, not available, different amounts or date, or no supplier bill number), by supplier, and 2B entries not in your books. One GSTIN at a time: give gstin for a registration other than the principal one. Read-only.',
+    args: ['period', 'gstin'],
     run: (state, args = {}) => creditAtRisk(state, args),
   },
   {

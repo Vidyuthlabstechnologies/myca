@@ -4,6 +4,7 @@ import { documentsForPeriod } from './return-period.mjs';
 import { localToday } from './dates.mjs';
 import { filingFor } from './filings.mjs';
 import { regArg, registrationsOf, docGstin, scopeKey } from './registrations.mjs';
+import { twobFor } from './gstr2b-check.mjs';
 
 const round2 = (value) => Math.round(Number(value || 0) * 100) / 100;
 
@@ -32,10 +33,14 @@ function add(target, value) {
   return target;
 }
 
+function zeroRatedWithoutTax(inv) {
+  return Boolean((inv.export && !inv.export.withTax) || inv.supplyType === 'SEZWOP');
+}
+
 function exportedWithoutTax(invoices) {
   let paise = 0;
   for (const inv of invoices || []) {
-    if (!inv.export || inv.export.withTax) continue;
+    if (!zeroRatedWithoutTax(inv)) continue;
     for (const line of inv.lines || []) if (Number(line.gstRate || 0) !== 0) paise += Math.round(Number(line.taxable || 0) * 100);
   }
   return paise / 100;
@@ -72,6 +77,8 @@ export function gstr9Draft(state, args = {}) {
   const outward = { taxable: 0, tax: heads(), creditNotes: { taxable: 0, tax: heads() }, debitNotes: { taxable: 0, tax: heads() }, b2b: 0, b2c: 0, invoices: 0 };
   const zeroRatedNotes = { creditNotes: 0, debitNotes: 0 };
   const exports = { withTax: { count: 0, taxable: 0, igst: 0 }, withoutTax: { count: 0, taxable: 0 } };
+  const sez = { withTax: { count: 0, taxable: 0, igst: 0 }, withoutTax: { count: 0, taxable: 0 } };
+  const deemed = { count: 0, taxable: 0, tax: heads() };
   const itc = { availed: heads(), reversed: heads(), blocked: heads(), purchases: 0 };
   const twoB = { months: 0, available: heads() };
   const paid = { cash: heads(), credit: 0, interest: 0, lateFee: 0, months: 0 };
@@ -106,7 +113,21 @@ export function gstr9Draft(state, args = {}) {
     outward.b2b += docs.invoices.filter((inv) => inv.partyGstin).length;
     outward.b2c += docs.invoices.filter((inv) => !inv.partyGstin && !inv.export).length;
     for (const inv of docs.invoices) {
-      if (!inv.export || inv.status === 'cancelled') continue;
+      if (inv.status === 'cancelled') continue;
+      if (inv.supplyType === 'SEZWP' || inv.supplyType === 'SEZWOP') {
+        const into = inv.supplyType === 'SEZWP' ? sez.withTax : sez.withoutTax;
+        into.count += 1;
+        into.taxable = round2(into.taxable + Number(inv.taxable || 0));
+        if (inv.supplyType === 'SEZWP') into.igst = round2(into.igst + Number(inv.igst || 0));
+        continue;
+      }
+      if (inv.supplyType === 'DEXP') {
+        deemed.count += 1;
+        deemed.taxable = round2(deemed.taxable + Number(inv.taxable || 0));
+        add(deemed.tax, inv);
+        continue;
+      }
+      if (!inv.export) continue;
       const bucket = inv.export.withTax ? exports.withTax : exports.withoutTax;
       bucket.count += 1;
       bucket.taxable = round2(bucket.taxable + Number(inv.taxable || 0));
@@ -119,7 +140,7 @@ export function gstr9Draft(state, args = {}) {
     for (const inv of docs.invoices) {
       if (inv.status === 'cancelled') continue;
       for (const line of inv.lines || []) {
-        if (Number(line.gstRate || 0) === 0 && !inv.export) {
+        if (Number(line.gstRate || 0) === 0 && !inv.export && inv.supplyType !== 'SEZWOP') {
           nilRated.taxable = round2(nilRated.taxable + Number(line.taxable || 0));
           nilRated.lines += 1;
           const bucket = zero[line.supply] || zero.unsplit;
@@ -134,8 +155,7 @@ export function gstr9Draft(state, args = {}) {
         hsn.set(key, row);
       }
     }
-    const twoBKey = scopeKey(state, period, gstin);
-    const stored = state.gstr2b && typeof state.gstr2b === 'object' && Object.hasOwn(state.gstr2b, twoBKey) ? state.gstr2b[twoBKey] : null;
+    const stored = twobFor(state, period, gstin);
     if (stored) {
       twoB.months += 1;
       for (const row of stored.rows || []) add(twoB.available, row);
@@ -181,8 +201,8 @@ export function gstr9Draft(state, args = {}) {
       gstin,
       registrations: registrations.map((reg) => ({ gstin: reg.gstin, kind: reg.kind, label: reg.label })),
       months: monthRows,
-      table4: { outwardTaxable: outward.taxable, outwardTax: outward.tax, b2bInvoices: outward.b2b, b2cInvoices: outward.b2c, exportsWithTax: exports.withTax, creditNotes: outward.creditNotes, debitNotes: outward.debitNotes, amendments: amended, netTaxable: round2(outward.taxable - outward.creditNotes.taxable + outward.debitNotes.taxable) },
-      table5: { creditNotes: zeroRatedNotes.creditNotes, debitNotes: zeroRatedNotes.debitNotes, exportsWithoutTax: exports.withoutTax, nilRatedOrExempt: nilRated.taxable, lines: nilRated.lines, nilRated: zero.nil.taxable, exempt: zero.exempt.taxable, nonGst: zero['non-gst'].taxable, unsplit: zero.unsplit.taxable, unsplitLines: zero.unsplit.lines, note: zero.unsplit.lines ? 'Some 0% lines carry no supply type yet.' : 'Split from the supply type on each 0% line (5D nil-rated, 5E exempt, 5F non-GST).' },
+      table4: { outwardTaxable: outward.taxable, outwardTax: outward.tax, b2bInvoices: outward.b2b, b2cInvoices: outward.b2c, exportsWithTax: exports.withTax, sezWithTax: sez.withTax, deemedExports: deemed, creditNotes: outward.creditNotes, debitNotes: outward.debitNotes, amendments: amended, netTaxable: round2(outward.taxable - outward.creditNotes.taxable + outward.debitNotes.taxable) },
+      table5: { creditNotes: zeroRatedNotes.creditNotes, debitNotes: zeroRatedNotes.debitNotes, exportsWithoutTax: exports.withoutTax, sezWithoutTax: sez.withoutTax, nilRatedOrExempt: nilRated.taxable, lines: nilRated.lines, nilRated: zero.nil.taxable, exempt: zero.exempt.taxable, nonGst: zero['non-gst'].taxable, unsplit: zero.unsplit.taxable, unsplitLines: zero.unsplit.lines, note: zero.unsplit.lines ? 'Some 0% lines carry no supply type yet.' : 'Split from the supply type on each 0% line (5D nil-rated, 5E exempt, 5F non-GST).' },
       table6: { itcAvailed: itc.availed, purchases: itc.purchases },
       table7: { reversed: itc.reversed, blocked: itc.blocked },
       table8: { gstr2bMonths: twoB.months, gstr2bAvailable: twoB.available, availed: itc.availed, difference: add(heads(), { igst: twoB.available.igst - itc.availed.igst, cgst: twoB.available.cgst - itc.availed.cgst, sgst: twoB.available.sgst - itc.availed.sgst }) },

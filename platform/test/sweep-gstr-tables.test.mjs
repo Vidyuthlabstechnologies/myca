@@ -190,3 +190,60 @@ test('GSTR-3B interest (section 50) is split across heads by largest remainder s
   assert.equal(interest, 1001);
   assert.equal(Math.round(rows[0].c_lfeepd * 100) + Math.round(rows[0].s_lfeepd * 100), 5001);
 });
+
+test('GSTR-9 table 5B takes supplies to an SEZ without payment of tax and their notes; SEZ with IGST stays in 4C, exports with tax in 4D, deemed exports in 4E (IGST Act section 16)', async () => {
+  const sezUnit = withCheck('27AAACS1234F1Z');
+  const state = createState();
+  state.company = { ...state.company, name: 'Asha Traders', gstin: '27AABCU9603R1ZN', state: '27' };
+  const sale = (extra, rate) => runTool(state, 'create_invoice', { partyName: 'Zone Unit', partyGstin: sezUnit, partyAddress: 'Plot 9, SEEPZ, Mumbai 400096', lines: [{ description: 'Fabric', hsn: '5208', qty: 1, rate, gstRate: 18 }], date: '2026-05-05', ...extra });
+  assert.equal((await sale({ supplyType: 'SEZWOP' }, 50000)).ok, true);
+  assert.equal((await sale({ supplyType: 'SEZWP' }, 20000)).ok, true);
+  assert.equal((await sale({ supplyType: 'DEXP' }, 7000)).ok, true);
+  assert.equal((await runTool(state, 'create_invoice', { partyName: 'Acme LLC', exportSale: { currency: 'INR', withTax: true }, lines: [{ description: 'Fabric', hsn: '5208', qty: 1, rate: 3000, gstRate: 18 }], date: '2026-05-06' })).ok, true);
+  assert.equal((await runTool(state, 'create_credit_note', { invoiceId: state.invoices[0].id, amount: 5000, reason: 'short', date: '2026-05-20' })).ok, true);
+  const out = await runTool(state, 'gstr9_draft', { fy: '2026-27' });
+  assert.equal(out.ok, true, JSON.stringify(out));
+  const d = out.data;
+  assert.deepEqual(d.table5.sezWithoutTax, { count: 1, taxable: 50000 });
+  assert.equal(d.table5.creditNotes, 5000);
+  assert.equal(d.table4.creditNotes.taxable, 0);
+  assert.equal(d.table4.outwardTaxable, 30000);
+  assert.deepEqual(d.table4.sezWithTax, { count: 1, taxable: 20000, igst: 3600 });
+  assert.deepEqual(d.table4.exportsWithTax, { count: 1, taxable: 3000, igst: 540 });
+  assert.equal(d.table4.deemedExports.count, 1);
+  assert.equal(d.table4.deemedExports.taxable, 7000);
+});
+
+const TWO_B_HEADER = 'SECTION,SUPPLIER GSTIN,SUPPLIER NAME,INVOICE NO,INVOICE DATE,TAXABLE VALUE,CGST,SGST,IGST,CESS,TOTAL VALUE,ITC AVAILABILITY';
+
+test('GSTR-2B is stored per GSTIN for an additional registration; month-only data stays the principal\'s, so branch GSTR-9 table 8 and credit at risk read their own 2B', async () => {
+  const principal = withCheck('27AABCU9603R1Z');
+  const karnataka = withCheck('29AABCU9603R1Z');
+  const state = createState();
+  state.company = { ...state.company, name: 'Nalanda Textiles', gstin: principal, state: '27' };
+  assert.equal((await runTool(state, 'set_registration', { gstin: karnataka, kind: 'branch', label: 'Bengaluru' })).ok, true);
+  state.gstr2b = { '2026-05': { fileName: 'old.csv', importedOn: '2026-06-14', rows: [{ section: 'B2B', supplierGstin: '27AABCT1332L1ZE', supplierName: 'FABRIC CO', invoiceNo: 'F-101', invoiceDate: '2026-05-05', taxableValue: 10000, cgst: 250, sgst: 250, igst: 0, cess: 0, itcAvailability: 'Y' }], skipped: 0 } };
+  const branchBill = await runTool(state, 'create_purchase', { registrationGstin: karnataka, partyName: 'Pack House', partyGstin: '29AABCL1234J1ZL', supplierInvoiceNo: 'PH-9', lines: [{ description: 'Boxes', hsn: '4819', qty: 1, rate: 5000, gstRate: 18 }], date: '2026-05-10' });
+  assert.equal(branchBill.ok, true, JSON.stringify(branchBill));
+  assert.equal((await runTool(state, 'create_invoice', { partyName: 'Walk-in', lines: [{ description: 'Cloth', hsn: '5208', qty: 1, rate: 1000, gstRate: 5 }], date: '2026-05-12' })).ok, true);
+  const csv = [TWO_B_HEADER,'B2B,29AABCL1234J1ZL,PACK HOUSE,PH-9,10-05-2026,5000,450,450,0,0,5900,Y'].join('\n');
+  const added = await runTool(state, 'import_gstr2b', { csv, period: '2026-05', gstin: karnataka });
+  assert.equal(added.ok, true, JSON.stringify(added));
+  assert.equal(added.replaced, false);
+  assert.ok(state.gstr2b['2026-05'], 'the principal\'s month-only 2B is untouched');
+  assert.equal(state.gstr2b[`2026-05@${karnataka}`].rows.length, 1);
+  const branchRisk = await runTool(state, 'credit_at_risk', { period: '2026-05', gstin: karnataka });
+  assert.equal(branchRisk.ok, true, JSON.stringify(branchRisk));
+  assert.equal(branchRisk.data.bills, 1);
+  assert.equal(branchRisk.data.creditAtRisk, 0);
+  assert.equal(branchRisk.data.statement.rows, 1);
+  const mainRisk = await runTool(state, 'credit_at_risk', { period: '2026-05' });
+  assert.equal(mainRisk.data.bills, 0, 'the branch bill is not the principal\'s');
+  assert.deepEqual(mainRisk.data.notBooked.map((row) => row.invoiceNo), ['F-101'], 'the principal reads only its own 2B rows');
+  const branch9 = await runTool(state, 'gstr9_draft', { fy: '2026-27', gstin: karnataka });
+  assert.equal(branch9.data.table8.gstr2bMonths, 1);
+  assert.equal(branch9.data.table8.gstr2bAvailable.total, 900);
+  const main9 = await runTool(state, 'gstr9_draft', { fy: '2026-27' });
+  assert.equal(main9.data.table8.gstr2bAvailable.total, 500);
+  assert.equal((await runTool(state, 'import_gstr2b', { csv, period: '2026-05', gstin: withCheck('07AABCU9603R1Z') })).error, 'UNKNOWN_REGISTRATION');
+});
