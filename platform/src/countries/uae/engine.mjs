@@ -8,7 +8,7 @@ import { uaeDeadlines } from './deadlines.mjs';
 import { penaltyEstimate } from './penalties.mjs';
 import { buildPintAe } from './einvoice.mjs';
 import { sendThroughAsp, issuedEinvoices, aspMode } from './asp.mjs';
-import { createAeInvoice, createAePurchase, createAeCreditNote, planAeInvoice, planAePurchase, planAeCreditNote, aeVatLines } from './books.mjs';
+import { createAeInvoice, createAePurchase, createAeCreditNote, planAeInvoice, planAePurchase, planAeCreditNote, aeVatLines, aeInvoiceDocument } from './books.mjs';
 import { langOf, localise, toArabic } from './messages.mjs';
 
 const PROFILE_FIELDS = ['name', 'nameAr', 'trn', 'tin', 'legalId', 'legalIdType', 'emirate', 'city', 'addressLine', 'freeZone', 'freeZoneName', 'financialYearEnd', 'vatPeriod'];
@@ -325,5 +325,6 @@ export const ENGINE = Object.freeze({
     create_invoice: Object.freeze({ run: RUN.create_ae_invoice, preview: PREVIEW.create_ae_invoice }),
     create_purchase: Object.freeze({ run: RUN.create_ae_purchase, preview: PREVIEW.create_ae_purchase }),
     create_credit_note: Object.freeze({ run: RUN.create_ae_credit_note, preview: PREVIEW.create_ae_credit_note }),
+    invoice_document: Object.freeze({ run: (state, args = {}) => localise(aeInvoiceDocument(state, args), langOf(args)) }),
   }),
 });

@@ -618,7 +618,7 @@ export const TOOLS = [
     title: 'Invoice to show or send',
     description: 'One posted sales invoice with seller, buyer, place of supply, lines, tax by head, receipts and balance, for display or a PDF. Read-only.',
     args: ['id'],
-    run: (state, args = {}) => invoiceDocument(state, args.id),
+    run: (state, args = {}) => engineBooks(countryOf(state), 'invoice_document')?.(state, args) ?? invoiceDocument(state, args.id),
   },
   {
     name: 'create_credit_note',

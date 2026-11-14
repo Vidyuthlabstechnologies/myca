@@ -393,3 +393,57 @@ export function aeVatLines(state, args = {}) {
   if (otherBooks) warnings.push(`${otherBooks} entr${otherBooks === 1 ? 'y' : 'ies'} in ${period.label} were not made as UAE sales or purchases and carry no VAT treatment, so they are left out. Re-enter them as UAE documents or add them as lines.`);
   return { ok: true, data: { period: period.label, start: period.start, end: period.end, lines, counts, warnings } };
 }
+
+const TREATMENT_NOTE = Object.freeze({
+  'zero-rated': { en: 'Zero-rated', ar: 'خاضع للنسبة الصفرية' },
+  exempt: { en: 'Exempt', ar: 'معفى' },
+  'out-of-scope': { en: 'Out of scope', ar: 'خارج النطاق' },
+});
+
+export function aeInvoiceDocument(state, args = {}) {
+  const id = String(args.id || '').trim().toUpperCase();
+  const invoice = (state.invoices || []).find((item) => item.id === id);
+  if (!invoice) return fail('INVOICE_NOT_FOUND', { invoiceId: id });
+  if (invoice.country !== 'AE') return fail('NOT_A_UAE_INVOICE', { invoiceId: id });
+  const seller = profileOf(state) || {};
+  const party = (state.parties || []).find((item) => item.accountId === invoice.partyAccountId) || {};
+  const emirate = emirateOf(invoice.emirate);
+  const missing = [];
+  if (!seller.trn) missing.push('SELLER_TRN');
+  if (!seller.addressLine) missing.push('SELLER_ADDRESS');
+  if (invoice.total > 10000 && !(invoice.partyAddress || party.address)) missing.push('BUYER_ADDRESS');
+  const toFilsOf = (value) => toFils(value) || 0;
+  const received = (invoice.receipts || []).reduce((sum, receipt) => sum + toFilsOf(receipt.amount), 0);
+  const notes = (state.creditNotes || []).filter((note) => note.invoiceId === invoice.id);
+  const credited = notes.reduce((sum, note) => sum + toFilsOf(note.total), 0);
+  const simplified = !invoice.partyTrn && invoice.total <= 10000;
+  return {
+    ok: true,
+    data: {
+      kind: 'invoice',
+      country: 'AE',
+      id: invoice.id,
+      date: invoice.date,
+      dateOfSupply: invoice.date,
+      documentTitle: simplified ? { en: 'Simplified Tax Invoice', ar: 'فاتورة ضريبية مبسطة' } : { en: 'Tax Invoice', ar: 'فاتورة ضريبية' },
+      seller: { name: seller.name || state.company?.name || '', nameAr: seller.nameAr || '', trn: seller.trn || '', address: [seller.addressLine, seller.city].filter(Boolean).join(', '), emirate: seller.emirate || '' },
+      buyer: { name: invoice.partyName, trn: invoice.partyTrn || '', address: invoice.partyAddress || party.address || '' },
+      emirate: emirate ? { code: emirate.code, en: emirate.en, ar: emirate.ar } : null,
+      currency: invoice.currency || 'AED',
+      exchangeRate: invoice.exchangeRate || 1,
+      lines: invoice.lines.map((line) => ({ description: line.description, qty: line.qty, rate: line.rate, treatment: line.treatment || 'standard', vatRate: (line.treatment || 'standard') === 'standard' ? 5 : 0, net: line.subtotal, vat: line.vat || 0, amount: line.amount, note: TREATMENT_NOTE[line.treatment] || null })),
+      net: invoice.subtotal,
+      vat: invoice.vat,
+      total: invoice.total,
+      totalsInAed: true,
+      receipts: (invoice.receipts || []).map((receipt) => ({ date: receipt.date, mode: receipt.mode, amount: receipt.amount })),
+      creditNotes: notes.map((note) => ({ id: note.id, date: note.date, reason: note.reason, total: note.total, vat: note.vat, cancels: Boolean(note.cancels) })),
+      received: toDirhams(received),
+      credited: toDirhams(credited),
+      balance: toDirhams(toFilsOf(invoice.total) - received - credited),
+      status: invoice.status,
+      dueDate: invoice.dueDate || '',
+      missing,
+    },
+  };
+}
