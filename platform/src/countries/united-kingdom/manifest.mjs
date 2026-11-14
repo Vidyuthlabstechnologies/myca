@@ -123,9 +123,9 @@ export const MANIFEST = Object.freeze({
     }),
     Object.freeze({
       name: 'submit_gb_final_declaration', title: 'Send the MTD final declaration',
-      description: 'Send the Income Tax final declaration to HMRC for a tax year, using the intent-to-finalise calculation the taxpayer reviewed and their declaration that it is correct and complete. Cannot be undone. Sandbox unless live calls are on.',
+      description: 'Send the Income Tax final declaration to HMRC for a tax year, or confirm an amendment, using the calculation the taxpayer reviewed and the HMRC declaration made by the taxpayer or their agent. Cannot be withdrawn. Sandbox unless live calls are on.',
       access: 'write', providerCalls: true, clientAddress: true,
-      schema: schema({ taxYear, calculationId: { type: 'string' }, declaration: { type: 'boolean' }, device, approvalId }, ['taxYear', 'calculationId', 'declaration']),
+      schema: schema({ taxYear, calculationId: { type: 'string' }, declaration: { type: 'boolean' }, declaredBy: { type: 'string', enum: ['taxpayer', 'agent'] }, device, approvalId }, ['taxYear', 'calculationId', 'declaration']),
     }),
     Object.freeze({
       name: 'submit_gb_itsa_update', title: 'Send an MTD Income Tax quarterly update',

@@ -13,6 +13,7 @@ import {
 import { vatReturnProblems } from './vat.mjs';
 import { normaliseNino, normaliseVrn, ninoValid, vrnValid } from './identifiers.mjs';
 import { parseTaxYear } from './rules.mjs';
+import { amendmentOpen, amendmentWindowCloses, declarationFor, DECLARERS, FINAL_DECLARATION, taxYearEnded } from './declarations.mjs';
 
 const STATE_TTL_MS = 15 * 60 * 1000;
 const REFRESH_MARGIN_MS = 60 * 1000;
@@ -123,6 +124,8 @@ export function hmrcStatus(state) {
       itsaBusinesses: synced.itsaBusinesses || [],
       itsaObligations: synced.itsaObligations || [],
       calculations: Object.values(synced.calculations || {}),
+      returns: Object.values(synced.declarations || {}).map((entry) => ({ taxYear: entry.taxYear, type: entry.type, calculationId: entry.calculationId, totalDue: entry.totalDue ?? null, declaredBy: entry.declaredBy || 'taxpayer', at: entry.at, environment: entry.environment, amendmentWindowCloses: entry.amendmentWindowCloses || null })),
+      declarationWords: FINAL_DECLARATION,
       fraudHeaderCheck: synced.fraudHeaderCheck || null,
       missingSettings: missingSettings(settings),
     },
@@ -403,20 +406,76 @@ export async function submitGbItsaUpdate(state, args = {}) {
   return { ok: true, mock: Boolean(out.mock), data: { ...receipt, hint: 'Updates are cumulative: the next one replaces this from the start of the tax year.' } };
 }
 
+function numberOr(value) {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+const BAND_SOURCES = Object.freeze([['payPensionsProfit', 'Pay, pensions and profit'], ['savingsAndGains', 'Savings'], ['dividends', 'Dividends'], ['lumpSums', 'Lump sums'], ['gainsOnLifePolicies', 'Gains on life policies']]);
+
+function taxBands(it) {
+  const rows = [];
+  for (const [key, label] of BAND_SOURCES) {
+    for (const band of Array.isArray(it?.[key]?.taxBands) ? it[key].taxBands : []) {
+      rows.push({ source: label, name: String(band.name || ''), rate: numberOr(band.rate), income: numberOr(band.income), tax: numberOr(band.taxAmount) });
+    }
+  }
+  return rows;
+}
+
+function sa302(calc) {
+  const totals = calc.incomeSummaryTotals || {};
+  const summary = calc.taxCalculation || {};
+  const it = summary.incomeTax || {};
+  const nics = summary.nics || {};
+  const cgt = summary.capitalGainsTax || {};
+  return {
+    income: {
+      selfEmployment: numberOr(totals.totalSelfEmploymentProfit),
+      ukProperty: numberOr(totals.totalUKOtherPropertyProfit ?? totals.totalPropertyProfit),
+      foreignProperty: numberOr(totals.totalForeignPropertyProfit),
+      employment: numberOr(totals.totalEmploymentIncome),
+      total: numberOr(it.totalIncomeReceivedFromAllSources),
+    },
+    personalAllowance: numberOr(calc.allowancesAndDeductions?.personalAllowance),
+    allowancesAndDeductions: numberOr(it.totalAllowancesAndDeductions),
+    taxableIncome: numberOr(it.totalTaxableIncome),
+    bands: taxBands(it),
+    incomeTaxCharged: numberOr(it.incomeTaxCharged),
+    reliefs: numberOr(it.totalReliefs),
+    incomeTaxDue: numberOr(it.totalIncomeTaxDue),
+    class2Nics: numberOr(nics.class2Nics?.amount),
+    class4Nics: numberOr(nics.class4Nics?.totalAmount),
+    totalNics: numberOr(nics.totalNic ?? nics.nicsTotal),
+    studentLoan: numberOr(summary.totalStudentLoansRepaymentAmount),
+    capitalGainsTax: numberOr(cgt.capitalGainsTaxDue),
+    taxDeducted: numberOr(summary.totalTaxDeducted),
+    totalDue: numberOr(summary.totalIncomeTaxAndNicsAndCgt ?? summary.totalIncomeTaxAndNicsDue),
+  };
+}
+
+function messagesOf(raw) {
+  const messages = raw?.messages || {};
+  const pick = (list) => (Array.isArray(list) ? list.map((entry) => ({ id: String(entry?.id || ''), text: String(entry?.text || '') })) : []);
+  return { info: pick(messages.info), warnings: pick(messages.warnings), errors: pick(messages.errors) };
+}
+
 function summariseCalculation(raw, calculationId, type, taxYear) {
   const calc = raw?.calculation || {};
   const summary = calc.taxCalculation || {};
   const it = summary.incomeTax || {};
+  const messages = messagesOf(raw);
   return {
     calculationId,
     taxYear,
     calculationType: raw?.metadata?.calculationType || type || '',
     timestamp: raw?.metadata?.calculationTimestamp || new Date().toISOString(),
     incomeTax: it.incomeTaxCharged ?? it.totalIncomeTaxDue ?? null,
-    nics: summary.nics?.nicsTotal ?? summary.nics?.totalNic ?? null,
+    nics: summary.nics?.totalNic ?? summary.nics?.nicsTotal ?? null,
     totalIncomeTaxAndNicsDue: summary.totalIncomeTaxAndNicsDue ?? null,
     totalTaxableIncome: it.totalTaxableIncome ?? null,
-    messages: raw?.messages || null,
+    breakdown: sa302(calc),
+    messages,
+    blockedByErrors: messages.errors.length > 0,
   };
 }
 
@@ -433,6 +492,32 @@ async function fetchCalculation(state, args, nino, taxYear, calculationId, type)
   return { ok: true, mock: Boolean(out.mock), data: summary };
 }
 
+function declarationKey(nino, taxYear) {
+  return `${environment()}:${nino}:${taxYear}`;
+}
+
+function calculationRefusal(state, nino, taxYear, type) {
+  const sent = data(state).declarations[declarationKey(nino, taxYear)];
+  if (type === 'intent-to-finalise') {
+    if (sent) return { ok: false, error: 'FINAL_DECLARATION_ALREADY_SENT', hint: 'The return for this year is already with HMRC. To change it, ask for an amendment calculation instead.', receipt: sent };
+    if (hmrcEnvironment() === 'live' && !taxYearEnded(taxYear)) return { ok: false, error: 'TAX_YEAR_NOT_ENDED', hint: `The final declaration for ${taxYear} can be made from ${parseTaxYear(taxYear).start + 1}-04-06.` };
+  }
+  if (type === 'intent-to-amend') {
+    if (!amendmentOpen(taxYear)) return { ok: false, error: 'AMENDMENT_WINDOW_CLOSED', hint: `Amendments for ${taxYear} had to reach HMRC by ${amendmentWindowCloses(taxYear)}. Ask HMRC about an overpayment relief claim instead.` };
+    if (!sent) return { ok: false, error: 'NO_RETURN_TO_AMEND', hint: 'An amendment needs a final declaration already sent through software for this year.' };
+  }
+  return null;
+}
+
+export function calculationBlockers(state, args = {}) {
+  const year = parseTaxYear(args.taxYear);
+  if (!year) return ['Give the tax year, like 2026-27.'];
+  const nino = ninoOf(state, args);
+  if (!nino) return ['Save the National Insurance number first.'];
+  const refused = calculationRefusal(state, nino, year.label, String(args.calculationType || 'in-year'));
+  return refused ? [refused.hint] : [];
+}
+
 export async function triggerGbCalculation(state, args = {}) {
   const nino = ninoOf(state, args);
   if (!nino) return { ok: false, error: 'GB_NINO_MISSING' };
@@ -440,6 +525,8 @@ export async function triggerGbCalculation(state, args = {}) {
   if (!year) return { ok: false, error: 'BAD_TAX_YEAR' };
   const type = String(args.calculationType || 'in-year');
   if (!CALCULATION_TYPES.includes(type)) return { ok: false, error: 'BAD_CALCULATION_TYPE', types: CALCULATION_TYPES };
+  const refused = calculationRefusal(state, nino, year.label, type);
+  if (refused) return refused;
   const out = await hmrcCall(state, args, {
     actionId: 'hmrc_itsa_calculate', params: { nino, taxYear: year.hmrc, type },
     metadata: { taxYear: year.hmrc, type },
@@ -461,13 +548,21 @@ export async function submitGbFinalDeclaration(state, args = {}) {
   if (!nino) return { ok: false, error: 'GB_NINO_MISSING' };
   const year = parseTaxYear(args.taxYear);
   if (!year) return { ok: false, error: 'BAD_TAX_YEAR' };
-  if (args.declaration !== true) return { ok: false, error: 'DECLARATION_REQUIRED', hint: 'The taxpayer must declare the information is correct and complete to the best of their knowledge and belief; false information can lead to prosecution.' };
+  const declaration = declarationFor(args.declaredBy || 'taxpayer');
+  if (!declaration) return { ok: false, error: 'BAD_DECLARER', declarers: DECLARERS };
+  if (args.declaration !== true) return { ok: false, error: 'DECLARATION_REQUIRED', hint: `${declaration.preamble} ${declaration.text}`, declarationText: declaration.text };
   const calc = data(state).calculations[String(args.calculationId || '')];
   if (!calc) return { ok: false, error: 'CALCULATION_NOT_FOUND', hint: 'Ask HMRC for an intent-to-finalise calculation and review it first.' };
   if (calc.calculationType !== 'intent-to-finalise' && calc.calculationType !== 'intent-to-amend') return { ok: false, error: 'WRONG_CALCULATION_TYPE', hint: 'The final declaration needs an intent-to-finalise calculation.' };
   if (calc.taxYear !== year.label) return { ok: false, error: 'CALCULATION_YEAR_MISMATCH' };
-  const key = `${environment()}:${nino}:${year.label}`;
+  if (calc.blockedByErrors) return { ok: false, error: 'CALCULATION_HAS_ERRORS', hint: 'HMRC listed errors on this calculation. Fix the updates it names, then ask for a new calculation.', errors: calc.messages?.errors || [] };
+  const key = declarationKey(nino, year.label);
   if (data(state).declarations[key] && calc.calculationType === 'intent-to-finalise') return { ok: false, error: 'FINAL_DECLARATION_ALREADY_SENT', receipt: data(state).declarations[key] };
+  if (calc.calculationType === 'intent-to-amend') {
+    if (!data(state).declarations[key]) return { ok: false, error: 'NO_RETURN_TO_AMEND', hint: 'An amendment needs a final declaration already sent through software for this year.' };
+    if (!amendmentOpen(year.label)) return { ok: false, error: 'AMENDMENT_WINDOW_CLOSED', hint: `Amendments for ${year.label} had to reach HMRC by ${amendmentWindowCloses(year.label)}.` };
+  }
+  const previous = data(state).declarations[key];
   const out = await hmrcCall(state, args, {
     actionId: 'hmrc_itsa_final_declaration', params: { nino, taxYear: year.hmrc, calculationId: calc.calculationId },
     metadata: { taxYear: year.hmrc, calculationId: calc.calculationId },
@@ -475,8 +570,8 @@ export async function submitGbFinalDeclaration(state, args = {}) {
     run: (config) => submitFinalDeclaration(config, { nino, taxYear: year.hmrc, calculationId: calc.calculationId, calculationType: calc.calculationType }),
   });
   if (!out.ok) return out;
-  const receipt = { taxYear: year.label, calculationId: calc.calculationId, type: calc.calculationType, totalDue: calc.totalIncomeTaxAndNicsDue, correlationId: out.correlationId || '', environment: environment(), at: new Date().toISOString() };
+  const receipt = { taxYear: year.label, calculationId: calc.calculationId, type: calc.calculationType === 'intent-to-amend' ? 'confirm-amendment' : 'final-declaration', totalDue: calc.totalIncomeTaxAndNicsDue, declaredBy: declaration.declaredBy, declarationText: declaration.text, correlationId: out.correlationId || '', environment: environment(), at: new Date().toISOString(), amendmentWindowCloses: amendmentWindowCloses(year.label), ...(previous ? { amends: previous.calculationId } : {}) };
   data(state).declarations[key] = receipt;
-  appendAuditEvent(state, { action: 'gb_final_declaration_submitted', actorId: actorOf(args).userId, metadata: { taxYear: year.label, calculationId: calc.calculationId, environment: receipt.environment } });
+  appendAuditEvent(state, { action: calc.calculationType === 'intent-to-amend' ? 'gb_amendment_confirmed' : 'gb_final_declaration_submitted', actorId: actorOf(args).userId, metadata: { taxYear: year.label, calculationId: calc.calculationId, declaredBy: declaration.declaredBy, environment: receipt.environment } });
   return { ok: true, mock: Boolean(out.mock), data: receipt };
 }
