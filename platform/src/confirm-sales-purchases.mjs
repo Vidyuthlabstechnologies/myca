@@ -1,3 +1,4 @@
+import { enginePreview } from './countries/engines.mjs';
 import { planExpense } from './expenses.mjs';
 import { planCollectionReminder } from './collections.mjs';
 import { planPaymentRun } from './payment-run.mjs';
@@ -68,6 +69,7 @@ function plusYear(iso) {
 
 export function documentPreview(state, args, kind) {
   if (countryOf(state) === 'US') return usDocumentPreview(state, args, kind);
+  if (countryOf(state) === 'AE') return enginePreview(kind === 'sale' ? 'create_ae_invoice' : 'create_ae_purchase')(state, args);
   const company = state.company || {};
   const date = postingDate(args.date);
   const blockers = [];

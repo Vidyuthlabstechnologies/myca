@@ -340,6 +340,7 @@ function fmtToolResultCore(name, result, args) {
   }
   if (name === 'create_invoice' && result.invoice) {
     const i = result.invoice;
+    if (i.country === 'AE') return engineWords('create_ae_invoice')(result, money, args);
     if (i.country === 'US') {
       return `Posted ${i.id} to ${i.partyName} on ${i.date} for ${money(i.total)} (${money(i.subtotal)}${i.taxExempt ? `, exempt from sales tax: ${i.exemptionReason}` : ` plus ${money(i.salesTax)} sales tax`}).`;
     }
@@ -828,6 +829,7 @@ function fmtToolResultCore(name, result, args) {
     const b = result.bill;
     return `Paid ${b.partyName} ${money(result.payment.amount)} against ${b.id} by ${result.payment.mode} on ${result.payment.date}. ${result.remaining > 0.005 ? `${money(result.remaining)} is still owed on it.` : `${b.id} is paid in full.`}`;
   }
+  if (name === 'create_purchase' && result.invoice?.country === 'AE') return engineWords('create_ae_purchase')(result, money, args);
   if (name === 'create_purchase' && result.invoice) {
     const i = result.invoice;
     return `Booked ${i.id} from ${i.partyName} for ${money(i.total)}${i.itcEligible === false ? '. The GST on it cannot be claimed, so it is part of the cost.' : `, with ${money(i.cgst + i.sgst + i.igst)} of GST counted as input credit.`}${i.tds?.amount ? ` ${money(i.tds.amount)} TDS under ${i.tds.section} is held back, so ${money(i.total - i.tds.amount)} is owed to ${i.partyName}.` : ''}`;
