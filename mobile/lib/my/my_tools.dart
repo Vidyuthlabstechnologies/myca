@@ -172,6 +172,7 @@ class MyDraft {
     this.currency = 'MYR',
     this.exchangeRate,
     required this.buyer,
+    this.supplier,
     required this.lines,
     this.originalUuid = '',
     this.originalNumber = '',
@@ -184,6 +185,7 @@ class MyDraft {
   final String currency;
   final num? exchangeRate;
   final MyParty buyer;
+  final MyParty? supplier;
   final List<MyLine> lines;
   final String originalUuid;
   final String originalNumber;
@@ -196,6 +198,7 @@ class MyDraft {
     'currency': currency,
     if (currency != 'MYR' && exchangeRate != null) 'exchangeRate': exchangeRate,
     'buyer': buyer.toJson(),
+    if (supplier != null) 'supplier': supplier!.toJson(),
     'lines': [for (final line in lines) line.toJson()],
     if (myAdjustmentTypes.contains(type)) 'original': {'uuid': originalUuid.trim().toUpperCase(), if (originalNumber.trim().isNotEmpty) 'number': originalNumber.trim()},
     if (paymentMethod.isNotEmpty) 'paymentMethod': paymentMethod,
@@ -303,6 +306,10 @@ class MyEinvoice {
 
   bool get valid => status == 'valid';
   bool get received => direction == 'received';
+  bool get selfBilled => kind == 'self-billed' || type.startsWith('self-billed');
+  bool get showsSupplier => received || selfBilled;
+  String get counterparty => showsSupplier ? supplierName : buyerName;
+  bool get adjustable => valid && uuid.isNotEmpty && !received && (type == 'invoice' || type == 'self-billed-invoice');
   bool get sandbox => environment == 'mock' || environment == 'test' || environment == 'sandbox';
 
   DateTime? get validatedTime => DateTime.tryParse(validatedAt.isNotEmpty ? validatedAt : at);
@@ -417,6 +424,32 @@ class MyTinCheck {
   final String why;
 
   bool get valid => format && lhdn == 'valid';
+}
+
+class MyObligation {
+  const MyObligation({required this.required, required this.exempt, required this.exemptBelow, required this.startsFrom, required this.relatedBlocks, required this.why, required this.unreviewed});
+
+  factory MyObligation.fromJson(Map<String, dynamic> map, {required num annualTurnover, num? relatedCompanyTurnover}) {
+    final exempt = map['exempt'] == true;
+    final exemptBelow = _num(map['exemptBelow']);
+    return MyObligation(
+      required: map['required'] == true,
+      exempt: exempt,
+      exemptBelow: exemptBelow,
+      startsFrom: _text(map['startsFrom']),
+      relatedBlocks: !exempt && relatedCompanyTurnover != null && exemptBelow > 0 && annualTurnover < exemptBelow,
+      why: _text(map['why']),
+      unreviewed: map['unreviewed'] == true,
+    );
+  }
+
+  final bool required;
+  final bool exempt;
+  final num exemptBelow;
+  final String startsFrom;
+  final bool relatedBlocks;
+  final String why;
+  final bool unreviewed;
 }
 
 class MySstRegistration {
@@ -730,6 +763,25 @@ class MyTools {
     }
     if (result['ok'] == false) throw MyToolFailure.fromResult(result);
     return null;
+  }
+
+  Future<MyHeld> proposeSelfBilled(MyDraft draft) => propose('issue_my_self_billed_einvoice', draft.toJson()..remove('buyer'));
+
+  Future<MyEinvoice?> confirmSelfBilled(String token, MyDraft draft) async {
+    final result = await confirm(token);
+    final data = _map(result['data']);
+    if (data['number'] != null) {
+      final record = _map(data);
+      if (result['ok'] == false && record['error'] == null) record['error'] = result['lhdn'] ?? result['error'];
+      return MyEinvoice.fromJson({'buyerName': draft.buyer.name, 'supplierName': draft.supplier?.name ?? '', ...record, 'type': draft.type, 'kind': 'self-billed'});
+    }
+    if (result['ok'] == false) throw MyToolFailure.fromResult(result);
+    return null;
+  }
+
+  Future<MyObligation> einvoiceRequired({required num annualTurnover, required String date, num? relatedCompanyTurnover}) async {
+    final data = await _read('my_einvoice_required', {'annualTurnover': annualTurnover, 'date': date, 'relatedCompanyTurnover': ?relatedCompanyTurnover});
+    return MyObligation.fromJson(data, annualTurnover: annualTurnover, relatedCompanyTurnover: relatedCompanyTurnover);
   }
 
   Future<MySstRegistration> sstRegistration({required String kind, String category = 'general', required num last12Months, num? next12Months, required String date}) async {

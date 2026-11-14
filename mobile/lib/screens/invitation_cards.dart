@@ -3,11 +3,14 @@ import 'package:flutter/material.dart';
 import '../api/myca_api.dart';
 import '../app_state.dart';
 import '../cloud/cloud_session.dart';
+import '../my/my_strings.dart';
 import '../theme.dart';
 
 const roleLabels = {'owner': 'Owner', 'staff': 'Staff', 'accountant': 'Accountant'};
 
 String roleLabel(String role) => roleLabels[role] ?? role;
+
+const _roleLabelsMalay = {'owner': 'Pemilik', 'staff': 'Kakitangan', 'accountant': 'Akauntan'};
 
 class InvitationCards extends StatefulWidget {
   const InvitationCards({super.key, required this.invitations, required this.onChanged});
@@ -42,6 +45,9 @@ class _InvitationCardsState extends State<InvitationCards> {
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
+    String w(String english, String malay) => myMalayOr(context, english, malay);
+    String role(String key) => w(roleLabel(key), _roleLabelsMalay[key] ?? key).toLowerCase();
+    final malaysia = AppScope.of(context).edition == 'MY';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -50,7 +56,7 @@ class _InvitationCardsState extends State<InvitationCards> {
             margin: const EdgeInsets.only(bottom: 12),
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Palette.accentSoft,
+              color: malaysia ? Theme.of(context).colorScheme.secondaryContainer : Palette.accentSoft,
               borderRadius: BorderRadius.circular(radiusCard),
             ),
             child: Column(
@@ -60,9 +66,9 @@ class _InvitationCardsState extends State<InvitationCards> {
                 const SizedBox(height: 2),
                 Text(
                   invitation.invitedBy.isEmpty
-                      ? 'You are invited as ${roleLabel(invitation.role).toLowerCase()}.'
-                      : '${invitation.invitedBy} invited you as ${roleLabel(invitation.role).toLowerCase()}.',
-                  style: text.bodyMedium?.copyWith(color: Palette.ink),
+                      ? w('You are invited as ${role(invitation.role)}.', 'Anda dijemput sebagai ${role(invitation.role)}.')
+                      : w('${invitation.invitedBy} invited you as ${role(invitation.role)}.', '${invitation.invitedBy} menjemput anda sebagai ${role(invitation.role)}.'),
+                  style: text.bodyMedium?.copyWith(color: malaysia ? Theme.of(context).colorScheme.onSecondaryContainer : Palette.ink),
                 ),
                 const SizedBox(height: 14),
                 Row(
@@ -70,7 +76,7 @@ class _InvitationCardsState extends State<InvitationCards> {
                     Expanded(
                       child: OutlinedButton(
                         onPressed: _busy ? null : () => _answer(invitation, false),
-                        child: const Text('Decline'),
+                        child: Text(w('Decline', 'Tolak')),
                       ),
                     ),
                     const SizedBox(width: 10),
@@ -78,7 +84,7 @@ class _InvitationCardsState extends State<InvitationCards> {
                       flex: 2,
                       child: FilledButton(
                         onPressed: _busy ? null : () => _answer(invitation, true),
-                        child: const Text('Join'),
+                        child: Text(w('Join', 'Sertai')),
                       ),
                     ),
                   ],

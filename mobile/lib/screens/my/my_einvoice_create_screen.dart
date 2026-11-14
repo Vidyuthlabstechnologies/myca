@@ -13,33 +13,8 @@ import '../../my/my_strings.dart';
 import '../../my/my_tools.dart';
 import 'my_consolidated_screen.dart';
 import 'my_einvoice_detail_screen.dart';
+import 'my_line_editor.dart';
 import 'my_widgets.dart';
-
-class _LineFields {
-  _LineFields({String description = '', String price = ''})
-    : description = TextEditingController(text: description),
-      quantity = TextEditingController(text: '1'),
-      price = TextEditingController(text: price),
-      rate = TextEditingController(),
-      exemption = TextEditingController();
-
-  final TextEditingController description;
-  final TextEditingController quantity;
-  final TextEditingController price;
-  final TextEditingController rate;
-  final TextEditingController exemption;
-  String classification = '022';
-  String unit = 'C62';
-  String taxType = '06';
-
-  void dispose() {
-    description.dispose();
-    quantity.dispose();
-    price.dispose();
-    rate.dispose();
-    exemption.dispose();
-  }
-}
 
 class MyEinvoiceCreateScreen extends StatefulWidget {
   const MyEinvoiceCreateScreen({super.key, this.type = 'invoice', this.original});
@@ -55,7 +30,7 @@ class _MyEinvoiceCreateScreenState extends State<MyEinvoiceCreateScreen> {
   late String _type = widget.type;
   final _number = TextEditingController();
   late final _originalUuid = TextEditingController(text: widget.original?.uuid ?? '');
-  String _buyerKind = 'business';
+  late String _buyerKind = widget.original != null && (widget.original!.kind == 'consolidated' || widget.original!.buyerName == 'General Public') ? 'public' : 'business';
   late final _buyerName = TextEditingController(text: widget.original?.buyerName ?? '');
   final _buyerTin = TextEditingController();
   final _buyerId = TextEditingController();
@@ -67,10 +42,10 @@ class _MyEinvoiceCreateScreenState extends State<MyEinvoiceCreateScreen> {
   final _buyerPostcode = TextEditingController();
   final _buyerCountry = TextEditingController();
   String? _buyerState;
-  String _currency = 'MYR';
+  late String _currency = myCommonCurrencies.contains(widget.original?.totals?.currency) ? widget.original!.totals!.currency : 'MYR';
   final _rate = TextEditingController();
   String _payment = '';
-  final _lines = <_LineFields>[_LineFields()];
+  final _lines = <MyLineFields>[MyLineFields()];
 
   Map<String, String> _errors = const {};
   MyCheck? _check;
@@ -120,19 +95,7 @@ class _MyEinvoiceCreateScreenState extends State<MyEinvoiceCreateScreen> {
     currency: _currency,
     exchangeRate: _currency == 'MYR' ? null : parseMyAmount(_rate.text),
     buyer: _buyer(),
-    lines: [
-      for (final line in _lines)
-        MyLine(
-          description: line.description.text,
-          classification: line.classification,
-          quantity: parseMyAmount(line.quantity.text) ?? 0,
-          unitCode: line.unit,
-          unitPrice: parseMyAmount(line.price.text) ?? 0,
-          taxType: line.taxType,
-          ratePercent: parseMyAmount(line.rate.text) ?? 0,
-          exemptionReason: line.exemption.text,
-        ),
-    ],
+    lines: [for (final line in _lines) line.toLine()],
     originalUuid: _originalUuid.text,
     originalNumber: widget.original?.number ?? '',
     paymentMethod: _payment,
@@ -169,26 +132,7 @@ class _MyEinvoiceCreateScreenState extends State<MyEinvoiceCreateScreen> {
       final rate = parseMyAmount(_rate.text);
       if (rate == null || rate <= 0 || rate > 100000) errors['rate'] = t.exchangeRateBad;
     }
-    for (final (index, line) in _lines.indexed) {
-      if (line.description.text.trim().isEmpty) errors['line$index.description'] = t.descriptionMissing;
-      final quantity = parseMyAmount(line.quantity.text);
-      if (quantity == null || quantity <= 0) {
-        errors['line$index.quantity'] = t.quantityBad;
-      } else if (quantity > myLargestAmount) {
-        errors['line$index.quantity'] = t.amountTooLarge;
-      }
-      final price = parseMyAmount(line.price.text);
-      if (price == null || price < 0) {
-        errors['line$index.price'] = t.amountBad;
-      } else if (price > myLargestAmount || (quantity != null && quantity * price > myLargestAmount)) {
-        errors['line$index.price'] = t.amountTooLarge;
-      }
-      if (line.taxType != '06' && line.taxType != 'E') {
-        final rate = parseMyAmount(line.rate.text);
-        if (rate == null || rate < 0 || rate > 100) errors['line$index.rate'] = t.taxRateBad;
-      }
-      if (line.taxType == 'E' && line.exemption.text.trim().isEmpty) errors['line$index.exemption'] = t.exemptionMissing;
-    }
+    errors.addAll(validateMyLines(t, _lines));
     return errors;
   }
 
@@ -373,44 +317,6 @@ class _MyEinvoiceCreateScreenState extends State<MyEinvoiceCreateScreen> {
     ),
   );
 
-  Widget _lineEditor(MyStrings t, int index, _LineFields line) {
-    final taxed = line.taxType != '06' && line.taxType != 'E';
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: MyPanel(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                Expanded(child: Text(t.lineN(index + 1), style: Theme.of(context).textTheme.titleSmall)),
-                if (_lines.length > 1)
-                  IconButton(
-                    key: Key('myCreate.line$index.remove'),
-                    tooltip: t.removeLine,
-                    icon: const Icon(Icons.delete_outline),
-                    onPressed: () {
-                      setState(() => _lines.removeAt(index).dispose());
-                      _changed();
-                    },
-                  ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            _field('line$index.description', line.description, t.description, caps: TextCapitalization.sentences, maxLength: 300),
-            _picker<String>('line$index.classification', t.classification, line.classification, [for (final (code, name) in myClassifications) (code, '$code · $name')], (value) => setState(() => line.classification = value ?? '022')),
-            _field('line$index.quantity', line.quantity, t.quantity, keyboard: const TextInputType.numberWithOptions(decimal: true), maxLength: 18),
-            _picker<String>('line$index.unit', t.unit, line.unit, [for (final code in myUnitCodes) (code, '${t.unitName(code)} ($code)')], (value) => setState(() => line.unit = value ?? 'C62')),
-            _field('line$index.price', line.price, '${t.unitPrice} ($_currency)', keyboard: const TextInputType.numberWithOptions(decimal: true), maxLength: 18),
-            _picker<String>('line$index.taxType', t.taxType, line.taxType, [for (final code in myTaxTypes) (code, t.taxTypeName(code))], (value) => setState(() => line.taxType = value ?? '06')),
-            if (taxed) _field('line$index.rate', line.rate, t.taxRate, keyboard: const TextInputType.numberWithOptions(decimal: true), maxLength: 6),
-            if (line.taxType == 'E') _field('line$index.exemption', line.exemption, t.exemptionReason, caps: TextCapitalization.sentences, maxLength: 300),
-          ],
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final t = MyStrings.of(context);
@@ -426,7 +332,7 @@ class _MyEinvoiceCreateScreenState extends State<MyEinvoiceCreateScreen> {
           padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
           children: [
             if (mySandbox(context)) ...[MyNote(t.sandboxBanner), const SizedBox(height: 12)],
-            _picker<String>('type', t.documentType, _type, [for (final type in myDocumentTypes) (type, t.documentTypeName(type))], (value) => setState(() => _type = value ?? 'invoice')),
+            _picker<String>('type', t.documentType, _type, [for (final type in myDocumentTypes) if (!type.startsWith('self-billed')) (type, t.documentTypeName(type))], (value) => setState(() => _type = value ?? 'invoice')),
             _field('number', _number, t.number, caps: TextCapitalization.characters, maxLength: 60),
             if (_adjustment) _field('original', _originalUuid, t.originalUuid, caps: TextCapitalization.characters, maxLength: 26),
             MySection(t.buyer),
@@ -480,7 +386,24 @@ class _MyEinvoiceCreateScreenState extends State<MyEinvoiceCreateScreen> {
             if (_currency != 'MYR') _field('rate', _rate, t.exchangeRate, helper: t.exchangeRateHelp(_currency), keyboard: const TextInputType.numberWithOptions(decimal: true), maxLength: 12),
             _picker<String>('payment', t.paymentMethod, _payment, [('', t.none), for (final code in myPaymentMethods) (code, t.paymentMethodName(code))], (value) => setState(() => _payment = value ?? '')),
             MySection(t.lines),
-            for (final (index, line) in _lines.indexed) _lineEditor(t, index, line),
+            for (final (index, line) in _lines.indexed)
+              MyLineEditor(
+                keyPrefix: 'myCreate',
+                index: index,
+                line: line,
+                currency: _currency,
+                errors: _errors,
+                onChanged: () {
+                  setState(() {});
+                  _changed();
+                },
+                onRemove: _lines.length > 1
+                    ? () {
+                        setState(() => _lines.removeAt(index).dispose());
+                        _changed();
+                      }
+                    : null,
+              ),
             Align(
               alignment: Alignment.centerLeft,
               child: TextButton.icon(
@@ -488,7 +411,7 @@ class _MyEinvoiceCreateScreenState extends State<MyEinvoiceCreateScreen> {
                 onPressed: _lines.length >= 100
                     ? null
                     : () {
-                        setState(() => _lines.add(_LineFields()));
+                        setState(() => _lines.add(MyLineFields()));
                         _changed();
                       },
                 icon: const Icon(Icons.add),

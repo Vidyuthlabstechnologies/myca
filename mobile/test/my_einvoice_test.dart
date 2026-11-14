@@ -334,6 +334,59 @@ void main() {
     expect(find.text('No e-invoices sent yet.'), findsOneWidget);
   });
 
+  testWidgets('a validated e-invoice offers credit, debit and refund notes, and a refund note is sent naming the original', (tester) async {
+    final api = MyTestApi();
+    final record = MyEinvoice.fromJson(api.books.malaysia.einvoices.first);
+    await tester.pumpWidget(myApp(myState(api), MyEinvoiceDetailScreen(record: record)));
+    await settle(tester);
+    expect(find.byKey(const Key('myDetail.cancel')), findsOneWidget);
+    await reveal(tester, find.byKey(const Key('myDetail.refundNote')));
+    expect(find.byKey(const Key('myDetail.creditNote')), findsOneWidget);
+    expect(find.byKey(const Key('myDetail.debitNote')), findsOneWidget);
+    expect(find.textContaining('a refund note records money paid back'), findsOneWidget);
+    await tapKey(tester, 'myDetail.refundNote');
+    expect(find.text('Refund note'), findsWidgets);
+    expect(tester.widget<TextField>(find.byKey(const Key('myCreate.original'))).controller!.text, record.uuid);
+    expect(tester.widget<TextField>(find.byKey(const Key('myCreate.buyerName'))).controller!.text, 'Syarikat Maju Jaya Sdn Bhd');
+    await fillBusinessSale(tester, number: 'RN-2026-0001', price: '100');
+    await tapKey(tester, 'myCreate.send');
+    await tester.tap(find.byKey(const Key('myCreate.confirm')));
+    await settle(tester);
+    final sent = api.args['propose:issue_my_einvoice']!;
+    expect(sent['type'], 'refund-note');
+    expect(sent['original'], {'uuid': record.uuid, 'number': 'INV-2026-0141'});
+    expect(find.text('e-Invoice RN-2026-0001'), findsOneWidget);
+    expect(find.text('Refund note'), findsOneWidget);
+    expect(find.byKey(const Key('myDetail.refundNote')), findsNothing);
+  });
+
+  testWidgets('invalid, received and note documents offer no adjusting notes, and the buyer form has no self-billed types', (tester) async {
+    final api = MyTestApi();
+    for (final row in [api.books.malaysia.einvoices[1], api.books.malaysia.einvoices.last]) {
+      await tester.pumpWidget(const SizedBox());
+      await tester.pumpWidget(myApp(myState(api), MyEinvoiceDetailScreen(record: MyEinvoice.fromJson(row))));
+      await settle(tester);
+      expect(find.byKey(const Key('myDetail.creditNote')), findsNothing);
+      expect(find.byKey(const Key('myDetail.debitNote')), findsNothing);
+    }
+    final note = MyEinvoice.fromJson({...api.books.malaysia.einvoices.first, 'type': 'credit-note'});
+    expect(note.adjustable, isFalse);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pumpWidget(myApp(myState(api), const MyEinvoiceCreateScreen()));
+    await settle(tester);
+    await tapKey(tester, 'myCreate.type');
+    expect(find.text('Debit note'), findsWidgets);
+    expect(find.text('Self-billed invoice'), findsNothing);
+  });
+
+  testWidgets('a credit note against the monthly consolidated e-invoice starts with the general public as buyer', (tester) async {
+    final api = MyTestApi();
+    final record = MyEinvoice.fromJson({...api.books.malaysia.einvoices.firstWhere((row) => row['number'] == 'CON-2026-09'), 'kind': 'consolidated'});
+    await tester.pumpWidget(myApp(myState(api), MyEinvoiceCreateScreen(type: 'credit-note', original: record)));
+    await settle(tester);
+    expect(find.textContaining('General Public TIN EI00000000010'), findsOneWidget);
+  });
+
   testWidgets('the e-invoice form reads in Malay', (tester) async {
     await tester.pumpWidget(myApp(myState(MyTestApi()), const MyEinvoiceCreateScreen(), language: 'ms'));
     await settle(tester);

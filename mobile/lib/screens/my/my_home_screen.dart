@@ -9,6 +9,7 @@ import '../../my/my_tools.dart';
 import '../../tour/tour.dart';
 import 'my_einvoice_detail_screen.dart';
 import 'my_einvoice_list_screen.dart';
+import 'my_obligation_card.dart';
 import 'my_plan_screen.dart';
 import 'my_profile_screens.dart';
 import 'my_sst_screen.dart';
@@ -169,10 +170,8 @@ class _MyHomeScreenState extends State<MyHomeScreen> {
                       ],
                     ),
                   ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(2, 8, 2, 0),
-                    child: Text(t.exemptionNote, key: const Key('myHome.exemption'), style: text.bodySmall?.copyWith(color: palette.muted)),
-                  ),
+                  MySection(t.obligationTitle),
+                  MyObligationCard(business: widget.snapshot.company.name),
                   MySection(t.homeSst),
                   MyPanel(
                     child: Column(

@@ -9,6 +9,7 @@ import '../../my/my_tools.dart';
 import 'my_consolidated_screen.dart';
 import 'my_einvoice_create_screen.dart';
 import 'my_einvoice_detail_screen.dart';
+import 'my_self_billed_screen.dart';
 import 'my_widgets.dart';
 
 Future<(List<MyEinvoice>, bool)> loadMyEinvoices(AppState state) async {
@@ -51,10 +52,10 @@ Future<void> openNewEinvoice(BuildContext context) async {
             ),
             ListTile(
               key: const Key('myNew.selfBilled'),
-              enabled: false,
               leading: const Icon(Icons.assignment_return_outlined),
               title: Text(t.selfBilled),
-              subtitle: Text(t.comingSoon),
+              subtitle: Text(t.selfBilledNote),
+              onTap: () => Navigator.of(sheet).pop('selfBilled'),
             ),
             const SizedBox(height: 8),
           ],
@@ -63,7 +64,15 @@ Future<void> openNewEinvoice(BuildContext context) async {
     ),
   );
   if (picked == null || !context.mounted) return;
-  await Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => picked == 'consolidated' ? const MyConsolidatedScreen() : const MyEinvoiceCreateScreen()));
+  await Navigator.of(context).push(
+    MaterialPageRoute<void>(
+      builder: (_) => switch (picked) {
+        'consolidated' => const MyConsolidatedScreen(),
+        'selfBilled' => const MySelfBilledScreen(),
+        _ => const MyEinvoiceCreateScreen(),
+      },
+    ),
+  );
 }
 
 class MyEinvoiceTile extends StatelessWidget {
@@ -76,7 +85,7 @@ class MyEinvoiceTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = MyStrings.of(context);
     final text = Theme.of(context).textTheme;
-    final who = record.received ? record.supplierName : record.buyerName;
+    final who = record.counterparty;
     final totals = record.totals;
     return InkWell(
       key: Key('myList.${record.number}'),
