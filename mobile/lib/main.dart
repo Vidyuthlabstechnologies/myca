@@ -300,7 +300,9 @@ class TestServerBanner extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
           child: Text(
-            sandbox ? 'Sandbox mode: nothing is filed with the government yet' : 'Test environment: nothing is filed, paid or sent',
+            sandbox
+                ? myMalayOr(context, 'Sandbox mode: nothing is filed with the government yet', 'Mod kotak pasir: belum ada apa-apa difailkan kepada kerajaan')
+                : myMalayOr(context, 'Test environment: nothing is filed, paid or sent', 'Persekitaran ujian: tiada apa difailkan, dibayar atau dihantar'),
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.labelMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.w600),
           ),

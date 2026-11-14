@@ -203,6 +203,7 @@ class SampleMalaysia {
     final where = _map(party['address']);
     final country = '${where['country'] ?? 'MYS'}'.toUpperCase();
     if (!myCountries.contains(country)) add('address.country', 'an ISO 3166-1 alpha-3 code');
+    if (supplier && tin == myForeignSupplierTin && country == 'MYS') add('address.country', 'EI00000000030 is for a supplier outside Malaysia; give its country');
     final state = '${where['state'] ?? ''}'.padLeft(2, '0');
     if (country == 'MYS' && !(state == '17' || myStates.any((row) => row.$1 == state))) add('address.state', 'a Malaysian state name or LHDN state code 01 to 16');
     if ('${where['city'] ?? ''}'.trim().isEmpty) add('address.city', 'the city is required');
@@ -219,8 +220,9 @@ class SampleMalaysia {
     final currency = '${args['currency'] ?? 'MYR'}'.toUpperCase();
     if (!myCurrencies.contains(currency)) add('currency', 'an ISO 4217 code');
     if (currency != 'MYR' && !(_num(args['exchangeRate']) > 0)) add('exchangeRate', 'needed when the invoice is not in ringgit');
-    problems.addAll(_partyProblems(hasProfile ? profile : null, 'supplier', supplier: true));
-    problems.addAll(_partyProblems(args['buyer'], 'buyer', supplier: false));
+    final selfBilled = type.startsWith('self-billed');
+    problems.addAll(_partyProblems(selfBilled ? args['supplier'] : (hasProfile ? profile : null), 'supplier', supplier: true));
+    problems.addAll(_partyProblems(selfBilled ? (hasProfile ? profile : null) : args['buyer'], 'buyer', supplier: false));
     if (_adjustments.contains(type) && '${_map(args['original'])['uuid'] ?? ''}'.isEmpty) add('original.uuid', 'a credit, debit or refund note names the LHDN UUID of the e-invoice it adjusts');
     final lines = _maps(args['lines']);
     if (lines.isEmpty) add('lines', 'at least one line');
@@ -249,7 +251,8 @@ class SampleMalaysia {
   }
 
   Map<String, Object?> _check(Map<String, Object?> args) {
-    final (problems, totals) = _build(args);
+    final selfBilled = '${args['type'] ?? ''}'.startsWith('self-billed');
+    final (problems, totals) = _build(selfBilled && args['supplier'] is Map ? {...args, 'supplier': _selfBilledSupplier(args)} : args);
     if (problems.isNotEmpty) return _fail('EINVOICE_FIELDS_MISSING', {'problems': problems});
     return _ok({'ready': true, 'totals': {...totals, 'currency': '${args['currency'] ?? 'MYR'}'.toUpperCase()}});
   }
@@ -261,7 +264,11 @@ class SampleMalaysia {
     for (final row in docs) {
       if (row['status'] != 'submitted') continue;
       final buyerTin = '${row['buyerTin'] ?? ''}';
-      if (buyerTin.endsWith('0000')) {
+      final supplierTin = '${row['supplierTin'] ?? ''}';
+      if (row['kind'] == 'self-billed' && supplierTin.endsWith('0000') && !_specialTins.contains(supplierTin)) {
+        row['status'] = 'invalid';
+        row['errors'] = ['supplier.tin: LHDN could not match TIN $supplierTin to the supplier identification number (CF321)'];
+      } else if (buyerTin.endsWith('0000')) {
         row['status'] = 'invalid';
         row['errors'] = ['buyer.tin: LHDN could not match TIN $buyerTin to the buyer registration number (CF321)'];
       } else {
@@ -495,6 +502,7 @@ class SampleMalaysia {
             'status': row['status'],
             'issueDate': '${row['at'] ?? ''}'.split('T').first,
             'buyer': {'name': row['buyerName'], 'tin': row['buyerTin'] ?? ''},
+            'supplier': {'name': row['supplierName'], 'tin': row['supplierTin'] ?? profile['tin']},
             'payable': _map(row['totals'])['payable'],
             'currency': _map(row['totals'])['currency'] ?? 'MYR',
             'payableMyr': _map(row['totals'])['payable'],
@@ -582,15 +590,32 @@ class SampleMalaysia {
   Map<String, Object?> _required(Map<String, Object?> args) {
     final date = '${args['date'] ?? ''}';
     if (!RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(date)) return _fail('BAD_DATE', {'date': date});
-    final turnover = _num(args['annualTurnover']) + _num(args['relatedCompanyTurnover']);
-    final exemptBelow = date.compareTo('2026-09-01') >= 0 ? 3000000 : 1000000;
-    final exempt = turnover < exemptBelow;
+    bool amount(Object? value) => value is num && value.isFinite && value >= 0 && value <= 9999999999999;
+    if (!amount(args['annualTurnover'])) return _fail('BAD_AMOUNT', {'field': 'annualTurnover', 'hint': 'Annual turnover in ringgit, zero or more.'});
+    final related = args['relatedCompanyTurnover'];
+    if (related != null && !amount(related)) return _fail('BAD_AMOUNT', {'field': 'relatedCompanyTurnover'});
+    if (date.compareTo('2026-01-01') < 0) return _fail('RULE_NOT_IN_FORCE', {'ruleId': 'my.einvoice.mandate', 'date': date});
+    final relaxed = date.compareTo('2026-09-01') >= 0;
+    final exemptBelow = relaxed ? 3000000 : 1000000;
+    final turnover = _num(args['annualTurnover']);
+    final relatedBlocks = relaxed && related != null && _num(related) >= 3000000;
+    final exempt = turnover < exemptBelow && !relatedBlocks;
+    const phases = [(100000000, '2024-08-01'), (25000000, '2025-01-01'), (5000000, '2025-07-01'), (1000000, '2026-01-01')];
+    final phase = phases.firstWhere((entry) => turnover > entry.$1, orElse: () => phases.last);
+    final required = !exempt && date.compareTo(phase.$2) >= 0;
     return _ok({
-      'required': !exempt,
+      'required': required,
       'exempt': exempt,
-      'startsFrom': exempt ? '' : '2025-07-01',
-      'why': exempt ? 'Annual turnover is below RM${exemptBelow ~/ 1000000} million, so the business is exempt.' : 'Annual turnover is RM${exemptBelow ~/ 1000000} million or more, so e-invoicing applies.',
-      'unreviewed': true,
+      'exemptBelow': exemptBelow,
+      'startsFrom': exempt ? null : phase.$2,
+      'why': relatedBlocks
+          ? 'A related, holding or shareholder company has turnover of RM3 million or more, so the small-business exemption does not apply.'
+          : exempt
+          ? 'Annual turnover below RM${exemptBelow == 3000000 ? '3,000,000' : '1,000,000'} is exempt from e-invoicing.'
+          : 'E-invoicing applies from ${phase.$2} for this turnover.',
+      'ruleId': 'my.einvoice.mandate',
+      'effectiveFrom': relaxed ? '2026-09-01' : '2026-01-01',
+      'unreviewed': false,
     });
   }
 
@@ -690,11 +715,28 @@ class SampleMalaysia {
         ];
         figures = totals;
       case 'issue_my_self_billed_einvoice':
-        final (problems, totals) = _build({...args, 'buyer': profile, 'type': args['type'] ?? 'self-billed-invoice'});
-        blockers.addAll([for (final row in problems) if (!'${row['field']}'.startsWith('buyer.')) '${row['field']}: ${row['why']}']);
-        if (args['supplier'] is! Map) blockers.add('supplier: the supplier the business pays: a foreign supplier, an agent, a dealer or an individual');
-        summary = 'Send self-billed e-invoice ${args['number']} for RM${totals['payable']!.toStringAsFixed(2)} to LHDN MyInvois.';
-        effects = ['The business issues it as the buyer, on behalf of the supplier named.'];
+        final type = '${args['type'] ?? 'self-billed-invoice'}';
+        if (!type.startsWith('self-billed')) {
+          blockers.add('type: one of self-billed-invoice, self-billed-credit-note, self-billed-debit-note, self-billed-refund-note');
+          code = 'BAD_TYPE';
+        } else if (!hasProfile) {
+          blockers.add('Save the business\'s MyInvois details with set_my_einvoice_profile first; on a self-billed e-invoice the business is the buyer that issues it.');
+          code = 'EINVOICE_PROFILE_MISSING';
+        } else if (args['supplier'] is! Map) {
+          blockers.add('supplier: the supplier the business pays: a foreign supplier, an agent, a dealer or an individual');
+        } else {
+          final (problems, _) = _build({...args, 'supplier': _selfBilledSupplier(args), 'type': type});
+          blockers.addAll([for (final row in problems) '${row['field']}: ${row['why']}']);
+        }
+        final (_, totals) = _build({...args, 'type': type});
+        final currency = '${args['currency'] ?? 'MYR'}'.toUpperCase();
+        final rate = _num(args['exchangeRate']);
+        summary = 'Send self-billed e-invoice ${args['number']} for ${currency == 'MYR' ? 'RM' : '$currency '}${totals['payable']!.toStringAsFixed(2)}${currency != 'MYR' && rate > 0 ? ' (RM${_round2(totals['payable']! * rate).toStringAsFixed(2)} at $rate)' : ''} to LHDN MyInvois.';
+        effects = [
+          if (_selfBilledSupplier(args)['tin'] == myForeignSupplierTin) 'The foreign supplier gets the general foreign-supplier TIN EI00000000030.',
+          'The business issues it as the buyer, on behalf of the supplier named.',
+          'This goes to the built-in MyInvois sandbox; nothing reaches LHDN.',
+        ];
         figures = totals;
       case 'simulate_my_received_einvoice':
         summary = 'Pretend supplier ${_map(args['supplier'])['name'] ?? ''} sent e-invoice ${args['number'] ?? ''} to the business.';
@@ -857,16 +899,37 @@ class SampleMalaysia {
     return {'ok': true, 'simulated': true, 'data': {...record, 'late': late, 'due': due}};
   }
 
+  Map<String, dynamic> _selfBilledSupplier(Map<String, Object?> args) {
+    final given = _map(args['supplier']);
+    final address = _map(given['address']);
+    final country = '${address['country'] ?? 'MYS'}'.toUpperCase();
+    final foreign = country != 'MYS';
+    return {
+      ...given,
+      'tin': '${given['tin'] ?? ''}'.trim().isEmpty ? (foreign ? myForeignSupplierTin : '') : '${given['tin']}'.trim().toUpperCase(),
+      'msic': '${given['msic'] ?? ''}'.isEmpty ? '00000' : given['msic'],
+      'idType': given['idType'] ?? (foreign ? 'PASSPORT' : 'BRN'),
+      'idValue': '${given['idValue'] ?? ''}'.isEmpty ? (foreign ? 'NA' : '') : given['idValue'],
+      'address': {...address, 'country': country, if (foreign && address['state'] == null) 'state': '17'},
+    };
+  }
+
   Map<String, Object?> _issueSelfBilled(Map<String, Object?> args) {
+    if (!hasProfile) return _fail('EINVOICE_PROFILE_MISSING', {'hint': 'Save the business\'s MyInvois details with set_my_einvoice_profile first.'});
+    final type = '${args['type'] ?? 'self-billed-invoice'}';
+    final supplier = _selfBilledSupplier(args);
+    final (problems, totals) = _build({...args, 'supplier': supplier, 'type': type});
+    if (problems.isNotEmpty) return _fail('EINVOICE_FIELDS_MISSING', {'problems': problems});
     final number = '${args['number'] ?? ''}'.trim();
-    final (_, totals) = _build({...args, 'buyer': profile, 'type': args['type'] ?? 'self-billed-invoice'});
-    final supplier = _map(args['supplier']);
+    final existing = einvoices.where((row) => row['number'] == number && row['direction'] == 'issued' && row['status'] != 'rejected' && row['status'] != 'cancelled');
+    if (existing.isNotEmpty) return _fail('EINVOICE_ALREADY_SENT', {'number': number, 'uuid': existing.first['uuid'], 'status': existing.first['status']});
+    final rejected = number.toUpperCase().contains('REJECT');
     final record = <String, dynamic>{
       'number': number,
       'submissionUid': sampleUid('sub$number${clock().microsecondsSinceEpoch}'),
-      'uuid': sampleUid('doc$number${clock().microsecondsSinceEpoch}'),
-      'status': 'submitted',
-      'errors': const <String>[],
+      'uuid': rejected ? '' : sampleUid('doc$number${clock().microsecondsSinceEpoch}'),
+      'status': rejected ? 'rejected' : 'submitted',
+      'errors': rejected ? ['DS302: The document structure is not valid for MyInvois version 1.1'] : const <String>[],
       'totals': {...totals, 'currency': '${args['currency'] ?? 'MYR'}'.toUpperCase()},
       'environment': 'sandbox',
       'at': clock().toUtc().toIso8601String(),
@@ -874,12 +937,15 @@ class SampleMalaysia {
       'link': '',
       'buyerName': '${profile['name'] ?? sampleMalaysiaCompany}',
       'supplierName': '${supplier['name'] ?? ''}',
+      'supplierTin': '${supplier['tin'] ?? ''}',
       'direction': 'issued',
-      'type': '${args['type'] ?? 'self-billed-invoice'}',
+      'type': type,
       'kind': 'self-billed',
+      if (args['original'] is Map) 'original': args['original'],
     };
     einvoices.insert(0, record);
-    return {'ok': true, 'simulated': true, 'data': record};
+    if (rejected) return {'ok': false, 'error': 'EINVOICE_REJECTED', 'lhdn': record['errors'], 'simulated': true, 'data': record};
+    return {'ok': true, 'simulated': true, 'data': record, 'hint': 'LHDN validates asynchronously; ask my_einvoice_status with the submission UID.'};
   }
 
   Map<String, Object?> _simulateReceived(Map<String, Object?> args) {

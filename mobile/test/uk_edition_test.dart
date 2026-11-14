@@ -111,7 +111,9 @@ void main() {
     expect(funnelEdition('uk'), 'uk');
     expect(funnelEdition('US'), 'us');
     expect(funnelEdition('IN'), 'india');
-    expect(funnelEdition('AE'), 'india');
+    expect(funnelEdition('AE'), 'ae');
+    expect(funnelEdition('MY'), 'my');
+    expect(FunnelTracker(store: MemoryFunnelStore(), edition: 'AE').active, isFalse);
     final off = FunnelTracker(store: MemoryFunnelStore(), edition: 'GB');
     expect(off.edition, 'uk');
     expect(off.active, isFalse);

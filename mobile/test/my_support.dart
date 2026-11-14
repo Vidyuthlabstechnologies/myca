@@ -4,6 +4,7 @@ import 'package:myca/api/models.dart';
 import 'package:myca/api/myca_api.dart';
 import 'package:myca/app_state.dart';
 import 'package:myca/my/my_strings.dart';
+import 'package:myca/my/my_turnover.dart';
 import 'package:myca/tour/sample_books_api.dart';
 import 'package:myca_design/myca_design.dart' show MycaDesign;
 
@@ -91,15 +92,18 @@ class MemoryLanguageStore implements LanguageStore {
   Future<void> save(String code) async => this.code = code;
 }
 
-AppState myState(MycaApi api, {bool welcomed = true, String language = '', DateTime? now, Future<bool> Function(String text)? share}) => AppState(
-  api: api,
-  store: MemoryOnboardingStore(isWelcomed: welcomed, isMigrated: welcomed),
-  pickTextFile: (_) async => null,
-  now: () => now ?? myNow,
-  edition: 'MY',
-  languages: MemoryLanguageStore(language),
-  shareText: share ?? (_) async => true,
-);
+AppState myState(MycaApi api, {bool welcomed = true, String language = '', DateTime? now, Future<bool> Function(String text)? share, MyTurnoverStore? turnover}) {
+  myTurnoverStore = turnover ?? MemoryMyTurnoverStore();
+  return AppState(
+    api: api,
+    store: MemoryOnboardingStore(isWelcomed: welcomed, isMigrated: welcomed),
+    pickTextFile: (_) async => null,
+    now: () => now ?? myNow,
+    edition: 'MY',
+    languages: MemoryLanguageStore(language),
+    shareText: share ?? (_) async => true,
+  );
+}
 
 Widget myApp(AppState state, Widget home, {String language = 'en', bool dark = false, double textScale = 1}) => AppScope(
   state: state,

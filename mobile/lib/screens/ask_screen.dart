@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../api/myca_api.dart';
 import '../app_state.dart';
 import '../format.dart';
+import '../my/my_strings.dart';
 import '../proposal_flow.dart';
 import '../marks.dart';
 import '../theme.dart';
@@ -132,7 +133,7 @@ class _AskScreenState extends State<AskScreen> with ProposalFlow {
                                 onPressed: () => reportAnswer(context, entry.text),
                                 style: TextButton.styleFrom(foregroundColor: Palette.muted, visualDensity: VisualDensity.compact),
                                 icon: const Icon(Icons.flag_outlined, size: 16),
-                                label: const Text('Report this answer'),
+                                label: Text(myMalayOr(context, 'Report this answer', 'Laporkan jawapan ini')),
                               ),
                             ],
                           ),
@@ -189,9 +190,14 @@ class _AskScreenState extends State<AskScreen> with ProposalFlow {
 
 const answerReportReasons = ['Wrong or misleading', 'Harmful or offensive', 'Something else'];
 
+const _answerReportReasonsMalay = {'Wrong or misleading': 'Salah atau mengelirukan', 'Harmful or offensive': 'Berbahaya atau menyinggung', 'Something else': 'Lain-lain'};
+
 Future<void> reportAnswer(BuildContext context, String answer) async {
   final state = AppScope.of(context);
   final messenger = ScaffoldMessenger.of(context);
+  String w(String english, String malay) => myMalayOr(context, english, malay);
+  final thanks = w('Thank you. The answer was reported for review.', 'Terima kasih. Jawapan ini telah dilaporkan untuk disemak.');
+  final failed = w('Could not send the report. Try again when you are online.', 'Laporan tidak dapat dihantar. Cuba lagi apabila anda dalam talian.');
   final reason = await showModalBottomSheet<String>(
     context: context,
     showDragHandle: true,
@@ -202,14 +208,14 @@ Future<void> reportAnswer(BuildContext context, String answer) async {
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 4),
-            child: Text('Report this answer', style: Theme.of(context).textTheme.titleMedium),
+            child: Text(w('Report this answer', 'Laporkan jawapan ini'), style: Theme.of(context).textTheme.titleMedium),
           ),
-          const Padding(
-            padding: EdgeInsets.fromLTRB(20, 0, 20, 8),
-            child: Text('Tell us what is wrong. The answer is sent to MyCA for review, without your books.'),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+            child: Text(w('Tell us what is wrong. The answer is sent to MyCA for review, without your books.', 'Beritahu kami apa yang salah. Jawapan ini dihantar kepada MyCA untuk disemak, tanpa buku akaun anda.')),
           ),
           for (final reason in answerReportReasons)
-            ListTile(key: ValueKey('ask.reason.$reason'), title: Text(reason), onTap: () => Navigator.of(context).pop(reason)),
+            ListTile(key: ValueKey('ask.reason.$reason'), title: Text(w(reason, _answerReportReasonsMalay[reason] ?? reason)), onTap: () => Navigator.of(context).pop(reason)),
           const SizedBox(height: 8),
         ],
       ),
@@ -217,5 +223,5 @@ Future<void> reportAnswer(BuildContext context, String answer) async {
   );
   if (reason == null) return;
   final sent = await state.reportAnswer(answer: answer, reason: reason);
-  messenger.showSnackBar(SnackBar(content: Text(sent ? 'Thank you. The answer was reported for review.' : 'Could not send the report. Try again when you are online.')));
+  messenger.showSnackBar(SnackBar(content: Text(sent ? thanks : failed)));
 }

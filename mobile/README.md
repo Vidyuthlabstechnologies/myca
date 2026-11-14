@@ -82,12 +82,16 @@ the shape of what is typed (TIN, MyKad, BRN, postcode, phone, amounts, dates).
 | `lib/my/my_strings.dart` | Every MY string in English and Malay |
 | `lib/my/my_tools.dart` | Calls to the MY tools and their response models |
 | `lib/my/my_codes.dart`, `lib/my/my_code_tables.dart`, `assets/my/msic.json` | LHDN code tables for the pickers (states, tax types, units, classifications, currencies, countries, 1,175 MSIC codes) |
-| `lib/screens/my/` | Welcome, business setup and details (`validate_my_tin`, `set_my_einvoice_profile`), home, e-invoice create, check, send, status, QR and share, cancel within 72 hours with a countdown, credit note after it; e-invoice list (sent from `my_einvoices`, received from `my_received_einvoices` with reject), monthly consolidated e-invoice (`issue_my_consolidated_einvoice`, late reason), SST registration and SST-02, income tax estimator, plans |
+| `lib/screens/my/` | Welcome, business setup and details (`validate_my_tin`, `set_my_einvoice_profile`), home with the e-invoice obligation card (`my_einvoice_required`), e-invoice create, check, send, status, QR and share, cancel within 72 hours with a countdown, credit, debit and refund notes against any validated e-invoice; self-billed e-invoices and notes for a foreign supplier, an individual or an agent (`issue_my_self_billed_einvoice`); e-invoice list (sent from `my_einvoices`, received from `my_received_einvoices` with reject), monthly consolidated e-invoice (`issue_my_consolidated_einvoice`, late reason), SST registration and SST-02, income tax estimator, plans |
 | `lib/tour/sample_malaysia.dart` | Sandbox books for every MY tool |
 | `tool/my_screenshots_test.dart` | Renders the MY screens to `build/my_screens/390x844/` and `build/my_screens/360x640/` (not committed) |
 
-Self-billed e-invoices (`issue_my_self_billed_einvoice`) have a place in the new e-invoice choice
-but no form yet. The income tax estimate always says it is not yet reviewed by a Malaysian tax agent
+The home asks once for the annual turnover (and the highest related, holding or shareholder company
+turnover), keeps it on the phone per business, and shows whether e-invoicing is required or exempt
+and why: exempt below RM3 million from 1 September 2026 (RM1 million before), unless a related
+company has RM3 million or more. The shared sign-in, privacy notice, name, invitation, test banner
+and Report this answer screens read in Malay when the MY app is set to Bahasa Melayu; the MY sign-in
+uses Google first and `+60` for a mobile number. The income tax estimate always says it is not yet reviewed by a Malaysian tax agent
 and that it is prepared in MyCA and filed by the taxpayer in MyTax. Plans are RM299, RM699 and
 RM1,999 a year through Google Play (products `myca_my_starter_yearly`, `myca_my_business_yearly`,
 `myca_my_pro_yearly`).
@@ -109,7 +113,11 @@ supplier. In the sandbox, and in the tests that use the same books:
 - an invoice number containing `REJECT` is rejected by LHDN (DS302);
 - a consolidated line whose largest receipt is above RM10,000 is refused;
 - a consolidated month more than 7 days after it ended needs the late reason;
-- a number already sent is refused (`EINVOICE_ALREADY_SENT`).
+- a number already sent is refused (`EINVOICE_ALREADY_SENT`), self-billed ones included;
+- a self-billed e-invoice to a supplier TIN ending `0000` comes back invalid (CF321), and one whose
+  number contains `REJECT` is rejected (DS302);
+- `my_einvoice_required` mirrors the rule: RM3 million exemption from 1 September 2026, RM1 million
+  before, no rule before 2026, and a related company at RM3 million or more removes the exemption.
 
 ### Malay strings for native review
 

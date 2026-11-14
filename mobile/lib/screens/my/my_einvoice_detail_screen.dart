@@ -11,6 +11,7 @@ import '../../my/my_strings.dart';
 import '../../my/my_tools.dart';
 import '../../widgets/qr_image.dart';
 import 'my_einvoice_create_screen.dart';
+import 'my_self_billed_screen.dart';
 import 'my_widgets.dart';
 
 String myDateTime(String iso) {
@@ -184,7 +185,7 @@ class _MyEinvoiceDetailScreenState extends State<MyEinvoiceDetailScreen> {
     final totals = record.totals;
     final money = totals == null || totals.currency == 'MYR' ? ringgit : (num value) => '${totals.currency} ${value.toStringAsFixed(2)}';
     final (body, tone) = switch (record.status) {
-      'valid' => (t.statusValidBody, MyTone.good),
+      'valid' => (record.selfBilled ? t.statusValidSelfBilledBody : t.statusValidBody, MyTone.good),
       'invalid' => (t.statusInvalidBody, MyTone.danger),
       'rejected' => (t.statusRejectedBody, MyTone.danger),
       'rejection requested' => (t.statusRejectionRequestedBody, MyTone.warn),
@@ -215,9 +216,9 @@ class _MyEinvoiceDetailScreenState extends State<MyEinvoiceDetailScreen> {
                     ),
                     const SizedBox(height: 8),
                     Text(record.number, style: text.headlineSmall),
-                    if ((record.received ? record.supplierName : record.buyerName).isNotEmpty) ...[
+                    if (record.counterparty.isNotEmpty) ...[
                       const SizedBox(height: 4),
-                      Text('${record.received ? t.supplier : t.buyer}: ${record.received ? record.supplierName : record.buyerName}', style: text.bodyLarge),
+                      Text('${record.showsSupplier ? t.supplier : t.buyer}: ${record.counterparty}', style: text.bodyLarge),
                     ],
                     if (totals != null) ...[
                       const SizedBox(height: 8),
@@ -275,20 +276,27 @@ class _MyEinvoiceDetailScreenState extends State<MyEinvoiceDetailScreen> {
                       child: Text(record.received ? t.rejectEinvoice : t.cancelEinvoice),
                     ),
                   ),
-                ] else ...[
+                ] else
                   MyNote(t.cancelClosed, tone: MyTone.warn, icon: Icons.lock_clock_outlined),
-                  if (!record.received) ...[
-                    const SizedBox(height: 8),
-                    SizedBox(
+              ],
+              if (record.adjustable) ...[
+                MySection(t.adjustTitle),
+                MyNote(t.adjustNote),
+                const SizedBox(height: 8),
+                for (final (note, key, label) in [('credit-note', 'creditNote', t.issueCreditNote), ('debit-note', 'debitNote', t.issueDebitNote), ('refund-note', 'refundNote', t.issueRefundNote)])
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: SizedBox(
                       width: double.infinity,
-                      child: FilledButton(
-                        key: const Key('myDetail.creditNote'),
-                        onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => MyEinvoiceCreateScreen(type: 'credit-note', original: record))),
-                        child: Text(t.issueCreditNote),
+                      child: OutlinedButton(
+                        key: Key('myDetail.$key'),
+                        onPressed: () => Navigator.of(context).push(
+                          MaterialPageRoute<void>(builder: (_) => record.selfBilled ? MySelfBilledScreen(type: 'self-billed-$note', original: record) : MyEinvoiceCreateScreen(type: note, original: record)),
+                        ),
+                        child: Text(label, textAlign: TextAlign.center),
                       ),
                     ),
-                  ],
-                ],
+                  ),
               ],
               MySection(t.submission),
               if (record.uuid.isNotEmpty) _Meta(label: t.uuid, value: record.uuid),

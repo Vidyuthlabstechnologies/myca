@@ -296,6 +296,8 @@ class MyStrings {
     'RULE_NOT_IN_FORCE' || 'BAD_YEAR_OF_ASSESSMENT' => ruleMissing,
     'BAD_PERIOD' => _t('A taxable period is two months, such as January and February.', 'Tempoh bercukai ialah dua bulan, seperti Januari dan Februari.'),
     'BAD_DATE' => dateBad,
+    'BAD_AMOUNT' => turnoverBad,
+    'BAD_TYPE' => _t('Choose the kind of document again.', 'Pilih jenis dokumen sekali lagi.'),
     'LINES_NEED_FIXING' => _t('Some lines need fixing.', 'Beberapa butiran perlu dibetulkan.'),
     'UNKNOWN_SERVICE_CATEGORY' => _t('Choose the kind of service again.', 'Pilih jenis perkhidmatan sekali lagi.'),
     'SALES_TAX_RATE_NOT_IN_FORCE' => _t('That sales tax rate is not in force on that date.', 'Kadar cukai jualan itu tidak berkuat kuasa pada tarikh itu.'),
@@ -355,6 +357,7 @@ class MyStrings {
   String get total => _t('Total', 'Jumlah');
   String get refreshStatus => _t('Check the status again', 'Semak status sekali lagi');
   String get checkingStatus => _t('Asking LHDN…', 'Bertanya kepada LHDN…');
+  String get statusValidSelfBilledBody => _t('LHDN has validated this self-billed e-invoice. Share the QR code or link with your supplier.', 'LHDN telah mengesahkan e-Invois bil kendiri ini. Kongsi kod QR atau pautan dengan pembekal anda.');
   String get statusValidBody => _t('LHDN has validated this e-invoice. Share the QR code or link with your buyer.', 'LHDN telah mengesahkan e-Invois ini. Kongsi kod QR atau pautan dengan pembeli anda.');
   String get statusInvalidBody => _t('LHDN found problems. Fix them and send it again as a new e-invoice.', 'LHDN menemui masalah. Betulkan dan hantar semula sebagai e-Invois baharu.');
   String get statusProgressBody => _t('LHDN is still validating it. This usually takes a few seconds.', 'LHDN masih mengesahkannya. Biasanya ini mengambil masa beberapa saat.');
@@ -558,7 +561,58 @@ class MyStrings {
   String get einvoiceToBuyerNote => _t('A business, a person who asks for one, or a foreign buyer.', 'Perniagaan, individu yang memintanya, atau pembeli asing.');
   String get consolidatedNoteShort => _t('One e-invoice to the general public for a month of receipts.', 'Satu e-Invois kepada orang awam bagi resit sebulan.');
   String get selfBilled => _t('Self-billed e-invoice', 'e-Invois bil kendiri');
-  String get comingSoon => _t('Coming to the app soon. Ask Bahi meanwhile.', 'Akan tiba dalam aplikasi tidak lama lagi. Tanya Bahi buat masa ini.');
+  String get selfBilledNote => _t('When you buy from a foreign supplier, an agent, a dealer or an individual who does not issue e-invoices.', 'Apabila anda membeli daripada pembekal asing, ejen, pengedar atau individu yang tidak mengeluarkan e-Invois.');
+  String get selfBilledIntro => _t(
+    'Here your business is the buyer. LHDN lets you issue the e-invoice on the supplier\'s behalf when they do not issue one: a foreign supplier, an agent, dealer or distributor, or an individual.',
+    'Di sini perniagaan anda ialah pembeli. LHDN membenarkan anda mengeluarkan e-Invois bagi pihak pembekal apabila mereka tidak mengeluarkannya: pembekal asing, ejen, pengedar atau individu.',
+  );
+  String supplierKindName(String kind) => switch (kind) {
+    'foreign' => _t('Foreign supplier', 'Pembekal asing'),
+    'individual' => _t('Individual in Malaysia', 'Individu di Malaysia'),
+    'business' => _t('Agent or dealer', 'Ejen atau pengedar'),
+    _ => kind,
+  };
+  String get supplierNameMissing => _t('Enter the supplier name.', 'Masukkan nama pembekal.');
+  String get supplierTinMissing => _t('Enter the supplier TIN.', 'Masukkan TIN pembekal.');
+  String get foreignSupplierNote => _t('LHDN\'s foreign supplier TIN EI00000000030 is used unless the supplier has a Malaysian TIN.', 'TIN pembekal asing LHDN EI00000000030 digunakan melainkan pembekal mempunyai TIN Malaysia.');
+  String get foreignSupplierTin => _t('Malaysian TIN (optional)', 'TIN Malaysia (pilihan)');
+  String get foreignSupplierTinHelp => _t('Leave empty to use EI00000000030', 'Biarkan kosong untuk menggunakan EI00000000030');
+  String get supplierCountryBad => _t('Give the supplier\'s country, not Malaysia. Use the three-letter ISO code, e.g. CHN or USA.', 'Nyatakan negara pembekal, bukan Malaysia. Gunakan kod ISO tiga huruf, contohnya CHN atau USA.');
+  String get supplierPhoneMissing => _t('Enter the supplier\'s phone number. LHDN needs it on a self-billed e-invoice.', 'Masukkan nombor telefon pembekal. LHDN memerlukannya pada e-Invois bil kendiri.');
+  String get selfBilledProfileNeeded => _t('Save your business details first. On a self-billed e-invoice your business is the buyer.', 'Simpan butiran perniagaan anda dahulu. Pada e-Invois bil kendiri, perniagaan anda ialah pembeli.');
+  String get confirmSelfBilledTitle => _t('Send this self-billed e-invoice to LHDN?', 'Hantar e-Invois bil kendiri ini ke LHDN?');
+  String onBehalfOf(String supplier) => _t('You issue it as the buyer, on behalf of $supplier.', 'Anda mengeluarkannya sebagai pembeli, bagi pihak $supplier.');
+  String get adjustTitle => _t('Adjust this e-invoice', 'Laraskan e-Invois ini');
+  String get adjustNote => _t(
+    'A credit note lowers the amount, a debit note adds to it, and a refund note records money paid back. Each one names this e-invoice\'s LHDN UUID.',
+    'Nota kredit mengurangkan amaun, nota debit menambahnya, dan nota bayaran balik merekodkan wang yang dipulangkan. Setiap satu menamakan UUID LHDN e-Invois ini.',
+  );
+  String get issueDebitNote => _t('Issue a debit note', 'Keluarkan nota debit');
+  String get issueRefundNote => _t('Issue a refund note', 'Keluarkan nota bayaran balik');
+  String get obligationTitle => _t('Must you send e-invoices?', 'Perlukah anda menghantar e-Invois?');
+  String get obligationAsk => _t('Enter your annual turnover once and MyCA tells you whether LHDN e-invoicing applies to you.', 'Masukkan jualan tahunan anda sekali dan MyCA akan memberitahu sama ada e-Invois LHDN terpakai kepada anda.');
+  String get enterTurnover => _t('Enter annual turnover', 'Masukkan jualan tahunan');
+  String get changeTurnover => _t('Change turnover', 'Tukar jualan tahunan');
+  String get turnoverSheetTitle => _t('Your annual turnover', 'Jualan tahunan anda');
+  String get turnoverLabel => _t('Annual turnover (RM)', 'Jualan tahunan (RM)');
+  String get turnoverHelp => _t('Sales for your latest financial year, before tax', 'Jualan bagi tahun kewangan terkini, sebelum cukai');
+  String get relatedLabel => _t('Related company turnover (RM)', 'Jualan syarikat berkaitan (RM)');
+  String get relatedHelp => _t('Optional. The highest of any related, holding or shareholder company. At RM3 million or more the small-business exemption does not apply.', 'Pilihan. Yang tertinggi antara syarikat berkaitan, pegangan atau pemegang saham. Pada RM3 juta atau lebih, pengecualian perniagaan kecil tidak terpakai.');
+  String get turnoverBad => _t('Enter the turnover in ringgit, zero or more.', 'Masukkan jualan dalam ringgit, sifar atau lebih.');
+  String get obligationRequired => _t('Required', 'Wajib');
+  String get obligationExempt => _t('Exempt', 'Dikecualikan');
+  String get obligationLaterChip => _t('Not yet', 'Belum lagi');
+  String get obligationRequiredTitle => _t('e-Invoicing applies to you', 'e-Invois terpakai kepada anda');
+  String get obligationExemptTitle => _t('You are exempt from e-invoicing', 'Anda dikecualikan daripada e-Invois');
+  String obligationLaterTitle(String date) => _t('e-Invoicing applies to you from $date', 'e-Invois terpakai kepada anda mulai $date');
+  String reasonExempt(String turnover, String limit) => _t('Your annual turnover of $turnover is below the $limit exemption limit.', 'Jualan tahunan anda sebanyak $turnover adalah di bawah had pengecualian $limit.');
+  String reasonRequired(String turnover, String limit) => _t('Your annual turnover of $turnover is at or above the $limit exemption limit.', 'Jualan tahunan anda sebanyak $turnover adalah pada atau melebihi had pengecualian $limit.');
+  String get reasonRelated => _t(
+    'Your own turnover is below the limit, but a related, holding or shareholder company has RM3 million or more, so the exemption does not apply.',
+    'Jualan anda sendiri di bawah had, tetapi syarikat berkaitan, pegangan atau pemegang saham mempunyai RM3 juta atau lebih, jadi pengecualian tidak terpakai.',
+  );
+  String get obligationRuleMissing => _t('MyCA has no checked e-invoice rule for that date yet.', 'MyCA belum mempunyai peraturan e-Invois yang disemak bagi tarikh itu.');
+  String get exemptStillSend => _t('You can still send e-invoices if your buyers ask for them.', 'Anda masih boleh menghantar e-Invois jika pembeli memintanya.');
   String get useConsolidated => _t('Make the monthly consolidated e-invoice instead', 'Buat e-Invois disatukan bulanan');
   String get consolidatedTitle => _t('Monthly consolidated e-invoice', 'e-Invois disatukan bulanan');
   String get consolidatedIntro => _t(
@@ -582,6 +636,8 @@ class MyStrings {
   String get next12 => _t('Expected in the next 12 months (optional)', 'Dijangka dalam 12 bulan akan datang (pilihan)');
   String get receivedNote => _t('A received e-invoice can be rejected once, within 72 hours of validation. It stays valid until the supplier cancels it.', 'e-Invois yang diterima boleh ditolak sekali, dalam 72 jam selepas pengesahan. Ia kekal sah sehingga pembekal membatalkannya.');
 }
+
+String myMalayOr(BuildContext context, String english, String malay) => Localizations.of<MyStrings>(context, MyStrings)?.ms == true ? malay : english;
 
 class _MyStringsDelegate extends LocalizationsDelegate<MyStrings> {
   const _MyStringsDelegate();
