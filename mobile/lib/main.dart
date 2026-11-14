@@ -39,6 +39,7 @@ import 'shared_file.dart';
 import 'theme.dart';
 import 'tour/tour.dart';
 import 'tour/tour_coach.dart';
+import 'uae/uae_format.dart';
 
 void main() {
   LicenseRegistry.addLicense(() async* {
@@ -179,7 +180,10 @@ class _MycaAppState extends State<MycaApp> with WidgetsBindingObserver {
             scaffoldMessengerKey: _messenger,
             title: 'MyCA',
             debugShowCheckedModeBanner: false,
-            theme: widget.state.edition == 'US' ? MycaDesign.forFlavor('us').light : mycaTheme(),
+            theme: widget.state.edition == 'AE' ? uaeDesign.light : widget.state.edition == 'US' ? MycaDesign.forFlavor('us').light : mycaTheme(),
+            localizationsDelegates: widget.state.edition == 'AE' ? MycaDesign.localizationsDelegates : null,
+            supportedLocales: widget.state.edition == 'AE' ? uaeDesign.supportedLocales : const [Locale('en', 'US')],
+            localeResolutionCallback: widget.state.edition == 'AE' ? uaeResolveLocale : null,
             builder: (context, child) => ListenableBuilder(
               listenable: widget.state,
               builder: (context, _) => Stack(

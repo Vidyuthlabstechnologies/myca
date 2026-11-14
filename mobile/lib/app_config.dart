@@ -29,5 +29,6 @@ class AppConfig {
 
 String editionFor(String? flavor, {String defined = const String.fromEnvironment('MYCA_EDITION')}) {
   final pick = (defined.isNotEmpty ? defined : flavor ?? '').toUpperCase();
+  if (pick == 'AE' || pick == 'UAE') return 'AE';
   return pick == 'US' ? 'US' : 'IN';
 }

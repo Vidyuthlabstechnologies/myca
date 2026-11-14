@@ -21,6 +21,12 @@ export const MANIFEST = Object.freeze({
   ]),
   tools: Object.freeze([
     Object.freeze({
+      name: 'ae_business_profile', title: 'The saved UAE business profile',
+      description: 'Read the business profile saved with set_ae_business_profile: legal names, TRN, trade licence, emirate, address, free zone and financial year end. Empty when none is saved. Read-only.',
+      access: 'read',
+      schema: schema({}),
+    }),
+    Object.freeze({
       name: 'ae_ct_estimate', title: 'Estimate UAE corporate tax',
       description: 'Corporate tax for one tax period: 0% up to AED 375,000 and 9% above, Small Business Relief when elected and open, Qualifying Free Zone Person at 0% on qualifying income, brought-forward losses capped at 75%, and the due date nine months after the period. The business files on EmaraTax. Read-only.',
       access: 'read',
