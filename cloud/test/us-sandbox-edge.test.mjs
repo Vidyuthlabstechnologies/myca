@@ -172,15 +172,18 @@ test('a payment covers only its own household and tax year', async () => {
   const other = await household('+919400000304', 'Morgan Diaz');
   await payFor(who, year);
   assert.equal((await get(who, `us-return-purchase?taxYear=${year}`)).body.paid, true);
-  assert.equal((await get(who, `us-return-purchase?taxYear=${year - 1}`)).body.paid, false, 'last year is not paid for by this year\'s fee');
+  assert.equal((await get(who, `us-return-purchase?taxYear=${year + 1}`)).body.paid, false, 'next year is not paid for by this year\'s fee');
   assert.equal((await get(other, `us-return-purchase?taxYear=${year}`)).body.paid, false, 'another household is not paid for');
-  assert.equal((await post(who, 'propose', { name: 'file_us_return', args: { taxYear: year - 1 } })).body.error, 'US_RETURN_UNPAID');
+  assert.equal((await post(who, 'propose', { name: 'file_us_return', args: { taxYear: year + 1 } })).body.error, 'US_RETURN_UNPAID');
   assert.equal((await post(other, 'propose', { name: 'file_us_return', args: { taxYear: year } })).body.error, 'US_RETURN_UNPAID');
-  const stolen = paid(await startCheckout(who, year - 1));
+  const stolen = paid(await startCheckout(who, year + 1));
   assert.equal((await post(other, 'us-checkout-confirm', { sessionId: stolen.id })).body.error, 'PURCHASE_BELONGS_TO_ANOTHER_BUSINESS');
-  assert.equal((await get(other, `us-return-purchase?taxYear=${year - 1}`)).body.paid, false);
+  assert.equal((await get(other, `us-return-purchase?taxYear=${year + 1}`)).body.paid, false);
   assert.equal((await post(who, 'us-checkout', { product: 'return', taxYear: year + 2 })).body.error, 'BAD_TAX_YEAR', 'a year after the current one cannot be bought');
   assert.equal((await post(who, 'us-checkout', { product: 'return', taxYear: year - 4 })).body.error, 'BAD_TAX_YEAR', 'nor one more than three years back');
+  const unsupported = await post(who, 'us-checkout', { product: 'return', taxYear: year - 1 });
+  assert.equal(unsupported.body.error, 'BAD_TAX_YEAR', 'a year the Form 1040 engine does not prepare is never sold');
+  assert.match(unsupported.body.hint, /Nothing has been charged/);
   assert.equal((await post(who, 'us-checkout', { product: 'return', taxYear: 'abc' })).body.error, 'BAD_TAX_YEAR');
   assert.equal((await post(who, 'us-checkout', { product: 'return', taxYear: year })).body.error, 'ALREADY_PAID');
 });
@@ -256,4 +259,226 @@ test('a checkout started at the launch price keeps it when paid after the cut-ov
   const out = await billing.usCheckoutConfirm(who.businessId, who.userId, { sessionId: paid(checkouts.get(early.sessionId)).id });
   assert.equal(out.paid, true, JSON.stringify(out));
   assert.equal(out.priceUsd, 99, 'the price recorded is what Stripe charged');
+});
+
+async function fileWithPartner(who, taxYear = year) {
+  const proposed = await post(who, 'propose', { name: 'file_us_return', args: { taxYear } });
+  assert.equal(proposed.status, 200, proposed.text);
+  if (!proposed.body.preview?.token) return { ok: false, blocked: proposed.body.preview?.blockers || [], error: proposed.body.error || 'BLOCKED' };
+  const confirmed = await post(who, 'confirm', { token: proposed.body.preview.token });
+  assert.equal(confirmed.status, 200, confirmed.text);
+  return fileResult(confirmed);
+}
+const status = async (who, taxYear = year) => dataOf(await post(who, 'query', { name: 'us_efile_status', args: { taxYear } }));
+
+test('filing before paying is refused in every way it can be asked for, and nothing reaches the partner', async () => {
+  const who = await household('+919400000311');
+  await prepare(who);
+  const before = partnerCalls.length;
+  assert.equal((await post(who, 'propose', { name: 'file_us_return', args: { taxYear: year } })).body.error, 'US_RETURN_UNPAID');
+  assert.equal((await post(who, 'propose', { name: 'file_us_return', args: {} })).body.error, 'BAD_TAX_YEAR');
+  const asked = await post(who, 'ask', { message: `file my ${year} return` });
+  assert.equal(asked.status, 200, asked.text);
+  const yes = await post(who, 'ask', { message: 'yes' });
+  assert.equal(yes.status, 200, yes.text);
+  assert.equal(partnerCalls.length, before, 'no partner session before the fee is paid');
+  assert.equal((await status(who)).status, 'not_filed');
+});
+
+test('filing twice resumes the same partner session, and an accepted return cannot be filed again', async () => {
+  const who = await household('+919400000312');
+  await prepare(who);
+  await payFor(who);
+  const first = await fileWithPartner(who);
+  assert.equal(first.ok, true, JSON.stringify(first));
+  const firstId = partnerCalls.at(-1).body.external_id;
+  const again = await fileWithPartner(who);
+  assert.equal(again.ok, true, JSON.stringify(again));
+  assert.equal(partnerCalls.at(-1).body.external_id, firstId, 'a second tap reopens the same return at the partner');
+  assert.equal((await status(who)).status, 'in_progress');
+  assert.equal((await partnerHook({ type: 'return.submitted', data: { external_id: firstId, submission_id: '12345620270320000011' } })).body.status, 'submitted');
+  const whileSubmitted = await fileWithPartner(who);
+  assert.equal(whileSubmitted.ok, false, JSON.stringify(whileSubmitted));
+  assert.match(whileSubmitted.blocked.join(' '), /already submitted/);
+  await partnerHook({ type: 'return.accepted', data: { external_id: firstId } });
+  const calls = partnerCalls.length;
+  const afterAccept = await fileWithPartner(who);
+  assert.equal(afterAccept.ok, false, JSON.stringify(afterAccept));
+  assert.match(afterAccept.blocked.join(' '), /accepted/);
+  assert.equal(partnerCalls.length, calls);
+  assert.equal((await purchases(who.businessId)).length, 1, 'filing twice never charges twice');
+});
+
+test('partner webhooks: bad, missing or short-keyed signatures are refused; unknown returns and statuses are ignored', async () => {
+  const who = await household('+919400000313');
+  await prepare(who);
+  await payFor(who);
+  await fileWithPartner(who);
+  const externalId = partnerCalls.at(-1).body.external_id;
+  const event = { type: 'return.accepted', data: { external_id: externalId } };
+  assert.equal((await partnerHook(event, { secret: 'another-secret-0123456789abcdef' })).status, 401);
+  assert.equal((await partnerHook(event, { header: null })).status, 401);
+  assert.equal((await partnerHook(event, { header: 'not-hex' })).status, 401);
+  const started = JSON.stringify({ type: 'return.started', data: { external_id: externalId } });
+  assert.equal((await partnerHook(started, { header: `sha256=${signPartnerBody(started, PARTNER_HOOK)}` })).status, 200, 'a "sha256=" prefix is accepted');
+  process.env.MYCA_US_FILER_WEBHOOK_SECRET = 'short-secret';
+  try {
+    assert.equal((await partnerHook(event, { secret: 'short-secret' })).status, 401, 'a secret under 24 characters is never trusted');
+  } finally {
+    process.env.MYCA_US_FILER_WEBHOOK_SECRET = PARTNER_HOOK;
+  }
+  assert.equal((await partnerHook('{oops')).status, 400);
+  assert.equal((await partnerHook({ type: 'return.accepted', data: { external_id: 'nonsense' } })).body.ignored, 'FILER_EVENT_UNKNOWN_RETURN');
+  assert.equal((await partnerHook({ type: 'return.accepted', data: { external_id: externalId.replace(/.{24}$/, '0'.repeat(24)) } })).body.ignored, 'FILER_EVENT_UNKNOWN_RETURN', 'the right household but another reference');
+  assert.equal((await partnerHook({ type: 'return.accepted', data: { external_id: externalId.replace(`.${year}.`, `.${year - 1}.`) } })).body.ignored, 'FILER_EVENT_UNKNOWN_RETURN', 'the right reference but another year');
+  assert.equal((await partnerHook({ type: 'user.updated', data: { external_id: externalId } })).body.ignored, 'FILER_EVENT_STATUS_UNKNOWN');
+  assert.equal((await status(who)).status, 'in_progress', 'nothing above moved the return');
+});
+
+test('partner webhooks: replays and out-of-order events never move a return backwards', async () => {
+  const who = await household('+919400000314');
+  await prepare(who);
+  await payFor(who);
+  await fileWithPartner(who);
+  const externalId = partnerCalls.at(-1).body.external_id;
+  const accepted = await partnerHook({ type: 'return.accepted', data: { external_id: externalId, submission_id: '12345620270320000021' } });
+  assert.equal(accepted.body.status, 'accepted', 'acceptance can arrive before the submitted event');
+  const late = await partnerHook({ type: 'return.submitted', data: { external_id: externalId, submission_id: '12345620270320000021' } });
+  assert.equal(late.body.changed, false);
+  assert.equal((await partnerHook({ type: 'return.rejected', data: { external_id: externalId, errors: [{ code: 'IND-031-04' }] } })).body.changed, false, 'a stale rejection cannot undo an acceptance');
+  assert.equal((await partnerHook({ type: 'return.started', data: { external_id: externalId } })).body.changed, false);
+  assert.equal((await partnerHook({ type: 'return.accepted', data: { external_id: externalId } })).body.changed, false);
+  const now = await status(who);
+  assert.deepEqual({ status: now.status, attempts: now.attempts, submissionId: now.submissionId }, { status: 'accepted', attempts: 1, submissionId: '12345620270320000021' });
+});
+
+test('a rejected return is fixed and filed again through the partner, and stale or repeated events for the first attempt are ignored', async () => {
+  const who = await household('+919400000315');
+  await prepare(who);
+  await payFor(who);
+  await fileWithPartner(who);
+  const externalId = partnerCalls.at(-1).body.external_id;
+  await partnerHook({ type: 'return.submitted', data: { external_id: externalId, submission_id: '12345620270320000031' } });
+  const rejection = { type: 'return.rejected', data: { external_id: externalId, submission_id: '12345620270320000031', errors: [{ rule_number: 'IND-031-04', message: 'Prior-year AGI does not match.' }] } };
+  assert.equal((await partnerHook(rejection)).body.status, 'rejected');
+  assert.equal((await partnerHook(rejection)).body.changed, false, 'the same rejection twice is one rejection');
+  let now = await status(who);
+  assert.deepEqual({ status: now.status, attempts: now.attempts }, { status: 'rejected', attempts: 1 });
+  assert.equal(now.rejections[0].code, 'IND-031-04');
+  assert.ok(now.rejections[0].fix);
+  const refiled = await fileWithPartner(who);
+  assert.equal(refiled.ok, true, JSON.stringify(refiled));
+  assert.equal(partnerCalls.at(-1).body.external_id, externalId, 'the partner keeps one id for the return across attempts');
+  assert.equal((await status(who)).status, 'in_progress');
+  assert.equal((await partnerHook({ type: 'return.submitted', data: { external_id: externalId, submission_id: '12345620270320000031' } })).body.changed, false, 'a late copy of the first submission is not a new attempt');
+  assert.equal((await partnerHook({ type: 'return.submitted', data: { external_id: externalId, submission_id: '12345620270320000032' } })).body.status, 'submitted');
+  assert.equal((await partnerHook(rejection)).body.changed, false, 'a late copy of the first rejection cannot reject the second attempt');
+  now = await status(who);
+  assert.deepEqual({ status: now.status, attempts: now.attempts, submissionId: now.submissionId }, { status: 'submitted', attempts: 2, submissionId: '12345620270320000032' });
+  assert.equal((await partnerHook({ type: 'return.accepted', data: { external_id: externalId, submission_id: '12345620270320000032' } })).body.status, 'accepted');
+  assert.equal((await status(who)).status, 'accepted');
+});
+
+test('when the partner is down, slow, failing or answers without a safe link, filing fails cleanly and can be retried', async () => {
+  const who = await household('+919400000316');
+  await prepare(who);
+  await payFor(who);
+  for (const mode of ['down', 'timeout', 'error', 'no-url']) {
+    partnerMode = mode;
+    try {
+      const out = await fileWithPartner(who);
+      assert.equal(out.ok, false, `${mode}: ${JSON.stringify(out)}`);
+      assert.ok(out.error, mode);
+      assert.equal((await status(who)).status, 'not_filed', `${mode}: a failed hand-off leaves the return unfiled`);
+    } finally {
+      partnerMode = 'up';
+    }
+  }
+  const out = await fileWithPartner(who);
+  assert.equal(out.ok, true, JSON.stringify(out));
+  assert.match(out.data?.handoffUrl || out.handoffUrl, /^https:\/\/file\.partner\.example\//);
+  assert.equal((await status(who)).status, 'in_progress');
+});
+
+function holdsSsn(text, ssn) {
+  const digits = ssn.replace(/-/g, '');
+  return String(text).includes(digits) || String(text).includes(ssn);
+}
+
+test('SSNs never appear in logs, tool results, audit events, the books or the partner payload', async () => {
+  const who = await household('+919400000317');
+  const seen = [];
+  const original = api.call;
+  api.call = async (...args) => {
+    const out = await original(...args);
+    seen.push(out.text);
+    return out;
+  };
+  try {
+    await prepare(who, year, { joint: true });
+    await payFor(who);
+    await post(who, 'query', { name: 'us_return_review', args: { taxYear: year } });
+    await post(who, 'query', { name: 'us_taxpayer', args: { taxYear: year } });
+    await get(who, 'snapshot');
+    await fileWithPartner(who);
+    await partnerHook({ type: 'return.accepted', data: { external_id: partnerCalls.at(-1).body.external_id } });
+    await post(who, 'ask', { message: `My SSN is ${SSNS.primary}, what is my refund?` });
+  } finally {
+    api.call = original;
+  }
+  const sent = partnerCalls.at(-1).body;
+  assert.equal(sent.prefill.spouse.first_name, 'Casey', 'the spouse is passed on');
+  assert.equal(sent.prefill.filing_status, 'mfj');
+  assert.equal(sent.prefill.w2s.length, 2);
+  for (const ssn of Object.values(SSNS)) {
+    assert.ok(!holdsSsn(JSON.stringify(sent), ssn), 'no SSN in the partner payload');
+    assert.ok(!holdsSsn(JSON.stringify(api.logs), ssn), 'no SSN in the server log');
+    for (const text of seen) assert.ok(!holdsSsn(text, ssn), `no SSN in an API answer: ${text.slice(0, 300)}`);
+  }
+  const audits = await api.db.query('select metadata::text as m from audit_log where business_id = $1', [who.businessId]);
+  for (const row of audits.rows) for (const ssn of Object.values(SSNS)) assert.ok(!holdsSsn(row.m, ssn), 'no SSN in the audit log');
+  const books = JSON.stringify(await api.books(who.businessId));
+  for (const ssn of [SSNS.primary, SSNS.spouse]) assert.ok(!holdsSsn(books, ssn), 'the books keep the SSN sealed, not in plain text');
+});
+
+test('with MYCA_US_FILER_SEND_TINS on, the partner gets both SSNs of a joint return, and still nothing is logged', async () => {
+  const who = await household('+919400000318');
+  await prepare(who, year, { joint: true });
+  await payFor(who);
+  process.env.MYCA_US_FILER_SEND_TINS = '1';
+  let filed;
+  try {
+    filed = await write(who, 'file_us_return', { taxYear: year });
+  } finally {
+    delete process.env.MYCA_US_FILER_SEND_TINS;
+  }
+  const sent = partnerCalls.at(-1).body.prefill;
+  assert.equal(String(sent.taxpayer.ssn).replace(/-/g, ''), SSNS.primary.replace(/-/g, ''));
+  assert.equal(String(sent.spouse.ssn).replace(/-/g, ''), SSNS.spouse.replace(/-/g, ''));
+  for (const ssn of [SSNS.primary, SSNS.spouse]) {
+    assert.ok(!holdsSsn(filed.text, ssn), 'the confirm answer carries no SSN');
+    assert.ok(!holdsSsn(JSON.stringify(api.logs), ssn), 'the server log carries no SSN');
+  }
+  const audits = await api.db.query('select metadata::text as m from audit_log where business_id = $1', [who.businessId]);
+  for (const row of audits.rows) assert.ok(!holdsSsn(row.m, SSNS.primary), 'the audit log carries no SSN');
+});
+
+test('two tax years are paid, filed and tracked separately', async () => {
+  const who = await household('+919400000319');
+  await prepare(who, year);
+  await prepare(who, year + 1);
+  await payFor(who, year);
+  assert.equal((await post(who, 'propose', { name: 'file_us_return', args: { taxYear: year + 1 } })).body.error, 'US_RETURN_UNPAID');
+  await fileWithPartner(who, year);
+  const thisYear = partnerCalls.at(-1).body;
+  await payFor(who, year + 1);
+  await fileWithPartner(who, year + 1);
+  const nextYear = partnerCalls.at(-1).body;
+  assert.equal(thisYear.tax_year, year);
+  assert.equal(nextYear.tax_year, year + 1);
+  assert.notEqual(thisYear.external_id, nextYear.external_id);
+  await partnerHook({ type: 'return.accepted', data: { external_id: nextYear.external_id } });
+  assert.equal((await status(who, year + 1)).status, 'accepted');
+  assert.equal((await status(who, year)).status, 'in_progress', 'one year\'s acceptance does not touch the other');
+  assert.deepEqual((await purchases(who.businessId)).map((row) => row.taxYear), [year, year + 1]);
 });

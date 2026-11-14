@@ -1,5 +1,6 @@
 import { createSign, timingSafeEqual } from 'node:crypto';
 import { createStripe, stripeSignatureValid } from './stripe.mjs';
+import { US_RETURN_YEARS } from '../../platform/src/us-return.mjs';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 export const TRIAL_DAYS = 14;
@@ -313,7 +314,8 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
   function usTaxYearProblem(taxYear) {
     const year = Number(taxYear);
     const latest = new Date(now()).getUTCFullYear();
-    if (!Number.isInteger(year) || year > latest || year < latest - US_RETURN_YEARS_BACK) return fail('BAD_TAX_YEAR', { hint: `Pick a tax year from ${latest - US_RETURN_YEARS_BACK} to ${latest}.` });
+    const open = US_RETURN_YEARS.map(Number).filter((item) => item <= latest && item >= latest - US_RETURN_YEARS_BACK);
+    if (!Number.isInteger(year) || !open.includes(year)) return fail('BAD_TAX_YEAR', { supported: open, hint: open.length ? `MyCA files the ${open.join(' and ')} federal return${open.length > 1 ? 's' : ''}. Nothing has been charged.` : 'MyCA does not file a federal return for this year. Nothing has been charged.' });
     return null;
   }
 

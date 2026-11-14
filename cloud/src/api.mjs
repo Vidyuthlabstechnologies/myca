@@ -15,6 +15,7 @@ import { createSecondFactor } from './second-factor.mjs';
 import { createDevices } from './devices.mjs';
 import { createBusinesses, engineRole } from './businesses.mjs';
 import { publicCountries } from './residency.mjs';
+import { US_RETURN_YEARS } from '../../platform/src/us-return.mjs';
 import { createBooksRunner } from './books-runner.mjs';
 import { createMembers } from './members.mjs';
 import { IMPORT_CONTENT_ARG, isImport } from '../../platform/src/import-documents.mjs';
@@ -481,7 +482,7 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
       }).catch((err) => (err?.statusCode === 404 || err?.status === 404 ? { ok: false, error: 'FILER_EVENT_UNKNOWN_RETURN' } : Promise.reject(err)));
       return out.ok ? { ok: true, status: out.status, changed: Boolean(out.changed) } : { ok: true, ignored: out.error };
     }
-    if (parts[1] === 'us' && parts[2] === 'supported-forms' && parts.length === 3 && method === 'GET') return { ok: true, taxYears: [2025, 2026], ...US_SUPPORTED_FORMS };
+    if (parts[1] === 'us' && parts[2] === 'supported-forms' && parts.length === 3 && method === 'GET') return { ok: true, taxYears: US_RETURN_YEARS.map(Number), ...US_SUPPORTED_FORMS };
     if (parts[1] === 'auth' && parts[2] === 'methods' && parts.length === 3 && method === 'GET') {
       return { ok: true, phone: auth.phoneEnabled, google: google.enabled, oidc: openId.enabled, ...(openId.enabled ? { oidcIssuer: openId.issuer } : {}) };
     }
