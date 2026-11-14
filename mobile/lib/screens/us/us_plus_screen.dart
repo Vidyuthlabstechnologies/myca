@@ -390,15 +390,28 @@ class _MoneyField extends StatelessWidget {
   final bool whole;
 
   @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.only(bottom: 10),
-        child: TextField(
-          key: Key(fieldKey),
-          controller: controller,
-          keyboardType: TextInputType.numberWithOptions(decimal: !whole),
-          decoration: InputDecoration(labelText: label, prefixText: whole ? null : '\$ '),
-        ),
-      );
+  Widget build(BuildContext context) {
+    final big = MediaQuery.textScalerOf(context).scale(14) / 14 > 1.3;
+    final field = TextField(
+      key: Key(fieldKey),
+      controller: controller,
+      keyboardType: TextInputType.numberWithOptions(decimal: !whole),
+      decoration: InputDecoration(labelText: big ? null : label, prefixText: whole ? null : '\$ '),
+    );
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: big
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                ExcludeSemantics(child: Text(label, style: Theme.of(context).textTheme.bodyMedium)),
+                const SizedBox(height: 4),
+                Semantics(label: label, child: field),
+              ],
+            )
+          : field,
+    );
+  }
 }
 
 num _amount(TextEditingController c) => num.tryParse(c.text.replaceAll(',', '').trim()) ?? 0;

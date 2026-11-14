@@ -165,7 +165,7 @@ class _UsConsentScreenState extends State<UsConsentScreen> {
                     enabled: form.ready,
                     textCapitalization: TextCapitalization.words,
                     autocorrect: false,
-                    decoration: InputDecoration(labelText: 'Type your full name to sign', errorText: _nameError),
+                    decoration: InputDecoration(labelText: 'Your full name', helperText: 'Typing your name signs this consent.', errorText: _nameError),
                   ),
                   const SizedBox(height: 16),
                   FilledButton(key: const Key('usConsent.sign'), onPressed: _busy || !form.ready ? null : () => _sign(form), child: Text(_busy ? 'Signing…' : 'Sign')),

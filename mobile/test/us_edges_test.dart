@@ -23,45 +23,6 @@ import 'us_return_test.dart' show usState;
 import 'us_walk.dart';
 import '../tool/fonts.dart';
 
-class FakeConsents implements UsConsents {
-  bool ready = true;
-  String signedAt = '';
-  int lists = 0;
-  MycaApiException? nextError;
-  final signed = <String>[];
-  final revoked = <String>[];
-
-  UsConsentForm get form => UsConsentForm(
-        document: usPartnerTinsConsent,
-        version: 'v2',
-        title: 'Consent to disclose your Social Security numbers to our e-file partner',
-        text: 'Federal law requires this consent form be provided to you. You can choose a date after which this consent ends.',
-        ready: ready,
-        signedAt: signedAt,
-        validUntil: signedAt.isEmpty ? '' : '2027-03-02T00:00:00.000Z',
-      );
-
-  @override
-  Future<List<UsConsentForm>> list() async {
-    lists += 1;
-    return [form];
-  }
-
-  @override
-  Future<void> sign(UsConsentForm form, {required String signedName, required String validUntil}) async {
-    final error = nextError;
-    nextError = null;
-    if (error != null) throw error;
-    signed.add('${form.document}:${form.version}:$signedName:$validUntil');
-    signedAt = '2026-03-02T10:00:00.000Z';
-  }
-
-  @override
-  Future<void> revoke(String document) async {
-    revoked.add(document);
-    signedAt = '';
-  }
-}
 
 Future<void> openOn(WidgetTester tester, Widget screen) async {
   tester.state<NavigatorState>(find.byType(Navigator).first).push(MaterialPageRoute<void>(builder: (_) => screen));

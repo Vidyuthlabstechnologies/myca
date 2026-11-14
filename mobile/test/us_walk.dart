@@ -8,6 +8,7 @@ import 'package:myca/app_state.dart';
 import 'package:myca/cloud/token_store.dart';
 import 'package:myca/format.dart';
 import 'package:myca/main.dart';
+import 'package:myca/screens/us/us_consent_screen.dart';
 import 'package:myca/screens/us/us_form_editor_screen.dart';
 import 'package:myca/screens/us/us_forms_screen.dart';
 import 'package:myca/screens/us/us_interview_screen.dart';
@@ -16,6 +17,7 @@ import 'package:myca/screens/us/us_profile_screen.dart';
 import 'package:myca/screens/us/us_review_screen.dart';
 import 'package:myca/screens/us/us_sign_screen.dart';
 import 'package:myca/screens/us/us_state_sheet_screen.dart';
+import 'package:myca/us/us_consents.dart';
 import 'package:myca/us/us_filing_fee.dart';
 import 'package:myca/us/us_return.dart';
 
@@ -429,6 +431,16 @@ class UsWalk {
     await open(const UsEstimatesScreen(taxYear: walkYear + 1), '58_plus_estimates');
     await popAll();
 
+    await app(usState(partner..efile = 'not_filed'));
+    await open(UsSignScreen(taxYear: walkYear, fees: WalkFees(const UsFilingFee(taxYear: walkYear, enforced: true, paid: true, priceUsd: 99)), consents: FakeConsents()), '59_partner_prefill_choice');
+    await popAll();
+    await open(UsConsentScreen(consents: FakeConsents(), document: usPartnerTinsConsent), '60_consent_sign');
+    await popAll();
+    await open(UsConsentScreen(consents: FakeConsents()..ready = false, document: usPartnerTinsConsent), '61_consent_not_ready');
+    await popAll();
+    await open(UsConsentScreen(consents: FakeConsents()..signedAt = '2026-03-02T10:00:00.000Z', document: usPartnerTinsConsent), '62_consent_signed');
+    await popAll();
+
     moneyCountry = 'IN';
   }
 }
@@ -451,4 +463,44 @@ Future<List<String>> walkUs(WidgetTester tester, UsDevice device, double scale, 
     unconfigure(tester);
   }
   return walk.problems;
+}
+
+class FakeConsents implements UsConsents {
+  bool ready = true;
+  String signedAt = '';
+  int lists = 0;
+  MycaApiException? nextError;
+  final signed = <String>[];
+  final revoked = <String>[];
+
+  UsConsentForm get form => UsConsentForm(
+        document: usPartnerTinsConsent,
+        version: 'v2',
+        title: 'Consent to disclose your Social Security numbers to our e-file partner',
+        text: 'Federal law requires this consent form be provided to you. You can choose a date after which this consent ends.',
+        ready: ready,
+        signedAt: signedAt,
+        validUntil: signedAt.isEmpty ? '' : '2027-03-02T00:00:00.000Z',
+      );
+
+  @override
+  Future<List<UsConsentForm>> list() async {
+    lists += 1;
+    return [form];
+  }
+
+  @override
+  Future<void> sign(UsConsentForm form, {required String signedName, required String validUntil}) async {
+    final error = nextError;
+    nextError = null;
+    if (error != null) throw error;
+    signed.add('${form.document}:${form.version}:$signedName:$validUntil');
+    signedAt = '2026-03-02T10:00:00.000Z';
+  }
+
+  @override
+  Future<void> revoke(String document) async {
+    revoked.add(document);
+    signedAt = '';
+  }
 }
