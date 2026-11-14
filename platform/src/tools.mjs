@@ -1,3 +1,4 @@
+import { usBrokerageCsv } from './us-brokerage-import.mjs';
 import { usRefundBoost } from './us-refund-boost.mjs';
 import { tally, bank, gstin, filing, audit } from './sprint-load.mjs';
 import { invoiceTemplate, setInvoiceTemplate } from './invoice-template.mjs';
@@ -831,6 +832,13 @@ export const TOOLS = [
     description: 'Projects the year\'s federal tax from year-to-date pay and withholding plus the pay periods left, using the return\'s filing status, family and other income, and gives the gap, the extra to withhold each paycheck (W-4 line 4(c)) and the safe harbor. Pass filingStatus if no return is started. US only. Read-only.',
     args: ['taxYear', 'payPerPeriod', 'withheldPerPeriod', 'periodsLeft', 'ytdWages', 'ytdWithheld', 'otherIncome', 'filingStatus'],
     run: (state, args = {}) => usWithholdingCheck(state, args),
+  },
+  {
+    name: 'us_brokerage_csv',
+    title: 'Read a brokerage or crypto CSV',
+    description: 'Reads a broker 1099-B or Form 8949 CSV export (Schwab, Fidelity, Robinhood, Koinly, CoinTracker and similar) or an exchange trade history (Coinbase-style buys and sells, matched first in, first out) into 1099-B sales ready for add_us_tax_form, with short- and long-term totals and rows it could not read. US only. Read-only.',
+    args: ['csv', 'taxYear', 'payer'],
+    run: (state, args = {}) => usBrokerageCsv(state, args),
   },
   {
     name: 'us_refund_boost',

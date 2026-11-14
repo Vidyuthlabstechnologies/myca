@@ -14,6 +14,7 @@ export const MANIFEST = Object.freeze({
   ruleFamilies: Object.freeze([
     Object.freeze({ key: 'my-income-tax', title: 'Malaysia individual income tax', prefix: 'my.income-tax.', watch: Object.freeze(['The Budget each October', 'LHDN return form programme each January']) }),
     Object.freeze({ key: 'my-sst', title: 'Malaysia sales and service tax', prefix: 'my.sst.', watch: Object.freeze(['The Budget each October', 'Royal Malaysian Customs SST guides and rate orders']) }),
+    Object.freeze({ key: 'my-payroll', title: 'Malaysia EPF, SOCSO and EIS contributions', prefix: 'my.payroll.', watch: Object.freeze(['KWSP Third Schedule changes and Budget rate announcements', 'PERKESO wage ceiling and contribution table notices']) }),
     Object.freeze({ key: 'my-einvoice', title: 'Malaysia e-invoice (MyInvois)', prefix: 'my.einvoice.', watch: Object.freeze(['LHDN e-Invoice Guideline and Specific Guideline updates', 'MyInvois SDK release notes']) }),
   ]),
   tools: Object.freeze([
@@ -40,6 +41,12 @@ export const MANIFEST = Object.freeze({
       description: 'Read an LHDN submission by its submission UID: whether each document is valid, invalid or still in progress. Read-only.',
       access: 'read',
       schema: schema({ submissionUid: { type: 'string' } }, ['submissionUid']),
+    }),
+    Object.freeze({
+      name: 'my_payroll', title: 'Malaysian payroll contributions',
+      description: 'EPF, SOCSO and EIS for each employee for one month from the dated tables: EPF from the Third Schedule bands (11% employee, 13% or 12% employer, rounded up to the ringgit; 60 and over and non-Malaysian rates), SOCSO first category and EIS from the RM100 bands up to the RM6,000 ceiling, with net pay before PCB, employer cost and the 15th-of-next-month due date. Read-only.',
+      access: 'read',
+      schema: schema({ month: { type: 'string' }, employees: { type: 'array', items: { type: 'object', additionalProperties: false, properties: { name: { type: 'string' }, wages: { type: 'number' }, age: { type: 'number' }, citizen: { type: 'boolean' }, eisCovered: { type: 'boolean' } } } } }, ['month', 'employees']),
     }),
     Object.freeze({
       name: 'my_sst_rate', title: 'Malaysian SST rate',
