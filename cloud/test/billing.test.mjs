@@ -1,7 +1,7 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { generateKeyPairSync, createVerify } from 'node:crypto';
-import { createBilling } from '../src/billing.mjs';
+import { billingConfigFromEnv, createBilling } from '../src/billing.mjs';
 import { startApi, SALE } from './helpers.mjs';
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -85,6 +85,17 @@ test('plans are public, name the Play product for each paid plan, and say which 
   assert.equal(byId.free, undefined);
   assert.equal(byId.essentials.buyable, false, 'a plan without a Play product cannot be bought');
   assert.equal(byId.pro.buyable, true);
+  assert.equal(byId.assured.title, 'MyCA Assured');
+  assert.equal(byId.assured.monthlyRupees, 4999);
+  assert.ok(byId.assured.features.includes('ca-assured') && byId.assured.features.includes('accuracy-promise'));
+  assert.equal(byId.assured.buyable, false, 'Assured stays unsold until its Play product is created');
+  assert.deepEqual(out.body.plans.map((p) => p.id), ['essentials', 'pro', 'assured', 'firm']);
+});
+
+test('MyCA Assured is sold only once its own Play product id is set', () => {
+  assert.equal(billingConfigFromEnv({ MYCA_PLAY_PRODUCT_ASSURED: 'myca_assured' }).productIds.assured, 'myca_assured');
+  assert.equal(billingConfigFromEnv({}).productIds.assured, '');
+  assert.deepEqual(billingConfigFromEnv({ MYCA_PLAN_PRICES: 'assured=5499,essentials=abc' }).prices, { assured: 5499 });
 });
 
 test('a new business gets a 14-day trial of Pro, then turns read-only with the paid features off', async () => {
@@ -105,7 +116,7 @@ test('a new business gets a 14-day trial of Pro, then turns read-only with the p
 
 test('there is no free plan: after the trial the books are read-only until a plan is chosen', async () => {
   const plans = (await api.call('GET', '/v1/plans')).body.plans;
-  assert.deepEqual(plans.map((plan) => [plan.id, plan.monthlyRupees, plan.yearlyRupees]), [['essentials', 399, 3999], ['pro', 599, 7999], ['firm', 2499, 24999]]);
+  assert.deepEqual(plans.map((plan) => [plan.id, plan.monthlyRupees, plan.yearlyRupees]), [['essentials', 999, 9999], ['pro', 599, 19999], ['assured', 4999, 49999], ['firm', 5999, 59999]]);
   assert.ok(plans.every((plan) => plan.monthlyRupees > 0));
   const owner = await api.ownerWithBusiness('+919400000082', { name: 'Small Shop', state: '29' });
   const month = new Date(api.clock.now + 5.5 * 60 * 60 * 1000).toISOString().slice(0, 7);

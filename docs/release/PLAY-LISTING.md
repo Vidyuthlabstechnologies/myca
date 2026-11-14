@@ -8,8 +8,9 @@ submitted; nothing here is published by the repository.
 
 Rewritten 2026-11-10 to match the app as it is: it files GSTR-1 and GSTR-3B once the
 owner confirms with the EVC OTP, it has paid plans, and it is not a government
-app. Since 2026-11-14 the full description names no prices: Indian prices are being
-revised, and the price shown by Google Play in the app is the one that counts. Until
+app. Since 2026-11-14 the full description names no prices: the Indian prices were raised
+that day (₹999, ₹1,999, ₹4,999 and ₹5,999 a month, see `docs/product/GO-TO-MARKET.md`),
+and the price shown by Google Play in the app is the one that counts. Until
 the Play subscription products exist, billing is off on the server and every feature
 is free (`cloud/src/billing.mjs`, `enforced: false`), so testers are never asked to pay. The India listing does not mention the US edition. `node scripts/check-listing.mjs`
 checks the three text fields below against Play's limits (title 30, short description 80,
@@ -99,7 +100,7 @@ file. Checked 2026-11-10 against the build of `601894e`.
 | USE_BIOMETRIC | local_auth | App lock with fingerprint or face |
 | USE_FINGERPRINT | local_auth (androidx.biometric) | The same app lock on Android versions before 9 |
 | VIBRATE | flutter_local_notifications | A reminder may vibrate, following the phone's own notification setting |
-| com.android.vending.BILLING | in_app_purchase | Google Play Billing for the Essentials, Pro and CA firm subscriptions |
+| com.android.vending.BILLING | in_app_purchase | Google Play Billing for the Essentials, Pro, MyCA Assured and CA firm subscriptions |
 | ACCESS_NETWORK_STATE | merged from a library | Checks whether the phone is online before a call; reads no network details |
 | CHANGE_NETWORK_STATE | merged from a library | Not used by MyCA's own code; a normal permission that Play does not ask about |
 | WAKE_LOCK | merged from a library (background job scheduling) | Lets a scheduled reminder or a library's background job finish; MyCA keeps no screen or CPU awake itself |
@@ -132,7 +133,7 @@ that path, run `node scripts/render-launcher-icons.cjs mobile/android/app/src/ma
 - Not a financial services app: MyCA holds no money, moves no money and is not a merchant of record (ADR-0010).
 - No government ID collection beyond what the owner types into their own invoices (GSTIN, PAN); never a password for a government portal.
 - Content rating: everyone.
-- Ads: none. In-app purchases: yes, auto-renewing subscriptions (Essentials, Pro and CA firm) through Google Play Billing, with a 14-day free trial counted by MyCA itself.
+- Ads: none. In-app purchases: yes, auto-renewing subscriptions (Essentials, Pro, MyCA Assured and CA firm) through Google Play Billing, with a 14-day free trial counted by MyCA itself.
 - Target audience: business owners, 18 and over.
 - App access: some functionality is restricted to signed-in users. Instructions for the reviewer: on the first screen enter the reviewer number, tap "Send code" (no SMS is sent), then enter the six-digit code (vault entry "MyCA Play reviewer"). The account sees only demo businesses with sample books, and cannot join a real business. The number and code are turned on in `infra/cloud` (`DEPLOYMENT.md`, "Play reviewer sign-in").
 

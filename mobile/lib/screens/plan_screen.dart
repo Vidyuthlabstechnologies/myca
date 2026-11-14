@@ -19,6 +19,8 @@ const featureWords = {
   'connectors': 'Amazon, Shopify, Razorpay, Zoho and bank connections',
   'whatsapp': 'Ask and post on WhatsApp',
   'team': 'Staff and your accountant in the same books',
+  'ca-assured': 'A chartered accountant reviews and files your GST and TDS returns every month',
+  'accuracy-promise': 'Accuracy promise: if a return we filed is wrong because of our mistake, we correct and refile it at no charge',
   'priority-support': 'Priority support',
 };
 

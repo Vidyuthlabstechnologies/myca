@@ -122,6 +122,12 @@ variable "play_product_pro" {
   default     = ""
 }
 
+variable "play_product_assured" {
+  description = "Play Console product id of the MyCA Assured subscription (a CA files GST and TDS monthly), for example myca_assured. Set only once a CA team is signed; empty leaves that plan unsold."
+  type        = string
+  default     = ""
+}
+
 variable "play_product_firm" {
   description = "Play Console product id of the CA firm subscription, for example myca_firm_monthly. Empty leaves that plan unsold."
   type        = string

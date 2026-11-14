@@ -338,6 +338,12 @@ variable "play_product_pro" {
   default     = ""
 }
 
+variable "play_product_assured" {
+  description = "Google Play subscription product id for the MyCA Assured plan (a CA files GST and TDS monthly). Set only once a CA team is signed; empty leaves that plan unsold."
+  type        = string
+  default     = ""
+}
+
 variable "play_product_firm" {
   description = "Google Play subscription product id for the CA firm plan."
   type        = string
@@ -345,7 +351,7 @@ variable "play_product_firm" {
 }
 
 variable "plan_prices" {
-  description = "Monthly prices shown in the app, in rupees, used only until the app reads the Play Store price, for example \"pro=499,firm=1499\"."
+  description = "Monthly prices shown in the app, in rupees, used only until the app reads the Play Store price, for example \"pro=1999,firm=5999\"."
   type        = string
   default     = ""
 }
