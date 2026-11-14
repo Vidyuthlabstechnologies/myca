@@ -133,10 +133,10 @@ class _PartyPickerState extends State<_PartyPicker> {
                   if (offerNew)
                     ListTile(
                       contentPadding: const EdgeInsets.symmetric(horizontal: 4),
-                      leading: const CircleAvatar(
+                      leading: CircleAvatar(
                         radius: 21,
                         backgroundColor: Palette.ink,
-                        child: Icon(Icons.add, color: Colors.white, size: 20),
+                        child: Icon(Icons.add, color: Palette.onInk, size: 20),
                       ),
                       title: Text('Add “$typed”', style: text.titleMedium),
                       subtitle: Text('New ${_one(widget.kind)}'),
@@ -241,7 +241,7 @@ class _NewPartySheetState extends State<_NewPartySheet> {
               const SizedBox(height: 10),
               Text(
                 _error,
-                style: const TextStyle(
+                style: TextStyle(
                   color: Palette.danger,
                   fontWeight: FontWeight.w600,
                 ),

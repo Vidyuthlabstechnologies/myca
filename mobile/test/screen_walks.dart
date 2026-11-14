@@ -29,7 +29,7 @@ Future<void> scrollTo(WidgetTester tester, Finder what) async {
 final Map<String, Walk> screens = {
   'home': (t) async {},
   'home, first day': (t) async {
-    await open(t, empty: true);
+    await fresh(t, FakeMycaApi(signedIn: true, emptyBooks: true));
   },
   'home with MSME card': (t) async {
     final card = find.byKey(const ValueKey('home.msme'));

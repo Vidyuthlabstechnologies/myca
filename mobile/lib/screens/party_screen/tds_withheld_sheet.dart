@@ -184,7 +184,7 @@ class _TdsWithheldSheetState extends State<_TdsWithheldSheet> {
               const SizedBox(height: 10),
               Text(
                 _error,
-                style: const TextStyle(
+                style: TextStyle(
                   color: Palette.danger,
                   fontWeight: FontWeight.w600,
                 ),

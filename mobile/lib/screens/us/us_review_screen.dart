@@ -169,7 +169,7 @@ class _UsReviewScreenState extends State<UsReviewScreen> {
                 ],
                 if (_note.isNotEmpty) ...[
                   const SizedBox(height: 12),
-                  Text(_note, style: const TextStyle(color: Palette.danger, fontWeight: FontWeight.w500)),
+                  Text(_note, style: TextStyle(color: Palette.danger, fontWeight: FontWeight.w500)),
                 ],
                 const SizedBox(height: 22),
                 OutlinedButton(key: const Key('usReview.pdf'), onPressed: _saving ? null : _pdf, child: Text(_saving ? 'Preparing…' : 'Download Form 1040 (PDF)')),

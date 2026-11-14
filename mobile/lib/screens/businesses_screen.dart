@@ -176,14 +176,14 @@ class _BusinessesScreenState extends State<BusinessesScreen> {
                       leading: TintTile(tint: Tint.ask, letter: business.name.isEmpty ? '?' : business.name[0].toUpperCase()),
                       title: business.name,
                       subtitle: business.demo ? '${roleLabel(business.role)} · Demo business, made-up figures' : roleLabel(business.role),
-                      trailing: business.id == current ? const StatusTag(text: 'Open', color: Palette.accent) : (business.demo ? const StatusTag(text: 'Demo', color: Palette.warn) : const Chevron()),
+                      trailing: business.id == current ? StatusTag(text: 'Open', color: Palette.accent) : (business.demo ? StatusTag(text: 'Demo', color: Palette.warn) : const Chevron()),
                       onTap: business.id == current ? null : () => _open(business.id),
                     ),
                 ],
               ),
               if (_error.isNotEmpty) ...[
                 const SizedBox(height: 10),
-                Text(_error, style: const TextStyle(color: Palette.danger, fontWeight: FontWeight.w500)),
+                Text(_error, style: TextStyle(color: Palette.danger, fontWeight: FontWeight.w500)),
               ],
               if (_note.isNotEmpty) ...[
                 const SizedBox(height: 10),

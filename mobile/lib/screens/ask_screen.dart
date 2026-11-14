@@ -147,7 +147,7 @@ class _AskScreenState extends State<AskScreen> with ProposalFlow {
                     tooltip: 'Send',
                     style: IconButton.styleFrom(
                       backgroundColor: Palette.ink,
-                      foregroundColor: Colors.white,
+                      foregroundColor: Palette.onInk,
                       minimumSize: const Size(50, 50),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(radiusControl),

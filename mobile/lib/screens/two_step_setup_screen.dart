@@ -114,7 +114,7 @@ class _TwoStepSetupScreenState extends State<TwoStepSetupScreen> with SecureWind
                   Expanded(
                     child: SelectableText(
                       setup.groupedSecret,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontFamily: 'monospace',
                         fontSize: 18,
                         fontWeight: FontWeight.w500,
@@ -145,7 +145,7 @@ class _TwoStepSetupScreenState extends State<TwoStepSetupScreen> with SecureWind
               ),
               if (_error.isNotEmpty) ...[
                 const SizedBox(height: 10),
-                Text(_error, style: const TextStyle(color: Palette.danger, fontWeight: FontWeight.w500)),
+                Text(_error, style: TextStyle(color: Palette.danger, fontWeight: FontWeight.w500)),
               ],
               const SizedBox(height: 16),
               FilledButton(onPressed: _busy ? null : _turnOn, child: Text(_busy ? 'Please wait…' : 'Turn on')),

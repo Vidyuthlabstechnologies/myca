@@ -109,7 +109,7 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
               ),
               if (_error.isNotEmpty) ...[
                 const SizedBox(height: 10),
-                Text(_error, style: const TextStyle(color: Palette.danger, fontWeight: FontWeight.w500)),
+                Text(_error, style: TextStyle(color: Palette.danger, fontWeight: FontWeight.w500)),
               ],
               const SizedBox(height: 16),
               if (on.isEmpty) Text('Nothing is connected yet.', style: text.bodyMedium),
@@ -142,7 +142,7 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
                         leading: TintTile(tint: Tint.ask, mark: key.source == 'pos' ? Mark.sales : Mark.paper),
                         title: key.label,
                         subtitle: sourceLabel(key.source),
-                        trailing: const StatusTag(text: 'Off', color: Palette.muted),
+                        trailing: StatusTag(text: 'Off', color: Palette.muted),
                       ),
                   ],
                 ),
@@ -228,7 +228,7 @@ class _NewKeySheetState extends State<_NewKeySheet> {
                 Text(_sourceHelp[_source]!, style: text.bodyMedium),
                 if (_error.isNotEmpty) ...[
                   const SizedBox(height: 8),
-                  Text(_error, style: const TextStyle(color: Palette.danger)),
+                  Text(_error, style: TextStyle(color: Palette.danger)),
                 ],
                 const SizedBox(height: 16),
                 FilledButton(onPressed: _busy ? null : _create, child: const Text('Create key')),

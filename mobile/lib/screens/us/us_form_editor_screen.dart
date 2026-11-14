@@ -187,7 +187,7 @@ class _UsFormEditorScreenState extends State<UsFormEditorScreen> {
             for (final f in widget.kind.fields) ...[_field(f), const SizedBox(height: 12)],
             if (_note.isNotEmpty) ...[
               const SizedBox(height: 4),
-              Text(_note, style: const TextStyle(color: Palette.danger, fontWeight: FontWeight.w500)),
+              Text(_note, style: TextStyle(color: Palette.danger, fontWeight: FontWeight.w500)),
             ],
             const SizedBox(height: 18),
             FilledButton(key: const Key('usForm.save'), onPressed: _busy ? null : _save, child: Text(_busy ? 'Saving…' : 'Save')),

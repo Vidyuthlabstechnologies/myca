@@ -51,6 +51,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final bigText = MediaQuery.textScalerOf(context).scale(14) > 14 * 1.3;
     final state = AppScope.of(context);
     final snapshot = state.snapshot;
     final documents = snapshot == null
@@ -99,25 +100,27 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     RowCard(
                       leading: TintTile(tint: tint, letter: party.initial),
                       title: party.name,
-                      subtitle: lastEntryLine(party.latest!, widget.kind),
-                      trailing: Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text(
-                            party.latest!.date,
-                            style: text.bodySmall?.copyWith(
-                              color: Palette.muted,
+                      subtitle: bigText
+                          ? '${lastEntryLine(party.latest!, widget.kind)} · ${party.latest!.date}'
+                          : lastEntryLine(party.latest!, widget.kind),
+                      badge: bigText && _sales && party.unpaid.isNotEmpty
+                          ? StatusTag(text: '${party.unpaid.length} unpaid', color: Palette.warn)
+                          : null,
+                      trailing: bigText
+                          ? null
+                          : Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text(
+                                  party.latest!.date,
+                                  style: text.bodySmall?.copyWith(color: Palette.muted),
+                                ),
+                                if (_sales && party.unpaid.isNotEmpty) ...[
+                                  const SizedBox(height: 6),
+                                  StatusTag(text: '${party.unpaid.length} unpaid', color: Palette.warn),
+                                ],
+                              ],
                             ),
-                          ),
-                          if (_sales && party.unpaid.isNotEmpty) ...[
-                            const SizedBox(height: 6),
-                            StatusTag(
-                              text: '${party.unpaid.length} unpaid',
-                              color: Palette.warn,
-                            ),
-                          ],
-                        ],
-                      ),
                       onTap: () => _openParty(party.name, party.gstin),
                     ),
                 ],

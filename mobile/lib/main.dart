@@ -180,7 +180,10 @@ class _MycaAppState extends State<MycaApp> with WidgetsBindingObserver {
             title: 'MyCA',
             debugShowCheckedModeBanner: false,
             theme: widget.state.edition == 'US' ? MycaDesign.forFlavor('us').light : mycaTheme(),
-            builder: (context, child) => ListenableBuilder(
+            darkTheme: widget.state.edition == 'US' ? MycaDesign.forFlavor('us').dark : mycaTheme(Brightness.dark),
+            builder: (context, child) => PaletteSync(
+              brightness: Theme.of(context).brightness,
+              child: ListenableBuilder(
               listenable: widget.state,
               builder: (context, _) => Stack(
                 children: [
@@ -202,6 +205,7 @@ class _MycaAppState extends State<MycaApp> with WidgetsBindingObserver {
                   if (_tour.active && !widget.state.locked) TourCoach(tour: _tour),
                   if (widget.state.locked) AppScope(state: widget.state, child: const LockScreen()),
                 ],
+                ),
               ),
             ),
             home: const AppGate(),
@@ -209,6 +213,34 @@ class _MycaAppState extends State<MycaApp> with WidgetsBindingObserver {
         ),
       ),
     );
+  }
+}
+
+class PaletteSync extends StatefulWidget {
+  const PaletteSync({super.key, required this.brightness, required this.child});
+
+  final Brightness brightness;
+  final Widget child;
+
+  @override
+  State<PaletteSync> createState() => _PaletteSyncState();
+}
+
+class _PaletteSyncState extends State<PaletteSync> {
+  static void _rebuild(Element element) {
+    element.markNeedsBuild();
+    element.visitChildElements(_rebuild);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (Palette.brightness != widget.brightness) {
+      Palette.brightness = widget.brightness;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) context.visitChildElements(_rebuild);
+      });
+    }
+    return widget.child;
   }
 }
 
@@ -255,7 +287,7 @@ class TestServerBanner extends StatelessWidget {
           child: Text(
             sandbox ? 'Sandbox mode: nothing is filed with the government yet' : 'Test environment: nothing is filed, paid or sent',
             textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.labelMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.w600),
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(color: Palette.onInk, fontWeight: FontWeight.w600),
           ),
         ),
       ),

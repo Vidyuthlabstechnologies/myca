@@ -426,6 +426,19 @@ class FakeCloud {
       });
     }
     final books = '/v1/businesses/$businessId';
+    if (path == '/v1/plans' && request.method == 'GET') {
+      return _json(200, {
+        'ok': true,
+        'plans': [
+          {'id': 'essentials', 'title': 'Essentials', 'monthlyRupees': 999, 'yearlyRupees': 9999, 'buyable': false, 'features': ['books', 'post', 'chat', 'gst-reports', 'team'], 'limits': {'members': 2}},
+          {'id': 'pro', 'title': 'Pro', 'monthlyRupees': 1999, 'yearlyRupees': 19999, 'buyable': false, 'features': ['books', 'post', 'chat', 'gst-reports', 'gst-returns', 'einvoice', 'connectors', 'whatsapp', 'team'], 'limits': {'members': 5}},
+          {'id': 'assured', 'title': 'MyCA Assured', 'monthlyRupees': 4999, 'yearlyRupees': 49999, 'buyable': false, 'features': ['books', 'post', 'chat', 'gst-reports', 'gst-returns', 'einvoice', 'connectors', 'whatsapp', 'team', 'ca-assured'], 'limits': {'members': 5}},
+        ],
+      });
+    }
+    if (path == '$books/subscription' && request.method == 'GET') {
+      return _json(200, {'ok': true, 'plan': 'trial', 'planTitle': 'Pro', 'enforced': false, 'trial': {'daysLeft': 12}});
+    }
     if (path == '$books/members' && request.method == 'GET') {
       return _json(200, {
         'ok': true,

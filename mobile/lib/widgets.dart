@@ -228,7 +228,7 @@ class Chevron extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) =>
-      const Icon(Icons.chevron_right, color: Palette.faint, size: 20);
+      Icon(Icons.chevron_right, color: Palette.faint, size: 20);
 }
 
 class SectionLabel extends StatelessWidget {
@@ -328,7 +328,7 @@ class Bubble extends StatelessWidget {
       BubbleTone.posted => Palette.accent,
       _ => Palette.muted,
     };
-    final foreground = mine ? Colors.white : Palette.ink;
+    final foreground = mine ? Palette.onInk : Palette.ink;
     final stampColor = switch (stamp) {
       'Unpaid' || 'Part paid' || 'Declined' || 'Expired' => Palette.warn,
       'Cancelled' => Palette.danger,
@@ -410,7 +410,7 @@ class Bubble extends StatelessWidget {
                   padding: const EdgeInsets.only(top: 6),
                   child: Text(
                     note,
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: Palette.muted,
                       fontSize: 13,
                       height: 1.35,
@@ -458,7 +458,7 @@ class ProposalBar extends StatelessWidget {
     return SafeArea(
       top: false,
       child: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           color: Palette.surface,
           border: Border(top: BorderSide(color: Palette.line)),
         ),

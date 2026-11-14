@@ -1,32 +1,101 @@
 import 'package:flutter/material.dart';
+import 'package:myca_design/myca_design.dart' show MycaSurfaceColors, mycaCountryLooks;
 
-class Palette {
-  static const canvas = Color(0xFFFAFAF7);
-  static const surface = Color(0xFFFFFFFF);
-  static const sunken = Color(0xFFF2F1EC);
-  static const ink = Color(0xFF15181B);
-  static const muted = Color(0xFF6C7075);
-  static const faint = Color(0xFF9A9DA1);
-  static const line = Color(0xFFE6E4DE);
-  static const accent = Color(0xFF1B5E3F);
-  static const accentSoft = Color(0xFFEAF2ED);
-  static const warn = Color(0xFF94570A);
-  static const warnSoft = Color(0xFFFAF1E0);
-  static const danger = Color(0xFFB3261E);
-  static const dangerSoft = Color(0xFFFAEAE8);
+class PaletteSet {
+  const PaletteSet({
+    required this.canvas,
+    required this.surface,
+    required this.sunken,
+    required this.ink,
+    required this.onInk,
+    required this.muted,
+    required this.faint,
+    required this.line,
+    required this.accent,
+    required this.accentSoft,
+    required this.warn,
+    required this.warnSoft,
+    required this.danger,
+    required this.dangerSoft,
+  });
+
+  factory PaletteSet.of(Brightness brightness) {
+    final dark = brightness == Brightness.dark;
+    final s = dark ? MycaSurfaceColors.dark : MycaSurfaceColors.light;
+    final look = mycaCountryLooks['IN']!;
+    return PaletteSet(
+      canvas: s.canvas,
+      surface: s.surface,
+      sunken: s.sunken,
+      ink: s.ink,
+      onInk: s.onInk,
+      muted: s.muted,
+      faint: s.faint,
+      line: s.line,
+      accent: dark ? look.accentDark : look.accent,
+      accentSoft: dark ? look.accentSoftDark : look.accentSoft,
+      warn: s.warn,
+      warnSoft: s.warnSoft,
+      danger: s.danger,
+      dangerSoft: s.dangerSoft,
+    );
+  }
+
+  static final light = PaletteSet.of(Brightness.light);
+  static final dark = PaletteSet.of(Brightness.dark);
+
+  final Color canvas;
+  final Color surface;
+  final Color sunken;
+  final Color ink;
+  final Color onInk;
+  final Color muted;
+  final Color faint;
+  final Color line;
+  final Color accent;
+  final Color accentSoft;
+  final Color warn;
+  final Color warnSoft;
+  final Color danger;
+  final Color dangerSoft;
 }
 
-class Tint {
-  const Tint(this.stroke);
+class Palette {
+  static PaletteSet current = PaletteSet.light;
 
-  final Color stroke;
+  static Brightness get brightness => identical(current, PaletteSet.dark) ? Brightness.dark : Brightness.light;
 
-  static const sales = Tint(Palette.ink);
-  static const purchases = Tint(Palette.ink);
-  static const taxes = Tint(Palette.warn);
-  static const ask = Tint(Palette.ink);
-  static const expense = Tint(Palette.ink);
-  static const urgent = Tint(Palette.danger);
+  static set brightness(Brightness value) => current = value == Brightness.dark ? PaletteSet.dark : PaletteSet.light;
+
+  static Color get canvas => current.canvas;
+  static Color get surface => current.surface;
+  static Color get sunken => current.sunken;
+  static Color get ink => current.ink;
+  static Color get onInk => current.onInk;
+  static Color get muted => current.muted;
+  static Color get faint => current.faint;
+  static Color get line => current.line;
+  static Color get accent => current.accent;
+  static Color get accentSoft => current.accentSoft;
+  static Color get warn => current.warn;
+  static Color get warnSoft => current.warnSoft;
+  static Color get danger => current.danger;
+  static Color get dangerSoft => current.dangerSoft;
+}
+
+enum Tint {
+  sales,
+  purchases,
+  taxes,
+  ask,
+  expense,
+  urgent;
+
+  Color get stroke => switch (this) {
+    Tint.taxes => Palette.warn,
+    Tint.urgent => Palette.danger,
+    _ => Palette.ink,
+  };
 }
 
 const moneyFigures = [FontFeature.tabularFigures()];
@@ -36,23 +105,24 @@ const brandFont = 'Inter';
 const radiusCard = 14.0;
 const radiusControl = 10.0;
 
-ThemeData mycaTheme() {
+ThemeData mycaTheme([Brightness brightness = Brightness.light]) {
+  final p = PaletteSet.of(brightness);
   final scheme =
       ColorScheme.fromSeed(
-        seedColor: Palette.accent,
-        brightness: Brightness.light,
+        seedColor: p.accent,
+        brightness: brightness,
       ).copyWith(
-        primary: Palette.ink,
-        onPrimary: Colors.white,
-        secondary: Palette.accent,
-        onSecondary: Colors.white,
-        surface: Palette.surface,
-        onSurface: Palette.ink,
-        onSurfaceVariant: Palette.muted,
-        outline: Palette.line,
-        outlineVariant: Palette.line,
-        error: Palette.danger,
-        surfaceContainerHighest: Palette.sunken,
+        primary: p.ink,
+        onPrimary: p.onInk,
+        secondary: p.accent,
+        onSecondary: p.onInk,
+        surface: p.surface,
+        onSurface: p.ink,
+        onSurfaceVariant: p.muted,
+        outline: p.line,
+        outlineVariant: p.line,
+        error: p.danger,
+        surfaceContainerHighest: p.sunken,
       );
   final base = ThemeData(
     colorScheme: scheme,
@@ -60,8 +130,8 @@ ThemeData mycaTheme() {
     fontFamily: brandFont,
   );
   final text = base.textTheme.apply(
-    bodyColor: Palette.ink,
-    displayColor: Palette.ink,
+    bodyColor: p.ink,
+    displayColor: p.ink,
   );
   final control = RoundedRectangleBorder(
     borderRadius: BorderRadius.circular(radiusControl),
@@ -72,7 +142,7 @@ ThemeData mycaTheme() {
         borderSide: BorderSide(color: color, width: width),
       );
   return base.copyWith(
-    scaffoldBackgroundColor: Palette.canvas,
+    scaffoldBackgroundColor: p.canvas,
     splashFactory: InkSparkle.splashFactory,
     pageTransitionsTheme: const PageTransitionsTheme(
       builders: {TargetPlatform.android: FadeForwardsPageTransitionsBuilder()},
@@ -113,26 +183,26 @@ ThemeData mycaTheme() {
       bodyMedium: text.bodyMedium?.copyWith(
         fontSize: 14,
         letterSpacing: 0,
-        color: Palette.muted,
+        color: p.muted,
         height: 1.4,
       ),
       bodySmall: text.bodySmall?.copyWith(
         fontSize: 12.5,
         letterSpacing: 0,
-        color: Palette.muted,
+        color: p.muted,
       ),
       labelLarge: text.labelLarge?.copyWith(fontWeight: FontWeight.w600),
       labelSmall: text.labelSmall?.copyWith(
         fontSize: 11,
         fontWeight: FontWeight.w600,
         letterSpacing: 0.9,
-        color: Palette.muted,
+        color: p.muted,
       ),
     ),
     appBarTheme: AppBarTheme(
-      backgroundColor: Palette.canvas,
+      backgroundColor: p.canvas,
       surfaceTintColor: Colors.transparent,
-      foregroundColor: Palette.ink,
+      foregroundColor: p.ink,
       elevation: 0,
       scrolledUnderElevation: 0,
       centerTitle: false,
@@ -144,8 +214,8 @@ ThemeData mycaTheme() {
     ),
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
-        backgroundColor: Palette.ink,
-        foregroundColor: Colors.white,
+        backgroundColor: p.ink,
+        foregroundColor: p.onInk,
         minimumSize: const Size(0, 50),
         shape: control,
         textStyle: text.labelLarge?.copyWith(
@@ -156,10 +226,10 @@ ThemeData mycaTheme() {
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
-        foregroundColor: Palette.ink,
+        foregroundColor: p.ink,
         minimumSize: const Size(0, 50),
         shape: control,
-        side: const BorderSide(color: Palette.line),
+        side: BorderSide(color: p.line),
         textStyle: text.labelLarge?.copyWith(
           fontSize: 15,
           fontWeight: FontWeight.w600,
@@ -167,11 +237,11 @@ ThemeData mycaTheme() {
       ),
     ),
     textButtonTheme: TextButtonThemeData(
-      style: TextButton.styleFrom(foregroundColor: Palette.ink),
+      style: TextButton.styleFrom(foregroundColor: p.ink),
     ),
     floatingActionButtonTheme: FloatingActionButtonThemeData(
-      backgroundColor: Palette.ink,
-      foregroundColor: Colors.white,
+      backgroundColor: p.ink,
+      foregroundColor: p.onInk,
       elevation: 0,
       highlightElevation: 0,
       shape: RoundedRectangleBorder(
@@ -184,33 +254,33 @@ ThemeData mycaTheme() {
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
-      fillColor: Palette.surface,
+      fillColor: p.surface,
       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-      border: field(Palette.line),
-      enabledBorder: field(Palette.line),
-      focusedBorder: field(Palette.ink, 1.4),
-      labelStyle: text.bodyLarge?.copyWith(color: Palette.muted),
-      hintStyle: text.bodyLarge?.copyWith(color: Palette.faint),
-      prefixStyle: text.bodyLarge?.copyWith(color: Palette.ink),
-      suffixStyle: text.bodyLarge?.copyWith(color: Palette.ink),
+      border: field(p.line),
+      enabledBorder: field(p.line),
+      focusedBorder: field(p.ink, 1.4),
+      labelStyle: text.bodyLarge?.copyWith(color: p.muted),
+      hintStyle: text.bodyLarge?.copyWith(color: p.faint),
+      prefixStyle: text.bodyLarge?.copyWith(color: p.ink),
+      suffixStyle: text.bodyLarge?.copyWith(color: p.ink),
       helperStyle: text.bodySmall,
     ),
     chipTheme: base.chipTheme.copyWith(
-      backgroundColor: Palette.surface,
-      side: const BorderSide(color: Palette.line),
+      backgroundColor: p.surface,
+      side: BorderSide(color: p.line),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       labelStyle: text.labelLarge?.copyWith(
-        color: Palette.ink,
+        color: p.ink,
         fontWeight: FontWeight.w500,
         fontSize: 14,
       ),
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
     ),
-    bottomSheetTheme: const BottomSheetThemeData(
-      backgroundColor: Palette.surface,
+    bottomSheetTheme: BottomSheetThemeData(
+      backgroundColor: p.surface,
       surfaceTintColor: Colors.transparent,
       showDragHandle: true,
-      dragHandleColor: Palette.line,
+      dragHandleColor: p.line,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
       ),
@@ -218,18 +288,18 @@ ThemeData mycaTheme() {
     snackBarTheme: SnackBarThemeData(
       behavior: SnackBarBehavior.floating,
       elevation: 0,
-      backgroundColor: Palette.ink,
-      contentTextStyle: text.bodyMedium?.copyWith(color: Colors.white),
+      backgroundColor: p.ink,
+      contentTextStyle: text.bodyMedium?.copyWith(color: p.onInk),
       shape: control,
     ),
-    listTileTheme: const ListTileThemeData(iconColor: Palette.ink),
-    dividerTheme: const DividerThemeData(
-      color: Palette.line,
+    listTileTheme: ListTileThemeData(iconColor: p.ink),
+    dividerTheme: DividerThemeData(
+      color: p.line,
       thickness: 1,
       space: 1,
     ),
-    progressIndicatorTheme: const ProgressIndicatorThemeData(
-      color: Palette.ink,
+    progressIndicatorTheme: ProgressIndicatorThemeData(
+      color: p.ink,
       strokeWidth: 2,
     ),
   );

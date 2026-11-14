@@ -1012,7 +1012,7 @@ class _Gstr1Card extends StatelessWidget {
               padding: const EdgeInsets.only(top: 8),
               child: Text(
                 '${held.number} is left out: ${heldReason(held.code)}.',
-                style: const TextStyle(
+                style: TextStyle(
                   color: Palette.danger,
                   fontWeight: FontWeight.w500,
                 ),

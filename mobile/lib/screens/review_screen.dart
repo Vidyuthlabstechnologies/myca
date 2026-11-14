@@ -273,7 +273,7 @@ class _StepCard extends StatelessWidget {
             children: [
               Expanded(child: Text(step.title, style: text.titleMedium)),
               if (done)
-                const Icon(Icons.check, size: 18, color: Palette.accent),
+                Icon(Icons.check, size: 18, color: Palette.accent),
             ],
           ),
           if (statusLine.isNotEmpty)

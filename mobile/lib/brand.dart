@@ -22,7 +22,7 @@ class _BrandMarkPainter extends CustomPainter {
     canvas.scale(size.width / 96);
     canvas.drawRRect(
       RRect.fromLTRBR(0, 0, 96, 96, const Radius.circular(22)),
-      Paint()..color = Palette.accent,
+      Paint()..color = PaletteSet.light.accent,
     );
     final white = Paint()
       ..color = Colors.white
@@ -53,7 +53,7 @@ class _BrandMarkPainter extends CustomPainter {
         ..lineTo(62, 56)
         ..lineTo(74, 41),
       Paint()
-        ..color = Palette.accent
+        ..color = PaletteSet.light.accent
         ..style = PaintingStyle.stroke
         ..strokeWidth = 5.5
         ..strokeCap = StrokeCap.round
@@ -85,7 +85,7 @@ class Wordmark extends StatelessWidget {
         BrandMark(size: size * 1.3),
         SizedBox(width: size * 0.45),
         Text.rich(
-          const TextSpan(
+          TextSpan(
             text: 'My',
             children: [
               TextSpan(

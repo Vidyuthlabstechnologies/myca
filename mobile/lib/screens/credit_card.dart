@@ -283,7 +283,7 @@ class _CreditCardState extends State<CreditCard> {
                           style: text.titleMedium?.copyWith(
                             fontFeatures: moneyFigures,
                           ),
-                          after: const Padding(
+                          after: Padding(
                             padding: EdgeInsets.only(left: 6),
                             child: Icon(
                               Icons.chevron_right,

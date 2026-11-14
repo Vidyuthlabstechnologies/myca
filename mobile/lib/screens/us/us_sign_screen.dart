@@ -347,7 +347,7 @@ class _UsSignScreenState extends State<UsSignScreen> {
             ),
           ),
         ],
-        if (ctx.efile.sandbox) ...[const SizedBox(height: 12), const StatusTag(text: 'IRS test system: nothing is really filed', color: Palette.warn)],
+        if (ctx.efile.sandbox) ...[const SizedBox(height: 12), StatusTag(text: 'IRS test system: nothing is really filed', color: Palette.warn)],
         const SizedBox(height: 22),
         if ((_paidFee ?? ctx.fee).due)
           UsFilingFeeCard(fee: ctx.fee, fees: _fees!, store: _store, onPaid: (fee) => setState(() => _paidFee = fee))
@@ -359,7 +359,7 @@ class _UsSignScreenState extends State<UsSignScreen> {
           ),
         if (resuming)
           TextButton(key: const Key('usSign.partnerRefresh'), onPressed: _busy ? null : () => setState(() { _context = _load(); }), child: const Text('I have finished. Check again')),
-        if (_note.isNotEmpty) ...[const SizedBox(height: 12), Text(_note, style: const TextStyle(color: Palette.danger, fontWeight: FontWeight.w500))],
+        if (_note.isNotEmpty) ...[const SizedBox(height: 12), Text(_note, style: TextStyle(color: Palette.danger, fontWeight: FontWeight.w500))],
       ],
     );
   }
@@ -378,7 +378,7 @@ class _UsSignScreenState extends State<UsSignScreen> {
           style: text.bodyLarge,
         ),
         if (efile.submissionId.isNotEmpty) ...[const SizedBox(height: 12), Text('Submission ID ${efile.submissionId}', style: text.bodySmall)],
-        if (efile.sandbox) ...[const SizedBox(height: 12), const StatusTag(text: 'IRS test system: this return is not really filed', color: Palette.warn)],
+        if (efile.sandbox) ...[const SizedBox(height: 12), StatusTag(text: 'IRS test system: this return is not really filed', color: Palette.warn)],
         const SizedBox(height: 22),
         FilledButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Back to my return')),
       ],
@@ -420,7 +420,7 @@ class _UsSignScreenState extends State<UsSignScreen> {
                   Text(owed ? 'You owe ${dollars(ctx.review.owed)}.' : 'Your refund is ${dollars(ctx.review.refund)}.', style: text.titleMedium),
                   if (ctx.efile.sandbox) ...[
                     const SizedBox(height: 12),
-                    const StatusTag(text: 'IRS test system: nothing is really filed', color: Palette.warn),
+                    StatusTag(text: 'IRS test system: nothing is really filed', color: Palette.warn),
                   ],
                   const SizedBox(height: 22),
                   if ((_paidFee ?? ctx.fee).due)
@@ -443,7 +443,7 @@ class _UsSignScreenState extends State<UsSignScreen> {
                     FilledButton(key: const Key('usSign.send'), onPressed: _busy ? null : _send, child: Text(_busy ? 'Sending…' : 'Send my return to the IRS')),
                     TextButton(onPressed: _busy ? null : _cancelFiling, child: const Text('Not yet')),
                   ],
-                  if (_note.isNotEmpty) ...[const SizedBox(height: 12), Text(_note, style: const TextStyle(color: Palette.danger, fontWeight: FontWeight.w500))],
+                  if (_note.isNotEmpty) ...[const SizedBox(height: 12), Text(_note, style: TextStyle(color: Palette.danger, fontWeight: FontWeight.w500))],
                 ],
               );
             }
@@ -527,9 +527,9 @@ class _UsSignScreenState extends State<UsSignScreen> {
                   title: const Text(
                     'Under penalties of perjury, I declare that I have examined this return and accompanying schedules and statements, and to the best of my knowledge and belief they are true, correct and complete. I authorize MyCA to send it to the IRS and to receive the IRS acknowledgment.',
                   ),
-                  subtitle: _errors['consent'] == null ? null : Text(_errors['consent']!, style: const TextStyle(color: Palette.danger)),
+                  subtitle: _errors['consent'] == null ? null : Text(_errors['consent']!, style: TextStyle(color: Palette.danger)),
                 ),
-                if (_note.isNotEmpty) ...[const SizedBox(height: 12), Text(_note, style: const TextStyle(color: Palette.danger, fontWeight: FontWeight.w500))],
+                if (_note.isNotEmpty) ...[const SizedBox(height: 12), Text(_note, style: TextStyle(color: Palette.danger, fontWeight: FontWeight.w500))],
                 const SizedBox(height: 18),
                 FilledButton(key: const Key('usSign.sign'), onPressed: _busy ? null : () => _sign(ctx), child: Text(_busy ? 'Signing…' : 'Sign my return')),
                 const SizedBox(height: 10),

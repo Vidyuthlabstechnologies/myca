@@ -30,19 +30,19 @@ class MarkIcon extends StatelessWidget {
   const MarkIcon({
     super.key,
     required this.mark,
-    this.color = Palette.ink,
+    this.color,
     this.size = 24,
   });
 
   final Mark mark;
-  final Color color;
+  final Color? color;
   final double size;
 
   @override
   Widget build(BuildContext context) {
     return SizedBox.square(
       dimension: size,
-      child: CustomPaint(painter: _MarkPainter(mark, color)),
+      child: CustomPaint(painter: _MarkPainter(mark, color ?? Palette.ink)),
     );
   }
 }

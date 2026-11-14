@@ -56,3 +56,4 @@ key.properties
 
 # Sandbox OpenAPI downloads for the catalogue build
 platform/scripts/sandbox-catalog/.specs/
+mobile/tool/gallery/

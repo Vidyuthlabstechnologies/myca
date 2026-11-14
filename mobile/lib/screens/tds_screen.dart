@@ -156,7 +156,7 @@ class _TdsActionScreenState extends State<TdsActionScreen> with ProposalFlow {
                   ],
                   if (_error.isNotEmpty) ...[
                     const SizedBox(height: 10),
-                    Text(_error, style: const TextStyle(color: Palette.danger)),
+                    Text(_error, style: TextStyle(color: Palette.danger)),
                   ],
                   const SizedBox(height: 14),
                   FilledButton(
