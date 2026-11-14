@@ -339,7 +339,9 @@ The server logs one `startup: services` line listing which optional services are
 | `MYCA_TEST_PHONES`, `MYCA_TEST_CODE` | staging only | | code yes | Test numbers that sign in with a fixed six-digit code and no SMS. Refused in production. |
 | `MYCA_REVIEWER_SIGN_IN`, `MYCA_REVIEWER_PHONE`, `MYCA_REVIEWER_CODE` | for the Play reviewer | off | code yes | One reviewer number with a fixed code. Every business it creates is a demo business, it cannot accept invitations, and each code request is logged. Turn it off by setting `MYCA_REVIEWER_SIGN_IN` to `off`. On Google Cloud, set the Terraform variables `reviewer_phone` and `reviewer_code` instead; an empty `reviewer_phone` keeps it off. |
 | `MYCA_DEV_OTP` | local only | | no | Prints codes to the log; refused in production. |
-| `MYCA_ADMIN_USER_IDS` | for the crash digest | | no | Comma list of user ids that may read `GET /v1/admin/crashes?days=N`. |
+| `MYCA_ADMIN_USER_IDS` | for the crash digest and funnel | | no | Comma list of user ids that may read `GET /v1/admin/crashes?days=N` and `GET /v1/admin/funnel?days=N&edition=india|us`. |
+| `MYCA_SITE_URL` | for invite links | | no | Public https origin of the website. `GET /v1/me/referral` returns `<origin>/r/<code>`; empty returns the code only. |
+| `MYCA_REFERRAL_REWARD` | no | | no | Short text the app shows as the invite reward. Empty (the default) means no reward is offered. |
 | `MYCA_PROVIDER_ENV` | no | `off` | no | Provider environment for the engines. Staging allows only `off` or `sandbox`. |
 | `MYCA_MOCK_MODE` | staging | | no | `1` makes every provider simulated (`providerMode: simulated`). |
 | `MYCA_ENABLE_LIVE_CALLS` | never on hosted today | off | no | The live switch for government, model and write actions. |

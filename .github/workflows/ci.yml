@@ -73,6 +73,8 @@ jobs:
         run: node scripts/unused-exports.mjs --warn
       - name: Check the Play listing against Play's limits
         run: node scripts/check-listing.mjs
+      - name: Check the website's search pages, sitemap and invite page
+        run: node --test deploy/seo/*.test.mjs
 
   sprints:
     name: Sprint engine tests

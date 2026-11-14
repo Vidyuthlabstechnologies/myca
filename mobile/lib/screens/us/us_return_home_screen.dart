@@ -12,6 +12,7 @@ import '../../us/us_return.dart';
 import '../../widgets.dart';
 import '../ask_screen.dart';
 import '../businesses_screen.dart';
+import '../invite_screen.dart';
 import '../people_screen.dart';
 import '../plan_screen.dart';
 import '../security_screen.dart';
@@ -138,6 +139,14 @@ class _UsReturnHomeScreenState extends State<UsReturnHomeScreen> {
               onTap: () {
                 Navigator.of(sheet).pop();
                 _open(const PlanScreen());
+              },
+            ),
+            ListTile(
+              title: const Text('Invite a friend'),
+              subtitle: const Text('Share your invite code, or use one you were sent'),
+              onTap: () {
+                Navigator.of(sheet).pop();
+                _open(const InviteScreen());
               },
             ),
             ListTile(
