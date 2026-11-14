@@ -299,3 +299,23 @@ test('a payroll-imported form keeps its source and document id in the form list'
   addUsTaxForm(state, { taxYear: '2025', kind: 'W-2', payer: 'B', fields: { wages: 1 }, source: 'model' });
   assert.equal(listUsTaxForms(state, { taxYear: '2025' }).data.forms[1].source, 'manual');
 });
+
+test('2026 interview asks the material participation question for a business and the answer gives the $400 QBI minimum', async () => {
+  const state = usHousehold();
+  assert.equal((await runTool(state, 'set_us_taxpayer', { taxYear: '2026', filingStatus: 'single', taxpayer: { firstName: 'Ana', lastName: 'Diaz', ssn: '400-12-3456', dateOfBirth: '1990-01-01' }, address: { line1: '1 Main St', city: 'Austin', state: 'TX', zip: '78701' } })).ok, true);
+  assert.equal((await runTool(state, 'add_us_tax_form', { taxYear: '2026', kind: 'W-2', payer: 'Clinic', payerTin: '12-3456789', fields: w2(30000, 3000).fields })).ok, true);
+  const plain = await runTool(state, 'us_interview', { taxYear: '2026' });
+  assert.equal(plain.data.questions.some((question) => question.id === 'qbiMaterialParticipation'), false);
+  assert.equal((await runTool(state, 'add_us_tax_form', { taxYear: '2026', kind: '1099-NEC', payer: 'Agency', payerTin: '98-7654321', fields: { nonemployeeCompensation: 1500 } })).ok, true);
+  const asked = await runTool(state, 'us_interview', { taxYear: '2026' });
+  assert.ok(asked.data.questions.some((question) => question.id === 'qbiMaterialParticipation'));
+  const before = computedForm1040(state, { taxYear: '2026' });
+  assert.ok(before.data.lines['13a'] < 400);
+  assert.ok(before.data.checks.some((item) => item.code === 'QBI_MINIMUM_NEEDS_ANSWER'));
+  assert.equal((await runTool(state, 'answer_us_interview', { taxYear: '2026', id: 'qbiMaterialParticipation', answer: 'yes' })).ok, true);
+  const after = computedForm1040(state, { taxYear: '2026' });
+  assert.equal(after.data.lines['13a'], 400);
+  assert.equal(after.data.checks.some((item) => item.code === 'QBI_MINIMUM_NEEDS_ANSWER'), false);
+  const prior = await runTool(state, 'us_interview', { taxYear: '2025' });
+  assert.equal((prior.data.questions || []).some((question) => question.id === 'qbiMaterialParticipation'), false);
+});
