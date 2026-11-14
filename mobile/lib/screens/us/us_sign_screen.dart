@@ -13,6 +13,9 @@ import '../../us/us_filing_fee.dart';
 import '../../us/us_return.dart';
 import '../../widgets.dart';
 import '../plan_screen.dart' show buyInApp;
+import '../../us/us_consents.dart';
+import '../security_screen.dart';
+import 'us_consent_screen.dart';
 import 'us_fields.dart';
 
 String deviceTypeName() => switch (defaultTargetPlatform) {
@@ -24,20 +27,22 @@ String deviceTypeName() => switch (defaultTargetPlatform) {
 };
 
 class _SignContext {
-  const _SignContext(this.status, this.review, this.efile, this.fee);
+  const _SignContext(this.status, this.review, this.efile, this.fee, {this.tins});
 
   final UsReturnStatus status;
   final UsReview review;
   final UsEfileStatus efile;
   final UsFilingFee fee;
+  final UsConsentForm? tins;
 }
 
 class UsSignScreen extends StatefulWidget {
-  const UsSignScreen({super.key, required this.taxYear, this.fees, this.store});
+  const UsSignScreen({super.key, required this.taxYear, this.fees, this.store, this.consents});
 
   final int taxYear;
   final UsFilingFees? fees;
   final StoreBilling? store;
+  final UsConsents? consents;
 
   @override
   State<UsSignScreen> createState() => _UsSignScreenState();
@@ -68,6 +73,8 @@ class _UsSignScreenState extends State<UsSignScreen> {
   UsFilingFee? _paidFee;
   UsFilingFees? _fees;
   StoreBilling? _store;
+  UsConsents? _consents;
+  bool _needsSecondStep = false;
 
   MycaApi get _api => AppScope.of(context).api;
 
@@ -77,6 +84,7 @@ class _UsSignScreenState extends State<UsSignScreen> {
     final cloud = AppScope.of(context).cloud;
     _fees ??= widget.fees ?? (cloud == null ? const NoFilingFees() : CloudFilingFees(cloud));
     _store ??= widget.store ?? (buyInApp && cloud != null ? PlayBilling() : null);
+    _consents ??= widget.consents ?? (cloud == null ? null : CloudUsConsents(cloud));
     _context ??= _load();
   }
 
@@ -91,7 +99,57 @@ class _UsSignScreenState extends State<UsSignScreen> {
   Future<_SignContext> _load() async {
     final year = widget.taxYear;
     final results = await Future.wait<Object>([loadReturnStatus(_api, year), loadReview(_api, year), loadEfileStatus(_api, year), _loadFee(year)]);
-    return _SignContext(results[0] as UsReturnStatus, results[1] as UsReview, results[2] as UsEfileStatus, results[3] as UsFilingFee);
+    final efile = results[2] as UsEfileStatus;
+    final consents = _consents;
+    final tins = efile.partner && consents != null ? await consentFor(consents, usPartnerTinsConsent) : null;
+    return _SignContext(results[0] as UsReturnStatus, results[1] as UsReview, efile, results[3] as UsFilingFee, tins: tins);
+  }
+
+  void _failed(MycaApiException err) {
+    if (!mounted) return;
+    setState(() {
+      _note = err.message;
+      _needsSecondStep = err.code == 'SECOND_STEP_REQUIRED';
+    });
+  }
+
+  Future<void> _openSecurity() async {
+    await Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const SecurityScreen()));
+    if (!mounted) return;
+    setState(() {
+      _needsSecondStep = false;
+      _note = '';
+      _needsSecondStep = false;
+    });
+  }
+
+  Future<void> _openConsent() async {
+    final consents = _consents;
+    if (consents == null) return;
+    await Navigator.of(context).push(MaterialPageRoute<bool>(builder: (_) => UsConsentScreen(consents: consents, document: usPartnerTinsConsent)));
+    if (mounted) setState(() { _context = _load(); });
+  }
+
+  Widget _noteView() {
+    if (_note.isEmpty) return const SizedBox.shrink();
+    final text = Theme.of(context).textTheme;
+    if (!_needsSecondStep) {
+      return Padding(padding: const EdgeInsets.only(top: 12), child: Text(_note, key: const Key('usSign.note'), style: const TextStyle(color: Palette.danger, fontWeight: FontWeight.w500)));
+    }
+    return Container(
+      key: const Key('usSign.secondStep'),
+      margin: const EdgeInsets.only(top: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(color: Palette.warnSoft, borderRadius: BorderRadius.circular(radiusControl)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(_note, style: text.bodyMedium?.copyWith(color: Palette.ink)),
+          const SizedBox(height: 10),
+          FilledButton(key: const Key('usSign.openSecurity'), onPressed: _openSecurity, child: const Text('Turn on two-step sign-in')),
+        ],
+      ),
+    );
   }
 
   @override
@@ -142,6 +200,7 @@ class _UsSignScreenState extends State<UsSignScreen> {
     setState(() {
       _busy = true;
       _note = '';
+      _needsSecondStep = false;
     });
     try {
       final agi = parseDollars(_agi.text)?.round() ?? 0;
@@ -187,7 +246,7 @@ class _UsSignScreenState extends State<UsSignScreen> {
         _context = _load();
       });
     } on MycaApiException catch (err) {
-      if (mounted) setState(() => _note = err.message);
+      _failed(err);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -197,6 +256,7 @@ class _UsSignScreenState extends State<UsSignScreen> {
     setState(() {
       _busy = true;
       _note = '';
+      _needsSecondStep = false;
     });
     try {
       final reply = await _api.propose('file_us_return', {'taxYear': widget.taxYear});
@@ -206,7 +266,7 @@ class _UsSignScreenState extends State<UsSignScreen> {
         if (reply.preview == null) _note = reply.reply.isEmpty ? 'The return cannot be sent yet.' : reply.reply;
       });
     } on MycaApiException catch (err) {
-      if (mounted) setState(() => _note = err.message);
+      _failed(err);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -225,7 +285,7 @@ class _UsSignScreenState extends State<UsSignScreen> {
         _context = _load();
       });
     } on MycaApiException catch (err) {
-      if (mounted) setState(() => _note = err.message);
+      _failed(err);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -296,6 +356,7 @@ class _UsSignScreenState extends State<UsSignScreen> {
     setState(() {
       _busy = true;
       _note = '';
+      _needsSecondStep = false;
     });
     try {
       final reply = await saveAndConfirm(_api, 'file_us_return', {'taxYear': widget.taxYear});
@@ -313,7 +374,7 @@ class _UsSignScreenState extends State<UsSignScreen> {
         _context = _load();
       });
     } on MycaApiException catch (err) {
-      if (mounted) setState(() => _note = err.message);
+      _failed(err);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -331,11 +392,29 @@ class _UsSignScreenState extends State<UsSignScreen> {
         Text(owed ? 'You owe ${dollars(ctx.review.owed)}.' : 'Your refund is ${dollars(ctx.review.refund)}.', style: text.titleMedium),
         const SizedBox(height: 12),
         Text(
-          'Your return is e-filed through our IRS-authorized e-file partner. We pass on your name, address, dependents and tax forms, '
-          'so there you only add your SSN, check the return and sign Form 8879. The IRS answer shows up here.',
+          ctx.tins?.signed == true
+              ? 'Your return is e-filed through our IRS-authorized e-file partner. We pass on your name, address, Social Security numbers, dependents and tax forms, '
+                  'so there you check the return and sign Form 8879. The IRS answer shows up here.'
+              : 'Your return is e-filed through our IRS-authorized e-file partner. We pass on your name, address, dependents and tax forms, '
+                  'so there you only add your SSN, check the return and sign Form 8879. The IRS answer shows up here.',
           key: const Key('usSign.partnerIntro'),
           style: text.bodyLarge,
         ),
+        if (ctx.tins != null && !resuming) ...[
+          const SizedBox(height: 12),
+          Material(
+            color: Palette.surface,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radiusControl), side: const BorderSide(color: Palette.line)),
+            clipBehavior: Clip.antiAlias,
+            child: ListTile(
+              key: const Key('usSign.prefillTins'),
+              title: const Text('Fill in my Social Security numbers on the partner\'s screen for me'),
+              subtitle: Text(ctx.tins!.signed ? 'On, with your signed consent. Tap to read it or withdraw.' : 'Needs your signed consent. Without it you type them there.'),
+              trailing: Icon(ctx.tins!.signed ? Icons.check_circle : Icons.chevron_right, semanticLabel: ctx.tins!.signed ? 'On' : null),
+              onTap: _busy ? null : _openConsent,
+            ),
+          ),
+        ],
         for (final r in ctx.efile.rejections) ...[
           const SizedBox(height: 12),
           Container(
@@ -364,7 +443,7 @@ class _UsSignScreenState extends State<UsSignScreen> {
           ),
         if (resuming)
           TextButton(key: const Key('usSign.partnerRefresh'), onPressed: _busy ? null : () => setState(() { _context = _load(); }), child: const Text('I have finished. Check again')),
-        if (_note.isNotEmpty) ...[const SizedBox(height: 12), Text(_note, style: const TextStyle(color: Palette.danger, fontWeight: FontWeight.w500))],
+        _noteView(),
       ],
     );
   }
@@ -486,7 +565,7 @@ class _UsSignScreenState extends State<UsSignScreen> {
                     FilledButton(key: const Key('usSign.send'), onPressed: _busy ? null : _send, child: Text(_busy ? 'Sending…' : 'Send my return to the IRS')),
                     TextButton(onPressed: _busy ? null : _cancelFiling, child: const Text('Not yet')),
                   ],
-                  if (_note.isNotEmpty) ...[const SizedBox(height: 12), Text(_note, style: const TextStyle(color: Palette.danger, fontWeight: FontWeight.w500))],
+                  _noteView(),
                 ],
               );
             }
@@ -572,7 +651,7 @@ class _UsSignScreenState extends State<UsSignScreen> {
                   ),
                   subtitle: _errors['consent'] == null ? null : Text(_errors['consent']!, style: const TextStyle(color: Palette.danger)),
                 ),
-                if (_note.isNotEmpty) ...[const SizedBox(height: 12), Text(_note, style: const TextStyle(color: Palette.danger, fontWeight: FontWeight.w500))],
+                _noteView(),
                 const SizedBox(height: 18),
                 FilledButton(key: const Key('usSign.sign'), onPressed: _busy ? null : () => _sign(ctx), child: Text(_busy ? 'Signing…' : 'Sign my return')),
                 const SizedBox(height: 10),

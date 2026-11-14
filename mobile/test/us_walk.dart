@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:myca/api/models.dart';
 import 'package:myca/api/myca_api.dart';
 import 'package:myca/app_state.dart';
 import 'package:myca/cloud/token_store.dart';
@@ -52,6 +53,14 @@ const offline = 'Cannot reach MyCA. Check your connection and try again.';
 
 class WalkApi extends UsFakeApi {
   final failing = <String>{};
+  MycaApiException? proposeFails;
+
+  @override
+  Future<ChatReply> propose(String name, Map<String, Object?> args) async {
+    final fails = proposeFails;
+    if (fails != null) throw fails;
+    return super.propose(name, args);
+  }
   List<Map<String, Object?>> questions = [];
 
   @override

@@ -16,6 +16,8 @@ import '../invite_screen.dart';
 import '../people_screen.dart';
 import '../plan_screen.dart';
 import '../security_screen.dart';
+import '../../us/us_consents.dart';
+import 'us_consent_screen.dart';
 import 'us_fields.dart';
 import 'us_forms_screen.dart';
 import 'us_interview_screen.dart';
@@ -87,7 +89,7 @@ class _UsReturnHomeScreenState extends State<UsReturnHomeScreen> {
         children: [
           Icon(paid ? Icons.check_circle : Icons.sell_outlined, size: 18, color: context.myca.accent),
           const SizedBox(width: 8),
-          Expanded(child: Text(paid ? 'Your ${fee.taxYear} filing is paid. One price, no upgrade fees.' : line, key: const Key('usHub.priceLine'), style: text.bodyMedium?.copyWith(color: Palette.ink))),
+          Expanded(child: Text(paid ? 'Your ${fee.taxYear} filing is paid. One price, no upgrade fees.' : line, key: const Key('usHub.priceLine'), semanticsLabel: paid || fee == null ? null : usFeeSpoken(fee), style: text.bodyMedium?.copyWith(color: Palette.ink))),
         ],
       ),
     );
@@ -118,6 +120,33 @@ class _UsReturnHomeScreenState extends State<UsReturnHomeScreen> {
     }
   }
 
+  Future<void> _deleteAccount() async {
+    final state = AppScope.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    final sure = await showDialog<bool>(
+      context: context,
+      builder: (dialog) => AlertDialog(
+        title: const Text('Delete your account?'),
+        content: const Text(
+          'You are signed out everywhere. Your returns, tax documents and saved Social Security numbers are deleted with your account, '
+          'and your name, phone number, email and Google link are erased after 30 days. Signing in again before then cancels it. '
+          'Download any Form 1040 PDF you want to keep first.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(dialog).pop(false), child: const Text('Keep my account')),
+          FilledButton(key: const Key('usAccount.confirmDelete'), onPressed: () => Navigator.of(dialog).pop(true), child: const Text('Delete account')),
+        ],
+      ),
+    );
+    if (sure != true) return;
+    try {
+      await state.cloud!.deleteAccount();
+      await state.signOut();
+    } on MycaApiException catch (err) {
+      messenger.showSnackBar(SnackBar(content: Text(err.message)));
+    }
+  }
+
   void _account() {
     final state = AppScope.of(context);
     Widget item(String key, String title, String subtitle, Widget screen) => ListTile(
@@ -145,6 +174,8 @@ class _UsReturnHomeScreenState extends State<UsReturnHomeScreen> {
               item('invite', 'Invite a friend', 'Share your invite code, or use one you were sent', const InviteScreen()),
               item('security', 'Security', 'App lock and two-step sign-in', const SecurityScreen()),
               item('switch', 'Switch or add', 'Another return, or books for a business', const BusinessesScreen()),
+              if (state.cloud != null)
+                item('consent', 'Sharing your Social Security numbers', 'Read, sign or withdraw your consent for our e-file partner', UsConsentScreen(consents: CloudUsConsents(state.cloud!), document: usPartnerTinsConsent)),
               if (state.cloud != null && state.crashes != null)
                 ListenableBuilder(
                   listenable: state,
@@ -155,6 +186,16 @@ class _UsReturnHomeScreenState extends State<UsReturnHomeScreen> {
                     value: state.crashReportsOn,
                     onChanged: (enabled) => state.setCrashReports(enabled),
                   ),
+                ),
+              if (state.cloud != null)
+                ListTile(
+                  key: const Key('usAccount.delete'),
+                  title: Text('Delete my account', style: TextStyle(color: Theme.of(sheet).colorScheme.error)),
+                  subtitle: const Text('Erase your returns, tax documents and Social Security numbers'),
+                  onTap: () {
+                    Navigator.of(sheet).pop();
+                    _deleteAccount();
+                  },
                 ),
               ListTile(
                 key: const Key('usAccount.signOut'),

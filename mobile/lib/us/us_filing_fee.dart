@@ -119,6 +119,10 @@ class NoFilingFees implements UsFilingFees {
   Future<UsFilingFee> confirmCard(int taxYear, String sessionId) => status(taxYear);
 }
 
+String usFeeSpoken(UsFilingFee fee) => fee.launchPrice
+    ? 'Filing fee for your ${fee.taxYear} return: \$${fee.priceUsd} launch price, list price \$${fee.listPriceUsd}, paid once. Preparing and checking your return are free.'
+    : 'Filing fee for your ${fee.taxYear} return: \$${fee.priceUsd}, paid once. Preparing and checking your return are free.';
+
 String usFilingFeeLine(UsFilingFee fee) => fee.launchPrice
     ? 'Filing your ${fee.taxYear} return with the IRS is \$${fee.priceUsd}, paid once. That is our launch price for this season; it is usually \$${fee.listPriceUsd}. One price for your federal return, with no upgrade fees. Preparing and checking it stay free.'
     : 'Filing your ${fee.taxYear} return with the IRS is \$${fee.priceUsd}, paid once. One price for your federal return, with no upgrade fees. Preparing and checking it stay free.';
@@ -286,7 +290,7 @@ class _UsFilingFeeCardState extends State<UsFilingFeeCard> {
         children: [
           Text('One step before filing', style: text.titleMedium),
           const SizedBox(height: 6),
-          Text(usFilingFeeLine(widget.fee), style: text.bodyMedium),
+          Text(usFilingFeeLine(widget.fee), key: const Key('usFee.line'), semanticsLabel: usFeeSpoken(widget.fee), style: text.bodyMedium),
           const SizedBox(height: 14),
           if (widget.fee.byCard)
             ..._cardButtons(text)

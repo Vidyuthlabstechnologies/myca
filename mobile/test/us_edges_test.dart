@@ -1,24 +1,67 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:myca/api/myca_api.dart';
 import 'package:myca/app_state.dart';
 import 'package:myca/cloud/token_store.dart';
 import 'package:myca/crash_reports.dart';
 import 'package:myca/main.dart';
 import 'package:myca/screens/phone_sign_in_screen.dart';
+import 'package:myca/screens/us/us_consent_screen.dart';
 import 'package:myca/screens/us/us_form_editor_screen.dart';
 import 'package:myca/screens/us/us_interview_screen.dart';
 import 'package:myca/screens/us/us_profile_screen.dart';
 import 'package:myca/screens/us/us_review_screen.dart';
 import 'package:myca/screens/us/us_sign_screen.dart';
+import 'package:myca/us/us_consents.dart';
 import 'package:myca/us/us_filing_fee.dart';
 import 'package:myca/us/us_return.dart';
 
-import 'cloud_test.dart' show sessionOn;
+import 'cloud_test.dart' show sessionOn, signedIn;
 import 'fake_api.dart' show MemoryOnboardingStore;
 import 'fake_cloud.dart';
 import 'us_return_test.dart' show usState;
 import 'us_walk.dart';
 import '../tool/fonts.dart';
+
+class FakeConsents implements UsConsents {
+  bool ready = true;
+  String signedAt = '';
+  int lists = 0;
+  MycaApiException? nextError;
+  final signed = <String>[];
+  final revoked = <String>[];
+
+  UsConsentForm get form => UsConsentForm(
+        document: usPartnerTinsConsent,
+        version: 'v2',
+        title: 'Consent to disclose your Social Security numbers to our e-file partner',
+        text: 'Federal law requires this consent form be provided to you. You can choose a date after which this consent ends.',
+        ready: ready,
+        signedAt: signedAt,
+        validUntil: signedAt.isEmpty ? '' : '2027-03-02T00:00:00.000Z',
+      );
+
+  @override
+  Future<List<UsConsentForm>> list() async {
+    lists += 1;
+    return [form];
+  }
+
+  @override
+  Future<void> sign(UsConsentForm form, {required String signedName, required String validUntil}) async {
+    final error = nextError;
+    nextError = null;
+    if (error != null) throw error;
+    signed.add('${form.document}:${form.version}:$signedName:$validUntil');
+    signedAt = '2026-03-02T10:00:00.000Z';
+  }
+
+  @override
+  Future<void> revoke(String document) async {
+    revoked.add(document);
+    signedAt = '';
+  }
+}
 
 Future<void> openOn(WidgetTester tester, Widget screen) async {
   tester.state<NavigatorState>(find.byType(Navigator).first).push(MaterialPageRoute<void>(builder: (_) => screen));
@@ -202,6 +245,142 @@ void main() {
     expect(clean, isNot(contains('4,812')));
     expect(clean, contains('[SSN]'));
     expect(clean, contains('[PHONE]'));
+  });
+
+  testWidgets('7216: the partner view offers SSN prefill only through a signed consent, typed name, valid-until date', (tester) async {
+    final api = filledApi()..route = 'partner';
+    final consents = FakeConsents();
+    final shared = <String>[];
+    await tester.pumpWidget(MycaApp(state: usState(api, sharedText: shared)));
+    await tester.pumpAndSettle();
+    await openOn(tester, UsSignScreen(taxYear: walkYear, fees: WalkFees(const UsFilingFee(taxYear: walkYear, enforced: true, paid: true, priceUsd: 99)), consents: consents));
+    expect(find.textContaining('there you only add your SSN'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('usSign.prefillTins')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('usConsent.text')), findsOneWidget);
+    expect(tester.widget<TextField>(find.byKey(const Key('usConsent.name'))).controller!.text, isEmpty, reason: 'never prefilled');
+    expect(find.textContaining('March 2, 2027'), findsOneWidget, reason: 'one year from today by default');
+    await tester.ensureVisible(find.byKey(const Key('usConsent.copy')));
+    await tester.tap(find.byKey(const Key('usConsent.copy')));
+    expect(shared, [consents.form.text]);
+    await tester.ensureVisible(find.byKey(const Key('usConsent.sign')));
+    await tester.tap(find.byKey(const Key('usConsent.sign')));
+    await tester.pumpAndSettle();
+    expect(find.text('Type your full name to sign.'), findsOneWidget);
+    expect(consents.signed, isEmpty);
+
+    consents.nextError = const MycaApiException('This consent changed.', code: 'CONSENT_CHANGED');
+    await tester.enterText(find.byKey(const Key('usConsent.name')), 'Jordan Rivera');
+    await tester.ensureVisible(find.byKey(const Key('usConsent.sign')));
+    await tester.tap(find.byKey(const Key('usConsent.sign')));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('just updated'), findsOneWidget);
+    expect(consents.lists, 3);
+
+    await tester.enterText(find.byKey(const Key('usConsent.name')), 'Jordan  Rivera ');
+    await tester.ensureVisible(find.byKey(const Key('usConsent.sign')));
+    await tester.tap(find.byKey(const Key('usConsent.sign')));
+    await tester.pumpAndSettle();
+    expect(consents.signed, ['us-7216-partner-tins:v2:Jordan Rivera:2027-03-02']);
+    expect(find.textContaining('We pass on your name, address, Social Security numbers'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('usSign.prefillTins')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('usConsent.signed')), findsOneWidget);
+    await tester.ensureVisible(find.byKey(const Key('usConsent.withdraw')));
+    await tester.tap(find.byKey(const Key('usConsent.withdraw')));
+    await tester.pumpAndSettle();
+    expect(consents.revoked, ['us-7216-partner-tins']);
+    expect(find.textContaining('there you only add your SSN'), findsOneWidget);
+  });
+
+  testWidgets('7216: a consent with blanks cannot be signed and says why', (tester) async {
+    final consents = FakeConsents()..ready = false;
+    await tester.pumpWidget(MycaApp(state: usState(filledApi())));
+    await tester.pumpAndSettle();
+    await openOn(tester, UsConsentScreen(consents: consents, document: usPartnerTinsConsent));
+    expect(find.byKey(const Key('usConsent.notReady')), findsOneWidget);
+    expect(tester.widget<FilledButton>(find.byKey(const Key('usConsent.sign'))).onPressed, isNull);
+  });
+
+  testWidgets('two-step sign-in required before signing: the hint and a button to Security', (tester) async {
+    final api = filledApi()..proposeFails = const MycaApiException('Turn on two-step sign-in under Security before you sign or e-file.', code: 'SECOND_STEP_REQUIRED');
+    await tester.pumpWidget(MycaApp(state: usState(api)));
+    await tester.pumpAndSettle();
+    await openOn(tester, UsSignScreen(taxYear: walkYear, fees: WalkFees(const UsFilingFee(taxYear: walkYear, enforced: false, paid: true, priceUsd: 129))));
+    await tester.enterText(find.byKey(const Key('usSign.pin')), '24680');
+    await tester.enterText(find.byKey(const Key('usSign.spousePin')), '13579');
+    await tester.ensureVisible(find.byKey(const Key('usSign.filedLastYear')));
+    await tester.tap(find.byKey(const Key('usSign.filedLastYear')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('usSign.routing')), '021000021');
+    await tester.enterText(find.byKey(const Key('usSign.account')), '000123456789');
+    await tester.ensureVisible(find.byKey(const Key('usSign.consent')));
+    await tester.tap(find.byKey(const Key('usSign.consent')));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const Key('usSign.sign')));
+    await tester.tap(find.byKey(const Key('usSign.sign')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('usSign.secondStep')), findsOneWidget);
+    expect(find.textContaining('two-step sign-in under Security'), findsOneWidget);
+    expect(find.byKey(const Key('usSign.openSecurity')), findsOneWidget);
+  });
+
+  testWidgets('the fee line is read by screen readers as one sentence with launch and list price', (tester) async {
+    final semantics = tester.ensureSemantics();
+    final api = filledApi()..efile = 'signed';
+    await tester.pumpWidget(MycaApp(state: usState(api)));
+    await tester.pumpAndSettle();
+    await openOn(tester, UsSignScreen(taxYear: walkYear, fees: WalkFees(const UsFilingFee(taxYear: walkYear, enforced: true, paid: false, priceUsd: 99, listPriceUsd: 129, checkout: 'card'))));
+    expect(find.byKey(const Key('usFee.line')), findsOneWidget);
+    expect(tester.getSemantics(find.byKey(const Key('usFee.line'))).label, contains('Filing fee for your 2025 return: \$99 launch price, list price \$129, paid once.'));
+    semantics.dispose();
+  });
+
+  testWidgets('Delete my account is in the US account sheet, asks first, then erases and signs out', (tester) async {
+    final cloud = FakeCloud();
+    final tokens = MemoryTokenStore();
+    final session = await signedIn(cloud, tokens);
+    await session.setName('Jordan');
+    final state = AppState(cloud: sessionOn(cloud, tokens), store: MemoryOnboardingStore(isWelcomed: true), pickTextFile: (_) async => null, now: () => DateTime(2026, 3, 2, 10), edition: 'US');
+    await tester.pumpWidget(MycaApp(state: state));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('usSetup.first')), 'Jordan');
+    await tester.enterText(find.byKey(const Key('usSetup.last')), 'Rivera');
+    await tester.tap(find.byKey(const Key('usSetup.continue')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Your account'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('usAccount.consent')), findsOneWidget);
+    await tester.ensureVisible(find.byKey(const Key('usAccount.delete')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('usAccount.delete')));
+    await tester.pumpAndSettle();
+    expect(find.text('Delete your account?'), findsOneWidget);
+    await tester.tap(find.text('Keep my account'));
+    await tester.pumpAndSettle();
+    expect(cloud.accountDeleted, isFalse);
+    await tester.tap(find.byTooltip('Your account'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const Key('usAccount.delete')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('usAccount.delete')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('usAccount.confirmDelete')));
+    await tester.pumpAndSettle();
+    expect(cloud.accountDeleted, isTrue);
+    expect(find.text('Your 2025 federal return'), findsNothing);
+  });
+
+  testWidgets('the US privacy notice crash line names Social Security numbers, not GSTINs', (tester) async {
+    final cloud = FakeCloud()..noticeAccepted = false;
+    final tokens = MemoryTokenStore();
+    await signedIn(cloud, tokens);
+    await tester.pumpWidget(MycaApp(state: AppState(cloud: sessionOn(cloud, tokens), store: MemoryOnboardingStore(isWelcomed: true), pickTextFile: (_) async => null, edition: 'US')));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.byKey(const ValueKey('consent.crashReports')), 200, scrollable: find.byType(Scrollable).first);
+    expect(find.textContaining('Social Security numbers and phone numbers removed'), findsOneWidget);
+    expect(find.textContaining('GSTIN'), findsNothing);
   });
 
   for (final (device, scale) in [(usDevices[0], 2.0), (usDevices[3], 1.0), (usDevices[6], 2.0)]) {
