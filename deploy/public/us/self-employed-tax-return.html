@@ -54,6 +54,29 @@
       </div>
     </div>
   </section>
+  <section class="block" id="early-access">
+    <div class="wrap">
+      <h2>Get early access</h2>
+      <p class="sub">Leave your email and we write when MyCA US opens in January 2027, with the launch price. Every email has an unsubscribe link.</p>
+      <form class="early-access" id="early-access-us-self-employed-tax-return" method="post" action="__EARLY_ACCESS_URL__" hidden>
+        <label for="early-access-us-self-employed-tax-return-email">Email</label>
+        <div class="row">
+          <input id="early-access-us-self-employed-tax-return-email" type="email" name="email_address" autocomplete="email" required maxlength="254" placeholder="you@example.com">
+          <button class="btn primary" type="submit">Tell me when it opens</button>
+        </div>
+        <p class="fine">Your email goes only to our list provider and is used only for MyCA US launch news. See <a href="/privacy">Privacy</a>.</p>
+      </form>
+      <p class="fine" id="early-access-us-self-employed-tax-return-off">The early-access list opens soon. Check back here.</p>
+      <script>
+        (function () {
+          var form = document.getElementById('early-access-us-self-employed-tax-return');
+          if (!/^https:\/\/[^\s"<>]+$/.test(form.getAttribute('action') || '')) return;
+          form.hidden = false;
+          document.getElementById('early-access-us-self-employed-tax-return-off').hidden = true;
+        })();
+      </script>
+    </div>
+  </section>
   <section class="block">
     <div class="wrap">
       <h2>Questions</h2>

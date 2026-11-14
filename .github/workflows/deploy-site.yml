@@ -55,7 +55,16 @@ jobs:
           echo "IMAGE_PINNED=$pinned" >> "$GITHUB_ENV"
 
       - name: Roll out the image by digest
-        run: gcloud run deploy myca-site --project "$PROJECT" --region "$REGION" --image "$IMAGE_PINNED" --quiet
+        shell: bash
+        env:
+          EARLY_ACCESS_URL: ${{ vars.MYCA_EARLY_ACCESS_URL }}
+        run: |
+          set -euo pipefail
+          if [[ -n "$EARLY_ACCESS_URL" && ! "$EARLY_ACCESS_URL" =~ ^https://[A-Za-z0-9._~:/?#@%=+,-]+$ ]]; then
+            echo "::error::MYCA_EARLY_ACCESS_URL must be a plain https:// form address"; exit 1
+          fi
+          gcloud run deploy myca-site --project "$PROJECT" --region "$REGION" --image "$IMAGE_PINNED" \
+            --update-env-vars "^@^MYCA_EARLY_ACCESS_URL=${EARLY_ACCESS_URL}" --quiet
 
       - name: Check the privacy policy answers
         shell: bash

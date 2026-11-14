@@ -122,6 +122,7 @@ source of truth: a value set only on someone's laptop is reverted by the next CI
 | `GCP_URL_MAP` | `myca-site-lb-urlmap` | CDN purges |
 | `GCP_DOMAIN` | `myca.in` (or empty to serve on the LB IP) | `domain_name` |
 | `GCP_MANAGE_DNS` | `true` or `false` | `manage_dns` (required) |
+| `MYCA_EARLY_ACCESS_URL` | the form address from Kit (free plan): the form's Publish, HTML embed, `action` value, such as `https://app.kit.com/forms/1234567/subscriptions`; empty hides the form | the MyCA US early-access form on `/us` pages, `deploy-site` |
 | `GCP_CREATE_ARTIFACT_REGISTRY` | `true` or `false` | `create_artifact_registry` (required) |
 | `GCP_ALERT_EMAIL` | an address, or empty to skip alerting | `alert_email` |
 | `GCP_API_REGION` | the region `infra/cloud` was applied in, or empty until it is | hosted API deploys (`deploy-cloud`) |

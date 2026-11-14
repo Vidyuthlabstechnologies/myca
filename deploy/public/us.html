@@ -61,6 +61,29 @@
       <ul class="chips"><li>1040</li><li>Schedule 1</li><li>Schedule 2</li><li>Schedule 3</li><li>Schedule A</li><li>Schedule B</li><li>Schedule C</li><li>Schedule D</li><li>Schedule SE</li><li>Form 8949</li><li>Form 8812</li><li>Form 8863</li><li>Form 8995</li><li>W-2</li><li>1099-INT</li><li>1099-DIV</li><li>1099-B</li><li>1099-NEC</li><li>1099-MISC</li><li>1099-G</li><li>1099-R</li><li>SSA-1099</li><li>1098</li><li>1098-E</li><li>1098-T</li></ul>
     </div>
   </section>
+  <section class="block" id="early-access">
+    <div class="wrap">
+      <h2>Get early access</h2>
+      <p class="sub">Leave your email and we write when MyCA US opens in January 2027, with the launch price. Every email has an unsubscribe link.</p>
+      <form class="early-access" id="early-access-us" method="post" action="__EARLY_ACCESS_URL__" hidden>
+        <label for="early-access-us-email">Email</label>
+        <div class="row">
+          <input id="early-access-us-email" type="email" name="email_address" autocomplete="email" required maxlength="254" placeholder="you@example.com">
+          <button class="btn primary" type="submit">Tell me when it opens</button>
+        </div>
+        <p class="fine">Your email goes only to our list provider and is used only for MyCA US launch news. See <a href="/privacy">Privacy</a>.</p>
+      </form>
+      <p class="fine" id="early-access-us-off">The early-access list opens soon. Check back here.</p>
+      <script>
+        (function () {
+          var form = document.getElementById('early-access-us');
+          if (!/^https:\/\/[^\s"<>]+$/.test(form.getAttribute('action') || '')) return;
+          form.hidden = false;
+          document.getElementById('early-access-us-off').hidden = true;
+        })();
+      </script>
+    </div>
+  </section>
   <section class="block">
     <div class="wrap">
       <h2>Questions</h2>

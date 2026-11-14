@@ -1,7 +1,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { GUIDE_INDEX, ORIGIN, PAGES, PLAY_ID, US_FORMS } from './pages.mjs';
+import { EARLY_ACCESS_ACTION, GUIDE_INDEX, ORIGIN, PAGES, PLAY_ID, US_FORMS } from './pages.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 export const PUBLIC_DIR = join(here, '..', 'public');
@@ -80,6 +80,34 @@ function ctaHref(page) {
   return playUrl(page.slug.replace(/[^a-z0-9]+/g, '_'));
 }
 
+export function earlyAccess(slug) {
+  const id = `early-access-${slug.replace(/[^a-z0-9]+/g, '-')}`;
+  return `
+  <section class="block" id="early-access">
+    <div class="wrap">
+      <h2>Get early access</h2>
+      <p class="sub">Leave your email and we write when MyCA US opens in January 2027, with the launch price. Every email has an unsubscribe link.</p>
+      <form class="early-access" id="${id}" method="post" action="${EARLY_ACCESS_ACTION}" hidden>
+        <label for="${id}-email">Email</label>
+        <div class="row">
+          <input id="${id}-email" type="email" name="email_address" autocomplete="email" required maxlength="254" placeholder="you@example.com">
+          <button class="btn primary" type="submit">Tell me when it opens</button>
+        </div>
+        <p class="fine">Your email goes only to our list provider and is used only for MyCA US launch news. See <a href="/privacy">Privacy</a>.</p>
+      </form>
+      <p class="fine" id="${id}-off">The early-access list opens soon. Check back here.</p>
+      <script>
+        (function () {
+          var form = document.getElementById('${id}');
+          if (!/^https:\\/\\/[^\\s"<>]+$/.test(form.getAttribute('action') || '')) return;
+          form.hidden = false;
+          document.getElementById('${id}-off').hidden = true;
+        })();
+      </script>
+    </div>
+  </section>`;
+}
+
 export function renderPage(page) {
   const path = page.slug;
   const product = page.edition === 'us' ? 'MyCA US' : 'MyCA';
@@ -93,6 +121,7 @@ export function renderPage(page) {
     </div>
   </section>`
     : '';
+  const early = page.edition === 'us' ? earlyAccess(page.slug) : '';
   const body = `  <div class="wrap guide-hero">
     <p class="eyebrow">${escape(page.eyebrow)}</p>
     <h1 class="display">${escape(page.h1)}</h1>
@@ -107,7 +136,7 @@ export function renderPage(page) {
 ${page.points.map(([title, text]) => `        <div class="card"><h3>${escape(title)}</h3><p>${escape(text)}</p></div>`).join('\n')}
       </div>
     </div>
-  </section>${forms}
+  </section>${forms}${early}
   <section class="block">
     <div class="wrap">
       <h2>Questions</h2>
