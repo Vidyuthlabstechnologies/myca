@@ -483,11 +483,12 @@ const TRANSPORT_REASONS = {
   INVOICE_NOT_FOUND: (p) => `${p.invoiceId} is not an invoice in these books.`,
   INVOICE_CANCELLED: (p) => `${p.invoiceId} is cancelled.`,
   BAD_MODE: () => 'The mode is road, rail, air or ship.',
-  VEHICLE_REQUIRED: () => 'Say the vehicle number for movement by road, for example MH12AB1234.',
+  VEHICLE_REQUIRED: () => 'Say the vehicle number for movement by road, for example MH12AB1234, or the transporter id if the transporter will add the vehicle.',
   BAD_VEHICLE: (p) => `${p.vehicleNo} is not a vehicle number I can read (for example MH12AB1234).`,
   BAD_DISTANCE: () => 'Say the distance as whole kilometres, from 1 to 4000.',
   BAD_TRANSPORTER_ID: (p) => `${p.transporterId} is not a 15-character transporter id (GSTIN or TRANSIN).`,
   DOC_REQUIRED: (p) => `For movement by ${p.mode}, say the transport document number.`,
+  BAD_DOC_DATE: (p) => `${p.docDate} is not a date I can read; give the transport document date as YYYY-MM-DD.`,
 };
 
 export function transportPreview(state, args) {

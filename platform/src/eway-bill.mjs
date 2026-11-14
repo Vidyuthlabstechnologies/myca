@@ -4,7 +4,8 @@ import { localToday } from './dates.mjs';
 import { invoiceToNicPayload, nicPartyFor } from './nic-config.mjs';
 
 const THRESHOLD = 'gst.ewaybill.threshold';
-const VEHICLE = /^[A-Z]{2}[0-9]{1,2}[A-Z]{0,3}[0-9]{4}$/;
+const VEHICLE = /^[A-Z]{2}[0-9]{1,2}[A-Z]{0,3}[0-9]{4}$|^[0-9]{2}BH[0-9]{4}[A-Z]{1,2}$|^TM[A-Z0-9]{6}$/;
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const TRANSPORTER_ID = /^[0-9]{2}[A-Z0-9]{13}$/;
 const MODES = { road: '1', rail: '2', air: '3', ship: '4' };
 const round2 = (value) => Math.round(Number(value || 0) * 100) / 100;
@@ -17,6 +18,20 @@ function isService(line) {
   return String(line?.hsn || '').trim().startsWith('99');
 }
 
+function realDate(text) {
+  if (!ISO_DATE.test(text)) return false;
+  const at = new Date(`${text}T00:00:00Z`);
+  return !Number.isNaN(at.getTime()) && at.toISOString().slice(0, 10) === text;
+}
+
+function isExempt(line) {
+  return Boolean(line?.supply);
+}
+
+function consignmentValue(lines) {
+  return round2(lines.filter((line) => !isExempt(line)).reduce((sum, line) => sum + Number(line.taxable || 0) + Number(line.cgst || 0) + Number(line.sgst || 0) + Number(line.igst || 0) + Number(line.cess || 0), 0));
+}
+
 export function ewayBillNeed(state, invoice) {
   if (!invoice || invoice.status === 'cancelled') return { needed: false, why: 'The invoice is cancelled.' };
   const found = rules.rule(THRESHOLD, invoice.date);
@@ -27,7 +42,7 @@ export function ewayBillNeed(state, invoice) {
   const company = state.company || {};
   const goodsLines = (invoice.lines || []).filter((line) => !isService(line));
   const unknownLines = goodsLines.filter((line) => !String(line.hsn || '').trim()).length;
-  const value = round2(Number(invoice.total || 0));
+  const value = consignmentValue(goodsLines);
   const supplierState = String(invoice.registrationState || company.state || '');
   const placeOfSupply = String(invoice.placeOfSupply || invoice.partyState || partyStateOf(invoice.partyGstin) || supplierState);
   const interState = Boolean(supplierState && placeOfSupply && supplierState !== placeOfSupply);
@@ -51,16 +66,18 @@ export function planTransport(state, args = {}) {
   const mode = String(args.mode || 'road').trim().toLowerCase();
   if (!MODES[mode]) return fail('BAD_MODE', { mode });
   const vehicleNo = String(args.vehicleNo || '').replace(/[\s-]+/g, '').toUpperCase();
-  if (mode === 'road' && !vehicleNo) return fail('VEHICLE_REQUIRED');
+  const transporterId = String(args.transporterId || '').replace(/\s+/g, '').toUpperCase();
+  if (mode === 'road' && !vehicleNo && !transporterId) return fail('VEHICLE_REQUIRED');
   if (vehicleNo && !VEHICLE.test(vehicleNo)) return fail('BAD_VEHICLE', { vehicleNo });
   const distanceKm = Number(args.distanceKm);
   if (!Number.isInteger(distanceKm) || distanceKm < 1 || distanceKm > 4000) return fail('BAD_DISTANCE');
   const transporterName = String(args.transporterName || '').trim().slice(0, 100);
-  const transporterId = String(args.transporterId || '').replace(/\s+/g, '').toUpperCase();
   if (transporterId && !TRANSPORTER_ID.test(transporterId)) return fail('BAD_TRANSPORTER_ID', { transporterId });
   const docNo = String(args.docNo || '').trim().slice(0, 15);
   if (mode !== 'road' && !docNo) return fail('DOC_REQUIRED', { mode });
-  return { ok: true, transport: { mode, vehicleNo, distanceKm, transporterName, transporterId, docNo, setOn: localToday() }, invoice, was: invoice.transport || null };
+  const docDate = String(args.docDate || '').trim();
+  if (docDate && !realDate(docDate)) return fail('BAD_DOC_DATE', { docDate });
+  return { ok: true, transport: { mode, vehicleNo, distanceKm, transporterName, transporterId, docNo, ...(docNo && docDate ? { docDate } : {}), setOn: localToday() }, invoice, was: invoice.transport || null };
 }
 
 export function setTransport(state, args = {}) {

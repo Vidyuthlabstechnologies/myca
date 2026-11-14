@@ -283,7 +283,7 @@ export class SandboxClient {
 
   sessionToken(kind) {
     if (kind === 'platform') return null;
-    if (kind === 'gst_taxpayer') return this.taxpayerToken || null;
+    if (kind === 'gst_taxpayer') return this.taxpayerToken && !(this.taxpayerExpiresAt && this.taxpayerExpiresAt < Date.now()) ? this.taxpayerToken : null;
     const session = this.sessions[kind];
     if (!session?.token) return null;
     if (session.expiresAt && session.expiresAt < Date.now()) return null;

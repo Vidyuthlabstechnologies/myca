@@ -408,7 +408,7 @@ export const TOOLS = [
     name: 'set_transport',
     title: 'Transport details',
     description: 'Record how the goods on an invoice move (vehicle, distance, transporter, mode) for the e-way bill. Changes no figure.',
-    args: ['invoiceId', 'vehicleNo', 'distanceKm', 'transporterName', 'transporterId', 'mode', 'docNo'],
+    args: ['invoiceId', 'vehicleNo', 'distanceKm', 'transporterName', 'transporterId', 'mode', 'docNo', 'docDate'],
     run: (state, args = {}) => setTransport(state, args),
   },
   {
