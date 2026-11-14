@@ -611,7 +611,8 @@ export function createBilling({ db, config = {}, now = () => Date.now(), fetchIm
         return { recorded: true, businessId, product: 'return', taxYear: year };
       }
       const held = await db.query('select purchase_token as "token" from us_return_purchases where business_id = $1 and tax_year = $2', [businessId, year]);
-      if (!held.rows[0] || held.rows[0].token === String(session.id)) return { recorded: true, businessId, product: 'return', taxYear: year };
+      if (!held.rows[0]) return { recorded: false, reason: 'checkout_already_used', businessId };
+      if (held.rows[0].token === String(session.id)) return { recorded: true, businessId, product: 'return', taxYear: year };
       const flagged = await db.query("select 1 from audit_log where business_id = $1 and action = 'billing.us_return_duplicate_payment' and metadata->>'sessionId' = $2 limit 1", [businessId, String(session.id)]);
       if (!flagged.rows.length) {
         log({ billing: 'us_return_duplicate_payment', alarm: 'stripe-duplicate-payment', taxYear: year });
