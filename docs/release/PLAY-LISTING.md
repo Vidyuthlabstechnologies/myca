@@ -6,9 +6,11 @@ submitted; nothing here is published by the repository.
 
 ## 1. Listing
 
-Rewritten 2026-11-10 to match the app as it is: it files GSTR-1 and GSTR-3B once the
-owner confirms with the EVC OTP, it has paid plans, and it is not a government
-app. Since 2026-11-14 the full description names no prices: the Indian prices were raised
+Rewritten 2026-11-10 to match the app as it is: it has paid plans and it is not a government
+app. Since 2026-11-14 it does not say MyCA files on the GST portal: portal filing is wired but
+GSP onboarding and production credentials are still outstanding (`STATUS.md`, Live filing), so
+the listing promises drafts for the owner and their CA, and says every filing needs the CA's
+approval. Add filing back only once it is live in production. Since 2026-11-14 the full description names no prices: the Indian prices were raised
 that day (₹999, ₹1,999, ₹4,999 and ₹5,999 a month, see `docs/product/GO-TO-MARKET.md`),
 and the price shown by Google Play in the app is the one that counts. Until
 the Play subscription products exist, billing is off on the server and every feature
@@ -35,8 +37,8 @@ MyCA keeps a small business's books the way a careful accountant would, from you
 
 Record sales, purchase bills and expenses by typing a sentence or filling a short form. Photograph or share a bill and MyCA reads it into lines for you to check. Nothing posts until you see a preview and confirm it.
 
-GST returns, prepared and filed with your approval
-MyCA drafts GSTR-1 and GSTR-3B from your entries, using dated GST rules. You review the draft step by step. When you are ready, MyCA files it on the GST portal through a licensed GST Suvidha Provider, and only after you confirm with the EVC OTP sent to your authorised signatory. A business can also require a second person, such as its CA, to approve a filing first.
+GST returns, drafted for you and your CA
+MyCA drafts GSTR-1 and GSTR-3B from your entries, using dated GST rules. You review the draft step by step, and every line shows the invoices and the rule behind it. Invite your CA into the same books to check the draft; nothing is filed without their approval.
 
 What else MyCA does
 - Invoices, quotations, credit notes, e-invoices (IRN) and e-way bills
@@ -49,7 +51,7 @@ What else MyCA does
 - Export everything, at any time, in one file
 
 Plans
-Your first business gets a 14-day free trial of Pro. Paid plans for more people, portal filing, e-invoices and connectors are billed through Google Play; the app shows the price before you are asked to pay, and subscriptions renew until you cancel. After a trial the books stay readable and exportable.
+Your first business gets a 14-day free trial of Pro. Paid plans for more people, e-invoices and connectors are billed through Google Play; the app shows the price before you are asked to pay, and subscriptions renew until you cancel. After a trial the books stay readable and exportable.
 
 Your data
 Your books are sealed per business on our servers and sent only over HTTPS. You can delete a business, or your whole account, from inside the app or from our website.
