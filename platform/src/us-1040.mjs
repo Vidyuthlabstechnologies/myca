@@ -6,7 +6,7 @@ export const FORM_KINDS = Object.freeze(['W-2', '1099-INT', '1099-DIV', '1099-B'
 const LONG_STATUS = Object.freeze({ single: 'single', mfj: 'married_joint', mfs: 'married_separate', hoh: 'head_of_household', qss: 'single' });
 const STATUS_LABEL = Object.freeze({ single: 'Single', mfj: 'Married filing jointly', mfs: 'Married filing separately', hoh: 'Head of household', qss: 'Qualifying surviving spouse' });
 const CHILD_RELATIONSHIPS = new Set(['son', 'daughter', 'stepchild', 'foster_child', 'brother', 'sister', 'half_brother', 'half_sister', 'stepbrother', 'stepsister', 'grandchild', 'niece', 'nephew', 'sibling', 'niece_nephew']);
-const FORM_REASONS = Object.freeze({ 'Schedule E': 'Rental and royalty income', 2441: 'Child and dependent care expenses', 8962: 'Marketplace health coverage (premium tax credit)', '8995-A': 'Qualified business income above the threshold', 2210: 'Possible estimated tax penalty', 1116: 'Foreign tax credit above the amount claimable without Form 1116', 5329: 'Additional tax on an early retirement distribution with an exception or a Roth or SIMPLE code', 8283: 'Non-cash charitable gifts over $500', 'Pub. 936 worksheet': 'Mortgage interest on debt above the acquisition debt limit', 'Section 68 limit': 'Itemized deductions reduced for the 37% bracket from 2026', 'QBI minimum deduction': 'Minimum QBI deduction for active businesses from 2026 (IRC 199A(i))' });
+const FORM_REASONS = Object.freeze({ 'Schedule E': 'Rental and royalty income', 2441: 'Child and dependent care expenses', 8962: 'Marketplace health coverage (premium tax credit)', '8995-A': 'Qualified business income above the threshold', 2210: 'Possible estimated tax penalty', 1116: 'Foreign tax credit above the amount claimable without Form 1116', 5329: 'Additional tax on an early retirement distribution with an exception or a Roth or SIMPLE code', 8283: 'Non-cash charitable gifts over $500', 'Pub. 936 worksheet': 'Mortgage interest on debt above the acquisition debt limit', 'Section 68 limit': 'Itemized deductions reduced for the 37% bracket from 2026' });
 export const US_FORMS_SUPPORTED = Object.freeze(['1040', 'Schedule 1', 'Schedule 1-A', 'Schedule 2', 'Schedule 3', 'Schedule A', 'Schedule B', 'Schedule C', 'Schedule D', 'Schedule SE', 'Schedule EIC', '8812', '8863', '8949', '8959', '8960', '8995']);
 export const US_FORMS_COMING = Object.freeze(['2441', '8962', '8995-A', '2210', 'Schedule E', '1116', '5329', '8283']);
 const NOT_COVERED = Object.freeze([
@@ -310,7 +310,8 @@ export function computeForm1040(input = {}, taxYearArg) {
   const tips = read('us.federal.individual.tips-deduction');
   const overtime = read('us.federal.individual.overtime-deduction');
   const carLoan = read('us.federal.individual.car-loan-interest');
-  if (missing.some((id) => !['us.federal.individual.senior-deduction', 'us.federal.individual.tips-deduction', 'us.federal.individual.overtime-deduction', 'us.federal.individual.car-loan-interest'].includes(id))) return { ok: false, error: 'RULE_NOT_IN_FORCE', taxYear, missing };
+  const qbiMinimum = read('us.federal.individual.qbi-minimum');
+  if (missing.some((id) => !['us.federal.individual.senior-deduction', 'us.federal.individual.tips-deduction', 'us.federal.individual.overtime-deduction', 'us.federal.individual.car-loan-interest', 'us.federal.individual.qbi-minimum'].includes(id))) return { ok: false, error: 'RULE_NOT_IN_FORCE', taxYear, missing };
 
   const answers = input.answers || {};
   const checks = [];
@@ -519,9 +520,18 @@ export function computeForm1040(input = {}, taxYearArg) {
     else {
       const component = ofBasis(Math.max(0, qbiIncome), qbi.basisPoints) + ofBasis(reitDividends, qbi.basisPoints);
       const incomeLimit = ofBasis(Math.max(0, beforeQbi - (qualifiedDividends + d.netCapitalGain)), qbi.basisPoints);
-      line13a = Math.min(component, incomeLimit);
-      form8995 = { 2: Math.max(0, qbiIncome), 5: ofBasis(Math.max(0, qbiIncome), qbi.basisPoints), 6: reitDividends, 10: component, 11: beforeQbi, 12: qualifiedDividends + d.netCapitalGain, 14: incomeLimit, 15: line13a, ...(qbiIncome < 0 ? { 16: qbiIncome } : {}) };
-      if (Number(taxYear) >= 2026 && qbiIncome > 0) needForm('QBI minimum deduction', 'QBI_MINIMUM_NOT_APPLIED', 'From 2026 an active business may get a minimum QBI deduction (IRC 199A(i)). MyCA does not apply it yet, so your deduction may be lower than it could be.', 'If your business is active and you materially participate, ask your CPA whether the minimum deduction applies.', false);
+      const beforeMinimum = Math.min(component, incomeLimit);
+      const minimumAmount = qbiMinimum ? fromCents(qbiMinimum.minimumCents) : 0;
+      const activeFloor = qbiMinimum ? fromCents(qbiMinimum.activeQbiFloorCents) : 0;
+      const participation = answers.qbiMaterialParticipation;
+      const active = participation === true || participation === 'yes';
+      const answeredNo = participation === false || participation === 'no';
+      const minimumDeduction = qbiMinimum && active && qbiIncome >= activeFloor ? minimumAmount : 0;
+      line13a = Math.max(beforeMinimum, minimumDeduction);
+      form8995 = qbiMinimum
+        ? { 2: Math.max(0, qbiIncome), 5: ofBasis(Math.max(0, qbiIncome), qbi.basisPoints), 6: reitDividends, 10: component, 11: beforeQbi, 12: qualifiedDividends + d.netCapitalGain, 14: incomeLimit, 15: beforeMinimum, 16: minimumDeduction, 17: line13a, ...(qbiIncome < 0 ? { 18: qbiIncome } : {}) }
+        : { 2: Math.max(0, qbiIncome), 5: ofBasis(Math.max(0, qbiIncome), qbi.basisPoints), 6: reitDividends, 10: component, 11: beforeQbi, 12: qualifiedDividends + d.netCapitalGain, 14: incomeLimit, 15: line13a, ...(qbiIncome < 0 ? { 16: qbiIncome } : {}) };
+      if (qbiMinimum && !active && !answeredNo && qbiIncome >= activeFloor && beforeMinimum < minimumAmount) checks.push(check('warning', 'QBI_MINIMUM_NEEDS_ANSWER', `Your business may qualify for the minimum QBI deduction of $${minimumAmount} (IRC 199A(i)) if you materially participate in it. Answer the material participation question to claim it.`, 'Answer whether you worked in your business regularly, continuously and substantially this year.', '8995'));
     }
   }
   const line14 = line12 + line13a + line13b;
