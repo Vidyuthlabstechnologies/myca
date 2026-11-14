@@ -19,6 +19,8 @@ export const BOOKS_TOOL_SCHEMAS = {
       pin: { type: 'string' },
       entityType: { type: 'string' },
       invoiceNumbering: { type: 'string', enum: ['continuous', 'yearly'] },
+      composition: { type: 'boolean' },
+      lutNumber: { type: 'string', maxLength: 20 },
     },
   },
   list_clients: noArgs,
