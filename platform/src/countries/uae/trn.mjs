@@ -1,5 +1,7 @@
+import { latinDigits } from './common.mjs';
+
 export function checkTrn(value) {
-  const raw = String(value ?? '');
+  const raw = latinDigits(value);
   const trn = raw.replace(/[\s-]/g, '');
   if (!trn) return { valid: false, trn, why: 'Enter the 15-digit Tax Registration Number from the FTA certificate.' };
   if (!/^\d+$/.test(trn)) return { valid: false, trn, why: 'A TRN has digits only.' };
@@ -10,7 +12,7 @@ export function checkTrn(value) {
 }
 
 export function checkTin(value) {
-  const tin = String(value ?? '').replace(/[\s-]/g, '');
+  const tin = latinDigits(value).replace(/[\s-]/g, '');
   if (!/^\d{10}$/.test(tin)) return { valid: false, tin, why: 'A TIN is the first 10 digits of the TRN.' };
   return { valid: true, tin, endpoint: `0235:${tin}` };
 }

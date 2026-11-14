@@ -154,8 +154,9 @@ export function planGbPurchase(state, input = {}) {
   if (!parsed.ok) return parsed;
   const partyName = String(input.partyName ?? '').trim() || 'Supplier';
   const supplierInvoiceNo = String(input.supplierInvoiceNo ?? '').trim().slice(0, 30);
-  const reclaim = vrn ? parsed.vat : 0;
-  const notes = vrn ? [] : ['The business has no VAT number saved, so the VAT paid is part of the cost and is not reclaimed.'];
+  const flatRate = Boolean(vrn) && state.countryData?.gbTaxpayer?.vatScheme === 'flat-rate';
+  const reclaim = vrn && !flatRate ? parsed.vat : 0;
+  const notes = !vrn ? ['The business has no VAT number saved, so the VAT paid is part of the cost and is not reclaimed.'] : flatRate ? ['The business uses the Flat Rate Scheme, so the VAT paid is part of the cost and is not reclaimed. A capital asset over the scheme limit is the exception: claim it on the VAT return.'] : [];
   return { ok: true, plan: { date, partyName, supplierInvoiceNo, vrn, lines: parsed.lines, net: parsed.net, vat: parsed.vat, reclaim, total: parsed.net + parsed.vat, notes } };
 }
 

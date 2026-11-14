@@ -1,6 +1,7 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { startApi } from './helpers.mjs';
+import { base32Decode, totpCode } from '../src/totp.mjs';
 import { ChannelClient, getChannelClient, setChannelClient } from '../../platform/src/channel-client.mjs';
 
 const ENV = { MYCA_PROVIDER_ENV: 'test', MYCA_MOCK_MODE: '0', MYCA_HMRC_CLIENT_ID: 'cid', MYCA_HMRC_CLIENT_SECRET: 'csecret', MYCA_HMRC_REDIRECT_URI: 'https://example.org/hmrc/callback', MYCA_HMRC_TOKEN_KEY: 'q'.repeat(48), MYCA_COUNTRIES: 'GB', MYCA_REGION: 'europe-west2' };
@@ -67,4 +68,41 @@ test('a UK business on the hosted service connects to the HMRC sandbox and syncs
   const reads = calls.length;
   await post('query', { name: 'gb_hmrc_status', args: {} });
   assert.equal(calls.length, reads, 'a read answers from the synced books and never calls HMRC');
+});
+
+test('HMRC submissions need two-step sign-in where it is required, and the server reports the factor HMRC sees', async () => {
+  process.env.MYCA_US_REQUIRE_SECOND_STEP = '1';
+  try {
+    const session = await api.signIn('+919812345671');
+    const created = await api.call('POST', '/v1/businesses', { token: session.accessToken, body: { name: 'Severn Bakes', country: 'GB' } });
+    const id = created.body.business.id;
+    const post = (action, body) => api.call('POST', `/v1/businesses/${id}/${action}`, { token: session.accessToken, body });
+    const refused = await post('propose', { name: 'submit_gb_vat_return', args: { periodKey: '18A1' } });
+    assert.equal(refused.body.error, 'SECOND_STEP_REQUIRED', refused.text);
+    assert.match(refused.body.hint, /HMRC/);
+
+    const begun = await api.call('POST', '/v1/me/second-step/begin', { token: session.accessToken });
+    const code = totpCode(base32Decode(begun.body.secret), api.clock.now);
+    assert.equal((await api.call('POST', '/v1/me/second-step/confirm', { token: session.accessToken, body: { code } })).status, 200);
+    const allowed = await post('propose', { name: 'submit_gb_vat_return', args: { periodKey: '18A1' } });
+    assert.notEqual(allowed.body.error, 'SECOND_STEP_REQUIRED', allowed.text);
+
+    const confirmRun = async (name, args) => {
+      const held = await post('propose', { name, args });
+      assert.ok(held.body.preview?.token, held.text);
+      return post('confirm', { token: held.body.preview.token });
+    };
+    await confirmRun('set_gb_taxpayer', { vrn: 'GB999999973', residence: 'england' });
+    const link = JSON.stringify((await confirmRun('connect_gb_hmrc', {})).body);
+    await confirmRun('finish_gb_hmrc_connection', { code: 'code-87654321', state: link.match(/"state":"([^"]+)"/)[1] });
+    const before = calls.length;
+    const synced = await confirmRun('sync_gb_hmrc', { taxYear: '2026-27', device: { deviceId: '3f2b8c1a-1d2e-4f5a-9b6c-7d8e9f0a1b2c', timezone: 'UTC+00:00', multiFactor: [{ type: 'OTHER', timestamp: '2020-01-01T00:00:00.000Z', uniqueReference: 'made-up' }] } });
+    const sent = calls.slice(before).find((call) => call.url.includes('/obligations'));
+    assert.ok(sent, 'the sync reached HMRC');
+    const header = sent.init.headers['Gov-Client-Multi-Factor'];
+    assert.match(header, /type=TOTP/);
+    assert.doesNotMatch(header, /made-up/);
+  } finally {
+    delete process.env.MYCA_US_REQUIRE_SECOND_STEP;
+  }
 });

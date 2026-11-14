@@ -176,6 +176,10 @@ export function createInvoice(state, input) {
   if (specs.some((s) => !Number.isFinite(s.qty) || s.qty <= 0 || !Number.isFinite(s.rate) || s.rate < 0 || !Number.isFinite(s.gstRate) || s.gstRate < 0)) {
     return { ok: false, error: 'BAD_LINE' };
   }
+  if (company?.composition === true) {
+    const taxed = specs.findIndex((s) => s.gstRate !== 0);
+    if (taxed >= 0) return { ok: false, error: 'COMPOSITION_NO_TAX', line: taxed + 1, hint: 'A composition dealer issues a bill of supply and cannot collect GST from the buyer (section 10(4)); give each line a GST rate of 0.' };
+  }
   const exporting = exportPlan(input);
   if (!exporting.ok) return exporting;
   const exportSale = exporting.plan;

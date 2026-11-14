@@ -194,7 +194,7 @@ export const TOOLS = [
     name: 'set_company',
     title: 'Set business profile',
     description: 'Set this book\'s own business identity (name, GSTIN, PAN, state, FY, address; country and EIN before anything is posted). Affects future postings only; history is untouched.',
-    args: ['name', 'gstin', 'pan', 'state', 'fy', 'address', 'city', 'pin', 'entityType', 'country', 'ein', 'invoiceNumbering'],
+    args: ['name', 'gstin', 'pan', 'state', 'fy', 'address', 'city', 'pin', 'entityType', 'country', 'ein', 'invoiceNumbering', 'composition', 'lutNumber'],
     run: (state, args = {}) => {
       const company = state.company;
       const patch = {};
@@ -258,6 +258,13 @@ export const TOOLS = [
         const pin = String(args.pin).trim();
         if (pin && !/^\d{6}$/.test(pin)) return fail('INVALID_PIN');
         patch.pin = pin ? Number(pin) : '';
+      }
+      if (args.composition != null) {
+        if (typeof args.composition !== 'boolean') return fail('BAD_COMPOSITION', { hint: 'true or false' });
+        patch.composition = args.composition;
+      }
+      if (args.lutNumber != null) {
+        patch.lutNumber = String(args.lutNumber).trim().toUpperCase().replace(/[^A-Z0-9/-]/g, '').slice(0, 20);
       }
       Object.assign(company, patch);
       if (company.name && company.setupNeeded) delete company.setupNeeded;
