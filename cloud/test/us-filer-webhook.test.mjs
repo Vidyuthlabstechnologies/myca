@@ -94,3 +94,16 @@ test('the app hands a return to the e-file partner and the partner webhook moves
   const nobody = await hook({ type: 'return.accepted', data: { external_id: `myca.11111111-2222-4333-8444-555555555555.${year}.${'f'.repeat(24)}` } });
   assert.equal(nobody.body.ignored, 'FILER_EVENT_UNKNOWN_RETURN', nobody.text);
 });
+
+test('a "yes" in chat confirms a pending US filing the same way: the partner session opens for this business', async () => {
+  const who = await household('+919400000182');
+  await write(who, 'set_us_taxpayer', { taxYear: String(year), filingStatus: 'single', taxpayer: { firstName: 'Sam', lastName: 'Lee', ssn: '400-12-3457', dateOfBirth: '1991-05-02', occupation: 'Teacher' }, address: { line1: '2 Oak St', city: 'Austin', state: 'TX', zip: '78701' } });
+  await write(who, 'add_us_tax_form', { taxYear: String(year), kind: 'W-2', payer: 'School', payerTin: '12-3456780', fields: { wages: 40000, federalWithheld: 3000, socialSecurityWages: 40000, socialSecurityTax: 2480, medicareWages: 40000, medicareTax: 580 } });
+  const before = sessions.length;
+  const proposed = await post(who, 'propose', { name: 'file_us_return', args: { taxYear: year } });
+  assert.ok(proposed.body.preview?.token, proposed.text);
+  const said = await post(who, 'ask', { message: 'yes' });
+  assert.equal(said.status, 200, said.text);
+  assert.equal(sessions.length, before + 1, said.text);
+  assert.ok(sessions.at(-1).external_id.startsWith(`myca.${who.businessId}.${year}.`));
+});

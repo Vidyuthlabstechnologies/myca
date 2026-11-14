@@ -1,3 +1,4 @@
+import { confirmationIntent } from '../../platform/src/chat-confirm.mjs';
 import { PARTNER_SIGNATURE_HEADER, efileRoute, partnerSignatureValid, normalizePartnerEvent, parseExternalId, applyPartnerEvent } from '../../platform/src/us-filing-partner.mjs';
 import { randomUUID } from 'node:crypto';
 import { mockModeEnabled, serviceProviderEnvironment } from '../../platform/src/runtime-config.mjs';
@@ -341,6 +342,14 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
       log({ billing: 'supported_forms_check_failed', error: String(err?.message || err) });
       return [];
     }
+  }
+
+  // Confirming a US filing: the server names the business for the e-file partner's webhook
+  // (whatever proposed it, app or chat), and the call runs at the service's provider setting.
+  function asUsFiling(session, businessId, run) {
+    const pending = session.state.pendingChatAction;
+    if (pending?.name === US_FILE_TOOL) pending.args = { ...(pending.args || {}), partnerScope: businessId };
+    return withProviderContext({ environment: serviceProviderEnvironment() }, run);
   }
 
   async function unpaidFiling(businessId, session) {
@@ -966,7 +975,7 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
           if (unpaid) return unpaid;
           // Requests run with provider calls off; filing a US return is the one confirm that may
           // reach the IRS or the e-file partner, at the service's own provider setting.
-          if (session.state.pendingChatAction?.name === US_FILE_TOOL) return withProviderContext({ environment: serviceProviderEnvironment() }, () => session.confirm(body.token, actor));
+          if (session.state.pendingChatAction?.name === US_FILE_TOOL) return asUsFiling(session, businessId, () => session.confirm(body.token, actor));
           return session.confirm(body.token, actor);
         });
       }
@@ -985,7 +994,8 @@ export function createApi({ billing: billingGiven = null, db, secret, booksKey =
         return withBooks(businessId, context, async (session) => {
           if (!canPost.ok) return readOnlyChat(session, message, actor);
           if (await unpaidFiling(businessId, session)) await session.discard(actor);
-          const out = await session.chat(message, actor);
+          // A "yes" in chat can confirm a pending US filing, which must reach the partner the same way.
+          const out = session.state.pendingChatAction?.name === US_FILE_TOOL && confirmationIntent(message) && confirmationIntent(message) !== 'cancel' ? await asUsFiling(session, businessId, () => session.chat(message, actor)) : await session.chat(message, actor);
           const unpaid = await unpaidFiling(businessId, session);
           if (!unpaid) return out;
           await session.discard(actor);
