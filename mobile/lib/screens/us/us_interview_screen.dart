@@ -4,7 +4,6 @@ import '../../api/myca_api.dart';
 import '../../app_state.dart';
 import '../../theme.dart';
 import '../../us/us_return.dart';
-import '../../widgets.dart';
 import 'us_fields.dart';
 
 class UsInterviewScreen extends StatefulWidget {
@@ -54,11 +53,11 @@ class _UsInterviewScreenState extends State<UsInterviewScreen> {
         }
         _show();
       });
-    } on MycaApiException catch (err) {
+    } on Object catch (err) {
       if (mounted) {
         setState(() {
           _failed = true;
-          _note = err.message;
+          _note = usLoadProblem(err, 'Your questions could not be loaded.');
         });
       }
     }
@@ -178,7 +177,18 @@ class _UsInterviewScreenState extends State<UsInterviewScreen> {
       appBar: AppBar(title: const Text('A few questions')),
       body: SafeArea(
         child: questions == null
-            ? (_failed ? EmptyNote(text: _note) : const Center(child: CircularProgressIndicator()))
+            ? (_failed
+                ? UsLoadError(
+                    message: _note,
+                    onRetry: () {
+                      setState(() {
+                        _failed = false;
+                        _note = '';
+                      });
+                      _load(first: true);
+                    },
+                  )
+                : const Center(child: CircularProgressIndicator()))
             : q == null
                 ? ListView(
                     padding: const EdgeInsets.all(24),

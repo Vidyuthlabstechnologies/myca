@@ -17,6 +17,7 @@ import { applyKeySlots, integrationReport, keyProblems } from './integrations.mj
 import { usEfileSetup } from '../../platform/src/us-efile.mjs';
 import { residencyProblem } from './residency.mjs';
 import { testSignInFromEnv } from './test-sign-in.mjs';
+import { redactTinsDeep } from '../../platform/src/us-identity.mjs';
 
 const STARTUP_ATTEMPTS = 10;
 const STARTUP_WAIT_MS = 3000;
@@ -36,7 +37,7 @@ function otpSender() {
   return smsSenderFromEnv(process.env, { log });
 }
 
-const log = (entry) => console.log(JSON.stringify(entry));
+const log = (entry) => console.log(JSON.stringify(redactTinsDeep(entry)));
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 async function migrateWithRetry(db) {

@@ -38,7 +38,11 @@ final _scrubs = <(RegExp, String)>[
   (RegExp(r'\b[A-Za-z0-9_-]{32,}\b'), '[TOKEN]'),
   (RegExp(r'"[^"\n]{0,200}"'), '"[TEXT]"'),
   (RegExp(r"'[^'\n]{0,200}'"), "'[TEXT]'"),
+  (RegExp(r'(?<![\w:.])\d{3}-\d{2}-\d{4}\b'), '[SSN]'),
+  (RegExp(r'(?:\+?1[\s.-]?)?\(\d{3}\)\s?\d{3}[\s.-]\d{4}\b'), '[PHONE]'),
+  (RegExp(r'(?:\+?1[\s.-])?(?<![\w:.])\d{3}[.-]\d{3}[.-]\d{4}\b'), '[PHONE]'),
   (RegExp(r'(?:\+?91[\s-]?)?(?<![\w:.])[6-9]\d{9}\b'), '[PHONE]'),
+  (RegExp(r'\$\s?\d[\d,]*(?:\.\d+)?'), '[AMOUNT]'),
   (
     RegExp(r'(?:₹|\brs\.?|\binr)\s*\d[\d,]*(?:\.\d+)?', caseSensitive: false),
     '[AMOUNT]',

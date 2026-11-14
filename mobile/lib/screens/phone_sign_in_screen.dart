@@ -9,6 +9,13 @@ import '../secure_window.dart';
 import '../theme.dart';
 import 'privacy_notice_screen.dart';
 
+String? usPhoneNumber(String typed) {
+  var digits = typed.replaceAll(RegExp(r'\D'), '');
+  if (digits.length == 11 && digits.startsWith('1')) digits = digits.substring(1);
+  if (!RegExp(r'^[2-9]\d{2}[2-9]\d{6}$').hasMatch(digits)) return null;
+  return '+1$digits';
+}
+
 class PhoneSignInScreen extends StatefulWidget {
   const PhoneSignInScreen({super.key});
 
@@ -60,8 +67,19 @@ class _PhoneSignInScreenState extends State<PhoneSignInScreen> with SecureWindow
 
   Future<void> _sendCode() {
     final state = AppScope.of(context);
+    final String phone;
+    if (state.edition == 'US') {
+      final number = usPhoneNumber(_phone.text);
+      if (number == null) {
+        setState(() => _error = 'Enter your 10-digit US phone number, like (415) 555-0123.');
+        return Future.value();
+      }
+      phone = number;
+    } else {
+      phone = _phone.text.trim();
+    }
     return _run(() async {
-      await state.cloud!.requestCode(_phone.text.trim());
+      await state.cloud!.requestCode(phone);
       _code.clear();
     });
   }
@@ -226,12 +244,19 @@ class _PhoneSignInScreenState extends State<PhoneSignInScreen> with SecureWindow
                       autofocus: true,
                       keyboardType: TextInputType.phone,
                       inputFormatters: [
-                        FilteringTextInputFormatter.allow(RegExp(r'[0-9+ ]')),
+                        FilteringTextInputFormatter.allow(state.edition == 'US' ? RegExp(r'[0-9() -]') : RegExp(r'[0-9+ ]')),
                       ],
-                      decoration: const InputDecoration(
-                        labelText: 'Mobile number',
-                        prefixText: '+91  ',
-                      ),
+                      autofillHints: const [AutofillHints.telephoneNumberNational],
+                      decoration: state.edition == 'US'
+                          ? const InputDecoration(
+                              labelText: 'Mobile number',
+                              prefixText: '+1  ',
+                              hintText: '(415) 555-0123',
+                            )
+                          : const InputDecoration(
+                              labelText: 'Mobile number',
+                              prefixText: '+91  ',
+                            ),
                       onSubmitted: (_) => _sendCode(),
                     )
                   else

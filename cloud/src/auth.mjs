@@ -29,7 +29,9 @@ export function isUuid(value) {
 export function normalizePhone(input) {
   const digits = plainText(input).replace(/[\s()-]/g, '');
   const match = /^(?:\+?91|0)?([6-9]\d{9})$/.exec(digits);
-  return match ? `+91${match[1]}` : '';
+  if (match) return `+91${match[1]}`;
+  const northAmerica = /^\+1([2-9]\d{2}[2-9]\d{6})$/.exec(digits);
+  return northAmerica ? `+1${northAmerica[1]}` : '';
 }
 
 function codeHash(salt, code) {

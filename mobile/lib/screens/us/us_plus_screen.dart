@@ -13,6 +13,7 @@ import '../../us/us_plus.dart';
 import '../../us/us_return.dart';
 import '../../widgets.dart';
 import '../plan_screen.dart' show buyInApp;
+import 'us_fields.dart';
 
 Map<String, dynamic> _map(Object? value) => value is Map ? value.cast<String, dynamic>() : const <String, dynamic>{};
 
@@ -187,7 +188,7 @@ class _UsPlusScreenState extends State<UsPlusScreen> {
           child: Text('Get MyCA Plus, ${_playPrice.isEmpty ? '\$${plus.priceUsd}' : _playPrice} a year'),
         ),
         const SizedBox(height: 6),
-        Text(_store == null ? 'Get MyCA Plus in the MyCA US app for Android.' : 'Paid through Google Play. Cancel any time in Play.', style: text.bodySmall?.copyWith(color: Palette.muted)),
+        Text(_store == null ? 'MyCA Plus cannot be bought in this app on this device yet.' : 'Renews automatically every year at ${_playPrice.isEmpty ? '\$${plus.priceUsd}' : _playPrice} until you cancel. Paid through Google Play; cancel any time in Play before the renewal date and you keep Plus until the end of the year you paid for.', key: const Key('usPlus.playNote'), style: text.bodySmall?.copyWith(color: Palette.muted)),
       ]);
     } else if (plus.buyable) {
       children.addAll([
@@ -197,7 +198,7 @@ class _UsPlusScreenState extends State<UsPlusScreen> {
           OutlinedButton(key: const Key('usPlus.paid'), onPressed: _busy ? null : _confirm, child: const Text("I've paid, continue")),
         ],
         const SizedBox(height: 6),
-        Text('Paid by card through Stripe. Cancel any time in one tap.', style: text.bodySmall?.copyWith(color: Palette.muted)),
+        Text('Renews automatically every year at \$${plus.priceUsd} until you cancel. Paid by card through Stripe; cancel any time in one tap here and you keep Plus until the end of the year you paid for.', style: text.bodySmall?.copyWith(color: Palette.muted)),
       ]);
     } else if (!plus.active) {
       children.add(Text('MyCA Plus is not on sale yet.', style: text.bodyMedium));
@@ -214,7 +215,7 @@ class _UsPlusScreenState extends State<UsPlusScreen> {
         child: FutureBuilder<(UsPlusStatus, UsOffers)>(
           future: _loaded,
           builder: (context, loaded) {
-            if (loaded.hasError) return EmptyNote(text: _errorText(loaded.error!));
+            if (loaded.hasError) return UsLoadError(message: _errorText(loaded.error!), onRetry: _reload);
             if (!loaded.hasData) return const Center(child: CircularProgressIndicator());
             final (plus, offers) = loaded.data!;
             final open = plus.active;
@@ -389,15 +390,28 @@ class _MoneyField extends StatelessWidget {
   final bool whole;
 
   @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.only(bottom: 10),
-        child: TextField(
-          key: Key(fieldKey),
-          controller: controller,
-          keyboardType: TextInputType.numberWithOptions(decimal: !whole),
-          decoration: InputDecoration(labelText: label, prefixText: whole ? null : '\$ '),
-        ),
-      );
+  Widget build(BuildContext context) {
+    final big = MediaQuery.textScalerOf(context).scale(14) / 14 > 1.3;
+    final field = TextField(
+      key: Key(fieldKey),
+      controller: controller,
+      keyboardType: TextInputType.numberWithOptions(decimal: !whole),
+      decoration: InputDecoration(labelText: big ? null : label, prefixText: whole ? null : '\$ '),
+    );
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: big
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                ExcludeSemantics(child: Text(label, style: Theme.of(context).textTheme.bodyMedium)),
+                const SizedBox(height: 4),
+                Semantics(label: label, child: field),
+              ],
+            )
+          : field,
+    );
+  }
 }
 
 num _amount(TextEditingController c) => num.tryParse(c.text.replaceAll(',', '').trim()) ?? 0;

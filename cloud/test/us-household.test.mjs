@@ -50,7 +50,8 @@ test('the US privacy notice is served for the US and either notice lets you in',
   assert.equal(before.status, 403);
   const wrong = await api.call('POST', '/v1/me/consent', { token: session.accessToken, body: { document: 'privacy', version: 'nope' } });
   assert.equal(wrong.body.error, 'NOTICE_CHANGED');
-  const agreed = await api.call('POST', '/v1/me/consent', { token: session.accessToken, body: { document: 'privacy', version: PRIVACY_NOTICE_US.version } });
+  assert.equal((await api.call('POST', '/v1/me/consent', { token: session.accessToken, body: { document: 'privacy', version: PRIVACY_NOTICE_US.version } })).body.error, 'ADULT_REQUIRED');
+  const agreed = await api.call('POST', '/v1/me/consent', { token: session.accessToken, body: { document: 'privacy', version: PRIVACY_NOTICE_US.version, adult: true } });
   assert.equal(agreed.status, 200, agreed.text);
   const after = await api.call('GET', '/v1/businesses', { token: session.accessToken });
   assert.equal(after.status, 200);

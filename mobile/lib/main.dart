@@ -180,7 +180,7 @@ class _MycaAppState extends State<MycaApp> with WidgetsBindingObserver {
             scaffoldMessengerKey: _messenger,
             title: 'MyCA',
             debugShowCheckedModeBanner: false,
-            theme: widget.state.edition == 'AE' ? uaeDesign.light : widget.state.edition == 'US' ? MycaDesign.forFlavor('us').light : widget.state.edition == 'GB' ? MycaDesign.forFlavor('uk').light : mycaTheme(),
+            theme: widget.state.edition == 'AE' ? uaeDesign.light : widget.state.edition == 'US' ? usAppTheme() : widget.state.edition == 'GB' ? MycaDesign.forFlavor('uk').light : mycaTheme(),
             localizationsDelegates: widget.state.edition == 'AE' ? MycaDesign.localizationsDelegates : null,
             supportedLocales: widget.state.edition == 'AE' ? uaeDesign.supportedLocales : const [Locale('en', 'US')],
             localeResolutionCallback: widget.state.edition == 'AE' ? uaeResolveLocale : null,
@@ -214,6 +214,16 @@ class _MycaAppState extends State<MycaApp> with WidgetsBindingObserver {
       ),
     );
   }
+}
+
+ThemeData usAppTheme() {
+  final base = MycaDesign.forFlavor('us').light;
+  const roomy = WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 16, vertical: 10));
+  return base.copyWith(
+    inputDecorationTheme: base.inputDecorationTheme.copyWith(helperMaxLines: 4, errorMaxLines: 4),
+    filledButtonTheme: FilledButtonThemeData(style: (base.filledButtonTheme.style ?? const ButtonStyle()).copyWith(padding: roomy)),
+    outlinedButtonTheme: OutlinedButtonThemeData(style: (base.outlinedButtonTheme.style ?? const ButtonStyle()).copyWith(padding: roomy)),
+  );
 }
 
 class _Readable extends StatelessWidget {
